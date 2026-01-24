@@ -12,8 +12,11 @@ from litestar.di import Provide
 from litestar.logging import LoggingConfig
 
 from evidently.errors import EvidentlyError
+from evidently.ui.service.api.artifacts import artifacts_router
+from evidently.ui.service.api.llm_judges import llm_judges_router
 from evidently.ui.service.api.projects import create_projects_api
 from evidently.ui.service.api.projects import projects_api_dependencies
+from evidently.ui.service.api.prompts import prompts_router
 from evidently.ui.service.api.service import service_api
 from evidently.ui.service.api.static import assets_router
 from evidently.ui.service.components.base import AppBuilder
@@ -21,11 +24,13 @@ from evidently.ui.service.components.base import Component
 from evidently.ui.service.components.base import ComponentContext
 from evidently.ui.service.components.base import ServiceComponent
 from evidently.ui.service.components.dashboard import DashboardComponent
+from evidently.ui.service.components.datasets import DatasetComponent
 from evidently.ui.service.components.security import NoSecurityComponent
 from evidently.ui.service.components.security import SecurityComponent
 from evidently.ui.service.components.storage import LocalStorageComponent
 from evidently.ui.service.components.storage import StorageComponent
 from evidently.ui.service.components.telemetry import TelemetryComponent
+from evidently.ui.service.components.tracing import TracingComponent
 from evidently.ui.service.config import AppConfig
 from evidently.ui.service.config import ConfigContext
 from evidently.ui.service.errors import EvidentlyServiceError
@@ -48,11 +53,20 @@ class LocalServiceComponent(ServiceComponent):
 
     def get_api_route_handlers(self, ctx: ComponentContext):
         guard = ctx.get_component(SecurityComponent).get_auth_guard()
-        return [create_projects_api(guard), service_api()]
+        return [
+            create_projects_api(guard),
+            service_api(),
+            artifacts_router(guard),
+            prompts_router(guard),
+            llm_judges_router(),
+        ]
 
     def get_dependencies(self, ctx: ComponentContext) -> Dict[str, Provide]:
+        from evidently.ui.service.managers.artifacts import ArtifactManager
+
         deps = super().get_dependencies(ctx)
         deps.update(projects_api_dependencies)
+        deps["artifact_manager"] = Provide(ArtifactManager.provide)
         return deps
 
     def get_route_handlers(self, ctx: ComponentContext):
@@ -134,4 +148,6 @@ class LocalConfig(AppConfig):
     storage: StorageComponent = LocalStorageComponent()
     telemetry: TelemetryComponent = TelemetryComponent()
     dashboard: DashboardComponent = DashboardComponent()
+    datasets: DatasetComponent = DatasetComponent()
+    tracing: TracingComponent = TracingComponent()
     litestar: LitestarComponent = LitestarComponent()

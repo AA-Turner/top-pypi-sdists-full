@@ -1,21 +1,15 @@
 Metadata-Version: 2.3
 Name: authzed
-Version: 1.22.1
+Version: 1.24.1
 Summary: Client library for SpiceDB.
 Author: Authzed
-Author-email: support@authzed.com
-Requires-Python: >=3.9,<4.0
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: googleapis-common-protos (>=1.65.0,<2.0.0)
-Requires-Dist: grpc-interceptor (>=0.15.4,<0.16.0)
-Requires-Dist: grpcio (>=1.63,<2.0)
-Requires-Dist: protobuf (>=5.26,<6)
-Requires-Dist: protovalidate (>=0.7.1,<0.16.0)
+Author-email: Authzed <support@authzed.com>
+Requires-Dist: grpcio~=1.63
+Requires-Dist: protobuf>=5.26,<7
+Requires-Dist: grpc-interceptor>=0.15.4,<0.16
+Requires-Dist: googleapis-common-protos>=1.65.0,<2
+Requires-Dist: protovalidate>=0.7.1,<1.1.0
+Requires-Python: >=3.9, <4
 Description-Content-Type: text/markdown
 
 # Authzed Python Client
@@ -35,7 +29,8 @@ Developers create a schema that models their permissions requirements and use a 
 
 Supported client API versions:
 
-- [v1](https://docs.authzed.com/reference/api#authzedapiv1)
+- [v1](https://docs.authzed.com/reference/api#authzedapiv1) - Core SpiceDB API for permissions checks, schema management, and relationship operations
+- [materialize/v0](https://buf.build/authzed/api/docs/main:authzed.api.materialize.v0) - Materialize API for building materialized permission views
 
 You can find more info on each API on the [Authzed API reference documentation].
 Additionally, Protobuf API documentation can be found on the [Buf Registry Authzed API repository].
@@ -135,3 +130,11 @@ client = InsecureClient(
 )
 ```
 
+## Materialize API
+
+The authzed-py supports Authzed Materialize API.
+The Materialize API allows you to build and maintain materialized views of your permissions data in your own systems for high-performance lookups.
+
+Learn more in the **[Materialize API Quickstart Guide]** that can be found the examples directory.
+
+[Materialize API Quickstart Guide]: /examples/materialize/QUICKSTART.md

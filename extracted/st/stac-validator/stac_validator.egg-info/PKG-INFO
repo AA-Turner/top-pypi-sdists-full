@@ -1,12 +1,13 @@
-Metadata-Version: 2.1
-Name: stac-validator
-Version: 3.10.1
+Metadata-Version: 2.4
+Name: stac_validator
+Version: 3.10.2
 Summary: A package to validate STAC files
-Home-page: https://github.com/stac-utils/stac-validator
-Author: James Banting, Jonathan Healy
-Author-email: jonathan.d.healy@gmail.com
+Author: James Banting
+Author-email: Jonathan Healy <jonathan.d.healy@gmail.com>
 License: Apache-2.0
-Keywords: STAC validation raster
+Project-URL: Homepage, https://github.com/stac-utils/stac-validator
+Project-URL: Repository, https://github.com/stac-utils/stac-validator
+Keywords: STAC,validation,raster
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,9 +15,27 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: dev
-Provides-Extra: pydantic
 License-File: LICENSE
+Requires-Dist: requests>=2.32.3
+Requires-Dist: jsonschema>=4.23.0
+Requires-Dist: click>=8.1.8
+Requires-Dist: referencing>=0.35.1
+Requires-Dist: pyYAML>=6.0.1
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-mypy; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: requests-mock; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: stac-pydantic>=3.3.0; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: types-attrs; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-jsonschema; extra == "dev"
+Provides-Extra: pydantic
+Requires-Dist: stac-pydantic>=3.3.0; extra == "pydantic"
+Dynamic: license-file
 
 # SpatioTemporal Asset Catalog Validator
 
@@ -26,7 +45,7 @@ License-File: LICENSE
   <img src="https://raw.githubusercontent.com/stac-utils/stac-validator/main/assets/stac-validator.png" width=560>
 </p>
 
-[![PyPI Downloads](https://static.pepy.tech/badge/stac-validator/month)](https://pepy.tech/projects/stac-validator)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/stac-validator?period=total&units=NONE&left_color=GREY&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/stac-validator)
   [![GitHub contributors](https://img.shields.io/github/contributors/stac-utils/stac-validator?color=blue)](https://github.com/stac-utils/stac-validator/graphs/contributors)
   [![GitHub stars](https://img.shields.io/github/stars/stac-utils/stac-validator.svg?color=blue)](https://github.com/stac-utils/stac-validator/stargazers)
   [![GitHub forks](https://img.shields.io/github/forks/stac-utils/stac-validator.svg?color=blue)](https://github.com/stac-utils/stac-validator/network/members)

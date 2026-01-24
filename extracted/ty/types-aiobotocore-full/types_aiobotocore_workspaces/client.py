@@ -3,7 +3,7 @@ Type annotations for workspaces service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -189,12 +190,6 @@ from .type_defs import (
     UpdateWorkspacesPoolResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -205,30 +200,30 @@ __all__ = ("WorkSpacesClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ApplicationNotSupportedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ComputeNotCompatibleException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    IncompatibleApplicationsException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidParameterValuesException: Type[BotocoreClientError]
-    InvalidResourceStateException: Type[BotocoreClientError]
-    OperatingSystemNotCompatibleException: Type[BotocoreClientError]
-    OperationInProgressException: Type[BotocoreClientError]
-    OperationNotSupportedException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceAssociatedException: Type[BotocoreClientError]
-    ResourceCreationFailedException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    UnsupportedNetworkConfigurationException: Type[BotocoreClientError]
-    UnsupportedWorkspaceConfigurationException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
-    WorkspacesDefaultRoleNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ApplicationNotSupportedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ComputeNotCompatibleException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    IncompatibleApplicationsException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidParameterValuesException: type[BotocoreClientError]
+    InvalidResourceStateException: type[BotocoreClientError]
+    OperatingSystemNotCompatibleException: type[BotocoreClientError]
+    OperationInProgressException: type[BotocoreClientError]
+    OperationNotSupportedException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceAssociatedException: type[BotocoreClientError]
+    ResourceCreationFailedException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    UnsupportedNetworkConfigurationException: type[BotocoreClientError]
+    UnsupportedWorkspaceConfigurationException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+    WorkspacesDefaultRoleNotFoundException: type[BotocoreClientError]
 
 
 class WorkSpacesClient(AioBaseClient):
@@ -289,7 +284,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def associate_ip_groups(
         self, **kwargs: Unpack[AssociateIpGroupsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the specified IP access control group with the specified directory.
 
@@ -309,7 +304,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def authorize_ip_rules(
         self, **kwargs: Unpack[AuthorizeIpRulesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds one or more rules to the specified IP access control group.
 
@@ -377,7 +372,7 @@ class WorkSpacesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#create_standby_workspaces)
         """
 
-    async def create_tags(self, **kwargs: Unpack[CreateTagsRequestTypeDef]) -> Dict[str, Any]:
+    async def create_tags(self, **kwargs: Unpack[CreateTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Creates the specified tags for the specified WorkSpaces resource.
 
@@ -447,7 +442,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def delete_client_branding(
         self, **kwargs: Unpack[DeleteClientBrandingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes customized client branding.
 
@@ -457,7 +452,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def delete_connect_client_add_in(
         self, **kwargs: Unpack[DeleteConnectClientAddInRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a client-add-in for Amazon Connect that is configured within a
         directory.
@@ -468,7 +463,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def delete_connection_alias(
         self, **kwargs: Unpack[DeleteConnectionAliasRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified connection alias.
 
@@ -478,7 +473,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def delete_ip_group(
         self, **kwargs: Unpack[DeleteIpGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified IP access control group.
 
@@ -486,7 +481,7 @@ class WorkSpacesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#delete_ip_group)
         """
 
-    async def delete_tags(self, **kwargs: Unpack[DeleteTagsRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_tags(self, **kwargs: Unpack[DeleteTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified tags from the specified WorkSpaces resource.
 
@@ -496,7 +491,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def delete_workspace_bundle(
         self, **kwargs: Unpack[DeleteWorkspaceBundleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified WorkSpace bundle.
 
@@ -506,7 +501,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def delete_workspace_image(
         self, **kwargs: Unpack[DeleteWorkspaceImageRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified image from your account.
 
@@ -526,7 +521,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def deregister_workspace_directory(
         self, **kwargs: Unpack[DeregisterWorkspaceDirectoryRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters the specified directory.
 
@@ -783,7 +778,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def disassociate_connection_alias(
         self, **kwargs: Unpack[DisassociateConnectionAliasRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a connection alias from a directory.
 
@@ -793,7 +788,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def disassociate_ip_groups(
         self, **kwargs: Unpack[DisassociateIpGroupsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified IP access control group from the specified
         directory.
@@ -900,7 +895,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_certificate_based_auth_properties(
         self, **kwargs: Unpack[ModifyCertificateBasedAuthPropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the properties of the certificate-based authentication you want to use
         with your WorkSpaces.
@@ -911,7 +906,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_client_properties(
         self, **kwargs: Unpack[ModifyClientPropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the properties of the specified Amazon WorkSpaces clients.
 
@@ -921,7 +916,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_endpoint_encryption_mode(
         self, **kwargs: Unpack[ModifyEndpointEncryptionModeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the endpoint encryption mode that allows you to configure the
         specified directory between Standard TLS and FIPS 140-2 validated mode.
@@ -932,7 +927,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_saml_properties(
         self, **kwargs: Unpack[ModifySamlPropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies multiple properties related to SAML 2.0 authentication, including the
         enablement status, user access URL, and relay state parameter name that are
@@ -944,7 +939,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_selfservice_permissions(
         self, **kwargs: Unpack[ModifySelfservicePermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the self-service WorkSpace management capabilities for your users.
 
@@ -954,7 +949,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_streaming_properties(
         self, **kwargs: Unpack[ModifyStreamingPropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the specified streaming properties.
 
@@ -964,7 +959,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_workspace_access_properties(
         self, **kwargs: Unpack[ModifyWorkspaceAccessPropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specifies which devices and operating systems users can use to access their
         WorkSpaces.
@@ -975,7 +970,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_workspace_creation_properties(
         self, **kwargs: Unpack[ModifyWorkspaceCreationPropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modify the default properties used to create WorkSpaces.
 
@@ -985,7 +980,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_workspace_properties(
         self, **kwargs: Unpack[ModifyWorkspacePropertiesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the specified WorkSpace properties.
 
@@ -995,7 +990,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def modify_workspace_state(
         self, **kwargs: Unpack[ModifyWorkspaceStateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the state of the specified WorkSpace.
 
@@ -1045,7 +1040,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def restore_workspace(
         self, **kwargs: Unpack[RestoreWorkspaceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Restores the specified WorkSpace to its last known healthy state.
 
@@ -1055,7 +1050,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def revoke_ip_rules(
         self, **kwargs: Unpack[RevokeIpRulesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes one or more rules from the specified IP access control group.
 
@@ -1075,7 +1070,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def start_workspaces_pool(
         self, **kwargs: Unpack[StartWorkspacesPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts the specified pool.
 
@@ -1095,7 +1090,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def stop_workspaces_pool(
         self, **kwargs: Unpack[StopWorkspacesPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops the specified pool.
 
@@ -1115,7 +1110,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def terminate_workspaces_pool(
         self, **kwargs: Unpack[TerminateWorkspacesPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Terminates the specified pool.
 
@@ -1125,7 +1120,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def terminate_workspaces_pool_session(
         self, **kwargs: Unpack[TerminateWorkspacesPoolSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Terminates the pool session.
 
@@ -1135,7 +1130,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def update_connect_client_add_in(
         self, **kwargs: Unpack[UpdateConnectClientAddInRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a Amazon Connect client add-in.
 
@@ -1145,7 +1140,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def update_connection_alias_permission(
         self, **kwargs: Unpack[UpdateConnectionAliasPermissionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Shares or unshares a connection alias with one account by specifying whether
         that account has permission to associate the connection alias with a directory.
@@ -1156,7 +1151,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def update_rules_of_ip_group(
         self, **kwargs: Unpack[UpdateRulesOfIpGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Replaces the current rules of the specified IP access control group with the
         specified rules.
@@ -1167,7 +1162,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def update_workspace_bundle(
         self, **kwargs: Unpack[UpdateWorkspaceBundleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a WorkSpace bundle with a new image.
 
@@ -1177,7 +1172,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def update_workspace_image_permission(
         self, **kwargs: Unpack[UpdateWorkspaceImagePermissionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Shares or unshares an image with one account in the same Amazon Web Services
         Region by specifying whether that account has permission to copy the image.
@@ -1303,7 +1298,7 @@ class WorkSpacesClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

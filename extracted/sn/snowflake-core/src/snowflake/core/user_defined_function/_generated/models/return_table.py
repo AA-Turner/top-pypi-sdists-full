@@ -18,6 +18,8 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
+from pydantic import ConfigDict
+
 from snowflake.core.user_defined_function._generated.models.column_type import ColumnType, ColumnTypeModel
 from snowflake.core.user_defined_function._generated.models.return_type import ReturnType
 
@@ -37,9 +39,10 @@ class ReturnTable(ReturnType):
 
     __properties = ["type"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -64,7 +67,7 @@ class ReturnTable(ReturnType):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in column_list (list)
         _items = []
@@ -89,9 +92,9 @@ class ReturnTable(ReturnType):
             return None
 
         if type(obj) is not dict:
-            return ReturnTable.parse_obj(obj)
+            return ReturnTable.model_validate(obj)
 
-        _obj = ReturnTable.parse_obj(
+        _obj = ReturnTable.model_validate(
             {
                 "column_list": [ColumnType.from_dict(_item) for _item in obj.get("column_list")]
                 if obj.get("column_list") is not None

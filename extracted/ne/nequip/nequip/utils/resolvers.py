@@ -57,6 +57,24 @@ def concat_lists(list1, list2):
     return list1 + list2
 
 
+def list_to_identity_dict(x):
+    """Convert a list to an identity dictionary mapping each element to itself."""
+    if not isinstance(x, (list, tuple, ListConfig)):
+        raise ValueError(
+            f"Argument must be a list, tuple, or ListConfig, got {type(x)}"
+        )
+    return {item: item for item in x}
+
+
+def list_to_constant_dict(keys, value):
+    """Convert a list to a dictionary mapping each element to a constant value."""
+    if not isinstance(keys, (list, tuple, ListConfig)):
+        raise ValueError(
+            f"First argument must be a list, tuple, or ListConfig, got {type(keys)}"
+        )
+    return {key: value for key in keys}
+
+
 def big_dataset_stats(name: str, cutoff_radius: float) -> Dict[str, Any]:
     """Get precomputed dataset statistics for large datasets."""
     root = get_project_root()
@@ -83,13 +101,23 @@ def big_dataset_stats(name: str, cutoff_radius: float) -> Dict[str, Any]:
     return stats
 
 
+def type_names_from_package(package_path: str):
+    """Extract type names from a packaged model file."""
+    from nequip.model import ModelTypeNamesFromPackage
+
+    return ModelTypeNamesFromPackage(package_path)
+
+
 # === Resolver Registry ===
 
 _DEFAULT_RESOLVERS: Dict[str, Callable] = {
     "int_div": int_div,
     "int_mul": int_mul,
     "concat_lists": concat_lists,
+    "list_to_identity_dict": list_to_identity_dict,
+    "list_to_constant_dict": list_to_constant_dict,
     "big_dataset_stats": big_dataset_stats,
+    "type_names_from_package": type_names_from_package,
 }
 
 _REGISTERED_RESOLVERS: Set[str] = set()

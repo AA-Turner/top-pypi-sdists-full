@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional, List, Any, TYPE_CHECKING
 
 from databricks.sql.common.http import HttpMethod
+from databricks.sql.common.url_utils import normalize_host_with_protocol
 
 if TYPE_CHECKING:
     from databricks.sql.client import Connection
@@ -67,7 +68,8 @@ class FeatureFlagsContext:
 
         endpoint_suffix = FEATURE_FLAGS_ENDPOINT_SUFFIX_FORMAT.format(__version__)
         self._feature_flag_endpoint = (
-            f"https://{self._connection.session.host}{endpoint_suffix}"
+            normalize_host_with_protocol(self._connection.session.host)
+            + endpoint_suffix
         )
 
         # Use the provided HTTP client
@@ -165,8 +167,9 @@ class FeatureFlagsContextFactory:
             cls._initialize()
             assert cls._executor is not None
 
-            # Use the unique session ID as the key
-            key = connection.get_session_id_hex()
+            # Cache at HOST level - share feature flags across connections to same host
+            # Feature flags are per-host, not per-session
+            key = connection.session.host
             if key not in cls._context_map:
                 cls._context_map[key] = FeatureFlagsContext(
                     connection, cls._executor, connection.session.http_client
@@ -177,7 +180,8 @@ class FeatureFlagsContextFactory:
     def remove_instance(cls, connection: "Connection"):
         """Removes the context for a given connection and shuts down the executor if no clients remain."""
         with cls._lock:
-            key = connection.get_session_id_hex()
+            # Use host as key to match get_instance
+            key = connection.session.host
             if key in cls._context_map:
                 cls._context_map.pop(key, None)
 

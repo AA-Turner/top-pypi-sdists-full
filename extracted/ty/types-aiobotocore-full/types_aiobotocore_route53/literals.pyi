@@ -3,14 +3,14 @@ Type annotations for route53 service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_aiobotocore_route53.literals import AccountLimitTypeType
+    from types_aiobotocore_route53.literals import AcceleratedRecoveryStatusType
 
-    data: AccountLimitTypeType = "MAX_HEALTH_CHECKS_BY_OWNER"
+    data: AcceleratedRecoveryStatusType = "DISABLE_FAILED"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AcceleratedRecoveryStatusType",
     "AccountLimitTypeType",
     "ChangeActionType",
     "ChangeStatusType",
@@ -57,6 +58,16 @@ __all__ = (
     "WaiterName",
 )
 
+AcceleratedRecoveryStatusType = Literal[
+    "DISABLED",
+    "DISABLE_FAILED",
+    "DISABLING",
+    "DISABLING_HOSTED_ZONE_LOCKED",
+    "ENABLED",
+    "ENABLE_FAILED",
+    "ENABLING",
+    "ENABLING_HOSTED_ZONE_LOCKED",
+]
 AccountLimitTypeType = Literal[
     "MAX_HEALTH_CHECKS_BY_OWNER",
     "MAX_HOSTED_ZONES_BY_OWNER",
@@ -81,6 +92,7 @@ CloudWatchRegionType = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",
@@ -95,6 +107,7 @@ CloudWatchRegionType = Literal[
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "eusc-de-east-1",
     "il-central-1",
     "me-central-1",
     "me-south-1",
@@ -107,6 +120,7 @@ CloudWatchRegionType = Literal[
     "us-iso-east-1",
     "us-iso-west-1",
     "us-isob-east-1",
+    "us-isob-west-1",
     "us-isof-east-1",
     "us-isof-south-1",
     "us-west-1",
@@ -186,6 +200,7 @@ ResourceRecordSetRegionType = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",
@@ -199,6 +214,7 @@ ResourceRecordSetRegionType = Literal[
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "eusc-de-east-1",
     "il-central-1",
     "me-central-1",
     "me-south-1",
@@ -229,6 +245,7 @@ VPCRegionType = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",
@@ -243,6 +260,7 @@ VPCRegionType = Literal[
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "eusc-de-east-1",
     "il-central-1",
     "me-central-1",
     "me-south-1",
@@ -255,6 +273,7 @@ VPCRegionType = Literal[
     "us-iso-east-1",
     "us-iso-west-1",
     "us-isob-east-1",
+    "us-isob-west-1",
     "us-isof-east-1",
     "us-isof-south-1",
     "us-west-1",
@@ -287,7 +306,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -357,6 +375,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -402,7 +421,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -455,7 +473,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -494,8 +511,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -530,6 +545,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -539,18 +555,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -572,8 +590,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -588,15 +604,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -627,8 +644,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -668,6 +685,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -679,16 +697,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_cidr_blocks",

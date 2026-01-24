@@ -1,0 +1,80 @@
+image: python:3.13-slim
+
+include:
+- project: 'public-corner/skillcorner-CICD'
+  ref: stable
+  file: '.skillcorner-ci-common.yml'
+
+stages:
+  - test
+  - build_and_publish
+  - prepare_release
+  - release
+  - analysis_test
+
+
+ruff:
+  stage: test
+  tags: [aws-fargate-runner]
+  extends: .ruff_on_fargate
+
+.unit-tests-common: &unit-tests-common
+  tags: [aws-fargate-runner]
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13"]
+  variables:
+    ORGANIZATION: public-corner
+    UV_PYTHON: ${PYTHON_VERSION}
+
+unit-tests:
+  stage: test
+  <<: *unit-tests-common
+  extends: .uv_test_with_sonar
+
+analysis-unit-tests:
+  stage: analysis_test
+  <<: *unit-tests-common
+  extends: .uv_test_with_sonar_on_main
+
+package:gitlab:
+  stage: build_and_publish
+  tags: [aws-fargate-runner]
+  extends: .uv_build_and_publish
+  before_script:
+    - !reference [.init_uv]
+
+package:pypi:
+  stage: build_and_publish
+  tags: [aws-fargate-runner]
+  extends: .uv_build_and_publish_pypi
+  before_script:
+    - !reference [.init_uv]
+
+documentation:
+  stage: build_and_publish
+  tags: [aws-fargate-runner]
+  script:
+    - uv sync --frozen
+    - uvx --from poethepoet poe doc
+    - uv cache prune --ci
+    - mv build/html public
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 day
+  before_script:
+    - !reference [.init_uv_with_venv]
+  pages: true
+  rules:
+    - !reference [.default_publish_rules, rules]
+
+prepare_job:
+  stage: prepare_release
+  tags: [aws-fargate-runner]
+  extends: .gitlab_public_release_prepare
+
+release_job:
+  stage: release
+  tags: [aws-fargate-runner]
+  extends: .gitlab_release_job

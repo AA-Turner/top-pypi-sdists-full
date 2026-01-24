@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 1.0.0
+Version: 1.1.1
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -10,25 +10,21 @@ Project-URL: Documentation, https://docs.kedro.org
 Project-URL: Tracker, https://github.com/kedro-org/kedro/issues
 Keywords: pipelines,machine learning,data pipelines,data science,data engineering
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: attrs>=21.3
 Requires-Dist: build>=0.7.0
 Requires-Dist: cachetools>=4.1
-Requires-Dist: click<8.2.0,>=4.0
+Requires-Dist: click>=8.2
 Requires-Dist: cookiecutter<3.0,>=2.1.1
 Requires-Dist: dynaconf<4.0,>=3.1.2
 Requires-Dist: fsspec>=2021.4
 Requires-Dist: gitpython>=3.0
-Requires-Dist: importlib_resources<7.0,>=1.3
-Requires-Dist: importlib-metadata<9.0,>=3.6
-Requires-Dist: importlib_resources<7.0,>=1.3
 Requires-Dist: kedro-telemetry>=0.5.0
 Requires-Dist: more_itertools>=8.14.0
 Requires-Dist: omegaconf>=2.1.1
@@ -36,13 +32,14 @@ Requires-Dist: parse>=1.19.0
 Requires-Dist: pluggy>=1.0
 Requires-Dist: PyYAML<7.0,>=4.2
 Requires-Dist: rich<15.0,>=12.0
-Requires-Dist: toml>=0.10.0
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
+Requires-Dist: tomli-w
 Requires-Dist: typing_extensions>=4.0
 Provides-Extra: test
-Requires-Dist: behave==1.2.6; extra == "test"
+Requires-Dist: behave<2.0,>=1.2.6; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: detect-secrets~=1.5.0; extra == "test"
-Requires-Dist: import-linter==2.3; extra == "test"
+Requires-Dist: import-linter<2.7.0,>=2.5.2; extra == "test"
 Requires-Dist: ipylab>=1.0.0; extra == "test"
 Requires-Dist: ipython~=8.10; extra == "test"
 Requires-Dist: jupyterlab_server>=2.11.1; extra == "test"
@@ -53,17 +50,16 @@ Requires-Dist: mypy~=1.0; extra == "test"
 Requires-Dist: pandas~=2.0; extra == "test"
 Requires-Dist: pluggy>=1.0; extra == "test"
 Requires-Dist: pre-commit<5.0,>=2.9.2; extra == "test"
-Requires-Dist: pytest-cov<7,>=3; extra == "test"
+Requires-Dist: pytest-cov<8,>=3; extra == "test"
 Requires-Dist: pytest-mock<4.0,>=1.7.1; extra == "test"
-Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "test"
-Requires-Dist: pytest<9.0,>=7.2; extra == "test"
-Requires-Dist: s3fs<2025.6,>=2021.4; extra == "test"
+Requires-Dist: pytest-xdist[psutil]<4.0,>=2.2.1; extra == "test"
+Requires-Dist: pytest<10.0,>=7.2; extra == "test"
 Requires-Dist: requests_mock; extra == "test"
+Requires-Dist: s3fs<2025.11,>=2021.4; extra == "test"
 Requires-Dist: pandas-stubs; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Requires-Dist: types-cachetools; extra == "test"
 Requires-Dist: types-requests; extra == "test"
-Requires-Dist: types-toml; extra == "test"
 Provides-Extra: docs
 Requires-Dist: mkdocs>=1.6.1; extra == "docs"
 Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
@@ -74,7 +70,9 @@ Requires-Dist: mkdocs-get-deps>=0.2.0; extra == "docs"
 Requires-Dist: mkdocstrings>=0.29.1; extra == "docs"
 Requires-Dist: mkdocstrings-python>=0.29.1; extra == "docs"
 Requires-Dist: mkdocs-click; extra == "docs"
+Requires-Dist: mkdocs-redirects; extra == "docs"
 Requires-Dist: griffe; extra == "docs"
+Requires-Dist: mkdocs-llmstxt; extra == "docs"
 Provides-Extra: jupyter
 Requires-Dist: ipylab>=1.0.0; extra == "jupyter"
 Requires-Dist: notebook>=7.0.0; extra == "jupyter"
@@ -92,7 +90,7 @@ Dynamic: license-file
   </picture>
 </p>
 
-[![Python version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/kedro/)
+[![Python version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/kedro/)
 [![PyPI version](https://badge.fury.io/py/kedro.svg)](https://pypi.org/project/kedro/)
 [![Conda version](https://img.shields.io/conda/vn/conda-forge/kedro.svg)](https://anaconda.org/conda-forge/kedro)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/kedro-org/kedro/blob/main/LICENSE.md)
@@ -127,7 +125,7 @@ It is also possible to install Kedro using `conda`:
 conda install -c conda-forge kedro
 ```
 
-Our [Get Started guide](https://docs.kedro.org/en/stable/get_started/install.html) contains full installation instructions, and includes how to set up Python virtual environments.
+Our [Get Started guide](https://docs.kedro.org/en/stable/getting-started/install/) contains full installation instructions, and includes how to set up Python virtual environments.
 
 ### Installation from source
 To access the latest Kedro version before its official release, install it from the `main` branch.
@@ -147,11 +145,12 @@ uv pip install git+https://github.com/kedro-org/kedro@main
 
 ## How do I use Kedro?
 
-The [Kedro documentation](https://docs.kedro.org/en/stable/) first explains [how to install Kedro](https://docs.kedro.org/en/stable/get_started/install.html) and then introduces [key Kedro concepts](https://docs.kedro.org/en/stable/get_started/kedro_concepts.html).
+The [Kedro documentation](https://docs.kedro.org/en/stable/) first explains [how to install Kedro](https://docs.kedro.org/en/stable/getting-started/install/) and then introduces [key Kedro concepts](https://docs.kedro.org/en/stable/getting-started/kedro_concepts/
+).
 
-You can then review the [spaceflights tutorial](https://docs.kedro.org/en/stable/tutorial/spaceflights_tutorial.html) to build a Kedro project for hands-on experience.
+You can then review the [spaceflights tutorial](https://docs.kedro.org/en/stable/tutorials/spaceflights_tutorial/) to build a Kedro project for hands-on experience.
 
-For new and intermediate Kedro users, there's a comprehensive section on [how to visualise Kedro projects using Kedro-Viz](https://docs.kedro.org/en/stable/visualisation/index.html).
+For new and intermediate Kedro users, there's a comprehensive section on [how to visualise Kedro projects using Kedro-Viz](https://docs.kedro.org/projects/kedro-viz/).
 
 
 <p align="center">
@@ -159,7 +158,7 @@ For new and intermediate Kedro users, there's a comprehensive section on [how to
     <em>A pipeline visualisation generated using Kedro-Viz</em>
 </p>
 
-Additional documentation explains [how to work with Kedro and Jupyter notebooks](https://docs.kedro.org/en/stable/notebooks_and_ipython/index.html), and there are a set of advanced user guides for advanced for key Kedro features. We also recommend the [API reference documentation](/kedro) for further information.
+Additional documentation explains [how to work with Kedro and Jupyter notebooks](https://docs.kedro.org/en/stable/integrations-and-plugins/notebooks_and_ipython/), and there are a set of advanced user guides for advanced for key Kedro features. We also recommend the [API reference documentation](/kedro) for further information.
 
 
 ## Why does Kedro exist?
@@ -176,7 +175,7 @@ Find out more about how Kedro can answer your use cases from the [product FAQs o
 
 ## The humans behind Kedro
 
-The [Kedro product team](https://docs.kedro.org/en/stable/contribution/technical_steering_committee.html#kedro-maintainers) and a number of [open source contributors from across the world](https://github.com/kedro-org/kedro/releases) maintain Kedro.
+The [Kedro product team](https://docs.kedro.org/en/stable/about/technical_steering_committee/#current-maintainers) and a number of [open source contributors from across the world](https://github.com/kedro-org/kedro/releases) maintain Kedro.
 
 ## Can I contribute?
 
@@ -186,7 +185,7 @@ Yes! We welcome all kinds of contributions. Check out our [guide to contributing
 
 There is a growing community around Kedro. We encourage you to ask and answer technical questions on [Slack](https://slack.kedro.org/) and bookmark the [Linen archive of past discussions](https://linen-slack.kedro.org/).
 
-We keep a list of [technical FAQs in the Kedro documentation](https://docs.kedro.org/en/stable/faq/faq.html) and you can find a  growing list of blog posts, videos and projects that use Kedro over on the [`awesome-kedro` GitHub repository](https://github.com/kedro-org/awesome-kedro). If you have created anything with Kedro we'd love to include it on the list. Just make a PR to add it!
+We keep a list of [technical FAQs in the Kedro documentation](https://docs.kedro.org/en/stable/getting-started/faq/) and you can find a  growing list of blog posts, videos and projects that use Kedro over on the [`awesome-kedro` GitHub repository](https://github.com/kedro-org/awesome-kedro). If you have created anything with Kedro we'd love to include it on the list. Just make a PR to add it!
 
 ## How can I cite Kedro?
 

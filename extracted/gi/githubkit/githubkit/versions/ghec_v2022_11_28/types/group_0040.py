@@ -9,16 +9,22 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 
-class ActionsForkPrWorkflowsPrivateReposType(TypedDict):
-    """ActionsForkPrWorkflowsPrivateRepos"""
+class ActionsOidcCustomIssuerPolicyForEnterpriseType(TypedDict):
+    """ActionsOidcCustomIssuerPolicyForEnterprise"""
 
-    run_workflows_from_fork_pull_requests: bool
-    send_write_tokens_to_workflows: bool
-    send_secrets_and_variables: bool
-    require_approval_for_fork_pr_workflows: bool
+    include_enterprise_slug: NotRequired[bool]
 
 
-__all__ = ("ActionsForkPrWorkflowsPrivateReposType",)
+class ActionsOidcCustomIssuerPolicyForEnterpriseTypeForResponse(TypedDict):
+    """ActionsOidcCustomIssuerPolicyForEnterprise"""
+
+    include_enterprise_slug: NotRequired[bool]
+
+
+__all__ = (
+    "ActionsOidcCustomIssuerPolicyForEnterpriseType",
+    "ActionsOidcCustomIssuerPolicyForEnterpriseTypeForResponse",
+)

@@ -8,7 +8,7 @@ import pathlib
 import shutil
 import sys
 import threading
-from typing import TYPE_CHECKING, Any, Dict  # noqa: UP035
+from typing import TYPE_CHECKING, Any
 
 from tox.config.loader.memory import MemoryLoader
 from tox.config.loader.section import Section
@@ -56,7 +56,7 @@ class GhActionsConfigSet(ConfigSet):
         """Register the configurations."""
         self.add_config(
             "python",
-            of_type=Dict[str, EnvList],  # noqa: UP006
+            of_type=dict[str, EnvList],
             default={},
             desc="python version to mapping",
         )
@@ -122,9 +122,12 @@ def tox_before_run_commands(tox_env: ToxEnv) -> None:
     :param tox_env: the tox environment
     """
     if tox_env.core["is_on_gh_action"]:
-        assert _STATE.installing  # noqa: S101
-        _STATE.installing = False
-        print("::endgroup::")  # noqa: T201
+        # Check if we're coming from an install phase (defensive check for lock-based runners)
+        if getattr(_STATE, "installing", False):
+            # Traditional path: close the install group that was opened in tox_on_install
+            _STATE.installing = False
+            print("::endgroup::")  # noqa: T201
+        # Always open the test execution group
         print(f"::group::tox:{tox_env.name}")  # noqa: T201
 
 
@@ -150,5 +153,5 @@ def write_to_summary(success: bool, message: str) -> None:  # noqa: FBT001
         return
     summary_path = pathlib.Path(GITHUB_STEP_SUMMARY)
     success_str = ":white_check_mark:" if success else ":negative_squared_cross_mark:"
-    with summary_path.open("a+") as summary_file:
+    with summary_path.open("a+", encoding="utf-8") as summary_file:
         print(f"{success_str}: {message}", file=summary_file)

@@ -16,8 +16,7 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.display.column import Column
 from pymoo.util.display.single import SingleObjectiveOutput
 from pymoo.util.misc import norm_eucl_dist
-from pymoo.visualization.fitness_landscape import FitnessLandscape
-from pymoo.visualization.video.callback_video import AnimationCallback
+from pymoo.util import default_random_state
 
 
 # =========================================================================================================
@@ -100,14 +99,15 @@ def S4_jumping_out(f):
 # Equation
 # =========================================================================================================
 
-def pso_equation(X, P_X, S_X, V, V_max, w, c1, c2, r1=None, r2=None):
+@default_random_state
+def pso_equation(X, P_X, S_X, V, V_max, w, c1, c2, r1=None, r2=None, random_state=None):
     n_particles, n_var = X.shape
 
     if r1 is None:
-        r1 = np.random.random((n_particles, n_var))
+        r1 = random_state.random((n_particles, n_var))
 
     if r2 is None:
-        r2 = np.random.random((n_particles, n_var))
+        r2 = random_state.random((n_particles, n_var))
 
     inerta = w * V
     cognitive = c1 * r1 * (P_X - X)
@@ -206,13 +206,13 @@ class PSO(Algorithm):
         self.f, self.strategy = None, None
 
     def _initialize_infill(self):
-        return self.initialization.do(self.problem, self.pop_size, algorithm=self)
+        return self.initialization.do(self.problem, self.pop_size, algorithm=self, random_state=self.random_state)
 
     def _initialize_advance(self, infills=None, **kwargs):
         particles = self.pop
 
         if self.initial_velocity == "random":
-            init_V = np.random.random((len(particles), self.problem.n_var)) * self.V_max[None, :]
+            init_V = self.random_state.random((len(particles), self.problem.n_var)) * self.V_max[None, :]
         elif self.initial_velocity == "zero":
             init_V = np.zeros((len(particles), self.problem.n_var))
         else:
@@ -232,7 +232,7 @@ class PSO(Algorithm):
         sbest = self._social_best()
         S_X = sbest.get("X")
 
-        Xp, Vp = pso_equation(X, P_X, S_X, V, self.V_max, self.w, self.c1, self.c2)
+        Xp, Vp = pso_equation(X, P_X, S_X, V, self.V_max, self.w, self.c1, self.c2, random_state=self.random_state)
 
         # if the problem has boundaries to be considered
         if problem.has_bounds():
@@ -245,10 +245,10 @@ class PSO(Algorithm):
                     break
 
                 # actually execute the differential equation
-                Xp[m], Vp[m] = pso_equation(X[m], P_X[m], S_X[m], V[m], self.V_max, self.w, self.c1, self.c2)
+                Xp[m], Vp[m] = pso_equation(X[m], P_X[m], S_X[m], V[m], self.V_max, self.w, self.c1, self.c2, random_state=self.random_state)
 
             # if still infeasible do a random initialization
-            Xp = repair_random_init(Xp, X, *problem.bounds())
+            Xp = repair_random_init(Xp, X, *problem.bounds(), random_state=self.random_state)
 
         # create the offspring population
         off = Population.new(X=Xp, V=Vp)
@@ -256,8 +256,8 @@ class PSO(Algorithm):
         # try to improve the current best with a pertubation
         if self.pertube_best:
             k = FitnessSurvival().do(problem, pbest, n_survive=1, return_indices=True)[0]
-            mut = PM(prob=0.9, eta=np.random.uniform(5, 30), at_least_once=False)
-            mutant = mut(problem, Population(Individual(X=pbest[k].X)))[0]
+            mut = PM(prob=0.9, eta=self.random_state.uniform(5, 30), at_least_once=False)
+            mutant = mut(problem, Population(Individual(X=pbest[k].X)), random_state=self.random_state)[0]
             off[k].set("X", mutant.X)
 
         self.repair(problem, off)
@@ -302,7 +302,7 @@ class PSO(Algorithm):
         S = np.array([S1_exploration(f), S2_exploitation(f), S3_convergence(f), S4_jumping_out(f)])
         strategy = S.argmax() + 1
 
-        delta = 0.05 + (np.random.random() * 0.05)
+        delta = 0.05 + (self.random_state.random() * 0.05)
 
         if strategy == 1:
             c1 += delta
@@ -332,68 +332,6 @@ class PSO(Algorithm):
         self.c2 = c2
         self.w = w
 
-
-# =========================================================================================================
-# Animation
-# =========================================================================================================
-
-class PSOAnimation(AnimationCallback):
-
-    def __init__(self,
-                 nth_gen=1,
-                 n_samples_for_surface=200,
-                 dpi=200,
-                 **kwargs):
-
-        super().__init__(nth_gen=nth_gen, dpi=dpi, **kwargs)
-        self.n_samples_for_surface = n_samples_for_surface
-        self.last_pop = None
-
-    def do(self, problem, algorithm):
-        import matplotlib.pyplot as plt
-
-        if problem.n_var != 2 or problem.n_obj != 1:
-            raise Exception(
-                "This visualization can only be used for problems with two variables and one objective!")
-
-        # draw the problem surface
-        FitnessLandscape(problem,
-                         _type="contour",
-                         kwargs_contour=dict(alpha=0.3),
-                         n_samples=self.n_samples_for_surface,
-                         close_on_destroy=False).do()
-
-        # get the population
-        off = algorithm.particles
-        pop = algorithm.particles if self.last_pop is None else self.last_pop
-        pbest = algorithm.pop
-
-        for i in range(len(pop)):
-            plt.plot([off[i].X[0], pop[i].X[0]], [off[i].X[1], pop[i].X[1]], color="blue", alpha=0.5)
-            plt.plot([pbest[i].X[0], pop[i].X[0]], [pbest[i].X[1], pop[i].X[1]], color="red", alpha=0.5)
-            plt.plot([pbest[i].X[0], off[i].X[0]], [pbest[i].X[1], off[i].X[1]], color="red", alpha=0.5)
-
-        X, F, CV = pbest.get("X", "F", "CV")
-        plt.scatter(X[:, 0], X[:, 1], edgecolors="red", marker="*", s=70, facecolors='none', label="pbest")
-
-        X, F, CV = off.get("X", "F", "CV")
-        plt.scatter(X[:, 0], X[:, 1], color="blue", marker="o", s=30, label="particle")
-
-        X, F, CV = pop.get("X", "F", "CV")
-        plt.scatter(X[:, 0], X[:, 1], color="blue", marker="o", s=30, alpha=0.5)
-
-        opt = algorithm.opt
-        X, F, CV = opt.get("X", "F", "CV")
-        plt.scatter(X[:, 0], X[:, 1], color="black", marker="x", s=100, label="gbest")
-
-        xl, xu = problem.bounds()
-        plt.xlim(xl[0], xu[0])
-        plt.ylim(xl[1], xu[1])
-
-        plt.title(f"Generation: %s \nf: %.5E" % (algorithm.n_gen, opt[0].F[0]))
-        plt.legend()
-
-        self.last_pop = off.copy(deep=True)
 
 
 parse_doc_string(PSO.__init__)

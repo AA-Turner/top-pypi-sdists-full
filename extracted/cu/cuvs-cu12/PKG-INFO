@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: cuvs-cu12
+Version: 25.12.0
+Summary: cuVS: Vector Search on the GPU
+Author: NVIDIA Corporation
+License: Apache-2.0
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Project-URL: Homepage, https://github.com/rapidsai/cuvs
+Project-URL: Documentation, https://docs.rapids.ai/api/cuvs/stable/
+Requires-Python: >=3.10
+Requires-Dist: cuda-python<13.0a0,>=12.9.2
+Requires-Dist: libcuvs-cu12==25.12.*
+Requires-Dist: numpy<3.0a0,>=1.23
+Requires-Dist: pylibraft-cu12==25.12.*
+Provides-Extra: test
+Requires-Dist: cupy-cuda12x>=13.6.0; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest<9.0.0a0; extra == "test"
+Requires-Dist: scikit-learn; extra == "test"
+Description-Content-Type: text/markdown
+
+# cuVS
+
+cuVS contains state-of-the-art implementations of several algorithms for running approximate nearest neighbors and clustering on the GPU. It can be used directly or through the various databases and other libraries that have integrated it. The primary goal of cuVS is to simplify the use of GPUs for vector similarity search and clustering.

@@ -6,43 +6,68 @@ __all__ = ["BaseShardLoader", "is_shard_loader_config", "setup_shard_loader"]
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from coola.equality.testers import EqualityTester
 from objectory import AbstractFactory
 from objectory.utils import is_object_config
+
+from iden.utils.comparator import ObjectEqualityComparator
 
 if TYPE_CHECKING:
     from iden.shard import BaseShard
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BaseShardLoader(Generic[T], ABC, metaclass=AbstractFactory):
+class BaseShardLoader(ABC, Generic[T], metaclass=AbstractFactory):
     r"""Define the base class to implement a shard loader.
 
     A shard loader object allows to load a ``BaseShard`` object from
     its Uniform Resource Identifier (URI).
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import create_json_shard
+        >>> from iden.shard.loader import JsonShardLoader
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     uri = Path(tmpdir).joinpath("my_uri").as_uri()
+        ...     create_json_shard([1, 2, 3], uri=uri)
+        ...     loader = JsonShardLoader()
+        ...     shard = loader.load(uri)
+        ...     shard
+        ...
+        JsonShard(uri=file:///.../my_uri)
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import create_json_shard
-    >>> from iden.shard.loader import JsonShardLoader
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     uri = Path(tmpdir).joinpath("my_uri").as_uri()
-    ...     _ = create_json_shard([1, 2, 3], uri=uri)
-    ...     loader = JsonShardLoader()
-    ...     loader
-    ...
-    JsonShardLoader()
-
-    ```
+        ```
     """
+
+    @abstractmethod
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        r"""Indicate if two objects are equal or not.
+
+        Args:
+            other: The object to compare with.
+            equal_nan: If ``True``, then two ``NaN``s will be
+                considered equal.
+
+        Returns:
+            ``True`` if the two objects are equal, otherwise ``False``.
+
+        Example:
+            ```pycon
+            >>> from iden.shard.loader import JsonShardLoader, PickleShardLoader
+            >>> JsonShardLoader().equal(JsonShardLoader())
+            True
+            >>> JsonShardLoader().equal(PickleShardLoader())
+            False
+
+            ```
+        """
 
     @abstractmethod
     def load(self, uri: str) -> BaseShard[T]:
@@ -54,27 +79,26 @@ class BaseShardLoader(Generic[T], ABC, metaclass=AbstractFactory):
         Returns:
             The loaded shard.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import create_json_shard
+            >>> from iden.shard.loader import JsonShardLoader
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     uri = Path(tmpdir).joinpath("my_uri").as_uri()
+            ...     create_json_shard([1, 2, 3], uri=uri)
+            ...     loader = JsonShardLoader()
+            ...     shard = loader.load(uri)
+            ...     shard
+            ...
+            JsonShard(uri=file:///.../my_uri)
 
-        ```pycon
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import create_json_shard
-        >>> from iden.shard.loader import JsonShardLoader
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     uri = Path(tmpdir).joinpath("my_uri").as_uri()
-        ...     _ = create_json_shard([1, 2, 3], uri=uri)
-        ...     loader = JsonShardLoader()
-        ...     shard = loader.load(uri)
-        ...     shard
-        ...
-        JsonShard(uri=file:///.../my_uri)
-
-        ```
+            ```
         """
 
 
-def is_shard_loader_config(config: dict) -> bool:
+def is_shard_loader_config(config: dict[Any, Any]) -> bool:
     r"""Indicate if the input configuration is a configuration for a
     ``BaseShardLoader``.
 
@@ -90,20 +114,18 @@ def is_shard_loader_config(config: dict) -> bool:
         ``True`` if the input configuration is a configuration for a
             ``BaseShardLoader`` object.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from iden.shard.loader import is_shard_loader_config
+        >>> is_shard_loader_config({"_target_": "iden.shard.loader.JsonShardLoader"})
+        True
 
-    ```pycon
-
-    >>> from iden.shard.loader import is_shard_loader_config
-    >>> is_shard_loader_config({"_target_": "iden.shard.loader.JsonShardLoader"})
-    True
-
-    ```
+        ```
     """
     return is_object_config(config, BaseShardLoader)
 
 
-def setup_shard_loader(shard_loader: BaseShardLoader | dict) -> BaseShardLoader:
+def setup_shard_loader(shard_loader: BaseShardLoader[T] | dict[Any, Any]) -> BaseShardLoader[T]:
     r"""Set up a shard loader.
 
     The shard loader is instantiated from its configuration by using the
@@ -115,16 +137,14 @@ def setup_shard_loader(shard_loader: BaseShardLoader | dict) -> BaseShardLoader:
     Returns:
         The instantiated shard loader.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from iden.shard.loader import setup_shard_loader
+        >>> shard_loader = setup_shard_loader({"_target_": "iden.shard.loader.JsonShardLoader"})
+        >>> shard_loader
+        JsonShardLoader()
 
-    ```pycon
-
-    >>> from iden.shard.loader import setup_shard_loader
-    >>> shard_loader = setup_shard_loader({"_target_": "iden.shard.loader.JsonShardLoader"})
-    >>> shard_loader
-    JsonShardLoader()
-
-    ```
+        ```
     """
     if isinstance(shard_loader, dict):
         logger.debug("Initializing a shard loader from its configuration...")
@@ -132,3 +152,7 @@ def setup_shard_loader(shard_loader: BaseShardLoader | dict) -> BaseShardLoader:
     if not isinstance(shard_loader, BaseShardLoader):
         logger.warning(f"shard loader is not a BaseShardLoader (received: {type(shard_loader)})")
     return shard_loader
+
+
+if not EqualityTester.has_comparator(BaseShardLoader):  # pragma: no cover
+    EqualityTester.add_comparator(BaseShardLoader, ObjectEqualityComparator())

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -11,14 +11,13 @@ import io
 import json
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Tuple, Union
 from warnings import warn
 
-import pandas as pd
-from pandas import DataFrame, read_csv
+import httpx
 
-import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai.data_loaders.datasets.experiment import (
+from ibm_watsonx_ai.data_loaders.datasets.constants import (
     DEFAULT_SAMPLE_SIZE_LIMIT,
     DEFAULT_SAMPLING_TYPE,
 )
@@ -33,14 +32,12 @@ from ibm_watsonx_ai.utils.autoai.utils import (
     try_load_dataset,
     try_load_tar_gz,
 )
-from ibm_watsonx_ai.utils.utils import is_lib_installed
-from ibm_watsonx_ai.wml_client_error import (
-    ApiRequestFailure,
-    DataStreamError,
-)
+from ibm_watsonx_ai.utils.utils import get_from_json, is_lib_installed
+from ibm_watsonx_ai.wml_client_error import ApiRequestFailure, DataStreamError
 
 if TYPE_CHECKING:
     from ibm_boto3 import resource
+    from pandas import DataFrame
 
     from ibm_watsonx_ai import APIClient
     from ibm_watsonx_ai.helpers.connections import DataConnection
@@ -86,7 +83,7 @@ class BaseDataConnection(ABC):
         self,
         prediction_type: str,
         prediction_column: str,
-        holdout_size: float,
+        holdout_size: float | int,
         csv_separator: str = ",",
         excel_sheet: Union[str, int] = None,
         encoding: str = "utf-8",
@@ -101,8 +98,10 @@ class BaseDataConnection(ABC):
             "encoding": encoding,
         }
 
-    def _download_csv_file(self, path) -> dict:
+    def _download_csv_file(self, path: str) -> dict:
         """Download csv file."""
+        import pandas as pd
+
         df = pd.DataFrame()
 
         if "//" in path:  # sometimes there is an additional slash, need to replace it
@@ -113,20 +112,23 @@ class BaseDataConnection(ABC):
                 self._api_client._href_definitions.get_wsd_model_attachment_href()
                 + f"/auto_ml/{path.split('/auto_ml/')[-1]}"
             )
-
-            with requests.get(
-                csv_url,
+            with self._api_client.httpx_client.stream(
+                method="GET",
+                url=csv_url,
                 params=self._api_client._params(),
                 headers=self._api_client._get_headers(),
-                stream=True,
             ) as file_response:
                 if file_response.status_code != 200:
                     raise ApiRequestFailure(
                         "Failure during {}.".format("downloading json"), file_response
                     )
 
-                downloaded_asset = file_response.content
-                df = pd.read_csv(io.BytesIO(downloaded_asset))
+                buffer = io.BytesIO()
+                for chunk in file_response.iter_bytes():
+                    buffer.write(chunk)
+
+                buffer.seek(0)
+                df = pd.read_csv(buffer)
                 # json_content = json.loads(buffer.getvalue().decode('utf-8'))
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
@@ -210,34 +212,40 @@ class BaseDataConnection(ABC):
                     + f"/auto_ml/{path.split('/auto_ml/')[-1]}"
                 )
 
-            with requests.get(
-                json_url,
+            with self._api_client.httpx_client.stream(
+                method="GET",
+                url=json_url,
                 params=self._api_client._params(),
                 headers=self._api_client._get_headers(),
-                stream=True,
             ) as file_response:
                 if file_response.status_code != 200:
                     raise ApiRequestFailure(
                         "Failure during {}.".format("downloading json"), file_response
                     )
 
-                downloaded_asset = file_response.content
-                buffer = io.BytesIO(downloaded_asset)
+                buffer = io.BytesIO()
+                for chunk in file_response.iter_bytes():
+                    buffer.write(chunk)
+                buffer.seek(0)
+
+                text = buffer.getvalue().decode("utf-8")
+
                 try:
-                    json_content = json.loads(buffer.getvalue().decode("utf-8"))
+                    json_content = json.loads(text)
                 except json.JSONDecodeError:
-                    json_content = [
-                        json.loads(jline)
-                        for jline in buffer.getvalue().decode("utf-8").splitlines()
-                    ]
+                    json_content = [json.loads(line) for line in text.splitlines()]
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
             if self._check_if_connection_asset_is_s3():
                 cos_client = self._init_cos_client()
                 data_conn = self.to_dict()
-                bucket = data_conn.get("location", {}).get(
-                    "bucket", data_conn.get("connection", {}).get("bucket")
-                )  # AWS containers has bucket in connection
+                bucket = get_from_json(
+                    data_conn, ["location", "bucket"]
+                ) or get_from_json(
+                    data_conn,
+                    ["connection", "bucket"],  # AWS containers has bucket in connection
+                )
+
                 if bucket is None:
                     raise ValueError(
                         "Missing bucket in connection or location of the DataConnection object."
@@ -274,7 +282,7 @@ class BaseDataConnection(ABC):
 
     @staticmethod
     def _get_attachment_details(data_asset_id: str, api_client: APIClient) -> dict:
-        response = requests.get(
+        response = api_client.httpx_client.get(
             api_client._href_definitions.get_data_asset_href(data_asset_id),
             params=api_client._params(),
             headers=api_client._get_headers(),
@@ -283,7 +291,9 @@ class BaseDataConnection(ABC):
             200, "GET data asset details", response
         )
 
-        attachments_data_asset_details = data_asset_details.get("attachments", [{}])[0]
+        attachments_data_asset_details = get_from_json(
+            data_asset_details, ["attachments", 0], {}
+        )
         # note: Return attachment details from data asset details if it is not a connected data asset:
         if (
             attachments_data_asset_details
@@ -292,13 +302,12 @@ class BaseDataConnection(ABC):
             return attachments_data_asset_details
         else:
             attachment_id = attachments_data_asset_details.get("id")
-            response = requests.get(
+            response = api_client.httpx_client.get(
                 api_client._href_definitions.get_attachment_href(
                     data_asset_id, attachment_id
                 ),
                 params=api_client._params(),
                 headers=api_client._get_headers(),
-                verify=False if api_client.ICP_PLATFORM_SPACES else None,
             )
 
             api_client.data_assets._handle_response(
@@ -341,7 +350,9 @@ class BaseDataConnection(ABC):
         except NotS3Connection:
             return False
 
-        return connection_details["entity"].get("properties", {}).get("shared", False)
+        return get_from_json(
+            connection_details, ["entity", "properties", "shared"], False
+        )
 
     def _check_if_connection_asset_is_s3(self) -> bool:
         try:
@@ -481,7 +492,7 @@ class BaseDataConnection(ABC):
         """
         from .connections import _AmazonS3Connection
 
-        connection_props = connection_details["entity"].get("properties", {})
+        connection_props = connection_details["entity"]["properties"]
 
         self.connection = _AmazonS3Connection(
             access_key=connection_props["credentials"]["access_key_id"],
@@ -562,6 +573,8 @@ class BaseDataConnection(ABC):
             data_asset_id = items[-1].split("?")[0]
 
             if self._api_client is not None:
+                if self._api_client.CLOUD_PLATFORM_SPACES:
+                    return False
                 attachment_details = self._get_attachment_details(
                     data_asset_id, self._api_client
                 )
@@ -578,6 +591,8 @@ class BaseDataConnection(ABC):
     ) -> "DataFrame":
         """Download indices for this connection. COS version"""
 
+        import pandas as pd
+
         try:
             file = cos_client.Object(self.location.bucket, location_path).get()
         except Exception:
@@ -590,11 +605,10 @@ class BaseDataConnection(ABC):
         buffer = io.BytesIO(file["Body"].read())
 
         if ".csv" in location_path:
-            file_name = "indices.csv"
-            with open(file_name, "wb") as out:
-                out.write(buffer.read())
+            file_name = Path("indices.csv")
+            file_name.write_bytes(buffer.read())
 
-            data = read_csv(
+            data = pd.read_csv(
                 file_name,
                 sep=self.auto_pipeline_params.get("csv_separator", ","),
                 encoding=self.auto_pipeline_params.get("encoding", "utf-8"),
@@ -613,9 +627,12 @@ class BaseDataConnection(ABC):
         self,
         binary: bool = False,
         is_flight_fallback: bool = False,
-        read_to_file: str | None = None,
+        read_to_file: str | Path | None = None,
     ) -> DataFrame | bytes:
         """Download training data for this connection. Data Storage."""
+
+        if isinstance(read_to_file, str):
+            read_to_file = Path(read_to_file)
 
         if self._api_client is not None:
             # note: as we need to load a data into the memory,
@@ -623,7 +640,7 @@ class BaseDataConnection(ABC):
             asset_id = self.location.href.split("?")[0].split("/")[-1]
 
             # note: download data asset details
-            asset_response = requests.get(
+            asset_response = self._api_client.httpx_client.get(
                 self._api_client._href_definitions.get_data_asset_href(asset_id),
                 params=self._api_client._params(),
                 headers=self._api_client._get_headers(),
@@ -634,7 +651,7 @@ class BaseDataConnection(ABC):
             )
 
             attachment_id = asset_details["attachments"][0]["id"]
-            response = requests.get(
+            response = self._api_client.httpx_client.get(
                 self._api_client._href_definitions.get_attachment_href(
                     asset_id, attachment_id
                 ),
@@ -651,7 +668,7 @@ class BaseDataConnection(ABC):
                             file_asset_url = (
                                 self._api_client.credentials.url + file_asset_url
                             )
-                        csv_response = requests.get(file_asset_url)
+                        csv_response = self._api_client.httpx_client.get(file_asset_url)
 
                         if csv_response.status_code != 200:
                             raise ApiRequestFailure(
@@ -672,9 +689,8 @@ class BaseDataConnection(ABC):
                             )
 
                         if read_to_file:
-                            with open(read_to_file, "wb") as file:
-                                buffer.seek(0)
-                                file.write(buffer.getvalue())
+                            buffer.seek(0)
+                            read_to_file.write_bytes(buffer.getvalue())
 
                         if binary:
                             buffer.seek(0)
@@ -691,7 +707,7 @@ class BaseDataConnection(ABC):
 
                         return data
 
-                except requests.exceptions.MissingSchema:
+                except httpx.InvalidURL:
                     pass  # go to 'handle' part and check if we are able to download data asset from WS
 
             # note: read the csv url
@@ -699,17 +715,14 @@ class BaseDataConnection(ABC):
                 attachment_url = asset_details["attachments"][0]["handle"]["key"]
 
                 # note: make the whole url pointing out the csv
-                artifact_content_url = (
-                    f"{self._api_client._href_definitions.get_wsd_model_attachment_href()}"
-                    f"{attachment_url}"
-                )
+                artifact_content_url = f"{self._api_client._href_definitions.get_wsd_model_attachment_href()}{attachment_url}"
 
                 # note: stream the whole CSV file
-                csv_response = requests.get(
-                    artifact_content_url,
+                csv_response = self._api_client.httpx_client.get(
+                    method="GET",
+                    url=artifact_content_url,
                     params=self._api_client._params(),
                     headers=self._api_client._get_headers(),
-                    stream=True,
                 )
 
                 if csv_response.status_code != 200:
@@ -717,10 +730,10 @@ class BaseDataConnection(ABC):
                         "Failure during {}.".format("downloading model"), csv_response
                     )
 
-                downloaded_asset = csv_response.content
-
-                # note: read the csv/xlsx file from the memory directly into the pandas DataFrame
-                buffer = io.BytesIO(downloaded_asset)
+                buffer = io.BytesIO()
+                for chunk in csv_response.iter_bytes():
+                    buffer.write(chunk)
+                buffer.seek(0)
 
                 if is_flight_fallback:
                     _error_on_duplicate_columns_csv(
@@ -805,11 +818,10 @@ class BaseDataConnection(ABC):
                 + f"/{self.location.path.split('/assets/', maxsplit=1)[-1]}"
             )
             # note: stream the whole CSV file
-            csv_response = requests.get(
+            csv_response = self._api_client.httpx_client.get(
                 url,
                 params=self._api_client._params(),
                 headers=self._api_client._get_headers(),
-                stream=True,
             )
 
             if csv_response.status_code != 200:
@@ -853,11 +865,10 @@ class BaseDataConnection(ABC):
                 + f"/{location_path.split('/assets/', maxsplit=1)[-1]}"
             )
             # note: stream the whole CSV file
-            csv_response = requests.get(
+            csv_response = self._api_client.httpx_client.get(
                 url,
                 params=self._api_client._params(),
                 headers=self._api_client._get_headers(),
-                stream=True,
             )
 
             if csv_response.status_code != 200:
@@ -901,7 +912,7 @@ class BaseDataConnection(ABC):
     def _download_data_from_nfs_connection_using_id_and_path(
         self,
         connection_id,
-        connection_path,
+        connection_path: str | Path,
         binary: bool = False,
         is_flight_fallback: bool = False,
     ) -> DataFrame | bytes:
@@ -911,6 +922,9 @@ class BaseDataConnection(ABC):
         if not self._api_client:
             raise CannotReadSavedRemoteDataBeforeFit()
 
+        if isinstance(connection_path, str):
+            connection_path = Path(connection_path)
+
         buffer = None
         # Note: workaround with volumes API as connections API changes data format
         try:
@@ -918,13 +932,11 @@ class BaseDataConnection(ABC):
         except ApiRequestFailure as conn_error:
             if os.environ.get("TRAINING_NFS_PATH"):
                 # Note: Only viable on AutoAI runtime
-                base_path = os.environ.get("TRAINING_NFS_PATH") + "/0"
-                if connection_path.startswith("/"):
-                    data_path = f"{base_path}{connection_path}"
-                else:
-                    data_path = f"{base_path}/{connection_path}"
-                with open(data_path, "rb") as f:
-                    buffer = io.BytesIO(f.read())
+                base_path = Path(os.environ.get("TRAINING_NFS_PATH", ".")) / "0"
+                data_path = base_path / connection_path.relative_to(
+                    connection_path.anchor
+                )
+                buffer = io.BytesIO(data_path.read_bytes())
             else:
                 raise conn_error
 
@@ -936,17 +948,17 @@ class BaseDataConnection(ABC):
             )
             full_href = f"{href[:-1]}{connection_path}"
 
-            csv_response = requests.get(
-                full_href, headers=self._api_client._get_headers(), stream=True
+            csv_response = self._api_client.httpx_client.get(
+                full_href, headers=self._api_client._get_headers()
             )
 
             # Note: if file is written in directory we need to create different href for download
             if csv_response.status_code != 200:
-                path_parts = connection_path.split("/")
+                path_parts = connection_path.parts
                 full_href = f"{href[:-1]}{'/'.join(path_parts[:-1])}%2F{path_parts[-1]}"
 
-                csv_response = requests.get(
-                    full_href, headers=self._api_client._get_headers(), stream=True
+                csv_response = self._api_client.httpx_client.get(
+                    full_href, headers=self._api_client._get_headers()
                 )
 
                 if csv_response.status_code != 200:
@@ -1092,7 +1104,7 @@ class BaseDataConnection(ABC):
 
                 if token is None:
                     raise NotImplementedError(
-                        """To succesfully read the training data used in AutoAI experiment, you need to provide the project token.
+                        """To successfully read the training data used in AutoAI experiment, you need to provide the project token.
                     **To insert the project token to your notebook:**
                         Click the More icon on your notebook toolbar and then click Insert project token.
                         Run the inserted code cell.
@@ -1130,14 +1142,36 @@ class BaseDataConnection(ABC):
 
         return connection_details
 
+    def _create_data_loader(
+        self,
+        experiment_iterable_dataset_setup_parameters: dict = None,
+        return_data_as_iterator: bool = False,
+    ) -> "ExperimentDataLoader":
+        # import the class only if flight scenario is enabled - do not import it in main import section
+        from ibm_watsonx_ai.data_loaders.datasets.experiment import (
+            TabularIterableDataset,
+        )
+        from ibm_watsonx_ai.data_loaders.experiment import ExperimentDataLoader
+
+        iterable_dataset = TabularIterableDataset(
+            **experiment_iterable_dataset_setup_parameters
+        )
+        data_loader = ExperimentDataLoader(dataset=iterable_dataset)
+
+        if not return_data_as_iterator:
+            for data in data_loader:
+                return data
+        else:
+            return data_loader
+
     def _download_data_from_flight_service(
         self,
         data_location: "DataConnection",
         binary: bool = False,
-        read_to_file: str = None,
-        flight_parameters: dict = None,
-        headers: dict = None,
-        number_of_batch_rows: int = None,
+        read_to_file: str | Path | None = None,
+        flight_parameters: dict | None = None,
+        headers: dict | None = None,
+        number_of_batch_rows: int | None = None,
         sampling_type: str = DEFAULT_SAMPLING_TYPE,
         return_data_as_iterator: bool = False,
         enable_sampling: bool = True,
@@ -1148,16 +1182,15 @@ class BaseDataConnection(ABC):
     ):
         is_lib_installed(lib_name="pyarrow", minimum_version="3.0.0", install=True)
 
-        # import the class only if flight scenario is enabled - do not import it in main import section
-        from ibm_watsonx_ai.data_loaders.datasets.experiment import (
-            TabularIterableDataset,
-        )
-        from ibm_watsonx_ai.data_loaders.experiment import ExperimentDataLoader
+        from pyarrow._flight import FlightUnavailableError
 
         if flight_parameters is None:
             flight_parameters = {"num_partitions": 4}
 
         dict_connection = data_location._to_dict()
+
+        if get_from_json(dict_connection, ["location", "container"]) == "":
+            dict_connection["location"].pop("container", None)
 
         experiment_metadata = {
             "n_parallel_data_connections": flight_parameters.get("num_partitions", 4),
@@ -1191,35 +1224,43 @@ class BaseDataConnection(ABC):
             total_percentage_limit=total_percentage_limit,
         )
 
-        iterable_dataset = TabularIterableDataset(
-            **experiment_iterable_dataset_setup_parameters
-        )
-        data_loader = ExperimentDataLoader(dataset=iterable_dataset)
-
         try:
-            if not return_data_as_iterator:
-                for data in data_loader:
-                    return data
+            return self._create_data_loader(
+                experiment_iterable_dataset_setup_parameters=experiment_iterable_dataset_setup_parameters,
+                return_data_as_iterator=return_data_as_iterator,
+            )
+
+        except FlightUnavailableError as e:
+            msg = str(e)
+            if "server concurrency limit reached" in msg.lower():
+                print(f"{msg}: switching to single Flight connection")
+
+                flight_parameters_single = dict(flight_parameters or {})
+                flight_parameters_single["num_partitions"] = 1
+
+                fallback_params = dict(experiment_iterable_dataset_setup_parameters)
+                fallback_params["flight_parameters"] = flight_parameters_single
+
+                return self._create_data_loader(
+                    experiment_iterable_dataset_setup_parameters=fallback_params,
+                    return_data_as_iterator=return_data_as_iterator,
+                )
             else:
-                return data_loader
+                raise e
+
         except TypeError as e1:
             # note: retry if there is problem with types:
             # try download data with  infer_as_varchar set to 'true' if some error occurs
             # final data downloaded and converted to proper types might has smaller size than sample_size_limit,
             # because data limit is calculated on data downloaded as varchar, before the conversion to more optimal type.
             try:
-                iterable_dataset = TabularIterableDataset(
-                    **experiment_iterable_dataset_setup_parameters,
-                    infer_as_varchar="true",
+                experiment_iterable_dataset_setup_parameters["infer_as_varchar"] = (
+                    "true"
                 )
-
-                data_loader = ExperimentDataLoader(dataset=iterable_dataset)
-
-                if not return_data_as_iterator:
-                    for data in data_loader:
-                        return data
-                else:
-                    return data_loader
+                return self._create_data_loader(
+                    experiment_iterable_dataset_setup_parameters=experiment_iterable_dataset_setup_parameters,
+                    return_data_as_iterator=return_data_as_iterator,
+                )
             except Exception as e2:
                 raise DataStreamError(
                     f"First attempt of downloading data failed with error: {e1}. \n"
@@ -1229,31 +1270,44 @@ class BaseDataConnection(ABC):
     def _upload_data_via_flight_service(
         self,
         data_location: "DataConnection",
-        data: DataFrame = None,
-        file_path: str = None,
-        remote_name: str = None,
-        flight_parameters: dict = None,
-        headers: dict = None,
+        data: DataFrame | None = None,
+        file_path: str | Path | None = None,
+        remote_name: str | None = None,
+        flight_parameters: dict | None = None,
+        headers: dict | None = None,
         binary: bool = False,
     ):
+        import pandas as pd
+
         is_lib_installed(lib_name="pyarrow", minimum_version="3.0.0", install=True)
 
         # import the class only if flight scenario is enabled - do not import it in main import section
         from ibm_watsonx_ai.data_loaders.datasets.experiment import (
             TabularIterableDataset,
         )
-        from ibm_watsonx_ai.helpers.connections import DatabaseLocation
+        from ibm_watsonx_ai.helpers.connections import (
+            ContainerLocation,
+            DatabaseLocation,
+            RemoteFileStorageLocation,
+            S3Location,
+        )
+
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
 
         if flight_parameters is None:
             flight_parameters = {"num_partitions": 1}
 
         dict_connection = data_location._to_dict()
 
+        if get_from_json(dict_connection, ["location", "container"]) == "":
+            dict_connection["location"].pop("container", None)
+
         if remote_name:
             dict_connection["location"]["path"] = self._get_path_with_remote_name(
                 dict_connection, remote_name
             )
-        elif dict_connection.get("location", {}).get("file_name"):
+        elif get_from_json(dict_connection, ["location", "file_name"]):
             dict_connection["location"]["path"] = dict_connection["location"][
                 "file_name"
             ]
@@ -1271,6 +1325,18 @@ class BaseDataConnection(ABC):
                 self._datasource_type
             )
             extra_interaction_properties = {"write_mode": write_mode}
+        elif isinstance(self.location, RemoteFileStorageLocation) and getattr(
+            self.location, "container", None
+        ):
+            extra_interaction_properties = {
+                "blob_type": "block",
+            }
+        elif isinstance(self.location, (ContainerLocation, S3Location)):
+            # remove leading backslashes
+            remote_path = get_from_json(dict_connection, ["location", "path"])
+            if isinstance(remote_path, str):
+                dict_connection["location"]["path"] = remote_path.lstrip("/")
+            extra_interaction_properties = {}
         else:
             extra_interaction_properties = {}
 
@@ -1300,8 +1366,12 @@ class BaseDataConnection(ABC):
                     raise e
 
         else:
-            if isinstance(self.location, DatabaseLocation) and not binary:
-                if ".csv" in file_path:
+            if (
+                isinstance(self.location, DatabaseLocation)
+                and not binary
+                and file_path is not None
+            ):
+                if file_path.suffix == ".csv":
                     df = pd.read_csv(file_path)
                     iterable_dataset.write(data=df)
                 else:
@@ -1335,7 +1405,7 @@ class BaseDataConnection(ABC):
             else:
                 asset_path = "/" + remote_name
         elif is_filename_location:
-            asset_path = "/" + location
+            asset_path = "/" + location.split("/assets/", maxsplit=1)[-1]
         elif data.raw.name:
             asset_path = "/" + data.raw.name
         else:
@@ -1351,7 +1421,7 @@ class BaseDataConnection(ABC):
             + asset_path
         )
 
-        response = requests.put(
+        response = self._api_client.httpx_client.put(
             content_upload_url,
             files={
                 "file": (
@@ -1382,10 +1452,10 @@ class BaseDataConnection(ABC):
 
     @staticmethod
     def _get_path_with_remote_name(dict_connection: dict, remote_name: str) -> str:
-        if dict_connection.get("location", {}).get("path"):
+        if get_from_json(dict_connection, ["location", "path"]):
             updated_path = dict_connection["location"]["path"] + "/" + remote_name
             updated_path = updated_path.replace("//", "/")
-        elif dict_connection.get("location", {}).get("file_name"):
+        elif get_from_json(dict_connection, ["location", "file_name"]):
             actual_path = dict_connection["location"]["file_name"]
             last_slash_index = actual_path.rfind("/") if "/" in actual_path else 0
 
@@ -1431,10 +1501,10 @@ class BaseDataConnection(ABC):
                 else self.location.href.split("/")
             )
             data_asset_id = items[-1].split("?")[0]
-            asset_size = (
-                self._api_client.data_assets.get_details(data_asset_id)
-                .get("metadata", {})
-                .get("size", 0)
+            asset_size = get_from_json(
+                self._api_client.data_assets.get_details(data_asset_id),
+                ["metadata", "size"],
+                0,
             )
 
             if asset_size == 0:  # data size unknown

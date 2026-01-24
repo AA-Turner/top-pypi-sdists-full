@@ -21,11 +21,18 @@
 
 """Simple Git LFS server implementation for testing."""
 
+__all__ = [
+    "LFSRequestHandler",
+    "LFSServer",
+    "run_lfs_server",
+]
+
 import hashlib
 import json
 import tempfile
+import typing
+from collections.abc import Mapping
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Optional
 
 from .lfs import LFSStore
 
@@ -35,7 +42,9 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
 
     server: "LFSServer"  # Type annotation for the server attribute
 
-    def send_json_response(self, status_code: int, data: dict) -> None:
+    def send_json_response(
+        self, status_code: int, data: Mapping[str, typing.Any]
+    ) -> None:
         """Send a JSON response."""
         response = json.dumps(data).encode("utf-8")
         self.send_response(status_code)
@@ -231,7 +240,7 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
         except KeyError:
             return False
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: object) -> None:
         """Override to suppress request logging during tests."""
         if self.server.log_requests:
             super().log_message(format, *args)
@@ -240,7 +249,19 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
 class LFSServer(HTTPServer):
     """Simple LFS server for testing."""
 
-    def __init__(self, server_address, lfs_store: LFSStore, log_requests: bool = False):
+    def __init__(
+        self,
+        server_address: tuple[str, int],
+        lfs_store: LFSStore,
+        log_requests: bool = False,
+    ) -> None:
+        """Initialize LFSServer.
+
+        Args:
+          server_address: Tuple of (host, port) to bind to
+          lfs_store: LFS store instance to use
+          log_requests: Whether to log incoming requests
+        """
         super().__init__(server_address, LFSRequestHandler)
         self.lfs_store = lfs_store
         self.log_requests = log_requests
@@ -249,7 +270,7 @@ class LFSServer(HTTPServer):
 def run_lfs_server(
     host: str = "localhost",
     port: int = 0,
-    lfs_dir: Optional[str] = None,
+    lfs_dir: str | None = None,
     log_requests: bool = False,
 ) -> tuple[LFSServer, str]:
     """Run an LFS server.

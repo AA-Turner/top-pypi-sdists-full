@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -16,6 +16,7 @@ from ibm_watsonx_ai.foundation_models.prompt_tuner import PromptTuner
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _is_fine_tuning_endpoint_available,
 )
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     WMLClientError,
@@ -88,7 +89,7 @@ class TuneRuns:
             if {"entity", "metadata"}.issubset(run.keys()):
                 timestamp = run["metadata"].get("modified_at")
                 run_id = run["metadata"].get("id", run["metadata"].get("guid"))
-                state = run["entity"].get("status", {}).get("state")
+                state = get_from_json(run, ["entity", "status", "state"])
                 tuning_name = run["entity"].get("name", "Unknown")
 
                 record = [timestamp, run_id, state, tuning_name]
@@ -100,7 +101,7 @@ class TuneRuns:
 
         if self._is_fine_tuning_endpoint_available:
             ft_runs_details = self.client.training.get_details(
-                get_all=True if self.tuning_name else False,
+                get_all=bool(self.tuning_name),
                 limit=None if self.tuning_name else self.limit,
                 _internal=True,
                 _is_fine_tuning=True,
@@ -123,7 +124,7 @@ class TuneRuns:
                 if {"entity", "metadata"}.issubset(run.keys()):
                     timestamp = run["metadata"].get("modified_at")
                     run_id = run["metadata"].get("id", run["metadata"].get("guid"))
-                    state = run["entity"].get("status", {}).get("state")
+                    state = get_from_json(run, ["entity", "status", "state"])
                     tuning_name = run["metadata"].get("name", "Unknown")
 
                     record = [timestamp, run_id, state, tuning_name]
@@ -152,7 +153,9 @@ class TuneRuns:
             from ibm_watsonx_ai.experiment import TuneExperiment
 
             experiment = TuneExperiment(credentials, ...)
-            historical_tuner = experiment.runs.get_tuner(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            historical_tuner = experiment.runs.get_tuner(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
         """
         # note: normal scenario
 
@@ -198,7 +201,7 @@ class TuneRuns:
                     name=entity.get("name"),
                     task_id=tuning_params.get("task_id"),
                     description=entity.get("description"),
-                    base_model=tuning_params.get("base_model", {}).get("name"),
+                    base_model=get_from_json(tuning_params, ["base_model", "name"]),
                     accumulate_steps=tuning_params.get("accumulate_steps"),
                     batch_size=tuning_params.get("batch_size"),
                     init_method=tuning_params.get("init_method"),
@@ -222,7 +225,7 @@ class TuneRuns:
                     name=tuning_details["metadata"].get("name"),
                     task_id=tuning_params.get("task_id"),
                     description=tuning_details["metadata"].get("description"),
-                    base_model=tuning_params.get("base_model", {}).get("model_id"),
+                    base_model=get_from_json(tuning_params, ["base_model", "model_id"]),
                     num_epochs=tuning_params.get("num_epochs"),
                     learning_rate=tuning_params.get("learning_rate"),
                     batch_size=tuning_params.get("batch_size"),
@@ -261,9 +264,12 @@ class TuneRuns:
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import TuneExperiment
+
             experiment = TuneExperiment(credentials, ...)
 
-            experiment.runs.get_run_details(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            experiment.runs.get_run_details(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
             experiment.runs.get_run_details()
         """
         if run_id is None:

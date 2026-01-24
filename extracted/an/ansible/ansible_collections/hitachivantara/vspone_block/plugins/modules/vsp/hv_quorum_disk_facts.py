@@ -45,6 +45,7 @@ options:
     suboptions:
       id:
         description: Quorum Disk ID, it will be auto-selected if omitted.
+          Required for the Get a specific quorum disk task.
         type: int
         required: false
 
@@ -72,7 +73,7 @@ ansible_facts:
       type: list
       elements: dict
       contains:
-        id:
+        quorum_disk_id:
           description: Quorum Disk ID.
           type: int
           sample: 1
@@ -80,6 +81,10 @@ ansible_facts:
           description: Local volume LDEV ID.
           type: int
           sample: 123
+        ldev_id_hex:
+          description: Local volume LDEV ID in Hexadecimal.
+          type: str
+          sample: "00:00:7B"
         read_response_guaranteed_time:
           description: Copy pace track size.
           type: int
@@ -153,10 +158,10 @@ class VSPQuorumDiskFactManager:
             data["user_consent_required"] = registration_message
         # self.logger.writeInfo(f"{data}")
         self.logger.writeInfo("=== End of Quorum Disk Facts ===")
-        self.module.exit_json(**data)
+        self.module.exit_json(changed=False, ansible_facts=data)
 
 
-def main(module=None):
+def main():
     obj_store = VSPQuorumDiskFactManager()
     obj_store.apply()
 

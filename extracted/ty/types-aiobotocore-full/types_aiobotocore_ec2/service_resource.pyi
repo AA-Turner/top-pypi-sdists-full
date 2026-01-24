@@ -3,7 +3,7 @@ Type annotations for ec2 service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -45,6 +45,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from datetime import datetime
 from typing import NoReturn
 
@@ -304,11 +305,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -421,7 +417,7 @@ class ServiceResourceClassicAddressesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[ClassicAddress]]:
+    ) -> AsyncIterator[list[ClassicAddress]]:
         """
         A generator which yields pages of ClassicAddresss.
 
@@ -495,7 +491,7 @@ class ServiceResourceDhcpOptionsSetsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[DhcpOptions]]:
+    ) -> AsyncIterator[list[DhcpOptions]]:
         """
         A generator which yields pages of DhcpOptionss.
 
@@ -573,7 +569,7 @@ class ServiceResourceImagesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Image]]:
+    ) -> AsyncIterator[list[Image]]:
         """
         A generator which yields pages of Images.
 
@@ -637,7 +633,7 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    async def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    async def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -655,7 +651,7 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
 
     async def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -670,7 +666,7 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -680,7 +676,7 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
 
     async def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -688,7 +684,7 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    async def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    async def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -714,7 +710,7 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Instance]]:
+    ) -> AsyncIterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -788,7 +784,7 @@ class ServiceResourceInternetGatewaysCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[InternetGateway]]:
+    ) -> AsyncIterator[list[InternetGateway]]:
         """
         A generator which yields pages of InternetGateways.
 
@@ -862,7 +858,7 @@ class ServiceResourceKeyPairsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[KeyPairInfo]]:
+    ) -> AsyncIterator[list[KeyPairInfo]]:
         """
         A generator which yields pages of KeyPairInfos.
 
@@ -936,7 +932,7 @@ class ServiceResourceNetworkAclsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[NetworkAcl]]:
+    ) -> AsyncIterator[list[NetworkAcl]]:
         """
         A generator which yields pages of NetworkAcls.
 
@@ -1010,7 +1006,7 @@ class ServiceResourceNetworkInterfacesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[NetworkInterface]]:
+    ) -> AsyncIterator[list[NetworkInterface]]:
         """
         A generator which yields pages of NetworkInterfaces.
 
@@ -1083,7 +1079,7 @@ class ServiceResourcePlacementGroupsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[PlacementGroup]]:
+    ) -> AsyncIterator[list[PlacementGroup]]:
         """
         A generator which yields pages of PlacementGroups.
 
@@ -1157,7 +1153,7 @@ class ServiceResourceRouteTablesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[RouteTable]]:
+    ) -> AsyncIterator[list[RouteTable]]:
         """
         A generator which yields pages of RouteTables.
 
@@ -1232,7 +1228,7 @@ class ServiceResourceSecurityGroupsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[SecurityGroup]]:
+    ) -> AsyncIterator[list[SecurityGroup]]:
         """
         A generator which yields pages of SecurityGroups.
 
@@ -1308,7 +1304,7 @@ class ServiceResourceSnapshotsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Snapshot]]:
+    ) -> AsyncIterator[list[Snapshot]]:
         """
         A generator which yields pages of Snapshots.
 
@@ -1382,7 +1378,7 @@ class ServiceResourceSubnetsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Subnet]]:
+    ) -> AsyncIterator[list[Subnet]]:
         """
         A generator which yields pages of Subnets.
 
@@ -1456,7 +1452,7 @@ class ServiceResourceVolumesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Volume]]:
+    ) -> AsyncIterator[list[Volume]]:
         """
         A generator which yields pages of Volumes.
 
@@ -1529,7 +1525,7 @@ class ServiceResourceVpcAddressesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[VpcAddress]]:
+    ) -> AsyncIterator[list[VpcAddress]]:
         """
         A generator which yields pages of VpcAddresss.
 
@@ -1603,7 +1599,7 @@ class ServiceResourceVpcPeeringConnectionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[VpcPeeringConnection]]:
+    ) -> AsyncIterator[list[VpcPeeringConnection]]:
         """
         A generator which yields pages of VpcPeeringConnections.
 
@@ -1677,7 +1673,7 @@ class ServiceResourceVpcsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Vpc]]:
+    ) -> AsyncIterator[list[Vpc]]:
         """
         A generator which yields pages of Vpcs.
 
@@ -1751,7 +1747,7 @@ class InstanceVolumesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Volume]]:
+    ) -> AsyncIterator[list[Volume]]:
         """
         A generator which yields pages of Volumes.
 
@@ -1824,7 +1820,7 @@ class InstanceVpcAddressesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[VpcAddress]]:
+    ) -> AsyncIterator[list[VpcAddress]]:
         """
         A generator which yields pages of VpcAddresss.
 
@@ -1888,7 +1884,7 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#placementgroupinstances)
         """
 
-    async def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    async def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1906,7 +1902,7 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
 
     async def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1921,7 +1917,7 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1931,7 +1927,7 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
 
     async def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1939,7 +1935,7 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#placementgroupinstances)
         """
 
-    async def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    async def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1965,7 +1961,7 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Instance]]:
+    ) -> AsyncIterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -2029,7 +2025,7 @@ class SubnetInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#subnetinstances)
         """
 
-    async def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    async def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2047,7 +2043,7 @@ class SubnetInstancesCollection(AIOResourceCollection):
 
     async def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2062,7 +2058,7 @@ class SubnetInstancesCollection(AIOResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2072,7 +2068,7 @@ class SubnetInstancesCollection(AIOResourceCollection):
 
     async def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2080,7 +2076,7 @@ class SubnetInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#subnetinstances)
         """
 
-    async def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    async def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2106,7 +2102,7 @@ class SubnetInstancesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Instance]]:
+    ) -> AsyncIterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -2180,7 +2176,7 @@ class SubnetNetworkInterfacesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[NetworkInterface]]:
+    ) -> AsyncIterator[list[NetworkInterface]]:
         """
         A generator which yields pages of NetworkInterfaces.
 
@@ -2256,7 +2252,7 @@ class VolumeSnapshotsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Snapshot]]:
+    ) -> AsyncIterator[list[Snapshot]]:
         """
         A generator which yields pages of Snapshots.
 
@@ -2330,7 +2326,7 @@ class VpcAcceptedVpcPeeringConnectionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[VpcPeeringConnection]]:
+    ) -> AsyncIterator[list[VpcPeeringConnection]]:
         """
         A generator which yields pages of VpcPeeringConnections.
 
@@ -2394,7 +2390,7 @@ class VpcInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#vpcinstances)
         """
 
-    async def monitor(self, *, DryRun: bool = ...) -> List[MonitorInstancesResultTypeDef]:
+    async def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2412,7 +2408,7 @@ class VpcInstancesCollection(AIOResourceCollection):
 
     async def start(
         self, *, AdditionalInfo: str = ..., DryRun: bool = ...
-    ) -> List[StartInstancesResultTypeDef]:
+    ) -> list[StartInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2427,7 +2423,7 @@ class VpcInstancesCollection(AIOResourceCollection):
         SkipOsShutdown: bool = ...,
         DryRun: bool = ...,
         Force: bool = ...,
-    ) -> List[StopInstancesResultTypeDef]:
+    ) -> list[StopInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2437,7 +2433,7 @@ class VpcInstancesCollection(AIOResourceCollection):
 
     async def terminate(
         self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
-    ) -> List[TerminateInstancesResultTypeDef]:
+    ) -> list[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2445,7 +2441,7 @@ class VpcInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#vpcinstances)
         """
 
-    async def unmonitor(self, *, DryRun: bool = ...) -> List[UnmonitorInstancesResultTypeDef]:
+    async def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2471,7 +2467,7 @@ class VpcInstancesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Instance]]:
+    ) -> AsyncIterator[list[Instance]]:
         """
         A generator which yields pages of Instances.
 
@@ -2545,7 +2541,7 @@ class VpcInternetGatewaysCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[InternetGateway]]:
+    ) -> AsyncIterator[list[InternetGateway]]:
         """
         A generator which yields pages of InternetGateways.
 
@@ -2619,7 +2615,7 @@ class VpcNetworkAclsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[NetworkAcl]]:
+    ) -> AsyncIterator[list[NetworkAcl]]:
         """
         A generator which yields pages of NetworkAcls.
 
@@ -2693,7 +2689,7 @@ class VpcNetworkInterfacesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[NetworkInterface]]:
+    ) -> AsyncIterator[list[NetworkInterface]]:
         """
         A generator which yields pages of NetworkInterfaces.
 
@@ -2767,7 +2763,7 @@ class VpcRequestedVpcPeeringConnectionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[VpcPeeringConnection]]:
+    ) -> AsyncIterator[list[VpcPeeringConnection]]:
         """
         A generator which yields pages of VpcPeeringConnections.
 
@@ -2841,7 +2837,7 @@ class VpcRouteTablesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[RouteTable]]:
+    ) -> AsyncIterator[list[RouteTable]]:
         """
         A generator which yields pages of RouteTables.
 
@@ -2916,7 +2912,7 @@ class VpcSecurityGroupsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[SecurityGroup]]:
+    ) -> AsyncIterator[list[SecurityGroup]]:
         """
         A generator which yields pages of SecurityGroups.
 
@@ -2990,7 +2986,7 @@ class VpcSubnetsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Subnet]]:
+    ) -> AsyncIterator[list[Subnet]]:
         """
         A generator which yields pages of Subnets.
 
@@ -3027,7 +3023,7 @@ class ClassicAddress(AIOBoto3ServiceResource):
     network_interface_id: Awaitable[str]
     network_interface_owner_id: Awaitable[str]
     private_ip_address: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     public_ipv4_pool: Awaitable[str]
     network_border_group: Awaitable[str]
     customer_owned_ip: Awaitable[str]
@@ -3100,9 +3096,9 @@ class DhcpOptions(AIOBoto3ServiceResource):
 
     id: str
     owner_id: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     dhcp_options_id: Awaitable[str]
-    dhcp_configurations: Awaitable[List[DhcpConfigurationTypeDef]]
+    dhcp_configurations: Awaitable[list[DhcpConfigurationTypeDef]]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -3166,7 +3162,7 @@ class Image(AIOBoto3ServiceResource):
     id: str
     platform_details: Awaitable[str]
     usage_operation: Awaitable[str]
-    block_device_mappings: Awaitable[List[BlockDeviceMappingTypeDef]]
+    block_device_mappings: Awaitable[list[BlockDeviceMappingTypeDef]]
     description: Awaitable[str]
     ena_support: Awaitable[bool]
     hypervisor: Awaitable[HypervisorTypeType]
@@ -3176,7 +3172,7 @@ class Image(AIOBoto3ServiceResource):
     root_device_type: Awaitable[DeviceTypeType]
     sriov_net_support: Awaitable[str]
     state_reason: Awaitable[StateReasonTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     virtualization_type: Awaitable[VirtualizationTypeType]
     boot_mode: Awaitable[BootModeValuesType]
     tpm_support: Awaitable[Literal["v2.0"]]
@@ -3195,7 +3191,7 @@ class Image(AIOBoto3ServiceResource):
     owner_id: Awaitable[str]
     creation_date: Awaitable[str]
     public: Awaitable[bool]
-    product_codes: Awaitable[List[ProductCodeTypeDef]]
+    product_codes: Awaitable[list[ProductCodeTypeDef]]
     architecture: Awaitable[ArchitectureValuesType]
     image_type: Awaitable[ImageTypeValuesType]
     kernel_id: Awaitable[str]
@@ -3292,41 +3288,41 @@ class Instance(AIOBoto3ServiceResource):
     classic_address: ClassicAddress
     image: Image
     key_pair: KeyPairInfo
-    network_interfaces: List[NetworkInterface]
+    network_interfaces: list[NetworkInterface]
     placement_group: PlacementGroup
     subnet: Subnet
     vpc: Vpc
     volumes: InstanceVolumesCollection
     vpc_addresses: InstanceVpcAddressesCollection
     architecture: Awaitable[ArchitectureValuesType]
-    block_device_mappings: Awaitable[List[InstanceBlockDeviceMappingTypeDef]]
+    block_device_mappings: Awaitable[list[InstanceBlockDeviceMappingTypeDef]]
     client_token: Awaitable[str]
     ebs_optimized: Awaitable[bool]
     ena_support: Awaitable[bool]
     hypervisor: Awaitable[HypervisorTypeType]
     iam_instance_profile: Awaitable[IamInstanceProfileTypeDef]
     instance_lifecycle: Awaitable[InstanceLifecycleTypeType]
-    elastic_gpu_associations: Awaitable[List[ElasticGpuAssociationTypeDef]]
+    elastic_gpu_associations: Awaitable[list[ElasticGpuAssociationTypeDef]]
     elastic_inference_accelerator_associations: Awaitable[
-        List[ElasticInferenceAcceleratorAssociationTypeDef]
+        list[ElasticInferenceAcceleratorAssociationTypeDef]
     ]
-    network_interfaces_attribute: Awaitable[List[InstanceNetworkInterfaceTypeDef]]
+    network_interfaces_attribute: Awaitable[list[InstanceNetworkInterfaceTypeDef]]
     outpost_arn: Awaitable[str]
     root_device_name: Awaitable[str]
     root_device_type: Awaitable[DeviceTypeType]
-    security_groups: Awaitable[List[GroupIdentifierTypeDef]]
+    security_groups: Awaitable[list[GroupIdentifierTypeDef]]
     source_dest_check: Awaitable[bool]
     spot_instance_request_id: Awaitable[str]
     sriov_net_support: Awaitable[str]
     state_reason: Awaitable[StateReasonTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     virtualization_type: Awaitable[VirtualizationTypeType]
     cpu_options: Awaitable[CpuOptionsTypeDef]
     capacity_block_id: Awaitable[str]
     capacity_reservation_id: Awaitable[str]
     capacity_reservation_specification: Awaitable[CapacityReservationSpecificationResponseTypeDef]
     hibernation_options: Awaitable[HibernationOptionsTypeDef]
-    licenses: Awaitable[List[LicenseConfigurationTypeDef]]
+    licenses: Awaitable[list[LicenseConfigurationTypeDef]]
     metadata_options: Awaitable[InstanceMetadataOptionsResponseTypeDef]
     enclave_options: Awaitable[EnclaveOptionsTypeDef]
     boot_mode: Awaitable[BootModeValuesType]
@@ -3348,7 +3344,7 @@ class Instance(AIOBoto3ServiceResource):
     state_transition_reason: Awaitable[str]
     key_name: Awaitable[str]
     ami_launch_index: Awaitable[int]
-    product_codes: Awaitable[List[ProductCodeTypeDef]]
+    product_codes: Awaitable[list[ProductCodeTypeDef]]
     instance_type: Awaitable[InstanceTypeType]
     launch_time: Awaitable[datetime]
     placement: Awaitable[PlacementTypeDef]
@@ -3563,7 +3559,7 @@ class Instance(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[TerminateInstancesRequestInstanceTerminateTypeDef]
     ) -> TerminateInstancesResultTypeDef:
         """
-        Shuts down the specified instances.
+        Terminates (deletes) the specified instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/instance/terminate.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#instanceterminate-method)
@@ -3640,10 +3636,10 @@ class InternetGateway(AIOBoto3ServiceResource):
     """
 
     id: str
-    attachments: Awaitable[List[InternetGatewayAttachmentTypeDef]]
+    attachments: Awaitable[list[InternetGatewayAttachmentTypeDef]]
     internet_gateway_id: Awaitable[str]
     owner_id: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -3717,7 +3713,7 @@ class KeyPair(AIOBoto3ServiceResource):
 
     name: str
     key_pair_id: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     key_name: Awaitable[str]
     key_fingerprint: Awaitable[str]
     key_material: Awaitable[str]
@@ -3752,7 +3748,7 @@ class KeyPairInfo(AIOBoto3ServiceResource):
     name: str
     key_pair_id: Awaitable[str]
     key_type: Awaitable[KeyTypeType]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     public_key: Awaitable[str]
     create_time: Awaitable[datetime]
     key_name: Awaitable[str]
@@ -3799,11 +3795,11 @@ class NetworkAcl(AIOBoto3ServiceResource):
 
     id: str
     vpc: Vpc
-    associations: Awaitable[List[NetworkAclAssociationTypeDef]]
-    entries: Awaitable[List[NetworkAclEntryTypeDef]]
+    associations: Awaitable[list[NetworkAclAssociationTypeDef]]
+    entries: Awaitable[list[NetworkAclEntryTypeDef]]
     is_default: Awaitable[bool]
     network_acl_id: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     vpc_id: Awaitable[str]
     owner_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -3906,9 +3902,9 @@ class NetworkInterface(AIOBoto3ServiceResource):
     availability_zone: Awaitable[str]
     connection_tracking_configuration: Awaitable[ConnectionTrackingConfigurationTypeDef]
     description: Awaitable[str]
-    groups: Awaitable[List[GroupIdentifierTypeDef]]
+    groups: Awaitable[list[GroupIdentifierTypeDef]]
     interface_type: Awaitable[NetworkInterfaceTypeType]
-    ipv6_addresses: Awaitable[List[NetworkInterfaceIpv6AddressTypeDef]]
+    ipv6_addresses: Awaitable[list[NetworkInterfaceIpv6AddressTypeDef]]
     mac_address: Awaitable[str]
     network_interface_id: Awaitable[str]
     outpost_arn: Awaitable[str]
@@ -3917,21 +3913,22 @@ class NetworkInterface(AIOBoto3ServiceResource):
     public_dns_name: Awaitable[str]
     public_ip_dns_name_options: Awaitable[PublicIpDnsNameOptionsTypeDef]
     private_ip_address: Awaitable[str]
-    private_ip_addresses: Awaitable[List[NetworkInterfacePrivateIpAddressTypeDef]]
-    ipv4_prefixes: Awaitable[List[Ipv4PrefixSpecificationTypeDef]]
-    ipv6_prefixes: Awaitable[List[Ipv6PrefixSpecificationTypeDef]]
+    private_ip_addresses: Awaitable[list[NetworkInterfacePrivateIpAddressTypeDef]]
+    ipv4_prefixes: Awaitable[list[Ipv4PrefixSpecificationTypeDef]]
+    ipv6_prefixes: Awaitable[list[Ipv6PrefixSpecificationTypeDef]]
     requester_id: Awaitable[str]
     requester_managed: Awaitable[bool]
     source_dest_check: Awaitable[bool]
     status: Awaitable[NetworkInterfaceStatusType]
     subnet_id: Awaitable[str]
-    tag_set: Awaitable[List[TagTypeDef]]
+    tag_set: Awaitable[list[TagTypeDef]]
     vpc_id: Awaitable[str]
     deny_all_igw_traffic: Awaitable[bool]
     ipv6_native: Awaitable[bool]
     ipv6_address: Awaitable[str]
     operator: Awaitable[OperatorResponseTypeDef]
-    associated_subnets: Awaitable[List[str]]
+    associated_subnets: Awaitable[list[str]]
+    availability_zone_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -4124,9 +4121,10 @@ class PlacementGroup(AIOBoto3ServiceResource):
     strategy: Awaitable[PlacementStrategyType]
     partition_count: Awaitable[int]
     group_id: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     group_arn: Awaitable[str]
     spread_level: Awaitable[SpreadLevelType]
+    linked_group_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -4229,14 +4227,14 @@ class RouteTable(AIOBoto3ServiceResource):
     """
 
     id: str
-    associations: List[RouteTableAssociation]
-    routes: List[Route]
+    associations: list[RouteTableAssociation]
+    routes: list[Route]
     vpc: Vpc
-    associations_attribute: Awaitable[List[RouteTableAssociationTypeDef]]
-    propagating_vgws: Awaitable[List[PropagatingVgwTypeDef]]
+    associations_attribute: Awaitable[list[RouteTableAssociationTypeDef]]
+    propagating_vgws: Awaitable[list[PropagatingVgwTypeDef]]
     route_table_id: Awaitable[str]
-    routes_attribute: Awaitable[List[RouteTypeDef]]
-    tags: Awaitable[List[TagTypeDef]]
+    routes_attribute: Awaitable[list[RouteTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     vpc_id: Awaitable[str]
     owner_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -4364,14 +4362,14 @@ class SecurityGroup(AIOBoto3ServiceResource):
 
     id: str
     group_id: Awaitable[str]
-    ip_permissions_egress: Awaitable[List[IpPermissionOutputTypeDef]]
-    tags: Awaitable[List[TagTypeDef]]
+    ip_permissions_egress: Awaitable[list[IpPermissionOutputTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     vpc_id: Awaitable[str]
     security_group_arn: Awaitable[str]
     owner_id: Awaitable[str]
     group_name: Awaitable[str]
     description: Awaitable[str]
-    ip_permissions: Awaitable[List[IpPermissionOutputTypeDef]]
+    ip_permissions: Awaitable[list[IpPermissionOutputTypeDef]]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -4467,7 +4465,7 @@ class Snapshot(AIOBoto3ServiceResource):
     volume: Volume
     owner_alias: Awaitable[str]
     outpost_arn: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     storage_tier: Awaitable[StorageTierType]
     restore_expiry_time: Awaitable[datetime]
     sse_type: Awaitable[SSETypeType]
@@ -4502,7 +4500,7 @@ class Snapshot(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CopySnapshotRequestSnapshotCopyTypeDef]
     ) -> CopySnapshotResultTypeDef:
         """
-        Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3.
+        Creates an exact copy of an Amazon EBS snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/snapshot/copy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#snapshotcopy-method)
@@ -4593,8 +4591,8 @@ class Subnet(AIOBoto3ServiceResource):
     customer_owned_ipv4_pool: Awaitable[str]
     owner_id: Awaitable[str]
     assign_ipv6_address_on_creation: Awaitable[bool]
-    ipv6_cidr_block_association_set: Awaitable[List[SubnetIpv6CidrBlockAssociationTypeDef]]
-    tags: Awaitable[List[TagTypeDef]]
+    ipv6_cidr_block_association_set: Awaitable[list[SubnetIpv6CidrBlockAssociationTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     subnet_arn: Awaitable[str]
     outpost_arn: Awaitable[str]
     enable_dns64: Awaitable[bool]
@@ -4622,7 +4620,7 @@ class Subnet(AIOBoto3ServiceResource):
 
     async def create_instances(
         self, **kwargs: Unpack[RunInstancesRequestSubnetCreateInstancesTypeDef]
-    ) -> List[_Instance]:
+    ) -> list[_Instance]:
         """
         Launches the specified number of instances using an AMI for which you have
         permissions.
@@ -4724,8 +4722,9 @@ class Volume(AIOBoto3ServiceResource):
     snapshots: VolumeSnapshotsCollection
     availability_zone_id: Awaitable[str]
     outpost_arn: Awaitable[str]
+    source_volume_id: Awaitable[str]
     iops: Awaitable[int]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     volume_type: Awaitable[VolumeTypeType]
     fast_restored: Awaitable[bool]
     multi_attach_enabled: Awaitable[bool]
@@ -4739,7 +4738,7 @@ class Volume(AIOBoto3ServiceResource):
     availability_zone: Awaitable[str]
     state: Awaitable[VolumeStateType]
     create_time: Awaitable[datetime]
-    attachments: Awaitable[List[VolumeAttachmentTypeDef]]
+    attachments: Awaitable[list[VolumeAttachmentTypeDef]]
     encrypted: Awaitable[bool]
     kms_key_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -4872,11 +4871,11 @@ class Vpc(AIOBoto3ServiceResource):
     subnets: VpcSubnetsCollection
     owner_id: Awaitable[str]
     instance_tenancy: Awaitable[TenancyType]
-    ipv6_cidr_block_association_set: Awaitable[List[VpcIpv6CidrBlockAssociationTypeDef]]
-    cidr_block_association_set: Awaitable[List[VpcCidrBlockAssociationTypeDef]]
+    ipv6_cidr_block_association_set: Awaitable[list[VpcIpv6CidrBlockAssociationTypeDef]]
+    cidr_block_association_set: Awaitable[list[VpcCidrBlockAssociationTypeDef]]
     is_default: Awaitable[bool]
     encryption_control: Awaitable[VpcEncryptionControlTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     block_public_access_states: Awaitable[BlockPublicAccessStatesTypeDef]
     vpc_id: Awaitable[str]
     state: Awaitable[VpcStateType]
@@ -5097,7 +5096,7 @@ class VpcPeeringConnection(AIOBoto3ServiceResource):
     expiration_time: Awaitable[datetime]
     requester_vpc_info: Awaitable[VpcPeeringConnectionVpcInfoTypeDef]
     status: Awaitable[VpcPeeringConnectionStateReasonTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     vpc_peering_connection_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
 
@@ -5174,7 +5173,7 @@ class VpcAddress(AIOBoto3ServiceResource):
     network_interface_id: Awaitable[str]
     network_interface_owner_id: Awaitable[str]
     private_ip_address: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     public_ipv4_pool: Awaitable[str]
     network_border_group: Awaitable[str]
     customer_owned_ip: Awaitable[str]
@@ -5277,7 +5276,7 @@ class EC2ServiceResource(AIOBoto3ServiceResource):
 
     async def create_instances(
         self, **kwargs: Unpack[RunInstancesRequestServiceResourceCreateInstancesTypeDef]
-    ) -> List[_Instance]:
+    ) -> list[_Instance]:
         """
         Launches the specified number of instances using an AMI for which you have
         permissions.

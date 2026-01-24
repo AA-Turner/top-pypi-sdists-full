@@ -5,4 +5,4 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.base_tuner import BaseTuner
+from keras_tuner.src.engine.base_tuner import BaseTuner as BaseTuner

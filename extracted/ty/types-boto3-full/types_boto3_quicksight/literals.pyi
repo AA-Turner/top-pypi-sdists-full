@@ -3,14 +3,14 @@ Type annotations for quicksight service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_boto3_quicksight.literals import AggTypeType
+    from types_boto3_quicksight.literals import ActionConnectorErrorTypeType
 
-    data: AggTypeType = "AVERAGE"
+    data: ActionConnectorErrorTypeType = "INTERNAL_FAILURE"
     ```
 """
 
@@ -22,6 +22,9 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ActionConnectorErrorTypeType",
+    "ActionConnectorSearchFilterNameEnumType",
+    "ActionConnectorTypeType",
     "AggTypeType",
     "AnalysisErrorTypeType",
     "AnalysisFilterAttributeType",
@@ -47,6 +50,7 @@ __all__ = (
     "AuthenticationMethodOptionType",
     "AuthenticationTypeType",
     "AuthorSpecifiedAggregationType",
+    "AuthorizationCodeGrantCredentialsSourceType",
     "AxisBindingType",
     "BarChartOrientationType",
     "BarsArrangementType",
@@ -60,6 +64,7 @@ __all__ = (
     "CategoryFilterMatchOperatorType",
     "CategoryFilterSelectAllOptionsType",
     "CategoryFilterTypeType",
+    "ClientCredentialsSourceType",
     "ColorFillTypeType",
     "ColumnDataRoleType",
     "ColumnDataSubTypeType",
@@ -72,6 +77,7 @@ __all__ = (
     "ComparisonMethodTypeType",
     "ConditionalFormattingIconDisplayOptionType",
     "ConditionalFormattingIconSetTypeType",
+    "ConnectionAuthTypeType",
     "ConstantTypeType",
     "ContributionAnalysisDirectionType",
     "ContributionAnalysisSortTypeType",
@@ -79,6 +85,7 @@ __all__ = (
     "CustomContentImageScalingConfigurationType",
     "CustomContentTypeType",
     "DashboardBehaviorType",
+    "DashboardCustomizationStatusType",
     "DashboardErrorTypeType",
     "DashboardFilterAttributeType",
     "DashboardUIStateType",
@@ -86,8 +93,13 @@ __all__ = (
     "DataLabelContentType",
     "DataLabelOverlapType",
     "DataLabelPositionType",
+    "DataPrepSimpleAggregationFunctionTypeType",
+    "DataSetDateComparisonFilterOperatorType",
     "DataSetFilterAttributeType",
     "DataSetImportModeType",
+    "DataSetNumericComparisonFilterOperatorType",
+    "DataSetStringComparisonFilterOperatorType",
+    "DataSetStringListFilterOperatorType",
     "DataSetUseAsType",
     "DataSourceErrorInfoTypeType",
     "DataSourceFilterAttributeType",
@@ -96,6 +108,8 @@ __all__ = (
     "DateAggregationFunctionType",
     "DayOfTheWeekType",
     "DayOfWeekType",
+    "DecalPatternTypeType",
+    "DecalStyleTypeType",
     "DefaultAggregationType",
     "DescribeFolderPermissionsPaginatorName",
     "DescribeFolderResolvedPermissionsPaginatorName",
@@ -103,11 +117,13 @@ __all__ = (
     "DisplayFormatType",
     "EditionType",
     "EmbeddingIdentityTypeType",
+    "FieldNameType",
     "FileFormatType",
     "FilterClassType",
     "FilterNullOptionType",
     "FilterOperatorType",
     "FilterVisualScopeType",
+    "FlowPublishStateType",
     "FolderFilterAttributeType",
     "FolderTypeType",
     "FontDecorationType",
@@ -139,6 +155,7 @@ __all__ = (
     "IngestionStatusType",
     "IngestionTypeType",
     "InputColumnDataTypeType",
+    "JoinOperationTypeType",
     "JoinTypeType",
     "KPISparklineTypeType",
     "KPIVisualStandardLayoutTypeType",
@@ -149,6 +166,7 @@ __all__ = (
     "LineChartMarkerShapeType",
     "LineChartTypeType",
     "LineInterpolationType",
+    "ListActionConnectorsPaginatorName",
     "ListAnalysesPaginatorName",
     "ListAssetBundleExportJobsPaginatorName",
     "ListAssetBundleImportJobsPaginatorName",
@@ -158,6 +176,7 @@ __all__ = (
     "ListDashboardsPaginatorName",
     "ListDataSetsPaginatorName",
     "ListDataSourcesPaginatorName",
+    "ListFlowsPaginatorName",
     "ListFolderMembersPaginatorName",
     "ListFoldersForResourcePaginatorName",
     "ListFoldersPaginatorName",
@@ -236,10 +255,13 @@ __all__ = (
     "RoleType",
     "RowLevelPermissionFormatVersionType",
     "RowLevelPermissionPolicyType",
+    "SearchActionConnectorsPaginatorName",
     "SearchAnalysesPaginatorName",
     "SearchDashboardsPaginatorName",
     "SearchDataSetsPaginatorName",
     "SearchDataSourcesPaginatorName",
+    "SearchFilterOperatorType",
+    "SearchFlowsPaginatorName",
     "SearchFoldersPaginatorName",
     "SearchGroupsPaginatorName",
     "SearchTopicsPaginatorName",
@@ -247,6 +269,9 @@ __all__ = (
     "SelectAllValueOptionsType",
     "SelectedFieldOptionsType",
     "SelectedTooltipTypeType",
+    "SelfUpgradeAdminActionType",
+    "SelfUpgradeRequestStatusType",
+    "SelfUpgradeStatusType",
     "ServiceName",
     "ServiceTypeType",
     "SharingModelType",
@@ -255,6 +280,7 @@ __all__ = (
     "SheetControlListTypeType",
     "SheetControlSliderTypeType",
     "SheetImageScalingTypeType",
+    "SheetLayoutGroupMemberTypeType",
     "SimpleAttributeAggregationFunctionType",
     "SimpleNumericalAggregationFunctionType",
     "SimpleTotalAggregationFunctionType",
@@ -278,6 +304,7 @@ __all__ = (
     "TargetVisualOptionsType",
     "TemplateErrorTypeType",
     "TextQualifierType",
+    "TextTransformType",
     "TextWrapType",
     "ThemeErrorTypeType",
     "ThemeTypeType",
@@ -310,6 +337,7 @@ __all__ = (
     "VisualCustomActionTriggerType",
     "VisualHighlightTriggerType",
     "VisualRoleType",
+    "WebCrawlerAuthTypeType",
     "WidgetStatusType",
     "WordCloudCloudLayoutType",
     "WordCloudWordCasingType",
@@ -318,6 +346,45 @@ __all__ = (
     "WordCloudWordScalingType",
 )
 
+ActionConnectorErrorTypeType = Literal["INTERNAL_FAILURE"]
+ActionConnectorSearchFilterNameEnumType = Literal[
+    "ACTION_CONNECTOR_NAME",
+    "ACTION_CONNECTOR_TYPE",
+    "DIRECT_QUICKSIGHT_OWNER",
+    "DIRECT_QUICKSIGHT_SOLE_OWNER",
+    "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",
+    "QUICKSIGHT_OWNER",
+    "QUICKSIGHT_VIEWER_OR_OWNER",
+]
+ActionConnectorTypeType = Literal[
+    "AMAZON_BEDROCK_AGENT_RUNTIME",
+    "AMAZON_BEDROCK_DATA_AUTOMATION_RUNTIME",
+    "AMAZON_BEDROCK_RUNTIME",
+    "AMAZON_COMPREHEND",
+    "AMAZON_COMPREHEND_MEDICAL",
+    "AMAZON_S3",
+    "AMAZON_TEXTRACT",
+    "ASANA",
+    "ATLASSIAN_CONFLUENCE",
+    "BAMBOO_HR",
+    "GENERIC_HTTP",
+    "JIRA_CLOUD",
+    "MICROSOFT_ONEDRIVE",
+    "MICROSOFT_OUTLOOK",
+    "MICROSOFT_SHAREPOINT",
+    "MICROSOFT_TEAMS",
+    "PAGERDUTY_ADVANCE",
+    "SALESFORCE_CRM",
+    "SAP_BILLOFMATERIALS",
+    "SAP_BUSINESSPARTNER",
+    "SAP_MATERIALSTOCK",
+    "SAP_PHYSICALINVENTORY",
+    "SAP_PRODUCTMASTERDATA",
+    "SERVICENOW_NOW_PLATFORM",
+    "SLACK",
+    "SMARTSHEET",
+    "ZENDESK_SUITE",
+]
 AggTypeType = Literal[
     "AVERAGE",
     "COLUMN",
@@ -429,6 +496,7 @@ AuthorSpecifiedAggregationType = Literal[
     "VAR",
     "VARP",
 ]
+AuthorizationCodeGrantCredentialsSourceType = Literal["PLAIN_CREDENTIALS"]
 AxisBindingType = Literal["PRIMARY_YAXIS", "SECONDARY_YAXIS"]
 BarChartOrientationType = Literal["HORIZONTAL", "VERTICAL"]
 BarsArrangementType = Literal["CLUSTERED", "STACKED", "STACKED_PERCENT"]
@@ -446,6 +514,7 @@ CategoryFilterMatchOperatorType = Literal[
 ]
 CategoryFilterSelectAllOptionsType = Literal["FILTER_ALL_VALUES"]
 CategoryFilterTypeType = Literal["CUSTOM_FILTER", "CUSTOM_FILTER_LIST", "FILTER_LIST"]
+ClientCredentialsSourceType = Literal["PLAIN_CREDENTIALS"]
 ColorFillTypeType = Literal["DISCRETE", "GRADIENT"]
 ColumnDataRoleType = Literal["DIMENSION", "MEASURE"]
 ColumnDataSubTypeType = Literal["FIXED", "FLOAT"]
@@ -481,6 +550,9 @@ ConditionalFormattingIconSetTypeType = Literal[
     "THREE_GRAY_ARROW",
     "THREE_SHAPE",
 ]
+ConnectionAuthTypeType = Literal[
+    "API_KEY", "BASIC", "IAM", "NONE", "OAUTH2_AUTHORIZATION_CODE", "OAUTH2_CLIENT_CREDENTIALS"
+]
 ConstantTypeType = Literal["COLLECTIVE", "RANGE", "SINGULAR"]
 ContributionAnalysisDirectionType = Literal["DECREASE", "INCREASE", "NEUTRAL"]
 ContributionAnalysisSortTypeType = Literal[
@@ -495,6 +567,7 @@ CustomContentImageScalingConfigurationType = Literal[
 ]
 CustomContentTypeType = Literal["IMAGE", "OTHER_EMBEDDED_CONTENT"]
 DashboardBehaviorType = Literal["DISABLED", "ENABLED"]
+DashboardCustomizationStatusType = Literal["DISABLED", "ENABLED"]
 DashboardErrorTypeType = Literal[
     "ACCESS_DENIED",
     "COLUMN_GEOGRAPHIC_ROLE_MISMATCH",
@@ -521,6 +594,12 @@ DashboardsQAStatusType = Literal["DISABLED", "ENABLED"]
 DataLabelContentType = Literal["PERCENT", "VALUE", "VALUE_AND_PERCENT"]
 DataLabelOverlapType = Literal["DISABLE_OVERLAP", "ENABLE_OVERLAP"]
 DataLabelPositionType = Literal["BOTTOM", "INSIDE", "LEFT", "OUTSIDE", "RIGHT", "TOP"]
+DataPrepSimpleAggregationFunctionTypeType = Literal[
+    "AVERAGE", "COUNT", "DISTINCT_COUNT", "MAX", "MIN", "SUM"
+]
+DataSetDateComparisonFilterOperatorType = Literal[
+    "AFTER", "AFTER_OR_EQUALS_TO", "BEFORE", "BEFORE_OR_EQUALS_TO"
+]
 DataSetFilterAttributeType = Literal[
     "DATASET_NAME",
     "DIRECT_QUICKSIGHT_OWNER",
@@ -530,6 +609,18 @@ DataSetFilterAttributeType = Literal[
     "QUICKSIGHT_VIEWER_OR_OWNER",
 ]
 DataSetImportModeType = Literal["DIRECT_QUERY", "SPICE"]
+DataSetNumericComparisonFilterOperatorType = Literal[
+    "DOES_NOT_EQUAL",
+    "EQUALS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUALS_TO",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUALS_TO",
+]
+DataSetStringComparisonFilterOperatorType = Literal[
+    "CONTAINS", "DOES_NOT_CONTAIN", "DOES_NOT_EQUAL", "ENDS_WITH", "EQUALS", "STARTS_WITH"
+]
+DataSetStringListFilterOperatorType = Literal["EXCLUDE", "INCLUDE"]
 DataSetUseAsType = Literal["RLS_RULES"]
 DataSourceErrorInfoTypeType = Literal[
     "ACCESS_DENIED",
@@ -556,20 +647,26 @@ DataSourceTypeType = Literal[
     "AURORA_POSTGRESQL",
     "AWS_IOT_ANALYTICS",
     "BIGQUERY",
+    "CONFLUENCE",
     "DATABRICKS",
     "EXASOL",
     "GITHUB",
     "GOOGLESHEETS",
+    "GOOGLE_DRIVE",
     "JIRA",
     "MARIADB",
     "MYSQL",
+    "ONE_DRIVE",
     "ORACLE",
     "POSTGRESQL",
     "PRESTO",
+    "QBUSINESS",
     "REDSHIFT",
     "S3",
+    "S3_KNOWLEDGE_BASE",
     "SALESFORCE",
     "SERVICENOW",
+    "SHAREPOINT",
     "SNOWFLAKE",
     "SPARK",
     "SQLSERVER",
@@ -578,6 +675,7 @@ DataSourceTypeType = Literal[
     "TIMESTREAM",
     "TRINO",
     "TWITTER",
+    "WEB_CRAWLER",
 ]
 DatasetParameterValueTypeType = Literal["MULTI_VALUED", "SINGLE_VALUED"]
 DateAggregationFunctionType = Literal["COUNT", "DISTINCT_COUNT", "MAX", "MIN"]
@@ -587,6 +685,31 @@ DayOfTheWeekType = Literal[
 DayOfWeekType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
+DecalPatternTypeType = Literal[
+    "CHECKERBOARD_LARGE",
+    "CHECKERBOARD_MEDIUM",
+    "CHECKERBOARD_SMALL",
+    "CIRCLE_LARGE",
+    "CIRCLE_MEDIUM",
+    "CIRCLE_SMALL",
+    "DIAGONAL_LARGE",
+    "DIAGONAL_MEDIUM",
+    "DIAGONAL_OPPOSITE_LARGE",
+    "DIAGONAL_OPPOSITE_MEDIUM",
+    "DIAGONAL_OPPOSITE_SMALL",
+    "DIAGONAL_SMALL",
+    "DIAMOND_GRID_LARGE",
+    "DIAMOND_GRID_MEDIUM",
+    "DIAMOND_GRID_SMALL",
+    "DIAMOND_LARGE",
+    "DIAMOND_MEDIUM",
+    "DIAMOND_SMALL",
+    "SOLID",
+    "TRIANGLE_LARGE",
+    "TRIANGLE_MEDIUM",
+    "TRIANGLE_SMALL",
+]
+DecalStyleTypeType = Literal["Auto", "Manual"]
 DefaultAggregationType = Literal[
     "AVERAGE",
     "COUNT",
@@ -606,11 +729,19 @@ DigitGroupingStyleType = Literal["DEFAULT", "LAKHS"]
 DisplayFormatType = Literal["AUTO", "CURRENCY", "DATE", "NUMBER", "PERCENT", "STRING"]
 EditionType = Literal["ENTERPRISE", "ENTERPRISE_AND_Q", "STANDARD"]
 EmbeddingIdentityTypeType = Literal["ANONYMOUS", "IAM", "QUICKSIGHT"]
+FieldNameType = Literal[
+    "DIRECT_QUICKSIGHT_OWNER",
+    "DIRECT_QUICKSIGHT_SOLE_OWNER",
+    "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",
+    "assetDescription",
+    "assetName",
+]
 FileFormatType = Literal["CLF", "CSV", "ELF", "JSON", "TSV", "XLSX"]
 FilterClassType = Literal["CONDITIONAL_VALUE_FILTER", "ENFORCED_VALUE_FILTER", "NAMED_VALUE_FILTER"]
 FilterNullOptionType = Literal["ALL_VALUES", "NON_NULLS_ONLY", "NULLS_ONLY"]
 FilterOperatorType = Literal["StringEquals", "StringLike"]
 FilterVisualScopeType = Literal["ALL_VISUALS", "SELECTED_VISUALS"]
+FlowPublishStateType = Literal["DRAFT", "PENDING_APPROVAL", "PUBLISHED"]
 FolderFilterAttributeType = Literal[
     "DIRECT_QUICKSIGHT_OWNER",
     "DIRECT_QUICKSIGHT_SOLE_OWNER",
@@ -737,6 +868,7 @@ IngestionTypeType = Literal["FULL_REFRESH", "INCREMENTAL_REFRESH"]
 InputColumnDataTypeType = Literal[
     "BIT", "BOOLEAN", "DATETIME", "DECIMAL", "INTEGER", "JSON", "STRING"
 ]
+JoinOperationTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 JoinTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 KPISparklineTypeType = Literal["AREA", "LINE"]
 KPIVisualStandardLayoutTypeType = Literal["CLASSIC", "VERTICAL"]
@@ -749,6 +881,7 @@ LineChartLineStyleType = Literal["DASHED", "DOTTED", "SOLID"]
 LineChartMarkerShapeType = Literal["CIRCLE", "DIAMOND", "ROUNDED_SQUARE", "SQUARE", "TRIANGLE"]
 LineChartTypeType = Literal["AREA", "LINE", "STACKED_AREA"]
 LineInterpolationType = Literal["LINEAR", "SMOOTH", "STEPPED"]
+ListActionConnectorsPaginatorName = Literal["list_action_connectors"]
 ListAnalysesPaginatorName = Literal["list_analyses"]
 ListAssetBundleExportJobsPaginatorName = Literal["list_asset_bundle_export_jobs"]
 ListAssetBundleImportJobsPaginatorName = Literal["list_asset_bundle_import_jobs"]
@@ -758,6 +891,7 @@ ListDashboardVersionsPaginatorName = Literal["list_dashboard_versions"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListDataSetsPaginatorName = Literal["list_data_sets"]
 ListDataSourcesPaginatorName = Literal["list_data_sources"]
+ListFlowsPaginatorName = Literal["list_flows"]
 ListFolderMembersPaginatorName = Literal["list_folder_members"]
 ListFoldersForResourcePaginatorName = Literal["list_folders_for_resource"]
 ListFoldersPaginatorName = Literal["list_folders"]
@@ -914,10 +1048,13 @@ ReviewedAnswerErrorCodeType = Literal[
 RoleType = Literal["ADMIN", "ADMIN_PRO", "AUTHOR", "AUTHOR_PRO", "READER", "READER_PRO"]
 RowLevelPermissionFormatVersionType = Literal["VERSION_1", "VERSION_2"]
 RowLevelPermissionPolicyType = Literal["DENY_ACCESS", "GRANT_ACCESS"]
+SearchActionConnectorsPaginatorName = Literal["search_action_connectors"]
 SearchAnalysesPaginatorName = Literal["search_analyses"]
 SearchDashboardsPaginatorName = Literal["search_dashboards"]
 SearchDataSetsPaginatorName = Literal["search_data_sets"]
 SearchDataSourcesPaginatorName = Literal["search_data_sources"]
+SearchFilterOperatorType = Literal["StringEquals", "StringLike"]
+SearchFlowsPaginatorName = Literal["search_flows"]
 SearchFoldersPaginatorName = Literal["search_folders"]
 SearchGroupsPaginatorName = Literal["search_groups"]
 SearchTopicsPaginatorName = Literal["search_topics"]
@@ -925,6 +1062,11 @@ SectionPageBreakStatusType = Literal["DISABLED", "ENABLED"]
 SelectAllValueOptionsType = Literal["ALL_VALUES"]
 SelectedFieldOptionsType = Literal["ALL_FIELDS"]
 SelectedTooltipTypeType = Literal["BASIC", "DETAILED"]
+SelfUpgradeAdminActionType = Literal["APPROVE", "DENY", "VERIFY"]
+SelfUpgradeRequestStatusType = Literal[
+    "APPROVED", "DENIED", "PENDING", "UPDATE_FAILED", "VERIFY_FAILED"
+]
+SelfUpgradeStatusType = Literal["ADMIN_APPROVAL", "AUTO_APPROVAL"]
 ServiceTypeType = Literal["ATHENA", "QBUSINESS", "REDSHIFT"]
 SharingModelType = Literal["ACCOUNT", "NAMESPACE"]
 SheetContentTypeType = Literal["INTERACTIVE", "PAGINATED"]
@@ -934,6 +1076,7 @@ SheetControlSliderTypeType = Literal["RANGE", "SINGLE_POINT"]
 SheetImageScalingTypeType = Literal[
     "SCALE_NONE", "SCALE_TO_CONTAINER", "SCALE_TO_HEIGHT", "SCALE_TO_WIDTH"
 ]
+SheetLayoutGroupMemberTypeType = Literal["ELEMENT", "GROUP"]
 SimpleAttributeAggregationFunctionType = Literal["UNIQUE_VALUE"]
 SimpleNumericalAggregationFunctionType = Literal[
     "AVERAGE",
@@ -973,6 +1116,7 @@ TemplateErrorTypeType = Literal[
     "ACCESS_DENIED", "DATA_SET_NOT_FOUND", "INTERNAL_FAILURE", "SOURCE_NOT_FOUND"
 ]
 TextQualifierType = Literal["DOUBLE_QUOTE", "SINGLE_QUOTE"]
+TextTransformType = Literal["CAPITALIZE"]
 TextWrapType = Literal["NONE", "WRAP"]
 ThemeErrorTypeType = Literal["INTERNAL_FAILURE"]
 ThemeTypeType = Literal["ALL", "CUSTOM", "QUICKSIGHT"]
@@ -1057,6 +1201,7 @@ VisibilityType = Literal["HIDDEN", "VISIBLE"]
 VisualCustomActionTriggerType = Literal["DATA_POINT_CLICK", "DATA_POINT_MENU"]
 VisualHighlightTriggerType = Literal["DATA_POINT_CLICK", "DATA_POINT_HOVER", "NONE"]
 VisualRoleType = Literal["COMPLIMENTARY", "FALLBACK", "FRAGMENT", "MULTI_INTENT", "PRIMARY"]
+WebCrawlerAuthTypeType = Literal["BASIC_AUTH", "FORM", "NO_AUTH", "SAML"]
 WidgetStatusType = Literal["DISABLED", "ENABLED"]
 WordCloudCloudLayoutType = Literal["FLUID", "NORMAL"]
 WordCloudWordCasingType = Literal["EXISTING_CASE", "LOWER_CASE"]
@@ -1090,7 +1235,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -1160,6 +1304,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -1205,7 +1350,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -1258,7 +1402,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1297,8 +1440,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -1333,6 +1474,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -1342,6 +1484,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -1352,6 +1495,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1373,8 +1519,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -1389,15 +1533,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -1428,6 +1573,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -1468,6 +1614,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -1484,6 +1631,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_folder_permissions",
     "describe_folder_resolved_permissions",
+    "list_action_connectors",
     "list_analyses",
     "list_asset_bundle_export_jobs",
     "list_asset_bundle_import_jobs",
@@ -1493,6 +1641,7 @@ PaginatorName = Literal[
     "list_dashboards",
     "list_data_sets",
     "list_data_sources",
+    "list_flows",
     "list_folder_members",
     "list_folders",
     "list_folders_for_resource",
@@ -1510,10 +1659,12 @@ PaginatorName = Literal[
     "list_themes",
     "list_user_groups",
     "list_users",
+    "search_action_connectors",
     "search_analyses",
     "search_dashboards",
     "search_data_sets",
     "search_data_sources",
+    "search_flows",
     "search_folders",
     "search_groups",
     "search_topics",

@@ -1,12 +1,13 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-nodejs-version", "hatch-deps-selector"]
 build-backend = "hatchling.build"
 
 [project]
 name = "jupyter-book"
-authors = [{name = "Executable Book Project", email = "executablebooks@gmail.com"}]
+description = "Create computational narratives that are reusable, reproducible, and interactive."
+
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -18,136 +19,85 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Text Processing :: Markup",
 ]
-keywords = [
-    "reproducible",
-    "science",
-    "environments",
-    "scholarship",
-    "notebook",
-]
-dynamic = ["description", "version"]
-requires-python = ">=3.9"
-dependencies = [
-    "click>=7.1,<9",
-    "Jinja2",
-    "jsonschema<5",
-    "linkify-it-py>=2,<3",
-    "myst-nb~=1.0",
-    "myst-parser~=3.0",
-    "pyyaml",
-    "sphinx~=7.0",
-    "sphinx-comments~=0.0",
-    "sphinx-copybutton~=0.5",
-    "sphinx-external-toc~=1.0",
-    "sphinx-jupyterbook-latex~=1.0",
-    "sphinx-thebe~=0.3",
-    "sphinx-togglebutton~=0.3",
-    "sphinx-book-theme~=1.1",
-    "sphinx-design~=0.6",
-    "sphinxcontrib-bibtex~=2.5",
-    "sphinx-multitoc-numbering~=0.1"
-]
 
-[project.license]
-file = "LICENSE"
+requires-python = ">=3.9"
+dynamic = ["version", "authors", "urls", "keywords", "license"]
+dependencies = [
+  # Ensure that `jupyter book` works`
+  "jupyter-core",
+  # Ensure that kernels are found out of the box
+  # This is not required, but is a nice-to-have
+  "jupyter-server",
+  # ipykernel is commonly used
+  # This is not required, but is a nice-to-have
+  "ipykernel",
+]
 
 [project.readme]
 file = "README.md"
 content-type = "text/markdown"
 
-[project.urls]
-Homepage = "https://executablebooks.org/"
-Documentation = "https://jupyterbook.org"
-Funding = "https://executablebooks.org"
-Source = "https://github.com/executablebooks/jupyter-book/"
-Tracker = "https://github.com/executablebooks/jupyter-book/issues"
+[project.scripts]
+jupyter-book = "jupyter_book.__main__:main"
 
 [project.optional-dependencies]
-code_style = ["pre-commit~=3.1"]
-pdfhtml = ["playwright"]
-sphinx = [
-    "altair",
-    "bokeh",
-    "folium",
-    "ipywidgets",
-    "jupytext",
-    "matplotlib",
-    "nbclient",
-    "numpy>=2",
-    "pandas",
-    "plotly",
-    "sphinx-click",
-    "sphinx-examples",
-    "sphinx_inline_tabs",
-    "sphinx-proof",
-    "sphinxext-rediraffe~=0.2.3",
-    "sympy",
-]
-testing = [
-    "altair",
-    "beautifulsoup4",
-    "beautifulsoup4",
-    "cookiecutter",
-    "coverage",
-    "jupytext",
-    "pandas",
-    "playwright",
-    "pytest>=6.2.4",
-    "pytest-cov",
-    "pytest-regressions",
-    "pytest-timeout",
-    "pytest-xdist",
-    "sphinx_click",
-    "sphinx_inline_tabs",
-    "texsoup",
-    "numpy>=2",
-    "matplotlib",
+docs = [
+  # For executing code cells in documentation
+  "pandas",
+  "markdown",
 ]
 
-[project.scripts]
-jb = "jupyter_book.cli.main:main"
-jupyter-book = "jupyter_book.cli.main:main"
+[tool.hatch.build.hooks.selector]
+default-variant = "pypi"
+# Name of the env-var that controls which `selector.variants` entry
+# is used
+env-var = "JUPYTER_BOOK_PACKAGE_VARIANT"
+
+# Ensure that we only bring in nodeenv for PyPI
+[tool.hatch.build.hooks.selector.variants.pypi]
+dependencies = [
+  "platformdirs>=4.2.2",
+  "nodeenv>=1.9.1"
+]
+
+# Conda-forge has no additional dependencies to the `project.dependencies`
+# This section is not needed (the env-var can be set to "")
+# But this makes it more explicit
+[tool.hatch.build.hooks.selector.variants.conda-forge]
+dependencies = []
 
 [tool.hatch.version]
-path = "jupyter_book/__init__.py"
+source = "nodejs"
+
+[tool.hatch.build.hooks.jupyter-builder]
+dependencies = ["hatch-jupyter-builder"]
+build-function = "hatch_jupyter_builder.npm_builder"
+ensured-targets = ["py/jupyter_book/dist/jupyter-book.cjs"]
+skip-if-exists = ["py/jupyter_book/dist/jupyter-book.cjs"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["py/jupyter_book"]
+artifacts = [
+    "/py/jupyter_book/dist/jupyter-book.cjs"
+]
 
 [tool.hatch.build.targets.sdist]
-exclude = [
-  ".*",  # Any hidden folders or files
-  "docs/",
-  "tests/",
-  "scripts/",
-  "tox.ini",
-  "codecov.yml",
-  "conftest.py",
+artifacts = [
+    "/package.json",
+    "/py/jupyter_book/dist/jupyter-book.cjs"
 ]
 
-[tool.ruff.lint]
-ignore = [
-    "E203",    # Whitespace before punctuation
-]
+[tool.hatch.build.hooks.version]
+path = "py/jupyter_book/__main__.py"
+pattern = true
 
+# Use Hatch to version the project from Jupyter Releaser
+[tool.jupyter-releaser.options]
+version_cmd = "hatch version"
 
-[tool.pytest.ini_options]
-markers = [
-  "requires_tex: mark a test which requires a TeX installation",
-  "requires_chrome: mark a test which requires a chrome/chromium browser"
+[tool.jupyter-releaser.hooks]
+before-build-npm = [
+    "npm install",
+    "npm run build"
 ]
-filterwarnings = [
-  "error",
-  'ignore:nodes\.Node\.traverse\(\) is obsoleted by Node\.findall\(\):PendingDeprecationWarning',
-  'ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning',
-  'ignore:The frontend\.OptionParser class will be replaced:DeprecationWarning',
-  'ignore:The frontend\.Option class will be removed:DeprecationWarning',
-  # Pyppeteer throws this exception
-  'ignore:remove loop argument:DeprecationWarning',
-  '''ignore:'imghdr' is deprecated and slated for removal in Python 3\.13:DeprecationWarning''',
-  # jupyter-client throws this
-  'ignore:datetime\.datetime\.utcfromtimestamp\(\) is deprecated:DeprecationWarning',
-  'ignore:datetime\.datetime\.utcnow\(\) is deprecated:DeprecationWarning',
-  # pybtex
-  'ignore:pkg_resources is deprecated as an API:DeprecationWarning',
-  'ignore:Deprecated call to `pkg_resources:DeprecationWarning',
-  # latexcodec
-  'ignore:open_text is deprecated:DeprecationWarning'
-]
+before-build-python = ["npm install", "npm run clean"]

@@ -1,4 +1,6 @@
 """
+This module is deprecated and will be removed in a future release.
+
 Provide consistent and up-to-date ``__version__`` strings for
 Python packages.
 
@@ -21,8 +23,14 @@ __author__ = 'Jean-Luc Stevens'
 import os
 import subprocess
 import json
+import warnings
 
 def run_cmd(args, cwd=None):
+    warnings.warn(
+        'param.version.run_cmd has been deprecated and will be removed in a future version.',
+        FutureWarning,
+        stacklevel=2
+    )
     kwargs = {}
     if os.name == 'nt':
         kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
@@ -105,6 +113,11 @@ class Version:
         :fpath:        Set to ``__file__`` to access version control information
         :reponame:     Used to verify VCS repository name.
         """
+        warnings.warn(
+            'param.version.Version has been deprecated and will be removed in a future version.',
+            FutureWarning,
+            stacklevel=2
+        )
         self.fpath = fpath
         self._expected_commit = commit
 
@@ -134,28 +147,28 @@ class Version:
 
     @property
     def release(self):
-        """Return the release tuple"""
+        """Return the release tuple."""
         return self.fetch()._release
 
     @property
     def commit(self):
-        """A specification for this particular VCS version, e.g. a short git SHA"""
+        """A specification for this particular VCS version, e.g. a short git SHA."""
         return self.fetch()._commit
 
     @property
     def commit_count(self):
-        """Return the number of commits since the last release"""
+        """Return the number of commits since the last release."""
         return self.fetch()._commit_count
 
     @property
     def dirty(self):
-        """True if there are uncommited changes, False otherwise"""
+        """True if there are uncommited changes, False otherwise."""
         return self.fetch()._dirty
 
 
     def fetch(self):
         """
-        Returns a tuple of the major version together with the
+        Return a tuple of the major version together with the
         appropriate SHA and dirty bit (for development version only).
         """
         if self._release is not None:
@@ -228,6 +241,8 @@ class Version:
 
     def _known_stale(self):
         """
+        Return whether the commit is know to be stale or not.
+
         The commit is known to be from a file (and therefore stale) if a
         SHA is supplied by git archive and doesn't match the parsed commit.
         """
@@ -259,7 +274,7 @@ class Version:
 
 
     def _update_from_vcs(self, output):
-        """Update state based on the VCS state e.g the output of git describe"""
+        """Update state based on the VCS state e.g the output of git describe."""
         split = output[1:].split('-')
         dot_split = split[0].split('.')
         for prefix in ['a','b','rc']:
@@ -361,7 +376,7 @@ class Version:
     def get_setup_version(cls, setup_path, reponame, describe=False,
                           dirty='report', pkgname=None, archive_commit=None):
         """
-        Helper for use in setup.py to get the version from the .version file (if available)
+        Get the version from the .version file (if available)
         or more up-to-date information from git describe (if available).
 
         Assumes the __init__.py will be found in the directory
@@ -459,8 +474,8 @@ class Version:
 
 def get_setup_version(location, reponame, pkgname=None, archive_commit=None):
     """
-    Helper for use in setup.py to get the current version from either
-    git describe or the .version file (if available).
+    Get the current version from either git describe or the
+    .version file (if available).
 
     Set pkgname to the package name if it is different from the
     repository name.
@@ -475,6 +490,11 @@ def get_setup_version(location, reponame, pkgname=None, archive_commit=None):
 
     """
     import warnings
+    warnings.warn(
+        'param.version.get_setup_version has been deprecated and will be removed in a future version.',
+        FutureWarning,
+        stacklevel=2
+    )
     pkgname = reponame if pkgname is None else pkgname
     if archive_commit is None:
         warnings.warn("No archive commit available; git archives will not contain version information")
@@ -520,6 +540,11 @@ def get_setupcfg_version():
     """
     import configparser
     import re
+    warnings.warn(
+        'param.version.get_setupcfg_version has been deprecated and will be removed in a future version.',
+        FutureWarning,
+        stacklevel=2
+    )
     cfg = "setup.cfg"
     autover_section = 'tool:autover'
     config = configparser.ConfigParser()
@@ -586,6 +611,11 @@ class OldDeprecatedVersion:
         :dev:          Development version number. None if not a development version.
         :commit_count  Commits since last release. Set for dev releases.
         """
+        warnings.warn(
+            'param.version.OldDeprecatedVersion has been deprecated and will be removed in a future version.',
+            FutureWarning,
+            stacklevel=2
+        )
         self.fpath = fpath
         self._expected_commit = commit
         self.expected_release = release
@@ -599,28 +629,28 @@ class OldDeprecatedVersion:
 
     @property
     def release(self):
-        """Return the release tuple"""
+        """Return the release tuple."""
         return self.fetch()._release
 
     @property
     def commit(self):
-        """A specification for this particular VCS version, e.g. a short git SHA"""
+        """A specification for this particular VCS version, e.g. a short git SHA."""
         return self.fetch()._commit
 
     @property
     def commit_count(self):
-        """Return the number of commits since the last release"""
+        """Return the number of commits since the last release."""
         return self.fetch()._commit_count
 
     @property
     def dirty(self):
-        """True if there are uncommited changes, False otherwise"""
+        """True if there are uncommited changes, False otherwise."""
         return self.fetch()._dirty
 
 
     def fetch(self):
         """
-        Returns a tuple of the major version together with the
+        Return a tuple of the major version together with the
         appropriate SHA and dirty bit (for development version only).
         """
         if self._release is not None:
@@ -667,7 +697,7 @@ class OldDeprecatedVersion:
         self._update_from_vcs(output)
 
     def _update_from_vcs(self, output):
-        """Update state based on the VCS state e.g the output of git describe"""
+        """Update state based on the VCS state e.g the output of git describe."""
         split = output[1:].split('-')
         if 'dev' in split[0]:
             dev_split = split[0].split('dev')

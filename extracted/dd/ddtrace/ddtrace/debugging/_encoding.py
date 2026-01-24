@@ -13,12 +13,14 @@ from typing import Dict
 from typing import Iterator
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Union
 
 from ddtrace.debugging._config import di_config
 from ddtrace.debugging._signal.log import LogSignal
 from ddtrace.debugging._signal.snapshot import Snapshot
 from ddtrace.internal import forksafe
+from ddtrace.internal import process_tags
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.utils.formats import format_trace_id
@@ -74,7 +76,7 @@ class BufferedEncoder(abc.ABC):
         """Enqueue the given item and returns its encoded size."""
 
     @abc.abstractmethod
-    def flush(self) -> Optional[Union[bytes, bytearray]]:
+    def flush(self) -> Optional[Tuple[Union[bytes, bytearray], int]]:
         """Flush the buffer and return the encoded data."""
 
 
@@ -111,6 +113,9 @@ def _build_log_track_payload(
         "message": signal.message,
         "timestamp": int(signal.timestamp * 1e3),  # milliseconds,
     }
+
+    if p_tags := process_tags.process_tags:
+        payload["process_tags"] = p_tags
 
     # Add the correlation IDs if available
     if context is not None and context.trace_id is not None:
@@ -249,8 +254,18 @@ class LogSignalJsonEncoder(Encoder):
         self._service = service
         self._host = host
 
+    def _encode(self, item: LogSignal) -> str:
+        return json.dumps(_build_log_track_payload(self._service, item, self._host))
+
     def encode(self, item: LogSignal) -> bytes:
-        return self.pruned(json.dumps(_build_log_track_payload(self._service, item, self._host))).encode("utf-8")
+        return self._encode(item).encode("utf-8")
+
+
+class SnapshotJsonEncoder(LogSignalJsonEncoder):
+    """Encoder for snapshot signals, with automatic pruning of large snapshots."""
+
+    def encode(self, item: LogSignal) -> bytes:
+        return self.pruned(self._encode(item)).encode("utf-8")
 
     def pruned(self, log_signal_json: str) -> str:
         if len(log_signal_json) <= self.MAX_SIGNAL_SIZE:
@@ -310,26 +325,28 @@ class SignalQueue(BufferedEncoder):
     ) -> None:
         self._encoder = encoder
         self._buffer = JsonBuffer(buffer_size)
-        self._lock = forksafe.Lock()
+        self._lock = forksafe.RLock()
         self._on_full = on_full
         self.count = 0
         self.max_size = buffer_size - self._buffer.size
+        self._full = False
 
     def put(self, item: Snapshot) -> int:
         return self.put_encoded(item, self._encoder.encode(item))
 
     def put_encoded(self, item: Snapshot, encoded: bytes) -> int:
-        try:
-            with self._lock:
+        with self._lock:
+            try:
                 size = self._buffer.put(encoded)
                 self.count += 1
                 return size
-        except BufferFull:
-            if self._on_full is not None:
-                self._on_full(item, encoded)
-            raise
+            except BufferFull:
+                self._full = True
+                if self._on_full is not None:
+                    self._on_full(item, encoded)
+                raise
 
-    def flush(self) -> Optional[Union[bytes, bytearray]]:
+    def flush(self) -> Optional[Tuple[Union[bytes, bytearray], int]]:
         with self._lock:
             if self.count == 0:
                 # Reclaim memory
@@ -337,5 +354,11 @@ class SignalQueue(BufferedEncoder):
                 return None
 
             encoded = self._buffer.flush()
+            count = self.count
             self.count = 0
-            return encoded
+            self._full = False
+            return encoded, count
+
+    def is_full(self) -> bool:
+        with self._lock:
+            return self._full

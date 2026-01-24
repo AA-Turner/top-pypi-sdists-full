@@ -3,7 +3,7 @@ Type annotations for events service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_events/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -40,12 +41,6 @@ from .literals import (
     RuleStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -284,8 +279,8 @@ class ArchiveTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
 
 class AwsVpcConfigurationOutputTypeDef(TypedDict):
-    Subnets: List[str]
-    SecurityGroups: NotRequired[List[str]]
+    Subnets: list[str]
+    SecurityGroups: NotRequired[list[str]]
     AssignPublicIp: NotRequired[AssignPublicIpType]
 
 class AwsVpcConfigurationTypeDef(TypedDict):
@@ -305,7 +300,7 @@ class CancelReplayRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -470,7 +465,7 @@ class DescribeReplayRequestTypeDef(TypedDict):
 
 class ReplayDestinationOutputTypeDef(TypedDict):
     Arn: str
-    FilterArns: NotRequired[List[str]]
+    FilterArns: NotRequired[list[str]]
 
 class DescribeRuleRequestTypeDef(TypedDict):
     Name: str
@@ -522,9 +517,9 @@ class SecondaryTypeDef(TypedDict):
     Route: str
 
 class HttpParametersOutputTypeDef(TypedDict):
-    PathParameterValues: NotRequired[List[str]]
-    HeaderParameters: NotRequired[Dict[str, str]]
-    QueryStringParameters: NotRequired[Dict[str, str]]
+    PathParameterValues: NotRequired[list[str]]
+    HeaderParameters: NotRequired[dict[str, str]]
+    QueryStringParameters: NotRequired[dict[str, str]]
 
 class HttpParametersTypeDef(TypedDict):
     PathParameterValues: NotRequired[Sequence[str]]
@@ -533,7 +528,7 @@ class HttpParametersTypeDef(TypedDict):
 
 class InputTransformerOutputTypeDef(TypedDict):
     InputTemplate: str
-    InputPathsMap: NotRequired[Dict[str, str]]
+    InputPathsMap: NotRequired[dict[str, str]]
 
 class InputTransformerTypeDef(TypedDict):
     InputTemplate: str
@@ -676,7 +671,7 @@ class RedshiftDataParametersOutputTypeDef(TypedDict):
     Sql: NotRequired[str]
     StatementName: NotRequired[str]
     WithEvent: NotRequired[bool]
-    Sqls: NotRequired[List[str]]
+    Sqls: NotRequired[list[str]]
 
 class RedshiftDataParametersTypeDef(TypedDict):
     Database: str
@@ -713,7 +708,7 @@ class RetryPolicyTypeDef(TypedDict):
 
 class RunCommandTargetOutputTypeDef(TypedDict):
     Key: str
-    Values: List[str]
+    Values: list[str]
 
 class RunCommandTargetTypeDef(TypedDict):
     Key: str
@@ -880,17 +875,17 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApiDestinationsResponseTypeDef(TypedDict):
-    ApiDestinations: List[ApiDestinationTypeDef]
+    ApiDestinations: list[ApiDestinationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListArchivesResponseTypeDef(TypedDict):
-    Archives: List[ArchiveTypeDef]
+    Archives: list[ArchiveTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRuleNamesByTargetResponseTypeDef(TypedDict):
-    RuleNames: List[str]
+    RuleNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -940,9 +935,9 @@ class PutPermissionRequestTypeDef(TypedDict):
     Policy: NotRequired[str]
 
 class ConnectionHttpParametersOutputTypeDef(TypedDict):
-    HeaderParameters: NotRequired[List[ConnectionHeaderParameterTypeDef]]
-    QueryStringParameters: NotRequired[List[ConnectionQueryStringParameterTypeDef]]
-    BodyParameters: NotRequired[List[ConnectionBodyParameterTypeDef]]
+    HeaderParameters: NotRequired[list[ConnectionHeaderParameterTypeDef]]
+    QueryStringParameters: NotRequired[list[ConnectionQueryStringParameterTypeDef]]
+    BodyParameters: NotRequired[list[ConnectionBodyParameterTypeDef]]
 
 class ConnectionHttpParametersTypeDef(TypedDict):
     HeaderParameters: NotRequired[Sequence[ConnectionHeaderParameterTypeDef]]
@@ -950,7 +945,7 @@ class ConnectionHttpParametersTypeDef(TypedDict):
     BodyParameters: NotRequired[Sequence[ConnectionBodyParameterTypeDef]]
 
 class ListConnectionsResponseTypeDef(TypedDict):
-    Connections: List[ConnectionTypeDef]
+    Connections: list[ConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1003,7 +998,7 @@ class CreateEventBusRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutRuleRequestTypeDef(TypedDict):
@@ -1039,12 +1034,12 @@ class DescribeReplayResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEventBusesResponseTypeDef(TypedDict):
-    EventBuses: List[EventBusTypeDef]
+    EventBuses: list[EventBusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListEventSourcesResponseTypeDef(TypedDict):
-    EventSources: List[EventSourceTypeDef]
+    EventSources: list[EventSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1056,17 +1051,17 @@ HttpParametersUnionTypeDef = Union[HttpParametersTypeDef, HttpParametersOutputTy
 InputTransformerUnionTypeDef = Union[InputTransformerTypeDef, InputTransformerOutputTypeDef]
 
 class ListPartnerEventSourceAccountsResponseTypeDef(TypedDict):
-    PartnerEventSourceAccounts: List[PartnerEventSourceAccountTypeDef]
+    PartnerEventSourceAccounts: list[PartnerEventSourceAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPartnerEventSourcesResponseTypeDef(TypedDict):
-    PartnerEventSources: List[PartnerEventSourceTypeDef]
+    PartnerEventSources: list[PartnerEventSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListReplaysResponseTypeDef(TypedDict):
-    Replays: List[ReplayTypeDef]
+    Replays: list[ReplayTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1086,7 +1081,7 @@ class ListTargetsByRuleRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRulesResponseTypeDef(TypedDict):
-    Rules: List[RuleTypeDef]
+    Rules: list[RuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1108,17 +1103,17 @@ class PutPartnerEventsRequestEntryTypeDef(TypedDict):
 
 class PutEventsResponseTypeDef(TypedDict):
     FailedEntryCount: int
-    Entries: List[PutEventsResultEntryTypeDef]
+    Entries: list[PutEventsResultEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutPartnerEventsResponseTypeDef(TypedDict):
     FailedEntryCount: int
-    Entries: List[PutPartnerEventsResultEntryTypeDef]
+    Entries: list[PutPartnerEventsResultEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutTargetsResponseTypeDef(TypedDict):
     FailedEntryCount: int
-    FailedEntries: List[PutTargetsResultEntryTypeDef]
+    FailedEntries: list[PutTargetsResultEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 RedshiftDataParametersUnionTypeDef = Union[
@@ -1127,18 +1122,18 @@ RedshiftDataParametersUnionTypeDef = Union[
 
 class RemoveTargetsResponseTypeDef(TypedDict):
     FailedEntryCount: int
-    FailedEntries: List[RemoveTargetsResultEntryTypeDef]
+    FailedEntries: list[RemoveTargetsResultEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ReplayDestinationUnionTypeDef = Union[ReplayDestinationTypeDef, ReplayDestinationOutputTypeDef]
 
 class RunCommandParametersOutputTypeDef(TypedDict):
-    RunCommandTargets: List[RunCommandTargetOutputTypeDef]
+    RunCommandTargets: list[RunCommandTargetOutputTypeDef]
 
 RunCommandTargetUnionTypeDef = Union[RunCommandTargetTypeDef, RunCommandTargetOutputTypeDef]
 
 class SageMakerPipelineParametersOutputTypeDef(TypedDict):
-    PipelineParameterList: NotRequired[List[SageMakerPipelineParameterTypeDef]]
+    PipelineParameterList: NotRequired[list[SageMakerPipelineParameterTypeDef]]
 
 class SageMakerPipelineParametersTypeDef(TypedDict):
     PipelineParameterList: NotRequired[Sequence[SageMakerPipelineParameterTypeDef]]
@@ -1150,14 +1145,14 @@ class EcsParametersOutputTypeDef(TypedDict):
     NetworkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
     PlatformVersion: NotRequired[str]
     Group: NotRequired[str]
-    CapacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
+    CapacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
     EnableECSManagedTags: NotRequired[bool]
     EnableExecuteCommand: NotRequired[bool]
-    PlacementConstraints: NotRequired[List[PlacementConstraintTypeDef]]
-    PlacementStrategy: NotRequired[List[PlacementStrategyTypeDef]]
+    PlacementConstraints: NotRequired[list[PlacementConstraintTypeDef]]
+    PlacementStrategy: NotRequired[list[PlacementStrategyTypeDef]]
     PropagateTags: NotRequired[Literal["TASK_DEFINITION"]]
     ReferenceId: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 class NetworkConfigurationTypeDef(TypedDict):
     awsvpcConfiguration: NotRequired[AwsVpcConfigurationUnionTypeDef]
@@ -1252,7 +1247,7 @@ class CreateEndpointResponseTypeDef(TypedDict):
     Arn: str
     RoutingConfig: RoutingConfigTypeDef
     ReplicationConfig: ReplicationConfigTypeDef
-    EventBuses: List[EndpointEventBusTypeDef]
+    EventBuses: list[EndpointEventBusTypeDef]
     RoleArn: str
     State: EndpointStateType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1263,7 +1258,7 @@ class DescribeEndpointResponseTypeDef(TypedDict):
     Arn: str
     RoutingConfig: RoutingConfigTypeDef
     ReplicationConfig: ReplicationConfigTypeDef
-    EventBuses: List[EndpointEventBusTypeDef]
+    EventBuses: list[EndpointEventBusTypeDef]
     RoleArn: str
     EndpointId: str
     EndpointUrl: str
@@ -1279,7 +1274,7 @@ class EndpointTypeDef(TypedDict):
     Arn: NotRequired[str]
     RoutingConfig: NotRequired[RoutingConfigTypeDef]
     ReplicationConfig: NotRequired[ReplicationConfigTypeDef]
-    EventBuses: NotRequired[List[EndpointEventBusTypeDef]]
+    EventBuses: NotRequired[list[EndpointEventBusTypeDef]]
     RoleArn: NotRequired[str]
     EndpointId: NotRequired[str]
     EndpointUrl: NotRequired[str]
@@ -1301,7 +1296,7 @@ class UpdateEndpointResponseTypeDef(TypedDict):
     Arn: str
     RoutingConfig: RoutingConfigTypeDef
     ReplicationConfig: ReplicationConfigTypeDef
-    EventBuses: List[EndpointEventBusTypeDef]
+    EventBuses: list[EndpointEventBusTypeDef]
     RoleArn: str
     EndpointId: str
     EndpointUrl: str
@@ -1313,7 +1308,7 @@ RunCommandParametersUnionTypeDef = Union[
 ]
 
 class ListTargetsByRuleResponseTypeDef(TypedDict):
-    Targets: List[TargetOutputTypeDef]
+    Targets: list[TargetOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1364,7 +1359,7 @@ class UpdateConnectionAuthRequestParametersTypeDef(TypedDict):
     ConnectivityParameters: NotRequired[ConnectivityResourceParametersTypeDef]
 
 class ListEndpointsResponseTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

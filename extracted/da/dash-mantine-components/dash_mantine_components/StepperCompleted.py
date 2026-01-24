@@ -25,7 +25,7 @@ StepperCompleted
 Keyword arguments:
 
 - children (a list of or a singular dash component, string or number; optional)"""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'StepperCompleted'

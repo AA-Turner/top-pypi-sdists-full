@@ -14,7 +14,7 @@ from wbcore.contrib.authentication.models import User
 from wbcore.filters.defaults import RequiredFilterMissing
 
 if typing.TYPE_CHECKING:
-    from wbcore.pandas.views import PandasAPIViewSet
+    from wbcore.contrib.pandas.views import PandasAPIViewSet
     from wbcore.viewsets import ChartViewSet
 
 
@@ -61,8 +61,9 @@ class CachedClass:
         for kwargs in view_kwargs:
             for request in self._get_requests(**kwargs):
                 with suppress(RequiredFilterMissing):
-                    view = self.view_class(request=request, kwargs=kwargs)
-                    setattr(request, "parser_context", {"request": request, "view": view, "kwargs": kwargs})
+                    view = self.view_class()
+                    view.setup(request, **kwargs)
+                    request.parser_context = {"request": request, "view": view, "kwargs": kwargs}
                     cache_key = view._get_cache_key()
                     cache.delete(cache_key)
                     res.append(view._get_dataframe())

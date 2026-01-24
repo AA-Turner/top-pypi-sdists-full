@@ -30,6 +30,7 @@ import apache_beam as beam
 from apache_beam.coders import coders
 from apache_beam.testing.util import assert_that
 from apache_beam.testing.util import equal_to
+from apache_beam.transforms.resources import ResourceHint
 from apache_beam.transforms.userstate import BagStateSpec
 from apache_beam.transforms.userstate import ReadModifyWriteStateSpec
 from apache_beam.transforms.userstate import TimerSpec
@@ -39,7 +40,15 @@ from apache_beam.typehints import TypeCheckError
 from apache_beam.typehints import row_type
 from apache_beam.typehints import typehints
 
-RETURN_NONE_PARTIAL_WARNING = "No iterator is returned"
+RETURN_NONE_PARTIAL_WARNING = "Process method returned None"
+
+
+class TestDoFn0(beam.DoFn):
+  """Returning without a value is allowed"""
+  def process(self, element):
+    if not element:
+      return
+    yield element
 
 
 class TestDoFn1(beam.DoFn):
@@ -120,9 +129,11 @@ class TestDoFn11(beam.DoFn):
 
 
 class TestDoFn12(beam.DoFn):
-  """test process returning None (return statement without a value)"""
+  """test process returning None in a filter pattern"""
   def process(self, element):
-    return
+    if element == 0:
+      return
+    return element
 
 
 class TestDoFnStateful(beam.DoFn):
@@ -171,6 +182,7 @@ class CreateTest(unittest.TestCase):
 
     with self._caplog.at_level(logging.WARNING):
       assert beam.ParDo(sum)
+      assert beam.ParDo(TestDoFn0())
       assert beam.ParDo(TestDoFn1())
       assert beam.ParDo(TestDoFn2())
       assert beam.ParDo(TestDoFn4())
@@ -193,14 +205,12 @@ class CreateTest(unittest.TestCase):
   def test_dofn_with_implicit_return_none_missing_return_and_yield(self):
     with self._caplog.at_level(logging.WARNING):
       beam.ParDo(TestDoFn11())
-      assert RETURN_NONE_PARTIAL_WARNING in self._caplog.text
-      assert str(TestDoFn11) in self._caplog.text
+      assert RETURN_NONE_PARTIAL_WARNING not in self._caplog.text
 
-  def test_dofn_with_implicit_return_none_return_without_value(self):
+  def test_dofn_with_implicit_return_none_and_value(self):
     with self._caplog.at_level(logging.WARNING):
       beam.ParDo(TestDoFn12())
-      assert RETURN_NONE_PARTIAL_WARNING in self._caplog.text
-      assert str(TestDoFn12) in self._caplog.text
+      assert RETURN_NONE_PARTIAL_WARNING not in self._caplog.text
 
 
 class PartitionTest(unittest.TestCase):
@@ -415,6 +425,94 @@ class ExceptionHandlingTest(unittest.TestCase):
       bad_elements = bad | beam.Keys()
       assert_that(good, equal_to([0, 1, 2]), 'good')
       assert_that(bad_elements, equal_to([(1, 5), (1, 10)]), 'bad')
+
+  def test_tags_with_exception_handling_then_resource_hint(self):
+    class TagHint(ResourceHint):
+      urn = 'beam:resources:tags:v1'
+
+    ResourceHint.register_resource_hint('tags', TagHint)
+    with beam.Pipeline() as pipeline:
+      ok, unused_errors = (
+        pipeline
+        | beam.Create([1])
+        | beam.Map(lambda x: x)
+        .with_exception_handling()
+        .with_resource_hints(tags='test_tag')
+      )
+    pd = ok.producer.transform
+    self.assertIsInstance(pd, beam.transforms.core.ParDo)
+    while hasattr(pd.fn, 'fn'):
+      pd = pd.fn
+    self.assertEqual(
+        pd.get_resource_hints(),
+        {'beam:resources:tags:v1': b'test_tag'},
+    )
+
+  def test_tags_with_exception_handling_timeout_then_resource_hint(self):
+    class TagHint(ResourceHint):
+      urn = 'beam:resources:tags:v1'
+
+    ResourceHint.register_resource_hint('tags', TagHint)
+    with beam.Pipeline() as pipeline:
+      ok, unused_errors = (
+        pipeline
+        | beam.Create([1])
+        | beam.Map(lambda x: x)
+        .with_exception_handling(timeout=1)
+        .with_resource_hints(tags='test_tag')
+      )
+    pd = ok.producer.transform
+    self.assertIsInstance(pd, beam.transforms.core.ParDo)
+    while hasattr(pd.fn, 'fn'):
+      pd = pd.fn
+    self.assertEqual(
+        pd.get_resource_hints(),
+        {'beam:resources:tags:v1': b'test_tag'},
+    )
+
+  def test_tags_with_resource_hint_then_exception_handling(self):
+    class TagHint(ResourceHint):
+      urn = 'beam:resources:tags:v1'
+
+    ResourceHint.register_resource_hint('tags', TagHint)
+    with beam.Pipeline() as pipeline:
+      ok, unused_errors = (
+        pipeline
+        | beam.Create([1])
+        | beam.Map(lambda x: x)
+        .with_resource_hints(tags='test_tag')
+        .with_exception_handling()
+      )
+    pd = ok.producer.transform
+    self.assertIsInstance(pd, beam.transforms.core.ParDo)
+    while hasattr(pd.fn, 'fn'):
+      pd = pd.fn
+    self.assertEqual(
+        pd.get_resource_hints(),
+        {'beam:resources:tags:v1': b'test_tag'},
+    )
+
+  def test_tags_with_resource_hint_then_exception_handling_timeout(self):
+    class TagHint(ResourceHint):
+      urn = 'beam:resources:tags:v1'
+
+    ResourceHint.register_resource_hint('tags', TagHint)
+    with beam.Pipeline() as pipeline:
+      ok, unused_errors = (
+        pipeline
+        | beam.Create([1])
+        | beam.Map(lambda x: x)
+        .with_resource_hints(tags='test_tag')
+        .with_exception_handling(timeout=1)
+      )
+    pd = ok.producer.transform
+    self.assertIsInstance(pd, beam.transforms.core.ParDo)
+    while hasattr(pd.fn, 'fn'):
+      pd = pd.fn
+    self.assertEqual(
+        pd.get_resource_hints(),
+        {'beam:resources:tags:v1': b'test_tag'},
+    )
 
 
 def test_callablewrapper_typehint():

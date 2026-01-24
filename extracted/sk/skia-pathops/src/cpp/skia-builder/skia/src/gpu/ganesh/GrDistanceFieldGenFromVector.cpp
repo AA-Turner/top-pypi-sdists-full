@@ -4,17 +4,30 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
-#include "src/core/SkDistanceFieldGen.h"
 #include "src/gpu/ganesh/GrDistanceFieldGenFromVector.h"
 
 #include "include/core/SkMatrix.h"
+#include "include/core/SkPath.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkScalar.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/base/SkTArray.h"
 #include "include/private/base/SkTPin.h"
+#include "include/private/base/SkTemplates.h"
 #include "src/base/SkAutoMalloc.h"
+#include "src/core/SkDistanceFieldGen.h"
 #include "src/core/SkGeometry.h"
+#include "src/core/SkPathPriv.h"
 #include "src/core/SkPointPriv.h"
 #include "src/core/SkRectPriv.h"
 #include "src/gpu/ganesh/geometry/GrPathUtils.h"
+
+#include <algorithm>
+#include <cmath>
+
+using namespace skia_private;
 
 #if !defined(SK_ENABLE_OPTIMIZE_SIZE)
 
@@ -196,10 +209,11 @@ static bool is_colinear(const SkPoint pts[3]) {
 class PathSegment {
 public:
     enum {
-        // These enum values are assumed in member functions below.
         kLine = 0,
         kQuad = 1,
     } fType;
+    // These enum values are assumed in member functions below.
+    static_assert(0 == kLine && 1 == kQuad);
 
     // line uses 2 pts, quad uses 3 pts
     SkPoint fPts[3];
@@ -214,18 +228,18 @@ public:
 
     void init();
 
-    int countPoints() {
-        static_assert(0 == kLine && 1 == kQuad);
+    int countPoints() const {
+        SkASSERT(fType == kLine || fType == kQuad);
         return fType + 2;
     }
 
     const SkPoint& endPt() const {
-        static_assert(0 == kLine && 1 == kQuad);
+        SkASSERT(fType == kLine || fType == kQuad);
         return fPts[fType + 1];
     }
 };
 
-typedef SkTArray<PathSegment, true> PathSegmentArray;
+typedef TArray<PathSegment, true> PathSegmentArray;
 
 void PathSegment::init() {
     const DPoint p0 = { fPts[0].fX, fPts[0].fY };
@@ -374,7 +388,7 @@ static inline void add_quad(const SkPoint pts[3], PathSegmentArray* segments) {
 
 static inline void add_cubic(const SkPoint pts[4],
                              PathSegmentArray* segments) {
-    SkSTArray<15, SkPoint, true> quads;
+    STArray<15, SkPoint, true> quads;
     GrPathUtils::convertCubicToQuads(pts, SK_Scalar1, &quads);
     int count = quads.size();
     for (int q = 0; q < count; q += 3) {
@@ -727,8 +741,7 @@ bool GrGenerateDistanceFieldFromPath(unsigned char* distanceField,
     dfMatrix.postTranslate(SK_DistanceFieldPad, SK_DistanceFieldPad);
 
 #ifdef SK_DEBUG
-    SkPath xformPath;
-    path.transform(dfMatrix, &xformPath);
+    SkPath xformPath = path.makeTransform(dfMatrix);
     SkIRect pathBounds = xformPath.getBounds().roundOut();
     SkIRect expectPathBounds = SkIRect::MakeWH(width, height);
 #endif
@@ -738,23 +751,14 @@ bool GrGenerateDistanceFieldFromPath(unsigned char* distanceField,
     SkASSERT(expectPathBounds.isEmpty() || pathBounds.isEmpty() ||
              expectPathBounds.contains(pathBounds));
 
-// TODO: restore when Simplify() is working correctly
-//       see https://bugs.chromium.org/p/skia/issues/detail?id=9732
-//    SkPath simplifiedPath;
-    SkPath workingPath;
-//    if (Simplify(path, &simplifiedPath)) {
-//        workingPath = simplifiedPath;
-//    } else {
-        workingPath = path;
-//    }
     // only even-odd and inverse even-odd supported
-    if (!IsDistanceFieldSupportedFillType(workingPath.getFillType())) {
+    if (!IsDistanceFieldSupportedFillType(path.getFillType())) {
         return false;
     }
 
     // transform to device space + SDF offset
     // TODO: remove degenerate segments while doing this?
-    workingPath.transform(dfMatrix);
+    SkPath workingPath = path.makeTransform(dfMatrix);
 
     SkDEBUGCODE(pathBounds = workingPath.getBounds().roundOut());
     SkASSERT(expectPathBounds.isEmpty() ||
@@ -772,7 +776,7 @@ bool GrGenerateDistanceFieldFromPath(unsigned char* distanceField,
 
     // polygonize path into line and quad segments
     SkPathEdgeIter iter(workingPath);
-    SkSTArray<15, PathSegment, true> segments;
+    STArray<15, PathSegment, true> segments;
     while (auto e = iter.next()) {
         switch (e.fEdge) {
             case SkPathEdgeIter::Edge::kLine: {
@@ -791,10 +795,12 @@ bool GrGenerateDistanceFieldFromPath(unsigned char* distanceField,
                 }
                 break;
             }
-            case SkPathEdgeIter::Edge::kCubic: {
+            case SkPathEdgeIter::Edge::kCubic:
                 add_cubic(e.fPts, &segments);
                 break;
-            }
+            default:
+                SkDEBUGFAIL("Unknown edge type");
+                break;
         }
     }
 

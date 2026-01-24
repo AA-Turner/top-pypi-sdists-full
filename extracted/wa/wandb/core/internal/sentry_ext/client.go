@@ -14,6 +14,8 @@ const (
 	defaultSentryDSN = "https://0d0c6674e003452db392f158c42117fb@o151352.ingest.sentry.io/4505513612214272"
 	// Use for testing:
 	// testSentryDSN = "https://45bbbb93aacd42cf90785517b66e925b@o151352.ingest.us.sentry.io/6438430"
+
+	LeetSentryDSN = "https://2fbeaa43dbe0ed35e536adc7f019ba17@o151352.ingest.us.sentry.io/4507273364242432"
 )
 
 type Params struct {
@@ -179,7 +181,8 @@ func RemoveBottomFrames(event *sentry.Event, hint *sentry.EventHint) *sentry.Eve
 			// TODO: think of a better way to do this without hard-coding the
 			// file names this is a hack to remove the bottom-most 3 frames that
 			// are internal to core
-			if strings.HasSuffix(frame.AbsPath, "client.go") || strings.HasSuffix(frame.AbsPath, "logging.go") {
+			if strings.HasSuffix(frame.AbsPath, "client.go") ||
+				strings.HasSuffix(frame.AbsPath, "logging.go") {
 				frames = frames[:j]
 			} else {
 				break

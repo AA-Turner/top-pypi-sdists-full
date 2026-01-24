@@ -1,5 +1,6 @@
-use std::collections::HashMap;
 use std::sync::Arc;
+
+use crate::hashmap::*;
 
 use chrono::{DateTime, Utc};
 
@@ -58,7 +59,7 @@ pub fn get_precomputed_configuration(
                 );
                 None
             })
-            .map(|assignment| ((flag_key.clone(), PrecomputedAssignment::from(assignment))))
+            .map(|assignment| (flag_key.clone(), PrecomputedAssignment::from(assignment)))
         })
         .collect::<HashMap<_, _>>();
 
@@ -95,7 +96,13 @@ pub fn get_precomputed_configuration(
 
                     let bandit_evaluation = bandit_model
                         .model_data
-                        .evaluate(flag_key, subject_key, subject_attributes, actions)
+                        .evaluate(
+                            flag_key,
+                            subject_key,
+                            subject_attributes,
+                            actions.iter(),
+                            configuration.bandit_hashing_algorithm,
+                        )
                         .ok()?;
 
                     let selected_action = &actions[&bandit_evaluation.action_key];
@@ -137,13 +144,14 @@ pub fn get_precomputed_configuration(
 mod tests {
     use crate::Str;
     use chrono::Utc;
-    use std::collections::HashMap;
 
     use crate::{
         eval::get_precomputed_configuration, ufc::UniversalFlagConfig, Configuration,
         ContextAttributes, SdkMetadata,
     };
     use std::{fs, sync::Arc};
+
+    use crate::hashmap::*;
 
     #[test]
     fn test_precomputed_assignment_basic() {

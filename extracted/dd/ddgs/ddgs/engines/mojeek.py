@@ -1,12 +1,10 @@
 """Mojeek search engine implementation."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, ClassVar
 
-from ..base import BaseSearchEngine
-from ..results import TextResult
+from ddgs.base import BaseSearchEngine
+from ddgs.results import TextResult
 
 
 class Mojeek(BaseSearchEngine[TextResult]):
@@ -20,14 +18,20 @@ class Mojeek(BaseSearchEngine[TextResult]):
     search_method = "GET"
 
     items_xpath = "//ul[contains(@class, 'results')]/li"
-    elements_xpath: Mapping[str, str] = {
+    elements_xpath: ClassVar[Mapping[str, str]] = {
         "title": ".//h2//text()",
         "href": ".//h2/a/@href",
         "body": ".//p[@class='s']//text()",
     }
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,
+        safesearch: str,
+        timelimit: str | None,  # noqa: ARG002
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         country, lang = region.lower().split("-")
@@ -38,8 +42,8 @@ class Mojeek(BaseSearchEngine[TextResult]):
         self.http_client.client.set_cookies("https://www.mojeek.com", cookies)
         payload = {
             "q": query,
-            # "tlen": f"{randint(68, 128)}",  # Title length limit (default=68, max=128)
-            # "dlen": f"{randint(160, 512)}",  # Description length limit (default=160, max=512)
+            # "tlen": f"{randint(68, 128)}",  # Title length limit (default=68, max=128)  # noqa: ERA001
+            # "dlen": f"{randint(160, 512)}",  # Description length limit (default=160, max=512)  # noqa: ERA001
         }
         if safesearch == "on":
             payload["safe"] = "1"

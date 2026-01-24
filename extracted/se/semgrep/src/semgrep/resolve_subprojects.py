@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Dict
 from typing import FrozenSet
 from typing import List
+from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import Union
@@ -26,14 +27,19 @@ from rich.progress import SpinnerColumn
 from rich.progress import TextColumn
 
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
+from semdep.subproject_matchers import get_all_subproject_identifying_glob_filters
 from semdep.subproject_matchers import MATCHERS
 from semdep.subproject_matchers import SubprojectMatcher
+from semgrep import tracing
 from semgrep.console import console
 from semgrep.resolve_dependency_source import resolve_dependency_source
+from semgrep.rpc import RpcSession
 from semgrep.rule import Rule
 from semgrep.safe_set import intersection
 from semgrep.semgrep_interfaces.semgrep_output_v1 import Ecosystem
 from semgrep.semgrep_types import Language
+from semgrep.simple_profiling import profiling
+from semgrep.simple_profiling import simple_profiling
 from semgrep.subproject import DependencyResolutionConfig
 from semgrep.subproject import find_closest_subproject
 from semgrep.subproject import from_resolved_dependencies
@@ -84,6 +90,7 @@ class HashableSubproject:
         )
 
 
+@simple_profiling
 def find_subprojects(
     dependency_source_files: FrozenSet[Target], matchers: List[SubprojectMatcher]
 ) -> List[out.Subproject]:
@@ -110,6 +117,7 @@ def find_subprojects(
     return unresolved_subprojects
 
 
+@simple_profiling
 def filter_changed_subprojects(
     target_manager: TargetManager,
     dependency_aware_rules: List[Rule],
@@ -201,10 +209,13 @@ def filter_changed_subprojects(
     return ordered_relevant, unresolved_subprojects
 
 
+@tracing.trace()
+@simple_profiling
 def resolve_subprojects(
     target_manager: TargetManager,
     dependency_aware_rules: List[Rule],
     config: DependencyResolutionConfig,
+    rpc_session: Optional[RpcSession] = None,
 ) -> Tuple[
     List[out.UnresolvedSubproject],
     Dict[Ecosystem, List[out.ResolvedSubproject]],
@@ -246,11 +257,41 @@ def resolve_subprojects(
         2. Resolved subprojects, grouped by ecosystem
         4. Dependency source paths that were used in the resolution process
     """
-    # first, find all subprojects. We ignore the baseline handler because we want
+    # First, find all subprojects. We ignore the baseline handler because we want
     # to _identify_, but not necessarily resolve, even unchanged subprojects.
+    #
+    # Attention: we want to inspect even Gitignored untracked files because
+    # some of them may be lockfiles that are generated as part of a CI
+    # workflow or some other build process. Such lockfiles allow us
+    # to identify a subproject root. This is a legacy behavior which we
+    # may stop supporting in the future but for now, we have to support it.
+    #
+    # Here, we override targeting_conf.respect_gitignore and disable Gitignore
+    # filtering so as to find all possible manifests and lockfiles, including
+    # those that are not under Git control (possibly generated during a CI job).
+    #
+    # Passing 'extra_glob_patterns_to_include_git_untracked_files' is optional
+    # but by prefiltering the list of project files directly
+    # with 'git ls-files --others ...', it can result in much fewer files being
+    # listed by Git (but still very fast), allowing the subsequent Semgrepignore
+    # filter pass to be much faster. This is important to speed up subproject
+    # discovery especially when scanning just a few project files such as
+    # in a typical diff scan.
+    # TODO: This trick only applies to untracked files so Semgrepignore still has
+    #  to filter all the tracked paths (because Git's exclude options only work
+    #  on untracked files). If this is still not fast enough, we could add
+    #  an independent filtering pass after 'git ls-files' and
+    #  CLI includes/excludes and before Semgrepignore (suggestion: add
+    #  a pair of internal options include2/exclude2 to take place after
+    #  the CLI include/exclude but otherwise identical to include/exclude).
     dependency_source_files = target_manager.get_all_dependency_source_files(
-        ignore_baseline_handler=True
+        ignore_baseline_handler=True,
+        respect_gitignore=False,
+        extra_glob_patterns_to_include_git_untracked_files=get_all_subproject_identifying_glob_filters(),
     )
+    # To list all the subprojects discovered by the function, use
+    # 'semgrep show subprojects'
+    # TODO: implement 'semgrep show subprojects'
     found_subprojects = find_subprojects(dependency_source_files, MATCHERS)
 
     # A subproject is relevant if one of its dependency source files is a target
@@ -270,65 +311,72 @@ def resolve_subprojects(
     resolved: Dict[Ecosystem, List[out.ResolvedSubproject]] = {}
     unresolved: List[out.UnresolvedSubproject] = irrelevant_subprojects
 
-    # Dispatch each subproject to a resolver for resolution
-    with Progress(
-        SpinnerColumn(style="green"),
-        TextColumn("[bold]{task.description}[/bold]"),
-        MofNCompleteColumn(),
-        TextColumn("({task.fields[subproject_dir]})"),
-        transient=True,
-        console=console,
-        disable=(not sys.stderr.isatty() or len(relevant_subprojects) == 0),
-    ) as progress:
-        task_id = progress.add_task(
-            "Resolving dependencies", total=len(relevant_subprojects), subproject_dir=""
-        )
-        for item_i, subproject in enumerate(relevant_subprojects):
-            progress.update(task_id, subproject_dir=subproject.root_dir.value)
-            if subproject.ecosystem is None:
-                # no reason to resolve subprojects that we don't support. We only recognize them
-                # for tracking purposes
-                unresolved.append(
-                    out.UnresolvedSubproject(
-                        info=subproject,
-                        reason=out.UnresolvedReason(out.UnresolvedUnsupported()),
-                        errors=[],
-                    )
-                )
-                continue
-            resolved_info, errors, targets = resolve_dependency_source(
-                subproject.dependency_source,
-                config,
+    with profiling("Resolve dependencies"):
+        # Dispatch each subproject to a resolver for resolution
+        with Progress(
+            SpinnerColumn(style="green"),
+            TextColumn("[bold]{task.description}[/bold]"),
+            MofNCompleteColumn(),
+            TextColumn("({task.fields[subproject_dir]})"),
+            transient=True,
+            console=console,
+            disable=(not sys.stderr.isatty() or len(relevant_subprojects) == 0),
+        ) as progress:
+            task_id = progress.add_task(
+                "Resolving dependencies",
+                total=len(relevant_subprojects),
+                subproject_dir="",
             )
-            dependency_targets.extend(targets)
-
-            if not isinstance(resolved_info, out.UnresolvedReason):
-                # resolved_info is an UnresolvedReason when dependency resolution failed in some way
-                resolution_method, deps = resolved_info
-                resolved_subproject = out.ResolvedSubproject(
-                    info=subproject,
-                    resolution_method=resolution_method,
-                    ecosystem=subproject.ecosystem,
-                    resolved_dependencies=from_resolved_dependencies(deps),
-                    errors=[to_sca_error(e) for e in errors],
+            for item_i, subproject in enumerate(relevant_subprojects):
+                progress.update(task_id, subproject_dir=subproject.root_dir.value)
+                if subproject.ecosystem is None:
+                    # no reason to resolve subprojects that we don't support. We only recognize them
+                    # for tracking purposes
+                    unresolved.append(
+                        out.UnresolvedSubproject(
+                            info=subproject,
+                            reason=out.UnresolvedReason(out.UnresolvedUnsupported()),
+                            errors=[],
+                        )
+                    )
+                    continue
+                res = resolve_dependency_source(
+                    subproject.dependency_source,
+                    config,
+                    rpc_session=rpc_session,
                 )
+                resolved_info = res.deps
+                errors = res.errors
+                targets = res.targets
+                dependency_targets.extend(targets)
 
-                if resolved_subproject.ecosystem not in resolved:
-                    resolved[resolved_subproject.ecosystem] = []
-                resolved[resolved_subproject.ecosystem].append(resolved_subproject)
-            else:
-                # we were not able to resolve the subproject, so track it as an
-                # unresolved subproject
-                unresolved.append(
-                    out.UnresolvedSubproject(
+                if not isinstance(resolved_info, out.UnresolvedReason):
+                    # resolved_info is an UnresolvedReason when dependency resolution failed in some way
+                    resolution_method, deps = resolved_info
+                    resolved_subproject = out.ResolvedSubproject(
                         info=subproject,
-                        reason=resolved_info,
+                        resolution_method=resolution_method,
+                        ecosystem=subproject.ecosystem,
+                        resolved_dependencies=from_resolved_dependencies(deps),
                         errors=[to_sca_error(e) for e in errors],
                     )
-                )
 
-            progress.update(task_id, completed=item_i + 1)
+                    if resolved_subproject.ecosystem not in resolved:
+                        resolved[resolved_subproject.ecosystem] = []
+                    resolved[resolved_subproject.ecosystem].append(resolved_subproject)
+                else:
+                    # we were not able to resolve the subproject, so track it as an
+                    # unresolved subproject
+                    unresolved.append(
+                        out.UnresolvedSubproject(
+                            info=subproject,
+                            reason=resolved_info,
+                            errors=[to_sca_error(e) for e in errors],
+                        )
+                    )
 
-        progress.remove_task(task_id)
+                progress.update(task_id, completed=item_i + 1)
+
+            progress.remove_task(task_id)
 
     return unresolved, resolved, dependency_targets

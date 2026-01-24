@@ -41,6 +41,8 @@
 
 #include "py3cairo.h"
 
+#include "pythoncapi_compat.h"
+
 #define PYCAIRO_STRINGIFY(s) PYCAIRO_STRINGIFY_ARG(s)
 #define PYCAIRO_STRINGIFY_ARG(s) #s
 
@@ -56,8 +58,6 @@ cairo_glyph_t * _PycairoGlyphs_AsGlyphs (PyObject *py_object, int *num_glyphs);
 int _PyGlyph_AsGlyph (PyObject *pyobj, cairo_glyph_t *glyph);
 int _PyTextCluster_AsTextCluster (PyObject *pyobj,
                                   cairo_text_cluster_t *cluster);
-
-int _conv_pyobject_to_ulong (PyObject *pyobj, unsigned long *result);
 
 PyObject* Pycairo_richcompare (void* a, void *b, int op);
 
@@ -157,11 +157,11 @@ extern PyTypeObject PycairoWin32Surface_Type;
 extern PyTypeObject PycairoWin32PrintingSurface_Type;
 #endif
 
-#ifdef CAIRO_HAS_XCB_SURFACE
+#if defined(CAIRO_HAS_XCB_SURFACE) && !defined(PYCAIRO_NO_X11)
 extern PyTypeObject PycairoXCBSurface_Type;
 #endif
 
-#ifdef CAIRO_HAS_XLIB_SURFACE
+#if defined(CAIRO_HAS_XLIB_SURFACE) && !defined(PYCAIRO_NO_X11)
 extern PyTypeObject PycairoXlibSurface_Type;
 #endif
 

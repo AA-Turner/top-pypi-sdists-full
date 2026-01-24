@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-customer-profiles
-Version: 1.40.0
-Summary: Type annotations for boto3 CustomerProfiles 1.40.0 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 1.42.3
+Summary: Type annotations for boto3 CustomerProfiles 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: boto3 customer-profiles boto3-stubs type-annotations mypy typeshed autocomplete
+Keywords: boto3,customer-profiles,boto3-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="mypy-boto3-customer-profiles"></a>
 
@@ -57,7 +43,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 CustomerProfiles 1.40.0](https://pypi.org/project/boto3/) compatible
+[boto3 CustomerProfiles 1.42.3](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -66,7 +52,7 @@ with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -119,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CustomerProfiles` service.
 4. Use provided commands to install generated packages.
@@ -357,9 +343,12 @@ from mypy_boto3_customer_profiles import CustomerProfilesClient
 from mypy_boto3_customer_profiles.paginator import (
     GetSimilarProfilesPaginator,
     ListDomainLayoutsPaginator,
+    ListDomainObjectTypesPaginator,
     ListEventStreamsPaginator,
     ListEventTriggersPaginator,
     ListObjectTypeAttributesPaginator,
+    ListRecommenderRecipesPaginator,
+    ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
     ListUploadJobsPaginator,
@@ -375,6 +364,9 @@ get_similar_profiles_paginator: GetSimilarProfilesPaginator = client.get_paginat
 list_domain_layouts_paginator: ListDomainLayoutsPaginator = client.get_paginator(
     "list_domain_layouts"
 )
+list_domain_object_types_paginator: ListDomainObjectTypesPaginator = client.get_paginator(
+    "list_domain_object_types"
+)
 list_event_streams_paginator: ListEventStreamsPaginator = client.get_paginator("list_event_streams")
 list_event_triggers_paginator: ListEventTriggersPaginator = client.get_paginator(
     "list_event_triggers"
@@ -382,6 +374,10 @@ list_event_triggers_paginator: ListEventTriggersPaginator = client.get_paginator
 list_object_type_attributes_paginator: ListObjectTypeAttributesPaginator = client.get_paginator(
     "list_object_type_attributes"
 )
+list_recommender_recipes_paginator: ListRecommenderRecipesPaginator = client.get_paginator(
+    "list_recommender_recipes"
+)
+list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
 list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator(
     "list_rule_based_matches"
 )
@@ -402,10 +398,10 @@ Full list of `CustomerProfiles` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/literals/).
 
 ```python
-from mypy_boto3_customer_profiles.literals import AttributeDimensionTypeType
+from mypy_boto3_customer_profiles.literals import ActionTypeType
 
 
-def check_value(value: AttributeDimensionTypeType) -> bool: ...
+def check_value(value: ActionTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

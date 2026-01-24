@@ -1,10 +1,15 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated, Generic, Literal, TypeVar
 
 from mashumaro import DataClassDictMixin
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
 from mashumaro.types import Alias
+
+
+class UnauthorizedException(Exception):
+    pass
+
 
 DataT = TypeVar("DataT")
 
@@ -27,10 +32,14 @@ class ErrorInfo(DataClassDictMixin):
     fr_solution: str
     it_implication: str
     it_solution: str
+    ja_implication: str
+    ja_solution: str
     es_implication: str
     es_solution: str
     cs_implication: str
     cs_solution: str
+    ko_implication: str
+    ko_solution: str
     sk_implication: str
     sk_solution: str
     pl_implication: str
@@ -68,9 +77,82 @@ class ErrorInfo(DataClassDictMixin):
 
 
 @dataclass
-class Response(DataClassDictMixin, Generic[DataT]):
+class SettingVo(DataClassORJSONMixin):
+    """Device setting configuration."""
+
+    type: int = 0
+    is_switch: Annotated[int, Alias("isSwitch")] = 0
+
+
+@dataclass
+class LocationVo(DataClassORJSONMixin):
+    """Device location information."""
+
+    date_time: Annotated[str, Alias("dateTime")] = ""
+    date_timestamp: Annotated[int, Alias("dateTimestamp")] = 0
+    location: list[float] = field(default_factory=lambda: [0.0, 0.0])
+
+
+@dataclass
+class DeviceInfo:
+    """Complete device information."""
+
+    iot_id: Annotated[str, Alias("iotId")] = ""
+    device_id: Annotated[str, Alias("deviceId")] = ""
+    device_name: Annotated[str, Alias("deviceName")] = ""
+    device_type: Annotated[str, Alias("deviceType")] = ""
+    series: str = ""
+    product_series: Annotated[str, Alias("productSeries")] = ""
+    icon_code: Annotated[str, Alias("iconCode")] = ""
+    generation: int = 0
+    status: int = 0
+    is_subscribe: Annotated[int, Alias("isSubscribe")] = 0
+    setting_vos: Annotated[list[SettingVo], Alias("settingVos")] = field(default_factory=list)
+    active_time: Annotated[str, Alias("activeTime")] = ""
+    active_timestamp: Annotated[int, Alias("activeTimestamp")] = 0
+    location_vo: Annotated[LocationVo | None, Alias("locationVo")] = None
+
+    class Config(BaseConfig):
+        allow_deserialization_not_by_alias = True
+
+
+@dataclass
+class DeviceRecord(DataClassORJSONMixin):
+    identity_id: Annotated[str, Alias("identityId")]
+    iot_id: Annotated[str, Alias("iotId")]
+    product_key: Annotated[str, Alias("productKey")]
+    device_name: Annotated[str, Alias("deviceName")]
+    owned: int
+    status: int
+    bind_time: Annotated[int, Alias("bindTime")]
+    create_time: Annotated[str, Alias("createTime")]
+
+    class Config(BaseConfig):
+        allow_deserialization_not_by_alias = True
+
+
+@dataclass
+class DeviceRecords(DataClassORJSONMixin):
+    records: list[DeviceRecord]
+    total: int
+    size: int
+    current: int
+    pages: int
+
+
+@dataclass
+class MQTTConnection(DataClassORJSONMixin):
+    host: str
+    jwt: str
+    client_id: Annotated[str, Alias("clientId")]
+    username: str
+
+
+@dataclass
+class Response(DataClassORJSONMixin, Generic[DataT]):
     code: int
     msg: str
+    request_id: Annotated[str, Alias("requestId")] | None = None
     data: DataT | None = None
 
     class Config(BaseConfig):
@@ -88,6 +170,14 @@ class LoginResponseUserInformation(DataClassORJSONMixin):
 
     class Config(BaseConfig):
         omit_none = True
+
+
+@dataclass
+class JWTTokenInfo(DataClassORJSONMixin):
+    """specifically for newer devices and mqtt"""
+
+    iot: str  # iot domain e.g api-iot-business-eu-dcdn.mammotion.com
+    robot: str  # e.g api-robot-eu.mammotion.com
 
 
 @dataclass
@@ -113,12 +203,18 @@ class FirmwareVersions(DataClassORJSONMixin):
     firmware_latest_version: Annotated[str, Alias("firmwareLatestVersion")] = ""
     firmware_type: Annotated[str, Alias("firmwareType")] = ""
 
+    class Config(BaseConfig):
+        allow_deserialization_not_by_alias = True
+
 
 @dataclass
 class ProductVersionInfo(DataClassORJSONMixin):
     release_note: Annotated[str, Alias("releaseNote")] = ""
     release_version: Annotated[str, Alias("releaseVersion")] = ""
     data_location: str | None = None
+
+    class Config(BaseConfig):
+        allow_deserialization_not_by_alias = True
 
 
 @dataclass
@@ -132,6 +228,9 @@ class CheckDeviceVersion(DataClassORJSONMixin):
     current_version: Annotated[str, Alias("currentVersion")] = ""
     isupgrading: bool | None = False
     cause_msg: Annotated[str, Alias("causeMsg")] = ""
+
+    class Config(BaseConfig):
+        allow_deserialization_not_by_alias = True
 
     def __eq__(self, other):
         if not isinstance(other, CheckDeviceVersion):

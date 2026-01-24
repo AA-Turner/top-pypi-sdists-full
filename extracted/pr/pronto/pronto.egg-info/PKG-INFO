@@ -1,11 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pronto
-Version: 2.7.0
+Version: 2.7.3
 Summary: Python frontend to ontologies.
 Author-email: Martin Larralde <martin.larralde@embl.de>
 License: MIT License
         
-        Copyright (c) 2016-2025 Martin Larralde <martin.larralde@embl.de>
+        Copyright (c) 2016-2026 Martin Larralde <martin.larralde@embl.de>
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -44,6 +44,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
@@ -54,9 +55,10 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: COPYING
 Requires-Dist: chardet~=5.0
-Requires-Dist: fastobo~=0.13.0
+Requires-Dist: fastobo<0.15.0,>=0.13.0
 Requires-Dist: networkx<4.0,>=2.3
 Requires-Dist: python-dateutil~=2.8
+Dynamic: license-file
 
 # `pronto` [![Stars](https://img.shields.io/github/stars/althonos/pronto.svg?style=social&maxAge=3600&label=Star)](https://github.com/althonos/pronto/stargazers)
 

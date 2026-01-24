@@ -13,10 +13,10 @@ import gc
 import random
 import sys
 import warnings
-from collections.abc import Generator, Hashable
+from collections.abc import Callable, Generator, Hashable
 from itertools import count
 from random import Random
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 from weakref import WeakValueDictionary
 
 import hypothesis.core
@@ -58,7 +58,7 @@ class NumpyRandomWrapper:
         self.setstate = numpy.random.set_state
 
 
-NP_RANDOM: Optional[RandomLike] = None
+NP_RANDOM: RandomLike | None = None
 
 
 if not (PYPY or GRAALPY):
@@ -244,7 +244,7 @@ def get_seeder_and_restorer(
 def deterministic_PRNG(seed: int = 0) -> Generator[None, None, None]:
     """Context manager that handles random.seed without polluting global state.
 
-    See issue #1255 and PR #1295 for details and motivation - in short,
+    See issue #1266 and PR #1295 for details and motivation - in short,
     leaving the global pseudo-random number generator (PRNG) seeded is a very
     bad idea in principle, and breaks all kinds of independence assumptions
     in practice.

@@ -3,4 +3,3 @@ var D={},A={},E=34,m=10,R=13;function I(r){return new Function("d","return {"+r.
 `)}function M(n,o){return o==null&&(o=F(n)),U(n,o).join(`
 `)}function b(n){return n.map(N).join(`
 `)}function N(n){return n.map(g).join(r)}function g(n){return n==null?"":n instanceof Date?S(n):t.test(n+="")?'"'+n.replace(/"/g,'""')+'"':n}return{parse:a,parseRows:c,format:O,formatBody:M,formatRows:b,formatRow:N,formatValue:g}}export{Z as d};
-//# sourceMappingURL=dsv-DB8NKgIY.js.map

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import builtins
 import sys
+from enum import Enum
 from importlib import metadata
-from typing import Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def get_system_info() -> dict:
@@ -27,7 +31,19 @@ def is_running_in_ipython() -> bool:
     return getattr(builtins, '__IPYTHON__', False)
 
 
-GroupName = Literal['Classes', 'Abstract classes', 'Interfaces', 'Data structures', 'Errors', 'Functions']
+# The order of the rendered API groups is defined in the website/docusaurus.config.js file.
+GroupName = Literal[
+    'Actor',
+    'Charging',
+    'Configuration',
+    'Event data',
+    'Event managers',
+    'Events',
+    'Request loaders',
+    'Storage clients',
+    'Storage data',
+    'Storages',
+]
 
 
 def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
@@ -66,3 +82,10 @@ def docs_name(symbol_name: str) -> Callable:  # noqa: ARG001
         return func
 
     return wrapper
+
+
+def maybe_extract_enum_member_value(maybe_enum_member: Any) -> Any:
+    """Extract the value of an enumeration member if it is an Enum, otherwise return the original value."""
+    if isinstance(maybe_enum_member, Enum):
+        return maybe_enum_member.value
+    return maybe_enum_member

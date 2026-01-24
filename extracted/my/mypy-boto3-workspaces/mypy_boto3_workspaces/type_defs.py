@@ -3,7 +3,7 @@ Type annotations for workspaces service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_workspaces/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -88,12 +89,6 @@ from .literals import (
     WorkspaceTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -369,7 +364,7 @@ class AccountLinkTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -536,7 +531,7 @@ class DefaultClientBrandingAttributesTypeDef(TypedDict):
     SupportEmail: NotRequired[str]
     SupportLink: NotRequired[str]
     ForgotPasswordLink: NotRequired[str]
-    LoginMessage: NotRequired[Dict[str, str]]
+    LoginMessage: NotRequired[dict[str, str]]
 
 
 class DefaultWorkspaceCreationPropertiesTypeDef(TypedDict):
@@ -628,8 +623,8 @@ class WorkSpaceApplicationTypeDef(TypedDict):
     Name: NotRequired[str]
     Owner: NotRequired[str]
     State: NotRequired[WorkSpaceApplicationStateType]
-    SupportedComputeTypeNames: NotRequired[List[ComputeType]]
-    SupportedOperatingSystemNames: NotRequired[List[OperatingSystemNameType]]
+    SupportedComputeTypeNames: NotRequired[list[ComputeType]]
+    SupportedOperatingSystemNames: NotRequired[list[OperatingSystemNameType]]
 
 
 class DescribeBundleAssociationsRequestTypeDef(TypedDict):
@@ -648,7 +643,7 @@ class IosClientBrandingAttributesTypeDef(TypedDict):
     SupportEmail: NotRequired[str]
     SupportLink: NotRequired[str]
     ForgotPasswordLink: NotRequired[str]
-    LoginMessage: NotRequired[Dict[str, str]]
+    LoginMessage: NotRequired[dict[str, str]]
 
 
 class DescribeClientPropertiesRequestTypeDef(TypedDict):
@@ -1066,13 +1061,13 @@ class ImportWorkspaceImageResultTypeDef(TypedDict):
 
 
 class ListAccountLinksResultTypeDef(TypedDict):
-    AccountLinks: List[AccountLinkTypeDef]
+    AccountLinks: list[AccountLinkTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAvailableManagementCidrRangesResultTypeDef(TypedDict):
-    ManagementCidrRanges: List[str]
+    ManagementCidrRanges: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1100,8 +1095,8 @@ class RejectAccountLinkInvitationResultTypeDef(TypedDict):
 
 
 class AccessEndpointConfigOutputTypeDef(TypedDict):
-    AccessEndpoints: List[AccessEndpointTypeDef]
-    InternetFallbackProtocols: NotRequired[List[Literal["PCOIP"]]]
+    AccessEndpoints: list[AccessEndpointTypeDef]
+    InternetFallbackProtocols: NotRequired[list[Literal["PCOIP"]]]
 
 
 class AccessEndpointConfigTypeDef(TypedDict):
@@ -1110,7 +1105,7 @@ class AccessEndpointConfigTypeDef(TypedDict):
 
 
 class DescribeAccountModificationsResultTypeDef(TypedDict):
-    AccountModifications: List[AccountModificationTypeDef]
+    AccountModifications: list[AccountModificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1169,7 +1164,7 @@ class WorkspacesIpGroupTypeDef(TypedDict):
     groupId: NotRequired[str]
     groupName: NotRequired[str]
     groupDesc: NotRequired[str]
-    userRules: NotRequired[List[IpRuleItemTypeDef]]
+    userRules: NotRequired[list[IpRuleItemTypeDef]]
 
 
 class DefaultImportClientBrandingAttributesTypeDef(TypedDict):
@@ -1209,7 +1204,7 @@ class ModifyClientPropertiesRequestTypeDef(TypedDict):
 
 
 class DescribeConnectClientAddInsResultTypeDef(TypedDict):
-    AddIns: List[ConnectClientAddInTypeDef]
+    AddIns: list[ConnectClientAddInTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1219,12 +1214,12 @@ class ConnectionAliasTypeDef(TypedDict):
     AliasId: NotRequired[str]
     State: NotRequired[ConnectionAliasStateType]
     OwnerAccountId: NotRequired[str]
-    Associations: NotRequired[List[ConnectionAliasAssociationTypeDef]]
+    Associations: NotRequired[list[ConnectionAliasAssociationTypeDef]]
 
 
 class DescribeConnectionAliasPermissionsResultTypeDef(TypedDict):
     AliasId: str
-    ConnectionAliasPermissions: List[ConnectionAliasPermissionTypeDef]
+    ConnectionAliasPermissions: list[ConnectionAliasPermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1274,7 +1269,7 @@ class CreateWorkspaceImageRequestTypeDef(TypedDict):
 
 
 class DescribeTagsResultTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1291,7 +1286,7 @@ class StandbyWorkspaceOutputTypeDef(TypedDict):
     PrimaryWorkspaceId: str
     DirectoryId: str
     VolumeEncryptionKey: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     DataReplication: NotRequired[DataReplicationType]
 
 
@@ -1415,7 +1410,7 @@ class ListAvailableManagementCidrRangesRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeApplicationsResultTypeDef(TypedDict):
-    Applications: List[WorkSpaceApplicationTypeDef]
+    Applications: list[WorkSpaceApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1444,11 +1439,13 @@ class DescribeCustomWorkspaceImageImportResultTypeDef(TypedDict):
     ImageId: str
     InfrastructureConfigurationArn: str
     State: CustomWorkspaceImageImportStateType
+    StateMessage: str
+    ProgressPercentage: int
     Created: datetime
     LastUpdatedTime: datetime
     ImageSource: ImageSourceIdentifierTypeDef
     ImageBuilderInstanceId: str
-    ErrorDetails: List[CustomWorkspaceImageImportErrorDetailsTypeDef]
+    ErrorDetails: list[CustomWorkspaceImageImportErrorDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1486,19 +1483,19 @@ class DescribeWorkspaceDirectoriesRequestTypeDef(TypedDict):
 
 class DescribeWorkspaceImagePermissionsResultTypeDef(TypedDict):
     ImageId: str
-    ImagePermissions: List[ImagePermissionTypeDef]
+    ImagePermissions: list[ImagePermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeWorkspaceSnapshotsResultTypeDef(TypedDict):
-    RebuildSnapshots: List[SnapshotTypeDef]
-    RestoreSnapshots: List[SnapshotTypeDef]
+    RebuildSnapshots: list[SnapshotTypeDef]
+    RestoreSnapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeWorkspacesConnectionStatusResultTypeDef(TypedDict):
-    WorkspacesConnectionStatus: List[WorkspaceConnectionStatusTypeDef]
+    WorkspacesConnectionStatus: list[WorkspaceConnectionStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1511,27 +1508,27 @@ class DescribeWorkspacesPoolsRequestTypeDef(TypedDict):
 
 
 class RebootWorkspacesResultTypeDef(TypedDict):
-    FailedRequests: List[FailedWorkspaceChangeRequestTypeDef]
+    FailedRequests: list[FailedWorkspaceChangeRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RebuildWorkspacesResultTypeDef(TypedDict):
-    FailedRequests: List[FailedWorkspaceChangeRequestTypeDef]
+    FailedRequests: list[FailedWorkspaceChangeRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartWorkspacesResultTypeDef(TypedDict):
-    FailedRequests: List[FailedWorkspaceChangeRequestTypeDef]
+    FailedRequests: list[FailedWorkspaceChangeRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StopWorkspacesResultTypeDef(TypedDict):
-    FailedRequests: List[FailedWorkspaceChangeRequestTypeDef]
+    FailedRequests: list[FailedWorkspaceChangeRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TerminateWorkspacesResultTypeDef(TypedDict):
-    FailedRequests: List[FailedWorkspaceChangeRequestTypeDef]
+    FailedRequests: list[FailedWorkspaceChangeRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1541,7 +1538,7 @@ class WorkspacePropertiesOutputTypeDef(TypedDict):
     RootVolumeSizeGib: NotRequired[int]
     UserVolumeSizeGib: NotRequired[int]
     ComputeTypeName: NotRequired[ComputeType]
-    Protocols: NotRequired[List[ProtocolType]]
+    Protocols: NotRequired[list[ProtocolType]]
     OperatingSystemName: NotRequired[OperatingSystemNameType]
     GlobalAccelerator: NotRequired[GlobalAcceleratorForWorkSpaceTypeDef]
 
@@ -1618,8 +1615,8 @@ class StopWorkspacesRequestTypeDef(TypedDict):
 
 class StreamingPropertiesOutputTypeDef(TypedDict):
     StreamingExperiencePreferredProtocol: NotRequired[StreamingExperiencePreferredProtocolEnumType]
-    UserSettings: NotRequired[List[UserSettingTypeDef]]
-    StorageConnectors: NotRequired[List[StorageConnectorTypeDef]]
+    UserSettings: NotRequired[list[UserSettingTypeDef]]
+    StorageConnectors: NotRequired[list[StorageConnectorTypeDef]]
     GlobalAccelerator: NotRequired[GlobalAcceleratorForDirectoryTypeDef]
 
 
@@ -1646,7 +1643,7 @@ class WorkspaceImageTypeDef(TypedDict):
     Created: NotRequired[datetime]
     OwnerAccountId: NotRequired[str]
     Updates: NotRequired[UpdateResultTypeDef]
-    ErrorDetails: NotRequired[List[ErrorDetailsTypeDef]]
+    ErrorDetails: NotRequired[list[ErrorDetailsTypeDef]]
 
 
 class WorkspacesPoolTypeDef(TypedDict):
@@ -1660,7 +1657,7 @@ class WorkspacesPoolTypeDef(TypedDict):
     DirectoryId: str
     RunningMode: PoolsRunningModeType
     Description: NotRequired[str]
-    Errors: NotRequired[List[WorkspacesPoolErrorTypeDef]]
+    Errors: NotRequired[list[WorkspacesPoolErrorTypeDef]]
     ApplicationSettings: NotRequired[ApplicationSettingsResponseTypeDef]
     TimeoutSettings: NotRequired[TimeoutSettingsTypeDef]
 
@@ -1692,18 +1689,18 @@ class WorkspaceAccessPropertiesTypeDef(TypedDict):
 
 
 class DescribeApplicationAssociationsResultTypeDef(TypedDict):
-    Associations: List[ApplicationResourceAssociationTypeDef]
+    Associations: list[ApplicationResourceAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeBundleAssociationsResultTypeDef(TypedDict):
-    Associations: List[BundleResourceAssociationTypeDef]
+    Associations: list[BundleResourceAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeImageAssociationsResultTypeDef(TypedDict):
-    Associations: List[ImageResourceAssociationTypeDef]
+    Associations: list[ImageResourceAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1713,7 +1710,7 @@ class AssociateWorkspaceApplicationResultTypeDef(TypedDict):
 
 
 class DescribeWorkspaceAssociationsResultTypeDef(TypedDict):
-    Associations: List[WorkspaceResourceAssociationTypeDef]
+    Associations: list[WorkspaceResourceAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1723,11 +1720,11 @@ class DisassociateWorkspaceApplicationResultTypeDef(TypedDict):
 
 
 class WorkSpaceApplicationDeploymentTypeDef(TypedDict):
-    Associations: NotRequired[List[WorkspaceResourceAssociationTypeDef]]
+    Associations: NotRequired[list[WorkspaceResourceAssociationTypeDef]]
 
 
 class DescribeIpGroupsResultTypeDef(TypedDict):
-    Result: List[WorkspacesIpGroupTypeDef]
+    Result: list[WorkspacesIpGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1743,12 +1740,12 @@ class ImportClientBrandingRequestTypeDef(TypedDict):
 
 
 class DescribeClientPropertiesResultTypeDef(TypedDict):
-    ClientPropertiesList: List[ClientPropertiesResultTypeDef]
+    ClientPropertiesList: list[ClientPropertiesResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeConnectionAliasesResultTypeDef(TypedDict):
-    ConnectionAliases: List[ConnectionAliasTypeDef]
+    ConnectionAliases: list[ConnectionAliasTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1768,7 +1765,7 @@ class CreateWorkspaceBundleResultTypeDef(TypedDict):
 
 
 class DescribeWorkspaceBundlesResultTypeDef(TypedDict):
-    Bundles: List[WorkspaceBundleTypeDef]
+    Bundles: list[WorkspaceBundleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1781,8 +1778,9 @@ class WorkspaceRequestOutputTypeDef(TypedDict):
     UserVolumeEncryptionEnabled: NotRequired[bool]
     RootVolumeEncryptionEnabled: NotRequired[bool]
     WorkspaceProperties: NotRequired[WorkspacePropertiesOutputTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     WorkspaceName: NotRequired[str]
+    Ipv6Address: NotRequired[str]
 
 
 class WorkspaceTypeDef(TypedDict):
@@ -1790,6 +1788,7 @@ class WorkspaceTypeDef(TypedDict):
     DirectoryId: NotRequired[str]
     UserName: NotRequired[str]
     IpAddress: NotRequired[str]
+    Ipv6Address: NotRequired[str]
     State: NotRequired[WorkspaceStateType]
     BundleId: NotRequired[str]
     SubnetId: NotRequired[str]
@@ -1801,10 +1800,10 @@ class WorkspaceTypeDef(TypedDict):
     RootVolumeEncryptionEnabled: NotRequired[bool]
     WorkspaceName: NotRequired[str]
     WorkspaceProperties: NotRequired[WorkspacePropertiesOutputTypeDef]
-    ModificationStates: NotRequired[List[ModificationStateTypeDef]]
-    RelatedWorkspaces: NotRequired[List[RelatedWorkspacePropertiesTypeDef]]
+    ModificationStates: NotRequired[list[ModificationStateTypeDef]]
+    RelatedWorkspaces: NotRequired[list[RelatedWorkspacePropertiesTypeDef]]
     DataReplicationSettings: NotRequired[DataReplicationSettingsTypeDef]
-    StandbyWorkspacesProperties: NotRequired[List[StandbyWorkspacesPropertiesTypeDef]]
+    StandbyWorkspacesProperties: NotRequired[list[StandbyWorkspacesPropertiesTypeDef]]
 
 
 WorkspacePropertiesUnionTypeDef = Union[
@@ -1813,7 +1812,7 @@ WorkspacePropertiesUnionTypeDef = Union[
 
 
 class DescribeWorkspacesPoolSessionsResultTypeDef(TypedDict):
-    Sessions: List[WorkspacesPoolSessionTypeDef]
+    Sessions: list[WorkspacesPoolSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1824,7 +1823,7 @@ StreamingPropertiesUnionTypeDef = Union[
 
 
 class DescribeWorkspaceImagesResultTypeDef(TypedDict):
-    Images: List[WorkspaceImageTypeDef]
+    Images: list[WorkspaceImageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1835,7 +1834,7 @@ class CreateWorkspacesPoolResultTypeDef(TypedDict):
 
 
 class DescribeWorkspacesPoolsResultTypeDef(TypedDict):
-    WorkspacesPools: List[WorkspacesPoolTypeDef]
+    WorkspacesPools: list[WorkspacesPoolTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1850,15 +1849,16 @@ class WorkspaceDirectoryTypeDef(TypedDict):
     Alias: NotRequired[str]
     DirectoryName: NotRequired[str]
     RegistrationCode: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    DnsIpAddresses: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    DnsIpAddresses: NotRequired[list[str]]
+    DnsIpv6Addresses: NotRequired[list[str]]
     CustomerUserName: NotRequired[str]
     IamRoleId: NotRequired[str]
     DirectoryType: NotRequired[WorkspaceDirectoryTypeType]
     WorkspaceSecurityGroupId: NotRequired[str]
     State: NotRequired[WorkspaceDirectoryStateType]
     WorkspaceCreationProperties: NotRequired[DefaultWorkspaceCreationPropertiesTypeDef]
-    ipGroupIds: NotRequired[List[str]]
+    ipGroupIds: NotRequired[list[str]]
     WorkspaceAccessProperties: NotRequired[WorkspaceAccessPropertiesOutputTypeDef]
     Tenancy: NotRequired[TenancyType]
     SelfservicePermissions: NotRequired[SelfservicePermissionsTypeDef]
@@ -1887,8 +1887,8 @@ class DeployWorkspaceApplicationsResultTypeDef(TypedDict):
 
 
 class CreateStandbyWorkspacesResultTypeDef(TypedDict):
-    FailedStandbyRequests: List[FailedCreateStandbyWorkspacesRequestTypeDef]
-    PendingStandbyRequests: List[PendingCreateStandbyWorkspacesRequestTypeDef]
+    FailedStandbyRequests: list[FailedCreateStandbyWorkspacesRequestTypeDef]
+    PendingStandbyRequests: list[PendingCreateStandbyWorkspacesRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1904,7 +1904,7 @@ class FailedCreateWorkspaceRequestTypeDef(TypedDict):
 
 
 class DescribeWorkspacesResultTypeDef(TypedDict):
-    Workspaces: List[WorkspaceTypeDef]
+    Workspaces: list[WorkspaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1925,6 +1925,7 @@ class WorkspaceRequestTypeDef(TypedDict):
     WorkspaceProperties: NotRequired[WorkspacePropertiesUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     WorkspaceName: NotRequired[str]
+    Ipv6Address: NotRequired[str]
 
 
 class ModifyStreamingPropertiesRequestTypeDef(TypedDict):
@@ -1933,7 +1934,7 @@ class ModifyStreamingPropertiesRequestTypeDef(TypedDict):
 
 
 class DescribeWorkspaceDirectoriesResultTypeDef(TypedDict):
-    Directories: List[WorkspaceDirectoryTypeDef]
+    Directories: list[WorkspaceDirectoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1944,8 +1945,8 @@ class ModifyWorkspaceAccessPropertiesRequestTypeDef(TypedDict):
 
 
 class CreateWorkspacesResultTypeDef(TypedDict):
-    FailedRequests: List[FailedCreateWorkspaceRequestTypeDef]
-    PendingRequests: List[WorkspaceTypeDef]
+    FailedRequests: list[FailedCreateWorkspaceRequestTypeDef]
+    PendingRequests: list[WorkspaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

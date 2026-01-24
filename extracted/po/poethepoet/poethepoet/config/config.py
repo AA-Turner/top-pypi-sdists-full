@@ -1,13 +1,17 @@
-from collections.abc import Iterator, Mapping, Sequence
+from __future__ import annotations
+
 from os import environ
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import ConfigValidationError, ExpressionParseError, PoeException
+from ..helpers.eventloop import run_async
 from .file import PoeConfigFile
 from .partition import ConfigPartition, IncludedConfig, PackagedConfig, ProjectConfig
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping, Sequence
+
     from ..io import PoeIO
 
 
@@ -36,10 +40,10 @@ class PoeConfig:
 
     def __init__(
         self,
-        cwd: Optional[Union[Path, str]] = None,
-        table: Optional[Mapping[str, Any]] = None,
-        config_name: Optional[Union[str, Sequence[str]]] = None,
-        io: Optional["PoeIO"] = None,
+        cwd: Path | str | None = None,
+        table: Mapping[str, Any] | None = None,
+        config_name: str | Sequence[str] | None = None,
+        io: PoeIO | None = None,
     ):
         if config_name is not None:
             if isinstance(config_name, str):
@@ -63,7 +67,7 @@ class PoeConfig:
 
     def lookup_task(
         self, name: str
-    ) -> Union[tuple[Mapping[str, Any], ConfigPartition], tuple[None, None]]:
+    ) -> tuple[Mapping[str, Any], ConfigPartition] | tuple[None, None]:
         task = self._project_config.get("tasks", {}).get(name, None)
         if task is not None:
             return task, self._project_config
@@ -158,7 +162,16 @@ class PoeConfig:
     def project_dir(self) -> Path:
         return self._project_dir
 
-    def load(self, target_path: Optional[Union[Path, str]] = None, strict: bool = True):
+    def load_sync(self, target_path: Path | str | None = None, strict: bool = True):
+        """
+        Load the config from the given path or the current working directory.
+        If strict is false then some errors in the config structure are tolerated.
+        Safe to call from both sync and async contexts.
+        """
+
+        return run_async(self.load(target_path=target_path, strict=strict))
+
+    async def load(self, target_path: Path | str | None = None, strict: bool = True):
         """
         target_path is the path to a file or directory for loading config
         If strict is false then some errors in the config structure are tolerated
@@ -211,9 +224,9 @@ class PoeConfig:
                 )
 
         self._load_includes(strict=strict)
-        self._load_packages(strict=strict)
+        await self._load_packages(strict=strict)
 
-    def _load_packages(self, strict: bool = True):
+    async def _load_packages(self, strict: bool = True):
         if not self._project_config.options.include_script:
             return
 
@@ -221,7 +234,7 @@ class PoeConfig:
 
         from ..helpers.script import parse_script_reference
 
-        def handle_error(msg: str, error: Union[Exception, None] = None):
+        def handle_error(msg: str, error: Exception | None = None):
             if strict:
                 if error:
                     raise PoeException(msg) from error
@@ -246,6 +259,7 @@ class PoeConfig:
             if invocation not in self._packaged_config_cache:
                 from ..context import InitializationContext
                 from ..env.manager import EnvVarsManager
+                from ..io import PoeIO
 
                 context = InitializationContext(config=self)
                 env = EnvVarsManager(self, base_env=environ)
@@ -256,7 +270,7 @@ class PoeConfig:
                     executor_config=include_script.get("executor"),
                     capture_stdout=True,
                     resolve_python=True,
-                    io=self._io,
+                    io=PoeIO(parent=self._io, verbosity_offset=-1),
                 )
 
                 script = (
@@ -274,7 +288,8 @@ class PoeConfig:
                         self._io.print_debug(
                             f" . Executing script for include_script {script!r}"
                         )
-                    subproc_code = executor.execute(("python", "-c", script))
+                    subproc = await executor.execute(("python", "-c", script))
+                    await subproc.wait()
                 except Exception as error:
                     handle_error(
                         "subprocess execution failed for configured include_script"
@@ -283,13 +298,14 @@ class PoeConfig:
                     )
                     continue
 
-                if subproc_code != 0:
+                if subproc.returncode != 0:
                     handle_error(
                         "include_script subprocess returned non-zero for "
                         f" {include_script['script']!r}",
                     )
                     continue
 
+                # TODO: get the actual output from the subprocess directly?
                 script_result = context.get_task_output(invocation)
 
                 try:

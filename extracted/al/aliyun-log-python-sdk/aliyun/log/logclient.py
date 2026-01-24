@@ -10,9 +10,9 @@ import json
 import requests
 import six
 import time
-import zlib
 from datetime import datetime
 import logging
+import re
 
 from .store_view_response import ListStoreViewsResponse, CreateStoreViewResponse, UpdateStoreViewResponse, DeleteStoreViewResponse, GetStoreViewResponse
 from .credentials import StaticCredentialsProvider
@@ -41,6 +41,7 @@ from .logexception import LogException
 from .logstore_config_response import *
 from .substore_config_response import *
 from .logtail_config_response import *
+from .logtail_pipeline_config_response import *
 from .machinegroup_response import *
 from .rebuild_index_response import *
 from .project_response import *
@@ -75,7 +76,10 @@ from .compress import CompressType, Compressor
 from .metering_mode_response import GetLogStoreMeteringModeResponse, \
     GetMetricStoreMeteringModeResponse, UpdateLogStoreMeteringModeResponse, \
         UpdateMetricStoreMeteringModeResponse
-from .util import require_python3
+from .multimodal_config_response import GetLogStoreMultimodalConfigurationResponse, \
+    PutLogStoreMultimodalConfigurationResponse
+from .object_response import PutObjectResponse, GetObjectResponse
+from .util import require_python3, object_name_encode
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +313,7 @@ class LogClient(object):
                                'Request is failed. Http code is ' + str(resp_status) + exJson, requestId,
                                resp_status, resp_header, resp_body)
 
-    def _send(self, method, project, body, resource, params, headers, respons_body_type='json'):
+    def _send(self, method, project, body, resource, params, headers, respons_body_type='json', compute_content_hash=True):
         if body:
             headers['Content-Length'] = str(len(body))
         else:
@@ -336,7 +340,7 @@ class LogClient(object):
                 params2 = copy(params)
                 if self._securityToken:
                     headers2["x-acs-security-token"] = self._securityToken
-                self._auth.sign_request(method, resource, params2, headers2, body)
+                self._auth.sign_request(method, resource, params2, headers2, body, compute_content_hash=compute_content_hash)
                 return self._sendRequest(method, url, params2, body, headers2, respons_body_type)
             except LogException as ex:
                 last_err = ex
@@ -1831,6 +1835,61 @@ class LogClient(object):
         (resp, header) = self._send("PUT", project_name, body_str, resource, params, headers)
         return UpdateLogStoreMeteringModeResponse(header, resp)
     
+    def get_logstore_multimodal_configuration(self, project_name, logstore_name):
+        """ Get the multimodal configuration of the logstore
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type logstore_name: string
+        :param logstore_name: the logstore name
+
+        :return: GetLogStoreMultimodalConfigurationResponse
+
+        :raise: LogException
+        """
+        params = {}
+        resource = "/logstores/" + logstore_name + "/multimodalconfiguration"
+        headers = {}
+
+        (resp, header) = self._send("GET", project_name, None, resource, params, headers)
+        return GetLogStoreMultimodalConfigurationResponse(resp, header)
+    
+    def put_logstore_multimodal_configuration(self, project_name, logstore_name, status, anonymous_write=None):
+        """ Put the multimodal configuration of the logstore
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type logstore_name: string
+        :param logstore_name: the logstore name
+        
+        :type status: string
+        :param status: the status of multimodal configuration, required (e.g., "Enabled" or "Disabled")
+        
+        :type anonymous_write: string
+        :param anonymous_write: the anonymous write setting, optional (e.g., "Enabled" or "Disabled")
+
+        :return: PutLogStoreMultimodalConfigurationResponse
+
+        :raise: LogException
+        """
+        params = {}
+        resource = "/logstores/" + logstore_name + "/multimodalconfiguration"
+        headers = {"x-log-bodyrawsize": '0', "Content-Type": "application/json"}
+        body = {
+            "status": status
+        }
+        if anonymous_write is not None:
+            body["anonymousWrite"] = anonymous_write
+        
+        body_str = six.b(json.dumps(body))
+
+        (resp, header) = self._send("PUT", project_name, body_str, resource, params, headers)
+        return PutLogStoreMultimodalConfigurationResponse(header, resp)
+    
     def get_metric_store_metering_mode(self, project_name, metric_store_name):
         """ Get the metering mode of the metric store
         Unsuccessful operation will cause an LogException.
@@ -2327,6 +2386,132 @@ class LogClient(object):
             params['configName'] = config
         (resp, header) = self._send("GET", project_name, None, resource, params, headers)
         return ListLogtailConfigResponse(resp, header)
+
+    def create_logtail_pipeline_config(self, project_name, config_detail):
+        """ create logtail pipeline config in a project
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type config_detail: LogtailPipelineConfigDetail
+        :param config_detail: the logtail pipeline config detail
+
+        :return: CreateLogtailPipelineConfigResponse
+
+        :raise: LogException
+        """
+        headers = {}
+        params = {}
+        resource = "/pipelineconfigs"
+        headers['Content-Type'] = 'application/json'
+        body = six.b(json.dumps(config_detail.to_json()))
+        headers['x-log-bodyrawsize'] = str(len(body))
+        (resp, headers) = self._send("POST", project_name, body, resource, params, headers)
+        return CreateLogtailPipelineConfigResponse(headers, resp)
+
+    def update_logtail_pipeline_config(self, project_name, config_detail):
+        """ update logtail pipeline config in a project
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type config_detail: LogtailPipelineConfigDetail
+        :param config_detail: the logtail pipeline config detail
+
+        :return: UpdateLogtailPipelineConfigResponse
+
+        :raise: LogException
+        """
+        headers = {}
+        params = {}
+        resource = "/pipelineconfigs/" + config_detail.config_name
+        headers['Content-Type'] = 'application/json'
+        body = six.b(json.dumps(config_detail.to_json()))
+        headers['x-log-bodyrawsize'] = str(len(body))
+        (resp, headers) = self._send("PUT", project_name, body, resource, params, headers)
+        return UpdateLogtailPipelineConfigResponse(headers, resp)
+
+    def delete_logtail_pipeline_config(self, project_name, config_name):
+        """ delete logtail pipeline config in a project
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type config_name: string
+        :param config_name: the logtail pipeline config name
+
+        :return: DeleteLogtailPipelineConfigResponse
+
+        :raise: LogException
+        """
+        headers = {}
+        params = {}
+        resource = "/pipelineconfigs/" + config_name
+        (resp, headers) = self._send("DELETE", project_name, None, resource, params, headers)
+        return DeleteLogtailPipelineConfigResponse(headers, resp)
+
+    def get_logtail_pipeline_config(self, project_name, config_name):
+        """ get logtail pipeline config in a project
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type config_name: string
+        :param config_name: the logtail pipeline config name
+
+        :return: GetLogtailPipelineConfigResponse
+
+        :raise: LogException
+        """
+        headers = {}
+        params = {}
+        resource = "/pipelineconfigs/" + config_name
+        (resp, headers) = self._send("GET", project_name, None, resource, params, headers)
+        return GetLogtailPipelineConfigResponse(resp, headers)
+
+    def list_logtail_pipeline_config(self, project_name, config_name=None, logstore_name=None, offset=0, size=100):
+        """ list logtail pipeline config names in a project
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the Project name
+
+        :type config_name: string
+        :param config_name: config name to filter
+
+        :type logstore_name: string
+        :param logstore_name: logstore name to filter
+
+        :type offset: int
+        :param offset: the offset of all config names
+
+        :type size: int
+        :param size: the max return names count, -1 means all
+
+        :return: ListLogtailPipelineConfigResponse
+
+        :raise: LogException
+        """
+        # need to use extended method to get more
+        if int(size) == -1 or int(size) > MAX_LIST_PAGING_SIZE:
+            return list_more(self.list_logtail_pipeline_config, int(offset), int(size), MAX_LIST_PAGING_SIZE,
+                           project_name, config_name, logstore_name)
+
+        headers = {}
+        params = {}
+        resource = "/pipelineconfigs"
+        params['offset'] = str(offset)
+        params['size'] = str(size)
+        if config_name:
+            params['configName'] = config_name
+        if logstore_name:
+            params['logstoreName'] = logstore_name
+        (resp, header) = self._send("GET", project_name, None, resource, params, headers)
+        return ListLogtailPipelineConfigResponse(resp, header)
 
     def create_machine_group(self, project_name, group_detail):
         """ create machine group in a project
@@ -6384,3 +6569,77 @@ class LogClient(object):
         resource = "/storeviews/" + store_view_name
         (resp, header) = self._send("DELETE", project_name, None, resource, params, {})
         return DeleteStoreViewResponse(header, resp)
+
+    def put_object(
+        self, project_name, logstore_name, object_name, content, headers=None
+    ):
+        """Put an object to the specified logstore.
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the project name
+
+        :type logstore_name: string
+        :param logstore_name: the logstore name
+
+        :type object_name: string
+        :param object_name: the object name (only allow a-z A-Z 0-9 _ -)
+
+        :type content: bytes/string
+        :param content: the object content (can be empty)
+
+        :type headers: dict
+        :param headers: optional headers to send with the request.
+                        - x-log-meta-* headers will be attached to the object as metadata, and returned in the response when getting the object
+                        - Content-Type will be attached to the object as metadata, and returned in the response when getting the object
+                        - Content-MD5 will be attached to the object as metadata, and returned in the response when getting the object
+
+        :return: PutObjectResponse
+
+        :raise: LogException
+        """
+        encoded_object_name = object_name_encode(object_name)
+        if headers is None:
+            headers = {}
+        else:
+            headers = dict(headers)
+
+        if isinstance(content, six.text_type):
+            body = content.encode("utf-8")
+        elif isinstance(content, six.binary_type):
+            body = content
+        else:
+            raise LogException("InvalidParameter", "content must be bytes or string")
+
+        headers["x-log-bodyrawsize"] = str(len(body))
+        resource = "/logstores/" + logstore_name + "/objects/" + encoded_object_name
+
+        (resp, resp_header) = self._send(
+            "PUT", project_name, body, resource, {}, headers, compute_content_hash=False
+        )
+        return PutObjectResponse(resp_header, resp)
+
+    def get_object(self, project_name, logstore_name, object_name):
+        """Get an object from the specified logstore.
+        Unsuccessful operation will cause an LogException.
+
+        :type project_name: string
+        :param project_name: the project name
+
+        :type logstore_name: string
+        :param logstore_name: the logstore name
+
+        :type object_name: string
+        :param object_name: the object name
+
+        :return: GetObjectResponse
+
+        :raise: LogException
+        """
+        encoded_object_name = object_name_encode(object_name)
+        resource = "/logstores/" + logstore_name + "/objects/" + encoded_object_name
+
+        (resp, resp_header) = self._send(
+            "GET", project_name, None, resource, {}, {}, respons_body_type="raw"
+        )
+        return GetObjectResponse(resp_header, resp)

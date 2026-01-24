@@ -11,22 +11,22 @@ from wbcore.contrib.example_app.serializers import LeagueModelSerializer
 @pytest.mark.django_db
 class TestLeagueModelSerializer(APITestCase):
     def test_league_serializer(self):
-        sport = SportFactory()
+        sport = SportFactory.create()
         league_data: dict = model_to_dict(LeagueFactory.build(sport=sport))
         league_serializer = LeagueModelSerializer(data=league_data)
 
         self.assertTrue(league_serializer.is_valid())
 
     def test_league_exists(self):
-        sport = SportFactory()
-        league = LeagueFactory(sport=sport)
+        sport = SportFactory.create()
+        league = LeagueFactory.create(sport=sport)
         new_league_data: dict = model_to_dict(LeagueFactory.build(sport=sport, name=league.name))
 
         with pytest.raises(ValidationError):
             LeagueModelSerializer(data=new_league_data).is_valid(raise_exception=True)
 
     def test_league_wrong_date(self):
-        sport = SportFactory()
+        sport = SportFactory.create()
         future_date: date = (datetime.now() + timedelta(days=1)).date()
         league_data: dict = model_to_dict(LeagueFactory.build(sport=sport, established_date=future_date))
 

@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import functools
 import importlib.util
@@ -15,6 +16,7 @@ import pytest
 
 from inspect_ai import Task, eval, task
 from inspect_ai._util._async import configured_async_backend
+from inspect_ai._util.entrypoints import clear_entry_points_state
 from inspect_ai.dataset import Sample
 from inspect_ai.model import ChatMessage, ModelName, ModelOutput
 from inspect_ai.scorer import match
@@ -45,18 +47,33 @@ def flaky_retry(max_retries: int) -> Callable[[F], F]:
     """
 
     def decorator(func: F) -> F:
+        if asyncio.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                last_exception = None
+                for attempt in range(max_retries + 1):
+                    try:
+                        return await func(*args, **kwargs)
+                    except Exception as e:
+                        last_exception = e
+                        if attempt < max_retries:
+                            continue
+                        raise last_exception
+
+            return async_wrapper  # type: ignore
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             last_exception = None
-            for attempt in range(max_retries + 1):  # +1 for initial attempt
+            for attempt in range(max_retries + 1):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
                     if attempt < max_retries:
                         continue
-                    else:
-                        raise last_exception
+                    raise last_exception
 
         return wrapper  # type: ignore
 
@@ -79,10 +96,6 @@ def skip_if_env_var(var: str, exists=True):
 
 def skip_if_no_groq(func):
     return pytest.mark.api(skip_if_env_var("GROQ_API_KEY", exists=False)(func))
-
-
-def skip_if_no_goodfire(func):
-    return pytest.mark.api(skip_if_env_var("GOODFIRE_API_KEY", exists=False)(func))
 
 
 def skip_if_no_package(package):
@@ -136,6 +149,14 @@ def skip_if_no_openai_azure(func):
         or os.environ.get("AZUREAI_OPENAI_API_KEY") is None
         or os.environ.get("AZUREAI_OPENAI_BASE_URL") is None,
         reason="Test requires both OpenAI package and AZUREAI_OPENAI_API_KEY and AZUREAI_OPENAI_BASE_URL environment variables",
+    )(func)
+
+
+def skip_if_no_mistral_azure(func):
+    return pytest.mark.skipif(
+        importlib.util.find_spec("mistral") is None
+        or os.environ.get("AZUREAI_MISTRAL_BASE_URL") is None,
+        reason="Test requires both mistral package and AZUREAI_MISTRAL_BASE_URL environment variable",
     )(func)
 
 
@@ -226,6 +247,14 @@ def skip_if_no_bedrock(func):
     return pytest.mark.api(skip_if_env_var("ENABLE_BEDROCK_TESTS", exists=False)(func))
 
 
+def skip_if_no_vertex(func):
+    return pytest.mark.api(skip_if_env_var("ENABLE_VERTEX_TESTS", exists=False)(func))
+
+
+def skip_if_no_hf_token(func):
+    return pytest.mark.api(skip_if_env_var("HF_TOKEN", exists=False)(func))
+
+
 def skip_if_github_action(func):
     return skip_if_env_var("GITHUB_ACTIONS", exists=True)(func)
 
@@ -274,15 +303,15 @@ def run_example(example: str, model: str):
 # "some" state. Over time this will likely expand and need to be extracted into
 # its own helper file with multiple options.
 def simple_task_state(
-    choices: list[str] = [],
-    messages: list[ChatMessage] = [],
+    choices: list[str] | None = None,
+    messages: list[ChatMessage] | None = None,
     model_output: str = "",
 ) -> TaskState:
     return TaskState(
         choices=choices,
         epoch=0,
         input=[],
-        messages=messages,
+        messages=messages if messages is not None else [],
         model=ModelName(model="fake/model"),
         output=ModelOutput.from_content(model="model", content=model_output),
         sample_id=0,
@@ -359,7 +388,7 @@ def sleep_for_solver(seconds: int):
 
 
 @solver
-def identity_solver():
+def identity_solver(arg: int = 0):
     async def solve(state: TaskState, generate: Generate):
         return state
 
@@ -368,6 +397,7 @@ def identity_solver():
 
 def ensure_test_package_installed():
     try:
+        clear_entry_points_state()
         import inspect_package  # type: ignore # noqa: F401
     except ImportError:
         subprocess.check_call(

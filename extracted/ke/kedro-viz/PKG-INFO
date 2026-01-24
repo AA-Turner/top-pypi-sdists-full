@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-viz
-Version: 12.1.0
+Version: 12.2.0
 Summary: Kedro-Viz helps visualise Kedro data and analytics pipelines
 Project-URL: Homepage, https://kedro.org
 Project-URL: Source, https://github.com/kedro-org/kedro-viz
@@ -9,7 +9,7 @@ Project-URL: Tracker, https://github.com/kedro-org/kedro-viz/issues
 Author: Kedro
 License: Apache Software License (Apache 2.0)
 Keywords: data engineering,data pipelines,data science,machine learning,pipelines,visualisation
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: aiofiles>=22.1.0
 Requires-Dist: click-default-group
 Requires-Dist: fastapi<0.200.0,>=0.100.0
@@ -27,6 +27,7 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: secure>=0.3.0
 Requires-Dist: uvicorn[standard]<1.0,>=0.30.0
 Requires-Dist: watchfiles>=0.24.0
+Requires-Dist: werkzeug>=3.0.0
 Provides-Extra: aws
 Requires-Dist: s3fs>=2021.4; extra == 'aws'
 Provides-Extra: azure
@@ -64,7 +65,7 @@ Live Demo: <a href="https://demo.kedro.org/" target="_blank">https://demo.kedro.
 
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/kedro-org/kedro-viz/merge-gatekeeper.yml?label=Actions&logo=github)](https://github.com/kedro-org/kedro-viz/actions)
 [![Documentation](https://readthedocs.org/projects/kedro/badge/?version=stable)](https://docs.kedro.org/en/stable/visualisation/)
-[![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11-orange.svg)](https://pypi.org/project/kedro-viz/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-orange.svg)](https://pypi.org/project/kedro-viz/)
 [![PyPI version](https://img.shields.io/pypi/v/kedro-viz.svg?color=yellow)](https://pypi.org/project/kedro-viz/)
 [![Downloads](https://static.pepy.tech/badge/kedro-viz/week)](https://pepy.tech/project/kedro-viz)
 [![npm version](https://img.shields.io/npm/v/@quantumblack/kedro-viz.svg?color=cc3534)](https://badge.fury.io/js/%40quantumblack%2Fkedro-viz)

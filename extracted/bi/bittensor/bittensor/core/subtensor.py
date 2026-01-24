@@ -1,9 +1,8 @@
 import copy
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, cast
 
-import numpy as np
 import scalecodec
 from async_substrate_interface.errors import SubstrateRequestException
 from async_substrate_interface.substrate_addons import RetrySyncSubstrate
@@ -11,22 +10,30 @@ from async_substrate_interface.sync_substrate import SubstrateInterface
 from async_substrate_interface.types import ScaleObj
 from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
-from numpy.typing import NDArray
+from bittensor_wallet.utils import SS58_FORMAT
 
-from bittensor.core.async_subtensor import ProposalVoteData
 from bittensor.core.axon import Axon
 from bittensor.core.chain_data import (
+    CrowdloanConstants,
+    CrowdloanInfo,
     DelegatedInfo,
     DelegateInfo,
     DynamicInfo,
     MetagraphInfo,
     NeuronInfo,
     NeuronInfoLite,
+    ProposalVoteData,
+    ProxyAnnouncementInfo,
+    ProxyConstants,
+    ProxyInfo,
+    ProxyType,
+    RootClaimType,
     SelectiveMetagraphIndex,
+    SimSwapResult,
     StakeInfo,
-    SubnetInfo,
-    SubnetIdentity,
     SubnetHyperparameters,
+    SubnetIdentity,
+    SubnetInfo,
     WeightCommitInfo,
     decode_account_id,
 )
@@ -40,13 +47,19 @@ from bittensor.core.chain_data.utils import (
 from bittensor.core.config import Config
 from bittensor.core.errors import ChainError
 from bittensor.core.extrinsics.children import (
-    set_children_extrinsic,
     root_set_pending_childkey_cooldown_extrinsic,
+    set_children_extrinsic,
 )
-from bittensor.core.extrinsics.commit_reveal import commit_reveal_v3_extrinsic
-from bittensor.core.extrinsics.commit_weights import (
-    commit_weights_extrinsic,
-    reveal_weights_extrinsic,
+from bittensor.core.extrinsics.crowdloan import (
+    contribute_crowdloan_extrinsic,
+    create_crowdloan_extrinsic,
+    dissolve_crowdloan_extrinsic,
+    finalize_crowdloan_extrinsic,
+    refund_crowdloan_extrinsic,
+    update_cap_crowdloan_extrinsic,
+    update_end_crowdloan_extrinsic,
+    update_min_contribution_crowdloan_extrinsic,
+    withdraw_crowdloan_extrinsic,
 )
 from bittensor.core.extrinsics.liquidity import (
     add_liquidity_extrinsic,
@@ -54,10 +67,24 @@ from bittensor.core.extrinsics.liquidity import (
     remove_liquidity_extrinsic,
     toggle_user_liquidity_extrinsic,
 )
+from bittensor.core.extrinsics.mev_shield import submit_encrypted_extrinsic
 from bittensor.core.extrinsics.move_stake import (
-    transfer_stake_extrinsic,
-    swap_stake_extrinsic,
     move_stake_extrinsic,
+    swap_stake_extrinsic,
+    transfer_stake_extrinsic,
+)
+from bittensor.core.extrinsics.proxy import (
+    add_proxy_extrinsic,
+    announce_extrinsic,
+    create_pure_proxy_extrinsic,
+    kill_pure_proxy_extrinsic,
+    poke_deposit_extrinsic,
+    proxy_announced_extrinsic,
+    proxy_extrinsic,
+    reject_announcement_extrinsic,
+    remove_announcement_extrinsic,
+    remove_proxies_extrinsic,
+    remove_proxy_extrinsic,
 )
 from bittensor.core.extrinsics.registration import (
     burned_register_extrinsic,
@@ -66,77 +93,106 @@ from bittensor.core.extrinsics.registration import (
     set_subnet_identity_extrinsic,
 )
 from bittensor.core.extrinsics.root import (
+    claim_root_extrinsic,
     root_register_extrinsic,
-    set_root_weights_extrinsic,
+    set_root_claim_type_extrinsic,
 )
 from bittensor.core.extrinsics.serving import (
-    get_last_bonds_reset,
-    publish_metadata,
-    get_metadata,
+    publish_metadata_extrinsic,
     serve_axon_extrinsic,
 )
-from bittensor.core.extrinsics.set_weights import set_weights_extrinsic
 from bittensor.core.extrinsics.staking import (
     add_stake_extrinsic,
     add_stake_multiple_extrinsic,
+    set_auto_stake_extrinsic,
 )
 from bittensor.core.extrinsics.start_call import start_call_extrinsic
-from bittensor.core.extrinsics.take import (
-    decrease_take_extrinsic,
-    increase_take_extrinsic,
-)
+from bittensor.core.extrinsics.take import set_take_extrinsic
 from bittensor.core.extrinsics.transfer import transfer_extrinsic
 from bittensor.core.extrinsics.unstaking import (
     unstake_all_extrinsic,
     unstake_extrinsic,
     unstake_multiple_extrinsic,
 )
+from bittensor.core.extrinsics.utils import get_transfer_fn_params
+from bittensor.core.extrinsics.weights import (
+    commit_timelocked_weights_extrinsic,
+    commit_weights_extrinsic,
+    reveal_weights_extrinsic,
+    set_weights_extrinsic,
+)
 from bittensor.core.metagraph import Metagraph
 from bittensor.core.settings import (
-    version_as_int,
-    SS58_FORMAT,
+    DEFAULT_MEV_PROTECTION,
+    DEFAULT_PERIOD,
+    MLKEM768_PUBLIC_KEY_SIZE,
+    TAO_APP_BLOCK_EXPLORER,
     TYPE_REGISTRY,
+    version_as_int,
 )
-from bittensor.core.types import ParamWithTypes, SubtensorMixin
+from bittensor.core.types import (
+    BlockInfo,
+    ExtrinsicResponse,
+    Salt,
+    SubtensorMixin,
+    UIDs,
+    Weights,
+)
 from bittensor.utils import (
     Certificate,
     decode_hex_identity_dict,
     format_error_message,
+    get_caller_name,
+    get_mechid_storage_index,
     is_valid_ss58_address,
-    torch,
     u16_normalized_float,
     u64_normalized_float,
-    deprecated_message,
-    get_transfer_fn_params,
+    validate_max_attempts,
 )
 from bittensor.utils.balance import (
     Balance,
-    fixed_to_float,
     FixedPoint,
-    check_and_convert_to_balance,
+    check_balance_amount,
+    fixed_to_float,
 )
 from bittensor.utils.btlogging import logging
 from bittensor.utils.liquidity import (
+    LiquidityPosition,
     calculate_fees,
     get_fees,
-    tick_to_price,
     price_to_tick,
-    LiquidityPosition,
-)
-from bittensor.utils.weight_utils import (
-    generate_weight_hash,
-    convert_uids_and_weights,
-    U16_MAX,
+    tick_to_price,
 )
 
 if TYPE_CHECKING:
-    from bittensor_wallet import Wallet
     from async_substrate_interface.sync_substrate import QueryMapResult
+    from bittensor_wallet import Keypair, Wallet
     from scalecodec.types import GenericCall
 
 
 class Subtensor(SubtensorMixin):
-    """Thin layer for interacting with Substrate Interface. Mostly a collection of frequently used calls."""
+    """Synchronous interface for interacting with the Bittensor blockchain.
+
+    This class provides a thin layer over the Substrate Interface offering synchronous functionality for Bittensor. This
+    includes frequently-used calls for querying blockchain data, managing stakes and liquidity positions, registering
+    neurons, submitting weights, and many other functions for participating in Bittensor.
+
+    Notes:
+        Key Bittensor concepts used throughout this class:
+
+        - **Coldkey**: The key pair corresponding to a user's overall wallet. Used to transfer, stake, manage subnets.
+        - **Hotkey**: A key pair (each wallet may have zero, one, or more) used for neuron operations (mining and
+          validation).
+        - **Netuid**: Unique identifier for a subnet (0 is the Root Subnet)
+        - **UID**: Unique identifier for a neuron registered to a hotkey on a specific subnet.
+        - **Metagraph**: Data structure containing the complete state of a subnet at a block.
+        - **TAO**: The base network token; subnet 0 stake is in TAO
+        - **Alpha**: Subnet-specific token representing some quantity of TAO staked into a subnet.
+        - **Rao**: Smallest unit of TAO (1 TAO = 1e9 Rao)
+        - Bittensor Glossary <https://docs.learnbittensor.org/glossary>
+        - Wallets, Coldkeys, and Hotkeys in Bittensor <https://docs.learnbittensor.org/keys/wallets>
+
+    """
 
     def __init__(
         self,
@@ -145,26 +201,27 @@ class Subtensor(SubtensorMixin):
         log_verbose: bool = False,
         fallback_endpoints: Optional[list[str]] = None,
         retry_forever: bool = False,
-        _mock: bool = False,
         archive_endpoints: Optional[list[str]] = None,
+        mock: bool = False,
     ):
-        """
-        Initializes an instance of the Subtensor class.
+        """Initializes a Subtensor instance for blockchain interaction.
 
-        Arguments:
-            network: The network name or type to connect to.
-            config: Configuration object for the AsyncSubtensor instance.
+        Parameters:
+            network: The network name to connect to (e.g., `finney` for Bittensor mainnet, `test`, for
+                Bittensor test network, `local` for a locally deployed blockchain). If `None`, uses the
+                default network from config.
+            config: Configuration object for the Subtensor instance. If `None`, uses the default configuration.
             log_verbose: Enables or disables verbose logging.
-            fallback_endpoints: List of fallback endpoints to use if default or provided network is not available.
-                Defaults to `None`.
-            retry_forever: Whether to retry forever on connection errors. Defaults to `False`.
-            _mock: Whether this is a mock instance. Mainly just for use in testing.
-            archive_endpoints: Similar to fallback_endpoints, but specifically only archive nodes. Will be used in cases
-                where you are requesting a block that is too old for your current (presumably lite) node. Defaults to
-                `None`
+            fallback_endpoints: List of fallback WebSocket endpoints to use if the primary network endpoint is
+                unavailable. These are tried in order when the default endpoint fails.
+            retry_forever: Whether to retry connection attempts indefinitely on connection errors.
+            mock: Whether this is a mock instance. FOR TESTING ONLY.
+            archive_endpoints: List of archive node endpoints for queries requiring historical block data beyond the
+                retention period of lite nodes. These are only used when requesting blocks that the current node is
+                unable to serve.
 
-        Raises:
-            Any exceptions raised during the setup, configuration, or connection process.
+        Returns:
+            None
         """
         if config is None:
             config = self.config()
@@ -181,13 +238,34 @@ class Subtensor(SubtensorMixin):
         self.substrate = self._get_substrate(
             fallback_endpoints=fallback_endpoints,
             retry_forever=retry_forever,
-            _mock=_mock,
+            _mock=mock,
             archive_endpoints=archive_endpoints,
         )
         if self.log_verbose:
+            logging.set_trace()
             logging.info(
                 f"Connected to {self.network} network and {self.chain_endpoint}."
             )
+
+    def close(self):
+        """Closes the connection to the blockchain.
+
+        Use this to explicitly clean up resources and close the network connection instead of waiting for garbage
+        collection.
+
+        Returns:
+            None
+
+        Example:
+
+            sub = bt.Subtensor(network="finney")
+
+            # calls to subtensor
+
+            sub.close()
+
+        """
+        self.substrate.close()
 
     def __enter__(self):
         return self
@@ -195,9 +273,37 @@ class Subtensor(SubtensorMixin):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def close(self):
-        """Closes the websocket connection."""
-        self.substrate.close()
+    # Helpers ==========================================================================================================
+
+    def _decode_crowdloan_entry(
+        self,
+        crowdloan_id: int,
+        data: dict,
+        block_hash: Optional[str] = None,
+    ) -> "CrowdloanInfo":
+        """
+        Internal helper to parse and decode a single Crowdloan record.
+
+        Automatically decodes the embedded `call` field if present (Inline SCALE format).
+        """
+        call_data = data.get("call")
+        if call_data and "Inline" in call_data:
+            try:
+                inline_bytes = bytes(call_data["Inline"][0][0])
+                decoded_call = self.substrate.create_scale_object(
+                    type_string="Call",
+                    data=scalecodec.ScaleBytes(inline_bytes),
+                    block_hash=block_hash,
+                ).decode()
+                data["call"] = decoded_call
+            except Exception as e:
+                data["call"] = {"decode_error": str(e), "raw": call_data}
+
+        return CrowdloanInfo.from_dict(crowdloan_id, data)
+
+    @lru_cache(maxsize=128)
+    def _get_block_hash(self, block_id: int):
+        return self.substrate.get_block_hash(block_id)
 
     def _get_substrate(
         self,
@@ -208,17 +314,23 @@ class Subtensor(SubtensorMixin):
     ) -> Union[SubstrateInterface, RetrySyncSubstrate]:
         """Creates the Substrate instance based on provided arguments.
 
-        Arguments:
-            fallback_endpoints: List of fallback chains endpoints to use if main network isn't available. Defaults to
-                `None`.
-            retry_forever: Whether to retry forever on connection errors. Defaults to `False`.
-            _mock: Whether this is a mock instance. Mainly just for use in testing.
-            archive_endpoints: Similar to fallback_endpoints, but specifically only archive nodes. Will be used in cases
-                where you are requesting a block that is too old for your current (presumably lite) node. Defaults to
-                `None`
+        This internal method creates either a standard SubstrateInterface or a RetrySyncSubstrate depending on
+        whether fallback/archive endpoints or infinite retry is requested.
+
+        When `fallback_endpoints`, `archive_endpoints`, or `retry_forever` are provided, a RetrySyncSubstrate
+        is created with automatic failover and exponential backoff retry logic. Otherwise, a standard
+        SubstrateInterface is used.
+
+        Parameters:
+            fallback_endpoints: List of fallback WebSocket endpoints to use if the primary endpoint is unavailable.
+            retry_forever: Whether to retry connection attempts indefinitely on connection errors.
+            _mock: Whether this is a mock instance. Used primarily for testing purposes.
+            archive_endpoints: List of archive node endpoints for historical block queries. Archive nodes maintain full
+                block history, while lite nodes only keep recent blocks. Use these when querying blocks older than the
+                lite node's retention period (typically a few thousand blocks).
 
         Returns:
-            the instance of the SubstrateInterface or RetrySyncSubstrate class.
+            Either SubstrateInterface (simple connection) or RetrySyncSubstrate (with failover and retry logic).
         """
         if fallback_endpoints or retry_forever or archive_endpoints:
             return RetrySyncSubstrate(
@@ -241,27 +353,296 @@ class Subtensor(SubtensorMixin):
             _mock=_mock,
         )
 
+    def determine_block_hash(self, block: Optional[int]) -> Optional[str]:
+        """Determine the block hash for the block specified with the provided parameters.
+
+        Ensures that only one of the block specification parameters is used and returns the appropriate block hash
+        for blockchain queries.
+
+        Parameters:
+            block: The block number to get the hash for. If `None`, returns `None`.
+
+        Returns:
+            The block hash (hex string with `0x` prefix) if one can be determined, `None` otherwise.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#block>
+        """
+        if block is None:
+            return None
+        else:
+            return self.get_block_hash(block=block)
+
+    def _runtime_method_exists(self, api: str, method: str, block_hash: str) -> bool:
+        """
+        Check if a runtime call method exists at the given block.
+
+        The complicated logic here comes from the fact that there are two ways in which runtime calls
+        are stored: the new and primary method is through the Metadata V15, but the V14 is a good backup (implemented
+        around mid 2024)
+
+        Returns:
+            True if the runtime call method exists, False otherwise.
+        """
+        runtime = self.substrate.init_runtime(block_hash=block_hash)
+        if runtime.metadata_v15 is not None:
+            metadata_v15_value = runtime.metadata_v15.value()
+            apis = {entry["name"]: entry for entry in metadata_v15_value["apis"]}
+            try:
+                api_entry = apis[api]
+                methods = {entry["name"]: entry for entry in api_entry["methods"]}
+                _ = methods[method]
+                return True
+            except KeyError:
+                return False
+        else:
+            try:
+                self.substrate.get_metadata_runtime_call_function(
+                    api=api,
+                    method=method,
+                    block_hash=block_hash,
+                )
+                return True
+            except ValueError:
+                return False
+
+    def _query_with_fallback(
+        self,
+        *args: tuple[str, str, Optional[list[Any]]],
+        block_hash: Optional[str] = None,
+        default_value: Any = ValueError,
+    ):
+        """
+        Queries the subtensor node with a given set of args, falling back to the next group if the method
+        does not exist at the given block. This method exists to support backwards compatibility for blocks.
+
+        Parameters:
+            *args: Tuples containing (module, storage_function, params) in the order they should be attempted.
+            block_hash: The hash of the block being queried. If not provided, the chain tip will be used.
+            default_value: The default value to return if none of the methods exist at the given block.
+
+        Returns:
+            The value returned by the subtensor node, or the default value if none of the methods exist at the given
+            block.
+
+        Raises:
+            ValueError: If no default value is provided, and none of the methods exist at the given block, a
+                ValueError will be raised.
+        """
+        if block_hash is None:
+            block_hash = self.substrate.get_chain_head()
+        for module, storage_function, params in args:
+            if self.substrate.get_metadata_storage_function(
+                module_name=module,
+                storage_name=storage_function,
+                block_hash=block_hash,
+            ):
+                return self.substrate.query(
+                    module=module,
+                    storage_function=storage_function,
+                    block_hash=block_hash,
+                    params=params,
+                )
+        if not isinstance(default_value, ValueError):
+            return default_value
+        else:
+            raise default_value
+
+    def _runtime_call_with_fallback(
+        self,
+        *args: tuple[str, str, Optional[list[Any]] | dict[str, Any]],
+        block_hash: Optional[str] = None,
+        default_value: Any = ValueError,
+    ):
+        """
+        Makes a runtime call to the subtensor node with a given set of args, falling back to the next group if the
+        api.method does not exist at the given block. This method exists to support backwards compatibility for blocks.
+
+        Parameters:
+            *args: Tuples containing (api, method, params) in the order they should be attempted.
+            block_hash: The hash of the block being queried. If not provided, the chain tip will be used.
+            default_value: The default value to return if none of the methods exist at the given block.
+
+        Raises:
+            ValueError: If no default value is provided, and none of the methods exist at the given block, a
+                ValueError will be raised.
+        """
+        if block_hash is None:
+            block_hash = self.substrate.get_chain_head()
+        for api, method, params in args:
+            if self._runtime_method_exists(
+                api=api, method=method, block_hash=block_hash
+            ):
+                return self.substrate.runtime_call(
+                    api=api,
+                    method=method,
+                    block_hash=block_hash,
+                    params=params,
+                )
+        if not isinstance(default_value, ValueError):
+            return default_value
+        else:
+            raise default_value
+
+    def get_hyperparameter(
+        self, param_name: str, netuid: int, block: Optional[int] = None
+    ) -> Optional[Any]:
+        """Retrieves a specified hyperparameter for a specific subnet.
+
+        This method queries the blockchain for subnet-specific hyperparameters such as difficulty, tempo, immunity
+        period, and other network configuration values. Return types and units vary by parameter.
+
+        Parameters:
+            param_name: The name of the hyperparameter storage function to retrieve.
+            netuid: The unique identifier of the subnet.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            The value of the specified hyperparameter if the subnet exists, `None` otherwise. Return type varies
+            by parameter (int, float, bool, or Balance).
+
+        Notes:
+            - <https://docs.learnbittensor.org/subnets/subnet-hyperparameters>
+        """
+        block_hash = self.determine_block_hash(block)
+        if not self.subnet_exists(netuid, block=block):
+            logging.error(f"subnet {netuid} does not exist")
+            return None
+
+        result = self.substrate.query(
+            module="SubtensorModule",
+            storage_function=param_name,
+            params=[netuid],
+            block_hash=block_hash,
+        )
+
+        return getattr(result, "value", result)
+
+    @property
+    def block(self) -> int:
+        """Provides an asynchronous getter to retrieve the current block number.
+
+        Returns:
+            The current blockchain block number.
+        """
+        return self.get_current_block()
+
+    def sim_swap(
+        self,
+        origin_netuid: int,
+        destination_netuid: int,
+        amount: "Balance",
+        block: Optional[int] = None,
+    ) -> SimSwapResult:
+        """Simulates a swap/stake operation and calculates the fees and resulting amounts.
+
+        This method queries the SimSwap Runtime API to calculate the swap fees (in Alpha or TAO) and the quantities
+        of Alpha or TAO tokens expected as output from the transaction. This simulation does NOT include the
+        blockchain extrinsic transaction fee (the fee to submit the transaction itself).
+
+        When moving stake between subnets, the operation may involve swapping Alpha (subnet-specific stake token) to
+        TAO (the base network token), then TAO to Alpha on the destination subnet. For subnet 0 (root network), all
+        stake is in TAO.
+
+        Parameters:
+            origin_netuid: Netuid of the source subnet (0 if adding stake).
+            destination_netuid: Netuid of the destination subnet.
+            amount: Amount to swap/stake as a Balance object. Use `Balance.from_tao(...)` or
+             `Balance.from_rao(...)` to create the amount.
+            block: The block number to query. If `None`, uses the current chain head.
+
+        Returns:
+            SimSwapResult: Object containing `alpha_fee`, `tao_fee`, `alpha_amount`, and `tao_amount` fields
+            representing the swap fees and output amounts.
+
+        Example:
+
+            # Simulate staking 100 TAO stake to subnet 1
+            result = subtensor.sim_swap(
+                origin_netuid=0,
+                destination_netuid=1,
+                amount=Balance.from_tao(100)
+            )
+            print(f"Fee: {result.tao_fee.tao} TAO, Output: {result.alpha_amount} Alpha")
+
+        Notes:
+            - **Alpha**: Subnet-specific stake token (dynamic TAO)
+            - **TAO**: Base network token; subnet 0 uses TAO directly
+            - The returned fees do NOT include the extrinsic transaction fee
+
+            - Transaction Fees: <https://docs.learnbittensor.org/learn/fees>
+            - Glossary: <https://docs.learnbittensor.org/glossary>
+        """
+        check_balance_amount(amount)
+        if origin_netuid > 0 and destination_netuid > 0:
+            # for cross-subnet moves where neither origin nor destination is root
+            intermediate_result_ = self.query_runtime_api(
+                runtime_api="SwapRuntimeApi",
+                method="sim_swap_alpha_for_tao",
+                params={"netuid": origin_netuid, "alpha": amount.rao},
+                block=block,
+            )
+            sn_price = self.get_subnet_price(origin_netuid, block=block)
+            intermediate_result = SimSwapResult.from_dict(
+                intermediate_result_, origin_netuid
+            )
+            result = SimSwapResult.from_dict(
+                self.query_runtime_api(
+                    runtime_api="SwapRuntimeApi",
+                    method="sim_swap_tao_for_alpha",
+                    params={
+                        "netuid": destination_netuid,
+                        "tao": intermediate_result.tao_amount.rao,
+                    },
+                    block=block,
+                ),
+                origin_netuid,
+            )
+            secondary_fee = (result.tao_fee / sn_price.tao).set_unit(origin_netuid)
+            result.alpha_fee = result.alpha_fee + secondary_fee
+            return result
+        elif origin_netuid > 0:
+            # dynamic to tao
+            return SimSwapResult.from_dict(
+                self.query_runtime_api(
+                    runtime_api="SwapRuntimeApi",
+                    method="sim_swap_alpha_for_tao",
+                    params={"netuid": origin_netuid, "alpha": amount.rao},
+                    block=block,
+                ),
+                origin_netuid,
+            )
+        else:
+            # tao to dynamic or unstaked to staked tao (SN0)
+            return SimSwapResult.from_dict(
+                self.query_runtime_api(
+                    runtime_api="SwapRuntimeApi",
+                    method="sim_swap_tao_for_alpha",
+                    params={"netuid": destination_netuid, "tao": amount.rao},
+                    block=block,
+                ),
+                destination_netuid,
+            )
+
     # Subtensor queries ===========================================================================================
 
     def query_constant(
         self, module_name: str, constant_name: str, block: Optional[int] = None
     ) -> Optional["ScaleObj"]:
-        """
-        Retrieves a constant from the specified module on the Bittensor blockchain. This function is used to access
-            fixed parameters or values defined within the blockchain's modules, which are essential for understanding
-            the network's configuration and rules.
+        """Retrieves a constant from the specified module on the Bittensor blockchain.
 
-        Args:
-            module_name: The name of the module containing the constant.
-            constant_name: The name of the constant to retrieve.
-            block: The blockchain block number at which to query the constant.
+        Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
+        be accessed through other, standard getter methods.
+
+        Parameters:
+            module_name: The name of the module containing the constant (e.g., `Balances`, `SubtensorModule`).
+            constant_name: The name of the constant to retrieve (e.g., `ExistentialDeposit`).
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Optional[async_substrate_interface.types.ScaleObj]: The value of the constant if found, `None` otherwise.
+            A SCALE-decoded object if found, `None` otherwise. Access the actual value using `.value` attribute.
+            Common types include int (for counts/blocks), Balance objects (for amounts in Rao), and booleans.
 
-        Constants queried through this function can include critical network parameters such as inflation rates,
-            consensus rules, or validation thresholds, providing a deeper understanding of the Bittensor network's
-            operational parameters.
         """
         return self.substrate.get_constant(
             module_name=module_name,
@@ -273,25 +654,22 @@ class Subtensor(SubtensorMixin):
         self,
         module: str,
         name: str,
-        block: Optional[int] = None,
         params: Optional[list] = None,
+        block: Optional[int] = None,
     ) -> "QueryMapResult":
-        """
-        Queries map storage from any module on the Bittensor blockchain. This function retrieves data structures that
-            represent key-value mappings, essential for accessing complex and structured data within the blockchain
-            modules.
+        """Queries map storage from any module on the Bittensor blockchain.
 
-        Args:
-            module: The name of the module from which to query the map storage.
-            name: The specific storage function within the module to query.
-            block: The blockchain block number at which to perform the query.
+        Use this function for nonstandard queries to map storage defined within the Bittensor blockchain, if these cannot
+        be accessed through other, standard getter methods.
+
+        Parameters:
+            module: The name of the module from which to query the map storage (e.g., "SubtensorModule", "System").
+            name: The specific storage function within the module to query (e.g., "Bonds", "Weights").
             params: Parameters to be passed to the query.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            result: A data structure representing the map storage if found, `None` otherwise.
-
-        This function is particularly useful for retrieving detailed and structured data from various blockchain
-            modules, offering insights into the network's state and the relationships between its different components.
+            QueryMapResult: A data structure representing the map storage if found, None otherwise.
         """
         result = self.substrate.query_map(
             module=module,
@@ -302,22 +680,23 @@ class Subtensor(SubtensorMixin):
         return result
 
     def query_map_subtensor(
-        self, name: str, block: Optional[int] = None, params: Optional[list] = None
+        self,
+        name: str,
+        params: Optional[list] = None,
+        block: Optional[int] = None,
     ) -> "QueryMapResult":
-        """
-        Queries map storage from the Subtensor module on the Bittensor blockchain. This function is designed to retrieve
-            a map-like data structure, which can include various neuron-specific details or network-wide attributes.
+        """Queries map storage from the Subtensor module on the Bittensor blockchain.
 
-        Args:
+        Use this function for nonstandard queries to map storage defined within the Bittensor blockchain, if these cannot
+        be accessed through other, standard getter methods.
+
+        Parameters:
             name: The name of the map storage function to query.
-            block: The blockchain block number at which to perform the query.
             params: A list of parameters to pass to the query function.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
             An object containing the map-like data structure, or `None` if not found.
-
-        This function is particularly useful for analyzing and understanding complex network structures and
-            relationships within the Bittensor ecosystem, such as interneuronal connections and stake distributions.
         """
         return self.substrate.query_map(
             module="SubtensorModule",
@@ -330,25 +709,23 @@ class Subtensor(SubtensorMixin):
         self,
         module: str,
         name: str,
-        block: Optional[int] = None,
         params: Optional[list] = None,
+        block: Optional[int] = None,
     ) -> Optional[Union["ScaleObj", Any, FixedPoint]]:
-        """
-        Queries any module storage on the Bittensor blockchain with the specified parameters and block number. This
-            function is a generic query interface that allows for flexible and diverse data retrieval from various
-            blockchain modules.
+        """Queries any module storage on the Bittensor blockchain with the specified parameters and block number.
+        This function is a generic query interface that allows for flexible and diverse data retrieval from various
+        blockchain modules. Use this function for nonstandard queries to storage defined within the Bittensor
+        blockchain, if these cannot be accessed through other, standard getter methods.
 
-        Args:
-            module (str): The name of the module from which to query data.
-            name (str): The name of the storage function within the module.
-            block (Optional[int]): The blockchain block number at which to perform the query.
-            params (Optional[list[object]]): A list of parameters to pass to the query function.
+        Parameters:
+            module: The name of the module from which to query data.
+            name: The name of the storage function within the module.
+            params: A list of parameters to pass to the query function.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
             An object containing the requested data if found, `None` otherwise.
 
-        This versatile query function is key to accessing a wide range of data and insights from different parts of the
-            Bittensor blockchain, enhancing the understanding and analysis of the network's state and dynamics.
         """
         return self.substrate.query(
             module=module,
@@ -364,22 +741,19 @@ class Subtensor(SubtensorMixin):
         params: Optional[Union[list[Any], dict[str, Any]]] = None,
         block: Optional[int] = None,
     ) -> Any:
-        """
-        Queries the runtime API of the Bittensor blockchain, providing a way to interact with the underlying runtime and
-            retrieve data encoded in Scale Bytes format. This function is essential for advanced users who need to
-            interact with specific runtime methods and decode complex data types.
+        """Queries the runtime API of the Bittensor blockchain, providing a way to interact with the underlying runtime
+        and retrieve data encoded in Scale Bytes format. Use this function for nonstandard queries to the runtime
+         environment, if these cannot be accessed through other, standard getter methods.
 
-        Args:
+        Parameters:
             runtime_api: The name of the runtime API to query.
             method: The specific method within the runtime API to call.
             params: The parameters to pass to the method call.
-            block: the block number for this query.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            The Scale Bytes encoded result from the runtime API call, or `None` if the call fails.
+            The decoded result from the runtime API call, or `None` if the call fails.
 
-        This function enables access to the deeper layers of the Bittensor blockchain, allowing for detailed and
-            specific interactions with the network's runtime environment.
         """
         block_hash = self.determine_block_hash(block)
         result = self.substrate.runtime_call(runtime_api, method, params, block_hash)
@@ -387,22 +761,23 @@ class Subtensor(SubtensorMixin):
         return result.value
 
     def query_subtensor(
-        self, name: str, block: Optional[int] = None, params: Optional[list] = None
+        self,
+        name: str,
+        params: Optional[list] = None,
+        block: Optional[int] = None,
     ) -> Optional[Union["ScaleObj", Any]]:
-        """
-        Queries named storage from the Subtensor module on the Bittensor blockchain. This function is used to retrieve
-            specific data or parameters from the blockchain, such as stake, rank, or other neuron-specific attributes.
+        """Queries named storage from the Subtensor module on the Bittensor blockchain.
 
-        Args:
+        Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
+        be accessed through other, standard getter methods.
+
+        Parameters:
             name: The name of the storage function to query.
-            block: The blockchain block number at which to perform the query.
             params: A list of parameters to pass to the query function.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
             query_response: An object containing the requested data.
-
-        This query function is essential for accessing detailed information about the network and its neurons, providing
-            valuable insights into the state and dynamics of the Bittensor ecosystem.
         """
         return self.substrate.query(
             module="SubtensorModule",
@@ -414,20 +789,21 @@ class Subtensor(SubtensorMixin):
     def state_call(
         self, method: str, data: str, block: Optional[int] = None
     ) -> dict[Any, Any]:
-        """
-        Makes a state call to the Bittensor blockchain, allowing for direct queries of the blockchain's state. This
-            function is typically used for advanced queries that require specific method calls and data inputs.
+        """Makes a state call to the Bittensor blockchain, allowing for direct queries of the blockchain's state.
+        This function is typically used for advanced, nonstandard queries not provided by other getter methods.
 
-        Args:
-            method: The method name for the state call.
-            data: The data to be passed to the method.
-            block: The blockchain block number at which to perform the state call.
+        Use this method when you need to query runtime APIs or storage functions that don't have dedicated
+        wrapper methods in the SDK. For standard queries, prefer the specific getter methods (e.g., `get_balance`,
+        `get_stake`) which provide better type safety and error handling.
+
+        Parameters:
+            method: The runtime API method name (e.g., "SubnetInfoRuntimeApi", "get_metagraph").
+            data: Hex-encoded string of the SCALE-encoded parameters to pass to the method.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            result (dict[Any, Any]): The result of the rpc call.
+            The result of the rpc call.
 
-        The state call function provides a more direct and flexible way of querying blockchain data, useful for specific
-            use cases where standard queries are insufficient.
         """
         block_hash = self.determine_block_hash(block)
         return self.substrate.rpc_request(
@@ -436,20 +812,16 @@ class Subtensor(SubtensorMixin):
 
     # Common subtensor calls ===========================================================================================
 
-    @property
-    def block(self) -> int:
-        return self.get_current_block()
-
     def all_subnets(self, block: Optional[int] = None) -> Optional[list["DynamicInfo"]]:
-        """
-        Retrieves the subnet information for all subnets in the network.
+        """Queries the blockchain for comprehensive information about all subnets, including their dynamic parameters
+        and operational status.
 
-        Args:
-            block (Optional[int]): The block number to query the subnet information from.
+        Parameters:
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Optional[DynamicInfo]: A list of DynamicInfo objects, each containing detailed information about a subnet.
-
+            Optional[list[DynamicInfo]]: A list of `DynamicInfo` objects, each containing detailed information about
+            a subnet, or None if the query fails.
         """
         block_hash = self.determine_block_hash(block=block)
         query = self.substrate.runtime_call(
@@ -472,59 +844,108 @@ class Subtensor(SubtensorMixin):
     def blocks_since_last_step(
         self, netuid: int, block: Optional[int] = None
     ) -> Optional[int]:
-        """Returns number of blocks since the last epoch of the subnet.
+        """Queries the blockchain to determine how many blocks have passed since the last epoch step for a specific
+        subnet.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            block: the block number for this query.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            block number of the last step in the subnet.
+            The number of blocks since the last step in the subnet, or None if the query fails.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#epoch>
         """
         query = self.query_subtensor(
             name="BlocksSinceLastStep", block=block, params=[netuid]
         )
         return query.value if query is not None and hasattr(query, "value") else query
 
-    def blocks_since_last_update(self, netuid: int, uid: int) -> Optional[int]:
-        """
-        Returns the number of blocks since the last update for a specific UID in the subnetwork.
+    def blocks_since_last_update(
+        self, netuid: int, uid: int, block: Optional[int] = None
+    ) -> Optional[int]:
+        """Returns the number of blocks since the last update, or `None` if the subnetwork or UID does not exist.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            uid (int): The unique identifier of the neuron.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            uid: The unique identifier of the neuron.
+            block: The block number for this query. If `None`, queries the current chain head.
 
         Returns:
-            Optional[int]: The number of blocks since the last update, or ``None`` if the subnetwork or UID does not
-                exist.
+            The number of blocks since the last update, or None if the subnetwork or UID does not exist.
         """
-        call = self.get_hyperparameter(param_name="LastUpdate", netuid=netuid)
-        return None if not call else (self.get_current_block() - int(call[uid]))
+        block = block or self.get_current_block()
+        call = self.get_hyperparameter(
+            param_name="LastUpdate", netuid=netuid, block=block
+        )
+        return None if not call else (block - int(call[uid]))
 
-    def bonds(
-        self, netuid: int, block: Optional[int] = None
-    ) -> list[tuple[int, list[tuple[int, int]]]]:
-        """
-        Retrieves the bond distribution set by neurons within a specific subnet of the Bittensor network.
-            Bonds represent the investments or commitments made by neurons in one another, indicating a level of trust
-            and perceived value. This bonding mechanism is integral to the network's market-based approach to
-            measuring and rewarding machine intelligence.
+    def blocks_until_next_epoch(
+        self, netuid: int, tempo: Optional[int] = None, block: Optional[int] = None
+    ) -> Optional[int]:
+        """Returns the number of blocks until the next epoch of subnet with provided netuid.
 
-        Args:
-            netuid: The network UID of the subnet to query.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            tempo: The tempo of the subnet.
             block: the block number for this query.
 
         Returns:
-            List of tuples mapping each neuron's UID to its bonds with other neurons.
-
-        Understanding bond distributions is crucial for analyzing the trust dynamics and market behavior within the
-            subnet. It reflects how neurons recognize and invest in each other's intelligence and contributions,
-            supporting diverse and niche systems within the Bittensor ecosystem.
+            The number of blocks until the next epoch of the subnet with provided netuid.
         """
+        block = block or self.block
+
+        tempo = tempo or self.tempo(netuid=netuid)
+        if not tempo:
+            return None
+
+        # the logic is the same as in SubtensorModule:blocks_until_next_epoch
+        netuid_plus_one = int(netuid) + 1
+        tempo_plus_one = tempo + 1
+        adjusted_block = (block + netuid_plus_one) % (2**64)
+        remainder = adjusted_block % tempo_plus_one
+        return tempo - remainder
+
+    def bonds(
+        self,
+        netuid: int,
+        mechid: int = 0,
+        block: Optional[int] = None,
+    ) -> list[tuple[int, list[tuple[int, int]]]]:
+        """Retrieves the bond distribution set by subnet validators within a specific subnet.
+
+        Bonds represent a validator's accumulated assessment of each miner's performance over time, which serves as the
+        starting point of Yuma Consensus.
+
+        Parameters:
+            netuid: Subnet identifier.
+            mechid: Subnet mechanism identifier (default 0 for primary mechanism).
+            block: The block number for this query. If `None`, queries the current chain head.
+
+        Returns:
+            List of tuples, where each tuple contains:
+                - validator_uid: The UID of the validator
+                - bonds: List of (miner_uid, bond_value) pairs
+
+            Bond values are u16-normalized (0-65535, where 65535 = 1.0 or 100%).
+
+        Example:
+            # Get bonds for subnet 1
+            bonds = subtensor.bonds(netuid=1)
+            print(bonds[0])
+            # example output: (5, [(0, 32767), (1, 16383), (3, 8191)])
+            # This means validator UID 5 has bonds: 50% to miner 0, 25% to miner 1, 12.5% to miner 3
+
+        Notes:
+            - See: <https://docs.learnbittensor.org/glossary#validator-miner-bonds>
+            - See: <https://docs.learnbittensor.org/glossary#yuma-consensus>
+        """
+        storage_index = get_mechid_storage_index(netuid, mechid)
         b_map_encoded = self.substrate.query_map(
             module="SubtensorModule",
             storage_function="Bonds",
-            params=[netuid],
+            params=[storage_index],
             block_hash=self.determine_block_hash(block),
         )
         b_map = []
@@ -534,47 +955,19 @@ class Subtensor(SubtensorMixin):
 
         return b_map
 
-    def commit(
-        self, wallet, netuid: int, data: str, period: Optional[int] = None
-    ) -> bool:
-        """
-        Commits arbitrary data to the Bittensor network by publishing metadata.
+    def commit_reveal_enabled(self, netuid: int, block: Optional[int] = None) -> bool:
+        """Check if commit-reveal mechanism is enabled for a given subnet at a specific block.
 
-        Arguments:
-            wallet (bittensor_wallet.Wallet): The wallet associated with the neuron committing the data.
-            netuid (int): The unique identifier of the subnetwork.
-            data (str): The data to be committed to the network.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            netuid: The unique identifier of the subnet for which to check the commit-reveal mechanism.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            bool: `True` if the commitment was successful, `False` otherwise.
-        """
-        return publish_metadata(
-            subtensor=self,
-            wallet=wallet,
-            netuid=netuid,
-            data_type=f"Raw{len(data)}",
-            data=data.encode(),
-            period=period,
-        )
+            True if commit-reveal mechanism is enabled, False otherwise.
 
-    # add explicit alias
-    set_commitment = commit
-
-    def commit_reveal_enabled(
-        self, netuid: int, block: Optional[int] = None
-    ) -> Optional[bool]:
-        """
-        Check if the commit-reveal mechanism is enabled for a given network at a specific block.
-
-        Arguments:
-            netuid: The network identifier for which to check the commit-reveal mechanism.
-            block: The block number to query.
-
-        Returns:
-            Returns the integer value of the hyperparameter if available; otherwise, returns None.
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
+            - <https://docs.learnbittensor.org/subnets/subnet-hyperparameters>
         """
         call = self.get_hyperparameter(
             param_name="CommitRevealWeightsEnabled", block=block, netuid=netuid
@@ -582,21 +975,24 @@ class Subtensor(SubtensorMixin):
         return True if call is True else False
 
     def difficulty(self, netuid: int, block: Optional[int] = None) -> Optional[int]:
-        """
-        Retrieves the 'Difficulty' hyperparameter for a specified subnet in the Bittensor network.
+        """Retrieves the 'Difficulty' hyperparameter for a specified subnet in the Bittensor network.
 
-        This parameter is instrumental in determining the computational challenge required for neurons to participate in
-            consensus and validation processes.
+        This parameter determines the computational challenge required for neurons to participate in consensus and
+         validation processes, using proof of work (POW) registration.
 
-        Arguments:
+        Parameters:
             netuid: The unique identifier of the subnet.
-            block: The blockchain block number for the query.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Optional[int]: The value of the 'Difficulty' hyperparameter if the subnet exists, ``None`` otherwise.
+            The value of the 'Difficulty' hyperparameter if the subnet exists, `None` otherwise.
 
-        The 'Difficulty' parameter directly impacts the network's security and integrity by setting the computational
-            effort required for validating transactions and participating in the network's consensus mechanism.
+        Notes:
+            Burn registration is much more common on Bittensor subnets currently, compared to POW registration.
+
+            - <https://docs.learnbittensor.org/subnets/subnet-hyperparameters>
+            - <https://docs.learnbittensor.org/validators#validator-registration>
+            - <https://docs.learnbittensor.org/miners#miner-registration>
         """
         call = self.get_hyperparameter(
             param_name="Difficulty", netuid=netuid, block=block
@@ -606,15 +1002,23 @@ class Subtensor(SubtensorMixin):
         return int(call)
 
     def does_hotkey_exist(self, hotkey_ss58: str, block: Optional[int] = None) -> bool:
-        """
-        Returns true if the hotkey is known by the chain and there are accounts.
+        """Returns true if the hotkey has been associated with a coldkey through account creation.
 
-        Args:
+        This method queries the Subtensor's Owner storage map to check if the hotkey has been paired with a
+        coldkey, as it must be before it (the hotkey) can be used for neuron registration.
+
+        The Owner storage map defaults to the zero address (`5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM`)
+        for unused hotkeys. This method returns `True` if the Owner value is anything other than this default.
+
+        Parameters:
             hotkey_ss58: The SS58 address of the hotkey.
-            block: the block number for this query.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            `True` if the hotkey is known by the chain and there are accounts, `False` otherwise.
+            True if the hotkey has been associated with a coldkey, False otherwise.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#hotkey>
         """
         result = self.substrate.query(
             module="SubtensorModule",
@@ -630,19 +1034,38 @@ class Subtensor(SubtensorMixin):
         )
         return return_val
 
-    def get_all_subnets_info(self, block: Optional[int] = None) -> list["SubnetInfo"]:
-        """
-        Retrieves detailed information about all subnets within the Bittensor network. This function provides
-            comprehensive data on each subnet, including its characteristics and operational parameters.
+    def get_admin_freeze_window(self, block: Optional[int] = None) -> int:
+        """Returns the duration, in blocks, of the administrative freeze window at the end of each epoch.
 
-        Arguments:
-            block: The blockchain block number for the query.
+        The admin freeze window is a period at the end of each epoch during which subnet owner
+        operations are prohibited. This prevents subnet owners from modifying hyperparameters or performing certain
+        administrative actions right before validators submit weights at the epoch boundary.
+
+        Parameters:
+            block: The block number to query.
 
         Returns:
-            list[SubnetInfo]: A list of SubnetInfo objects, each containing detailed information about a subnet.
+            The number of blocks in the administrative freeze window (default: 10 blocks, ~2 minutes).
 
-        Gaining insights into the subnets' details assists in understanding the network's composition, the roles of
-            different subnets, and their unique features.
+        Notes:
+            - <https://docs.learnbittensor.org/learn/chain-rate-limits#administrative-freeze-window>
+        """
+
+        return self.substrate.query(
+            module="SubtensorModule",
+            storage_function="AdminFreezeWindow",
+            block_hash=self.determine_block_hash(block),
+        ).value
+
+    def get_all_subnets_info(self, block: Optional[int] = None) -> list["SubnetInfo"]:
+        """Retrieves detailed information about all subnets within the Bittensor network.
+
+        Parameters:
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            A list of SubnetInfo objects, each containing detailed information about a subnet.
+
         """
         result = self.query_runtime_api(
             runtime_api="SubnetInfoRuntimeApi",
@@ -662,16 +1085,256 @@ class Subtensor(SubtensorMixin):
 
         return SubnetInfo.list_from_dicts(result)
 
-    def get_balance(self, address: str, block: Optional[int] = None) -> Balance:
-        """
-        Retrieves the balance for given coldkey. Always in TAO.
+    def get_all_commitments(
+        self, netuid: int, block: Optional[int] = None
+    ) -> dict[str, str]:
+        """Retrieves raw commitment metadata from a given subnet.
 
-        Arguments:
-            address: coldkey address.
-            block (Optional[int]): The blockchain block number for the query.
+        This method retrieves all commitment data for all neurons in a specific subnet. This is useful for analyzing the
+        commit-reveal patterns across an entire subnet.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Balance object in TAO.
+            A mapping of the ss58:commitment with the commitment as a string.
+
+        Example:
+
+            # TODO add example of how to handle realistic commitment data
+        """
+        query = self.query_map(
+            module="Commitments",
+            name="CommitmentOf",
+            params=[netuid],
+            block=block,
+        )
+        result = {}
+        for id_, value in query:
+            try:
+                result[decode_account_id(id_[0])] = decode_metadata(value)
+            except Exception as error:
+                logging.error(
+                    f"Error decoding [red]{id_}[/red] and [red]{value}[/red]: {error}"
+                )
+        return result
+
+    def get_all_ema_tao_inflow(
+        self,
+        block: Optional[int] = None,
+    ) -> dict[int, tuple[int, Balance]]:
+        """Retrieves the EMA (exponential moving average) of net TAO flows for all subnets.
+
+        The EMA tracks net TAO flows (staking minus unstaking) with a 30-day half-life (~86.8 day window), smoothing
+        out short-term fluctuations while capturing sustained staking trends. This metric determines the subnet's share
+        of TAO emissions under the current, flow-based model. Positive values indicate net inflow (more staking than unstaking),
+        negative values indicate net outflow. Subnets with negative EMA flows receive zero emissions.
+
+        Parameters:
+            block: The block number to retrieve the commitment from.
+
+        Returns:
+            Dict mapping netuid to (last_updated_block, ema_flow). The Balance represents the EMA of net TAO flow in
+            TAO units. Positive values indicate sustained net inflow, negative values indicate sustained net outflow.
+
+        The EMA uses a smoothing factor α ≈ 0.000003209, creating a 30-day half-life and ~86.8 day window. Only
+        direct stake/unstake operations count toward flows; neuron registrations and root claims are excluded.
+        Subnet 0 (root network) does not have an EMA TAO flow value.
+
+        Notes:
+            - Flow-based emissions: <https://docs.learnbittensor.org/learn/emissions#tao-reserve-injection>
+            - EMA smoothing: <https://docs.learnbittensor.org/learn/ema>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query_map(
+            module="SubtensorModule",
+            storage_function="SubnetEmaTaoFlow",
+            block_hash=block_hash,
+        )
+        tao_inflow_ema = {}
+        for netuid, (block_updated, tao_bits) in query:
+            ema_value = int(fixed_to_float(tao_bits))
+            tao_inflow_ema[netuid] = (block_updated, Balance.from_rao(ema_value))
+        return tao_inflow_ema
+
+    def get_all_metagraphs_info(
+        self,
+        all_mechanisms: bool = False,
+        block: Optional[int] = None,
+    ) -> Optional[list[MetagraphInfo]]:
+        """
+        Retrieves a list of MetagraphInfo objects for all subnets
+
+        Parameters:
+            all_mechanisms: If True then returns all mechanisms, otherwise only those with index 0 for all subnets.
+            block: The blockchain block number for the query.
+
+        Returns:
+            List of MetagraphInfo objects for all existing subnets.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#metagraph>
+        """
+        block_hash = self.determine_block_hash(block)
+        method = "get_all_mechagraphs" if all_mechanisms else "get_all_metagraphs"
+        query = self.substrate.runtime_call(
+            api="SubnetInfoRuntimeApi",
+            method=method,
+            block_hash=block_hash,
+        )
+        if query is None or not hasattr(query, "value"):
+            return None
+
+        return MetagraphInfo.list_from_dicts(query.value)
+
+    def get_all_neuron_certificates(
+        self, netuid: int, block: Optional[int] = None
+    ) -> dict[str, Certificate]:
+        """
+        Retrieves the TLS certificates for neurons within a specified subnet (netuid) of the Bittensor network.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
+
+        Returns:
+            Dictionary mapping neuron hotkey SS58 addresses to their Certificate objects. Only includes neurons
+            that have registered certificates.
+
+        Notes:
+            This method is used for certificate discovery to establish mutual TLS communication between neurons.
+
+            - <https://docs.learnbittensor.org/subnets/neuron-tls-certificates>
+        """
+        query_certificates = self.query_map(
+            module="SubtensorModule",
+            name="NeuronCertificates",
+            params=[netuid],
+            block=block,
+        )
+        output = {}
+        for key, item in query_certificates:
+            output[decode_account_id(key)] = Certificate(item.value)
+        return output
+
+    def get_all_revealed_commitments(
+        self, netuid: int, block: Optional[int] = None
+    ) -> dict[str, tuple[tuple[int, str], ...]]:
+        """Retrieves all revealed commitments for a given subnet.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            A dictionary mapping hotkey addresses to tuples of (reveal_block, commitment_message) pairs.
+            Each validator can have multiple revealed commitments (up to 10 most recent).
+
+        Example:
+
+            # sample return value
+
+            {
+
+                "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY": ( (12, "Alice message 1"), (152, "Alice message 2") ),
+
+                "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty": ( (12, "Bob message 1"), (147, "Bob message 2") ),
+
+            }
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
+
+        """
+        query = self.query_map(
+            module="Commitments",
+            name="RevealedCommitments",
+            params=[netuid],
+            block=block,
+        )
+
+        result = {}
+        for pair in query:
+            hotkey_ss58_address, commitment_message = (
+                decode_revealed_commitment_with_hotkey(pair)
+            )
+            result[hotkey_ss58_address] = commitment_message
+        return result
+
+    def get_all_subnets_netuid(self, block: Optional[int] = None) -> UIDs:
+        """
+        Retrieves the list of all subnet unique identifiers (netuids) currently present in the Bittensor network.
+
+        Parameters:
+            block: The blockchain block number for the query.
+
+        Returns:
+            A list of subnet netuids.
+
+        This function provides a comprehensive view of the subnets within the Bittensor network,
+        offering insights into its diversity and scale.
+        """
+        result = self.substrate.query_map(
+            module="SubtensorModule",
+            storage_function="NetworksAdded",
+            block_hash=self.determine_block_hash(block),
+        )
+        subnets = []
+        if result.records:
+            for netuid, exists in result:
+                if exists:
+                    subnets.append(netuid)
+        return subnets
+
+    def get_auto_stakes(
+        self,
+        coldkey_ss58: str,
+        block: Optional[int] = None,
+    ) -> dict[int, str]:
+        """Fetches auto stake destinations for a given wallet across all subnets.
+
+        Parameters:
+            coldkey_ss58: Coldkey ss58 address.
+            block: The block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            Dictionary mapping netuid to hotkey, where:
+
+                - netuid: The unique identifier of the subnet.
+                - hotkey: The hotkey of the wallet.
+
+        Notes:
+            - <https://docs.learnbittensor.org/miners/autostaking>
+        """
+        block_hash = self.determine_block_hash(block=block)
+        query = self.substrate.query_map(
+            module="SubtensorModule",
+            storage_function="AutoStakeDestination",
+            params=[coldkey_ss58],
+            block_hash=block_hash,
+        )
+
+        pairs = {}
+        for netuid, destination in query:
+            hotkey_ss58 = decode_account_id(destination.value[0])
+            if hotkey_ss58:
+                pairs[int(netuid)] = hotkey_ss58
+
+        return pairs
+
+    def get_balance(self, address: str, block: Optional[int] = None) -> Balance:
+        """Retrieves the balance for given coldkey.
+
+        This method queries the System module's Account storage to get the current balance of a coldkey address. The
+        balance represents the amount of TAO tokens held by the specified address.
+
+        Parameters:
+            address: The coldkey address in SS58 format.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            Balance: The balance object containing the account's TAO balance.
         """
         balance = self.substrate.query(
             module="System",
@@ -686,15 +1349,18 @@ class Subtensor(SubtensorMixin):
         *addresses: str,
         block: Optional[int] = None,
     ) -> dict[str, Balance]:
-        """
-        Retrieves the balance for given coldkey(s)
+        """Retrieves the balance for given coldkey(s).
 
-        Arguments:
-            addresses (str): coldkey addresses(s).
-            block (Optional[int]): The blockchain block number for the query.
+        This method efficiently queries multiple coldkey addresses in a single batch operation, returning a dictionary
+        mapping each address to its corresponding balance. This is more efficient than calling get_balance multiple
+        times.
+
+        Parameters:
+            *addresses: Variable number of coldkey addresses in SS58 format.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Dict of {address: Balance objects}.
+            A dictionary mapping each address to its Balance object.
         """
         if not (block_hash := self.determine_block_hash(block)):
             block_hash = self.substrate.get_chain_head()
@@ -714,150 +1380,120 @@ class Subtensor(SubtensorMixin):
         return results
 
     def get_current_block(self) -> int:
-        """
-        Returns the current block number on the Bittensor blockchain. This function provides the latest block number,
-            indicating the most recent state of the blockchain.
+        """Returns the current block number on the Bittensor blockchain.
+
+        This function provides the latest block number, indicating the most recent state of the blockchain.
 
         Returns:
             int: The current chain block number.
 
-        Knowing the current block number is essential for querying real-time data and performing time-sensitive
-            operations on the blockchain. It serves as a reference point for network activities and data
-            synchronization.
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#block>
         """
         return self.substrate.get_block_number(None)
 
-    @lru_cache(maxsize=128)
-    def _get_block_hash(self, block_id: int):
-        return self.substrate.get_block_hash(block_id)
-
     def get_block_hash(self, block: Optional[int] = None) -> str:
-        """
-        Retrieves the hash of a specific block on the Bittensor blockchain. The block hash is a unique identifier
-            representing the cryptographic hash of the block's content, ensuring its integrity and immutability.
+        """Retrieves the hash of a specific block on the Bittensor blockchain.
 
-        Arguments:
-            block (int): The block number for which the hash is to be retrieved.
+        The block hash is a unique identifier representing the cryptographic hash of the block's content, ensuring its
+        integrity and immutability. It is a fundamental aspect of blockchain technology, providing a secure reference
+        to each block's data. It is crucial for verifying transactions, ensuring data consistency, and maintaining the
+        trustworthiness of the blockchain.
+
+        Parameters:
+            block: The block number for which the hash is to be retrieved. If `None`, returns the latest block hash.
 
         Returns:
             str: The cryptographic hash of the specified block.
 
-        The block hash is a fundamental aspect of blockchain technology, providing a secure reference to each block's
-            data. It is crucial for verifying transactions, ensuring data consistency, and maintaining the
-            trustworthiness of the blockchain.
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#block>
         """
         if block is not None:
             return self._get_block_hash(block)
         else:
             return self.substrate.get_chain_head()
 
-    def determine_block_hash(self, block: Optional[int]) -> Optional[str]:
-        if block is None:
-            return None
-        else:
-            return self.get_block_hash(block=block)
-
-    def encode_params(
+    def get_block_info(
         self,
-        call_definition: dict[str, list["ParamWithTypes"]],
-        params: Union[list[Any], dict[str, Any]],
-    ) -> str:
-        """Returns a hex encoded string of the params using their types."""
-        param_data = scalecodec.ScaleBytes(b"")
+        block: Optional[int] = None,
+        block_hash: Optional[str] = None,
+    ) -> Optional[BlockInfo]:
+        """Retrieve complete information about a specific block from the Subtensor chain.
 
-        for i, param in enumerate(call_definition["params"]):
-            scale_obj = self.substrate.create_scale_object(param["type"])
-            if isinstance(params, list):
-                param_data += scale_obj.encode(params[i])
-            else:
-                if param["name"] not in params:
-                    raise ValueError(f"Missing param {param['name']} in params dict.")
+        This method aggregates multiple low-level RPC calls into a single structured response, returning both the raw
+        on-chain data and high-level decoded metadata for the given block.
 
-                param_data += scale_obj.encode(params[param["name"]])
-
-        return param_data.to_hex()
-
-    def get_hyperparameter(
-        self, param_name: str, netuid: int, block: Optional[int] = None
-    ) -> Optional[Any]:
-        """
-        Retrieves a specified hyperparameter for a specific subnet.
-
-        Arguments:
-            param_name (str): The name of the hyperparameter to retrieve.
-            netuid (int): The unique identifier of the subnet.
-            block: the block number at which to retrieve the hyperparameter.
+        Parameters:
+            block: The block number for which the hash is to be retrieved.
+            block_hash: The hash of the block to retrieve the block from.
 
         Returns:
-            The value of the specified hyperparameter if the subnet exists, or None
-        """
-        block_hash = self.determine_block_hash(block)
-        if not self.subnet_exists(netuid, block=block):
-            logging.error(f"subnet {netuid} does not exist")
-            return None
+            BlockInfo instance: A dataclass containing all available information about the specified block, including:
 
-        result = self.substrate.query(
-            module="SubtensorModule",
-            storage_function=param_name,
-            params=[netuid],
-            block_hash=block_hash,
+                - number: The block number.
+                - hash: The corresponding block hash.
+                - timestamp: The timestamp of the block (based on the `Timestamp.Now` extrinsic).
+                - header: The raw block header returned by the node RPC.
+                - extrinsics: The list of decoded extrinsics included in the block.
+                - explorer: The link to block explorer service. Always related with finney block data.
+        """
+        block_info = self.substrate.get_block(
+            block_number=block, block_hash=block_hash, ignore_decoding_errors=True
         )
-
-        return getattr(result, "value", result)
-
-    def get_parents(
-        self, hotkey: str, netuid: int, block: Optional[int] = None
-    ) -> list[tuple[float, str]]:
-        """
-        This method retrieves the parent of a given hotkey and netuid. It queries the SubtensorModule's ParentKeys
-            storage function to get the children and formats them before returning as a tuple.
-
-        Arguments:
-            hotkey: The child hotkey SS58.
-            netuid: The netuid.
-            block: The block number for which the children are to be retrieved.
-
-        Returns:
-            A list of formatted parents [(proportion, parent)]
-        """
-        parents = self.substrate.query(
-            module="SubtensorModule",
-            storage_function="ParentKeys",
-            params=[hotkey, netuid],
-            block_hash=self.determine_block_hash(block),
-        )
-        if parents:
-            formatted_parents = []
-            for proportion, parent in parents.value:
-                # Convert U64 to int
-                formatted_child = decode_account_id(parent[0])
-                normalized_proportion = u64_normalized_float(proportion)
-                formatted_parents.append((normalized_proportion, formatted_child))
-            return formatted_parents
-
-        return []
+        if isinstance(block_info, dict) and (header := block_info.get("header")):
+            block = block or header.get("number", None)
+            block_hash = block_hash or header.get("hash", None)
+            extrinsics = cast(list, block_info.get("extrinsics"))
+            timestamp = None
+            for ext in extrinsics:
+                if ext.value_serialized["call"]["call_module"] == "Timestamp":
+                    timestamp = ext.value_serialized["call"]["call_args"][0]["value"]
+                    break
+            return BlockInfo(
+                number=block,
+                hash=block_hash,
+                timestamp=timestamp,
+                header=header,
+                extrinsics=extrinsics,
+                explorer=f"{TAO_APP_BLOCK_EXPLORER}{block}",
+            )
+        return None
 
     def get_children(
-        self, hotkey: str, netuid: int, block: Optional[int] = None
+        self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
     ) -> tuple[bool, list[tuple[float, str]], str]:
-        """
-        This method retrieves the children of a given hotkey and netuid. It queries the SubtensorModule's ChildKeys
-            storage function to get the children and formats them before returning as a tuple.
+        """Retrieves the children of a given hotkey and netuid.
 
-        Arguments:
-            hotkey (str): The hotkey value.
-            netuid (int): The netuid value.
-            block (Optional[int]): The block number for which the children are to be retrieved.
+        This method queries the SubtensorModule's ChildKeys storage function to get the children and formats them before
+        returning as a tuple. It provides information about the child neurons that a validator has set for weight
+        distribution.
+
+        Parameters:
+            hotkey_ss58: The hotkey value.
+            netuid: The netuid value.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            A tuple containing a boolean indicating success or failure, a list of formatted children, and an error
-                message (if applicable)
+            A tuple containing a boolean indicating success or failure, a list of formatted children with their
+                proportions, and an error message (if applicable).
+
+        Example:
+
+            # Get children for a hotkey in subnet 1
+            success, children, error = subtensor.get_children(hotkey="5F...", netuid=1)
+            if success:
+                for proportion, child_hotkey in children:
+                    print(f"Child {child_hotkey}: {proportion}")
+
+        Notes:
+            - <https://docs.learnbittensor.org/validators/child-hotkeys>
         """
         try:
             children = self.substrate.query(
                 module="SubtensorModule",
                 storage_function="ChildKeys",
-                params=[hotkey, netuid],
+                params=[hotkey_ss58, netuid],
                 block_hash=self.determine_block_hash(block),
             )
             if children:
@@ -875,31 +1511,36 @@ class Subtensor(SubtensorMixin):
 
     def get_children_pending(
         self,
-        hotkey: str,
+        hotkey_ss58: str,
         netuid: int,
         block: Optional[int] = None,
     ) -> tuple[
         list[tuple[float, str]],
         int,
     ]:
-        """
-        This method retrieves the pending children of a given hotkey and netuid.
-        It queries the SubtensorModule's PendingChildKeys storage function.
+        """Retrieves the pending children of a given hotkey and netuid.
 
-        Arguments:
-            hotkey (str): The hotkey value.
-            netuid (int): The netuid value.
-            block (Optional[int]): The block number for which the children are to be retrieved.
+        This method queries the SubtensorModule's PendingChildKeys storage function to get children that are pending
+        approval or in a cooldown period. These are children that have been proposed but not yet finalized.
+
+        Parameters:
+            hotkey_ss58: The hotkey value.
+            netuid: The netuid value.
+            block: The block number for which the children are to be retrieved. If `None`, queries the current chain head.
 
         Returns:
-            list[tuple[float, str]]: A list of children with their proportions.
-            int: The cool-down block number.
+            tuple: A tuple containing:
+                - list[tuple[float, str]]: A list of children with their proportions.
+                - int: The cool-down block number.
+
+        Notes:
+            - <https://docs.learnbittensor.org/validators/child-hotkeys>
         """
 
         children, cooldown = self.substrate.query(
             module="SubtensorModule",
             storage_function="PendingChildKeys",
-            params=[netuid, hotkey],
+            params=[netuid, hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         ).value
 
@@ -915,17 +1556,24 @@ class Subtensor(SubtensorMixin):
         )
 
     def get_commitment(self, netuid: int, uid: int, block: Optional[int] = None) -> str:
-        """
-        Retrieves the on-chain commitment for a specific neuron in the Bittensor network.
+        """Retrieves the on-chain commitment for a specific neuron in the Bittensor network.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            uid (int): The unique identifier of the neuron.
-            block (Optional[int]): The block number to retrieve the commitment from. If None, the latest block is used.
-                Default is ``None``.
+        This method retrieves the commitment data that a neuron has published to the blockchain. Commitments are used in
+        the commit-reveal mechanism for secure weight setting and other network operations.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            uid: The unique identifier of the neuron.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            str: The commitment data as a string.
+            The commitment data as a string.
+
+
+            # TODO: add a real example of how to handle realistic commitment data, or chop example
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
         """
         metagraph = self.metagraph(netuid)
         try:
@@ -936,228 +1584,242 @@ class Subtensor(SubtensorMixin):
             )
             return ""
 
-        metadata = cast(dict, get_metadata(self, netuid, hotkey, block))
+        metadata = cast(dict, self.get_commitment_metadata(netuid, hotkey, block))
         try:
             return decode_metadata(metadata)
-
-        except TypeError:
+        except Exception as error:
+            logging.error(error)
             return ""
 
-    def get_last_commitment_bonds_reset_block(
-        self, netuid: int, uid: int
-    ) -> Optional[int]:
-        """
-        Retrieves the last block number when the bonds reset were triggered by publish_metadata for a specific neuron.
+    def get_commitment_metadata(
+        self, netuid: int, hotkey_ss58: str, block: Optional[int] = None
+    ) -> Union[str, dict]:
+        # TODO: how to handle return data? need good example @roman
+        """Fetches raw commitment metadata from specific subnet for given hotkey.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            uid (int): The unique identifier of the neuron.
+        Parameters:
+            netuid: The unique subnet identifier.
+            hotkey_ss58: The hotkey ss58 address.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The block number when the bonds were last reset, or None if not found.
+            The raw commitment metadata. Returns a dict when commitment data exists,
+            or an empty string when no commitment is found for the given hotkey on the subnet.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
         """
-
-        metagraph = self.metagraph(netuid)
-        try:
-            hotkey = metagraph.hotkeys[uid]
-        except IndexError:
-            logging.error(
-                "Your uid is not in the hotkeys. Please double-check your UID."
-            )
-            return None
-        block = get_last_bonds_reset(self, netuid, hotkey)
-        if block is None:
-            return None
-        return decode_block(block)
-
-    def get_all_commitments(
-        self, netuid: int, block: Optional[int] = None
-    ) -> dict[str, str]:
-        query = self.query_map(
+        commit_data = self.substrate.query(
             module="Commitments",
-            name="CommitmentOf",
-            params=[netuid],
-            block=block,
-        )
-        result = {}
-        for id_, value in query:
-            result[decode_account_id(id_[0])] = decode_metadata(value)
-        return result
-
-    def get_revealed_commitment_by_hotkey(
-        self,
-        netuid: int,
-        hotkey_ss58_address: str,
-        block: Optional[int] = None,
-    ) -> Optional[tuple[tuple[int, str], ...]]:
-        """Returns hotkey related revealed commitment for a given netuid.
-
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            hotkey_ss58_address (str): The ss58 address of the committee member.
-            block (Optional[int]): The block number to retrieve the commitment from. Default is ``None``.
-
-        Returns:
-            result (tuple[int, str): A tuple of reveal block and commitment message.
-        """
-        if not is_valid_ss58_address(address=hotkey_ss58_address):
-            raise ValueError(f"Invalid ss58 address {hotkey_ss58_address} provided.")
-
-        query = self.query_module(
-            module="Commitments",
-            name="RevealedCommitments",
-            params=[netuid, hotkey_ss58_address],
-            block=block,
-        )
-        if query is None:
-            return None
-        return tuple(decode_revealed_commitment(pair) for pair in query)
-
-    def get_revealed_commitment(
-        self,
-        netuid: int,
-        uid: int,
-        block: Optional[int] = None,
-    ) -> Optional[tuple[tuple[int, str], ...]]:
-        """Returns uid related revealed commitment for a given netuid.
-
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            uid (int): The neuron uid to retrieve the commitment from.
-            block (Optional[int]): The block number to retrieve the commitment from. Default is ``None``.
-
-        Returns:
-            result (Optional[tuple[int, str]]: A tuple of reveal block and commitment message.
-
-        Example of result:
-            ( (12, "Alice message 1"), (152, "Alice message 2") )
-            ( (12, "Bob message 1"), (147, "Bob message 2") )
-        """
-        try:
-            meta_info = self.get_metagraph_info(netuid, block=block)
-            if meta_info:
-                hotkey_ss58_address = meta_info.hotkeys[uid]
-            else:
-                raise ValueError(f"Subnet with netuid {netuid} does not exist.")
-        except IndexError:
-            raise ValueError(f"Subnet {netuid} does not have a neuron with uid {uid}.")
-
-        return self.get_revealed_commitment_by_hotkey(
-            netuid=netuid, hotkey_ss58_address=hotkey_ss58_address, block=block
-        )
-
-    def get_all_revealed_commitments(
-        self, netuid: int, block: Optional[int] = None
-    ) -> dict[str, tuple[tuple[int, str], ...]]:
-        """Returns all revealed commitments for a given netuid.
-
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            block (Optional[int]): The block number to retrieve the commitment from. Default is ``None``.
-
-        Returns:
-            result (dict): A dictionary of all revealed commitments in view
-                {ss58_address: (reveal block, commitment message)}.
-
-        Example of result:
-        {
-            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY": ( (12, "Alice message 1"), (152, "Alice message 2") ),
-            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty": ( (12, "Bob message 1"), (147, "Bob message 2") ),
-        }
-        """
-        query = self.query_map(
-            module="Commitments",
-            name="RevealedCommitments",
-            params=[netuid],
-            block=block,
-        )
-
-        result = {}
-        for pair in query:
-            hotkey_ss58_address, commitment_message = (
-                decode_revealed_commitment_with_hotkey(pair)
-            )
-            result[hotkey_ss58_address] = commitment_message
-        return result
-
-    def get_current_weight_commit_info(
-        self, netuid: int, block: Optional[int] = None
-    ) -> list[tuple[str, str, int]]:
-        """
-        Retrieves CRV3 weight commit information for a specific subnet.
-
-        Arguments:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query. Default is ``None``.
-
-        Returns:
-            A list of commit details, where each item contains:
-                - ss58_address: The address of the committer.
-                - commit_message: The commit message.
-                - reveal_round: The round when the commitment was revealed.
-
-            The list may be empty if there are no commits found.
-
-        """
-        deprecated_message(
-            message="The method `get_current_weight_commit_info` is deprecated and will be removed in version 10.0.0. "
-            "Use `get_current_weight_commit_info_v2` instead."
-        )
-        result = self.substrate.query_map(
-            module="SubtensorModule",
-            storage_function="CRV3WeightCommits",
-            params=[netuid],
+            storage_function="CommitmentOf",
+            params=[netuid, hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
+        return commit_data
 
-        commits = result.records[0][1] if result.records else []
-        return [WeightCommitInfo.from_vec_u8(commit) for commit in commits]
+    def get_crowdloan_constants(
+        self,
+        constants: Optional[list[str]] = None,
+        block: Optional[int] = None,
+    ) -> "CrowdloanConstants":
+        """Retrieves runtime configuration constants governing crowdloan behavior and limits on the Bittensor blockchain.
 
-    def get_current_weight_commit_info_v2(
-        self, netuid: int, block: Optional[int] = None
-    ) -> list[tuple[str, int, str, int]]:
-        """
-        Retrieves CRV3 weight commit information for a specific subnet.
+        If a list of constant names is provided, only those constants will be queried.
+        Otherwise, all known constants defined in `CrowdloanConstants.field_names()` are fetched.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query. Default is ``None``.
+        These constants define requirements and operational limits for crowdloan campaigns:
+            AbsoluteMinimumContribution: Minimum amount per contribution (TAO).
+            MaxContributors: Maximum number of unique contributors per crowdloan.
+            MaximumBlockDuration: Maximum duration (in blocks) for a crowdloan campaign (60 days = 432,000 blocks on
+                production).
+            MinimumDeposit: Minimum deposit required from the creator (TAO).
+            MinimumBlockDuration: Minimum duration (in blocks) for a crowdloan campaign (7 days = 50,400 blocks on
+                production).
+            RefundContributorsLimit: Maximum number of contributors refunded per `refund_crowdloan` call (typically 50).
+
+        Parameters:
+            constants: Specific constant names to query. If `None`, retrieves all constants from `CrowdloanConstants`.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
 
         Returns:
-            A list of commit details, where each item contains:
-                - ss58_address: The address of the committer.
-                - commit_block: The block number when the commitment was made.
-                - commit_message: The commit message.
-                - reveal_round: The round when the commitment was revealed.
+            A `CrowdloanConstants` data object containing the queried constants. Missing constants return `None`.
+        Notes:
+            These constants enforce contribution floors, duration bounds, and refund batching limits.
 
-            The list may be empty if there are no commits found.
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+
         """
-        result = self.substrate.query_map(
-            module="SubtensorModule",
-            storage_function="CRV3WeightCommitsV2",
-            params=[netuid],
-            block_hash=self.determine_block_hash(block),
+        result = {}
+        const_names = constants or CrowdloanConstants.constants_names()
+
+        for const_name in const_names:
+            query = self.query_constant(
+                module_name="Crowdloan",
+                constant_name=const_name,
+                block=block,
+            )
+
+            if query is not None:
+                result[const_name] = query.value
+
+        return CrowdloanConstants.from_dict(result)
+
+    def get_crowdloan_contributions(
+        self,
+        crowdloan_id: int,
+        block: Optional[int] = None,
+    ) -> dict[str, "Balance"]:
+        """Retrieves all contributions made to a specific crowdloan campaign.
+
+        Returns a mapping of contributor coldkey addresses to their contribution amounts in Rao.
+
+        Parameters:
+            crowdloan_id: The unique identifier of the crowdloan.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            Dictionary mapping contributor SS58 addresses to their `Balance` contribution amounts (in Rao).
+            Returns empty dictionary if the crowdloan has no contributions or does not exist.
+
+        Notes:
+            Contributions are clipped to the remaining cap. Once the cap is reached, no further contributions are accepted.
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Tutorial: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#step-4-contribute-to-the-crowdloan>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query_map(
+            module="Crowdloan",
+            storage_function="Contributions",
+            params=[crowdloan_id],
+            block_hash=block_hash,
+        )
+        result = {}
+        for record in query.records:
+            if record[1].value:
+                result[decode_account_id(record[0])] = Balance.from_rao(record[1].value)
+        return result
+
+    def get_crowdloan_by_id(
+        self, crowdloan_id: int, block: Optional[int] = None
+    ) -> Optional["CrowdloanInfo"]:
+        """Retrieves detailed information about a specific crowdloan campaign.
+
+        Parameters:
+            crowdloan_id: Unique identifier of the crowdloan (auto-incremented starting from 0).
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            `CrowdloanInfo` object containing: campaign ID, creator address, creator's deposit,
+            minimum contribution amount, end block, funding cap, funds account address, amount raised,
+            optional target address, optional embedded call, finalization status, and contributor count.
+            Returns `None` if the crowdloan does not exist.
+
+        Notes:
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query(
+            module="Crowdloan",
+            storage_function="Crowdloans",
+            params=[crowdloan_id],
+            block_hash=block_hash,
+        )
+        if not query:
+            return None
+        return self._decode_crowdloan_entry(
+            crowdloan_id=crowdloan_id, data=query.value, block_hash=block_hash
         )
 
-        commits = result.records[0][1] if result.records else []
-        return [WeightCommitInfo.from_vec_u8_v2(commit) for commit in commits]
+    def get_crowdloan_next_id(
+        self,
+        block: Optional[int] = None,
+    ) -> int:
+        """Retrieves the next available crowdloan identifier.
+
+        Crowdloan IDs are allocated sequentially starting from 0. This method returns the ID that will be
+        assigned to the next crowdloan created via :meth:`create_crowdloan`.
+
+        Parameters:
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            The next crowdloan ID (integer) to be assigned.
+
+        Notes:
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Tutorial: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#get-the-crowdloan-id>
+        """
+        block_hash = self.determine_block_hash(block)
+        result = self.substrate.query(
+            module="Crowdloan",
+            storage_function="NextCrowdloanId",
+            block_hash=block_hash,
+        )
+        return int(result.value or 0)
+
+    def get_crowdloans(
+        self,
+        block: Optional[int] = None,
+    ) -> list["CrowdloanInfo"]:
+        """Retrieves all existing crowdloan campaigns with their metadata.
+
+        Returns comprehensive information for all crowdloans registered on the blockchain, including
+        both active and finalized campaigns.
+
+        Parameters:
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            List of `CrowdloanInfo` objects, each containing: campaign ID, creator address, creator's deposit,
+            minimum contribution amount, end block, funding cap, funds account address, amount raised,
+            optional target address, optional embedded call, finalization status, and contributor count.
+            Returns empty list if no crowdloans exist.
+
+        Notes:
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Lifecycle: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query_map(
+            module="Crowdloan",
+            storage_function="Crowdloans",
+            block_hash=block_hash,
+        )
+
+        crowdloans = []
+
+        for c_id, value_obj in getattr(query, "records", []):
+            data = value_obj.value
+            if not data:
+                continue
+            crowdloans.append(
+                self._decode_crowdloan_entry(
+                    crowdloan_id=c_id, data=data, block_hash=block_hash
+                )
+            )
+
+        return crowdloans
 
     def get_delegate_by_hotkey(
         self, hotkey_ss58: str, block: Optional[int] = None
     ) -> Optional["DelegateInfo"]:
-        """
-        Retrieves detailed information about a delegate neuron based on its hotkey. This function provides a
-            comprehensive view of the delegate's status, including its stakes, nominators, and reward distribution.
+        """Retrieves detailed information about a delegate neuron (validator) based on its hotkey. This function
+        provides a comprehensive view of the delegate's status, including its stakes, nominators, and reward
+        distribution.
 
-        Arguments:
-            hotkey_ss58 (str): The ``SS58`` address of the delegate's hotkey.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The `SS58` address of the delegate's hotkey.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Optional[DelegateInfo]: Detailed information about the delegate neuron, ``None`` if not found.
+            Detailed information about the delegate neuron, `None` if not found.
 
-        This function is essential for understanding the roles and influence of delegate neurons within the Bittensor
-            network's consensus and governance structures.
+        Notes:
+
+            - <https://docs.learnbittensor.org/glossary#delegate>
+            - <https://docs.learnbittensor.org/glossary#nominator>
         """
 
         result = self.query_runtime_api(
@@ -1175,15 +1837,20 @@ class Subtensor(SubtensorMixin):
     def get_delegate_identities(
         self, block: Optional[int] = None
     ) -> dict[str, ChainIdentity]:
-        """
-        Fetches delegates identities from the chain.
+        """Fetches delegate identities.
 
-        Arguments:
-            block (Optional[int]): The blockchain block number for the query.
+        Delegates are validators that accept stake from other TAO holders (nominators/delegators). This method
+        retrieves the on-chain identity information for all delegates, including display name, legal name, web URLs,
+        and other metadata they have set.
+
+        Parameters:
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            Dict {ss58: ChainIdentity, ...}
+            Dictionary mapping delegate SS58 addresses to their ChainIdentity objects.
 
+        Notes:
+            - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
         identities = self.substrate.query_map(
             module="SubtensorModule",
@@ -1201,17 +1868,17 @@ class Subtensor(SubtensorMixin):
     def get_delegate_take(self, hotkey_ss58: str, block: Optional[int] = None) -> float:
         """
         Retrieves the delegate 'take' percentage for a neuron identified by its hotkey. The 'take' represents the
-            percentage of rewards that the delegate claims from its nominators' stakes.
+        percentage of rewards that the delegate claims from its nominators' stakes.
 
-        Arguments:
-            hotkey_ss58 (str): The ``SS58`` address of the neuron's hotkey.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
             float: The delegate take percentage.
 
-        The delegate take is a critical parameter in the network's incentive structure, influencing the distribution of
-            rewards among neurons and their nominators.
+        Notes:
+            - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
         result = self.query_subtensor(
             name="Delegates",
@@ -1224,19 +1891,22 @@ class Subtensor(SubtensorMixin):
     def get_delegated(
         self, coldkey_ss58: str, block: Optional[int] = None
     ) -> list[DelegatedInfo]:
-        """
-        Retrieves a list of delegates and their associated stakes for a given coldkey. This function identifies the
-        delegates that a specific account has staked tokens on.
+        """Retrieves delegates and their associated stakes for a given nominator coldkey.
 
-        Arguments:
-            coldkey_ss58 (str): The `SS58` address of the account's coldkey.
-            block (Optional[int]): The blockchain block number for the query.
+        This method identifies all delegates (validators) that a specific coldkey has staked tokens to, along with
+        stake amounts and other delegation information. This is useful for account holders to understand their stake
+        allocations and involvement in the network's delegation and consensus mechanisms.
+
+        Parameters:
+            coldkey_ss58: The SS58 address of the account's coldkey.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            A list containing the delegated information for the specified coldkey.
+            List of DelegatedInfo objects containing stake amounts and delegate information. Returns empty list if no
+            delegations exist for the coldkey.
 
-        This function is important for account holders to understand their stake allocations and their involvement in
-            the network's delegation and consensus mechanisms.
+        Notes:
+            - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
 
         result = self.query_runtime_api(
@@ -1252,14 +1922,21 @@ class Subtensor(SubtensorMixin):
         return DelegatedInfo.list_from_dicts(result)
 
     def get_delegates(self, block: Optional[int] = None) -> list["DelegateInfo"]:
-        """
-        Fetches all delegates on the chain
+        """Fetches all delegates registered on the chain.
 
-        Arguments:
-            block (Optional[int]): The blockchain block number for the query.
+        Delegates are validators that accept stake from other TAO holders (nominators/delegators). This method
+        retrieves comprehensive information about all delegates including their hotkeys, total stake, nominator count,
+        take percentage, and other metadata.
+
+        Parameters:
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            List of DelegateInfo objects, or an empty list if there are no delegates.
+            List of DelegateInfo objects containing comprehensive delegate information. Returns empty list if no
+            delegates are registered.
+
+        Notes:
+            - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
         result = self.query_runtime_api(
             runtime_api="DelegateInfoRuntimeApi",
@@ -1273,19 +1950,20 @@ class Subtensor(SubtensorMixin):
             return []
 
     def get_existential_deposit(self, block: Optional[int] = None) -> Optional[Balance]:
-        """
-        Retrieves the existential deposit amount for the Bittensor blockchain. Always in TAO.
-        The existential deposit is the minimum amount of TAO required for an account to exist on the blockchain.
-        Accounts with balances below this threshold can be reaped to conserve network resources.
+        """Retrieves the existential deposit amount for the Bittensor blockchain.
 
-        Arguments:
-            block (Optional[int]): The blockchain block number for the query.
+        The existential deposit is the minimum amount of TAO required for an account to exist on the blockchain.
+        Accounts with balances below this threshold can be reaped (removed) to conserve network resources and prevent
+        blockchain bloat from dust accounts.
+
+        Parameters:
+            block: The blockchain block number for the query.
 
         Returns:
-            The existential deposit amount. Always in TAO.
+            The existential deposit amount in RAO.
 
-        The existential deposit is a fundamental economic parameter in the Bittensor network, ensuring efficient use of
-            storage and preventing the proliferation of dust accounts.
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#existential-deposit>
         """
         result = self.substrate.get_constant(
             module_name="Balances",
@@ -1298,20 +1976,64 @@ class Subtensor(SubtensorMixin):
 
         return Balance.from_rao(getattr(result, "value", 0))
 
+    def get_ema_tao_inflow(
+        self,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> Optional[tuple[int, Balance]]:
+        """Retrieves the EMA (exponential moving average) of net TAO flow for a specific subnet.
+
+        The EMA tracks net TAO flows (staking minus unstaking) with a 30-day half-life (~86.8 day window), smoothing
+        out short-term fluctuations while capturing sustained staking trends. This metric determines the subnet's share
+        of TAO emissions under the current, flow-based model. Positive values indicate net inflow (more staking than unstaking),
+        negative values indicate net outflow. Subnets with negative EMA flows receive zero emissions.
+
+        Parameters:
+            netuid: The unique identifier of the subnet to query.
+            block: The block number to query. If `None`, uses latest finalized block.
+
+        Returns:
+            Tuple of (last_updated_block, ema_flow) where ema_flow is the EMA of net TAO flow in TAO units.
+            Returns `None` if the subnet does not exist or if querying subnet 0 (root network).
+
+        The EMA uses a smoothing factor α ≈ 0.000003209, creating a 30-day half-life and ~86.8 day window. Only direct
+        stake/unstake operations count toward flows; neuron registrations and root claims are excluded. Subnet 0 (root
+        network) does not have an EMA TAO flow value and will return `None`.
+
+        Notes:
+            - Flow-based emissions: <https://docs.learnbittensor.org/learn/emissions#tao-reserve-injection>
+            - EMA smoothing: <https://docs.learnbittensor.org/learn/ema>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="SubnetEmaTaoFlow",
+            params=[netuid],
+            block_hash=block_hash,
+        )
+
+        # sn0 doesn't have EmaTaoInflow
+        if query is None:
+            return None
+
+        block_updated, tao_bits = query.value
+        ema_value = int(fixed_to_float(tao_bits))
+        return block_updated, Balance.from_rao(ema_value)
+
     def get_hotkey_owner(
         self, hotkey_ss58: str, block: Optional[int] = None
     ) -> Optional[str]:
         """
         Retrieves the owner of the given hotkey at a specific block hash.
         This function queries the blockchain for the owner of the provided hotkey. If the hotkey does not exist at the
-            specified block hash, it returns None.
+        specified block hash, it returns `None`.
 
-        Arguments:
-            hotkey_ss58 (str): The SS58 address of the hotkey.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The SS58 address of the hotkey.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
 
         Returns:
-            Optional[str]: The SS58 address of the owner if the hotkey exists, or None if it doesn't.
+            The SS58 address of the owner if the hotkey exists, or `None` if it doesn't.
         """
         hk_owner_query = self.substrate.query(
             module="SubtensorModule",
@@ -1325,186 +2047,61 @@ class Subtensor(SubtensorMixin):
         hotkey_owner = hk_owner_query if exists else None
         return hotkey_owner
 
-    def get_minimum_required_stake(self) -> Balance:
-        """
-        Returns the minimum required stake for nominators in the Subtensor network.
+    def get_last_bonds_reset(
+        self, netuid: int, hotkey_ss58: str, block: Optional[int] = None
+    ):
+        """Retrieves the block number when bonds were last reset for a specific hotkey on a subnet.
+
+        Parameters:
+            netuid: The network uid to fetch from.
+            hotkey_ss58: The hotkey of the neuron for which to fetch the last bonds reset.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            The minimum required stake as a Balance object in TAO.
+            The block number when bonds were last reset, or `None` if no bonds reset has occurred.
+
+        Notes:
+            - <https://docs.learnbittensor.org/resources/glossary#validator-miner-bonds>
+            - <https://docs.learnbittensor.org/resources/glossary#commit-reveal>
         """
-        result = self.substrate.query(
-            module="SubtensorModule", storage_function="NominatorMinRequiredStake"
-        )
-
-        return Balance.from_rao(getattr(result, "value", 0))
-
-    def get_metagraph_info(
-        self,
-        netuid: int,
-        field_indices: Optional[Union[list[SelectiveMetagraphIndex], list[int]]] = None,
-        block: Optional[int] = None,
-    ) -> Optional[MetagraphInfo]:
-        """
-        Retrieves full or partial metagraph information for the specified subnet (netuid).
-
-        Arguments:
-            netuid: The NetUID of the subnet to query.
-            field_indices: An optional list of SelectiveMetagraphIndex or int values specifying which fields to retrieve.
-                If not provided, all available fields will be returned.
-            block: The block number at which to query the data. If not specified, the current block or one determined
-                via reuse_block or block_hash will be used.
-
-        Returns:
-            Optional[MetagraphInfo]: A MetagraphInfo object containing the requested subnet data, or None if the subnet
-                with the given netuid does not exist.
-
-        Example:
-            meta_info = subtensor.get_metagraph_info(netuid=2)
-
-            partial_meta_info = subtensor.get_metagraph_info(
-                netuid=2,
-                field_indices=[SelectiveMetagraphIndex.Name, SelectiveMetagraphIndex.OwnerHotkeys]
-            )
-        """
-        block_hash = self.determine_block_hash(block)
-
-        if field_indices:
-            if isinstance(field_indices, list) and all(
-                isinstance(f, (SelectiveMetagraphIndex, int)) for f in field_indices
-            ):
-                indexes = [
-                    f.value if isinstance(f, SelectiveMetagraphIndex) else f
-                    for f in field_indices
-                ]
-            else:
-                raise ValueError(
-                    "`field_indices` must be a list of SelectiveMetagraphIndex enums or ints."
-                )
-
-            query = self.substrate.runtime_call(
-                "SubnetInfoRuntimeApi",
-                "get_selective_metagraph",
-                params=[netuid, indexes if 0 in indexes else [0] + indexes],
-                block_hash=block_hash,
-            )
-        else:
-            query = self.substrate.runtime_call(
-                "SubnetInfoRuntimeApi",
-                "get_metagraph",
-                params=[netuid],
-                block_hash=block_hash,
-            )
-
-        if query.value is None:
-            logging.error(f"Subnet {netuid} does not exist.")
-            return None
-
-        return MetagraphInfo.from_dict(query.value)
-
-    def get_all_metagraphs_info(
-        self, block: Optional[int] = None
-    ) -> list[MetagraphInfo]:
-        """
-        Retrieves a list of MetagraphInfo objects for all subnets
-
-        Arguments:
-            block: the block number at which to retrieve the hyperparameter. Do not specify if using block_hash or
-                reuse_block
-
-        Returns:
-            MetagraphInfo dataclass
-        """
-        block_hash = self.determine_block_hash(block)
-        query = self.substrate.runtime_call(
-            "SubnetInfoRuntimeApi",
-            "get_all_metagraphs",
-            block_hash=block_hash,
-        )
-        return MetagraphInfo.list_from_dicts(query.value)
-
-    def get_netuids_for_hotkey(
-        self, hotkey_ss58: str, block: Optional[int] = None
-    ) -> list[int]:
-        """
-        Retrieves a list of subnet UIDs (netuids) for which a given hotkey is a member. This function identifies the
-            specific subnets within the Bittensor network where the neuron associated with the hotkey is active.
-
-        Arguments:
-            hotkey_ss58 (str): The ``SS58`` address of the neuron's hotkey.
-            block (Optional[int]): The blockchain block number for the query.
-
-        Returns:
-            A list of netuids where the neuron is a member.
-        """
-        result = self.substrate.query_map(
-            module="SubtensorModule",
-            storage_function="IsNetworkMember",
-            params=[hotkey_ss58],
+        return self.substrate.query(
+            module="Commitments",
+            storage_function="LastBondsReset",
+            params=[netuid, hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        netuids = []
-        if result.records:
-            for record in result:
-                if record[1].value:
-                    netuids.append(record[0])
-        return netuids
 
-    def get_neuron_certificate(
-        self, hotkey: str, netuid: int, block: Optional[int] = None
-    ) -> Optional[Certificate]:
+    def get_last_commitment_bonds_reset_block(
+        self,
+        netuid: int,
+        uid: int,
+        block: Optional[int] = None,
+    ) -> Optional[int]:
         """
-        Retrieves the TLS certificate for a specific neuron identified by its unique identifier (UID) within a
-            specified subnet (netuid) of the Bittensor network.
+        Retrieves the last block number when the bonds reset were triggered by publish_metadata for a specific neuron.
 
-        Arguments:
-            hotkey: The hotkey to query.
-            netuid: The unique identifier of the subnet.
-            block: The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            uid: The unique identifier of the neuron.
+            block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            the certificate of the neuron if found, `None` otherwise.
-
-        This function is used for certificate discovery for setting up mutual tls communication between neurons.
+            The block number when the bonds were last reset, or `None` if not found.
         """
-        certificate_query = self.query_module(
-            module="SubtensorModule",
-            name="NeuronCertificates",
-            block=block,
-            params=[netuid, hotkey],
-        )
+
+        metagraph = self.metagraph(netuid, block=block)
         try:
-            if certificate_query:
-                certificate = cast(dict, certificate_query)
-                return Certificate(certificate)
-        except AttributeError:
+            hotkey_ss58 = metagraph.hotkeys[uid]
+        except IndexError:
+            logging.error(
+                "Your uid is not in the hotkeys. Please double-check your UID."
+            )
             return None
-        return None
-
-    def get_all_neuron_certificates(
-        self, netuid: int, block: Optional[int] = None
-    ) -> dict[str, Certificate]:
-        """
-        Retrieves the TLS certificates for neurons within a specified subnet (netuid) of the Bittensor network.
-
-        Arguments:
-            netuid: The unique identifier of the subnet.
-            block: The blockchain block number for the query.
-
-        Returns:
-            {ss58: Certificate} for the key/Certificate pairs on the subnet
-
-        This function is used for certificate discovery for setting up mutual tls communication between neurons.
-        """
-        query_certificates = self.query_map(
-            module="SubtensorModule",
-            name="NeuronCertificates",
-            params=[netuid],
-            block=block,
-        )
-        output = {}
-        for key, item in query_certificates:
-            output[decode_account_id(key)] = Certificate(item.value)
-        return output
+        block_data = self.get_last_bonds_reset(netuid, hotkey_ss58, block)
+        try:
+            return decode_block(block_data)
+        except TypeError:
+            return None
 
     def get_liquidity_list(
         self,
@@ -1516,7 +2113,7 @@ class Subtensor(SubtensorMixin):
         Retrieves all liquidity positions for the given wallet on a specified subnet (netuid).
         Calculates associated fee rewards based on current global and tick-level fee data.
 
-        Args:
+        Parameters:
             wallet: Wallet instance to fetch positions for.
             netuid: Subnet unique id.
             block: The blockchain block number for the query.
@@ -1531,6 +2128,16 @@ class Subtensor(SubtensorMixin):
         if not self.is_subnet_active(netuid=netuid):
             logging.debug(f"Subnet {netuid} is not active.")
             return None
+
+        # Fetch positions
+        positions_response = self.query_map(
+            module="Swap",
+            name="Positions",
+            block=block,
+            params=[netuid, wallet.coldkeypub.ss58_address],
+        )
+        if len(positions_response.records) == 0:
+            return []
 
         block_hash = self.determine_block_hash(block)
 
@@ -1555,7 +2162,7 @@ class Subtensor(SubtensorMixin):
         )
         fee_global_tao_query, fee_global_alpha_query, sqrt_price_query = (
             self.substrate.query_multi(
-                [
+                storage_keys=[
                     fee_global_tao_query_sk,
                     fee_global_alpha_query_sk,
                     sqrt_price_query_sk,
@@ -1569,13 +2176,6 @@ class Subtensor(SubtensorMixin):
         sqrt_price = fixed_to_float(sqrt_price_query[1])
         current_tick = price_to_tick(sqrt_price**2)
 
-        # Fetch positions
-        positions_response = self.query_map(
-            module="Swap",
-            name="Positions",
-            block=block,
-            params=[netuid, wallet.coldkeypub.ss58_address],
-        )
         positions_values: list[tuple[dict, int, int]] = []
         positions_storage_keys: list[StorageKey] = []
         for _, p in positions_response:
@@ -1679,47 +2279,466 @@ class Subtensor(SubtensorMixin):
 
         return positions
 
+    def get_mechanism_emission_split(
+        self, netuid: int, block: Optional[int] = None
+    ) -> Optional[list[int]]:
+        """Returns the emission percentages allocated to each subnet mechanism.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
+
+        Returns:
+            A list of integers representing the percentage of emission allocated to each subnet mechanism (rounded to
+            whole numbers). Returns None if emission is evenly split or if the data is unavailable.
+        """
+        block_hash = self.determine_block_hash(block)
+        module = "SubtensorModule"
+        storage_function = "MechanismEmissionSplit"
+        if not self.substrate.get_metadata_storage_function(
+            module, storage_function, block_hash=block_hash
+        ):
+            return None
+        result = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="MechanismEmissionSplit",
+            params=[netuid],
+            block_hash=block_hash,
+        )
+        if result is None or not hasattr(result, "value"):
+            return None
+
+        return [round(i / sum(result.value) * 100) for i in result.value]
+
+    def get_mechanism_count(
+        self,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> int:
+        """Retrieves the number of mechanisms for the given subnet.
+
+        Parameters:
+            netuid: Subnet identifier.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            The number of mechanisms for the given subnet.
+
+        Notes:
+            - <https://docs.learnbittensor.org/subnets/understanding-multiple-mech-subnets>
+        """
+        block_hash = self.determine_block_hash(block)
+        module = "SubtensorModule"
+        storage_function = "MechanismCountCurrent"
+        if not self.substrate.get_metadata_storage_function(
+            module, storage_function, block_hash=block_hash
+        ):
+            return 1
+        query = self.substrate.query(
+            module=module,
+            storage_function=storage_function,
+            params=[netuid],
+            block_hash=block_hash,
+        )
+        return query.value if query is not None and hasattr(query, "value") else 1
+
+    def get_metagraph_info(
+        self,
+        netuid: int,
+        mechid: int = 0,
+        selected_indices: Optional[
+            Union[list[SelectiveMetagraphIndex], list[int]]
+        ] = None,
+        block: Optional[int] = None,
+    ) -> Optional[MetagraphInfo]:
+        """Retrieves full or partial metagraph information for the specified subnet (netuid).
+
+        A metagraph is a data structure that contains comprehensive information about the current state of a subnet,
+        including detailed information on all the nodes (neurons) such as subnet validator stakes and subnet weights
+        and bonds.
+
+        Parameters:
+            netuid: Subnet unique identifier.
+            mechid: Subnet mechanism unique identifier.
+            selected_indices: Optional list of SelectiveMetagraphIndex or int values specifying which fields to retrieve.
+                If not provided, all available fields will be returned.
+            block: The block number at which to query the data. If `None`, queries the current chain head.
+
+        Returns:
+            MetagraphInfo object with the requested subnet mechanism data, None if the subnet mechanism does not exist.
+
+        Example:
+            # Retrieve all fields from the metagraph from subnet 2 mechanism 0
+            meta_info = subtensor.get_metagraph_info(netuid=2)
+            # Retrieve all fields from the metagraph from subnet 2 mechanism 1
+            meta_info = subtensor.get_metagraph_info(netuid=2, mechid=1)
+
+            # Retrieve selective data from the metagraph from subnet 2 mechanism 0
+            partial_meta_info = subtensor.get_metagraph_info(
+                netuid=2,
+                selected_indices=[SelectiveMetagraphIndex.Name, SelectiveMetagraphIndex.OwnerHotkeys]
+            )
+
+            # Retrieve selective data from the metagraph from subnet 2 mechanism 1
+            partial_meta_info = subtensor.get_metagraph_info(
+                netuid=2,
+                mechid=1,
+                selected_indices=[SelectiveMetagraphIndex.Name, SelectiveMetagraphIndex.OwnerHotkeys]
+            )
+
+        Notes:
+            - <https://docs.learnbittensor.org/subnets/metagraph>
+
+        """
+
+        block_hash: str = (
+            self.determine_block_hash(block=block) or self.substrate.get_chain_head()
+        )
+
+        # Normalize selected_indices to a list of integers
+        if selected_indices is not None:
+            indexes = [
+                f.value if isinstance(f, SelectiveMetagraphIndex) else f
+                for f in selected_indices
+            ]
+            if 0 not in indexes:
+                indexes = [0] + indexes
+            query = self._runtime_call_with_fallback(
+                (
+                    "SubnetInfoRuntimeApi",
+                    "get_selective_mechagraph",
+                    [netuid, mechid, indexes],
+                ),
+                ("SubnetInfoRuntimeApi", "get_selective_metagraph", [netuid, indexes]),
+                block_hash=block_hash,
+                default_value=ValueError(
+                    "You have specified `selected_indices` to retrieve metagraph info selectively, but the "
+                    "selective runtime calls are not available at this block (probably too old). Do not specify "
+                    "`selected_indices` to retrieve metagraph info selectively."
+                ),
+            )
+        else:
+            query = self._runtime_call_with_fallback(
+                (
+                    "SubnetInfoRuntimeApi",
+                    "get_selective_mechagraph",
+                    [netuid, mechid, [f for f in range(len(SelectiveMetagraphIndex))]],
+                ),
+                ("SubnetInfoRuntimeApi", "get_metagraph", [[netuid]]),
+                block_hash=block_hash,
+                default_value=None,
+            )
+
+        if query is None or not hasattr(query, "value") or query.value is None:
+            logging.error(
+                f"Subnet mechanism {netuid}.{mechid if mechid else 0} does not exist."
+            )
+            return None
+
+        return MetagraphInfo.from_dict(query.value)
+
+    def get_mev_shield_current_key(
+        self, block: Optional[int] = None
+    ) -> Optional[bytes]:
+        """
+        Retrieves the CurrentKey from the MevShield pallet storage.
+
+        The CurrentKey contains the ML-KEM-768 public key that is currently being used for encryption in this block.
+        This key is rotated from NextKey at the beginning of each block.
+
+        Parameters:
+            block: The blockchain block number at which to perform the query. If None, uses the current block.
+
+        Returns:
+            The ML-KEM-768 public key as bytes (1184 bytes for ML-KEM-768)
+
+        Note:
+            If CurrentKey is not set (None in storage), this function returns None. This can happen if no validator has
+            announced a key yet.
+        """
+        block_hash = self.determine_block_hash(block=block)
+        query = self.substrate.query(
+            module="MevShield",
+            storage_function="CurrentKey",
+            block_hash=block_hash,
+        )
+
+        if query is None:
+            return None
+
+        public_key_bytes = bytes(next(iter(query)))
+
+        # Validate public_key size for ML-KEM-768
+        if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
+            raise ValueError(
+                f"Invalid ML-KEM-768 public key size: {len(public_key_bytes)} bytes. "
+                f"Expected exactly {MLKEM768_PUBLIC_KEY_SIZE} bytes."
+            )
+
+        return public_key_bytes
+
+    def get_mev_shield_next_key(self, block: Optional[int] = None) -> Optional[bytes]:
+        """
+        Retrieves the NextKey from the MevShield pallet storage.
+
+        The NextKey contains the ML-KEM-768 public key that will be used for encryption in the next block. This key is
+        rotated from NextKey to CurrentKey at the beginning of each block.
+
+        Parameters:
+            block: The blockchain block number at which to perform the query. If None, uses the current block.
+
+        Returns:
+            The ML-KEM-768 public key as bytes (1184 bytes for ML-KEM-768)
+
+        Note:
+            If NextKey is not set (None in storage), this function returns None. This can happen if no validator has
+            announced the next key yet.
+        """
+        block_hash = self.determine_block_hash(block=block)
+        query = self.substrate.query(
+            module="MevShield",
+            storage_function="NextKey",
+            block_hash=block_hash,
+        )
+
+        if query is None:
+            return None
+
+        public_key_bytes = bytes(next(iter(query)))
+
+        # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
+        if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
+            raise ValueError(
+                f"Invalid ML-KEM-768 public key size: {len(public_key_bytes)} bytes. "
+                f"Expected exactly {MLKEM768_PUBLIC_KEY_SIZE} bytes."
+            )
+
+        return public_key_bytes
+
+    def get_mev_shield_submission(
+        self,
+        submission_id: str,
+        block: Optional[int] = None,
+    ) -> Optional[dict[str, str | int | bytes]]:
+        """
+        Retrieves Submission from the MevShield pallet storage.
+
+        If submission_id is provided, returns a single submission. If submission_id is None, returns all submissions from
+        the storage map.
+
+        Parameters:
+            submission_id: The hash ID of the submission. Can be a hex string with "0x" prefix or bytes. If None,
+                returns all submissions.
+            block: The blockchain block number at which to perform the query. If None, uses the current block.
+
+        Returns:
+            If submission_id is provided: A dictionary containing the submission data if found, None otherwise. The
+                dictionary contains:
+                - author: The SS58 address of the account that submitted the encrypted extrinsic
+                - commitment: The blake2_256 hash of the payload_core (as hex string with "0x" prefix)
+                - ciphertext: The encrypted blob as bytes (format: [u16 kem_len][kem_ct][nonce24][aead_ct])
+                - submitted_in: The block number when the submission was created
+
+            If submission_id is None: A dictionary mapping submission IDs (as hex strings) to submission dictionaries.
+
+        Note:
+            If a specific submission does not exist in storage, this function returns None. If querying all submissions
+            and none exist, returns an empty dictionary.
+        """
+        block_hash = self.determine_block_hash(block=block)
+        submission_id = (
+            submission_id[2:] if submission_id.startswith("0x") else submission_id
+        )
+        submission_id_bytes = bytes.fromhex(submission_id)
+
+        query = self.substrate.query(
+            module="MevShield",
+            storage_function="Submissions",
+            params=[submission_id_bytes],
+            block_hash=block_hash,
+        )
+
+        if query is None or not isinstance(query, dict):
+            return None
+
+        autor = decode_account_id(query.get("author"))
+        commitment = bytes(query.get("commitment")[0])
+        ciphertext = bytes(query.get("ciphertext")[0])
+        submitted_in = query.get("submitted_in")
+
+        return {
+            "author": autor,
+            "commitment": commitment,
+            "ciphertext": ciphertext,
+            "submitted_in": submitted_in,
+        }
+
+    def get_mev_shield_submissions(
+        self,
+        block: Optional[int] = None,
+    ) -> Optional[dict[str, dict[str, str | int]]]:
+        """
+        Retrieves all encrypted submissions from the MevShield pallet storage.
+
+        This function queries the MevShield.Submissions storage map and returns all pending encrypted submissions that
+        have been submitted via submit_encrypted but not yet executed via execute_revealed.
+
+        Parameters:
+            block: The blockchain block number for the query. If None, uses the current block.
+
+        Returns:
+            A dictionary mapping wrapper_id (as hex string with "0x" prefix) to submission data dictionaries. Each
+            submission dictionary contains:
+            - author: The SS58 address of the account that submitted the encrypted extrinsic
+            - commitment: The blake2_256 hash of the payload_core as bytes (32 bytes)
+            - ciphertext: The encrypted blob as bytes (format: [u16 kem_len][kem_ct][nonce24][aead_ct])
+            - submitted_in: The block number when the submission was created
+
+            Returns None if no submissions exist in storage at the specified block.
+
+        Note:
+            Submissions are automatically pruned after KEY_EPOCH_HISTORY blocks (100 blocks) by the pallet's
+            on_initialize hook. Only submissions that have been submitted but not yet executed will be present in
+            storage.
+        """
+        block_hash = self.determine_block_hash(block=block)
+        query = self.substrate.query_map(
+            module="MevShield",
+            storage_function="Submissions",
+            block_hash=block_hash,
+        )
+
+        result = {}
+        for q in query:
+            key, value = q
+            value = value.value
+            result["0x" + bytes(key[0]).hex()] = {
+                "author": decode_account_id(value.get("author")),
+                "commitment": bytes(value.get("commitment")[0]),
+                "ciphertext": bytes(value.get("ciphertext")[0]),
+                "submitted_in": value.get("submitted_in"),
+            }
+
+        return result if result else None
+
+    def get_minimum_required_stake(self) -> Balance:
+        """Returns the minimum required stake threshold for nominator cleanup operations.
+
+        This threshold is used ONLY for cleanup after unstaking operations. If a nominator's remaining stake
+        falls below this minimum after an unstake, the remaining stake is forcefully cleared and returned
+        to the coldkey to prevent dust accounts.
+
+        This is NOT the minimum checked during staking operations. The actual minimum for staking is determined
+        by DefaultMinStake (typically 0.001 TAO plus fees).
+
+        Returns:
+            The minimum stake threshold as a Balance object. Nominator stakes below this amount
+            are automatically cleared after unstake operations.
+
+        Notes:
+            - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
+        """
+        result = self.substrate.query(
+            module="SubtensorModule", storage_function="NominatorMinRequiredStake"
+        )
+
+        return Balance.from_rao(getattr(result, "value", 0))
+
+    def get_netuids_for_hotkey(
+        self, hotkey_ss58: str, block: Optional[int] = None
+    ) -> list[int]:
+        """Retrieves a list of subnet UIDs (netuids) where a given hotkey is a member. This function identifies the
+            specific subnets within the Bittensor network where the neuron associated with the hotkey is active.
+
+        Parameters:
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            A list of netuids where the neuron is a member.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#hotkey>
+        """
+        result = self.substrate.query_map(
+            module="SubtensorModule",
+            storage_function="IsNetworkMember",
+            params=[hotkey_ss58],
+            block_hash=self.determine_block_hash(block),
+        )
+        netuids = []
+        if result.records:
+            for record in result:
+                if record[1].value:
+                    netuids.append(record[0])
+        return netuids
+
+    def get_neuron_certificate(
+        self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
+    ) -> Optional[Certificate]:
+        """
+        Retrieves the TLS certificate for a specific neuron identified by its unique identifier (UID) within a specified
+        subnet (netuid) of the Bittensor network.
+
+        Parameters:
+            hotkey_ss58: The SS58 address of the neuron's hotkey.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            Certificate object containing the neuron's TLS public key and algorithm, or `None` if the neuron has
+            not registered a certificate.
+
+        This function is used for certificate discovery for setting up mutual tls communication between neurons.
+        """
+        certificate_query = self.query_module(
+            module="SubtensorModule",
+            name="NeuronCertificates",
+            block=block,
+            params=[netuid, hotkey_ss58],
+        )
+        try:
+            if certificate_query:
+                certificate = cast(dict, certificate_query)
+                return Certificate(certificate)
+        except AttributeError:
+            return None
+        return None
+
     def get_neuron_for_pubkey_and_subnet(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
     ) -> Optional["NeuronInfo"]:
         """
         Retrieves information about a neuron based on its public key (hotkey SS58 address) and the specific subnet UID
-            (netuid). This function provides detailed neuron information for a particular subnet within the Bittensor
-            network.
+        (netuid). This function provides detailed neuron information for a particular subnet within the Bittensor
+        network.
 
-        Arguments:
-            hotkey_ss58 (str): The ``SS58`` address of the neuron's hotkey.
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[bittensor.core.chain_data.neuron_info.NeuronInfo]: Detailed information about the neuron if found,
-                ``None`` otherwise.
+            Optional: Detailed information about the neuron if found, `None` otherwise.
 
         This function is crucial for accessing specific neuron data and understanding its status, stake, and other
-            attributes within a particular subnet of the Bittensor ecosystem.
+        attributes within a particular subnet of the Bittensor ecosystem.
         """
         block_hash = self.determine_block_hash(block)
-        uid = self.substrate.query(
+        uid_query = self.substrate.query(
             module="SubtensorModule",
             storage_function="Uids",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
         )
-        if uid is None:
+        if (uid := getattr(uid_query, "value", None)) is None:
             return NeuronInfo.get_null_neuron()
 
-        result = self.query_runtime_api(
-            runtime_api="NeuronInfoRuntimeApi",
-            method="get_neuron",
-            params=[netuid, uid.value],
+        return self.neuron_for_uid(
+            uid=uid,
+            netuid=netuid,
             block=block,
         )
-
-        if not result:
-            return NeuronInfo.get_null_neuron()
-
-        return NeuronInfo.from_dict(result)
 
     def get_next_epoch_start_block(
         self, netuid: int, block: Optional[int] = None
@@ -1727,39 +2746,45 @@ class Subtensor(SubtensorMixin):
         """
         Calculates the first block number of the next epoch for the given subnet.
 
-        If `block` is not provided, the current chain block will be used. Epochs are
-        determined based on the subnet's tempo (i.e., blocks per epoch). The result
-        is the block number at which the next epoch will begin.
+        If `block` is not provided, the current chain block will be used. Epochs are determined based on the subnet's
+        tempo (i.e., blocks per epoch). The result is the block number at which the next epoch will begin.
 
-        Args:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int], optional): The reference block to calculate from.
-                If None, uses the current chain block height.
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The reference block to calculate from. If None, uses the current chain block height.
 
         Returns:
-            int: The block number at which the next epoch will start.
-        """
-        block = block or self.block
-        blocks_since_last_step = self.blocks_since_last_step(netuid=netuid, block=block)
-        tempo = self.tempo(netuid=netuid, block=block)
+            int: The block number at which the next epoch will start, or None if tempo is 0 or invalid.
 
-        if block and blocks_since_last_step is not None and tempo:
-            return block - blocks_since_last_step + tempo + 1
-        return None
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#tempo>
+        """
+        tempo = self.tempo(netuid=netuid, block=block)
+        current_block = block or self.block
+
+        if not tempo:
+            return None
+
+        blocks_until = self.blocks_until_next_epoch(
+            netuid=netuid, tempo=tempo, block=current_block
+        )
+
+        if blocks_until is None:
+            return None
+
+        return current_block + blocks_until + 1
 
     def get_owned_hotkeys(
         self,
         coldkey_ss58: str,
         block: Optional[int] = None,
-        reuse_block: bool = False,
     ) -> list[str]:
         """
         Retrieves all hotkeys owned by a specific coldkey address.
 
-        Args:
-            coldkey_ss58 (str): The SS58 address of the coldkey to query.
-            block (int): The blockchain block number for the query.
-            reuse_block (bool): Whether to reuse the last-used blockchain block hash.
+        Parameters:
+            coldkey_ss58: The SS58 address of the coldkey to query.
+            block: The blockchain block number for the query.
 
         Returns:
             list[str]: A list of hotkey SS58 addresses owned by the coldkey.
@@ -1770,9 +2795,515 @@ class Subtensor(SubtensorMixin):
             storage_function="OwnedHotkeys",
             params=[coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return [decode_account_id(hotkey[0]) for hotkey in owned_hotkeys or []]
+
+    def get_parents(
+        self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
+    ) -> list[tuple[float, str]]:
+        """
+        This method retrieves the parent of a given hotkey and netuid. It queries the SubtensorModule's ParentKeys
+        storage function to get the children and formats them before returning as a tuple.
+
+        Parameters:
+            hotkey_ss58: The child hotkey SS58.
+            netuid: The netuid value.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            A list of formatted parents [(proportion, parent)]
+
+        Notes:
+            - <https://docs.learnbittensor.org/validators/child-hotkeys>
+            - :meth:`get_children` for retrieving child keys
+        """
+        parents = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="ParentKeys",
+            params=[hotkey_ss58, netuid],
+            block_hash=self.determine_block_hash(block),
+        )
+        if parents:
+            formatted_parents = []
+            for proportion, parent in parents.value:
+                # Convert U64 to int
+                formatted_child = decode_account_id(parent[0])
+                normalized_proportion = u64_normalized_float(proportion)
+                formatted_parents.append((normalized_proportion, formatted_child))
+            return formatted_parents
+
+        return []
+
+    def get_proxies(self, block: Optional[int] = None) -> dict[str, list[ProxyInfo]]:
+        """
+        Retrieves all proxy relationships from the chain.
+
+        This method queries the Proxy.Proxies storage map across all accounts and returns a dictionary mapping each real
+        account (delegator) to its list of proxy relationships.
+
+        Parameters:
+            block: The blockchain block number for the query. If None, queries the latest block.
+
+        Returns:
+            Dictionary mapping real account SS58 addresses to lists of ProxyInfo objects. Each ProxyInfo contains the
+                delegate address, proxy type, and delay for that proxy relationship.
+
+        Notes:
+            - This method queries all proxy relationships on the chain, which may be resource-intensive for large
+              networks. Consider using :meth:`get_proxies_for_real_account` for querying specific accounts.
+            - See: <https://docs.learnbittensor.org/keys/proxies>
+        """
+        block_hash = self.determine_block_hash(block)
+        query_map = self.substrate.query_map(
+            module="Proxy",
+            storage_function="Proxies",
+            block_hash=block_hash,
+        )
+
+        proxies = {}
+        for record in query_map:
+            real_account, proxy_list = ProxyInfo.from_query_map_record(record)
+            proxies[real_account] = proxy_list
+        return proxies
+
+    def get_proxies_for_real_account(
+        self,
+        real_account_ss58: str,
+        block: Optional[int] = None,
+    ) -> tuple[list[ProxyInfo], Balance]:
+        """
+        Returns proxy/ies associated with the provided real account.
+
+        This method queries the Proxy.Proxies storage for a specific real account and returns all proxy relationships
+        where this real account is the delegator. It also returns the deposit amount reserved for these proxies.
+
+        Parameters:
+            real_account_ss58: SS58 address of the real account (delegator) whose proxies to retrieve.
+            block: The blockchain block number for the query.
+
+        Returns:
+            Tuple containing:
+                - List of ProxyInfo objects representing all proxy relationships for the real account. Each ProxyInfo
+                    contains delegate address, proxy type, and delay.
+                - Balance object representing the reserved deposit amount for these proxies. This deposit is held as
+                    long as the proxy relationships exist and is returned when proxies are removed.
+
+        Notes:
+            - If the account has no proxies, returns an empty list and a zero balance.
+            - See: <https://docs.learnbittensor.org/keys/proxies/create-proxy>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query(
+            module="Proxy",
+            storage_function="Proxies",
+            params=[real_account_ss58],
+            block_hash=block_hash,
+        )
+        return ProxyInfo.from_query(query)
+
+    def get_proxy_announcement(
+        self,
+        delegate_account_ss58: str,
+        block: Optional[int] = None,
+    ) -> list[ProxyAnnouncementInfo]:
+        """
+        Retrieves proxy announcements for a specific delegate account.
+
+        This method queries the Proxy.Announcements storage for announcements made by the given delegate proxy account.
+        Announcements allow a proxy to declare its intention to execute a call on behalf of a real account after a delay
+        period.
+
+        Parameters:
+            delegate_account_ss58: SS58 address of the delegate proxy account whose announcements to retrieve.
+            block: The blockchain block number for the query. If None, queries the latest block.
+
+        Returns:
+            List of ProxyAnnouncementInfo objects. Each object contains the real account address, call hash, and block
+                height at which the announcement was made.
+
+        Notes:
+            - If the delegate has no announcements, returns an empty list.
+            - See: <https://docs.learnbittensor.org/keys/proxies>
+        """
+        block_hash = self.determine_block_hash(block)
+        query = self.substrate.query(
+            module="Proxy",
+            storage_function="Announcements",
+            params=[delegate_account_ss58],
+            block_hash=block_hash,
+        )
+        return ProxyAnnouncementInfo.from_dict(query.value[0])
+
+    def get_proxy_announcements(
+        self,
+        block: Optional[int] = None,
+    ) -> dict[str, list[ProxyAnnouncementInfo]]:
+        """
+        Retrieves all proxy announcements from the chain.
+
+        This method queries the Proxy.Announcements storage map across all delegate accounts and returns a dictionary
+        mapping each delegate to its list of pending announcements.
+
+        Parameters:
+            block: The blockchain block number for the query. If None, queries the latest block.
+
+        Returns:
+            Dictionary mapping delegate account SS58 addresses to lists of ProxyAnnouncementInfo objects.
+            Each ProxyAnnouncementInfo contains the real account address, call hash, and block height.
+
+        Notes:
+            - This method queries all announcements on the chain, which may be resource-intensive for large networks.
+              Consider using :meth:`get_proxy_announcement` for querying specific delegates.
+            - See: <https://docs.learnbittensor.org/keys/proxies>
+        """
+        block_hash = self.determine_block_hash(block)
+        query_map = self.substrate.query_map(
+            module="Proxy",
+            storage_function="Announcements",
+            block_hash=block_hash,
+        )
+        announcements = {}
+        for record in query_map:
+            delegate, proxy_list = ProxyAnnouncementInfo.from_query_map_record(record)
+            announcements[delegate] = proxy_list
+        return announcements
+
+    def get_proxy_constants(
+        self,
+        constants: Optional[list[str]] = None,
+        as_dict: bool = False,
+        block: Optional[int] = None,
+    ) -> Union["ProxyConstants", dict]:
+        """
+        Fetches runtime configuration constants from the `Proxy` pallet.
+
+        This method retrieves on-chain configuration constants that define deposit requirements, proxy limits, and
+        announcement constraints for the Proxy pallet. These constants govern how proxy accounts operate within the
+        Subtensor network.
+
+        Parameters:
+            constants: Optional list of specific constant names to fetch. If omitted, all constants defined in
+                `ProxyConstants.constants_names()` are queried. Valid constant names include: "AnnouncementDepositBase",
+                "AnnouncementDepositFactor", "MaxProxies", "MaxPending", "ProxyDepositBase", "ProxyDepositFactor".
+            as_dict: If True, returns the constants as a dictionary instead of a `ProxyConstants` object.
+            block: The blockchain block number for the query. If None, queries the latest block.
+
+        Returns:
+            If `as_dict` is False: ProxyConstants object containing all requested constants.
+            If `as_dict` is True: Dictionary mapping constant names to their values (Balance objects for deposit
+                constants, integers for limit constants).
+
+        Notes:
+            - All Balance amounts are returned in RAO. Constants reflect the current chain configuration at the specified
+            block.
+            - See: <https://docs.learnbittensor.org/keys/proxies>
+        """
+        result = {}
+        const_names = constants or ProxyConstants.constants_names()
+
+        for const_name in const_names:
+            query = self.query_constant(
+                module_name="Proxy",
+                constant_name=const_name,
+                block=block,
+            )
+
+            if query is not None:
+                result[const_name] = query.value
+
+        proxy_constants = ProxyConstants.from_dict(result)
+
+        return proxy_constants.to_dict() if as_dict else proxy_constants
+
+    def get_revealed_commitment(
+        self,
+        netuid: int,
+        uid: int,
+        block: Optional[int] = None,
+    ) -> Optional[tuple[tuple[int, str], ...]]:
+        """Returns uid related revealed commitment for a given netuid.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            uid: The neuron uid to retrieve the commitment from.
+            block: The block number to retrieve the commitment from. If `None`, queries the current chain head.
+
+        Returns:
+            A tuple of reveal block and commitment message.
+
+        Example:
+
+            # sample return value
+
+            ( (12, "Alice message 1"), (152, "Alice message 2") )
+
+            ( (12, "Bob message 1"), (147, "Bob message 2") )
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
+        """
+        try:
+            meta_info = self.get_metagraph_info(netuid, block=block)
+            if meta_info:
+                hotkey_ss58 = meta_info.hotkeys[uid]
+            else:
+                raise ValueError(f"Subnet with netuid {netuid} does not exist.")
+        except IndexError:
+            raise ValueError(f"Subnet {netuid} does not have a neuron with uid {uid}.")
+
+        return self.get_revealed_commitment_by_hotkey(
+            netuid=netuid, hotkey_ss58=hotkey_ss58, block=block
+        )
+
+    def get_revealed_commitment_by_hotkey(
+        self,
+        netuid: int,
+        hotkey_ss58: str,
+        block: Optional[int] = None,
+    ) -> Optional[tuple[tuple[int, str], ...]]:
+        # TODO: Clarify return ordering and units; add Examples
+        """Retrieves hotkey related revealed commitment for a given subnet.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            hotkey_ss58: The ss58 address of the committee member.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            A tuple of reveal block and commitment message.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
+        """
+        if not is_valid_ss58_address(address=hotkey_ss58):
+            raise ValueError(f"Invalid ss58 address {hotkey_ss58} provided.")
+
+        query = self.query_module(
+            module="Commitments",
+            name="RevealedCommitments",
+            params=[netuid, hotkey_ss58],
+            block=block,
+        )
+        if query is None:
+            return None
+        return tuple(decode_revealed_commitment(pair) for pair in query)
+
+    def get_root_claim_type(
+        self,
+        coldkey_ss58: str,
+        block: Optional[int] = None,
+    ) -> Union[str, dict]:
+        """Return the configured root claim type for a given coldkey.
+
+        The root claim type controls how dividends from staking to the Root Subnet (subnet 0) are processed when they
+        are claimed:
+
+        - `Swap` (default): Alpha dividends are swapped to TAO at claim time and restaked on the root subnet.
+        - `Keep`: Alpha dividends remain as Alpha on the originating subnets.
+
+        Parameters:
+            coldkey_ss58: The SS58 address of the coldkey whose root claim preference to query.
+            block: The block number to query. Do not specify if using `block_hash` or `reuse_block`.
+
+        Returns:
+
+            The root claim type as a string, either `Swap` or `Keep`,
+            or dict for "KeepSubnets" in format {"KeepSubnets": {"subnets": [1, 2, 3]}}.
+
+        Notes:
+            - The claim type applies to both automatic and manual root claims; it does not affect the original TAO stake
+              on subnet 0, only how Alpha dividends are treated.
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims>
+            - See also: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+        """
+        query = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="RootClaimType",
+            params=[coldkey_ss58],
+            block_hash=self.determine_block_hash(block),
+        )
+        # Query returns enum as dict: {"Swap": ()} or {"Keep": ()} or {"KeepSubnets": {"subnets": [1, 2, 3]}}
+        variant_name = next(iter(query.keys()))
+        variant_value = query[variant_name]
+
+        # For simple variants (Swap, Keep), value is empty tuple, return string
+        if not variant_value or variant_value == ():
+            return variant_name
+
+        # For KeepSubnets, value contains the data, return full dict structure
+        if isinstance(variant_value, dict) and "subnets" in variant_value:
+            subnets_raw = variant_value["subnets"]
+            subnets = list(subnets_raw[0])
+
+            return {variant_name: {"subnets": subnets}}
+
+        return {variant_name: variant_value}
+
+    def get_root_alpha_dividends_per_subnet(
+        self,
+        hotkey_ss58: str,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> Balance:
+        """Retrieves the root alpha dividends per subnet for a given hotkey.
+
+        This storage tracks the root alpha dividends that a hotkey has received on a specific subnet.
+        It is updated during block emission distribution when root alpha is distributed to validators.
+
+        Parameters:
+            hotkey_ss58: The ss58 address of the root validator hotkey.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
+
+        Returns:
+            Balance: The root alpha dividends for this hotkey on this subnet in Rao, with unit set to netuid.
+        """
+        query = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="RootAlphaDividendsPerSubnet",
+            params=[netuid, hotkey_ss58],
+            block_hash=self.determine_block_hash(block),
+        )
+        return Balance.from_rao(query.value).set_unit(netuid=netuid)
+
+    def get_root_claimable_rate(
+        self,
+        hotkey_ss58: str,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> float:
+        """Return the fraction of root stake currently claimable on a subnet.
+
+        This method returns a normalized rate representing how much Alpha dividends are currently claimable on the given
+        subnet relative to the validator's root stake. It is primarily a low-level helper; most users should call
+        :meth:`get_root_claimable_stake` instead to obtain a Balance.
+
+        Parameters:
+            hotkey_ss58: The SS58 address of the root validator hotkey.
+            netuid: The unique identifier of the subnet whose claimable rate to compute.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            A float representing the claimable rate for this subnet (approximately in the range `[0.0, 1.0]`). A value
+            of 0.0 means there are currently no claimable Alpha dividends on the subnet.
+
+        Notes:
+            - Use :meth:`get_root_claimable_stake` to retrieve the actual claimable amount as a `Balance` object.
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+        """
+        all_rates = self.get_root_claimable_all_rates(
+            hotkey_ss58=hotkey_ss58,
+            block=block,
+        )
+        return all_rates.get(netuid, 0.0)
+
+    def get_root_claimable_all_rates(
+        self,
+        hotkey_ss58: str,
+        block: Optional[int] = None,
+    ) -> dict[int, float]:
+        """Retrieves all root claimable rates from a given hotkey address for all subnets with this validator.
+
+        Parameters:
+            hotkey_ss58: The SS58 address of the root validator hotkey.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            Dictionary mapping `netuid` to a float claimable rate (approximately in the range `[0.0, 1.0]`) for that
+            subnet. Missing entries imply no claimable Alpha dividends for that subnet.
+
+        Notes:
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+        """
+        query = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="RootClaimable",
+            params=[hotkey_ss58],
+            block_hash=self.determine_block_hash(block),
+        )
+        bits_list = next(iter(query.value))
+        return {bits[0]: fixed_to_float(bits[1], frac_bits=32) for bits in bits_list}
+
+    def get_root_claimable_stake(
+        self,
+        coldkey_ss58: str,
+        hotkey_ss58: str,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> Balance:
+        """Return the currently claimable Alpha staking dividends for a coldkey from a root validator on a subnet.
+
+        Parameters:
+            coldkey_ss58: The SS58 address of the delegator's coldkey.
+            hotkey_ss58: The SS58 address of the root validator hotkey.
+            netuid: The subnet ID where Alpha dividends will be claimed.
+            block: The block number to query. If `None`, queries the current chain head.
+
+        Returns:
+            `Balance` representing the Alpha stake currently available to claim on the specified subnet (unit is the
+            subnet's Alpha token).
+
+        Notes:
+            - After a successful manual or automatic claim, this value typically drops to zero for that subnet until new
+              dividends accumulate.
+            - The underlying TAO stake on the Root Subnet remains unaffected; only Alpha dividends are moved or swapped
+              according to the configured root claim type.
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims>
+            - See also: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+        """
+        root_stake = self.get_stake(
+            coldkey_ss58=coldkey_ss58,
+            hotkey_ss58=hotkey_ss58,
+            netuid=0,  # root netuid
+            block=block,
+        )
+        root_claimable_rate = self.get_root_claimable_rate(
+            hotkey_ss58=hotkey_ss58,
+            netuid=netuid,
+            block=block,
+        )
+        root_claimable_stake = (root_claimable_rate * root_stake).set_unit(
+            netuid=netuid
+        )
+        root_claimed = self.get_root_claimed(
+            coldkey_ss58=coldkey_ss58,
+            hotkey_ss58=hotkey_ss58,
+            block=block,
+            netuid=netuid,
+        )
+        return max(
+            root_claimable_stake - root_claimed, Balance(0).set_unit(netuid=netuid)
+        )
+
+    def get_root_claimed(
+        self,
+        coldkey_ss58: str,
+        hotkey_ss58: str,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> Balance:
+        """Return the total Alpha dividends already claimed for a coldkey from a root validator on a subnet.
+
+        Parameters:
+            coldkey_ss58: The SS58 address of the delegator's coldkey.
+            hotkey_ss58: The SS58 address of the root validator hotkey.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
+
+        Returns:
+            `Balance` representing the cumulative Alpha stake that has already been claimed from the root validator on
+            the specified subnet.
+
+        Notes:
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+        """
+        query = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="RootClaimed",
+            params=[netuid, hotkey_ss58, coldkey_ss58],
+            block_hash=self.determine_block_hash(block),
+        )
+        return Balance.from_rao(query.value).set_unit(netuid=netuid)
 
     def get_stake(
         self,
@@ -1785,12 +3316,11 @@ class Subtensor(SubtensorMixin):
         Returns the amount of Alpha staked by a specific coldkey to a specific hotkey within a given subnet.
         This function retrieves the delegated stake balance, referred to as the 'Alpha' value.
 
-        Args:
+        Parameters:
             coldkey_ss58: The SS58 address of the coldkey that delegated the stake. This address owns the stake.
             hotkey_ss58: The ss58 address of the hotkey which the stake is on.
             netuid: The unique identifier of the subnet to query.
-            block: The specific block number at which to retrieve the stake information. If None, the current stake at
-                the latest block is returned. Defaults to ``None``.
+            block: The specific block number at which to retrieve the stake information.
 
         Returns:
             An object representing the amount of Alpha (TAO ONLY if the subnet's netuid is 0) currently staked from the
@@ -1802,7 +3332,7 @@ class Subtensor(SubtensorMixin):
             block=block,
             params=[hotkey_ss58, coldkey_ss58, netuid],
         )
-        alpha_shares = cast(FixedPoint, alpha_shares_query)
+        alpha_shares = alpha_shares_query
 
         hotkey_alpha_obj: ScaleObj = self.query_module(
             module="SubtensorModule",
@@ -1812,13 +3342,12 @@ class Subtensor(SubtensorMixin):
         )
         hotkey_alpha = hotkey_alpha_obj.value
 
-        hotkey_shares_query = self.query_module(
+        hotkey_shares = self.query_module(
             module="SubtensorModule",
             name="TotalHotkeyShares",
             block=block,
             params=[hotkey_ss58, netuid],
         )
-        hotkey_shares = cast(FixedPoint, hotkey_shares_query)
 
         alpha_shares_as_float = fixed_to_float(alpha_shares)
         hotkey_shares_as_float = fixed_to_float(hotkey_shares)
@@ -1830,29 +3359,241 @@ class Subtensor(SubtensorMixin):
 
         return Balance.from_rao(int(stake)).set_unit(netuid=netuid)
 
-    # TODO: remove unused parameters in SDK.v10
+    def get_stake_for_coldkey_and_hotkey(
+        self,
+        coldkey_ss58: str,
+        hotkey_ss58: str,
+        netuids: Optional[UIDs] = None,
+        block: Optional[int] = None,
+    ) -> dict[int, StakeInfo]:
+        """
+        Retrieves all coldkey-hotkey pairing stake across specified (or all) subnets
+
+        Parameters:
+            coldkey_ss58: The SS58 address of the coldkey.
+            hotkey_ss58: The SS58 address of the hotkey.
+            netuids: The subnet IDs to query for. Set to `None` for all subnets.
+            block: The block number at which to query the stake information.
+
+        Returns:
+            A netuid to StakeInfo mapping of all stakes across all subnets.
+        """
+        if netuids is None:
+            all_netuids = self.get_all_subnets_netuid(block=block)
+        else:
+            all_netuids = netuids
+        results = [
+            self.query_runtime_api(
+                runtime_api="StakeInfoRuntimeApi",
+                method="get_stake_info_for_hotkey_coldkey_netuid",
+                params=[hotkey_ss58, coldkey_ss58, netuid],
+                block=block,
+            )
+            for netuid in all_netuids
+        ]
+        return {
+            netuid: StakeInfo.from_dict(result)
+            for (netuid, result) in zip(all_netuids, results)
+        }
+
+    def get_stake_info_for_coldkey(
+        self, coldkey_ss58: str, block: Optional[int] = None
+    ) -> list["StakeInfo"]:
+        """
+        Retrieves the stake information for a given coldkey.
+
+        Parameters:
+            coldkey_ss58: The SS58 address of the coldkey.
+            block: The block number at which to query the stake information.
+
+        Returns:
+            List of StakeInfo objects.
+        """
+        result = self.query_runtime_api(
+            runtime_api="StakeInfoRuntimeApi",
+            method="get_stake_info_for_coldkey",
+            params=[coldkey_ss58],
+            block=block,
+        )
+
+        if result is None:
+            return []
+        return StakeInfo.list_from_dicts(result)
+
+    def get_stake_info_for_coldkeys(
+        self, coldkey_ss58s: list[str], block: Optional[int] = None
+    ) -> dict[str, list["StakeInfo"]]:
+        """
+        Retrieves the stake information for multiple coldkeys.
+
+        Parameters:
+            coldkey_ss58s: A list of SS58 addresses of the coldkeys to query.
+            block: The block number at which to query the stake information.
+
+        Returns:
+            The dictionary mapping coldkey addresses to a list of StakeInfo objects.
+        """
+        query = self.query_runtime_api(
+            runtime_api="StakeInfoRuntimeApi",
+            method="get_stake_info_for_coldkeys",
+            params=[coldkey_ss58s],
+            block=block,
+        )
+
+        if query is None:
+            return {}
+
+        return {
+            decode_account_id(ck): StakeInfo.list_from_dicts(st_info)
+            for ck, st_info in query
+        }
+
+    def get_stake_for_hotkey(
+        self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
+    ) -> Balance:
+        """
+        Retrieves the stake information for a given hotkey.
+
+        Parameters:
+            hotkey_ss58: The SS58 address of the hotkey.
+            netuid: The subnet ID to query for.
+            block: The block number at which to query the stake information.
+        """
+        hotkey_alpha_query = self.query_subtensor(
+            name="TotalHotkeyAlpha", params=[hotkey_ss58, netuid], block=block
+        )
+        hotkey_alpha = cast(ScaleObj, hotkey_alpha_query)
+        balance = Balance.from_rao(hotkey_alpha.value)
+        balance.set_unit(netuid=netuid)
+        return balance
+
+    get_hotkey_stake = get_stake_for_hotkey
+
     def get_stake_add_fee(
         self,
         amount: Balance,
         netuid: int,
-        coldkey_ss58: str,
-        hotkey_ss58: str,
         block: Optional[int] = None,
     ) -> Balance:
         """
         Calculates the fee for adding new stake to a hotkey.
 
-        Args:
+        Parameters:
             amount: Amount of stake to add in TAO
             netuid: Netuid of subnet
-            coldkey_ss58: SS58 address of coldkey
-            hotkey_ss58: SS58 address of hotkey
             block: Block number at which to perform the calculation
+
+        Returns:
+            The calculated stake fee as a Balance object in TAO.
+        """
+        check_balance_amount(amount)
+        sim_swap_result = self.sim_swap(
+            origin_netuid=0, destination_netuid=netuid, amount=amount, block=block
+        )
+        return sim_swap_result.tao_fee
+
+    def get_stake_movement_fee(
+        self,
+        origin_netuid: int,
+        destination_netuid: int,
+        amount: Balance,
+        block: Optional[int] = None,
+    ) -> Balance:
+        """
+        Calculates the fee for moving stake between hotkeys/subnets/coldkeys.
+
+        Parameters:
+            origin_netuid: Netuid of source subnet.
+            destination_netuid: Netuid of the destination subnet.
+            amount: Amount of stake to move.
+            block: The block number for which the children are to be retrieved.
 
         Returns:
             The calculated stake fee as a Balance object
         """
-        return self.get_stake_operations_fee(amount=amount, netuid=netuid, block=block)
+        check_balance_amount(amount)
+        sim_swap_result = self.sim_swap(
+            origin_netuid=origin_netuid,
+            destination_netuid=destination_netuid,
+            amount=amount,
+            block=block,
+        )
+        return sim_swap_result.tao_fee
+
+    def get_stake_weight(self, netuid: int, block: Optional[int] = None) -> list[float]:
+        """
+        Retrieves the stake weight for all hotkeys in a given subnet.
+
+        Parameters:
+            netuid: Netuid of subnet.
+            block: Block number at which to perform the calculation.
+
+        Returns:
+            A list of stake weights for all hotkeys in the specified subnet.
+        """
+        block_hash = self.determine_block_hash(block=block)
+        result = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="StakeWeight",
+            params=[netuid],
+            block_hash=block_hash,
+        )
+        return [u16_normalized_float(w) for w in result]
+
+    def get_subnet_burn_cost(self, block: Optional[int] = None) -> Optional[Balance]:
+        """
+        Retrieves the burn cost for registering a new subnet within the Bittensor network. This cost represents the
+        amount of Tao that needs to be locked or burned to establish a new subnet.
+
+        Parameters:
+            block: The blockchain block number for the query.
+
+        Returns:
+            int: The burn cost for subnet registration.
+
+        The subnet burn cost is an important economic parameter, reflecting the network's mechanisms for controlling the
+        proliferation of subnets and ensuring their commitment to the network's long-term viability.
+        """
+        lock_cost = self.query_runtime_api(
+            runtime_api="SubnetRegistrationRuntimeApi",
+            method="get_network_registration_cost",
+            params=[],
+            block=block,
+        )
+
+        if lock_cost is not None:
+            return Balance.from_rao(lock_cost)
+        else:
+            return lock_cost
+
+    def get_subnet_hyperparameters(
+        self, netuid: int, block: Optional[int] = None
+    ) -> Optional[Union[list, "SubnetHyperparameters"]]:
+        """
+        Retrieves the hyperparameters for a specific subnet within the Bittensor network. These hyperparameters define
+        the operational settings and rules governing the subnet's behavior.
+
+        Parameters:
+            netuid: The network UID of the subnet to query.
+            block: The blockchain block number for the query.
+
+        Returns:
+            The subnet's hyperparameters, or `None` if not available.
+
+        Understanding the hyperparameters is crucial for comprehending how subnets are configured and managed, and how
+        they interact with the network's consensus and incentive mechanisms.
+        """
+        result = self.query_runtime_api(
+            runtime_api="SubnetInfoRuntimeApi",
+            method="get_subnet_hyperparams_v2",
+            params=[netuid],
+            block=block,
+        )
+
+        if not result:
+            return None
+
+        return SubnetHyperparameters.from_dict(result)
 
     def get_subnet_info(
         self, netuid: int, block: Optional[int] = None
@@ -1861,7 +3602,7 @@ class Subtensor(SubtensorMixin):
         Retrieves detailed information about subnet within the Bittensor network.
         This function provides comprehensive data on subnet, including its characteristics and operational parameters.
 
-        Arguments:
+        Parameters:
             netuid: The unique identifier of the subnet.
             block: The blockchain block number for the query.
 
@@ -1869,7 +3610,7 @@ class Subtensor(SubtensorMixin):
             SubnetInfo: A SubnetInfo objects, each containing detailed information about a subnet.
 
         Gaining insights into the subnet's details assists in understanding the network's composition, the roles of
-            different subnets, and their unique features.
+        different subnets, and their unique features.
         """
         result = self.query_runtime_api(
             runtime_api="SubnetInfoRuntimeApi",
@@ -1881,49 +3622,70 @@ class Subtensor(SubtensorMixin):
             return None
         return SubnetInfo.from_dict(result)
 
+    def get_subnet_owner_hotkey(
+        self, netuid: int, block: Optional[int] = None
+    ) -> Optional[str]:
+        """
+        Retrieves the hotkey of the subnet owner for a given network UID.
+
+        This function queries the subtensor network to fetch the hotkey of the owner of a subnet specified by its
+        netuid. If no data is found or the query fails, the function returns `None`.
+
+        Parameters:
+            netuid: The network UID of the subnet to fetch the owner's hotkey for.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            The hotkey of the subnet owner if available; `None` otherwise.
+        """
+        return self.query_subtensor(
+            name="SubnetOwnerHotkey", params=[netuid], block=block
+        )
+
     def get_subnet_price(
         self,
         netuid: int,
         block: Optional[int] = None,
     ) -> Balance:
-        """Gets the current Alpha price in TAO for all subnets.
+        """Gets the current Alpha price in TAO for the specified subnet.
 
-        Arguments:
+        Parameters:
             netuid: The unique identifier of the subnet.
-            block: The blockchain block number for the query.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
 
         Returns:
             The current Alpha price in TAO units for the specified subnet.
+
+        Notes:
+            Subnet 0 (root network) always returns 1 TAO since it uses TAO directly rather than Alpha.
         """
         # SN0 price is always 1 TAO
         if netuid == 0:
             return Balance.from_tao(1)
 
         block_hash = self.determine_block_hash(block=block)
-        current_sqrt_price = self.substrate.query(
-            module="Swap",
-            storage_function="AlphaSqrtPrice",
+        price_rao = self.substrate.runtime_call(
+            api="SwapRuntimeApi",
+            method="current_alpha_price",
             params=[netuid],
             block_hash=block_hash,
-        )
-
-        current_sqrt_price = fixed_to_float(current_sqrt_price)
-        current_price = current_sqrt_price * current_sqrt_price
-        return Balance.from_rao(int(current_price * 1e9))
+        ).value
+        return Balance.from_rao(price_rao)
 
     def get_subnet_prices(
         self,
         block: Optional[int] = None,
     ) -> dict[int, Balance]:
-        """Gets the current Alpha price in TAO for a specified subnet.
+        """Gets the current Alpha price in TAO for all subnets.
 
-        Args:
-            block: The blockchain block number for the query. Default to `None`.
+        Parameters:
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
 
         Returns:
-            dict:
-                - subnet unique ID
-                - The current Alpha price in TAO units for the specified subnet.
+            A dictionary mapping subnet unique ID (netuid) to the current Alpha price in TAO units.
+
+        Notes:
+            Subnet 0 (root network) always has a price of 1 TAO since it uses TAO directly rather than Alpha.
         """
         block_hash = self.determine_block_hash(block=block)
 
@@ -1945,281 +3707,25 @@ class Subtensor(SubtensorMixin):
         prices.update({0: Balance.from_tao(1)})
         return prices
 
-    def get_timelocked_weight_commits(
-        self, netuid: int, block: Optional[int] = None
-    ) -> list[tuple[str, int, str, int]]:
-        """
-        Retrieves CRv4 weight commit information for a specific subnet.
-
-        Arguments:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query. Default is ``None``.
-
-        Returns:
-            A list of commit details, where each item contains:
-                - ss58_address: The address of the committer.
-                - commit_block: The block number when the commitment was made.
-                - commit_message: The commit message.
-                - reveal_round: The round when the commitment was revealed.
-
-            The list may be empty if there are no commits found.
-        """
-        result = self.substrate.query_map(
-            module="SubtensorModule",
-            storage_function="TimelockedWeightCommits",
-            params=[netuid],
-            block_hash=self.determine_block_hash(block=block),
-        )
-
-        commits = result.records[0][1] if result.records else []
-        return [WeightCommitInfo.from_vec_u8_v2(commit) for commit in commits]
-
-    # TODO: remove unused parameters in SDK.v10
-    def get_unstake_fee(
-        self,
-        amount: Balance,
-        netuid: int,
-        coldkey_ss58: str,
-        hotkey_ss58: str,
-        block: Optional[int] = None,
-    ) -> Balance:
-        """
-        Calculates the fee for unstaking from a hotkey.
-
-        Args:
-            amount: Amount of stake to unstake in TAO
-            netuid: Netuid of subnet
-            coldkey_ss58: SS58 address of coldkey
-            hotkey_ss58: SS58 address of hotkey
-            block: Block number at which to perform the calculation
-
-        Returns:
-            The calculated stake fee as a Balance object
-        """
-        return self.get_stake_operations_fee(amount=amount, netuid=netuid, block=block)
-
-    # TODO: remove unused parameters in SDK.v10
-    def get_stake_movement_fee(
-        self,
-        amount: Balance,
-        origin_netuid: int,
-        origin_hotkey_ss58: str,
-        origin_coldkey_ss58: str,
-        destination_netuid: int,
-        destination_hotkey_ss58: str,
-        destination_coldkey_ss58: str,
-        block: Optional[int] = None,
-    ) -> Balance:
-        """
-        Calculates the fee for moving stake between hotkeys/subnets/coldkeys.
-
-        Args:
-            amount: Amount of stake to move in TAO
-            origin_netuid: Netuid of origin subnet
-            origin_hotkey_ss58: SS58 address of origin hotkey
-            origin_coldkey_ss58: SS58 address of origin coldkey
-            destination_netuid: Netuid of destination subnet
-            destination_hotkey_ss58: SS58 address of destination hotkey
-            destination_coldkey_ss58: SS58 address of destination coldkey
-            block: Block number at which to perform the calculation
-
-        Returns:
-            The calculated stake fee as a Balance object
-        """
-        return self.get_stake_operations_fee(
-            amount=amount, netuid=origin_netuid, block=block
-        )
-
-    def get_stake_for_coldkey_and_hotkey(
-        self,
-        coldkey_ss58: str,
-        hotkey_ss58: str,
-        netuids: Optional[list[int]] = None,
-        block: Optional[int] = None,
-    ) -> dict[int, StakeInfo]:
-        """
-        Retrieves all coldkey-hotkey pairing stake across specified (or all) subnets
-
-        Arguments:
-            coldkey_ss58 (str): The SS58 address of the coldkey.
-            hotkey_ss58 (str): The SS58 address of the hotkey.
-            netuids (Optional[list[int]]): The subnet IDs to query for. Set to `None` for all subnets.
-            block (Optional[int]): The block number at which to query the stake information.
-
-        Returns:
-            A {netuid: StakeInfo} pairing of all stakes across all subnets.
-        """
-        if netuids is None:
-            all_netuids = self.get_subnets(block=block)
-        else:
-            all_netuids = netuids
-        results = [
-            self.query_runtime_api(
-                "StakeInfoRuntimeApi",
-                "get_stake_info_for_hotkey_coldkey_netuid",
-                params=[hotkey_ss58, coldkey_ss58, netuid],
-                block=block,
-            )
-            for netuid in all_netuids
-        ]
-        return {
-            netuid: StakeInfo.from_dict(result)
-            for (netuid, result) in zip(all_netuids, results)
-        }
-
-    def get_stake_for_coldkey(
-        self, coldkey_ss58: str, block: Optional[int] = None
-    ) -> list["StakeInfo"]:
-        """
-        Retrieves the stake information for a given coldkey.
-
-        Args:
-            coldkey_ss58 (str): The SS58 address of the coldkey.
-            block (Optional[int]): The block number at which to query the stake information.
-
-        Returns:
-            Optional[list[StakeInfo]]: A list of StakeInfo objects, or ``None`` if no stake information is found.
-        """
-        result = self.query_runtime_api(
-            runtime_api="StakeInfoRuntimeApi",
-            method="get_stake_info_for_coldkey",
-            params=[coldkey_ss58],  # type: ignore
-            block=block,
-        )
-
-        if result is None:
-            return []
-        stakes = StakeInfo.list_from_dicts(result)  # type: ignore
-        return [stake for stake in stakes if stake.stake > 0]
-
-    get_stake_info_for_coldkey = get_stake_for_coldkey
-
-    def get_stake_for_hotkey(
-        self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
-    ) -> Balance:
-        """
-        Retrieves the stake information for a given hotkey.
-
-        Args:
-            hotkey_ss58: The SS58 address of the hotkey.
-            netuid: The subnet ID to query for.
-            block: The block number at which to query the stake information. Do not specify if also specifying
-                block_hash or reuse_block
-        """
-        hotkey_alpha_query = self.query_subtensor(
-            name="TotalHotkeyAlpha", params=[hotkey_ss58, netuid], block=block
-        )
-        hotkey_alpha = cast(ScaleObj, hotkey_alpha_query)
-        balance = Balance.from_rao(hotkey_alpha.value)
-        balance.set_unit(netuid=netuid)
-        return balance
-
-    get_hotkey_stake = get_stake_for_hotkey
-
-    def get_stake_operations_fee(
-        self,
-        amount: Balance,
-        netuid: int,
-        block: Optional[int] = None,
-    ):
-        """Returns fee for any stake operation in specified subnet.
-
-        Args:
-            amount: Amount of stake to add in Alpha/TAO.
-            netuid: Netuid of subnet.
-            block: Block number at which to perform the calculation.
-
-        Returns:
-            The calculated stake fee as a Balance object.
-        """
-        block_hash = self.determine_block_hash(block=block)
-        result = self.substrate.query(
-            module="Swap",
-            storage_function="FeeRate",
-            params=[netuid],
-            block_hash=block_hash,
-        )
-        return amount * (result.value / U16_MAX)
-
-    def get_stake_weight(self, netuid: int, block: Optional[int] = None) -> list[float]:
-        """
-        Retrieves the stake weight for all hotkeys in a given subnet.
-
-        Arguments:
-            netuid: Netuid of subnet.
-            block: Block number at which to perform the calculation.
-
-        Returns:
-            A list of stake weights for all hotkeys in the specified subnet.
-        """
-        block_hash = self.determine_block_hash(block=block)
-        result = self.substrate.query(
-            module="SubtensorModule",
-            storage_function="StakeWeight",
-            params=[netuid],
-            block_hash=block_hash,
-        )
-        return [u16_normalized_float(w) for w in result]
-
-    def get_subnet_burn_cost(self, block: Optional[int] = None) -> Optional[Balance]:
-        """
-        Retrieves the burn cost for registering a new subnet within the Bittensor network. This cost represents the
-            amount of Tao that needs to be locked or burned to establish a new subnet.
-
-        Arguments:
-            block (Optional[int]): The blockchain block number for the query.
-
-        Returns:
-            int: The burn cost for subnet registration.
-
-        The subnet burn cost is an important economic parameter, reflecting the network's mechanisms for controlling
-            the proliferation of subnets and ensuring their commitment to the network's long-term viability.
-        """
-        lock_cost = self.query_runtime_api(
-            runtime_api="SubnetRegistrationRuntimeApi",
-            method="get_network_registration_cost",
-            params=[],
-            block=block,
-        )
-
-        if lock_cost is not None:
-            return Balance.from_rao(lock_cost)
-        else:
-            return lock_cost
-
-    def get_subnet_hyperparameters(
-        self, netuid: int, block: Optional[int] = None
-    ) -> Optional[Union[list, "SubnetHyperparameters"]]:
-        """
-        Retrieves the hyperparameters for a specific subnet within the Bittensor network. These hyperparameters define
-            the operational settings and rules governing the subnet's behavior.
-
-        Arguments:
-            netuid (int): The network UID of the subnet to query.
-            block (Optional[int]): The blockchain block number for the query.
-
-        Returns:
-            The subnet's hyperparameters, or `None` if not available.
-
-        Understanding the hyperparameters is crucial for comprehending how subnets are configured and managed, and how
-            they interact with the network's consensus and incentive mechanisms.
-        """
-        result = self.query_runtime_api(
-            runtime_api="SubnetInfoRuntimeApi",
-            method="get_subnet_hyperparams_v2",
-            params=[netuid],
-            block=block,
-        )
-
-        if not result:
-            return None
-
-        return SubnetHyperparameters.from_dict(result)
-
     def get_subnet_reveal_period_epochs(
         self, netuid: int, block: Optional[int] = None
     ) -> int:
-        """Retrieve the SubnetRevealPeriodEpochs hyperparameter."""
+        """Retrieves the SubnetRevealPeriodEpochs hyperparameter for a specified subnet.
+
+        This hyperparameter determines the number of epochs that must pass before a committed weight can be revealed
+        in the commit-reveal mechanism.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            The number of epochs in the reveal period for the subnet.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
+
+        """
         return cast(
             int,
             self.get_hyperparameter(
@@ -2227,43 +3733,88 @@ class Subtensor(SubtensorMixin):
             ),
         )
 
-    def get_subnets(self, block: Optional[int] = None) -> list[int]:
+    def get_subnet_validator_permits(
+        self, netuid: int, block: Optional[int] = None
+    ) -> Optional[list[bool]]:
         """
-        Retrieves the list of all subnet unique identifiers (netuids) currently present in the Bittensor network.
+        Retrieves the list of validator permits for a given subnet as boolean values.
 
-        Arguments:
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The blockchain block number for the query.
 
         Returns:
-            A list of subnet netuids.
-
-        This function provides a comprehensive view of the subnets within the Bittensor network,
-        offering insights into its diversity and scale.
+            A list of boolean values representing validator permits, or None if not available.
         """
+        query = self.query_subtensor(
+            name="ValidatorPermit",
+            params=[netuid],
+            block=block,
+        )
+        return query.value if query is not None and hasattr(query, "value") else query
+
+    def get_timelocked_weight_commits(
+        self,
+        netuid: int,
+        mechid: int = 0,
+        block: Optional[int] = None,
+    ) -> list[tuple[str, int, str, int]]:
+        """Retrieves CRv4 (Commit-Reveal version 4) weight commit information for a specific subnet.
+
+        This method retrieves timelocked weight commitments made by validators using the commit-reveal mechanism.
+        The raw byte/vector encoding from the chain is automatically parsed and converted into a structured format
+        via `WeightCommitInfo`.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            mechid: Subnet mechanism identifier (default 0 for primary mechanism).
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            A list of commit details, where each item is a tuple containing:
+
+                - ss58_address: The SS58 address of the committer.
+                - commit_block: The block number when the commitment was made.
+                - commit_message: The commit message (encoded commitment data).
+                - reveal_round: The drand round when the commitment can be revealed.
+
+        Notes:
+            The list may be empty if there are no commits found.
+            - <https://docs.learnbittensor.org/resources/glossary#commit-reveal>
+        """
+        storage_index = get_mechid_storage_index(netuid, mechid)
         result = self.substrate.query_map(
             module="SubtensorModule",
-            storage_function="NetworksAdded",
-            block_hash=self.determine_block_hash(block),
+            storage_function="TimelockedWeightCommits",
+            params=[storage_index],
+            block_hash=self.determine_block_hash(block=block),
         )
-        subnets = []
-        if result.records:
-            for netuid, exists in result:
-                if exists:
-                    subnets.append(netuid)
-        return subnets
 
-    def get_total_subnets(self, block: Optional[int] = None) -> Optional[int]:
+        commits = result.records[0][1] if result.records else []
+        return [WeightCommitInfo.from_vec_u8_v2(commit) for commit in commits]
+
+    def get_timestamp(self, block: Optional[int] = None) -> datetime:
         """
-        Retrieves the total number of subnets within the Bittensor network as of a specific blockchain block.
+        Retrieves the datetime timestamp for a given block
 
-        Arguments:
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[str]: The total number of subnets in the network.
+            datetime object for the timestamp of the block
+        """
+        unix = cast(ScaleObj, self.query_module("Timestamp", "Now", block=block)).value
+        return datetime.fromtimestamp(unix / 1000, tz=timezone.utc)
 
-        Understanding the total number of subnets is essential for assessing the network's growth and the extent of its
-            decentralized infrastructure.
+    def get_total_subnets(self, block: Optional[int] = None) -> Optional[int]:
+        """Retrieves the total number of subnets within the Bittensor network as of a specific blockchain block.
+
+        Parameters:
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            The total number of subnets in the network.
+
         """
         result = self.substrate.query(
             module="SubtensorModule",
@@ -2276,20 +3827,19 @@ class Subtensor(SubtensorMixin):
     def get_transfer_fee(
         self,
         wallet: "Wallet",
-        dest: str,
-        value: Optional[Balance],
+        destination_ss58: str,
+        amount: Optional[Balance],
         keep_alive: bool = True,
     ) -> Balance:
         """
         Calculates the transaction fee for transferring tokens from a wallet to a specified destination address. This
-            function simulates the transfer to estimate the associated cost, taking into account the current network
-            conditions and transaction complexity.
+        function simulates the transfer to estimate the associated cost, taking into account the current network
+        conditions and transaction complexity.
 
-        Arguments:
-            wallet (bittensor_wallet.Wallet): The wallet from which the transfer is initiated.
-            dest (str): The ``SS58`` address of the destination account.
-            value (Union[bittensor.utils.balance.Balance, float, int]): The amount of tokens to be transferred,
-                specified as a Balance object, or in Tao (float) or Rao (int) units.
+        Parameters:
+            wallet: The wallet from which the transfer is initiated.
+            destination_ss58: The `SS58` address of the destination account.
+            amount: The amount of tokens to be transferred, specified as a Balance object, or in Tao or Rao units.
             keep_alive: Whether the transfer fee should be calculated based on keeping the wallet alive (existential
                 deposit) or not.
 
@@ -2297,16 +3847,16 @@ class Subtensor(SubtensorMixin):
             bittensor.utils.balance.Balance: The estimated transaction fee for the transfer, represented as a Balance
                 object.
 
-        Estimating the transfer fee is essential for planning and executing token transactions, ensuring that the wallet
-            has sufficient funds to cover both the transfer amount and the associated costs. This function provides a
-            crucial tool for managing financial operations within the Bittensor network.
+        Notes:
+            - <https://docs.learnbittensor.org/learn/fees>
         """
-        if value is not None:
-            value = check_and_convert_to_balance(value)
+        check_balance_amount(amount)
         call_params: dict[str, Union[int, str, bool]]
-        call_function, call_params = get_transfer_fn_params(value, dest, keep_alive)
+        call_function, call_params = get_transfer_fn_params(
+            amount, destination_ss58, keep_alive
+        )
 
-        call = self.substrate.compose_call(
+        call = self.compose_call(
             call_module="Balances",
             call_function=call_function,
             call_params=call_params,
@@ -2322,22 +3872,51 @@ class Subtensor(SubtensorMixin):
 
         return Balance.from_rao(payment_info["partial_fee"])
 
+    def get_unstake_fee(
+        self,
+        netuid: int,
+        amount: Balance,
+        block: Optional[int] = None,
+    ) -> Balance:
+        """Calculates the fee for unstaking from a hotkey.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            amount: Amount of stake to unstake in TAO.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            The calculated stake fee as a Balance object in Alpha.
+
+        Notes:
+            - <https://docs.learnbittensor.org/learn/fees>
+        """
+        check_balance_amount(amount)
+        sim_swap_result = self.sim_swap(
+            origin_netuid=netuid,
+            destination_netuid=0,
+            amount=amount,
+            block=block,
+        )
+        return sim_swap_result.alpha_fee.set_unit(netuid=netuid)
+
     def get_vote_data(
         self, proposal_hash: str, block: Optional[int] = None
     ) -> Optional["ProposalVoteData"]:
+        # TODO: is this all deprecated? Didn't subtensor senate stuff get removed?
         """
         Retrieves the voting data for a specific proposal on the Bittensor blockchain. This data includes information
-            about how senate members have voted on the proposal.
+        about how senate members have voted on the proposal.
 
-        Arguments:
-            proposal_hash (str): The hash of the proposal for which voting data is requested.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            proposal_hash: The hash of the proposal for which voting data is requested.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
 
         Returns:
             An object containing the proposal's voting data, or `None` if not found.
 
         This function is important for tracking and understanding the decision-making processes within the Bittensor
-            network, particularly how proposals are received and acted upon by the governing body.
+        network, particularly how proposals are received and acted upon by the governing body.
         """
         vote_data: dict[str, Any] = self.substrate.query(
             module="Triumvirate",
@@ -2357,16 +3936,16 @@ class Subtensor(SubtensorMixin):
         """
         Retrieves the unique identifier (UID) for a neuron's hotkey on a specific subnet.
 
-        Arguments:
-            hotkey_ss58 (str): The ``SS58`` address of the neuron's hotkey.
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The UID of the neuron if it is registered on the subnet, ``None`` otherwise.
+            The UID of the neuron if it is registered on the subnet, `None` otherwise.
 
         The UID is a critical identifier within the network, linking the neuron's hotkey to its operational and
-            governance activities on a particular subnet.
+        governance activities on a particular subnet.
         """
         result = self.substrate.query(
             module="SubtensorModule",
@@ -2384,16 +3963,28 @@ class Subtensor(SubtensorMixin):
         block: Optional[int],
     ) -> list[int]:
         """
-        Filters a given list of all netuids for certain specified netuids and hotkeys
+        Filters netuids by combining netuids from all_netuids and netuids with registered hotkeys.
 
-        Arguments:
-            all_netuids (Iterable[int]): A list of netuids to filter.
-            filter_for_netuids (Iterable[int]): A subset of all_netuids to filter from the main list.
-            all_hotkeys (Iterable[Wallet]): Hotkeys to filter from the main list.
-            block (Optional[int]): The blockchain block number for the query.
+        If filter_for_netuids is empty/None:
+            Returns all netuids where hotkeys from all_hotkeys are registered.
+
+        If filter_for_netuids is provided:
+            Returns the union of:
+            - Netuids from all_netuids that are in filter_for_netuids, AND
+            - Netuids with registered hotkeys that are in filter_for_netuids
+
+        This allows you to get netuids that are either in your specified list (all_netuids) or have registered hotkeys,
+        as long as they match filter_for_netuids.
+
+        Parameters:
+            all_netuids: A list of netuids to consider for filtering.
+            filter_for_netuids: A subset of netuids to restrict the result to. If None/empty, returns all netuids with
+                registered hotkeys.
+            all_hotkeys: Hotkeys to check for registration.
+            block: The blockchain block number for the query.
 
         Returns:
-            The filtered list of netuids.
+            The filtered list of netuids (union of filtered all_netuids and registered hotkeys).
         """
         self._get_block_hash(block)  # just used to cache the block hash
         netuids_with_registered_hotkeys = [
@@ -2432,42 +4023,84 @@ class Subtensor(SubtensorMixin):
     ) -> Optional[int]:
         """
         Retrieves the 'ImmunityPeriod' hyperparameter for a specific subnet. This parameter defines the duration during
-            which new neurons are protected from certain network penalties or restrictions.
+        which new neurons are protected from certain network penalties or restrictions.
 
-        Args:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The value of the 'ImmunityPeriod' hyperparameter if the subnet exists, ``None`` otherwise.
+            The value of the 'ImmunityPeriod' hyperparameter if the subnet exists, `None` otherwise.
 
         The 'ImmunityPeriod' is a critical aspect of the network's governance system, ensuring that new participants
-            have a grace period to establish themselves and contribute to the network without facing immediate
-            punitive actions.
+        have a grace period to establish themselves and contribute to the network without facing immediate punitive
+        actions.
         """
         call = self.get_hyperparameter(
             param_name="ImmunityPeriod", netuid=netuid, block=block
         )
         return None if call is None else int(call)
 
-    def is_fast_blocks(self):
-        """Returns True if the node is running with fast blocks. False if not."""
-        return self.query_constant("SubtensorModule", "DurationOfStartCall").value == 10
+    def is_in_admin_freeze_window(
+        self,
+        netuid: int,
+        block: Optional[int] = None,
+    ) -> bool:
+        """
+        Returns True if the current block is within the terminal freeze window of the tempo
+        for the given subnet. During this window, admin ops are prohibited to avoid interference
+        with validator weight submissions.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
+
+        Returns:
+            bool: True if in freeze window, else False.
+        """
+        # SN0 doesn't have admin_freeze_window
+        if netuid == 0:
+            return False
+
+        next_epoch_start_block = self.get_next_epoch_start_block(
+            netuid=netuid, block=block
+        )
+
+        if next_epoch_start_block is not None:
+            remaining = next_epoch_start_block - self.block
+            window = self.get_admin_freeze_window(block=block)
+            return remaining < window
+        return False
+
+    def is_fast_blocks(self) -> bool:
+        """Checks if the node is running with fast blocks enabled.
+
+        Fast blocks have a block time of 10 seconds, compared to the standard 12-second block time. This affects
+        transaction timing and network synchronization.
+
+        Returns:
+            `True` if fast blocks are enabled (10-second block time), `False` otherwise (12-second block time).
+
+        Notes:
+            - <https://docs.learnbittensor.org/resources/glossary#fast-blocks>
+
+        """
+        return self.query_constant("SubtensorModule", "DurationOfStartCall") == 10
 
     def is_hotkey_delegate(self, hotkey_ss58: str, block: Optional[int] = None) -> bool:
         """
         Determines whether a given hotkey (public key) is a delegate on the Bittensor network. This function checks if
-            the neuron associated with the hotkey is part of the network's delegation system.
+        the neuron associated with the hotkey is part of the network's delegation system.
 
-        Arguments:
-            hotkey_ss58 (str): The SS58 address of the neuron's hotkey.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The SS58 address of the neuron's hotkey.
+            block: The blockchain block number for the query.
 
         Returns:
             `True` if the hotkey is a delegate, `False` otherwise.
 
         Being a delegate is a significant status within the Bittensor network, indicating a neuron's involvement in
-            consensus and governance processes.
+        consensus and governance processes.
         """
         delegates = self.get_delegates(block)
         return hotkey_ss58 in [info.hotkey_ss58 for info in delegates]
@@ -2480,23 +4113,22 @@ class Subtensor(SubtensorMixin):
     ) -> bool:
         """
         Determines whether a given hotkey (public key) is registered in the Bittensor network, either globally across
-            any subnet or specifically on a specified subnet. This function checks the registration status of a neuron
-            identified by its hotkey, which is crucial for validating its participation and activities within the
-            network.
+        any subnet or specifically on a specified subnet. This function checks the registration status of a neuron
+        identified by its hotkey, which is crucial for validating its participation and activities within the network.
 
-        Args:
+        Parameters:
             hotkey_ss58: The SS58 address of the neuron's hotkey.
-            netuid: The unique identifier of the subnet to check the registration. If `None`, the
-                registration is checked across all subnets.
+            netuid: The unique identifier of the subnet to check the registration. If `None`, the registration is
+                checked across all subnets.
             block: The blockchain block number at which to perform the query.
 
         Returns:
-            bool: `True` if the hotkey is registered in the specified context (either any subnet or a specific subnet),
+            `True` if the hotkey is registered in the specified context (either any subnet or a specific subnet),
                 `False` otherwise.
 
         This function is important for verifying the active status of neurons in the Bittensor network. It aids in
-            understanding whether a neuron is eligible to participate in network processes such as consensus,
-            validation, and incentive distribution based on its registration status.
+        understanding whether a neuron is eligible to participate in network processes such as consensus, validation,
+        and incentive distribution based on its registration status.
         """
         if netuid is None:
             return self.is_hotkey_registered_any(hotkey_ss58, block)
@@ -2511,14 +4143,12 @@ class Subtensor(SubtensorMixin):
         """
         Checks if a neuron's hotkey is registered on any subnet within the Bittensor network.
 
-        Arguments:
-            hotkey_ss58 (str): The ``SS58`` address of the neuron's hotkey.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
+            block: The blockchain block number for the query.
 
         Returns:
-            bool: ``True`` if the hotkey is registered on any subnet, False otherwise.
-
-        This function is essential for determining the network-wide presence and participation of a neuron.
+            `True` if the hotkey is registered on any subnet, False otherwise.
         """
         hotkeys = self.get_netuids_for_hotkey(hotkey_ss58, block)
         return len(hotkeys) > 0
@@ -2526,23 +4156,41 @@ class Subtensor(SubtensorMixin):
     def is_hotkey_registered_on_subnet(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
     ) -> bool:
-        """Checks if the hotkey is registered on a given netuid."""
+        """Checks if the hotkey is registered on a given subnet.
+
+        Parameters:
+            hotkey_ss58: The SS58 address of the hotkey to check.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
+
+        Returns:
+            `True` if the hotkey is registered on the specified subnet, `False` otherwise.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#hotkey>
+
+        """
         return (
             self.get_uid_for_hotkey_on_subnet(hotkey_ss58, netuid, block=block)
             is not None
         )
 
     def is_subnet_active(self, netuid: int, block: Optional[int] = None) -> bool:
-        """Verify if subnet with provided netuid is active.
+        """Verifies if a subnet with the provided netuid is active.
 
-        Args:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        A subnet is considered active if the `start_call` extrinsic has been executed. A newly registered subnet
+        may exist but not be active until the subnet owner calls `start_call` to begin emissions.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query. If `None`, queries the current chain head.
 
         Returns:
-            True if subnet is active, False otherwise.
+            `True` if the subnet is active (emissions have started), `False` otherwise.
 
-        This means whether the `start_call` was initiated or not.
+        Notes:
+            - <https://docs.learnbittensor.org/subnets/working-with-subnets>
+
         """
         query = self.query_subtensor(
             name="FirstEmissionBlockNumber",
@@ -2552,11 +4200,18 @@ class Subtensor(SubtensorMixin):
         return True if query and query.value > 0 else False
 
     def last_drand_round(self) -> Optional[int]:
-        """
-        Retrieves the last drand round emitted in bittensor. This corresponds when committed weights will be revealed.
+        """Retrieves the last drand round emitted in Bittensor.
+
+        Drand (distributed randomness) rounds are used to determine when committed weights can be revealed in the
+        commit-reveal mechanism. This method returns the most recent drand round number, which corresponds to the
+        timing for weight reveals.
 
         Returns:
-            int: The latest Drand round emitted in bittensor.
+            The latest drand round number emitted in Bittensor, or `None` if no round has been stored.
+
+        Notes:
+            - <https://docs.learnbittensor.org/resources/glossary#drandtime-lock-encryption>
+
         """
         result = self.substrate.query(
             module="Drand", storage_function="LastStoredRound"
@@ -2566,16 +4221,20 @@ class Subtensor(SubtensorMixin):
     def max_weight_limit(
         self, netuid: int, block: Optional[int] = None
     ) -> Optional[float]:
-        """
-        Returns network MaxWeightsLimit hyperparameter.
+        """Returns the MaxWeightsLimit hyperparameter for a subnet.
 
-        Args:
-            netuid (int): The unique identifier of the subnetwork.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[float]: The value of the MaxWeightsLimit hyperparameter, or ``None`` if the subnetwork does not
-                exist or the parameter is not found.
+            The stored maximum weight limit as a normalized float in [0, 1], or `None` if the subnetwork
+                does not exist. Note: this value is not enforced - the weight validation code uses a hardcoded u16::MAX
+                    instead.
+
+        Notes:
+            - This hyperparameter is now a constant rather than a settable variable.
+            - <https://docs.learnbittensor.org/subnets/subnet-hyperparameters>
         """
         call = self.get_hyperparameter(
             param_name="MaxWeightsLimit", netuid=netuid, block=block
@@ -2583,11 +4242,32 @@ class Subtensor(SubtensorMixin):
         return None if call is None else u16_normalized_float(int(call))
 
     def metagraph(
-        self, netuid: int, lite: bool = True, block: Optional[int] = None
+        self,
+        netuid: int,
+        mechid: int = 0,
+        lite: bool = True,
+        block: Optional[int] = None,
     ) -> "Metagraph":
+        """
+        Returns a synced metagraph for a specified subnet within the Bittensor network.
+        The metagraph represents the network's structure, including neuron connections and interactions.
+
+        Parameters:
+            netuid: The network UID of the subnet to query.
+            mechid: Subnet mechanism identifier.
+            lite: If `True`, returns a metagraph using a lightweight sync (no weights, no bonds).
+            block: Block number for synchronization, or `None` for the latest block.
+
+        Returns:
+            The metagraph representing the subnet's structure and neuron relationships.
+
+        The metagraph is an essential tool for understanding the topology and dynamics of the Bittensor network's
+        decentralized architecture, particularly in relation to neuron interconnectivity and consensus processes.
+        """
         metagraph = Metagraph(
-            network=self.chain_endpoint,
             netuid=netuid,
+            mechid=mechid,
+            network=self.chain_endpoint,
             lite=lite,
             sync=False,
             subtensor=self,
@@ -2599,16 +4279,23 @@ class Subtensor(SubtensorMixin):
     def min_allowed_weights(
         self, netuid: int, block: Optional[int] = None
     ) -> Optional[int]:
-        """
-        Returns network MinAllowedWeights hyperparameter.
+        """Returns the MinAllowedWeights hyperparameter for a subnet.
 
-        Args:
-            netuid (int): The unique identifier of the subnetwork.
-            block (Optional[int]): The blockchain block number for the query.
+        This hyperparameter sets the minimum length of the weights vector that a validator must submit.
+        It checks `weights.len() >= MinAllowedWeights`. For example, a validator could submit `[1000, 0, 0, 0]`
+        to satisfy `MinAllowedWeights=4`, but this would fail if `MinAllowedWeights` were set to 5.
+        This ensures validators distribute attention across the subnet.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The value of the MinAllowedWeights hyperparameter, or ``None`` if the subnetwork does not
+            The minimum number of required weight connections, or `None` if the subnetwork does not
                 exist or the parameter is not found.
+
+        Notes:
+            - <https://docs.learnbittensor.org/subnets/subnet-hyperparameters>
         """
         call = self.get_hyperparameter(
             param_name="MinAllowedWeights", netuid=netuid, block=block
@@ -2620,19 +4307,19 @@ class Subtensor(SubtensorMixin):
     ) -> "NeuronInfo":
         """
         Retrieves detailed information about a specific neuron identified by its unique identifier (UID) within a
-            specified subnet (netuid) of the Bittensor network. This function provides a comprehensive view of a
-            neuron's attributes, including its stake, rank, and operational status.
+        specified subnet (netuid) of the Bittensor network. This function provides a comprehensive view of a neuron's
+        attributes, including its stake, rank, and operational status.
 
-        Arguments:
-            uid (int): The unique identifier of the neuron.
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            uid: The unique identifier of the neuron.
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
             Detailed information about the neuron if found, a null neuron otherwise
 
         This function is crucial for analyzing individual neurons' contributions and status within a specific subnet,
-            offering insights into their roles in the network's consensus and validation mechanisms.
+        offering insights into their roles in the network's consensus and validation mechanisms.
         """
         if uid is None:
             return NeuronInfo.get_null_neuron()
@@ -2653,17 +4340,17 @@ class Subtensor(SubtensorMixin):
         """
         Retrieves a list of all neurons within a specified subnet of the Bittensor network.
         This function provides a snapshot of the subnet's neuron population, including each neuron's attributes and
-            network interactions.
+        network interactions.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
             A list of NeuronInfo objects detailing each neuron's characteristics in the subnet.
 
         Understanding the distribution and status of neurons within a subnet is key to comprehending the network's
-            decentralized structure and the dynamics of its consensus and governance processes.
+        decentralized structure and the dynamics of its consensus and governance processes.
         """
         result = self.query_runtime_api(
             runtime_api="NeuronInfoRuntimeApi",
@@ -2683,17 +4370,17 @@ class Subtensor(SubtensorMixin):
         """
         Retrieves a list of neurons in a 'lite' format from a specific subnet of the Bittensor network.
         This function provides a streamlined view of the neurons, focusing on key attributes such as stake and network
-            participation.
+        participation.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
             A list of simplified neuron information for the subnet.
 
         This function offers a quick overview of the neuron population within a subnet, facilitating efficient analysis
-            of the network's decentralized structure and neuron dynamics.
+        of the network's decentralized structure and neuron dynamics.
         """
         result = self.query_runtime_api(
             runtime_api="NeuronInfoRuntimeApi",
@@ -2712,32 +4399,28 @@ class Subtensor(SubtensorMixin):
     ) -> Optional[ChainIdentity]:
         """
         Queries the identity of a neuron on the Bittensor blockchain using the given key. This function retrieves
-            detailed identity information about a specific neuron, which is a crucial aspect of the network's
-            decentralized identity and governance system.
+        detailed identity information about a specific neuron, which is a crucial aspect of the network's decentralized
+        identity and governance system.
 
-        Arguments:
-            coldkey_ss58 (str): The coldkey used to query the neuron's identity (technically the neuron's coldkey SS58
-                address).
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            coldkey_ss58: Coldkey used to query the neuron's identity (technically the neuron's coldkey SS58 address).
+            block: The blockchain block number for the query.
 
         Returns:
-            An object containing the identity information of the neuron if found, ``None`` otherwise.
+            An object containing the identity information of the neuron if found, `None` otherwise.
 
         The identity information can include various attributes such as the neuron's stake, rank, and other
-            network-specific details, providing insights into the neuron's role and status within the Bittensor network.
+        network-specific details, providing insights into the neuron's role and status within the Bittensor network.
 
         Note:
             See the `Bittensor CLI documentation <https://docs.bittensor.com/reference/btcli>`_ for supported identity
-                parameters.
+            parameters.
         """
-        identity_info = cast(
-            dict,
-            self.substrate.query(
-                module="SubtensorModule",
-                storage_function="IdentitiesV2",
-                params=[coldkey_ss58],
-                block_hash=self.determine_block_hash(block),
-            ),
+        identity_info = self.substrate.query(
+            module="SubtensorModule",
+            storage_function="IdentitiesV2",
+            params=[coldkey_ss58],
+            block_hash=self.determine_block_hash(block),
         )
 
         if not identity_info:
@@ -2751,78 +4434,35 @@ class Subtensor(SubtensorMixin):
             return None
 
     def recycle(self, netuid: int, block: Optional[int] = None) -> Optional[Balance]:
-        """
-        Retrieves the 'Burn' hyperparameter for a specified subnet. The 'Burn' parameter represents the amount of Tao
-            that is effectively recycled within the Bittensor network.
+        """Retrieves the 'Burn' hyperparameter for a specified subnet.
 
-        Args:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        The 'Burn' parameter represents the amount of TAO that is recycled when registering a neuron
+        on this subnet. Recycled tokens are removed from circulation but can be re-emitted, unlike
+        burned tokens which are permanently removed.
+
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[Balance]: The value of the 'Burn' hyperparameter if the subnet exists, None otherwise.
+            The amount of TAO recycled per neuron registration, or `None` if the subnet does not exist.
 
-        Understanding the 'Burn' rate is essential for analyzing the network registration usage, particularly how it is
-            correlated with user activity and the overall cost of participation in a given subnet.
+        Notes:
+            - <https://docs.learnbittensor.org/resources/glossary#recycling-and-burning>
         """
         call = self.get_hyperparameter(param_name="Burn", netuid=netuid, block=block)
         return None if call is None else Balance.from_rao(int(call))
-
-    def set_reveal_commitment(
-        self,
-        wallet,
-        netuid: int,
-        data: str,
-        blocks_until_reveal: int = 360,
-        block_time: Union[int, float] = 12,
-        period: Optional[int] = None,
-    ) -> tuple[bool, int]:
-        """
-        Commits arbitrary data to the Bittensor network by publishing metadata.
-
-        Arguments:
-            wallet (bittensor_wallet.Wallet): The wallet associated with the neuron committing the data.
-            netuid (int): The unique identifier of the subnetwork.
-            data (str): The data to be committed to the network.
-            blocks_until_reveal (int): The number of blocks from now after which the data will be revealed. Defaults to
-                `360`. Then number of blocks in one epoch.
-            block_time (Union[int, float]): The number of seconds between each block. Defaults to `12`.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
-        Returns:
-            bool: `True` if the commitment was successful, `False` otherwise.
-
-        Note: A commitment can be set once per subnet epoch and is reset at the next epoch in the chain automatically.
-        """
-
-        encrypted, reveal_round = get_encrypted_commitment(
-            data, blocks_until_reveal, block_time
-        )
-
-        # increase reveal_round in return + 1 because we want to fetch data from the chain after that round was revealed
-        # and stored.
-        data_ = {"encrypted": encrypted, "reveal_round": reveal_round}
-        return publish_metadata(
-            subtensor=self,
-            wallet=wallet,
-            netuid=netuid,
-            data_type="TimelockEncrypted",
-            data=data_,
-            period=period,
-        ), reveal_round
 
     def subnet(self, netuid: int, block: Optional[int] = None) -> Optional[DynamicInfo]:
         """
         Retrieves the subnet information for a single subnet in the network.
 
-        Args:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The block number to query the subnet information from.
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The block number to query the subnet information from.
 
         Returns:
-            Optional[DynamicInfo]: A DynamicInfo object, containing detailed information about a subnet.
-
+            A DynamicInfo object, containing detailed information about a subnet.
         """
         block_hash = self.determine_block_hash(block=block)
 
@@ -2845,15 +4485,15 @@ class Subtensor(SubtensorMixin):
         """
         Checks if a subnet with the specified unique identifier (netuid) exists within the Bittensor network.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnet.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnet.
+            block: The blockchain block number for the query.
 
         Returns:
             `True` if the subnet exists, `False` otherwise.
 
-        This function is critical for verifying the presence of specific subnets in the network,
-        enabling a deeper understanding of the network's structure and composition.
+        This function is critical for verifying the presence of specific subnets in the network, enabling a deeper
+        understanding of the network's structure and composition.
         """
         result = self.substrate.query(
             module="SubtensorModule",
@@ -2864,16 +4504,15 @@ class Subtensor(SubtensorMixin):
         return getattr(result, "value", False)
 
     def subnetwork_n(self, netuid: int, block: Optional[int] = None) -> Optional[int]:
-        """
-        Returns network SubnetworkN hyperparameter.
+        """Returns the current number of registered neurons (UIDs) in a subnet.
 
-        Args:
-            netuid (int): The unique identifier of the subnetwork.
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The value of the SubnetworkN hyperparameter, or ``None`` if the subnetwork does not exist or
-                the parameter is not found.
+            The current number of registered neurons in the subnet, or `None` if the subnetwork does not exist.
+
         """
         call = self.get_hyperparameter(
             param_name="SubnetworkN", netuid=netuid, block=block
@@ -2881,16 +4520,22 @@ class Subtensor(SubtensorMixin):
         return None if call is None else int(call)
 
     def tempo(self, netuid: int, block: Optional[int] = None) -> Optional[int]:
-        """
-        Returns network Tempo hyperparameter.
+        """Returns the Tempo hyperparameter for a subnet.
 
-        Args:
-            netuid (int): The unique identifier of the subnetwork.
-            block (Optional[int]): The blockchain block number for the query.
+        Tempo determines the length of an epoch in blocks. It defines how frequently the subnet's consensus mechanism
+        runs, calculating emissions and updating rankings. A tempo of 360 blocks equals approximately 72 minutes
+        (360 blocks × 12 seconds per block).
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The value of the Tempo hyperparameter, or ``None`` if the subnetwork does not exist or the
-                parameter is not found.
+            The tempo value in blocks, or `None` if the subnetwork does not exist.
+
+        Notes:
+            - <https://docs.learnbittensor.org/resources/glossary#tempo>
+            - <https://docs.learnbittensor.org/resources/glossary#epoch>
         """
         call = self.get_hyperparameter(param_name="Tempo", netuid=netuid, block=block)
         return None if call is None else int(call)
@@ -2900,11 +4545,11 @@ class Subtensor(SubtensorMixin):
         Retrieves the transaction rate limit for the Bittensor network as of a specific blockchain block.
         This rate limit sets the maximum number of transactions that can be processed within a given time frame.
 
-        Args:
-            block (Optional[int]): The blockchain block number for the query.
+        Parameters:
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The transaction rate limit of the network, None if not available.
+            The transaction rate limit of the network, None if not available.
 
         The transaction rate limit is an essential parameter for ensuring the stability and scalability of the Bittensor
             network. It helps in managing network load and preventing congestion, thereby maintaining efficient and
@@ -2918,18 +4563,17 @@ class Subtensor(SubtensorMixin):
         Waits until a specific block is reached on the chain. If no block is specified,
         waits for the next block.
 
-        Args:
-            block (Optional[int]): The block number to wait for. If None, waits for the next block.
+        Parameters:
+            block: The block number to wait for. If None, waits for the next block.
 
         Returns:
-            bool: True if the target block was reached, False if timeout occurred.
+            True if the target block was reached, False if timeout occurred.
 
         Example:
-            import bittensor as bt
-            subtensor = bt.Subtensor()
 
-            subtensor.wait_for_block() # Waits for the next block
-            subtensor.wait_for_block(block=1234) # Waits for a specific block
+            # Waits for a specific block
+
+            subtensor.wait_for_block(block=1234)
         """
 
         def handler(block_data: dict):
@@ -2953,27 +4597,32 @@ class Subtensor(SubtensorMixin):
         return True
 
     def weights(
-        self, netuid: int, block: Optional[int] = None
+        self,
+        netuid: int,
+        mechid: int = 0,
+        block: Optional[int] = None,
     ) -> list[tuple[int, list[tuple[int, int]]]]:
         """
         Retrieves the weight distribution set by neurons within a specific subnet of the Bittensor network.
         This function maps each neuron's UID to the weights it assigns to other neurons, reflecting the network's trust
-            and value assignment mechanisms.
+        and value assignment mechanisms.
 
-        Arguments:
-            netuid (int): The network UID of the subnet to query.
-            block (Optional[int]): Block number for synchronization, or ``None`` for the latest block.
+        Parameters:
+            netuid: The network UID of the subnet to query.
+            mechid: Subnet mechanism identifier.
+            block: Block number for synchronization, or `None` for the latest block.
 
         Returns:
             A list of tuples mapping each neuron's UID to its assigned weights.
 
         The weight distribution is a key factor in the network's consensus algorithm and the ranking of neurons,
-            influencing their influence and reward allocation within the subnet.
+        influencing their influence and reward allocation within the subnet.
         """
+        storage_index = get_mechid_storage_index(netuid, mechid)
         w_map_encoded = self.substrate.query_map(
             module="SubtensorModule",
             storage_function="Weights",
-            params=[netuid],
+            params=[storage_index],
             block_hash=self.determine_block_hash(block),
         )
         w_map = [(uid, w.value or []) for uid, w in w_map_encoded]
@@ -2983,15 +4632,18 @@ class Subtensor(SubtensorMixin):
     def weights_rate_limit(
         self, netuid: int, block: Optional[int] = None
     ) -> Optional[int]:
-        """
-        Returns network WeightsSetRateLimit hyperparameter.
+        """Returns the WeightsSetRateLimit hyperparameter for a subnet.
 
-        Arguments:
-            netuid (int): The unique identifier of the subnetwork.
-            block (Optional[int]): The blockchain block number for the query.
+        This hyperparameter limits how many times a validator can set weights per epoch. It prevents validators
+        from spamming weight updates and ensures stable consensus calculations. Once the limit is reached, validators
+        must wait until the next epoch to set weights again.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            block: The blockchain block number for the query.
 
         Returns:
-            Optional[int]: The value of the WeightsSetRateLimit hyperparameter, or ``None`` if the subnetwork does not
+            The maximum number of weight set operations allowed per epoch, or `None` if the subnetwork does not
                 exist or the parameter is not found.
         """
         call = self.get_hyperparameter(
@@ -2999,95 +4651,152 @@ class Subtensor(SubtensorMixin):
         )
         return None if call is None else int(call)
 
-    def get_timestamp(self, block: Optional[int] = None) -> datetime:
-        """
-        Retrieves the datetime timestamp for a given block
+    # Extrinsics helpers ===============================================================================================
 
-        Arguments:
-            block: The blockchain block number for the query.
+    def validate_extrinsic_params(
+        self,
+        call_module: str,
+        call_function: str,
+        call_params: dict[str, Any],
+        block: Optional[int] = None,
+    ):
+        """
+        Validate and filter extrinsic parameters against on-chain metadata.
+
+        This method checks that the provided parameters match the expected signature of the given extrinsic (module and
+        function) as defined in the Substrate metadata. It raises explicit errors for missing or invalid parameters and
+        silently ignores any extra keys not present in the function definition.
+
+        Parameters:
+            call_module: The pallet name, e.g. "SubtensorModule" or "AdminUtils".
+            call_function: The extrinsic function name, e.g. "set_weights" or "sudo_set_tempo".
+            call_params: A dictionary of parameters to validate.
+            block: Optional block number to query metadata from. If not provided, the latest metadata is used.
 
         Returns:
-            datetime object for the timestamp of the block
+            A filtered dictionary containing only the parameters that are valid for the specified extrinsic.
+
+        Raises:
+            ValueError: If the given module or function is not found in the chain metadata.
+            KeyError: If one or more required parameters are missing.
+
+        Notes:
+            This method does not compose or submit the extrinsic. It only ensures that `call_params` conforms to the
+            expected schema derived from on-chain metadata.
         """
-        unix = cast(ScaleObj, self.query_module("Timestamp", "Now", block=block)).value
-        return datetime.fromtimestamp(unix / 1000, tz=timezone.utc)
+        block_hash = self.determine_block_hash(block=block)
 
-    def get_subnet_owner_hotkey(
-        self, netuid: int, block: Optional[int] = None
-    ) -> Optional[str]:
-        """
-        Retrieves the hotkey of the subnet owner for a given network UID.
-
-        This function queries the subtensor network to fetch the hotkey of the owner of a subnet specified by its
-        netuid. If no data is found or the query fails, the function returns None.
-
-        Arguments:
-            netuid: The network UID of the subnet to fetch the owner's hotkey for.
-            block: The specific block number to query the data from.
-
-        Returns:
-            The hotkey of the subnet owner if available; None otherwise.
-        """
-        return self.query_subtensor(
-            name="SubnetOwnerHotkey", params=[netuid], block=block
+        func_meta = self.substrate.get_metadata_call_function(
+            module_name=call_module,
+            call_function_name=call_function,
+            block_hash=block_hash,
         )
 
-    def get_subnet_validator_permits(
-        self, netuid: int, block: Optional[int] = None
-    ) -> Optional[list[bool]]:
-        """
-        Retrieves the list of validator permits for a given subnet as boolean values.
+        if not func_meta:
+            raise ValueError(
+                f"Call {call_module}.{call_function} not found in chain metadata."
+            )
 
-        Arguments:
-            netuid: The unique identifier of the subnetwork.
-            block: The blockchain block number for the query.
+        # Expected params from metadata
+        expected_params = func_meta.get_param_info()
+        provided_params = {}
+
+        # Validate and filter parameters
+        for param_name in expected_params.keys():
+            if param_name not in call_params:
+                raise KeyError(f"Missing required parameter: '{param_name}'")
+            provided_params[param_name] = call_params[param_name]
+
+        # Warn about extra params not defined in metadata
+        extra_params = set(call_params.keys()) - set(expected_params.keys())
+        if extra_params:
+            logging.debug(
+                f"Ignoring extra parameters for {call_module}.{call_function}: {extra_params}."
+            )
+        return provided_params
+
+    def compose_call(
+        self,
+        call_module: str,
+        call_function: str,
+        call_params: dict[str, Any],
+        block: Optional[int] = None,
+    ) -> "GenericCall":
+        """
+        Dynamically compose a GenericCall using on-chain Substrate metadata after validating the provided parameters.
+
+        Parameters:
+            call_module: Pallet name (e.g. "SubtensorModule", "AdminUtils").
+            call_function: Function name (e.g. "set_weights", "sudo_set_tempo").
+            call_params: Dictionary of parameters for the call.
+            block: Block number for querying metadata.
 
         Returns:
-            A list of boolean values representing validator permits, or None if not available.
-        """
-        query = self.query_subtensor(
-            name="ValidatorPermit",
-            params=[netuid],
-            block=block,
-        )
-        return query.value if query is not None and hasattr(query, "value") else query
+            GenericCall: Composed call object ready for extrinsic submission.
 
-    # Extrinsics helper ================================================================================================
+        Notes:
+            For detailed documentation and examples of composing calls, including the CallBuilder utility, see:
+            <https://docs.learnbittensor.org/sdk/call>
+        """
+        call_params = self.validate_extrinsic_params(
+            call_module, call_function, call_params, block
+        )
+        block_hash = self.determine_block_hash(block=block)
+        logging.debug(
+            f"Composing GenericCall -> {call_module}.{call_function} "
+            f"with params: {call_params}."
+        )
+        return self.substrate.compose_call(
+            call_module=call_module,
+            call_function=call_function,
+            call_params=call_params,
+            block_hash=block_hash,
+        )
 
     def sign_and_send_extrinsic(
         self,
         call: "GenericCall",
         wallet: "Wallet",
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
         sign_with: str = "coldkey",
         use_nonce: bool = False,
-        period: Optional[int] = None,
         nonce_key: str = "hotkey",
+        nonce: Optional[int] = None,
+        *,
+        period: Optional[int] = DEFAULT_PERIOD,
         raise_error: bool = False,
-    ) -> tuple[bool, str]:
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = False,
+        calling_function: Optional[str] = None,
+    ) -> ExtrinsicResponse:
         """
         Helper method to sign and submit an extrinsic call to chain.
 
-        Arguments:
-            call (scalecodec.types.GenericCall): a prepared Call object
-            wallet (bittensor_wallet.Wallet): the wallet whose coldkey will be used to sign the extrinsic
-            wait_for_inclusion (bool): whether to wait until the extrinsic call is included on the chain
-            wait_for_finalization (bool): whether to wait until the extrinsic call is finalized on the chain
-            sign_with (str): the wallet's keypair to use for the signing. Options are "coldkey", "hotkey", "coldkeypub"
-            use_nonce (bool): unique identifier for the transaction related with hot/coldkey.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
-            nonce_key: the type on nonce to use. Options are "hotkey" or "coldkey".
-            raise_error: raises the relevant exception rather than returning `False` if unsuccessful.
+        Parameters:
+            call: A prepared Call object
+            wallet: The wallet whose coldkey will be used to sign the extrinsic
+            sign_with: The wallet's keypair to use for the signing. Options are "coldkey", "hotkey", "coldkeypub"
+            use_nonce: Unique identifier for the transaction related with hot/coldkey.
+            nonce_key: The type on nonce to use. Options are "hotkey" or "coldkey".
+            nonce: The nonce to use for the transaction. If not provided, it will be fetched from the chain.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises the relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait until the extrinsic call is included on the chain
+            wait_for_finalization: Whether to wait until the extrinsic call is finalized on the chain
+            calling_function: The name of the calling function.
 
         Returns:
-            (success, error message)
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Raises:
             SubstrateRequestException: Substrate request exception.
         """
+        extrinsic_response = ExtrinsicResponse(
+            extrinsic_function=calling_function
+            if calling_function
+            else get_caller_name()
+        )
         possible_keys = ("coldkey", "hotkey", "coldkeypub")
         if sign_with not in possible_keys:
             raise AttributeError(
@@ -3096,7 +4805,10 @@ class Subtensor(SubtensorMixin):
 
         signing_keypair = getattr(wallet, sign_with)
         extrinsic_data = {"call": call, "keypair": signing_keypair}
-        if use_nonce:
+
+        if nonce is not None:
+            extrinsic_data["nonce"] = nonce
+        elif use_nonce:
             if nonce_key not in possible_keys:
                 raise AttributeError(
                     f"'nonce_key' must be either 'coldkey', 'hotkey' or 'coldkeypub', not '{nonce_key}'"
@@ -3105,96 +4817,169 @@ class Subtensor(SubtensorMixin):
                 getattr(wallet, nonce_key).ss58_address
             )
             extrinsic_data["nonce"] = next_nonce
+
         if period is not None:
             extrinsic_data["era"] = {"period": period}
 
-        extrinsic = self.substrate.create_signed_extrinsic(**extrinsic_data)
+        extrinsic_response.extrinsic = self.substrate.create_signed_extrinsic(
+            **extrinsic_data
+        )
         try:
             response = self.substrate.submit_extrinsic(
-                extrinsic,
+                extrinsic=extrinsic_response.extrinsic,
                 wait_for_inclusion=wait_for_inclusion,
                 wait_for_finalization=wait_for_finalization,
             )
+
             # We only wait here if we expect finalization.
             if not wait_for_finalization and not wait_for_inclusion:
-                message = "Not waiting for finalization or inclusion."
-                logging.debug(f"{message}. Extrinsic: {extrinsic}")
-                return True, message
+                extrinsic_response.extrinsic_fee = self.get_extrinsic_fee(
+                    call=call, keypair=signing_keypair
+                )
+                extrinsic_response.message = (
+                    "Not waiting for finalization or inclusion."
+                )
+                logging.debug(extrinsic_response.message)
+                return extrinsic_response
+
+            extrinsic_response.extrinsic_receipt = response
 
             if response.is_success:
-                return True, ""
+                extrinsic_response.extrinsic_fee = Balance.from_rao(
+                    response.total_fee_amount
+                )
+                extrinsic_response.message = "Success"
+                return extrinsic_response
+
+            response_error_message = response.error_message
 
             if raise_error:
-                raise ChainError.from_error(response.error_message)
+                raise ChainError.from_error(response_error_message)
 
-            return False, format_error_message(response.error_message)
+            extrinsic_response.success = False
+            extrinsic_response.message = format_error_message(response_error_message)
+            extrinsic_response.error = response_error_message
+            return extrinsic_response
 
-        except SubstrateRequestException as e:
+        except SubstrateRequestException as error:
             if raise_error:
                 raise
 
-            return False, format_error_message(e)
+            extrinsic_response.success = False
+            extrinsic_response.message = format_error_message(error)
+            extrinsic_response.error = error
+            return extrinsic_response
+
+    def get_extrinsic_fee(
+        self,
+        call: "GenericCall",
+        keypair: "Keypair",
+    ) -> Balance:
+        """Gets the extrinsic fee for a given extrinsic call and keypair.
+
+        This method estimates the transaction fee that will be charged for submitting the extrinsic to the
+        blockchain. The fee is returned in Rao (the smallest unit of TAO, where 1 TAO = 1e9 Rao).
+
+        Parameters:
+            call: The extrinsic GenericCall object representing the transaction to estimate.
+            keypair: The keypair associated with the extrinsic (used to determine the account paying the fee).
+
+        Returns:
+            Balance object representing the extrinsic fee in Rao.
+
+        Example:
+            # Estimate fee before sending a transfer
+            call = subtensor.compose_call(
+                call_module="Balances",
+                call_function="transfer",
+                call_params={"dest": destination_ss58, "value": amount.rao}
+            )
+            fee = subtensor.get_extrinsic_fee(call=call, keypair=wallet.coldkey)
+            print(f"Estimated fee: {fee.tao} TAO")
+
+        Notes:
+            To create the GenericCall object, use the `compose_call` method with proper parameters.
+            - <https://docs.learnbittensor.org/learn/fees>
+
+        """
+        payment_info = self.substrate.get_payment_info(call=call, keypair=keypair)
+        return Balance.from_rao(amount=payment_info["partial_fee"])
 
     # Extrinsics =======================================================================================================
 
     def add_stake(
         self,
         wallet: "Wallet",
-        hotkey_ss58: Optional[str] = None,
-        netuid: Optional[int] = None,
-        amount: Optional[Balance] = None,
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
+        netuid: int,
+        hotkey_ss58: str,
+        amount: Balance,
         safe_staking: bool = False,
         allow_partial_stake: bool = False,
         rate_tolerance: float = 0.005,
-        period: Optional[int] = None,
-    ) -> bool:
-        """
-        Adds a stake from the specified wallet to the neuron identified by the SS58 address of its hotkey in specified
-            subnet. Staking is a fundamental process in the Bittensor network that enables neurons to participate
-            actively and earn incentives.
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Adds stake from the specified wallet to a neuron on a specified subnet.
 
-        Args:
+        Staking is a fundamental process in the Bittensor network that enables neurons to participate actively
+        and earn incentives. This method transfers TAO from the coldkey to stake on a hotkey in a specific subnet,
+        converting it to Alpha (subnet-specific token) in the process.
+
+        Parameters:
             wallet: The wallet to be used for staking.
-            hotkey_ss58: The SS58 address of the hotkey associated with the neuron to which you intend to delegate your
-                stake. If not specified, the wallet's hotkey will be used. Defaults to ``None``.
             netuid: The unique identifier of the subnet to which the neuron belongs.
+            hotkey_ss58: The `SS58` address of the hotkey account to stake to.
             amount: The amount of TAO to stake.
-            wait_for_inclusion: Waits for the transaction to be included in a block. Defaults to ``True``.
-            wait_for_finalization: Waits for the transaction to be finalized on the blockchain. Defaults to ``False``.
-            safe_staking: If true, enables price safety checks to protect against fluctuating prices. The stake will
-                only execute if the price change doesn't exceed the rate tolerance. Default is ``False``.
-            allow_partial_stake: If true and safe_staking is enabled, allows partial staking when the full amount would
+            safe_staking: If `True`, enables price safety checks to protect against fluctuating prices. The stake will
+                only execute if the price change doesn't exceed the rate tolerance.
+            allow_partial_stake: If `True` and safe_staking is enabled, allows partial staking when the full amount would
                 exceed the price tolerance. If false, the entire stake fails if it would exceed the tolerance.
-                Default is ``False``.
-            rate_tolerance: The maximum allowed price change ratio when staking. For example,
-                0.005 = 0.5% maximum price increase. Only used when safe_staking is True. Default is ``0.005``.
-            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
-                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
-                can think of it as an expiration date for the transaction. Defaults to ``None``.
+            rate_tolerance: The maximum allowed price change ratio when staking. For example, 0.005 = 0.5% maximum price
+                increase. Only used when safe_staking is True.
+            mev_protection: If `True`, encrypts and submits the staking transaction through the MEV Shield pallet to
+                protect against front-running and MEV attacks. The transaction remains encrypted in the mempool until
+                validators decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection
+                used.
 
         Returns:
-            bool: True if the staking is successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
-        This function enables neurons to increase their stake in the network, enhancing their influence and potential
-            rewards in line with Bittensor's consensus and reward mechanisms.
-            When safe_staking is enabled, it provides protection against price fluctuations during the time stake is
-            executed and the time it is actually processed by the chain.
+        Notes:
+            When safe_staking is enabled, it provides protection against price fluctuations during the time between when
+            stake is submitted and when it is actually processed by the chain.
+
+            - <https://docs.learnbittensor.org/staking-and-delegation/staking>
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
-        amount = check_and_convert_to_balance(amount)
+        check_balance_amount(amount)
         return add_stake_extrinsic(
             subtensor=self,
             wallet=wallet,
             hotkey_ss58=hotkey_ss58,
             netuid=netuid,
             amount=amount,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
             safe_staking=safe_staking,
             allow_partial_stake=allow_partial_stake,
             rate_tolerance=rate_tolerance,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def add_liquidity(
@@ -3204,35 +4989,41 @@ class Subtensor(SubtensorMixin):
         liquidity: Balance,
         price_low: Balance,
         price_high: Balance,
-        hotkey: Optional[str] = None,
+        hotkey_ss58: Optional[str] = None,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Adds liquidity to the specified price range.
 
-        Arguments:
+        Parameters:
             wallet: The wallet used to sign the extrinsic (must be unlocked).
             netuid: The UID of the target subnet for which the call is being initiated.
             liquidity: The amount of liquidity to be added.
             price_low: The lower bound of the price tick range. In TAO.
             price_high: The upper bound of the price tick range. In TAO.
-            hotkey: The hotkey with staked TAO in Alpha. If not passed then the wallet hotkey is used. Defaults to
-                `None`.
-            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block. Defaults to True.
-            wait_for_finalization: Whether to wait for finalization of the extrinsic. Defaults to False.
+            hotkey_ss58: The hotkey with staked TAO in Alpha. If not passed then the wallet hotkey is used.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
             period: The number of blocks during which the transaction will remain valid after it's submitted. If
                 the transaction is not included in a block within that number of blocks, it will expire and be rejected.
                 You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            Tuple[bool, str]:
-                - True and a success message if the extrinsic is successfully submitted or processed.
-                - False and an error message if the submission fails or the wallet cannot be unlocked.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Note: Adding is allowed even when user liquidity is enabled in specified subnet. Call `toggle_user_liquidity`
-            method to enable/disable user liquidity.
+        method to enable/disable user liquidity.
         """
         return add_liquidity_extrinsic(
             subtensor=self,
@@ -3241,178 +5032,856 @@ class Subtensor(SubtensorMixin):
             liquidity=liquidity,
             price_low=price_low,
             price_high=price_high,
-            hotkey=hotkey,
+            hotkey_ss58=hotkey_ss58,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def add_stake_multiple(
         self,
         wallet: "Wallet",
+        netuids: UIDs,
         hotkey_ss58s: list[str],
-        netuids: list[int],
-        amounts: Optional[list[Balance]] = None,
+        amounts: list[Balance],
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> bool:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Adds stakes to multiple neurons identified by their hotkey SS58 addresses.
         This bulk operation allows for efficient staking across different neurons from a single wallet.
 
-        Args:
-            wallet (bittensor_wallet.Wallet): The wallet used for staking.
-            hotkey_ss58s (list[str]): List of ``SS58`` addresses of hotkeys to stake to.
-            netuids (list[int]): List of network UIDs to stake to.
-            amounts (list[Balance]): Corresponding amounts of TAO to stake for each hotkey.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet used for staking.
+            netuids: List of subnet UIDs.
+            hotkey_ss58s: List of `SS58` addresses of hotkeys to stake to.
+            amounts: List of corresponding TAO amounts to bet for each netuid and hotkey.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: ``True`` if the staking is successful for all specified neurons, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
-        This function is essential for managing stakes across multiple neurons, reflecting the dynamic and collaborative
-            nature of the Bittensor network.
+        Notes:
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
         return add_stake_multiple_extrinsic(
             subtensor=self,
             wallet=wallet,
-            hotkey_ss58s=hotkey_ss58s,
             netuids=netuids,
+            hotkey_ss58s=hotkey_ss58s,
             amounts=amounts,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def add_proxy(
+        self,
+        wallet: "Wallet",
+        delegate_ss58: str,
+        proxy_type: Union[str, "ProxyType"],
+        delay: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Adds a proxy relationship.
+
+        This method creates a proxy relationship where the delegate can execute calls on behalf of the real account (the
+        wallet owner) with restrictions defined by the proxy type and a delay period. A deposit is required and held as
+        long as the proxy relationship exists.
+
+        Parameters:
+            wallet: Bittensor wallet object.
+            delegate_ss58: The SS58 address of the delegate proxy account.
+            proxy_type: The type of proxy permissions (e.g., "Any", "NonTransfer", "Governance", "Staking"). Can be a
+                string or ProxyType enum value.
+            delay: The number of blocks before the proxy can be used.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - A deposit is required when adding a proxy. The deposit amount is determined by runtime constants and is
+              returned when the proxy is removed. Use :meth:`get_proxy_constants` to check current deposit requirements.
+            - See: <https://docs.learnbittensor.org/keys/proxies/create-proxy>
+        """
+        return add_proxy_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            delegate_ss58=delegate_ss58,
+            proxy_type=proxy_type,
+            delay=delay,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def announce_proxy(
+        self,
+        wallet: "Wallet",
+        real_account_ss58: str,
+        call_hash: str,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Announces a future call that will be executed through a proxy.
+
+        This method allows a proxy account to declare its intention to execute a specific call on behalf of a real
+        account after a delay period. The real account can review and either approve (via :meth:`proxy_announced`) or reject
+        (via :meth:`reject_proxy_announcement`) the announcement.
+
+        Parameters:
+            wallet: Bittensor wallet object (should be the proxy account wallet).
+            real_account_ss58: The SS58 address of the real account on whose behalf the call will be made.
+            call_hash: The hash of the call that will be executed in the future.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - A deposit is required when making an announcement. The deposit is returned when the announcement is
+            executed, rejected, or removed. The announcement can be executed after the delay period has passed.
+            - See: <https://docs.learnbittensor.org/keys/proxies>
+        """
+        return announce_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            real_account_ss58=real_account_ss58,
+            call_hash=call_hash,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def burned_register(
         self,
         wallet: "Wallet",
         netuid: int,
-        wait_for_inclusion: bool = False,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        period: Optional[int] = None,
-    ) -> bool:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Registers a neuron on the Bittensor network by recycling TAO. This method of registration involves recycling
-            TAO tokens, allowing them to be re-mined by performing work on the network.
+        TAO tokens, allowing them to be re-mined by performing work on the network.
 
-        Args:
-            wallet (bittensor_wallet.Wallet): The wallet associated with the neuron to be registered.
-            netuid (int): The unique identifier of the subnet.
-            wait_for_inclusion (bool, optional): Waits for the transaction to be included in a block. Defaults to
-                `False`.
-            wait_for_finalization (bool, optional): Waits for the transaction to be finalized on the blockchain.
-                Defaults to `True`.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet associated with the neuron to be registered.
+            netuid: The unique identifier of the subnet.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: ``True`` if the registration is successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#registration-rate-limits>
         """
 
         if netuid == 0:
             return root_register_extrinsic(
                 subtensor=self,
                 wallet=wallet,
+                mev_protection=mev_protection,
+                period=period,
+                raise_error=raise_error,
                 wait_for_inclusion=wait_for_inclusion,
                 wait_for_finalization=wait_for_finalization,
-                period=period,
+                wait_for_revealed_execution=wait_for_revealed_execution,
             )
 
         return burned_register_extrinsic(
             subtensor=self,
             wallet=wallet,
             netuid=netuid,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def claim_root(
+        self,
+        wallet: "Wallet",
+        netuids: "UIDs",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ):
+        """Submit an extrinsic to manually claim accumulated root dividends from one or more subnets.
+
+        Parameters:
+            wallet: Bittensor `Wallet` instance.
+            netuids: Iterable of subnet IDs to claim from in this call (the chain enforces a maximum number per
+                transaction).
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: Number of blocks during which the transaction remains valid after submission. If the extrinsic is
+                not included in a block within this window, it will expire and be rejected.
+            raise_error: Whether to raise a Python exception instead of returning a failed `ExtrinsicResponse`.
+            wait_for_inclusion: Whether to wait until the extrinsic is included in a block before returning.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic in a block before returning.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` describing the result of the extrinsic execution.
+
+        Notes:
+            - Only Alpha dividends are claimed; the underlying TAO stake on the Root Subnet remains unchanged.
+            - The current root claim type (`Swap` or `Keep`) determines whether claimed Alpha is converted to
+              TAO and restaked on root or left as Alpha on the originating subnets.
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims>
+            - See also: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+            - Transaction fees: <https://docs.learnbittensor.org/learn/fees>
+        """
+        return claim_root_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            netuids=netuids,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def commit_weights(
         self,
         wallet: "Wallet",
         netuid: int,
-        salt: list[int],
-        uids: Union[NDArray[np.int64], list],
-        weights: Union[NDArray[np.int64], list],
+        salt: Salt,
+        uids: UIDs,
+        weights: Weights,
+        mechid: int = 0,
         version_key: int = version_as_int,
+        max_attempts: int = 5,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = 16,
+        raise_error: bool = True,
         wait_for_inclusion: bool = False,
         wait_for_finalization: bool = False,
-        max_retries: int = 5,
-        period: Optional[int] = 16,
-    ) -> tuple[bool, str]:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Commits a hash of the neuron's weights to the Bittensor blockchain using the provided wallet.
         This action serves as a commitment or snapshot of the neuron's current weight distribution.
 
-        Arguments:
-            wallet (bittensor_wallet.Wallet): The wallet associated with the neuron committing the weights.
-            netuid (int): The unique identifier of the subnet.
-            salt (list[int]): list of randomly generated integers as salt to generated weighted hash.
-            uids (np.ndarray): NumPy array of neuron UIDs for which weights are being committed.
-            weights (np.ndarray): NumPy array of weight values corresponding to each UID.
-            version_key (int): Version key for compatibility with the network. Default is ``int representation of
-                a Bittensor version.``.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block. Default is ``False``.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain. Default is
-                ``False``.
-            max_retries (int): The number of maximum attempts to commit weights. Default is ``5``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet associated with the neuron committing the weights.
+            netuid: The unique identifier of the subnet.
+            salt: list of randomly generated integers as salt to generated weighted hash.
+            uids: NumPy array of neuron UIDs for which weights are being committed.
+            weights: NumPy array of weight values corresponding to each UID.
+            mechid: Subnet mechanism unique identifier.
+            version_key: Version key for compatibility with the network.
+            max_attempts: The number of maximum attempts to commit weights.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]:
-                `True` if the weight commitment is successful, False otherwise.
-                `msg` is a string value describing the success or potential error.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
-        This function allows neurons to create a tamper-proof record of their weight distribution at a specific point
-            in time, enhancing transparency and accountability within the Bittensor network.
+        This function allows neurons to create a tamper-proof record of their weight distribution at a specific point in
+        time, enhancing transparency and accountability within the Bittensor network.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#weights-setting-rate-limit>
         """
-        retries = 0
-        success = False
-        message = "No attempt made. Perhaps it is too soon to commit weights!"
+        attempt = 0
+        response = ExtrinsicResponse(False)
 
-        logging.info(
+        if attempt_check := validate_max_attempts(max_attempts, response):
+            return attempt_check
+
+        logging.debug(
             f"Committing weights with params: "
             f"netuid=[blue]{netuid}[/blue], uids=[blue]{uids}[/blue], weights=[blue]{weights}[/blue], "
             f"version_key=[blue]{version_key}[/blue]"
         )
 
-        # Generate the hash of the weights
-        commit_hash = generate_weight_hash(
-            address=wallet.hotkey.ss58_address,
-            netuid=netuid,
-            uids=list(uids),
-            values=list(weights),
-            salt=salt,
-            version_key=version_key,
-        )
-
-        while retries < max_retries and success is False:
+        while attempt < max_attempts and response.success is False:
             try:
-                success, message = commit_weights_extrinsic(
+                response = commit_weights_extrinsic(
                     subtensor=self,
                     wallet=wallet,
                     netuid=netuid,
-                    commit_hash=commit_hash,
+                    mechid=mechid,
+                    uids=uids,
+                    weights=weights,
+                    salt=salt,
+                    mev_protection=mev_protection,
+                    period=period,
+                    raise_error=raise_error,
                     wait_for_inclusion=wait_for_inclusion,
                     wait_for_finalization=wait_for_finalization,
-                    period=period,
+                    wait_for_revealed_execution=wait_for_revealed_execution,
                 )
-                if success:
-                    break
-            except Exception as e:
-                logging.error(f"Error committing weights: {e}")
-                retries += 1
+            except Exception as error:
+                return ExtrinsicResponse.from_exception(
+                    raise_error=raise_error, error=error
+                )
+            attempt += 1
 
-        return success, message
+        if not response.success:
+            logging.debug(
+                "No one successful attempt made. "
+                "Perhaps it is too soon to commit weights!"
+            )
+        return response
+
+    def contribute_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        amount: "Balance",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Contributes TAO to an active crowdloan campaign.
+
+        Contributions must occur before the crowdloan's end block and are subject to minimum contribution
+        requirements. If a contribution would push the total raised above the cap, it is automatically clipped
+        to fit the remaining amount. Once the cap is reached, further contributions are rejected.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (coldkey pays, coldkey receives emissions).
+            crowdloan_id: The unique identifier of the crowdloan to contribute to.
+            amount: Amount to contribute (TAO). Must meet or exceed the campaign's `min_contribution`.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+            - Contributions can be withdrawn before finalization via `withdraw_crowdloan`.
+            - If the campaign does not reach its cap by the end block, contributors can be refunded via `refund_crowdloan`.
+            - Contributions are counted toward `MaxContributors` limit per crowdloan.
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Tutorial: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#step-4-contribute-to-the-crowdloan>
+        """
+        return contribute_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            amount=amount,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def create_crowdloan(
+        self,
+        wallet: "Wallet",
+        deposit: "Balance",
+        min_contribution: "Balance",
+        cap: "Balance",
+        end: int,
+        call: Optional["GenericCall"] = None,
+        target_address: Optional[str] = None,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Creates a new crowdloan campaign on-chain.
+
+        Parameters:
+            wallet: Bittensor Wallet instance used to sign the transaction.
+            deposit: Initial deposit in RAO from the creator.
+            min_contribution: Minimum contribution amount.
+            cap: Maximum cap to be raised.
+            end: Block number when the campaign ends.
+            call: Runtime call data (e.g., subtensor::register_leased_network).
+            target_address: SS58 address to transfer funds to on success.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure. On success, the crowdloan ID can be extracted from the
+            `Crowdloan.Created` event in the response.
+
+        Notes:
+            - Creator cannot update `call` or `target_address` after creation.
+            - Creator can update `cap`, `end`, and `min_contribution` before finalization via `update_*` methods.
+            - Use `get_crowdloan_next_id` to determine the ID that will be assigned to the new crowdloan.
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Tutorial: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#step-3-create-a-crowdloan>
+            - Leasing: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+        """
+        return create_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            deposit=deposit,
+            min_contribution=min_contribution,
+            cap=cap,
+            end=end,
+            call=call,
+            target_address=target_address,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def create_pure_proxy(
+        self,
+        wallet: "Wallet",
+        proxy_type: Union[str, "ProxyType"],
+        delay: int,
+        index: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Creates a pure proxy account.
+
+        A pure proxy is a keyless account that can only be controlled through proxy relationships. Unlike regular
+        proxies, pure proxies do not have their own private keys, making them more secure for certain use cases. The
+        pure proxy address is deterministically generated based on the spawner account, proxy type, delay, and index.
+
+        Parameters:
+            wallet: Bittensor wallet object.
+            proxy_type: The type of proxy permissions for the pure proxy. Can be a string or ProxyType enum value. For
+                available proxy types and their permissions, see the documentation link in the Notes section below.
+            delay: Optionally, include a delay in blocks. The number of blocks that must elapse between announcing and
+                executing a proxied transaction. A delay of `0` means the pure proxy can be used immediately without any
+                announcement period. A non-zero delay creates a time-lock, requiring announcements before execution to give
+                the spawner time to review/reject.
+            index: A salt value (u16, range `0-65535`) used to generate unique pure proxy addresses. This should generally
+                be left as `0` unless you are creating batches of proxies. When creating multiple pure proxies with
+                identical parameters (same `proxy_type` and `delay`), different index values will produce different SS58
+                addresses. This is not a sequential counter—you can use any unique values (e.g., 0, 100, 7, 42) in any
+                order. The index must be preserved as it's required for :meth:`kill_pure_proxy`. If creating multiple pure
+                proxies in a single batch transaction, each must have a unique index value.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - The pure proxy account address can be extracted from the "PureCreated" event in the response. Store the
+              spawner address, proxy_type, index, height, and ext_index as they are required to kill the pure proxy later
+              via :meth:`kill_pure_proxy`.
+            - Bittensor proxies: <https://docs.learnbittensor.org/keys/proxies/pure-proxies>
+            - Polkadot proxy documentation: <https://wiki.polkadot.network/docs/learn-proxies>
+        """
+        return create_pure_proxy_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            proxy_type=proxy_type,
+            delay=delay,
+            index=index,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def dissolve_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Dissolves a failed or refunded crowdloan, cleaning up storage and returning the creator's deposit.
+
+        This permanently removes the crowdloan from on-chain storage and returns the creator's deposit. Can only
+        be called by the creator after all non-creator contributors have been refunded via `refund_crowdloan`.
+        This is the final step in the lifecycle of a failed crowdloan (one that did not reach its cap by the end
+        block).
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (must be the creator's coldkey).
+            crowdloan_id: The unique identifier of the crowdloan to dissolve.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+            - Only the creator can dissolve their own crowdloan.
+            - All non-creator contributors must be refunded first via `refund_crowdloan`.
+            - The creator's deposit (and any remaining contribution above deposit) is returned.
+            - After dissolution, the crowdloan is permanently removed from chain storage.
+
+            - <https://docs.learnbittensor.org/subnets/crowdloans>
+        """
+        return dissolve_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def finalize_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Finalizes a successful crowdloan after the cap is fully raised and the end block has passed.
+
+        Finalization executes the stored call (e.g., `register_leased_network`) or transfers raised funds to
+        the target address. For subnet lease crowdloans, this registers the subnet, creates a
+        `SubnetLeaseBeneficiary` proxy for the creator, and records contributor shares for pro-rata emissions
+        distribution. Leftover funds (after registration and proxy costs) are refunded to contributors.
+
+        Only the creator can finalize, and finalization can only occur after both the end block is reached and
+        the total raised equals the cap.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (must be the creator's coldkey).
+            crowdloan_id: The unique identifier of the crowdloan to finalize.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure. On success, a subnet lease is created (if applicable)
+            and contributor shares are recorded for emissions.
+
+        Notes:
+            - Only the creator can finalize.
+            - Finalization requires `raised == cap` and `current_block >= end`.
+            - For subnet leases, emissions are swapped to TAO and distributed to contributors' coldkeys during the lease.
+            - Leftover cap (after subnet lock and proxy deposit) is refunded to contributors pro-rata.
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Tutorial: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#step-5-finalize-the-crowdloan>
+            - Emissions Distribution: <https://docs.learnbittensor.org/subnets/crowdloans#emissions-distribution-during-a-lease>
+        """
+        return finalize_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def kill_pure_proxy(
+        self,
+        wallet: "Wallet",
+        pure_proxy_ss58: str,
+        spawner: str,
+        proxy_type: Union[str, "ProxyType"],
+        index: int,
+        height: int,
+        ext_index: int,
+        force_proxy_type: Optional[Union[str, "ProxyType"]] = ProxyType.Any,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Kills (removes) a pure proxy account.
+
+        This method removes a pure proxy account that was previously created via :meth:`create_pure_proxy`. The `kill_pure`
+        call must be executed through the pure proxy account itself, with the spawner acting as an "Any" proxy. This
+        method automatically handles this by executing the call via :meth:`proxy`.
+
+        Parameters:
+            wallet: Bittensor wallet object. The wallet.coldkey.ss58_address must be the spawner of the pure proxy (the
+                account that created it via :meth:`create_pure_proxy`). The spawner must have an "Any" proxy relationship
+                with the pure proxy.
+            pure_proxy_ss58: The SS58 address of the pure proxy account to be killed. This is the address that was
+                returned in the :meth:`create_pure_proxy` response.
+            spawner: The SS58 address of the spawner account (the account that originally created the pure proxy via
+                :meth:`create_pure_proxy`). This should match wallet.coldkey.ss58_address.
+            proxy_type: The type of proxy permissions. Can be a string or ProxyType enum value. Must match the
+                proxy_type used when creating the pure proxy.
+            index: The salt value (u16, range `0-65535`) originally used in :meth:`create_pure_proxy` to generate this
+                pure proxy's address. This value, combined with `proxy_type`, `delay`, and `spawner`, uniquely
+                identifies the pure proxy to be killed. Must match exactly the index used during creation.
+            height: The block height at which the pure proxy was created.
+            ext_index: The extrinsic index at which the pure proxy was created.
+            force_proxy_type: The proxy type relationship to use when executing `kill_pure` through the proxy mechanism.
+                Since pure proxies are keyless and cannot sign transactions, the spawner must act as a proxy for the
+                pure proxy to execute `kill_pure`. This parameter specifies which proxy type relationship between the
+                spawner and the pure proxy account should be used. The spawner must have a proxy relationship of this
+                type (or `Any`) with the pure proxy account. Defaults to `ProxyType.Any` for maximum compatibility. If
+                `None`, Substrate will automatically select an available proxy type from the spawner's proxy
+                relationships.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - The `kill_pure` call must be executed through the pure proxy account itself, with the spawner acting as
+              an `Any` proxy. This method automatically handles this by executing the call via :meth:`proxy`. The spawner
+              must have an `Any` proxy relationship with the pure proxy for this to work.
+            - See: <https://docs.learnbittensor.org/keys/proxies/pure-proxies>
+
+        Warning:
+            All access to this account will be lost. Any funds remaining in the pure proxy account will become
+            permanently inaccessible after this operation.
+        """
+        return kill_pure_proxy_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            pure_proxy_ss58=pure_proxy_ss58,
+            spawner=spawner,
+            proxy_type=proxy_type,
+            index=index,
+            height=height,
+            ext_index=ext_index,
+            force_proxy_type=force_proxy_type,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def mev_submit_encrypted(
+        self,
+        wallet: "Wallet",
+        call: "GenericCall",
+        sign_with: str = "coldkey",
+        *,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+        blocks_for_revealed_execution: int = 3,
+    ) -> ExtrinsicResponse:
+        """
+        Submits an encrypted extrinsic to the MEV Shield pallet.
+
+        This function encrypts a call using ML-KEM-768 + XChaCha20Poly1305 and submits it to the MevShield pallet. The
+        extrinsic remains encrypted in the transaction pool until it is included in a block and decrypted by validators.
+
+        Parameters:
+            wallet: The wallet used to sign the extrinsic (must be unlocked, coldkey will be used for signing).
+            call: The GenericCall object to encrypt and submit.
+            sign_with: The keypair to use for signing the inner call/extrinsic. Can be either "coldkey" or "hotkey".
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+                think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the executed event, indicating that validators
+                have successfully decrypted and executed the inner call. If True, the function will poll subsequent
+                blocks for the event matching this submission's commitment.
+            blocks_for_revealed_execution: Maximum number of blocks to poll for the executed event after inclusion. The
+                function checks blocks from start_block to start_block + blocks_for_revealed_execution. Returns
+                immediately if the event is found before the block limit is reached.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Raises:
+            ValueError: If NextKey is not available in storage or encryption fails.
+            SubstrateRequestException: If the extrinsic fails to be submitted or included.
+
+        Note:
+            The encryption uses the public key from NextKey storage, which rotates every block. The payload structure is:
+            payload_core = signer_bytes (32B) + nonce (u32 LE, 4B) + SCALE(call)
+            plaintext = payload_core + b"\\x01" + signature (64B for sr25519)
+            commitment = blake2_256(payload_core)
+
+        Notes:
+            For detailed documentation and examples of MEV Shield protection, see:
+            <https://docs.learnbittensor.org/sdk/mev-protection>
+
+            For creating GenericCall objects to use with this method, see:
+            <https://docs.learnbittensor.org/sdk/call>
+        """
+        return submit_encrypted_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            call=call,
+            sign_with=sign_with,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+            blocks_for_revealed_execution=blocks_for_revealed_execution,
+        )
 
     def modify_liquidity(
         self,
@@ -3420,40 +5889,43 @@ class Subtensor(SubtensorMixin):
         netuid: int,
         position_id: int,
         liquidity_delta: Balance,
-        hotkey: Optional[str] = None,
+        hotkey_ss58: Optional[str] = None,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """Modifies liquidity in liquidity position by adding or removing liquidity from it.
 
-        Arguments:
+        Parameters:
             wallet: The wallet used to sign the extrinsic (must be unlocked).
             netuid: The UID of the target subnet for which the call is being initiated.
             position_id: The id of the position record in the pool.
             liquidity_delta: The amount of liquidity to be added or removed (add if positive or remove if negative).
-            hotkey: The hotkey with staked TAO in Alpha. If not passed then the wallet hotkey is used. Defaults to
-                `None`.
-            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block. Defaults to True.
-            wait_for_finalization: Whether to wait for finalization of the extrinsic. Defaults to False.
+            hotkey_ss58: The hotkey with staked TAO in Alpha. If not passed then the wallet hotkey is used.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
             period: The number of blocks during which the transaction will remain valid after it's submitted. If
                 the transaction is not included in a block within that number of blocks, it will expire and be rejected.
                 You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            Tuple[bool, str]:
-                - True and a success message if the extrinsic is successfully submitted or processed.
-                - False and an error message if the submission fails or the wallet cannot be unlocked.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Example:
             import bittensor as bt
-
             subtensor = bt.subtensor(network="local")
             my_wallet = bt.Wallet()
-
-            # if `liquidity_delta` is negative
+            # if liquidity_delta is negative
             my_liquidity_delta = Balance.from_tao(100) * -1
-
             subtensor.modify_liquidity(
                 wallet=my_wallet,
                 netuid=123,
@@ -3461,9 +5933,8 @@ class Subtensor(SubtensorMixin):
                 liquidity_delta=my_liquidity_delta
             )
 
-            # if `liquidity_delta` is positive
+            # if liquidity_delta is positive
             my_liquidity_delta = Balance.from_tao(120)
-
             subtensor.modify_liquidity(
                 wallet=my_wallet,
                 netuid=123,
@@ -3472,7 +5943,7 @@ class Subtensor(SubtensorMixin):
             )
 
         Note: Modifying is allowed even when user liquidity is enabled in specified subnet. Call `toggle_user_liquidity`
-            to enable/disable user liquidity.
+        to enable/disable user liquidity.
         """
         return modify_liquidity_extrinsic(
             subtensor=self,
@@ -3480,66 +5951,362 @@ class Subtensor(SubtensorMixin):
             netuid=netuid,
             position_id=position_id,
             liquidity_delta=liquidity_delta,
-            hotkey=hotkey,
+            hotkey_ss58=hotkey_ss58,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def move_stake(
         self,
         wallet: "Wallet",
-        origin_hotkey: str,
         origin_netuid: int,
-        destination_hotkey: str,
+        origin_hotkey_ss58: str,
         destination_netuid: int,
+        destination_hotkey_ss58: str,
         amount: Optional[Balance] = None,
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
         move_all_stake: bool = False,
-    ) -> bool:
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Moves stake to a different hotkey and/or subnet.
 
-        Args:
-            wallet (bittensor.wallet): The wallet to move stake from.
-            origin_hotkey (str): The SS58 address of the source hotkey.
-            origin_netuid (int): The netuid of the source subnet.
-            destination_hotkey (str): The SS58 address of the destination hotkey.
-            destination_netuid (int): The netuid of the destination subnet.
-            amount (Balance): Amount of stake to move.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
-            move_all_stake: If true, moves all stake from the source hotkey to the destination hotkey.
+        Parameters:
+            wallet: The wallet to move stake from.
+            origin_netuid: The netuid of the source subnet.
+            origin_hotkey_ss58: The SS58 address of the source hotkey.
+            destination_netuid: The netuid of the destination subnet.
+            destination_hotkey_ss58: The SS58 address of the destination hotkey.
+            amount: Amount of stake to move.
+            move_all_stake: If `True`, moves all stake from the source hotkey to the destination hotkey.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            success (bool): True if the stake movement was successful.
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
-        amount = check_and_convert_to_balance(amount)
+        check_balance_amount(amount)
         return move_stake_extrinsic(
             subtensor=self,
             wallet=wallet,
-            origin_hotkey=origin_hotkey,
             origin_netuid=origin_netuid,
-            destination_hotkey=destination_hotkey,
+            origin_hotkey_ss58=origin_hotkey_ss58,
             destination_netuid=destination_netuid,
+            destination_hotkey_ss58=destination_hotkey_ss58,
             amount=amount,
+            move_all_stake=move_all_stake,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def poke_deposit(
+        self,
+        wallet: "Wallet",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Adjusts deposits made for proxies and announcements based on current values.
+
+        This method recalculates and updates the locked deposit amounts for both proxy relationships and announcements
+        for the signing account. It can be used to potentially lower the locked amount if the deposit requirements have
+        changed (e.g., due to runtime upgrades or changes in the number of proxies/announcements).
+
+        Parameters:
+            wallet: Bittensor wallet object (the account whose deposits will be adjusted).
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            This method automatically adjusts deposits for both proxy relationships and announcements. No parameters are
+            needed as it operates on the account's current state.
+
+        When to use:
+            - After runtime upgrade, if deposit constants have changed.
+            - After removing proxies/announcements, to free up excess locked funds.
+            - Periodically to optimize locked deposit amounts.
+        """
+        return poke_deposit_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            mev_protection=mev_protection,
             period=period,
-            move_all_stake=move_all_stake,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def proxy(
+        self,
+        wallet: "Wallet",
+        real_account_ss58: str,
+        force_proxy_type: Optional[Union[str, "ProxyType"]],
+        call: "GenericCall",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Executes a call on behalf of the real account through a proxy.
+
+        This method allows a proxy account (delegate) to execute a call on behalf of the real account (delegator). The
+        call is subject to the permissions defined by the proxy type and must respect the delay period if one was set
+        when the proxy was added.
+
+        Parameters:
+            wallet: Bittensor wallet object (should be the proxy account wallet).
+            real_account_ss58: The SS58 address of the real account on whose behalf the call is being made.
+            force_proxy_type: The type of proxy to use for the call. If None, any proxy type can be used. Otherwise,
+                must match one of the allowed proxy types. Can be a string or ProxyType enum value.
+            call: The inner call to be executed on behalf of the real account.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            The call must be permitted by the proxy type. For example, a "NonTransfer" proxy cannot execute transfer
+            calls. The delay period must also have passed since the proxy was added.
+        """
+        return proxy_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            real_account_ss58=real_account_ss58,
+            force_proxy_type=force_proxy_type,
+            call=call,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def proxy_announced(
+        self,
+        wallet: "Wallet",
+        delegate_ss58: str,
+        real_account_ss58: str,
+        force_proxy_type: Optional[Union[str, "ProxyType"]],
+        call: "GenericCall",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Executes an announced call on behalf of the real account through a proxy.
+
+        This method executes a call that was previously announced via :meth:`announce_proxy`. The call must match the
+        call_hash that was announced, and the delay period must have passed since the announcement was made. The real
+        account has the opportunity to review and reject the announcement before execution.
+
+        Parameters:
+            wallet: Bittensor wallet object (should be the proxy account wallet that made the announcement).
+            delegate_ss58: The SS58 address of the delegate proxy account that made the announcement.
+            real_account_ss58: The SS58 address of the real account on whose behalf the call will be made.
+            force_proxy_type: The type of proxy to use for the call. If None, any proxy type can be used. Otherwise,
+                must match one of the allowed proxy types. Can be a string or ProxyType enum value.
+            call: The inner call to be executed on behalf of the real account (must match the announced call_hash).
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            The call_hash of the provided call must match the call_hash that was announced. The announcement must not
+            have been rejected by the real account, and the delay period must have passed.
+        """
+        return proxy_announced_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            delegate_ss58=delegate_ss58,
+            real_account_ss58=real_account_ss58,
+            force_proxy_type=force_proxy_type,
+            call=call,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def refund_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Refunds contributors from a failed crowdloan campaign that did not reach its cap.
+
+        Refunds are batched, processing up to `RefundContributorsLimit` (default 50) contributors per call.
+        For campaigns with more contributors, multiple calls are required. Only non-creator contributors are
+        refunded; the creator's deposit remains until dissolution via `dissolve_crowdloan`.
+
+        Only the crowdloan creator can call this method for a non-finalized crowdloan.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (must be the crowdloan creator).
+            crowdloan_id: The unique identifier of the crowdloan to refund.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Lifecycle: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+            - Refund and Dissolve: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#alternative-path-refund-and-dissolve>
+        """
+        return refund_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def reject_proxy_announcement(
+        self,
+        wallet: "Wallet",
+        delegate_ss58: str,
+        call_hash: str,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Rejects an announcement made by a proxy delegate.
+
+        This method allows the real account to reject an announcement made by a proxy delegate, preventing the announced
+        call from being executed. Once rejected, the announcement cannot be executed and the announcement deposit is
+        returned to the delegate.
+
+        Parameters:
+            wallet: Bittensor wallet object (should be the real account wallet).
+            delegate_ss58: The SS58 address of the delegate proxy account whose announcement is being rejected.
+            call_hash: The hash of the call that was announced and is now being rejected.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            Once rejected, the announcement cannot be executed. The delegate's announcement deposit is returned.
+        """
+        return reject_announcement_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            delegate_ss58=delegate_ss58,
+            call_hash=call_hash,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def register(
         self,
         wallet: "Wallet",
         netuid: int,
-        wait_for_inclusion: bool = False,
-        wait_for_finalization: bool = True,
         max_allowed_attempts: int = 3,
         output_in_place: bool = True,
         cuda: bool = False,
@@ -3548,45 +6315,56 @@ class Subtensor(SubtensorMixin):
         num_processes: Optional[int] = None,
         update_interval: Optional[int] = None,
         log_verbose: bool = False,
-        period: Optional[int] = None,
-    ) -> bool:
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
-        Registers a neuron on the Bittensor network using the provided wallet.
+        Registers a neuron on the Bittensor subnet with provided netuid using the provided wallet.
 
         Registration is a critical step for a neuron to become an active participant in the network, enabling it to
-            stake, set weights, and receive incentives.
+        stake, set weights, and receive incentives.
 
-        Args:
-            wallet (bittensor_wallet.Wallet): The wallet associated with the neuron to be registered.
-            netuid (int): The unique identifier of the subnet.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block. Defaults to `False`.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain. Defaults to
-                `True`.
-            max_allowed_attempts (int): Maximum number of attempts to register the wallet.
-            output_in_place (bool): If true, prints the progress of the proof of work to the console in-place. Meaning
-                the progress is printed on the same lines. Defaults to `True`.
-            cuda (bool): If ``true``, the wallet should be registered using CUDA device(s). Defaults to `False`.
-            dev_id (Union[List[int], int]): The CUDA device id to use, or a list of device ids. Defaults to `0` (zero).
-            tpb (int): The number of threads per block (CUDA). Default to `256`.
-            num_processes (Optional[int]): The number of processes to use to register. Default to `None`.
-            update_interval (Optional[int]): The number of nonces to solve between updates.  Default to `None`.
-            log_verbose (bool): If ``true``, the registration process will log more information.  Default to `False`.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet associated with the neuron to be registered.
+            netuid: The unique identifier of the subnet.
+            max_allowed_attempts: Maximum number of attempts to register the wallet.
+            output_in_place: If `True`, prints the progress of the proof of work to the console in-place. Meaning the
+                progress is printed on the same lines.
+            cuda: If `true`, the wallet should be registered using CUDA device(s).
+            dev_id: The CUDA device id to use, or a list of device ids.
+            tpb: The number of threads per block (CUDA).
+            num_processes: The number of processes to use to register.
+            update_interval: The number of nonces to solve between updates.
+            log_verbose: If `true`, the registration process will log more information.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: ``True`` if the registration is successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
-        This function facilitates the entry of new neurons into the network, supporting the decentralized
-        growth and scalability of the Bittensor ecosystem.
+        This function facilitates the entry of new neurons into the network, supporting the decentralized growth and
+        scalability of the Bittensor ecosystem.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#registration-rate-limits>
         """
         return register_extrinsic(
             subtensor=self,
             wallet=wallet,
             netuid=netuid,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
             max_allowed_attempts=max_allowed_attempts,
             tpb=tpb,
             update_interval=update_interval,
@@ -3595,38 +6373,111 @@ class Subtensor(SubtensorMixin):
             dev_id=dev_id,
             output_in_place=output_in_place,
             log_verbose=log_verbose,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def register_subnet(
         self,
         wallet: "Wallet",
-        wait_for_inclusion: bool = False,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        period: Optional[int] = None,
-    ) -> bool:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Registers a new subnetwork on the Bittensor network.
 
-        Args:
-            wallet (bittensor_wallet.Wallet): The wallet to be used for subnet registration.
-            wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning `True`, or
-                returns `False` if the extrinsic fails to enter the block within the timeout. Default is `False`.
-            wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
-                `True`, or returns `False` if the extrinsic fails to be finalized within the timeout. Default is `True`.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet to be used for subnet registration.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: True if the subnet registration was successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#network-registration-rate-limit>
         """
         return register_subnet_extrinsic(
             subtensor=self,
             wallet=wallet,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def remove_proxy_announcement(
+        self,
+        wallet: "Wallet",
+        real_account_ss58: str,
+        call_hash: str,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Removes an announcement made by a proxy account.
+
+        This method allows the proxy account to remove its own announcement before it is executed or rejected. This
+        frees up the announcement deposit and prevents the call from being executed. Only the proxy account that made
+        the announcement can remove it.
+
+        Parameters:
+            wallet: Bittensor wallet object (should be the proxy account wallet that made the announcement).
+            real_account_ss58: The SS58 address of the real account on whose behalf the call was announced.
+            call_hash: The hash of the call that was announced and is now being removed.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            Only the proxy account that made the announcement can remove it. The real account can reject it via
+            :meth:`reject_proxy_announcement`, but cannot remove it directly.
+        """
+        return remove_announcement_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            real_account_ss58=real_account_ss58,
+            call_hash=call_hash,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def remove_liquidity(
@@ -3634,33 +6485,39 @@ class Subtensor(SubtensorMixin):
         wallet: "Wallet",
         netuid: int,
         position_id: int,
-        hotkey: Optional[str] = None,
+        hotkey_ss58: Optional[str] = None,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """Remove liquidity and credit balances back to wallet's hotkey stake.
 
-        Arguments:
+        Parameters:
             wallet: The wallet used to sign the extrinsic (must be unlocked).
             netuid: The UID of the target subnet for which the call is being initiated.
             position_id: The id of the position record in the pool.
-            hotkey: The hotkey with staked TAO in Alpha. If not passed then the wallet hotkey is used. Defaults to
-                `None`.
-            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block. Defaults to True.
-            wait_for_finalization: Whether to wait for finalization of the extrinsic. Defaults to False.
+            hotkey_ss58: The hotkey with staked TAO in Alpha. If not passed then the wallet hotkey is used.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
             period: The number of blocks during which the transaction will remain valid after it's submitted. If
                 the transaction is not included in a block within that number of blocks, it will expire and be rejected.
                 You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            Tuple[bool, str]:
-                - True and a success message if the extrinsic is successfully submitted or processed.
-                - False and an error message if the submission fails or the wallet cannot be unlocked.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Note:
             - Adding is allowed even when user liquidity is enabled in specified subnet. Call `toggle_user_liquidity`
-                extrinsic to enable/disable user liquidity.
+        extrinsic to enable/disable user liquidity.
             - To get the `position_id` use `get_liquidity_list` method.
         """
         return remove_liquidity_extrinsic(
@@ -3668,132 +6525,284 @@ class Subtensor(SubtensorMixin):
             wallet=wallet,
             netuid=netuid,
             position_id=position_id,
-            hotkey=hotkey,
+            hotkey_ss58=hotkey_ss58,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def remove_proxies(
+        self,
+        wallet: "Wallet",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Removes all proxy relationships for the account in a single transaction.
+
+        This method removes all proxy relationships for the signing account in a single call, which is more efficient
+        than removing them one by one using :meth:`remove_proxy`. The deposit for all proxies will be returned to the
+        account.
+
+        Parameters:
+            wallet: Bittensor wallet object. The account whose proxies will be removed (the delegator). All proxy
+                relationships where wallet.coldkey.ss58_address is the real account will be removed.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            This removes all proxy relationships for the account, regardless of proxy type or delegate. Use
+            :meth:`remove_proxy` if you need to remove specific proxy relationships selectively.
+        """
+        return remove_proxies_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def remove_proxy(
+        self,
+        wallet: "Wallet",
+        delegate_ss58: str,
+        proxy_type: Union[str, "ProxyType"],
+        delay: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Removes a specific proxy relationship.
+
+        This method removes a single proxy relationship between the real account and a delegate. The parameters must
+        exactly match those used when the proxy was added via :meth:`add_proxy`. The deposit for this proxy will be returned
+        to the account.
+
+        Parameters:
+            wallet: Bittensor wallet object.
+            delegate_ss58: The SS58 address of the delegate proxy account to remove.
+            proxy_type: The type of proxy permissions to remove. Can be a string or ProxyType enum value.
+            delay: The number of blocks before the proxy removal takes effect.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            The delegate_ss58, proxy_type, and delay parameters must exactly match those used when the proxy was added.
+            Use :meth:`get_proxies_for_real_account` to retrieve the exact parameters for existing proxies.
+        """
+        return remove_proxy_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            delegate_ss58=delegate_ss58,
+            proxy_type=proxy_type,
+            delay=delay,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def reveal_weights(
         self,
         wallet: "Wallet",
         netuid: int,
-        uids: Union[NDArray[np.int64], list],
-        weights: Union[NDArray[np.int64], list],
-        salt: Union[NDArray[np.int64], list],
+        uids: UIDs,
+        weights: Weights,
+        salt: Salt,
+        mechid: int = 0,
+        max_attempts: int = 5,
         version_key: int = version_as_int,
-        wait_for_inclusion: bool = False,
-        wait_for_finalization: bool = False,
-        max_retries: int = 5,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
         period: Optional[int] = 16,
-    ) -> tuple[bool, str]:
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Reveals the weights for a specific subnet on the Bittensor blockchain using the provided wallet.
         This action serves as a revelation of the neuron's previously committed weight distribution.
 
-        Args:
-            wallet (bittensor_wallet.Wallet): The wallet associated with the neuron revealing the weights.
-            netuid (int): The unique identifier of the subnet.
-            uids (np.ndarray): NumPy array of neuron UIDs for which weights are being revealed.
-            weights (np.ndarray): NumPy array of weight values corresponding to each UID.
-            salt (np.ndarray): NumPy array of salt values corresponding to the hash function.
-            version_key (int): Version key for compatibility with the network. Default is ``int representation of
-                the Bittensor version``.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block. Default is ``False``.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain. Default is
-                ``False``.
-            max_retries (int): The number of maximum attempts to reveal weights. Default is ``5``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: Bittensor Wallet instance.
+            netuid: The unique identifier of the subnet.
+            uids: NumPy array of neuron UIDs for which weights are being revealed.
+            weights: NumPy array of weight values corresponding to each UID.
+            salt: NumPy array of salt values corresponding to the hash function.
+            mechid: The subnet mechanism unique identifier.
+            max_attempts: The number of maximum attempts to reveal weights.
+            version_key: Version key for compatibility with the network.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]: ``True`` if the weight revelation is successful, False otherwise. And `msg`, a string
-                value describing the success or potential error.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
-        This function allows neurons to reveal their previously committed weight distribution, ensuring transparency
-            and accountability within the Bittensor network.
+        This function allows neurons to reveal their previously committed weight distribution, ensuring transparency and
+        accountability within the Bittensor network.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#commit-reveal>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#weights-setting-rate-limit>
         """
-        retries = 0
-        success = False
-        message = "No attempt made. Perhaps it is too soon to reveal weights!"
+        attempt = 0
+        response = ExtrinsicResponse(False)
 
-        while retries < max_retries and success is False:
+        if attempt_check := validate_max_attempts(max_attempts, response):
+            return attempt_check
+
+        while attempt < max_attempts and response.success is False:
             try:
-                success, message = reveal_weights_extrinsic(
+                response = reveal_weights_extrinsic(
                     subtensor=self,
                     wallet=wallet,
                     netuid=netuid,
-                    uids=list(uids),
-                    weights=list(weights),
-                    salt=list(salt),
+                    mechid=mechid,
+                    uids=uids,
+                    weights=weights,
+                    salt=salt,
                     version_key=version_key,
+                    mev_protection=mev_protection,
+                    period=period,
+                    raise_error=raise_error,
                     wait_for_inclusion=wait_for_inclusion,
                     wait_for_finalization=wait_for_finalization,
-                    period=period,
+                    wait_for_revealed_execution=wait_for_revealed_execution,
                 )
-                if success:
-                    break
-            except Exception as e:
-                logging.error(f"Error revealing weights: {e}")
-                retries += 1
+            except Exception as error:
+                return ExtrinsicResponse.from_exception(
+                    raise_error=raise_error, error=error
+                )
+            attempt += 1
 
-        return success, message
+        if not response.success:
+            logging.debug("No attempt made. Perhaps it is too soon to reveal weights!")
+        return response
 
     def root_register(
         self,
         wallet: "Wallet",
-        wait_for_inclusion: bool = False,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        period: Optional[int] = None,
-    ) -> bool:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Register neuron by recycling some TAO.
 
-        Arguments:
+        Parameters:
             wallet (bittensor_wallet.Wallet): Bittensor wallet instance.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block. Default is ``False``.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain. Default is
-                ``False``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            `True` if registration was successful, otherwise `False`.
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#registration-rate-limits>
         """
 
         return root_register_extrinsic(
             subtensor=self,
             wallet=wallet,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def root_set_pending_childkey_cooldown(
         self,
         wallet: "Wallet",
         cooldown: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """Sets the pending childkey cooldown.
 
-        Arguments:
+        Parameters:
             wallet: bittensor wallet instance.
             cooldown: the number of blocks to setting pending childkey cooldown.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block. Default is ``False``.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain. Default is
-                ``False``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's
                 submitted. If the transaction is not included in a block within that number of blocks, it will expire
                 and be rejected. You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]: A tuple where the first element is a boolean indicating success or failure of the
-                operation, and the second element is a message providing additional information.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Note: This operation can only be successfully performed if your wallet has root privileges.
         """
@@ -3801,94 +6810,115 @@ class Subtensor(SubtensorMixin):
             subtensor=self,
             wallet=wallet,
             cooldown=cooldown,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
-    def root_set_weights(
+    def set_auto_stake(
         self,
         wallet: "Wallet",
-        netuids: list[int],
-        weights: list[float],
-        version_key: int = 0,
-        wait_for_inclusion: bool = False,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> bool:
-        """
-        Set weights for the root network.
+        netuid: int,
+        hotkey_ss58: str,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Sets the coldkey to automatically stake to the hotkey within specific subnet mechanism.
 
-        Arguments:
-            wallet (bittensor_wallet.Wallet): bittensor wallet instance.
-            netuids (list[int]): The list of subnet uids.
-            weights (list[float]): The list of weights to be set.
-            version_key (int, optional): Version key for compatibility with the network. Default is ``0``.
-            wait_for_inclusion (bool, optional): Waits for the transaction to be included in a block. Defaults to
-                ``False``.
-            wait_for_finalization (bool, optional): Waits for the transaction to be finalized on the blockchain.
-                Defaults to ``False``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: Bittensor Wallet instance.
+            netuid: The subnet unique identifier.
+            hotkey_ss58: The SS58 address of the validator's hotkey to which the miner automatically stakes all rewards
+                received from the specified subnet immediately upon receipt.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            `True` if the setting of weights is successful, `False` otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            Use the `get_auto_stakes` method to get the hotkey address of the validator where auto stake is set.
         """
-        netuids_, weights_ = convert_uids_and_weights(netuids, weights)
-        logging.info(f"Setting weights in network: [blue]{self.network}[/blue]")
-        return set_root_weights_extrinsic(
+        return set_auto_stake_extrinsic(
             subtensor=self,
             wallet=wallet,
-            netuids=netuids_,
-            weights=weights_,
-            version_key=version_key,
-            wait_for_finalization=wait_for_finalization,
-            wait_for_inclusion=wait_for_inclusion,
+            netuid=netuid,
+            hotkey_ss58=hotkey_ss58,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def set_children(
         self,
         wallet: "Wallet",
-        hotkey: str,
         netuid: int,
+        hotkey_ss58: str,
         children: list[tuple[float, str]],
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        raise_error: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Allows a coldkey to set children-keys.
 
-        Arguments:
+        Parameters:
             wallet: bittensor wallet instance.
-            hotkey: The ``SS58`` address of the neuron's hotkey.
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
             netuid: The netuid value.
             children: A list of children with their proportions.
-            wait_for_inclusion: Waits for the transaction to be included in a block.
-            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
-            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
             period: The number of blocks during which the transaction will remain valid after it's
                 submitted. If the transaction is not included in a block within that number of blocks, it will expire
                 and be rejected. You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]: A tuple where the first element is a boolean indicating success or failure of the
-                operation, and the second element is a message providing additional information.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#child-hotkey-operations-rate-limit>
         """
         return set_children_extrinsic(
             subtensor=self,
             wallet=wallet,
-            hotkey=hotkey,
+            hotkey_ss58=hotkey_ss58,
             netuid=netuid,
             children=children,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            raise_error=raise_error,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def set_delegate_take(
@@ -3899,26 +6929,27 @@ class Subtensor(SubtensorMixin):
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
         raise_error: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        period: Optional[int] = DEFAULT_PERIOD,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Sets the delegate 'take' percentage for a neuron identified by its hotkey.
         The 'take' represents the percentage of rewards that the delegate claims from its nominators' stakes.
 
-        Arguments:
-            wallet (bittensor_wallet.Wallet): bittensor wallet instance.
-            hotkey_ss58 (str): The ``SS58`` address of the neuron's hotkey.
-            take (float): Percentage reward for the delegate.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain.
-            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
+        Parameters:
+            wallet: bittensor wallet instance.
+            hotkey_ss58: The `SS58` address of the neuron's hotkey.
+            take: Percentage reward for the delegate.
+            period: The number of blocks during which the transaction will remain valid after it's
                 submitted. If the transaction is not included in a block within that number of blocks, it will expire
                 and be rejected. You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]: A tuple where the first element is a boolean indicating success or failure of the
-             operation, and the second element is a message providing additional information.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Raises:
             DelegateTakeTooHigh: Delegate take is too high.
@@ -3932,8 +6963,10 @@ class Subtensor(SubtensorMixin):
 
         The delegate take is a critical parameter in the network's incentive structure, influencing the distribution of
             rewards among neurons and their nominators.
-        """
 
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#delegate-take-rate-limit>
+        """
         # u16 representation of the take
         take_u16 = int(take * 0xFFFF)
 
@@ -3941,67 +6974,126 @@ class Subtensor(SubtensorMixin):
         current_take_u16 = int(current_take * 0xFFFF)
 
         if current_take_u16 == take_u16:
-            logging.info(":white_heavy_check_mark: [green]Already Set[/green]")
-            return True, ""
+            message = f"The take for {hotkey_ss58} is already set to {take}."
+            logging.debug(f"[green]{message}[/green].")
+            return ExtrinsicResponse(True, message)
 
-        logging.info(f"Updating {hotkey_ss58} take: current={current_take} new={take}")
+        logging.debug(f"Updating {hotkey_ss58} take: current={current_take} new={take}")
 
-        if current_take_u16 < take_u16:
-            success, error = increase_take_extrinsic(
-                self,
-                wallet,
-                hotkey_ss58,
-                take_u16,
-                wait_for_finalization=wait_for_finalization,
-                wait_for_inclusion=wait_for_inclusion,
-                raise_error=raise_error,
-                period=period,
-            )
-        else:
-            success, error = decrease_take_extrinsic(
-                self,
-                wallet,
-                hotkey_ss58,
-                take_u16,
-                wait_for_finalization=wait_for_finalization,
-                wait_for_inclusion=wait_for_inclusion,
-                raise_error=raise_error,
-                period=period,
-            )
+        response = set_take_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            hotkey_ss58=hotkey_ss58,
+            take=take_u16,
+            action="increase_take" if current_take_u16 < take_u16 else "decrease_take",
+            period=period,
+            raise_error=raise_error,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
 
-        if success:
-            logging.info(":white_heavy_check_mark: [green]Take Updated[/green]")
+        if response.success:
+            return response
 
-        return success, error
+        logging.error(f"[red]{response.message}[/red]")
+        return response
+
+    def set_root_claim_type(
+        self,
+        wallet: "Wallet",
+        new_root_claim_type: "Literal['Swap', 'Keep'] | RootClaimType | dict",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ):
+        """Submit an extrinsic to set the root claim type for the wallet's coldkey.
+
+        The root claim type determines how future Alpha dividends from subnets are handled when they are claimed for
+        the wallet's coldkey:
+
+        - `Swap`: Alpha dividends are swapped to TAO at claim time and restaked on the Root Subnet (default).
+        - `Keep`: Alpha dividends remain as Alpha on the originating subnets.
+
+        Parameters:
+
+            wallet: Bittensor `Wallet` instance.
+            new_root_claim_type: The new root claim type to set. Can be:
+                - String: "Swap" or "Keep"
+                - RootClaimType: RootClaimType.Swap, RootClaimType.Keep
+                - Dict: {"KeepSubnets": {"subnets": [1, 2, 3]}}
+                - Callable: RootClaimType.KeepSubnets([1, 2, 3])
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: Number of blocks for which the transaction remains valid after submission. If the extrinsic is
+                not included in a block within this window, it will expire and be rejected.
+            raise_error: Whether to raise a Python exception instead of returning a failed `ExtrinsicResponse`.
+            wait_for_inclusion: Whether to wait until the extrinsic is included in a block before returning.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic in a block before returning.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` describing the result of the extrinsic execution.
+
+        Notes:
+            - This setting applies to both automatic and manual root claims going forward; it does not retroactively
+              change how already-claimed dividends were processed.
+            - Only the treatment of Alpha dividends is affected; the underlying TAO stake on the Root Subnet is
+              unchanged.
+            - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims>
+            - See also: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
+        """
+        return set_root_claim_type_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            new_root_claim_type=new_root_claim_type,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
 
     def set_subnet_identity(
         self,
         wallet: "Wallet",
         netuid: int,
         subnet_identity: SubnetIdentity,
-        wait_for_inclusion: bool = False,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Sets the identity of a subnet for a specific wallet and network.
 
-        Arguments:
-            wallet (Wallet): The wallet instance that will authorize the transaction.
-            netuid (int): The unique ID of the network on which the operation takes place.
-            subnet_identity (SubnetIdentity): The identity data of the subnet including attributes like name, GitHub
-                repository, contact, URL, discord, description, and any additional metadata.
-            wait_for_inclusion (bool): Indicates if the function should wait for the transaction to be included in the
-                block.
-            wait_for_finalization (bool): Indicates if the function should wait for the transaction to reach
-                finalization.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
+        Parameters:
+            wallet: The wallet instance that will authorize the transaction.
+            netuid: The unique ID of the network on which the operation takes place.
+            subnet_identity: The identity data of the subnet including attributes like name, GitHub repository, contact,
+                URL, discord, description, and any additional metadata.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's
                 submitted. If the transaction is not included in a block within that number of blocks, it will expire
                 and be rejected. You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]: A tuple where the first element is a boolean indicating success or failure of the
-             operation, and the second element is a message providing additional information.
+            ExtrinsicResponse: The result object of the extrinsic execution.
         """
         return set_subnet_identity_extrinsic(
             subtensor=self,
@@ -4015,193 +7107,388 @@ class Subtensor(SubtensorMixin):
             discord=subnet_identity.discord,
             description=subnet_identity.description,
             additional=subnet_identity.additional,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def set_weights(
         self,
         wallet: "Wallet",
         netuid: int,
-        uids: Union[NDArray[np.int64], "torch.LongTensor", list],
-        weights: Union[NDArray[np.float32], "torch.FloatTensor", list],
-        version_key: int = version_as_int,
-        wait_for_inclusion: bool = False,
-        wait_for_finalization: bool = False,
-        max_retries: int = 5,
+        uids: UIDs,
+        weights: Weights,
+        mechid: int = 0,
         block_time: float = 12.0,
-        period: Optional[int] = 8,
-    ) -> tuple[bool, str]:
+        commit_reveal_version: int = 4,
+        max_attempts: int = 5,
+        version_key: int = version_as_int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
-        Sets the interneuronal weights for the specified neuron. This process involves specifying the influence or
-            trust a neuron places on other neurons in the network, which is a fundamental aspect of Bittensor's
-            decentralized learning architecture.
+        Sets the interneuronal weights for the specified neuron. This process involves specifying the influence or trust
+        a neuron places on other neurons in the network, which is a fundamental aspect of Bittensor's decentralized
+        learning architecture.
 
-        Arguments:
-            wallet: The wallet associated with the neuron setting the weights.
+        Parameters:
+            wallet: The wallet associated with the subnet validator setting the weights.
             netuid: The unique identifier of the subnet.
-            uids: The list of neuron UIDs that the weights are being set for.
-            weights: The corresponding weights to be set for each UID.
-            version_key: Version key for compatibility with the network.  Default is int representation of a Bittensor
-                version.
-            wait_for_inclusion: Waits for the transaction to be included in a block. Default is ``False``.
-            wait_for_finalization: Waits for the transaction to be finalized on the blockchain. Default is ``False``.
-            max_retries: The number of maximum attempts to set weights. Default is ``5``.
-            block_time: The number of seconds for block duration. Default is 12.0 seconds.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
+            uids: The list of subnet miner neuron UIDs that the weights are being set for.
+            weights: The corresponding weights to be set for each UID, representing the validator's evaluation of each
+                miner's performance.
+            mechid: The subnet mechanism unique identifier.
+            block_time: The number of seconds for block duration.
+            commit_reveal_version: The version of the chain commit-reveal protocol to use.
+            max_attempts: The number of maximum attempts to set weights.
+            version_key: Version key for compatibility with the network.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's
                 submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction. Default is 8.
+                and be rejected. You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple:
-                `True` if the setting of weights is successful, `False` otherwise.
-                `msg` is a string value describing the success or potential error.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         This function is crucial in shaping the network's collective intelligence, where each neuron's learning and
-            contribution are influenced by the weights it sets towards others.
+        contribution are influenced by the weights it sets towards others.
+
+        Notes:
+            - <https://docs.learnbittensor.org/glossary#yuma-consensus>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#weights-setting-rate-limit>
         """
+        attempt = 0
+        response = ExtrinsicResponse(False)
+        if attempt_check := validate_max_attempts(max_attempts, response):
+            return attempt_check
 
         def _blocks_weight_limit() -> bool:
             bslu = cast(int, self.blocks_since_last_update(netuid, cast(int, uid)))
             wrl = cast(int, self.weights_rate_limit(netuid))
             return bslu > wrl
 
-        retries = 0
-        success = False
-        message = "No attempt made. Perhaps it is too soon to commit weights!"
         if (
             uid := self.get_uid_for_hotkey_on_subnet(wallet.hotkey.ss58_address, netuid)
         ) is None:
-            return (
+            return ExtrinsicResponse(
                 False,
-                f"Hotkey {wallet.hotkey.ss58_address} not registered in subnet {netuid}",
+                f"Hotkey {wallet.hotkey.ss58_address} not registered in subnet {netuid}.",
             )
 
         if self.commit_reveal_enabled(netuid=netuid):
-            # go with `commit reveal v3` extrinsic
+            # go with `commit_reveal_weights_extrinsic` extrinsic
 
-            while retries < max_retries and success is False and _blocks_weight_limit():
-                logging.info(
-                    f"Committing weights for subnet [blue]{netuid}[/blue]. "
-                    f"Attempt [blue]{retries + 1}[blue] of [green]{max_retries}[/green]."
+            while (
+                attempt < max_attempts
+                and response.success is False
+                and _blocks_weight_limit()
+            ):
+                logging.debug(
+                    f"Committing weights {weights} for subnet [blue]{netuid}[/blue]. "
+                    f"Attempt [blue]{attempt + 1}[blue] of [green]{max_attempts}[/green]."
                 )
-                success, message = commit_reveal_v3_extrinsic(
-                    subtensor=self,
-                    wallet=wallet,
-                    netuid=netuid,
-                    uids=uids,
-                    weights=weights,
-                    version_key=version_key,
-                    wait_for_inclusion=wait_for_inclusion,
-                    wait_for_finalization=wait_for_finalization,
-                    block_time=block_time,
-                    period=period,
-                )
-                retries += 1
-            return success, message
-        else:
-            # go with classic `set_weights_extrinsic`
-
-            while retries < max_retries and success is False and _blocks_weight_limit():
                 try:
-                    logging.info(
-                        f"Setting weights for subnet [blue]{netuid}[/blue]. "
-                        f"Attempt [blue]{retries + 1}[/blue] of [green]{max_retries}[/green]."
-                    )
-                    success, message = set_weights_extrinsic(
+                    response = commit_timelocked_weights_extrinsic(
                         subtensor=self,
                         wallet=wallet,
                         netuid=netuid,
+                        mechid=mechid,
+                        uids=uids,
+                        weights=weights,
+                        block_time=block_time,
+                        commit_reveal_version=commit_reveal_version,
+                        version_key=version_key,
+                        mev_protection=mev_protection,
+                        period=period,
+                        raise_error=raise_error,
+                        wait_for_inclusion=wait_for_inclusion,
+                        wait_for_finalization=wait_for_finalization,
+                        wait_for_revealed_execution=wait_for_revealed_execution,
+                    )
+                except Exception as error:
+                    return ExtrinsicResponse.from_exception(
+                        raise_error=raise_error, error=error
+                    )
+                attempt += 1
+        else:
+            # go with `set_mechanism_weights_extrinsic`
+
+            while (
+                attempt < max_attempts
+                and response.success is False
+                and _blocks_weight_limit()
+            ):
+                try:
+                    logging.debug(
+                        f"Setting weights for subnet [blue]{netuid}[/blue]. "
+                        f"Attempt [blue]{attempt + 1}[/blue] of [green]{max_attempts}[/green]."
+                    )
+                    response = set_weights_extrinsic(
+                        subtensor=self,
+                        wallet=wallet,
+                        netuid=netuid,
+                        mechid=mechid,
                         uids=uids,
                         weights=weights,
                         version_key=version_key,
+                        mev_protection=mev_protection,
+                        period=period,
+                        raise_error=raise_error,
                         wait_for_inclusion=wait_for_inclusion,
                         wait_for_finalization=wait_for_finalization,
-                        period=period,
+                        wait_for_revealed_execution=wait_for_revealed_execution,
                     )
-                except Exception as e:
-                    logging.error(f"Error setting weights: {e}")
-                    retries += 1
+                except Exception as error:
+                    return ExtrinsicResponse.from_exception(
+                        raise_error=raise_error, error=error
+                    )
+                attempt += 1
 
-            return success, message
+        if not response.success:
+            logging.debug(
+                "No one successful attempt made. Perhaps it is too soon to set weights!"
+            )
+        return response
 
     def serve_axon(
         self,
         netuid: int,
         axon: "Axon",
-        wait_for_inclusion: bool = False,
-        wait_for_finalization: bool = True,
         certificate: Optional[Certificate] = None,
-        period: Optional[int] = None,
-    ) -> bool:
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
-        Registers an ``Axon`` serving endpoint on the Bittensor network for a specific neuron. This function is used to
-            set up the Axon, a key component of a neuron that handles incoming queries and data processing tasks.
+        Registers an `Axon` serving endpoint on the Bittensor network for a specific neuron.
 
-        Args:
-            netuid (int): The unique identifier of the subnetwork.
-            axon (bittensor.core.axon.Axon): The Axon instance to be registered for serving.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block. Default is ``False``.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain. Default is
-                ``True``.
-            certificate (bittensor.utils.Certificate): Certificate to use for TLS. If ``None``, no TLS will be used.
-                Defaults to ``None``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
+        This function is used to set up the Axon, a key component of a neuron that handles incoming queries and data
+        processing tasks.
+
+        Parameters:
+            netuid: The unique identifier of the subnetwork.
+            axon: The Axon instance to be registered for serving.
+            certificate: Certificate to use for TLS. If `None`, no TLS will be used.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's
                 submitted. If the transaction is not included in a block within that number of blocks, it will expire
                 and be rejected. You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: ``True`` if the Axon serve registration is successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         By registering an Axon, the neuron becomes an active part of the network's distributed computing infrastructure,
-            contributing to the collective intelligence of Bittensor.
+        contributing to the collective intelligence of Bittensor.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#serving-rate-limits>
         """
         return serve_axon_extrinsic(
             subtensor=self,
             netuid=netuid,
             axon=axon,
+            certificate=certificate,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            certificate=certificate,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
+
+    def set_commitment(
+        self,
+        wallet: "Wallet",
+        netuid: int,
+        data: str,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Commits arbitrary data to the Bittensor network by publishing metadata.
+
+        This method allows neurons to publish arbitrary data to the blockchain, which can be used for various purposes
+        such as sharing model updates, configuration data, or other network-relevant information.
+
+
+        Parameters:
+            wallet: The wallet associated with the neuron committing the data.
+            netuid: The unique identifier of the subnetwork.
+            data: The data to be committed to the network.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Example:
+            # Commit some data to subnet 1
+            response = await subtensor.commit(wallet=my_wallet, netuid=1, data="Hello Bittensor!")
+
+            # Commit with custom period
+            response = await subtensor.commit(wallet=my_wallet, netuid=1, data="Model update v2.0", period=100)
+
+        Note: See <https://docs.learnbittensor.org/glossary#commit-reveal>
+        """
+        return publish_metadata_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            netuid=netuid,
+            data_type=f"Raw{len(data)}",
+            data=data.encode(),
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def set_reveal_commitment(
+        self,
+        wallet,
+        netuid: int,
+        data: str,
+        blocks_until_reveal: int = 360,
+        block_time: Union[int, float] = 12,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Commits arbitrary data to the Bittensor network by publishing metadata.
+
+        Parameters:
+            wallet: The wallet associated with the neuron committing the data.
+            netuid: The unique identifier of the subnetwork.
+            data: The data to be committed to the network.
+            blocks_until_reveal: The number of blocks from now after which the data will be revealed. Then number of
+                blocks in one epoch.
+            block_time: The number of seconds between each block.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Note:
+            A commitment can be set once per subnet epoch and is reset at the next epoch in the chain automatically.
+            Successful extrinsic's the "data" field contains {"encrypted": encrypted, "reveal_round": reveal_round}.
+        """
+
+        encrypted, reveal_round = get_encrypted_commitment(
+            data, blocks_until_reveal, block_time
+        )
+
+        data_ = {"encrypted": encrypted, "reveal_round": reveal_round}
+        response = publish_metadata_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            netuid=netuid,
+            data_type="TimelockEncrypted",
+            data=data_,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+        response.data = data_
+        return response
 
     def start_call(
         self,
         wallet: "Wallet",
         netuid: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Submits a start_call extrinsic to the blockchain, to trigger the start call process for a subnet (used to start
             a new subnet's emission mechanism).
 
-        Args:
-            wallet (Wallet): The wallet used to sign the extrinsic (must be unlocked).
-            netuid (int): The UID of the target subnet for which the call is being initiated.
-            wait_for_inclusion (bool, optional): Whether to wait for the extrinsic to be included in a block.
-                Defaults to `True`.
-            wait_for_finalization (bool, optional): Whether to wait for finalization of the extrinsic.
-                Defaults to `False`.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet used to sign the extrinsic (must be unlocked).
+            netuid: The UID of the target subnet for which the call is being initiated.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            Tuple[bool, str]:
-                - True and a success message if the extrinsic is successfully submitted or processed.
-                - False and an error message if the submission fails or the wallet cannot be unlocked.
+            ExtrinsicResponse: The result object of the extrinsic execution.
         """
         return start_call_extrinsic(
             subtensor=self,
             wallet=wallet,
             netuid=netuid,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def swap_stake(
@@ -4211,49 +7498,59 @@ class Subtensor(SubtensorMixin):
         origin_netuid: int,
         destination_netuid: int,
         amount: Balance,
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        safe_staking: bool = False,
+        safe_swapping: bool = False,
         allow_partial_stake: bool = False,
         rate_tolerance: float = 0.005,
-        period: Optional[int] = None,
-    ) -> bool:
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Moves stake between subnets while keeping the same coldkey-hotkey pair ownership.
         Like subnet hopping - same owner, same hotkey, just changing which subnet the stake is in.
 
-        Args:
-            wallet (bittensor.wallet): The wallet to swap stake from.
-            hotkey_ss58 (str): The SS58 address of the hotkey whose stake is being swapped.
-            origin_netuid (int): The netuid from which stake is removed.
-            destination_netuid (int): The netuid to which stake is added.
-            amount (Union[Balance, float]): The amount to swap.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain.
-            safe_staking (bool): If true, enables price safety checks to protect against fluctuating prices. The swap
+        Parameters:
+            wallet: The wallet to swap stake from.
+            hotkey_ss58: The SS58 address of the hotkey whose stake is being swapped.
+            origin_netuid: The netuid from which stake is removed.
+            destination_netuid: The netuid to which stake is added.
+            amount: The amount to swap.
+            safe_swapping: If `True`, enables price safety checks to protect against fluctuating prices. The swap
                 will only execute if the price ratio between subnets doesn't exceed the rate tolerance.
-                Default is False.
-            allow_partial_stake (bool): If true and safe_staking is enabled, allows partial stake swaps when
-                the full amount would exceed the price tolerance. If false, the entire swap fails if it would
-                exceed the tolerance. Default is False.
-            rate_tolerance (float): The maximum allowed increase in the price ratio between subnets
-                (origin_price/destination_price). For example, 0.005 = 0.5% maximum increase. Only used
-                when safe_staking is True. Default is 0.005.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+            allow_partial_stake: If `True` and safe_staking is enabled, allows partial stake swaps when the full amount
+                would exceed the price tolerance. If false, the entire swap fails if it would exceed the tolerance.
+            rate_tolerance: The maximum allowed increase in the price ratio between subnets
+                (origin_price/destination_price). For example, 0.005 = 0.5% maximum increase. Only used when
+                safe_staking is True.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            success (bool): True if the extrinsic was successful.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
-        The price ratio for swap_stake in safe mode is calculated as: origin_subnet_price / destination_subnet_price
-        When safe_staking is enabled, the swap will only execute if:
-            - With allow_partial_stake=False: The entire swap amount can be executed without the price ratio
-            increasing more than rate_tolerance
-            - With allow_partial_stake=True: A partial amount will be swapped up to the point where the
-            price ratio would increase by rate_tolerance
+        Notes:
+            The price ratio for swap_stake in safe mode is calculated as: origin_subnet_price / destination_subnet_price.
+            When `safe_swapping` is enabled, the swap will only execute if:
+            - With `allow_partial_stake=False`: The entire swap amount can be executed without the price ratio
+              increasing more than `rate_tolerance`.
+            - With `allow_partial_stake=True`: A partial amount will be swapped up to the point where the price ratio
+              would increase by `rate_tolerance`.
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
-        amount = check_and_convert_to_balance(amount)
+        check_balance_amount(amount)
         return swap_stake_extrinsic(
             subtensor=self,
             wallet=wallet,
@@ -4261,12 +7558,15 @@ class Subtensor(SubtensorMixin):
             origin_netuid=origin_netuid,
             destination_netuid=destination_netuid,
             amount=amount,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
-            safe_staking=safe_staking,
+            safe_swapping=safe_swapping,
             allow_partial_stake=allow_partial_stake,
             rate_tolerance=rate_tolerance,
+            mev_protection=mev_protection,
             period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def toggle_user_liquidity(
@@ -4274,26 +7574,33 @@ class Subtensor(SubtensorMixin):
         wallet: "Wallet",
         netuid: int,
         enable: bool,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """Allow to toggle user liquidity for specified subnet.
 
-        Arguments:
+        Parameters:
             wallet: The wallet used to sign the extrinsic (must be unlocked).
             netuid: The UID of the target subnet for which the call is being initiated.
             enable: Boolean indicating whether to enable user liquidity.
-            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block. Defaults to True.
-            wait_for_finalization: Whether to wait for finalization of the extrinsic. Defaults to False.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
             period: The number of blocks during which the transaction will remain valid after it's submitted. If
                 the transaction is not included in a block within that number of blocks, it will expire and be rejected.
                 You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            Tuple[bool, str]:
-                - True and a success message if the extrinsic is successfully submitted or processed.
-                - False and an error message if the submission fails or the wallet cannot be unlocked.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Note: The call can be executed successfully by the subnet owner only.
         """
@@ -4302,53 +7609,66 @@ class Subtensor(SubtensorMixin):
             wallet=wallet,
             netuid=netuid,
             enable=enable,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def transfer(
         self,
         wallet: "Wallet",
-        dest: str,
+        destination_ss58: str,
         amount: Optional[Balance],
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
         transfer_all: bool = False,
         keep_alive: bool = True,
-        period: Optional[int] = None,
-    ) -> bool:
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = False,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Transfer token of amount to destination.
 
-        Arguments:
-            wallet (bittensor_wallet.Wallet): Source wallet for the transfer.
-            dest (str): Destination address for the transfer.
-            amount (float): Amount of tao to transfer.
-            transfer_all (bool): Flag to transfer all tokens. Default is ``False``.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block.  Default is ``True``.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain.  Default is
-                ``False``.
-            keep_alive (bool): Flag to keep the connection alive. Default is ``True``.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: Source wallet for the transfer.
+            destination_ss58: Destination address for the transfer.
+            amount: Number of tokens to transfer. `None` is transferring all.
+            transfer_all: Flag to transfer all tokens.
+            keep_alive: Flag to keep the connection alive.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            `True` if the transferring was successful, otherwise `False`.
+            ExtrinsicResponse: The result object of the extrinsic execution.
         """
-        if amount is not None:
-            amount = check_and_convert_to_balance(amount)
+        check_balance_amount(amount)
         return transfer_extrinsic(
             subtensor=self,
             wallet=wallet,
-            dest=dest,
+            destination_ss58=destination_ss58,
             amount=amount,
             transfer_all=transfer_all,
+            keep_alive=keep_alive,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            keep_alive=keep_alive,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def transfer_stake(
@@ -4359,30 +7679,43 @@ class Subtensor(SubtensorMixin):
         origin_netuid: int,
         destination_netuid: int,
         amount: Balance,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> bool:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Transfers stake from one subnet to another while changing the coldkey owner.
 
-        Args:
-            wallet (bittensor.wallet): The wallet to transfer stake from.
-            destination_coldkey_ss58 (str): The destination coldkey SS58 address.
-            hotkey_ss58 (str): The hotkey SS58 address associated with the stake.
-            origin_netuid (int): The source subnet UID.
-            destination_netuid (int): The destination subnet UID.
-            amount (Union[Balance, float, int]): Amount to transfer.
-            wait_for_inclusion (bool): If true, waits for inclusion before returning.
-            wait_for_finalization (bool): If true, waits for finalization before returning.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
+        Parameters:
+            wallet: The wallet to transfer stake from.
+            destination_coldkey_ss58: The destination coldkey SS58 address.
+            hotkey_ss58: The hotkey SS58 address associated with the stake.
+            origin_netuid: The source subnet UID.
+            destination_netuid: The destination subnet UID.
+            amount: Amount to transfer.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            success (bool): True if the transfer was successful.
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
-        amount = check_and_convert_to_balance(amount)
+        check_balance_amount(amount)
         return transfer_stake_extrinsic(
             subtensor=self,
             wallet=wallet,
@@ -4391,112 +7724,131 @@ class Subtensor(SubtensorMixin):
             origin_netuid=origin_netuid,
             destination_netuid=destination_netuid,
             amount=amount,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def unstake(
         self,
         wallet: "Wallet",
-        hotkey_ss58: Optional[str] = None,
-        netuid: Optional[int] = None,  # TODO why is this optional?
-        amount: Optional[Balance] = None,
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        safe_staking: bool = False,
+        netuid: int,
+        hotkey_ss58: str,
+        amount: Balance,
         allow_partial_stake: bool = False,
         rate_tolerance: float = 0.005,
-        period: Optional[int] = None,
-        unstake_all: bool = False,
-    ) -> bool:
+        safe_unstaking: bool = False,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Removes a specified amount of stake from a single hotkey account. This function is critical for adjusting
-            individual neuron stakes within the Bittensor network.
+        individual neuron stakes within the Bittensor network.
 
-        Args:
+        Parameters:
             wallet: The wallet associated with the neuron from which the stake is being removed.
-            hotkey_ss58: The ``SS58`` address of the hotkey account to unstake from.
             netuid: The unique identifier of the subnet.
+            hotkey_ss58: The `SS58` address of the hotkey account to unstake from.
             amount: The amount of alpha to unstake. If not specified, unstakes all. Alpha amount.
-            wait_for_inclusion: Waits for the transaction to be included in a block.
-            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
-            safe_staking: If true, enables price safety checks to protect against fluctuating prices. The unstake
-                will only execute if the price change doesn't exceed the rate tolerance. Default is False.
-            allow_partial_stake (bool): If true and safe_staking is enabled, allows partial unstaking when
+            allow_partial_stake: If `True` and safe_staking is enabled, allows partial unstaking when
                 the full amount would exceed the price tolerance. If false, the entire unstake fails if it would
-                exceed the tolerance. Default is False.
-            rate_tolerance (float): The maximum allowed price change ratio when unstaking. For example,
-                0.005 = 0.5% maximum price decrease. Only used when safe_staking is True. Default is 0.005.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
-            unstake_all: If `True`, unstakes all tokens, and `amount` is ignored. Default is `False`.
+                exceed the tolerance.
+            rate_tolerance: The maximum allowed price change ratio when unstaking. For example,
+                0.005 = 0.5% maximum price decrease. Only used when safe_staking is True.
+            safe_unstaking: If `True`, enables price safety checks to protect against fluctuating prices. The unstake
+                will only execute if the price change doesn't exceed the rate tolerance.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: ``True`` if the unstaking process is successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         This function supports flexible stake management, allowing neurons to adjust their network participation and
-            potential reward accruals. When safe_staking is enabled, it provides protection against price fluctuations
-            during the time unstake is executed and the time it is actually processed by the chain.
+        potential reward accruals. When safe_staking is enabled, it provides protection against price fluctuations
+        during the time unstake is executed and the time it is actually processed by the chain.
+
+        Notes:
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
-        amount = check_and_convert_to_balance(amount)
+        check_balance_amount(amount)
         return unstake_extrinsic(
             subtensor=self,
             wallet=wallet,
-            hotkey_ss58=hotkey_ss58,
             netuid=netuid,
+            hotkey_ss58=hotkey_ss58,
             amount=amount,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
-            safe_staking=safe_staking,
             allow_partial_stake=allow_partial_stake,
             rate_tolerance=rate_tolerance,
+            safe_unstaking=safe_unstaking,
+            mev_protection=mev_protection,
             period=period,
-            unstake_all=unstake_all,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def unstake_all(
         self,
         wallet: "Wallet",
-        hotkey: str,
         netuid: int,
+        hotkey_ss58: str,
         rate_tolerance: Optional[float] = 0.005,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
         wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
-    ) -> tuple[bool, str]:
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """Unstakes all TAO/Alpha associated with a hotkey from the specified subnets on the Bittensor network.
 
-        Arguments:
+        Parameters:
             wallet: The wallet of the stake owner.
-            hotkey: The SS58 address of the hotkey to unstake from.
             netuid: The unique identifier of the subnet.
+            hotkey_ss58: The SS58 address of the hotkey to unstake from.
             rate_tolerance: The maximum allowed price change ratio when unstaking. For example, 0.005 = 0.5% maximum
-                price decrease. If not passed (None), then unstaking goes without price limit. Default is 0.005.
-            wait_for_inclusion: Waits for the transaction to be included in a block. Default is `True`.
-            wait_for_finalization: Waits for the transaction to be finalized on the blockchain. Default is `False`.
-            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
-                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
-                can think of it as an expiration date for the transaction. Default is `None`.
+                price decrease. If not passed (None), then unstaking goes without price limit.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            tuple[bool, str]:
-                A tuple containing:
-                - `True` and a success message if the unstake operation succeeded;
-                - `False` and an error message otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         Example:
             # If you would like to unstake all stakes in all subnets safely:
             import bittensor as bt
-
             subtensor = bt.Subtensor()
             wallet = bt.Wallet("my_wallet")
             netuid = 14
             hotkey = "5%SOME_HOTKEY%"
-
             wallet_stakes = subtensor.get_stake_info_for_coldkey(coldkey_ss58=wallet.coldkey.ss58_address)
-
             for stake in wallet_stakes:
                 result = subtensor.unstake_all(
                     wallet=wallet,
@@ -4505,83 +7857,320 @@ class Subtensor(SubtensorMixin):
                 )
                 print(result)
 
-            # If you would like to unstake all stakes in all subnets unsafely, use `rate_tolerance=None`:
-                        import bittensor as bt
-
-            subtensor = bt.AsyncSubtensor()
+            # If you would like to unstake all stakes in all subnets unsafely, use rate_tolerance=None:
+            import bittensor as bt
+            subtensor = bt.Subtensor()
             wallet = bt.Wallet("my_wallet")
             netuid = 14
             hotkey = "5%SOME_HOTKEY_WHERE_IS_YOUR_STAKE_NOW%"
-
-            wallet_stakes = await subtensor.get_stake_info_for_coldkey(coldkey_ss58=wallet.coldkey.ss58_address)
-
+            wallet_stakes = subtensor.get_stake_info_for_coldkey(coldkey_ss58=wallet.coldkey.ss58_address)
             for stake in wallet_stakes:
-                result = await subtensor.unstake_all(
+                result = subtensor.unstake_all(
                     wallet=wallet,
                     hotkey_ss58=stake.hotkey_ss58,
                     netuid=stake.netuid,
                     rate_tolerance=None,
                 )
                 print(result)
+
+        Notes:
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
-        if netuid != 0:
-            logging.debug(
-                f"Unstaking without Alpha price control from subnet [blue]#{netuid}[/blue]."
-            )
         return unstake_all_extrinsic(
             subtensor=self,
             wallet=wallet,
-            hotkey=hotkey,
             netuid=netuid,
+            hotkey_ss58=hotkey_ss58,
             rate_tolerance=rate_tolerance,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            period=period,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )
 
     def unstake_multiple(
         self,
         wallet: "Wallet",
+        netuids: UIDs,
         hotkey_ss58s: list[str],
-        netuids: list[int],
         amounts: Optional[list[Balance]] = None,
-        wait_for_inclusion: bool = True,
-        wait_for_finalization: bool = False,
-        period: Optional[int] = None,
         unstake_all: bool = False,
-    ) -> bool:
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
         """
         Performs batch unstaking from multiple hotkey accounts, allowing a neuron to reduce its staked amounts
             efficiently. This function is useful for managing the distribution of stakes across multiple neurons.
 
-        Args:
-            wallet: The wallet linked to the coldkey from which the stakes are being
-                withdrawn.
-            hotkey_ss58s (List[str]): A list of hotkey ``SS58`` addresses to unstake from.
-            netuids (List[int]): The list of subnet uids.
-            amounts (List[Balance]): The amounts of TAO to unstake from each hotkey. If not provided,
-                unstakes all available stakes.
-            wait_for_inclusion (bool): Waits for the transaction to be included in a block.
-            wait_for_finalization (bool): Waits for the transaction to be finalized on the blockchain.
-            period (Optional[int]): The number of blocks during which the transaction will remain valid after it's
-                submitted. If the transaction is not included in a block within that number of blocks, it will expire
-                and be rejected. You can think of it as an expiration date for the transaction.
-            unstake_all: If `True`, unstakes all tokens, and `amounts` is ignored. Default is `False`.
+        Parameters:
+            wallet: The wallet linked to the coldkey from which the stakes are being withdrawn.
+            netuids: Subnets unique IDs.
+            hotkey_ss58s: A list of hotkey `SS58` addresses to unstake from.
+            amounts: The amounts of TAO to unstake from each hotkey. If not provided, unstakes all.
+            unstake_all: If `True`, unstakes all tokens. Amounts are ignored.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If
+                the transaction is not included in a block within that number of blocks, it will expire and be rejected.
+                You can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
-            bool: ``True`` if the batch unstaking is successful, False otherwise.
+            ExtrinsicResponse: The result object of the extrinsic execution.
 
         This function allows for strategic reallocation or withdrawal of stakes, aligning with the dynamic stake
-            management aspect of the Bittensor network.
+        management aspect of the Bittensor network.
+
+        Notes:
+            - Price Protection: <https://docs.learnbittensor.org/learn/price-protection>
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#staking-operations-rate-limits>
         """
         return unstake_multiple_extrinsic(
             subtensor=self,
             wallet=wallet,
-            hotkey_ss58s=hotkey_ss58s,
             netuids=netuids,
+            hotkey_ss58s=hotkey_ss58s,
             amounts=amounts,
+            unstake_all=unstake_all,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def update_cap_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        new_cap: "Balance",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Updates the fundraising cap of an active (non-finalized) crowdloan.
+
+        Allows the creator to adjust the maximum total contribution amount before finalization. The new cap
+        must be at least equal to the amount already raised. This is useful for adjusting campaign goals based
+        on contributor feedback or changing subnet costs.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (must be the creator's coldkey).
+            crowdloan_id: The unique identifier of the crowdloan to update.
+            new_cap: The new fundraising cap (TAO). Must be `>= raised`.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+            - Only the creator can update the cap.
+            - The crowdloan must not be finalized.
+            - The new cap must be `>=` the total funds already raised.
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Update Parameters: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+        """
+        return update_cap_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            new_cap=new_cap,
+            mev_protection=mev_protection,
             period=period,
-            unstake_all=unstake_all,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def update_end_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        new_end: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Updates the end block of an active (non-finalized) crowdloan.
+
+        Allows the creator to extend (or shorten) the contribution period before finalization. The new end block
+        must be in the future and respect the minimum and maximum duration bounds defined in the runtime constants.
+        This is useful for extending campaigns that need more time to reach their cap or shortening campaigns with
+        sufficient contributions.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (must be the creator's coldkey).
+            crowdloan_id: The unique identifier of the crowdloan to update.
+            new_end: The new block number at which the crowdloan will end. Must be between `MinimumBlockDuration`
+                (7 days = 50,400 blocks) and `MaximumBlockDuration` (60 days = 432,000 blocks) from the current block.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+            - Only the creator can update the end block.
+            - The crowdloan must not be finalized.
+            - The new end block must respect duration bounds (`MinimumBlockDuration` to `MaximumBlockDuration`).
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Update Parameters: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+        """
+        return update_end_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            new_end=new_end,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def update_min_contribution_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        new_min_contribution: "Balance",
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Updates the minimum contribution amount of an active (non-finalized) crowdloan.
+
+        Allows the creator to adjust the minimum per-contribution amount before finalization. The new value must
+        meet or exceed the `AbsoluteMinimumContribution` constant. This is useful for adjusting contribution
+        requirements based on the number of expected contributors or campaign strategy.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (must be the creator's coldkey).
+            crowdloan_id: The unique identifier of the crowdloan to update.
+            new_min_contribution: The new minimum contribution amount (TAO). Must be `>= AbsoluteMinimumContribution`.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission.
+            raise_error: If `True`, raises an exception rather than returning failure in the response.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+            - Only the creator can update the minimum contribution.
+            - The crowdloan must not be finalized.
+            - The new minimum must be `>= AbsoluteMinimumContribution` (check via `get_crowdloan_constants`).
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Update Parameters: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+        """
+        return update_min_contribution_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            new_min_contribution=new_min_contribution,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def withdraw_crowdloan(
+        self,
+        wallet: "Wallet",
+        crowdloan_id: int,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """Withdraws a contribution from an active (not yet finalized or dissolved) crowdloan.
+
+        Contributors can withdraw their contributions at any time before finalization. For regular contributors,
+        the full contribution amount is returned. For the creator, only amounts exceeding the initial deposit can
+        be withdrawn; the deposit itself remains locked until dissolution.
+
+        Parameters:
+            wallet: Bittensor wallet instance used to sign the transaction (coldkey must match a contributor).
+            crowdloan_id: The unique identifier of the crowdloan to withdraw from.
+            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after submission, after which
+                it will be rejected.
+            raise_error: If `True`, raises an exception rather than returning False in the response, in case the
+               transaction fails.
+            wait_for_inclusion: Whether to wait for the extrinsic to be included in a block.
+            wait_for_finalization: Whether to wait for finalization of the extrinsic.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            `ExtrinsicResponse` indicating success or failure, with error details if applicable.
+
+        Notes:
+
+            - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
+            - Crowdloan Lifecycle: <https://docs.learnbittensor.org/subnets/crowdloans#crowdloan-lifecycle>
+            - Withdraw: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#optional-withdraw>
+        """
+        return withdraw_crowdloan_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            crowdloan_id=crowdloan_id,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
         )

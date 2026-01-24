@@ -1,10 +1,8 @@
 mod md001_test;
-mod md002_test;
 mod md003_test;
 mod md004_test;
 mod md005_dynamic_indent_test;
 mod md005_test;
-mod md006_test;
 mod md007_test;
 mod md009_test;
 mod md010_test;
@@ -25,18 +23,23 @@ mod md026_kramdown_test;
 mod md026_test;
 mod md027_test;
 mod md028_test;
+mod md029_broken_continuation_test;
 mod md029_code_block_separation_test;
 mod md029_fix_test;
 mod md029_issue42_test;
 mod md029_markdownlint_parity_test;
+mod md029_nested_list_continuation_test;
+mod md029_pathological_edge_cases_test;
 mod md029_test;
 mod md030_test;
 mod md031_kramdown_test;
 mod md031_test;
 mod md032_test;
+mod md033_blockquote_test;
 mod md033_kramdown_test;
 // mod md033_extended_test; // Temporarily disabled - needs LintContext fixes
 mod md033_test;
+mod md034_comprehensive_test;
 mod md034_ipv6_test;
 mod md034_test;
 mod md035_test;
@@ -77,13 +80,17 @@ mod md056_test;
 mod md057_test;
 mod md058_kramdown_test;
 mod md058_test;
+mod md060_test;
 
 // Unicode-specific test modules
 mod md001_unicode_test;
 mod md005_unicode_test;
-mod md006_unicode_test;
 mod md029_unicode_test;
 mod md054_unicode_test;
+
+// Formatter idempotency tests
+mod formatter_idempotency_test;
+mod formatter_proptest;
 
 // Cross-rule integration test modules
 mod emphasis_edge_cases_test;

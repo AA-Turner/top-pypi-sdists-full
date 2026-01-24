@@ -1,3 +1,4 @@
+import types
 from typing import Any, Generic, Literal, TypeAlias, overload
 from typing_extensions import TypeVar
 
@@ -18,7 +19,7 @@ _Kernel: TypeAlias = Literal[
 ]  # fmt: skip
 
 _Inexact64T_co = TypeVar("_Inexact64T_co", bound=np.float64 | np.complex128, default=np.float64, covariant=True)
-_ShapeT_co = TypeVar("_ShapeT_co", bound=onp.AtLeast0D, default=onp.AtLeast0D[Any], covariant=True)
+_ShapeT_co = TypeVar("_ShapeT_co", bound=tuple[int, ...], default=tuple[Any, ...], covariant=True)
 
 ###
 
@@ -33,6 +34,11 @@ class RBFInterpolator(Generic[_Inexact64T_co, _ShapeT_co]):
     epsilon: float
     powers: int
 
+    #
+    @classmethod
+    def __class_getitem__(cls, arg: type | object, /) -> types.GenericAlias: ...
+
+    #
     @overload
     def __init__(
         self: RBFInterpolator[np.float64, tuple[int]],

@@ -11,8 +11,8 @@ pub struct TombiFormatter {
 }
 
 impl TombiFormatter {
-    fn level_style_for(level: &tracing::Level, ansi: bool) -> Style {
-        if ansi {
+    fn level_style_for(level: &tracing::Level, use_ansi_color: bool) -> Style {
+        if use_ansi_color {
             match *level {
                 tracing::Level::ERROR => Style::new().bold().fg(nu_ansi_term::Color::Red),
                 tracing::Level::WARN => Style::new().bold().fg(nu_ansi_term::Color::Yellow),
@@ -26,16 +26,16 @@ impl TombiFormatter {
         }
     }
 
-    fn at_style(ansi: bool) -> Style {
-        if ansi {
+    fn at_style(use_ansi_color: bool) -> Style {
+        if use_ansi_color {
             Style::new().fg(nu_ansi_term::Color::DarkGray)
         } else {
             Style::new()
         }
     }
 
-    fn link_style(ansi: bool) -> Style {
-        if ansi {
+    fn link_style(use_ansi_color: bool) -> Style {
+        if use_ansi_color {
             Style::new().fg(nu_ansi_term::Color::Cyan)
         } else {
             Style::new()
@@ -43,15 +43,15 @@ impl TombiFormatter {
     }
 }
 
-impl From<clap_verbosity_flag::log::LevelFilter> for TombiFormatter {
-    fn from(level: clap_verbosity_flag::log::LevelFilter) -> Self {
+impl From<tracing_subscriber::filter::LevelFilter> for TombiFormatter {
+    fn from(level: tracing_subscriber::filter::LevelFilter) -> Self {
         let level = match level {
-            clap_verbosity_flag::log::LevelFilter::Off => None,
-            clap_verbosity_flag::log::LevelFilter::Error => Some(tracing::Level::ERROR),
-            clap_verbosity_flag::log::LevelFilter::Warn => Some(tracing::Level::WARN),
-            clap_verbosity_flag::log::LevelFilter::Info => Some(tracing::Level::INFO),
-            clap_verbosity_flag::log::LevelFilter::Debug => Some(tracing::Level::DEBUG),
-            clap_verbosity_flag::log::LevelFilter::Trace => Some(tracing::Level::TRACE),
+            tracing_subscriber::filter::LevelFilter::OFF => None,
+            tracing_subscriber::filter::LevelFilter::ERROR => Some(tracing::Level::ERROR),
+            tracing_subscriber::filter::LevelFilter::WARN => Some(tracing::Level::WARN),
+            tracing_subscriber::filter::LevelFilter::INFO => Some(tracing::Level::INFO),
+            tracing_subscriber::filter::LevelFilter::DEBUG => Some(tracing::Level::DEBUG),
+            tracing_subscriber::filter::LevelFilter::TRACE => Some(tracing::Level::TRACE),
         };
 
         Self { level }
@@ -69,13 +69,13 @@ where
         mut writer: tracing_subscriber::fmt::format::Writer<'_>,
         event: &Event<'_>,
     ) -> std::fmt::Result {
-        let ansi = std::env::var("NO_COLOR").map_or(true, |v| v.is_empty());
+        let use_ansi_color = crate::app::use_ansi_color();
         let metadata = event.metadata();
 
         write!(
             writer,
             "{}: ",
-            Self::level_style_for(metadata.level(), ansi).paint(format!(
+            Self::level_style_for(metadata.level(), use_ansi_color).paint(format!(
                 "{:>7}",
                 match *metadata.level() {
                     tracing::Level::ERROR => "Error",
@@ -90,21 +90,21 @@ where
         ctx.field_format().format_fields(writer.by_ref(), event)?;
         writeln!(writer)?;
 
-        if self.level == Some(tracing::Level::TRACE) {
-            if let Some(file) = metadata.file() {
-                let link = if let Some(line) = metadata.line() {
-                    format!("{file}:{line}")
-                } else {
-                    file.to_string()
-                };
+        if self.level == Some(tracing::Level::TRACE)
+            && let Some(file) = metadata.file()
+        {
+            let link = if let Some(line) = metadata.line() {
+                format!("{file}:{line}")
+            } else {
+                file.to_string()
+            };
 
-                writeln!(
-                    writer,
-                    "    {} {}",
-                    Self::at_style(ansi).paint("at"),
-                    Self::link_style(ansi).paint(link)
-                )?;
-            }
+            writeln!(
+                writer,
+                "    {} {}",
+                Self::at_style(use_ansi_color).paint("at"),
+                Self::link_style(use_ansi_color).paint(link)
+            )?;
         }
 
         Ok(())

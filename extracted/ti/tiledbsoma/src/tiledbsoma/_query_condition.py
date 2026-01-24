@@ -112,26 +112,22 @@ class QueryCondition:
     tree: ast.Expression = attrs.field(init=False, repr=False)
     c_obj: clib.PyQueryCondition = attrs.field(init=False, repr=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         try:
             self.tree = ast.parse(self.expression, mode="eval")
         except Exception as pex:
-            raise SOMAError(
-                "Could not parse the given QueryCondition statement: "
-                f"{self.expression}"
-            ) from pex
+            raise SOMAError(f"Could not parse the given QueryCondition statement: {self.expression}") from pex
 
         if not self.tree:
             raise SOMAError(
-                "The query condition statement could not be parsed properly. "
-                "(Is this an empty expression?)"
+                "The query condition statement could not be parsed properly. (Is this an empty expression?)",
             )
 
     def init_query_condition(
         self,
         schema: pa.Schema,
         query_attrs: list[str] | None,
-    ):
+    ) -> list[str] | None:
         try:
             qctree = QueryConditionTree(schema, query_attrs)
             self.c_obj = qctree.visit(self.tree.body)
@@ -141,7 +137,7 @@ class QueryCondition:
         if not isinstance(self.c_obj, clib.PyQueryCondition):
             raise SOMAError(
                 "Malformed query condition statement. A query condition must "
-                "be made up of one or more boolean expressions."
+                "be made up of one or more boolean expressions.",
             )
 
         return query_attrs
@@ -152,56 +148,56 @@ class QueryConditionTree(ast.NodeVisitor):
     schema: pa.Schema
     query_attrs: list[str]
 
-    def visit_BitOr(self, node):
+    def visit_BitOr(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_OR
 
-    def visit_Or(self, node):
+    def visit_Or(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_OR
 
-    def visit_BitAnd(self, node):
+    def visit_BitAnd(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_AND
 
-    def visit_And(self, node):
+    def visit_And(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_AND
 
-    def visit_Gt(self, node):
+    def visit_Gt(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_GT
 
-    def visit_GtE(self, node):
+    def visit_GtE(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_GE
 
-    def visit_Lt(self, node):
+    def visit_Lt(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_LT
 
-    def visit_LtE(self, node):
+    def visit_LtE(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_LE
 
-    def visit_Eq(self, node):
+    def visit_Eq(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_EQ
 
-    def visit_NotEq(self, node):
+    def visit_NotEq(self, node):  # noqa: ANN001, ANN202, ARG002
         return clib.TILEDB_NE
 
-    def visit_In(self, node):
+    def visit_In(self, node):  # noqa: ANN001, ANN202
         return node
 
-    def visit_NotIn(self, node):
+    def visit_NotIn(self, node):  # noqa: ANN001, ANN202
         return node
 
-    def visit_Is(self, node):
+    def visit_Is(self, node):  # noqa: ANN001, ANN202, ARG002
         raise SOMAError("the `is` operator is not supported")
 
-    def visit_IsNot(self, node):
+    def visit_IsNot(self, node):  # noqa: ANN001, ANN202, ARG002
         raise SOMAError("the `is not` operator is not supported")
 
-    def visit_List(self, node):
+    def visit_List(self, node):  # noqa: ANN001, ANN202
         return list(node.elts)
 
-    def visit_Attribute(self, node) -> clib.PyQueryCondition:
+    def visit_Attribute(self, node) -> clib.PyQueryCondition:  # noqa: ANN001
         raise SOMAError(
             f"Unhandled dot operator in {ast.dump(node)} -- if your attribute name "
             'has a dot in it, e.g. `orig.ident`, please wrap it with `attr("...")`, '
-            'e.g. `attr("orig.ident")`'
+            'e.g. `attr("orig.ident")`',
         )
 
     def visit_Compare(self, node: ast.Compare) -> clib.PyQueryCondition:
@@ -222,61 +218,46 @@ class QueryConditionTree(ast.NodeVisitor):
             )
 
             # Handling cases val < attr < val
-            for lhs, op, rhs in zip(
-                node.comparators[:-1], node.ops[1:], node.comparators[1:]
-            ):
-                value = self.aux_visit_Compare(
-                    self.visit(lhs), self.visit(op), self.visit(rhs)
-                )
+            for lhs, op, rhs in zip(node.comparators[:-1], node.ops[1:], node.comparators[1:]):
+                value = self.aux_visit_Compare(self.visit(lhs), self.visit(op), self.visit(rhs))
                 result = result.combine(value, clib.TILEDB_AND)
         elif isinstance(operator, (ast.In, ast.NotIn)):
             rhs = node.comparators[0]
             if not isinstance(rhs, ast.List):
-                raise SOMAError(
-                    "`in` operator syntax must be written as `attr in ['l', 'i', 's', 't']`"
-                )
+                raise SOMAError("`in` operator syntax must be written as `attr in ['l', 'i', 's', 't']`")
 
             # For 'my_string in ["red", "yellow"]': node.left is ast.Name
             # For 'attr(my.string) in ["red", "yellow"]': node.left is ast.Call
             if isinstance(node.left, ast.Call):
                 if node.left.func.id != "attr":
                     raise SOMAError(
-                        f"query condition left-hand side function call must be 'attr'; got '{node.left.func.id}'"
+                        f"query condition left-hand side function call must be 'attr'; got '{node.left.func.id}'",
                     )
 
                 if len(node.left.args) != 1:
                     raise SOMAError(
-                        f"query condition left-hand side 'attr' function call must have one argument; got '{len(node.left.args)}'"
+                        f"query condition left-hand side 'attr' function call must have one argument; got '{len(node.left.args)}'",
                     )
 
                 arg = node.left.args[0]
                 if not isinstance(arg, ast.Constant):
-                    raise SOMAError(
-                        "query condition left-hand side 'attr' argument must be a constant"
-                    )
+                    raise SOMAError("query condition left-hand side 'attr' argument must be a constant")
                 variable = arg.value
 
             elif isinstance(node.left, ast.Name):
                 variable = node.left.id
             else:
-                raise SOMAError(
-                    f"cannot handle query condition left-hand side of type '{type(node.left)}'"
-                )
+                raise SOMAError(f"cannot handle query condition left-hand side of type '{type(node.left)}'")
 
             values = [self.get_val_from_node(val) for val in self.visit(rhs)]
             if len(values) == 0:
-                raise SOMAError(
-                    "At least one value must be provided to the set membership"
-                )
+                raise SOMAError("At least one value must be provided to the set membership")
 
             dt = self.schema.field(variable).type
             if pa.types.is_dictionary(dt):
                 dt = dt.value_type
 
-            if pa_types_is_string_or_bytes(dt):
-                dtype = "string"
-            else:
-                dtype = np.dtype(dt.to_pandas_dtype()).name
+            dtype = "string" if pa_types_is_string_or_bytes(dt) else np.dtype(dt.to_pandas_dtype()).name
 
             # sdf.read(column_names=["foo"], value_filter='bar == 999') should
             # result in bar being added to the column names. See also
@@ -308,14 +289,14 @@ class QueryConditionTree(ast.NodeVisitor):
         if pa.types.is_dictionary(dt):
             dt = dt.value_type
 
-        if pa_types_is_string_or_bytes(dt):
-            dtype = "string"
-        else:
-            dtype = np.dtype(dt.to_pandas_dtype()).name
+        dtype = "string" if pa_types_is_string_or_bytes(dt) else np.dtype(dt.to_pandas_dtype()).name
         val = self.cast_val_to_dtype(val, dtype)
 
         pyqc = clib.PyQueryCondition()
-        self.init_pyqc(pyqc, dtype)(att, val, op)
+        if val is None:
+            self.init_pyqc(pyqc, None)(att, op)
+        else:
+            self.init_pyqc(pyqc, dtype)(att, val, op)
 
         return pyqc
 
@@ -356,7 +337,7 @@ class QueryConditionTree(ast.NodeVisitor):
 
         return att, val, op
 
-    def get_att_from_node(self, node: QueryConditionNodeElem) -> Any:
+    def get_att_from_node(self, node: QueryConditionNodeElem) -> Any:  # noqa: ANN401
         if self.is_att_node(node):
             att_node = node
 
@@ -370,9 +351,7 @@ class QueryConditionTree(ast.NodeVisitor):
             elif isinstance(att_node, ast.Constant):
                 att = str(att_node.value)
             else:
-                raise SOMAError(
-                    f"Incorrect type for attribute name: {ast.dump(att_node)}"
-                )
+                raise SOMAError(f"Incorrect type for attribute name: {ast.dump(att_node)}")
         else:
             raise SOMAError(f"Incorrect type for attribute name: {ast.dump(node)}")
 
@@ -387,7 +366,7 @@ class QueryConditionTree(ast.NodeVisitor):
 
         return att
 
-    def get_val_from_node(self, node: QueryConditionNodeElem) -> Any:
+    def get_val_from_node(self, node: QueryConditionNodeElem) -> Any:  # noqa: ANN401
         val_node = node
 
         if isinstance(node, ast.Call):
@@ -404,24 +383,26 @@ class QueryConditionTree(ast.NodeVisitor):
         else:
             raise SOMAError(
                 f"Incorrect type for comparison value: {ast.dump(val_node)}: right-hand sides must be constant"
-                " expressions, not variables -- did you mean to quote the right-hand side as a string?"
+                " expressions, not variables -- did you mean to quote the right-hand side as a string?",
             )
 
         return val
 
     def cast_val_to_dtype(
         self,
-        val: str | int | float | bytes | np.int32 | np.int64 | np.float32,
-        dtype: str,
-    ) -> str | int | float | bytes | np.int32 | np.int64 | np.float32:
-        if dtype != "string":
+        val: str | int | float | bytes | np.int32 | np.int64 | np.float32 | None,
+        dtype: str | None,
+    ) -> str | int | float | bytes | np.int32 | np.int64 | np.float32 | None:
+        if val is None:
+            dtype = "null"
+        elif dtype != "string":
             try:
                 # this prevents numeric strings ("1", '123.32') from getting
                 # casted to numeric types
                 if isinstance(val, str):
                     raise SOMAError(f"Cannot cast `{val}` to {dtype}.")
                 if np.issubdtype(dtype, np.datetime64):
-                    cast = getattr(np, "int64")
+                    cast = np.int64
                 # silence DeprecationWarning: `np.bool`
                 elif dtype == "bool":
                     cast = bool
@@ -429,12 +410,14 @@ class QueryConditionTree(ast.NodeVisitor):
                     cast = getattr(np, dtype)
                 val = cast(val)
             except ValueError:
-                raise SOMAError(f"Cannot cast `{val}` to {dtype}.")
+                raise SOMAError(f"Cannot cast `{val}` to {dtype}.") from None
 
         return val
 
-    def init_pyqc(self, pyqc: clib.PyQueryCondition, dtype: str) -> Callable:
-        if dtype != "string" and np.issubdtype(dtype, np.datetime64):
+    def init_pyqc(self, pyqc: clib.PyQueryCondition, dtype: str | None) -> Callable:
+        if dtype is None:
+            dtype = "null"
+        elif dtype != "string" and np.issubdtype(dtype, np.datetime64):
             dtype = "int64"
 
         init_fn_name = f"init_{dtype}"
@@ -463,8 +446,8 @@ class QueryConditionTree(ast.NodeVisitor):
             op = self.visit(node.op)
         except KeyError:
             raise SOMAError(
-                f"Unsupported binary operator: {ast.dump(node.op)}. Only & is currently supported."
-            )
+                f"Unsupported binary operator: {ast.dump(node.op)}. Only & is currently supported.",
+            ) from None
 
         result = self.visit(node.left)
         rhs = node.right[1:] if isinstance(node.right, list) else [node.right]
@@ -472,8 +455,8 @@ class QueryConditionTree(ast.NodeVisitor):
             visited = self.visit(value)
             if not isinstance(result, clib.PyQueryCondition):
                 raise Exception(
-                    f"Unable to parse expression component {ast.dump(node)} -- did you mean to quote it as a string?"
-                )
+                    f"Unable to parse expression component {ast.dump(node)} -- did you mean to quote it as a string?",
+                ) from None
             result = result.combine(visited, op)
 
         return result
@@ -482,7 +465,7 @@ class QueryConditionTree(ast.NodeVisitor):
         try:
             op = self.visit(node.op)
         except KeyError:
-            raise SOMAError(f"Unsupported Boolean operator: {ast.dump(node.op)}.")
+            raise SOMAError(f"Unsupported Boolean operator: {ast.dump(node.op)}.") from None
 
         result = self.visit(node.values[0])
         for value in node.values[1:]:
@@ -498,9 +481,7 @@ class QueryConditionTree(ast.NodeVisitor):
             raise SOMAError("Valid casts are attr() or val().")
 
         if len(node.args) != 1:
-            raise SOMAError(
-                f"Exactly one argument must be provided to {node.func.id}()."
-            )
+            raise SOMAError(f"Exactly one argument must be provided to {node.func.id}().")
 
         return node
 
@@ -513,7 +494,12 @@ class QueryConditionTree(ast.NodeVisitor):
     def visit_NameConstant(self, node: ast.Constant) -> ast.Constant:
         return node
 
-    def visit_UnaryOp(self, node: ast.UnaryOp, sign: int = 1):
+    def visit_UnaryOp(self, node: ast.UnaryOp, sign: int = 1) -> ast.Constant | clib.PyQueryCondition:
+        if isinstance(node.op, ast.Not):
+            operand = self.visit(node.operand)
+            if not isinstance(operand, clib.PyQueryCondition):
+                raise SOMAError(f"`not` can only be applied to a query condition, got {type(operand)}")
+            return operand.negate()
         if isinstance(node.op, ast.UAdd):
             sign *= 1
         elif isinstance(node.op, ast.USub):
@@ -527,8 +513,6 @@ class QueryConditionTree(ast.NodeVisitor):
         if isinstance(node.operand, ast.Constant):
             node.operand.value *= sign
         else:
-            raise SOMAError(
-                f"Unexpected node type following UnaryOp. Saw {ast.dump(node)}."
-            )
+            raise SOMAError(f"Unexpected node type following UnaryOp. Saw {ast.dump(node)}.")
 
         return node.operand

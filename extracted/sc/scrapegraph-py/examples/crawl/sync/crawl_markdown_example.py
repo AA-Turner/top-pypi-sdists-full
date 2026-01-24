@@ -107,7 +107,7 @@ def markdown_crawling_example():
     print("🤖 AI Prompt: None (no AI processing)")
     print("📊 Crawl Depth: 2")
     print("📄 Max Pages: 2")
-    print("🗺️ Use Sitemap: False")
+    print("🗺️ Use Sitemap: True")
     print("💡 Mode: Pure HTML to markdown conversion")
     print()
 
@@ -121,7 +121,7 @@ def markdown_crawling_example():
         depth=2,
         max_pages=2,
         same_domain_only=True,
-        sitemap=False,  # Use sitemap for better coverage
+        sitemap=True,  # Use sitemap for better coverage
         # Note: No prompt or data_schema needed when extraction_mode=False
     )
 

@@ -1,26 +1,32 @@
 """Utility functions for the LanguageTool library."""
 
-from typing import List, Tuple, Optional
-from shutil import which
-
-import glob
+import contextlib
 import locale
+import logging
 import os
 import subprocess
 import urllib.parse
 from enum import Enum
+from pathlib import Path
+from shutil import which
+from typing import Any, List, Optional, Tuple
+
 import psutil
+from packaging import version
 
 from .config_file import LanguageToolConfig
+from .exceptions import JavaError, PathError
 from .match import Match
 
+logger = logging.getLogger(__name__)
+
 JAR_NAMES = [
-    'languagetool-server.jar',
-    'languagetool-standalone*.jar',  # 2.1
-    'LanguageTool.jar',
-    'LanguageTool.uno.jar'
+    "languagetool-server.jar",
+    "languagetool-standalone*.jar",  # 2.1
+    "LanguageTool.jar",
+    "LanguageTool.uno.jar",
 ]
-FAILSAFE_LANGUAGE = 'en'
+FAILSAFE_LANGUAGE = "en"
 
 LTP_PATH_ENV_VAR = "LTP_PATH"  # LanguageTool download path
 
@@ -29,57 +35,16 @@ LTP_JAR_DIR_PATH_ENV_VAR = "LTP_JAR_DIR_PATH"
 
 # https://mail.python.org/pipermail/python-dev/2011-July/112551.html
 
-if os.name == 'nt':
-    startupinfo = subprocess.STARTUPINFO()
-    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-else:
-    startupinfo = None
+startupinfo: Optional[Any] = None
 
-
-class LanguageToolError(Exception):
-    """
-    Exception raised for errors in the LanguageTool library.
-    This is a generic exception that can be used to indicate various types of
-    errors encountered while using the LanguageTool library.
-    """
-    pass
-
-
-class ServerError(LanguageToolError):
-    """
-    Exception raised for errors that occur when interacting with the LanguageTool server.
-    This exception is a subclass of `LanguageToolError` and is used to indicate
-    issues such as server startup failures.
-    """
-    pass
-
-
-class JavaError(LanguageToolError):
-    """
-    Exception raised for errors related to the Java backend of LanguageTool.
-    This exception is a subclass of `LanguageToolError` and is used to indicate
-    issues that occur when interacting with Java, such as Java not being found.
-    """
-    pass
-
-
-class PathError(LanguageToolError):
-    """
-    Exception raised for errors in the file path used in LanguageTool.
-    This error is raised when there is an issue with the file path provided
-    to LanguageTool, such as the LanguageTool JAR file not being found,
-    or a download path not being a valid available file path.
-    """
-    pass
-
-
-class RateLimitError(LanguageToolError):
-    """
-    Exception raised for errors related to rate limiting in the LanguageTool server.
-    This exception is a subclass of `LanguageToolError` and is used to indicate
-    issues such as exceeding the allowed number of requests to the public API without a key.
-    """
-    pass
+if os.name == "nt":
+    # Gets STARTUPINFO dynamically to avoid issues on non-Windows platforms
+    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
+    if startupinfo_cls is not None:
+        si = startupinfo_cls()
+        # STARTF_USESHOWWINDOW also dynamically retrieved
+        si.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+        startupinfo = si
 
 
 def parse_url(url_str: str) -> str:
@@ -93,8 +58,8 @@ def parse_url(url_str: str) -> str:
     :return: The parsed URL in its canonical form.
     :rtype: str
     """
-    if 'http' not in url_str:
-        url_str = 'http://' + url_str
+    if "http" not in url_str:
+        url_str = "http://" + url_str
 
     return urllib.parse.urlparse(url_str).geturl()
 
@@ -110,11 +75,11 @@ def classify_matches(matches: List[Match]) -> TextStatus:
     Classify the matches (result of a check on a text) into one of three categories:
     CORRECT, FAULTY, or GARBAGE.
     This function checks the status of the matches and returns a corresponding
-    `TextStatus` value.
+    ``TextStatus`` value.
 
     :param matches: A list of Match objects to be classified.
     :type matches: List[Match]
-    :return: The classification of the matches as a `TextStatus` value.
+    :return: The classification of the matches as a ``TextStatus`` value.
     :rtype: TextStatus
     """
     if not len(matches):
@@ -139,58 +104,82 @@ def correct(text: str, matches: List[Match]) -> str:
     """
     ltext = list(text)
     matches = [match for match in matches if match.replacements]
-    errors = [ltext[match.offset:match.offset + match.errorLength]
-              for match in matches]
+    errors = [
+        ltext[match.offset : match.offset + match.error_length] for match in matches
+    ]
     correct_offset = 0
     for n, match in enumerate(matches):
-        frompos, topos = (correct_offset + match.offset,
-                          correct_offset + match.offset + match.errorLength)
+        frompos, topos = (
+            correct_offset + match.offset,
+            correct_offset + match.offset + match.error_length,
+        )
         if ltext[frompos:topos] != errors[n]:
             continue
         repl = match.replacements[0]
         ltext[frompos:topos] = list(repl)
         correct_offset += len(repl) - len(errors[n])
-    return ''.join(ltext)
+    return "".join(ltext)
 
 
-def get_language_tool_download_path() -> str:
+def get_language_tool_download_path() -> Path:
     """
     Get the download path for LanguageTool.
     This function retrieves the download path for LanguageTool from the environment variable
-    specified by `LTP_PATH_ENV_VAR`. If the environment variable is not set, it defaults to
-    a path in the user's home directory under `.cache/language_tool_python`.
+    specified by ``LTP_PATH_ENV_VAR``. If the environment variable is not set, it defaults to
+    a path in the user's home directory under ``.cache/language_tool_python``.
+    The function ensures that the directory exists before returning it.
 
     :return: The download path for LanguageTool.
-    :rtype: str
+    :rtype: Path
     """
     # Get download path from environment or use default.
-    download_path = os.environ.get(
+    path_str = os.environ.get(
         LTP_PATH_ENV_VAR,
-        os.path.join(os.path.expanduser("~"), ".cache", "language_tool_python")
+        str(Path.home() / ".cache" / "language_tool_python"),
     )
-    return download_path
+    path = Path(path_str)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
-def find_existing_language_tool_downloads(download_folder: str) -> List[str]:
+def find_existing_language_tool_downloads(download_folder: Path) -> List[Path]:
     """
     Find existing LanguageTool downloads in the specified folder.
     This function searches for directories in the given download folder
     that match the pattern 'LanguageTool*' and returns a list of their paths.
 
     :param download_folder: The folder where LanguageTool downloads are stored.
-    :type download_folder: str
+    :type download_folder: Path
     :return: A list of paths to the existing LanguageTool download directories.
-    :rtype: List[str]
+    :rtype: List[Path]
     """
-    language_tool_path_list = [
-        path for path in
-        glob.glob(os.path.join(download_folder, 'LanguageTool*'))
-        if os.path.isdir(path)
-    ]
-    return language_tool_path_list
+    return [path for path in download_folder.glob("LanguageTool*") if path.is_dir()]
 
 
-def get_language_tool_directory() -> str:
+def _extract_version(path: Path) -> version.Version:
+    """
+    Extract the version number from a LanguageTool directory path.
+
+    This function parses the directory name to extract the version information
+    from LanguageTool installation folders that follow the naming convention
+    'LanguageTool-X.Y-SNAPSHOT'.
+
+    :param path: The path to the LanguageTool directory
+    :type path: Path
+    :return: The parsed version object extracted from the directory name
+    :rtype: version.Version
+    :raises ValueError: If the directory name doesn't start with 'LanguageTool-'
+    """
+    if not path.name.startswith("LanguageTool-"):
+        raise ValueError(f"Invalid LanguageTool folder name: {path.name}")
+    # Handle LanguageTool- prefix
+    version_str = path.name.removeprefix("LanguageTool-")
+    # Handle both -SNAPSHOT and -snapshot suffixes
+    version_str = version_str.removesuffix("-SNAPSHOT").removesuffix("-snapshot")
+    return version.parse(version_str)
+
+
+def get_language_tool_directory() -> Path:
     """
     Get the directory path of the LanguageTool installation.
     This function checks the download folder for LanguageTool installations,
@@ -200,25 +189,31 @@ def get_language_tool_directory() -> str:
     :raises NotADirectoryError: If the download folder path is not a valid directory.
     :raises FileNotFoundError: If no LanguageTool installation is found in the download folder.
     :return: The path to the latest version of LanguageTool found in the directory.
-    :rtype: str
+    :rtype: Path
     """
-    
+
     download_folder = get_language_tool_download_path()
-    if not os.path.isdir(download_folder):
-        raise NotADirectoryError(f"LanguageTool directory path is not a valid directory {download_folder}.")
-    language_tool_path_list = find_existing_language_tool_downloads(
-        download_folder
-    )
+    if not download_folder.is_dir():
+        err = f"LanguageTool directory path is not a valid directory {download_folder}."
+        raise NotADirectoryError(err)
+    language_tool_path_list = find_existing_language_tool_downloads(download_folder)
 
     if not len(language_tool_path_list):
-        raise FileNotFoundError(f'LanguageTool not found in {download_folder}.')
+        err = f"LanguageTool not found in {download_folder}."
+        raise FileNotFoundError(err)
 
     # Return the latest version found in the directory.
-    return max(language_tool_path_list)
+    latest = max(
+        language_tool_path_list,
+        key=_extract_version,
+    )
+    logger.debug("Using LanguageTool directory: %s", latest)
+    return latest
 
 
 def get_server_cmd(
-    port: Optional[int] = None, config: Optional[LanguageToolConfig] = None
+    port: Optional[int] = None,
+    config: Optional[LanguageToolConfig] = None,
 ) -> List[str]:
     """
     Generate the command to start the LanguageTool HTTP server.
@@ -231,52 +226,61 @@ def get_server_cmd(
     :rtype: List[str]
     """
     java_path, jar_path = get_jar_info()
-    cmd = [java_path, '-cp', jar_path,
-           'org.languagetool.server.HTTPServer']
+    cmd = [
+        str(java_path),
+        "-cp",
+        str(jar_path),
+        "org.languagetool.server.HTTPServer",
+    ]
 
     if port is not None:
-        cmd += ['-p', str(port)]
+        cmd += ["-p", str(port)]
 
     if config is not None:
-        cmd += ['--config', config.path]
+        cmd += ["--config", config.path]
 
+    logger.debug("LanguageTool server command: %r", cmd)
     return cmd
 
 
-def get_jar_info() -> Tuple[str, str]:
+def get_jar_info() -> Tuple[Path, Path]:
     """
     Retrieve the path to the Java executable and the LanguageTool JAR file.
-    This function searches for the Java executable in the system's PATH and 
-    locates the LanguageTool JAR file either in a directory specified by an 
+    This function searches for the Java executable in the system's PATH and
+    locates the LanguageTool JAR file either in a directory specified by an
     environment variable or in a default download directory.
 
     :raises JavaError: If the Java executable cannot be found.
     :raises PathError: If the LanguageTool JAR file cannot be found in the specified directory.
     :return: A tuple containing the path to the Java executable and the path to the LanguageTool JAR file.
-    :rtype: Tuple[str, str]
+    :rtype: Tuple[Path, Path]
     """
 
-    java_path = which('java')
-    if not java_path:
-        raise JavaError("can't find Java")
+    java_path_str = which("java")
+    if not java_path_str:
+        err = "can't find Java"
+        raise JavaError(err)
+    java_path = Path(java_path_str)
 
     # Use the env var to the jar directory if it is defined
     # otherwise look in the download directory
     jar_dir_name = os.environ.get(
         LTP_JAR_DIR_PATH_ENV_VAR,
-        get_language_tool_directory()
+        get_language_tool_directory(),
     )
     jar_path = None
     for jar_name in JAR_NAMES:
-        for jar_path in glob.glob(os.path.join(jar_dir_name, jar_name)):
-            if os.path.isfile(jar_path):
+        for jar_path in Path(jar_dir_name).glob(jar_name):
+            if jar_path.is_file():
+                logger.debug("Found LanguageTool JAR: %s", jar_path)
                 break
         else:
             jar_path = None
         if jar_path:
             break
     else:
-        raise PathError(f"can't find languagetool-standalone in {jar_dir_name!r}")
+        err = f"can't find languagetool-standalone in {jar_dir_name!r}"
+        raise PathError(err)
     return java_path, jar_path
 
 
@@ -284,38 +288,44 @@ def get_locale_language() -> str:
     """
     Get the current locale language.
     This function retrieves the current locale language setting of the system.
-    It first attempts to get the locale using `locale.getlocale()`. If that fails,
-    it falls back to using `locale.getdefaultlocale()`.
+    It first attempts to get the locale using ``locale.getlocale()``. If that fails,
+    it falls back to using ``locale.getdefaultlocale()``. If both methods fail to
+    provide a valid language code, it returns a default failsafe language code.
 
     :return: The language code of the current locale.
     :rtype: str
     """
-    return locale.getlocale()[0] or locale.getdefaultlocale()[0]
+    return locale.getlocale()[0] or locale.getdefaultlocale()[0] or FAILSAFE_LANGUAGE
 
 
-def kill_process_force(*, pid: Optional[int] = None, proc: Optional[psutil.Process] = None) -> None:
+def kill_process_force(
+    *,
+    pid: Optional[int] = None,
+    proc: Optional[psutil.Process] = None,
+) -> None:
     """
     Forcefully kills a process and all its child processes.
     This function attempts to kill a process specified either by its PID or by a psutil.Process object.
     If the process has any child processes, they will be killed first.
 
-    :param pid: The process ID of the process to be killed. Either `pid` or `proc` must be provided.
+    :param pid: The process ID of the process to be killed. Either ``pid`` or ``proc`` must be provided.
     :type pid: Optional[int]
-    :param proc: A psutil.Process object representing the process to be killed. Either `pid` or `proc` must be provided.
+    :param proc: A psutil.Process object representing the process to be killed. Either ``pid`` or ``proc`` must be provided.
     :type proc: Optional[psutil.Process]
-    :raises AssertionError: If neither `pid` nor `proc` is provided.
+    :raises ValueError: If neither ``pid`` nor ``proc`` is provided.
     """
-    assert any([pid, proc]), "Must pass either pid or proc"
+    if not any([pid, proc]):
+        err = "Must pass either pid or proc"
+        raise ValueError(err)
     try:
         proc = psutil.Process(pid) if proc is None else proc
     except psutil.NoSuchProcess:
+        logger.debug("Process %s does not exist, nothing to kill", pid)
         return
+    logger.debug("Killing process %s and its children", proc.pid)
     for child in proc.children(recursive=True):
-        try:
+        with contextlib.suppress(psutil.NoSuchProcess):
+            logger.debug("Killing child process %s", child.pid)
             child.kill()
-        except psutil.NoSuchProcess:
-            pass
-    try:
+    with contextlib.suppress(psutil.NoSuchProcess):
         proc.kill()
-    except psutil.NoSuchProcess:
-        pass

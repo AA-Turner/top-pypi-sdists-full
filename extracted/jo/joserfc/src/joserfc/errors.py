@@ -23,61 +23,66 @@ class JoseError(Exception):
         super(JoseError, self).__init__(message)
 
 
-class DecodeError(JoseError):
-    """This error is designed for JWS/JWE. It is raised when deserialization
-    and decryption fails.
-    """
+# --- Key related errors --- #
 
-    error = "decode_error"
+
+class KeyParameterError(JoseError):
+    error = "key_parameter"
 
 
 class MissingKeyError(JoseError):
     error = "missing_key"
 
 
-class UnsupportedKeyUseError(JoseError):
+class UnsupportedKeyUseError(KeyParameterError):
     error = "unsupported_key_use"
 
 
-class UnsupportedKeyAlgorithmError(JoseError):
+class UnsupportedKeyAlgorithmError(KeyParameterError):
     error = "unsupported_key_alg"
 
 
-class UnsupportedKeyOperationError(JoseError):
+class UnsupportedKeyOperationError(KeyParameterError):
     error = "unsupported_key_operation"
 
 
-class InvalidKeyLengthError(JoseError):
-    error = "invalid_key_length"
-
-
-class MissingKeyTypeError(JoseError):
+class MissingKeyTypeError(KeyParameterError):
     error = "missing_key_type"
 
 
-class InvalidKeyTypeError(JoseError):
+class InvalidKeyTypeError(KeyParameterError):
     error = "invalid_key_type"
 
 
-class InvalidKeyCurveError(JoseError):
-    error = "invalid_key_curve"
-
-
 class InvalidKeyIdError(JoseError):
+    """This error is designed for Key Set. It is raised when a key
+    can not be found with the given key ID."""
+
     error = "invalid_key_id"
 
 
 class InvalidExchangeKeyError(JoseError):
+    """This error is designed for EC and OKP keys. It is raised when
+    exchanging derive key failed."""
+
     error = "invalid_exchange_key"
     description = "Invalid key for exchanging shared key"
 
 
-class InvalidEncryptedKeyError(JoseError):
-    error = "invalid_encrypted_key"
-    description = "JWE Encrypted Key value SHOULD be an empty octet sequence"
+# --- JWS & JWE related errors --- #
+
+
+class DecodeError(JoseError):
+    """This error is designed for both JWS and JWE. It is raised when deserialization
+    and decryption fails.
+    """
+
+    error = "decode_error"
 
 
 class MissingAlgorithmError(JoseError):
+    """Raised when an algorithm ("alg") is missing."""
+
     error = "missing_algorithm"
     description = "Missing 'alg' value in header"
 
@@ -87,14 +92,22 @@ class ConflictAlgorithmError(JoseError):
 
 
 class UnsupportedAlgorithmError(JoseError):
+    """This error is designed for both JWS and JWE. It is raised when the
+    given algorithm is not supported in the registry.
+    """
+
     error = "unsupported_algorithm"
 
 
 class InvalidHeaderValueError(JoseError):
+    """Raised when the given header's value is invalid."""
+
     error = "invalid_header_value"
 
 
 class UnsupportedHeaderError(JoseError):
+    """Raised when an unsupported header is encountered."""
+
     error = "unsupported_header"
 
 
@@ -126,8 +139,24 @@ class MissingEncryptionError(JoseError):
     description = "Missing 'enc' value in header"
 
 
+class InvalidKeyCurveError(JoseError):
+    """This error is designed for JWS. It is raised when key's
+    curve name does not match with the given algorithm.
+    """
+
+    error = "invalid_key_curve"
+
+
+class InvalidKeyLengthError(JoseError):
+    """This error is designed for JWE. It is raised when key's
+    length does not align with the given algorithm.
+    """
+
+    error = "invalid_key_length"
+
+
 class BadSignatureError(JoseError):
-    """This error is designed for JWS/JWT. It is raised when signature
+    """This error is designed for JWS. It is raised when signature
     does not match.
     """
 
@@ -149,6 +178,11 @@ class InvalidEncryptionAlgorithmError(JoseError):
     error = "invalid_encryption_algorithm"
 
 
+class InvalidEncryptedKeyError(JoseError):
+    error = "invalid_encrypted_key"
+    description = "JWE Encrypted Key value SHOULD be an empty octet sequence"
+
+
 class InvalidCEKLengthError(JoseError):
     error = "invalid_cek_length"
     description = "Invalid 'cek' length"
@@ -158,57 +192,51 @@ class InvalidCEKLengthError(JoseError):
         super(InvalidCEKLengthError, self).__init__(description=description)
 
 
-class InvalidClaimError(JoseError):
+# --- JWT related errors --- #
+
+
+class ClaimError(JoseError):
+    """This a base error for JWT claims validation."""
+
+    claim: str
+    description = "Error claim: '{}'"
+
+    def __init__(self, claim: str, description: str | None = None):
+        self.claim = claim
+        if description is None:
+            description = self.description.format(claim)
+        super(ClaimError, self).__init__(description=description)
+
+
+class InvalidClaimError(ClaimError):
     """This error is designed for JWT. It raised when the claim contains
     invalid values or types."""
 
-    claim: str
     error = "invalid_claim"
-
-    def __init__(self, claim: str):
-        self.claim = claim
-        description = f"Invalid claim: '{claim}'"
-        super(InvalidClaimError, self).__init__(description=description)
+    description = "Invalid claim: '{}'"
 
 
-class MissingClaimError(JoseError):
+class MissingClaimError(ClaimError):
     """This error is designed for JWT. It raised when the required
     claims are missing."""
 
-    claim: str
     error = "missing_claim"
-
-    def __init__(self, claim: str):
-        self.claim = claim
-        description = f"Missing claim: '{claim}'"
-        super(MissingClaimError, self).__init__(description=description)
+    description = "Missing claim: '{}'"
 
 
-class InsecureClaimError(JoseError):
+class InsecureClaimError(ClaimError):
     """This error is designed for JWT. It raised when the claim
     contains sensitive information."""
 
-    claim: str
     error = "insecure_claim"
-
-    def __init__(self, claim: str):
-        self.claim = claim
-        description = f"Insecure claim '{claim}'"
-        super(InsecureClaimError, self).__init__(description=description)
+    description = "Insecure claim: '{}'"
 
 
-class ExpiredTokenError(JoseError):
+class ExpiredTokenError(ClaimError):
     """This error is designed for JWT. It raised when the token is expired."""
 
     error = "expired_token"
     description = "The token is expired"
-
-
-class InvalidTokenError(JoseError):
-    """This error is designed for JWT. It raised when the token is not valid yet."""
-
-    error = "invalid_token"
-    description = "The token is not valid yet"
 
 
 class InvalidPayloadError(JoseError):
@@ -216,3 +244,7 @@ class InvalidPayloadError(JoseError):
     not a valid JSON object."""
 
     error = "invalid_payload"
+
+
+# compatibility
+InvalidTokenError = InvalidClaimError

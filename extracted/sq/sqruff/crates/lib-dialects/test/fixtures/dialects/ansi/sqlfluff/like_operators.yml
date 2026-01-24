@@ -1,0 +1,38 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - wildcard_expression:
+          - wildcard_identifier:
+            - star: '*'
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: my_tbl
+    - where_clause:
+      - keyword: WHERE
+      - expression:
+        - column_reference:
+          - naked_identifier: a
+        - comparison_operator: '!~'
+        - quoted_literal: '''[a-z]'''
+        - binary_operator: AND
+        - column_reference:
+          - naked_identifier: d
+        - comparison_operator: '!~~*'
+        - quoted_literal: '''[a-z]'''
+        - binary_operator: AND
+        - column_reference:
+          - naked_identifier: b
+        - keyword: LIKE
+        - quoted_literal: '''Spec\''s%'''
+        - binary_operator: AND
+        - column_reference:
+          - naked_identifier: c
+        - comparison_operator: '!~*'
+        - quoted_literal: '''^([0-9]){1,}(\.)([0-9]{1,})$'''

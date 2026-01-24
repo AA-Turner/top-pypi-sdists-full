@@ -400,17 +400,29 @@ class UserManager(CRUDMixin[User]):
     _obj_cls = User
 
     _list_filters = (
-        "active",
-        "blocked",
         "username",
+        "public_email",
+        "search",
+        "active",
+        "external",
+        "blocked",
+        "humans",
+        "created_after",
+        "created_before",
+        "exclude_active",
+        "exclude_external",
+        "exclude_humans",
+        "exclude_internal",
+        "without_project_bots",
         "extern_uid",
         "provider",
-        "external",
-        "search",
+        "two_factor",
+        "without_projects",
+        "admins",
+        "auditors",
+        "skip_ldap",
         "custom_attributes",
         "status",
-        "two_factor",
-        "admins",
     )
     _create_attrs = RequiredOptional(
         optional=(
@@ -490,7 +502,9 @@ class UserEmailManager(
     _path = "/users/{user_id}/emails"
     _obj_cls = UserEmail
     _from_parent_attrs = {"user_id": "id"}
-    _create_attrs = RequiredOptional(required=("email",))
+    _create_attrs = RequiredOptional(
+        required=("email",), optional=("skip_confirmation",)
+    )
 
 
 class UserActivities(RESTObject):

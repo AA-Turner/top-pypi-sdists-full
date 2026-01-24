@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional
 
-from ._internal import _from_dict, _repeated_dict
+from databricks.sdk.service._internal import _from_dict, _repeated_dict
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -191,24 +191,6 @@ class DeletePublishedAppIntegrationOutput:
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> DeletePublishedAppIntegrationOutput:
         """Deserializes the DeletePublishedAppIntegrationOutput from a dictionary."""
-        return cls()
-
-
-@dataclass
-class DeleteResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteResponse:
-        """Deserializes the DeleteResponse from a dictionary."""
         return cls()
 
 
@@ -863,17 +845,37 @@ class SecretInfo:
 
 @dataclass
 class TokenAccessPolicy:
+    absolute_session_lifetime_in_minutes: Optional[int] = None
+    """Absolute OAuth session TTL in minutes. Effective only when the single-use refresh token feature
+    is enabled. This is the absolute TTL of all refresh tokens issued in one OAuth session. When a
+    new refresh token is issued during refresh token rotation, it will inherit the same absolute TTL
+    as the old refresh token. In other words, this represents the maximum amount of time a user can
+    stay logged in without re-authenticating."""
+
     access_token_ttl_in_minutes: Optional[int] = None
     """access token time to live in minutes"""
 
+    enable_single_use_refresh_tokens: Optional[bool] = None
+    """Whether to enable single-use refresh tokens (refresh token rotation). If this feature is
+    enabled, upon successfully getting a new access token using a refresh token, Databricks will
+    issue a new refresh token along with the access token in the response and invalidate the old
+    refresh token. The client should use the new refresh token to get access tokens in future
+    requests."""
+
     refresh_token_ttl_in_minutes: Optional[int] = None
-    """refresh token time to live in minutes"""
+    """Refresh token time to live in minutes. When single-use refresh tokens are enabled, this
+    represents the TTL of an individual refresh token. If the refresh token is used before it
+    expires, a new one is issued with a renewed individual TTL."""
 
     def as_dict(self) -> dict:
         """Serializes the TokenAccessPolicy into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.absolute_session_lifetime_in_minutes is not None:
+            body["absolute_session_lifetime_in_minutes"] = self.absolute_session_lifetime_in_minutes
         if self.access_token_ttl_in_minutes is not None:
             body["access_token_ttl_in_minutes"] = self.access_token_ttl_in_minutes
+        if self.enable_single_use_refresh_tokens is not None:
+            body["enable_single_use_refresh_tokens"] = self.enable_single_use_refresh_tokens
         if self.refresh_token_ttl_in_minutes is not None:
             body["refresh_token_ttl_in_minutes"] = self.refresh_token_ttl_in_minutes
         return body
@@ -881,8 +883,12 @@ class TokenAccessPolicy:
     def as_shallow_dict(self) -> dict:
         """Serializes the TokenAccessPolicy into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.absolute_session_lifetime_in_minutes is not None:
+            body["absolute_session_lifetime_in_minutes"] = self.absolute_session_lifetime_in_minutes
         if self.access_token_ttl_in_minutes is not None:
             body["access_token_ttl_in_minutes"] = self.access_token_ttl_in_minutes
+        if self.enable_single_use_refresh_tokens is not None:
+            body["enable_single_use_refresh_tokens"] = self.enable_single_use_refresh_tokens
         if self.refresh_token_ttl_in_minutes is not None:
             body["refresh_token_ttl_in_minutes"] = self.refresh_token_ttl_in_minutes
         return body
@@ -891,7 +897,9 @@ class TokenAccessPolicy:
     def from_dict(cls, d: Dict[str, Any]) -> TokenAccessPolicy:
         """Deserializes the TokenAccessPolicy from a dictionary."""
         return cls(
+            absolute_session_lifetime_in_minutes=d.get("absolute_session_lifetime_in_minutes", None),
             access_token_ttl_in_minutes=d.get("access_token_ttl_in_minutes", None),
+            enable_single_use_refresh_tokens=d.get("enable_single_use_refresh_tokens", None),
             refresh_token_ttl_in_minutes=d.get("refresh_token_ttl_in_minutes", None),
         )
 
@@ -987,6 +995,7 @@ class AccountFederationPolicyAPI:
 
         :returns: :class:`FederationPolicy`
         """
+
         body = policy.as_dict()
         query = {}
         if policy_id is not None:
@@ -1086,6 +1095,7 @@ class AccountFederationPolicyAPI:
 
         :returns: :class:`FederationPolicy`
         """
+
         body = policy.as_dict()
         query = {}
         if update_mask is not None:
@@ -1143,6 +1153,7 @@ class CustomAppIntegrationAPI:
 
         :returns: :class:`CreateCustomAppIntegrationOutput`
         """
+
         body = {}
         if confidential is not None:
             body["confidential"] = confidential
@@ -1275,6 +1286,7 @@ class CustomAppIntegrationAPI:
 
 
         """
+
         body = {}
         if redirect_urls is not None:
             body["redirect_urls"] = [v for v in redirect_urls]
@@ -1360,6 +1372,7 @@ class PublishedAppIntegrationAPI:
 
         :returns: :class:`CreatePublishedAppIntegrationOutput`
         """
+
         body = {}
         if app_id is not None:
             body["app_id"] = app_id
@@ -1460,6 +1473,7 @@ class PublishedAppIntegrationAPI:
 
 
         """
+
         body = {}
         if token_access_policy is not None:
             body["token_access_policy"] = token_access_policy.as_dict()
@@ -1535,6 +1549,7 @@ class ServicePrincipalFederationPolicyAPI:
 
         :returns: :class:`FederationPolicy`
         """
+
         body = policy.as_dict()
         query = {}
         if policy_id is not None:
@@ -1651,6 +1666,7 @@ class ServicePrincipalFederationPolicyAPI:
 
         :returns: :class:`FederationPolicy`
         """
+
         body = policy.as_dict()
         query = {}
         if update_mask is not None:
@@ -1700,6 +1716,7 @@ class ServicePrincipalSecretsAPI:
 
         :returns: :class:`CreateServicePrincipalSecretResponse`
         """
+
         body = {}
         if lifetime is not None:
             body["lifetime"] = lifetime
@@ -1810,6 +1827,7 @@ class ServicePrincipalSecretsProxyAPI:
 
         :returns: :class:`CreateServicePrincipalSecretResponse`
         """
+
         body = {}
         if lifetime is not None:
             body["lifetime"] = lifetime

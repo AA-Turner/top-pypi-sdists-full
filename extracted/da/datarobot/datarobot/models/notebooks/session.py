@@ -25,51 +25,43 @@ from datarobot.models.notebooks.enums import (
 )
 
 # TODO: We're using trafaret's "ignore_extra" liberally and this is a subset of properties
-notebook_session_trafaret = t.Dict(
-    {
-        t.Key("status"): t.Enum(*list(NotebookStatus)),
-        t.Key("notebook_id"): t.String,
-        t.Key("session_id"): t.String,
-        t.Key("started_at", optional=True): t.String,
-        t.Key("session_type", optional=True): t.Enum(*list(SessionType)),
-        t.Key("ephemeral_session_key", optional=True): t.String,
-    }
-).ignore_extra("*")
+notebook_session_trafaret = t.Dict({
+    t.Key("status"): t.Enum(*list(NotebookStatus)),
+    t.Key("notebook_id"): t.String,
+    t.Key("session_id"): t.String,
+    t.Key("started_at", optional=True): t.String,
+    t.Key("session_type", optional=True): t.Enum(*list(SessionType)),
+    t.Key("ephemeral_session_key", optional=True): t.String,
+}).ignore_extra("*")
 
 
 # TODO: We're using trafaret's "ignore_extra" - this is a subset of properties
-notebook_execution_status_trafaret = t.Dict(
-    {
-        t.Key("status"): t.Enum(*list(KernelExecutionStatus)),
-        t.Key("cell_id", optional=True): t.String,
-        t.Key("queued_cell_ids", optional=True): t.List(t.String),
-    }
-).ignore_extra("*")
+notebook_execution_status_trafaret = t.Dict({
+    t.Key("status"): t.Enum(*list(KernelExecutionStatus)),
+    t.Key("cell_id", optional=True): t.String,
+    t.Key("queued_cell_ids", optional=True): t.List(t.String),
+}).ignore_extra("*")
 
 
-codespace_notebook_cell_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("cell_type"): t.Enum(*list(CellType)),
-        t.Key("source"): t.String(allow_blank=True) | t.List(t.String(allow_blank=True)),
-        t.Key("metadata"): t.Dict({}).allow_extra("*"),  # TODO: Better annotate this
-        t.Key("execution_count", optional=True): t.Int,
-    }
-).ignore_extra("*")
+codespace_notebook_cell_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("cell_type"): t.Enum(*list(CellType)),
+    t.Key("source"): t.String(allow_blank=True) | t.List(t.String(allow_blank=True)),
+    t.Key("metadata"): t.Dict({}).allow_extra("*"),  # TODO: Better annotate this
+    t.Key("execution_count", optional=True): t.Int,
+}).ignore_extra("*")
 
 
-codespace_notebook_state_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("path"): t.String,
-        t.Key("generation"): t.Int,
-        t.Key("nbformat"): t.Int,
-        t.Key("nbformat_minor"): t.Int,
-        t.Key("metadata"): t.Dict({}).allow_extra("*"),  # TODO: Better annotate this
-        t.Key("cells"): t.List(codespace_notebook_cell_trafaret),
-        t.Key("kernel_id", optional=True): t.String,
-    }
-).ignore_extra("*")
+codespace_notebook_state_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("path"): t.String,
+    t.Key("generation"): t.Int,
+    t.Key("nbformat"): t.Int,
+    t.Key("nbformat_minor"): t.Int,
+    t.Key("metadata"): t.Dict({}).allow_extra("*"),  # TODO: Better annotate this
+    t.Key("cells"): t.List(codespace_notebook_cell_trafaret),
+    t.Key("kernel_id", optional=True): t.String,
+}).ignore_extra("*")
 
 
 class CloneRepositorySchema(TypedDict):
@@ -271,9 +263,7 @@ class NotebookSession(APIObject):
         NotebookSession
             The notebook session information.
         """
-        r_data = cls._client.post(
-            f"{cls._runtimes_path}notebooks/{notebook_id}/start/", data=payload
-        )
+        r_data = cls._client.post(f"{cls._runtimes_path}notebooks/{notebook_id}/start/", data=payload)
         return cls.from_server_data(r_data.json())
 
     @classmethod
@@ -310,12 +300,8 @@ class NotebookSession(APIObject):
         cls._client.post(f"{cls._runtimes_path}notebooks/{notebook_id}/execute/", data=payload)
 
     @classmethod
-    def get_codespace_notebook_state(
-        cls, notebook_id: str, notebook_path: str
-    ) -> CodespaceNotebookState:
-        r_data = cls._client.get(
-            f"{cls._sessions_path}{notebook_id}/notebook/", params={"path": notebook_path}
-        )
+    def get_codespace_notebook_state(cls, notebook_id: str, notebook_path: str) -> CodespaceNotebookState:
+        r_data = cls._client.get(f"{cls._sessions_path}{notebook_id}/notebook/", params={"path": notebook_path})
         return CodespaceNotebookState.from_server_data(r_data.json())
 
     @classmethod

@@ -22,7 +22,7 @@ from chz.tiepin import (
     is_union_type,
     type_repr,
 )
-from chz.util import _MISSING_TYPE, MISSING
+from chz.util import MISSING, MISSING_TYPE
 
 
 class MetaFromString(Exception): ...
@@ -49,8 +49,8 @@ class MetaFactory:
 
     def __init__(self) -> None:
         # Set by chz.Field
-        self.field_annotation: TypeForm | _MISSING_TYPE = MISSING
-        self.field_module: types.ModuleType | str | _MISSING_TYPE = MISSING
+        self.field_annotation: TypeForm | MISSING_TYPE = MISSING
+        self.field_module: types.ModuleType | str | MISSING_TYPE = MISSING
 
     def unspecified_factory(self) -> Callable[..., Any] | None:
         """The default callable to use to get a value of the expected type.
@@ -110,17 +110,20 @@ class subclass(MetaFactory):
 
     def __init__(
         self,
-        base_cls: InstantiableType | _MISSING_TYPE = MISSING,
-        default_cls: InstantiableType | _MISSING_TYPE = MISSING,
+        base_cls: InstantiableType | MISSING_TYPE = MISSING,
+        default_cls: InstantiableType | MISSING_TYPE = MISSING,
     ) -> None:
         super().__init__()
         self._base_cls = base_cls
         self._default_cls = default_cls
 
+    def __repr__(self) -> str:
+        return f"subclass(base_cls={self.base_cls!r}, default_cls={self.default_cls!r})"
+
     @property
     def base_cls(self) -> InstantiableType:
-        if isinstance(self._base_cls, _MISSING_TYPE):
-            assert not isinstance(self.field_annotation, _MISSING_TYPE)
+        if isinstance(self._base_cls, MISSING_TYPE):
+            assert not isinstance(self.field_annotation, MISSING_TYPE)
             if not isinstance(self.field_annotation, InstantiableType):
                 raise RuntimeError(
                     f"Must explicitly specify base_cls since {self.field_annotation!r} "
@@ -131,7 +134,7 @@ class subclass(MetaFactory):
 
     @property
     def default_cls(self) -> InstantiableType:
-        if isinstance(self._default_cls, _MISSING_TYPE):
+        if isinstance(self._default_cls, MISSING_TYPE):
             return self.base_cls
         return self._default_cls
 
@@ -158,7 +161,7 @@ class function(MetaFactory):
         self,
         unspecified: Callable[..., Any] | None = None,
         *,
-        default_module: str | types.ModuleType | None | _MISSING_TYPE = MISSING,
+        default_module: str | types.ModuleType | None | MISSING_TYPE = MISSING,
     ) -> None:
         """
         ATTN: this is soft deprecated, since `chz.factories.standard` is powerful enough to effectively
@@ -198,10 +201,13 @@ class function(MetaFactory):
         self.unspecified = unspecified
         self._default_module = default_module
 
+    def __repr__(self) -> str:
+        return f"function(unspecified={self.unspecified!r}, default_module={self.default_module!r})"
+
     @property
     def default_module(self) -> types.ModuleType | str | None:
-        if isinstance(self._default_module, _MISSING_TYPE):
-            assert not isinstance(self.field_module, _MISSING_TYPE)
+        if isinstance(self._default_module, MISSING_TYPE):
+            assert not isinstance(self.field_module, MISSING_TYPE)
             return self.field_module
         return self._default_module
 
@@ -250,7 +256,7 @@ class function(MetaFactory):
         return _module_getattr(module, var)
 
     def perform_cast(self, value: str):
-        assert not isinstance(self.field_annotation, _MISSING_TYPE)
+        assert not isinstance(self.field_annotation, MISSING_TYPE)
         return _simplistic_try_cast(value, self.field_annotation)
 
 
@@ -268,8 +274,8 @@ def _module_getattr(mod: types.ModuleType, attr: str) -> Any:
         for a in attr.split("."):
             mod = getattr(mod, a)
         return mod
-    except AttributeError:
-        raise MetaFromString(f"No attribute named {attr!r} in module {mod.__name__}") from None
+    except AttributeError as e:
+        raise MetaFromString(str(e)) from None
 
 
 def _find_subclass(spec: str, superclass: TypeForm):
@@ -317,9 +323,18 @@ def _find_subclass(spec: str, superclass: TypeForm):
                 template=superclass,  # type: ignore[arg-type]
             )
         except MetaFromString:
-            raise MetaFromString(
-                f"Could not find {spec!r}, try a fully qualified name e.g. module_name:{spec}"
-            ) from None
+            pass
+        try:
+            return _maybe_generic(
+                _module_getattr(_module_from_name("builtins"), base),
+                generic,
+                template=superclass,  # type: ignore[arg-type]
+            )
+        except MetaFromString:
+            pass
+        raise MetaFromString(
+            f"Could not find {spec!r}, try a fully qualified name e.g. module_name:{spec}"
+        ) from None
     if not is_instantiable_type(superclass_class_origin):
         raise MetaFromString(f"Could not find subclasses of {type_repr(superclass)}")
 
@@ -328,6 +343,8 @@ def _find_subclass(spec: str, superclass: TypeForm):
     visited_subclasses = set()
     all_subclasses = collections.deque(superclass_class_origin.__subclasses__())
     all_subclasses.appendleft(superclass)
+
+    candidates = []
     while all_subclasses:
         cls = all_subclasses.popleft()
         if cls in visited_subclasses:
@@ -335,11 +352,19 @@ def _find_subclass(spec: str, superclass: TypeForm):
         visited_subclasses.add(cls)
         if cls.__name__ == base:
             assert module_name is None
-            return _maybe_generic(cls, generic, template=superclass)  # type: ignore[arg-type]
+            candidates.append(_maybe_generic(cls, generic, template=superclass))  # type: ignore[arg-type]
         cls_origin = getattr(cls, "__origin__", cls)
         assert cls_origin is not type
         all_subclasses.extend(cls_origin.__subclasses__())
-    raise MetaFromString(f"No subclass of {type_repr(superclass)} named {base!r}")
+
+    if len(candidates) == 0:
+        raise MetaFromString(f"No subclass of {type_repr(superclass)} named {base!r}")
+    if len(candidates) > 1:
+        raise MetaFromString(
+            f"Multiple subclasses of {type_repr(superclass)} named {base!r}: "
+            f"{', '.join(type_repr(c) for c in candidates)}"
+        )
+    return candidates[0]
 
 
 def _maybe_generic(
@@ -372,12 +397,14 @@ def _return_prospective(obj: Any, annotation: TypeForm, factory: str) -> Any:
         object,
         typing.Any,
         typing_extensions.Any,
-    }:
+    } and not isinstance(annotation, typing.TypeVar):
         if is_subtype_instance(obj, annotation):
             # Allow things to be instances!
+            # In some sense, this is just working around deficiencies in casting...
             return lambda: obj
     elif not callable(obj):
-        # ...including if we would just error on the next line
+        assert is_subtype_instance(obj, annotation)
+        # Also allow things to be instances if we would just error on the next line
         return lambda: obj
 
     if not callable(obj):
@@ -399,7 +426,7 @@ def _return_prospective(obj: Any, annotation: TypeForm, factory: str) -> Any:
 def get_unspecified_from_annotation(annotation: TypeForm) -> Callable[..., Any] | None:
     if typing.get_origin(annotation) is type:
         base_type = typing.get_args(annotation)[0]
-        if not isinstance(getattr(base_type, "__origin__", base_type), type):
+        if is_union_type(base_type):
             # No unspecified for type[SpecialForm] e.g. type[int | str]
             # TODO: annotated
             return None
@@ -426,26 +453,30 @@ def get_unspecified_from_annotation(annotation: TypeForm) -> Callable[..., Any] 
 class standard(MetaFactory):
     def __init__(
         self,
-        annotation: TypeForm | _MISSING_TYPE = MISSING,
+        *,
+        annotation: TypeForm | MISSING_TYPE = MISSING,
         unspecified: Callable[..., Any] | None = None,
-        default_module: str | types.ModuleType | None | _MISSING_TYPE = MISSING,
+        default_module: str | types.ModuleType | None | MISSING_TYPE = MISSING,
     ) -> None:
         super().__init__()
         self._annotation = annotation
         self.original_unspecified = unspecified
         self._default_module = default_module
 
+    def __repr__(self) -> str:
+        return f"standard(annotation={self.annotation!r}, unspecified={self.original_unspecified!r}, default_module={self.default_module!r})"
+
     @property
     def annotation(self) -> TypeForm:
-        if isinstance(self._annotation, _MISSING_TYPE):
-            assert not isinstance(self.field_annotation, _MISSING_TYPE)
+        if isinstance(self._annotation, MISSING_TYPE):
+            assert not isinstance(self.field_annotation, MISSING_TYPE)
             return self.field_annotation
         return self._annotation
 
     @property
     def default_module(self) -> types.ModuleType | str | None:
-        if isinstance(self._default_module, _MISSING_TYPE):
-            if isinstance(self.field_module, _MISSING_TYPE):
+        if isinstance(self._default_module, MISSING_TYPE):
+            if isinstance(self.field_module, MISSING_TYPE):
                 # TODO: maybe make this assert and make artificial use cases pass a value explicitly
                 return None
             return self.field_module
@@ -481,7 +512,7 @@ class standard(MetaFactory):
             # TODO: add docs for fun lambda case
             if module_name == "lambda" or module_name.startswith("lambda "):
                 default_module = self.default_module
-                if isinstance(default_module, _MISSING_TYPE) or default_module is None:
+                if isinstance(default_module, MISSING_TYPE) or default_module is None:
                     eval_ctx = None
                 else:
                     eval_ctx = default_module

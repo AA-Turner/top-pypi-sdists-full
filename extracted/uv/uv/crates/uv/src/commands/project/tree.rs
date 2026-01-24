@@ -29,6 +29,8 @@ use crate::commands::project::{
 use crate::commands::reporters::LatestVersionReporter;
 use crate::commands::{ExitStatus, diagnostics};
 use crate::printer::Printer;
+use crate::settings::FrozenSource;
+use crate::settings::LockCheck;
 use crate::settings::ResolverSettings;
 
 /// Run a command.
@@ -36,8 +38,8 @@ use crate::settings::ResolverSettings;
 pub(crate) async fn tree(
     project_dir: &Path,
     groups: DependencyGroups,
-    locked: bool,
-    frozen: bool,
+    lock_check: LockCheck,
+    frozen: Option<FrozenSource>,
     universal: bool,
     depth: u8,
     prune: Vec<PackageName>,
@@ -81,7 +83,7 @@ pub(crate) async fn tree(
     let groups = groups.with_defaults(default_groups);
 
     // Find an interpreter for the project, unless `--frozen` and `--universal` are both set.
-    let interpreter = if frozen && universal {
+    let interpreter = if frozen.is_some() && universal {
         None
     } else {
         Some(match target {
@@ -123,10 +125,10 @@ pub(crate) async fn tree(
     };
 
     // Determine the lock mode.
-    let mode = if frozen {
-        LockMode::Frozen
-    } else if locked {
-        LockMode::Locked(interpreter.as_ref().unwrap())
+    let mode = if let Some(frozen_source) = frozen {
+        LockMode::Frozen(frozen_source.into())
+    } else if let LockCheck::Enabled(lock_check) = lock_check {
+        LockMode::Locked(interpreter.as_ref().unwrap(), lock_check)
     } else if matches!(target, LockTarget::Script(_)) && !target.lock_path().is_file() {
         // If we're locking a script, avoid creating a lockfile if it doesn't already exist.
         LockMode::DryRun(interpreter.as_ref().unwrap())
@@ -138,19 +140,21 @@ pub(crate) async fn tree(
     let state = UniversalState::default();
 
     // Update the lockfile, if necessary.
-    let lock = match LockOperation::new(
-        mode,
-        &settings,
-        client_builder,
-        &state,
-        Box::new(DefaultResolveLogger),
-        concurrency,
-        cache,
-        &WorkspaceCache::default(),
-        printer,
-        preview,
+    let lock = match Box::pin(
+        LockOperation::new(
+            mode,
+            &settings,
+            client_builder,
+            &state,
+            Box::new(DefaultResolveLogger),
+            concurrency,
+            cache,
+            &WorkspaceCache::default(),
+            printer,
+            preview,
+        )
+        .execute(target),
     )
-    .execute(target)
     .await
     {
         Ok(result) => result.into_lock(),
@@ -209,6 +213,7 @@ pub(crate) async fn tree(
                 upgrade: _,
                 build_options: _,
                 sources: _,
+                torch_backend: _,
             } = &settings;
 
             let capabilities = IndexCapabilities::default();
@@ -228,8 +233,8 @@ pub(crate) async fn tree(
                 client: &client,
                 capabilities: &capabilities,
                 prerelease: lock.prerelease_mode(),
-                exclude_newer: lock.exclude_newer(),
-                requires_python: lock.requires_python(),
+                exclude_newer: &lock.exclude_newer(),
+                requires_python: Some(lock.requires_python()),
                 tags: None,
             };
 

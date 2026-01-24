@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
@@ -22,11 +28,11 @@ class TestVectorIo:
         vector_io = client.vector_io.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
         assert vector_io is None
 
@@ -35,8 +41,8 @@ class TestVectorIo:
         vector_io = client.vector_io.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                     "chunk_metadata": {
                         "chunk_embedding_dimension": 0,
                         "chunk_embedding_model": "chunk_embedding_model",
@@ -51,10 +57,10 @@ class TestVectorIo:
                         "updated_timestamp": 0,
                     },
                     "embedding": [0],
-                    "stored_chunk_id": "stored_chunk_id",
+                    "metadata": {"foo": "bar"},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
             ttl_seconds=0,
         )
         assert vector_io is None
@@ -64,11 +70,11 @@ class TestVectorIo:
         response = client.vector_io.with_raw_response.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
 
         assert response.is_closed is True
@@ -81,11 +87,11 @@ class TestVectorIo:
         with client.vector_io.with_streaming_response.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -99,7 +105,7 @@ class TestVectorIo:
     def test_method_query(self, client: LlamaStackClient) -> None:
         vector_io = client.vector_io.query(
             query="string",
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
         assert_matches_type(QueryChunksResponse, vector_io, path=["response"])
 
@@ -107,8 +113,8 @@ class TestVectorIo:
     def test_method_query_with_all_params(self, client: LlamaStackClient) -> None:
         vector_io = client.vector_io.query(
             query="string",
-            vector_db_id="vector_db_id",
-            params={"foo": True},
+            vector_store_id="vector_store_id",
+            params={"foo": "bar"},
         )
         assert_matches_type(QueryChunksResponse, vector_io, path=["response"])
 
@@ -116,7 +122,7 @@ class TestVectorIo:
     def test_raw_response_query(self, client: LlamaStackClient) -> None:
         response = client.vector_io.with_raw_response.query(
             query="string",
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
 
         assert response.is_closed is True
@@ -128,7 +134,7 @@ class TestVectorIo:
     def test_streaming_response_query(self, client: LlamaStackClient) -> None:
         with client.vector_io.with_streaming_response.query(
             query="string",
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -149,11 +155,11 @@ class TestAsyncVectorIo:
         vector_io = await async_client.vector_io.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
         assert vector_io is None
 
@@ -162,8 +168,8 @@ class TestAsyncVectorIo:
         vector_io = await async_client.vector_io.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                     "chunk_metadata": {
                         "chunk_embedding_dimension": 0,
                         "chunk_embedding_model": "chunk_embedding_model",
@@ -178,10 +184,10 @@ class TestAsyncVectorIo:
                         "updated_timestamp": 0,
                     },
                     "embedding": [0],
-                    "stored_chunk_id": "stored_chunk_id",
+                    "metadata": {"foo": "bar"},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
             ttl_seconds=0,
         )
         assert vector_io is None
@@ -191,11 +197,11 @@ class TestAsyncVectorIo:
         response = await async_client.vector_io.with_raw_response.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
 
         assert response.is_closed is True
@@ -208,11 +214,11 @@ class TestAsyncVectorIo:
         async with async_client.vector_io.with_streaming_response.insert(
             chunks=[
                 {
+                    "chunk_id": "chunk_id",
                     "content": "string",
-                    "metadata": {"foo": True},
                 }
             ],
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -226,7 +232,7 @@ class TestAsyncVectorIo:
     async def test_method_query(self, async_client: AsyncLlamaStackClient) -> None:
         vector_io = await async_client.vector_io.query(
             query="string",
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
         assert_matches_type(QueryChunksResponse, vector_io, path=["response"])
 
@@ -234,8 +240,8 @@ class TestAsyncVectorIo:
     async def test_method_query_with_all_params(self, async_client: AsyncLlamaStackClient) -> None:
         vector_io = await async_client.vector_io.query(
             query="string",
-            vector_db_id="vector_db_id",
-            params={"foo": True},
+            vector_store_id="vector_store_id",
+            params={"foo": "bar"},
         )
         assert_matches_type(QueryChunksResponse, vector_io, path=["response"])
 
@@ -243,7 +249,7 @@ class TestAsyncVectorIo:
     async def test_raw_response_query(self, async_client: AsyncLlamaStackClient) -> None:
         response = await async_client.vector_io.with_raw_response.query(
             query="string",
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         )
 
         assert response.is_closed is True
@@ -255,7 +261,7 @@ class TestAsyncVectorIo:
     async def test_streaming_response_query(self, async_client: AsyncLlamaStackClient) -> None:
         async with async_client.vector_io.with_streaming_response.query(
             query="string",
-            vector_db_id="vector_db_id",
+            vector_store_id="vector_store_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

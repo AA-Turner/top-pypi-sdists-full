@@ -1,0 +1,171 @@
+
+
+[build-system]
+requires = [
+    "hatchling>=1.8.0",
+    "hatch-vcs",
+]
+build-backend = "hatchling.build"
+
+[project]
+requires-python = ">=3.8"
+name = "gstools"
+description = "GSTools: A geostatistical toolbox."
+authors = [
+    {name = "Sebastian Müller, Lennart Schüler", email = "info@geostat-framework.org"},
+]
+readme = "README.md"
+license = "LGPL-3.0"
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft",
+    "Operating System :: MacOS",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "gstools-cython>=1,<2",
+    "emcee>=3.0.0",
+    "hankel>=1.0.0",
+    "meshio>=5.1.0",
+    "numpy>=1.20.0",
+    "pyevtk>=1.1.1",
+    "scipy>=1.1.0",
+]
+
+[project.optional-dependencies]
+doc = [
+    "myst_parser",
+    "matplotlib>=3.7",
+    "meshzoo>=0.7",
+    "numpydoc>=1.1",
+    "pykrige>=1.5,<2",
+    "pyvista>=0.40",
+    "sphinx>=7",
+    "sphinx-gallery>=0.8",
+    "sphinx-rtd-theme>=3",
+    "sphinxcontrib-youtube>=1.1",
+]
+plotting = [
+    "matplotlib>=3.7",
+    "pyvista>=0.40",
+]
+rust = ["gstools_core>=1.0.0"]
+test = ["pytest-cov>=3"]
+lint = [
+    "black>=24",
+    "pylint",
+    "isort[colors]",
+]
+
+[project.urls]
+Changelog = "https://github.com/GeoStat-Framework/GSTools/blob/main/CHANGELOG.md"
+Conda-Forge = "https://anaconda.org/conda-forge/gstools"
+Documentation = "https://gstools.readthedocs.io"
+Homepage = "https://geostat-framework.org/#gstools"
+Source = "https://github.com/GeoStat-Framework/GSTools"
+Tracker = "https://github.com/GeoStat-Framework/GSTools/issues"
+
+[tool.hatch.version]
+source = "vcs"
+fallback_version = "0.0.0.dev0"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/gstools/_version.py"
+template = "__version__ = '{version}'"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gstools"]
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 79
+
+[tool.black]
+line-length = 79
+target-version = [
+    "py38",
+    "py39",
+    "py310",
+    "py311",
+    "py312",
+    "py313",
+]
+
+[tool.coverage]
+    [tool.coverage.run]
+    source = ["gstools"]
+    omit = [
+        "*docs*",
+        "*examples*",
+        "*tests*",
+        "*/src/gstools/covmodel/plot.py",
+        "*/src/gstools/field/plot.py",
+    ]
+
+    [tool.coverage.report]
+    exclude_lines = [
+        "pragma: no cover",
+        "def __repr__",
+        "def __str__",
+    ]
+
+[tool.pylint]
+    [tool.pylint.main]
+    extension-pkg-whitelist = [
+        "numpy",
+        "scipy",
+        "gstools_core",
+    ]
+    ignore = "_version.py"
+    load-plugins = [
+        "pylint.extensions.no_self_use",
+    ]
+
+    [tool.pylint.message_control]
+    disable = [
+        "R0801",
+    ]
+
+    [tool.pylint.reports]
+    output-format = "colorized"
+
+    [tool.pylint.design]
+    max-args = 20
+    max-locals = 50
+    max-branches = 30
+    max-statements = 85
+    max-attributes = 30
+    max-public-methods = 80
+    max-positional-arguments=20

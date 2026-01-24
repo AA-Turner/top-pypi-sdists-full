@@ -34,6 +34,13 @@ class AttrData:
         self.polling_period = -1
         self.memorized = False
         self.hw_memorized = False
+        self.alarm_event_implemented = False
+        self.alarm_event_detect = True
+        self.archive_event_implemented = False
+        self.archive_event_detect = True
+        self.change_event_implemented = False
+        self.change_event_detect = True
+        self.data_ready_event_implemented = False
         if name is None:
             self.read_method_name = None
             self.write_method_name = None
@@ -112,6 +119,18 @@ class AttrData:
         else:
             self.attr_class = FwdAttr
             self.attr_args = [self.attr_name]
+
+        self.alarm_event_implemented = attr_dict.pop("alarm_event_implemented", False)
+        self.alarm_event_detect = attr_dict.pop("alarm_event_detect", True)
+        self.archive_event_implemented = attr_dict.pop(
+            "archive_event_implemented", False
+        )
+        self.archive_event_detect = attr_dict.pop("archive_event_detect", True)
+        self.change_event_implemented = attr_dict.pop("change_event_implemented", False)
+        self.change_event_detect = attr_dict.pop("change_event_detect", True)
+        self.data_ready_event_implemented = attr_dict.pop(
+            "data_ready_event_implemented", False
+        )
 
         if self.forward:
             self.att_prop = self.__create_user_default_fwdattr_prop(attr_dict)
@@ -335,6 +354,20 @@ class AttrData:
             self.memorized = True
         else:
             self.memorized = False
+
+        self.alarm_event_implemented = extra_info.get("alarm_event_implemented", False)
+        self.alarm_event_detect = extra_info.get("alarm_event_detect", True)
+        self.archive_event_implemented = extra_info.get(
+            "archive_event_implemented", False
+        )
+        self.archive_event_detect = extra_info.get("archive_event_detect", True)
+        self.change_event_implemented = extra_info.get(
+            "change_event_implemented", False
+        )
+        self.change_event_detect = extra_info.get("change_event_detect", True)
+        self.data_ready_event_implemented = extra_info.get(
+            "data_ready_event_implemented", False
+        )
 
         if self.attr_type == CmdArgType.DevEnum:
             if "enum_labels" not in extra_info:

@@ -14,7 +14,7 @@ from datadog_api_client.model_utils import (
 
 
 if TYPE_CHECKING:
-    from datadog_api_client.v2.model.rule_version_update import RuleVersionUpdate
+    from datadog_api_client.v2.model.version_history_update import VersionHistoryUpdate
     from datadog_api_client.v2.model.security_monitoring_rule_response import SecurityMonitoringRuleResponse
     from datadog_api_client.v2.model.security_monitoring_standard_rule_response import (
         SecurityMonitoringStandardRuleResponse,
@@ -27,11 +27,11 @@ if TYPE_CHECKING:
 class RuleVersions(ModelNormal):
     @cached_property
     def openapi_types(_):
-        from datadog_api_client.v2.model.rule_version_update import RuleVersionUpdate
+        from datadog_api_client.v2.model.version_history_update import VersionHistoryUpdate
         from datadog_api_client.v2.model.security_monitoring_rule_response import SecurityMonitoringRuleResponse
 
         return {
-            "changes": ([RuleVersionUpdate],),
+            "changes": ([VersionHistoryUpdate],),
             "rule": (SecurityMonitoringRuleResponse,),
         }
 
@@ -42,7 +42,7 @@ class RuleVersions(ModelNormal):
 
     def __init__(
         self_,
-        changes: Union[List[RuleVersionUpdate], UnsetType] = unset,
+        changes: Union[List[VersionHistoryUpdate], UnsetType] = unset,
         rule: Union[
             SecurityMonitoringRuleResponse,
             SecurityMonitoringStandardRuleResponse,
@@ -55,7 +55,7 @@ class RuleVersions(ModelNormal):
         A rule version with a list of updates.
 
         :param changes: A list of changes.
-        :type changes: [RuleVersionUpdate], optional
+        :type changes: [VersionHistoryUpdate], optional
 
         :param rule: Create a new rule.
         :type rule: SecurityMonitoringRuleResponse, optional

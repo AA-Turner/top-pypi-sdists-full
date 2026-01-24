@@ -9,29 +9,23 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class ProjectColumn(GitHubModel):
-    """Project Column
+class RepositoryRuleParamsRestrictedCommits(GitHubModel):
+    """RestrictedCommits
 
-    Project columns contain cards of work.
+    Restricted commit
     """
 
-    url: str = Field()
-    project_url: str = Field()
-    cards_url: str = Field()
-    id: int = Field(description="The unique identifier of the project column")
-    node_id: str = Field()
-    name: str = Field(description="Name of the project column")
-    created_at: datetime = Field()
-    updated_at: datetime = Field()
+    oid: str = Field(description="Full or abbreviated commit hash to reject")
+    reason: Missing[str] = Field(default=UNSET, description="Reason for restriction")
 
 
-model_rebuild(ProjectColumn)
+model_rebuild(RepositoryRuleParamsRestrictedCommits)
 
-__all__ = ("ProjectColumn",)
+__all__ = ("RepositoryRuleParamsRestrictedCommits",)

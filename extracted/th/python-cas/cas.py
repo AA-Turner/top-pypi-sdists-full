@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import requests
 from lxml import etree
-from six.moves.urllib import parse as urllib_parse
+from urllib.parse import urljoin, urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class CASClientBase(object):
         self.renew = renew
         self.username_attribute = username_attribute
         self.verify_ssl_certificate = verify_ssl_certificate
-        self.session = session or requests.Session()
+        self.session = session or requests.sessions.Session()
 
     def verify_ticket(self, ticket):
         """Verify ticket.
@@ -103,9 +103,9 @@ class CASClientBase(object):
             params.update({'renew': 'true'})
 
         params.update(self.extra_login_params)
-        url = urllib_parse.urljoin(self.server_url, 'login')
-        query = urllib_parse.urlencode(params)
-        return url + '?' + query
+        url = urljoin(self.server_url, 'login')
+        query = urlencode(params)
+        return ''.join([url, '?', query])
 
     def get_logout_url(self, redirect_url=None):
         """Generates CAS logout URL
@@ -113,10 +113,11 @@ class CASClientBase(object):
         Returns:
             str: Logout URL
         """
-        url = urllib_parse.urljoin(self.server_url, 'logout')
+        url = urljoin(self.server_url, 'logout')
         if redirect_url:
             params = {self.logout_redirect_param_name: redirect_url}
-            url += '?' + urllib_parse.urlencode(params)
+            query = urlencode(params)
+            return ''.join([url, '?', query])
         return url
 
     def get_proxy_url(self, pgt):
@@ -125,8 +126,10 @@ class CASClientBase(object):
         Returns:
             str: Proxy URL
         """
-        params = urllib_parse.urlencode({'pgt': pgt, 'targetService': self.service_url})
-        return "%s/proxy?%s" % (self.server_url, params)
+        params = {'pgt': pgt, 'targetService': self.service_url}
+        url = urljoin(self.server_url, 'proxy')
+        query = urlencode(params)
+        return ''.join([url, '?', query])
 
     def get_proxy_ticket(self, pgt):
         """Get proxy ticket given the proxy granting ticket
@@ -167,8 +170,7 @@ class CASClientV1(CASClientBase):
         Returns username on success and None on failure.
         """
         params = [('ticket', ticket), ('service', self.service_url)]
-        url = (urllib_parse.urljoin(self.server_url, 'validate') + '?' +
-               urllib_parse.urlencode(params))
+        url = (urljoin(self.server_url, 'validate') + '?' + urlencode(params))
         page = self.session.get(
             url,
             stream=True,
@@ -208,7 +210,7 @@ class CASClientV2(CASClientBase):
         }
         if self.proxy_callback:
             params.update({'pgtUrl': self.proxy_callback})
-        base_url = urllib_parse.urljoin(self.server_url, self.url_suffix)
+        base_url = urljoin(self.server_url, self.url_suffix)
         page = self.session.get(
             base_url,
             params=params,
@@ -374,9 +376,7 @@ class CASClientWithSAMLV1(CASClientV2, SingleLogoutMixin):
             'content-type': 'text/xml; charset=utf-8',
         }
         params = {'TARGET': self.service_url}
-        saml_validate_url = urllib_parse.urljoin(
-            self.server_url, 'samlValidate',
-        )
+        saml_validate_url = urljoin(self.server_url, 'samlValidate',)
         return self.session.post(
             saml_validate_url,
             self.get_saml_assertion(ticket),

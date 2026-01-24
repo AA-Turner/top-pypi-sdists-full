@@ -173,7 +173,7 @@ class ParentViewset:
             else get_model_factory(self.model)
         )
 
-    def _get_mixins_data(self, type="GET", dump_data=False, data=None):
+    def _get_mixins_data(self, type="GET", dump_data=False, data=None):  # noqa: C901
         api_request = APIRequestFactory()
         superuser = get_or_create_superuser()
         kwargs = None

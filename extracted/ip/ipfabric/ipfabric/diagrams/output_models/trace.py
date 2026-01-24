@@ -91,6 +91,7 @@ class DropPacket(BaseModel, extra=PYDANTIC_EXTRAS):
     type: Literal["drop packet"]
     reason: str
     severityInfo: Optional[SeverityInfo] = None
+    action: Optional[str] = None
     ips: Optional[list[str]] = None
     groupIp: Optional[list[str]] = None
     sourceIp: Optional[list[str]] = None

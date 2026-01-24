@@ -35,6 +35,21 @@ class DataPlaneJobQueueServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueOperationSummaryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueOperationSummaryResponse.FromString,
         )
+        self.ListJobQueueAttempts = channel.unary_unary(
+            "/chalk.server.v1.DataPlaneJobQueueService/ListJobQueueAttempts",
+            request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListJobQueueAttemptsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListJobQueueAttemptsResponse.FromString,
+        )
+        self.ForceCancelJobQueueJob = channel.unary_unary(
+            "/chalk.server.v1.DataPlaneJobQueueService/ForceCancelJobQueueJob",
+            request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ForceCancelJobQueueJobRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ForceCancelJobQueueJobResponse.FromString,
+        )
+        self.CancelWorkflowExecution = channel.unary_unary(
+            "/chalk.server.v1.DataPlaneJobQueueService/CancelWorkflowExecution",
+            request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.CancelWorkflowExecutionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.CancelWorkflowExecutionResponse.FromString,
+        )
 
 
 class DataPlaneJobQueueServiceServicer(object):
@@ -64,6 +79,24 @@ class DataPlaneJobQueueServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListJobQueueAttempts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ForceCancelJobQueueJob(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CancelWorkflowExecution(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DataPlaneJobQueueServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +119,21 @@ def add_DataPlaneJobQueueServiceServicer_to_server(servicer, server):
             servicer.GetJobQueueOperationSummary,
             request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueOperationSummaryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueOperationSummaryResponse.SerializeToString,
+        ),
+        "ListJobQueueAttempts": grpc.unary_unary_rpc_method_handler(
+            servicer.ListJobQueueAttempts,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListJobQueueAttemptsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListJobQueueAttemptsResponse.SerializeToString,
+        ),
+        "ForceCancelJobQueueJob": grpc.unary_unary_rpc_method_handler(
+            servicer.ForceCancelJobQueueJob,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ForceCancelJobQueueJobRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ForceCancelJobQueueJobResponse.SerializeToString,
+        ),
+        "CancelWorkflowExecution": grpc.unary_unary_rpc_method_handler(
+            servicer.CancelWorkflowExecution,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.CancelWorkflowExecutionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.CancelWorkflowExecutionResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -204,6 +252,93 @@ class DataPlaneJobQueueService(object):
             "/chalk.server.v1.DataPlaneJobQueueService/GetJobQueueOperationSummary",
             chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueOperationSummaryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueOperationSummaryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListJobQueueAttempts(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DataPlaneJobQueueService/ListJobQueueAttempts",
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListJobQueueAttemptsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListJobQueueAttemptsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ForceCancelJobQueueJob(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DataPlaneJobQueueService/ForceCancelJobQueueJob",
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ForceCancelJobQueueJobRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ForceCancelJobQueueJobResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CancelWorkflowExecution(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DataPlaneJobQueueService/CancelWorkflowExecution",
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.CancelWorkflowExecutionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.CancelWorkflowExecutionResponse.FromString,
             options,
             channel_credentials,
             insecure,

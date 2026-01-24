@@ -41,6 +41,13 @@ def load_shellcode(shellcode: bytes | str, arch, start_offset=0, load_address=0,
     if thumb:
         start_offset |= 1
 
+    if "force_tls" not in kwargs:
+        simos = kwargs.get("simos")
+        if simos == "windows":
+            kwargs["force_tls"] = "windows"
+        elif simos == "linux":
+            kwargs["force_tls"] = "linux"
+
     return Project(
         BytesIO(shellcode_bytes),
         main_opts={
@@ -51,6 +58,9 @@ def load_shellcode(shellcode: bytes | str, arch, start_offset=0, load_address=0,
         },
         **kwargs,
     )
+
+
+CACHE_CONFIG_KEYS = {"functions"}
 
 
 class Project:
@@ -119,6 +129,7 @@ class Project:
         analyses_preset=None,
         concrete_target=None,
         eager_ifunc_resolution=None,
+        cache_limits: dict[str, int] | None = None,
         **kwargs,
     ):
         # Step 1: Load the binary
@@ -239,6 +250,9 @@ class Project:
 
         # Step 5.3: ...etc
         self._knowledge_bases = {"default": KnowledgeBase(self, name="global")}
+        self.cache_limits = cache_limits if cache_limits is not None else {}
+        if not set(self.cache_limits.keys()).issubset(CACHE_CONFIG_KEYS):
+            raise ValueError(f"Invalid cache configuration keys: {set(self.cache_limits.keys()) - CACHE_CONFIG_KEYS}")
 
         self.is_java_project = isinstance(self.arch, ArchSoot)
         self.is_java_jni_project = isinstance(self.arch, ArchSoot) and getattr(
@@ -333,7 +347,10 @@ class Project:
             func = reloc.symbol
             if func is None:
                 continue
-            if not func.is_function and func.type != cle.backends.symbol.SymbolType.TYPE_NONE:
+            if isinstance(func, cle.backends.macho.symbol.SymbolTableSymbol):
+                # in macho we cannot determine if a symbol is a function symbol or not
+                pass
+            elif not func.is_function and func.type != cle.backends.symbol.SymbolType.TYPE_NONE:
                 continue
             if func.resolvedby is None:
                 # I don't understand the binary which made me add this case. If you are debugging and see this comment,
@@ -841,6 +858,35 @@ class Project:
 
     def __repr__(self):
         return "<Project %s>" % (self.filename if self.filename is not None else "loaded from stream")
+
+    #
+    # Cache limit settings
+    #
+
+    def get_function_cache_limit(self) -> int | None:
+        """
+        Get the cache limit for function-level caches.
+
+        :return: The cache limit.
+        :rtype: int
+        """
+        if "functions" in self.cache_limits:
+            return self.cache_limits["functions"]
+
+        if self.loader.main_object.cached_content is not None:
+            sz = len(self.loader.main_object.cached_content)
+        else:
+            # estimate a size using max address - min address
+            if self.loader.main_object.max_addr is not None and self.loader.main_object.min_addr is not None:
+                sz = self.loader.main_object.max_addr - self.loader.main_object.min_addr
+            else:
+                sz = None
+
+        if sz is None:
+            return 5000  # sigh
+        if sz < 256 * 1024:
+            return None  # if the binary is small, don't cache functions
+        return ((sz // 512) // 100 + 1) * 100
 
 
 from .factory import AngrObjectFactory

@@ -20,17 +20,25 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineList]:
+    ) -> models.MachineList:
         r"""Get a list of machines for an instance
 
         This request returns the list of machines for an instance. The machines are
         ordered by descending creation date (i.e. most recent machines will be
         returned first)
 
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param query: Returns machines with ID or name that match the given query. Uses exact match for machine ID and partial match for name.
-        :param order_by: Allows to return machines in a particular order. You can order the returned machines by their `name` or `created_at`. To specify the direction, use the `+` or `-` symbols prepended to the property to order by. For example, to return machines in descending order by `created_at`, use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
+        :param order_by: Allows to return machines in a particular order.
+            You can order the returned machines by their `name` or `created_at`.
+            To specify the direction, use the `+` or `-` symbols prepended to the property to order by.
+            For example, to return machines in descending order by `created_at`, use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -66,6 +74,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -86,7 +95,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListMachines",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -96,7 +105,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineList], http_res)
+            return unmarshal_json_response(models.MachineList, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "422"], "application/json"
         ):
@@ -122,17 +131,25 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineList]:
+    ) -> models.MachineList:
         r"""Get a list of machines for an instance
 
         This request returns the list of machines for an instance. The machines are
         ordered by descending creation date (i.e. most recent machines will be
         returned first)
 
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param query: Returns machines with ID or name that match the given query. Uses exact match for machine ID and partial match for name.
-        :param order_by: Allows to return machines in a particular order. You can order the returned machines by their `name` or `created_at`. To specify the direction, use the `+` or `-` symbols prepended to the property to order by. For example, to return machines in descending order by `created_at`, use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
+        :param order_by: Allows to return machines in a particular order.
+            You can order the returned machines by their `name` or `created_at`.
+            To specify the direction, use the `+` or `-` symbols prepended to the property to order by.
+            For example, to return machines in descending order by `created_at`, use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -168,6 +185,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -188,7 +206,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListMachines",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -198,7 +216,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineList], http_res)
+            return unmarshal_json_response(models.MachineList, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "422"], "application/json"
         ):
@@ -226,7 +244,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineCreated]:
+    ) -> models.MachineCreated:
         r"""Create a machine
 
         Creates a new machine.
@@ -269,6 +287,7 @@ class Machines(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateMachineRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -289,7 +308,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -299,7 +318,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineCreated], http_res)
+            return unmarshal_json_response(models.MachineCreated, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "422"], "application/json"
         ):
@@ -327,7 +346,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineCreated]:
+    ) -> models.MachineCreated:
         r"""Create a machine
 
         Creates a new machine.
@@ -370,6 +389,7 @@ class Machines(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateMachineRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -390,7 +410,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -400,7 +420,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineCreated], http_res)
+            return unmarshal_json_response(models.MachineCreated, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "422"], "application/json"
         ):
@@ -423,7 +443,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Machine]:
+    ) -> models.Machine:
         r"""Retrieve a machine
 
         Returns the details of a machine.
@@ -461,6 +481,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -481,7 +502,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -491,7 +512,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Machine], http_res)
+            return unmarshal_json_response(models.Machine, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -514,7 +535,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Machine]:
+    ) -> models.Machine:
         r"""Retrieve a machine
 
         Returns the details of a machine.
@@ -552,6 +573,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -572,7 +594,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -582,7 +604,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Machine], http_res)
+            return unmarshal_json_response(models.Machine, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -607,7 +629,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Machine]:
+    ) -> models.Machine:
         r"""Update a machine
 
         Updates an existing machine.
@@ -659,6 +681,7 @@ class Machines(BaseSDK):
                 "json",
                 Optional[models.UpdateMachineRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -679,7 +702,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -689,7 +712,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Machine], http_res)
+            return unmarshal_json_response(models.Machine, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -714,7 +737,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Machine]:
+    ) -> models.Machine:
         r"""Update a machine
 
         Updates an existing machine.
@@ -766,6 +789,7 @@ class Machines(BaseSDK):
                 "json",
                 Optional[models.UpdateMachineRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -786,7 +810,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -796,7 +820,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Machine], http_res)
+            return unmarshal_json_response(models.Machine, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -819,7 +843,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineDeleted]:
+    ) -> models.MachineDeleted:
         r"""Delete a machine
 
         Deletes a machine.
@@ -857,6 +881,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -877,7 +902,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -887,7 +912,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineDeleted], http_res)
+            return unmarshal_json_response(models.MachineDeleted, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -910,7 +935,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineDeleted]:
+    ) -> models.MachineDeleted:
         r"""Delete a machine
 
         Deletes a machine.
@@ -948,6 +973,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -968,7 +994,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteMachine",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -978,7 +1004,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineDeleted], http_res)
+            return unmarshal_json_response(models.MachineDeleted, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -1001,7 +1027,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineSecretKey]:
+    ) -> models.MachineSecretKey:
         r"""Retrieve a machine secret key
 
         Returns the secret key for a machine.
@@ -1039,6 +1065,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1059,7 +1086,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetMachineSecretKey",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1069,7 +1096,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineSecretKey], http_res)
+            return unmarshal_json_response(models.MachineSecretKey, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404"], "application/json"
         ):
@@ -1092,7 +1119,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineSecretKey]:
+    ) -> models.MachineSecretKey:
         r"""Retrieve a machine secret key
 
         Returns the secret key for a machine.
@@ -1130,6 +1157,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1150,7 +1178,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetMachineSecretKey",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1160,7 +1188,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineSecretKey], http_res)
+            return unmarshal_json_response(models.MachineSecretKey, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404"], "application/json"
         ):
@@ -1184,7 +1212,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineSecretKey]:
+    ) -> models.MachineSecretKey:
         r"""Rotate a machine's secret key
 
         Rotates the machine's secret key.
@@ -1192,7 +1220,9 @@ class Machines(BaseSDK):
         The previous secret key will remain valid for the duration specified by the previous_token_ttl parameter.
 
         :param machine_id: The ID of the machine to rotate the secret key for
-        :param previous_token_ttl: The time in seconds that the previous secret key will remain valid after rotation. This ensures a graceful transition period for updating applications with the new secret key. Set to 0 to immediately expire the previous key. Maximum value is 8 hours (28800 seconds).
+        :param previous_token_ttl: The time in seconds that the previous secret key will remain valid after rotation.
+            This ensures a graceful transition period for updating applications with the new secret key.
+            Set to 0 to immediately expire the previous key. Maximum value is 8 hours (28800 seconds).
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1235,6 +1265,7 @@ class Machines(BaseSDK):
                 "json",
                 models.RotateMachineSecretKeyRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1255,7 +1286,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RotateMachineSecretKey",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1265,7 +1296,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineSecretKey], http_res)
+            return unmarshal_json_response(models.MachineSecretKey, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -1289,7 +1320,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineSecretKey]:
+    ) -> models.MachineSecretKey:
         r"""Rotate a machine's secret key
 
         Rotates the machine's secret key.
@@ -1297,7 +1328,9 @@ class Machines(BaseSDK):
         The previous secret key will remain valid for the duration specified by the previous_token_ttl parameter.
 
         :param machine_id: The ID of the machine to rotate the secret key for
-        :param previous_token_ttl: The time in seconds that the previous secret key will remain valid after rotation. This ensures a graceful transition period for updating applications with the new secret key. Set to 0 to immediately expire the previous key. Maximum value is 8 hours (28800 seconds).
+        :param previous_token_ttl: The time in seconds that the previous secret key will remain valid after rotation.
+            This ensures a graceful transition period for updating applications with the new secret key.
+            Set to 0 to immediately expire the previous key. Maximum value is 8 hours (28800 seconds).
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1340,6 +1373,7 @@ class Machines(BaseSDK):
                 "json",
                 models.RotateMachineSecretKeyRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1360,7 +1394,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RotateMachineSecretKey",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1370,7 +1404,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineSecretKey], http_res)
+            return unmarshal_json_response(models.MachineSecretKey, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -1394,7 +1428,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineScope]:
+    ) -> models.MachineScope:
         r"""Create a machine scope
 
         Creates a new machine scope, allowing the specified machine to access another machine.
@@ -1444,6 +1478,7 @@ class Machines(BaseSDK):
                 "json",
                 Optional[models.CreateMachineScopeRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1464,7 +1499,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateMachineScope",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1474,7 +1509,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineScope], http_res)
+            return unmarshal_json_response(models.MachineScope, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "409", "422"], "application/json"
         ):
@@ -1498,7 +1533,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineScope]:
+    ) -> models.MachineScope:
         r"""Create a machine scope
 
         Creates a new machine scope, allowing the specified machine to access another machine.
@@ -1548,6 +1583,7 @@ class Machines(BaseSDK):
                 "json",
                 Optional[models.CreateMachineScopeRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1568,7 +1604,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateMachineScope",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1578,7 +1614,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.MachineScope], http_res)
+            return unmarshal_json_response(models.MachineScope, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "409", "422"], "application/json"
         ):
@@ -1602,7 +1638,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineScopeDeleted]:
+    ) -> models.MachineScopeDeleted:
         r"""Delete a machine scope
 
         Deletes a machine scope, removing access from one machine to another.
@@ -1642,6 +1678,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1662,7 +1699,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteMachineScope",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1672,9 +1709,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.MachineScopeDeleted], http_res
-            )
+            return unmarshal_json_response(models.MachineScopeDeleted, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -1698,7 +1733,7 @@ class Machines(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.MachineScopeDeleted]:
+    ) -> models.MachineScopeDeleted:
         r"""Delete a machine scope
 
         Deletes a machine scope, removing access from one machine to another.
@@ -1738,6 +1773,7 @@ class Machines(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1758,7 +1794,7 @@ class Machines(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteMachineScope",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1768,9 +1804,7 @@ class Machines(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.MachineScopeDeleted], http_res
-            )
+            return unmarshal_json_response(models.MachineScopeDeleted, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):

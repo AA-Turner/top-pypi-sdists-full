@@ -13,6 +13,12 @@ if TYPE_CHECKING:
     from ..models.flow_status_failure_module_agent_actions_item_type_1 import (
         FlowStatusFailureModuleAgentActionsItemType1,
     )
+    from ..models.flow_status_failure_module_agent_actions_item_type_2 import (
+        FlowStatusFailureModuleAgentActionsItemType2,
+    )
+    from ..models.flow_status_failure_module_agent_actions_item_type_3 import (
+        FlowStatusFailureModuleAgentActionsItemType3,
+    )
     from ..models.flow_status_failure_module_approvers_item import FlowStatusFailureModuleApproversItem
     from ..models.flow_status_failure_module_branch_chosen import FlowStatusFailureModuleBranchChosen
     from ..models.flow_status_failure_module_branchall import FlowStatusFailureModuleBranchall
@@ -42,7 +48,8 @@ class FlowStatusFailureModule:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['FlowStatusFailureModuleAgentActionsItemType0',
-            'FlowStatusFailureModuleAgentActionsItemType1']]]):
+            'FlowStatusFailureModuleAgentActionsItemType1', 'FlowStatusFailureModuleAgentActionsItemType2',
+            'FlowStatusFailureModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
         parent_module (Union[Unset, str]):
     """
@@ -63,7 +70,14 @@ class FlowStatusFailureModule:
     skipped: Union[Unset, bool] = UNSET
     agent_actions: Union[
         Unset,
-        List[Union["FlowStatusFailureModuleAgentActionsItemType0", "FlowStatusFailureModuleAgentActionsItemType1"]],
+        List[
+            Union[
+                "FlowStatusFailureModuleAgentActionsItemType0",
+                "FlowStatusFailureModuleAgentActionsItemType1",
+                "FlowStatusFailureModuleAgentActionsItemType2",
+                "FlowStatusFailureModuleAgentActionsItemType3",
+            ]
+        ],
     ] = UNSET
     agent_actions_success: Union[Unset, List[bool]] = UNSET
     parent_module: Union[Unset, str] = UNSET
@@ -72,6 +86,12 @@ class FlowStatusFailureModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.flow_status_failure_module_agent_actions_item_type_0 import (
             FlowStatusFailureModuleAgentActionsItemType0,
+        )
+        from ..models.flow_status_failure_module_agent_actions_item_type_1 import (
+            FlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.flow_status_failure_module_agent_actions_item_type_2 import (
+            FlowStatusFailureModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -124,6 +144,12 @@ class FlowStatusFailureModule:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, FlowStatusFailureModuleAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusFailureModuleAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusFailureModuleAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -186,6 +212,12 @@ class FlowStatusFailureModule:
         )
         from ..models.flow_status_failure_module_agent_actions_item_type_1 import (
             FlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.flow_status_failure_module_agent_actions_item_type_2 import (
+            FlowStatusFailureModuleAgentActionsItemType2,
+        )
+        from ..models.flow_status_failure_module_agent_actions_item_type_3 import (
+            FlowStatusFailureModuleAgentActionsItemType3,
         )
         from ..models.flow_status_failure_module_approvers_item import FlowStatusFailureModuleApproversItem
         from ..models.flow_status_failure_module_branch_chosen import FlowStatusFailureModuleBranchChosen
@@ -253,7 +285,12 @@ class FlowStatusFailureModule:
 
             def _parse_agent_actions_item(
                 data: object,
-            ) -> Union["FlowStatusFailureModuleAgentActionsItemType0", "FlowStatusFailureModuleAgentActionsItemType1"]:
+            ) -> Union[
+                "FlowStatusFailureModuleAgentActionsItemType0",
+                "FlowStatusFailureModuleAgentActionsItemType1",
+                "FlowStatusFailureModuleAgentActionsItemType2",
+                "FlowStatusFailureModuleAgentActionsItemType3",
+            ]:
                 try:
                     if not isinstance(data, dict):
                         raise TypeError()
@@ -262,11 +299,27 @@ class FlowStatusFailureModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = FlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = FlowStatusFailureModuleAgentActionsItemType2.from_dict(data)
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = FlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = FlowStatusFailureModuleAgentActionsItemType3.from_dict(data)
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

@@ -4,8 +4,6 @@ import shutil
 import click
 
 from clarifai.cli.base import cli
-from clarifai.client.app import App
-from clarifai.client.user import User
 from clarifai.utils.cli import (
     AliasedGroup,
     convert_timestamp_to_string,
@@ -26,14 +24,19 @@ def pipeline():
 
 @pipeline.command()
 @click.argument("path", type=click.Path(exists=True), required=False, default=".")
-def upload(path):
+@click.option(
+    '--no-lockfile',
+    is_flag=True,
+    help='Skip creating config-lock.yaml file.',
+)
+def upload(path, no_lockfile):
     """Upload a pipeline with associated pipeline steps to Clarifai.
 
     PATH: Path to the pipeline configuration file or directory containing config.yaml. If not specified, the current directory is used by default.
     """
     from clarifai.runners.pipelines.pipeline_builder import upload_pipeline
 
-    upload_pipeline(path)
+    upload_pipeline(path, no_lockfile=no_lockfile)
 
 
 @pipeline.command()
@@ -81,6 +84,17 @@ def upload(path):
     default=False,
     help='Monitor an existing pipeline run instead of starting a new one. Requires pipeline_version_run_id.',
 )
+@click.option(
+    '--set',
+    'override_params',
+    multiple=True,
+    help='Override parameter values inline. Format: --set key=value. Can be used multiple times.',
+)
+@click.option(
+    '--overrides-file',
+    type=click.Path(exists=True),
+    help='Path to JSON/YAML file containing parameter overrides.',
+)
 @click.pass_context
 def run(
     ctx,
@@ -97,6 +111,8 @@ def run(
     monitor_interval,
     log_file,
     monitor,
+    override_params,
+    overrides_file,
 ):
     """Run a pipeline and monitor its progress."""
     import json
@@ -106,15 +122,32 @@ def run(
 
     validate_context(ctx)
 
+    # Try to load from config-lock.yaml first if no config is specified
+    lockfile_path = os.path.join(os.getcwd(), "config-lock.yaml")
+    if not config and os.path.exists(lockfile_path):
+        logger.info("Found config-lock.yaml, using it as default config source")
+        config = lockfile_path
+
     if config:
         config_data = from_yaml(config)
-        pipeline_id = config_data.get('pipeline_id', pipeline_id)
-        pipeline_version_id = config_data.get('pipeline_version_id', pipeline_version_id)
+
+        # Handle both regular config format and lockfile format
+        if 'pipeline' in config_data and isinstance(config_data['pipeline'], dict):
+            pipeline_config = config_data['pipeline']
+            pipeline_id = pipeline_config.get('id', pipeline_id)
+            pipeline_version_id = pipeline_config.get('version_id', pipeline_version_id)
+            user_id = pipeline_config.get('user_id', user_id)
+            app_id = pipeline_config.get('app_id', app_id)
+        else:
+            # Fallback to flat config structure
+            pipeline_id = config_data.get('pipeline_id', pipeline_id)
+            pipeline_version_id = config_data.get('pipeline_version_id', pipeline_version_id)
+            user_id = config_data.get('user_id', user_id)
+            app_id = config_data.get('app_id', app_id)
+
         pipeline_version_run_id = config_data.get(
             'pipeline_version_run_id', pipeline_version_run_id
         )
-        user_id = config_data.get('user_id', user_id)
-        app_id = config_data.get('app_id', app_id)
         nodepool_id = config_data.get('nodepool_id', nodepool_id)
         compute_cluster_id = config_data.get('compute_cluster_id', compute_cluster_id)
         pipeline_url = config_data.get('pipeline_url', pipeline_url)
@@ -180,12 +213,63 @@ def run(
             log_file=log_file,
         )
 
+    # Process input argument overrides
+    input_args_override = None
+    if override_params or overrides_file:
+        from clarifai_grpc.grpc.api import resources_pb2
+
+        # Start with an empty dict for all overrides
+        all_overrides = {}
+
+        # Load overrides from file if provided
+        if overrides_file:
+            from clarifai.utils.cli import from_yaml
+
+            try:
+                if overrides_file.endswith(('.yaml', '.yml')):
+                    file_overrides = from_yaml(overrides_file)
+                else:  # assume JSON
+                    import json
+
+                    with open(overrides_file, 'r') as f:
+                        file_overrides = json.load(f)
+
+                all_overrides.update(file_overrides)
+            except Exception as e:
+                raise ValueError(f"Failed to load overrides file {overrides_file}: {e}")
+
+        # Process inline --set parameters (these take precedence over file)
+        for param in override_params:
+            if '=' not in param:
+                raise ValueError(f"Invalid --set format: {param}. Expected format: key=value")
+            key, value = param.split('=', 1)
+            all_overrides[key] = value
+
+        # Build the OrchestrationArgsOverride proto if we have any overrides
+        if all_overrides:
+            parameters = []
+            for key, value in all_overrides.items():
+                parameters.append(
+                    resources_pb2.ArgoParameterOverride(
+                        name=key,
+                        value=str(value),  # Argo parameters are always strings
+                    )
+                )
+
+            input_args_override = resources_pb2.OrchestrationArgsOverride(
+                argo_args_override=resources_pb2.ArgoArgsOverride(parameters=parameters)
+            )
+
     if monitor:
         # Monitor existing pipeline run instead of starting new one
         result = pipeline.monitor_only(timeout=timeout, monitor_interval=monitor_interval)
     else:
         # Start new pipeline run and monitor it
-        result = pipeline.run(timeout=timeout, monitor_interval=monitor_interval)
+        result = pipeline.run(
+            timeout=timeout,
+            monitor_interval=monitor_interval,
+            input_args_override=input_args_override,
+        )
     click.echo(json.dumps(result, indent=2, default=str))
 
 
@@ -319,6 +403,62 @@ def init(pipeline_path):
     logger.info("3. Run 'clarifai pipeline upload config.yaml' to upload your pipeline")
 
 
+@pipeline.command()
+@click.argument(
+    "lockfile_path", type=click.Path(exists=True), required=False, default="config-lock.yaml"
+)
+def validate_lock(lockfile_path):
+    """Validate a config-lock.yaml file for schema and reference consistency.
+
+    LOCKFILE_PATH: Path to the config-lock.yaml file. If not specified, looks for config-lock.yaml in current directory.
+    """
+    from clarifai.runners.utils.pipeline_validation import PipelineConfigValidator
+    from clarifai.utils.cli import from_yaml
+
+    try:
+        # Load the lockfile
+        lockfile_data = from_yaml(lockfile_path)
+
+        # Validate required fields
+        if "pipeline" not in lockfile_data:
+            raise ValueError("'pipeline' section not found in lockfile")
+
+        pipeline = lockfile_data["pipeline"]
+        required_fields = ["id", "user_id", "app_id", "version_id"]
+
+        for field in required_fields:
+            if field not in pipeline:
+                raise ValueError(f"Required field '{field}' not found in pipeline section")
+            if not pipeline[field]:
+                raise ValueError(f"Required field '{field}' cannot be empty")
+
+        # Validate orchestration spec if present
+        if "orchestration_spec" in pipeline:
+            # Create a temporary config structure for validation
+            temp_config = {
+                "pipeline": {
+                    "id": pipeline["id"],
+                    "user_id": pipeline["user_id"],
+                    "app_id": pipeline["app_id"],
+                    "orchestration_spec": pipeline["orchestration_spec"],
+                }
+            }
+
+            # Use existing validator to check orchestration spec
+            validator = PipelineConfigValidator()
+            validator._validate_orchestration_spec(temp_config)
+
+        logger.info(f"✅ Lockfile {lockfile_path} is valid")
+        logger.info(f"Pipeline: {pipeline['id']}")
+        logger.info(f"User: {pipeline['user_id']}")
+        logger.info(f"App: {pipeline['app_id']}")
+        logger.info(f"Version: {pipeline['version_id']}")
+
+    except Exception as e:
+        logger.error(f"❌ Lockfile validation failed: {e}")
+        raise click.Abort()
+
+
 @pipeline.command(['ls'])
 @click.option('--page_no', required=False, help='Page number to list.', default=1)
 @click.option('--per_page', required=False, help='Number of items per page.', default=16)
@@ -331,6 +471,9 @@ def init(pipeline_path):
 def list(ctx, page_no, per_page, app_id):
     """List all pipelines for the user."""
     validate_context(ctx)
+
+    from clarifai.client.app import App
+    from clarifai.client.user import User
 
     if app_id:
         app = App(

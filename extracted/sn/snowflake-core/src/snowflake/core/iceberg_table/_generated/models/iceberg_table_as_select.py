@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.iceberg_table._generated.models.iceberg_table_column import (
     IcebergTableColumn,
@@ -35,14 +35,14 @@ class IcebergTableAsSelect(BaseModel):
     __________
     name : str
         Specifies the name for the table, must be unique for the schema in which the table is created
-    base_location : str
-        Specifies the path to a directory where Snowflake can write data and metadata files for the table
     columns : list[IcebergTableColumn], optional
 
     external_volume : str, optional
         Specifies the name of the external volume to use for the table
     cluster_by : list[str], optional
         Specifies one or more columns or column expressions in the table as the clustering key
+    base_location : str, optional
+        Specifies the path to a directory where Snowflake can write data and metadata files for the table
     comment : str, optional
         Specifies a comment for the table
     """
@@ -55,15 +55,16 @@ class IcebergTableAsSelect(BaseModel):
 
     cluster_by: Optional[List[StrictStr]] = None
 
-    base_location: StrictStr
+    base_location: Optional[StrictStr] = None
 
     comment: Optional[StrictStr] = None
 
     __properties = ["name", "columns", "external_volume", "cluster_by", "base_location", "comment"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -88,7 +89,7 @@ class IcebergTableAsSelect(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -111,9 +112,9 @@ class IcebergTableAsSelect(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return IcebergTableAsSelect.parse_obj(obj)
+            return IcebergTableAsSelect.model_validate(obj)
 
-        _obj = IcebergTableAsSelect.parse_obj(
+        _obj = IcebergTableAsSelect.model_validate(
             {
                 "name": obj.get("name"),
                 "columns": [IcebergTableColumn.from_dict(_item) for _item in obj.get("columns")]
@@ -133,11 +134,11 @@ class IcebergTableAsSelectModel:
     def __init__(
         self,
         name: str,
-        base_location: str,
         # optional properties
         columns: Optional[list[IcebergTableColumn]] = None,
         external_volume: Optional[str] = None,
         cluster_by: Optional[list[str]] = None,
+        base_location: Optional[str] = None,
         comment: Optional[str] = None,
     ):
         """A model object representing the IcebergTableAsSelect resource.
@@ -148,14 +149,14 @@ class IcebergTableAsSelectModel:
         __________
         name : str
             Specifies the name for the table, must be unique for the schema in which the table is created
-        base_location : str
-            Specifies the path to a directory where Snowflake can write data and metadata files for the table
         columns : list[IcebergTableColumn], optional
 
         external_volume : str, optional
             Specifies the name of the external volume to use for the table
         cluster_by : list[str], optional
             Specifies one or more columns or column expressions in the table as the clustering key
+        base_location : str, optional
+            Specifies the path to a directory where Snowflake can write data and metadata files for the table
         comment : str, optional
             Specifies a comment for the table
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kaggle
-Version: 1.7.4.5
+Version: 1.8.3
 Summary: Access Kaggle resources anywhere
 Project-URL: Homepage, https://github.com/Kaggle/kaggle-api
 Project-URL: Issues, https://github.com/Kaggle/kaggle-api/issues
@@ -211,21 +211,21 @@ Keywords: API,Kaggle
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.7
+Requires-Python: >=3.11
+Requires-Dist: black>=24.10.0
 Requires-Dist: bleach
-Requires-Dist: certifi>=14.05.14
-Requires-Dist: charset-normalizer
-Requires-Dist: idna
+Requires-Dist: kagglesdk<1.0,>=0.1.14
+Requires-Dist: mypy>=1.15.0
+Requires-Dist: packaging
 Requires-Dist: protobuf
-Requires-Dist: python-dateutil>=2.5.3
+Requires-Dist: python-dateutil
 Requires-Dist: python-slugify
 Requires-Dist: requests
-Requires-Dist: setuptools>=21.0.0
 Requires-Dist: six>=1.10
-Requires-Dist: text-unidecode
 Requires-Dist: tqdm
+Requires-Dist: types-requests
+Requires-Dist: types-tqdm
 Requires-Dist: urllib3>=1.15.1
-Requires-Dist: webencodings
 Description-Content-Type: text/markdown
 
 # Kaggle API
@@ -253,13 +253,6 @@ or adding to those services, you should be working in your Kaggle mid-tier devel
 environment. You'll run Kaggle locally, in the container, and test the Python code by
 running it in the container so it can connect to your local testing environment.
 
-Also, run the following command to get `autogen.sh` installed:
-```bash
-rm -rf /tmp/autogen && mkdir -p /tmp/autogen && unzip -qo /tmp/autogen.zip -d /tmp/autogen &&
-mv /tmp/autogen/autogen-*/* /tmp/autogen && rm -rf /tmp/autogen/autogen-* &&
-sudo chmod a+rx /tmp/autogen/autogen.sh
-```
-
 ### Prerequisites
 
 We use [hatch](https://hatch.pypa.io) to manage this project.
@@ -286,6 +279,10 @@ The compiled files are generated in the `kaggle/` directory from the `src/` dire
 All the changes must be done in the `src/` directory.
 
 ### Run
+
+Use `hatch run install` to compile the program and install it in the default `hatch` environment.
+To run that version locally for testing, use hatch: `hatch run kaggle -v`. If you'd rather not
+type `hatch run` every time, launch a new shell in the hatch environment: `hatch shell`.
 
 You can also run the code in python directly:
 

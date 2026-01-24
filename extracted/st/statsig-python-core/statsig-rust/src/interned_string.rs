@@ -15,14 +15,15 @@ use crate::{
 };
 
 lazy_static::lazy_static! {
-    static ref EMPTY_STRING: InternedString = InternedString {
+    static ref EMPTY: InternedString = InternedString {
         hash: 0,
         value: Arc::new(String::new()),
     };
 
     static ref TRUE_STRING: InternedString = InternedString::from_string("true".to_string());
     static ref FALSE_STRING: InternedString = InternedString::from_string("false".to_string());
-    static ref SALT_STRING: InternedString = InternedString::from_string("salt".to_string());
+
+    static ref DEFAULT_RULE_ID: InternedString = InternedString::from_str_ref("default");
 }
 
 const TAG: &str = "InternedString";
@@ -33,7 +34,39 @@ pub struct InternedString {
     pub value: Arc<String>,
 }
 
+#[macro_export]
+macro_rules! interned_str {
+    // String literal -> from_str_ref
+    ($value:literal) => {
+        InternedString::from_str_ref($value)
+    };
+    // Bool -> from_bool
+    (bool: $value:literal) => {
+        InternedString::from_bool($value)
+    };
+    // String (owned) -> from_string
+    ($value:expr) => {
+        InternedString::from_string($value)
+    };
+    // DynamicString -> from_dynamic_string
+    ($value:expr) => {
+        InternedString::from_dynamic_string($value)
+    };
+    // String parts (slice) -> from_str_parts
+    ( $value:expr) => {
+        InternedString::from_str_parts($value)
+    };
+}
+
 impl InternedString {
+    pub fn default_rule_id_ref() -> &'static Self {
+        &DEFAULT_RULE_ID
+    }
+
+    pub fn default_rule_id() -> Self {
+        DEFAULT_RULE_ID.clone()
+    }
+
     pub fn from_str_ref(value: &str) -> Self {
         let hash = hashing::hash_one(value);
         let value = InternedString::get_or_create_memoized_string(hash, Cow::Borrowed(value));
@@ -61,6 +94,15 @@ impl InternedString {
         Self { hash, value }
     }
 
+    pub fn from_str_parts(parts: &[&str]) -> Self {
+        let mut value = String::new();
+        for v in parts {
+            value.push_str(v);
+        }
+
+        Self::from_string(value)
+    }
+
     pub fn as_str(&self) -> &str {
         self.value.as_str()
     }
@@ -72,15 +114,15 @@ impl InternedString {
     }
 
     pub fn empty_ref() -> &'static Self {
-        &EMPTY_STRING
+        &EMPTY
     }
 
     pub fn empty() -> Self {
-        EMPTY_STRING.clone()
+        EMPTY.clone()
     }
 
-    pub fn salt_ref() -> &'static Self {
-        &SALT_STRING
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
     }
 
     fn get_or_create_memoized_string(hash: u64, input: Cow<'_, str>) -> Arc<String> {
@@ -149,7 +191,7 @@ impl FromRawValue for String {
 
 impl PartialEq for InternedString {
     fn eq(&self, other: &Self) -> bool {
-        self.hash == other.hash
+        self.as_str() == other.as_str()
     }
 }
 
@@ -193,6 +235,6 @@ impl Display for InternedString {
 
 impl Default for InternedString {
     fn default() -> Self {
-        EMPTY_STRING.clone()
+        EMPTY.clone()
     }
 }

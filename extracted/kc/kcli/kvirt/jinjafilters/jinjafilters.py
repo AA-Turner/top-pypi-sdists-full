@@ -219,12 +219,18 @@ def read_file(path):
         return f.read()
 
 
-def min_ocp_version(version1, version2):
-    return version1 if version1 < version2 else version2
-
-
 def max_ocp_version(version1, version2):
-    return version1 if version1 > version2 else version2
+    return max(version1, version2, key=lambda v: tuple(map(int, v.split("."))))
+
+
+def min_ocp_version(version1, version2):
+    return min(version1, version2, key=lambda v: tuple(map(int, v.split("."))))
+
+
+def filter_bgp_peers(peers, num):
+    peers = peers.copy()
+    del peers[num]
+    return peers
 
 
 jinjafilters = {'basename': basename, 'dirname': dirname, 'diskpath': diskpath, 'kubenodes': kubenodes, 'none': none,
@@ -233,7 +239,7 @@ jinjafilters = {'basename': basename, 'dirname': dirname, 'diskpath': diskpath, 
                 'kcli_info': kcli_info, 'find_manifests': find_manifests, 'exists': exists, 'ipv6_wrap': ipv6_wrap,
                 'has_ctlplane': has_ctlplane, 'wait_csv': wait_csv, 'count': count, 'pwd_path': pwd_path,
                 'min_ocp_version': min_ocp_version, 'max_ocp_version': max_ocp_version, 'real_path': real_path,
-                'read_file': read_file}
+                'read_file': read_file, 'filter_bgp_peers': filter_bgp_peers}
 
 
 class FilterModule(object):

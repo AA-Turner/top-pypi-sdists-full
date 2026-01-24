@@ -7,10 +7,11 @@
 from __future__ import annotations
 
 import inspect
+import warnings
+from collections.abc import Sequence
 from typing import (
     Any,
     Literal,
-    Sequence,
     Union,
     cast,
 )
@@ -24,10 +25,11 @@ from typing_extensions import Self
 from . import _arrow_types, _util
 from . import pytiledbsoma as clib
 from ._constants import SOMA_GEOMETRY, SOMA_JOINID
-from ._exception import SOMAError, map_exception_for_create
-from ._read_iters import ManagedQuery, TableReadIter
+from ._coordinate_selection import CoordinateValueFilters
+from ._exception import DoesNotExistError, SOMAError, is_does_not_exist_error, map_exception_for_create
+from ._query_condition import QueryCondition
+from ._read_iters import TableReadIter
 from ._soma_array import SOMAArray
-from ._tdb_handles import DataFrameWrapper
 from ._types import (
     NPFInfo,
     NPFloating,
@@ -38,13 +40,11 @@ from ._types import (
 )
 from .options import SOMATileDBContext
 from .options._soma_tiledb_context import _validate_soma_tiledb_context
-from .options._tiledb_create_write_options import (
-    TileDBCreateOptions,
-    TileDBWriteOptions,
-)
+from .options._tiledb_create_write_options import TileDBCreateOptions, TileDBDeleteOptions, TileDBWriteOptions
+from .options._util import build_clib_platform_config
 
 _UNBATCHED = options.BatchSize()
-AxisDomain = Union[None, tuple[Any, Any], list[Any]]
+AxisDomain = Union[tuple[Any, Any], list[Any], None]
 Domain = Sequence[AxisDomain]
 
 
@@ -73,7 +73,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         ...         ("B", pa.large_string()),
         ...     ]
         ... )
-        >>> with tiledbsoma.DataFrame.create("./test_dataframe", schema=schema) as df:
+        >>> with tiledbsoma.DataFrame.create("./test_dataframe", schema=schema, domain=[(0, 2)]) as df:
         ...     data = pa.Table.from_pydict(
         ...         {
         ...             "soma_joinid": [0, 1, 2],
@@ -139,7 +139,8 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         it must be ``None``.
     """
 
-    _wrapper_type = DataFrameWrapper
+    __slots__ = ()
+    _handle_type = clib.SOMADataFrame
 
     @classmethod
     def create(
@@ -147,12 +148,12 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         uri: str,
         *,
         schema: pa.Schema,
-        index_column_names: Sequence[str] = (SOMA_JOINID,),
         domain: Domain | None = None,
+        index_column_names: Sequence[str] = (SOMA_JOINID,),
         platform_config: options.PlatformConfig | None = None,
         context: SOMATileDBContext | None = None,
         tiledb_timestamp: OpenTimestamp | None = None,
-    ) -> "DataFrame":
+    ) -> DataFrame:
         """Creates the data structure on disk/S3/cloud.
 
         Args:
@@ -162,36 +163,20 @@ class DataFrame(SOMAArray, somacore.DataFrame):
                 columns to be named as index columns.  If the schema includes types unsupported by
                 the SOMA implementation, an error will be raised.
             index_column_names:
-                A list of column names to use as user-defined
-                index columns (e.g., ``['cell_type', 'tissue_type']``).
-                All named columns must exist in the schema, and at least one
-                index column name is required.
+                A list of column names to use as user-defined index columns (e.g., ``['cell_type', 'tissue_type']``).
+                All named columns must exist in the schema, and at least one index column name is required.
             domain:
-                An optional sequence of tuples specifying the domain of each
-                index column. Each tuple must be a pair consisting of the
-                minimum and maximum values storable in the index column. For
-                example, if there is a single int64-valued index column, then
-                ``domain`` might be ``[(100, 200)]`` to indicate that values
-                between 100 and 200, inclusive, can be stored in that column.
-                If provided, this sequence must have the same length as
-                ``index_column_names``, and the index-column domain will be as
-                specified.  If omitted entirely, or if ``None`` in a given
-                dimension, the corresponding index-column domain will use an
-                empty range, and data writes after that will fail with "A range
-                was set outside of the current domain". Unless you have a
-                particular reason not to, you should always provide the desired
-                `domain` at create time: this is an optional but strongly
-                recommended parameter. See also ``change_domain`` which allows
-                you to expand the domain after create.
+                A sequence of tuples, each specifying the range of storable values for an index column. For example,
+                an int64-valued index column, ``domain=[(100, 200)]`` indicates values between 100 and 200
+                (including 100 and 200) can be stored.  This sequence's length must match index_column_names. Leaving
+                the domain as ``None`` is deprecated.
             platform_config:
-                Platform-specific options used to create this array.
-                This may be provided as settings in a dictionary, with options
-                located in the ``{'tiledb': {'create': ...}}`` key,
-                or as a :class:`~tiledbsoma.TileDBCreateOptions` object.
+                Platform-specific options used to create this array. This may be provided as settings in a dictionary,
+                with options located in the ``{'tiledb': {'create': ...}}`` key, or as a
+                :class:`~tiledbsoma.TileDBCreateOptions` object.
             tiledb_timestamp:
-                If specified, overrides the default timestamp
-                used to open this object. If unset, uses the timestamp provided by
-                the context.
+                If specified, overrides the default timestamp used to open this object. If unset, uses the timestamp
+                provided by the context.
 
 
         Returns:
@@ -208,25 +193,16 @@ class DataFrame(SOMAArray, somacore.DataFrame):
                 If the ``schema`` specifies illegal column names.
             tiledbsoma.AlreadyExistsError:
                 If the underlying object already exists at the given URI.
-            tiledbsoma.NotCreateableError:
-                If the URI is malformed for a particular storage backend.
             TileDBError:
                 If unable to create the underlying object.
 
         Examples:
-            >>> df = pd.DataFrame(data={"soma_joinid": [0, 1], "col1": ["a", "b"]})
-            ... with tiledbsoma.DataFrame.create(
-            ...    "a_dataframe", schema=pa.Schema.from_pandas(df)
-            ... ) as soma_df:
-            ...     soma_df.write(pa.Table.from_pandas(df, preserve_index=False))
-            ...
-            >>> with tiledbsoma.open("a_dataframe") as soma_df:
-            ...     a_df = soma_df.read().concat().to_pandas()
-            ...
-            >>> a_df
-               soma_joinid col1
-            0            0    a
-            1            1    b
+            >>> schema = pa.schema([("soma_joinid", pa.int64()), ("label", pa.large_string()), ("data", pa.float64())])
+            >>> with tiledbsoma.DataFrame.create("dataframe1", schema=schema, domain=((0, 10),)) as soma_df:
+            ...     print(soma_df.schema)
+            soma_joinid: int64 not null
+            label: large_string
+            data: double
 
         Lifecycle:
             Maturing.
@@ -257,13 +233,18 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         domain = None
 
         if soma_domain is None:
+            warnings.warn(
+                "Setting ``domain=None`` is deprecated. Please specify the desired domain for the dataframe.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             soma_domain = tuple(None for _ in index_column_names)
         else:
             ndom = len(soma_domain)
             nidx = len(index_column_names)
             if ndom != nidx:
                 raise ValueError(
-                    f"if domain is specified, it must have the same length as index_column_names; got {ndom} != {nidx}"
+                    f"if domain is specified, it must have the same length as index_column_names; got {ndom} != {nidx}",
                 )
 
         index_column_schema = []
@@ -271,15 +252,21 @@ class DataFrame(SOMAArray, somacore.DataFrame):
 
         for index_column_name, slot_soma_domain in zip(index_column_names, soma_domain):
             pa_field = schema.field(index_column_name)
-            dtype = _arrow_types.tiledb_type_from_arrow_type(
-                pa_field.type, is_indexed_column=True
-            )
+            dtype = _arrow_types.tiledb_type_from_arrow_type(pa_field.type, is_indexed_column=True)
 
             (slot_core_current_domain, saturated_cd) = _fill_out_slot_soma_domain(
-                slot_soma_domain, False, index_column_name, pa_field.type, dtype
+                slot_soma_domain,
+                False,
+                index_column_name,
+                pa_field.type,
+                dtype,
             )
             (slot_core_max_domain, saturated_md) = _fill_out_slot_soma_domain(
-                None, True, index_column_name, pa_field.type, dtype
+                None,
+                True,
+                index_column_name,
+                pa_field.type,
+                dtype,
             )
 
             extent = _find_extent_for_domain(
@@ -291,19 +278,15 @@ class DataFrame(SOMAArray, somacore.DataFrame):
 
             # Necessary to avoid core array-creation error "Reduce domain max by
             # 1 tile extent to allow for expansion."
-            slot_core_current_domain = _revise_domain_for_extent(
-                slot_core_current_domain, extent, saturated_cd
-            )
-            slot_core_max_domain = _revise_domain_for_extent(
-                slot_core_max_domain, extent, saturated_md
-            )
+            slot_core_current_domain = _revise_domain_for_extent(slot_core_current_domain, extent, saturated_cd)
+            slot_core_max_domain = _revise_domain_for_extent(slot_core_max_domain, extent, saturated_md)
 
             if index_column_name == "soma_joinid":
                 lower = slot_core_current_domain[0]
                 upper = slot_core_current_domain[1]
                 if lower < 0 or upper < 0 or upper < lower:
                     raise ValueError(
-                        f"domain for soma_joinid must be non-negative with lower <= upper; got ({lower}, {upper})"
+                        f"domain for soma_joinid must be non-negative with lower <= upper; got ({lower}, {upper})",
                     )
 
             # Here is our Arrow data API for communicating schema info between
@@ -324,11 +307,9 @@ class DataFrame(SOMAArray, somacore.DataFrame):
                 *slot_core_current_domain,
             ]
 
-        index_column_info = pa.RecordBatch.from_pydict(
-            index_column_data, schema=pa.schema(index_column_schema)
-        )
+        index_column_info = pa.RecordBatch.from_pydict(index_column_data, schema=pa.schema(index_column_schema))
 
-        plt_cfg = _util.build_clib_platform_config(platform_config)
+        plt_cfg = build_clib_platform_config(platform_config)
         timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
         try:
             clib.SOMADataFrame.create(
@@ -342,10 +323,21 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         except SOMAError as e:
             raise map_exception_for_create(e, uri) from None
 
-        handle = cls._wrapper_type.open(uri, "w", context, tiledb_timestamp)
+        try:
+            timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+            handle = clib.SOMADataFrame.open(
+                uri,
+                mode=clib.OpenMode.soma_write,
+                context=context.native_context,
+                timestamp=(0, timestamp_ms),
+            )
+
+        except (RuntimeError, SOMAError) as tdbe:
+            if is_does_not_exist_error(tdbe):
+                raise DoesNotExistError(tdbe) from tdbe
+            raise SOMAError(tdbe) from tdbe
         return cls(
-            handle,
-            _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
+            handle, uri=uri, context=context, _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code"
         )
 
     def keys(self) -> tuple[str, ...]:
@@ -372,9 +364,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         """
         return self._tiledb_dim_names()
 
-    def get_enumeration_values(
-        self: DataFrame, column_names: Sequence[str]
-    ) -> dict[str, pa.Array]:
+    def get_enumeration_values(self: DataFrame, column_names: Sequence[str]) -> dict[str, pa.Array]:
         """Returns an Arrow array of the specified columns'
         enumeration/dictionary/categorical values. Raises ``ValueError`` if any
         of the the specified column names is not in the schema, or if any is not
@@ -385,21 +375,19 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         # thing, TileDBSOMAError for another.
         for column_name in column_names:
             # We could check:
-            #   if column_name not in self.schema.names: ...
+            #   if column_name not in self.schema.names ...
             # but pyarrow already raises KeyError. We could
             # do that check anyway and provide a really clear
             # error message, but fortunately (not all libraries do this)
             # their error message is sufficiently clear:
-            #   KeyError: 'Column nonesuch does not exist in schema'
+            #   KeyError: 'Column nonesuch does not exist in schema'  # noqa: ERA001
             field = self.schema.field(column_name)
             if not isinstance(field.type, pa.DictionaryType):
                 raise KeyError(f"column name '{column_name}' is not of dictionary type")
 
-        return self._handle.get_enumeration_values(column_names)
+        return cast("dict[str, pa.Array]", self._handle.get_enumeration_values(column_names))
 
-    def extend_enumeration_values(
-        self: DataFrame, values: dict[str, pa.Array], deduplicate: bool = False
-    ) -> None:
+    def extend_enumeration_values(self: DataFrame, values: dict[str, pa.Array], deduplicate: bool = False) -> None:
         """Extend enumeration values for each column defined in `values`.
 
         Raises ``ValueError`` if any of the the specified column names is not in
@@ -415,7 +403,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         for column_name, values_for_column in values.items():
             if not isinstance(values_for_column, pa.Array):
                 raise ValueError(
-                    f"value for column name '{column_name}' must be pyarrow.Array: got '{type(values_for_column)}'"
+                    f"value for column name '{column_name}' must be pyarrow.Array: got '{type(values_for_column)}'",
                 )
 
             # As with get_enumeration_values: we are trusting pyarrow to raise
@@ -423,12 +411,10 @@ class DataFrame(SOMAArray, somacore.DataFrame):
             # when the column name is not present within the schema.
             field = self.schema.field(column_name)
             if not pa.types.is_dictionary(field.type):
-                raise KeyError(
-                    f"schema column name '{column_name}' is not of dictionary type"
-                )
+                raise KeyError(f"schema column name '{column_name}' is not of dictionary type")
             if pa.types.is_dictionary(values_for_column.type):
                 raise ValueError(
-                    f"value column name '{column_name}' is of dictionary type: pass its dictionary array instead"
+                    f"value column name '{column_name}' is of dictionary type: pass its dictionary array instead",
                 )
 
         self._handle.extend_enumeration_values(values, deduplicate)
@@ -461,8 +447,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
             Maturing.
         """
         self._verify_open_for_reading()
-        # if is it in read open mode, then it is a DataFrameWrapper
-        return cast(DataFrameWrapper, self._handle).count
+        return int(self._handle.count)
 
     @property
     def _maybe_soma_joinid_shape(self) -> int | None:
@@ -474,7 +459,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         Lifecycle:
             Experimental.
         """
-        return self._handle.maybe_soma_joinid_shape
+        return cast("Union[int, None]", self._handle.maybe_soma_joinid_shape)
 
     @property
     def _maybe_soma_joinid_maxshape(self) -> int | None:
@@ -485,7 +470,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         Lifecycle:
             Experimental.
         """
-        return self._handle.maybe_soma_joinid_maxshape
+        return cast("Union[int, None]", self._handle.maybe_soma_joinid_maxshape)
 
     @property
     def tiledbsoma_has_upgraded_domain(self) -> bool:
@@ -496,11 +481,9 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         Lifecycle:
             Maturing.
         """
-        return self._handle.tiledbsoma_has_upgraded_domain
+        return cast("bool", self._handle.tiledbsoma_has_upgraded_domain)
 
-    def tiledbsoma_resize_soma_joinid_shape(
-        self, newshape: int, check_only: bool = False
-    ) -> StatusAndReason:
+    def tiledbsoma_resize_soma_joinid_shape(self, newshape: int, check_only: bool = False) -> StatusAndReason:
         """Increases the shape of the dataframe on the ``soma_joinid`` index
         column, if it indeed is an index column, leaving all other index columns
         as-is.
@@ -521,22 +504,19 @@ class DataFrame(SOMAArray, somacore.DataFrame):
 
         if check_only:
             return cast(
-                StatusAndReason,
-                self._handle._handle.can_resize_soma_joinid_shape(
+                "StatusAndReason",
+                self._handle.can_resize_soma_joinid_shape(
                     newshape,
                     function_name_for_messages=function_name_for_messages,
                 ),
             )
-        else:
-            self._handle._handle.resize_soma_joinid_shape(
-                newshape,
-                function_name_for_messages=function_name_for_messages,
-            )
-            return (True, "")
+        self._handle.resize_soma_joinid_shape(
+            newshape,
+            function_name_for_messages=function_name_for_messages,
+        )
+        return (True, "")
 
-    def tiledbsoma_upgrade_soma_joinid_shape(
-        self, newshape: int, check_only: bool = False
-    ) -> StatusAndReason:
+    def tiledbsoma_upgrade_soma_joinid_shape(self, newshape: int, check_only: bool = False) -> StatusAndReason:
         """This is like ``upgrade_domain``, but it only applies the specified
         domain update to the ``soma_joinid`` index column. (It's a
         keystroke-saver.) Any other index columns have their domain set to match
@@ -550,40 +530,35 @@ class DataFrame(SOMAArray, somacore.DataFrame):
 
         if check_only:
             return cast(
-                StatusAndReason,
-                self._handle._handle.can_upgrade_soma_joinid_shape(
+                "StatusAndReason",
+                self._handle.can_upgrade_soma_joinid_shape(
                     newshape,
                     function_name_for_messages=function_name_for_messages,
                 ),
             )
-        else:
-            self._handle._handle.upgrade_soma_joinid_shape(
-                newshape,
-                function_name_for_messages=function_name_for_messages,
-            )
-            return (True, "")
+        self._handle.upgrade_soma_joinid_shape(
+            newshape,
+            function_name_for_messages=function_name_for_messages,
+        )
+        return (True, "")
 
-    def _upgrade_or_change_domain_helper(
-        self, newdomain: Domain, function_name_for_messages: str
-    ) -> Any:
+    def _upgrade_or_change_domain_helper(self, newdomain: Domain, function_name_for_messages: str) -> Any:  # noqa: ANN401
         """Converts the user-level tuple of low/high pairs into a pyarrow table suitable for calling libtiledbsoma."""
         # Check user-provided domain against dataframe domain.
         dim_names = self._tiledb_dim_names()
         if len(dim_names) != len(newdomain):
             raise ValueError(
-                f"{function_name_for_messages}: requested domain has length {len(dim_names)} but the dataframe's schema has index-column count {len(newdomain)}"
+                f"{function_name_for_messages}: requested domain has length {len(dim_names)} but the dataframe's schema has index-column count {len(newdomain)}",
             )
 
-        if any([slot is not None and len(slot) != 2 for slot in newdomain]):
+        if any(slot is not None and len(slot) != 2 for slot in newdomain):
             raise ValueError(
-                f"{function_name_for_messages}: requested domain must have low,high pairs, or `None`, in each slot"
+                f"{function_name_for_messages}: requested domain must have low,high pairs, or `None`, in each slot",
             )
 
         # From the dataframe's schema, extract the subschema for only index columns (TileDB dimensions).
         full_schema = self.schema
-        dim_schema_list = []
-        for dim_name in dim_names:
-            dim_schema_list.append(full_schema.field(dim_name))
+        dim_schema_list = [full_schema.field(dim_name) for dim_name in dim_names]
         dim_schema = pa.schema(dim_schema_list)
 
         # Convert the user's tuple of low/high pairs into a dict keyed by index-column name.
@@ -608,9 +583,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         # index columns, and two rows: one row for the low values and one for the high values.
         return pa.RecordBatch.from_pydict(new_domain_dict, schema=dim_schema)
 
-    def tiledbsoma_upgrade_domain(
-        self, newdomain: Domain, check_only: bool = False
-    ) -> StatusAndReason:
+    def tiledbsoma_upgrade_domain(self, newdomain: Domain, check_only: bool = False) -> StatusAndReason:
         """Allows you to set the domain of a SOMA :class:`DataFrame`, when the
         ``DataFrame`` does not have a domain set yet.
 
@@ -638,22 +611,19 @@ class DataFrame(SOMAArray, somacore.DataFrame):
 
         if check_only:
             return cast(
-                StatusAndReason,
-                self._handle._handle.can_upgrade_domain(
+                "StatusAndReason",
+                self._handle.can_upgrade_domain(
                     pyarrow_domain_table,
                     function_name_for_messages,
                 ),
             )
-        else:
-            self._handle._handle.upgrade_domain(
-                pyarrow_domain_table,
-                function_name_for_messages,
-            )
-            return (True, "")
+        self._handle.upgrade_domain(
+            pyarrow_domain_table,
+            function_name_for_messages,
+        )
+        return (True, "")
 
-    def change_domain(
-        self, newdomain: Domain, check_only: bool = False
-    ) -> StatusAndReason:
+    def change_domain(self, newdomain: Domain, check_only: bool = False) -> StatusAndReason:
         """Allows you to enlarge the domain of a SOMA :class:`DataFrame`, when
         the ``DataFrame`` already has a domain.
 
@@ -695,21 +665,58 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         )
         if check_only:
             return cast(
-                StatusAndReason,
-                self._handle._handle.can_change_domain(
+                "StatusAndReason",
+                self._handle.can_change_domain(
                     pyarrow_domain_table,
                     function_name_for_messages,
                 ),
             )
-        else:
-            self._handle._handle.change_domain(
-                pyarrow_domain_table, function_name_for_messages
-            )
-            return (True, "")
+        self._handle.change_domain(pyarrow_domain_table, function_name_for_messages)
+        return (True, "")
 
     def __len__(self) -> int:
         """Returns the number of rows in the dataframe. Same as ``df.count``."""
         return self.count
+
+    def delete_cells(
+        self,
+        coords: options.SparseDFCoords = (),
+        *,
+        value_filter: str | None = None,
+        platform_config: options.PlatformConfig | None = None,
+    ) -> None:
+        """Deletes cells at the specified coordinates.
+
+        Either ``coords`` or ``value_filter`` must be provided. When both ``coords`` and ``value_filter`` are provided,
+        the cells that match both constraints will be removed.
+
+        For example, to delete values from the ``obs`` dataframe with ``soma_joinid<=1000`` where ``n_genes > 1000``
+        and ``n_counts < 2000``:
+            >>> with tiledbsoma.DataFrame(obs_uri, mode="d") as obs_df:
+            ...     obs_df.delete_cells((slice(None, 1000),), value_filter="n_genes > 1000 and n_counts < 2000")
+
+        Note: Deleting cells does not change the size of the current domain or possible enumeration values.
+
+        Args:
+            coords:
+                A per-dimension ``Sequence`` of scalar, slice, sequence of scalar or
+                `Arrow IntegerArray <https://arrow.apache.org/docs/python/generated/pyarrow.IntegerArray.html>` values
+                defining the region to read.
+            value_filter:
+                An optional [value filter] to apply to the results.
+                Defaults to no filter.
+        """
+        if platform_config is not None and not isinstance(platform_config, TileDBDeleteOptions):
+            raise TypeError(
+                f"Invalid PlatformConfig with type {type(platform_config)}. Must have type {TileDBDeleteOptions.__name__}."
+            )
+        coord_filter = CoordinateValueFilters.create(self, coords)
+        qc_handle = None
+        if value_filter is not None:
+            qc = QueryCondition(value_filter)
+            qc.init_query_condition(self.schema, [])
+            qc_handle = qc.c_obj
+        self._handle.delete_cells(coord_filter._handle, qc_handle)
 
     def read(
         self,
@@ -788,9 +795,7 @@ class DataFrame(SOMAArray, somacore.DataFrame):
             platform_config=platform_config,
         )
 
-    def write(
-        self, values: pa.Table, platform_config: options.PlatformConfig | None = None
-    ) -> Self:
+    def write(self, values: pa.Table, platform_config: options.PlatformConfig | None = None) -> Self:
         """Writes an `Arrow table <https://arrow.apache.org/docs/python/generated/pyarrow.Table.html>`_
         to the persistent object. As duplicate index values are not allowed, index values already
         present in the object are overwritten and new index values are added.
@@ -828,19 +833,13 @@ class DataFrame(SOMAArray, somacore.DataFrame):
         write_options: TileDBCreateOptions | TileDBWriteOptions
         if isinstance(platform_config, TileDBCreateOptions):
             raise ValueError(
-                "As of TileDB-SOMA 1.13, the write method takes "
-                "TileDBWriteOptions instead of TileDBCreateOptions"
+                "As of TileDB-SOMA 1.13, the write method takes TileDBWriteOptions instead of TileDBCreateOptions",
             )
         write_options = TileDBWriteOptions.from_platform_config(platform_config)
-        sort_coords = write_options.sort_coords
-
-        for batch in values.to_batches():
-            mq = ManagedQuery(self)
-            mq._handle.set_array_data(batch)
-            mq._handle.submit_write(sort_coords or False)
+        self._write_table(values, write_options.sort_coords)
 
         if write_options.consolidate_and_vacuum:
-            self._handle._handle.consolidate_and_vacuum()
+            self._handle.consolidate_and_vacuum()
 
         return self
 
@@ -859,12 +858,15 @@ def _canonicalize_schema(
     if not index_column_names:
         raise ValueError("DataFrame requires one or more index columns")
 
+    # Check for column names containing null bytes
+    for field in schema:
+        if any(char == "\x00" for char in field.name):
+            raise ValueError(f"Illegal character in field name `{field.name}`. Null byte found.")
+
     if SOMA_JOINID in schema.names:
         joinid_type = schema.field(SOMA_JOINID).type
         if joinid_type != pa.int64():
-            raise ValueError(
-                f"{SOMA_JOINID} field must be of type Arrow int64 but is {joinid_type}"
-            )
+            raise ValueError(f"{SOMA_JOINID} field must be of type Arrow int64 but is {joinid_type}")
     elif SOMA_JOINID in required_columns:
         # add SOMA_JOINID
         schema = schema.append(pa.field(SOMA_JOINID, pa.int64()))
@@ -873,7 +875,7 @@ def _canonicalize_schema(
         geometry_type = schema.field(SOMA_GEOMETRY).type
         if geometry_type != pa.binary() and geometry_type != pa.large_binary():
             raise ValueError(
-                f"{SOMA_GEOMETRY} field must be of type Arrow binary or large_binary but is {geometry_type}"
+                f"{SOMA_GEOMETRY} field must be of type Arrow binary or large_binary but is {geometry_type}",
             )
         schema.set(
             schema.get_field_index(SOMA_GEOMETRY),
@@ -881,19 +883,13 @@ def _canonicalize_schema(
         )
     elif SOMA_GEOMETRY in required_columns:
         # add SOMA_GEOMETRY
-        schema = schema.append(
-            pa.field(SOMA_GEOMETRY, pa.large_binary(), metadata={"dtype": "WKB"})
-        )
+        schema = schema.append(pa.field(SOMA_GEOMETRY, pa.large_binary(), metadata={"dtype": "WKB"}))
 
     # verify no illegal use of soma_ prefix
     for field_name in schema.names:
-        if (
-            field_name.startswith("soma_")
-            and field_name != SOMA_JOINID
-            and field_name != SOMA_GEOMETRY
-        ):
+        if field_name.startswith("soma_") and field_name != SOMA_JOINID and field_name != SOMA_GEOMETRY:
             raise ValueError(
-                f"DataFrame schema may not contain fields with name prefix ``soma_``: got ``{field_name}``"
+                f"DataFrame schema may not contain fields with name prefix ``soma_``: got ``{field_name}``",
             )
 
     # verify that all index_column_names are present in the schema
@@ -905,15 +901,19 @@ def _canonicalize_schema(
             and index_column_name != SOMA_GEOMETRY
         ):
             raise ValueError(
-                f'index_column_name other than "soma_joinid" must not begin with "soma_"; got "{index_column_name}"'
+                f'index_column_name other than "soma_joinid" must not begin with "soma_"; got "{index_column_name}"',
             )
         if index_column_name not in schema_names_set:
-            schema_names_string = "{}".format(list(schema_names_set))
+            schema_names_string = f"{list(schema_names_set)}"
             raise ValueError(
-                f"All index names must be defined in the dataframe schema: '{index_column_name}' not in {schema_names_string}"
+                f"All index names must be defined in the dataframe schema: '{index_column_name}' not in {schema_names_string}",
             )
         dtype = schema.field(index_column_name).type
-        if not pa.types.is_dictionary(dtype) and dtype not in [
+        if pa.types.is_dictionary(dtype):
+            raise TypeError(
+                f"Cannot set index column '{index_column_name}' to an enumeration. Index columns do not support enumerations."
+            )
+        if dtype not in [
             pa.int8(),
             pa.uint8(),
             pa.int16(),
@@ -934,7 +934,7 @@ def _canonicalize_schema(
             pa.timestamp("ns"),
         ]:
             raise TypeError(
-                f"Unsupported index type {schema.field(index_column_name).type}"
+                f"Unsupported index type {schema.field(index_column_name).type} on index column '{index_column_name}'."
             )
 
     return schema
@@ -945,7 +945,7 @@ def _fill_out_slot_soma_domain(
     is_max_domain: bool,
     index_column_name: str,
     pa_type: pa.DataType,
-    dtype: Any,
+    dtype: Any,  # noqa: ANN401
 ) -> tuple[tuple[Any, Any], bool | tuple[bool, ...]]:
     """Helper function for _build_tiledb_schema. Given a user-specified domain for a
     dimension slot -- which may be ``None``, or a two-tuple of which either element
@@ -964,24 +964,26 @@ def _fill_out_slot_soma_domain(
             saturated_multi_range = []
             for axis_domain in slot_domain:
                 if axis_domain is None:
-                    axes_lo.append(f64info.min)
-                    axes_hi.append(f64info.max)
+                    axes_lo.append(float(f64info.min))
+                    axes_hi.append(float(f64info.max))
                     saturated_multi_range.append(True)
-                elif not isinstance(axis_domain, tuple) or len(axis_domain) != 2:
-                    raise ValueError("Axis domain should be a tuple[float, float]")
                 else:
-                    if np.issubdtype(type(axis_domain[0]), NPFloating) or np.issubdtype(
-                        type(axis_domain[1]), NPFloating
-                    ):
-                        raise ValueError("Axis domain should be a tuple[float, float]")
-
-                    axes_lo.append(axis_domain[0])
-                    axes_hi.append(axis_domain[1])
+                    if not isinstance(axis_domain, tuple) or len(axis_domain) != 2:
+                        raise ValueError(f"Axis domain should be a tuple[float, float], but received '{axis_domain}'.")
+                    try:
+                        lo = float(axis_domain[0])
+                        hi = float(axis_domain[1])
+                    except ValueError as err:
+                        raise ValueError(
+                            f"Axis domain should be a tuple[float, float], but received '{axis_domain}'."
+                        ) from err
+                    axes_lo.append(lo)
+                    axes_hi.append(hi)
                     saturated_multi_range.append(False)
             slot_domain = tuple(axes_lo), tuple(axes_hi)
         else:
             raise ValueError(
-                f"{SOMA_GEOMETRY} domain should be either a list of None or a list of tuple[float, float]"
+                f"{SOMA_GEOMETRY} domain should be either a list of None or a list of tuple[float, float], but received '{slot_domain}'."
             )
 
         return (slot_domain, tuple(saturated_multi_range))
@@ -998,24 +1000,16 @@ def _fill_out_slot_soma_domain(
             # domain=[("a", "z")].  But it will simply _ignore_ the request and
             # use [("", "")]. The decision here is to explicitly reject an
             # unsupported operation.
-            raise ValueError(
-                "TileDB str and bytes index-column types do not support domain specfication"
-            )
+            raise ValueError("TileDB str and bytes index-column types do not support domain specfication")
         if index_column_name == SOMA_JOINID:
             lo = slot_domain[0]
             hi = slot_domain[1]
             if lo is not None and lo < 0:
-                raise ValueError(
-                    f"soma_joinid indices cannot be negative; got lower bound {lo}"
-                )
+                raise ValueError(f"soma_joinid indices cannot be negative; got lower bound {lo}")
             if hi is not None and hi < 0:
-                raise ValueError(
-                    f"soma_joinid indices cannot be negative; got upper bound {hi}"
-                )
+                raise ValueError(f"soma_joinid indices cannot be negative; got upper bound {hi}")
         if len(slot_domain) != 2:
-            raise ValueError(
-                f"domain must be a two-tuple; got {len(slot_domain)} elements"
-            )
+            raise ValueError(f"domain must be a two-tuple; got {len(slot_domain)} elements")
         slot_domain = slot_domain[0], slot_domain[1]
     elif isinstance(dtype, str):
         # Core string dims have no extent and no (core) domain.  We return "" here
@@ -1026,7 +1020,7 @@ def _fill_out_slot_soma_domain(
         if is_max_domain:
             # Core max domain is immutable. If unspecified, it should be as big
             # as possible since it can never be resized.
-            iinfo: NPIInfo = np.iinfo(cast(NPInteger, dtype))
+            iinfo: NPIInfo = np.iinfo(cast("NPInteger", dtype))
             slot_domain = iinfo.min, iinfo.max - 1
             # Here the slot_domain isn't specified by the user; we're setting it.
             # The SOMA spec disallows negative soma_joinid.
@@ -1044,7 +1038,7 @@ def _fill_out_slot_soma_domain(
             slot_domain = 0, 0
     elif np.issubdtype(dtype, NPFloating):
         if is_max_domain:
-            finfo: NPFInfo = np.finfo(cast(NPFloating, dtype))
+            finfo: NPFInfo = np.finfo(cast("NPFloating", dtype))
             slot_domain = finfo.min, finfo.max
             saturated_range = True
         else:
@@ -1065,34 +1059,26 @@ def _fill_out_slot_soma_domain(
     #   to allow for expansion.
     elif dtype == "datetime64[s]":
         if is_max_domain:
-            iinfo = np.iinfo(cast(NPInteger, np.int64))
-            slot_domain = np.datetime64(iinfo.min + 1, "s"), np.datetime64(
-                iinfo.max - 1000000, "s"
-            )
+            iinfo = np.iinfo(cast("NPInteger", np.int64))
+            slot_domain = np.datetime64(iinfo.min + 1, "s"), np.datetime64(iinfo.max - 1000000, "s")
         else:
             slot_domain = np.datetime64(0, "s"), np.datetime64(0, "s")
     elif dtype == "datetime64[ms]":
         if is_max_domain:
-            iinfo = np.iinfo(cast(NPInteger, np.int64))
-            slot_domain = np.datetime64(iinfo.min + 1, "ms"), np.datetime64(
-                iinfo.max - 1000000, "ms"
-            )
+            iinfo = np.iinfo(cast("NPInteger", np.int64))
+            slot_domain = np.datetime64(iinfo.min + 1, "ms"), np.datetime64(iinfo.max - 1000000, "ms")
         else:
             slot_domain = np.datetime64(0, "ms"), np.datetime64(0, "ms")
     elif dtype == "datetime64[us]":
         if is_max_domain:
-            iinfo = np.iinfo(cast(NPInteger, np.int64))
-            slot_domain = np.datetime64(iinfo.min + 1, "us"), np.datetime64(
-                iinfo.max - 1000000, "us"
-            )
+            iinfo = np.iinfo(cast("NPInteger", np.int64))
+            slot_domain = np.datetime64(iinfo.min + 1, "us"), np.datetime64(iinfo.max - 1000000, "us")
         else:
             slot_domain = np.datetime64(0, "us"), np.datetime64(0, "us")
     elif dtype == "datetime64[ns]":
         if is_max_domain:
-            iinfo = np.iinfo(cast(NPInteger, np.int64))
-            slot_domain = np.datetime64(iinfo.min + 1, "ns"), np.datetime64(
-                iinfo.max - 1000000, "ns"
-            )
+            iinfo = np.iinfo(cast("NPInteger", np.int64))
+            slot_domain = np.datetime64(iinfo.min + 1, "ns"), np.datetime64(iinfo.max - 1000000, "ns")
         else:
             slot_domain = np.datetime64(0, "ns"), np.datetime64(0, "ns")
 
@@ -1162,31 +1148,25 @@ def _find_extent_for_domain(
 # extent exceeds max value representable by domain type. Reduce domain max
 # by 1 tile extent to allow for expansion.
 def _revise_domain_for_extent(
-    domain: tuple[Any, Any], extent: Any, saturated_range: bool | tuple[bool, ...]
+    domain: tuple[Any, Any],
+    extent: Any,  # noqa: ANN401
+    saturated_range: bool | tuple[bool, ...],
 ) -> tuple[Any, Any]:
     if isinstance(domain[0], (np.datetime64, pa.TimestampScalar)):
-        domain = cast(
-            tuple[Any, Any], (_util.to_unix_ts(domain[0]), _util.to_unix_ts(domain[1]))
-        )
+        domain = cast("tuple[Any, Any]", (_util.to_unix_ts(domain[0]), _util.to_unix_ts(domain[1])))
 
     if isinstance(saturated_range, tuple):
         # Handle SOMA_GEOMETRY domain with is tuple[list[float], list[float]]
         if isinstance(domain[1], tuple):
             if len(saturated_range) != len(domain[1]):
-                raise ValueError(
-                    "Internal error: Saturatin flag length does not match domain size"
-                )
+                raise ValueError("Internal error: Saturatin flag length does not match domain size")
 
             return (
                 domain[0],
-                [
-                    (dim_max - extent) if saturated_range[idx] else dim_max
-                    for idx, dim_max in enumerate(domain[1])
-                ],
+                [(dim_max - extent) if saturated_range[idx] else dim_max for idx, dim_max in enumerate(domain[1])],
             )
 
         raise ValueError("Expected a complex domain")
-    elif saturated_range:
+    if saturated_range:
         return (domain[0], domain[1] - extent)
-    else:
-        return domain
+    return domain

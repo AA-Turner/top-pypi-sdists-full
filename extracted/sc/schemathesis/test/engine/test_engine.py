@@ -8,11 +8,12 @@ from unittest.mock import ANY
 import pytest
 from aiohttp.streams import EmptyStreamReader
 from fastapi import FastAPI
+from py import sys
 
 import schemathesis
 from schemathesis.checks import not_a_server_error
+from schemathesis.config import SchemathesisWarning
 from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
-from schemathesis.core.errors import RECURSIVE_REFERENCE_ERROR_MESSAGE
 from schemathesis.core.transport import USER_AGENT
 from schemathesis.engine import Status, events, from_schema
 from schemathesis.engine.phases import PhaseName
@@ -98,6 +99,10 @@ def test_interactions(openapi3_base_url, real_app_schema, workers):
     interactions = list(stream.find(events.ScenarioFinished, status=Status.FAILURE).recorder.interactions.values())
     assert len(interactions) == 1
     failure = interactions[0]
+    if sys.version_info >= (3, 14):
+        encoding = ["gzip, deflate, zstd"]
+    else:
+        encoding = ["gzip, deflate"]
     assert asdict(failure.request) == {
         "uri": f"{openapi3_base_url}/failure",
         "method": "GET",
@@ -105,7 +110,7 @@ def test_interactions(openapi3_base_url, real_app_schema, workers):
         "body_size": None,
         "headers": {
             "Accept": ["*/*"],
-            "Accept-Encoding": ["gzip, deflate"],
+            "Accept-Encoding": encoding,
             "Connection": ["keep-alive"],
             "User-Agent": [USER_AGENT],
             SCHEMATHESIS_TEST_CASE_HEADER: [ANY],
@@ -126,7 +131,7 @@ def test_interactions(openapi3_base_url, real_app_schema, workers):
         "body_size": None,
         "headers": {
             "Accept": ["*/*"],
-            "Accept-Encoding": ["gzip, deflate"],
+            "Accept-Encoding": encoding,
             "Connection": ["keep-alive"],
             "User-Agent": [USER_AGENT],
             SCHEMATHESIS_TEST_CASE_HEADER: [ANY],
@@ -354,14 +359,14 @@ def test_response_conformance_invalid(real_app_schema):
 Schema:
 
     {
+        "required": [
+            "success"
+        ],
         "properties": {
             "success": {
                 "type": "boolean"
             }
         },
-        "required": [
-            "success"
-        ],
         "type": "object"
     }
 
@@ -448,13 +453,12 @@ def filter_path_parameters():
     # ".." and "." strings are treated specially, but this behavior is outside the test's scope
     # "" shouldn't be allowed as a valid path parameter
 
-    def before_generate_path_parameters(context, strategy):
+    def before_generate_path_parameters(ctx, strategy):
         return strategy.filter(
             lambda x: x["key"] not in ("..", ".", "", "/") and not (isinstance(x["key"], str) and "/" in x["key"])
         )
 
     schemathesis.hook(before_generate_path_parameters)
-    return
 
 
 @pytest.mark.operations("path_variable")
@@ -621,13 +625,15 @@ def test_skip_operations_with_recursive_references(schema_with_recursive_referen
     stream = EventStream(schema).execute()
     # Then it causes an error with a proper error message
     stream.assert_after_execution_status(Status.ERROR)
-    assert RECURSIVE_REFERENCE_ERROR_MESSAGE in str(stream.find(events.NonFatalError).info)
+    assert "Schema `#/components/schemas/Node` has a required reference to itself" in str(
+        stream.find(events.NonFatalError).info
+    )
 
 
 @pytest.mark.parametrize(
     ("phases", "expected", "total_errors"),
     [
-        ([PhaseName.EXAMPLES, PhaseName.FUZZING], "Failed to generate test cases for this API operation", 2),
+        ([PhaseName.EXAMPLES, PhaseName.FUZZING], "Cannot generate test data for query parameter 'key'", 2),
         ([PhaseName.EXAMPLES], "Failed to generate test cases from examples for this API operation", 1),
     ],
 )
@@ -671,7 +677,7 @@ def test_unsatisfiable_example(ctx, phases, expected, total_errors):
     # And the tests are failing because of the unsatisfiable schema
     stream.assert_errors()
     errors = stream.find_all(events.NonFatalError)
-    assert expected in [str(err.value) for err in errors]
+    assert expected in [str(err.value).splitlines()[0] for err in errors]
     assert len(errors) == total_errors
 
 
@@ -722,25 +728,8 @@ def test_non_serializable_example(ctx, phases, expected):
     assert expected in str(errors[0].info)
 
 
-@pytest.mark.parametrize(
-    ("phases", "expected"),
-    [
-        (
-            [PhaseName.FUZZING],
-            "Failed to generate test cases for this API operation because of "
-            r"unsupported regular expression `^[\w\s\-\/\pL,.#;:()']+$`",
-        ),
-        (
-            [PhaseName.EXAMPLES],
-            (
-                "Failed to generate test cases from examples for this API operation because of "
-                r"unsupported regular expression `^[\w\s\-\/\pL,.#;:()']+$`"
-            ),
-        ),
-    ],
-)
-def test_invalid_regex_example(ctx, phases, expected):
-    # When filling missing properties during examples generation contains invalid regex
+def test_unsupported_regex_removed_with_warning(ctx):
+    # When a schema contains an unsupported regex pattern
     schema = ctx.openapi.build_schema(
         {
             "/success": {
@@ -755,7 +744,7 @@ def test_invalid_regex_example(ctx, phases, expected):
                                     "properties": {
                                         "region": {
                                             "nullable": True,
-                                            "pattern": "^[\\w\\s\\-\\/\\pL,.#;:()']+$",
+                                            "pattern": "^[\\w\\s\\-\\/\\p{Greek},.#;:()']+$",
                                             "type": "string",
                                         },
                                     },
@@ -771,15 +760,37 @@ def test_invalid_regex_example(ctx, phases, expected):
             }
         }
     )
-    # Then the testing process should not raise an internal error
+    # Then the pattern is removed and a warning is emitted
     schema = schemathesis.openapi.from_dict(schema)
-    schema.config.generation.update(modes=[GenerationMode.POSITIVE])
-    stream = EventStream(schema, phases=phases, max_examples=1).execute()
-    # And the tests are failing because of the invalid regex error
-    stream.assert_errors()
-    errors = list(set(stream.find_all(events.NonFatalError)))
-    assert len(errors) == len(phases)
-    assert expected in str(errors[0].info)
+    warnings = list(schema.analysis.iter_warnings())
+    assert len(warnings) > 0
+    assert any("^[\\w\\s\\-\\/\\p{Greek},.#;:()']+$" in w.message for w in warnings)
+
+
+def test_unsupported_regex_in_parameter_removed_with_warning(ctx):
+    # When a parameter schema contains an unsupported regex pattern
+    schema = ctx.openapi.build_schema(
+        {
+            "/users/{id}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string", "pattern": "\\p{Greek}+"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    # Then the pattern is removed and a warning is emitted
+    schema = schemathesis.openapi.from_dict(schema)
+    warnings = list(schema.analysis.iter_warnings())
+    assert len(warnings) > 0
+    assert any("\\p{Greek}+" in w.message for w in warnings)
 
 
 def test_invalid_header_in_example(ctx, openapi3_base_url):
@@ -929,7 +940,9 @@ def test_encoding_octet_stream(ctx, openapi3_base_url):
 def test_graphql(graphql_url):
     schema = schemathesis.graphql.from_url(graphql_url)
     stream = EventStream(schema, max_examples=5).execute()
-    for event, expected in zip(stream.find_all(events.ScenarioFinished), ["Query.getBooks", "Query.getAuthors"]):
+    for event, expected in zip(
+        stream.find_all(events.ScenarioFinished), ["Query.getBooks", "Query.getAuthors"], strict=False
+    ):
         assert event.recorder.label == expected
         for case in event.recorder.cases.values():
             assert case.value.operation.label == expected
@@ -999,6 +1012,8 @@ def test_stop_event_stream_immediately(event_stream):
 
 
 def test_stop_event_stream_after_second_event(event_stream):
+    next(event_stream)
+    next(event_stream)
     next(event_stream)
     next(event_stream)
     next(event_stream)
@@ -1159,10 +1174,13 @@ def test_stateful_override(real_app_schema):
     ).execute()
     interactions = stream.find_all_interactions()
     assert len(interactions) > 0
-    get_requests = [i.request for i in interactions if i.request.method == "GET"]
-    assert len(get_requests) > 0
-    for request in get_requests:
-        assert "/api/users/42?" in request.uri
+    # Check any request that uses user_id (GET or PATCH)
+    user_requests = [
+        i.request for i in interactions if "/api/users/" in i.request.uri and i.request.method in ("GET", "PATCH")
+    ]
+    assert len(user_requests) > 0
+    for request in user_requests:
+        assert "/api/users/42" in request.uri
 
 
 def test_generation_config_in_explicit_examples(ctx, openapi2_base_url):
@@ -1212,3 +1230,131 @@ def test_generation_config_in_explicit_examples(ctx, openapi2_base_url):
                     if header:
                         assert set(header) == {"a"}
             break
+
+
+def test_missing_deserializer_warnings_collected(ctx, openapi3_base_url):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/users": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/msgpack": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "integer"}}}
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema.config.update(base_url=openapi3_base_url)
+    stream = EventStream(schema, max_examples=1).execute()
+
+    warning_event = stream.find(events.SchemaAnalysisWarnings)
+    assert warning_event is not None
+    assert len(warning_event.warnings) == 1
+    warning = warning_event.warnings[0]
+    assert warning.kind == SchemathesisWarning.MISSING_DESERIALIZER
+    assert warning.operation_label == "GET /users"
+    assert warning.status_code == "200"
+    assert warning.content_type == "application/msgpack"
+
+
+def test_no_warnings_for_json(ctx, openapi3_base_url):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/users": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "integer"}}}
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema.config.update(base_url=openapi3_base_url)
+    stream = EventStream(schema, max_examples=1).execute()
+
+    warning_event = stream.find(events.SchemaAnalysisWarnings)
+    assert warning_event is None
+
+
+def test_stateful_phase_missing_deserializer_warnings(ctx, openapi3_base_url):
+    """Verify warnings are detected in stateful-only phase execution."""
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/msgpack": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "integer"}}}
+                                }
+                            },
+                            "links": {
+                                "GetUser": {
+                                    "operationId": "getUser",
+                                    "parameters": {"userId": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/users/{userId}": {
+                "get": {
+                    "operationId": "getUser",
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/msgpack": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        }
+    )
+
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema.config.update(base_url=openapi3_base_url)
+
+    # Run only stateful phase
+    stream = EventStream(schema, phases=[PhaseName.STATEFUL_TESTING], **STATEFUL_KWARGS).execute()
+
+    # Verify warnings were detected once for the run
+    warning_event = stream.find(events.SchemaAnalysisWarnings)
+    assert warning_event is not None
+
+    warning_messages = {(w.operation_label, w.status_code, w.content_type) for w in warning_event.warnings}
+    assert ("POST /users", "201", "application/msgpack") in warning_messages
+    assert ("GET /users/{userId}", "200", "application/msgpack") in warning_messages

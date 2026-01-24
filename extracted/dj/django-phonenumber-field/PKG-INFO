@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-phonenumber-field
-Version: 8.1.0
+Version: 8.4.0
 Summary: An international phone number field for django models.
 Author-email: Stefan Foulis <stefan@foulis.ch>, François Freitag <mail@franek.fr>
 Maintainer-email: François Freitag <mail@franek.fr>, Stefan Foulis <stefan@foulis.ch>
@@ -13,23 +13,23 @@ Project-URL: Changelog, https://github.com/stefanfoulis/django-phonenumber-field
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS

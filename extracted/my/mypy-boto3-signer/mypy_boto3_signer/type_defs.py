@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -31,12 +32,6 @@ from .literals import (
     ValidityTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -122,7 +117,7 @@ class AddProfilePermissionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -159,7 +154,7 @@ class S3DestinationTypeDef(TypedDict):
 
 
 class EncryptionAlgorithmOptionsTypeDef(TypedDict):
-    allowedValues: List[EncryptionAlgorithmType]
+    allowedValues: list[EncryptionAlgorithmType]
     defaultValue: EncryptionAlgorithmType
 
 
@@ -171,7 +166,7 @@ class GetSigningPlatformRequestTypeDef(TypedDict):
 
 
 class SigningImageFormatTypeDef(TypedDict):
-    supportedFormats: List[ImageFormatType]
+    supportedFormats: list[ImageFormatType]
     defaultFormat: ImageFormatType
 
 
@@ -196,7 +191,7 @@ class SigningProfileRevocationRecordTypeDef(TypedDict):
 
 
 class HashAlgorithmOptionsTypeDef(TypedDict):
-    allowedValues: List[HashAlgorithmType]
+    allowedValues: list[HashAlgorithmType]
     defaultValue: HashAlgorithmType
 
 
@@ -286,12 +281,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class GetRevocationStatusResponseTypeDef(TypedDict):
-    revokedEntities: List[str]
+    revokedEntities: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -310,7 +305,7 @@ class RemoveProfilePermissionResponseTypeDef(TypedDict):
 class SignPayloadResponseTypeDef(TypedDict):
     jobId: str
     jobOwner: str
-    metadata: Dict[str, str]
+    metadata: dict[str, str]
     signature: bytes
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -372,10 +367,10 @@ class SigningProfileTypeDef(TypedDict):
     signatureValidityPeriod: NotRequired[SignatureValidityPeriodTypeDef]
     platformId: NotRequired[str]
     platformDisplayName: NotRequired[str]
-    signingParameters: NotRequired[Dict[str, str]]
+    signingParameters: NotRequired[dict[str, str]]
     status: NotRequired[SigningProfileStatusType]
     arn: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class SigningConfigurationTypeDef(TypedDict):
@@ -386,7 +381,7 @@ class SigningConfigurationTypeDef(TypedDict):
 class ListProfilePermissionsResponseTypeDef(TypedDict):
     revisionId: str
     policySizeBytes: int
-    permissions: List[PermissionTypeDef]
+    permissions: list[PermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -430,7 +425,7 @@ class SigningPlatformOverridesTypeDef(TypedDict):
 
 
 class ListSigningProfilesResponseTypeDef(TypedDict):
-    profiles: List[SigningProfileTypeDef]
+    profiles: list[SigningProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -494,7 +489,7 @@ class DescribeSigningJobResponseTypeDef(TypedDict):
     profileName: str
     profileVersion: str
     overrides: SigningPlatformOverridesTypeDef
-    signingParameters: Dict[str, str]
+    signingParameters: dict[str, str]
     createdAt: datetime
     completedAt: datetime
     signatureExpiresAt: datetime
@@ -518,11 +513,11 @@ class GetSigningProfileResponseTypeDef(TypedDict):
     platformDisplayName: str
     signatureValidityPeriod: SignatureValidityPeriodTypeDef
     overrides: SigningPlatformOverridesTypeDef
-    signingParameters: Dict[str, str]
+    signingParameters: dict[str, str]
     status: SigningProfileStatusType
     statusReason: str
     arn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -537,12 +532,12 @@ class PutSigningProfileRequestTypeDef(TypedDict):
 
 
 class ListSigningPlatformsResponseTypeDef(TypedDict):
-    platforms: List[SigningPlatformTypeDef]
+    platforms: list[SigningPlatformTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSigningJobsResponseTypeDef(TypedDict):
-    jobs: List[SigningJobTypeDef]
+    jobs: list[SigningJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

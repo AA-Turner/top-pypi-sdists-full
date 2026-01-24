@@ -1,7 +1,7 @@
 """rio-tiler.expression: Parse and Apply expression."""
 
 import re
-from typing import List, Sequence, Tuple
+from collections.abc import Sequence
 
 import numexpr
 import numpy
@@ -9,8 +9,8 @@ import numpy
 from rio_tiler.errors import InvalidExpression
 
 
-def parse_expression(expression: str, cast: bool = True) -> Tuple:
-    """Parse rio-tiler band math expression.
+def parse_expression(expression: str, cast: bool = True) -> tuple:
+    """Parse rio-tiler band math expression and extract bands.
 
     Args:
         expression (str): band math/combination expression.
@@ -20,11 +20,11 @@ def parse_expression(expression: str, cast: bool = True) -> Tuple:
         tuple: band names/indexes.
 
     Examples:
-        >>> parse_expression("b1;b2")
-            (2, 1)
+        >>> parse_expression("b1+b2")
+            (1, 2)
 
         >>> parse_expression("B1/B2", cast=False)
-            ("2", "1")
+            ('1', '2')
 
     """
     bands = set(re.findall(r"\bb(?P<bands>[0-9A-Z]+)\b", expression, re.IGNORECASE))
@@ -37,7 +37,7 @@ def parse_expression(expression: str, cast: bool = True) -> Tuple:
     return output_bands
 
 
-def get_expression_blocks(expression: str) -> List[str]:
+def get_expression_blocks(expression: str) -> list[str]:
     """Split expression in blocks.
 
     Args:
@@ -47,8 +47,8 @@ def get_expression_blocks(expression: str) -> List[str]:
         list: expression blocks (str).
 
     Examples:
-        >>> parse_expression("b1/b2,b2+b1")
-            ("b1/b2", "b2+b1")
+        >>> get_expression_blocks("b1/b2;b2+b1")
+            ['b1/b2', 'b2+b1']
 
     """
     return [expr for expr in expression.split(";") if expr]

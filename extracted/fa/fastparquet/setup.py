@@ -48,11 +48,7 @@ subprocess.call(["git", "status"], stdout=sys.stdout, stderr=sys.stderr)
 
 setup(
     name='fastparquet',
-    use_scm_version={
-        'version_scheme': 'guess-next-dev',
-        'local_scheme': 'no-local-version',
-        'write_to': 'fastparquet/_version.py'
-    },
+    use_scm_version=True,
     description='Python support for Parquet file format',
     author='Martin Durant',
     author_email='mdurant@anaconda.com',
@@ -65,11 +61,11 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
     ],
     packages=['fastparquet'],
@@ -85,6 +81,6 @@ setup(
                       else ''),
     include_package_data=True,
     exclude_package_data={'fastparquet': ['test/*']},
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     **extra
 )

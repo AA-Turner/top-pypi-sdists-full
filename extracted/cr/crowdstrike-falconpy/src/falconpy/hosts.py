@@ -164,6 +164,14 @@ class Hosts(ServiceClass):
                 os_version                                              default_gateway_ip
                 device_policies.prevention.applied                      last_login_user_sid
                 device_policies.jumpcloud.policy_type                   bios_version
+                device_policies.exposure-management.applied             device_policies.exposure-management.policy_type
+                device_policies.exposure-management.policy_id           device_policies.logscale-collector.policy_id
+                device_policies.logscale-collector.policy_type          device_policies.logscale-collector.applied
+                device_policies.cloud-ml.policy_id                      device_policies.cloud-ml.policy_type
+                device_policies.cloud-ml.applied                        device_policies.fem-browser-extension-control.applied
+                device_policies.fem-browser-extension-control.policy_type
+                device_policies.fem-browser-extension-control.policy_id
+
 
         This method only supports keywords for providing arguments.
 
@@ -780,6 +788,13 @@ class Hosts(ServiceClass):
                 os_version                                              default_gateway_ip
                 device_policies.prevention.applied                      last_login_user_sid
                 device_policies.jumpcloud.policy_type                   bios_version
+                device_policies.exposure-management.applied             device_policies.exposure-management.policy_type
+                device_policies.exposure-management.policy_id           device_policies.logscale-collector.policy_id
+                device_policies.logscale-collector.policy_type          device_policies.logscale-collector.applied
+                device_policies.cloud-ml.policy_id                      device_policies.cloud-ml.policy_type
+                device_policies.cloud-ml.applied                        device_policies.fem-browser-extension-control.applied
+                device_policies.fem-browser-extension-control.policy_id
+                device_policies.fem-browser-extension-control.policy_type
 
         This method only supports keywords for providing arguments.
 
@@ -840,10 +855,11 @@ class Hosts(ServiceClass):
             body_required=["ids"] if self.validate_payloads else None
             )
 
-    @force_default(defaults=["body"], default_types=["dict"])
+    @force_default(defaults=["body", "parameters"], default_types=["dict", "dict"])
     def query_device_login_history_v2(self: object,
                                       *args,
                                       body: dict = None,
+                                      parameters: dict = None,
                                       **kwargs
                                       ) -> Union[Dict[str, Union[int, dict]], Result]:
         """Retrieve details about recent interactive login sessions for a set of devices powered by the Host Timeline.
@@ -858,6 +874,9 @@ class Hosts(ServiceClass):
                     ]
                 }
         ids -- AID(s) of the hosts to retrieve. String or list of strings. Supports a maximum of 10 IDs.
+        limit -- The maximum number of results to return. Integer. Default: 10, Max: 100
+        from -- The inclusive beginning of the time window to search. String.
+        to -- The inclusive end of the time window to search. String.
 
         Arguments: When not specified, the first argument to this method is assumed to be 'ids'.
                    All others are ignored.
@@ -874,12 +893,12 @@ class Hosts(ServiceClass):
                                         submitted_keywords=kwargs,
                                         payload_value="ids"
                                         )
-
         return process_service_request(
             calling_object=self,
             endpoints=Endpoints,
             operation_id="QueryDeviceLoginHistoryV2",
             body=body,
+            params=parameters,
             body_validator={"ids": list} if self.validate_payloads else None,
             body_required=["ids"] if self.validate_payloads else None
             )

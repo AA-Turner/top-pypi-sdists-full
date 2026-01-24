@@ -156,7 +156,7 @@ def get_targets(scanning_roots: out.ScanningRoots) -> out.TargetDiscoveryResult:
             s = ", ".join([str(x) for x in xs[:threshold]])
             if len(xs) > threshold:
                 s += f" (and {len(xs) - threshold} others)"
-            logger.debug(f"get_targets resp: {desc}: {s}")
+            logger.debug(f"  - {desc}: {s}")
 
     logger.debug(f"get_targets request: {scanning_roots}")
 
@@ -166,6 +166,7 @@ def get_targets(scanning_roots: out.ScanningRoots) -> out.TargetDiscoveryResult:
         logger.error("Failed to obtain target files from semgrep-core")
         return out.TargetDiscoveryResult([], [], [])
 
+    logger.debug(f"get_targets response:")
     summarize("target paths", ret.value.target_paths)
     summarize("core errors", ret.value.errors)
     summarize("skipped targets", ret.value.skipped)
@@ -181,3 +182,57 @@ def match_subprojects(dependency_source_files: List[out.Fpath]) -> List[out.Subp
         logger.error("Failed to match subprojects")
         return []
     return ret.value
+
+
+@tracing.trace()
+def run_symbol_analysis(
+    params: out.SymbolAnalysisParams,
+) -> Optional[out.SymbolAnalysis]:
+    call = out.FunctionCall(out.CallRunSymbolAnalysis(params))
+    ret: Optional[out.RetRunSymbolAnalysis] = rpc_call(call, out.RetRunSymbolAnalysis)
+    if ret is None:
+        logger.error("Failed to run symbol analysis")
+        return None
+    return ret.value
+
+
+@tracing.trace()
+def upload_subproject_symbol_analysis(
+    token: str,
+    scan_id: int,
+    manifest: Optional[out.Fpath],
+    lockfile: Optional[out.Fpath],
+    symbol_analysis: out.SymbolAnalysis,
+) -> None:
+    params = out.UploadSubprojectSymbolAnalysisParams(
+        token,
+        scan_id,
+        manifest,
+        lockfile,
+        symbol_analysis,
+    )
+    call = out.FunctionCall(out.CallUploadSubprojectSymbolAnalysis(params))
+    ret: Optional[out.RetUploadSubprojectSymbolAnalysis] = rpc_call(
+        call, out.RetUploadSubprojectSymbolAnalysis
+    )
+    if ret is None:
+        logger.warning(
+            "Failed to upload symbol analysis, somehow. Continuing with scan..."
+        )
+    else:
+        logger.debug(f"Uploading symbol analysis succeeded with {ret.value}")
+
+
+@tracing.trace()
+def show_subprojects(*, subprojects: List[out.Subproject]) -> str:
+    """Show subproject info
+
+    This is intended to be used to implement 'semgrep show subprojects.'
+    """
+    call = out.FunctionCall(out.CallShowSubprojects(subprojects))
+    ret: Optional[out.RetShowSubprojects] = rpc_call(call, out.RetShowSubprojects)
+    if ret is None:
+        logger.error("Failed to show subprojects")
+        return ""
+    else:
+        return ret.value

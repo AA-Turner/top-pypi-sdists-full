@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: scenedetect
-Version: 0.6.7
+Version: 0.6.7.1
 Summary: Video scene cut/shot detection program and Python library.
 Home-page: https://www.scenedetect.com
 Author: Brandon Castellano
 Author-email: brandon248@gmail.com
-License: BSD 3-Clause License
+License: BSD-3-Clause
 Project-URL: Homepage, https://www.scenedetect.com
 Project-URL: Repository, https://github.com/Breakthrough/PySceneDetect/
 Project-URL: Documentation, https://www.scenedetect.com/docs/
@@ -17,7 +17,6 @@ Classifier: Environment :: Console :: Curses
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
@@ -34,7 +33,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Click
+Requires-Dist: click<8.3.0,~=8.0
 Requires-Dist: numpy
 Requires-Dist: platformdirs
 Requires-Dist: tqdm
@@ -43,7 +42,7 @@ Requires-Dist: opencv-python; extra == "opencv"
 Provides-Extra: opencv-headless
 Requires-Dist: opencv-python-headless; extra == "opencv-headless"
 Provides-Extra: pyav
-Requires-Dist: av; extra == "pyav"
+Requires-Dist: av>=9.2; extra == "pyav"
 Provides-Extra: moviepy
 Requires-Dist: moviepy; extra == "moviepy"
 Dynamic: license-file

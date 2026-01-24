@@ -1,4 +1,4 @@
-from libc.stdint cimport int8_t, int64_t, uint16_t, uint32_t
+from libc.stdint cimport int8_t, int64_t, uint16_t, uint32_t, uint8_t
 
 cdef extern from "libavcodec/codec.h":
     struct AVCodecTag:
@@ -17,6 +17,17 @@ cdef extern from "libavcodec/packet.h" nogil:
         int free_opaque
     )
 
+    const AVPacketSideData *av_packet_side_data_get(const AVPacketSideData *sd,
+                                                int nb_sd,
+                                                AVPacketSideDataType type)
+
+    uint8_t* av_packet_get_side_data(const AVPacket *pkt, AVPacketSideDataType type,
+                                    size_t *size)
+
+    int av_packet_add_side_data(AVPacket *pkt, AVPacketSideDataType type,
+                                uint8_t *data, size_t size)
+
+    const char *av_packet_side_data_name(AVPacketSideDataType type)
 
 cdef extern from "libavutil/channel_layout.h":
     ctypedef enum AVChannelOrder:
@@ -63,6 +74,13 @@ cdef extern from "libavcodec/avcodec.h" nogil:
     cdef int   avcodec_version()
     cdef char* avcodec_configuration()
     cdef char* avcodec_license()
+
+    AVPixelFormat avcodec_find_best_pix_fmt_of_list(
+        const AVPixelFormat *pix_fmt_list,
+        AVPixelFormat src_pix_fmt,
+        int has_alpha,
+        int *loss_ptr,
+    )
 
     cdef size_t AV_INPUT_BUFFER_PADDING_SIZE
     cdef int64_t AV_NOPTS_VALUE
@@ -278,6 +296,10 @@ cdef extern from "libavcodec/avcodec.h" nogil:
         int extradata_size
         uint8_t *extradata
 
+        # Subtitle header (ASS/SSA format for text subtitles)
+        uint8_t *subtitle_header
+        int subtitle_header_size
+
         int delay
 
         AVCodec *codec
@@ -314,8 +336,6 @@ cdef extern from "libavcodec/avcodec.h" nogil:
         AVBufferRef *hw_device_ctx
         AVPixelFormat (*get_format)(AVCodecContext *s, const AVPixelFormat *fmt)
 
-        # User Data
-        void *opaque
 
     cdef AVCodecContext* avcodec_alloc_context3(AVCodec *codec)
     cdef void avcodec_free_context(AVCodecContext **ctx)
@@ -469,6 +489,8 @@ cdef extern from "libavcodec/avcodec.h" nogil:
         int size
         int stream_index
         int flags
+        AVPacketSideData *side_data
+        int side_data_elems
         int duration
         int64_t pos
         void *opaque

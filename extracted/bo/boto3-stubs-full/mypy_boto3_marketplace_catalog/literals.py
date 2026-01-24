@@ -3,7 +3,7 @@ Type annotations for marketplace-catalog service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -37,6 +37,8 @@ __all__ = (
     "MachineLearningProductSortByType",
     "MachineLearningProductVisibilityStringType",
     "MarketplaceCatalogServiceName",
+    "OfferSetSortByType",
+    "OfferSetStateStringType",
     "OfferSortByType",
     "OfferStateStringType",
     "OfferTargetingStringType",
@@ -56,7 +58,9 @@ __all__ = (
 AmiProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 AmiProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
 ChangeStatusType = Literal["APPLYING", "CANCELLED", "FAILED", "PREPARING", "SUCCEEDED"]
-ContainerProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
+ContainerProductSortByType = Literal[
+    "CompatibleAWSServices", "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
+]
 ContainerProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
 DataProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 DataProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted", "Unavailable"]
@@ -68,12 +72,17 @@ MachineLearningProductSortByType = Literal[
     "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
 MachineLearningProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+OfferSetSortByType = Literal[
+    "EntityId", "LastModifiedDate", "Name", "ReleaseDate", "SolutionId", "State"
+]
+OfferSetStateStringType = Literal["Draft", "Released"]
 OfferSortByType = Literal[
     "AvailabilityEndDate",
     "BuyerAccounts",
     "EntityId",
     "LastModifiedDate",
     "Name",
+    "OfferSetId",
     "ProductId",
     "ReleaseDate",
     "ResaleAuthorizationId",
@@ -99,7 +108,9 @@ ResaleAuthorizationSortByType = Literal[
     "Status",
 ]
 ResaleAuthorizationStatusStringType = Literal["Active", "Draft", "Restricted"]
-SaaSProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
+SaaSProductSortByType = Literal[
+    "DeliveryOptionTypes", "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
+]
 SaaSProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
@@ -129,7 +140,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -199,6 +209,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -244,7 +255,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -297,7 +307,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -336,8 +345,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -372,6 +379,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -381,6 +389,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -391,6 +400,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -412,8 +424,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -428,15 +438,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -467,6 +478,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -507,6 +519,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

@@ -1,7 +1,6 @@
+from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy
 from rest_framework.reverse import reverse
-
-from wbcore.utils.importlib import import_from_dotted_path
 
 
 class ConfigurationRegistry:
@@ -20,35 +19,35 @@ class ConfigurationRegistry:
 
     @property
     def company_model_viewset(self):
-        return import_from_dotted_path(self.DEFAULT_COMPANY_MODEL_VIEWSET)
+        return import_string(self.DEFAULT_COMPANY_MODEL_VIEWSET)
 
     @property
     def company_representation_viewset(self):
-        return import_from_dotted_path(self.DEFAULT_COMPANY_REPRESENTATION_VIEWSET)
+        return import_string(self.DEFAULT_COMPANY_REPRESENTATION_VIEWSET)
 
     @property
     def company_model_serializer(self):
-        return import_from_dotted_path(self.DEFAULT_COMPANY_MODEL_SERIALIZER)
+        return import_string(self.DEFAULT_COMPANY_MODEL_SERIALIZER)
 
     @property
     def company_representation_serializer(self):
-        return import_from_dotted_path(self.DEFAULT_COMPANY_REPRESENTATION_SERIALIZER)
+        return import_string(self.DEFAULT_COMPANY_REPRESENTATION_SERIALIZER)
 
     @property
     def person_model_viewset(self):
-        return import_from_dotted_path(self.DEFAULT_PERSON_MODEL_VIEWSET)
+        return import_string(self.DEFAULT_PERSON_MODEL_VIEWSET)
 
     @property
     def person_representation_viewset(self):
-        return import_from_dotted_path(self.DEFAULT_PERSON_REPRESENTATION_VIEWSET)
+        return import_string(self.DEFAULT_PERSON_REPRESENTATION_VIEWSET)
 
     @property
     def person_model_serializer(self):
-        return import_from_dotted_path(self.DEFAULT_PERSON_MODEL_SERIALIZER)
+        return import_string(self.DEFAULT_PERSON_MODEL_SERIALIZER)
 
     @property
     def person_representation_serializer(self):
-        return import_from_dotted_path(self.DEFAULT_PERSON_REPRESENTATION_SERIALIZER)
+        return import_string(self.DEFAULT_PERSON_REPRESENTATION_SERIALIZER)
 
 
 class DirectoryConfigurationMixin:

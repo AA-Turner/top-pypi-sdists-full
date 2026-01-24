@@ -48,7 +48,7 @@ from ansible.module_utils.basic import env_fallback
 
 try:
     from cryptography.hazmat.primitives import serialization, hashes
-    from cryptography.hazmat.primitives.asymmetric import padding, ec
+    from cryptography.hazmat.primitives.asymmetric import padding, ec, rsa
     from cryptography.hazmat.backends import default_backend
 
     HAS_CRYPTOGRAPHY = True
@@ -129,9 +129,20 @@ def compare_values(expected, actual):
         if isinstance(expected, list) and isinstance(actual, list):
             return compare_lists(expected, actual)
         for (key, value) in iteritems(expected):
-            if re.search(r'P(ass)?w(or)?d', key) or key not in actual:
-                # do not compare any password related attributes or attributes that are not in the actual resource
+            if re.search(r'P(ass)?w(or)?d', key) or re.search(r'OctetString', key) or re.search(r'IsOctetStringSet', key) or key not in actual:
+                # do not compare any password related attributes, OctetString (secrets), IsOctetStringSet, or attributes that are not in the actual resource
                 continue
+            # Special handling for SecKeys comparison
+            if key == 'SecKeys':
+                expected_empty = value is None or value == []
+                actual_value = actual.get(key)
+                actual_empty = actual_value is None or actual_value == [] or actual_value == ''
+                if expected_empty and actual_empty:
+                    continue  # Both are "empty", consider them equal
+                # If SecKeys has content, skip deep comparison (contains secrets we can't compare)
+                # Just verify both have content
+                if not expected_empty and not actual_empty:
+                    continue  # Both have keys, consider them equal (can't compare secrets)
             if not compare_values(value, actual[key]):
                 return False
         # loop complete with all items matching
@@ -151,6 +162,15 @@ def compare_values(expected, actual):
         if actual != expected:
             return False
         return True
+
+
+# This will fix the format of a v3 secret key, if needed.
+# Some v3 keys PEM files are incorrectly formatted with
+# "BEGIN EC PRIVATE KEY" instead of "BEGIN PRIVATE KEY"
+def _fix_v3_key_format(secret_key: bytes):
+    return secret_key.replace(
+        b"-----BEGIN EC PRIVATE KEY-----", b"-----BEGIN PRIVATE KEY-----"
+    ).replace(b"-----END EC PRIVATE KEY-----", b"-----END PRIVATE KEY-----")
 
 
 class IntersightModule():
@@ -178,21 +198,19 @@ class IntersightModule():
         :param digest: string to be signed & hashed
         :return: instance of digest object
         """
-        # Python SDK code: Verify PEM Pre-Encapsulation Boundary
-        r = re.compile(r"\s*-----BEGIN (.*)-----\s+")
-        m = r.match(self.private_key)
-        if not m:
-            raise ValueError("Not a valid PEM pre boundary")
-        pem_header = m.group(1)
-        key = serialization.load_pem_private_key(self.private_key.encode(), None, default_backend())
-        if pem_header == 'RSA PRIVATE KEY':
+        try:
+            key = serialization.load_pem_private_key(self.private_key.encode(), None, default_backend())
+        except (ValueError):
+            key = serialization.load_pem_private_key(_fix_v3_key_format(self.private_key.encode()), None, default_backend())
+
+        if isinstance(key, rsa.RSAPrivateKey):
             sign = key.sign(data.encode(), padding.PKCS1v15(), hashes.SHA256())
             self.digest_algorithm = 'rsa-sha256'
-        elif pem_header == 'EC PRIVATE KEY':
+        elif isinstance(key, ec.EllipticCurvePrivateKey):
             sign = key.sign(data.encode(), ec.ECDSA(hashes.SHA256()))
             self.digest_algorithm = 'hs2019'
         else:
-            raise Exception("Unsupported key: {0}".format(pem_header))
+            raise Exception("Unsupported key: {0}".format(type(key).__name__))
 
         return b64encode(sign)
 
@@ -360,7 +378,17 @@ class IntersightModule():
                     self.module.warn('More than 1 resource found, returning the 1st one')
                 # return the 1st list element
                 self.result['api_response'] = response['Results'][0]
-        self.result['count'] = response.get('Count')
+        else:
+            # Return a dict if no Results array (handles case where resource_path contains a Moid)
+            if isinstance(response, dict):
+                self.result['api_response'] = response
+            else:
+                # Clear api_response when no results found to prevent returning stale data
+                if return_list:
+                    self.result['api_response'] = []
+                else:
+                    self.result['api_response'] = {}
+        self.result['count'] = response.get('Count', 0)
         self.result['trace_id'] = response.get('trace_id')
 
     def configure_resource(self, moid, resource_path, body, query_params, update_method=''):
@@ -378,6 +406,10 @@ class IntersightModule():
                 if response_dict.get('Results'):
                     # return the 1st element in the results list
                     self.result['api_response'] = response_dict['Results'][0]
+                    self.result['trace_id'] = response_dict.get('trace_id')
+                elif response_dict and 'Moid' in response_dict:
+                    # PATCH returned the updated object directly (not in Results array)
+                    self.result['api_response'] = response_dict
                     self.result['trace_id'] = response_dict.get('trace_id')
             else:
                 # create the resource
@@ -397,6 +429,9 @@ class IntersightModule():
                         resource_path=resource_path,
                         query_params=query_params,
                     )
+        else:
+            # In check mode, clear api_response to indicate no actual action was taken
+            self.result['api_response'] = {}
         self.result['changed'] = True
 
     def delete_resource(self, moid, resource_path):
@@ -412,14 +447,22 @@ class IntersightModule():
             self.result['trace_id'] = resp.get('trace_id')
         self.result['changed'] = True
 
-    def configure_policy_or_profile(self, resource_path):
+    def configure_policy_or_profile(self, resource_path, filter_key=None, filter_value=None):
         # Configure (create, update, or delete) the policy or profile
-        organization_moid = self.get_moid_by_name(resource_path='/organization/Organizations', resource_name=self.module.params['organization'])
+        organization_name = self.module.params['organization']
+        organization_moid = self.get_moid_by_name(resource_path='/organization/Organizations', resource_name=organization_name)
+
+        if organization_moid is None:
+            self.module.fail_json(
+                msg=f"Organization '{organization_name}' not found. Please verify the organization name exists in Intersight and that you have access to it."
+            )
 
         self.result['api_response'] = {}
         # Get the current state of the resource
         filter_str = "Name eq '" + self.module.params['name'] + "'"
-        filter_str += "and Organization.Moid eq '" + organization_moid + "'"
+        if filter_value and filter_key:
+            filter_str += " and " + filter_key + " eq '" + filter_value + "'"
+        filter_str += " and Organization.Moid eq '" + organization_moid + "'"
         self.get_resource(
             resource_path=resource_path,
             query_params={
@@ -464,13 +507,18 @@ class IntersightModule():
 
         return moid
 
-    def configure_secondary_resource(self, resource_path, resource_name, state):
+    def configure_secondary_resource(self, resource_path, resource_name=None, state='present', custom_filter=None):
         # Configure (create, update, or delete) resources
         # This method is used to configure secondery resources that are part of a policy or profile (e.g. VLANs)
 
         self.result['api_response'] = {}
         # Get the current state of the resource
-        filter_str = "Name eq '" + resource_name + "'"
+        if custom_filter:
+            filter_str = custom_filter
+        elif resource_name:
+            filter_str = "Name eq '" + resource_name + "'"
+        else:
+            raise ValueError("Either resource_name or custom_filter must be provided")
         self.get_resource(
             resource_path=resource_path,
             query_params={
@@ -525,12 +573,43 @@ class IntersightModule():
             return self.result['api_response']['Moid']
         return None
 
-    def set_query_params(self) -> dict:
-        filter_conditions = []
+    def get_moid_by_name_and_org(self, resource_path, resource_name, organization_name) -> Optional[str]:
+        '''
+        Get the moid of an organization-scoped resource by name and organization.
 
+        This function is used for resources that belong to a specific organization
+        to avoid conflicts when multiple organizations have resources with the same name.
+        '''
+        # Get the organization MOID
+        org_moid = self.get_moid_by_name(
+            resource_path='/organization/Organizations',
+            resource_name=organization_name
+        )
+
+        if not org_moid:
+            self.module.fail_json(msg=f"Organization '{organization_name}' not found")
+
+        # Build filter with both name and organization
+        filter_str = f"Name eq '{resource_name}' and Organization.Moid eq '{org_moid}'"
+
+        # GET Moid of the resource
+        self.get_resource(
+            resource_path=resource_path,
+            query_params={
+                '$filter': filter_str,
+                '$select': 'Moid',
+            },
+        )
+
+        if self.result['api_response'].get('Moid'):
+            # resource exists and moid was returned
+            return self.result['api_response']['Moid']
+        return None
+
+    def set_query_params(self, filter_key=None, filter_value=None) -> dict:
+        filter_conditions = []
         name_to_filter = self.module.params.get('name')
         org_to_filter = self.module.params.get('organization')
-
         if name_to_filter:
             filter_conditions.append(f"Name eq '{name_to_filter}'")
 
@@ -538,7 +617,235 @@ class IntersightModule():
             org_moid = self.get_moid_by_name(resource_path='/organization/Organizations', resource_name=org_to_filter)
             filter_conditions.append(f"Organization.Moid eq '{org_moid}'")
 
+        if filter_value and filter_key:
+            filter_conditions.append(f"'{filter_key}' eq '{filter_value}'")
+
         query_params = {}
         if filter_conditions:
             query_params["$filter"] = " and ".join(filter_conditions)
         return query_params
+
+    def set_tags_and_description(self):
+        """
+        Generalize the pattern of setting tags and description in api_body if they are provided in module params.
+        """
+        if self.module.params.get('tags'):
+            self.api_body['Tags'] = self.module.params['tags']
+        if self.module.params.get('description'):
+            self.api_body['Description'] = self.module.params['description']
+
+    def execute_bulk_operations(self, resource_path, operations_dict, changed_states):
+        """
+        Execute bulk operations (POST, PATCH, DELETE) and track results.
+
+        This is a generic method to execute categorized bulk operations and collect results.
+        It handles all three operation types and properly tracks changed states.
+        Order of operations does not affect the final changed state - any operation that
+        makes changes will result in changed=True at the end.
+
+        Args:
+            resource_path: API resource path (e.g., '/fabric/Vlans')
+            operations_dict: Dictionary with keys 'create', 'update', 'delete', each containing
+                           a list of operation data dicts
+            changed_states: List to append changed state to after each operation
+
+        Returns:
+            List of all operation results from create and update operations
+        """
+        all_results = []
+
+        # Execute bulk CREATE operations
+        if operations_dict.get('create'):
+            # Reset changed flag before operation to ensure clean state tracking
+            self.result['changed'] = False
+            create_results = self.configure_bulk_resources(
+                resource_path=resource_path,
+                resources_data=operations_dict['create'],
+                http_method='post'
+            )
+            all_results.extend(create_results)
+            # Track if this operation made changes
+            changed_states.append(self.result['changed'])
+
+        # Execute bulk UPDATE operations
+        if operations_dict.get('update'):
+            # Reset changed flag before operation to ensure clean state tracking
+            self.result['changed'] = False
+            update_results = self.configure_bulk_resources(
+                resource_path=resource_path,
+                resources_data=operations_dict['update'],
+                http_method='patch'
+            )
+            all_results.extend(update_results)
+            # Track if this operation made changes
+            changed_states.append(self.result['changed'])
+
+        # Execute bulk DELETE operations
+        if operations_dict.get('delete'):
+            # Reset changed flag before operation to ensure clean state tracking
+            self.result['changed'] = False
+            self.configure_bulk_resources(
+                resource_path=resource_path,
+                resources_data=operations_dict['delete'],
+                http_method='delete'
+            )
+            # Track if this operation made changes (no results to return for deletes)
+            changed_states.append(self.result['changed'])
+
+        return all_results
+
+    def configure_bulk_resources(self, resource_path, resources_data, http_method='post'):
+        """
+        Configure multiple resources in a single bulk operation for better performance.
+
+        This method uses the Intersight bulk API endpoint to create, update, or delete multiple
+        resources in a single API call instead of making individual calls for each resource.
+
+        Args:
+            resource_path: API resource path (e.g., '/fabric/Vlans')
+            resources_data: List of dicts, each containing:
+                - 'body': Resource API body (required for POST/PATCH)
+                - 'moid': Resource MOID (required for PATCH/DELETE)
+                - 'filter': Filter string to check existence (optional)
+                - 'name': Resource name for identification (optional)
+            http_method: 'post' for create, 'patch' for update, or 'delete' for delete operations
+
+        Returns:
+            List of API response objects for each resource in the bulk operation
+
+        Raises:
+            ValueError: If http_method is not 'post', 'patch', or 'delete'
+        """
+        if http_method.lower() not in ['post', 'patch', 'delete']:
+            raise ValueError("Bulk operations only support 'post' (create), 'patch' (update), and 'delete' methods")
+
+        if not resources_data:
+            return []
+
+        bulk_results = []
+
+        # For POST operations - create resources
+        if http_method.lower() == 'post':
+            # Build bulk request body
+            bulk_requests = []
+            for resource_data in resources_data:
+                bulk_requests.append({
+                    'ObjectType': 'bulk.RestSubRequest',
+                    'Body': resource_data['body']
+                })
+
+            bulk_body = {
+                'Verb': 'POST',
+                'Uri': f'/v1{resource_path}',
+                'Requests': bulk_requests
+            }
+
+            if not self.module.check_mode:
+                # Make bulk API call
+                options = {
+                    'http_method': 'post',
+                    'resource_path': '/bulk/Requests',
+                    'body': bulk_body
+                }
+                response = self.call_api(**options)
+
+                # Process bulk response
+                if response.get('Results'):
+                    for result in response['Results']:
+                        if result.get('Status') == 200:
+                            bulk_results.append(result.get('Body', {}))
+                        else:
+                            # Handle individual resource failures
+                            error_msg = result.get('Body', {}).get('Message', 'Unknown error')
+                            self.module.warn(f"Resource creation failed: {error_msg}")
+                            bulk_results.append({})
+                else:
+                    # If no Results, something went wrong
+                    bulk_results = [{}] * len(resources_data)
+
+            self.result['changed'] = True
+
+        # For PATCH operations - update resources
+        elif http_method.lower() == 'patch':
+            bulk_requests = []
+            for resource_data in resources_data:
+                if 'moid' in resource_data and resource_data['moid']:
+                    bulk_requests.append({
+                        'ObjectType': 'bulk.RestSubRequest',
+                        'TargetMoid': resource_data['moid'],
+                        'Body': resource_data['body']
+                    })
+
+            if bulk_requests:
+                bulk_body = {
+                    'Verb': 'PATCH',
+                    'Uri': f'/v1{resource_path}',
+                    'Requests': bulk_requests
+                }
+
+                if not self.module.check_mode:
+                    # Make bulk API call
+                    options = {
+                        'http_method': 'post',
+                        'resource_path': '/bulk/Requests',
+                        'body': bulk_body
+                    }
+                    response = self.call_api(**options)
+
+                    # Process bulk response
+                    if response.get('Results'):
+                        for result in response['Results']:
+                            if result.get('Status') == 200:
+                                bulk_results.append(result.get('Body', {}))
+                            else:
+                                error_msg = result.get('Body', {}).get('Message', 'Unknown error')
+                                self.module.warn(f"Resource update failed: {error_msg}")
+                                bulk_results.append({})
+                    else:
+                        bulk_results = [{}] * len(bulk_requests)
+
+                self.result['changed'] = True
+
+        # For DELETE operations - delete resources
+        elif http_method.lower() == 'delete':
+            bulk_requests = []
+            for resource_data in resources_data:
+                if 'moid' in resource_data and resource_data['moid']:
+                    sub_request = {
+                        'ObjectType': 'bulk.RestSubRequest',
+                        'TargetMoid': resource_data['moid']
+                    }
+                    # Include any additional fields from resource_data (e.g., VlanId for VLANs)
+                    if 'body' in resource_data and resource_data['body']:
+                        sub_request.update(resource_data['body'])
+                    bulk_requests.append(sub_request)
+
+            if bulk_requests:
+                bulk_body = {
+                    'Verb': 'DELETE',
+                    'Uri': f'/v1{resource_path}',
+                    'Requests': bulk_requests
+                }
+
+                if not self.module.check_mode:
+                    # Make bulk API call
+                    options = {
+                        'http_method': 'post',
+                        'resource_path': '/bulk/Requests',
+                        'body': bulk_body
+                    }
+                    response = self.call_api(**options)
+
+                    # Process bulk response
+                    if response.get('Results'):
+                        for result in response['Results']:
+                            if result.get('Status') in [200, 204]:
+                                bulk_results.append({})
+                            else:
+                                error_msg = result.get('Body', {}).get('Message', 'Unknown error')
+                                self.module.warn(f"Resource deletion failed: {error_msg}")
+                                bulk_results.append({})
+
+                self.result['changed'] = True
+
+        return bulk_results

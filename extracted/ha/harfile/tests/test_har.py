@@ -412,6 +412,7 @@ def write_har(arg, entries):
 @settings(
     phases=[Phase.reuse, Phase.generate, Phase.shrink],
     suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow],
+    deadline=None,
 )
 def test_write_har(entries, tmp_path):
     buffer = io.StringIO()
@@ -431,13 +432,15 @@ def test_close():
     buffer = io.StringIO()
     with harfile.open(buffer) as har:
         har.close()
+    assert har.closed
 
 
 def test_exception():
     buffer = io.StringIO()
     with pytest.raises(ZeroDivisionError):
-        with harfile.open(buffer):
+        with harfile.open(buffer) as har:
             raise ZeroDivisionError
+    assert har.closed
     assert buffer.getvalue() == ""
 
 
@@ -450,7 +453,6 @@ def test_with_comments():
         comment="EXAMPLE-3",
     ):
         pass
-    print(buffer.getvalue())
     assert (
         buffer.getvalue()
         == """{

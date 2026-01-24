@@ -57,6 +57,7 @@ from phoenix.server.api.types.GenerativeProvider import GenerativeProviderKey
 if TYPE_CHECKING:
     import httpx
     from anthropic.types import MessageParam, TextBlockParam, ToolResultBlockParam
+    from botocore.awsrequest import AWSPreparedRequest  # type: ignore[import-untyped]
     from google.generativeai.types import ContentType
     from openai import AsyncAzureOpenAI, AsyncOpenAI
     from openai.types import CompletionUsage
@@ -308,7 +309,6 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient):
                 invocation_name="top_p",
                 canonical_name=CanonicalParameterName.TOP_P,
                 label="Top P",
-                default_value=1.0,
                 min_value=0.0,
                 max_value=1.0,
             ),
@@ -326,6 +326,10 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient):
                 invocation_name="response_format",
                 label="Response Format",
                 canonical_name=CanonicalParameterName.RESPONSE_FORMAT,
+            ),
+            JSONInvocationParameter(
+                invocation_name="extra_body",
+                label="Extra Body",
             ),
         ]
 
@@ -546,6 +550,7 @@ class DeepSeekStreamingClient(OpenAIBaseStreamingClient):
         client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url or "https://api.deepseek.com",
+            default_headers=model.custom_headers or None,
         )
         super().__init__(client=client, model=model, credentials=credentials)
         # DeepSeek uses OpenAI-compatible API but we'll track it as a separate provider
@@ -587,6 +592,7 @@ class XAIStreamingClient(OpenAIBaseStreamingClient):
         client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url or "https://api.x.ai/v1",
+            default_headers=model.custom_headers or None,
         )
         super().__init__(client=client, model=model, credentials=credentials)
         # xAI uses OpenAI-compatible API but we'll track it as a separate provider
@@ -624,7 +630,11 @@ class OllamaStreamingClient(OpenAIBaseStreamingClient):
         if not base_url:
             raise BadRequest("An Ollama base URL is required for Ollama models")
         api_key = "ollama"
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            default_headers=model.custom_headers or None,
+        )
         super().__init__(client=client, model=model, credentials=credentials)
         # Ollama uses OpenAI-compatible API but we'll track it as a separate provider
         # Adding a custom "ollama" provider value to make it distinguishable in traces
@@ -636,13 +646,17 @@ class OllamaStreamingClient(OpenAIBaseStreamingClient):
     provider_key=GenerativeProviderKey.AWS,
     model_names=[
         PROVIDER_DEFAULT,
-        "anthropic.claude-3-5-sonnet-20240620-v1:0",
-        "anthropic.claude-3-7-sonnet-20250219-v1:0",
-        "anthropic.claude-3-haiku-20240307-v1:0",
-        "anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "anthropic.claude-opus-4-5-20251101-v1:0",
+        "anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "anthropic.claude-haiku-4-5-20251001-v1:0",
+        "anthropic.claude-opus-4-1-20250805-v1:0",
         "anthropic.claude-opus-4-20250514-v1:0",
         "anthropic.claude-sonnet-4-20250514-v1:0",
+        "anthropic.claude-3-7-sonnet-20250219-v1:0",
+        "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "anthropic.claude-3-5-sonnet-20240620-v1:0",
+        "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "anthropic.claude-3-haiku-20240307-v1:0",
         "amazon.titan-embed-text-v2:0",
         "amazon.nova-pro-v1:0",
         "amazon.nova-premier-v1:0:8k",
@@ -677,28 +691,44 @@ class BedrockStreamingClient(PlaygroundStreamingClient):
         import boto3  # type: ignore[import-untyped]
 
         super().__init__(model=model, credentials=credentials)
-        self.region = model.region or "us-east-1"
+        region = model.region or "us-east-1"
         self.api = "converse"
-        self.aws_access_key_id = _get_credential_value(credentials, "AWS_ACCESS_KEY_ID") or getenv(
+        custom_headers = model.custom_headers
+        aws_access_key_id = _get_credential_value(credentials, "AWS_ACCESS_KEY_ID") or getenv(
             "AWS_ACCESS_KEY_ID"
         )
-        self.aws_secret_access_key = _get_credential_value(
+        aws_secret_access_key = _get_credential_value(
             credentials, "AWS_SECRET_ACCESS_KEY"
         ) or getenv("AWS_SECRET_ACCESS_KEY")
-        self.aws_session_token = _get_credential_value(credentials, "AWS_SESSION_TOKEN") or getenv(
+        aws_session_token = _get_credential_value(credentials, "AWS_SESSION_TOKEN") or getenv(
             "AWS_SESSION_TOKEN"
         )
         self.model_name = model.name
-        self.client = boto3.client(
-            service_name="bedrock-runtime",
-            region_name="us-east-1",  # match the default region in the UI
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
-            aws_session_token=self.aws_session_token,
+        session = boto3.Session(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token,
         )
+        client = session.client(service_name="bedrock-runtime")
 
+        # Add custom headers support via boto3 event system
+        if custom_headers:
+
+            def add_custom_headers(request: "AWSPreparedRequest", **kwargs: Any) -> None:
+                request.headers.update(custom_headers)
+
+            client.meta.events.register("before-send.*", add_custom_headers)
+
+        self.client = client
         self._attributes[LLM_PROVIDER] = "aws"
         self._attributes[LLM_SYSTEM] = "aws"
+
+    @staticmethod
+    def _setup_custom_headers(client: Any, custom_headers: Mapping[str, str]) -> None:
+        """Setup custom headers using boto3's event system."""
+        if not custom_headers:
+            return
 
     @classmethod
     def dependencies(cls) -> list[Dependency]:
@@ -725,7 +755,6 @@ class BedrockStreamingClient(PlaygroundStreamingClient):
                 invocation_name="top_p",
                 canonical_name=CanonicalParameterName.TOP_P,
                 label="Top P",
-                default_value=1.0,
                 min_value=0.0,
                 max_value=1.0,
             ),
@@ -744,18 +773,6 @@ class BedrockStreamingClient(PlaygroundStreamingClient):
         tools: list[JSONScalarType],
         **invocation_parameters: Any,
     ) -> AsyncIterator[ChatCompletionChunk]:
-        import boto3
-
-        if (
-            self.client.meta.region_name != self.region
-        ):  # override the region if it's different from the default
-            self.client = boto3.client(
-                "bedrock-runtime",
-                region_name=self.region,
-                aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-                aws_session_token=self.aws_session_token,
-            )
         if self.api == "invoke":
             async for chunk in self._handle_invoke_api(messages, tools, invocation_parameters):
                 yield chunk
@@ -777,15 +794,25 @@ class BedrockStreamingClient(PlaygroundStreamingClient):
         # Build messages in Converse API format
         converse_messages = self._build_converse_messages(messages)
 
+        inference_config = {}
+        if (
+            "max_tokens" in invocation_parameters
+            and invocation_parameters["max_tokens"] is not None
+        ):
+            inference_config["maxTokens"] = invocation_parameters["max_tokens"]
+        if (
+            "temperature" in invocation_parameters
+            and invocation_parameters["temperature"] is not None
+        ):
+            inference_config["temperature"] = invocation_parameters["temperature"]
+        if "top_p" in invocation_parameters and invocation_parameters["top_p"] is not None:
+            inference_config["topP"] = invocation_parameters["top_p"]
+
         # Build the request parameters for Converse API
         converse_params: dict[str, Any] = {
-            "modelId": f"us.{self.model_name}",
+            "modelId": self.model_name,
             "messages": converse_messages,
-            "inferenceConfig": {
-                "maxTokens": invocation_parameters["max_tokens"],
-                "temperature": invocation_parameters["temperature"],
-                "topP": invocation_parameters["top_p"],
-            },
+            "inferenceConfig": inference_config,
         }
 
         # Add system prompt if available
@@ -918,16 +945,26 @@ class BedrockStreamingClient(PlaygroundStreamingClient):
         bedrock_messages, system_prompt = self._build_bedrock_messages(messages)
         bedrock_params = {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": invocation_parameters["max_tokens"],
             "messages": bedrock_messages,
             "system": system_prompt,
-            "temperature": invocation_parameters["temperature"],
-            "top_p": invocation_parameters["top_p"],
             "tools": tools,
         }
 
+        if (
+            "max_tokens" in invocation_parameters
+            and invocation_parameters["max_tokens"] is not None
+        ):
+            bedrock_params["max_tokens"] = invocation_parameters["max_tokens"]
+        if (
+            "temperature" in invocation_parameters
+            and invocation_parameters["temperature"] is not None
+        ):
+            bedrock_params["temperature"] = invocation_parameters["temperature"]
+        if "top_p" in invocation_parameters and invocation_parameters["top_p"] is not None:
+            bedrock_params["top_p"] = invocation_parameters["top_p"]
+
         response = self.client.invoke_model_with_response_stream(
-            modelId=f"us.{self.model_name}",  # or another Claude model
+            modelId=self.model_name,
             contentType="application/json",
             accept="application/json",
             body=json.dumps(bedrock_params),
@@ -1140,13 +1177,24 @@ class OpenAIStreamingClient(OpenAIBaseStreamingClient):
                 raise BadRequest("An API key is required for OpenAI models")
             api_key = "sk-fake-api-key"
 
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=30)
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            default_headers=model.custom_headers or None,
+            timeout=30,
+        )
         super().__init__(client=client, model=model, credentials=credentials)
         self._attributes[LLM_PROVIDER] = OpenInferenceLLMProviderValues.OPENAI.value
         self._attributes[LLM_SYSTEM] = OpenInferenceLLMSystemValues.OPENAI.value
 
 
 _OPENAI_REASONING_MODELS = [
+    "gpt-5.2",
+    "gpt-5.2-2025-12-11",
+    "gpt-5.2-chat-latest",
+    "gpt-5.1",
+    "gpt-5.1-2025-11-13",
+    "gpt-5.1-chat-latest",
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
@@ -1199,6 +1247,10 @@ class OpenAIReasoningReasoningModelsMixin:
                 invocation_name="response_format",
                 label="Response Format",
                 canonical_name=CanonicalParameterName.RESPONSE_FORMAT,
+            ),
+            JSONInvocationParameter(
+                invocation_name="extra_body",
+                label="Extra Body",
             ),
         ]
 
@@ -1295,6 +1347,7 @@ class AzureOpenAIStreamingClient(OpenAIBaseStreamingClient):
                 api_key=api_key,
                 azure_endpoint=endpoint,
                 api_version=api_version,
+                default_headers=model.custom_headers or None,
             )
         else:
             try:
@@ -1312,6 +1365,7 @@ class AzureOpenAIStreamingClient(OpenAIBaseStreamingClient):
                 ),
                 azure_endpoint=endpoint,
                 api_version=api_version,
+                default_headers=model.custom_headers or None,
             )
         super().__init__(client=client, model=model, credentials=credentials)
         self._attributes[LLM_PROVIDER] = OpenInferenceLLMProviderValues.AZURE.value
@@ -1429,13 +1483,8 @@ class AzureOpenAIReasoningNonStreamingClient(
     provider_key=GenerativeProviderKey.ANTHROPIC,
     model_names=[
         PROVIDER_DEFAULT,
-        "claude-3-5-sonnet-latest",
         "claude-3-5-haiku-latest",
-        "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-opus-latest",
-        "claude-3-sonnet-20240229",
         "claude-3-haiku-20240307",
     ],
 )
@@ -1459,7 +1508,10 @@ class AnthropicStreamingClient(PlaygroundStreamingClient):
         if not api_key:
             raise BadRequest("An API key is required for Anthropic models")
 
-        self.client = anthropic.AsyncAnthropic(api_key=api_key)
+        self.client = anthropic.AsyncAnthropic(
+            api_key=api_key,
+            default_headers=model.custom_headers or None,
+        )
         self.model_name = model.name
         self.rate_limiter = PlaygroundRateLimiter(model.provider_key, anthropic.RateLimitError)
         self.client._client = _HttpxClient(self.client._client, self._attributes)
@@ -1495,7 +1547,6 @@ class AnthropicStreamingClient(PlaygroundStreamingClient):
                 invocation_name="top_p",
                 canonical_name=CanonicalParameterName.TOP_P,
                 label="Top P",
-                default_value=None,
                 min_value=0.0,
                 max_value=1.0,
             ),
@@ -1641,10 +1692,16 @@ class AnthropicStreamingClient(PlaygroundStreamingClient):
 @register_llm_client(
     provider_key=GenerativeProviderKey.ANTHROPIC,
     model_names=[
-        "claude-sonnet-4-0",
-        "claude-sonnet-4-20250514",
+        "claude-opus-4-5",
+        "claude-opus-4-5-20251101",
+        "claude-sonnet-4-5",
+        "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5",
+        "claude-haiku-4-5-20251001",
         "claude-opus-4-1",
         "claude-opus-4-1-20250805",
+        "claude-sonnet-4-0",
+        "claude-sonnet-4-20250514",
         "claude-opus-4-0",
         "claude-opus-4-20250514",
         "claude-3-7-sonnet-latest",
@@ -1669,11 +1726,6 @@ class AnthropicReasoningStreamingClient(AnthropicStreamingClient):
     provider_key=GenerativeProviderKey.GOOGLE,
     model_names=[
         PROVIDER_DEFAULT,
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-2.5-pro",
-        "gemini-2.5-pro-preview-03-25",
-        "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
         "gemini-2.0-flash-001",
         "gemini-2.0-flash-thinking-exp-01-21",
@@ -1689,7 +1741,7 @@ class GoogleStreamingClient(PlaygroundStreamingClient):
         model: GenerativeModelInput,
         credentials: Optional[list[PlaygroundClientCredential]] = None,
     ) -> None:
-        import google.generativeai as google_genai
+        import google.genai as google_genai
 
         super().__init__(model=model, credentials=credentials)
         self._attributes[LLM_PROVIDER] = OpenInferenceLLMProviderValues.GOOGLE.value
@@ -1706,12 +1758,12 @@ class GoogleStreamingClient(PlaygroundStreamingClient):
         if not api_key:
             raise BadRequest("An API key is required for Gemini models")
 
-        google_genai.configure(api_key=api_key)
+        self.client = google_genai.Client(api_key=api_key)
         self.model_name = model.name
 
     @classmethod
     def dependencies(cls) -> list[Dependency]:
-        return [Dependency(name="google-generativeai", module_name="google.generativeai")]
+        return [Dependency(name="google-genai", module_name="google.genai")]
 
     @classmethod
     def supported_invocation_parameters(cls) -> list[InvocationParameter]:
@@ -1748,13 +1800,17 @@ class GoogleStreamingClient(PlaygroundStreamingClient):
                 invocation_name="top_p",
                 canonical_name=CanonicalParameterName.TOP_P,
                 label="Top P",
-                default_value=1.0,
                 min_value=0.0,
                 max_value=1.0,
             ),
             IntInvocationParameter(
                 invocation_name="top_k",
                 label="Top K",
+            ),
+            JSONInvocationParameter(
+                invocation_name="tool_config",
+                label="Tool Config",
+                canonical_name=CanonicalParameterName.TOOL_CHOICE,
             ),
         ]
 
@@ -1766,28 +1822,25 @@ class GoogleStreamingClient(PlaygroundStreamingClient):
         tools: list[JSONScalarType],
         **invocation_parameters: Any,
     ) -> AsyncIterator[ChatCompletionChunk]:
-        import google.generativeai as google_genai
+        from google.genai import types
 
-        google_message_history, current_message, system_prompt = self._build_google_messages(
-            messages
-        )
+        contents, system_prompt = self._build_google_messages(messages)
 
-        model_args = {"model_name": self.model_name}
+        config_dict = invocation_parameters.copy()
+
         if system_prompt:
-            model_args["system_instruction"] = system_prompt
-        client = google_genai.GenerativeModel(**model_args)
+            config_dict["system_instruction"] = system_prompt
 
-        google_config = google_genai.GenerationConfig(
-            **invocation_parameters,
+        if tools:
+            function_declarations = [types.FunctionDeclaration(**tool) for tool in tools]
+            config_dict["tools"] = [types.Tool(function_declarations=function_declarations)]
+
+        config = types.GenerateContentConfig.model_validate(config_dict)
+        stream = await self.client.aio.models.generate_content_stream(
+            model=f"models/{self.model_name}",
+            contents=contents,
+            config=config,
         )
-        google_params = {
-            "content": current_message,
-            "generation_config": google_config,
-            "stream": True,
-        }
-
-        chat = client.start_chat(history=google_message_history)
-        stream = await chat.send_message_async(**google_params)
         async for event in stream:
             self._attributes.update(
                 {
@@ -1796,31 +1849,148 @@ class GoogleStreamingClient(PlaygroundStreamingClient):
                     LLM_TOKEN_COUNT_TOTAL: event.usage_metadata.total_token_count,
                 }
             )
-            yield TextChunk(content=event.text)
+
+            if event.candidates:
+                candidate = event.candidates[0]
+                if candidate.content and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if function_call := part.function_call:
+                            yield ToolCallChunk(
+                                id=function_call.id or "",
+                                function=FunctionCallChunk(
+                                    name=function_call.name or "",
+                                    arguments=json.dumps(function_call.args or {}),
+                                ),
+                            )
+                        elif text := part.text:
+                            yield TextChunk(content=text)
 
     def _build_google_messages(
         self,
         messages: list[tuple[ChatCompletionMessageRole, str, Optional[str], Optional[list[str]]]],
-    ) -> tuple[list["ContentType"], str, str]:
-        google_message_history: list["ContentType"] = []
+    ) -> tuple[list["ContentType"], str]:
+        """Build Google messages following the standard pattern - process ALL messages."""
+        google_messages: list["ContentType"] = []
         system_prompts = []
         for role, content, _tool_call_id, _tool_calls in messages:
             if role == ChatCompletionMessageRole.USER:
-                google_message_history.append({"role": "user", "parts": content})
+                google_messages.append({"role": "user", "parts": [{"text": content}]})
             elif role == ChatCompletionMessageRole.AI:
-                google_message_history.append({"role": "model", "parts": content})
+                google_messages.append({"role": "model", "parts": [{"text": content}]})
             elif role == ChatCompletionMessageRole.SYSTEM:
                 system_prompts.append(content)
             elif role == ChatCompletionMessageRole.TOOL:
                 raise NotImplementedError
             else:
                 assert_never(role)
-        if google_message_history:
-            prompt = google_message_history.pop()["parts"]
-        else:
-            prompt = ""
 
-        return google_message_history, prompt, "\n".join(system_prompts)
+        return google_messages, "\n".join(system_prompts)
+
+
+@register_llm_client(
+    provider_key=GenerativeProviderKey.GOOGLE,
+    model_names=[
+        PROVIDER_DEFAULT,
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-pro-preview-03-25",
+    ],
+)
+class Gemini25GoogleStreamingClient(GoogleStreamingClient):
+    @classmethod
+    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
+        return [
+            BoundedFloatInvocationParameter(
+                invocation_name="temperature",
+                canonical_name=CanonicalParameterName.TEMPERATURE,
+                label="Temperature",
+                default_value=1.0,
+                min_value=0.0,
+                max_value=2.0,
+            ),
+            IntInvocationParameter(
+                invocation_name="max_output_tokens",
+                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
+                label="Max Output Tokens",
+            ),
+            StringListInvocationParameter(
+                invocation_name="stop_sequences",
+                canonical_name=CanonicalParameterName.STOP_SEQUENCES,
+                label="Stop Sequences",
+            ),
+            BoundedFloatInvocationParameter(
+                invocation_name="top_p",
+                canonical_name=CanonicalParameterName.TOP_P,
+                label="Top P",
+                min_value=0.0,
+                max_value=1.0,
+            ),
+            FloatInvocationParameter(
+                invocation_name="top_k",
+                label="Top K",
+            ),
+            JSONInvocationParameter(
+                invocation_name="tool_config",
+                label="Tool Choice",
+                canonical_name=CanonicalParameterName.TOOL_CHOICE,
+            ),
+        ]
+
+
+@register_llm_client(
+    provider_key=GenerativeProviderKey.GOOGLE,
+    model_names=[
+        "gemini-3-pro-preview",
+    ],
+)
+class Gemini3GoogleStreamingClient(Gemini25GoogleStreamingClient):
+    @classmethod
+    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
+        return [
+            StringInvocationParameter(
+                invocation_name="thinking_level",
+                label="Thinking Level",
+                canonical_name=CanonicalParameterName.REASONING_EFFORT,
+            ),
+            *super().supported_invocation_parameters(),
+        ]
+
+    async def chat_completion_create(
+        self,
+        messages: list[
+            tuple[ChatCompletionMessageRole, str, Optional[str], Optional[list[JSONScalarType]]]
+        ],
+        tools: list[JSONScalarType],
+        **invocation_parameters: Any,
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        # Extract thinking_level and construct thinking_config
+        thinking_level = invocation_parameters.pop("thinking_level", None)
+
+        if thinking_level:
+            try:
+                import google.genai
+                from packaging.version import parse as parse_version
+
+                if parse_version(google.genai.__version__) < parse_version("1.50.0"):
+                    raise ImportError
+            except (ImportError, AttributeError):
+                raise BadRequest(
+                    "Reasoning capabilities for Gemini models require `google-genai>=1.50.0` "
+                    "and Python >= 3.10."
+                )
+
+            # NOTE: as of gemini 1.51.0 medium thinking is not supported
+            # but will eventually be added in a future version
+            # we are purposefully allowing users to select medium knowing
+            # it does not work.
+            invocation_parameters["thinking_config"] = {
+                "include_thoughts": True,
+                "thinking_level": thinking_level.upper(),
+            }
+
+        async for chunk in super().chat_completion_create(messages, tools, **invocation_parameters):
+            yield chunk
 
 
 def initialize_playground_clients() -> None:

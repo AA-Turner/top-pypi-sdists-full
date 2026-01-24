@@ -19,12 +19,28 @@ class OutputHandler:
 
     def handle_output(self, diff_report: Diff) -> None:
         """Main output handler that determines output format"""
+        # Determine which formats to output
+        formats_to_output = []
+
         if self.config.enable_json:
-            self.output_console_json(diff_report, self.config.sbom_file)
-        elif self.config.enable_sarif:
-            self.output_console_sarif(diff_report, self.config.sbom_file)
-        else:
+            formats_to_output.append('json')
+        if self.config.enable_sarif:
+            formats_to_output.append('sarif')
+        if self.config.enable_gitlab_security:
+            formats_to_output.append('gitlab')
+
+        # If no format specified, default to console comments
+        if not formats_to_output:
             self.output_console_comments(diff_report, self.config.sbom_file)
+        else:
+            # Output all enabled formats
+            for format_type in formats_to_output:
+                if format_type == 'json':
+                    self.output_console_json(diff_report, self.config.sbom_file)
+                elif format_type == 'sarif':
+                    self.output_console_sarif(diff_report, self.config.sbom_file)
+                elif format_type == 'gitlab':
+                    self.output_gitlab_security(diff_report)
         if self.config.jira_plugin.enabled:
             jira_config = {
                 "enabled": self.config.jira_plugin.enabled,
@@ -77,12 +93,40 @@ class OutputHandler:
 
     def output_console_comments(self, diff_report: Diff, sbom_file_name: Optional[str] = None) -> None:
         """Outputs formatted console comments"""
-        if len(diff_report.new_alerts) == 0:
+        has_new_alerts = len(diff_report.new_alerts) > 0
+        has_unchanged_alerts = (
+            self.config.strict_blocking and
+            hasattr(diff_report, 'unchanged_alerts') and
+            len(diff_report.unchanged_alerts) > 0
+        )
+
+        if not has_new_alerts and not has_unchanged_alerts:
             self.logger.info("No issues found")
             return
 
+        # Count blocking vs warning alerts
+        new_blocking = sum(1 for issue in diff_report.new_alerts if issue.error)
+        new_warning = sum(1 for issue in diff_report.new_alerts if issue.warn)
+
+        unchanged_blocking = 0
+        unchanged_warning = 0
+        if has_unchanged_alerts:
+            unchanged_blocking = sum(1 for issue in diff_report.unchanged_alerts if issue.error)
+            unchanged_warning = sum(1 for issue in diff_report.unchanged_alerts if issue.warn)
+
         console_security_comment = Messages.create_console_security_alert_table(diff_report)
+
+        # Build status message
         self.logger.info("Security issues detected by Socket Security:")
+        if new_blocking > 0:
+            self.logger.info(f"  - NEW blocking issues: {new_blocking}")
+        if new_warning > 0:
+            self.logger.info(f"  - NEW warning issues: {new_warning}")
+        if unchanged_blocking > 0:
+            self.logger.info(f"  - EXISTING blocking issues: {unchanged_blocking} (causing failure due to --strict-blocking)")
+        if unchanged_warning > 0:
+            self.logger.info(f"  - EXISTING warning issues: {unchanged_warning}")
+
         self.logger.info(f"Diff Url: {diff_report.diff_url}")
         self.logger.info(f"\n{console_security_comment}")
 
@@ -105,13 +149,30 @@ class OutputHandler:
 
     def report_pass(self, diff_report: Diff) -> bool:
         """Determines if the report passes security checks"""
-        if not diff_report.new_alerts:
-            return True
-
+        # Priority 1: --disable-blocking always passes
         if self.config.disable_blocking:
             return True
 
-        return not any(issue.error for issue in diff_report.new_alerts)
+        # Check new alerts for blocking issues
+        has_new_blocking_alerts = any(issue.error for issue in diff_report.new_alerts)
+
+        # Check unchanged alerts if --strict-blocking is enabled
+        has_unchanged_blocking_alerts = False
+        if self.config.strict_blocking and hasattr(diff_report, 'unchanged_alerts'):
+            has_unchanged_blocking_alerts = any(
+                issue.error for issue in diff_report.unchanged_alerts
+            )
+
+        # If no alerts at all, pass
+        if not diff_report.new_alerts and not (
+            self.config.strict_blocking and
+            hasattr(diff_report, 'unchanged_alerts') and
+            diff_report.unchanged_alerts
+        ):
+            return True
+
+        # Fail if there are any blocking alerts (new or unchanged with --strict-blocking)
+        return not (has_new_blocking_alerts or has_unchanged_blocking_alerts)
 
     def save_sbom_file(self, diff_report: Diff, sbom_file_name: Optional[str] = None) -> None:
         """Saves SBOM file if filename is provided"""
@@ -123,6 +184,40 @@ class OutputHandler:
 
         with open(sbom_path, "w") as f:
             json.dump(diff_report.sbom, f, indent=2)
+
+    def output_gitlab_security(self, diff_report: Diff) -> None:
+        """
+        Generate GitLab Security Dashboard (Dependency Scanning) output
+        and save to file.
+
+        Args:
+            diff_report: Diff report containing vulnerability data
+        """
+        if diff_report.id != "NO_DIFF_RAN":
+            # Generate GitLab report structure
+            gitlab_report = Messages.create_security_comment_gitlab(diff_report)
+
+            # Determine output file path
+            output_path = self.config.gitlab_security_file or "gl-dependency-scanning-report.json"
+
+            # Save to file
+            self.save_gitlab_security_file(gitlab_report, output_path)
+
+            self.logger.info(f"GitLab Security report saved to {output_path}")
+
+    def save_gitlab_security_file(self, report: dict, file_path: str) -> None:
+        """
+        Save GitLab Security Dashboard report to file.
+
+        Args:
+            report: GitLab report dictionary
+            file_path: Path to save the report file
+        """
+        gitlab_path = Path(file_path)
+        gitlab_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(gitlab_path, "w") as f:
+            json.dump(report, f, indent=2)
 
     def _output_issue(self, issue: Issue) -> None:
         """Helper method to format and output a single issue"""

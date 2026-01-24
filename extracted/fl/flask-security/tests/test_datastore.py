@@ -5,7 +5,7 @@ test_datastore
 Datastore tests
 
 :copyright: (c) 2012 by Matt Wright.
-:copyright: (c) 2019-2024 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -474,6 +474,7 @@ def test_uuid(app, request, tmpdir, realdburl):
     def tear_down():
         with app.app_context():
             db.drop_all()
+            db.engine.dispose()
             _teardown_realdb(db_info)
 
     request.addfinalizer(tear_down)
@@ -489,7 +490,7 @@ def test_uuid(app, request, tmpdir, realdburl):
 def test_webauthn(app, datastore):
     importorskip("webauthn")
     if not datastore.webauthn_model:
-        skip("No WebAuthn model defined")
+        skip(f"No WebAuthn model defined for datastore: {datastore.__class__.__name__}")
     init_app_with_options(app, datastore)
 
     with app.app_context():
@@ -523,7 +524,7 @@ def test_webauthn(app, datastore):
 def test_webauthn_cascade(app, datastore):
     importorskip("webauthn")
     if not datastore.webauthn_model:
-        skip("No WebAuthn model defined")
+        skip(f"No WebAuthn model defined for datastore: {datastore.__class__.__name__}")
     init_app_with_options(app, datastore)
 
     with app.app_context():
@@ -677,6 +678,7 @@ def test_permissions_41(request, app, realdburl):
         if realdburl:
             with app.app_context():
                 db.drop_all()
+                db.engine.dispose()
                 _teardown_realdb(db_info)
 
     request.addfinalizer(tear_down)
@@ -769,3 +771,18 @@ def test_fsqlalite_table_name(app):
     with app.app_context():
         Model.metadata.drop_all(db.engine)
         db.engine.dispose()
+
+
+def test_null_fs_uniquifier(app, client):
+    # If a record has a null fs_uniquifier - we shouldn't find it.
+    # The only way this might happen is if an app upgrades from a 3.0 Flask-Security
+    # and doesn't properly update their DB.
+    ds = app.security.datastore
+    with app.test_request_context("/"):
+        user = ds.find_user(email="gal@lp.com")
+        user.fs_uniquifier = ""
+        ds.put(user)
+        ds.commit()
+
+        user = app.security.login_manager.user_callback("")
+        assert not user

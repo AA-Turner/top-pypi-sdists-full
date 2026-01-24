@@ -9,6 +9,7 @@ import { transform } from "sucrase";
 import { ModelEvent, server_event } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { ImportedStyleSheet } from "@bokehjs/core/dom";
+import { Enum } from "@bokehjs/core/kinds";
 import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { isArray } from "@bokehjs/core/util/types";
 import { serializeEvent } from "./event-to-object";
@@ -230,8 +231,13 @@ export class ReactiveESMView extends HTMLBoxView {
             this.container.className = this.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
         });
         const child_props = this.model.children.map((child) => this.model.data.properties[child]);
-        this.on_change(child_props, () => {
-            this.update_children();
+        for (const cp of child_props) {
+            cp.change.connect(() => this.update_children());
+        }
+        this.on_change([], () => {
+            if (this.model.render_policy !== "manual") {
+                this.render_esm();
+            }
         });
         this.model.on_event(ESMEvent, (event) => {
             for (const cb of this._event_handlers) {
@@ -391,6 +397,7 @@ export class ReactiveESMView extends HTMLBoxView {
         if (this.model.compiled === null || this.model.render_module === null) {
             return;
         }
+        this.container.replaceChildren();
         this.accessed_properties = [];
         for (const lf of this._lifecycle_handlers.keys()) {
             (this._lifecycle_handlers.get(lf) || []).splice(0);
@@ -400,6 +407,9 @@ export class ReactiveESMView extends HTMLBoxView {
     }
     render_children() {
         for (const child of this.model.children) {
+            if (!this.accessed_children.includes(child)) {
+                return;
+            }
             const child_model = this.model.data[child];
             const children = isArray(child_model) ? child_model : [child_model];
             for (const subchild of children) {
@@ -414,7 +424,22 @@ export class ReactiveESMView extends HTMLBoxView {
                 }
             }
         }
+        this._stale_children = false;
         this.after_render();
+    }
+    has_finished() {
+        if (!super.has_finished()) {
+            return false;
+        }
+        if (this.is_layout_root && !this._layout_computed) {
+            return false;
+        }
+        for (const child_view of this.child_views) {
+            if (!child_view.has_finished() && this._child_rendered.has(child_view)) {
+                return false;
+            }
+        }
+        return true;
     }
     invalidate_layout() {
         if (this.is_managed) {
@@ -464,8 +489,10 @@ export class ReactiveESMView extends HTMLBoxView {
     async update_children() {
         const created_children = new Set(await this.build_child_views());
         const all_views = this.child_views;
-        for (const child_view of all_views) {
-            child_view.el.remove();
+        if (this.model.render_policy !== "manual") {
+            for (const child_view of all_views) {
+                child_view.el.remove();
+            }
         }
         const new_views = new Map();
         for (const child_view of this.child_views) {
@@ -495,12 +522,12 @@ export class ReactiveESMView extends HTMLBoxView {
                 callback(new_children);
             }
         }
-        if (this._stale_children) {
+        if (this._stale_children && this.model.render_policy !== "manual") {
             this.render_esm();
-            this._stale_children = false;
+            this._update_children();
+            this.invalidate_layout();
         }
-        this._update_children();
-        this.invalidate_layout();
+        this._stale_children = false;
     }
     on_child_render(child, callback) {
         if (!this._child_callbacks.has(child)) {
@@ -523,6 +550,7 @@ export class ReactiveESMView extends HTMLBoxView {
         }
     }
 }
+export const RenderPolicy = Enum("manual", "children");
 export class ReactiveESM extends HTMLBox {
     static __name__ = "ReactiveESM";
     compiled = null;
@@ -551,12 +579,6 @@ export class ReactiveESM extends HTMLBox {
         this.connect(this.properties.importmap.change, () => this.recompile());
     }
     watch(view, prop, cb, force = false) {
-        if (prop in this._esm_watchers) {
-            this._esm_watchers[prop].push([view, cb]);
-        }
-        else {
-            this._esm_watchers[prop] = [[view, cb]];
-        }
         const propPath = prop.split(".");
         let target = this.data;
         let resolvedProp = null;
@@ -586,10 +608,43 @@ export class ReactiveESM extends HTMLBox {
         }
         // Attach watcher if property is found
         if (resolvedProp && target) {
+            if (this.children.includes(resolvedProp)) {
+                const orig_cb = cb;
+                cb = async () => {
+                    if (view) {
+                        view._stale_children = true;
+                    }
+                    if (view && view._stale_children) {
+                        await new Promise(resolve => {
+                            const check = () => {
+                                if (!view._stale_children) {
+                                    resolve(undefined);
+                                }
+                                else {
+                                    setTimeout(check, 10);
+                                }
+                            };
+                            check();
+                        });
+                    }
+                    orig_cb();
+                    if (view && this.render_policy === "manual") {
+                        view.render_children();
+                        view._update_children();
+                        view.invalidate_layout();
+                    }
+                };
+            }
             target.property(resolvedProp).change.connect(cb);
         }
         else if (prop in this.properties) {
             this.property(prop).change.connect(cb);
+        }
+        if (prop in this._esm_watchers) {
+            this._esm_watchers[prop].push([view, cb]);
+        }
+        else {
+            this._esm_watchers[prop] = [[view, cb]];
         }
     }
     unwatch(view, prop, cb) {
@@ -827,6 +882,7 @@ export default {render}`;
             esm: [Str, ""],
             events: [Array(Str), []],
             importmap: [Any, {}],
+            render_policy: [RenderPolicy, "children"],
         }));
     }
 }

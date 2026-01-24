@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: altcha
-Version: 0.2.0
+Version: 1.0.0
 Summary: A library for creating and verifying challenges for ALTCHA.
 Home-page: https://github.com/altcha-org/altcha-lib-py
 Author: Daniel Regeci

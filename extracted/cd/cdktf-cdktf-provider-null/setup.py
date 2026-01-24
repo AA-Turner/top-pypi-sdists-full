@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-null",
-    "version": "11.0.0",
+    "version": "11.0.1",
     "description": "Prebuilt null Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-null.git",
@@ -29,7 +29,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_null._jsii": [
-            "provider-null@11.0.0.jsii.tgz"
+            "provider-null@11.0.1.jsii.tgz"
         ],
         "cdktf_cdktf_provider_null": [
             "py.typed"
@@ -39,7 +39,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.111.0, <2.0.0",
+        "jsii>=1.119.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

@@ -55,41 +55,33 @@ def _get_genai_entity_id(entity: Union[ComparisonChat, ComparisonPrompt, LLMBlue
     return entity.id
 
 
-comparison_prompt_result_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("llm_blueprint_id"): t.String,
-        t.Key("result_metadata", optional=True): t.Or(result_metadata_trafaret, t.Null),
-        t.Key("result_text", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-        t.Key("confidence_scores", optional=True): t.Or(confidence_scores_trafaret, t.Null),
-        t.Key("citations"): t.List(citation_trafaret),
-        t.Key("execution_status"): t.String,
-        t.Key("chat_context_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("comparison_prompt_result_ids_included_in_history", optional=True): t.Or(
-            t.List(t.String), t.Null
-        ),
-    }
-).ignore_extra("*")
+comparison_prompt_result_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("llm_blueprint_id"): t.String,
+    t.Key("result_metadata", optional=True): t.Or(result_metadata_trafaret, t.Null),
+    t.Key("result_text", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+    t.Key("confidence_scores", optional=True): t.Or(confidence_scores_trafaret, t.Null),
+    t.Key("citations"): t.List(citation_trafaret),
+    t.Key("execution_status"): t.String,
+    t.Key("chat_context_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("comparison_prompt_result_ids_included_in_history", optional=True): t.Or(t.List(t.String), t.Null),
+}).ignore_extra("*")
 
 
-comparison_prompt_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("text"): t.String(allow_blank=True),
-        t.Key("results"): t.List(comparison_prompt_result_trafaret),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("comparison_chat_id", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+comparison_prompt_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("text"): t.String(allow_blank=True),
+    t.Key("results"): t.List(comparison_prompt_result_trafaret),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("comparison_chat_id", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
-feedback_result_trafaret = t.Dict(
-    {
-        t.Key("comparison_prompt_result_id"): t.String,
-        t.Key("feedback_metadata"): feedback_metadata_trafaret,
-    }
-).ignore_extra("*")
+feedback_result_trafaret = t.Dict({
+    t.Key("comparison_prompt_result_id"): t.String,
+    t.Key("feedback_metadata"): feedback_metadata_trafaret,
+}).ignore_extra("*")
 
 
 class FeedbackResultDict(TypedDict):
@@ -174,17 +166,11 @@ class ComparisonPromptResult(APIObject):
         self.llm_blueprint_id = llm_blueprint_id
         self.citations = [Citation.from_server_data(citation) for citation in citations]
         self.execution_status = execution_status
-        self.result_metadata = (
-            ResultMetadata.from_server_data(result_metadata) if result_metadata else None
-        )
+        self.result_metadata = ResultMetadata.from_server_data(result_metadata) if result_metadata else None
         self.result_text = result_text
-        self.confidence_scores = (
-            ConfidenceScores.from_server_data(confidence_scores) if confidence_scores else None
-        )
+        self.confidence_scores = ConfidenceScores.from_server_data(confidence_scores) if confidence_scores else None
         self.chat_context_id = chat_context_id
-        self.comparison_prompt_result_ids_included_in_history = (
-            comparison_prompt_result_ids_included_in_history
-        )
+        self.comparison_prompt_result_ids_included_in_history = comparison_prompt_result_ids_included_in_history
         self.citations = [Citation.from_server_data(citation) for citation in citations]
 
     def __repr__(self) -> str:
@@ -283,9 +269,7 @@ class ComparisonPrompt(APIObject):
         """
         payload = {
             "additionalLLMBlueprintIds": (
-                [_get_genai_entity_id(bp) for bp in additional_llm_blueprints]
-                if additional_llm_blueprints
-                else None
+                [_get_genai_entity_id(bp) for bp in additional_llm_blueprints] if additional_llm_blueprints else None
             ),
             "feedbackResult": feedback_result.to_dict() if feedback_result else None,
         }
@@ -355,12 +339,8 @@ class ComparisonPrompt(APIObject):
             The created comparison prompt.
         """
         payload = {
-            "llm_blueprint_ids": [
-                _get_genai_entity_id(llm_blueprint) for llm_blueprint in llm_blueprints
-            ],
-            "comparison_chat_id": (
-                _get_genai_entity_id(comparison_chat) if comparison_chat else None
-            ),
+            "llm_blueprint_ids": [_get_genai_entity_id(llm_blueprint) for llm_blueprint in llm_blueprints],
+            "comparison_chat_id": (_get_genai_entity_id(comparison_chat) if comparison_chat else None),
             "text": text,
             "metadata_filter": rawdict(metadata_filter) if metadata_filter else None,
         }
@@ -417,9 +397,7 @@ class ComparisonPrompt(APIObject):
             blueprints.
         """
         llm_blueprint_ids = (
-            [_get_genai_entity_id(llm_blueprint) for llm_blueprint in llm_blueprints]
-            if llm_blueprints
-            else None
+            [_get_genai_entity_id(llm_blueprint) for llm_blueprint in llm_blueprints] if llm_blueprints else None
         )
         comparison_chat_id = _get_genai_entity_id(comparison_chat) if comparison_chat else None
         params = {

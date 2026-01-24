@@ -1,0 +1,161 @@
+Metadata-Version: 2.1
+Name: KqlmagicCustom
+Version: 0.1.114.post26
+Summary: Kqlmagic: Microsoft Azure Monitor magic extension to Jupyter notebook (Custom Dependencies)
+Home-page: https://github.com/Microsoft/jupyter-Kqlmagic
+Author: Michael Binshtock
+Author-email: michabin@microsoft.com
+Maintainer: Michael Binshtock
+Maintainer-email: michabin@microsoft.com
+License: MIT License
+Project-URL: Documentation, https://github.com/microsoft/jupyter-Kqlmagic/blob/master/README.md
+Project-URL: Source, https://github.com/microsoft/jupyter-Kqlmagic
+Keywords: database ipython jupyter jupyterlab jupyter-notebook nteract azureml query language kql adx azure-data-explorer kusto loganalytics applicationinsights aria
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Customer Service
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Environment :: Console
+Classifier: Environment :: Plugins
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Front-Ends
+Classifier: Framework :: IPython
+Classifier: Framework :: Jupyter
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+Provides-Extra: default
+Provides-Extra: naked
+Provides-Extra: saw
+Provides-Extra: jupyter-basic
+Provides-Extra: ipython-basic
+Provides-Extra: python-basic
+Provides-Extra: basic
+Provides-Extra: jupyter-extended
+Provides-Extra: ipython-extended
+Provides-Extra: python-extended
+Provides-Extra: extended
+Provides-Extra: jupyter-all
+Provides-Extra: ipython-all
+Provides-Extra: python-all
+Provides-Extra: plotly
+Provides-Extra: pandas
+Provides-Extra: widgets
+Provides-Extra: sso
+Provides-Extra: azcli_sso
+Provides-Extra: msi_sso
+Provides-Extra: vscode_sso
+Provides-Extra: msal_sso
+Provides-Extra: kqlmagic_sso
+Provides-Extra: kqlmagic_msal_sso
+Provides-Extra: kqlmagic_fernet_sso
+Provides-Extra: utils
+Provides-Extra: base_utils
+Provides-Extra: text_utils
+Provides-Extra: json_color
+Provides-Extra: auth_code_clipboard
+Provides-Extra: matplotlib_palettes
+Provides-Extra: dev
+Provides-Extra: tests
+License-File: LICENSE.TXT
+License-File: NOTICE.TXT
+
+Kqlmagic: Microsoft Azure Monitor magic extension to Jupyter notebook
+=====================================================================
+Enables notebook experience, exploring Microsoft Azure Monitor data: Azure Data Explorer (Kusto),
+ApplicationInsights, and LogAnalytics data, from Jupyter notebook (Python3 kernel), using kql (Kusto Query language).
+
+
+
+
+|version| |python| |license| 
+
+|downloads| |monthDownloads| |weekDownloads|
+
+
+
+
+Example
+--------
+
+
+.. code-block:: python
+
+    Install latest version of package
+    In [1]: !pip install Kqlmagic --no-cache-dir --upgrade
+
+.. code-block:: python
+
+    Add Kqlmagic to notebook magics
+    In [2]: %reload_ext Kqlmagic
+
+.. code-block:: python
+
+    Connect to database at cluster
+    In [3]: %kql kusto://code;cluster='help';database='Samples'
+
+.. code-block:: python
+
+    Query database@cluster and render result set to a pie chart
+    In [4]: %kql Samples@help StormEvents | summarize count() by State | sort by count_ | limit 10 | render piechart title='my apple pie'
+
+
+
+Get Started Notebooks
+---------------------
+
+* `Get Started with Kqlmagic for Kusto notebook <https://mybinder.org/v2/gh/Microsoft/jupyter-Kqlmagic/master?filepath=notebooks%2FQuickStart.ipynb>`_.
+
+* `Get Started with Kqlmagic for Application Insights notebook <https://mybinder.org/v2/gh/Microsoft/jupyter-Kqlmagic/master?filepath=notebooks%2FQuickStartAI.ipynb>`_.
+
+* `Get Started with Kqlmagic for Log Analytics notebook <https://mybinder.org/v2/gh/Microsoft/jupyter-Kqlmagic/master?filepath=notebooks%2FQuickStartLA.ipynb>`_.
+
+
+* `Parametrize your Kqlmagic query with Python notebook <https://mybinder.org/v2/gh/Microsoft/jupyter-Kqlmagic/master?filepath=notebooks%2FParametrizeYourQuery.ipynb>`_.
+
+* `Choose colors palette for your Kqlmagic query chart result notebook <https://mybinder.org/v2/gh/Microsoft/jupyter-Kqlmagic/master?filepath=notebooks%2FColorYourCharts.ipynb>`_.
+
+
+Links
+-----
+
+* `How to install the package <https://github.com/Microsoft/jupyter-Kqlmagic#install>`_.
+* `How to install the package on a Secure Access Workstation (SAW) <https://github.com/Microsoft/jupyter-Kqlmagic#Install%20on%20Secure%20Access%20Workstation%20(SAW)>`_.
+* `How to load the magic extension <https://github.com/Microsoft/jupyter-Kqlmagic#load>`_.
+* `GitHub Repository <https://github.com/Microsoft/jupyter-Kqlmagic/tree/master>`_.
+
+
+
+
+
+
+.. |downloads| image:: https://pepy.tech/badge/kqlmagic
+    :target: https://pepy.tech/project/kqlmagic
+
+.. |monthDownloads| image:: https://pepy.tech/badge/kqlmagic/month
+    :target: https://pepy.tech/project/kqlmagic
+
+.. |weekDownloads| image:: https://pepy.tech/badge/kqlmagic/week
+    :target: https://pepy.tech/project/kqlmagic
+
+.. |version| image:: https://img.shields.io/pypi/v/Kqlmagic.svg?style=flat-square
+    :target: https://pypi.org/project/Kqlmagic/
+
+.. |python| image:: https://img.shields.io/pypi/pyversions/Kqlmagic.svg?style=flat-square
+    :target: https://github.com/Microsoft/jupyter-Kqlmagic/blob/master/setup.py
+
+.. |license| image:: https://img.shields.io/pypi/l/Kqlmagic.svg?style=flat-square
+    :target: https://github.com/Microsoft/jupyter-Kqlmagic/blob/master/LICENSE.TXT
+
+

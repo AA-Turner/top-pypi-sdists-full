@@ -3,7 +3,7 @@ Type annotations for artifact service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,6 +13,7 @@ Usage::
     from types_aiobotocore_artifact.client import ArtifactClient
     from types_aiobotocore_artifact.paginator import (
         ListCustomerAgreementsPaginator,
+        ListReportVersionsPaginator,
         ListReportsPaginator,
     )
 
@@ -21,6 +22,7 @@ Usage::
         client: ArtifactClient
 
         list_customer_agreements_paginator: ListCustomerAgreementsPaginator = client.get_paginator("list_customer_agreements")
+        list_report_versions_paginator: ListReportVersionsPaginator = client.get_paginator("list_report_versions")
         list_reports_paginator: ListReportsPaginator = client.get_paginator("list_reports")
     ```
 """
@@ -37,6 +39,8 @@ from .type_defs import (
     ListCustomerAgreementsResponseTypeDef,
     ListReportsRequestPaginateTypeDef,
     ListReportsResponseTypeDef,
+    ListReportVersionsRequestPaginateTypeDef,
+    ListReportVersionsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -44,7 +48,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListCustomerAgreementsPaginator", "ListReportsPaginator")
+__all__ = ("ListCustomerAgreementsPaginator", "ListReportVersionsPaginator", "ListReportsPaginator")
 
 if TYPE_CHECKING:
     _ListCustomerAgreementsPaginatorBase = AioPaginator[ListCustomerAgreementsResponseTypeDef]
@@ -62,6 +66,24 @@ class ListCustomerAgreementsPaginator(_ListCustomerAgreementsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListCustomerAgreements.html#Artifact.Paginator.ListCustomerAgreements.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listcustomeragreementspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListReportVersionsPaginatorBase = AioPaginator[ListReportVersionsResponseTypeDef]
+else:
+    _ListReportVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListReportVersionsPaginator(_ListReportVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListReportVersions.html#Artifact.Paginator.ListReportVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listreportversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListReportVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListReportVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListReportVersions.html#Artifact.Paginator.ListReportVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listreportversionspaginator)
         """
 
 if TYPE_CHECKING:

@@ -1,7 +1,7 @@
 import re
 import inspect
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Type, Sequence, Any, Union
+from typing import Type, Sequence, Any
 
 from .utils import SQLParseException, SQLLoadException, VAR_REF, VAR_REF_DOT, log
 from .types import QueryDatum, QueryDataTree, SQLOperationType, DriverAdapterProtocol
@@ -16,9 +16,9 @@ _RECORD_DEF = re.compile(r"--\s*record_class\s*:\s*(\w+)\s*")
 # FIXME this accepts "1st" but seems to reject "é"
 _NAME_OP = re.compile(
     # query name
-    r"^(?P<name>\w+)"
+    r"^(?P<name>\w+)\s*"
     # optional list of parameters (foo, bla) or ()
-    r"(|\((?P<params>(\s*|\s*\w+\s*(,\s*\w+\s*)*))\))"
+    r"(|\((?P<params>(\s*|\s*\w+\s*(,\s*\w+\s*)*))\))\s*"
     # operation, empty for simple select
     r"(?P<op>(|\^|\$|!|<!|\*!|#))$"
 )
@@ -106,32 +106,35 @@ class QueryLoader:
     - :param driver_adapter: driver name or class.
     - :param record_classes: nothing of dict.
     - :param attribute: string to insert in place of ``.``.
+    - :param mandatory_parameters: whether params are required.
     """
 
     def __init__(
         self,
         driver_adapter: DriverAdapterProtocol,
-        record_classes: Optional[Dict[str, Any]],
-        attribute: Optional[str] = None,
+        record_classes: dict[str, Any]|None,
+        attribute: str|None = None,
+        mandatory_parameters: bool = True,
     ):
-        self.driver_adapter = driver_adapter
-        self.record_classes = record_classes if record_classes is not None else {}
-        self.attribute = attribute
+        self._driver_adapter = driver_adapter
+        self._record_classes = record_classes if record_classes is not None else {}
+        self._attribute = attribute
+        self._mandatory_parameters = mandatory_parameters
 
     def _make_query_datum(
         self,
         query: str,
-        ns_parts: List[str],
-        floc: Tuple[Union[Path, str], int],
+        ns_parts: list[str],
+        floc: tuple[Path|str, int],
     ) -> QueryDatum:
         """Build a query datum.
 
-        - :param query: the spec and name (``query-name!\n-- comments\nSQL;\n``)
+        - :param query: the spec and name (``query-name(…)!\n-- comments\nSQL;\n``)
         - :param ns_parts: name space parts, i.e. subdirectories of loaded files
         - :param floc: file name and lineno the query was extracted from
         """
-        lines = [line.strip() for line in query.strip().splitlines()]
-        qname, qop, qsig = self._get_name_op(lines[0])
+        lines = [line.rstrip() for line in query.strip().splitlines()]
+        qname, qop, qsig = self._get_name_op(lines[0], floc)
         if re.search(r"[^A-Za-z0-9_]", qname):
             log.warning(f"non ASCII character in query name: {qname}")
         if len(lines) <= 1:
@@ -142,38 +145,44 @@ class QueryLoader:
             raise SQLParseException(f"empty sql for: {qname} at {floc[0]}:{floc[1]}")
         signature = self._build_signature(sql, qname, qsig)
         query_fqn = ".".join(ns_parts + [qname])
-        if self.attribute:  # :u.a -> :u__a, **after** signature generation
-            sql, attributes = _preprocess_object_attributes(self.attribute, sql)
+        if self._attribute:  # :u.a -> :u__a, **after** signature generation
+            sql, attributes = _preprocess_object_attributes(self._attribute, sql)
         else:  # pragma: no cover
             attributes = None
-        sql = self.driver_adapter.process_sql(query_fqn, qop, sql)
+        sql = self._driver_adapter.process_sql(query_fqn, qop, sql)
         return QueryDatum(query_fqn, doc, qop, sql, record_class, signature, floc, attributes, qsig)
 
-    def _get_name_op(self, text: str) -> Tuple[str, SQLOperationType, Optional[List[str]]]:
+    def _get_name_op(self, text: str, floc: tuple[Path|str, int]) -> tuple[str, SQLOperationType, list[str]|None]:
         """Extract name, parameters and operation from spec."""
         qname_spec = text.replace("-", "_")
         matched = _NAME_OP.match(qname_spec)
         if not matched or _BAD_PREFIX.match(qname_spec):
-            raise SQLParseException(f'invalid query name and operation spec: "{qname_spec}"')
+            raise SQLParseException(f'invalid query name and operation spec at {floc[0]}:{floc[1]} on "{qname_spec}"')
         nameop = matched.groupdict()
+        # extract operation
+        operation = _OP_TYPES[nameop["op"]]
+        # extract parameters
         params, rawparams = None, nameop["params"]
+        if self._mandatory_parameters and rawparams is None and nameop["op"] not in ("#", "*!", "<!"):
+            raise SQLParseException(f'missing mandatory parameter list at {floc[0]}:{floc[1]} on "{qname_spec}", '
+                                    'use "mandatory_parameters=False" to allow')
         if rawparams is not None:
             params = [p.strip() for p in rawparams.split(",")]
             if params == ['']:  # handle "( )"
                 params = []
-        operation = _OP_TYPES[nameop["op"]]
-        if params and operation == "#":  # pragma: no cover  # FIXME it is covered?
-            raise SQLParseException(f'cannot use named parameters in SQL script: "{qname_spec}"')
+        # sanity check for scripts
+        if params and nameop["op"] == "#":
+            raise SQLParseException(f'cannot use named parameters in SQL script at {floc[0]}:{floc[1]} on "{qname_spec}"')
         return nameop["name"], operation, params
 
-    def _get_record_class(self, text: str) -> Optional[Type]:
+    def _get_record_class(self, text: str) -> Type|None:
         """Extract record class from spec."""
         rc_match = _RECORD_DEF.match(text)
         rc_name = rc_match.group(1) if rc_match else None
         # TODO: Probably will want this to be a class, marshal in, and marshal out
-        return self.record_classes.get(rc_name) if isinstance(rc_name, str) else None
+        return self._record_classes.get(rc_name) if isinstance(rc_name, str) else None
 
-    def _get_sql_doc(self, lines: Sequence[str]) -> Tuple[str, str]:
+    def _get_sql_doc(self, lines: Sequence[str]) -> tuple[str, str]:
         """Separate SQL-comment documentation and SQL code."""
         doc, sql = "", ""
         for line in lines:
@@ -185,7 +194,7 @@ class QueryLoader:
 
         return sql.strip(), doc.rstrip()
 
-    def _build_signature(self, sql: str, qname: str, sig: Optional[List[str]]) -> inspect.Signature:
+    def _build_signature(self, sql: str, qname: str, sig: list[str]|None) -> inspect.Signature:
         """Return signature object for generated dynamic function."""
         # FIXME what about the connection?!
         params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
@@ -213,8 +222,8 @@ class QueryLoader:
         return inspect.Signature(parameters=params)
 
     def load_query_data_from_sql(
-        self, sql: str, ns_parts: List[str], fname: Union[Path, str] = "<unknown>"
-    ) -> List[QueryDatum]:
+        self, sql: str, ns_parts: list[str], fname: Path|str = "<unknown>"
+    ) -> list[QueryDatum]:
         """Load queries from a string."""
         usql = _remove_ml_comments(sql)
         qdefs = _QUERY_DEF.split(usql)
@@ -228,8 +237,8 @@ class QueryLoader:
         return data
 
     def load_query_data_from_file(
-        self, path: Path, ns_parts: List[str] = [], encoding=None
-    ) -> List[QueryDatum]:
+        self, path: Path, ns_parts: list[str] = [], encoding=None
+    ) -> list[QueryDatum]:
         """Load queries from a file."""
         return self.load_query_data_from_sql(path.read_text(encoding=encoding), ns_parts, path)
 

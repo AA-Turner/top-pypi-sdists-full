@@ -10,12 +10,11 @@ import os.path
 import posixpath
 import shutil
 import sys
-import tarfile
 from argparse import _ActionsContainer
-from contextlib import closing
 
 from pex import dependency_configuration, interpreter
 from pex import resolver as pip_resolver
+from pex import sdist
 from pex.artifact_url import ArtifactURL, Fingerprint
 from pex.atomic_directory import atomic_directory
 from pex.build_system import pep_517
@@ -676,19 +675,19 @@ class Run(CacheAwareMixin, BuildTimeCommand):
                         return package, os.path.join(lock_dest_dir, lock_path)
         elif is_sdist(distribution.path):
             if is_tar_sdist(distribution.path):
-                with closing(tarfile.open(distribution.path)) as tf:
-                    tf.extractall(lock_dest_dir)
+                sdist_root = sdist.extract_tarball(distribution.path, dest_dir=lock_dest_dir)
             else:
                 with open_zip(distribution.path) as zf:
                     zf.extractall(lock_dest_dir)
-            entries = glob.glob(os.path.join(lock_dest_dir, "*"))
-            if len(entries) != 1:
-                return Error(
-                    "Expected {sdist} to have 1 entry, found {count}: {entries}".format(
-                        sdist=distribution.path, count=len(entries), entries=entries
+                entries = glob.glob(os.path.join(lock_dest_dir, "*"))
+                if len(entries) != 1:
+                    return Error(
+                        "Expected {sdist} to have 1 entry, found {count}: {entries}".format(
+                            sdist=distribution.path, count=len(entries), entries=entries
+                        )
                     )
-                )
-            sdist_root = entries[0]
+                sdist_root = entries[0]
+
             for lock_name in run_spec.locks:
                 lock_path = os.path.join(sdist_root, lock_name)
                 if os.path.exists(lock_path):
@@ -812,7 +811,8 @@ class Run(CacheAwareMixin, BuildTimeCommand):
                         interpreter=PythonInterpreter.get(),
                     )
                     provenance = Provenance.create(
-                        venv=venv, python=interpreter.adjust_to_final_path(venv.interpreter.binary)
+                        venv=venv,
+                        shebang_python=interpreter.adjust_to_final_path(venv.interpreter.binary),
                     )
                     installer.populate_venv_distributions(
                         venv=venv, distributions=distributions, provenance=provenance

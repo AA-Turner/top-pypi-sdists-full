@@ -16,7 +16,7 @@ from azure.core.rest import HttpRequest, HttpResponse
 
 from . import models as _models
 from ._configuration import AzureQueueStorageConfiguration
-from ._serialization import Deserializer, Serializer
+from ._utils.serialization import Deserializer, Serializer
 from .operations import MessageIdOperations, MessagesOperations, QueueOperations, ServiceOperations
 
 
@@ -37,7 +37,7 @@ class AzureQueueStorage:  # pylint: disable=client-accepts-api-version-keyword
     :param base_url: Service URL. Required. Default value is "".
     :type base_url: str
     :keyword version: Specifies the version of the operation to use for this request. Default value
-     is "2018-03-28". Note that overriding this default value may result in unsupported behavior.
+     is "2026-02-06". Note that overriding this default value may result in unsupported behavior.
     :paramtype version: str
     """
 
@@ -45,6 +45,7 @@ class AzureQueueStorage:  # pylint: disable=client-accepts-api-version-keyword
         self, url: str, base_url: str = "", **kwargs: Any
     ) -> None:
         self._config = AzureQueueStorageConfiguration(url=url, **kwargs)
+
         _policies = kwargs.pop("policies", None)
         if _policies is None:
             _policies = [

@@ -2,7 +2,10 @@
 
 import inspect
 import os
+import re
 from contextlib import contextmanager
+from copy import deepcopy
+from dataclasses import is_dataclass
 from importlib.metadata import version
 from importlib.util import find_spec
 from typing import Optional, Union
@@ -240,6 +243,10 @@ def parse_docstring(component, params=False, logger=None):
 def parse_docs(component, parent, logger):
     docs = {}
     if docstring_parser_support:
+        if is_dataclass(parent) and component.__name__ == "__init__":
+            next_mro = inspect.getmro(parent)[1]
+            if is_dataclass(next_mro):
+                docs.update(parse_docs(next_mro, next_mro.__init__, logger))
         doc_sources = [component]
         if inspect.isclass(parent) and component.__name__ == "__init__":
             doc_sources += [parent]
@@ -266,7 +273,7 @@ def get_doc_short_description(function_or_class, method_name=None, logger=None):
     return None
 
 
-def get_omegaconf_loader():
+def get_omegaconf_loader(mode):
     """Returns a yaml loader function based on OmegaConf which supports variable interpolation."""
     import io
 
@@ -275,12 +282,25 @@ def get_omegaconf_loader():
     with missing_package_raise("omegaconf", "get_omegaconf_loader"):
         from omegaconf import OmegaConf
 
+    assert mode in {"omegaconf", "omegaconf+"}
+
+    if mode == "omegaconf+":
+        from ._common import get_parsing_setting
+
+        def omegaconf_plus_load(value):
+            value = yaml_load(value)
+            if isinstance(value, dict) and get_parsing_setting("omegaconf_absolute_to_relative_paths"):
+                value = omegaconf_absolute_to_relative_paths(value)
+            return value
+
+        return omegaconf_plus_load
+
     def omegaconf_load(value):
         value_pyyaml = yaml_load(value)
         if isinstance(value_pyyaml, (str, int, float, bool)) or value_pyyaml is None:
             return value_pyyaml
         value_omegaconf = OmegaConf.to_object(OmegaConf.load(io.StringIO(value)))
-        str_ref = {k: None for k in [value]}
+        str_ref = dict.fromkeys([value], None)
         return value_pyyaml if value_omegaconf == str_ref else value_omegaconf
 
     return omegaconf_load
@@ -296,12 +316,61 @@ def omegaconf_apply(parser, cfg):
     from ._common import parser_context
 
     with parser_context(path_dump_preserve_relative=True):
-        cfg_dict = parser.dump(
-            cfg, format="json_compact", skip_validation=True, skip_none=False, skip_link_targets=False
-        )
+        cfg_dict = parser.dump(cfg, skip_validation=True, skip_none=False, skip_link_targets=False)
     cfg_omegaconf = OmegaConf.create(cfg_dict)
     cfg_dict = OmegaConf.to_container(cfg_omegaconf, resolve=True)
     return parser._apply_actions(cfg_dict)
+
+
+def omegaconf_tokenize(path: str) -> list[str]:
+    """Very small tokenizer: 'a.b[0].c' -> ['a','b','0','c']."""
+    return [t for t in path.replace("]", "").replace("[", ".").split(".") if t]
+
+
+def omegaconf_tokens_to_path(tokens: list[str]) -> str:
+    """Render tokens back to a normalized path: ['a','0','b'] -> 'a[0].b'."""
+    s = ""
+    for t in tokens:
+        if t.isdigit():
+            s += f"[{t}]"
+        else:
+            s += ("" if s == "" else ".") + t
+    return s
+
+
+def omegaconf_absolute_to_relative_paths(data: dict) -> dict:
+    """
+    Return a new nested dict/list where absolute ${...} interpolations
+    are rewritten to relative form from the node where they appear.
+    """
+    data = deepcopy(data)
+
+    regex_absolute_path = re.compile(r"\$\{([a-zA-Z][a-zA-Z0-9[\]_.]*)\}")
+
+    def _walk(node, current_path: list[Union[str, int]]):
+        if isinstance(node, dict):
+            return {k: _walk(v, current_path + [k]) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_walk(v, current_path + [i]) for i, v in enumerate(node)]
+
+        if isinstance(node, str):
+
+            def _replace(m: re.Match) -> str:
+                dst_tokens = omegaconf_tokenize(m.group(1))
+                # compute common prefix length
+                i = 0
+                while i < len(current_path) and i < len(dst_tokens) and str(current_path[i]) == dst_tokens[i]:
+                    i += 1
+                up = max(1, len(current_path) - i)
+                dots = "." * up
+                down = omegaconf_tokens_to_path(dst_tokens[i:])
+                return "${" + dots + down + "}"
+
+            return regex_absolute_path.sub(_replace, node)
+
+        return node
+
+    return _walk(data, [])
 
 
 annotated_alias = typing_extensions_import("_AnnotatedAlias")
@@ -348,16 +417,26 @@ pydantic_supports_field_init = get_pydantic_supports_field_init()
 
 
 def is_pydantic_model(class_type) -> int:
-    classes = inspect.getmro(class_type) if pydantic_support and inspect.isclass(class_type) else []
-    for cls in classes:
-        if getattr(cls, "__module__", "").startswith("pydantic") and getattr(cls, "__name__", "") == "BaseModel":
-            import pydantic
+    if pydantic_support:
+        classes = inspect.getmro(class_type) if pydantic_support and inspect.isclass(class_type) else []
+        for cls in classes:
+            if getattr(cls, "__module__", "").startswith("pydantic") and getattr(cls, "__name__", "") == "BaseModel":
+                import pydantic
 
-            if issubclass(cls, pydantic.BaseModel):
-                return pydantic_support
-            elif pydantic_support > 1 and issubclass(cls, pydantic.v1.BaseModel):
-                return 1
+                if issubclass(cls, pydantic.BaseModel):
+                    return pydantic_support
+                elif pydantic_support > 1 and issubclass(cls, pydantic.v1.BaseModel):
+                    return 1
     return 0
+
+
+def is_attrs_class(class_type) -> bool:
+    if attrs_support:
+        import attrs
+
+        if attrs.has(class_type):
+            return True
+    return False
 
 
 def get_module(value):

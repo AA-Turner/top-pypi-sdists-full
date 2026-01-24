@@ -1,10 +1,11 @@
 Metadata-Version: 2.1
 Name: oslo.utils
-Version: 9.1.0
+Version: 9.2.0
 Summary: Oslo Utility library
-Home-page: https://docs.openstack.org/oslo.utils/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/oslo.utils
+Project-URL: Repository, https://opendev.org/openstack/oslo.utils
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -12,13 +13,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: iso8601>=0.1.11
 Requires-Dist: oslo.i18n>=3.15.3
@@ -60,4 +60,3 @@ such as encoding, exception handling, string manipulation, and time handling.
 * Source: https://opendev.org/openstack/oslo.utils
 * Bugs: https://bugs.launchpad.net/oslo.utils
 * Release notes: https://docs.openstack.org/releasenotes/oslo.utils/
-

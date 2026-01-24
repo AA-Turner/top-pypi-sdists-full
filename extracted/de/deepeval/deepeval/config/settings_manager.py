@@ -4,6 +4,7 @@ dotenv file. Also syncs os.environ, handles unsets, and warns on unknown fields.
 Primary entrypoint: update_settings_and_persist.
 """
 
+import json
 import logging
 import os
 
@@ -15,7 +16,7 @@ from enum import Enum
 from pydantic import SecretStr
 from deepeval.config.settings import get_settings, _SAVE_RE
 from deepeval.cli.dotenv_handler import DotenvHandler
-from deepeval.utils import bool_to_env_str
+from deepeval.config.utils import bool_to_env_str
 
 logger = logging.getLogger(__name__)
 StrOrEnum = Union[str, Enum]
@@ -33,6 +34,9 @@ def _normalize_for_env(val: Any) -> Optional[str]:
         return val.get_secret_value()
     if isinstance(val, bool):
         return bool_to_env_str(val)
+    # encode sequences as JSON so Settings can parse them back reliably.
+    if isinstance(val, (list, tuple, set)):
+        return json.dumps(list(val))
     return str(val)
 
 

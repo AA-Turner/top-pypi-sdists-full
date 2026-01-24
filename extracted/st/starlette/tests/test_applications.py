@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncGenerator, AsyncIterator, Generator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Callable
+from typing import TypedDict
 
 import anyio.from_thread
 import pytest
@@ -96,6 +96,19 @@ def custom_ws_exception_handler(websocket: WebSocket, exc: CustomWSException) ->
     anyio.from_thread.run(websocket.close, status.WS_1013_TRY_AGAIN_LATER)
 
 
+class CustomState(TypedDict):
+    count: int
+
+
+@asynccontextmanager
+async def lifespan(app: Starlette) -> AsyncGenerator[CustomState]:
+    yield {"count": 1}
+
+
+async def state_count(request: Request[CustomState]) -> JSONResponse:
+    return JSONResponse({"count": request.state["count"]}, status_code=200)
+
+
 users = Router(
     routes=[
         Route("/", endpoint=all_users_page),
@@ -123,6 +136,7 @@ app = Starlette(
         Route("/func", endpoint=func_homepage),
         Route("/async", endpoint=async_homepage),
         Route("/class", endpoint=Homepage),
+        Route("/state", endpoint=state_count),
         Route("/500", endpoint=runtime_error),
         WebSocketRoute("/ws", endpoint=websocket_endpoint),
         WebSocketRoute("/ws-raise-websocket", endpoint=websocket_raise_websocket_exception),
@@ -133,6 +147,7 @@ app = Starlette(
     ],
     exception_handlers=exception_handlers,  # type: ignore
     middleware=middleware,
+    lifespan=lifespan,
 )
 
 
@@ -217,6 +232,12 @@ def test_500(test_client_factory: TestClientFactory) -> None:
     assert response.json() == {"detail": "Server Error"}
 
 
+def test_request_state(client: TestClient) -> None:
+    response = client.get("/state")
+    assert response.status_code == 200
+    assert response.json() == {"count": 1}
+
+
 def test_websocket_raise_websocket_exception(client: TestClient) -> None:
     with client.websocket_connect("/ws-raise-websocket") as session:
         response = session.receive()
@@ -257,6 +278,7 @@ def test_routes() -> None:
         Route("/func", endpoint=func_homepage, methods=["GET"]),
         Route("/async", endpoint=async_homepage, methods=["GET"]),
         Route("/class", endpoint=Homepage),
+        Route("/state", endpoint=state_count, methods=["GET"]),
         Route("/500", endpoint=runtime_error, methods=["GET"]),
         WebSocketRoute("/ws", endpoint=websocket_endpoint),
         WebSocketRoute("/ws-raise-websocket", endpoint=websocket_raise_websocket_exception),

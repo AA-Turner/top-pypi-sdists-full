@@ -11,6 +11,7 @@ import xgrammar as xgr
 from xgrammar.testing import (
     _get_masked_tokens_from_bitmask,
     _get_matcher_from_grammar_and_tokenizer_info,
+    _is_grammar_accept_string,
 )
 
 
@@ -520,7 +521,12 @@ def test_regression_accept_invalid_token():
     )
     grammar_compiler = xgr.GrammarCompiler(tokenizer_info=tokenizer_info)
     ctx = grammar_compiler.compile_json_schema(
-        schema="""{"type": "object", "properties": {"value": {"type": ["string", "null"], "maxLength": 10}, "nested": {"type": "object", "properties": {"value": {"type": ["string", "null"]}, "nested_nested": {"type": "array", "items": {"type": ["string", "null"]}}}, "required": ["value", "nested_nested"], "maxItems": 10, "minItems": 1}}, "required": ["value", "nested"], "additionalProperties": false}"""
+        schema="""
+{"type": "object", "properties": {"value": {"type": ["string", "null"], "maxLength": 10},
+"nested": {"type": "object", "properties": {"value": {"type": ["string", "null"]},
+"nested_nested": {"type": "array", "items": {"type": ["string", "null"]}}},
+"required": ["value", "nested_nested"], "maxItems": 10, "minItems": 1}},
+"required": ["value", "nested"], "additionalProperties": false}"""
     )
     matcher = xgr.GrammarMatcher(ctx, max_rollback_tokens=200, override_stop_tokens=None)
     token_bitmask = xgr.allocate_token_bitmask(vocab_size=vocab_size, batch_size=7)
@@ -538,6 +544,36 @@ def test_regression_accept_invalid_token():
         matcher.fill_next_token_bitmask(token_bitmask, i)
 
 
+@pytest.mark.hf_token_required
+def test_regression_accept_kimi_tokenizer_token():
+    config = AutoConfig.from_pretrained("moonshotai/Kimi-K2-Thinking", trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained("moonshotai/Kimi-K2-Thinking", trust_remote_code=True)
+    vocab_size = config.vocab_size
+    ids = tokenizer.encode(
+        r'{"command": "find ./ -name *.txt ", "security_risk": "LOW"}', add_special_tokens=True
+    )
+    tokens = tokenizer.convert_ids_to_tokens(ids)
+
+    tokenizer_info = xgr.TokenizerInfo.from_huggingface(
+        tokenizer, vocab_size=vocab_size, stop_token_ids=[tokenizer.eos_token_id]
+    )
+    grammar_compiler = xgr.GrammarCompiler(tokenizer_info=tokenizer_info)
+    schema = {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string"},
+            "security_risk": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]},
+        },
+        "required": ["command"],
+    }
+    ctx = grammar_compiler.compile_json_schema(schema=json.dumps(schema))
+    matcher = xgr.GrammarMatcher(ctx, max_rollback_tokens=200, override_stop_tokens=None)
+    for i, token in zip(ids, tokens):
+        assert matcher.accept_token(i)
+    matcher.accept_token(tokenizer.eos_token_id)  # accept EOS
+    assert matcher.is_terminated()
+
+
 def test_regression_empty_property_key_regex():
     schema = {
         "type": "object",
@@ -552,6 +588,21 @@ def test_regression_empty_property_key_regex():
     }
     _ = xgr.Grammar.from_json_schema(schema)
     assert _ is not None
+
+
+def test_json_schema_number_without_constraint():
+    schema = {"type": "object", "properties": {"value": {"type": "number"}}, "required": ["value"]}
+    grammar = xgr.Grammar.from_json_schema(schema)
+    assert _is_grammar_accept_string(grammar, '{"value": -0.5}')
+    assert _is_grammar_accept_string(grammar, '{"value": -1.5}')
+    assert _is_grammar_accept_string(grammar, '{"value": 0}')
+    assert _is_grammar_accept_string(grammar, '{"value": 1234567890}')
+    assert _is_grammar_accept_string(grammar, '{"value": 3.14159}')
+    assert _is_grammar_accept_string(grammar, '{"value": 1e10}')
+    assert _is_grammar_accept_string(grammar, '{"value": -2.5E-3}')
+    assert _is_grammar_accept_string(grammar, '{"value": 0.0}')
+    assert _is_grammar_accept_string(grammar, '{"value": -0.0}')
+    assert not _is_grammar_accept_string(grammar, '{"value": "abc"}')
 
 
 if __name__ == "__main__":

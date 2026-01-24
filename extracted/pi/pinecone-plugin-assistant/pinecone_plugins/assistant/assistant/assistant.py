@@ -10,7 +10,7 @@ from pinecone_plugins.assistant.control.core.client.model.inline_object import I
 from pinecone_plugins.assistant.control.core.client import ApiClient
 from pinecone_plugins.assistant.control.core.client.model.inline_object1 import InlineObject1 as UpdateModelRequest
 from pinecone_plugins.assistant.models import AssistantModel
-from pinecone_plugins.assistant.models.assistant_model import HOST_SUFFIX
+from pinecone_plugins.assistant.models.assistant_model import API_VERSION, HOST_SUFFIX
 from pinecone_plugins.assistant.models.evaluation_responses import AlignmentResponse
 from pinecone_plugins.assistant.evaluation.core.client.api.metrics_api import MetricsApi
 from pinecone_plugins.assistant.evaluation.core.client.model.alignment_request import AlignmentRequest
@@ -32,7 +32,7 @@ class Evaluation:
 
         host = os.getenv("PINECONE_PLUGIN_ASSISTANT_DATA_HOST", "https://prod-1-data.ke.pinecone.io")
         self.host = urljoin(host, HOST_SUFFIX)
-        metrics_api = client_builder(MetricsApiClient, MetricsApi, '2025-01', host=self.host)
+        metrics_api = client_builder(MetricsApiClient, MetricsApi, API_VERSION, host=self.host)
         self.metrics = Metrics(metrics_api)
 
 
@@ -55,7 +55,7 @@ class Assistant(PineconePlugin):
         host = os.getenv("PINECONE_PLUGIN_ASSISTANT_CONTROL_HOST", "https://api.pinecone.io")
         self.host = urljoin(host, HOST_SUFFIX)
 
-        self._assistant_control_api = client_builder(ApiClient, ControlApiClient, '2025-01', host=self.host)
+        self._assistant_control_api = client_builder(ApiClient, ControlApiClient, API_VERSION, host=self.host)
         self._client_builder = client_builder
         self.evaluation = Evaluation(client_builder=self._client_builder)
 

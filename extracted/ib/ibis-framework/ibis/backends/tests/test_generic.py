@@ -18,7 +18,6 @@ import ibis.selectors as s
 from ibis import _
 from ibis.backends.tests.errors import (
     ClickHouseDatabaseError,
-    ClickHouseInternalError,
     ExaQueryError,
     GoogleBadRequest,
     ImpalaHiveServer2Error,
@@ -453,12 +452,12 @@ def test_table_fill_null_invalid(alltypes):
         alltypes.fill_null({"invalid_col": 0.0})
 
     with pytest.raises(
-        com.IbisTypeError, match="Cannot fill_null on column 'string_col' of type.*"
+        com.IbisTypeError, match=r"Cannot fill_null on column 'string_col' of type.*"
     ):
         alltypes[["int_col", "string_col"]].fill_null(0)
 
     with pytest.raises(
-        com.IbisTypeError, match="Cannot fill_null on column 'int_col' of type.*"
+        com.IbisTypeError, match=r"Cannot fill_null on column 'int_col' of type.*"
     ):
         alltypes.fill_null({"int_col": "oops"})
 
@@ -1101,9 +1100,6 @@ def test_int_scalar(alltypes):
 
 
 @pytest.mark.notimpl(["polars", "druid"])
-@pytest.mark.notyet(
-    ["clickhouse"], reason="https://github.com/ClickHouse/ClickHouse/issues/6697"
-)
 @pytest.mark.parametrize("method_name", ["any", "notany"])
 def test_exists(batting, awards_players, method_name):
     years = [1980, 1981]
@@ -1239,12 +1235,6 @@ def test_isin_uncorrelated_filter(
                 ),
                 pytest.mark.notyet(
                     ["athena"], raises=PyAthenaOperationalError, reason="no time type"
-                ),
-                pytest.mark.notyet(
-                    ["clickhouse"],
-                    raises=ClickHouseInternalError,
-                    reason="time type not supported in clickhouse_connect; "
-                    "see https://github.com/ClickHouse/clickhouse-connect/issues/509",
                 ),
             ],
         ),
@@ -2354,6 +2344,11 @@ def test_subsequent_overlapping_order_by(con, backend, alltypes, df):
         "Query could not be planned. SQL query requires ordering a table by time column"
     ),
 )
+@pytest.mark.xfail_version(
+    polars=["polars>=1.32.0"],
+    raises=AssertionError,
+    reason="polars ignores inner sort keys since 1.32.0",
+)
 def test_select_sort_sort(backend, alltypes, df):
     t = alltypes
     expr = t.order_by(t.year, t.id.desc()).order_by(t.bool_col)
@@ -2380,6 +2375,11 @@ def test_select_sort_sort(backend, alltypes, df):
     reason=(
         "Query could not be planned. SQL query requires ordering a table by time column"
     ),
+)
+@pytest.mark.xfail_version(
+    polars=["polars>=1.32.0"],
+    raises=AssertionError,
+    reason="polars ignores inner sort keys since 1.32.0",
 )
 def test_select_sort_sort_deferred(backend, alltypes, df):
     t = alltypes

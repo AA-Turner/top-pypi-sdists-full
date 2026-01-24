@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -9,18 +10,38 @@ from datetime import timedelta
 from enum import Enum
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple, Optional, Union, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NamedTuple,
+    Optional,
+    TypedDict,
+    Union,
+    cast,
+    overload,
+)
 from urllib.parse import quote, urljoin, urlparse
 
 import wrapt
 from email_validator import EmailNotValidError, validate_email
+from ldap3.core.exceptions import LDAPInvalidDnError
+from ldap3.utils.dn import parse_dn
 from starlette.datastructures import URL, Secret
+from typing_extensions import TypeAlias, get_args
 
 from phoenix.utilities.logging import log_a_list
 from phoenix.utilities.re import parse_env_headers
 
 if TYPE_CHECKING:
     from phoenix.server.oauth2 import OAuth2Clients
+
+# Assignable roles (SYSTEM is internal-only and not included)
+AssignableUserRoleName: TypeAlias = Literal["ADMIN", "MEMBER", "VIEWER"]
+
+# Tuple of valid OAuth2 roles for validation
+_VALID_ROLES: tuple[str, ...] = get_args(AssignableUserRoleName)
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +78,17 @@ ENV_PHOENIX_FULLSTORY_ORG = "PHOENIX_FULLSTORY_ORG"
 The FullStory organization ID for web analytics tracking. When set, FullStory tracking
 will be enabled in the Phoenix web interface.
 """
+ENV_PHOENIX_SCARF_SH_PIXEL_ID = "PHOENIX_SCARF_SH_PIXEL_ID"
+"""
+The Scarf.sh pixel ID for web analytics tracking. When set, Scarf.sh tracking
+will be enabled in the Phoenix web interface.
+"""
+ENV_PHOENIX_TELEMETRY_ENABLED = "PHOENIX_TELEMETRY_ENABLED"
+"""
+Master toggle for telemetry pixels (FullStory and Scarf.sh).
+When set to False, disables both FullStory and Scarf.sh tracking regardless of their
+individual environment variable settings. Defaults to True.
+"""
 ENV_PHOENIX_ALLOW_EXTERNAL_RESOURCES = "PHOENIX_ALLOW_EXTERNAL_RESOURCES"
 """
 Allows calls to external resources, like Google Fonts in the web interface
@@ -91,15 +123,43 @@ Used with PHOENIX_POSTGRES_HOST to specify the port to use for the PostgreSQL da
 ENV_PHOENIX_POSTGRES_USER = "PHOENIX_POSTGRES_USER"
 """
 Used with PHOENIX_POSTGRES_HOST to specify the user to use for the PostgreSQL database (required).
+
+When using AWS RDS IAM authentication (PHOENIX_POSTGRES_USE_AWS_IAM_AUTH=true), this should be
+set to the IAM-enabled database username configured in your RDS/Aurora instance.
 """
 ENV_PHOENIX_POSTGRES_PASSWORD = "PHOENIX_POSTGRES_PASSWORD"
 """
 Used with PHOENIX_POSTGRES_HOST to specify the password to use for the PostgreSQL database
-(required).
+(required, unless PHOENIX_POSTGRES_USE_AWS_IAM_AUTH is enabled).
+
+When using AWS RDS IAM authentication (PHOENIX_POSTGRES_USE_AWS_IAM_AUTH=true), this password
+is NOT used. Instead, authentication tokens are generated dynamically using AWS IAM credentials.
 """
 ENV_PHOENIX_POSTGRES_DB = "PHOENIX_POSTGRES_DB"
 """
 Used with PHOENIX_POSTGRES_HOST to specify the database to use for the PostgreSQL database.
+"""
+ENV_PHOENIX_POSTGRES_USE_AWS_IAM_AUTH = "PHOENIX_POSTGRES_USE_AWS_IAM_AUTH"
+"""
+Enable AWS RDS IAM database authentication. When enabled, Phoenix will use AWS IAM credentials
+to generate short-lived authentication tokens instead of using a static password.
+
+This requires:
+- boto3 to be installed: pip install 'arize-phoenix[aws]'
+- AWS credentials configured (via environment, ~/.aws/credentials, or IAM role)
+- AWS region configured via standard AWS methods
+- The database user to be configured for IAM authentication in RDS/Aurora
+- SSL to be enabled (required by AWS RDS IAM auth)
+
+When enabled, PHOENIX_POSTGRES_PASSWORD should NOT be set.
+"""
+ENV_PHOENIX_POSTGRES_AWS_IAM_TOKEN_LIFETIME_SECONDS = (
+    "PHOENIX_POSTGRES_AWS_IAM_TOKEN_LIFETIME_SECONDS"
+)
+"""
+Token lifetime in seconds for connection pool recycling when using AWS RDS IAM authentication.
+AWS RDS auth tokens are valid for 15 minutes. This should be set slightly lower to ensure
+tokens are refreshed before expiration. Defaults to 840 seconds (14 minutes).
 """
 ENV_PHOENIX_SQL_DATABASE_SCHEMA = "PHOENIX_SQL_DATABASE_SCHEMA"
 """
@@ -246,15 +306,264 @@ password reset emails. If this variable is left unspecified or contains no origi
 protection will not be enabled. In such cases, when a request includes `origin` or `referer`
 headers, those values will not be validated.
 """
+
+# LDAP authentication settings
+ENV_PHOENIX_LDAP_HOST = "PHOENIX_LDAP_HOST"
+"""
+LDAP server hosts (comma-separated for multiple servers with failover).
+Example: "ldap.corp.com" or "dc1.corp.com,dc2.corp.com,dc3.corp.com"
+
+Multi-server failover behavior:
+  - Connection errors (server unreachable, timeout): Automatically tries the next server
+  - User not found: Returns immediately (no failover to other servers)
+  - Invalid password: Returns immediately (no failover to other servers)
+
+This assumes all servers are replicas with identical user sets (the common HA pattern).
+Multi-domain/forest configurations where different users exist on different servers
+are NOT supported.
+"""
+ENV_PHOENIX_LDAP_PORT = "PHOENIX_LDAP_PORT"
+"""
+LDAP server port. Defaults to 389 for StartTLS, 636 for LDAPS.
+"""
+ENV_PHOENIX_LDAP_TLS_MODE = "PHOENIX_LDAP_TLS_MODE"
+"""
+TLS connection mode. Defaults to "starttls". Options:
+  - "starttls": Upgrade from plaintext to TLS on port 389 (recommended)
+  - "ldaps": TLS from connection start on port 636
+  - "none": No encryption (testing only, credentials sent in plaintext)
+"""
+ENV_PHOENIX_LDAP_TLS_VERIFY = "PHOENIX_LDAP_TLS_VERIFY"
+"""
+Verify TLS certificates. Defaults to true. Should always be true in production.
+"""
+ENV_PHOENIX_LDAP_TLS_CA_CERT_FILE = "PHOENIX_LDAP_TLS_CA_CERT_FILE"
+"""
+Path to custom CA certificate file (PEM format) for TLS verification. Optional.
+Use when LDAP server uses a private/internal CA not in the system trust store.
+Example: "/etc/ssl/certs/internal-ca.pem"
+"""
+ENV_PHOENIX_LDAP_TLS_CLIENT_CERT_FILE = "PHOENIX_LDAP_TLS_CLIENT_CERT_FILE"
+"""
+Path to client certificate file (PEM format) for mutual TLS authentication. Optional.
+Requires PHOENIX_LDAP_TLS_CLIENT_KEY_FILE to also be set.
+Example: "/etc/ssl/certs/phoenix-client.crt"
+"""
+ENV_PHOENIX_LDAP_TLS_CLIENT_KEY_FILE = "PHOENIX_LDAP_TLS_CLIENT_KEY_FILE"
+"""
+Path to client private key file (PEM format) for mutual TLS authentication. Optional.
+Requires PHOENIX_LDAP_TLS_CLIENT_CERT_FILE to also be set.
+Example: "/etc/ssl/private/phoenix-client.key"
+"""
+ENV_PHOENIX_LDAP_BIND_DN = "PHOENIX_LDAP_BIND_DN"
+"""
+Service account DN for binding to LDAP server. Optional for direct bind.
+Example: "CN=svc-phoenix,OU=Service Accounts,DC=corp,DC=com"
+"""
+ENV_PHOENIX_LDAP_BIND_PASSWORD = "PHOENIX_LDAP_BIND_PASSWORD"
+"""
+Service account password for binding to LDAP server.
+Required if BIND_DN is set. Should be stored securely (e.g., Kubernetes Secret,
+environment variable from secrets manager). Avoid hardcoding in configuration files.
+"""
+ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS = "PHOENIX_LDAP_USER_SEARCH_BASE_DNS"
+"""
+JSON array of base DNs for user searches. Searches are performed in order until a user is found.
+Example: '["OU=Users,DC=corp,DC=com"]'
+Multiple: '["OU=Employees,DC=corp,DC=com", "OU=Contractors,DC=corp,DC=com"]'
+"""
+ENV_PHOENIX_LDAP_USER_SEARCH_FILTER = "PHOENIX_LDAP_USER_SEARCH_FILTER"
+"""
+LDAP filter for finding users. Use %s as placeholder for username.
+Example: "(&(objectClass=user)(sAMAccountName=%s))"
+"""
+ENV_PHOENIX_LDAP_ATTR_EMAIL = "PHOENIX_LDAP_ATTR_EMAIL"
+"""
+LDAP attribute containing user's email address. Required.
+
+Set to the attribute name (e.g., "mail") if your LDAP directory has email addresses.
+The attribute must be present in LDAP or login fails.
+
+Set to "null" if your LDAP directory does not have email addresses. When set to "null":
+  - PHOENIX_LDAP_ATTR_UNIQUE_ID is required (users are identified by unique_id instead)
+  - PHOENIX_LDAP_ALLOW_SIGN_UP must be true (users are auto-provisioned on first login)
+  - PHOENIX_ADMINS is not supported (use PHOENIX_LDAP_GROUP_ROLE_MAPPINGS instead)
+  - Users will appear in Phoenix without email addresses
+
+https://www.rfc-editor.org/rfc/rfc2798#section-9.1.3
+"""
+ENV_PHOENIX_LDAP_ATTR_UNIQUE_ID = "PHOENIX_LDAP_ATTR_UNIQUE_ID"
+"""
+LDAP attribute containing an immutable unique identifier.
+
+REQUIRED when PHOENIX_LDAP_ATTR_EMAIL is "null" (users are identified by this ID
+instead of email).
+
+Also recommended if you expect user emails to change (company rebranding, M&A,
+frequent name changes) or have compliance requirements for immutable user tracking.
+For most organizations with email in LDAP, the default email-based identification
+is sufficient.
+
+When set, this attribute is used as the primary identifier, allowing users
+to survive email changes without creating duplicate accounts.
+
+Supported attributes (UUID-based only):
+- Active Directory: "objectGUID" (16-byte binary UUID)
+- OpenLDAP: "entryUUID" (RFC 4530, string UUID)
+- 389 Directory Server: "nsUniqueId" (string UUID)
+
+IMPORTANT: Only standard UUID-based attributes are supported. Custom attributes
+containing 16-character string IDs (e.g., "EMP12345ABCD6789") are NOT supported
+and will be incorrectly converted.
+
+When not set (default), email is used as the identifier. Both modes handle
+DN changes (OU moves, renames). The only difference is email change handling.
+"""
+ENV_PHOENIX_LDAP_ATTR_DISPLAY_NAME = "PHOENIX_LDAP_ATTR_DISPLAY_NAME"
+"""
+LDAP attribute containing user's display name. Defaults to "displayName".
+https://www.rfc-editor.org/rfc/rfc2798.html#section-2.3
+"""
+ENV_PHOENIX_LDAP_ATTR_MEMBER_OF = "PHOENIX_LDAP_ATTR_MEMBER_OF"
+"""
+LDAP attribute containing group memberships. Defaults to "memberOf".
+Used for Active Directory and OpenLDAP with memberOf overlay.
+This attribute is only used when GROUP_SEARCH_FILTER is not set.
+"""
+ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS = "PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS"
+"""
+JSON array of base DNs for group searches (for POSIX/OpenLDAP).
+Required when using GROUP_SEARCH_FILTER.
+Example: '["ou=groups,dc=example,dc=com"]'
+Multiple: '["ou=groups,dc=corp,dc=com", "ou=teams,dc=corp,dc=com"]'
+"""
+ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER = "PHOENIX_LDAP_GROUP_SEARCH_FILTER"
+"""
+LDAP filter for finding groups containing a user. Use %s as placeholder for user identifier.
+
+Two Group Resolution Modes
+--------------------------
+This setting determines how group membership is resolved:
+
+1. AD Mode (this setting NOT set - RECOMMENDED for Active Directory):
+   Reads the memberOf attribute directly from the user entry.
+   Active Directory automatically populates this attribute.
+   Configure PHOENIX_LDAP_ATTR_MEMBER_OF if the attribute name differs.
+
+2. Search Mode (this setting IS set):
+   Searches for groups that contain the user in PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS.
+   Required for POSIX groups (posixGroup) or when memberOf is unavailable.
+
+Placeholder Substitution
+------------------------
+The %s placeholder is replaced with a user identifier. What value is used depends on
+PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR:
+- If not set (default): Uses the login username directly
+- If set: Uses that attribute's value from the user's LDAP entry
+
+See PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR for detailed examples of:
+- POSIX groups (memberUid contains usernames)
+- groupOfNames (member contains full DNs)
+
+Example POSIX configuration:
+  PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS=["ou=groups,dc=example,dc=com"]
+  PHOENIX_LDAP_GROUP_SEARCH_FILTER=(&(objectClass=posixGroup)(memberUid=%s))
+  # PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR not needed - uses login username
+"""
+ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR = "PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR"
+"""
+LDAP attribute from the user entry to substitute for %s in GROUP_SEARCH_FILTER.
+
+When set, reads the specified attribute from the user's LDAP entry and uses its value.
+When not set (default), uses the login username directly.
+
+Understanding Group Membership Attributes
+-----------------------------------------
+Different LDAP group types store membership differently:
+
+1. POSIX groups (posixGroup objectClass):
+   - Use "memberUid" attribute which contains **usernames** (e.g., "jdoe")
+   - Filter: (&(objectClass=posixGroup)(memberUid=%s))
+   - Use: PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR not set (uses login username)
+         or set to "uid" if login username differs from uid attribute
+
+2. groupOfNames/groupOfUniqueNames (RFC 4519):
+   - Use "member"/"uniqueMember" which contains **full DNs**
+     (e.g., "uid=jdoe,ou=users,dc=example,dc=com")
+   - Filter: (&(objectClass=groupOfNames)(member=%s))
+   - Use: PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR=distinguishedName (AD only)
+   - Note: OpenLDAP does not expose DN as an attribute. For groupOfNames with
+     OpenLDAP, consider using memberOf overlay instead (AD mode).
+
+3. Active Directory groups:
+   - RECOMMENDED: Use AD mode (memberOf attribute) instead of group search.
+     AD automatically populates memberOf on user entries.
+     Simply leave PHOENIX_LDAP_GROUP_SEARCH_FILTER unset.
+   - If you must use group search: AD returns "distinguishedName" as an attribute,
+     so PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR=distinguishedName works.
+
+Common values:
+- Not set (default): Uses the login username directly
+- "uid": Explicitly use uid attribute (same as default for most setups)
+- "distinguishedName": Full DN (Active Directory only)
+- "sAMAccountName": Windows login name (Active Directory)
+
+Example configurations:
+
+  POSIX groups with OpenLDAP (memberUid contains usernames):
+    PHOENIX_LDAP_GROUP_SEARCH_FILTER=(&(objectClass=posixGroup)(memberUid=%s))
+    # No PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR needed - uses login username
+
+  POSIX groups when login differs from uid:
+    PHOENIX_LDAP_GROUP_SEARCH_FILTER=(&(objectClass=posixGroup)(memberUid=%s))
+    PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR=uid
+
+  Active Directory with group search (not recommended - use memberOf instead):
+    PHOENIX_LDAP_GROUP_SEARCH_FILTER=(member:1.2.840.113556.1.4.1941:=%s)
+    PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR=distinguishedName
+"""
+ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS = "PHOENIX_LDAP_GROUP_ROLE_MAPPINGS"
+"""
+JSON array mapping LDAP groups to Phoenix roles.
+Example: '[{"group_dn": "CN=Phoenix Admins,OU=Groups,DC=corp,DC=com", "role": "ADMIN"}]'
+Supported role values: "ADMIN", "MEMBER", "VIEWER" (case-insensitive).
+Special group_dn value "*" matches all users (wildcard).
+Order matters: first matching group_dn in the array determines the role.
+"""
+ENV_PHOENIX_LDAP_ALLOW_SIGN_UP = "PHOENIX_LDAP_ALLOW_SIGN_UP"
+"""
+Allow automatic user creation on first LDAP login. Defaults to "true".
+Set to "false" to require pre-provisioned users (created via PHOENIX_ADMINS
+env var or the application's user management UI before first login).
+Pre-provisioned users are matched by email on first LDAP login.
+
+MUST be "true" when PHOENIX_LDAP_ATTR_EMAIL is "null", since pre-provisioning
+by email is not possible without email addresses in LDAP.
+"""
+
 ENV_PHOENIX_ADMINS = "PHOENIX_ADMINS"
 """
 A semicolon-separated list of username and email address pairs to create as admin users on startup.
 The format is `username=email`, e.g., `John Doe=john@example.com;Doe, Jane=jane@example.com`.
-The password for each user will be randomly generated and will need to be reset. The application
-will not start if this environment variable is set but cannot be parsed or contains invalid emails.
-If the username or email address already exists in the database, the user record will not be
-modified, e.g., changed from non-admin to admin. Changing this environment variable for the next
-startup will not undo any records created in previous startups.
+
+User Type Selection:
+The type of user created depends on the authentication configuration:
+- If basic auth is enabled (PHOENIX_DISABLE_BASIC_AUTH=false, default): Creates a LocalUser
+  with a randomly generated password that must be reset on first login.
+- If basic auth is disabled AND LDAP is configured: Creates an LDAPUser that will be matched
+  by email on first LDAP login.
+- If basic auth is disabled AND only OAuth2 is configured: Creates an OAuth2User that will be
+  matched by email on first OAuth2 login.
+
+Notes:
+- The application will not start if this environment variable is set but cannot be parsed or
+  contains invalid emails.
+- If the username or email address already exists in the database, the user record will not be
+  modified, e.g., changed from non-admin to admin.
+- Changing this environment variable for the next startup will not undo any records created in
+  previous startups.
+- NOT supported when PHOENIX_LDAP_ATTR_EMAIL is "null" (use PHOENIX_LDAP_GROUP_ROLE_MAPPINGS
+  to assign admin roles instead when LDAP doesn't have email addresses).
 """
 ENV_PHOENIX_ROOT_URL = "PHOENIX_ROOT_URL"
 """
@@ -634,7 +943,7 @@ def get_working_dir() -> Path:
     """
     working_dir_str = getenv(ENV_PHOENIX_WORKING_DIR)
     if working_dir_str is not None:
-        return Path(working_dir_str)
+        return Path(working_dir_str).resolve()
     # Fall back to ~/.phoenix if PHOENIX_WORKING_DIR is not set
     return Path.home().resolve() / ".phoenix"
 
@@ -804,6 +1113,7 @@ class AuthSettings(NamedTuple):
     phoenix_secret: Secret
     phoenix_admin_secret: Secret
     oauth2_clients: OAuth2Clients
+    ldap_config: Optional[LDAPConfig]
 
 
 def get_env_auth_settings() -> AuthSettings:
@@ -822,9 +1132,13 @@ def get_env_auth_settings() -> AuthSettings:
     from phoenix.server.oauth2 import OAuth2Clients
 
     oauth2_clients = OAuth2Clients.from_configs(get_env_oauth2_settings())
-    if enable_auth and disable_basic_auth and not oauth2_clients:
+    ldap_config = LDAPConfig.from_env()
+
+    if enable_auth and disable_basic_auth and not oauth2_clients and not ldap_config:
         raise ValueError(
-            "OAuth2 is the only supported auth method but no OAuth2 client configs are provided."
+            f"{ENV_PHOENIX_DISABLE_BASIC_AUTH} is set, but no alternative authentication methods "
+            "are configured. Please configure at least one of: OAuth2 "
+            f"(PHOENIX_OAUTH2_*) or LDAP ({ENV_PHOENIX_LDAP_HOST})."
         )
     return AuthSettings(
         enable_auth=enable_auth,
@@ -832,6 +1146,7 @@ def get_env_auth_settings() -> AuthSettings:
         phoenix_secret=phoenix_secret,
         phoenix_admin_secret=phoenix_admin_secret,
         oauth2_clients=oauth2_clients,
+        ldap_config=ldap_config,
     )
 
 
@@ -966,67 +1281,868 @@ def get_env_smtp_validate_certs() -> bool:
     return _bool_val(ENV_PHOENIX_SMTP_VALIDATE_CERTS, True)
 
 
+_ALLOWED_TOKEN_ENDPOINT_AUTH_METHODS = (
+    "client_secret_basic",
+    "client_secret_post",
+    "none",
+)
+"""Allowed OAuth2 token endpoint authentication methods (OIDC Core §9)."""
+
+
 @dataclass(frozen=True)
 class OAuth2ClientConfig:
+    """Configuration for an OAuth2/OIDC identity provider."""
+
+    # Identity provider identification
     idp_name: str
     idp_display_name: str
+
+    # OAuth2 client credentials (RFC 6749 §2)
     client_id: str
-    client_secret: str
+    client_secret: Optional[
+        str
+    ]  # Optional when token_endpoint_auth_method is "none" (RFC 6749 §2.3.1)
     oidc_config_url: str
+
+    # Authentication behavior
     allow_sign_up: bool
     auto_login: bool
+    use_pkce: bool  # Proof Key for Code Exchange (RFC 7636)
+    token_endpoint_auth_method: Optional[str]  # OIDC Core §9
+
+    # Scopes and permissions (RFC 6749 §3.3: space-delimited)
+    scopes: str
+
+    # Group-based access control
+    groups_attribute_path: Optional[str]
+    allowed_groups: list[str]
+
+    # Role mapping
+    role_attribute_path: Optional[str]
+    role_mapping: dict[str, AssignableUserRoleName]
+    role_attribute_strict: bool
 
     @classmethod
     def from_env(cls, idp_name: str) -> "OAuth2ClientConfig":
-        idp_name_upper = idp_name.upper()
-        if not (
-            client_id := getenv(client_id_env_var := f"PHOENIX_OAUTH2_{idp_name_upper}_CLIENT_ID")
-        ):
-            raise ValueError(
-                f"A client id must be set for the {idp_name} OAuth2 IDP "
-                f"via the {client_id_env_var} environment variable"
-            )
-        if not (
-            client_secret := getenv(
-                client_secret_env_var := f"PHOENIX_OAUTH2_{idp_name_upper}_CLIENT_SECRET"
-            )
-        ):
-            raise ValueError(
-                f"A client secret must be set for the {idp_name} OAuth2 IDP "
-                f"via the {client_secret_env_var} environment variable"
-            )
-        if not (
-            oidc_config_url := (
-                getenv(
-                    oidc_config_url_env_var := f"PHOENIX_OAUTH2_{idp_name_upper}_OIDC_CONFIG_URL",
+        """Load OAuth2 client configuration from environment variables for the given IDP name."""
+        idp_prefix = f"PHOENIX_OAUTH2_{idp_name.upper()}"
+
+        def _get_required(suffix: str, description: str) -> str:
+            """Get a required environment variable or raise a descriptive error."""
+            env_var = f"{idp_prefix}_{suffix}"
+            value = getenv(env_var)
+            if value is None or not value:
+                raise ValueError(
+                    f"{description} must be set for the {idp_name} OAuth2 IDP "
+                    f"via the {env_var} environment variable"
                 )
-            )
-        ):
+            return value
+
+        def _get_optional(suffix: str) -> Optional[str]:
+            """Get an optional environment variable."""
+            return getenv(f"{idp_prefix}_{suffix}")
+
+        # Required configuration
+        client_id = _get_required("CLIENT_ID", "Client ID")
+        oidc_config_url = _get_required("OIDC_CONFIG_URL", "OpenID Connect configuration URL")
+
+        # Validate OIDC URL format and HTTPS requirement
+        parsed_url = urlparse(oidc_config_url)
+        if not parsed_url.scheme or not parsed_url.hostname:
             raise ValueError(
-                f"An OpenID Connect configuration URL must be set for the {idp_name} OAuth2 IDP "
-                f"via the {oidc_config_url_env_var} environment variable"
+                f"Invalid OIDC configuration URL for {idp_name} OAuth2 IDP: {oidc_config_url}"
             )
+
+        is_localhost = parsed_url.hostname in ("localhost", "127.0.0.1", "::1")
+        if parsed_url.scheme != "https" and not is_localhost:
+            raise ValueError(
+                f"OIDC configuration URL for {idp_name} OAuth2 IDP "
+                "must use HTTPS (except for localhost)"
+            )
+
+        # Boolean flags
         allow_sign_up = get_env_oauth2_allow_sign_up(idp_name)
         auto_login = get_env_oauth2_auto_login(idp_name)
-        parsed_oidc_config_url = urlparse(oidc_config_url)
-        is_local_oidc_config_url = parsed_oidc_config_url.hostname in ("localhost", "127.0.0.1")
-        if parsed_oidc_config_url.scheme != "https" and not is_local_oidc_config_url:
+        use_pkce = _bool_val(f"{idp_prefix}_USE_PKCE", False)
+
+        # Token endpoint auth method validation
+        token_endpoint_auth_method = None
+        if auth_method := _get_optional("TOKEN_ENDPOINT_AUTH_METHOD"):
+            auth_method = auth_method.lower()
+            if auth_method not in _ALLOWED_TOKEN_ENDPOINT_AUTH_METHODS:
+                raise ValueError(
+                    f"Invalid TOKEN_ENDPOINT_AUTH_METHOD for {idp_name}. "
+                    f"Allowed: {', '.join(sorted(_ALLOWED_TOKEN_ENDPOINT_AUTH_METHODS))}"
+                )
+            token_endpoint_auth_method = auth_method
+
+        # CLIENT_SECRET: required based on TOKEN_ENDPOINT_AUTH_METHOD (OIDC Core §9)
+        client_secret: Optional[str] = None
+
+        # Determine if CLIENT_SECRET is required based on TOKEN_ENDPOINT_AUTH_METHOD:
+        # - "none": CLIENT_SECRET is optional (public clients, RFC 8252 §8.1)
+        # - "client_secret_basic" or "client_secret_post": CLIENT_SECRET is required
+        # - Not set: Default to requiring CLIENT_SECRET (assumes confidential client with
+        #   client_secret_basic)
+        #
+        # Note: PKCE (USE_PKCE, RFC 7636) is orthogonal to client authentication. PKCE can be
+        # used with both public clients (no secret) and confidential clients (with secret) to
+        # protect the authorization code from interception.
+
+        if token_endpoint_auth_method == "none":
+            # Public client - no client authentication required
+            client_secret = _get_optional("CLIENT_SECRET")
+        else:
+            # Confidential client (either explicitly set to client_secret_* or using default)
+            # CLIENT_SECRET is required
+            client_secret = _get_required("CLIENT_SECRET", "Client secret")
+
+        # Build scopes: start with required baseline, add custom scopes (deduplicated)
+        scopes = ["openid", "email", "profile"]
+        if custom_scopes := _get_optional("SCOPES"):
+            for scope in custom_scopes.split():
+                if scope and scope not in scopes:
+                    scopes.append(scope)
+
+        # Group-based access control
+        groups_attribute_path = _get_optional("GROUPS_ATTRIBUTE_PATH")
+        allowed_groups: list[str] = []
+        if raw_groups := _get_optional("ALLOWED_GROUPS"):
+            # Parse as comma-delimited
+            # Deduplicate while preserving order
+            seen = set()
+            for g in raw_groups.split(","):
+                g = g.strip()
+                if g and g not in seen:
+                    allowed_groups.append(g)
+                    seen.add(g)
+
+            # Validate: ALLOWED_GROUPS requires GROUPS_ATTRIBUTE_PATH
+            if allowed_groups and not groups_attribute_path:
+                raise ValueError(
+                    f"ALLOWED_GROUPS is set for {idp_name} but GROUPS_ATTRIBUTE_PATH is not. "
+                    "GROUPS_ATTRIBUTE_PATH must be configured to use group-based access control."
+                )
+
+        # Validate: GROUPS_ATTRIBUTE_PATH requires ALLOWED_GROUPS
+        if groups_attribute_path and not allowed_groups:
             raise ValueError(
-                f"Server metadata URL for {idp_name} OAuth2 IDP "
-                "must be a valid URL using the https protocol"
+                f"GROUPS_ATTRIBUTE_PATH is set for {idp_name} but ALLOWED_GROUPS is not. "
+                "If you want to extract groups, you must specify which groups are allowed. "
+                "If you don't need group-based access control, remove GROUPS_ATTRIBUTE_PATH."
             )
+
+        # Role mapping
+        role_attribute_path = _get_optional("ROLE_ATTRIBUTE_PATH")
+        role_mapping: dict[str, AssignableUserRoleName] = {}
+        if raw_mapping := _get_optional("ROLE_MAPPING"):
+            # Parse role mapping: "IdpRole1:PhoenixRole,IdpRole2:PhoenixRole"
+            for mapping_pair in raw_mapping.split(","):
+                mapping_pair = mapping_pair.strip()
+                if not mapping_pair:
+                    continue
+
+                if ":" not in mapping_pair:
+                    raise ValueError(
+                        f"Invalid ROLE_MAPPING format for {idp_name}: '{mapping_pair}'. "
+                        "Expected format: 'IdpRole:PhoenixRole' "
+                        "(e.g., 'Owner:ADMIN,Developer:MEMBER')"
+                    )
+
+                idp_role, phoenix_role = mapping_pair.split(":", 1)
+                idp_role = idp_role.strip()
+                phoenix_role_upper = phoenix_role.strip().upper()
+
+                if not idp_role:
+                    raise ValueError(
+                        f"Invalid ROLE_MAPPING for {idp_name}: "
+                        f"IDP role cannot be empty in '{mapping_pair}'"
+                    )
+
+                # Explicitly reject SYSTEM role (internal-only)
+                if phoenix_role_upper == "SYSTEM":
+                    raise ValueError(
+                        f"Invalid ROLE_MAPPING for {idp_name}: "
+                        f"SYSTEM role cannot be assigned via OAuth2. "
+                        f"SYSTEM is an internal-only role for system API keys. "
+                        f"Valid roles are: {', '.join(sorted(_VALID_ROLES))}"
+                    )
+
+                if phoenix_role_upper not in _VALID_ROLES:
+                    valid_roles = ", ".join(sorted(_VALID_ROLES))
+                    raise ValueError(
+                        f"Invalid ROLE_MAPPING for {idp_name}: "
+                        f"'{phoenix_role}' is not a valid Phoenix role. "
+                        f"Valid roles are: {valid_roles} (case-insensitive)."
+                    )
+
+                role_mapping[idp_role] = phoenix_role_upper  # type: ignore[assignment]
+
+        # Get role_attribute_strict setting (defaults to False)
+        role_attribute_strict = _bool_val(f"{idp_prefix}_ROLE_ATTRIBUTE_STRICT", False)
+
+        # Validate role configuration consistency
+        if not role_attribute_path:
+            # If ROLE_ATTRIBUTE_PATH is not configured, other role settings should not be set
+            if role_mapping:
+                raise ValueError(
+                    f"Invalid configuration for {idp_name}: ROLE_MAPPING is set but "
+                    f"ROLE_ATTRIBUTE_PATH is not configured. ROLE_MAPPING requires "
+                    f"ROLE_ATTRIBUTE_PATH to specify where to extract the role from."
+                )
+            if role_attribute_strict:
+                raise ValueError(
+                    f"Invalid configuration for {idp_name}: ROLE_ATTRIBUTE_STRICT is set to "
+                    f"true but ROLE_ATTRIBUTE_PATH is not configured. ROLE_ATTRIBUTE_STRICT "
+                    f"only applies when role extraction is enabled via ROLE_ATTRIBUTE_PATH."
+                )
+
         return cls(
             idp_name=idp_name,
-            idp_display_name=getenv(
-                f"PHOENIX_OAUTH2_{idp_name_upper}_DISPLAY_NAME",
-                _get_default_idp_display_name(idp_name),
-            ),
+            idp_display_name=_get_optional("DISPLAY_NAME")
+            or _get_default_idp_display_name(idp_name),
             client_id=client_id,
             client_secret=client_secret,
             oidc_config_url=oidc_config_url,
             allow_sign_up=allow_sign_up,
             auto_login=auto_login,
+            use_pkce=use_pkce,
+            token_endpoint_auth_method=token_endpoint_auth_method,
+            scopes=" ".join(scopes),
+            groups_attribute_path=groups_attribute_path,
+            allowed_groups=allowed_groups,
+            role_attribute_path=role_attribute_path,
+            role_mapping=role_mapping,
+            role_attribute_strict=role_attribute_strict,
         )
+
+
+class LDAPGroupRoleMapping(TypedDict):
+    """LDAP group to Phoenix role mapping.
+
+    Attributes:
+        group_dn: LDAP group distinguished name or "*" for wildcard
+        role: Phoenix role name (ADMIN, MEMBER, VIEWER)
+    """
+
+    group_dn: str
+    role: AssignableUserRoleName
+
+
+def _is_valid_dn(dn: str) -> bool:
+    """Check if a string is a valid LDAP DN syntax."""
+    # Empty DN is valid per RFC 4514 §2 - represents the root DSE (zero RDNs)
+    # https://datatracker.ietf.org/doc/html/rfc4514#section-2
+    if not dn.strip():
+        return True
+    try:
+        parse_dn(dn)
+        return True
+    except LDAPInvalidDnError:
+        return False
+
+
+@dataclass(frozen=True)
+class LDAPConfig:
+    """LDAP server configuration for authentication.
+
+    Phoenix uses LDAP (RFC 4510-4519) for user authentication against corporate directories
+    like Active Directory, OpenLDAP, and 389 Directory Server.
+
+    User Identity Strategy
+    ----------------------
+    Phoenix identifies LDAP users using a stable identifier:
+
+    1. Email (default, recommended for most deployments):
+       When PHOENIX_LDAP_ATTR_UNIQUE_ID is not set, email is used as the identifier.
+       Survives: DN changes, OU moves, renames.
+       If email changes in LDAP: User gets new account (admin can merge manually).
+
+    2. Unique ID attribute (only if you expect email changes):
+       Set PHOENIX_LDAP_ATTR_UNIQUE_ID to use an immutable LDAP attribute:
+       - Active Directory: "objectGUID"
+       - OpenLDAP: "entryUUID" (RFC 4530)
+       - 389 DS: "nsUniqueId"
+
+       IMPORTANT: Only standard UUID-based attributes are supported. Custom attributes
+       containing 16-character string IDs (e.g., "EMP12345ABCD6789") are NOT supported
+       and will be incorrectly converted. The attribute must contain either:
+       - A 16-byte binary UUID (objectGUID)
+       - A string-format UUID (entryUUID, nsUniqueId)
+
+       Use this only if you expect user emails to change (company rebranding, M&A,
+       frequent name changes). Otherwise, email-based identification is simpler.
+       Survives: Everything including email changes.
+
+    Both modes handle DN changes. The only difference is email change handling.
+    DN is NOT used for identity matching (DNs change too frequently).
+
+    Email as Required Attribute:
+    - Email MUST be present in LDAP for authentication to succeed
+    - Used for Phoenix's user email field (UI, notifications, audit logs)
+    - Provides human-readable identifier for operators
+
+    See: internal_docs/specs/ldap-authentication.md for full design rationale.
+
+    Configuration Pattern
+    ---------------------
+    This class follows the same pattern as OAuth2ClientConfig:
+    - Load from environment variables via from_env()
+    - Validate required fields and format
+    - Provide sensible defaults for optional fields
+    - Document all fields with inline comments
+
+    Attributes
+    ----------
+    Server Connection (RFC 4511):
+        host: LDAP server hostname/IP (required)
+        port: LDAP server port (default: 389 for STARTTLS, 636 for LDAPS)
+        tls_mode: TLS connection mode (default: "starttls")
+            - "starttls": Upgrade from plaintext to TLS on port 389 (recommended)
+            - "ldaps": TLS from connection start on port 636
+            - "none": No encryption (testing only, credentials sent in plaintext)
+        tls_verify: Verify server certificate (default: True, disable only for testing)
+
+    Advanced TLS Configuration (optional, for enterprise deployments):
+        tls_ca_cert_file: Path to custom CA certificate (PEM) for private CAs
+        tls_client_cert_file: Path to client certificate (PEM) for mutual TLS
+        tls_client_key_file: Path to client private key (PEM) for mutual TLS
+
+    Bind Credentials (RFC 4513 §5.1.2 - Simple Authentication):
+        bind_dn: Service account DN for LDAP queries (optional for anonymous bind)
+        bind_password: Service account password (optional for anonymous bind)
+
+    User Search (RFC 4511 §4.5.1):
+        user_search_base_dns: List of base DNs for user searches (searched in order)
+            Example: ["ou=users,dc=example,dc=com"]
+            Multiple: ["ou=employees,dc=corp,dc=com", "ou=contractors,dc=corp,dc=com"]
+        user_search_filter: Filter template with %s placeholder (RFC 4515)
+            Default: "(&(objectClass=user)(sAMAccountName=%s))" (Active Directory)
+            Examples:
+                OpenLDAP: "(&(objectClass=inetOrgPerson)(uid=%s))"
+                389 DS:   "(&(objectClass=person)(uid=%s))"
+
+    Attribute Mapping (RFC 2256, RFC 4524):
+        attr_email: Email attribute name (required, e.g., "mail" or "null")
+            - If set to attribute name: MUST be present in LDAP or login fails
+            - If "null": generates null email marker from unique_id
+              (requires attr_unique_id to be set)
+        attr_display_name: Display name attribute (default: "displayName")
+            - Fallback: Uses email prefix if missing
+        attr_member_of: Group membership attribute (default: "memberOf")
+            - Used when group_search_filter is NOT set
+            - Typical values: "memberOf" (AD/OpenLDAP)
+
+    Group Search (for POSIX/OpenLDAP without memberOf overlay):
+        group_search_filter: Filter template with %s placeholder
+            - When SET: Enables POSIX mode, ignores attr_member_of
+            - When NOT SET: Uses attr_member_of from user entry (AD mode)
+            Example: "(&(objectClass=posixGroup)(memberUid=%s))"
+        group_search_filter_user_attr: User attribute to substitute for %s
+            - When SET: Uses that attribute's value from the user entry (e.g., "uid" → "admin")
+            - When NOT SET: Uses the login username directly (what the user typed at login)
+            For POSIX memberUid filters, the default (login username) is typically correct.
+        group_search_base_dns: List of base DNs for group searches
+            - Required when group_search_filter is set
+            Example: ["ou=groups,dc=example,dc=com"]
+
+    Group to Role Mappings:
+        group_role_mappings: Tuple of dicts mapping LDAP groups to Phoenix roles
+            Format: [{"group_dn": "...", "role": "ADMIN|MEMBER|VIEWER"}]
+            Supports wildcard: {"group_dn": "*", "role": "VIEWER"}
+            Note: Phoenix uses "role" (not "org_role") since it has no organization concept
+
+            IMPORTANT - First Match Wins:
+                Mappings are evaluated in configuration order; the FIRST matching group
+                determines the user's role. This is NOT "highest role wins" - if a user
+                belongs to multiple groups, configuration order (not role hierarchy)
+                determines which role they receive.
+
+                This design matches Grafana's LDAP behavior and common authorization
+                patterns (firewall rules, nginx routing, ACLs). It gives administrators
+                explicit control over precedence.
+
+                Best practice: Order mappings from highest privilege to lowest:
+                    [
+                        {"group_dn": "cn=admins,...", "role": "ADMIN"},
+                        {"group_dn": "cn=developers,...", "role": "MEMBER"},
+                        {"group_dn": "*", "role": "VIEWER"}
+                    ]
+
+                With this ordering, a user in both "admins" and "developers" groups
+                receives ADMIN (first match). Reversing the order would give MEMBER.
+
+    Sign-Up Control:
+        allow_sign_up: Auto-create users on first login (default: True)
+            True:  New users auto-created on first successful LDAP login
+            False: Admins must pre-create users via GraphQL createUser(auth_method: LDAP)
+
+    Examples
+    --------
+    Active Directory:
+        PHOENIX_LDAP_HOST=ldap.corp.example.com
+        PHOENIX_LDAP_PORT=389
+        PHOENIX_LDAP_TLS_MODE=starttls
+        PHOENIX_LDAP_BIND_DN=cn=service,ou=accounts,dc=corp,dc=example,dc=com
+        PHOENIX_LDAP_BIND_PASSWORD=secret
+        PHOENIX_LDAP_USER_SEARCH_BASE_DNS=["ou=users,dc=corp,dc=example,dc=com"]
+        PHOENIX_LDAP_USER_SEARCH_FILTER=(&(objectClass=user)(sAMAccountName=%s))
+        PHOENIX_LDAP_ATTR_EMAIL=mail
+        PHOENIX_LDAP_ATTR_DISPLAY_NAME=displayName
+        PHOENIX_LDAP_ATTR_MEMBER_OF=memberOf
+        PHOENIX_LDAP_GROUP_ROLE_MAPPINGS=[{"group_dn":"cn=admins,ou=groups,dc=corp,dc=example,dc=com","role":"ADMIN"}]
+
+    OpenLDAP with POSIX groups:
+        PHOENIX_LDAP_HOST=ldap.example.com
+        PHOENIX_LDAP_USER_SEARCH_BASE_DNS=["ou=users,dc=example,dc=com"]
+        PHOENIX_LDAP_USER_SEARCH_FILTER=(&(objectClass=inetOrgPerson)(uid=%s))
+        PHOENIX_LDAP_ATTR_EMAIL=mail
+        PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS=["ou=groups,dc=example,dc=com"]
+        PHOENIX_LDAP_GROUP_SEARCH_FILTER=(&(objectClass=posixGroup)(memberUid=%s))
+        PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR=uid
+
+    References
+    ----------
+    - RFC 4510: LDAP Technical Specification Road Map
+    - RFC 4511: LDAP Protocol
+    - RFC 4513: LDAP Authentication & Security
+    - RFC 4515: LDAP Filter String Format
+    - RFC 4524: LDAP mail attribute definition
+    - RFC 2798: inetOrgPerson object class (includes mail)
+    - Grafana LDAP: https://grafana.com/docs/grafana/latest/setup-grafana/configure-access/configure-authentication/ldap/
+    """
+
+    # Server connection (RFC 4511)
+    hosts: tuple[str, ...]
+    port: int = 389
+    tls_mode: Literal["none", "starttls", "ldaps"] = "starttls"
+    tls_verify: bool = True
+
+    # Advanced TLS configuration (optional, for enterprise deployments)
+    tls_ca_cert_file: str | None = None
+    tls_client_cert_file: str | None = None
+    tls_client_key_file: str | None = None
+
+    # Bind credentials (service account, RFC 4513 §5.1.2)
+    bind_dn: str | None = None
+    bind_password: str | None = None
+
+    # User search (RFC 4511 §4.5.1)
+    user_search_base_dns: tuple[str, ...] = ()
+    user_search_filter: str = "(&(objectClass=user)(sAMAccountName=%s))"
+
+    # Attribute mapping (RFC 2798 §9.1.3, §2.3)
+    attr_email: str | None = "mail"  # None if explicitly empty (null email marker mode)
+    attr_display_name: str | None = "displayName"
+    attr_member_of: str | None = "memberOf"  # Used when group_search_filter is not set
+    attr_unique_id: str | None = None  # Optional: objectGUID (AD), entryUUID (OpenLDAP)
+
+    # Group search (for POSIX/OpenLDAP without memberOf)
+    group_search_base_dns: tuple[str, ...] = ()
+    group_search_filter: str | None = None
+    group_search_filter_user_attr: str | None = None  # e.g., "uid" for POSIX memberUid
+
+    # Group to role mappings
+    group_role_mappings: tuple[LDAPGroupRoleMapping, ...] = ()
+
+    # Sign-up control
+    allow_sign_up: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.hosts:
+            raise ValueError(f"{ENV_PHOENIX_LDAP_HOST} must contain at least one host")
+
+    @classmethod
+    def from_env(cls) -> "LDAPConfig" | None:
+        """Load LDAP config from environment variables.
+
+        Returns:
+            Optional[LDAPConfig]: LDAP configuration if PHOENIX_LDAP_HOST is set, None otherwise
+
+        Raises:
+            ValueError: If configuration is invalid
+            json.JSONDecodeError: If GROUP_ROLE_MAPPINGS is not valid JSON
+        """
+        host = getenv(ENV_PHOENIX_LDAP_HOST)
+        if not host:
+            return None
+
+        # Import here to avoid circular import at module level
+        from phoenix.server.ldap import canonicalize_dn
+
+        # Normalize and validate host list (remove empty entries from trailing commas, etc.)
+        hosts = tuple(h.strip() for h in host.split(",") if h.strip())
+        if not hosts:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_HOST} must contain at least one non-empty host. "
+                "Example: 'ldap.example.com' or 'dc1.corp.com,dc2.corp.com'"
+            )
+
+        # Parse and validate group role mappings
+        mappings_json = getenv(ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS, "[]")
+        try:
+            group_role_mappings_list = json.loads(mappings_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS} is not valid JSON: {e}. "
+                f"Expected format: [{{'group_dn': '...', 'role': 'ADMIN'}}]"
+            )
+
+        # Validate role mappings structure
+        if not isinstance(group_role_mappings_list, list):
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS} must be a JSON array. "
+                f"Expected format: [{{'group_dn': '...', 'role': 'ADMIN'}}]"
+            )
+
+        for idx, mapping in enumerate(group_role_mappings_list):
+            if not isinstance(mapping, dict):
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS}[{idx}] must be an object. "
+                    f"Got: {type(mapping).__name__}"
+                )
+            if "group_dn" not in mapping:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS}[{idx}] "
+                    "missing required field 'group_dn'"
+                )
+            if "role" not in mapping:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS}[{idx}] missing required field 'role'"
+                )
+            if not isinstance(mapping["group_dn"], str) or not mapping["group_dn"].strip():
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS}[{idx}].group_dn "
+                    "must be a non-empty string"
+                )
+            # Validate DN syntax and canonicalize (except for wildcard "*")
+            raw_group_dn = mapping["group_dn"].strip()
+            group_dn = canonicalize_dn(raw_group_dn) if raw_group_dn != "*" else raw_group_dn
+            if group_dn is None:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS}[{idx}].group_dn "
+                    f"has invalid LDAP DN syntax: '{raw_group_dn}'. "
+                    f"Expected format: 'cn=GroupName,ou=Groups,dc=example,dc=com'"
+                )
+            # Normalize role to uppercase and validate
+            role_upper = mapping["role"].upper() if isinstance(mapping["role"], str) else ""
+            if role_upper not in _VALID_ROLES:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS}[{idx}]: "
+                    f"role must be one of {_VALID_ROLES} (case-insensitive). "
+                    f"Got: '{mapping['role']}'"
+                )
+            mapping["group_dn"] = group_dn
+            mapping["role"] = role_upper
+
+        # Require at least one role mapping to prevent silent authentication failures
+        # Without mappings, all LDAP users would be denied access with only a debug log,
+        # which is confusing for operators. Fail fast at startup with clear guidance.
+        if not group_role_mappings_list:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_ROLE_MAPPINGS} must contain at least one mapping. "
+                f'Example: \'[{{"group_dn": "*", "role": "MEMBER"}}]\' '
+                f"(wildcard '*' grants MEMBER role to all authenticated LDAP users)"
+            )
+
+        # Validate TLS mode
+        tls_mode_str = getenv(ENV_PHOENIX_LDAP_TLS_MODE, "starttls").lower()
+        if tls_mode_str not in ("none", "starttls", "ldaps"):
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_TLS_MODE} must be 'none', 'starttls', or 'ldaps'. "
+                f"Got: '{tls_mode_str}'"
+            )
+        tls_mode = cast(Literal["none", "starttls", "ldaps"], tls_mode_str)
+
+        # Parse and validate group_search_base_dns (JSON array of base DNs, optional)
+        attr_member_of = getenv(ENV_PHOENIX_LDAP_ATTR_MEMBER_OF, "memberOf").strip() or None
+        group_search_base_dns_json = getenv(ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS, "")
+        group_search_filter = getenv(ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER)
+        group_search_filter_user_attr = getenv(ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR)
+
+        if group_search_filter and "%s" not in group_search_filter:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER} must contain '%s' placeholder. "
+                f"Got: '{group_search_filter}'"
+            )
+
+        group_search_base_dns_list: list[str] = []
+        if group_search_base_dns_json:
+            try:
+                group_search_base_dns_list = json.loads(group_search_base_dns_json)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS} is not valid JSON: {e}. "
+                    "Expected format: '[\"ou=groups,dc=example,dc=com\"]'"
+                )
+            if not isinstance(group_search_base_dns_list, list):
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS} must be a JSON array. "
+                    "Expected format: '[\"ou=groups,dc=example,dc=com\"]'"
+                )
+            for idx, base_dn in enumerate(group_search_base_dns_list):
+                if not isinstance(base_dn, str):
+                    raise ValueError(
+                        f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS}[{idx}] must be a string"
+                    )
+                stripped = base_dn.strip()
+                if not _is_valid_dn(stripped):
+                    raise ValueError(
+                        f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS}[{idx}] "
+                        f"has invalid LDAP DN syntax: '{base_dn}'. "
+                        f"Expected format: 'ou=groups,dc=example,dc=com'"
+                    )
+                group_search_base_dns_list[idx] = stripped
+
+        # Validate group search configuration: if filter is set, base DNs are required
+        if group_search_filter and not group_search_base_dns_list:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER} is set but "
+                f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_BASE_DNS} is missing. "
+                f"Both are required for POSIX group search."
+            )
+
+        # Validate group_search_filter_user_attr: only valid when group_search_filter is set
+        if group_search_filter_user_attr and not group_search_filter:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR} is set but "
+                f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER} is not. "
+                f"The user attribute setting only applies to group search filter mode."
+            )
+
+        # Validate attribute name format (no spaces)
+        if group_search_filter_user_attr and " " in group_search_filter_user_attr:
+            suggestion = group_search_filter_user_attr.replace(" ", "")
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_GROUP_SEARCH_FILTER_USER_ATTR}="
+                f"'{group_search_filter_user_attr}' contains spaces. "
+                f"LDAP attribute names do not contain spaces. "
+                f"Did you mean '{suggestion}'?"
+            )
+
+        # Security warnings (log, don't fail)
+        tls_verify = _bool_val(ENV_PHOENIX_LDAP_TLS_VERIFY, True)
+        if tls_mode == "none":
+            logger.warning(
+                f"{ENV_PHOENIX_LDAP_TLS_MODE}=none - credentials will be sent in plaintext! "
+                "This is insecure for production."
+            )
+        if tls_mode != "none" and not tls_verify:
+            logger.warning(
+                f"{ENV_PHOENIX_LDAP_TLS_VERIFY} is false - certificates will not be validated! "
+                "This is insecure for production (vulnerable to MITM attacks)."
+            )
+
+        # Parse and validate user_search_base_dns (JSON array of base DNs)
+        user_search_base_dns_json = getenv(ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS, "")
+        if not user_search_base_dns_json:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS} must be set. "
+                "Example: '[\"OU=Users,DC=corp,DC=com\"]'"
+            )
+        user_search_base_dns_list: list[str] = []
+        try:
+            user_search_base_dns_list = json.loads(user_search_base_dns_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS} is not valid JSON: {e}. "
+                "Expected format: '[\"OU=Users,DC=corp,DC=com\"]'"
+            )
+        if not isinstance(user_search_base_dns_list, list):
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS} must be a JSON array. "
+                "Expected format: '[\"OU=Users,DC=corp,DC=com\"]'"
+            )
+        if not user_search_base_dns_list:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS} must contain at least one base DN. "
+                "Example: '[\"OU=Users,DC=corp,DC=com\"]'"
+            )
+        for idx, base_dn in enumerate(user_search_base_dns_list):
+            if not isinstance(base_dn, str):
+                raise ValueError(f"{ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS}[{idx}] must be a string")
+            stripped = base_dn.strip()
+            if not _is_valid_dn(stripped):
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_USER_SEARCH_BASE_DNS}[{idx}] "
+                    f"has invalid LDAP DN syntax: '{base_dn}'. "
+                    f"Expected format: 'ou=users,dc=example,dc=com'"
+                )
+            user_search_base_dns_list[idx] = stripped
+
+        # Parse allow_sign_up
+        allow_sign_up = _bool_val(ENV_PHOENIX_LDAP_ALLOW_SIGN_UP, True)
+
+        # Determine default port based on TLS mode (if not explicitly set)
+        # STARTTLS: port 389 (plaintext, then upgrade)
+        # LDAPS: port 636 (TLS from start)
+        default_port = 636 if tls_mode == "ldaps" else 389
+        port = _int_val(ENV_PHOENIX_LDAP_PORT, default_port)
+
+        # Parse advanced TLS configuration (optional)
+        tls_ca_cert_file = getenv(ENV_PHOENIX_LDAP_TLS_CA_CERT_FILE)
+        tls_client_cert_file = getenv(ENV_PHOENIX_LDAP_TLS_CLIENT_CERT_FILE)
+        tls_client_key_file = getenv(ENV_PHOENIX_LDAP_TLS_CLIENT_KEY_FILE)
+
+        # Validate mutual TLS configuration (both cert and key required)
+        if tls_client_cert_file and not tls_client_key_file:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_TLS_CLIENT_CERT_FILE} requires "
+                f"{ENV_PHOENIX_LDAP_TLS_CLIENT_KEY_FILE} to also be set"
+            )
+        if tls_client_key_file and not tls_client_cert_file:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_TLS_CLIENT_KEY_FILE} requires "
+                f"{ENV_PHOENIX_LDAP_TLS_CLIENT_CERT_FILE} to also be set"
+            )
+
+        # Validate file paths exist
+        for env_var, file_path in [
+            (ENV_PHOENIX_LDAP_TLS_CA_CERT_FILE, tls_ca_cert_file),
+            (ENV_PHOENIX_LDAP_TLS_CLIENT_CERT_FILE, tls_client_cert_file),
+            (ENV_PHOENIX_LDAP_TLS_CLIENT_KEY_FILE, tls_client_key_file),
+        ]:
+            if file_path and not os.path.isfile(file_path):
+                raise ValueError(f"{env_var}='{file_path}' does not exist or is not a file")
+
+        # Parse attribute names
+        # attr_email behavior:
+        #   - Not set at all → "mail" (backwards compatibility, with deprecation warning)
+        #   - "null" sentinel → None (null email marker mode, platform-safe)
+        #   - Explicitly empty (PHOENIX_LDAP_ATTR_EMAIL=) → None (null email marker mode)
+        #   - Set to value → use that value
+        attr_email_raw = getenv(ENV_PHOENIX_LDAP_ATTR_EMAIL)
+        if attr_email_raw is None:
+            logger.warning(
+                f"{ENV_PHOENIX_LDAP_ATTR_EMAIL} is not set and will be required in the next "
+                f"major version. Set to 'mail' if your LDAP has email, or 'null' if not."
+            )
+            attr_email: str | None = "mail"  # Default for backwards compatibility
+        elif attr_email_raw == "" or attr_email_raw.lower() == "null":
+            attr_email = None  # Empty or "null" sentinel → null email marker mode
+        else:
+            attr_email = attr_email_raw
+        attr_display_name = (
+            getenv(ENV_PHOENIX_LDAP_ATTR_DISPLAY_NAME, "displayName").strip() or None
+        )
+        attr_unique_id = getenv(ENV_PHOENIX_LDAP_ATTR_UNIQUE_ID, "").strip() or None
+
+        # Validate null email marker mode constraints
+        # When attr_email is "null", we generate markers from unique_id instead
+        if not attr_email:
+            # Constraint 1: unique_id is required for user lookup and marker generation
+            if not attr_unique_id:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_ATTR_UNIQUE_ID} is required when "
+                    f"{ENV_PHOENIX_LDAP_ATTR_EMAIL} is 'null'. "
+                    f"Without email, unique_id is needed to identify returning users."
+                )
+            # Constraint 2: allow_sign_up must be True (can't pre-provision without unique_id)
+            if not allow_sign_up:
+                raise ValueError(
+                    f"{ENV_PHOENIX_LDAP_ALLOW_SIGN_UP} must be True when "
+                    f"{ENV_PHOENIX_LDAP_ATTR_EMAIL} is 'null'. "
+                    f"Null email markers require auto-provisioning on first login."
+                )
+            # Constraint 3: PHOENIX_ADMINS is not supported (can't compute marker without unique_id)
+            if get_env_admins():
+                raise ValueError(
+                    f"PHOENIX_ADMINS is not supported when {ENV_PHOENIX_LDAP_ATTR_EMAIL} "
+                    f"is 'null'. Use PHOENIX_LDAP_GROUP_ROLE_MAPPINGS to assign roles."
+                )
+
+        # Validate attribute names don't contain spaces
+        # LDAP attribute names (e.g., objectGUID, entryUUID, mail) never contain spaces.
+        # A space in the config is likely a typo that would cause silent failures.
+        for env_var, attr_value in [
+            (ENV_PHOENIX_LDAP_ATTR_EMAIL, attr_email),
+            (ENV_PHOENIX_LDAP_ATTR_DISPLAY_NAME, attr_display_name),
+            (ENV_PHOENIX_LDAP_ATTR_MEMBER_OF, attr_member_of),
+            (ENV_PHOENIX_LDAP_ATTR_UNIQUE_ID, attr_unique_id),
+        ]:
+            if attr_value and " " in attr_value:
+                suggestion = attr_value.replace(" ", "")
+                raise ValueError(
+                    f"{env_var}='{attr_value}' contains spaces. "
+                    f"LDAP attribute names do not contain spaces. "
+                    f"Did you mean '{suggestion}'?"
+                )
+
+        # Parse and validate search filters
+        user_search_filter = getenv(
+            ENV_PHOENIX_LDAP_USER_SEARCH_FILTER, "(&(objectClass=user)(sAMAccountName=%s))"
+        )
+        if "%s" not in user_search_filter:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_USER_SEARCH_FILTER} must contain '%s' placeholder "
+                f"for username. Got: '{user_search_filter}'"
+            )
+
+        bind_dn = getenv(ENV_PHOENIX_LDAP_BIND_DN, "").strip() or None
+        if bind_dn and not _is_valid_dn(bind_dn):
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_BIND_DN} has invalid LDAP DN syntax: '{bind_dn}'. "
+                f"Expected format: 'cn=service,ou=accounts,dc=example,dc=com'"
+            )
+        bind_password = getenv(ENV_PHOENIX_LDAP_BIND_PASSWORD) or None
+        if bind_dn and not bind_password:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_BIND_DN} is set but {ENV_PHOENIX_LDAP_BIND_PASSWORD} is "
+                "missing. Both are required for service account authentication."
+            )
+        if bind_password and not bind_dn:
+            raise ValueError(
+                f"{ENV_PHOENIX_LDAP_BIND_PASSWORD} is set but {ENV_PHOENIX_LDAP_BIND_DN} is "
+                "missing. Both are required for service account authentication."
+            )
+
+        return cls(
+            hosts=hosts,
+            port=port,
+            tls_mode=tls_mode,
+            tls_verify=tls_verify,
+            tls_ca_cert_file=tls_ca_cert_file,
+            tls_client_cert_file=tls_client_cert_file,
+            tls_client_key_file=tls_client_key_file,
+            bind_dn=bind_dn,
+            bind_password=bind_password,
+            user_search_base_dns=tuple(user_search_base_dns_list),
+            user_search_filter=user_search_filter,
+            attr_email=attr_email,
+            attr_display_name=attr_display_name,
+            attr_member_of=attr_member_of,
+            attr_unique_id=attr_unique_id,
+            group_search_base_dns=tuple(group_search_base_dns_list),
+            group_search_filter=group_search_filter,
+            group_search_filter_user_attr=group_search_filter_user_attr,
+            group_role_mappings=tuple(group_role_mappings_list),
+            allow_sign_up=allow_sign_up,
+        )
+
+
+_OAUTH2_CONFIG_SUFFIXES = (
+    "DISPLAY_NAME",  # User-friendly name shown in login UI
+    "CLIENT_ID",  # OAuth2 client ID from your identity provider (RFC 6749 §2.2)
+    # OAuth2 client secret (RFC 6749 §2.3.1, required by default, optional with auth method "none")
+    "CLIENT_SECRET",
+    "OIDC_CONFIG_URL",  # OpenID Connect discovery URL (.well-known/openid-configuration)
+    "ALLOW_SIGN_UP",  # Whether to allow new user registration (default: true)
+    "AUTO_LOGIN",  # Automatically redirect to this provider (default: false)
+    "USE_PKCE",  # Enable PKCE for authorization code protection (RFC 7636, default: false)
+    "TOKEN_ENDPOINT_AUTH_METHOD",  # How to authenticate at token endpoint (OIDC Core §9)
+    # Additional OAuth2 scopes beyond "openid email profile" (RFC 6749 §3.3: space-delimited)
+    "SCOPES",
+    "GROUPS_ATTRIBUTE_PATH",  # JMESPath expression to extract groups from ID token
+    "ALLOWED_GROUPS",  # Comma-separated list of groups allowed to sign in
+    "ROLE_ATTRIBUTE_PATH",  # JMESPath expression to extract role from ID token
+    "ROLE_MAPPING",  # Comma-separated list of IDP role to Phoenix role mappings
+    "ROLE_ATTRIBUTE_STRICT",  # Whether to deny access if role cannot be extracted/mapped
+)
+
+
+_OAUTH2_ENV_VAR_PATTERN = re.compile(
+    rf"^PHOENIX_OAUTH2_(\w+)_({'|'.join(_OAUTH2_CONFIG_SUFFIXES)})$"
+)
 
 
 def get_env_oauth2_settings() -> list[OAuth2ClientConfig]:
@@ -1034,22 +2150,187 @@ def get_env_oauth2_settings() -> list[OAuth2ClientConfig]:
     Retrieves and validates OAuth2/OpenID Connect (OIDC) identity provider configurations from environment variables.
 
     This function scans the environment for OAuth2 configuration variables and returns a list of
-    configured identity providers. It supports multiple identity providers simultaneously.
+    configured identity providers. Multiple identity providers can be configured simultaneously,
+    and users will see all enabled providers as login options in the Phoenix UI.
 
     Environment Variable Pattern:
         PHOENIX_OAUTH2_{IDP_NAME}_{CONFIG_TYPE}
 
+        Where {IDP_NAME} is any alphanumeric identifier you choose (e.g., GOOGLE, OKTA, KEYCLOAK).
+        The name is case-insensitive and used to group related configuration variables. You can use
+        any name that makes sense for your organization (e.g., COMPANY_SSO, INTERNAL_AUTH).
+
     Required Environment Variables for each IDP:
         - PHOENIX_OAUTH2_{IDP_NAME}_CLIENT_ID: The OAuth2 client ID issued by the identity provider
-        - PHOENIX_OAUTH2_{IDP_NAME}_CLIENT_SECRET: The OAuth2 client secret issued by the identity provider
-        - PHOENIX_OAUTH2_{IDP_NAME}_OIDC_CONFIG_URL: The OpenID Connect configuration URL (must be HTTPS)
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_CLIENT_SECRET: The OAuth2 client secret issued by the identity provider.
+          Required by default for confidential clients. Only optional when TOKEN_ENDPOINT_AUTH_METHOD is
+          explicitly set to "none" (for public clients without client authentication).
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_OIDC_CONFIG_URL: The OpenID Connect configuration URL (must be HTTPS
+          except for localhost). This URL typically ends with /.well-known/openid-configuration and is
+          used to auto-discover OAuth2 endpoints.
 
     Optional Environment Variables:
-        - PHOENIX_OAUTH2_{IDP_NAME}_DISPLAY_NAME: A user-friendly name for the identity provider
-        - PHOENIX_OAUTH2_{IDP_NAME}_ALLOW_SIGN_UP: Whether to allow new user registration (defaults to True)
-        When set to False, the system will check if the user exists in the database by their email address.
-        If the user does not exist or has a password set, they will be redirected to the login page with
-        an error message.
+        - PHOENIX_OAUTH2_{IDP_NAME}_DISPLAY_NAME: A user-friendly name for the identity provider shown in the UI
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_ALLOW_SIGN_UP: Whether to allow new user registration via this OAuth2 provider
+          (defaults to True). When set to False, only existing users can sign in.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_AUTO_LOGIN: Automatically redirect to this provider's login page, skipping
+          the Phoenix login screen (defaults to False). Useful for single sign-on deployments.
+          Note: Only one provider should have AUTO_LOGIN enabled if you configure multiple IDPs.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_USE_PKCE: Enable PKCE (Proof Key for Code Exchange) with S256 code challenge
+          method for enhanced security. PKCE protects the authorization code from interception and can be used
+          with both public clients and confidential clients. This setting is orthogonal to client authentication -
+          whether CLIENT_SECRET is required is determined solely by TOKEN_ENDPOINT_AUTH_METHOD, not by USE_PKCE.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_TOKEN_ENDPOINT_AUTH_METHOD: OAuth2 token endpoint authentication method.
+          This setting determines how the client authenticates with the token endpoint and whether
+          CLIENT_SECRET is required. If not set, defaults to requiring CLIENT_SECRET (confidential client).
+
+          Options:
+            • client_secret_basic: Send credentials in HTTP Basic Auth header (most common).
+              CLIENT_SECRET is required. This is the assumed default behavior if not set.
+            • client_secret_post: Send credentials in POST body (required by some providers).
+              CLIENT_SECRET is required.
+            • none: No client authentication (for public clients).
+              CLIENT_SECRET is not required. Use this for public clients that cannot
+              securely store a client secret, typically in combination with PKCE.
+
+          Most providers work with the default behavior. Set this explicitly only if your provider requires
+          a specific method or if you're configuring a public client.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_SCOPES: Additional OAuth2 scopes to request (space-separated).
+          These are added to the required baseline scopes "openid email profile". For example, set to
+          "offline_access groups" to request refresh tokens and group information. The baseline scopes
+          are always included and cannot be removed.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_GROUPS_ATTRIBUTE_PATH: JMESPath expression to extract group/role claims
+          from the OIDC ID token or userinfo endpoint response. See https://jmespath.org for full syntax.
+
+          The path navigates nested JSON structures to find group/role information. This claim is checked
+          from both the ID token and userinfo endpoint (if available). The result is normalized to a list
+          of strings for group matching.
+
+          ⚠️ IMPORTANT: Claim keys with special characters (colons, dots, slashes, hyphens, etc.) MUST be
+          enclosed in double quotes. Examples:
+            • Auth0 namespace: `"https://myapp.com/groups"` (NOT `https://myapp.com/groups`)
+            • AWS Cognito: `"cognito:groups"` (NOT `cognito:groups`)
+            • Keycloak app: `resource_access."my-app".roles` (quotes only around special chars)
+
+          Common JMESPath patterns:
+            • Simple keys: `groups` - extracts top-level array
+            • Nested keys: `resource_access.phoenix.roles` - dot notation for nested objects
+            • Array projection: `teams[*].name` - extracts 'name' field from each object in array
+            • Array indexing: `groups[0]` - gets first element
+
+          Common provider examples:
+            • Google Workspace: `groups`
+            • Azure AD/Entra ID: `roles` or `groups`
+            • Keycloak: `resource_access.phoenix.roles` (nested structure)
+            • AWS Cognito: `"cognito:groups"` (use quotes for colon in key name)
+            • Okta: `groups`
+            • Auth0 (custom namespace): `"https://myapp.com/groups"` (use quotes for special chars)
+            • Custom objects: `teams[*].name` (extract field from array of objects)
+
+          If not set, group-based access control is disabled for this provider.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_ALLOWED_GROUPS: Comma-separated list of group names that
+          are permitted to sign in. Users must belong to at least one of these groups (extracted via
+          GROUPS_ATTRIBUTE_PATH) to authenticate successfully.
+
+          Example:
+            PHOENIX_OAUTH2_OKTA_ALLOWED_GROUPS="admin,developers,viewers"
+
+          Works together with GROUPS_ATTRIBUTE_PATH to implement group-based access control. If not set,
+          all authenticated users can sign in (subject to ALLOW_SIGN_UP restrictions).
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_ROLE_ATTRIBUTE_PATH: JMESPath expression to extract user role claim
+          from the OIDC ID token or userinfo endpoint response. Similar to GROUPS_ATTRIBUTE_PATH but for
+          extracting a single role value. See https://jmespath.org for full syntax.
+
+          ⚠️ IMPORTANT: Claim keys with special characters MUST be enclosed in double quotes.
+          Examples: `"https://myapp.com/role"`, `"custom:role"`, `user.profile."app-role"`
+
+          Common patterns:
+            • Simple key: `role` - extracts top-level string
+            • Nested key: `user.organization.role` - dot notation for nested objects
+            • Array element: `roles[0]` - gets first role from array
+            • Constant value: `'MEMBER'` - assigns a fixed role to all users from this IDP (no mapping needed)
+            • Conditional logic: `contains(groups[*], 'admin') && 'ADMIN' || 'VIEWER'` - compute role
+              from group membership using logical operators (returns Phoenix role directly, no mapping needed)
+
+          This claim is used with ROLE_MAPPING to automatically assign Phoenix roles (ADMIN, MEMBER, VIEWER)
+          based on the user's role in your identity provider. The extracted role value is matched against
+          keys in ROLE_MAPPING to determine the Phoenix role.
+
+          Advanced: If the JMESPath expression returns a valid Phoenix role name (ADMIN, MEMBER, VIEWER)
+          directly, ROLE_MAPPING is optional - the value will be used as-is after case-insensitive validation.
+
+          ⚠️ Role Update Behavior:
+            • When ROLE_ATTRIBUTE_PATH IS configured: User roles are synchronized from the IDP on EVERY login.
+              This ensures Phoenix roles stay in sync with your IDP's role assignments.
+            • When ROLE_ATTRIBUTE_PATH is NOT configured: User roles are preserved as-is (backward compatibility).
+              New users get VIEWER role (least privilege), existing users keep their current roles.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_ROLE_MAPPING: Maps identity provider role values to Phoenix roles.
+          Format: "IdpRole1:PhoenixRole1,IdpRole2:PhoenixRole2"
+
+          Phoenix roles (case-insensitive):
+            • ADMIN: Full system access, can manage users and settings
+            • MEMBER: Standard user access, can create and manage own resources
+            • VIEWER: Read-only access, cannot create or modify resources
+
+          Example mappings:
+            PHOENIX_OAUTH2_OKTA_ROLE_MAPPING="Owner:ADMIN,Developer:MEMBER,Guest:VIEWER"
+            PHOENIX_OAUTH2_KEYCLOAK_ROLE_MAPPING="admin:ADMIN,user:MEMBER"
+
+          ⚠️ Security: The SYSTEM role cannot be assigned via OAuth2. Attempts to map to SYSTEM will be rejected.
+
+          Optional Behavior (no mapping required):
+            If ROLE_MAPPING is not configured but ROLE_ATTRIBUTE_PATH is set, the system will use the
+            IDP role value directly if it exactly matches "ADMIN", "MEMBER", or "VIEWER" (case-insensitive).
+            This allows IDPs that already use Phoenix's role names to work without explicit mapping.
+
+          IDP role keys are case-sensitive and must match exactly. Phoenix role values are case-insensitive
+          but will be normalized to uppercase (ADMIN, MEMBER, VIEWER). If a user's IDP role is not in the
+          mapping, behavior depends on ROLE_ATTRIBUTE_STRICT:
+            • strict=false (default): User gets VIEWER role (least privilege)
+            • strict=true: User is denied access
+
+          Works together with ROLE_ATTRIBUTE_PATH. If ROLE_ATTRIBUTE_PATH is set but ROLE_MAPPING is not,
+          the IDP role value is used directly if it matches a valid Phoenix role (ADMIN, MEMBER, VIEWER).
+          If the IDP role doesn't match a valid Phoenix role, behavior depends on ROLE_ATTRIBUTE_STRICT.
+
+        - PHOENIX_OAUTH2_{IDP_NAME}_ROLE_ATTRIBUTE_STRICT: Controls behavior when role cannot be determined
+          from identity provider claims. Defaults to false.
+
+          When true:
+            • Missing role claim → access denied
+            • Role not in ROLE_MAPPING → access denied
+            • Empty/invalid role value → access denied
+
+          When false (default):
+            • Missing/unmapped/invalid role → user gets VIEWER role (least privilege, fail-safe)
+
+          Strict mode is recommended for high-security environments where all users must have explicitly
+          assigned roles. Non-strict mode (default) is more forgiving and suitable for gradual rollout
+          of role mapping.
+
+          Example:
+            PHOENIX_OAUTH2_OKTA_ROLE_ATTRIBUTE_STRICT=true
+
+    Multiple Identity Providers:
+        You can configure multiple IDPs simultaneously. Users will see all configured providers
+        as login options. Each IDP is configured independently with its own set of variables.
+
+        Group-based access control and role mapping are evaluated per-provider:
+        • Groups control access (who can sign in): Users must belong to ALLOWED_GROUPS
+        • Roles control permissions (what users can do): Users are assigned Phoenix roles via ROLE_MAPPING
+        • Groups are checked first, then roles are assigned if access is granted
+        • Each IDP can have different group/role configurations
 
     Returns:
         list[OAuth2ClientConfig]: A list of configured OAuth2 identity providers, sorted alphabetically by IDP name.
@@ -1059,20 +2340,82 @@ def get_env_oauth2_settings() -> list[OAuth2ClientConfig]:
         ValueError: If required environment variables are missing or invalid.
             Specifically, if the OIDC configuration URL is not HTTPS (except for localhost).
 
-    Example:
-        To configure Google as an identity provider, set these environment variables:
-        PHOENIX_OAUTH2_GOOGLE_CLIENT_ID=your_client_id
-        PHOENIX_OAUTH2_GOOGLE_CLIENT_SECRET=your_client_secret
-        PHOENIX_OAUTH2_GOOGLE_OIDC_CONFIG_URL=https://accounts.google.com/.well-known/openid-configuration
-        PHOENIX_OAUTH2_GOOGLE_DISPLAY_NAME=Google (optional)
-        PHOENIX_OAUTH2_GOOGLE_ALLOW_SIGN_UP=true (optional, defaults to true)
+    Examples:
+        Basic configuration with Google:
+            PHOENIX_OAUTH2_GOOGLE_CLIENT_ID=your_client_id
+            PHOENIX_OAUTH2_GOOGLE_CLIENT_SECRET=your_client_secret
+            PHOENIX_OAUTH2_GOOGLE_OIDC_CONFIG_URL=https://accounts.google.com/.well-known/openid-configuration
+
+        With custom display name and auto-login:
+            PHOENIX_OAUTH2_GOOGLE_DISPLAY_NAME=Google Workspace
+            PHOENIX_OAUTH2_GOOGLE_AUTO_LOGIN=true
+
+        With group-based access control (simple path):
+            PHOENIX_OAUTH2_GOOGLE_GROUPS_ATTRIBUTE_PATH=groups
+            PHOENIX_OAUTH2_GOOGLE_ALLOWED_GROUPS=engineering platform-team
+
+        With nested group path (Keycloak):
+            PHOENIX_OAUTH2_KEYCLOAK_GROUPS_ATTRIBUTE_PATH=resource_access.phoenix.roles
+            PHOENIX_OAUTH2_KEYCLOAK_ALLOWED_GROUPS=admin developer
+
+        With special characters in path (AWS Cognito - quotes REQUIRED):
+            PHOENIX_OAUTH2_COGNITO_GROUPS_ATTRIBUTE_PATH='"cognito:groups"'
+            PHOENIX_OAUTH2_COGNITO_ALLOWED_GROUPS=Administrators PowerUsers
+
+        With namespaced claims (Auth0 - quotes REQUIRED):
+            PHOENIX_OAUTH2_AUTH0_GROUPS_ATTRIBUTE_PATH='"https://myapp.com/groups"'
+            PHOENIX_OAUTH2_AUTH0_ALLOWED_GROUPS=admin users
+
+        With array projection (extract names from objects):
+            PHOENIX_OAUTH2_CUSTOM_GROUPS_ATTRIBUTE_PATH=teams[*].name
+            PHOENIX_OAUTH2_CUSTOM_ALLOWED_GROUPS=engineering operations
+
+        With role mapping (simple):
+            PHOENIX_OAUTH2_OKTA_ROLE_ATTRIBUTE_PATH=role
+            PHOENIX_OAUTH2_OKTA_ROLE_MAPPING="Owner:ADMIN,Developer:MEMBER,Viewer:VIEWER"
+
+        With role mapping (nested path for Keycloak):
+            PHOENIX_OAUTH2_KEYCLOAK_ROLE_ATTRIBUTE_PATH=resource_access.phoenix.role
+            PHOENIX_OAUTH2_KEYCLOAK_ROLE_MAPPING="admin:ADMIN,user:MEMBER"
+
+        With role mapping in strict mode (deny unmapped roles):
+            PHOENIX_OAUTH2_OKTA_ROLE_ATTRIBUTE_PATH=role
+            PHOENIX_OAUTH2_OKTA_ROLE_MAPPING="Owner:ADMIN,Developer:MEMBER"
+            PHOENIX_OAUTH2_OKTA_ROLE_ATTRIBUTE_STRICT=true
+
+        With conditional logic to compute role from groups (no mapping needed):
+            PHOENIX_OAUTH2_OKTA_ROLE_ATTRIBUTE_PATH="contains(groups[*], 'admin') && 'ADMIN' || contains(groups[*], 'editor') && 'MEMBER' || 'VIEWER'"
+
+        With both groups and roles (groups control access, roles control permissions):
+            PHOENIX_OAUTH2_OKTA_GROUPS_ATTRIBUTE_PATH=groups
+            PHOENIX_OAUTH2_OKTA_ALLOWED_GROUPS=engineering platform-team
+            PHOENIX_OAUTH2_OKTA_ROLE_ATTRIBUTE_PATH=role
+            PHOENIX_OAUTH2_OKTA_ROLE_MAPPING="Owner:ADMIN,Developer:MEMBER,Guest:VIEWER"
+
+        For public clients using PKCE (no client secret needed):
+            PHOENIX_OAUTH2_MOBILE_CLIENT_ID=mobile_app_id
+            PHOENIX_OAUTH2_MOBILE_OIDC_CONFIG_URL=https://auth.example.com/.well-known/openid-configuration
+            PHOENIX_OAUTH2_MOBILE_TOKEN_ENDPOINT_AUTH_METHOD=none
+            PHOENIX_OAUTH2_MOBILE_USE_PKCE=true
+
+        Multiple identity providers (users can choose):
+            # Google OAuth
+            PHOENIX_OAUTH2_GOOGLE_CLIENT_ID=google_client_id
+            PHOENIX_OAUTH2_GOOGLE_CLIENT_SECRET=google_secret
+            PHOENIX_OAUTH2_GOOGLE_OIDC_CONFIG_URL=https://accounts.google.com/.well-known/openid-configuration
+
+            # Internal Okta
+            PHOENIX_OAUTH2_OKTA_CLIENT_ID=okta_client_id
+            PHOENIX_OAUTH2_OKTA_CLIENT_SECRET=okta_secret
+            PHOENIX_OAUTH2_OKTA_OIDC_CONFIG_URL=https://your-domain.okta.com/.well-known/openid-configuration
+            PHOENIX_OAUTH2_OKTA_GROUPS_ATTRIBUTE_PATH=groups
+            PHOENIX_OAUTH2_OKTA_ALLOWED_GROUPS=engineering
     """  # noqa: E501
     idp_names = set()
-    pattern = re.compile(
-        r"^PHOENIX_OAUTH2_(\w+)_(DISPLAY_NAME|CLIENT_ID|CLIENT_SECRET|OIDC_CONFIG_URL|ALLOW_SIGN_UP|AUTO_LOGIN)$"  # noqa: E501
-    )
     for env_var in os.environ:
-        if (match := pattern.match(env_var)) is not None and (idp_name := match.group(1).lower()):
+        if (match := _OAUTH2_ENV_VAR_PATTERN.match(env_var)) is not None and (
+            idp_name := match.group(1).lower()
+        ):
             idp_names.add(idp_name)
     return [OAuth2ClientConfig.from_env(idp_name) for idp_name in sorted(idp_names)]
 
@@ -1147,32 +2490,40 @@ class DirectoryError(Exception):
         super().__init__(message)
 
 
-# LEGACY: Regex for backward compatibility with host:port parsing in PHOENIX_POSTGRES_HOST
-_HOST_PORT_REGEX = re.compile(r"^[^:]+:\d{1,5}$")
-
-
 def get_env_postgres_connection_str() -> Optional[str]:
     """
     Build PostgreSQL connection string from environment variables.
+    """
+    pg_host = getenv(ENV_PHOENIX_POSTGRES_HOST, "").rstrip("/")
+    pg_user = getenv(ENV_PHOENIX_POSTGRES_USER)
+    pg_password = getenv(ENV_PHOENIX_POSTGRES_PASSWORD)
+    use_iam_auth = _bool_val(ENV_PHOENIX_POSTGRES_USE_AWS_IAM_AUTH, False)
 
-    LEGACY: Supports host:port parsing in PHOENIX_POSTGRES_HOST for backward compatibility.
-    """  # noqa: E501
-    if not (
-        (pg_host := getenv(ENV_PHOENIX_POSTGRES_HOST, "").rstrip("/"))
-        and (pg_user := getenv(ENV_PHOENIX_POSTGRES_USER))
-        and (pg_password := getenv(ENV_PHOENIX_POSTGRES_PASSWORD))
-    ):
+    if not (pg_host and pg_user):
         return None
+
+    if use_iam_auth:
+        if pg_password:
+            raise ValueError(
+                f"The environment variable {ENV_PHOENIX_POSTGRES_PASSWORD} is set but will be "
+                "ignored when using AWS RDS IAM authentication "
+                f"({ENV_PHOENIX_POSTGRES_USE_AWS_IAM_AUTH}=true). Authentication tokens will be "
+                "generated using AWS credentials."
+            )
+        connection_str = f"postgresql://{quote(pg_user)}@{pg_host}"
+    else:
+        if not pg_password:
+            raise ValueError(
+                f"The environment variable {ENV_PHOENIX_POSTGRES_PASSWORD} is not set. "
+                "Please set it to the password for the PostgreSQL database."
+            )
+        encoded_user = quote(pg_user)
+        encoded_password = quote(pg_password)
+        connection_str = f"postgresql://{encoded_user}:{encoded_password}@{pg_host}"
+
     pg_port = getenv(ENV_PHOENIX_POSTGRES_PORT)
     pg_db = getenv(ENV_PHOENIX_POSTGRES_DB)
 
-    if _HOST_PORT_REGEX.match(pg_host):  # maintain backward compatibility
-        pg_host, parsed_port = pg_host.split(":")
-        pg_port = pg_port or parsed_port  # use the explicitly set port if provided
-
-    encoded_user = quote(pg_user)
-    encoded_password = quote(pg_password)
-    connection_str = f"postgresql://{encoded_user}:{encoded_password}@{pg_host}"
     if pg_port:
         connection_str = f"{connection_str}:{pg_port}"
     if pg_db:
@@ -1677,14 +3028,47 @@ def get_env_allowed_origins() -> Optional[list[str]]:
     return allowed_origins.split(",")
 
 
+def get_env_telemetry_enabled() -> bool:
+    """
+    Gets whether telemetry is enabled from the PHOENIX_TELEMETRY_ENABLED environment variable.
+
+    When set to False, disables both FullStory and Scarf.sh tracking regardless of their
+    individual environment variable settings.
+
+    Returns False if external resources are disallowed.
+
+    Returns:
+        bool: True if telemetry is enabled (default), False otherwise.
+    """
+    if not get_env_allow_external_resources():
+        return False
+    return _bool_val(ENV_PHOENIX_TELEMETRY_ENABLED, True)
+
+
 def get_env_fullstory_org() -> Optional[str]:
     """
     Get the FullStory organization ID from environment variables.
 
     Returns:
-        Optional[str]: The FullStory organization ID if set, None otherwise.
+        Optional[str]: The FullStory organization ID if set and telemetry is enabled,
+        None otherwise.
     """
+    if not get_env_telemetry_enabled():
+        return None
     return getenv(ENV_PHOENIX_FULLSTORY_ORG)
+
+
+def get_env_scarf_sh_pixel_id() -> Optional[str]:
+    """
+    Get the Scarf.sh pixel ID from environment variables.
+
+    Returns:
+        Optional[str]: The Scarf.sh pixel ID if set and telemetry is enabled, None otherwise.
+    """
+    if not get_env_telemetry_enabled():
+        return None
+    # Return the phoenix-app-v12 pixel
+    return getenv(ENV_PHOENIX_SCARF_SH_PIXEL_ID) or "98877b05-7d80-493e-ab95-97c104785d1e"
 
 
 def get_env_management_url() -> Optional[str]:
@@ -1729,6 +3113,7 @@ def verify_server_environment_variables() -> None:
     get_env_database_usage_insertion_blocking_threshold_percentage()
     get_env_max_spans_queue_size()
     validate_env_support_email()
+    _validate_iam_auth_config()
 
     # Notify users about deprecated environment variables if they are being used.
     if os.getenv("PHOENIX_ENABLE_WEBSOCKETS") is not None:
@@ -1787,3 +3172,78 @@ def get_env_allow_external_resources() -> bool:
     Defaults to True if not set.
     """
     return _bool_val(ENV_PHOENIX_ALLOW_EXTERNAL_RESOURCES, True)
+
+
+def get_env_postgres_use_iam_auth() -> bool:
+    """
+    Gets whether AWS RDS IAM authentication is enabled for PostgreSQL connections.
+
+    Returns:
+        bool: True if IAM authentication should be used, False otherwise (default)
+    """
+    return _bool_val(ENV_PHOENIX_POSTGRES_USE_AWS_IAM_AUTH, False)
+
+
+def get_env_postgres_iam_token_lifetime() -> int:
+    """
+    Gets the token lifetime in seconds for AWS RDS IAM authentication pool recycling.
+
+    AWS RDS IAM tokens are valid for 15 minutes (900 seconds). This value should be
+    set slightly lower to ensure connections are recycled before token expiration.
+
+    Returns:
+        int: Token lifetime in seconds (default: 840 = 14 minutes)
+    """
+    lifetime = _int_val(ENV_PHOENIX_POSTGRES_AWS_IAM_TOKEN_LIFETIME_SECONDS, 840)
+    if lifetime <= 0:
+        raise ValueError(
+            f"{ENV_PHOENIX_POSTGRES_AWS_IAM_TOKEN_LIFETIME_SECONDS} must be a positive integer. "
+            f"Got: {lifetime}"
+        )
+    if lifetime > 900:
+        logger.warning(
+            f"{ENV_PHOENIX_POSTGRES_AWS_IAM_TOKEN_LIFETIME_SECONDS} is set to {lifetime} seconds, "
+            f"which exceeds AWS RDS IAM token validity (900 seconds / 15 minutes). "
+            f"Consider setting it to 840 seconds (14 minutes) or less."
+        )
+    return lifetime
+
+
+def _validate_iam_auth_config() -> None:
+    """
+    Validate AWS RDS IAM authentication configuration if enabled.
+
+    Raises:
+        ImportError: If boto3 is not installed when IAM auth is enabled
+        ValueError: If configuration is invalid
+    """
+    if not get_env_postgres_use_iam_auth():
+        return
+
+    pg_host = getenv(ENV_PHOENIX_POSTGRES_HOST)
+    if not pg_host:
+        return
+
+    try:
+        import boto3  # type: ignore  # noqa: F401
+    except ImportError:
+        raise ImportError(
+            f"boto3 is required when {ENV_PHOENIX_POSTGRES_USE_AWS_IAM_AUTH} is enabled. "
+            "Install it with: pip install 'arize-phoenix[aws]'"
+        )
+
+    if not getenv(ENV_PHOENIX_POSTGRES_USER):
+        raise ValueError(
+            f"{ENV_PHOENIX_POSTGRES_USER} must be set when using AWS RDS IAM authentication"
+        )
+
+    try:
+        client = boto3.client("sts")  # pyright: ignore
+        client.get_caller_identity()  # pyright: ignore
+        logger.info("✓ AWS credentials validated for RDS IAM authentication")
+    except Exception as e:
+        raise ValueError(
+            f"Failed to validate AWS credentials for RDS IAM authentication: {e}. "
+            "Ensure AWS credentials are configured via environment variables, "
+            "~/.aws/credentials, or IAM role."
+        )

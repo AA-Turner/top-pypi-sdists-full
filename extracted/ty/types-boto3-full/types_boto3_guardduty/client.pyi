@@ -3,7 +3,7 @@ Type annotations for guardduty service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -33,6 +34,7 @@ from .paginator import (
     ListFindingsPaginator,
     ListInvitationsPaginator,
     ListIPSetsPaginator,
+    ListMalwareScansPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
     ListThreatEntitySetsPaginator,
@@ -106,6 +108,8 @@ from .type_defs import (
     GetIPSetResponseTypeDef,
     GetMalwareProtectionPlanRequestTypeDef,
     GetMalwareProtectionPlanResponseTypeDef,
+    GetMalwareScanRequestTypeDef,
+    GetMalwareScanResponseTypeDef,
     GetMalwareScanSettingsRequestTypeDef,
     GetMalwareScanSettingsResponseTypeDef,
     GetMasterAccountRequestTypeDef,
@@ -141,6 +145,8 @@ from .type_defs import (
     ListIPSetsResponseTypeDef,
     ListMalwareProtectionPlansRequestTypeDef,
     ListMalwareProtectionPlansResponseTypeDef,
+    ListMalwareScansRequestTypeDef,
+    ListMalwareScansResponseTypeDef,
     ListMembersRequestTypeDef,
     ListMembersResponseTypeDef,
     ListOrganizationAdminAccountsRequestTypeDef,
@@ -155,6 +161,7 @@ from .type_defs import (
     ListThreatIntelSetsResponseTypeDef,
     ListTrustedEntitySetsRequestTypeDef,
     ListTrustedEntitySetsResponseTypeDef,
+    SendObjectMalwareScanRequestTypeDef,
     StartMalwareScanRequestTypeDef,
     StartMalwareScanResponseTypeDef,
     StartMonitoringMembersRequestTypeDef,
@@ -180,12 +187,6 @@ from .type_defs import (
     UpdateTrustedEntitySetRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -194,12 +195,12 @@ else:
 __all__ = ("GuardDutyClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class GuardDutyClient(BaseClient):
     """
@@ -238,7 +239,7 @@ class GuardDutyClient(BaseClient):
 
     def accept_administrator_invitation(
         self, **kwargs: Unpack[AcceptAdministratorInvitationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Accepts the invitation to be a member account and get monitored by a GuardDuty
         administrator account that sent the invitation.
@@ -247,7 +248,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#accept_administrator_invitation)
         """
 
-    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> Dict[str, Any]:
+    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> dict[str, Any]:
         """
         Accepts the invitation to be monitored by a GuardDuty administrator account.
 
@@ -255,7 +256,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#accept_invitation)
         """
 
-    def archive_findings(self, **kwargs: Unpack[ArchiveFindingsRequestTypeDef]) -> Dict[str, Any]:
+    def archive_findings(self, **kwargs: Unpack[ArchiveFindingsRequestTypeDef]) -> dict[str, Any]:
         """
         Archives GuardDuty findings that are specified by the list of finding IDs.
 
@@ -327,7 +328,7 @@ class GuardDutyClient(BaseClient):
 
     def create_sample_findings(
         self, **kwargs: Unpack[CreateSampleFindingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates sample findings of types specified by the list of finding types.
 
@@ -376,7 +377,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#decline_invitations)
         """
 
-    def delete_detector(self, **kwargs: Unpack[DeleteDetectorRequestTypeDef]) -> Dict[str, Any]:
+    def delete_detector(self, **kwargs: Unpack[DeleteDetectorRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon GuardDuty detector that is specified by the detector ID.
 
@@ -384,7 +385,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#delete_detector)
         """
 
-    def delete_filter(self, **kwargs: Unpack[DeleteFilterRequestTypeDef]) -> Dict[str, Any]:
+    def delete_filter(self, **kwargs: Unpack[DeleteFilterRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the filter specified by the filter name.
 
@@ -392,7 +393,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#delete_filter)
         """
 
-    def delete_ip_set(self, **kwargs: Unpack[DeleteIPSetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_ip_set(self, **kwargs: Unpack[DeleteIPSetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the IPSet specified by the <code>ipSetId</code>.
 
@@ -435,7 +436,7 @@ class GuardDutyClient(BaseClient):
 
     def delete_publishing_destination(
         self, **kwargs: Unpack[DeletePublishingDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the publishing definition with the specified <code>destinationId</code>.
 
@@ -445,7 +446,7 @@ class GuardDutyClient(BaseClient):
 
     def delete_threat_entity_set(
         self, **kwargs: Unpack[DeleteThreatEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the threat entity set that is associated with the specified
         <code>threatEntitySetId</code>.
@@ -456,7 +457,7 @@ class GuardDutyClient(BaseClient):
 
     def delete_threat_intel_set(
         self, **kwargs: Unpack[DeleteThreatIntelSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the ThreatIntelSet specified by the ThreatIntelSet ID.
 
@@ -466,7 +467,7 @@ class GuardDutyClient(BaseClient):
 
     def delete_trusted_entity_set(
         self, **kwargs: Unpack[DeleteTrustedEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the trusted entity set that is associated with the specified
         <code>trustedEntitySetId</code>.
@@ -509,7 +510,7 @@ class GuardDutyClient(BaseClient):
 
     def disable_organization_admin_account(
         self, **kwargs: Unpack[DisableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the existing GuardDuty delegated administrator of the organization.
 
@@ -519,7 +520,7 @@ class GuardDutyClient(BaseClient):
 
     def disassociate_from_administrator_account(
         self, **kwargs: Unpack[DisassociateFromAdministratorAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the current GuardDuty member account from its administrator
         account.
@@ -530,7 +531,7 @@ class GuardDutyClient(BaseClient):
 
     def disassociate_from_master_account(
         self, **kwargs: Unpack[DisassociateFromMasterAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the current GuardDuty member account from its administrator
         account.
@@ -552,7 +553,7 @@ class GuardDutyClient(BaseClient):
 
     def enable_organization_admin_account(
         self, **kwargs: Unpack[EnableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Designates an Amazon Web Services account within the organization as your
         GuardDuty delegated administrator.
@@ -646,6 +647,16 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_malware_protection_plan.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_malware_protection_plan)
+        """
+
+    def get_malware_scan(
+        self, **kwargs: Unpack[GetMalwareScanRequestTypeDef]
+    ) -> GetMalwareScanResponseTypeDef:
+        """
+        Retrieves the detailed information for a specific malware scan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_malware_scan.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_malware_scan)
         """
 
     def get_malware_scan_settings(
@@ -832,6 +843,16 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_malware_protection_plans)
         """
 
+    def list_malware_scans(
+        self, **kwargs: Unpack[ListMalwareScansRequestTypeDef]
+    ) -> ListMalwareScansResponseTypeDef:
+        """
+        Returns a list of malware scans.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_malware_scans.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_malware_scans)
+        """
+
     def list_members(
         self, **kwargs: Unpack[ListMembersRequestTypeDef]
     ) -> ListMembersResponseTypeDef:
@@ -906,6 +927,16 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_trusted_entity_sets)
         """
 
+    def send_object_malware_scan(
+        self, **kwargs: Unpack[SendObjectMalwareScanRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Initiates a malware scan for a specific S3 object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/send_object_malware_scan.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#send_object_malware_scan)
+        """
+
     def start_malware_scan(
         self, **kwargs: Unpack[StartMalwareScanRequestTypeDef]
     ) -> StartMalwareScanResponseTypeDef:
@@ -936,7 +967,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#stop_monitoring_members)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to a resource.
 
@@ -946,7 +977,7 @@ class GuardDutyClient(BaseClient):
 
     def unarchive_findings(
         self, **kwargs: Unpack[UnarchiveFindingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Unarchives GuardDuty findings specified by the <code>findingIds</code>.
 
@@ -954,7 +985,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#unarchive_findings)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -962,7 +993,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#untag_resource)
         """
 
-    def update_detector(self, **kwargs: Unpack[UpdateDetectorRequestTypeDef]) -> Dict[str, Any]:
+    def update_detector(self, **kwargs: Unpack[UpdateDetectorRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the GuardDuty detector specified by the detector ID.
 
@@ -982,7 +1013,7 @@ class GuardDutyClient(BaseClient):
 
     def update_findings_feedback(
         self, **kwargs: Unpack[UpdateFindingsFeedbackRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Marks the specified GuardDuty findings as useful or not useful.
 
@@ -990,7 +1021,7 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#update_findings_feedback)
         """
 
-    def update_ip_set(self, **kwargs: Unpack[UpdateIPSetRequestTypeDef]) -> Dict[str, Any]:
+    def update_ip_set(self, **kwargs: Unpack[UpdateIPSetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the IPSet specified by the IPSet ID.
 
@@ -1010,7 +1041,7 @@ class GuardDutyClient(BaseClient):
 
     def update_malware_scan_settings(
         self, **kwargs: Unpack[UpdateMalwareScanSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the malware scan settings.
 
@@ -1030,7 +1061,7 @@ class GuardDutyClient(BaseClient):
 
     def update_organization_configuration(
         self, **kwargs: Unpack[UpdateOrganizationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configures the delegated administrator account with the provided values.
 
@@ -1040,7 +1071,7 @@ class GuardDutyClient(BaseClient):
 
     def update_publishing_destination(
         self, **kwargs: Unpack[UpdatePublishingDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates information about the publishing destination specified by the
         <code>destinationId</code>.
@@ -1051,7 +1082,7 @@ class GuardDutyClient(BaseClient):
 
     def update_threat_entity_set(
         self, **kwargs: Unpack[UpdateThreatEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the threat entity set associated with the specified
         <code>threatEntitySetId</code>.
@@ -1062,7 +1093,7 @@ class GuardDutyClient(BaseClient):
 
     def update_threat_intel_set(
         self, **kwargs: Unpack[UpdateThreatIntelSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the ThreatIntelSet specified by the ThreatIntelSet ID.
 
@@ -1072,7 +1103,7 @@ class GuardDutyClient(BaseClient):
 
     def update_trusted_entity_set(
         self, **kwargs: Unpack[UpdateTrustedEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the trusted entity set associated with the specified
         <code>trustedEntitySetId</code>.
@@ -1151,6 +1182,17 @@ class GuardDutyClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_invitations"]
     ) -> ListInvitationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_malware_scans"]
+    ) -> ListMalwareScansPaginator:
         """
         Create a paginator for an operation.
 

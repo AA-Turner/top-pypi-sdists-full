@@ -180,7 +180,10 @@ class RichOptionPanel(RichPanel[Parameter, OptionColumnType]):
 
     @classmethod
     def list_all_objects(cls, ctx: Context) -> List[Tuple[str, Parameter]]:
-        return [(i.name, i) for i in ctx.command.get_params(ctx)]  # type: ignore[misc]
+        return [
+            (i.opts[0] if getattr(i, "flag_value", None) and i.opts else i.name, i)  # type: ignore[misc]
+            for i in ctx.command.get_params(ctx)
+        ]
 
     def get_objects(self, command: Command, ctx: Context) -> Generator[Parameter, None, None]:
         """List the objects assigned to the panel."""
@@ -223,16 +226,17 @@ class RichOptionPanel(RichPanel[Parameter, OptionColumnType]):
 
             rows.append(cols)
 
-        if True:
-            rows = list(
-                map(
-                    list,
-                    zip(*[col for col in zip(*rows) if any(cell for cell in col)]),
-                )
-            )
+        headers = [i.replace("_", " ").title() for i in formatter.config.options_table_column_types]
+
+        filtered = [(h, c) for h, c in zip(headers, zip(*rows)) if any(cell for cell in c)]
+        headers, rows = zip(*filtered) if filtered else ([], [])
+        rows = list(map(list, zip(*rows))) if rows else []
 
         for row in rows:
             table.add_row(*row)
+
+        for col, header in zip(table.columns, headers):
+            col.header = header
 
         return table
 
@@ -314,8 +318,12 @@ class RichCommandPanel(RichPanel[Command, CommandColumnType]):
     def list_all_objects(cls, ctx: Context) -> List[Tuple[str, Command]]:
         if not isinstance(ctx.command, Group):
             return []
-
-        return list(sorted(list(ctx.command.commands.items())))
+        commands = []
+        for cmd_name in ctx.command.list_commands(ctx):
+            cmd = ctx.command.get_command(ctx, cmd_name)
+            if cmd is not None:
+                commands.append((cmd_name, cmd))
+        return commands
 
     def get_objects(self, command: Command, ctx: Context) -> Generator[Command, None, None]:
         """List the objects assigned to the panel."""
@@ -386,16 +394,17 @@ class RichCommandPanel(RichPanel[Command, CommandColumnType]):
 
             rows.append(cols)
 
-        if True:
-            rows = list(
-                map(
-                    list,
-                    zip(*[col for col in zip(*rows) if any(cell for cell in col)]),
-                )
-            )
+        headers = [i.replace("_", " ").title() for i in formatter.config.commands_table_column_types]
+
+        filtered = [(h, c) for h, c in zip(headers, zip(*rows)) if any(cell for cell in c)]
+        headers, rows = zip(*filtered) if filtered else ([], [])
+        rows = list(map(list, zip(*rows))) if rows else []
 
         for row in rows:
             table.add_row(*row)
+
+        for col, header in zip(table.columns, headers):
+            col.header = header
 
         return table
 
@@ -706,31 +715,39 @@ def construct_panels(
 
     final_panels: List[RichPanel[Any, Any]] = []
 
-    all_panel_mappings: List[Union[Dict[Tuple[str, str], List[str]], Dict[Tuple[str, str], RichPanel[Any, Any]]]] = [
-        pre_default_panels,
-        defined_panels,
-        new_panels,
-        post_default_panels,
-    ]
-    for d in all_panel_mappings:
-        for (typ, panel_name), obj_list in d.items():
-            cls: Type[RichPanel[Any, Any]]
-            if typ == "options":
-                cls = formatter.option_panel_class
-            elif typ == "commands":
-                cls = formatter.command_panel_class
-            else:
-                continue
-            panel: RichPanel[Any, Any]
-            if isinstance(obj_list, RichPanel):
-                panel = obj_list
-            elif (typ, panel_name) not in defined_panels:
-                panel = cls(panel_name)
-                setattr(panel, panel._object_attr, [i for i in obj_list])
-            else:
-                panel = defined_panels[(typ, panel_name)]
-                for _obj in obj_list:
-                    panel.add_object(_obj)
-            final_panels.append(panel)
+    def add_panels_from(
+        mappings: List[Union[Dict[Tuple[str, str], List[str]], Dict[Tuple[str, str], RichPanel[Any, Any]]]],
+        type_filter: Optional[str] = None,
+    ) -> None:
+        for d in mappings:
+            for (typ, panel_name), obj_list in d.items():
+                if type_filter is not None and typ != type_filter:
+                    continue
+                cls: Type[RichPanel[Any, Any]]
+                if typ == "options":
+                    cls = formatter.option_panel_class
+                elif typ == "commands":
+                    cls = formatter.command_panel_class
+                else:
+                    continue
+                panel: RichPanel[Any, Any]
+                if isinstance(obj_list, RichPanel):
+                    panel = obj_list
+                elif (typ, panel_name) not in defined_panels:
+                    panel = cls(panel_name)
+                    setattr(panel, panel._object_attr, [i for i in obj_list])
+                else:
+                    panel = defined_panels[(typ, panel_name)]
+                    for _obj in obj_list:
+                        panel.add_object(_obj)
+                final_panels.append(panel)
+
+    if formatter.config.default_panels_first:
+        add_panels_from([pre_default_panels], "options")
+        add_panels_from([defined_panels, new_panels], "options")
+        add_panels_from([pre_default_panels, post_default_panels], "commands")
+        add_panels_from([defined_panels, new_panels], "commands")
+    else:
+        add_panels_from([pre_default_panels, defined_panels, new_panels, post_default_panels])
 
     return final_panels

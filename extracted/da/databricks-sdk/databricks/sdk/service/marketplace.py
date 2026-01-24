@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict, _repeated_enum
+from databricks.sdk.service._internal import (_enum, _from_dict,
+                                              _repeated_dict, _repeated_enum)
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -44,6 +45,7 @@ class AssetType(Enum):
     ASSET_TYPE_APP = "ASSET_TYPE_APP"
     ASSET_TYPE_DATA_TABLE = "ASSET_TYPE_DATA_TABLE"
     ASSET_TYPE_GIT_REPO = "ASSET_TYPE_GIT_REPO"
+    ASSET_TYPE_MCP = "ASSET_TYPE_MCP"
     ASSET_TYPE_MEDIA = "ASSET_TYPE_MEDIA"
     ASSET_TYPE_MODEL = "ASSET_TYPE_MODEL"
     ASSET_TYPE_NOTEBOOK = "ASSET_TYPE_NOTEBOOK"
@@ -2162,6 +2164,8 @@ class PersonalizationRequest:
     recipient_type: Optional[DeltaSharingRecipientType] = None
 
     share: Optional[ShareInfo] = None
+    """Share information is required for data listings but should be empty/ignored for non-data
+    listings (MCP and App)."""
 
     status: Optional[PersonalizationRequestStatus] = None
 
@@ -3030,6 +3034,7 @@ class ConsumerInstallationsAPI:
 
         :returns: :class:`Installation`
         """
+
         body = {}
         if accepted_consumer_terms is not None:
             body["accepted_consumer_terms"] = accepted_consumer_terms.as_dict()
@@ -3154,6 +3159,7 @@ class ConsumerInstallationsAPI:
 
         :returns: :class:`UpdateInstallationResponse`
         """
+
         body = {}
         if installation is not None:
             body["installation"] = installation.as_dict()
@@ -3375,6 +3381,7 @@ class ConsumerPersonalizationRequestsAPI:
 
         :returns: :class:`CreatePersonalizationRequestResponse`
         """
+
         body = {}
         if accepted_consumer_terms is not None:
             body["accepted_consumer_terms"] = accepted_consumer_terms.as_dict()
@@ -3540,6 +3547,7 @@ class ProviderExchangeFiltersAPI:
 
         :returns: :class:`CreateExchangeFilterResponse`
         """
+
         body = {}
         if filter is not None:
             body["filter"] = filter.as_dict()
@@ -3605,6 +3613,7 @@ class ProviderExchangeFiltersAPI:
 
         :returns: :class:`UpdateExchangeFilterResponse`
         """
+
         body = {}
         if filter is not None:
             body["filter"] = filter.as_dict()
@@ -3631,6 +3640,7 @@ class ProviderExchangesAPI:
 
         :returns: :class:`AddExchangeForListingResponse`
         """
+
         body = {}
         if exchange_id is not None:
             body["exchange_id"] = exchange_id
@@ -3651,6 +3661,7 @@ class ProviderExchangesAPI:
 
         :returns: :class:`CreateExchangeResponse`
         """
+
         body = {}
         if exchange is not None:
             body["exchange"] = exchange.as_dict()
@@ -3808,6 +3819,7 @@ class ProviderExchangesAPI:
 
         :returns: :class:`UpdateExchangeResponse`
         """
+
         body = {}
         if exchange is not None:
             body["exchange"] = exchange.as_dict()
@@ -3843,6 +3855,7 @@ class ProviderFilesAPI:
 
         :returns: :class:`CreateFileResponse`
         """
+
         body = {}
         if display_name is not None:
             body["display_name"] = display_name
@@ -3936,6 +3949,7 @@ class ProviderListingsAPI:
 
         :returns: :class:`CreateListingResponse`
         """
+
         body = {}
         if listing is not None:
             body["listing"] = listing.as_dict()
@@ -4011,6 +4025,7 @@ class ProviderListingsAPI:
 
         :returns: :class:`UpdateListingResponse`
         """
+
         body = {}
         if listing is not None:
             body["listing"] = listing.as_dict()
@@ -4081,6 +4096,7 @@ class ProviderPersonalizationRequestsAPI:
 
         :returns: :class:`UpdatePersonalizationRequestResponse`
         """
+
         body = {}
         if reason is not None:
             body["reason"] = reason
@@ -4162,6 +4178,7 @@ class ProviderProviderAnalyticsDashboardsAPI:
 
         :returns: :class:`UpdateProviderAnalyticsDashboardResponse`
         """
+
         body = {}
         if version is not None:
             body["version"] = version
@@ -4187,6 +4204,7 @@ class ProviderProvidersAPI:
 
         :returns: :class:`CreateProviderResponse`
         """
+
         body = {}
         if provider is not None:
             body["provider"] = provider.as_dict()
@@ -4262,6 +4280,7 @@ class ProviderProvidersAPI:
 
         :returns: :class:`UpdateProviderResponse`
         """
+
         body = {}
         if provider is not None:
             body["provider"] = provider.as_dict()

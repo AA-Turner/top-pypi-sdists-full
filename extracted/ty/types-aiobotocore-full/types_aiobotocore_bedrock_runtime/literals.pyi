@@ -3,7 +3,7 @@ Type annotations for bedrock-runtime service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_runtime/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AsyncInvokeStatusType",
+    "AudioFormatType",
     "BedrockRuntimeServiceName",
     "CachePointTypeType",
     "ConversationRoleType",
@@ -41,7 +42,9 @@ __all__ = (
     "GuardrailConverseImageFormatType",
     "GuardrailImageFormatType",
     "GuardrailManagedWordTypeType",
+    "GuardrailOriginType",
     "GuardrailOutputScopeType",
+    "GuardrailOwnershipType",
     "GuardrailPiiEntityTypeType",
     "GuardrailSensitiveInformationPolicyActionType",
     "GuardrailStreamProcessingModeType",
@@ -55,15 +58,34 @@ __all__ = (
     "PerformanceConfigLatencyType",
     "ResourceServiceName",
     "ServiceName",
+    "ServiceTierTypeType",
     "SortAsyncInvocationByType",
     "SortOrderType",
     "StopReasonType",
     "ToolResultStatusType",
+    "ToolUseTypeType",
     "TraceType",
     "VideoFormatType",
 )
 
 AsyncInvokeStatusType = Literal["Completed", "Failed", "InProgress"]
+AudioFormatType = Literal[
+    "aac",
+    "flac",
+    "m4a",
+    "mka",
+    "mkv",
+    "mp3",
+    "mp4",
+    "mpeg",
+    "mpga",
+    "ogg",
+    "opus",
+    "pcm",
+    "wav",
+    "webm",
+    "x-aac",
+]
 CachePointTypeType = Literal["default"]
 ConversationRoleType = Literal["assistant", "user"]
 DocumentFormatType = Literal["csv", "doc", "docx", "html", "md", "pdf", "txt", "xls", "xlsx"]
@@ -83,7 +105,9 @@ GuardrailConverseContentQualifierType = Literal["grounding_source", "guard_conte
 GuardrailConverseImageFormatType = Literal["jpeg", "png"]
 GuardrailImageFormatType = Literal["jpeg", "png"]
 GuardrailManagedWordTypeType = Literal["PROFANITY"]
+GuardrailOriginType = Literal["ACCOUNT_ENFORCED", "ORGANIZATION_ENFORCED", "REQUEST"]
 GuardrailOutputScopeType = Literal["FULL", "INTERVENTIONS"]
+GuardrailOwnershipType = Literal["CROSS_ACCOUNT", "SELF"]
 GuardrailPiiEntityTypeType = Literal[
     "ADDRESS",
     "AGE",
@@ -126,17 +150,22 @@ GuardrailWordPolicyActionType = Literal["BLOCKED", "NONE"]
 ImageFormatType = Literal["gif", "jpeg", "png", "webp"]
 ListAsyncInvokesPaginatorName = Literal["list_async_invokes"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
+ServiceTierTypeType = Literal["default", "flex", "priority", "reserved"]
 SortAsyncInvocationByType = Literal["SubmissionTime"]
 SortOrderType = Literal["Ascending", "Descending"]
 StopReasonType = Literal[
     "content_filtered",
     "end_turn",
     "guardrail_intervened",
+    "malformed_model_output",
+    "malformed_tool_use",
     "max_tokens",
+    "model_context_window_exceeded",
     "stop_sequence",
     "tool_use",
 ]
 ToolResultStatusType = Literal["error", "success"]
+ToolUseTypeType = Literal["server_tool_use", "tool_use"]
 TraceType = Literal["DISABLED", "ENABLED", "ENABLED_FULL"]
 VideoFormatType = Literal["flv", "mkv", "mov", "mp4", "mpeg", "mpg", "three_gp", "webm", "wmv"]
 BedrockRuntimeServiceName = Literal["bedrock-runtime"]
@@ -166,7 +195,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -236,6 +264,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -281,7 +310,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -334,7 +362,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -373,8 +400,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -409,6 +434,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -418,18 +444,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -451,8 +479,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -467,15 +493,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -506,8 +533,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -547,6 +574,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -558,15 +586,6 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["list_async_invokes"]

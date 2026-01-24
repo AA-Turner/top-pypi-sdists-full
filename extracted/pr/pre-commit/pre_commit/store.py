@@ -5,9 +5,9 @@ import logging
 import os.path
 import sqlite3
 import tempfile
+from collections.abc import Callable
 from collections.abc import Generator
 from collections.abc import Sequence
-from typing import Callable
 
 import pre_commit.constants as C
 from pre_commit import clientlib
@@ -17,7 +17,6 @@ from pre_commit.util import CalledProcessError
 from pre_commit.util import clean_path_on_failure
 from pre_commit.util import cmd_output_b
 from pre_commit.util import resource_text
-from pre_commit.util import rmtree
 
 
 logger = logging.getLogger('pre_commit')
@@ -96,7 +95,7 @@ class Store:
                     '    PRIMARY KEY (repo, ref)'
                     ');',
                 )
-                self._create_config_table(db)
+                self._create_configs_table(db)
 
             # Atomic file move
             os.replace(tmpfile, self.db_path)
@@ -215,7 +214,7 @@ class Store:
             'local', C.LOCAL_REPO_VERSION, deps, _make_local_repo,
         )
 
-    def _create_config_table(self, db: sqlite3.Connection) -> None:
+    def _create_configs_table(self, db: sqlite3.Connection) -> None:
         db.executescript(
             'CREATE TABLE IF NOT EXISTS configs ('
             '   path TEXT NOT NULL,'
@@ -232,28 +231,5 @@ class Store:
             return
         with self.connect() as db:
             # TODO: eventually remove this and only create in _create
-            self._create_config_table(db)
+            self._create_configs_table(db)
             db.execute('INSERT OR IGNORE INTO configs VALUES (?)', (path,))
-
-    def select_all_configs(self) -> list[str]:
-        with self.connect() as db:
-            self._create_config_table(db)
-            rows = db.execute('SELECT path FROM configs').fetchall()
-            return [path for path, in rows]
-
-    def delete_configs(self, configs: list[str]) -> None:
-        with self.connect() as db:
-            rows = [(path,) for path in configs]
-            db.executemany('DELETE FROM configs WHERE path = ?', rows)
-
-    def select_all_repos(self) -> list[tuple[str, str, str]]:
-        with self.connect() as db:
-            return db.execute('SELECT repo, ref, path from repos').fetchall()
-
-    def delete_repo(self, db_repo_name: str, ref: str, path: str) -> None:
-        with self.connect() as db:
-            db.execute(
-                'DELETE FROM repos WHERE repo = ? and ref = ?',
-                (db_repo_name, ref),
-            )
-        rmtree(path)

@@ -1,6 +1,9 @@
 #![deny(missing_docs)]
 #![doc = env!("CARGO_PKG_DESCRIPTION")]
 
+/// allocator module containing the memory management utilities.
+pub mod allocator;
+
 /// image representation for computer vision purposes.
 pub mod image;
 
@@ -12,3 +15,7 @@ pub mod ops;
 
 pub use crate::error::ImageError;
 pub use crate::image::{Image, ImageSize};
+
+/// Arrow integration for converting images to Arrow format
+#[cfg(feature = "arrow")]
+pub mod arrow;

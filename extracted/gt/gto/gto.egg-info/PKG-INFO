@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gto
-Version: 1.8.0
+Version: 1.9.0
 Summary: Version and deploy your models following GitOps principles
 Author-email: Alexander Guschin <aguschin@iterative.ai>
 License: Apache License 2.0
@@ -9,6 +9,7 @@ Project-URL: Source, https://github.com/iterative/gto
 Keywords: git,repo,repository,artifact,registry,developer-tools,collaboration
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,7 +19,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: entrypoints
 Requires-Dist: funcy
-Requires-Dist: pydantic!=2.0.0,<3,>=1.9.0
+Requires-Dist: pydantic>=2
+Requires-Dist: pydantic-settings>=2
 Requires-Dist: rich
 Requires-Dist: ruamel.yaml
 Requires-Dist: scmrepo<4,>=3
@@ -34,7 +36,8 @@ Requires-Dist: pytest-mock; extra == "tests"
 Requires-Dist: pytest-test-utils; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: gto[tests]; extra == "dev"
-Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: mypy==1.17.1; python_version > "3.9" and extra == "dev"
+Requires-Dist: mypy<1.11.0; python_version <= "3.9" and extra == "dev"
 Requires-Dist: pylint==3.3.8; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-filelock; extra == "dev"

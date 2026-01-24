@@ -43,12 +43,10 @@ class DatasetProps(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("dataset_id"): t.String,
-            t.Key("dataset_version_id"): t.String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("dataset_id"): t.String,
+        t.Key("dataset_version_id"): t.String,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -83,18 +81,16 @@ class DatasetInfo(APIObject):
          The ID of the data request used to generate sampling and metadata.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("total_rows"): t.Int,
-            t.Key("source_size"): t.Int,
-            t.Key("estimated_size_per_row"): t.Int,
-            t.Key("columns"): t.List(t.String),
-            t.Key("dialect"): t.Enum(*enum_to_list(ChunkServiceDialect)),
-            t.Key("version"): t.Int,
-            t.Key("data_store_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("data_source_id", optional=True): t.Or(t.String, t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("total_rows"): t.Int,
+        t.Key("source_size"): t.Int,
+        t.Key("estimated_size_per_row"): t.Int,
+        t.Key("columns"): t.List(t.String),
+        t.Key("dialect"): t.Enum(*enum_to_list(ChunkServiceDialect)),
+        t.Key("version"): t.Int,
+        t.Key("data_store_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("data_source_id", optional=True): t.Or(t.String, t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -127,11 +123,9 @@ class DynamicDatasetProps(APIObject):
         The ID of the credentials.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("credentials_id"): t.String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("credentials_id"): t.String,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -154,12 +148,10 @@ class DatasetDefinitionInfoHistory(APIObject):
 
     _path = "datasetDefinitions/{}/versions/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("dataset_info"): DatasetInfo._converter,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("dataset_info"): DatasetInfo._converter,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -170,9 +162,7 @@ class DatasetDefinitionInfoHistory(APIObject):
         self.dataset_info = dataset_info
 
     @classmethod
-    def from_data(
-        cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]
-    ) -> DatasetDefinitionInfoHistory:
+    def from_data(cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> DatasetDefinitionInfoHistory:
         """Properly convert composition classes."""
         converted_data = cls._converter.check(from_api(data))
         converted_data["dataset_info"] = DatasetInfo(**converted_data["dataset_info"])
@@ -222,18 +212,14 @@ class DatasetDefinition(APIObject):
     _path = "datasetDefinitions/"
     _path_with_id = _path + "{}/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("creator_user_id"): t.String,
-            t.Key("dataset_props"): DatasetProps._converter,
-            t.Key("dynamic_dataset_props", optional=True): t.Or(
-                DynamicDatasetProps._converter, t.Null
-            ),
-            t.Key("dataset_info", optional=True): t.Or(DatasetInfo._converter, t.Null),
-            t.Key("name", optional=True): t.Or(t.String, t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("creator_user_id"): t.String,
+        t.Key("dataset_props"): DatasetProps._converter,
+        t.Key("dynamic_dataset_props", optional=True): t.Or(DynamicDatasetProps._converter, t.Null),
+        t.Key("dataset_info", optional=True): t.Or(DatasetInfo._converter, t.Null),
+        t.Key("name", optional=True): t.Or(t.String, t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -261,9 +247,7 @@ class DatasetDefinition(APIObject):
             converted_data["dataset_info"] = DatasetInfo(**converted_data["dataset_info"])
 
         if "dynamic_dataset_props" in converted_data:
-            converted_data["dynamic_dataset_props"] = DynamicDatasetProps(
-                **converted_data["dynamic_dataset_props"]
-            )
+            converted_data["dynamic_dataset_props"] = DynamicDatasetProps(**converted_data["dynamic_dataset_props"])
 
         return cls(**converted_data)
 
@@ -446,22 +430,20 @@ class RowsChunkDefinition(APIObject):
         The percentage of the validation set to downsample, this field is auto generated.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("order_by_columns"): t.List(t.String, min_length=0),
-            t.Key("is_descending_order"): t.Bool,
-            t.Key("target_column", optional=True): t.Or(t.String, t.Null),
-            t.Key("target_class", optional=True): t.Or(t.String, t.Null),
-            t.Key("user_group_column", optional=True): t.Or(t.String, t.Null),
-            t.Key("datetime_partition_column", optional=True): t.Or(t.String, t.Null),
-            t.Key("otv_validation_start_date", optional=True): t.Or(DateTime(), t.Null),
-            t.Key("otv_validation_end_date", optional=True): t.Or(DateTime(), t.Null),
-            t.Key("otv_training_end_date", optional=True): t.Or(DateTime(), t.Null),
-            t.Key("otv_latest_timestamp", optional=True): t.Or(DateTime(), t.Null),
-            t.Key("otv_earliest_timestamp", optional=True): t.Or(DateTime(), t.Null),
-            t.Key("otv_validation_downsampling_pct", optional=True): t.Or(t.Float, t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("order_by_columns"): t.List(t.String, min_length=0),
+        t.Key("is_descending_order"): t.Bool,
+        t.Key("target_column", optional=True): t.Or(t.String, t.Null),
+        t.Key("target_class", optional=True): t.Or(t.String, t.Null),
+        t.Key("user_group_column", optional=True): t.Or(t.String, t.Null),
+        t.Key("datetime_partition_column", optional=True): t.Or(t.String, t.Null),
+        t.Key("otv_validation_start_date", optional=True): t.Or(DateTime(), t.Null),
+        t.Key("otv_validation_end_date", optional=True): t.Or(DateTime(), t.Null),
+        t.Key("otv_training_end_date", optional=True): t.Or(DateTime(), t.Null),
+        t.Key("otv_latest_timestamp", optional=True): t.Or(DateTime(), t.Null),
+        t.Key("otv_earliest_timestamp", optional=True): t.Or(DateTime(), t.Null),
+        t.Key("otv_validation_downsampling_pct", optional=True): t.Or(t.Float, t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -515,13 +497,11 @@ class ChunkDefinitionStats(APIObject):
         The total number of chunks, this field is auto generated.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("expected_chunk_size"): t.Int,
-            t.Key("number_of_rows_per_chunk"): t.Int,
-            t.Key("total_number_of_chunks"): t.Int,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("expected_chunk_size"): t.Int,
+        t.Key("number_of_rows_per_chunk"): t.Int,
+        t.Key("total_number_of_chunks"): t.Int,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -565,20 +545,18 @@ class ChunkDefinition(APIObject):
     _path = "datasetDefinitions/{}/chunkDefinitions/"
     _path_with_id = _path + "{}/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("dataset_definition_id"): t.String,
-            t.Key("dataset_definition_info_version"): t.Int,
-            t.Key("name"): t.String,
-            t.Key("is_readonly"): t.Bool,
-            t.Key("partition_method"): t.Enum(*enum_to_list(ChunkingPartitionMethod)),
-            t.Key("chunking_strategy_type"): t.Enum(*enum_to_list(ChunkingStrategy)),
-            t.Key("chunk_definition_stats", optional=True): ChunkDefinitionStats._converter,
-            t.Key("rows_chunk_definition", optional=True): RowsChunkDefinition._converter,
-            t.Key("features_chunk_definition", optional=True): FeaturesChunkDefinition._converter,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("dataset_definition_id"): t.String,
+        t.Key("dataset_definition_info_version"): t.Int,
+        t.Key("name"): t.String,
+        t.Key("is_readonly"): t.Bool,
+        t.Key("partition_method"): t.Enum(*enum_to_list(ChunkingPartitionMethod)),
+        t.Key("chunking_strategy_type"): t.Enum(*enum_to_list(ChunkingStrategy)),
+        t.Key("chunk_definition_stats", optional=True): ChunkDefinitionStats._converter,
+        t.Key("rows_chunk_definition", optional=True): RowsChunkDefinition._converter,
+        t.Key("features_chunk_definition", optional=True): FeaturesChunkDefinition._converter,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -610,14 +588,10 @@ class ChunkDefinition(APIObject):
         converted_data = cls._converter.check(from_api(data))
 
         if "chunk_definition_stats" in converted_data:
-            converted_data["chunk_definition_stats"] = ChunkDefinitionStats(
-                **converted_data["chunk_definition_stats"]
-            )
+            converted_data["chunk_definition_stats"] = ChunkDefinitionStats(**converted_data["chunk_definition_stats"])
 
         if "rows_chunk_definition" in converted_data:
-            converted_data["rows_chunk_definition"] = RowsChunkDefinition(
-                **converted_data["rows_chunk_definition"]
-            )
+            converted_data["rows_chunk_definition"] = RowsChunkDefinition(**converted_data["rows_chunk_definition"])
 
         if "features_chunk_definition" in converted_data:
             converted_data["features_chunk_definition"] = FeaturesChunkDefinition(
@@ -776,9 +750,7 @@ class ChunkDefinition(APIObject):
         return [cls.from_server_data(item) for item in data]
 
     @classmethod
-    def analyze(
-        cls, dataset_definition_id: str, chunk_definition_id: str, max_wait: int = DEFAULT_MAX_WAIT
-    ) -> None:
+    def analyze(cls, dataset_definition_id: str, chunk_definition_id: str, max_wait: int = DEFAULT_MAX_WAIT) -> None:
         """
         Analyze a specific chunk definition
 

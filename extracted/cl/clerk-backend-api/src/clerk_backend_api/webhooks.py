@@ -16,7 +16,7 @@ class Webhooks(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SvixURL]:
+    ) -> models.SvixURL:
         r"""Create a Svix app
 
         Create a Svix app and associate it with the current instance
@@ -48,6 +48,7 @@ class Webhooks(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -68,7 +69,7 @@ class Webhooks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSvixApp",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -78,7 +79,7 @@ class Webhooks(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SvixURL], http_res)
+            return unmarshal_json_response(models.SvixURL, http_res)
         if utils.match_response(http_res, "400", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -98,7 +99,7 @@ class Webhooks(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SvixURL]:
+    ) -> models.SvixURL:
         r"""Create a Svix app
 
         Create a Svix app and associate it with the current instance
@@ -130,6 +131,7 @@ class Webhooks(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -150,7 +152,7 @@ class Webhooks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSvixApp",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -160,7 +162,7 @@ class Webhooks(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SvixURL], http_res)
+            return unmarshal_json_response(models.SvixURL, http_res)
         if utils.match_response(http_res, "400", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -212,6 +214,7 @@ class Webhooks(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -232,7 +235,7 @@ class Webhooks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteSvixApp",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -294,6 +297,7 @@ class Webhooks(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -314,7 +318,7 @@ class Webhooks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteSvixApp",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -344,10 +348,10 @@ class Webhooks(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SvixURL]:
+    ) -> models.SvixURL:
         r"""Create a Svix Dashboard URL
 
-        Generate a new url for accessing the Svix's management dashboard for that particular instance
+        Generate a new URL for accessing the Svix's management dashboard for that particular instance
 
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -376,6 +380,7 @@ class Webhooks(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -396,7 +401,7 @@ class Webhooks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GenerateSvixAuthURL",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -406,7 +411,7 @@ class Webhooks(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SvixURL], http_res)
+            return unmarshal_json_response(models.SvixURL, http_res)
         if utils.match_response(http_res, "400", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -426,10 +431,10 @@ class Webhooks(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SvixURL]:
+    ) -> models.SvixURL:
         r"""Create a Svix Dashboard URL
 
-        Generate a new url for accessing the Svix's management dashboard for that particular instance
+        Generate a new URL for accessing the Svix's management dashboard for that particular instance
 
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -458,6 +463,7 @@ class Webhooks(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -478,7 +484,7 @@ class Webhooks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GenerateSvixAuthURL",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -488,7 +494,7 @@ class Webhooks(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SvixURL], http_res)
+            return unmarshal_json_response(models.SvixURL, http_res)
         if utils.match_response(http_res, "400", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

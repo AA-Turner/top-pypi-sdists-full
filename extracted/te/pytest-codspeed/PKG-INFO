@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-codspeed
-Version: 4.0.0
+Version: 4.2.0
 Summary: Pytest plugin to create CodSpeed benchmarks
 Author-email: Arthur Pastel <arthur@codspeed.io>
 License: The MIT License (MIT)
@@ -40,6 +40,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Benchmark
 Classifier: Topic :: Utilities
@@ -50,15 +51,9 @@ Requires-Dist: cffi>=1.17.1
 Requires-Dist: pytest>=3.8
 Requires-Dist: rich>=13.8.1
 Requires-Dist: importlib-metadata>=8.5.0; python_version < "3.10"
-Provides-Extra: lint
-Requires-Dist: mypy~=1.11.2; extra == "lint"
-Requires-Dist: ruff~=0.11.12; extra == "lint"
 Provides-Extra: compat
 Requires-Dist: pytest-benchmark~=5.0.0; extra == "compat"
 Requires-Dist: pytest-xdist~=3.6.1; extra == "compat"
-Provides-Extra: test
-Requires-Dist: pytest~=7.0; extra == "test"
-Requires-Dist: pytest-cov~=4.0.0; extra == "test"
 
 <div align="center">
 <h1>pytest-codspeed</h1>
@@ -154,7 +149,7 @@ on:
   push:
     branches:
       - "main" # or "master"
-  pull_request:
+  pull_request: # required to have reports on PRs
   # `workflow_dispatch` allows CodSpeed to trigger backtest
   # performance analysis in order to generate initial data.
   workflow_dispatch:
@@ -173,8 +168,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v3
+        uses: CodSpeedHQ/action@v4
         with:
+          mode: instrumentation   # or `walltime`
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest tests/ --codspeed
 ```

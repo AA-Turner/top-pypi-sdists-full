@@ -11,6 +11,7 @@ class FieldType(Enums.KnownString):
     CUSTOM_ENTITY_LINK = "custom_entity_link"
     ENTITY_LINK = "entity_link"
     MIXTURE_LINK = "mixture_link"
+    MOLECULE_LINK = "molecule_link"
     DROPDOWN = "dropdown"
     PART_LINK = "part_link"
     TRANSLATION_LINK = "translation_link"

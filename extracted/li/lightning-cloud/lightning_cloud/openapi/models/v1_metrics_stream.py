@@ -46,7 +46,10 @@ class V1MetricsStream(object):
         'cluster_id': 'str',
         'created_at': 'datetime',
         'dark_color': 'str',
+        'experiment_project_name': 'str',
+        'guest': 'bool',
         'id': 'str',
+        'job_id': 'str',
         'job_name': 'str',
         'light_color': 'str',
         'name': 'str',
@@ -58,9 +61,15 @@ class V1MetricsStream(object):
         'stopped_at': 'datetime',
         'store_created_at': 'bool',
         'store_step': 'bool',
+        'system_info': 'V1SystemInfo',
         'tags': 'list[V1MetricsTags]',
         'trackers': 'dict(str, V1MetricsTracker)',
+        'updated_at': 'datetime',
+        'updates_counter': 'int',
         'user_id': 'str',
+        'version': 'datetime',
+        'version_number': 'int',
+        'visibility': 'V1ResourceVisibility',
         'work_id': 'str'
     }
 
@@ -70,7 +79,10 @@ class V1MetricsStream(object):
         'cluster_id': 'clusterId',
         'created_at': 'createdAt',
         'dark_color': 'darkColor',
+        'experiment_project_name': 'experimentProjectName',
+        'guest': 'guest',
         'id': 'id',
+        'job_id': 'jobId',
         'job_name': 'jobName',
         'light_color': 'lightColor',
         'name': 'name',
@@ -82,20 +94,29 @@ class V1MetricsStream(object):
         'stopped_at': 'stoppedAt',
         'store_created_at': 'storeCreatedAt',
         'store_step': 'storeStep',
+        'system_info': 'systemInfo',
         'tags': 'tags',
         'trackers': 'trackers',
+        'updated_at': 'updatedAt',
+        'updates_counter': 'updatesCounter',
         'user_id': 'userId',
+        'version': 'version',
+        'version_number': 'versionNumber',
+        'visibility': 'visibility',
         'work_id': 'workId'
     }
 
-    def __init__(self, app_id: 'str' =None, cloudspace_id: 'str' =None, cluster_id: 'str' =None, created_at: 'datetime' =None, dark_color: 'str' =None, id: 'str' =None, job_name: 'str' =None, light_color: 'str' =None, name: 'str' =None, persisted: 'bool' =None, phase: 'V1PhaseType' =None, plugin_id: 'str' =None, project_id: 'str' =None, source_id: 'str' =None, stopped_at: 'datetime' =None, store_created_at: 'bool' =None, store_step: 'bool' =None, tags: 'list[V1MetricsTags]' =None, trackers: 'dict(str, V1MetricsTracker)' =None, user_id: 'str' =None, work_id: 'str' =None):  # noqa: E501
+    def __init__(self, app_id: 'str' =None, cloudspace_id: 'str' =None, cluster_id: 'str' =None, created_at: 'datetime' =None, dark_color: 'str' =None, experiment_project_name: 'str' =None, guest: 'bool' =None, id: 'str' =None, job_id: 'str' =None, job_name: 'str' =None, light_color: 'str' =None, name: 'str' =None, persisted: 'bool' =None, phase: 'V1PhaseType' =None, plugin_id: 'str' =None, project_id: 'str' =None, source_id: 'str' =None, stopped_at: 'datetime' =None, store_created_at: 'bool' =None, store_step: 'bool' =None, system_info: 'V1SystemInfo' =None, tags: 'list[V1MetricsTags]' =None, trackers: 'dict(str, V1MetricsTracker)' =None, updated_at: 'datetime' =None, updates_counter: 'int' =None, user_id: 'str' =None, version: 'datetime' =None, version_number: 'int' =None, visibility: 'V1ResourceVisibility' =None, work_id: 'str' =None):  # noqa: E501
         """V1MetricsStream - a model defined in Swagger"""  # noqa: E501
         self._app_id = None
         self._cloudspace_id = None
         self._cluster_id = None
         self._created_at = None
         self._dark_color = None
+        self._experiment_project_name = None
+        self._guest = None
         self._id = None
+        self._job_id = None
         self._job_name = None
         self._light_color = None
         self._name = None
@@ -107,9 +128,15 @@ class V1MetricsStream(object):
         self._stopped_at = None
         self._store_created_at = None
         self._store_step = None
+        self._system_info = None
         self._tags = None
         self._trackers = None
+        self._updated_at = None
+        self._updates_counter = None
         self._user_id = None
+        self._version = None
+        self._version_number = None
+        self._visibility = None
         self._work_id = None
         self.discriminator = None
         if app_id is not None:
@@ -122,8 +149,14 @@ class V1MetricsStream(object):
             self.created_at = created_at
         if dark_color is not None:
             self.dark_color = dark_color
+        if experiment_project_name is not None:
+            self.experiment_project_name = experiment_project_name
+        if guest is not None:
+            self.guest = guest
         if id is not None:
             self.id = id
+        if job_id is not None:
+            self.job_id = job_id
         if job_name is not None:
             self.job_name = job_name
         if light_color is not None:
@@ -146,12 +179,24 @@ class V1MetricsStream(object):
             self.store_created_at = store_created_at
         if store_step is not None:
             self.store_step = store_step
+        if system_info is not None:
+            self.system_info = system_info
         if tags is not None:
             self.tags = tags
         if trackers is not None:
             self.trackers = trackers
+        if updated_at is not None:
+            self.updated_at = updated_at
+        if updates_counter is not None:
+            self.updates_counter = updates_counter
         if user_id is not None:
             self.user_id = user_id
+        if version is not None:
+            self.version = version
+        if version_number is not None:
+            self.version_number = version_number
+        if visibility is not None:
+            self.visibility = visibility
         if work_id is not None:
             self.work_id = work_id
 
@@ -261,6 +306,48 @@ class V1MetricsStream(object):
         self._dark_color = dark_color
 
     @property
+    def experiment_project_name(self) -> 'str':
+        """Gets the experiment_project_name of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The experiment_project_name of this V1MetricsStream.  # noqa: E501
+        :rtype: str
+        """
+        return self._experiment_project_name
+
+    @experiment_project_name.setter
+    def experiment_project_name(self, experiment_project_name: 'str'):
+        """Sets the experiment_project_name of this V1MetricsStream.
+
+
+        :param experiment_project_name: The experiment_project_name of this V1MetricsStream.  # noqa: E501
+        :type: str
+        """
+
+        self._experiment_project_name = experiment_project_name
+
+    @property
+    def guest(self) -> 'bool':
+        """Gets the guest of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The guest of this V1MetricsStream.  # noqa: E501
+        :rtype: bool
+        """
+        return self._guest
+
+    @guest.setter
+    def guest(self, guest: 'bool'):
+        """Sets the guest of this V1MetricsStream.
+
+
+        :param guest: The guest of this V1MetricsStream.  # noqa: E501
+        :type: bool
+        """
+
+        self._guest = guest
+
+    @property
     def id(self) -> 'str':
         """Gets the id of this V1MetricsStream.  # noqa: E501
 
@@ -280,6 +367,27 @@ class V1MetricsStream(object):
         """
 
         self._id = id
+
+    @property
+    def job_id(self) -> 'str':
+        """Gets the job_id of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The job_id of this V1MetricsStream.  # noqa: E501
+        :rtype: str
+        """
+        return self._job_id
+
+    @job_id.setter
+    def job_id(self, job_id: 'str'):
+        """Sets the job_id of this V1MetricsStream.
+
+
+        :param job_id: The job_id of this V1MetricsStream.  # noqa: E501
+        :type: str
+        """
+
+        self._job_id = job_id
 
     @property
     def job_name(self) -> 'str':
@@ -513,6 +621,27 @@ class V1MetricsStream(object):
         self._store_step = store_step
 
     @property
+    def system_info(self) -> 'V1SystemInfo':
+        """Gets the system_info of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The system_info of this V1MetricsStream.  # noqa: E501
+        :rtype: V1SystemInfo
+        """
+        return self._system_info
+
+    @system_info.setter
+    def system_info(self, system_info: 'V1SystemInfo'):
+        """Sets the system_info of this V1MetricsStream.
+
+
+        :param system_info: The system_info of this V1MetricsStream.  # noqa: E501
+        :type: V1SystemInfo
+        """
+
+        self._system_info = system_info
+
+    @property
     def tags(self) -> 'list[V1MetricsTags]':
         """Gets the tags of this V1MetricsStream.  # noqa: E501
 
@@ -555,6 +684,48 @@ class V1MetricsStream(object):
         self._trackers = trackers
 
     @property
+    def updated_at(self) -> 'datetime':
+        """Gets the updated_at of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The updated_at of this V1MetricsStream.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at: 'datetime'):
+        """Sets the updated_at of this V1MetricsStream.
+
+
+        :param updated_at: The updated_at of this V1MetricsStream.  # noqa: E501
+        :type: datetime
+        """
+
+        self._updated_at = updated_at
+
+    @property
+    def updates_counter(self) -> 'int':
+        """Gets the updates_counter of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The updates_counter of this V1MetricsStream.  # noqa: E501
+        :rtype: int
+        """
+        return self._updates_counter
+
+    @updates_counter.setter
+    def updates_counter(self, updates_counter: 'int'):
+        """Sets the updates_counter of this V1MetricsStream.
+
+
+        :param updates_counter: The updates_counter of this V1MetricsStream.  # noqa: E501
+        :type: int
+        """
+
+        self._updates_counter = updates_counter
+
+    @property
     def user_id(self) -> 'str':
         """Gets the user_id of this V1MetricsStream.  # noqa: E501
 
@@ -574,6 +745,69 @@ class V1MetricsStream(object):
         """
 
         self._user_id = user_id
+
+    @property
+    def version(self) -> 'datetime':
+        """Gets the version of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The version of this V1MetricsStream.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._version
+
+    @version.setter
+    def version(self, version: 'datetime'):
+        """Sets the version of this V1MetricsStream.
+
+
+        :param version: The version of this V1MetricsStream.  # noqa: E501
+        :type: datetime
+        """
+
+        self._version = version
+
+    @property
+    def version_number(self) -> 'int':
+        """Gets the version_number of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The version_number of this V1MetricsStream.  # noqa: E501
+        :rtype: int
+        """
+        return self._version_number
+
+    @version_number.setter
+    def version_number(self, version_number: 'int'):
+        """Sets the version_number of this V1MetricsStream.
+
+
+        :param version_number: The version_number of this V1MetricsStream.  # noqa: E501
+        :type: int
+        """
+
+        self._version_number = version_number
+
+    @property
+    def visibility(self) -> 'V1ResourceVisibility':
+        """Gets the visibility of this V1MetricsStream.  # noqa: E501
+
+
+        :return: The visibility of this V1MetricsStream.  # noqa: E501
+        :rtype: V1ResourceVisibility
+        """
+        return self._visibility
+
+    @visibility.setter
+    def visibility(self, visibility: 'V1ResourceVisibility'):
+        """Sets the visibility of this V1MetricsStream.
+
+
+        :param visibility: The visibility of this V1MetricsStream.  # noqa: E501
+        :type: V1ResourceVisibility
+        """
+
+        self._visibility = visibility
 
     @property
     def work_id(self) -> 'str':

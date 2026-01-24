@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyodide-lock
-Version: 0.1.0
+Version: 0.1.1
 Summary: Tooling to manage the `pyodide-lock.json` file
 Project-URL: Homepage, https://github.com/pyodide/pyodide-lock
 Project-URL: Bug Tracker, https://github.com/pyodide/pyodide-lock/issues
@@ -12,14 +12,15 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Requires-Dist: pydantic>=2
 Provides-Extra: cli
-Requires-Dist: typer; extra == 'cli'
+Requires-Dist: click; extra == 'cli'
+Requires-Dist: pyodide-cli>=0.4.0; extra == 'cli'
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
+Requires-Dist: click; extra == 'dev'
 Requires-Dist: packaging; extra == 'dev'
 Requires-Dist: pkginfo; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: typer; extra == 'dev'
 Requires-Dist: wheel; extra == 'dev'
 Provides-Extra: wheel
 Requires-Dist: packaging; extra == 'wheel'

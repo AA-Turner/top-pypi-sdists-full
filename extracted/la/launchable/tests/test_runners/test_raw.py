@@ -67,6 +67,7 @@ class RawTest(CliTestCase):
                 'session': {'id': str(self.session_id)},
                 "goal": {"type": "subset-by-percentage", "percentage": 0.1},
                 "ignoreNewTests": False,
+                "getTestsFromGuess": False,
                 "getTestsFromPreviousSessions": False,
             })
             # Check split output
@@ -123,6 +124,7 @@ class RawTest(CliTestCase):
             'session': {'id': str(self.session_id)},
             "goal": {"type": "subset-by-percentage", "percentage": 0.1},
             "ignoreNewTests": False,
+            "getTestsFromGuess": False,
             "getTestsFromPreviousSessions": True,
         })
 

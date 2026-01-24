@@ -11,9 +11,10 @@ from dagster_shared.serdes.serdes import (
     PackableValue,
     SerializableNonScalarKeyMapping,
     UnpackContext,
+    UnpackedValue,
     WhitelistMap,
+    inner_unpack_value,
     pack_value,
-    unpack_value,
     whitelist_for_serdes,
 )
 
@@ -53,8 +54,8 @@ class ObserveRequestTimestampSerializer(FieldSerializer):
         unpacked_value: JsonSerializableValue,
         whitelist_map: WhitelistMap,
         context: UnpackContext,
-    ) -> PackableValue:
-        return unpack_value(unpacked_value, dict, whitelist_map, context)
+    ) -> UnpackedValue:
+        return inner_unpack_value(unpacked_value, whitelist_map, context)
 
 
 @whitelist_for_serdes(
@@ -69,7 +70,8 @@ class AssetDaemonCursor:
     """State that's stored between daemon evaluations.
 
     Args:
-        evaluation_id (int): The ID of the evaluation that produced this cursor.
+        evaluation_id (int): (DEPRECATED) The ID of the evaluation that produced this cursor.
+            This is no longer used as the source of truth for the evaluation id.
         previous_evaluation_state (Sequence[AutomationConditionEvaluationState]): (DEPRECATED) The
             evaluation info recorded for each asset on the previous tick.
         previous_cursors (Sequence[AutomationConditionCursor]): The cursor objects for each asset

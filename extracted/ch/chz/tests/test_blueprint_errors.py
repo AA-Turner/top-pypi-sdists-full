@@ -4,40 +4,6 @@ import chz
 from chz.blueprint import ConstructionException, ExtraneousBlueprintArg
 
 
-def test_target_positional_only():
-    def good(a: int = 42, /):
-        return a
-
-    assert chz.entrypoint(good, argv=[]) == 42
-
-    def bad(a: int, /):
-        return a
-
-    with pytest.raises(
-        ConstructionException,
-        match="Cannot construct bad because it has positional-only parameter a without a default",
-    ):
-        chz.entrypoint(bad, argv=[])
-
-
-def test_target_args_kwargs():
-    def bad1(*args): ...
-
-    with pytest.raises(
-        ConstructionException,
-        match=r"Cannot collect parameters from bad1 due to \*args parameter args",
-    ):
-        chz.entrypoint(bad1, argv=[])
-
-    def bad2(**kwargs): ...
-
-    with pytest.raises(
-        ConstructionException,
-        match=r"Cannot collect parameters from bad2 due to \*\*kwargs parameter kwargs",
-    ):
-        chz.entrypoint(bad2, argv=[])
-
-
 def test_target_bad_signature():
     def bad(a: int, b: str): ...
 
@@ -96,7 +62,10 @@ def test_blueprint_extraneous_valid_parent():
     with pytest.raises(
         ExtraneousBlueprintArg,
         match=r"""Extraneous argument 'b.cc.nope' to Blueprint for test_blueprint_errors:test_blueprint_extraneous_valid_parent.<locals>.A \(from command line\)
+
 Param 'b' is closest valid ancestor
+Param 'b' is set to test_blueprint_errors:test_blueprint_extraneous_valid_parent.<locals>.B \(blueprint_unspecified\)
+Subparam 'cc' does not exist on it
 Append --help to your command to see valid arguments""",
     ):
         chz.entrypoint(A, argv=["b.cc.nope=0"])

@@ -6,135 +6,15 @@ import builtins
 import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
-import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sys
-import typing
 
-if sys.version_info >= (3, 10):
+if sys.version_info >= (3, 8):
     import typing as typing_extensions
 else:
     import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
-
-class _RemoteBuildingStatusCode:
-    ValueType = typing.NewType("ValueType", builtins.int)
-    V: typing_extensions.TypeAlias = ValueType
-
-class _RemoteBuildingStatusCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_RemoteBuildingStatusCode.ValueType], builtins.type):  # noqa: F821
-    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-    INVALID_STATUS: _RemoteBuildingStatusCode.ValueType  # 0
-    """Invalid remote build status"""
-    INITIALIZING: _RemoteBuildingStatusCode.ValueType  # 1
-    """Setting up remote build"""
-    IN_PROGRESS: _RemoteBuildingStatusCode.ValueType  # 2
-    """Running remote build"""
-    SUCCESSFUL: _RemoteBuildingStatusCode.ValueType  # 3
-    """Successful remote build"""
-    FAILED: _RemoteBuildingStatusCode.ValueType  # 4
-    """Failed remote build"""
-    CANCELLED: _RemoteBuildingStatusCode.ValueType  # 5
-    """Cancelled remote build"""
-    TIMED_OUT: _RemoteBuildingStatusCode.ValueType  # 6
-    """Timed out while pending remote build"""
-    UNKNOWN: _RemoteBuildingStatusCode.ValueType  # 7
-    """The status is unknown"""
-
-class RemoteBuildingStatusCode(_RemoteBuildingStatusCode, metaclass=_RemoteBuildingStatusCodeEnumTypeWrapper): ...
-
-INVALID_STATUS: RemoteBuildingStatusCode.ValueType  # 0
-"""Invalid remote build status"""
-INITIALIZING: RemoteBuildingStatusCode.ValueType  # 1
-"""Setting up remote build"""
-IN_PROGRESS: RemoteBuildingStatusCode.ValueType  # 2
-"""Running remote build"""
-SUCCESSFUL: RemoteBuildingStatusCode.ValueType  # 3
-"""Successful remote build"""
-FAILED: RemoteBuildingStatusCode.ValueType  # 4
-"""Failed remote build"""
-CANCELLED: RemoteBuildingStatusCode.ValueType  # 5
-"""Cancelled remote build"""
-TIMED_OUT: RemoteBuildingStatusCode.ValueType  # 6
-"""Timed out while pending remote build"""
-UNKNOWN: RemoteBuildingStatusCode.ValueType  # 7
-"""The status is unknown"""
-global___RemoteBuildingStatusCode = RemoteBuildingStatusCode
-
-class _RemoteBuildingFailureReasonCode:
-    ValueType = typing.NewType("ValueType", builtins.int)
-    V: typing_extensions.TypeAlias = ValueType
-
-class _RemoteBuildingFailureReasonCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_RemoteBuildingFailureReasonCode.ValueType], builtins.type):  # noqa: F821
-    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-    INVALID_CODE: _RemoteBuildingFailureReasonCode.ValueType  # 0
-    """Invalid reason"""
-    UNKNOWN_REASON: _RemoteBuildingFailureReasonCode.ValueType  # 1
-    """Unknown reason"""
-    INSUFFICIENT_RESOURCES: _RemoteBuildingFailureReasonCode.ValueType  # 2
-    """Insufficient resources - for unscheduled pods"""
-    MISSING_DOCKER_IMAGE: _RemoteBuildingFailureReasonCode.ValueType  # 3
-    """The docker image is missing"""
-    MEMORY_LIMIT_EXCEEDED: _RemoteBuildingFailureReasonCode.ValueType  # 4
-    """Out of memory"""
-
-class RemoteBuildingFailureReasonCode(_RemoteBuildingFailureReasonCode, metaclass=_RemoteBuildingFailureReasonCodeEnumTypeWrapper): ...
-
-INVALID_CODE: RemoteBuildingFailureReasonCode.ValueType  # 0
-"""Invalid reason"""
-UNKNOWN_REASON: RemoteBuildingFailureReasonCode.ValueType  # 1
-"""Unknown reason"""
-INSUFFICIENT_RESOURCES: RemoteBuildingFailureReasonCode.ValueType  # 2
-"""Insufficient resources - for unscheduled pods"""
-MISSING_DOCKER_IMAGE: RemoteBuildingFailureReasonCode.ValueType  # 3
-"""The docker image is missing"""
-MEMORY_LIMIT_EXCEEDED: RemoteBuildingFailureReasonCode.ValueType  # 4
-"""Out of memory"""
-global___RemoteBuildingFailureReasonCode = RemoteBuildingFailureReasonCode
-
-class RemoteBuildingStatus(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    REMOTE_BUILDING_STATUS_CODE_FIELD_NUMBER: builtins.int
-    FAILURE_DETAILS_FIELD_NUMBER: builtins.int
-    POD_STATUS_FIELD_NUMBER: builtins.int
-    remote_building_status_code: global___RemoteBuildingStatusCode.ValueType
-    """The status of the building"""
-    @property
-    def failure_details(self) -> global___RemoteBuildingFailureReasonDetails:
-        """Failure details"""
-    @property
-    def pod_status(self) -> global___PodStatus: ...
-    def __init__(
-        self,
-        *,
-        remote_building_status_code: global___RemoteBuildingStatusCode.ValueType = ...,
-        failure_details: global___RemoteBuildingFailureReasonDetails | None = ...,
-        pod_status: global___PodStatus | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["failure_details", b"failure_details", "pod_status", b"pod_status"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["failure_details", b"failure_details", "pod_status", b"pod_status", "remote_building_status_code", b"remote_building_status_code"]) -> None: ...
-
-global___RemoteBuildingStatus = RemoteBuildingStatus
-
-class RemoteBuildingFailureReasonDetails(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    FAILURE_CODE_FIELD_NUMBER: builtins.int
-    TECHNICAL_DETAILS_FIELD_NUMBER: builtins.int
-    failure_code: global___RemoteBuildingFailureReasonCode.ValueType
-    """failure reason code"""
-    technical_details: builtins.str
-    """Extra messages"""
-    def __init__(
-        self,
-        *,
-        failure_code: global___RemoteBuildingFailureReasonCode.ValueType = ...,
-        technical_details: builtins.str = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["failure_code", b"failure_code", "technical_details", b"technical_details"]) -> None: ...
-
-global___RemoteBuildingFailureReasonDetails = RemoteBuildingFailureReasonDetails
 
 class PodStatus(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

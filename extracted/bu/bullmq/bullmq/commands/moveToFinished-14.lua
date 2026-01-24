@@ -137,20 +137,20 @@ end
   (since an empty list and !EXISTS are not really the same).
 ]]
 local function getTargetQueueList(queueMetaKey, activeKey, waitKey, pausedKey)
-  local queueAttributes = rcall("HMGET", queueMetaKey, "paused", "concurrency")
+  local queueAttributes = rcall("HMGET", queueMetaKey, "paused", "concurrency", "max", "duration")
   if queueAttributes[1] then
-    return pausedKey, true
+    return pausedKey, true, queueAttributes[3], queueAttributes[4]
   else
     if queueAttributes[2] then
       local activeCount = rcall("LLEN", activeKey)
       if activeCount >= tonumber(queueAttributes[2]) then
-        return waitKey, true
+        return waitKey, true, queueAttributes[3], queueAttributes[4]
       else
-        return waitKey, false
+        return waitKey, false, queueAttributes[3], queueAttributes[4]
       end
     end
   end
-  return waitKey, false
+  return waitKey, false, queueAttributes[3], queueAttributes[4]
 end
 --[[
   Function to move job from prioritized state to active.
@@ -289,8 +289,164 @@ local function moveParentToWaitIfNoPendingDependencies(parentQueueKey, parentDep
     moveParentToWaitIfNeeded(parentQueueKey, parentKey, parentId, timestamp)
   end
 end
+local handleChildFailureAndMoveParentToWait = function (parentQueueKey, parentKey, parentId, jobIdKey, timestamp)
+  if rcall("EXISTS", parentKey) == 1 then
+    local parentWaitingChildrenKey = parentQueueKey .. ":waiting-children"
+    local parentDelayedKey = parentQueueKey .. ":delayed"
+    local parentWaitingChildrenOrDelayedKey
+    if rcall("ZSCORE", parentWaitingChildrenKey, parentId) then
+      parentWaitingChildrenOrDelayedKey = parentWaitingChildrenKey
+    elseif rcall("ZSCORE", parentDelayedKey, parentId) then
+      parentWaitingChildrenOrDelayedKey = parentDelayedKey
+      rcall("HSET", parentKey, "delay", 0)
+    end
+    if parentWaitingChildrenOrDelayedKey then
+      rcall("ZREM", parentWaitingChildrenOrDelayedKey, parentId)
+      local deferredFailure = "child " .. jobIdKey .. " failed"
+      rcall("HSET", parentKey, "defa", deferredFailure)
+      moveParentToWait(parentQueueKey, parentKey, parentId, timestamp)
+    else
+      if not rcall("ZSCORE", parentQueueKey .. ":failed", parentId) then
+        local deferredFailure = "child " .. jobIdKey .. " failed"
+        rcall("HSET", parentKey, "defa", deferredFailure)
+      end
+    end
+  end
+end
+local moveChildFromDependenciesIfNeeded = function (rawParentData, childKey, failedReason, timestamp)
+  if rawParentData then
+    local parentData = cjson.decode(rawParentData)
+    local parentKey = parentData['queueKey'] .. ':' .. parentData['id']
+    local parentDependenciesChildrenKey = parentKey .. ":dependencies"
+    if parentData['fpof'] then
+      if rcall("SREM", parentDependenciesChildrenKey, childKey) == 1 then
+        local parentUnsuccessfulChildrenKey = parentKey .. ":unsuccessful"
+        rcall("ZADD", parentUnsuccessfulChildrenKey, timestamp, childKey)
+        handleChildFailureAndMoveParentToWait(
+          parentData['queueKey'],
+          parentKey,
+          parentData['id'],
+          childKey,
+          timestamp
+        )
+      end
+    elseif parentData['cpof'] then
+      if rcall("SREM", parentDependenciesChildrenKey, childKey) == 1 then
+        local parentFailedChildrenKey = parentKey .. ":failed"
+        rcall("HSET", parentFailedChildrenKey, childKey, failedReason)
+        moveParentToWaitIfNeeded(parentData['queueKey'], parentKey, parentData['id'], timestamp)
+      end
+    elseif parentData['idof'] or parentData['rdof'] then
+      if rcall("SREM", parentDependenciesChildrenKey, childKey) == 1 then
+        moveParentToWaitIfNoPendingDependencies(parentData['queueKey'], parentDependenciesChildrenKey,
+          parentKey, parentData['id'], timestamp)
+        if parentData['idof'] then
+          local parentFailedChildrenKey = parentKey .. ":failed"
+          rcall("HSET", parentFailedChildrenKey, childKey, failedReason)
+        end
+      end
+    end
+  end
+end
 --[[
-  Functions to remove jobs when removeOnFail option is provided.
+  Function to move job from wait state to active.
+  Input:
+    opts - token - lock token
+    opts - lockDuration
+    opts - limiter
+]]
+-- Includes
+local function prepareJobForProcessing(keyPrefix, rateLimiterKey, eventStreamKey,
+    jobId, processedOn, maxJobs, limiterDuration, markerKey, opts)
+  local jobKey = keyPrefix .. jobId
+  -- Check if we need to perform rate limiting.
+  if maxJobs then
+    local jobCounter = tonumber(rcall("INCR", rateLimiterKey))
+    if jobCounter == 1 then
+      local integerDuration = math.floor(math.abs(limiterDuration))
+      rcall("PEXPIRE", rateLimiterKey, integerDuration)
+    end
+  end
+  -- get a lock
+  if opts['token'] ~= "0" then
+    local lockKey = jobKey .. ':lock'
+    rcall("SET", lockKey, opts['token'], "PX", opts['lockDuration'])
+  end
+  local optionalValues = {}
+  if opts['name'] then
+    -- Set "processedBy" field to the worker name
+    table.insert(optionalValues, "pb")
+    table.insert(optionalValues, opts['name'])
+  end
+  rcall("XADD", eventStreamKey, "*", "event", "active", "jobId", jobId, "prev", "waiting")
+  rcall("HMSET", jobKey, "processedOn", processedOn, unpack(optionalValues))
+  rcall("HINCRBY", jobKey, "ats", 1)
+  addBaseMarkerIfNeeded(markerKey, false)
+  -- rate limit delay must be 0 in this case to prevent adding more delay
+  -- when job that is moved to active needs to be processed
+  return {rcall("HGETALL", jobKey), jobId, 0, 0} -- get job data
+end
+--[[
+  Updates the delay set, by moving delayed jobs that should
+  be processed now to "wait".
+     Events:
+      'waiting'
+]]
+-- Includes
+-- Try to get as much as 1000 jobs at once
+local function promoteDelayedJobs(delayedKey, markerKey, targetKey, prioritizedKey,
+                                  eventStreamKey, prefix, timestamp, priorityCounterKey, isPaused)
+    local jobs = rcall("ZRANGEBYSCORE", delayedKey, 0, (timestamp + 1) * 0x1000 - 1, "LIMIT", 0, 1000)
+    if (#jobs > 0) then
+        rcall("ZREM", delayedKey, unpack(jobs))
+        for _, jobId in ipairs(jobs) do
+            local jobKey = prefix .. jobId
+            local priority =
+                tonumber(rcall("HGET", jobKey, "priority")) or 0
+            if priority == 0 then
+                -- LIFO or FIFO
+                rcall("LPUSH", targetKey, jobId)
+            else
+                local score = getPriorityScore(priority, priorityCounterKey)
+                rcall("ZADD", prioritizedKey, score, jobId)
+            end
+            -- Emit waiting event
+            rcall("XADD", eventStreamKey, "*", "event", "waiting", "jobId",
+                  jobId, "prev", "delayed")
+            rcall("HSET", jobKey, "delay", 0)
+        end
+        addBaseMarkerIfNeeded(markerKey, isPaused)
+    end
+end
+--[[
+  Function to remove deduplication key if needed
+  when a job is moved to completed or failed states.
+]]
+local function removeDeduplicationKeyIfNeededOnFinalization(prefixKey,
+  deduplicationId, jobId)
+  if deduplicationId then
+    local deduplicationKey = prefixKey .. "de:" .. deduplicationId
+    local pttl = rcall("PTTL", deduplicationKey)
+    if pttl == 0 then
+      return rcall("DEL", deduplicationKey)
+    end
+    if pttl == -1 then
+      local currentJobId = rcall('GET', deduplicationKey)
+      if currentJobId and currentJobId == jobId then
+        return rcall("DEL", deduplicationKey)
+      end
+    end
+  end
+end
+--[[
+  Function to remove job keys.
+]]
+local function removeJobKeys(jobKey)
+  return rcall("DEL", jobKey, jobKey .. ':logs', jobKey .. ':dependencies',
+    jobKey .. ':processed', jobKey .. ':failed', jobKey .. ':unsuccessful')
+end
+--[[
+  Functions to remove jobs by max age.
 ]]
 -- Includes
 --[[
@@ -302,8 +458,7 @@ end
   when a job is being removed.
 ]]
 local function removeDeduplicationKeyIfNeededOnRemoval(prefixKey,
-  jobKey, jobId)
-  local deduplicationId = rcall("HGET", jobKey, "deid")
+  jobId, deduplicationId)
   if deduplicationId then
     local deduplicationKey = prefixKey .. "de:" .. deduplicationId
     local currentJobId = rcall('GET', deduplicationKey)
@@ -311,13 +466,6 @@ local function removeDeduplicationKeyIfNeededOnRemoval(prefixKey,
       return rcall("DEL", deduplicationKey)
     end
   end
-end
---[[
-  Function to remove job keys.
-]]
-local function removeJobKeys(jobKey)
-  return rcall("DEL", jobKey, jobKey .. ':logs', jobKey .. ':dependencies',
-    jobKey .. ':processed', jobKey .. ':failed', jobKey .. ':unsuccessful')
 end
 --[[
   Check if this job has a parent. If so we will just remove it from
@@ -411,18 +559,14 @@ local function removeJob(jobId, hard, baseKey, shouldRemoveDeduplicationKey)
   local jobKey = baseKey .. jobId
   removeParentDependencyKey(jobKey, hard, nil, baseKey)
   if shouldRemoveDeduplicationKey then
-    removeDeduplicationKeyIfNeededOnRemoval(baseKey, jobKey, jobId)
+    local deduplicationId = rcall("HGET", jobKey, "deid")
+    removeDeduplicationKeyIfNeededOnRemoval(baseKey, jobId, deduplicationId)
   end
   removeJobKeys(jobKey)
 end
---[[
-  Functions to remove jobs by max age.
-]]
--- Includes
-local function removeJobsByMaxAge(timestamp, maxAge, targetSet, prefix,
-  shouldRemoveDebounceKey)
+local function removeJobsByMaxAge(timestamp, maxAge, targetSet, prefix, maxLimit)
   local start = timestamp - maxAge * 1000
-  local jobIds = rcall("ZREVRANGEBYSCORE", targetSet, start, "-inf")
+  local jobIds = rcall("ZREVRANGEBYSCORE", targetSet, start, "-inf", "LIMIT", 0, maxLimit)
   for i, jobId in ipairs(jobIds) do
     removeJob(jobId, false, prefix, false --[[remove debounce key]])
   end
@@ -439,186 +583,6 @@ local function removeJobsByMaxCount(maxCount, targetSet, prefix)
     removeJob(jobId, false, prefix, false --[[remove debounce key]])
   end
   rcall("ZREMRANGEBYRANK", targetSet, 0, -(maxCount + 1))
-end
-local function removeJobsOnFail(queueKeyPrefix, failedKey, jobId, opts, timestamp)
-  local removeOnFailType = type(opts["removeOnFail"])
-  if removeOnFailType == "number" then
-    removeJobsByMaxCount(opts["removeOnFail"],
-                        failedKey, queueKeyPrefix)
-  elseif removeOnFailType == "boolean" then
-    if opts["removeOnFail"] then
-      removeJob(jobId, false, queueKeyPrefix,
-                false --[[remove debounce key]])
-      rcall("ZREM", failedKey, jobId)
-    end
-  elseif removeOnFailType ~= "nil" then
-    local maxAge = opts["removeOnFail"]["age"]
-    local maxCount = opts["removeOnFail"]["count"]
-    if maxAge ~= nil then
-      removeJobsByMaxAge(timestamp, maxAge,
-                        failedKey, queueKeyPrefix)
-    end
-    if maxCount ~= nil and maxCount > 0 then
-      removeJobsByMaxCount(maxCount, failedKey,
-                            queueKeyPrefix)
-    end
-  end 
-end
-local moveParentToFailedIfNeeded = function (parentQueueKey, parentKey, parentId, jobIdKey, timestamp)
-  if rcall("EXISTS", parentKey) == 1 then
-    local parentWaitingChildrenKey = parentQueueKey .. ":waiting-children"
-    local parentDelayedKey = parentQueueKey .. ":delayed"
-    local parentPrioritizedKey = parentQueueKey .. ":prioritized"
-    local parentWaitingChildrenOrDelayedKey
-    local prevState
-    if rcall("ZSCORE", parentWaitingChildrenKey, parentId) then
-      parentWaitingChildrenOrDelayedKey = parentWaitingChildrenKey
-      prevState = "waiting-children"
-    elseif rcall("ZSCORE", parentDelayedKey, parentId) then
-      parentWaitingChildrenOrDelayedKey = parentDelayedKey
-      prevState = "delayed"
-      rcall("HSET", parentKey, "delay", 0)
-    end
-    if parentWaitingChildrenOrDelayedKey then
-      rcall("ZREM", parentWaitingChildrenOrDelayedKey, parentId)
-      local parentQueuePrefix = parentQueueKey .. ":"
-      local parentFailedKey = parentQueueKey .. ":failed"
-      local deferredFailure = "child " .. jobIdKey .. " failed"
-      rcall("HSET", parentKey, "defa", deferredFailure)
-      moveParentToWait(parentQueueKey, parentKey, parentId, timestamp)
-    else
-      if not rcall("ZSCORE", parentQueueKey .. ":failed", parentId) then
-        local deferredFailure = "child " .. jobIdKey .. " failed"
-        rcall("HSET", parentKey, "defa", deferredFailure)
-      end
-    end
-  end
-end
-local moveChildFromDependenciesIfNeeded = function (rawParentData, childKey, failedReason, timestamp)
-  if rawParentData then
-    local parentData = cjson.decode(rawParentData)
-    local parentKey = parentData['queueKey'] .. ':' .. parentData['id']
-    local parentDependenciesChildrenKey = parentKey .. ":dependencies"
-    if parentData['fpof'] then
-      if rcall("SREM", parentDependenciesChildrenKey, childKey) == 1 then
-        local parentUnsuccesssfulChildrenKey = parentKey .. ":unsuccessful"
-        rcall("ZADD", parentUnsuccesssfulChildrenKey, timestamp, childKey)
-        moveParentToFailedIfNeeded(
-          parentData['queueKey'],
-          parentKey,
-          parentData['id'],
-          childKey,
-          timestamp
-        )
-      end
-    elseif parentData['cpof'] then
-      if rcall("SREM", parentDependenciesChildrenKey, childKey) == 1 then
-        local parentFailedChildrenKey = parentKey .. ":failed"
-        rcall("HSET", parentFailedChildrenKey, childKey, failedReason)
-        moveParentToWaitIfNeeded(parentData['queueKey'], parentKey, parentData['id'], timestamp)
-      end
-    elseif parentData['idof'] or parentData['rdof'] then
-      if rcall("SREM", parentDependenciesChildrenKey, childKey) == 1 then
-        moveParentToWaitIfNoPendingDependencies(parentData['queueKey'], parentDependenciesChildrenKey,
-          parentKey, parentData['id'], timestamp)
-        if parentData['idof'] then
-          local parentFailedChildrenKey = parentKey .. ":failed"
-          rcall("HSET", parentFailedChildrenKey, childKey, failedReason)
-        end
-      end
-    end
-  end
-end
---[[
-  Function to move job from wait state to active.
-  Input:
-    opts - token - lock token
-    opts - lockDuration
-    opts - limiter
-]]
--- Includes
-local function prepareJobForProcessing(keyPrefix, rateLimiterKey, eventStreamKey,
-    jobId, processedOn, maxJobs, markerKey, opts)
-  local jobKey = keyPrefix .. jobId
-  -- Check if we need to perform rate limiting.
-  if maxJobs then
-    local jobCounter = tonumber(rcall("INCR", rateLimiterKey))
-    if jobCounter == 1 then
-      local limiterDuration = opts['limiter'] and opts['limiter']['duration']
-      local integerDuration = math.floor(math.abs(limiterDuration))
-      rcall("PEXPIRE", rateLimiterKey, integerDuration)
-    end
-  end
-  local lockKey = jobKey .. ':lock'
-  -- get a lock
-  if opts['token'] ~= "0" then
-    rcall("SET", lockKey, opts['token'], "PX", opts['lockDuration'])
-  end
-  local optionalValues = {}
-  if opts['name'] then
-    -- Set "processedBy" field to the worker name
-    table.insert(optionalValues, "pb")
-    table.insert(optionalValues, opts['name'])
-  end
-  rcall("XADD", eventStreamKey, "*", "event", "active", "jobId", jobId, "prev", "waiting")
-  rcall("HMSET", jobKey, "processedOn", processedOn, unpack(optionalValues))
-  rcall("HINCRBY", jobKey, "ats", 1)
-  addBaseMarkerIfNeeded(markerKey, false)
-  -- rate limit delay must be 0 in this case to prevent adding more delay
-  -- when job that is moved to active needs to be processed
-  return {rcall("HGETALL", jobKey), jobId, 0, 0} -- get job data
-end
---[[
-  Updates the delay set, by moving delayed jobs that should
-  be processed now to "wait".
-     Events:
-      'waiting'
-]]
--- Includes
--- Try to get as much as 1000 jobs at once
-local function promoteDelayedJobs(delayedKey, markerKey, targetKey, prioritizedKey,
-                                  eventStreamKey, prefix, timestamp, priorityCounterKey, isPaused)
-    local jobs = rcall("ZRANGEBYSCORE", delayedKey, 0, (timestamp + 1) * 0x1000 - 1, "LIMIT", 0, 1000)
-    if (#jobs > 0) then
-        rcall("ZREM", delayedKey, unpack(jobs))
-        for _, jobId in ipairs(jobs) do
-            local jobKey = prefix .. jobId
-            local priority =
-                tonumber(rcall("HGET", jobKey, "priority")) or 0
-            if priority == 0 then
-                -- LIFO or FIFO
-                rcall("LPUSH", targetKey, jobId)
-            else
-                local score = getPriorityScore(priority, priorityCounterKey)
-                rcall("ZADD", prioritizedKey, score, jobId)
-            end
-            -- Emit waiting event
-            rcall("XADD", eventStreamKey, "*", "event", "waiting", "jobId",
-                  jobId, "prev", "delayed")
-            rcall("HSET", jobKey, "delay", 0)
-        end
-        addBaseMarkerIfNeeded(markerKey, isPaused)
-    end
-end
---[[
-  Function to remove deduplication key if needed
-  when a job is moved to completed or failed states.
-]]
-local function removeDeduplicationKeyIfNeededOnFinalization(prefixKey,
-  deduplicationId, jobId)
-  if deduplicationId then
-    local deduplicationKey = prefixKey .. "de:" .. deduplicationId
-    local pttl = rcall("PTTL", deduplicationKey)
-    if pttl == 0 then
-      return rcall("DEL", deduplicationKey)
-    end
-    if pttl == -1 then
-      local currentJobId = rcall('GET', deduplicationKey)
-      if currentJobId and currentJobId == jobId then
-        return rcall("DEL", deduplicationKey)
-      end
-    end
-  end
 end
 local function removeLock(jobKey, stalledKey, token, jobId)
   if token ~= "0" then
@@ -706,6 +670,7 @@ if rcall("EXISTS", jobIdKey) == 1 then -- Make sure job exists
     local maxMetricsSize = opts['maxMetricsSize']
     local maxCount = opts['keepJobs']['count']
     local maxAge = opts['keepJobs']['age']
+    local maxLimit = opts['keepJobs']['limit'] or 1000
     local jobAttributes = rcall("HMGET", jobIdKey, "parentKey", "parent", "deid")
     local parentKey = jobAttributes[1] or ""
     local parentId = ""
@@ -761,7 +726,7 @@ if rcall("EXISTS", jobIdKey) == 1 then -- Make sure job exists
         end
         -- Remove old jobs?
         if maxAge ~= nil then
-            removeJobsByMaxAge(timestamp, maxAge, targetSet, prefix)
+            removeJobsByMaxAge(timestamp, maxAge, targetSet, prefix, maxLimit)
         end
         if maxCount ~= nil and maxCount > 0 then
             removeJobsByMaxCount(maxCount, targetSet, prefix)
@@ -789,12 +754,13 @@ if rcall("EXISTS", jobIdKey) == 1 then -- Make sure job exists
     -- Try to get next job to avoid an extra roundtrip if the queue is not closing,
     -- and not rate limited.
     if (ARGV[6] == "1") then
-        local target, isPausedOrMaxed = getTargetQueueList(metaKey, KEYS[2], KEYS[1], KEYS[8])
+        local target, isPausedOrMaxed, rateLimitMax, rateLimitDuration = getTargetQueueList(metaKey, KEYS[2],
+            KEYS[1], KEYS[8])
         local markerKey = KEYS[14]
         -- Check if there are delayed jobs that can be promoted
         promoteDelayedJobs(KEYS[7], markerKey, target, KEYS[3], eventStreamKey, prefix, timestamp, KEYS[10],
             isPausedOrMaxed)
-        local maxJobs = tonumber(opts['limiter'] and opts['limiter']['max'])
+        local maxJobs = tonumber(rateLimitMax or (opts['limiter'] and opts['limiter']['max']))
         -- Check if we are rate limited first.
         local expireTime = getRateLimitTTL(maxJobs, KEYS[6])
         if expireTime > 0 then
@@ -804,6 +770,7 @@ if rcall("EXISTS", jobIdKey) == 1 then -- Make sure job exists
         if isPausedOrMaxed then
             return {0, 0, 0, 0}
         end
+        local limiterDuration = (opts['limiter'] and opts['limiter']['duration']) or rateLimitDuration
         jobId = rcall("RPOPLPUSH", KEYS[1], KEYS[2])
         if jobId then
             -- Markers in waitlist DEPRECATED in v5: Remove in v6.
@@ -814,17 +781,17 @@ if rcall("EXISTS", jobIdKey) == 1 then -- Make sure job exists
                 if jobId == "0:0" then
                     jobId = moveJobFromPrioritizedToActive(KEYS[3], KEYS[2], KEYS[10])
                     return prepareJobForProcessing(prefix, KEYS[6], eventStreamKey, jobId, timestamp, maxJobs,
-                        markerKey, opts)
+                        limiterDuration, markerKey, opts)
                 end
             else
-                return prepareJobForProcessing(prefix, KEYS[6], eventStreamKey, jobId, timestamp, maxJobs, markerKey,
-                    opts)
+                return prepareJobForProcessing(prefix, KEYS[6], eventStreamKey, jobId, timestamp, maxJobs,
+                    limiterDuration, markerKey, opts)
             end
         else
             jobId = moveJobFromPrioritizedToActive(KEYS[3], KEYS[2], KEYS[10])
             if jobId then
-                return prepareJobForProcessing(prefix, KEYS[6], eventStreamKey, jobId, timestamp, maxJobs, markerKey,
-                    opts)
+                return prepareJobForProcessing(prefix, KEYS[6], eventStreamKey, jobId, timestamp, maxJobs,
+                    limiterDuration, markerKey, opts)
             end
         end
         -- Return the timestamp for the next delayed job if any.

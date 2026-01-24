@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
+from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
@@ -17,6 +18,19 @@ from opentelemetry.trace import get_current_span
 from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
+from .semconv import (
+    OPERATION_NAME,
+    PROVIDER_NAME,
+    REQUEST_FREQUENCY_PENALTY,
+    REQUEST_MAX_TOKENS,
+    REQUEST_MODEL,
+    REQUEST_PRESENCE_PENALTY,
+    REQUEST_SEED,
+    REQUEST_STOP_SEQUENCES,
+    REQUEST_TEMPERATURE,
+    REQUEST_TOP_P,
+    TOOL_DEFINITIONS,
+)
 from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
@@ -32,58 +46,133 @@ __all__ = (
 )
 
 
+def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
+    """Extract request parameters from json_data and add to span_data."""
+    if (max_tokens := json_data.get('max_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_tokens
+    elif (max_output_tokens := json_data.get('max_output_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_output_tokens
+
+    if (temperature := json_data.get('temperature')) is not None:
+        span_data[REQUEST_TEMPERATURE] = temperature
+
+    if (top_p := json_data.get('top_p')) is not None:
+        span_data[REQUEST_TOP_P] = top_p
+
+    if (stop := json_data.get('stop')) is not None:
+        if isinstance(stop, str):
+            span_data[REQUEST_STOP_SEQUENCES] = json.dumps([stop])
+        else:
+            span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop)
+
+    if (seed := json_data.get('seed')) is not None:
+        span_data[REQUEST_SEED] = seed
+
+    if (frequency_penalty := json_data.get('frequency_penalty')) is not None:
+        span_data[REQUEST_FREQUENCY_PENALTY] = frequency_penalty
+
+    if (presence_penalty := json_data.get('presence_penalty')) is not None:
+        span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
+
+    if (tools := json_data.get('tools')) is not None:
+        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+
+
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     url = options.url
 
-    json_data = options.json_data
-    if not isinstance(json_data, dict):  # pragma: no cover
+    raw_json_data = options.json_data
+    if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
-        json_data = {}
+        raw_json_data = {}
+    json_data = cast('dict[str, Any]', raw_json_data)
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        span_data: dict[str, Any] = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'chat',
+        }
+        _extract_request_parameters(json_data, span_data)
+
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
             stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/responses':
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        stream = json_data.get('stream', False)
+        span_data = {
+            'gen_ai.request.model': json_data.get('model'),
+            'request_data': {'model': json_data.get('model'), 'stream': stream},
+            'events': inputs_to_events(
+                json_data.get('input'),
+                json_data.get('instructions'),
+            ),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'chat',
+        }
+        _extract_request_parameters(json_data, span_data)
+
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
-            span_data={
-                'gen_ai.request.model': json_data['model'],
-                'events': inputs_to_events(
-                    json_data['input'],  # type: ignore
-                    json_data.get('instructions'),  # type: ignore
-                ),
-            },
+            span_data=span_data,
+            stream_state_cls=OpenaiResponsesStreamState,
         )
     elif url == '/completions':
+        span_data = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'text_completion',
+        }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
             stream_state_cls=OpenaiCompletionStreamState,
         )
     elif url == '/embeddings':
+        span_data = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'embeddings',
+        }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
         )
     elif url == '/images/generations':
+        span_data = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'image_generation',
+        }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
         )
     else:
-        span_data: dict[str, Any] = {'request_data': json_data, 'url': url}
+        span_data = {
+            'request_data': json_data,
+            'url': url,
+            PROVIDER_NAME: 'openai',
+        }
         if 'model' in json_data:
-            span_data['gen_ai.request.model'] = json_data['model']
+            span_data[REQUEST_MODEL] = json_data['model']
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
             span_data=span_data,
@@ -119,18 +208,33 @@ class OpenaiCompletionStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
+class OpenaiResponsesStreamState(StreamState):
+    def __init__(self):
+        self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
+
+    def record_chunk(self, chunk: Any) -> None:
+        self._state.handle_event(chunk)
+
+    def get_response_data(self) -> Any:
+        response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
+        if not response:  # pragma: no cover
+            raise RuntimeError("Didn't receive a `response.completed` event.")
+
+        return response
+
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        response = self.get_response_data()
+        span_data['events'] = span_data['events'] + responses_output_events(response)
+        return span_data
+
+
 try:
     # ChatCompletionStreamState only exists in openai>=1.40.0
     from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 
     class OpenaiChatCompletionStreamState(StreamState):
         def __init__(self):
-            self._stream_state = ChatCompletionStreamState(
-                # We do not need the response to be parsed into Python objects so can skip
-                # providing the `response_format` and `input_tools` arguments.
-                input_tools=openai.NOT_GIVEN,
-                response_format=openai.NOT_GIVEN,
-            )
+            self._stream_state = ChatCompletionStreamState()
 
         def record_chunk(self, chunk: ChatCompletionChunk) -> None:
             try:
@@ -166,6 +270,22 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
+
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()  # type: ignore
+            usage_data = extract_usage(
+                response_data,
+                provider_id='openai',
+                api_flavor='responses' if isinstance(response, Response) else 'chat',
+            )
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
+            )
+        except Exception:
+            pass
 
     usage = getattr(response, 'usage', None)
     input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))

@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 use itertools::Itertools;
-use tombi_x_keyword::StringFormat;
+use tombi_x_keyword::{StringFormat, TableKeysOrder, X_TOMBI_TABLE_KEYS_ORDER};
 
 use super::{ReferableValueSchemas, ValueSchema};
-use crate::Referable;
+use crate::{Referable, schema::not_schema::NotSchema};
 
 #[derive(Debug, Default, Clone)]
 pub struct AllOfSchema {
@@ -16,6 +16,8 @@ pub struct AllOfSchema {
     pub default: Option<tombi_json::Value>,
     pub examples: Option<Vec<tombi_json::Value>>,
     pub deprecated: Option<bool>,
+    pub keys_order: Option<TableKeysOrder>,
+    pub not: Option<NotSchema>,
 }
 
 impl AllOfSchema {
@@ -52,6 +54,10 @@ impl AllOfSchema {
                 .map(|array| array.items.iter().map(|v| v.into()).collect()),
             deprecated: object.get("deprecated").and_then(|v| v.as_bool()),
             range: object.range,
+            keys_order: object
+                .get(X_TOMBI_TABLE_KEYS_ORDER)
+                .and_then(|v| v.as_str().and_then(|s| TableKeysOrder::try_from(s).ok())),
+            not: NotSchema::new(object, string_formats),
         }
     }
 

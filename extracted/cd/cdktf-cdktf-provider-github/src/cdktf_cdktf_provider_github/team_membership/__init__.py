@@ -1,7 +1,7 @@
 r'''
 # `github_team_membership`
 
-Refer to the Terraform Registry for docs: [`github_team_membership`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership).
+Refer to the Terraform Registry for docs: [`github_team_membership`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TeamMembership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.teamMembership.TeamMembership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership github_team_membership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership github_team_membership}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class TeamMembership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership github_team_membership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership github_team_membership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#team_id TeamMembership#team_id}
-        :param username: The user to add to the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#username TeamMembership#username}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#id TeamMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param role: The role of the user within the team. Must be one of 'member' or 'maintainer'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#role TeamMembership#role}
+        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#team_id TeamMembership#team_id}
+        :param username: The user to add to the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#username TeamMembership#username}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#id TeamMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param role: The role of the user within the team. Must be one of 'member' or 'maintainer'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#role TeamMembership#role}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class TeamMembership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TeamMembership to import.
-        :param import_from_id: The id of the existing TeamMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TeamMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TeamMembership to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#team_id TeamMembership#team_id}
-        :param username: The user to add to the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#username TeamMembership#username}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#id TeamMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param role: The role of the user within the team. Must be one of 'member' or 'maintainer'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#role TeamMembership#role}
+        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#team_id TeamMembership#team_id}
+        :param username: The user to add to the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#username TeamMembership#username}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#id TeamMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param role: The role of the user within the team. Must be one of 'member' or 'maintainer'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#role TeamMembership#role}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_id(self) -> builtins.str:
         '''The GitHub team id or the GitHub team slug.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#team_id TeamMembership#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#team_id TeamMembership#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -380,7 +380,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def username(self) -> builtins.str:
         '''The user to add to the team.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#username TeamMembership#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#username TeamMembership#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -388,7 +388,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#id TeamMembership#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#id TeamMembership#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -400,7 +400,7 @@ class TeamMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role(self) -> typing.Optional[builtins.str]:
         '''The role of the user within the team. Must be one of 'member' or 'maintainer'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_membership#role TeamMembership#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_membership#role TeamMembership#role}
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)

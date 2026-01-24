@@ -39,7 +39,10 @@ class ClusterArgs:
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  manage_master_user_password: Optional[pulumi.Input[_builtins.bool]] = None,
                  master_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  master_username: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_type: Optional[pulumi.Input[_builtins.str]] = None,
                  port: Optional[pulumi.Input[_builtins.int]] = None,
                  preferred_backup_window: Optional[pulumi.Input[_builtins.str]] = None,
                  preferred_maintenance_window: Optional[pulumi.Input[_builtins.str]] = None,
@@ -58,8 +61,9 @@ class ClusterArgs:
         :param pulumi.Input[_builtins.bool] apply_immediately: Specifies whether any cluster modifications
                are applied immediately, or during the next maintenance window. Default is
                `false`.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that
-               instances in the DB cluster can be created in.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+               DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+               We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         :param pulumi.Input[_builtins.int] backup_retention_period: The days to retain backups for. Default `1`
         :param pulumi.Input[_builtins.str] cluster_identifier: The cluster identifier. If omitted, the provider will assign a random, unique identifier.
         :param pulumi.Input[_builtins.str] cluster_identifier_prefix: Creates a unique cluster identifier beginning with the specified prefix. Conflicts with `cluster_identifier`.
@@ -79,7 +83,12 @@ class ClusterArgs:
         :param pulumi.Input[_builtins.bool] manage_master_user_password: Set to `true` to allow Amazon DocumentDB to manage the master user password in AWS Secrets Manager. Cannot be set if `master_password` or `master_password_wo` is provided.
         :param pulumi.Input[_builtins.str] master_password: Password for the master DB user. Note that this may
                show up in logs, and it will be stored in the state file. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password_wo` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.str] master_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may
+               show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.int] master_password_wo_version: Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
         :param pulumi.Input[_builtins.str] master_username: Username for the master DB user.
+        :param pulumi.Input[_builtins.str] network_type: The network type of the DB cluster (`IPV4` or `DUAL`).
         :param pulumi.Input[_builtins.int] port: The port on which the DB accepts connections
         :param pulumi.Input[_builtins.str] preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the BackupRetentionPeriod parameter.Time in UTC
                Default: A 30-minute window selected at random from an 8-hour block of time per regionE.g., 04:00-09:00
@@ -134,8 +143,14 @@ class ClusterArgs:
             pulumi.set(__self__, "manage_master_user_password", manage_master_user_password)
         if master_password is not None:
             pulumi.set(__self__, "master_password", master_password)
+        if master_password_wo is not None:
+            pulumi.set(__self__, "master_password_wo", master_password_wo)
+        if master_password_wo_version is not None:
+            pulumi.set(__self__, "master_password_wo_version", master_password_wo_version)
         if master_username is not None:
             pulumi.set(__self__, "master_username", master_username)
+        if network_type is not None:
+            pulumi.set(__self__, "network_type", network_type)
         if port is not None:
             pulumi.set(__self__, "port", port)
         if preferred_backup_window is not None:
@@ -191,8 +206,9 @@ class ClusterArgs:
     @pulumi.getter(name="availabilityZones")
     def availability_zones(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        A list of EC2 Availability Zones that
-        instances in the DB cluster can be created in.
+        A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+        DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+        We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         """
         return pulumi.get(self, "availability_zones")
 
@@ -385,6 +401,32 @@ class ClusterArgs:
         pulumi.set(self, "master_password", value)
 
     @_builtins.property
+    @pulumi.getter(name="masterPasswordWo")
+    def master_password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Password for the master DB user. Note that this may
+        show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        """
+        return pulumi.get(self, "master_password_wo")
+
+    @master_password_wo.setter
+    def master_password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "master_password_wo", value)
+
+    @_builtins.property
+    @pulumi.getter(name="masterPasswordWoVersion")
+    def master_password_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
+        """
+        return pulumi.get(self, "master_password_wo_version")
+
+    @master_password_wo_version.setter
+    def master_password_wo_version(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "master_password_wo_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="masterUsername")
     def master_username(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -395,6 +437,18 @@ class ClusterArgs:
     @master_username.setter
     def master_username(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "master_username", value)
+
+    @_builtins.property
+    @pulumi.getter(name="networkType")
+    def network_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The network type of the DB cluster (`IPV4` or `DUAL`).
+        """
+        return pulumi.get(self, "network_type")
+
+    @network_type.setter
+    def network_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "network_type", value)
 
     @_builtins.property
     @pulumi.getter
@@ -571,8 +625,11 @@ class _ClusterState:
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  manage_master_user_password: Optional[pulumi.Input[_builtins.bool]] = None,
                  master_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  master_user_secrets: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterMasterUserSecretArgs']]]] = None,
                  master_username: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_type: Optional[pulumi.Input[_builtins.str]] = None,
                  port: Optional[pulumi.Input[_builtins.int]] = None,
                  preferred_backup_window: Optional[pulumi.Input[_builtins.str]] = None,
                  preferred_maintenance_window: Optional[pulumi.Input[_builtins.str]] = None,
@@ -594,8 +651,9 @@ class _ClusterState:
                are applied immediately, or during the next maintenance window. Default is
                `false`.
         :param pulumi.Input[_builtins.str] arn: Amazon Resource Name (ARN) of cluster
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that
-               instances in the DB cluster can be created in.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+               DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+               We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         :param pulumi.Input[_builtins.int] backup_retention_period: The days to retain backups for. Default `1`
         :param pulumi.Input[_builtins.str] cluster_identifier: The cluster identifier. If omitted, the provider will assign a random, unique identifier.
         :param pulumi.Input[_builtins.str] cluster_identifier_prefix: Creates a unique cluster identifier beginning with the specified prefix. Conflicts with `cluster_identifier`.
@@ -618,7 +676,12 @@ class _ClusterState:
         :param pulumi.Input[_builtins.bool] manage_master_user_password: Set to `true` to allow Amazon DocumentDB to manage the master user password in AWS Secrets Manager. Cannot be set if `master_password` or `master_password_wo` is provided.
         :param pulumi.Input[_builtins.str] master_password: Password for the master DB user. Note that this may
                show up in logs, and it will be stored in the state file. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password_wo` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.str] master_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may
+               show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.int] master_password_wo_version: Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
         :param pulumi.Input[_builtins.str] master_username: Username for the master DB user.
+        :param pulumi.Input[_builtins.str] network_type: The network type of the DB cluster (`IPV4` or `DUAL`).
         :param pulumi.Input[_builtins.int] port: The port on which the DB accepts connections
         :param pulumi.Input[_builtins.str] preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the BackupRetentionPeriod parameter.Time in UTC
                Default: A 30-minute window selected at random from an 8-hour block of time per regionE.g., 04:00-09:00
@@ -683,10 +746,16 @@ class _ClusterState:
             pulumi.set(__self__, "manage_master_user_password", manage_master_user_password)
         if master_password is not None:
             pulumi.set(__self__, "master_password", master_password)
+        if master_password_wo is not None:
+            pulumi.set(__self__, "master_password_wo", master_password_wo)
+        if master_password_wo_version is not None:
+            pulumi.set(__self__, "master_password_wo_version", master_password_wo_version)
         if master_user_secrets is not None:
             pulumi.set(__self__, "master_user_secrets", master_user_secrets)
         if master_username is not None:
             pulumi.set(__self__, "master_username", master_username)
+        if network_type is not None:
+            pulumi.set(__self__, "network_type", network_type)
         if port is not None:
             pulumi.set(__self__, "port", port)
         if preferred_backup_window is not None:
@@ -758,8 +827,9 @@ class _ClusterState:
     @pulumi.getter(name="availabilityZones")
     def availability_zones(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        A list of EC2 Availability Zones that
-        instances in the DB cluster can be created in.
+        A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+        DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+        We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         """
         return pulumi.get(self, "availability_zones")
 
@@ -988,6 +1058,32 @@ class _ClusterState:
         pulumi.set(self, "master_password", value)
 
     @_builtins.property
+    @pulumi.getter(name="masterPasswordWo")
+    def master_password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Password for the master DB user. Note that this may
+        show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        """
+        return pulumi.get(self, "master_password_wo")
+
+    @master_password_wo.setter
+    def master_password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "master_password_wo", value)
+
+    @_builtins.property
+    @pulumi.getter(name="masterPasswordWoVersion")
+    def master_password_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
+        """
+        return pulumi.get(self, "master_password_wo_version")
+
+    @master_password_wo_version.setter
+    def master_password_wo_version(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "master_password_wo_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="masterUserSecrets")
     def master_user_secrets(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterMasterUserSecretArgs']]]]:
         return pulumi.get(self, "master_user_secrets")
@@ -1007,6 +1103,18 @@ class _ClusterState:
     @master_username.setter
     def master_username(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "master_username", value)
+
+    @_builtins.property
+    @pulumi.getter(name="networkType")
+    def network_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The network type of the DB cluster (`IPV4` or `DUAL`).
+        """
+        return pulumi.get(self, "network_type")
+
+    @network_type.setter
+    def network_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "network_type", value)
 
     @_builtins.property
     @pulumi.getter
@@ -1206,7 +1314,10 @@ class Cluster(pulumi.CustomResource):
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  manage_master_user_password: Optional[pulumi.Input[_builtins.bool]] = None,
                  master_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  master_username: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_type: Optional[pulumi.Input[_builtins.str]] = None,
                  port: Optional[pulumi.Input[_builtins.int]] = None,
                  preferred_backup_window: Optional[pulumi.Input[_builtins.str]] = None,
                  preferred_maintenance_window: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1262,8 +1373,9 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] apply_immediately: Specifies whether any cluster modifications
                are applied immediately, or during the next maintenance window. Default is
                `false`.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that
-               instances in the DB cluster can be created in.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+               DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+               We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         :param pulumi.Input[_builtins.int] backup_retention_period: The days to retain backups for. Default `1`
         :param pulumi.Input[_builtins.str] cluster_identifier: The cluster identifier. If omitted, the provider will assign a random, unique identifier.
         :param pulumi.Input[_builtins.str] cluster_identifier_prefix: Creates a unique cluster identifier beginning with the specified prefix. Conflicts with `cluster_identifier`.
@@ -1283,7 +1395,12 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] manage_master_user_password: Set to `true` to allow Amazon DocumentDB to manage the master user password in AWS Secrets Manager. Cannot be set if `master_password` or `master_password_wo` is provided.
         :param pulumi.Input[_builtins.str] master_password: Password for the master DB user. Note that this may
                show up in logs, and it will be stored in the state file. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password_wo` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.str] master_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may
+               show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.int] master_password_wo_version: Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
         :param pulumi.Input[_builtins.str] master_username: Username for the master DB user.
+        :param pulumi.Input[_builtins.str] network_type: The network type of the DB cluster (`IPV4` or `DUAL`).
         :param pulumi.Input[_builtins.int] port: The port on which the DB accepts connections
         :param pulumi.Input[_builtins.str] preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the BackupRetentionPeriod parameter.Time in UTC
                Default: A 30-minute window selected at random from an 8-hour block of time per regionE.g., 04:00-09:00
@@ -1377,7 +1494,10 @@ class Cluster(pulumi.CustomResource):
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  manage_master_user_password: Optional[pulumi.Input[_builtins.bool]] = None,
                  master_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 master_password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  master_username: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_type: Optional[pulumi.Input[_builtins.str]] = None,
                  port: Optional[pulumi.Input[_builtins.int]] = None,
                  preferred_backup_window: Optional[pulumi.Input[_builtins.str]] = None,
                  preferred_maintenance_window: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1417,7 +1537,10 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["kms_key_id"] = kms_key_id
             __props__.__dict__["manage_master_user_password"] = manage_master_user_password
             __props__.__dict__["master_password"] = None if master_password is None else pulumi.Output.secret(master_password)
+            __props__.__dict__["master_password_wo"] = None if master_password_wo is None else pulumi.Output.secret(master_password_wo)
+            __props__.__dict__["master_password_wo_version"] = master_password_wo_version
             __props__.__dict__["master_username"] = master_username
+            __props__.__dict__["network_type"] = network_type
             __props__.__dict__["port"] = port
             __props__.__dict__["preferred_backup_window"] = preferred_backup_window
             __props__.__dict__["preferred_maintenance_window"] = preferred_maintenance_window
@@ -1437,7 +1560,7 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["master_user_secrets"] = None
             __props__.__dict__["reader_endpoint"] = None
             __props__.__dict__["tags_all"] = None
-        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["masterPassword"])
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["masterPassword", "masterPasswordWo"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(Cluster, __self__).__init__(
             'aws:docdb/cluster:Cluster',
@@ -1471,8 +1594,11 @@ class Cluster(pulumi.CustomResource):
             kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
             manage_master_user_password: Optional[pulumi.Input[_builtins.bool]] = None,
             master_password: Optional[pulumi.Input[_builtins.str]] = None,
+            master_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+            master_password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
             master_user_secrets: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterMasterUserSecretArgs', 'ClusterMasterUserSecretArgsDict']]]]] = None,
             master_username: Optional[pulumi.Input[_builtins.str]] = None,
+            network_type: Optional[pulumi.Input[_builtins.str]] = None,
             port: Optional[pulumi.Input[_builtins.int]] = None,
             preferred_backup_window: Optional[pulumi.Input[_builtins.str]] = None,
             preferred_maintenance_window: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1499,8 +1625,9 @@ class Cluster(pulumi.CustomResource):
                are applied immediately, or during the next maintenance window. Default is
                `false`.
         :param pulumi.Input[_builtins.str] arn: Amazon Resource Name (ARN) of cluster
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that
-               instances in the DB cluster can be created in.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] availability_zones: A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+               DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+               We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         :param pulumi.Input[_builtins.int] backup_retention_period: The days to retain backups for. Default `1`
         :param pulumi.Input[_builtins.str] cluster_identifier: The cluster identifier. If omitted, the provider will assign a random, unique identifier.
         :param pulumi.Input[_builtins.str] cluster_identifier_prefix: Creates a unique cluster identifier beginning with the specified prefix. Conflicts with `cluster_identifier`.
@@ -1523,7 +1650,12 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] manage_master_user_password: Set to `true` to allow Amazon DocumentDB to manage the master user password in AWS Secrets Manager. Cannot be set if `master_password` or `master_password_wo` is provided.
         :param pulumi.Input[_builtins.str] master_password: Password for the master DB user. Note that this may
                show up in logs, and it will be stored in the state file. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password_wo` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.str] master_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may
+               show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        :param pulumi.Input[_builtins.int] master_password_wo_version: Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
         :param pulumi.Input[_builtins.str] master_username: Username for the master DB user.
+        :param pulumi.Input[_builtins.str] network_type: The network type of the DB cluster (`IPV4` or `DUAL`).
         :param pulumi.Input[_builtins.int] port: The port on which the DB accepts connections
         :param pulumi.Input[_builtins.str] preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the BackupRetentionPeriod parameter.Time in UTC
                Default: A 30-minute window selected at random from an 8-hour block of time per regionE.g., 04:00-09:00
@@ -1570,8 +1702,11 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["kms_key_id"] = kms_key_id
         __props__.__dict__["manage_master_user_password"] = manage_master_user_password
         __props__.__dict__["master_password"] = master_password
+        __props__.__dict__["master_password_wo"] = master_password_wo
+        __props__.__dict__["master_password_wo_version"] = master_password_wo_version
         __props__.__dict__["master_user_secrets"] = master_user_secrets
         __props__.__dict__["master_username"] = master_username
+        __props__.__dict__["network_type"] = network_type
         __props__.__dict__["port"] = port
         __props__.__dict__["preferred_backup_window"] = preferred_backup_window
         __props__.__dict__["preferred_maintenance_window"] = preferred_maintenance_window
@@ -1618,8 +1753,9 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="availabilityZones")
     def availability_zones(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        A list of EC2 Availability Zones that
-        instances in the DB cluster can be created in.
+        A list of EC2 Availability Zones that instances in the DB cluster can be created in.
+        DocumentDB automatically assigns 3 AZs if less than 3 AZs are configured, which will show as a difference requiring resource recreation next pulumi up.
+        We recommend specifying 3 AZs or using the `lifecycle` configuration block `ignore_changes` argument if necessary.
         """
         return pulumi.get(self, "availability_zones")
 
@@ -1772,6 +1908,24 @@ class Cluster(pulumi.CustomResource):
         return pulumi.get(self, "master_password")
 
     @_builtins.property
+    @pulumi.getter(name="masterPasswordWo")
+    def master_password_wo(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Password for the master DB user. Note that this may
+        show up in logs. Please refer to the DocumentDB Naming Constraints. Conflicts with `master_password` and `manage_master_user_password`.
+        """
+        return pulumi.get(self, "master_password_wo")
+
+    @_builtins.property
+    @pulumi.getter(name="masterPasswordWoVersion")
+    def master_password_wo_version(self) -> pulumi.Output[Optional[_builtins.int]]:
+        """
+        Used together with `master_password_wo` to trigger an update. Increment this value when an update to the `master_password_wo` is required.
+        """
+        return pulumi.get(self, "master_password_wo_version")
+
+    @_builtins.property
     @pulumi.getter(name="masterUserSecrets")
     def master_user_secrets(self) -> pulumi.Output[Sequence['outputs.ClusterMasterUserSecret']]:
         return pulumi.get(self, "master_user_secrets")
@@ -1783,6 +1937,14 @@ class Cluster(pulumi.CustomResource):
         Username for the master DB user.
         """
         return pulumi.get(self, "master_username")
+
+    @_builtins.property
+    @pulumi.getter(name="networkType")
+    def network_type(self) -> pulumi.Output[_builtins.str]:
+        """
+        The network type of the DB cluster (`IPV4` or `DUAL`).
+        """
+        return pulumi.get(self, "network_type")
 
     @_builtins.property
     @pulumi.getter

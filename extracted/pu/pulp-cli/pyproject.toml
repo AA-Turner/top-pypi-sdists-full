@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-cli"
-version = "0.36.0"
+version = "0.37.0"
 description = "Command line interface to talk to pulpcore's REST API."
 readme = "README.md"
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.15"
 license = {text = "GPLv2+"}
 authors = [
   {name = "Pulp Team", email = "pulp-list@redhat.com"},
@@ -23,19 +23,18 @@ classifiers=[
   "Typing :: Typed",
 ]
 dependencies = [
-  "pulp-glue==0.36.0",
-  "click>=8.0.0,<8.3",  # Proven to not do semver.
+  "pulp-glue==0.37.0",
+  "click>=8.0.0,<8.4",  # Proven to not do semver.
   "PyYAML>=5.3,<6.1",
   "schema>=0.7.5,<0.8",
   "tomli>=2.0.0,<2.1;python_version<'3.11'",
   "tomli-w>=1.0.0,<2",
-  "importlib_metadata>=4.8.0,<7.1;python_version<'3.10'",
 ]
 
 [project.optional-dependencies]
 pygments = ["pygments>=2.17.2,<2.20"]
 shell = ["click-shell>=2.1,<3.0"]
-password-manager = ["SecretStorage>=3.3.3,<3.4"]
+password-manager = ["SecretStorage>=3.3.3,<3.6"]
 
 [project.urls]
 documentation = "https://pulpproject.org/pulp-cli/"
@@ -79,7 +78,7 @@ unittests = true
 
 [tool.bumpversion]
 # This section is managed by the cookiecutter templates.
-current_version = "0.36.0"
+current_version = "0.37.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

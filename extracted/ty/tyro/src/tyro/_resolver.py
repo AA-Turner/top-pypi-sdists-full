@@ -6,6 +6,7 @@ import collections.abc
 import copy
 import dataclasses
 import inspect
+import sys
 import types
 import warnings
 from typing import (
@@ -24,13 +25,10 @@ from typing import (
     overload,
 )
 
-import typeguard
 from typing_extensions import (
     Annotated,
-    Final,
     ForwardRef,
     NoDefault,
-    ReadOnly,
     Self,
     TypeAliasType,
     get_args,
@@ -40,13 +38,15 @@ from typing_extensions import (
 )
 
 from . import _unsafe_cache, conf
-from ._singleton import MISSING_AND_MISSING_NONPROP
+from ._singleton import is_missing, is_sentinel
 from ._typing import TypeForm
 from ._typing_compat import (
     is_typing_annotated,
     is_typing_classvar,
+    is_typing_final,
     is_typing_generic,
     is_typing_protocol,
+    is_typing_readonly,
     is_typing_typealiastype,
     is_typing_union,
 )
@@ -131,6 +131,10 @@ TypeOrCallableOrNone = TypeVar("TypeOrCallableOrNone", Callable, TypeForm[Any], 
 def resolve_newtype_and_aliases(
     typ: TypeOrCallableOrNone,
 ) -> TypeOrCallableOrNone:
+    # Fast path for plain types.
+    if type(typ) is type:
+        return typ
+
     # Handle type aliases, eg via the `type` statement in Python 3.12.
     if is_typing_typealiastype(type(typ)):
         typ_cast = cast(TypeAliasType, typ)
@@ -173,7 +177,7 @@ def narrow_subtypes(
 
     typ = resolve_newtype_and_aliases(typ)
 
-    if default_instance in MISSING_AND_MISSING_NONPROP:
+    if is_missing(default_instance):
         return typ
 
     try:
@@ -229,7 +233,7 @@ def narrow_collection_types(
     """TypeForm narrowing for containers. Infers types of container contents."""
 
     # Can't narrow if we don't have a default value!
-    if default_instance in MISSING_AND_MISSING_NONPROP:
+    if is_missing(default_instance):
         return typ
 
     # We'll recursively narrow contained types too!
@@ -280,8 +284,6 @@ def narrow_collection_types(
     return cast(TypeOrCallable, typ)
 
 
-STRIP_WRAPPER_TYPES = {Final, ReadOnly}
-
 MetadataType = TypeVar("MetadataType")
 
 
@@ -318,12 +320,25 @@ def unwrap_annotated(
     - Annotated[int, "1"], int => (int, ())
     """
 
+    # Fast path for plain types.
+    # Note: isinstance(typ, type) filters out Annotated types automatically,
+    # since Annotated[X] returns a typing._AnnotatedAlias, not a type.
+    if isinstance(typ, type):
+        # When search_type is None, we don't care about __tyro_markers__, so
+        # we can return immediately for all plain types.
+        if search_type is None:
+            return typ
+        elif not hasattr(typ, "__tyro_markers__"):
+            return typ, ()
+
     # Unwrap aliases defined using Python 3.12's `type` syntax.
     typ = resolve_newtype_and_aliases(typ)
 
     # `Final` and `ReadOnly` types are ignored in tyro.
-    while get_origin(typ) in STRIP_WRAPPER_TYPES:
+    orig = get_origin(typ)
+    while is_typing_final(orig) or is_typing_readonly(orig):
         typ = get_args(typ)[0]
+        orig = get_origin(typ)
 
     # Don't search for any annotations.
     if search_type is None:
@@ -432,7 +447,10 @@ class TypeParamResolver:
                 return type_from_typevar[typ]  # type: ignore
 
         # Found a TypeVar that isn't bound.
-        if isinstance(cast(Any, typ), TypeVar):
+        # Note: In Python 3.8, Unpack[TypedDict] incorrectly passes isinstance(typ, TypeVar).
+        # We exclude types with an origin (like Unpack[...]) since they should be handled
+        # by the get_args() code path below.
+        if isinstance(cast(Any, typ), TypeVar) and get_origin(typ) is None:
             # Check for TypeVar default (PEP 696, available via typing_extensions).
             default = getattr(typ, "__default__", NoDefault)
             # If __default__ exists and is not the NoDefault sentinel, use it.
@@ -464,35 +482,52 @@ class TypeParamResolver:
             )
             return Any  # type: ignore
 
-        origin = get_origin(typ)
         args = get_args(typ)
-        callable_was_flattened = False
         if len(args) > 0:
+            origin = get_origin(typ)
+            callable_was_flattened = False
+
+            # Filter args based on type.
+            #
+            # For Annotated types, we only process the first arg (the actual type),
+            # not the metadata. The metadata will be preserved automatically by
+            # copy_with() later.
+            args_to_process = args
             if is_typing_annotated(origin):
-                args = args[:1]
-            if origin is collections.abc.Callable and isinstance(args[0], list):
-                args = tuple(args[0]) + args[1:]
+                args_to_process = args[:1]
+            if origin is collections.abc.Callable and isinstance(
+                args_to_process[0], list
+            ):
+                args_to_process = tuple(args_to_process[0]) + args_to_process[1:]
                 callable_was_flattened = True
 
-            new_args_list = []
-            for x in args:
-                for type_from_typevar in reversed(TypeParamResolver.param_assignments):
-                    if x in type_from_typevar:
-                        x = type_from_typevar[x]
-                        break
-                new_args_list.append(x)
+            # Substitute type parameters if we're in a generic context.
+            if len(TypeParamResolver.param_assignments) == 0:
+                new_args_list = args_to_process
+            else:
+                new_args_list = []
+                for x in args_to_process:
+                    for type_from_typevar in reversed(
+                        TypeParamResolver.param_assignments
+                    ):
+                        if x in type_from_typevar:
+                            x = type_from_typevar[x]
+                            break
+                    new_args_list.append(x)
 
+            # Recursively resolve type parameters and aliases in the arguments.
+            # We copy `seen` for each arg to prevent sibling args from interfering
+            # with each other's cycle detection.
             new_args = tuple(
                 TypeParamResolver.resolve_params_and_aliases(
-                    # We copy `seen` here to make sure inner types don't impact
-                    # each other. This is necessary because `seen` is mutated
-                    # in recursive calls; this is not ideal from a robustness
-                    # perspective, but convenient for performance reasons.
-                    x,
-                    seen=seen.copy() if len(new_args_list) > 1 else seen,
+                    x, seen=seen.copy() if len(new_args_list) > 1 else seen
                 )
                 for x in new_args_list
             )
+
+            # Early return if nothing changed.
+            if new_args == args_to_process:
+                return typ
 
             # Standard generic aliases have a `copy_with()`!
             if origin is UnionType:
@@ -530,10 +565,12 @@ class TypeParamAssignmentContext:
         self.type_from_typevar = type_from_typevar
 
     def __enter__(self):
-        TypeParamResolver.param_assignments.append(self.type_from_typevar)
+        if len(self.type_from_typevar) > 0:
+            TypeParamResolver.param_assignments.append(self.type_from_typevar)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        TypeParamResolver.param_assignments.pop()
+        if len(self.type_from_typevar) > 0:
+            TypeParamResolver.param_assignments.pop()
 
 
 @_unsafe_cache.unsafe_cache(maxsize=1024)
@@ -553,7 +590,10 @@ def expand_union_types(typ: TypeOrCallable, default_instance: Any) -> TypeOrCall
     options_unwrapped = [unwrap_origin_strip_extras(o) for o in options]
 
     try:
-        if default_instance not in MISSING_AND_MISSING_NONPROP and not any(
+        # Skip expansion for sentinel values like EXCLUDE_FROM_CALL (from TypedDict
+        # total=False), MISSING, and MISSING_NONPROP. These are not actual default
+        # values and should not be added to the union type.
+        if not is_sentinel(default_instance) and not any(
             isinstance_with_fuzzy_numeric_tower(default_instance, o) is not False
             for o in options_unwrapped
         ):
@@ -810,7 +850,19 @@ def get_type_hints_resolve_type_params(
         raw_hints = _get_type_hints_backported_syntax(
             origin_type, include_extras=include_extras
         )
-        keys = set(origin_type.__dict__.get("__annotations__", {}).keys())
+
+        # Explicit version check avoids an edge case for inherited generics.
+        # Specifically: tests/test_nested.py::test_generic_inherited
+
+        # if "__annotations__" in origin_type.__dict__:
+        if sys.version_info < (3, 14):
+            # Python 3.8~3.13.
+            keys = set(origin_type.__dict__.get("__annotations__", {}).keys())
+        elif hasattr(origin_type, "__annotations__"):
+            # Python 3.14.
+            keys = set(getattr(origin_type, "__annotations__").keys())
+        else:
+            keys = set()
 
         # Pydantic generics need special handling.
         pydantic_generic_metadata = getattr(
@@ -854,6 +906,8 @@ def _get_type_hints_backported_syntax(
                 globalns = getattr(obj, "__globals__", None)
 
                 # Get global namespace for classes.
+                if globalns is None and hasattr(obj, "__module__"):
+                    globalns = sys.modules[getattr(obj, "__module__")].__dict__
                 if globalns is None and hasattr(globalns, "__init__"):
                     globalns = getattr(getattr(obj, "__init__"), "__globals__", None)
 
@@ -869,6 +923,34 @@ def _get_type_hints_backported_syntax(
 
 def is_instance(typ: Any, value: Any) -> bool:
     """Typeguard-based alternative for `isinstance()`."""
+
+    # Fast path: for plain types, use built-in isinstance.
+    if type(typ) is type:
+        return isinstance(value, typ)
+
+    # Fast path: Handle Union types without importing typeguard.
+    # This is common for subcommands: Union[Annotated[Config, ...], Annotated[Config, ...], ...]
+    origin = get_origin(typ)
+    if origin is Union:
+        args = get_args(typ)
+        # Recursively check each union member.
+        return any(is_instance(arg, value) for arg in args)
+
+    # Fast path: Handle Annotated types by unwrapping to the base type.
+    if origin is Annotated:
+        args = get_args(typ)
+        if args:
+            return is_instance(args[0], value)
+
+    # Fast path: Handle Literal types.
+    if origin is Literal:
+        args = get_args(typ)
+        return value in args
+
+    # Slow path: For complex types, fall back to typeguard.
+    # Import is lazy to avoid overhead when not needed.
+    import typeguard
+
     try:
         typeguard.check_type(value, typ)
         return True

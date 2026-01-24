@@ -1,11 +1,21 @@
 import enum
+import importlib.util
 import json
 import logging
 import re
+import shutil
 import sys
+from functools import lru_cache
 from pathlib import PurePath
 from subprocess import PIPE, Popen
 from typing import Dict, Generator, List, Optional
+
+if sys.platform == "win32":
+    from subprocess import CREATE_NO_WINDOW
+else:
+    # CREATE_NO_WINDOW flag only available on Windows.
+    # Set constant as default `Popen` `creationflag` kwarg value (`0`)
+    CREATE_NO_WINDOW = 0
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -128,34 +138,37 @@ def pylsp_format_document(workspace: Workspace, document: Document) -> Generator
     if not settings.format_enabled:
         return
 
-    new_text = run_ruff_format(
-        settings=settings, document_path=document.path, document_source=source
-    )
-
-    if settings.format:
-        # A second pass through the document with `ruff check` and only the rules
-        # enabled via the format config property. This allows for things like
-        # specifying `format = ["I"]` to get import sorting as part of formatting.
-        new_text = run_ruff(
-            settings=PluginSettings(
-                ignore=["ALL"], select=settings.format, executable=settings.executable
-            ),
-            document_path=document.path,
-            document_source=new_text,
-            fix=True,
+    with workspace.report_progress("format: ruff"):
+        new_text = run_ruff_format(
+            settings=settings, document_path=document.path, document_source=source
         )
 
-    # Avoid applying empty text edit
-    if not new_text or new_text == source:
-        return
+        if settings.format:
+            # A second pass through the document with `ruff check` and only the rules
+            # enabled via the format config property. This allows for things like
+            # specifying `format = ["I"]` to get import sorting as part of formatting.
+            new_text = run_ruff(
+                settings=PluginSettings(
+                    ignore=["ALL"],
+                    select=settings.format,
+                    executable=settings.executable,
+                ),
+                document_path=document.path,
+                document_source=new_text,
+                fix=True,
+            )
 
-    range = Range(
-        start=Position(line=0, character=0),
-        end=Position(line=len(document.lines), character=0),
-    )
-    text_edit = TextEdit(range=range, new_text=new_text)
+        # Avoid applying empty text edit
+        if not new_text or new_text == source:
+            return
 
-    outcome.force_result(converter.unstructure([text_edit]))
+        range = Range(
+            start=Position(line=0, character=0),
+            end=Position(line=len(document.lines), character=0),
+        )
+        text_edit = TextEdit(range=range, new_text=new_text)
+
+        outcome.force_result(converter.unstructure([text_edit]))
 
 
 @hookimpl
@@ -174,10 +187,11 @@ def pylsp_lint(workspace: Workspace, document: Document) -> List[Dict]:
     List of dicts containing the diagnostics.
 
     """
-    settings = load_settings(workspace, document.path)
-    checks = run_ruff_check(document=document, settings=settings)
-    diagnostics = [create_diagnostic(check=c, settings=settings) for c in checks]
-    return converter.unstructure(diagnostics)
+    with workspace.report_progress("lint: ruff"):
+        settings = load_settings(workspace, document.path)
+        checks = run_ruff_check(document=document, settings=settings)
+        diagnostics = [create_diagnostic(check=c, settings=settings) for c in checks]
+        return converter.unstructure(diagnostics)
 
 
 def create_diagnostic(check: RuffCheck, settings: PluginSettings) -> Diagnostic:
@@ -481,6 +495,37 @@ def run_ruff_format(
     )
 
 
+@lru_cache
+def find_executable(executable) -> List[str]:
+    cmd = None
+    # use the explicit executable configuration
+    if executable is not None:
+        exe_path = shutil.which(executable)
+        if exe_path is not None:
+            cmd = [exe_path]
+        else:
+            log.error(f"Configured ruff executable not found: {executable!r}")
+
+    # try the python module
+    if cmd is None:
+        if importlib.util.find_spec("ruff") is not None:
+            cmd = [sys.executable.replace("pythonw", "python"), "-m", "ruff"]
+
+    # try system's ruff executable
+    if cmd is None:
+        system_exe = shutil.which("ruff")
+        if system_exe is not None:
+            cmd = [system_exe]
+
+    if cmd is None:
+        log.error(
+            "No suitable ruff invocation could be found (executable, python module)."
+        )
+        cmd = []
+
+    return cmd
+
+
 def run_ruff(
     settings: PluginSettings,
     document_path: str,
@@ -516,27 +561,14 @@ def run_ruff(
 
     arguments = subcommand.build_args(document_path, settings, fix, extra_arguments)
 
-    p = None
-    if executable is not None:
-        log.debug(f"Calling {executable} with args: {arguments} on '{document_path}'")
-        try:
-            cmd = [executable, str(subcommand)]
-            cmd.extend(arguments)
-            p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        except Exception:
-            log.error(f"Can't execute ruff with given executable '{executable}'.")
-    if p is None:
-        log.debug(
-            f"Calling ruff via '{sys.executable} -m ruff'"
-            f" with args: {arguments} on '{document_path}'"
-        )
-        cmd = [sys.executable, "-m", "ruff", str(subcommand)]
-        cmd.extend(arguments)
-        p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    (stdout, stderr) = p.communicate(document_source.encode())
+    cmd = [*find_executable(executable), str(subcommand), *arguments]
+
+    log.debug(f"Calling {cmd} on '{document_path}'")
+    p = Popen(cmd, stdin=PIPE, stdout=PIPE, creationflags=CREATE_NO_WINDOW)
+    (stdout, _) = p.communicate(document_source.encode())
 
     if p.returncode != 0:
-        log.error(f"Error running ruff: {stderr.decode()}")
+        log.error(f"Ruff returned {p.returncode} != 0")
 
     return stdout.decode()
 
@@ -595,6 +627,9 @@ def build_check_arguments(
 
     if settings.unsafe_fixes:
         args.append("--unsafe-fixes")
+
+    if settings.unfixable:
+        args.append(f"--unfixable={','.join(settings.unfixable)}")
 
     if settings.exclude:
         args.append(f"--exclude={','.join(settings.exclude)}")
@@ -698,8 +733,8 @@ def load_settings(workspace: Workspace, document_path: str) -> PluginSettings:
 
     """
     config = workspace._config
-    _plugin_settings = config.plugin_settings("ruff", document_path=document_path)
-    plugin_settings = converter.structure(_plugin_settings, PluginSettings)
+    plugin_settings = config.plugin_settings("ruff", document_path=document_path)
+    plugin_settings = converter.structure(plugin_settings, PluginSettings)
 
     pyproject_file = find_parents(
         workspace.root_path, document_path, ["pyproject.toml"]
@@ -732,6 +767,7 @@ def load_settings(workspace: Workspace, document_path: str) -> PluginSettings:
             extend_select=plugin_settings.extend_select,
             format=plugin_settings.format,
             severities=plugin_settings.severities,
+            unfixable=plugin_settings.unfixable,
         )
 
     return plugin_settings

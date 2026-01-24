@@ -1,0 +1,50 @@
+extends: .github
+
+queue_rules:
+  - name: default
+    autoqueue: true
+    queue_conditions:
+      - base = main
+    commit_message_template: |
+      {{ title }} (#{{ number }})
+
+      {{ body }}
+    merge_method: squash
+
+pull_request_rules:
+  - name: request review
+    conditions:
+      - author != dependabot[bot]
+      - -closed
+      - and: &CheckRuns
+          - check-success = test (3.8)
+          - check-success = test (3.9)
+          - check-success = test (3.10)
+          - check-success = test (3.11)
+          - check-success = test (3.12)
+          - check-success = test (3.13)
+      - "#approved-reviews-by=0"
+      - "#changes-requested-reviews-by=0"
+      - review-requested != @devs
+    actions:
+      request_reviews:
+        teams:
+          - devs
+
+merge_protections:
+  - name: Approval
+    if:
+      - author != dependabot[bot]
+    success_conditions:
+      - "#approved-reviews-by >= 2"
+
+  - name: Continuous Integration
+    if: []
+    success_conditions:
+      - and: *CheckRuns
+
+merge_queue:
+  max_parallel_checks: 3
+
+merge_protections_settings:
+  reporting_method: deployments

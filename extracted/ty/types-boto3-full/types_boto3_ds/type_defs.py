@@ -3,7 +3,7 @@ Type annotations for ds service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -36,6 +37,7 @@ from .literals import (
     HybridUpdateTypeType,
     IpRouteStatusMsgType,
     LDAPSStatusType,
+    NetworkTypeType,
     OSVersionType,
     RadiusAuthenticationProtocolType,
     RadiusStatusType,
@@ -51,14 +53,9 @@ from .literals import (
     TrustStateType,
     TrustTypeType,
     UpdateStatusType,
+    UpdateTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -162,6 +159,7 @@ __all__ = (
     "DirectoryConnectSettingsTypeDef",
     "DirectoryDescriptionTypeDef",
     "DirectoryLimitsTypeDef",
+    "DirectorySizeUpdateSettingsTypeDef",
     "DirectoryVpcSettingsDescriptionTypeDef",
     "DirectoryVpcSettingsOutputTypeDef",
     "DirectoryVpcSettingsTypeDef",
@@ -211,6 +209,7 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResultTypeDef",
     "LogSubscriptionTypeDef",
+    "NetworkUpdateSettingsTypeDef",
     "OSUpdateSettingsTypeDef",
     "OwnerDirectoryDescriptionTypeDef",
     "PaginatorConfigTypeDef",
@@ -273,7 +272,7 @@ class AcceptSharedDirectoryRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -292,6 +291,7 @@ class SharedDirectoryTypeDef(TypedDict):
 
 class IpRouteTypeDef(TypedDict):
     CidrIp: NotRequired[str]
+    CidrIpv6: NotRequired[str]
     Description: NotRequired[str]
 
 
@@ -317,7 +317,7 @@ class AssessmentSummaryTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     LastUpdateDateTime: NotRequired[datetime]
     Status: NotRequired[str]
-    CustomerDnsIps: NotRequired[List[str]]
+    CustomerDnsIps: NotRequired[list[str]]
     ReportType: NotRequired[str]
 
 
@@ -330,11 +330,11 @@ class AssessmentTypeDef(TypedDict):
     Status: NotRequired[str]
     StatusCode: NotRequired[str]
     StatusReason: NotRequired[str]
-    CustomerDnsIps: NotRequired[List[str]]
+    CustomerDnsIps: NotRequired[list[str]]
     VpcId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
-    SelfManagedInstanceIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    SelfManagedInstanceIds: NotRequired[list[str]]
     ReportType: NotRequired[str]
     Version: NotRequired[str]
 
@@ -377,15 +377,17 @@ ClientAuthenticationSettingInfoTypeDef = TypedDict(
 
 class ConditionalForwarderTypeDef(TypedDict):
     RemoteDomainName: NotRequired[str]
-    DnsIpAddrs: NotRequired[List[str]]
+    DnsIpAddrs: NotRequired[list[str]]
+    DnsIpv6Addrs: NotRequired[list[str]]
     ReplicationScope: NotRequired[Literal["Domain"]]
 
 
 class DirectoryConnectSettingsTypeDef(TypedDict):
     VpcId: str
     SubnetIds: Sequence[str]
-    CustomerDnsIps: Sequence[str]
     CustomerUserName: str
+    CustomerDnsIps: NotRequired[Sequence[str]]
+    CustomerDnsIpsV6: NotRequired[Sequence[str]]
 
 
 class CreateAliasRequestTypeDef(TypedDict):
@@ -396,7 +398,8 @@ class CreateAliasRequestTypeDef(TypedDict):
 class CreateConditionalForwarderRequestTypeDef(TypedDict):
     DirectoryId: str
     RemoteDomainName: str
-    DnsIpAddrs: Sequence[str]
+    DnsIpAddrs: NotRequired[Sequence[str]]
+    DnsIpv6Addrs: NotRequired[Sequence[str]]
 
 
 class CreateLogSubscriptionRequestTypeDef(TypedDict):
@@ -416,6 +419,7 @@ class CreateTrustRequestTypeDef(TypedDict):
     TrustDirection: TrustDirectionType
     TrustType: NotRequired[TrustTypeType]
     ConditionalForwarderIpAddrs: NotRequired[Sequence[str]]
+    ConditionalForwarderIpv6Addrs: NotRequired[Sequence[str]]
     SelectiveAuth: NotRequired[SelectiveAuthType]
 
 
@@ -511,6 +515,7 @@ class DomainControllerTypeDef(TypedDict):
     DirectoryId: NotRequired[str]
     DomainControllerId: NotRequired[str]
     DnsIpAddr: NotRequired[str]
+    DnsIpv6Addr: NotRequired[str]
     VpcId: NotRequired[str]
     SubnetId: NotRequired[str]
     AvailabilityZone: NotRequired[str]
@@ -586,7 +591,7 @@ SettingEntryTypeDef = TypedDict(
         "AppliedValue": NotRequired[str],
         "RequestedValue": NotRequired[str],
         "RequestStatus": NotRequired[DirectoryConfigurationStatusType],
-        "RequestDetailedStatus": NotRequired[Dict[str, DirectoryConfigurationStatusType]],
+        "RequestDetailedStatus": NotRequired[dict[str, DirectoryConfigurationStatusType]],
         "RequestStatusMessage": NotRequired[str],
         "LastUpdatedDateTime": NotRequired[datetime],
         "LastRequestedDateTime": NotRequired[datetime],
@@ -647,7 +652,7 @@ DescribeUpdateDirectoryRequestTypeDef = TypedDict(
     "DescribeUpdateDirectoryRequestTypeDef",
     {
         "DirectoryId": str,
-        "UpdateType": Literal["OS"],
+        "UpdateType": UpdateTypeType,
         "RegionName": NotRequired[str],
         "NextToken": NotRequired[str],
     },
@@ -656,27 +661,29 @@ DescribeUpdateDirectoryRequestTypeDef = TypedDict(
 
 class DirectoryConnectSettingsDescriptionTypeDef(TypedDict):
     VpcId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
     CustomerUserName: NotRequired[str]
     SecurityGroupId: NotRequired[str]
-    AvailabilityZones: NotRequired[List[str]]
-    ConnectIps: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    ConnectIps: NotRequired[list[str]]
+    ConnectIpsV6: NotRequired[list[str]]
 
 
 class DirectoryVpcSettingsDescriptionTypeDef(TypedDict):
     VpcId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
     SecurityGroupId: NotRequired[str]
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
 
 
 class HybridSettingsDescriptionTypeDef(TypedDict):
-    SelfManagedDnsIpAddrs: NotRequired[List[str]]
-    SelfManagedInstanceIds: NotRequired[List[str]]
+    SelfManagedDnsIpAddrs: NotRequired[list[str]]
+    SelfManagedInstanceIds: NotRequired[list[str]]
 
 
 class RadiusSettingsOutputTypeDef(TypedDict):
-    RadiusServers: NotRequired[List[str]]
+    RadiusServers: NotRequired[list[str]]
+    RadiusServersIpv6: NotRequired[list[str]]
     RadiusPort: NotRequired[int]
     RadiusTimeout: NotRequired[int]
     RadiusRetries: NotRequired[int]
@@ -688,7 +695,7 @@ class RadiusSettingsOutputTypeDef(TypedDict):
 
 class RegionsInfoTypeDef(TypedDict):
     PrimaryRegion: NotRequired[str]
-    AdditionalRegions: NotRequired[List[str]]
+    AdditionalRegions: NotRequired[list[str]]
 
 
 class DirectoryLimitsTypeDef(TypedDict):
@@ -703,9 +710,13 @@ class DirectoryLimitsTypeDef(TypedDict):
     ConnectedDirectoriesLimitReached: NotRequired[bool]
 
 
+class DirectorySizeUpdateSettingsTypeDef(TypedDict):
+    DirectorySize: NotRequired[DirectorySizeType]
+
+
 class DirectoryVpcSettingsOutputTypeDef(TypedDict):
     VpcId: str
-    SubnetIds: List[str]
+    SubnetIds: list[str]
 
 
 class DirectoryVpcSettingsTypeDef(TypedDict):
@@ -802,13 +813,14 @@ class HybridCustomerInstancesSettingsTypeDef(TypedDict):
 
 
 class HybridUpdateValueTypeDef(TypedDict):
-    InstanceIds: NotRequired[List[str]]
-    DnsIps: NotRequired[List[str]]
+    InstanceIds: NotRequired[list[str]]
+    DnsIps: NotRequired[list[str]]
 
 
 class IpRouteInfoTypeDef(TypedDict):
     DirectoryId: NotRequired[str]
     CidrIp: NotRequired[str]
+    CidrIpv6: NotRequired[str]
     IpRouteStatusMsg: NotRequired[IpRouteStatusMsgType]
     AddedDateTime: NotRequired[datetime]
     IpRouteStatusReason: NotRequired[str]
@@ -867,12 +879,18 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     Limit: NotRequired[int]
 
 
+class NetworkUpdateSettingsTypeDef(TypedDict):
+    NetworkType: NotRequired[NetworkTypeType]
+    CustomerDnsIpsV6: NotRequired[Sequence[str]]
+
+
 class OSUpdateSettingsTypeDef(TypedDict):
     OSVersion: NotRequired[OSVersionType]
 
 
 class RadiusSettingsTypeDef(TypedDict):
     RadiusServers: NotRequired[Sequence[str]]
+    RadiusServersIpv6: NotRequired[Sequence[str]]
     RadiusPort: NotRequired[int]
     RadiusTimeout: NotRequired[int]
     RadiusRetries: NotRequired[int]
@@ -893,7 +911,8 @@ class RejectSharedDirectoryRequestTypeDef(TypedDict):
 
 class RemoveIpRoutesRequestTypeDef(TypedDict):
     DirectoryId: str
-    CidrIps: Sequence[str]
+    CidrIps: NotRequired[Sequence[str]]
+    CidrIpv6s: NotRequired[Sequence[str]]
 
 
 class RemoveRegionRequestTypeDef(TypedDict):
@@ -948,7 +967,8 @@ UnshareTargetTypeDef = TypedDict(
 class UpdateConditionalForwarderRequestTypeDef(TypedDict):
     DirectoryId: str
     RemoteDomainName: str
-    DnsIpAddrs: Sequence[str]
+    DnsIpAddrs: NotRequired[Sequence[str]]
+    DnsIpv6Addrs: NotRequired[Sequence[str]]
 
 
 class UpdateNumberOfDomainControllersRequestTypeDef(TypedDict):
@@ -1093,7 +1113,7 @@ class AcceptSharedDirectoryResultTypeDef(TypedDict):
 
 
 class DescribeSharedDirectoriesResultTypeDef(TypedDict):
-    SharedDirectories: List[SharedDirectoryTypeDef]
+    SharedDirectories: list[SharedDirectoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1116,18 +1136,18 @@ class CreateHybridADRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class AssessmentReportTypeDef(TypedDict):
     DomainControllerIp: NotRequired[str]
-    Validations: NotRequired[List[AssessmentValidationTypeDef]]
+    Validations: NotRequired[list[AssessmentValidationTypeDef]]
 
 
 class ListADAssessmentsResultTypeDef(TypedDict):
-    Assessments: List[AssessmentSummaryTypeDef]
+    Assessments: list[AssessmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1135,7 +1155,7 @@ class ListADAssessmentsResultTypeDef(TypedDict):
 class ComputerTypeDef(TypedDict):
     ComputerId: NotRequired[str]
     ComputerName: NotRequired[str]
-    ComputerAttributes: NotRequired[List[AttributeTypeDef]]
+    ComputerAttributes: NotRequired[list[AttributeTypeDef]]
 
 
 class CreateComputerRequestTypeDef(TypedDict):
@@ -1147,7 +1167,7 @@ class CreateComputerRequestTypeDef(TypedDict):
 
 
 class ListCertificatesResultTypeDef(TypedDict):
-    CertificatesInfo: List[CertificateInfoTypeDef]
+    CertificatesInfo: list[CertificateInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1177,13 +1197,13 @@ RegisterCertificateRequestTypeDef = TypedDict(
 
 
 class DescribeClientAuthenticationSettingsResultTypeDef(TypedDict):
-    ClientAuthenticationSettingsInfo: List[ClientAuthenticationSettingInfoTypeDef]
+    ClientAuthenticationSettingsInfo: list[ClientAuthenticationSettingInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeConditionalForwardersResultTypeDef(TypedDict):
-    ConditionalForwarders: List[ConditionalForwarderTypeDef]
+    ConditionalForwarders: list[ConditionalForwarderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1195,6 +1215,7 @@ class ConnectDirectoryRequestTypeDef(TypedDict):
     ShortName: NotRequired[str]
     Description: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 DescribeClientAuthenticationSettingsRequestPaginateTypeDef = TypedDict(
@@ -1258,7 +1279,7 @@ DescribeUpdateDirectoryRequestPaginateTypeDef = TypedDict(
     "DescribeUpdateDirectoryRequestPaginateTypeDef",
     {
         "DirectoryId": str,
-        "UpdateType": Literal["OS"],
+        "UpdateType": UpdateTypeType,
         "RegionName": NotRequired[str],
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
@@ -1296,13 +1317,13 @@ class ListTagsForResourceRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeDomainControllersResultTypeDef(TypedDict):
-    DomainControllers: List[DomainControllerTypeDef]
+    DomainControllers: list[DomainControllerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeEventTopicsResultTypeDef(TypedDict):
-    EventTopics: List[EventTopicTypeDef]
+    EventTopics: list[EventTopicTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1314,26 +1335,26 @@ class DescribeHybridADUpdateRequestWaitTypeDef(TypedDict):
 
 
 class DescribeLDAPSSettingsResultTypeDef(TypedDict):
-    LDAPSSettingsInfo: List[LDAPSSettingInfoTypeDef]
+    LDAPSSettingsInfo: list[LDAPSSettingInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeSettingsResultTypeDef(TypedDict):
     DirectoryId: str
-    SettingEntries: List[SettingEntryTypeDef]
+    SettingEntries: list[SettingEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeSnapshotsResultTypeDef(TypedDict):
-    Snapshots: List[SnapshotTypeDef]
+    Snapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeTrustsResultTypeDef(TypedDict):
-    Trusts: List[TrustTypeDef]
+    Trusts: list[TrustTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1341,10 +1362,12 @@ class DescribeTrustsResultTypeDef(TypedDict):
 class OwnerDirectoryDescriptionTypeDef(TypedDict):
     DirectoryId: NotRequired[str]
     AccountId: NotRequired[str]
-    DnsIpAddrs: NotRequired[List[str]]
+    DnsIpAddrs: NotRequired[list[str]]
+    DnsIpv6Addrs: NotRequired[list[str]]
     VpcSettings: NotRequired[DirectoryVpcSettingsDescriptionTypeDef]
     RadiusSettings: NotRequired[RadiusSettingsOutputTypeDef]
     RadiusStatus: NotRequired[RadiusStatusType]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class GetDirectoryLimitsResultTypeDef(TypedDict):
@@ -1394,27 +1417,29 @@ class HybridUpdateInfoEntryTypeDef(TypedDict):
 
 
 class ListIpRoutesResultTypeDef(TypedDict):
-    IpRoutesInfo: List[IpRouteInfoTypeDef]
+    IpRoutesInfo: list[IpRouteInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListLogSubscriptionsResultTypeDef(TypedDict):
-    LogSubscriptions: List[LogSubscriptionTypeDef]
+    LogSubscriptions: list[LogSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchemaExtensionsResultTypeDef(TypedDict):
-    SchemaExtensionsInfo: List[SchemaExtensionInfoTypeDef]
+    SchemaExtensionsInfo: list[SchemaExtensionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class UpdateDirectorySetupRequestTypeDef(TypedDict):
     DirectoryId: str
-    UpdateType: Literal["OS"]
+    UpdateType: UpdateTypeType
     OSUpdateSettings: NotRequired[OSUpdateSettingsTypeDef]
+    DirectorySizeUpdateSettings: NotRequired[DirectorySizeUpdateSettingsTypeDef]
+    NetworkUpdateSettings: NotRequired[NetworkUpdateSettingsTypeDef]
     CreateSnapshotBeforeUpdate: NotRequired[bool]
 
 
@@ -1444,7 +1469,7 @@ class UnshareDirectoryRequestTypeDef(TypedDict):
 
 class DescribeADAssessmentResultTypeDef(TypedDict):
     Assessment: AssessmentTypeDef
-    AssessmentReports: List[AssessmentReportTypeDef]
+    AssessmentReports: list[AssessmentReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1469,7 +1494,8 @@ DirectoryDescriptionTypeDef = TypedDict(
         "Alias": NotRequired[str],
         "AccessUrl": NotRequired[str],
         "Description": NotRequired[str],
-        "DnsIpAddrs": NotRequired[List[str]],
+        "DnsIpAddrs": NotRequired[list[str]],
+        "DnsIpv6Addrs": NotRequired[list[str]],
         "Stage": NotRequired[DirectoryStageType],
         "ShareStatus": NotRequired[ShareStatusType],
         "ShareMethod": NotRequired[ShareMethodType],
@@ -1488,12 +1514,13 @@ DirectoryDescriptionTypeDef = TypedDict(
         "RegionsInfo": NotRequired[RegionsInfoTypeDef],
         "OsVersion": NotRequired[OSVersionType],
         "HybridSettings": NotRequired[HybridSettingsDescriptionTypeDef],
+        "NetworkType": NotRequired[NetworkTypeType],
     },
 )
 
 
 class DescribeRegionsResultTypeDef(TypedDict):
-    RegionsDescription: List[RegionDescriptionTypeDef]
+    RegionsDescription: list[RegionDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1524,6 +1551,7 @@ class CreateDirectoryRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     VpcSettings: NotRequired[DirectoryVpcSettingsUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class CreateMicrosoftADRequestTypeDef(TypedDict):
@@ -1534,11 +1562,12 @@ class CreateMicrosoftADRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Edition: NotRequired[DirectoryEditionType]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class HybridUpdateActivitiesTypeDef(TypedDict):
-    SelfManagedInstances: NotRequired[List[HybridUpdateInfoEntryTypeDef]]
-    HybridAdministratorAccount: NotRequired[List[HybridUpdateInfoEntryTypeDef]]
+    SelfManagedInstances: NotRequired[list[HybridUpdateInfoEntryTypeDef]]
+    HybridAdministratorAccount: NotRequired[list[HybridUpdateInfoEntryTypeDef]]
 
 
 class UpdateInfoEntryTypeDef(TypedDict):
@@ -1563,7 +1592,7 @@ class UpdateRadiusRequestTypeDef(TypedDict):
 
 
 class DescribeDirectoriesResultTypeDef(TypedDict):
-    DirectoryDescriptions: List[DirectoryDescriptionTypeDef]
+    DirectoryDescriptions: list[DirectoryDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1580,6 +1609,6 @@ class DescribeHybridADUpdateResultTypeDef(TypedDict):
 
 
 class DescribeUpdateDirectoryResultTypeDef(TypedDict):
-    UpdateActivities: List[UpdateInfoEntryTypeDef]
+    UpdateActivities: list[UpdateInfoEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

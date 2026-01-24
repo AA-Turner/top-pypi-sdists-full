@@ -54,8 +54,17 @@ class ChalkSpan(_message.Message):
         "events",
         "links",
         "kind",
+        "resource_attributes",
     )
     class AttributesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class ResourceAttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -75,6 +84,7 @@ class ChalkSpan(_message.Message):
     EVENTS_FIELD_NUMBER: _ClassVar[int]
     LINKS_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     span_id: str
     trace_id: str
     parent_span_id: str
@@ -87,6 +97,7 @@ class ChalkSpan(_message.Message):
     events: _containers.RepeatedCompositeFieldContainer[ChalkSpanEvent]
     links: _containers.RepeatedCompositeFieldContainer[ChalkSpanLink]
     kind: ChalkSpanKind
+    resource_attributes: _containers.ScalarMap[str, str]
     def __init__(
         self,
         span_id: _Optional[str] = ...,
@@ -101,6 +112,7 @@ class ChalkSpan(_message.Message):
         events: _Optional[_Iterable[_Union[ChalkSpanEvent, _Mapping]]] = ...,
         links: _Optional[_Iterable[_Union[ChalkSpanLink, _Mapping]]] = ...,
         kind: _Optional[_Union[ChalkSpanKind, str]] = ...,
+        resource_attributes: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class ChalkSpanStatus(_message.Message):
@@ -201,3 +213,112 @@ class GetTraceResponse(_message.Message):
     TRACE_FIELD_NUMBER: _ClassVar[int]
     trace: ChalkTrace
     def __init__(self, trace: _Optional[_Union[ChalkTrace, _Mapping]] = ...) -> None: ...
+
+class ListTraceRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "limit", "service_name", "span_name", "page_token")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
+    SPAN_NAME_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    service_name: str
+    span_name: str
+    page_token: str
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        service_name: _Optional[str] = ...,
+        span_name: _Optional[str] = ...,
+        page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListTraceResponse(_message.Message):
+    __slots__ = ("traces", "next_page_token")
+    TRACES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    traces: _containers.RepeatedCompositeFieldContainer[ChalkTrace]
+    next_page_token: str
+    def __init__(
+        self, traces: _Optional[_Iterable[_Union[ChalkTrace, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...
+
+class GetSpanRequest(_message.Message):
+    __slots__ = ("span_id", "trace_id")
+    SPAN_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    span_id: str
+    trace_id: str
+    def __init__(self, span_id: _Optional[str] = ..., trace_id: _Optional[str] = ...) -> None: ...
+
+class GetSpanResponse(_message.Message):
+    __slots__ = ("span",)
+    SPAN_FIELD_NUMBER: _ClassVar[int]
+    span: ChalkSpan
+    def __init__(self, span: _Optional[_Union[ChalkSpan, _Mapping]] = ...) -> None: ...
+
+class ListSpanRequest(_message.Message):
+    __slots__ = (
+        "trace_id",
+        "start_time",
+        "end_time",
+        "limit",
+        "page_token",
+        "parent_span_id",
+        "operation_name",
+        "service_name",
+        "status_code",
+        "min_duration_us",
+        "max_duration_us",
+    )
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    PARENT_SPAN_ID_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_NAME_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
+    STATUS_CODE_FIELD_NUMBER: _ClassVar[int]
+    MIN_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    MAX_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    page_token: str
+    parent_span_id: str
+    operation_name: str
+    service_name: str
+    status_code: ChalkStatusCode
+    min_duration_us: int
+    max_duration_us: int
+    def __init__(
+        self,
+        trace_id: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+        parent_span_id: _Optional[str] = ...,
+        operation_name: _Optional[str] = ...,
+        service_name: _Optional[str] = ...,
+        status_code: _Optional[_Union[ChalkStatusCode, str]] = ...,
+        min_duration_us: _Optional[int] = ...,
+        max_duration_us: _Optional[int] = ...,
+    ) -> None: ...
+
+class ListSpanResponse(_message.Message):
+    __slots__ = ("spans", "next_page_token")
+    SPANS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    spans: _containers.RepeatedCompositeFieldContainer[ChalkSpan]
+    next_page_token: str
+    def __init__(
+        self, spans: _Optional[_Iterable[_Union[ChalkSpan, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...

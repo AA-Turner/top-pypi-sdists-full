@@ -6,7 +6,8 @@ import os
 import re
 import textwrap
 import time
-from typing import TYPE_CHECKING, Any, Callable, Optional, Unpack
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Unpack
 
 import botocore.auth
 import botocore.config
@@ -357,8 +358,8 @@ def sqs_create_queue(aws_client):
 def sqs_receive_messages_delete(aws_client):
     def factory(
         queue_url: str,
-        expected_messages: Optional[int] = None,
-        wait_time: Optional[int] = 5,
+        expected_messages: int | None = None,
+        wait_time: int | None = 5,
     ):
         response = aws_client.sqs.receive_message(
             QueueUrl=queue_url,
@@ -706,7 +707,7 @@ def route53_hosted_zone(aws_client):
 def transcribe_create_job(s3_bucket, aws_client):
     job_names = []
 
-    def _create_job(audio_file: str, params: Optional[dict[str, Any]] = None) -> str:
+    def _create_job(audio_file: str, params: dict[str, Any] | None = None) -> str:
         s3_key = "test-clip.wav"
 
         if not params:
@@ -1085,18 +1086,18 @@ def deploy_cfn_template(
 
     def _deploy(
         *,
-        is_update: Optional[bool] = False,
-        stack_name: Optional[str] = None,
-        change_set_name: Optional[str] = None,
-        template: Optional[str] = None,
-        template_path: Optional[str | os.PathLike] = None,
-        template_mapping: Optional[dict[str, Any]] = None,
-        parameters: Optional[dict[str, str]] = None,
-        role_arn: Optional[str] = None,
-        max_wait: Optional[int] = None,
-        delay_between_polls: Optional[int] = 2,
-        custom_aws_client: Optional[ServiceLevelClientFactory] = None,
-        raw_parameters: Optional[list[Parameter]] = None,
+        is_update: bool | None = False,
+        stack_name: str | None = None,
+        change_set_name: str | None = None,
+        template: str | None = None,
+        template_path: str | os.PathLike | None = None,
+        template_mapping: dict[str, Any] | None = None,
+        parameters: dict[str, str] | None = None,
+        role_arn: str | None = None,
+        max_wait: int | None = None,
+        delay_between_polls: int | None = 2,
+        custom_aws_client: ServiceLevelClientFactory | None = None,
+        raw_parameters: list[Parameter] | None = None,
     ) -> DeployResult:
         if is_update:
             assert stack_name
@@ -1262,7 +1263,7 @@ def _has_stack_status(cfn_client, statuses: list[str]):
 
 @pytest.fixture
 def is_change_set_finished(aws_client):
-    def _is_change_set_finished(change_set_id: str, stack_name: Optional[str] = None):
+    def _is_change_set_finished(change_set_id: str, stack_name: str | None = None):
         def _inner():
             kwargs = {"ChangeSetName": change_set_id}
             if stack_name:
@@ -1423,6 +1424,34 @@ def create_lambda_function(aws_client, wait_until_lambda_ready, lambda_su_role):
             logs_client.delete_log_group(logGroupName=log_group_name)
         except Exception:
             LOG.debug("Unable to delete log group %s in cleanup", log_group_name)
+
+
+@pytest.fixture
+def lambda_is_function_deleted(aws_client):
+    """Example usage:
+    wait_until(lambda_is_function_deleted(function_name))
+    wait_until(lambda_is_function_deleted(function_name, Qualifier="my-alias"))
+
+    function_name can be a function name, function ARN, or partial function ARN.
+    """
+    return _lambda_is_function_deleted(aws_client.lambda_)
+
+
+def _lambda_is_function_deleted(lambda_client):
+    def _is_function_deleted(
+        function_name: str,
+        **kwargs,
+    ) -> Callable[[], bool]:
+        def _inner() -> bool:
+            try:
+                lambda_client.get_function(FunctionName=function_name, **kwargs)
+                return False
+            except lambda_client.exceptions.ResourceNotFoundException:
+                return True
+
+        return _inner
+
+    return _is_function_deleted
 
 
 @pytest.fixture
@@ -1993,7 +2022,7 @@ def setup_sender_email_address(ses_verify_identity):
     email address and verify them.
     """
 
-    def inner(sender_email_address: Optional[str] = None) -> str:
+    def inner(sender_email_address: str | None = None) -> str:
         if is_aws_cloud():
             if sender_email_address is None:
                 raise ValueError(
@@ -2252,7 +2281,7 @@ def assert_host_customisation(monkeypatch):
     def asserter(
         url: str,
         *,
-        custom_host: Optional[str] = None,
+        custom_host: str | None = None,
     ):
         if custom_host is not None:
             assert custom_host in url, f"Could not find `{custom_host}` in `{url}`"

@@ -1,0 +1,49 @@
+file:
+- statement:
+  - alter_table_statement:
+    - keyword: ALTER
+    - keyword: TABLE
+    - table_reference:
+      - naked_identifier: mydataset
+      - dot: .
+      - naked_identifier: mytable
+    - keyword: RENAME
+    - keyword: COLUMN
+    - naked_identifier: A
+    - keyword: TO
+    - naked_identifier: columnA
+    - comma: ','
+    - keyword: RENAME
+    - keyword: COLUMN
+    - keyword: IF
+    - keyword: EXISTS
+    - naked_identifier: B
+    - keyword: TO
+    - naked_identifier: columnB
+- statement_terminator: ;
+- statement:
+  - alter_table_statement:
+    - keyword: ALTER
+    - keyword: TABLE
+    - table_reference:
+      - naked_identifier: mydataset
+      - dot: .
+      - naked_identifier: mytable
+    - keyword: RENAME
+    - keyword: COLUMN
+    - naked_identifier: columnA
+    - keyword: TO
+    - naked_identifier: temp
+    - comma: ','
+    - keyword: RENAME
+    - keyword: COLUMN
+    - naked_identifier: columnB
+    - keyword: TO
+    - naked_identifier: columnA
+    - comma: ','
+    - keyword: RENAME
+    - keyword: COLUMN
+    - naked_identifier: temp
+    - keyword: TO
+    - naked_identifier: columnB
+- statement_terminator: ;

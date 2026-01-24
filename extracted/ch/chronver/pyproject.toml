@@ -1,0 +1,47 @@
+[build-system]
+build-backend = "_own_version:build_meta"
+requires = ["setuptools>=66", "setuptools_scm"]
+backend-path = ["."]
+
+[project]
+authors = [
+    { name = "RadiaSoft LLC", email = "pip@pykern.org" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+    "build>=1",
+    "setuptools>=61",
+]
+description = 'Setuptools plugin for chronological versions from Git'
+dynamic = ["version"]
+keywords = [
+    "git",
+    "plugin",
+    "scm",
+    "setuptools",
+    "vcs",
+    "version",
+]
+name = "chronver"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.entry-points."setuptools.finalize_distribution_options"]
+chronver = "chronver.setuptools_hooks:set_version"
+
+[project.urls]
+Homepage = "https://github.com/radiasoft/chronver"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = { attr = "_own_version.from_git" }
+
+[tool.setuptools.packages.find]
+namespaces = false

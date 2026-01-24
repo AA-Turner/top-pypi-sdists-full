@@ -11,6 +11,7 @@
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
 #include "slang/ast/Expression.h"
+#include "slang/ast/Symbol.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/statements/LoopStatements.h"
 #include "slang/ast/statements/MiscStatements.h"
@@ -297,6 +298,14 @@ void StatementBlockSymbol::elaborateVariables(function_ref<void(const Symbol&)> 
     if (!syntax)
         return;
 
+    auto createInvalid = [&] {
+        auto& comp = getCompilation();
+        auto& result = *comp.emplace<BlockStatement>(InvalidStatement::Instance, blockKind,
+                                                     SourceRange());
+        result.blockSymbol = this;
+        return comp.emplace<InvalidStatement>(&result);
+    };
+
     if (syntax->kind == SyntaxKind::RsRule) {
         // Create variables to hold results from all non-void productions
         // invoked by this rule.
@@ -313,7 +322,7 @@ void StatementBlockSymbol::elaborateVariables(function_ref<void(const Symbol&)> 
                                                  context, dims)) {
             // If building loop dims failed we don't want to later proceed with trying to
             // bind the statement again, so just set to invalid here.
-            stmt = &InvalidStatement::Instance;
+            stmt = createInvalid();
         }
 
         for (auto& dim : dims) {
@@ -329,7 +338,7 @@ void StatementBlockSymbol::elaborateVariables(function_ref<void(const Symbol&)> 
 
         SmallVector<const PatternVarSymbol*> vars;
         if (!Pattern::createPatternVars(context, *cond.matchesClause->pattern, *cond.expr, vars))
-            stmt = &InvalidStatement::Instance;
+            stmt = createInvalid();
 
         for (auto var : vars)
             insertCB(*var);
@@ -342,7 +351,7 @@ void StatementBlockSymbol::elaborateVariables(function_ref<void(const Symbol&)> 
         SmallVector<const PatternVarSymbol*> vars;
         if (!Pattern::createPatternVars(context, *syntax->as<PatternCaseItemSyntax>().pattern,
                                         *caseSyntax.expr, vars)) {
-            stmt = &InvalidStatement::Instance;
+            stmt = createInvalid();
         }
 
         for (auto var : vars)
@@ -376,6 +385,11 @@ const Statement& ProceduralBlockSymbol::getBody() const {
         stmtCtx.blocks = blocks;
 
         stmt = &Statement::bind(*stmtSyntax, context, stmtCtx);
+
+        // If statement creation fails we may leave some blocks behind; clear them out
+        // so that we don't get spurious asserts about it.
+        if (stmt->bad())
+            stmtCtx.blocks = {};
     }
     return *stmt;
 }
@@ -481,6 +495,12 @@ static void createCondGenBlock(Compilation& compilation, const SyntaxNode& synta
     }
 
     auto [name, loc] = getGenerateBlockName(syntax);
+    if (name.empty()) {
+        auto range = syntax.kind == SyntaxKind::GenerateBlock
+                         ? syntax.as<GenerateBlockSyntax>().begin.range()
+                         : syntax.sourceRange();
+        context.addDiag(diag::UnnamedGenerate, range);
+    }
 
     auto block = compilation.emplace<GenerateBlockSymbol>(compilation, name, loc, constructIndex,
                                                           isUninstantiated);
@@ -636,7 +656,13 @@ static std::string createGenBlkName(uint32_t constructIndex, const Scope& parent
     std::string base = "genblk";
     std::string index = std::to_string(constructIndex);
     std::string current = base + index;
-    while (parent.find(current)) {
+    while (auto symbol = parent.find(current)) {
+        // Sibling generate from if or case statement and not actually a name collision
+        if (symbol->kind == SymbolKind::GenerateBlock &&
+            symbol->as<GenerateBlockSymbol>().isUnnamed) {
+            return current;
+        }
+
         base += '0';
         current = base + index;
     }
@@ -694,6 +720,13 @@ GenerateBlockArraySymbol& GenerateBlockArraySymbol::fromSyntax(Compilation& comp
     auto genvar = syntax.identifier;
     if (genvar.isMissing())
         return *result;
+
+    if (name.empty()) {
+        auto range = syntax.block->kind == SyntaxKind::GenerateBlock
+                         ? syntax.block->as<GenerateBlockSyntax>().begin.range()
+                         : syntax.keyword.range();
+        context.addDiag(diag::UnnamedGenerate, range);
+    }
 
     auto genvarSyntax = comp.emplace<IdentifierNameSyntax>(genvar);
 

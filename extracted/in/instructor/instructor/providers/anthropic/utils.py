@@ -9,7 +9,6 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import Any, TypedDict, Union
 
-from pydantic import ValidationError
 
 from ...mode import Mode
 from ...processing.schema import generate_anthropic_schema
@@ -149,17 +148,25 @@ def reask_anthropic_tools(
     kwargs = kwargs.copy()
     from anthropic.types import Message
 
-    assert isinstance(response, Message), "Response must be a Anthropic Message"
+    # Handle Stream objects which are not Message instances
+    # This happens when streaming mode is used with retries
+    if not isinstance(response, Message):
+        kwargs["messages"].append(
+            {
+                "role": "user",
+                "content": (
+                    f"Validation Error found:\n{exception}\n"
+                    "Recall the function correctly, fix the errors"
+                ),
+            }
+        )
+        return kwargs
 
     assistant_content = []
     tool_use_id = None
     for content in response.content:
         assistant_content.append(content.model_dump())  # type: ignore
-        if (
-            content.type == "tool_use"
-            and isinstance(exception, ValidationError)
-            and content.name == exception.title
-        ):
+        if content.type == "tool_use":
             tool_use_id = content.id
 
     reask_msgs = [{"role": "assistant", "content": assistant_content}]  # type: ignore
@@ -202,7 +209,19 @@ def reask_anthropic_json(
     kwargs = kwargs.copy()
     from anthropic.types import Message
 
-    assert isinstance(response, Message), "Response must be a Anthropic Message"
+    # Handle Stream objects which are not Message instances
+    # This happens when streaming mode is used with retries
+    if not isinstance(response, Message):
+        kwargs["messages"].append(
+            {
+                "role": "user",
+                "content": (
+                    f"Validation Errors found:\n{exception}\n"
+                    "Recall the function correctly, fix the errors"
+                ),
+            }
+        )
+        return kwargs
 
     # Filter for text blocks to handle ThinkingBlock and other non-text content
     text_blocks = [c for c in response.content if c.type == "text"]

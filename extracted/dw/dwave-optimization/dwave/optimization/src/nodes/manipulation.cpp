@@ -14,11 +14,17 @@
 
 #include "dwave-optimization/nodes/manipulation.hpp"
 
+#include <algorithm>
 #include <cstdint>
+#include <numeric>
+#include <ranges>
+#include <stdexcept>
 #include <tuple>
 #include <unordered_set>
 
 #include "_state.hpp"
+#include "dwave-optimization/array.hpp"
+#include "dwave-optimization/graph.hpp"
 
 namespace dwave::optimization {
 
@@ -29,7 +35,7 @@ std::vector<ssize_t> diff_offsets(std::span<const ssize_t> from_shape,
     std::vector<ssize_t> offsets{0};  // for an identity broadcast there is only one offset
 
     auto expand = [](const std::vector<ssize_t>& offsets, ssize_t size, ssize_t multiplier) {
-        assert(size > 0);
+        assert(size >= 0);
         assert(multiplier > 0);
         std::vector<ssize_t> new_offsets;
         for (const ssize_t& offset : offsets) {
@@ -47,21 +53,18 @@ std::vector<ssize_t> diff_offsets(std::span<const ssize_t> from_shape,
     auto to_it = to_shape.rbegin();
     ssize_t multiplier = 1;
     for (const auto stop = from_shape.rend(); from_it != stop; ++from_it, ++to_it) {
-        if (*from_it == *to_it) {
-            // The shapes match, there is no broadcasting here
-
-            // In the case that we're dynamic, this will result in a negative multiplier,
-            // but that's OK because it's only the 0th dimension so we'll never use it.
-            multiplier *= *from_it;
-        } else {
+        if (*from_it != *to_it) {
             assert(*from_it == 1);  // should be checked in constructor
             offsets = expand(offsets, *to_it, multiplier);
         }
+
+        multiplier *= *to_it;
     }
 
     // all of the dimensions we're prepending need offsets
     for (auto stop = to_shape.rend(); to_it != stop; ++to_it) {
         offsets = expand(offsets, *to_it, multiplier);
+        multiplier *= *to_it;
     }
 
     // We need it to be sorted in order to potentially support dynamic nodes
@@ -115,6 +118,7 @@ BroadcastToNode::BroadcastToNode(ArrayNode* array_ptr, std::span<const ssize_t> 
           ndim_(shape.size()),
           shape_(std::make_unique<ssize_t[]>(ndim_)),
           strides_(std::make_unique<ssize_t[]>(ndim_)),
+          contiguous_(false),
           values_info_(array_ptr) {
     // Fill in our shape_ and then make it accessible locally as a span
     std::copy(shape.begin(), shape.end(), shape_.get());
@@ -141,6 +145,12 @@ BroadcastToNode::BroadcastToNode(ArrayNode* array_ptr, std::span<const ssize_t> 
         throw std::invalid_argument(
                 "dynamic arrays can only be broadcast to another dynamic shape with the same "
                 "number of dimensions");
+    }
+
+    if (target_shape.size() and target_shape[0] < 0 and not array_ptr_->dynamic()) {
+        throw std::invalid_argument("cannot broadcast an array with a fixed shape " +
+                                    shape_to_string(array_ptr_->shape()) + " to a dynamic shape " +
+                                    shape_to_string(target_shape));
     }
 
     // Walk backwards through all four arrays. Zip would be nice here...
@@ -170,12 +180,17 @@ BroadcastToNode::BroadcastToNode(ArrayNode* array_ptr, std::span<const ssize_t> 
         *rit_tstrides = 0;
     }
 
+    // Track whether we're contiguous
+    contiguous_ = is_contiguous(ndim_, shape_.get(), strides_.get());
+
     add_predecessor(array_ptr);
 }
 
 double const* BroadcastToNode::buff(const State& state) const { return array_ptr_->buff(state); }
 
 void BroadcastToNode::commit(State& state) const { data_ptr<BroadcastToNodeData>(state)->commit(); }
+
+bool BroadcastToNode::contiguous() const { return contiguous_; }
 
 std::span<const Update> BroadcastToNode::diff(const State& state) const {
     return data_ptr<BroadcastToNodeData>(state)->diff;
@@ -184,8 +199,12 @@ std::span<const Update> BroadcastToNode::diff(const State& state) const {
 void BroadcastToNode::initialize_state(State& state) const {
     std::vector<ssize_t> offsets = diff_offsets(array_ptr_->shape(), this->shape());
 
+    // If and only if we're broadcasting to an array with size 0, then our offset
+    // should likewise be an empty list.
+    assert((this->size() == 0) == offsets.empty());
+
     if (ndim_ && shape_[0] < 0) {
-        // dynamic
+        // `this` has a state-dependent shape.
         // In addition to storing the offsets, when we're dynamic we need to store our current
         // shape/size as well. Luckily, they are easy to calculate because we cannot broadcast
         // along shape[0].
@@ -199,7 +218,7 @@ void BroadcastToNode::initialize_state(State& state) const {
 
         emplace_data_ptr<DynamicBroadcastToNodeData>(state, std::move(offsets), std::move(shape));
     } else {
-        // not dynamic
+        // `this` has a fixed shape
         emplace_data_ptr<BroadcastToNodeData>(state, std::move(offsets));
     }
 }
@@ -224,26 +243,36 @@ void BroadcastToNode::propagate(State& state) const {
     const auto& diff_offsets = data_ptr->diff_offsets;
 
     ssize_t size_diff = 0;
-    for (Update update : deduplicate_diff_view(from_diff)) {
-        // we need to convert from our predecessor's index to ours
-        const ssize_t index = reindex(update.index);
+    if (this->size() != 0) {
+        for (Update update : deduplicate_diff_view(from_diff)) {
+            // we need to convert from our predecessor's index to ours
+            const ssize_t index = convert_predecessor_index_(update.index);
+            assert(([&]() {
+                       std::vector<ssize_t> multi_index =
+                               unravel_index(update.index, array_ptr_->shape());
+                       multi_index.insert(multi_index.begin(), this->ndim() - array_ptr_->ndim(), 0);
+                       const ssize_t assert_index = ravel_multi_index(multi_index, this->shape());
+                       return assert_index == index;
+                   })() &&
+                   "Bad conversion of predecessor index");
 
-        if (update.placed()) {
-            for (const ssize_t offset : diff_offsets) {
-                update.index = index + offset;
-                to_diff.emplace_back(update);
-                size_diff += 1;
-            }
-        } else if (update.removed()) {
-            for (const ssize_t offset : diff_offsets | std::views::reverse) {
-                update.index = index + offset;
-                to_diff.emplace_back(update);
-                size_diff -= 1;
-            }
-        } else {
-            for (const ssize_t offset : diff_offsets) {
-                update.index = index + offset;
-                to_diff.emplace_back(update);
+            if (update.placed()) {
+                for (const ssize_t offset : diff_offsets) {
+                    update.index = index + offset;
+                    to_diff.emplace_back(update);
+                    size_diff += 1;
+                }
+            } else if (update.removed()) {
+                for (const ssize_t offset : diff_offsets | std::views::reverse) {
+                    update.index = index + offset;
+                    to_diff.emplace_back(update);
+                    size_diff -= 1;
+                }
+            } else {
+                for (const ssize_t offset : diff_offsets) {
+                    update.index = index + offset;
+                    to_diff.emplace_back(update);
+                }
             }
         }
     }
@@ -258,11 +287,56 @@ void BroadcastToNode::propagate(State& state) const {
     if (to_diff.size()) Node::propagate(state);
 }
 
-ssize_t BroadcastToNode::reindex(const ssize_t index) const {
-    std::vector<ssize_t> multi_index = unravel_index(index, array_ptr_->shape());
-    assert(this->ndim() >= array_ptr_->ndim());
-    multi_index.insert(multi_index.begin(), this->ndim() - array_ptr_->ndim(), 0);
-    return ravel_multi_index(multi_index, this->shape());
+ssize_t BroadcastToNode::convert_predecessor_index_(ssize_t index) const {
+    assert(this->ndim() >= array_ptr_->ndim() && "incorrect # of dimensions");
+    assert(index >= 0 && "index must be non-negative");  // NumPy raises here so we assert
+
+    std::span<const ssize_t> array_shape = array_ptr_->shape();
+    std::span<const ssize_t> node_shape = this->shape();
+
+    if (array_shape.empty()) {
+        assert(index == 0);  // otherwise it's out-of-bounds
+        return index;
+    }
+
+    // Shape iterators, initialized to the last element in their resp. ranges.
+    auto array_shape_it = std::ranges::end(array_shape) - 1;
+    auto node_shape_it = std::ranges::end(node_shape) - 1;
+
+    ssize_t flat_index = 0;
+    ssize_t multiplier = 1;
+
+    // We traverse the dimensions (and shape) of the predecessor array in
+    // reverse order up to and *not* including the 0th dimension while also
+    // traversing the BroadcastToNode shape in reverse.
+    for (ssize_t dim = std::ranges::size(array_shape) - 1; dim > 0;
+         --dim, --array_shape_it, --node_shape_it) {
+        assert(0 <= dim && "All dimensions except the first must be non-negative");
+        assert(array_shape_it != array_shape.begin() - 1 && "Bad array shape iterator");
+
+        // Contribution of `index` in the given dimension `dim`
+        const ssize_t multidimensional_index = index % *array_shape_it;
+        index /= *array_shape_it;
+
+        // NumPy supports "clip" and "wrap" which we could add support for
+        // but for now let's just assert.
+        assert(0 <= multidimensional_index && multidimensional_index < *node_shape_it &&
+               "Multidimensional_index exceeds node shape");
+        assert(node_shape_it != node_shape.begin() - 1 && "Bad node shape iterator");
+
+        // determine the contribution of `multidimensional_index` to flat index
+        flat_index += multidimensional_index * multiplier;
+        // this contribution is defined by the node shape
+        multiplier *= *node_shape_it;
+    }
+
+    // Check if the index is out of bounds for non-dynamic shapes and assert
+    assert(array_shape[0] < 0 || index < array_shape[0]);
+
+    // Handle the contribution of the 0th dimension of the predecessor.
+    flat_index += index * multiplier;
+
+    return flat_index;
 }
 
 void BroadcastToNode::revert(State& state) const { data_ptr<BroadcastToNodeData>(state)->revert(); }
@@ -277,19 +351,22 @@ std::span<const ssize_t> BroadcastToNode::shape(const State& state) const {
 }
 
 ssize_t BroadcastToNode::size() const {
-    if (ndim_ && shape_[0] < 0) return -1;  // dynamic
-    return std::accumulate(shape_.get(), shape_.get() + ndim_, 1, std::multiplies<ssize_t>());
+    // Need this to account for the case of a state-dependent shape but a size of zero.
+    const auto shape = this->shape();
+    const ssize_t size = std::reduce(shape.begin(), shape.end(), 1, std::multiplies<ssize_t>());
+    if (size < 0) return Array::DYNAMIC_SIZE;
+    return size;
 }
 
 ssize_t BroadcastToNode::size(const State& state) const {
-    if (!ndim_ || shape_[0] >= 0) return size();  // not dynamic
+    if (const ssize_t size = this->size(); size >= 0) return size;  // size is not state-dependent
     const auto& shape = data_ptr<DynamicBroadcastToNodeData>(state)->shape;
     assert(shape.size() > 0 && shape[0] >= 0);
-    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<ssize_t>());
+    return std::reduce(shape.begin(), shape.end(), 1, std::multiplies<ssize_t>());
 }
 
 ssize_t BroadcastToNode::size_diff(const State& state) const {
-    if (!ndim_ || shape_[0] >= 0) return 0;  // not dynamic
+    if (this->size() >= 0) return 0;  // size is not state-dependent
     return data_ptr<DynamicBroadcastToNodeData>(state)->size_diff;
 }
 
@@ -818,7 +895,8 @@ class DynamicReshapeNodeData : public NodeStateData {
 ReshapeNode::ReshapeNode(ArrayNode* node_ptr, std::vector<ssize_t>&& shape)
         : ArrayOutputMixin(infer_reshape(node_ptr, std::move(shape))),
           array_ptr_(node_ptr),
-          values_info_(array_ptr_) {
+          values_info_(array_ptr_),
+          sizeinfo_(array_ptr_->sizeinfo()) {
     // Don't (yet) support non-contiguous predecessors.
     // In some cases with non-contiguous predecessors we need to make a copy.
     // See https://github.com/dwavesystems/dwave-optimization/issues/16
@@ -918,10 +996,7 @@ ssize_t ReshapeNode::size(const State& state) const {
     return data_ptr<DynamicReshapeNodeData>(state)->size();
 }
 
-SizeInfo ReshapeNode::sizeinfo() const {
-    if (this->dynamic()) return SizeInfo(array_ptr_);
-    return SizeInfo(this->size());
-}
+SizeInfo ReshapeNode::sizeinfo() const { return this->sizeinfo_; }
 
 ssize_t ReshapeNode::size_diff(const State& state) const {
     if (!this->dynamic()) return 0;  // stateless
@@ -1038,6 +1113,328 @@ void ResizeNode::revert(State& state) const {
     return data_ptr<ArrayNodeStateData>(state)->revert();
 }
 
+// Return the lhs % rhs, but always as a positive number
+ssize_t positive_modulus_(ssize_t lhs, ssize_t rhs) {
+    lhs %= rhs;
+    if (lhs < 0) lhs += rhs;
+    return lhs;
+}
+
+RollNode::RollNode(ArrayNode* array_ptr, ssize_t shift, std::vector<ssize_t> axis)
+        : RollNode(array_ptr, std::vector<ssize_t>{shift}, std::move(axis)) {}
+
+RollNode::RollNode(ArrayNode* array_ptr, std::vector<ssize_t> shift, std::vector<ssize_t> axis)
+        : ArrayOutputMixin(array_ptr->shape()),
+          array_ptr_(array_ptr),
+          shift_(std::move(shift)),
+          axis_(std::move(axis)),
+          values_info_(array_ptr),
+          sizeinfo_(array_ptr_->sizeinfo()) {
+    // we moved the argument shift so let's get it back as a reference
+    std::vector<ssize_t>& shift_ref = std::get<std::vector<ssize_t>>(shift_);
+
+    if (axis_.empty()) {
+        // If the axis is empty then we're shifting as a flat array and therefore only
+        // want a single shift value
+        if (shift_ref.size() != 1) {
+            throw std::invalid_argument("unexpected number of shifts (" +
+                                        std::to_string(shift_ref.size()) + "), expected 1");
+        }
+    } else if (shift_ref.size() == 1) {
+        // we're broadcasting to the axes in this case
+    } else {
+        // axis is not empty so it must be the same length as the shift
+        if (shift_ref.size() != axis_.size()) {
+            throw std::invalid_argument("shift and axis must have the same length");
+        }
+    }
+
+    // axis and shift are consistent, but is axis consistent with our array?
+    for (const ssize_t& ax : axis_) {
+        if (ax < 0 or array_ptr_->ndim() <= ax) throw std::invalid_argument("axis out of bounds");
+    }
+
+    add_predecessor(array_ptr);
+}
+
+RollNode::RollNode(ArrayNode* array_ptr, ArrayNode* shift_ptr, std::vector<ssize_t> axis)
+        : ArrayOutputMixin(array_ptr->shape()),
+          array_ptr_(array_ptr),
+          shift_(shift_ptr),
+          axis_(std::move(axis)),
+          values_info_(array_ptr),
+          sizeinfo_(array_ptr_->sizeinfo()) {
+    if (shift_ptr->dynamic()) throw std::invalid_argument("shift may not be dynamic");
+    if (shift_ptr->ndim() >= 2) throw std::invalid_argument("shift must be 0 or 1 dimensional");
+
+    if (axis_.empty()) {
+        if (shift_ptr->size() != 1) {
+            throw std::invalid_argument("unexpected number of shifts (" +
+                                        std::to_string(shift_ptr->size()) + "), expected 1");
+        }
+    } else if (shift_ptr->size() == 1) {
+        // we're broadcasting to the axes in this case
+    } else {
+        if (shift_ptr->size() != static_cast<ssize_t>(axis.size())) {
+            throw std::invalid_argument("shift and axis must have the same length");
+        }
+    }
+
+    // axis and shift are consistent, but is axis consistent with our array?
+    for (const ssize_t& ax : axis_) {
+        if (ax < 0 or array_ptr_->ndim() <= ax) throw std::invalid_argument("axis out of bounds");
+    }
+
+    add_predecessor(array_ptr);
+    add_predecessor(shift_ptr);
+}
+
+std::span<const ssize_t> RollNode::axes() const { return axis_; }
+
+double const* RollNode::buff(const State& state) const {
+    return data_ptr<ArrayNodeStateData>(state)->buff();
+}
+
+void RollNode::commit(State& state) const { data_ptr<ArrayNodeStateData>(state)->commit(); }
+
+std::span<const Update> RollNode::diff(const State& state) const {
+    return data_ptr<ArrayNodeStateData>(state)->diff();
+}
+
+void RollNode::initialize_state(State& state) const {
+    // Get the predecessor's state as a vector that will become our state.
+    std::vector<double> buffer(array_ptr_->begin(state), array_ptr_->end(state));
+
+    if (axis_.empty()) {
+        // We're shifting everything as a flat array
+        const auto [shift, changed] = shift_diff_(state);
+        assert(not changed);  // not in a propagation
+        rotate_(buffer, shift);
+    } else {
+        const auto [shifts, changed] = shifts_diff_(state);
+        assert(not changed);  // not in a propagation
+        rotate_(buffer, shape(state), shifts);
+    }
+
+    emplace_data_ptr<ArrayNodeStateData>(state, std::move(buffer));
+}
+
+bool RollNode::integral() const { return values_info_.integral; }
+
+double RollNode::min() const { return values_info_.min; }
+
+double RollNode::max() const { return values_info_.max; }
+
+void RollNode::propagate(State& state) const {
+    ArrayNodeStateData* const state_ptr = data_ptr<ArrayNodeStateData>(state);
+
+    if (axis_.empty()) {
+        // We're shifting everything as a flat array
+        const auto [shift, changed] = shift_diff_(state);
+        const ssize_t size = array_ptr_->size(state);
+
+        if (not changed and array_ptr_->size_diff(state) == 0) {
+            // if neither our size nor our shift changed, then we just need to
+            // update the individual indices and it is efficient to do so.
+
+            auto transform = [&shift, &size](Update update) -> Update {
+                update.index = positive_modulus_(update.index + shift, size);
+                return update;
+            };
+
+            if (array_ptr_->dynamic()) {
+                // One last case we need to worry about. If the array may have grown and then
+                // shrunk, we need to deduplicate the diff.
+                // We'd really like to use some of the nice C++20 range stuff and
+                // deduplicate_diff_view(), but alas some of the old Python images
+                // don't support deduplicate_diff_view with std::ranges::transform.
+                // So we have to do it manually with a copy.
+                auto diff = array_ptr_->diff(state);
+                std::vector<Update> updates(diff.begin(), diff.end());
+                deduplicate_diff(updates);
+                state_ptr->update(updates | std::views::transform(transform));
+            } else {
+                // Otherwise we just propagate the diff like normal under the assumption
+                // that our predecessor was efficient (not always true but nice to believe).
+                state_ptr->update(std::ranges::transform_view(array_ptr_->diff(state), transform));
+            }
+        } else {
+            // Either our size or our shift has changed, so we might as well re-calculate
+            // the whole thing.
+            // dev note: in the case that our size changed, we could save some effort here
+            // but for now I am going with the simple and safe approach.
+            std::vector<double> buffer(array_ptr_->begin(state), array_ptr_->end(state));
+            rotate_(buffer, shift);
+            state_ptr->assign(buffer);
+        }
+    } else {
+        // Get the shifts
+        const auto [shifts, changed] = shifts_diff_(state);
+
+        if (not changed and array_ptr_->size_diff(state) == 0) {
+            const auto shape = array_ptr_->shape(state);
+
+            auto transform = [&shape, &shifts](Update update) -> Update {
+                ssize_t multiplier = 1;
+
+                for (ssize_t axis = shape.size() - 1; axis >= 0; --axis) {
+                    // get the amount we wish to shift the index by
+                    const ssize_t shift = shifts[axis] * multiplier;
+
+                    // but that shift needs to happen within the current axis
+                    // so we need the size of that area
+                    const ssize_t size = shape[axis] * multiplier;
+
+                    // now we shift the index, staying careful to stay "within"
+                    // the current axis
+                    auto res = std::div(update.index, size);
+
+                    // res.quot * size is the index at the beginning of the current axis
+                    // we then shift the res.rem modulus the size of the axis
+                    update.index = res.quot * size + positive_modulus_(res.rem + shift, size);
+
+                    // we can now increase the multiplier before going on
+                    multiplier *= shape[axis];
+                }
+
+                return update;
+            };
+
+            // Unlike the flat shift case we always deduplicate because each shift
+            // operation is relatively expensive.
+            // See note there about the use of deduplicate_diff
+            auto diff = array_ptr_->diff(state);
+            std::vector<Update> updates(diff.begin(), diff.end());
+            deduplicate_diff(updates);
+            state_ptr->update(updates | std::views::transform(transform));
+        } else {
+            // Either our size or our shifts have changed, so we might as well re-calculate
+            // the whole thing.
+            std::vector<double> buffer(array_ptr_->begin(state), array_ptr_->end(state));
+            rotate_(buffer, shape(state), shifts);
+            state_ptr->assign(buffer);
+        }
+    }
+}
+
+void RollNode::revert(State& state) const { data_ptr<ArrayNodeStateData>(state)->revert(); }
+
+// Act on the given array *in place*.
+void RollNode::rotate_(std::span<double> array, ssize_t shift) {
+    // we want to turn shift into a number >=0,<array.size()
+    shift = positive_modulus_(shift, array.size());
+
+    // if the net is no shift, then exit early
+    if (shift == 0) return;
+
+    // for consistency wiht NumPy we do a right rotation
+    std::rotate(array.rbegin(), array.rbegin() + shift, array.rend());
+}
+
+void RollNode::rotate_(std::span<double> array, std::span<const ssize_t> shape,
+                       std::span<const ssize_t> shifts) {
+    // make sure our inputs are all consistent with eachother as a sanity check
+    assert(shifts.size() == shape.size());
+    assert(std::accumulate(shape.begin(), shape.end(), 1, std::multiplies()) ==
+           static_cast<ssize_t>(array.size()));
+
+    const ssize_t array_size = array.size();
+
+    ssize_t multiplier = 1;
+    for (ssize_t axis = shape.size() - 1; axis >= 0; --axis) {
+        // get the amount we wish to shift each sub-array by
+        const ssize_t shift = shifts[axis] * multiplier;
+
+        // also the size of each sub-array that we'll be shifting
+        const ssize_t roll_size = shape[axis] * multiplier;
+
+        for (ssize_t offset = 0; offset < array_size; offset += roll_size) {
+            rotate_(array.subspan(offset, roll_size), shift);
+        }
+
+        multiplier *= shape[axis];
+    }
+}
+
+std::span<const ssize_t> RollNode::shape(const State& state) const {
+    if (not this->dynamic()) return this->shape();
+    return array_ptr_->shape(state);  // same as predecessor
+}
+
+const std::variant<const Array*, std::vector<ssize_t>>& RollNode::shift() const { return shift_; }
+
+std::tuple<ssize_t, bool> RollNode::shift_diff_(const State& state) const {
+    assert(axis_.empty());
+
+    if (std::holds_alternative<const Array*>(shift_)) {
+        const Array* const shift_ptr = std::get<const Array*>(shift_);
+        assert(shift_ptr->size() == 1);
+
+        // first get the shift
+        const ssize_t shift = shift_ptr->view(state)[0];
+
+        // next see if there has been a change since last time
+        const auto diff = shift_ptr->diff(state);
+
+        return {shift, not(diff.empty() or diff[0].old == shift)};
+    }
+    assert(std::holds_alternative<std::vector<ssize_t>>(shift_));
+    const auto& shift = std::get<std::vector<ssize_t>>(shift_);
+    assert(shift.size() == 1);
+    return {shift[0], false};
+}
+
+std::tuple<std::vector<ssize_t>, bool> RollNode::shifts_diff_(const State& state) const {
+    assert(not axis_.empty());  // not defined when shifting as a flat array
+
+    std::vector<ssize_t> shifts(ndim(), 0);
+
+    if (std::holds_alternative<const Array*>(shift_)) {
+        const Array* const shifts_ptr = std::get<const Array*>(shift_);
+        const auto view = shifts_ptr->view(state);
+
+        if (shifts_ptr->size() == 1) {
+            // broadcasting
+            for (ssize_t i = 0, stop = axis_.size(); i < stop; ++i) {
+                shifts[axis_[i]] += view[0];
+            }
+        } else {
+            for (ssize_t i = 0, stop = axis_.size(); i < stop; ++i) {
+                shifts[axis_[i]] += view[i];
+            }
+        }
+
+        // If there is any diff, we assume that at least one of our indices
+        // have changed
+        return {shifts, not shifts_ptr->diff(state).empty()};
+    }
+
+    const std::vector<ssize_t>& shifts_ref = std::get<std::vector<ssize_t>>(shift_);
+
+    if (shifts_ref.size() == 1) {
+        for (ssize_t i = 0, stop = axis_.size(); i < stop; ++i) {
+            shifts[axis_[i]] += shifts_ref[0];
+        }
+    } else {
+        for (ssize_t i = 0, stop = axis_.size(); i < stop; ++i) {
+            shifts[axis_[i]] += shifts_ref[i];
+        }
+    }
+
+    return {shifts, false};
+}
+
+ssize_t RollNode::size(const State& state) const {
+    if (ssize_t size = this->size(); size >= 0) return size;
+    return array_ptr_->size(state);  // same size as predecessor always
+}
+
+SizeInfo RollNode::sizeinfo() const { return sizeinfo_; }
+
+ssize_t RollNode::size_diff(const State& state) const {
+    return data_ptr<ArrayNodeStateData>(state)->size_diff();
+}
+
 SizeNode::SizeNode(ArrayNode* node_ptr)
         : array_ptr_(node_ptr),
           minmax_(array_ptr_->sizeinfo().min.value_or(0),
@@ -1054,5 +1451,191 @@ double SizeNode::min() const { return minmax_.first; }
 double SizeNode::max() const { return minmax_.second; }
 
 void SizeNode::propagate(State& state) const { set_state(state, array_ptr_->size(state)); }
+
+// TransposeNode **************************************************************
+
+ArrayNode* TransposeNode::predeccesor_check_(ArrayNode* array_ptr) const {
+    // Can take the transpose of a dynamic vector but not a dyanmic (>=2)-D
+    // array since the latter would result in a dynamic array which is dynamic
+    // in an axis other than the 0th axis.
+    if ((array_ptr->ndim() >= 2) && (array_ptr->dynamic())) {
+        throw std::invalid_argument("Cannot take transpose of a dynamic (>=2)-D Array");
+    }
+    return array_ptr;
+}
+
+// a TransposeNodes shape and strides are the reverse of its predecessor
+std::unique_ptr<ssize_t[]> reverse_span_helper(const std::span<const ssize_t> span,
+                                               const ssize_t size) {
+    std::unique_ptr<ssize_t[]> reverse_span = std::make_unique<ssize_t[]>(size);
+    std::reverse_copy(span.begin(), span.end(), reverse_span.get());
+    return reverse_span;
+}
+
+TransposeNode::TransposeNode(ArrayNode* array_ptr)
+        : array_ptr_(predeccesor_check_(array_ptr)),
+          ndim_(array_ptr->ndim()),
+          shape_(reverse_span_helper(array_ptr->shape(), ndim_)),
+          strides_(reverse_span_helper(array_ptr->strides(), ndim_)),
+          contiguous_(is_contiguous(ndim_, shape_.get(), strides_.get())),
+          values_info_(array_ptr) {
+    add_predecessor(array_ptr);
+}
+
+// this node simply points to the predecessor buff
+double const* TransposeNode::buff(const State& state) const { return array_ptr_->buff(state); }
+
+ssize_t TransposeNode::ndim() const { return ndim_; }
+
+std::span<const ssize_t> TransposeNode::shape(const State& state) const {
+    if (ndim_ <= 1) {  // predecessor is vector and may be dynamic
+        return array_ptr_->shape(state);
+    }
+    // predecessor is (>=2)-D array and shape is static
+    return std::span<const ssize_t>(shape_.get(), ndim_);
+}
+
+std::span<const ssize_t> TransposeNode::shape() const {
+    if (ndim_ <= 1) {  // predecessor is vector and may be dynamic
+        return array_ptr_->shape();
+    }
+    // predecessor is (>=2)-D array and shape is fixed
+    return std::span<const ssize_t>(shape_.get(), ndim_);
+}
+
+std::span<const ssize_t> TransposeNode::strides() const {
+    return std::span<const ssize_t>(strides_.get(), ndim_);
+}
+
+ssize_t TransposeNode::size() const { return array_ptr_->size(); }
+
+ssize_t TransposeNode::size(const State& state) const { return array_ptr_->size(state); }
+
+double TransposeNode::min() const { return values_info_.min; }
+
+double TransposeNode::max() const { return values_info_.max; }
+
+bool TransposeNode::integral() const { return values_info_.integral; }
+
+bool TransposeNode::contiguous() const { return contiguous_; }
+
+// For saving the diff data on the node
+class TransposeNodeDiffData : public NodeStateData {
+ public:
+    TransposeNodeDiffData() {}
+
+    void commit() { diff.clear(); }
+    void revert() { diff.clear(); }
+
+    std::vector<Update> diff;
+};
+
+std::span<const Update> TransposeNode::diff(const State& state) const {
+    // If the predecessor is a vector, the transpose does nothing and the diff
+    // of this node is simply the diff of the predecessor node.
+    if (ndim_ <= 1) {  // predecessor is vector
+        return array_ptr_->diff(state);
+    }
+    // Otherwise, we use the stored diff data.
+    return data_ptr<TransposeNodeDiffData>(state)->diff;
+}
+
+ssize_t TransposeNode::size_diff(const State& state) const { return array_ptr_->size_diff(state); }
+
+void TransposeNode::initialize_state(State& state) const {
+    if (ndim_ <= 1) {
+        return Node::initialize_state(state);  // stateless
+    }
+    // Construct diff data if predecessor is (>=2)-D array
+    emplace_data_ptr<TransposeNodeDiffData>(state);
+}
+
+Update TransposeNode::convert_predecessor_update_(Update update) const {
+    if (ndim_ <= 1) {  // predecessor is vector
+        return update;
+    }
+
+    const std::span<const ssize_t> array_shape = array_ptr_->shape();
+    ssize_t transpose_flat_index = 0;
+    // when constructing a flat index of the transpose, it is helpful to know
+    // the # of indices contributed when you move along a fixed axes.
+    // `transpose_axis_index_stride` is initialized by the # of indices
+    // contributed when moving along the 0th axis of the transpose.
+    ssize_t transpose_axis_index_stride = std::accumulate(
+            array_shape.begin(), array_shape.end() - 1, 1, std::multiplies<ssize_t>());
+
+    // traverse the predecessor axes in backward (reverse) order and the
+    // transpose axes in forward order
+    for (ssize_t i = ndim_ - 1; i >= 0; --i) {
+        // grab predecessor shape along the ith axis
+        const ssize_t axis_shape = array_shape[i];
+        assert(0 <= axis_shape &&
+               "all dimensions of (>=2)-D array must be non-negative for transpose operation");
+        // determine the multidimensional index of `flat_index` along the ith
+        // axis of predecessor. Note: this is the multidimensional index along
+        // the (ndim_ - 1 - i)th axis of the transpose
+        const ssize_t multidimensional_index = update.index % axis_shape;
+        // reassign flat_index to the correct index along the (i - 1)th axes of predecessor
+        update.index /= axis_shape;
+
+        // weight the multidimensional index along the (ndim_ - 1 - i)th axis
+        // of the transpose by # of indices contributed by moving along axis
+        transpose_flat_index += multidimensional_index * transpose_axis_index_stride;
+
+        // recall we are traversing the tranpose axes in forward order.
+        // the # of indices contributed by moving along the (ndim - 2 - i)th
+        // axis is the same as (the # of indices contributed by moving along the
+        // (ndim_ - 1 - i)th axis) / shape(ndim_ - i - 1)
+        transpose_axis_index_stride /= array_shape[ndim_ - i - 1];
+    }
+
+    update.index = transpose_flat_index;
+
+    return update;
+}
+
+void TransposeNode::propagate(State& state) const {
+    const std::span<const Update> array_diff = array_ptr_->diff(state);
+
+    if (array_diff.empty() || ndim_ <= 1) {
+        return;  // Nothing to do or predecessor is vector (transpose of vector is vector)
+    }
+
+    // Predecessor is a non-dynamic (>=2)-D array.
+    std::vector<Update>& transpose_diff = data_ptr<TransposeNodeDiffData>(state)->diff;
+    assert(transpose_diff.size() == 0);
+    transpose_diff.reserve(array_ptr_->size_diff(state));
+
+    for (const Update& u : array_diff) {
+        assert(([&]() {
+            // make a copy of the update
+            Update u_copy = u;
+            // convert flat index of predecessor update to multidimensional indices
+            std::vector<ssize_t> multi_index = unravel_index(u_copy.index, array_ptr_->shape());
+            // reverse multidimensional indices to obtain the multidimensional
+            // transpose indices
+            std::reverse(multi_index.begin(), multi_index.end());
+            // convert multidimensional transpose indices to transpose flat index
+            // and check conversion
+            return ravel_multi_index(multi_index, this->shape()) ==
+                   convert_predecessor_update_(u_copy).index;
+        })());
+        // Make a copy of the update and convert the index to the respective
+        // transpose index
+        transpose_diff.emplace_back(convert_predecessor_update_(u));
+    }
+}
+
+void TransposeNode::commit(State& state) const {
+    if (ndim_ > 1) {
+        data_ptr<TransposeNodeDiffData>(state)->commit();
+    }  // otherwise, stateless
+};
+
+void TransposeNode::revert(State& state) const {
+    if (ndim_ > 1) {
+        data_ptr<TransposeNodeDiffData>(state)->revert();
+    }  // otherwise, stateless
+}
 
 }  // namespace dwave::optimization

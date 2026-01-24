@@ -8,6 +8,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import qwak.builds.build_values_pb2
 import qwak.fitness_service.fitness_pb2
 import qwak.user_application.common.v0.resources_pb2
 import sys
@@ -64,6 +65,18 @@ class _GpuTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTy
     """a100.xl"""
     NVIDIA_V100_4_32_208: _GpuType.ValueType  # 12
     """v100.4xl"""
+    NVIDIA_H100_NVL: _GpuType.ValueType  # 13
+    """H100 NVL XLarge"""
+    NVIDIA_A10: _GpuType.ValueType  # 14
+    """A10 Small"""
+    NVIDIA_H100_SXM: _GpuType.ValueType  # 15
+    """H100 SXM 8XLarge"""
+    NVIDIA_H100_40GB: _GpuType.ValueType  # 16
+    """H100 40GB 8XLarge"""
+    NVIDIA_H100_80GB: _GpuType.ValueType  # 17
+    """H100 80GB 8XLarge"""
+    NVIDIA_M60: _GpuType.ValueType  # 18
+    """M60 XLarge"""
 
 class GpuType(_GpuType, metaclass=_GpuTypeEnumTypeWrapper): ...
 
@@ -88,6 +101,18 @@ NVIDIA_V100_1_8_52: GpuType.ValueType  # 11
 """a100.xl"""
 NVIDIA_V100_4_32_208: GpuType.ValueType  # 12
 """v100.4xl"""
+NVIDIA_H100_NVL: GpuType.ValueType  # 13
+"""H100 NVL XLarge"""
+NVIDIA_A10: GpuType.ValueType  # 14
+"""A10 Small"""
+NVIDIA_H100_SXM: GpuType.ValueType  # 15
+"""H100 SXM 8XLarge"""
+NVIDIA_H100_40GB: GpuType.ValueType  # 16
+"""H100 40GB 8XLarge"""
+NVIDIA_H100_80GB: GpuType.ValueType  # 17
+"""H100 80GB 8XLarge"""
+NVIDIA_M60: GpuType.ValueType  # 18
+"""M60 XLarge"""
 global___GpuType = GpuType
 
 class _DataColumnType:
@@ -153,6 +178,7 @@ class RemoteBuildSpec(google.protobuf.message.Message):
     JFROG_TOKEN_ID_FIELD_NUMBER: builtins.int
     ARTIFACTORY_PROJECT_KEY_FIELD_NUMBER: builtins.int
     MODEL_VERSION_ID_FIELD_NUMBER: builtins.int
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
     @property
     def build_properties(self) -> global___BuildProperties: ...
     @property
@@ -195,6 +221,10 @@ class RemoteBuildSpec(google.protobuf.message.Message):
     """Artifactory project key"""
     model_version_id: builtins.str
     """Optional - The model version's id used for the build"""
+    model_group_name: builtins.str
+    """Human readable model group identifier (e.g., "my-model-group").
+    This is the display name, not the UUID.
+    """
     def __init__(
         self,
         *,
@@ -217,9 +247,10 @@ class RemoteBuildSpec(google.protobuf.message.Message):
         jfrog_token_id: builtins.str = ...,
         artifactory_project_key: builtins.str = ...,
         model_version_id: builtins.str = ...,
+        model_group_name: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["Resources", b"Resources", "build_env", b"build_env", "build_properties", b"build_properties", "build_properties_v1", b"build_properties_v1", "client_pod_compute_resources", b"client_pod_compute_resources", "cpu_resources", b"cpu_resources", "gpu_resources", b"gpu_resources"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["Resources", b"Resources", "artifactory_project_key", b"artifactory_project_key", "build_code_path", b"build_code_path", "build_config", b"build_config", "build_destined_image", b"build_destined_image", "build_env", b"build_env", "build_properties", b"build_properties", "build_properties_v1", b"build_properties_v1", "build_steps", b"build_steps", "build_v1_flag", b"build_v1_flag", "client_pod_compute_resources", b"client_pod_compute_resources", "cpu_resources", b"cpu_resources", "environment_id", b"environment_id", "gpu_resources", b"gpu_resources", "jfrog_token_id", b"jfrog_token_id", "model_version_id", b"model_version_id", "provision_instance_timeout", b"provision_instance_timeout", "purchase_option", b"purchase_option", "sdk_version", b"sdk_version", "verbose", b"verbose"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["Resources", b"Resources", "artifactory_project_key", b"artifactory_project_key", "build_code_path", b"build_code_path", "build_config", b"build_config", "build_destined_image", b"build_destined_image", "build_env", b"build_env", "build_properties", b"build_properties", "build_properties_v1", b"build_properties_v1", "build_steps", b"build_steps", "build_v1_flag", b"build_v1_flag", "client_pod_compute_resources", b"client_pod_compute_resources", "cpu_resources", b"cpu_resources", "environment_id", b"environment_id", "gpu_resources", b"gpu_resources", "jfrog_token_id", b"jfrog_token_id", "model_group_name", b"model_group_name", "model_version_id", b"model_version_id", "provision_instance_timeout", b"provision_instance_timeout", "purchase_option", b"purchase_option", "sdk_version", b"sdk_version", "verbose", b"verbose"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["Resources", b"Resources"]) -> typing_extensions.Literal["cpu_resources", "gpu_resources", "client_pod_compute_resources"] | None: ...
 
 global___RemoteBuildSpec = RemoteBuildSpec
@@ -356,6 +387,7 @@ class DockerEnv(google.protobuf.message.Message):
     NO_CACHE_FIELD_NUMBER: builtins.int
     ASSUMED_IAM_ROLE_ARN_FIELD_NUMBER: builtins.int
     SERVICE_ACCOUNT_KEY_SECRET_NAME_FIELD_NUMBER: builtins.int
+    CONTAINER_ENGINE_FIELD_NUMBER: builtins.int
     base_image: builtins.str
     """Base image to use for serving"""
     @property
@@ -369,6 +401,9 @@ class DockerEnv(google.protobuf.message.Message):
     """Custom IAM role to be assumed by model"""
     service_account_key_secret_name: builtins.str
     """Service account key secret name for gcp"""
+    @property
+    def container_engine(self) -> qwak.builds.build_values_pb2.ContainerEngine:
+        """Container engine to use for building and pushing the image (e.g., Docker, Podman)"""
     def __init__(
         self,
         *,
@@ -377,8 +412,10 @@ class DockerEnv(google.protobuf.message.Message):
         no_cache: builtins.bool = ...,
         assumed_iam_role_arn: builtins.str = ...,
         service_account_key_secret_name: builtins.str = ...,
+        container_engine: qwak.builds.build_values_pb2.ContainerEngine | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["assumed_iam_role_arn", b"assumed_iam_role_arn", "base_image", b"base_image", "env_vars", b"env_vars", "no_cache", b"no_cache", "service_account_key_secret_name", b"service_account_key_secret_name"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["container_engine", b"container_engine"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["assumed_iam_role_arn", b"assumed_iam_role_arn", "base_image", b"base_image", "container_engine", b"container_engine", "env_vars", b"env_vars", "no_cache", b"no_cache", "service_account_key_secret_name", b"service_account_key_secret_name"]) -> None: ...
 
 global___DockerEnv = DockerEnv
 

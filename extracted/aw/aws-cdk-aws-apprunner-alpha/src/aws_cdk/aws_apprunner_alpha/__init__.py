@@ -397,9 +397,9 @@ import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
 import aws_cdk.aws_ecr as _aws_cdk_aws_ecr_ceddda9d
 import aws_cdk.aws_ecr_assets as _aws_cdk_aws_ecr_assets_ceddda9d
 import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
 import aws_cdk.aws_ssm as _aws_cdk_aws_ssm_ceddda9d
+import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
 import constructs as _constructs_77d1e7e8
 
 
@@ -412,7 +412,7 @@ class AssetProps:
     def __init__(
         self,
         *,
-        asset: _aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset,
+        asset: "_aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset",
         image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties of the image repository for ``Source.fromAsset()``.
@@ -452,14 +452,14 @@ class AssetProps:
             self._values["image_configuration"] = image_configuration
 
     @builtins.property
-    def asset(self) -> _aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset:
+    def asset(self) -> "_aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset":
         '''(experimental) Represents the docker image asset.
 
         :stability: experimental
         '''
         result = self._values.get("asset")
         assert result is not None, "Required property 'asset' is missing"
-        return typing.cast(_aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset, result)
+        return typing.cast("_aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset", result)
 
     @builtins.property
     def image_configuration(self) -> typing.Optional["ImageConfiguration"]:
@@ -990,7 +990,7 @@ class CodeRepositoryProps:
     def __init__(
         self,
         *,
-        code_configuration: typing.Union[CodeConfiguration, typing.Dict[builtins.str, typing.Any]],
+        code_configuration: typing.Union["CodeConfiguration", typing.Dict[builtins.str, typing.Any]],
         connection: "GitHubConnection",
         repository_url: builtins.str,
         source_code_version: typing.Union["SourceCodeVersion", typing.Dict[builtins.str, typing.Any]],
@@ -1064,14 +1064,14 @@ class CodeRepositoryProps:
         }
 
     @builtins.property
-    def code_configuration(self) -> CodeConfiguration:
+    def code_configuration(self) -> "CodeConfiguration":
         '''(experimental) Configuration for building and running the service from a source code repository.
 
         :stability: experimental
         '''
         result = self._values.get("code_configuration")
         assert result is not None, "Required property 'code_configuration' is missing"
-        return typing.cast(CodeConfiguration, result)
+        return typing.cast("CodeConfiguration", result)
 
     @builtins.property
     def connection(self) -> "GitHubConnection":
@@ -1245,7 +1245,7 @@ class EcrProps:
     def __init__(
         self,
         *,
-        repository: _aws_cdk_aws_ecr_ceddda9d.IRepository,
+        repository: "_aws_cdk_aws_ecr_ceddda9d.IRepository",
         image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         tag: typing.Optional[builtins.str] = None,
         tag_or_digest: typing.Optional[builtins.str] = None,
@@ -1292,14 +1292,14 @@ class EcrProps:
             self._values["tag_or_digest"] = tag_or_digest
 
     @builtins.property
-    def repository(self) -> _aws_cdk_aws_ecr_ceddda9d.IRepository:
+    def repository(self) -> "_aws_cdk_aws_ecr_ceddda9d.IRepository":
         '''(experimental) Represents the ECR repository.
 
         :stability: experimental
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
-        return typing.cast(_aws_cdk_aws_ecr_ceddda9d.IRepository, result)
+        return typing.cast("_aws_cdk_aws_ecr_ceddda9d.IRepository", result)
 
     @builtins.property
     def image_configuration(self) -> typing.Optional["ImageConfiguration"]:
@@ -1511,11 +1511,11 @@ class GithubRepositoryProps:
     def __init__(
         self,
         *,
-        configuration_source: ConfigurationSourceType,
-        connection: GitHubConnection,
+        configuration_source: "ConfigurationSourceType",
+        connection: "GitHubConnection",
         repository_url: builtins.str,
         branch: typing.Optional[builtins.str] = None,
-        code_configuration_values: typing.Optional[typing.Union[CodeConfigurationValues, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_configuration_values: typing.Optional[typing.Union["CodeConfigurationValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties of the Github repository for ``Source.fromGitHub()``.
 
@@ -1559,17 +1559,17 @@ class GithubRepositoryProps:
             self._values["code_configuration_values"] = code_configuration_values
 
     @builtins.property
-    def configuration_source(self) -> ConfigurationSourceType:
+    def configuration_source(self) -> "ConfigurationSourceType":
         '''(experimental) The source of the App Runner configuration.
 
         :stability: experimental
         '''
         result = self._values.get("configuration_source")
         assert result is not None, "Required property 'configuration_source' is missing"
-        return typing.cast(ConfigurationSourceType, result)
+        return typing.cast("ConfigurationSourceType", result)
 
     @builtins.property
-    def connection(self) -> GitHubConnection:
+    def connection(self) -> "GitHubConnection":
         '''(experimental) ARN of the connection to Github.
 
         Only required for Github source.
@@ -1578,7 +1578,7 @@ class GithubRepositoryProps:
         '''
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
-        return typing.cast(GitHubConnection, result)
+        return typing.cast("GitHubConnection", result)
 
     @builtins.property
     def repository_url(self) -> builtins.str:
@@ -1602,7 +1602,7 @@ class GithubRepositoryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_configuration_values(self) -> typing.Optional[CodeConfigurationValues]:
+    def code_configuration_values(self) -> typing.Optional["CodeConfigurationValues"]:
         '''(experimental) The code configuration values.
 
         Will be ignored if configurationSource is ``REPOSITORY``.
@@ -1612,7 +1612,7 @@ class GithubRepositoryProps:
         :stability: experimental
         '''
         result = self._values.get("code_configuration_values")
-        return typing.cast(typing.Optional[CodeConfigurationValues], result)
+        return typing.cast(typing.Optional["CodeConfigurationValues"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1658,9 +1658,9 @@ class HealthCheck(
         cls,
         *,
         healthy_threshold: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> "HealthCheck":
         '''(experimental) Construct a HTTP health check.
@@ -1689,8 +1689,8 @@ class HealthCheck(
         cls,
         *,
         healthy_threshold: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> "HealthCheck":
         '''(experimental) Construct a TCP health check.
@@ -1714,11 +1714,11 @@ class HealthCheck(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-    ) -> _aws_cdk_aws_apprunner_ceddda9d.CfnService.HealthCheckConfigurationProperty:
+    ) -> "_aws_cdk_aws_apprunner_ceddda9d.CfnService.HealthCheckConfigurationProperty":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_apprunner_ceddda9d.CfnService.HealthCheckConfigurationProperty, jsii.invoke(self, "bind", []))
+        return typing.cast("_aws_cdk_aws_apprunner_ceddda9d.CfnService.HealthCheckConfigurationProperty", jsii.invoke(self, "bind", []))
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckProtocolType")
@@ -1738,19 +1738,19 @@ class HealthCheck(
 
     @builtins.property
     @jsii.member(jsii_name="interval")
-    def interval(self) -> _aws_cdk_ceddda9d.Duration:
+    def interval(self) -> "_aws_cdk_ceddda9d.Duration":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.Duration, jsii.get(self, "interval"))
+        return typing.cast("_aws_cdk_ceddda9d.Duration", jsii.get(self, "interval"))
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
-    def timeout(self) -> _aws_cdk_ceddda9d.Duration:
+    def timeout(self) -> "_aws_cdk_ceddda9d.Duration":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.Duration, jsii.get(self, "timeout"))
+        return typing.cast("_aws_cdk_ceddda9d.Duration", jsii.get(self, "timeout"))
 
     @builtins.property
     @jsii.member(jsii_name="unhealthyThreshold")
@@ -1804,9 +1804,9 @@ class HttpHealthCheckOptions:
         self,
         *,
         healthy_threshold: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) Properties used to define HTTP Based healthchecks.
@@ -1867,7 +1867,7 @@ class HttpHealthCheckOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The time interval, in seconds, between health checks.
 
         :default: Duration.seconds(5)
@@ -1875,7 +1875,7 @@ class HttpHealthCheckOptions:
         :stability: experimental
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -1889,7 +1889,7 @@ class HttpHealthCheckOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The time, in seconds, to wait for a health check response before deciding it failed.
 
         :default: Duration.seconds(2)
@@ -1897,7 +1897,7 @@ class HttpHealthCheckOptions:
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def unhealthy_threshold(self) -> typing.Optional[jsii.Number]:
@@ -2463,7 +2463,7 @@ class ImageRepository:
         *,
         image_identifier: builtins.str,
         image_repository_type: "ImageRepositoryType",
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Describes a source image repository.
 
@@ -2546,7 +2546,7 @@ class ImageRepository:
         return typing.cast("ImageRepositoryType", result)
 
     @builtins.property
-    def image_configuration(self) -> typing.Optional[ImageConfiguration]:
+    def image_configuration(self) -> typing.Optional["ImageConfiguration"]:
         '''(experimental) Configuration for running the identified image.
 
         :default: - no image configuration will be passed. The default ``port`` will be 8080.
@@ -2555,7 +2555,7 @@ class ImageRepository:
         :stability: experimental
         '''
         result = self._values.get("image_configuration")
-        return typing.cast(typing.Optional[ImageConfiguration], result)
+        return typing.cast(typing.Optional["ImageConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2769,7 +2769,7 @@ class ObservabilityConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         trace_configuration_vendor: "TraceConfigurationVendor",
@@ -2798,10 +2798,10 @@ class ObservabilityConfiguration(
     @builtins.classmethod
     def from_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         observability_configuration_arn: builtins.str,
-    ) -> IObservabilityConfiguration:
+    ) -> "IObservabilityConfiguration":
         '''(experimental) Imports an App Runner Observability Configuration from its ARN.
 
         :param scope: -
@@ -2815,18 +2815,18 @@ class ObservabilityConfiguration(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument observability_configuration_arn", value=observability_configuration_arn, expected_type=type_hints["observability_configuration_arn"])
-        return typing.cast(IObservabilityConfiguration, jsii.sinvoke(cls, "fromArn", [scope, id, observability_configuration_arn]))
+        return typing.cast("IObservabilityConfiguration", jsii.sinvoke(cls, "fromArn", [scope, id, observability_configuration_arn]))
 
     @jsii.member(jsii_name="fromObservabilityConfigurationAttributes")
     @builtins.classmethod
     def from_observability_configuration_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         observability_configuration_name: builtins.str,
         observability_configuration_revision: jsii.Number,
-    ) -> IObservabilityConfiguration:
+    ) -> "IObservabilityConfiguration":
         '''(experimental) Imports an App Runner Observability Configuration from attributes.
 
         :param scope: -
@@ -2845,7 +2845,7 @@ class ObservabilityConfiguration(
             observability_configuration_revision=observability_configuration_revision,
         )
 
-        return typing.cast(IObservabilityConfiguration, jsii.sinvoke(cls, "fromObservabilityConfigurationAttributes", [scope, id, attrs]))
+        return typing.cast("IObservabilityConfiguration", jsii.sinvoke(cls, "fromObservabilityConfigurationAttributes", [scope, id, attrs]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3263,7 +3263,7 @@ class Secret(
     @builtins.classmethod
     def from_secrets_manager(
         cls,
-        secret: _aws_cdk_aws_secretsmanager_ceddda9d.ISecret,
+        secret: "_aws_cdk_aws_secretsmanager_ceddda9d.ISecret",
         field: typing.Optional[builtins.str] = None,
     ) -> "Secret":
         '''(experimental) Creates a environment variable value from a secret stored in AWS Secrets Manager.
@@ -3283,7 +3283,7 @@ class Secret(
     @builtins.classmethod
     def from_secrets_manager_version(
         cls,
-        secret: _aws_cdk_aws_secretsmanager_ceddda9d.ISecret,
+        secret: "_aws_cdk_aws_secretsmanager_ceddda9d.ISecret",
         version_info: typing.Union["SecretVersionInfo", typing.Dict[builtins.str, typing.Any]],
         field: typing.Optional[builtins.str] = None,
     ) -> "Secret":
@@ -3306,7 +3306,7 @@ class Secret(
     @builtins.classmethod
     def from_ssm_parameter(
         cls,
-        parameter: _aws_cdk_aws_ssm_ceddda9d.IParameter,
+        parameter: "_aws_cdk_aws_ssm_ceddda9d.IParameter",
     ) -> "Secret":
         '''(experimental) Creates an environment variable value from a parameter stored in AWS Systems Manager Parameter Store.
 
@@ -3323,9 +3323,11 @@ class Secret(
     @abc.abstractmethod
     def grant_read(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grants reading the secret to a principal.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
 
@@ -3358,9 +3360,11 @@ class _SecretProxy(Secret):
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grants reading the secret to a principal.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
 
@@ -3369,7 +3373,7 @@ class _SecretProxy(Secret):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bd282bba973b7a15360293a7363341363c526b874ed3ef1f9c1b62187cd9f09)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="arn")
@@ -3520,23 +3524,23 @@ class Service(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         source: "Source",
-        access_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        access_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         auto_deployments_enabled: typing.Optional[builtins.bool] = None,
-        auto_scaling_configuration: typing.Optional[IAutoScalingConfiguration] = None,
-        cpu: typing.Optional[Cpu] = None,
-        health_check: typing.Optional[HealthCheck] = None,
-        instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        ip_address_type: typing.Optional[IpAddressType] = None,
+        auto_scaling_configuration: typing.Optional["IAutoScalingConfiguration"] = None,
+        cpu: typing.Optional["Cpu"] = None,
+        health_check: typing.Optional["HealthCheck"] = None,
+        instance_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        ip_address_type: typing.Optional["IpAddressType"] = None,
         is_publicly_accessible: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
-        memory: typing.Optional[Memory] = None,
-        observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+        memory: typing.Optional["Memory"] = None,
+        observability_configuration: typing.Optional["IObservabilityConfiguration"] = None,
         service_name: typing.Optional[builtins.str] = None,
-        vpc_connector: typing.Optional[IVpcConnector] = None,
+        vpc_connector: typing.Optional["IVpcConnector"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3585,14 +3589,14 @@ class Service(
     @builtins.classmethod
     def from_service_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         service_arn: builtins.str,
         service_name: builtins.str,
         service_status: builtins.str,
         service_url: builtins.str,
-    ) -> IService:
+    ) -> "IService":
         '''(experimental) Import from service attributes.
 
         :param scope: -
@@ -3615,16 +3619,16 @@ class Service(
             service_url=service_url,
         )
 
-        return typing.cast(IService, jsii.sinvoke(cls, "fromServiceAttributes", [scope, id, attrs]))
+        return typing.cast("IService", jsii.sinvoke(cls, "fromServiceAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="fromServiceName")
     @builtins.classmethod
     def from_service_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         service_name: builtins.str,
-    ) -> IService:
+    ) -> "IService":
         '''(experimental) Import from service name.
 
         :param scope: -
@@ -3638,7 +3642,7 @@ class Service(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
-        return typing.cast(IService, jsii.sinvoke(cls, "fromServiceName", [scope, id, service_name]))
+        return typing.cast("IService", jsii.sinvoke(cls, "fromServiceName", [scope, id, service_name]))
 
     @jsii.member(jsii_name="addEnvironmentVariable")
     def add_environment_variable(self, name: builtins.str, value: builtins.str) -> None:
@@ -3656,7 +3660,7 @@ class Service(
         return typing.cast(None, jsii.invoke(self, "addEnvironmentVariable", [name, value]))
 
     @jsii.member(jsii_name="addSecret")
-    def add_secret(self, name: builtins.str, secret: Secret) -> None:
+    def add_secret(self, name: builtins.str, secret: "Secret") -> None:
         '''(experimental) This method adds a secret as environment variable to the App Runner service.
 
         :param name: -
@@ -3673,7 +3677,7 @@ class Service(
     @jsii.member(jsii_name="addToRolePolicy")
     def add_to_role_policy(
         self,
-        statement: _aws_cdk_aws_iam_ceddda9d.PolicyStatement,
+        statement: "_aws_cdk_aws_iam_ceddda9d.PolicyStatement",
     ) -> None:
         '''(experimental) Adds a statement to the instance role.
 
@@ -3708,12 +3712,12 @@ class Service(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceArn")
@@ -3897,19 +3901,19 @@ class ServiceProps:
         self,
         *,
         source: "Source",
-        access_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        access_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         auto_deployments_enabled: typing.Optional[builtins.bool] = None,
-        auto_scaling_configuration: typing.Optional[IAutoScalingConfiguration] = None,
-        cpu: typing.Optional[Cpu] = None,
-        health_check: typing.Optional[HealthCheck] = None,
-        instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        ip_address_type: typing.Optional[IpAddressType] = None,
+        auto_scaling_configuration: typing.Optional["IAutoScalingConfiguration"] = None,
+        cpu: typing.Optional["Cpu"] = None,
+        health_check: typing.Optional["HealthCheck"] = None,
+        instance_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        ip_address_type: typing.Optional["IpAddressType"] = None,
         is_publicly_accessible: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
-        memory: typing.Optional[Memory] = None,
-        observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+        memory: typing.Optional["Memory"] = None,
+        observability_configuration: typing.Optional["IObservabilityConfiguration"] = None,
         service_name: typing.Optional[builtins.str] = None,
-        vpc_connector: typing.Optional[IVpcConnector] = None,
+        vpc_connector: typing.Optional["IVpcConnector"] = None,
     ) -> None:
         '''(experimental) Properties of the AppRunner Service.
 
@@ -4006,7 +4010,7 @@ class ServiceProps:
         return typing.cast("Source", result)
 
     @builtins.property
-    def access_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def access_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that grants the App Runner service access to a source repository.
 
         It's required for ECR image repositories (but not for ECR Public repositories).
@@ -4019,7 +4023,7 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("access_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def auto_deployments_enabled(self) -> typing.Optional[builtins.bool]:
@@ -4038,7 +4042,9 @@ class ServiceProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_scaling_configuration(self) -> typing.Optional[IAutoScalingConfiguration]:
+    def auto_scaling_configuration(
+        self,
+    ) -> typing.Optional["IAutoScalingConfiguration"]:
         '''(experimental) Specifies an App Runner Auto Scaling Configuration.
 
         A default configuration is either the AWS recommended configuration,
@@ -4050,10 +4056,10 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("auto_scaling_configuration")
-        return typing.cast(typing.Optional[IAutoScalingConfiguration], result)
+        return typing.cast(typing.Optional["IAutoScalingConfiguration"], result)
 
     @builtins.property
-    def cpu(self) -> typing.Optional[Cpu]:
+    def cpu(self) -> typing.Optional["Cpu"]:
         '''(experimental) The number of CPU units reserved for each instance of your App Runner service.
 
         :default: Cpu.ONE_VCPU
@@ -4061,10 +4067,10 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("cpu")
-        return typing.cast(typing.Optional[Cpu], result)
+        return typing.cast(typing.Optional["Cpu"], result)
 
     @builtins.property
-    def health_check(self) -> typing.Optional[HealthCheck]:
+    def health_check(self) -> typing.Optional["HealthCheck"]:
         '''(experimental) Settings for the health check that AWS App Runner performs to monitor the health of a service.
 
         You can specify it by static methods ``HealthCheck.http`` or ``HealthCheck.tcp``.
@@ -4074,10 +4080,10 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("health_check")
-        return typing.cast(typing.Optional[HealthCheck], result)
+        return typing.cast(typing.Optional["HealthCheck"], result)
 
     @builtins.property
-    def instance_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def instance_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that provides permissions to your App Runner service.
 
         These are permissions that your code needs when it calls any AWS APIs.
@@ -4090,10 +4096,10 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("instance_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
-    def ip_address_type(self) -> typing.Optional[IpAddressType]:
+    def ip_address_type(self) -> typing.Optional["IpAddressType"]:
         '''(experimental) The IP address type for your incoming public network configuration.
 
         :default: - IpAddressType.IPV4
@@ -4101,7 +4107,7 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional[IpAddressType], result)
+        return typing.cast(typing.Optional["IpAddressType"], result)
 
     @builtins.property
     def is_publicly_accessible(self) -> typing.Optional[builtins.bool]:
@@ -4117,7 +4123,9 @@ class ServiceProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The customer managed key that AWS App Runner uses to encrypt copies of the source repository and service logs.
 
         :default: - Use an AWS managed key
@@ -4125,10 +4133,10 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     @builtins.property
-    def memory(self) -> typing.Optional[Memory]:
+    def memory(self) -> typing.Optional["Memory"]:
         '''(experimental) The amount of memory reserved for each instance of your App Runner service.
 
         :default: Memory.TWO_GB
@@ -4136,12 +4144,12 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("memory")
-        return typing.cast(typing.Optional[Memory], result)
+        return typing.cast(typing.Optional["Memory"], result)
 
     @builtins.property
     def observability_configuration(
         self,
-    ) -> typing.Optional[IObservabilityConfiguration]:
+    ) -> typing.Optional["IObservabilityConfiguration"]:
         '''(experimental) Settings for an App Runner observability configuration.
 
         :default: - no observability configuration resource is associated with the service.
@@ -4149,7 +4157,7 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("observability_configuration")
-        return typing.cast(typing.Optional[IObservabilityConfiguration], result)
+        return typing.cast(typing.Optional["IObservabilityConfiguration"], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
@@ -4163,7 +4171,7 @@ class ServiceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc_connector(self) -> typing.Optional[IVpcConnector]:
+    def vpc_connector(self) -> typing.Optional["IVpcConnector"]:
         '''(experimental) Settings for an App Runner VPC connector to associate with the service.
 
         :default: - no VPC connector, uses the DEFAULT egress type instead
@@ -4171,7 +4179,7 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_connector")
-        return typing.cast(typing.Optional[IVpcConnector], result)
+        return typing.cast(typing.Optional["IVpcConnector"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4224,8 +4232,8 @@ class Source(
     def from_asset(
         cls,
         *,
-        asset: _aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset,
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset: "_aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset",
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "AssetSource":
         '''(experimental) Source from local assets.
 
@@ -4243,8 +4251,8 @@ class Source(
     def from_ecr(
         cls,
         *,
-        repository: _aws_cdk_aws_ecr_ceddda9d.IRepository,
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        repository: "_aws_cdk_aws_ecr_ceddda9d.IRepository",
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         tag: typing.Optional[builtins.str] = None,
         tag_or_digest: typing.Optional[builtins.str] = None,
     ) -> "EcrSource":
@@ -4272,7 +4280,7 @@ class Source(
         cls,
         *,
         image_identifier: builtins.str,
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "EcrPublicSource":
         '''(experimental) Source from the ECR Public repository.
 
@@ -4292,11 +4300,11 @@ class Source(
     def from_git_hub(
         cls,
         *,
-        configuration_source: ConfigurationSourceType,
-        connection: GitHubConnection,
+        configuration_source: "ConfigurationSourceType",
+        connection: "GitHubConnection",
         repository_url: builtins.str,
         branch: typing.Optional[builtins.str] = None,
-        code_configuration_values: typing.Optional[typing.Union[CodeConfigurationValues, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_configuration_values: typing.Optional[typing.Union["CodeConfigurationValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "GithubSource":
         '''(experimental) Source from the GitHub repository.
 
@@ -4320,7 +4328,7 @@ class Source(
 
     @jsii.member(jsii_name="bind")
     @abc.abstractmethod
-    def bind(self, scope: _constructs_77d1e7e8.Construct) -> "SourceConfig":
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "SourceConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param scope: -
@@ -4332,7 +4340,7 @@ class Source(
 
 class _SourceProxy(Source):
     @jsii.member(jsii_name="bind")
-    def bind(self, scope: _constructs_77d1e7e8.Construct) -> "SourceConfig":
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "SourceConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param scope: -
@@ -4429,9 +4437,9 @@ class SourceConfig:
     def __init__(
         self,
         *,
-        code_repository: typing.Optional[typing.Union[CodeRepositoryProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        ecr_repository: typing.Optional[_aws_cdk_aws_ecr_ceddda9d.IRepository] = None,
-        image_repository: typing.Optional[typing.Union[ImageRepository, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_repository: typing.Optional[typing.Union["CodeRepositoryProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        ecr_repository: typing.Optional["_aws_cdk_aws_ecr_ceddda9d.IRepository"] = None,
+        image_repository: typing.Optional[typing.Union["ImageRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Result of binding ``Source`` into a ``Service``.
 
@@ -4525,7 +4533,7 @@ class SourceConfig:
             self._values["image_repository"] = image_repository
 
     @builtins.property
-    def code_repository(self) -> typing.Optional[CodeRepositoryProps]:
+    def code_repository(self) -> typing.Optional["CodeRepositoryProps"]:
         '''(experimental) The code repository configuration (mutually exclusive  with ``imageRepository``).
 
         :default: - no code repository.
@@ -4533,10 +4541,12 @@ class SourceConfig:
         :stability: experimental
         '''
         result = self._values.get("code_repository")
-        return typing.cast(typing.Optional[CodeRepositoryProps], result)
+        return typing.cast(typing.Optional["CodeRepositoryProps"], result)
 
     @builtins.property
-    def ecr_repository(self) -> typing.Optional[_aws_cdk_aws_ecr_ceddda9d.IRepository]:
+    def ecr_repository(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ecr_ceddda9d.IRepository"]:
         '''(experimental) The ECR repository (required to grant the pull privileges for the iam role).
 
         :default: - no ECR repository.
@@ -4544,10 +4554,10 @@ class SourceConfig:
         :stability: experimental
         '''
         result = self._values.get("ecr_repository")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ecr_ceddda9d.IRepository], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecr_ceddda9d.IRepository"], result)
 
     @builtins.property
-    def image_repository(self) -> typing.Optional[ImageRepository]:
+    def image_repository(self) -> typing.Optional["ImageRepository"]:
         '''(experimental) The image repository configuration (mutually exclusive  with ``codeRepository``).
 
         :default: - no image repository.
@@ -4555,7 +4565,7 @@ class SourceConfig:
         :stability: experimental
         '''
         result = self._values.get("image_repository")
-        return typing.cast(typing.Optional[ImageRepository], result)
+        return typing.cast(typing.Optional["ImageRepository"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4584,8 +4594,8 @@ class TcpHealthCheckOptions:
         self,
         *,
         healthy_threshold: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) Properties used to define TCP Based healthchecks.
@@ -4640,7 +4650,7 @@ class TcpHealthCheckOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The time interval, in seconds, between health checks.
 
         :default: Duration.seconds(5)
@@ -4648,10 +4658,10 @@ class TcpHealthCheckOptions:
         :stability: experimental
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The time, in seconds, to wait for a health check response before deciding it failed.
 
         :default: Duration.seconds(2)
@@ -4659,7 +4669,7 @@ class TcpHealthCheckOptions:
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def unhealthy_threshold(self) -> typing.Optional[jsii.Number]:
@@ -4753,13 +4763,13 @@ class VpcConnector(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         vpc_connector_name: typing.Optional[builtins.str] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4788,14 +4798,14 @@ class VpcConnector(
     @builtins.classmethod
     def from_vpc_connector_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
+        security_groups: typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"],
         vpc_connector_arn: builtins.str,
         vpc_connector_name: builtins.str,
         vpc_connector_revision: jsii.Number,
-    ) -> IVpcConnector:
+    ) -> "IVpcConnector":
         '''(experimental) Import from VPC connector attributes.
 
         :param scope: -
@@ -4818,7 +4828,7 @@ class VpcConnector(
             vpc_connector_revision=vpc_connector_revision,
         )
 
-        return typing.cast(IVpcConnector, jsii.sinvoke(cls, "fromVpcConnectorAttributes", [scope, id, attrs]))
+        return typing.cast("IVpcConnector", jsii.sinvoke(cls, "fromVpcConnectorAttributes", [scope, id, attrs]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -4831,12 +4841,12 @@ class VpcConnector(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> _aws_cdk_aws_ec2_ceddda9d.Connections:
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
         '''(experimental) Allows specifying security group connections for the VPC connector.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.Connections, jsii.get(self, "connections"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcConnectorArn")
@@ -4883,7 +4893,7 @@ class VpcConnectorAttributes:
     def __init__(
         self,
         *,
-        security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
+        security_groups: typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"],
         vpc_connector_arn: builtins.str,
         vpc_connector_name: builtins.str,
         vpc_connector_revision: jsii.Number,
@@ -4928,14 +4938,16 @@ class VpcConnectorAttributes:
         }
 
     @builtins.property
-    def security_groups(self) -> typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]:
+    def security_groups(
+        self,
+    ) -> typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]:
         '''(experimental) The security groups associated with the VPC connector.
 
         :stability: experimental
         '''
         result = self._values.get("security_groups")
         assert result is not None, "Required property 'security_groups' is missing"
-        return typing.cast(typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup], result)
+        return typing.cast(typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"], result)
 
     @builtins.property
     def vpc_connector_arn(self) -> builtins.str:
@@ -4993,10 +5005,10 @@ class VpcConnectorProps:
     def __init__(
         self,
         *,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         vpc_connector_name: typing.Optional[builtins.str] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties of the AppRunner VPC Connector.
 
@@ -5050,19 +5062,19 @@ class VpcConnectorProps:
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The VPC for the VPC Connector.
 
         :stability: experimental
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) A list of IDs of security groups that App Runner should use for access to AWS resources under the specified subnets.
 
         :default: - a new security group will be created in the specified VPC
@@ -5070,7 +5082,7 @@ class VpcConnectorProps:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
     def vpc_connector_name(self) -> typing.Optional[builtins.str]:
@@ -5084,7 +5096,9 @@ class VpcConnectorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) Where to place the VPC Connector within the VPC.
 
         :default: - Private subnets.
@@ -5092,7 +5106,7 @@ class VpcConnectorProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5150,12 +5164,12 @@ class VpcIngressConnection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        interface_vpc_endpoint: _aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint,
-        service: IService,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+        interface_vpc_endpoint: "_aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint",
+        service: "IService",
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
         vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -5185,10 +5199,10 @@ class VpcIngressConnection(
     @builtins.classmethod
     def from_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         vpc_ingress_connection_arn: builtins.str,
-    ) -> IVpcIngressConnection:
+    ) -> "IVpcIngressConnection":
         '''(experimental) Imports an App Runner VPC Ingress Connection from its ARN.
 
         :param scope: -
@@ -5202,20 +5216,20 @@ class VpcIngressConnection(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument vpc_ingress_connection_arn", value=vpc_ingress_connection_arn, expected_type=type_hints["vpc_ingress_connection_arn"])
-        return typing.cast(IVpcIngressConnection, jsii.sinvoke(cls, "fromArn", [scope, id, vpc_ingress_connection_arn]))
+        return typing.cast("IVpcIngressConnection", jsii.sinvoke(cls, "fromArn", [scope, id, vpc_ingress_connection_arn]))
 
     @jsii.member(jsii_name="fromVpcIngressConnectionAttributes")
     @builtins.classmethod
     def from_vpc_ingress_connection_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         domain_name: builtins.str,
         status: builtins.str,
         vpc_ingress_connection_arn: builtins.str,
         vpc_ingress_connection_name: builtins.str,
-    ) -> IVpcIngressConnection:
+    ) -> "IVpcIngressConnection":
         '''(experimental) Import from VPC Ingress Connection from attributes.
 
         :param scope: -
@@ -5238,7 +5252,7 @@ class VpcIngressConnection(
             vpc_ingress_connection_name=vpc_ingress_connection_name,
         )
 
-        return typing.cast(IVpcIngressConnection, jsii.sinvoke(cls, "fromVpcIngressConnectionAttributes", [scope, id, attrs]))
+        return typing.cast("IVpcIngressConnection", jsii.sinvoke(cls, "fromVpcIngressConnectionAttributes", [scope, id, attrs]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5411,9 +5425,9 @@ class VpcIngressConnectionProps:
     def __init__(
         self,
         *,
-        interface_vpc_endpoint: _aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint,
-        service: IService,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+        interface_vpc_endpoint: "_aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint",
+        service: "IService",
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
         vpc_ingress_connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Properties of the AppRunner VPC Ingress Connection.
@@ -5470,34 +5484,36 @@ class VpcIngressConnectionProps:
             self._values["vpc_ingress_connection_name"] = vpc_ingress_connection_name
 
     @builtins.property
-    def interface_vpc_endpoint(self) -> _aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint:
+    def interface_vpc_endpoint(
+        self,
+    ) -> "_aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint":
         '''(experimental) The VPC Interface Endpoint for the VPC Ingress Connection.
 
         :stability: experimental
         '''
         result = self._values.get("interface_vpc_endpoint")
         assert result is not None, "Required property 'interface_vpc_endpoint' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IInterfaceVpcEndpoint", result)
 
     @builtins.property
-    def service(self) -> IService:
+    def service(self) -> "IService":
         '''(experimental) The service to connect.
 
         :stability: experimental
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
-        return typing.cast(IService, result)
+        return typing.cast("IService", result)
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The VPC for the VPC Ingress Connection.
 
         :stability: experimental
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def vpc_ingress_connection_name(self) -> typing.Optional[builtins.str]:
@@ -5565,8 +5581,8 @@ class AssetSource(
     def __init__(
         self,
         *,
-        asset: _aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset,
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset: "_aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAsset",
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param asset: (experimental) Represents the docker image asset.
@@ -5579,7 +5595,7 @@ class AssetSource(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _scope: _constructs_77d1e7e8.Construct) -> SourceConfig:
+    def bind(self, _scope: "_constructs_77d1e7e8.Construct") -> "SourceConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param _scope: -
@@ -5589,7 +5605,7 @@ class AssetSource(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__816e091a385df2e47be65a182df3765591f8f56e636bfd16e69e0cdbe27ca53a)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast(SourceConfig, jsii.invoke(self, "bind", [_scope]))
+        return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
 
 @jsii.implements(IAutoScalingConfiguration)
@@ -5624,7 +5640,7 @@ class AutoScalingConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         auto_scaling_configuration_name: typing.Optional[builtins.str] = None,
@@ -5659,10 +5675,10 @@ class AutoScalingConfiguration(
     @builtins.classmethod
     def from_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         auto_scaling_configuration_arn: builtins.str,
-    ) -> IAutoScalingConfiguration:
+    ) -> "IAutoScalingConfiguration":
         '''(experimental) Imports an App Runner Auto Scaling Configuration from its ARN.
 
         :param scope: -
@@ -5676,18 +5692,18 @@ class AutoScalingConfiguration(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument auto_scaling_configuration_arn", value=auto_scaling_configuration_arn, expected_type=type_hints["auto_scaling_configuration_arn"])
-        return typing.cast(IAutoScalingConfiguration, jsii.sinvoke(cls, "fromArn", [scope, id, auto_scaling_configuration_arn]))
+        return typing.cast("IAutoScalingConfiguration", jsii.sinvoke(cls, "fromArn", [scope, id, auto_scaling_configuration_arn]))
 
     @jsii.member(jsii_name="fromAutoScalingConfigurationAttributes")
     @builtins.classmethod
     def from_auto_scaling_configuration_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         auto_scaling_configuration_name: builtins.str,
         auto_scaling_configuration_revision: jsii.Number,
-    ) -> IAutoScalingConfiguration:
+    ) -> "IAutoScalingConfiguration":
         '''(experimental) Imports an App Runner Auto Scaling Configuration from attributes.
 
         :param scope: -
@@ -5706,7 +5722,7 @@ class AutoScalingConfiguration(
             auto_scaling_configuration_revision=auto_scaling_configuration_revision,
         )
 
-        return typing.cast(IAutoScalingConfiguration, jsii.sinvoke(cls, "fromAutoScalingConfigurationAttributes", [scope, id, attrs]))
+        return typing.cast("IAutoScalingConfiguration", jsii.sinvoke(cls, "fromAutoScalingConfigurationAttributes", [scope, id, attrs]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5790,7 +5806,7 @@ class EcrPublicSource(
         self,
         *,
         image_identifier: builtins.str,
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param image_identifier: (experimental) The ECR Public image URI.
@@ -5805,7 +5821,7 @@ class EcrPublicSource(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _scope: _constructs_77d1e7e8.Construct) -> SourceConfig:
+    def bind(self, _scope: "_constructs_77d1e7e8.Construct") -> "SourceConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param _scope: -
@@ -5815,7 +5831,7 @@ class EcrPublicSource(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e25ff2d831ac9b326ad13669ae9451f6d2db76f9975bc6afd9937cdff1c2e1c9)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast(SourceConfig, jsii.invoke(self, "bind", [_scope]))
+        return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
 
 class EcrSource(
@@ -5863,8 +5879,8 @@ class EcrSource(
     def __init__(
         self,
         *,
-        repository: _aws_cdk_aws_ecr_ceddda9d.IRepository,
-        image_configuration: typing.Optional[typing.Union[ImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        repository: "_aws_cdk_aws_ecr_ceddda9d.IRepository",
+        image_configuration: typing.Optional[typing.Union["ImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         tag: typing.Optional[builtins.str] = None,
         tag_or_digest: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5886,7 +5902,7 @@ class EcrSource(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _scope: _constructs_77d1e7e8.Construct) -> SourceConfig:
+    def bind(self, _scope: "_constructs_77d1e7e8.Construct") -> "SourceConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param _scope: -
@@ -5896,7 +5912,7 @@ class EcrSource(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fd17a6fe4667274b7ce2eab975f27b690350fdd5950e60470cc0c6574a115c1)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast(SourceConfig, jsii.invoke(self, "bind", [_scope]))
+        return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
 
 class GithubSource(
@@ -5949,11 +5965,11 @@ class GithubSource(
     def __init__(
         self,
         *,
-        configuration_source: ConfigurationSourceType,
-        connection: GitHubConnection,
+        configuration_source: "ConfigurationSourceType",
+        connection: "GitHubConnection",
         repository_url: builtins.str,
         branch: typing.Optional[builtins.str] = None,
-        code_configuration_values: typing.Optional[typing.Union[CodeConfigurationValues, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_configuration_values: typing.Optional[typing.Union["CodeConfigurationValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param configuration_source: (experimental) The source of the App Runner configuration.
@@ -5975,7 +5991,7 @@ class GithubSource(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _scope: _constructs_77d1e7e8.Construct) -> SourceConfig:
+    def bind(self, _scope: "_constructs_77d1e7e8.Construct") -> "SourceConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param _scope: -
@@ -5985,7 +6001,7 @@ class GithubSource(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8890dbdfbf2cbe4c8cbd67ceb346d6e7ced18852992bc4d4bbc40af88916d4b0)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        return typing.cast(SourceConfig, jsii.invoke(self, "bind", [_scope]))
+        return typing.cast("SourceConfig", jsii.invoke(self, "bind", [_scope]))
 
 
 __all__ = [
@@ -6282,7 +6298,7 @@ def _typecheckingstub__79d7d688c20ccfdaf4ead5ff12fa6ddcb24fd014e98a55a23b275e5f1
     instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     is_publicly_accessible: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     memory: typing.Optional[Memory] = None,
     observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
     service_name: typing.Optional[builtins.str] = None,
@@ -6352,7 +6368,7 @@ def _typecheckingstub__2bbb5d2c5a8f10a3d012f0035d55423352f4a7eff0eb19c057f0e1898
     instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     is_publicly_accessible: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     memory: typing.Optional[Memory] = None,
     observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
     service_name: typing.Optional[builtins.str] = None,
@@ -6543,3 +6559,6 @@ def _typecheckingstub__8890dbdfbf2cbe4c8cbd67ceb346d6e7ced18852992bc4d4bbc40af88
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAutoScalingConfiguration, IObservabilityConfiguration, IService, IVpcConnector, IVpcIngressConnection]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

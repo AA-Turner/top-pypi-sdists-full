@@ -2,38 +2,50 @@
 
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
-from typing import Optional, Union, get_args
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
-import numpy as np
 import pydantic.v1 as pd
 
-from tidy3d.components.base import Tidy3dBaseModel, cached_property
-from tidy3d.components.data.data_array import DataArray
-from tidy3d.components.data.sim_data import SimulationData
+from tidy3d.components.base import Tidy3dBaseModel, cached_property, skip_if_fields_missing
+from tidy3d.components.geometry.utils import _shift_value_signed
 from tidy3d.components.simulation import Simulation
-from tidy3d.components.types import FreqArray
+from tidy3d.components.source.time import SourceTimeType
+from tidy3d.components.types import Complex, FreqArray
+from tidy3d.components.validators import (
+    assert_unique_names,
+    validate_freqs_min,
+    validate_freqs_not_empty,
+    validate_freqs_unique,
+)
 from tidy3d.config import config
 from tidy3d.constants import HERTZ
 from tidy3d.exceptions import SetupError, Tidy3dKeyError
 from tidy3d.log import log
-from tidy3d.plugins.smatrix.ports.coaxial_lumped import CoaxialLumpedPort
 from tidy3d.plugins.smatrix.ports.modal import Port
-from tidy3d.plugins.smatrix.ports.rectangular_lumped import LumpedPort
+from tidy3d.plugins.smatrix.ports.types import LumpedPortType, PortType, TerminalPortType
 from tidy3d.plugins.smatrix.ports.wave import WavePort
-from tidy3d.web.api.container import Batch, BatchData
+from tidy3d.plugins.smatrix.types import Element, MatrixIndex, NetworkElement, NetworkIndex
+
+if TYPE_CHECKING:
+    from tidy3d.web.core.types import PayType
 
 # fwidth of gaussian pulse in units of central frequency
 FWIDTH_FRAC = 1.0 / 10
 DEFAULT_DATA_DIR = "."
 
-LumpedPortType = Union[LumpedPort, CoaxialLumpedPort]
-TerminalPortType = Union[LumpedPortType, WavePort]
+IndexType = Union[MatrixIndex, NetworkIndex]
+ElementType = Union[Element, NetworkElement]
+TaskNameFormat = Literal["RF", "PF"]
 
 
 class AbstractComponentModeler(ABC, Tidy3dBaseModel):
     """Tool for modeling devices and computing port parameters."""
+
+    name: str = pd.Field(
+        "",
+        title="Name",
+    )
 
     simulation: Simulation = pd.Field(
         ...,
@@ -66,52 +78,34 @@ class AbstractComponentModeler(ABC, Tidy3dBaseModel):
         "pulse spectrum which can have a nonzero DC component.",
     )
 
-    folder_name: str = pd.Field(
-        "default",
-        title="Folder Name",
-        description="Name of the folder for the tasks on web.",
-    )
-
-    verbose: bool = pd.Field(
-        False,
-        title="Verbosity",
-        description="Whether the :class:`.AbstractComponentModeler` should print status and progressbars.",
-    )
-
-    callback_url: str = pd.Field(
+    run_only: Optional[tuple[IndexType, ...]] = pd.Field(
         None,
-        title="Callback URL",
-        description="Http PUT url to receive simulation finish event. "
-        "The body content is a json file with fields "
-        "``{'id', 'status', 'name', 'workUnit', 'solverVersion'}``.",
+        title="Run Only",
+        description="Set of matrix indices that define the simulations to run. "
+        "If ``None``, simulations will be run for all indices in the scattering matrix. "
+        "If a tuple is given, simulations will be run only for the given matrix indices.",
     )
 
-    path_dir: str = pd.Field(
-        DEFAULT_DATA_DIR,
-        title="Directory Path",
-        description="Base directory where data and batch will be downloaded.",
+    element_mappings: tuple[tuple[ElementType, ElementType, Complex], ...] = pd.Field(
+        (),
+        title="Element Mappings",
+        description="Tuple of S matrix element mappings, each described by a tuple of "
+        "(input_element, output_element, coefficient), where the coefficient is the "
+        "element_mapping coefficient describing the relationship between the input and output "
+        "matrix element. If all elements of a given column of the scattering matrix are defined "
+        "by ``element_mappings``, the simulation corresponding to this column is skipped automatically.",
     )
-
-    solver_version: str = pd.Field(
+    custom_source_time: Optional[SourceTimeType] = pd.Field(
         None,
-        title="Solver Version",
-        description_str="Custom solver version to use. "
-        "If not supplied, uses default for the current front end version.",
-    )
-
-    batch_cached: Batch = pd.Field(
-        None,
-        title="Batch (Cached)",
-        description="Optional field to specify ``batch``. Only used as a workaround internally "
-        "so that ``batch`` is written when ``.to_file()`` and then the proper batch is loaded "
-        "from ``.from_file()``. We recommend leaving unset as setting this field along with "
-        "fields that were not used to create the task will cause errors.",
+        title="Custom Source Time",
+        description="If provided, this will be used as specification of the source time-dependence in simulations. "
+        "Otherwise, a default source time will be constructed.",
     )
 
     @pd.root_validator(pre=False)
-    def _warn_deprecation_2_10(cls, values):
+    def _warn_refactor_2_10(cls, values):
         log.warning(
-            "ℹ️ ⚠️ Backwards compatibility will be broken for all the ComponentModeler classes in tidy3d version 2.10. Migration documentation will be provided, and existing functionality can be accessed in a different way.",
+            f"'{cls.__name__}' was refactored (tidy3d 'v2.10.0'). Existing functionality is available differently. Please consult the migration documentation: https://docs.flexcompute.com/projects/tidy3d/en/latest/api/microwave/microwave_migration.html",
             log_once=True,
         )
         return values
@@ -120,116 +114,125 @@ class AbstractComponentModeler(ABC, Tidy3dBaseModel):
     def _sim_has_no_sources(cls, val):
         """Make sure simulation has no sources as they interfere with tool."""
         if len(val.sources) > 0:
-            raise SetupError("'AbstractComponentModeler.simulation' must not have any sources.")
+            raise SetupError(f"'{cls.__name__}.simulation' must not have any sources.")
         return val
 
-    @pd.validator("ports", always=True)
-    def _warn_rf_license(cls, val):
-        """Warn about new licensing requirements for RF ports."""
-        rf_port = False
-        TerminalPortTypeTuple = get_args(TerminalPortType)
-        for port in val:
-            if type(port) in TerminalPortTypeTuple:
-                rf_port = True
-                break
-        if rf_port:
+    @pd.validator("element_mappings", always=True)
+    def _validate_element_mappings(cls, element_mappings, values):
+        """
+        Validate that each source index referenced in element_mappings is included in run_only.
+        """
+        run_only = values.get("run_only")
+        if run_only is None:
+            return element_mappings
+
+        valid_set = set(run_only)
+        invalid_indices = set()
+        for mapping in element_mappings:
+            input_element = mapping[0]
+            output_element = mapping[1]
+            for source_index in [input_element[1], output_element[1]]:
+                if source_index not in valid_set:
+                    invalid_indices.add(source_index)
+        if invalid_indices:
+            raise SetupError(
+                f"'element_mappings' references source index(es) {invalid_indices} "
+                f"that are not present in run_only: {run_only}."
+            )
+        return element_mappings
+
+    @pd.validator("run_only", always=True)
+    @skip_if_fields_missing(["ports"])
+    def _validate_run_only(cls, val, values):
+        """Validate that run_only entries are unique and exist in matrix_indices_monitor."""
+        if val is None:
+            return val
+
+        # Check uniqueness
+        if len(val) != len(set(val)):
+            duplicates = [idx for idx in set(val) if val.count(idx) > 1]
+            raise SetupError(
+                f"'run_only' contains duplicate entries: {duplicates}. "
+                "Each index must appear only once."
+            )
+
+        # Check membership - use the helper method to get valid indices
+        ports = values["ports"]
+
+        valid_indices = set(cls._construct_matrix_indices_monitor(ports))
+        invalid_indices = [idx for idx in val if idx not in valid_indices]
+
+        if invalid_indices:
+            raise SetupError(
+                f"'run_only' contains indices {invalid_indices} that are not present in "
+                f"'matrix_indices_monitor'. Valid indices are: {sorted(valid_indices)}"
+            )
+
+        return val
+
+    _freqs_not_empty = validate_freqs_not_empty()
+    _freqs_lower_bound = validate_freqs_min()
+    _freqs_unique = validate_freqs_unique()
+
+    @pd.validator("custom_source_time", always=True)
+    @skip_if_fields_missing(["freqs"])
+    def _freqs_in_custom_source_time(cls, val, values):
+        """Make sure freqs is in the range of the custom source time."""
+        if val is None:
+            return val
+        freq_range = val._frequency_range_sigma_cached
+        freqs = values["freqs"]
+
+        if freq_range[0] > min(freqs) or max(freqs) > freq_range[1]:
             log.warning(
-                "ℹ️ ⚠️ RF simulations are subject to new license requirements in the future. You have instantiated at least one RF-specific component.",
-                log_once=True,
+                "Custom source time does not cover all 'freqs'.",
             )
         return val
 
     @staticmethod
-    def _task_name(port: Port, mode_index: Optional[int] = None) -> str:
-        """The name of a task, determined by the port of the source and mode index, if given."""
-        if mode_index is not None:
-            return f"smatrix_{port.name}_{mode_index}"
-        return f"smatrix_{port.name}"
+    def get_task_name(port: PortType, mode_index: Optional[int] = None) -> str:
+        """Generates a standardized task name from a port object.
 
-    @cached_property
-    def sim_dict(self) -> dict[str, Simulation]:
-        """Generate all the :class:`.Simulation` objects for the S matrix calculation."""
-
-    def to_file(self, fname: str) -> None:
-        """Exports :class:`AbstractComponentModeler` instance to .yaml, .json, or .hdf5 file
+        This method creates a unique string identifier for a simulation task based on
+        a port and, if applicable, a specified mode index.
 
         Parameters
         ----------
-        fname : str
-            Full path to the .yaml or .json file to save the :class:`AbstractComponentModeler` to.
+        port : PortType
+            The port object from which to derive the base name.
+        mode_index : Optional[int], optional
+            If provided, this index is appended
+            to the port name (e.g., 'port_1@1'). Defaults to `None`, in which case the first
+            mode is chosen by default.
 
-        Example
+        Returns
         -------
-        >>> modeler.to_file(fname='folder/sim.json') # doctest: +SKIP
+        str
+            The formatted task name string.
+
+        Raises
+        ------
+        ValueError
+            If `mode_index` is specified for a lumped port.
         """
 
-        batch_cached = self._cached_properties.get("batch")
-        if batch_cached is not None:
-            jobs_cached = batch_cached._cached_properties.get("jobs")
-            if jobs_cached is not None:
-                jobs = {}
-                for key, job in jobs_cached.items():
-                    task_id = job._cached_properties.get("task_id")
-                    jobs[key] = job.updated_copy(task_id_cached=task_id)
-                batch_cached = batch_cached.updated_copy(jobs_cached=jobs)
-            self = self.updated_copy(batch_cached=batch_cached)
-        super(AbstractComponentModeler, self).to_file(fname=fname)  # noqa: UP008
-
-    @cached_property
-    def batch(self) -> Batch:
-        """:class:`.Batch` associated with this component modeler."""
-
-        if self.batch_cached is not None:
-            return self.batch_cached
-
-        # first try loading the batch from file, if it exists
-        batch_path = self._batch_path
-
-        if os.path.exists(batch_path):
-            return Batch.from_file(fname=batch_path)
-
-        return Batch(
-            simulations=self.sim_dict,
-            folder_name=self.folder_name,
-            callback_url=self.callback_url,
-            verbose=self.verbose,
-            solver_version=self.solver_version,
-        )
-
-    @cached_property
-    def batch_path(self) -> str:
-        """Path to the batch saved to file."""
-        return self.batch._batch_path(path_dir=self.path_dir)
-
-    @cached_property
-    def batch_data(self) -> BatchData:
-        """The :class:`.BatchData` associated with the simulations run for this component modeler."""
-        return self.batch.run(path_dir=self.path_dir)
-
-    def get_path_dir(self, path_dir: str) -> None:
-        """Check whether the supplied 'path_dir' matches the internal field value."""
-
-        if path_dir != self.path_dir and path_dir != DEFAULT_DATA_DIR:
-            raise ValueError(
-                f"'path_dir' of '{path_dir}' passed, but 'ComponentModeler.path_dir' is "
-                f"{self.path_dir}. Moving forward, only the 'ComponentModeler.path_dir' will be "
-                "used internally, please update your scripts accordingly to avoid passing this "
-                "value to methods. "
-            )
-
-        return self.path_dir
-
-    @cached_property
-    def _batch_path(self) -> str:
-        """Where we store the batch for this :class:`AbstractComponentModeler` instance after the run."""
-        return os.path.join(self.path_dir, "batch" + str(hash(self)) + ".hdf5")
-
-    def _run_sims(self, path_dir: str = DEFAULT_DATA_DIR) -> BatchData:
-        """Run :class:`.Simulation` for each port and return the batch after saving."""
-        _ = self.get_path_dir(path_dir)
-        self.batch.to_file(self._batch_path)
-        batch_data = self.batch_data
-        return batch_data
+        if isinstance(port, LumpedPortType):
+            if mode_index is not None:
+                raise ValueError(
+                    "'mode_index' should not be specified for a lumped port, "
+                    f"but was passed with value '{mode_index}'."
+                )
+            return f"{port.name}"
+        elif isinstance(port, WavePort):
+            # WavePorts default to first mode index
+            if mode_index is not None:
+                return f"{port.name}@{mode_index}"
+            return f"{port.name}@{port._mode_indices[0]}"
+        else:
+            # Modal ports default to 0
+            if mode_index is not None:
+                return f"{port.name}@{mode_index}"
+            return f"{port.name}@0"
 
     def get_port_by_name(self, port_name: str) -> Port:
         """Get the port from the name."""
@@ -238,81 +241,119 @@ class AbstractComponentModeler(ABC, Tidy3dBaseModel):
             raise Tidy3dKeyError(f'Port "{port_name}" not found.')
         return ports[0]
 
-    @abstractmethod
-    def _construct_smatrix(self, batch_data: BatchData) -> DataArray:
-        """Post process :class:`.BatchData` to generate scattering matrix."""
-
-    @abstractmethod
-    def _internal_construct_smatrix(self, batch_data: BatchData) -> DataArray:
-        """Post process :class:`.BatchData` to generate scattering matrix, for internal use only."""
-
-    def run(self, path_dir: str = DEFAULT_DATA_DIR) -> DataArray:
-        """Solves for the scattering matrix of the system."""
-        _ = self.get_path_dir(path_dir)
-        return self._construct_smatrix()
-
-    def load(self, path_dir: str = DEFAULT_DATA_DIR) -> DataArray:
-        """Load a scattering matrix from saved :class:`.BatchData` object."""
-        return self.run(path_dir=path_dir)
-
     @staticmethod
-    def inv(matrix: DataArray):
-        """Helper to invert a port matrix."""
-        return np.linalg.inv(matrix)
+    @abstractmethod
+    def _construct_matrix_indices_monitor(ports: tuple) -> tuple[IndexType, ...]:
+        """Construct matrix indices for monitoring from ports.
+
+        This helper method is used by both the matrix_indices_monitor property
+        and the run_only validator to ensure consistency.
+
+        Parameters
+        ----------
+        ports : tuple
+            Tuple of port objects.
+
+        Returns
+        -------
+        tuple[IndexType, ...]
+            Tuple of matrix indices for monitoring.
+        """
+
+    @property
+    @abstractmethod
+    def matrix_indices_monitor(self) -> tuple[IndexType, ...]:
+        """Abstract property for all matrix indices that will be used to collect data."""
+
+    @cached_property
+    def matrix_indices_source(self) -> tuple[IndexType, ...]:
+        """Tuple of all the source matrix indices, which may be less than the total number of
+        ports."""
+        if self.run_only is not None:
+            return self.run_only
+        return self.matrix_indices_monitor
+
+    @cached_property
+    def matrix_indices_run_sim(self) -> tuple[IndexType, ...]:
+        """Tuple of all the matrix indices that will be used to run simulations."""
+
+        if not self.element_mappings:
+            return self.matrix_indices_source
+
+        # all the (i, j) pairs in `S_ij` that are tagged as covered by `element_mappings`
+        elements_determined_by_map = [element_out for (_, element_out, _) in self.element_mappings]
+
+        # loop through rows of the full s matrix and record rows that still need running.
+        source_indices_needed = []
+        for col_index in self.matrix_indices_source:
+            # loop through columns and keep track of whether each element is covered by mapping.
+            matrix_elements_covered = []
+            for row_index in self.matrix_indices_monitor:
+                element = (row_index, col_index)
+                element_covered_by_map = element in elements_determined_by_map
+                matrix_elements_covered.append(element_covered_by_map)
+
+            # if any matrix elements in row still not covered by map, a source is needed for row.
+            if not all(matrix_elements_covered):
+                source_indices_needed.append(col_index)
+
+        return source_indices_needed
 
     def _shift_value_signed(self, port: Union[Port, WavePort]) -> float:
         """How far (signed) to shift the source from the monitor."""
 
-        # get the grid boundaries and sizes along port normal from the simulation
-        normal_axis = port.size.index(0.0)
-        grid = self.simulation.grid
-        grid_boundaries = grid.boundaries.to_list[normal_axis]
-        grid_centers = grid.centers.to_list[normal_axis]
+        return _shift_value_signed(
+            obj=port,
+            grid=self.simulation.grid,
+            bounds=self.simulation.bounds,
+            direction=port.direction,
+            shift=-2,
+            name=f"Port {port.name}",
+        )
 
-        # get the index of the grid cell where the port lies
-        port_position = port.center[normal_axis]
-        port_pos_gt_grid_bounds = np.argwhere(port_position > grid_boundaries)
+    unique_port_names = assert_unique_names("ports")
 
-        # no port index can be determined
-        if len(port_pos_gt_grid_bounds) == 0:
-            raise SetupError(f"Port position '{port_position}' outside of simulation bounds.")
-        port_index = port_pos_gt_grid_bounds[-1]
+    def run(
+        self,
+        path_dir: str = DEFAULT_DATA_DIR,
+        *,
+        folder_name: str = "default",
+        callback_url: Optional[str] = None,
+        verbose: bool = True,
+        solver_version: Optional[str] = None,
+        pay_type: Union[PayType, str] = "AUTO",
+        priority: Optional[int] = None,
+        local_gradient: bool = False,
+        max_num_adjoint_per_fwd: Optional[int] = None,
+    ):
+        log.warning(
+            "'ComponentModeler.run()' is deprecated and will be removed in a future release. "
+            "Use web.run(modeler) instead. 'web.run' returns a 'ComponentModelerData' object; "
+            "get the scattering matrix via 'data.smatrix()'.",
+            log_once=True,
+        )
+        from tidy3d.plugins.smatrix.run import _run_local
 
-        # shift the port to the left
-        if port.direction == "+":
-            shifted_index = port_index - 2
-            if (
-                shifted_index < 0
-                or grid_centers[shifted_index] <= self.simulation.bounds[0][normal_axis]
-            ):
-                raise SetupError(
-                    f"Port {port.name} normal is less than 2 cells to the boundary "
-                    f"on -{'xyz'[normal_axis]} side. "
-                    "Please either increase the mesh resolution near the port or "
-                    "move the port away from the boundary."
-                )
+        if max_num_adjoint_per_fwd is None:
+            max_num_adjoint_per_fwd = config.adjoint.max_adjoint_per_fwd
 
-        # shift the port to the right
-        else:
-            shifted_index = port_index + 2
-            if (
-                shifted_index >= len(grid_centers)
-                or grid_centers[shifted_index] >= self.simulation.bounds[1][normal_axis]
-            ):
-                raise SetupError(
-                    f"Port {port.name} normal is tless than 2 cells to the boundary "
-                    f"on +{'xyz'[normal_axis]} side."
-                    "Please either increase the mesh resolution near the port or "
-                    "move the port away from the boundary."
-                )
+        data = _run_local(
+            self,
+            path_dir=path_dir,
+            folder_name=folder_name,
+            callback_url=callback_url,
+            verbose=verbose,
+            solver_version=solver_version,
+            pay_type=pay_type,
+            priority=priority,
+            local_gradient=local_gradient,
+            max_num_adjoint_per_fwd=max_num_adjoint_per_fwd,
+        )
+        return data.smatrix()
 
-        new_pos = grid_centers[shifted_index]
-        return new_pos - port_position
+    def validate_pre_upload(self):
+        """Validate the modeler before upload."""
+        self.base_sim.validate_pre_upload(source_required=False)
 
-    def sim_data_by_task_name(self, task_name: str) -> SimulationData:
-        """Get the simulation data by task name, avoids emitting warnings from the ``Simulation``."""
-        log_level_cache = config.logging_level
-        config.logging_level = "ERROR"
-        sim_data = self.batch_data[task_name]
-        config.logging_level = log_level_cache
-        return sim_data
+
+AbstractComponentModeler.update_forward_refs()

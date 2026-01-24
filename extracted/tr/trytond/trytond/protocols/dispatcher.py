@@ -7,8 +7,7 @@ import time
 
 from sql import Table
 
-from trytond import __series__, backend, security
-from trytond.config import config, get_hostname
+from trytond import __series__, backend, config, security
 from trytond.exceptions import (
     ConcurrencyException, LoginException, RateLimitException, UserError,
     UserWarning)
@@ -62,7 +61,10 @@ def login(request, database_name, user, parameters, language=None):
         code = HTTPStatus.TOO_MANY_REQUESTS
     if not session:
         abort(code)
-    return session
+    allow_subscribe = config.getboolean(
+        'bus', 'allow_subscribe', default=False)
+    bus_url_host = config.get('bus', 'url_host', default=request.host_url)
+    return (*session, bus_url_host if allow_subscribe else None)
 
 
 @app.auth_required
@@ -119,7 +121,7 @@ def db_list(request, *args):
     if not config.getboolean('database', 'list'):
         abort(HTTPStatus.FORBIDDEN)
     context = {'_request': request.context}
-    hostname = get_hostname(request.host)
+    hostname = config.get_hostname(request.host)
     with Transaction().start(
             None, 0, context=context, readonly=True, close=True,
             ) as transaction:

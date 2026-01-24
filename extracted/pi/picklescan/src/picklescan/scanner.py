@@ -99,6 +99,7 @@ _safe_globals = {
 
 _unsafe_globals = {
     "__builtin__": {
+        # Pickle versions 0, 1, 2 have those function under '__builtin__'
         "eval",
         "compile",
         "getattr",
@@ -106,8 +107,9 @@ _unsafe_globals = {
         "exec",
         "open",
         "breakpoint",
-    },  # Pickle versions 0, 1, 2 have those function under '__builtin__'
+    },
     "builtins": {
+        # Pickle versions 3, 4 have those function under 'builtins'
         "eval",
         "compile",
         "getattr",
@@ -115,17 +117,29 @@ _unsafe_globals = {
         "exec",
         "open",
         "breakpoint",
-    },  # Pickle versions 3, 4 have those function under 'builtins'
+    },
     "aiohttp": "*",
     "asyncio": "*",
     "bdb": "*",
     "commands": "*",  # Python 2 precursor to subprocess
+    "ctypes": "*",  # Foreign function interface, can load DLLs, call C functions, manipulate raw memory
     "functools": "partial",  # functools.partial(os.system, "echo pwned")
     "httplib": "*",  # Includes http.client.HTTPSConnection()
+    "_io": {"FileIO"},  # io.FileIO is stored as _io.FileIO, can read arbitrary files bypassing builtins.open blocklist
+    "numpy.f2py": "*",  # Multiple unsafe functions (e.g., getlincoef, _eval_length) that call eval on arbitrary strings
     "numpy.testing._private.utils": "*",  # runstring() in this module is a synonym for exec()
     "nt": "*",  # Alias for 'os' on Windows. Includes os.system()
     "posix": "*",  # Alias for 'os' on Linux. Includes os.system()
-    "operator": "attrgetter",  # Ex of code execution: operator.attrgetter("system")(__import__("os"))("echo pwned")
+    "_operator": {
+        "attrgetter",  # Ex of code execution: operator.attrgetter("system")(__import__("os"))("echo pwned")
+        "itemgetter",
+        "methodcaller",
+    },
+    "operator": {
+        "attrgetter",  # Ex of code execution: operator.attrgetter("system")(__import__("os"))("echo pwned")
+        "itemgetter",
+        "methodcaller",
+    },
     "os": "*",
     "requests.api": "*",
     "runpy": "*",  # Includes runpy._run_code
@@ -136,6 +150,7 @@ _unsafe_globals = {
     "sys": "*",
     "code": {"InteractiveInterpreter.runcode"},
     "cProfile": {"runctx", "run"},
+    "distutils.file_util": "*",  # arbitrary file write via distutils.file_util.write_file()
     "doctest": {"debug_script"},
     "ensurepip": {"_run_pip"},
     "idlelib.autocomplete": {"AutoComplete.get_entity", "AutoComplete.fetch_completions"},
@@ -149,8 +164,9 @@ _unsafe_globals = {
     "pickle": "*",
     "_pickle": "*",
     "pip": "*",
+    "pty": "*",  # pty.spawn() allows executing arbitrary commands
     "profile": {"Profile.run", "Profile.runctx"},
-    "pydoc": "pipepager",  # pydoc.pipepager('help','echo pwned')
+    "pydoc": "*",  # pydoc.locate can import arbitrary modules, pydoc.pipepager allows command execution
     "timeit": "*",
     "torch._dynamo.guards": {"GuardBuilder.get"},
     "torch._inductor.codecache": "compile_file",  # compile_file('', '', ['sh', '-c','$(echo pwned)'])
@@ -166,6 +182,7 @@ _unsafe_globals = {
         "basichandlers"
     },  # allows storing a pickle inside a pickle (if this has valid use cases, scan the input bytes instead of flagging the global)
     "trace": {"Trace.run", "Trace.runctx"},
+    "urllib.request": "*",  # urllib.request.urlopen can be used for SSRF and data exfiltration
     "venv": "*",
     "webbrowser": "*",  # Includes webbrowser.open()
 }
@@ -284,7 +301,27 @@ def _list_globals(data: IO[bytes], multiple_pickles=True) -> Set[Tuple[str, str]
                     ]:
                         continue
                     if ops[n - offset][0].name in ["GET", "BINGET", "LONG_BINGET"]:
-                        values.append(memo[int(ops[n - offset][1])])
+                        try:
+                            memo_key = int(ops[n - offset][1])
+                        except (ValueError, TypeError, IndexError) as e:
+                            _log.debug(f"Invalid memo key at position {n - offset}: (error: {e}), treating as unknown")
+                            values.append("unknown")
+                            continue
+
+                        if memo_key not in memo:
+                            _log.debug(
+                                f"Memo key {memo_key} not found at position {n - offset}, treating as unknown (potential evasion attempt)"
+                            )
+                            values.append("unknown")
+                        else:
+                            memo_value = memo[memo_key]
+                            # Normalize memo value to string to prevent type confusion
+                            if not isinstance(memo_value, str):
+                                _log.debug(
+                                    f"Memo value at position {n - offset} is not a string (type: {type(memo_value).__name__}), casting to string"
+                                )
+                                memo_value = str(memo_value)
+                            values.append(memo_value)
                     elif ops[n - offset][0].name not in [
                         "SHORT_BINUNICODE",
                         "UNICODE",
@@ -330,9 +367,14 @@ def _build_scan_result_from_raw_globals(
         safe_filter = _safe_globals.get(g.module)
         unsafe_filter = _unsafe_globals.get(g.module)
 
-        # If the module as a whole is marked as dangerous, submodules are also dangerous
-        if unsafe_filter is None and "." in g.module and _unsafe_globals.get(g.module.split(".")[0]) == "*":
-            unsafe_filter = "*"
+        # If any parent module is marked as dangerous with "*", submodules are also dangerous
+        if unsafe_filter is None and "." in g.module:
+            module_parts = g.module.split(".")
+            for i in range(1, len(module_parts)):
+                parent_module = ".".join(module_parts[:i])
+                if _unsafe_globals.get(parent_module) == "*":
+                    unsafe_filter = "*"
+                    break
 
         if "unknown" in g.module or "unknown" in g.name:
             g.safety = SafetyLevel.Dangerous

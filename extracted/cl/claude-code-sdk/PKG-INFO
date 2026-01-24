@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-code-sdk
-Version: 0.0.23
+Version: 0.0.25
 Summary: Python SDK for Claude Code
 Project-URL: Homepage, https://github.com/anthropics/claude-code-sdk-python
 Project-URL: Documentation, https://docs.anthropic.com/en/docs/claude-code/sdk
@@ -32,6 +32,8 @@ Requires-Dist: ruff>=0.1.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # Claude Code SDK for Python
+
+> **⚠️ DEPRECATED**: This package has been deprecated and is no longer maintained. Please migrate to the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python) (`claude-agent-sdk`).
 
 Python SDK for Claude Code. See the [Claude Code SDK documentation](https://docs.anthropic.com/en/docs/claude-code/sdk/sdk-python) for more information.
 

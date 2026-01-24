@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class VersionDetails(BaseModel):
@@ -29,15 +29,15 @@ class VersionDetails(BaseModel):
     Parameters
     __________
     name : str, optional
-        The last version name
+        The last version name — **Read-only:** *any user-provided value will be ignored.*
     alias : str, optional
-        The default/last version alias of a file based entity.
+        The default/last version alias of a file based entity — **Read-only:** *any user-provided value will be ignored.*
     location_url : str, optional
-        The default/last version location.
+        The default/last version location — **Read-only:** *any user-provided value will be ignored.*
     source_location_uri : str, optional
-        The default/last version source location.
+        The default/last version source location — **Read-only:** *any user-provided value will be ignored.*
     git_commit_hash : str, optional
-        The default/last version git commit#
+        The default/last version git commit# — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Optional[StrictStr] = None
@@ -52,9 +52,10 @@ class VersionDetails(BaseModel):
 
     __properties = ["name", "alias", "location_url", "source_location_uri", "git_commit_hash"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -87,7 +88,7 @@ class VersionDetails(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -102,9 +103,9 @@ class VersionDetails(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return VersionDetails.parse_obj(obj)
+            return VersionDetails.model_validate(obj)
 
-        _obj = VersionDetails.parse_obj(
+        _obj = VersionDetails.model_validate(
             {
                 "name": obj.get("name"),
                 "alias": obj.get("alias"),

@@ -1,0 +1,12 @@
+[project]
+name = "test2deps"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "logic2-automation==1.0rc9",
+]
+
+[tool.uv.sources]
+logic2-automation = { workspace = true }

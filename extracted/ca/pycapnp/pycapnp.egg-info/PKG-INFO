@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pycapnp
-Version: 2.2.0
+Version: 2.2.2
 Summary: A cython wrapping of the C++ Cap'n Proto library
 Home-page: https://github.com/capnproto/pycapnp
-Download-URL: https://github.com/haata/pycapnp/archive/v2.2.0.zip
+Download-URL: https://github.com/haata/pycapnp/archive/v2.2.2.zip
 Author: Jacob Alexander
 Author-email: haata@kiibohd.com
 License: BSD-2-Clause
@@ -259,6 +259,14 @@ if __name__ == '__main__':
 
 Changelog
 =============
+## v2.2.2 (2026-01-16)
+- Revert Data fields to bytes and add get_data_as_view for zero-copy access (#390)
+- Fix use-after-free in async write causing corruption with large payloads (#392)
+- Update macOS builds from 13 to 15 (#393)
+
+## v2.2.1 (2025-10-21)
+- Make `message.to_dict()` return bytes for DATA type field (#386)
+
 ## v2.2.0 (2025-09-12)
 - Add binary support in dictionaries via base64 encoding (#351)
 - Add structure-free read_multiple_bytes_packed (#378)

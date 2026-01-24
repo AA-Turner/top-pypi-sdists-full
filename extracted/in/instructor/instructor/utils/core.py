@@ -8,15 +8,15 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-import os
-import re
 from collections.abc import AsyncGenerator, Generator, Iterable
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Generic,
+    Union,
     TypeVar,
+    cast,
     get_args,
     get_origin,
 )
@@ -27,7 +27,7 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ChatCompletionMessageParam,
 )
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ValidationError, create_model
 
 # Avoid circular import - these will be imported where needed
 
@@ -39,16 +39,14 @@ R_co = TypeVar("R_co", covariant=True)
 T_Model = TypeVar("T_Model", bound=BaseModel)
 T = TypeVar("T")
 
-# Regex patterns for JSON extraction
-_JSON_CODEBLOCK_PATTERN = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
-_JSON_PATTERN = re.compile(r"({\s*[\s\S]*})")
-
 
 def extract_json_from_codeblock(content: str) -> str:
     """
-    Extract JSON from a string that may contain markdown code blocks or plain JSON.
+    Extract JSON from a string that may contain extra text.
 
-    This optimized version uses regex patterns to extract JSON more efficiently.
+    The function looks for the first '{' and the last '}' in the string and
+    returns the content between them, inclusive. If no braces are found,
+    the original string is returned.
 
     Args:
         content: The string that may contain JSON
@@ -56,23 +54,13 @@ def extract_json_from_codeblock(content: str) -> str:
     Returns:
         The extracted JSON string
     """
-    # First try to find JSON in code blocks
-    match = _JSON_CODEBLOCK_PATTERN.search(content)
-    if match:
-        json_content = match.group(1).strip()
+
+    first_brace = content.find("{")
+    last_brace = content.rfind("}")
+    if first_brace != -1 and last_brace != -1:
+        json_content = content[first_brace : last_brace + 1]
     else:
-        # Look for JSON objects with the pattern { ... }
-        match = _JSON_PATTERN.search(content)
-        if match:
-            json_content = match.group(1)
-        else:
-            # Fallback to the old method if regex doesn't find anything
-            first_paren = content.find("{")
-            last_paren = content.rfind("}")
-            if first_paren != -1 and last_paren != -1:
-                json_content = content[first_paren : last_paren + 1]
-            else:
-                json_content = content  # Return as is if no JSON-like content found
+        json_content = content  # Return as is if no JSON-like content found
 
     return json_content
 
@@ -359,7 +347,7 @@ def update_total_usage(
         ):
             tpd.audio_tokens = (tpd.audio_tokens or 0) + (rpd.audio_tokens or 0)
             tpd.cached_tokens = (tpd.cached_tokens or 0) + (rpd.cached_tokens or 0)
-        response.usage = total_usage  # Replace each response usage with the total usage
+        response.usage = total_usage  # type: ignore  # Replace each response usage with the total usage
         return response
 
     # Anthropic usage.
@@ -383,7 +371,7 @@ def update_total_usage(
             total_usage.cache_read_input_tokens += (
                 response_usage.cache_read_input_tokens or 0
             )
-            response.usage = total_usage
+            response.usage = total_usage  # type: ignore
             return response
     except ImportError:
         pass
@@ -543,7 +531,34 @@ def get_message_content(message: ChatCompletionMessageParam) -> list[Any]:
 
 
 def disable_pydantic_error_url():
-    os.environ["PYDANTIC_ERRORS_INCLUDE_URL"] = "0"
+    """Disable URLs in Pydantic ValidationError messages.
+
+    This function monkey-patches Pydantic's ValidationError.__str__ method
+    to prevent URLs from being included in error messages. This is necessary
+    because Pydantic reads the PYDANTIC_ERRORS_INCLUDE_URL environment variable
+    at import time, not at validation time, so setting it later has no effect.
+
+    The function works by storing the original __str__ method and replacing it
+    with a version that filters out URLs from the error message.
+    """
+    # Store the original __str__ method if not already stored
+    if not hasattr(ValidationError, "_original_str"):
+        ValidationError._original_str = ValidationError.__str__  # type: ignore
+
+    # Create a new __str__ method that excludes URLs
+    def __str__(self):  # type: ignore
+        output = ValidationError._original_str(self)  # type: ignore
+        # Remove error_url from the error details to prevent URL inclusion
+        # This removes the (error_code=..., input=..., ctx={...}) parts that include URLs
+        lines = []
+        for line in output.split("\n"):
+            # Skip lines that contain URLs or error documentation links
+            if "https://errors.pydantic.dev" not in line:
+                lines.append(line)
+        return "\n".join(lines)
+
+    # Replace the __str__ method
+    ValidationError.__str__ = __str__  # type: ignore
 
 
 def is_typed_dict(cls) -> bool:
@@ -581,27 +596,74 @@ def prepare_response_model(response_model: type[T] | None) -> type[T] | None:
     if response_model is None:
         return None
 
+    # `list[int | str]` and similar scalar lists are treated as simple types and should
+    # be adapted, not converted into an IterableModel.
+    origin = get_origin(response_model)
+    if origin is list and is_simple_type(response_model):
+        args = get_args(response_model)
+
+        def _is_model_type(t: Any) -> bool:
+            if inspect.isclass(t) and issubclass(t, BaseModel):
+                return True
+            return get_origin(t) is Union and all(
+                inspect.isclass(m) and issubclass(m, BaseModel) for m in get_args(t)
+            )
+
+        # If the list element is a Pydantic model (or union of models), this is a
+        # structured "iterable extraction" response model, not a simple scalar list.
+        if args and _is_model_type(args[0]):
+            origin = None
+        else:
+            from instructor.dsl.simple_type import ModelAdapter
+
+            response_model = ModelAdapter[response_model]  # type: ignore[invalid-type-form]
+            origin = get_origin(response_model)
+
+    if is_typed_dict(response_model):
+        response_model = cast(
+            type[BaseModel],
+            create_model(
+                response_model.__name__,
+                **{k: (v, ...) for k, v in response_model.__annotations__.items()},
+            ),
+        )
+
+    # Recompute after potential wrapping/conversion above.
+    origin = get_origin(response_model)
+    if origin in {Iterable, list}:
+        from instructor.dsl.iterable import IterableModel
+
+        args = get_args(response_model)
+        if not args or args[0] is None:
+            raise ValueError(
+                "response_model must be parameterized, e.g. list[User] or Iterable[User]"
+            )
+        iterable_element_class = args[0]
+        if is_typed_dict(iterable_element_class):
+            iterable_element_class = cast(
+                type[BaseModel],
+                create_model(
+                    iterable_element_class.__name__,
+                    **{
+                        k: (v, ...)
+                        for k, v in iterable_element_class.__annotations__.items()
+                    },
+                ),
+            )
+        response_model = IterableModel(cast(type[BaseModel], iterable_element_class))
+
     if is_simple_type(response_model):
         from instructor.dsl.simple_type import ModelAdapter
 
-        response_model = ModelAdapter[response_model]
-
-    if is_typed_dict(response_model):
-        response_model: BaseModel = create_model(
-            response_model.__name__,
-            **{k: (v, ...) for k, v in response_model.__annotations__.items()},
-        )
-
-    if get_origin(response_model) is Iterable:
-        from instructor.dsl.iterable import IterableModel
-
-        iterable_element_class = get_args(response_model)[0]
-        response_model = IterableModel(iterable_element_class)
+        response_model = ModelAdapter[response_model]  # type: ignore[invalid-type-form]
 
     # Import here to avoid circular dependency
     from ..processing.function_calls import OpenAISchema, openai_schema
 
-    if not issubclass(response_model, OpenAISchema):
+    # response_model is guaranteed to be a type at this point due to earlier checks
+    if inspect.isclass(response_model) and not issubclass(response_model, OpenAISchema):
+        response_model = openai_schema(response_model)  # type: ignore
+    elif not inspect.isclass(response_model):
         response_model = openai_schema(response_model)  # type: ignore
 
     return response_model

@@ -2,8 +2,9 @@ import numpy as np
 
 from pymoo.core.problem import Problem
 from pymoo.problems.many import generic_sphere, get_ref_dirs
-from pymoo.util.function_loader import load_function
+from pymoo.functions import load_function
 from pymoo.util.misc import powerset
+from pymoo.util import default_random_state
 
 
 class WFG(Problem):
@@ -54,8 +55,9 @@ class WFG(Problem):
     def _calculate(self, x, s, h):
         return x[:, -1][:, None] + s * np.column_stack(h)
 
-    def _rand_optimal_position(self, n):
-        return np.random.random((n, self.k))
+    @default_random_state
+    def _rand_optimal_position(self, n, random_state=None):
+        return random_state.random((n, self.k))
 
     def _positional_to_optimal(self, K):
         suffix = np.full((len(K), self.l), 0.35)
@@ -74,7 +76,7 @@ class WFG(Problem):
     def _calc_pareto_set(self, n_points=500, *args, **kwargs):
         extremes = self._calc_pareto_set_extremes()
         interior = self._calc_pareto_set_interior(n_points - len(extremes))
-        return np.row_stack([extremes, interior])
+        return np.vstack([extremes, interior])
 
     def _calc_pareto_front(self, ref_dirs=None, n_iterations=200, points_each_iteration=200, *args, **kwargs):
         pf = self.evaluate(self._calc_pareto_set_extremes(), return_values_of=["F"])
@@ -84,7 +86,7 @@ class WFG(Problem):
 
         for k in range(n_iterations):
             _pf = self.evaluate(self._calc_pareto_set_interior(points_each_iteration), return_values_of=["F"])
-            pf = np.row_stack([pf, _pf])
+            pf = np.vstack([pf, _pf])
 
             ideal, nadir = pf.min(axis=0), pf.max(axis=0)
 
@@ -141,8 +143,9 @@ class WFG1(WFG):
 
         out["F"] = self._calculate(y, self.S, h)
 
-    def _rand_optimal_position(self, n):
-        return np.power(np.random.random((n, self.k)), 50.0)
+    @default_random_state
+    def _rand_optimal_position(self, n, random_state=None):
+        return np.power(random_state.random((n, self.k)), 50.0)
 
 
 class WFG2(WFG):

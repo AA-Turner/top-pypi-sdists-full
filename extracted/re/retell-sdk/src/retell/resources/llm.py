@@ -48,38 +48,41 @@ class LlmResource(SyncAPIResource):
     def create(
         self,
         *,
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_message: Optional[str] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         general_prompt: Optional[str] | Omit = omit,
         general_tools: Optional[Iterable[llm_create_params.GeneralTool]] | Omit = omit,
         kb_config: Optional[llm_create_params.KBConfig] | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        mcps: Optional[Iterable[llm_create_params.Mcp]] | Omit = omit,
         model: Optional[
             Literal[
-                "gpt-5",
-                "gpt-5-mini",
-                "gpt-5-nano",
-                "gpt-4o",
-                "gpt-4o-mini",
                 "gpt-4.1",
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
-                "claude-3.7-sonnet",
-                "claude-3.5-haiku",
-                "gemini-2.0-flash",
-                "gemini-2.0-flash-lite",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
                 "gemini-2.5-flash",
                 "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
             ]
         ]
         | Omit = omit,
-        model_high_priority: bool | Omit = omit,
+        model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
+        start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_create_params.State]] | Omit = omit,
-        tool_call_strict_mode: bool | Omit = omit,
-        version: Optional[float] | Omit = omit,
+        tool_call_strict_mode: Optional[bool] | Omit = omit,
+        version: Optional[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -93,6 +96,11 @@ class LlmResource(SyncAPIResource):
         is used to generate response output for the agent.
 
         Args:
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
+
           begin_message: First utterance said by the agent in the call. If not set, LLM will dynamically
               generate a message. If set to "", agent will wait for user to speak first.
 
@@ -103,27 +111,26 @@ class LlmResource(SyncAPIResource):
           general_prompt: General prompt appended to system prompt no matter what state the agent is in.
 
               - System prompt (with state) = general prompt + state prompt.
-
               - System prompt (no state) = general prompt.
 
           general_tools: A list of tools the model may call (to get external knowledge, call API, etc).
               You can select from some common predefined tools like end call, transfer call,
-              etc; or you can create your own custom tool (last option) for the LLM to use.
+              etc; or you can create your own custom tool for the LLM to use.
 
               - Tools of LLM (with state) = general tools + state tools + state transitions
-
               - Tools of LLM (no state) = general tools
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
-          knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
-              knowledge bases.
+          knowledge_base_ids: A list of knowledge base ids to use for this resource.
+
+          mcps: A list of MCPs to use for this LLM.
 
           model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
-          model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
-              dedicated resource to ensure lower and more consistent latency, default to
-              false. This feature usually comes with a higher cost.
+          model_high_priority: If set to true, will use high priority pool with more dedicated resource to
+              ensure lower and more consistent latency, default to false. This feature usually
+              comes with a higher cost.
 
           model_temperature: If set, will control the randomness of the response. Value ranging from [0,1].
               Lower value means more deterministic, while higher value means more random. If
@@ -133,6 +140,9 @@ class LlmResource(SyncAPIResource):
           s2s_model: Select the underlying speech to speech model. Can only set this or model, not
               both.
 
+          start_speaker: The speaker who starts the conversation. Required. Must be either 'user' or
+              'agent'.
+
           starting_state: Name of the starting state. Required if states is not empty.
 
           states: States of the LLM. This is to help reduce prompt length and tool choices when
@@ -141,12 +151,10 @@ class LlmResource(SyncAPIResource):
               If this field is not set, the agent would only have general prompt and general
               tools (essentially one state).
 
-          tool_call_strict_mode: Only applicable when model is gpt-4o or gpt-4o mini. If set to true, will use
-              structured output to make sure tool call arguments follow the json schema. The
-              time to save a new tool or change to a tool will be longer as additional
-              processing is needed. Default to false.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
-          version: Version of the Retell LLM.
+          version: The version of the LLM.
 
           extra_headers: Send extra headers
 
@@ -160,16 +168,19 @@ class LlmResource(SyncAPIResource):
             "/create-retell-llm",
             body=maybe_transform(
                 {
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_message": begin_message,
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
+                    "mcps": mcps,
                     "model": model,
                     "model_high_priority": model_high_priority,
                     "model_temperature": model_temperature,
                     "s2s_model": s2s_model,
+                    "start_speaker": start_speaker,
                     "starting_state": starting_state,
                     "states": states,
                     "tool_call_strict_mode": tool_call_strict_mode,
@@ -228,38 +239,41 @@ class LlmResource(SyncAPIResource):
         llm_id: str,
         *,
         query_version: int | Omit = omit,
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_message: Optional[str] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         general_prompt: Optional[str] | Omit = omit,
         general_tools: Optional[Iterable[llm_update_params.GeneralTool]] | Omit = omit,
         kb_config: Optional[llm_update_params.KBConfig] | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        mcps: Optional[Iterable[llm_update_params.Mcp]] | Omit = omit,
         model: Optional[
             Literal[
-                "gpt-5",
-                "gpt-5-mini",
-                "gpt-5-nano",
-                "gpt-4o",
-                "gpt-4o-mini",
                 "gpt-4.1",
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
-                "claude-3.7-sonnet",
-                "claude-3.5-haiku",
-                "gemini-2.0-flash",
-                "gemini-2.0-flash-lite",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
                 "gemini-2.5-flash",
                 "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
             ]
         ]
         | Omit = omit,
-        model_high_priority: bool | Omit = omit,
+        model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
+        start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_update_params.State]] | Omit = omit,
-        tool_call_strict_mode: bool | Omit = omit,
-        body_version: Optional[float] | Omit = omit,
+        tool_call_strict_mode: Optional[bool] | Omit = omit,
+        body_version: Optional[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -273,6 +287,11 @@ class LlmResource(SyncAPIResource):
         Args:
           query_version: Optional version of the API to use for this request. Default to latest version.
 
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
+
           begin_message: First utterance said by the agent in the call. If not set, LLM will dynamically
               generate a message. If set to "", agent will wait for user to speak first.
 
@@ -283,27 +302,26 @@ class LlmResource(SyncAPIResource):
           general_prompt: General prompt appended to system prompt no matter what state the agent is in.
 
               - System prompt (with state) = general prompt + state prompt.
-
               - System prompt (no state) = general prompt.
 
           general_tools: A list of tools the model may call (to get external knowledge, call API, etc).
               You can select from some common predefined tools like end call, transfer call,
-              etc; or you can create your own custom tool (last option) for the LLM to use.
+              etc; or you can create your own custom tool for the LLM to use.
 
               - Tools of LLM (with state) = general tools + state tools + state transitions
-
               - Tools of LLM (no state) = general tools
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
-          knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
-              knowledge bases.
+          knowledge_base_ids: A list of knowledge base ids to use for this resource.
+
+          mcps: A list of MCPs to use for this LLM.
 
           model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
-          model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
-              dedicated resource to ensure lower and more consistent latency, default to
-              false. This feature usually comes with a higher cost.
+          model_high_priority: If set to true, will use high priority pool with more dedicated resource to
+              ensure lower and more consistent latency, default to false. This feature usually
+              comes with a higher cost.
 
           model_temperature: If set, will control the randomness of the response. Value ranging from [0,1].
               Lower value means more deterministic, while higher value means more random. If
@@ -313,6 +331,9 @@ class LlmResource(SyncAPIResource):
           s2s_model: Select the underlying speech to speech model. Can only set this or model, not
               both.
 
+          start_speaker: The speaker who starts the conversation. Required. Must be either 'user' or
+              'agent'.
+
           starting_state: Name of the starting state. Required if states is not empty.
 
           states: States of the LLM. This is to help reduce prompt length and tool choices when
@@ -321,12 +342,10 @@ class LlmResource(SyncAPIResource):
               If this field is not set, the agent would only have general prompt and general
               tools (essentially one state).
 
-          tool_call_strict_mode: Only applicable when model is gpt-4o or gpt-4o mini. If set to true, will use
-              structured output to make sure tool call arguments follow the json schema. The
-              time to save a new tool or change to a tool will be longer as additional
-              processing is needed. Default to false.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
-          body_version: Version of the Retell LLM.
+          body_version: The version of the LLM.
 
           extra_headers: Send extra headers
 
@@ -342,16 +361,19 @@ class LlmResource(SyncAPIResource):
             f"/update-retell-llm/{llm_id}",
             body=maybe_transform(
                 {
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_message": begin_message,
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
+                    "mcps": mcps,
                     "model": model,
                     "model_high_priority": model_high_priority,
                     "model_temperature": model_temperature,
                     "s2s_model": s2s_model,
+                    "start_speaker": start_speaker,
                     "starting_state": starting_state,
                     "states": states,
                     "tool_call_strict_mode": tool_call_strict_mode,
@@ -482,38 +504,41 @@ class AsyncLlmResource(AsyncAPIResource):
     async def create(
         self,
         *,
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_message: Optional[str] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         general_prompt: Optional[str] | Omit = omit,
         general_tools: Optional[Iterable[llm_create_params.GeneralTool]] | Omit = omit,
         kb_config: Optional[llm_create_params.KBConfig] | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        mcps: Optional[Iterable[llm_create_params.Mcp]] | Omit = omit,
         model: Optional[
             Literal[
-                "gpt-5",
-                "gpt-5-mini",
-                "gpt-5-nano",
-                "gpt-4o",
-                "gpt-4o-mini",
                 "gpt-4.1",
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
-                "claude-3.7-sonnet",
-                "claude-3.5-haiku",
-                "gemini-2.0-flash",
-                "gemini-2.0-flash-lite",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
                 "gemini-2.5-flash",
                 "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
             ]
         ]
         | Omit = omit,
-        model_high_priority: bool | Omit = omit,
+        model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
+        start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_create_params.State]] | Omit = omit,
-        tool_call_strict_mode: bool | Omit = omit,
-        version: Optional[float] | Omit = omit,
+        tool_call_strict_mode: Optional[bool] | Omit = omit,
+        version: Optional[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -527,6 +552,11 @@ class AsyncLlmResource(AsyncAPIResource):
         is used to generate response output for the agent.
 
         Args:
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
+
           begin_message: First utterance said by the agent in the call. If not set, LLM will dynamically
               generate a message. If set to "", agent will wait for user to speak first.
 
@@ -537,27 +567,26 @@ class AsyncLlmResource(AsyncAPIResource):
           general_prompt: General prompt appended to system prompt no matter what state the agent is in.
 
               - System prompt (with state) = general prompt + state prompt.
-
               - System prompt (no state) = general prompt.
 
           general_tools: A list of tools the model may call (to get external knowledge, call API, etc).
               You can select from some common predefined tools like end call, transfer call,
-              etc; or you can create your own custom tool (last option) for the LLM to use.
+              etc; or you can create your own custom tool for the LLM to use.
 
               - Tools of LLM (with state) = general tools + state tools + state transitions
-
               - Tools of LLM (no state) = general tools
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
-          knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
-              knowledge bases.
+          knowledge_base_ids: A list of knowledge base ids to use for this resource.
+
+          mcps: A list of MCPs to use for this LLM.
 
           model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
-          model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
-              dedicated resource to ensure lower and more consistent latency, default to
-              false. This feature usually comes with a higher cost.
+          model_high_priority: If set to true, will use high priority pool with more dedicated resource to
+              ensure lower and more consistent latency, default to false. This feature usually
+              comes with a higher cost.
 
           model_temperature: If set, will control the randomness of the response. Value ranging from [0,1].
               Lower value means more deterministic, while higher value means more random. If
@@ -567,6 +596,9 @@ class AsyncLlmResource(AsyncAPIResource):
           s2s_model: Select the underlying speech to speech model. Can only set this or model, not
               both.
 
+          start_speaker: The speaker who starts the conversation. Required. Must be either 'user' or
+              'agent'.
+
           starting_state: Name of the starting state. Required if states is not empty.
 
           states: States of the LLM. This is to help reduce prompt length and tool choices when
@@ -575,12 +607,10 @@ class AsyncLlmResource(AsyncAPIResource):
               If this field is not set, the agent would only have general prompt and general
               tools (essentially one state).
 
-          tool_call_strict_mode: Only applicable when model is gpt-4o or gpt-4o mini. If set to true, will use
-              structured output to make sure tool call arguments follow the json schema. The
-              time to save a new tool or change to a tool will be longer as additional
-              processing is needed. Default to false.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
-          version: Version of the Retell LLM.
+          version: The version of the LLM.
 
           extra_headers: Send extra headers
 
@@ -594,16 +624,19 @@ class AsyncLlmResource(AsyncAPIResource):
             "/create-retell-llm",
             body=await async_maybe_transform(
                 {
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_message": begin_message,
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
+                    "mcps": mcps,
                     "model": model,
                     "model_high_priority": model_high_priority,
                     "model_temperature": model_temperature,
                     "s2s_model": s2s_model,
+                    "start_speaker": start_speaker,
                     "starting_state": starting_state,
                     "states": states,
                     "tool_call_strict_mode": tool_call_strict_mode,
@@ -662,38 +695,41 @@ class AsyncLlmResource(AsyncAPIResource):
         llm_id: str,
         *,
         query_version: int | Omit = omit,
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_message: Optional[str] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         general_prompt: Optional[str] | Omit = omit,
         general_tools: Optional[Iterable[llm_update_params.GeneralTool]] | Omit = omit,
         kb_config: Optional[llm_update_params.KBConfig] | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        mcps: Optional[Iterable[llm_update_params.Mcp]] | Omit = omit,
         model: Optional[
             Literal[
-                "gpt-5",
-                "gpt-5-mini",
-                "gpt-5-nano",
-                "gpt-4o",
-                "gpt-4o-mini",
                 "gpt-4.1",
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
-                "claude-3.7-sonnet",
-                "claude-3.5-haiku",
-                "gemini-2.0-flash",
-                "gemini-2.0-flash-lite",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
                 "gemini-2.5-flash",
                 "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
             ]
         ]
         | Omit = omit,
-        model_high_priority: bool | Omit = omit,
+        model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
+        start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_update_params.State]] | Omit = omit,
-        tool_call_strict_mode: bool | Omit = omit,
-        body_version: Optional[float] | Omit = omit,
+        tool_call_strict_mode: Optional[bool] | Omit = omit,
+        body_version: Optional[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -707,6 +743,11 @@ class AsyncLlmResource(AsyncAPIResource):
         Args:
           query_version: Optional version of the API to use for this request. Default to latest version.
 
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
+
           begin_message: First utterance said by the agent in the call. If not set, LLM will dynamically
               generate a message. If set to "", agent will wait for user to speak first.
 
@@ -717,27 +758,26 @@ class AsyncLlmResource(AsyncAPIResource):
           general_prompt: General prompt appended to system prompt no matter what state the agent is in.
 
               - System prompt (with state) = general prompt + state prompt.
-
               - System prompt (no state) = general prompt.
 
           general_tools: A list of tools the model may call (to get external knowledge, call API, etc).
               You can select from some common predefined tools like end call, transfer call,
-              etc; or you can create your own custom tool (last option) for the LLM to use.
+              etc; or you can create your own custom tool for the LLM to use.
 
               - Tools of LLM (with state) = general tools + state tools + state transitions
-
               - Tools of LLM (no state) = general tools
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
-          knowledge_base_ids: A list of knowledge base ids to use for this resource. Set to null to remove all
-              knowledge bases.
+          knowledge_base_ids: A list of knowledge base ids to use for this resource.
+
+          mcps: A list of MCPs to use for this LLM.
 
           model: Select the underlying text LLM. If not set, would default to gpt-4.1.
 
-          model_high_priority: If set to true, will enable fast tier, which uses high priority pool with more
-              dedicated resource to ensure lower and more consistent latency, default to
-              false. This feature usually comes with a higher cost.
+          model_high_priority: If set to true, will use high priority pool with more dedicated resource to
+              ensure lower and more consistent latency, default to false. This feature usually
+              comes with a higher cost.
 
           model_temperature: If set, will control the randomness of the response. Value ranging from [0,1].
               Lower value means more deterministic, while higher value means more random. If
@@ -747,6 +787,9 @@ class AsyncLlmResource(AsyncAPIResource):
           s2s_model: Select the underlying speech to speech model. Can only set this or model, not
               both.
 
+          start_speaker: The speaker who starts the conversation. Required. Must be either 'user' or
+              'agent'.
+
           starting_state: Name of the starting state. Required if states is not empty.
 
           states: States of the LLM. This is to help reduce prompt length and tool choices when
@@ -755,12 +798,10 @@ class AsyncLlmResource(AsyncAPIResource):
               If this field is not set, the agent would only have general prompt and general
               tools (essentially one state).
 
-          tool_call_strict_mode: Only applicable when model is gpt-4o or gpt-4o mini. If set to true, will use
-              structured output to make sure tool call arguments follow the json schema. The
-              time to save a new tool or change to a tool will be longer as additional
-              processing is needed. Default to false.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
-          body_version: Version of the Retell LLM.
+          body_version: The version of the LLM.
 
           extra_headers: Send extra headers
 
@@ -776,16 +817,19 @@ class AsyncLlmResource(AsyncAPIResource):
             f"/update-retell-llm/{llm_id}",
             body=await async_maybe_transform(
                 {
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_message": begin_message,
                     "default_dynamic_variables": default_dynamic_variables,
                     "general_prompt": general_prompt,
                     "general_tools": general_tools,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
+                    "mcps": mcps,
                     "model": model,
                     "model_high_priority": model_high_priority,
                     "model_temperature": model_temperature,
                     "s2s_model": s2s_model,
+                    "start_speaker": start_speaker,
                     "starting_state": starting_state,
                     "states": states,
                     "tool_call_strict_mode": tool_call_strict_mode,

@@ -9,16 +9,17 @@ from pydantic import BaseModel, Field, ConfigDict, create_model
 
 from ..base.tool import BaseAction
 from ..elitea_base import filter_missconfigured_index_tools
-from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length, check_connection_response
+from ..utils import clean_string, get_max_toolkit_length, check_connection_response
 from ...configurations.bitbucket import BitbucketConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 import requests
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOL_NAME_META, TOOLKIT_TYPE_META
 
 
 name = "bitbucket"
 
 
-def get_tools(tool):
+def get_toolkit(tool):
     return AlitaBitbucketToolkit.get_toolkit(
         selected_tools=tool['settings'].get('selected_tools', []),
         project=tool['settings']['project'],
@@ -33,22 +34,23 @@ def get_tools(tool):
         doctype='code',
         embedding_model=tool['settings'].get('embedding_model'),
         toolkit_name=tool.get('toolkit_name')
-    ).get_tools()
+    )
+
+def get_tools(tool):
+    return get_toolkit(tool).get_tools()
 
 
 class AlitaBitbucketToolkit(BaseToolkit):
     tools: List[BaseTool] = []
-    toolkit_max_length: int = 0
 
     @staticmethod
     def toolkit_config_schema() -> BaseModel:
         selected_tools = {x['name']: x['args_schema'].schema() for x in
                           BitbucketAPIWrapper.model_construct().get_available_tools()}
-        AlitaBitbucketToolkit.toolkit_max_length = get_max_toolkit_length(selected_tools)
         m = create_model(
             name,
-            project=(str, Field(description="Project/Workspace", json_schema_extra={'configuration': True})),
-            repository=(str, Field(description="Repository", json_schema_extra={'max_toolkit_length': AlitaBitbucketToolkit.toolkit_max_length, 'configuration': True})),
+            project=(str, Field(description="Project/Workspace")),
+            repository=(str, Field(description="Repository")),
             branch=(str, Field(description="Main branch", default="main")),
             cloud=(Optional[bool], Field(description="Hosting Option", default=None)),
             bitbucket_configuration=(BitbucketConfiguration, Field(description="Bitbucket Configuration", json_schema_extra={'configuration_types': ['bitbucket']})),
@@ -99,17 +101,21 @@ class AlitaBitbucketToolkit(BaseToolkit):
         }
         bitbucket_api_wrapper = BitbucketAPIWrapper(**wrapper_payload)
         available_tools: List[Dict] = bitbucket_api_wrapper.get_available_tools()
-        prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''
         tools = []
         for tool in available_tools:
             if selected_tools:
                 if tool['name'] not in selected_tools:
                     continue
+            description = tool["description"] + f"\nrepo: {bitbucket_api_wrapper.repository}"
+            if toolkit_name:
+                description = f"{description}\nToolkit: {toolkit_name}"
+            description = description[:1000]
             tools.append(BaseAction(
                 api_wrapper=bitbucket_api_wrapper,
-                name=prefix + tool["name"],
-                description=tool["description"] + f"\nrepo: {bitbucket_api_wrapper.repository}",
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
         return cls(tools=tools)
 

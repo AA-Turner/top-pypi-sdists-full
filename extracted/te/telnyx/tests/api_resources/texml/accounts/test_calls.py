@@ -150,7 +150,7 @@ class TestCalls:
     def test_method_calls(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
         )
@@ -161,7 +161,7 @@ class TestCalls:
     def test_method_calls_with_all_params(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
             async_amd=True,
@@ -170,6 +170,12 @@ class TestCalls:
             caller_id="Info",
             cancel_playback_on_detect_message_end=False,
             cancel_playback_on_machine_detection=False,
+            custom_headers=[
+                {
+                    "name": "X-Custom-Header",
+                    "value": "custom-value",
+                }
+            ],
             detection_mode="Premium",
             fallback_url="https://www.example.com/instructions-fallback.xml",
             machine_detection="Enable",
@@ -188,9 +194,12 @@ class TestCalls:
             send_recording_url=False,
             sip_auth_password="1234",
             sip_auth_username="user",
+            sip_region="Canada",
             status_callback="https://www.example.com/statuscallback-listener",
             status_callback_event="initiated",
             status_callback_method="GET",
+            supervise_call_sid="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            supervising_role="monitor",
             trim="trim-silence",
             url="https://www.example.com/texml.xml",
             url_method="GET",
@@ -202,7 +211,7 @@ class TestCalls:
     def test_raw_response_calls(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
         )
@@ -217,7 +226,7 @@ class TestCalls:
     def test_streaming_response_calls(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
         ) as response:
@@ -235,7 +244,7 @@ class TestCalls:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
             client.texml.accounts.calls.with_raw_response.calls(
                 account_sid="",
-                application_sid="ApplicationSid",
+                application_sid="example-app-sid",
                 from_="+13120001234",
                 to="+13121230000",
             )
@@ -572,7 +581,7 @@ class TestAsyncCalls:
     async def test_method_calls(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
         )
@@ -583,7 +592,7 @@ class TestAsyncCalls:
     async def test_method_calls_with_all_params(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
             async_amd=True,
@@ -592,6 +601,12 @@ class TestAsyncCalls:
             caller_id="Info",
             cancel_playback_on_detect_message_end=False,
             cancel_playback_on_machine_detection=False,
+            custom_headers=[
+                {
+                    "name": "X-Custom-Header",
+                    "value": "custom-value",
+                }
+            ],
             detection_mode="Premium",
             fallback_url="https://www.example.com/instructions-fallback.xml",
             machine_detection="Enable",
@@ -610,9 +625,12 @@ class TestAsyncCalls:
             send_recording_url=False,
             sip_auth_password="1234",
             sip_auth_username="user",
+            sip_region="Canada",
             status_callback="https://www.example.com/statuscallback-listener",
             status_callback_event="initiated",
             status_callback_method="GET",
+            supervise_call_sid="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            supervising_role="monitor",
             trim="trim-silence",
             url="https://www.example.com/texml.xml",
             url_method="GET",
@@ -624,7 +642,7 @@ class TestAsyncCalls:
     async def test_raw_response_calls(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
         )
@@ -639,7 +657,7 @@ class TestAsyncCalls:
     async def test_streaming_response_calls(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.calls(
             account_sid="account_sid",
-            application_sid="ApplicationSid",
+            application_sid="example-app-sid",
             from_="+13120001234",
             to="+13121230000",
         ) as response:
@@ -657,7 +675,7 @@ class TestAsyncCalls:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
             await async_client.texml.accounts.calls.with_raw_response.calls(
                 account_sid="",
-                application_sid="ApplicationSid",
+                application_sid="example-app-sid",
                 from_="+13120001234",
                 to="+13121230000",
             )

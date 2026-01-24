@@ -3,8 +3,8 @@
 import hashlib
 import itertools
 import os
+import pathlib
 import shutil
-
 from collections import namedtuple
 from urllib.request import urlretrieve
 
@@ -68,7 +68,7 @@ distributed under Open Data terms by the Baseball Data Bank.
     ),
     "cherry_blossoms": FileMetadata(
         filename="cherry_blossoms.csv",
-        url="https://figshare.com/ndownloader/files/31072807",
+        url="https://ndownloader.figshare.com/files/31072807",
         checksum="b859dd4f64c231c76ecb80b78f26da71e2f92698c50e0ceb93be0399dee24f51",
         description="""
 Historical Series of Phenological data for Cherry Tree Flowering at Kyoto City. Extracted from
@@ -77,7 +77,7 @@ the `rethinking` library in R.
     ),
     "sleepstudy": FileMetadata(
         filename="sleepstudy.csv",
-        url="https://figshare.com/ndownloader/files/31181002",
+        url="https://ndownloader.figshare.com/files/31181002",
         checksum="0a002bec8be2fa9d40dbbf3d5038e614d113a4fd5bf8813f6f4271c3d6294675",
         description="""
 The average reaction time per day (in milliseconds) for subjects in a sleep deprivation study.
@@ -103,18 +103,18 @@ Subject
     ),
     "admissions": FileMetadata(
         filename="admissions.csv",
-        url="https://figshare.com/ndownloader/files/34757857",
+        url="https://ndownloader.figshare.com/files/34757857",
         checksum="41e2312ca09d50e99c2db67fbabc78d215df6ce71eefe880df5e9310a9fa8397",
         description="""Admission into graduate school data. This dataset has a binary response
         variable called 'admit'. There are three predictor variables: 'gre', 'gpa' and 'rank'.""",
     ),
     "bikes": FileMetadata(
         filename="bike_sharing.csv",
-        url="https://figshare.com/ndownloader/files/38737026",
+        url="https://ndownloader.figshare.com/files/38737026",
         checksum="3e1844b6da435f910b10899e18188568f7d789c715a286c9c6c2ca23833ee7ac",
         description="""
-This dataset contains the hourly and daily count of rental bikes between 
-years 2011 and 2012 in Capital bikeshare system with the corresponding weather and seasonal 
+This dataset contains the hourly and daily count of rental bikes between
+years 2011 and 2012 in Capital bikeshare system with the corresponding weather and seasonal
 information.
 
 - instant: record index
@@ -131,9 +131,9 @@ information.
     * 2: Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist
     * 3: Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds
     * 4: Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog
-- temperature : Normalized temperature in Celsius. 
+- temperature : Normalized temperature in Celsius.
     The values are derived via (t-t_min)/(t_max-t_min), t_min=-8, t_max=+39 (only in hourly scale)
-- atemp: Normalized feeling temperature in Celsius. 
+- atemp: Normalized feeling temperature in Celsius.
     The values are derived via (t-t_min)/(t_max-t_min), t_min=-16, t_max=+50 (only in hourly scale)
 - humidty: Normalized humidity. The values are divided to 100 (max)
 - windspeed: Normalized wind speed. The values are divided to 67 (max)
@@ -146,11 +146,11 @@ Original source: https://archive.ics.uci.edu/ml/datasets/bike+sharing+dataset
     ),
     "mtcars": FileMetadata(
         filename="mtcars.csv",
-        url="https://figshare.com/ndownloader/files/40208785",
+        url="https://ndownloader.figshare.com/files/40208785",
         checksum="c802190c43e02246da9c6c9c3f13a58f076cc6b77922f4d9766a3c6bdb1b52bd",
         description="""
 The data was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10
-aspects of automobile design and performance for 32 automobiles (1973--74 models). 
+aspects of automobile design and performance for 32 automobiles (1973--74 models).
 The following is a description of the variables:
 
 * mpg: Miles/(US) gallon
@@ -167,12 +167,12 @@ The following is a description of the variables:
     ),
     "kidney": FileMetadata(
         filename="kidney.csv",
-        url="https://figshare.com/ndownloader/files/41645361",
+        url="https://ndownloader.figshare.com/files/41645361",
         checksum="46e49372b4e8c3044dca0ffbb4eb2244f56d7398746802e351baac6c12625564",
         description="""
-It describes the first and second recurrence times of infection in kidney patients together with 
+It describes the first and second recurrence times of infection in kidney patients together with
 information on risk variables such as age, sex, and disease type.
-This dataset is taken from McGilchrist and Aisbett (1991). 
+This dataset is taken from McGilchrist and Aisbett (1991).
 
 * time: Days to first or second recurrence of the infection, or the time of censoring
 * censored: Indicates censoring status. 0 indicates no censoring and 1 indicates right censoring
@@ -189,7 +189,7 @@ Biometrics, 47(2), 461-466
 }
 
 
-def get_data_home(data_home=None):
+def get_data_home(data_home: str | None = None) -> pathlib.Path:
     """Return the path of the Bambi data dir.
 
     This folder is used to avoid downloading the data several times.
@@ -201,7 +201,7 @@ def get_data_home(data_home=None):
 
     Parameters
     ----------
-    data_home: str
+    data_home :  str or None, optional
         The path to Bambi data dir.
     """
     if data_home is None:
@@ -209,17 +209,17 @@ def get_data_home(data_home=None):
     data_home = os.path.expanduser(data_home)
     if not os.path.exists(data_home):
         os.makedirs(data_home)
-    return data_home
+    return pathlib.Path(data_home)
 
 
-def clear_data_home(data_home=None):
+def clear_data_home(data_home: str | None = None):
     """Delete all the content of the data home cache.
 
     Parameters
     ----------
-    data_home: str
-        The path to Bambi data dir. By default a folder named `"bambi_data"` in the user home
-        folder.
+    data_home: str or None, optional
+        The path to Bambi data dir.
+        By default a folder named `"bambi_data"` in the user home folder.
     """
     data_home = get_data_home(data_home)
     shutil.rmtree(data_home)
@@ -239,7 +239,7 @@ def _sha256(path):
     return sha256hash.hexdigest()
 
 
-def load_data(dataset=None, data_home=None):
+def load_data(dataset: str | None = None, data_home: str | None = None):
     """Load a dataset.
 
     Run with no parameters to get a list of all available data sets.
@@ -250,43 +250,54 @@ def load_data(dataset=None, data_home=None):
 
     Parameters
     ----------
-    dataset: str
+    dataset : str or None, optional
         Name of dataset to load.
-    data_home: str, optional
-        Where to save remote datasets
+    data_home : str or None, optional
+        Where to save remote datasets.
 
     Returns
     -------
-    pandas.DataFrame
+    pd.DataFrame or str
     """
     home_dir = get_data_home(data_home=data_home)
 
     if dataset in DATASETS:
         datafile = DATASETS[dataset]
-        file_path = os.path.join(home_dir, datafile.filename)
+        file_path = home_dir / datafile.filename
 
         if not os.path.exists(file_path):
             urlretrieve(datafile.url, file_path)
             checksum = _sha256(file_path)
+
             if datafile.checksum != checksum:
                 raise IOError(
                     f"{file_path} has an SHA256 checksum ({checksum}) differing from expected "
                     f"({datafile.checksum}), file may be corrupted. Run `bambi.clear_data_home()` "
                     "and try again, or please open an issue."
                 )
+
         return pd.read_csv(file_path)
-    else:
-        if dataset is None:
-            return _list_datasets(home_dir)
-        else:
-            raise ValueError(
-                f"Dataset {dataset} not found! "
-                f"The following are available:\n{_list_datasets(home_dir)}"
-            )
+
+    if dataset is None:
+        return _list_datasets(home_dir)
+
+    raise ValueError(
+        f"Dataset {dataset} not found! " f"The following are available:\n{_list_datasets(home_dir)}"
+    )
 
 
 def _list_datasets(home_dir):
-    """Get a string representation of all available datasets with descriptions."""
+    """Get a string representation of all available datasets with descriptions.
+
+    Parameters
+    ----------
+    home_dir : str
+        Name of the home directoy.
+
+    Returns
+    -------
+    str
+    """
     lines = []
     for filename, resource in itertools.chain(DATASETS.items()):
         file_path = os.path.join(home_dir, filename)

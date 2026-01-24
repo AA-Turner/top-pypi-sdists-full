@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.create_sqs_trigger_json_body_aws_auth_resource_type import CreateSqsTriggerJsonBodyAwsAuthResourceType
+from ..models.create_sqs_trigger_json_body_mode import CreateSqsTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,11 +26,11 @@ class CreateSqsTriggerJsonBody:
         script_path (str):
         is_flow (bool):
         message_attributes (Union[Unset, List[str]]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, CreateSqsTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreateSqsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
             or flow
-        retry (Union[Unset, CreateSqsTriggerJsonBodyRetry]):
+        retry (Union[Unset, CreateSqsTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     queue_url: str
@@ -39,7 +40,7 @@ class CreateSqsTriggerJsonBody:
     script_path: str
     is_flow: bool
     message_attributes: Union[Unset, List[str]] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, CreateSqsTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateSqsTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "CreateSqsTriggerJsonBodyRetry"] = UNSET
@@ -57,7 +58,10 @@ class CreateSqsTriggerJsonBody:
         if not isinstance(self.message_attributes, Unset):
             message_attributes = self.message_attributes
 
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -81,8 +85,8 @@ class CreateSqsTriggerJsonBody:
         )
         if message_attributes is not UNSET:
             field_dict["message_attributes"] = message_attributes
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -112,7 +116,12 @@ class CreateSqsTriggerJsonBody:
 
         message_attributes = cast(List[str], d.pop("message_attributes", UNSET))
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreateSqsTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreateSqsTriggerJsonBodyMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -138,7 +147,7 @@ class CreateSqsTriggerJsonBody:
             script_path=script_path,
             is_flow=is_flow,
             message_attributes=message_attributes,
-            enabled=enabled,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

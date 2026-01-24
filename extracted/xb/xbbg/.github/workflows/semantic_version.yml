@@ -1,0 +1,202 @@
+name: Bump Version and Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+        default: patch
+      pre_release:
+        description: 'Pre-release type (leave empty for stable release)'
+        required: false
+        type: choice
+        options:
+          - none
+          - alpha
+          - beta
+          - rc
+        default: none
+      pre_number:
+        description: 'Pre-release number (if pre_release is set)'
+        required: false
+        type: string
+        default: '1'
+      create_release:
+        description: 'Create GitHub release'
+        required: false
+        type: boolean
+        default: true
+      release_notes:
+        description: 'Release notes (markdown)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    outputs:
+      tag: ${{ steps.new_version.outputs.tag }}
+      new_version: ${{ steps.new_version.outputs.new_version }}
+      current_version: ${{ steps.current_version.outputs.current }}
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: Get current version
+      id: current_version
+      run: |
+        # Get latest stable version tag (exclude pre-releases)
+        CURRENT=$(git tag --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 | sed 's/^v//' | sed 's/^xbbg==//')
+        if [ -z "$CURRENT" ]; then
+          CURRENT="0.0.0"
+        fi
+        echo "current=$CURRENT" >> $GITHUB_OUTPUT
+        echo "Current version: $CURRENT"
+
+    - name: Calculate new version
+      id: new_version
+      run: |
+        CURRENT="${{ steps.current_version.outputs.current }}"
+        BUMP_TYPE="${{ inputs.bump_type }}"
+        PRE_RELEASE="${{ inputs.pre_release }}"
+        PRE_NUM="${{ inputs.pre_number }}"
+
+        # Parse current version
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+        # Bump version
+        case "$BUMP_TYPE" in
+          major)
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          minor)
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          patch)
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+
+        NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+
+        # Add pre-release suffix if specified
+        if [ -n "$PRE_RELEASE" ] && [ "$PRE_RELEASE" != "none" ]; then
+          # Map alpha/beta/rc to a/b/rc format
+          case "$PRE_RELEASE" in
+            alpha) PRE_SUFFIX="a" ;;
+            beta) PRE_SUFFIX="b" ;;
+            rc) PRE_SUFFIX="rc" ;;
+            *) PRE_SUFFIX="$PRE_RELEASE" ;;
+          esac
+          NEW_VERSION="${NEW_VERSION}${PRE_SUFFIX}${PRE_NUM}"
+        fi
+
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+        echo "Tag: v${NEW_VERSION}"
+
+    - name: Create git tag
+      run: |
+        TAG="${{ steps.new_version.outputs.tag }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -a "$TAG" -m "Release $TAG"
+        git push origin "$TAG"
+
+    - name: Create GitHub Release
+      if: inputs.create_release == true
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.new_version.outputs.tag }}
+        name: xbbg ${{ steps.new_version.outputs.new_version }}
+        body: |
+          ${{ inputs.release_notes }}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.current }}...${{ steps.new_version.outputs.tag }}
+        prerelease: ${{ inputs.pre_release != 'none' && inputs.pre_release != '' }}
+        generate_release_notes: ${{ inputs.release_notes == '' }}
+        make_latest: ${{ inputs.pre_release == 'none' || inputs.pre_release == '' }}
+        draft: false
+
+  # Attach release assets (wheel and tarball)
+  release-assets:
+    needs: bump-version
+    if: inputs.create_release == true
+    uses: ./.github/workflows/release_assets.yml
+    with:
+      tag: ${{ needs.bump-version.outputs.tag }}
+    secrets: inherit
+
+  # Update README changelog
+  update-readme:
+    needs: bump-version
+    if: inputs.create_release == true
+    uses: ./.github/workflows/update_readme_on_release.yml
+    with:
+      tag: ${{ needs.bump-version.outputs.tag }}
+    secrets: inherit
+
+  # Update docs/index.rst changelog (runs after README to avoid conflicts)
+  update-index:
+    needs: [bump-version, update-readme]
+    if: inputs.create_release == true
+    uses: ./.github/workflows/update_index_on_release.yml
+    with:
+      tag: ${{ needs.bump-version.outputs.tag }}
+    secrets: inherit
+
+  # Trigger Read the Docs build
+  publish-docs:
+    needs: [bump-version, update-index]
+    if: inputs.create_release == true
+    uses: ./.github/workflows/publish_docs.yml
+    secrets: inherit
+
+  # Summary job
+  summary:
+    needs: [bump-version, release-assets, update-readme, update-index, publish-docs]
+    if: always() && inputs.create_release == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Output summary
+      run: |
+        echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Previous version**: ${{ needs.bump-version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **New version**: ${{ needs.bump-version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: ${{ needs.bump-version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Type**: ${{ inputs.bump_type }}${{ inputs.pre_release != 'none' && inputs.pre_release != '' && format(' ({0})', inputs.pre_release) || '' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Release Assets | ${{ needs.release-assets.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Update README | ${{ needs.update-readme.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Update index.rst | ${{ needs.update-index.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Publish Docs | ${{ needs.publish-docs.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Manual Step Required" >> $GITHUB_STEP_SUMMARY
+        echo "Run **pypi_upload.yml** manually to publish to PyPI (required for trusted publisher attestation)." >> $GITHUB_STEP_SUMMARY

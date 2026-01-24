@@ -59,9 +59,12 @@ def compare_ast(l_ast, r_ast):
     if type(l_ast) != type(r_ast):
         raise CompareError(l_ast, r_ast, msg='Nodes do not match! %r != %r' % (l_ast, r_ast))
 
-    for field in set(l_ast._fields + r_ast._fields):
+    for field in sorted(set(l_ast._fields + r_ast._fields)):
 
         if field == 'kind' and isinstance(l_ast, ast.Constant):
+            continue
+
+        if field == 'str' and hasattr(ast, 'Interpolation') and isinstance(l_ast, ast.Interpolation):
             continue
 
         if isinstance(getattr(l_ast, field, None), list):

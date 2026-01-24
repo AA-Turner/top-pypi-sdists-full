@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: arch_lint
+Version: 5.0.0
+Summary: Python module architecture linter
+Author-email: Product Team <development@fluidattacks.com>
+Requires-Python: >=3.11
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: Deprecated >=1.2.18, <2.0.0
+Requires-Dist: grimp >=2.5.0, <3.0.0

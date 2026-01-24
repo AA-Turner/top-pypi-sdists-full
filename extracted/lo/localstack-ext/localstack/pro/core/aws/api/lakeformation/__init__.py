@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Dict, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -157,6 +158,11 @@ class ResourceShareType(StrEnum):
 class ResourceType(StrEnum):
     DATABASE = "DATABASE"
     TABLE = "TABLE"
+
+
+class ServiceAuthorization(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
 
 
 class TransactionStatus(StrEnum):
@@ -336,24 +342,24 @@ class WorkUnitsNotReadyYetException(ServiceException):
     status_code: int = 420
 
 
-TagValueList = List[LFTagValue]
+TagValueList = list[LFTagValue]
 
 
 class LFTagPair(TypedDict, total=False):
     """A structure containing an LF-tag key-value pair."""
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     TagKey: LFTagKey
     TagValues: TagValueList
 
 
-LFTagsList = List[LFTagPair]
+LFTagsList = list[LFTagPair]
 
 
 class LFTagExpressionResource(TypedDict, total=False):
     """A structure containing a LF-Tag expression (keys and values)."""
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
 
 
@@ -367,7 +373,7 @@ class LFTag(TypedDict, total=False):
     TagValues: TagValueList
 
 
-Expression = List[LFTag]
+Expression = list[LFTag]
 
 
 class LFTagPolicyResource(TypedDict, total=False):
@@ -375,16 +381,16 @@ class LFTagPolicyResource(TypedDict, total=False):
     expressions that apply to a resource's LF-tag policy.
     """
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     ResourceType: ResourceType
-    Expression: Optional[Expression]
-    ExpressionName: Optional[NameString]
+    Expression: Expression | None
+    ExpressionName: NameString | None
 
 
 class LFTagKeyResource(TypedDict, total=False):
     """A structure containing an LF-tag key and values for a resource."""
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     TagKey: NameString
     TagValues: TagValueList
 
@@ -392,10 +398,10 @@ class LFTagKeyResource(TypedDict, total=False):
 class DataCellsFilterResource(TypedDict, total=False):
     """A structure for a data cells filter resource."""
 
-    TableCatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
-    TableName: Optional[NameString]
-    Name: Optional[NameString]
+    TableCatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
+    TableName: NameString | None
+    Name: NameString | None
 
 
 class DataLocationResource(TypedDict, total=False):
@@ -403,11 +409,11 @@ class DataLocationResource(TypedDict, total=False):
     revoked.
     """
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     ResourceArn: ResourceArnString
 
 
-ColumnNames = List[NameString]
+ColumnNames = list[NameString]
 
 
 class ColumnWildcard(TypedDict, total=False):
@@ -415,7 +421,7 @@ class ColumnWildcard(TypedDict, total=False):
     names or indexes.
     """
 
-    ExcludedColumnNames: Optional[ColumnNames]
+    ExcludedColumnNames: ColumnNames | None
 
 
 class TableWithColumnsResource(TypedDict, total=False):
@@ -426,11 +432,11 @@ class TableWithColumnsResource(TypedDict, total=False):
     ``ColumnsIndexes``, or ``ColumnsWildcard``.
     """
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     Name: NameString
-    ColumnNames: Optional[ColumnNames]
-    ColumnWildcard: Optional[ColumnWildcard]
+    ColumnNames: ColumnNames | None
+    ColumnWildcard: ColumnWildcard | None
 
 
 class TableWildcard(TypedDict, total=False):
@@ -445,41 +451,41 @@ class TableResource(TypedDict, total=False):
     principal.
     """
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
-    Name: Optional[NameString]
-    TableWildcard: Optional[TableWildcard]
+    Name: NameString | None
+    TableWildcard: TableWildcard | None
 
 
 class DatabaseResource(TypedDict, total=False):
     """A structure for the database object."""
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
 
 
 class CatalogResource(TypedDict, total=False):
     """A structure for the catalog object."""
 
-    Id: Optional[CatalogIdString]
+    Id: CatalogIdString | None
 
 
 class Resource(TypedDict, total=False):
     """A structure for the resource."""
 
-    Catalog: Optional[CatalogResource]
-    Database: Optional[DatabaseResource]
-    Table: Optional[TableResource]
-    TableWithColumns: Optional[TableWithColumnsResource]
-    DataLocation: Optional[DataLocationResource]
-    DataCellsFilter: Optional[DataCellsFilterResource]
-    LFTag: Optional[LFTagKeyResource]
-    LFTagPolicy: Optional[LFTagPolicyResource]
-    LFTagExpression: Optional[LFTagExpressionResource]
+    Catalog: CatalogResource | None
+    Database: DatabaseResource | None
+    Table: TableResource | None
+    TableWithColumns: TableWithColumnsResource | None
+    DataLocation: DataLocationResource | None
+    DataCellsFilter: DataCellsFilterResource | None
+    LFTag: LFTagKeyResource | None
+    LFTagPolicy: LFTagPolicyResource | None
+    LFTagExpression: LFTagExpressionResource | None
 
 
 class AddLFTagsToResourceRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Resource: Resource
     LFTags: LFTagsList
 
@@ -487,8 +493,8 @@ class AddLFTagsToResourceRequest(ServiceRequest):
 class ErrorDetail(TypedDict, total=False):
     """Contains details about an error."""
 
-    ErrorCode: Optional[NameString]
-    ErrorMessage: Optional[DescriptionString]
+    ErrorCode: NameString | None
+    ErrorMessage: DescriptionString | None
 
 
 class LFTagError(TypedDict, total=False):
@@ -496,18 +502,18 @@ class LFTagError(TypedDict, total=False):
     ``UnTagResource`` operation.
     """
 
-    LFTag: Optional[LFTagPair]
-    Error: Optional[ErrorDetail]
+    LFTag: LFTagPair | None
+    Error: ErrorDetail | None
 
 
-LFTagErrors = List[LFTagError]
+LFTagErrors = list[LFTagError]
 
 
 class AddLFTagsToResourceResponse(TypedDict, total=False):
-    Failures: Optional[LFTagErrors]
+    Failures: LFTagErrors | None
 
 
-PartitionValuesList = List[PartitionValueString]
+PartitionValuesList = list[PartitionValueString]
 ObjectSize = int
 
 
@@ -517,10 +523,10 @@ class AddObjectInput(TypedDict, total=False):
     Uri: URI
     ETag: ETagString
     Size: ObjectSize
-    PartitionValues: Optional[PartitionValuesList]
+    PartitionValues: PartitionValuesList | None
 
 
-AdditionalContextMap = Dict[ContextKey, ContextValue]
+AdditionalContextMap = dict[ContextKey, ContextValue]
 
 
 class AllRowsWildcard(TypedDict, total=False):
@@ -533,27 +539,27 @@ class AssumeDecoratedRoleWithSAMLRequest(ServiceRequest):
     SAMLAssertion: SAMLAssertionString
     RoleArn: IAMRoleArn
     PrincipalArn: IAMSAMLProviderArn
-    DurationSeconds: Optional[CredentialTimeoutDurationSecondInteger]
+    DurationSeconds: CredentialTimeoutDurationSecondInteger | None
 
 
 ExpirationTimestamp = datetime
 
 
 class AssumeDecoratedRoleWithSAMLResponse(TypedDict, total=False):
-    AccessKeyId: Optional[AccessKeyIdString]
-    SecretAccessKey: Optional[SecretAccessKeyString]
-    SessionToken: Optional[SessionTokenString]
-    Expiration: Optional[ExpirationTimestamp]
+    AccessKeyId: AccessKeyIdString | None
+    SecretAccessKey: SecretAccessKeyString | None
+    SessionToken: SessionTokenString | None
+    Expiration: ExpirationTimestamp | None
 
 
 class AuditContext(TypedDict, total=False):
     """A structure used to include auditing information on the privileged API."""
 
-    AdditionalAuditContext: Optional[AuditContextString]
+    AdditionalAuditContext: AuditContextString | None
 
 
-AuthorizedSessionTagValueList = List[NameString]
-PermissionList = List[Permission]
+AuthorizedSessionTagValueList = list[NameString]
+PermissionList = list[Permission]
 
 
 class Condition(TypedDict, total=False):
@@ -561,7 +567,7 @@ class Condition(TypedDict, total=False):
     that contain an expression.
     """
 
-    Expression: Optional[ExpressionString]
+    Expression: ExpressionString | None
 
 
 class DataLakePrincipal(TypedDict, total=False):
@@ -569,25 +575,25 @@ class DataLakePrincipal(TypedDict, total=False):
     roles.
     """
 
-    DataLakePrincipalIdentifier: Optional[DataLakePrincipalString]
+    DataLakePrincipalIdentifier: DataLakePrincipalString | None
 
 
 class BatchPermissionsRequestEntry(TypedDict, total=False):
     """A permission to a resource granted by batch operation to the principal."""
 
     Id: Identifier
-    Principal: Optional[DataLakePrincipal]
-    Resource: Optional[Resource]
-    Permissions: Optional[PermissionList]
-    Condition: Optional[Condition]
-    PermissionsWithGrantOption: Optional[PermissionList]
+    Principal: DataLakePrincipal | None
+    Resource: Resource | None
+    Permissions: PermissionList | None
+    Condition: Condition | None
+    PermissionsWithGrantOption: PermissionList | None
 
 
-BatchPermissionsRequestEntryList = List[BatchPermissionsRequestEntry]
+BatchPermissionsRequestEntryList = list[BatchPermissionsRequestEntry]
 
 
 class BatchGrantPermissionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Entries: BatchPermissionsRequestEntryList
 
 
@@ -596,24 +602,24 @@ class BatchPermissionsFailureEntry(TypedDict, total=False):
     operation.
     """
 
-    RequestEntry: Optional[BatchPermissionsRequestEntry]
-    Error: Optional[ErrorDetail]
+    RequestEntry: BatchPermissionsRequestEntry | None
+    Error: ErrorDetail | None
 
 
-BatchPermissionsFailureList = List[BatchPermissionsFailureEntry]
+BatchPermissionsFailureList = list[BatchPermissionsFailureEntry]
 
 
 class BatchGrantPermissionsResponse(TypedDict, total=False):
-    Failures: Optional[BatchPermissionsFailureList]
+    Failures: BatchPermissionsFailureList | None
 
 
 class BatchRevokePermissionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Entries: BatchPermissionsRequestEntryList
 
 
 class BatchRevokePermissionsResponse(TypedDict, total=False):
-    Failures: Optional[BatchPermissionsFailureList]
+    Failures: BatchPermissionsFailureList | None
 
 
 class CancelTransactionRequest(ServiceRequest):
@@ -629,11 +635,11 @@ class ColumnLFTag(TypedDict, total=False):
     attached to it.
     """
 
-    Name: Optional[NameString]
-    LFTags: Optional[LFTagsList]
+    Name: NameString | None
+    LFTags: LFTagsList | None
 
 
-ColumnLFTagsList = List[ColumnLFTag]
+ColumnLFTagsList = list[ColumnLFTag]
 
 
 class CommitTransactionRequest(ServiceRequest):
@@ -641,14 +647,14 @@ class CommitTransactionRequest(ServiceRequest):
 
 
 class CommitTransactionResponse(TypedDict, total=False):
-    TransactionStatus: Optional[TransactionStatus]
+    TransactionStatus: TransactionStatus | None
 
 
 class RowFilter(TypedDict, total=False):
     """A PartiQL predicate."""
 
-    FilterExpression: Optional[PredicateString]
-    AllRowsWildcard: Optional[AllRowsWildcard]
+    FilterExpression: PredicateString | None
+    AllRowsWildcard: AllRowsWildcard | None
 
 
 class DataCellsFilter(TypedDict, total=False):
@@ -658,10 +664,10 @@ class DataCellsFilter(TypedDict, total=False):
     DatabaseName: NameString
     TableName: NameString
     Name: NameString
-    RowFilter: Optional[RowFilter]
-    ColumnNames: Optional[ColumnNames]
-    ColumnWildcard: Optional[ColumnWildcard]
-    VersionId: Optional[VersionString]
+    RowFilter: RowFilter | None
+    ColumnNames: ColumnNames | None
+    ColumnWildcard: ColumnWildcard | None
+    VersionId: VersionString | None
 
 
 class CreateDataCellsFilterRequest(ServiceRequest):
@@ -674,8 +680,8 @@ class CreateDataCellsFilterResponse(TypedDict, total=False):
 
 class CreateLFTagExpressionRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
-    CatalogId: Optional[CatalogIdString]
+    Description: DescriptionString | None
+    CatalogId: CatalogIdString | None
     Expression: Expression
 
 
@@ -684,7 +690,7 @@ class CreateLFTagExpressionResponse(TypedDict, total=False):
 
 
 class CreateLFTagRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     TagKey: LFTagKey
     TagValues: TagValueList
 
@@ -693,8 +699,32 @@ class CreateLFTagResponse(TypedDict, total=False):
     pass
 
 
-DataLakePrincipalList = List[DataLakePrincipal]
-ScopeTargets = List[ScopeTarget]
+class RedshiftConnect(TypedDict, total=False):
+    """Configuration for enabling trusted identity propagation with Redshift
+    Connect.
+    """
+
+    Authorization: ServiceAuthorization
+
+
+class RedshiftScopeUnion(TypedDict, total=False):
+    """A union structure representing different Redshift integration scopes."""
+
+    RedshiftConnect: RedshiftConnect | None
+
+
+RedshiftServiceIntegrations = list[RedshiftScopeUnion]
+
+
+class ServiceIntegrationUnion(TypedDict, total=False):
+    """A union structure representing different service integration types."""
+
+    Redshift: RedshiftServiceIntegrations | None
+
+
+ServiceIntegrationList = list[ServiceIntegrationUnion]
+DataLakePrincipalList = list[DataLakePrincipal]
+ScopeTargets = list[ScopeTarget]
 
 
 class ExternalFilteringConfiguration(TypedDict, total=False):
@@ -707,39 +737,40 @@ class ExternalFilteringConfiguration(TypedDict, total=False):
 
 
 class CreateLakeFormationIdentityCenterConfigurationRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    InstanceArn: Optional[IdentityCenterInstanceArn]
-    ExternalFiltering: Optional[ExternalFilteringConfiguration]
-    ShareRecipients: Optional[DataLakePrincipalList]
+    CatalogId: CatalogIdString | None
+    InstanceArn: IdentityCenterInstanceArn | None
+    ExternalFiltering: ExternalFilteringConfiguration | None
+    ShareRecipients: DataLakePrincipalList | None
+    ServiceIntegrations: ServiceIntegrationList | None
 
 
 class CreateLakeFormationIdentityCenterConfigurationResponse(TypedDict, total=False):
-    ApplicationArn: Optional[ApplicationArn]
+    ApplicationArn: ApplicationArn | None
 
 
 class CreateLakeFormationOptInRequest(ServiceRequest):
     Principal: DataLakePrincipal
     Resource: Resource
-    Condition: Optional[Condition]
+    Condition: Condition | None
 
 
 class CreateLakeFormationOptInResponse(TypedDict, total=False):
     pass
 
 
-DataCellsFilterList = List[DataCellsFilter]
-TrustedResourceOwners = List[CatalogIdString]
-ParametersMap = Dict[KeyString, ParametersMapValue]
+DataCellsFilterList = list[DataCellsFilter]
+TrustedResourceOwners = list[CatalogIdString]
+ParametersMap = dict[KeyString, ParametersMapValue]
 
 
 class PrincipalPermissions(TypedDict, total=False):
     """Permissions granted to a principal."""
 
-    Principal: Optional[DataLakePrincipal]
-    Permissions: Optional[PermissionList]
+    Principal: DataLakePrincipal | None
+    Permissions: PermissionList | None
 
 
-PrincipalPermissionsList = List[PrincipalPermissions]
+PrincipalPermissionsList = list[PrincipalPermissions]
 
 
 class DataLakeSettings(TypedDict, total=False):
@@ -748,34 +779,34 @@ class DataLakeSettings(TypedDict, total=False):
     for default create database and default create table permissions.
     """
 
-    DataLakeAdmins: Optional[DataLakePrincipalList]
-    ReadOnlyAdmins: Optional[DataLakePrincipalList]
-    CreateDatabaseDefaultPermissions: Optional[PrincipalPermissionsList]
-    CreateTableDefaultPermissions: Optional[PrincipalPermissionsList]
-    Parameters: Optional[ParametersMap]
-    TrustedResourceOwners: Optional[TrustedResourceOwners]
-    AllowExternalDataFiltering: Optional[NullableBoolean]
-    AllowFullTableExternalDataAccess: Optional[NullableBoolean]
-    ExternalDataFilteringAllowList: Optional[DataLakePrincipalList]
-    AuthorizedSessionTagValueList: Optional[AuthorizedSessionTagValueList]
+    DataLakeAdmins: DataLakePrincipalList | None
+    ReadOnlyAdmins: DataLakePrincipalList | None
+    CreateDatabaseDefaultPermissions: PrincipalPermissionsList | None
+    CreateTableDefaultPermissions: PrincipalPermissionsList | None
+    Parameters: ParametersMap | None
+    TrustedResourceOwners: TrustedResourceOwners | None
+    AllowExternalDataFiltering: NullableBoolean | None
+    AllowFullTableExternalDataAccess: NullableBoolean | None
+    ExternalDataFilteringAllowList: DataLakePrincipalList | None
+    AuthorizedSessionTagValueList: AuthorizedSessionTagValueList | None
 
 
 class TaggedDatabase(TypedDict, total=False):
     """A structure describing a database resource with LF-tags."""
 
-    Database: Optional[DatabaseResource]
-    LFTags: Optional[LFTagsList]
+    Database: DatabaseResource | None
+    LFTags: LFTagsList | None
 
 
-DatabaseLFTagsList = List[TaggedDatabase]
+DatabaseLFTagsList = list[TaggedDatabase]
 DateTime = datetime
 
 
 class DeleteDataCellsFilterRequest(ServiceRequest):
-    TableCatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
-    TableName: Optional[NameString]
-    Name: Optional[NameString]
+    TableCatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
+    TableName: NameString | None
+    Name: NameString | None
 
 
 class DeleteDataCellsFilterResponse(TypedDict, total=False):
@@ -784,7 +815,7 @@ class DeleteDataCellsFilterResponse(TypedDict, total=False):
 
 class DeleteLFTagExpressionRequest(ServiceRequest):
     Name: NameString
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class DeleteLFTagExpressionResponse(TypedDict, total=False):
@@ -792,7 +823,7 @@ class DeleteLFTagExpressionResponse(TypedDict, total=False):
 
 
 class DeleteLFTagRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     TagKey: LFTagKey
 
 
@@ -801,7 +832,7 @@ class DeleteLFTagResponse(TypedDict, total=False):
 
 
 class DeleteLakeFormationIdentityCenterConfigurationRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class DeleteLakeFormationIdentityCenterConfigurationResponse(TypedDict, total=False):
@@ -811,7 +842,7 @@ class DeleteLakeFormationIdentityCenterConfigurationResponse(TypedDict, total=Fa
 class DeleteLakeFormationOptInRequest(ServiceRequest):
     Principal: DataLakePrincipal
     Resource: Resource
-    Condition: Optional[Condition]
+    Condition: Condition | None
 
 
 class DeleteLakeFormationOptInResponse(TypedDict, total=False):
@@ -822,8 +853,8 @@ class DeleteObjectInput(TypedDict, total=False):
     """An object to delete from the governed table."""
 
     Uri: URI
-    ETag: Optional[ETagString]
-    PartitionValues: Optional[PartitionValuesList]
+    ETag: ETagString | None
+    PartitionValues: PartitionValuesList | None
 
 
 class VirtualObject(TypedDict, total=False):
@@ -833,14 +864,14 @@ class VirtualObject(TypedDict, total=False):
     """
 
     Uri: URI
-    ETag: Optional[ETagString]
+    ETag: ETagString | None
 
 
-VirtualObjectList = List[VirtualObject]
+VirtualObjectList = list[VirtualObject]
 
 
 class DeleteObjectsOnCancelRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     TransactionId: TransactionIdString
@@ -860,16 +891,17 @@ class DeregisterResourceResponse(TypedDict, total=False):
 
 
 class DescribeLakeFormationIdentityCenterConfigurationRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class DescribeLakeFormationIdentityCenterConfigurationResponse(TypedDict, total=False):
-    CatalogId: Optional[CatalogIdString]
-    InstanceArn: Optional[IdentityCenterInstanceArn]
-    ApplicationArn: Optional[ApplicationArn]
-    ExternalFiltering: Optional[ExternalFilteringConfiguration]
-    ShareRecipients: Optional[DataLakePrincipalList]
-    ResourceShare: Optional[RAMResourceShareArn]
+    CatalogId: CatalogIdString | None
+    InstanceArn: IdentityCenterInstanceArn | None
+    ApplicationArn: ApplicationArn | None
+    ExternalFiltering: ExternalFilteringConfiguration | None
+    ShareRecipients: DataLakePrincipalList | None
+    ServiceIntegrations: ServiceIntegrationList | None
+    ResourceShare: RAMResourceShareArn | None
 
 
 class DescribeResourceRequest(ServiceRequest):
@@ -882,16 +914,16 @@ LastModifiedTimestamp = datetime
 class ResourceInfo(TypedDict, total=False):
     """A structure containing information about an Lake Formation resource."""
 
-    ResourceArn: Optional[ResourceArnString]
-    RoleArn: Optional[IAMRoleArn]
-    LastModified: Optional[LastModifiedTimestamp]
-    WithFederation: Optional[NullableBoolean]
-    HybridAccessEnabled: Optional[NullableBoolean]
-    WithPrivilegedAccess: Optional[NullableBoolean]
+    ResourceArn: ResourceArnString | None
+    RoleArn: IAMRoleArn | None
+    LastModified: LastModifiedTimestamp | None
+    WithFederation: NullableBoolean | None
+    HybridAccessEnabled: NullableBoolean | None
+    WithPrivilegedAccess: NullableBoolean | None
 
 
 class DescribeResourceResponse(TypedDict, total=False):
-    ResourceInfo: Optional[ResourceInfo]
+    ResourceInfo: ResourceInfo | None
 
 
 class DescribeTransactionRequest(ServiceRequest):
@@ -904,17 +936,17 @@ Timestamp = datetime
 class TransactionDescription(TypedDict, total=False):
     """A structure that contains information about a transaction."""
 
-    TransactionId: Optional[TransactionIdString]
-    TransactionStatus: Optional[TransactionStatus]
-    TransactionStartTime: Optional[Timestamp]
-    TransactionEndTime: Optional[Timestamp]
+    TransactionId: TransactionIdString | None
+    TransactionStatus: TransactionStatus | None
+    TransactionStartTime: Timestamp | None
+    TransactionEndTime: Timestamp | None
 
 
 class DescribeTransactionResponse(TypedDict, total=False):
-    TransactionDescription: Optional[TransactionDescription]
+    TransactionDescription: TransactionDescription | None
 
 
-ResourceShareList = List[RAMResourceShareArn]
+ResourceShareList = list[RAMResourceShareArn]
 
 
 class DetailsMap(TypedDict, total=False):
@@ -925,7 +957,7 @@ class DetailsMap(TypedDict, total=False):
     then there will exist a corresponding RAM resource share ARN.
     """
 
-    ResourceShare: Optional[ResourceShareList]
+    ResourceShare: ResourceShareList | None
 
 
 NumberOfItems = int
@@ -936,20 +968,20 @@ NumberOfMilliseconds = int
 class ExecutionStatistics(TypedDict, total=False):
     """Statistics related to the processing of a query statement."""
 
-    AverageExecutionTimeMillis: Optional[NumberOfMilliseconds]
-    DataScannedBytes: Optional[NumberOfBytes]
-    WorkUnitsExecutedCount: Optional[NumberOfItems]
+    AverageExecutionTimeMillis: NumberOfMilliseconds | None
+    DataScannedBytes: NumberOfBytes | None
+    WorkUnitsExecutedCount: NumberOfItems | None
 
 
 class ExtendTransactionRequest(ServiceRequest):
-    TransactionId: Optional[TransactionIdString]
+    TransactionId: TransactionIdString | None
 
 
 class ExtendTransactionResponse(TypedDict, total=False):
     pass
 
 
-StringValueList = List[StringValue]
+StringValueList = list[StringValue]
 
 
 class FilterCondition(TypedDict, total=False):
@@ -957,12 +989,12 @@ class FilterCondition(TypedDict, total=False):
     filter condition.
     """
 
-    Field: Optional[FieldNameString]
-    ComparisonOperator: Optional[ComparisonOperator]
-    StringValueList: Optional[StringValueList]
+    Field: FieldNameString | None
+    ComparisonOperator: ComparisonOperator | None
+    StringValueList: StringValueList | None
 
 
-FilterConditionList = List[FilterCondition]
+FilterConditionList = list[FilterCondition]
 
 
 class GetDataCellsFilterRequest(ServiceRequest):
@@ -973,7 +1005,7 @@ class GetDataCellsFilterRequest(ServiceRequest):
 
 
 class GetDataCellsFilterResponse(TypedDict, total=False):
-    DataCellsFilter: Optional[DataCellsFilter]
+    DataCellsFilter: DataCellsFilter | None
 
 
 class GetDataLakePrincipalRequest(ServiceRequest):
@@ -981,66 +1013,66 @@ class GetDataLakePrincipalRequest(ServiceRequest):
 
 
 class GetDataLakePrincipalResponse(TypedDict, total=False):
-    Identity: Optional[IdentityString]
+    Identity: IdentityString | None
 
 
 class GetDataLakeSettingsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class GetDataLakeSettingsResponse(TypedDict, total=False):
-    DataLakeSettings: Optional[DataLakeSettings]
+    DataLakeSettings: DataLakeSettings | None
 
 
 class GetEffectivePermissionsForPathRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     ResourceArn: ResourceArnString
-    NextToken: Optional[Token]
-    MaxResults: Optional[PageSize]
+    NextToken: Token | None
+    MaxResults: PageSize | None
 
 
 class PrincipalResourcePermissions(TypedDict, total=False):
     """The permissions granted or revoked on a resource."""
 
-    Principal: Optional[DataLakePrincipal]
-    Resource: Optional[Resource]
-    Condition: Optional[Condition]
-    Permissions: Optional[PermissionList]
-    PermissionsWithGrantOption: Optional[PermissionList]
-    AdditionalDetails: Optional[DetailsMap]
-    LastUpdated: Optional[LastModifiedTimestamp]
-    LastUpdatedBy: Optional[NameString]
+    Principal: DataLakePrincipal | None
+    Resource: Resource | None
+    Condition: Condition | None
+    Permissions: PermissionList | None
+    PermissionsWithGrantOption: PermissionList | None
+    AdditionalDetails: DetailsMap | None
+    LastUpdated: LastModifiedTimestamp | None
+    LastUpdatedBy: NameString | None
 
 
-PrincipalResourcePermissionsList = List[PrincipalResourcePermissions]
+PrincipalResourcePermissionsList = list[PrincipalResourcePermissions]
 
 
 class GetEffectivePermissionsForPathResponse(TypedDict, total=False):
-    Permissions: Optional[PrincipalResourcePermissionsList]
-    NextToken: Optional[Token]
+    Permissions: PrincipalResourcePermissionsList | None
+    NextToken: Token | None
 
 
 class GetLFTagExpressionRequest(ServiceRequest):
     Name: NameString
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class GetLFTagExpressionResponse(TypedDict, total=False):
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    CatalogId: Optional[CatalogIdString]
-    Expression: Optional[Expression]
+    Name: NameString | None
+    Description: DescriptionString | None
+    CatalogId: CatalogIdString | None
+    Expression: Expression | None
 
 
 class GetLFTagRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     TagKey: LFTagKey
 
 
 class GetLFTagResponse(TypedDict, total=False):
-    CatalogId: Optional[CatalogIdString]
-    TagKey: Optional[LFTagKey]
-    TagValues: Optional[TagValueList]
+    CatalogId: CatalogIdString | None
+    TagKey: LFTagKey | None
+    TagValues: TagValueList | None
 
 
 class GetQueryStateRequest(ServiceRequest):
@@ -1050,7 +1082,7 @@ class GetQueryStateRequest(ServiceRequest):
 class GetQueryStateResponse(TypedDict, total=False):
     """A structure for the output."""
 
-    Error: Optional[ErrorMessageString]
+    Error: ErrorMessageString | None
     State: QueryStateString
 
 
@@ -1061,69 +1093,69 @@ class GetQueryStatisticsRequest(ServiceRequest):
 class PlanningStatistics(TypedDict, total=False):
     """Statistics related to the processing of a query statement."""
 
-    EstimatedDataToScanBytes: Optional[NumberOfBytes]
-    PlanningTimeMillis: Optional[NumberOfMilliseconds]
-    QueueTimeMillis: Optional[NumberOfMilliseconds]
-    WorkUnitsGeneratedCount: Optional[NumberOfItems]
+    EstimatedDataToScanBytes: NumberOfBytes | None
+    PlanningTimeMillis: NumberOfMilliseconds | None
+    QueueTimeMillis: NumberOfMilliseconds | None
+    WorkUnitsGeneratedCount: NumberOfItems | None
 
 
 class GetQueryStatisticsResponse(TypedDict, total=False):
-    ExecutionStatistics: Optional[ExecutionStatistics]
-    PlanningStatistics: Optional[PlanningStatistics]
-    QuerySubmissionTime: Optional[DateTime]
+    ExecutionStatistics: ExecutionStatistics | None
+    PlanningStatistics: PlanningStatistics | None
+    QuerySubmissionTime: DateTime | None
 
 
 class GetResourceLFTagsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Resource: Resource
-    ShowAssignedLFTags: Optional[BooleanNullable]
+    ShowAssignedLFTags: BooleanNullable | None
 
 
 class GetResourceLFTagsResponse(TypedDict, total=False):
-    LFTagOnDatabase: Optional[LFTagsList]
-    LFTagsOnTable: Optional[LFTagsList]
-    LFTagsOnColumns: Optional[ColumnLFTagsList]
+    LFTagOnDatabase: LFTagsList | None
+    LFTagsOnTable: LFTagsList | None
+    LFTagsOnColumns: ColumnLFTagsList | None
 
 
 class GetTableObjectsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    TransactionId: Optional[TransactionIdString]
-    QueryAsOfTime: Optional[Timestamp]
-    PartitionPredicate: Optional[PredicateString]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[TokenString]
+    TransactionId: TransactionIdString | None
+    QueryAsOfTime: Timestamp | None
+    PartitionPredicate: PredicateString | None
+    MaxResults: PageSize | None
+    NextToken: TokenString | None
 
 
 class TableObject(TypedDict, total=False):
     """Specifies the details of a governed table."""
 
-    Uri: Optional[URI]
-    ETag: Optional[ETagString]
-    Size: Optional[ObjectSize]
+    Uri: URI | None
+    ETag: ETagString | None
+    Size: ObjectSize | None
 
 
-TableObjectList = List[TableObject]
+TableObjectList = list[TableObject]
 
 
 class PartitionObjects(TypedDict, total=False):
     """A structure containing a list of partition values and table objects."""
 
-    PartitionValues: Optional[PartitionValuesList]
-    Objects: Optional[TableObjectList]
+    PartitionValues: PartitionValuesList | None
+    Objects: TableObjectList | None
 
 
-PartitionedTableObjectsList = List[PartitionObjects]
+PartitionedTableObjectsList = list[PartitionObjects]
 
 
 class GetTableObjectsResponse(TypedDict, total=False):
-    Objects: Optional[PartitionedTableObjectsList]
-    NextToken: Optional[TokenString]
+    Objects: PartitionedTableObjectsList | None
+    NextToken: TokenString | None
 
 
-PermissionTypeList = List[PermissionType]
-ValueStringList = List[ValueString]
+PermissionTypeList = list[PermissionType]
+ValueStringList = list[ValueString]
 
 
 class PartitionValueList(TypedDict, total=False):
@@ -1135,17 +1167,17 @@ class PartitionValueList(TypedDict, total=False):
 class GetTemporaryGluePartitionCredentialsRequest(ServiceRequest):
     TableArn: ResourceArnString
     Partition: PartitionValueList
-    Permissions: Optional[PermissionList]
-    DurationSeconds: Optional[CredentialTimeoutDurationSecondInteger]
-    AuditContext: Optional[AuditContext]
-    SupportedPermissionTypes: Optional[PermissionTypeList]
+    Permissions: PermissionList | None
+    DurationSeconds: CredentialTimeoutDurationSecondInteger | None
+    AuditContext: AuditContext | None
+    SupportedPermissionTypes: PermissionTypeList | None
 
 
 class GetTemporaryGluePartitionCredentialsResponse(TypedDict, total=False):
-    AccessKeyId: Optional[AccessKeyIdString]
-    SecretAccessKey: Optional[SecretAccessKeyString]
-    SessionToken: Optional[SessionTokenString]
-    Expiration: Optional[ExpirationTimestamp]
+    AccessKeyId: AccessKeyIdString | None
+    SecretAccessKey: SecretAccessKeyString | None
+    SessionToken: SessionTokenString | None
+    Expiration: ExpirationTimestamp | None
 
 
 class QuerySessionContext(TypedDict, total=False):
@@ -1154,32 +1186,32 @@ class QuerySessionContext(TypedDict, total=False):
     identifier and information from the request's authorization context.
     """
 
-    QueryId: Optional[HashString]
-    QueryStartTime: Optional[Timestamp]
-    ClusterId: Optional[NullableString]
-    QueryAuthorizationId: Optional[HashString]
-    AdditionalContext: Optional[AdditionalContextMap]
+    QueryId: HashString | None
+    QueryStartTime: Timestamp | None
+    ClusterId: NullableString | None
+    QueryAuthorizationId: HashString | None
+    AdditionalContext: AdditionalContextMap | None
 
 
 class GetTemporaryGlueTableCredentialsRequest(ServiceRequest):
     TableArn: ResourceArnString
-    Permissions: Optional[PermissionList]
-    DurationSeconds: Optional[CredentialTimeoutDurationSecondInteger]
-    AuditContext: Optional[AuditContext]
-    SupportedPermissionTypes: Optional[PermissionTypeList]
-    S3Path: Optional[PathString]
-    QuerySessionContext: Optional[QuerySessionContext]
+    Permissions: PermissionList | None
+    DurationSeconds: CredentialTimeoutDurationSecondInteger | None
+    AuditContext: AuditContext | None
+    SupportedPermissionTypes: PermissionTypeList | None
+    S3Path: PathString | None
+    QuerySessionContext: QuerySessionContext | None
 
 
-PathStringList = List[PathString]
+PathStringList = list[PathString]
 
 
 class GetTemporaryGlueTableCredentialsResponse(TypedDict, total=False):
-    AccessKeyId: Optional[AccessKeyIdString]
-    SecretAccessKey: Optional[SecretAccessKeyString]
-    SessionToken: Optional[SessionTokenString]
-    Expiration: Optional[ExpirationTimestamp]
-    VendedS3Path: Optional[PathStringList]
+    AccessKeyId: AccessKeyIdString | None
+    SecretAccessKey: SecretAccessKeyString | None
+    SessionToken: SessionTokenString | None
+    Expiration: ExpirationTimestamp | None
+    VendedS3Path: PathStringList | None
 
 
 GetWorkUnitResultsRequestWorkUnitIdLong = int
@@ -1197,12 +1229,12 @@ ResultStream = bytes
 class GetWorkUnitResultsResponse(TypedDict, total=False):
     """A structure for the output."""
 
-    ResultStream: Optional[Union[ResultStream, IO[ResultStream], Iterable[ResultStream]]]
+    ResultStream: ResultStream | IO[ResultStream] | Iterable[ResultStream] | None
 
 
 class GetWorkUnitsRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    PageSize: Optional[Integer]
+    NextToken: Token | None
+    PageSize: Integer | None
     QueryId: GetWorkUnitsRequestQueryIdString
 
 
@@ -1219,24 +1251,24 @@ class WorkUnitRange(TypedDict, total=False):
     WorkUnitToken: WorkUnitTokenString
 
 
-WorkUnitRangeList = List[WorkUnitRange]
+WorkUnitRangeList = list[WorkUnitRange]
 
 
 class GetWorkUnitsResponse(TypedDict, total=False):
     """A structure for the output."""
 
-    NextToken: Optional[Token]
+    NextToken: Token | None
     QueryId: QueryIdString
     WorkUnitRanges: WorkUnitRangeList
 
 
 class GrantPermissionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Principal: DataLakePrincipal
     Resource: Resource
     Permissions: PermissionList
-    Condition: Optional[Condition]
-    PermissionsWithGrantOption: Optional[PermissionList]
+    Condition: Condition | None
+    PermissionsWithGrantOption: PermissionList | None
 
 
 class GrantPermissionsResponse(TypedDict, total=False):
@@ -1246,13 +1278,13 @@ class GrantPermissionsResponse(TypedDict, total=False):
 class LFTagExpression(TypedDict, total=False):
     """A structure consists LF-Tag expression name and catalog ID."""
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    CatalogId: Optional[CatalogIdString]
-    Expression: Optional[Expression]
+    Name: NameString | None
+    Description: DescriptionString | None
+    CatalogId: CatalogIdString | None
+    Expression: Expression | None
 
 
-LFTagExpressionsList = List[LFTagExpression]
+LFTagExpressionsList = list[LFTagExpression]
 
 
 class LakeFormationOptInsInfo(TypedDict, total=False):
@@ -1260,101 +1292,101 @@ class LakeFormationOptInsInfo(TypedDict, total=False):
     enforced.
     """
 
-    Resource: Optional[Resource]
-    Principal: Optional[DataLakePrincipal]
-    Condition: Optional[Condition]
-    LastModified: Optional[LastModifiedTimestamp]
-    LastUpdatedBy: Optional[NameString]
+    Resource: Resource | None
+    Principal: DataLakePrincipal | None
+    Condition: Condition | None
+    LastModified: LastModifiedTimestamp | None
+    LastUpdatedBy: NameString | None
 
 
-LakeFormationOptInsInfoList = List[LakeFormationOptInsInfo]
+LakeFormationOptInsInfoList = list[LakeFormationOptInsInfo]
 
 
 class ListDataCellsFilterRequest(ServiceRequest):
-    Table: Optional[TableResource]
-    NextToken: Optional[Token]
-    MaxResults: Optional[PageSize]
+    Table: TableResource | None
+    NextToken: Token | None
+    MaxResults: PageSize | None
 
 
 class ListDataCellsFilterResponse(TypedDict, total=False):
-    DataCellsFilters: Optional[DataCellsFilterList]
-    NextToken: Optional[Token]
+    DataCellsFilters: DataCellsFilterList | None
+    NextToken: Token | None
 
 
 class ListLFTagExpressionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    CatalogId: CatalogIdString | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class ListLFTagExpressionsResponse(TypedDict, total=False):
-    LFTagExpressions: Optional[LFTagExpressionsList]
-    NextToken: Optional[Token]
+    LFTagExpressions: LFTagExpressionsList | None
+    NextToken: Token | None
 
 
 class ListLFTagsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    ResourceShareType: Optional[ResourceShareType]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    CatalogId: CatalogIdString | None
+    ResourceShareType: ResourceShareType | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class ListLFTagsResponse(TypedDict, total=False):
-    LFTags: Optional[LFTagsList]
-    NextToken: Optional[Token]
+    LFTags: LFTagsList | None
+    NextToken: Token | None
 
 
 class ListLakeFormationOptInsRequest(ServiceRequest):
-    Principal: Optional[DataLakePrincipal]
-    Resource: Optional[Resource]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    Principal: DataLakePrincipal | None
+    Resource: Resource | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class ListLakeFormationOptInsResponse(TypedDict, total=False):
-    LakeFormationOptInsInfoList: Optional[LakeFormationOptInsInfoList]
-    NextToken: Optional[Token]
+    LakeFormationOptInsInfoList: LakeFormationOptInsInfoList | None
+    NextToken: Token | None
 
 
 class ListPermissionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    Principal: Optional[DataLakePrincipal]
-    ResourceType: Optional[DataLakeResourceType]
-    Resource: Optional[Resource]
-    NextToken: Optional[Token]
-    MaxResults: Optional[PageSize]
-    IncludeRelated: Optional[TrueFalseString]
+    CatalogId: CatalogIdString | None
+    Principal: DataLakePrincipal | None
+    ResourceType: DataLakeResourceType | None
+    Resource: Resource | None
+    NextToken: Token | None
+    MaxResults: PageSize | None
+    IncludeRelated: TrueFalseString | None
 
 
 class ListPermissionsResponse(TypedDict, total=False):
-    PrincipalResourcePermissions: Optional[PrincipalResourcePermissionsList]
-    NextToken: Optional[Token]
+    PrincipalResourcePermissions: PrincipalResourcePermissionsList | None
+    NextToken: Token | None
 
 
 class ListResourcesRequest(ServiceRequest):
-    FilterConditionList: Optional[FilterConditionList]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    FilterConditionList: FilterConditionList | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
-ResourceInfoList = List[ResourceInfo]
+ResourceInfoList = list[ResourceInfo]
 
 
 class ListResourcesResponse(TypedDict, total=False):
-    ResourceInfoList: Optional[ResourceInfoList]
-    NextToken: Optional[Token]
+    ResourceInfoList: ResourceInfoList | None
+    NextToken: Token | None
 
 
 class ListTableStorageOptimizersRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    StorageOptimizerType: Optional[OptimizerType]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    StorageOptimizerType: OptimizerType | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
-StorageOptimizerConfig = Dict[StorageOptimizerConfigKey, StorageOptimizerConfigValue]
+StorageOptimizerConfig = dict[StorageOptimizerConfigKey, StorageOptimizerConfigValue]
 
 
 class StorageOptimizer(TypedDict, total=False):
@@ -1362,38 +1394,38 @@ class StorageOptimizer(TypedDict, total=False):
     optimizer.
     """
 
-    StorageOptimizerType: Optional[OptimizerType]
-    Config: Optional[StorageOptimizerConfig]
-    ErrorMessage: Optional[MessageString]
-    Warnings: Optional[MessageString]
-    LastRunDetails: Optional[MessageString]
+    StorageOptimizerType: OptimizerType | None
+    Config: StorageOptimizerConfig | None
+    ErrorMessage: MessageString | None
+    Warnings: MessageString | None
+    LastRunDetails: MessageString | None
 
 
-StorageOptimizerList = List[StorageOptimizer]
+StorageOptimizerList = list[StorageOptimizer]
 
 
 class ListTableStorageOptimizersResponse(TypedDict, total=False):
-    StorageOptimizerList: Optional[StorageOptimizerList]
-    NextToken: Optional[Token]
+    StorageOptimizerList: StorageOptimizerList | None
+    NextToken: Token | None
 
 
 class ListTransactionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    StatusFilter: Optional[TransactionStatusFilter]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[TokenString]
+    CatalogId: CatalogIdString | None
+    StatusFilter: TransactionStatusFilter | None
+    MaxResults: PageSize | None
+    NextToken: TokenString | None
 
 
-TransactionDescriptionList = List[TransactionDescription]
+TransactionDescriptionList = list[TransactionDescription]
 
 
 class ListTransactionsResponse(TypedDict, total=False):
-    Transactions: Optional[TransactionDescriptionList]
-    NextToken: Optional[TokenString]
+    Transactions: TransactionDescriptionList | None
+    NextToken: TokenString | None
 
 
 class PutDataLakeSettingsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DataLakeSettings: DataLakeSettings
 
 
@@ -1401,26 +1433,26 @@ class PutDataLakeSettingsResponse(TypedDict, total=False):
     pass
 
 
-QueryParameterMap = Dict[String, String]
+QueryParameterMap = dict[String, String]
 
 
 class QueryPlanningContext(TypedDict, total=False):
     """A structure containing information about the query plan."""
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: QueryPlanningContextDatabaseNameString
-    QueryAsOfTime: Optional[Timestamp]
-    QueryParameters: Optional[QueryParameterMap]
-    TransactionId: Optional[TransactionIdString]
+    QueryAsOfTime: Timestamp | None
+    QueryParameters: QueryParameterMap | None
+    TransactionId: TransactionIdString | None
 
 
 class RegisterResourceRequest(ServiceRequest):
     ResourceArn: ResourceArnString
-    UseServiceLinkedRole: Optional[NullableBoolean]
-    RoleArn: Optional[IAMRoleArn]
-    WithFederation: Optional[NullableBoolean]
-    HybridAccessEnabled: Optional[NullableBoolean]
-    WithPrivilegedAccess: Optional[Boolean]
+    UseServiceLinkedRole: NullableBoolean | None
+    RoleArn: IAMRoleArn | None
+    WithFederation: NullableBoolean | None
+    HybridAccessEnabled: NullableBoolean | None
+    WithPrivilegedAccess: Boolean | None
 
 
 class RegisterResourceResponse(TypedDict, total=False):
@@ -1428,22 +1460,22 @@ class RegisterResourceResponse(TypedDict, total=False):
 
 
 class RemoveLFTagsFromResourceRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Resource: Resource
     LFTags: LFTagsList
 
 
 class RemoveLFTagsFromResourceResponse(TypedDict, total=False):
-    Failures: Optional[LFTagErrors]
+    Failures: LFTagErrors | None
 
 
 class RevokePermissionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Principal: DataLakePrincipal
     Resource: Resource
     Permissions: PermissionList
-    Condition: Optional[Condition]
-    PermissionsWithGrantOption: Optional[PermissionList]
+    Condition: Condition | None
+    PermissionsWithGrantOption: PermissionList | None
 
 
 class RevokePermissionsResponse(TypedDict, total=False):
@@ -1451,39 +1483,39 @@ class RevokePermissionsResponse(TypedDict, total=False):
 
 
 class SearchDatabasesByLFTagsRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[SearchPageSize]
-    CatalogId: Optional[CatalogIdString]
+    NextToken: Token | None
+    MaxResults: SearchPageSize | None
+    CatalogId: CatalogIdString | None
     Expression: Expression
 
 
 class SearchDatabasesByLFTagsResponse(TypedDict, total=False):
-    NextToken: Optional[Token]
-    DatabaseList: Optional[DatabaseLFTagsList]
+    NextToken: Token | None
+    DatabaseList: DatabaseLFTagsList | None
 
 
 class SearchTablesByLFTagsRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[SearchPageSize]
-    CatalogId: Optional[CatalogIdString]
+    NextToken: Token | None
+    MaxResults: SearchPageSize | None
+    CatalogId: CatalogIdString | None
     Expression: Expression
 
 
 class TaggedTable(TypedDict, total=False):
     """A structure describing a table resource with LF-tags."""
 
-    Table: Optional[TableResource]
-    LFTagOnDatabase: Optional[LFTagsList]
-    LFTagsOnTable: Optional[LFTagsList]
-    LFTagsOnColumns: Optional[ColumnLFTagsList]
+    Table: TableResource | None
+    LFTagOnDatabase: LFTagsList | None
+    LFTagsOnTable: LFTagsList | None
+    LFTagsOnColumns: ColumnLFTagsList | None
 
 
-TableLFTagsList = List[TaggedTable]
+TableLFTagsList = list[TaggedTable]
 
 
 class SearchTablesByLFTagsResponse(TypedDict, total=False):
-    NextToken: Optional[Token]
-    TableList: Optional[TableLFTagsList]
+    NextToken: Token | None
+    TableList: TableLFTagsList | None
 
 
 class StartQueryPlanningRequest(ServiceRequest):
@@ -1498,14 +1530,14 @@ class StartQueryPlanningResponse(TypedDict, total=False):
 
 
 class StartTransactionRequest(ServiceRequest):
-    TransactionType: Optional[TransactionType]
+    TransactionType: TransactionType | None
 
 
 class StartTransactionResponse(TypedDict, total=False):
-    TransactionId: Optional[TransactionIdString]
+    TransactionId: TransactionIdString | None
 
 
-StorageOptimizerConfigMap = Dict[OptimizerType, StorageOptimizerConfig]
+StorageOptimizerConfigMap = dict[OptimizerType, StorageOptimizerConfig]
 
 
 class UpdateDataCellsFilterRequest(ServiceRequest):
@@ -1518,8 +1550,8 @@ class UpdateDataCellsFilterResponse(TypedDict, total=False):
 
 class UpdateLFTagExpressionRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
-    CatalogId: Optional[CatalogIdString]
+    Description: DescriptionString | None
+    CatalogId: CatalogIdString | None
     Expression: Expression
 
 
@@ -1528,10 +1560,10 @@ class UpdateLFTagExpressionResponse(TypedDict, total=False):
 
 
 class UpdateLFTagRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     TagKey: LFTagKey
-    TagValuesToDelete: Optional[TagValueList]
-    TagValuesToAdd: Optional[TagValueList]
+    TagValuesToDelete: TagValueList | None
+    TagValuesToAdd: TagValueList | None
 
 
 class UpdateLFTagResponse(TypedDict, total=False):
@@ -1539,10 +1571,11 @@ class UpdateLFTagResponse(TypedDict, total=False):
 
 
 class UpdateLakeFormationIdentityCenterConfigurationRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    ShareRecipients: Optional[DataLakePrincipalList]
-    ApplicationStatus: Optional[ApplicationStatus]
-    ExternalFiltering: Optional[ExternalFilteringConfiguration]
+    CatalogId: CatalogIdString | None
+    ShareRecipients: DataLakePrincipalList | None
+    ServiceIntegrations: ServiceIntegrationList | None
+    ApplicationStatus: ApplicationStatus | None
+    ExternalFiltering: ExternalFilteringConfiguration | None
 
 
 class UpdateLakeFormationIdentityCenterConfigurationResponse(TypedDict, total=False):
@@ -1552,8 +1585,8 @@ class UpdateLakeFormationIdentityCenterConfigurationResponse(TypedDict, total=Fa
 class UpdateResourceRequest(ServiceRequest):
     RoleArn: IAMRoleArn
     ResourceArn: ResourceArnString
-    WithFederation: Optional[NullableBoolean]
-    HybridAccessEnabled: Optional[NullableBoolean]
+    WithFederation: NullableBoolean | None
+    HybridAccessEnabled: NullableBoolean | None
 
 
 class UpdateResourceResponse(TypedDict, total=False):
@@ -1563,18 +1596,18 @@ class UpdateResourceResponse(TypedDict, total=False):
 class WriteOperation(TypedDict, total=False):
     """Defines an object to add to or delete from a governed table."""
 
-    AddObject: Optional[AddObjectInput]
-    DeleteObject: Optional[DeleteObjectInput]
+    AddObject: AddObjectInput | None
+    DeleteObject: DeleteObjectInput | None
 
 
-WriteOperationList = List[WriteOperation]
+WriteOperationList = list[WriteOperation]
 
 
 class UpdateTableObjectsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    TransactionId: Optional[TransactionIdString]
+    TransactionId: TransactionIdString | None
     WriteOperations: WriteOperationList
 
 
@@ -1583,19 +1616,19 @@ class UpdateTableObjectsResponse(TypedDict, total=False):
 
 
 class UpdateTableStorageOptimizerRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     StorageOptimizerConfig: StorageOptimizerConfigMap
 
 
 class UpdateTableStorageOptimizerResponse(TypedDict, total=False):
-    Result: Optional[Result]
+    Result: Result | None
 
 
 class LakeformationApi:
-    service = "lakeformation"
-    version = "2017-03-31"
+    service: str = "lakeformation"
+    version: str = "2017-03-31"
 
     @handler("AddLFTagsToResource")
     def add_lf_tags_to_resource(
@@ -1645,7 +1678,17 @@ class LakeformationApi:
         API ``GetDataAccess``. Therefore, all SAML roles that can be assumed via
         ``AssumeDecoratedRoleWithSAML`` must at a minimum include
         ``lakeformation:GetDataAccess`` in their role policies. A typical IAM
-        policy attached to such a role would look as follows:
+        policy attached to such a role would include the following actions:
+
+        -  glue:*Database\\*
+
+        -  glue:*Table\\*
+
+        -  glue:*Partition\\*
+
+        -  glue:*UserDefinedFunction\\*
+
+        -  lakeformation:GetDataAccess
 
         :param saml_assertion: A SAML assertion consisting of an assertion statement for the user who
         needs temporary credentials.
@@ -1828,6 +1871,7 @@ class LakeformationApi:
         instance_arn: IdentityCenterInstanceArn | None = None,
         external_filtering: ExternalFilteringConfiguration | None = None,
         share_recipients: DataLakePrincipalList | None = None,
+        service_integrations: ServiceIntegrationList | None = None,
         **kwargs,
     ) -> CreateLakeFormationIdentityCenterConfigurationResponse:
         """Creates an IAM Identity Center connection with Lake Formation to allow
@@ -1841,6 +1885,8 @@ class LakeformationApi:
         :param share_recipients: A list of Amazon Web Services account IDs and/or Amazon Web Services
         organization/organizational unit ARNs that are allowed to access data
         managed by Lake Formation.
+        :param service_integrations: A list of service integrations for enabling trusted identity propagation
+        with external services such as Redshift.
         :returns: CreateLakeFormationIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises AlreadyExistsException:
@@ -1911,12 +1957,13 @@ class LakeformationApi:
         catalog_id: CatalogIdString | None = None,
         **kwargs,
     ) -> DeleteLFTagResponse:
-        """Deletes the specified LF-tag given a key name. If the input parameter
-        tag key was not found, then the operation will throw an exception. When
-        you delete an LF-tag, the ``LFTagPolicy`` attached to the LF-tag becomes
-        invalid. If the deleted LF-tag was still assigned to any resource, the
-        tag policy attach to the deleted LF-tag will no longer be applied to the
-        resource.
+        """Deletes an LF-tag by its key name. The operation fails if the specified
+        tag key doesn't exist. When you delete an LF-Tag:
+
+        -  The associated LF-Tag policy becomes invalid.
+
+        -  Resources that had this tag assigned will no longer have the tag
+           policy applied to them.
 
         :param tag_key: The key-name for the LF-tag to delete.
         :param catalog_id: The identifier for the Data Catalog.
@@ -2632,7 +2679,9 @@ class LakeformationApi:
         ALTER.
 
         This operation returns only those permissions that have been explicitly
-        granted.
+        granted. If both ``Principal`` and ``Resource`` parameters are provided,
+        the response returns effective permissions rather than the explicitly
+        granted permissions.
 
         For information about permissions, see `Security and Access Control to
         Metadata and
@@ -2645,7 +2694,8 @@ class LakeformationApi:
         :param next_token: A continuation token, if this is not the first call to retrieve this
         list.
         :param max_results: The maximum number of results to return.
-        :param include_related: Indicates that related permissions should be included in the results.
+        :param include_related: Indicates that related permissions should be included in the results
+        when listing permissions on a table resource.
         :returns: ListPermissionsResponse
         :raises InvalidInputException:
         :raises OperationTimeoutException:
@@ -3062,6 +3112,7 @@ class LakeformationApi:
         context: RequestContext,
         catalog_id: CatalogIdString | None = None,
         share_recipients: DataLakePrincipalList | None = None,
+        service_integrations: ServiceIntegrationList | None = None,
         application_status: ApplicationStatus | None = None,
         external_filtering: ExternalFilteringConfiguration | None = None,
         **kwargs,
@@ -3072,6 +3123,8 @@ class LakeformationApi:
         :param share_recipients: A list of Amazon Web Services account IDs or Amazon Web Services
         organization/organizational unit ARNs that are allowed to access to
         access data managed by Lake Formation.
+        :param service_integrations: A list of service integrations for enabling trusted identity propagation
+        with external services such as Redshift.
         :param application_status: Allows to enable or disable the IAM Identity Center connection.
         :param external_filtering: A list of the account IDs of Amazon Web Services accounts of third-party
         applications that are allowed to access data managed by Lake Formation.

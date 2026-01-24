@@ -1,7 +1,7 @@
 [package]
 name = "chia-secp"
-version = "0.30.0"
-edition = "2021"
+version = "0.37.0"
+edition = "2024"
 license = "Apache-2.0"
 description = "Secp256k1 and secp256r1 types for Chia"
 authors = ["Brandon Haggstrom <b.haggstrom@chia.net>"]

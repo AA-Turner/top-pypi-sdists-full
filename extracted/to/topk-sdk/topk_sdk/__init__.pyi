@@ -4,10 +4,9 @@ from enum import Enum
 
 from . import query, schema
 
-
 class Client:
     """
-    Synchronous client for interacting with the TopK API.
+    Client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
     """
 
     def __init__(
@@ -16,9 +15,8 @@ class Client:
         region: builtins.str,
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
-        retry_config: typing.Optional[RetryConfig] = None,
-    ) -> None:
-        ...
+        retry_config: typing.Optional[RetryConfig | dict[builtins.str, typing.Any]] = None,
+    ) -> None: ...
     def collection(self, collection: builtins.str) -> CollectionClient:
         """
         Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
@@ -30,10 +28,9 @@ class Client:
         """
         ...
 
-
 class AsyncClient:
     """
-    Asynchronous client for interacting with the TopK API.
+    Async client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
     """
 
     def __init__(
@@ -42,18 +39,14 @@ class AsyncClient:
         region: builtins.str,
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
-        retry_config: typing.Optional[RetryConfig] = None,
-    ) -> None:
-        ...
+        retry_config: typing.Optional[RetryConfig | dict[builtins.str, typing.Any]] = None,
+    ) -> None: ...
     def collection(self, collection: builtins.str) -> AsyncCollectionClient:
-        """Get an async client for a specific collection.
-        """
+        """Get an async client for a specific collection."""
         ...
     def collections(self) -> AsyncCollectionsClient:
-        """Get an async client for managing collections.
-        """
+        """Get an async client for managing collections."""
         ...
-
 
 class CollectionClient:
     """
@@ -97,12 +90,39 @@ class CollectionClient:
         Insert or update documents in the collection.
         """
         ...
-    def delete(self, ids: typing.Sequence[builtins.str]) -> builtins.str:
+
+    def update(
+        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]], fail_on_missing: typing.Optional[builtins.bool] = None
+    ) -> builtins.str:
         """
-        Delete documents by their IDs.
+        Update documents in the collection.
+
+        Existing documents will be merged with the provided fields.
+        Missing documents will be ignored.
+
+        Returns the `LSN` at which the update was applied.
+        If no updates were applied, this will be empty.
         """
         ...
+    def delete(self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]) -> builtins.str:
+        """
+        Delete documents by their IDs or using a filter expression.
 
+        **Example:**
+
+        Delete documents by their IDs:
+        ```python
+        client.collection("books").delete(["id_1", "id_2"])
+        ```
+
+        Delete documents by a filter expression:
+        ```python
+        from topk_sdk.query import field
+
+        client.collection("books").delete(field("published_year").gt(1997))
+        ```
+        """
+        ...
 
 class AsyncCollectionClient:
     """
@@ -115,7 +135,9 @@ class AsyncCollectionClient:
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> typing.Awaitable[builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]]:
+    ) -> typing.Awaitable[
+        builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
+    ]:
         """
         Get documents by their IDs asynchronously.
         """
@@ -146,23 +168,51 @@ class AsyncCollectionClient:
         Insert or update documents in the collection asynchronously.
         """
         ...
-    def delete(self, ids: typing.Sequence[builtins.str]) -> typing.Awaitable[builtins.str]:
+    def update(
+        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]], fail_on_missing: typing.Optional[builtins.bool] = None
+    ) -> typing.Awaitable[builtins.str]:
         """
-        Delete documents by their IDs asynchronously.
+        Update documents in the collection asynchronously.
+
+        Existing documents will be merged with the provided fields.
+        Missing documents will be ignored.
+
+        Returns the `LSN` at which the update was applied.
+        If no updates were applied, this will be empty.
         """
         ...
+    def delete(
+        self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]
+    ) -> typing.Awaitable[builtins.str]:
+        """
+        Delete documents by their IDs or using a filter expression asynchronously.
 
+        **Example:**
+
+        Delete documents by their IDs:
+        ```python
+        await client.collection("books").delete(["id_1", "id_2"])
+        ```
+
+        Delete documents by a filter expression:
+        ```python
+        from topk_sdk.query import field
+
+        await client.collection("books").delete(field("published_year").gt(1997))
+        ```
+        """
+        ...
 
 class Collection:
     """
     Represents a collection in the TopK system.
     """
+
     name: builtins.str
     org_id: builtins.str
     project_id: builtins.str
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
-
 
 class CollectionsClient:
     """
@@ -194,7 +244,6 @@ class CollectionsClient:
         """
         ...
 
-
 class AsyncCollectionsClient:
     """
     Asynchronous client for managing collections.
@@ -225,7 +274,6 @@ class AsyncCollectionsClient:
         """
         ...
 
-
 class ConsistencyLevel(Enum):
     """
     Enumeration of consistency levels for operations.
@@ -234,22 +282,60 @@ class ConsistencyLevel(Enum):
     Indexed = "indexed"
     Strong = "strong"
 
-
 class RetryConfig:
     """
     Configuration for retry behavior.
+
+    By default, retries occur in two situations:
+    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](https://docs.topk.io/sdk/topk-py/error#slowdownerror).
+    2. When using the `query(..., lsn=N)` to wait for writes to be available.
     """
 
-    max_retries: typing.Optional[builtins.int]
-    timeout: typing.Optional[builtins.int]
-    backoff: typing.Optional[BackoffConfig]
+    def __init__(
+        self,
+        max_retries: typing.Optional[builtins.int] = None,
+        timeout: typing.Optional[builtins.int] = None,
+        backoff: typing.Optional[BackoffConfig] = None,
+    ) -> None: ...
 
+    max_retries: typing.Annotated[typing.Optional[builtins.int], "Maximum number of retries to attempt. Default is 3 retries."]
+    """
+    Maximum number of retries to attempt.
+    Default is 3 retries.
+    """
+    timeout: typing.Annotated[typing.Optional[builtins.int], "The total timetout for the retry chain in milliseconds. Default is 30,000 milliseconds (30 seconds)"]
+    """
+    The total timeout for the retry chain in milliseconds.
+    Default is 30,000 milliseconds (30 seconds).
+    """
+    backoff: typing.Annotated[typing.Optional[BackoffConfig], "The backoff configuration for the client."]
+    """
+    The backoff configuration for the client.
+    """
 
 class BackoffConfig:
     """
     Configuration for backoff behavior in retries.
     """
 
-    base: typing.Optional[builtins.int]
-    init_backoff: typing.Optional[builtins.int]
-    max_backoff: typing.Optional[builtins.int]
+    def __init__(
+        self,
+        base: typing.Optional[builtins.int] = None,
+        init_backoff: typing.Optional[builtins.int] = None,
+        max_backoff: typing.Optional[builtins.int] = None,
+    ) -> None: ...
+
+    base: typing.Annotated[typing.Optional[builtins.int], "The base for the backoff. Default is 2x backoff."]
+    """
+    The base for the backoff. Default is 2x backoff.
+    """
+    init_backoff: typing.Annotated[typing.Optional[builtins.int], "The initial backoff in milliseconds. Default is 100 milliseconds."]
+    """
+    The initial backoff in milliseconds.
+    Default is 100 milliseconds.
+    """
+    max_backoff: typing.Annotated[typing.Optional[builtins.int], "The maximum backoff in milliseconds. Default is 10,000 milliseconds (10 seconds)."]
+    """
+    The maximum backoff in milliseconds.
+    Default is 10,000 milliseconds (10 seconds).
+    """

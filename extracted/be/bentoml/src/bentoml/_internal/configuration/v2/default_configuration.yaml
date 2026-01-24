@@ -6,7 +6,12 @@ services:
   backlog: 2048
   # the maximum number of connections that will be made to any given runner server at once
   max_runner_connections: 16
+  # whether to start subprocess for each worker
+  replicate_process: false
   extra_ports: ~
+  runner_connection:
+    max_requests: 100
+    max_age: 300.0
   traffic:
     timeout: 60.0
     max_concurrency: ~

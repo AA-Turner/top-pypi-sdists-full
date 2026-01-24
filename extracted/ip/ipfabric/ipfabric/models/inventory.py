@@ -43,6 +43,7 @@ class DeviceTable(Table):
         sort: Optional[dict] = None,
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -57,6 +58,7 @@ class DeviceTable(Table):
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -71,6 +73,7 @@ class DeviceTable(Table):
         sort: Optional[dict] = None,
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     @overload
@@ -98,6 +101,7 @@ class DeviceTable(Table):
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from corresponding endpoint
 
@@ -113,6 +117,9 @@ class DeviceTable(Table):
             start: Starts at 0
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], Devices, bytes, DataFrame]: Default List of dicts 'json', Devices object if 'object',
                                                           bytes if 'csv', pandas.DataFrame if 'df'
@@ -128,6 +135,7 @@ class DeviceTable(Table):
             limit=limit,
             start=start,
             csv_tz=csv_tz,
+            api_version=api_version if export != "object" else None,
         )
         return self._as_model(devices, export)
 
@@ -141,6 +149,7 @@ class DeviceTable(Table):
         snapshot_id: Optional[str] = None,
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -153,6 +162,7 @@ class DeviceTable(Table):
         snapshot_id: Optional[str] = None,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -165,6 +175,7 @@ class DeviceTable(Table):
         snapshot_id: Optional[str] = None,
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     @overload
@@ -188,6 +199,7 @@ class DeviceTable(Table):
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from corresponding endpoint
 
@@ -201,6 +213,9 @@ class DeviceTable(Table):
             sort: Dictionary to apply sorting: {"order": "desc", "column": "lastChange"}
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
              Union[list[dict], Devices, bytes, DataFrame]: Default List of dicts 'json', Devices object if 'object',
                                                            bytes if 'csv', pandas.DataFrame if 'df'
@@ -214,6 +229,7 @@ class DeviceTable(Table):
             reports=reports if export not in ["csv", "object"] else None,
             sort=sort,
             csv_tz=csv_tz,
+            api_version=api_version if export != "object" else None,
         )
         return self._as_model(devices, export)
 
@@ -238,7 +254,7 @@ class Inventory(BaseModel):
 
     @computed_field
     @property
-    def devices(self) -> Table:
+    def devices(self) -> DeviceTable:
         return DeviceTable(client=self.client)
 
     @computed_field

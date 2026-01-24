@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -35,17 +35,17 @@ class DatabaseRole(BaseModel):
     comment : str, optional
         User comment associated to an object in the dictionary
     created_on : datetime, optional
-        Date and time when the database role was created
+        Date and time when the database role was created — **Read-only:** *any user-provided value will be ignored.*
     granted_to_roles : int, optional
-        How many roles this database role has been granted to
+        How many roles this database role has been granted to — **Read-only:** *any user-provided value will be ignored.*
     granted_to_database_roles : int, optional
-        How many database roles this database role has been granted to
+        How many database roles this database role has been granted to — **Read-only:** *any user-provided value will be ignored.*
     granted_database_roles : int, optional
-        How many database roles this database role has been granted
+        How many database roles this database role has been granted — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the database role
+        Role that owns the database role — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the database role
+        The type of role that owns the database role — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -97,9 +97,10 @@ class DatabaseRole(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -133,7 +134,7 @@ class DatabaseRole(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -148,9 +149,9 @@ class DatabaseRole(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return DatabaseRole.parse_obj(obj)
+            return DatabaseRole.model_validate(obj)
 
-        _obj = DatabaseRole.parse_obj(
+        _obj = DatabaseRole.model_validate(
             {
                 "name": obj.get("name"),
                 "comment": obj.get("comment"),

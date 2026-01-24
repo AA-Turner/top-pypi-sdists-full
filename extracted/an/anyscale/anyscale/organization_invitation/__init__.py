@@ -14,9 +14,9 @@ from anyscale.organization_invitation.commands import (
     _DELETE_EXAMPLE,
     _LIST_ARG_DOCSTRINGS,
     _LIST_EXAMPLE,
-    create,
-    delete,
-    list,
+    create as create,
+    delete as delete,
+    list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
 )
 
 

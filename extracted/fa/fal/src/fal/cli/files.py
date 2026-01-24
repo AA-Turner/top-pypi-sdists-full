@@ -1,45 +1,44 @@
+from typing import TYPE_CHECKING
+
 from .parser import FalClientParser
+
+if TYPE_CHECKING:
+    from fal.files import FalFileSystem
+
+
+def _get_fs(args) -> "FalFileSystem":
+    from fal.files import FalFileSystem
+
+    return FalFileSystem(host=args.host, team=args.team)
 
 
 def _list(args):
     import posixpath
 
-    from fal.files import FalFileSystem
-
-    fs = FalFileSystem()
-
-    for entry in fs.ls(args.path, detail=True):
+    for entry in _get_fs(args).ls(args.path, detail=True):
         name = posixpath.basename(entry["name"])
         color = "blue" if entry["type"] == "directory" else "default"
         args.console.print(f"[{color}]{name}[/{color}]")
 
 
 def _download(args):
-    from fal.files import FalFileSystem
-
-    fs = FalFileSystem()
-    fs.get(args.remote_path, args.local_path, recursive=True)
+    _get_fs(args).get(args.remote_path, args.local_path, recursive=True)
 
 
 def _upload(args):
-    from fal.files import FalFileSystem
-
-    fs = FalFileSystem()
-    fs.put(args.local_path, args.remote_path, recursive=True)
+    _get_fs(args).put(args.local_path, args.remote_path, recursive=True)
 
 
 def _upload_url(args):
-    from fal.files import FalFileSystem
-
-    fs = FalFileSystem()
-    fs.put_file_from_url(args.url, args.remote_path)
+    _get_fs(args).put_file_from_url(args.url, args.remote_path)
 
 
 def _mv(args):
-    from fal.files import FalFileSystem
+    _get_fs(args).mv(args.source, args.destination)
 
-    fs = FalFileSystem()
-    fs.mv(args.source, args.destination)
+
+def _rm(args):
+    _get_fs(args).rm(args.path)
 
 
 def add_parser(main_subparsers, parents):
@@ -126,3 +125,13 @@ def add_parser(main_subparsers, parents):
     mv_parser.add_argument("source", type=str, help="Remote source path")
     mv_parser.add_argument("destination", type=str, help="Remote destination path")
     mv_parser.set_defaults(func=_mv)
+
+    rm_help = "Recursively remove a remote file or directory."
+    rm_parser = subparsers.add_parser(
+        "rm",
+        description=rm_help,
+        help=rm_help,
+        parents=parents,
+    )
+    rm_parser.add_argument("path", type=str, help="Remote path")
+    rm_parser.set_defaults(func=_rm)

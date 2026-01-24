@@ -9,9 +9,10 @@ from triad.collections import Schema
 from triad.collections.dict import IndexedOrderedDict, ParamDict
 from triad.utils.assertion import assert_or_throw
 from triad.utils.hash import to_uuid
+from triad.utils.io import makedirs
 from triad.utils.pandas_like import PandasUtils
 from triad.utils.threading import RunOnce
-from triad.utils.io import makedirs
+
 from fugue import StructuredRawSQL
 from fugue.collections.partition import (
     PartitionCursor,
@@ -61,14 +62,9 @@ class DaskSQLEngine(SQLEngine):
         return True
 
     def select(self, dfs: DataFrames, statement: StructuredRawSQL) -> DataFrame:
-        try:
-            from dask_sql import Context
-        except ImportError:  # pragma: no cover
-            raise ImportError(
-                "dask-sql is not installed. "
-                "Please install it with `pip install dask-sql`"
-            )
-        ctx = Context()
+        from ._dask_sql_wrapper import ContextWrapper
+
+        ctx = ContextWrapper()
         _dfs: Dict[str, dd.DataFrame] = {k: self._to_safe_df(v) for k, v in dfs.items()}
         sql = statement.construct(dialect=self.dialect, log=self.log)
         res = ctx.sql(
@@ -102,7 +98,8 @@ class DaskMapEngine(MapEngine):
         partition_spec: PartitionSpec,
         on_init: Optional[Callable[[int, DataFrame], Any]] = None,
         map_func_format_hint: Optional[str] = None,
-    ) -> DataFrame:
+    ) -> DataFrame:  # pragma: no cover
+        # It is well tested but not captured by coverage
         presort = partition_spec.get_sorts(
             df.schema, with_partition_keys=partition_spec.algo == "coarse"
         )
@@ -475,7 +472,7 @@ class DaskExecutionEngine(ExecutionEngine):
         # Use presort over partition_spec.presort if possible
         _presort: IndexedOrderedDict = presort or partition_spec.presort
 
-        def _partition_take(partition, n, presort):
+        def _partition_take(partition, n, presort):  # pragma: no cover
             assert_or_throw(
                 partition.shape[1] == len(meta),
                 FugueBug("hitting the dask bug where partition keys are lost"),

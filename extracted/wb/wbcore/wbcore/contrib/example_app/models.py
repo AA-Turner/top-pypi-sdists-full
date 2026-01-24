@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from contextlib import suppress
 from decimal import Decimal
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from wbcore.enums import RequestType
 from wbcore.metadata.configs.buttons import ActionButton
 from wbcore.models.orderable import OrderableModel
 from wbcore.utils.models import ActiveObjectManager, ComplexToStringMixin
+from wbcore.workers import Queue
 
 
 def upload_to_profile_images(instance, filename):
@@ -69,7 +71,7 @@ class Role(models.Model):
         verbose_name_plural = _("Roles")
 
 
-class SportPerson(ComplexToStringMixin, models.Model):
+class SportPerson(ComplexToStringMixin):
     roles = models.ManyToManyField(to=Role, blank=True, related_name="sport_persons", verbose_name=_("Roles"))
     first_name = models.CharField(max_length=255, verbose_name=_("First Name"))
     last_name = models.CharField(max_length=255, verbose_name=_("Last Name"))
@@ -372,7 +374,7 @@ class Match(ComplexToStringMixin, CalendarItem):
                 WBColor.BLUE_LIGHT.value,
                 WBColor.GREEN_LIGHT.value,
             ]
-            return [status for status in zip(cls, colors)]
+            return [status for status in zip(cls, colors, strict=False)]
 
     home = models.ForeignKey(
         to="Team",
@@ -432,7 +434,7 @@ class Match(ComplexToStringMixin, CalendarItem):
 
     events: models.QuerySet[Event]
 
-    def has_permissions(instance: Match, user: User) -> bool:
+    def has_permissions(self: Match, user: User) -> bool:
         if user.is_superuser or user.has_perm("wbcore.change_match_status"):
             return True
         return False
@@ -587,23 +589,23 @@ class Match(ComplexToStringMixin, CalendarItem):
         verbose_name_plural = _("Matches")
         constraints = [
             models.UniqueConstraint(fields=["home", "away", "date_time"], name="match_home_away_date_time"),
-            models.CheckConstraint(check=~models.Q(home=models.F("away")), name="check_match_home_away"),
+            models.CheckConstraint(condition=~models.Q(home=models.F("away")), name="check_match_home_away"),
         ]
         permissions = [("change_match_status", "Change Match Status")]
 
 
-@shared_task
+@shared_task(queue=Queue.DEFAULT.value)
 def start_match(match_id: int):
     """Sets the match status from scheduled to ongoing.
 
     Args:
         match_id (int): ID of the match in question
     """
-
-    match = Match.objects.get(pk=match_id)
-    if match.status == Match.MatchStatus.SCHEDULED:
-        match.status = Match.MatchStatus.ONGOING
-        match.save()
+    with suppress(Match.DoesNotExist):
+        match = Match.objects.get(pk=match_id)
+        if match.status == Match.MatchStatus.SCHEDULED:
+            match.status = Match.MatchStatus.ONGOING
+            match.save()
 
 
 @receiver(models.signals.post_save, sender=Match)
@@ -741,7 +743,7 @@ def post_save_team(sender, instance: Team, created: bool, raw: bool, **kwargs):
                 away_match.recompute_computed_str()
 
 
-class Player(OrderableModel, SportPerson):
+class Player(OrderableModel, SportPerson):  # noqa
     PARTITION_BY = PARENT_FK = "current_team"
 
     position = models.CharField(max_length=50, null=True, blank=True, verbose_name=_("Position"))

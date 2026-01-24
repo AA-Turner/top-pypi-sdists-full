@@ -4,6 +4,7 @@ Routines to set up a minion
 
 import asyncio
 import binascii
+import collections
 import contextlib
 import copy
 import logging
@@ -18,6 +19,7 @@ import time
 import traceback
 import types
 import uuid
+from collections import OrderedDict
 
 import tornado
 import tornado.gen
@@ -77,7 +79,6 @@ from salt.template import SLS_ENCODING
 from salt.utils.debug import enable_sigusr1_handler
 from salt.utils.event import tagify
 from salt.utils.network import parse_host_port
-from salt.utils.odict import OrderedDict
 from salt.utils.process import ProcessManager, SignalHandlingProcess, default_signals
 from salt.utils.zeromq import ZMQ_VERSION_INFO, zmq
 
@@ -2021,7 +2022,8 @@ class Minion(MinionBase):
         minion_instance.gen_modules()
         fn_ = os.path.join(minion_instance.proc_dir, data["jid"])
 
-        salt.utils.process.appendproctitle(f"{cls.__name__}._thread_return")
+        if opts.get("multiprocessing", True):
+            salt.utils.process.appendproctitle(f"{cls.__name__}._thread_return")
 
         sdata = {"pid": os.getpid()}
         sdata.update(data)
@@ -2229,7 +2231,8 @@ class Minion(MinionBase):
         minion_instance.gen_modules()
         fn_ = os.path.join(minion_instance.proc_dir, data["jid"])
 
-        salt.utils.process.appendproctitle(f"{cls.__name__}._thread_multi_return")
+        if opts.get("multiprocessing", True):
+            salt.utils.process.appendproctitle(f"{cls.__name__}._thread_multi_return")
 
         sdata = {"pid": os.getpid()}
         sdata.update(data)
@@ -3632,6 +3635,8 @@ class SyndicManager(MinionBase):
         # List of delayed job_rets which was unable to send for some reason and will be resend to
         # any available master
         self.delayed = []
+        # Keep track of retries for Syndics between multiple Master of Masters
+        self.tries = collections.defaultdict(int)
         # Active pub futures: {master_id: (future, [job_ret, ...]), ...}
         self.pub_futures = {}
 
@@ -3768,9 +3773,17 @@ class SyndicManager(MinionBase):
                     )
                     self._mark_master_dead(master)
                     del self.pub_futures[master]
-                    # Add not sent data to the delayed list and try the next master
-                    self.delayed.extend(data)
+                    self.tries[master] += 1
+                    if self.tries[master] < self.opts.get("syndic_retries", 3):
+                        # Add not sent data to the delayed list and try the next master
+                        self.delayed.extend(data)
+                    else:
+                        self.tries = collections.defaultdict(int)
+                        return True
                     continue
+                else:
+                    self.tries = collections.defaultdict(int)
+
             future = getattr(syndic_future.result(), func)(
                 values, "_syndic_return", timeout=self._return_retry_timer(), sync=False
             )
@@ -3841,21 +3854,27 @@ class SyndicManager(MinionBase):
         # TODO: cleanup: Move down into event class
         mtag, data = self.local.event.unpack(raw)
         log.trace("Got event %s", mtag)  # pylint: disable=no-member
+        job_event = False
+        return_event = True
 
         tag_parts = mtag.split("/")
         if (
             len(tag_parts) >= 4
             and tag_parts[1] == "job"
             and salt.utils.jid.is_jid(tag_parts[2])
-            and tag_parts[3] == "ret"
-            and "return" in data
         ):
+            job_event = True
+
+        if self.syndic_mode == "cluster" and data.get("master_id", 0) == self.opts.get(
+            "master_id", 1
+        ):
+            return_event = False
+
+        if job_event and tag_parts[3] == "ret" and "return" in data:
             if "jid" not in data:
                 # Not a job return
                 return
-            if self.syndic_mode == "cluster" and data.get(
-                "master_id", 0
-            ) == self.opts.get("master_id", 1):
+            if not return_event:
                 log.debug("Return received with matching master_id, not forwarding")
                 return
 
@@ -3891,7 +3910,15 @@ class SyndicManager(MinionBase):
             # TODO: config to forward these? If so we'll have to keep track of who
             # has seen them
             # if we are the top level masters-- don't forward all the minion events
-            if self.syndic_mode == "sync":
+
+            if (
+                self.syndic_mode == "sync"
+                # Even in cluster mode we need to forward the raw event with the minions
+                # list to determine which minions we expect to return on the master of masters.
+                or (
+                    return_event and (salt.utils.jid.is_jid(mtag) and "minions" in data)
+                )
+            ):
                 # Add generic event aggregation here
                 if "retcode" not in data:
                     self.raw_events.append({"data": data, "tag": mtag})

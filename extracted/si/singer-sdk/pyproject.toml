@@ -31,7 +31,6 @@ license-files = ["LICENSE"]
 requires-python = ">=3.10"
 
 dependencies = [
-    "backoff>=2.0.0,<4",
     'backports-datetime-fromisoformat>=2.0.1; python_version<"3.11"',
     "click>=8.2,<9",
     "fsspec>=2024.9.0",
@@ -41,6 +40,7 @@ dependencies = [
     "jsonpath-ng>=1.5.3",
     "jsonschema>=4.16.0",
     "packaging>=23.1",
+    "python-backoff>=2.2.2",
     "python-dotenv>=0.20",
     "PyYAML>=6.0",
     "referencing>=0.30.0",
@@ -62,7 +62,7 @@ parquet = [
 ]
 
 testing = [
-    "pytest>=7.5",
+    "pytest>=9",
 ]
 
 faker = [
@@ -106,7 +106,7 @@ dev = [
 docs = [
     "furo>=2024.5.6",
     "myst-parser>=3",
-    "pytest>=8",
+    "pytest>=9",
     "sphinx>=7",
     "sphinx-copybutton>=0.5.2",
     "sphinx-inline-tabs>=2023.4.21",
@@ -115,27 +115,27 @@ docs = [
 ]
 # Workspace packages needed for end-to-end tests
 packages = [
-    "mapper-custom",
-    "tap-countries",
-    "tap-csv",
-    "tap-dummyjson",
-    "tap-fake-people",
-    "tap-fundamentals",
-    "tap-gitlab",
-    "tap-hostile",
-    "tap-sqlite",
-    "target-csv",
-    "target-parquet",
-    "target-sqlite",
+    "meltano-mapper-custom",
+    "meltano-tap-countries",
+    "meltano-tap-csv",
+    "meltano-tap-dummyjson",
+    "meltano-tap-fake-people",
+    "meltano-tap-fundamentals",
+    "meltano-tap-gitlab",
+    "meltano-tap-hostile",
+    "meltano-tap-sqlite",
+    "meltano-target-csv",
+    "meltano-target-parquet",
+    "meltano-target-sqlite",
 ]
 testing = [
+    "backports-zstd>=1.0.0; python_version < '3.14'",
     "coverage[toml]>=7.9",
     "fastjsonschema>=2.19.1",
-    "pytest>=7.2.1",
+    "pytest>=9",
     "pytest-benchmark>=4.0.0",
     "pytest-github-actions-annotate-failures>=0.3.0",
     "pytest-snapshot>=0.9.0",
-    "pytest-subtests>=0.13.1",
     "pytz>=2022.2.1",
     "requests-cache>=1.2.1",
     "requests-mock>=1.10.0",
@@ -145,8 +145,10 @@ testing = [
     "xdoctest[colors]>=1.1.1",
 ]
 typing = [
+    {"include-group" = "testing"},
     "mypy>=1.17",
     "pyarrow-stubs>=19.1",
+    "ty>=0.0.4",
     "types-jsonschema>=4.17.0.6",
     "types-pytz>=2022.7.1.2",
     "types-requests>=2.28.11",
@@ -155,7 +157,7 @@ typing = [
 ]
 benchmark = [
     {"include-group" = "testing"},
-    "pytest-codspeed>=2.2.0",
+    "pytest-codspeed>=2.2.0,!=4.1.0",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -178,7 +180,7 @@ include = [
 fallback-version = "0.0.0"
 source = "vcs"
 
-[tool.pytest.ini_options]
+[tool.pytest]
 addopts = [
     "--durations=10",
     "-m",
@@ -188,20 +190,18 @@ addopts = [
     "--strict-markers",
 ]
 filterwarnings = [
-    "error",
-    "once:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",  # https://github.com/litl/backoff/pull/220
-    "once:No records were available to test:UserWarning",
+    'error',
+    'once:No records were available to test:UserWarning',
     # https://github.com/meltano/sdk/issues/1354
-    "ignore:The function singer_sdk.testing.get_standard_tap_tests is deprecated:DeprecationWarning",
+    'ignore:The function singer_sdk.testing.get_standard_tap_tests is deprecated:DeprecationWarning',
     # TODO: Address this SQLite warning in Python 3.13+
-    "ignore::ResourceWarning",
-    # universal-pathlib
-    "once:in a future version of UPath this will be set to None:PendingDeprecationWarning",
+    'ignore::ResourceWarning',
     # Our own warnings
-    "once::singer_sdk.helpers._compat.SingerSDKDeprecationWarning",
+    'once::singer_sdk.helpers._compat.SingerSDKDeprecationWarning',
 ]
 log_cli_level = "INFO"
 log_format = "%(levelname)s %(name)s %(message)s"
+log_level = "INFO"
 markers = [
     "contrib: Tests for contrib (experimental or optional) modules",
     "external: Tests relying on external resources",
@@ -211,14 +211,14 @@ markers = [
     "darwin: Tests that only run on Darwin",
     "snapshot: Tests that use pytest-snapshot",
 ]
-minversion = "7"
+minversion = "9"
 testpaths = ["tests"]
-norecursedirs = "cookiecutter"
+norecursedirs = ["cookiecutter"]
 xfail_strict = false
 
 [tool.commitizen]
 name = "cz_version_bump"
-version = "0.49.1"
+version = "0.53.5"
 changelog_merge_prerelease = true
 prerelease_offset = 1
 tag_format = "v$major.$minor.$patch$prerelease"
@@ -318,7 +318,7 @@ module = [
 
 [build-system]
 requires = [
-    "hatchling==1.27",
+    "hatchling==1.28",
     "hatch-vcs==0.5",
 ]
 build-backend = "hatchling.build"
@@ -373,6 +373,7 @@ select = [
     "FA",   # flake8-future-annotations
     "ISC",  # flake8-implicit-str-concat
     "ICN",  # flake8-import-conventions
+    "LOG",  # flake8-logging
     "G",    # flake8-logging-format
     "INP",  # flake8-no-pep420
     "PIE",  # flake8-pie
@@ -390,10 +391,7 @@ select = [
     "PTH",  # flake8-use-pathlib
     "ERA",  # eradicate
     "PGH",  # pygrep-hooks
-    "PLC",  # pylint (convention)
-    "PLE",  # pylint (error)
-    "PLR",  # pylint (refactor)
-    "PLW",  # pylint (warning)
+    "PL",   # pylint
     "TRY",  # tryceratops
     "FLY",  # flynt
     "PERF", # perflint
@@ -471,23 +469,28 @@ max-args = 9
 required-version = ">=0.5.19"
 
 [tool.uv.sources]
-mapper-custom = { workspace = true }
-tap-countries = { workspace = true }
-tap-csv = { workspace = true }
-tap-dummyjson = { workspace = true }
-tap-fake-people = { workspace = true }
-tap-fundamentals = { workspace = true }
-tap-gitlab = { workspace = true }
-tap-hostile = { workspace = true }
-tap-sqlite = { workspace = true }
-target-csv = { workspace = true }
-target-parquet = { workspace = true }
-target-sqlite = { workspace = true }
+meltano-mapper-custom = { workspace = true }
+meltano-tap-countries = { workspace = true }
+meltano-tap-csv = { workspace = true }
+meltano-tap-dummyjson = { workspace = true }
+meltano-tap-fake-people = { workspace = true }
+meltano-tap-fundamentals = { workspace = true }
+meltano-tap-gitlab = { workspace = true }
+meltano-tap-hostile = { workspace = true }
+meltano-tap-sqlite = { workspace = true }
+meltano-target-csv = { workspace = true }
+meltano-target-parquet = { workspace = true }
+meltano-target-sqlite = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "packages/*",
 ]
+
+[[tool.uv.index]]
+name = "scientific-python-nightly-wheels"
+url = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+explicit = true
 
 [tool.codespell]
 skip = "*.csv,samples/aapl/*.json,packages/*/schemas/*.json,samples/*/schemas/*.json,.http_cache/*.json,tests/*/snapshots/*/*.jsonl"

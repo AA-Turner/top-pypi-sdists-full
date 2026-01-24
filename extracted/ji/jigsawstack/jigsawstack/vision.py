@@ -150,6 +150,28 @@ class VOCRParams(TypedDict):
     url: NotRequired[str]
     file_store_key: NotRequired[str]
     page_range: NotRequired[List[int]]
+    fine_grained: NotRequired[bool]
+    """
+    High fidelity word-level bounding boxes within complex documents. Default: false.
+    """
+
+
+class Word(TypedDict):
+    text: str
+    bounds: BoundingBox
+    confidence: float
+
+
+class Line(TypedDict):
+    text: str
+    bounds: BoundingBox
+    average_confidence: float
+    words: List[Word]
+
+
+class Section(TypedDict):
+    text: str
+    lines: List[Line]
 
 
 class OCRResponse(BaseResponse):
@@ -158,7 +180,7 @@ class OCRResponse(BaseResponse):
     height: int
     tags: List[str]
     has_text: bool
-    sections: List[object]
+    sections: List[Section]
     total_pages: Optional[int]
     page_range: Optional[
         List[int]

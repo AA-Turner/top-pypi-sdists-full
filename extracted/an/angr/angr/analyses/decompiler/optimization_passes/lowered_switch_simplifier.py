@@ -5,7 +5,7 @@ import logging
 
 import networkx
 
-from angr.ailment import Block, AILBlockWalkerBase
+from angr.ailment import Block, AILBlockViewer
 from angr.ailment.statement import ConditionalJump, Label, Assignment, Jump
 from angr.ailment.expression import VirtualVariable, Expression, BinaryOp, Const, Load
 
@@ -97,7 +97,7 @@ class Case:
         )
 
 
-class StableVarExprHasher(AILBlockWalkerBase):
+class StableVarExprHasher(AILBlockViewer):
     """
     Obtain a stable hash of an AIL expression with respect to all variables and all operations applied on variables.
     """
@@ -181,6 +181,8 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
         # other heuristics that minimize false positives
         self._switches_present_in_code = 0
 
+        self._block_copies = {}
+
         self.analyze()
 
     @staticmethod
@@ -215,6 +217,7 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
         return True, None
 
     def _analyze(self, cache=None):
+        self._block_copies.clear()
         variablehash_to_cases = self._find_cascading_switch_variable_comparisons()
 
         if not variablehash_to_cases or all(not caselists for caselists in variablehash_to_cases.values()):
@@ -301,7 +304,17 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
                                 ins_addr=case.original_node.addr,
                             )
                         )
-                        case_node_copy = case.original_node.copy(statements=statements)
+                        if case.original_node not in self._block_copies:
+                            self._block_copies[case.original_node] = [case.original_node.copy(statements=statements)]
+                        else:
+                            self._block_copies[case.original_node].append(
+                                case.original_node.copy(statements=statements)
+                            )
+                            self._block_copies[case.original_node][-1].idx = (
+                                len(self._block_copies[case.original_node]) + 1000
+                            )
+                        case_node_copy = self._block_copies[case.original_node][-1]
+
                         case_addrs.append(
                             (case_node_copy, case.value, case_node_copy.addr, case_node_copy.idx, case.next_addr)
                         )
@@ -315,7 +328,10 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
 
                 # create a fake switch-case head node
                 switch_stmt = IncompleteSwitchCaseHeadStatement(
-                    original_head.statements[-1].idx, expr, case_addrs, ins_addr=original_head.statements[-1].ins_addr
+                    original_head.statements[-1].idx,
+                    expr,
+                    case_addrs,
+                    ins_addr=original_head.statements[-1].tags["ins_addr"],
                 )
                 new_head = original_head.copy()
                 # replace the last instruction of the head node with switch_node
@@ -864,7 +880,7 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
         next_node_addr = last_block.addr
 
         while next_node_addr is not None and next_node_addr in ca_others:
-            onode, value, target, target_idx, next_node_addr = ca_others[next_node_addr]
+            onode, _value, target, target_idx, next_node_addr = ca_others[next_node_addr]
             onode: Block
 
             if first_nonlabel_nonphi_statement(onode) is not onode.statements[-1]:
@@ -893,7 +909,7 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
 
         # default nodes
         if ca_default:
-            onode, value, target, target_idx, _ = ca_default[0]
+            onode, _value, target, target_idx, _ = ca_default[0]
             default_target = next(
                 iter(
                     nn

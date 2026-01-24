@@ -50,7 +50,7 @@ void FlowReactor::getStateDae(double* y, double* ydot)
     // need to advance the reactor surface to steady state to get the initial
     // coverages
     for (auto m_surf : m_surfaces) {
-        m_surf->syncState();
+        m_surf->restoreState();
         auto kin = static_cast<InterfaceKinetics*>(m_surf->kinetics());
         kin->advanceCoverages(100.0, m_ss_rtol, m_ss_atol, 0, m_max_ss_steps,
                               m_max_ss_error_fails);
@@ -184,7 +184,7 @@ void FlowReactor::initialize(double t0)
 
 void FlowReactor::syncState()
 {
-    ReactorBase::syncState();
+    Reactor::syncState();
     m_rho = m_thermo->density();
     m_P = m_thermo->pressure();
     m_T = m_thermo->temperature();
@@ -238,7 +238,7 @@ void FlowReactor::updateSurfaceState(double* y)
         // the system.
         // note: the ReactorSurface class doesn't normalize when calling setCoverages
         S->setCoverages(y+loc);
-        S->syncState();
+        S->restoreState();
         loc += S->thermo()->nSpecies();
     }
 }
@@ -297,10 +297,18 @@ void FlowReactor::evalDae(double time, double* y, double* ydot, double* residual
 
     //! species conservation equations
     //! Kee.'s Chemically Reacting Flow, Eq. 16.51
+    double dSumYdz = 0;
     for (size_t i = 0; i < m_nsp; ++i) {
         residual[i + m_offset_Y] = m_rho * m_u * ydot[i + m_offset_Y] +
             y[i + m_offset_Y] * hydraulic * sk_wk -
             mw[i] * (m_wdot[i] + hydraulic * m_sdot[i]);
+            dSumYdz += ydot[i + m_offset_Y];
+    }
+    // Spread d/dz(sum(Y)) = 0 constraint across all species equations. `scale` is
+    // defined to make the size of the error in sum(Y) comparable to the overall rtol.
+    double scale = 0.1 * m_rho * m_u / m_ss_rtol;
+    for (size_t i = 0; i < m_nsp; ++i) {
+        residual[i + m_offset_Y] += scale * std::max(0.0, y[i + m_offset_Y]) * dSumYdz;
     }
 
     // surface algebraic constraints
@@ -339,10 +347,7 @@ void FlowReactor::getConstraints(double* constraints) {
 
 size_t FlowReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + m_offset_Y;
-    } else if (nm == "density") {
+    if (nm == "density") {
         return 0;
     } else if (nm == "speed") {
         return 1;
@@ -350,8 +355,12 @@ size_t FlowReactor::componentIndex(const string& nm) const
         return 2;
     } else if (nm == "temperature") {
         return 3;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + m_offset_Y;
+    } catch (const CanteraError&) {
+        throw CanteraError("FlowReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -381,7 +390,7 @@ string FlowReactor::componentName(size_t k)
             }
         }
     }
-    throw CanteraError("FlowReactor::componentName", "Index {} is out of bounds.", k);
+    throw IndexError("FlowReactor::componentName", "component", k, m_nv);
 }
 
 }

@@ -1,12 +1,29 @@
+# Copyright 2025 The Feast Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import asyncio
 import os
 import sys
 import threading
 import time
 import traceback
+from collections import defaultdict
 from contextlib import asynccontextmanager
+from datetime import datetime
 from importlib import resources as importlib_resources
-from typing import Any, Dict, List, Optional, Union
+from types import SimpleNamespace
+from typing import Any, DefaultDict, Dict, List, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 import psutil
@@ -73,14 +90,17 @@ class PushFeaturesRequest(BaseModel):
 
 
 class MaterializeRequest(BaseModel):
-    start_ts: str
-    end_ts: str
+    start_ts: Optional[str] = None
+    end_ts: Optional[str] = None
     feature_views: Optional[List[str]] = None
+    disable_event_timestamp: bool = False
+    full_feature_names: bool = False
 
 
 class MaterializeIncrementalRequest(BaseModel):
     end_ts: str
     feature_views: Optional[List[str]] = None
+    full_feature_names: bool = False
 
 
 class GetOnlineFeaturesRequest(BaseModel):
@@ -118,27 +138,26 @@ class SaveDocumentRequest(BaseModel):
     data: dict
 
 
-def _get_features(
+async def _get_features(
     request: Union[GetOnlineFeaturesRequest, GetOnlineDocumentsRequest],
     store: "feast.FeatureStore",
 ):
     if request.feature_service:
-        feature_service = store.get_feature_service(
-            request.feature_service, allow_cache=True
+        feature_service = await run_in_threadpool(
+            store.get_feature_service, request.feature_service, allow_cache=True
         )
         assert_permissions(
             resource=feature_service, actions=[AuthzedAction.READ_ONLINE]
         )
         features = feature_service  # type: ignore
     else:
-        all_feature_views, all_on_demand_feature_views = (
-            utils._get_feature_views_to_use(
-                store.registry,
-                store.project,
-                request.features,
-                allow_cache=True,
-                hide_dummy_entity=False,
-            )
+        all_feature_views, all_on_demand_feature_views = await run_in_threadpool(
+            utils._get_feature_views_to_use,
+            store.registry,
+            store.project,
+            request.features,
+            allow_cache=True,
+            hide_dummy_entity=False,
         )
         for feature_view in all_feature_views:
             assert_permissions(
@@ -150,6 +169,52 @@ def _get_features(
             )
         features = request.features  # type: ignore
     return features
+
+
+async def load_static_artifacts(app: FastAPI, store):
+    """
+    Load static artifacts (models, lookup tables, etc.) into app.state.
+
+    This function can be extended to load various types of static artifacts:
+    - Small ML models (scikit-learn, small neural networks)
+    - Lookup tables and reference data
+    - Configuration parameters
+    - Pre-computed embeddings
+
+    Note: Not recommended for large language models - use dedicated
+    model serving solutions (vLLM, TGI, etc.) for those.
+    """
+    try:
+        # Import here to avoid loading heavy dependencies unless needed
+        import importlib.util
+        import inspect
+        from pathlib import Path
+
+        # Look for static artifacts loading in the feature repository
+        # This allows templates and users to define their own artifact loading
+        repo_path = Path(store.repo_path) if store.repo_path else Path.cwd()
+        artifacts_file = repo_path / "static_artifacts.py"
+
+        if artifacts_file.exists():
+            # Load and execute custom static artifacts loading
+            spec = importlib.util.spec_from_file_location(
+                "static_artifacts", artifacts_file
+            )
+            if spec and spec.loader:
+                artifacts_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(artifacts_module)
+
+                # Look for load_artifacts function
+                if hasattr(artifacts_module, "load_artifacts"):
+                    load_func = artifacts_module.load_artifacts
+                    if inspect.iscoroutinefunction(load_func):
+                        await load_func(app)
+                    else:
+                        load_func(app)
+                    logger.info("Loaded static artifacts from static_artifacts.py")
+    except Exception as e:
+        # Non-fatal error - feature server should still start
+        logger.warning(f"Failed to load static artifacts: {e}")
 
 
 def get_app(
@@ -192,6 +257,41 @@ def get_app(
     registry_proto = None
     shutting_down = False
     active_timer: Optional[threading.Timer] = None
+    # --- Offline write batching config and batcher ---
+    fs_cfg = getattr(store.config, "feature_server", None)
+    batching_cfg = None
+    if fs_cfg is not None:
+        enabled = getattr(fs_cfg, "offline_push_batching_enabled", False)
+        batch_size = getattr(fs_cfg, "offline_push_batching_batch_size", None)
+        batch_interval_seconds = getattr(
+            fs_cfg, "offline_push_batching_batch_interval_seconds", None
+        )
+
+        if enabled is True:
+            size_ok = isinstance(batch_size, int) and not isinstance(batch_size, bool)
+            interval_ok = isinstance(batch_interval_seconds, int) and not isinstance(
+                batch_interval_seconds, bool
+            )
+            if size_ok and interval_ok:
+                batching_cfg = SimpleNamespace(
+                    enabled=True,
+                    batch_size=batch_size,
+                    batch_interval_seconds=batch_interval_seconds,
+                )
+            else:
+                logger.warning(
+                    "Offline write batching enabled but missing or invalid numeric values; "
+                    "disabling batching (batch_size=%r, batch_interval_seconds=%r)",
+                    batch_size,
+                    batch_interval_seconds,
+                )
+
+    offline_batcher: Optional[OfflineWriteBatcher] = None
+    if batching_cfg is not None and batching_cfg.enabled is True:
+        offline_batcher = OfflineWriteBatcher(store=store, cfg=batching_cfg)
+        logger.debug("Offline write batching is ENABLED")
+    else:
+        logger.debug("Offline write batching is DISABLED")
 
     def stop_refresh():
         nonlocal shutting_down
@@ -214,11 +314,18 @@ def get_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        # Load static artifacts before initializing store
+        await load_static_artifacts(app, store)
+
         await store.initialize()
         async_refresh()
-        yield
-        stop_refresh()
-        await store.close()
+        try:
+            yield
+        finally:
+            stop_refresh()
+            if offline_batcher is not None:
+                offline_batcher.shutdown()
+            await store.close()
 
     app = FastAPI(lifespan=lifespan)
 
@@ -228,7 +335,7 @@ def get_app(
     )
     async def get_online_features(request: GetOnlineFeaturesRequest) -> Dict[str, Any]:
         # Initialize parameters for FeatureStore.get_online_features(...) call
-        features = await run_in_threadpool(_get_features, request, store)
+        features = await _get_features(request, store)
 
         read_params = dict(
             features=features,
@@ -263,7 +370,7 @@ def get_app(
             "This endpoint is in alpha and will be moved to /get-online-features when stable."
         )
         # Initialize parameters for FeatureStore.retrieve_online_documents_v2(...) call
-        features = await run_in_threadpool(_get_features, request, store)
+        features = await _get_features(request, store)
 
         read_params = dict(features=features, query=request.query, top_k=request.top_k)
         if request.api_version == 2 and request.query_string is not None:
@@ -288,7 +395,7 @@ def get_app(
         return response_dict
 
     @app.post("/push", dependencies=[Depends(inject_user_details)])
-    async def push(request: PushFeaturesRequest) -> None:
+    async def push(request: PushFeaturesRequest) -> Response:
         df = pd.DataFrame(request.df)
         actions = []
         if request.to == "offline":
@@ -323,43 +430,98 @@ def get_app(
         for feature_view in fvs_with_push_sources:
             assert_permissions(resource=feature_view, actions=actions)
 
-        push_params = dict(
-            push_source_name=request.push_source_name,
-            df=df,
-            allow_registry_cache=request.allow_registry_cache,
-            to=to,
-            transform_on_write=request.transform_on_write,
-        )
+        async def _push_with_to(push_to: PushMode) -> None:
+            """
+            Helper for performing a single push operation.
 
-        should_push_async = (
-            store._get_provider().async_supported.online.write
-            and to in [PushMode.ONLINE, PushMode.ONLINE_AND_OFFLINE]
-        )
-        if should_push_async:
-            await store.push_async(**push_params)
+            NOTE:
+            - Feast providers **do not currently support async offline writes**.
+            - Therefore:
+                * ONLINE and ONLINE_AND_OFFLINE → may be async, depending on provider.async_supported.online.write
+                * OFFLINE → always synchronous, but executed via run_in_threadpool when called from HTTP handlers.
+            - The OfflineWriteBatcher handles offline writes directly in its own background thread, but the offline store writes are currently synchronous only.
+            """
+            push_source_name = request.push_source_name
+            allow_registry_cache = request.allow_registry_cache
+            transform_on_write = request.transform_on_write
+
+            # Async currently only applies to online store writes (ONLINE / ONLINE_AND_OFFLINE paths) as theres no async for offline store
+            if push_to in (PushMode.ONLINE, PushMode.ONLINE_AND_OFFLINE) and (
+                store._get_provider().async_supported.online.write
+            ):
+                await store.push_async(
+                    push_source_name=push_source_name,
+                    df=df,
+                    allow_registry_cache=allow_registry_cache,
+                    to=push_to,
+                    transform_on_write=transform_on_write,
+                )
+            else:
+                await run_in_threadpool(
+                    lambda: store.push(
+                        push_source_name=push_source_name,
+                        df=df,
+                        allow_registry_cache=allow_registry_cache,
+                        to=push_to,
+                        transform_on_write=transform_on_write,
+                    )
+                )
+
+        needs_online = to in (PushMode.ONLINE, PushMode.ONLINE_AND_OFFLINE)
+        needs_offline = to in (PushMode.OFFLINE, PushMode.ONLINE_AND_OFFLINE)
+
+        status_code = status.HTTP_200_OK
+
+        if offline_batcher is None or not needs_offline:
+            await _push_with_to(to)
         else:
-            store.push(**push_params)
+            if needs_online:
+                await _push_with_to(PushMode.ONLINE)
 
-    def _get_feast_object(
+            offline_batcher.enqueue(
+                push_source_name=request.push_source_name,
+                df=df,
+                allow_registry_cache=request.allow_registry_cache,
+                transform_on_write=request.transform_on_write,
+            )
+            status_code = status.HTTP_202_ACCEPTED
+
+        return Response(status_code=status_code)
+
+    async def _get_feast_object(
         feature_view_name: str, allow_registry_cache: bool
     ) -> FeastObject:
+        # FIXME: this logic repeated at least 3 times in the codebase - should be centralized
+        # in logging, in server and in feature_store (Python SDK)
         try:
-            return store.get_stream_feature_view(  # type: ignore
-                feature_view_name, allow_registry_cache=allow_registry_cache
+            return await run_in_threadpool(
+                store.get_feature_view,
+                feature_view_name,
+                allow_registry_cache=allow_registry_cache,
             )
         except FeatureViewNotFoundException:
-            return store.get_feature_view(  # type: ignore
-                feature_view_name, allow_registry_cache=allow_registry_cache
-            )
+            try:
+                return await run_in_threadpool(
+                    store.get_on_demand_feature_view,
+                    feature_view_name,
+                    allow_registry_cache=allow_registry_cache,
+                )
+            except FeatureViewNotFoundException:
+                return await run_in_threadpool(
+                    store.get_stream_feature_view,
+                    feature_view_name,
+                    allow_registry_cache=allow_registry_cache,
+                )
 
     @app.post("/write-to-online-store", dependencies=[Depends(inject_user_details)])
-    def write_to_online_store(request: WriteToFeatureStoreRequest) -> None:
+    async def write_to_online_store(request: WriteToFeatureStoreRequest) -> None:
         df = pd.DataFrame(request.df)
         feature_view_name = request.feature_view_name
         allow_registry_cache = request.allow_registry_cache
-        resource = _get_feast_object(feature_view_name, allow_registry_cache)
+        resource = await _get_feast_object(feature_view_name, allow_registry_cache)
         assert_permissions(resource=resource, actions=[AuthzedAction.WRITE_ONLINE])
-        store.write_to_online_store(
+        await run_in_threadpool(
+            store.write_to_online_store,
             feature_view_name=feature_view_name,
             df=df,
             allow_registry_cache=allow_registry_cache,
@@ -380,7 +542,7 @@ def get_app(
         # For now, just return dummy text
         return {"response": "This is a dummy response from the Feast feature server."}
 
-    @app.post("/read-document")
+    @app.post("/read-document", dependencies=[Depends(inject_user_details)])
     async def read_document_endpoint(request: ReadDocumentRequest):
         try:
             import os
@@ -395,7 +557,7 @@ def get_app(
         except Exception as e:
             return {"error": str(e)}
 
-    @app.post("/save-document")
+    @app.post("/save-document", dependencies=[Depends(inject_user_details)])
     async def save_document_endpoint(request: SaveDocumentRequest):
         try:
             import json
@@ -426,27 +588,51 @@ def get_app(
         return Response(content=content, media_type="text/html")
 
     @app.post("/materialize", dependencies=[Depends(inject_user_details)])
-    def materialize(request: MaterializeRequest) -> None:
+    async def materialize(request: MaterializeRequest) -> None:
         for feature_view in request.feature_views or []:
+            resource = await _get_feast_object(feature_view, True)
             assert_permissions(
-                resource=_get_feast_object(feature_view, True),
+                resource=resource,
                 actions=[AuthzedAction.WRITE_ONLINE],
             )
-        store.materialize(
-            utils.make_tzaware(parser.parse(request.start_ts)),
-            utils.make_tzaware(parser.parse(request.end_ts)),
+
+        if request.disable_event_timestamp:
+            # Query all available data and use current datetime as event timestamp
+            now = datetime.now()
+            start_date = datetime(
+                1970, 1, 1
+            )  # Beginning of time to capture all historical data
+            end_date = now
+        else:
+            if not request.start_ts or not request.end_ts:
+                raise ValueError(
+                    "start_ts and end_ts are required when disable_event_timestamp is False"
+                )
+            start_date = utils.make_tzaware(parser.parse(request.start_ts))
+            end_date = utils.make_tzaware(parser.parse(request.end_ts))
+
+        await run_in_threadpool(
+            store.materialize,
+            start_date,
+            end_date,
             request.feature_views,
+            disable_event_timestamp=request.disable_event_timestamp,
+            full_feature_names=request.full_feature_names,
         )
 
     @app.post("/materialize-incremental", dependencies=[Depends(inject_user_details)])
-    def materialize_incremental(request: MaterializeIncrementalRequest) -> None:
+    async def materialize_incremental(request: MaterializeIncrementalRequest) -> None:
         for feature_view in request.feature_views or []:
+            resource = await _get_feast_object(feature_view, True)
             assert_permissions(
-                resource=_get_feast_object(feature_view, True),
+                resource=resource,
                 actions=[AuthzedAction.WRITE_ONLINE],
             )
-        store.materialize_incremental(
-            utils.make_tzaware(parser.parse(request.end_ts)), request.feature_views
+        await run_in_threadpool(
+            store.materialize_incremental,
+            utils.make_tzaware(parser.parse(request.end_ts)),
+            request.feature_views,
+            full_feature_names=request.full_feature_names,
         )
 
     @app.exception_handler(Exception)
@@ -482,12 +668,41 @@ def get_app(
 
     manager = ConnectionManager()
 
+    MAX_WS_CONNECTIONS = 5
+    MAX_MESSAGE_SIZE = 4096
+    MAX_MESSAGES_PER_MINUTE = 60
+    WS_READ_TIMEOUT_SEC = 60
+
     @app.websocket("/ws/chat")
     async def websocket_endpoint(websocket: WebSocket):
+        if len(manager.active_connections) >= MAX_WS_CONNECTIONS:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
         await manager.connect(websocket)
+        message_timestamps: List[float] = []
         try:
             while True:
-                message = await websocket.receive_text()
+                try:
+                    message = await asyncio.wait_for(
+                        websocket.receive_text(), timeout=WS_READ_TIMEOUT_SEC
+                    )
+                except asyncio.TimeoutError:
+                    await websocket.close(code=status.WS_1001_GOING_AWAY)
+                    return
+
+                if len(message) > MAX_MESSAGE_SIZE:
+                    await websocket.close(code=status.WS_1009_MESSAGE_TOO_BIG)
+                    return
+
+                now = time.time()
+                cutoff = now - 60
+                message_timestamps = [ts for ts in message_timestamps if ts >= cutoff]
+                if len(message_timestamps) >= MAX_MESSAGES_PER_MINUTE:
+                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                    return
+                message_timestamps.append(now)
+
                 # Process the received message (currently unused but kept for future implementation)
                 # For now, just return dummy text
                 response = f"You sent: '{message}'. This is a dummy response from the Feast feature server."
@@ -642,3 +857,210 @@ def start_server(
             )
         else:
             uvicorn.run(app, host=host, port=port, access_log=(not no_access_log))
+
+
+class _OfflineBatchKey(NamedTuple):
+    push_source_name: str
+    allow_registry_cache: bool
+    transform_on_write: bool
+
+
+class OfflineWriteBatcher:
+    """
+    In-process offline write batcher for /push requests.
+
+    - Buffers DataFrames per (push_source_name, allow_registry_cache, transform_on_write)
+    - Flushes when either:
+        * total rows in a buffer >= batch_size, or
+        * time since last flush >= batch_interval_seconds
+    - Flush runs in a dedicated background thread so the HTTP event loop stays unblocked.
+    """
+
+    def __init__(self, store: "feast.FeatureStore", cfg: Any):
+        self._store = store
+        self._cfg = cfg
+
+        # Buffers and timestamps keyed by batch key
+        self._buffers: DefaultDict[_OfflineBatchKey, List[pd.DataFrame]] = defaultdict(
+            list
+        )
+        self._last_flush: DefaultDict[_OfflineBatchKey, float] = defaultdict(time.time)
+        self._inflight: Set[_OfflineBatchKey] = set()
+
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+
+        # Start background flusher thread
+        self._thread = threading.Thread(
+            target=self._run, name="offline_write_batcher", daemon=True
+        )
+        self._thread.start()
+
+        logger.debug(
+            "OfflineWriteBatcher initialized: batch_size=%s, batch_interval_seconds=%s",
+            getattr(cfg, "batch_size", None),
+            getattr(cfg, "batch_interval_seconds", None),
+        )
+
+    # ---------- Public API ----------
+
+    def enqueue(
+        self,
+        push_source_name: str,
+        df: pd.DataFrame,
+        allow_registry_cache: bool,
+        transform_on_write: bool,
+    ) -> None:
+        """
+        Enqueue a dataframe for offline write, grouped by push source + flags.
+        Cheap and non-blocking; heavy I/O happens in background thread.
+        """
+        key = _OfflineBatchKey(
+            push_source_name=push_source_name,
+            allow_registry_cache=allow_registry_cache,
+            transform_on_write=transform_on_write,
+        )
+
+        with self._lock:
+            self._buffers[key].append(df)
+            total_rows = sum(len(d) for d in self._buffers[key])
+            should_flush = total_rows >= self._cfg.batch_size
+
+        if should_flush:
+            # Size-based flush
+            logger.debug(
+                "OfflineWriteBatcher size threshold reached for %s: %s rows",
+                key,
+                total_rows,
+            )
+            self._flush(key)
+
+    def flush_all(self) -> None:
+        """
+        Flush all buffers synchronously. Intended for graceful shutdown.
+        """
+        with self._lock:
+            keys = list(self._buffers.keys())
+        for key in keys:
+            self._flush(key)
+
+    def shutdown(self, timeout: float = 5.0) -> None:
+        """
+        Stop the background thread and perform a best-effort flush.
+        """
+        logger.debug("Shutting down OfflineWriteBatcher")
+        self._stop_event.set()
+        try:
+            self._thread.join(timeout=timeout)
+        except Exception:
+            logger.exception("Error joining OfflineWriteBatcher thread")
+
+        # Best-effort final flush
+        try:
+            self.flush_all()
+        except Exception:
+            logger.exception("Error during final OfflineWriteBatcher flush")
+
+    # ---------- Internal helpers ----------
+
+    def _run(self) -> None:
+        """
+        Background loop: periodically checks for buffers that should be flushed
+        based on time since last flush.
+        """
+        interval = max(1, int(getattr(self._cfg, "batch_interval_seconds", 30)))
+        logger.debug(
+            "OfflineWriteBatcher background loop started with check interval=%s",
+            interval,
+        )
+
+        while not self._stop_event.wait(timeout=interval):
+            now = time.time()
+            try:
+                with self._lock:
+                    keys_to_flush: List[_OfflineBatchKey] = []
+                    for key, dfs in list(self._buffers.items()):
+                        if not dfs:
+                            continue
+                        last = self._last_flush[
+                            key
+                        ]  # this will also init the default timestamp
+                        age = now - last
+                        if age >= self._cfg.batch_interval_seconds:
+                            logger.debug(
+                                "OfflineWriteBatcher time threshold reached for %s: age=%s",
+                                key,
+                                age,
+                            )
+                            keys_to_flush.append(key)
+                for key in keys_to_flush:
+                    self._flush(key)
+            except Exception:
+                logger.exception("Error in OfflineWriteBatcher background loop")
+
+        logger.debug("OfflineWriteBatcher background loop exiting")
+
+    def _drain_locked(self, key: _OfflineBatchKey) -> Optional[List[pd.DataFrame]]:
+        """
+        Drain a single buffer; caller must hold self._lock.
+        """
+        if key in self._inflight:
+            return None
+
+        dfs = self._buffers.get(key)
+        if not dfs:
+            return None
+
+        self._buffers[key] = []
+        self._inflight.add(key)
+        return dfs
+
+    def _flush(self, key: _OfflineBatchKey) -> None:
+        """
+        Flush a single buffer. Extracts data under lock, then does I/O without lock.
+        """
+        while True:
+            with self._lock:
+                dfs = self._drain_locked(key)
+
+            if not dfs:
+                return
+
+            batch_df = pd.concat(dfs, ignore_index=True)
+
+            # NOTE: offline writes are currently synchronous only, so we call directly
+            try:
+                self._store.push(
+                    push_source_name=key.push_source_name,
+                    df=batch_df,
+                    allow_registry_cache=key.allow_registry_cache,
+                    to=PushMode.OFFLINE,
+                    transform_on_write=key.transform_on_write,
+                )
+            except Exception:
+                logger.exception("Error flushing offline batch for %s", key)
+                with self._lock:
+                    self._buffers[key] = dfs + self._buffers[key]
+                    self._inflight.discard(key)
+                return
+
+            logger.debug(
+                "Flushing offline batch for push_source=%s with %s rows",
+                key.push_source_name,
+                len(batch_df),
+            )
+
+            with self._lock:
+                self._last_flush[key] = time.time()
+                self._inflight.discard(key)
+                pending_rows = sum(len(d) for d in self._buffers.get(key, []))
+                should_flush = pending_rows >= self._cfg.batch_size
+
+            if not should_flush:
+                return
+
+            logger.debug(
+                "OfflineWriteBatcher size threshold reached for %s: %s rows",
+                key,
+                pending_rows,
+            )

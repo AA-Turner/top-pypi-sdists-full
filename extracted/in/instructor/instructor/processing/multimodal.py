@@ -18,6 +18,8 @@ from urllib.parse import urlparse
 import mimetypes
 import requests
 from pydantic import BaseModel, Field
+
+from ..core.exceptions import MultimodalError
 from ..mode import Mode
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -111,7 +113,10 @@ class Image(BaseModel):
         header, encoded = data_uri.split(",", 1)
         media_type = header.split(":")[1].split(";")[0]
         if media_type not in VALID_MIME_TYPES:
-            raise ValueError(f"Unsupported image format: {media_type}")
+            raise MultimodalError(
+                f"Unsupported image format: {media_type}. Supported formats: {', '.join(VALID_MIME_TYPES)}",
+                content_type="image",
+            )
         return cls(
             source=data_uri,
             media_type=media_type,
@@ -151,9 +156,19 @@ class Image(BaseModel):
     def from_raw_base64(cls, data: str) -> Image:
         try:
             decoded = base64.b64decode(data)
-            import imghdr
 
-            img_type = imghdr.what(None, decoded)
+            # Detect image type from file signature (magic bytes)
+            # This replaces imghdr which was removed in Python 3.13
+            img_type = None
+            if decoded.startswith(b"\xff\xd8\xff"):
+                img_type = "jpeg"
+            elif decoded.startswith(b"\x89PNG\r\n\x1a\n"):
+                img_type = "png"
+            elif decoded.startswith(b"GIF87a") or decoded.startswith(b"GIF89a"):
+                img_type = "gif"
+            elif decoded.startswith(b"RIFF") and decoded[8:12] == b"WEBP":
+                img_type = "webp"
+
             if img_type:
                 media_type = f"image/{img_type}"
                 if media_type in VALID_MIME_TYPES:
@@ -514,11 +529,23 @@ class PDF(BaseModel):
                 if Path(source).is_file():
                     return cls.from_path(source)
             except FileNotFoundError as err:
-                raise ValueError("PDF file not found") from err
+                raise MultimodalError(
+                    "PDF file not found",
+                    content_type="pdf",
+                    file_path=str(source),
+                ) from err
             except OSError as e:
                 if e.errno == 63:  # File name too long
-                    raise ValueError("PDF file name too long") from e
-                raise ValueError("Unable to read PDF file") from e
+                    raise MultimodalError(
+                        "PDF file name too long",
+                        content_type="pdf",
+                        file_path=str(source),
+                    ) from e
+                raise MultimodalError(
+                    "Unable to read PDF file",
+                    content_type="pdf",
+                    file_path=str(source),
+                ) from e
 
             return cls.from_raw_base64(source)
         elif isinstance(source, Path):
@@ -682,18 +709,22 @@ class PDF(BaseModel):
             if mode in {Mode.RESPONSES_TOOLS, Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS}:
                 return {
                     "type": input_file_type,
-                    "filename": self.source
-                    if isinstance(self.source, str)
-                    else str(self.source),
+                    "filename": (
+                        self.source
+                        if isinstance(self.source, str)
+                        else str(self.source)
+                    ),
                     "file_data": f"data:{self.media_type};base64,{data}",
                 }
             else:
                 return {
                     "type": input_file_type,
                     "file": {
-                        "filename": self.source
-                        if isinstance(self.source, str)
-                        else str(self.source),
+                        "filename": (
+                            self.source
+                            if isinstance(self.source, str)
+                            else str(self.source)
+                        ),
                         "file_data": f"data:{self.media_type};base64,{data}",
                     },
                 }
@@ -756,6 +787,78 @@ class PDF(BaseModel):
             )
 
         raise ValueError("Unsupported PDF format")
+
+    def to_bedrock(self, name: str | None = None) -> dict[str, Any]:
+        """Convert to Bedrock's document format."""
+        # Determine the document name
+        if name is None:
+            if isinstance(self.source, Path):
+                name = self.source.name
+            elif isinstance(self.source, str):
+                # Try to extract filename from path or URL
+                if self.source.startswith(("http://", "https://", "gs://")):
+                    name = Path(urlparse(self.source).path).name or "document"
+                else:
+                    name = (
+                        Path(self.source).name
+                        if Path(self.source).exists()
+                        else "document"
+                    )
+            else:
+                name = "document"
+
+        # Sanitize name according to Bedrock requirements
+        # Only allow alphanumeric, whitespace (max one in row), hyphens, parentheses, square brackets
+        name = re.sub(r"[^\w\s\-\(\)\[\]]", "", name)
+        name = re.sub(r"\s+", " ", name)  # Consolidate whitespace
+        name = name.strip()
+
+        # Handle S3 URIs
+        if isinstance(self.source, str) and self.source.startswith("s3://"):
+            # Parse S3 URI: s3://bucket/key
+            s3_match = re.match(r"s3://([^/]+)/(.*)", self.source)
+            if not s3_match:
+                raise ValueError(f"Invalid S3 URI format: {self.source}")
+
+            bucket = s3_match.group(1)
+            key = s3_match.group(2)
+
+            # Note: bucketOwner is optional but recommended for cross-account access
+            return {
+                "document": {
+                    "format": "pdf",
+                    "name": name,
+                    "source": {
+                        "s3Location": {
+                            "uri": self.source
+                            # "bucketOwner": "account-id"  # Optional, can be added by user
+                        }
+                    },
+                }
+            }
+
+        # Handle bytes-based sources (URLs, paths, base64)
+        if not self.data:
+            # Need to fetch/load the data
+            if isinstance(self.source, str) and self.source.startswith(
+                ("http://", "https://")
+            ):
+                response = requests.get(self.source)
+                response.raise_for_status()
+                pdf_bytes = response.content
+            elif isinstance(self.source, Path) or (
+                isinstance(self.source, str) and Path(self.source).exists()
+            ):
+                pdf_bytes = Path(self.source).read_bytes()
+            else:
+                raise ValueError("PDF data is missing and source cannot be loaded")
+        else:
+            # Decode base64 data to bytes
+            pdf_bytes = base64.b64decode(self.data)
+
+        return {
+            "document": {"format": "pdf", "name": name, "source": {"bytes": pdf_bytes}}
+        }
 
 
 class PDFWithCacheControl(PDF):
@@ -979,7 +1082,8 @@ def convert_messages(
                 {"role": role, "content": content, **other_kwargs}
             )
         else:
-            converted_content = convert_contents(content, mode)
+            # At this point content is narrowed to non-str types accepted by convert_contents
+            converted_content = convert_contents(content, mode)  # type: ignore
             converted_messages.append(  # type: ignore
                 {"role": role, "content": converted_content, **other_kwargs}
             )

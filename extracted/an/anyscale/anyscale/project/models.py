@@ -2,17 +2,19 @@ import contextlib
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 import json
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
 
 
 class ProjectPermissionLevel(ModelEnum):
+    """Permission levels for project collaborators."""
+
     OWNER = "OWNER"
     WRITE = "WRITE"
     READONLY = "READONLY"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         OWNER: "Owner permission level for the project",
         WRITE: "Write permission level for the project",
         READONLY: "Readonly permission level for the project",
@@ -270,7 +272,7 @@ class ProjectSortField(ModelEnum):
 
     NAME = "NAME"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         NAME: "Sort by project name.",
     }
 
@@ -281,7 +283,7 @@ class ProjectSortOrder(ModelEnum):
     ASC = "ASC"
     DESC = "DESC"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         ASC: "Sort in ascending order.",
         DESC: "Sort in descending order.",
     }

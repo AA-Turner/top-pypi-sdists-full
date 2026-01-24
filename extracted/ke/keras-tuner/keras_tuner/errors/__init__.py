@@ -5,8 +5,8 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.errors import FailedTrialError
-from keras_tuner.src.errors import FatalError
-from keras_tuner.src.errors import FatalRuntimeError
-from keras_tuner.src.errors import FatalTypeError
-from keras_tuner.src.errors import FatalValueError
+from keras_tuner.src.errors import FailedTrialError as FailedTrialError
+from keras_tuner.src.errors import FatalError as FatalError
+from keras_tuner.src.errors import FatalRuntimeError as FatalRuntimeError
+from keras_tuner.src.errors import FatalTypeError as FatalTypeError
+from keras_tuner.src.errors import FatalValueError as FatalValueError

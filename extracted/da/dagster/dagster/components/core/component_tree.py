@@ -1,13 +1,15 @@
 import importlib
+from collections.abc import Callable
 from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Optional, Union, overload
+from typing import Any, Optional, Union, overload
 from unittest import mock
 
 from dagster_shared import check
 from dagster_shared.record import IHaveNew, record
+from dagster_shared.utils import safe_is_subclass
 from dagster_shared.utils.config import (
     discover_config_file,
     get_canonical_defs_module_name,
@@ -30,7 +32,6 @@ from dagster.components.core.decl import (
 from dagster.components.core.defs_module import (
     ComponentPath,
     CompositeYamlComponent,
-    DefsFolderComponent,
     PythonFileComponent,
     ResolvableToComponentPath,
 )
@@ -136,6 +137,9 @@ class ComponentTree(IHaveNew):
                 f"Could not find config file (pyproject.toml/dg.toml) in {path_within_project} or any parent of."
             )
 
+        project_root = root_config_path.parent
+
+        # Use shared utility to get defs module configuration
         toml_config = load_toml_as_dict(root_config_path)
 
         if root_config_path and root_config_path.stem == "dg":
@@ -155,7 +159,7 @@ class ComponentTree(IHaveNew):
 
         return cls(
             defs_module=defs_module,
-            project_root=root_config_path.parent,
+            project_root=project_root,
         )
 
     @property
@@ -201,17 +205,45 @@ class ComponentTree(IHaveNew):
             self.state_tracker.get_cache_data(self.defs_module_path).component_decl
         )
 
-    def build_defs(self) -> Definitions:
-        from dagster.components.core.load_defs import get_library_json_enriched_defs
+    def build_defs_at_path(self, path: ResolvableToComponentPath) -> Definitions:
+        """Builds definitions from the given defs subdirectory.
 
-        if self.state_tracker.get_cache_data(self.defs_module_path).defs is None:
-            defs = Definitions.merge(
-                self.build_defs_at_path(self.defs_module_path),
-                get_library_json_enriched_defs(self),
-            )
-            self.state_tracker.set_cache_data(self.defs_module_path, defs=defs)
+        Args:
+            path: Path to the defs module to load. If relative, resolves relative to the defs root.
 
-        return check.not_none(self.state_tracker.get_cache_data(self.defs_module_path).defs)
+        Returns:
+            Definitions: The definitions loaded from the given path.
+        """
+        defs = self._build_defs_at_path(path)
+        if defs is None:
+            raise Exception(f"No definitions found for path {path}")
+        return defs
+
+    def build_defs(self, path: Optional[ResolvableToComponentPath] = None) -> Definitions:
+        """Builds definitions from the given defs subdirectory, or all defs modules if no
+        path is provided.
+
+        Args:
+            path (Optional[ResolvableToComponentPath]): Path to the defs module to load.
+                If relative, resolves relative to the defs root.  If None, builds
+                definitions for the entire defs module.
+
+        Returns:
+            Definitions: The definitions loaded from the given path.
+        """
+        if path is None:
+            from dagster.components.core.load_defs import get_library_json_enriched_defs
+
+            if self.state_tracker.get_cache_data(self.defs_module_path).defs is None:
+                defs = Definitions.merge(
+                    self.build_defs(self.defs_module_path),
+                    get_library_json_enriched_defs(self),
+                )
+                self.state_tracker.set_cache_data(self.defs_module_path, defs=defs)
+
+            return check.not_none(self.state_tracker.get_cache_data(self.defs_module_path).defs)
+        else:
+            return self.build_defs_at_path(path)
 
     def find_decl_at_path(self, defs_path: ResolvableToComponentPath) -> ComponentDecl:
         """Loads a component declaration from the given path.
@@ -263,13 +295,13 @@ class ComponentTree(IHaveNew):
         self.state_tracker.mark_component_defs_state_key(component_path, defs_state_key)
 
     @overload
-    def load_component_at_path(self, defs_path: Union[Path, ComponentPath, str]) -> Component: ...
+    def load_component(self, defs_path: Union[Path, ComponentPath, str]) -> Component: ...
     @overload
-    def load_component_at_path(
+    def load_component(
         self, defs_path: Union[Path, ComponentPath, str], expected_type: type[T]
     ) -> T: ...
 
-    def load_component_at_path(
+    def load_component(
         self, defs_path: Union[Path, ComponentPath, str], expected_type: Optional[type[T]] = None
     ) -> Any:
         """Loads a component from the given path.
@@ -358,33 +390,17 @@ class ComponentTree(IHaveNew):
             raise Exception(f"No component found for path {defs_path}")
         return component_with_context[0]
 
-    def build_defs_at_path(self, defs_path: ResolvableToComponentPath) -> Definitions:
-        """Builds definitions from the given defs subdirectory. Currently
-        does not incorporate postprocessing from parent defs modules.
-
-        Args:
-            defs_path: Path to the defs module to load. If relative, resolves relative to the defs root.
-
-        Returns:
-            Definitions: The definitions loaded from the given path.
-        """
-        defs = self._build_defs_at_path(defs_path)
-        if defs is None:
-            raise Exception(f"No definitions found for path {defs_path}")
-        return defs
-
     def get_all_components(
         self,
         of_type: type[TComponent],
     ) -> list[TComponent]:
-        """Get all components from this context that are instance of the specified type."""
-        root_component = self.load_root_component()
-        if not isinstance(root_component, DefsFolderComponent):
-            raise Exception("Root component is not a DefsFolderComponent")
+        """Get all components from this context that are instance of the specified type.
+        Avoids loading components that are not of the specified type.
+        """
         return [
-            component
-            for component in root_component.iterate_components()
-            if isinstance(component, of_type)
+            check.inst(self.load_component(path), of_type)
+            for path, decl in self._component_decl_tree().items()
+            if safe_is_subclass(decl.component_type, of_type)
         ]
 
     def _has_loaded_component_at_path(self, path: ResolvableToComponentPath) -> bool:
@@ -418,14 +434,14 @@ class ComponentTree(IHaveNew):
             if isinstance(child_decl, PythonFileDecl) and not child_decl.decls and hide_plain_defs:
                 continue
 
-            component_type = None
             file_path = child_decl.path.file_path.relative_to(parent_path)
 
+            component_type_name = None
             if isinstance(child_decl, ComponentLoaderDecl):
                 name = str(child_decl.path.instance_key)
             elif isinstance(child_decl, YamlDecl):
                 file_path = file_path / "defs.yaml"
-                component_type = child_decl.component_cls.__name__
+                component_type_name = child_decl.component_type.__name__
 
                 if child_decl.path.instance_key is not None and len(decls) > 1:
                     name = f"{file_path}[{child_decl.path.instance_key}]"
@@ -437,8 +453,8 @@ class ComponentTree(IHaveNew):
             connector = "└── " if idx == total - 1 else "├── "
             out_txt = f"{prefix}{connector}{name}"
 
-            if component_type:
-                out_txt += f" ({component_type})"
+            if component_type_name:
+                out_txt += f" ({component_type_name})"
 
             is_error = (
                 match_path

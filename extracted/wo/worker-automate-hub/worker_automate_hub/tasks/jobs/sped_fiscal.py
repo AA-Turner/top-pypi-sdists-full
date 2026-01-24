@@ -108,11 +108,11 @@ async def sped_fiscal(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             message="32-bit application should be automated using 32-bit Python",
         )
 
-        await worker_sleep(4)
+        await worker_sleep(8)
 
         try:
             app = Application(backend="win32").connect(
-                class_name="TFrmLoginModulo", timeout=50
+                class_name="TFrmLoginModulo", timeout=120
             )
         except:
             return RpaRetornoProcessoDTO(
@@ -131,12 +131,12 @@ async def sped_fiscal(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             await worker_sleep(10)
             console.print(f"Verificando a presença de Confirm...")
             confirm_pop_up = await is_window_open("Confirm")
-            if confirm_pop_up["IsOpened"] == True:  
+            if confirm_pop_up["IsOpened"] == True:
                 app = Application().connect(class_name="TMessageForm")
                 main_window = app["TMessageForm"]
                 main_window.set_focus()
                 main_window.child_window(title="&No").click()
-            pyautogui.click(120,173)
+            pyautogui.click(120, 173)
             pyautogui.press("enter")
             await worker_sleep(2)
             pyautogui.press("enter")
@@ -298,7 +298,7 @@ async def sped_fiscal(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             )
             periodo_btn_buscar.click()
             await worker_sleep(2)
-            #As vezes o click de cima não funciona
+            # As vezes o click de cima não funciona
             pyautogui.click(915, 664)
             await worker_sleep(2)
             periodo_btn_buscar = main_window.child_window(
@@ -307,7 +307,7 @@ async def sped_fiscal(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             rect = periodo_btn_buscar.rectangle()
             center_x = (rect.left + rect.right) // 2
             center_y = (rect.top + rect.bottom) // 2
-            double_click(coords=(center_x, center_y))    
+            double_click(coords=(center_x, center_y))
         elif gerar_inventario:
             mes_atual = datetime.now().month
             if mes_atual == 1:
@@ -336,7 +336,7 @@ async def sped_fiscal(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             )
             periodo_btn_buscar.click()
             await worker_sleep(2)
-            #As vezes o click de cima não funciona
+            # As vezes o click de cima não funciona
             pyautogui.click(915, 664)
             await worker_sleep(2)
             try:

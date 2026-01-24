@@ -10,7 +10,7 @@ import httpx
 
 from .. import _legacy_response
 from ..types import legal_entity_list_params, legal_entity_create_params, legal_entity_update_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven, SequenceNotStr
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -22,6 +22,7 @@ from ..types.shared_params.identification_create_request import IdentificationCr
 from ..types.shared_params.legal_entity_compliance_detail import LegalEntityComplianceDetail
 from ..types.shared_params.legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from ..types.shared_params.legal_entity_industry_classification import LegalEntityIndustryClassification
+from ..types.shared_params.legal_entity_association_inline_create import LegalEntityAssociationInlineCreate
 
 __all__ = ["LegalEntities", "AsyncLegalEntities"]
 
@@ -50,42 +51,46 @@ class LegalEntities(SyncAPIResource):
         self,
         *,
         legal_entity_type: Literal["business", "individual"],
-        addresses: Iterable[LegalEntityAddressCreateRequest] | NotGiven = NOT_GIVEN,
-        bank_settings: Optional[legal_entity_create_params.BankSettings] | NotGiven = NOT_GIVEN,
-        business_name: Optional[str] | NotGiven = NOT_GIVEN,
-        citizenship_country: Optional[str] | NotGiven = NOT_GIVEN,
-        compliance_details: Optional[LegalEntityComplianceDetail] | NotGiven = NOT_GIVEN,
-        date_formed: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_of_birth: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        doing_business_as_names: SequenceNotStr[str] | NotGiven = NOT_GIVEN,
-        email: Optional[str] | NotGiven = NOT_GIVEN,
-        first_name: Optional[str] | NotGiven = NOT_GIVEN,
-        identifications: Iterable[IdentificationCreateRequest] | NotGiven = NOT_GIVEN,
-        industry_classifications: Iterable[LegalEntityIndustryClassification] | NotGiven = NOT_GIVEN,
-        last_name: Optional[str] | NotGiven = NOT_GIVEN,
-        legal_entity_associations: Optional[Iterable[legal_entity_create_params.LegalEntityAssociation]]
-        | NotGiven = NOT_GIVEN,
+        addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
+        bank_settings: Optional[legal_entity_create_params.BankSettings] | Omit = omit,
+        business_description: Optional[str] | Omit = omit,
+        business_name: Optional[str] | Omit = omit,
+        citizenship_country: Optional[str] | Omit = omit,
+        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
+        country_of_incorporation: Optional[str] | Omit = omit,
+        date_formed: Union[str, date, None] | Omit = omit,
+        date_of_birth: Union[str, date, None] | Omit = omit,
+        doing_business_as_names: SequenceNotStr[str] | Omit = omit,
+        email: Optional[str] | Omit = omit,
+        expected_activity_volume: Optional[int] | Omit = omit,
+        first_name: Optional[str] | Omit = omit,
+        identifications: Iterable[IdentificationCreateRequest] | Omit = omit,
+        industry_classifications: Iterable[LegalEntityIndustryClassification] | Omit = omit,
+        intended_use: Optional[str] | Omit = omit,
+        last_name: Optional[str] | Omit = omit,
+        legal_entity_associations: Optional[Iterable[LegalEntityAssociationInlineCreate]] | Omit = omit,
         legal_structure: Optional[
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
-        | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        middle_name: Optional[str] | NotGiven = NOT_GIVEN,
-        phone_numbers: Iterable[legal_entity_create_params.PhoneNumber] | NotGiven = NOT_GIVEN,
-        politically_exposed_person: Optional[bool] | NotGiven = NOT_GIVEN,
-        preferred_name: Optional[str] | NotGiven = NOT_GIVEN,
-        prefix: Optional[str] | NotGiven = NOT_GIVEN,
-        risk_rating: Optional[Literal["low", "medium", "high"]] | NotGiven = NOT_GIVEN,
-        suffix: Optional[str] | NotGiven = NOT_GIVEN,
-        wealth_and_employment_details: Optional[legal_entity_create_params.WealthAndEmploymentDetails]
-        | NotGiven = NOT_GIVEN,
-        website: Optional[str] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        middle_name: Optional[str] | Omit = omit,
+        operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
+        phone_numbers: Iterable[legal_entity_create_params.PhoneNumber] | Omit = omit,
+        politically_exposed_person: Optional[bool] | Omit = omit,
+        preferred_name: Optional[str] | Omit = omit,
+        prefix: Optional[str] | Omit = omit,
+        primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        suffix: Optional[str] | Omit = omit,
+        wealth_and_employment_details: Optional[legal_entity_create_params.WealthAndEmploymentDetails] | Omit = omit,
+        website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> LegalEntity:
         """
@@ -96,9 +101,14 @@ class LegalEntities(SyncAPIResource):
 
           addresses: A list of addresses for the entity.
 
+          business_description: A description of the business.
+
           business_name: The business's legal business name.
 
           citizenship_country: The country of citizenship for an individual.
+
+          country_of_incorporation: The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
+              alpha-3 formats.
 
           date_formed: A business's formation date (YYYY-MM-DD).
 
@@ -106,11 +116,15 @@ class LegalEntities(SyncAPIResource):
 
           email: The entity's primary email.
 
+          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+
           first_name: An individual's first name.
 
           identifications: A list of identifications for the legal entity.
 
           industry_classifications: A list of industry classifications for the legal entity.
+
+          intended_use: A description of the intended use of the legal entity.
 
           last_name: An individual's last name.
 
@@ -123,11 +137,16 @@ class LegalEntities(SyncAPIResource):
 
           middle_name: An individual's middle name.
 
+          operating_jurisdictions: A list of countries where the business operates (ISO 3166-1 alpha-2 or alpha-3
+              codes).
+
           politically_exposed_person: Whether the individual is a politically exposed person.
 
           preferred_name: An individual's preferred name.
 
           prefix: An individual's prefix.
+
+          primary_social_media_sites: A list of primary social media URLs for the business.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
@@ -152,25 +171,31 @@ class LegalEntities(SyncAPIResource):
                     "legal_entity_type": legal_entity_type,
                     "addresses": addresses,
                     "bank_settings": bank_settings,
+                    "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "compliance_details": compliance_details,
+                    "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
                     "doing_business_as_names": doing_business_as_names,
                     "email": email,
+                    "expected_activity_volume": expected_activity_volume,
                     "first_name": first_name,
                     "identifications": identifications,
                     "industry_classifications": industry_classifications,
+                    "intended_use": intended_use,
                     "last_name": last_name,
                     "legal_entity_associations": legal_entity_associations,
                     "legal_structure": legal_structure,
                     "metadata": metadata,
                     "middle_name": middle_name,
+                    "operating_jurisdictions": operating_jurisdictions,
                     "phone_numbers": phone_numbers,
                     "politically_exposed_person": politically_exposed_person,
                     "preferred_name": preferred_name,
                     "prefix": prefix,
+                    "primary_social_media_sites": primary_social_media_sites,
                     "risk_rating": risk_rating,
                     "suffix": suffix,
                     "wealth_and_employment_details": wealth_and_employment_details,
@@ -197,7 +222,7 @@ class LegalEntities(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LegalEntity:
         """
         Get details on a single legal entity.
@@ -225,40 +250,45 @@ class LegalEntities(SyncAPIResource):
         self,
         id: str,
         *,
-        addresses: Iterable[LegalEntityAddressCreateRequest] | NotGiven = NOT_GIVEN,
-        bank_settings: Optional[legal_entity_update_params.BankSettings] | NotGiven = NOT_GIVEN,
-        business_name: Optional[str] | NotGiven = NOT_GIVEN,
-        citizenship_country: Optional[str] | NotGiven = NOT_GIVEN,
-        compliance_details: Optional[LegalEntityComplianceDetail] | NotGiven = NOT_GIVEN,
-        date_formed: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_of_birth: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        doing_business_as_names: SequenceNotStr[str] | NotGiven = NOT_GIVEN,
-        email: Optional[str] | NotGiven = NOT_GIVEN,
-        first_name: Optional[str] | NotGiven = NOT_GIVEN,
-        identifications: Iterable[IdentificationCreateRequest] | NotGiven = NOT_GIVEN,
-        industry_classifications: Iterable[LegalEntityIndustryClassification] | NotGiven = NOT_GIVEN,
-        last_name: Optional[str] | NotGiven = NOT_GIVEN,
+        addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
+        bank_settings: Optional[legal_entity_update_params.BankSettings] | Omit = omit,
+        business_description: Optional[str] | Omit = omit,
+        business_name: Optional[str] | Omit = omit,
+        citizenship_country: Optional[str] | Omit = omit,
+        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
+        country_of_incorporation: Optional[str] | Omit = omit,
+        date_formed: Union[str, date, None] | Omit = omit,
+        date_of_birth: Union[str, date, None] | Omit = omit,
+        doing_business_as_names: SequenceNotStr[str] | Omit = omit,
+        email: Optional[str] | Omit = omit,
+        expected_activity_volume: Optional[int] | Omit = omit,
+        first_name: Optional[str] | Omit = omit,
+        identifications: Iterable[IdentificationCreateRequest] | Omit = omit,
+        industry_classifications: Iterable[LegalEntityIndustryClassification] | Omit = omit,
+        intended_use: Optional[str] | Omit = omit,
+        last_name: Optional[str] | Omit = omit,
         legal_structure: Optional[
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
-        | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        middle_name: Optional[str] | NotGiven = NOT_GIVEN,
-        phone_numbers: Iterable[legal_entity_update_params.PhoneNumber] | NotGiven = NOT_GIVEN,
-        politically_exposed_person: Optional[bool] | NotGiven = NOT_GIVEN,
-        preferred_name: Optional[str] | NotGiven = NOT_GIVEN,
-        prefix: Optional[str] | NotGiven = NOT_GIVEN,
-        risk_rating: Optional[Literal["low", "medium", "high"]] | NotGiven = NOT_GIVEN,
-        suffix: Optional[str] | NotGiven = NOT_GIVEN,
-        wealth_and_employment_details: Optional[legal_entity_update_params.WealthAndEmploymentDetails]
-        | NotGiven = NOT_GIVEN,
-        website: Optional[str] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        middle_name: Optional[str] | Omit = omit,
+        operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
+        phone_numbers: Iterable[legal_entity_update_params.PhoneNumber] | Omit = omit,
+        politically_exposed_person: Optional[bool] | Omit = omit,
+        preferred_name: Optional[str] | Omit = omit,
+        prefix: Optional[str] | Omit = omit,
+        primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        suffix: Optional[str] | Omit = omit,
+        wealth_and_employment_details: Optional[legal_entity_update_params.WealthAndEmploymentDetails] | Omit = omit,
+        website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> LegalEntity:
         """
@@ -267,9 +297,14 @@ class LegalEntities(SyncAPIResource):
         Args:
           addresses: A list of addresses for the entity.
 
+          business_description: A description of the business.
+
           business_name: The business's legal business name.
 
           citizenship_country: The country of citizenship for an individual.
+
+          country_of_incorporation: The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
+              alpha-3 formats.
 
           date_formed: A business's formation date (YYYY-MM-DD).
 
@@ -277,11 +312,15 @@ class LegalEntities(SyncAPIResource):
 
           email: The entity's primary email.
 
+          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+
           first_name: An individual's first name.
 
           identifications: A list of identifications for the legal entity.
 
           industry_classifications: A list of industry classifications for the legal entity.
+
+          intended_use: A description of the intended use of the legal entity.
 
           last_name: An individual's last name.
 
@@ -292,11 +331,16 @@ class LegalEntities(SyncAPIResource):
 
           middle_name: An individual's middle name.
 
+          operating_jurisdictions: A list of countries where the business operates (ISO 3166-1 alpha-2 or alpha-3
+              codes).
+
           politically_exposed_person: Whether the individual is a politically exposed person.
 
           preferred_name: An individual's preferred name.
 
           prefix: An individual's prefix.
+
+          primary_social_media_sites: A list of primary social media URLs for the business.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
@@ -322,24 +366,30 @@ class LegalEntities(SyncAPIResource):
                 {
                     "addresses": addresses,
                     "bank_settings": bank_settings,
+                    "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "compliance_details": compliance_details,
+                    "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
                     "doing_business_as_names": doing_business_as_names,
                     "email": email,
+                    "expected_activity_volume": expected_activity_volume,
                     "first_name": first_name,
                     "identifications": identifications,
                     "industry_classifications": industry_classifications,
+                    "intended_use": intended_use,
                     "last_name": last_name,
                     "legal_structure": legal_structure,
                     "metadata": metadata,
                     "middle_name": middle_name,
+                    "operating_jurisdictions": operating_jurisdictions,
                     "phone_numbers": phone_numbers,
                     "politically_exposed_person": politically_exposed_person,
                     "preferred_name": preferred_name,
                     "prefix": prefix,
+                    "primary_social_media_sites": primary_social_media_sites,
                     "risk_rating": risk_rating,
                     "suffix": suffix,
                     "wealth_and_employment_details": wealth_and_employment_details,
@@ -360,17 +410,17 @@ class LegalEntities(SyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        legal_entity_type: Literal["business", "individual"] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        show_deleted: str | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        legal_entity_type: Literal["business", "individual"] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        per_page: int | Omit = omit,
+        show_deleted: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncPage[LegalEntity]:
         """
         Get a list of all legal entities.
@@ -435,42 +485,46 @@ class AsyncLegalEntities(AsyncAPIResource):
         self,
         *,
         legal_entity_type: Literal["business", "individual"],
-        addresses: Iterable[LegalEntityAddressCreateRequest] | NotGiven = NOT_GIVEN,
-        bank_settings: Optional[legal_entity_create_params.BankSettings] | NotGiven = NOT_GIVEN,
-        business_name: Optional[str] | NotGiven = NOT_GIVEN,
-        citizenship_country: Optional[str] | NotGiven = NOT_GIVEN,
-        compliance_details: Optional[LegalEntityComplianceDetail] | NotGiven = NOT_GIVEN,
-        date_formed: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_of_birth: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        doing_business_as_names: SequenceNotStr[str] | NotGiven = NOT_GIVEN,
-        email: Optional[str] | NotGiven = NOT_GIVEN,
-        first_name: Optional[str] | NotGiven = NOT_GIVEN,
-        identifications: Iterable[IdentificationCreateRequest] | NotGiven = NOT_GIVEN,
-        industry_classifications: Iterable[LegalEntityIndustryClassification] | NotGiven = NOT_GIVEN,
-        last_name: Optional[str] | NotGiven = NOT_GIVEN,
-        legal_entity_associations: Optional[Iterable[legal_entity_create_params.LegalEntityAssociation]]
-        | NotGiven = NOT_GIVEN,
+        addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
+        bank_settings: Optional[legal_entity_create_params.BankSettings] | Omit = omit,
+        business_description: Optional[str] | Omit = omit,
+        business_name: Optional[str] | Omit = omit,
+        citizenship_country: Optional[str] | Omit = omit,
+        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
+        country_of_incorporation: Optional[str] | Omit = omit,
+        date_formed: Union[str, date, None] | Omit = omit,
+        date_of_birth: Union[str, date, None] | Omit = omit,
+        doing_business_as_names: SequenceNotStr[str] | Omit = omit,
+        email: Optional[str] | Omit = omit,
+        expected_activity_volume: Optional[int] | Omit = omit,
+        first_name: Optional[str] | Omit = omit,
+        identifications: Iterable[IdentificationCreateRequest] | Omit = omit,
+        industry_classifications: Iterable[LegalEntityIndustryClassification] | Omit = omit,
+        intended_use: Optional[str] | Omit = omit,
+        last_name: Optional[str] | Omit = omit,
+        legal_entity_associations: Optional[Iterable[LegalEntityAssociationInlineCreate]] | Omit = omit,
         legal_structure: Optional[
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
-        | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        middle_name: Optional[str] | NotGiven = NOT_GIVEN,
-        phone_numbers: Iterable[legal_entity_create_params.PhoneNumber] | NotGiven = NOT_GIVEN,
-        politically_exposed_person: Optional[bool] | NotGiven = NOT_GIVEN,
-        preferred_name: Optional[str] | NotGiven = NOT_GIVEN,
-        prefix: Optional[str] | NotGiven = NOT_GIVEN,
-        risk_rating: Optional[Literal["low", "medium", "high"]] | NotGiven = NOT_GIVEN,
-        suffix: Optional[str] | NotGiven = NOT_GIVEN,
-        wealth_and_employment_details: Optional[legal_entity_create_params.WealthAndEmploymentDetails]
-        | NotGiven = NOT_GIVEN,
-        website: Optional[str] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        middle_name: Optional[str] | Omit = omit,
+        operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
+        phone_numbers: Iterable[legal_entity_create_params.PhoneNumber] | Omit = omit,
+        politically_exposed_person: Optional[bool] | Omit = omit,
+        preferred_name: Optional[str] | Omit = omit,
+        prefix: Optional[str] | Omit = omit,
+        primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        suffix: Optional[str] | Omit = omit,
+        wealth_and_employment_details: Optional[legal_entity_create_params.WealthAndEmploymentDetails] | Omit = omit,
+        website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> LegalEntity:
         """
@@ -481,9 +535,14 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           addresses: A list of addresses for the entity.
 
+          business_description: A description of the business.
+
           business_name: The business's legal business name.
 
           citizenship_country: The country of citizenship for an individual.
+
+          country_of_incorporation: The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
+              alpha-3 formats.
 
           date_formed: A business's formation date (YYYY-MM-DD).
 
@@ -491,11 +550,15 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           email: The entity's primary email.
 
+          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+
           first_name: An individual's first name.
 
           identifications: A list of identifications for the legal entity.
 
           industry_classifications: A list of industry classifications for the legal entity.
+
+          intended_use: A description of the intended use of the legal entity.
 
           last_name: An individual's last name.
 
@@ -508,11 +571,16 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           middle_name: An individual's middle name.
 
+          operating_jurisdictions: A list of countries where the business operates (ISO 3166-1 alpha-2 or alpha-3
+              codes).
+
           politically_exposed_person: Whether the individual is a politically exposed person.
 
           preferred_name: An individual's preferred name.
 
           prefix: An individual's prefix.
+
+          primary_social_media_sites: A list of primary social media URLs for the business.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
@@ -537,25 +605,31 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "legal_entity_type": legal_entity_type,
                     "addresses": addresses,
                     "bank_settings": bank_settings,
+                    "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "compliance_details": compliance_details,
+                    "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
                     "doing_business_as_names": doing_business_as_names,
                     "email": email,
+                    "expected_activity_volume": expected_activity_volume,
                     "first_name": first_name,
                     "identifications": identifications,
                     "industry_classifications": industry_classifications,
+                    "intended_use": intended_use,
                     "last_name": last_name,
                     "legal_entity_associations": legal_entity_associations,
                     "legal_structure": legal_structure,
                     "metadata": metadata,
                     "middle_name": middle_name,
+                    "operating_jurisdictions": operating_jurisdictions,
                     "phone_numbers": phone_numbers,
                     "politically_exposed_person": politically_exposed_person,
                     "preferred_name": preferred_name,
                     "prefix": prefix,
+                    "primary_social_media_sites": primary_social_media_sites,
                     "risk_rating": risk_rating,
                     "suffix": suffix,
                     "wealth_and_employment_details": wealth_and_employment_details,
@@ -582,7 +656,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LegalEntity:
         """
         Get details on a single legal entity.
@@ -610,40 +684,45 @@ class AsyncLegalEntities(AsyncAPIResource):
         self,
         id: str,
         *,
-        addresses: Iterable[LegalEntityAddressCreateRequest] | NotGiven = NOT_GIVEN,
-        bank_settings: Optional[legal_entity_update_params.BankSettings] | NotGiven = NOT_GIVEN,
-        business_name: Optional[str] | NotGiven = NOT_GIVEN,
-        citizenship_country: Optional[str] | NotGiven = NOT_GIVEN,
-        compliance_details: Optional[LegalEntityComplianceDetail] | NotGiven = NOT_GIVEN,
-        date_formed: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_of_birth: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        doing_business_as_names: SequenceNotStr[str] | NotGiven = NOT_GIVEN,
-        email: Optional[str] | NotGiven = NOT_GIVEN,
-        first_name: Optional[str] | NotGiven = NOT_GIVEN,
-        identifications: Iterable[IdentificationCreateRequest] | NotGiven = NOT_GIVEN,
-        industry_classifications: Iterable[LegalEntityIndustryClassification] | NotGiven = NOT_GIVEN,
-        last_name: Optional[str] | NotGiven = NOT_GIVEN,
+        addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
+        bank_settings: Optional[legal_entity_update_params.BankSettings] | Omit = omit,
+        business_description: Optional[str] | Omit = omit,
+        business_name: Optional[str] | Omit = omit,
+        citizenship_country: Optional[str] | Omit = omit,
+        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
+        country_of_incorporation: Optional[str] | Omit = omit,
+        date_formed: Union[str, date, None] | Omit = omit,
+        date_of_birth: Union[str, date, None] | Omit = omit,
+        doing_business_as_names: SequenceNotStr[str] | Omit = omit,
+        email: Optional[str] | Omit = omit,
+        expected_activity_volume: Optional[int] | Omit = omit,
+        first_name: Optional[str] | Omit = omit,
+        identifications: Iterable[IdentificationCreateRequest] | Omit = omit,
+        industry_classifications: Iterable[LegalEntityIndustryClassification] | Omit = omit,
+        intended_use: Optional[str] | Omit = omit,
+        last_name: Optional[str] | Omit = omit,
         legal_structure: Optional[
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
-        | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        middle_name: Optional[str] | NotGiven = NOT_GIVEN,
-        phone_numbers: Iterable[legal_entity_update_params.PhoneNumber] | NotGiven = NOT_GIVEN,
-        politically_exposed_person: Optional[bool] | NotGiven = NOT_GIVEN,
-        preferred_name: Optional[str] | NotGiven = NOT_GIVEN,
-        prefix: Optional[str] | NotGiven = NOT_GIVEN,
-        risk_rating: Optional[Literal["low", "medium", "high"]] | NotGiven = NOT_GIVEN,
-        suffix: Optional[str] | NotGiven = NOT_GIVEN,
-        wealth_and_employment_details: Optional[legal_entity_update_params.WealthAndEmploymentDetails]
-        | NotGiven = NOT_GIVEN,
-        website: Optional[str] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        middle_name: Optional[str] | Omit = omit,
+        operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
+        phone_numbers: Iterable[legal_entity_update_params.PhoneNumber] | Omit = omit,
+        politically_exposed_person: Optional[bool] | Omit = omit,
+        preferred_name: Optional[str] | Omit = omit,
+        prefix: Optional[str] | Omit = omit,
+        primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        suffix: Optional[str] | Omit = omit,
+        wealth_and_employment_details: Optional[legal_entity_update_params.WealthAndEmploymentDetails] | Omit = omit,
+        website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> LegalEntity:
         """
@@ -652,9 +731,14 @@ class AsyncLegalEntities(AsyncAPIResource):
         Args:
           addresses: A list of addresses for the entity.
 
+          business_description: A description of the business.
+
           business_name: The business's legal business name.
 
           citizenship_country: The country of citizenship for an individual.
+
+          country_of_incorporation: The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
+              alpha-3 formats.
 
           date_formed: A business's formation date (YYYY-MM-DD).
 
@@ -662,11 +746,15 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           email: The entity's primary email.
 
+          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+
           first_name: An individual's first name.
 
           identifications: A list of identifications for the legal entity.
 
           industry_classifications: A list of industry classifications for the legal entity.
+
+          intended_use: A description of the intended use of the legal entity.
 
           last_name: An individual's last name.
 
@@ -677,11 +765,16 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           middle_name: An individual's middle name.
 
+          operating_jurisdictions: A list of countries where the business operates (ISO 3166-1 alpha-2 or alpha-3
+              codes).
+
           politically_exposed_person: Whether the individual is a politically exposed person.
 
           preferred_name: An individual's preferred name.
 
           prefix: An individual's prefix.
+
+          primary_social_media_sites: A list of primary social media URLs for the business.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
@@ -707,24 +800,30 @@ class AsyncLegalEntities(AsyncAPIResource):
                 {
                     "addresses": addresses,
                     "bank_settings": bank_settings,
+                    "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "compliance_details": compliance_details,
+                    "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
                     "doing_business_as_names": doing_business_as_names,
                     "email": email,
+                    "expected_activity_volume": expected_activity_volume,
                     "first_name": first_name,
                     "identifications": identifications,
                     "industry_classifications": industry_classifications,
+                    "intended_use": intended_use,
                     "last_name": last_name,
                     "legal_structure": legal_structure,
                     "metadata": metadata,
                     "middle_name": middle_name,
+                    "operating_jurisdictions": operating_jurisdictions,
                     "phone_numbers": phone_numbers,
                     "politically_exposed_person": politically_exposed_person,
                     "preferred_name": preferred_name,
                     "prefix": prefix,
+                    "primary_social_media_sites": primary_social_media_sites,
                     "risk_rating": risk_rating,
                     "suffix": suffix,
                     "wealth_and_employment_details": wealth_and_employment_details,
@@ -745,17 +844,17 @@ class AsyncLegalEntities(AsyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        legal_entity_type: Literal["business", "individual"] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        show_deleted: str | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        legal_entity_type: Literal["business", "individual"] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        per_page: int | Omit = omit,
+        show_deleted: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[LegalEntity, AsyncPage[LegalEntity]]:
         """
         Get a list of all legal entities.

@@ -65,7 +65,9 @@ import warnings
 print("\nReshaping and masking images.\n")
 
 mask_img = load_mni152_brain_mask(resolution=2)
-masker = NiftiMasker(mask_img=mask_img, memory="nilearn_cache", memory_level=1)
+masker = NiftiMasker(
+    mask_img=mask_img, memory="nilearn_cache", memory_level=1, verbose=1
+)
 masker = masker.fit()
 
 # Images may fail to be transformed, and are of different shapes,
@@ -115,7 +117,7 @@ print("Done, plotting results.")
 # ----------------
 
 for index, (ic_map, ic_terms) in enumerate(
-    zip(ica_maps, term_weights_for_components)
+    zip(ica_maps, term_weights_for_components, strict=False)
 ):
     if -ic_map.min() > ic_map.max():
         # Flip the map's sign for prettiness

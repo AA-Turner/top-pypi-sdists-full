@@ -14,7 +14,8 @@ References for precomputed BSE/NSE holidays:
     NSE: https://www.nseindia.com/products-services/equity-market-timings-holidays
     BSE: https://www.bseindia.com/static/markets/marketinfo/listholi.aspx
     Zerodha: https://zerodha.com/z-connect/category/traders-zone/holidays
-Although NSE/BSE provides only current year's dates, Zerodha provides holidays since 2013.
+Although NSE/BSE provides only current year's dates, Zerodha provides
+holidays since 2013.
 """
 
 precomputed_bse_holidays = pd.to_datetime(
@@ -453,6 +454,21 @@ precomputed_bse_holidays = pd.to_datetime(
         "2025-10-22",
         "2025-11-05",
         "2025-12-25",
+        "2026-01-26",
+        "2026-03-03",
+        "2026-03-26",
+        "2026-03-31",
+        "2026-04-03",
+        "2026-04-14",
+        "2026-05-01",
+        "2026-05-28",
+        "2026-06-26",
+        "2026-09-14",
+        "2026-10-02",
+        "2026-10-20",
+        "2026-11-10",
+        "2026-11-24",
+        "2026-12-25",
     ]
 )
 
@@ -490,6 +506,9 @@ class XBOMExchangeCalendar(PrecomputedExchangeCalendar):
             # Special trading session on Saturday, January 20, 2024.
             # https://www.bseindia.com/downloads/SPDJ_ANN/MediaReleasePDF/1470003_mediareleasespecialtradingsessionfors&pbseindices20240105.pdf
             (pd.Timestamp("2024-01-15"), pd.Timestamp("2024-01-21"), "1111110"),
+            # Special trading session on Saturday, February 1, 2025
+            # https://www.angelone.in/news/will-bse-and-nse-be-open-on-budget-day-feb-1
+            (pd.Timestamp("2025-01-27"), pd.Timestamp("2025-02-02"), "1111110"),
         ]
 
     @functools.cached_property
@@ -501,9 +520,8 @@ class XBOMExchangeCalendar(PrecomputedExchangeCalendar):
                 weekmask=self.weekmask,
                 weekmasks=self.special_weekmasks,
             )
-        else:
-            return CustomBusinessDay(
-                holidays=self.adhoc_holidays,
-                calendar=self.regular_holidays,
-                weekmask=self.weekmask,
-            )
+        return CustomBusinessDay(
+            holidays=self.adhoc_holidays,
+            calendar=self.regular_holidays,
+            weekmask=self.weekmask,
+        )

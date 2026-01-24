@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: This script is deprecated and will be removed in a future release.
+# Use run_test_connection_with_masking.py instead, which provides secret masking support.
+echo "WARNING: run_test_connection.sh is DEPRECATED. Use run_test_connection_with_masking.py instead." >&2
+
 # Simplified test connection runner that just handles memory limits and executes datahub test
 # All venv setup is handled in Python before calling this script
 

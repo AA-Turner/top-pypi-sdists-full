@@ -38,8 +38,8 @@ class CreateInternalProductionJob(object):
         'project_id': 'str',
         'config': 'CreateProductionJobConfig',
         'job_queue_config': 'CreateJobQueueConfig',
-        'workspace_id': 'str',
-        'tags': 'dict(str, str)'
+        'tags': 'dict(str, str)',
+        'workspace_id': 'str'
     }
 
     attribute_map = {
@@ -48,11 +48,11 @@ class CreateInternalProductionJob(object):
         'project_id': 'project_id',
         'config': 'config',
         'job_queue_config': 'job_queue_config',
-        'workspace_id': 'workspace_id',
-        'tags': 'tags'
+        'tags': 'tags',
+        'workspace_id': 'workspace_id'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, workspace_id=None, tags=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, workspace_id=None, local_vars_configuration=None):  # noqa: E501
         """CreateInternalProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -63,8 +63,8 @@ class CreateInternalProductionJob(object):
         self._project_id = None
         self._config = None
         self._job_queue_config = None
-        self._workspace_id = None
         self._tags = None
+        self._workspace_id = None
         self.discriminator = None
 
         self.name = name
@@ -75,10 +75,10 @@ class CreateInternalProductionJob(object):
         self.config = config
         if job_queue_config is not None:
             self.job_queue_config = job_queue_config
-        if workspace_id is not None:
-            self.workspace_id = workspace_id
         if tags is not None:
             self.tags = tags
+        if workspace_id is not None:
+            self.workspace_id = workspace_id
 
     @property
     def name(self):
@@ -198,29 +198,6 @@ class CreateInternalProductionJob(object):
         self._job_queue_config = job_queue_config
 
     @property
-    def workspace_id(self):
-        """Gets the workspace_id of this CreateInternalProductionJob.  # noqa: E501
-
-        Id of the workspace that this job is generated from  # noqa: E501
-
-        :return: The workspace_id of this CreateInternalProductionJob.  # noqa: E501
-        :rtype: str
-        """
-        return self._workspace_id
-
-    @workspace_id.setter
-    def workspace_id(self, workspace_id):
-        """Sets the workspace_id of this CreateInternalProductionJob.
-
-        Id of the workspace that this job is generated from  # noqa: E501
-
-        :param workspace_id: The workspace_id of this CreateInternalProductionJob.  # noqa: E501
-        :type: str
-        """
-
-        self._workspace_id = workspace_id
-
-    @property
     def tags(self):
         """Gets the tags of this CreateInternalProductionJob.  # noqa: E501
 
@@ -242,6 +219,29 @@ class CreateInternalProductionJob(object):
         """
 
         self._tags = tags
+
+    @property
+    def workspace_id(self):
+        """Gets the workspace_id of this CreateInternalProductionJob.  # noqa: E501
+
+        Id of the workspace that this job is generated from  # noqa: E501
+
+        :return: The workspace_id of this CreateInternalProductionJob.  # noqa: E501
+        :rtype: str
+        """
+        return self._workspace_id
+
+    @workspace_id.setter
+    def workspace_id(self, workspace_id):
+        """Sets the workspace_id of this CreateInternalProductionJob.
+
+        Id of the workspace that this job is generated from  # noqa: E501
+
+        :param workspace_id: The workspace_id of this CreateInternalProductionJob.  # noqa: E501
+        :type: str
+        """
+
+        self._workspace_id = workspace_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

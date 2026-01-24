@@ -12,10 +12,12 @@ from .json_node import JsonNode
 
 class DatasetItemPublic(UniversalBaseModel):
     id: typing.Optional[str] = None
+    dataset_item_id: typing.Optional[str] = None
     trace_id: typing.Optional[str] = None
     span_id: typing.Optional[str] = None
     source: DatasetItemPublicSource
     data: JsonNode
+    tags: typing.Optional[typing.List[str]] = None
     experiment_items: typing.Optional[typing.List[ExperimentItemPublic]] = None
     dataset_id: typing.Optional[str] = None
     created_at: typing.Optional[dt.datetime] = None

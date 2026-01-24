@@ -1,7 +1,7 @@
 """
 Main CLI entrypoint.
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 """
 
 import sys
@@ -12,11 +12,11 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 BedrockAgentCoreDataPlaneFrontingLayer 1.40.2\n"
-        "Version:         1.40.2\n"
-        "Builder version: 8.11.0\n"
+        "Type annotations for boto3 BedrockAgentCore 1.42.32\n"
+        "Version:         1.42.32\n"
+        "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore//\n"
-        "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore.html#bedrockagentcoredataplanefrontinglayer\n"
+        "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore.html#bedrockagentcore\n"
         "Other services:  https://pypi.org/project/boto3-stubs/\n"
         "Changelog:       https://github.com/youtype/mypy_boto3_builder/releases\n"
     )
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.40.2\n")
+    sys.stdout.write("1.42.32\n")
 
 
 def main() -> None:

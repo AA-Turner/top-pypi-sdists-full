@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lambdatest-selenium-driver
-Version: 1.0.5
+Version: 1.0.9
 Summary: Python Selenium SDK for testing with Smart UI
 Home-page: https://github.com/LambdaTest/lambdatest-python-sdk
 Author: LambdaTest <keys@lambdatest.com>
@@ -13,7 +13,7 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 Requires-Dist: selenium>=3
-Requires-Dist: lambdatest-sdk-utils
+Requires-Dist: lambdatest-sdk-utils>=1.0.5
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
+import anndata
+
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
     from pathlib import Path
@@ -23,7 +25,6 @@ if TYPE_CHECKING:
 
 @pytest.fixture(autouse=True)
 def _anndata_test_env(request: pytest.FixtureRequest) -> None:
-    import anndata
 
     if isinstance(request.node, pytest.DoctestItem):
         request.getfixturevalue("_doctest_env")
@@ -35,13 +36,9 @@ def _anndata_test_env(request: pytest.FixtureRequest) -> None:
 def _doctest_env(
     request: pytest.FixtureRequest, cache: pytest.Cache, tmp_path: Path
 ) -> Generator[None, None, None]:
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message=r"Importing read_.* from `anndata` is deprecated"
-        )
-        from scanpy import settings
-
     from contextlib import chdir
+
+    from scanpy import settings
 
     from anndata.utils import import_name
 

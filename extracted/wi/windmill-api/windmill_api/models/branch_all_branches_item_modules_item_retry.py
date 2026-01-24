@@ -22,11 +22,15 @@ T = TypeVar("T", bound="BranchAllBranchesItemModulesItemRetry")
 
 @_attrs_define
 class BranchAllBranchesItemModulesItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, BranchAllBranchesItemModulesItemRetryConstant]):
-        exponential (Union[Unset, BranchAllBranchesItemModulesItemRetryExponential]):
-        retry_if (Union[Unset, BranchAllBranchesItemModulesItemRetryRetryIf]):
+        constant (Union[Unset, BranchAllBranchesItemModulesItemRetryConstant]): Retry with constant delay between
+            attempts
+        exponential (Union[Unset, BranchAllBranchesItemModulesItemRetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, BranchAllBranchesItemModulesItemRetryRetryIf]): Conditional retry based on error or
+            result
     """
 
     constant: Union[Unset, "BranchAllBranchesItemModulesItemRetryConstant"] = UNSET

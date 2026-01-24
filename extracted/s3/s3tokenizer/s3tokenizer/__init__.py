@@ -25,14 +25,16 @@ from typing import List, Union
 from tqdm import tqdm
 
 from s3tokenizer.model_v2 import S3TokenizerV2
+from s3tokenizer.model_v3 import S3TokenizerV3
 
 from .model import S3Tokenizer
 from .utils import (load_audio, log_mel_spectrogram, make_non_pad_mask,
-                    mask_to_bias, onnx2torch, padding, merge_tokenized_segments)
+                    mask_to_bias, merge_tokenized_segments, onnx2torch,
+                    onnx2torch_v3, padding)
 
 __all__ = [
     'load_audio', 'log_mel_spectrogram', 'make_non_pad_mask', 'mask_to_bias',
-    'onnx2torch', 'padding', 'merge_tokenized_segments'
+    'onnx2torch', 'onnx2torch_v3', 'padding', 'merge_tokenized_segments'
 ]
 _MODELS = {
     "speech_tokenizer_v1":
@@ -44,6 +46,9 @@ _MODELS = {
     "speech_tokenizer_v2_25hz":
     "https://www.modelscope.cn/models/iic/CosyVoice2-0.5B/"
     "resolve/master/speech_tokenizer_v2.onnx",
+    "speech_tokenizer_v3_25hz":
+    "https://www.modelscope.cn/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512/"
+    "resolve/master/speech_tokenizer_v3.onnx",
 }
 
 _SHA256S = {
@@ -53,6 +58,8 @@ _SHA256S = {
     "56285ddd4a83e883ee0cb9f8d69c1089b53a94b1f78ff7e4a0224a27eb4cb486",
     "speech_tokenizer_v2_25hz":
     "d43342aa12163a80bf07bffb94c9de2e120a8df2f9917cd2f642e7f4219c6f71",
+    "speech_tokenizer_v3_25hz":
+    "23236a74175dbdda47afc66dbadd5bcb41303c467a57c261cb8539ad9db9208d",
 }
 
 
@@ -144,7 +151,9 @@ def load_model(
     else:
         raise RuntimeError(
             f"Model {name} not found; available models = {available_models()}")
-    if 'v2' in name:
+    if 'v3' in name:
+        model = S3TokenizerV3(name)
+    elif 'v2' in name:
         model = S3TokenizerV2(name)
     else:
         model = S3Tokenizer(name)

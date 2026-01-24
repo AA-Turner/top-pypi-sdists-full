@@ -15,9 +15,9 @@
 """Execute Transactions Spec tests."""
 from __future__ import annotations
 
+import asyncio
 import sys
 from io import BytesIO
-from test.utils_spec_runner import SpecRunner
 
 from gridfs.synchronous.grid_file import GridFS, GridFSBucket
 from pymongo.server_selectors import writable_server_selector
@@ -61,15 +61,8 @@ _IS_SYNC = True
 UNPIN_TEST_MAX_ATTEMPTS = 50
 
 
-class TransactionsBase(SpecRunner):
-    def maybe_skip_scenario(self, test):
-        super().maybe_skip_scenario(test)
-        if (
-            "secondary" in self.id()
-            and not client_context.is_mongos
-            and not client_context.has_secondaries
-        ):
-            raise unittest.SkipTest("No secondaries")
+class TransactionsBase(IntegrationTest):
+    pass
 
 
 class TestTransactions(TransactionsBase):
@@ -460,6 +453,17 @@ class TestTransactionsConvenientAPI(TransactionsBase):
 
         with self.client.start_session() as s:
             self.assertEqual(s.with_transaction(callback2), "Foo")
+
+    @client_context.require_transactions
+    @client_context.require_async
+    def test_callback_awaitable_no_coroutine(self):
+        def callback(_):
+            future = asyncio.Future()
+            future.set_result("Foo")
+            return future
+
+        with self.client.start_session() as s:
+            self.assertEqual(s.with_transaction(callback), "Foo")
 
     @client_context.require_transactions
     def test_callback_not_retried_after_timeout(self):

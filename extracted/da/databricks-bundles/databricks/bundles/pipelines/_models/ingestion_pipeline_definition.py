@@ -8,9 +8,9 @@ from databricks.bundles.pipelines._models.ingestion_config import (
     IngestionConfig,
     IngestionConfigParam,
 )
-from databricks.bundles.pipelines._models.ingestion_source_type import (
-    IngestionSourceType,
-    IngestionSourceTypeParam,
+from databricks.bundles.pipelines._models.operation_time_window import (
+    OperationTimeWindow,
+    OperationTimeWindowParam,
 )
 from databricks.bundles.pipelines._models.source_config import (
     SourceConfig,
@@ -34,9 +34,29 @@ class IngestionPipelineDefinition:
     Immutable. The Unity Catalog connection that this ingestion pipeline uses to communicate with the source. This is used with connectors for applications like Salesforce, Workday, and so on.
     """
 
+    full_refresh_window: VariableOrOptional[OperationTimeWindow] = None
+    """
+    (Optional) A window that specifies a set of time ranges for snapshot queries in CDC.
+    """
+
+    ingest_from_uc_foreign_catalog: VariableOrOptional[bool] = None
+    """
+    :meta private: [EXPERIMENTAL]
+    
+    Immutable. If set to true, the pipeline will ingest tables from the
+    UC foreign catalogs directly without the need to specify a UC connection or ingestion gateway.
+    The `source_catalog` fields in objects of IngestionConfig are interpreted as
+    the UC foreign catalogs to ingest from.
+    """
+
     ingestion_gateway_id: VariableOrOptional[str] = None
     """
     Immutable. Identifier for the gateway that is used by this ingestion pipeline to communicate with the source database. This is used with connectors to databases like SQL Server.
+    """
+
+    netsuite_jar_path: VariableOrOptional[str] = None
+    """
+    :meta private: [EXPERIMENTAL]
     """
 
     objects: VariableOrList[IngestionConfig] = field(default_factory=list)
@@ -46,16 +66,7 @@ class IngestionPipelineDefinition:
 
     source_configurations: VariableOrList[SourceConfig] = field(default_factory=list)
     """
-    :meta private: [EXPERIMENTAL]
-    
     Top-level source configurations
-    """
-
-    source_type: VariableOrOptional[IngestionSourceType] = None
-    """
-    The type of the foreign source.
-    The source type will be inferred from the source connection or ingestion gateway.
-    This field is output only and will be ignored if provided.
     """
 
     table_configuration: VariableOrOptional[TableSpecificConfig] = None
@@ -79,9 +90,29 @@ class IngestionPipelineDefinitionDict(TypedDict, total=False):
     Immutable. The Unity Catalog connection that this ingestion pipeline uses to communicate with the source. This is used with connectors for applications like Salesforce, Workday, and so on.
     """
 
+    full_refresh_window: VariableOrOptional[OperationTimeWindowParam]
+    """
+    (Optional) A window that specifies a set of time ranges for snapshot queries in CDC.
+    """
+
+    ingest_from_uc_foreign_catalog: VariableOrOptional[bool]
+    """
+    :meta private: [EXPERIMENTAL]
+    
+    Immutable. If set to true, the pipeline will ingest tables from the
+    UC foreign catalogs directly without the need to specify a UC connection or ingestion gateway.
+    The `source_catalog` fields in objects of IngestionConfig are interpreted as
+    the UC foreign catalogs to ingest from.
+    """
+
     ingestion_gateway_id: VariableOrOptional[str]
     """
     Immutable. Identifier for the gateway that is used by this ingestion pipeline to communicate with the source database. This is used with connectors to databases like SQL Server.
+    """
+
+    netsuite_jar_path: VariableOrOptional[str]
+    """
+    :meta private: [EXPERIMENTAL]
     """
 
     objects: VariableOrList[IngestionConfigParam]
@@ -91,16 +122,7 @@ class IngestionPipelineDefinitionDict(TypedDict, total=False):
 
     source_configurations: VariableOrList[SourceConfigParam]
     """
-    :meta private: [EXPERIMENTAL]
-    
     Top-level source configurations
-    """
-
-    source_type: VariableOrOptional[IngestionSourceTypeParam]
-    """
-    The type of the foreign source.
-    The source type will be inferred from the source connection or ingestion gateway.
-    This field is output only and will be ignored if provided.
     """
 
     table_configuration: VariableOrOptional[TableSpecificConfigParam]

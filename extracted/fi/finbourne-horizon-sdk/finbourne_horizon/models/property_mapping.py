@@ -18,23 +18,24 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.lusid_property_definition import LusidPropertyDefinition
-from finbourne_horizon.models.optionality import Optionality
 from finbourne_horizon.models.vendor_field import VendorField
 
 class PropertyMapping(BaseModel):
     """
     Mapping from a set of VendorFields to a LUSID Property  # noqa: E501
     """
-    var_property: LusidPropertyDefinition = Field(..., alias="property")
-    vendor_fields: conlist(VendorField) = Field(..., alias="vendorFields", description="Fields that will be used to map to this Property Definition")
-    optionality: Optionality = Field(...)
+    var_property: LusidPropertyDefinition = Field(alias="property")
+    vendor_fields: List[VendorField] = Field(description="Fields that will be used to map to this Property Definition", alias="vendorFields")
+    optionality:  StrictStr = Field(...,alias="optionality", description="Whether the Property is Mandatory, Suggested or Optional") 
     entity_type:  StrictStr = Field(...,alias="entityType", description="The LUSID Entity this is valid for") 
     entity_sub_type:  Optional[StrictStr] = Field(None,alias="entitySubType", description="The LUSID Entity sub type this is valid for") 
     transformation_description:  Optional[StrictStr] = Field(None,alias="transformationDescription", description="The transformation, if required, to map from VendorFields to the LUSID Property") 
-    versions: conlist(StrictStr) = Field(..., description="The versions of the Vendor integration this mapping is valid for")
+    versions: List[StrictStr] = Field(description="The versions of the Vendor integration this mapping is valid for")
     __properties = ["property", "vendorFields", "optionality", "entityType", "entitySubType", "transformationDescription", "versions"]
 
     class Config:
@@ -110,3 +111,5 @@ class PropertyMapping(BaseModel):
             "versions": obj.get("versions")
         })
         return _obj
+
+PropertyMapping.update_forward_refs()

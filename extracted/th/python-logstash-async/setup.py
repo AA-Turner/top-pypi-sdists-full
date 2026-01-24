@@ -9,7 +9,7 @@ from setuptools import setup
 
 
 NAME = 'python-logstash-async'
-VERSION = '4.0.2'
+VERSION = '4.1.0'
 
 here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), 'rb') as f:
@@ -40,7 +40,7 @@ setup(
         'Documentation': 'https://python-logstash-async.readthedocs.io/en/stable/',
     },
     keywords='logging logstash asynchronous',
-    install_requires=['limits', 'pylogbeat', 'requests'],
+    install_requires=['limits', 'pylogbeat>=2.1.0', 'requests'],
     extras_require={
         'dev': ['django', 'flask'],
         'docs': ['sphinx-rtd-theme'],

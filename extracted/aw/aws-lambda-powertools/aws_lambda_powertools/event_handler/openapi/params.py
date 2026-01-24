@@ -4,7 +4,7 @@ import inspect
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseConfig
+from pydantic import BaseConfig, BaseModel, create_model
 from pydantic.fields import FieldInfo
 from typing_extensions import Annotated, get_args, get_origin
 
@@ -17,6 +17,7 @@ from aws_lambda_powertools.event_handler.openapi.compat import (
     copy_field_info,
     field_annotation_is_scalar,
     get_annotation_from_field_info,
+    lenient_issubclass,
 )
 
 if TYPE_CHECKING:
@@ -85,7 +86,7 @@ class Dependant:
         self.cache_key: CacheKey = self.call
 
 
-class Param(FieldInfo):
+class Param(FieldInfo):  # type: ignore[misc]
     """
     A class used internally to represent a parameter in a path operation.
     """
@@ -236,7 +237,7 @@ class Param(FieldInfo):
         return f"{self.__class__.__name__}({self.default})"
 
 
-class Path(Param):
+class Path(Param):  # type: ignore[misc]
     """
     A class used internally to represent a path parameter in a path operation.
     """
@@ -370,7 +371,7 @@ class Path(Param):
         )
 
 
-class Query(Param):
+class Query(Param):  # type: ignore[misc]
     """
     A class used internally to represent a query parameter in a path operation.
     """
@@ -499,7 +500,7 @@ class Query(Param):
         )
 
 
-class Header(Param):
+class Header(Param):  # type: ignore[misc]
     """
     A class used internally to represent a header parameter in a path operation.
     """
@@ -649,7 +650,7 @@ class Header(Param):
             self._alias = value.lower()
 
 
-class Body(FieldInfo):
+class Body(FieldInfo):  # type: ignore[misc]
     """
     A class used internally to represent a body parameter in a path operation.
     """
@@ -737,7 +738,7 @@ class Body(FieldInfo):
         return f"{self.__class__.__name__}({self.default})"
 
 
-class Form(Body):
+class Form(Body):  # type: ignore[misc]
     """
     A class used to represent a form parameter in a path operation.
     """
@@ -809,7 +810,7 @@ class Form(Body):
         )
 
 
-class _File(Form):
+class _File(Form):  # type: ignore[misc]
     """
     A class used to represent a file parameter in a path operation.
     """
@@ -1037,35 +1038,110 @@ def get_field_info_response_type(annotation, value) -> tuple[FieldInfo | None, A
     return get_field_info_and_type_annotation(inner_type, value, False, True)
 
 
+def _has_discriminator(field_info: FieldInfo) -> bool:
+    """Check if a FieldInfo has a discriminator."""
+    return hasattr(field_info, "discriminator") and field_info.discriminator is not None
+
+
+def _handle_discriminator_with_param(
+    annotations: list[FieldInfo],
+    annotation: Any,
+) -> tuple[FieldInfo | None, Any, bool]:
+    """
+    Handle the special case of Field(discriminator) + Body() combination.
+
+    Returns:
+        tuple of (powertools_annotation, type_annotation, has_discriminator_with_body)
+    """
+    field_obj = None
+    body_obj = None
+
+    for ann in annotations:
+        if isinstance(ann, Body):
+            body_obj = ann
+        elif _has_discriminator(ann):
+            field_obj = ann
+
+    if field_obj and body_obj:
+        # Use Body as the primary annotation, preserve full annotation for validation
+        return body_obj, annotation, True
+
+    raise AssertionError("Only one FieldInfo can be used per parameter")
+
+
+def _create_field_info(
+    powertools_annotation: FieldInfo,
+    type_annotation: Any,
+    has_discriminator_with_body: bool,
+) -> FieldInfo:
+    """Create or copy FieldInfo based on the annotation type."""
+    field_info: FieldInfo
+    if has_discriminator_with_body:
+        # For discriminator + Body case, create a new Body instance directly
+        field_info = Body()
+        field_info.annotation = type_annotation
+    else:
+        # Copy field_info because we mutate field_info.default later
+        field_info = copy_field_info(
+            field_info=powertools_annotation,
+            annotation=type_annotation,
+        )
+    return field_info
+
+
+def _set_field_default(field_info: FieldInfo, value: Any, is_path_param: bool) -> None:
+    """Set the default value for a field."""
+    if field_info.default not in [Undefined, Required]:
+        raise AssertionError("FieldInfo needs to have a default value of Undefined or Required")
+
+    if value is not inspect.Signature.empty:
+        if is_path_param:
+            raise AssertionError("Cannot use a FieldInfo as a path parameter and pass a value")
+        field_info.default = value
+    else:
+        field_info.default = Required
+
+
 def get_field_info_annotated_type(annotation, value, is_path_param: bool) -> tuple[FieldInfo | None, Any]:
     """
     Get the FieldInfo and type annotation from an Annotated type.
     """
-    field_info: FieldInfo | None = None
     annotated_args = get_args(annotation)
     type_annotation = annotated_args[0]
     powertools_annotations = [arg for arg in annotated_args[1:] if isinstance(arg, FieldInfo)]
 
-    if len(powertools_annotations) > 1:
-        raise AssertionError("Only one FieldInfo can be used per parameter")
+    # Preserve non-FieldInfo metadata (like annotated_types constraints)
+    # This is important for constraints like Interval, Gt, Lt, etc.
+    other_metadata = [arg for arg in annotated_args[1:] if not isinstance(arg, FieldInfo)]
 
-    powertools_annotation = next(iter(powertools_annotations), None)
+    # Determine which annotation to use
+    powertools_annotation: FieldInfo | None = None
+    has_discriminator_with_param = False
 
-    if isinstance(powertools_annotation, FieldInfo):
-        # Copy `field_info` because we mutate `field_info.default` later
-        field_info = copy_field_info(
-            field_info=powertools_annotation,
-            annotation=annotation,
+    if len(powertools_annotations) == 2:
+        powertools_annotation, type_annotation, has_discriminator_with_param = _handle_discriminator_with_param(
+            powertools_annotations,
+            annotation,
         )
-        if field_info.default not in [Undefined, Required]:
-            raise AssertionError("FieldInfo needs to have a default value of Undefined or Required")
+    elif len(powertools_annotations) > 1:
+        raise AssertionError("Only one FieldInfo can be used per parameter")
+    else:
+        powertools_annotation = next(iter(powertools_annotations), None)
 
-        if value is not inspect.Signature.empty:
-            if is_path_param:
-                raise AssertionError("Cannot use a FieldInfo as a path parameter and pass a value")
-            field_info.default = value
-        else:
-            field_info.default = Required
+    # Reconstruct type_annotation with non-FieldInfo metadata if present
+    # This ensures constraints like Interval are preserved
+    if other_metadata and not has_discriminator_with_param:
+        type_annotation = Annotated[(type_annotation, *other_metadata)]
+
+    # Process the annotation if it exists
+    field_info: FieldInfo | None = None
+    if isinstance(powertools_annotation, FieldInfo):  # pragma: no cover
+        field_info = _create_field_info(powertools_annotation, type_annotation, has_discriminator_with_param)
+        _set_field_default(field_info, value, is_path_param)
+
+        # Preserve full annotated type for discriminated unions
+        if _has_discriminator(powertools_annotation):  # pragma: no cover
+            type_annotation = annotation  # pragma: no cover
 
     return field_info, type_annotation
 
@@ -1094,6 +1170,42 @@ def create_response_field(
     return ModelField(**kwargs)  # type: ignore[arg-type]
 
 
+def _apply_header_underscore_conversion(
+    field_info: FieldInfo,
+    type_annotation: Any,
+    param_name: str,
+) -> tuple[FieldInfo, Any]:
+    """
+    Apply underscore-to-dash conversion for Header parameters.
+
+    For BaseModel: Creates new model with underscore-to-dash alias generator.
+    Note: If the BaseModel already has an alias generator, it will be replaced
+    with dash-case conversion since HTTP headers should use dash-case.
+    For all Header fields: Sets the parameter alias if convert_underscores is True
+    """
+    if not isinstance(field_info, Header) or not field_info.convert_underscores:
+        return field_info, type_annotation
+
+    # Always set the parameter alias for Header fields (if not already set)
+    if not field_info.alias:
+        field_info.alias = param_name.replace("_", "-")
+
+    # Handle BaseModel case - create new model with dash-case alias generator
+    if lenient_issubclass(type_annotation, BaseModel):
+        # For HTTP headers, we should use dash-case regardless of existing alias generator
+        # This ensures consistent header naming conventions
+        header_aliased_model = create_model(
+            f"{type_annotation.__name__}WithHeaderAliases",
+            __base__=type_annotation,
+            __config__={"alias_generator": lambda name: name.replace("_", "-")},
+        )
+
+        type_annotation = header_aliased_model
+        field_info.annotation = type_annotation
+
+    return field_info, type_annotation
+
+
 def _create_model_field(
     field_info: FieldInfo | None,
     type_annotation: Any,
@@ -1112,21 +1224,17 @@ def _create_model_field(
     elif isinstance(field_info, Param) and getattr(field_info, "in_", None) is None:
         field_info.in_ = ParamTypes.query
 
+    # Apply header underscore conversion
+    field_info, type_annotation = _apply_header_underscore_conversion(field_info, type_annotation, param_name)
+
     # If the field_info is a Param, we use the `in_` attribute to determine the type annotation
     use_annotation = get_annotation_from_field_info(type_annotation, field_info, param_name)
-
-    # If the field doesn't have a defined alias, we use the param name
-    if not field_info.alias and getattr(field_info, "convert_underscores", None):
-        alias = param_name.replace("_", "-")
-    else:
-        alias = field_info.alias or param_name
-    field_info.alias = alias
 
     return create_response_field(
         name=param_name,
         type_=use_annotation,
         default=field_info.default,
-        alias=alias,
+        alias=field_info.alias,
         required=field_info.default in (Required, Undefined),
         field_info=field_info,
     )

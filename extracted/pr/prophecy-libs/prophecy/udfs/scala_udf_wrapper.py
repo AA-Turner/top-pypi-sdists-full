@@ -1,8 +1,14 @@
 from typing import Optional
 
+from pyspark.sql import Column
 from pyspark.sql.functions import udf
 from pyspark.sql.types import IntegerType
-from pyspark.sql.column import Column, _to_java_column, _to_seq
+
+# Version-compatible imports for Spark 3.x and 4.x
+try:
+    from pyspark.sql.classic.column import _to_java_column, _to_seq
+except ImportError:
+    from pyspark.sql.column import _to_java_column, _to_seq
 
 
 class UDFBase:

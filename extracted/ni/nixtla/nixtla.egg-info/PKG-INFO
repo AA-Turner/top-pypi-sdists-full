@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nixtla
-Version: 0.7.0
+Version: 0.7.2
 Summary: Python SDK for Nixtla API (TimeGPT)
 Author-email: Nixtla <business@nixtla.io>
 License: Apache Software License 2.0
@@ -27,7 +27,7 @@ Requires-Dist: pandas
 Requires-Dist: pydantic>=1.10
 Requires-Dist: tenacity
 Requires-Dist: tqdm
-Requires-Dist: utilsforecast>=0.2.8
+Requires-Dist: utilsforecast>=0.2.15
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: datasetsforecast; extra == "dev"
@@ -57,6 +57,7 @@ Requires-Dist: lightgbm; extra == "dev"
 Requires-Dist: utilsforecast[plotting]; extra == "dev"
 Requires-Dist: holidays; extra == "dev"
 Requires-Dist: pandas_market_calendars; extra == "dev"
+Requires-Dist: pip-licenses; extra == "dev"
 Provides-Extra: distributed
 Requires-Dist: fugue[dask,ray,spark]>=0.8.7; extra == "distributed"
 Requires-Dist: dask<=2024.12.1; extra == "distributed"
@@ -100,7 +101,7 @@ pip install nixtla>=0.7.0
 
 ### Import libraries and load data
 
-``` python
+```python
 import pandas as pd
 from nixtla import NixtlaClient
 ```
@@ -181,9 +182,9 @@ Dive into our [comprehensive documentation](https://docs.nixtla.io/docs/getting-
 
 - **Specialized Topics**: Explore specialized topics like [handling exogenous variables](https://docs.nixtla.io/docs/tutorials-holidays_and_special_dates), model validation through [cross-validation](https://docs.nixtla.io/docs/tutorials-cross_validation), and strategies for [forecasting under uncertainty](https://docs.nixtla.io/docs/tutorials-uncertainty_quantification).
 
-- **Real-World Applications**: Uncover how TimeGPT is applied in real-world scenarios through case studies on [forecasting web traffic](https://docs.nixtla.io/docs/use-cases-forecasting_web_traffic) and [predicting Bitcoin prices](https://docs.nixtla.io/docs/use-cases-bitcoin_price_prediction).
+- **Real World Applications**: Uncover how TimeGPT is applied in real-world scenarios through case studies on [forecasting web traffic](https://docs.nixtla.io/docs/use-cases-forecasting_web_traffic) and [predicting Bitcoin prices](https://docs.nixtla.io/docs/use-cases/bitcoin_price_prediction).
 
-## 🗞️ TimeGPT-1: Revolutionizing Forecasting and Anomaly Detection
+## 🗞️ TimeGPT1 Revolutionizing Forecasting and Anomaly Detection
 
 Time series data is pivotal across various sectors, including finance, healthcare, meteorology, and social sciences. Whether it's monitoring ocean tides or tracking the Dow Jones's daily closing values, time series data is crucial for forecasting and decision-making.
 
@@ -257,6 +258,10 @@ TimeGPT has been featured in many publications and has been recognized for its i
 ## 🔖 License
 
 TimeGPT is closed source. However, this SDK is open source and available under the Apache 2.0 License. Feel free to contribute (check out the [Contributing](https://github.com/Nixtla/nixtla/blob/main/CONTRIBUTING.md) guide for more details).
+
+## 🏷️ Attribution
+
+NixtlaClient may be used to access services powered by technology from Google, Amazon, IBM, Datadog, and NXAI. All trademarks are the property of their respective owners.
 
 ## 📞 Get in touch
 

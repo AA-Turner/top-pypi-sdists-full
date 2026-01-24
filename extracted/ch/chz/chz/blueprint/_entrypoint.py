@@ -99,6 +99,9 @@ def nested_entrypoint(
     if __name__ == "__main__":
         chz.nested_entrypoint(main)
     ```
+
+    Tip: If your `main` function is `async`, you can just do
+    `asyncio.run(chz.nested_entrypoint(main))`.
     """
     # This function should be easily forkable, so do not make it more complicated
     target = get_nested_target(main)
@@ -140,10 +143,14 @@ def methods_entrypoint(
     """
     if argv is None:
         argv = sys.argv[1:]
-    if not argv or not argv[0].isidentifier():
+
+    is_help = not argv or argv[0] == "--help"
+    is_valid = not argv or (argv[0].isidentifier() and hasattr(target, argv[0]))
+
+    if is_help or not is_valid:
         f = io.StringIO()
         output = functools.partial(print, file=f)
-        if argv and not argv[0].isidentifier() and not argv[0].startswith("--"):
+        if not is_valid:
             output(f"WARNING: {argv[0]} is not a valid method")
         output(f"Entry point: methods of {type_repr(target)}")
         output()
@@ -160,6 +167,50 @@ def methods_entrypoint(
     if transform is not None:
         blueprint = transform(blueprint, target, argv[0])
     return blueprint.make_from_argv(argv[1:])
+
+
+@exit_on_entrypoint_error
+def dispatch_entrypoint(
+    targets: dict[str, Callable[..., _T]], *, argv: list[str] | None = None
+) -> _T:
+    """Easy way to create a script entrypoint using chz for dispatching to different functions.
+
+    Conceptually, this is strictly a subset of the universal `python -m chz.universal` entrypoint.
+    Compared to that, or methods_entrypoint, this basically just lets you flatten args one level.
+
+    ```
+    def say_hello(name: str) -> None:
+        print(f"Hello, {name}!")
+
+    def say_goodbye(name: str) -> None:
+        print(f"Goodbye, {name}!")
+
+    chz.dispatch_entrypoint({
+        "hello": say_hello,
+        "goodbye": say_goodbye,
+    })
+    ```
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+
+    is_help = not argv or argv[0] == "--help"
+    is_valid = not argv or (argv[0].isidentifier() and argv[0] in targets)
+
+    if is_help or not is_valid:
+        f = io.StringIO()
+        output = functools.partial(print, file=f)
+        if not is_valid:
+            output(f"WARNING: {argv[0]} is not a valid entrypoint")
+        output("Available entrypoints:")
+        for name in targets:
+            meth = targets[name]
+            meth_doc = getattr(meth, "__doc__", "") or ""
+            meth_doc = meth_doc.strip().split("\n", 1)[0]
+            output(f"  {name}  {meth_doc}".rstrip())
+        raise EntrypointHelpException(f.getvalue())
+
+    return chz.Blueprint(targets[argv[0]]).make_from_argv(argv[1:])
 
 
 def _resolve_annotation(annotation: Any, func: Any) -> Any:

@@ -12,6 +12,95 @@ export type AddCollectionRecordsResponse = {
     [key: string]: unknown;
 };
 
+export type AttachFunctionRequest = {
+    function_id: string;
+    name: string;
+    output_collection: string;
+    params?: unknown;
+};
+
+export type AttachFunctionResponse = {
+    attached_function: AttachedFunctionInfo;
+    /**
+     * True if newly created, false if already existed (idempotent request)
+     */
+    created: boolean;
+};
+
+/**
+ * API response struct for attached function with function_name instead of function_id
+ */
+export type AttachedFunctionApiResponse = {
+    /**
+     * Completion offset: the WAL position up to which the attached function has processed records
+     */
+    completion_offset: number;
+    /**
+     * Database name this attached function belongs to
+     */
+    database_id: string;
+    /**
+     * Name of the function (e.g., "record_counter", "statistics")
+     */
+    function_name: string;
+    /**
+     * Unique identifier for the attached function
+     */
+    id: AttachedFunctionUuid;
+    /**
+     * Source collection that triggers the attached function
+     */
+    input_collection_id: CollectionUuid;
+    /**
+     * Minimum number of new records required before the attached function runs again
+     */
+    min_records_for_invocation: number;
+    /**
+     * Human-readable name for the attached function instance
+     */
+    name: string;
+    /**
+     * Name of target collection where attached function output is stored
+     */
+    output_collection: string;
+    output_collection_id?: null | CollectionUuid;
+    /**
+     * Optional JSON parameters for the function
+     */
+    params?: string | null;
+    /**
+     * Tenant name this attached function belongs to
+     */
+    tenant_id: string;
+};
+
+export type AttachedFunctionInfo = {
+    function_name: string;
+    id: string;
+    name: string;
+};
+
+/**
+ * AttachedFunctionUuid is a wrapper around Uuid to provide a type for attached function identifiers.
+ */
+export type AttachedFunctionUuid = string;
+
+export type BoolInvertedIndexConfig = {
+    [key: string]: never;
+};
+
+export type BoolInvertedIndexType = {
+    config: BoolInvertedIndexConfig;
+    enabled: boolean;
+};
+
+/**
+ * Boolean value type index configurations
+ */
+export type BoolValueType = {
+    bool_inverted_index?: null | BoolInvertedIndexType;
+};
+
 export type ChecklistResponse = {
     max_batch_size: number;
     supports_base64_encoding: boolean;
@@ -25,6 +114,7 @@ export type Collection = {
     log_position: number;
     metadata?: null | HashMap;
     name: string;
+    schema?: null | Schema;
     tenant: string;
     version: number;
 };
@@ -45,6 +135,7 @@ export type CreateCollectionPayload = {
     get_or_create?: boolean;
     metadata?: null | HashMap;
     name: string;
+    schema?: null | Schema;
 };
 
 export type CreateDatabasePayload = {
@@ -81,11 +172,24 @@ export type DeleteDatabaseResponse = {
     [key: string]: unknown;
 };
 
+export type DetachFunctionRequest = {
+    /**
+     * Whether to delete the output collection as well
+     */
+    delete_output?: boolean;
+};
+
+export type DetachFunctionResponse = {
+    success: boolean;
+};
+
 export type EmbeddingFunctionConfiguration = {
     type: 'legacy';
 } | (EmbeddingFunctionNewConfiguration & {
     type: 'known';
-});
+}) | {
+    type: 'unknown';
+};
 
 export type EmbeddingFunctionNewConfiguration = {
     config: unknown;
@@ -99,8 +203,44 @@ export type ErrorResponse = {
     message: string;
 };
 
+export type FloatInvertedIndexConfig = {
+    [key: string]: never;
+};
+
+export type FloatInvertedIndexType = {
+    config: FloatInvertedIndexConfig;
+    enabled: boolean;
+};
+
+/**
+ * Float list value type index configurations (for vectors)
+ */
+export type FloatListValueType = {
+    vector_index?: null | VectorIndexType;
+};
+
+/**
+ * Float value type index configurations
+ */
+export type FloatValueType = {
+    float_inverted_index?: null | FloatInvertedIndexType;
+};
+
 export type ForkCollectionPayload = {
     new_name: string;
+};
+
+export type FtsIndexConfig = {
+    [key: string]: never;
+};
+
+export type FtsIndexType = {
+    config: FtsIndexConfig;
+    enabled: boolean;
+};
+
+export type GetAttachedFunctionResponse = {
+    attached_function: AttachedFunctionApiResponse;
 };
 
 export type GetRequestPayload = RawWhereFields & {
@@ -143,16 +283,116 @@ export type HnswConfiguration = {
     ef_search?: number | null;
     max_neighbors?: number | null;
     resize_factor?: number | null;
-    space?: null | HnswSpace;
+    space?: null | Space;
     sync_threshold?: number | null;
 };
 
-export type HnswSpace = 'l2' | 'cosine' | 'ip';
+/**
+ * Configuration for HNSW vector index algorithm parameters
+ */
+export type HnswIndexConfig = {
+    batch_size?: number | null;
+    ef_construction?: number | null;
+    ef_search?: number | null;
+    max_neighbors?: number | null;
+    num_threads?: number | null;
+    resize_factor?: number | null;
+    sync_threshold?: number | null;
+};
 
 export type Include = 'distances' | 'documents' | 'embeddings' | 'metadatas' | 'uris';
 
 export type IncludeList = Array<Include>;
 
+export type IndexStatusResponse = {
+    num_indexed_ops: number;
+    num_unindexed_ops: number;
+    op_indexing_progress: number;
+    total_ops: number;
+};
+
+export type IntInvertedIndexConfig = {
+    [key: string]: never;
+};
+
+export type IntInvertedIndexType = {
+    config: IntInvertedIndexConfig;
+    enabled: boolean;
+};
+
+/**
+ * Integer value type index configurations
+ */
+export type IntValueType = {
+    int_inverted_index?: null | IntInvertedIndexType;
+};
+
+/**
+ * Represents a field key in search queries.
+ *
+ * Used for both selecting fields to return and building filter expressions.
+ * Predefined keys access special fields, while custom keys access metadata.
+ *
+ * # Predefined Keys
+ *
+ * - `Key::Document` - Document text content (`#document`)
+ * - `Key::Embedding` - Vector embeddings (`#embedding`)
+ * - `Key::Metadata` - All metadata fields (`#metadata`)
+ * - `Key::Score` - Search scores (`#score`)
+ *
+ * # Custom Keys
+ *
+ * Use `Key::field()` or `Key::from()` to reference metadata fields:
+ *
+ * ```
+ * use chroma_types::operator::Key;
+ *
+ * let key = Key::field("author");
+ * let key = Key::from("title");
+ * ```
+ *
+ * # Examples
+ *
+ * ## Building filters
+ *
+ * ```
+ * use chroma_types::operator::Key;
+ *
+ * // Equality
+ * let filter = Key::field("status").eq("published");
+ *
+ * // Comparisons
+ * let filter = Key::field("year").gte(2020);
+ * let filter = Key::field("score").lt(0.9);
+ *
+ * // Set operations
+ * let filter = Key::field("category").is_in(vec!["tech", "science"]);
+ * let filter = Key::field("status").not_in(vec!["deleted", "archived"]);
+ *
+ * // Document content
+ * let filter = Key::Document.contains("machine learning");
+ * let filter = Key::Document.regex(r"\bAPI\b");
+ *
+ * // Combining filters
+ * let filter = Key::field("status").eq("published")
+ * & Key::field("year").gte(2020);
+ * ```
+ *
+ * ## Selecting fields
+ *
+ * ```
+ * use chroma_types::plan::SearchPayload;
+ * use chroma_types::operator::Key;
+ *
+ * let search = SearchPayload::default()
+ * .select([
+ * Key::Document,
+ * Key::Score,
+ * Key::field("title"),
+ * Key::field("author"),
+ * ]);
+ * ```
+ */
 export type Key = 'Document' | 'Embedding' | 'Metadata' | 'Score' | {
     MetadataField: string;
 };
@@ -179,12 +419,49 @@ export type RawWhereFields = {
     where_document?: unknown;
 };
 
+export type ReadLevel = 'index_and_wal' | 'index_only';
+
+/**
+ * Schema representation for collection index configurations
+ *
+ * This represents the server-side schema structure used for index management
+ */
+export type Schema = {
+    /**
+     * Customer-managed encryption key for collection data
+     */
+    cmek?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Default index configurations for each value type
+     */
+    defaults: ValueTypes;
+    /**
+     * Key-specific index overrides
+     * TODO(Sanket): Needed for backwards compatibility. Should remove after deploy.
+     */
+    keys: {
+        [key: string]: ValueTypes;
+    };
+    /**
+     * ID of the attached function that created this output collection (if applicable)
+     */
+    source_attached_function_id?: string | null;
+};
+
 export type SearchPayload = {
     filter?: {
         query_ids?: Array<string>;
         where_clause?: {
             [key: string]: unknown;
         };
+    };
+    group_by?: {
+        aggregate?: {
+            [key: string]: unknown;
+        };
+        keys?: Array<string>;
     };
     limit?: {
         limit?: number;
@@ -199,6 +476,11 @@ export type SearchPayload = {
 };
 
 export type SearchRequestPayload = {
+    /**
+     * Specifies the read level for consistency vs performance tradeoffs.
+     * Defaults to IndexAndWal (full consistency).
+     */
+    read_level?: ReadLevel;
     searches: Array<SearchPayload>;
 };
 
@@ -211,6 +493,8 @@ export type SearchResponse = {
     select: Array<Array<Key>>;
 };
 
+export type Space = 'l2' | 'cosine' | 'ip';
+
 export type SpannConfiguration = {
     ef_construction?: number | null;
     ef_search?: number | null;
@@ -218,13 +502,40 @@ export type SpannConfiguration = {
     merge_threshold?: number | null;
     reassign_neighbor_count?: number | null;
     search_nprobe?: number | null;
-    space?: null | HnswSpace;
+    space?: null | Space;
     split_threshold?: number | null;
     write_nprobe?: number | null;
 };
 
 /**
+ * Configuration for SPANN vector index algorithm parameters
+ */
+export type SpannIndexConfig = {
+    ef_construction?: number | null;
+    ef_search?: number | null;
+    initial_lambda?: number | null;
+    max_neighbors?: number | null;
+    merge_threshold?: number | null;
+    nreplica_count?: number | null;
+    num_centers_to_merge_to?: number | null;
+    num_samples_kmeans?: number | null;
+    reassign_neighbor_count?: number | null;
+    search_nprobe?: number | null;
+    search_rng_epsilon?: number | null;
+    search_rng_factor?: number | null;
+    split_threshold?: number | null;
+    write_nprobe?: number | null;
+    write_rng_epsilon?: number | null;
+    write_rng_factor?: number | null;
+};
+
+/**
  * Represents a sparse vector using parallel arrays for indices and values.
+ *
+ * On deserialization: accepts both old format `{"indices": [...], "values": [...]}`
+ * and new format `{"#type": "sparse_vector", "indices": [...], "values": [...]}`.
+ *
+ * On serialization: always includes `#type` field with value `"sparse_vector"`.
  */
 export type SparseVector = {
     /**
@@ -232,9 +543,54 @@ export type SparseVector = {
      */
     indices: Array<number>;
     /**
+     * Tokens corresponding to each index
+     */
+    tokens?: Array<string> | null;
+    /**
      * Values corresponding to each index
      */
     values: Array<number>;
+};
+
+export type SparseVectorIndexConfig = {
+    /**
+     * Whether this embedding is BM25
+     */
+    bm25?: boolean | null;
+    embedding_function?: null | EmbeddingFunctionConfiguration;
+    /**
+     * Key to source the sparse vector from
+     */
+    source_key?: string | null;
+};
+
+export type SparseVectorIndexType = {
+    config: SparseVectorIndexConfig;
+    enabled: boolean;
+};
+
+/**
+ * Sparse vector value type index configurations
+ */
+export type SparseVectorValueType = {
+    sparse_vector_index?: null | SparseVectorIndexType;
+};
+
+export type StringInvertedIndexConfig = {
+    [key: string]: never;
+};
+
+export type StringInvertedIndexType = {
+    config: StringInvertedIndexConfig;
+    enabled: boolean;
+};
+
+/**
+ * String value type index configurations
+ */
+export type StringValueType = {
+    fts_index?: null | FtsIndexType;
+    string_inverted_index?: null | StringInvertedIndexType;
 };
 
 export type UpdateCollectionConfiguration = {
@@ -301,6 +657,19 @@ export type UpsertCollectionRecordsResponse = {
     [key: string]: unknown;
 };
 
+/**
+ * Strongly-typed value type configurations
+ * Contains optional configurations for each supported value type
+ */
+export type ValueTypes = {
+    bool?: null | BoolValueType;
+    float?: null | FloatValueType;
+    float_list?: null | FloatListValueType;
+    int?: null | IntValueType;
+    sparse_vector?: null | SparseVectorValueType;
+    string?: null | StringValueType;
+};
+
 export type Vec = Array<{
     configuration_json: CollectionConfiguration;
     database: string;
@@ -309,9 +678,26 @@ export type Vec = Array<{
     log_position: number;
     metadata?: null | HashMap;
     name: string;
+    schema?: null | Schema;
     tenant: string;
     version: number;
 }>;
+
+export type VectorIndexConfig = {
+    embedding_function?: null | EmbeddingFunctionConfiguration;
+    hnsw?: null | HnswIndexConfig;
+    /**
+     * Key to source the vector from
+     */
+    source_key?: string | null;
+    space?: null | Space;
+    spann?: null | SpannIndexConfig;
+};
+
+export type VectorIndexType = {
+    config: VectorIndexConfig;
+    enabled: boolean;
+};
 
 export type U32 = number;
 
@@ -1002,6 +1388,52 @@ export type CollectionAddResponses = {
 
 export type CollectionAddResponse = CollectionAddResponses[keyof CollectionAddResponses];
 
+export type DetachFunctionData = {
+    body: DetachFunctionRequest;
+    path: {
+        /**
+         * Tenant ID
+         */
+        tenant: string;
+        /**
+         * Database name
+         */
+        database: string;
+        /**
+         * Input collection ID
+         */
+        collection_id: string;
+        /**
+         * Attached function name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/attached_functions/{name}/detach';
+};
+
+export type DetachFunctionErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Server error
+     */
+    500: ErrorResponse;
+};
+
+export type DetachFunctionError = DetachFunctionErrors[keyof DetachFunctionErrors];
+
+export type DetachFunctionResponses = {
+    /**
+     * Function detached successfully
+     */
+    200: DetachFunctionResponse;
+};
+
+export type DetachFunctionResponse2 = DetachFunctionResponses[keyof DetachFunctionResponses];
+
 export type CollectionCountData = {
     body?: never;
     path: {
@@ -1140,6 +1572,98 @@ export type ForkCollectionResponses = {
 
 export type ForkCollectionResponse = ForkCollectionResponses[keyof ForkCollectionResponses];
 
+export type AttachFunctionData = {
+    body: AttachFunctionRequest;
+    path: {
+        /**
+         * Tenant ID
+         */
+        tenant: string;
+        /**
+         * Database name
+         */
+        database: string;
+        /**
+         * Collection ID
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/attach';
+};
+
+export type AttachFunctionErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Server error
+     */
+    500: ErrorResponse;
+};
+
+export type AttachFunctionError = AttachFunctionErrors[keyof AttachFunctionErrors];
+
+export type AttachFunctionResponses = {
+    /**
+     *  Function attached successfully
+     */
+    200: AttachFunctionResponse;
+};
+
+export type AttachFunctionResponse2 = AttachFunctionResponses[keyof AttachFunctionResponses];
+
+export type GetAttachedFunctionData = {
+    body?: never;
+    path: {
+        /**
+         * Tenant ID
+         */
+        tenant: string;
+        /**
+         * Database name
+         */
+        database: string;
+        /**
+         * Collection ID
+         */
+        collection_id: string;
+        /**
+         * Attached function name
+         */
+        function_name: string;
+    };
+    query?: never;
+    url: '/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/{function_name}';
+};
+
+export type GetAttachedFunctionErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Attached function not found
+     */
+    404: ErrorResponse;
+    /**
+     * Server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetAttachedFunctionError = GetAttachedFunctionErrors[keyof GetAttachedFunctionErrors];
+
+export type GetAttachedFunctionResponses = {
+    /**
+     * Attached function retrieved successfully
+     */
+    200: GetAttachedFunctionResponse;
+};
+
+export type GetAttachedFunctionResponse2 = GetAttachedFunctionResponses[keyof GetAttachedFunctionResponses];
+
 export type CollectionGetData = {
     body: GetRequestPayload;
     path: {
@@ -1185,6 +1709,52 @@ export type CollectionGetResponses = {
 };
 
 export type CollectionGetResponse = CollectionGetResponses[keyof CollectionGetResponses];
+
+export type IndexingStatusData = {
+    body?: never;
+    path: {
+        /**
+         * Tenant ID
+         */
+        tenant: string;
+        /**
+         * Database name for the collection
+         */
+        database: string;
+        /**
+         * Collection ID to get index status for
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/indexing_status';
+};
+
+export type IndexingStatusErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Collection not found
+     */
+    404: ErrorResponse;
+    /**
+     * Server error
+     */
+    500: ErrorResponse;
+};
+
+export type IndexingStatusError = IndexingStatusErrors[keyof IndexingStatusErrors];
+
+export type IndexingStatusResponses = {
+    /**
+     * Index status retrieved successfully
+     */
+    200: IndexStatusResponse;
+};
+
+export type IndexingStatusResponse = IndexingStatusResponses[keyof IndexingStatusResponses];
 
 export type CollectionQueryData = {
     body: QueryRequestPayload;

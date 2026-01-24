@@ -1,0 +1,68 @@
+stages:
+  - test
+  - build
+  - deploy
+
+.with_nix: &with_nix
+  image: nixos/nix:2.26.2
+  before_script:
+    - cp ./nix.conf /etc/nix/nix.conf
+    - 'build=$(nix build ".#cache-build" --print-out-paths)'
+    - 'export PATH="${build}/bin:${PATH}"'
+
+.in_dev_branch: &in_dev_branch
+  rules:
+    - if: '$CI_COMMIT_TAG != null'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^v\d+$/'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+      when: never
+    - when: on_success
+
+.in_prod_branch: &in_prod_branch
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH =~ /^v\d+$/'
+      when: on_success
+    - when: never
+
+.new_version: &new_version
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: on_success
+check-lint-nix:
+  <<: *with_nix
+  <<: *in_dev_branch
+  stage: test
+  script:
+    - 'job=$(cache-build ".#check-lint-nix")'
+    - '"${job}/bin/check-lint-nix" $(pwd)'
+dev-env-for-python311:
+  <<: *with_nix
+  <<: *in_dev_branch
+  stage: test
+  script:
+    - 'cache-build ".#python311.env.dev"'
+
+build-for-python311:
+  <<: *with_nix
+  <<: *in_dev_branch
+  stage: build
+  script:
+    - 'cache-build ".#python311.pkg"'
+
+deploy-to-pypi:
+  <<: *with_nix
+  <<: *new_version
+  stage: deploy
+  script:
+    - 'job=$(cache-build ".#publish")'
+    - '"${job}/bin/publish" $(pwd)'

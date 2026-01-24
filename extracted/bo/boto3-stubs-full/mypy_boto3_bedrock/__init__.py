@@ -3,7 +3,7 @@ Main interface for bedrock service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -18,6 +18,7 @@ Usage::
         ListAutomatedReasoningPolicyTestResultsPaginator,
         ListCustomModelDeploymentsPaginator,
         ListCustomModelsPaginator,
+        ListEnforcedGuardrailsConfigurationPaginator,
         ListEvaluationJobsPaginator,
         ListGuardrailsPaginator,
         ListImportedModelsPaginator,
@@ -40,6 +41,7 @@ Usage::
     list_automated_reasoning_policy_test_results_paginator: ListAutomatedReasoningPolicyTestResultsPaginator = client.get_paginator("list_automated_reasoning_policy_test_results")
     list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator("list_custom_model_deployments")
     list_custom_models_paginator: ListCustomModelsPaginator = client.get_paginator("list_custom_models")
+    list_enforced_guardrails_configuration_paginator: ListEnforcedGuardrailsConfigurationPaginator = client.get_paginator("list_enforced_guardrails_configuration")
     list_evaluation_jobs_paginator: ListEvaluationJobsPaginator = client.get_paginator("list_evaluation_jobs")
     list_guardrails_paginator: ListGuardrailsPaginator = client.get_paginator("list_guardrails")
     list_imported_models_paginator: ListImportedModelsPaginator = client.get_paginator("list_imported_models")
@@ -62,6 +64,7 @@ from .paginator import (
     ListAutomatedReasoningPolicyTestResultsPaginator,
     ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
+    ListEnforcedGuardrailsConfigurationPaginator,
     ListEvaluationJobsPaginator,
     ListGuardrailsPaginator,
     ListImportedModelsPaginator,
@@ -87,6 +90,7 @@ __all__ = (
     "ListAutomatedReasoningPolicyTestResultsPaginator",
     "ListCustomModelDeploymentsPaginator",
     "ListCustomModelsPaginator",
+    "ListEnforcedGuardrailsConfigurationPaginator",
     "ListEvaluationJobsPaginator",
     "ListGuardrailsPaginator",
     "ListImportedModelsPaginator",

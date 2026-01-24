@@ -1,0 +1,239 @@
+Metadata-Version: 2.4
+Name: pypcapkit
+Version: 1.3.5.post36
+Summary: PyPCAPKit: comprehensive network packet analysis library
+Author-email: Jarry Shaw <jarryshaw@icloud.com>
+Maintainer: Jarry Shaw
+License: BSD 3-Clause License
+Project-URL: homepage, https://jarryshaw.github.io/PyPCAPKit/
+Project-URL: documentation, https://jarryshaw.github.io/PyPCAPKit/
+Project-URL: repository, https://github.com/JarryShaw/PyPCAPKit
+Project-URL: changelog, https://github.com/JarryShaw/PyPCAPKit/releases
+Keywords: network,pcap,packet
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Environment :: Win32 (MS Windows)
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Security
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Networking :: Monitoring
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Python: <4,>=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: dictdumper~=0.8.0
+Requires-Dist: chardet
+Requires-Dist: aenum
+Requires-Dist: tbtrim>=0.2.1
+Requires-Dist: bpc-f2format; python_version < "3.6"
+Requires-Dist: bpc-poseur; python_version < "3.8"
+Requires-Dist: bpc-walrus; python_version < "3.8"
+Requires-Dist: pathlib2>=2.3.2; python_version == "3.4"
+Requires-Dist: typing-extensions; python_version < "3.11"
+Provides-Extra: cli
+Requires-Dist: emoji; extra == "cli"
+Provides-Extra: dpkt
+Requires-Dist: dpkt; extra == "dpkt"
+Provides-Extra: scapy
+Requires-Dist: scapy; extra == "scapy"
+Provides-Extra: pyshark
+Requires-Dist: pyshark; extra == "pyshark"
+Provides-Extra: vendor
+Requires-Dist: requests[socks]; extra == "vendor"
+Requires-Dist: beautifulsoup4[html5lib]; extra == "vendor"
+Provides-Extra: all
+Requires-Dist: emoji; extra == "all"
+Requires-Dist: dpkt; extra == "all"
+Requires-Dist: scapy; extra == "all"
+Requires-Dist: pyshark; extra == "all"
+Requires-Dist: requests[socks]; extra == "all"
+Requires-Dist: beautifulsoup4[html5lib]; extra == "all"
+Provides-Extra: docs
+Requires-Dist: Sphinx>=6.1.3; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
+Requires-Dist: sphinx-opengraph; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: typing-extensions; extra == "docs"
+Requires-Dist: mypy-extensions; extra == "docs"
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
+
+PyPCAPKit - Comprehensive Network Packet Analysis Library
+=========================================================
+
+   For any technical and/or maintenance information,
+   please kindly refer to the |docs|_.
+
+.. |docs| replace:: **Official Documentation**
+.. _docs: https://jarryshaw.github.io/PyPCAPKit/
+
+The PyPCAPKit project is an open source Python program focus on network packet
+parsing and analysis, which works as a comprehensive `PCAP`_ file extraction,
+construction and analysis library.
+
+   The whole project supports **Python 3.6** or later.
+
+-----
+About
+-----
+
+PyPCAPKit is a comprehensive Python-native network packet analysis library,
+with `DictDumper`_ as its formatted output dumper.
+
+Unlike popular PCAP file extractors, such as `Scapy`_, `DPKT`_, `PyShark`_,
+and etc, ``pcapkit`` is designed to be much more comprehensive, which means
+it is able to provide more detailed information about the packet, as well as
+a more *Pythonic* interface for users to interact with.
+
+Module Structure
+----------------
+
+In ``pcapkit``, all files can be described as following eight parts.
+
+- Interface (``pcapkit.interface``)
+
+  User interface for the ``pcapkit`` library, which
+  standardises and simplifies the usage of this library.
+
+- Foundation (``pcapkit.foundation``)
+
+  Synthesises file I/O and protocol analysis, coordinates
+  information exchange in all network layers, as well as
+  provides the foundamental functions for ``pcapkit``.
+
+- Protocols (``pcapkit.protocols``)
+
+  Collection of all protocol family, with detailed
+  implementation and methods.
+
+- Utilities (``pcapkit.utilities``)
+
+  Auxiliary functions and tools for ``pcapkit``.
+
+- CoreKit (``pcapkit.corekit``)
+
+  Core utilities for ``pcapkit`` implementation, mainly
+  for internal data structure and processing.
+
+- ToolKit (``pcapkit.toolkit``)
+
+  Auxiliary tools for ``pcapkit`` to support the multiple
+  extraction engines with a unified interface.
+
+- DumpKit (``pcapkit.dumpkit``)
+
+  File output formatters for ``pcapkit``.
+
+- Constants (``pcapkit.const``)
+
+  Constant enumerations used in ``pcapkit`` for protocol
+  family extraction and representation.
+
+Engine Comparison
+-----------------
+
+Due to the general overhead of ``pcapkit``, its extraction procedure takes
+around *0.2* milliseconds per packet, which is already impressive but not enough
+comparing to other popular extration engines availbale on the market, given the
+fact that ``pcapkit`` is a **comprehensive** packet processing module.
+
+Additionally, ``pcapkit`` introduced alternative extractionengines to accelerate
+this procedure. By now ``pcapkit`` supports `Scapy`_, `DPKT`_, and `PyShark`_.
+
+Test Environment
+~~~~~~~~~~~~~~~~
+
+.. list-table::
+
+   * - Operating System
+     - macOS Ventura 13.4.1
+   * - Chip
+     - Apple M2 Pro
+   * - Memory
+     - 16 GB
+
+Test Results
+~~~~~~~~~~~~
+
+============= ===========================
+Engine        Performance (ms per packet)
+============= ===========================
+``dpkt``       0.010390_056723
+``scapy``      0.091690_233567
+``pcapkit``    0.200390_390390
+``pyshark``   24.682185_018351
+============= ===========================
+
+------------
+Installation
+------------
+
+.. note::
+
+   ``pcapkit`` supports Python versions **since 3.6**.
+
+Simply run the following to install the current version from PyPI:
+
+.. code-block:: shell
+
+   pip install pypcapkit
+
+Or install the latest version from the gi repository:
+
+.. code-block:: shell
+
+   git clone https://github.com/JarryShaw/PyPCAPKit.git
+   cd pypcapkit
+   pip install -e .
+   # and to update at any time
+   git pull
+
+And since ``pcapkit`` supports various extraction engines, and extensive
+plug-in functions, you may want to install the optional ones:
+
+.. code-block:: shell
+
+   # for DPKT only
+   pip install pypcapkit[DPKT]
+   # for Scapy only
+   pip install pypcapkit[Scapy]
+   # for PyShark only
+   pip install pypcapkit[PyShark]
+   # and to install all the optional packages
+   pip install pypcapkit[all]
+   # or to do this explicitly
+   pip install pypcapkit dpkt scapy pyshark
+
+For CLI usage, you will need to install the optional packages:
+
+.. code-block:: shell
+
+   pip install pypcapkit[cli]
+   # or explicitly...
+   pip install pypcapkit emoji
+
+.. _PCAP: https://en.wikipedia.org/wiki/Pcap
+.. _Scapy: https://scapy.net
+.. _DPKT: https://dpkt.readthedocs.io
+.. _PyShark: https://kiminewt.github.io/pyshark
+.. _DictDumper: https://github.com/JarryShaw/DictDumper

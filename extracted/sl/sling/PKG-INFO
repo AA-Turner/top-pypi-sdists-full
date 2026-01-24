@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sling
-Version: 1.4.22
+Version: 1.5.4
 Summary: Slings data from a source to a target
 Home-page: https://github.com/slingdata-io/sling-python
 Download-URL: https://github.com/slingdata-io/sling-python/archive/master.zip
@@ -506,3 +506,24 @@ pipeline.run()
 pytest sling/tests/tests.py -v
 pytest sling/tests/test_sling_class.py -v
 ```
+
+## MCP
+
+To Login:
+
+```
+mcp-publisher login dns --domain slingdata.io --private-key $(openssl pkey -in mcp-key.pem  -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')`
+```
+
+To Publish:
+
+```bash
+# to publish, adjust the version first in server.json
+mcp-publisher publish
+
+# check
+curl "https://registry.modelcontextprotocol.io/v0/servers?search=io.slingdata/sling-cli"
+```
+
+
+mcp-name: io.slingdata/sling-cli

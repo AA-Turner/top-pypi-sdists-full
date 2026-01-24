@@ -3,7 +3,7 @@ Type annotations for codecatalyst service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codecatalyst/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -33,12 +34,6 @@ from .literals import (
     WorkflowStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -176,7 +171,7 @@ TimestampTypeDef = Union[datetime, str]
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -471,7 +466,7 @@ WorkflowRunSummaryTypeDef = TypedDict(
         "status": WorkflowRunStatusType,
         "startTime": datetime,
         "lastUpdatedTime": datetime,
-        "statusReasons": NotRequired[List[Dict[str, Any]]],
+        "statusReasons": NotRequired[list[dict[str, Any]]],
         "endTime": NotRequired[datetime],
     },
 )
@@ -662,7 +657,7 @@ GetWorkflowRunResponseTypeDef = TypedDict(
         "id": str,
         "workflowId": str,
         "status": WorkflowRunStatusType,
-        "statusReasons": List[Dict[str, Any]],
+        "statusReasons": list[dict[str, Any]],
         "startTime": datetime,
         "endTime": datetime,
         "lastUpdatedTime": datetime,
@@ -672,7 +667,7 @@ GetWorkflowRunResponseTypeDef = TypedDict(
 
 
 class ListAccessTokensResponseTypeDef(TypedDict):
-    items: List[AccessTokenSummaryTypeDef]
+    items: list[AccessTokenSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -770,7 +765,7 @@ UpdateDevEnvironmentResponseTypeDef = TypedDict(
         "spaceName": str,
         "projectName": str,
         "alias": str,
-        "ides": List[IdeConfigurationTypeDef],
+        "ides": list[IdeConfigurationTypeDef],
         "instanceType": InstanceTypeType,
         "inactivityTimeoutMinutes": int,
         "clientToken": str,
@@ -811,7 +806,7 @@ class DevEnvironmentSessionConfigurationTypeDef(TypedDict):
 
 
 class ListDevEnvironmentSessionsResponseTypeDef(TypedDict):
-    items: List[DevEnvironmentSessionSummaryTypeDef]
+    items: list[DevEnvironmentSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -823,7 +818,7 @@ DevEnvironmentSummaryTypeDef = TypedDict(
         "lastUpdatedTime": datetime,
         "creatorId": str,
         "status": DevEnvironmentStatusType,
-        "repositories": List[DevEnvironmentRepositorySummaryTypeDef],
+        "repositories": list[DevEnvironmentRepositorySummaryTypeDef],
         "instanceType": InstanceTypeType,
         "inactivityTimeoutMinutes": int,
         "persistentStorage": PersistentStorageTypeDef,
@@ -831,7 +826,7 @@ DevEnvironmentSummaryTypeDef = TypedDict(
         "projectName": NotRequired[str],
         "statusReason": NotRequired[str],
         "alias": NotRequired[str],
-        "ides": NotRequired[List[IdeTypeDef]],
+        "ides": NotRequired[list[IdeTypeDef]],
         "vpcConnectionName": NotRequired[str],
     },
 )
@@ -845,9 +840,9 @@ GetDevEnvironmentResponseTypeDef = TypedDict(
         "creatorId": str,
         "status": DevEnvironmentStatusType,
         "statusReason": str,
-        "repositories": List[DevEnvironmentRepositorySummaryTypeDef],
+        "repositories": list[DevEnvironmentRepositorySummaryTypeDef],
         "alias": str,
-        "ides": List[IdeTypeDef],
+        "ides": list[IdeTypeDef],
         "instanceType": InstanceTypeType,
         "inactivityTimeoutMinutes": int,
         "persistentStorage": PersistentStorageTypeDef,
@@ -987,31 +982,31 @@ class ListProjectsRequestTypeDef(TypedDict):
 
 
 class ListProjectsResponseTypeDef(TypedDict):
-    items: List[ProjectSummaryTypeDef]
+    items: list[ProjectSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSourceRepositoriesResponseTypeDef(TypedDict):
-    items: List[ListSourceRepositoriesItemTypeDef]
+    items: list[ListSourceRepositoriesItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSourceRepositoryBranchesResponseTypeDef(TypedDict):
-    items: List[ListSourceRepositoryBranchesItemTypeDef]
+    items: list[ListSourceRepositoryBranchesItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSpacesResponseTypeDef(TypedDict):
-    items: List[SpaceSummaryTypeDef]
+    items: list[SpaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkflowRunsResponseTypeDef(TypedDict):
-    items: List[WorkflowRunSummaryTypeDef]
+    items: list[WorkflowRunSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1042,18 +1037,18 @@ StartDevEnvironmentSessionRequestTypeDef = TypedDict(
 
 
 class ListDevEnvironmentsResponseTypeDef(TypedDict):
-    items: List[DevEnvironmentSummaryTypeDef]
+    items: list[DevEnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListEventLogsResponseTypeDef(TypedDict):
-    items: List[EventLogEntryTypeDef]
+    items: list[EventLogEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkflowsResponseTypeDef(TypedDict):
-    items: List[WorkflowSummaryTypeDef]
+    items: list[WorkflowSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

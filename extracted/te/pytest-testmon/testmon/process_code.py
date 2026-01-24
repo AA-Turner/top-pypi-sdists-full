@@ -168,10 +168,16 @@ class Module:
                     self.dump_and_block(item, _next_lineno(node, i, end))
                 )
             if into_block and node:
+                # Use last child's end_lineno only if end is not available (None)
+                if end is None:
+                    last_child = node[-1]
+                    block_end = getattr(last_child, "end_lineno", None)
+                else:
+                    block_end = end
                 self._blocks.append(
                     Block(
                         node[0].lineno,
-                        end,
+                        block_end,
                         code=str(self.counter) + ":" + ", ".join(representations),
                         name=name,
                     )
@@ -232,7 +238,8 @@ def noncached_get_files_shas(directory):
         result = run(
             ["git", "ls-files", "--stage", "-m", directory],
             capture_output=True,
-            universal_newlines=True,
+            text=True,
+            encoding="utf-8",
             check=True,
         )
     except (FileNotFoundError, CalledProcessError):

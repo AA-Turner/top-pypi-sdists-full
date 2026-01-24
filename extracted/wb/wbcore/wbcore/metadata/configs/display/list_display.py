@@ -54,7 +54,8 @@ class Field:
     lock_position: Literal["left"] | Literal["right"] | None = None
     movable: bool = True
     resizable: bool = True
-    auto_size: bool = True
+    suppress_auto_size: bool = False
+    auto_size: bool = False
     menu: bool = True
     size_to_fit: bool = True
 
@@ -110,7 +111,10 @@ class Field:
         if self.lock_position:
             repr["lock_position"] = self.lock_position
 
-        if not self.auto_size:
+        if self.suppress_auto_size:
+            repr["suppress_auto_size"] = self.suppress_auto_size
+
+        if self.auto_size:
             repr["auto_size"] = self.auto_size
 
         if not self.menu:
@@ -145,10 +149,8 @@ class Legend:
     key: str | None = None
 
     def __post_init__(self):
-        if self.key:
-            assert all(
-                [item.value is not None for item in self.items]
-            ), "If key is set, all items need to specify a value."
+        if self.key and not all([item.value is not None for item in self.items]):
+            raise ValueError("If key is set, all items need to specify a value.")
 
     def __iter__(self):
         if self.label:
@@ -216,6 +218,7 @@ class ListDisplay:
     condensed: bool = False
 
     auto_height: bool = False
+    auto_size_columns: bool = False
 
     tree: bool = False
     tree_group_parent_pointer: str | None = (
@@ -244,6 +247,7 @@ class ListDisplay:
         yield "ordering_field", self.ordering_field
 
         yield "auto_height", self.auto_height
+        yield "auto_size_columns", self.auto_size_columns
 
         if self.condensed:
             yield "condensed", self.condensed

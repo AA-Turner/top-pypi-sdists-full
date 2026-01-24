@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional, TypedDict, cast
+from typing import Dict, List, Optional, TypedDict
 
 from more_itertools import pairwise
 

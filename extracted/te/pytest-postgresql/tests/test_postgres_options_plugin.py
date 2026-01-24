@@ -26,9 +26,7 @@ def pointed_pytester(pytester: Pytester) -> Pytester:
 def test_postgres_options_config_in_cli(pointed_pytester: Pytester) -> None:
     """Check that command line arguments are honored."""
     pointed_pytester.copy_example("test_postgres_options.py")
-    ret = pointed_pytester.runpytest(
-        "--postgresql-postgres-options", "-N 16", "test_postgres_options.py"
-    )
+    ret = pointed_pytester.runpytest("--postgresql-postgres-options", "-N 16", "test_postgres_options.py")
     ret.assert_outcomes(passed=1)
 
 
@@ -60,9 +58,7 @@ def test_postgres_loader_in_ini(pointed_pytester: Pytester) -> None:
 def test_postgres_port_search_count_in_cli_is_int(pointed_pytester: Pytester) -> None:
     """Check that the --postgresql-port-search-count command line argument is parsed as an int."""
     pointed_pytester.copy_example("test_assert_port_search_count_is_ten.py")
-    ret = pointed_pytester.runpytest(
-        "--postgresql-port-search-count", "10", "test_assert_port_search_count_is_ten.py"
-    )
+    ret = pointed_pytester.runpytest("--postgresql-port-search-count", "10", "test_assert_port_search_count_is_ten.py")
     ret.assert_outcomes(passed=1)
 
 
@@ -99,20 +95,21 @@ def test_postgres_drop_test_database(
         user=postgresql_proc_to_override.user,
         host=postgresql_proc_to_override.host,
         port=postgresql_proc_to_override.port,
-        template_dbname=template_dbname,
+        dbname=template_dbname,
+        as_template=True,
         version=postgresql_proc_to_override.version,
         password=postgresql_proc_to_override.password,
         connection_timeout=5,
     )
     template_janitor.init()
     template_janitor.load(load_database)
-    assert template_janitor.template_dbname
+    assert template_janitor.dbname
     janitor = DatabaseJanitor(
         user=postgresql_proc_to_override.user,
         host=postgresql_proc_to_override.host,
         port=postgresql_proc_to_override.port,
         dbname=dbname,
-        template_dbname=template_janitor.template_dbname,
+        template_dbname=template_janitor.dbname,
         version=postgresql_proc_to_override.version,
         password=postgresql_proc_to_override.password,
         connection_timeout=5,
@@ -141,9 +138,7 @@ def test_postgres_drop_test_database(
     assert hasattr(excinfo.value, "__cause__")
     assert f'FATAL:  database "{janitor.dbname}" does not exist' in str(excinfo.value.__cause__)
     with pytest.raises(TimeoutError) as excinfo:
-        with template_janitor.cursor(template_janitor.template_dbname):
+        with template_janitor.cursor(template_janitor.dbname):
             pass
     assert hasattr(excinfo.value, "__cause__")
-    assert f'FATAL:  database "{template_janitor.template_dbname}" does not exist' in str(
-        excinfo.value.__cause__
-    )
+    assert f'FATAL:  database "{template_janitor.dbname}" does not exist' in str(excinfo.value.__cause__)

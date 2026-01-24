@@ -3,7 +3,7 @@ Type annotations for meteringmarketplace service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_meteringmarketplace/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -39,11 +40,6 @@ from .type_defs import (
     ResolveCustomerResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -54,24 +50,25 @@ __all__ = ("MarketplaceMeteringClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CustomerNotEntitledException: Type[BotocoreClientError]
-    DisabledApiException: Type[BotocoreClientError]
-    DuplicateRequestException: Type[BotocoreClientError]
-    ExpiredTokenException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidCustomerIdentifierException: Type[BotocoreClientError]
-    InvalidEndpointRegionException: Type[BotocoreClientError]
-    InvalidProductCodeException: Type[BotocoreClientError]
-    InvalidPublicKeyVersionException: Type[BotocoreClientError]
-    InvalidRegionException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    InvalidTokenException: Type[BotocoreClientError]
-    InvalidUsageAllocationsException: Type[BotocoreClientError]
-    InvalidUsageDimensionException: Type[BotocoreClientError]
-    PlatformNotSupportedException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TimestampOutOfBoundsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CustomerNotEntitledException: type[BotocoreClientError]
+    DisabledApiException: type[BotocoreClientError]
+    DuplicateRequestException: type[BotocoreClientError]
+    ExpiredTokenException: type[BotocoreClientError]
+    IdempotencyConflictException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidCustomerIdentifierException: type[BotocoreClientError]
+    InvalidEndpointRegionException: type[BotocoreClientError]
+    InvalidProductCodeException: type[BotocoreClientError]
+    InvalidPublicKeyVersionException: type[BotocoreClientError]
+    InvalidRegionException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    InvalidTokenException: type[BotocoreClientError]
+    InvalidUsageAllocationsException: type[BotocoreClientError]
+    InvalidUsageDimensionException: type[BotocoreClientError]
+    PlatformNotSupportedException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TimestampOutOfBoundsException: type[BotocoreClientError]
 
 
 class MarketplaceMeteringClient(AioBaseClient):
@@ -113,7 +110,8 @@ class MarketplaceMeteringClient(AioBaseClient):
         self, **kwargs: Unpack[BatchMeterUsageRequestTypeDef]
     ) -> BatchMeterUsageResultTypeDef:
         """
-        The <code>CustomerIdentifier</code> parameter is scheduled for deprecation.
+        The <code>CustomerIdentifier</code> parameter is scheduled for deprecation on
+        March 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/batch_meter_usage.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_meteringmarketplace/client/#batch_meter_usage)
@@ -161,7 +159,7 @@ class MarketplaceMeteringClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

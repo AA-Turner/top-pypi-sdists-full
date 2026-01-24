@@ -1,21 +1,10 @@
 from abc import abstractmethod
 from asyncio import Task, create_task, ensure_future, get_event_loop
+from collections.abc import Awaitable, Generator
 from decimal import Decimal
 from functools import cached_property
 from logging import getLogger
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Awaitable,
-    Final,
-    Generator,
-    Literal,
-    NoReturn,
-    Optional,
-    Tuple,
-    Union,
-    final,
-)
+from typing import TYPE_CHECKING, Any, Final, Literal, NoReturn, Union, final
 
 import a_sync
 from a_sync import cgather
@@ -25,6 +14,7 @@ from brownie import Contract, chain, web3
 from brownie.convert.datatypes import HexString
 from brownie.exceptions import ContractNotFound
 from eth_retry import auto_retry
+from eth_typing import ChecksumAddress
 from typing_extensions import Self
 from web3.exceptions import ContractLogicError
 
@@ -33,13 +23,7 @@ from y import convert
 from y._decorators import stuck_coro_debugger
 from y.classes.singleton import ChecksumASyncSingletonMeta
 from y.constants import EEE_ADDRESS
-from y.contracts import (
-    Contract,
-    build_name,
-    contract_creation_block_async,
-    has_method,
-    probe,
-)
+from y.contracts import Contract, build_name, contract_creation_block_async, has_method, probe
 from y.datatypes import Address, AnyAddressType, Block, Pool, UsdPrice
 from y.exceptions import ContractNotVerified, MessedUpBrownieContract, NonStandardERC20
 from y.networks import Network
@@ -69,8 +53,13 @@ def hex_to_string(h: HexString) -> str:
 
 class ContractBase(a_sync.ASyncGenericBase, metaclass=ChecksumASyncSingletonMeta):
     # defaults are stored as class vars to keep instance dicts smaller
+
     asynchronous: bool = False
-    _deploy_block: Optional[int] = None
+    """A boolean indicating whether the instance will be used asynchronously."""
+
+    _deploy_block: int | None = None
+    """The block when the contract was deployed, if known."""
+
     __slots__ = ("address",)
 
     def __init__(
@@ -78,9 +67,13 @@ class ContractBase(a_sync.ASyncGenericBase, metaclass=ChecksumASyncSingletonMeta
         address: AnyAddressType,
         *,
         asynchronous: bool = False,
-        _deploy_block: Optional[int] = None,
+        _deploy_block: int | None = None,
     ) -> None:
         self.address = convert.to_address(address)
+        """
+        The address of the contract.
+        """
+
         if asynchronous:
             self.asynchronous = asynchronous
         if _deploy_block:
@@ -174,7 +167,7 @@ class ContractBase(a_sync.ASyncGenericBase, metaclass=ChecksumASyncSingletonMeta
 
     deploy_block: ASyncBoundMethod[Self, Any, int]
 
-    async def has_method(self, method: str, return_response: bool = False) -> Union[bool, Any]:
+    async def has_method(self, method: str, return_response: bool = False) -> bool | Any:
         """
         Check if the contract has a specific method.
 
@@ -201,7 +194,7 @@ class ERC20(ContractBase):
     Represents an ERC20 token.
     """
 
-    address: Address
+    address: ChecksumAddress
     """
     The contract address of the token.
     """
@@ -212,11 +205,17 @@ class ERC20(ContractBase):
             if ERC20.symbol.has_cache_value(self):
                 symbol = ERC20.symbol.get_cache_value(self)
                 return f"<{cls} {symbol} '{self.address}'>"
-            elif not get_event_loop().is_running() and not self.asynchronous:
+            if not self.asynchronous:
                 try:
-                    return f"<{cls} {self.__symbol__(sync=True)} '{self.address}'>"
-                except NonStandardERC20:
-                    return f"<{cls} SYMBOL_INVALID '{self.address}'>"
+                    loop = get_event_loop()
+                except RuntimeError:
+                    loop = None
+                else:
+                    if not loop.is_running() and not loop.is_closed():
+                        try:
+                            return f"<{cls} {self.__symbol__(sync=True)} '{self.address}'>"
+                        except NonStandardERC20:
+                            return f"<{cls} SYMBOL_INVALID '{self.address}'>"
         except AttributeError:
             pass
         return f"<{cls} SYMBOL_NOT_LOADED '{self.address}'>"
@@ -243,6 +242,8 @@ class ERC20(ContractBase):
                 Network.Arbitrum: "ETH",
                 Network.Optimism: "ETH",
                 Network.Base: "ETH",
+                Network.Katana: "ETH",
+                Network.Berachain: "BERA",
             }.get(chain.id, "ETH")
         import y._db.utils.token as db
 
@@ -307,7 +308,7 @@ class ERC20(ContractBase):
                 return await self._decimals()
             raise
 
-    async def _decimals(self, block: Optional[Block] = None) -> int:
+    async def _decimals(self, block: Block | None = None) -> int:
         """used to fetch decimals at specific block"""
         # TODO: deprecate and remove
         if self.address == EEE_ADDRESS:
@@ -334,11 +335,11 @@ class ERC20(ContractBase):
         """
         return 10 ** await self.__decimals__
 
-    async def _scale(self, block: Optional[Block] = None) -> int:
+    async def _scale(self, block: Block | None = None) -> int:
         # TODO: deprecate and remove
         return 10 ** await self._decimals(block)
 
-    async def total_supply(self, block: Optional[Block] = None) -> int:
+    async def total_supply(self, block: Block | None = None) -> int:
         """
         Get the total supply of the token.
 
@@ -355,7 +356,7 @@ class ERC20(ContractBase):
         """
         return await _erc20.totalSupply(self.address, block=block, sync=False)
 
-    async def total_supply_readable(self, block: Optional[Block] = None) -> float:
+    async def total_supply_readable(self, block: Block | None = None) -> float:
         """
         Get the total supply of the token scaled to a human-readable decimal.
 
@@ -370,12 +371,11 @@ class ERC20(ContractBase):
             >>> await token.total_supply_readable()
             1000.0
         """
-        total_supply, scale = await cgather(
-            self.total_supply(block=block, sync=False), self.__scale__
-        )
-        return total_supply / scale
+        # `self.__scale__` is cached after the first call so we will await these without gather
+        total_supply = await self.total_supply(block=block, sync=False)
+        return total_supply / await self.__scale__
 
-    async def balance_of(self, address: AnyAddressType, block: Optional[Block] = None) -> int:
+    async def balance_of(self, address: AnyAddressType, block: Block | None = None) -> int:
         """
         Query the balance of the token for a given address at a specific block.
 
@@ -394,20 +394,20 @@ class ERC20(ContractBase):
         return await raw_calls.balanceOf(self.address, address, block=block, sync=False)
 
     async def balance_of_readable(
-        self, address: AnyAddressType, block: Optional[Block] = None
+        self, address: AnyAddressType, block: Block | None = None
     ) -> Decimal:
-        balance, scale = await cgather(
-            self.balance_of(address, block=block, sync=False), self.__scale__
-        )
-        return Decimal(balance) / scale
+        # `self.__scale__` is cached after the first call so we will await these without gather
+        balance = await self.balance_of(address, block=block, sync=False)
+        return Decimal(balance) / await self.__scale__
 
+    @stuck_coro_debugger
     async def price(
         self,
-        block: Optional[Block] = None,
+        block: Block | None = None,
         return_None_on_failure: bool = False,
         skip_cache: bool = ENVS.SKIP_CACHE,
-        ignore_pools: Tuple[Pool, ...] = (),
-    ) -> Optional[UsdPrice]:
+        ignore_pools: tuple[Pool, ...] = (),
+    ) -> UsdPrice | None:
         """
         Get the price of the token in USD.
 
@@ -552,20 +552,20 @@ class WeiBalance(a_sync.ASyncGenericBase):
     """
 
     # defaults are stored as class vars to keep instance dicts smaller
-    block: Optional[Block] = None
+    block: Block | None = None
     asynchronous: bool = False
     _skip_cache: bool = ENVS.SKIP_CACHE
-    _ignore_pools: Tuple[Pool, ...] = ()
+    _ignore_pools: tuple[Pool, ...] = ()
     __logger = None
 
     def __init__(
         self,
-        balance: Union[int, Decimal],
+        balance: int | Decimal,
         token: AnyAddressType,
-        block: Optional[Block] = None,
+        block: Block | None = None,
         *,
         skip_cache: bool = ENVS.SKIP_CACHE,
-        ignore_pools: Tuple[Pool, ...] = (),
+        ignore_pools: tuple[Pool, ...] = (),
         asynchronous: bool = False,
     ) -> None:
         """
@@ -611,6 +611,8 @@ class WeiBalance(a_sync.ASyncGenericBase):
         return str(self.balance)
 
     def __repr__(self) -> str:
+        if self._ignore_pools:
+            return f"<WeiBalance token={self.token} balance={self.balance} block={self.block} ignore_pools={self._ignore_pools}>"
         return f"<WeiBalance token={self.token} balance={self.balance} block={self.block}>"
 
     def __hash__(self) -> int:
@@ -790,7 +792,7 @@ class WeiBalance(a_sync.ASyncGenericBase):
                 f"subtraction not supported between instances of '{type(self).__name__}' and '{type(__o).__name__}'"
             ) from None
 
-    def __mul__(self, __o: Union[int, float, Decimal]) -> "WeiBalance":
+    def __mul__(self, __o: int | float | Decimal) -> "WeiBalance":
         """
         Multiply a WeiBalance object by a scalar value.
 
@@ -820,7 +822,7 @@ class WeiBalance(a_sync.ASyncGenericBase):
             ignore_pools=self._ignore_pools,
         )
 
-    def __truediv__(self, __o: Union[int, float, Decimal]) -> "WeiBalance":
+    def __truediv__(self, __o: int | float | Decimal) -> "WeiBalance":
         """
         Divide a WeiBalance object by a scalar value.
 
@@ -851,6 +853,7 @@ class WeiBalance(a_sync.ASyncGenericBase):
         )
 
     @a_sync.aka.property
+    @stuck_coro_debugger
     async def readable(self) -> Decimal:
         """
         Get the balance scaled to a human-readable decimal.
@@ -878,6 +881,7 @@ class WeiBalance(a_sync.ASyncGenericBase):
     __readable__: HiddenMethodDescriptor[Self, Decimal]
 
     @a_sync.aka.property
+    @stuck_coro_debugger
     async def price(self) -> Decimal:
         """
         Get the price of the token in USD.
@@ -904,6 +908,7 @@ class WeiBalance(a_sync.ASyncGenericBase):
     __price__: HiddenMethodDescriptor[Self, Decimal]
 
     @a_sync.aka.property
+    @stuck_coro_debugger
     async def value_usd(self) -> Decimal:
         """
         Get the value of the balance in USD.

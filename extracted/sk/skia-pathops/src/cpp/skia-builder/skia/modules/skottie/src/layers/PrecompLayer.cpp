@@ -5,18 +5,33 @@
  * found in the LICENSE file.
  */
 
-#include "modules/skottie/src/SkottiePriv.h"
-
 #include "include/core/SkCanvas.h"
+#include "include/core/SkPoint.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkSize.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkFloatingPoint.h"
+#include "modules/jsonreader/SkJSONReader.h"
 #include "modules/skottie/include/ExternalLayer.h"
+#include "modules/skottie/include/SkottieProperty.h"
 #include "modules/skottie/src/Composition.h"
 #include "modules/skottie/src/SkottieJson.h"
+#include "modules/skottie/src/SkottiePriv.h"
 #include "modules/skottie/src/SkottieValue.h"
 #include "modules/skottie/src/animator/Animator.h"
+#include "modules/sksg/include/SkSGNode.h"
 #include "modules/sksg/include/SkSGRenderNode.h"
-#include "modules/sksg/include/SkSGScene.h"
-#include "src/base/SkTLazy.h"
-#include "src/utils/SkJSON.h"
+
+#include <cmath>
+#include <utility>
+
+class SkMatrix;
+
+namespace sksg {
+class InvalidationController;
+}
 
 namespace skottie {
 namespace internal {
@@ -159,7 +174,7 @@ sk_sp<sksg::RenderNode> AnimationBuilder::attachExternalPrecompLayer(
 
     fCurrentAnimatorScope->push_back(sk_make_sp<AnimatorAdapter>(sg_adapter, fFrameRate));
 
-    return std::move(sg_adapter);
+    return sg_adapter;
 }
 
 sk_sp<sksg::RenderNode> AnimationBuilder::attachPrecompLayer(const skjson::ObjectValue& jlayer,
@@ -182,9 +197,9 @@ sk_sp<sksg::RenderNode> AnimationBuilder::attachPrecompLayer(const skjson::Objec
     };
     layer_info->fSize = parse_size(jlayer);
 
-    SkTLazy<AutoScope> local_scope;
+    std::optional<AutoScope> local_scope;
     if (requires_time_mapping) {
-        local_scope.init(this);
+        local_scope.emplace(this);
     }
 
     auto precomp_layer = this->attachExternalPrecompLayer(jlayer, *layer_info);
@@ -210,7 +225,7 @@ sk_sp<sksg::RenderNode> AnimationBuilder::attachPrecompLayer(const skjson::Objec
         auto time_mapper = sk_make_sp<CompTimeMapper>(local_scope->release(),
                                                       std::move(time_remapper),
                                                       t_bias,
-                                                      sk_float_isfinite(t_scale) ? t_scale : 0);
+                                                      std::isfinite(t_scale) ? t_scale : 0);
 
         fCurrentAnimatorScope->push_back(std::move(time_mapper));
     }

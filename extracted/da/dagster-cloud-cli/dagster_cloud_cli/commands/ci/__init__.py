@@ -249,6 +249,11 @@ def check_command(
     dagster_cloud_yaml_check: checks.Check = typer.Option("error"),
     dagster_cloud_connect_check: checks.Check = typer.Option("error"),
 ):
+    ui.warn(
+        "The 'dagster-cloud ci check' command is deprecated and will be removed in a future release. "
+        "Use 'dg plus deploy start' instead, which validates configuration during deployment initialization."
+    )
+
     project_path = pathlib.Path(project_dir)
 
     verdicts = []
@@ -263,7 +268,7 @@ def check_command(
                 success_message="Checked OK",
                 failure_message=(
                     "Invalid dagster_cloud.yaml, please see"
-                    " https://docs.dagster.io/dagster-cloud/managing-deployments/dagster-cloud-yaml"
+                    " https://docs.dagster.io/deployment/code-locations/dagster-cloud-yaml"
                 ),
             )
         )
@@ -456,7 +461,12 @@ def init_impl(
         locations = [
             location for location in locations if location.location_name in selected_locations
         ]
-    url = get_org_url(organization, dagster_env)
+    # Check environment variable for URL first, fall back to constructing from org + env
+    env_url = os.getenv(URL_ENV_VAR_NAME)
+    if env_url:
+        url = env_url
+    else:
+        url = get_org_url(organization, dagster_env)
     # Deploy to the branch deployment for the current context. If there is no branch deployment
     # available (eg. if not in a PR) then we fallback to the --deployment flag.
 
@@ -517,6 +527,7 @@ def init_impl(
             ),
             build_output=None,
             status_url=status_url,
+            project_dir=project_dir,
         )
         location_state.add_status_change(state.LocationStatus.pending, "initialized")
         state_store.save(location_state)
@@ -728,6 +739,7 @@ def build_impl(
         ui.print(f"- {name}")
 
     for name, location_state in locations.items():
+        project_dir = location_state.project_dir
         try:
             configured_build_directory = (
                 location_state.build.build_config.directory
@@ -749,6 +761,9 @@ def build_impl(
                 location_build_dir = build_directory
             else:
                 location_build_dir = "."
+
+            if project_dir and not os.path.isabs(location_build_dir):
+                location_build_dir = str(pathlib.Path(project_dir) / location_build_dir)
 
             url = location_state.url
             api_token = get_user_token() or ""

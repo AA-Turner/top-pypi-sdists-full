@@ -2,9 +2,10 @@
 
 import hashlib
 import json
+import os
 from abc import abstractmethod
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from target_hotglue.rest import Rest
 from target_hotglue.auth import Authenticator
 from target_hotglue.common import HGJSONEncoder
@@ -64,7 +65,7 @@ class HotglueBaseSink(Rest):
 
         # If there is data for the stream name in target_state use that to initialize the state
         if target_state:
-            if not self._state and target_state["bookmarks"].get(self.name) and target_state["summary"].get(self.name):
+            if not self._state and target_state.get("bookmarks", {}).get(self.name) and target_state.get("summary", {}).get(self.name):
                 self.latest_state = target_state
         # If not init sink state latest_state
         if not self.latest_state:
@@ -81,19 +82,34 @@ class HotglueBaseSink(Rest):
                 self.latest_state["summary"][self.name] = {"success": 0, "fail": 0, "existing": 0, "updated": 0}
 
             self.summary_init = True
+    
+    def error_to_string(self, error: Any):
+        return str(error)
+    
+    def process_error_state(self, state: dict):
+        # log full error
+        self.logger.error(f"Error processing record of type {self.name}: {state.get('error')}")
+        # clean error for state
+        state["error"] = self.error_to_string(state.get("error"))
+        return state
 
-    def update_state(self, state: dict, is_duplicate=False):
+    def update_state(self, state: dict, is_duplicate=False, record=None):
         if is_duplicate:
             self.logger.info(f"Record of type {self.name} already exists with id: {state.get('id')}")
             self.latest_state["summary"][self.name]["existing"] += 1
 
         elif not state.get("success", False):
             self.latest_state["summary"][self.name]["fail"] += 1
+            self.process_error_state(state)
         elif state.get("is_updated", False):
             self.latest_state["summary"][self.name]["updated"] += 1
             state.pop("is_updated", None)
         else:
             self.latest_state["summary"][self.name]["success"] += 1
+        
+        # add the mapped record to the state if it exists and env var OUTPUT_MAPPED_RECORD is set to true
+        if record and os.getenv("OUTPUT_MAPPED_RECORD", "false").lower() == "true":
+            state["mapped_record"] = record
 
         self.latest_state["bookmarks"][self.name].append(state)
 
@@ -136,19 +152,19 @@ class HotglueSink(HotglueBaseSink, RecordSink):
 
         existing_state =  self.get_existing_state(hash)
 
+        if self.name in self.allows_externalid:
+            external_id = record.get("externalId")
+        else:
+            external_id = record.pop("externalId", None)
+
         if existing_state:
-            return self.update_state(existing_state, is_duplicate=True)
+            return self.update_state(existing_state, is_duplicate=True, record=record)
 
         state = {"hash": hash}
 
         id = None
         success = False
         state_updates = dict()
-
-        if self.name in self.allows_externalid:
-            external_id = record.get("externalId")
-        else:
-            external_id = record.pop("externalId", None)
 
         try:
             id, success, state_updates = self.upsert_record(record, context)
@@ -175,7 +191,7 @@ class HotglueSink(HotglueBaseSink, RecordSink):
         if state_updates and isinstance(state_updates, dict):
             state = dict(state, **state_updates)
 
-        self.update_state(state, is_duplicate=is_duplicate)
+        self.update_state(state, is_duplicate=is_duplicate, record=record)
 
 
 class HotglueBatchSink(HotglueBaseSink, BatchSink):

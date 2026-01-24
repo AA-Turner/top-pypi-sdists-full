@@ -7,7 +7,6 @@ import sys
 import time
 from argparse import ArgumentParser, ArgumentTypeError, BooleanOptionalAction
 from types import FrameType
-from typing import Optional
 
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
@@ -16,13 +15,13 @@ from django.db import close_old_connections
 from django.db.utils import OperationalError
 from django.utils.autoreload import DJANGO_AUTORELOAD_ENV, run_with_reloader
 
-from django_tasks import DEFAULT_TASK_BACKEND_ALIAS, tasks
+from django_tasks import DEFAULT_TASK_BACKEND_ALIAS, task_backends
 from django_tasks.backends.database.backend import DatabaseBackend
 from django_tasks.backends.database.models import DBTaskResult
 from django_tasks.backends.database.utils import exclusive_transaction
+from django_tasks.base import DEFAULT_TASK_QUEUE_NAME, TaskContext
 from django_tasks.exceptions import InvalidTaskBackendError
 from django_tasks.signals import task_finished, task_started
-from django_tasks.task import DEFAULT_QUEUE_NAME, TaskContext
 from django_tasks.utils import get_random_id
 
 package_logger = logging.getLogger("django_tasks")
@@ -38,7 +37,7 @@ class Worker:
         batch: bool,
         backend_name: str,
         startup_delay: bool,
-        max_tasks: Optional[int],
+        max_tasks: int | None,
         worker_id: str,
     ):
         self.queue_names = queue_names
@@ -55,7 +54,7 @@ class Worker:
 
         self.worker_id = worker_id
 
-    def shutdown(self, signum: int, frame: Optional[FrameType]) -> None:
+    def shutdown(self, signum: int, frame: FrameType | None) -> None:
         if not self.running:
             logger.warning(
                 "Received %s - terminating current task.", signal.strsignal(signum)
@@ -95,7 +94,7 @@ class Worker:
 
         if self.startup_delay and self.interval:
             # Add a random small delay before starting to avoid a thundering herd
-            time.sleep(random.random())
+            time.sleep(random.random())  # noqa: S311
 
         while self.running:
             tasks = DBTaskResult.objects.ready().filter(backend_name=self.backend_name)
@@ -171,12 +170,18 @@ class Worker:
 
             # Setting the return and success value inside the error handling,
             # So errors setting it (eg JSON encode) can still be recorded
-            db_task_result.set_succeeded(return_value)
+            db_task_result.set_succeeded(return_value, task_result.metadata)
             task_finished.send(
                 sender=backend_type, task_result=db_task_result.task_result
             )
         except BaseException as e:
-            db_task_result.set_failed(e)
+            try:
+                metadata = task_result.metadata
+            except NameError:
+                metadata = None
+
+            db_task_result.set_failed(e, metadata)
+
             try:
                 sender = type(db_task_result.task.get_backend())
                 task_result = db_task_result.task_result
@@ -194,7 +199,7 @@ class Worker:
 
 def valid_backend_name(val: str) -> str:
     try:
-        backend = tasks[val]
+        backend = task_backends[val]
     except InvalidTaskBackendError as e:
         raise ArgumentTypeError(e.args[0]) from e
     if not isinstance(backend, DatabaseBackend):
@@ -233,7 +238,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--queue-name",
             nargs="?",
-            default=DEFAULT_QUEUE_NAME,
+            default=DEFAULT_TASK_QUEUE_NAME,
             type=str,
             help="The queues to process. Separate multiple with a comma. To process all queues, use '*' (default: %(default)r)",
         )
@@ -307,7 +312,7 @@ class Command(BaseCommand):
         backend_name: str,
         startup_delay: bool,
         reload: bool,
-        max_tasks: Optional[int],
+        max_tasks: int | None,
         worker_id: str,
         **options: dict,
     ) -> None:

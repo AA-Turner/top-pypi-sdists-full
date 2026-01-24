@@ -246,7 +246,7 @@ extends:
               - task: ManualValidation@0
                 timeoutInMinutes: 120 # task times out in 2 hours
                 inputs:
-                  notifyUsers: 'plseng@microsoft.com,eric@traut.com'
+                  notifyUsers: '[DevDiv]\Python.Language Server,eric@traut.com'
                   instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
                   onTimeout: 'reject' # require sign-off
 
@@ -315,5 +315,5 @@ extends:
                   contentSource: Folder
                   folderLocation: $(Build.StagingDirectory)/dist
                   waitForReleaseCompletion: true
-                  owners: bschnurr@microsoft.com
+                  owners: rchiodo@microsoft.com
                   approvers: grwheele@microsoft.com

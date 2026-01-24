@@ -49,6 +49,8 @@ PGType = Literal[
     "date",
     "timestamp",
     "uuid",
+    # Array type for GIN indexing
+    "text[]",
 ]
 
 
@@ -81,6 +83,7 @@ def get_data_model(
     from pgvector.sqlalchemy import Vector
     from sqlalchemy import Column, Computed
     from sqlalchemy.dialects.postgresql import (
+        ARRAY,
         BIGINT,
         JSON,
         JSONB,
@@ -105,6 +108,8 @@ def get_data_model(
         "date": Date,
         "timestamp": DateTime,
         "uuid": UUID,
+        # Array type for GIN indexing
+        "text[]": ARRAY(String),
     }
 
     indexed_metadata_keys = indexed_metadata_keys or set()
@@ -131,14 +136,32 @@ def get_data_model(
     else:
         embedding_col = Column(Vector(embed_dim))  # type: ignore
 
-    metadata_indices = [
+    # BTREE indices for scalar types (existing behavior)
+    btree_indices = [
         Index(
             f"{indexname}_{key}_{pg_type.replace(' ', '_')}",
             cast(column("metadata_").op("->>")(key), pg_type_map[pg_type]),
             postgresql_using="btree",
         )
         for key, pg_type in indexed_metadata_keys
+        if pg_type != "text[]"
     ]
+
+    # GIN indices for text arrays (enables fast array operations with ?|, ?&, @> operators)
+    gin_indices = [
+        Index(
+            f"{indexname}_{key}_gin",
+            cast(
+                column("metadata_").op("->")(key), JSONB
+            ),  # Cast to JSONB for GIN index compatibility
+            postgresql_using="gin",
+        )
+        for key, pg_type in indexed_metadata_keys
+        if pg_type == "text[]"
+    ]
+
+    # Combine both types of indices
+    metadata_indices = btree_indices + gin_indices
 
     if hybrid_search:
 
@@ -373,7 +396,6 @@ class PGVectorStore(BasePydanticVectorStore):
         if not self._is_initialized:
             return
 
-        self._session.close_all()
         if self._engine:
             self._engine.dispose()
         if self._async_engine:
@@ -516,7 +538,7 @@ class PGVectorStore(BasePydanticVectorStore):
 
     def _create_tables_if_not_exists(self) -> None:
         with self._session() as session, session.begin():
-            self._base.metadata.create_all(session.connection())
+            self._table_class.__table__.create(session.connection(), checkfirst=True)
 
     def _create_extension(self) -> None:
         import sqlalchemy
@@ -677,9 +699,9 @@ class PGVectorStore(BasePydanticVectorStore):
                 f"({filter_value})"
             )
         elif filter_.operator in [FilterOperator.ANY, FilterOperator.ALL]:
-            # Expects a list stored in the metadata, and a single value to compare
-
-            # We apply same logic as above, but as an array
+            # Expects a text array stored in the metadata, and a list of values to compare
+            # Works with text[] arrays using PostgreSQL ?| (ANY) and ?& (ALL) operators
+            # Example: metadata_::jsonb->'tags' ?| array['AI', 'ML']
             filter_value = ", ".join(f"'{e}'" for e in filter_.value)
 
             return text(
@@ -806,6 +828,7 @@ class PGVectorStore(BasePydanticVectorStore):
                     text(f"SET ivfflat.probes = :ivfflat_probes"),
                     {"ivfflat_probes": ivfflat_probes},
                 )
+                session.execute(text("SET LOCAL enable_bitmapscan = off"))
             if self.hnsw_kwargs:
                 hnsw_ef_search = (
                     kwargs.get("hnsw_ef_search") or self.hnsw_kwargs["hnsw_ef_search"]
@@ -814,6 +837,7 @@ class PGVectorStore(BasePydanticVectorStore):
                     text(f"SET hnsw.ef_search = :hnsw_ef_search"),
                     {"hnsw_ef_search": hnsw_ef_search},
                 )
+                session.execute(text("SET LOCAL enable_bitmapscan = off"))
 
             res = session.execute(
                 stmt,
@@ -851,12 +875,14 @@ class PGVectorStore(BasePydanticVectorStore):
                 await async_session.execute(
                     text(f"SET hnsw.ef_search = {hnsw_ef_search}"),
                 )
+                await async_session.execute(text("SET LOCAL enable_bitmapscan = off"))
             if kwargs.get("ivfflat_probes"):
                 ivfflat_probes = kwargs.get("ivfflat_probes")
                 await async_session.execute(
                     text(f"SET ivfflat.probes = :ivfflat_probes"),
                     {"ivfflat_probes": ivfflat_probes},
                 )
+                await async_session.execute(text("SET LOCAL enable_bitmapscan = off"))
 
             res = await async_session.execute(stmt)
             return [

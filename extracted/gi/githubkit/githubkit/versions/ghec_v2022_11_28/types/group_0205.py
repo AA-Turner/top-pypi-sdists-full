@@ -9,17 +9,58 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class OrganizationCustomRepositoryRoleCreateSchemaType(TypedDict):
-    """OrganizationCustomRepositoryRoleCreateSchema"""
+class ReleaseAssetType(TypedDict):
+    """Release Asset
 
+    Data related to a release.
+    """
+
+    url: str
+    browser_download_url: str
+    id: int
+    node_id: str
     name: str
-    description: NotRequired[Union[str, None]]
-    base_role: Literal["read", "triage", "write", "maintain"]
-    permissions: list[str]
+    label: Union[str, None]
+    state: Literal["uploaded", "open"]
+    content_type: str
+    size: int
+    digest: Union[str, None]
+    download_count: int
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    uploader: Union[None, SimpleUserType]
 
 
-__all__ = ("OrganizationCustomRepositoryRoleCreateSchemaType",)
+class ReleaseAssetTypeForResponse(TypedDict):
+    """Release Asset
+
+    Data related to a release.
+    """
+
+    url: str
+    browser_download_url: str
+    id: int
+    node_id: str
+    name: str
+    label: Union[str, None]
+    state: Literal["uploaded", "open"]
+    content_type: str
+    size: int
+    digest: Union[str, None]
+    download_count: int
+    created_at: str
+    updated_at: str
+    uploader: Union[None, SimpleUserTypeForResponse]
+
+
+__all__ = (
+    "ReleaseAssetType",
+    "ReleaseAssetTypeForResponse",
+)

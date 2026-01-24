@@ -3,8 +3,7 @@
 Core Objects: Model
 """
 
-# Mypy; for the `|` operator purpose
-# Remove this __future__ import once the oldest supported Python is 3.10
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import random
@@ -17,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from mesa.agent import Agent, AgentSet
+from mesa.experimental.devs import Simulator
 from mesa.mesa_logging import create_module_logger, method_logger
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
@@ -26,7 +26,7 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 _mesa_logger = create_module_logger()
 
 
-class Model:
+class Model[A: Agent]:
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
@@ -36,6 +36,8 @@ class Model:
     Attributes:
         running: A boolean indicating if the model should continue running.
         steps: the number of times `model.step()` has been called.
+        time: the current simulation time. Automatically increments by 1.0
+              with each step unless controlled by a discrete event simulator.
         random: a seeded python.random number generator.
         rng : a seeded numpy.random.Generator
 
@@ -72,8 +74,13 @@ class Model:
 
         """
         super().__init__(*args, **kwargs)
-        self.running = True
+        self.running: bool = True
         self.steps: int = 0
+        self.time: float = 0.0
+        self.agent_id_counter: int = 1
+
+        # Track if a simulator is controlling time
+        self._simulator: Simulator | None = None
 
         if (seed is not None) and (rng is not None):
             raise ValueError("you have to pass either rng or seed, not both")
@@ -105,11 +112,13 @@ class Model:
         self.step = self._wrapped_step
 
         # setup agent registration data structures
-        self._agents = {}  # the hard references to all agents in the model
+        self._agents: dict[
+            A, None
+        ] = {}  # the hard references to all agents in the model
         self._agents_by_type: dict[
-            type[Agent], AgentSet
+            type[A], AgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
-        self._all_agents = AgentSet(
+        self._all_agents: AgentSet[A] = AgentSet(
             [], random=self.random
         )  # an agenset with all agents
 
@@ -117,12 +126,18 @@ class Model:
         """Automatically increments time and steps after calling the user's step method."""
         # Automatically increment time and step counters
         self.steps += 1
-        _mesa_logger.info(f"calling model.step for timestep {self.steps} ")
+        # Only auto-increment time if no simulator is controlling it
+        if self._simulator is None:
+            self.time += 1
+
+        _mesa_logger.info(
+            f"calling model.step for step {self.steps} at time {self.time}"
+        )
         # Call the original user-defined step method
         self._user_step(*args, **kwargs)
 
     @property
-    def agents(self) -> AgentSet:
+    def agents(self) -> AgentSet[A]:
         """Provides an AgentSet of all agents in the model, combining agents from all types."""
         return self._all_agents
 
@@ -140,11 +155,11 @@ class Model:
         return list(self._agents_by_type.keys())
 
     @property
-    def agents_by_type(self) -> dict[type[Agent], AgentSet]:
+    def agents_by_type(self) -> dict[type[A], AgentSet[A]]:
         """A dictionary where the keys are agent types and the values are the corresponding AgentSets."""
         return self._agents_by_type
 
-    def register_agent(self, agent):
+    def register_agent(self, agent: A):
         """Register the agent with the model.
 
         Args:
@@ -156,6 +171,8 @@ class Model:
             super in the ``__init__`` method.
         """
         self._agents[agent] = None
+        agent.unique_id = self.agent_id_counter
+        self.agent_id_counter += 1
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled
@@ -174,7 +191,7 @@ class Model:
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
 
-    def deregister_agent(self, agent):
+    def deregister_agent(self, agent: A):
         """Deregister the agent with the model.
 
         Args:
@@ -217,8 +234,15 @@ class Model:
         Args:
             rng: A new seed for the RNG; if None, reset using the current seed
         """
-        self.rng = np.random.default_rng(rng)
-        self._rng = self.rng.bit_generator.state
+        if rng is None:
+            # Restore from saved initial state
+            bg_class = getattr(np.random, self._rng["bit_generator"])
+            bg = bg_class()
+            bg.state = self._rng
+            self.rng = np.random.Generator(bg)
+        else:
+            self.rng = np.random.default_rng(rng)
+            self._rng = self.rng.bit_generator.state
 
     def remove_all_agents(self):
         """Remove all agents from the model.

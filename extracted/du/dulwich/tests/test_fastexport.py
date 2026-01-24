@@ -25,9 +25,9 @@ from io import BytesIO
 from dulwich.object_store import MemoryObjectStore
 from dulwich.objects import ZERO_SHA, Blob, Commit, Tree
 from dulwich.repo import MemoryRepo
-from dulwich.tests.utils import build_commit_graph
+from dulwich.tests.utils import build_commit_graph, make_commit
 
-from . import SkipTest, TestCase
+from . import DependencyMissing, TestCase
 
 
 class GitFastExporterTests(TestCase):
@@ -40,7 +40,7 @@ class GitFastExporterTests(TestCase):
         try:
             from dulwich.fastexport import GitFastExporter
         except ImportError as exc:
-            raise SkipTest("python-fastimport not available") from exc
+            raise DependencyMissing("python-fastimport") from exc
         self.fastexporter = GitFastExporter(self.stream, self.store)
 
     def test_emit_blob(self) -> None:
@@ -54,12 +54,16 @@ class GitFastExporterTests(TestCase):
         b.data = b"FOO"
         t = Tree()
         t.add(b"foo", stat.S_IFREG | 0o644, b.id)
-        c = Commit()
-        c.committer = c.author = b"Jelmer <jelmer@host>"
-        c.author_time = c.commit_time = 1271345553
-        c.author_timezone = c.commit_timezone = 0
-        c.message = b"msg"
-        c.tree = t.id
+        c = make_commit(
+            author=b"Jelmer <jelmer@host>",
+            committer=b"Jelmer <jelmer@host>",
+            author_time=1271345553,
+            commit_time=1271345553,
+            author_timezone=0,
+            commit_timezone=0,
+            message=b"msg",
+            tree=t.id,
+        )
         self.store.add_objects([(b, None), (t, None), (c, None)])
         self.fastexporter.emit_commit(c, b"refs/heads/master")
         self.assertEqual(
@@ -85,10 +89,11 @@ class GitImportProcessorTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.repo = MemoryRepo()
+        self.addCleanup(self.repo.close)
         try:
             from dulwich.fastexport import GitImportProcessor
         except ImportError as exc:
-            raise SkipTest("python-fastimport not available") from exc
+            raise DependencyMissing("python-fastimport") from exc
         self.processor = GitImportProcessor(self.repo)
 
     def test_reset_handler(self) -> None:
@@ -103,7 +108,7 @@ class GitImportProcessorTests(TestCase):
     def test_reset_handler_marker(self) -> None:
         from fastimport import commands
 
-        [c1, c2] = build_commit_graph(self.repo.object_store, [[1], [2]])
+        [c1, _c2] = build_commit_graph(self.repo.object_store, [[1], [2]])
         self.processor.markers[b"10"] = c1.id
         cmd = commands.ResetCommand(b"refs/heads/foo", b":10")
         self.processor.reset_handler(cmd)
@@ -112,7 +117,7 @@ class GitImportProcessorTests(TestCase):
     def test_reset_handler_default(self) -> None:
         from fastimport import commands
 
-        [c1, c2] = build_commit_graph(self.repo.object_store, [[1], [2]])
+        [_c1, _c2] = build_commit_graph(self.repo.object_store, [[1], [2]])
         cmd = commands.ResetCommand(b"refs/heads/foo", None)
         self.processor.reset_handler(cmd)
         self.assertEqual(ZERO_SHA, self.repo.get_refs()[b"refs/heads/foo"])

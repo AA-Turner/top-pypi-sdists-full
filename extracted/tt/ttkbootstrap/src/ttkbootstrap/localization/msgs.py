@@ -1,3 +1,54 @@
+"""Pre-defined message translations for ttkbootstrap localization.
+
+This module contains built-in translations for common UI strings used throughout
+ttkbootstrap widgets and dialogs. Translations are provided for multiple languages
+and automatically loaded when the localization system initializes.
+
+Classes:
+    LocaleMsgs: Helper class for loading locale-specific message translations
+
+Functions:
+    initialize_localities: Load all custom message files into MessageCatalog
+
+Supported Languages:
+    - Czech (cs)
+    - German (de)
+    - Spanish (es)
+    - French (fr)
+    - Italian (it)
+    - Japanese (ja)
+    - Korean (ko)
+    - Dutch (nl)
+    - Polish (pl)
+    - Portuguese (pt)
+    - Russian (ru)
+    - Turkish (tr)
+    - Chinese Simplified (zh_cn)
+    - Chinese Traditional (zh_tw)
+    - And more...
+
+Common Translated Strings:
+    - Dialog buttons: OK, Cancel, Yes, No, Close, etc.
+    - Actions: Submit, Delete, Add, Remove, etc.
+    - Navigation: Next, Previous, Continue, etc.
+    - Font dialog: Family, Weight, Slant, Size, etc.
+    - Months and days of the week
+    - Common verbs and UI labels
+
+Example:
+    Translations are used automatically by ttkbootstrap dialogs:
+    ```python
+    from ttkbootstrap.dialogs import Messagebox
+    from ttkbootstrap.localization import MessageCatalog
+
+    # Set locale to German
+    MessageCatalog.locale('de')
+
+    # Dialog buttons automatically display in German
+    Messagebox.ok("Dies ist eine Nachricht")  # "OK" button shows as "OK"
+    Messagebox.yesno("Fortfahren?")  # "Yes"/"No" show as "Ja"/"Nein"
+    ```
+"""
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
 MESSAGES = []
@@ -1011,11 +1062,13 @@ MESSAGES.append(
         ("Fr", "金"),
         ("Sa", "土"),
         ("Su", "日"),
-        (r"Cannot change to the directory %1\$s.\nPermission denied.", r"ディレクトリ %1\$s に変更できません。\nアクセスが拒否されました。"),
+        (r"Cannot change to the directory %1\$s.\nPermission denied.",
+         r"ディレクトリ %1\$s に変更できません。\nアクセスが拒否されました。"),
         (r"Directory %1\$s does not exist.", r"ディレクトリ %1\$s は存在しません。"),
         (r"Error: %1\$s", r"エラー: %1\$s"),
         (r"File %1\$s already exists.\n\n", r"ファイル %1\$s は既に存在します。\n\n"),
-        (r"File %1\$s already exists.\nDo you want to overwrite it?", r"ファイル %1\$s は既に存在します。\n上書きしますか？"),
+        (r"File %1\$s already exists.\nDo you want to overwrite it?",
+         r"ファイル %1\$s は既に存在します。\n上書きしますか？"),
         (r"File %1\$s does not exist.", r"ファイル %1\$s は存在しません。"),
         (r"Invalid file name %1\$s.", r"無効なファイル名 %1\$s です。"),
         ("⎌", "⎌"),
@@ -1193,5 +1246,208 @@ MESSAGES.append(
         ("Weight", "重量"),
         ("Yes", "はい"),
         ("yes", "はい"),
+        ("January", "1月"),
+        ("February", "2月"),
+        ("March", "3月"),
+        ("April", "4月"),
+        ("May", "5月"),
+        ("June", "6月"),
+        ("July", "7月"),
+        ("August", "8月"),
+        ("September", "9月"),
+        ("October", "10月"),
+        ("November", "11月"),
+        ("December", "12月"),
+    )
+)
+
+MESSAGES.append(
+    LocaleMsgs(
+        # Slovenian
+        "sl",
+        ("&Abort", "&Prekini"),
+        ("&About...", "&O..."),
+        ("All Files", "Vse datoteke"),
+        ("Application Error", "Napaka aplikacije"),
+        ("&Apply", "&Uporabi"),
+        ("Bold", "Krepko"),
+        ("Bold Italic", "Krepko ležeče"),
+        ("&Blue", "&Modra"),
+        ("Cancel", "Prekliči"),
+        ("&Cancel", "&Prekliči"),
+        (
+            r'Cannot change to the directory %1\$s.\nPermission denied.',
+            r'Ne morem dostopati do mape %1\$s.\nDostop zavrnjen.',
+        ),
+        ("Choose Directory", "Izberi mapo"),
+        ("Cl&ear", "Poč&isti"),
+        ("&Clear Console", "&Počisti konzolo"),
+        ("Color", "Barva"),
+        ("Console", "Konzola"),
+        ("&Copy", "&Kopiraj"),
+        ("Cu&t", "&Izreži"),
+        ("&Delete", "&Izbriši"),
+        ("Details >>", "Podrobnosti >>"),
+        (r'Directory  %1\$s does not exist.', r'Mapa %1\$s ne obstaja.'),
+        ("&Directory:", "&Mapa:"),
+        ("&Edit", "&Uredi"),
+        ("Effects", "Učinki"),
+        (r"Error: %1\$s", r"Napaka: %1\$s"),
+        ("E&xit", "&Izhod"),
+        ("&File", "&Datoteka"),
+        (
+            r'File %1\$s already exists.\nDo you want to overwrite it?',
+            r'Datoteka %1\$s že obstaja.\nAli jo želite prepisati?',
+        ),
+        (r'File %1\$s already exists.\n\n', r'Datoteka %1\$s že obstaja.\n\n'),
+        (r'File %1\$s does not exist.', r'Datoteka %1\$s ne obstaja.'),
+        ("File &name:", "Ime &datoteke:"),
+        ("File &names:", "Imena &datotek:"),
+        ("Files of &type:", "Datoteke &vrste:"),
+        ("Fi&les:", "&Datoteke:"),
+        ("&Filter", "&Filter"),
+        ("Fil&ter:", "&Filter:"),
+        ("Font", "Pisava"),
+        ("&Font:", "&Pisava:"),
+        ("Font st&yle:", "&Slog pisave:"),
+        ("&Green", "&Zelena"),
+        ("&Help", "&Pomoč"),
+        ("Hi", "Živjo"),
+        ("&Hide Console", "&Skrij konzolo"),
+        ("&Ignore", "&Prezri"),
+        (r'Invalid file name %1\$s.', r'Neveljavno ime datoteke %1\$s.'),
+        ("Italic", "Ležeče"),
+        ("Log Files", "Dnevniške datoteke"),
+        ("&No", "&Ne"),
+        ("&OK", "&V redu"),
+        ("OK", "V redu"),
+        ("Ok", "V redu"),
+        ("Open", "Odpri"),
+        ("&Open", "&Odpri"),
+        ("Open Multiple Files", "Odpri več datotek"),
+        ("P&aste", "Pr&ilepi"),
+        ("&Quit", "&Končaj"),
+        ("&Red", "&Rdeča"),
+        ("Regular", "Navadno"),
+        ("Replace existing file?", "Zamenjaj obstoječo datoteko?"),
+        ("&Retry", "&Poskusi znova"),
+        ("Sample", "Vzorec"),
+        ("&Save", "&Shrani"),
+        ("Save As", "Shrani kot"),
+        ("Save To Log", "Shrani v dnevnik"),
+        ("Select Log File", "Izberi dnevniško datoteko"),
+        ("Select a file to source", "Izberi datoteko za izvajanje"),
+        ("&Selection:", "&Izbor:"),
+        ("&Size:", "&Velikost:"),
+        ("Show &Hidden Directories", "Prikaži &skrite mape"),
+        ("Show &Hidden Files and Directories", "Prikaži &skrite datoteke in mape"),
+        ("Skip Messages", "Preskoči sporočila"),
+        ("&Source...,", "&Izvedi..."),
+        ("Stri&keout", "Pr&ečrtano"),
+        ("Tcl Scripts", "Tcl skripte"),
+        ("Tcl for Windows", "Tcl za Windows"),
+        ("Text Files", "Besedilne datoteke"),
+        ("&Underline", "&Podčrtano"),
+        ("&Yes", "&Da"),
+        ("abort", "prekini"),
+        ("blue", "modra"),
+        ("cancel", "prekliči"),
+        ("extension", "razširitev"),
+        ("extensions", "razširitve"),
+        ("green", "zelena"),
+        ("ignore", "prezri"),
+        ("ok", "v redu"),
+        ("red", "rdeča"),
+        ("retry", "poskusi znova"),
+        ("yes", "da"),
+        ("OK", "V redu"),
+        ("Ok", "V redu"),
+        ("Retry", "Poskusi znova"),
+        ("Delete", "Izbriši"),
+        ("Next", "Naslednji"),
+        ("Prev", "Prejšnji"),
+        ("Yes", "Da"),
+        ("No", "Ne"),
+        ("Open", "Odpri"),
+        ("Close", "Zapri"),
+        ("Add", "Dodaj"),
+        ("Remove", "Odstrani"),
+        ("Submit", "Pošlji"),
+        ("Family", "Družina"),
+        ("Size", "Velikost"),
+        ("Should be of data type", "Mora biti podatkovnega tipa"),
+        ("Invalid data type", "Neveljaven podatkovni tip"),
+        ("Number cannot be greater than", "Število ne sme biti večje od"),
+        ("Out of range", "Izven obsega"),
+        ("Previous", "Prejšnji"),
+        (
+            "The quick brown fox jumps over the lazy dog.",
+            "Hitra rjava lisica skače čez lenega psa.",
+        ),
+        ("Font Selector", "Izbirnik pisav"),
+        ("normal", "normalno"),
+        ("bold", "krepko"),
+        ("roman", "rimski"),
+        ("italic", "ležeče"),
+        ("underline", "podčrtano"),
+        ("overstrike", "prečrtano"),
+        ("Color Chooser", "Izbirnik barv"),
+        ("Advanced", "Napredno"),
+        ("Themed", "Tematsko"),
+        ("Standard", "Standardno"),
+        ("Current", "Trenutno"),
+        ("New", "Novo"),
+        ("Hue", "Odtenek"),
+        ("Sat", "Nasičenost"),
+        ("Lum", "Svetlost"),
+        ("Hex", "Heksadecimalno"),
+        ("Red", "Rdeča"),
+        ("Green", "Zelena"),
+        ("Blue", "Modra"),
+        ("color dropper", "kapalka za barve"),
+        ("Cancel", "Prekliči"),
+        ("Search", "Iskanje"),
+        ("Page", "Stran"),
+        ("of", "od"),
+        ("⎌", "⎌"),
+        ("Reset table", "Ponastavi tabelo"),
+        ("Columns", "Stolpci"),
+        ("Move", "Premakni"),
+        ("Align", "Poravnaj"),
+        ("Hide column", "Skrij stolpec"),
+        ("Delete column", "Izbriši stolpec"),
+        ("Show All", "Prikaži vse"),
+        ("Move to left", "Premakni levo"),
+        ("Move to right", "Premakni desno"),
+        ("Move to first", "Premakni na prvo mesto"),
+        ("Move to last", "Premakni na zadnje mesto"),
+        ("Align left", "Poravnaj levo"),
+        ("Align center", "Poravnaj na sredino"),
+        ("Align right", "Poravnaj desno"),
+        ("Sort", "Razvrsti"),
+        ("Filter", "Filtriraj"),
+        ("Export", "Izvozi"),
+        ("Delete selected rows", "Izbriši izbrane vrstice"),
+        ("Sort Ascending", "Razvrsti naraščajoče"),
+        ("Sort Descending", "Razvrsti padajoče"),
+        ("Clear filters", "Počisti filtre"),
+        ("Filter by cell’s value", "Filtriraj po vrednosti celice"),
+        ("Hide select rows", "Skrij izbrane vrstice"),
+        ("Show only select rows", "Prikaži samo izbrane vrstice"),
+        ("Export all records", "Izvozi vse zapise"),
+        ("Export current page", "Izvozi trenutno stran"),
+        ("Export current selection", "Izvozi trenutno izbiro"),
+        ("Export records in filter", "Izvozi zapise v filtru"),
+        ("Move up", "Premakni gor"),
+        ("Move down", "Premakni dol"),
+        ("Move to top", "Premakni na vrh"),
+        ("Move to bottom", "Premakni na dno"),
+        ("Mo", "Pon"),
+        ("Tu", "Tor"),
+        ("We", "Sre"),
+        ("Th", "Čet"),
+        ("Fr", "Pet"),
+        ("Sa", "Sob"),
+        ("Su", "Ned"),
     )
 )

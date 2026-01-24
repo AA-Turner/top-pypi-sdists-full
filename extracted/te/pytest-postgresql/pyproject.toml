@@ -1,6 +1,6 @@
 [project]
 name = "pytest-postgresql"
-version = "7.0.2"
+version = "8.0.0"
 description = "Postgresql fixtures and fixture factories for Pytest."
 readme = "README.rst"
 keywords = ["tests", "pytest", "fixture", "postgresql"]
@@ -17,29 +17,29 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
     "Framework :: Pytest",
 ]
 dependencies = [
-    "pytest >= 7.2",
+    "pytest >= 8.2",
     "port-for >= 0.7.3",
     "mirakuru >= 2.6.0",
     "packaging",
     "psycopg >= 3.0.0"
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 
 [project.urls]
 "Source" = "https://github.com/dbfixtures/pytest-postgresql"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-postgresql/issues"
-"Changelog" = "https://github.com/dbfixtures/pytest-postgresql/blob/v7.0.2/CHANGES.rst"
+"Changelog" = "https://github.com/dbfixtures/pytest-postgresql/blob/v8.0.0/CHANGES.rst"
 
 [project.entry-points."pytest11"]
 pytest_postgresql = "pytest_postgresql.plugin"
@@ -56,20 +56,18 @@ include = ["pytest_postgresql*"]
 exclude = ["tests*"]
 namespaces = false
 
-[tool.pytest.ini_options]
-xfail_strict=true
-addopts = "--showlocals --verbose --cov"
-testpaths = "tests"
+[tool.pytest]
+strict_xfail=true
+addopts = ["--showlocals", "--verbose", "--cov"]
+testpaths = ["tests"]
 pytester_example_dir = "tests/examples"
-norecursedirs = "examples"
-
-[tool.black]
-line-length = 100
-target-version = ['py39']
-include = '.*\.pyi?$'
+norecursedirs = ["examples"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
+target-version = 'py310'
+
+[tool.ruff.lint]
 select = [
   "E",   # pycodestyle
   "F",   # pyflakes
@@ -79,6 +77,27 @@ select = [
 
 [tool.rstcheck]
 report_level = "warning"
+
+[tool.mypy]
+allow_redefinition = "False"
+allow_untyped_globals = "False"
+check_untyped_defs = "True"
+disallow_incomplete_defs = "True"
+disallow_subclassing_any = "True"
+disallow_untyped_calls = "True"
+disallow_untyped_decorators = "True"
+disallow_untyped_defs = "True"
+follow_imports = "silent"
+ignore_missing_imports = "False"
+implicit_reexport = "False"
+no_implicit_optional = "True"
+pretty = "True"
+show_error_codes = "True"
+strict_equality = "True"
+warn_no_return = "True"
+warn_return_any = "True"
+warn_unreachable = "True"
+warn_unused_ignores = "True"
 
 [tool.towncrier]
 directory = "newsfragments"
@@ -94,6 +113,10 @@ showcontent = true
 name = "Bugfixes"
 showcontent = true
 
+[tool.towncrier.fragment.docs]
+name = "Documentation"
+showcontent = true
+
 [tool.towncrier.fragment.deprecate]
 name = "Deprecations"
 showcontent = true
@@ -107,7 +130,7 @@ name = "Miscellaneus"
 showcontent = false
 
 [tool.tbump.version]
-current = "7.0.2"
+current = "8.0.0"
 
 # Example of a semver regexp.
 # Make sure this matches current_version before

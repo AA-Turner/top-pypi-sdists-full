@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from functools import partial
-from typing import Any, Optional, Sequence, Tuple, Union, Mapping
+from typing import Any, Literal, Mapping, Optional, Sequence, Tuple, Union
 from uuid import uuid4
 
 import dask.array as da
@@ -22,7 +24,7 @@ def _do_chunked_reproject(
     *blocks: np.ndarray,
     axis: int = 0,
     dtype=None,
-    casting="same_kind",
+    casting: Literal["no", "equiv", "safe", "same_kind", "unsafe"] | None = "same_kind",
     resampling: Resampling = "nearest",
     src_nodata: Nodata = None,
     dst_nodata: Nodata = None,
@@ -118,7 +120,7 @@ def dask_rio_reproject(
     )
     src_block_keys = src.__dask_keys__()
 
-    def _src(idx):
+    def _src(idx: dict):
         a = src_block_keys
         for i in idx:
             a = a[i]
@@ -137,6 +139,6 @@ def dask_rio_reproject(
             b_shape = tuple(ch[i] for ch, i in zip(dst_chunks, idx))
             dsk[k] = (np.full, b_shape, fill_value, src.dtype)
 
-    dsk = HighLevelGraph.from_collections(name, dsk, dependencies=(src,))
+    dsk = HighLevelGraph.from_collections(name, dsk, dependencies=(src,))  # type: ignore
 
     return da.Array(dsk, name, chunks=dst_chunks, dtype=dtype, shape=dst_shape)

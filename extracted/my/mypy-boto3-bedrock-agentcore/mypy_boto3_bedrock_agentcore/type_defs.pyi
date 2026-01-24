@@ -3,7 +3,7 @@ Type annotations for bedrock-agentcore service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -28,42 +29,48 @@ from .literals import (
     BrowserSessionStatusType,
     CodeInterpreterSessionStatusType,
     ContentBlockTypeType,
+    MemoryRecordStatusType,
     Oauth2FlowTypeType,
+    OperatorTypeType,
     ProgrammingLanguageType,
     ResourceContentTypeType,
     RoleType,
+    SessionStatusType,
     TaskStatusType,
     ToolNameType,
     ValidationExceptionReasonType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AccessDeniedExceptionTypeDef",
     "ActorSummaryTypeDef",
     "AutomationStreamTypeDef",
     "AutomationStreamUpdateTypeDef",
+    "BatchCreateMemoryRecordsInputTypeDef",
+    "BatchCreateMemoryRecordsOutputTypeDef",
+    "BatchDeleteMemoryRecordsInputTypeDef",
+    "BatchDeleteMemoryRecordsOutputTypeDef",
+    "BatchUpdateMemoryRecordsInputTypeDef",
+    "BatchUpdateMemoryRecordsOutputTypeDef",
     "BlobTypeDef",
     "BranchFilterTypeDef",
     "BranchTypeDef",
+    "BrowserExtensionTypeDef",
     "BrowserSessionStreamTypeDef",
     "BrowserSessionSummaryTypeDef",
     "CodeInterpreterResultTypeDef",
     "CodeInterpreterSessionSummaryTypeDef",
     "CodeInterpreterStreamOutputTypeDef",
+    "CompleteResourceTokenAuthRequestTypeDef",
     "ConflictExceptionTypeDef",
     "ContentBlockTypeDef",
     "ContentTypeDef",
+    "ContextTypeDef",
     "ConversationalTypeDef",
     "CreateEventInputTypeDef",
     "CreateEventOutputTypeDef",
@@ -71,8 +78,20 @@ __all__ = (
     "DeleteEventOutputTypeDef",
     "DeleteMemoryRecordInputTypeDef",
     "DeleteMemoryRecordOutputTypeDef",
+    "EvaluateRequestTypeDef",
+    "EvaluateResponseTypeDef",
+    "EvaluationInputTypeDef",
+    "EvaluationResultContentTypeDef",
+    "EvaluationTargetTypeDef",
+    "EventMetadataFilterExpressionTypeDef",
     "EventTypeDef",
+    "ExtractionJobFilterInputTypeDef",
+    "ExtractionJobMessagesTypeDef",
+    "ExtractionJobMetadataTypeDef",
+    "ExtractionJobTypeDef",
     "FilterInputTypeDef",
+    "GetAgentCardRequestTypeDef",
+    "GetAgentCardResponseTypeDef",
     "GetBrowserSessionRequestTypeDef",
     "GetBrowserSessionResponseTypeDef",
     "GetCodeInterpreterSessionRequestTypeDef",
@@ -97,6 +116,7 @@ __all__ = (
     "InvokeAgentRuntimeResponseTypeDef",
     "InvokeCodeInterpreterRequestTypeDef",
     "InvokeCodeInterpreterResponseTypeDef",
+    "LeftExpressionTypeDef",
     "ListActorsInputPaginateTypeDef",
     "ListActorsInputTypeDef",
     "ListActorsOutputTypeDef",
@@ -107,6 +127,9 @@ __all__ = (
     "ListEventsInputPaginateTypeDef",
     "ListEventsInputTypeDef",
     "ListEventsOutputTypeDef",
+    "ListMemoryExtractionJobsInputPaginateTypeDef",
+    "ListMemoryExtractionJobsInputTypeDef",
+    "ListMemoryExtractionJobsOutputTypeDef",
     "ListMemoryRecordsInputPaginateTypeDef",
     "ListMemoryRecordsInputTypeDef",
     "ListMemoryRecordsOutputTypeDef",
@@ -115,36 +138,53 @@ __all__ = (
     "ListSessionsOutputTypeDef",
     "LiveViewStreamTypeDef",
     "MemoryContentTypeDef",
+    "MemoryMetadataFilterExpressionTypeDef",
+    "MemoryRecordCreateInputTypeDef",
+    "MemoryRecordDeleteInputTypeDef",
+    "MemoryRecordOutputTypeDef",
     "MemoryRecordSummaryTypeDef",
     "MemoryRecordTypeDef",
+    "MemoryRecordUpdateInputTypeDef",
+    "MessageMetadataTypeDef",
+    "MetadataValueTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
     "PayloadTypeTypeDef",
     "PayloadTypeUnionTypeDef",
     "ResourceContentTypeDef",
+    "ResourceLocationTypeDef",
     "ResourceNotFoundExceptionTypeDef",
     "ResponseMetadataTypeDef",
     "RetrieveMemoryRecordsInputPaginateTypeDef",
     "RetrieveMemoryRecordsInputTypeDef",
     "RetrieveMemoryRecordsOutputTypeDef",
+    "RightExpressionTypeDef",
+    "S3LocationTypeDef",
     "SearchCriteriaTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
     "SessionSummaryTypeDef",
+    "SpanContextTypeDef",
     "StartBrowserSessionRequestTypeDef",
     "StartBrowserSessionResponseTypeDef",
     "StartCodeInterpreterSessionRequestTypeDef",
     "StartCodeInterpreterSessionResponseTypeDef",
+    "StartMemoryExtractionJobInputTypeDef",
+    "StartMemoryExtractionJobOutputTypeDef",
     "StopBrowserSessionRequestTypeDef",
     "StopBrowserSessionResponseTypeDef",
     "StopCodeInterpreterSessionRequestTypeDef",
     "StopCodeInterpreterSessionResponseTypeDef",
+    "StopRuntimeSessionRequestTypeDef",
+    "StopRuntimeSessionResponseTypeDef",
     "StreamUpdateTypeDef",
     "ThrottlingExceptionTypeDef",
     "TimestampTypeDef",
+    "TokenUsageTypeDef",
     "ToolArgumentsTypeDef",
     "ToolResultStructuredContentTypeDef",
     "UpdateBrowserStreamRequestTypeDef",
     "UpdateBrowserStreamResponseTypeDef",
+    "UserIdentifierTypeDef",
     "ValidationExceptionFieldTypeDef",
     "ValidationExceptionTypeDef",
     "ViewPortTypeDef",
@@ -162,6 +202,23 @@ class AutomationStreamTypeDef(TypedDict):
 
 class AutomationStreamUpdateTypeDef(TypedDict):
     streamStatus: NotRequired[AutomationStreamStatusType]
+
+class MemoryRecordOutputTypeDef(TypedDict):
+    memoryRecordId: str
+    status: MemoryRecordStatusType
+    requestIdentifier: NotRequired[str]
+    errorCode: NotRequired[int]
+    errorMessage: NotRequired[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+class MemoryRecordDeleteInputTypeDef(TypedDict):
+    memoryRecordId: str
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
@@ -215,6 +272,10 @@ class ServiceQuotaExceededExceptionTypeDef(TypedDict):
 class ThrottlingExceptionTypeDef(TypedDict):
     message: NotRequired[str]
 
+class UserIdentifierTypeDef(TypedDict):
+    userToken: NotRequired[str]
+    userId: NotRequired[str]
+
 ResourceContentTypeDef = TypedDict(
     "ResourceContentTypeDef",
     {
@@ -229,14 +290,15 @@ ResourceContentTypeDef = TypedDict(
 class ContentTypeDef(TypedDict):
     text: NotRequired[str]
 
-TimestampTypeDef = Union[datetime, str]
+class SpanContextTypeDef(TypedDict):
+    sessionId: str
+    traceId: NotRequired[str]
+    spanId: NotRequired[str]
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
+class MetadataValueTypeDef(TypedDict):
+    stringValue: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
 
 class DeleteEventInputTypeDef(TypedDict):
     memoryId: str
@@ -247,6 +309,39 @@ class DeleteEventInputTypeDef(TypedDict):
 class DeleteMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
+
+class EvaluationInputTypeDef(TypedDict):
+    sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
+
+class EvaluationTargetTypeDef(TypedDict):
+    spanIds: NotRequired[Sequence[str]]
+    traceIds: NotRequired[Sequence[str]]
+
+class TokenUsageTypeDef(TypedDict):
+    inputTokens: NotRequired[int]
+    outputTokens: NotRequired[int]
+    totalTokens: NotRequired[int]
+
+class LeftExpressionTypeDef(TypedDict):
+    metadataKey: NotRequired[str]
+
+class ExtractionJobFilterInputTypeDef(TypedDict):
+    strategyId: NotRequired[str]
+    sessionId: NotRequired[str]
+    actorId: NotRequired[str]
+    status: NotRequired[Literal["FAILED"]]
+
+class MessageMetadataTypeDef(TypedDict):
+    eventId: str
+    messageIndex: int
+
+class ExtractionJobTypeDef(TypedDict):
+    jobId: str
+
+class GetAgentCardRequestTypeDef(TypedDict):
+    agentRuntimeArn: str
+    runtimeSessionId: NotRequired[str]
+    qualifier: NotRequired[str]
 
 class GetBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str
@@ -279,9 +374,11 @@ class GetResourceOauth2TokenRequestTypeDef(TypedDict):
     resourceCredentialProviderName: str
     scopes: Sequence[str]
     oauth2Flow: Oauth2FlowTypeType
+    sessionUri: NotRequired[str]
     resourceOauth2ReturnUrl: NotRequired[str]
     forceAuthentication: NotRequired[bool]
     customParameters: NotRequired[Mapping[str, str]]
+    customState: NotRequired[str]
 
 class GetWorkloadAccessTokenForJWTRequestTypeDef(TypedDict):
     workloadName: str
@@ -337,13 +434,15 @@ class SessionSummaryTypeDef(TypedDict):
 class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
 
-class SearchCriteriaTypeDef(TypedDict):
-    searchQuery: str
-    memoryStrategyId: NotRequired[str]
-    topK: NotRequired[int]
+class S3LocationTypeDef(TypedDict):
+    bucket: str
+    prefix: str
+    versionId: NotRequired[str]
 
 class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
     codeInterpreterIdentifier: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
     name: NotRequired[str]
     sessionTimeoutSeconds: NotRequired[int]
     clientToken: NotRequired[str]
@@ -351,11 +450,21 @@ class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
 class StopBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str
     sessionId: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
     clientToken: NotRequired[str]
 
 class StopCodeInterpreterSessionRequestTypeDef(TypedDict):
     codeInterpreterIdentifier: str
     sessionId: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    clientToken: NotRequired[str]
+
+class StopRuntimeSessionRequestTypeDef(TypedDict):
+    runtimeSessionId: str
+    agentRuntimeArn: str
+    qualifier: NotRequired[str]
     clientToken: NotRequired[str]
 
 class ValidationExceptionFieldTypeDef(TypedDict):
@@ -365,51 +474,20 @@ class ValidationExceptionFieldTypeDef(TypedDict):
 class StreamUpdateTypeDef(TypedDict):
     automationStreamUpdate: NotRequired[AutomationStreamUpdateTypeDef]
 
-class InputContentBlockTypeDef(TypedDict):
-    path: str
-    text: NotRequired[str]
-    blob: NotRequired[BlobTypeDef]
+class BatchCreateMemoryRecordsOutputTypeDef(TypedDict):
+    successfulRecords: list[MemoryRecordOutputTypeDef]
+    failedRecords: list[MemoryRecordOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
-class InvokeAgentRuntimeRequestTypeDef(TypedDict):
-    agentRuntimeArn: str
-    payload: BlobTypeDef
-    contentType: NotRequired[str]
-    accept: NotRequired[str]
-    mcpSessionId: NotRequired[str]
-    runtimeSessionId: NotRequired[str]
-    mcpProtocolVersion: NotRequired[str]
-    runtimeUserId: NotRequired[str]
-    traceId: NotRequired[str]
-    traceParent: NotRequired[str]
-    traceState: NotRequired[str]
-    baggage: NotRequired[str]
-    qualifier: NotRequired[str]
+class BatchDeleteMemoryRecordsOutputTypeDef(TypedDict):
+    successfulRecords: list[MemoryRecordOutputTypeDef]
+    failedRecords: list[MemoryRecordOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
-class FilterInputTypeDef(TypedDict):
-    branch: NotRequired[BranchFilterTypeDef]
-
-class BrowserSessionStreamTypeDef(TypedDict):
-    automationStream: AutomationStreamTypeDef
-    liveViewStream: NotRequired[LiveViewStreamTypeDef]
-
-ContentBlockTypeDef = TypedDict(
-    "ContentBlockTypeDef",
-    {
-        "type": ContentBlockTypeType,
-        "text": NotRequired[str],
-        "data": NotRequired[bytes],
-        "mimeType": NotRequired[str],
-        "uri": NotRequired[str],
-        "name": NotRequired[str],
-        "description": NotRequired[str],
-        "size": NotRequired[int],
-        "resource": NotRequired[ResourceContentTypeDef],
-    },
-)
-
-class ConversationalTypeDef(TypedDict):
-    content: ContentTypeDef
-    role: RoleType
+class BatchUpdateMemoryRecordsOutputTypeDef(TypedDict):
+    successfulRecords: list[MemoryRecordOutputTypeDef]
+    failedRecords: list[MemoryRecordOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteEventOutputTypeDef(TypedDict):
     eventId: str
@@ -417,6 +495,12 @@ class DeleteEventOutputTypeDef(TypedDict):
 
 class DeleteMemoryRecordOutputTypeDef(TypedDict):
     memoryRecordId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentCardResponseTypeDef(TypedDict):
+    runtimeSessionId: str
+    agentCard: dict[str, Any]
+    statusCode: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetCodeInterpreterSessionResponseTypeDef(TypedDict):
@@ -435,6 +519,8 @@ class GetResourceApiKeyResponseTypeDef(TypedDict):
 class GetResourceOauth2TokenResponseTypeDef(TypedDict):
     authorizationUrl: str
     accessToken: str
+    sessionUri: str
+    sessionStatus: SessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetWorkloadAccessTokenForJWTResponseTypeDef(TypedDict):
@@ -463,17 +549,7 @@ class InvokeAgentRuntimeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListActorsOutputTypeDef(TypedDict):
-    actorSummaries: List[ActorSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListBrowserSessionsResponseTypeDef(TypedDict):
-    items: List[BrowserSessionSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListCodeInterpreterSessionsResponseTypeDef(TypedDict):
-    items: List[CodeInterpreterSessionSummaryTypeDef]
+    actorSummaries: list[ActorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -481,6 +557,10 @@ class StartCodeInterpreterSessionResponseTypeDef(TypedDict):
     codeInterpreterIdentifier: str
     sessionId: str
     createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartMemoryExtractionJobOutputTypeDef(TypedDict):
+    jobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StopBrowserSessionResponseTypeDef(TypedDict):
@@ -495,16 +575,114 @@ class StopCodeInterpreterSessionResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class StartBrowserSessionRequestTypeDef(TypedDict):
-    browserIdentifier: str
-    name: NotRequired[str]
-    sessionTimeoutSeconds: NotRequired[int]
-    viewPort: NotRequired[ViewPortTypeDef]
+class StopRuntimeSessionResponseTypeDef(TypedDict):
+    runtimeSessionId: str
+    statusCode: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchDeleteMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordDeleteInputTypeDef]
+
+class InputContentBlockTypeDef(TypedDict):
+    path: str
+    text: NotRequired[str]
+    blob: NotRequired[BlobTypeDef]
+
+class InvokeAgentRuntimeRequestTypeDef(TypedDict):
+    agentRuntimeArn: str
+    payload: BlobTypeDef
+    contentType: NotRequired[str]
+    accept: NotRequired[str]
+    mcpSessionId: NotRequired[str]
+    runtimeSessionId: NotRequired[str]
+    mcpProtocolVersion: NotRequired[str]
+    runtimeUserId: NotRequired[str]
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    traceState: NotRequired[str]
+    baggage: NotRequired[str]
+    qualifier: NotRequired[str]
+    accountId: NotRequired[str]
+
+class BrowserSessionStreamTypeDef(TypedDict):
+    automationStream: AutomationStreamTypeDef
+    liveViewStream: NotRequired[LiveViewStreamTypeDef]
+
+class ListBrowserSessionsResponseTypeDef(TypedDict):
+    items: list[BrowserSessionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListCodeInterpreterSessionsResponseTypeDef(TypedDict):
+    items: list[CodeInterpreterSessionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CompleteResourceTokenAuthRequestTypeDef(TypedDict):
+    userIdentifier: UserIdentifierTypeDef
+    sessionUri: str
+
+ContentBlockTypeDef = TypedDict(
+    "ContentBlockTypeDef",
+    {
+        "type": ContentBlockTypeType,
+        "text": NotRequired[str],
+        "data": NotRequired[bytes],
+        "mimeType": NotRequired[str],
+        "uri": NotRequired[str],
+        "name": NotRequired[str],
+        "description": NotRequired[str],
+        "size": NotRequired[int],
+        "resource": NotRequired[ResourceContentTypeDef],
+    },
+)
+
+class ConversationalTypeDef(TypedDict):
+    content: ContentTypeDef
+    role: RoleType
+
+class ContextTypeDef(TypedDict):
+    spanContext: NotRequired[SpanContextTypeDef]
+
+class RightExpressionTypeDef(TypedDict):
+    metadataValue: NotRequired[MetadataValueTypeDef]
+
+class EvaluateRequestTypeDef(TypedDict):
+    evaluatorId: str
+    evaluationInput: EvaluationInputTypeDef
+    evaluationTarget: NotRequired[EvaluationTargetTypeDef]
+
+ListMemoryExtractionJobsInputTypeDef = TypedDict(
+    "ListMemoryExtractionJobsInputTypeDef",
+    {
+        "memoryId": str,
+        "maxResults": NotRequired[int],
+        "filter": NotRequired[ExtractionJobFilterInputTypeDef],
+        "nextToken": NotRequired[str],
+    },
+)
+
+class ExtractionJobMessagesTypeDef(TypedDict):
+    messagesList: NotRequired[list[MessageMetadataTypeDef]]
+
+class StartMemoryExtractionJobInputTypeDef(TypedDict):
+    memoryId: str
+    extractionJob: ExtractionJobTypeDef
     clientToken: NotRequired[str]
 
 class ListActorsInputPaginateTypeDef(TypedDict):
     memoryId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+ListMemoryExtractionJobsInputPaginateTypeDef = TypedDict(
+    "ListMemoryExtractionJobsInputPaginateTypeDef",
+    {
+        "memoryId": str,
+        "filter": NotRequired[ExtractionJobFilterInputTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 
 class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryId: str
@@ -518,42 +696,48 @@ class ListSessionsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSessionsOutputTypeDef(TypedDict):
-    sessionSummaries: List[SessionSummaryTypeDef]
+    sessionSummaries: list[SessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class MemoryRecordCreateInputTypeDef(TypedDict):
+    requestIdentifier: str
+    namespaces: Sequence[str]
+    content: MemoryContentTypeDef
+    timestamp: TimestampTypeDef
+    memoryStrategyId: NotRequired[str]
 
 class MemoryRecordSummaryTypeDef(TypedDict):
     memoryRecordId: str
     content: MemoryContentTypeDef
     memoryStrategyId: str
-    namespaces: List[str]
+    namespaces: list[str]
     createdAt: datetime
     score: NotRequired[float]
+    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
 
 class MemoryRecordTypeDef(TypedDict):
     memoryRecordId: str
     content: MemoryContentTypeDef
     memoryStrategyId: str
-    namespaces: List[str]
+    namespaces: list[str]
     createdAt: datetime
+    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
 
-class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    namespace: str
-    searchCriteria: SearchCriteriaTypeDef
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+class MemoryRecordUpdateInputTypeDef(TypedDict):
+    memoryRecordId: str
+    timestamp: TimestampTypeDef
+    content: NotRequired[MemoryContentTypeDef]
+    namespaces: NotRequired[Sequence[str]]
+    memoryStrategyId: NotRequired[str]
 
-class RetrieveMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    namespace: str
-    searchCriteria: SearchCriteriaTypeDef
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
+class ResourceLocationTypeDef(TypedDict):
+    s3: NotRequired[S3LocationTypeDef]
 
 class ValidationExceptionTypeDef(TypedDict):
     message: str
     reason: ValidationExceptionReasonType
-    fieldList: NotRequired[List[ValidationExceptionFieldTypeDef]]
+    fieldList: NotRequired[list[ValidationExceptionFieldTypeDef]]
 
 class UpdateBrowserStreamRequestTypeDef(TypedDict):
     browserIdentifier: str
@@ -571,6 +755,198 @@ class ToolArgumentsTypeDef(TypedDict):
     content: NotRequired[Sequence[InputContentBlockTypeDef]]
     directoryPath: NotRequired[str]
     taskId: NotRequired[str]
+
+class StartBrowserSessionResponseTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    createdAt: datetime
+    streams: BrowserSessionStreamTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateBrowserStreamResponseTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    streams: BrowserSessionStreamTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CodeInterpreterResultTypeDef(TypedDict):
+    content: list[ContentBlockTypeDef]
+    structuredContent: NotRequired[ToolResultStructuredContentTypeDef]
+    isError: NotRequired[bool]
+
+class PayloadTypeOutputTypeDef(TypedDict):
+    conversational: NotRequired[ConversationalTypeDef]
+    blob: NotRequired[dict[str, Any]]
+
+class PayloadTypeTypeDef(TypedDict):
+    conversational: NotRequired[ConversationalTypeDef]
+    blob: NotRequired[Mapping[str, Any]]
+
+class EvaluationResultContentTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    evaluatorName: str
+    context: ContextTypeDef
+    explanation: NotRequired[str]
+    value: NotRequired[float]
+    label: NotRequired[str]
+    tokenUsage: NotRequired[TokenUsageTypeDef]
+    errorMessage: NotRequired[str]
+    errorCode: NotRequired[str]
+
+EventMetadataFilterExpressionTypeDef = TypedDict(
+    "EventMetadataFilterExpressionTypeDef",
+    {
+        "left": LeftExpressionTypeDef,
+        "operator": OperatorTypeType,
+        "right": NotRequired[RightExpressionTypeDef],
+    },
+)
+MemoryMetadataFilterExpressionTypeDef = TypedDict(
+    "MemoryMetadataFilterExpressionTypeDef",
+    {
+        "left": LeftExpressionTypeDef,
+        "operator": OperatorTypeType,
+        "right": NotRequired[RightExpressionTypeDef],
+    },
+)
+
+class ExtractionJobMetadataTypeDef(TypedDict):
+    jobID: str
+    messages: ExtractionJobMessagesTypeDef
+    status: NotRequired[Literal["FAILED"]]
+    failureReason: NotRequired[str]
+    strategyId: NotRequired[str]
+    sessionId: NotRequired[str]
+    actorId: NotRequired[str]
+
+class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordCreateInputTypeDef]
+    clientToken: NotRequired[str]
+
+class ListMemoryRecordsOutputTypeDef(TypedDict):
+    memoryRecordSummaries: list[MemoryRecordSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class RetrieveMemoryRecordsOutputTypeDef(TypedDict):
+    memoryRecordSummaries: list[MemoryRecordSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class GetMemoryRecordOutputTypeDef(TypedDict):
+    memoryRecord: MemoryRecordTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordUpdateInputTypeDef]
+
+class BrowserExtensionTypeDef(TypedDict):
+    location: ResourceLocationTypeDef
+
+class InvokeCodeInterpreterRequestTypeDef(TypedDict):
+    codeInterpreterIdentifier: str
+    name: ToolNameType
+    sessionId: NotRequired[str]
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    arguments: NotRequired[ToolArgumentsTypeDef]
+
+class CodeInterpreterStreamOutputTypeDef(TypedDict):
+    result: NotRequired[CodeInterpreterResultTypeDef]
+    accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
+    conflictException: NotRequired[ConflictExceptionTypeDef]
+    internalServerException: NotRequired[InternalServerExceptionTypeDef]
+    resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
+    serviceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
+    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
+
+class EventTypeDef(TypedDict):
+    memoryId: str
+    actorId: str
+    sessionId: str
+    eventId: str
+    eventTimestamp: datetime
+    payload: list[PayloadTypeOutputTypeDef]
+    branch: NotRequired[BranchTypeDef]
+    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
+
+PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
+
+class EvaluateResponseTypeDef(TypedDict):
+    evaluationResults: list[EvaluationResultContentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class FilterInputTypeDef(TypedDict):
+    branch: NotRequired[BranchFilterTypeDef]
+    eventMetadata: NotRequired[Sequence[EventMetadataFilterExpressionTypeDef]]
+
+class SearchCriteriaTypeDef(TypedDict):
+    searchQuery: str
+    memoryStrategyId: NotRequired[str]
+    topK: NotRequired[int]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+
+class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
+    jobs: list[ExtractionJobMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class GetBrowserSessionResponseTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    name: str
+    createdAt: datetime
+    viewPort: ViewPortTypeDef
+    extensions: list[BrowserExtensionTypeDef]
+    sessionTimeoutSeconds: int
+    status: BrowserSessionStatusType
+    streams: BrowserSessionStreamTypeDef
+    sessionReplayArtifact: str
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartBrowserSessionRequestTypeDef(TypedDict):
+    browserIdentifier: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    name: NotRequired[str]
+    sessionTimeoutSeconds: NotRequired[int]
+    viewPort: NotRequired[ViewPortTypeDef]
+    extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
+    clientToken: NotRequired[str]
+
+class InvokeCodeInterpreterResponseTypeDef(TypedDict):
+    sessionId: str
+    stream: EventStream[CodeInterpreterStreamOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateEventOutputTypeDef(TypedDict):
+    event: EventTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetEventOutputTypeDef(TypedDict):
+    event: EventTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListEventsOutputTypeDef(TypedDict):
+    events: list[EventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateEventInputTypeDef(TypedDict):
+    memoryId: str
+    actorId: str
+    eventTimestamp: TimestampTypeDef
+    payload: Sequence[PayloadTypeUnionTypeDef]
+    sessionId: NotRequired[str]
+    branch: NotRequired[BranchTypeDef]
+    clientToken: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
 
 ListEventsInputPaginateTypeDef = TypedDict(
     "ListEventsInputPaginateTypeDef",
@@ -596,110 +972,15 @@ ListEventsInputTypeDef = TypedDict(
     },
 )
 
-class GetBrowserSessionResponseTypeDef(TypedDict):
-    browserIdentifier: str
-    sessionId: str
-    name: str
-    createdAt: datetime
-    viewPort: ViewPortTypeDef
-    sessionTimeoutSeconds: int
-    status: BrowserSessionStatusType
-    streams: BrowserSessionStreamTypeDef
-    sessionReplayArtifact: str
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartBrowserSessionResponseTypeDef(TypedDict):
-    browserIdentifier: str
-    sessionId: str
-    createdAt: datetime
-    streams: BrowserSessionStreamTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateBrowserStreamResponseTypeDef(TypedDict):
-    browserIdentifier: str
-    sessionId: str
-    streams: BrowserSessionStreamTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CodeInterpreterResultTypeDef(TypedDict):
-    content: List[ContentBlockTypeDef]
-    structuredContent: NotRequired[ToolResultStructuredContentTypeDef]
-    isError: NotRequired[bool]
-
-class PayloadTypeOutputTypeDef(TypedDict):
-    conversational: NotRequired[ConversationalTypeDef]
-    blob: NotRequired[Dict[str, Any]]
-
-class PayloadTypeTypeDef(TypedDict):
-    conversational: NotRequired[ConversationalTypeDef]
-    blob: NotRequired[Mapping[str, Any]]
-
-class ListMemoryRecordsOutputTypeDef(TypedDict):
-    memoryRecordSummaries: List[MemoryRecordSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class RetrieveMemoryRecordsOutputTypeDef(TypedDict):
-    memoryRecordSummaries: List[MemoryRecordSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class GetMemoryRecordOutputTypeDef(TypedDict):
-    memoryRecord: MemoryRecordTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class InvokeCodeInterpreterRequestTypeDef(TypedDict):
-    codeInterpreterIdentifier: str
-    name: ToolNameType
-    sessionId: NotRequired[str]
-    arguments: NotRequired[ToolArgumentsTypeDef]
-
-class CodeInterpreterStreamOutputTypeDef(TypedDict):
-    result: NotRequired[CodeInterpreterResultTypeDef]
-    accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
-    conflictException: NotRequired[ConflictExceptionTypeDef]
-    internalServerException: NotRequired[InternalServerExceptionTypeDef]
-    resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
-    serviceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
-    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
-    validationException: NotRequired[ValidationExceptionTypeDef]
-
-class EventTypeDef(TypedDict):
+class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryId: str
-    actorId: str
-    sessionId: str
-    eventId: str
-    eventTimestamp: datetime
-    payload: List[PayloadTypeOutputTypeDef]
-    branch: NotRequired[BranchTypeDef]
+    namespace: str
+    searchCriteria: SearchCriteriaTypeDef
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
-
-class InvokeCodeInterpreterResponseTypeDef(TypedDict):
-    sessionId: str
-    stream: EventStream[CodeInterpreterStreamOutputTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateEventOutputTypeDef(TypedDict):
-    event: EventTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetEventOutputTypeDef(TypedDict):
-    event: EventTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListEventsOutputTypeDef(TypedDict):
-    events: List[EventTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class CreateEventInputTypeDef(TypedDict):
+class RetrieveMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
-    actorId: str
-    eventTimestamp: TimestampTypeDef
-    payload: Sequence[PayloadTypeUnionTypeDef]
-    sessionId: NotRequired[str]
-    branch: NotRequired[BranchTypeDef]
-    clientToken: NotRequired[str]
+    namespace: str
+    searchCriteria: SearchCriteriaTypeDef
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]

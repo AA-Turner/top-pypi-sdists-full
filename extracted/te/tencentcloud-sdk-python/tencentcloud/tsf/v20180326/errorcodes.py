@@ -26,8 +26,14 @@ FAILEDOPERATION_APPLICATIONCREATEESATUHERROR = 'FailedOperation.ApplicationCreat
 # 应用查询失败。
 FAILEDOPERATION_APPLICATIONQUERYFAILED = 'FailedOperation.ApplicationQueryFailed'
 
+# 删除应用程序包请求仓库失败
+FAILEDOPERATION_APPLICATIONREPODELETEPKG = 'FailedOperation.ApplicationRepoDeletePkg'
+
 # TSF应用性能管理调用tsf-dcfg模块失败
 FAILEDOPERATION_CALLTSFDCFGFAILED = 'FailedOperation.CallTsfDcfgFailed'
+
+# TSF云API调用申请角色临时凭证调用请求失败
+FAILEDOPERATION_CAMROLEREQUESTERROR = 'FailedOperation.CamRoleRequestError'
 
 # 调用CDI状态接口失败
 FAILEDOPERATION_CDISTATUSFAILED = 'FailedOperation.CdiStatusFailed'
@@ -41,7 +47,10 @@ FAILEDOPERATION_CLOUDAPIPROXYERROR = 'FailedOperation.CloudApiProxyError'
 # 创建集群，开通VPC网络权限失败。
 FAILEDOPERATION_CLUSTERCREATEVPCFAIL = 'FailedOperation.ClusterCreateVpcFail'
 
-# 本环境仅允许操作名称 %s 的集群
+# 原生集群检测失败
+FAILEDOPERATION_CLUSTERNATIVECONNECTERROR = 'FailedOperation.ClusterNativeConnectError'
+
+# 本集群在当前环境不允许操作
 FAILEDOPERATION_CLUSTEROPERATEENVILLEGALERROR = 'FailedOperation.ClusterOperateEnvIllegalError'
 
 # 查询集群失败。
@@ -110,7 +119,7 @@ FAILEDOPERATION_CONTAINERGROUPKUBERNETESCONNECTERROR = 'FailedOperation.Containe
 # k8s集群可能处于异常状态，请删除或恢复k8s集群后，再进行操作
 FAILEDOPERATION_CONTAINERGROUPKUBERNETESTKECLUSTERABNORMAL = 'FailedOperation.ContainergroupKubernetesTkeClusterAbnormal'
 
-# 容器平台集群不可用，当前状态 %s
+# 容器平台集群当前不可用
 FAILEDOPERATION_CPCLUSTERUNAVAILABLE = 'FailedOperation.CpClusterUnavailable'
 
 # 健康检查配置失败。
@@ -191,10 +200,7 @@ FAILEDOPERATION_LANEINFORELEASEMESHFAILED = 'FailedOperation.LaneInfoReleaseMesh
 # 全链路灰度规则启用失败。
 FAILEDOPERATION_LANERULEENABLECONSULFAILED = 'FailedOperation.LaneRuleEnableConsulFailed'
 
-# 该灰度规则生效中,请关闭后删除
-FAILEDOPERATION_LANERULEENABLEDRULEDELETEFAILED = 'FailedOperation.LaneRuleEnabledRuleDeleteFailed'
-
-# 用户全链路灰度规则最大100条。
+# 用户全链路灰度规则最大1000条。
 FAILEDOPERATION_LANERULEMAXLIMIT = 'FailedOperation.LaneRuleMaxLimit'
 
 # 无法创建命名空间。
@@ -662,6 +668,9 @@ INVALIDPARAMETERVALUE_CLUSTERNAMEEXIST = 'InvalidParameterValue.ClusterNameExist
 # 示例：本环境集群名称禁止以 11 开头
 INVALIDPARAMETERVALUE_CLUSTERNAMEPREFIXILLEGALERROR = 'InvalidParameterValue.ClusterNamePrefixIllegalError'
 
+# 集群名称格式不正确,只能包含小写字母、数字及分隔符("-"),且不能以分隔符开头或结尾
+INVALIDPARAMETERVALUE_CLUSTERNAMEREGEXMISMATCH = 'InvalidParameterValue.ClusterNameRegexMismatch'
+
 # 集群命名不能为空。
 INVALIDPARAMETERVALUE_CLUSTERNAMEREQUIRED = 'InvalidParameterValue.ClusterNameRequired'
 
@@ -730,6 +739,9 @@ INVALIDPARAMETERVALUE_CONTAINERGROUPAPPLICATIONIDNULL = 'InvalidParameterValue.C
 
 # 集群 CPU 资源不足。
 INVALIDPARAMETERVALUE_CONTAINERGROUPCPULIMITOVER = 'InvalidParameterValue.ContainergroupCpulimitOver'
+
+# 容器Env的Value和ValueFrom不能同时使用
+INVALIDPARAMETERVALUE_CONTAINERGROUPENVVALUEBOTHSET = 'InvalidParameterValue.ContainergroupEnvValueBothSet'
 
 # 容器 Env 的 Value 和 ValueFrom 至少要有一个。
 INVALIDPARAMETERVALUE_CONTAINERGROUPENVVALUENOTSET = 'InvalidParameterValue.ContainergroupEnvValueNotSet'
@@ -961,6 +973,9 @@ INVALIDPARAMETERVALUE_LANEINFONOTEXISTENTRANCE = 'InvalidParameterValue.LaneInfo
 
 # 泳道备注不能超过200个字符。
 INVALIDPARAMETERVALUE_LANEINFOREMARKTOOLONG = 'InvalidParameterValue.LaneInfoRemarkTooLong'
+
+# 该灰度规则生效中,请关闭后删除
+INVALIDPARAMETERVALUE_LANERULEENABLEDRULEDELETEFAILED = 'InvalidParameterValue.LaneRuleEnabledRuleDeleteFailed'
 
 # 全链路灰度规则ID错误
 INVALIDPARAMETERVALUE_LANERULEIDINVALID = 'InvalidParameterValue.LaneRuleIdInvalid'
@@ -1244,7 +1259,7 @@ RESOURCENOTFOUND_GROUPNOTEXIST = 'ResourceNotFound.GroupNotExist'
 # 无法获取机器信息。
 RESOURCENOTFOUND_INSTANCENOTEXIST = 'ResourceNotFound.InstanceNotExist'
 
-# [%s]模块未提供该接口[%s]。
+# 后端模块未提供该接口。
 RESOURCENOTFOUND_INTERFACENOTFOUND = 'ResourceNotFound.InterfaceNotFound'
 
 # 无法找到License服务器。

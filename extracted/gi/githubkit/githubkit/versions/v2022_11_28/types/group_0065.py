@@ -10,38 +10,92 @@ See https://github.com/github/rest-api-description for more information.
 from __future__ import annotations
 
 from typing import Union
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
-from .group_0064 import MinimalRepositoryType
-
-
-class ThreadType(TypedDict):
-    """Thread
-
-    Thread
-    """
-
-    id: str
-    repository: MinimalRepositoryType
-    subject: ThreadPropSubjectType
-    reason: str
-    unread: bool
-    updated_at: str
-    last_read_at: Union[str, None]
-    url: str
-    subscription_url: str
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class ThreadPropSubjectType(TypedDict):
-    """ThreadPropSubject"""
+class PullRequestReviewEventPropReviewType(TypedDict):
+    """PullRequestReviewEventPropReview"""
 
-    title: str
-    url: str
-    latest_comment_url: str
-    type: str
+    id: NotRequired[int]
+    node_id: NotRequired[str]
+    user: NotRequired[Union[None, SimpleUserType]]
+    body: NotRequired[str]
+    commit_id: NotRequired[str]
+    submitted_at: NotRequired[Union[str, None]]
+    state: NotRequired[str]
+    html_url: NotRequired[str]
+    pull_request_url: NotRequired[str]
+    links: NotRequired[PullRequestReviewEventPropReviewPropLinksType]
+    updated_at: NotRequired[str]
+
+
+class PullRequestReviewEventPropReviewTypeForResponse(TypedDict):
+    """PullRequestReviewEventPropReview"""
+
+    id: NotRequired[int]
+    node_id: NotRequired[str]
+    user: NotRequired[Union[None, SimpleUserTypeForResponse]]
+    body: NotRequired[str]
+    commit_id: NotRequired[str]
+    submitted_at: NotRequired[Union[str, None]]
+    state: NotRequired[str]
+    html_url: NotRequired[str]
+    pull_request_url: NotRequired[str]
+    links: NotRequired[PullRequestReviewEventPropReviewPropLinksTypeForResponse]
+    updated_at: NotRequired[str]
+
+
+class PullRequestReviewEventPropReviewPropLinksType(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinks"""
+
+    html: PullRequestReviewEventPropReviewPropLinksPropHtmlType
+    pull_request: PullRequestReviewEventPropReviewPropLinksPropPullRequestType
+
+
+class PullRequestReviewEventPropReviewPropLinksTypeForResponse(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinks"""
+
+    html: PullRequestReviewEventPropReviewPropLinksPropHtmlTypeForResponse
+    pull_request: (
+        PullRequestReviewEventPropReviewPropLinksPropPullRequestTypeForResponse
+    )
+
+
+class PullRequestReviewEventPropReviewPropLinksPropHtmlType(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinksPropHtml"""
+
+    href: str
+
+
+class PullRequestReviewEventPropReviewPropLinksPropHtmlTypeForResponse(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinksPropHtml"""
+
+    href: str
+
+
+class PullRequestReviewEventPropReviewPropLinksPropPullRequestType(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinksPropPullRequest"""
+
+    href: str
+
+
+class PullRequestReviewEventPropReviewPropLinksPropPullRequestTypeForResponse(
+    TypedDict
+):
+    """PullRequestReviewEventPropReviewPropLinksPropPullRequest"""
+
+    href: str
 
 
 __all__ = (
-    "ThreadPropSubjectType",
-    "ThreadType",
+    "PullRequestReviewEventPropReviewPropLinksPropHtmlType",
+    "PullRequestReviewEventPropReviewPropLinksPropHtmlTypeForResponse",
+    "PullRequestReviewEventPropReviewPropLinksPropPullRequestType",
+    "PullRequestReviewEventPropReviewPropLinksPropPullRequestTypeForResponse",
+    "PullRequestReviewEventPropReviewPropLinksType",
+    "PullRequestReviewEventPropReviewPropLinksTypeForResponse",
+    "PullRequestReviewEventPropReviewType",
+    "PullRequestReviewEventPropReviewTypeForResponse",
 )

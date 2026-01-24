@@ -13,16 +13,15 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0032 import ActionsHostedRunner
+
+class WebhookSecretScanningAlertLocationCreatedFormEncoded(GitHubModel):
+    """Secret Scanning Alert Location Created Event"""
+
+    payload: str = Field(
+        description="A URL-encoded string of the secret_scanning_alert_location.created JSON payload. The decoded payload is a JSON object."
+    )
 
 
-class EnterprisesEnterpriseActionsHostedRunnersGetResponse200(GitHubModel):
-    """EnterprisesEnterpriseActionsHostedRunnersGetResponse200"""
+model_rebuild(WebhookSecretScanningAlertLocationCreatedFormEncoded)
 
-    total_count: int = Field()
-    runners: list[ActionsHostedRunner] = Field()
-
-
-model_rebuild(EnterprisesEnterpriseActionsHostedRunnersGetResponse200)
-
-__all__ = ("EnterprisesEnterpriseActionsHostedRunnersGetResponse200",)
+__all__ = ("WebhookSecretScanningAlertLocationCreatedFormEncoded",)

@@ -3,7 +3,7 @@ Main interface for iottwinmaker service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iottwinmaker/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

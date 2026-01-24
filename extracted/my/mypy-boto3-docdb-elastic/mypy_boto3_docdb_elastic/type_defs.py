@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import AuthType, OptInTypeType, SnapshotTypeType, StatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -94,7 +89,7 @@ class ApplyPendingMaintenanceActionInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -122,8 +117,8 @@ class ClusterSnapshotTypeDef(TypedDict):
     snapshotCreationTime: str
     snapshotName: str
     status: StatusType
-    subnetIds: List[str]
-    vpcSecurityGroupIds: List[str]
+    subnetIds: list[str]
+    vpcSecurityGroupIds: list[str]
     snapshotType: NotRequired[SnapshotTypeType]
 
 
@@ -266,18 +261,18 @@ class UpdateClusterInputTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListClustersOutputTypeDef(TypedDict):
-    clusters: List[ClusterInListTypeDef]
+    clusters: list[ClusterInListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListClusterSnapshotsOutputTypeDef(TypedDict):
-    snapshots: List[ClusterSnapshotInListTypeDef]
+    snapshots: list[ClusterSnapshotInListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -314,12 +309,12 @@ class ClusterTypeDef(TypedDict):
     shardCapacity: int
     shardCount: int
     status: StatusType
-    subnetIds: List[str]
-    vpcSecurityGroupIds: List[str]
+    subnetIds: list[str]
+    vpcSecurityGroupIds: list[str]
     backupRetentionPeriod: NotRequired[int]
     preferredBackupWindow: NotRequired[str]
     shardInstanceCount: NotRequired[int]
-    shards: NotRequired[List[ShardTypeDef]]
+    shards: NotRequired[list[ShardTypeDef]]
 
 
 class ListClusterSnapshotsInputPaginateTypeDef(TypedDict):
@@ -337,7 +332,7 @@ class ListPendingMaintenanceActionsInputPaginateTypeDef(TypedDict):
 
 
 class ResourcePendingMaintenanceActionTypeDef(TypedDict):
-    pendingMaintenanceActionDetails: NotRequired[List[PendingMaintenanceActionDetailsTypeDef]]
+    pendingMaintenanceActionDetails: NotRequired[list[PendingMaintenanceActionDetailsTypeDef]]
     resourceArn: NotRequired[str]
 
 
@@ -387,6 +382,6 @@ class GetPendingMaintenanceActionOutputTypeDef(TypedDict):
 
 
 class ListPendingMaintenanceActionsOutputTypeDef(TypedDict):
-    resourcePendingMaintenanceActions: List[ResourcePendingMaintenanceActionTypeDef]
+    resourcePendingMaintenanceActions: list[ResourcePendingMaintenanceActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

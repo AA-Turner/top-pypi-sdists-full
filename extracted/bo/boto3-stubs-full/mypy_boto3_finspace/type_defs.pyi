@@ -3,7 +3,7 @@ Type annotations for finspace service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_finspace/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -41,12 +42,6 @@ from .literals import (
     TgwStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -229,7 +224,7 @@ class SuperuserParametersTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -266,7 +261,7 @@ class KxScalingGroupConfigurationTypeDef(TypedDict):
     cpu: NotRequired[float]
 
 class TickerplantLogConfigurationOutputTypeDef(TypedDict):
-    tickerplantLogVolumes: NotRequired[List[str]]
+    tickerplantLogVolumes: NotRequired[list[str]]
 
 class VolumeTypeDef(TypedDict):
     volumeName: NotRequired[str]
@@ -274,8 +269,8 @@ class VolumeTypeDef(TypedDict):
 
 class VpcConfigurationOutputTypeDef(TypedDict):
     vpcId: NotRequired[str]
-    securityGroupIds: NotRequired[List[str]]
-    subnetIds: NotRequired[List[str]]
+    securityGroupIds: NotRequired[list[str]]
+    subnetIds: NotRequired[list[str]]
     ipAddressType: NotRequired[Literal["IP_V4"]]
 
 class CreateKxDatabaseRequestTypeDef(TypedDict):
@@ -286,7 +281,7 @@ class CreateKxDatabaseRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 class KxDataviewSegmentConfigurationOutputTypeDef(TypedDict):
-    dbPaths: List[str]
+    dbPaths: list[str]
     volumeName: str
     onDemand: NotRequired[bool]
 
@@ -373,7 +368,7 @@ class FederationParametersOutputTypeDef(TypedDict):
     applicationCallBackURL: NotRequired[str]
     federationURN: NotRequired[str]
     federationProviderName: NotRequired[str]
-    attributeMap: NotRequired[Dict[str, str]]
+    attributeMap: NotRequired[dict[str, str]]
 
 class FederationParametersTypeDef(TypedDict):
     samlMetadataDocument: NotRequired[str]
@@ -449,7 +444,7 @@ class KxClusterCodeDeploymentConfigurationTypeDef(TypedDict):
 
 class KxDatabaseCacheConfigurationOutputTypeDef(TypedDict):
     cacheType: str
-    dbPaths: List[str]
+    dbPaths: list[str]
     dataviewName: NotRequired[str]
 
 class KxDatabaseCacheConfigurationTypeDef(TypedDict):
@@ -479,7 +474,7 @@ class KxNodeTypeDef(TypedDict):
 class KxScalingGroupTypeDef(TypedDict):
     scalingGroupName: NotRequired[str]
     hostType: NotRequired[str]
-    clusters: NotRequired[List[str]]
+    clusters: NotRequired[list[str]]
     availabilityZoneId: NotRequired[str]
     status: NotRequired[KxScalingGroupStatusType]
     statusReason: NotRequired[str]
@@ -500,7 +495,7 @@ class KxVolumeTypeDef(TypedDict):
     description: NotRequired[str]
     statusReason: NotRequired[str]
     azMode: NotRequired[KxAzModeType]
-    availabilityZoneIds: NotRequired[List[str]]
+    availabilityZoneIds: NotRequired[list[str]]
     createdTimestamp: NotRequired[datetime]
     lastModifiedTimestamp: NotRequired[datetime]
 
@@ -677,7 +672,7 @@ class GetKxScalingGroupResponseTypeDef(TypedDict):
     scalingGroupName: str
     scalingGroupArn: str
     hostType: str
-    clusters: List[str]
+    clusters: list[str]
     availabilityZoneId: str
     status: KxScalingGroupStatusType
     statusReason: str
@@ -693,7 +688,7 @@ class GetKxUserResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateKxDatabaseResponseTypeDef(TypedDict):
@@ -714,7 +709,7 @@ class CreateKxChangesetResponseTypeDef(TypedDict):
     changesetId: str
     databaseName: str
     environmentId: str
-    changeRequests: List[ChangeRequestTypeDef]
+    changeRequests: list[ChangeRequestTypeDef]
     createdTimestamp: datetime
     lastModifiedTimestamp: datetime
     status: ChangesetStatusType
@@ -725,7 +720,7 @@ class GetKxChangesetResponseTypeDef(TypedDict):
     changesetId: str
     databaseName: str
     environmentId: str
-    changeRequests: List[ChangeRequestTypeDef]
+    changeRequests: list[ChangeRequestTypeDef]
     createdTimestamp: datetime
     activeFromTimestamp: datetime
     lastModifiedTimestamp: datetime
@@ -740,7 +735,7 @@ class KxClusterTypeDef(TypedDict):
     clusterType: NotRequired[KxClusterTypeType]
     clusterDescription: NotRequired[str]
     releaseLabel: NotRequired[str]
-    volumes: NotRequired[List[VolumeTypeDef]]
+    volumes: NotRequired[list[VolumeTypeDef]]
     initializationScript: NotRequired[str]
     executionRole: NotRequired[str]
     azMode: NotRequired[KxAzModeType]
@@ -755,7 +750,7 @@ class CreateKxDataviewResponseTypeDef(TypedDict):
     azMode: KxAzModeType
     availabilityZoneId: str
     changesetId: str
-    segmentConfigurations: List[KxDataviewSegmentConfigurationOutputTypeDef]
+    segmentConfigurations: list[KxDataviewSegmentConfigurationOutputTypeDef]
     description: str
     autoUpdate: bool
     readWrite: bool
@@ -766,8 +761,8 @@ class CreateKxDataviewResponseTypeDef(TypedDict):
 
 class KxDataviewActiveVersionTypeDef(TypedDict):
     changesetId: NotRequired[str]
-    segmentConfigurations: NotRequired[List[KxDataviewSegmentConfigurationOutputTypeDef]]
-    attachedClusters: NotRequired[List[str]]
+    segmentConfigurations: NotRequired[list[KxDataviewSegmentConfigurationOutputTypeDef]]
+    attachedClusters: NotRequired[list[str]]
     createdTimestamp: NotRequired[datetime]
     versionId: NotRequired[str]
 
@@ -775,7 +770,7 @@ class KxDataviewConfigurationOutputTypeDef(TypedDict):
     dataviewName: NotRequired[str]
     dataviewVersionId: NotRequired[str]
     changesetId: NotRequired[str]
-    segmentConfigurations: NotRequired[List[KxDataviewSegmentConfigurationOutputTypeDef]]
+    segmentConfigurations: NotRequired[list[KxDataviewSegmentConfigurationOutputTypeDef]]
 
 class CreateKxVolumeRequestTypeDef(TypedDict):
     environmentId: str
@@ -798,7 +793,7 @@ class CreateKxVolumeResponseTypeDef(TypedDict):
     statusReason: str
     azMode: KxAzModeType
     description: str
-    availabilityZoneIds: List[str]
+    availabilityZoneIds: list[str]
     createdTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -838,9 +833,9 @@ class GetKxVolumeResponseTypeDef(TypedDict):
     createdTimestamp: datetime
     description: str
     azMode: KxAzModeType
-    availabilityZoneIds: List[str]
+    availabilityZoneIds: list[str]
     lastModifiedTimestamp: datetime
-    attachedClusters: List[KxAttachedClusterTypeDef]
+    attachedClusters: list[KxAttachedClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateKxVolumeResponseTypeDef(TypedDict):
@@ -854,13 +849,13 @@ class UpdateKxVolumeResponseTypeDef(TypedDict):
     statusReason: str
     createdTimestamp: datetime
     azMode: KxAzModeType
-    availabilityZoneIds: List[str]
+    availabilityZoneIds: list[str]
     lastModifiedTimestamp: datetime
-    attachedClusters: List[KxAttachedClusterTypeDef]
+    attachedClusters: list[KxAttachedClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListKxChangesetsResponseTypeDef(TypedDict):
-    kxChangesets: List[KxChangesetListEntryTypeDef]
+    kxChangesets: list[KxChangesetListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -878,7 +873,7 @@ KxDatabaseCacheConfigurationUnionTypeDef = Union[
 ]
 
 class ListKxDatabasesResponseTypeDef(TypedDict):
-    kxDatabases: List[KxDatabaseListEntryTypeDef]
+    kxDatabases: list[KxDatabaseListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -887,22 +882,22 @@ KxDataviewSegmentConfigurationUnionTypeDef = Union[
 ]
 
 class ListKxClusterNodesResponseTypeDef(TypedDict):
-    nodes: List[KxNodeTypeDef]
+    nodes: list[KxNodeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListKxScalingGroupsResponseTypeDef(TypedDict):
-    scalingGroups: List[KxScalingGroupTypeDef]
+    scalingGroups: list[KxScalingGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListKxUsersResponseTypeDef(TypedDict):
-    users: List[KxUserTypeDef]
+    users: list[KxUserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListKxVolumesResponseTypeDef(TypedDict):
-    kxVolumeSummaries: List[KxVolumeTypeDef]
+    kxVolumeSummaries: list[KxVolumeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -923,7 +918,7 @@ TickerplantLogConfigurationUnionTypeDef = Union[
 VpcConfigurationUnionTypeDef = Union[VpcConfigurationTypeDef, VpcConfigurationOutputTypeDef]
 
 class ListKxClustersResponseTypeDef(TypedDict):
-    kxClusterSummaries: List[KxClusterTypeDef]
+    kxClusterSummaries: list[KxClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -933,8 +928,8 @@ class GetKxDataviewResponseTypeDef(TypedDict):
     azMode: KxAzModeType
     availabilityZoneId: str
     changesetId: str
-    segmentConfigurations: List[KxDataviewSegmentConfigurationOutputTypeDef]
-    activeVersions: List[KxDataviewActiveVersionTypeDef]
+    segmentConfigurations: list[KxDataviewSegmentConfigurationOutputTypeDef]
+    activeVersions: list[KxDataviewActiveVersionTypeDef]
     description: str
     autoUpdate: bool
     readWrite: bool
@@ -952,8 +947,8 @@ class KxDataviewListEntryTypeDef(TypedDict):
     azMode: NotRequired[KxAzModeType]
     availabilityZoneId: NotRequired[str]
     changesetId: NotRequired[str]
-    segmentConfigurations: NotRequired[List[KxDataviewSegmentConfigurationOutputTypeDef]]
-    activeVersions: NotRequired[List[KxDataviewActiveVersionTypeDef]]
+    segmentConfigurations: NotRequired[list[KxDataviewSegmentConfigurationOutputTypeDef]]
+    activeVersions: NotRequired[list[KxDataviewActiveVersionTypeDef]]
     status: NotRequired[KxDataviewStatusType]
     description: NotRequired[str]
     autoUpdate: NotRequired[bool]
@@ -969,8 +964,8 @@ class UpdateKxDataviewResponseTypeDef(TypedDict):
     azMode: KxAzModeType
     availabilityZoneId: str
     changesetId: str
-    segmentConfigurations: List[KxDataviewSegmentConfigurationOutputTypeDef]
-    activeVersions: List[KxDataviewActiveVersionTypeDef]
+    segmentConfigurations: list[KxDataviewSegmentConfigurationOutputTypeDef]
+    activeVersions: list[KxDataviewActiveVersionTypeDef]
     status: KxDataviewStatusType
     autoUpdate: bool
     readWrite: bool
@@ -981,7 +976,7 @@ class UpdateKxDataviewResponseTypeDef(TypedDict):
 
 class KxDatabaseConfigurationOutputTypeDef(TypedDict):
     databaseName: str
-    cacheConfigurations: NotRequired[List[KxDatabaseCacheConfigurationOutputTypeDef]]
+    cacheConfigurations: NotRequired[list[KxDatabaseCacheConfigurationOutputTypeDef]]
     changesetId: NotRequired[str]
     dataviewName: NotRequired[str]
     dataviewConfiguration: NotRequired[KxDataviewConfigurationOutputTypeDef]
@@ -991,7 +986,7 @@ class GetEnvironmentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEnvironmentsResponseTypeDef(TypedDict):
-    environments: List[EnvironmentTypeDef]
+    environments: list[EnvironmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1048,7 +1043,7 @@ class UpdateKxDataviewRequestTypeDef(TypedDict):
 class TransitGatewayConfigurationOutputTypeDef(TypedDict):
     transitGatewayID: str
     routableCIDRSpace: str
-    attachmentNetworkAclConfiguration: NotRequired[List[NetworkACLEntryTypeDef]]
+    attachmentNetworkAclConfiguration: NotRequired[list[NetworkACLEntryTypeDef]]
 
 class TransitGatewayConfigurationTypeDef(TypedDict):
     transitGatewayID: str
@@ -1056,7 +1051,7 @@ class TransitGatewayConfigurationTypeDef(TypedDict):
     attachmentNetworkAclConfiguration: NotRequired[Sequence[NetworkACLEntryTypeDef]]
 
 class ListKxDataviewsResponseTypeDef(TypedDict):
-    kxDataviews: List[KxDataviewListEntryTypeDef]
+    kxDataviews: list[KxDataviewListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1067,16 +1062,16 @@ class CreateKxClusterResponseTypeDef(TypedDict):
     clusterName: str
     clusterType: KxClusterTypeType
     tickerplantLogConfiguration: TickerplantLogConfigurationOutputTypeDef
-    volumes: List[VolumeTypeDef]
-    databases: List[KxDatabaseConfigurationOutputTypeDef]
-    cacheStorageConfigurations: List[KxCacheStorageConfigurationTypeDef]
+    volumes: list[VolumeTypeDef]
+    databases: list[KxDatabaseConfigurationOutputTypeDef]
+    cacheStorageConfigurations: list[KxCacheStorageConfigurationTypeDef]
     autoScalingConfiguration: AutoScalingConfigurationTypeDef
     clusterDescription: str
     capacityConfiguration: CapacityConfigurationTypeDef
     releaseLabel: str
     vpcConfiguration: VpcConfigurationOutputTypeDef
     initializationScript: str
-    commandLineArguments: List[KxCommandLineArgumentTypeDef]
+    commandLineArguments: list[KxCommandLineArgumentTypeDef]
     code: CodeConfigurationTypeDef
     executionRole: str
     lastModifiedTimestamp: datetime
@@ -1093,16 +1088,16 @@ class GetKxClusterResponseTypeDef(TypedDict):
     clusterName: str
     clusterType: KxClusterTypeType
     tickerplantLogConfiguration: TickerplantLogConfigurationOutputTypeDef
-    volumes: List[VolumeTypeDef]
-    databases: List[KxDatabaseConfigurationOutputTypeDef]
-    cacheStorageConfigurations: List[KxCacheStorageConfigurationTypeDef]
+    volumes: list[VolumeTypeDef]
+    databases: list[KxDatabaseConfigurationOutputTypeDef]
+    cacheStorageConfigurations: list[KxCacheStorageConfigurationTypeDef]
     autoScalingConfiguration: AutoScalingConfigurationTypeDef
     clusterDescription: str
     capacityConfiguration: CapacityConfigurationTypeDef
     releaseLabel: str
     vpcConfiguration: VpcConfigurationOutputTypeDef
     initializationScript: str
-    commandLineArguments: List[KxCommandLineArgumentTypeDef]
+    commandLineArguments: list[KxCommandLineArgumentTypeDef]
     code: CodeConfigurationTypeDef
     executionRole: str
     lastModifiedTimestamp: datetime
@@ -1130,10 +1125,10 @@ class GetKxEnvironmentResponseTypeDef(TypedDict):
     kmsKeyId: str
     dedicatedServiceAccountId: str
     transitGatewayConfiguration: TransitGatewayConfigurationOutputTypeDef
-    customDNSConfiguration: List[CustomDNSServerTypeDef]
+    customDNSConfiguration: list[CustomDNSServerTypeDef]
     creationTimestamp: datetime
     updateTimestamp: datetime
-    availabilityZoneIds: List[str]
+    availabilityZoneIds: list[str]
     certificateAuthorityArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1150,10 +1145,10 @@ class KxEnvironmentTypeDef(TypedDict):
     kmsKeyId: NotRequired[str]
     dedicatedServiceAccountId: NotRequired[str]
     transitGatewayConfiguration: NotRequired[TransitGatewayConfigurationOutputTypeDef]
-    customDNSConfiguration: NotRequired[List[CustomDNSServerTypeDef]]
+    customDNSConfiguration: NotRequired[list[CustomDNSServerTypeDef]]
     creationTimestamp: NotRequired[datetime]
     updateTimestamp: NotRequired[datetime]
-    availabilityZoneIds: NotRequired[List[str]]
+    availabilityZoneIds: NotRequired[list[str]]
     certificateAuthorityArn: NotRequired[str]
 
 class UpdateKxEnvironmentNetworkResponseTypeDef(TypedDict):
@@ -1169,10 +1164,10 @@ class UpdateKxEnvironmentNetworkResponseTypeDef(TypedDict):
     kmsKeyId: str
     dedicatedServiceAccountId: str
     transitGatewayConfiguration: TransitGatewayConfigurationOutputTypeDef
-    customDNSConfiguration: List[CustomDNSServerTypeDef]
+    customDNSConfiguration: list[CustomDNSServerTypeDef]
     creationTimestamp: datetime
     updateTimestamp: datetime
-    availabilityZoneIds: List[str]
+    availabilityZoneIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateKxEnvironmentResponseTypeDef(TypedDict):
@@ -1188,10 +1183,10 @@ class UpdateKxEnvironmentResponseTypeDef(TypedDict):
     kmsKeyId: str
     dedicatedServiceAccountId: str
     transitGatewayConfiguration: TransitGatewayConfigurationOutputTypeDef
-    customDNSConfiguration: List[CustomDNSServerTypeDef]
+    customDNSConfiguration: list[CustomDNSServerTypeDef]
     creationTimestamp: datetime
     updateTimestamp: datetime
-    availabilityZoneIds: List[str]
+    availabilityZoneIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 TransitGatewayConfigurationUnionTypeDef = Union[
@@ -1206,7 +1201,7 @@ class KxDatabaseConfigurationTypeDef(TypedDict):
     dataviewConfiguration: NotRequired[KxDataviewConfigurationUnionTypeDef]
 
 class ListKxEnvironmentsResponseTypeDef(TypedDict):
-    environments: List[KxEnvironmentTypeDef]
+    environments: list[KxEnvironmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

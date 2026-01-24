@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -17,12 +17,12 @@ set(LIBS
     ${passes_libs}
     MLIROptLib
     MLIRMQTOptTransforms
-    MLIRMQTDynTransforms
-    MQTDynToMQTOpt
-    MQTOptToMQTDyn)
+    MQTRefToMQTOpt
+    MQTOptToMQTRef
+    MQTRefToQIR
+    QIRToMQTRef)
 
 add_mlir_tool(quantum-opt quantum-opt.cpp DEPENDS ${LIBS} SUPPORT_PLUGINS)
-target_compile_options(quantum-opt PRIVATE -fexceptions)
 target_link_libraries(quantum-opt PUBLIC ${LIBS})
 llvm_update_compile_flags(quantum-opt)
 mlir_check_all_link_libraries(quantum-opt)

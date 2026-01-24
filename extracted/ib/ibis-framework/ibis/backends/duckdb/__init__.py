@@ -28,6 +28,7 @@ from ibis.backends import (
     DirectExampleLoader,
     HasCurrentCatalog,
     HasCurrentDatabase,
+    SupportsTempTables,
     UrlFromPath,
 )
 from ibis.backends.sql import SQLBackend
@@ -47,10 +48,15 @@ if TYPE_CHECKING:
 
     from ibis.expr.schema import SchemaLike
 
+try:
+    from duckdb import func as _duckdb_func
+except ImportError:
+    from duckdb import functional as _duckdb_func
+
 
 _UDF_INPUT_TYPE_MAPPING = {
-    InputType.PYARROW: duckdb.functional.ARROW,
-    InputType.PYTHON: duckdb.functional.NATIVE,
+    InputType.PYARROW: _duckdb_func.ARROW,
+    InputType.PYTHON: _duckdb_func.NATIVE,
 }
 
 
@@ -74,6 +80,7 @@ class _Settings:
 
 
 class Backend(
+    SupportsTempTables,
     SQLBackend,
     CanListCatalog,
     CanCreateDatabase,
@@ -84,6 +91,7 @@ class Backend(
 ):
     name = "duckdb"
     compiler = sc.duckdb.compiler
+    supports_temporary_tables = True
 
     @property
     def settings(self) -> _Settings:
@@ -217,8 +225,11 @@ class Backend(
         final_table = sg.table(name, catalog=catalog, db=database, quoted=quoted)
         with self._safe_raw_sql(create_stmt) as cur:
             if query is not None:
+                columns = [
+                    sge.to_identifier(col, quoted=quoted) for col in table.columns
+                ]
                 insert_stmt = sge.insert(
-                    query, into=initial_table, columns=table.columns
+                    query, into=initial_table, columns=columns
                 ).sql(dialect)
                 cur.execute(insert_stmt).fetchall()
 
@@ -1376,7 +1387,7 @@ class Backend(
 
         table = self._to_duckdb_relation(
             expr, params=params, limit=limit, **kwargs
-        ).arrow()
+        ).to_arrow_table()
         return expr.__pyarrow_result__(table, data_mapper=DuckDBPyArrowData)
 
     def execute(
@@ -1396,7 +1407,7 @@ class Backend(
         from ibis.backends.duckdb.converter import DuckDBPandasData
 
         rel = self._to_duckdb_relation(expr, params=params, limit=limit, **kwargs)
-        table = rel.arrow()
+        table = rel.to_arrow_table()
 
         df = pd.DataFrame(
             {
@@ -1718,16 +1729,6 @@ class Backend(
             obj = data.to_pyarrow(schema)
 
         self.con.register(op.name, obj)
-
-    def _finalize_memtable(self, name: str) -> None:
-        # if we don't aggressively unregister tables duckdb will keep a
-        # reference to every memtable ever registered, even if there's no
-        # way for a user to access the operation anymore, resulting in a
-        # memory leak
-        #
-        # we can't use drop_table, because self.con.register creates a view, so
-        # use the corresponding unregister method
-        self.con.unregister(name)
 
     def _register_udfs(self, expr: ir.Expr) -> None:
         con = self.con

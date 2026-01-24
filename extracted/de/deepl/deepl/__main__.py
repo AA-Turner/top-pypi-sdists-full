@@ -3,6 +3,7 @@
 # license that can be found in the LICENSE file.
 
 import argparse
+import json
 import deepl
 import logging
 import os
@@ -287,8 +288,9 @@ def get_parser(prog_name):
         "fallback",
     )
 
-    # Note: add_subparsers param 'required' is not available in py36
-    subparsers = parser.add_subparsers(metavar="command", dest="command")
+    subparsers = parser.add_subparsers(
+        metavar="command", dest="command", required=True
+    )
 
     def add_common_arguments(subparser: argparse.ArgumentParser):
         """Adds arguments shared between text and document commands to the
@@ -320,6 +322,15 @@ def get_parser(prog_name):
             dest="glossary",
             type=str,
             help="ID of glossary to use for translation",
+        )
+        subparser.add_argument(
+            "--extra-body-parameters",
+            dest="extra_body_parameters",
+            type=json.loads,
+            default=None,
+            help="additional body parameters to include in the API request, "
+            "specified as a JSON object string, for example: "
+            '\'{"tag_handling": "xml", "show_billed_characters": true}\'',
         )
 
     # create the parser for the "text" command
@@ -369,6 +380,20 @@ def get_parser(prog_name):
         help="control model used for translation, see API for information",
     )
     parser_text.add_argument(
+        "--style-id",
+        dest="style_rule",
+        type=str,
+        help="ID of style rule to use for translation",
+    )
+    parser_text.add_argument(
+        "--custom-instructions",
+        dest="custom_instructions",
+        action="append",
+        type=str,
+        help="custom instructions to guide translation (can be specified "
+        "multiple times, max 10 instructions, each max 300 characters)",
+    )
+    parser_text.add_argument(
         "text",
         nargs="+",
         type=str,
@@ -396,6 +421,13 @@ def get_parser(prog_name):
         choices=["xml", "html"],
         default=None,
         help="activate processing of formatting tags, for example 'xml'",
+    )
+    tag_handling_group.add_argument(
+        "--tag-handling-version",
+        type=str,
+        choices=["v1", "v2"],
+        default=None,
+        help="specify which version of the tag handling algorithm to use",
     )
     tag_handling_group.add_argument(
         "--outline-detection-off",
@@ -492,9 +524,8 @@ def get_parser(prog_name):
         description="manage glossaries using subcommands",
     )
 
-    # Note: add_subparsers param 'required' is not available in py36
     glossary_subparsers = parser_glossary.add_subparsers(
-        metavar="subcommand", dest="subcommand"
+        metavar="subcommand", dest="subcommand", required=True
     )
     parser_glossary_create = glossary_subparsers.add_parser(
         "create",
@@ -600,12 +631,6 @@ def main(args=None, prog_name=None):
     parser, parser_glossary = get_parser(prog_name)
     args = parser.parse_args(args)
 
-    if args.command is None:
-        # Support for Python 3.6 - subcommands cannot be required
-        sys.stderr.write("Error: command is required\n")
-        parser.print_help(sys.stderr)
-        sys.exit(1)
-
     logger = logging.getLogger("deepl")
     if args.verbose == 1:
         logger.setLevel(logging.INFO)
@@ -652,13 +677,6 @@ def main(args=None, prog_name=None):
         if args.command in ["text", "translate", "rephrase"]:
             if len(args.text) == 1 and args.text[0] == "-":
                 args.text = [sys.stdin.read()]
-
-        elif args.command == "glossary":
-            if args.subcommand is None:
-                # Support for Python 3.6 - subcommands cannot be required
-                sys.stderr.write("Error: glossary subcommand is required\n")
-                parser_glossary.print_help(sys.stderr)
-                sys.exit(1)
 
         # Remove global args so they are not unrecognised in action functions
         del (

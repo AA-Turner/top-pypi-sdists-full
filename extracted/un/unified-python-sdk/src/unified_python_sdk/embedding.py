@@ -60,6 +60,7 @@ class Embedding(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.genai_embedding, False, False, "json", shared.GenaiEmbedding
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Embedding(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createGenaiEmbedding",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Embedding(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.genai_embedding, False, False, "json", shared.GenaiEmbedding
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Embedding(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createGenaiEmbedding",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

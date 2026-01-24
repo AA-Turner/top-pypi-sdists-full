@@ -14,18 +14,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from io import StringIO
 import itertools
 import os
 import shutil
 import sys
 import tempfile
 import unittest
-from io import StringIO
 
 from tests.common import (
+    RunContext,
     build_temp_workspace,
     register_test_codecs,
-    RunContext,
     unregister_test_codecs,
 )
 
@@ -199,12 +199,12 @@ class SimpleConfigTestCase(unittest.TestCase):
     def test_invalid_rule(self):
         with self.assertRaisesRegex(
                 config.YamlLintConfigError,
-                'invalid config: rules should be a dict'):
+                'invalid config: rules should be a mapping'):
             config.YamlLintConfig('rules:\n')
         with self.assertRaisesRegex(
                 config.YamlLintConfigError,
                 'invalid config: rule "colons": should be either '
-                '"enable", "disable" or a dict'):
+                '"enable", "disable" or a mapping'):
             config.YamlLintConfig('rules:\n'
                                   '  colons: invalid\n')
 

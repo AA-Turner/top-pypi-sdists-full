@@ -35,6 +35,7 @@ from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_con
 from google.cloud.artifactregistry_v1.types import apt_artifact, artifact
 from google.cloud.artifactregistry_v1.types import attachment
 from google.cloud.artifactregistry_v1.types import attachment as gda_attachment
+from google.cloud.artifactregistry_v1.types import export
 from google.cloud.artifactregistry_v1.types import file
 from google.cloud.artifactregistry_v1.types import file as gda_file
 from google.cloud.artifactregistry_v1.types import package
@@ -92,9 +93,10 @@ class ArtifactRegistryTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -400,6 +402,11 @@ class ArtifactRegistryTransport(abc.ABC):
             ),
             self.delete_attachment: gapic_v1.method.wrap_method(
                 self.delete_attachment,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.export_artifact: gapic_v1.method.wrap_method(
+                self.export_artifact,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -874,6 +881,15 @@ class ArtifactRegistryTransport(abc.ABC):
         self,
     ) -> Callable[
         [attachment.DeleteAttachmentRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def export_artifact(
+        self,
+    ) -> Callable[
+        [export.ExportArtifactRequest],
         Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
     ]:
         raise NotImplementedError()

@@ -1,49 +1,51 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
-"""Generic python representation of a CCU parameter."""
+# Copyright (c) 2021-2026
+"""
+Base implementation for generic data points.
+
+Public API of this module is defined by __all__.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any, Final
+from typing import Any, Final, TypeAlias
 
-from aiohomematic.const import (
-    DP_KEY_VALUE,
-    CallSource,
-    DataPointUsage,
-    EventType,
-    Parameter,
-    ParameterData,
-    ParamsetKey,
-)
+from aiohomematic import i18n
+from aiohomematic.central.events import DeviceLifecycleEvent, DeviceLifecycleEventType
+from aiohomematic.const import DP_KEY_VALUE, DataPointUsage, Parameter, ParameterData, ParamsetKey
 from aiohomematic.decorators import inspector
 from aiohomematic.exceptions import ValidationException
-from aiohomematic.model import data_point as hme, device as hmd
-from aiohomematic.model.support import DataPointNameData, GenericParameterType, get_data_point_name_data
-from aiohomematic.property_decorators import cached_property
+from aiohomematic.interfaces import ChannelProtocol, GenericDataPointProtocol
+from aiohomematic.model import data_point as hme
+from aiohomematic.model.support import DataPointNameData, get_data_point_name_data
+from aiohomematic.property_decorators import hm_property
+from aiohomematic.type_aliases import ParamType
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: GenericParameterType](
-    hme.BaseParameterDataPoint
+class GenericDataPoint[ParameterT: ParamType, InputParameterT: ParamType](
+    hme.BaseParameterDataPoint[ParameterT, InputParameterT],
+    GenericDataPointProtocol[ParameterT | None],
 ):
     """Base class for generic data point."""
 
     __slots__ = ("_cached_usage",)
 
     _validate_state_change: bool = True
-    is_hmtype: Final = True
+    is_hmtype: bool = True
 
     def __init__(
         self,
-        channel: hmd.Channel,
+        *,
+        channel: ChannelProtocol,
         paramset_key: ParamsetKey,
         parameter: str,
         parameter_data: ParameterData,
     ) -> None:
-        """Init the generic data_point."""
+        """Initialize the generic data_point."""
         super().__init__(
             channel=channel,
             paramset_key=paramset_key,
@@ -51,7 +53,7 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
             parameter_data=parameter_data,
         )
 
-    @cached_property
+    @hm_property(cached=True)
     def usage(self) -> DataPointUsage:
         """Return the data_point usage."""
         if self._is_forced_sensor or self._is_un_ignored:
@@ -60,9 +62,9 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
             return self._get_data_point_usage()
         return DataPointUsage.DATA_POINT if force_enabled else DataPointUsage.NO_CREATE  # pylint: disable=using-constant-test
 
-    async def event(self, value: Any, received_at: datetime) -> None:
+    async def event(self, *, value: Any, received_at: datetime) -> None:
         """Handle event for which this data_point has subscribed."""
-        self._device.client.last_value_send_cache.remove_last_value_send(
+        self._device.client.last_value_send_tracker.remove_last_value_send(
             dpk=self.dpk,
             value=value,
         )
@@ -70,35 +72,55 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
         if old_value == new_value:
             return
 
-        # reload paramset_descriptions, if value has changed
         if self._parameter == Parameter.CONFIG_PENDING and new_value is False and old_value is True:
-            await self._device.reload_paramset_descriptions()
-
-            for dp in self._device.get_readable_data_points(paramset_key=ParamsetKey.MASTER):
-                await dp.load_data_point_value(call_source=CallSource.MANUAL_OR_SCHEDULED, direct_call=True)
+            # do what is needed on device config change.
+            await self._device.on_config_changed()
 
         # send device availability events
         if self._parameter in (
             Parameter.UN_REACH,
             Parameter.STICKY_UN_REACH,
         ):
-            self._device.fire_device_updated_callback(self._unique_id)
-            self._central.fire_homematic_callback(
-                event_type=EventType.DEVICE_AVAILABILITY,
-                event_data=self.get_event_data(new_value),
+            # notify_data_points=True ensures entities on all channels refresh their availability
+            self._device.publish_device_updated_event(notify_data_points=True)
+            await self._event_bus_provider.event_bus.publish(
+                event=DeviceLifecycleEvent(
+                    timestamp=datetime.now(),
+                    event_type=DeviceLifecycleEventType.AVAILABILITY_CHANGED,
+                    availability_changes=((self._device.address, new_value is False),),
+                )
             )
+
+    def is_state_change(self, *, value: ParameterT | None) -> bool:
+        """
+        Check if the state/value changes.
+
+        If the state is uncertain, the state should also marked as changed.
+        """
+        if value != self._value:
+            return True
+        if self.state_uncertain:
+            return True
+        _LOGGER.debug("NO_STATE_CHANGE: %s", self.name)
+        return False
 
     @inspector
     async def send_value(
         self,
+        *,
         value: InputParameterT,
         collector: hme.CallParameterCollector | None = None,
         collector_order: int = 50,
         do_validate: bool = True,
     ) -> set[DP_KEY_VALUE]:
         """Send value to ccu, or use collector if set."""
-        if not self.is_writeable:
-            _LOGGER.error("SEND_VALUE: writing to non-writable data_point %s is not possible", self.full_name)
+        if not self.is_writable:
+            _LOGGER.error(
+                i18n.tr(
+                    key="log.model.generic_data_point.send_value.not_writable",
+                    full_name=self.full_name,
+                )
+            )
             return set()
         try:
             prepared_value = self._prepare_value_for_sending(value=value, do_validate=do_validate)
@@ -107,10 +129,12 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
             return set()
 
         converted_value = self._convert_value(value=prepared_value)
+        # if collector is set, then add value to collector
         if collector:
-            collector.add_data_point(self, value=converted_value, collector_order=collector_order)
+            collector.add_data_point(data_point=self, value=converted_value, collector_order=collector_order)
             return set()
 
+        # if collector is not set, then send value directly
         if self._validate_state_change and not self.is_state_change(value=converted_value):
             return set()
 
@@ -120,10 +144,6 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
             parameter=self._parameter,
             value=converted_value,
         )
-
-    def _prepare_value_for_sending(self, value: InputParameterT, do_validate: bool = True) -> ParameterT:
-        """Prepare value, if required, before send."""
-        return value  # type: ignore[return-value]
 
     def _get_data_point_name(self) -> DataPointNameData:
         """Create the name for the data_point."""
@@ -136,7 +156,7 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
         """Generate the usage for the data_point."""
         if self._forced_usage:
             return self._forced_usage
-        if self._central.parameter_visibility.parameter_is_hidden(
+        if self._parameter_visibility_provider.parameter_is_hidden(
             channel=self._channel,
             paramset_key=self._paramset_key,
             parameter=self._parameter,
@@ -149,15 +169,9 @@ class GenericDataPoint[ParameterT: GenericParameterType, InputParameterT: Generi
             else DataPointUsage.DATA_POINT
         )
 
-    def is_state_change(self, value: ParameterT) -> bool:
-        """
-        Check if the state/value changes.
+    def _prepare_value_for_sending(self, *, value: InputParameterT, do_validate: bool = True) -> ParameterT:
+        """Prepare value, if required, before send."""
+        return value  # type: ignore[return-value]
 
-        If the state is uncertain, the state should also marked as changed.
-        """
-        if value != self._value:
-            return True
-        if self.state_uncertain:
-            return True
-        _LOGGER.debug("NO_STATE_CHANGE: %s", self.name)
-        return False
+
+GenericDataPointAny: TypeAlias = GenericDataPoint[Any, Any]

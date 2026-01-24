@@ -79,17 +79,15 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
     INSIGHT_NAME: str = "base"  # Defined by subclasses to identify the formal name for endpoints
     INSIGHT_DATA = t.Any()  # Defined by subclasses for specific insights
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("entity_id"): t.String(),
-            t.Key("project_id"): t.String(),
-            t.Key("source"): t.String(),
-            t.Key("data_slice_id", optional=True): t.Or(t.String(), t.Null()),
-            t.Key("external_dataset_id", optional=True): t.Or(t.String(), t.Null()),
-            t.Key("data"): INSIGHT_DATA,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("entity_id"): t.String(),
+        t.Key("project_id"): t.String(),
+        t.Key("source"): t.String(),
+        t.Key("data_slice_id", optional=True): t.Or(t.String(), t.Null()),
+        t.Key("external_dataset_id", optional=True): t.Or(t.String(), t.Null()),
+        t.Key("data"): INSIGHT_DATA,
+    }).ignore_extra("*")
 
     # all feature impact types are rendered with the same UI components mapped with this mime type
     _datarobot_ui_mime_type = DATAROBOT_INSIGHTS_FEATURE_IMPACT_MIMETYPE
@@ -342,9 +340,7 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         query_params: Dict[str, Union[str, bool]] = {"source": source, **kwargs}
         if quick_compute is not None:
             query_params["quickCompute"] = quick_compute
-        return [
-            cls.from_server_data(x) for x in pagination.unpaginate(url, query_params, cls._client)
-        ][0]
+        return [cls.from_server_data(x) for x in pagination.unpaginate(url, query_params, cls._client)][0]
 
 
 class CsvSupportedInsight(BaseInsight):

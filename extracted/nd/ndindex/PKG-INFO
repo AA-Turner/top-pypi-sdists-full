@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ndindex
-Version: 1.10.0
+Version: 1.10.1
 Summary: A Python library for manipulating indices of ndarrays.
 Home-page: https://quansight-labs.github.io/ndindex/
 Author: Quansight Labs

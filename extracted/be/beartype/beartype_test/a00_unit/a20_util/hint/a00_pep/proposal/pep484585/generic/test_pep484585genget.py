@@ -34,21 +34,25 @@ def test_get_hint_pep484585_generic_args_full() -> None:
         List,
         Sequence,
     )
-    from beartype._data.hint.datahinttyping import (
-        S,
-        T,
-        U,
-    )
     from beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget import (
         get_hint_pep484585_generic_args_full)
-    from beartype_test.a00_unit.data.hint.pep.proposal.pep484585.data_pep484585generic import (
+    from beartype_test.a00_unit.data.pep.generic.data_pep484generic import (
         Nongeneric,
         Pep484GenericST,
+    )
+    from beartype_test.a00_unit.data.pep.generic.data_pep585generic import (
         Pep585SequenceU,
+    )
+    from beartype_test.a00_unit.data.pep.generic.data_pep484585generic import (
         Pep484585GenericSTSequenceU,
         Pep484585GenericIntTSequenceU,
         Pep484585GenericUUST,
-        Pep585GenericUIntT,
+        Pep484585GenericUIntT,
+    )
+    from beartype_test.a00_unit.data.pep.data_pep484 import (
+        S,
+        T,
+        U,
     )
     from pytest import raises
 
@@ -73,8 +77,8 @@ def test_get_hint_pep484585_generic_args_full() -> None:
         (Pep484585GenericSTSequenceU[float, complex], (bool, int, float, complex,)),
         (Pep484585GenericIntTSequenceU[complex], (bool, int, float, complex,)),
         (Pep484585GenericUUST[bool, int, float], (bool, int, float, bool,)),
-        (Pep585GenericUIntT, (U, int, T, U,)),
-        (Pep585GenericUIntT[bool, float], (bool, int, float, bool,)),
+        (Pep484585GenericUIntT, (U, int, T, U,)),
+        (Pep484585GenericUIntT[bool, float], (bool, int, float, bool,)),
     ]
 
     # List of all generic argument cases, each of which is a 2-tuple of the
@@ -106,10 +110,10 @@ def test_get_hint_pep484585_generic_args_full() -> None:
         (Pep484585GenericIntTSequenceU[complex], Pep484585GenericSTSequenceU, (bool, int, float, complex,)),
         (Pep484585GenericUUST[bool, int, float], List[U], (bool,)),
         (Pep484585GenericUUST[bool, int, float], Pep484GenericST, (int, float)),
-        (Pep585GenericUIntT, Pep585SequenceU, (U,)),
-        (Pep585GenericUIntT, Pep484GenericST, (int, T)),
-        (Pep585GenericUIntT[bool, float], List[U], (bool,)),
-        (Pep585GenericUIntT[bool, float], Pep484GenericST, (int, float)),
+        (Pep484585GenericUIntT, Pep585SequenceU, (U,)),
+        (Pep484585GenericUIntT, Pep484GenericST, (int, T)),
+        (Pep484585GenericUIntT[bool, float], List[U], (bool,)),
+        (Pep484585GenericUIntT[bool, float], Pep484GenericST, (int, float)),
     ]
 
     # ....................{ PASS                           }....................
@@ -153,8 +157,8 @@ def test_get_hint_pep484585_generic_base_extrinsic_sign_or_none() -> None:
         NamedTuple,
         TypedDict,
     )
-    from beartype._data.hint.datahinttyping import T
-    from beartype._data.hint.pep.sign.datapepsigns import (
+    from beartype._data.typing.datatyping import T
+    from beartype._data.hint.sign.datahintsigns import (
         HintSignNamedTuple,
         HintSignTypedDict,
     )
@@ -238,7 +242,7 @@ def test_get_hint_pep484585_generic_bases_unerased(hints_pep_meta) -> None:
 
     # Defer test-specific imports.
     from beartype.roar import BeartypeDecorHintPepException
-    from beartype._data.hint.pep.sign.datapepsignset import HINT_SIGNS_GENERIC
+    from beartype._data.hint.sign.datahintsignset import HINT_SIGNS_GENERIC
     from beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget import (
         get_hint_pep484585_generic_bases_unerased)
     from beartype._util.hint.pep.utilpeptest import is_hint_pep_type_typing
@@ -282,14 +286,14 @@ def test_get_hint_pep484585_generic_base_in_module_first() -> None:
     '''
     Test the
     :func:`beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget.get_hint_pep484585_generic_base_in_module_first`
-    finder.
+    getter.
     '''
 
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
     from beartype.roar import BeartypeDecorHintPep484585Exception
     from beartype.typing import Generic
-    from beartype._data.hint.datahinttyping import T
+    from beartype._data.typing.datatyping import T
     from beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget import (
         get_hint_pep484585_generic_base_in_module_first)
     from pytest import raises
@@ -330,7 +334,7 @@ def test_get_hint_pep484585_generic_base_in_module_first() -> None:
         # Assert that this finder passed this generic returns the first unerased
         # superclass of this generic declared by this package.
         assert get_hint_pep484585_generic_base_in_module_first(
-            hint=test_generic, module_name='beartype_test') is (
+            hint=test_generic, module_names=frozenset(('beartype_test',))) is (
             ToWhichThisClosingNight)
 
         # ....................{ FAIL                       }....................
@@ -340,7 +344,8 @@ def test_get_hint_pep484585_generic_base_in_module_first() -> None:
         with raises(BeartypeDecorHintPep484585Exception):
             get_hint_pep484585_generic_base_in_module_first(
                 hint=test_generic,
-                module_name='will_be.the.dome_of.a_vast_sepulchre',
+                module_names=frozenset((
+                    'will_be.the.dome_of.a_vast_sepulchre',)),
             )
 
 # ....................{ TESTS ~ type                       }....................
@@ -358,7 +363,7 @@ def test_get_hint_pep484585_generic_type_or_none(hints_pep_meta) -> None:
     '''
 
     # Defer test-specific imports.
-    from beartype._data.hint.pep.sign.datapepsigns import HintSignPep484585GenericUnsubscripted
+    from beartype._data.hint.sign.datahintsigns import HintSignPep484585GenericUnsubbed
     from beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget import (
         get_hint_pep484585_generic_type_or_none)
 
@@ -368,7 +373,7 @@ def test_get_hint_pep484585_generic_type_or_none(hints_pep_meta) -> None:
     # we assert this getter only returns the expected type origin for a small
     # subset of type hints.
     for hint_pep_meta in hints_pep_meta:
-        if hint_pep_meta.pep_sign is HintSignPep484585GenericUnsubscripted:
+        if hint_pep_meta.pep_sign is HintSignPep484585GenericUnsubbed:
             assert get_hint_pep484585_generic_type_or_none(
                 hint_pep_meta.hint) is hint_pep_meta.generic_type
 

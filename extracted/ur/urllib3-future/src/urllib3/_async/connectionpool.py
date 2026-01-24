@@ -1370,18 +1370,38 @@ class AsyncHTTPConnectionPool(AsyncConnectionPool, AsyncRequestMethods):
                 )
             conn.timeout = read_timeout
 
+        can_shelve_conn = (
+            conn.is_multiplexed is True and self.pool is not None and rp is not None
+        )
+
+        if can_shelve_conn:
+            self.pool.memorize(rp, conn)  # type: ignore[union-attr,arg-type]
+            await self._put_conn(conn)
+
+            # Receive the response from the server
+            async with self.pool.borrow(rp) as conn:  # type: ignore[union-attr]
+                try:
+                    response = await conn.getresponse(
+                        police_officer=self.pool,
+                        early_response_callback=on_early_response,
+                    )
+                except (BaseSSLError, OSError) as e:
+                    self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+                    raise
+                finally:
+                    self.pool.forget(rp)  # type: ignore[union-attr,arg-type]
+        else:
+            try:
+                response = await conn.getresponse(
+                    police_officer=self.pool, early_response_callback=on_early_response
+                )
+            except (BaseSSLError, OSError) as e:
+                self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+                raise
+
         http_vsn_str = (
             conn._http_vsn_str
         )  # keep vsn here, as conn may be upgraded afterward.
-
-        # Receive the response from the server
-        try:
-            response = await conn.getresponse(
-                police_officer=self.pool, early_response_callback=on_early_response
-            )
-        except (BaseSSLError, OSError) as e:
-            self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
-            raise
 
         # Set properties that are used by the pooling layer.
         response.retries = retries
@@ -1425,7 +1445,12 @@ class AsyncHTTPConnectionPool(AsyncConnectionPool, AsyncRequestMethods):
 
         if self._background_monitoring is not None:
             self._background_monitoring.cancel()
-            self._background_monitoring = None
+            try:
+                await self._background_monitoring
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._background_monitoring = None
 
         # Close allocated resolver if we own it. (aka. not shared)
         if self._own_resolver and self._resolver.is_available():

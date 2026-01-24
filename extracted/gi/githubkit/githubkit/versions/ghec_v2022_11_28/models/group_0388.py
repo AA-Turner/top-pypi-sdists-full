@@ -9,34 +9,55 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+import datetime as _dt
+from typing import Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0010 import Integration
+from .group_0236 import MinimalRepository
 
 
-class LockedIssueEvent(GitHubModel):
-    """Locked Issue Event
+class CombinedCommitStatus(GitHubModel):
+    """Combined Commit Status
 
-    Locked Issue Event
+    Combined Commit Status
     """
 
+    state: str = Field()
+    statuses: list[SimpleCommitStatus] = Field()
+    sha: str = Field()
+    total_count: int = Field()
+    repository: MinimalRepository = Field(
+        title="Minimal Repository", description="Minimal Repository"
+    )
+    commit_url: str = Field()
+    url: str = Field()
+
+
+class SimpleCommitStatus(GitHubModel):
+    """Simple Commit Status"""
+
+    description: Union[str, None] = Field()
     id: int = Field()
     node_id: str = Field()
+    state: str = Field()
+    context: str = Field()
+    target_url: Union[str, None] = Field()
+    required: Missing[Union[bool, None]] = Field(default=UNSET)
+    avatar_url: Union[str, None] = Field()
     url: str = Field()
-    actor: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    event: Literal["locked"] = Field()
-    commit_id: Union[str, None] = Field()
-    commit_url: Union[str, None] = Field()
-    created_at: str = Field()
-    performed_via_github_app: Union[None, Integration, None] = Field()
-    lock_reason: Union[str, None] = Field()
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
 
 
-model_rebuild(LockedIssueEvent)
+model_rebuild(CombinedCommitStatus)
+model_rebuild(SimpleCommitStatus)
 
-__all__ = ("LockedIssueEvent",)
+__all__ = (
+    "CombinedCommitStatus",
+    "SimpleCommitStatus",
+)

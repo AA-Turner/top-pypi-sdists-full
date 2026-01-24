@@ -20,6 +20,7 @@ from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.config import config_get
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, render_json
 
 if TYPE_CHECKING:
@@ -85,7 +86,7 @@ class OpenDataClient(BaseClient):
             raise ValueError('state and public cannot be provided at the same time.')
 
         url = build_url(self.get_opendata_host(public=public), path=path)
-        r = self._send_request(url, type_='GET', params=params)
+        r = self._send_request(url, method=HTTPMethod.GET, params=params)
         if r.status_code == codes.ok:
             return json.loads(r.content.decode('utf-8'))
         else:
@@ -115,7 +116,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        r = self._send_request(url, type_='POST')
+        r = self._send_request(url, method=HTTPMethod.POST)
 
         if r.status_code == codes.created:
             return True
@@ -146,7 +147,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.no_content:
             return True
@@ -162,7 +163,8 @@ class OpenDataClient(BaseClient):
             state: Optional["OPENDATA_DID_STATE_LITERAL"] = None,
             meta: Optional[dict] = None,
             doi: Optional[str] = None,
-    ) -> bool:
+            record_id: Optional[int] = None,
+    ) -> dict[str, Any]:
         """
         Update an existing Opendata DID in the Opendata catalog.
 
@@ -171,7 +173,8 @@ class OpenDataClient(BaseClient):
             name: The name of the DID.
             state: The new state to set for the DID.
             meta: Metadata to update for the DID. Must be a valid JSON object.
-            doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar").
+            doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar") and unique across all DIDs.
+            record_id: The record ID of the DID to update. This can be used to cross-reference with external systems. Must be unique across all DIDs.
 
         Returns:
             True if the update was successful.
@@ -184,8 +187,8 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        if not any([meta, state, doi]):
-            raise ValueError("Either 'meta', 'state', or 'doi' must be provided.")
+        if not any([meta, state, doi, record_id]):
+            raise ValueError("Either 'meta', 'state', 'doi' or 'record_id' must be provided.")
 
         data: dict[str, Any] = {}
 
@@ -198,10 +201,13 @@ class OpenDataClient(BaseClient):
         if doi is not None:
             data['doi'] = doi
 
-        r = self._send_request(url, type_='PUT', data=render_json(**data))
+        if record_id is not None:
+            data['record_id'] = record_id
+
+        r = self._send_request(url, method=HTTPMethod.PUT, data=render_json(**data))
 
         if r.status_code == codes.ok:
-            return True
+            return json.loads(r.content.decode('utf-8'))
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
@@ -214,6 +220,7 @@ class OpenDataClient(BaseClient):
             include_files: bool = False,
             include_metadata: bool = False,
             include_doi: bool = True,
+            include_record_id: bool = True,
             public: bool = False,
     ) -> dict[str, Any]:
         """
@@ -225,6 +232,7 @@ class OpenDataClient(BaseClient):
             include_files: If True, include a list of associated files. Defaults to False.
             include_metadata: If True, include extended metadata. Defaults to False.
             include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
+            include_record_id: If True, include the record ID of the DID. Defaults to True.
             public: If True, only return data if the DID is publicly accessible. Defaults to False.
 
         Returns:
@@ -236,10 +244,11 @@ class OpenDataClient(BaseClient):
         path = '/'.join([base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=public), path=path)
 
-        r = self._send_request(url, type_='GET', params={
+        r = self._send_request(url, method=HTTPMethod.GET, params={
             'files': 1 if include_files else 0,
             'meta': 1 if include_metadata else 0,
             'doi': 1 if include_doi else 0,
+            'record_id': 1 if include_record_id else 0,
         })
 
         if r.status_code == codes.ok:

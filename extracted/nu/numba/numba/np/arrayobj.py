@@ -2645,11 +2645,14 @@ def np_size(a):
 @overload(np.unique)
 def np_unique(ar):
     def np_unique_impl(ar):
+        def isnan(x):
+            # instead of np.isnan because it can't handle non-numeric type
+            return not (x == x)
         b = np.sort(ar.ravel())
         head = list(b[:1])
         tail = [
             x for i, x in enumerate(b[1:])
-            if b[i] != x and not (np.isnan(b[i]) and np.isnan(x))
+            if b[i] != x and not (isnan(b[i]) and isnan(x))
         ]
         return np.array(head + tail)
     return np_unique_impl
@@ -3889,7 +3892,9 @@ def _make_flattening_iter_cls(flatiterty, kind):
                                                                      indices,
                                                                      dim))
                                    for dim in range(ndim)]
-                        idxtuple = cgutils.pack_array(builder, idxvals)
+                        idxtuple = cgutils.pack_array(builder, idxvals,
+                                                      ty=context.get_data_type(
+                                                          types.intp))
                         result.yield_(
                             cgutils.make_anonymous_struct(builder,
                                                           [idxtuple, value]))
@@ -5083,9 +5088,17 @@ def array_copy(context, builder, sig, args):
 
 @overload(np.copy)
 def impl_numpy_copy(a):
+    if not type_can_asarray(a):
+        raise errors.TypingError('The argument "a" must '
+                                 'be array-like')
+
     if isinstance(a, types.Array):
         def numpy_copy(a):
             return _array_copy_intrinsic(a)
+    else:
+        def numpy_copy(a):
+            # asarray automatically copies non-Array types
+            return np.asarray(a)
     return numpy_copy
 
 

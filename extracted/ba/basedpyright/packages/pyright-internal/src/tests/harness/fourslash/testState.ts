@@ -22,6 +22,7 @@ import {
     Location,
     MarkupContent,
     MarkupKind,
+    Range as LspRange,
     TextEdit,
     WorkspaceEdit,
 } from 'vscode-languageserver';
@@ -69,6 +70,7 @@ import { CollectionResult } from '../../../languageService/documentSymbolCollect
 import { HoverProvider } from '../../../languageService/hoverProvider';
 import { convertDocumentRangesToLocation } from '../../../languageService/navigationUtils';
 import { ReferencesProvider } from '../../../languageService/referencesProvider';
+import { ImplementationProvider } from '../../../languageService/implementationProvider';
 import { RenameProvider } from '../../../languageService/renameProvider';
 import { SignatureHelpProvider } from '../../../languageService/signatureHelpProvider';
 import { ParseNode } from '../../../parser/parseNodes';
@@ -215,6 +217,7 @@ export class TestState {
             useTypingExtensions: false,
             fileEnumerationTimeoutInSec: 10,
             autoFormatStrings: true,
+            baselineMode: 'auto',
         };
 
         if (!delayFileInitialization) {
@@ -925,41 +928,21 @@ export class TestState {
     }
 
     verifyHover(kind: MarkupKind, map: { [marker: string]: string | null }): void {
-        // Do not force analyze, it can lead to test passing while it doesn't work in product
-        for (const range of this.getRanges()) {
-            const name = this.getMarkerName(range.marker!);
-            const expected = map[name];
-            if (expected === undefined) {
-                continue;
-            }
+        this._verifyHoverBase(
+            kind,
+            map,
+            (_expected, rangePos) => rangePos,
+            (expected) => expected
+        );
+    }
 
-            const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
-            const provider = new HoverProvider(
-                this.program,
-                range.fileUri,
-                rangePos.start,
-                kind,
-                CancellationToken.None
-            );
-            const actual = provider.getHover();
-
-            // if expected is null then there should be nothing shown on hover
-            if (expected === null) {
-                assert.equal(actual, undefined);
-                continue;
-            }
-
-            assert.ok(actual);
-
-            assert.deepEqual(actual!.range, rangePos);
-
-            if (MarkupContent.is(actual!.contents)) {
-                assert.equal(actual!.contents.value, expected);
-                assert.equal(actual!.contents.kind, kind);
-            } else {
-                assert.fail(`Unexpected type of contents object "${actual!.contents}", should be MarkupContent.`);
-            }
-        }
+    verifyHoverRanges(kind: MarkupKind, map: { [marker: string]: [string, LspRange] | null }): void {
+        this._verifyHoverBase(
+            kind,
+            map,
+            (expected) => expected[1],
+            (expected) => expected[0]
+        );
     }
 
     verifyCaretAtMarker(markerName = '') {
@@ -1234,39 +1217,59 @@ export class TestState {
             ranges: DocumentRange
         ) => Location | undefined
     ) {
-        this.analyze();
-        const ls = new TestLanguageService(this.workspace, this.console, this.fs);
-        for (const name of this.getMarkerNames()) {
-            const marker = this.getMarkerByName(name);
-            const fileName = marker.fileName;
+        this._verifyFindAllBase(
+            (name) => {
+                if (!(name in map)) {
+                    return;
+                }
 
-            if (!(name in map)) {
-                continue;
-            }
+                return map[name].references;
+            },
+            (ls, fileName, position) => {
+                return new ReferencesProvider(
+                    ls,
+                    this.program,
+                    CancellationToken.None,
+                    createDocumentRange,
+                    convertToLocation
+                ).reportReferences(Uri.file(fileName, this.serviceProvider), position, /* includeDeclaration */ true);
+            },
+            convertToLocation
+        );
+    }
 
-            let expected = map[name].references;
-            expected = expected.map((c) => {
-                return {
-                    ...c,
-                    uri: c.uri ?? Uri.file((c as any).path, this.serviceProvider),
-                };
-            });
+    verifyFindAllImplementations(
+        map: {
+            [marker: string]: {
+                implementations: DocumentRange[];
+            };
+        },
+        createDocumentRange?: (fileUri: Uri, result: TextRange, parseResults: ParseFileResults) => DocumentRange,
+        convertToLocation?: (
+            ls: LanguageServerInterface,
+            fs: ReadOnlyFileSystem,
+            ranges: DocumentRange
+        ) => Location | undefined
+    ) {
+        this._verifyFindAllBase(
+            (name) => {
+                if (!(name in map)) {
+                    return;
+                }
 
-            const position = this.convertOffsetToPosition(fileName, marker.position);
-
-            const actual = new ReferencesProvider(
-                ls,
-                this.program,
-                CancellationToken.None,
-                createDocumentRange,
-                convertToLocation
-            ).reportReferences(Uri.file(fileName, this.serviceProvider), position, /* includeDeclaration */ true);
-            assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
-
-            for (const r of convertDocumentRangesToLocation(ls, this.program.fileSystem, expected, convertToLocation)) {
-                assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
-            }
-        }
+                return map[name].implementations;
+            },
+            (ls, fileName, position) => {
+                return new ImplementationProvider(
+                    ls,
+                    this.program,
+                    CancellationToken.None,
+                    createDocumentRange,
+                    convertToLocation
+                ).reportImplementations(Uri.file(fileName, this.serviceProvider), position);
+            },
+            convertToLocation
+        );
     }
 
     verifyShowCallHierarchyGetIncomingCalls(map: {
@@ -1455,7 +1458,7 @@ export class TestState {
                 CancellationToken.None
             ).getDefinitions();
 
-            assert.equal(actual?.length ?? 0, expected.length, `No definitions found for marker "${name}"`);
+            assert.equal(actual?.length ?? 0, expected.length, `Incorrect number of definitions for marker "${name}"`);
             actual = this.fixupDefinitionsToMatchExpected(actual!);
 
             for (const r of expected) {
@@ -1509,10 +1512,14 @@ export class TestState {
                 changes: FileEditAction[];
             };
         },
-        isUntitled = false
+        isUntitled = false,
+        allowedMessages?: { error?: string[]; warning?: string[] }
     ) {
         this.analyze();
-        const ls = new TestLanguageService(this.workspace, this.console, this.fs);
+        const ls = new TestLanguageService(this.workspace, this.console, this.fs, undefined, {
+            error: allowedMessages?.error ?? [],
+            warning: allowedMessages?.warning ?? [],
+        });
         for (const marker of this.getMarkers()) {
             const fileName = marker.fileName;
             const name = this.getMarkerName(marker);
@@ -1541,7 +1548,10 @@ export class TestState {
             ).renameSymbol(expected.newName, /* isDefaultWorkspace */ false, isUntitled);
 
             verifyWorkspaceEdit(
-                convertToWorkspaceEdit(ls, this.program.fileSystem, { edits: expected.changes, fileOperations: [] }),
+                convertToWorkspaceEdit(ls.convertUriToLspUriString, this.program.fileSystem, {
+                    edits: expected.changes,
+                    fileOperations: [],
+                }),
                 actual ?? { documentChanges: [] }
             );
         }
@@ -1763,6 +1773,7 @@ export class TestState {
             configOptions,
             fileSystem: this.fs,
             libraryReanalysisTimeProvider: () => 0,
+            shouldRunAnalysis: () => true,
         });
 
         // directly set files to track rather than using fileSpec from config
@@ -1778,6 +1789,86 @@ export class TestState {
         );
 
         return service;
+    }
+
+    private _verifyHoverBase<T>(
+        kind: MarkupKind,
+        map: { [marker: string]: T | null },
+        computeRange: (expected: T, rangePos: PositionRange) => LspRange,
+        computeValue: (expected: T) => string
+    ): void {
+        // Do not force analyze, it can lead to test passing while it doesn't work in product
+        for (const range of this.getRanges()) {
+            const name = this.getMarkerName(range.marker!);
+            const expected = map[name];
+            if (expected === undefined) {
+                continue;
+            }
+
+            const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
+            const provider = new HoverProvider(
+                this.program,
+                range.fileUri,
+                rangePos.start,
+                kind,
+                CancellationToken.None
+            );
+            const actual = provider.getHover();
+
+            // if expected is null then there should be nothing shown on hover
+            if (expected === null) {
+                assert.equal(actual, undefined);
+                continue;
+            }
+
+            assert.ok(actual);
+
+            assert.deepEqual(actual!.range, computeRange(expected, rangePos));
+
+            if (MarkupContent.is(actual!.contents)) {
+                assert.equal(actual!.contents.value, computeValue(expected));
+                assert.equal(actual!.contents.kind, kind);
+            } else {
+                assert.fail(`Unexpected type of contents object "${actual!.contents}", should be MarkupContent.`);
+            }
+        }
+    }
+
+    private _verifyFindAllBase(
+        expectedGetter: (name: string) => DocumentRange[] | undefined,
+        actualGetter: (ls: LanguageServerInterface, fileName: string, position: Position) => Location[] | undefined,
+        convertToLocation?: (
+            ls: LanguageServerInterface,
+            fs: ReadOnlyFileSystem,
+            ranges: DocumentRange
+        ) => Location | undefined
+    ) {
+        this.analyze();
+        const ls = new TestLanguageService(this.workspace, this.console, this.fs);
+        for (const name of this.getMarkerNames()) {
+            const marker = this.getMarkerByName(name);
+            const fileName = marker.fileName;
+
+            let expected = expectedGetter(name);
+            if (!expected) {
+                continue;
+            }
+            expected = expected.map((c) => {
+                return {
+                    ...c,
+                    uri: c.uri ?? Uri.file((c as any).path, this.serviceProvider),
+                };
+            });
+
+            const position = this.convertOffsetToPosition(fileName, marker.position);
+
+            const actual = actualGetter(ls, fileName, position);
+            assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
+
+            for (const r of convertDocumentRangesToLocation(ls, this.program.fileSystem, expected, convertToLocation)) {
+                assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
+            }
+        }
     }
 
     private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {

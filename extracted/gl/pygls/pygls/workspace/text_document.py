@@ -19,12 +19,13 @@
 import io
 import logging
 import os
+import pathlib
 import re
-from typing import List, Optional, Pattern
+from typing import Optional, Pattern, Sequence
 
 from lsprotocol import types
 
-from pygls.uris import to_fs_path
+from pygls.uris import urlparse, to_fs_path
 from .position_codec import PositionCodec
 
 # TODO: this is not the best e.g. we capture numbers
@@ -47,9 +48,10 @@ class TextDocument(object):
     ):
         self.uri = uri
         self.version = version
-        path = to_fs_path(uri)
-        if path is None:
-            raise Exception("`path` cannot be None")
+
+        if (path := to_fs_path(uri)) is None:
+            _, _, path, *_ = urlparse(uri)
+
         self.path = path
         self.language_id = language_id
         self.filename: Optional[str] = os.path.basename(self.path)
@@ -73,7 +75,7 @@ class TextDocument(object):
         return self._position_codec
 
     def _apply_incremental_change(
-        self, change: types.TextDocumentContentChangeEvent_Type1
+        self, change: types.TextDocumentContentChangePartial
     ) -> None:
         """Apply an ``Incremental`` text change to the document"""
         lines = self.lines
@@ -142,7 +144,7 @@ class TextDocument(object):
            content update client requests in the pygls Python library.
 
         """
-        if isinstance(change, types.TextDocumentContentChangeEvent_Type1):
+        if isinstance(change, types.TextDocumentContentChangePartial):
             if self._is_sync_kind_incremental:
                 self._apply_incremental_change(change)
                 return
@@ -161,26 +163,33 @@ class TextDocument(object):
             self._apply_full_change(change)
 
     @property
-    def lines(self) -> List[str]:
-        return self.source.splitlines(True)
+    def lines(self) -> Sequence[str]:
+        return tuple(self.source.splitlines(True))
 
     def offset_at_position(self, client_position: types.Position) -> int:
-        """Return the character offset pointed at by the given client_position."""
+        """
+        Convert client_position to an index into self.source.
+
+        The index is the number of code points preceding the client_position in self.source.
+
+        Example in a code action request handler:
+            selected_string = document.source[
+                document.offset_at_position(params.range.start) : document.offset_at_position(params.range.end)
+            ]
+        """
         lines = self.lines
         server_position = self._position_codec.position_from_client_units(
             lines, client_position
         )
         row, col = server_position.line, server_position.character
-        return col + sum(
-            self._position_codec.client_num_units(line) for line in lines[:row]
-        )
+        return col + sum(len(line) for line in lines[:row])
 
     @property
     def source(self) -> str:
-        if self._source is None:
-            with io.open(self.path, "r", encoding="utf-8") as f:
-                return f.read()
-        return self._source
+        if self._source is None and self.path is not None:
+            return pathlib.Path(self.path).read_text(encoding="utf-8")
+
+        return self._source or ""
 
     def word_at_position(
         self,

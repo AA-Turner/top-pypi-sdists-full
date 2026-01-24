@@ -1,1 +1,1 @@
-GIT_INFO=" 11b0f991 Release 1.16.46"
+GIT_INFO=" f2478708 Release 1.16.47"

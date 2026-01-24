@@ -3,7 +3,7 @@ Type annotations for appstream service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -47,6 +48,7 @@ from .type_defs import (
     AssociateApplicationFleetResultTypeDef,
     AssociateApplicationToEntitlementRequestTypeDef,
     AssociateFleetRequestTypeDef,
+    AssociateSoftwareToImageBuilderRequestTypeDef,
     BatchAssociateUserStackRequestTypeDef,
     BatchAssociateUserStackResultTypeDef,
     BatchDisassociateUserStackRequestTypeDef,
@@ -65,12 +67,16 @@ from .type_defs import (
     CreateDirectoryConfigResultTypeDef,
     CreateEntitlementRequestTypeDef,
     CreateEntitlementResultTypeDef,
+    CreateExportImageTaskRequestTypeDef,
+    CreateExportImageTaskResultTypeDef,
     CreateFleetRequestTypeDef,
     CreateFleetResultTypeDef,
     CreateImageBuilderRequestTypeDef,
     CreateImageBuilderResultTypeDef,
     CreateImageBuilderStreamingURLRequestTypeDef,
     CreateImageBuilderStreamingURLResultTypeDef,
+    CreateImportedImageRequestTypeDef,
+    CreateImportedImageResultTypeDef,
     CreateStackRequestTypeDef,
     CreateStackResultTypeDef,
     CreateStreamingURLRequestTypeDef,
@@ -105,6 +111,8 @@ from .type_defs import (
     DescribeApplicationFleetAssociationsResultTypeDef,
     DescribeApplicationsRequestTypeDef,
     DescribeApplicationsResultTypeDef,
+    DescribeAppLicenseUsageRequestTypeDef,
+    DescribeAppLicenseUsageResultTypeDef,
     DescribeDirectoryConfigsRequestTypeDef,
     DescribeDirectoryConfigsResultTypeDef,
     DescribeEntitlementsRequestTypeDef,
@@ -119,6 +127,8 @@ from .type_defs import (
     DescribeImagesResultTypeDef,
     DescribeSessionsRequestTypeDef,
     DescribeSessionsResultTypeDef,
+    DescribeSoftwareAssociationsRequestTypeDef,
+    DescribeSoftwareAssociationsResultTypeDef,
     DescribeStacksRequestTypeDef,
     DescribeStacksResultTypeDef,
     DescribeThemeForStackRequestTypeDef,
@@ -134,14 +144,19 @@ from .type_defs import (
     DisassociateApplicationFleetRequestTypeDef,
     DisassociateApplicationFromEntitlementRequestTypeDef,
     DisassociateFleetRequestTypeDef,
+    DisassociateSoftwareFromImageBuilderRequestTypeDef,
     EnableUserRequestTypeDef,
     ExpireSessionRequestTypeDef,
+    GetExportImageTaskRequestTypeDef,
+    GetExportImageTaskResultTypeDef,
     ListAssociatedFleetsRequestTypeDef,
     ListAssociatedFleetsResultTypeDef,
     ListAssociatedStacksRequestTypeDef,
     ListAssociatedStacksResultTypeDef,
     ListEntitledApplicationsRequestTypeDef,
     ListEntitledApplicationsResultTypeDef,
+    ListExportImageTasksRequestTypeDef,
+    ListExportImageTasksResultTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     StartAppBlockBuilderRequestTypeDef,
@@ -149,6 +164,7 @@ from .type_defs import (
     StartFleetRequestTypeDef,
     StartImageBuilderRequestTypeDef,
     StartImageBuilderResultTypeDef,
+    StartSoftwareDeploymentToImageBuilderRequestTypeDef,
     StopAppBlockBuilderRequestTypeDef,
     StopAppBlockBuilderResultTypeDef,
     StopFleetRequestTypeDef,
@@ -174,12 +190,6 @@ from .type_defs import (
 )
 from .waiter import FleetStartedWaiter, FleetStoppedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -188,21 +198,22 @@ else:
 __all__ = ("AppStreamClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    EntitlementAlreadyExistsException: Type[BotocoreClientError]
-    EntitlementNotFoundException: Type[BotocoreClientError]
-    IncompatibleImageException: Type[BotocoreClientError]
-    InvalidAccountStatusException: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidRoleException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    RequestLimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotAvailableException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
+    EntitlementAlreadyExistsException: type[BotocoreClientError]
+    EntitlementNotFoundException: type[BotocoreClientError]
+    IncompatibleImageException: type[BotocoreClientError]
+    InvalidAccountStatusException: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidRoleException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    RequestLimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotAvailableException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class AppStreamClient(AioBaseClient):
     """
@@ -261,7 +272,7 @@ class AppStreamClient(AioBaseClient):
 
     async def associate_application_to_entitlement(
         self, **kwargs: Unpack[AssociateApplicationToEntitlementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an application to entitle.
 
@@ -271,12 +282,23 @@ class AppStreamClient(AioBaseClient):
 
     async def associate_fleet(
         self, **kwargs: Unpack[AssociateFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the specified fleet with the specified stack.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/associate_fleet.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#associate_fleet)
+        """
+
+    async def associate_software_to_image_builder(
+        self, **kwargs: Unpack[AssociateSoftwareToImageBuilderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates license included application(s) with an existing image builder
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/associate_software_to_image_builder.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#associate_software_to_image_builder)
         """
 
     async def batch_associate_user_stack(
@@ -354,7 +376,7 @@ class AppStreamClient(AioBaseClient):
         self, **kwargs: Unpack[CreateDirectoryConfigRequestTypeDef]
     ) -> CreateDirectoryConfigResultTypeDef:
         """
-        Creates a Directory Config object in AppStream 2.0.
+        Creates a Directory Config object in WorkSpaces Applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_directory_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_directory_config)
@@ -368,6 +390,16 @@ class AppStreamClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_entitlement.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_entitlement)
+        """
+
+    async def create_export_image_task(
+        self, **kwargs: Unpack[CreateExportImageTaskRequestTypeDef]
+    ) -> CreateExportImageTaskResultTypeDef:
+        """
+        Creates a task to export a WorkSpaces Applications image to an EC2 AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_export_image_task.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_export_image_task)
         """
 
     async def create_fleet(
@@ -400,6 +432,16 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_image_builder_streaming_url)
         """
 
+    async def create_imported_image(
+        self, **kwargs: Unpack[CreateImportedImageRequestTypeDef]
+    ) -> CreateImportedImageResultTypeDef:
+        """
+        Creates a custom WorkSpaces Applications image by importing an EC2 AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_imported_image.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_imported_image)
+        """
+
     async def create_stack(
         self, **kwargs: Unpack[CreateStackRequestTypeDef]
     ) -> CreateStackResultTypeDef:
@@ -414,8 +456,8 @@ class AppStreamClient(AioBaseClient):
         self, **kwargs: Unpack[CreateStreamingURLRequestTypeDef]
     ) -> CreateStreamingURLResultTypeDef:
         """
-        Creates a temporary URL to start an AppStream 2.0 streaming session for the
-        specified user.
+        Creates a temporary URL to start an WorkSpaces Applications streaming session
+        for the specified user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_streaming_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_streaming_url)
@@ -437,7 +479,7 @@ class AppStreamClient(AioBaseClient):
     ) -> CreateUpdatedImageResultTypeDef:
         """
         Creates a new image with the latest Windows operating system updates, driver
-        updates, and AppStream 2.0 agent software.
+        updates, and WorkSpaces Applications agent software.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_updated_image.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_updated_image)
@@ -451,7 +493,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#create_usage_report_subscription)
         """
 
-    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a new user in the user pool.
 
@@ -461,7 +503,7 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_app_block(
         self, **kwargs: Unpack[DeleteAppBlockRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an app block.
 
@@ -471,7 +513,7 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_app_block_builder(
         self, **kwargs: Unpack[DeleteAppBlockBuilderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an app block builder.
 
@@ -481,7 +523,7 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an application.
 
@@ -491,9 +533,9 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_directory_config(
         self, **kwargs: Unpack[DeleteDirectoryConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes the specified Directory Config object from AppStream 2.0.
+        Deletes the specified Directory Config object from WorkSpaces Applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/delete_directory_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#delete_directory_config)
@@ -501,7 +543,7 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_entitlement(
         self, **kwargs: Unpack[DeleteEntitlementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified entitlement.
 
@@ -509,7 +551,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#delete_entitlement)
         """
 
-    async def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified fleet.
 
@@ -539,7 +581,7 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_image_permissions(
         self, **kwargs: Unpack[DeleteImagePermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes permissions for the specified private image.
 
@@ -547,7 +589,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#delete_image_permissions)
         """
 
-    async def delete_stack(self, **kwargs: Unpack[DeleteStackRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_stack(self, **kwargs: Unpack[DeleteStackRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified stack.
 
@@ -557,7 +599,7 @@ class AppStreamClient(AioBaseClient):
 
     async def delete_theme_for_stack(
         self, **kwargs: Unpack[DeleteThemeForStackRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes custom branding that customizes the appearance of the streaming
         application catalog page.
@@ -566,7 +608,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#delete_theme_for_stack)
         """
 
-    async def delete_usage_report_subscription(self) -> Dict[str, Any]:
+    async def delete_usage_report_subscription(self) -> dict[str, Any]:
         """
         Disables usage report generation.
 
@@ -574,7 +616,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#delete_usage_report_subscription)
         """
 
-    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a user from the user pool.
 
@@ -612,6 +654,16 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#describe_app_blocks)
         """
 
+    async def describe_app_license_usage(
+        self, **kwargs: Unpack[DescribeAppLicenseUsageRequestTypeDef]
+    ) -> DescribeAppLicenseUsageResultTypeDef:
+        """
+        Retrieves license included application usage information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/describe_app_license_usage.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#describe_app_license_usage)
+        """
+
     async def describe_application_fleet_associations(
         self, **kwargs: Unpack[DescribeApplicationFleetAssociationsRequestTypeDef]
     ) -> DescribeApplicationFleetAssociationsResultTypeDef:
@@ -637,7 +689,7 @@ class AppStreamClient(AioBaseClient):
     ) -> DescribeDirectoryConfigsResultTypeDef:
         """
         Retrieves a list that describes one or more specified Directory Config objects
-        for AppStream 2.0, if the names for these objects are provided.
+        for WorkSpaces Applications, if the names for these objects are provided.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/describe_directory_configs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#describe_directory_configs)
@@ -708,6 +760,16 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#describe_sessions)
         """
 
+    async def describe_software_associations(
+        self, **kwargs: Unpack[DescribeSoftwareAssociationsRequestTypeDef]
+    ) -> DescribeSoftwareAssociationsResultTypeDef:
+        """
+        Retrieves license included application associations for a specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/describe_software_associations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#describe_software_associations)
+        """
+
     async def describe_stacks(
         self, **kwargs: Unpack[DescribeStacksRequestTypeDef]
     ) -> DescribeStacksResultTypeDef:
@@ -759,7 +821,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#describe_users)
         """
 
-    async def disable_user(self, **kwargs: Unpack[DisableUserRequestTypeDef]) -> Dict[str, Any]:
+    async def disable_user(self, **kwargs: Unpack[DisableUserRequestTypeDef]) -> dict[str, Any]:
         """
         Disables the specified user in the user pool.
 
@@ -769,7 +831,7 @@ class AppStreamClient(AioBaseClient):
 
     async def disassociate_app_block_builder_app_block(
         self, **kwargs: Unpack[DisassociateAppBlockBuilderAppBlockRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a specified app block builder from a specified app block.
 
@@ -779,7 +841,7 @@ class AppStreamClient(AioBaseClient):
 
     async def disassociate_application_fleet(
         self, **kwargs: Unpack[DisassociateApplicationFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified application from the fleet.
 
@@ -789,7 +851,7 @@ class AppStreamClient(AioBaseClient):
 
     async def disassociate_application_from_entitlement(
         self, **kwargs: Unpack[DisassociateApplicationFromEntitlementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified application from the specified entitlement.
 
@@ -799,7 +861,7 @@ class AppStreamClient(AioBaseClient):
 
     async def disassociate_fleet(
         self, **kwargs: Unpack[DisassociateFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified fleet from the specified stack.
 
@@ -807,7 +869,18 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#disassociate_fleet)
         """
 
-    async def enable_user(self, **kwargs: Unpack[EnableUserRequestTypeDef]) -> Dict[str, Any]:
+    async def disassociate_software_from_image_builder(
+        self, **kwargs: Unpack[DisassociateSoftwareFromImageBuilderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes license included application(s) association(s) from an image builder
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/disassociate_software_from_image_builder.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#disassociate_software_from_image_builder)
+        """
+
+    async def enable_user(self, **kwargs: Unpack[EnableUserRequestTypeDef]) -> dict[str, Any]:
         """
         Enables a user in the user pool.
 
@@ -815,12 +888,23 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#enable_user)
         """
 
-    async def expire_session(self, **kwargs: Unpack[ExpireSessionRequestTypeDef]) -> Dict[str, Any]:
+    async def expire_session(self, **kwargs: Unpack[ExpireSessionRequestTypeDef]) -> dict[str, Any]:
         """
         Immediately stops the specified streaming session.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/expire_session.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#expire_session)
+        """
+
+    async def get_export_image_task(
+        self, **kwargs: Unpack[GetExportImageTaskRequestTypeDef]
+    ) -> GetExportImageTaskResultTypeDef:
+        """
+        Retrieves information about an export image task, including its current state,
+        progress, and any error details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/get_export_image_task.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#get_export_image_task)
         """
 
     async def list_associated_fleets(
@@ -853,11 +937,21 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#list_entitled_applications)
         """
 
+    async def list_export_image_tasks(
+        self, **kwargs: Unpack[ListExportImageTasksRequestTypeDef]
+    ) -> ListExportImageTasksResultTypeDef:
+        """
+        Lists export image tasks, with optional filtering and pagination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/list_export_image_tasks.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#list_export_image_tasks)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Retrieves a list of all tags for the specified AppStream 2.0 resource.
+        Retrieves a list of all tags for the specified WorkSpaces Applications resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#list_tags_for_resource)
@@ -873,7 +967,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#start_app_block_builder)
         """
 
-    async def start_fleet(self, **kwargs: Unpack[StartFleetRequestTypeDef]) -> Dict[str, Any]:
+    async def start_fleet(self, **kwargs: Unpack[StartFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Starts the specified fleet.
 
@@ -891,6 +985,16 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#start_image_builder)
         """
 
+    async def start_software_deployment_to_image_builder(
+        self, **kwargs: Unpack[StartSoftwareDeploymentToImageBuilderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Initiates license included applications deployment to an image builder instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/start_software_deployment_to_image_builder.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#start_software_deployment_to_image_builder)
+        """
+
     async def stop_app_block_builder(
         self, **kwargs: Unpack[StopAppBlockBuilderRequestTypeDef]
     ) -> StopAppBlockBuilderResultTypeDef:
@@ -901,7 +1005,7 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#stop_app_block_builder)
         """
 
-    async def stop_fleet(self, **kwargs: Unpack[StopFleetRequestTypeDef]) -> Dict[str, Any]:
+    async def stop_fleet(self, **kwargs: Unpack[StopFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Stops the specified fleet.
 
@@ -919,18 +1023,19 @@ class AppStreamClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#stop_image_builder)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Adds or overwrites one or more tags for the specified AppStream 2.0 resource.
+        Adds or overwrites one or more tags for the specified WorkSpaces Applications
+        resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Disassociates one or more specified tags from the specified AppStream 2.0
-        resource.
+        Disassociates one or more specified tags from the specified WorkSpaces
+        Applications resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#untag_resource)
@@ -960,7 +1065,7 @@ class AppStreamClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateDirectoryConfigRequestTypeDef]
     ) -> UpdateDirectoryConfigResultTypeDef:
         """
-        Updates the specified Directory Config object in AppStream 2.0.
+        Updates the specified Directory Config object in WorkSpaces Applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/update_directory_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#update_directory_config)
@@ -988,7 +1093,7 @@ class AppStreamClient(AioBaseClient):
 
     async def update_image_permissions(
         self, **kwargs: Unpack[UpdateImagePermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or updates permissions for the specified private image.
 
@@ -1157,7 +1262,7 @@ class AppStreamClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

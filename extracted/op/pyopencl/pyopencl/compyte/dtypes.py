@@ -26,8 +26,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 """
 
-from collections.abc import Sequence
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 import numpy as np
 from numpy.typing import DTypeLike
@@ -40,14 +40,12 @@ class TypeNameNotKnown(RuntimeError):  # noqa: N818
 # {{{ registry
 
 class DTypeRegistry:
-    dtype_to_name: dict[np.dtype[Any] | str, str]
-    name_to_dtype: dict[str, np.dtype[Any]]
+    def __init__(self) -> None:
+        self.dtype_to_name: dict[np.dtype[Any] | str, str] = {}
+        self.name_to_dtype: dict[str, np.dtype[Any]] = {}
 
-    def __init__(self):
-        self.dtype_to_name = {}
-        self.name_to_dtype = {}
-
-    def get_or_register_dtype(self,
+    def get_or_register_dtype(
+                self,
                 names: str | Sequence[str],
                 dtype: DTypeLike | None = None) -> np.dtype[Any]:
         """Get or register a :class:`numpy.dtype` associated with the C type names
@@ -104,7 +102,7 @@ class DTypeRegistry:
         return dtype
 
     def dtype_to_ctype(self, dtype: DTypeLike) -> str:
-        if dtype is None:
+        if dtype is None:  # pyright: ignore[reportUnnecessaryComparison]
             raise ValueError("dtype may not be None")
 
         dtype = np.dtype(dtype)
@@ -227,7 +225,7 @@ dtype_to_ctype = TYPE_REGISTRY.dtype_to_ctype
 get_or_register_dtype = TYPE_REGISTRY.get_or_register_dtype
 
 
-def _fill_dtype_registry(respect_windows, include_bool=True):
+def _fill_dtype_registry(respect_windows: bool, include_bool: bool = True) -> None:
     fill_registry_with_c_types(
             TYPE_REGISTRY, respect_windows, include_bool)
 
@@ -244,7 +242,7 @@ def parse_c_arg_backend(
             scalar_arg_factory: Callable[[np.dtype[Any], str], ArgTypeT],
             vec_arg_factory: Callable[[np.dtype[Any], str], ArgTypeT],
             name_to_dtype: Callable[[str], np.dtype[Any]] | DTypeRegistry | None = None,
-        ):
+        ) -> ArgTypeT:
     if isinstance(name_to_dtype, DTypeRegistry):
         name_to_dtype_clbl = name_to_dtype.name_to_dtype.__getitem__
     elif name_to_dtype is None:

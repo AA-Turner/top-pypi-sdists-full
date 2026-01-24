@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel
+from typing_extensions import Self
 
 from weave.trace import urls
 from weave.trace.api import publish as weave_publish
@@ -17,6 +18,7 @@ from weave.trace.refs import ObjectRef, OpRef
 from weave.trace.traverse import ObjectPath, get_paths
 from weave.trace.vals import WeaveObject
 from weave.trace_server import trace_server_interface as tsi
+from weave.trace_server.common_interface import SortBy
 from weave.trace_server.interface import query as tsi_query
 from weave.trace_server.interface.builtin_object_classes.saved_view import Column, Pin
 from weave.trace_server.interface.builtin_object_classes.saved_view import (
@@ -48,7 +50,7 @@ COLUMN_ALIASES = {
     "Status": "summary.weave.status",
 }
 
-# This needs to be kept in sync with the type of the direction field of tsi.SortBy
+# This needs to be kept in sync with the type of the direction field of SortBy
 SortDirection = Literal["asc", "desc"]
 
 
@@ -60,6 +62,12 @@ class Filter(BaseModel):
 
 
 Filters = list[Filter]
+
+
+class QueryTranslationException(Exception):
+    """Exception raised when a query cannot be translated to or from filters."""
+
+    pass
 
 
 class TableColumn(TypedDict):
@@ -281,12 +289,6 @@ def filters_to_query(filters: Filters | None) -> tsi.Query | None:
     filter_clauses = [filter_to_clause(f) for f in filters]
     expr = {"$and": filter_clauses}
     return tsi.Query(**{"$expr": expr})
-
-
-class QueryTranslationException(Exception):
-    """Exception raised when a query cannot be translated to or from filters."""
-
-    pass
 
 
 def operand_to_filter_eq(operand: tsi_query.EqOperation) -> Filter:
@@ -596,7 +598,7 @@ class SavedView:
     def add_sort(self, field: str, direction: SortDirection) -> SavedView:
         if self.base.definition.sort_by is None:
             self.base.definition.sort_by = []
-        clause = tsi.SortBy(field=field, direction=direction)
+        clause = SortBy(field=field, direction=direction)
         self.base.definition.sort_by.append(clause)
         return self
 
@@ -972,7 +974,7 @@ class SavedView:
         return default_columns
 
     @classmethod
-    def load(cls, ref: str) -> SavedView:
+    def load(cls, ref: str) -> Self:
         obj_ref = weave_ref(ref)
         base = obj_ref.get()
         instance = cls.__new__(cls)

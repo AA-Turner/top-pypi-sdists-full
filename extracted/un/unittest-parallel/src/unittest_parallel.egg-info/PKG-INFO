@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unittest-parallel
-Version: 1.7.5
+Version: 1.7.6
 Summary: Parallel unit test runner with coverage support
 Home-page: https://github.com/craigahobbs/unittest-parallel
 Author: Craig A. Hobbs
@@ -10,7 +10,6 @@ Keywords: test,unittest,coverage,parallel
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

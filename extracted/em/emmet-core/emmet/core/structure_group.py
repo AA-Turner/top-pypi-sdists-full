@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import logging
 import operator
-from datetime import datetime
 from itertools import groupby
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from pymatgen.analysis.structure_matcher import ElementComparator, StructureMatcher
 from pymatgen.core.composition import Composition
 from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-from emmet.core.common import convert_datetime
-from emmet.core.mpid import MPID
-from emmet.core.utils import utcnow
+from emmet.core.mpid import AlphaID
+from emmet.core.types.typing import DateTimeType, IdentifierType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -31,7 +29,7 @@ def generic_groupby(list_in, comp=operator.eq) -> list[int]:
     Returns:
         [int] list of labels for the input list
     """
-    list_out = [None] * len(list_in)  # type: list[int| None]
+    list_out: list[int | None] = [None] * len(list_in)
     label_num = 0
     for i1, ls1 in enumerate(list_out):
         if ls1 is not None:
@@ -67,18 +65,18 @@ class StructureGroupDoc(BaseModel):
         None, description="True if multiple compositions are present in the group."
     )
 
-    material_ids: list | None = Field(
+    material_ids: list[str] | None = Field(
         None,
         description="A list of materials ids for all of the materials that were grouped together.",
     )
 
-    host_material_ids: list | None = Field(
+    host_material_ids: list[str] | None = Field(
         None,
         description="Material id(s) that correspond(s) to the host structure(s), which has/have the lowest"
         "concentration of ignored specie.",
     )
 
-    insertion_material_ids: list | None = Field(
+    insertion_material_ids: list[str] | None = Field(
         None,
         description="Material ids that correspond to the non-host structures identified in a given structure group.",
     )
@@ -99,15 +97,9 @@ class StructureGroupDoc(BaseModel):
         "present the chemsys will also include the ignored species.",
     )
 
-    last_updated: datetime = Field(
-        default_factory=utcnow, description="Timestamp when this document was built."
+    last_updated: DateTimeType = Field(
+        description="Timestamp when this document was built."
     )
-
-    # Make sure that the datetime field is properly formatted
-    @field_validator("last_updated", mode="before")
-    @classmethod
-    def handle_datetime(cls, v):
-        return convert_datetime(cls, v)
 
     @classmethod
     def from_grouped_entries(
@@ -286,11 +278,13 @@ def group_entries_with_structure_matcher(
         yield [el for el in sub_g]
 
 
-def _get_id_lexi(task_id) -> int | str:
+def _get_id_lexi(task_id: str | IdentifierType) -> tuple[str, int]:
     """Get a lexicographic representation for a task ID"""
     # matches "mp-1234" or "1234" followed by and optional "-(Alphanumeric)"
-    mpid = MPID(task_id)
-    return mpid.parts
+    try:
+        return AlphaID(task_id).parts
+    except ValueError:
+        return (str(task_id), 0)
 
 
 def _get_framework(formula, ignored_specie) -> str:

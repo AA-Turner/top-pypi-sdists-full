@@ -19,12 +19,8 @@ keywords = [
   "zstd",
 ]
 license = "MIT OR Apache-2.0"
-maintainers = [
-  { name = "jesse rubin", email = "jessekrubin@gmail.com" },
-]
-authors = [
-  { name = "jesse rubin", email = "jessekrubin@gmail.com" },
-]
+maintainers = [ { name = "jesse rubin", email = "jessekrubin@gmail.com" } ]
+authors = [ { name = "jesse rubin", email = "jessekrubin@gmail.com" } ]
 
 requires-python = ">=3.11"
 classifiers = [
@@ -37,6 +33,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Programming Language :: Rust",
@@ -53,13 +50,15 @@ urls.Source = "https://github.com/jessekrubin/ry"
 [dependency-groups]
 dev = [
   "anyio>=4.8",
+  "coverage[toml]>=7.10.7",
   "hypothesis>=6.124.2",
   "ipython>=9.5.0",
   "maturin>=1.8.6",
   "mypy>=1.14.1",
-  "orjson>=3.10.18; implementation_name=='cpython'",
+  "orjson==3.11.4; implementation_name=='cpython'",
+  "prek>=0.2.2",
   "pydantic>=2.11.7",
-  "pytest>=8.3.5",
+  "pytest>=9.0.1",
   "pytest-asyncio>=1.0.0",
   "pytest-benchmark>=5.1",
   "pytest-cov>=6.2.1",
@@ -68,9 +67,7 @@ dev = [
   "tzdata>=2025.2",
   "uvicorn>=0.34",
 ]
-misc = [
-  "griffe>=1.12.1",
-]
+misc = [ "griffe>=1.12.1" ]
 
 [tool.maturin]
 python-source = "python"
@@ -79,19 +76,22 @@ features = [ "pyo3/extension-module" ]
 module-name = "ry.ryo3"
 bindings = "pyo3"
 
+[tool.uv]
+package = false # don't build package w/ uv
+# UV problemo: https://github.com/astral-sh/setup-uv/issues/489
+# BUG IN UV: https://github.com/astral-sh/setup-uv/issues/489#issuecomment-3085384851
+required-version = ">=0.7.0"
+
+[tool.uv.sources]
+ry = { workspace = true }
+
 [tool.ruff]
 extend = "./ruff.toml"
 
 [tool.pytest.ini_options]
-testpaths = [
-  "tests",
-]
-filterwarnings = [
-  "ignore:ry not compiled in release mode:RuntimeWarning",
-]
-addopts = [
-  "--doctest-modules",
-]
+testpaths = [ "tests" ]
+filterwarnings = [ "ignore:ry not compiled in release mode:RuntimeWarning" ]
+addopts = [ "--doctest-modules" ]
 asyncio_mode = 'auto'
 asyncio_default_fixture_loop_scope = "function"
 norecursedirs = [
@@ -115,13 +115,37 @@ markers = [
   "bench",
 ]
 
+[tool.coverage.run]
+source = [ "python/ry" ]
+omit = [ "python/ry/dev/__main__.py" ]
+branch = true
+relative_files = true
+context = '${CONTEXT}'
+
+[tool.coverage.report]
+precision = 2
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "if typing.TYPE_CHECKING:",
+  "if t.TYPE_CHECKING:",
+  '\(Protocol\):$',
+  # any generic protocol from `ry.protocols`
+  "^\\s*class\\s+\\w+\\(.*\\b(?:typing\\.|t\\.)?Protocol(?:\\[[^\\]]*\\])?.*\\):\\s*(?:#.*)?$",
+
+  # 'typing.assert_never',
+  # 'assert_never',
+]
+
+[tool.coverage.paths]
+source = [ 'python/ry/' ]
+
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
 python_version = "3.11"
-enable_error_code = [
-  "deprecated",
-]
+enable_error_code = [ "deprecated" ]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -131,12 +155,3 @@ check_untyped_defs = true
 [tool.pyright]
 include = [ 'ry', 'tests' ]
 reportUnnecessaryTypeIgnoreComment = true
-
-[tool.uv]
-package = false # don't build package w/ uv
-# UV problemo: https://github.com/astral-sh/setup-uv/issues/489
-# BUG IN UV: https://github.com/astral-sh/setup-uv/issues/489#issuecomment-3085384851
-required-version = ">=0.7.0"
-
-[tool.uv.sources]
-ry = { workspace = true }

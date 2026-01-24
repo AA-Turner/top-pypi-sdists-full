@@ -13,13 +13,12 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_build::handle::Handle;
-use pyrefly_build::map_db::MapDatabase;
+use pyrefly_build::source_db::map_db::MapDatabase;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
-use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
 
@@ -27,6 +26,7 @@ use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::state::errors::Errors;
+use crate::state::load::FileContents;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
@@ -85,7 +85,7 @@ impl Incremental {
                 ModulePath::memory(PathBuf::from(file)),
             );
         }
-        config.source_db = Arc::new(RwLock::new(Some(Box::new(sourcedb))));
+        config.source_db = Some(ArcId::new(Box::new(sourcedb)));
         config.configure();
         let config = ArcId::new(config);
 
@@ -122,9 +122,10 @@ impl Incremental {
                 .0
                 .lock()
                 .insert(ModuleName::from_str(&file), contents.dupe());
-            transaction
-                .as_mut()
-                .set_memory(vec![(PathBuf::from(file), Some(contents))]);
+            transaction.as_mut().set_memory(vec![(
+                PathBuf::from(file),
+                Some(Arc::new(FileContents::Source(contents))),
+            )]);
         }
 
         let handles = want.map(|x| self.handle(x));
@@ -132,6 +133,7 @@ impl Incremental {
             transaction,
             &handles,
             self.require.unwrap_or(Require::Everything),
+            None,
         );
         let loaded = Self::USER_FILES.map(|x| self.handle(x));
         let errors = self.state.transaction().get_errors(&loaded);
@@ -357,6 +359,80 @@ fn test_error_clearing_on_dependency() {
     assert!(
         errors_after_fix.shown.is_empty(),
         "Expected errors after fixing the dependency"
+    );
+}
+
+#[test]
+fn test_error_clearing_on_dependency_star_import() {
+    let mut i = Incremental::new();
+
+    i.set("foo", "def xyz() -> int: ...");
+    i.set(
+        "main",
+        "from foo import *\ny = x # E: Could not find name `x`",
+    );
+    i.check(&["main", "foo"], &["main", "foo"]);
+
+    let main_handle = i.handle("main");
+
+    let errors = i
+        .state
+        .transaction()
+        .get_errors([&main_handle])
+        .collect_errors();
+
+    assert!(
+        !errors.shown.is_empty(),
+        "Expected errors before fixing the dependency"
+    );
+
+    i.set("foo", "def xyz() -> int: ...\nx = 1");
+    i.check_ignoring_expectations(&["main"], &["foo", "main"]);
+
+    let errors_after_fix = i
+        .state
+        .transaction()
+        .get_errors([&main_handle])
+        .collect_errors();
+    assert!(
+        errors_after_fix.shown.is_empty(),
+        "Expected no errors after fixing the dependency"
+    );
+}
+
+#[test]
+fn test_failed_import_invalidation_via_rdeps() {
+    // This tests that when a module's exports change to satisfy a previously-failed import,
+    // the module with the failed import is invalidated even if it's not explicitly requested.
+    //
+    // The key difference from test_error_clearing_on_dependency is that we DON'T include
+    // the module with the failed import in the `want` list - we only request a third module
+    // that depends on it transitively.
+    let mut i = Incremental::new();
+
+    // Setup: bar has a failed import from foo
+    i.set("foo", "x = 1"); // foo exists but doesn't export `y`
+    i.set("bar", "from foo import y"); // bar tries to import y - FAILS
+    i.set("main", "import bar"); // main imports bar
+
+    // Initial check - all modules computed
+    i.unchecked(&["main"]);
+
+    // Now foo exports `y` - bar's failed import should now succeed
+    i.set("foo", "y = 2");
+
+    // Only request main, NOT bar directly.
+    // Before the fix: bar wouldn't be invalidated because:
+    //   - bar is not in foo's rdeps (the import failed)
+    //   - bar is not in the `want` list
+    // After the fix: invalidate_failed_imports_from scans for failed imports and invalidates bar
+    let res = i.unchecked(&["main"]);
+
+    // bar should be recomputed because its failed import now succeeds
+    assert!(
+        res.changed.contains(&"bar".to_owned()),
+        "bar should have been recomputed, but changed = {:?}",
+        res.changed
     );
 }
 

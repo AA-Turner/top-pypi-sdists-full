@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandapower
-Version: 3.1.2
+Version: 3.3.2
 Summary: An easy to use open source tool for power system modeling, analysis and optimization with a high degree of automation.
 Author-email: Leon Thurner <leon.thurner@retoflow.de>, Alexander Scheidler <alexander.scheidler@iee.fraunhofer.de>, Mike Vogt <mike.vogt@iee.fraunhofer.de>
 Maintainer-email: pandapower Developers <info@pandapower.org>
@@ -22,76 +22,73 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: pandas>=1.0
-Requires-Dist: networkx>=2.5
-Requires-Dist: scipy
-Requires-Dist: numpy
-Requires-Dist: packaging
-Requires-Dist: tqdm
-Requires-Dist: deepdiff
-Requires-Dist: geojson
-Requires-Dist: lxml
+Requires-Dist: pandas~=2.3
+Requires-Dist: networkx~=3.4
+Requires-Dist: scipy<1.17
+Requires-Dist: numpy~=2.2
+Requires-Dist: packaging~=25.0
+Requires-Dist: tqdm~=4.67
+Requires-Dist: deepdiff~=8.6
+Requires-Dist: geojson~=3.2
 Requires-Dist: typing_extensions~=4.9
+Requires-Dist: pandera~=0.26.1
 Provides-Extra: docs
-Requires-Dist: numpydoc>=1.5.0; extra == "docs"
-Requires-Dist: matplotlib; extra == "docs"
-Requires-Dist: sphinx>=5.3.0; extra == "docs"
-Requires-Dist: sphinx_rtd_theme>=1.1.1; extra == "docs"
-Requires-Dist: sphinx-pyproject; extra == "docs"
+Requires-Dist: numpydoc~=1.9; extra == "docs"
+Requires-Dist: matplotlib~=3.10; extra == "docs"
+Requires-Dist: sphinx~=8.1; extra == "docs"
+Requires-Dist: sphinx_rtd_theme~=3.0; extra == "docs"
+Requires-Dist: sphinx-pyproject~=0.3; extra == "docs"
+Requires-Dist: sphinxcontrib-imagesvg~=0.1; extra == "docs"
+Requires-Dist: pandapower[converter]; extra == "docs"
 Provides-Extra: plotting
-Requires-Dist: plotly>=3.1.1; extra == "plotting"
-Requires-Dist: matplotlib; extra == "plotting"
+Requires-Dist: plotly~=6.3; extra == "plotting"
+Requires-Dist: matplotlib~=3.10; extra == "plotting"
 Requires-Dist: igraph; extra == "plotting"
-Requires-Dist: geopandas>=1.0; extra == "plotting"
+Requires-Dist: geopandas~=1.1; extra == "plotting"
 Provides-Extra: test
-Requires-Dist: pytest~=8.1; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: nbmake; extra == "test"
+Requires-Dist: pytest~=8.4; extra == "test"
+Requires-Dist: pytest-xdist~=3.8; extra == "test"
+Requires-Dist: nbmake~=1.5; extra == "test"
 Provides-Extra: performance
-Requires-Dist: ortools; extra == "performance"
-Requires-Dist: numba==0.60.0; extra == "performance"
-Requires-Dist: lightsim2grid==0.10.1; extra == "performance"
+Requires-Dist: ortools~=9.14; extra == "performance"
+Requires-Dist: numba~=0.61; extra == "performance"
+Requires-Dist: lightsim2grid~=0.10.3; extra == "performance"
 Provides-Extra: fileio
-Requires-Dist: xlsxwriter; extra == "fileio"
-Requires-Dist: openpyxl; extra == "fileio"
-Requires-Dist: cryptography; extra == "fileio"
-Requires-Dist: geopandas>=1.0; extra == "fileio"
-Requires-Dist: psycopg2; extra == "fileio"
+Requires-Dist: xlsxwriter~=3.2; extra == "fileio"
+Requires-Dist: openpyxl~=3.1; extra == "fileio"
+Requires-Dist: cryptography~=46.0; extra == "fileio"
+Requires-Dist: geopandas~=1.1; extra == "fileio"
+Requires-Dist: psycopg~=3.2; extra == "fileio"
+Requires-Dist: lxml~=6.0; extra == "fileio"
 Provides-Extra: converter
-Requires-Dist: matpowercaseframes; extra == "converter"
+Requires-Dist: matpowercaseframes~=1.1; extra == "converter"
+Requires-Dist: lxml~=6.0; extra == "converter"
 Provides-Extra: pgm
-Requires-Dist: power-grid-model-io; extra == "pgm"
+Requires-Dist: power-grid-model-io~=1.2; extra == "pgm"
 Provides-Extra: control
-Requires-Dist: shapely; extra == "control"
+Requires-Dist: shapely~=2.1; extra == "control"
+Provides-Extra: pandamodels
+Requires-Dist: juliacall~=0.9; extra == "pandamodels"
+Provides-Extra: typing
+Requires-Dist: mypy~=1.18; extra == "typing"
+Requires-Dist: pandas-stubs~=2.3; extra == "typing"
+Requires-Dist: types-shapely~=2.1; extra == "typing"
+Requires-Dist: types-psycopg2~=2.9; extra == "typing"
+Requires-Dist: types-openpyxl~=3.1; extra == "typing"
+Requires-Dist: types-networkx~=3.4; extra == "typing"
+Requires-Dist: types-tqdm~=4.67; extra == "typing"
+Requires-Dist: scipy-stubs~=1.15; extra == "typing"
+Requires-Dist: pandera[mypy]~=0.26.1; extra == "typing"
 Provides-Extra: all
-Requires-Dist: numpydoc>=1.5.0; extra == "all"
-Requires-Dist: sphinx>=5.3.0; extra == "all"
-Requires-Dist: sphinx_rtd_theme>=1.1.1; extra == "all"
-Requires-Dist: sphinx-pyproject; extra == "all"
-Requires-Dist: plotly>=3.1.1; extra == "all"
-Requires-Dist: matplotlib; extra == "all"
-Requires-Dist: igraph; extra == "all"
-Requires-Dist: geopandas>=1.0; extra == "all"
-Requires-Dist: pytest~=8.1; extra == "all"
-Requires-Dist: pytest-xdist; extra == "all"
-Requires-Dist: nbmake; extra == "all"
-Requires-Dist: ortools; extra == "all"
-Requires-Dist: numba==0.60.0; extra == "all"
-Requires-Dist: lightsim2grid==0.10.1; extra == "all"
-Requires-Dist: xlsxwriter; extra == "all"
-Requires-Dist: openpyxl; extra == "all"
-Requires-Dist: cryptography; extra == "all"
-Requires-Dist: psycopg2; extra == "all"
-Requires-Dist: matpowercaseframes; extra == "all"
-Requires-Dist: power-grid-model-io; extra == "all"
+Requires-Dist: pandapower[control,converter,docs,fileio,performance,pgm,plotting,test,typing]; extra == "all"
 Dynamic: license-file
 
 
@@ -160,7 +157,7 @@ Getting Started:
 
 If you are interested in the latest pandapower developments, subscribe to our `mailing list <https://www.pandapower.org/contact/#list>`_!
 
-.. image:: https://simbench.de/wp-content/uploads/2019/01/logo.png
+.. image:: https://simbench.de/wp-content/uploads/2025/11/logo.png
    :target: https://www.simbench.net
    :alt: SimBench_logo
 

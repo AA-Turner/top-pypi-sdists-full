@@ -33,53 +33,130 @@ class UpdateWorkspaceRequest(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'auth_type': 'str',
+        'bearer_token': 'str',
         'delete_protection_enabled': 'bool',
         'description': 'str',
         'id': 'str',
+        'instance_type_id': 'str',
         'name': 'str',
         'password': 'str',
+        'public_access_enabled': 'bool',
+        'public_query_bandwidth': 'int',
+        'public_write_bandwidth': 'int',
         'quota': 'QuotaForUpdateWorkspaceInput',
+        'search_latency_offset': 'str',
         'username': 'str'
     }
 
     attribute_map = {
+        'auth_type': 'AuthType',
+        'bearer_token': 'BearerToken',
         'delete_protection_enabled': 'DeleteProtectionEnabled',
         'description': 'Description',
         'id': 'Id',
+        'instance_type_id': 'InstanceTypeId',
         'name': 'Name',
         'password': 'Password',
+        'public_access_enabled': 'PublicAccessEnabled',
+        'public_query_bandwidth': 'PublicQueryBandwidth',
+        'public_write_bandwidth': 'PublicWriteBandwidth',
         'quota': 'Quota',
+        'search_latency_offset': 'SearchLatencyOffset',
         'username': 'Username'
     }
 
-    def __init__(self, delete_protection_enabled=None, description=None, id=None, name=None, password=None, quota=None, username=None, _configuration=None):  # noqa: E501
+    def __init__(self, auth_type=None, bearer_token=None, delete_protection_enabled=None, description=None, id=None, instance_type_id=None, name=None, password=None, public_access_enabled=None, public_query_bandwidth=None, public_write_bandwidth=None, quota=None, search_latency_offset=None, username=None, _configuration=None):  # noqa: E501
         """UpdateWorkspaceRequest - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
         self._configuration = _configuration
 
+        self._auth_type = None
+        self._bearer_token = None
         self._delete_protection_enabled = None
         self._description = None
         self._id = None
+        self._instance_type_id = None
         self._name = None
         self._password = None
+        self._public_access_enabled = None
+        self._public_query_bandwidth = None
+        self._public_write_bandwidth = None
         self._quota = None
+        self._search_latency_offset = None
         self._username = None
         self.discriminator = None
 
+        if auth_type is not None:
+            self.auth_type = auth_type
+        if bearer_token is not None:
+            self.bearer_token = bearer_token
         if delete_protection_enabled is not None:
             self.delete_protection_enabled = delete_protection_enabled
         if description is not None:
             self.description = description
         self.id = id
+        if instance_type_id is not None:
+            self.instance_type_id = instance_type_id
         if name is not None:
             self.name = name
         if password is not None:
             self.password = password
+        if public_access_enabled is not None:
+            self.public_access_enabled = public_access_enabled
+        if public_query_bandwidth is not None:
+            self.public_query_bandwidth = public_query_bandwidth
+        if public_write_bandwidth is not None:
+            self.public_write_bandwidth = public_write_bandwidth
         if quota is not None:
             self.quota = quota
+        if search_latency_offset is not None:
+            self.search_latency_offset = search_latency_offset
         if username is not None:
             self.username = username
+
+    @property
+    def auth_type(self):
+        """Gets the auth_type of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The auth_type of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._auth_type
+
+    @auth_type.setter
+    def auth_type(self, auth_type):
+        """Sets the auth_type of this UpdateWorkspaceRequest.
+
+
+        :param auth_type: The auth_type of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._auth_type = auth_type
+
+    @property
+    def bearer_token(self):
+        """Gets the bearer_token of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The bearer_token of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._bearer_token
+
+    @bearer_token.setter
+    def bearer_token(self, bearer_token):
+        """Sets the bearer_token of this UpdateWorkspaceRequest.
+
+
+        :param bearer_token: The bearer_token of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._bearer_token = bearer_token
 
     @property
     def delete_protection_enabled(self):
@@ -147,6 +224,27 @@ class UpdateWorkspaceRequest(object):
         self._id = id
 
     @property
+    def instance_type_id(self):
+        """Gets the instance_type_id of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The instance_type_id of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._instance_type_id
+
+    @instance_type_id.setter
+    def instance_type_id(self, instance_type_id):
+        """Sets the instance_type_id of this UpdateWorkspaceRequest.
+
+
+        :param instance_type_id: The instance_type_id of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._instance_type_id = instance_type_id
+
+    @property
     def name(self):
         """Gets the name of this UpdateWorkspaceRequest.  # noqa: E501
 
@@ -189,6 +287,69 @@ class UpdateWorkspaceRequest(object):
         self._password = password
 
     @property
+    def public_access_enabled(self):
+        """Gets the public_access_enabled of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The public_access_enabled of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: bool
+        """
+        return self._public_access_enabled
+
+    @public_access_enabled.setter
+    def public_access_enabled(self, public_access_enabled):
+        """Sets the public_access_enabled of this UpdateWorkspaceRequest.
+
+
+        :param public_access_enabled: The public_access_enabled of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: bool
+        """
+
+        self._public_access_enabled = public_access_enabled
+
+    @property
+    def public_query_bandwidth(self):
+        """Gets the public_query_bandwidth of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The public_query_bandwidth of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: int
+        """
+        return self._public_query_bandwidth
+
+    @public_query_bandwidth.setter
+    def public_query_bandwidth(self, public_query_bandwidth):
+        """Sets the public_query_bandwidth of this UpdateWorkspaceRequest.
+
+
+        :param public_query_bandwidth: The public_query_bandwidth of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: int
+        """
+
+        self._public_query_bandwidth = public_query_bandwidth
+
+    @property
+    def public_write_bandwidth(self):
+        """Gets the public_write_bandwidth of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The public_write_bandwidth of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: int
+        """
+        return self._public_write_bandwidth
+
+    @public_write_bandwidth.setter
+    def public_write_bandwidth(self, public_write_bandwidth):
+        """Sets the public_write_bandwidth of this UpdateWorkspaceRequest.
+
+
+        :param public_write_bandwidth: The public_write_bandwidth of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: int
+        """
+
+        self._public_write_bandwidth = public_write_bandwidth
+
+    @property
     def quota(self):
         """Gets the quota of this UpdateWorkspaceRequest.  # noqa: E501
 
@@ -208,6 +369,27 @@ class UpdateWorkspaceRequest(object):
         """
 
         self._quota = quota
+
+    @property
+    def search_latency_offset(self):
+        """Gets the search_latency_offset of this UpdateWorkspaceRequest.  # noqa: E501
+
+
+        :return: The search_latency_offset of this UpdateWorkspaceRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._search_latency_offset
+
+    @search_latency_offset.setter
+    def search_latency_offset(self, search_latency_offset):
+        """Sets the search_latency_offset of this UpdateWorkspaceRequest.
+
+
+        :param search_latency_offset: The search_latency_offset of this UpdateWorkspaceRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._search_latency_offset = search_latency_offset
 
     @property
     def username(self):

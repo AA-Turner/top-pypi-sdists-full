@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MultiPyVu"
+dynamic = [
+    "version",
+    "description",
+    "requires-python",
+    "dependencies",
+    ]
+authors = [{name = "Damon D Jackson", email = "djackson@qdusa.com"}]
+maintainers = [
+    { name = "Quantum Design, Inc.", email = "apps@qdusa.com" },
+    ]
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+    "Quantum Design",
+    "QD",
+    "MultiVu",
+    "PPMS",
+    "DynaCool",
+    "MPMS3",
+    "VersaLab",
+    "OptiCool",
+    ]
+
+[project.urls]
+"Quantum Design" = "https://qdusa.com"
+"Pharos" = "https://www.qdusa.com/register/account/login"

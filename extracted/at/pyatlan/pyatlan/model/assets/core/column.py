@@ -552,12 +552,6 @@ class Column(SQL):
     The type of measure/calculated column this is, eg: base, calculated, derived.
     """
 
-    ALPHADQ_BASE_COLUMN_RULES: ClassVar[RelationField] = RelationField(
-        "alpha_dqBaseColumnRules"
-    )
-    """
-    TBC
-    """
     VIEW: ClassVar[RelationField] = RelationField("view")
     """
     TBC
@@ -568,6 +562,10 @@ class Column(SQL):
     """
     TBC
     """
+    MONGO_DB_COLLECTION: ClassVar[RelationField] = RelationField("mongoDBCollection")
+    """
+    TBC
+    """
     COSMOS_MONGO_DB_COLLECTION: ClassVar[RelationField] = RelationField(
         "cosmosMongoDBCollection"
     )
@@ -575,12 +573,6 @@ class Column(SQL):
     TBC
     """
     FOREIGN_KEY_FROM: ClassVar[RelationField] = RelationField("foreignKeyFrom")
-    """
-    TBC
-    """
-    ALPHADQ_REFERENCE_COLUMN_RULES: ClassVar[RelationField] = RelationField(
-        "alpha_dqReferenceColumnRules"
-    )
     """
     TBC
     """
@@ -598,6 +590,12 @@ class Column(SQL):
     """
     TBC
     """
+    DQ_REFERENCE_COLUMN_RULES: ClassVar[RelationField] = RelationField(
+        "dqReferenceColumnRules"
+    )
+    """
+    TBC
+    """
     DATA_QUALITY_METRIC_DIMENSIONS: ClassVar[RelationField] = RelationField(
         "dataQualityMetricDimensions"
     )
@@ -609,6 +607,10 @@ class Column(SQL):
     TBC
     """
     TABLE: ClassVar[RelationField] = RelationField("table")
+    """
+    TBC
+    """
+    DQ_BASE_COLUMN_RULES: ClassVar[RelationField] = RelationField("dqBaseColumnRules")
     """
     TBC
     """
@@ -710,18 +712,19 @@ class Column(SQL):
         "nosql_collection_qualified_name",
         "column_is_measure",
         "column_measure_type",
-        "alpha_dq_base_column_rules",
         "view",
         "column_dbt_model_columns",
+        "mongo_d_b_collection",
         "cosmos_mongo_d_b_collection",
         "foreign_key_from",
-        "alpha_dq_reference_column_rules",
         "dbt_metrics",
         "snowflake_dynamic_table",
         "nested_columns",
+        "dq_reference_column_rules",
         "data_quality_metric_dimensions",
         "dbt_model_columns",
         "table",
+        "dq_base_column_rules",
         "materialised_view",
         "calculation_view",
         "parent_column",
@@ -1530,22 +1533,6 @@ class Column(SQL):
         self.attributes.column_measure_type = column_measure_type
 
     @property
-    def alpha_dq_base_column_rules(self) -> Optional[List[alpha_DQRule]]:
-        return (
-            None
-            if self.attributes is None
-            else self.attributes.alpha_dq_base_column_rules
-        )
-
-    @alpha_dq_base_column_rules.setter
-    def alpha_dq_base_column_rules(
-        self, alpha_dq_base_column_rules: Optional[List[alpha_DQRule]]
-    ):
-        if self.attributes is None:
-            self.attributes = self.Attributes()
-        self.attributes.alpha_dq_base_column_rules = alpha_dq_base_column_rules
-
-    @property
     def view(self) -> Optional[View]:
         return None if self.attributes is None else self.attributes.view
 
@@ -1572,6 +1559,16 @@ class Column(SQL):
         self.attributes.column_dbt_model_columns = column_dbt_model_columns
 
     @property
+    def mongo_d_b_collection(self) -> Optional[MongoDBCollection]:
+        return None if self.attributes is None else self.attributes.mongo_d_b_collection
+
+    @mongo_d_b_collection.setter
+    def mongo_d_b_collection(self, mongo_d_b_collection: Optional[MongoDBCollection]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.mongo_d_b_collection = mongo_d_b_collection
+
+    @property
     def cosmos_mongo_d_b_collection(self) -> Optional[CosmosMongoDBCollection]:
         return (
             None
@@ -1596,24 +1593,6 @@ class Column(SQL):
         if self.attributes is None:
             self.attributes = self.Attributes()
         self.attributes.foreign_key_from = foreign_key_from
-
-    @property
-    def alpha_dq_reference_column_rules(self) -> Optional[List[alpha_DQRule]]:
-        return (
-            None
-            if self.attributes is None
-            else self.attributes.alpha_dq_reference_column_rules
-        )
-
-    @alpha_dq_reference_column_rules.setter
-    def alpha_dq_reference_column_rules(
-        self, alpha_dq_reference_column_rules: Optional[List[alpha_DQRule]]
-    ):
-        if self.attributes is None:
-            self.attributes = self.Attributes()
-        self.attributes.alpha_dq_reference_column_rules = (
-            alpha_dq_reference_column_rules
-        )
 
     @property
     def dbt_metrics(self) -> Optional[List[DbtMetric]]:
@@ -1650,6 +1629,22 @@ class Column(SQL):
         self.attributes.nested_columns = nested_columns
 
     @property
+    def dq_reference_column_rules(self) -> Optional[List[DataQualityRule]]:
+        return (
+            None
+            if self.attributes is None
+            else self.attributes.dq_reference_column_rules
+        )
+
+    @dq_reference_column_rules.setter
+    def dq_reference_column_rules(
+        self, dq_reference_column_rules: Optional[List[DataQualityRule]]
+    ):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.dq_reference_column_rules = dq_reference_column_rules
+
+    @property
     def data_quality_metric_dimensions(self) -> Optional[List[Metric]]:
         return (
             None
@@ -1684,6 +1679,18 @@ class Column(SQL):
         if self.attributes is None:
             self.attributes = self.Attributes()
         self.attributes.table = table
+
+    @property
+    def dq_base_column_rules(self) -> Optional[List[DataQualityRule]]:
+        return None if self.attributes is None else self.attributes.dq_base_column_rules
+
+    @dq_base_column_rules.setter
+    def dq_base_column_rules(
+        self, dq_base_column_rules: Optional[List[DataQualityRule]]
+    ):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.dq_base_column_rules = dq_base_column_rules
 
     @property
     def materialised_view(self) -> Optional[MaterialisedView]:
@@ -1858,20 +1865,17 @@ class Column(SQL):
         )
         column_is_measure: Optional[bool] = Field(default=None, description="")
         column_measure_type: Optional[str] = Field(default=None, description="")
-        alpha_dq_base_column_rules: Optional[List[alpha_DQRule]] = Field(
-            default=None, description=""
-        )  # relationship
         view: Optional[View] = Field(default=None, description="")  # relationship
         column_dbt_model_columns: Optional[List[DbtModelColumn]] = Field(
+            default=None, description=""
+        )  # relationship
+        mongo_d_b_collection: Optional[MongoDBCollection] = Field(
             default=None, description=""
         )  # relationship
         cosmos_mongo_d_b_collection: Optional[CosmosMongoDBCollection] = Field(
             default=None, description=""
         )  # relationship
         foreign_key_from: Optional[Column] = Field(
-            default=None, description=""
-        )  # relationship
-        alpha_dq_reference_column_rules: Optional[List[alpha_DQRule]] = Field(
             default=None, description=""
         )  # relationship
         dbt_metrics: Optional[List[DbtMetric]] = Field(
@@ -1883,6 +1887,9 @@ class Column(SQL):
         nested_columns: Optional[List[Column]] = Field(
             default=None, description=""
         )  # relationship
+        dq_reference_column_rules: Optional[List[DataQualityRule]] = Field(
+            default=None, description=""
+        )  # relationship
         data_quality_metric_dimensions: Optional[List[Metric]] = Field(
             default=None, description=""
         )  # relationship
@@ -1890,6 +1897,9 @@ class Column(SQL):
             default=None, description=""
         )  # relationship
         table: Optional[Table] = Field(default=None, description="")  # relationship
+        dq_base_column_rules: Optional[List[DataQualityRule]] = Field(
+            default=None, description=""
+        )  # relationship
         materialised_view: Optional[MaterialisedView] = Field(
             default=None, description=""
         )  # relationship
@@ -2033,13 +2043,14 @@ class Column(SQL):
     )
 
 
-from .alpha__d_q_rule import alpha_DQRule  # noqa: E402, F401
 from .calculation_view import CalculationView  # noqa: E402, F401
 from .cosmos_mongo_d_b_collection import CosmosMongoDBCollection  # noqa: E402, F401
+from .data_quality_rule import DataQualityRule  # noqa: E402, F401
 from .dbt_metric import DbtMetric  # noqa: E402, F401
 from .dbt_model_column import DbtModelColumn  # noqa: E402, F401
 from .materialised_view import MaterialisedView  # noqa: E402, F401
 from .metric import Metric  # noqa: E402, F401
+from .mongo_d_b_collection import MongoDBCollection  # noqa: E402, F401
 from .query import Query  # noqa: E402, F401
 from .snowflake_dynamic_table import SnowflakeDynamicTable  # noqa: E402, F401
 from .table import Table  # noqa: E402, F401

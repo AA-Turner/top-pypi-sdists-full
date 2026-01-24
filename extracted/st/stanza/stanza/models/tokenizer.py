@@ -71,6 +71,9 @@ def build_argparse():
     parser.add_argument('--tok_noise', type=float, default=0.02, help="Probability to induce noise to the input of the higher RNN")
     parser.add_argument('--sent_drop_prob', type=float, default=0.2, help="Probability to drop sentences at the end of batches during training uniformly at random.  Idea is to fake paragraph endings.")
     parser.add_argument('--last_char_drop_prob', type=float, default=0.2, help="Probability to drop the last char of a block of text during training, uniformly at random.  Idea is to fake a document ending w/o sentence final punctuation, hopefully to avoid the tokenizer learning to always tokenize the last character as a period")
+    parser.add_argument('--last_char_move_prob', type=float, default=0.02, help="Probability to move the sentence final punctuation of a sentence during training, uniformly at random.  Idea is to teach the tokenizer that a space separated sentence final punct still ends the sentence")
+    parser.add_argument('--punct_move_back_prob', type=float, default=0.02, help="Probability to move a comma in the sentence one over, removing the previous space, during training.  Idea is to teach the tokenizer that commas can appear next to words even in languages where the dataset doesn't allow it, such as Vietnamese")
+    parser.add_argument('--split_mwt_prob', type=float, default=0.01, help="Probably to split an MWT into its component pieces and turn it into separate words")
     parser.add_argument('--weight_decay', type=float, default=0.0, help="Weight decay")
     parser.add_argument('--max_seqlen', type=int, default=100, help="Maximum sequence length to consider at a time")
     parser.add_argument('--batch_size', type=int, default=32, help="Batch size to use")
@@ -80,11 +83,15 @@ def build_argparse():
     parser.add_argument('--shuffle_steps', type=int, default=100, help="Step interval to shuffle each paragraph in the generator")
     parser.add_argument('--eval_steps', type=int, default=200, help="Step interval to evaluate the model on the dev set for early stopping")
     parser.add_argument('--max_steps_before_stop', type=int, default=5000, help='Early terminates after this many steps if the dev scores are not improving')
-    parser.add_argument('--save_name', type=str, default=None, help="File name to save the model")
+    parser.add_argument('--save_name', type=str, default="{shorthand}_{embedding}_tokenizer.pt", help="File name to save the model")
     parser.add_argument('--load_name', type=str, default=None, help="File name to load a saved model")
     parser.add_argument('--save_dir', type=str, default='saved_models/tokenize', help="Directory to save models in")
     utils.add_device_args(parser)
     parser.add_argument('--seed', type=int, default=1234)
+
+    parser.add_argument('--charlm', action='store_true', help="Turn on contextualized char embedding using pretrained character-level language model.")
+    parser.add_argument('--charlm_shorthand', type=str, default=None, help="Shorthand for character-level language model training corpus.")
+    parser.add_argument('--charlm_forward_file', type=str, default=None, help="Exact path to use for forward charlm")
 
     parser.add_argument('--use_mwt', dest='use_mwt', default=None, action='store_true', help='Whether or not to include mwt output layers.  If set to None, this will be determined by examining the training data for MWTs')
     parser.add_argument('--no_use_mwt', dest='use_mwt', action='store_false', help='Whether or not to include mwt output layers')
@@ -104,11 +111,13 @@ def parse_args(args=None):
     return args
 
 def model_file_name(args):
-    if args['save_name'] is not None:
-        save_name = args['save_name']
-    else:
-        save_name = args['shorthand'] + "_tokenizer.pt"
+    embedding = "nocharlm"
+    if args['charlm'] and args['charlm_forward_file']:
+        embedding = "charlm"
+    save_name = args['save_name'].format(shorthand=args['shorthand'],
+                                         embedding=embedding)
 
+    logger.info("Saving to: %s", save_name)
     if not os.path.exists(os.path.join(args['save_dir'], save_name)) and os.path.exists(save_name):
         return save_name
     return os.path.join(args['save_dir'], save_name)
@@ -126,9 +135,9 @@ def main(args=None):
     utils.ensure_dir(os.path.split(args['save_name'])[0])
 
     if args['mode'] == 'train':
-        train(args)
+        return train(args)
     else:
-        evaluate(args)
+        return evaluate(args)
 
 def train(args):
     if args['use_dictionary']:
@@ -144,12 +153,13 @@ def train(args):
         dictionary=None
 
     mwt_dict = load_mwt_dict(args['mwt_json_file'])
+    mwt_expansions = {x: y[0] for x, y in mwt_dict.items()}
 
     train_input_files = {
-            'txt': args['txt_file'],
-            'label': args['label_file']
-            }
-    train_batches = DataLoader(args, input_files=train_input_files, dictionary=dictionary)
+        'txt': args['txt_file'],
+        'label': args['label_file']
+    }
+    train_batches = DataLoader(args, input_files=train_input_files, dictionary=dictionary, mwt_expansions=mwt_expansions)
     vocab = train_batches.vocab
 
     args['vocab_size'] = len(vocab)
@@ -164,7 +174,7 @@ def train(args):
         args['use_mwt'] = train_batches.has_mwt()
         logger.info("Found {}mwts in the training data.  Setting use_mwt to {}".format(("" if args['use_mwt'] else "no "), args['use_mwt']))
 
-    trainer = Trainer(args=args, vocab=vocab, lexicon=lexicon, dictionary=dictionary, device=args['device'])
+    trainer = Trainer(args=args, vocab=vocab, lexicon=lexicon, dictionary=dictionary, device=args['device'], foundation_cache=None)
 
     if args['load_name'] is not None:
         load_name = os.path.join(args['save_dir'], args['load_name'])
@@ -232,9 +242,11 @@ def train(args):
         logger.info('Dev set never evaluated.  Saving final model')
         trainer.save(args['save_name'])
 
+    return trainer, None
+
 def evaluate(args):
     mwt_dict = load_mwt_dict(args['mwt_json_file'])
-    trainer = Trainer(model_file=args['load_name'] or args['save_name'], device=args['device'])
+    trainer = Trainer(args=args, model_file=args['load_name'] or args['save_name'], device=args['device'], foundation_cache=None)
     loaded_args, vocab = trainer.args, trainer.vocab
 
     for k in loaded_args:
@@ -249,10 +261,11 @@ def evaluate(args):
 
     batches = TokenizationDataset(args, input_files=eval_input_files, vocab=vocab, evaluation=True, dictionary=trainer.dictionary)
 
-    oov_count, N, _, _ = output_predictions(args['conll_file'], trainer, batches, vocab, mwt_dict, args['max_seqlen'])
+    oov_count, N, _, doc = output_predictions(args['conll_file'], trainer, batches, vocab, mwt_dict, args['max_seqlen'])
 
     logger.info("OOV rate: {:6.3f}% ({:6d}/{:6d})".format(oov_count / N * 100, oov_count, N))
 
+    return trainer, doc
 
 if __name__ == '__main__':
     main()

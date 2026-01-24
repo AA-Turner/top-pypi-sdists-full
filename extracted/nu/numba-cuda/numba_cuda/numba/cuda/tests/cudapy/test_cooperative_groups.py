@@ -9,17 +9,18 @@ import cffi
 
 import numpy as np
 
-from numba import config, cuda, int32
-from numba.types import CPointer
+from numba import cuda
+from numba.cuda import int32
+from numba.cuda import config
+from numba.cuda.types import CPointer
 from numba.cuda.testing import (
     unittest,
     CUDATestCase,
     skip_on_cudasim,
     skip_unless_cc_60,
     skip_if_cudadevrt_missing,
-    skip_if_mvc_enabled,
 )
-from numba.core.typing import signature
+from numba.cuda.typing import signature
 
 ffi = cffi.FFI()
 
@@ -63,7 +64,6 @@ def sequential_rows(M):
 
 
 @skip_if_cudadevrt_missing
-@skip_if_mvc_enabled("CG not supported with MVC")
 class TestCudaCooperativeGroups(CUDATestCase):
     @skip_unless_cc_60
     def test_this_grid(self):

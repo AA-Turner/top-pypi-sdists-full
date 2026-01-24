@@ -1,4 +1,4 @@
-# distutils: language=c++
+#cython: freethreading_compatible = True
 
 from cpp_common cimport EditType, RfEditOp, RfOpcode, convert_string, is_valid_string
 from cpython.list cimport PyList_New, PyList_SET_ITEM

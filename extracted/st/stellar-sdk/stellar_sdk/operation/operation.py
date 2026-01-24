@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from decimal import Decimal
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import utils
 from .. import xdr as stellar_xdr
@@ -21,9 +21,9 @@ class Operation(metaclass=ABCMeta):
     transaction, unless there is an override defined for the operation.
 
     For more on operations, see `Stellar's documentation on operations
-    <https://developers.stellar.org/docs/glossary/operations/>`_ as
+    <https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions#operations>`_ as
     well as `Stellar's List of Operations
-    <https://developers.stellar.org/docs/start/list-of-operations/>`_,
+    <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations>`_,
     which includes information such as the security necessary for a given
     operation, as well as information about when validity checks occur on the
     network.
@@ -38,13 +38,13 @@ class Operation(metaclass=ABCMeta):
 
     _XDR_OPERATION_TYPE: ClassVar[stellar_xdr.OperationType]
 
-    def __init__(self, source: Optional[Union[MuxedAccount, str]] = None) -> None:
+    def __init__(self, source: MuxedAccount | str | None = None) -> None:
         if isinstance(source, str):
             source = MuxedAccount.from_account(source)
-        self.source: Optional[MuxedAccount] = source
+        self.source: MuxedAccount | None = source
 
     @staticmethod
-    def to_xdr_amount(value: Union[str, Decimal]) -> int:
+    def to_xdr_amount(value: str | Decimal) -> int:
         """Converts an amount to the appropriate value to send over the network
         as a part of an XDR object.
 
@@ -60,7 +60,7 @@ class Operation(metaclass=ABCMeta):
         in order to come to the integer value used in XDR structures.
 
         See `Stellar's documentation on Asset Precision
-        <https://developers.stellar.org/docs/issuing-assets/anatomy-of-an-asset/#amount-precision>`_
+        <https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#amount-precision>`_
         for more information.
 
         :param value: The amount to convert to an integer for XDR
@@ -111,7 +111,7 @@ class Operation(metaclass=ABCMeta):
     @staticmethod
     def get_source_from_xdr_obj(
         xdr_object: stellar_xdr.Operation,
-    ) -> Optional[MuxedAccount]:
+    ) -> MuxedAccount | None:
         """Get the source account from account the operation xdr object.
 
         :param xdr_object: the operation xdr object.

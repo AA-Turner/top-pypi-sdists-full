@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-fsm-2"
-version = "4.0.0"
+version = "4.1.0"
 description = "Django friendly finite state machine support."
 authors = [
     "Mikhail Podgurskiy <kmmbvnr@gmail.com>",
@@ -20,6 +20,8 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.8',
@@ -27,6 +29,8 @@ classifiers = [
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 packages = [{ include = "django_fsm" }]
@@ -44,7 +48,7 @@ django-guardian = "*"
 graphviz = "*"
 pre-commit = "*"
 pytest = "*"
-pytest-cov = "^4.1.0"
+pytest-cov = "*"
 pytest-django = "*"
 
 [tool.pytest.ini_options]
@@ -56,20 +60,36 @@ target-version = "py38"
 fix = true
 
 [tool.ruff.lint]
-# select = ["ALL"]
-extend-select = [
-    "F",  # Pyflakes
-    "E",  # pycodestyle
-    "W",  # pycodestyle
-    "UP",  # pyupgrade
-    "I",  # isort
-    "PERF",
-    "RET",
-    "C",
-    # "B",
+select = ["ALL"]
+extend-ignore = [
+    "COM812",  # This rule may cause conflicts when used with the formatter
+    "D",  # pydocstyle
+    "DOC",  # pydoclint
+    "B",
+    "PTH",
+    "ANN",  # Missing type annotation
+    "S101",  # Use of `assert` detected
+    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    "ARG001",  # Unused function argument
+    "ARG002",  # Unused method argument
+    "TRY002",  # Create your own exception
+    "TRY003",  # Avoid specifying long messages outside the exception class
+    "EM101",  # Exception must not use a string literal, assign to variable first
+    "EM102",  # Exception must not use an f-string literal, assign to variable first
+    "SLF001",  # Private member accessed
+    "SIM103",  # Return the condition directly
+    "PLC0415",  # `import` should be at the top-level of a file
+    "PLR0913",  # Too many arguments in function definition
 ]
-fixable = ["I"]
+fixable = [
+    "I",  # isort
+    "RUF100",  # Unused `noqa` directive
+]
 
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/*" = [
+    "DJ008",  # Model does not define `__str__` method
+]
 
 [tool.ruff.lint.isort]
 force-single-line = true

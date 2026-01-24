@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import abc
 import asyncio
-import typing as t
+import inspect
 from collections import deque
 from logging import getLogger
 from time import monotonic
 
+from ... import _typing as t
+from ..._addressing import ResolvedAddress
 from ..._async_compat.util import Util
 from ..._auth_management import to_auth_dict
 from ..._codec.hydration import (
@@ -36,19 +38,17 @@ from ..._exceptions import (
     BoltHandshakeError,
     SocketDeadlineExceededError,
 )
+from ..._io import BoltProtocolVersion
 from ..._meta import USER_AGENT
 from ..._sync.config import PoolConfig
-from ...addressing import ResolvedAddress
-from ...api import (
-    ServerInfo,
-    Version,
-)
+from ...api import ServerInfo
 from ...exceptions import (
     ConfigurationError,
     DriverError,
     IncompleteCommit,
     ServiceUnavailable,
     SessionExpired,
+    UnsupportedServerProduct,
 )
 from ..config import PoolConfig
 from ._bolt_socket import BoltSocket
@@ -108,7 +108,7 @@ class Bolt:
 
     MAGIC_PREAMBLE = b"\x60\x60\xb0\x17"
 
-    PROTOCOL_VERSION: Version = None  # type: ignore[assignment]
+    PROTOCOL_VERSION: BoltProtocolVersion = None  # type: ignore[assignment]
 
     # flag if connection needs RESET to go back to READY state
     is_reset = False
@@ -126,6 +126,9 @@ class Bolt:
     _closing = False
     _closed = False
     _defunct = False
+
+    # Flag if the connection is currently performing a liveness check.
+    _liveness_check = False
 
     #: The pool of which this connection is a member
     pool = None
@@ -158,7 +161,7 @@ class Bolt:
             ResolvedAddress(
                 sock.getpeername(), host_name=unresolved_address.host
             ),
-            self.PROTOCOL_VERSION,
+            self.PROTOCOL_VERSION.version,
         )
         self.connection_hints = {}
         self.patch = {}
@@ -196,7 +199,7 @@ class Bolt:
         )
 
     def __del__(self):
-        if not asyncio.iscoroutinefunction(self.close):
+        if not inspect.iscoroutinefunction(self.close):
             self.close()
 
     @abc.abstractmethod
@@ -243,7 +246,7 @@ class Bolt:
         if not self.supports_re_auth:
             raise ConfigurationError(
                 "User switching is not supported for Bolt "
-                f"Protocol {self.PROTOCOL_VERSION!r}. Server Agent "
+                f"Protocol {self.PROTOCOL_VERSION}. Server Agent "
                 f"{self.server_info.agent!r}"
             )
 
@@ -256,13 +259,15 @@ class Bolt:
         if not self.supports_notification_filtering:
             raise ConfigurationError(
                 "Notification filtering is not supported for the Bolt "
-                f"Protocol {self.PROTOCOL_VERSION!r}. Server Agent "
+                f"Protocol {self.PROTOCOL_VERSION}. Server Agent "
                 f"{self.server_info.agent!r}"
             )
 
-    protocol_handlers: t.ClassVar[dict[Version, type[Bolt]]] = {}
+    protocol_handlers: t.ClassVar[
+        dict[BoltProtocolVersion, type[Bolt]]
+    ] = {}
 
-    def __init_subclass__(cls, **kwargs: t.Any) -> None:
+    def __init_subclass__(cls: type[t.Self], **kwargs: t.Any) -> None:
         if cls.SKIP_REGISTRATION:
             super().__init_subclass__(**kwargs)
             return
@@ -271,14 +276,10 @@ class Bolt:
             raise ValueError(
                 "Bolt subclasses must define PROTOCOL_VERSION"
             )
-        if not (
-            isinstance(protocol_version, Version)
-            and len(protocol_version) == 2
-            and all(isinstance(i, int) for i in protocol_version)
-        ):
+        if not isinstance(protocol_version, BoltProtocolVersion):
             raise TypeError(
-                "PROTOCOL_VERSION must be a 2-tuple of integers, not "
-                f"{protocol_version!r}"
+                "PROTOCOL_VERSION must be a BoltProtocolVersion, found "
+                f"{type(protocol_version)} for {cls.__name__}"
             )
         if protocol_version in Bolt.protocol_handlers:
             cls_conflict = Bolt.protocol_handlers[protocol_version]
@@ -335,16 +336,15 @@ class Bolt:
             BoltSocket.close_socket(s)
             return protocol_version
 
-    @classmethod
+    @staticmethod
     def open(
-        cls,
         address,
         *,
         auth_manager=None,
         deadline=None,
         routing_context=None,
         pool_config=None,
-    ):
+    ) -> Bolt:
         """
         Open a new Bolt connection to a given server address.
 
@@ -365,7 +365,7 @@ class Bolt:
         if deadline is None:
             deadline = Deadline(None)
 
-        s, protocol_version, handshake, data = BoltSocket.connect(
+        s, protocol_version = BoltSocket.connect(
             address,
             tcp_timeout=pool_config.connection_timeout,
             deadline=deadline,
@@ -380,15 +380,10 @@ class Bolt:
         if bolt_cls is None:
             log.debug("[#%04X]  C: <CLOSE>", s.getsockname()[1])
             BoltSocket.close_socket(s)
-
-            # TODO: 6.0 - raise public DriverError subclass instead
-            raise BoltHandshakeError(
+            raise UnsupportedServerProduct(
                 "The neo4j server does not support communication with this "
                 "driver. This driver has support for Bolt protocols "
-                f"{tuple(map(str, Bolt.protocol_handlers.keys()))}.",
-                address=address,
-                request_data=handshake,
-                response_data=data,
+                f"{tuple(map(str, Bolt.protocol_handlers))}.",
             )
 
         try:
@@ -424,11 +419,13 @@ class Bolt:
         )
 
         try:
-            connection.socket.set_deadline(deadline)
+            connection.socket.set_read_deadline(deadline)
+            connection.socket.set_write_deadline(deadline)
             try:
                 connection.hello()
             finally:
-                connection.socket.set_deadline(None)
+                connection.socket.set_read_deadline(None)
+                connection.socket.set_write_deadline(None)
         except (
             Exception,
             # Python 3.8+: CancelledError is a subclass of BaseException
@@ -767,6 +764,13 @@ class Bolt:
             type understood by packstream and are free to return anything.
         """
 
+    def liveness_check(self):
+        self._liveness_check = True
+        try:
+            self.reset()
+        finally:
+            self._liveness_check = False
+
     @abc.abstractmethod
     def goodbye(self, dehydration_hooks=None, hydration_hooks=None):
         """
@@ -943,7 +947,11 @@ class Bolt:
             # remove the connection from the pool, nor to try to close the
             # connection again.
             self.close()
-            if self.pool and not self._get_server_state_manager().failed():
+            if (
+                not self._liveness_check
+                and self.pool
+                and not self._get_server_state_manager().failed()
+            ):
                 self.pool.deactivate(address=self.unresolved_address)
 
         # Iterate through the outstanding responses, and if any correspond
@@ -1062,7 +1070,7 @@ def tx_timeout_as_ms(timeout: float) -> int:
         raise err_type(msg) from None
     if timeout < 0:
         raise ValueError("Timeout must be a positive number or 0.")
-    ms = int(round(1000 * timeout))
+    ms = round(1000 * timeout)
     if ms == 0 and timeout > 0:
         # Special case for 0 < timeout < 0.5 ms.
         # This would be rounded to 0 ms, but the server interprets this as

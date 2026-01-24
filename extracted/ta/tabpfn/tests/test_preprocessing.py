@@ -5,17 +5,29 @@ from collections.abc import Callable
 from functools import partial
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
-from sklearn.preprocessing import PowerTransformer
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import (
+    FunctionTransformer,
+    OneHotEncoder,
+    OrdinalEncoder,
+    PowerTransformer,
+)
 
-from tabpfn import preprocessors
-from tabpfn.preprocessors import (
+from tabpfn.preprocessing import steps
+from tabpfn.preprocessing.ensemble import _get_subsample_indices_for_estimators
+from tabpfn.preprocessing.steps import (
     AdaptiveQuantileTransformer,
     DifferentiableZNormStep,
     FeaturePreprocessingTransformerStep,
+    KDITransformerWithNaN,
     ReshapeFeatureDistributionsStep,
     SafePowerTransformer,
+)
+from tabpfn.preprocessing.steps.preprocessing_helpers import (
+    OrderPreservingColumnTransformer,
 )
 
 
@@ -39,7 +51,7 @@ def test_preprocessing_large_dataset():
         transform_name="quantile_norm",
         apply_to_categorical=False,
         append_to_original=False,
-        subsample_features=-1,
+        max_features_per_estimator=500,
         global_transformer_name=None,
         random_state=42,
     )
@@ -177,9 +189,11 @@ def test_diff_znorm_transform_with_zero_std(
         # Test 'auto' mode below the threshold: should append original features
         pytest.param("auto", 10, 20, id="auto_below_threshold_appends"),
         # Test 'auto' mode above the threshold: should NOT append original features
-        pytest.param("auto", 600, 600, id="auto_above_threshold_replaces"),
-        # Test True: should always append, regardless of threshold
-        pytest.param(True, 600, 1200, id="true_always_appends"),
+        pytest.param("auto", 600, 500, id="auto_above_threshold_replaces"),
+        # If n features more than half of max_features_per_estimator we do not append
+        pytest.param("auto", 300, 300, id="auto_below_half_threshold_replaces"),
+        # True: always append after capping (600 → capped 500 → doubled)
+        pytest.param(True, 600, 1000, id="true_always_appends"),
         # Test False: should never append
         pytest.param(False, 10, 10, id="false_never_appends"),
     ],
@@ -200,6 +214,7 @@ def test_reshape_step_append_original_logic(
         transform_name="quantile_norm",
         append_to_original=append_to_original_setting,
         random_state=42,
+        max_features_per_estimator=500,
     )
 
     # ACT: Run the preprocessing
@@ -210,12 +225,12 @@ def test_reshape_step_append_original_logic(
     assert Xt.shape[1] == expected_output_features
 
 
-def _get_preprocessing_steps() -> (
-    list[Callable[..., FeaturePreprocessingTransformerStep],]
-):
+def _get_preprocessing_steps() -> list[
+    Callable[..., FeaturePreprocessingTransformerStep],
+]:
     defaults: list[Callable[..., FeaturePreprocessingTransformerStep]] = [
         cls
-        for cls in preprocessors.__dict__.values()
+        for cls in steps.__dict__.values()
         if (
             isinstance(cls, type)
             and issubclass(cls, FeaturePreprocessingTransformerStep)
@@ -284,16 +299,16 @@ def test__preprocessing_steps__transform__no_sample_interdependence():
         # Test 1: Shuffling samples should give correspondingly shuffled results
         result_normal = obj.transform(x2)
         result_reversed = obj.transform(x2[::-1])
-        assert np.allclose(
-            result_reversed.X[::-1], result_normal.X
-        ), f"Transform depends on sample order for {cls}"
+        assert np.allclose(result_reversed.X[::-1], result_normal.X), (
+            f"Transform depends on sample order for {cls}"
+        )
 
         # Test 2: Transforming a subset should match the subset of full transformation
         result_full = obj.transform(x2)
         result_subset = obj.transform(x2[:4])
-        assert np.allclose(
-            result_full.X[:4], result_subset.X
-        ), f"Transform depends on other samples in batch for {cls}"
+        assert np.allclose(result_full.X[:4], result_subset.X), (
+            f"Transform depends on other samples in batch for {cls}"
+        )
 
         # Test 3: Categorical features should remain the same
         assert result_full.categorical_features == result_subset.categorical_features
@@ -325,6 +340,35 @@ def test_adaptive_quantile_transformer_with_numpy_generator():
     # Further assertion to ensure the transformer is functional
     assert hasattr(transformer, "quantiles_")
     assert transformer.quantiles_.shape == (10, 10)
+
+
+def test_kdi_transformer_with_nan_integration():
+    """Tests KDITransformerWithNaN handles NaNs and maintains mask."""
+    # Create data with NaNs and a torch tensor to test both features
+    X = torch.tensor(
+        [[1.0, np.nan, 3.0], [4.0, 5.0, np.nan], [np.nan, 8.0, 9.0]],
+        dtype=torch.float32,
+    )
+
+    transformer = KDITransformerWithNaN(alpha=1.0, output_distribution="normal")
+
+    # Test fit
+    transformer.fit(X)
+    assert hasattr(transformer, "imputation_values_")
+
+    # Test transform
+    Xt = transformer.transform(X)
+
+    # Verify type and shape
+    assert isinstance(Xt, np.ndarray)
+    assert Xt.shape == X.shape
+
+    # Verify NaNs are preserved in the exact same positions
+    mask = torch.isnan(X).numpy()
+    assert np.all(np.isnan(Xt) == mask)
+
+    # Verify non-NaN values are actual numbers (transformed)
+    assert np.all(np.isfinite(Xt[~mask]))
 
 
 def test__safe_power_transformer__normal_cases__same_results_as_power_transformer():
@@ -393,9 +437,9 @@ def test__safe_power_transformer__power_transformer_fails__no_error():
     )
 
     # check if result contains nan or inf
-    assert np.all(
-        np.isfinite(safe_result)
-    ), "SafePowerTransformer produced non-finite values"
+    assert np.all(np.isfinite(safe_result)), (
+        "SafePowerTransformer produced non-finite values"
+    )
 
 
 def test__safe_power_transformer__transform_then_inverse_transform__returns_original():
@@ -434,3 +478,109 @@ def test__safe_power_transformer__transform_then_inverse_transform__returns_orig
             atol=1e-7,
             err_msg=f"Inverse transform failed for test case {i}",
         )
+
+
+# This is a test for the OrderPreservingColumnTransformer, which is not used currently
+# But might be used in the future, therefore I'll leave it in.
+@pytest.mark.skip
+def test_order_preserving_column_transformer():
+    """Should raise AssertionError if column sets overlap."""
+    ordinal_enc1 = OrdinalEncoder()
+    ordinal_enc2 = OrdinalEncoder()
+    onehotencoder1 = OneHotEncoder()
+
+    # Test assertion raised due to too many transformers
+    multiple_transformers = [
+        ("ordinal_enc1", ordinal_enc1, ["a", "b"]),
+        ("ordinal_enc2", ordinal_enc2, ["c", "d"]),
+    ]
+
+    with pytest.raises(
+        AssertionError,
+        match="OrderPreservingColumnTransformer only supports up to one transformer",
+    ):
+        OrderPreservingColumnTransformer(transformers=multiple_transformers)
+
+    # Test assertion, due to unsupported encoder type (OneHotEncoder)
+    incompatible_transformer = [("onehot", onehotencoder1, ["a", "b"])]
+
+    with pytest.raises(AssertionError, match="are instances of OneToOneFeatureMixin"):
+        OrderPreservingColumnTransformer(transformers=incompatible_transformer)
+
+        # --- Mock dataset ---
+    mock_data_df = pd.DataFrame(
+        {
+            "a": [10, 20, 30, 40],
+            "b": ["x", "y", "x", "z"],
+        }
+    )
+
+    # Test if normal column transformer shuffles column order,
+    # while the OrderPreserving restores the original order
+    non_overlapping_ordinal_encoder = [("ordinal_enc1", ordinal_enc1, ["b"])]
+
+    vanilla_transformer = ColumnTransformer(
+        transformers=non_overlapping_ordinal_encoder, remainder=FunctionTransformer()
+    )
+
+    vanilla_output = vanilla_transformer.fit_transform(mock_data_df)
+
+    # Vanilla transformer shuffles column order
+    assert not np.array_equal(mock_data_df.iloc[:, 0].values, vanilla_output[:, 0])
+
+    preserving_transformer = OrderPreservingColumnTransformer(
+        transformers=non_overlapping_ordinal_encoder, remainder=FunctionTransformer()
+    )
+
+    # OrderPreserving transformer does not shuffle column order
+    preserved_output = preserving_transformer.fit_transform(mock_data_df)
+    np.testing.assert_equal(mock_data_df.iloc[:, 0].values, preserved_output[:, 0])
+
+
+def test__get_subsample_indices_for_estimators():
+    """Test that different subsample_samples arguments work as expected."""
+    kwargs = {
+        "num_estimators": 3,
+        "max_index": 5,
+        "static_seed": 42,
+    }
+
+    subsample_samples = [
+        [0, 1, 2, 3, 4],
+        [5, 6, 7, 8, 9],
+    ]
+    expected_subsample_indices = [
+        np.array([0, 1, 2, 3, 4]),
+        np.array([5, 6, 7, 8, 9]),
+        np.array([0, 1, 2, 3, 4]),
+    ]
+    subsample_indices = _get_subsample_indices_for_estimators(
+        subsample_samples=subsample_samples,
+        **kwargs,
+    )
+    assert len(subsample_indices) == 3
+    for subsample_index, expected_subsample_index in zip(
+        subsample_indices, expected_subsample_indices
+    ):
+        assert subsample_index is not None
+        assert (subsample_index == expected_subsample_index).all()
+
+    subsample_samples = 0.5
+    subsample_indices = _get_subsample_indices_for_estimators(
+        subsample_samples=subsample_samples,
+        **kwargs,
+    )
+    assert len(subsample_indices) == 3
+    for subsample_index in subsample_indices:
+        assert subsample_index is not None
+        assert len(subsample_index) == 3  # (max_index + 1) * 0.5
+
+    subsample_samples = 2
+    subsample_indices = _get_subsample_indices_for_estimators(
+        subsample_samples=subsample_samples,
+        **kwargs,
+    )
+    assert len(subsample_indices) == 3
+    for subsample_index in subsample_indices:
+        assert subsample_index is not None
+        assert len(subsample_index) == 2

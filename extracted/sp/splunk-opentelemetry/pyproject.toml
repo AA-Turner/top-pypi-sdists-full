@@ -23,14 +23,14 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "opentelemetry-api==1.36.0",
-  "opentelemetry-sdk==1.36.0",
-  "opentelemetry-propagator-b3==1.36.0",
-  "opentelemetry-exporter-otlp-proto-grpc==1.36.0",
-  "opentelemetry-exporter-otlp-proto-http==1.36.0",
-  "opentelemetry-instrumentation==0.57b0",
-  "opentelemetry-instrumentation-system-metrics==0.57b0",
-  "opentelemetry-semantic-conventions==0.57b0",
+  "opentelemetry-api==1.39.1",
+  "opentelemetry-sdk==1.39.1",
+  "opentelemetry-propagator-b3==1.39.1",
+  "opentelemetry-exporter-otlp-proto-grpc==1.39.1",
+  "opentelemetry-exporter-otlp-proto-http==1.39.1",
+  "opentelemetry-instrumentation==0.60b1",
+  "opentelemetry-instrumentation-system-metrics==0.60b1",
+  "opentelemetry-semantic-conventions==0.60b1",
   "protobuf>=6.31.1", # not our direct dep, prevents installing vulnerable proto versions (CVE‑2025‑4565)
 ]
 
@@ -102,5 +102,10 @@ exclude_lines = [
 ]
 
 [tool.ruff.lint]
-ignore = ["INP001", "FA100", "ARG002"]
+ignore = ["INP001", "FA100", "ARG002", "I001", "PLC0415"]
 exclude = ["src/splunk_otel/profile_pb2.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["manual: tests that should only be run manually (excluded from CI)"]

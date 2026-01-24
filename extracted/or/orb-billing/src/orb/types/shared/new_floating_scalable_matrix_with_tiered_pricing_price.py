@@ -22,25 +22,26 @@ __all__ = [
 
 
 class ScalableMatrixWithTieredPricingConfigMatrixScalingFactor(BaseModel):
+    """Configuration for a single matrix scaling factor"""
+
     first_dimension_value: str
-    """First dimension value"""
 
     scaling_factor: str
-    """Scaling factor"""
 
     second_dimension_value: Optional[str] = None
-    """Second dimension value (optional)"""
 
 
 class ScalableMatrixWithTieredPricingConfigTier(BaseModel):
+    """Configuration for a single tier entry with business logic"""
+
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
-    """Per unit amount"""
 
 
 class ScalableMatrixWithTieredPricingConfig(BaseModel):
+    """Configuration for scalable_matrix_with_tiered_pricing pricing"""
+
     first_dimension: str
     """Used for the scalable matrix first dimension"""
 
@@ -48,7 +49,6 @@ class ScalableMatrixWithTieredPricingConfig(BaseModel):
     """Apply a scaling factor to each dimension"""
 
     tiers: List[ScalableMatrixWithTieredPricingConfigTier]
-    """Tier pricing structure"""
 
     second_dimension: Optional[str] = None
     """Used for the scalable matrix second dimension (optional)"""

@@ -386,6 +386,46 @@ def storm_control_policy_rate_spec():
     )
 
 
+def switch_config_spec(policy_type):
+    return dict(
+        node_type=dict(type="str", aliases=["type", "switch_type"], choices=["leaf", "spine"]),
+        node=dict(type="int", aliases=["node_id"]),
+        policy_group=dict(
+            type="str",
+            aliases=[
+                "{0}_policy".format(policy_type),
+                "{0}_policy_group".format(policy_type),
+            ],
+        ),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
+    )
+
+
+def convert_numbers_and_none_values_to_string(data):
+    """
+    Recursively converts None, int, and float values within dictionaries, lists, and other iterable structures to their string representations.
+    Boolean and string values are returned as-is.
+    None values are converted to an empty string "".
+    Integers and floats are converted using `str()`.
+
+    :param data: The input data structure, which can be a dictionary, list, tuple, set, int, float, str, bool, or None.
+    :return: A new data structure with None, int, and float values converted to strings.
+    """
+    if isinstance(data, (bool, str)):
+        return data
+    elif isinstance(data, (int, float)):
+        return str(data)
+    elif isinstance(data, dict):
+        return {k: convert_numbers_and_none_values_to_string(v) for k, v in data.items()}
+    elif hasattr(data, "__iter__"):  # Handles lists, tuples, sets, etc.
+        return [convert_numbers_and_none_values_to_string(item) for item in data]
+    elif data is None:
+        return ""
+    else:
+        # For any other types not explicitly handled (e.g., custom objects), return as is
+        return data
+
+
 class ACIModule(object):
     def __init__(self, module):
         self.module = module

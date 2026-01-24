@@ -34,10 +34,12 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import io
 import os
 import sys
-from typing import Union
+import typing
 
 import numpy as np
 
@@ -77,7 +79,7 @@ def parse_set_of_forces(num_atoms, forces_filenames, verbose=True):
         return []
 
 
-def read_abinit(filename: Union[str, bytes, os.PathLike, io.IOBase]):
+def read_abinit(filename: str | os.PathLike | typing.IO):
     """Read crystal structure."""
     if isinstance(filename, io.IOBase):
         abinit_in = AbinitIn(filename.readlines())
@@ -119,7 +121,7 @@ def write_supercells_with_displacements(
 ):
     """Write supercells with displacements to files."""
     write_abinit("%s.in" % pre_filename, supercell)
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         filename = "{pre_filename}-{0:0{width}}.in".format(
             i, pre_filename=pre_filename, width=width
         )

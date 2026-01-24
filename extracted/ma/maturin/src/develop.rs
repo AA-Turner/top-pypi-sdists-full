@@ -1,14 +1,14 @@
-use crate::auditwheel::AuditWheelMode;
-use crate::build_options::CargoOptions;
-use crate::compression::CompressionOptions;
-use crate::target::detect_arch_from_python;
 use crate::BuildContext;
 use crate::BuildOptions;
 use crate::PlatformTag;
 use crate::PythonInterpreter;
 use crate::Target;
+use crate::auditwheel::AuditWheelMode;
+use crate::build_options::CargoOptions;
+use crate::compression::CompressionOptions;
+use crate::target::detect_arch_from_python;
 use anyhow::ensure;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use cargo_options::heading;
 use fs_err as fs;
 use regex::Regex;
@@ -65,11 +65,12 @@ impl InstallBackend {
             InstallBackend::Pip { .. } => Regex::new(r"pip ([\w\.]+).*"),
             InstallBackend::Uv { .. } => Regex::new(r"uv ([\w\.]+).*"),
         };
-        if let Some(captures) = re.expect("regex should be valid").captures(stdout) {
-            Ok(semver::Version::parse(&captures[1])
-                .with_context(|| format!("failed to parse semver from {stdout:?}"))?)
-        } else {
-            bail!("failed to parse version from {:?}", stdout);
+        match re.expect("regex should be valid").captures(stdout) {
+            Some(captures) => Ok(semver::Version::parse(&captures[1])
+                .with_context(|| format!("failed to parse semver from {stdout:?}"))?),
+            _ => {
+                bail!("failed to parse version from {:?}", stdout);
+            }
         }
     }
 
@@ -198,7 +199,7 @@ pub struct DevelopOptions {
     )]
     pub bindings: Option<String>,
     /// Pass --release to cargo
-    #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS,)]
+    #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS, conflicts_with = "profile")]
     pub release: bool,
     /// Strip the library for minimum file size
     #[arg(long)]
@@ -390,11 +391,16 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
         extras,
         skip_install,
         pip_path,
-        cargo_options,
+        mut cargo_options,
         uv,
         compression,
     } = develop_options;
     compression.validate();
+
+    // set profile to release if specified; `--release` and `--profile` are mutually exclusive
+    if release {
+        cargo_options.profile = Some("release".to_string());
+    }
 
     let mut target_triple = cargo_options.target.clone();
     let target = Target::from_target_triple(cargo_options.target.as_ref())?;
@@ -429,7 +435,6 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
 
     let build_context = build_options
         .into_build_context()
-        .release(release)
         .strip(strip)
         .editable(true)
         .build()?;
@@ -440,8 +445,10 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
         .as_ref()
         .is_some_and(|p| !p.warn_invalid_version_info())
     {
-        bail!("Cannot build without valid version information. \
-               You need to specify either `project.version` or `project.dynamic = [\"version\"]` in pyproject.toml.");
+        bail!(
+            "Cannot build without valid version information. \
+               You need to specify either `project.version` or `project.dynamic = [\"version\"]` in pyproject.toml."
+        );
     }
 
     let interpreter =
@@ -504,7 +511,7 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::path::PathBuf;
 
     use super::parse_direct_url_path;
@@ -527,7 +534,9 @@ Files:
   my_project-0.1.0+abc123de.dist-info/entry_points.txt
   my_project.pth
 ";
-        let expected_path = PathBuf::from("/foo bar/venv/lib/pythonABC/site-packages/my_project-0.1.0+abc123de.dist-info/direct_url.json");
+        let expected_path = PathBuf::from(
+            "/foo bar/venv/lib/pythonABC/site-packages/my_project-0.1.0+abc123de.dist-info/direct_url.json",
+        );
         assert_eq!(
             parse_direct_url_path(example_with_direct_url).unwrap(),
             Some(expected_path)
@@ -571,7 +580,9 @@ Files:\r
   my_project.pth\r
 ";
 
-        let expected_path = PathBuf::from("C:\\foo bar\\venv\\Lib\\site-packages\\my_project-0.1.0+abc123de.dist-info\\direct_url.json");
+        let expected_path = PathBuf::from(
+            "C:\\foo bar\\venv\\Lib\\site-packages\\my_project-0.1.0+abc123de.dist-info\\direct_url.json",
+        );
         assert_eq!(
             parse_direct_url_path(example_with_direct_url_windows).unwrap(),
             Some(expected_path)

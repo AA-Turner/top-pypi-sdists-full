@@ -32,15 +32,18 @@ size_t Phase::nElements() const
     return m_mm;
 }
 
-void Phase::checkElementIndex(size_t m) const
+size_t Phase::checkElementIndex(size_t m) const
 {
-    if (m >= m_mm) {
-        throw IndexError("Phase::checkElementIndex", "elements", m, m_mm-1);
+    if (m < m_mm) {
+        return m;
     }
+    throw IndexError("Phase::checkElementIndex", "elements", m, m_mm);
 }
 
 void Phase::checkElementArraySize(size_t mm) const
 {
+    warn_deprecated("Phase::checkElementArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (m_mm > mm) {
         throw ArraySizeError("Phase::checkElementArraySize", mm, m_mm);
     }
@@ -48,18 +51,34 @@ void Phase::checkElementArraySize(size_t mm) const
 
 string Phase::elementName(size_t m) const
 {
-    checkElementIndex(m);
-    return m_elementNames[m];
+    if (m < m_mm) {
+        return m_elementNames[m];
+    }
+    throw IndexError("Phase::elementName", "element", m, m_mm);
 }
 
-size_t Phase::elementIndex(const string& elementName) const
+size_t Phase::elementIndex(const string& name) const
+{
+    size_t ix = elementIndex(name, false);
+    if (ix == npos) {
+        warn_deprecated("Phase::elementIndex", "'raise' argument not specified; "
+            "Default behavior will change from returning npos to throwing an exception "
+            "after Cantera 3.2.");
+    }
+    return ix;
+}
+
+size_t Phase::elementIndex(const string& elementName, bool raise) const
 {
     for (size_t i = 0; i < m_mm; i++) {
         if (m_elementNames[i] == elementName) {
             return i;
         }
     }
-    return npos;
+    if (!raise) {
+        return npos;
+    }
+    throw CanteraError("Phase::elementIndex", "Element '{}' not found", elementName);
 }
 
 const vector<string>& Phase::elementNames() const
@@ -74,8 +93,7 @@ double Phase::atomicWeight(size_t m) const
 
 double Phase::entropyElement298(size_t m) const
 {
-    checkElementIndex(m);
-    return m_entropy298[m];
+    return m_entropy298[checkElementIndex(m)];
 }
 
 const vector<double>& Phase::atomicWeights() const
@@ -126,23 +144,39 @@ size_t Phase::findSpeciesLower(const string& name) const
     return loc;
 }
 
-size_t Phase::speciesIndex(const string& nameStr) const
+size_t Phase::speciesIndex(const string& name) const
+{
+    size_t ix = speciesIndex(name, false);
+    if (ix == npos) {
+        warn_deprecated("Phase::speciesIndex", "'raise' argument not specified; "
+            "Default behavior will change from returning npos to throwing an exception "
+            "after Cantera 3.2.");
+    }
+    return ix;
+}
+
+size_t Phase::speciesIndex(const string& name, bool raise) const
 {
     size_t loc = npos;
-
-    auto it = m_speciesIndices.find(nameStr);
+    auto it = m_speciesIndices.find(name);
     if (it != m_speciesIndices.end()) {
         return it->second;
     } else if (!m_caseSensitiveSpecies) {
-        loc = findSpeciesLower(nameStr);
+        loc = findSpeciesLower(name);
     }
+    if (loc==npos && raise) {
+        throw CanteraError("Phase::speciesIndex", "Species '{}' not found", name);
+    }
+
     return loc;
 }
 
 string Phase::speciesName(size_t k) const
 {
-    checkSpeciesIndex(k);
-    return m_speciesNames[k];
+    if (k < m_kk) {
+        return m_speciesNames[k];
+    }
+    throw IndexError("Phase::speciesName", "species", k, m_kk);
 }
 
 const vector<string>& Phase::speciesNames() const
@@ -150,15 +184,18 @@ const vector<string>& Phase::speciesNames() const
     return m_speciesNames;
 }
 
-void Phase::checkSpeciesIndex(size_t k) const
+size_t Phase::checkSpeciesIndex(size_t k) const
 {
-    if (k >= m_kk) {
-        throw IndexError("Phase::checkSpeciesIndex", "species", k, m_kk-1);
+    if (k < m_kk) {
+        return k;
     }
+    throw IndexError("Phase::checkSpeciesIndex", "species", k, m_kk);
 }
 
 void Phase::checkSpeciesArraySize(size_t kk) const
 {
+    warn_deprecated("Phase::checkSpeciesArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (m_kk > kk) {
         throw ArraySizeError("Phase::checkSpeciesArraySize", kk, m_kk);
     }
@@ -225,11 +262,41 @@ vector<string> Phase::partialStates() const
     }
 }
 
+void Phase::savePartialState(size_t lenstate, double* state) const
+{
+    if (lenstate < partialStateSize()) {
+        throw ArraySizeError("Phase::savePartialState", lenstate, partialStateSize());
+    }
+
+    auto native = nativeState();
+    state[native.at("T")] = temperature();
+    if (isCompressible()) {
+        state[native.at("D")] = density();
+    } else {
+        state[native.at("P")] = pressure();
+    }
+}
+
+void Phase::restorePartialState(size_t lenstate, const double* state)
+{
+    if (lenstate < partialStateSize()) {
+        throw ArraySizeError("Phase::restorePartialState", lenstate, partialStateSize());
+    }
+
+    auto native = nativeState();
+    setTemperature(state[native.at("T")]);
+    if (isCompressible()) {
+        setDensity(state[native.at("D")]);
+    } else {
+        setPressure(state[native.at("P")]);
+    }
+}
+
 size_t Phase::stateSize() const {
     if (isPure()) {
-        return 2;
+        return partialStateSize();
     } else {
-        return nSpecies() + 2;
+        return partialStateSize() + nSpecies();
     }
 }
 
@@ -241,15 +308,11 @@ void Phase::saveState(vector<double>& state) const
 
 void Phase::saveState(size_t lenstate, double* state) const
 {
-    auto native = nativeState();
-
-    // function assumes default definition of nativeState
-    state[native.at("T")] = temperature();
-    if (isCompressible()) {
-        state[native.at("D")] = density();
-    } else {
-        state[native.at("P")] = pressure();
+    if (lenstate < stateSize()) {
+        throw ArraySizeError("Phase::saveState", lenstate, stateSize());
     }
+    savePartialState(lenstate, state);
+    auto native = nativeState();
     if (native.count("X")) {
         getMoleFractions(state + native["X"]);
     } else if (native.count("Y")) {
@@ -269,14 +332,9 @@ void Phase::restoreState(size_t lenstate, const double* state)
         throw ArraySizeError("Phase::restoreState",
                              lenstate, ls);
     }
+    restorePartialState(lenstate, state);
 
     auto native = nativeState();
-    setTemperature(state[native.at("T")]);
-    if (isCompressible()) {
-        setDensity(state[native.at("D")]);
-    } else {
-        setPressure(state[native.at("P")]);
-    }
 
     if (native.count("X")) {
         setMoleFractions_NoNorm(state + native["X"]);
@@ -376,8 +434,15 @@ void Phase::setMassFractionsByName(const string& y)
 
 void Phase::setState_TD(double t, double rho)
 {
-    setTemperature(t);
-    setDensity(rho);
+    vector<double> state(partialStateSize());
+    savePartialState(state.size(), state.data());
+    try {
+        setTemperature(t);
+        setDensity(rho);
+    } catch (std::exception&) {
+        restorePartialState(state.size(), state.data());
+        throw;
+    }
 }
 
 double Phase::molecularWeight(size_t k) const
@@ -444,7 +509,7 @@ double Phase::moleFraction(size_t k) const
 
 double Phase::moleFraction(const string& nameSpec) const
 {
-    size_t iloc = speciesIndex(nameSpec);
+    size_t iloc = speciesIndex(nameSpec, false);
     if (iloc != npos) {
         return moleFraction(iloc);
     } else {
@@ -460,7 +525,7 @@ double Phase::massFraction(size_t k) const
 
 double Phase::massFraction(const string& nameSpec) const
 {
-    size_t iloc = speciesIndex(nameSpec);
+    size_t iloc = speciesIndex(nameSpec, false);
     if (iloc != npos) {
         return massFractions()[iloc];
     } else {
@@ -546,7 +611,6 @@ void Phase::setMolesNoTruncate(const double* const N)
 
 double Phase::elementalMassFraction(const size_t m) const
 {
-    checkElementIndex(m);
     double Z_m = 0.0;
     for (size_t k = 0; k != m_kk; ++k) {
         Z_m += nAtoms(k, m) * atomicWeight(m) / molecularWeight(k)
@@ -557,7 +621,6 @@ double Phase::elementalMassFraction(const size_t m) const
 
 double Phase::elementalMoleFraction(const size_t m) const
 {
-    checkElementIndex(m);
     double denom = 0;
     for (size_t k = 0; k < m_kk; k++) {
         double atoms = 0;
@@ -715,7 +778,7 @@ bool Phase::addSpecies(shared_ptr<Species> spec)
 
     vector<double> comp(nElements());
     for (const auto& [eName, stoich] : spec->composition) {
-        size_t m = elementIndex(eName);
+        size_t m = elementIndex(eName, false);
         if (m == npos) { // Element doesn't exist in this phase
             switch (m_undefinedElementBehavior) {
             case UndefElement::ignore:
@@ -724,7 +787,7 @@ bool Phase::addSpecies(shared_ptr<Species> spec)
             case UndefElement::add:
                 addElement(eName);
                 comp.resize(nElements());
-                m = elementIndex(eName);
+                m = elementIndex(eName, true);
                 break;
 
             case UndefElement::error:
@@ -740,7 +803,7 @@ bool Phase::addSpecies(shared_ptr<Species> spec)
     size_t ne = nElements();
     const vector<double>& aw = atomicWeights();
     if (spec->charge != 0.0) {
-        size_t eindex = elementIndex("E");
+        size_t eindex = elementIndex("E", false);
         if (eindex != npos) {
             double ecomp = comp[eindex];
             if (fabs(spec->charge + ecomp) > 0.001) {
@@ -757,7 +820,7 @@ bool Phase::addSpecies(shared_ptr<Species> spec)
         } else {
             addElement("E", 0.000545, 0, 0.0, CT_ELEM_TYPE_ELECTRONCHARGE);
             ne = nElements();
-            eindex = elementIndex("E");
+            eindex = elementIndex("E", true);
             comp.resize(ne);
             comp[ne - 1] = - spec->charge;
         }
@@ -806,6 +869,7 @@ bool Phase::addSpecies(shared_ptr<Species> spec)
         m_y.push_back(0.0);
         m_ym.push_back(0.0);
     }
+    m_workS.push_back(0.0);
     invalidateCache();
     return true;
 }
@@ -829,11 +893,11 @@ void Phase::modifySpecies(size_t k, shared_ptr<Species> spec)
 
 void Phase::addSpeciesAlias(const string& name, const string& alias)
 {
-    if (speciesIndex(alias) != npos) {
+    if (speciesIndex(alias, false) != npos) {
         throw CanteraError("Phase::addSpeciesAlias",
             "Invalid alias '{}': species already exists", alias);
     }
-    size_t k = speciesIndex(name);
+    size_t k = speciesIndex(name, false);
     if (k != npos) {
         m_speciesIndices[alias] = k;
     } else {
@@ -872,13 +936,8 @@ vector<string> Phase::findIsomers(const string& comp) const
 
 shared_ptr<Species> Phase::species(const string& name) const
 {
-    size_t k = speciesIndex(name);
-    if (k != npos) {
-        return m_species.at(speciesName(k));
-    } else {
-        throw CanteraError("Phase::species",
-                           "Unknown species '{}'", name);
-    }
+    size_t k = speciesIndex(name, true);
+    return m_species.at(speciesName(k));
 }
 
 shared_ptr<Species> Phase::species(size_t k) const
@@ -927,11 +986,7 @@ vector<double> Phase::getCompositionFromMap(const Composition& comp) const
 {
     vector<double> X(m_kk);
     for (const auto& [name, value] : comp) {
-        size_t loc = speciesIndex(name);
-        if (loc == npos) {
-            throw CanteraError("Phase::getCompositionFromMap",
-                               "Unknown species '{}'", name);
-        }
+        size_t loc = speciesIndex(name, true);
         X[loc] = value;
     }
     return X;

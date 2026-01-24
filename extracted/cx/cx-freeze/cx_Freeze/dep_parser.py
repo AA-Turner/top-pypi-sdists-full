@@ -54,7 +54,7 @@ class Parser(ABC):
         """The default search path."""
         # This cannot be cached because os.environ["PATH"] can be changed in
         # freeze module before the call to get_dependent_files.
-        env_path = os.environ["PATH"].split(os.pathsep)
+        env_path = os.get_exec_path()
         new_path = []
         for path in self._path + self._bin_path_includes + env_path:
             with suppress(PermissionError):
@@ -92,7 +92,7 @@ class Parser(ABC):
     @abstractmethod
     def _get_dependent_files(self, filename: Path) -> set[Path]:
         """Return the file's dependencies using platform-specific tools
-        (lief package or the imagehlp library on Windows, otool on Mac OS X or
+        (lief package or the imagehlp library on Windows, otool on macOS X or
         ldd on Linux); limit this list by the exclusion lists as needed.
         (Implemented separately for each platform).
         """
@@ -108,7 +108,7 @@ class Parser(ABC):
 
 class PEParser(Parser):
     """`PEParser` is based on the `lief` package. If it is disabled,
-    use the old friend `cx_Freeze.util` extension module.
+    use the old friend `freeze_core.util` extension module.
     """
 
     def __init__(
@@ -118,7 +118,7 @@ class PEParser(Parser):
             lief = None
         else:
             try:
-                import lief
+                import lief  # noqa: PLC0415
             except ImportError:
                 lief = None
             else:
@@ -145,7 +145,10 @@ class PEParser(Parser):
         if lief:
             self._pe = lief.PE
         else:
-            from cx_Freeze.util import BindError, GetDependentFiles
+            from freeze_core.util import (  # noqa: PLC0415
+                BindError,
+                GetDependentFiles,
+            )
 
             self.GetDependentFiles = GetDependentFiles
             self.BindError = BindError

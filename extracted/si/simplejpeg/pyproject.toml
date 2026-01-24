@@ -5,10 +5,9 @@ readme = "README.rst"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
 ]
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = "MIT"
 authors = [{ name = "Joachim Folz", email = "joachim.folz@dfki.de" }]
 keywords = [
     "the",
@@ -29,9 +28,9 @@ Tracker = "https://github.com/jfolz/simplejpeg/issues"
 
 [build-system]
 requires = [
-    "setuptools>=74.1.1",
+    "setuptools>=77.0.0",
     "wheel",
-    "cython~=3.0.0",
+    "cython~=3.1.0",
     "numpy>=2.0.0",
 ]
 backend-path = ["custom_build_backend"]
@@ -39,7 +38,16 @@ build-backend = "custom_build_meta"
 
 [tool.cibuildwheel]
 environment = "PIP_ONLY_BINARY=:all:"
-skip = "*_i686 pp* *musllinux* *-win32"
+skip = "cp3[1-9][0-9]t-* *_i686 *musllinux* *-win32 cp39-win_arm64 cp310-win_arm64"
 build-verbosity = 1
 test-requires = "pytest>=5.3.2 numpy Pillow>=7.0.0"
 test-command = "pytest {project}/test -vv"
+
+[tool.cibuildwheel.linux]
+before-all = "dnf install -y nasm"
+
+[tool.cibuildwheel.macos]
+before-all = "brew install nasm"
+
+[tool.cibuildwheel.windows]
+before-all = "choco install nasm -y --no-progress"

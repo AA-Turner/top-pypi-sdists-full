@@ -1,8 +1,7 @@
 from typing import Any, List, Optional, Union
 
-from descope._auth_base import AuthBase
-from descope.auth import Auth
-from descope.common import DeliveryMethod, LoginOptions
+from descope._http_base import HTTPBase
+from descope.common import DeliveryMethod, LoginOptions, get_method_string
 from descope.exceptions import ERROR_TYPE_INVALID_ARGUMENT, AuthException
 from descope.management.common import (
     AssociatedTenant,
@@ -74,7 +73,7 @@ class CreateUserObj:
         self.family_name = family_name
 
 
-class User(AuthBase):
+class User(HTTPBase):
     def create(
         self,
         login_id: str,
@@ -121,9 +120,9 @@ class User(AuthBase):
         role_names = [] if role_names is None else role_names
         user_tenants = [] if user_tenants is None else user_tenants
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_create_path,
-            User._compose_create_body(
+            body=User._compose_create_body(
                 login_id,
                 email,
                 phone,
@@ -145,7 +144,6 @@ class User(AuthBase):
                 additional_login_ids,
                 sso_app_ids,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -197,9 +195,9 @@ class User(AuthBase):
         role_names = [] if role_names is None else role_names
         user_tenants = [] if user_tenants is None else user_tenants
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.test_user_create_path,
-            User._compose_create_body(
+            body=User._compose_create_body(
                 login_id,
                 email,
                 phone,
@@ -221,7 +219,6 @@ class User(AuthBase):
                 additional_login_ids,
                 sso_app_ids,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -266,9 +263,9 @@ class User(AuthBase):
         role_names = [] if role_names is None else role_names
         user_tenants = [] if user_tenants is None else user_tenants
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_create_path,
-            User._compose_create_body(
+            body=User._compose_create_body(
                 login_id,
                 email,
                 phone,
@@ -291,7 +288,6 @@ class User(AuthBase):
                 sso_app_ids,
                 template_id,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -318,15 +314,14 @@ class User(AuthBase):
             calling the method.
         """
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_create_batch_path,
-            User._compose_create_batch_body(
+            body=User._compose_create_batch_body(
                 users,
                 invite_url,
                 send_mail,
                 send_sms,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -382,9 +377,9 @@ class User(AuthBase):
         role_names = [] if role_names is None else role_names
         user_tenants = [] if user_tenants is None else user_tenants
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_path,
-            User._compose_update_body(
+            body=User._compose_update_body(
                 login_id,
                 email,
                 phone,
@@ -403,7 +398,6 @@ class User(AuthBase):
                 sso_app_ids,
                 None,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -423,6 +417,7 @@ class User(AuthBase):
         verified_email: Optional[bool] = None,
         verified_phone: Optional[bool] = None,
         sso_app_ids: Optional[List[str]] = None,
+        status: Optional[str] = None,
         test: bool = False,
     ) -> dict:
         """
@@ -443,6 +438,7 @@ class User(AuthBase):
         picture (str): Optional url for user picture
         custom_attributes (dict): Optional, set the different custom attributes values of the keys that were previously configured in Descope console app
         sso_app_ids (List[str]): Optional, list of SSO applications IDs to be associated with the user.
+        status (str): Optional status field. Can be one of: "enabled", "disabled", "invited", "expired".
         test (bool, optional): Set to True to update a test user. Defaults to False.
 
         Return value (dict):
@@ -453,9 +449,20 @@ class User(AuthBase):
         Raise:
         AuthException: raised if patch operation fails
         """
-        response = self._auth.do_patch(
+        if status is not None and status not in [
+            "enabled",
+            "disabled",
+            "invited",
+            "expired",
+        ]:
+            raise AuthException(
+                400,
+                ERROR_TYPE_INVALID_ARGUMENT,
+                f"Invalid status value: {status}. Must be one of: enabled, disabled, invited, expired",
+            )
+        response = self._http.patch(
             MgmtV1.user_patch_path,
-            User._compose_patch_body(
+            body=User._compose_patch_body(
                 login_id,
                 email,
                 phone,
@@ -470,9 +477,51 @@ class User(AuthBase):
                 verified_email,
                 verified_phone,
                 sso_app_ids,
+                status,
                 test,
             ),
-            pswd=self._auth.management_key,
+        )
+        return response.json()
+
+    def patch_batch(
+        self,
+        users: List[UserObj],
+        test: bool = False,
+    ) -> dict:
+        """
+        Patch users in batch. Only the provided fields will be updated for each user.
+
+        Args:
+        users (List[UserObj]): A list of UserObj instances representing users to be patched.
+            Each UserObj should have a login_id and the fields to be updated.
+        test (bool, optional): Set to True to patch test users. Defaults to False.
+
+        Return value (dict):
+        Return dict in the format
+             {"patchedUsers": [...], "failedUsers": [...]}
+        "patchedUsers" contains successfully patched users,
+        "failedUsers" contains users that failed to be patched with error details.
+
+        Raise:
+        AuthException: raised if patch batch operation fails
+        """
+        # Validate status fields for all users
+        for user in users:
+            if user.status is not None and user.status not in [
+                "enabled",
+                "disabled",
+                "invited",
+                "expired",
+            ]:
+                raise AuthException(
+                    400,
+                    ERROR_TYPE_INVALID_ARGUMENT,
+                    f"Invalid status value: {user.status} for user {user.login_id}. Must be one of: enabled, disabled, invited, expired",
+                )
+
+        response = self._http.patch(
+            MgmtV1.user_patch_batch_path,
+            body=User._compose_patch_batch_body(users, test),
         )
         return response.json()
 
@@ -489,10 +538,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if delete operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_delete_path,
-            {"loginId": login_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id},
         )
 
     def delete_by_user_id(
@@ -508,10 +556,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if delete operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_delete_path,
-            {"userId": user_id},
-            pswd=self._auth.management_key,
+            body={"userId": user_id},
         )
 
     def delete_all_test_users(
@@ -523,9 +570,8 @@ class User(AuthBase):
         Raise:
         AuthException: raised if delete operation fails
         """
-        self._auth.do_delete(
+        self._http.delete(
             MgmtV1.user_delete_all_test_users_path,
-            pswd=self._auth.management_key,
         )
 
     def load(
@@ -546,10 +592,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_get(
+        response = self._http.get(
             uri=MgmtV1.user_load_path,
             params={"loginId": login_id},
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -572,10 +617,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_get(
+        response = self._http.get(
             uri=MgmtV1.user_load_path,
             params={"userId": user_id},
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -592,10 +636,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if logout operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_logout_path,
-            {"loginId": login_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id},
         )
 
     def logout_user_by_user_id(
@@ -611,11 +654,50 @@ class User(AuthBase):
         Raise:
         AuthException: raised if logout operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_logout_path,
-            {"userId": user_id},
-            pswd=self._auth.management_key,
+            body={"userId": user_id},
         )
+
+    def load_users(
+        self,
+        user_ids: List[str],
+        include_invalid_users: Optional[bool] = None,
+    ) -> dict:
+        """
+        Load users by their user IDs.
+
+        Args:
+        user_ids (List[str]): Optional list of user IDs to filter by
+        include_invalid_users (bool): Optional flag to include invalid users in the response
+
+        Return value (dict):
+        Return dict in the format
+             {"users": []}
+        "users" contains a list of all of the found users and their information
+
+        Raise:
+        AuthException: raised if search operation fails
+        """
+        if user_ids is None or len(user_ids) == 0:
+            raise AuthException(
+                400,
+                ERROR_TYPE_INVALID_ARGUMENT,
+                "At least one user id needs to be supplied",
+            )
+
+        body: dict[str, Union[List[str], bool]] = {
+            "userIds": user_ids,
+        }
+
+        if include_invalid_users is not None:
+            body["includeInvalidUsers"] = include_invalid_users
+
+        response = self._http.post(
+            MgmtV1.users_load_path,
+            body=body,
+        )
+        return response.json()
 
     def search_all(
         self,
@@ -652,7 +734,7 @@ class User(AuthBase):
         test_users_only (bool): Optional filter only test users.
         with_test_user (bool): Optional include test users in search.
         custom_attributes (dict): Optional search for a attribute with a given value
-        statuses (List[str]): Optional list of statuses to search for ("enabled", "disabled", "invited")
+        statuses (List[str]): Optional list of statuses to search for ("enabled", "disabled", "invited", "expired")
         emails (List[str]): Optional list of emails to search for
         phones (List[str]): Optional list of phones to search for
         sso_app_ids (List[str]): Optional list of SSO application IDs to filter by
@@ -738,10 +820,9 @@ class User(AuthBase):
         if tenant_role_names is not None:
             body["tenantRoleNames"] = tenant_role_names
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.users_search_path,
             body=body,
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -775,7 +856,7 @@ class User(AuthBase):
         limit (int): Optional limit of the number of users returned. Leave empty for default.
         page (int): Optional pagination control. Pages start at 0 and must be non-negative.
         custom_attributes (dict): Optional search for a attribute with a given value
-        statuses (List[str]): Optional list of statuses to search for ("enabled", "disabled", "invited")
+        statuses (List[str]): Optional list of statuses to search for ("enabled", "disabled", "invited", "expired")
         emails (List[str]): Optional list of emails to search for
         phones (List[str]): Optional list of phones to search for
         sso_app_ids (List[str]): Optional list of SSO application IDs to filter by
@@ -857,10 +938,9 @@ class User(AuthBase):
         if tenant_role_names is not None:
             body["tenantRoleNames"] = tenant_role_names
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.test_users_search_path,
             body=body,
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -890,15 +970,14 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_get(
+        response = self._http.get(
             MgmtV1.user_get_provider_token,
-            {
+            params={
                 "loginId": login_id,
                 "provider": provider,
                 "withRefreshToken": withRefreshToken,
                 "forceRefresh": forceRefresh,
             },
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -920,10 +999,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if activate operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_status_path,
-            {"loginId": login_id, "status": "enabled"},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "status": "enabled"},
         )
         return response.json()
 
@@ -945,10 +1023,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if deactivate operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_status_path,
-            {"loginId": login_id, "status": "disabled"},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "status": "disabled"},
         )
         return response.json()
 
@@ -973,10 +1050,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the update operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_login_id_path,
-            {"loginId": login_id, "newLoginId": new_login_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "newLoginId": new_login_id},
         )
         return response.json()
 
@@ -985,6 +1061,7 @@ class User(AuthBase):
         login_id: str,
         email: Optional[str] = None,
         verified: Optional[bool] = None,
+        fail_on_conflict: Optional[bool] = None,
     ) -> dict:
         """
         Update the email address for an existing user.
@@ -993,6 +1070,7 @@ class User(AuthBase):
         login_id (str): The login ID of the user to update the email for.
         email (str): The user email address. Leave empty to remove.
         verified (bool): Set to true for the user to be able to login with the email address.
+        fail_on_conflict (bool): Set to true to raise an error if the email is used as a login id and already exists.
 
         Return value (dict):
         Return dict in the format
@@ -1002,10 +1080,14 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the update operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_email_path,
-            {"loginId": login_id, "email": email, "verified": verified},
-            pswd=self._auth.management_key,
+            body={
+                "loginId": login_id,
+                "email": email,
+                "verified": verified,
+                "failOnConflict": fail_on_conflict,
+            },
         )
         return response.json()
 
@@ -1014,6 +1096,7 @@ class User(AuthBase):
         login_id: str,
         phone: Optional[str] = None,
         verified: Optional[bool] = None,
+        fail_on_conflict: Optional[bool] = None,
     ) -> dict:
         """
         Update the phone number for an existing user.
@@ -1022,6 +1105,7 @@ class User(AuthBase):
         login_id (str): The login ID of the user to update the phone for.
         phone (str): The user phone number. Leave empty to remove.
         verified (bool): Set to true for the user to be able to login with the phone number.
+        fail_on_conflict (bool): Set to true to raise an error if the phone is used as a login id and already exists.
 
         Return value (dict):
         Return dict in the format
@@ -1031,10 +1115,14 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the update operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_phone_path,
-            {"loginId": login_id, "phone": phone, "verified": verified},
-            pswd=self._auth.management_key,
+            body={
+                "loginId": login_id,
+                "phone": phone,
+                "verified": verified,
+                "failOnConflict": fail_on_conflict,
+            },
         )
         return response.json()
 
@@ -1070,10 +1158,9 @@ class User(AuthBase):
             bdy["middleName"] = middle_name
         if family_name is not None:
             bdy["familyName"] = family_name
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_name_path,
-            bdy,
-            pswd=self._auth.management_key,
+            body=bdy,
         )
         return response.json()
 
@@ -1097,10 +1184,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the update operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_picture_path,
-            {"loginId": login_id, "picture": picture},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "picture": picture},
         )
         return response.json()
 
@@ -1123,14 +1209,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the update operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_update_custom_attribute_path,
-            {
+            body={
                 "loginId": login_id,
                 "attributeKey": attribute_key,
                 "attributeValue": attribute_val,
             },
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -1155,10 +1240,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_set_role_path,
-            {"loginId": login_id, "roleNames": role_names},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "roleNames": role_names},
         )
         return response.json()
 
@@ -1183,10 +1267,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_add_role_path,
-            {"loginId": login_id, "roleNames": role_names},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "roleNames": role_names},
         )
         return response.json()
 
@@ -1211,10 +1294,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_remove_role_path,
-            {"loginId": login_id, "roleNames": role_names},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "roleNames": role_names},
         )
         return response.json()
 
@@ -1238,10 +1320,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_set_sso_apps,
-            {"loginId": login_id, "ssoAppIds": sso_app_ids},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "ssoAppIds": sso_app_ids},
         )
         return response.json()
 
@@ -1265,10 +1346,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_add_sso_apps,
-            {"loginId": login_id, "ssoAppIds": sso_app_ids},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "ssoAppIds": sso_app_ids},
         )
         return response.json()
 
@@ -1292,10 +1372,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_remove_sso_apps,
-            {"loginId": login_id, "ssoAppIds": sso_app_ids},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "ssoAppIds": sso_app_ids},
         )
         return response.json()
 
@@ -1319,10 +1398,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_add_tenant_path,
-            {"loginId": login_id, "tenantId": tenant_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "tenantId": tenant_id},
         )
         return response.json()
 
@@ -1346,10 +1424,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_remove_tenant_path,
-            {"loginId": login_id, "tenantId": tenant_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "tenantId": tenant_id},
         )
         return response.json()
 
@@ -1375,10 +1452,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_set_role_path,
-            {"loginId": login_id, "tenantId": tenant_id, "roleNames": role_names},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "tenantId": tenant_id, "roleNames": role_names},
         )
         return response.json()
 
@@ -1404,10 +1480,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_add_role_path,
-            {"loginId": login_id, "tenantId": tenant_id, "roleNames": role_names},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "tenantId": tenant_id, "roleNames": role_names},
         )
         return response.json()
 
@@ -1433,10 +1508,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_remove_role_path,
-            {"loginId": login_id, "tenantId": tenant_id, "roleNames": role_names},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id, "tenantId": tenant_id, "roleNames": role_names},
         )
         return response.json()
 
@@ -1458,14 +1532,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_set_temporary_password_path,
-            {
+            body={
                 "loginId": login_id,
                 "password": password,
                 "setActive": False,
             },
-            pswd=self._auth.management_key,
         )
         return
 
@@ -1484,14 +1557,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_set_active_password_path,
-            {
+            body={
                 "loginId": login_id,
                 "password": password,
                 "setActive": True,
             },
-            pswd=self._auth.management_key,
         )
         return
 
@@ -1516,14 +1588,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_set_password_path,
-            {
+            body={
                 "loginId": login_id,
                 "password": password,
                 "setActive": set_active,
             },
-            pswd=self._auth.management_key,
         )
         return
 
@@ -1542,10 +1613,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_expire_password_path,
-            {"loginId": login_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id},
         )
         return
 
@@ -1564,10 +1634,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_remove_all_passkeys_path,
-            {"loginId": login_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id},
         )
         return
 
@@ -1586,10 +1655,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.user_remove_totp_seed_path,
-            {"loginId": login_id},
-            pswd=self._auth.management_key,
+            body={"loginId": login_id},
         )
         return
 
@@ -1617,14 +1685,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_generate_otp_for_test_path,
-            {
+            body={
                 "loginId": login_id,
-                "deliveryMethod": Auth.get_method_string(method),
+                "deliveryMethod": get_method_string(method),
                 "loginOptions": login_options.__dict__ if login_options else {},
             },
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -1654,15 +1721,14 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_generate_magic_link_for_test_path,
-            {
+            body={
                 "loginId": login_id,
-                "deliveryMethod": Auth.get_method_string(method),
+                "deliveryMethod": get_method_string(method),
                 "URI": uri,
                 "loginOptions": login_options.__dict__ if login_options else {},
             },
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -1689,14 +1755,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_generate_enchanted_link_for_test_path,
-            {
+            body={
                 "loginId": login_id,
                 "URI": uri,
                 "loginOptions": login_options.__dict__ if login_options else {},
             },
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -1717,10 +1782,13 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_generate_embedded_link_path,
-            {"loginId": login_id, "customClaims": custom_claims, "timeout": timeout},
-            pswd=self._auth.management_key,
+            body={
+                "loginId": login_id,
+                "customClaims": custom_claims,
+                "timeout": timeout,
+            },
         )
         return response.json()["token"]
 
@@ -1751,9 +1819,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_generate_sign_up_embedded_link_path,
-            {
+            body={
                 "loginId": login_id,
                 "user": user.__dict__ if user else {},
                 "loginOptions": login_options.__dict__ if login_options else {},
@@ -1761,7 +1829,6 @@ class User(AuthBase):
                 "phoneVerified": phone_verified,
                 "timeout": timeout,
             },
-            pswd=self._auth.management_key,
         )
         return response.json()["token"]
 
@@ -1787,10 +1854,9 @@ class User(AuthBase):
         Raise:
         AuthException: raised if the operation fails
         """
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.user_history_path,
-            user_ids,
-            pswd=self._auth.management_key,
+            body=user_ids,
         )
         return response.json()
 
@@ -1968,6 +2034,7 @@ class User(AuthBase):
         verified_email: Optional[bool],
         verified_phone: Optional[bool],
         sso_app_ids: Optional[List[str]],
+        status: Optional[str],
         test: bool = False,
     ) -> dict:
         res: dict[str, Any] = {
@@ -1999,6 +2066,37 @@ class User(AuthBase):
             res["verifiedPhone"] = verified_phone
         if sso_app_ids is not None:
             res["ssoAppIds"] = sso_app_ids
+        if status is not None:
+            res["status"] = status
         if test:
             res["test"] = test
         return res
+
+    @staticmethod
+    def _compose_patch_batch_body(
+        users: List[UserObj],
+        test: bool = False,
+    ) -> dict:
+        users_body = []
+        for user in users:
+            user_body = User._compose_patch_body(
+                login_id=user.login_id,
+                email=user.email,
+                phone=user.phone,
+                display_name=user.display_name,
+                given_name=user.given_name,
+                middle_name=user.middle_name,
+                family_name=user.family_name,
+                role_names=user.role_names,
+                user_tenants=user.user_tenants,
+                picture=user.picture,
+                custom_attributes=user.custom_attributes,
+                verified_email=user.verified_email,
+                verified_phone=user.verified_phone,
+                sso_app_ids=user.sso_app_ids,
+                status=user.status,
+                test=test,
+            )
+            users_body.append(user_body)
+
+        return {"users": users_body}

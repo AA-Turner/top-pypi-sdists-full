@@ -5,6 +5,8 @@ from typing import Literal
 from ansible.errors import AnsibleFilterError
 from ansible.module_utils.common.text.converters import to_native
 
+from ..module_utils.vendor.hcloud.exp.zone import format_txt_record
+
 
 # pylint: disable=unused-argument
 def load_balancer_status(load_balancer: dict, *args, **kwargs) -> Literal["unknown", "unhealthy", "healthy"]:
@@ -47,6 +49,18 @@ def load_balancer_status(load_balancer: dict, *args, **kwargs) -> Literal["unkno
         raise AnsibleFilterError(f"load_balancer_status - {to_native(exc)}", orig_exc=exc) from exc
 
 
+# pylint: disable=unused-argument
+def txt_record(record: str, *args, **kwargs) -> str:
+    """
+    Format a TXT record by splitting it in quoted strings of 255 characters.
+    Existing quotes will be escaped.
+    """
+    try:
+        return format_txt_record(record)
+    except Exception as exc:
+        raise AnsibleFilterError(f"txt_record - {to_native(exc)}", orig_exc=exc) from exc
+
+
 class FilterModule:
     """
     Hetzner Cloud filters.
@@ -55,4 +69,5 @@ class FilterModule:
     def filters(self):
         return {
             "load_balancer_status": load_balancer_status,
+            "txt_record": txt_record,
         }

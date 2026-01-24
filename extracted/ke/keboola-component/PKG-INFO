@@ -1,14 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: keboola.component
-Version: 1.6.13
+Version: 1.8.3
 Summary: General library for Python applications running in Keboola Connection environment
-Home-page: https://github.com/keboola/python-component
-Author: Keboola KDS Team
-Author-email: support@keboola.com
+Author-email: Keboola KDS Team <support@keboola.com>
+License-Expression: MIT
 Project-URL: Documentation, https://keboola.github.io/python-component/interface.html
+Project-URL: Repository, https://github.com/keboola/python-component
 Project-URL: Component Template project, https://github.com/keboola/cookiecutter-python-component
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -19,7 +25,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pygelf
+Requires-Dist: pytz<2021.0
+Requires-Dist: deprecated
+Dynamic: license-file
 
+# Keboola Python Component library
+
+## Introduction
 
 ![Build & Test](https://github.com/keboola/python-component/workflows/Build%20&%20Test/badge.svg?branch=main)
 [![Code Climate](https://codeclimate.com/github/keboola/python-component/badges/gpa.svg)](https://codeclimate.com/github/keboola/python-component)

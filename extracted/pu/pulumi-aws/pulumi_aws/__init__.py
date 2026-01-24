@@ -85,6 +85,8 @@ if typing.TYPE_CHECKING:
     bedrockfoundation = __bedrockfoundation
     import pulumi_aws.bedrockmodel as __bedrockmodel
     bedrockmodel = __bedrockmodel
+    import pulumi_aws.billing as __billing
+    billing = __billing
     import pulumi_aws.budgets as __budgets
     budgets = __budgets
     import pulumi_aws.cfg as __cfg
@@ -253,6 +255,8 @@ if typing.TYPE_CHECKING:
     inspector = __inspector
     import pulumi_aws.inspector2 as __inspector2
     inspector2 = __inspector2
+    import pulumi_aws.invoicing as __invoicing
+    invoicing = __invoicing
     import pulumi_aws.iot as __iot
     iot = __iot
     import pulumi_aws.ivs as __ivs
@@ -315,6 +319,8 @@ if typing.TYPE_CHECKING:
     neptunegraph = __neptunegraph
     import pulumi_aws.networkfirewall as __networkfirewall
     networkfirewall = __networkfirewall
+    import pulumi_aws.networkflowmonitor as __networkflowmonitor
+    networkflowmonitor = __networkflowmonitor
     import pulumi_aws.networkmanager as __networkmanager
     networkmanager = __networkmanager
     import pulumi_aws.networkmonitor as __networkmonitor
@@ -323,6 +329,10 @@ if typing.TYPE_CHECKING:
     notifications = __notifications
     import pulumi_aws.oam as __oam
     oam = __oam
+    import pulumi_aws.observabilityadmin as __observabilityadmin
+    observabilityadmin = __observabilityadmin
+    import pulumi_aws.odb as __odb
+    odb = __odb
     import pulumi_aws.opensearch as __opensearch
     opensearch = __opensearch
     import pulumi_aws.opensearchingest as __opensearchingest
@@ -455,6 +465,8 @@ if typing.TYPE_CHECKING:
     vpc = __vpc
     import pulumi_aws.vpclattice as __vpclattice
     vpclattice = __vpclattice
+    import pulumi_aws.vpn as __vpn
+    vpn = __vpn
     import pulumi_aws.waf as __waf
     waf = __waf
     import pulumi_aws.wafregional as __wafregional
@@ -498,6 +510,7 @@ else:
     bedrock = _utilities.lazy_import('pulumi_aws.bedrock')
     bedrockfoundation = _utilities.lazy_import('pulumi_aws.bedrockfoundation')
     bedrockmodel = _utilities.lazy_import('pulumi_aws.bedrockmodel')
+    billing = _utilities.lazy_import('pulumi_aws.billing')
     budgets = _utilities.lazy_import('pulumi_aws.budgets')
     cfg = _utilities.lazy_import('pulumi_aws.cfg')
     chatbot = _utilities.lazy_import('pulumi_aws.chatbot')
@@ -582,6 +595,7 @@ else:
     imagebuilder = _utilities.lazy_import('pulumi_aws.imagebuilder')
     inspector = _utilities.lazy_import('pulumi_aws.inspector')
     inspector2 = _utilities.lazy_import('pulumi_aws.inspector2')
+    invoicing = _utilities.lazy_import('pulumi_aws.invoicing')
     iot = _utilities.lazy_import('pulumi_aws.iot')
     ivs = _utilities.lazy_import('pulumi_aws.ivs')
     ivschat = _utilities.lazy_import('pulumi_aws.ivschat')
@@ -613,10 +627,13 @@ else:
     neptune = _utilities.lazy_import('pulumi_aws.neptune')
     neptunegraph = _utilities.lazy_import('pulumi_aws.neptunegraph')
     networkfirewall = _utilities.lazy_import('pulumi_aws.networkfirewall')
+    networkflowmonitor = _utilities.lazy_import('pulumi_aws.networkflowmonitor')
     networkmanager = _utilities.lazy_import('pulumi_aws.networkmanager')
     networkmonitor = _utilities.lazy_import('pulumi_aws.networkmonitor')
     notifications = _utilities.lazy_import('pulumi_aws.notifications')
     oam = _utilities.lazy_import('pulumi_aws.oam')
+    observabilityadmin = _utilities.lazy_import('pulumi_aws.observabilityadmin')
+    odb = _utilities.lazy_import('pulumi_aws.odb')
     opensearch = _utilities.lazy_import('pulumi_aws.opensearch')
     opensearchingest = _utilities.lazy_import('pulumi_aws.opensearchingest')
     organizations = _utilities.lazy_import('pulumi_aws.organizations')
@@ -683,6 +700,7 @@ else:
     verifiedpermissions = _utilities.lazy_import('pulumi_aws.verifiedpermissions')
     vpc = _utilities.lazy_import('pulumi_aws.vpc')
     vpclattice = _utilities.lazy_import('pulumi_aws.vpclattice')
+    vpn = _utilities.lazy_import('pulumi_aws.vpn')
     waf = _utilities.lazy_import('pulumi_aws.waf')
     wafregional = _utilities.lazy_import('pulumi_aws.wafregional')
     wafv2 = _utilities.lazy_import('pulumi_aws.wafv2')
@@ -851,6 +869,14 @@ _utilities.register(
   "fqn": "pulumi_aws.amp",
   "classes": {
    "aws:amp/queryLoggingConfiguration:QueryLoggingConfiguration": "QueryLoggingConfiguration"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "amp/resourcePolicy",
+  "fqn": "pulumi_aws.amp",
+  "classes": {
+   "aws:amp/resourcePolicy:ResourcePolicy": "ResourcePolicy"
   }
  },
  {
@@ -2079,6 +2105,102 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "bedrock/agentcoreAgentRuntime",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreAgentRuntime:AgentcoreAgentRuntime": "AgentcoreAgentRuntime"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreAgentRuntimeEndpoint",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreAgentRuntimeEndpoint:AgentcoreAgentRuntimeEndpoint": "AgentcoreAgentRuntimeEndpoint"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreApiKeyCredentialProvider",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreApiKeyCredentialProvider:AgentcoreApiKeyCredentialProvider": "AgentcoreApiKeyCredentialProvider"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreBrowser",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreBrowser:AgentcoreBrowser": "AgentcoreBrowser"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreCodeInterpreter",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreCodeInterpreter:AgentcoreCodeInterpreter": "AgentcoreCodeInterpreter"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreGateway",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreGateway:AgentcoreGateway": "AgentcoreGateway"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreGatewayTarget",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreGatewayTarget:AgentcoreGatewayTarget": "AgentcoreGatewayTarget"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreMemory",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreMemory:AgentcoreMemory": "AgentcoreMemory"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreMemoryStrategy",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreMemoryStrategy:AgentcoreMemoryStrategy": "AgentcoreMemoryStrategy"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreOauth2CredentialProvider",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreOauth2CredentialProvider:AgentcoreOauth2CredentialProvider": "AgentcoreOauth2CredentialProvider"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreTokenVaultCmk",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreTokenVaultCmk:AgentcoreTokenVaultCmk": "AgentcoreTokenVaultCmk"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "bedrock/agentcoreWorkloadIdentity",
+  "fqn": "pulumi_aws.bedrock",
+  "classes": {
+   "aws:bedrock/agentcoreWorkloadIdentity:AgentcoreWorkloadIdentity": "AgentcoreWorkloadIdentity"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "bedrock/customModel",
   "fqn": "pulumi_aws.bedrock",
   "classes": {
@@ -2123,6 +2245,14 @@ _utilities.register(
   "fqn": "pulumi_aws.bedrockmodel",
   "classes": {
    "aws:bedrockmodel/invocationLoggingConfiguration:InvocationLoggingConfiguration": "InvocationLoggingConfiguration"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "billing/view",
+  "fqn": "pulumi_aws.billing",
+  "classes": {
+   "aws:billing/view:View": "View"
   }
  },
  {
@@ -2455,6 +2585,22 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "cloudfront/connectionFunction",
+  "fqn": "pulumi_aws.cloudfront",
+  "classes": {
+   "aws:cloudfront/connectionFunction:ConnectionFunction": "ConnectionFunction"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "cloudfront/connectionGroup",
+  "fqn": "pulumi_aws.cloudfront",
+  "classes": {
+   "aws:cloudfront/connectionGroup:ConnectionGroup": "ConnectionGroup"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "cloudfront/continuousDeploymentPolicy",
   "fqn": "pulumi_aws.cloudfront",
   "classes": {
@@ -2467,6 +2613,14 @@ _utilities.register(
   "fqn": "pulumi_aws.cloudfront",
   "classes": {
    "aws:cloudfront/distribution:Distribution": "Distribution"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "cloudfront/distributionTenant",
+  "fqn": "pulumi_aws.cloudfront",
+  "classes": {
+   "aws:cloudfront/distributionTenant:DistributionTenant": "DistributionTenant"
   }
  },
  {
@@ -2535,6 +2689,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "cloudfront/multitenantDistribution",
+  "fqn": "pulumi_aws.cloudfront",
+  "classes": {
+   "aws:cloudfront/multitenantDistribution:MultitenantDistribution": "MultitenantDistribution"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "cloudfront/originAccessControl",
   "fqn": "pulumi_aws.cloudfront",
   "classes": {
@@ -2579,6 +2741,14 @@ _utilities.register(
   "fqn": "pulumi_aws.cloudfront",
   "classes": {
    "aws:cloudfront/responseHeadersPolicy:ResponseHeadersPolicy": "ResponseHeadersPolicy"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "cloudfront/trustStore",
+  "fqn": "pulumi_aws.cloudfront",
+  "classes": {
+   "aws:cloudfront/trustStore:TrustStore": "TrustStore"
   }
  },
  {
@@ -2875,6 +3045,14 @@ _utilities.register(
   "fqn": "pulumi_aws.cloudwatch",
   "classes": {
    "aws:cloudwatch/logSubscriptionFilter:LogSubscriptionFilter": "LogSubscriptionFilter"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "cloudwatch/logTransformer",
+  "fqn": "pulumi_aws.cloudwatch",
+  "classes": {
+   "aws:cloudwatch/logTransformer:LogTransformer": "LogTransformer"
   }
  },
  {
@@ -3183,6 +3361,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "cognito/managedLoginBranding",
+  "fqn": "pulumi_aws.cognito",
+  "classes": {
+   "aws:cognito/managedLoginBranding:ManagedLoginBranding": "ManagedLoginBranding"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "cognito/managedUserPoolClient",
   "fqn": "pulumi_aws.cognito",
   "classes": {
@@ -3427,6 +3613,14 @@ _utilities.register(
   "fqn": "pulumi_aws.connect",
   "classes": {
    "aws:connect/vocabulary:Vocabulary": "Vocabulary"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "controltower/baseline",
+  "fqn": "pulumi_aws.controltower",
+  "classes": {
+   "aws:controltower/baseline:Baseline": "Baseline"
   }
  },
  {
@@ -4279,6 +4473,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "dynamodb/globalSecondaryIndex",
+  "fqn": "pulumi_aws.dynamodb",
+  "classes": {
+   "aws:dynamodb/globalSecondaryIndex:GlobalSecondaryIndex": "GlobalSecondaryIndex"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "dynamodb/globalTable",
   "fqn": "pulumi_aws.dynamodb",
   "classes": {
@@ -4403,6 +4605,14 @@ _utilities.register(
   "fqn": "pulumi_aws.ebs",
   "classes": {
    "aws:ebs/volume:Volume": "Volume"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "ec2/allowedImagesSettings",
+  "fqn": "pulumi_aws.ec2",
+  "classes": {
+   "aws:ec2/allowedImagesSettings:AllowedImagesSettings": "AllowedImagesSettings"
   }
  },
  {
@@ -4571,6 +4781,14 @@ _utilities.register(
   "fqn": "pulumi_aws.ec2",
   "classes": {
    "aws:ec2/eipDomainName:EipDomainName": "EipDomainName"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "ec2/encryptionControl",
+  "fqn": "pulumi_aws.ec2",
+  "classes": {
+   "aws:ec2/encryptionControl:EncryptionControl": "EncryptionControl"
   }
  },
  {
@@ -4999,6 +5217,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "ec2/vpcEncryptionControl",
+  "fqn": "pulumi_aws.ec2",
+  "classes": {
+   "aws:ec2/vpcEncryptionControl:VpcEncryptionControl": "VpcEncryptionControl"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "ec2/vpcEndpoint",
   "fqn": "pulumi_aws.ec2",
   "classes": {
@@ -5171,6 +5397,14 @@ _utilities.register(
   "fqn": "pulumi_aws.ec2",
   "classes": {
    "aws:ec2/vpcPeeringConnectionAccepter:VpcPeeringConnectionAccepter": "VpcPeeringConnectionAccepter"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "ec2/vpnConcentrator",
+  "fqn": "pulumi_aws.ec2",
+  "classes": {
+   "aws:ec2/vpnConcentrator:VpnConcentrator": "VpnConcentrator"
   }
  },
  {
@@ -5447,6 +5681,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "ecr/pullTimeUpdateExclusion",
+  "fqn": "pulumi_aws.ecr",
+  "classes": {
+   "aws:ecr/pullTimeUpdateExclusion:PullTimeUpdateExclusion": "PullTimeUpdateExclusion"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "ecr/registryPolicy",
   "fqn": "pulumi_aws.ecr",
   "classes": {
@@ -5539,6 +5781,14 @@ _utilities.register(
   "fqn": "pulumi_aws.ecs",
   "classes": {
    "aws:ecs/clusterCapacityProviders:ClusterCapacityProviders": "ClusterCapacityProviders"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "ecs/expressGatewayService",
+  "fqn": "pulumi_aws.ecs",
+  "classes": {
+   "aws:ecs/expressGatewayService:ExpressGatewayService": "ExpressGatewayService"
   }
  },
  {
@@ -5643,6 +5893,14 @@ _utilities.register(
   "fqn": "pulumi_aws.eks",
   "classes": {
    "aws:eks/addon:Addon": "Addon"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "eks/capability",
+  "fqn": "pulumi_aws.eks",
+  "classes": {
+   "aws:eks/capability:Capability": "Capability"
   }
  },
  {
@@ -6091,6 +6349,14 @@ _utilities.register(
   "fqn": "pulumi_aws.fis",
   "classes": {
    "aws:fis/experimentTemplate:ExperimentTemplate": "ExperimentTemplate"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "fis/targetAccountConfiguration",
+  "fqn": "pulumi_aws.fis",
+  "classes": {
+   "aws:fis/targetAccountConfiguration:TargetAccountConfiguration": "TargetAccountConfiguration"
   }
  },
  {
@@ -6751,6 +7017,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "iam/outboundWebIdentityFederation",
+  "fqn": "pulumi_aws.iam",
+  "classes": {
+   "aws:iam/outboundWebIdentityFederation:OutboundWebIdentityFederation": "OutboundWebIdentityFederation"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "iam/policy",
   "fqn": "pulumi_aws.iam",
   "classes": {
@@ -7083,6 +7357,14 @@ _utilities.register(
   "fqn": "pulumi_aws.inspector2",
   "classes": {
    "aws:inspector2/organizationConfiguration:OrganizationConfiguration": "OrganizationConfiguration"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "invoicing/invoiceUnit",
+  "fqn": "pulumi_aws.invoicing",
+  "classes": {
+   "aws:invoicing/invoiceUnit:InvoiceUnit": "InvoiceUnit"
   }
  },
  {
@@ -7495,10 +7777,26 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "lakeformation/identityCenterConfiguration",
+  "fqn": "pulumi_aws.lakeformation",
+  "classes": {
+   "aws:lakeformation/identityCenterConfiguration:IdentityCenterConfiguration": "IdentityCenterConfiguration"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "lakeformation/lfTag",
   "fqn": "pulumi_aws.lakeformation",
   "classes": {
    "aws:lakeformation/lfTag:LfTag": "LfTag"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "lakeformation/lfTagExpression",
+  "fqn": "pulumi_aws.lakeformation",
+  "classes": {
+   "aws:lakeformation/lfTagExpression:LfTagExpression": "LfTagExpression"
   }
  },
  {
@@ -7547,6 +7845,14 @@ _utilities.register(
   "fqn": "pulumi_aws.lambda_",
   "classes": {
    "aws:lambda/alias:Alias": "Alias"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "lambda/capacityProvider",
+  "fqn": "pulumi_aws.lambda_",
+  "classes": {
+   "aws:lambda/capacityProvider:CapacityProvider": "CapacityProvider"
   }
  },
  {
@@ -8543,6 +8849,22 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "networkflowmonitor/monitor",
+  "fqn": "pulumi_aws.networkflowmonitor",
+  "classes": {
+   "aws:networkflowmonitor/monitor:Monitor": "Monitor"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "networkflowmonitor/scope",
+  "fqn": "pulumi_aws.networkflowmonitor",
+  "classes": {
+   "aws:networkflowmonitor/scope:Scope": "Scope"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "networkmanager/attachmentAccepter",
   "fqn": "pulumi_aws.networkmanager",
   "classes": {
@@ -8775,6 +9097,54 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "observabilityadmin/centralizationRuleForOrganization",
+  "fqn": "pulumi_aws.observabilityadmin",
+  "classes": {
+   "aws:observabilityadmin/centralizationRuleForOrganization:CentralizationRuleForOrganization": "CentralizationRuleForOrganization"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "odb/cloudAutonomousVmCluster",
+  "fqn": "pulumi_aws.odb",
+  "classes": {
+   "aws:odb/cloudAutonomousVmCluster:CloudAutonomousVmCluster": "CloudAutonomousVmCluster"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "odb/cloudExadataInfrastructure",
+  "fqn": "pulumi_aws.odb",
+  "classes": {
+   "aws:odb/cloudExadataInfrastructure:CloudExadataInfrastructure": "CloudExadataInfrastructure"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "odb/cloudVmCluster",
+  "fqn": "pulumi_aws.odb",
+  "classes": {
+   "aws:odb/cloudVmCluster:CloudVmCluster": "CloudVmCluster"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "odb/network",
+  "fqn": "pulumi_aws.odb",
+  "classes": {
+   "aws:odb/network:Network": "Network"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "odb/networkPeeringConnection",
+  "fqn": "pulumi_aws.odb",
+  "classes": {
+   "aws:odb/networkPeeringConnection:NetworkPeeringConnection": "NetworkPeeringConnection"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "opensearch/authorizeVpcEndpointAccess",
   "fqn": "pulumi_aws.opensearch",
   "classes": {
@@ -8955,6 +9325,14 @@ _utilities.register(
   "fqn": "pulumi_aws.organizations",
   "classes": {
    "aws:organizations/resourcePolicy:ResourcePolicy": "ResourcePolicy"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "organizations/tag",
+  "fqn": "pulumi_aws.organizations",
+  "classes": {
+   "aws:organizations/tag:Tag": "Tag"
   }
  },
  {
@@ -9695,6 +10073,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "redshift/idcApplication",
+  "fqn": "pulumi_aws.redshift",
+  "classes": {
+   "aws:redshift/idcApplication:IdcApplication": "IdcApplication"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "redshift/integration",
   "fqn": "pulumi_aws.redshift",
   "classes": {
@@ -10303,6 +10689,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "s3/bucketAbac",
+  "fqn": "pulumi_aws.s3",
+  "classes": {
+   "aws:s3/bucketAbac:BucketAbac": "BucketAbac"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "s3/bucketAccelerateConfiguration",
   "fqn": "pulumi_aws.s3",
   "classes": {
@@ -10575,6 +10969,30 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "s3/vectorsIndex",
+  "fqn": "pulumi_aws.s3",
+  "classes": {
+   "aws:s3/vectorsIndex:VectorsIndex": "VectorsIndex"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "s3/vectorsVectorBucket",
+  "fqn": "pulumi_aws.s3",
+  "classes": {
+   "aws:s3/vectorsVectorBucket:VectorsVectorBucket": "VectorsVectorBucket"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "s3/vectorsVectorBucketPolicy",
+  "fqn": "pulumi_aws.s3",
+  "classes": {
+   "aws:s3/vectorsVectorBucketPolicy:VectorsVectorBucketPolicy": "VectorsVectorBucketPolicy"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "s3control/accessGrant",
   "fqn": "pulumi_aws.s3control",
   "classes": {
@@ -10727,10 +11145,26 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "s3tables/tableBucketReplication",
+  "fqn": "pulumi_aws.s3tables",
+  "classes": {
+   "aws:s3tables/tableBucketReplication:TableBucketReplication": "TableBucketReplication"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "s3tables/tablePolicy",
   "fqn": "pulumi_aws.s3tables",
   "classes": {
    "aws:s3tables/tablePolicy:TablePolicy": "TablePolicy"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "s3tables/tableReplication",
+  "fqn": "pulumi_aws.s3tables",
+  "classes": {
+   "aws:s3tables/tableReplication:TableReplication": "TableReplication"
   }
  },
  {
@@ -11051,6 +11485,14 @@ _utilities.register(
   "fqn": "pulumi_aws.secretsmanager",
   "classes": {
    "aws:secretsmanager/secretVersion:SecretVersion": "SecretVersion"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "secretsmanager/tag",
+  "fqn": "pulumi_aws.secretsmanager",
+  "classes": {
+   "aws:secretsmanager/tag:Tag": "Tag"
   }
  },
  {
@@ -11611,6 +12053,14 @@ _utilities.register(
   "fqn": "pulumi_aws.sesv2",
   "classes": {
    "aws:sesv2/emailIdentityPolicy:EmailIdentityPolicy": "EmailIdentityPolicy"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "sesv2/tenant",
+  "fqn": "pulumi_aws.sesv2",
+  "classes": {
+   "aws:sesv2/tenant:Tenant": "Tenant"
   }
  },
  {
@@ -12271,6 +12721,14 @@ _utilities.register(
  },
  {
   "pkg": "aws",
+  "mod": "transfer/hostKey",
+  "fqn": "pulumi_aws.transfer",
+  "classes": {
+   "aws:transfer/hostKey:HostKey": "HostKey"
+  }
+ },
+ {
+  "pkg": "aws",
   "mod": "transfer/profile",
   "fqn": "pulumi_aws.transfer",
   "classes": {
@@ -12307,6 +12765,22 @@ _utilities.register(
   "fqn": "pulumi_aws.transfer",
   "classes": {
    "aws:transfer/user:User": "User"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "transfer/webApp",
+  "fqn": "pulumi_aws.transfer",
+  "classes": {
+   "aws:transfer/webApp:WebApp": "WebApp"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "transfer/webAppCustomization",
+  "fqn": "pulumi_aws.transfer",
+  "classes": {
+   "aws:transfer/webAppCustomization:WebAppCustomization": "WebAppCustomization"
   }
  },
  {
@@ -12499,6 +12973,14 @@ _utilities.register(
   "fqn": "pulumi_aws.vpclattice",
   "classes": {
    "aws:vpclattice/authPolicy:AuthPolicy": "AuthPolicy"
+  }
+ },
+ {
+  "pkg": "aws",
+  "mod": "vpclattice/domainVerification",
+  "fqn": "pulumi_aws.vpclattice",
+  "classes": {
+   "aws:vpclattice/domainVerification:DomainVerification": "DomainVerification"
   }
  },
  {

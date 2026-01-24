@@ -2,6 +2,7 @@
 Routes for interacting with flow run objects.
 """
 
+import asyncio
 import csv
 import datetime
 import io
@@ -10,8 +11,9 @@ from uuid import UUID
 
 import orjson
 import sqlalchemy as sa
+from docket import Depends as DocketDepends
+from docket import Retry
 from fastapi import (
-    BackgroundTasks,
     Body,
     Depends,
     HTTPException,
@@ -78,7 +80,7 @@ async def create_flow_run(
 
     If no state is provided, the flow run will be created in a PENDING state.
 
-    For more information, see https://docs.prefect.io/v3/develop/write-flows.
+    For more information, see https://docs.prefect.io/v3/concepts/flows.
     """
     # hydrate the input model into a full flow run / state model
     flow_run_object = schemas.core.FlowRun(
@@ -272,13 +274,12 @@ async def flow_run_history(
     history_end: DateTime = Body(..., description="The history's end time."),
     # Workaround for the fact that FastAPI does not let us configure ser_json_timedelta
     # to represent timedeltas as floats in JSON.
-    history_interval: float = Body(
+    history_interval_seconds: float = Body(
         ...,
         description=(
             "The size of each history interval, in seconds. Must be at least 1 second."
         ),
         json_schema_extra={"format": "time-delta"},
-        alias="history_interval_seconds",
     ),
     flows: Optional[schemas.filters.FlowFilter] = None,
     flow_runs: Optional[schemas.filters.FlowRunFilter] = None,
@@ -291,10 +292,8 @@ async def flow_run_history(
     """
     Query for flow run history data across a given range and interval.
     """
-    if isinstance(history_interval, float):
-        history_interval = datetime.timedelta(seconds=history_interval)
+    history_interval = datetime.timedelta(seconds=history_interval_seconds)
 
-    assert isinstance(history_interval, datetime.timedelta)
     if history_interval < datetime.timedelta(seconds=1):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -574,7 +573,7 @@ async def read_flow_runs(
 
 @router.delete("/{id:uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_flow_run(
-    background_tasks: BackgroundTasks,
+    docket: dependencies.Docket,
     flow_run_id: UUID = Path(..., description="The flow run id", alias="id"),
     db: PrefectDBInterface = Depends(provide_database_interface),
 ) -> None:
@@ -589,10 +588,18 @@ async def delete_flow_run(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Flow run not found"
         )
-    background_tasks.add_task(delete_flow_run_logs, db, flow_run_id)
+    await docket.add(
+        delete_flow_run_logs,
+        key=f"delete_flow_run_logs:{flow_run_id}",
+    )(flow_run_id=flow_run_id)
 
 
-async def delete_flow_run_logs(db: PrefectDBInterface, flow_run_id: UUID) -> None:
+async def delete_flow_run_logs(
+    *,
+    db: PrefectDBInterface = DocketDepends(provide_database_interface),
+    flow_run_id: UUID,
+    retry: Retry = Retry(attempts=5, delay=datetime.timedelta(seconds=0.5)),
+) -> None:
     async with db.session_context(begin_transaction=True) as session:
         await models.logs.delete_logs(
             session=session,
@@ -779,50 +786,53 @@ async def paginate_flow_runs(
     """
     offset = (page - 1) * limit
 
-    async with db.session_context() as session:
-        runs = await models.flow_runs.read_flow_runs(
-            session=session,
-            flow_filter=flows,
-            flow_run_filter=flow_runs,
-            task_run_filter=task_runs,
-            deployment_filter=deployments,
-            work_pool_filter=work_pools,
-            work_queue_filter=work_pool_queues,
-            offset=offset,
-            limit=limit,
-            sort=sort,
-        )
+    async def get_runs():
+        async with db.session_context() as session:
+            return await models.flow_runs.read_flow_runs(
+                session=session,
+                flow_filter=flows,
+                flow_run_filter=flow_runs,
+                task_run_filter=task_runs,
+                deployment_filter=deployments,
+                work_pool_filter=work_pools,
+                work_queue_filter=work_pool_queues,
+                offset=offset,
+                limit=limit,
+                sort=sort,
+            )
 
-        count = await models.flow_runs.count_flow_runs(
-            session=session,
-            flow_filter=flows,
-            flow_run_filter=flow_runs,
-            task_run_filter=task_runs,
-            deployment_filter=deployments,
-            work_pool_filter=work_pools,
-            work_queue_filter=work_pool_queues,
-        )
+    async def get_count():
+        async with db.session_context() as session:
+            return await models.flow_runs.count_flow_runs(
+                session=session,
+                flow_filter=flows,
+                flow_run_filter=flow_runs,
+                task_run_filter=task_runs,
+                deployment_filter=deployments,
+                work_pool_filter=work_pools,
+                work_queue_filter=work_pool_queues,
+            )
 
-        # Instead of relying on fastapi.encoders.jsonable_encoder to convert the
-        # response to JSON, we do so more efficiently ourselves.
-        # In particular, the FastAPI encoder is very slow for large, nested objects.
-        # See: https://github.com/tiangolo/fastapi/issues/1224
-        results = [
-            schemas.responses.FlowRunResponse.model_validate(
-                run, from_attributes=True
-            ).model_dump(mode="json")
-            for run in runs
-        ]
+    runs, count = await asyncio.gather(get_runs(), get_count())
 
-        response = FlowRunPaginationResponse(
-            results=results,
-            count=count,
-            limit=limit,
-            pages=(count + limit - 1) // limit,
-            page=page,
-        ).model_dump(mode="json")
+    # Instead of relying on fastapi.encoders.jsonable_encoder to convert the
+    # response to JSON, we do so more efficiently ourselves.
+    # In particular, the FastAPI encoder is very slow for large, nested objects.
+    # See: https://github.com/tiangolo/fastapi/issues/1224
+    results = [
+        schemas.responses.FlowRunResponse.model_validate(run, from_attributes=True)
+        for run in runs
+    ]
 
-        return ORJSONResponse(content=response)
+    response = FlowRunPaginationResponse(
+        results=results,
+        count=count,
+        limit=limit,
+        pages=(count + limit - 1) // limit,
+        page=page,
+    ).model_dump(mode="json")
+
+    return ORJSONResponse(content=response)
 
 
 FLOW_RUN_LOGS_DOWNLOAD_PAGE_LIMIT = 1000

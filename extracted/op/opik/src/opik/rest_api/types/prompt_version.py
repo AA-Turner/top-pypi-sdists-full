@@ -6,6 +6,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .json_node import JsonNode
+from .prompt_version_template_structure import PromptVersionTemplateStructure
 from .prompt_version_type import PromptVersionType
 
 
@@ -25,7 +26,9 @@ class PromptVersion(UniversalBaseModel):
     metadata: typing.Optional[JsonNode] = None
     type: typing.Optional[PromptVersionType] = None
     change_description: typing.Optional[str] = None
+    tags: typing.Optional[typing.List[str]] = None
     variables: typing.Optional[typing.List[str]] = None
+    template_structure: typing.Optional[PromptVersionTemplateStructure] = None
     created_at: typing.Optional[dt.datetime] = None
     created_by: typing.Optional[str] = None
 

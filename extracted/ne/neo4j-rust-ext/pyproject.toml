@@ -26,26 +26,24 @@ authors = [
     {name = "Neo4j, Inc.", email = "drivers@neo4j.com"},
 ]
 dependencies = [
-    "neo4j == 5.28.2"
+    "neo4j == 6.1.0"
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 keywords = ["neo4j", "graph", "database"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Rust",
     "Topic :: Database",
     "Topic :: Software Development",
 ]
-version = "5.28.2.1"
+version = "6.1.0.0"
 
 [project.urls]
 Homepage = "https://neo4j.com/"
@@ -61,12 +59,46 @@ pandas = ["neo4j[pandas]"]
 pyarrow = ["neo4j[pyarrow]"]
 
 [build-system]
-requires = ["maturin ~= 1.9.1"]
+requires = ["maturin ~= 1.11.5"]
 build-backend = "maturin"
+
+[dependency-groups]
+# To install all development dependencies as well as the driver with all optional dependencies,
+# run `pip install --group dev -e .` inside repository root folder.
+dev = [
+    # dev tools
+    {include-group = "dep-project-dependencies"},
+    {include-group = "tox"},
+    {include-group = "precommit"},
+    {include-group = "test"},
+    {include-group = "packaging"},
+]
+tox = [
+    "tox >= 4.25.0",
+]
+precommit = [
+    "pre-commit >= 4.2.0",
+    "isort >= 6.0.1",
+]
+test = [
+    "pytest >= 8.3.5",
+    "pytest-benchmark >= 5.1.0",
+    "pytest-mock >= 3.14.1",
+]
+packaging = [
+    "build",
+    "maturin ~= 1.9.6",
+    "towncrier >= 24.8.0",
+]
+
+# single dependencies and other include-groups (not really meant to be installed as a group, but to avoid duplication)
+dep-project-dependencies = [
+    "neo4j[numpy,pandas,pyarrow] == 6.1.0",
+]
 
 [tool.maturin]
 features = ["pyo3/extension-module", "pyo3/generate-import-lib"]
-module-name = "neo4j._codec.packstream._rust"
+module-name = "neo4j._rust"
 exclude = [
     "/.editorconfig",
     ".gitignore",
@@ -83,7 +115,7 @@ exclude = [
 
 [tool.towncrier]
 directory = "changelog.d"
-version = "5.28.2.1"
+version = "6.1.0.0"
 filename = "CHANGELOG.md"
 title_format = "## [{version}](https://github.com/neo4j/neo4j-python-driver-rust-ext/tree/{version}) ({project_date})\n***"
 issue_format = "[#{issue}]: https://github.com/neo4j/neo4j-python-driver-rust-ext/pull/{issue}"
@@ -155,8 +187,7 @@ extend-exclude = [
 preview = true  # to get CPY lints
 extend-ignore = [
     "RUF002",  # allow ’ (RIGHT SINGLE QUOTATION MARK) to be used as an apostrophe (e.g. "it’s")
-    "SIM117",  # TODO: when Python 3.10+ is the minimum,
-               #       we can start to use multi-item `with` statements
+
     # pydocstyle
     "D1",   # disable check for undocumented items (way too noisy)
     "D203", # `one-blank-line-before-class`
@@ -255,9 +286,6 @@ select = [
     "RSE",
     # check return statements
     "RET",
-    # TODO: 6.0 - enable and add __slots__ to applicable classes
-    # # check __slots__ usage
-    # "SLOT",
     # check type-checking usage
     "TCH",
     # copyright notice

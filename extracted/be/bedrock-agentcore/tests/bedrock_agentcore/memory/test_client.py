@@ -24,6 +24,25 @@ def test_client_initialization():
 
         # Check that the region was set correctly and boto3.client was called twice
         assert client.region_name == "us-west-2"
+        assert client.integration_source is None
+        assert mock_boto_client.call_count == 2
+
+        # Verify config was passed to boto3.client calls
+        for call in mock_boto_client.call_args_list:
+            assert "config" in call.kwargs
+
+
+def test_client_initialization_with_integration_source():
+    """Test client initialization with integration_source."""
+    with patch("boto3.client") as mock_boto_client:
+        mock_client_instance = MagicMock()
+        mock_client_instance.meta.region_name = "us-west-2"
+        mock_boto_client.return_value = mock_client_instance
+
+        client = MemoryClient(region_name="us-west-2", integration_source="langchain")
+
+        assert client.region_name == "us-west-2"
+        assert client.integration_source == "langchain"
         assert mock_boto_client.call_count == 2
 
 
@@ -358,7 +377,8 @@ def test_create_memory_and_wait_timeout():
         mock_gmcp.get_memory.return_value = {"memory": {"memoryId": "test-mem-timeout", "status": "CREATING"}}
 
         # Mock time to simulate timeout
-        with patch("time.time", side_effect=[0, 301]):
+        # Provide enough values: start_time=0, then loop checks (0,0,0), then timeout (301,301,301)
+        with patch("time.time", side_effect=[0, 0, 0, 301, 301, 301]):
             with patch("time.sleep"):
                 with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
                     try:
@@ -539,7 +559,7 @@ def test_list_events_with_branch_filter():
             actor_id="user-123",
             session_id="session-456",
             branch_name="test-branch",
-            include_parent_events=True,
+            include_parent_branches=True,
         )
 
         assert len(events) == 1
@@ -582,41 +602,6 @@ def test_list_events_max_results_limit():
         # Verify API was called with correct max_results
         args, kwargs = mock_gmdp.list_events.call_args
         assert kwargs["maxResults"] == 25
-
-
-def test_get_conversation_tree():
-    """Test get_conversation_tree functionality."""
-    with patch("boto3.client"):
-        client = MemoryClient()
-
-        # Mock the client
-        mock_gmdp = MagicMock()
-        client.gmdp_client = mock_gmdp
-
-        # Mock events with branches
-        mock_events = [
-            {
-                "eventId": "event-1",
-                "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello main branch"}}}],
-            },
-            {
-                "eventId": "event-2",
-                "eventTimestamp": datetime(2023, 1, 1, 10, 5, 0),
-                "branch": {"name": "branch-1", "rootEventId": "event-1"},
-                "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello branch 1"}}}],
-            },
-        ]
-        mock_gmdp.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-        # Test get_conversation_tree
-        tree = client.get_conversation_tree(memory_id="mem-123", actor_id="user-123", session_id="session-456")
-
-        assert tree["session_id"] == "session-456"
-        assert tree["actor_id"] == "user-123"
-        assert len(tree["main_branch"]["events"]) == 1
-        assert len(tree["main_branch"]["branches"]) == 1
-        assert "branch-1" in tree["main_branch"]["branches"]
 
 
 def test_list_memories():
@@ -2105,26 +2090,6 @@ def test_list_branch_events_client_error():
             assert "ThrottlingException" in str(e)
 
 
-def test_get_conversation_tree_client_error():
-    """Test get_conversation_tree with ClientError."""
-    with patch("boto3.client"):
-        client = MemoryClient()
-
-        # Mock the client
-        mock_gmdp = MagicMock()
-        client.gmdp_client = mock_gmdp
-
-        # Mock ClientError
-        error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid session ID"}}
-        mock_gmdp.list_events.side_effect = ClientError(error_response, "ListEvents")
-
-        try:
-            client.get_conversation_tree(memory_id="mem-123", actor_id="user-123", session_id="invalid-session")
-            raise AssertionError("ClientError was not raised")
-        except ClientError as e:
-            assert "ValidationException" in str(e)
-
-
 def test_get_event():
     """Test get_event functionality."""
     with patch("boto3.client"):
@@ -2905,3 +2870,261 @@ def test_create_or_get_memory_general_exception():
                 raise AssertionError("Exception was not raised")
             except Exception as e:
                 assert "Unexpected error" in str(e)
+
+
+def test_add_episodic_strategy():
+    """Test add_episodic_strategy functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+        mock_gmcp.update_memory.return_value = {"memory": {"memoryId": "mem-123", "status": "CREATING"}}
+
+        with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+            client.add_episodic_strategy(
+                memory_id="mem-123",
+                name="Test Episodic Strategy",
+                description="Episodic test description",
+                namespaces=["episodes/{actorId}/{sessionId}"],
+                reflection_namespaces=["reflections/{actorId}"],
+            )
+
+            assert mock_gmcp.update_memory.called
+
+            args, kwargs = mock_gmcp.update_memory.call_args
+            assert "memoryStrategies" in kwargs
+            assert "addMemoryStrategies" in kwargs["memoryStrategies"]
+
+            add_strategies = kwargs["memoryStrategies"]["addMemoryStrategies"]
+            assert len(add_strategies) == 1
+
+            strategy = add_strategies[0]
+            assert "episodicMemoryStrategy" in strategy
+
+            episodic_config = strategy["episodicMemoryStrategy"]
+            assert episodic_config["name"] == "Test Episodic Strategy"
+            assert episodic_config["description"] == "Episodic test description"
+            assert episodic_config["namespaces"] == ["episodes/{actorId}/{sessionId}"]
+            assert episodic_config["reflectionConfiguration"] == {"namespaces": ["reflections/{actorId}"]}
+
+            assert kwargs["memoryId"] == "mem-123"
+
+
+def test_add_custom_episodic_strategy():
+    """Test add_custom_episodic_strategy functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+        mock_gmcp.update_memory.return_value = {"memory": {"memoryId": "mem-456", "status": "CREATING"}}
+
+        with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+            extraction_config = {
+                "prompt": "Extract episodes from conversation",
+                "modelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+            }
+            consolidation_config = {
+                "prompt": "Consolidate episodes",
+                "modelId": "anthropic.claude-3-haiku-20240307-v1:0",
+            }
+            reflection_config = {
+                "prompt": "Generate reflections from episodes",
+                "modelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+                "namespaces": ["reflections/{actorId}"],
+            }
+
+            client.add_custom_episodic_strategy(
+                memory_id="mem-456",
+                name="Test Custom Episodic Strategy",
+                extraction_config=extraction_config,
+                consolidation_config=consolidation_config,
+                reflection_config=reflection_config,
+                description="Custom episodic test",
+                namespaces=["custom/{actorId}/{sessionId}"],
+            )
+
+            assert mock_gmcp.update_memory.called
+
+            args, kwargs = mock_gmcp.update_memory.call_args
+            add_strategies = kwargs["memoryStrategies"]["addMemoryStrategies"]
+            strategy = add_strategies[0]
+            assert "customMemoryStrategy" in strategy
+
+            custom_config = strategy["customMemoryStrategy"]
+            assert custom_config["name"] == "Test Custom Episodic Strategy"
+            assert "episodicOverride" in custom_config["configuration"]
+
+            episodic_override = custom_config["configuration"]["episodicOverride"]
+            assert episodic_override["extraction"]["appendToPrompt"] == "Extract episodes from conversation"
+            assert episodic_override["consolidation"]["appendToPrompt"] == "Consolidate episodes"
+            assert episodic_override["reflection"]["appendToPrompt"] == "Generate reflections from episodes"
+            assert episodic_override["reflection"]["namespaces"] == ["reflections/{actorId}"]
+
+
+def test_add_episodic_strategy_and_wait():
+    """Test add_episodic_strategy_and_wait functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+        mock_gmcp.update_memory.return_value = {"memory": {"memoryId": "mem-123", "status": "CREATING"}}
+        mock_gmcp.get_memory.return_value = {"memory": {"memoryId": "mem-123", "status": "ACTIVE"}}
+
+        with patch("time.time", return_value=0):
+            with patch("time.sleep"):
+                with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+                    result = client.add_episodic_strategy_and_wait(
+                        memory_id="mem-123",
+                        name="Test Episodic Strategy",
+                        reflection_namespaces=["reflections/{actorId}"],
+                    )
+
+                    assert result["memoryId"] == "mem-123"
+                    assert result["status"] == "ACTIVE"
+                    assert mock_gmcp.update_memory.called
+                    assert mock_gmcp.get_memory.called
+
+
+def test_add_custom_episodic_strategy_and_wait():
+    """Test add_custom_episodic_strategy_and_wait functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+        mock_gmcp.update_memory.return_value = {"memory": {"memoryId": "mem-456", "status": "CREATING"}}
+        mock_gmcp.get_memory.return_value = {"memory": {"memoryId": "mem-456", "status": "ACTIVE"}}
+
+        with patch("time.time", return_value=0):
+            with patch("time.sleep"):
+                with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+                    result = client.add_custom_episodic_strategy_and_wait(
+                        memory_id="mem-456",
+                        name="Test Custom Episodic",
+                        extraction_config={"prompt": "Extract", "modelId": "model-1"},
+                        consolidation_config={"prompt": "Consolidate", "modelId": "model-2"},
+                        reflection_config={
+                            "prompt": "Reflect",
+                            "modelId": "model-3",
+                            "namespaces": ["actor/{actorId}"],
+                        },
+                    )
+
+                    assert result["memoryId"] == "mem-456"
+                    assert result["status"] == "ACTIVE"
+                    assert mock_gmcp.update_memory.called
+                    assert mock_gmcp.get_memory.called
+
+
+def test_wrap_configuration_custom_episodic_override():
+    """Test _wrap_configuration with CUSTOM strategy and EPISODIC_OVERRIDE."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        config = {
+            "extraction": {"appendToPrompt": "Extract episodes", "modelId": "extraction-model"},
+            "consolidation": {"appendToPrompt": "Consolidate episodes", "modelId": "consolidation-model"},
+            "reflection": {
+                "appendToPrompt": "Reflect on episodes",
+                "modelId": "reflection-model",
+                "namespaces": ["actor/{actorId}"],
+            },
+        }
+
+        wrapped = client._wrap_configuration(config, "CUSTOM", "EPISODIC_OVERRIDE")
+
+        # Should wrap extraction
+        assert "extraction" in wrapped
+        assert "customExtractionConfiguration" in wrapped["extraction"]
+        assert "episodicExtractionOverride" in wrapped["extraction"]["customExtractionConfiguration"]
+        assert (
+            wrapped["extraction"]["customExtractionConfiguration"]["episodicExtractionOverride"]["appendToPrompt"]
+            == "Extract episodes"
+        )
+
+        # Should wrap consolidation
+        assert "consolidation" in wrapped
+        assert "customConsolidationConfiguration" in wrapped["consolidation"]
+        assert "episodicConsolidationOverride" in wrapped["consolidation"]["customConsolidationConfiguration"]
+        assert (
+            wrapped["consolidation"]["customConsolidationConfiguration"]["episodicConsolidationOverride"][
+                "appendToPrompt"
+            ]
+            == "Consolidate episodes"
+        )
+
+        # Should wrap reflection
+        assert "reflection" in wrapped
+        assert "customReflectionConfiguration" in wrapped["reflection"]
+        assert "episodicReflectionOverride" in wrapped["reflection"]["customReflectionConfiguration"]
+        assert (
+            wrapped["reflection"]["customReflectionConfiguration"]["episodicReflectionOverride"]["appendToPrompt"]
+            == "Reflect on episodes"
+        )
+
+
+def test_get_last_k_turns_auto_pagination():
+    """Test get_last_k_turns automatically paginates until k turns are found."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # First call returns events but not enough turns, with next_token
+        # Second call returns more events, no next_token
+        mock_gmdp.list_events.side_effect = [
+            {
+                "events": [
+                    {"payload": [{"conversational": {"role": "USER", "content": {"text": "Hi"}}}]},
+                    {"payload": [{"conversational": {"role": "ASSISTANT", "content": {"text": "Hello"}}}]},
+                ],
+                "nextToken": "token-123",
+            },
+            {
+                "events": [
+                    {"payload": [{"conversational": {"role": "USER", "content": {"text": "How are you?"}}}]},
+                    {"payload": [{"conversational": {"role": "ASSISTANT", "content": {"text": "Good"}}}]},
+                ],
+                "nextToken": None,
+            },
+        ]
+
+        # Request 2 turns without max_results - should paginate automatically
+        turns = client.get_last_k_turns(memory_id="mem-123", actor_id="user-123", session_id="session-456", k=2)
+
+        assert len(turns) == 2
+        assert mock_gmdp.list_events.call_count == 2
+
+
+def test_get_last_k_turns_explicit_max_results():
+    """Test get_last_k_turns respects explicitly provided max_results (backward compatible)."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Return events with next_token, but max_results should limit fetching
+        mock_gmdp.list_events.return_value = {
+            "events": [
+                {"payload": [{"conversational": {"role": "USER", "content": {"text": "Hi"}}}]},
+            ],
+            "nextToken": "token-123",
+        }
+
+        # Request with explicit max_results=50 - should respect limit
+        client.get_last_k_turns(
+            memory_id="mem-123", actor_id="user-123", session_id="session-456", k=200, max_results=50
+        )
+
+        # First call should request up to max_results (min of 100 and 50 = 50)
+        first_call_args = mock_gmdp.list_events.call_args_list[0]
+        assert first_call_args[1]["maxResults"] == 50
+
+        # Total events fetched should not exceed max_results
+        total_fetched = sum(1 for _ in mock_gmdp.list_events.call_args_list)
+        assert total_fetched <= 50  # Should stop after fetching 50 events worth of calls

@@ -1,45 +1,49 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: morecantile
-Version: 6.2.0
+Version: 7.0.2
 Summary: Construct and use map tile grids (a.k.a TileMatrixSet / TMS).
-Keywords: GIS,TMS,TileMatrixSet,Map Tile
+Project-URL: Source, https://github.com/developmentseed/morecantile
+Project-URL: Documentation, https://developmentseed.org/morecantile/
 Author-email: Vincent Sarago <vincent@developmentseed.com>
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
+License: MIT License
+        
+        Copyright (c) 2020 Development Seed
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: GIS,Map Tile,TMS,TileMatrixSet
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.11
 Requires-Dist: attrs
-Requires-Dist: pyproj>=3.1,<4.0
+Requires-Dist: click
 Requires-Dist: pydantic~=2.0
-Requires-Dist: pytest ; extra == "benchmark"
-Requires-Dist: pytest-benchmark ; extra == "benchmark"
-Requires-Dist: pre-commit ; extra == "dev"
-Requires-Dist: bump-my-version ; extra == "dev"
-Requires-Dist: mkdocs>=1.4.3 ; extra == "docs"
-Requires-Dist: mkdocs-material[imaging]>=9.5 ; extra == "docs"
-Requires-Dist: griffe-inherited-docstrings>=1.0.0 ; extra == "docs"
-Requires-Dist: mkdocstrings[python]>=0.25.1 ; extra == "docs"
-Requires-Dist: pygments ; extra == "docs"
-Requires-Dist: rasterio>=1.2.1 ; extra == "rasterio"
-Requires-Dist: mercantile ; extra == "test"
-Requires-Dist: pytest ; extra == "test"
-Requires-Dist: pytest-cov ; extra == "test"
-Requires-Dist: rasterio>=1.2.1 ; extra == "test"
-Project-URL: Documentation, https://developmentseed.org/morecantile/
-Project-URL: Source, https://github.com/developmentseed/morecantile
-Provides-Extra: benchmark
-Provides-Extra: dev
-Provides-Extra: docs
+Requires-Dist: pyproj<4.0,>=3.1
 Provides-Extra: rasterio
-Provides-Extra: test
+Requires-Dist: rasterio>=1.2.1; extra == 'rasterio'
+Description-Content-Type: text/markdown
 
 # Morecantile
 
@@ -87,12 +91,12 @@ Morecantile is like [mercantile](https://github.com/mapbox/mercantile) (the best
 ## Install
 
 ```bash
-$ python -m pip install -U pip
-$ python -m pip install morecantile
+python -m pip install -U pip
+python -m pip install morecantile
 
 # Or install from source:
-$ python -m pip install -U pip
-$ python -m pip install git+https://github.com/developmentseed/morecantile.git
+python -m pip install -U pip
+python -m pip install git+https://github.com/developmentseed/morecantile.git
 ```
 
 ## Usage
@@ -178,4 +182,3 @@ See [LICENSE](https://github.com/developmentseed/morecantile/blob/main/LICENSE)
 ## Authors
 
 Created by [Development Seed](<http://developmentseed.org>)
-

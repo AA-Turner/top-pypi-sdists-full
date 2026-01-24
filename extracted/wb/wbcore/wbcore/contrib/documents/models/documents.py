@@ -25,6 +25,7 @@ from wbcore.contrib.authentication.models import User
 from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
 from wbcore.models import WBModel
 from wbcore.utils.html import convert_html2text
+from wbcore.workers import Queue
 
 from .document_model_relationships import DocumentModelRelationship
 from .shareable_links import ShareableLink
@@ -238,7 +239,7 @@ class Document(PermissionObjectModelMixin, WBModel):
         verbose_name_plural = _("Documents")
 
 
-@shared_task
+@shared_task(queue=Queue.HIGH_PRIORITY.value)
 def send_email_as_task(
     document_id,
     to_emails: List | str,

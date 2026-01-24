@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: Flask-AppBuilder
-Version: 5.0.0
+Name: flask-appbuilder
+Version: 5.0.2
 Summary: Simple and rapid application development framework, built on top of Flask. includes detailed security, auto CRUD generation for your models, google charts and much more.
 Home-page: https://github.com/dpgaspar/flask-appbuilder/
 Author: Daniel Vaz Gaspar

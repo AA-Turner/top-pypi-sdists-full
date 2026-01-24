@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from functools import cache
 from typing import Any, Callable, cast
+from warnings import warn
 
 from ibm_watsonx_ai import APIClient, Credentials
 from ibm_watsonx_ai.ai_services import AIServices
@@ -22,6 +23,10 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.utils.utils import (
     FunctionTransformer,
     FunctionVisitor,
     _get_components_replace_data,
+)
+from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
+    DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+    DEFAULT_DOCUMENT_NAME_FIELD,
 )
 from ibm_watsonx_ai.foundation_models.utils.utils import _copy_function
 from ibm_watsonx_ai.utils.utils import is_lib_installed
@@ -362,7 +367,7 @@ class RAGPatternService(BaseRAGPatternService):
             )
 
             # ModelInference Params
-            model_init_params = default_params.get("model", {}) or {}
+            model_init_params = default_params.get("model") or {}
             new_model_init_params = _get_components_replace_data(
                 model_init_params, ModelInference.__init__, "model"
             )
@@ -372,13 +377,25 @@ class RAGPatternService(BaseRAGPatternService):
             )
 
             # LangChainChunker Params
-            chunker_init_params = default_params.get("chunker", {}) or {}
+            chunker_init_params = default_params.get("chunker") or {}
             new_chunker_init_params = _get_components_replace_data(
                 chunker_init_params, LangChainChunker.__init__, "langchain_chunker"
             )
 
             # VectorStore params
             vector_store_init_params: dict = default_params.get("vector_store", {})
+
+            if self.api_client.CPD_version <= 5.2:
+                if (
+                    vector_store_init_params.get("document_name_field")
+                    == DEFAULT_DOCUMENT_NAME_FIELD
+                ):
+                    del vector_store_init_params["document_name_field"]
+                if (
+                    vector_store_init_params.get("chunk_sequence_number_field")
+                    == DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD
+                ):
+                    del vector_store_init_params["chunk_sequence_number_field"]
 
             ## Remove credential, project/space id and verify fields from wx embeddings
             ## since they will be restored from APIClient instance
@@ -387,7 +404,7 @@ class RAGPatternService(BaseRAGPatternService):
                 and "ibm_watsonx_ai.foundation_models.embeddings.embeddings"
                 in (
                     embeddings_init_params := (
-                        vector_store_init_params.get("embeddings", {}) or {}
+                        vector_store_init_params.get("embeddings") or {}
                     )
                 ).get("__module__", "")
             ):
@@ -643,7 +660,9 @@ class RAGPatternService(BaseRAGPatternService):
             deployment_details = pattern.inference_service.deploy(
                 name="Example deployment name",
                 store_params={"software_spec_id": "<ID of the custom sw spec>"},
-                deploy_params={"description": "Optional deployed AI service description"}
+                deploy_params={
+                    "description": "Optional deployed AI service description"
+                },
             )
 
         To override vector store `connection_id`, `index_name` or set specific scope id (project_id/space_id) use following:
@@ -653,16 +672,16 @@ class RAGPatternService(BaseRAGPatternService):
                 name="Example deployment name",
                 store_params={"software_spec_id": "<ID of the custom sw spec>"},
                 deploy_params={
-                                "online": {
-                                    "parameters": {
-                                        "vector_store_settings": {
-                                            "connection_id": "<connection_to_vector_store>",
-                                            "index_name": "<index_name>",
-                                            "project_id": "<project_id>",
-                                        }
-                                    }
-                                }
+                    "online": {
+                        "parameters": {
+                            "vector_store_settings": {
+                                "connection_id": "<connection_to_vector_store>",
+                                "index_name": "<index_name>",
+                                "project_id": "<project_id>",
                             }
+                        }
+                    }
+                },
             )
 
         """
@@ -672,6 +691,16 @@ class RAGPatternService(BaseRAGPatternService):
                 value_name="space_id",
                 reason="Deployment space ID must be provided to deploy RAGPattern's inference AI service.",
             )
+
+        if self.api_client.CPD_version <= 5.2:
+            sdk_version_requirement_warning = (
+                "AI service deployments require the `ibm-watsonx-ai` package to be installed in the deployment environment. "
+                "Please make sure the installed version matches or exceeds the version used locally to generate the AI service. "
+                "Otherwise, the deployment may fail due to version incompatibility. "
+                "You can update the version of `ibm-watsonx-ai` used in the deployment environment with a package extension."
+            )
+            warn(sdk_version_requirement_warning)
+
         return super().deploy(
             name=name,
             space_id=space_id,
@@ -737,7 +766,7 @@ class RAGPatternFunction(BaseRAGPatternService):
         return self._asset_id
 
     @function_id.setter
-    def function_id(self, value: str) -> None:
+    def function_id(self, value: str | None) -> None:
         self._asset_id = value
 
     def _populate_default_params(
@@ -872,7 +901,9 @@ class RAGPatternFunction(BaseRAGPatternService):
             deployment_details = pattern.inference_function.deploy(
                 name="Example deployment name",
                 store_params={"software_spec_id": "<ID of the custom sw spec>"},
-                deploy_params={"description": "Optional deployed function description"}
+                deploy_params={
+                    "description": "Optional deployed function description"
+                },
             )
 
         """
@@ -882,6 +913,16 @@ class RAGPatternFunction(BaseRAGPatternService):
                 value_name="space_id",
                 reason=f"Deployment space ID must be provided to deploy RAGPattern's inference {'service' if isinstance(self, RAGPatternService) else 'service'}.",
             )
+
+        if self.api_client.CPD_version <= 5.2:
+            sdk_version_requirement_warning = (
+                "AI service deployments require the `ibm-watsonx-ai` package to be installed in the deployment environment. "
+                "Please make sure the installed version matches or exceeds the version used locally to generate the AI service. "
+                "Otherwise, the deployment may fail due to version incompatibility. "
+                "You can update the version of `ibm-watsonx-ai` used in the deployment environment with a package extension."
+            )
+            warn(sdk_version_requirement_warning)
+
         return super().deploy(
             name=name,
             space_id=space_id,

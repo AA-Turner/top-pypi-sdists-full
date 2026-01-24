@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: atcf-data-parser
+Version: 0.0.1
+Summary: Parse a-deck data posted online by the Automated Tropical Cyclone Forecasting System
+Home-page: http://www.github.com/palewire/atcf-data-parser
+Author: your name
+Author-email: your@email.com
+License: MIT
+Project-URL: Maintainer, https://github.com/palewire/
+Project-URL: Source, https://github.com/palewire/atcf-data-parser
+Project-URL: Tracker, https://github.com/palewire/atcf-data-parser/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: rich
+Requires-Dist: click
+Requires-Dist: requests
+Requires-Dist: retry
+
+A Python parser and command-line utility for the a-deck data posted online by the Automated Tropical Cyclone Forecasting System

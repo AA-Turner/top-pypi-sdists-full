@@ -47,6 +47,20 @@ class Executable:
         uac_admin: bool = False,
         uac_uiaccess: bool = False,
     ) -> None:
+        # private
+        self._main_script: Path
+        self._init_script: Path
+        self._base: Path
+        self._name: str = ""
+        self._ext: str = EXE_SUFFIX
+        self._internal_name: str = ""
+        self._icon: Path | None = None
+        self._manifest: str | None = None
+        self._shortcut_name: str | None = None
+        self._shortcut_dir: Path | None = None
+
+        self.app_type = "console"
+
         self.main_script = script
         self.init_script = init_script
         self.base = base
@@ -76,25 +90,34 @@ class Executable:
         if name:
             filename = Path(name)
             if filename.is_absolute():
-                self._base: Path = filename
-                self._ext: str = filename.suffix
+                self._base = filename
+                self._ext = filename.suffix
                 return
-        # The default base is the legacy console, except for
-        # Python 3.13, that supports only the new console
-        version = sys.version_info[:2]
-        if version < (3, 13):
-            name = name or "console_legacy"
-        else:
-            name = name or "console"
-        # silently ignore gui and service on non-windows systems
+
+        # The default base is console
+        name = name or "console"
+
+        # Get the app type (console, gui or service)
+        self.app_type = name.lower().removeprefix("win32")
+
+        # On non-windows systems the base console is used for any type of app
         if not (IS_WINDOWS or IS_MINGW) and name in ("gui", "service"):
             name = "console"
+        if name.lower().startswith("win32"):
+            name = f"legacy/{name.lower()}"
+        if not name.startswith("legacy"):
+            name = f"bases/{name}"
         filename = f"{name}-{SOABI}{EXE_SUFFIX}"
-        self._base: Path = resource_path(f"bases/{filename}")
+        self._base = resource_path(filename)
         if self._base is None:
             msg = f"no base named {name!r} ({filename!r})"
+            if "console" in name:
+                msg += " - Did you mean 'console'?"
+            elif "win32gui" in name:
+                msg += " - Did you mean 'gui'?"
+            elif "win32service" in name:
+                msg += " - Did you mean 'service'?"
             raise OptionError(msg)
-        self._ext: str = EXE_SUFFIX
 
     @property
     def icon(self) -> Path | None:
@@ -106,9 +129,11 @@ class Executable:
 
     @icon.setter
     def icon(self, name: str | Path | None) -> None:
-        iconfile: Path = Path(name) if name else None
-        if iconfile and not iconfile.suffix:
-            # add an extension
+        if name is None:
+            return
+        iconfile = Path(name)
+        if not iconfile.suffix:
+            # add an extension - defaults to .svg
             valid_extensions = [".png", ".svg"]
             if IS_WINDOWS or IS_MINGW:
                 valid_extensions.insert(0, ".ico")
@@ -118,7 +143,7 @@ class Executable:
                 iconfile = iconfile.with_suffix(ext)
                 if iconfile.exists():
                     break
-        self._icon: Path | None = iconfile
+        self._icon = iconfile
 
     @property
     def init_module_name(self) -> str:
@@ -142,10 +167,10 @@ class Executable:
         name = name or "console"
         filename = Path(name)
         if filename.is_absolute():
-            self._init_script: Path = filename
+            self._init_script = filename
         else:
             filename = filename.with_suffix(".py")
-            self._init_script: Path = resource_path(f"initscripts/{filename}")
+            self._init_script = resource_path(f"initscripts/{filename}")
         if self._init_script is None:
             msg = f"no init_script named {name!r} ({filename!r})"
             raise OptionError(msg)
@@ -169,7 +194,7 @@ class Executable:
 
     @main_script.setter
     def main_script(self, name: str | Path) -> None:
-        self._main_script: Path = Path(name)
+        self._main_script = Path(name)
 
     @property
     def manifest(self) -> str | None:
@@ -182,7 +207,6 @@ class Executable:
 
     @manifest.setter
     def manifest(self, name: str | Path | None) -> None:
-        self._manifest: str | None = None
         if name is None:
             return
         if isinstance(name, str):
@@ -199,8 +223,8 @@ class Executable:
         return self._shortcut_name
 
     @shortcut_name.setter
-    def shortcut_name(self, name: str) -> None:
-        self._shortcut_name: str = name
+    def shortcut_name(self, name: str | None) -> None:
+        self._shortcut_name = name
 
     @property
     def shortcut_dir(self) -> Path:
@@ -213,8 +237,10 @@ class Executable:
         return self._shortcut_dir
 
     @shortcut_dir.setter
-    def shortcut_dir(self, name: str | Path) -> None:
-        self._shortcut_dir: Path = Path(name) if name else None
+    def shortcut_dir(self, name: str | Path | None) -> None:
+        if name is None:
+            return
+        self._shortcut_dir = Path(name)
 
     @property
     def target_name(self) -> str:
@@ -238,13 +264,13 @@ class Executable:
                 raise OptionError(msg)
             if sys.platform == "win32" and pathname.suffix.lower() == ".exe":
                 name = pathname.stem
-        self._name: str = name
+        self._name = name
         name = name.partition(".")[0]
         if not name.isidentifier():
             for invalid in STRINGREPLACE:
                 name = name.replace(invalid, "_")
         name = os.path.normcase(name)
-        self._internal_name: str = name
+        self._internal_name = name
 
 
 def validate_executables(dist: Distribution, attr: str, value) -> None:

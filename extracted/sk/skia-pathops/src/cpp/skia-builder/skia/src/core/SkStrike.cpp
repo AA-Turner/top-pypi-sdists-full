@@ -8,25 +8,26 @@
 #include "src/core/SkStrike.h"
 
 #include "include/core/SkDrawable.h"
-#include "include/core/SkGraphics.h"
+#include "include/core/SkFontStyle.h"
+#include "include/core/SkMatrix.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkString.h"
 #include "include/core/SkTraceMemoryDump.h"
 #include "include/core/SkTypeface.h"
-#include "include/private/base/SkAssert.h"
-#include "src/core/SkDistanceFieldGen.h"
-#include "src/core/SkEnumerate.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkTFitsIn.h"
 #include "src/core/SkGlyph.h"
+#include "src/core/SkMask.h"
 #include "src/core/SkReadBuffer.h"
 #include "src/core/SkScalerContext.h"
 #include "src/core/SkStrikeCache.h"
 #include "src/core/SkWriteBuffer.h"
 #include "src/text/StrikeForGPU.h"
 
+#include <cctype>
+#include <new>
 #include <optional>
-
-#if defined(SK_GANESH)
-    #include "src/text/gpu/StrikeCache.h"
-#endif
+#include <utility>
 
 using namespace skglyph;
 
@@ -183,12 +184,12 @@ SkGlyph* SkStrike::mergeGlyphAndImage(SkPackedGlyphID toID, const SkGlyph& fromG
     }
 }
 
-const SkPath* SkStrike::mergePath(SkGlyph* glyph, const SkPath* path, bool hairline) {
+const SkPath* SkStrike::mergePath(SkGlyph* glyph, const SkPath* path, bool hairline, bool modified) {
     Monitor m{this};
     if (glyph->setPathHasBeenCalled()) {
         SkDEBUGFAIL("Re-adding path to existing glyph. This should not happen.");
     }
-    if (glyph->setPath(&fAlloc, path, hairline)) {
+    if (glyph->setPath(&fAlloc, path, hairline, modified)) {
         fMemoryIncrease += glyph->path()->approximateBytesUsed();
     }
 
@@ -277,9 +278,6 @@ void SkStrike::dump() const {
     SkAutoMutexExclusive lock{fStrikeLock};
     const SkTypeface* face = fScalerContext->getTypeface();
     const SkScalerContextRec& rec = fScalerContext->getRec();
-    SkMatrix matrix;
-    rec.getSingleMatrix(&matrix);
-    matrix.preScale(SkScalarInvert(rec.fTextSize), SkScalarInvert(rec.fTextSize));
     SkString name;
     face->getFamilyName(&name);
 
@@ -305,7 +303,7 @@ void SkStrike::dumpMemoryStatistics(SkTraceMemoryDump* dump) const {
         }
     }
 
-    SkString dumpName = SkStringPrintf("%s/%s_%d/%p",
+    SkString dumpName = SkStringPrintf("%s/%s_%u/%p",
                                        SkStrikeCache::kGlyphCacheDumpName,
                                        fontName.c_str(),
                                        rec.fTypefaceID,

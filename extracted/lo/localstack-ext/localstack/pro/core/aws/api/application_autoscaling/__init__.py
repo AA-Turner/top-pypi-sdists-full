@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -262,7 +262,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
 class TooManyTagsException(ServiceException):
@@ -273,7 +273,7 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
 class ValidationException(ServiceException):
@@ -293,10 +293,10 @@ class Alarm(TypedDict, total=False):
     AlarmARN: ResourceId
 
 
-Alarms = List[Alarm]
-PredictiveScalingForecastValues = List[MetricScale]
+Alarms = list[Alarm]
+PredictiveScalingForecastValues = list[MetricScale]
 TimestampType = datetime
-PredictiveScalingForecastTimestamps = List[TimestampType]
+PredictiveScalingForecastTimestamps = list[TimestampType]
 
 
 class CapacityForecast(TypedDict, total=False):
@@ -317,7 +317,7 @@ class TargetTrackingMetricDimension(TypedDict, total=False):
     Value: TargetTrackingMetricDimensionValue
 
 
-TargetTrackingMetricDimensions = List[TargetTrackingMetricDimension]
+TargetTrackingMetricDimensions = list[TargetTrackingMetricDimension]
 
 
 class TargetTrackingMetric(TypedDict, total=False):
@@ -326,9 +326,9 @@ class TargetTrackingMetric(TypedDict, total=False):
     Metric is a property of the TargetTrackingMetricStat object.
     """
 
-    Dimensions: Optional[TargetTrackingMetricDimensions]
-    MetricName: Optional[TargetTrackingMetricName]
-    Namespace: Optional[TargetTrackingMetricNamespace]
+    Dimensions: TargetTrackingMetricDimensions | None
+    MetricName: TargetTrackingMetricName | None
+    Namespace: TargetTrackingMetricNamespace | None
 
 
 class TargetTrackingMetricStat(TypedDict, total=False):
@@ -343,7 +343,7 @@ class TargetTrackingMetricStat(TypedDict, total=False):
 
     Metric: TargetTrackingMetric
     Stat: XmlString
-    Unit: Optional[TargetTrackingMetricUnit]
+    Unit: TargetTrackingMetricUnit | None
 
 
 class TargetTrackingMetricDataQuery(TypedDict, total=False):
@@ -359,14 +359,14 @@ class TargetTrackingMetricDataQuery(TypedDict, total=False):
     in the *Application Auto Scaling User Guide*.
     """
 
-    Expression: Optional[Expression]
+    Expression: Expression | None
     Id: Id
-    Label: Optional[XmlString]
-    MetricStat: Optional[TargetTrackingMetricStat]
-    ReturnData: Optional[ReturnData]
+    Label: XmlString | None
+    MetricStat: TargetTrackingMetricStat | None
+    ReturnData: ReturnData | None
 
 
-TargetTrackingMetricDataQueries = List[TargetTrackingMetricDataQuery]
+TargetTrackingMetricDataQueries = list[TargetTrackingMetricDataQuery]
 
 
 class MetricDimension(TypedDict, total=False):
@@ -376,7 +376,7 @@ class MetricDimension(TypedDict, total=False):
     Value: MetricDimensionValue
 
 
-MetricDimensions = List[MetricDimension]
+MetricDimensions = list[MetricDimension]
 
 
 class CustomizedMetricSpecification(TypedDict, total=False):
@@ -409,12 +409,12 @@ class CustomizedMetricSpecification(TypedDict, total=False):
     in the *Amazon CloudWatch User Guide*.
     """
 
-    MetricName: Optional[MetricName]
-    Namespace: Optional[MetricNamespace]
-    Dimensions: Optional[MetricDimensions]
-    Statistic: Optional[MetricStatistic]
-    Unit: Optional[MetricUnit]
-    Metrics: Optional[TargetTrackingMetricDataQueries]
+    MetricName: MetricName | None
+    Namespace: MetricNamespace | None
+    Dimensions: MetricDimensions | None
+    Statistic: MetricStatistic | None
+    Unit: MetricUnit | None
+    Metrics: TargetTrackingMetricDataQueries | None
 
 
 class DeleteScalingPolicyRequest(ServiceRequest):
@@ -449,15 +449,15 @@ class DeregisterScalableTargetResponse(TypedDict, total=False):
     pass
 
 
-ResourceIdsMaxLen1600 = List[ResourceIdMaxLen1600]
+ResourceIdsMaxLen1600 = list[ResourceIdMaxLen1600]
 
 
 class DescribeScalableTargetsRequest(ServiceRequest):
     ServiceNamespace: ServiceNamespace
-    ResourceIds: Optional[ResourceIdsMaxLen1600]
-    ScalableDimension: Optional[ScalableDimension]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[XmlString]
+    ResourceIds: ResourceIdsMaxLen1600 | None
+    ScalableDimension: ScalableDimension | None
+    MaxResults: MaxResults | None
+    NextToken: XmlString | None
 
 
 class SuspendedState(TypedDict, total=False):
@@ -465,9 +465,9 @@ class SuspendedState(TypedDict, total=False):
     suspended state.
     """
 
-    DynamicScalingInSuspended: Optional[ScalingSuspended]
-    DynamicScalingOutSuspended: Optional[ScalingSuspended]
-    ScheduledScalingSuspended: Optional[ScalingSuspended]
+    DynamicScalingInSuspended: ScalingSuspended | None
+    DynamicScalingOutSuspended: ScalingSuspended | None
+    ScheduledScalingSuspended: ScalingSuspended | None
 
 
 class ScalableTarget(TypedDict, total=False):
@@ -478,28 +478,28 @@ class ScalableTarget(TypedDict, total=False):
     ScalableDimension: ScalableDimension
     MinCapacity: ResourceCapacity
     MaxCapacity: ResourceCapacity
-    PredictedCapacity: Optional[ResourceCapacity]
+    PredictedCapacity: ResourceCapacity | None
     RoleARN: ResourceIdMaxLen1600
     CreationTime: TimestampType
-    SuspendedState: Optional[SuspendedState]
-    ScalableTargetARN: Optional[XmlString]
+    SuspendedState: SuspendedState | None
+    ScalableTargetARN: XmlString | None
 
 
-ScalableTargets = List[ScalableTarget]
+ScalableTargets = list[ScalableTarget]
 
 
 class DescribeScalableTargetsResponse(TypedDict, total=False):
-    ScalableTargets: Optional[ScalableTargets]
-    NextToken: Optional[XmlString]
+    ScalableTargets: ScalableTargets | None
+    NextToken: XmlString | None
 
 
 class DescribeScalingActivitiesRequest(ServiceRequest):
     ServiceNamespace: ServiceNamespace
-    ResourceId: Optional[ResourceIdMaxLen1600]
-    ScalableDimension: Optional[ScalableDimension]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[XmlString]
-    IncludeNotScaledActivities: Optional[IncludeNotScaledActivities]
+    ResourceId: ResourceIdMaxLen1600 | None
+    ScalableDimension: ScalableDimension | None
+    MaxResults: MaxResults | None
+    NextToken: XmlString | None
+    IncludeNotScaledActivities: IncludeNotScaledActivities | None
 
 
 class NotScaledReason(TypedDict, total=False):
@@ -511,12 +511,12 @@ class NotScaledReason(TypedDict, total=False):
     """
 
     Code: XmlString
-    MaxCapacity: Optional[ResourceCapacity]
-    MinCapacity: Optional[ResourceCapacity]
-    CurrentCapacity: Optional[ResourceCapacity]
+    MaxCapacity: ResourceCapacity | None
+    MinCapacity: ResourceCapacity | None
+    CurrentCapacity: ResourceCapacity | None
 
 
-NotScaledReasons = List[NotScaledReason]
+NotScaledReasons = list[NotScaledReason]
 
 
 class ScalingActivity(TypedDict, total=False):
@@ -529,28 +529,28 @@ class ScalingActivity(TypedDict, total=False):
     Description: XmlString
     Cause: XmlString
     StartTime: TimestampType
-    EndTime: Optional[TimestampType]
+    EndTime: TimestampType | None
     StatusCode: ScalingActivityStatusCode
-    StatusMessage: Optional[XmlString]
-    Details: Optional[XmlString]
-    NotScaledReasons: Optional[NotScaledReasons]
+    StatusMessage: XmlString | None
+    Details: XmlString | None
+    NotScaledReasons: NotScaledReasons | None
 
 
-ScalingActivities = List[ScalingActivity]
+ScalingActivities = list[ScalingActivity]
 
 
 class DescribeScalingActivitiesResponse(TypedDict, total=False):
-    ScalingActivities: Optional[ScalingActivities]
-    NextToken: Optional[XmlString]
+    ScalingActivities: ScalingActivities | None
+    NextToken: XmlString | None
 
 
 class DescribeScalingPoliciesRequest(ServiceRequest):
-    PolicyNames: Optional[ResourceIdsMaxLen1600]
+    PolicyNames: ResourceIdsMaxLen1600 | None
     ServiceNamespace: ServiceNamespace
-    ResourceId: Optional[ResourceIdMaxLen1600]
-    ScalableDimension: Optional[ScalableDimension]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[XmlString]
+    ResourceId: ResourceIdMaxLen1600 | None
+    ScalableDimension: ScalableDimension | None
+    MaxResults: MaxResults | None
+    NextToken: XmlString | None
 
 
 class PredictiveScalingMetricDimension(TypedDict, total=False):
@@ -560,15 +560,15 @@ class PredictiveScalingMetricDimension(TypedDict, total=False):
     Value: PredictiveScalingMetricDimensionValue
 
 
-PredictiveScalingMetricDimensions = List[PredictiveScalingMetricDimension]
+PredictiveScalingMetricDimensions = list[PredictiveScalingMetricDimension]
 
 
 class PredictiveScalingMetric(TypedDict, total=False):
     """Describes the scaling metric."""
 
-    Dimensions: Optional[PredictiveScalingMetricDimensions]
-    MetricName: Optional[PredictiveScalingMetricName]
-    Namespace: Optional[PredictiveScalingMetricNamespace]
+    Dimensions: PredictiveScalingMetricDimensions | None
+    MetricName: PredictiveScalingMetricName | None
+    Namespace: PredictiveScalingMetricNamespace | None
 
 
 class PredictiveScalingMetricStat(TypedDict, total=False):
@@ -578,7 +578,7 @@ class PredictiveScalingMetricStat(TypedDict, total=False):
 
     Metric: PredictiveScalingMetric
     Stat: XmlString
-    Unit: Optional[PredictiveScalingMetricUnit]
+    Unit: PredictiveScalingMetricUnit | None
 
 
 class PredictiveScalingMetricDataQuery(TypedDict, total=False):
@@ -590,13 +590,13 @@ class PredictiveScalingMetricDataQuery(TypedDict, total=False):
     """
 
     Id: Id
-    Expression: Optional[Expression]
-    MetricStat: Optional[PredictiveScalingMetricStat]
-    Label: Optional[XmlString]
-    ReturnData: Optional[ReturnData]
+    Expression: Expression | None
+    MetricStat: PredictiveScalingMetricStat | None
+    Label: XmlString | None
+    ReturnData: ReturnData | None
 
 
-PredictiveScalingMetricDataQueries = List[PredictiveScalingMetricDataQuery]
+PredictiveScalingMetricDataQueries = list[PredictiveScalingMetricDataQuery]
 
 
 class PredictiveScalingCustomizedMetricSpecification(TypedDict, total=False):
@@ -636,7 +636,7 @@ class PredictiveScalingPredefinedLoadMetricSpecification(TypedDict, total=False)
     """
 
     PredefinedMetricType: PredictiveScalingMetricType
-    ResourceLabel: Optional[ResourceLabel]
+    ResourceLabel: ResourceLabel | None
 
 
 class PredictiveScalingPredefinedScalingMetricSpecification(TypedDict, total=False):
@@ -668,7 +668,7 @@ class PredictiveScalingPredefinedScalingMetricSpecification(TypedDict, total=Fal
     """
 
     PredefinedMetricType: PredictiveScalingMetricType
-    ResourceLabel: Optional[ResourceLabel]
+    ResourceLabel: ResourceLabel | None
 
 
 class PredictiveScalingPredefinedMetricPairSpecification(TypedDict, total=False):
@@ -696,7 +696,7 @@ class PredictiveScalingPredefinedMetricPairSpecification(TypedDict, total=False)
     """
 
     PredefinedMetricType: PredictiveScalingMetricType
-    ResourceLabel: Optional[ResourceLabel]
+    ResourceLabel: ResourceLabel | None
 
 
 class PredictiveScalingMetricSpecification(TypedDict, total=False):
@@ -712,17 +712,17 @@ class PredictiveScalingMetricSpecification(TypedDict, total=False):
     """
 
     TargetValue: MetricScale
-    PredefinedMetricPairSpecification: Optional[PredictiveScalingPredefinedMetricPairSpecification]
-    PredefinedScalingMetricSpecification: Optional[
-        PredictiveScalingPredefinedScalingMetricSpecification
-    ]
-    PredefinedLoadMetricSpecification: Optional[PredictiveScalingPredefinedLoadMetricSpecification]
-    CustomizedScalingMetricSpecification: Optional[PredictiveScalingCustomizedMetricSpecification]
-    CustomizedLoadMetricSpecification: Optional[PredictiveScalingCustomizedMetricSpecification]
-    CustomizedCapacityMetricSpecification: Optional[PredictiveScalingCustomizedMetricSpecification]
+    PredefinedMetricPairSpecification: PredictiveScalingPredefinedMetricPairSpecification | None
+    PredefinedScalingMetricSpecification: (
+        PredictiveScalingPredefinedScalingMetricSpecification | None
+    )
+    PredefinedLoadMetricSpecification: PredictiveScalingPredefinedLoadMetricSpecification | None
+    CustomizedScalingMetricSpecification: PredictiveScalingCustomizedMetricSpecification | None
+    CustomizedLoadMetricSpecification: PredictiveScalingCustomizedMetricSpecification | None
+    CustomizedCapacityMetricSpecification: PredictiveScalingCustomizedMetricSpecification | None
 
 
-PredictiveScalingMetricSpecifications = List[PredictiveScalingMetricSpecification]
+PredictiveScalingMetricSpecifications = list[PredictiveScalingMetricSpecification]
 
 
 class PredictiveScalingPolicyConfiguration(TypedDict, total=False):
@@ -731,10 +731,10 @@ class PredictiveScalingPolicyConfiguration(TypedDict, total=False):
     """
 
     MetricSpecifications: PredictiveScalingMetricSpecifications
-    Mode: Optional[PredictiveScalingMode]
-    SchedulingBufferTime: Optional[PredictiveScalingSchedulingBufferTime]
-    MaxCapacityBreachBehavior: Optional[PredictiveScalingMaxCapacityBreachBehavior]
-    MaxCapacityBuffer: Optional[PredictiveScalingMaxCapacityBuffer]
+    Mode: PredictiveScalingMode | None
+    SchedulingBufferTime: PredictiveScalingSchedulingBufferTime | None
+    MaxCapacityBreachBehavior: PredictiveScalingMaxCapacityBreachBehavior | None
+    MaxCapacityBuffer: PredictiveScalingMaxCapacityBuffer | None
 
 
 class PredefinedMetricSpecification(TypedDict, total=False):
@@ -747,7 +747,7 @@ class PredefinedMetricSpecification(TypedDict, total=False):
     """
 
     PredefinedMetricType: MetricType
-    ResourceLabel: Optional[ResourceLabel]
+    ResourceLabel: ResourceLabel | None
 
 
 class TargetTrackingScalingPolicyConfiguration(TypedDict, total=False):
@@ -760,11 +760,11 @@ class TargetTrackingScalingPolicyConfiguration(TypedDict, total=False):
     """
 
     TargetValue: MetricScale
-    PredefinedMetricSpecification: Optional[PredefinedMetricSpecification]
-    CustomizedMetricSpecification: Optional[CustomizedMetricSpecification]
-    ScaleOutCooldown: Optional[Cooldown]
-    ScaleInCooldown: Optional[Cooldown]
-    DisableScaleIn: Optional[DisableScaleIn]
+    PredefinedMetricSpecification: PredefinedMetricSpecification | None
+    CustomizedMetricSpecification: CustomizedMetricSpecification | None
+    ScaleOutCooldown: Cooldown | None
+    ScaleInCooldown: Cooldown | None
+    DisableScaleIn: DisableScaleIn | None
 
 
 class StepAdjustment(TypedDict, total=False):
@@ -800,12 +800,12 @@ class StepAdjustment(TypedDict, total=False):
     -  The upper and lower bound can't be null in the same step adjustment.
     """
 
-    MetricIntervalLowerBound: Optional[MetricScale]
-    MetricIntervalUpperBound: Optional[MetricScale]
+    MetricIntervalLowerBound: MetricScale | None
+    MetricIntervalUpperBound: MetricScale | None
     ScalingAdjustment: ScalingAdjustment
 
 
-StepAdjustments = List[StepAdjustment]
+StepAdjustments = list[StepAdjustment]
 
 
 class StepScalingPolicyConfiguration(TypedDict, total=False):
@@ -817,11 +817,11 @@ class StepScalingPolicyConfiguration(TypedDict, total=False):
     in the *Application Auto Scaling User Guide*.
     """
 
-    AdjustmentType: Optional[AdjustmentType]
-    StepAdjustments: Optional[StepAdjustments]
-    MinAdjustmentMagnitude: Optional[MinAdjustmentMagnitude]
-    Cooldown: Optional[Cooldown]
-    MetricAggregationType: Optional[MetricAggregationType]
+    AdjustmentType: AdjustmentType | None
+    StepAdjustments: StepAdjustments | None
+    MinAdjustmentMagnitude: MinAdjustmentMagnitude | None
+    Cooldown: Cooldown | None
+    MetricAggregationType: MetricAggregationType | None
 
 
 class ScalingPolicy(TypedDict, total=False):
@@ -840,35 +840,35 @@ class ScalingPolicy(TypedDict, total=False):
     ResourceId: ResourceIdMaxLen1600
     ScalableDimension: ScalableDimension
     PolicyType: PolicyType
-    StepScalingPolicyConfiguration: Optional[StepScalingPolicyConfiguration]
-    TargetTrackingScalingPolicyConfiguration: Optional[TargetTrackingScalingPolicyConfiguration]
-    PredictiveScalingPolicyConfiguration: Optional[PredictiveScalingPolicyConfiguration]
-    Alarms: Optional[Alarms]
+    StepScalingPolicyConfiguration: StepScalingPolicyConfiguration | None
+    TargetTrackingScalingPolicyConfiguration: TargetTrackingScalingPolicyConfiguration | None
+    PredictiveScalingPolicyConfiguration: PredictiveScalingPolicyConfiguration | None
+    Alarms: Alarms | None
     CreationTime: TimestampType
 
 
-ScalingPolicies = List[ScalingPolicy]
+ScalingPolicies = list[ScalingPolicy]
 
 
 class DescribeScalingPoliciesResponse(TypedDict, total=False):
-    ScalingPolicies: Optional[ScalingPolicies]
-    NextToken: Optional[XmlString]
+    ScalingPolicies: ScalingPolicies | None
+    NextToken: XmlString | None
 
 
 class DescribeScheduledActionsRequest(ServiceRequest):
-    ScheduledActionNames: Optional[ResourceIdsMaxLen1600]
+    ScheduledActionNames: ResourceIdsMaxLen1600 | None
     ServiceNamespace: ServiceNamespace
-    ResourceId: Optional[ResourceIdMaxLen1600]
-    ScalableDimension: Optional[ScalableDimension]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[XmlString]
+    ResourceId: ResourceIdMaxLen1600 | None
+    ScalableDimension: ScalableDimension | None
+    MaxResults: MaxResults | None
+    NextToken: XmlString | None
 
 
 class ScalableTargetAction(TypedDict, total=False):
     """Represents the minimum and maximum capacity for a scheduled action."""
 
-    MinCapacity: Optional[ResourceCapacity]
-    MaxCapacity: Optional[ResourceCapacity]
+    MinCapacity: ResourceCapacity | None
+    MaxCapacity: ResourceCapacity | None
 
 
 class ScheduledAction(TypedDict, total=False):
@@ -878,21 +878,21 @@ class ScheduledAction(TypedDict, total=False):
     ScheduledActionARN: ResourceIdMaxLen1600
     ServiceNamespace: ServiceNamespace
     Schedule: ResourceIdMaxLen1600
-    Timezone: Optional[ResourceIdMaxLen1600]
+    Timezone: ResourceIdMaxLen1600 | None
     ResourceId: ResourceIdMaxLen1600
-    ScalableDimension: Optional[ScalableDimension]
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    ScalableTargetAction: Optional[ScalableTargetAction]
+    ScalableDimension: ScalableDimension | None
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    ScalableTargetAction: ScalableTargetAction | None
     CreationTime: TimestampType
 
 
-ScheduledActions = List[ScheduledAction]
+ScheduledActions = list[ScheduledAction]
 
 
 class DescribeScheduledActionsResponse(TypedDict, total=False):
-    ScheduledActions: Optional[ScheduledActions]
-    NextToken: Optional[XmlString]
+    ScheduledActions: ScheduledActions | None
+    NextToken: XmlString | None
 
 
 class GetPredictiveScalingForecastRequest(ServiceRequest):
@@ -916,24 +916,24 @@ class LoadForecast(TypedDict, total=False):
     MetricSpecification: PredictiveScalingMetricSpecification
 
 
-LoadForecasts = List[LoadForecast]
+LoadForecasts = list[LoadForecast]
 
 
 class GetPredictiveScalingForecastResponse(TypedDict, total=False):
-    LoadForecast: Optional[LoadForecasts]
-    CapacityForecast: Optional[CapacityForecast]
-    UpdateTime: Optional[TimestampType]
+    LoadForecast: LoadForecasts | None
+    CapacityForecast: CapacityForecast | None
+    UpdateTime: TimestampType | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     ResourceARN: AmazonResourceName
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class PutScalingPolicyRequest(ServiceRequest):
@@ -941,27 +941,27 @@ class PutScalingPolicyRequest(ServiceRequest):
     ServiceNamespace: ServiceNamespace
     ResourceId: ResourceIdMaxLen1600
     ScalableDimension: ScalableDimension
-    PolicyType: Optional[PolicyType]
-    StepScalingPolicyConfiguration: Optional[StepScalingPolicyConfiguration]
-    TargetTrackingScalingPolicyConfiguration: Optional[TargetTrackingScalingPolicyConfiguration]
-    PredictiveScalingPolicyConfiguration: Optional[PredictiveScalingPolicyConfiguration]
+    PolicyType: PolicyType | None
+    StepScalingPolicyConfiguration: StepScalingPolicyConfiguration | None
+    TargetTrackingScalingPolicyConfiguration: TargetTrackingScalingPolicyConfiguration | None
+    PredictiveScalingPolicyConfiguration: PredictiveScalingPolicyConfiguration | None
 
 
 class PutScalingPolicyResponse(TypedDict, total=False):
     PolicyARN: ResourceIdMaxLen1600
-    Alarms: Optional[Alarms]
+    Alarms: Alarms | None
 
 
 class PutScheduledActionRequest(ServiceRequest):
     ServiceNamespace: ServiceNamespace
-    Schedule: Optional[ResourceIdMaxLen1600]
-    Timezone: Optional[ResourceIdMaxLen1600]
+    Schedule: ResourceIdMaxLen1600 | None
+    Timezone: ResourceIdMaxLen1600 | None
     ScheduledActionName: ScheduledActionName
     ResourceId: ResourceIdMaxLen1600
     ScalableDimension: ScalableDimension
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    ScalableTargetAction: Optional[ScalableTargetAction]
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    ScalableTargetAction: ScalableTargetAction | None
 
 
 class PutScheduledActionResponse(TypedDict, total=False):
@@ -972,18 +972,18 @@ class RegisterScalableTargetRequest(ServiceRequest):
     ServiceNamespace: ServiceNamespace
     ResourceId: ResourceIdMaxLen1600
     ScalableDimension: ScalableDimension
-    MinCapacity: Optional[ResourceCapacity]
-    MaxCapacity: Optional[ResourceCapacity]
-    RoleARN: Optional[ResourceIdMaxLen1600]
-    SuspendedState: Optional[SuspendedState]
-    Tags: Optional[TagMap]
+    MinCapacity: ResourceCapacity | None
+    MaxCapacity: ResourceCapacity | None
+    RoleARN: ResourceIdMaxLen1600 | None
+    SuspendedState: SuspendedState | None
+    Tags: TagMap | None
 
 
 class RegisterScalableTargetResponse(TypedDict, total=False):
-    ScalableTargetARN: Optional[XmlString]
+    ScalableTargetARN: XmlString | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1005,8 +1005,8 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class ApplicationAutoscalingApi:
-    service = "application-autoscaling"
-    version = "2016-02-06"
+    service: str = "application-autoscaling"
+    version: str = "2016-02-06"
 
     @handler("DeleteScalingPolicy")
     def delete_scaling_policy(

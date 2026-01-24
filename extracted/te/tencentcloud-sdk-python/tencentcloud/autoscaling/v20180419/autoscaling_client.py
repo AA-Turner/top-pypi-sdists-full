@@ -288,11 +288,11 @@ class AutoscalingClient(AbstractClient):
             "DetailedStatusMessageSet": [ // 活动内部错误集合（非空不代表活动失败）
                 {
                     "Code": "InvalidInstanceType",
-                    "Zone": "ap-guangzhou-2",
+                    "Zone": "ap-guangzhou-6",
                     "InstanceId": "",
                     "InstanceChargeType": "POSTPAID_BY_HOUR",
                     "SubnetId": "subnet-4t5mgeuu",
-                    "Message": "The specified instance type `S5.LARGE8` is invalid in `subnet-4t5mgeuu`, `ap-guangzhou-2`.",
+                    "Message": "The specified instance type `S5.LARGE8` is invalid in `subnet-4t5mgeuu`, `ap-guangzhou-6`.",
                     "InstanceType": "S5.LARGE8"
                 }
             ]
@@ -321,6 +321,7 @@ class AutoscalingClient(AbstractClient):
 
     def CreateScalingPolicy(self, request):
         r"""本接口（CreateScalingPolicy）用于创建告警触发策略。
+        - 目标追踪策略触发扩容的条件为，指定类型指标连续 3 个周期高于阈值（目标值），每个周期 1 分钟；触发缩容的条件为，指定类型指标连续 15 个周期低于阈值（目标值的80%），每个周期 1 分钟。
 
         :param request: Request instance for CreateScalingPolicy.
         :type request: :class:`tencentcloud.autoscaling.v20180419.models.CreateScalingPolicyRequest`
@@ -1338,7 +1339,7 @@ class AutoscalingClient(AbstractClient):
 
     def SetInstancesProtection(self, request):
         r"""本接口（SetInstancesProtection）用于设置实例保护。
-        实例设置保护之后，当发生不健康替换、报警策略、期望值变更等触发缩容时，将不对此实例缩容操作。
+        实例设置保护之后，当发生不健康替换、报警策略、期望值变更等自动缩容时，将不对此实例缩容操作；对于 [DetachInstances](https://cloud.tencent.com/document/api/377/20436) 和 [RemoveInstances](https://cloud.tencent.com/document/api/377/20431) 接口，允许指定移出被保护的实例。
 
         :param request: Request instance for SetInstancesProtection.
         :type request: :class:`tencentcloud.autoscaling.v20180419.models.SetInstancesProtectionRequest`

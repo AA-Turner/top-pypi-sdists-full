@@ -8,11 +8,7 @@ def add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new workspace by duplicating the current one or appending one from the user configuration
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new workspace by duplicating the current one or appending one from the user configuration"""
 
 def append_activate(
     execution_context: int | str | None = None,
@@ -24,12 +20,8 @@ def append_activate(
 ) -> None:
     """Append a workspace and make it the active one in the current window
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param idname: Identifier, Name of the workspace to append and activate
-    :type idname: str
     :param filepath: Filepath, Path to the library
-    :type filepath: str | None
     """
 
 def delete(
@@ -37,63 +29,39 @@ def delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete the active workspace
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete the active workspace"""
 
 def delete_all_others(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete all workspaces except this one
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete all workspaces except this one"""
 
 def duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new workspace
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new workspace"""
 
 def reorder_to_back(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reorder workspace to be last in the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reorder workspace to be last in the list"""
 
 def reorder_to_front(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reorder workspace to be first in the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reorder workspace to be first in the list"""
 
 def scene_pin_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remember the last used scene for the current workspace and switch to it whenever this workspace is activated again
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remember the last used scene for the current workspace and switch to it whenever this workspace is activated again"""

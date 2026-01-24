@@ -11,7 +11,7 @@ class ExpressionPrinter(object):
     Builds the smallest possible exact representation of an ast
     """
 
-    def __init__(self):
+    def __init__(self, prefer_single_line=False):
 
         self.precedences = {
             'Lambda': 2,  # Lambda
@@ -34,7 +34,7 @@ class ExpressionPrinter(object):
             'Tuple': 18, 'Set': 18, 'List': 18, 'Dict': 18, 'ListComp': 18, 'SetComp': 18, 'DictComp': 18, 'GeneratorExp': 18,  # Container
         }
 
-        self.printer = TokenPrinter()
+        self.printer = TokenPrinter(prefer_single_line=prefer_single_line)
 
     def __call__(self, module):
         """
@@ -301,8 +301,8 @@ class ExpressionPrinter(object):
 
             if value_precedence != 0 and (
                 (op_precedence > value_precedence)
-                or op_precedence == value_precedence
-                and self._is_left_associative(node.op)
+                or (op_precedence == value_precedence
+                    and self._is_left_associative(node.op))
             ):
                 self.printer.delimiter('(')
                 self._expression(v)
@@ -742,6 +742,13 @@ class ExpressionPrinter(object):
             pep701 = True
 
         self.printer.fstring(str(python_minifier.f_string.OuterFString(node, pep701=pep701)))
+
+    def visit_TemplateStr(self, node):
+        assert isinstance(node, ast.TemplateStr)
+
+        import python_minifier.t_string
+
+        self.printer.tstring(str(python_minifier.t_string.TString(node)))
 
     def visit_NamedExpr(self, node):
         self._expression(node.target)

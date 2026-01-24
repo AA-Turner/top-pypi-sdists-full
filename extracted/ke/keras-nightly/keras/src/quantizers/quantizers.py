@@ -73,6 +73,23 @@ def abs_max_quantize(
     epsilon=backend.epsilon(),
     to_numpy=False,
 ):
+    """
+    Quantizes the input tensor using the absolute maximum quantization scheme.
+
+    Args:
+        inputs: Input tensor to quantize.
+        axis: Axis along which to compute the quantization range.
+        value_range: Tuple of the minimum and maximum values of the quantization
+            range.
+        dtype: Data type of the quantized output.
+        epsilon: Small value to avoid division by zero.
+        to_numpy: Whether to perform the quantization in numpy. This performs
+            the computation on the host CPU and can be useful for saving memory
+            on the device. If False, the computation is performed on the device.
+
+    Returns:
+        A tuple of the quantized tensor and the scale.
+    """
     if to_numpy:
         # Save memory on the device using numpy
         original_dtype = backend.standardize_dtype(inputs.dtype)
@@ -105,31 +122,69 @@ def abs_max_quantize(
 class AbsMaxQuantizer(Quantizer):
     def __init__(
         self,
-        axis,
+        axis=None,  # Deprecated, provide axis in __call__ instead.
         value_range=(-127, 127),
         epsilon=backend.epsilon(),
         output_dtype="int8",
     ):
         Quantizer.__init__(self, output_dtype=output_dtype)
-        if isinstance(axis, int):
-            axis = (axis,)
-        self.axis = tuple(axis)
+        if axis is not None:
+            if isinstance(axis, int):
+                axis = (axis,)
+            self.axis = tuple(axis)
+        else:
+            self.axis = None
         self.value_range = value_range
         self.epsilon = epsilon
+        if output_dtype == "int8":
+            if value_range[0] < -128 or value_range[1] > 127:
+                raise ValueError(
+                    f"Quantizer with output_dtype='int8' requires value_range "
+                    f"to be within the interval [-128, 127]. Received: "
+                    f"value_range={value_range}"
+                )
 
-    def __call__(self, x):
+    def __call__(self, x, axis=None, to_numpy=False):
+        """
+        Quantizes the input tensor.
+
+        Args:
+            x: Input tensor to quantize.
+            axis: Axis along which to compute the quantization range. If None,
+                uses the axis specified in the constructor. If None and no axis
+                was specified in the constructor, defaults to -1.
+            to_numpy: Whether to perform the quantization in numpy. This
+                performs the computation on the host CPU and can be useful for
+                saving memory on the device. If False, the computation is
+                performed on the device.
+
+        Returns:
+            A tuple of the quantized tensor and the scale.
+        """
+        if axis is None:
+            axis = self.axis
+        if axis is None:
+            # Default to -1 if no axis is specified
+            axis = -1
         quantized_x, scale = abs_max_quantize(
-            x, self.axis, self.value_range, self.output_dtype, self.epsilon
+            x,
+            axis,
+            self.value_range,
+            self.output_dtype,
+            self.epsilon,
+            to_numpy,
         )
         return quantized_x, scale
 
     def get_config(self):
-        return {
-            "axis": self.axis,
+        config = {
             "value_range": self.value_range,
             "epsilon": self.epsilon,
             "output_dtype": self.output_dtype,
         }
+        if self.axis is not None:
+            config["axis"] = self.axis
+        return config
 
 
 def adjust_and_nudge(min_range, max_range, num_bits, narrow_range):
@@ -281,7 +336,7 @@ def fake_quant_with_min_max_vars(
             ops.add(ops.multiply(-nudged_min, inv_scale), 0.5)
         )
         x_clamped = ops.clip(
-            x, ops.cast(nudged_min, x.dtype), ops.cast(nudged_max, x.dtype)
+            ops.cast(x, nudged_min.dtype), nudged_min, nudged_max
         )
         x_clamped_shifted = ops.subtract(x_clamped, nudged_min)
         result = ops.multiply(
@@ -318,6 +373,7 @@ def fake_quant_with_min_max_vars(
                 grad_min = ops.sum(grad_min, axis=axes)
             else:
                 grad_min = ops.sum(grad_min)
+            grad_min = ops.reshape(grad_min, ops.shape(min_val))
 
             # Gradient for max_val
             # When x is clipped to max, the gradient flows to max_val
@@ -327,6 +383,7 @@ def fake_quant_with_min_max_vars(
                 grad_max = ops.sum(grad_max, axis=axes)
             else:
                 grad_max = ops.sum(grad_max)
+            grad_max = ops.reshape(grad_max, ops.shape(max_val))
 
             return dx, grad_min, grad_max
 
@@ -378,7 +435,7 @@ def quantize_and_dequantize(inputs, scale, quantized_dtype, compute_dtype):
 
 
 @keras_export("keras.quantizers.pack_int4")
-def pack_int4(arr, axis=0):
+def pack_int4(arr, axis=0, dtype="int8"):
     """Pack an int4 tensor into an int8 tensor with packed nibbles.
 
     The input values must already be int8 in the signed range `[-8, 7]` and
@@ -390,8 +447,11 @@ def pack_int4(arr, axis=0):
     the value from the second row.
 
     Args:
-        arr: An int8 tensor containing int4 values in the range `[-8, 7]`.
+        arr: An `int8` or `uint8` tensor containing int4 values in the range
+            `[-8, 7]`.
         axis: The axis along which to pack the tensor. Defaults to 0.
+        dtype: The data type of the input and packed tensor. Can be
+            `"int8"` or `"uint8"`. Defaults to `"int8"`.
 
     Returns:
         tuple: A tuple `(packed, packed_shape, orig_rows)` where `packed` is
@@ -451,9 +511,14 @@ def pack_int4(arr, axis=0):
     True
     ```
     """
-    if backend.standardize_dtype(arr.dtype) != "int8":
+    if dtype not in ("int8", "uint8"):
+        raise ValueError(
+            f"Expected dtype to be 'int8' or 'uint8', but got '{dtype}'."
+        )
+    if backend.standardize_dtype(arr.dtype) != dtype:
         raise TypeError(
-            "Expected int8 tensor for packing, got {}".format(arr.dtype)
+            f"Expected {dtype} tensor for packing, got "
+            f"{backend.standardize_dtype(arr.dtype)}."
         )
 
     rank = getattr(arr.shape, "rank", None) or len(arr.shape)
@@ -487,12 +552,12 @@ def pack_int4(arr, axis=0):
     low = padded[::2, ...]
     high = padded[1::2, ...]
 
-    mask = ops.array(0x0F, dtype="int8")
+    mask = ops.array(0x0F, dtype=dtype)
     low_u = ops.bitwise_and(low, mask)
     high_u = ops.bitwise_and(high, mask)
 
     packed = ops.bitwise_or(low_u, ops.left_shift(high_u, 4))
-    packed = ops.cast(packed, "int8")
+    packed = ops.cast(packed, dtype)
 
     # 5-6. Restore shape.
     packed = ops.transpose(packed, inv_perm)  # back to original order
@@ -501,7 +566,7 @@ def pack_int4(arr, axis=0):
 
 
 @keras_export("keras.quantizers.unpack_int4")
-def unpack_int4(packed, orig_len, axis=0):
+def unpack_int4(packed, orig_len, axis=0, dtype="int8"):
     """Unpack a packed int4 back to an int8 tensor in the range [-8, 7].
 
     This function reverses the packing performed by `pack_int4`, restoring
@@ -519,6 +584,8 @@ def unpack_int4(packed, orig_len, axis=0):
             packed. This is used to remove any padding that may have
             been added during packing to ensure an even number of rows.
         axis: The axis along which the tensor was packed. Defaults to 0.
+        dtype: The data type of the input and unpacked tensor. Can be
+            `"int8"` or `"uint8"`. Defaults to `"int8"`.
 
     Returns:
         unpacked: An int8 tensor with the same shape as the original
@@ -575,13 +642,27 @@ def unpack_int4(packed, orig_len, axis=0):
     True
     ```
     """
-    if backend.standardize_dtype(packed.dtype) != "int8":
-        raise TypeError(
-            f"Expected int8 tensor for unpacking, got {packed.dtype}"
+    if dtype not in ("int8", "uint8"):
+        raise ValueError(
+            f"Expected dtype to be 'int8' or 'uint8', but got '{dtype}'."
         )
 
-    rank = getattr(packed.shape, "rank", None) or len(packed.shape)
+    if backend.standardize_dtype(packed.dtype) not in ("int8", "uint8"):
+        raise TypeError(
+            f"Expected int8 or uint8 tensor for unpacking, got {packed.dtype}"
+        )
 
+    def to_signed(x):
+        """Converts unpacked nibbles [0, 15] to signed int4 [-8, 7].
+
+        Uses a branchless XOR approach: (x ^ 8) - 8
+        This maps: 0->0, 1->1, ..., 7->7, 8->-8, 9->-7, ..., 15->-1
+        """
+        dtype_x = backend.standardize_dtype(x.dtype)
+        eight = ops.cast(8, dtype_x)
+        return ops.subtract(ops.bitwise_xor(x, eight), eight)
+
+    rank = getattr(packed.shape, "rank", None) or len(packed.shape)
     if axis < 0:
         axis += rank
 
@@ -592,16 +673,15 @@ def unpack_int4(packed, orig_len, axis=0):
         low_unpacked = ops.bitwise_and(packed, mask)
         high_unpacked = ops.bitwise_and(ops.right_shift(packed, 4), mask)
 
-        # Convert values from [0, 15] to [-8, 7].
-        low_signed = ops.where(
-            low_unpacked < 8, low_unpacked, low_unpacked - 16
-        )
-        high_signed = ops.where(
-            high_unpacked < 8, high_unpacked, high_unpacked - 16
-        )
+        if dtype == "int8":
+            low_unpacked = to_signed(low_unpacked)
+            high_unpacked = to_signed(high_unpacked)
+
+        low_final = ops.cast(low_unpacked, dtype)
+        high_final = ops.cast(high_unpacked, dtype)
 
         # Interleave and reshape
-        stacked = ops.stack([low_signed, high_signed], axis=1)
+        stacked = ops.stack([low_final, high_final], axis=1)
         unpacked = ops.reshape(stacked, (-1,) + tuple(ops.shape(packed)[1:]))
 
         # Remove padding and return
@@ -613,28 +693,27 @@ def unpack_int4(packed, orig_len, axis=0):
     transposed = ops.transpose(packed, perm)
 
     # 1. Split nibbles.
-    mask = ops.array(0x0F, dtype="int8")  # int8 arrays
+    mask = ops.array(0x0F, dtype=packed.dtype)
     low = ops.bitwise_and(transposed, mask)
     high = ops.bitwise_and(ops.right_shift(transposed, 4), mask)
 
-    eight = ops.array(8, dtype="int8")
-    sixteen = ops.array(16, dtype="int8")
+    # 2. Conditionally convert to signed.
+    if dtype == "int8":
+        low = to_signed(low)
+        high = to_signed(high)
 
-    def to_signed(x):
-        return ops.where(x < eight, x, x - sixteen)
+    low = ops.cast(low, dtype)
+    high = ops.cast(high, dtype)
 
-    low = to_signed(low)
-    high = to_signed(high)
-
-    # 2. Interleave and reshape.
-    stacked = ops.stack([low, high], axis=1)  # (pairs, 2, ...)
+    # 3. Interleave and reshape.
+    stacked = ops.stack([low, high], axis=1)
     unpacked = ops.reshape(stacked, (-1,) + tuple(ops.shape(transposed)[1:]))
 
     # 4. Remove padding and restore original layout.
     unpacked = unpacked[:orig_len, ...]
     unpacked = ops.transpose(unpacked, inv_perm)
 
-    return unpacked  # dtype is int8
+    return unpacked
 
 
 class GPTQQuantizer(Quantizer):
@@ -672,7 +751,7 @@ class GPTQQuantizer(Quantizer):
         self.zero = None
         self.maxq = None
 
-    def find_params(self, input_tensor, weight=True):
+    def find_params(self, input_tensor):
         """Finds quantization parameters (scale and zero) for a given tensor."""
         self.scale, self.zero, self.maxq = compute_quantization_parameters(
             input_tensor,
@@ -680,7 +759,6 @@ class GPTQQuantizer(Quantizer):
             symmetric=self.symmetric,
             per_channel=self.per_channel,
             group_size=self.group_size,
-            weight=weight,
             compute_dtype=self.compute_dtype,
         )
         return self.scale, self.zero, self.maxq
@@ -717,98 +795,105 @@ def compute_quantization_parameters(
     symmetric=False,
     per_channel=False,
     group_size=-1,
-    weight=False,
     compute_dtype="float32",
 ):
     """
-    Computes the scale and zero-point for quantization.
+    Computes the scale and zero-point for quantizing weight tensors.
 
     This function calculates the scale and zero-point required for quantizing
-    a given tensor `x` based on the specified parameters. It supports grouped,
-    per-channel, per-tensor, symmetric, and asymmetric quantization - along
-    with any combinations of these.
+    a given weight tensor `x` based on the specified parameters. It supports
+    grouped, per-channel, per-tensor, symmetric, and asymmetric quantization.
+
+    For grouped quantization (per_channel=True, group_size > 0), the output
+    shapes are [out_features, n_groups] where n_groups is the number of groups
+    along the in_features dimension.
 
     Args:
-        x: KerasTensor. The input tensor to quantize.
+        x: KerasTensor. The weight tensor to quantize with shape
+            [out_features, in_features].
         bits: int. The number of bits to quantize to (e.g., 4).
         symmetric: bool. Whether to use symmetric quantization.
         per_channel: bool. Whether to quantize per channel.
-        group_size: int. The group size for quantization.
-        weight: bool. Whether the input tensor is a weight tensor.
+        group_size: int. The group size for quantization. -1 means no grouping.
+        compute_dtype: str. The dtype for computation. Defaults to "float32".
 
     Returns:
         scale: KerasTensor. The scale tensor for quantization.
         zero: KerasTensor. The zero tensor for quantization.
         maxq: scalar. The maximum quantization value.
     """
+    # Input validation
     if x is None:
         raise ValueError(f"Input tensor {x} cannot be None.")
-
-    # For weights, we typically expect at least a 2D tensor.
-    if weight and len(x.shape) < 2:
+    if len(x.shape) < 2:
         raise ValueError(
             f"Input weight tensor {x} must have a rank of at "
             f"least 2, but got rank {len(x.shape)}."
         )
-
     if ops.size(x) == 0:
         raise ValueError("Input tensor 'x' cannot be empty.")
 
-    original_shape = x.shape
+    out_features, in_features = x.shape[0], x.shape[1]
 
-    if per_channel:
-        if weight:
-            if group_size != -1:
-                input_reshaped = ops.reshape(x, [-1, group_size])
-            else:
-                input_reshaped = ops.reshape(x, [original_shape[0], -1])
-    else:  # per-tensor
-        input_reshaped = ops.reshape(x, [1, -1])
+    # Determine number of groups for quantization
+    if per_channel and group_size > 0:
+        n_groups = (in_features + group_size - 1) // group_size
+    else:
+        n_groups = 1
 
-    # Find min/max values
-    min_values = ops.min(input_reshaped, axis=1)
-    max_values = ops.max(input_reshaped, axis=1)
+    # Compute min/max values based on quantization mode
+    if n_groups > 1:
+        # Grouped quantization: output shape [out_features, n_groups]
+        remainder = in_features % group_size
+        if remainder != 0:
+            pad_size = group_size - remainder
+            x = ops.pad(x, [[0, 0], [0, pad_size]], constant_values=0.0)
 
-    # Apply symmetric quantization logic if enabled
+        x_grouped = ops.reshape(x, [out_features, n_groups, group_size])
+        min_values = ops.min(x_grouped, axis=2)
+        max_values = ops.max(x_grouped, axis=2)
+    else:
+        # Per-channel or per-tensor: compute stats along rows
+        reduction_shape = [out_features, -1] if per_channel else [1, -1]
+        x_reshaped = ops.reshape(x, reduction_shape)
+        min_values = ops.min(x_reshaped, axis=1)
+        max_values = ops.max(x_reshaped, axis=1)
+
+    # Symmetric quantization: make range symmetric around zero
     if symmetric:
-        max_values = ops.maximum(ops.abs(min_values), max_values)
+        max_abs = ops.maximum(ops.abs(min_values), max_values)
         min_values = ops.where(
-            ops.less(min_values, 0), ops.negative(max_values), min_values
+            ops.less(min_values, 0), ops.negative(max_abs), min_values
         )
+        max_values = max_abs
 
-    # Ensure range is not zero to avoid division errors
+    # Ensure non-zero range to avoid division errors
     zero_range = ops.equal(min_values, max_values)
     min_values = ops.where(zero_range, ops.subtract(min_values, 1), min_values)
     max_values = ops.where(zero_range, ops.add(max_values, 1), max_values)
 
+    # Compute scale and zero-point
     maxq = ops.cast(ops.subtract(ops.power(2, bits), 1), compute_dtype)
-
-    # Calculate scale and zero-point
     scale = ops.divide(ops.subtract(max_values, min_values), maxq)
+    scale = ops.where(ops.less_equal(scale, 0), 1e-8, scale)
+
     if symmetric:
         zero = ops.full_like(scale, ops.divide(ops.add(maxq, 1), 2))
     else:
         zero = ops.round(ops.divide(ops.negative(min_values), scale))
 
-    # Ensure scale is non-zero
-    scale = ops.where(ops.less_equal(scale, 0), 1e-8, scale)
-
-    if weight:
-        # Per-channel, non-grouped case: simple reshape is correct.
-        if per_channel and group_size == -1:
-            scale = ops.reshape(scale, [-1, 1])
-            zero = ops.reshape(zero, [-1, 1])
-        elif not per_channel:
-            num_rows = original_shape[0]
-            scale = ops.tile(ops.reshape(scale, (1, 1)), (num_rows, 1))
-            zero = ops.tile(ops.reshape(zero, (1, 1)), (num_rows, 1))
-    if per_channel:
+    # Reshape output to [out_features, n_groups] or [out_features, 1]
+    if n_groups > 1:
+        pass  # Already [out_features, n_groups]
+    elif per_channel:
         scale = ops.reshape(scale, [-1, 1])
         zero = ops.reshape(zero, [-1, 1])
+    else:
+        # Per-tensor: tile single value to [out_features, 1]
+        scale = ops.tile(ops.reshape(scale, (1, 1)), (out_features, 1))
+        zero = ops.tile(ops.reshape(zero, (1, 1)), (out_features, 1))
 
-    zero = ops.cast(zero, "uint8")
-
-    return scale, zero, maxq
+    return scale, ops.cast(zero, "uint8"), maxq
 
 
 def quantize_with_zero_point(input_tensor, scale, zero, maxq):

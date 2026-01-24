@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: pytorch-forecasting
-Version: 1.4.0
+Version: 1.6.1
 Summary: Forecasting timeseries with PyTorch - dataloaders, normalizers, metrics and models
 Author: Jan Beitner
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
@@ -18,15 +18,16 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<=3.0.0
 Requires-Dist: torch!=2.0.1,<3.0.0,>=2.0.0
-Requires-Dist: lightning<3.0.0,>=2.0.0
+Requires-Dist: lightning<2.7.0,>=2.0.0
 Requires-Dist: scipy<2.0,>=1.8
 Requires-Dist: pandas<3.0.0,>=1.3.0
 Requires-Dist: scikit-learn<2.0,>=1.2
+Requires-Dist: scikit-base<0.14.0
 Provides-Extra: all-extras
 Requires-Dist: cpflows; extra == "all-extras"
 Requires-Dist: matplotlib; extra == "all-extras"
@@ -66,15 +67,22 @@ Requires-Dist: ipywidgets<9.0.0,>=8.0.1; extra == "dev"
 Requires-Dist: pytest-dotenv<1.0.0,>=0.5.2; extra == "dev"
 Requires-Dist: tensorboard<3.0.0,>=2.12.1; extra == "dev"
 Requires-Dist: pandoc<3.0.0,>=2.3; extra == "dev"
-Requires-Dist: scikit-base; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: sphinx<8.2.4,>3.2; extra == "docs"
+Requires-Dist: sphinx<9.1.1,>3.2; extra == "docs"
 Requires-Dist: pydata-sphinx-theme; extra == "docs"
 Requires-Dist: nbsphinx; extra == "docs"
 Requires-Dist: pandoc; extra == "docs"
 Requires-Dist: nbconvert; extra == "docs"
 Requires-Dist: recommonmark; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
+Provides-Extra: dependencies-2025
+Requires-Dist: numpy==2.2.6; extra == "dependencies-2025"
+Requires-Dist: torch==2.9.1; extra == "dependencies-2025"
+Requires-Dist: lightning==2.5.6; extra == "dependencies-2025"
+Requires-Dist: scipy==1.15.3; extra == "dependencies-2025"
+Requires-Dist: pandas==2.3.3; extra == "dependencies-2025"
+Requires-Dist: scikit-learn==1.7.2; extra == "dependencies-2025"
+Requires-Dist: scikit-base==0.13.0; extra == "dependencies-2025"
 Provides-Extra: github-actions
 Requires-Dist: pytest-github-actions-annotate-failures; extra == "github-actions"
 Dynamic: license-file
@@ -156,7 +164,7 @@ To implement new models or other custom components, see the [How to implement ne
 
 # Usage example
 
-Networks can be trained with the [PyTorch Lighning Trainer](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html) on [pandas Dataframes](https://pandas.pydata.org/pandas-docs/stable/user_guide/dsintro.html#dataframe) which are first converted to a [TimeSeriesDataSet](https://pytorch-forecasting.readthedocs.io/en/latest/data.html).
+Networks can be trained with the [PyTorch Lightning Trainer](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html) on [pandas Dataframes](https://pandas.pydata.org/pandas-docs/stable/user_guide/dsintro.html#dataframe) which are first converted to a [TimeSeriesDataSet](https://pytorch-forecasting.readthedocs.io/en/latest/data.html).
 
 ```python
 # imports for training
@@ -203,7 +211,7 @@ batch_size = 128
 train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=2)
 val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=2)
 
-# create PyTorch Lighning Trainer with early stopping
+# create PyTorch Lightning Trainer with early stopping
 early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=1e-4, patience=1, verbose=False, mode="min")
 lr_logger = LearningRateMonitor()
 trainer = pl.Trainer(

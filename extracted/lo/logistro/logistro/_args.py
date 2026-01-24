@@ -7,7 +7,7 @@ if "--logistro-human" in sys.argv and "--logistro-structured" in sys.argv:
         "Choose either '--logistro-human' or '--logistro-structured'.",
     )
 
-parser = argparse.ArgumentParser(add_help=False)
+parser: argparse.ArgumentParser = argparse.ArgumentParser(add_help=False)
 """
 The argsparse parser is exported if you'd like to include it as a parent in your own
 `argparse.ArgumentParser` and thereby getting better help messages.
@@ -36,4 +36,4 @@ parser.add_argument(
 )
 
 # Get the Format
-parsed, _ = parser.parse_known_args()
+parsed, remaining_args = parser.parse_known_args()

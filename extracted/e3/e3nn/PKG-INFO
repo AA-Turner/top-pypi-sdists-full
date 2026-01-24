@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: e3nn
-Version: 0.5.7
+Version: 0.5.9
 Summary: Equivariant convolutional neural networks for the group E(3) of 3 dimensional rotations, translations, and mirrors.
 License: MIT
 Project-URL: homepage, https://e3nn.org

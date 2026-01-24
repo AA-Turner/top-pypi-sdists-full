@@ -12,14 +12,27 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class WebhooksRepositoriesItemsType(TypedDict):
-    """WebhooksRepositoriesItems"""
+class CodespacesUserPublicKeyType(TypedDict):
+    """CodespacesUserPublicKey
 
-    full_name: str
-    id: int
-    name: str
-    node_id: str
-    private: bool
+    The public key used for setting user Codespaces' Secrets.
+    """
+
+    key_id: str
+    key: str
 
 
-__all__ = ("WebhooksRepositoriesItemsType",)
+class CodespacesUserPublicKeyTypeForResponse(TypedDict):
+    """CodespacesUserPublicKey
+
+    The public key used for setting user Codespaces' Secrets.
+    """
+
+    key_id: str
+    key: str
+
+
+__all__ = (
+    "CodespacesUserPublicKeyType",
+    "CodespacesUserPublicKeyTypeForResponse",
+)

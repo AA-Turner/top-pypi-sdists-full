@@ -68,55 +68,289 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.AgentReference",
-    jsii_struct_bases=[],
-    name_mapping={"agent_arn": "agentArn"},
+from ..interfaces.aws_datasync import (
+    AgentReference as _AgentReference_4ce8de2b,
+    IAgentRef as _IAgentRef_7dc116ab,
+    ILocationAzureBlobRef as _ILocationAzureBlobRef_4f77cc54,
+    ILocationEFSRef as _ILocationEFSRef_6fba5e2e,
+    ILocationFSxLustreRef as _ILocationFSxLustreRef_af5bc776,
+    ILocationFSxONTAPRef as _ILocationFSxONTAPRef_f2d23af5,
+    ILocationFSxOpenZFSRef as _ILocationFSxOpenZFSRef_bf79198a,
+    ILocationFSxWindowsRef as _ILocationFSxWindowsRef_21eff906,
+    ILocationHDFSRef as _ILocationHDFSRef_7984fa07,
+    ILocationNFSRef as _ILocationNFSRef_01d78c69,
+    ILocationObjectStorageRef as _ILocationObjectStorageRef_76d6ff54,
+    ILocationS3Ref as _ILocationS3Ref_5240f1a4,
+    ILocationSMBRef as _ILocationSMBRef_b540cf9f,
+    ITaskRef as _ITaskRef_0571d67b,
+    LocationAzureBlobReference as _LocationAzureBlobReference_60bcd854,
+    LocationEFSReference as _LocationEFSReference_72d5c472,
+    LocationFSxLustreReference as _LocationFSxLustreReference_4b4c8fcd,
+    LocationFSxONTAPReference as _LocationFSxONTAPReference_696c1d88,
+    LocationFSxOpenZFSReference as _LocationFSxOpenZFSReference_ff06c64f,
+    LocationFSxWindowsReference as _LocationFSxWindowsReference_7de311b2,
+    LocationHDFSReference as _LocationHDFSReference_c3d0d6b5,
+    LocationNFSReference as _LocationNFSReference_163b2bab,
+    LocationObjectStorageReference as _LocationObjectStorageReference_5b3d36b8,
+    LocationS3Reference as _LocationS3Reference_113b17ee,
+    LocationSMBReference as _LocationSMBReference_9787936e,
+    TaskReference as _TaskReference_56755658,
 )
-class AgentReference:
-    def __init__(self, *, agent_arn: builtins.str) -> None:
-        '''A reference to a Agent resource.
+from ..interfaces.aws_efs import IFileSystemRef as _IFileSystemRef_3dcf8b98
+from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
+from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
 
-        :param agent_arn: The AgentArn of the Agent resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _IAgentRef_7dc116ab, _ITaggable_36806126)
+class CfnAgent(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_datasync.CfnAgent",
+):
+    '''The ``AWS::DataSync::Agent`` resource activates an AWS DataSync agent that you've deployed for storage discovery or data transfers.
 
-        Example::
+    The activation process associates the agent with your AWS account .
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            agent_reference = datasync.AgentReference(
-                agent_arn="agentArn"
-            )
+    For more information, see the following topics in the *AWS DataSync User Guide* :
+
+    - `DataSync agent requirements <https://docs.aws.amazon.com/datasync/latest/userguide/agent-requirements.html>`_
+    - `DataSync network requirements <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-network.html>`_
+    - `Create a DataSync agent <https://docs.aws.amazon.com/datasync/latest/userguide/configure-agent.html>`_
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-agent.html
+    :cloudformationResource: AWS::DataSync::Agent
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_datasync as datasync
+        
+        cfn_agent = datasync.CfnAgent(self, "MyCfnAgent",
+            activation_key="activationKey",
+            agent_name="agentName",
+            security_group_arns=["securityGroupArns"],
+            subnet_arns=["subnetArns"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            vpc_endpoint_id="vpcEndpointId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        activation_key: typing.Optional[builtins.str] = None,
+        agent_name: typing.Optional[builtins.str] = None,
+        security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_endpoint_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::DataSync::Agent``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param activation_key: Specifies your DataSync agent's activation key. If you don't have an activation key, see `Activating your agent <https://docs.aws.amazon.com/datasync/latest/userguide/activate-agent.html>`_ .
+        :param agent_name: Specifies a name for your agent. We recommend specifying a name that you can remember.
+        :param security_group_arns: The Amazon Resource Names (ARNs) of the security groups used to protect your data transfer task subnets. See `SecurityGroupArns <https://docs.aws.amazon.com/datasync/latest/userguide/API_Ec2Config.html#DataSync-Type-Ec2Config-SecurityGroupArns>`_ . *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
+        :param subnet_arns: Specifies the ARN of the subnet where your VPC service endpoint is located. You can only specify one ARN.
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least one tag for your agent.
+        :param vpc_endpoint_id: The ID of the virtual private cloud (VPC) endpoint that the agent has access to. This is the client-side VPC endpoint, powered by AWS PrivateLink . If you don't have an AWS PrivateLink VPC endpoint, see `AWS PrivateLink and VPC endpoints <https://docs.aws.amazon.com//vpc/latest/userguide/endpoint-services-overview.html>`_ in the *Amazon VPC User Guide* . For more information about activating your agent in a private network based on a VPC, see `Using AWS DataSync in a Virtual Private Cloud <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-in-vpc.html>`_ in the *AWS DataSync User Guide.* A VPC endpoint ID looks like this: ``vpce-01234d5aff67890e1`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b70dfad771bf7335f3f7f8b5510506f8641b240cd83ccf113a85c46d9ca11d79)
-            check_type(argname="argument agent_arn", value=agent_arn, expected_type=type_hints["agent_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "agent_arn": agent_arn,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__d936a9373128610a07487a343ef5f669c26d2f82d825e32d371bce59b97aa93c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAgentProps(
+            activation_key=activation_key,
+            agent_name=agent_name,
+            security_group_arns=security_group_arns,
+            subnet_arns=subnet_arns,
+            tags=tags,
+            vpc_endpoint_id=vpc_endpoint_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAgent")
+    @builtins.classmethod
+    def arn_for_agent(cls, resource: "_IAgentRef_7dc116ab") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6130ad11142d098dded503b6b252f778ba564b618ec7da93f981f047658cd344)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAgent", [resource]))
+
+    @jsii.member(jsii_name="isCfnAgent")
+    @builtins.classmethod
+    def is_cfn_agent(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAgent.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96e0cb12357287231fc40eeaabd15fa2316d2eb57f947bc8c56b4685bb3da5ea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAgent", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81fbad3909c49b87e552d1214005285ecb6b192ba23456279698e48b81961aac)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45ceb39e9063ce041ae5fa861dd0bf69001bf3c69cc12e412d36e67d3f7da074)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def agent_arn(self) -> builtins.str:
-        '''The AgentArn of the Agent resource.'''
-        result = self._values.get("agent_arn")
-        assert result is not None, "Required property 'agent_arn' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="agentRef")
+    def agent_ref(self) -> "_AgentReference_4ce8de2b":
+        '''A reference to a Agent resource.'''
+        return typing.cast("_AgentReference_4ce8de2b", jsii.get(self, "agentRef"))
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+    @builtins.property
+    @jsii.member(jsii_name="attrAgentArn")
+    def attr_agent_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the agent.
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+        Use the ``ListAgents`` operation to return a list of agents for your account and AWS Region .
 
-    def __repr__(self) -> str:
-        return "AgentReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        :cloudformationAttribute: AgentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAgentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointType")
+    def attr_endpoint_type(self) -> builtins.str:
+        '''The type of endpoint that your agent is connected to.
+
+        If the endpoint is a VPC endpoint, the agent is not accessible over the public internet.
+
+        :cloudformationAttribute: EndpointType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="activationKey")
+    def activation_key(self) -> typing.Optional[builtins.str]:
+        '''Specifies your DataSync agent's activation key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "activationKey"))
+
+    @activation_key.setter
+    def activation_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__487cd8023e4b2808d444a1f5c85f66a51d757299d1239cf71233c99176c0522d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "activationKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="agentName")
+    def agent_name(self) -> typing.Optional[builtins.str]:
+        '''Specifies a name for your agent.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "agentName"))
+
+    @agent_name.setter
+    def agent_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4450f3881b2dffdb43cc0604c9cfd8a0efa10d69ac51ad3d1bf11d605de50a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="securityGroupArns")
+    def security_group_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Resource Names (ARNs) of the security groups used to protect your data transfer task subnets.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroupArns"))
+
+    @security_group_arns.setter
+    def security_group_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3397ee88e1e2dd7128616ed90dbaaeea7d67a2ae384d286cdcfaa48849d48f9c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "securityGroupArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetArns")
+    def subnet_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the ARN of the subnet where your VPC service endpoint is located.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "subnetArns"))
+
+    @subnet_arns.setter
+    def subnet_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c121bd2b79eb0fd51d5790002f0a61a6ac6a1606ce08b2d3d61b1bb196968ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae8ff35f7c199f1e5218a6432dc5893a46003bc8921b159534e548343397b69c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcEndpointId")
+    def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the virtual private cloud (VPC) endpoint that the agent has access to.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcEndpointId"))
+
+    @vpc_endpoint_id.setter
+    def vpc_endpoint_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__382a2bd8de9abd26a4050c65ad2d6baa552585795b8cb589d8cc033b01c16bcd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcEndpointId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -139,7 +373,7 @@ class CfnAgentProps:
         agent_name: typing.Optional[builtins.str] = None,
         security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_endpoint_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnAgent``.
@@ -156,6 +390,7 @@ class CfnAgentProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
@@ -241,7 +476,7 @@ class CfnAgentProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.
 
         We recommend creating at least one tag for your agent.
@@ -249,7 +484,7 @@ class CfnAgentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-agent.html#cfn-datasync-agent-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
@@ -278,6 +513,620 @@ class CfnAgentProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ILocationAzureBlobRef_4f77cc54, _ITaggableV2_4e6798f8)
+class CfnLocationAzureBlob(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob",
+):
+    '''Creates a transfer *location* for a Microsoft Azure Blob Storage container.
+
+    AWS DataSync can use this location as a transfer source or destination. You can make transfers with or without a `DataSync agent <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-creating-agent>`_ that connects to your container.
+
+    Before you begin, make sure you know `how DataSync accesses Azure Blob Storage <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access>`_ and works with `access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ and `blob types <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#blob-types>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html
+    :cloudformationResource: AWS::DataSync::LocationAzureBlob
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_datasync as datasync
+        
+        cfn_location_azure_blob = datasync.CfnLocationAzureBlob(self, "MyCfnLocationAzureBlob",
+            azure_blob_authentication_type="azureBlobAuthenticationType",
+        
+            # the properties below are optional
+            agent_arns=["agentArns"],
+            azure_access_tier="azureAccessTier",
+            azure_blob_container_url="azureBlobContainerUrl",
+            azure_blob_sas_configuration=datasync.CfnLocationAzureBlob.AzureBlobSasConfigurationProperty(
+                azure_blob_sas_token="azureBlobSasToken"
+            ),
+            azure_blob_type="azureBlobType",
+            cmk_secret_config=datasync.CfnLocationAzureBlob.CmkSecretConfigProperty(
+                kms_key_arn="kmsKeyArn",
+                secret_arn="secretArn"
+            ),
+            custom_secret_config=datasync.CfnLocationAzureBlob.CustomSecretConfigProperty(
+                secret_access_role_arn="secretAccessRoleArn",
+                secret_arn="secretArn"
+            ),
+            subdirectory="subdirectory",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        azure_blob_authentication_type: builtins.str,
+        agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        azure_access_tier: typing.Optional[builtins.str] = None,
+        azure_blob_container_url: typing.Optional[builtins.str] = None,
+        azure_blob_sas_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationAzureBlob.AzureBlobSasConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        azure_blob_type: typing.Optional[builtins.str] = None,
+        cmk_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationAzureBlob.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationAzureBlob.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::DataSync::LocationAzureBlob``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param azure_blob_authentication_type: Specifies the authentication method DataSync uses to access your Azure Blob Storage. DataSync can access blob storage using a shared access signature (SAS). Default: - "SAS"
+        :param agent_arns: (Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ . .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
+        :param azure_access_tier: Specifies the access tier that you want your objects or files transferred into. This only applies when using the location as a transfer destination. For more information, see `Access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ . Default: - "HOT"
+        :param azure_blob_container_url: Specifies the URL of the Azure Blob Storage container involved in your transfer.
+        :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage. .. epigraph:: If you provide an authentication token using ``SasConfiguration`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's secrets manager secret.
+        :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab). This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a49f57a1ab4813b1537b04053be19b99e3fa8f143f30fac9d1bc72caa4ec5f2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLocationAzureBlobProps(
+            azure_blob_authentication_type=azure_blob_authentication_type,
+            agent_arns=agent_arns,
+            azure_access_tier=azure_access_tier,
+            azure_blob_container_url=azure_blob_container_url,
+            azure_blob_sas_configuration=azure_blob_sas_configuration,
+            azure_blob_type=azure_blob_type,
+            cmk_secret_config=cmk_secret_config,
+            custom_secret_config=custom_secret_config,
+            subdirectory=subdirectory,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnLocationAzureBlob")
+    @builtins.classmethod
+    def is_cfn_location_azure_blob(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationAzureBlob.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46a7daef2d5476431cedab8ca2858b1d4f14f444bd95570d7a5ea4a15a28a2b1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationAzureBlob", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc59f45abf5059f82345f619c384b01d137f4d49a1506da910056ac15ef819a9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebde5c22aa68229dea3796deaf496ab61b9ffcfdf6d4f56a59875e6047047203)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCmkSecretConfigSecretArn")
+    def attr_cmk_secret_config_secret_arn(self) -> builtins.str:
+        '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+        This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
+
+        :cloudformationAttribute: CmkSecretConfig.SecretArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCmkSecretConfigSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLocationArn")
+    def attr_location_arn(self) -> builtins.str:
+        '''The ARN of the Azure Blob Storage transfer location that you created.
+
+        :cloudformationAttribute: LocationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLocationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLocationUri")
+    def attr_location_uri(self) -> builtins.str:
+        '''The URI of the Azure Blob Storage transfer location that you created.
+
+        :cloudformationAttribute: LocationUri
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLocationUri"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrManagedSecretConfig")
+    def attr_managed_secret_config(self) -> "_IResolvable_da3f097b":
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
+
+        DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
+        :cloudformationAttribute: ManagedSecretConfig
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrManagedSecretConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="locationAzureBlobRef")
+    def location_azure_blob_ref(self) -> "_LocationAzureBlobReference_60bcd854":
+        '''A reference to a LocationAzureBlob resource.'''
+        return typing.cast("_LocationAzureBlobReference_60bcd854", jsii.get(self, "locationAzureBlobRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="azureBlobAuthenticationType")
+    def azure_blob_authentication_type(self) -> builtins.str:
+        '''Specifies the authentication method DataSync uses to access your Azure Blob Storage.'''
+        return typing.cast(builtins.str, jsii.get(self, "azureBlobAuthenticationType"))
+
+    @azure_blob_authentication_type.setter
+    def azure_blob_authentication_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d66037c88c30360a6dbdeedf60b7cdd8b0d971ae11fb4944eb61af92fe413080)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "azureBlobAuthenticationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="agentArns")
+    def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "agentArns"))
+
+    @agent_arns.setter
+    def agent_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04d94ab53395a58893ca5e5668d51e78b5d567de304ebc1b3c8937ab5824c459)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="azureAccessTier")
+    def azure_access_tier(self) -> typing.Optional[builtins.str]:
+        '''Specifies the access tier that you want your objects or files transferred into.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "azureAccessTier"))
+
+    @azure_access_tier.setter
+    def azure_access_tier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38eadceb910bce5de77c7dd9c218a003ad2d8b865f6b732f47b6b7fea8c1f40d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "azureAccessTier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="azureBlobContainerUrl")
+    def azure_blob_container_url(self) -> typing.Optional[builtins.str]:
+        '''Specifies the URL of the Azure Blob Storage container involved in your transfer.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "azureBlobContainerUrl"))
+
+    @azure_blob_container_url.setter
+    def azure_blob_container_url(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__795c3fa003f02e9d97d1fae401c02ed1af3b616ece635550bbc9fd6c2e0dde05)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "azureBlobContainerUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="azureBlobSasConfiguration")
+    def azure_blob_sas_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]]:
+        '''Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]], jsii.get(self, "azureBlobSasConfiguration"))
+
+    @azure_blob_sas_configuration.setter
+    def azure_blob_sas_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60754be8cb63c6569b923d0c78a823449ddaa3c5aba51833aae257e02f1bd392)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "azureBlobSasConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="azureBlobType")
+    def azure_blob_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "azureBlobType"))
+
+    @azure_blob_type.setter
+    def azure_blob_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e74328b40eb55d86e422d5f30530d28f29d1393792015d7646eb06c8819408d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "azureBlobType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cmkSecretConfig")
+    def cmk_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CmkSecretConfigProperty"]]:
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
+
+    @cmk_secret_config.setter
+    def cmk_secret_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CmkSecretConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbe60c9e1409294412076468854254983957a988d2e0d53f2fa73767e4a48525)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cmkSecretConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customSecretConfig")
+    def custom_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CustomSecretConfigProperty"]]:
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
+
+    @custom_secret_config.setter
+    def custom_secret_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CustomSecretConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3276084bb32edc8f06759cb50268fc7821cd740602d985f3b1b967d5267f90dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customSecretConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subdirectory")
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "subdirectory"))
+
+    @subdirectory.setter
+    def subdirectory(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__861788b0a9a32f402ab93793acdec22ae6bb15d217371b8ba36d7cb8ba33fc6b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subdirectory", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49f572b838ff9ece4d89d77403924adeec2030197b239758db39cea71436acfb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.AzureBlobSasConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"azure_blob_sas_token": "azureBlobSasToken"},
+    )
+    class AzureBlobSasConfigurationProperty:
+        def __init__(self, *, azure_blob_sas_token: builtins.str) -> None:
+            '''The shared access signature (SAS) configuration that allows AWS DataSync to access your Microsoft Azure Blob Storage.
+
+            For more information, see `SAS tokens <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-sas-tokens>`_ for accessing your Azure Blob Storage.
+
+            :param azure_blob_sas_token: Specifies a SAS token that provides permissions to access your Azure Blob Storage. The token is part of the SAS URI string that comes after the storage resource URI and a question mark. A token looks something like this: ``sp=r&st=2023-12-20T14:54:52Z&se=2023-12-20T22:54:52Z&spr=https&sv=2021-06-08&sr=c&sig=aBBKDWQvyuVcTPH9EBp%2FXTI9E%2F%2Fmq171%2BZU178wcwqU%3D``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureblobsasconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                azure_blob_sas_configuration_property = datasync.CfnLocationAzureBlob.AzureBlobSasConfigurationProperty(
+                    azure_blob_sas_token="azureBlobSasToken"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3b97bd3f13ec4166f121eb8229b7a3322702a4782d767aca2fc1323e923cced8)
+                check_type(argname="argument azure_blob_sas_token", value=azure_blob_sas_token, expected_type=type_hints["azure_blob_sas_token"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "azure_blob_sas_token": azure_blob_sas_token,
+            }
+
+        @builtins.property
+        def azure_blob_sas_token(self) -> builtins.str:
+            '''Specifies a SAS token that provides permissions to access your Azure Blob Storage.
+
+            The token is part of the SAS URI string that comes after the storage resource URI and a question mark. A token looks something like this:
+
+            ``sp=r&st=2023-12-20T14:54:52Z&se=2023-12-20T22:54:52Z&spr=https&sv=2021-06-08&sr=c&sig=aBBKDWQvyuVcTPH9EBp%2FXTI9E%2F%2Fmq171%2BZU178wcwqU%3D``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureblobsasconfiguration.html#cfn-datasync-locationazureblob-azureblobsasconfiguration-azureblobsastoken
+            '''
+            result = self._values.get("azure_blob_sas_token")
+            assert result is not None, "Required property 'azure_blob_sas_token' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureBlobSasConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.CmkSecretConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_key_arn": "kmsKeyArn", "secret_arn": "secretArn"},
+    )
+    class CmkSecretConfigProperty:
+        def __init__(
+            self,
+            *,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+            secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
+
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` . DataSync provides this key to AWS Secrets Manager .
+            :param secret_arn: Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location. This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                cmk_secret_config_property = datasync.CfnLocationAzureBlob.CmkSecretConfigProperty(
+                    kms_key_arn="kmsKeyArn",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d03d5287185c3e65174404788128d96c2205212b3aa189dc5803a4b4b4b8ab36)
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+            if secret_arn is not None:
+                self._values["secret_arn"] = secret_arn
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` .
+
+            DataSync provides this key to AWS Secrets Manager .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html#cfn-datasync-locationazureblob-cmksecretconfig-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def secret_arn(self) -> typing.Optional[builtins.str]:
+            '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+            This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html#cfn-datasync-locationazureblob-cmksecretconfig-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CmkSecretConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.CustomSecretConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "secret_access_role_arn": "secretAccessRoleArn",
+            "secret_arn": "secretArn",
+        },
+    )
+    class CustomSecretConfigProperty:
+        def __init__(
+            self,
+            *,
+            secret_access_role_arn: builtins.str,
+            secret_arn: builtins.str,
+        ) -> None:
+            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).
+
+            This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
+            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                custom_secret_config_property = datasync.CfnLocationAzureBlob.CustomSecretConfigProperty(
+                    secret_access_role_arn="secretAccessRoleArn",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0b2d06a0f90feb2e23667a772b3c70d85bf30ee5c9bef02d35fd7339fdffaf93)
+                check_type(argname="argument secret_access_role_arn", value=secret_access_role_arn, expected_type=type_hints["secret_access_role_arn"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_access_role_arn": secret_access_role_arn,
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_access_role_arn(self) -> builtins.str:
+            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html#cfn-datasync-locationazureblob-customsecretconfig-secretaccessrolearn
+            '''
+            result = self._values.get("secret_access_role_arn")
+            assert result is not None, "Required property 'secret_access_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html#cfn-datasync-locationazureblob-customsecretconfig-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomSecretConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.ManagedSecretConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class ManagedSecretConfigProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
+
+            DataSync uses the default AWS -managed KMS key to encrypt this secret in AWS Secrets Manager .
+
+            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-managedsecretconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                managed_secret_config_property = datasync.CfnLocationAzureBlob.ManagedSecretConfigProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8ed16453ba6567e90e7b3e0e37a7206cf71efddb64e1cca1af96064be80c9609)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-managedsecretconfig.html#cfn-datasync-locationazureblob-managedsecretconfig-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedSecretConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlobProps",
     jsii_struct_bases=[],
@@ -302,12 +1151,12 @@ class CfnLocationAzureBlobProps:
         agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         azure_access_tier: typing.Optional[builtins.str] = None,
         azure_blob_container_url: typing.Optional[builtins.str] = None,
-        azure_blob_sas_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationAzureBlob.AzureBlobSasConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        azure_blob_sas_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationAzureBlob.AzureBlobSasConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         azure_blob_type: typing.Optional[builtins.str] = None,
-        cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationAzureBlob.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationAzureBlob.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cmk_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationAzureBlob.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationAzureBlob.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLocationAzureBlob``.
 
@@ -317,8 +1166,8 @@ class CfnLocationAzureBlobProps:
         :param azure_blob_container_url: Specifies the URL of the Azure Blob Storage container involved in your transfer.
         :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage. .. epigraph:: If you provide an authentication token using ``SasConfiguration`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's secrets manager secret.
         :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
-        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab). This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
         :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
         :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
 
@@ -327,6 +1176,7 @@ class CfnLocationAzureBlobProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_datasync as datasync
@@ -446,7 +1296,7 @@ class CfnLocationAzureBlobProps:
     @builtins.property
     def azure_blob_sas_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]]:
         '''Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage.
 
         .. epigraph::
@@ -456,7 +1306,7 @@ class CfnLocationAzureBlobProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-azureblobsasconfiguration
         '''
         result = self._values.get("azure_blob_sas_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]], result)
 
     @builtins.property
     def azure_blob_type(self) -> typing.Optional[builtins.str]:
@@ -474,8 +1324,8 @@ class CfnLocationAzureBlobProps:
     @builtins.property
     def cmk_secret_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]]:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CmkSecretConfigProperty"]]:
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
 
         .. epigraph::
 
@@ -484,13 +1334,13 @@ class CfnLocationAzureBlobProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-cmksecretconfig
         '''
         result = self._values.get("cmk_secret_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CmkSecretConfigProperty"]], result)
 
     @builtins.property
     def custom_secret_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]]:
-        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CustomSecretConfigProperty"]]:
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).
 
         This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
         .. epigraph::
@@ -500,7 +1350,7 @@ class CfnLocationAzureBlobProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-customsecretconfig
         '''
         result = self._values.get("custom_secret_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationAzureBlob.CustomSecretConfigProperty"]], result)
 
     @builtins.property
     def subdirectory(self) -> typing.Optional[builtins.str]:
@@ -512,7 +1362,7 @@ class CfnLocationAzureBlobProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.
 
         We recommend creating at least a name tag for your transfer location.
@@ -520,7 +1370,7 @@ class CfnLocationAzureBlobProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -534,4224 +1384,7 @@ class CfnLocationAzureBlobProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationEFSProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ec2_config": "ec2Config",
-        "access_point_arn": "accessPointArn",
-        "efs_filesystem_arn": "efsFilesystemArn",
-        "file_system_access_role_arn": "fileSystemAccessRoleArn",
-        "in_transit_encryption": "inTransitEncryption",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationEFSProps:
-    def __init__(
-        self,
-        *,
-        ec2_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationEFS.Ec2ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        access_point_arn: typing.Optional[builtins.str] = None,
-        efs_filesystem_arn: typing.Optional[builtins.str] = None,
-        file_system_access_role_arn: typing.Optional[builtins.str] = None,
-        in_transit_encryption: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationEFS``.
-
-        :param ec2_config: Specifies the subnet and security groups DataSync uses to connect to one of your Amazon EFS file system's `mount targets <https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html>`_ .
-        :param access_point_arn: Specifies the Amazon Resource Name (ARN) of the access point that DataSync uses to mount your Amazon EFS file system. For more information, see `Accessing restricted file systems <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam>`_ .
-        :param efs_filesystem_arn: Specifies the ARN for your Amazon EFS file system.
-        :param file_system_access_role_arn: Specifies an AWS Identity and Access Management (IAM) role that allows DataSync to access your Amazon EFS file system. For information on creating this role, see `Creating a DataSync IAM role for file system access <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam-role>`_ .
-        :param in_transit_encryption: Specifies whether you want DataSync to use Transport Layer Security (TLS) 1.2 encryption when it transfers data to or from your Amazon EFS file system. If you specify an access point using ``AccessPointArn`` or an IAM role using ``FileSystemAccessRoleArn`` , you must set this parameter to ``TLS1_2`` .
-        :param subdirectory: Specifies a mount path for your Amazon EFS file system. This is where DataSync reads or writes data on your file system (depending on if this is a source or destination location). By default, DataSync uses the root directory (or `access point <https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html>`_ if you provide one by using ``AccessPointArn`` ). You can also include subdirectories using forward slashes (for example, ``/path/to/folder`` ).
-        :param tags: Specifies the key-value pair that represents a tag that you want to add to the resource. The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_eFSProps = datasync.CfnLocationEFSProps(
-                ec2_config=datasync.CfnLocationEFS.Ec2ConfigProperty(
-                    security_group_arns=["securityGroupArns"],
-                    subnet_arn="subnetArn"
-                ),
-            
-                # the properties below are optional
-                access_point_arn="accessPointArn",
-                efs_filesystem_arn="efsFilesystemArn",
-                file_system_access_role_arn="fileSystemAccessRoleArn",
-                in_transit_encryption="inTransitEncryption",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd308e189fe63ce2cc80398d76a37684d9c1c36b8dfa1dfed227e06d9f65ca69)
-            check_type(argname="argument ec2_config", value=ec2_config, expected_type=type_hints["ec2_config"])
-            check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
-            check_type(argname="argument efs_filesystem_arn", value=efs_filesystem_arn, expected_type=type_hints["efs_filesystem_arn"])
-            check_type(argname="argument file_system_access_role_arn", value=file_system_access_role_arn, expected_type=type_hints["file_system_access_role_arn"])
-            check_type(argname="argument in_transit_encryption", value=in_transit_encryption, expected_type=type_hints["in_transit_encryption"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ec2_config": ec2_config,
-        }
-        if access_point_arn is not None:
-            self._values["access_point_arn"] = access_point_arn
-        if efs_filesystem_arn is not None:
-            self._values["efs_filesystem_arn"] = efs_filesystem_arn
-        if file_system_access_role_arn is not None:
-            self._values["file_system_access_role_arn"] = file_system_access_role_arn
-        if in_transit_encryption is not None:
-            self._values["in_transit_encryption"] = in_transit_encryption
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def ec2_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationEFS.Ec2ConfigProperty"]:
-        '''Specifies the subnet and security groups DataSync uses to connect to one of your Amazon EFS file system's `mount targets <https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-ec2config
-        '''
-        result = self._values.get("ec2_config")
-        assert result is not None, "Required property 'ec2_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationEFS.Ec2ConfigProperty"], result)
-
-    @builtins.property
-    def access_point_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Amazon Resource Name (ARN) of the access point that DataSync uses to mount your Amazon EFS file system.
-
-        For more information, see `Accessing restricted file systems <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-accesspointarn
-        '''
-        result = self._values.get("access_point_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def efs_filesystem_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies the ARN for your Amazon EFS file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-efsfilesystemarn
-        '''
-        result = self._values.get("efs_filesystem_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def file_system_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies an AWS Identity and Access Management (IAM) role that allows DataSync to access your Amazon EFS file system.
-
-        For information on creating this role, see `Creating a DataSync IAM role for file system access <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam-role>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-filesystemaccessrolearn
-        '''
-        result = self._values.get("file_system_access_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def in_transit_encryption(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether you want DataSync to use Transport Layer Security (TLS) 1.2 encryption when it transfers data to or from your Amazon EFS file system.
-
-        If you specify an access point using ``AccessPointArn`` or an IAM role using ``FileSystemAccessRoleArn`` , you must set this parameter to ``TLS1_2`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-intransitencryption
-        '''
-        result = self._values.get("in_transit_encryption")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies a mount path for your Amazon EFS file system.
-
-        This is where DataSync reads or writes data on your file system (depending on if this is a source or destination location).
-
-        By default, DataSync uses the root directory (or `access point <https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html>`_ if you provide one by using ``AccessPointArn`` ). You can also include subdirectories using forward slashes (for example, ``/path/to/folder`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the key-value pair that represents a tag that you want to add to the resource.
-
-        The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationEFSProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxLustreProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "security_group_arns": "securityGroupArns",
-        "fsx_filesystem_arn": "fsxFilesystemArn",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationFSxLustreProps:
-    def __init__(
-        self,
-        *,
-        security_group_arns: typing.Sequence[builtins.str],
-        fsx_filesystem_arn: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationFSxLustre``.
-
-        :param security_group_arns: The ARNs of the security groups that are used to configure the FSx for Lustre file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
-        :param fsx_filesystem_arn: Specifies the Amazon Resource Name (ARN) of the FSx for Lustre file system.
-        :param subdirectory: Specifies a mount path for your FSx for Lustre file system. The path can include subdirectories. When the location is used as a source, DataSync reads data from the mount path. When the location is used as a destination, DataSync writes data to the mount path. If you don't include this parameter, DataSync uses the file system's root directory ( ``/`` ).
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_fSx_lustre_props = datasync.CfnLocationFSxLustreProps(
-                security_group_arns=["securityGroupArns"],
-            
-                # the properties below are optional
-                fsx_filesystem_arn="fsxFilesystemArn",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb4c1967b655fb7ba3b02e398f8b2dc61e2cb372e8e862f4aea92b2ccf89bd90)
-            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
-            check_type(argname="argument fsx_filesystem_arn", value=fsx_filesystem_arn, expected_type=type_hints["fsx_filesystem_arn"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "security_group_arns": security_group_arns,
-        }
-        if fsx_filesystem_arn is not None:
-            self._values["fsx_filesystem_arn"] = fsx_filesystem_arn
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def security_group_arns(self) -> typing.List[builtins.str]:
-        '''The ARNs of the security groups that are used to configure the FSx for Lustre file system.
-
-        *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
-
-        *Length constraints* : Maximum length of 128.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-securitygrouparns
-        '''
-        result = self._values.get("security_group_arns")
-        assert result is not None, "Required property 'security_group_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def fsx_filesystem_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Amazon Resource Name (ARN) of the FSx for Lustre file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-fsxfilesystemarn
-        '''
-        result = self._values.get("fsx_filesystem_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies a mount path for your FSx for Lustre file system. The path can include subdirectories.
-
-        When the location is used as a source, DataSync reads data from the mount path. When the location is used as a destination, DataSync writes data to the mount path. If you don't include this parameter, DataSync uses the file system's root directory ( ``/`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
-
-        We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationFSxLustreProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxONTAPProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "security_group_arns": "securityGroupArns",
-        "storage_virtual_machine_arn": "storageVirtualMachineArn",
-        "protocol": "protocol",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationFSxONTAPProps:
-    def __init__(
-        self,
-        *,
-        security_group_arns: typing.Sequence[builtins.str],
-        storage_virtual_machine_arn: builtins.str,
-        protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxONTAP.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationFSxONTAP``.
-
-        :param security_group_arns: Specifies the Amazon Resource Names (ARNs) of the security groups that DataSync can use to access your FSx for ONTAP file system. You must configure the security groups to allow outbound traffic on the following ports (depending on the protocol that you're using): - *Network File System (NFS)* : TCP ports 111, 635, and 2049 - *Server Message Block (SMB)* : TCP port 445 Your file system's security groups must also allow inbound traffic on the same port.
-        :param storage_virtual_machine_arn: Specifies the ARN of the storage virtual machine (SVM) in your file system where you want to copy data to or from.
-        :param protocol: Specifies the data transfer protocol that DataSync uses to access your Amazon FSx file system.
-        :param subdirectory: Specifies a path to the file share in the SVM where you want to transfer data to or from. You can specify a junction path (also known as a mount point), qtree path (for NFS file shares), or share name (for SMB file shares). For example, your mount path might be ``/vol1`` , ``/vol1/tree1`` , or ``/share1`` . .. epigraph:: Don't specify a junction path in the SVM's root volume. For more information, see `Managing FSx for ONTAP storage virtual machines <https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-svms.html>`_ in the *Amazon FSx for NetApp ONTAP User Guide* .
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_fSx_oNTAPProps = datasync.CfnLocationFSxONTAPProps(
-                security_group_arns=["securityGroupArns"],
-                storage_virtual_machine_arn="storageVirtualMachineArn",
-            
-                # the properties below are optional
-                protocol=datasync.CfnLocationFSxONTAP.ProtocolProperty(
-                    nfs=datasync.CfnLocationFSxONTAP.NFSProperty(
-                        mount_options=datasync.CfnLocationFSxONTAP.NfsMountOptionsProperty(
-                            version="version"
-                        )
-                    ),
-                    smb=datasync.CfnLocationFSxONTAP.SMBProperty(
-                        mount_options=datasync.CfnLocationFSxONTAP.SmbMountOptionsProperty(
-                            version="version"
-                        ),
-                        password="password",
-                        user="user",
-            
-                        # the properties below are optional
-                        domain="domain"
-                    )
-                ),
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80ce3cf4001e297ef6c59ffcd2e700197ec14104852b7d6b75aac1725cb45d8b)
-            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
-            check_type(argname="argument storage_virtual_machine_arn", value=storage_virtual_machine_arn, expected_type=type_hints["storage_virtual_machine_arn"])
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "security_group_arns": security_group_arns,
-            "storage_virtual_machine_arn": storage_virtual_machine_arn,
-        }
-        if protocol is not None:
-            self._values["protocol"] = protocol
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def security_group_arns(self) -> typing.List[builtins.str]:
-        '''Specifies the Amazon Resource Names (ARNs) of the security groups that DataSync can use to access your FSx for ONTAP file system.
-
-        You must configure the security groups to allow outbound traffic on the following ports (depending on the protocol that you're using):
-
-        - *Network File System (NFS)* : TCP ports 111, 635, and 2049
-        - *Server Message Block (SMB)* : TCP port 445
-
-        Your file system's security groups must also allow inbound traffic on the same port.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-securitygrouparns
-        '''
-        result = self._values.get("security_group_arns")
-        assert result is not None, "Required property 'security_group_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def storage_virtual_machine_arn(self) -> builtins.str:
-        '''Specifies the ARN of the storage virtual machine (SVM) in your file system where you want to copy data to or from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-storagevirtualmachinearn
-        '''
-        result = self._values.get("storage_virtual_machine_arn")
-        assert result is not None, "Required property 'storage_virtual_machine_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def protocol(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.ProtocolProperty"]]:
-        '''Specifies the data transfer protocol that DataSync uses to access your Amazon FSx file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-protocol
-        '''
-        result = self._values.get("protocol")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.ProtocolProperty"]], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies a path to the file share in the SVM where you want to transfer data to or from.
-
-        You can specify a junction path (also known as a mount point), qtree path (for NFS file shares), or share name (for SMB file shares). For example, your mount path might be ``/vol1`` , ``/vol1/tree1`` , or ``/share1`` .
-        .. epigraph::
-
-           Don't specify a junction path in the SVM's root volume. For more information, see `Managing FSx for ONTAP storage virtual machines <https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-svms.html>`_ in the *Amazon FSx for NetApp ONTAP User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
-
-        We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationFSxONTAPProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxOpenZFSProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "protocol": "protocol",
-        "security_group_arns": "securityGroupArns",
-        "fsx_filesystem_arn": "fsxFilesystemArn",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationFSxOpenZFSProps:
-    def __init__(
-        self,
-        *,
-        protocol: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxOpenZFS.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]],
-        security_group_arns: typing.Sequence[builtins.str],
-        fsx_filesystem_arn: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationFSxOpenZFS``.
-
-        :param protocol: The type of protocol that AWS DataSync uses to access your file system.
-        :param security_group_arns: The ARNs of the security groups that are used to configure the FSx for OpenZFS file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
-        :param fsx_filesystem_arn: The Amazon Resource Name (ARN) of the FSx for OpenZFS file system.
-        :param subdirectory: A subdirectory in the location's path that must begin with ``/fsx`` . DataSync uses this subdirectory to read or write data (depending on whether the file system is a source or destination location).
-        :param tags: The key-value pair that represents a tag that you want to add to the resource. The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_fSx_open_zFSProps = datasync.CfnLocationFSxOpenZFSProps(
-                protocol=datasync.CfnLocationFSxOpenZFS.ProtocolProperty(
-                    nfs=datasync.CfnLocationFSxOpenZFS.NFSProperty(
-                        mount_options=datasync.CfnLocationFSxOpenZFS.MountOptionsProperty(
-                            version="version"
-                        )
-                    )
-                ),
-                security_group_arns=["securityGroupArns"],
-            
-                # the properties below are optional
-                fsx_filesystem_arn="fsxFilesystemArn",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16adeb69f25af324c507b1a5b1905509ca406e488b6f1f503c1037668ea1c423)
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
-            check_type(argname="argument fsx_filesystem_arn", value=fsx_filesystem_arn, expected_type=type_hints["fsx_filesystem_arn"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "protocol": protocol,
-            "security_group_arns": security_group_arns,
-        }
-        if fsx_filesystem_arn is not None:
-            self._values["fsx_filesystem_arn"] = fsx_filesystem_arn
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def protocol(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.ProtocolProperty"]:
-        '''The type of protocol that AWS DataSync uses to access your file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-protocol
-        '''
-        result = self._values.get("protocol")
-        assert result is not None, "Required property 'protocol' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.ProtocolProperty"], result)
-
-    @builtins.property
-    def security_group_arns(self) -> typing.List[builtins.str]:
-        '''The ARNs of the security groups that are used to configure the FSx for OpenZFS file system.
-
-        *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
-
-        *Length constraints* : Maximum length of 128.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-securitygrouparns
-        '''
-        result = self._values.get("security_group_arns")
-        assert result is not None, "Required property 'security_group_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def fsx_filesystem_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the FSx for OpenZFS file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-fsxfilesystemarn
-        '''
-        result = self._values.get("fsx_filesystem_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''A subdirectory in the location's path that must begin with ``/fsx`` .
-
-        DataSync uses this subdirectory to read or write data (depending on whether the file system is a source or destination location).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The key-value pair that represents a tag that you want to add to the resource.
-
-        The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationFSxOpenZFSProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxWindowsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "security_group_arns": "securityGroupArns",
-        "user": "user",
-        "domain": "domain",
-        "fsx_filesystem_arn": "fsxFilesystemArn",
-        "password": "password",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationFSxWindowsProps:
-    def __init__(
-        self,
-        *,
-        security_group_arns: typing.Sequence[builtins.str],
-        user: builtins.str,
-        domain: typing.Optional[builtins.str] = None,
-        fsx_filesystem_arn: typing.Optional[builtins.str] = None,
-        password: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationFSxWindows``.
-
-        :param security_group_arns: The Amazon Resource Names (ARNs) of the security groups that are used to configure the FSx for Windows File Server file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
-        :param user: The user who has the permissions to access files and folders in the FSx for Windows File Server file system. For information about choosing a user name that ensures sufficient permissions to files, folders, and metadata, see `user <https://docs.aws.amazon.com/datasync/latest/userguide/create-fsx-location.html#FSxWuser>`_ .
-        :param domain: Specifies the name of the Windows domain that the FSx for Windows File Server file system belongs to. If you have multiple Active Directory domains in your environment, configuring this parameter makes sure that DataSync connects to the right file system.
-        :param fsx_filesystem_arn: Specifies the Amazon Resource Name (ARN) for the FSx for Windows File Server file system.
-        :param password: Specifies the password of the user with the permissions to mount and access the files, folders, and file metadata in your FSx for Windows File Server file system.
-        :param subdirectory: Specifies a mount path for your file system using forward slashes. This is where DataSync reads or writes data (depending on if this is a source or destination location).
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_fSx_windows_props = datasync.CfnLocationFSxWindowsProps(
-                security_group_arns=["securityGroupArns"],
-                user="user",
-            
-                # the properties below are optional
-                domain="domain",
-                fsx_filesystem_arn="fsxFilesystemArn",
-                password="password",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f5ba282a9548e2767c09028be2186cfa923b38c45c6c77db774a616f6106dfd)
-            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
-            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument fsx_filesystem_arn", value=fsx_filesystem_arn, expected_type=type_hints["fsx_filesystem_arn"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "security_group_arns": security_group_arns,
-            "user": user,
-        }
-        if domain is not None:
-            self._values["domain"] = domain
-        if fsx_filesystem_arn is not None:
-            self._values["fsx_filesystem_arn"] = fsx_filesystem_arn
-        if password is not None:
-            self._values["password"] = password
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def security_group_arns(self) -> typing.List[builtins.str]:
-        '''The Amazon Resource Names (ARNs) of the security groups that are used to configure the FSx for Windows File Server file system.
-
-        *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
-
-        *Length constraints* : Maximum length of 128.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-securitygrouparns
-        '''
-        result = self._values.get("security_group_arns")
-        assert result is not None, "Required property 'security_group_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def user(self) -> builtins.str:
-        '''The user who has the permissions to access files and folders in the FSx for Windows File Server file system.
-
-        For information about choosing a user name that ensures sufficient permissions to files, folders, and metadata, see `user <https://docs.aws.amazon.com/datasync/latest/userguide/create-fsx-location.html#FSxWuser>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-user
-        '''
-        result = self._values.get("user")
-        assert result is not None, "Required property 'user' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the Windows domain that the FSx for Windows File Server file system belongs to.
-
-        If you have multiple Active Directory domains in your environment, configuring this parameter makes sure that DataSync connects to the right file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def fsx_filesystem_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Amazon Resource Name (ARN) for the FSx for Windows File Server file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-fsxfilesystemarn
-        '''
-        result = self._values.get("fsx_filesystem_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def password(self) -> typing.Optional[builtins.str]:
-        '''Specifies the password of the user with the permissions to mount and access the files, folders, and file metadata in your FSx for Windows File Server file system.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-password
-        '''
-        result = self._values.get("password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies a mount path for your file system using forward slashes.
-
-        This is where DataSync reads or writes data (depending on if this is a source or destination location).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
-
-        We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationFSxWindowsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationHDFSProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "agent_arns": "agentArns",
-        "authentication_type": "authenticationType",
-        "name_nodes": "nameNodes",
-        "block_size": "blockSize",
-        "kerberos_keytab": "kerberosKeytab",
-        "kerberos_krb5_conf": "kerberosKrb5Conf",
-        "kerberos_principal": "kerberosPrincipal",
-        "kms_key_provider_uri": "kmsKeyProviderUri",
-        "qop_configuration": "qopConfiguration",
-        "replication_factor": "replicationFactor",
-        "simple_user": "simpleUser",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationHDFSProps:
-    def __init__(
-        self,
-        *,
-        agent_arns: typing.Sequence[builtins.str],
-        authentication_type: builtins.str,
-        name_nodes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationHDFS.NameNodeProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        block_size: typing.Optional[jsii.Number] = None,
-        kerberos_keytab: typing.Optional[builtins.str] = None,
-        kerberos_krb5_conf: typing.Optional[builtins.str] = None,
-        kerberos_principal: typing.Optional[builtins.str] = None,
-        kms_key_provider_uri: typing.Optional[builtins.str] = None,
-        qop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationHDFS.QopConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        replication_factor: typing.Optional[jsii.Number] = None,
-        simple_user: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationHDFS``.
-
-        :param agent_arns: The Amazon Resource Names (ARNs) of the DataSync agents that can connect to your HDFS cluster.
-        :param authentication_type: The authentication mode used to determine identity of user.
-        :param name_nodes: The NameNode that manages the HDFS namespace. The NameNode performs operations such as opening, closing, and renaming files and directories. The NameNode contains the information to map blocks of data to the DataNodes. You can use only one NameNode.
-        :param block_size: The size of data blocks to write into the HDFS cluster. The block size must be a multiple of 512 bytes. The default block size is 128 mebibytes (MiB).
-        :param kerberos_keytab: The Kerberos key table (keytab) that contains mappings between the defined Kerberos principal and the encrypted keys. Provide the base64-encoded file text. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
-        :param kerberos_krb5_conf: The ``krb5.conf`` file that contains the Kerberos configuration information. You can load the ``krb5.conf`` by providing a string of the file's contents or an Amazon S3 presigned URL of the file. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
-        :param kerberos_principal: The Kerberos principal with access to the files and folders on the HDFS cluster. .. epigraph:: If ``KERBEROS`` is specified for ``AuthenticationType`` , this parameter is required.
-        :param kms_key_provider_uri: The URI of the HDFS cluster's Key Management Server (KMS).
-        :param qop_configuration: The Quality of Protection (QOP) configuration specifies the Remote Procedure Call (RPC) and data transfer protection settings configured on the Hadoop Distributed File System (HDFS) cluster. If ``QopConfiguration`` isn't specified, ``RpcProtection`` and ``DataTransferProtection`` default to ``PRIVACY`` . If you set ``RpcProtection`` or ``DataTransferProtection`` , the other parameter assumes the same value.
-        :param replication_factor: The number of DataNodes to replicate the data to when writing to the HDFS cluster. By default, data is replicated to three DataNodes. Default: - 3
-        :param simple_user: The user name used to identify the client on the host operating system. .. epigraph:: If ``SIMPLE`` is specified for ``AuthenticationType`` , this parameter is required.
-        :param subdirectory: A subdirectory in the HDFS cluster. This subdirectory is used to read data from or write data to the HDFS cluster. If the subdirectory isn't specified, it will default to ``/`` .
-        :param tags: The key-value pair that represents the tag that you want to add to the location. The value can be an empty string. We recommend using tags to name your resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_hDFSProps = datasync.CfnLocationHDFSProps(
-                agent_arns=["agentArns"],
-                authentication_type="authenticationType",
-                name_nodes=[datasync.CfnLocationHDFS.NameNodeProperty(
-                    hostname="hostname",
-                    port=123
-                )],
-            
-                # the properties below are optional
-                block_size=123,
-                kerberos_keytab="kerberosKeytab",
-                kerberos_krb5_conf="kerberosKrb5Conf",
-                kerberos_principal="kerberosPrincipal",
-                kms_key_provider_uri="kmsKeyProviderUri",
-                qop_configuration=datasync.CfnLocationHDFS.QopConfigurationProperty(
-                    data_transfer_protection="dataTransferProtection",
-                    rpc_protection="rpcProtection"
-                ),
-                replication_factor=123,
-                simple_user="simpleUser",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acd7db2bc2dffe624daa5332f50443b11a0c0e3a43b2ecd71e380ba6c4e4385c)
-            check_type(argname="argument agent_arns", value=agent_arns, expected_type=type_hints["agent_arns"])
-            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
-            check_type(argname="argument name_nodes", value=name_nodes, expected_type=type_hints["name_nodes"])
-            check_type(argname="argument block_size", value=block_size, expected_type=type_hints["block_size"])
-            check_type(argname="argument kerberos_keytab", value=kerberos_keytab, expected_type=type_hints["kerberos_keytab"])
-            check_type(argname="argument kerberos_krb5_conf", value=kerberos_krb5_conf, expected_type=type_hints["kerberos_krb5_conf"])
-            check_type(argname="argument kerberos_principal", value=kerberos_principal, expected_type=type_hints["kerberos_principal"])
-            check_type(argname="argument kms_key_provider_uri", value=kms_key_provider_uri, expected_type=type_hints["kms_key_provider_uri"])
-            check_type(argname="argument qop_configuration", value=qop_configuration, expected_type=type_hints["qop_configuration"])
-            check_type(argname="argument replication_factor", value=replication_factor, expected_type=type_hints["replication_factor"])
-            check_type(argname="argument simple_user", value=simple_user, expected_type=type_hints["simple_user"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "agent_arns": agent_arns,
-            "authentication_type": authentication_type,
-            "name_nodes": name_nodes,
-        }
-        if block_size is not None:
-            self._values["block_size"] = block_size
-        if kerberos_keytab is not None:
-            self._values["kerberos_keytab"] = kerberos_keytab
-        if kerberos_krb5_conf is not None:
-            self._values["kerberos_krb5_conf"] = kerberos_krb5_conf
-        if kerberos_principal is not None:
-            self._values["kerberos_principal"] = kerberos_principal
-        if kms_key_provider_uri is not None:
-            self._values["kms_key_provider_uri"] = kms_key_provider_uri
-        if qop_configuration is not None:
-            self._values["qop_configuration"] = qop_configuration
-        if replication_factor is not None:
-            self._values["replication_factor"] = replication_factor
-        if simple_user is not None:
-            self._values["simple_user"] = simple_user
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def agent_arns(self) -> typing.List[builtins.str]:
-        '''The Amazon Resource Names (ARNs) of the DataSync agents that can connect to your HDFS cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-agentarns
-        '''
-        result = self._values.get("agent_arns")
-        assert result is not None, "Required property 'agent_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def authentication_type(self) -> builtins.str:
-        '''The authentication mode used to determine identity of user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-authenticationtype
-        '''
-        result = self._values.get("authentication_type")
-        assert result is not None, "Required property 'authentication_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name_nodes(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.NameNodeProperty"]]]:
-        '''The NameNode that manages the HDFS namespace.
-
-        The NameNode performs operations such as opening, closing, and renaming files and directories. The NameNode contains the information to map blocks of data to the DataNodes. You can use only one NameNode.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-namenodes
-        '''
-        result = self._values.get("name_nodes")
-        assert result is not None, "Required property 'name_nodes' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.NameNodeProperty"]]], result)
-
-    @builtins.property
-    def block_size(self) -> typing.Optional[jsii.Number]:
-        '''The size of data blocks to write into the HDFS cluster.
-
-        The block size must be a multiple of 512 bytes. The default block size is 128 mebibytes (MiB).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-blocksize
-        '''
-        result = self._values.get("block_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def kerberos_keytab(self) -> typing.Optional[builtins.str]:
-        '''The Kerberos key table (keytab) that contains mappings between the defined Kerberos principal and the encrypted keys.
-
-        Provide the base64-encoded file text. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kerberoskeytab
-        '''
-        result = self._values.get("kerberos_keytab")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kerberos_krb5_conf(self) -> typing.Optional[builtins.str]:
-        '''The ``krb5.conf`` file that contains the Kerberos configuration information. You can load the ``krb5.conf`` by providing a string of the file's contents or an Amazon S3 presigned URL of the file. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kerberoskrb5conf
-        '''
-        result = self._values.get("kerberos_krb5_conf")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kerberos_principal(self) -> typing.Optional[builtins.str]:
-        '''The Kerberos principal with access to the files and folders on the HDFS cluster.
-
-        .. epigraph::
-
-           If ``KERBEROS`` is specified for ``AuthenticationType`` , this parameter is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kerberosprincipal
-        '''
-        result = self._values.get("kerberos_principal")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_provider_uri(self) -> typing.Optional[builtins.str]:
-        '''The URI of the HDFS cluster's Key Management Server (KMS).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kmskeyprovideruri
-        '''
-        result = self._values.get("kms_key_provider_uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def qop_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.QopConfigurationProperty"]]:
-        '''The Quality of Protection (QOP) configuration specifies the Remote Procedure Call (RPC) and data transfer protection settings configured on the Hadoop Distributed File System (HDFS) cluster.
-
-        If ``QopConfiguration`` isn't specified, ``RpcProtection`` and ``DataTransferProtection`` default to ``PRIVACY`` . If you set ``RpcProtection`` or ``DataTransferProtection`` , the other parameter assumes the same value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-qopconfiguration
-        '''
-        result = self._values.get("qop_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.QopConfigurationProperty"]], result)
-
-    @builtins.property
-    def replication_factor(self) -> typing.Optional[jsii.Number]:
-        '''The number of DataNodes to replicate the data to when writing to the HDFS cluster.
-
-        By default, data is replicated to three DataNodes.
-
-        :default: - 3
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-replicationfactor
-        '''
-        result = self._values.get("replication_factor")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def simple_user(self) -> typing.Optional[builtins.str]:
-        '''The user name used to identify the client on the host operating system.
-
-        .. epigraph::
-
-           If ``SIMPLE`` is specified for ``AuthenticationType`` , this parameter is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-simpleuser
-        '''
-        result = self._values.get("simple_user")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''A subdirectory in the HDFS cluster.
-
-        This subdirectory is used to read data from or write data to the HDFS cluster. If the subdirectory isn't specified, it will default to ``/`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The key-value pair that represents the tag that you want to add to the location.
-
-        The value can be an empty string. We recommend using tags to name your resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationHDFSProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationNFSProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "on_prem_config": "onPremConfig",
-        "mount_options": "mountOptions",
-        "server_hostname": "serverHostname",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationNFSProps:
-    def __init__(
-        self,
-        *,
-        on_prem_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationNFS.OnPremConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationNFS.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        server_hostname: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationNFS``.
-
-        :param on_prem_config: Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect to your NFS file server. You can specify more than one agent. For more information, see `Using multiple DataSync agents <https://docs.aws.amazon.com/datasync/latest/userguide/do-i-need-datasync-agent.html#multiple-agents>`_ .
-        :param mount_options: Specifies the options that DataSync can use to mount your NFS file server.
-        :param server_hostname: Specifies the DNS name or IP address (IPv4 or IPv6) of the NFS file server that your DataSync agent connects to.
-        :param subdirectory: Specifies the export path in your NFS file server that you want DataSync to mount. This path (or a subdirectory of the path) is where DataSync transfers data to or from. For information on configuring an export for DataSync, see `Accessing NFS file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-nfs-location.html#accessing-nfs>`_ .
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_nFSProps = datasync.CfnLocationNFSProps(
-                on_prem_config=datasync.CfnLocationNFS.OnPremConfigProperty(
-                    agent_arns=["agentArns"]
-                ),
-            
-                # the properties below are optional
-                mount_options=datasync.CfnLocationNFS.MountOptionsProperty(
-                    version="version"
-                ),
-                server_hostname="serverHostname",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f51fa3c0c693bb5826cc200004a0b1f04c19f70726432f02d5a4443185b49b1)
-            check_type(argname="argument on_prem_config", value=on_prem_config, expected_type=type_hints["on_prem_config"])
-            check_type(argname="argument mount_options", value=mount_options, expected_type=type_hints["mount_options"])
-            check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "on_prem_config": on_prem_config,
-        }
-        if mount_options is not None:
-            self._values["mount_options"] = mount_options
-        if server_hostname is not None:
-            self._values["server_hostname"] = server_hostname
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def on_prem_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.OnPremConfigProperty"]:
-        '''Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect to your NFS file server.
-
-        You can specify more than one agent. For more information, see `Using multiple DataSync agents <https://docs.aws.amazon.com/datasync/latest/userguide/do-i-need-datasync-agent.html#multiple-agents>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-onpremconfig
-        '''
-        result = self._values.get("on_prem_config")
-        assert result is not None, "Required property 'on_prem_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.OnPremConfigProperty"], result)
-
-    @builtins.property
-    def mount_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.MountOptionsProperty"]]:
-        '''Specifies the options that DataSync can use to mount your NFS file server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-mountoptions
-        '''
-        result = self._values.get("mount_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.MountOptionsProperty"]], result)
-
-    @builtins.property
-    def server_hostname(self) -> typing.Optional[builtins.str]:
-        '''Specifies the DNS name or IP address (IPv4 or IPv6) of the NFS file server that your DataSync agent connects to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-serverhostname
-        '''
-        result = self._values.get("server_hostname")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies the export path in your NFS file server that you want DataSync to mount.
-
-        This path (or a subdirectory of the path) is where DataSync transfers data to or from. For information on configuring an export for DataSync, see `Accessing NFS file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-nfs-location.html#accessing-nfs>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
-
-        We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationNFSProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorageProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_key": "accessKey",
-        "agent_arns": "agentArns",
-        "bucket_name": "bucketName",
-        "cmk_secret_config": "cmkSecretConfig",
-        "custom_secret_config": "customSecretConfig",
-        "secret_key": "secretKey",
-        "server_certificate": "serverCertificate",
-        "server_hostname": "serverHostname",
-        "server_port": "serverPort",
-        "server_protocol": "serverProtocol",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationObjectStorageProps:
-    def __init__(
-        self,
-        *,
-        access_key: typing.Optional[builtins.str] = None,
-        agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        bucket_name: typing.Optional[builtins.str] = None,
-        cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationObjectStorage.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationObjectStorage.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        secret_key: typing.Optional[builtins.str] = None,
-        server_certificate: typing.Optional[builtins.str] = None,
-        server_hostname: typing.Optional[builtins.str] = None,
-        server_port: typing.Optional[jsii.Number] = None,
-        server_protocol: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationObjectStorage``.
-
-        :param access_key: Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
-        :param agent_arns: (Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
-        :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this paramater as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure the DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
-        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
-        :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
-        :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
-        :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
-        :param server_port: Specifies the port that your object storage server accepts inbound network traffic on (for example, port 443).
-        :param server_protocol: Specifies the protocol that your object storage server uses to communicate. If not specified, the default value is ``HTTPS`` .
-        :param subdirectory: Specifies the object prefix for your object storage server. If this is a source location, DataSync only copies objects with this prefix. If this is a destination location, DataSync writes all objects with this prefix.
-        :param tags: Specifies the key-value pair that represents a tag that you want to add to the resource. Tags can help you manage, filter, and search for your resources. We recommend creating a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_object_storage_props = datasync.CfnLocationObjectStorageProps(
-                access_key="accessKey",
-                agent_arns=["agentArns"],
-                bucket_name="bucketName",
-                cmk_secret_config=datasync.CfnLocationObjectStorage.CmkSecretConfigProperty(
-                    kms_key_arn="kmsKeyArn",
-                    secret_arn="secretArn"
-                ),
-                custom_secret_config=datasync.CfnLocationObjectStorage.CustomSecretConfigProperty(
-                    secret_access_role_arn="secretAccessRoleArn",
-                    secret_arn="secretArn"
-                ),
-                secret_key="secretKey",
-                server_certificate="serverCertificate",
-                server_hostname="serverHostname",
-                server_port=123,
-                server_protocol="serverProtocol",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d542a26da4e93d9d103e234c98ed367d8b6bea7d295017a32de5525e1ec22b45)
-            check_type(argname="argument access_key", value=access_key, expected_type=type_hints["access_key"])
-            check_type(argname="argument agent_arns", value=agent_arns, expected_type=type_hints["agent_arns"])
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument cmk_secret_config", value=cmk_secret_config, expected_type=type_hints["cmk_secret_config"])
-            check_type(argname="argument custom_secret_config", value=custom_secret_config, expected_type=type_hints["custom_secret_config"])
-            check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
-            check_type(argname="argument server_certificate", value=server_certificate, expected_type=type_hints["server_certificate"])
-            check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
-            check_type(argname="argument server_port", value=server_port, expected_type=type_hints["server_port"])
-            check_type(argname="argument server_protocol", value=server_protocol, expected_type=type_hints["server_protocol"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if access_key is not None:
-            self._values["access_key"] = access_key
-        if agent_arns is not None:
-            self._values["agent_arns"] = agent_arns
-        if bucket_name is not None:
-            self._values["bucket_name"] = bucket_name
-        if cmk_secret_config is not None:
-            self._values["cmk_secret_config"] = cmk_secret_config
-        if custom_secret_config is not None:
-            self._values["custom_secret_config"] = custom_secret_config
-        if secret_key is not None:
-            self._values["secret_key"] = secret_key
-        if server_certificate is not None:
-            self._values["server_certificate"] = server_certificate
-        if server_hostname is not None:
-            self._values["server_hostname"] = server_hostname
-        if server_port is not None:
-            self._values["server_port"] = server_port
-        if server_protocol is not None:
-            self._values["server_protocol"] = server_protocol
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def access_key(self) -> typing.Optional[builtins.str]:
-        '''Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-accesskey
-        '''
-        result = self._values.get("access_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.
-
-        If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter.
-        .. epigraph::
-
-           Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-agentarns
-        '''
-        result = self._values.get("agent_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the object storage bucket involved in the transfer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-bucketname
-        '''
-        result = self._values.get("bucket_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cmk_secret_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]]:
-        '''Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key .
-
-        When you include this paramater as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials.
-
-        Make sure the DataSync has permission to access the KMS key that you specify.
-        .. epigraph::
-
-           You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-cmksecretconfig
-        '''
-        result = self._values.get("cmk_secret_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]], result)
-
-    @builtins.property
-    def custom_secret_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]]:
-        '''Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text.
-
-        This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
-        .. epigraph::
-
-           You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-customsecretconfig
-        '''
-        result = self._values.get("custom_secret_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]], result)
-
-    @builtins.property
-    def secret_key(self) -> typing.Optional[builtins.str]:
-        '''Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server.
-
-        .. epigraph::
-
-           If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-secretkey
-        '''
-        result = self._values.get("secret_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_certificate(self) -> typing.Optional[builtins.str]:
-        '''Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA).
-
-        You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ).
-
-        The certificate chain might include:
-
-        - The object storage system's certificate
-        - All intermediate certificates (if there are any)
-        - The root certificate of the signing CA
-
-        You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates:
-
-        ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem``
-
-        To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-servercertificate
-        '''
-        result = self._values.get("server_certificate")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_hostname(self) -> typing.Optional[builtins.str]:
-        '''Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverhostname
-        '''
-        result = self._values.get("server_hostname")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_port(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the port that your object storage server accepts inbound network traffic on (for example, port 443).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverport
-        '''
-        result = self._values.get("server_port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def server_protocol(self) -> typing.Optional[builtins.str]:
-        '''Specifies the protocol that your object storage server uses to communicate.
-
-        If not specified, the default value is ``HTTPS`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverprotocol
-        '''
-        result = self._values.get("server_protocol")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies the object prefix for your object storage server.
-
-        If this is a source location, DataSync only copies objects with this prefix. If this is a destination location, DataSync writes all objects with this prefix.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the key-value pair that represents a tag that you want to add to the resource.
-
-        Tags can help you manage, filter, and search for your resources. We recommend creating a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationObjectStorageProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationS3Props",
-    jsii_struct_bases=[],
-    name_mapping={
-        "s3_config": "s3Config",
-        "s3_bucket_arn": "s3BucketArn",
-        "s3_storage_class": "s3StorageClass",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-    },
-)
-class CfnLocationS3Props:
-    def __init__(
-        self,
-        *,
-        s3_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationS3.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        s3_bucket_arn: typing.Optional[builtins.str] = None,
-        s3_storage_class: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationS3``.
-
-        :param s3_config: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that is used to access an Amazon S3 bucket. For detailed information about using such a role, see `Creating a Location for Amazon S3 <https://docs.aws.amazon.com/datasync/latest/userguide/working-with-locations.html#create-s3-location>`_ in the *AWS DataSync User Guide* .
-        :param s3_bucket_arn: The ARN of the Amazon S3 bucket.
-        :param s3_storage_class: The Amazon S3 storage class that you want to store your files in when this location is used as a task destination. For buckets in AWS Regions , the storage class defaults to S3 Standard. For more information about S3 storage classes, see `Amazon S3 Storage Classes <https://docs.aws.amazon.com/s3/storage-classes/>`_ . Some storage classes have behaviors that can affect your S3 storage costs. For detailed information, see `Considerations When Working with Amazon S3 Storage Classes in DataSync <https://docs.aws.amazon.com/datasync/latest/userguide/create-s3-location.html#using-storage-classes>`_ . Default: - "STANDARD"
-        :param subdirectory: Specifies a prefix in the S3 bucket that DataSync reads from or writes to (depending on whether the bucket is a source or destination location). .. epigraph:: DataSync can't transfer objects with a prefix that begins with a slash ( ``/`` ) or includes ``//`` , ``/./`` , or ``/../`` patterns. For example: - ``/photos`` - ``photos//2006/January`` - ``photos/./2006/February`` - ``photos/../2006/March``
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_s3_props = datasync.CfnLocationS3Props(
-                s3_config=datasync.CfnLocationS3.S3ConfigProperty(
-                    bucket_access_role_arn="bucketAccessRoleArn"
-                ),
-            
-                # the properties below are optional
-                s3_bucket_arn="s3BucketArn",
-                s3_storage_class="s3StorageClass",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1b9799e0fad9e71975d14e754aeb8ef0b5f52fcedcbabc328afae8c4a4afaa5)
-            check_type(argname="argument s3_config", value=s3_config, expected_type=type_hints["s3_config"])
-            check_type(argname="argument s3_bucket_arn", value=s3_bucket_arn, expected_type=type_hints["s3_bucket_arn"])
-            check_type(argname="argument s3_storage_class", value=s3_storage_class, expected_type=type_hints["s3_storage_class"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "s3_config": s3_config,
-        }
-        if s3_bucket_arn is not None:
-            self._values["s3_bucket_arn"] = s3_bucket_arn
-        if s3_storage_class is not None:
-            self._values["s3_storage_class"] = s3_storage_class
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def s3_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationS3.S3ConfigProperty"]:
-        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that is used to access an Amazon S3 bucket.
-
-        For detailed information about using such a role, see `Creating a Location for Amazon S3 <https://docs.aws.amazon.com/datasync/latest/userguide/working-with-locations.html#create-s3-location>`_ in the *AWS DataSync User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-s3config
-        '''
-        result = self._values.get("s3_config")
-        assert result is not None, "Required property 's3_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationS3.S3ConfigProperty"], result)
-
-    @builtins.property
-    def s3_bucket_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the Amazon S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-s3bucketarn
-        '''
-        result = self._values.get("s3_bucket_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_storage_class(self) -> typing.Optional[builtins.str]:
-        '''The Amazon S3 storage class that you want to store your files in when this location is used as a task destination.
-
-        For buckets in AWS Regions , the storage class defaults to S3 Standard.
-
-        For more information about S3 storage classes, see `Amazon S3 Storage Classes <https://docs.aws.amazon.com/s3/storage-classes/>`_ . Some storage classes have behaviors that can affect your S3 storage costs. For detailed information, see `Considerations When Working with Amazon S3 Storage Classes in DataSync <https://docs.aws.amazon.com/datasync/latest/userguide/create-s3-location.html#using-storage-classes>`_ .
-
-        :default: - "STANDARD"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-s3storageclass
-        '''
-        result = self._values.get("s3_storage_class")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies a prefix in the S3 bucket that DataSync reads from or writes to (depending on whether the bucket is a source or destination location).
-
-        .. epigraph::
-
-           DataSync can't transfer objects with a prefix that begins with a slash ( ``/`` ) or includes ``//`` , ``/./`` , or ``/../`` patterns. For example:
-
-           - ``/photos``
-           - ``photos//2006/January``
-           - ``photos/./2006/February``
-           - ``photos/../2006/March``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
-
-        We recommend creating at least a name tag for your transfer location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationS3Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationSMBProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "agent_arns": "agentArns",
-        "authentication_type": "authenticationType",
-        "dns_ip_addresses": "dnsIpAddresses",
-        "domain": "domain",
-        "kerberos_keytab": "kerberosKeytab",
-        "kerberos_krb5_conf": "kerberosKrb5Conf",
-        "kerberos_principal": "kerberosPrincipal",
-        "mount_options": "mountOptions",
-        "password": "password",
-        "server_hostname": "serverHostname",
-        "subdirectory": "subdirectory",
-        "tags": "tags",
-        "user": "user",
-    },
-)
-class CfnLocationSMBProps:
-    def __init__(
-        self,
-        *,
-        agent_arns: typing.Sequence[builtins.str],
-        authentication_type: typing.Optional[builtins.str] = None,
-        dns_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
-        domain: typing.Optional[builtins.str] = None,
-        kerberos_keytab: typing.Optional[builtins.str] = None,
-        kerberos_krb5_conf: typing.Optional[builtins.str] = None,
-        kerberos_principal: typing.Optional[builtins.str] = None,
-        mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationSMB.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        password: typing.Optional[builtins.str] = None,
-        server_hostname: typing.Optional[builtins.str] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        user: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocationSMB``.
-
-        :param agent_arns: Specifies the DataSync agent (or agents) that can connect to your SMB file server. You specify an agent by using its Amazon Resource Name (ARN).
-        :param authentication_type: The authentication mode used to determine identity of user.
-        :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
-        :param domain: Specifies the Windows domain name that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
-        :param kerberos_keytab: The Base64 string representation of the Keytab file. Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
-        :param kerberos_krb5_conf: The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
-        :param kerberos_principal: Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server. SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
-        :param mount_options: Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.
-        :param password: Specifies the password of the user who can mount your SMB file server and has permission to access the files and folders involved in your transfer. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
-        :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the SMB file server that your DataSync agent connects to. .. epigraph:: If you're using Kerberos authentication, you must specify a domain name.
-        :param subdirectory: Specifies the name of the share exported by your SMB file server where DataSync will read or write data. You can include a subdirectory in the share path (for example, ``/path/to/subdirectory`` ). Make sure that other SMB clients in your network can also mount this path. To copy all data in the subdirectory, DataSync must be able to mount the SMB share and access all of its data. For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
-        :param user: Specifies the user that can mount and access the files, folders, and file metadata in your SMB file server. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . For information about choosing a user with the right level of access for your transfer, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_location_sMBProps = datasync.CfnLocationSMBProps(
-                agent_arns=["agentArns"],
-            
-                # the properties below are optional
-                authentication_type="authenticationType",
-                dns_ip_addresses=["dnsIpAddresses"],
-                domain="domain",
-                kerberos_keytab="kerberosKeytab",
-                kerberos_krb5_conf="kerberosKrb5Conf",
-                kerberos_principal="kerberosPrincipal",
-                mount_options=datasync.CfnLocationSMB.MountOptionsProperty(
-                    version="version"
-                ),
-                password="password",
-                server_hostname="serverHostname",
-                subdirectory="subdirectory",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                user="user"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b20670d7cb18baa1155ccc397df310282442d51b95170ab568e5c0a9cbea5bc8)
-            check_type(argname="argument agent_arns", value=agent_arns, expected_type=type_hints["agent_arns"])
-            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
-            check_type(argname="argument dns_ip_addresses", value=dns_ip_addresses, expected_type=type_hints["dns_ip_addresses"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument kerberos_keytab", value=kerberos_keytab, expected_type=type_hints["kerberos_keytab"])
-            check_type(argname="argument kerberos_krb5_conf", value=kerberos_krb5_conf, expected_type=type_hints["kerberos_krb5_conf"])
-            check_type(argname="argument kerberos_principal", value=kerberos_principal, expected_type=type_hints["kerberos_principal"])
-            check_type(argname="argument mount_options", value=mount_options, expected_type=type_hints["mount_options"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
-            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "agent_arns": agent_arns,
-        }
-        if authentication_type is not None:
-            self._values["authentication_type"] = authentication_type
-        if dns_ip_addresses is not None:
-            self._values["dns_ip_addresses"] = dns_ip_addresses
-        if domain is not None:
-            self._values["domain"] = domain
-        if kerberos_keytab is not None:
-            self._values["kerberos_keytab"] = kerberos_keytab
-        if kerberos_krb5_conf is not None:
-            self._values["kerberos_krb5_conf"] = kerberos_krb5_conf
-        if kerberos_principal is not None:
-            self._values["kerberos_principal"] = kerberos_principal
-        if mount_options is not None:
-            self._values["mount_options"] = mount_options
-        if password is not None:
-            self._values["password"] = password
-        if server_hostname is not None:
-            self._values["server_hostname"] = server_hostname
-        if subdirectory is not None:
-            self._values["subdirectory"] = subdirectory
-        if tags is not None:
-            self._values["tags"] = tags
-        if user is not None:
-            self._values["user"] = user
-
-    @builtins.property
-    def agent_arns(self) -> typing.List[builtins.str]:
-        '''Specifies the DataSync agent (or agents) that can connect to your SMB file server.
-
-        You specify an agent by using its Amazon Resource Name (ARN).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-agentarns
-        '''
-        result = self._values.get("agent_arns")
-        assert result is not None, "Required property 'agent_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''The authentication mode used to determine identity of user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-authenticationtype
-        '''
-        result = self._values.get("authentication_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def dns_ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to.
-
-        This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-dnsipaddresses
-        '''
-        result = self._values.get("dns_ip_addresses")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def domain(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Windows domain name that your SMB file server belongs to.
-
-        This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
-
-        If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kerberos_keytab(self) -> typing.Optional[builtins.str]:
-        '''The Base64 string representation of the Keytab file.
-
-        Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberoskeytab
-        '''
-        result = self._values.get("kerberos_keytab")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kerberos_krb5_conf(self) -> typing.Optional[builtins.str]:
-        '''The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberoskrb5conf
-        '''
-        result = self._values.get("kerberos_krb5_conf")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kerberos_principal(self) -> typing.Optional[builtins.str]:
-        '''Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server.
-
-        SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberosprincipal
-        '''
-        result = self._values.get("kerberos_principal")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def mount_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationSMB.MountOptionsProperty"]]:
-        '''Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-mountoptions
-        '''
-        result = self._values.get("mount_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationSMB.MountOptionsProperty"]], result)
-
-    @builtins.property
-    def password(self) -> typing.Optional[builtins.str]:
-        '''Specifies the password of the user who can mount your SMB file server and has permission to access the files and folders involved in your transfer.
-
-        This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-password
-        '''
-        result = self._values.get("password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_hostname(self) -> typing.Optional[builtins.str]:
-        '''Specifies the domain name or IP address (IPv4 or IPv6) of the SMB file server that your DataSync agent connects to.
-
-        .. epigraph::
-
-           If you're using Kerberos authentication, you must specify a domain name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-serverhostname
-        '''
-        result = self._values.get("server_hostname")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the share exported by your SMB file server where DataSync will read or write data.
-
-        You can include a subdirectory in the share path (for example, ``/path/to/subdirectory`` ). Make sure that other SMB clients in your network can also mount this path.
-
-        To copy all data in the subdirectory, DataSync must be able to mount the SMB share and access all of its data. For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-subdirectory
-        '''
-        result = self._values.get("subdirectory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
-
-        We recommend creating at least a name tag for your location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def user(self) -> typing.Optional[builtins.str]:
-        '''Specifies the user that can mount and access the files, folders, and file metadata in your SMB file server.
-
-        This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
-
-        For information about choosing a user with the right level of access for your transfer, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-user
-        '''
-        result = self._values.get("user")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationSMBProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.CfnTaskProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination_location_arn": "destinationLocationArn",
-        "source_location_arn": "sourceLocationArn",
-        "cloud_watch_log_group_arn": "cloudWatchLogGroupArn",
-        "excludes": "excludes",
-        "includes": "includes",
-        "manifest_config": "manifestConfig",
-        "name": "name",
-        "options": "options",
-        "schedule": "schedule",
-        "tags": "tags",
-        "task_mode": "taskMode",
-        "task_report_config": "taskReportConfig",
-    },
-)
-class CfnTaskProps:
-    def __init__(
-        self,
-        *,
-        destination_location_arn: builtins.str,
-        source_location_arn: builtins.str,
-        cloud_watch_log_group_arn: typing.Optional[builtins.str] = None,
-        excludes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        includes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        manifest_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.ManifestConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.OptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.TaskScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        task_mode: typing.Optional[builtins.str] = None,
-        task_report_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.TaskReportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTask``.
-
-        :param destination_location_arn: The Amazon Resource Name (ARN) of an AWS storage resource's location.
-        :param source_location_arn: Specifies the ARN of your transfer's source location.
-        :param cloud_watch_log_group_arn: Specifies the Amazon Resource Name (ARN) of an Amazon CloudWatch log group for monitoring your task. For Enhanced mode tasks, you don't need to specify anything. DataSync automatically sends logs to a CloudWatch log group named ``/aws/datasync`` . For more information, see `Monitoring data transfers with CloudWatch Logs <https://docs.aws.amazon.com/datasync/latest/userguide/configure-logging.html>`_ .
-        :param excludes: Specifies exclude filters that define the files, objects, and folders in your source location that you don't want DataSync to transfer. For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
-        :param includes: Specifies include filters that define the files, objects, and folders in your source location that you want DataSync to transfer. For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
-        :param manifest_config: The configuration of the manifest that lists the files or objects that you want DataSync to transfer. For more information, see `Specifying what DataSync transfers by using a manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html>`_ .
-        :param name: Specifies the name of your task.
-        :param options: Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.
-        :param schedule: Specifies a schedule for when you want your task to run. For more information, see `Scheduling your task <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ .
-        :param tags: Specifies the tags that you want to apply to your task. *Tags* are key-value pairs that help you manage, filter, and search for your DataSync resources.
-        :param task_mode: The task mode that you're using. For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
-        :param task_report_config: The configuration of your task report, which provides detailed information about your DataSync transfer. For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            cfn_task_props = datasync.CfnTaskProps(
-                destination_location_arn="destinationLocationArn",
-                source_location_arn="sourceLocationArn",
-            
-                # the properties below are optional
-                cloud_watch_log_group_arn="cloudWatchLogGroupArn",
-                excludes=[datasync.CfnTask.FilterRuleProperty(
-                    filter_type="filterType",
-                    value="value"
-                )],
-                includes=[datasync.CfnTask.FilterRuleProperty(
-                    filter_type="filterType",
-                    value="value"
-                )],
-                manifest_config=datasync.CfnTask.ManifestConfigProperty(
-                    source=datasync.CfnTask.SourceProperty(
-                        s3=datasync.CfnTask.ManifestConfigSourceS3Property(
-                            bucket_access_role_arn="bucketAccessRoleArn",
-                            manifest_object_path="manifestObjectPath",
-                            manifest_object_version_id="manifestObjectVersionId",
-                            s3_bucket_arn="s3BucketArn"
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    action="action",
-                    format="format"
-                ),
-                name="name",
-                options=datasync.CfnTask.OptionsProperty(
-                    atime="atime",
-                    bytes_per_second=123,
-                    gid="gid",
-                    log_level="logLevel",
-                    mtime="mtime",
-                    object_tags="objectTags",
-                    overwrite_mode="overwriteMode",
-                    posix_permissions="posixPermissions",
-                    preserve_deleted_files="preserveDeletedFiles",
-                    preserve_devices="preserveDevices",
-                    security_descriptor_copy_flags="securityDescriptorCopyFlags",
-                    task_queueing="taskQueueing",
-                    transfer_mode="transferMode",
-                    uid="uid",
-                    verify_mode="verifyMode"
-                ),
-                schedule=datasync.CfnTask.TaskScheduleProperty(
-                    schedule_expression="scheduleExpression",
-                    status="status"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                task_mode="taskMode",
-                task_report_config=datasync.CfnTask.TaskReportConfigProperty(
-                    destination=datasync.CfnTask.DestinationProperty(
-                        s3=datasync.CfnTask.S3Property(
-                            bucket_access_role_arn="bucketAccessRoleArn",
-                            s3_bucket_arn="s3BucketArn",
-                            subdirectory="subdirectory"
-                        )
-                    ),
-                    output_type="outputType",
-            
-                    # the properties below are optional
-                    object_version_ids="objectVersionIds",
-                    overrides=datasync.CfnTask.OverridesProperty(
-                        deleted=datasync.CfnTask.DeletedProperty(
-                            report_level="reportLevel"
-                        ),
-                        skipped=datasync.CfnTask.SkippedProperty(
-                            report_level="reportLevel"
-                        ),
-                        transferred=datasync.CfnTask.TransferredProperty(
-                            report_level="reportLevel"
-                        ),
-                        verified=datasync.CfnTask.VerifiedProperty(
-                            report_level="reportLevel"
-                        )
-                    ),
-                    report_level="reportLevel"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5632ab868186e470f4d8f0c14e3f12b71107be017f54f3194a076b9da30b50d8)
-            check_type(argname="argument destination_location_arn", value=destination_location_arn, expected_type=type_hints["destination_location_arn"])
-            check_type(argname="argument source_location_arn", value=source_location_arn, expected_type=type_hints["source_location_arn"])
-            check_type(argname="argument cloud_watch_log_group_arn", value=cloud_watch_log_group_arn, expected_type=type_hints["cloud_watch_log_group_arn"])
-            check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
-            check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
-            check_type(argname="argument manifest_config", value=manifest_config, expected_type=type_hints["manifest_config"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument task_mode", value=task_mode, expected_type=type_hints["task_mode"])
-            check_type(argname="argument task_report_config", value=task_report_config, expected_type=type_hints["task_report_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination_location_arn": destination_location_arn,
-            "source_location_arn": source_location_arn,
-        }
-        if cloud_watch_log_group_arn is not None:
-            self._values["cloud_watch_log_group_arn"] = cloud_watch_log_group_arn
-        if excludes is not None:
-            self._values["excludes"] = excludes
-        if includes is not None:
-            self._values["includes"] = includes
-        if manifest_config is not None:
-            self._values["manifest_config"] = manifest_config
-        if name is not None:
-            self._values["name"] = name
-        if options is not None:
-            self._values["options"] = options
-        if schedule is not None:
-            self._values["schedule"] = schedule
-        if tags is not None:
-            self._values["tags"] = tags
-        if task_mode is not None:
-            self._values["task_mode"] = task_mode
-        if task_report_config is not None:
-            self._values["task_report_config"] = task_report_config
-
-    @builtins.property
-    def destination_location_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of an AWS storage resource's location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-destinationlocationarn
-        '''
-        result = self._values.get("destination_location_arn")
-        assert result is not None, "Required property 'destination_location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_location_arn(self) -> builtins.str:
-        '''Specifies the ARN of your transfer's source location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-sourcelocationarn
-        '''
-        result = self._values.get("source_location_arn")
-        assert result is not None, "Required property 'source_location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cloud_watch_log_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Amazon Resource Name (ARN) of an Amazon CloudWatch log group for monitoring your task.
-
-        For Enhanced mode tasks, you don't need to specify anything. DataSync automatically sends logs to a CloudWatch log group named ``/aws/datasync`` .
-
-        For more information, see `Monitoring data transfers with CloudWatch Logs <https://docs.aws.amazon.com/datasync/latest/userguide/configure-logging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-cloudwatchloggrouparn
-        '''
-        result = self._values.get("cloud_watch_log_group_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def excludes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]]:
-        '''Specifies exclude filters that define the files, objects, and folders in your source location that you don't want DataSync to transfer.
-
-        For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-excludes
-        '''
-        result = self._values.get("excludes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]], result)
-
-    @builtins.property
-    def includes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]]:
-        '''Specifies include filters that define the files, objects, and folders in your source location that you want DataSync to transfer.
-
-        For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-includes
-        '''
-        result = self._values.get("includes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]], result)
-
-    @builtins.property
-    def manifest_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigProperty"]]:
-        '''The configuration of the manifest that lists the files or objects that you want DataSync to transfer.
-
-        For more information, see `Specifying what DataSync transfers by using a manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-manifestconfig
-        '''
-        result = self._values.get("manifest_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigProperty"]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of your task.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OptionsProperty"]]:
-        '''Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-options
-        '''
-        result = self._values.get("options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OptionsProperty"]], result)
-
-    @builtins.property
-    def schedule(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskScheduleProperty"]]:
-        '''Specifies a schedule for when you want your task to run.
-
-        For more information, see `Scheduling your task <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-schedule
-        '''
-        result = self._values.get("schedule")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskScheduleProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the tags that you want to apply to your task.
-
-        *Tags* are key-value pairs that help you manage, filter, and search for your DataSync resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def task_mode(self) -> typing.Optional[builtins.str]:
-        '''The task mode that you're using.
-
-        For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-taskmode
-        '''
-        result = self._values.get("task_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def task_report_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]]:
-        '''The configuration of your task report, which provides detailed information about your DataSync transfer.
-
-        For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-taskreportconfig
-        '''
-        result = self._values.get("task_report_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTaskProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.IAgentRef")
-class IAgentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Agent.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="agentRef")
-    def agent_ref(self) -> AgentReference:
-        '''(experimental) A reference to a Agent resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAgentRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Agent.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.IAgentRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="agentRef")
-    def agent_ref(self) -> AgentReference:
-        '''(experimental) A reference to a Agent resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AgentReference, jsii.get(self, "agentRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAgentRef).__jsii_proxy_class__ = lambda : _IAgentRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationAzureBlobRef")
-class ILocationAzureBlobRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationAzureBlob.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationAzureBlobRef")
-    def location_azure_blob_ref(self) -> "LocationAzureBlobReference":
-        '''(experimental) A reference to a LocationAzureBlob resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationAzureBlobRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationAzureBlob.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationAzureBlobRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationAzureBlobRef")
-    def location_azure_blob_ref(self) -> "LocationAzureBlobReference":
-        '''(experimental) A reference to a LocationAzureBlob resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationAzureBlobReference", jsii.get(self, "locationAzureBlobRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationAzureBlobRef).__jsii_proxy_class__ = lambda : _ILocationAzureBlobRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationEFSRef")
-class ILocationEFSRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LocationEFS.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationEfsRef")
-    def location_efs_ref(self) -> "LocationEFSReference":
-        '''(experimental) A reference to a LocationEFS resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationEFSRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationEFS.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationEFSRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationEfsRef")
-    def location_efs_ref(self) -> "LocationEFSReference":
-        '''(experimental) A reference to a LocationEFS resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationEFSReference", jsii.get(self, "locationEfsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationEFSRef).__jsii_proxy_class__ = lambda : _ILocationEFSRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationFSxLustreRef")
-class ILocationFSxLustreRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxLustre.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxLustreRef")
-    def location_f_sx_lustre_ref(self) -> "LocationFSxLustreReference":
-        '''(experimental) A reference to a LocationFSxLustre resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationFSxLustreRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxLustre.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationFSxLustreRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxLustreRef")
-    def location_f_sx_lustre_ref(self) -> "LocationFSxLustreReference":
-        '''(experimental) A reference to a LocationFSxLustre resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationFSxLustreReference", jsii.get(self, "locationFSxLustreRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationFSxLustreRef).__jsii_proxy_class__ = lambda : _ILocationFSxLustreRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationFSxONTAPRef")
-class ILocationFSxONTAPRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxONTAP.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxOntapRef")
-    def location_f_sx_ontap_ref(self) -> "LocationFSxONTAPReference":
-        '''(experimental) A reference to a LocationFSxONTAP resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationFSxONTAPRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxONTAP.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationFSxONTAPRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxOntapRef")
-    def location_f_sx_ontap_ref(self) -> "LocationFSxONTAPReference":
-        '''(experimental) A reference to a LocationFSxONTAP resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationFSxONTAPReference", jsii.get(self, "locationFSxOntapRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationFSxONTAPRef).__jsii_proxy_class__ = lambda : _ILocationFSxONTAPRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationFSxOpenZFSRef")
-class ILocationFSxOpenZFSRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxOpenZFS.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxOpenZfsRef")
-    def location_f_sx_open_zfs_ref(self) -> "LocationFSxOpenZFSReference":
-        '''(experimental) A reference to a LocationFSxOpenZFS resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationFSxOpenZFSRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxOpenZFS.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationFSxOpenZFSRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxOpenZfsRef")
-    def location_f_sx_open_zfs_ref(self) -> "LocationFSxOpenZFSReference":
-        '''(experimental) A reference to a LocationFSxOpenZFS resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationFSxOpenZFSReference", jsii.get(self, "locationFSxOpenZfsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationFSxOpenZFSRef).__jsii_proxy_class__ = lambda : _ILocationFSxOpenZFSRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationFSxWindowsRef")
-class ILocationFSxWindowsRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxWindows.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxWindowsRef")
-    def location_f_sx_windows_ref(self) -> "LocationFSxWindowsReference":
-        '''(experimental) A reference to a LocationFSxWindows resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationFSxWindowsRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationFSxWindows.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationFSxWindowsRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationFSxWindowsRef")
-    def location_f_sx_windows_ref(self) -> "LocationFSxWindowsReference":
-        '''(experimental) A reference to a LocationFSxWindows resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationFSxWindowsReference", jsii.get(self, "locationFSxWindowsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationFSxWindowsRef).__jsii_proxy_class__ = lambda : _ILocationFSxWindowsRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationHDFSRef")
-class ILocationHDFSRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LocationHDFS.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationHdfsRef")
-    def location_hdfs_ref(self) -> "LocationHDFSReference":
-        '''(experimental) A reference to a LocationHDFS resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationHDFSRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationHDFS.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationHDFSRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationHdfsRef")
-    def location_hdfs_ref(self) -> "LocationHDFSReference":
-        '''(experimental) A reference to a LocationHDFS resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationHDFSReference", jsii.get(self, "locationHdfsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationHDFSRef).__jsii_proxy_class__ = lambda : _ILocationHDFSRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationNFSRef")
-class ILocationNFSRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LocationNFS.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationNfsRef")
-    def location_nfs_ref(self) -> "LocationNFSReference":
-        '''(experimental) A reference to a LocationNFS resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationNFSRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationNFS.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationNFSRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationNfsRef")
-    def location_nfs_ref(self) -> "LocationNFSReference":
-        '''(experimental) A reference to a LocationNFS resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationNFSReference", jsii.get(self, "locationNfsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationNFSRef).__jsii_proxy_class__ = lambda : _ILocationNFSRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationObjectStorageRef")
-class ILocationObjectStorageRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationObjectStorage.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationObjectStorageRef")
-    def location_object_storage_ref(self) -> "LocationObjectStorageReference":
-        '''(experimental) A reference to a LocationObjectStorage resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationObjectStorageRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationObjectStorage.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationObjectStorageRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationObjectStorageRef")
-    def location_object_storage_ref(self) -> "LocationObjectStorageReference":
-        '''(experimental) A reference to a LocationObjectStorage resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationObjectStorageReference", jsii.get(self, "locationObjectStorageRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationObjectStorageRef).__jsii_proxy_class__ = lambda : _ILocationObjectStorageRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationS3Ref")
-class ILocationS3Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LocationS3.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationS3Ref")
-    def location_s3_ref(self) -> "LocationS3Reference":
-        '''(experimental) A reference to a LocationS3 resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationS3RefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationS3.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationS3Ref"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationS3Ref")
-    def location_s3_ref(self) -> "LocationS3Reference":
-        '''(experimental) A reference to a LocationS3 resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationS3Reference", jsii.get(self, "locationS3Ref"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationS3Ref).__jsii_proxy_class__ = lambda : _ILocationS3RefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ILocationSMBRef")
-class ILocationSMBRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LocationSMB.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="locationSmbRef")
-    def location_smb_ref(self) -> "LocationSMBReference":
-        '''(experimental) A reference to a LocationSMB resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILocationSMBRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LocationSMB.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ILocationSMBRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="locationSmbRef")
-    def location_smb_ref(self) -> "LocationSMBReference":
-        '''(experimental) A reference to a LocationSMB resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LocationSMBReference", jsii.get(self, "locationSmbRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILocationSMBRef).__jsii_proxy_class__ = lambda : _ILocationSMBRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_datasync.ITaskRef")
-class ITaskRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Task.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="taskRef")
-    def task_ref(self) -> "TaskReference":
-        '''(experimental) A reference to a Task resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ITaskRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Task.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_datasync.ITaskRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="taskRef")
-    def task_ref(self) -> "TaskReference":
-        '''(experimental) A reference to a Task resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("TaskReference", jsii.get(self, "taskRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ITaskRef).__jsii_proxy_class__ = lambda : _ITaskRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationAzureBlobReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationAzureBlobReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationAzureBlob resource.
-
-        :param location_arn: The LocationArn of the LocationAzureBlob resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_azure_blob_reference = datasync.LocationAzureBlobReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f045f4046151f2883cedc5c46db14ba832954b3cd5ad2170063c4384410ed4c9)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationAzureBlob resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationAzureBlobReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationEFSReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationEFSReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationEFS resource.
-
-        :param location_arn: The LocationArn of the LocationEFS resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_eFSReference = datasync.LocationEFSReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dae0405523b3e33cd46c4b00b323a1c7c3f6d8d068f857ea8ff1cc8d080d1b6)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationEFS resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationEFSReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationFSxLustreReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationFSxLustreReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationFSxLustre resource.
-
-        :param location_arn: The LocationArn of the LocationFSxLustre resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_fSx_lustre_reference = datasync.LocationFSxLustreReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__091278d4823e9c84c00db9f39535e54a965809564065f757e0ed813473f9732a)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationFSxLustre resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationFSxLustreReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationFSxONTAPReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationFSxONTAPReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationFSxONTAP resource.
-
-        :param location_arn: The LocationArn of the LocationFSxONTAP resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_fSx_oNTAPReference = datasync.LocationFSxONTAPReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e05bc0b78477b30898dd98406e7358bf431b7b97037001ce64c30b77ff0f609b)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationFSxONTAP resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationFSxONTAPReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationFSxOpenZFSReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationFSxOpenZFSReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationFSxOpenZFS resource.
-
-        :param location_arn: The LocationArn of the LocationFSxOpenZFS resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_fSx_open_zFSReference = datasync.LocationFSxOpenZFSReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8235a73988adacc7894fca0de0acc6bc8655f467ab800d68d24164ffa7c3be93)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationFSxOpenZFS resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationFSxOpenZFSReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationFSxWindowsReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationFSxWindowsReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationFSxWindows resource.
-
-        :param location_arn: The LocationArn of the LocationFSxWindows resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_fSx_windows_reference = datasync.LocationFSxWindowsReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c135048afa5fa204b96de7afc536b989825ef437b90a602af37a7194458e5982)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationFSxWindows resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationFSxWindowsReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationHDFSReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationHDFSReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationHDFS resource.
-
-        :param location_arn: The LocationArn of the LocationHDFS resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_hDFSReference = datasync.LocationHDFSReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c79482794a8e945ebe7a5d3ea1b0c83600e991861c3e66e0c1cb679d9e4c08c3)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationHDFS resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationHDFSReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationNFSReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationNFSReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationNFS resource.
-
-        :param location_arn: The LocationArn of the LocationNFS resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_nFSReference = datasync.LocationNFSReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2121cbd082af16aaf961b9060f10195f2d5d8363b84df6e9d66b7d12d6e7e3a8)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationNFS resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationNFSReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationObjectStorageReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationObjectStorageReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationObjectStorage resource.
-
-        :param location_arn: The LocationArn of the LocationObjectStorage resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_object_storage_reference = datasync.LocationObjectStorageReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c0abaefb2a19d4b46613a676f9d743d9ad5cdebf1eda4c2840dd24abfd7437f)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationObjectStorage resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationObjectStorageReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationS3Reference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationS3Reference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationS3 resource.
-
-        :param location_arn: The LocationArn of the LocationS3 resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_s3_reference = datasync.LocationS3Reference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f99a53eb34d33dfe98ec65ba8677fea870548811ce8fa3d1455c5262aa85018)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationS3 resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationS3Reference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.LocationSMBReference",
-    jsii_struct_bases=[],
-    name_mapping={"location_arn": "locationArn"},
-)
-class LocationSMBReference:
-    def __init__(self, *, location_arn: builtins.str) -> None:
-        '''A reference to a LocationSMB resource.
-
-        :param location_arn: The LocationArn of the LocationSMB resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            location_sMBReference = datasync.LocationSMBReference(
-                location_arn="locationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18911659811bd68ff3144c46d856761d3ed8e6d7baabb36dff6eae873da186f3)
-            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_arn": location_arn,
-        }
-
-    @builtins.property
-    def location_arn(self) -> builtins.str:
-        '''The LocationArn of the LocationSMB resource.'''
-        result = self._values.get("location_arn")
-        assert result is not None, "Required property 'location_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LocationSMBReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_datasync.TaskReference",
-    jsii_struct_bases=[],
-    name_mapping={"task_arn": "taskArn"},
-)
-class TaskReference:
-    def __init__(self, *, task_arn: builtins.str) -> None:
-        '''A reference to a Task resource.
-
-        :param task_arn: The TaskArn of the Task resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_datasync as datasync
-            
-            task_reference = datasync.TaskReference(
-                task_arn="taskArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82dbf22eb06cc9b1466e219f2f8a4d8a35ddbd370bf9c8ad5c46df954f71caae)
-            check_type(argname="argument task_arn", value=task_arn, expected_type=type_hints["task_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "task_arn": task_arn,
-        }
-
-    @builtins.property
-    def task_arn(self) -> builtins.str:
-        '''The TaskArn of the Task resource.'''
-        result = self._values.get("task_arn")
-        assert result is not None, "Required property 'task_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TaskReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAgentRef, _ITaggable_36806126)
-class CfnAgent(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_datasync.CfnAgent",
-):
-    '''The ``AWS::DataSync::Agent`` resource activates an AWS DataSync agent that you've deployed for storage discovery or data transfers.
-
-    The activation process associates the agent with your AWS account .
-
-    For more information, see the following topics in the *AWS DataSync User Guide* :
-
-    - `DataSync agent requirements <https://docs.aws.amazon.com/datasync/latest/userguide/agent-requirements.html>`_
-    - `DataSync network requirements <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-network.html>`_
-    - `Create a DataSync agent <https://docs.aws.amazon.com/datasync/latest/userguide/configure-agent.html>`_
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-agent.html
-    :cloudformationResource: AWS::DataSync::Agent
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_datasync as datasync
-        
-        cfn_agent = datasync.CfnAgent(self, "MyCfnAgent",
-            activation_key="activationKey",
-            agent_name="agentName",
-            security_group_arns=["securityGroupArns"],
-            subnet_arns=["subnetArns"],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            vpc_endpoint_id="vpcEndpointId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        activation_key: typing.Optional[builtins.str] = None,
-        agent_name: typing.Optional[builtins.str] = None,
-        security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_endpoint_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param activation_key: Specifies your DataSync agent's activation key. If you don't have an activation key, see `Activating your agent <https://docs.aws.amazon.com/datasync/latest/userguide/activate-agent.html>`_ .
-        :param agent_name: Specifies a name for your agent. We recommend specifying a name that you can remember.
-        :param security_group_arns: The Amazon Resource Names (ARNs) of the security groups used to protect your data transfer task subnets. See `SecurityGroupArns <https://docs.aws.amazon.com/datasync/latest/userguide/API_Ec2Config.html#DataSync-Type-Ec2Config-SecurityGroupArns>`_ . *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
-        :param subnet_arns: Specifies the ARN of the subnet where your VPC service endpoint is located. You can only specify one ARN.
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least one tag for your agent.
-        :param vpc_endpoint_id: The ID of the virtual private cloud (VPC) endpoint that the agent has access to. This is the client-side VPC endpoint, powered by AWS PrivateLink . If you don't have an AWS PrivateLink VPC endpoint, see `AWS PrivateLink and VPC endpoints <https://docs.aws.amazon.com//vpc/latest/userguide/endpoint-services-overview.html>`_ in the *Amazon VPC User Guide* . For more information about activating your agent in a private network based on a VPC, see `Using AWS DataSync in a Virtual Private Cloud <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-in-vpc.html>`_ in the *AWS DataSync User Guide.* A VPC endpoint ID looks like this: ``vpce-01234d5aff67890e1`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d936a9373128610a07487a343ef5f669c26d2f82d825e32d371bce59b97aa93c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAgentProps(
-            activation_key=activation_key,
-            agent_name=agent_name,
-            security_group_arns=security_group_arns,
-            subnet_arns=subnet_arns,
-            tags=tags,
-            vpc_endpoint_id=vpc_endpoint_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81fbad3909c49b87e552d1214005285ecb6b192ba23456279698e48b81961aac)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45ceb39e9063ce041ae5fa861dd0bf69001bf3c69cc12e412d36e67d3f7da074)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="agentRef")
-    def agent_ref(self) -> AgentReference:
-        '''A reference to a Agent resource.'''
-        return typing.cast(AgentReference, jsii.get(self, "agentRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAgentArn")
-    def attr_agent_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the agent.
-
-        Use the ``ListAgents`` operation to return a list of agents for your account and AWS Region .
-
-        :cloudformationAttribute: AgentArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAgentArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEndpointType")
-    def attr_endpoint_type(self) -> builtins.str:
-        '''The type of endpoint that your agent is connected to.
-
-        If the endpoint is a VPC endpoint, the agent is not accessible over the public internet.
-
-        :cloudformationAttribute: EndpointType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEndpointType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="activationKey")
-    def activation_key(self) -> typing.Optional[builtins.str]:
-        '''Specifies your DataSync agent's activation key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "activationKey"))
-
-    @activation_key.setter
-    def activation_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__487cd8023e4b2808d444a1f5c85f66a51d757299d1239cf71233c99176c0522d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "activationKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="agentName")
-    def agent_name(self) -> typing.Optional[builtins.str]:
-        '''Specifies a name for your agent.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "agentName"))
-
-    @agent_name.setter
-    def agent_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4450f3881b2dffdb43cc0604c9cfd8a0efa10d69ac51ad3d1bf11d605de50a3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="securityGroupArns")
-    def security_group_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon Resource Names (ARNs) of the security groups used to protect your data transfer task subnets.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroupArns"))
-
-    @security_group_arns.setter
-    def security_group_arns(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3397ee88e1e2dd7128616ed90dbaaeea7d67a2ae384d286cdcfaa48849d48f9c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "securityGroupArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="subnetArns")
-    def subnet_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the ARN of the subnet where your VPC service endpoint is located.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "subnetArns"))
-
-    @subnet_arns.setter
-    def subnet_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c121bd2b79eb0fd51d5790002f0a61a6ac6a1606ce08b2d3d61b1bb196968ae)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae8ff35f7c199f1e5218a6432dc5893a46003bc8921b159534e548343397b69c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcEndpointId")
-    def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the virtual private cloud (VPC) endpoint that the agent has access to.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcEndpointId"))
-
-    @vpc_endpoint_id.setter
-    def vpc_endpoint_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__382a2bd8de9abd26a4050c65ad2d6baa552585795b8cb589d8cc033b01c16bcd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcEndpointId", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, ILocationAzureBlobRef, _ITaggableV2_4e6798f8)
-class CfnLocationAzureBlob(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob",
-):
-    '''Creates a transfer *location* for a Microsoft Azure Blob Storage container.
-
-    AWS DataSync can use this location as a transfer source or destination. You can make transfers with or without a `DataSync agent <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-creating-agent>`_ that connects to your container.
-
-    Before you begin, make sure you know `how DataSync accesses Azure Blob Storage <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access>`_ and works with `access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ and `blob types <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#blob-types>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html
-    :cloudformationResource: AWS::DataSync::LocationAzureBlob
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_datasync as datasync
-        
-        cfn_location_azure_blob = datasync.CfnLocationAzureBlob(self, "MyCfnLocationAzureBlob",
-            azure_blob_authentication_type="azureBlobAuthenticationType",
-        
-            # the properties below are optional
-            agent_arns=["agentArns"],
-            azure_access_tier="azureAccessTier",
-            azure_blob_container_url="azureBlobContainerUrl",
-            azure_blob_sas_configuration=datasync.CfnLocationAzureBlob.AzureBlobSasConfigurationProperty(
-                azure_blob_sas_token="azureBlobSasToken"
-            ),
-            azure_blob_type="azureBlobType",
-            cmk_secret_config=datasync.CfnLocationAzureBlob.CmkSecretConfigProperty(
-                kms_key_arn="kmsKeyArn",
-                secret_arn="secretArn"
-            ),
-            custom_secret_config=datasync.CfnLocationAzureBlob.CustomSecretConfigProperty(
-                secret_access_role_arn="secretAccessRoleArn",
-                secret_arn="secretArn"
-            ),
-            subdirectory="subdirectory",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        azure_blob_authentication_type: builtins.str,
-        agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        azure_access_tier: typing.Optional[builtins.str] = None,
-        azure_blob_container_url: typing.Optional[builtins.str] = None,
-        azure_blob_sas_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationAzureBlob.AzureBlobSasConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        azure_blob_type: typing.Optional[builtins.str] = None,
-        cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationAzureBlob.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationAzureBlob.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param azure_blob_authentication_type: Specifies the authentication method DataSync uses to access your Azure Blob Storage. DataSync can access blob storage using a shared access signature (SAS). Default: - "SAS"
-        :param agent_arns: (Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ . .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
-        :param azure_access_tier: Specifies the access tier that you want your objects or files transferred into. This only applies when using the location as a transfer destination. For more information, see `Access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ . Default: - "HOT"
-        :param azure_blob_container_url: Specifies the URL of the Azure Blob Storage container involved in your transfer.
-        :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage. .. epigraph:: If you provide an authentication token using ``SasConfiguration`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's secrets manager secret.
-        :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
-        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
-        :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
-        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a49f57a1ab4813b1537b04053be19b99e3fa8f143f30fac9d1bc72caa4ec5f2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLocationAzureBlobProps(
-            azure_blob_authentication_type=azure_blob_authentication_type,
-            agent_arns=agent_arns,
-            azure_access_tier=azure_access_tier,
-            azure_blob_container_url=azure_blob_container_url,
-            azure_blob_sas_configuration=azure_blob_sas_configuration,
-            azure_blob_type=azure_blob_type,
-            cmk_secret_config=cmk_secret_config,
-            custom_secret_config=custom_secret_config,
-            subdirectory=subdirectory,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc59f45abf5059f82345f619c384b01d137f4d49a1506da910056ac15ef819a9)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebde5c22aa68229dea3796deaf496ab61b9ffcfdf6d4f56a59875e6047047203)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCmkSecretConfigSecretArn")
-    def attr_cmk_secret_config_secret_arn(self) -> builtins.str:
-        '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
-
-        This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
-
-        :cloudformationAttribute: CmkSecretConfig.SecretArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCmkSecretConfigSecretArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLocationArn")
-    def attr_location_arn(self) -> builtins.str:
-        '''The ARN of the Azure Blob Storage transfer location that you created.
-
-        :cloudformationAttribute: LocationArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLocationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLocationUri")
-    def attr_location_uri(self) -> builtins.str:
-        '''The URI of the Azure Blob Storage transfer location that you created.
-
-        :cloudformationAttribute: LocationUri
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLocationUri"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrManagedSecretConfig")
-    def attr_managed_secret_config(self) -> _IResolvable_da3f097b:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
-
-        DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
-
-        :cloudformationAttribute: ManagedSecretConfig
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrManagedSecretConfig"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="locationAzureBlobRef")
-    def location_azure_blob_ref(self) -> LocationAzureBlobReference:
-        '''A reference to a LocationAzureBlob resource.'''
-        return typing.cast(LocationAzureBlobReference, jsii.get(self, "locationAzureBlobRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="azureBlobAuthenticationType")
-    def azure_blob_authentication_type(self) -> builtins.str:
-        '''Specifies the authentication method DataSync uses to access your Azure Blob Storage.'''
-        return typing.cast(builtins.str, jsii.get(self, "azureBlobAuthenticationType"))
-
-    @azure_blob_authentication_type.setter
-    def azure_blob_authentication_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d66037c88c30360a6dbdeedf60b7cdd8b0d971ae11fb4944eb61af92fe413080)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "azureBlobAuthenticationType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="agentArns")
-    def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "agentArns"))
-
-    @agent_arns.setter
-    def agent_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04d94ab53395a58893ca5e5668d51e78b5d567de304ebc1b3c8937ab5824c459)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="azureAccessTier")
-    def azure_access_tier(self) -> typing.Optional[builtins.str]:
-        '''Specifies the access tier that you want your objects or files transferred into.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "azureAccessTier"))
-
-    @azure_access_tier.setter
-    def azure_access_tier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38eadceb910bce5de77c7dd9c218a003ad2d8b865f6b732f47b6b7fea8c1f40d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "azureAccessTier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="azureBlobContainerUrl")
-    def azure_blob_container_url(self) -> typing.Optional[builtins.str]:
-        '''Specifies the URL of the Azure Blob Storage container involved in your transfer.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "azureBlobContainerUrl"))
-
-    @azure_blob_container_url.setter
-    def azure_blob_container_url(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__795c3fa003f02e9d97d1fae401c02ed1af3b616ece635550bbc9fd6c2e0dde05)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "azureBlobContainerUrl", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="azureBlobSasConfiguration")
-    def azure_blob_sas_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]]:
-        '''Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]], jsii.get(self, "azureBlobSasConfiguration"))
-
-    @azure_blob_sas_configuration.setter
-    def azure_blob_sas_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.AzureBlobSasConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60754be8cb63c6569b923d0c78a823449ddaa3c5aba51833aae257e02f1bd392)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "azureBlobSasConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="azureBlobType")
-    def azure_blob_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "azureBlobType"))
-
-    @azure_blob_type.setter
-    def azure_blob_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e74328b40eb55d86e422d5f30530d28f29d1393792015d7646eb06c8819408d0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "azureBlobType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="cmkSecretConfig")
-    def cmk_secret_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]]:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
-
-    @cmk_secret_config.setter
-    def cmk_secret_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbe60c9e1409294412076468854254983957a988d2e0d53f2fa73767e4a48525)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cmkSecretConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="customSecretConfig")
-    def custom_secret_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]]:
-        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
-
-    @custom_secret_config.setter
-    def custom_secret_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3276084bb32edc8f06759cb50268fc7821cd740602d985f3b1b967d5267f90dc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customSecretConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="subdirectory")
-    def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "subdirectory"))
-
-    @subdirectory.setter
-    def subdirectory(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__861788b0a9a32f402ab93793acdec22ae6bb15d217371b8ba36d7cb8ba33fc6b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subdirectory", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49f572b838ff9ece4d89d77403924adeec2030197b239758db39cea71436acfb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.AzureBlobSasConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"azure_blob_sas_token": "azureBlobSasToken"},
-    )
-    class AzureBlobSasConfigurationProperty:
-        def __init__(self, *, azure_blob_sas_token: builtins.str) -> None:
-            '''The shared access signature (SAS) configuration that allows AWS DataSync to access your Microsoft Azure Blob Storage.
-
-            For more information, see `SAS tokens <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-sas-tokens>`_ for accessing your Azure Blob Storage.
-
-            :param azure_blob_sas_token: Specifies a SAS token that provides permissions to access your Azure Blob Storage. The token is part of the SAS URI string that comes after the storage resource URI and a question mark. A token looks something like this: ``sp=r&st=2023-12-20T14:54:52Z&se=2023-12-20T22:54:52Z&spr=https&sv=2021-06-08&sr=c&sig=aBBKDWQvyuVcTPH9EBp%2FXTI9E%2F%2Fmq171%2BZU178wcwqU%3D``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureblobsasconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_datasync as datasync
-                
-                azure_blob_sas_configuration_property = datasync.CfnLocationAzureBlob.AzureBlobSasConfigurationProperty(
-                    azure_blob_sas_token="azureBlobSasToken"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3b97bd3f13ec4166f121eb8229b7a3322702a4782d767aca2fc1323e923cced8)
-                check_type(argname="argument azure_blob_sas_token", value=azure_blob_sas_token, expected_type=type_hints["azure_blob_sas_token"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "azure_blob_sas_token": azure_blob_sas_token,
-            }
-
-        @builtins.property
-        def azure_blob_sas_token(self) -> builtins.str:
-            '''Specifies a SAS token that provides permissions to access your Azure Blob Storage.
-
-            The token is part of the SAS URI string that comes after the storage resource URI and a question mark. A token looks something like this:
-
-            ``sp=r&st=2023-12-20T14:54:52Z&se=2023-12-20T22:54:52Z&spr=https&sv=2021-06-08&sr=c&sig=aBBKDWQvyuVcTPH9EBp%2FXTI9E%2F%2Fmq171%2BZU178wcwqU%3D``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureblobsasconfiguration.html#cfn-datasync-locationazureblob-azureblobsasconfiguration-azureblobsastoken
-            '''
-            result = self._values.get("azure_blob_sas_token")
-            assert result is not None, "Required property 'azure_blob_sas_token' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AzureBlobSasConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.CmkSecretConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"kms_key_arn": "kmsKeyArn", "secret_arn": "secretArn"},
-    )
-    class CmkSecretConfigProperty:
-        def __init__(
-            self,
-            *,
-            kms_key_arn: typing.Optional[builtins.str] = None,
-            secret_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
-
-            .. epigraph::
-
-               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
-
-            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` . DataSync provides this key to AWS Secrets Manager .
-            :param secret_arn: Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location. This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_datasync as datasync
-                
-                cmk_secret_config_property = datasync.CfnLocationAzureBlob.CmkSecretConfigProperty(
-                    kms_key_arn="kmsKeyArn",
-                    secret_arn="secretArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d03d5287185c3e65174404788128d96c2205212b3aa189dc5803a4b4b4b8ab36)
-                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if kms_key_arn is not None:
-                self._values["kms_key_arn"] = kms_key_arn
-            if secret_arn is not None:
-                self._values["secret_arn"] = secret_arn
-
-        @builtins.property
-        def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` .
-
-            DataSync provides this key to AWS Secrets Manager .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html#cfn-datasync-locationazureblob-cmksecretconfig-kmskeyarn
-            '''
-            result = self._values.get("kms_key_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def secret_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
-
-            This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html#cfn-datasync-locationazureblob-cmksecretconfig-secretarn
-            '''
-            result = self._values.get("secret_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CmkSecretConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.CustomSecretConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "secret_access_role_arn": "secretAccessRoleArn",
-            "secret_arn": "secretArn",
-        },
-    )
-    class CustomSecretConfigProperty:
-        def __init__(
-            self,
-            *,
-            secret_access_role_arn: builtins.str,
-            secret_arn: builtins.str,
-        ) -> None:
-            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.
-
-            This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
-            .. epigraph::
-
-               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
-
-            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
-            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_datasync as datasync
-                
-                custom_secret_config_property = datasync.CfnLocationAzureBlob.CustomSecretConfigProperty(
-                    secret_access_role_arn="secretAccessRoleArn",
-                    secret_arn="secretArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b2d06a0f90feb2e23667a772b3c70d85bf30ee5c9bef02d35fd7339fdffaf93)
-                check_type(argname="argument secret_access_role_arn", value=secret_access_role_arn, expected_type=type_hints["secret_access_role_arn"])
-                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "secret_access_role_arn": secret_access_role_arn,
-                "secret_arn": secret_arn,
-            }
-
-        @builtins.property
-        def secret_access_role_arn(self) -> builtins.str:
-            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html#cfn-datasync-locationazureblob-customsecretconfig-secretaccessrolearn
-            '''
-            result = self._values.get("secret_access_role_arn")
-            assert result is not None, "Required property 'secret_access_role_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def secret_arn(self) -> builtins.str:
-            '''Specifies the ARN for an AWS Secrets Manager secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html#cfn-datasync-locationazureblob-customsecretconfig-secretarn
-            '''
-            result = self._values.get("secret_arn")
-            assert result is not None, "Required property 'secret_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CustomSecretConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.ManagedSecretConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"secret_arn": "secretArn"},
-    )
-    class ManagedSecretConfigProperty:
-        def __init__(self, *, secret_arn: builtins.str) -> None:
-            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
-
-            DataSync uses the default AWS -managed KMS key to encrypt this secret in AWS Secrets Manager .
-
-            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-managedsecretconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_datasync as datasync
-                
-                managed_secret_config_property = datasync.CfnLocationAzureBlob.ManagedSecretConfigProperty(
-                    secret_arn="secretArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8ed16453ba6567e90e7b3e0e37a7206cf71efddb64e1cca1af96064be80c9609)
-                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "secret_arn": secret_arn,
-            }
-
-        @builtins.property
-        def secret_arn(self) -> builtins.str:
-            '''Specifies the ARN for an AWS Secrets Manager secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-managedsecretconfig.html#cfn-datasync-locationazureblob-managedsecretconfig-secretarn
-            '''
-            result = self._values.get("secret_arn")
-            assert result is not None, "Required property 'secret_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ManagedSecretConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, ILocationEFSRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _ILocationEFSRef_6fba5e2e, _ITaggable_36806126)
 class CfnLocationEFS(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4767,6 +1400,7 @@ class CfnLocationEFS(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -4792,18 +1426,19 @@ class CfnLocationEFS(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        ec2_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationEFS.Ec2ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ec2_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationEFS.Ec2ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         access_point_arn: typing.Optional[builtins.str] = None,
-        efs_filesystem_arn: typing.Optional[builtins.str] = None,
+        efs_filesystem_arn: typing.Optional[typing.Union[builtins.str, "_IFileSystemRef_3dcf8b98"]] = None,
         file_system_access_role_arn: typing.Optional[builtins.str] = None,
         in_transit_encryption: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationEFS``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param ec2_config: Specifies the subnet and security groups DataSync uses to connect to one of your Amazon EFS file system's `mount targets <https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html>`_ .
@@ -4830,8 +1465,20 @@ class CfnLocationEFS(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationEFS")
+    @builtins.classmethod
+    def is_cfn_location_efs(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationEFS.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1dfa10ae4068ee5f25d30e946c1a80eeaa1ba9eb75ed930cc4da556527e834bd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationEFS", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4885,28 +1532,28 @@ class CfnLocationEFS(
 
     @builtins.property
     @jsii.member(jsii_name="locationEfsRef")
-    def location_efs_ref(self) -> LocationEFSReference:
+    def location_efs_ref(self) -> "_LocationEFSReference_72d5c472":
         '''A reference to a LocationEFS resource.'''
-        return typing.cast(LocationEFSReference, jsii.get(self, "locationEfsRef"))
+        return typing.cast("_LocationEFSReference_72d5c472", jsii.get(self, "locationEfsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="ec2Config")
     def ec2_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationEFS.Ec2ConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationEFS.Ec2ConfigProperty"]:
         '''Specifies the subnet and security groups DataSync uses to connect to one of your Amazon EFS file system's `mount targets <https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html>`_ .'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationEFS.Ec2ConfigProperty"], jsii.get(self, "ec2Config"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationEFS.Ec2ConfigProperty"], jsii.get(self, "ec2Config"))
 
     @ec2_config.setter
     def ec2_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnLocationEFS.Ec2ConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnLocationEFS.Ec2ConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d49a9691cc648acec6401c31a8bd66d218ef81be6a8c7372287fd0137a541e69)
@@ -4980,12 +1627,12 @@ class CfnLocationEFS(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies the key-value pair that represents a tag that you want to add to the resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e70a483245df685cb33e660b85ed2768354b191a41a3909b76b309f43c43c73e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5075,7 +1722,187 @@ class CfnLocationEFS(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationFSxLustreRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationEFSProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ec2_config": "ec2Config",
+        "access_point_arn": "accessPointArn",
+        "efs_filesystem_arn": "efsFilesystemArn",
+        "file_system_access_role_arn": "fileSystemAccessRoleArn",
+        "in_transit_encryption": "inTransitEncryption",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationEFSProps:
+    def __init__(
+        self,
+        *,
+        ec2_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationEFS.Ec2ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        access_point_arn: typing.Optional[builtins.str] = None,
+        efs_filesystem_arn: typing.Optional[typing.Union[builtins.str, "_IFileSystemRef_3dcf8b98"]] = None,
+        file_system_access_role_arn: typing.Optional[builtins.str] = None,
+        in_transit_encryption: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationEFS``.
+
+        :param ec2_config: Specifies the subnet and security groups DataSync uses to connect to one of your Amazon EFS file system's `mount targets <https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html>`_ .
+        :param access_point_arn: Specifies the Amazon Resource Name (ARN) of the access point that DataSync uses to mount your Amazon EFS file system. For more information, see `Accessing restricted file systems <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam>`_ .
+        :param efs_filesystem_arn: Specifies the ARN for your Amazon EFS file system.
+        :param file_system_access_role_arn: Specifies an AWS Identity and Access Management (IAM) role that allows DataSync to access your Amazon EFS file system. For information on creating this role, see `Creating a DataSync IAM role for file system access <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam-role>`_ .
+        :param in_transit_encryption: Specifies whether you want DataSync to use Transport Layer Security (TLS) 1.2 encryption when it transfers data to or from your Amazon EFS file system. If you specify an access point using ``AccessPointArn`` or an IAM role using ``FileSystemAccessRoleArn`` , you must set this parameter to ``TLS1_2`` .
+        :param subdirectory: Specifies a mount path for your Amazon EFS file system. This is where DataSync reads or writes data on your file system (depending on if this is a source or destination location). By default, DataSync uses the root directory (or `access point <https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html>`_ if you provide one by using ``AccessPointArn`` ). You can also include subdirectories using forward slashes (for example, ``/path/to/folder`` ).
+        :param tags: Specifies the key-value pair that represents a tag that you want to add to the resource. The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_eFSProps = datasync.CfnLocationEFSProps(
+                ec2_config=datasync.CfnLocationEFS.Ec2ConfigProperty(
+                    security_group_arns=["securityGroupArns"],
+                    subnet_arn="subnetArn"
+                ),
+            
+                # the properties below are optional
+                access_point_arn="accessPointArn",
+                efs_filesystem_arn="efsFilesystemArn",
+                file_system_access_role_arn="fileSystemAccessRoleArn",
+                in_transit_encryption="inTransitEncryption",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd308e189fe63ce2cc80398d76a37684d9c1c36b8dfa1dfed227e06d9f65ca69)
+            check_type(argname="argument ec2_config", value=ec2_config, expected_type=type_hints["ec2_config"])
+            check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+            check_type(argname="argument efs_filesystem_arn", value=efs_filesystem_arn, expected_type=type_hints["efs_filesystem_arn"])
+            check_type(argname="argument file_system_access_role_arn", value=file_system_access_role_arn, expected_type=type_hints["file_system_access_role_arn"])
+            check_type(argname="argument in_transit_encryption", value=in_transit_encryption, expected_type=type_hints["in_transit_encryption"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ec2_config": ec2_config,
+        }
+        if access_point_arn is not None:
+            self._values["access_point_arn"] = access_point_arn
+        if efs_filesystem_arn is not None:
+            self._values["efs_filesystem_arn"] = efs_filesystem_arn
+        if file_system_access_role_arn is not None:
+            self._values["file_system_access_role_arn"] = file_system_access_role_arn
+        if in_transit_encryption is not None:
+            self._values["in_transit_encryption"] = in_transit_encryption
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def ec2_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationEFS.Ec2ConfigProperty"]:
+        '''Specifies the subnet and security groups DataSync uses to connect to one of your Amazon EFS file system's `mount targets <https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-ec2config
+        '''
+        result = self._values.get("ec2_config")
+        assert result is not None, "Required property 'ec2_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationEFS.Ec2ConfigProperty"], result)
+
+    @builtins.property
+    def access_point_arn(self) -> typing.Optional[builtins.str]:
+        '''Specifies the Amazon Resource Name (ARN) of the access point that DataSync uses to mount your Amazon EFS file system.
+
+        For more information, see `Accessing restricted file systems <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-accesspointarn
+        '''
+        result = self._values.get("access_point_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def efs_filesystem_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IFileSystemRef_3dcf8b98"]]:
+        '''Specifies the ARN for your Amazon EFS file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-efsfilesystemarn
+        '''
+        result = self._values.get("efs_filesystem_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IFileSystemRef_3dcf8b98"]], result)
+
+    @builtins.property
+    def file_system_access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''Specifies an AWS Identity and Access Management (IAM) role that allows DataSync to access your Amazon EFS file system.
+
+        For information on creating this role, see `Creating a DataSync IAM role for file system access <https://docs.aws.amazon.com/datasync/latest/userguide/create-efs-location.html#create-efs-location-iam-role>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-filesystemaccessrolearn
+        '''
+        result = self._values.get("file_system_access_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def in_transit_encryption(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether you want DataSync to use Transport Layer Security (TLS) 1.2 encryption when it transfers data to or from your Amazon EFS file system.
+
+        If you specify an access point using ``AccessPointArn`` or an IAM role using ``FileSystemAccessRoleArn`` , you must set this parameter to ``TLS1_2`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-intransitencryption
+        '''
+        result = self._values.get("in_transit_encryption")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies a mount path for your Amazon EFS file system.
+
+        This is where DataSync reads or writes data on your file system (depending on if this is a source or destination location).
+
+        By default, DataSync uses the root directory (or `access point <https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html>`_ if you provide one by using ``AccessPointArn`` ). You can also include subdirectories using forward slashes (for example, ``/path/to/folder`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies the key-value pair that represents a tag that you want to add to the resource.
+
+        The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationefs.html#cfn-datasync-locationefs-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationEFSProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationFSxLustreRef_af5bc776, _ITaggable_36806126)
 class CfnLocationFSxLustre(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5089,6 +1916,7 @@ class CfnLocationFSxLustre(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -5108,15 +1936,16 @@ class CfnLocationFSxLustre(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         security_group_arns: typing.Sequence[builtins.str],
         fsx_filesystem_arn: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationFSxLustre``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param security_group_arns: The ARNs of the security groups that are used to configure the FSx for Lustre file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
@@ -5137,8 +1966,20 @@ class CfnLocationFSxLustre(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationFSxLustre")
+    @builtins.classmethod
+    def is_cfn_location_f_sx_lustre(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationFSxLustre.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d4df2f1d8d95ed1da46a35f73d312feb08f6f3f73a1baf193b9c4e5644db2e3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationFSxLustre", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5192,15 +2033,15 @@ class CfnLocationFSxLustre(
 
     @builtins.property
     @jsii.member(jsii_name="locationFSxLustreRef")
-    def location_f_sx_lustre_ref(self) -> LocationFSxLustreReference:
+    def location_f_sx_lustre_ref(self) -> "_LocationFSxLustreReference_4b4c8fcd":
         '''A reference to a LocationFSxLustre resource.'''
-        return typing.cast(LocationFSxLustreReference, jsii.get(self, "locationFSxLustreRef"))
+        return typing.cast("_LocationFSxLustreReference_4b4c8fcd", jsii.get(self, "locationFSxLustreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupArns")
@@ -5246,19 +2087,140 @@ class CfnLocationFSxLustre(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a21025c45a3ae349b404b0660292a1df2a3f9dfb1668c68c70eaac990ad31495)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationFSxONTAPRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxLustreProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "security_group_arns": "securityGroupArns",
+        "fsx_filesystem_arn": "fsxFilesystemArn",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationFSxLustreProps:
+    def __init__(
+        self,
+        *,
+        security_group_arns: typing.Sequence[builtins.str],
+        fsx_filesystem_arn: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationFSxLustre``.
+
+        :param security_group_arns: The ARNs of the security groups that are used to configure the FSx for Lustre file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
+        :param fsx_filesystem_arn: Specifies the Amazon Resource Name (ARN) of the FSx for Lustre file system.
+        :param subdirectory: Specifies a mount path for your FSx for Lustre file system. The path can include subdirectories. When the location is used as a source, DataSync reads data from the mount path. When the location is used as a destination, DataSync writes data to the mount path. If you don't include this parameter, DataSync uses the file system's root directory ( ``/`` ).
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_fSx_lustre_props = datasync.CfnLocationFSxLustreProps(
+                security_group_arns=["securityGroupArns"],
+            
+                # the properties below are optional
+                fsx_filesystem_arn="fsxFilesystemArn",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb4c1967b655fb7ba3b02e398f8b2dc61e2cb372e8e862f4aea92b2ccf89bd90)
+            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
+            check_type(argname="argument fsx_filesystem_arn", value=fsx_filesystem_arn, expected_type=type_hints["fsx_filesystem_arn"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_group_arns": security_group_arns,
+        }
+        if fsx_filesystem_arn is not None:
+            self._values["fsx_filesystem_arn"] = fsx_filesystem_arn
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def security_group_arns(self) -> typing.List[builtins.str]:
+        '''The ARNs of the security groups that are used to configure the FSx for Lustre file system.
+
+        *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
+
+        *Length constraints* : Maximum length of 128.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-securitygrouparns
+        '''
+        result = self._values.get("security_group_arns")
+        assert result is not None, "Required property 'security_group_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def fsx_filesystem_arn(self) -> typing.Optional[builtins.str]:
+        '''Specifies the Amazon Resource Name (ARN) of the FSx for Lustre file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-fsxfilesystemarn
+        '''
+        result = self._values.get("fsx_filesystem_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies a mount path for your FSx for Lustre file system. The path can include subdirectories.
+
+        When the location is used as a source, DataSync reads data from the mount path. When the location is used as a destination, DataSync writes data to the mount path. If you don't include this parameter, DataSync uses the file system's root directory ( ``/`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
+
+        We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxlustre.html#cfn-datasync-locationfsxlustre-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationFSxLustreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationFSxONTAPRef_f2d23af5, _ITaggable_36806126)
 class CfnLocationFSxONTAP(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5274,6 +2236,7 @@ class CfnLocationFSxONTAP(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -5310,16 +2273,17 @@ class CfnLocationFSxONTAP(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         security_group_arns: typing.Sequence[builtins.str],
         storage_virtual_machine_arn: builtins.str,
-        protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxONTAP.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        protocol: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxONTAP.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationFSxONTAP``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param security_group_arns: Specifies the Amazon Resource Names (ARNs) of the security groups that DataSync can use to access your FSx for ONTAP file system. You must configure the security groups to allow outbound traffic on the following ports (depending on the protocol that you're using): - *Network File System (NFS)* : TCP ports 111, 635, and 2049 - *Server Message Block (SMB)* : TCP port 445 Your file system's security groups must also allow inbound traffic on the same port.
@@ -5342,8 +2306,20 @@ class CfnLocationFSxONTAP(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationFSxONTAP")
+    @builtins.classmethod
+    def is_cfn_location_f_sx_ontap(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationFSxONTAP.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41ff39e4993450c0f280aca01f8b431fc6fc8e52ab9b0e6255415615d93aa2de)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationFSxONTAP", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5406,15 +2382,15 @@ class CfnLocationFSxONTAP(
 
     @builtins.property
     @jsii.member(jsii_name="locationFSxOntapRef")
-    def location_f_sx_ontap_ref(self) -> LocationFSxONTAPReference:
+    def location_f_sx_ontap_ref(self) -> "_LocationFSxONTAPReference_696c1d88":
         '''A reference to a LocationFSxONTAP resource.'''
-        return typing.cast(LocationFSxONTAPReference, jsii.get(self, "locationFSxOntapRef"))
+        return typing.cast("_LocationFSxONTAPReference_696c1d88", jsii.get(self, "locationFSxOntapRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupArns")
@@ -5446,14 +2422,14 @@ class CfnLocationFSxONTAP(
     @jsii.member(jsii_name="protocol")
     def protocol(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.ProtocolProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.ProtocolProperty"]]:
         '''Specifies the data transfer protocol that DataSync uses to access your Amazon FSx file system.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.ProtocolProperty"]], jsii.get(self, "protocol"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.ProtocolProperty"]], jsii.get(self, "protocol"))
 
     @protocol.setter
     def protocol(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.ProtocolProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.ProtocolProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5733cffea1e4acc30fa46f3869492191e577ff7fb19e3b0a0964257388c93711)
@@ -5475,12 +2451,12 @@ class CfnLocationFSxONTAP(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf18f603ac473d61e4ddeeabdd924bdda3ada2926fd940579ba552851ac8e4a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5495,7 +2471,7 @@ class CfnLocationFSxONTAP(
         def __init__(
             self,
             *,
-            mount_options: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxONTAP.NfsMountOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            mount_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxONTAP.NfsMountOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Specifies the Network File System (NFS) protocol configuration that AWS DataSync uses to access a storage virtual machine (SVM) on your Amazon FSx for NetApp ONTAP file system.
 
@@ -5528,14 +2504,14 @@ class CfnLocationFSxONTAP(
         @builtins.property
         def mount_options(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.NfsMountOptionsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.NfsMountOptionsProperty"]:
             '''Specifies how DataSync can access a location using the NFS protocol.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationfsxontap-nfs.html#cfn-datasync-locationfsxontap-nfs-mountoptions
             '''
             result = self._values.get("mount_options")
             assert result is not None, "Required property 'mount_options' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.NfsMountOptionsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.NfsMountOptionsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5621,8 +2597,8 @@ class CfnLocationFSxONTAP(
         def __init__(
             self,
             *,
-            nfs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxONTAP.NFSProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            smb: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxONTAP.SMBProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nfs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxONTAP.NFSProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            smb: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxONTAP.SMBProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the data transfer protocol that AWS DataSync uses to access your Amazon FSx file system.
 
@@ -5669,24 +2645,24 @@ class CfnLocationFSxONTAP(
         @builtins.property
         def nfs(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.NFSProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.NFSProperty"]]:
             '''Specifies the Network File System (NFS) protocol configuration that DataSync uses to access your FSx for ONTAP file system's storage virtual machine (SVM).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationfsxontap-protocol.html#cfn-datasync-locationfsxontap-protocol-nfs
             '''
             result = self._values.get("nfs")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.NFSProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.NFSProperty"]], result)
 
         @builtins.property
         def smb(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.SMBProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.SMBProperty"]]:
             '''Specifies the Server Message Block (SMB) protocol configuration that DataSync uses to access your FSx for ONTAP file system's SVM.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationfsxontap-protocol.html#cfn-datasync-locationfsxontap-protocol-smb
             '''
             result = self._values.get("smb")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.SMBProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.SMBProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5713,7 +2689,7 @@ class CfnLocationFSxONTAP(
         def __init__(
             self,
             *,
-            mount_options: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxONTAP.SmbMountOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            mount_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxONTAP.SmbMountOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
             password: builtins.str,
             user: builtins.str,
             domain: typing.Optional[builtins.str] = None,
@@ -5764,14 +2740,14 @@ class CfnLocationFSxONTAP(
         @builtins.property
         def mount_options(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.SmbMountOptionsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.SmbMountOptionsProperty"]:
             '''Specifies how DataSync can access a location using the SMB protocol.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationfsxontap-smb.html#cfn-datasync-locationfsxontap-smb-mountoptions
             '''
             result = self._values.get("mount_options")
             assert result is not None, "Required property 'mount_options' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationFSxONTAP.SmbMountOptionsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.SmbMountOptionsProperty"], result)
 
         @builtins.property
         def password(self) -> builtins.str:
@@ -5896,7 +2872,168 @@ class CfnLocationFSxONTAP(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationFSxOpenZFSRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxONTAPProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "security_group_arns": "securityGroupArns",
+        "storage_virtual_machine_arn": "storageVirtualMachineArn",
+        "protocol": "protocol",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationFSxONTAPProps:
+    def __init__(
+        self,
+        *,
+        security_group_arns: typing.Sequence[builtins.str],
+        storage_virtual_machine_arn: builtins.str,
+        protocol: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxONTAP.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationFSxONTAP``.
+
+        :param security_group_arns: Specifies the Amazon Resource Names (ARNs) of the security groups that DataSync can use to access your FSx for ONTAP file system. You must configure the security groups to allow outbound traffic on the following ports (depending on the protocol that you're using): - *Network File System (NFS)* : TCP ports 111, 635, and 2049 - *Server Message Block (SMB)* : TCP port 445 Your file system's security groups must also allow inbound traffic on the same port.
+        :param storage_virtual_machine_arn: Specifies the ARN of the storage virtual machine (SVM) in your file system where you want to copy data to or from.
+        :param protocol: Specifies the data transfer protocol that DataSync uses to access your Amazon FSx file system.
+        :param subdirectory: Specifies a path to the file share in the SVM where you want to transfer data to or from. You can specify a junction path (also known as a mount point), qtree path (for NFS file shares), or share name (for SMB file shares). For example, your mount path might be ``/vol1`` , ``/vol1/tree1`` , or ``/share1`` . .. epigraph:: Don't specify a junction path in the SVM's root volume. For more information, see `Managing FSx for ONTAP storage virtual machines <https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-svms.html>`_ in the *Amazon FSx for NetApp ONTAP User Guide* .
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_fSx_oNTAPProps = datasync.CfnLocationFSxONTAPProps(
+                security_group_arns=["securityGroupArns"],
+                storage_virtual_machine_arn="storageVirtualMachineArn",
+            
+                # the properties below are optional
+                protocol=datasync.CfnLocationFSxONTAP.ProtocolProperty(
+                    nfs=datasync.CfnLocationFSxONTAP.NFSProperty(
+                        mount_options=datasync.CfnLocationFSxONTAP.NfsMountOptionsProperty(
+                            version="version"
+                        )
+                    ),
+                    smb=datasync.CfnLocationFSxONTAP.SMBProperty(
+                        mount_options=datasync.CfnLocationFSxONTAP.SmbMountOptionsProperty(
+                            version="version"
+                        ),
+                        password="password",
+                        user="user",
+            
+                        # the properties below are optional
+                        domain="domain"
+                    )
+                ),
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80ce3cf4001e297ef6c59ffcd2e700197ec14104852b7d6b75aac1725cb45d8b)
+            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
+            check_type(argname="argument storage_virtual_machine_arn", value=storage_virtual_machine_arn, expected_type=type_hints["storage_virtual_machine_arn"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_group_arns": security_group_arns,
+            "storage_virtual_machine_arn": storage_virtual_machine_arn,
+        }
+        if protocol is not None:
+            self._values["protocol"] = protocol
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def security_group_arns(self) -> typing.List[builtins.str]:
+        '''Specifies the Amazon Resource Names (ARNs) of the security groups that DataSync can use to access your FSx for ONTAP file system.
+
+        You must configure the security groups to allow outbound traffic on the following ports (depending on the protocol that you're using):
+
+        - *Network File System (NFS)* : TCP ports 111, 635, and 2049
+        - *Server Message Block (SMB)* : TCP port 445
+
+        Your file system's security groups must also allow inbound traffic on the same port.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-securitygrouparns
+        '''
+        result = self._values.get("security_group_arns")
+        assert result is not None, "Required property 'security_group_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def storage_virtual_machine_arn(self) -> builtins.str:
+        '''Specifies the ARN of the storage virtual machine (SVM) in your file system where you want to copy data to or from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-storagevirtualmachinearn
+        '''
+        result = self._values.get("storage_virtual_machine_arn")
+        assert result is not None, "Required property 'storage_virtual_machine_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protocol(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.ProtocolProperty"]]:
+        '''Specifies the data transfer protocol that DataSync uses to access your Amazon FSx file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-protocol
+        '''
+        result = self._values.get("protocol")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxONTAP.ProtocolProperty"]], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies a path to the file share in the SVM where you want to transfer data to or from.
+
+        You can specify a junction path (also known as a mount point), qtree path (for NFS file shares), or share name (for SMB file shares). For example, your mount path might be ``/vol1`` , ``/vol1/tree1`` , or ``/share1`` .
+        .. epigraph::
+
+           Don't specify a junction path in the SVM's root volume. For more information, see `Managing FSx for ONTAP storage virtual machines <https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-svms.html>`_ in the *Amazon FSx for NetApp ONTAP User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
+
+        We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxontap.html#cfn-datasync-locationfsxontap-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationFSxONTAPProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationFSxOpenZFSRef_bf79198a, _ITaggable_36806126)
 class CfnLocationFSxOpenZFS(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5910,6 +3047,7 @@ class CfnLocationFSxOpenZFS(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -5936,16 +3074,17 @@ class CfnLocationFSxOpenZFS(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        protocol: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxOpenZFS.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]],
+        protocol: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxOpenZFS.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]],
         security_group_arns: typing.Sequence[builtins.str],
         fsx_filesystem_arn: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationFSxOpenZFS``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param protocol: The type of protocol that AWS DataSync uses to access your file system.
@@ -5968,8 +3107,20 @@ class CfnLocationFSxOpenZFS(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationFSxOpenZFS")
+    @builtins.classmethod
+    def is_cfn_location_f_sx_open_zfs(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationFSxOpenZFS.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d5aefaefb628cfa36227129eed1b19984f02295690ad7f1901842e75ab1b7dc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationFSxOpenZFS", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6023,28 +3174,28 @@ class CfnLocationFSxOpenZFS(
 
     @builtins.property
     @jsii.member(jsii_name="locationFSxOpenZfsRef")
-    def location_f_sx_open_zfs_ref(self) -> LocationFSxOpenZFSReference:
+    def location_f_sx_open_zfs_ref(self) -> "_LocationFSxOpenZFSReference_ff06c64f":
         '''A reference to a LocationFSxOpenZFS resource.'''
-        return typing.cast(LocationFSxOpenZFSReference, jsii.get(self, "locationFSxOpenZfsRef"))
+        return typing.cast("_LocationFSxOpenZFSReference_ff06c64f", jsii.get(self, "locationFSxOpenZfsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="protocol")
     def protocol(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.ProtocolProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.ProtocolProperty"]:
         '''The type of protocol that AWS DataSync uses to access your file system.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.ProtocolProperty"], jsii.get(self, "protocol"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.ProtocolProperty"], jsii.get(self, "protocol"))
 
     @protocol.setter
     def protocol(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.ProtocolProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.ProtocolProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ddafc49b43359e47266c55b1856065646a5a0a4d1fee7e74184b46d0a9ea1323)
@@ -6092,12 +3243,12 @@ class CfnLocationFSxOpenZFS(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The key-value pair that represents a tag that you want to add to the resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c49d460645d98663ac93a723deb6ca797169b9d9ede4cada79adec615c02492)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -6171,7 +3322,7 @@ class CfnLocationFSxOpenZFS(
         def __init__(
             self,
             *,
-            mount_options: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxOpenZFS.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            mount_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxOpenZFS.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Represents the Network File System (NFS) protocol that AWS DataSync uses to access your Amazon FSx for OpenZFS file system.
 
@@ -6202,14 +3353,14 @@ class CfnLocationFSxOpenZFS(
         @builtins.property
         def mount_options(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.MountOptionsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.MountOptionsProperty"]:
             '''Represents the mount options that are available for DataSync to access an NFS location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationfsxopenzfs-nfs.html#cfn-datasync-locationfsxopenzfs-nfs-mountoptions
             '''
             result = self._values.get("mount_options")
             assert result is not None, "Required property 'mount_options' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.MountOptionsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.MountOptionsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6231,7 +3382,7 @@ class CfnLocationFSxOpenZFS(
         def __init__(
             self,
             *,
-            nfs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationFSxOpenZFS.NFSProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nfs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxOpenZFS.NFSProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the protocol that AWS DataSync uses to access your Amazon FSx for OpenZFS file system.
 
@@ -6264,13 +3415,13 @@ class CfnLocationFSxOpenZFS(
         @builtins.property
         def nfs(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.NFSProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.NFSProperty"]]:
             '''Represents the Network File System (NFS) protocol that DataSync uses to access your FSx for OpenZFS file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationfsxopenzfs-protocol.html#cfn-datasync-locationfsxopenzfs-protocol-nfs
             '''
             result = self._values.get("nfs")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationFSxOpenZFS.NFSProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.NFSProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6284,7 +3435,152 @@ class CfnLocationFSxOpenZFS(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationFSxWindowsRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxOpenZFSProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "protocol": "protocol",
+        "security_group_arns": "securityGroupArns",
+        "fsx_filesystem_arn": "fsxFilesystemArn",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationFSxOpenZFSProps:
+    def __init__(
+        self,
+        *,
+        protocol: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationFSxOpenZFS.ProtocolProperty", typing.Dict[builtins.str, typing.Any]]],
+        security_group_arns: typing.Sequence[builtins.str],
+        fsx_filesystem_arn: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationFSxOpenZFS``.
+
+        :param protocol: The type of protocol that AWS DataSync uses to access your file system.
+        :param security_group_arns: The ARNs of the security groups that are used to configure the FSx for OpenZFS file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
+        :param fsx_filesystem_arn: The Amazon Resource Name (ARN) of the FSx for OpenZFS file system.
+        :param subdirectory: A subdirectory in the location's path that must begin with ``/fsx`` . DataSync uses this subdirectory to read or write data (depending on whether the file system is a source or destination location).
+        :param tags: The key-value pair that represents a tag that you want to add to the resource. The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_fSx_open_zFSProps = datasync.CfnLocationFSxOpenZFSProps(
+                protocol=datasync.CfnLocationFSxOpenZFS.ProtocolProperty(
+                    nfs=datasync.CfnLocationFSxOpenZFS.NFSProperty(
+                        mount_options=datasync.CfnLocationFSxOpenZFS.MountOptionsProperty(
+                            version="version"
+                        )
+                    )
+                ),
+                security_group_arns=["securityGroupArns"],
+            
+                # the properties below are optional
+                fsx_filesystem_arn="fsxFilesystemArn",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16adeb69f25af324c507b1a5b1905509ca406e488b6f1f503c1037668ea1c423)
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
+            check_type(argname="argument fsx_filesystem_arn", value=fsx_filesystem_arn, expected_type=type_hints["fsx_filesystem_arn"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "protocol": protocol,
+            "security_group_arns": security_group_arns,
+        }
+        if fsx_filesystem_arn is not None:
+            self._values["fsx_filesystem_arn"] = fsx_filesystem_arn
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def protocol(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.ProtocolProperty"]:
+        '''The type of protocol that AWS DataSync uses to access your file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-protocol
+        '''
+        result = self._values.get("protocol")
+        assert result is not None, "Required property 'protocol' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationFSxOpenZFS.ProtocolProperty"], result)
+
+    @builtins.property
+    def security_group_arns(self) -> typing.List[builtins.str]:
+        '''The ARNs of the security groups that are used to configure the FSx for OpenZFS file system.
+
+        *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
+
+        *Length constraints* : Maximum length of 128.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-securitygrouparns
+        '''
+        result = self._values.get("security_group_arns")
+        assert result is not None, "Required property 'security_group_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def fsx_filesystem_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the FSx for OpenZFS file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-fsxfilesystemarn
+        '''
+        result = self._values.get("fsx_filesystem_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''A subdirectory in the location's path that must begin with ``/fsx`` .
+
+        DataSync uses this subdirectory to read or write data (depending on whether the file system is a source or destination location).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The key-value pair that represents a tag that you want to add to the resource.
+
+        The value can be an empty string. This value helps you manage, filter, and search for your resources. We recommend that you create a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxopenzfs.html#cfn-datasync-locationfsxopenzfs-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationFSxOpenZFSProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationFSxWindowsRef_21eff906, _ITaggable_36806126)
 class CfnLocationFSxWindows(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6298,6 +3594,7 @@ class CfnLocationFSxWindows(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -6320,7 +3617,7 @@ class CfnLocationFSxWindows(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         security_group_arns: typing.Sequence[builtins.str],
@@ -6329,9 +3626,10 @@ class CfnLocationFSxWindows(
         fsx_filesystem_arn: typing.Optional[builtins.str] = None,
         password: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationFSxWindows``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param security_group_arns: The Amazon Resource Names (ARNs) of the security groups that are used to configure the FSx for Windows File Server file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
@@ -6358,8 +3656,20 @@ class CfnLocationFSxWindows(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationFSxWindows")
+    @builtins.classmethod
+    def is_cfn_location_f_sx_windows(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationFSxWindows.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4ee2352a32f2359e65d75d8342904046f0e14e246694f3b9ba688405b13e8e2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationFSxWindows", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6413,15 +3723,15 @@ class CfnLocationFSxWindows(
 
     @builtins.property
     @jsii.member(jsii_name="locationFSxWindowsRef")
-    def location_f_sx_windows_ref(self) -> LocationFSxWindowsReference:
+    def location_f_sx_windows_ref(self) -> "_LocationFSxWindowsReference_7de311b2":
         '''A reference to a LocationFSxWindows resource.'''
-        return typing.cast(LocationFSxWindowsReference, jsii.get(self, "locationFSxWindowsRef"))
+        return typing.cast("_LocationFSxWindowsReference_7de311b2", jsii.get(self, "locationFSxWindowsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupArns")
@@ -6503,19 +3813,192 @@ class CfnLocationFSxWindows(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__602782cd2d11ed3007adaab1a6e7826b15d7a1236d0d2fa763c3a9b1471eda1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationHDFSRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationFSxWindowsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "security_group_arns": "securityGroupArns",
+        "user": "user",
+        "domain": "domain",
+        "fsx_filesystem_arn": "fsxFilesystemArn",
+        "password": "password",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationFSxWindowsProps:
+    def __init__(
+        self,
+        *,
+        security_group_arns: typing.Sequence[builtins.str],
+        user: builtins.str,
+        domain: typing.Optional[builtins.str] = None,
+        fsx_filesystem_arn: typing.Optional[builtins.str] = None,
+        password: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationFSxWindows``.
+
+        :param security_group_arns: The Amazon Resource Names (ARNs) of the security groups that are used to configure the FSx for Windows File Server file system. *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$`` *Length constraints* : Maximum length of 128.
+        :param user: The user who has the permissions to access files and folders in the FSx for Windows File Server file system. For information about choosing a user name that ensures sufficient permissions to files, folders, and metadata, see `user <https://docs.aws.amazon.com/datasync/latest/userguide/create-fsx-location.html#FSxWuser>`_ .
+        :param domain: Specifies the name of the Windows domain that the FSx for Windows File Server file system belongs to. If you have multiple Active Directory domains in your environment, configuring this parameter makes sure that DataSync connects to the right file system.
+        :param fsx_filesystem_arn: Specifies the Amazon Resource Name (ARN) for the FSx for Windows File Server file system.
+        :param password: Specifies the password of the user with the permissions to mount and access the files, folders, and file metadata in your FSx for Windows File Server file system.
+        :param subdirectory: Specifies a mount path for your file system using forward slashes. This is where DataSync reads or writes data (depending on if this is a source or destination location).
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_fSx_windows_props = datasync.CfnLocationFSxWindowsProps(
+                security_group_arns=["securityGroupArns"],
+                user="user",
+            
+                # the properties below are optional
+                domain="domain",
+                fsx_filesystem_arn="fsxFilesystemArn",
+                password="password",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f5ba282a9548e2767c09028be2186cfa923b38c45c6c77db774a616f6106dfd)
+            check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
+            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument fsx_filesystem_arn", value=fsx_filesystem_arn, expected_type=type_hints["fsx_filesystem_arn"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_group_arns": security_group_arns,
+            "user": user,
+        }
+        if domain is not None:
+            self._values["domain"] = domain
+        if fsx_filesystem_arn is not None:
+            self._values["fsx_filesystem_arn"] = fsx_filesystem_arn
+        if password is not None:
+            self._values["password"] = password
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def security_group_arns(self) -> typing.List[builtins.str]:
+        '''The Amazon Resource Names (ARNs) of the security groups that are used to configure the FSx for Windows File Server file system.
+
+        *Pattern* : ``^arn:(aws|aws-cn|aws-us-gov|aws-iso|aws-iso-b):ec2:[a-z\\-0-9]*:[0-9]{12}:security-group/.*$``
+
+        *Length constraints* : Maximum length of 128.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-securitygrouparns
+        '''
+        result = self._values.get("security_group_arns")
+        assert result is not None, "Required property 'security_group_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def user(self) -> builtins.str:
+        '''The user who has the permissions to access files and folders in the FSx for Windows File Server file system.
+
+        For information about choosing a user name that ensures sufficient permissions to files, folders, and metadata, see `user <https://docs.aws.amazon.com/datasync/latest/userguide/create-fsx-location.html#FSxWuser>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-user
+        '''
+        result = self._values.get("user")
+        assert result is not None, "Required property 'user' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the Windows domain that the FSx for Windows File Server file system belongs to.
+
+        If you have multiple Active Directory domains in your environment, configuring this parameter makes sure that DataSync connects to the right file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def fsx_filesystem_arn(self) -> typing.Optional[builtins.str]:
+        '''Specifies the Amazon Resource Name (ARN) for the FSx for Windows File Server file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-fsxfilesystemarn
+        '''
+        result = self._values.get("fsx_filesystem_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''Specifies the password of the user with the permissions to mount and access the files, folders, and file metadata in your FSx for Windows File Server file system.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies a mount path for your file system using forward slashes.
+
+        This is where DataSync reads or writes data (depending on if this is a source or destination location).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
+
+        We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationfsxwindows.html#cfn-datasync-locationfsxwindows-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationFSxWindowsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationHDFSRef_7984fa07, _ITaggable_36806126)
 class CfnLocationHDFS(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6529,6 +4012,7 @@ class CfnLocationHDFS(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -6563,24 +4047,25 @@ class CfnLocationHDFS(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         agent_arns: typing.Sequence[builtins.str],
         authentication_type: builtins.str,
-        name_nodes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationHDFS.NameNodeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name_nodes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationHDFS.NameNodeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         block_size: typing.Optional[jsii.Number] = None,
         kerberos_keytab: typing.Optional[builtins.str] = None,
         kerberos_krb5_conf: typing.Optional[builtins.str] = None,
         kerberos_principal: typing.Optional[builtins.str] = None,
         kms_key_provider_uri: typing.Optional[builtins.str] = None,
-        qop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationHDFS.QopConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        qop_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationHDFS.QopConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         replication_factor: typing.Optional[jsii.Number] = None,
         simple_user: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationHDFS``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param agent_arns: The Amazon Resource Names (ARNs) of the DataSync agents that can connect to your HDFS cluster.
@@ -6619,8 +4104,20 @@ class CfnLocationHDFS(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationHDFS")
+    @builtins.classmethod
+    def is_cfn_location_hdfs(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationHDFS.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29e16c0861004cbfef6c4b136a81ad80ab33c1fe46dbf3adba1ac231a291754b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationHDFS", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6674,15 +4171,15 @@ class CfnLocationHDFS(
 
     @builtins.property
     @jsii.member(jsii_name="locationHdfsRef")
-    def location_hdfs_ref(self) -> LocationHDFSReference:
+    def location_hdfs_ref(self) -> "_LocationHDFSReference_c3d0d6b5":
         '''A reference to a LocationHDFS resource.'''
-        return typing.cast(LocationHDFSReference, jsii.get(self, "locationHdfsRef"))
+        return typing.cast("_LocationHDFSReference_c3d0d6b5", jsii.get(self, "locationHdfsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="agentArns")
@@ -6714,14 +4211,14 @@ class CfnLocationHDFS(
     @jsii.member(jsii_name="nameNodes")
     def name_nodes(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.NameNodeProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.NameNodeProperty"]]]:
         '''The NameNode that manages the HDFS namespace.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.NameNodeProperty"]]], jsii.get(self, "nameNodes"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.NameNodeProperty"]]], jsii.get(self, "nameNodes"))
 
     @name_nodes.setter
     def name_nodes(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.NameNodeProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.NameNodeProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a76145fef05ad13cf6d623dec2e81ad7c19c154ecd30d8aae3a73e81c6576491)
@@ -6797,14 +4294,14 @@ class CfnLocationHDFS(
     @jsii.member(jsii_name="qopConfiguration")
     def qop_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.QopConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.QopConfigurationProperty"]]:
         '''The Quality of Protection (QOP) configuration specifies the Remote Procedure Call (RPC) and data transfer protection settings configured on the Hadoop Distributed File System (HDFS) cluster.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.QopConfigurationProperty"]], jsii.get(self, "qopConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.QopConfigurationProperty"]], jsii.get(self, "qopConfiguration"))
 
     @qop_configuration.setter
     def qop_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationHDFS.QopConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.QopConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4eada24423cf34a46defb2fb08ff49d30f58ea6d6486c0e6ccf15fc65da913ff)
@@ -6852,12 +4349,12 @@ class CfnLocationHDFS(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The key-value pair that represents the tag that you want to add to the location.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2aae452f9b71c01ce6062b4ea9224245a9cc1780c588d392319b30c53a0bc99d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -7015,7 +4512,298 @@ class CfnLocationHDFS(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationNFSRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationHDFSProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_arns": "agentArns",
+        "authentication_type": "authenticationType",
+        "name_nodes": "nameNodes",
+        "block_size": "blockSize",
+        "kerberos_keytab": "kerberosKeytab",
+        "kerberos_krb5_conf": "kerberosKrb5Conf",
+        "kerberos_principal": "kerberosPrincipal",
+        "kms_key_provider_uri": "kmsKeyProviderUri",
+        "qop_configuration": "qopConfiguration",
+        "replication_factor": "replicationFactor",
+        "simple_user": "simpleUser",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationHDFSProps:
+    def __init__(
+        self,
+        *,
+        agent_arns: typing.Sequence[builtins.str],
+        authentication_type: builtins.str,
+        name_nodes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationHDFS.NameNodeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        block_size: typing.Optional[jsii.Number] = None,
+        kerberos_keytab: typing.Optional[builtins.str] = None,
+        kerberos_krb5_conf: typing.Optional[builtins.str] = None,
+        kerberos_principal: typing.Optional[builtins.str] = None,
+        kms_key_provider_uri: typing.Optional[builtins.str] = None,
+        qop_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationHDFS.QopConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_factor: typing.Optional[jsii.Number] = None,
+        simple_user: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationHDFS``.
+
+        :param agent_arns: The Amazon Resource Names (ARNs) of the DataSync agents that can connect to your HDFS cluster.
+        :param authentication_type: The authentication mode used to determine identity of user.
+        :param name_nodes: The NameNode that manages the HDFS namespace. The NameNode performs operations such as opening, closing, and renaming files and directories. The NameNode contains the information to map blocks of data to the DataNodes. You can use only one NameNode.
+        :param block_size: The size of data blocks to write into the HDFS cluster. The block size must be a multiple of 512 bytes. The default block size is 128 mebibytes (MiB).
+        :param kerberos_keytab: The Kerberos key table (keytab) that contains mappings between the defined Kerberos principal and the encrypted keys. Provide the base64-encoded file text. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
+        :param kerberos_krb5_conf: The ``krb5.conf`` file that contains the Kerberos configuration information. You can load the ``krb5.conf`` by providing a string of the file's contents or an Amazon S3 presigned URL of the file. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
+        :param kerberos_principal: The Kerberos principal with access to the files and folders on the HDFS cluster. .. epigraph:: If ``KERBEROS`` is specified for ``AuthenticationType`` , this parameter is required.
+        :param kms_key_provider_uri: The URI of the HDFS cluster's Key Management Server (KMS).
+        :param qop_configuration: The Quality of Protection (QOP) configuration specifies the Remote Procedure Call (RPC) and data transfer protection settings configured on the Hadoop Distributed File System (HDFS) cluster. If ``QopConfiguration`` isn't specified, ``RpcProtection`` and ``DataTransferProtection`` default to ``PRIVACY`` . If you set ``RpcProtection`` or ``DataTransferProtection`` , the other parameter assumes the same value.
+        :param replication_factor: The number of DataNodes to replicate the data to when writing to the HDFS cluster. By default, data is replicated to three DataNodes. Default: - 3
+        :param simple_user: The user name used to identify the client on the host operating system. .. epigraph:: If ``SIMPLE`` is specified for ``AuthenticationType`` , this parameter is required.
+        :param subdirectory: A subdirectory in the HDFS cluster. This subdirectory is used to read data from or write data to the HDFS cluster. If the subdirectory isn't specified, it will default to ``/`` .
+        :param tags: The key-value pair that represents the tag that you want to add to the location. The value can be an empty string. We recommend using tags to name your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_hDFSProps = datasync.CfnLocationHDFSProps(
+                agent_arns=["agentArns"],
+                authentication_type="authenticationType",
+                name_nodes=[datasync.CfnLocationHDFS.NameNodeProperty(
+                    hostname="hostname",
+                    port=123
+                )],
+            
+                # the properties below are optional
+                block_size=123,
+                kerberos_keytab="kerberosKeytab",
+                kerberos_krb5_conf="kerberosKrb5Conf",
+                kerberos_principal="kerberosPrincipal",
+                kms_key_provider_uri="kmsKeyProviderUri",
+                qop_configuration=datasync.CfnLocationHDFS.QopConfigurationProperty(
+                    data_transfer_protection="dataTransferProtection",
+                    rpc_protection="rpcProtection"
+                ),
+                replication_factor=123,
+                simple_user="simpleUser",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acd7db2bc2dffe624daa5332f50443b11a0c0e3a43b2ecd71e380ba6c4e4385c)
+            check_type(argname="argument agent_arns", value=agent_arns, expected_type=type_hints["agent_arns"])
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument name_nodes", value=name_nodes, expected_type=type_hints["name_nodes"])
+            check_type(argname="argument block_size", value=block_size, expected_type=type_hints["block_size"])
+            check_type(argname="argument kerberos_keytab", value=kerberos_keytab, expected_type=type_hints["kerberos_keytab"])
+            check_type(argname="argument kerberos_krb5_conf", value=kerberos_krb5_conf, expected_type=type_hints["kerberos_krb5_conf"])
+            check_type(argname="argument kerberos_principal", value=kerberos_principal, expected_type=type_hints["kerberos_principal"])
+            check_type(argname="argument kms_key_provider_uri", value=kms_key_provider_uri, expected_type=type_hints["kms_key_provider_uri"])
+            check_type(argname="argument qop_configuration", value=qop_configuration, expected_type=type_hints["qop_configuration"])
+            check_type(argname="argument replication_factor", value=replication_factor, expected_type=type_hints["replication_factor"])
+            check_type(argname="argument simple_user", value=simple_user, expected_type=type_hints["simple_user"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_arns": agent_arns,
+            "authentication_type": authentication_type,
+            "name_nodes": name_nodes,
+        }
+        if block_size is not None:
+            self._values["block_size"] = block_size
+        if kerberos_keytab is not None:
+            self._values["kerberos_keytab"] = kerberos_keytab
+        if kerberos_krb5_conf is not None:
+            self._values["kerberos_krb5_conf"] = kerberos_krb5_conf
+        if kerberos_principal is not None:
+            self._values["kerberos_principal"] = kerberos_principal
+        if kms_key_provider_uri is not None:
+            self._values["kms_key_provider_uri"] = kms_key_provider_uri
+        if qop_configuration is not None:
+            self._values["qop_configuration"] = qop_configuration
+        if replication_factor is not None:
+            self._values["replication_factor"] = replication_factor
+        if simple_user is not None:
+            self._values["simple_user"] = simple_user
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def agent_arns(self) -> typing.List[builtins.str]:
+        '''The Amazon Resource Names (ARNs) of the DataSync agents that can connect to your HDFS cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-agentarns
+        '''
+        result = self._values.get("agent_arns")
+        assert result is not None, "Required property 'agent_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def authentication_type(self) -> builtins.str:
+        '''The authentication mode used to determine identity of user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-authenticationtype
+        '''
+        result = self._values.get("authentication_type")
+        assert result is not None, "Required property 'authentication_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name_nodes(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.NameNodeProperty"]]]:
+        '''The NameNode that manages the HDFS namespace.
+
+        The NameNode performs operations such as opening, closing, and renaming files and directories. The NameNode contains the information to map blocks of data to the DataNodes. You can use only one NameNode.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-namenodes
+        '''
+        result = self._values.get("name_nodes")
+        assert result is not None, "Required property 'name_nodes' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.NameNodeProperty"]]], result)
+
+    @builtins.property
+    def block_size(self) -> typing.Optional[jsii.Number]:
+        '''The size of data blocks to write into the HDFS cluster.
+
+        The block size must be a multiple of 512 bytes. The default block size is 128 mebibytes (MiB).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-blocksize
+        '''
+        result = self._values.get("block_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def kerberos_keytab(self) -> typing.Optional[builtins.str]:
+        '''The Kerberos key table (keytab) that contains mappings between the defined Kerberos principal and the encrypted keys.
+
+        Provide the base64-encoded file text. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kerberoskeytab
+        '''
+        result = self._values.get("kerberos_keytab")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kerberos_krb5_conf(self) -> typing.Optional[builtins.str]:
+        '''The ``krb5.conf`` file that contains the Kerberos configuration information. You can load the ``krb5.conf`` by providing a string of the file's contents or an Amazon S3 presigned URL of the file. If ``KERBEROS`` is specified for ``AuthType`` , this value is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kerberoskrb5conf
+        '''
+        result = self._values.get("kerberos_krb5_conf")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kerberos_principal(self) -> typing.Optional[builtins.str]:
+        '''The Kerberos principal with access to the files and folders on the HDFS cluster.
+
+        .. epigraph::
+
+           If ``KERBEROS`` is specified for ``AuthenticationType`` , this parameter is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kerberosprincipal
+        '''
+        result = self._values.get("kerberos_principal")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_provider_uri(self) -> typing.Optional[builtins.str]:
+        '''The URI of the HDFS cluster's Key Management Server (KMS).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-kmskeyprovideruri
+        '''
+        result = self._values.get("kms_key_provider_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def qop_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.QopConfigurationProperty"]]:
+        '''The Quality of Protection (QOP) configuration specifies the Remote Procedure Call (RPC) and data transfer protection settings configured on the Hadoop Distributed File System (HDFS) cluster.
+
+        If ``QopConfiguration`` isn't specified, ``RpcProtection`` and ``DataTransferProtection`` default to ``PRIVACY`` . If you set ``RpcProtection`` or ``DataTransferProtection`` , the other parameter assumes the same value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-qopconfiguration
+        '''
+        result = self._values.get("qop_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationHDFS.QopConfigurationProperty"]], result)
+
+    @builtins.property
+    def replication_factor(self) -> typing.Optional[jsii.Number]:
+        '''The number of DataNodes to replicate the data to when writing to the HDFS cluster.
+
+        By default, data is replicated to three DataNodes.
+
+        :default: - 3
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-replicationfactor
+        '''
+        result = self._values.get("replication_factor")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def simple_user(self) -> typing.Optional[builtins.str]:
+        '''The user name used to identify the client on the host operating system.
+
+        .. epigraph::
+
+           If ``SIMPLE`` is specified for ``AuthenticationType`` , this parameter is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-simpleuser
+        '''
+        result = self._values.get("simple_user")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''A subdirectory in the HDFS cluster.
+
+        This subdirectory is used to read data from or write data to the HDFS cluster. If the subdirectory isn't specified, it will default to ``/`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The key-value pair that represents the tag that you want to add to the location.
+
+        The value can be an empty string. We recommend using tags to name your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationhdfs.html#cfn-datasync-locationhdfs-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationHDFSProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationNFSRef_01d78c69, _ITaggable_36806126)
 class CfnLocationNFS(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7029,6 +4817,7 @@ class CfnLocationNFS(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -7053,16 +4842,17 @@ class CfnLocationNFS(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        on_prem_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationNFS.OnPremConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationNFS.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_prem_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationNFS.OnPremConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        mount_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationNFS.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         server_hostname: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationNFS``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param on_prem_config: Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect to your NFS file server. You can specify more than one agent. For more information, see `Using multiple DataSync agents <https://docs.aws.amazon.com/datasync/latest/userguide/do-i-need-datasync-agent.html#multiple-agents>`_ .
@@ -7085,8 +4875,20 @@ class CfnLocationNFS(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationNFS")
+    @builtins.classmethod
+    def is_cfn_location_nfs(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationNFS.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e89ca23114326d9c8143163d54cbd7fe74ff2eaf322b14713a05f15cf53e8183)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationNFS", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7140,28 +4942,28 @@ class CfnLocationNFS(
 
     @builtins.property
     @jsii.member(jsii_name="locationNfsRef")
-    def location_nfs_ref(self) -> LocationNFSReference:
+    def location_nfs_ref(self) -> "_LocationNFSReference_163b2bab":
         '''A reference to a LocationNFS resource.'''
-        return typing.cast(LocationNFSReference, jsii.get(self, "locationNfsRef"))
+        return typing.cast("_LocationNFSReference_163b2bab", jsii.get(self, "locationNfsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="onPremConfig")
     def on_prem_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.OnPremConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.OnPremConfigProperty"]:
         '''Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect to your NFS file server.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.OnPremConfigProperty"], jsii.get(self, "onPremConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.OnPremConfigProperty"], jsii.get(self, "onPremConfig"))
 
     @on_prem_config.setter
     def on_prem_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.OnPremConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.OnPremConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef5244b8ff59527535d3ba0996f08c461f6affc766845b00ae3805171907b04c)
@@ -7172,14 +4974,14 @@ class CfnLocationNFS(
     @jsii.member(jsii_name="mountOptions")
     def mount_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.MountOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.MountOptionsProperty"]]:
         '''Specifies the options that DataSync can use to mount your NFS file server.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.MountOptionsProperty"]], jsii.get(self, "mountOptions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.MountOptionsProperty"]], jsii.get(self, "mountOptions"))
 
     @mount_options.setter
     def mount_options(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationNFS.MountOptionsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.MountOptionsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f53e27778ea596fd0d4e8ad60113269d0f0aac45137d89e2a99be7a5c30e4fb6)
@@ -7214,12 +5016,12 @@ class CfnLocationNFS(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6775dcca43d86f1ff2a8795efb1205f09fdcee773716c549b06acac462432bcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -7344,7 +5146,150 @@ class CfnLocationNFS(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationObjectStorageRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationNFSProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "on_prem_config": "onPremConfig",
+        "mount_options": "mountOptions",
+        "server_hostname": "serverHostname",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationNFSProps:
+    def __init__(
+        self,
+        *,
+        on_prem_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationNFS.OnPremConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        mount_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationNFS.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        server_hostname: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationNFS``.
+
+        :param on_prem_config: Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect to your NFS file server. You can specify more than one agent. For more information, see `Using multiple DataSync agents <https://docs.aws.amazon.com/datasync/latest/userguide/do-i-need-datasync-agent.html#multiple-agents>`_ .
+        :param mount_options: Specifies the options that DataSync can use to mount your NFS file server.
+        :param server_hostname: Specifies the DNS name or IP address (IPv4 or IPv6) of the NFS file server that your DataSync agent connects to.
+        :param subdirectory: Specifies the export path in your NFS file server that you want DataSync to mount. This path (or a subdirectory of the path) is where DataSync transfers data to or from. For information on configuring an export for DataSync, see `Accessing NFS file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-nfs-location.html#accessing-nfs>`_ .
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_nFSProps = datasync.CfnLocationNFSProps(
+                on_prem_config=datasync.CfnLocationNFS.OnPremConfigProperty(
+                    agent_arns=["agentArns"]
+                ),
+            
+                # the properties below are optional
+                mount_options=datasync.CfnLocationNFS.MountOptionsProperty(
+                    version="version"
+                ),
+                server_hostname="serverHostname",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f51fa3c0c693bb5826cc200004a0b1f04c19f70726432f02d5a4443185b49b1)
+            check_type(argname="argument on_prem_config", value=on_prem_config, expected_type=type_hints["on_prem_config"])
+            check_type(argname="argument mount_options", value=mount_options, expected_type=type_hints["mount_options"])
+            check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "on_prem_config": on_prem_config,
+        }
+        if mount_options is not None:
+            self._values["mount_options"] = mount_options
+        if server_hostname is not None:
+            self._values["server_hostname"] = server_hostname
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def on_prem_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.OnPremConfigProperty"]:
+        '''Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect to your NFS file server.
+
+        You can specify more than one agent. For more information, see `Using multiple DataSync agents <https://docs.aws.amazon.com/datasync/latest/userguide/do-i-need-datasync-agent.html#multiple-agents>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-onpremconfig
+        '''
+        result = self._values.get("on_prem_config")
+        assert result is not None, "Required property 'on_prem_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.OnPremConfigProperty"], result)
+
+    @builtins.property
+    def mount_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.MountOptionsProperty"]]:
+        '''Specifies the options that DataSync can use to mount your NFS file server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-mountoptions
+        '''
+        result = self._values.get("mount_options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationNFS.MountOptionsProperty"]], result)
+
+    @builtins.property
+    def server_hostname(self) -> typing.Optional[builtins.str]:
+        '''Specifies the DNS name or IP address (IPv4 or IPv6) of the NFS file server that your DataSync agent connects to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-serverhostname
+        '''
+        result = self._values.get("server_hostname")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies the export path in your NFS file server that you want DataSync to mount.
+
+        This path (or a subdirectory of the path) is where DataSync transfers data to or from. For information on configuring an export for DataSync, see `Accessing NFS file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-nfs-location.html#accessing-nfs>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
+
+        We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationnfs.html#cfn-datasync-locationnfs-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationNFSProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationObjectStorageRef_76d6ff54, _ITaggable_36806126)
 class CfnLocationObjectStorage(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7360,6 +5305,7 @@ class CfnLocationObjectStorage(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -7391,30 +5337,31 @@ class CfnLocationObjectStorage(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         access_key: typing.Optional[builtins.str] = None,
         agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
-        cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationObjectStorage.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationObjectStorage.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cmk_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationObjectStorage.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationObjectStorage.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         secret_key: typing.Optional[builtins.str] = None,
         server_certificate: typing.Optional[builtins.str] = None,
         server_hostname: typing.Optional[builtins.str] = None,
         server_port: typing.Optional[jsii.Number] = None,
         server_protocol: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationObjectStorage``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param access_key: Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
         :param agent_arns: (Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
         :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this paramater as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure the DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
-        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this parameter as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure that DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text, in Secrets Manager. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
         :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
         :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
         :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
@@ -7444,8 +5391,20 @@ class CfnLocationObjectStorage(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationObjectStorage")
+    @builtins.classmethod
+    def is_cfn_location_object_storage(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationObjectStorage.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90a1b2b7c018826e6b4813879c618f71dbe97d29602b6baaec6ee7bc9c1161f6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationObjectStorage", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7505,14 +5464,14 @@ class CfnLocationObjectStorage(
 
     @builtins.property
     @jsii.member(jsii_name="attrManagedSecretConfig")
-    def attr_managed_secret_config(self) -> _IResolvable_da3f097b:
+    def attr_managed_secret_config(self) -> "_IResolvable_da3f097b":
         '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
 
         DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
 
         :cloudformationAttribute: ManagedSecretConfig
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrManagedSecretConfig"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrManagedSecretConfig"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7521,15 +5480,15 @@ class CfnLocationObjectStorage(
 
     @builtins.property
     @jsii.member(jsii_name="locationObjectStorageRef")
-    def location_object_storage_ref(self) -> LocationObjectStorageReference:
+    def location_object_storage_ref(self) -> "_LocationObjectStorageReference_5b3d36b8":
         '''A reference to a LocationObjectStorage resource.'''
-        return typing.cast(LocationObjectStorageReference, jsii.get(self, "locationObjectStorageRef"))
+        return typing.cast("_LocationObjectStorageReference_5b3d36b8", jsii.get(self, "locationObjectStorageRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="accessKey")
@@ -7574,14 +5533,14 @@ class CfnLocationObjectStorage(
     @jsii.member(jsii_name="cmkSecretConfig")
     def cmk_secret_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CmkSecretConfigProperty"]]:
         '''Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
 
     @cmk_secret_config.setter
     def cmk_secret_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CmkSecretConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__750d7a103b8b00f0ab06ca1128b92bb839b2b91e71e5a388ec467dacd0fb58b6)
@@ -7592,14 +5551,14 @@ class CfnLocationObjectStorage(
     @jsii.member(jsii_name="customSecretConfig")
     def custom_secret_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]]:
-        '''Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CustomSecretConfigProperty"]]:
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text, in Secrets Manager.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
 
     @custom_secret_config.setter
     def custom_secret_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CustomSecretConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8e807a4053a1cf75e73e9841ea082806de0e3097bc4b377492cf4268c03a8c5)
@@ -7686,12 +5645,12 @@ class CfnLocationObjectStorage(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies the key-value pair that represents a tag that you want to add to the resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c7a3d48757bffde04fd1015e50d6672207d2522eec04091eebdb3ac177fb39a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -7709,7 +5668,7 @@ class CfnLocationObjectStorage(
             kms_key_arn: typing.Optional[builtins.str] = None,
             secret_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
 
             .. epigraph::
 
@@ -7790,7 +5749,7 @@ class CfnLocationObjectStorage(
             secret_access_role_arn: builtins.str,
             secret_arn: builtins.str,
         ) -> None:
-            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.
+            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).
 
             This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
             .. epigraph::
@@ -7909,7 +5868,296 @@ class CfnLocationObjectStorage(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationS3Ref, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_key": "accessKey",
+        "agent_arns": "agentArns",
+        "bucket_name": "bucketName",
+        "cmk_secret_config": "cmkSecretConfig",
+        "custom_secret_config": "customSecretConfig",
+        "secret_key": "secretKey",
+        "server_certificate": "serverCertificate",
+        "server_hostname": "serverHostname",
+        "server_port": "serverPort",
+        "server_protocol": "serverProtocol",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationObjectStorageProps:
+    def __init__(
+        self,
+        *,
+        access_key: typing.Optional[builtins.str] = None,
+        agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        bucket_name: typing.Optional[builtins.str] = None,
+        cmk_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationObjectStorage.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationObjectStorage.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        secret_key: typing.Optional[builtins.str] = None,
+        server_certificate: typing.Optional[builtins.str] = None,
+        server_hostname: typing.Optional[builtins.str] = None,
+        server_port: typing.Optional[jsii.Number] = None,
+        server_protocol: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationObjectStorage``.
+
+        :param access_key: Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
+        :param agent_arns: (Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
+        :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this parameter as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure that DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text, in Secrets Manager. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
+        :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
+        :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
+        :param server_port: Specifies the port that your object storage server accepts inbound network traffic on (for example, port 443).
+        :param server_protocol: Specifies the protocol that your object storage server uses to communicate. If not specified, the default value is ``HTTPS`` .
+        :param subdirectory: Specifies the object prefix for your object storage server. If this is a source location, DataSync only copies objects with this prefix. If this is a destination location, DataSync writes all objects with this prefix.
+        :param tags: Specifies the key-value pair that represents a tag that you want to add to the resource. Tags can help you manage, filter, and search for your resources. We recommend creating a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_object_storage_props = datasync.CfnLocationObjectStorageProps(
+                access_key="accessKey",
+                agent_arns=["agentArns"],
+                bucket_name="bucketName",
+                cmk_secret_config=datasync.CfnLocationObjectStorage.CmkSecretConfigProperty(
+                    kms_key_arn="kmsKeyArn",
+                    secret_arn="secretArn"
+                ),
+                custom_secret_config=datasync.CfnLocationObjectStorage.CustomSecretConfigProperty(
+                    secret_access_role_arn="secretAccessRoleArn",
+                    secret_arn="secretArn"
+                ),
+                secret_key="secretKey",
+                server_certificate="serverCertificate",
+                server_hostname="serverHostname",
+                server_port=123,
+                server_protocol="serverProtocol",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d542a26da4e93d9d103e234c98ed367d8b6bea7d295017a32de5525e1ec22b45)
+            check_type(argname="argument access_key", value=access_key, expected_type=type_hints["access_key"])
+            check_type(argname="argument agent_arns", value=agent_arns, expected_type=type_hints["agent_arns"])
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument cmk_secret_config", value=cmk_secret_config, expected_type=type_hints["cmk_secret_config"])
+            check_type(argname="argument custom_secret_config", value=custom_secret_config, expected_type=type_hints["custom_secret_config"])
+            check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
+            check_type(argname="argument server_certificate", value=server_certificate, expected_type=type_hints["server_certificate"])
+            check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
+            check_type(argname="argument server_port", value=server_port, expected_type=type_hints["server_port"])
+            check_type(argname="argument server_protocol", value=server_protocol, expected_type=type_hints["server_protocol"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_key is not None:
+            self._values["access_key"] = access_key
+        if agent_arns is not None:
+            self._values["agent_arns"] = agent_arns
+        if bucket_name is not None:
+            self._values["bucket_name"] = bucket_name
+        if cmk_secret_config is not None:
+            self._values["cmk_secret_config"] = cmk_secret_config
+        if custom_secret_config is not None:
+            self._values["custom_secret_config"] = custom_secret_config
+        if secret_key is not None:
+            self._values["secret_key"] = secret_key
+        if server_certificate is not None:
+            self._values["server_certificate"] = server_certificate
+        if server_hostname is not None:
+            self._values["server_hostname"] = server_hostname
+        if server_port is not None:
+            self._values["server_port"] = server_port
+        if server_protocol is not None:
+            self._values["server_protocol"] = server_protocol
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def access_key(self) -> typing.Optional[builtins.str]:
+        '''Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-accesskey
+        '''
+        result = self._values.get("access_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.
+
+        If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter.
+        .. epigraph::
+
+           Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-agentarns
+        '''
+        result = self._values.get("agent_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def bucket_name(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the object storage bucket involved in the transfer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-bucketname
+        '''
+        result = self._values.get("bucket_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cmk_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CmkSecretConfigProperty"]]:
+        '''Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key .
+
+        When you include this parameter as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials.
+
+        Make sure that DataSync has permission to access the KMS key that you specify.
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-cmksecretconfig
+        '''
+        result = self._values.get("cmk_secret_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CmkSecretConfigProperty"]], result)
+
+    @builtins.property
+    def custom_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CustomSecretConfigProperty"]]:
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text, in Secrets Manager.
+
+        This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-customsecretconfig
+        '''
+        result = self._values.get("custom_secret_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationObjectStorage.CustomSecretConfigProperty"]], result)
+
+    @builtins.property
+    def secret_key(self) -> typing.Optional[builtins.str]:
+        '''Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server.
+
+        .. epigraph::
+
+           If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-secretkey
+        '''
+        result = self._values.get("secret_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_certificate(self) -> typing.Optional[builtins.str]:
+        '''Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA).
+
+        You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ).
+
+        The certificate chain might include:
+
+        - The object storage system's certificate
+        - All intermediate certificates (if there are any)
+        - The root certificate of the signing CA
+
+        You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates:
+
+        ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem``
+
+        To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-servercertificate
+        '''
+        result = self._values.get("server_certificate")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_hostname(self) -> typing.Optional[builtins.str]:
+        '''Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverhostname
+        '''
+        result = self._values.get("server_hostname")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_port(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the port that your object storage server accepts inbound network traffic on (for example, port 443).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverport
+        '''
+        result = self._values.get("server_port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def server_protocol(self) -> typing.Optional[builtins.str]:
+        '''Specifies the protocol that your object storage server uses to communicate.
+
+        If not specified, the default value is ``HTTPS`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverprotocol
+        '''
+        result = self._values.get("server_protocol")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies the object prefix for your object storage server.
+
+        If this is a source location, DataSync only copies objects with this prefix. If this is a destination location, DataSync writes all objects with this prefix.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies the key-value pair that represents a tag that you want to add to the resource.
+
+        Tags can help you manage, filter, and search for your resources. We recommend creating a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationObjectStorageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationS3Ref_5240f1a4, _ITaggable_36806126)
 class CfnLocationS3(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7925,6 +6173,7 @@ class CfnLocationS3(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -7947,16 +6196,17 @@ class CfnLocationS3(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        s3_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationS3.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        s3_bucket_arn: typing.Optional[builtins.str] = None,
+        s3_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationS3.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        s3_bucket_arn: typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]] = None,
         s3_storage_class: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationS3``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param s3_config: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that is used to access an Amazon S3 bucket. For detailed information about using such a role, see `Creating a Location for Amazon S3 <https://docs.aws.amazon.com/datasync/latest/userguide/working-with-locations.html#create-s3-location>`_ in the *AWS DataSync User Guide* .
@@ -7979,8 +6229,20 @@ class CfnLocationS3(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationS3")
+    @builtins.classmethod
+    def is_cfn_location_s3(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationS3.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6066c65ce68d8ef927eca15aa4d0913672d33316882166eb243351d2e1b26fe1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationS3", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8034,28 +6296,28 @@ class CfnLocationS3(
 
     @builtins.property
     @jsii.member(jsii_name="locationS3Ref")
-    def location_s3_ref(self) -> LocationS3Reference:
+    def location_s3_ref(self) -> "_LocationS3Reference_113b17ee":
         '''A reference to a LocationS3 resource.'''
-        return typing.cast(LocationS3Reference, jsii.get(self, "locationS3Ref"))
+        return typing.cast("_LocationS3Reference_113b17ee", jsii.get(self, "locationS3Ref"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="s3Config")
     def s3_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnLocationS3.S3ConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationS3.S3ConfigProperty"]:
         '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that is used to access an Amazon S3 bucket.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLocationS3.S3ConfigProperty"], jsii.get(self, "s3Config"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationS3.S3ConfigProperty"], jsii.get(self, "s3Config"))
 
     @s3_config.setter
     def s3_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnLocationS3.S3ConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnLocationS3.S3ConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97a8e39b836dbbdb49d0bd113962d59b27158d2ab86e97500f5dda21fc6f2d70)
@@ -8103,12 +6365,12 @@ class CfnLocationS3(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d6b2dd8b444ebab79ed4aae8987dfed0864cb4e3663bdfd36a643d72264608e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8169,7 +6431,161 @@ class CfnLocationS3(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILocationSMBRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationS3Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "s3_config": "s3Config",
+        "s3_bucket_arn": "s3BucketArn",
+        "s3_storage_class": "s3StorageClass",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+    },
+)
+class CfnLocationS3Props:
+    def __init__(
+        self,
+        *,
+        s3_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationS3.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        s3_bucket_arn: typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]] = None,
+        s3_storage_class: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationS3``.
+
+        :param s3_config: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that is used to access an Amazon S3 bucket. For detailed information about using such a role, see `Creating a Location for Amazon S3 <https://docs.aws.amazon.com/datasync/latest/userguide/working-with-locations.html#create-s3-location>`_ in the *AWS DataSync User Guide* .
+        :param s3_bucket_arn: The ARN of the Amazon S3 bucket.
+        :param s3_storage_class: The Amazon S3 storage class that you want to store your files in when this location is used as a task destination. For buckets in AWS Regions , the storage class defaults to S3 Standard. For more information about S3 storage classes, see `Amazon S3 Storage Classes <https://docs.aws.amazon.com/s3/storage-classes/>`_ . Some storage classes have behaviors that can affect your S3 storage costs. For detailed information, see `Considerations When Working with Amazon S3 Storage Classes in DataSync <https://docs.aws.amazon.com/datasync/latest/userguide/create-s3-location.html#using-storage-classes>`_ . Default: - "STANDARD"
+        :param subdirectory: Specifies a prefix in the S3 bucket that DataSync reads from or writes to (depending on whether the bucket is a source or destination location). .. epigraph:: DataSync can't transfer objects with a prefix that begins with a slash ( ``/`` ) or includes ``//`` , ``/./`` , or ``/../`` patterns. For example: - ``/photos`` - ``photos//2006/January`` - ``photos/./2006/February`` - ``photos/../2006/March``
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_s3_props = datasync.CfnLocationS3Props(
+                s3_config=datasync.CfnLocationS3.S3ConfigProperty(
+                    bucket_access_role_arn="bucketAccessRoleArn"
+                ),
+            
+                # the properties below are optional
+                s3_bucket_arn="s3BucketArn",
+                s3_storage_class="s3StorageClass",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1b9799e0fad9e71975d14e754aeb8ef0b5f52fcedcbabc328afae8c4a4afaa5)
+            check_type(argname="argument s3_config", value=s3_config, expected_type=type_hints["s3_config"])
+            check_type(argname="argument s3_bucket_arn", value=s3_bucket_arn, expected_type=type_hints["s3_bucket_arn"])
+            check_type(argname="argument s3_storage_class", value=s3_storage_class, expected_type=type_hints["s3_storage_class"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "s3_config": s3_config,
+        }
+        if s3_bucket_arn is not None:
+            self._values["s3_bucket_arn"] = s3_bucket_arn
+        if s3_storage_class is not None:
+            self._values["s3_storage_class"] = s3_storage_class
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def s3_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLocationS3.S3ConfigProperty"]:
+        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that is used to access an Amazon S3 bucket.
+
+        For detailed information about using such a role, see `Creating a Location for Amazon S3 <https://docs.aws.amazon.com/datasync/latest/userguide/working-with-locations.html#create-s3-location>`_ in the *AWS DataSync User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-s3config
+        '''
+        result = self._values.get("s3_config")
+        assert result is not None, "Required property 's3_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLocationS3.S3ConfigProperty"], result)
+
+    @builtins.property
+    def s3_bucket_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]]:
+        '''The ARN of the Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-s3bucketarn
+        '''
+        result = self._values.get("s3_bucket_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]], result)
+
+    @builtins.property
+    def s3_storage_class(self) -> typing.Optional[builtins.str]:
+        '''The Amazon S3 storage class that you want to store your files in when this location is used as a task destination.
+
+        For buckets in AWS Regions , the storage class defaults to S3 Standard.
+
+        For more information about S3 storage classes, see `Amazon S3 Storage Classes <https://docs.aws.amazon.com/s3/storage-classes/>`_ . Some storage classes have behaviors that can affect your S3 storage costs. For detailed information, see `Considerations When Working with Amazon S3 Storage Classes in DataSync <https://docs.aws.amazon.com/datasync/latest/userguide/create-s3-location.html#using-storage-classes>`_ .
+
+        :default: - "STANDARD"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-s3storageclass
+        '''
+        result = self._values.get("s3_storage_class")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies a prefix in the S3 bucket that DataSync reads from or writes to (depending on whether the bucket is a source or destination location).
+
+        .. epigraph::
+
+           DataSync can't transfer objects with a prefix that begins with a slash ( ``/`` ) or includes ``//`` , ``/./`` , or ``/../`` patterns. For example:
+
+           - ``/photos``
+           - ``photos//2006/January``
+           - ``photos/./2006/February``
+           - ``photos/../2006/March``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
+
+        We recommend creating at least a name tag for your transfer location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locations3.html#cfn-datasync-locations3-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationS3Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILocationSMBRef_b540cf9f, _ITaggable_36806126)
 class CfnLocationSMB(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8183,6 +6599,7 @@ class CfnLocationSMB(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -8192,6 +6609,14 @@ class CfnLocationSMB(
         
             # the properties below are optional
             authentication_type="authenticationType",
+            cmk_secret_config=datasync.CfnLocationSMB.CmkSecretConfigProperty(
+                kms_key_arn="kmsKeyArn",
+                secret_arn="secretArn"
+            ),
+            custom_secret_config=datasync.CfnLocationSMB.CustomSecretConfigProperty(
+                secret_access_role_arn="secretAccessRoleArn",
+                secret_arn="secretArn"
+            ),
             dns_ip_addresses=["dnsIpAddresses"],
             domain="domain",
             kerberos_keytab="kerberosKeytab",
@@ -8213,28 +6638,33 @@ class CfnLocationSMB(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         agent_arns: typing.Sequence[builtins.str],
         authentication_type: typing.Optional[builtins.str] = None,
+        cmk_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationSMB.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationSMB.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         dns_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
         domain: typing.Optional[builtins.str] = None,
         kerberos_keytab: typing.Optional[builtins.str] = None,
         kerberos_krb5_conf: typing.Optional[builtins.str] = None,
         kerberos_principal: typing.Optional[builtins.str] = None,
-        mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLocationSMB.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mount_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationSMB.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         password: typing.Optional[builtins.str] = None,
         server_hostname: typing.Optional[builtins.str] = None,
         subdirectory: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         user: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::LocationSMB``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param agent_arns: Specifies the DataSync agent (or agents) that can connect to your SMB file server. You specify an agent by using its Amazon Resource Name (ARN).
         :param authentication_type: The authentication mode used to determine identity of user.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab). This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
         :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
         :param domain: Specifies the Windows domain name that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
         :param kerberos_keytab: The Base64 string representation of the Keytab file. Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
@@ -8254,6 +6684,8 @@ class CfnLocationSMB(
         props = CfnLocationSMBProps(
             agent_arns=agent_arns,
             authentication_type=authentication_type,
+            cmk_secret_config=cmk_secret_config,
+            custom_secret_config=custom_secret_config,
             dns_ip_addresses=dns_ip_addresses,
             domain=domain,
             kerberos_keytab=kerberos_keytab,
@@ -8269,8 +6701,20 @@ class CfnLocationSMB(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLocationSMB")
+    @builtins.classmethod
+    def is_cfn_location_smb(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLocationSMB.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5a3e6ad10be0a70e167c8e00799e7ca1b6606d084d97c9ceb97c0e49bfefe56)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLocationSMB", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8300,6 +6744,17 @@ class CfnLocationSMB(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrCmkSecretConfigSecretArn")
+    def attr_cmk_secret_config_secret_arn(self) -> builtins.str:
+        '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+        This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
+
+        :cloudformationAttribute: CmkSecretConfig.SecretArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCmkSecretConfigSecretArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrLocationArn")
     def attr_location_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the specified SMB location.
@@ -8318,21 +6773,32 @@ class CfnLocationSMB(
         return typing.cast(builtins.str, jsii.get(self, "attrLocationUri"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrManagedSecretConfig")
+    def attr_managed_secret_config(self) -> "_IResolvable_da3f097b":
+        '''Specifies configuration information for a DataSync-managed secret, such as a password or set of credentials that DataSync uses to access a specific transfer location.
+
+        DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
+        :cloudformationAttribute: ManagedSecretConfig
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrManagedSecretConfig"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
     @jsii.member(jsii_name="locationSmbRef")
-    def location_smb_ref(self) -> LocationSMBReference:
+    def location_smb_ref(self) -> "_LocationSMBReference_9787936e":
         '''A reference to a LocationSMB resource.'''
-        return typing.cast(LocationSMBReference, jsii.get(self, "locationSmbRef"))
+        return typing.cast("_LocationSMBReference_9787936e", jsii.get(self, "locationSmbRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="agentArns")
@@ -8359,6 +6825,42 @@ class CfnLocationSMB(
             type_hints = typing.get_type_hints(_typecheckingstub__35de39b9b573d0d6146fa84be08e6a3a14ff5e9ece5535c93fc8af130af7e7ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authenticationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cmkSecretConfig")
+    def cmk_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CmkSecretConfigProperty"]]:
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
+
+    @cmk_secret_config.setter
+    def cmk_secret_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CmkSecretConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e407ec55488adbc9f81891a5e15e237e234b987b6214eb331162a8b63f344324)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cmkSecretConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customSecretConfig")
+    def custom_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CustomSecretConfigProperty"]]:
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
+
+    @custom_secret_config.setter
+    def custom_secret_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CustomSecretConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fde88b8f3a9b839e4f9087f93f80eb219e3a48609302336a5ed68bd2edec2ebb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customSecretConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="dnsIpAddresses")
@@ -8432,14 +6934,14 @@ class CfnLocationSMB(
     @jsii.member(jsii_name="mountOptions")
     def mount_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationSMB.MountOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.MountOptionsProperty"]]:
         '''Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationSMB.MountOptionsProperty"]], jsii.get(self, "mountOptions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.MountOptionsProperty"]], jsii.get(self, "mountOptions"))
 
     @mount_options.setter
     def mount_options(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationSMB.MountOptionsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.MountOptionsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9983585f73509aeb431e7337689500eb00129c754b73a4ef4022bebcd1bbc1c)
@@ -8487,12 +6989,12 @@ class CfnLocationSMB(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies labels that help you categorize, filter, and search for your AWS resources.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b48314ac3635761aa21132da0f199200c2b741ddeca4e34176ee47fde9d19e47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8510,6 +7012,217 @@ class CfnLocationSMB(
             type_hints = typing.get_type_hints(_typecheckingstub__9112e8b177e52fbd055f221015988972f906f8c7291b4a1992bb1656cd033faa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "user", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationSMB.CmkSecretConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_key_arn": "kmsKeyArn", "secret_arn": "secretArn"},
+    )
+    class CmkSecretConfigProperty:
+        def __init__(
+            self,
+            *,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+            secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
+
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` . DataSync provides this key to AWS Secrets Manager .
+            :param secret_arn: Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location. This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-cmksecretconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                cmk_secret_config_property = datasync.CfnLocationSMB.CmkSecretConfigProperty(
+                    kms_key_arn="kmsKeyArn",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9351aeda2a3946543003130a0d3d622afa774937076186eaabf4b996745ca99f)
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+            if secret_arn is not None:
+                self._values["secret_arn"] = secret_arn
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` .
+
+            DataSync provides this key to AWS Secrets Manager .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-cmksecretconfig.html#cfn-datasync-locationsmb-cmksecretconfig-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def secret_arn(self) -> typing.Optional[builtins.str]:
+            '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+            This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-cmksecretconfig.html#cfn-datasync-locationsmb-cmksecretconfig-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CmkSecretConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationSMB.CustomSecretConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "secret_access_role_arn": "secretAccessRoleArn",
+            "secret_arn": "secretArn",
+        },
+    )
+    class CustomSecretConfigProperty:
+        def __init__(
+            self,
+            *,
+            secret_access_role_arn: builtins.str,
+            secret_arn: builtins.str,
+        ) -> None:
+            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).
+
+            This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
+            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-customsecretconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                custom_secret_config_property = datasync.CfnLocationSMB.CustomSecretConfigProperty(
+                    secret_access_role_arn="secretAccessRoleArn",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6049f29f723d7f92a691c991b6232a25e39ba58d2d4400b1c499f542a7a8aee7)
+                check_type(argname="argument secret_access_role_arn", value=secret_access_role_arn, expected_type=type_hints["secret_access_role_arn"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_access_role_arn": secret_access_role_arn,
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_access_role_arn(self) -> builtins.str:
+            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-customsecretconfig.html#cfn-datasync-locationsmb-customsecretconfig-secretaccessrolearn
+            '''
+            result = self._values.get("secret_access_role_arn")
+            assert result is not None, "Required property 'secret_access_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-customsecretconfig.html#cfn-datasync-locationsmb-customsecretconfig-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomSecretConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationSMB.ManagedSecretConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class ManagedSecretConfigProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
+
+            DataSync uses the default AWS -managed KMS key to encrypt this secret in AWS Secrets Manager .
+
+            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-managedsecretconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                managed_secret_config_property = datasync.CfnLocationSMB.ManagedSecretConfigProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5db7c95a4b68a63cb100ea0ecc9392535271eaf1c99519a96ebecbd32455f91c)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''Specifies the ARN for an AWS Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationsmb-managedsecretconfig.html#cfn-datasync-locationsmb-managedsecretconfig-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedSecretConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_datasync.CfnLocationSMB.MountOptionsProperty",
@@ -8580,7 +7293,347 @@ class CfnLocationSMB(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ITaskRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnLocationSMBProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_arns": "agentArns",
+        "authentication_type": "authenticationType",
+        "cmk_secret_config": "cmkSecretConfig",
+        "custom_secret_config": "customSecretConfig",
+        "dns_ip_addresses": "dnsIpAddresses",
+        "domain": "domain",
+        "kerberos_keytab": "kerberosKeytab",
+        "kerberos_krb5_conf": "kerberosKrb5Conf",
+        "kerberos_principal": "kerberosPrincipal",
+        "mount_options": "mountOptions",
+        "password": "password",
+        "server_hostname": "serverHostname",
+        "subdirectory": "subdirectory",
+        "tags": "tags",
+        "user": "user",
+    },
+)
+class CfnLocationSMBProps:
+    def __init__(
+        self,
+        *,
+        agent_arns: typing.Sequence[builtins.str],
+        authentication_type: typing.Optional[builtins.str] = None,
+        cmk_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationSMB.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationSMB.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dns_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        domain: typing.Optional[builtins.str] = None,
+        kerberos_keytab: typing.Optional[builtins.str] = None,
+        kerberos_krb5_conf: typing.Optional[builtins.str] = None,
+        kerberos_principal: typing.Optional[builtins.str] = None,
+        mount_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLocationSMB.MountOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        password: typing.Optional[builtins.str] = None,
+        server_hostname: typing.Optional[builtins.str] = None,
+        subdirectory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocationSMB``.
+
+        :param agent_arns: Specifies the DataSync agent (or agents) that can connect to your SMB file server. You specify an agent by using its Amazon Resource Name (ARN).
+        :param authentication_type: The authentication mode used to determine identity of user.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab). This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
+        :param domain: Specifies the Windows domain name that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
+        :param kerberos_keytab: The Base64 string representation of the Keytab file. Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
+        :param kerberos_krb5_conf: The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
+        :param kerberos_principal: Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server. SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
+        :param mount_options: Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.
+        :param password: Specifies the password of the user who can mount your SMB file server and has permission to access the files and folders involved in your transfer. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
+        :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the SMB file server that your DataSync agent connects to. .. epigraph:: If you're using Kerberos authentication, you must specify a domain name.
+        :param subdirectory: Specifies the name of the share exported by your SMB file server where DataSync will read or write data. You can include a subdirectory in the share path (for example, ``/path/to/subdirectory`` ). Make sure that other SMB clients in your network can also mount this path. To copy all data in the subdirectory, DataSync must be able to mount the SMB share and access all of its data. For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
+        :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your location.
+        :param user: Specifies the user that can mount and access the files, folders, and file metadata in your SMB file server. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . For information about choosing a user with the right level of access for your transfer, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_location_sMBProps = datasync.CfnLocationSMBProps(
+                agent_arns=["agentArns"],
+            
+                # the properties below are optional
+                authentication_type="authenticationType",
+                cmk_secret_config=datasync.CfnLocationSMB.CmkSecretConfigProperty(
+                    kms_key_arn="kmsKeyArn",
+                    secret_arn="secretArn"
+                ),
+                custom_secret_config=datasync.CfnLocationSMB.CustomSecretConfigProperty(
+                    secret_access_role_arn="secretAccessRoleArn",
+                    secret_arn="secretArn"
+                ),
+                dns_ip_addresses=["dnsIpAddresses"],
+                domain="domain",
+                kerberos_keytab="kerberosKeytab",
+                kerberos_krb5_conf="kerberosKrb5Conf",
+                kerberos_principal="kerberosPrincipal",
+                mount_options=datasync.CfnLocationSMB.MountOptionsProperty(
+                    version="version"
+                ),
+                password="password",
+                server_hostname="serverHostname",
+                subdirectory="subdirectory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                user="user"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b20670d7cb18baa1155ccc397df310282442d51b95170ab568e5c0a9cbea5bc8)
+            check_type(argname="argument agent_arns", value=agent_arns, expected_type=type_hints["agent_arns"])
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument cmk_secret_config", value=cmk_secret_config, expected_type=type_hints["cmk_secret_config"])
+            check_type(argname="argument custom_secret_config", value=custom_secret_config, expected_type=type_hints["custom_secret_config"])
+            check_type(argname="argument dns_ip_addresses", value=dns_ip_addresses, expected_type=type_hints["dns_ip_addresses"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument kerberos_keytab", value=kerberos_keytab, expected_type=type_hints["kerberos_keytab"])
+            check_type(argname="argument kerberos_krb5_conf", value=kerberos_krb5_conf, expected_type=type_hints["kerberos_krb5_conf"])
+            check_type(argname="argument kerberos_principal", value=kerberos_principal, expected_type=type_hints["kerberos_principal"])
+            check_type(argname="argument mount_options", value=mount_options, expected_type=type_hints["mount_options"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
+            check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_arns": agent_arns,
+        }
+        if authentication_type is not None:
+            self._values["authentication_type"] = authentication_type
+        if cmk_secret_config is not None:
+            self._values["cmk_secret_config"] = cmk_secret_config
+        if custom_secret_config is not None:
+            self._values["custom_secret_config"] = custom_secret_config
+        if dns_ip_addresses is not None:
+            self._values["dns_ip_addresses"] = dns_ip_addresses
+        if domain is not None:
+            self._values["domain"] = domain
+        if kerberos_keytab is not None:
+            self._values["kerberos_keytab"] = kerberos_keytab
+        if kerberos_krb5_conf is not None:
+            self._values["kerberos_krb5_conf"] = kerberos_krb5_conf
+        if kerberos_principal is not None:
+            self._values["kerberos_principal"] = kerberos_principal
+        if mount_options is not None:
+            self._values["mount_options"] = mount_options
+        if password is not None:
+            self._values["password"] = password
+        if server_hostname is not None:
+            self._values["server_hostname"] = server_hostname
+        if subdirectory is not None:
+            self._values["subdirectory"] = subdirectory
+        if tags is not None:
+            self._values["tags"] = tags
+        if user is not None:
+            self._values["user"] = user
+
+    @builtins.property
+    def agent_arns(self) -> typing.List[builtins.str]:
+        '''Specifies the DataSync agent (or agents) that can connect to your SMB file server.
+
+        You specify an agent by using its Amazon Resource Name (ARN).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-agentarns
+        '''
+        result = self._values.get("agent_arns")
+        assert result is not None, "Required property 'agent_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def authentication_type(self) -> typing.Optional[builtins.str]:
+        '''The authentication mode used to determine identity of user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-authenticationtype
+        '''
+        result = self._values.get("authentication_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cmk_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CmkSecretConfigProperty"]]:
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
+
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-cmksecretconfig
+        '''
+        result = self._values.get("cmk_secret_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CmkSecretConfigProperty"]], result)
+
+    @builtins.property
+    def custom_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CustomSecretConfigProperty"]]:
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab).
+
+        This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-customsecretconfig
+        '''
+        result = self._values.get("custom_secret_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.CustomSecretConfigProperty"]], result)
+
+    @builtins.property
+    def dns_ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to.
+
+        This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-dnsipaddresses
+        '''
+        result = self._values.get("dns_ip_addresses")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def domain(self) -> typing.Optional[builtins.str]:
+        '''Specifies the Windows domain name that your SMB file server belongs to.
+
+        This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
+
+        If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kerberos_keytab(self) -> typing.Optional[builtins.str]:
+        '''The Base64 string representation of the Keytab file.
+
+        Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberoskeytab
+        '''
+        result = self._values.get("kerberos_keytab")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kerberos_krb5_conf(self) -> typing.Optional[builtins.str]:
+        '''The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberoskrb5conf
+        '''
+        result = self._values.get("kerberos_krb5_conf")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kerberos_principal(self) -> typing.Optional[builtins.str]:
+        '''Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server.
+
+        SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberosprincipal
+        '''
+        result = self._values.get("kerberos_principal")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mount_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.MountOptionsProperty"]]:
+        '''Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-mountoptions
+        '''
+        result = self._values.get("mount_options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLocationSMB.MountOptionsProperty"]], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''Specifies the password of the user who can mount your SMB file server and has permission to access the files and folders involved in your transfer.
+
+        This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_hostname(self) -> typing.Optional[builtins.str]:
+        '''Specifies the domain name or IP address (IPv4 or IPv6) of the SMB file server that your DataSync agent connects to.
+
+        .. epigraph::
+
+           If you're using Kerberos authentication, you must specify a domain name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-serverhostname
+        '''
+        result = self._values.get("server_hostname")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subdirectory(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the share exported by your SMB file server where DataSync will read or write data.
+
+        You can include a subdirectory in the share path (for example, ``/path/to/subdirectory`` ). Make sure that other SMB clients in your network can also mount this path.
+
+        To copy all data in the subdirectory, DataSync must be able to mount the SMB share and access all of its data. For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-subdirectory
+        '''
+        result = self._values.get("subdirectory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies labels that help you categorize, filter, and search for your AWS resources.
+
+        We recommend creating at least a name tag for your location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def user(self) -> typing.Optional[builtins.str]:
+        '''Specifies the user that can mount and access the files, folders, and file metadata in your SMB file server.
+
+        This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
+
+        For information about choosing a user with the right level of access for your transfer, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-user
+        '''
+        result = self._values.get("user")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationSMBProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaskRef_0571d67b, _ITaggable_36806126)
 class CfnTask(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8596,6 +7649,7 @@ class CfnTask(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_datasync as datasync
@@ -8688,23 +7742,24 @@ class CfnTask(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        destination_location_arn: builtins.str,
-        source_location_arn: builtins.str,
-        cloud_watch_log_group_arn: typing.Optional[builtins.str] = None,
-        excludes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        includes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        manifest_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.ManifestConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        destination_location_arn: typing.Union[builtins.str, "_ILocationEFSRef_6fba5e2e", "_ILocationS3Ref_5240f1a4"],
+        source_location_arn: typing.Union[builtins.str, "_ILocationNFSRef_01d78c69", "_ILocationS3Ref_5240f1a4"],
+        cloud_watch_log_group_arn: typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]] = None,
+        excludes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        includes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        manifest_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.ManifestConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.OptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.TaskScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.OptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.TaskScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_mode: typing.Optional[builtins.str] = None,
-        task_report_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.TaskReportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_report_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.TaskReportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DataSync::Task``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param destination_location_arn: The Amazon Resource Name (ARN) of an AWS storage resource's location.
@@ -8741,8 +7796,31 @@ class CfnTask(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForTask")
+    @builtins.classmethod
+    def arn_for_task(cls, resource: "_ITaskRef_0571d67b") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11b47a1239ce321421d64f37b8a9e941eafa8581660074b27825eadc5a949b3e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTask", [resource]))
+
+    @jsii.member(jsii_name="isCfnTask")
+    @builtins.classmethod
+    def is_cfn_task(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTask.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7779d88e625487f7c945d90e9071aabc98d8b70ce6c1084a1677380c77001e87)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTask", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8814,15 +7892,15 @@ class CfnTask(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="taskRef")
-    def task_ref(self) -> TaskReference:
+    def task_ref(self) -> "_TaskReference_56755658":
         '''A reference to a Task resource.'''
-        return typing.cast(TaskReference, jsii.get(self, "taskRef"))
+        return typing.cast("_TaskReference_56755658", jsii.get(self, "taskRef"))
 
     @builtins.property
     @jsii.member(jsii_name="destinationLocationArn")
@@ -8867,14 +7945,14 @@ class CfnTask(
     @jsii.member(jsii_name="excludes")
     def excludes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]]:
         '''Specifies exclude filters that define the files, objects, and folders in your source location that you don't want DataSync to transfer.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]], jsii.get(self, "excludes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]], jsii.get(self, "excludes"))
 
     @excludes.setter
     def excludes(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acacc184cead1f95fccb09d6e2d3e2f3763099227a59edf6a76e8128856fc021)
@@ -8885,14 +7963,14 @@ class CfnTask(
     @jsii.member(jsii_name="includes")
     def includes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]]:
         '''Specifies include filters that define the files, objects, and folders in your source location that you want DataSync to transfer.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]], jsii.get(self, "includes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]], jsii.get(self, "includes"))
 
     @includes.setter
     def includes(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTask.FilterRuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b70b42cfb53e13801c9b46a0aeb316cf7696061c5b7fc11b20c7970679838adb)
@@ -8903,14 +7981,14 @@ class CfnTask(
     @jsii.member(jsii_name="manifestConfig")
     def manifest_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigProperty"]]:
         '''The configuration of the manifest that lists the files or objects that you want DataSync to transfer.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigProperty"]], jsii.get(self, "manifestConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigProperty"]], jsii.get(self, "manifestConfig"))
 
     @manifest_config.setter
     def manifest_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__adfc26e9a88359e12066dd2ec9b2a9e0a61fb79f73189fa8a39e637687c9fa9c)
@@ -8934,14 +8012,14 @@ class CfnTask(
     @jsii.member(jsii_name="options")
     def options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OptionsProperty"]]:
         '''Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OptionsProperty"]], jsii.get(self, "options"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OptionsProperty"]], jsii.get(self, "options"))
 
     @options.setter
     def options(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OptionsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OptionsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__155643afb5f1ecdb689d1809d2d2388ec39615a2be33d1719f3b98ba2e76677d)
@@ -8952,14 +8030,14 @@ class CfnTask(
     @jsii.member(jsii_name="schedule")
     def schedule(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskScheduleProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskScheduleProperty"]]:
         '''Specifies a schedule for when you want your task to run.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskScheduleProperty"]], jsii.get(self, "schedule"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskScheduleProperty"]], jsii.get(self, "schedule"))
 
     @schedule.setter
     def schedule(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskScheduleProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskScheduleProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bc267a8182541bd31db0c914ab3030d3b13f68b424b8e312a7b9267e3b0e4b4)
@@ -8968,12 +8046,12 @@ class CfnTask(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies the tags that you want to apply to your task.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6a7067dff337df84908e53f4652767faada60769f6c9d1eed4c84d05c1d5126)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8996,14 +8074,14 @@ class CfnTask(
     @jsii.member(jsii_name="taskReportConfig")
     def task_report_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskReportConfigProperty"]]:
         '''The configuration of your task report, which provides detailed information about your DataSync transfer.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]], jsii.get(self, "taskReportConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskReportConfigProperty"]], jsii.get(self, "taskReportConfig"))
 
     @task_report_config.setter
     def task_report_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskReportConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06ecaf368f7ae42942552393e7a68a01ddc8712caa5620400a489d0b07baae6e)
@@ -9076,7 +8154,7 @@ class CfnTask(
         def __init__(
             self,
             *,
-            s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies where DataSync uploads your task report.
 
@@ -9109,13 +8187,13 @@ class CfnTask(
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.S3Property"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.S3Property"]]:
             '''Specifies the Amazon S3 bucket where DataSync uploads your task report.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-destination.html#cfn-datasync-task-destination-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.S3Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.S3Property"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9211,7 +8289,7 @@ class CfnTask(
         def __init__(
             self,
             *,
-            source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+            source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
             action: typing.Optional[builtins.str] = None,
             format: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -9263,7 +8341,7 @@ class CfnTask(
         @builtins.property
         def source(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnTask.SourceProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnTask.SourceProperty"]:
             '''Specifies the manifest that you want DataSync to use and where it's hosted.
 
             .. epigraph::
@@ -9276,7 +8354,7 @@ class CfnTask(
             '''
             result = self._values.get("source")
             assert result is not None, "Required property 'source' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTask.SourceProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTask.SourceProperty"], result)
 
         @builtins.property
         def action(self) -> typing.Optional[builtins.str]:
@@ -9834,10 +8912,10 @@ class CfnTask(
         def __init__(
             self,
             *,
-            deleted: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.DeletedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            skipped: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.SkippedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            transferred: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.TransferredProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            verified: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.VerifiedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deleted: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.DeletedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            skipped: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.SkippedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            transferred: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.TransferredProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            verified: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.VerifiedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Customizes the reporting level for aspects of your task report.
 
@@ -9891,7 +8969,7 @@ class CfnTask(
         @builtins.property
         def deleted(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.DeletedProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.DeletedProperty"]]:
             '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to delete in your destination location.
 
             This only applies if you configure your task to delete data in the destination that isn't in the source.
@@ -9899,34 +8977,34 @@ class CfnTask(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-deleted
             '''
             result = self._values.get("deleted")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.DeletedProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.DeletedProperty"]], result)
 
         @builtins.property
         def skipped(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.SkippedProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.SkippedProperty"]]:
             '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to skip during your transfer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-skipped
             '''
             result = self._values.get("skipped")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.SkippedProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.SkippedProperty"]], result)
 
         @builtins.property
         def transferred(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TransferredProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TransferredProperty"]]:
             '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to transfer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-transferred
             '''
             result = self._values.get("transferred")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TransferredProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TransferredProperty"]], result)
 
         @builtins.property
         def verified(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.VerifiedProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.VerifiedProperty"]]:
             '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to verify at the end of your transfer.
 
             This only applies if you configure your task to verify data during and after the transfer (which Datasync does by default)
@@ -9934,7 +9012,7 @@ class CfnTask(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-verified
             '''
             result = self._values.get("verified")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.VerifiedProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.VerifiedProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10096,7 +9174,7 @@ class CfnTask(
         def __init__(
             self,
             *,
-            s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.ManifestConfigSourceS3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.ManifestConfigSourceS3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the manifest that you want DataSync to use and where it's hosted.
 
@@ -10130,13 +9208,13 @@ class CfnTask(
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigSourceS3Property"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigSourceS3Property"]]:
             '''Specifies the S3 bucket where you're hosting the manifest that you want AWS DataSync to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-source.html#cfn-datasync-task-source-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigSourceS3Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigSourceS3Property"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10164,10 +9242,10 @@ class CfnTask(
         def __init__(
             self,
             *,
-            destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
             output_type: builtins.str,
             object_version_ids: typing.Optional[builtins.str] = None,
-            overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.OverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.OverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             report_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies how you want to configure a task report, which provides detailed information about for your AWS DataSync transfer.
@@ -10239,7 +9317,7 @@ class CfnTask(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnTask.DestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnTask.DestinationProperty"]:
             '''Specifies the Amazon S3 bucket where DataSync uploads your task report.
 
             For more information, see `Task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html#task-report-access>`_ .
@@ -10248,7 +9326,7 @@ class CfnTask(
             '''
             result = self._values.get("destination")
             assert result is not None, "Required property 'destination' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTask.DestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTask.DestinationProperty"], result)
 
         @builtins.property
         def output_type(self) -> builtins.str:
@@ -10277,7 +9355,7 @@ class CfnTask(
         @builtins.property
         def overrides(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OverridesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OverridesProperty"]]:
             '''Customizes the reporting level for aspects of your task report.
 
             For example, your report might generally only include errors, but you could specify that you want a list of successes and errors just for the files that DataSync attempted to delete in your destination location.
@@ -10285,7 +9363,7 @@ class CfnTask(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-taskreportconfig.html#cfn-datasync-task-taskreportconfig-overrides
             '''
             result = self._values.get("overrides")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.OverridesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OverridesProperty"]], result)
 
         @builtins.property
         def report_level(self) -> typing.Optional[builtins.str]:
@@ -10507,8 +9585,349 @@ class CfnTask(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datasync.CfnTaskProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination_location_arn": "destinationLocationArn",
+        "source_location_arn": "sourceLocationArn",
+        "cloud_watch_log_group_arn": "cloudWatchLogGroupArn",
+        "excludes": "excludes",
+        "includes": "includes",
+        "manifest_config": "manifestConfig",
+        "name": "name",
+        "options": "options",
+        "schedule": "schedule",
+        "tags": "tags",
+        "task_mode": "taskMode",
+        "task_report_config": "taskReportConfig",
+    },
+)
+class CfnTaskProps:
+    def __init__(
+        self,
+        *,
+        destination_location_arn: typing.Union[builtins.str, "_ILocationEFSRef_6fba5e2e", "_ILocationS3Ref_5240f1a4"],
+        source_location_arn: typing.Union[builtins.str, "_ILocationNFSRef_01d78c69", "_ILocationS3Ref_5240f1a4"],
+        cloud_watch_log_group_arn: typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]] = None,
+        excludes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        includes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.FilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        manifest_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.ManifestConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.OptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.TaskScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_mode: typing.Optional[builtins.str] = None,
+        task_report_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTask.TaskReportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTask``.
+
+        :param destination_location_arn: The Amazon Resource Name (ARN) of an AWS storage resource's location.
+        :param source_location_arn: Specifies the ARN of your transfer's source location.
+        :param cloud_watch_log_group_arn: Specifies the Amazon Resource Name (ARN) of an Amazon CloudWatch log group for monitoring your task. For Enhanced mode tasks, you don't need to specify anything. DataSync automatically sends logs to a CloudWatch log group named ``/aws/datasync`` . For more information, see `Monitoring data transfers with CloudWatch Logs <https://docs.aws.amazon.com/datasync/latest/userguide/configure-logging.html>`_ .
+        :param excludes: Specifies exclude filters that define the files, objects, and folders in your source location that you don't want DataSync to transfer. For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
+        :param includes: Specifies include filters that define the files, objects, and folders in your source location that you want DataSync to transfer. For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
+        :param manifest_config: The configuration of the manifest that lists the files or objects that you want DataSync to transfer. For more information, see `Specifying what DataSync transfers by using a manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html>`_ .
+        :param name: Specifies the name of your task.
+        :param options: Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.
+        :param schedule: Specifies a schedule for when you want your task to run. For more information, see `Scheduling your task <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ .
+        :param tags: Specifies the tags that you want to apply to your task. *Tags* are key-value pairs that help you manage, filter, and search for your DataSync resources.
+        :param task_mode: The task mode that you're using. For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
+        :param task_report_config: The configuration of your task report, which provides detailed information about your DataSync transfer. For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datasync as datasync
+            
+            cfn_task_props = datasync.CfnTaskProps(
+                destination_location_arn="destinationLocationArn",
+                source_location_arn="sourceLocationArn",
+            
+                # the properties below are optional
+                cloud_watch_log_group_arn="cloudWatchLogGroupArn",
+                excludes=[datasync.CfnTask.FilterRuleProperty(
+                    filter_type="filterType",
+                    value="value"
+                )],
+                includes=[datasync.CfnTask.FilterRuleProperty(
+                    filter_type="filterType",
+                    value="value"
+                )],
+                manifest_config=datasync.CfnTask.ManifestConfigProperty(
+                    source=datasync.CfnTask.SourceProperty(
+                        s3=datasync.CfnTask.ManifestConfigSourceS3Property(
+                            bucket_access_role_arn="bucketAccessRoleArn",
+                            manifest_object_path="manifestObjectPath",
+                            manifest_object_version_id="manifestObjectVersionId",
+                            s3_bucket_arn="s3BucketArn"
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    action="action",
+                    format="format"
+                ),
+                name="name",
+                options=datasync.CfnTask.OptionsProperty(
+                    atime="atime",
+                    bytes_per_second=123,
+                    gid="gid",
+                    log_level="logLevel",
+                    mtime="mtime",
+                    object_tags="objectTags",
+                    overwrite_mode="overwriteMode",
+                    posix_permissions="posixPermissions",
+                    preserve_deleted_files="preserveDeletedFiles",
+                    preserve_devices="preserveDevices",
+                    security_descriptor_copy_flags="securityDescriptorCopyFlags",
+                    task_queueing="taskQueueing",
+                    transfer_mode="transferMode",
+                    uid="uid",
+                    verify_mode="verifyMode"
+                ),
+                schedule=datasync.CfnTask.TaskScheduleProperty(
+                    schedule_expression="scheduleExpression",
+                    status="status"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                task_mode="taskMode",
+                task_report_config=datasync.CfnTask.TaskReportConfigProperty(
+                    destination=datasync.CfnTask.DestinationProperty(
+                        s3=datasync.CfnTask.S3Property(
+                            bucket_access_role_arn="bucketAccessRoleArn",
+                            s3_bucket_arn="s3BucketArn",
+                            subdirectory="subdirectory"
+                        )
+                    ),
+                    output_type="outputType",
+            
+                    # the properties below are optional
+                    object_version_ids="objectVersionIds",
+                    overrides=datasync.CfnTask.OverridesProperty(
+                        deleted=datasync.CfnTask.DeletedProperty(
+                            report_level="reportLevel"
+                        ),
+                        skipped=datasync.CfnTask.SkippedProperty(
+                            report_level="reportLevel"
+                        ),
+                        transferred=datasync.CfnTask.TransferredProperty(
+                            report_level="reportLevel"
+                        ),
+                        verified=datasync.CfnTask.VerifiedProperty(
+                            report_level="reportLevel"
+                        )
+                    ),
+                    report_level="reportLevel"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5632ab868186e470f4d8f0c14e3f12b71107be017f54f3194a076b9da30b50d8)
+            check_type(argname="argument destination_location_arn", value=destination_location_arn, expected_type=type_hints["destination_location_arn"])
+            check_type(argname="argument source_location_arn", value=source_location_arn, expected_type=type_hints["source_location_arn"])
+            check_type(argname="argument cloud_watch_log_group_arn", value=cloud_watch_log_group_arn, expected_type=type_hints["cloud_watch_log_group_arn"])
+            check_type(argname="argument excludes", value=excludes, expected_type=type_hints["excludes"])
+            check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
+            check_type(argname="argument manifest_config", value=manifest_config, expected_type=type_hints["manifest_config"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument task_mode", value=task_mode, expected_type=type_hints["task_mode"])
+            check_type(argname="argument task_report_config", value=task_report_config, expected_type=type_hints["task_report_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination_location_arn": destination_location_arn,
+            "source_location_arn": source_location_arn,
+        }
+        if cloud_watch_log_group_arn is not None:
+            self._values["cloud_watch_log_group_arn"] = cloud_watch_log_group_arn
+        if excludes is not None:
+            self._values["excludes"] = excludes
+        if includes is not None:
+            self._values["includes"] = includes
+        if manifest_config is not None:
+            self._values["manifest_config"] = manifest_config
+        if name is not None:
+            self._values["name"] = name
+        if options is not None:
+            self._values["options"] = options
+        if schedule is not None:
+            self._values["schedule"] = schedule
+        if tags is not None:
+            self._values["tags"] = tags
+        if task_mode is not None:
+            self._values["task_mode"] = task_mode
+        if task_report_config is not None:
+            self._values["task_report_config"] = task_report_config
+
+    @builtins.property
+    def destination_location_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_ILocationEFSRef_6fba5e2e", "_ILocationS3Ref_5240f1a4"]:
+        '''The Amazon Resource Name (ARN) of an AWS storage resource's location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-destinationlocationarn
+        '''
+        result = self._values.get("destination_location_arn")
+        assert result is not None, "Required property 'destination_location_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_ILocationEFSRef_6fba5e2e", "_ILocationS3Ref_5240f1a4"], result)
+
+    @builtins.property
+    def source_location_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_ILocationNFSRef_01d78c69", "_ILocationS3Ref_5240f1a4"]:
+        '''Specifies the ARN of your transfer's source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-sourcelocationarn
+        '''
+        result = self._values.get("source_location_arn")
+        assert result is not None, "Required property 'source_location_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_ILocationNFSRef_01d78c69", "_ILocationS3Ref_5240f1a4"], result)
+
+    @builtins.property
+    def cloud_watch_log_group_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]]:
+        '''Specifies the Amazon Resource Name (ARN) of an Amazon CloudWatch log group for monitoring your task.
+
+        For Enhanced mode tasks, you don't need to specify anything. DataSync automatically sends logs to a CloudWatch log group named ``/aws/datasync`` .
+
+        For more information, see `Monitoring data transfers with CloudWatch Logs <https://docs.aws.amazon.com/datasync/latest/userguide/configure-logging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-cloudwatchloggrouparn
+        '''
+        result = self._values.get("cloud_watch_log_group_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ILogGroupRef_874d025a"]], result)
+
+    @builtins.property
+    def excludes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]]:
+        '''Specifies exclude filters that define the files, objects, and folders in your source location that you don't want DataSync to transfer.
+
+        For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-excludes
+        '''
+        result = self._values.get("excludes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]], result)
+
+    @builtins.property
+    def includes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]]:
+        '''Specifies include filters that define the files, objects, and folders in your source location that you want DataSync to transfer.
+
+        For more information and examples, see `Specifying what DataSync transfers by using filters <https://docs.aws.amazon.com/datasync/latest/userguide/filtering.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-includes
+        '''
+        result = self._values.get("includes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTask.FilterRuleProperty"]]]], result)
+
+    @builtins.property
+    def manifest_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigProperty"]]:
+        '''The configuration of the manifest that lists the files or objects that you want DataSync to transfer.
+
+        For more information, see `Specifying what DataSync transfers by using a manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-manifestconfig
+        '''
+        result = self._values.get("manifest_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.ManifestConfigProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of your task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OptionsProperty"]]:
+        '''Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-options
+        '''
+        result = self._values.get("options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.OptionsProperty"]], result)
+
+    @builtins.property
+    def schedule(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskScheduleProperty"]]:
+        '''Specifies a schedule for when you want your task to run.
+
+        For more information, see `Scheduling your task <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-schedule
+        '''
+        result = self._values.get("schedule")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskScheduleProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies the tags that you want to apply to your task.
+
+        *Tags* are key-value pairs that help you manage, filter, and search for your DataSync resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def task_mode(self) -> typing.Optional[builtins.str]:
+        '''The task mode that you're using.
+
+        For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-taskmode
+        '''
+        result = self._values.get("task_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def task_report_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskReportConfigProperty"]]:
+        '''The configuration of your task report, which provides detailed information about your DataSync transfer.
+
+        For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-taskreportconfig
+        '''
+        result = self._values.get("task_report_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTask.TaskReportConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTaskProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AgentReference",
     "CfnAgent",
     "CfnAgentProps",
     "CfnLocationAzureBlob",
@@ -10535,307 +9954,9 @@ __all__ = [
     "CfnLocationSMBProps",
     "CfnTask",
     "CfnTaskProps",
-    "IAgentRef",
-    "ILocationAzureBlobRef",
-    "ILocationEFSRef",
-    "ILocationFSxLustreRef",
-    "ILocationFSxONTAPRef",
-    "ILocationFSxOpenZFSRef",
-    "ILocationFSxWindowsRef",
-    "ILocationHDFSRef",
-    "ILocationNFSRef",
-    "ILocationObjectStorageRef",
-    "ILocationS3Ref",
-    "ILocationSMBRef",
-    "ITaskRef",
-    "LocationAzureBlobReference",
-    "LocationEFSReference",
-    "LocationFSxLustreReference",
-    "LocationFSxONTAPReference",
-    "LocationFSxOpenZFSReference",
-    "LocationFSxWindowsReference",
-    "LocationHDFSReference",
-    "LocationNFSReference",
-    "LocationObjectStorageReference",
-    "LocationS3Reference",
-    "LocationSMBReference",
-    "TaskReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__b70dfad771bf7335f3f7f8b5510506f8641b240cd83ccf113a85c46d9ca11d79(
-    *,
-    agent_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a6733a53a5c0a8ea652fdedb421d3ea702ad3e42c07f57a164d132594aefc8eb(
-    *,
-    activation_key: typing.Optional[builtins.str] = None,
-    agent_name: typing.Optional[builtins.str] = None,
-    security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_endpoint_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d386b9f5845962fa66385393ccc6424f66b9aee312fecdc96fe3ec242f754bf1(
-    *,
-    azure_blob_authentication_type: builtins.str,
-    agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    azure_access_tier: typing.Optional[builtins.str] = None,
-    azure_blob_container_url: typing.Optional[builtins.str] = None,
-    azure_blob_sas_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.AzureBlobSasConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    azure_blob_type: typing.Optional[builtins.str] = None,
-    cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bd308e189fe63ce2cc80398d76a37684d9c1c36b8dfa1dfed227e06d9f65ca69(
-    *,
-    ec2_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationEFS.Ec2ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    access_point_arn: typing.Optional[builtins.str] = None,
-    efs_filesystem_arn: typing.Optional[builtins.str] = None,
-    file_system_access_role_arn: typing.Optional[builtins.str] = None,
-    in_transit_encryption: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb4c1967b655fb7ba3b02e398f8b2dc61e2cb372e8e862f4aea92b2ccf89bd90(
-    *,
-    security_group_arns: typing.Sequence[builtins.str],
-    fsx_filesystem_arn: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__80ce3cf4001e297ef6c59ffcd2e700197ec14104852b7d6b75aac1725cb45d8b(
-    *,
-    security_group_arns: typing.Sequence[builtins.str],
-    storage_virtual_machine_arn: builtins.str,
-    protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationFSxONTAP.ProtocolProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__16adeb69f25af324c507b1a5b1905509ca406e488b6f1f503c1037668ea1c423(
-    *,
-    protocol: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationFSxOpenZFS.ProtocolProperty, typing.Dict[builtins.str, typing.Any]]],
-    security_group_arns: typing.Sequence[builtins.str],
-    fsx_filesystem_arn: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8f5ba282a9548e2767c09028be2186cfa923b38c45c6c77db774a616f6106dfd(
-    *,
-    security_group_arns: typing.Sequence[builtins.str],
-    user: builtins.str,
-    domain: typing.Optional[builtins.str] = None,
-    fsx_filesystem_arn: typing.Optional[builtins.str] = None,
-    password: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__acd7db2bc2dffe624daa5332f50443b11a0c0e3a43b2ecd71e380ba6c4e4385c(
-    *,
-    agent_arns: typing.Sequence[builtins.str],
-    authentication_type: builtins.str,
-    name_nodes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationHDFS.NameNodeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    block_size: typing.Optional[jsii.Number] = None,
-    kerberos_keytab: typing.Optional[builtins.str] = None,
-    kerberos_krb5_conf: typing.Optional[builtins.str] = None,
-    kerberos_principal: typing.Optional[builtins.str] = None,
-    kms_key_provider_uri: typing.Optional[builtins.str] = None,
-    qop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationHDFS.QopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replication_factor: typing.Optional[jsii.Number] = None,
-    simple_user: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f51fa3c0c693bb5826cc200004a0b1f04c19f70726432f02d5a4443185b49b1(
-    *,
-    on_prem_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationNFS.OnPremConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationNFS.MountOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    server_hostname: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d542a26da4e93d9d103e234c98ed367d8b6bea7d295017a32de5525e1ec22b45(
-    *,
-    access_key: typing.Optional[builtins.str] = None,
-    agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    bucket_name: typing.Optional[builtins.str] = None,
-    cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationObjectStorage.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationObjectStorage.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    secret_key: typing.Optional[builtins.str] = None,
-    server_certificate: typing.Optional[builtins.str] = None,
-    server_hostname: typing.Optional[builtins.str] = None,
-    server_port: typing.Optional[jsii.Number] = None,
-    server_protocol: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a1b9799e0fad9e71975d14e754aeb8ef0b5f52fcedcbabc328afae8c4a4afaa5(
-    *,
-    s3_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationS3.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    s3_bucket_arn: typing.Optional[builtins.str] = None,
-    s3_storage_class: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b20670d7cb18baa1155ccc397df310282442d51b95170ab568e5c0a9cbea5bc8(
-    *,
-    agent_arns: typing.Sequence[builtins.str],
-    authentication_type: typing.Optional[builtins.str] = None,
-    dns_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
-    domain: typing.Optional[builtins.str] = None,
-    kerberos_keytab: typing.Optional[builtins.str] = None,
-    kerberos_krb5_conf: typing.Optional[builtins.str] = None,
-    kerberos_principal: typing.Optional[builtins.str] = None,
-    mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationSMB.MountOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    password: typing.Optional[builtins.str] = None,
-    server_hostname: typing.Optional[builtins.str] = None,
-    subdirectory: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5632ab868186e470f4d8f0c14e3f12b71107be017f54f3194a076b9da30b50d8(
-    *,
-    destination_location_arn: builtins.str,
-    source_location_arn: builtins.str,
-    cloud_watch_log_group_arn: typing.Optional[builtins.str] = None,
-    excludes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.FilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    includes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.FilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    manifest_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.ManifestConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.OptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.TaskScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    task_mode: typing.Optional[builtins.str] = None,
-    task_report_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.TaskReportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f045f4046151f2883cedc5c46db14ba832954b3cd5ad2170063c4384410ed4c9(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5dae0405523b3e33cd46c4b00b323a1c7c3f6d8d068f857ea8ff1cc8d080d1b6(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__091278d4823e9c84c00db9f39535e54a965809564065f757e0ed813473f9732a(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e05bc0b78477b30898dd98406e7358bf431b7b97037001ce64c30b77ff0f609b(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8235a73988adacc7894fca0de0acc6bc8655f467ab800d68d24164ffa7c3be93(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c135048afa5fa204b96de7afc536b989825ef437b90a602af37a7194458e5982(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c79482794a8e945ebe7a5d3ea1b0c83600e991861c3e66e0c1cb679d9e4c08c3(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2121cbd082af16aaf961b9060f10195f2d5d8363b84df6e9d66b7d12d6e7e3a8(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8c0abaefb2a19d4b46613a676f9d743d9ad5cdebf1eda4c2840dd24abfd7437f(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1f99a53eb34d33dfe98ec65ba8677fea870548811ce8fa3d1455c5262aa85018(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__18911659811bd68ff3144c46d856761d3ed8e6d7baabb36dff6eae873da186f3(
-    *,
-    location_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__82dbf22eb06cc9b1466e219f2f8a4d8a35ddbd370bf9c8ad5c46df954f71caae(
-    *,
-    task_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__d936a9373128610a07487a343ef5f669c26d2f82d825e32d371bce59b97aa93c(
     scope: _constructs_77d1e7e8.Construct,
@@ -10847,6 +9968,18 @@ def _typecheckingstub__d936a9373128610a07487a343ef5f669c26d2f82d825e32d371bce59b
     subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_endpoint_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6130ad11142d098dded503b6b252f778ba564b618ec7da93f981f047658cd344(
+    resource: _IAgentRef_7dc116ab,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96e0cb12357287231fc40eeaabd15fa2316d2eb57f947bc8c56b4685bb3da5ea(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10899,6 +10032,18 @@ def _typecheckingstub__382a2bd8de9abd26a4050c65ad2d6baa552585795b8cb589d8cc033b0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a6733a53a5c0a8ea652fdedb421d3ea702ad3e42c07f57a164d132594aefc8eb(
+    *,
+    activation_key: typing.Optional[builtins.str] = None,
+    agent_name: typing.Optional[builtins.str] = None,
+    security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_endpoint_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2a49f57a1ab4813b1537b04053be19b99e3fa8f143f30fac9d1bc72caa4ec5f2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10913,6 +10058,12 @@ def _typecheckingstub__2a49f57a1ab4813b1537b04053be19b99e3fa8f143f30fac9d1bc72ca
     custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46a7daef2d5476431cedab8ca2858b1d4f14f444bd95570d7a5ea4a15a28a2b1(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11019,17 +10170,39 @@ def _typecheckingstub__8ed16453ba6567e90e7b3e0e37a7206cf71efddb64e1cca1af96064be
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d386b9f5845962fa66385393ccc6424f66b9aee312fecdc96fe3ec242f754bf1(
+    *,
+    azure_blob_authentication_type: builtins.str,
+    agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    azure_access_tier: typing.Optional[builtins.str] = None,
+    azure_blob_container_url: typing.Optional[builtins.str] = None,
+    azure_blob_sas_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.AzureBlobSasConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    azure_blob_type: typing.Optional[builtins.str] = None,
+    cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationAzureBlob.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4f2ede238fa34ab9a0ff568aeab0bbaa47ee9542611afbf58163acd201706303(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     ec2_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationEFS.Ec2ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     access_point_arn: typing.Optional[builtins.str] = None,
-    efs_filesystem_arn: typing.Optional[builtins.str] = None,
+    efs_filesystem_arn: typing.Optional[typing.Union[builtins.str, _IFileSystemRef_3dcf8b98]] = None,
     file_system_access_role_arn: typing.Optional[builtins.str] = None,
     in_transit_encryption: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dfa10ae4068ee5f25d30e946c1a80eeaa1ba9eb75ed930cc4da556527e834bd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11096,6 +10269,19 @@ def _typecheckingstub__17d7739807e0941f242944e9f35ecd7849678f3d74f7a74f34b42fd72
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bd308e189fe63ce2cc80398d76a37684d9c1c36b8dfa1dfed227e06d9f65ca69(
+    *,
+    ec2_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationEFS.Ec2ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    access_point_arn: typing.Optional[builtins.str] = None,
+    efs_filesystem_arn: typing.Optional[typing.Union[builtins.str, _IFileSystemRef_3dcf8b98]] = None,
+    file_system_access_role_arn: typing.Optional[builtins.str] = None,
+    in_transit_encryption: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f6a366fbae202f0039019565ac7d26837d23db858eddf6c8193ddf4bd207f597(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11104,6 +10290,12 @@ def _typecheckingstub__f6a366fbae202f0039019565ac7d26837d23db858eddf6c8193ddf4bd
     fsx_filesystem_arn: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d4df2f1d8d95ed1da46a35f73d312feb08f6f3f73a1baf193b9c4e5644db2e3(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11144,6 +10336,16 @@ def _typecheckingstub__a21025c45a3ae349b404b0660292a1df2a3f9dfb1668c68c70eaac990
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb4c1967b655fb7ba3b02e398f8b2dc61e2cb372e8e862f4aea92b2ccf89bd90(
+    *,
+    security_group_arns: typing.Sequence[builtins.str],
+    fsx_filesystem_arn: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e90aee609011bf6205e58d539383e731c53e81e52f2c60ef5d94494c4efecc80(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11153,6 +10355,12 @@ def _typecheckingstub__e90aee609011bf6205e58d539383e731c53e81e52f2c60ef5d94494c4
     protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationFSxONTAP.ProtocolProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41ff39e4993450c0f280aca01f8b431fc6fc8e52ab9b0e6255415615d93aa2de(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11238,6 +10446,17 @@ def _typecheckingstub__91fd30cfcc64f01817f69da9fc6b6a4e13642f15c75979166fdab51ee
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__80ce3cf4001e297ef6c59ffcd2e700197ec14104852b7d6b75aac1725cb45d8b(
+    *,
+    security_group_arns: typing.Sequence[builtins.str],
+    storage_virtual_machine_arn: builtins.str,
+    protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationFSxONTAP.ProtocolProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f9ad8c513f918bb8d8381bbd62e5e1a111d39af1c2ed6ba47a729880d177982e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11247,6 +10466,12 @@ def _typecheckingstub__f9ad8c513f918bb8d8381bbd62e5e1a111d39af1c2ed6ba47a729880d
     fsx_filesystem_arn: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d5aefaefb628cfa36227129eed1b19984f02295690ad7f1901842e75ab1b7dc(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11314,6 +10539,17 @@ def _typecheckingstub__2f41739d7c107eef7d64b8f86d076d7f20e79f98ab22fca2329e2030a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__16adeb69f25af324c507b1a5b1905509ca406e488b6f1f503c1037668ea1c423(
+    *,
+    protocol: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationFSxOpenZFS.ProtocolProperty, typing.Dict[builtins.str, typing.Any]]],
+    security_group_arns: typing.Sequence[builtins.str],
+    fsx_filesystem_arn: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d1c93d65e558fb10f2d82a30ed92129805bd6595247629ad020c0793d238ab28(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11325,6 +10561,12 @@ def _typecheckingstub__d1c93d65e558fb10f2d82a30ed92129805bd6595247629ad020c0793d
     password: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4ee2352a32f2359e65d75d8342904046f0e14e246694f3b9ba688405b13e8e2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11383,6 +10625,19 @@ def _typecheckingstub__602782cd2d11ed3007adaab1a6e7826b15d7a1236d0d2fa763c3a9b14
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8f5ba282a9548e2767c09028be2186cfa923b38c45c6c77db774a616f6106dfd(
+    *,
+    security_group_arns: typing.Sequence[builtins.str],
+    user: builtins.str,
+    domain: typing.Optional[builtins.str] = None,
+    fsx_filesystem_arn: typing.Optional[builtins.str] = None,
+    password: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f4e6e207e87512241da6969739eafac75aaa4606f7d5a869a5c3730ac474aba5(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11400,6 +10655,12 @@ def _typecheckingstub__f4e6e207e87512241da6969739eafac75aaa4606f7d5a869a5c3730ac
     simple_user: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29e16c0861004cbfef6c4b136a81ad80ab33c1fe46dbf3adba1ac231a291754b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11510,6 +10771,25 @@ def _typecheckingstub__bf9687c3478faca4ca6f46765e18256315fbf00b11876af5dad6a28a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__acd7db2bc2dffe624daa5332f50443b11a0c0e3a43b2ecd71e380ba6c4e4385c(
+    *,
+    agent_arns: typing.Sequence[builtins.str],
+    authentication_type: builtins.str,
+    name_nodes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationHDFS.NameNodeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    block_size: typing.Optional[jsii.Number] = None,
+    kerberos_keytab: typing.Optional[builtins.str] = None,
+    kerberos_krb5_conf: typing.Optional[builtins.str] = None,
+    kerberos_principal: typing.Optional[builtins.str] = None,
+    kms_key_provider_uri: typing.Optional[builtins.str] = None,
+    qop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationHDFS.QopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_factor: typing.Optional[jsii.Number] = None,
+    simple_user: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d069ca05c42fb87f307cca12e7ca62685374e8479c3259d679c41b7c9e2b1aef(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11519,6 +10799,12 @@ def _typecheckingstub__d069ca05c42fb87f307cca12e7ca62685374e8479c3259d679c41b7c9
     server_hostname: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e89ca23114326d9c8143163d54cbd7fe74ff2eaf322b14713a05f15cf53e8183(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11579,6 +10865,17 @@ def _typecheckingstub__bf52296f64754ae5def817f69206eb64641343e40369d74f7a3de1464
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2f51fa3c0c693bb5826cc200004a0b1f04c19f70726432f02d5a4443185b49b1(
+    *,
+    on_prem_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationNFS.OnPremConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationNFS.MountOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    server_hostname: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6afc4365b2246b057f5b97e5d62cc10a54cff3be74dae8a9bb184f54bec37125(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11595,6 +10892,12 @@ def _typecheckingstub__6afc4365b2246b057f5b97e5d62cc10a54cff3be74dae8a9bb184f54b
     server_protocol: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90a1b2b7c018826e6b4813879c618f71dbe97d29602b6baaec6ee7bc9c1161f6(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11706,15 +11009,39 @@ def _typecheckingstub__65c61b34a40852805ad1d8c34da183c741fa3a1957daae2b986eb1a61
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d542a26da4e93d9d103e234c98ed367d8b6bea7d295017a32de5525e1ec22b45(
+    *,
+    access_key: typing.Optional[builtins.str] = None,
+    agent_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    bucket_name: typing.Optional[builtins.str] = None,
+    cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationObjectStorage.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationObjectStorage.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secret_key: typing.Optional[builtins.str] = None,
+    server_certificate: typing.Optional[builtins.str] = None,
+    server_hostname: typing.Optional[builtins.str] = None,
+    server_port: typing.Optional[jsii.Number] = None,
+    server_protocol: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ffb78212d43943a47f3d3a5e10125952e22d4754b8512843cf88c7c55f6514ee(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     s3_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationS3.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    s3_bucket_arn: typing.Optional[builtins.str] = None,
+    s3_bucket_arn: typing.Optional[typing.Union[builtins.str, _IBucketRef_3debe44e]] = None,
     s3_storage_class: typing.Optional[builtins.str] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6066c65ce68d8ef927eca15aa4d0913672d33316882166eb243351d2e1b26fe1(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11768,12 +11095,25 @@ def _typecheckingstub__ce8f8003886002426ef5ce44b74ed398416c8d59b6cf5b10816d2ddc1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a1b9799e0fad9e71975d14e754aeb8ef0b5f52fcedcbabc328afae8c4a4afaa5(
+    *,
+    s3_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationS3.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_bucket_arn: typing.Optional[typing.Union[builtins.str, _IBucketRef_3debe44e]] = None,
+    s3_storage_class: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bafa6101408857d4661895c88a8c9839da8768aa52e07d3f2889a4f27c1cab7d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     agent_arns: typing.Sequence[builtins.str],
     authentication_type: typing.Optional[builtins.str] = None,
+    cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationSMB.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationSMB.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dns_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     domain: typing.Optional[builtins.str] = None,
     kerberos_keytab: typing.Optional[builtins.str] = None,
@@ -11785,6 +11125,12 @@ def _typecheckingstub__bafa6101408857d4661895c88a8c9839da8768aa52e07d3f2889a4f27
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     user: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5a3e6ad10be0a70e167c8e00799e7ca1b6606d084d97c9ceb97c0e49bfefe56(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11809,6 +11155,18 @@ def _typecheckingstub__21ee66e7697fa761c39fe555b5fae211e45dedf33951d3701b7b6389d
 
 def _typecheckingstub__35de39b9b573d0d6146fa84be08e6a3a14ff5e9ece5535c93fc8af130af7e7ec(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e407ec55488adbc9f81891a5e15e237e234b987b6214eb331162a8b63f344324(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationSMB.CmkSecretConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fde88b8f3a9b839e4f9087f93f80eb219e3a48609302336a5ed68bd2edec2ebb(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationSMB.CustomSecretConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11879,9 +11237,53 @@ def _typecheckingstub__9112e8b177e52fbd055f221015988972f906f8c7291b4a1992bb1656c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9351aeda2a3946543003130a0d3d622afa774937076186eaabf4b996745ca99f(
+    *,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    secret_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6049f29f723d7f92a691c991b6232a25e39ba58d2d4400b1c499f542a7a8aee7(
+    *,
+    secret_access_role_arn: builtins.str,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5db7c95a4b68a63cb100ea0ecc9392535271eaf1c99519a96ebecbd32455f91c(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__465428a8e33c33a3926562e4b4d3d671db7fc7f2d1ff95443e6224cb280e8c00(
     *,
     version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b20670d7cb18baa1155ccc397df310282442d51b95170ab568e5c0a9cbea5bc8(
+    *,
+    agent_arns: typing.Sequence[builtins.str],
+    authentication_type: typing.Optional[builtins.str] = None,
+    cmk_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationSMB.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationSMB.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dns_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    domain: typing.Optional[builtins.str] = None,
+    kerberos_keytab: typing.Optional[builtins.str] = None,
+    kerberos_krb5_conf: typing.Optional[builtins.str] = None,
+    kerberos_principal: typing.Optional[builtins.str] = None,
+    mount_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLocationSMB.MountOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    password: typing.Optional[builtins.str] = None,
+    server_hostname: typing.Optional[builtins.str] = None,
+    subdirectory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11890,9 +11292,9 @@ def _typecheckingstub__9add9673a1f0ceb078949e967bce91066ff7e0441dae95d55c11c4a50
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    destination_location_arn: builtins.str,
-    source_location_arn: builtins.str,
-    cloud_watch_log_group_arn: typing.Optional[builtins.str] = None,
+    destination_location_arn: typing.Union[builtins.str, _ILocationEFSRef_6fba5e2e, _ILocationS3Ref_5240f1a4],
+    source_location_arn: typing.Union[builtins.str, _ILocationNFSRef_01d78c69, _ILocationS3Ref_5240f1a4],
+    cloud_watch_log_group_arn: typing.Optional[typing.Union[builtins.str, _ILogGroupRef_874d025a]] = None,
     excludes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.FilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     includes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.FilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     manifest_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.ManifestConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11902,6 +11304,18 @@ def _typecheckingstub__9add9673a1f0ceb078949e967bce91066ff7e0441dae95d55c11c4a50
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_mode: typing.Optional[builtins.str] = None,
     task_report_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.TaskReportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11b47a1239ce321421d64f37b8a9e941eafa8581660074b27825eadc5a949b3e(
+    resource: _ITaskRef_0571d67b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7779d88e625487f7c945d90e9071aabc98d8b70ce6c1084a1677380c77001e87(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12114,6 +11528,24 @@ def _typecheckingstub__567e5569759125d2a549b0bdc4af58e1bd393094777e59c4cb349ddd2
 def _typecheckingstub__85b602e4eeecb093e03804ba0a072531ddddf4c7a2a1bbcf685fd0ff22c5bb57(
     *,
     report_level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5632ab868186e470f4d8f0c14e3f12b71107be017f54f3194a076b9da30b50d8(
+    *,
+    destination_location_arn: typing.Union[builtins.str, _ILocationEFSRef_6fba5e2e, _ILocationS3Ref_5240f1a4],
+    source_location_arn: typing.Union[builtins.str, _ILocationNFSRef_01d78c69, _ILocationS3Ref_5240f1a4],
+    cloud_watch_log_group_arn: typing.Optional[typing.Union[builtins.str, _ILogGroupRef_874d025a]] = None,
+    excludes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.FilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    includes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.FilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    manifest_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.ManifestConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.OptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.TaskScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_mode: typing.Optional[builtins.str] = None,
+    task_report_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTask.TaskReportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

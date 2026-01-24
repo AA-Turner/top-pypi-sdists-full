@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sahi
-Version: 0.11.34
+Version: 0.11.36
 Summary: A vision library for performing sliced inference on large images/small objects
 Project-URL: Homepage, https://github.com/obss/sahi
 Project-URL: Source, https://github.com/obss/sahi
@@ -32,7 +32,18 @@ Requires-Dist: pyyaml
 Requires-Dist: requests
 Requires-Dist: shapely>=2.0.0
 Requires-Dist: terminaltables
+Requires-Dist: torch>=2.4.1
 Requires-Dist: tqdm>=4.48.2
+Provides-Extra: all
+Requires-Dist: inference>=0.51.5; (python_version >= '3.12') and extra == 'all'
+Requires-Dist: onnx; (python_version >= '3.10') and extra == 'all'
+Requires-Dist: onnxruntime; (python_version >= '3.10') and extra == 'all'
+Requires-Dist: rfdetr>=1.1.0; (python_version >= '3.12') and extra == 'all'
+Requires-Dist: torch>=2.4.1; extra == 'all'
+Requires-Dist: torchvision; extra == 'all'
+Requires-Dist: transformers>=4.49.0; (python_version >= '3.9') and extra == 'all'
+Requires-Dist: ultralytics>=8.0.0; extra == 'all'
+Requires-Dist: yolov5<8.0.0,>=6.0.0; extra == 'all'
 Provides-Extra: ci
 Requires-Dist: fiftyone; extra == 'ci'
 Requires-Dist: inference>=0.51.5; (python_version >= '3.12') and extra == 'ci'
@@ -56,6 +67,18 @@ Requires-Dist: mmcv==2.1.0; (python_version == '3.11' and (platform_system != 'D
 Requires-Dist: mmdet==3.3.0; (python_version == '3.11' and (platform_system != 'Darwin' or platform_machine != 'arm64')) and extra == 'mmdet'
 Requires-Dist: mmengine; (python_version == '3.11' and (platform_system != 'Darwin' or platform_machine != 'arm64')) and extra == 'mmdet'
 Requires-Dist: numpy<2.0; (python_version == '3.11') and extra == 'mmdet'
+Provides-Extra: onnx
+Requires-Dist: onnx; (python_version >= '3.10') and extra == 'onnx'
+Requires-Dist: onnxruntime; (python_version >= '3.10') and extra == 'onnx'
+Provides-Extra: roboflow
+Requires-Dist: inference>=0.51.5; (python_version >= '3.12') and extra == 'roboflow'
+Requires-Dist: rfdetr>=1.1.0; (python_version >= '3.12') and extra == 'roboflow'
+Provides-Extra: transformers
+Requires-Dist: transformers>=4.49.0; (python_version >= '3.9') and extra == 'transformers'
+Provides-Extra: ultralytics
+Requires-Dist: ultralytics>=8.0.0; extra == 'ultralytics'
+Provides-Extra: yolov5
+Requires-Dist: yolov5<8.0.0,>=6.0.0; extra == 'yolov5'
 Description-Content-Type: text/markdown
 
 <div align="center">

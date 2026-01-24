@@ -8,9 +8,9 @@ from orq_ai_sdk.types import (
     UNSET,
     UNSET_SENTINEL,
 )
-from orq_ai_sdk.utils import FieldMetadata, QueryParamMetadata
+from orq_ai_sdk.utils import FieldMetadata, QueryParamMetadata, get_discriminator
 import pydantic
-from pydantic import model_serializer
+from pydantic import Discriminator, Tag, model_serializer
 from typing import Any, Dict, List, Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
@@ -42,6 +42,22 @@ class DeploymentsRequest(BaseModel):
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
     r"""A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["limit", "starting_after", "ending_before"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 DeploymentsObject = Literal["list",]
@@ -82,6 +98,22 @@ class DeploymentsParameters(BaseModel):
         Optional[bool], pydantic.Field(alias="additionalProperties")
     ] = None
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["required", "additionalProperties"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class DeploymentsFunctionTypedDict(TypedDict):
     name: str
@@ -111,11 +143,28 @@ class DeploymentsFunction(BaseModel):
 
     strict: Optional[bool] = None
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["description", "strict"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class DeploymentsToolsTypedDict(TypedDict):
     type: DeploymentsType
     r"""The type of the tool. Currently, only `function` is supported."""
     function: DeploymentsFunctionTypedDict
+    display_name: NotRequired[str]
     id: NotRequired[float]
 
 
@@ -125,19 +174,38 @@ class DeploymentsTools(BaseModel):
 
     function: DeploymentsFunction
 
+    display_name: Optional[str] = None
+
     id: Optional[float] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["display_name", "id"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 DeploymentsModelType = Literal[
     "chat",
     "completion",
     "embedding",
-    "vision",
     "image",
     "tts",
     "stt",
     "rerank",
-    "moderations",
+    "ocr",
+    "moderation",
+    "vision",
 ]
 r"""The modality of the model"""
 
@@ -149,6 +217,31 @@ DeploymentsFormat = Literal[
     "json_object",
 ]
 r"""Only supported on `image` models."""
+
+
+DeploymentsResponseFormat6 = Literal[
+    "json",
+    "text",
+    "srt",
+    "verbose_json",
+    "vtt",
+]
+
+
+DeploymentsResponseFormat5 = Literal[
+    "url",
+    "base64_json",
+]
+
+
+DeploymentsResponseFormat4 = Literal[
+    "mp3",
+    "opus",
+    "aac",
+    "flac",
+    "wav",
+    "pcm",
+]
 
 
 DeploymentsResponseFormatDeploymentsType = Literal["text",]
@@ -179,6 +272,7 @@ DeploymentsResponseFormatDeploymentsResponseType = Literal["json_schema",]
 class DeploymentsResponseFormatJSONSchemaTypedDict(TypedDict):
     name: str
     schema_: Dict[str, Any]
+    description: NotRequired[str]
     strict: NotRequired[bool]
 
 
@@ -187,18 +281,55 @@ class DeploymentsResponseFormatJSONSchema(BaseModel):
 
     schema_: Annotated[Dict[str, Any], pydantic.Field(alias="schema")]
 
+    description: Optional[str] = None
+
     strict: Optional[bool] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["description", "strict"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 class DeploymentsResponseFormat1TypedDict(TypedDict):
     type: DeploymentsResponseFormatDeploymentsResponseType
     json_schema: DeploymentsResponseFormatJSONSchemaTypedDict
+    display_name: NotRequired[str]
 
 
 class DeploymentsResponseFormat1(BaseModel):
     type: DeploymentsResponseFormatDeploymentsResponseType
 
     json_schema: DeploymentsResponseFormatJSONSchema
+
+    display_name: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["display_name"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 DeploymentsResponseFormatTypedDict = TypeAliasType(
@@ -207,6 +338,9 @@ DeploymentsResponseFormatTypedDict = TypeAliasType(
         DeploymentsResponseFormat2TypedDict,
         DeploymentsResponseFormat3TypedDict,
         DeploymentsResponseFormat1TypedDict,
+        DeploymentsResponseFormat4,
+        DeploymentsResponseFormat5,
+        DeploymentsResponseFormat6,
     ],
 )
 r"""An object specifying the format that the model must output.
@@ -225,6 +359,9 @@ DeploymentsResponseFormat = TypeAliasType(
         DeploymentsResponseFormat2,
         DeploymentsResponseFormat3,
         DeploymentsResponseFormat1,
+        DeploymentsResponseFormat4,
+        DeploymentsResponseFormat5,
+        DeploymentsResponseFormat6,
     ],
 )
 r"""An object specifying the format that the model must output.
@@ -252,7 +389,9 @@ r"""The format to return the embeddings"""
 
 
 DeploymentsReasoningEffort = Literal[
+    "none",
     "disable",
+    "minimal",
     "low",
     "medium",
     "high",
@@ -266,6 +405,13 @@ DeploymentsVerbosity = Literal[
     "high",
 ]
 r"""Controls the verbosity of the model output."""
+
+
+DeploymentsThinkingLevel = Literal[
+    "low",
+    "high",
+]
+r"""The level of thinking to use for the model. Only supported by `Google AI`"""
 
 
 class DeploymentsModelParametersTypedDict(TypedDict):
@@ -314,6 +460,8 @@ class DeploymentsModelParametersTypedDict(TypedDict):
     r"""Gives the model enhanced reasoning capabilities for complex tasks. A value of 0 disables thinking. The minimum budget tokens for thinking are 1024. The Budget Tokens should never exceed the Max Tokens parameter. Only supported by `Anthropic`"""
     verbosity: NotRequired[DeploymentsVerbosity]
     r"""Controls the verbosity of the model output."""
+    thinking_level: NotRequired[DeploymentsThinkingLevel]
+    r"""The level of thinking to use for the model. Only supported by `Google AI`"""
 
 
 class DeploymentsModelParameters(BaseModel):
@@ -395,79 +543,86 @@ class DeploymentsModelParameters(BaseModel):
     verbosity: Optional[DeploymentsVerbosity] = None
     r"""Controls the verbosity of the model output."""
 
+    thinking_level: Annotated[
+        Optional[DeploymentsThinkingLevel], pydantic.Field(alias="thinkingLevel")
+    ] = None
+    r"""The level of thinking to use for the model. Only supported by `Google AI`"""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = [
-            "temperature",
-            "maxTokens",
-            "topK",
-            "topP",
-            "frequencyPenalty",
-            "presencePenalty",
-            "numImages",
-            "seed",
-            "format",
-            "dimensions",
-            "quality",
-            "style",
-            "responseFormat",
-            "photoRealVersion",
-            "encoding_format",
-            "reasoningEffort",
-            "budgetTokens",
-            "verbosity",
-        ]
-        nullable_fields = ["responseFormat"]
-        null_default_fields = []
-
+        optional_fields = set(
+            [
+                "temperature",
+                "maxTokens",
+                "topK",
+                "topP",
+                "frequencyPenalty",
+                "presencePenalty",
+                "numImages",
+                "seed",
+                "format",
+                "dimensions",
+                "quality",
+                "style",
+                "responseFormat",
+                "photoRealVersion",
+                "encoding_format",
+                "reasoningEffort",
+                "budgetTokens",
+                "verbosity",
+                "thinkingLevel",
+            ]
+        )
+        nullable_fields = set(["responseFormat"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m
 
 
 DeploymentsProvider = Literal[
-    "cohere",
     "openai",
-    "anthropic",
-    "huggingface",
-    "replicate",
-    "google",
-    "google-ai",
+    "groq",
+    "cohere",
     "azure",
     "aws",
-    "anyscale",
+    "google",
+    "google-ai",
+    "huggingface",
+    "togetherai",
     "perplexity",
-    "groq",
-    "fal",
+    "anthropic",
     "leonardoai",
+    "fal",
     "nvidia",
     "jina",
-    "togetherai",
     "elevenlabs",
     "litellm",
-    "openailike",
     "cerebras",
+    "openailike",
     "bytedance",
+    "mistral",
+    "deepseek",
+    "contextualai",
+    "moonshotai",
+    "zai",
+    "slack",
 ]
 
 
@@ -484,39 +639,65 @@ DeploymentsRole = Literal[
 r"""The role of the prompt message"""
 
 
-Deployments2DeploymentsType = Literal["file",]
+Deployments2DeploymentsResponseType = Literal["file",]
 r"""The type of the content part. Always `file`."""
 
 
 class Deployments2FileTypedDict(TypedDict):
-    file_data: str
+    file_data: NotRequired[str]
     r"""The file data as a data URI string in the format 'data:<mime-type>;base64,<base64-encoded-data>'. Example: 'data:image/png;base64,iVBORw0KGgoAAAANS...'"""
+    uri: NotRequired[str]
+    r"""URL to the file. Only supported by Anthropic Claude models for PDF files."""
+    mime_type: NotRequired[str]
+    r"""MIME type of the file (e.g., application/pdf, image/png)"""
     filename: NotRequired[str]
     r"""The name of the file, used when passing the file to the model as a string."""
 
 
 class Deployments2File(BaseModel):
-    file_data: str
+    file_data: Optional[str] = None
     r"""The file data as a data URI string in the format 'data:<mime-type>;base64,<base64-encoded-data>'. Example: 'data:image/png;base64,iVBORw0KGgoAAAANS...'"""
+
+    uri: Optional[str] = None
+    r"""URL to the file. Only supported by Anthropic Claude models for PDF files."""
+
+    mime_type: Annotated[Optional[str], pydantic.Field(alias="mimeType")] = None
+    r"""MIME type of the file (e.g., application/pdf, image/png)"""
 
     filename: Optional[str] = None
     r"""The name of the file, used when passing the file to the model as a string."""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["file_data", "uri", "mimeType", "filename"])
+        serialized = handler(self)
+        m = {}
 
-class Deployments2Deployments3TypedDict(TypedDict):
-    type: Deployments2DeploymentsType
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+class Deployments23TypedDict(TypedDict):
+    type: Deployments2DeploymentsResponseType
     r"""The type of the content part. Always `file`."""
     file: Deployments2FileTypedDict
 
 
-class Deployments2Deployments3(BaseModel):
-    type: Deployments2DeploymentsType
+class Deployments23(BaseModel):
+    type: Deployments2DeploymentsResponseType
     r"""The type of the content part. Always `file`."""
 
     file: Deployments2File
 
 
-Deployments2DeploymentsResponse200Type = Literal["image_url",]
+Deployments2DeploymentsType = Literal["image_url",]
 
 
 class Deployments2ImageURLTypedDict(TypedDict):
@@ -538,67 +719,82 @@ class Deployments2ImageURL(BaseModel):
     detail: Optional[str] = None
     r"""Specifies the detail level of the image. Currently only supported with OpenAI models"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["id", "detail"])
+        serialized = handler(self)
+        m = {}
 
-class Deployments2Deployments2TypedDict(TypedDict):
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+class Deployments22TypedDict(TypedDict):
     r"""The image part of the prompt message. Only supported with vision models."""
 
-    type: Deployments2DeploymentsResponse200Type
+    type: Deployments2DeploymentsType
     image_url: Deployments2ImageURLTypedDict
 
 
-class Deployments2Deployments2(BaseModel):
+class Deployments22(BaseModel):
     r"""The image part of the prompt message. Only supported with vision models."""
 
-    type: Deployments2DeploymentsResponse200Type
+    type: Deployments2DeploymentsType
 
     image_url: Deployments2ImageURL
 
 
-Deployments2DeploymentsResponseType = Literal["text",]
+Deployments2Type = Literal["text",]
 
 
-class Deployments2Deployments1TypedDict(TypedDict):
+class Deployments21TypedDict(TypedDict):
     r"""Text content part of a prompt message"""
 
-    type: Deployments2DeploymentsResponseType
+    type: Deployments2Type
     text: str
 
 
-class Deployments2Deployments1(BaseModel):
+class Deployments21(BaseModel):
     r"""Text content part of a prompt message"""
 
-    type: Deployments2DeploymentsResponseType
+    type: Deployments2Type
 
     text: str
 
 
-DeploymentsContentDeployments2TypedDict = TypeAliasType(
-    "DeploymentsContentDeployments2TypedDict",
+DeploymentsContent2TypedDict = TypeAliasType(
+    "DeploymentsContent2TypedDict",
+    Union[Deployments21TypedDict, Deployments22TypedDict, Deployments23TypedDict],
+)
+
+
+DeploymentsContent2 = Annotated[
     Union[
-        Deployments2Deployments1TypedDict,
-        Deployments2Deployments2TypedDict,
-        Deployments2Deployments3TypedDict,
+        Annotated[Deployments21, Tag("text")],
+        Annotated[Deployments22, Tag("image_url")],
+        Annotated[Deployments23, Tag("file")],
     ],
-)
-
-
-DeploymentsContentDeployments2 = TypeAliasType(
-    "DeploymentsContentDeployments2",
-    Union[Deployments2Deployments1, Deployments2Deployments2, Deployments2Deployments3],
-)
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
 DeploymentsContentTypedDict = TypeAliasType(
-    "DeploymentsContentTypedDict",
-    Union[str, List[DeploymentsContentDeployments2TypedDict]],
+    "DeploymentsContentTypedDict", Union[str, List[DeploymentsContent2TypedDict]]
 )
-r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
 
 
 DeploymentsContent = TypeAliasType(
-    "DeploymentsContent", Union[str, List[DeploymentsContentDeployments2]]
+    "DeploymentsContent", Union[str, List[DeploymentsContent2]]
 )
-r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
 
 
 DeploymentsDeploymentsType = Literal["function",]
@@ -633,26 +829,67 @@ class DeploymentsToolCalls(BaseModel):
 
     index: Optional[float] = None
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["id", "index"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class DeploymentsMessagesTypedDict(TypedDict):
     role: DeploymentsRole
     r"""The role of the prompt message"""
-    content: DeploymentsContentTypedDict
-    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+    content: Nullable[DeploymentsContentTypedDict]
+    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
     tool_calls: NotRequired[List[DeploymentsToolCallsTypedDict]]
-    tool_call_id: NotRequired[str]
+    tool_call_id: NotRequired[Nullable[str]]
 
 
 class DeploymentsMessages(BaseModel):
     role: DeploymentsRole
     r"""The role of the prompt message"""
 
-    content: DeploymentsContent
-    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts."""
+    content: Nullable[DeploymentsContent]
+    r"""The contents of the user message. Either the text content of the message or an array of content parts with a defined type, each can be of type `text` or `image_url` when passing in images. You can pass multiple images by adding multiple `image_url` content parts. Can be null for tool messages in certain scenarios."""
 
     tool_calls: Optional[List[DeploymentsToolCalls]] = None
 
-    tool_call_id: Optional[str] = None
+    tool_call_id: OptionalNullable[str] = UNSET
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["tool_calls", "tool_call_id"])
+        nullable_fields = set(["content", "tool_call_id"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
+
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
+
+        return m
 
 
 class DeploymentsPromptConfigTypedDict(TypedDict):

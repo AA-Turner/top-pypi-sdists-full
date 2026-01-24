@@ -4,7 +4,16 @@
 
 import abc
 import sys
-from typing import Any, Callable, Iterable, Iterator, Literal, overload
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+)
+from typing import (
+    Any,
+    Literal,
+    overload,
+)
 from typing_extensions import SupportsIndex
 
 if sys.version_info >= (3, 11):
@@ -40,6 +49,7 @@ class ObjectifiedElement(ElementBase):
 
     # Readonly, unlike _Element counterpart
     @property  # type: ignore[misc]
+    # pyrefly: ignore[bad-override]
     def text(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
     ) -> str | None: ...
@@ -50,7 +60,7 @@ class ObjectifiedElement(ElementBase):
     def addattr(self, tag: _TagName, value: object) -> None: ...
     def countchildren(self) -> int: ...
     def descendantpaths(self, prefix: str | list[str] | None = None) -> list[str]: ...
-    def getchildren(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def getchildren(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
     ) -> list[ObjectifiedElement]: ...
     def __iter__(self) -> Iterator[ObjectifiedElement]: ...
@@ -64,7 +74,7 @@ class ObjectifiedElement(ElementBase):
     @overload
     def __getitem__(self, key: int | str | bytes, /) -> ObjectifiedElement: ...
     @overload
-    def __getitem__(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __getitem__(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
         key: slice,
         /,
@@ -77,7 +87,7 @@ class ObjectifiedElement(ElementBase):
     # TODO Check if _Element methods need overriding
     # CSS selector is not a normal use case for objectified
     # element (and unnecessary), but still usable nonetheless
-    def cssselect(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def cssselect(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
         expr: str,
         *,
@@ -109,9 +119,10 @@ class ObjectifiedDataElement(ObjectifiedElement):
         doing.
         """
 
+# NOT marking as disjoint_base
 class NumberElement(ObjectifiedDataElement, metaclass=abc.ABCMeta):
     @property  # type: ignore[misc]
-    def text(self) -> str: ...  # type: ignore[override]
+    def text(self) -> str: ...
     def _setValueParser(self, function: Callable[[str], Any]) -> None:
         """Set the function that parses the Python value from a string
 
@@ -129,11 +140,11 @@ class NumberElement(ObjectifiedDataElement, metaclass=abc.ABCMeta):
 #
 # Not doing the same for StringElement and BoolElement though,
 # each for different reason.
-class IntElement(NumberElement, int):
+class IntElement(NumberElement, int):  # type: ignore[misc]
     @property
     def pyval(self) -> int: ...
 
-class FloatElement(NumberElement, float):
+class FloatElement(NumberElement, float):  # type: ignore[misc]
     @property
     def pyval(self) -> float: ...
 
@@ -173,7 +184,7 @@ class NoneElement(ObjectifiedDataElement):
     @property
     def pyval(self) -> None: ...
     @property  # type: ignore[misc]
-    def text(self) -> None: ...  # type: ignore[override]
+    def text(self) -> None: ...
     def __bool__(self) -> Literal[False]: ...
 
 # BoolElement can't inherit from bool, which is marked @final
@@ -181,7 +192,7 @@ class BoolElement(IntElement):
     @property
     def pyval(self) -> bool: ...
     @property  # type: ignore[misc]
-    def text(self) -> str: ...  # type: ignore[override]
+    def text(self) -> str: ...
     def __bool__(self) -> bool: ...
     def __int__(self) -> int: ...
     def __float__(self) -> float: ...

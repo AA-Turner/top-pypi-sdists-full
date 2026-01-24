@@ -1,7 +1,6 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
@@ -12,7 +11,7 @@ if TYPE_CHECKING:
     from marimo._plugins.ui._impl.anywidget.types import (
         TypedModelMessagePayload,
     )
-    from marimo._runtime.requests import ModelMessage
+    from marimo._runtime.commands import ModelMessage
 
 LOGGER = marimo_logger()
 
@@ -219,21 +218,24 @@ class MarimoComm:
         )
 
     def flush(self) -> None:
-        from marimo._messaging.ops import SendUIElementMessage
+        from marimo._messaging.notification import (
+            UIElementMessageNotification,
+        )
+        from marimo._messaging.notification_utils import broadcast_notification
 
         while self._publish_message_buffer:
             item = self._publish_message_buffer.pop(0)
-            SendUIElementMessage(
-                # ui_element_id can be None. In this case, we are creating a model
-                # not tied to a specific UI element
-                ui_element=self.ui_element_id,
-                model_id=item.model_id,
-                message=item.data,
-                buffers=[
-                    base64.b64encode(buffer).decode()
-                    for buffer in item.buffers
-                ],
-            ).broadcast()
+
+            broadcast_notification(
+                UIElementMessageNotification(
+                    # ui_element_id can be None. In this case, we are creating a model
+                    # not tied to a specific UI element
+                    ui_element=self.ui_element_id,
+                    model_id=item.model_id,
+                    message=item.data,
+                    buffers=item.buffers,
+                ),
+            )
 
     # This is the method that ipywidgets.widgets.Widget uses to respond to
     # client-side changes

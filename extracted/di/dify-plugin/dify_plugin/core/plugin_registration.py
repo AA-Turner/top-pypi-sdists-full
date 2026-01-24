@@ -1,7 +1,7 @@
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import werkzeug
 import werkzeug.exceptions
@@ -10,14 +10,29 @@ from werkzeug.routing import Map, Rule
 
 from dify_plugin.config.config import DifyPluginEnv
 from dify_plugin.core.entities.plugin.setup import PluginAsset, PluginConfiguration
+from dify_plugin.core.entities.providers import DatasourceProviderMapping
+from dify_plugin.core.model_factory import ModelFactory
+from dify_plugin.core.runtime import Session
+from dify_plugin.core.trigger_factory import TriggerFactory
 from dify_plugin.core.utils.class_loader import load_multi_subclasses_from_source, load_single_subclass_from_source
 from dify_plugin.core.utils.yaml_loader import load_yaml_file
 from dify_plugin.entities.agent import AgentStrategyConfiguration, AgentStrategyProviderConfiguration
+from dify_plugin.entities.datasource_manifest import DatasourceProviderManifest, DatasourceProviderType
 from dify_plugin.entities.endpoint import EndpointProviderConfiguration
 from dify_plugin.entities.model import ModelType
 from dify_plugin.entities.model.provider import ModelProviderConfiguration
+from dify_plugin.entities.provider_config import CredentialType
 from dify_plugin.entities.tool import ToolConfiguration, ToolProviderConfiguration
+from dify_plugin.entities.trigger import (
+    EventConfiguration,
+    TriggerProviderConfiguration,
+    TriggerSubscriptionConstructorRuntime,
+)
 from dify_plugin.interfaces.agent import AgentStrategy
+from dify_plugin.interfaces.datasource import DatasourceProvider
+from dify_plugin.interfaces.datasource.online_document import OnlineDocumentDatasource
+from dify_plugin.interfaces.datasource.online_drive import OnlineDriveDatasource
+from dify_plugin.interfaces.datasource.website import WebsiteCrawlDatasource
 from dify_plugin.interfaces.endpoint import Endpoint
 from dify_plugin.interfaces.model import ModelProvider
 from dify_plugin.interfaces.model.ai_model import AIModel
@@ -28,6 +43,7 @@ from dify_plugin.interfaces.model.speech2text_model import Speech2TextModel
 from dify_plugin.interfaces.model.text_embedding_model import TextEmbeddingModel
 from dify_plugin.interfaces.model.tts_model import TTSModel
 from dify_plugin.interfaces.tool import Tool, ToolProvider
+from dify_plugin.interfaces.trigger import Event, EventRuntime, Trigger, TriggerSubscriptionConstructor
 from dify_plugin.protocol.oauth import OAuthProviderProtocol
 
 T = TypeVar("T")
@@ -53,25 +69,25 @@ class PluginRegistration:
         ],
     ]
 
+    triggers_configuration: list[TriggerProviderConfiguration]
+    trigger_factory: TriggerFactory
+
     models_configuration: list[ModelProviderConfiguration]
     models_mapping: dict[
         str,
         tuple[
             ModelProviderConfiguration,
             ModelProvider,
-            dict[ModelType, AIModel],
+            ModelFactory,
         ],
     ]
     endpoints_configuration: list[EndpointProviderConfiguration]
     endpoints: Map
-    datasource_configuration: list[None]  # TBD
-    datasource_mapping: dict[  # provider -> (provider_cls, datasource_mapping)
+    datasource_configuration: list[DatasourceProviderManifest]
+    datasource_mapping: dict[
         str,
-        tuple[
-            None,
-            dict[str, tuple[None, type[None]]],  # datasource_name -> (datasource_configuration, datasource_cls)
-        ],
-    ]  # TBD
+        DatasourceProviderMapping,
+    ]
 
     files: list[PluginAsset]
 
@@ -88,6 +104,10 @@ class PluginRegistration:
         self.files = []
         self.agent_strategies_configuration = []
         self.agent_strategies_mapping = {}
+        self.datasource_configuration = []
+        self.datasource_mapping = {}
+        self.triggers_configuration = []
+        self.trigger_factory = TriggerFactory()
 
         # load plugin configuration
         self._load_plugin_configuration()
@@ -131,6 +151,14 @@ class PluginRegistration:
                 fs = load_yaml_file(provider)
                 agent_provider_configuration = AgentStrategyProviderConfiguration(**fs)
                 self.agent_strategies_configuration.append(agent_provider_configuration)
+            for provider in self.configuration.plugins.datasources:
+                fs = load_yaml_file(provider)
+                datasource_provider_configuration = DatasourceProviderManifest(**fs)
+                self.datasource_configuration.append(datasource_provider_configuration)
+            for provider in self.configuration.plugins.triggers:
+                fs = load_yaml_file(provider)
+                trigger_provider_configuration = TriggerProviderConfiguration(**fs)
+                self.triggers_configuration.append(trigger_provider_configuration)
 
         except Exception as e:
             raise ValueError(f"Error loading plugin configuration: {e!s}") from e
@@ -191,6 +219,114 @@ class PluginRegistration:
 
             self.agent_strategies_mapping[provider.identity.name] = (provider, strategies)
 
+    def _resolve_datasource_providers(self):
+        """
+        walk through all the datasource providers and datasources and load the classes from sources
+        """
+        for provider in self.datasource_configuration:
+            # load class
+            source = provider.extra.python.source
+            # remove extension
+            module_source = os.path.splitext(source)[0]
+            # replace / with .
+            module_source = module_source.replace("/", ".")
+            provider_cls = load_single_subclass_from_source(
+                module_name=module_source,
+                script_path=os.path.join(os.getcwd(), source),
+                parent_type=DatasourceProvider,
+            )
+
+            datasource_mappings = {
+                DatasourceProviderType.WEBSITE_CRAWL: (WebsiteCrawlDatasource, {}),
+                DatasourceProviderType.ONLINE_DOCUMENT: (OnlineDocumentDatasource, {}),
+                DatasourceProviderType.ONLINE_DRIVE: (OnlineDriveDatasource, {}),
+            }
+
+            if provider.provider_type in datasource_mappings:
+                parent_type, mapping = datasource_mappings[provider.provider_type]
+                for datasource in provider.datasources:
+                    module_source = os.path.splitext(datasource.extra.python.source)[0].replace("/", ".")
+                    cls = load_single_subclass_from_source(
+                        module_name=module_source,
+                        script_path=os.path.join(os.getcwd(), datasource.extra.python.source),
+                        parent_type=parent_type,
+                    )
+                    mapping[datasource.identity.name] = cls
+
+            self.datasource_mapping[provider.identity.name] = DatasourceProviderMapping(
+                provider=provider.identity.name,
+                provider_cls=provider_cls,
+                configuration=provider,
+                website_crawl_datasource_mapping=datasource_mappings[DatasourceProviderType.WEBSITE_CRAWL][1],
+                online_document_datasource_mapping=datasource_mappings[DatasourceProviderType.ONLINE_DOCUMENT][1],
+                online_drive_datasource_mapping=datasource_mappings[DatasourceProviderType.ONLINE_DRIVE][1],
+            )
+
+    def _resolve_trigger_providers(self):
+        """
+        walk through all the trigger providers and triggers and load the classes from sources
+        """
+        for provider in self.triggers_configuration:
+            # load provider class
+            source = provider.extra.python.source
+            # remove extension
+            module_source = os.path.splitext(source)[0]
+            # replace / with .
+            module_source = module_source.replace("/", ".")
+            provider_cls = load_single_subclass_from_source(
+                module_name=module_source,
+                script_path=os.path.join(os.getcwd(), source),
+                parent_type=Trigger,
+            )
+
+            subscription_constructor_cls_candidates = load_multi_subclasses_from_source(
+                module_name=module_source,
+                script_path=os.path.join(os.getcwd(), source),
+                parent_type=TriggerSubscriptionConstructor,
+            )
+
+            if len(subscription_constructor_cls_candidates) > 1:
+                raise ValueError(
+                    f"Multiple TriggerSubscriptionConstructor subclasses found in {source}."
+                    " Only a single implementation is supported."
+                )
+
+            subscription_constructor_cls = (
+                subscription_constructor_cls_candidates[0] if subscription_constructor_cls_candidates else None
+            )
+
+            if provider.subscription_constructor and subscription_constructor_cls is None:
+                raise ValueError(
+                    f"Trigger subscription constructor configuration declared but no implementation found in {source}."
+                )
+
+            # load events class
+            trigger_registrations: list[tuple[str, EventConfiguration, type[Event]]] = []
+            for trigger in provider.events:
+                trigger_source = trigger.extra.python.source
+                trigger_module_source = os.path.splitext(trigger_source)[0]
+                trigger_module_source = trigger_module_source.replace("/", ".")
+                trigger_cls = load_single_subclass_from_source(
+                    module_name=trigger_module_source,
+                    script_path=os.path.join(os.getcwd(), trigger_source),
+                    parent_type=Event,
+                )
+                trigger_registrations.append((trigger.identity.name, trigger, trigger_cls))
+
+            registration = self.trigger_factory.register_trigger_provider(
+                configuration=provider,
+                provider_cls=provider_cls,
+                subscription_constructor_cls=subscription_constructor_cls,
+                events={},
+            )
+
+            for name, trigger_config, trigger_cls in trigger_registrations:
+                registration.register_trigger(
+                    name=name,
+                    configuration=trigger_config,
+                    trigger_cls=trigger_cls,
+                )
+
     def _is_strict_subclass(self, cls: type[T], *parent_cls: type[T]) -> bool:
         """
         check if the class is a strict subclass of one of the parent classes
@@ -215,7 +351,7 @@ class PluginRegistration:
             )
 
             # load models class
-            models = {}
+            models: dict[ModelType, type[AIModel]] = {}
             for model_source in provider.extra.python.model_sources:
                 model_module_source = os.path.splitext(model_source)[0]
                 model_module_source = model_module_source.replace("/", ".")
@@ -235,13 +371,14 @@ class PluginRegistration:
                         Speech2TextModel,
                         ModerationModel,
                     ):
-                        models[model_cls.model_type] = model_cls(provider.models)  # type: ignore
+                        models[model_cls.model_type] = model_cls
 
-            provider_instance = cls(provider, models)  # type: ignore
+            model_factory = ModelFactory(provider, models)
+            provider_instance = cls(provider, model_factory)  # type: ignore
             self.models_mapping[provider.provider] = (
                 provider,
                 provider_instance,
-                models,
+                model_factory,
             )
 
     def _resolve_endpoints(self):
@@ -278,6 +415,12 @@ class PluginRegistration:
 
         # load agent providers and strategies
         self._resolve_agent_providers()
+
+        # load datasource providers and datasources
+        self._resolve_datasource_providers()
+
+        # load trigger providers and triggers
+        self._resolve_trigger_providers()
 
     def get_tool_provider_cls(self, provider: str):
         """
@@ -344,23 +487,116 @@ class PluginRegistration:
         """
         for provider_registration in self.models_mapping:
             if provider_registration == provider:
-                registration = self.models_mapping[provider_registration][2].get(model_type)
-                if registration:
-                    return registration
+                model_factory = self.models_mapping[provider_registration][2]
+                return model_factory.get_instance(model_type)
 
-    def get_supported_oauth_provider_cls(self, provider: str) -> type[OAuthProviderProtocol] | None:
+    def get_trigger_provider(
+        self,
+        provider_name: str,
+        session: Session,
+        credentials: Mapping[str, Any] | None,
+        credential_type: CredentialType | None,
+    ) -> Trigger:
+        """Get the trigger provider instance by provider name."""
+
+        return self.trigger_factory.get_trigger_provider(provider_name, session, credentials, credential_type)
+
+    def get_trigger_subscription_constructor(
+        self,
+        provider_name: str,
+        runtime: TriggerSubscriptionConstructorRuntime,
+    ) -> TriggerSubscriptionConstructor:
+        """Get the trigger subscription constructor instance by provider name."""
+
+        return self.trigger_factory.get_subscription_constructor(provider_name=provider_name, runtime=runtime)
+
+    def get_trigger_event_handler(self, provider_name: str, event: str, runtime: EventRuntime) -> Event:
+        """Get the event instance by provider and event name."""
+        return self.trigger_factory.get_trigger_event_handler(provider_name=provider_name, event=event, runtime=runtime)
+
+    def try_get_trigger_event_handler(self, provider_name: str, event: str, runtime: EventRuntime) -> Event | None:
+        """Get the event instance by provider and event name."""
+
+        return self.trigger_factory.get_trigger_event_handler_safely(
+            provider_name=provider_name,
+            event=event,
+            runtime=runtime,
+        )
+
+    def get_supported_oauth_provider(self, session: Session, provider: str) -> OAuthProviderProtocol | None:
         """
         get provider which supports oauth
         :param provider: provider name
         :return: supported oauth providers
         """
+        try:
+            configuration = self.trigger_factory.get_configuration(provider)
+        except ValueError:
+            configuration = None
+
+        if (
+            configuration
+            and configuration.subscription_constructor
+            and configuration.subscription_constructor.oauth_schema
+        ):
+            constructor_cls: type[TriggerSubscriptionConstructor] | None = (
+                self.trigger_factory.get_subscription_constructor_cls(provider)
+            )
+            if constructor_cls:
+                return constructor_cls(
+                    runtime=TriggerSubscriptionConstructorRuntime(
+                        session=session, credential_type=CredentialType.UNAUTHORIZED
+                    )
+                )
+
         for provider_registration in self.tools_mapping:
             if provider_registration == provider and self.tools_mapping[provider_registration][0].oauth_schema:
-                return self.tools_mapping[provider_registration][1]
+                return self.tools_mapping[provider_registration][1]()
+
+        if provider in self.datasource_mapping:
+            datasource: DatasourceProviderMapping = self.datasource_mapping[provider]
+            if datasource.configuration.oauth_schema:
+                return datasource.provider_cls()
 
         return None
 
-    def dispatch_endpoint_request(self, request: Request) -> tuple[type[Endpoint], Mapping]:
+    def get_datasource_provider_cls(self, provider: str) -> type[DatasourceProvider]:
+        """
+        get the datasource provider class by provider name
+        :param provider: provider name
+        :return: datasource provider class
+        """
+        if provider in self.datasource_mapping:
+            return self.datasource_mapping[provider].provider_cls
+        raise ValueError(f"Datasource provider {provider} not found")
+
+    def get_website_crawl_datasource_cls(self, provider: str, datasource: str) -> type[WebsiteCrawlDatasource]:
+        """
+        get the website crawl datasource class by provider and datasource name
+        :param provider: provider name
+        :param datasource: datasource name
+        :return: website crawl datasource class
+        """
+        if provider in self.datasource_mapping and (
+            result := self.datasource_mapping[provider].website_crawl_datasource_mapping.get(datasource)
+        ):
+            return result
+        raise ValueError(f"Website crawl datasource {datasource} not found for provider {provider}")
+
+    def get_online_document_datasource_cls(self, provider: str, datasource: str) -> type[OnlineDocumentDatasource]:
+        """
+        get the online document datasource class by provider and datasource name
+        :param provider: provider name
+        :param datasource: datasource name
+        :return: online document datasource class
+        """
+        if provider in self.datasource_mapping and (
+            result := self.datasource_mapping[provider].online_document_datasource_mapping.get(datasource)
+        ):
+            return result
+        raise ValueError(f"Online document datasource {datasource} not found for provider {provider}")
+
+    def dispatch_endpoint_request(self, request: Request) -> tuple[type[Endpoint], Mapping[str, Any]]:
         """
         dispatch endpoint request, match the request to the registered endpoints
 
@@ -372,3 +608,16 @@ class PluginRegistration:
             return endpoint, values
         except werkzeug.exceptions.HTTPException as e:
             raise ValueError(f"Failed to dispatch endpoint request: {e!s}") from e
+
+    def get_online_drive_datasource_cls(self, provider: str, datasource: str) -> type[OnlineDriveDatasource]:
+        """
+        get the online drive datasource class by provider and datasource name
+        :param provider: provider name
+        :param datasource: datasource name
+        :return: online drive datasource class
+        """
+        if provider in self.datasource_mapping and (
+            result := self.datasource_mapping[provider].online_drive_datasource_mapping.get(datasource)
+        ):
+            return result
+        raise ValueError(f"Online drive datasource {datasource} not found for provider {provider}")

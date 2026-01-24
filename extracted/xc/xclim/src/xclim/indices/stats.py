@@ -51,10 +51,8 @@ def _fitfunc_1d(arr, *, dist, nparams, method, **fitkwargs):
 
     # Estimate parameters
     if method in ["ML", "MLE"]:
-        with np.errstate(invalid="ignore"):
-            with np.errstate(divide="ignore"):
-                args, kwargs = _fit_start(x, dist.name, **fitkwargs)
-            params = dist.fit(x, *args, method="mle", **kwargs, **fitkwargs)
+        args, kwargs = _fit_start(x, dist.name, **fitkwargs)
+        params = dist.fit(x, *args, method="mle", **kwargs, **fitkwargs)
     elif method == "MM":
         params = dist.fit(x, method="mm", **fitkwargs)
     elif method in ["MSE", "MPS"]:
@@ -63,8 +61,8 @@ def _fitfunc_1d(arr, *, dist, nparams, method, **fitkwargs):
         for i, arg in enumerate(args):
             guess[param_info[i]] = arg
 
-        fitresult = scipy.stats.fit(dist=dist, data=x, method="mse", guess=guess, **fitkwargs)
-        params = fitresult.params
+        fit_result = scipy.stats.fit(dist=dist, data=x, method="mse", guess=guess, **fitkwargs)
+        params = fit_result.params
     elif method == "PWM":
         # lmoments3 will raise an error if only dist.numargs + 2 values are provided
         if len(x) <= dist.numargs + 2:
@@ -75,14 +73,28 @@ def _fitfunc_1d(arr, *, dist, nparams, method, **fitkwargs):
             raise ValueError(
                 "Lmoments3 does not use `fitkwargs` arguments, except for `floc` with the Gamma distribution."
             )
-        if "floc" in fitkwargs and type(dist).__name__ == "GammaGen":
-            # lmoments3 assumes `loc` is 0, so `x` may need to be shifted
-            # note that `floc` must already be in appropriate units for `x`
-            params = dist.lmom_fit(x - fitkwargs["floc"])
-            params["loc"] = fitkwargs["floc"]
-            params = list(params.values())
-        else:
-            params = list(dist.lmom_fit(x).values())
+        try:
+            if "floc" in fitkwargs and type(dist).__name__ == "GammaGen":
+                # lmoments3 assumes `loc` is 0, so `x` may need to be shifted
+                # note that `floc` must already be in appropriate units for `x`
+                x = x - fitkwargs["floc"]
+                params = dist.lmom_fit(x)
+                params["loc"] = fitkwargs["floc"]
+                params = list(params.values())
+            else:
+                params = list(dist.lmom_fit(x).values())
+        # We only return all NaNs if the fitting also fails. In the future this can probably
+        # be changed to a check before running lmom_fit.
+        except ValueError as e:
+            n_unique = len(np.unique(x))
+            # Error message is hardcoded with different capitalization in lmoments3
+            if str(e).lower() == "l-moments invalid" and n_unique <= dist.numargs | 1:
+                warnings.warn(
+                    f"{type(dist).__name__} requires {dist.numargs | 1} unique values. "
+                    f"{n_unique} provided, returning NaNs."
+                )
+                return np.asarray([np.nan] * nparams)
+            raise e
     elif method == "APP":
         args, kwargs = _fit_start(x, dist.name, **fitkwargs)
         kwargs.setdefault("loc", 0)
@@ -604,20 +616,15 @@ def _fit_start(x, dist: str, **fitkwargs: Any) -> tuple[tuple, dict]:
         x_pos = x_pos[x_pos > 0]
         # MLE estimation
         log_x_pos = np.log(x_pos)
-        # ignore invalid values occurring in the log calculations
-        with np.errstate(invalid="ignore"), warnings.catch_warnings():
-            shape0 = log_x_pos.std()
-            warnings.filterwarnings("ignore", message="Mean of empty slice.", category=RuntimeWarning)
-            scale0 = np.exp(log_x_pos.mean())
+        shape0 = log_x_pos.std()
+        scale0 = np.exp(log_x_pos.mean())
         kwargs = {"scale": scale0, "loc": loc0}
         return (shape0,), kwargs
 
     return (), {}
 
 
-def _dist_method_1D(  # noqa: N802
-    *args, dist: str | rv_continuous, function: str, **kwargs: Any
-) -> xr.DataArray:
+def _dist_method_1D(*args, dist: str | rv_continuous, function: str, **kwargs: Any) -> xr.DataArray:  # noqa: N802
     r"""
     Statistical function for given argument on given distribution initialized with params.
 

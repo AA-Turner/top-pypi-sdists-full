@@ -22,6 +22,7 @@ import threading
 import warnings
 import functools
 import weakref
+import time
 
 import typing
 import numpy as np
@@ -33,7 +34,8 @@ from urllib.parse import urlparse, urlunparse
 
 from packaging.version import Version
 
-from tango._tango import (
+from tango import (
+    __auto_die_callbacks_holder,
     AttrQuality,
     StdStringVector,
     StdDoubleVector,
@@ -44,24 +46,27 @@ from tango._tango import (
     CmdArgType,
     AttrDataFormat,
     EventData,
+    EventReason,
     AttrConfEventData,
     DataReadyEventData,
     DevFailed,
     DevState,
-    PipeEventData,
     DevIntrChangeEventData,
     Database,
-    EncodedAttribute,
     ApiUtil,
     EnsureOmniThread,
     DeviceData,
     DeviceDataList,
     DeviceProxy,
-    __Group,
+    Except,
+    ErrSeverity,
+    LockerLanguage,
+    is_omni_thread,
 )
 
 from tango import _tango
-from tango._tango import _telemetry, Except
+
+from tango._tango import _telemetry, __CallBackAutoDie, __Group
 from tango.constants import (
     AlrmValueNotSpec,
     StatusNotSet,
@@ -91,7 +96,6 @@ __all__ = (
     "scalar_to_array_type",
     "document_method",
     "document_static_method",
-    "document_enum",
     "CaselessList",
     "CaselessDict",
     "EventCallback",
@@ -116,11 +120,13 @@ __all__ = (
     "get_telemetry_tracer_provider_factory",
     "_create_device_telemetry_tracer",
     "_get_non_tango_source_location",
+    "_get_current_otel_context",
     "_span_to_cpptango",
     "_telemetry_active",
     "_trace_client",
     "_DummyTracer",
     "_get_command_inout_param",
+    "parameter_2_dbdata",
 )
 
 __docformat__ = "restructuredtext"
@@ -248,7 +254,6 @@ def __build_to_tango_type():
         "None": CmdArgType.DevVoid,
         "state": CmdArgType.DevState,
         "enum": CmdArgType.DevEnum,
-        "blob": CmdArgType.DevPipeBlob,
     }
 
     for key in dir(CmdArgType):
@@ -421,34 +426,16 @@ def get_latest_device_class():
 
 
 def set_complex_value(attr, value):
-    is_tuple = isinstance(value, tuple)
-    dtype, fmt = attr.get_data_type(), attr.get_data_format()
-    if dtype == CmdArgType.DevEncoded:
-        if is_tuple and len(value) == 4:
-            attr.set_value_date_quality(*value)
-        elif is_tuple and len(value) == 3 and is_non_str_seq(value[0]):
-            attr.set_value_date_quality(value[0][0], value[0][1], *value[1:])
-        elif isinstance(value, EncodedAttribute):
-            attr.set_value(value)
-        else:
-            attr.set_value(*value)
+    if not isinstance(value, tuple):
+        attr.set_value(value)
     else:
-        if is_tuple:
-            if len(value) == 3:
-                if fmt == AttrDataFormat.SCALAR:
-                    attr.set_value_date_quality(*value)
-                elif fmt == AttrDataFormat.SPECTRUM:
-                    if is_seq(value[0]):
-                        attr.set_value_date_quality(*value)
-                    else:
-                        attr.set_value(value)
-                else:
-                    if is_seq(value[0]) and is_seq(value[0][0]):
-                        attr.set_value_date_quality(*value)
-                    else:
-                        attr.set_value(value)
-            else:
-                attr.set_value(value)
+        n_vals = len(value)
+        if (n_vals > 2 and isinstance(value[2], AttrQuality)) or (
+            n_vals > 3
+            and attr.get_data_type() == CmdArgType.DevEncoded
+            and isinstance(value[3], AttrQuality)
+        ):
+            attr.set_value_date_quality(*value)
         else:
             attr.set_value(value)
 
@@ -487,7 +474,14 @@ def get_tango_type(obj):
 
 
 def get_attribute_type_format(dtype, dformat, enum_labels):
-    if is_enum(dtype) or is_enum_seq(dtype):
+    if is_devstate(dtype) or is_devstate_seq(dtype):
+        _dtype = dtype
+        dtype = CmdArgType.DevState
+
+        while is_devstate_seq(_dtype):
+            _dtype = _dtype[0]
+            dtype = (dtype,)
+    elif is_enum(dtype) or is_enum_seq(dtype):
         if enum_labels:
             raise TypeError(
                 "For dtype of enum.Enum, (enum.Enum,) or ((enum.Enum,),) the enum_labels must not "
@@ -501,14 +495,6 @@ def get_attribute_type_format(dtype, dformat, enum_labels):
             dtype = (dtype,)
 
         enum_labels = get_enum_labels(_dtype)
-
-    elif is_devstate(dtype) or is_devstate_seq(dtype):
-        _dtype = dtype
-        dtype = CmdArgType.DevState
-
-        while is_devstate_seq(_dtype):
-            _dtype = _dtype[0]
-            dtype = (dtype,)
 
     return *get_tango_type_format(dtype, dformat, "attribute"), enum_labels
 
@@ -536,9 +522,16 @@ def get_tango_type_format(dtype, dformat=None, caller=None):
     try:
         tango_type = TO_TANGO_TYPE[dtype]
     except KeyError:
-        raise RuntimeError(
-            f"Cannot translate {dtype} to TANGO type. See documentation for the allowed types"
-        )
+        if isinstance(dtype, str):
+            raise RuntimeError(
+                f"Cannot translate {dtype!r} to TANGO type. See documentation for the allowed types. "
+                'If you are declaring type with type hints and using "from __future__ import annotations", '
+                "please read documentation to learn about limitations"
+            )
+        else:
+            raise RuntimeError(
+                f"Cannot translate {dtype!r} to TANGO type. See documentation for the allowed types"
+            )
 
     return tango_type, dformat
 
@@ -566,8 +559,52 @@ def __check_types_uniformity(dtype):
     return True
 
 
+def eval_in_fallback_frames(dtype_str, try_depth):
+    """
+    Tries to eval a string at `try_depth` frames back from the caller.
+    """
+
+    def get_frame_at_depth(depth):
+        # We go back depth + 2 times:
+        #  +1 to get to eval_in_fallback_frames's caller
+        #  +1 to get to this helper's caller (which is eval_in_fallback_frames)
+        #  +depth to get to the target frame.
+        # A simpler way: start at f_back.f_back and loop 'depth' times.
+
+        current_frame = inspect.currentframe().f_back.f_back
+        for _ in range(depth):
+            if current_frame:
+                current_frame = current_frame.f_back
+            else:
+                # Stack is not deep enough
+                return None
+        return current_frame
+
+    frame_to_try = None
+    try:
+        frame_to_try = get_frame_at_depth(try_depth)
+        if frame_to_try is None:
+            raise IndexError()
+        return eval(dtype_str, frame_to_try.f_globals, frame_to_try.f_locals)
+    finally:
+        # Ensure all created frame references are deleted
+        if frame_to_try:
+            del frame_to_try
+
+
 def parse_type_hint(annotation, caller):
     dtype = annotation
+    if isinstance(dtype, str):
+        depth = 1
+        while depth <= 6:  # user code should be before 6th frame
+            try:
+                dtype = eval_in_fallback_frames(dtype, depth)
+                break
+            except NameError:
+                depth += 1
+            except IndexError:
+                break
+
     dformat = AttrDataFormat.SCALAR
     max_x, max_y = None, None
     if typing.get_origin(dtype) in [list, tuple]:
@@ -779,7 +816,7 @@ def is_integer(obj):
         True is the given obj is a python integer or False otherwise
     :rtype: :py:obj:`bool`
     """
-    return isinstance(obj, __int_klasses)
+    return isinstance(obj, __int_klasses) and not isinstance(obj, bool)
 
 
 def is_number(obj):
@@ -1109,8 +1146,13 @@ def seq_2_DbData(seq, vec=None):
         vec = DbData()
     if not isinstance(vec, DbData):
         raise TypeError("vec must be a tango.DbData")
-    for e in seq:
-        vec.append(e)
+    else:
+        for e in seq:
+            if isinstance(e, DbDatum):
+                vec.append(e)
+            else:
+                e = ensure_binary(e, "latin-1")
+                vec.append(DbDatum(e))
     return vec
 
 
@@ -1295,37 +1337,79 @@ def obj_2_str(obj, tg_type=None):
     return "\n".join([str(i) for i in obj])
 
 
-def obj_2_property(value):
-    if isinstance(value, DbData):
-        pass
-    elif isinstance(value, DbDatum):
-        new_value = DbData()
-        new_value.append(value)
-        value = new_value
-    elif is_non_str_seq(value):
-        value = seq_2_DbData(value)
-    elif isinstance(value, collections.abc.Mapping):
-        new_value = DbData()
-        for k, v in value.items():
-            if isinstance(v, DbDatum):
-                new_value.append(v)
-                continue
-            db_datum = DbDatum(k)
-            if is_non_str_seq(v):
-                seq_2_StdStringVector(v, db_datum.value_string)
+def _append_dict_to_db_data(db_data, value):
+    for k, v in value.items():
+        if isinstance(v, DbDatum):
+            db_data.append(v)
+            continue
+        db_datum = DbDatum(k)
+        if is_non_str_seq(v):
+            seq_2_StdStringVector(v, db_datum.value_string)
+        else:
+            if not is_pure_str(v):
+                v = str(v)
+            v = ensure_binary(v, encoding="latin-1")
+            db_datum.value_string.append(v)
+        db_data.append(db_datum)
+
+
+def parameter_2_dbdata(param, param_name):
+    if isinstance(param, DbData):
+        return param
+    elif isinstance(param, DbDatum):
+        new_param = DbData()
+        new_param.append(param)
+        return new_param
+    elif is_pure_str(param):
+        new_param = DbData()
+        new_param.append(DbDatum(param))
+        return new_param
+    elif is_non_str_seq(param):
+        return seq_2_DbData(param)
+    elif isinstance(param, collections.abc.Mapping):
+        new_param = DbData()
+        if len(param) > 0:
+            # for attributes we have nested dict
+            first_dict_value = list(param.values())[0]
+            if isinstance(first_dict_value, collections.abc.Mapping):
+                for k1, v1 in param.items():
+                    attr = DbDatum(k1)
+                    attr.append(str(len(v1)))
+                    new_param.append(attr)
+                    _append_dict_to_db_data(new_param, v1)
             else:
-                if not is_pure_str(v):
-                    v = str(v)
-                v = ensure_binary(v, encoding="latin-1")
-                db_datum.value_string.append(v)
-            new_value.append(db_datum)
-        value = new_value
-    else:
-        raise TypeError(
-            "Value must be a tango.DbDatum, tango.DbData, "
-            "a sequence<DbDatum> or a dictionary"
-        )
-    return value
+                _append_dict_to_db_data(new_param, param)
+        return new_param
+
+    raise TypeError(
+        f"{param_name} must be a str, tango.DbDatum, tango.DbData, "
+        "a sequence<DbDatum>, a sequence<str> or a dictionary"
+    )
+
+
+def get_property_from_db(self, propname, user_dbdata):
+    if user_dbdata is None:
+        user_dbdata = DbData()
+    if is_pure_str(propname):
+        self._get_property(propname, user_dbdata)
+        return DbData_2_dict(user_dbdata)
+    elif isinstance(propname, (collections.abc.Sequence, StdStringVector)):
+        if len(propname) == 0:
+            return {}
+        all_str = True
+        for p in propname:
+            if not is_pure_str(p):
+                all_str = False
+                break
+        if all_str:
+            self._get_property(propname, user_dbdata)
+            return DbData_2_dict(user_dbdata)
+
+    dbdata = parameter_2_dbdata(propname, "propname")
+    if len(dbdata) == 0:
+        return {}
+    self._get_property(dbdata)
+    return DbData_2_dict(dbdata)
 
 
 def __get_meth_func(klass, method_name):
@@ -1370,19 +1454,6 @@ def document_static_method(klass, method_name, d, add=True):
             meth.__doc__ = f"{d}\n{cpp_doc}"
             return
     meth.__doc__ = d
-
-
-def document_enum(klass, enum_name, desc, append=True):
-    # Get the original enum type
-    enum_class = getattr(klass, enum_name)
-
-    # fix the docstring
-    # is __doc__ is not empty, expand with given desc
-    if append and enum_class.__doc__ is not None:
-        enum_class.__doc__ += "\n" + desc
-    # otherwise make a new one
-    else:
-        enum_class.__doc__ = desc
 
 
 class CaselessList(list):
@@ -1657,6 +1728,7 @@ class EventCallback:
         - date (event timestamp)
         - reception_date (event reception timestamp)
         - type (event type)
+        - reason (event subscription reason)
         - dev_name (device name)
         - name (attribute name)
         - value (event value)
@@ -1666,7 +1738,7 @@ class EventCallback:
 
     def __init__(
         self,
-        format="{date} {dev_name} {name} {type} {value}",
+        format="{date} {dev_name} {name} {type} {reason} {value}",
         fd=sys.stdout,
         max_buf=100,
     ):
@@ -1696,34 +1768,51 @@ class EventCallback:
         import datetime
 
         now = datetime.datetime.now()
+
         try:
             date = self._get_date(evt)
         except Exception:
             date = now
+
         try:
             reception_date = evt.reception_date.todatetime()
         except Exception:
             reception_date = now
+
         try:
             evt_type = evt.event.upper()
         except Exception:
             evt_type = "<UNKNOWN>"
+
+        try:
+            evt_reason = str(evt.event_reason).upper()
+        except Exception:
+            evt_reason = "<UNKNOWN>"
+
         try:
             dev_name = evt.device.dev_name().upper()
         except Exception:
             dev_name = "<UNKNOWN>"
+
         try:
-            attr_name = evt.attr_name.split("/")[-1].upper()
+            if hasattr(evt, "attr_name"):
+                attr_name = evt.attr_name.split("/")[-1].upper()
+                attr_name = attr_name.removesuffix("#DBASE=NO")
+            else:
+                attr_name = "<N/A>"
         except Exception:
             attr_name = "<UNKNOWN>"
+
         try:
             value = self._get_value(evt)
         except Exception as e:
             value = f"Unexpected exception in getting event value: {e}"
+
         d = {
             "date": date,
             "reception_date": reception_date,
             "type": evt_type,
+            "reason": evt_reason,
             "dev_name": dev_name,
             "name": attr_name,
             "value": value,
@@ -1740,8 +1829,6 @@ class EventCallback:
     def _get_date(self, evt):
         if isinstance(evt, EventData):
             return evt.attr_value.time.todatetime()
-        elif isinstance(evt, PipeEventData):
-            return evt.pipe_value.time.todatetime()
         else:
             return evt.get_date().todatetime()
 
@@ -1752,17 +1839,20 @@ class EventCallback:
             return f"[{e.reason}] {e.desc}"
 
         if isinstance(evt, EventData):
-            return f"[{evt.attr_value.quality}] {evt.attr_value.value}"
+            if evt.attr_value is None and evt.event_reason == EventReason.SubSuccess:
+                return "<N/A>"  # assume EventSubMode.Async which provides no value
+            else:
+                return f"[{evt.attr_value.quality}] {evt.attr_value.value}"
         elif isinstance(evt, AttrConfEventData):
             cfg = evt.attr_conf
             return f"label='{cfg.label}'; unit='{cfg.unit}'"
         elif isinstance(evt, DataReadyEventData):
-            return ""
-        elif isinstance(evt, PipeEventData):
-            return evt.pipe_value
+            return f"ctr={evt.ctr}"
         elif isinstance(evt, DevIntrChangeEventData):
-            print("utils::_get_value()")
-            return
+            return (
+                f"dev_started={evt.dev_started}; "
+                f"{len(evt.cmd_list)} commands; {len(evt.att_list)} attrs"
+            )
 
 
 class AsyncEventCallback(EventCallback):
@@ -1863,15 +1953,15 @@ def info():
     msg = f"""\
 PyTango {Release.version_long} {Release.version_info}
 PyTango compiled with:
-    Python : {Compile.PY_VERSION}
-    Numpy  : {Compile.NUMPY_VERSION}
-    Tango  : {Compile.TANGO_VERSION}
-    Boost  : {Compile.BOOST_VERSION}
+    Python   : {Compile.PY_VERSION}
+    Numpy    : {Compile.NUMPY_VERSION}
+    Tango    : {Compile.TANGO_VERSION}
+    pybind11 : {Compile.PYBIND11_VERSION}
 
 PyTango runtime is:
-    Python : {Runtime.PY_VERSION}
-    Numpy  : {Runtime.NUMPY_VERSION}
-    Tango  : {Runtime.TANGO_VERSION}
+    Python   : {Runtime.PY_VERSION}
+    Numpy    : {Runtime.NUMPY_VERSION}
+    Tango    : {Runtime.TANGO_VERSION}
 
 PyTango running on:
 {Runtime.UNAME}
@@ -2060,32 +2150,36 @@ def _truthy_env_var(name) -> bool:
     return False
 
 
-_coverage_run_active = False
+_traced_coverage_run_active = False
 
 try:
     import coverage
 
-    if coverage.Coverage.current():
-        if _truthy_env_var("PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING"):
-            warnings.warn(
-                "Coverage run detected, but PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING "
-                "environment variable is set. Reported coverage may be inaccurate.",
-                category=PyTangoUserWarning,
-            )
-        else:
-            if getattr(threading, "_trace_hook", None):
-                _coverage_run_active = True
+    _coverage = coverage.Coverage.current()
+    if _coverage:
+        _coverage_core = dict(_coverage.sys_info()).get("core", "").lower()
+        if _coverage_core in {"pytracer", "ctracer"}:
+            if _truthy_env_var("PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING"):
                 warnings.warn(
-                    "Coverage run detected: tango.server.Device methods "
-                    "will be patched for tracing.",
+                    "Coverage run detected, but PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING "
+                    "environment variable is set. Reported coverage may be inaccurate.",
                     category=PyTangoUserWarning,
                 )
             else:
-                warnings.warn(
-                    "Coverage run detected, but unable to get threading._trace_hook. "
-                    "Reported coverage may be inaccurate.",
-                    category=PyTangoUserWarning,
-                )
+                if getattr(threading, "_trace_hook", None):
+                    _traced_coverage_run_active = True
+                    warnings.warn(
+                        "Coverage run detected: tango.server.Device methods "
+                        "will be patched for tracing.",
+                        category=PyTangoUserWarning,
+                    )
+                else:
+                    warnings.warn(
+                        "Coverage run detected, but unable to get threading._trace_hook. "
+                        "Reported coverage may be inaccurate.",
+                        category=PyTangoUserWarning,
+                    )
+        # (else, using sys.monitoring hooks or not tracing, so patching not required)
 
 except Exception:
     pass
@@ -2108,7 +2202,7 @@ try:
             _debugger = None
 
         if _debugger is not None:
-            if _coverage_run_active:
+            if _traced_coverage_run_active:
                 warnings.warn(
                     "Debugger detected, but coverage run also detected. "
                     "Patching only for coverage, not for debugger.",
@@ -2137,6 +2231,7 @@ try:
         and TELEMETRY_SUPPORTED
     ):
         from opentelemetry import trace as trace_api
+        from opentelemetry import context as context_api
         from opentelemetry.trace.propagation.tracecontext import (
             TraceContextTextMapPropagator,
         )
@@ -2224,12 +2319,21 @@ try:
                 category=PyTangoUserWarning,
             )
 
+        def _get_current_otel_context() -> context_api.Context:
+            return context_api.get_current()
+
         @contextlib.contextmanager
         def _span_from_cpptango(
             device: "tango.server.Device", fn: callable  # noqa: F821
         ) -> typing.Iterator[trace_api.Span]:
             fn = inspect.unwrap(fn)
+            if not hasattr(fn, "__code__") and hasattr(fn, "__call__"):
+                fn = fn.__call__
             name = getattr(fn, "__qualname__", getattr(fn, "__name__", "unknown"))
+            code = getattr(fn, "__code__", None)
+            filepath = getattr(code, "co_filename", "unknown")
+            lineno = getattr(code, "co_firstlineno", 0)
+
             carrier = _telemetry.get_trace_context()
             ctx = TraceContextTextMapPropagator().extract(carrier=carrier)
             device_tracer = device.get_telemetry_tracer()
@@ -2238,14 +2342,40 @@ try:
                 with device_tracer.start_as_current_span(
                     name, context=ctx, kind=trace_api.SpanKind.SERVER
                 ) as span:
-                    span.set_attribute("code.filepath", fn.__code__.co_filename)
-                    span.set_attribute("code.lineno", fn.__code__.co_firstlineno)
+                    span.set_attribute("code.filepath", filepath)
+                    span.set_attribute("code.lineno", lineno)
                     current_thread = threading.current_thread()
                     span.set_attribute("thread.id", hex(current_thread.ident))
                     span.set_attribute("thread.name", current_thread.name)
+                    _add_client_ident_info(device, span)
                     yield span
             finally:
                 _current_telemetry_tracer.reset(token)
+
+        # get process ID from a string like "jive3.MainPanel - PID=43281"
+        _PID_PATTERN = re.compile(r"\bPID=(\d+)\b", re.IGNORECASE)
+
+        def _add_client_ident_info(device, span):
+            if not is_omni_thread():  # get_client_ident may crash
+                return
+            ident = device.get_client_ident()
+            if not ident:  # not from external or collocated client (could be polling)
+                return
+            if ident.client_lang in {LockerLanguage.JAVA, LockerLanguage.JAVA_6}:
+                span.set_attribute(
+                    "tango.client_ident.java_ident",
+                    f"{ident.java_ident[0]:x}{ident.java_ident[1]:x}",
+                )
+                span.set_attribute(
+                    "tango.client_ident.java_main_class", ident.java_main_class
+                )
+                match = _PID_PATTERN.search(ident.java_main_class)
+                client_pid = int(match.group(1)) if match else 0
+            else:
+                client_pid = ident.client_pid
+            span.set_attribute("tango.client_ident.location", ident.client_ip)
+            span.set_attribute("tango.client_ident.pid", client_pid)
+            span.set_attribute("tango.client_ident.lang", str(ident.client_lang))
 
         @contextlib.contextmanager
         def _span_to_cpptango(name: str):
@@ -2351,6 +2481,11 @@ try:
                     names = [
                         "opentelemetry.sdk.trace.export",
                         "opentelemetry.sdk._shared_internal",
+                        "opentelemetry.exporter.otlp.proto.grpc.exporter",
+                        "opentelemetry.exporter.otlp.proto.http._log_exporter",
+                        "opentelemetry.exporter.otlp.proto.http.log_exporter",
+                        "opentelemetry.exporter.otlp.proto.http.metric_exporter",
+                        "opentelemetry.exporter.otlp.proto.http.trace_exporter",
                     ]
                 for name in names:
                     logging.getLogger(name).setLevel(level_int)
@@ -2361,23 +2496,25 @@ try:
         _telemetry_client_tracer: typing.Union[None, trace_api.Tracer] = None
         _telemetry_active = True
 except ImportError:
-    warnings.warn(
-        "\nOpenTelemetry packages not available: \n"
-        "telemetry context will not be passed to other Tango devices, "
-        "and no telemetry will be emitted from this device/client.\n"
-        "To pass through telemetry context, install the API packages: "
-        "opentelemetry-api\n"
-        "To emit telemetry, install the SDK packages: "
-        "opentelemetry-sdk and either:\n"
-        "  opentelemetry-exporter-otlp-proto-grpc (for traces via gRPC), or\n"
-        "  opentelemetry-exporter-otlp-proto-http (for traces via HTTP).\n"
-        "This warning can be disabled:\n"
-        "  Either set environment variable PYTANGO_DISABLE_TELEMETRY_PATCHING=on "
-        "to disable PyTango's usage of telemetry.\n"
-        "  Or, set the environment variable TANGO_TELEMETRY_ENABLE=off to disable "
-        "all telemetry in cppTango and PyTango.",
-        category=PyTangoUserWarning,
-    )
+    _skip_warning_during_own_tests = os.environ.get("PYTANGO_TESTS_RUNNING") == "True"
+    if not _skip_warning_during_own_tests:
+        warnings.warn(
+            "\nOpenTelemetry packages not available: \n"
+            "telemetry context will not be passed to other Tango devices, "
+            "and no telemetry will be emitted from this device/client.\n"
+            "To pass through telemetry context, install the API packages: "
+            "opentelemetry-api\n"
+            "To emit telemetry, install the SDK packages: "
+            "opentelemetry-sdk and either:\n"
+            "  opentelemetry-exporter-otlp-proto-grpc (for traces via gRPC), or\n"
+            "  opentelemetry-exporter-otlp-proto-http (for traces via HTTP).\n"
+            "This warning can be disabled:\n"
+            "  Either set environment variable PYTANGO_DISABLE_TELEMETRY_PATCHING=on "
+            "to disable PyTango's usage of telemetry.\n"
+            "  Or, set the environment variable TANGO_TELEMETRY_ENABLE=off to disable "
+            "all telemetry in cppTango and PyTango.",
+            category=PyTangoUserWarning,
+        )
 except Exception as exc:
     warnings.warn(
         f"Error setting up telemetry. Telemetry context may not be passed on "
@@ -2447,8 +2584,11 @@ class _DummyTracerProvider:
 if not _telemetry_active:
     # define dummy handlers
 
+    def _get_current_otel_context():
+        return {}
+
     @contextlib.contextmanager
-    def _span_to_cpptango():
+    def _span_to_cpptango(name: str):
         yield
 
     def _default_telemetry_tracer_provider_factory(
@@ -2491,7 +2631,9 @@ def get_telemetry_tracer_provider_factory() -> _TracerProviderFactory:
     return _current_telemetry_tracer_provider_factory
 
 
-_force_tracing = _traced_debug_run_active or _coverage_run_active or _telemetry_active
+_force_tracing = (
+    _traced_debug_run_active or _traced_coverage_run_active or _telemetry_active
+)
 
 
 def _forcefully_traced_method(fn, is_kernel_method=False):
@@ -2520,7 +2662,7 @@ def _forcefully_traced_method(fn, is_kernel_method=False):
     def _set_sys_tracer_and_get_original():
         original_sys_tracer = "EMPTY"
 
-        if _coverage_run_active:
+        if _traced_coverage_run_active:
             original_sys_tracer = sys.gettrace()
             threading_trace_hook = getattr(threading, "_trace_hook", None)
             if threading_trace_hook:
@@ -2583,9 +2725,14 @@ def _trace_client(fn):
             if _telemetry_client_tracer is None:
                 _telemetry_client_tracer = _create_client_telemetry_tracer()
             tracer = _current_telemetry_tracer.get(_telemetry_client_tracer)
-            filename, lineno, qualname = _get_non_tango_source_location()
+            location = kwargs.pop("trace_location", None)
+            context = kwargs.pop("trace_context", None)
+            if location is None:
+                filename, lineno, qualname = _get_non_tango_source_location()
+            else:
+                filename, lineno, qualname = location
             with tracer.start_as_current_span(
-                qualname, kind=trace_api.SpanKind.CLIENT
+                qualname, kind=trace_api.SpanKind.CLIENT, context=context
             ) as span:
                 span.set_attribute("code.filepath", filename)
                 span.set_attribute("code.lineno", lineno)
@@ -2594,6 +2741,9 @@ def _trace_client(fn):
                 span.set_attribute("thread.name", current_thread.name)
                 with _span_to_cpptango(fn_name):
                     return fn(*args, **kwargs)
+
+        client_trace_wrapper.__signature__ = inspect.signature(fn)
+        client_trace_wrapper.__trace_kwargs__ = True
 
     else:
         client_trace_wrapper = fn
@@ -2709,11 +2859,10 @@ else:
 #
 # The `_adjust_thread_count` method below is a slightly modified version of the code from
 # https://github.com/python/cpython/blob/3.12/Lib/concurrent/futures/thread.py
+# and
+# https://github.com/python/cpython/blob/3.14/Lib/concurrent/futures/thread.py
 
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022,
-# 2023 Python Software Foundation;
-# All Rights Reserved
+# Copyright (c) Python Software Foundation; All Rights Reserved
 
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures.thread import _worker, _threads_queues
@@ -2737,24 +2886,56 @@ class PyTangoThreadPoolExecutor(ThreadPoolExecutor):
         num_threads = len(self._threads)
         if num_threads < self._max_workers:
             thread_name = "%s_%d" % (self._thread_name_prefix or self, num_threads)
-            t = threading.Thread(
-                name=thread_name,
-                target=_thread_pool_executor_worker,
-                args=(
-                    weakref.ref(self, weakref_cb),
-                    self._work_queue,
-                    self._initializer,
-                    self._initargs,
-                ),
-            )
+            if hasattr(self, "_initializer"):
+                # Python < 3.14
+                t = threading.Thread(
+                    name=thread_name,
+                    target=_thread_pool_executor_worker,
+                    args=(
+                        weakref.ref(self, weakref_cb),
+                        self._work_queue,
+                        self._initializer,
+                        self._initargs,
+                    ),
+                )
+            else:
+                # Python >= 3.14
+                t = threading.Thread(
+                    name=thread_name,
+                    target=_thread_pool_executor_ctx_worker,
+                    args=(
+                        weakref.ref(self, weakref_cb),
+                        self._create_worker_context(),
+                        self._work_queue,
+                    ),
+                )
             t.start()
             self._threads.add(t)
             _threads_queues[t] = self._work_queue
 
 
+# Override _worker for Python < 3.14
 def _thread_pool_executor_worker(executor_reference, work_queue, initializer, initargs):
     with EnsureOmniThread():
         _worker(executor_reference, work_queue, initializer, initargs)
+
+
+# Override _worker for Python >= 3.14
+def _thread_pool_executor_ctx_worker(executor_reference, ctx, work_queue):
+    with EnsureOmniThread():
+        _worker(executor_reference, ctx, work_queue)
+
+
+def _get_new_CallbackAutoDie():
+    id = time.time_ns()
+    cb = __CallBackAutoDie(id)
+    __auto_die_callbacks_holder[id] = cb
+    return cb
+
+
+def _release_CallbackAutoDie(id):
+    if id in __auto_die_callbacks_holder:
+        del __auto_die_callbacks_holder[id]
 
 
 def _get_command_inout_param(self, cmd_name, cmd_param=None):
@@ -2846,3 +3027,73 @@ def _get_command_inout_param(self, cmd_name, cmd_param=None):
             )
     else:
         raise TypeError("command_inout() parameter must be a DeviceData object.")
+
+
+def _exception_converter(exception):
+
+    # if user managed to create DevFailed, we do not need to convert it
+    if isinstance(exception, DevFailed):
+        return exception
+    else:
+        if exception.__traceback__ is None:
+            # to generate DevFailed we need traceback
+            # if user does not provide one (Exception.with_traceback), we generate our
+            try:
+                raise Exception()
+            except Exception:
+                # to get to the frame, where user called push_event
+                traceback = sys.exc_info()[2]
+                try:
+                    user_frame = traceback.tb_frame.f_back.f_back
+                    exception.__traceback__ = types.TracebackType(
+                        None, user_frame, user_frame.f_lasti, user_frame.f_lineno
+                    )
+                except Exception:
+                    # if fails, use what we have
+                    try:
+                        Except.throw_exception(
+                            reason="PyDs_PythonError",
+                            description=repr(exception),
+                            origin="UNKNOWN: cannot get Python's traceback",
+                            severity=ErrSeverity.ERR,
+                        )
+                    except DevFailed as err:
+                        return err
+        return Except.to_dev_failed(
+            exception.__class__, exception, exception.__traceback__
+        )
+
+
+class _InterfaceDefinedByIDL:
+    _initialized = False
+
+    def __setattr__(self, name, value):
+        if name not in self.__dict__ and self._initialized:
+            raise AttributeError(
+                f"tango._tango.{self.__class__.__name__} "
+                f"object has no attribute '{name}'"
+            )
+
+        return super().__setattr__(name, value)
+
+
+def _check_only_allowed_kwargs(call_kwargs, allowed_keys):
+    unexpected_keys = call_kwargs.keys() - allowed_keys
+    if unexpected_keys:
+        raise TypeError(
+            f"Got unexpected keyword argument(s): {', '.join(unexpected_keys)}.\n"
+            f"Allowed keys are: {', '.join(sorted(allowed_keys))}"
+        )
+
+
+# Helper class to replace deprecated object
+class _RemovedClass:
+    def __init__(self, message):
+        self._message = message
+
+    def _trigger_error(self, *args, **kwargs):
+        raise AttributeError(self._message)
+
+    __getattr__ = _trigger_error
+    __call__ = _trigger_error
+    __getitem__ = _trigger_error

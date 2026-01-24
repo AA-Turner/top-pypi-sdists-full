@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-ipmi
-Version: 0.5.7
+Version: 0.5.8
 Summary: Pure python IPMI library
 Home-page: https://github.com/kontron/python-ipmi
-Download-URL: https://github.com/kontron/python-ipmi/tarball/0.5.7
+Download-URL: https://github.com/kontron/python-ipmi/tarball/0.5.8
 Author: Michael Walle, Heiko Thiery
 Author-email: michael.walle@kontron.com, heiko.thiery@kontron.com
 License: LGPLv2+
@@ -24,6 +24,16 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: COPYING
 License-File: AUTHORS
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: summary
 
 Pure Python IPMI Library
 ========================

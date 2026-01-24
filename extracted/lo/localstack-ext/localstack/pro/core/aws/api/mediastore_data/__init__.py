@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -82,75 +83,75 @@ NonNegativeLong = int
 
 
 class DescribeObjectResponse(TypedDict, total=False):
-    ETag: Optional[ETag]
-    ContentType: Optional[ContentType]
-    ContentLength: Optional[NonNegativeLong]
-    CacheControl: Optional[StringPrimitive]
-    LastModified: Optional[TimeStamp]
+    ETag: ETag | None
+    ContentType: ContentType | None
+    ContentLength: NonNegativeLong | None
+    CacheControl: StringPrimitive | None
+    LastModified: TimeStamp | None
 
 
 class GetObjectRequest(ServiceRequest):
     Path: PathNaming
-    Range: Optional[RangePattern]
+    Range: RangePattern | None
 
 
 PayloadBlob = bytes
 
 
 class GetObjectResponse(TypedDict, total=False):
-    Body: Optional[Union[PayloadBlob, IO[PayloadBlob], Iterable[PayloadBlob]]]
-    CacheControl: Optional[StringPrimitive]
-    ContentRange: Optional[ContentRangePattern]
-    ContentLength: Optional[NonNegativeLong]
-    ContentType: Optional[ContentType]
-    ETag: Optional[ETag]
-    LastModified: Optional[TimeStamp]
+    Body: PayloadBlob | IO[PayloadBlob] | Iterable[PayloadBlob] | None
+    CacheControl: StringPrimitive | None
+    ContentRange: ContentRangePattern | None
+    ContentLength: NonNegativeLong | None
+    ContentType: ContentType | None
+    ETag: ETag | None
+    LastModified: TimeStamp | None
     StatusCode: statusCode
 
 
 class Item(TypedDict, total=False):
     """A metadata entry for a folder or object."""
 
-    Name: Optional[ItemName]
-    Type: Optional[ItemType]
-    ETag: Optional[ETag]
-    LastModified: Optional[TimeStamp]
-    ContentType: Optional[ContentType]
-    ContentLength: Optional[NonNegativeLong]
+    Name: ItemName | None
+    Type: ItemType | None
+    ETag: ETag | None
+    LastModified: TimeStamp | None
+    ContentType: ContentType | None
+    ContentLength: NonNegativeLong | None
 
 
-ItemList = List[Item]
+ItemList = list[Item]
 
 
 class ListItemsRequest(ServiceRequest):
-    Path: Optional[ListPathNaming]
-    MaxResults: Optional[ListLimit]
-    NextToken: Optional[PaginationToken]
+    Path: ListPathNaming | None
+    MaxResults: ListLimit | None
+    NextToken: PaginationToken | None
 
 
 class ListItemsResponse(TypedDict, total=False):
-    Items: Optional[ItemList]
-    NextToken: Optional[PaginationToken]
+    Items: ItemList | None
+    NextToken: PaginationToken | None
 
 
 class PutObjectRequest(ServiceRequest):
     Body: IO[PayloadBlob]
     Path: PathNaming
-    ContentType: Optional[ContentType]
-    CacheControl: Optional[StringPrimitive]
-    StorageClass: Optional[StorageClass]
-    UploadAvailability: Optional[UploadAvailability]
+    ContentType: ContentType | None
+    CacheControl: StringPrimitive | None
+    StorageClass: StorageClass | None
+    UploadAvailability: UploadAvailability | None
 
 
 class PutObjectResponse(TypedDict, total=False):
-    ContentSHA256: Optional[SHA256Hash]
-    ETag: Optional[ETag]
-    StorageClass: Optional[StorageClass]
+    ContentSHA256: SHA256Hash | None
+    ETag: ETag | None
+    StorageClass: StorageClass | None
 
 
 class MediastoreDataApi:
-    service = "mediastore-data"
-    version = "2017-09-01"
+    service: str = "mediastore-data"
+    version: str = "2017-09-01"
 
     @handler("DeleteObject")
     def delete_object(

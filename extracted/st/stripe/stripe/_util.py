@@ -1,6 +1,5 @@
 import functools
 import hmac
-import io  # noqa: F401
 import logging
 import sys
 import os
@@ -9,7 +8,7 @@ import warnings
 
 from stripe._api_mode import ApiMode
 
-from urllib.parse import parse_qsl, quote_plus  # noqa: F401
+from urllib.parse import quote_plus
 
 from typing_extensions import Type, TYPE_CHECKING
 from typing import (
@@ -192,24 +191,6 @@ else:
         return result == 0
 
 
-def get_thin_event_classes():
-    from stripe.events._event_classes import THIN_EVENT_CLASSES
-
-    return THIN_EVENT_CLASSES
-
-
-def get_object_classes(api_mode):
-    # This is here to avoid a circular dependency
-    if api_mode == "V2":
-        from stripe._object_classes import V2_OBJECT_CLASSES
-
-        return V2_OBJECT_CLASSES
-
-    from stripe._object_classes import OBJECT_CLASSES
-
-    return OBJECT_CLASSES
-
-
 Resp = Union["StripeResponse", Dict[str, Any], List["Resp"]]
 
 
@@ -272,6 +253,7 @@ def _convert_to_stripe_object(
     klass_: Optional[Type["StripeObject"]] = None,
     requestor: "_APIRequestor",
     api_mode: ApiMode,
+    is_v2_deleted_object: bool = False,
 ) -> "StripeObject": ...
 
 
@@ -283,6 +265,7 @@ def _convert_to_stripe_object(
     klass_: Optional[Type["StripeObject"]] = None,
     requestor: "_APIRequestor",
     api_mode: ApiMode,
+    is_v2_deleted_object: bool = False,
 ) -> List["StripeObject"]: ...
 
 
@@ -293,6 +276,8 @@ def _convert_to_stripe_object(
     klass_: Optional[Type["StripeObject"]] = None,
     requestor: "_APIRequestor",
     api_mode: ApiMode,
+    # if true, we should ignore the `object` field for finding the class name. This is set by the API requestor
+    is_v2_deleted_object: bool = False,
 ) -> Union["StripeObject", List["StripeObject"]]:
     # If we get a StripeResponse, we'll want to return a
     # StripeObject with the last_response field filled out with
@@ -321,15 +306,20 @@ def _convert_to_stripe_object(
         resp = resp.copy()
         klass_name = resp.get("object")
         if isinstance(klass_name, str):
-            if api_mode == "V2" and klass_name == "v2.core.event":
-                event_name = resp.get("type", "")
-                klass = get_thin_event_classes().get(
-                    event_name, stripe.StripeObject
-                )
+            if is_v2_deleted_object:
+                # circular import
+                from stripe.v2._deleted_object import DeletedObject
+
+                klass = DeletedObject
+            elif api_mode == "V2" and klass_name == "v2.core.event":
+                from stripe.events._event_classes import get_v2_event_class
+
+                event_type = resp.get("type", "")
+                klass = get_v2_event_class(event_type)
             else:
-                klass = get_object_classes(api_mode).get(
-                    klass_name, stripe.StripeObject
-                )
+                from stripe._object_classes import get_object_class
+
+                klass = get_object_class(api_mode, klass_name)
         # TODO: this is a horrible hack. The API needs
         # to return something for `object` here.
 
@@ -417,9 +407,11 @@ def sanitize_id(id):
     return quotedId
 
 
-def get_api_mode(url):
+def get_api_mode(url: str) -> ApiMode:
     if url.startswith("/v2"):
         return "V2"
+
+    # if urls aren't explicitly marked as v1, they're assumed to be v1
     else:
         return "V1"
 

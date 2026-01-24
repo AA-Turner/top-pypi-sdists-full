@@ -1,6 +1,8 @@
 import base64
 import json
+import logging
 import socket
+import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Union
@@ -21,7 +23,7 @@ from pymilvus.exceptions import (
 )
 from pymilvus.grpc_gen import common_pb2, milvus_pb2_grpc
 from pymilvus.grpc_gen import milvus_pb2 as milvus_types
-from pymilvus.orm.schema import Function
+from pymilvus.orm.schema import Function, FunctionScore, Highlighter
 from pymilvus.settings import Config
 
 from . import entity_helper, interceptor, ts_utils, utils
@@ -39,11 +41,13 @@ from .asynch import (
     SearchFuture,
 )
 from .check import (
+    check_id_and_data,
     check_pass_param,
     is_legal_host,
     is_legal_port,
 )
 from .constants import ITERATOR_SESSION_TS_FIELD
+from .embedding_list import EmbeddingList
 from .interceptor import _api_level_md
 from .prepare import Prepare
 from .search_result import SearchResult
@@ -69,7 +73,7 @@ from .types import (
     State,
     Status,
     UserInfo,
-    get_cost_extra,
+    get_extra_info,
 )
 from .utils import (
     check_invalid_binary_vector,
@@ -78,6 +82,58 @@ from .utils import (
     is_successful,
     len_of,
 )
+
+logger = logging.getLogger(__name__)
+
+
+class ReconnectHandler:
+    def __init__(self, conns: object, connection_name: str, kwargs: object) -> None:
+        self.connection_name = connection_name
+        self.conns = conns
+        self._kwargs = kwargs
+        self.is_idle_state = False
+        self.reconnect_lock = threading.Lock()
+
+    def reset_db_name(self, db_name: str):
+        self._kwargs["db_name"] = db_name
+
+    def check_state_and_reconnect_later(self):
+        check_after_seconds = 3
+        logger.debug(f"state is idle, schedule reconnect in {check_after_seconds} seconds")
+        time.sleep(check_after_seconds)
+        if not self.is_idle_state:
+            logger.debug("idle state changed, skip reconnect")
+            return
+        with self.reconnect_lock:
+            logger.info("reconnect on idle state")
+            self.is_idle_state = False
+            try:
+                logger.debug("try disconnecting old connection...")
+                self.conns.disconnect(self.connection_name)
+            except Exception:
+                logger.warning("disconnect failed: {e}")
+            finally:
+                reconnected = False
+                while not reconnected:
+                    try:
+                        logger.debug("try reconnecting...")
+                        self.conns.connect(self.connection_name, **self._kwargs)
+                        reconnected = True
+                    except Exception as e:
+                        logger.warning(
+                            f"reconnect failed: {e}, try again after {check_after_seconds} seconds"
+                        )
+                        time.sleep(check_after_seconds)
+            logger.info("reconnected")
+
+    def reconnect_on_idle(self, state: object):
+        logger.debug(f"state change to: {state}")
+        with self.reconnect_lock:
+            if state.value[1] != "idle":
+                self.is_idle_state = False
+                return
+            self.is_idle_state = True
+            threading.Thread(target=self.check_state_and_reconnect_later).start()
 
 
 class GrpcHandler:
@@ -103,6 +159,12 @@ class GrpcHandler:
         self._setup_grpc_channel()
         self.callbacks = []
         self.schema_cache = {}
+        self._reconnect_handler = None
+
+    def register_reconnect_handler(self, handler: ReconnectHandler):
+        if handler is not None:
+            self._reconnect_handler = handler
+            self.register_state_change_callback(handler.reconnect_on_idle)
 
     def register_state_change_callback(self, callback: Callable):
         self.callbacks.append(callback)
@@ -178,6 +240,8 @@ class GrpcHandler:
         self._setup_db_interceptor(db_name)
         self._setup_grpc_channel()
         self._setup_identifier_interceptor(self._user)
+        if self._reconnect_handler is not None:
+            self._reconnect_handler.reset_db_name(db_name)
 
     def _setup_authorization_interceptor(self, user: str, password: str, token: str):
         keys = []
@@ -327,6 +391,8 @@ class GrpcHandler:
             request, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
         check_status(status)
+        if collection_name in self.schema_cache:
+            self.schema_cache.pop(collection_name)
 
     @retry_on_rpc_failure()
     def add_collection_field(
@@ -339,6 +405,57 @@ class GrpcHandler:
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.add_collection_field_request(collection_name, field_schema)
         status = self._stub.AddCollectionField(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
+    def drop_collection_function(
+        self,
+        collection_name: str,
+        function_name: str,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.drop_collection_function_request(collection_name, function_name)
+
+        status = self._stub.DropCollectionFunction(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
+    def add_collection_function(
+        self,
+        collection_name: str,
+        function: Function,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.add_collection_function_request(collection_name, function)
+
+        status = self._stub.AddCollectionFunction(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
+    def alter_collection_function(
+        self,
+        collection_name: str,
+        function_name: str,
+        function: Function,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.alter_collection_function_request(
+            collection_name, function_name, function
+        )
+
+        status = self._stub.AlterCollectionFunction(
             request, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
         check_status(status)
@@ -603,15 +720,19 @@ class GrpcHandler:
             collection_name, schema, timeout
         )
         fields_info = schema.get("fields")
+        struct_fields_info = schema.get("struct_array_fields", [])  # Default to empty list
         enable_dynamic = schema.get("enable_dynamic_field", False)
+        namespace = kwargs.get("namespace")
 
         return Prepare.row_insert_param(
             collection_name,
             entity_rows,
             partition_name,
             fields_info,
+            struct_fields_info,
             enable_dynamic=enable_dynamic,
             schema_timestamp=schema_timestamp,
+            namespace=namespace,
         )
 
     def _get_schema_from_cache_or_remote(
@@ -827,12 +948,14 @@ class GrpcHandler:
             collection_name, timeout=timeout
         )
         fields_info = schema.get("fields")
+        struct_fields_info = schema.get("struct_array_fields", [])  # Default to empty list
         enable_dynamic = schema.get("enable_dynamic_field", False)
         return Prepare.row_upsert_param(
             collection_name,
             rows,
             partition_name,
             fields_info,
+            struct_fields_info,
             enable_dynamic=enable_dynamic,
             schema_timestamp=schema_timestamp,
             partial_update=partial_update,
@@ -931,23 +1054,28 @@ class GrpcHandler:
     def search(
         self,
         collection_name: str,
-        data: Union[List[List[float]], utils.SparseMatrixInputType],
         anns_field: str,
         param: Dict,
         limit: int,
+        data: Optional[Union[List[List[float]], utils.SparseMatrixInputType]] = None,
+        ids: Optional[Union[List[int], List[str], str, int]] = None,
         expression: Optional[str] = None,
         partition_names: Optional[List[str]] = None,
         output_fields: Optional[List[str]] = None,
         round_decimal: int = -1,
         timeout: Optional[float] = None,
-        ranker: Optional[Function] = None,
+        ranker: Union[Function, FunctionScore] = None,
+        highlighter: Optional[Highlighter] = None,
         **kwargs,
     ):
+        if isinstance(ids, (int, str)):
+            ids = [ids]
+        check_id_and_data(ids, data)
+
         check_pass_param(
             limit=limit,
             round_decimal=round_decimal,
             anns_field=anns_field,
-            search_data=data,
             partition_name_array=partition_names,
             output_fields=output_fields,
             guarantee_timestamp=kwargs.get("guarantee_timestamp"),
@@ -955,16 +1083,18 @@ class GrpcHandler:
         )
 
         request = Prepare.search_requests_with_expr(
-            collection_name,
-            data,
-            anns_field,
-            param,
-            limit,
-            expression,
-            partition_names,
-            output_fields,
-            round_decimal,
+            collection_name=collection_name,
+            anns_field=anns_field,
+            param=param,
+            limit=limit,
+            data=data,
+            ids=ids,
+            expr=expression,
+            partition_names=partition_names,
+            output_fields=output_fields,
+            round_decimal=round_decimal,
             ranker=ranker,
+            highlighter=highlighter,
             **kwargs,
         )
         return self._execute_search(request, timeout, round_decimal=round_decimal, **kwargs)
@@ -993,17 +1123,24 @@ class GrpcHandler:
 
         requests = []
         for req in reqs:
+            # Convert EmbeddingList to flat array if present in the request data
+            data = req.data
+            req_kwargs = dict(kwargs)
+            if isinstance(data, list) and data and isinstance(data[0], EmbeddingList):
+                data = [emb_list.to_flat_array() for emb_list in data]
+                req_kwargs["is_embedding_list"] = True
+
             search_request = Prepare.search_requests_with_expr(
-                collection_name,
-                req.data,
-                req.anns_field,
-                req.param,
-                req.limit,
-                req.expr,
+                collection_name=collection_name,
+                data=data,
+                anns_field=req.anns_field,
+                param=req.param,
+                limit=req.limit,
+                expr=req.expr,
                 partition_names=partition_names,
                 round_decimal=round_decimal,
                 expr_params=req.expr_params,
-                **kwargs,
+                **req_kwargs,
             )
             requests.append(search_request)
 
@@ -1022,14 +1159,15 @@ class GrpcHandler:
         )
 
     @retry_on_rpc_failure()
-    def get_query_segment_info(self, collection_name: str, timeout: float = 30, **kwargs):
+    def get_query_segment_info(
+        self, collection_name: str, timeout: float = 30, **kwargs
+    ) -> List[milvus_types.QuerySegmentInfo]:
         req = Prepare.get_query_segment_info_request(collection_name)
         response = self._stub.GetQuerySegmentInfo(
             req, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
-        status = response.status
-        check_status(status)
-        return response.infos  # todo: A wrapper class of QuerySegmentInfo
+        check_status(response.status)
+        return response.infos
 
     @retry_on_rpc_failure()
     def create_alias(
@@ -1589,18 +1727,18 @@ class GrpcHandler:
         response = self._stub.GetFlushState(req, timeout=timeout, metadata=_api_level_md(**kwargs))
         status = response.status
         check_status(status)
-        return response.flushed  # todo: A wrapper class of PersistentSegmentInfo
+        return response.flushed
 
     @retry_on_rpc_failure()
     def get_persistent_segment_infos(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
-    ):
+    ) -> List[milvus_types.PersistentSegmentInfo]:
         req = Prepare.get_persistent_segment_info_request(collection_name)
         response = self._stub.GetPersistentSegmentInfo(
             req, timeout=timeout, metadata=_api_level_md(**kwargs)
         )
         check_status(response.status)
-        return response.infos  # todo: A wrapper class of PersistentSegmentInfo
+        return response.infos
 
     def _wait_for_flushed(
         self,
@@ -1745,7 +1883,7 @@ class GrpcHandler:
             if lazy_extracted:
                 lazy_field_data.append(field_data)
 
-        extra_dict = get_cost_extra(response.status)
+        extra_dict = get_extra_info(response.status)
         extra_dict[ITERATOR_SESSION_TS_FIELD] = response.session_ts
         return HybridExtraList(
             lazy_field_data,
@@ -1776,12 +1914,13 @@ class GrpcHandler:
         self,
         collection_name: str,
         is_clustering: Optional[bool] = False,
+        is_l0: Optional[bool] = False,
         timeout: Optional[float] = None,
         **kwargs,
     ) -> int:
         meta = _api_level_md(**kwargs)
         # try with only collection_name
-        req = Prepare.manual_compaction(collection_name, is_clustering)
+        req = Prepare.manual_compaction(collection_name, is_clustering, is_l0)
         response = self._stub.ManualCompaction(req, timeout=timeout, metadata=meta)
         if response.status.error_code == common_pb2.CollectionNameNotFound:
             # should be removed, but to be compatible with old milvus server, keep it for now.
@@ -2410,3 +2549,34 @@ class GrpcHandler:
         if isinstance(texts, str):
             return AnalyzeResult(resp.results[0], with_hash, with_detail)
         return [AnalyzeResult(result, with_hash, with_detail) for result in resp.results]
+
+    @retry_on_rpc_failure()
+    def update_replicate_configuration(
+        self,
+        clusters: Optional[List[Dict]] = None,
+        cross_cluster_topology: Optional[List[Dict]] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        """
+        Update replication configuration across Milvus clusters.
+
+        Args:
+            clusters: The replication configuration to apply
+            cross_cluster_topology: The replication configuration to apply
+            timeout: An optional duration of time in seconds to allow for the RPC
+            **kwargs: Additional arguments
+
+        Returns:
+            Status: The status of the operation
+        """
+        request = Prepare.update_replicate_configuration_request(
+            clusters=clusters,
+            cross_cluster_topology=cross_cluster_topology,
+        )
+
+        status = self._stub.UpdateReplicateConfiguration(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+        return status

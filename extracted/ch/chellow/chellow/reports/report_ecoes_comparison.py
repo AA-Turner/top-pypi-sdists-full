@@ -25,16 +25,18 @@ from chellow.models import (
     Supply,
     User,
 )
-from chellow.utils import csv_make_val, req_bool, utc_datetime_now
-
+from chellow.utils import csv_make_val, req_checkbox, utc_datetime_now
 
 FNAME = "ecoes_comparison"
 
 
 def _parse_date(date_str):
     if len(date_str) > 0:
-        day, month, year = date_str.split("/")
-        return f"{year}-{month}-{day} 00:00"
+        if "/" in date_str:
+            day, month, year = date_str.split("/")
+            return f"{year}-{month}-{day} 00:00"
+        else:
+            return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]} 00:00"
     else:
         return date_str
 
@@ -79,14 +81,12 @@ def content(user_id, show_ignored, report_run_id):
             url_prefix = "https://www.ecoes.co.uk/"
 
             proxies = props.get("proxies", {})
-            s = requests.Session()
-            s.verify = False
-            r = s.get(url_prefix, proxies=proxies)
+            r = requests.get(url_prefix, proxies=proxies)
             data = {
                 "Username": ecoes_props["user_name"],
                 "Password": ecoes_props["password"],
             }
-            login_j = s.post(url_prefix, data=data, allow_redirects=False).json()
+            login_j = requests.post(url_prefix, data=data, allow_redirects=False).json()
             if not login_j["Success"]:
                 raise BadRequest(f"Login to ECOES failed: {login_j['Messages']}")
             elif "RedirectUrl" in login_j and "SetPassword" in login_j["RedirectUrl"]:
@@ -95,7 +95,7 @@ def content(user_id, show_ignored, report_run_id):
                     "changed"
                 )
 
-            r = s.get(
+            r = requests.get(
                 f"{url_prefix}PortfolioAccess/ExportPortfolioMPANs?fileType=csv",
                 proxies=proxies,
             )
@@ -187,6 +187,7 @@ def _process(
             "address-line-9",
             "post-code",
             "supplier",
+            "supplier-dip",
             "registration-from",
             "mtc",
             "mtc-date",
@@ -202,7 +203,21 @@ def _process(
             "mop-appoint-date",
             "gsp-group",
             "gsp-effective-from",
-            "dno",
+            "dno-name",
+            "dno-dip",
+            "Domestic Premises Indicator",
+            "Duos Tariff Id",
+            "Duos Tariff Id Effective From Date",
+            "Market Segment Indicator",
+            "Market Segment Indicator Effective From Date",
+            "Data Service Dip Id",
+            "Data Service Effective From Date",
+            "Data Service Effective To Date",
+            "Data Service Mpid",
+            "Metering Service Dip Id",
+            "Metering Service Effective From Date",
+            "Metering Service Effective To Date",
+            "Metering Service Mpid",
             "msn",
             "meter-install-date",
             "meter-type",
@@ -632,7 +647,7 @@ def _process(
 
 
 def do_get(sess):
-    show_ignored = req_bool("show_ignored")
+    show_ignored = req_checkbox("show_ignored")
     report_run = ReportRun.insert(
         sess,
         FNAME,

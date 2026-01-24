@@ -61,16 +61,12 @@ public:
     NinePatchStretchGM() {}
 
 protected:
-    SkString onShortName() override {
-        return SkString("ninepatch-stretch");
-    }
+    SkString getName() const override { return SkString("ninepatch-stretch"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(760, 800);
-    }
+    SkISize getISize() override { return SkISize::Make(760, 800); }
 
     void onDraw(SkCanvas* canvas) override {
-        if (!fImage || !fImage->isValid(canvas->recordingContext())) {
+        if (!fImage || !fImage->isValid(canvas->baseRecorder())) {
             fImage = make_image(canvas, &fCenter);
         }
 

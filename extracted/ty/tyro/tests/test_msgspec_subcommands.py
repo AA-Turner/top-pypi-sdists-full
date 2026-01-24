@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import sys
 from pathlib import Path
 from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
@@ -8,6 +9,18 @@ import pytest
 from helptext_utils import get_helptext_with_checks
 
 import tyro
+
+# Skip msgspec tests on Python 3.14 with msgspec <= 0.19.0
+# See: https://github.com/jcrist/msgspec/issues/847
+if sys.version_info >= (3, 14) and tuple(map(int, msgspec.__version__.split("."))) <= (
+    0,
+    19,
+    0,
+):
+    pytest.skip(
+        "msgspec incompatible with Python 3.14 (see msgspec issue #847)",
+        allow_module_level=True,
+    )
 
 # Define TypeVars for generics tests
 T = TypeVar("T")
@@ -23,7 +36,7 @@ def as_callable(union_type: Any) -> Callable[..., Any]:
     return cast(Callable[..., Any], union_type)
 
 
-def test_basic_msgspec_subcommands():
+def test_basic_msgspec_subcommands() -> None:
     """Test basic msgspec subcommands with Union types."""
 
     class Checkout(msgspec.Struct):
@@ -70,7 +83,7 @@ def test_basic_msgspec_subcommands():
     assert "Commit changes" in helptext
 
 
-def test_msgspec_subcommands_with_same_type_different_generics():
+def test_msgspec_subcommands_with_same_type_different_generics() -> None:
     """Test msgspec subcommands with the same type but different generic parameters."""
 
     class Process(msgspec.Struct, Generic[T]):
@@ -94,7 +107,7 @@ def test_msgspec_subcommands_with_same_type_different_generics():
     assert result_str.data == "hello"
 
 
-def test_msgspec_mixed_dataclass_and_msgspec_subcommands():
+def test_msgspec_mixed_dataclass_and_msgspec_subcommands() -> None:
     """Test mixing dataclass and msgspec types in subcommands."""
 
     @dataclasses.dataclass
@@ -138,7 +151,7 @@ def test_msgspec_mixed_dataclass_and_msgspec_subcommands():
     assert "A command implemented as a msgspec struct" in helptext
 
 
-def test_msgspec_subcommands_with_enums():
+def test_msgspec_subcommands_with_enums() -> None:
     """Test msgspec subcommands with enum types."""
 
     class LogLevel(enum.Enum):

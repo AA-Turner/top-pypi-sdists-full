@@ -19,6 +19,7 @@ import pyarrow
 from orso.types import OrsoTypes
 
 from opteryx import EOS
+from opteryx.draken import Morsel
 from opteryx.managers.expression import NodeType
 from opteryx.managers.expression import evaluate_and_append
 from opteryx.managers.expression import get_all_nodes_of_type
@@ -59,7 +60,7 @@ def build_finalizer_aggregations(aggregators):
 
 
 class SimpleAggregateAndGroupNode(BasePlanNode):
-    SIMPLE_AGGREGATES = {"SUM", "MIN", "MAX", "COUNT"}
+    SIMPLE_AGGREGATES = {"SUM", "MIN", "MAX", "COUNT", "AVG", "COUNT_DISTINCT"}
 
     def __init__(self, properties: QueryProperties, **parameters):
         BasePlanNode.__init__(self, properties=properties, **parameters)
@@ -110,6 +111,8 @@ class SimpleAggregateAndGroupNode(BasePlanNode):
         return "Group By Simple"
 
     def execute(self, morsel: pyarrow.Table, **kwargs):
+        morsel = self.ensure_arrow_table(morsel)
+
         internal_names = list(self.column_map.values()) + self.group_by_columns
         column_names = list(self.column_map.keys()) + self.group_by_columns
 
@@ -151,10 +154,47 @@ class SimpleAggregateAndGroupNode(BasePlanNode):
 
         # use pyarrow to do phase 1 of the group by
         st = time.monotonic_ns()
-        groups = morsel.group_by(self.group_by_columns)
-        groups = groups.aggregate(self.aggregate_functions)
-        groups = groups.select(internal_names)
-        groups = groups.rename_columns(column_names)
+        # Try using Draken-based grouped aggregation when available and enabled in config
+        use_draken = False
+        try:
+            from opteryx.config import features
+
+            use_draken = bool(features.use_draken_ops_kernels)
+        except Exception:
+            use_draken = False
+
+        if use_draken:
+            try:
+                from opteryx.compiled.aggregations.group_by_draken import group_by_morsel
+
+                groups = group_by_morsel(
+                    morsel,
+                    self.group_by_columns,
+                    self.aggregate_functions,
+                    internal_names,
+                    column_names,
+                )
+                # If the group_by_morsel returned grouped values in internal names order,
+                # then rename to canonical alias names accordingly to keep downstream logic.
+                # If we receive a Draken Morsel, convert to Arrow for further ops
+                if isinstance(groups, Morsel):
+                    groups = groups.to_arrow()
+                try:
+                    # Rename first len(internal_names) columns to alias names
+                    groups = groups.rename_columns(list(column_names))
+                except Exception:
+                    pass
+            except Exception:
+                # Fall back to pyarrow implementation if anything goes wrong
+                groups = morsel.group_by(self.group_by_columns)
+                groups = groups.aggregate(self.aggregate_functions)
+                groups = groups.select(internal_names)
+                groups = groups.rename_columns(column_names)
+        else:
+            groups = morsel.group_by(self.group_by_columns)
+            groups = groups.aggregate(self.aggregate_functions)
+            groups = groups.select(internal_names)
+            groups = groups.rename_columns(column_names)
         self.statistics.time_pregrouping += time.monotonic_ns() - st
 
         self.buffer.append(groups)

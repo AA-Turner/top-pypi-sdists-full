@@ -11,7 +11,6 @@ lastversion.has_update(repo='mautic/mautic', current_version='1.2.3')
 """
 
 import argparse
-import json
 import logging
 import os
 import re
@@ -19,33 +18,43 @@ import shlex
 import sys
 from os.path import expanduser
 from pathlib import Path
+from urllib.parse import urlparse
 
+import requests
 import yaml
 from packaging.version import InvalidVersion
 
-from lastversion.repo_holders.base import BaseProjectHolder
-from lastversion.repo_holders.test import TestProjectHolder
-from lastversion.repo_holders.github import TOKEN_PRO_TIP
+from lastversion.ai import generate_changelog
+from lastversion.cache import get_release_cache
+from lastversion.exceptions import ApiCredentialsError
 from lastversion.holder_factory import HolderFactory
-from lastversion.version import Version
-from lastversion.__about__ import __self__
-from lastversion.argparse_version import VersionAction
+from lastversion.repo_holders.test import TestProjectHolder
 from lastversion.spdx_id_to_rpmspec import rpmspec_licenses
-from lastversion.utils import (
-    download_file,
-    extract_file,
-    rpm_installed_version,
-    extract_appimage_desktop_file,
-)
-from lastversion.exceptions import ApiCredentialsError, BadProjectError
+from lastversion.utils import download_file, extract_appimage_desktop_file, rpm_installed_version
+from lastversion.version import Version
 
 log = logging.getLogger(__name__)
-FAILS_SEM_ERR_FMT = (
-    "Latest version %s fails semantic %s constraint against current version %s"
-)
+FAILS_SEM_ERR_FMT = "Latest version %s fails semantic %s constraint against current version %s"
 
 
 # noinspection GrazieInspection
+def find_preferred_url(spec_urls):
+    """
+    Given a list of URLs of a project, return preferred one that might lead to version info.
+    Basically returns the first URL that matches a handler by matching its primary domain.
+    """
+    # TODO: use rpmspec --parse if failed to get lastversion_repo inside spec (includes macro)
+    for url in spec_urls:
+        # parse URL and get domain
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        # enumerate holders, and see if any of them can handle this domain
+        for holder in HolderFactory.HOLDERS.values():
+            if holder.DEFAULT_HOSTNAME and holder.DEFAULT_HOSTNAME == hostname:
+                return url
+    return spec_urls[0] if spec_urls else None
+
+
 def get_repo_data_from_spec(rpmspec_filename):
     """
     Extracts repo data and CLI args from .spec file
@@ -69,7 +78,8 @@ def get_repo_data_from_spec(rpmspec_filename):
         upstream_name = None
         current_version = None
         spec_repo = None
-        spec_url = None
+        spec_urls = []
+        current_commit = None
         for line in f.readlines():
             if line.startswith("%global lastversion_repo"):
                 spec_repo = shlex.split(line)[2].strip()
@@ -77,12 +87,20 @@ def get_repo_data_from_spec(rpmspec_filename):
                 upstream_github = shlex.split(line)[2].strip()
             elif line.startswith("%global upstream_name"):
                 upstream_name = shlex.split(line)[2].strip()
+            elif line.startswith("%global commit "):
+                # Commit-based release (snapshots)
+                current_commit = shlex.split(line)[2].strip()
+                repo_data["commit_based"] = True
             elif line.startswith("Name:"):
                 name = line.split("Name:")[1].strip()
             elif line.startswith("URL:"):
-                spec_url = line.split("URL:")[1].strip()
-            elif line.startswith("Source0:") and not spec_url:
-                spec_url = line.split("Source0:")[1].strip()
+                # append to spec_urls
+                spec_urls.append(line.split("URL:")[1].strip())
+            elif line.startswith("Source0:"):
+                source0 = line.split("Source0:")[1].strip()
+                # noinspection HttpUrlsUsage
+                if source0.startswith("https://") or source0.startswith("http://"):
+                    spec_urls.append(source0)
             elif line.startswith("%global upstream_version "):
                 current_version = shlex.split(line)[2].strip()
                 # influences %spec_tag to use %upstream_version instead of %version
@@ -95,11 +113,28 @@ def get_repo_data_from_spec(rpmspec_filename):
                 repo_data["having_asset"] = shlex.split(line)[2].strip()
             elif line.startswith("%global lastversion_major"):
                 repo_data["major"] = shlex.split(line)[2].strip()
+            elif line.startswith("%global lastversion_formal"):
+                value = shlex.split(line)[2].strip()
+                low = value.lower()
+                if low in ["1", "true", "yes", "on"]:
+                    repo_data["formal"] = True
+                elif low in ["0", "false", "no", "off"]:
+                    repo_data["formal"] = False
+                else:
+                    # Any non-empty string defaults to True for safety
+                    repo_data["formal"] = bool(value)
+            elif line.startswith("%global lastversion_sem"):
+                # Semver constraint: major, minor, or patch
+                value = shlex.split(line)[2].strip().lower()
+                if value in ["major", "minor", "patch"]:
+                    repo_data["sem"] = value
+
+        # Store current commit for comparison
+        if current_commit:
+            repo_data["current_commit"] = current_commit
 
         if not current_version:
-            log.critical(
-                "Did not find neither Version: nor %upstream_version in the spec file"
-            )
+            log.critical("Did not find neither Version: nor %upstream_version in the spec file")
             sys.exit(1)
         try:
             if current_version != "x":
@@ -118,13 +153,14 @@ def get_repo_data_from_spec(rpmspec_filename):
             repo_data["name"] = name
             repo_data["spec_name"] = "%{name}"
 
-        repo = spec_url
         if upstream_github:
             repo = f"{upstream_github}/{repo_data['name']}"
             log.info("Discovered GitHub repo %s from .spec file", repo)
         elif spec_repo:
             repo = spec_repo
             log.info("Discovered explicit repo %s from .spec file", repo)
+        else:
+            repo = find_preferred_url(spec_urls)
 
         if not repo:
             log.critical(
@@ -165,6 +201,9 @@ def latest(
     exclude=None,
     even=False,
     formal=False,
+    changelog=False,
+    cache_ttl=None,
+    skip_release_cache=False,
 ):
     r"""Find the latest release version for a project.
 
@@ -190,6 +229,11 @@ def latest(
         exclude (str): Only consider releases NOT containing this text/regular expression.
         even (bool): Consider as stable only releases with even minor component, e.g. 1.2.3
         formal (bool): Consider as stable only releases with formal tags set up in Web UI
+        changelog (bool): Populate release["changelog"] using upstream notes (if True)
+        cache_ttl (int): Optional TTL override for release data cache (seconds).
+                         Only used when release cache is enabled in config.
+        skip_release_cache (bool): Skip the release data cache entirely (both read and write).
+                                   Useful when you need fresh data from the source.
 
     Examples:
         Find the latest version of Mautic, it is OK to consider betas.
@@ -210,6 +254,53 @@ def latest(
     """
     repo_data = {}
 
+    # Check release data cache first (when enabled and using json/dict output)
+    release_cache = get_release_cache()
+    cache_key_params = {
+        "pre_ok": pre_ok,
+        "major": major,
+        "only": only,
+        "at": at,
+        "having_asset": having_asset,
+        "exclude": exclude,
+        "even": even,
+        "formal": formal,
+    }
+
+    def _return_from_cache(cached_data, fmt, is_stale=False):
+        """Helper to return cached data in the appropriate format."""
+        if cached_data is None:
+            return None
+        prefix = "stale " if is_stale else ""
+        log.info("Using %scached release data for: %s", prefix, repo)
+        if is_stale:
+            log.warning("Network/API error occurred. Returning stale cached data for: %s", repo)
+        if fmt == "version":
+            try:
+                return Version(cached_data.get("version", ""))
+            except InvalidVersion:
+                return None
+        elif fmt == "tag":
+            return cached_data.get("tag_name")
+        elif fmt == "dict":
+            # Convert version string back to Version object for dict output
+            try:
+                cached_data["version"] = Version(cached_data.get("version", ""))
+            except InvalidVersion:
+                pass
+            return cached_data
+        else:  # json
+            return cached_data
+
+    # Try to get from cache for formats that can use cached data
+    if release_cache.enabled and not skip_release_cache and output_format in ["json", "dict", "version", "tag"]:
+        cached_release = release_cache.get(repo, **cache_key_params)
+        if cached_release:
+            result = _return_from_cache(cached_release, output_format, is_stale=False)
+            if result is not None:
+                return result
+            # Fall through to fetch fresh data if cache parsing failed
+
     # noinspection HttpUrlsUsage
     if repo.endswith(".yml") and not repo.startswith(("http://", "https://")):
         repo_data = get_repo_data_from_yml(repo)
@@ -221,91 +312,160 @@ def latest(
     if repo.endswith(".spec"):
         repo_data = get_repo_data_from_spec(rpmspec_filename=repo)
 
-    with HolderFactory.get_instance_for_repo(
-        repo_data.get("repo", repo), at=at
-    ) as project:
-        project.set_only(repo_data.get("only", only))
-        project.set_exclude(exclude)
-        project.set_having_asset(repo_data.get("having_asset", having_asset))
-        project.set_even(even)
-        project.set_formal(formal)
-        release = project.get_latest(pre_ok=pre_ok, major=repo_data.get("major", major))
+    # Define network error types that should trigger cache fallback
+    network_errors = (
+        requests.exceptions.RequestException,  # All requests errors (connection, timeout, etc.)
+        ApiCredentialsError,  # Rate limits, auth failures
+        ConnectionError,
+        TimeoutError,
+        OSError,  # Network unreachable, etc.
+    )
 
-        # bail out, found nothing that looks like a release
-        if not release:
-            return None
+    try:
+        with HolderFactory.get_instance_for_repo(repo_data.get("repo", repo), at=at) as project:
+            project.set_only(repo_data.get("only", only))
+            project.set_exclude(exclude)
+            project.set_having_asset(repo_data.get("having_asset", having_asset))
+            project.set_even(even)
+            project.set_formal(repo_data.get("formal", formal))
+            release = project.get_latest(pre_ok=pre_ok, major=repo_data.get("major", major))
 
-        from_type = f"Located the latest release tag {release['tag_name']} at: {project.get_canonical_link()}"
-        if "type" in release:
-            from_type = f"{from_type} via {release['type']} mechanism"
-        log.info(from_type)
+            # bail out, found nothing that looks like a release
+            if not release:
+                return None
 
-        version = release["version"]
-        tag = release["tag_name"]
+            from_type = f"Located the latest release tag {release['tag_name']} at: {project.get_canonical_link()}"
+            if "type" in release:
+                from_type = f"{from_type} via {release['type']} mechanism"
+            log.info(from_type)
 
-        # return the release if we've reached far enough:
-        if output_format == "version":
-            return version
+            version = release["version"]
+            tag = release["tag_name"]
 
-        if output_format in ["json", "dict"]:
-            if output_format == "dict":
-                release["version"] = version
-            else:
-                release["version"] = str(version)
-                if "tag_date" in release:
-                    release["tag_date"] = str(release["tag_date"])
-            release["v_prefix"] = tag.startswith("v")
-            version_macro = (
-                "upstream_version" if "module_of" in repo_data else "version"
-            )
-            version_macro = "%{{{}}}".format(version_macro)
-            holder_i = {value: key for key, value in HolderFactory.HOLDERS.items()}
-            release["source"] = holder_i[type(project)]
-            release["spec_tag"] = tag.replace(str(version), version_macro)
-            # spec_tag_no_prefix is the helpful macro that will allow us to know where tarball
-            # extracts to (GitHub-specific)
-            if release["spec_tag"].startswith("v{}".format(version_macro)) or re.match(
-                r"^v\d", release["spec_tag"]
-            ):
-                release["spec_tag_no_prefix"] = release["spec_tag"].lstrip("v")
-            else:
-                release["spec_tag_no_prefix"] = release["spec_tag"]
-            release["tag_name"] = tag
-            if hasattr(project, "repo_license"):
-                release["license"] = project.repo_license(tag)
-            if hasattr(project, "repo_readme"):
-                release["readme"] = project.repo_readme(tag)
-            release.update(repo_data)
-            try:
-                release["assets"] = project.get_assets(
-                    release, short_urls, assets_filter
-                )
-            except NotImplementedError:
-                pass
-            release["from"] = project.get_canonical_link()
+            # return the release if we've reached far enough:
+            if output_format == "version":
+                return version
 
-            if "license" in release and release["license"]:
-                spdx_id = release["license"].get("license", {}).get("spdx_id")
-                rpmspec_licence = (
-                    rpmspec_licenses[spdx_id] if spdx_id in rpmspec_licenses else None
-                )
-                if rpmspec_licence:
-                    release["rpmspec_license"] = rpmspec_licence
+            if output_format in ["json", "dict"]:
+                if output_format == "dict":
+                    release["version"] = version
+                else:
+                    release["version"] = str(version)
+                    if "tag_date" in release:
+                        release["tag_date"] = str(release["tag_date"])
+                release["v_prefix"] = tag.startswith("v")
+                version_macro = "upstream_version" if "module_of" in repo_data else "version"
+                version_macro = f"%{{{version_macro}}}"
+                holder_i = {value: key for key, value in HolderFactory.HOLDERS.items()}
+                release["source"] = holder_i[type(project)]
+                release["spec_tag"] = tag.replace(str(version), version_macro)
+                # spec_tag_no_prefix is the helpful macro that will allow us to know where tarball
+                # extracts to (GitHub-specific)
+                if release["spec_tag"].startswith(f"v{version_macro}") or re.match(r"^v\d", release["spec_tag"]):
+                    release["spec_tag_no_prefix"] = release["spec_tag"].lstrip("v")
+                else:
+                    release["spec_tag_no_prefix"] = release["spec_tag"]
+                release["tag_name"] = tag
+                if hasattr(project, "repo_license"):
+                    release["license"] = project.repo_license(tag)
+                if hasattr(project, "repo_readme"):
+                    release["readme"] = project.repo_readme(tag)
+                if changelog:
+                    text, source = project.collect_release_notes(tag, release)
+                    if text:
+                        context = {
+                            "repo": project.get_canonical_link(),
+                            "tag": tag,
+                            "version": str(release["version"]),
+                            "source": release.get("source"),
+                        }
+                        try:
+                            bullets = generate_changelog(text, context)
+                            if bullets:
+                                release["changelog"] = bullets
+                                release["changelog_source"] = source
+                        except Exception:
+                            pass
+                release.update(repo_data)
+                try:
+                    # Get detailed asset info with digests BEFORE get_assets transforms them
+                    release["assets_with_digests"] = project.get_assets_with_digests(release, short_urls, assets_filter)
+                    # Get asset URLs (this transforms the assets list)
+                    release["assets"] = project.get_assets(release, short_urls, assets_filter)
+                except NotImplementedError:
+                    pass
+                release["from"] = project.get_canonical_link()
 
-            release["source_url"] = project.release_download_url(release, short_urls)
+                if "license" in release and release["license"]:
+                    spdx_id = release["license"].get("license", {}).get("spdx_id")
+                    rpmspec_licence = rpmspec_licenses[spdx_id] if spdx_id in rpmspec_licenses else None
+                    if rpmspec_licence:
+                        release["rpmspec_license"] = rpmspec_licence
 
-            return release
+                release["source_url"] = project.release_download_url(release, short_urls)
 
-        if output_format == "assets":
-            return project.get_assets(release, short_urls, assets_filter)
+                # Store in release cache if enabled (skip if explicitly bypassing cache)
+                if release_cache.enabled and not skip_release_cache:
+                    release_cache.set(repo, release, ttl=cache_ttl, **cache_key_params)
 
-        if output_format == "source":
-            return project.release_download_url(release, short_urls)
+                return release
 
-        if output_format == "tag":
-            return tag
+            if output_format == "assets":
+                return project.get_assets(release, short_urls, assets_filter)
+
+            if output_format == "source":
+                return project.release_download_url(release, short_urls)
+
+            if output_format == "tag":
+                return tag
+
+    except network_errors as e:
+        # Network or API error - try to fall back to stale cached data
+        log.warning("Network/API error while fetching release data: %s", e)
+
+        # Try to get stale cache (bypass TTL check)
+        if output_format in ["json", "dict", "version", "tag"]:
+            # Get any cached data, even if expired (for fallback)
+            stale_cache = release_cache.get(repo, ignore_expiry=True, **cache_key_params)
+            if stale_cache:
+                result = _return_from_cache(stale_cache, output_format, is_stale=True)
+                if result is not None:
+                    return result
+
+        # No cached data available, re-raise the exception
+        raise
 
     return None
+
+
+def clear_cache(repo=None):
+    """Clear the HTTP cache for lastversion.
+
+    This function is useful for webhook handlers that need to invalidate
+    cache when a new release is published.
+
+    Args:
+        repo (str): Optional repository identifier (e.g., "owner/repo").
+                    If provided, attempts to clear cache for that repo only.
+                    If None, clears the entire cache.
+
+    Returns:
+        int: Number of cache entries cleared (or 1 for full cache clear)
+
+    Example:
+        # In a webhook handler for GitHub release events:
+        from lastversion import clear_cache, latest
+
+        def handle_github_webhook(payload):
+            repo = payload['repository']['full_name']
+            clear_cache(repo)
+            # Optionally fetch fresh version
+            version = latest(repo, output_format='json')
+            return version
+    """
+    from lastversion.repo_holders.base import BaseProjectHolder
+
+    return BaseProjectHolder.clear_cache(repo)
 
 
 def has_update(repo, current_version, pre_ok=False, at=None):
@@ -378,7 +538,33 @@ def get_rpm_packager():
     return None
 
 
-def update_spec(repo, res, sem="minor"):
+def build_changelog_bullets(res, repo_arg):
+    """Build changelog bullets for a release dict using upstream notes and OpenAI.
+
+    Returns:
+        list[str] or None
+    """
+    try:
+        raw_notes = res.get("body") or res.get("description")
+    except AttributeError:
+        raw_notes = None
+
+    if not raw_notes:
+        return None
+
+    try:
+        context = {
+            "repo": res.get("from"),
+            "tag": res.get("tag_name"),
+            "version": str(res.get("version")),
+            "source": res.get("source"),
+        }
+        return generate_changelog(raw_notes, context)
+    except Exception:
+        return None
+
+
+def update_spec(repo, res, sem="minor", changelog: bool = False):
     print(res["version"])
     if "current_version" not in res or res["current_version"] < res["version"]:
         log.info("Updating spec %s with semantic %s", repo, sem)
@@ -389,14 +575,10 @@ def update_spec(repo, res, sem="minor"):
             latest_minor = res["version"].release[1]
             if sem in ["minor", "patch"]:
                 if latest_major != current_major:
-                    log.warning(
-                        FAILS_SEM_ERR_FMT, res["version"], sem, res["current_version"]
-                    )
+                    log.warning(FAILS_SEM_ERR_FMT, res["version"], sem, res["current_version"])
                     sys.exit(4)
                 if sem == "patch" and latest_minor != current_minor:
-                    log.warning(
-                        FAILS_SEM_ERR_FMT, res["version"], sem, res["current_version"]
-                    )
+                    log.warning(FAILS_SEM_ERR_FMT, res["version"], sem, res["current_version"])
                     sys.exit(4)
     else:
         log.info("No newer version than already present in spec file")
@@ -414,16 +596,11 @@ def update_spec(repo, res, sem="minor"):
                 out.append(f'%global lastversion_tag {res["spec_tag"]}')
                 lastversion_tag_present = True
             elif ln.startswith("%global lastversion_dir "):
-                out.append(
-                    f"%global lastversion_dir "
-                    f'{res["spec_name"]}-{res["spec_tag_no_prefix"]}'
-                )
+                out.append(f"%global lastversion_dir " f'{res["spec_name"]}-{res["spec_tag_no_prefix"]}')
                 lastversion_dir_present = True
             elif ln.startswith("%global upstream_version "):
                 out.append(f'%global upstream_version {res["version"]}')
-            elif ln.startswith("Version:") and (
-                "module_of" not in res or not res["module_of"]
-            ):
+            elif ln.startswith("Version:") and ("module_of" not in res or not res["module_of"]):
                 version_tag_regex = r"^Version:(\s+)(\S+)"
                 m = re.match(version_tag_regex, ln)
                 out.append("Version:" + m.group(1) + str(res["version"]))
@@ -433,8 +610,21 @@ def update_spec(repo, res, sem="minor"):
                 now = datetime.utcnow()
                 today = now.strftime("%a %b %d %Y")
                 out.append(ln.rstrip())
-                out.append("* {} {}".format(today, packager))
-                out.append("- upstream release v{}".format(res["version"]))
+                # RPM guideline: include Version-Release in header (Release resets to 1 on bump)
+                out.append(f"* {today} {packager} - {str(res['version'])}-1")
+                bullets = None
+                if isinstance(res, dict):
+                    existing = res.get("changelog")
+                    if isinstance(existing, list) and existing:
+                        bullets = [str(b).strip() for b in existing if str(b).strip()]
+                if changelog and not bullets:
+                    bullets = build_changelog_bullets(res, repo)
+
+                if bullets:
+                    for b in bullets:
+                        out.append(f"- {b}")
+                else:
+                    out.append(f"- upstream release v{res['version']}")
                 out.append("\n")
             elif ln.startswith("Release:"):
                 release_tag_regex = r"^Release:(\s+)(\S+)"
@@ -444,6 +634,14 @@ def update_spec(repo, res, sem="minor"):
 
                 release = release.lstrip(digits)
                 out.append("Release:" + m.group(1) + "1" + release)
+            elif ln.startswith("License:") and res.get("rpmspec_license"):
+                # Update License: tag with the license from upstream
+                license_tag_regex = r"^License:(\s+)(\S.*)"
+                m = re.match(license_tag_regex, ln)
+                if m:
+                    out.append("License:" + m.group(1) + res["rpmspec_license"])
+                else:
+                    out.append(ln.rstrip())
             else:
                 out.append(ln.rstrip())
 
@@ -461,6 +659,100 @@ def update_spec(repo, res, sem="minor"):
 
     with open(repo, "w") as f:
         f.write("\n".join(out))
+
+
+def update_spec_commit(spec_file, commit_info, repo_data):
+    """Update spec file for commit-based (snapshot) releases.
+
+    Args:
+        spec_file: Path to the spec file
+        commit_info: Dict with 'sha', 'short_sha', 'date', 'message'
+        repo_data: Dict with repo data from spec parsing
+
+    Updates:
+        - %global commit <sha>
+        - %global commit_date <YYYYMMDD>
+        - Release: 0.%{snapinfo}%{?dist} (if no releases) or 1.%{snapinfo}%{?dist}
+    """
+    current_commit = repo_data.get("current_commit")
+    if current_commit == commit_info["sha"]:
+        log.info("Commit %s is already current in spec file", commit_info["short_sha"])
+        sys.exit(2)
+
+    print(f"Updating to commit {commit_info['short_sha']}")
+
+    # Format commit date as YYYYMMDD
+    commit_date = commit_info["date"].strftime("%Y%m%d")
+
+    out = []
+    commit_present = False
+    commit_date_present = False
+    snapinfo_present = False
+
+    with open(spec_file) as f:
+        for ln in f.readlines():
+            if ln.startswith("%global commit "):
+                out.append(f'%global commit {commit_info["sha"]}')
+                commit_present = True
+            elif ln.startswith("%global commit_date "):
+                out.append(f"%global commit_date {commit_date}")
+                commit_date_present = True
+            elif ln.startswith("%global snapinfo "):
+                # Keep existing snapinfo definition
+                out.append(ln.rstrip())
+                snapinfo_present = True
+            elif ln.startswith("Release:"):
+                release_tag_regex = r"^Release:(\s+)(\S+)"
+                m = re.match(release_tag_regex, ln)
+                if m:
+                    # Check if there's a formal release version
+                    current_version = repo_data.get("current_version")
+                    if current_version and str(current_version) != "0":
+                        # Post-release snapshot: 1.snapinfo
+                        out.append(f"Release:{m.group(1)}1.%{{snapinfo}}%{{?dist}}")
+                    else:
+                        # Pre-release snapshot: 0.snapinfo
+                        out.append(f"Release:{m.group(1)}0.%{{snapinfo}}%{{?dist}}")
+                else:
+                    out.append(ln.rstrip())
+            else:
+                out.append(ln.rstrip())
+
+    # Add missing globals at the top
+    if not commit_present:
+        out.insert(0, f'%global commit {commit_info["sha"]}')
+
+    if not commit_date_present:
+        # Insert after %global commit
+        for i, line in enumerate(out):
+            if line.startswith("%global commit "):
+                out.insert(i + 1, f"%global commit_date {commit_date}")
+                break
+
+    if not snapinfo_present:
+        # Add default snapinfo definition after commit_date
+        for i, line in enumerate(out):
+            if line.startswith("%global commit_date "):
+                out.insert(i + 1, "%global snapinfo %{commit_date}git%{shortcommit}")
+                break
+
+    # Add shortcommit if not present
+    has_shortcommit = any(line.startswith("%global shortcommit ") for line in out)
+    if not has_shortcommit:
+        for i, line in enumerate(out):
+            if line.startswith("%global commit "):
+                out.insert(i + 1, "%global shortcommit %(c=%{commit}; echo ${c:0:7})")
+                break
+
+    with open(spec_file, "w") as f:
+        f.write("\n".join(out))
+
+    log.info(
+        "Updated %s to commit %s (%s)",
+        spec_file,
+        commit_info["short_sha"],
+        commit_info["message"][:50],
+    )
 
 
 def install_app_image(url, install_name):
@@ -508,6 +800,33 @@ def install_rpms(res, rpms, args):
     #     sys.exit(1)
 
 
+def install_debs(_res, debs, args):
+    """Install deb packages using apt.
+
+    Args:
+        _res: Release dict (unused, kept for API consistency with install_rpms)
+        debs: List of deb package URLs
+        args: CLI arguments
+    """
+    try:
+        import subprocess
+
+        # Download debs first, then install with apt
+        local_debs = []
+        for deb_url in debs:
+            local_file = download_file(deb_url)
+            local_debs.append(local_file)
+
+        params = ["apt", "install"]
+        params.extend(local_debs)
+        if args.assumeyes:
+            params.append("-y")
+        subprocess.call(params)
+    except OSError:
+        log.critical("Failed to launch apt for package install!")
+        sys.exit(1)
+
+
 def install_standalone_binary(url, install_name):
     """Install a standalone binary from a URL to `~/Applications/<install_name>`
 
@@ -526,414 +845,30 @@ def install_standalone_binary(url, install_name):
 
 
 def install_release(res, args):
-    """Install latest release"""
-    app_images = [asset for asset in res["assets"] if asset.endswith(".AppImage")]
-    if app_images:
-        return install_app_image(
-            app_images[0], install_name=res.get("install_name", args.repo)
-        )
+    """Install latest release.
 
+    Prefers native package formats (RPM/deb) over AppImages for better
+    integration with package managers and architecture compatibility.
+    """
+    # Prefer RPMs on RPM-based distros
     rpms = [asset for asset in res["assets"] if asset.endswith(".rpm")]
     if rpms:
         return install_rpms(res, rpms, args)
 
+    # Prefer debs on Debian-based distros
+    debs = [asset for asset in res["assets"] if asset.endswith(".deb")]
+    if debs:
+        return install_debs(res, debs, args)
+
+    # Fall back to AppImages (cross-distro)
+    app_images = [asset for asset in res["assets"] if asset.endswith(".AppImage")]
+    if app_images:
+        return install_app_image(app_images[0], install_name=res.get("install_name", args.repo))
+
     # static files are those without an extension
-    static_binaries = [
-        asset for asset in res["assets"] if "." not in asset.rsplit("/", 1)[-1]
-    ]
+    static_binaries = [asset for asset in res["assets"] if "." not in asset.rsplit("/", 1)[-1]]
     if static_binaries:
-        return install_standalone_binary(
-            static_binaries[0], install_name=res.get("install_name", args.repo)
-        )
+        return install_standalone_binary(static_binaries[0], install_name=res.get("install_name", args.repo))
 
     log.error("No installable assets found to install")
     sys.exit(1)
-
-
-def main(argv=None):
-    """
-    The entrypoint to CLI app.
-
-    Args:
-        argv: List of arguments, helps test CLI without resorting to subprocess module.
-    """
-    # ANSI escape code for starting bold text
-    start_bold = "\033[1m"
-    # ANSI escape code for ending the formatting (resets to normal text)
-    end_bold = "\033[0m"
-
-    epilog = "\n---\n"
-    epilog += f"{start_bold}Sponsored Message: Check out the GetPageSpeed RPM "
-    epilog += "repository at https://nginx-extras.getpagespeed.com/ for NGINX "
-    epilog += "modules and performance tools. Enhance your server performance "
-    epilog += f"today!{end_bold}"
-    epilog += "\n---\n"
-
-    if "GITHUB_API_TOKEN" not in os.environ and "GITHUB_TOKEN" not in os.environ:
-        epilog += TOKEN_PRO_TIP
-    parser = argparse.ArgumentParser(
-        description="Find the latest software release.",
-        epilog=epilog,
-        prog="lastversion",
-    )
-    parser.add_argument(
-        "action",
-        nargs="?",
-        default="get",
-        help="Action to run. Default: get",
-        choices=[
-            "get",
-            "download",
-            "extract",
-            "unzip",
-            "test",
-            "format",
-            "install",
-            "update-spec",
-        ],
-    )
-    parser.add_argument(
-        "repo",
-        metavar="<repo URL or string>",
-        help="Repository in format owner/name or any URL that belongs to it, or a version string",
-    )
-    # affects what is considered last release
-    parser.add_argument(
-        "--pre",
-        dest="pre",
-        action="store_true",
-        help="Include pre-releases in potential versions",
-    )
-    parser.add_argument(
-        "--formal",
-        dest="formal",
-        action="store_true",
-        help="Include only formally tagged versions",
-    )
-    parser.add_argument(
-        "--sem",
-        dest="sem",
-        choices=["major", "minor", "patch", "any"],
-        help="Semantic versioning level base to print or compare against",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="Will give you an idea of what is happening under the hood, "
-        "-vv to increase verbosity level",
-    )
-    # no --download = False, --download filename.tar, --download = None
-    parser.add_argument(
-        "-d",
-        "-o",
-        "--download",
-        "--output",
-        dest="download",
-        nargs="?",
-        default=False,
-        const=None,
-        metavar="FILENAME",
-        help="Download with custom filename",
-    )
-    # how / which data of last release we want to present
-    # assets will give download urls for assets if available and sources archive otherwise
-    # sources will give download urls for sources always
-    # json always includes "version", "tag_name" etc. + whichever json data was
-    # used to satisfy lastversion
-    parser.add_argument(
-        "--format",
-        choices=["version", "assets", "source", "json", "tag"],
-        help="Output format",
-    )
-    parser.add_argument(
-        "--assets",
-        dest="assets",
-        action="store_true",
-        help="Returns assets download URLs for last release",
-    )
-    parser.add_argument(
-        "--source",
-        dest="source",
-        action="store_true",
-        help="Returns only source URL for last release",
-    )
-    parser.add_argument(
-        "-gt",
-        "--newer-than",
-        type=check_version,
-        metavar="VER",
-        help="Output only if last version is newer than given version",
-    )
-    parser.add_argument(
-        "-b",
-        "--major",
-        "--branch",
-        metavar="MAJOR",
-        help="Only consider releases of a specific major version, e.g. 2.1.x",
-    )
-    parser.add_argument(
-        "--only",
-        metavar="REGEX",
-        help="Only consider releases containing this text. "
-        "Useful for repos with multiple projects inside",
-    )
-    parser.add_argument(
-        "--exclude",
-        metavar="REGEX",
-        help="Only consider releases NOT containing this text. "
-        "Useful for repos with multiple projects inside",
-    )
-    parser.add_argument(
-        "--filter",
-        metavar="REGEX",
-        help="Filters --assets result by a regular " "expression",
-    )
-    parser.add_argument(
-        "--having-asset",
-        metavar="ASSET",
-        help="Only consider releases with this asset",
-        nargs="?",
-        const=True,
-    )
-    parser.add_argument(
-        "-su",
-        "--shorter-urls",
-        dest="shorter_urls",
-        action="store_true",
-        help="A tiny bit shorter URLs produced",
-    )
-    parser.add_argument(
-        "--even",
-        dest="even",
-        action="store_true",
-        help="Only even versions like 1.[2].x, or 3.[6].x are considered as stable",
-    )
-    parser.add_argument(
-        "--at",
-        dest="at",
-        help="If the repo argument is one word, specifies where to look up the "
-        "project. The default is via internal lookup or GitHub Search",
-        choices=HolderFactory.HOLDERS.keys(),
-    )
-    parser.add_argument(
-        "-y",
-        "--assumeyes",
-        dest="assumeyes",
-        action="store_true",
-        help="Automatically answer yes for all questions",
-    )
-    parser.add_argument(
-        "--no-cache",
-        dest="no_cache",
-        action="store_true",
-        help="Do not use cache for HTTP requests",
-    )
-    parser.add_argument("--version", action=VersionAction)
-    parser.set_defaults(
-        validate=True,
-        verbose=False,
-        format="version",
-        pre=False,
-        formal=False,
-        assets=False,
-        newer_than=False,
-        filter=False,
-        shorter_urls=False,
-        major=None,
-        assumeyes=False,
-        at=None,
-        having_asset=None,
-        even=False,
-    )
-    args = parser.parse_args(argv)
-
-    BaseProjectHolder.CACHE_DISABLED = args.no_cache
-
-    if args.repo == "self":
-        args.repo = __self__
-
-    # "expand" repo:1.2 as repo --branch 1.2
-    # noinspection HttpUrlsUsage
-    if ":" in args.repo and not (
-        args.repo.startswith(("https://", "http://")) and args.repo.count(":") == 1
-    ):
-        # right split ':' once only to preserve it in protocol of URLs
-        # https://github.com/repo/owner:2.1
-        repo_args = args.repo.rsplit(":", 1)
-        args.repo = repo_args[0]
-        args.major = repo_args[1]
-
-    # instead of using root logger, we use
-    logger = logging.getLogger("lastversion")
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    # create formatter
-    fmt = (
-        "%(name)s - %(levelname)s - %(message)s"
-        if args.verbose
-        else "%(levelname)s: %(message)s"
-    )
-    formatter = logging.Formatter(fmt)
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    logger.addHandler(ch)
-
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-        log.info("Verbose %s level output.", args.verbose)
-        if args.verbose >= 2:
-            cachecontrol_logger = logging.getLogger("cachecontrol")
-            cachecontrol_logger.removeHandler(logging.NullHandler())
-            cachecontrol_logger.addHandler(ch)
-            cachecontrol_logger.setLevel(logging.DEBUG)
-
-    if args.assets:
-        args.format = "assets"
-
-    if args.source:
-        args.format = "source"
-
-    if args.filter:
-        args.filter = re.compile(args.filter)
-
-    if args.action in ["test", "format"]:
-        v = parse_version(args.repo)
-        if not v:
-            log.critical("Failed to parse as a valid version")
-            sys.exit(1)
-        else:
-            # extract the desired print base
-            v = v.sem_extract_base(args.sem)
-            if args.action == "test":
-                print(f"Parsed as: {v}")
-                print(f"Stable: {not v.is_prerelease}")
-            else:
-                print(v)
-            return sys.exit(0)
-
-    if args.action == "install":
-        # we can only install assets
-        args.format = "json"
-        if args.having_asset is None:
-            args.having_asset = r"~\.(AppImage|rpm)$"
-            try:
-                import apt
-
-                args.having_asset = r"~\.(AppImage|deb)$"
-            except ImportError:
-                pass
-
-    if args.repo.endswith(".spec"):
-        args.action = "update-spec"
-        args.format = "dict"
-
-    if not args.sem:
-        if args.action == "update-spec":
-            args.sem = "minor"
-        else:
-            args.sem = "any"
-    # imply source download, unless --assets specified
-    # --download is legacy flag to specify download action or name of desired download file
-    # --download == None indicates download intent where filename is based on upstream
-    if args.action == "download" and args.download is False:
-        args.download = None
-
-    if args.download is not False:
-        args.action = "download"
-        if args.format != "assets":
-            args.format = "source"
-
-    if args.action in ["extract", "unzip"] and args.format != "assets":
-        args.format = "source"
-
-    if args.newer_than:
-        base_compare = parse_version(args.repo)
-        if base_compare:
-            print(max([args.newer_than, base_compare]))
-            return sys.exit(2 if base_compare <= args.newer_than else 0)
-
-    # other action are either getting release or doing something with release (extend get action)
-    try:
-        res = latest(
-            args.repo,
-            args.format,
-            args.pre,
-            args.filter,
-            args.shorter_urls,
-            args.major,
-            args.only,
-            args.at,
-            having_asset=args.having_asset,
-            exclude=args.exclude,
-            even=args.even,
-            formal=args.formal,
-        )
-    except (ApiCredentialsError, BadProjectError) as error:
-        log.critical(str(error))
-        if (
-            isinstance(error, ApiCredentialsError)
-            and "GITHUB_API_TOKEN" not in os.environ
-            and "GITHUB_TOKEN" not in os.environ
-        ):
-            log.critical(TOKEN_PRO_TIP)
-        sys.exit(4)
-
-    if res:
-        if args.action == "update-spec":
-            return update_spec(args.repo, res, sem=args.sem)
-        if args.action == "download":
-            # download command
-            if args.format == "source":
-                # there is only one source, but we need an array
-                res = [res]
-            download_name = None
-            # save with custom filename if there's one file to download
-            if len(res) == 1:
-                download_name = args.download
-            for url in res:
-                log.info("Downloading %s ...", url)
-                download_file(url, download_name)
-            sys.exit(0)
-
-        if args.action in ["unzip", "extract"]:
-            # download command
-            if args.format == "source":
-                # there is only one source, but we need an array
-                res = [res]
-            for url in res:
-                log.info("Extracting %s ...", url)
-                extract_file(url)
-            sys.exit(0)
-
-        if args.action == "install":
-            return install_release(res, args)
-
-        # display version in various formats:
-        if args.format == "assets":
-            print("\n".join(res))
-        elif args.format == "json":
-            json.dump(res, sys.stdout)
-        else:
-            # result may be a tag str, not just Version
-            if isinstance(res, Version):
-                res = res.sem_extract_base(args.sem)
-            print(res)
-            # special exit code "2" is useful for scripting to detect if no newer release exists
-            if args.newer_than:
-                # set up same SEM base
-                args.newer_than = args.newer_than.sem_extract_base(args.sem)
-                if res <= args.newer_than:
-                    sys.exit(2)
-    else:
-        # empty list returned to --assets, emit 3
-        if args.format == "assets" and res is not False:
-            sys.exit(3)
-        log.critical("No release was found")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

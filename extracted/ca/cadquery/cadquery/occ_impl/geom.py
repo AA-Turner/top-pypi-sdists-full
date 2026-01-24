@@ -2,6 +2,8 @@ from math import pi, radians, degrees
 
 from typing import overload, Sequence, Union, Tuple, Type, Optional, Iterator
 
+from io import BytesIO
+
 from OCP.gp import (
     gp_Vec,
     gp_Ax1,
@@ -22,6 +24,7 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.TopoDS import TopoDS_Shape
 from OCP.TopLoc import TopLoc_Location
+from OCP.BinTools import BinTools_LocationSet
 
 from ..types import Real
 from ..utils import multimethod
@@ -256,6 +259,16 @@ class Vector(object):
 
         return Vector(gp_Vec(pnt_t.XYZ()))
 
+    def __getstate__(self) -> tuple[float, float, float]:
+
+        return (self.x, self.y, self.z)
+
+    def __setstate__(self, state: tuple[float, float, float]):
+
+        self._wrapped = gp_Vec()
+
+        self.x, self.y, self.z = state
+
 
 class Matrix:
     """A 3d , 4x4 transformation matrix.
@@ -399,6 +412,19 @@ class Matrix:
         matrix_transposed = self.transposed_list()
         matrix_str = ",\n        ".join(str(matrix_transposed[i::4]) for i in range(4))
         return f"Matrix([{matrix_str}])"
+
+    def __getstate__(self) -> list[list[float]]:
+
+        trsf = self.wrapped
+        return [[trsf.Value(i, j) for j in range(1, 5)] for i in range(1, 4)]
+
+    def __setstate__(self, state: list[list[float]]):
+
+        trsf = self.wrapped = gp_GTrsf()
+
+        for i in range(3):
+            for j in range(4):
+                trsf.SetValue(i + 1, j + 1, state[i][j])
 
 
 class Plane(object):
@@ -577,6 +603,7 @@ class Plane(object):
             xDir = Vector(xDir)
             if xDir.Length == 0.0:
                 raise ValueError("xDir should be non null")
+
         self._setPlaneDir(xDir)
         self.origin = Vector(origin)
 
@@ -787,6 +814,14 @@ class Plane(object):
 
         return gp_Pln(gp_Ax3(self.origin.toPnt(), self.zDir.toDir(), self.xDir.toDir()))
 
+    def __getstate__(self) -> Tuple[Vector, Vector, Vector, Vector]:
+
+        return (self.xDir, self.yDir, self.zDir, self._origin)
+
+    def __setstate__(self, data: Tuple[Vector, Vector, Vector, Vector]):
+
+        self.xDir, self.yDir, self.zDir, self.origin = data
+
 
 class BoundBox(object):
     """A BoundingBox for an object or set of objects. Wraps the OCP one"""
@@ -974,15 +1009,22 @@ class Location(object):
     ) -> None:
         """Location with translation (x,y,z) and 3 rotation angles."""
 
-        T = gp_Trsf()
+        if any((x, y, z, rx, ry, rz)):
 
-        q = gp_Quaternion()
-        q.SetEulerAngles(gp_Extrinsic_XYZ, radians(rx), radians(ry), radians(rz))
+            T = gp_Trsf()
 
-        T.SetRotation(q)
-        T.SetTranslationPart(Vector(x, y, z).wrapped)
+            q = gp_Quaternion()
+            q.SetEulerAngles(gp_Extrinsic_XYZ, radians(rx), radians(ry), radians(rz))
 
-        self.wrapped = TopLoc_Location(T)
+            T.SetRotation(q)
+            T.SetTranslationPart(Vector(x, y, z).wrapped)
+
+            loc = TopLoc_Location(T)
+        else:
+            # in this case location is flagged as identity
+            loc = TopLoc_Location()
+
+        self.wrapped = loc
 
     @__init__.register
     def __init__(self, t: Plane) -> None:
@@ -1065,3 +1107,25 @@ class Location(object):
         rx, ry, rz = rot.GetEulerAngles(gp_EulerSequence.gp_Extrinsic_XYZ)
 
         return rv_trans, (degrees(rx), degrees(ry), degrees(rz))
+
+    def __getstate__(self) -> BytesIO:
+
+        rv = BytesIO()
+
+        ls = BinTools_LocationSet()
+        ls.Add(self.wrapped)
+        ls.Write(rv)
+
+        rv.seek(0)
+
+        return rv
+
+    def __setstate__(self, data: BytesIO):
+
+        ls = BinTools_LocationSet()
+        ls.Read(data)
+
+        if ls.NbLocations() > 0:
+            self.wrapped = ls.Location(1)
+        else:
+            self.wrapped = TopLoc_Location()  # identity location

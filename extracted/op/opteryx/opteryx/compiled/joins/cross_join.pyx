@@ -22,7 +22,11 @@ cpdef tuple build_rows_indices_and_column(object column):
     cdef:
         object child_elements = column.values
         list buffers = column.buffers()
-        Py_ssize_t row_count = len(column), total_size, i, j, index_pos
+        Py_ssize_t row_count = len(column)
+        Py_ssize_t total_size
+        Py_ssize_t i
+        Py_ssize_t j
+        Py_ssize_t index_pos
         numpy.ndarray indices_np, flat_data_np
         int64_t[::1] indices
         object[:] flat_data
@@ -38,7 +42,10 @@ cpdef tuple build_rows_indices_and_column(object column):
         const uint8_t* parent_valid = <const uint8_t*><uintptr_t>(buffers[0].address) if buffers[0] else NULL
         const uint8_t* child_valid = <const uint8_t*><uintptr_t>(child_buffers[0].address) if child_buffers[0] else NULL
 
-        Py_ssize_t start, end, str_start, str_end
+        Py_ssize_t start
+        Py_ssize_t end
+        Py_ssize_t str_start
+        Py_ssize_t str_end
 
     if row_count == 0:
         return numpy.empty(0, dtype=numpy.int64), numpy.empty(0, dtype=object)
@@ -161,11 +168,11 @@ cpdef tuple numpy_build_filtered_rows_indices_and_column(numpy.ndarray column_da
 
     # Handle set initialization based on element dtype
     if numpy.issubdtype(element_dtype, numpy.integer):
-        valid_values_typed = set([int(v) for v in valid_values])
+        valid_values_typed = {int(v) for v in valid_values}
     elif numpy.issubdtype(element_dtype, numpy.floating):
-        valid_values_typed = set([parse_fast_float(v) for v in valid_values])
+        valid_values_typed = {parse_fast_float(v) for v in valid_values}
     elif numpy.issubdtype(element_dtype, numpy.str_):
-        valid_values_typed = set([unicode(v) for v in valid_values])
+        valid_values_typed = {unicode(v) for v in valid_values}
     else:
         valid_values_typed = valid_values  # Fallback to generic Python set
 
@@ -212,8 +219,14 @@ cpdef tuple build_filtered_rows_indices_and_column(object column, set valid_valu
         Py_ssize_t row_count = len(column)
         Py_ssize_t arr_offset = column.offset
         const int32_t* offsets32 = <const int32_t*><uintptr_t>(buffers[1].address)
-        Py_ssize_t i, j, k = 0, start, end, str_len
-        Py_ssize_t allocated_size = row_count * 4
+        Py_ssize_t i = 0
+        Py_ssize_t j = 0
+        Py_ssize_t k = 0
+        Py_ssize_t start
+        Py_ssize_t end
+        Py_ssize_t str_len
+        Py_ssize_t str_end
+        Py_ssize_t allocated_size = row_count * 4 if row_count > 0 else 4
 
         numpy.ndarray indices = numpy.empty(allocated_size, dtype=numpy.int64)
         int64_t[::1] indices_mv = indices
@@ -226,6 +239,8 @@ cpdef tuple build_filtered_rows_indices_and_column(object column, set valid_valu
         Py_ssize_t child_offset = child_elements.offset
         const uint8_t* parent_bitmap = NULL
         const uint8_t* child_bitmap = NULL
+
+        Py_ssize_t str_start
 
     if buffers[0]:
         parent_bitmap = <const uint8_t*><uintptr_t>(buffers[0].address)
@@ -258,9 +273,15 @@ cpdef tuple build_filtered_rows_indices_and_column(object column, set valid_valu
             if value_bytes in valid_bytes:
                 if k >= allocated_size:
                     allocated_size *= 2
-                    indices = numpy.resize(indices, allocated_size)
+                    new_indices = numpy.empty(allocated_size, dtype=numpy.int64)
+                    new_indices[:k] = indices_mv[:k]
+                    indices = new_indices
                     indices_mv = indices
-                    flat_data = numpy.resize(flat_mv.base, allocated_size)
+
+                    new_flat = numpy.empty(allocated_size, dtype=object)
+                    new_flat[:k] = flat_data[:k]
+                    flat_data = new_flat
+                    flat_mv = flat_data
 
                 flat_mv[k] = value_bytes
                 indices_mv[k] = i
@@ -271,7 +292,8 @@ cpdef tuple build_filtered_rows_indices_and_column(object column, set valid_valu
 
 cpdef tuple list_distinct(numpy.ndarray values, int64_t[::1] indices, FlatHashSet seen_hashes=None):
     cdef:
-        Py_ssize_t i, j = 0
+        Py_ssize_t i = 0
+        Py_ssize_t j = 0
         Py_ssize_t n = values.shape[0]
         uint64_t hash_value
         object v

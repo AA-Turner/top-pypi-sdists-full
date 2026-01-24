@@ -1,4 +1,7 @@
+import pickle
+import sys
 from collections import namedtuple
+from copy import deepcopy
 from typing import Union
 
 from pytest import mark, raises
@@ -21,6 +24,7 @@ from graphql.type import (
     GraphQLSchema,
     GraphQLSkipDirective,
     GraphQLSpecifiedByDirective,
+    GraphQLOneOfDirective,
     GraphQLString,
     assert_directive,
     assert_enum_type,
@@ -35,7 +39,8 @@ from graphql.type import (
 from graphql.utilities import build_ast_schema, build_schema, print_schema, print_type
 
 from ..fixtures import big_schema_sdl  # noqa: F401
-from ..utils import dedent
+from ..star_wars_schema import star_wars_schema
+from ..utils import dedent, timeout_factor
 
 
 def cycle_sdl(sdl: str) -> str:
@@ -226,11 +231,12 @@ def describe_schema_builder():
     def maintains_include_skip_and_specified_by_url_directives():
         schema = build_schema("type Query")
 
-        assert len(schema.directives) == 4
+        assert len(schema.directives) == 5
         assert schema.get_directive("skip") is GraphQLSkipDirective
         assert schema.get_directive("include") is GraphQLIncludeDirective
         assert schema.get_directive("deprecated") is GraphQLDeprecatedDirective
         assert schema.get_directive("specifiedBy") is GraphQLSpecifiedByDirective
+        assert schema.get_directive("oneOf") is GraphQLOneOfDirective
 
     def overriding_directives_excludes_specified():
         schema = build_schema(
@@ -239,10 +245,11 @@ def describe_schema_builder():
             directive @include on FIELD
             directive @deprecated on FIELD_DEFINITION
             directive @specifiedBy on FIELD_DEFINITION
+            directive @oneOf on OBJECT
             """
         )
 
-        assert len(schema.directives) == 4
+        assert len(schema.directives) == 5
         get_directive = schema.get_directive
         assert get_directive("skip") is not GraphQLSkipDirective
         assert get_directive("skip") is not None
@@ -252,19 +259,22 @@ def describe_schema_builder():
         assert get_directive("deprecated") is not None
         assert get_directive("specifiedBy") is not GraphQLSpecifiedByDirective
         assert get_directive("specifiedBy") is not None
+        assert get_directive("oneOf") is not GraphQLOneOfDirective
+        assert get_directive("oneOf") is not None
 
-    def adding_directives_maintains_include_skip_and_specified_by_directives():
+    def adding_directives_maintains_include_skip_and_three_other_directives():
         schema = build_schema(
             """
             directive @foo(arg: Int) on FIELD
             """
         )
 
-        assert len(schema.directives) == 5
+        assert len(schema.directives) == 6
         assert schema.get_directive("skip") is GraphQLSkipDirective
         assert schema.get_directive("include") is GraphQLIncludeDirective
         assert schema.get_directive("deprecated") is GraphQLDeprecatedDirective
         assert schema.get_directive("specifiedBy") is GraphQLSpecifiedByDirective
+        assert schema.get_directive("oneOf") is GraphQLOneOfDirective
         assert schema.get_directive("foo") is not None
 
     def type_modifiers():
@@ -1186,28 +1196,110 @@ def describe_schema_builder():
             build_ast_schema({})  # type: ignore
         assert str(exc_info.value) == "Must provide valid Document AST."
 
-    # This currently does not work because of how extend_schema is implemented
-    @mark.skip(reason="pickling of schemas is not yet supported")
-    def can_pickle_and_unpickle_big_schema(
-        big_schema_sdl,  # noqa: F811
-    ):  # pragma: no cover
-        import pickle
+    def describe_deepcopy_and_pickle():  # pragma: no cover
+        sdl = print_schema(star_wars_schema)
 
-        # create a schema from the kitchen sink SDL
-        schema = build_schema(big_schema_sdl, assume_valid_sdl=True)
-        # check that the schema can be pickled
-        # (particularly, there should be no recursion error,
-        # or errors because of trying to pickle lambdas or local functions)
-        dumped = pickle.dumps(schema)
-        # check that the pickle size is reasonable
-        assert len(dumped) < 50 * len(big_schema_sdl)
-        loaded = pickle.loads(dumped)
+        def can_deep_copy_schema():
+            schema = build_schema(sdl, assume_valid_sdl=True)
+            # create a deepcopy of the schema
+            copied = deepcopy(schema)
+            # check that printing the copied schema gives the same SDL
+            assert print_schema(copied) == sdl
 
-        # check that the un-pickled schema is still the same
-        assert loaded == schema
-        # check that pickling again creates the same result
-        dumped_again = pickle.dumps(schema)
-        assert dumped_again == dumped
+        def can_pickle_and_unpickle_star_wars_schema():
+            # create a schema from the star wars SDL
+            schema = build_schema(sdl, assume_valid_sdl=True)
+            # check that the schema can be pickled
+            # (particularly, there should be no recursion error,
+            # or errors because of trying to pickle lambdas or local functions)
+            dumped = pickle.dumps(schema)
 
-        # check that printing the unpickled schema gives the same SDL
-        assert cycle_sdl(print_schema(schema)) == cycle_sdl(big_schema_sdl)
+            # check that the pickle size is reasonable
+            assert len(dumped) < 25 * len(sdl)
+            loaded = pickle.loads(dumped)
+
+            # check that printing the unpickled schema gives the same SDL
+            assert print_schema(loaded) == sdl
+
+            # check that pickling again creates the same result
+            dumped = pickle.dumps(schema)
+            assert len(dumped) < 25 * len(sdl)
+            loaded = pickle.loads(dumped)
+            assert print_schema(loaded) == sdl
+
+        def can_deep_copy_pickled_schema():
+            # create a schema from the star wars SDL
+            schema = build_schema(sdl, assume_valid_sdl=True)
+            # pickle and unpickle the schema
+            loaded = pickle.loads(pickle.dumps(schema))
+            # create a deepcopy of the unpickled schema
+            copied = deepcopy(loaded)
+            # check that printing the copied schema gives the same SDL
+            assert print_schema(copied) == sdl
+
+    @mark.slow
+    def describe_deepcopy_and_pickle_big():  # pragma: no cover
+        @mark.timeout(20 * timeout_factor)
+        def can_deep_copy_big_schema(big_schema_sdl):  # noqa: F811
+            # use our printing conventions
+            big_schema_sdl = cycle_sdl(big_schema_sdl)
+
+            # create a schema from the big SDL
+            schema = build_schema(big_schema_sdl, assume_valid_sdl=True)
+            # create a deepcopy of the schema
+            copied = deepcopy(schema)
+            # check that printing the copied schema gives the same SDL
+            assert print_schema(copied) == big_schema_sdl
+
+        @mark.timeout(60 * timeout_factor)
+        def can_pickle_and_unpickle_big_schema(big_schema_sdl):  # noqa: F811
+            # use our printing conventions
+            big_schema_sdl = cycle_sdl(big_schema_sdl)
+
+            limit = sys.getrecursionlimit()
+            sys.setrecursionlimit(max(limit, 4000))  # needed for pickle
+
+            try:
+                # create a schema from the big SDL
+                schema = build_schema(big_schema_sdl, assume_valid_sdl=True)
+                # check that the schema can be pickled
+                # (particularly, there should be no recursion error,
+                # or errors because of trying to pickle lambdas or local functions)
+                dumped = pickle.dumps(schema)
+
+                # check that the pickle size is reasonable
+                assert len(dumped) < 25 * len(big_schema_sdl)
+                loaded = pickle.loads(dumped)
+
+                # check that printing the unpickled schema gives the same SDL
+                assert print_schema(loaded) == big_schema_sdl
+
+                # check that pickling again creates the same result
+                dumped = pickle.dumps(schema)
+                assert len(dumped) < 25 * len(big_schema_sdl)
+                loaded = pickle.loads(dumped)
+                assert print_schema(loaded) == big_schema_sdl
+
+            finally:
+                sys.setrecursionlimit(limit)
+
+        @mark.timeout(60 * timeout_factor)
+        def can_deep_copy_pickled_big_schema(big_schema_sdl):  # noqa: F811
+            # use our printing conventions
+            big_schema_sdl = cycle_sdl(big_schema_sdl)
+
+            limit = sys.getrecursionlimit()
+            sys.setrecursionlimit(max(limit, 4000))  # needed for pickle
+
+            try:
+                # create a schema from the big SDL
+                schema = build_schema(big_schema_sdl, assume_valid_sdl=True)
+                # pickle and unpickle the schema
+                loaded = pickle.loads(pickle.dumps(schema))
+                # create a deepcopy of the unpickled schema
+                copied = deepcopy(loaded)
+                # check that printing the copied schema gives the same SDL
+                assert print_schema(copied) == big_schema_sdl
+
+            finally:
+                sys.setrecursionlimit(limit)

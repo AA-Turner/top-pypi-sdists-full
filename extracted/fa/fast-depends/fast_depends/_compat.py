@@ -1,73 +1,84 @@
 import sys
-from importlib.metadata import version as get_version
-from typing import Any, Dict, Optional, Tuple, Type
-
-from pydantic import BaseModel, create_model
-from pydantic.version import VERSION as PYDANTIC_VERSION
+import typing
+from types import NoneType
 
 __all__ = (
-    "BaseModel",
-    "create_model",
-    "evaluate_forwardref",
-    "PYDANTIC_V2",
-    "get_config_base",
-    "ConfigDict",
     "ExceptionGroup",
+    "evaluate_forwardref",
 )
 
 
-PYDANTIC_V2 = PYDANTIC_VERSION.startswith("2.")
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup as ExceptionGroup
+else:
+    ExceptionGroup = ExceptionGroup
 
-default_pydantic_config = {"arbitrary_types_allowed": True}
 
-evaluate_forwardref: Any
-# isort: off
-if PYDANTIC_V2:
-    from pydantic import ConfigDict
-    from pydantic._internal._typing_extra import (  # type: ignore[no-redef]
-        eval_type_lenient as evaluate_forwardref,
+def evaluate_forwardref(
+    value: typing.Any,
+    globalns: dict[str, typing.Any] | None = None,
+    localns: dict[str, typing.Any] | None = None,
+    type_params: tuple[typing.Any, ...] | None = None,
+) -> typing.Any:
+    """Behaves like typing._eval_type, except it won't raise an error if a forward reference can't be resolved."""
+    if value is None:
+        value = NoneType
+
+    elif isinstance(value, str):
+        value = typing.ForwardRef(value, is_argument=False, is_class=True)
+
+    try:
+        return eval_type_backport(value, globalns, localns, type_params=type_params)
+    except NameError:
+        # the point of this function is to be tolerant to this case
+        return value
+
+
+def eval_type_backport(
+    value: typing.Any,
+    globalns: dict[str, typing.Any] | None = None,
+    localns: dict[str, typing.Any] | None = None,
+    type_params: tuple[typing.Any, ...] | None = None,
+) -> typing.Any:
+    """Like `typing._eval_type`, but falls back to the `eval_type_backport` package if it's
+    installed to let older Python versions use newer typing features.
+    Specifically, this transforms `X | Y` into `typing.Union[X, Y]`
+    and `list[X]` into `typing.List[X]` etc. (for all the types made generic in PEP 585)
+    if the original syntax is not supported in the current Python version.
+    """
+    try:
+        if sys.version_info >= (3, 13):
+            return typing._eval_type(  # type: ignore
+                value, globalns, localns, type_params=type_params
+            )
+
+        else:
+            return typing._eval_type(  # type: ignore
+                value, globalns, localns
+            )
+
+    except TypeError as e:
+        if not (isinstance(value, typing.ForwardRef) and is_backport_fixable_error(e)):
+            raise
+
+        try:
+            from eval_type_backport import eval_type_backport as _eval_type_backport
+
+        except ImportError:
+            raise TypeError(
+                f"You have a type annotation {value.__forward_arg__!r} "
+                f"which makes use of newer typing features than are supported in your version of Python. "
+                f"To handle this error, you should either remove the use of new syntax "
+                f"or install the `eval_type_backport` package."
+            ) from e
+
+        else:
+            return _eval_type_backport(value, globalns, localns, try_default=False)
+
+
+def is_backport_fixable_error(e: TypeError) -> bool:
+    msg = str(e)
+    return (
+        msg.startswith("unsupported operand type(s) for |: ")
+        or "' object is not subscriptable" in msg
     )
-
-    def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
-        return model.model_json_schema()
-
-    def get_config_base(config_data: Optional[ConfigDict] = None) -> ConfigDict:
-        return config_data or ConfigDict(**default_pydantic_config)  # type: ignore[typeddict-item]
-
-    def get_aliases(model: Type[BaseModel]) -> Tuple[str, ...]:
-        return tuple(f.alias or name for name, f in model.model_fields.items())
-
-    class CreateBaseModel(BaseModel):
-        """Just to support FastStream < 0.3.7."""
-
-        model_config = ConfigDict(arbitrary_types_allowed=True)
-
-else:
-    from pydantic.typing import evaluate_forwardref as evaluate_forwardref  # type: ignore[no-redef]
-    from pydantic.config import get_config, ConfigDict, BaseConfig
-
-    def get_config_base(config_data: Optional[ConfigDict] = None) -> Type[BaseConfig]:  # type: ignore[misc]
-        return get_config(config_data or ConfigDict(**default_pydantic_config))  # type: ignore[typeddict-item]
-
-    def model_schema(model: Type[BaseModel]) -> Dict[str, Any]:
-        return model.schema()
-
-    def get_aliases(model: Type[BaseModel]) -> Tuple[str, ...]:
-        return tuple(f.alias or name for name, f in model.__fields__.items())
-
-    class CreateBaseModel(BaseModel):  # type: ignore[no-redef]
-        """Just to support FastStream < 0.3.7."""
-
-        class Config:
-            arbitrary_types_allowed = True
-
-
-ANYIO_V3 = get_version("anyio").startswith("3.")
-
-if ANYIO_V3:
-    from anyio import ExceptionGroup as ExceptionGroup
-else:
-    if sys.version_info < (3, 11):
-        from exceptiongroup import ExceptionGroup as ExceptionGroup
-    else:
-        ExceptionGroup = ExceptionGroup

@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,15 +17,16 @@
 #
 # ****************************************************************************
 
-import logging
+from multiprocessing import cpu_count
 from sys import exc_info
 from threading import Thread, Condition, RLock
 from traceback import format_exception
 from contextlib import contextmanager
 from queue import Queue, Empty
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator
 
-LOGGER = logging.getLogger("gcovr")
+from ...exceptions import SanityCheckError
+from ...logging import LOGGER
 
 
 class LockedDirectories:
@@ -72,7 +73,7 @@ def locked_directory(directory: str) -> Iterator[None]:
         locked_directory_global_object.done(directory)
 
 
-QueueContent = Optional[tuple[Callable[[str], None], tuple[Any], dict[str, Any]]]
+QueueContent = tuple[Callable[[str], None], tuple[Any], dict[str, Any]] | None
 
 
 def worker(
@@ -102,11 +103,40 @@ class Workers:
     """
     Create a thread-pool which can be given work via an
     add method and will run until work is complete
+
+    >>> monkeypatch = getfixture("monkeypatch")
+    >>> monkeypatch.setattr("gcovr.formats.gcov.workers.cpu_count", lambda: 4)
+
+    >>> with Workers(3, lambda: {}) as pool:
+    ...   print(len(pool.workers))
+    ...   print(len(pool.wait()))
+    3
+    3
+    >>> with Workers(0, lambda: {}) as pool:
+    ...   print(len(pool.workers))
+    ...   print(len(pool.wait()))
+    4
+    4
+    >>> with Workers(-1, lambda: {}) as pool:
+    ...   print(len(pool.workers))
+    ...   print(len(pool.wait()))
+    3
+    3
+    >>> with Workers(-10, lambda: {}) as pool:
+    ...   print(len(pool.workers))
+    ...   print(len(pool.wait()))
+    1
+    1
     """
 
+    class WorkerThreadException(RuntimeError):
+        """Exception raised when a worker thread fails."""
+
     def __init__(self, number: int, context: Callable[[], dict[str, Any]]) -> None:
-        if number < 1:
-            raise AssertionError("At least one executer is needed.")
+        if number <= 0:
+            number = max(1, cpu_count() + number)
+        LOGGER.debug("Using %d workers.", number)
+
         self.q: "Queue[QueueContent]" = Queue()
         self.lock = RLock()
         self.exceptions = list[str]()
@@ -174,11 +204,10 @@ class Workers:
                 w.join(timeout=1)
         self.workers = []
 
-        for traceback in self.exceptions:
-            LOGGER.error(traceback)
-
         if self.exceptions:
-            raise RuntimeError(
+            for traceback in self.exceptions:
+                LOGGER.error(traceback)
+            raise self.WorkerThreadException(
                 "Worker thread raised exception, workers canceled."
             ) from None
         return self.contexts
@@ -188,6 +217,6 @@ class Workers:
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.size() != 0:
-            raise AssertionError(
-                "Sanity check, you must call wait on the contextmanager to get the context of the workers."
+            raise SanityCheckError(
+                "You must call wait on the contextmanager to get the context of the workers."
             )

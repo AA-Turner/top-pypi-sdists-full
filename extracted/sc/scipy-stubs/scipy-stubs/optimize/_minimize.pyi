@@ -7,8 +7,8 @@ import optype.numpy.compat as npc
 from numpy_typing_compat import ABCPolyBase
 
 from ._hessian_update_strategy import HessianUpdateStrategy
+from ._optimize import OptimizeResult as _OptimizeResult
 from ._typing import Bound, Bounds, Constraint, Constraints, MethodMimimize, MethodMinimizeScalar
-from .optimize import OptimizeResult as _OptimizeResult
 from scipy.sparse.linalg import LinearOperator
 
 __all__ = ["minimize", "minimize_scalar"]
@@ -134,6 +134,8 @@ class _MinimizeOptions(TypedDict, total=False):
     inexact: onp.ToBool
     # TNC (list of floats), COBYQA (bool)
     scale: Sequence[_Floating] | onp.ToBool
+    # trust-exact
+    subproblem_maxiter: float
 
 @type_check_only
 class _MinimizeScalarOptionsCommon(TypedDict, total=False):
@@ -260,7 +262,7 @@ def minimize_scalar(
     fun: _Fun0D[onp.ToFloat],
     bracket: _Ignored | None,
     bounds: _ToBound,
-    args: _Args,
+    args: _Args = (),
     method: Literal["bounded"] | None = None,
     tol: onp.ToFloat | None = None,
     options: _MinimizeScalarOptionsBounded | None = None,
@@ -271,7 +273,7 @@ def minimize_scalar(
     bracket: _Ignored | None = None,
     *,
     bounds: _ToBound,
-    args: _Args,
+    args: _Args = (),
     method: Literal["bounded"] | None = None,
     tol: onp.ToFloat | None = None,
     options: _MinimizeScalarOptionsBounded | None = None,

@@ -1,3 +1,5 @@
+"""COB Details model."""
+
 from decimal import Decimal
 from t_object import ThoughtfulObject
 from t_desktop.config import IS_WINDOWS_OS

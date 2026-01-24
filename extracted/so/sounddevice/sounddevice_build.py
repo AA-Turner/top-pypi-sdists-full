@@ -255,6 +255,7 @@ typedef enum PaWasapiFlags
     paWinWasapiUseChannelMask           = 4,
     paWinWasapiPolling                  = 8,
     paWinWasapiThreadPriority           = 16,
+    paWinWasapiExplicitSampleFormat     = 32,
     paWinWasapiAutoConvert              = 64
 } PaWasapiFlags;
 
@@ -315,4 +316,4 @@ int PaWasapi_IsLoopback( PaDeviceIndex device );
 """)
 
 if __name__ == '__main__':
-    ffibuilder.compile(verbose=True)
+    ffibuilder.compile(tmpdir='src', verbose=True)

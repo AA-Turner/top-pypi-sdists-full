@@ -113,7 +113,8 @@ _workflows_endpoints = [
     "WorkflowDefinitionsCombined",
     "GET",
     "/workflows/combined/definitions/v1",
-    "Search workflow definitions based on the provided filter",
+    "Search workflow definitions based on the provided filter. NOTE: this API has a large response payload. "
+    "Click on `Wait` if the page is unresponsive during loading",
     "workflows",
     [
       {
@@ -195,6 +196,30 @@ _workflows_endpoints = [
         "name": "filter",
         "in": "query",
         "allowEmptyValue": True
+      }
+    ]
+  ],
+  [
+    "WorkflowDefinitionsAction",
+    "POST",
+    "/workflows/entities/definition-actions/v1",
+    "Enable or disable a workflow definition, or stop all executions for a definition. When a definition is "
+    "disabled it will not execute against any new trigger events.",
+    "workflows",
+    [
+      {
+        "type": "string",
+        "description": "Specify one of these actions:\n  enable: enable the workflow(s) specified in ids.  "
+        "disable: disable the workflow(s) specified in ids.  cancel: cancel all in-flight executions for the workflow "
+        "specified in ids",
+        "name": "action_name",
+        "in": "query",
+        "required": True
+      },
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
       }
     ]
   ],
@@ -405,15 +430,17 @@ _workflows_endpoints = [
     "WorkflowExecutionsAction",
     "POST",
     "/workflows/entities/execution-actions/v1",
-    "Allows a user to resume/retry a failed workflow execution.",
+    "Allows a user to resume/retry a failed workflow execution, or cancel/stop a currently running workflow execution",
     "workflows",
     [
       {
         "enum": [
-          "resume"
+          "resume",
+          "cancel"
         ],
         "type": "string",
-        "description": "Specify one of these actions:\n  resume: resume/retry the workflow execution(s) specified in ids",
+        "description": "Specify one of these actions:\n  resume: resume/retry the workflow execution(s) "
+        "specified in ids\n  cancel: cancel/stop the workflow execution specified in ids",
         "name": "action_name",
         "in": "query",
         "required": True
@@ -545,8 +572,26 @@ _workflows_endpoints = [
       {
         "type": "boolean",
         "default": False,
-        "description": "When enabled, prevents execution after validating mocks against definition",
+        "description": "When enabled, prevents execution after validating mocks from the request body against "
+        "the mocked entity's output schema. Mocks provided in the definition by reference are not validated in any "
+        "case.",
         "name": "validate_only",
+        "in": "query"
+      },
+      {
+        "type": "boolean",
+        "default": False,
+        "description": "When enabled, skips validating mocks from the request body against the mocked entity's "
+        "output schema. Mocks provided in the definition by reference are not validated in any case.",
+        "name": "skip_validation",
+        "in": "query"
+      },
+      {
+        "type": "boolean",
+        "default": False,
+        "description": "When enabled, treats all activity mocks in the definition as disabled for this mock "
+        "execution. Mocks provided in the request body are treated normally.",
+        "name": "ignore_activity_mock_references",
         "in": "query"
       },
       {

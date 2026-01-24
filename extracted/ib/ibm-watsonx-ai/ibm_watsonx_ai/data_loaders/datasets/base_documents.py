@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -8,6 +8,7 @@ import logging
 import os
 from copy import copy
 from typing import TYPE_CHECKING, Any, Callable, Iterator
+from warnings import warn
 
 import pandas as pd
 from langchain_core.documents import Document
@@ -66,7 +67,12 @@ class BaseDocumentsIterableDataset(IterableDataset):
         error_callback: Callable[[str, Exception], None] | None = None,
         **kwargs: Any,
     ) -> None:
-        from ibm_watsonx_ai.helpers import AssetLocation, NFSLocation, S3Location
+        from ibm_watsonx_ai.helpers import (
+            AssetLocation,
+            NFSLocation,
+            RemoteFileStorageLocation,
+            S3Location,
+        )
 
         IterableDataset.__init__(self)
         self.enable_sampling = enable_sampling
@@ -98,13 +104,13 @@ class BaseDocumentsIterableDataset(IterableDataset):
                         raise CannotGetFilename()
                     data_asset_id_name_mapping[res["metadata"]["asset_id"]] = filename
 
-        def get_document_id(conn):
+        def get_document_id(conn: DataConnection) -> str | None:
             if isinstance(conn.location, AssetLocation):
                 if conn.location.id in data_asset_id_name_mapping:
                     return data_asset_id_name_mapping.get(conn.location.id)
                 else:
                     raise WMLClientError(
-                        f"The asset with id {conn.location.id} could not be found."
+                        f"The asset{f' {conn.id}' if hasattr(conn, 'id') and conn.id else ''} with id {conn.location.id} could not be found."
                     )
             else:
                 try:
@@ -116,7 +122,8 @@ class BaseDocumentsIterableDataset(IterableDataset):
 
         for connection in connections:
             if isinstance(
-                connection.location, (S3Location, ContainerLocation, NFSLocation)
+                connection.location,
+                (S3Location, ContainerLocation, NFSLocation, RemoteFileStorageLocation),
             ):
                 document_connections = connection._get_connections_from_folder(
                     recursive=include_subfolders
@@ -141,7 +148,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
                 "Not unique document file names passed in connections."
             )
 
-        self.last_exception = None
+        self.last_exception: Exception | None = None
 
     def _set_size_limit(self, size_limit: int) -> None:
         """If non-default value of total_size_limit was not passed,
@@ -228,7 +235,9 @@ class BaseDocumentsIterableDataset(IterableDataset):
     def _load_doc(self, doc: RemoteDocument) -> Document | Iterator["DataFrame"]:
         raise NotImplementedError()
 
-    def _sequential_gen(self, sampled_docs) -> Iterator[Document | "DataFrame"]:
+    def _sequential_gen(
+        self, sampled_docs: list[RemoteDocument]
+    ) -> Iterator[Document | "DataFrame"]:
         for doc in sampled_docs:
             try:
                 loaded_doc = self._load_doc(doc)
@@ -240,13 +249,15 @@ class BaseDocumentsIterableDataset(IterableDataset):
                 else:
                     raise e
 
-    def _parallel_gen(self, sampled_docs) -> Iterator[Document | "DataFrame"]:
+    def _parallel_gen(
+        self, sampled_docs: list[RemoteDocument]
+    ) -> Iterator[Document | "DataFrame"]:
         import multiprocessing.dummy as mp
 
         thread_no = min(5, len(sampled_docs))
 
-        q_input = mp.Queue()
-        qs_output = [mp.Queue() for _ in range(len(sampled_docs))]
+        q_input: mp.Queue = mp.Queue()
+        qs_output: list[mp.Queue] = [mp.Queue() for _ in range(len(sampled_docs))]
         args = [(q_input, qs_output)] * thread_no
 
         for i, doc in enumerate(sampled_docs):
@@ -267,14 +278,14 @@ class BaseDocumentsIterableDataset(IterableDataset):
                         result = e
 
                     if isinstance(result, Exception):
-                        e = result
-                        self.last_exception = e
+                        exc = result
+                        self.last_exception = exc
                         doc_id = sampled_docs[i].document_id
                         logger.warning(f"Failed to download the file: `{doc_id}`")
-                        if not isinstance(e, Empty):
-                            logger.warning(e)
+                        if not isinstance(exc, Empty):
+                            logger.warning(exc)
                         if self.error_callback:
-                            self.error_callback(doc_id, e)
+                            self.error_callback(doc_id, exc)
                         break
                     else:
                         yield result
@@ -282,7 +293,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
     def _get_element_size(self, el: Any) -> int:
         raise NotImplementedError()
 
-    def _prepare_sampled_docs(self):
+    def _prepare_sampled_docs(self) -> list[RemoteDocument]:
         if self.enable_sampling:
             if self.sampling_type == DocumentsSamplingTypes.RANDOM:
                 sampled_docs = self._docs_random_sampling(self.remote_documents)
@@ -360,4 +371,9 @@ class BaseDocumentsIterableDataset(IterableDataset):
             yield el
 
         if el_no == 0:
-            raise NoDocumentsLoaded(self.__class__.__name__) from self.last_exception
+            no_documents_warning = (
+                f"No documents were successfully loaded during the document loading process. "
+                f"Use `error_callback` parameter of `{self.__class__.__name__}` class to check the exceptions."
+            )
+            warn(no_documents_warning)
+            raise NoDocumentsLoaded(self.last_exception) from self.last_exception

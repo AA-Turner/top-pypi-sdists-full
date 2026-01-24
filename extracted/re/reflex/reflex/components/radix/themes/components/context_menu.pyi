@@ -27,8 +27,6 @@ class ContextMenuRoot(RadixThemesComponent):
     def create(
         cls,
         *children,
-        modal: Var[bool] | bool | None = None,
-        dir: Literal["ltr", "rtl"] | Var[Literal["ltr", "rtl"]] | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -65,9 +63,7 @@ class ContextMenuRoot(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            modal: The modality of the context menu. When set to true, interaction with outside elements will be disabled and only menu content will be visible to screen readers.
             on_open_change: Fired when the open state changes.
-            dir: The reading direction of submenus when applicable. If omitted, inherits globally from DirectionProvider or assumes LTR (left-to-right) reading mode.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -85,7 +81,6 @@ class ContextMenuTrigger(RadixThemesComponent):
     def create(
         cls,
         *children,
-        disabled: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -121,7 +116,6 @@ class ContextMenuTrigger(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            disabled: Whether the trigger is disabled
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -139,92 +133,6 @@ class ContextMenuContent(RadixThemesComponent):
     def create(
         cls,
         *children,
-        size: Breakpoints[str, Literal["1", "2"]]
-        | Literal["1", "2"]
-        | Var[Breakpoints[str, Literal["1", "2"]] | Literal["1", "2"]]
-        | None = None,
-        variant: Literal["soft", "solid"] | Var[Literal["soft", "solid"]] | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        as_child: Var[bool] | bool | None = None,
-        loop: Var[bool] | bool | None = None,
-        force_mount: Var[bool] | bool | None = None,
-        side: Literal["bottom", "left", "right", "top"]
-        | Var[Literal["bottom", "left", "right", "top"]]
-        | None = None,
-        side_offset: Var[float | int] | float | int | None = None,
-        align: Literal["center", "end", "start"]
-        | Var[Literal["center", "end", "start"]]
-        | None = None,
-        align_offset: Var[float | int] | float | int | None = None,
-        avoid_collisions: Var[bool] | bool | None = None,
-        collision_padding: Var[dict[str, float | int] | float | int]
-        | dict[str, float | int]
-        | float
-        | int
-        | None = None,
-        sticky: Literal["always", "partial"]
-        | Var[Literal["always", "partial"]]
-        | None = None,
-        hide_when_detached: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -265,21 +173,6 @@ class ContextMenuContent(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            size: Dropdown Menu Content size "1" - "2"
-            variant: Variant of Dropdown Menu Content: "solid" | "soft"
-            color_scheme: Override theme color for Dropdown Menu Content
-            high_contrast: Renders the Dropdown Menu Content in higher contrast
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            loop: When True, keyboard navigation will loop from last item to first, and vice versa. Defaults to False.
-            force_mount: Used to force mounting when more control is needed. Useful when controlling animation with React animation libraries.
-            side: The preferred side of the trigger to render against when open. Will be reversed when collisions occur and `avoid_collisions` is enabled.The position of the tooltip. Defaults to "top".
-            side_offset: The distance in pixels from the trigger. Defaults to 0.
-            align: The preferred alignment against the trigger. May change when collisions occur. Defaults to "center".
-            align_offset: An offset in pixels from the "start" or "end" alignment options.
-            avoid_collisions: When true, overrides the side and align preferences to prevent collisions with boundary edges. Defaults to True.
-            collision_padding: The distance in pixels from the boundary edges where collision detection should occur. Accepts a number (same for all sides), or a partial padding object, for example: { "top": 20, "left": 20 }. Defaults to 0.
-            sticky: The sticky behavior on the align axis. "partial" will keep the content in the boundary as long as the trigger is at least partially in the boundary whilst "always" will keep the content in the boundary regardless. Defaults to "partial".
-            hide_when_detached: Whether to hide the content when the trigger becomes fully occluded. Defaults to False.
             on_close_auto_focus: Fired when focus moves back after closing.
             on_escape_key_down: Fired when the escape key is pressed.
             on_pointer_down_outside: Fired when a pointer down event happens outside the context menu.
@@ -302,8 +195,6 @@ class ContextMenuSub(RadixThemesComponent):
     def create(
         cls,
         *children,
-        open: Var[bool] | bool | None = None,
-        default_open: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -340,8 +231,6 @@ class ContextMenuSub(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            open: The controlled open state of the submenu. Must be used in conjunction with `on_open_change`.
-            default_open: The open state of the submenu when it is initially rendered. Use when you do not need to control its open state.
             on_open_change: Fired when the open state changes.
             style: The style of the component.
             key: A unique key for the component.
@@ -360,9 +249,6 @@ class ContextMenuSubTrigger(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        text_value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -398,9 +284,6 @@ class ContextMenuSubTrigger(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            disabled: Whether the trigger is disabled
-            text_value: Optional text used for typeahead purposes. By default the typeahead behavior will use the .textContent of the item. Use this when the content is complex, or you have non-textual content inside.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -418,21 +301,6 @@ class ContextMenuSubContent(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        loop: Var[bool] | bool | None = None,
-        force_mount: Var[bool] | bool | None = None,
-        side_offset: Var[float | int] | float | int | None = None,
-        align_offset: Var[float | int] | float | int | None = None,
-        avoid_collisions: Var[bool] | bool | None = None,
-        collision_padding: Var[dict[str, float | int] | float | int]
-        | dict[str, float | int]
-        | float
-        | int
-        | None = None,
-        sticky: Literal["always", "partial"]
-        | Var[Literal["always", "partial"]]
-        | None = None,
-        hide_when_detached: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -472,15 +340,6 @@ class ContextMenuSubContent(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            loop: When True, keyboard navigation will loop from last item to first, and vice versa. Defaults to False.
-            force_mount: Used to force mounting when more control is needed. Useful when controlling animation with React animation libraries.
-            side_offset: The distance in pixels from the trigger. Defaults to 0.
-            align_offset: An offset in pixels from the "start" or "end" alignment options.
-            avoid_collisions: When true, overrides the side and align preferences to prevent collisions with boundary edges. Defaults to True.
-            collision_padding: The distance in pixels from the boundary edges where collision detection should occur. Accepts a number (same for all sides), or a partial padding object, for example: { "top": 20, "left": 20 }. Defaults to 0.
-            sticky: The sticky behavior on the align axis. "partial" will keep the content in the boundary as long as the trigger is at least partially in the boundary whilst "always" will keep the content in the boundary regardless. Defaults to "partial".
-            hide_when_detached: Whether to hide the content when the trigger becomes fully occluded. Defaults to False.
             on_escape_key_down: Fired when the escape key is pressed.
             on_pointer_down_outside: Fired when a pointer down event happens outside the context menu.
             on_focus_outside: Fired when focus moves outside the context menu.
@@ -502,69 +361,6 @@ class ContextMenuItem(RadixThemesComponent):
     def create(
         cls,
         *children,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        shortcut: Var[str] | str | None = None,
-        as_child: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        text_value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -601,11 +397,6 @@ class ContextMenuItem(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            color_scheme: Override theme color for button
-            shortcut: Shortcut to render a menu item as a link
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            disabled: When true, prevents the user from interacting with the item.
-            text_value: Optional text used for typeahead purposes. By default the typeahead behavior will use the content of the item. Use this when the content is complex, or you have non-textual content inside.
             on_select: Fired when the item is selected.
             style: The style of the component.
             key: A unique key for the component.
@@ -676,81 +467,6 @@ class ContextMenuCheckbox(Checkbox):
     def create(
         cls,
         *children,
-        shortcut: Var[str] | str | None = None,
-        as_child: Var[bool] | bool | None = None,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        default_checked: Var[bool] | bool | None = None,
-        checked: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        required: Var[bool] | bool | None = None,
-        name: Var[str] | str | None = None,
-        value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -787,18 +503,6 @@ class ContextMenuCheckbox(Checkbox):
 
         Args:
             *children: Child components.
-            shortcut: Text to render as shortcut.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
-            size: Checkbox size "1" - "3"
-            variant: Variant of checkbox: "classic" | "surface" | "soft"
-            color_scheme: Override theme color for checkbox
-            high_contrast: Whether to render the checkbox with higher contrast color against background
-            default_checked: Whether the checkbox is checked by default
-            checked: Whether the checkbox is checked
-            disabled: Whether the checkbox is disabled
-            required: Whether the checkbox is required
-            name: The name of the checkbox control when submitting the form.
-            value: The value of the checkbox control when submitting the form.
             on_change: Fired when the checkbox is checked or unchecked.
             style: The style of the component.
             key: A unique key for the component.
@@ -817,7 +521,6 @@ class ContextMenuLabel(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -853,7 +556,6 @@ class ContextMenuLabel(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -871,7 +573,6 @@ class ContextMenuGroup(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -907,7 +608,6 @@ class ContextMenuGroup(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -925,8 +625,6 @@ class ContextMenuRadioGroup(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -963,8 +661,6 @@ class ContextMenuRadioGroup(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            value: The value of the selected item in the group.
             on_change: Fired when the value of the radio group changes.
             style: The style of the component.
             key: A unique key for the component.
@@ -983,6 +679,17 @@ class ContextMenuRadioItem(HighLevelRadioGroup):
     def create(
         cls,
         *children,
+        items: Sequence[str] | Var[Sequence[str]] | None = None,
+        direction: Literal["column", "column-reverse", "row", "row-reverse"]
+        | Var[Literal["column", "column-reverse", "row", "row-reverse"]]
+        | None = None,
+        spacing: Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        | Var[Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]]
+        | None = None,
+        size: Literal["1", "2", "3"] | Var[Literal["1", "2", "3"]] | None = None,
+        variant: Literal["classic", "soft", "surface"]
+        | Var[Literal["classic", "soft", "surface"]]
+        | None = None,
         color_scheme: Literal[
             "amber",
             "blue",
@@ -1042,23 +749,10 @@ class ContextMenuRadioItem(HighLevelRadioGroup):
             ]
         ]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
-        value: Var[str] | str | None = None,
-        disabled: Var[bool] | bool | None = None,
-        text_value: Var[str] | str | None = None,
-        items: Sequence[str] | Var[Sequence[str]] | None = None,
-        direction: Literal["column", "column-reverse", "row", "row-reverse"]
-        | Var[Literal["column", "column-reverse", "row", "row-reverse"]]
-        | None = None,
-        spacing: Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        | Var[Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]]
-        | None = None,
-        size: Literal["1", "2", "3"] | Var[Literal["1", "2", "3"]] | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
         high_contrast: Var[bool] | bool | None = None,
+        value: Var[str] | str | None = None,
         default_value: Var[str] | str | None = None,
+        disabled: Var[bool] | bool | None = None,
         name: Var[str] | str | None = None,
         required: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
@@ -1095,11 +789,9 @@ class ContextMenuRadioItem(HighLevelRadioGroup):
         Args:
             items: The items of the radio group.
             color_scheme: The color of the radio group
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
             value: The controlled value of the radio item to check. Should be used in conjunction with on_change.
             disabled: Whether the radio group is disabled
             on_select: Event handler called when the user selects an item (via mouse or keyboard). Calling event.preventDefault in this handler will prevent the context menu from closing when selecting that item.
-            text_value: Optional text used for typeahead purposes. By default the typeahead behavior will use the .textContent of the item. Use this when the content is complex, or you have non-textual content inside.
             items: The items of the radio group.
             direction: The direction of the radio group.
             spacing: The gap between the items of the radio group.

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime
 import warnings
+from datetime import timedelta
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import humps
@@ -62,6 +63,8 @@ if HAS_POLARS:
 
 @typechecked
 class FeatureStore:
+    """Feature Store class used to manage feature store entities, like feature groups and feature views."""
+
     DEFAULT_VERSION = 1
 
     def __init__(
@@ -175,7 +178,7 @@ class FeatureStore:
         return feature_group_object
 
     def get_feature_groups(
-        self, name: str
+        self, name: str | None = None
     ) -> List[
         Union[
             feature_group.FeatureGroup,
@@ -183,7 +186,7 @@ class FeatureStore:
             feature_group.SpineGroup,
         ]
     ]:
-        """Get a list of all versions of a feature group entity from the feature store.
+        """Get all feature groups from the feature store, or all versions of a feature group specified by its name.
 
         Getting a feature group from the Feature Store means getting its metadata handle
         so you can subsequently read the data into a Spark or Pandas DataFrame or use
@@ -194,21 +197,34 @@ class FeatureStore:
             # connect to the Feature Store
             fs = ...
 
+            # retrieve all versions of electricity_prices feature group
             fgs_list = fs.get_feature_groups(
                     name="electricity_prices"
                 )
             ```
 
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # retrieve all feature groups available in the feature store
+            fgs_list = fs.get_feature_groups()
+            ```
+
         # Arguments
-            name: Name of the feature group to get.
+            name: Name of the feature group to get the versions of; by default it is `None` and all feature groups are returned.
 
         # Returns
-            `FeatureGroup`: List of feature group metadata objects.
+            `list[FeatureGroup]`: List of feature group metadata objects.
 
         # Raises
             `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
         """
-        feature_group_object = self._feature_group_api.get(self.id, name, None)
+        if name:
+            feature_group_object = self._feature_group_api.get(self.id, name, None)
+        else:
+            feature_group_object = self._feature_group_api.get_all(self.id)
         for fg_object in feature_group_object:
             fg_object.feature_store = self
         return feature_group_object
@@ -312,9 +328,9 @@ class FeatureStore:
 
     @usage.method_logger
     def get_external_feature_groups(
-        self, name: str
+        self, name: str | None = None
     ) -> List[feature_group.ExternalFeatureGroup]:
-        """Get a list of all versions of an external feature group entity from the feature store.
+        """Get a list of all external feature groups from the feature store, or all versions of an external feature group.
 
         Getting an external feature group from the Feature Store means getting its
         metadata handle so you can subsequently read the data into a Spark or
@@ -328,21 +344,26 @@ class FeatureStore:
             external_fgs_list = fs.get_external_feature_groups("external_fg_test")
             ```
 
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # retrieve all external feature groups available in the feature store
+            external_fgs_list = fs.get_external_feature_groups()
+            ```
+
         # Arguments
-            name: Name of the external feature group to get.
+            name: Name of the external feature group to get the versions of; by default it is `None` and all external feature groups are returned.
 
         # Returns
-            `ExternalFeatureGroup`: List of external feature group metadata objects.
+            `list[ExternalFeatureGroup]`: List of external feature group metadata objects.
 
         # Raises
             `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
         """
-        feature_group_object = self._feature_group_api.get(
-            feature_store_id=self.id, name=name, version=None
-        )
-        for fg_object in feature_group_object:
-            fg_object.feature_store = self
-        return feature_group_object
+        fgs = self.get_feature_groups(name)
+        return [fg for fg in fgs if isinstance(fg, feature_group.ExternalFeatureGroup)]
 
     def get_training_dataset(
         self, name: str, version: int = None
@@ -502,7 +523,7 @@ class FeatureStore:
         version: Optional[int] = None,
         description: Optional[str] = "",
         online_enabled: Optional[bool] = False,
-        time_travel_format: Optional[str] = "HUDI",
+        time_travel_format: Optional[str] = None,
         partition_key: Optional[List[str]] = None,
         primary_key: Optional[List[str]] = None,
         foreign_key: Optional[List[str]] = None,
@@ -541,6 +562,9 @@ class FeatureStore:
                 Dict[str, Any],
             ]
         ] = None,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
+        online_disk: Optional[bool] = None,
     ) -> feature_group.FeatureGroup:
         """Create a feature group metadata object.
 
@@ -569,7 +593,9 @@ class FeatureStore:
                     online_enabled=True,
                     event_time='date',
                     transformation_functions=transformation_functions,
-                    online_config={'table_space': 'ts_1', 'online_comments': ['NDB_TABLE=READ_BACKUP=1']}
+                    online_config={'online_comments': ['NDB_TABLE=READ_BACKUP=1']},
+                    online_disk=True, # Online data will be stored on disk instead of in memory
+                    ttl=timedelta(days=7)  # features will be deleted after 7 days
                 )
             ```
 
@@ -627,7 +653,6 @@ class FeatureStore:
                 !!! note "Event time data type restriction"
                     The supported data types for the event time column are: `timestamp`, `date` and `bigint`.
 
-
             stream: Optionally, Define whether the feature group should support real time stream writing capabilities.
                 Stream enabled Feature Groups have unified single API for writing streaming features transparently
                 to both online and offline store.
@@ -654,6 +679,15 @@ class FeatureStore:
                 the data for the external feature group
             data_source: The data source specifying the location of the data. Overrides the path and query arguments when specified.
 
+            ttl: Optional time-to-live duration for features in this group. Can be specified as:
+                - An integer or float representing seconds
+                - A timedelta object
+                This ttl value is added to the event time of the feature group and when the system time exceeds the event time + ttl, the entries will be automatically removed.
+                The system time zone is in UTC. Defaults to None (no TTL).
+            ttl_enabled: Optionally, enable TTL for this feature group. Defaults to True if ttl is set.
+            online_disk: Optionally, specify online data storage for this feature group.
+                When set to True data will be stored on disk, instead of in memory. Overrides online_config.table_space.
+                Defaults to using cluster wide configuration 'featurestore_online_tablespace' to identify tablespace for disk storage.
         # Returns
             `FeatureGroup`. The feature group metadata object.
         """
@@ -685,6 +719,9 @@ class FeatureStore:
             offline_backfill_every_hr=offline_backfill_every_hr,
             storage_connector=storage_connector,
             data_source=data_source,
+            ttl=ttl,
+            ttl_enabled=ttl_enabled,
+            online_disk=online_disk,
         )
         feature_group_object.feature_store = self
         return feature_group_object
@@ -696,7 +733,7 @@ class FeatureStore:
         version: int,
         description: Optional[str] = "",
         online_enabled: Optional[bool] = False,
-        time_travel_format: Optional[str] = "HUDI",
+        time_travel_format: Optional[str] = None,
         partition_key: Optional[List[str]] = None,
         primary_key: Optional[List[str]] = None,
         foreign_key: Optional[List[str]] = None,
@@ -730,6 +767,9 @@ class FeatureStore:
                 Dict[str, Any],
             ]
         ] = None,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
+        online_disk: Optional[bool] = None,
     ) -> Union[
         feature_group.FeatureGroup,
         feature_group.ExternalFeatureGroup,
@@ -750,7 +790,9 @@ class FeatureStore:
                     online_enabled=True,
                     event_time="timestamp",
                     transformation_functions=transformation_functions,
-                    online_config={'table_space': 'ts_1', 'online_comments': ['NDB_TABLE=READ_BACKUP=1']}
+                    online_config={'online_comments': ['NDB_TABLE=READ_BACKUP=1']},
+                    online_disk=True, # Online data will be stored on disk instead of in memory
+                    ttl=timedelta(days=30),
                     )
             ```
 
@@ -809,7 +851,6 @@ class FeatureStore:
                 !!! note "Event time data type restriction"
                     The supported data types for the event time column are: `timestamp`, `date` and `bigint`.
 
-
             stream: Optionally, Define whether the feature group should support real time stream writing capabilities.
                 Stream enabled Feature Groups have unified single API for writing streaming features transparently
                 to both online and offline store.
@@ -832,7 +873,15 @@ class FeatureStore:
             path: The location within the scope of the storage connector, from where to read
                 the data for the external feature group
             data_source: The data source specifying the location of the data. Overrides the path and query arguments when specified.
-
+            ttl: Optional time-to-live duration for features in this group. Can be specified as:
+                - An integer or float representing seconds
+                - A timedelta object
+                This ttl value is added to the event time of the feature group and when the system time exceeds the event time + ttl, the entries will be automatically removed.
+                The system time zone is in UTC. Defaults to None (no TTL).
+            ttl_enabled: Optionally, enable TTL for this feature group. Defaults to True if ttl is set.
+            online_disk: Optionally, specify online data storage for this feature group.
+                When set to True data will be stored on disk, instead of in memory. Overrides online_config.table_space.
+                Defaults to using cluster wide configuration 'featurestore_online_tablespace' to identify tablespace for disk storage.
         # Returns
             `FeatureGroup`. The feature group metadata object.
         """
@@ -866,6 +915,9 @@ class FeatureStore:
                 offline_backfill_every_hr=offline_backfill_every_hr,
                 storage_connector=storage_connector,
                 data_source=data_source,
+                ttl=ttl,
+                ttl_enabled=ttl_enabled,
+                online_disk=online_disk,
             )
         feature_group_object.feature_store = self
         return feature_group_object
@@ -900,6 +952,9 @@ class FeatureStore:
                 Dict[str, Any],
             ]
         ] = None,
+        online_enabled: bool = False,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
     ) -> feature_group.ExternalFeatureGroup:
         """Create an external feature group metadata object.
 
@@ -963,10 +1018,14 @@ class FeatureStore:
                 group which dataframes should be validated against upon insertion.
                 Defaults to `None`.
             data_source: The data source specifying the location of the data. Overrides the path and query arguments when specified.
-
-
-
-
+            online_enabled: Define whether it should be possible to sync the feature group to
+                the online feature store for low latency access, defaults to `False`.
+            ttl: Optional time-to-live duration for features in this group. Can be specified as:
+                - An integer or float representing seconds
+                - A timedelta object
+                This ttl value is added to the event time of the feature group and when the system time exceeds the event time + ttl, the entries will be automatically removed.
+                The system time zone is in UTC. Defaults to None (no TTL).
+            ttl_enabled: Optionally, enable TTL for this feature group. Defaults to True if ttl is set.
 
         # Returns
             `ExternalFeatureGroup`. The external feature group metadata object.
@@ -991,6 +1050,9 @@ class FeatureStore:
             topic_name=topic_name,
             notification_topic_name=notification_topic_name,
             data_source=data_source,
+            online_enabled=online_enabled,
+            ttl=ttl,
+            ttl_enabled=ttl_enabled,
         )
         feature_group_object.feature_store = self
         return feature_group_object
@@ -1033,6 +1095,9 @@ class FeatureStore:
                 Dict[str, Any],
             ]
         ] = None,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
+        online_disk: Optional[bool] = None,
     ) -> feature_group.ExternalFeatureGroup:
         """Create an external feature group metadata object.
 
@@ -1048,7 +1113,8 @@ class FeatureStore:
                                 query=query,
                                 storage_connector=connector,
                                 primary_key=['ss_store_sk'],
-                                event_time='sale_date'
+                                event_time='sale_date',
+                                ttl=timedelta(days=30),
                                 )
             ```
 
@@ -1070,7 +1136,9 @@ class FeatureStore:
                     primary_key=['ss_store_sk'],
                     event_time='sale_date',
                     online_enabled=True,
-                    online_config={'table_space': 'ts_1', 'online_comments': ['NDB_TABLE=READ_BACKUP=1']}
+                    online_config={'online_comments': ['NDB_TABLE=READ_BACKUP=1']},
+                    online_disk=True, # Online data will be stored on disk instead of in memory
+                    ttl=timedelta(days=30),
                     )
         external_fg.save()
 
@@ -1138,6 +1206,15 @@ class FeatureStore:
                 are inserted or updated on the online feature store. If left undefined no notifications are sent.
             online_config: Optionally, define configuration which is used to configure online table.
             data_source: The data source specifying the location of the data. Overrides the path and query arguments when specified.
+            ttl: Optional time-to-live duration for features in this group. Can be specified as:
+                - An integer or float representing seconds
+                - A timedelta object
+                This ttl value is added to the event time of the feature group and when the system time exceeds the event time + ttl, the entries will be automatically removed.
+                The system time zone is in UTC. Defaults to None (no TTL).
+            ttl_enabled: Optionally, enable TTL for this feature group. Defaults to True if ttl is set.
+            online_disk: Optionally, specify online data storage for this feature group.
+                When set to True data will be stored on disk, instead of in memory. Overrides online_config.table_space.
+                Defaults to using cluster wide configuration 'featurestore_online_tablespace' to identify tablespace for disk storage.
 
         # Returns
             `ExternalFeatureGroup`. The external feature group metadata object.
@@ -1165,6 +1242,9 @@ class FeatureStore:
             notification_topic_name=notification_topic_name,
             online_config=online_config,
             data_source=data_source,
+            ttl=ttl,
+            ttl_enabled=ttl_enabled,
+            online_disk=online_disk,
         )
         feature_group_object.feature_store = self
         return feature_group_object
@@ -1206,7 +1286,7 @@ class FeatureStore:
                                 description="Physical shop sales features",
                                 primary_key=['ss_store_sk'],
                                 event_time='sale_date',
-                                dataframe=spine_df
+                                dataframe=spine_df,
                                 )
             ```
 
@@ -1594,6 +1674,9 @@ class FeatureStore:
             List[Union[TransformationFunction, HopsworksUdf]]
         ] = None,
         logging_enabled: Optional[bool] = False,
+        extra_log_columns: Optional[
+            Union[List[feature.Feature], List[Dict[str, str]]]
+        ] = None,
     ) -> feature_view.FeatureView:
         """Create a feature view metadata object and saved it to hopsworks.
 
@@ -1682,6 +1765,10 @@ class FeatureStore:
             transformation_functions: Model Dependent Transformation functions attached to the feature view.
                 It can be a list of list of user defined functions defined using the hopsworks `@udf` decorator.
                 Defaults to `None`, no transformations.
+            logging_enabled: If true, enable feature logging for the feature view. Defaults to `False`.
+            extra_log_columns: Extra columns to be logged in addition to the features used in the feature view.
+                It can be a list of Feature objects or list a dictionaries that contains the the name and type of the columns as keys.
+                Defaults to `None`, no extra log columns. Setting this argument implicitly enables feature logging.
 
         # Returns:
             `FeatureView`: The feature view metadata object.
@@ -1698,6 +1785,7 @@ class FeatureStore:
             transformation_functions=transformation_functions or {},
             featurestore_name=self._name,
             logging_enabled=logging_enabled,
+            extra_log_columns=extra_log_columns,
         )
         return self._feature_view_engine.save(feat_view)
 
@@ -1713,6 +1801,9 @@ class FeatureStore:
         training_helper_columns: Optional[List[str]] = None,
         transformation_functions: Optional[Dict[str, TransformationFunction]] = None,
         logging_enabled: Optional[bool] = False,
+        extra_log_columns: Optional[
+            Union[List[feature.Feature], List[Dict[str, str]]]
+        ] = None,
     ) -> feature_view.FeatureView:
         """Get feature view metadata object or create a new one if it doesn't exist. This method doesn't update
         existing feature view metadata object.
@@ -1761,7 +1852,10 @@ class FeatureStore:
             transformation_functions: Model Dependent Transformation functions attached to the feature view.
                 It can be a list of list of user defined functions defined using the hopsworks `@udf` decorator.
                 Defaults to `None`, no transformations.
-            logging_enabled: If true, enable feature logging for the feature view.
+            logging_enabled: If true, enable feature logging for the feature view. Defaults to `False`.
+            extra_log_columns: Extra columns to be logged in addition to the features used in the feature view.
+                It can be a list of Feature objects or list a dictionaries that contains the the name and type of the columns as keys.
+                Defaults to `None`, no extra log columns. Setting this argument implicitly enables feature logging.
 
         # Returns:
             `FeatureView`: The feature view metadata object.
@@ -1778,6 +1872,7 @@ class FeatureStore:
                 training_helper_columns=training_helper_columns or [],
                 transformation_functions=transformation_functions or [],
                 logging_enabled=logging_enabled,
+                extra_log_columns=extra_log_columns,
             )
         return fv_object
 

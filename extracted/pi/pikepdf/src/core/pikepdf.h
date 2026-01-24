@@ -4,11 +4,11 @@
 #pragma once
 
 #include <exception>
-#include <vector>
 #include <map>
+#include <vector>
 
-#include <qpdf/QPDF.hh>
 #include <qpdf/Constants.h>
+#include <qpdf/QPDF.hh>
 #include <qpdf/QPDFObjectHandle.hh>
 #include <qpdf/QPDFPageObjectHelper.hh>
 
@@ -24,6 +24,9 @@ PYBIND11_RUNTIME_EXCEPTION(notimpl_error, PyExc_NotImplementedError);
 
 // From object_convert.cpp
 pybind11::object decimal_from_pdfobject(QPDFObjectHandle h);
+
+// From pikepdf.cpp - forward declaration for type_caster
+bool get_explicit_conversion_mode();
 
 namespace pybind11 {
 namespace detail {
@@ -62,25 +65,35 @@ private:
     static handle cast(
         const QPDFObjectHandle *csrc, return_value_policy policy, handle parent)
     {
-        if (policy == return_value_policy::take_ownership) {
+        if (policy == return_value_policy::take_ownership) { // LCOV_EXCL_START
             throw std::logic_error(
                 "return_value_policy::take_ownership not implemented");
-        }
+        } // LCOV_EXCL_STOP
         QPDFObjectHandle *src = const_cast<QPDFObjectHandle *>(csrc);
         if (!csrc)
             return none().release(); // LCOV_EXCL_LINE
 
-        switch (src->getTypeCode()) {
-        case qpdf_object_type_e::ot_null:
-            return pybind11::none().release();
-        case qpdf_object_type_e::ot_integer:
-            return pybind11::int_(src->getIntValue()).release();
-        case qpdf_object_type_e::ot_boolean:
-            return pybind11::bool_(src->getBoolValue()).release();
-        case qpdf_object_type_e::ot_real:
-            return decimal_from_pdfobject(*src).release();
-        default:
-            break;
+        // In explicit conversion mode, return scalars as pikepdf.Object
+        // so that Integer/Boolean/Real types are preserved.
+        // In implicit mode (default), auto-convert to native Python types.
+        if (!get_explicit_conversion_mode()) {
+            switch (src->getTypeCode()) {
+            case qpdf_object_type_e::ot_null:
+                return pybind11::none().release();
+            case qpdf_object_type_e::ot_integer:
+                return pybind11::int_(src->getIntValue()).release();
+            case qpdf_object_type_e::ot_boolean:
+                return pybind11::bool_(src->getBoolValue()).release();
+            case qpdf_object_type_e::ot_real:
+                return decimal_from_pdfobject(*src).release();
+            default:
+                break;
+            }
+        } else {
+            // Explicit mode: still convert null to None (no value in pikepdf.Null)
+            if (src->getTypeCode() == qpdf_object_type_e::ot_null) {
+                return pybind11::none().release();
+            }
         }
         return base::cast(*csrc, policy, parent);
     }
@@ -119,6 +132,8 @@ void init_qpdf(py::module_ &m);
 // From object.cpp
 size_t list_range_check(QPDFObjectHandle h, int index);
 void init_object(py::module_ &m);
+
+// From object_equality.cpp
 bool objecthandle_equal(QPDFObjectHandle self, QPDFObjectHandle other);
 
 // From object_repr.cpp
@@ -160,6 +175,11 @@ void init_rectangle(py::module_ &m);
 // From tokenfilter.cpp
 void init_tokenfilter(py::module_ &m);
 
+// pikepdf.cpp
+uint get_decimal_precision();
+bool get_mmap_default();
+bool get_explicit_conversion_mode();
+
 inline void python_warning(const char *msg, PyObject *category = PyExc_UserWarning)
 {
     PyErr_WarnEx(category, msg, /*stacklevel=*/1);
@@ -174,9 +194,9 @@ inline void deprecation_warning(const char *msg)
 class StackGuard {
 public:
     StackGuard(const char *where) { Py_EnterRecursiveCall(where); }
-    StackGuard(const StackGuard &)            = delete;
+    StackGuard(const StackGuard &) = delete;
     StackGuard &operator=(const StackGuard &) = delete;
-    StackGuard(StackGuard &&)                 = delete;
-    StackGuard &operator=(StackGuard &&)      = delete;
+    StackGuard(StackGuard &&) = delete;
+    StackGuard &operator=(StackGuard &&) = delete;
     ~StackGuard() { Py_LeaveRecursiveCall(); }
 };

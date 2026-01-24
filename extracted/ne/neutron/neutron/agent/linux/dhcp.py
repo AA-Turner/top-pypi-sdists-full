@@ -66,16 +66,11 @@ def port_requires_dhcp_configuration(port):
         # We can't check if port needs dhcp entry, so it will be better
         # to create one
         return True
-    # TODO(slaweq): define this list as a constant in neutron_lib.constants
     # NOTE(slaweq): Not all port types which belongs e.g. to the routers can be
     # excluded from that list. For some of them, like router interfaces used to
     # plug subnet to the router should be configured in dnsmasq to provide DNS
     # naming resolution. Otherwise it may slowdown e.g. traceroutes from the VM
-    return port.device_owner not in [
-        constants.DEVICE_OWNER_ROUTER_HA_INTF,
-        constants.DEVICE_OWNER_FLOATINGIP,
-        constants.DEVICE_OWNER_DHCP,
-        constants.DEVICE_OWNER_DISTRIBUTED]
+    return port.device_owner not in constants.DHCP_CONFIG_NOT_REQUIRED_OWNERS
 
 
 class DictModel(collections.abc.MutableMapping):
@@ -100,7 +95,7 @@ class DictModel(collections.abc.MutableMapping):
             return item
 
         for key, value in itertools.chain(temp_dict.items(), kwargs.items()):
-            if isinstance(value, (list, tuple)):
+            if isinstance(value, list | tuple):
                 # Keep the same type but convert dicts to DictModels
                 self._dictmodel_internal_storage[key] = type(value)(
                     upgrade(item) for item in value
@@ -129,7 +124,7 @@ class DictModel(collections.abc.MutableMapping):
         del self._dictmodel_internal_storage[name]
 
     def __str__(self):
-        pairs = ['{}={}'.format(k, v) for k, v in
+        pairs = [f'{k}={v}' for k, v in
                  self._dictmodel_internal_storage.items()]
         return ', '.join(sorted(pairs))
 
@@ -169,7 +164,7 @@ class NetModel(DictModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._ns_name = "{}{}".format(NS_PREFIX, self.id)
+        self._ns_name = f"{NS_PREFIX}{self.id}"
 
     @property
     def namespace(self):
@@ -775,7 +770,7 @@ class Dnsmasq(DhcpLocalProcess):
                         ip_addresses[0].replace('.', '-').replace(':', '-'))
             fqdn = hostname
             if self.conf.dns_domain:
-                fqdn = '{}.{}'.format(fqdn, self.conf.dns_domain)
+                fqdn = f'{fqdn}.{self.conf.dns_domain}'
 
         return hostname, fqdn
 
@@ -1852,7 +1847,7 @@ class DeviceManager:
         for fixed_ip in port.fixed_ips:
             subnet = fixed_ip.subnet
             net = netaddr.IPNetwork(subnet.cidr)
-            ip_cidr = '{}/{}'.format(fixed_ip.ip_address, net.prefixlen)
+            ip_cidr = f'{fixed_ip.ip_address}/{net.prefixlen}'
             ip_cidrs.append(ip_cidr)
 
         need_ipv6_metadata = False
@@ -1868,7 +1863,7 @@ class DeviceManager:
                 gateway = subnet.gateway_ip
                 if gateway:
                     net = netaddr.IPNetwork(subnet.cidr)
-                    ip_cidrs.append('{}/{}'.format(gateway, net.prefixlen))
+                    ip_cidrs.append(f'{gateway}/{net.prefixlen}')
 
         if self.conf.force_metadata or self.conf.enable_isolated_metadata:
             ip_cidrs.append(constants.METADATA_CIDR)

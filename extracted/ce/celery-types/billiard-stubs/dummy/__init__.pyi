@@ -6,23 +6,26 @@ from threading import Lock as Lock
 from threading import RLock as RLock
 from threading import Semaphore as Semaphore
 
+from typing_extensions import override
+
 __all__ = [
-    "Process",
-    "current_process",
-    "freeze_support",
-    "Lock",
-    "RLock",
-    "Semaphore",
     "BoundedSemaphore",
     "Event",
-    "Queue",
     "JoinableQueue",
+    "Lock",
+    "Process",
+    "Queue",
+    "RLock",
+    "Semaphore",
+    "current_process",
+    "freeze_support",
 ]
 
 class DummyProcess(threading.Thread):
     def __init__(
         self,
     ) -> None: ...
+    @override
     def start(self) -> None: ...
 
 Process = DummyProcess

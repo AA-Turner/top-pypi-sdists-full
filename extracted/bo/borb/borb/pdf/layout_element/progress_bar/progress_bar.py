@@ -39,7 +39,7 @@ class ProgressBar(LayoutElement):
         fill_color: Color = X11Color.GAINSBORO,
         background_color: typing.Optional[Color] = None,
         border_color: typing.Optional[Color] = None,
-        border_dash_pattern: typing.List[int] = [],
+        border_dash_pattern: typing.Optional[typing.List[int]] = None,
         border_dash_phase: int = 0,
         border_width_bottom: int = 0,
         border_width_left: int = 0,
@@ -154,7 +154,7 @@ class ProgressBar(LayoutElement):
 
         This function renders the layout element within the given available space on the specified page.
 
-        :param available_space: A tuple representing the available space (left, top, right, bottom).
+        :param available_space: A tuple representing the available space (x, y, width, height).
         :param page:            The Page object on which to render the LayoutElement.
         :return:                None.
         """
@@ -190,47 +190,53 @@ class ProgressBar(LayoutElement):
         ProgressBar._append_newline_to_content_stream(page)
 
         # store graphics state
-        page["Contents"]["DecodedBytes"] += b"q\n"
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string="q\n")
 
         # rectangle (representing the available bar)
         rgb_fill_color: RGBColor = self.__fill_color.to_rgb_color()
-        page["Contents"]["DecodedBytes"] += (
-            f"{rgb_fill_color.get_red() / 255} "
+        LayoutElement._append_to_content_stream(
+            page=page,
+            bytes_or_string=f"{rgb_fill_color.get_red() / 255} "
             f"{rgb_fill_color.get_green() / 255} "
-            f"{rgb_fill_color.get_blue() / 255} rg\n"
-        ).encode("latin1")
-        page["Contents"]["DecodedBytes"] += (
-            f"{rgb_fill_color.get_red() / 255} "
+            f"{rgb_fill_color.get_blue() / 255} rg\n",
+        )
+        LayoutElement._append_to_content_stream(
+            page=page,
+            bytes_or_string=f"{rgb_fill_color.get_red() / 255} "
             f"{rgb_fill_color.get_green() / 255} "
-            f"{rgb_fill_color.get_blue() / 255} RG\n"
-        ).encode("latin1")
-        page["Contents"]["DecodedBytes"] += (
-            f"{background_x + self.get_padding_left()} "
+            f"{rgb_fill_color.get_blue() / 255} RG\n",
+        )
+        LayoutElement._append_to_content_stream(
+            page=page,
+            bytes_or_string=f"{background_x + self.get_padding_left()} "
             f"{background_y + self.get_padding_top()} "
             f"{self.__size[0]} "
-            f"{self.__size[1]} re\n"
-        ).encode("latin1")
-        page["Contents"]["DecodedBytes"] += b"B\n"
+            f"{self.__size[1]} re\n",
+        )
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string="B\n")
 
         # rectangle (representing the progress)
         rgb_stroke_color: RGBColor = self.__stroke_color.to_rgb_color()
-        page["Contents"]["DecodedBytes"] += (
-            f"{rgb_stroke_color.get_red() / 255} "
+        LayoutElement._append_to_content_stream(
+            page=page,
+            bytes_or_string=f"{rgb_stroke_color.get_red() / 255} "
             f"{rgb_stroke_color.get_green() / 255} "
-            f"{rgb_stroke_color.get_blue() / 255} rg\n"
-        ).encode("latin1")
-        page["Contents"]["DecodedBytes"] += (
-            f"{rgb_stroke_color.get_red() / 255} "
+            f"{rgb_stroke_color.get_blue() / 255} rg\n",
+        )
+        LayoutElement._append_to_content_stream(
+            page=page,
+            bytes_or_string=f"{rgb_stroke_color.get_red() / 255} "
             f"{rgb_stroke_color.get_green() / 255} "
-            f"{rgb_stroke_color.get_blue() / 255} RG\n"
-        ).encode("latin1")
-        page["Contents"]["DecodedBytes"] += (
-            f"{background_x + self.get_padding_left()} "
+            f"{rgb_stroke_color.get_blue() / 255} RG\n",
+        )
+        LayoutElement._append_to_content_stream(
+            page=page,
+            bytes_or_string=f"{background_x + self.get_padding_left()} "
             f"{background_y + self.get_padding_top()} "
             f"{self.__size[0] * (self.__value / self.__max_value)} "
-            f"{self.__size[1]} re\n"
-        ).encode("latin1")
-        page["Contents"]["DecodedBytes"] += b"B\n"
+            f"{self.__size[1]} re\n",
+        )
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string="B\n")
 
         # restore graphics state
-        page["Contents"]["DecodedBytes"] += b"Q\n"
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string="Q\n")

@@ -35,10 +35,12 @@ def row_to_names(
 
         >>> import polars as pl
         >>> import janitor.polars
-        >>> df = pl.DataFrame({
-        ...     "a": ["nums", '6', '9'],
-        ...     "b": ["chars", "x", "y"],
-        ... })
+        >>> df = pl.DataFrame(
+        ...     {
+        ...         "a": ["nums", "6", "9"],
+        ...         "b": ["chars", "x", "y"],
+        ...     }
+        ... )
         >>> df
         shape: (3, 2)
         ┌──────┬───────┐
@@ -60,7 +62,7 @@ def row_to_names(
         │ 6    ┆ x     │
         │ 9    ┆ y     │
         └──────┴───────┘
-        >>> df.row_to_names(row_numbers=[0,1], remove_rows=True)
+        >>> df.row_to_names(row_numbers=[0, 1], remove_rows=True)
         shape: (1, 2)
         ┌────────┬─────────┐
         │ nums_6 ┆ chars_x │
@@ -72,10 +74,12 @@ def row_to_names(
 
         Remove rows above the elevated row and the elevated row itself.
 
-        >>> df = pl.DataFrame({
-        ...     "a": ["bla1", "nums", '6', '9'],
-        ...     "b": ["bla2", "chars", "x", "y"],
-        ... })
+        >>> df = pl.DataFrame(
+        ...     {
+        ...         "a": ["bla1", "nums", "6", "9"],
+        ...         "b": ["bla2", "chars", "x", "y"],
+        ...     }
+        ... )
         >>> df
         shape: (4, 2)
         ┌──────┬───────┐
@@ -162,7 +166,7 @@ def _row_to_names_dispatch(  # noqa: F811
             "The step argument for slice is not supported in row_to_names."
         )
     headers = df.slice(row_numbers.start, row_numbers.stop - row_numbers.start)
-    expression = pl.all().str.concat(delimiter=separator)
+    expression = pl.all().str.join(delimiter=separator)
     headers = headers.select(expression).row(0, named=True)
     headers = {col: str(repl) for col, repl in headers.items()}
     df = df.rename(mapping=headers)
@@ -193,7 +197,7 @@ def _row_to_names_dispatch(  # noqa: F811
         check("entry in the row_numbers argument", entry, [int])
 
     expression = pl.all().gather(row_numbers)
-    expression = expression.str.concat(delimiter=separator)
+    expression = expression.str.join(delimiter=separator)
     headers = df.select(expression).row(0, named=True)
     headers = {col: str(repl) for col, repl in headers.items()}
     df = df.rename(mapping=headers)

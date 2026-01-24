@@ -3,7 +3,7 @@
 # :Created:   sab 05 ago 2017 16:34:08 CEST
 # :Author:    Lele Gaifax <lele@metapensiero.it>
 # :License:   GNU General Public License version 3 or later
-# :Copyright: © 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024 Lele Gaifax
+# :Copyright: © 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 Lele Gaifax
 #
 
 from .. import ast, enums
@@ -92,24 +92,34 @@ class AExprKindPrinter(IntEnumPrinter):
             output.print_list((node.lexpr, node.rexpr))
 
     def AEXPR_OP(self, node, output):
-        with output.expression(isinstance(abs(node.ancestors), ast.A_Expr)):
-            # lexpr is optional because these are valid: -(1+1), +(1+1), ~(1+1)
-            if node.lexpr is not None:
-                with output.expression(isinstance(node.lexpr,
-                                                  (ast.BoolExpr, ast.NullTest, ast.A_Expr))):
-                    output.print_node(node.lexpr)
-                output.write(' ')
-            if isinstance(node.name, tuple) and len(node.name) > 1:
-                output.write('OPERATOR')
-                with output.expression(True):
-                    output.print_symbol(node.name)
-            else:
-                output.print_symbol(node.name)
+        # lexpr is optional because these are valid: -(1+1), +(1+1), ~(1+1)
+        if node.lexpr is not None:
+            needs_parens = isinstance(node.lexpr,
+                                      (ast.BoolExpr, ast.NullTest, ast.A_Expr))
+            if needs_parens and isinstance(node.lexpr, ast.A_Expr):
+                # Do not wrap lexpr in parenthesis when it has the same operator
+                # as the current node and the operator is...
+                # This is to avoid common cases such as
+                #   1 + 2 + 3 + 4
+                # to result in
+                #   ((1 + 2) + 3) + 4
+                if node.lexpr.name == node.name:
+                    if get_string_value(node.name) in {'*', '/', '+', '-', '||'}:
+                        needs_parens = False
+            with output.expression(needs_parens):
+                output.print_node(node.lexpr)
             output.write(' ')
-            if node.rexpr is not None:
-                with output.expression(isinstance(node.rexpr,
-                                                  (ast.BoolExpr, ast.NullTest, ast.A_Expr))):
-                    output.print_node(node.rexpr)
+        if isinstance(node.name, tuple) and len(node.name) > 1:
+            output.write('OPERATOR')
+            with output.expression(True):
+                output.print_symbol(node.name)
+        else:
+            output.print_symbol(node.name)
+        output.write(' ')
+        if node.rexpr is not None:
+            with output.expression(isinstance(node.rexpr,
+                                              (ast.BoolExpr, ast.NullTest, ast.A_Expr))):
+                output.print_node(node.rexpr)
 
     def AEXPR_OP_ALL(self, node, output):
         output.print_node(node.lexpr)
@@ -407,17 +417,18 @@ def common_table_expr(node, output):
     # See https://github.com/lelit/pglast/issues/163: the "forced" space will happen only in
     # the RawStream, that otherwise would not emit it before the opening paren of the
     # expression. The IndentedStream ignores the `force` argument.
-    output.space(2, force=True)
-    with output.expression(True):
-        output.print_node(node.ctequery)
-    if node.search_clause:
-        output.newline()
-        output.newline()
-        output.print_node(node.search_clause)
-    if node.cycle_clause:
-        output.newline()
-        output.newline()
-        output.print_node(node.cycle_clause)
+    output.space(4, force=True)
+    with output.push_indent(2):
+        with output.expression(True):
+            output.print_node(node.ctequery)
+        if node.search_clause:
+            output.newline()
+            output.newline()
+            output.print_node(node.search_clause)
+        if node.cycle_clause:
+            output.newline()
+            output.newline()
+            output.print_node(node.cycle_clause)
     output.newline()
 
 
@@ -1655,7 +1666,8 @@ def range_table_sample(node, output):
 
 @node_printer(ast.RawStmt)
 def raw_stmt(node, output):
-    output.print_node(node.stmt)
+    if node.stmt is not None:
+        output.print_node(node.stmt)
 
 
 @node_printer(ast.ResTarget)
@@ -1735,6 +1747,8 @@ def select_stmt(node, output):
                 if node.rarg:
                     with output.expression(_select_needs_to_be_wrapped_in_parens(node.rarg)):
                         output.print_node(node.rarg)
+                    if node.sortClause or node.limitCount or node.limitOffset or node.lockingClause:
+                        output.newline()
         else:
             output.write('SELECT')
             if node.distinctClause:
@@ -1937,21 +1951,22 @@ def sub_link(node, output):
 def transaction_stmt(node, output):
     tsk = enums.TransactionStmtKind
     if node.kind == tsk.TRANS_STMT_BEGIN:
-        output.write('BEGIN ')
+        output.write('BEGIN')
         if node.options:
+            output.space()
             output.print_list(node.options)
     elif node.kind == tsk.TRANS_STMT_START:
         output.write('START TRANSACTION ')
         if node.options:
             output.print_list(node.options)
     elif node.kind == tsk.TRANS_STMT_COMMIT:
-        output.write('COMMIT ')
+        output.write('COMMIT')
         if node.chain:
-            output.write('AND CHAIN ')
+            output.write(' AND CHAIN')
     elif node.kind == tsk.TRANS_STMT_ROLLBACK:
-        output.write('ROLLBACK ')
+        output.write('ROLLBACK')
         if node.chain:
-            output.write('AND CHAIN ')
+            output.write(' AND CHAIN')
     elif node.kind == tsk.TRANS_STMT_SAVEPOINT:
         output.write('SAVEPOINT ')
         output.write(node.savepoint_name)
@@ -2176,10 +2191,12 @@ def unlisten_stmt(node, output):
 
 @node_printer(ast.WithClause)
 def with_clause(node, output):
-    relindent = -2
-    if node.recursive:
-        relindent -= output.write('RECURSIVE ')
-    output.print_list(node.ctes, relative_indent=relindent)
+    with output.push_indent(-2):
+        if node.recursive:
+            output.write('RECURSIVE')
+            output.newline()
+            output.space(2)
+        output.print_list(node.ctes)
 
 
 @node_printer(ast.WindowDef)

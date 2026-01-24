@@ -432,10 +432,10 @@ class SentCode(TLObject):
 
 
 class SentCodePaymentRequired(TLObject):
-    CONSTRUCTOR_ID = 0xd7a2fcf9
+    CONSTRUCTOR_ID = 0xe0955a3c
     SUBCLASS_OF_ID = 0x6ce87081
 
-    def __init__(self, store_product: str, phone_code_hash: str, support_email_address: str, support_email_subject: str):
+    def __init__(self, store_product: str, phone_code_hash: str, support_email_address: str, support_email_subject: str, currency: str, amount: int):
         """
         Constructor for auth.SentCode: Instance of either SentCode, SentCodeSuccess, SentCodePaymentRequired.
         """
@@ -443,6 +443,8 @@ class SentCodePaymentRequired(TLObject):
         self.phone_code_hash = phone_code_hash
         self.support_email_address = support_email_address
         self.support_email_subject = support_email_subject
+        self.currency = currency
+        self.amount = amount
 
     def to_dict(self):
         return {
@@ -450,16 +452,20 @@ class SentCodePaymentRequired(TLObject):
             'store_product': self.store_product,
             'phone_code_hash': self.phone_code_hash,
             'support_email_address': self.support_email_address,
-            'support_email_subject': self.support_email_subject
+            'support_email_subject': self.support_email_subject,
+            'currency': self.currency,
+            'amount': self.amount
         }
 
     def _bytes(self):
         return b''.join((
-            b'\xf9\xfc\xa2\xd7',
+            b'<Z\x95\xe0',
             self.serialize_bytes(self.store_product),
             self.serialize_bytes(self.phone_code_hash),
             self.serialize_bytes(self.support_email_address),
             self.serialize_bytes(self.support_email_subject),
+            self.serialize_bytes(self.currency),
+            struct.pack('<q', self.amount),
         ))
 
     @classmethod
@@ -468,7 +474,9 @@ class SentCodePaymentRequired(TLObject):
         _phone_code_hash = reader.tgread_string()
         _support_email_address = reader.tgread_string()
         _support_email_subject = reader.tgread_string()
-        return cls(store_product=_store_product, phone_code_hash=_phone_code_hash, support_email_address=_support_email_address, support_email_subject=_support_email_subject)
+        _currency = reader.tgread_string()
+        _amount = reader.read_long()
+        return cls(store_product=_store_product, phone_code_hash=_phone_code_hash, support_email_address=_support_email_address, support_email_subject=_support_email_subject, currency=_currency, amount=_amount)
 
 
 class SentCodeSuccess(TLObject):

@@ -10,7 +10,7 @@ import shutil
 import sys
 import textwrap
 from multiprocessing import Process
-from typing import Any, Callable, Sequence, Union, no_type_check
+from typing import Any, Callable, Sequence, no_type_check
 
 from .viztracer import VizTracer
 
@@ -28,7 +28,7 @@ def patch_subprocess(viz_args: list[str]) -> None:
 
     def build_command(args: Sequence[str]) -> list[str] | None:
         py_args: list[str] = []
-        mode = []
+        mode: list[str] | None = []
         script = None
         args_iter = iter(args[1:])
         for arg in args_iter:
@@ -51,15 +51,29 @@ def patch_subprocess(viz_args: list[str]) -> None:
                         py_args.append(f"-{cm_py_args}")
                     mode = [f"-{cm}"]
                     # -m mod | -mmod
-                    mode.append(cm_arg or next(args_iter, None))
+                    cm_arg = cm_arg or next(args_iter, None)
+                    if cm_arg is not None:
+                        if cm_arg.split('.')[0] == "viztracer":
+                            # Avoid tracing viztracer subprocess
+                            # This is mainly used to avoid tracing --open
+                            return None
+                        mode.append(cm_arg)
+                    else:
+                        mode = None
                 break
 
             # -pyopts
             py_args.append(arg)
+            if arg in ("-X", "-W", "--check-hash-based-pycs"):
+                arg_next = next(args_iter, None)
+                if arg_next is not None:
+                    py_args.append(arg_next)
+                else:
+                    return None
 
         if script:
             return [sys.executable, *py_args, "-m", "viztracer", "--quiet", *viz_args, "--", script, *args_iter]
-        elif mode and mode[-1] is not None:
+        elif mode:
             return [sys.executable, *py_args, "-m", "viztracer", "--quiet", *viz_args, *mode, "--", *args_iter]
         return None
 
@@ -78,7 +92,7 @@ def patch_subprocess(viz_args: list[str]) -> None:
         return False
 
     @functools.wraps(subprocess.Popen.__init__)
-    def subprocess_init(self: subprocess.Popen[Any], args: Union[str, Sequence[Any], Any], **kwargs: Any) -> None:
+    def subprocess_init(self: subprocess.Popen[Any], args: str | Sequence[Any] | Any, **kwargs: Any) -> None:
         new_args = args
         if isinstance(new_args, str):
             new_args = shlex.split(new_args, posix=sys.platform != "win32")
@@ -118,7 +132,7 @@ def patch_multiprocessing(tracer: VizTracer, viz_args: list[str]) -> None:
         tracer.register_exit()
 
         tracer.clear()
-        tracer._set_curr_stack_depth(1)
+        tracer.reset_stack()
 
         if tracer._afterfork_cb:
             tracer._afterfork_cb(tracer, *tracer._afterfork_args, **tracer._afterfork_kwargs)

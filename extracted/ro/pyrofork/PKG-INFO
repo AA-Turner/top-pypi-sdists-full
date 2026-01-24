@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pyrofork
-Version: 2.3.68
+Version: 2.3.69
 Summary: Fork of pyrogram. Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
 Project-URL: Homepage, https://github.com/Mayuri-Chan
 Project-URL: Tracker, https://github.com/Mayuri-Chan/pyrofork/issues
 Project-URL: Community, https://t.me/MayuriChan_Chat
 Project-URL: Source, https://github.com/Mayuri-Chan/pyrofork
-Project-URL: Documentation, https://pyrofork.wulan17.top
+Project-URL: Documentation, https://pyrofork.wulan17.dev
 Author-email: wulan17 <mayuri@mayuri.my.id>
 License-Expression: LGPL-3.0-or-later
 License-File: COPYING
@@ -20,11 +20,11 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -34,7 +34,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Requires-Dist: pyaes==1.6.1
 Requires-Dist: pymediainfo-pyrofork<7.0.0,>=6.0.1
 Requires-Dist: pysocks==1.7.1
@@ -66,7 +66,7 @@ Description-Content-Type: text/markdown
         Homepage
     </a>
     •
-    <a href="https://pyrofork.wulan17.top">
+    <a href="https://pyrofork.wulan17.dev">
         Documentation
     </a>
     •
@@ -101,7 +101,7 @@ async def hello(client, message):
 app.run()
 ```
 
-**Pyrofork** is a modern, elegant and asynchronous [MTProto API](https://pyrofork.wulan17.top/main/topics/mtproto-vs-botapi)
+**Pyrofork** is a modern, elegant and asynchronous [MTProto API](https://pyrofork.wulan17.dev/main/topics/mtproto-vs-botapi)
 framework. It enables you to easily interact with the main Telegram API through a user account (custom client) or a bot
 identity (bot API alternative) using Python.
 
@@ -129,6 +129,6 @@ pip3 install pyrofork
 
 ### Resources
 
-- Check out the docs at https://pyrofork.wulan17.top to learn more about Pyrofork, get started right
+- Check out the docs at https://pyrofork.wulan17.dev to learn more about Pyrofork, get started right
 away and discover more in-depth material for building your client applications.
 - Join the official group at https://t.me/MayuriChan_Chat and stay tuned for news, updates and announcements.

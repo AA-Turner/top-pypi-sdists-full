@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "decorator>=4.0.0",
     "stevedore>=3.0.0",
@@ -32,7 +32,7 @@ Documentation = "https://dogpilecache.sqlalchemy.org"
 
 [project.optional-dependencies]
 pifpaf = [
-    "pifpaf>=3.2.0",
+    "pifpaf>=3.3.0",
 ]
 pymemcache = [
     "pymemcache",
@@ -44,7 +44,13 @@ bmemcached = [
     "python-binary-memcached",
 ]
 pylibmc = [
+    # pylibmc is still getting commits in 2025 but has not had a release
+    # since 2022.  needs libmemcached headers etc. to build
     "pylibmc",
+
+    # this version is needed for builds - see nox -t memcached-full
+    # for special install from source
+    # "pylibmc @ git+https://github.com/lericson/pylibmc.git@master"
 ]
 redis = [
     "redis",
@@ -55,6 +61,67 @@ valkey = [
 
 [project.entry-points."mako.cache"]
 "dogpile.cache" = "dogpile.cache.plugins.mako_cache:MakoPlugin"
+
+[dependency-groups]
+tests = [
+    "pytest>8",
+    "pytest-xdist",
+    "mako",
+    "junitparser",
+]
+
+coverage = [
+    "pytest-cov"
+]
+
+tests_redis = [
+    "dogpile.cache[pifpaf]",
+    "dogpile.cache[redis]",
+]
+tests_memcached = [
+    "dogpile.cache[pifpaf]",
+    "dogpile.cache[pymemcache]",
+    "dogpile.cache[memcached]",
+    "dogpile.cache[bmemcached]",
+
+    # disabled for now until a modern release is made
+    # "dogpile.cache[pylibmc]",
+]
+
+tests_valkey = [
+    "dogpile.cache[pifpaf]",
+    "dogpile.cache[valkey]",
+]
+
+
+lint = [
+      "flake8==7.2.0",
+      "flake8-import-order",
+      "flake8-builtins",
+      "flake8-future-annotations>=0.0.5",
+      "flake8-docstrings>=1.6.0",
+      "flake8-import-single==0.1.5",
+      "flake8-unused-arguments",
+      # flake8-rst-docstrings dependency, leaving it here
+      # in case it requires a version pin
+      "flake8-rst-docstrings",
+      "pydocstyle",
+      "pygments",
+      "black==25.1.0",
+      "slotscheck>=0.17.0",
+]
+
+mypy = [
+    "nox",  # because we check noxfile.py
+    "mypy",
+    "types-decorator",
+    "types-redis",
+    "redis",
+    "valkey",
+    "Mako",
+    "decorator",
+]
+
 
 [tool.setuptools]
 zip-safe = false
@@ -79,15 +146,21 @@ version = {attr = "dogpile.__version__"}
 
 [tool.black]
 line-length = 79
-target-version = ['py39']
 
+[tool.mypy]
+python_version = "3.10"
+show_error_codes = true
+incremental = true
+strict = true
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+ignore_missing_imports = true
+warn_unused_ignores = true
 
 [tool.pytest.ini_options]
-addopts = "--tb native -v -r fxX  -p no:logging -p no:warnings -m 'not time_intensive'"
+addopts = "--tb native -v -r fxX  -p no:logging -p no:warnings"
 python_files = "tests/*test_*.py"
 python_classes = "*Test"
-
 filterwarnings = [
     "error"
 ]
-

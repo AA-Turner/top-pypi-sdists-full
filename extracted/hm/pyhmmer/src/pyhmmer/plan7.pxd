@@ -3,13 +3,16 @@
 
 # --- C imports --------------------------------------------------------------
 
+from libc.math cimport NAN
 from libc.stdint cimport uint8_t, uint32_t
 from posix.types cimport off_t
 from cpython.pythread cimport PyThread_type_lock
 
 from libeasel import eslINFINITY
+from libeasel.alphabet cimport ESL_ALPHABET
 from libeasel.sq cimport ESL_SQ
 from libeasel.sqio cimport ESL_SQFILE
+from libhmmer.impl.p7_oprofile cimport P7_OM_BLOCK, P7_OPROFILE
 from libhmmer.p7_alidisplay cimport P7_ALIDISPLAY
 from libhmmer.p7_bg cimport P7_BG
 from libhmmer.p7_builder cimport P7_BUILDER
@@ -24,16 +27,7 @@ from libhmmer.p7_tophits cimport P7_TOPHITS
 from libhmmer.p7_trace cimport P7_TRACE
 from libhmmer.nhmmer cimport ID_LENGTH_LIST
 
-if HMMER_IMPL == "VMX":
-    from libhmmer.impl_vmx.p7_omx cimport P7_OM_BLOCK
-    from libhmmer.impl_vmx.p7_oprofile cimport P7_OPROFILE
-elif HMMER_IMPL == "SSE":
-    from libhmmer.impl_sse.p7_omx cimport P7_OM_BLOCK
-    from libhmmer.impl_sse.p7_oprofile cimport P7_OPROFILE
-elif HMMER_IMPL == "NEON":
-    from libhmmer.impl_neon.p7_omx cimport P7_OM_BLOCK
-    from libhmmer.impl_neon.p7_oprofile cimport P7_OPROFILE
-
+from .platform cimport _FileobjReader
 from .easel cimport (
     Alphabet,
     DigitalSequence,
@@ -42,9 +36,10 @@ from .easel cimport (
     KeyHash,
     MSA,
     Randomness,
+    Sequence,
+    SequenceFile,
     VectorF,
     VectorU8,
-    SequenceFile,
 )
 
 
@@ -79,6 +74,7 @@ cdef class Background:
     cdef          int      _L
 
     cpdef Background copy(self)
+    cpdef float null1(self, Sequence sequence) except? NAN
 
 
 cdef class Builder:
@@ -160,10 +156,14 @@ cdef class HMM:
 
 
 cdef class HMMFile:
-    cdef str         _name
-    cdef P7_HMMFILE* _hfp
-    cdef Alphabet    _alphabet
-    cdef object      _file
+    cdef          P7_HMMFILE*    _hfp
+    cdef          ESL_ALPHABET*  _abc
+    cdef          str            _name
+    cdef readonly _FileobjReader _reader
+    cdef readonly object         _file
+    cdef readonly Alphabet       alphabet
+
+    cdef int _open_fileobj(self, object fh) except 1
 
     cpdef void close(self) except *
     cpdef void rewind(self) except *
@@ -171,15 +171,15 @@ cdef class HMMFile:
     cpdef bint is_pressed(self) except *
     cpdef HMMPressedFile optimized_profiles(self)
 
-    @staticmethod
-    cdef P7_HMMFILE* _open_fileobj(object fh) except *
+
 
 
 cdef class HMMPressedFile:
-    cdef P7_HMMFILE* _hfp
-    cdef Alphabet    _alphabet
-    cdef HMMFile     _hmmfile
-    cdef size_t      _position
+    cdef          P7_HMMFILE*   _hfp
+    cdef          ESL_ALPHABET* _abc
+    cdef          HMMFile       _hmmfile
+    cdef          size_t        _position
+    cdef readonly Alphabet       alphabet
 
     cpdef void close(self) except *
     cpdef void rewind(self) except *
@@ -216,8 +216,8 @@ cdef class OptimizedProfile:
     cpdef OptimizedProfile copy(self)
     cpdef void convert(self, Profile profile) except *
     cpdef void write(self, object fh_filter, object fh_profile) except *
-    cpdef object ssv_filter(self, DigitalSequence seq)
-
+    cpdef float ssv_filter(self, DigitalSequence seq) except? NAN
+    cpdef float msv_filter(self, DigitalSequence seq) except? NAN
 
 cdef class OptimizedProfileBlock:
     cdef          PyThread_type_lock* _locks
@@ -400,6 +400,7 @@ cdef class Profile:
     cpdef void configure(self, HMM hmm, Background background, int L=?, bint multihit=*, bint local=*) except *
     cpdef Profile copy(self)
     cpdef OptimizedProfile to_optimized(self)
+    cpdef float msv_filter(self, DigitalSequence seq, float nu=?) except? NAN
 
 
 cdef class ScoreData:
@@ -437,16 +438,31 @@ cdef class TopHits:
 
 
 cdef class Trace:
-    cdef readonly Traces traces
     cdef P7_TRACE* _tr
+
+    @staticmethod
+    cdef bint _eq(P7_TRACE* tr1, P7_TRACE* tr2) noexcept nogil
 
     cpdef float expected_accuracy(self)
     cpdef float score(self, DigitalSequence sequence, Profile profile) except *
 
 
 cdef class Traces:
-    cdef P7_TRACE** _traces
-    cdef size_t     _ntraces
+    cdef          size_t     _length   # the number of traces in the block
+    cdef          size_t     _capacity # the total number of traces that can be stored
+    cdef          P7_TRACE** _refs     # the array to pass the sequence references
+    cdef          list       _storage  # the actual Python list where `Sequence` objects are stored
+
+    cdef void _allocate(self, size_t n) except *
+    cdef void _on_modification(self) noexcept
+
+    cpdef void append(self, Trace trace) except *
+    cpdef void clear(self) except *
+    cpdef void extend(self, object iterable) except *
+    cpdef Trace pop(self, ssize_t index=*)
+    cpdef void insert(self, ssize_t index, Trace trace) except *
+    cpdef size_t index(self, Trace trace, ssize_t start=*, ssize_t stop=*) except? -1
+    cpdef void remove(self, Trace trace) except *
 
 
 cdef class TraceAligner:

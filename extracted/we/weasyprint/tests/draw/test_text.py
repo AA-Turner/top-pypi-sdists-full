@@ -2,6 +2,8 @@
 
 import pytest
 
+from weasyprint.text.ffi import pango
+
 from ..testing_utils import SANS_FONTS
 
 
@@ -603,7 +605,7 @@ def test_text_underline(assert_pixels):
           color: rgba(255, 0, 0, 0.5);
           font-family: weasyprint;
           font-size: 3px;
-          text-decoration: underline blue;
+          text-decoration: underline blue auto;
         }
       </style>
       <div>abc</div>''')
@@ -1165,7 +1167,7 @@ def test_font_variant_caps_petite(assert_pixels):
 
 
 # Bug in Pango: https://gitlab.gnome.org/GNOME/pango/-/merge_requests/875
-@pytest.mark.xfail
+@pytest.mark.xfail(pango.pango_version() == 15604, reason='Bug in Pango 1.56.4')
 def test_font_variant_caps_all_petite(assert_pixels):
     assert_pixels('''
         ________

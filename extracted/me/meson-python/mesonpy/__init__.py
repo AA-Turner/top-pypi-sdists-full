@@ -16,6 +16,7 @@ import collections
 import contextlib
 import copy
 import difflib
+import fnmatch
 import functools
 import importlib.machinery
 import io
@@ -36,6 +37,8 @@ import textwrap
 import typing
 import warnings
 
+from functools import cached_property
+
 
 if sys.version_info < (3, 11):
     import tomli as tomllib
@@ -46,13 +49,12 @@ import packaging.utils
 import packaging.version
 import pyproject_metadata
 
-import mesonpy._compat
 import mesonpy._rpath
 import mesonpy._tags
 import mesonpy._util
 import mesonpy._wheelfile
 
-from mesonpy._compat import cached_property, read_binary
+from mesonpy._compat import read_binary
 
 
 try:
@@ -81,7 +83,7 @@ if typing.TYPE_CHECKING:  # pragma: no cover
     MesonArgs = Mapping[MesonArgsKeys, List[str]]
 
 
-__version__ = '0.18.0'
+__version__ = '0.19.0'
 
 
 _PYPROJECT_METADATA_VERSION = tuple(map(int, pyproject_metadata.__version__.split('.')[:2]))
@@ -111,14 +113,32 @@ _INSTALLATION_PATH_MAP = {
 }
 
 
-def _map_to_wheel(sources: Dict[str, Dict[str, Any]]) -> DefaultDict[str, List[Tuple[pathlib.Path, str]]]:
+def _compile_patterns(patterns: List[str]) -> Callable[[str], bool]:
+    if not patterns:
+        return lambda x: False
+    func = re.compile('|'.join(fnmatch.translate(os.path.normpath(p)) for p in patterns)).match
+    return typing.cast('Callable[[str], bool]', func)
+
+
+def _map_to_wheel(
+    sources: Dict[str, Dict[str, Any]],
+    exclude: List[str],
+    include: List[str],
+) -> DefaultDict[str, List[Tuple[pathlib.Path, str]]]:
     """Map files to the wheel, organized by wheel installation directory."""
     wheel_files: DefaultDict[str, List[Tuple[pathlib.Path, str]]] = collections.defaultdict(list)
     packages: Dict[str, str] = {}
+    excluded = _compile_patterns(exclude)
+    included = _compile_patterns(include)
 
     for key, group in sources.items():
         for src, target in group.items():
-            destination = pathlib.Path(target['destination'])
+            target_destination = os.path.normpath(target['destination'])
+
+            if excluded(target_destination) and not included(target_destination):
+                continue
+
+            destination = pathlib.Path(target_destination)
             anchor = destination.parts[0]
             dst = pathlib.Path(*destination.parts[1:])
 
@@ -578,8 +598,10 @@ def _validate_pyproject_config(pyproject: Dict[str, Any]) -> Dict[str, Any]:
         'meson': _string_or_path,
         'limited-api': _bool,
         'allow-windows-internal-shared-libs': _bool,
-        'args': _table({
-            name: _strings for name in _MESON_ARGS_KEYS
+        'args': _table(dict.fromkeys(_MESON_ARGS_KEYS, _strings)),
+        'wheel': _table({
+            'exclude': _strings,
+            'include': _strings,
         }),
     })
 
@@ -711,6 +733,8 @@ class Project():
                         cpp = ['c++', '-arch', {arch!r}]
                         objc = ['cc', '-arch', {arch!r}]
                         objcpp = ['c++', '-arch', {arch!r}]
+                        strip = ['strip', '-arch', {arch!r}]
+
                         [host_machine]
                         system = 'darwin'
                         cpu = {arch!r}
@@ -719,6 +743,34 @@ class Project():
                     ''')
                     self._meson_cross_file.write_text(cross_file_data, encoding='utf-8')
                     self._meson_args['setup'].extend(('--cross-file', os.fspath(self._meson_cross_file)))
+
+        # Support iOS targets. iOS does not have native build tools and always
+        # requires cross compilation: synthesize the appropriate cross file.
+        elif sysconfig.get_platform().startswith('ios-'):
+            ios_ver = platform.ios_ver()  # type: ignore[attr-defined]
+
+            arch = platform.machine()
+            family = 'aarch64' if arch == 'arm64' else arch
+            subsystem = 'ios-simulator' if ios_ver.is_simulator else 'ios'
+
+            cross_file_data = textwrap.dedent(f'''
+                [binaries]
+                ar = '{arch}-apple-{subsystem}-ar'
+                c = '{arch}-apple-{subsystem}-clang'
+                cpp = '{arch}-apple-{subsystem}-clang++'
+                objc = '{arch}-apple-{subsystem}-clang'
+                objcpp = '{arch}-apple-{subsystem}-clang++'
+                strip = '{arch}-apple-{subsystem}-strip'
+
+                [host_machine]
+                system = 'ios'
+                subsystem = {subsystem!r}
+                cpu = {arch!r}
+                cpu_family = {family!r}
+                endian = 'little'
+            ''')
+            self._meson_cross_file.write_text(cross_file_data, encoding='utf-8')
+            self._meson_args['setup'].extend(('--cross-file', os.fspath(self._meson_cross_file)))
 
         # write the native file
         native_file_data = textwrap.dedent(f'''
@@ -762,7 +814,7 @@ class Project():
             if 'license-files' in self._metadata.dynamic:
                 self._metadata.license_files = self._meson_license_files
         else:
-            # if project section is missing, use minimal metdata from meson.build
+            # if project section is missing, use minimal metadata from meson.build
             name, version = self._meson_name, self._meson_version
             if not version:
                 raise pyproject_metadata.ConfigurationError(
@@ -786,8 +838,8 @@ class Project():
         if self._limited_api:
             # check whether limited API is disabled for the Meson project
             options = self._info('intro-buildoptions')
-            value = next((option['value'] for option in options if option['name'] == 'python.allow_limited_api'), None)
-            if not value:
+            allow_limited_api = next((opt['value'] for opt in options if opt['name'] == 'python.allow_limited_api'), None)
+            if not allow_limited_api:
                 self._limited_api = False
 
         if self._limited_api and bool(sysconfig.get_config_var('Py_GIL_DISABLED')):
@@ -798,6 +850,10 @@ class Project():
         # Shared library support on Windows requires collaboration
         # from the package, make sure the developers acknowledge this.
         self._allow_windows_shared_libs = pyproject_config.get('allow-windows-internal-shared-libs', False)
+
+        # Files to be excluded from the wheel
+        self._excluded_files = pyproject_config.get('wheel', {}).get('exclude', [])
+        self._included_files = pyproject_config.get('wheel', {}).get('include', [])
 
     def _run(self, cmd: Sequence[str]) -> None:
         """Invoke a subprocess."""
@@ -866,7 +922,10 @@ class Project():
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument('--tags')
         parser.add_argument('--skip-subprojects', nargs='?', const='*', default='')
-        args, _ = parser.parse_known_args(self._meson_args['install'])
+        args, others = parser.parse_known_args(self._meson_args['install'])
+        if others:
+            otherstr = ' '.join(others)
+            warnings.warn(f'unhandled arguments specified for meson install: {otherstr}', stacklevel=1)
         install_tags = {t.strip() for t in args.tags.split(',')} if args.tags else None
         skip_subprojects = {p for p in (p.strip() for p in args.skip_subprojects.split(',')) if p}
 
@@ -882,7 +941,7 @@ class Project():
                 sources[key][target] = details
 
         # Map Meson installation locations to wheel paths.
-        return _map_to_wheel(sources)
+        return _map_to_wheel(sources, self._excluded_files, self._included_files)
 
     @property
     def _meson_name(self) -> str:

@@ -1,20 +1,29 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: FalkorDB
-Version: 1.2.0
+Version: 1.4.0
 Summary: Python client for interacting with FalkorDB database
+License-File: LICENSE
 Keywords: FalkorDB,GraphDB,Cypher
 Author: FalkorDB inc
 Author-email: info@falkordb.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.10,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: python-dateutil (>=2.9.0,<3.0.0)
-Requires-Dist: redis (>=5.0.1,<6.0.0)
+Requires-Dist: redis (>=7.1.0,<8.0.0)
 Project-URL: Homepage, http://falkordb-py.readthedocs.io
 Project-URL: Repository, http://github.com/falkorDB/falkordb-py
 Description-Content-Type: text/markdown

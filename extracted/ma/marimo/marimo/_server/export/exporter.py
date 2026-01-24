@@ -1,26 +1,16 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import asyncio
 import base64
-import io
 import mimetypes
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Literal,
-    Optional,
-    cast,
-)
+from typing import Literal, Optional, cast
 
 from marimo import _loggers
-from marimo._ast import codegen
 from marimo._ast.app import InternalApp
-from marimo._ast.cell import Cell, CellImpl
-from marimo._ast.names import DEFAULT_CELL_NAME, is_internal_cell_name
-from marimo._ast.visitor import Language
+from marimo._ast.names import DEFAULT_CELL_NAME
 from marimo._config.config import (
     DEFAULT_CONFIG,
     DisplayConfig,
@@ -28,31 +18,31 @@ from marimo._config.config import (
 )
 from marimo._config.settings import GLOBAL_SETTINGS
 from marimo._config.utils import deep_copy
-from marimo._dependencies.dependencies import DependencyManager
-from marimo._messaging.cell_output import CellChannel, CellOutput
-from marimo._messaging.mimetypes import KnownMimeType
-from marimo._runtime import dataflow
-from marimo._runtime.virtual_file import read_virtual_file
-from marimo._schemas.serialization import NotebookSerializationV1
-from marimo._server.export.utils import (
-    format_filename_title,
+from marimo._convert.common.dom_traversal import (
+    replace_virtual_files_with_data_uris,
+)
+from marimo._convert.common.filename import (
     get_download_filename,
     get_filename,
-    get_markdown_from_cell,
-    get_sql_options_from_cell,
 )
+from marimo._convert.ipynb.from_ir import convert_from_ir_to_ipynb
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._messaging.mimetypes import KnownMimeType
+from marimo._runtime.virtual_file import read_virtual_file
+from marimo._schemas.notebook import NotebookV1
+from marimo._schemas.session import NotebookSessionV1
 from marimo._server.models.export import ExportAsHTMLRequest
-from marimo._server.session.serialize import (
-    serialize_notebook,
-    serialize_session_view,
-)
-from marimo._server.session.session_view import SessionView
 from marimo._server.templates.templates import (
     static_notebook_template,
     wasm_notebook_template,
 )
 from marimo._server.tokens import SkewProtectionToken
-from marimo._types.ids import CellId_t
+from marimo._session.state.serialize import (
+    serialize_notebook,
+    serialize_session_view,
+)
+from marimo._session.state.session_view import SessionView
+from marimo._utils import async_path
 from marimo._utils.code import hash_code
 from marimo._utils.data_uri import build_data_url
 from marimo._utils.marimo_path import MarimoPath
@@ -64,11 +54,17 @@ LOGGER = _loggers.marimo_logger()
 # Root directory for static assets
 ROOT = (marimo_package_path() / "_static").resolve()
 
-if TYPE_CHECKING:
-    from nbformat.notebooknode import NotebookNode  # type: ignore
+VIRTUAL_FILE_ALLOWED_ATTRIBUTES = {"src"}
+# We don't include video/audio as it can potentially be too much data
+# and the current use-cases are for images.
+VIRTUAL_FILE_ALLOWED_TAGS = {"img"}
 
 
 class Exporter:
+    # Virtual file URL format constants
+    _VIRTUAL_FILE_PATTERN = "./@file/"
+    _VIRTUAL_FILE_PREFIX_WITH_SLASH = "/@file/"
+
     def export_as_html(
         self,
         *,
@@ -79,56 +75,34 @@ class Exporter:
         request: ExportAsHTMLRequest,
     ) -> tuple[str, str]:
         index_html = get_html_contents()
-
         filename = get_filename(filename)
 
-        virtual_files: dict[str, str] = {}
-        for filename_and_length in request.files:
-            if "@file/" in filename_and_length:
-                virtual_file = filename_and_length[7:]
-                try:
-                    byte_length, basename = virtual_file.split("-", 1)
-                    buffer_contents = read_virtual_file(
-                        basename, int(byte_length)
-                    )
-                except Exception as e:
-                    LOGGER.warning(
-                        "File not found in export: %s. Error: %s",
-                        filename_and_length,
-                        e,
-                    )
-                    continue
-                mime_type = mimetypes.guess_type(basename)[0] or "text/plain"
-                virtual_files[filename_and_length] = build_data_url(
-                    cast(KnownMimeType, mime_type),
-                    base64.b64encode(buffer_contents),
-                )
+        # Configure notebook with display settings
+        config = self._prepare_display_config(display_config)
 
-        # We only want pass the display config in the static notebook,
-        # since we use:
-        # - display.theme
-        # - display.cell_output
-        config = deep_copy(DEFAULT_CONFIG)
-        config["display"] = display_config
-
+        # Serialize notebook state
         session_snapshot = serialize_session_view(
             session_view, cell_ids=app.cell_manager.cell_ids()
         )
         notebook_snapshot = serialize_notebook(session_view, app.cell_manager)
-        if not request.include_code:
-            code = ""
-            # Clear code and console outputs
-            for cell in notebook_snapshot["cells"]:
-                cell["code"] = ""
-                cell["name"] = ""
-            for output in session_snapshot["cells"]:
-                output["console"] = []
-        else:
-            code = app.to_py()
 
-        # We include the code hash regardless of whether we include the code
+        # Replace virtual files in HTML outputs with data URIs
+        session_snapshot, replaced_files = self._inline_virtual_files(
+            session_snapshot
+        )
+
+        # Prepare code for export
+        code = self._prepare_code(
+            request.include_code, app, notebook_snapshot, session_snapshot
+        )
+
+        # Build fallback virtual_files dict for files not in HTML outputs
+        virtual_files = self._build_virtual_files_dict(
+            request.files, replaced_files
+        )
+
+        # Generate final HTML
         code_hash = hash_code(app.to_py())
-
         html = static_notebook_template(
             html=index_html,
             user_config=config,
@@ -147,248 +121,152 @@ class Exporter:
         download_filename = get_download_filename(filename, "html")
         return html, download_filename
 
-    def export_as_script(
+    def _prepare_display_config(
+        self, display_config: DisplayConfig
+    ) -> MarimoConfig:
+        """Prepare config with display settings for static notebook."""
+        # We only want pass the display config in the static notebook,
+        # since we use:
+        # - display.theme
+        # - display.cell_output
+        config = deep_copy(DEFAULT_CONFIG)
+        config["display"] = display_config
+        return cast(MarimoConfig, config)
+
+    def _inline_virtual_files(
+        self, session_snapshot: NotebookSessionV1
+    ) -> tuple[NotebookSessionV1, set[str]]:
+        """Replace virtual file URLs with data URIs in session outputs.
+
+        Returns:
+            Tuple of (modified_snapshot, set_of_replaced_files)
+        """
+        replaced_files: set[str] = set()
+
+        for cell in session_snapshot["cells"]:
+            for output in cell["outputs"]:
+                if output["type"] != "data":
+                    continue
+
+                for mime_type, data in output["data"].items():
+                    if not isinstance(data, str):
+                        continue
+                    if self._VIRTUAL_FILE_PATTERN not in data:
+                        continue
+
+                    processed, files = replace_virtual_files_with_data_uris(
+                        data,
+                        allowed_tags=VIRTUAL_FILE_ALLOWED_TAGS,
+                        allowed_attributes=VIRTUAL_FILE_ALLOWED_ATTRIBUTES,
+                    )
+                    replaced_files.update(files)
+                    output["data"][mime_type] = processed
+
+        return session_snapshot, replaced_files
+
+    def _prepare_code(
         self,
-        filename: Optional[str],
+        include_code: bool,
         app: InternalApp,
-    ) -> tuple[str, str]:
-        # Check if any code is async, if so, raise an error
-        for cell in app.cell_manager.cells():
-            if not cell:
-                continue
-            if cell._is_coroutine:
-                from click import UsageError
+        notebook_snapshot: NotebookV1,
+        session_snapshot: NotebookSessionV1,
+    ) -> str:
+        """Prepare code for export, optionally clearing it."""
+        if not include_code:
+            # Clear code and console outputs
+            for nb_cell in notebook_snapshot["cells"]:
+                nb_cell["code"] = ""
+                nb_cell["name"] = DEFAULT_CELL_NAME
+            for snapshot_cell in session_snapshot["cells"]:
+                snapshot_cell["console"] = []
+            return ""
 
-                raise UsageError(
-                    "Cannot export a notebook with async code to a flat script"
-                )
+        return app.to_py()
 
-        graph = app.graph
-        header = codegen.get_header_comments(filename) if filename else ""
-        codes: list[str] = [
-            "# %%\n" + graph.cells[cid].code
-            for cid in dataflow.topological_sort(graph, graph.cells.keys())
-        ]
-        code = (
-            f'{header}\n__generated_with = "{__version__}"\n\n'
-            + "\n\n".join(codes)
+    def _normalize_virtual_file_url(self, url: str) -> str:
+        """Normalize virtual file URL format from /@file/ to ./@file/."""
+        if url.startswith(self._VIRTUAL_FILE_PATTERN):
+            return url
+        return url.replace(
+            self._VIRTUAL_FILE_PREFIX_WITH_SLASH,
+            self._VIRTUAL_FILE_PATTERN,
+            1,
         )
 
-        download_filename = get_download_filename(filename, "script.py")
-        return code, download_filename
+    def _build_virtual_files_dict(
+        self, file_urls: list[str], replaced_files: set[str]
+    ) -> dict[str, str]:
+        """Build dict of virtual files not already inlined in HTML.
+
+        Args:
+            file_urls: List of virtual file URLs from request
+            replaced_files: Set of URLs already replaced in HTML outputs
+
+        Returns:
+            Dict mapping file URLs to data URIs
+        """
+        virtual_files: dict[str, str] = {}
+
+        for file_url in file_urls:
+            # Skip files already replaced in HTML outputs
+            normalized_url = self._normalize_virtual_file_url(file_url)
+            if normalized_url in replaced_files:
+                LOGGER.debug(
+                    "Skipping virtual file %s (already inlined in HTML)",
+                    file_url,
+                )
+                continue
+
+            # Process virtual file URLs
+            if self._VIRTUAL_FILE_PREFIX_WITH_SLASH not in file_url:
+                continue
+
+            data_uri = self._read_virtual_file_as_data_uri(file_url)
+            if data_uri:
+                virtual_files[file_url] = data_uri
+
+        return virtual_files
+
+    def _read_virtual_file_as_data_uri(self, file_url: str) -> Optional[str]:
+        """Read a virtual file and convert it to a data URI.
+
+        Args:
+            file_url: Virtual file URL in format /@file/{byte_length}-{filename}
+
+        Returns:
+            Data URI string, or None if file cannot be read
+        """
+        # Extract byte_length and filename from URL
+        # Format: /@file/{byte_length}-{filename}
+        prefix_len = len(self._VIRTUAL_FILE_PREFIX_WITH_SLASH)
+        virtual_file = file_url[prefix_len:]
+
+        try:
+            byte_length_str, basename = virtual_file.split("-", 1)
+            buffer_contents = read_virtual_file(basename, int(byte_length_str))
+        except Exception as e:
+            LOGGER.warning(
+                "File not found in export: %s. Error: %s", file_url, e
+            )
+            return None
+
+        mime_type = mimetypes.guess_type(basename)[0] or "text/plain"
+        return build_data_url(
+            cast(KnownMimeType, mime_type),
+            base64.b64encode(buffer_contents),
+        )
 
     def export_as_ipynb(
         self,
         app: InternalApp,
-        filename: Optional[str],
+        *,
         sort_mode: Literal["top-down", "topological"],
         session_view: Optional[SessionView] = None,
-    ) -> tuple[str, str]:
+    ) -> str:
         """Export notebook as .ipynb, optionally including outputs if session_view provided."""
-        DependencyManager.nbformat.require(
-            "to convert marimo notebooks to ipynb"
+        return convert_from_ir_to_ipynb(
+            app, sort_mode=sort_mode, session_view=session_view
         )
-        import nbformat  # type: ignore[import-not-found]
-
-        notebook = nbformat.v4.new_notebook()  # type: ignore[no-untyped-call]
-        graph = app.graph
-
-        # Sort cells based on sort_mode
-        if sort_mode == "top-down":
-            cell_ids = list(app.cell_manager.cell_ids())
-        else:
-            cell_ids = dataflow.topological_sort(graph, graph.cells.keys())
-
-        notebook["cells"] = []
-        for cid in cell_ids:
-            if cid not in graph.cells:
-                LOGGER.warning("Cell %s not found in graph", cid)
-                continue
-            cell = graph.cells[cid]
-            outputs: list[NotebookNode] = []
-
-            if session_view is not None:
-                # Get outputs for this cell and convert to IPython format
-                cell_output = session_view.get_cell_outputs([cid]).get(
-                    cid, None
-                )
-                cell_console_outputs = session_view.get_cell_console_outputs(
-                    [cid]
-                ).get(cid, [])
-                outputs = _convert_marimo_output_to_ipynb(
-                    cell_output, cell_console_outputs
-                )
-
-            notebook_cell = _create_notebook_cell(cell, outputs)
-            # Add metadata to the cell
-            marimo_metadata: dict[str, Any] = {}
-            if cell.config.is_different_from_default():
-                marimo_metadata["config"] = (
-                    cell.config.asdict_without_defaults()
-                )
-            name = app.cell_manager.cell_name(cid)
-            if not is_internal_cell_name(name):
-                marimo_metadata["name"] = name
-            if marimo_metadata:
-                notebook_cell["metadata"]["marimo"] = marimo_metadata
-            notebook["cells"].append(notebook_cell)
-
-        # notebook.metadata["marimo-version"] = __version__
-
-        stream = io.StringIO()
-        nbformat.write(notebook, stream)  # type: ignore[no-untyped-call]
-        stream.seek(0)
-        download_filename = get_download_filename(filename, "ipynb")
-        return stream.read(), download_filename
-
-    def export_as_md(
-        self,
-        notebook: NotebookSerializationV1,
-        filename: Optional[str],
-        previous: Path | None = None,
-    ) -> tuple[str, str]:
-        from marimo._ast import codegen
-        from marimo._ast.app_config import _AppConfig
-        from marimo._ast.compiler import compile_cell
-        from marimo._convert.markdown.markdown import (
-            extract_frontmatter,
-            formatted_code_block,
-            is_sanitized_markdown,
-        )
-        from marimo._utils import yaml
-
-        filename = get_filename(filename)
-        app_title = notebook.app.options.get("app_title", None)
-        if not app_title:
-            app_title = format_filename_title(filename)
-
-        metadata: dict[str, str | list[str]] = {}
-        metadata.update(
-            {
-                "title": app_title,
-                "marimo-version": __version__,
-            }
-        )
-
-        # Put data from AppFileManager into the yaml header.
-        ignored_keys = {"app_title"}
-        default_config = _AppConfig().asdict()
-
-        # Get values defined in _AppConfig without explicitly extracting keys,
-        # as long as it isn't the default.
-        metadata.update(
-            {
-                k: v
-                for k, v in notebook.app.options.items()
-                if k not in ignored_keys and v != default_config.get(k)
-            }
-        )
-        # If previously a markdown file, extract frontmatter.
-        # otherwise if it was a python file, extract header.
-        if previous and previous.suffix == ".py":
-            header = codegen.get_header_comments(previous)
-            if header:
-                metadata["header"] = header.strip()
-        else:
-            header_file = previous if previous else filename
-            if header_file:
-                with open(header_file, encoding="utf-8") as f:
-                    _metadata, _ = extract_frontmatter(f.read())
-                metadata.update(_metadata)
-
-        # Add the expected qmd filter to the metadata.
-        if filename.endswith(".qmd"):
-            if "filters" not in metadata:
-                metadata["filters"] = []
-            if "marimo" not in str(metadata["filters"]):
-                if isinstance(metadata["filters"], str):
-                    metadata["filters"] = metadata["filters"].split(",")
-                if isinstance(metadata["filters"], list):
-                    metadata["filters"].append("marimo-team/marimo")
-                else:
-                    LOGGER.warning(
-                        "Unexpected type for filters: %s",
-                        type(metadata["filters"]),
-                    )
-
-        header = yaml.marimo_compat_dump(
-            {
-                k: v
-                for k, v in metadata.items()
-                if v is not None and v != "" and v != []
-            },
-            sort_keys=False,
-        )
-        document = ["---", header.strip(), "---", ""]
-        previous_was_markdown = False
-
-        for cell in notebook.cells:
-            code = cell.code
-            # Config values are opt in, so only include if they are set.
-            attributes = cell.options
-            # Allow for attributes like column index.
-            attributes = {
-                k: repr(v).lower() for k, v in attributes.items() if v
-            }
-            if not is_internal_cell_name(cell.name):
-                attributes["name"] = cell.name
-
-            # No "cell" typically means not parseable. However newly added
-            # cells require compilation before cell is set.
-            # TODO: Refactor so it doesn't occur in export (codegen
-            # does this too)
-            # NB. Also need to recompile in the sql case since sql parsing is
-            # cached.
-            language: Language = "python"
-            cell_impl: CellImpl | None = None
-            try:
-                cell_impl = compile_cell(code, cell_id=CellId_t("dummy"))
-                language = cell_impl.language
-            except SyntaxError:
-                pass
-
-            if cell_impl:
-                # Markdown that starts a column is forced to code.
-                column = attributes.get("column", None)
-                if not column or column == "0":
-                    markdown = get_markdown_from_cell(cell_impl, code)
-                    # Unsanitized markdown is forced to code.
-                    if markdown and is_sanitized_markdown(markdown):
-                        # Use blank HTML comment to separate markdown codeblocks
-                        if previous_was_markdown:
-                            document.append("<!---->")
-                        previous_was_markdown = True
-                        document.append(markdown)
-                        continue
-                attributes["language"] = language
-                # Definitely a code cell, but need to determine if it can be
-                # formatted as non-python.
-                if attributes["language"] == "sql":
-                    sql_options: dict[str, str] | None = (
-                        get_sql_options_from_cell(code)
-                    )
-                    if not sql_options:
-                        # means not sql.
-                        attributes.pop("language")
-                    else:
-                        # Ignore default query value.
-                        if sql_options.get("query") == "_df":
-                            sql_options.pop("query")
-                        attributes.update(sql_options)
-                        code = "\n".join(cell_impl.raw_sqls).strip()
-
-            # Definitely no "cell"; as such, treat as code, as everything in
-            # marimo is code.
-            else:
-                attributes["unparsable"] = "true"
-            # Add a blank line between markdown and code
-            if previous_was_markdown:
-                document.append("")
-            previous_was_markdown = False
-            document.append(formatted_code_block(code, attributes))
-
-        download_filename = get_download_filename(filename, "md")
-        return "\n".join(document).strip(), download_filename
 
     def export_as_wasm(
         self,
@@ -427,6 +305,67 @@ class Exporter:
         download_filename = get_download_filename(filename, "wasm.html")
 
         return html, download_filename
+
+    def export_as_pdf(
+        self, *, app: InternalApp, session_view: SessionView, webpdf: bool
+    ) -> bytes | None:
+        """Export notebook as a PDF.
+
+        Args:
+            app: The app to export
+            session_view: The session view to export
+            webpdf: If False, tries standard PDF export (pandoc + TeX) first,
+                falling back to webpdf if deps are not installed. If True, uses webpdf
+                directly.
+
+        Returns:
+            PDF data
+        """
+        DependencyManager.require_many(
+            "for PDF export",
+            DependencyManager.nbformat,
+            DependencyManager.nbconvert,
+        )
+
+        ipynb_json_str = self.export_as_ipynb(
+            app=app, sort_mode="top-down", session_view=session_view
+        )
+
+        import nbformat
+
+        notebook = nbformat.reads(ipynb_json_str, as_version=4)  # type: ignore[no-untyped-call]
+
+        # Try standard PDF export first (requires pandoc + TeX)
+        # and fall back to webpdf if it fails
+        if not webpdf:
+            try:
+                from nbconvert import (  # type: ignore[import-not-found]
+                    PDFExporter,
+                )
+
+                exporter = PDFExporter()
+                pdf_data, _resources = exporter.from_notebook_node(notebook)
+                if isinstance(pdf_data, bytes):
+                    return pdf_data
+                LOGGER.error("PDF data is not bytes: %s", pdf_data)
+                return None
+            except OSError as e:
+                LOGGER.warning(
+                    "Standard PDF export failed, falling back to webpdf. Error: %s",
+                    e,
+                )
+
+        DependencyManager.playwright.require("for webpdf export")
+        from nbconvert import WebPDFExporter  # type: ignore[import-not-found]
+
+        web_exporter = WebPDFExporter()
+        web_exporter.allow_chromium_download = True
+        pdf_data, _resources = web_exporter.from_notebook_node(notebook)
+
+        if not isinstance(pdf_data, bytes):
+            LOGGER.error("PDF data is not bytes: %s", pdf_data)
+            return None
+        return pdf_data
 
     def export_assets(
         self, directory: Path, ignore_index_html: bool = False
@@ -529,10 +468,10 @@ class AutoExporter:
         if export_dir in self._created_dirs:
             return
 
-        if not directory.exists():
+        if not await async_path.exists(directory):
             raise FileNotFoundError(f"Directory {directory} does not exist")
 
-        export_dir.mkdir(parents=True, exist_ok=True)
+        await async_path.mkdir(export_dir, parents=True, exist_ok=True)
 
         # Cache that we've created this directory
         self._created_dirs.add(export_dir)
@@ -540,29 +479,6 @@ class AutoExporter:
     def cleanup(self) -> None:
         """Cleanup resources"""
         self._executor.shutdown(wait=False)
-
-
-def _create_notebook_cell(
-    cell: CellImpl, outputs: list[NotebookNode]
-) -> NotebookNode:
-    import nbformat
-
-    markdown_string = get_markdown_from_cell(
-        Cell(_name=DEFAULT_CELL_NAME, _cell=cell), cell.code
-    )
-    if markdown_string is not None:
-        return cast(
-            nbformat.NotebookNode,
-            nbformat.v4.new_markdown_cell(markdown_string, id=cell.cell_id),  # type: ignore[no-untyped-call]
-        )
-
-    node = cast(
-        nbformat.NotebookNode,
-        nbformat.v4.new_code_cell(cell.code, id=cell.cell_id),  # type: ignore[no-untyped-call]
-    )
-    if outputs:
-        node.outputs = outputs
-    return node
 
 
 def get_html_contents() -> str:
@@ -578,84 +494,3 @@ def get_html_contents() -> str:
 
     index_html = Path(ROOT) / "index.html"
     return index_html.read_text(encoding="utf-8")
-
-
-def _convert_marimo_output_to_ipynb(
-    output: Optional[CellOutput], console_outputs: list[CellOutput]
-) -> list[NotebookNode]:
-    """Convert marimo output format to IPython notebook format."""
-    import nbformat
-
-    ipynb_outputs: list[NotebookNode] = []
-
-    # Handle stdout/stderr
-    for output in console_outputs:
-        if output.channel == CellChannel.STDOUT:
-            ipynb_outputs.append(
-                cast(
-                    nbformat.NotebookNode,
-                    nbformat.v4.new_output(  # type: ignore[no-untyped-call]
-                        "stream",
-                        name="stdout",
-                        text=output.data,
-                    ),
-                )
-            )
-        if output.channel == CellChannel.STDERR:
-            ipynb_outputs.append(
-                cast(
-                    nbformat.NotebookNode,
-                    nbformat.v4.new_output(  # type: ignore[no-untyped-call]
-                        "stream",
-                        name="stderr",
-                        text=output.data,
-                    ),
-                )
-            )
-
-    if not output:
-        return ipynb_outputs
-
-    if output.data is None:
-        return ipynb_outputs
-
-    if output.channel not in (CellChannel.OUTPUT, CellChannel.MEDIA):
-        return ipynb_outputs
-
-    if output.mimetype == "text/plain" and (
-        output.data == [] or output.data == ""
-    ):
-        return ipynb_outputs
-
-    # Handle rich output
-    data: dict[str, Any] = {}
-
-    if output.mimetype == "application/vnd.marimo+error":
-        # Captured by stdout/stderr
-        return ipynb_outputs
-    elif output.mimetype == "application/vnd.marimo+mimebundle":
-        for mime, content in cast(dict[str, Any], output.data).items():
-            data[mime] = content
-    else:
-        if (
-            isinstance(output.data, str)
-            and output.data.startswith("data:")
-            and ";base64," in output.data
-        ):
-            data[output.mimetype] = output.data.split(";base64,")[1]
-        else:
-            data[output.mimetype] = output.data
-
-    if data:
-        ipynb_outputs.append(
-            cast(
-                nbformat.NotebookNode,
-                nbformat.v4.new_output(  # type: ignore[no-untyped-call]
-                    "display_data",
-                    data=data,
-                    metadata={},
-                ),
-            )
-        )
-
-    return ipynb_outputs

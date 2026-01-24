@@ -1,3 +1,5 @@
+__all__ = ["mmi1x2_with_sbend", "mmi_widths"]
+
 from typing import cast
 
 import numpy as np
@@ -5,8 +7,9 @@ import numpy.typing as npt
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.bends.bend_s import bend_s
 from gdsfactory.typings import ComponentFactory, CrossSectionSpec
+
+from ..bends.bend_s import bend_s
 
 
 def mmi_widths(t: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -32,7 +35,7 @@ def mmi_widths(t: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     xold = np.linspace(0, 1, num=len(widths))
     xnew = np.linspace(0, 1, num=100)
     f = interp1d(xold, widths, kind="cubic")
-    return cast(npt.NDArray[np.float64], f(xnew))
+    return cast("npt.NDArray[np.float64]", f(xnew))
 
 
 @gf.cell_with_module_name

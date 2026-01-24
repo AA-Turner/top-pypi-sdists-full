@@ -4,8 +4,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from concurrent import futures
-from typing import Iterator, TypeVar
+from typing import TypeVar
 
 _T = TypeVar("_T")
 
@@ -15,7 +16,7 @@ class EagerIterator(Iterator[_T]):
         self,
         iterator: Iterator[_T],
         pool: futures.Executor | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self.iterator = iterator
         self._pool = pool or futures.ThreadPoolExecutor()

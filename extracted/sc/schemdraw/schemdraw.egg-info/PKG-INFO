@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemdraw
-Version: 0.21
+Version: 0.22
 Summary: Electrical circuit schematic drawing
 Home-page: https://schemdraw.readthedocs.io
 Author: Collin J. Delker
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research

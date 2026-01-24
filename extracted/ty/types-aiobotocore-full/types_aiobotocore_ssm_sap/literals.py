@@ -3,7 +3,7 @@ Type annotations for ssm-sap service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -31,6 +31,8 @@ __all__ = (
     "ClusterStatusType",
     "ComponentStatusType",
     "ComponentTypeType",
+    "ConfigurationCheckOperationListingModeType",
+    "ConfigurationCheckTypeType",
     "ConnectedEntityTypeType",
     "CredentialTypeType",
     "DatabaseConnectionMethodType",
@@ -40,9 +42,13 @@ __all__ = (
     "HostRoleType",
     "ListApplicationsPaginatorName",
     "ListComponentsPaginatorName",
+    "ListConfigurationCheckDefinitionsPaginatorName",
+    "ListConfigurationCheckOperationsPaginatorName",
     "ListDatabasesPaginatorName",
     "ListOperationEventsPaginatorName",
     "ListOperationsPaginatorName",
+    "ListSubCheckResultsPaginatorName",
+    "ListSubCheckRuleResultsPaginatorName",
     "OperationEventStatusType",
     "OperationModeType",
     "OperationStatusType",
@@ -51,6 +57,7 @@ __all__ = (
     "RegionName",
     "ReplicationModeType",
     "ResourceServiceName",
+    "RuleResultStatusType",
     "ServiceName",
     "SsmSapServiceName",
 )
@@ -70,18 +77,26 @@ ComponentStatusType = Literal[
     "ACTIVATED", "RUNNING", "RUNNING_WITH_ERROR", "STARTING", "STOPPED", "STOPPING", "UNDEFINED"
 ]
 ComponentTypeType = Literal["ABAP", "ASCS", "DIALOG", "ERS", "HANA", "HANA_NODE", "WD", "WEBDISP"]
+ConfigurationCheckOperationListingModeType = Literal["ALL_OPERATIONS", "LATEST_PER_CHECK"]
+ConfigurationCheckTypeType = Literal["SAP_CHECK_01", "SAP_CHECK_02", "SAP_CHECK_03"]
 ConnectedEntityTypeType = Literal["DBMS"]
 CredentialTypeType = Literal["ADMIN"]
 DatabaseConnectionMethodType = Literal["DIRECT", "OVERLAY"]
-DatabaseStatusType = Literal["ERROR", "RUNNING", "STARTING", "STOPPED", "UNKNOWN", "WARNING"]
+DatabaseStatusType = Literal[
+    "ERROR", "RUNNING", "STARTING", "STOPPED", "STOPPING", "UNKNOWN", "WARNING"
+]
 DatabaseTypeType = Literal["SYSTEM", "TENANT"]
 FilterOperatorType = Literal["Equals", "GreaterThanOrEquals", "LessThanOrEquals"]
 HostRoleType = Literal["LEADER", "STANDBY", "UNKNOWN", "WORKER"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListComponentsPaginatorName = Literal["list_components"]
+ListConfigurationCheckDefinitionsPaginatorName = Literal["list_configuration_check_definitions"]
+ListConfigurationCheckOperationsPaginatorName = Literal["list_configuration_check_operations"]
 ListDatabasesPaginatorName = Literal["list_databases"]
 ListOperationEventsPaginatorName = Literal["list_operation_events"]
 ListOperationsPaginatorName = Literal["list_operations"]
+ListSubCheckResultsPaginatorName = Literal["list_sub_check_results"]
+ListSubCheckRuleResultsPaginatorName = Literal["list_sub_check_rule_results"]
 OperationEventStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 OperationModeType = Literal[
     "DELTA_DATASHIPPING", "LOGREPLAY", "LOGREPLAY_READACCESS", "NONE", "PRIMARY"
@@ -89,6 +104,7 @@ OperationModeType = Literal[
 OperationStatusType = Literal["ERROR", "INPROGRESS", "SUCCESS"]
 PermissionActionTypeType = Literal["RESTORE"]
 ReplicationModeType = Literal["ASYNC", "NONE", "PRIMARY", "SYNC", "SYNCMEM"]
+RuleResultStatusType = Literal["FAILED", "INFO", "PASSED", "UNKNOWN", "WARNING"]
 SsmSapServiceName = Literal["ssm-sap"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -116,7 +132,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -186,6 +201,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -231,7 +247,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -284,7 +299,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -323,8 +337,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -359,6 +371,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -368,18 +381,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -401,8 +416,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -417,15 +430,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -456,8 +470,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -497,6 +511,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -508,23 +523,18 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_applications",
     "list_components",
+    "list_configuration_check_definitions",
+    "list_configuration_check_operations",
     "list_databases",
     "list_operation_events",
     "list_operations",
+    "list_sub_check_results",
+    "list_sub_check_rule_results",
 ]
 RegionName = Literal[
     "af-south-1",

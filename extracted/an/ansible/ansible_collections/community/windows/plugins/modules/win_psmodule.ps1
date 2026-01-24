@@ -4,6 +4,7 @@
 # Copyright: (c) 2017, Daniele Lazzari <lazzari@mailup.com>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+#AnsibleRequires -PowerShell ..module_utils._Tls
 #Requires -Module Ansible.ModuleUtils.Legacy
 
 # win_psmodule (Windows PowerShell modules Additions/Removals/Updates)
@@ -31,17 +32,7 @@ $result = @{changed = $false
     repository_changed = $false
 }
 
-
-# Enable TLS1.1/TLS1.2 if they're available but disabled (eg. .NET 4.5)
-$security_protocols = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::SystemDefault
-if ([System.Net.SecurityProtocolType].GetMember("Tls11").Count -gt 0) {
-    $security_protocols = $security_protocols -bor [System.Net.SecurityProtocolType]::Tls11
-}
-if ([System.Net.SecurityProtocolType].GetMember("Tls12").Count -gt 0) {
-    $security_protocols = $security_protocols -bor [System.Net.SecurityProtocolType]::Tls12
-}
-[System.Net.ServicePointManager]::SecurityProtocol = $security_protocols
-
+Enable-TlsProtocol
 
 Function Install-NugetProvider {
     Param(
@@ -358,15 +349,19 @@ Function Find-LatestPsModule {
 
         $ht = Add-DefinedParameter -Hashtable $ht -ParametersNames $ParametersNames
 
-        $LatestModule = Find-Module @ht
-        $LatestModuleVersion = $LatestModule.Version
+        $LatestModule = Find-Module @ht | Select-Object Version
     }
     catch [ System.Exception ] {
         $ErrorMessage = "Cant find the module $($Name): $($_.Exception.Message)"
         Fail-Json $result $ErrorMessage
     }
 
-    $LatestModuleVersion
+    if ( $LatestModule.Version.GetType().FullName -eq 'System.Object[]' ) {
+        $ErrorMessage = "The module $Name exists in multiple repositories. Define a repository."
+        Fail-Json $result $ErrorMessage
+    }
+
+    $LatestModule
 }
 
 # Check PowerShell version, fail if < 5.0 and required modules are not installed
@@ -468,15 +463,15 @@ elseif ( $state -eq "latest") {
         Credential = $repo_credential
     }
 
-    $LatestVersion = Find-LatestPsModule @ht
+    $LatestModule = Find-LatestPsModule @ht
 
     $ExistingModule = Get-PsModule $Name
 
-    if ( ($LatestVersion.Version -ne $ExistingModule.Version) -or $force ) {
+    if ( ($LatestModule.Version -ne $ExistingModule.Version) -or $force ) {
 
         $ht = @{
             Name = $Name
-            RequiredVersion = $LatestVersion
+            RequiredVersion = $LatestModule.Version
             Repository = $repo
             AllowClobber = $allow_clobber
             SkipPublisherCheck = $skip_publisher_check

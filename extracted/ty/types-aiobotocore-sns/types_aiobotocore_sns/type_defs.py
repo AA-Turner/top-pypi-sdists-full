@@ -3,7 +3,7 @@ Type annotations for sns service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -29,12 +30,6 @@ from .literals import (
     SMSSandboxPhoneNumberVerificationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -176,7 +171,7 @@ class CheckIfPhoneNumberIsOptedOutInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -245,7 +240,7 @@ class DeleteTopicInputTypeDef(TypedDict):
 
 class EndpointTypeDef(TypedDict):
     EndpointArn: NotRequired[str]
-    Attributes: NotRequired[Dict[str, str]]
+    Attributes: NotRequired[dict[str, str]]
 
 
 class GetDataProtectionPolicyInputTypeDef(TypedDict):
@@ -294,7 +289,7 @@ class PhoneNumberInformationTypeDef(TypedDict):
     Status: NotRequired[str]
     Iso2CountryCode: NotRequired[str]
     RouteType: NotRequired[RouteTypeType]
-    NumberCapabilities: NotRequired[List[NumberCapabilityType]]
+    NumberCapabilities: NotRequired[list[NumberCapabilityType]]
 
 
 class ListPhoneNumbersOptedOutInputTypeDef(TypedDict):
@@ -307,7 +302,7 @@ class ListPlatformApplicationsInputTypeDef(TypedDict):
 
 class PlatformApplicationTypeDef(TypedDict):
     PlatformApplicationArn: NotRequired[str]
-    Attributes: NotRequired[Dict[str, str]]
+    Attributes: NotRequired[dict[str, str]]
 
 
 class ListSMSSandboxPhoneNumbersInputTypeDef(TypedDict):
@@ -497,17 +492,17 @@ class GetDataProtectionPolicyResponseTypeDef(TypedDict):
 
 
 class GetEndpointAttributesResponseTypeDef(TypedDict):
-    Attributes: Dict[str, str]
+    Attributes: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetPlatformApplicationAttributesResponseTypeDef(TypedDict):
-    Attributes: Dict[str, str]
+    Attributes: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetSMSAttributesResponseTypeDef(TypedDict):
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -517,17 +512,17 @@ class GetSMSSandboxAccountStatusResultTypeDef(TypedDict):
 
 
 class GetSubscriptionAttributesResponseTypeDef(TypedDict):
-    Attributes: Dict[str, str]
+    Attributes: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetTopicAttributesResponseTypeDef(TypedDict):
-    Attributes: Dict[str, str]
+    Attributes: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListPhoneNumbersOptedOutResponseTypeDef(TypedDict):
-    phoneNumbers: List[str]
+    phoneNumbers: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -558,7 +553,7 @@ class CreateTopicInputTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -568,7 +563,7 @@ class TagResourceRequestTypeDef(TypedDict):
 
 
 class ListEndpointsByPlatformApplicationResponseTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -608,44 +603,44 @@ class ListTopicsInputPaginateTypeDef(TypedDict):
 
 
 class ListOriginationNumbersResultTypeDef(TypedDict):
-    PhoneNumbers: List[PhoneNumberInformationTypeDef]
+    PhoneNumbers: list[PhoneNumberInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPlatformApplicationsResponseTypeDef(TypedDict):
-    PlatformApplications: List[PlatformApplicationTypeDef]
+    PlatformApplications: list[PlatformApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSMSSandboxPhoneNumbersResultTypeDef(TypedDict):
-    PhoneNumbers: List[SMSSandboxPhoneNumberTypeDef]
+    PhoneNumbers: list[SMSSandboxPhoneNumberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSubscriptionsByTopicResponseTypeDef(TypedDict):
-    Subscriptions: List[SubscriptionTypeDef]
+    Subscriptions: list[SubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSubscriptionsResponseTypeDef(TypedDict):
-    Subscriptions: List[SubscriptionTypeDef]
+    Subscriptions: list[SubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTopicsResponseTypeDef(TypedDict):
-    Topics: List[TopicTypeDef]
+    Topics: list[TopicTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class PublishBatchResponseTypeDef(TypedDict):
-    Successful: List[PublishBatchResultEntryTypeDef]
-    Failed: List[BatchResultErrorEntryTypeDef]
+    Successful: list[PublishBatchResultEntryTypeDef]
+    Failed: list[BatchResultErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -1,18 +1,25 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2025 LlamaIndex Inc.
+# Copyright (c) 2026 LlamaIndex Inc.
 
 from __future__ import annotations
 
 import inspect
+import secrets
+import string
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     Callable,
     Optional,
+    cast,
     get_args,
     get_origin,
     get_type_hints,
 )
+
+if TYPE_CHECKING:
+    from workflows.decorators import StepFunction
 
 try:
     from typing import Union
@@ -29,7 +36,7 @@ from pydantic import BaseModel
 
 from .errors import WorkflowValidationError
 from .events import Event, EventType
-from .resource import ResourceDefinition
+from .resource import ResourceDefinition, ResourceDescriptor
 
 BUSY_WAIT_DELAY = 0.01
 
@@ -44,7 +51,9 @@ class StepSignatureSpec(BaseModel):
     resources: list[Any]
 
 
-def inspect_signature(fn: Callable) -> StepSignatureSpec:
+def inspect_signature(
+    fn: Callable, localns: dict[str, Any] | None = None
+) -> StepSignatureSpec:
     """
     Given a function, ensure the signature is compatible with a workflow step.
 
@@ -65,7 +74,7 @@ def inspect_signature(fn: Callable) -> StepSignatureSpec:
         raise TypeError(f"Expected a callable object, got {type(fn).__name__}")
 
     sig = inspect.signature(fn)
-    type_hints = get_type_hints(fn, include_extras=True)
+    type_hints = _resolve_type_hints(fn, include_extras=True, localns=localns)
 
     accepted_events: dict[str, list[EventType]] = {}
     context_parameter = None
@@ -95,8 +104,17 @@ def inspect_signature(fn: Callable) -> StepSignatureSpec:
 
         # Handle Annotated types for resources
         if get_origin(annotation) is Annotated:
-            _, resource = get_args(annotation)
-            resources.append(ResourceDefinition(name=name, resource=resource))
+            args = get_args(annotation)
+            type_annotation = args[0] if args else None
+            descriptor = args[1] if len(args) > 1 else None
+            if descriptor is not None and isinstance(descriptor, ResourceDescriptor):
+                # Pass localns to resource for nested annotation resolution
+                descriptor.set_localns(localns)
+                resources.append(
+                    ResourceDefinition(
+                        name=name, resource=descriptor, type_annotation=type_annotation
+                    )
+                )
             continue
 
         # Get name and type of the Context param (without state type)
@@ -116,7 +134,7 @@ def inspect_signature(fn: Callable) -> StepSignatureSpec:
 
     return StepSignatureSpec(
         accepted_events=accepted_events,
-        return_types=_get_return_types(fn),
+        return_types=_get_return_types(fn, localns=localns),
         context_parameter=context_parameter,
         context_state_type=context_state_type,
         resources=resources,
@@ -147,7 +165,7 @@ def validate_step_signature(spec: StepSignatureSpec) -> None:
         raise WorkflowValidationError(msg)
 
 
-def get_steps_from_class(_class: object) -> dict[str, Callable]:
+def get_steps_from_class(_class: object) -> dict[str, StepFunction]:
     """
     Given a class, return the list of its methods that were defined as steps.
 
@@ -158,17 +176,19 @@ def get_steps_from_class(_class: object) -> dict[str, Callable]:
         dict[str, Callable]: A dictionary mapping step names to their corresponding methods.
 
     """
-    step_methods: dict[str, Callable] = {}
+    from workflows.decorators import StepFunction
+
+    step_methods: dict[str, StepFunction] = {}
     all_methods = inspect.getmembers(_class, predicate=inspect.isfunction)
 
     for name, method in all_methods:
-        if hasattr(method, "__step_config"):
-            step_methods[name] = method
+        if hasattr(method, "_step_config"):
+            step_methods[name] = cast(StepFunction, method)
 
     return step_methods
 
 
-def get_steps_from_instance(workflow: object) -> dict[str, Callable]:
+def get_steps_from_instance(workflow: object) -> dict[str, StepFunction]:
     """
     Given a workflow instance, return the list of its methods that were defined as steps.
 
@@ -179,12 +199,14 @@ def get_steps_from_instance(workflow: object) -> dict[str, Callable]:
         dict[str, Callable]: A dictionary mapping step names to their corresponding methods.
 
     """
-    step_methods: dict[str, Callable] = {}
+    from workflows.decorators import StepFunction
+
+    step_methods: dict[str, StepFunction] = {}
     all_methods = inspect.getmembers(workflow, predicate=inspect.ismethod)
 
     for name, method in all_methods:
-        if hasattr(method, "__step_config"):
-            step_methods[name] = method
+        if hasattr(method, "_step_config"):
+            step_methods[name] = cast(StepFunction, method)
 
     return step_methods
 
@@ -212,13 +234,15 @@ def _get_param_types(param: inspect.Parameter, type_hints: dict) -> list[Any]:
     return [typ]
 
 
-def _get_return_types(func: Callable) -> list[Any]:
+def _get_return_types(
+    func: Callable, localns: dict[str, Any] | None = None
+) -> list[Any]:
     """
     Extract the return type hints from a function.
 
     Handles Union, Optional, and List types.
     """
-    type_hints = get_type_hints(func)
+    type_hints = _resolve_type_hints(func, localns=localns)
     return_hint = type_hints.get("return")
     if return_hint is None:
         return []
@@ -229,6 +253,28 @@ def _get_return_types(func: Callable) -> list[Any]:
         return [t for t in get_args(return_hint) if t is not type(None)]
     else:
         return [return_hint]
+
+
+def _resolve_type_hints(
+    func: Callable,
+    *,
+    include_extras: bool = False,
+    localns: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    try:
+        return get_type_hints(func, include_extras=include_extras, localns=localns)
+    except NameError as exc:
+        missing_name = getattr(exc, "name", None)
+        missing_msg = f" Missing name: {missing_name}." if missing_name else ""
+        func_name = getattr(func, "__qualname__", type(func).__name__)
+        msg = (
+            "Failed to resolve type annotations for "
+            f"{func_name}.{missing_msg} "
+            "If you are using 'from __future__ import annotations' or string "
+            "annotations, ensure referenced names are available in module scope "
+            "or in the scope where the @step decorator is applied."
+        )
+        raise WorkflowValidationError(msg) from exc
 
 
 def is_free_function(qualname: str) -> bool:
@@ -261,3 +307,11 @@ def is_free_function(qualname: str) -> bool:
         return False
     else:
         return toks[-2] == "<locals>"
+
+
+_alphabet = string.ascii_letters + string.digits  # A-Z, a-z, 0-9
+
+
+def _nanoid(size: int = 10) -> str:
+    """Returns a unique identifier with the format 'kY2xP9hTnQ'."""
+    return "".join(secrets.choice(_alphabet) for _ in range(size))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
@@ -41,8 +41,9 @@ from howso.client.schemas import (
     TraineeVersion,
 )
 from howso.client.typing import LibraryType, Persistence
-from howso.direct.schemas import DirectTrainee
-from howso.utilities import internals
+from howso.direct.schemas import CombineTraineesResult, DirectTrainee
+from howso.utilities import HowsoTokenizer, internals, TokenizerProtocol
+from ..utilities.random import get_random_seed
 
 # Client version
 CLIENT_VERSION = importlib.metadata.version('howso-engine')
@@ -54,6 +55,9 @@ _VERSION_CHECKED = False
 DT_FORMAT_KEY = 'date_time_format'
 HYPERPARAMETER_KEY = "hyperparameter_map"
 VERSION_CHECK_HOST = "https://version-check.howso.com"
+
+SUBTRAINEE_CONTAINER = ".trainee_container"
+"""The name of the Amalgam entity that contains sub-Trainees in hierarchy."""
 
 # Cache of trainee information shared across client instances
 _trainee_cache = TraineeCache()
@@ -101,6 +105,10 @@ class HowsoDirectClient(AbstractHowsoClient):
     react_initial_batch_size: int, default 10
         The default number of cases to react to in the first batch
         for calls to :meth:`HowsoDirectClient.react`.
+    tokenizer : TokenizerProtocol, default None
+        An object that satisfies :class:`howso.client.protocols.TokenizerProtocol`. Provides a tokenizer and
+        `detokenize` method for processing tokenizable strings. If not specified, defaults to using
+        :class:`howso.utilities.HowsoTokenizer`.
     trace : bool, default False
         When true, enables tracing of Amalgam operations. This will generate an
         execution trace file useful in debugging, the filename will use the
@@ -134,6 +142,7 @@ class HowsoDirectClient(AbstractHowsoClient):
         howso_path: Path | str = DEFAULT_ENGINE_PATH,
         howso_fname: str = "howso.caml",
         react_initial_batch_size: int = 10,
+        tokenizer: t.Optional[TokenizerProtocol] = None,
         trace: bool = False,
         train_initial_batch_size: int = 100,
         verbose: bool = False,
@@ -172,6 +181,7 @@ class HowsoDirectClient(AbstractHowsoClient):
         self._react_discriminative_batch_threshold = 10
         self._react_initial_batch_size = react_initial_batch_size
         self._train_initial_batch_size = train_initial_batch_size
+        self._tokenizer = tokenizer or HowsoTokenizer()
 
         if not self._howso_dir.is_dir():
             raise HowsoError(f"The provided 'howso_path' is not a directory: {self._howso_dir}")
@@ -454,12 +464,15 @@ class HowsoDirectClient(AbstractHowsoClient):
         if new_file_size <= trainee.file_size * 2 and new_file_size <= trainee.file_size + 10485760:
             return
 
-        self.amlg.store_entity(
+        resolved_path = self.resolve_trainee_filepath(trainee_id)
+        is_persisted = self.amlg.store_entity(
             handle=trainee_id,
-            file_path=self.resolve_trainee_filepath(trainee_id),
+            file_path=resolved_path,
             persist=True,
             json_file_params='{"transactional":true,"flatten":true}'
         )
+        if not is_persisted:
+            warnings.warn(f'Failed to auto persist Trainee "{trainee_id}" to file path: {resolved_path}', UserWarning)
         trainee.file_size = self._trainee_size(trainee_id)
 
     def _store_session(self, trainee_id: str, session: Session):
@@ -471,16 +484,23 @@ class HowsoDirectClient(AbstractHowsoClient):
 
     def _initialize_trainee(self, trainee_id: str):
         """Create a new Amalgam entity."""
+        json_file_params = ""
+        if self._howso_ext == ".amlg":
+            json_file_params = """{"escape_contained_resource_names": false}"""
         status = self.amlg.load_entity(
             handle=trainee_id,
-            file_path=str(self._howso_absolute_path)
+            file_path=str(self._howso_absolute_path),
+            json_file_params=json_file_params
         )
         if not status.loaded:
             status_msg = status.message or "An unknown error occurred"
             raise HowsoError(
                 f'Failed to initialize the Trainee "{trainee_id}": {status_msg}')
-        
+
         self.amlg.set_entity_permissions(trainee_id, json_permissions='{"load":true,"store":true}')
+
+        # Reset the random seed; make sure we don't reuse a value embedded in howso.caml.
+        self.execute(trainee_id, "set_random_seed", {"seed": get_random_seed()})
 
         self.execute(trainee_id, "initialize", {
             "trainee_id": trainee_id,
@@ -616,7 +636,15 @@ class HowsoDirectClient(AbstractHowsoClient):
             return None
         return path.stat().st_size
 
-    def execute(self, trainee_id: str, label: str, payload: t.Any, **kwargs) -> t.Any:
+    def execute(
+        self,
+        trainee_id: str,
+        label: str,
+        payload: t.Any,
+        *,
+        path: Iterable[str] | None = None,
+        **kwargs,
+    ) -> t.Any:
         """
         Execute a label in Howso engine.
 
@@ -628,6 +656,9 @@ class HowsoDirectClient(AbstractHowsoClient):
             The label to execute.
         payload : Any
             The payload to send to label.
+        path : Iterable of str, optional
+            The hierarchy path to a sub-Trainee from the root Trainee specified by `trainee_id`. When specified,
+            the label execution will operate on this sub-Trainee.
 
         Returns
         -------
@@ -636,8 +667,12 @@ class HowsoDirectClient(AbstractHowsoClient):
         """
         payload = self.sanitize_for_json(payload, exclude_null=True)
         try:
-            json_payload = json.dumps(payload)
-            result = self.amlg.execute_entity_json(trainee_id, label, json_payload)
+            if path is None:
+                json_payload = json.dumps(payload)
+                result = self.amlg.execute_entity_json(trainee_id, label, json_payload)
+            else:
+                json_payload = json.dumps({"payload": payload, "method": label, "path": list(path)})
+                result = self.amlg.execute_entity_json(trainee_id, "execute_on_subtrainee", json_payload)
         except ValueError as err:
             raise HowsoError('Invalid payload - please check for infinity or NaN values') from err
         return self._deserialize(label, result)
@@ -907,6 +942,135 @@ class HowsoDirectClient(AbstractHowsoClient):
         self.trainee_cache.set(new_trainee, feature_attributes=features)
         return new_trainee
 
+    def create_trainee_from_memory(
+        self,
+        id: str | uuid.UUID,
+        content: bytes,
+        *,
+        file_type: t.Literal["amlg", "caml"] = "amlg",
+        path: Iterable[str] | None = None,
+        child_id: str | uuid.UUID | None = None,
+    ) -> Trainee:
+        """
+        Create a new Trainee given the Trainee file data as bytes.
+
+        Parameters
+        ----------
+        id : str or UUID
+            The Trainee id to use. If `path` is specified, this is the ID of the root Trainee in the hierarchy.
+        content : bytes
+            The Trainee data as bytes.
+        file_type : {"amlg", "caml"}, default "amlg"
+            The type of byte data provided in content.
+        path : Iterable of str, optional
+            If specified, creates the Trainee as a sub-Trainee at the provided hierarchy path. An empty list will
+            create the sub-Trainee as a direct child of the root at a new random path.
+        child_id : str or UUID, optional
+            The ID to use for the sub-Trainee when `path` is specified. Defaults to a new UUID.
+
+        Returns
+        -------
+        Trainee
+            The `Trainee` object that was created.
+        """
+        trainee_id = str(id)
+        entity_path = None
+        if path is not None:
+            path = list(path)
+            # Each entity child must be preceded by the container name
+            if len(path):
+                entity_path = [p for item in path for p in (SUBTRAINEE_CONTAINER, item)]
+            else:
+                entity_path = [SUBTRAINEE_CONTAINER]
+            self._resolve_trainee(trainee_id)
+
+        status = self.amlg.load_entity_from_memory(
+            trainee_id,
+            content,
+            file_type=file_type,
+            json_file_params='{"execute_on_load": true}',
+            entity_path=entity_path,
+        )
+        if not status.loaded:
+            status_msg = status.message or "An unknown error occurred"
+            raise HowsoError(f'Failed to load Trainee "{trainee_id}" from bytes: {status_msg}')
+
+        if path is not None:
+            root_trainee = self.trainee_cache.get(trainee_id)
+            sub_trainee_id = str(child_id or uuid.uuid4())
+            parent_path = path[:-1] if len(path) > 1 else None
+            self.execute(
+                trainee_id,
+                "add_hierarchy_relationship",
+                {"id": sub_trainee_id, "entity_path_id": status.entity_path[-1]},
+                path=parent_path,
+            )
+            if len(path) == 0:
+                # An empty path list will have autocreated the child 1-level deep, capture its generated path
+                path = [t.cast(str, status.entity_path[-1])]
+            self.execute(trainee_id, "set_trainee_id", {"trainee_id": sub_trainee_id}, path=path)
+
+            # Build the trainee object from the sub-trainee metadata
+            metadata = self.execute(trainee_id, "get_metadata", {}, path=path)
+            if metadata is None:
+                metadata = {}
+            persistence = metadata.get("persistence", root_trainee.persistence)
+            file_size = None
+            if persistence == "always":
+                file_size = self._trainee_size(trainee_id)
+
+            return DirectTrainee(
+                id=sub_trainee_id,
+                name=metadata.get("name"),
+                persistence=persistence,
+                metadata=metadata.get("metadata"),
+                file_size=file_size,
+            )
+        else:
+            self.execute(trainee_id, "set_trainee_id", {"trainee_id": trainee_id})
+            self.amlg.set_entity_permissions(trainee_id, json_permissions='{"load":true,"store":true}')
+            new_trainee = self._get_trainee_from_engine(trainee_id)
+            self.trainee_cache.set(new_trainee)
+            self.resolve_feature_attributes(trainee_id)
+            return new_trainee
+
+    def trainee_to_memory(
+        self,
+        trainee_id: str,
+        *,
+        file_type: t.Literal["amlg", "caml"] = "amlg",
+        trainee_path: Iterable[str] | None = None,
+    ) -> bytes | None:
+        """
+        Get the Trainee file data as bytes.
+
+        Parameters
+        ----------
+        trainee_id : str
+            The ID of the Trainee being retrieved. If `path` is specified, the ID of the root Trainee in the hierarchy.
+        file_type : {"amlg", "caml"}, default "amlg"
+            The type of byte data to return.
+        trainee_path : Iterable of str, optional
+            The hierarchy path to a sub-Trainee from the root Trainee specified by `trainee_id`.
+
+        Returns
+        -------
+        bytes or None
+            The Trainee file data as bytes. Or None if the `trainee_id` and/or `trainee_path` does not refer to
+            a valid Trainee.
+        """
+        if trainee_path is not None:
+            # Each entity child must be preceded by the container name
+            trainee_path = [p for item in trainee_path for p in (SUBTRAINEE_CONTAINER, item)]
+        content = self.amlg.store_entity_to_memory(
+            handle=trainee_id,
+            file_type=file_type,
+            entity_path=trainee_path,
+        )
+        if content == b"":
+            return None
+        return content
+
     def update_trainee(self, trainee: Mapping | Trainee) -> Trainee:
         """
         Update an existing Trainee in the Howso service.
@@ -933,18 +1097,29 @@ class HowsoDirectClient(AbstractHowsoClient):
 
         if old_trainee.persistence == 'always' and instance.persistence != 'always':
             # Manually persist the trainee now, turning off transactional mode.
-            self.amlg.store_entity(
-                handle=instance.id,
-                file_path=self.resolve_trainee_filepath(instance.id)
-            )
+            resolved_path = self.resolve_trainee_filepath(instance.id)
+            is_persisted = self.amlg.store_entity(handle=instance.id, file_path=resolved_path)
+            if not is_persisted:
+                raise HowsoError(
+                    f'Failed to update persistence of Trainee "{instance.id}", '
+                    f"could not write Trainee to file path: {resolved_path}",
+                    code="persist_failed",
+                )
         elif instance.persistence == 'always' and old_trainee.persistence != 'always':
             # Manually persist the trainee, turning on transactional mode.
-            self.amlg.store_entity(
+            resolved_path = self.resolve_trainee_filepath(instance.id)
+            is_persisted = self.amlg.store_entity(
                 handle=instance.id,
-                file_path=self.resolve_trainee_filepath(instance.id),
+                file_path=resolved_path,
                 persist=True,
-                json_file_params='{"transactional":true,"flatten":true}'
+                json_file_params='{"transactional":true,"flatten":true}',
             )
+            if not is_persisted:
+                raise HowsoError(
+                    f'Failed to update persistence of Trainee "{instance.id}", '
+                    f"could not write Trainee to file path: {resolved_path}",
+                    code="persist_failed",
+                )
             instance.file_size = self._trainee_size(instance.id)
 
         metadata = {
@@ -1426,10 +1601,18 @@ class HowsoDirectClient(AbstractHowsoClient):
 
             if trainee.persistence in ['allow', 'always']:
                 # Persist on unload
-                self.amlg.store_entity(
+                resolved_path = self.resolve_trainee_filepath(trainee_id)
+                is_persisted = self.amlg.store_entity(
                     handle=trainee_id,
-                    file_path=self.resolve_trainee_filepath(trainee_id)
+                    file_path=resolved_path,
                 )
+                if not is_persisted:
+                    # If persist fails, do not proceed to delete the trainee from memory
+                    raise HowsoError(
+                        f'Failed to release resources for Trainee "{trainee_id}", '
+                        f'could not write Trainee to file path: {resolved_path}',
+                        code="persist_failed",
+                    )
             elif trainee.persistence == "never":
                 raise HowsoError(
                     "Trainees set to never persist may not have their "
@@ -1467,12 +1650,17 @@ class HowsoDirectClient(AbstractHowsoClient):
                 "persistence option to enable persistence.")
         transactional = (trainee is not None and trainee.persistence == 'always')
 
-        self.amlg.store_entity(
+        resolved_path = self.resolve_trainee_filepath(trainee_id)
+        is_persisted = self.amlg.store_entity(
             handle=trainee_id,
-            file_path=self.resolve_trainee_filepath(trainee_id),
+            file_path=resolved_path,
             persist=transactional,
             json_file_params='{"transactional":true,"flatten":true}' if transactional else ""
         )
+        if not is_persisted:
+            raise HowsoError(
+                f'Failed to write Trainee "{trainee_id}" to file path: {resolved_path}', code="persist_failed"
+            )
 
         if transactional:
             assert trainee is not None
@@ -1700,3 +1888,67 @@ class HowsoDirectClient(AbstractHowsoClient):
             # of loaded trainees, raise error
             raise HowsoError("Session not found")
         return updated_session
+
+    def get_hierarchy(self, trainee_id: str, *, trainee_path: Iterable[str] | None = None) -> dict:
+        """
+        Get the hierarchy schema of a Trainee.
+
+        Parameters
+        ----------
+        trainee_id : str
+            The root Trainee id.
+        trainee_path : Iterable of str, optional
+            The path of a sub-Trainee to filter the hierarchy schema to.
+
+        Returns
+        -------
+        dict
+            The hierarchy schema of the Trainee.
+        """
+        if trainee_path is not None:
+            trainee_path = list(trainee_path)
+        return self.execute(trainee_id, "get_hierarchy", {"path_list": trainee_path})
+
+    def combine_trainee_with_subtrainees(
+        self,
+        trainee_id: str,
+        child_ids: Iterable[str] | None = None,
+        *,
+        skip_auto_analyze: bool = False,
+        trainee_path: Iterable[str] | None = None,
+    ) -> CombineTraineesResult:
+        """
+        Combine cases from child Trainees into the parent Trainee and delete the child Trainees.
+
+        Parameters
+        ----------
+        trainee_id : str
+            The ID of a parent Trainee to combine any child Trainees into. When `trainee_path` is specified, this
+            is instead the root Trainee of the hierarchy.
+        child_ids : Iterable of str, optional
+            The IDs of child Trainees to combine. If not specified, all immediate child Trainees will be combined.
+        skip_auto_analyze : bool, default False
+            When enabled, will not auto_analyze and will instead return the status "analyze" which indicates that
+            an analyze call is recommended.
+        trainee_path : Iterable of str, optional
+            The path of a sub-Trainee to combine any child Trainees into.
+
+        Returns
+        -------
+        CombineTraineesResult
+            The resulting status of the combined Trainee data.
+        """
+        if child_ids is not None:
+            child_ids = list(child_ids)
+        if trainee_path is not None:
+            trainee_path = list(trainee_path)
+        response = self.execute(
+            trainee_id,
+            "combine_with_subtrainees",
+            {
+                "child_ids": child_ids,
+                "skip_auto_analyze": skip_auto_analyze,
+            },
+            path=trainee_path,
+        )
+        return CombineTraineesResult(status=response.get("status"))

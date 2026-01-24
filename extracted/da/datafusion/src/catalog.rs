@@ -15,43 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::dataset::Dataset;
-use crate::errors::{py_datafusion_err, to_datafusion_err, PyDataFusionError, PyDataFusionResult};
-use crate::utils::{validate_pycapsule, wait_for_future};
-use async_trait::async_trait;
-use datafusion::catalog::{MemoryCatalogProvider, MemorySchemaProvider};
-use datafusion::common::DataFusionError;
-use datafusion::{
-    arrow::pyarrow::ToPyArrow,
-    catalog::{CatalogProvider, SchemaProvider},
-    datasource::{TableProvider, TableType},
-};
-use datafusion_ffi::schema_provider::{FFI_SchemaProvider, ForeignSchemaProvider};
-use datafusion_ffi::table_provider::{FFI_TableProvider, ForeignTableProvider};
-use pyo3::exceptions::PyKeyError;
-use pyo3::prelude::*;
-use pyo3::types::PyCapsule;
-use pyo3::IntoPyObjectExt;
 use std::any::Any;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-#[pyclass(name = "RawCatalog", module = "datafusion.catalog", subclass)]
+use async_trait::async_trait;
+use datafusion::catalog::{
+    CatalogProvider, MemoryCatalogProvider, MemorySchemaProvider, SchemaProvider,
+};
+use datafusion::common::DataFusionError;
+use datafusion::datasource::TableProvider;
+use datafusion_ffi::schema_provider::{FFI_SchemaProvider, ForeignSchemaProvider};
+use pyo3::exceptions::PyKeyError;
+use pyo3::prelude::*;
+use pyo3::types::PyCapsule;
+use pyo3::IntoPyObjectExt;
+
+use crate::dataset::Dataset;
+use crate::errors::{py_datafusion_err, to_datafusion_err, PyDataFusionError, PyDataFusionResult};
+use crate::table::PyTable;
+use crate::utils::{validate_pycapsule, wait_for_future};
+
+#[pyclass(frozen, name = "RawCatalog", module = "datafusion.catalog", subclass)]
 #[derive(Clone)]
 pub struct PyCatalog {
     pub catalog: Arc<dyn CatalogProvider>,
 }
 
-#[pyclass(name = "RawSchema", module = "datafusion.catalog", subclass)]
+#[pyclass(frozen, name = "RawSchema", module = "datafusion.catalog", subclass)]
 #[derive(Clone)]
 pub struct PySchema {
     pub schema: Arc<dyn SchemaProvider>,
-}
-
-#[pyclass(name = "RawTable", module = "datafusion.catalog", subclass)]
-#[derive(Clone)]
-pub struct PyTable {
-    pub table: Arc<dyn TableProvider>,
 }
 
 impl From<Arc<dyn CatalogProvider>> for PyCatalog {
@@ -66,20 +60,10 @@ impl From<Arc<dyn SchemaProvider>> for PySchema {
     }
 }
 
-impl PyTable {
-    pub fn new(table: Arc<dyn TableProvider>) -> Self {
-        Self { table }
-    }
-
-    pub fn table(&self) -> Arc<dyn TableProvider> {
-        self.table.clone()
-    }
-}
-
 #[pymethods]
 impl PyCatalog {
     #[new]
-    fn new(catalog: PyObject) -> Self {
+    fn new(catalog: Py<PyAny>) -> Self {
         let catalog_provider =
             Arc::new(RustWrappedPyCatalogProvider::new(catalog)) as Arc<dyn CatalogProvider>;
         catalog_provider.into()
@@ -97,7 +81,7 @@ impl PyCatalog {
     }
 
     #[pyo3(signature = (name="public"))]
-    fn schema(&self, name: &str) -> PyResult<PyObject> {
+    fn schema(&self, name: &str) -> PyResult<Py<PyAny>> {
         let schema = self
             .catalog
             .schema(name)
@@ -105,7 +89,7 @@ impl PyCatalog {
                 "Schema with name {name} doesn't exist."
             )))?;
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             match schema
                 .as_any()
                 .downcast_ref::<RustWrappedPySchemaProvider>()
@@ -162,7 +146,7 @@ impl PyCatalog {
 #[pymethods]
 impl PySchema {
     #[new]
-    fn new(schema_provider: PyObject) -> Self {
+    fn new(schema_provider: Py<PyAny>) -> Self {
         let schema_provider =
             Arc::new(RustWrappedPySchemaProvider::new(schema_provider)) as Arc<dyn SchemaProvider>;
         schema_provider.into()
@@ -181,7 +165,7 @@ impl PySchema {
 
     fn table(&self, name: &str, py: Python) -> PyDataFusionResult<PyTable> {
         if let Some(table) = wait_for_future(py, self.schema.table(name))?? {
-            Ok(PyTable::new(table))
+            Ok(PyTable::from(table))
         } else {
             Err(PyDataFusionError::Common(format!(
                 "Table not found: {name}"
@@ -195,31 +179,12 @@ impl PySchema {
         Ok(format!("Schema(table_names=[{}])", names.join(";")))
     }
 
-    fn register_table(&self, name: &str, table_provider: Bound<'_, PyAny>) -> PyResult<()> {
-        let provider = if table_provider.hasattr("__datafusion_table_provider__")? {
-            let capsule = table_provider
-                .getattr("__datafusion_table_provider__")?
-                .call0()?;
-            let capsule = capsule.downcast::<PyCapsule>().map_err(py_datafusion_err)?;
-            validate_pycapsule(capsule, "datafusion_table_provider")?;
-
-            let provider = unsafe { capsule.reference::<FFI_TableProvider>() };
-            let provider: ForeignTableProvider = provider.into();
-            Arc::new(provider) as Arc<dyn TableProvider>
-        } else {
-            match table_provider.extract::<PyTable>() {
-                Ok(py_table) => py_table.table,
-                Err(_) => {
-                    let py = table_provider.py();
-                    let provider = Dataset::new(&table_provider, py)?;
-                    Arc::new(provider) as Arc<dyn TableProvider>
-                }
-            }
-        };
+    fn register_table(&self, name: &str, table_provider: &Bound<'_, PyAny>) -> PyResult<()> {
+        let table = PyTable::new(table_provider)?;
 
         let _ = self
             .schema
-            .register_table(name.to_string(), provider)
+            .register_table(name.to_string(), table.table)
             .map_err(py_datafusion_err)?;
 
         Ok(())
@@ -235,52 +200,15 @@ impl PySchema {
     }
 }
 
-#[pymethods]
-impl PyTable {
-    /// Get a reference to the schema for this table
-    #[getter]
-    fn schema(&self, py: Python) -> PyResult<PyObject> {
-        self.table.schema().to_pyarrow(py)
-    }
-
-    #[staticmethod]
-    fn from_dataset(py: Python<'_>, dataset: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let ds = Arc::new(Dataset::new(dataset, py).map_err(py_datafusion_err)?)
-            as Arc<dyn TableProvider>;
-
-        Ok(Self::new(ds))
-    }
-
-    /// Get the type of this table for metadata/catalog purposes.
-    #[getter]
-    fn kind(&self) -> &str {
-        match self.table.table_type() {
-            TableType::Base => "physical",
-            TableType::View => "view",
-            TableType::Temporary => "temporary",
-        }
-    }
-
-    fn __repr__(&self) -> PyResult<String> {
-        let kind = self.kind();
-        Ok(format!("Table(kind={kind})"))
-    }
-
-    // fn scan
-    // fn statistics
-    // fn has_exact_statistics
-    // fn supports_filter_pushdown
-}
-
 #[derive(Debug)]
 pub(crate) struct RustWrappedPySchemaProvider {
-    schema_provider: PyObject,
+    schema_provider: Py<PyAny>,
     owner_name: Option<String>,
 }
 
 impl RustWrappedPySchemaProvider {
-    pub fn new(schema_provider: PyObject) -> Self {
-        let owner_name = Python::with_gil(|py| {
+    pub fn new(schema_provider: Py<PyAny>) -> Self {
+        let owner_name = Python::attach(|py| {
             schema_provider
                 .bind(py)
                 .getattr("owner_name")
@@ -295,7 +223,7 @@ impl RustWrappedPySchemaProvider {
     }
 
     fn table_inner(&self, name: &str) -> PyResult<Option<Arc<dyn TableProvider>>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.schema_provider.bind(py);
             let py_table_method = provider.getattr("table")?;
 
@@ -304,30 +232,9 @@ impl RustWrappedPySchemaProvider {
                 return Ok(None);
             }
 
-            if py_table.hasattr("__datafusion_table_provider__")? {
-                let capsule = provider.getattr("__datafusion_table_provider__")?.call0()?;
-                let capsule = capsule.downcast::<PyCapsule>().map_err(py_datafusion_err)?;
-                validate_pycapsule(capsule, "datafusion_table_provider")?;
+            let table = PyTable::new(&py_table)?;
 
-                let provider = unsafe { capsule.reference::<FFI_TableProvider>() };
-                let provider: ForeignTableProvider = provider.into();
-
-                Ok(Some(Arc::new(provider) as Arc<dyn TableProvider>))
-            } else {
-                if let Ok(inner_table) = py_table.getattr("table") {
-                    if let Ok(inner_table) = inner_table.extract::<PyTable>() {
-                        return Ok(Some(inner_table.table));
-                    }
-                }
-
-                match py_table.extract::<PyTable>() {
-                    Ok(py_table) => Ok(Some(py_table.table)),
-                    Err(_) => {
-                        let ds = Dataset::new(&py_table, py).map_err(py_datafusion_err)?;
-                        Ok(Some(Arc::new(ds) as Arc<dyn TableProvider>))
-                    }
-                }
-            }
+            Ok(Some(table.table))
         })
     }
 }
@@ -343,7 +250,7 @@ impl SchemaProvider for RustWrappedPySchemaProvider {
     }
 
     fn table_names(&self) -> Vec<String> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.schema_provider.bind(py);
 
             provider
@@ -368,8 +275,8 @@ impl SchemaProvider for RustWrappedPySchemaProvider {
         name: String,
         table: Arc<dyn TableProvider>,
     ) -> datafusion::common::Result<Option<Arc<dyn TableProvider>>> {
-        let py_table = PyTable::new(table);
-        Python::with_gil(|py| {
+        let py_table = PyTable::from(table);
+        Python::attach(|py| {
             let provider = self.schema_provider.bind(py);
             let _ = provider
                 .call_method1("register_table", (name, py_table))
@@ -385,7 +292,7 @@ impl SchemaProvider for RustWrappedPySchemaProvider {
         &self,
         name: &str,
     ) -> datafusion::common::Result<Option<Arc<dyn TableProvider>>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.schema_provider.bind(py);
             let table = provider
                 .call_method1("deregister_table", (name,))
@@ -406,7 +313,7 @@ impl SchemaProvider for RustWrappedPySchemaProvider {
     }
 
     fn table_exist(&self, name: &str) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.schema_provider.bind(py);
             provider
                 .call_method1("table_exist", (name,))
@@ -418,16 +325,16 @@ impl SchemaProvider for RustWrappedPySchemaProvider {
 
 #[derive(Debug)]
 pub(crate) struct RustWrappedPyCatalogProvider {
-    pub(crate) catalog_provider: PyObject,
+    pub(crate) catalog_provider: Py<PyAny>,
 }
 
 impl RustWrappedPyCatalogProvider {
-    pub fn new(catalog_provider: PyObject) -> Self {
+    pub fn new(catalog_provider: Py<PyAny>) -> Self {
         Self { catalog_provider }
     }
 
     fn schema_inner(&self, name: &str) -> PyResult<Option<Arc<dyn SchemaProvider>>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.catalog_provider.bind(py);
 
             let py_schema = provider.call_method1("schema", (name,))?;
@@ -472,7 +379,7 @@ impl CatalogProvider for RustWrappedPyCatalogProvider {
     }
 
     fn schema_names(&self) -> Vec<String> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.catalog_provider.bind(py);
             provider
                 .getattr("schema_names")
@@ -498,7 +405,7 @@ impl CatalogProvider for RustWrappedPyCatalogProvider {
     ) -> datafusion::common::Result<Option<Arc<dyn SchemaProvider>>> {
         // JRIGHT HERE
         // let py_schema: PySchema = schema.into();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_schema = match schema
                 .as_any()
                 .downcast_ref::<RustWrappedPySchemaProvider>()
@@ -529,7 +436,7 @@ impl CatalogProvider for RustWrappedPyCatalogProvider {
         name: &str,
         cascade: bool,
     ) -> datafusion::common::Result<Option<Arc<dyn SchemaProvider>>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let provider = self.catalog_provider.bind(py);
             let schema = provider
                 .call_method1("deregister_schema", (name, cascade))

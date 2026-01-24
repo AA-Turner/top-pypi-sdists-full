@@ -494,22 +494,25 @@ def Lop(
         coordinates of the tensor elements.
         If `f` is a list/tuple, then return a list/tuple with the results.
     """
-    if not isinstance(eval_points, list | tuple):
-        _eval_points: list[Variable] = [pytensor.tensor.as_tensor_variable(eval_points)]
-    else:
-        _eval_points = [pytensor.tensor.as_tensor_variable(x) for x in eval_points]
+    from pytensor.tensor import as_tensor_variable
 
-    if not isinstance(f, list | tuple):
-        _f: list[Variable] = [pytensor.tensor.as_tensor_variable(f)]
-    else:
-        _f = [pytensor.tensor.as_tensor_variable(x) for x in f]
+    if not isinstance(eval_points, Sequence):
+        eval_points = [eval_points]
+    _eval_points = [
+        x if isinstance(x, Variable) else as_tensor_variable(x) for x in eval_points
+    ]
+
+    if not isinstance(f, Sequence):
+        f = [f]
+    _f = [x if isinstance(x, Variable) else as_tensor_variable(x) for x in f]
 
     grads = list(_eval_points)
 
-    if not isinstance(wrt, list | tuple):
-        _wrt: list[Variable] = [pytensor.tensor.as_tensor_variable(wrt)]
-    else:
-        _wrt = [pytensor.tensor.as_tensor_variable(x) for x in wrt]
+    using_list = isinstance(wrt, list)
+    using_tuple = isinstance(wrt, tuple)
+    if not isinstance(wrt, Sequence):
+        wrt = [wrt]
+    _wrt = [x if isinstance(x, Variable) else as_tensor_variable(x) for x in wrt]
 
     assert len(_f) == len(grads)
     known = dict(zip(_f, grads, strict=True))
@@ -523,8 +526,6 @@ def Lop(
         return_disconnected=return_disconnected,
     )
 
-    using_list = isinstance(wrt, list)
-    using_tuple = isinstance(wrt, tuple)
     return as_list_or_tuple(using_list, using_tuple, ret)
 
 
@@ -624,8 +625,7 @@ def grad(
 
     if cost is not None and isinstance(cost.type, NullType):
         raise ValueError(
-            "Can't differentiate a NaN cost. "
-            f"Cost is NaN because {cost.type.why_null}"
+            f"Can't differentiate a NaN cost. Cost is NaN because {cost.type.why_null}"
         )
 
     if cost is not None and cost.type.ndim != 0:
@@ -1785,14 +1785,14 @@ class numeric_grad:
 
 def mode_not_slow(mode):
     from pytensor.compile.debugmode import DebugMode
-    from pytensor.compile.mode import FAST_RUN, get_mode
+    from pytensor.compile.mode import get_mode
 
     if mode == "FAST_COMPILE":
-        return FAST_RUN
+        return get_mode("FAST_RUN")
     mode = get_mode(mode)
     if isinstance(mode, DebugMode):
         opt = mode.optimizer
-        return FAST_RUN.clone(optimizer=opt)
+        return get_mode("FAST_RUN").clone(optimizer=opt)
     else:
         return mode
 
@@ -2105,16 +2105,13 @@ def jacobian(
             idx, expr, *wrt = args
             return grad(expr[idx], wrt, **grad_kwargs)
 
-        jacobian_matrices, updates = pytensor.scan(
+        jacobian_matrices = pytensor.scan(
             inner_function,
             sequences=pytensor.tensor.arange(expression.size),
             non_sequences=[expression.ravel(), *wrt],
+            return_updates=False,
             return_list=True,
         )
-        if updates:
-            raise ValueError(
-                "The scan used to build the jacobian matrices returned a list of updates"
-            )
 
     if jacobian_matrices[0].ndim < (expression.ndim + wrt[0].ndim):
         # There was some raveling or squeezing done prior to getting the jacobians
@@ -2189,7 +2186,7 @@ def hessian(cost, wrt, consider_constant=None, disconnected_inputs="raise"):
         # It is possible that the inputs are disconnected from expr,
         # even if they are connected to cost.
         # This should not be an error.
-        hess, updates = pytensor.scan(
+        hess = pytensor.scan(
             lambda i, y, x: grad(
                 y[i],
                 x,
@@ -2198,10 +2195,8 @@ def hessian(cost, wrt, consider_constant=None, disconnected_inputs="raise"):
             ),
             sequences=pytensor.tensor.arange(expr.shape[0]),
             non_sequences=[expr, input],
+            return_updates=False,
         )
-        assert (
-            not updates
-        ), "Scan has returned a list of updates; this should not happen."
         hessians.append(hess)
     return as_list_or_tuple(using_list, using_tuple, hessians)
 

@@ -110,9 +110,9 @@ def install_claude_code(
     env_config = UVEnvironment(
         python=python_version,
         dependencies=(with_packages or []) + ["fastmcp"],
-        requirements=str(with_requirements) if with_requirements else None,
-        project=str(project) if project else None,
-        editable=[str(p) for p in with_editable] if with_editable else None,
+        requirements=with_requirements,
+        project=project,
+        editable=with_editable,
     )
 
     # Build server spec from parsed components
@@ -125,15 +125,15 @@ def install_claude_code(
     full_command = env_config.build_command(["fastmcp", "run", server_spec])
 
     # Build claude mcp add command
-    cmd_parts = [claude_cmd, "mcp", "add"]
+    cmd_parts = [claude_cmd, "mcp", "add", name]
 
-    # Add environment variables if specified (before the name and command)
+    # Add environment variables if specified
     if env_vars:
         for key, value in env_vars.items():
             cmd_parts.extend(["-e", f"{key}={value}"])
 
     # Add server name and command
-    cmd_parts.extend([name, "--"])
+    cmd_parts.append("--")
     cmd_parts.extend(full_command)
 
     try:

@@ -7,24 +7,24 @@ import subprocess
 import sys
 import typing as t
 from contextlib import contextmanager, suppress
+from datetime import date, datetime, timezone
 from unittest import mock
 from unittest.mock import AsyncMock
 
 import anyio
 import pytest
+import structlog
 
 from meltano.core.job import Job, Payload
 from meltano.core.plugin import PluginType
 from meltano.core.plugin.error import PluginExecutionError
 from meltano.core.plugin.singer import SingerTap
 from meltano.core.plugin.singer.catalog import (
-    CatalogDict,
     ListSelectedExecutor,
-    MetadataRule,
-    SchemaRule,
     property_breadcrumb,
     select_metadata_rules,
 )
+from meltano.core.plugin_invoker import PluginInvoker
 from meltano.core.state_service import InvalidJobStateError, StateService
 
 if t.TYPE_CHECKING:
@@ -33,7 +33,7 @@ if t.TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from meltano.core.plugin.project_plugin import ProjectPlugin
-    from meltano.core.plugin_invoker import PluginInvoker
+    from meltano.core.plugin.singer.catalog import CatalogDict, MetadataRule, SchemaRule
     from meltano.core.project import Project
     from meltano.core.project_add_service import ProjectAddService
 
@@ -65,6 +65,10 @@ class TestSingerTap:
     @pytest.fixture(scope="class")
     def subject(self, project_add_service: ProjectAddService) -> SingerTap:
         return project_add_service.add(PluginType.EXTRACTORS, "tap-mock")
+
+    @pytest.fixture(scope="class", autouse=True)
+    def fixture_configure_structlog(self) -> None:
+        structlog.stdlib.recreate_defaults(log_level=logging.INFO)
 
     @pytest.mark.order(0)
     @pytest.mark.asyncio
@@ -1015,9 +1019,11 @@ class TestSingerTap:
         catalog_path = invoker.files["catalog"]
 
         with (
-            mock.patch(
-                "meltano.core.plugin.singer.tap.logger.isEnabledFor",
-                return_value=False,
+            mock.patch.object(
+                PluginInvoker,
+                "stderr_logger",
+                new_callable=mock.PropertyMock,
+                return_value=mock.Mock(isEnabledFor=mock.Mock(return_value=False)),
             ),
             mock.patch(
                 "meltano.core.plugin.singer.tap._stream_redirect",
@@ -1027,35 +1033,43 @@ class TestSingerTap:
             assert stream_mock.call_count == 2
 
         with (
-            mock.patch(
-                "meltano.core.plugin.singer.tap.logger.isEnabledFor",
-                return_value=True,
+            mock.patch.object(
+                PluginInvoker,
+                "stderr_logger",
+                new_callable=mock.PropertyMock,
+                return_value=mock.Mock(isEnabledFor=mock.Mock(return_value=True)),
             ),
             mock.patch(
                 "meltano.core.plugin.singer.tap._stream_redirect",
             ) as stream_mock2,
         ):
             await subject.run_discovery(invoker, catalog_path)
-            assert stream_mock2.call_count == 2
+            assert stream_mock2.call_count == 1
 
         # ensure stderr is redirected to devnull if we don't need it
         discovery_logger = logging.getLogger("meltano.core.plugin.singer.tap")  # noqa: TID251
         original_level = discovery_logger.getEffectiveLevel()
         discovery_logger.setLevel(logging.INFO)
         with (
-            mock.patch(
-                "meltano.core.plugin.singer.tap.logger.isEnabledFor",
-                return_value=True,
+            mock.patch.object(
+                PluginInvoker,
+                "stderr_logger",
+                new_callable=mock.PropertyMock,
+                return_value=mock.Mock(isEnabledFor=mock.Mock(return_value=True)),
             ),
             mock.patch(
                 "meltano.core.plugin.singer.tap._stream_redirect",
             ) as stream_mock3,
+            mock.patch(
+                "meltano.core.plugin.singer.tap.capture_subprocess_output",
+            ) as capture_subprocess_output_mock,
         ):
             await subject.run_discovery(invoker, catalog_path)
 
-            assert stream_mock3.call_count == 2
+            assert stream_mock3.call_count == 1
             call_kwargs = invoker.invoke_async.call_args_list[0][1]
             assert call_kwargs.get("stderr") is subprocess.PIPE
+            assert capture_subprocess_output_mock.call_count == 1
 
         discovery_logger.setLevel(original_level)
 
@@ -1108,9 +1122,11 @@ class TestSingerTap:
 
         assert sys.getdefaultencoding() == "utf-8"
 
-        with mock.patch(
-            "meltano.core.plugin.singer.tap.logger.isEnabledFor",
-            return_value=True,
+        with mock.patch.object(
+            PluginInvoker,
+            "stderr_logger",
+            new_callable=mock.PropertyMock,
+            return_value=mock.Mock(isEnabledFor=mock.Mock(return_value=True)),
         ):
             await subject.run_discovery(invoker, catalog_path)
 
@@ -1236,3 +1252,56 @@ class TestSingerTap:
         else:
             assert len(caplog.records) == 0
             assert syserr + sysout == ""
+
+    @pytest.mark.asyncio
+    async def test_before_configure_datetime_serialization(
+        self,
+        subject: SingerTap,
+        session,
+        plugin_invoker_factory: Callable[[ProjectPlugin], PluginInvoker],
+    ) -> None:
+        """Test that before_configure properly serializes datetime objects to JSON.
+
+        This is a regression test for the bug where YAML-parsed dates (datetime.date
+        objects) would fail JSON serialization with "Object of type date is not
+        JSON serializable".
+
+        The bug would occur when YAML parses "2025-01-01" as datetime.date(2025, 1, 1)
+        and then json.dumps() fails when trying to serialize it.
+        """
+        invoker = plugin_invoker_factory(subject)
+
+        # Create a config with datetime objects like YAML would parse them
+        config_with_dates = {
+            "test": "mock",
+            "date_value": date(2025, 1, 1),
+            "datetime_value": datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "nested": {
+                "date_in_object": date(2024, 12, 31),
+            },
+            "list": [
+                {"name": "item1", "date": date(2025, 2, 1)},
+            ],
+        }
+
+        # Directly test that before_configure can handle datetime objects
+        # by temporarily setting plugin_config_processed and calling the hook
+        invoker.plugin_config_processed = config_with_dates
+
+        async with invoker.prepared(session):
+            # Manually call before_configure with our datetime-containing config
+            invoker.plugin_config_processed = config_with_dates
+            await subject.before_configure(invoker, session)
+
+            # Read the written config file to verify dates were serialized correctly
+            config_path = invoker.files["config"]
+            async with await anyio.open_file(config_path, "r") as config_file:
+                written_config = json.loads(await config_file.read())
+
+            # Verify dates were serialized to ISO format strings
+            # Without the fix, json.dumps() would raise:
+            # TypeError: Object of type date is not JSON serializable
+            assert written_config["date_value"] == "2025-01-01"
+            assert written_config["datetime_value"] == "2025-01-01T12:00:00+00:00"
+            assert written_config["nested"]["date_in_object"] == "2024-12-31"
+            assert written_config["list"][0]["date"] == "2025-02-01"

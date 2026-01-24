@@ -1,6 +1,6 @@
 [project]
 name = "tensorstore"
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 dynamic = ["version"]
 dependencies = [
   "numpy>=1.22.0",
@@ -11,10 +11,9 @@ readme = "README.md"
 authors = [
   { name = "TensorStore Team", email = "tensorstore-team@google.com" },
 ]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
-  "License :: OSI Approved :: Apache Software License",
   "Topic :: Software Development :: Libraries",
 ]
 
@@ -28,7 +27,7 @@ requires = [
   "setuptools>=64",
   "wheel",
   "setuptools_scm>=8.1.0",
-  "numpy>=2.0.0",
+  "pip",
 ]
 build-backend = "setuptools.build_meta"
 

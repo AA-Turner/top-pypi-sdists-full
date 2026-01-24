@@ -45,7 +45,6 @@ class ChainingTimeStampF1D:
         """Sets the chaining time stamp of the Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         """
 
 class Curvature2DAngleF0D:
@@ -61,10 +60,8 @@ class Curvature2DAngleF0D:
         Interface0D.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The 2D curvature of the 1D element evaluated at the
         pointed Interface0D.
-                :rtype: float
         """
 
 class Curvature2DAngleF1D:
@@ -77,16 +74,13 @@ class Curvature2DAngleF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the 2D curvature as an angle for an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The 2D curvature as an angle.
-        :rtype: float
         """
 
 class CurveMaterialF0D:
@@ -109,10 +103,8 @@ class CurveNatureF0D:
         Interface0D pointed by the Interface0DIterator belongs to.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The nature of the 1D element to which the pointed Interface0D
         belongs.
-                :rtype: freestyle.types.Nature
         """
 
 class CurveNatureF1D:
@@ -125,7 +117,6 @@ class CurveNatureF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> freestyle.types.Nature:
@@ -138,9 +129,7 @@ class CurveNatureF1D:
         results.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The nature of the Interface1D.
-                :rtype: freestyle.types.Nature
         """
 
 class DensityF0D:
@@ -152,7 +141,6 @@ class DensityF0D:
                 :param sigma: The gaussian sigma value indicating the X value for
         which the gaussian function is 0.5. It leads to the window size
         value (the larger, the smoother).
-                :type sigma: float
         """
 
     def __call__(self, it: freestyle.types.Interface0DIterator) -> float:
@@ -163,10 +151,8 @@ class DensityF0D:
         a gaussian.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The density of the image evaluated at the pointed
         Interface0D.
-                :rtype: float
         """
 
 class DensityF1D:
@@ -182,15 +168,12 @@ class DensityF1D:
 
                 :param sigma: The sigma used in DensityF0D and determining the window size
         used in each density query.
-                :type sigma: float
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
                 :param sampling: The resolution used to sample the chain: the
         corresponding 0D function is evaluated at each sample point and
         the result is obtained by combining the resulting values into a
         single one, following the method specified by integration_type.
-                :type sampling: float
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -201,9 +184,7 @@ class DensityF1D:
         integration method.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The density evaluated for an Interface1D.
-                :rtype: float
         """
 
 class GetCompleteViewMapDensityF1D:
@@ -219,15 +200,12 @@ class GetCompleteViewMapDensityF1D:
 
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
                 :param sampling: The resolution used to sample the chain: the
         corresponding 0D function is evaluated at each sample point and
         the result is obtained by combining the resulting values into a
         single one, following the method specified by integration_type.
-                :type sampling: float
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -239,10 +217,8 @@ class GetCompleteViewMapDensityF1D:
         method.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The density evaluated for the Interface1D in the complete
         viewmap image.
-                :rtype: float
         """
 
 class GetCurvilinearAbscissaF0D:
@@ -257,9 +233,7 @@ class GetCurvilinearAbscissaF0D:
         Interface0DIterator in the context of its 1D element.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The curvilinear abscissa of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetDirectionalViewMapDensityF1D:
@@ -276,18 +250,14 @@ class GetDirectionalViewMapDensityF1D:
 
                 :param orientation: The number of the directional map we must work
         with.
-                :type orientation: int
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
                 :param sampling: The resolution used to sample the chain: the
         corresponding 0D function is evaluated at each sample point and
         the result is obtained by combining the resulting values into a
         single one, following the method specified by integration_type.
-                :type sampling: float
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -300,10 +270,8 @@ class GetDirectionalViewMapDensityF1D:
         method.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: the density evaluated for an Interface1D in of the
         steerable viewmaps image.
-                :rtype: float
         """
 
 class GetOccludeeF0D:
@@ -319,9 +287,7 @@ class GetOccludeeF0D:
         pointed by the Interface0DIterator occludes.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The ViewShape occluded by the pointed Interface0D.
-                :rtype: freestyle.types.ViewShape
         """
 
 class GetOccludeeF1D:
@@ -336,9 +302,7 @@ class GetOccludeeF1D:
         """Returns a list of occluded shapes covered by this Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: A list of occluded shapes covered by the Interface1D.
-        :rtype: list[freestyle.types.ViewShape]
         """
 
 class GetOccludersF0D:
@@ -354,10 +318,8 @@ class GetOccludersF0D:
         `freestyle.types.Interface0D` pointed by the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: A list of ViewShape objects occluding the pointed
         Interface0D.
-                :rtype: list[freestyle.types.ViewShape]
         """
 
 class GetOccludersF1D:
@@ -372,9 +334,7 @@ class GetOccludersF1D:
         """Returns a list of occluding shapes that cover this Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: A list of occluding shapes that cover the Interface1D.
-        :rtype: list[freestyle.types.ViewShape]
         """
 
 class GetParameterF0D:
@@ -388,9 +348,7 @@ class GetParameterF0D:
         pointed by the Interface0DIterator in the context of its 1D element.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The parameter of an Interface0D.
-                :rtype: float
         """
 
 class GetProjectedXF0D:
@@ -404,9 +362,7 @@ class GetProjectedXF0D:
         pointed by the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The X 3D projected coordinate of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetProjectedXF1D:
@@ -419,16 +375,13 @@ class GetProjectedXF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the projected X 3D coordinate of an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The projected X 3D coordinate of an Interface1D.
-        :rtype: float
         """
 
 class GetProjectedYF0D:
@@ -442,9 +395,7 @@ class GetProjectedYF0D:
         pointed by the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The Y 3D projected coordinate of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetProjectedYF1D:
@@ -457,16 +408,13 @@ class GetProjectedYF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the projected Y 3D coordinate of an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The projected Y 3D coordinate of an Interface1D.
-        :rtype: float
         """
 
 class GetProjectedZF0D:
@@ -480,9 +428,7 @@ class GetProjectedZF0D:
         pointed by the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The Z 3D projected coordinate of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetProjectedZF1D:
@@ -495,16 +441,13 @@ class GetProjectedZF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the projected Z 3D coordinate of an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The projected Z 3D coordinate of an Interface1D.
-        :rtype: float
         """
 
 class GetShapeF0D:
@@ -520,9 +463,7 @@ class GetShapeF0D:
         Interface0D pointed by the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The ViewShape containing the pointed Interface0D.
-                :rtype: freestyle.types.ViewShape
         """
 
 class GetShapeF1D:
@@ -537,9 +478,7 @@ class GetShapeF1D:
         """Returns a list of shapes covered by this Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: A list of shapes covered by the Interface1D.
-        :rtype: list[freestyle.types.ViewShape]
         """
 
 class GetSteerableViewMapDensityF1D:
@@ -555,15 +494,12 @@ class GetSteerableViewMapDensityF1D:
 
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
                 :param sampling: The resolution used to sample the chain: the
         corresponding 0D function is evaluated at each sample point and
         the result is obtained by combining the resulting values into a
         single one, following the method specified by integration_type.
-                :type sampling: float
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -573,9 +509,7 @@ class GetSteerableViewMapDensityF1D:
         orientation.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The density of the ViewMap for a given Interface1D.
-                :rtype: float
         """
 
 class GetViewMapGradientNormF0D:
@@ -586,7 +520,6 @@ class GetViewMapGradientNormF0D:
 
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
         """
 
     def __call__(self, it: freestyle.types.Interface0DIterator) -> float:
@@ -594,10 +527,8 @@ class GetViewMapGradientNormF0D:
         image.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The norm of the gradient of the global viewmap density
         image.
-                :rtype: float
         """
 
 class GetViewMapGradientNormF1D:
@@ -613,15 +544,12 @@ class GetViewMapGradientNormF1D:
 
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
                 :param sampling: The resolution used to sample the chain: the
         corresponding 0D function is evaluated at each sample point and
         the result is obtained by combining the resulting values into a
         single one, following the method specified by integration_type.
-                :type sampling: float
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -631,9 +559,7 @@ class GetViewMapGradientNormF1D:
         orientation.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The density of the ViewMap for a given Interface1D.
-                :rtype: float
         """
 
 class GetXF0D:
@@ -647,9 +573,7 @@ class GetXF0D:
         the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The X 3D coordinate of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetXF1D:
@@ -662,16 +586,13 @@ class GetXF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the X 3D coordinate of an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The X 3D coordinate of the Interface1D.
-        :rtype: float
         """
 
 class GetYF0D:
@@ -685,9 +606,7 @@ class GetYF0D:
         the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The Y 3D coordinate of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetYF1D:
@@ -700,16 +619,13 @@ class GetYF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the Y 3D coordinate of an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The Y 3D coordinate of the Interface1D.
-        :rtype: float
         """
 
 class GetZF0D:
@@ -723,9 +639,7 @@ class GetZF0D:
         the Interface0DIterator.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The Z 3D coordinate of the pointed Interface0D.
-                :rtype: float
         """
 
 class GetZF1D:
@@ -738,16 +652,13 @@ class GetZF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
         """Returns the Z 3D coordinate of an Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The Z 3D coordinate of the Interface1D.
-        :rtype: float
         """
 
 class IncrementChainingTimeStampF1D:
@@ -760,7 +671,6 @@ class IncrementChainingTimeStampF1D:
         """Increments the chaining time stamp of the Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         """
 
 class LocalAverageDepthF0D:
@@ -770,7 +680,6 @@ class LocalAverageDepthF0D:
         """Builds a LocalAverageDepthF0D object.
 
         :param mask_size: The size of the mask.
-        :type mask_size: float
         """
 
     def __call__(self, it: freestyle.types.Interface0DIterator) -> float:
@@ -780,9 +689,7 @@ class LocalAverageDepthF0D:
         buffer on a window around that point.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The average depth around the pointed Interface0D.
-                :rtype: float
         """
 
 class LocalAverageDepthF1D:
@@ -797,10 +704,8 @@ class LocalAverageDepthF1D:
 
                 :param sigma: The sigma used in DensityF0D and determining the window
         size used in each density query.
-                :type sigma: float
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -811,9 +716,7 @@ class LocalAverageDepthF1D:
         user-defined integration method.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The average depth evaluated for the Interface1D.
-                :rtype: float
         """
 
 class MaterialF0D:
@@ -838,10 +741,8 @@ class MaterialF0D:
         own getMaterial functor.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The material of the object evaluated at the pointed
         Interface0D.
-                :rtype: freestyle.types.Material
         """
 
 class Normal2DF0D:
@@ -857,10 +758,8 @@ class Normal2DF0D:
         at the pointed Interface0D.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The 2D normal of the 1D element evaluated at the pointed
         Interface0D.
-                :rtype: mathutils.Vector
         """
 
 class Normal2DF1D:
@@ -873,16 +772,13 @@ class Normal2DF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> mathutils.Vector:
         """Returns the 2D normal for the Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The 2D normal for the Interface1D.
-        :rtype: mathutils.Vector
         """
 
 class Orientation2DF1D:
@@ -895,16 +791,13 @@ class Orientation2DF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> mathutils.Vector:
         """Returns the 2D orientation of the Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The 2D orientation of the Interface1D.
-        :rtype: mathutils.Vector
         """
 
 class Orientation3DF1D:
@@ -917,16 +810,13 @@ class Orientation3DF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> mathutils.Vector:
         """Returns the 3D orientation of the Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         :return: The 3D orientation of the Interface1D.
-        :rtype: mathutils.Vector
         """
 
 class QuantitativeInvisibilityF0D:
@@ -946,9 +836,7 @@ class QuantitativeInvisibilityF0D:
         specific way should implement its own getQIF0D functor.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The quantitative invisibility of the pointed Interface0D.
-                :rtype: int
         """
 
 class QuantitativeInvisibilityF1D:
@@ -961,7 +849,6 @@ class QuantitativeInvisibilityF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> int:
@@ -972,9 +859,7 @@ class QuantitativeInvisibilityF1D:
         elements of different Quantitative Invisibilities.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The Quantitative Invisibility of the Interface1D.
-                :rtype: int
         """
 
 class ReadCompleteViewMapPixelF0D:
@@ -985,16 +870,13 @@ class ReadCompleteViewMapPixelF0D:
 
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
         """
 
     def __call__(self, it: freestyle.types.Interface0DIterator) -> float:
         """Reads a pixel in one of the level of the complete viewmap.
 
         :param it: An Interface0DIterator object.
-        :type it: freestyle.types.Interface0DIterator
         :return: A pixel in one of the level of the complete viewmap.
-        :rtype: float
         """
 
 class ReadMapPixelF0D:
@@ -1004,19 +886,15 @@ class ReadMapPixelF0D:
         """Builds a ReadMapPixelF0D object.
 
                 :param map_name: The name of the map to be read.
-                :type map_name: str
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
         """
 
     def __call__(self, it: freestyle.types.Interface0DIterator) -> float:
         """Reads a pixel in a map.
 
         :param it: An Interface0DIterator object.
-        :type it: freestyle.types.Interface0DIterator
         :return: A pixel in a map.
-        :rtype: float
         """
 
 class ReadSteerableViewMapPixelF0D:
@@ -1027,19 +905,15 @@ class ReadSteerableViewMapPixelF0D:
 
                 :param orientation: The integer belonging to [0, 4] indicating the
         orientation (E, NE, N, NW) we are interested in.
-                :type orientation: int
                 :param level: The level of the pyramid from which the pixel must be
         read.
-                :type level: int
         """
 
     def __call__(self, it: freestyle.types.Interface0DIterator) -> float:
         """Reads a pixel in one of the level of one of the steerable viewmaps.
 
         :param it: An Interface0DIterator object.
-        :type it: freestyle.types.Interface0DIterator
         :return: A pixel in one of the level of one of the steerable viewmaps.
-        :rtype: float
         """
 
 class ShapeIdF0D:
@@ -1060,9 +934,7 @@ class ShapeIdF0D:
         getShapeIdF0D functor.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The Id of the Shape the pointed Interface0D belongs to.
-                :rtype: freestyle.types.Id
         """
 
 class TimeStampF1D:
@@ -1075,7 +947,6 @@ class TimeStampF1D:
         """Returns the time stamp of the Interface1D.
 
         :param inter: An Interface1D object.
-        :type inter: freestyle.types.Interface1D
         """
 
 class VertexOrientation2DF0D:
@@ -1091,10 +962,8 @@ class VertexOrientation2DF0D:
         evaluated at the pointed Interface0D.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The 2D oriented tangent to the 1D element evaluated at the
         pointed Interface0D.
-                :rtype: mathutils.Vector
         """
 
 class VertexOrientation3DF0D:
@@ -1110,10 +979,8 @@ class VertexOrientation3DF0D:
         is evaluated at the pointed Interface0D.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The 3D oriented tangent to the 1D element evaluated at the
         pointed Interface0D.
-                :rtype: mathutils.Vector
         """
 
 class ZDiscontinuityF0D:
@@ -1131,10 +998,8 @@ class ZDiscontinuityF0D:
         Interface0D belongs to, 1 is returned.
 
                 :param it: An Interface0DIterator object.
-                :type it: freestyle.types.Interface0DIterator
                 :return: The normalized distance between the pointed Interface0D
         and the occludee.
-                :rtype: float
         """
 
 class ZDiscontinuityF1D:
@@ -1147,7 +1012,6 @@ class ZDiscontinuityF1D:
 
                 :param integration_type: The integration method used to compute a single value
         from a set of values.
-                :type integration_type: freestyle.types.IntegrationType
         """
 
     def __call__(self, inter: freestyle.types.Interface1D) -> float:
@@ -1158,9 +1022,7 @@ class ZDiscontinuityF1D:
         Interface1D belongs to, 1 is returned.
 
                 :param inter: An Interface1D object.
-                :type inter: freestyle.types.Interface1D
                 :return: The normalized distance between the Interface1D and the occludee.
-                :rtype: float
         """
 
 class pyCurvilinearLengthF0D: ...
@@ -1182,5 +1044,4 @@ class pyViewMapGradientVectorF0D:
         """Builds a pyViewMapGradientVectorF0D object.
 
         :param level: the level at which to compute the gradient
-        :type level: int
         """

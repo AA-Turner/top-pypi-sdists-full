@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "rpds-py"
 description = "Python bindings to Rust's persistent data structures (rpds)"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.rst"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -18,7 +18,6 @@ classifiers = [
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Rust",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -39,8 +38,24 @@ Tidelift = "https://tidelift.com/subscription/pkg/pypi-rpds-py?utm_source=pypi-r
 Source = "https://github.com/crate-py/rpds"
 Upstream = "https://github.com/orium/rpds"
 
-[tool.black]
-line-length = 79
+[dependency-groups]
+docs = [
+  "furo>=2025.9.25",
+  "pygments-github-lexers>=0.0.5",
+  "sphinx>5",
+  "sphinx-copybutton>=0.5.2",
+  "sphinxcontrib-spelling>5",
+  "sphinxext-opengraph>=0.13.0",
+  "url-py>=0.18.0",
+]
+test = [
+  "pytest>=9.0.1",
+  "pytest-run-parallel>=0.7.1",
+]
+typing = [
+  { include-group = "test" },
+  "pyright>=1.1.407",
+]
 
 [tool.coverage.html]
 show_contexts = true
@@ -123,7 +138,6 @@ ignore = [
   "SIM300", # Not sure what heuristic this uses, but it's easily incorrect
   "SLF001",  # Private usage within this package itself is fine
   "TD",  # These TODO style rules are also silly
-  "UP007",  # We support 3.9
 ]
 
 [tool.ruff.lint.flake8-pytest-style]

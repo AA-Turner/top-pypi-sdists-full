@@ -25,11 +25,11 @@ setup(
         "https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-shared"
     ),
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
@@ -38,6 +38,7 @@ setup(
     install_requires=[
         "PyYAML>=5.1",
         "packaging>=20.9",
+        "platformdirs",
         "pydantic>=2,<3.0.0",
         "typing_extensions>=4.11.0,<5",
         "tomlkit",
@@ -45,7 +46,6 @@ setup(
     extras_require={
         "test": [
             "pytest",
-            "buildkite-test-collector",
             "flaky",
         ],
     },

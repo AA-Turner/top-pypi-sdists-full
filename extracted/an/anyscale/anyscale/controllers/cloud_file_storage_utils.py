@@ -36,8 +36,12 @@ class GCPFilestoreInfo:
 
 def _get_gcp_client_factory(logger, cloud_deployment: CloudDeployment):
     """Helper function to get GCP client factory."""
-    from anyscale.cli_logger import CloudSetupLogger
-    from anyscale.utils.gcp_utils import get_google_cloud_client_factory
+    from anyscale.cli_logger import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP deps loaded only when needed")
+        CloudSetupLogger,
+    )
+    from anyscale.utils.gcp_utils import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP deps loaded only when needed")
+        get_google_cloud_client_factory,
+    )
 
     gcp_config = cloud_deployment.gcp_config or {}
     project_id = gcp_config.get("project_id")
@@ -65,8 +69,12 @@ def _get_detailed_filestore_config(
         return None, None
 
     try:
-        from anyscale.cli_logger import CloudSetupLogger
-        from anyscale.utils import gcp_utils
+        from anyscale.cli_logger import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP deps loaded only when needed")
+            CloudSetupLogger,
+        )
+        from anyscale.utils import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP deps loaded only when needed")
+            gcp_utils,
+        )
 
         cloud_setup_logger = CloudSetupLogger()
         filestore_config = gcp_utils.get_gcp_filestore_config_from_full_name(
@@ -100,8 +108,13 @@ def get_gcp_filestore_info(
         logger = BlockLogger()
 
     try:
-        from anyscale.cli_logger import CloudSetupLogger
-        from anyscale.gcp_verification import GCPLogger, verify_filestore
+        from anyscale.cli_logger import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP deps loaded only when needed")
+            CloudSetupLogger,
+        )
+        from anyscale.gcp_verification import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP deps loaded only when needed")
+            GCPLogger,
+            verify_filestore,
+        )
 
         # Get GCP config and client factory
         factory, project_id = _get_gcp_client_factory(logger, cloud_deployment)

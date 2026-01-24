@@ -1,6 +1,7 @@
 import abc
 import binascii
 from collections import defaultdict
+import functools
 import gzip
 import logging
 import os
@@ -12,16 +13,19 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import TextIO
+import weakref
 
-import ddtrace
 from ddtrace import config
+from ddtrace.internal import forksafe
+from ddtrace.internal.dist_computing.utils import in_ray_job
+from ddtrace.internal.hostname import get_hostname
 import ddtrace.internal.native as native
 from ddtrace.internal.runtime import get_runtime_id
-import ddtrace.internal.utils.http
+from ddtrace.internal.settings._agent import config as agent_config
+from ddtrace.internal.settings.asm import ai_guard_config
+from ddtrace.internal.settings.asm import config as asm_config
 from ddtrace.internal.utils.retry import fibonacci_backoff_with_jitter
-from ddtrace.settings._agent import config as agent_config
-from ddtrace.settings.asm import ai_guard_config
-from ddtrace.settings.asm import config as asm_config
+from ddtrace.version import __version__
 
 from ...constants import _KEEP_SPANS_RATE_KEY
 from .. import compat
@@ -74,6 +78,29 @@ class NoEncodableSpansError(Exception):
 # 2s timeout, the java tracer has a 10s timeout, so we set the window size
 # to 10 buckets of 1s duration.
 DEFAULT_SMA_WINDOW = 10
+
+
+def make_weak_method_hook(bound_method):
+    """
+    Wrap a bound method so that it is called via a weakref to its instance.
+    If the instance has been garbage-collected, the hook is a no-op.
+    """
+    if not hasattr(bound_method, "__self__") or bound_method.__self__ is None:
+        raise TypeError("make_weak_method_hook expects a bound method")
+
+    instance = bound_method.__self__
+    func = bound_method.__func__
+    instance_ref = weakref.ref(instance)
+
+    @functools.wraps(func)
+    def hook(*args, **kwargs):
+        inst = instance_ref()
+        if inst is None:
+            # The instance was garbage-collected
+            return
+        return func(inst, *args, **kwargs)
+
+    return hook
 
 
 def _human_size(nbytes: float) -> str:
@@ -282,12 +309,14 @@ class HTTPWriter(periodic.PeriodicService, TraceWriter):
                     t,
                     self._intake_endpoint(client),
                 )
+                # Read response body inside try block to ensure connection
+                # is reset if this from_http_response call throws an exception
+                # (e.g. IncompleteRead)
+                return Response.from_http_response(resp)
             except Exception:
                 # Always reset the connection when an exception occurs
                 self._reset_connection()
                 raise
-            else:
-                return Response.from_http_response(resp)
             finally:
                 # Reset the connection if reusing connections is disabled.
                 if not self._reuse_connections:
@@ -329,7 +358,7 @@ class HTTPWriter(periodic.PeriodicService, TraceWriter):
                 else:
                     log_args += (payload,)
 
-            log.error(msg, *log_args)
+            log.error(msg, *log_args, extra={"send_to_telemetry": False})
             self._metrics_dist("http.dropped.bytes", len(payload))
             self._metrics_dist("http.dropped.traces", count)
         return response
@@ -446,6 +475,7 @@ class HTTPWriter(periodic.PeriodicService, TraceWriter):
                     self._intake_endpoint(client),
                     self.RETRY_ATTEMPTS,
                     exc_info=True,
+                    extra={"send_to_telemetry": False},
                 )
         finally:
             self._metrics_dist("http.sent.bytes", len(encoded))
@@ -481,10 +511,6 @@ class AgentWriterInterface(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def set_test_session_token(self, token: Optional[str]) -> None:
-        pass
-
-    @abc.abstractmethod
-    def before_fork(self) -> None:
         pass
 
     @abc.abstractmethod
@@ -574,7 +600,7 @@ class AgentWriter(HTTPWriter, AgentWriterInterface):
             "Datadog-Meta-Lang": "python",
             "Datadog-Meta-Lang-Version": compat.PYTHON_VERSION,
             "Datadog-Meta-Lang-Interpreter": compat.PYTHON_INTERPRETER,
-            "Datadog-Meta-Tracer-Version": ddtrace.__version__,
+            "Datadog-Meta-Tracer-Version": __version__,
             "Datadog-Client-Computed-Top-Level": "yes",
         }
         if headers:
@@ -684,9 +710,6 @@ class AgentWriter(HTTPWriter, AgentWriterInterface):
         headers["X-Datadog-Trace-Count"] = str(count)
         return headers
 
-    def before_fork(self) -> None:
-        pass
-
     def set_test_session_token(self, token: Optional[str]) -> None:
         self._headers["X-Datadog-Test-Session-Token"] = token or ""
 
@@ -775,6 +798,12 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
         self._max_payload_size = max_payload_size
         self._test_session_token = test_session_token
 
+        # Condition variable to coordinate the flushing with forking
+        self._forking_cv = threading.Condition()
+        self._disable_flush = False
+        # Number of threads currently flushing
+        self._count_flushing = 0
+
         self._clients = [client]
         self.dogstatsd = dogstatsd
         self._metrics: Dict[str, int] = defaultdict(int)
@@ -784,7 +813,29 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
         self._compute_stats_enabled = compute_stats_enabled
         self._response_cb = response_callback
         self._stats_opt_out = stats_opt_out
+
+        try:
+            before_fork_hook = make_weak_method_hook(self._before_fork)
+            after_fork_hook = make_weak_method_hook(self._after_fork)
+
+            forksafe.register_before_fork(before_fork_hook)
+            self._before_fork_hook = before_fork_hook
+
+            forksafe.register_after_parent(after_fork_hook)
+            self._after_fork_hook = after_fork_hook
+        except TypeError:
+            log.warning("Failed to register NativeWriter fork hook")
+
         self._exporter = self._create_exporter()
+
+    def __del__(self):
+        if self._before_fork_hook:
+            forksafe.unregister_before_fork(self._before_fork_hook)
+            self._before_fork_hook = None
+
+        if self._after_fork_hook:
+            forksafe.unregister_parent(self._after_fork_hook)
+            self._after_fork_hook = None
 
     def _create_exporter(self) -> native.TraceExporter:
         """
@@ -796,15 +847,22 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
         builder = (
             native.TraceExporterBuilder()
             .set_url(self.intake_url)
+            .set_hostname(get_hostname())
             .set_language("python")
             .set_language_version(compat.PYTHON_VERSION)
             .set_language_interpreter(compat.PYTHON_INTERPRETER)
-            .set_tracer_version(ddtrace.__version__)
+            .set_tracer_version(__version__)
             .set_git_commit_sha(commit_sha)
             .set_client_computed_top_level()
             .set_input_format(self._api_version)
             .set_output_format(self._api_version)
         )
+        if config.service:
+            builder.set_service(config.service)
+        if config.env:
+            builder.set_env(config.env)
+        if config.version:
+            builder.set_app_version(config.version)
         if self._test_session_token is not None:
             builder.set_test_session_token(self._test_session_token)
         if self._stats_opt_out:
@@ -820,8 +878,15 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
                 config._telemetry_heartbeat_interval * 1000
             )  # Convert DD_TELEMETRY_HEARTBEAT_INTERVAL to milliseconds
             builder.enable_telemetry(heartbeat_ms, get_runtime_id())
+        if config._health_metrics_enabled:
+            builder.enable_health_metrics()
 
         return builder.build()
+
+    def _after_fork(self):
+        with self._forking_cv:
+            self._disable_flush = False
+            self._forking_cv.notify_all()
 
     def set_test_session_token(self, token: Optional[str]) -> None:
         """
@@ -841,9 +906,6 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
             # Writers like AgentWriter may not start until the first trace is encoded.
             # Stopping them before that will raise a ServiceStatusError.
             pass
-
-        # Stop the trace exporter worker
-        self._exporter.stop_worker()
 
         api_version = "v0.4" if appsec_enabled else self._api_version
         return self.__class__(
@@ -921,6 +983,10 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
 
     def _send_payload(self, payload: bytes, count: int, client: WriterClientBase):
         try:
+            with self._forking_cv:
+                # postpone flush if we are forking
+                self._forking_cv.wait_for(lambda: not self._disable_flush)
+                self._count_flushing += 1
             response_body = self._exporter.send(payload, count)
         except native.RequestError as e:
             try:
@@ -933,6 +999,11 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
             else:
                 raise e
         finally:
+            with self._forking_cv:
+                self._count_flushing -= 1
+                if self._count_flushing == 0:
+                    # wake before_fork hook if it's waiting
+                    self._forking_cv.notify_all()
             self._metrics["sent_traces"] += count
 
         if self._response_cb:
@@ -1042,7 +1113,7 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
                 msg += ", payload %s"
                 log_args += (binascii.hexlify(encoded).decode(),)  # type: ignore
 
-            log.error(msg, *log_args)
+            log.error(msg, *log_args, extra={"send_to_telemetry": False})
 
     def periodic(self):
         self.flush_queue(raise_exc=False)
@@ -1051,11 +1122,26 @@ class NativeWriter(periodic.PeriodicService, TraceWriter, AgentWriterInterface):
         self,
         timeout: Optional[float] = None,
     ) -> None:
-        # FIXME: don't join() on stop(), let the caller handle this
-        super(NativeWriter, self)._stop_service()
-        self.join(timeout=timeout)
+        try:
+            # FIXME: don't join() on stop(), let the caller handle this
+            super(NativeWriter, self)._stop_service()
+            self.join(timeout=timeout)
+        # Native threads should be stopped even if the writer is not running
+        finally:
+            self._exporter.stop_worker()
+            if self._before_fork_hook:
+                forksafe.unregister_before_fork(self._before_fork_hook)
+                self._before_fork_hook = None
+            if self._after_fork_hook:
+                forksafe.unregister_parent(self._after_fork_hook)
+                self._after_fork_hook = None
 
-    def before_fork(self) -> None:
+    def _before_fork(self) -> None:
+        # Mark the writer as forking to avoid restarting threads before the fork
+        with self._forking_cv:
+            # Prevent new flush from being started
+            self._disable_flush = True
+            self._forking_cv.wait_for(lambda: self._count_flushing == 0)
         self._exporter.stop_worker()
 
     def on_shutdown(self):
@@ -1092,15 +1178,22 @@ def _use_sync_mode() -> bool:
     """Returns, if an `AgentWriter` is to be used, whether it should be run
      in synchronous mode by default.
 
-    There are only two cases in which this is desirable:
+    There are only three cases in which this is desirable:
 
     - AWS Lambdas can have the Datadog agent installed via an extension.
       When it's available traces must be sent synchronously to ensure all
       are received before the Lambda terminates.
     - Google Cloud Functions and Azure Functions have a mini-agent spun up by the tracer.
       Similarly to AWS Lambdas, sync mode should be used to avoid data loss.
+    - Ray Job run different processes that can be killed at any time. Traces must be sent
+      synchronously to ensure all are received before an actor/a worker is killed
     """
-    return (in_aws_lambda() and has_aws_lambda_agent_extension()) or in_gcp_function() or in_azure_function()
+    return (
+        (in_aws_lambda() and has_aws_lambda_agent_extension())
+        or in_gcp_function()
+        or in_azure_function()
+        or in_ray_job()
+    )
 
 
 def create_trace_writer(response_callback: Optional[Callable[[AgentResponse], None]] = None) -> TraceWriter:

@@ -1,24 +1,28 @@
-# type: ignore
 import asyncio
-import os
-from os import environ as env
-from typing import Optional
 
 import click
+from uipath.core.tracing import UiPathTraceManager
+from uipath.runtime import (
+    UiPathExecuteOptions,
+    UiPathRuntimeFactoryProtocol,
+    UiPathRuntimeFactoryRegistry,
+    UiPathRuntimeProtocol,
+    UiPathRuntimeResult,
+    UiPathStreamOptions,
+)
+from uipath.runtime.chat import UiPathChatProtocol, UiPathChatRuntime
+from uipath.runtime.context import UiPathRuntimeContext
+from uipath.runtime.debug import UiPathDebugProtocol
+from uipath.runtime.errors import UiPathRuntimeError
+from uipath.runtime.events import UiPathRuntimeStateEvent
 
+from uipath._cli._chat._bridge import get_chat_bridge
+from uipath._cli._debug._bridge import ConsoleDebugBridge
+from uipath._cli._utils._common import read_resource_overwrites_from_file
 from uipath._cli._utils._debug import setup_debugging
-from uipath.tracing import LlmOpsHttpExporter
+from uipath._utils._bindings import ResourceOverwritesContext
+from uipath.tracing import JsonLinesFileExporter, LlmOpsHttpExporter
 
-from .._utils.constants import (
-    ENV_JOB_ID,
-)
-from ..telemetry import track
-from ._runtime._contracts import (
-    UiPathRuntimeContext,
-    UiPathRuntimeError,
-    UiPathRuntimeFactory,
-)
-from ._runtime._runtime import UiPathScriptRuntime
 from ._utils._console import ConsoleLogger
 from .middlewares import Middlewares
 
@@ -27,7 +31,7 @@ console = ConsoleLogger()
 
 @click.command()
 @click.argument("entrypoint", required=False)
-@click.argument("input", required=False, default="{}")
+@click.argument("input", required=False, default=None)
 @click.option("--resume", is_flag=True, help="Resume execution from a previous state")
 @click.option(
     "-f",
@@ -49,6 +53,18 @@ console = ConsoleLogger()
     help="File path where the output will be written",
 )
 @click.option(
+    "--trace-file",
+    required=False,
+    type=click.Path(exists=False),
+    help="File path where the trace spans will be written (JSON Lines format)",
+)
+@click.option(
+    "--state-file",
+    required=False,
+    type=click.Path(exists=True),
+    help="File path where the state file is stored for persisting execution state. If not provided, a temporary file will be used.",
+)
+@click.option(
     "--debug",
     is_flag=True,
     help="Enable debugging with debugpy. The process will wait for a debugger to attach.",
@@ -59,19 +75,27 @@ console = ConsoleLogger()
     default=5678,
     help="Port for the debug server (default: 5678)",
 )
-@track(when=lambda *_a, **_kw: env.get(ENV_JOB_ID) is None)
+@click.option(
+    "--keep-state-file",
+    is_flag=True,
+    help="Keep the temporary state file even when not resuming and no job id is provided",
+)
 def run(
-    entrypoint: Optional[str],
-    input: Optional[str],
+    entrypoint: str | None,
+    input: str | None,
     resume: bool,
-    file: Optional[str],
-    input_file: Optional[str],
-    output_file: Optional[str],
+    file: str | None,
+    input_file: str | None,
+    output_file: str | None,
+    trace_file: str | None,
+    state_file: str | None,
     debug: bool,
     debug_port: int,
+    keep_state_file: bool,
 ) -> None:
     """Execute the project."""
     input_file = file or input_file
+
     # Setup debugging if requested
     if not setup_debugging(debug, debug_port):
         console.error(f"Failed to start debug server on port {debug_port}")
@@ -82,45 +106,117 @@ def run(
         input,
         resume,
         input_file=input_file,
-        execution_output_file=output_file,
+        output_file=output_file,
+        trace_file=trace_file,
+        state_file=state_file,
         debug=debug,
         debug_port=debug_port,
+        keep_state_file=keep_state_file,
     )
 
     if result.error_message:
         console.error(result.error_message)
+        return
 
     if result.should_continue:
         if not entrypoint:
-            console.error("""No entrypoint specified. Please provide a path to a Python script.
-    Usage: `uipath run <entrypoint_path> <input_arguments> [-f <input_json_file_path>]`""")
-
-        if not os.path.exists(entrypoint):
-            console.error(f"""Script not found at path {entrypoint}.
-    Usage: `uipath run <entrypoint_path> <input_arguments> [-f <input_json_file_path>]`""")
+            console.error("""No entrypoint specified. Please provide the path to the Python function.
+    Usage: `uipath run <entrypoint> <input_arguments> [-f <input_json_file_path>]`""")
+            return
 
         try:
-            runtime_factory = UiPathRuntimeFactory(
-                UiPathScriptRuntime, UiPathRuntimeContext
-            )
 
-            context = UiPathRuntimeContext.with_defaults(
-                entrypoint=entrypoint,
-                input=input,
-                input_file=input_file,
-                resume=resume,
-                execution_output_file=output_file,
-                debug=debug,
-            )
-            if context.job_id:
-                runtime_factory.add_span_exporter(LlmOpsHttpExporter())
+            async def execute_runtime(
+                ctx: UiPathRuntimeContext, runtime: UiPathRuntimeProtocol
+            ) -> UiPathRuntimeResult:
+                options = UiPathExecuteOptions(resume=resume)
+                ctx.result = await runtime.execute(
+                    input=ctx.get_input(), options=options
+                )
+                return ctx.result
 
-            asyncio.run(runtime_factory.execute(context))
+            async def debug_runtime(
+                ctx: UiPathRuntimeContext, runtime: UiPathRuntimeProtocol
+            ) -> UiPathRuntimeResult | None:
+                debug_bridge: UiPathDebugProtocol = ConsoleDebugBridge()
+
+                await debug_bridge.emit_execution_started()
+                options = UiPathStreamOptions(resume=resume)
+                async for event in runtime.stream(ctx.get_input(), options=options):
+                    if isinstance(event, UiPathRuntimeResult):
+                        await debug_bridge.emit_execution_completed(event)
+                        ctx.result = event
+                    elif isinstance(event, UiPathRuntimeStateEvent):
+                        await debug_bridge.emit_state_update(event)
+                return ctx.result
+
+            async def execute() -> None:
+                trace_manager = UiPathTraceManager()
+
+                ctx = UiPathRuntimeContext.with_defaults(
+                    entrypoint=entrypoint,
+                    input=input,
+                    input_file=file or input_file,
+                    output_file=output_file,
+                    trace_file=trace_file,
+                    state_file_path=state_file,
+                    keep_state_file=keep_state_file,
+                    resume=resume,
+                    command="run",
+                    trace_manager=trace_manager,
+                )
+
+                if ctx.trace_file:
+                    trace_manager.add_span_exporter(
+                        JsonLinesFileExporter(ctx.trace_file)
+                    )
+
+                async with ResourceOverwritesContext(
+                    lambda: read_resource_overwrites_from_file(ctx.runtime_dir)
+                ):
+                    with ctx:
+                        runtime: UiPathRuntimeProtocol | None = None
+                        chat_runtime: UiPathRuntimeProtocol | None = None
+                        factory: UiPathRuntimeFactoryProtocol | None = None
+                        try:
+                            factory = UiPathRuntimeFactoryRegistry.get(context=ctx)
+                            runtime = await factory.new_runtime(
+                                entrypoint,
+                                ctx.conversation_id or ctx.job_id or "default",
+                            )
+
+                            if ctx.job_id:
+                                is_low_code = entrypoint == "agent.json"
+                                trace_manager.add_span_exporter(
+                                    LlmOpsHttpExporter(is_low_code=is_low_code)
+                                )
+
+                                if ctx.conversation_id and ctx.exchange_id:
+                                    chat_bridge: UiPathChatProtocol = get_chat_bridge(
+                                        context=ctx
+                                    )
+                                    chat_runtime = UiPathChatRuntime(
+                                        delegate=runtime, chat_bridge=chat_bridge
+                                    )
+
+                                ctx.result = await execute_runtime(
+                                    ctx, chat_runtime or runtime
+                                )
+                            else:
+                                ctx.result = await debug_runtime(ctx, runtime)
+                        finally:
+                            if chat_runtime:
+                                await chat_runtime.dispose()
+                            if runtime:
+                                await runtime.dispose()
+                            if factory:
+                                await factory.dispose()
+
+            asyncio.run(execute())
 
         except UiPathRuntimeError as e:
             console.error(f"{e.error_info.title} - {e.error_info.detail}")
         except Exception as e:
-            # Handle unexpected errors
             console.error(
                 f"Error: Unexpected error occurred - {str(e)}", include_traceback=True
             )

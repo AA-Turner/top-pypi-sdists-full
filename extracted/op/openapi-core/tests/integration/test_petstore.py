@@ -1689,7 +1689,7 @@ class TestPetstore:
                 spec=spec,
                 cls=V30RequestBodyValidator,
             )
-        assert type(exc_info.value.__cause__) is CastError
+        assert type(exc_info.value.__cause__) is InvalidSchemaValue
 
     def test_post_tags_additional_properties(self, spec):
         host_url = "http://petstore.swagger.io/v1"
@@ -2090,6 +2090,51 @@ class TestPetstore:
         )
 
         assert result.body is None
+
+    @pytest.mark.parametrize(
+        "header_value,expexted_value",
+        [
+            ("y", True),
+            ("t", True),
+            ("yes", True),
+            ("on", True),
+            ("true", True),
+            ("1", True),
+            ("n", False),
+            ("f", False),
+            ("no", False),
+            ("off", False),
+            ("false", False),
+            ("0", False),
+        ],
+    )
+    def test_delete_tags_header(self, spec, header_value, expexted_value):
+        host_url = "http://petstore.swagger.io/v1"
+        path_pattern = "/v1/tags"
+        headers = {
+            "x-delete-force": header_value,
+        }
+        request = MockRequest(
+            host_url,
+            "DELETE",
+            "/tags",
+            headers=headers,
+            path_pattern=path_pattern,
+        )
+
+        validate_request(request, spec=spec)
+
+        result = unmarshal_request(
+            request,
+            spec=spec,
+            cls=V30RequestParametersUnmarshaller,
+        )
+
+        assert result.parameters == Parameters(
+            header={
+                "x-delete-force": expexted_value,
+            },
+        )
 
     def test_delete_tags_raises_missing_required_response_header(
         self, spec, response_unmarshaller

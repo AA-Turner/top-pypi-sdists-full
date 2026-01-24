@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Dict, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -119,14 +120,14 @@ class InvalidConfigurationDetail(TypedDict, total=False):
     a hosted configuration version.
     """
 
-    Constraint: Optional[String]
-    Location: Optional[String]
-    Reason: Optional[String]
-    Type: Optional[String]
-    Value: Optional[String]
+    Constraint: String | None
+    Location: String | None
+    Reason: String | None
+    Type: String | None
+    Value: String | None
 
 
-InvalidConfigurationDetailList = List[InvalidConfigurationDetail]
+InvalidConfigurationDetailList = list[InvalidConfigurationDetail]
 
 
 class BadRequestDetails(TypedDict, total=False):
@@ -134,7 +135,7 @@ class BadRequestDetails(TypedDict, total=False):
     constraints specified by a call.
     """
 
-    InvalidConfiguration: Optional[InvalidConfigurationDetailList]
+    InvalidConfiguration: InvalidConfigurationDetailList | None
 
 
 class BadRequestException(ServiceException):
@@ -145,8 +146,8 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    Reason: Optional[BadRequestReason]
-    Details: Optional[BadRequestDetails]
+    Reason: BadRequestReason | None
+    Details: BadRequestDetails | None
 
 
 class ConflictException(ServiceException):
@@ -173,9 +174,9 @@ class PayloadTooLargeException(ServiceException):
     code: str = "PayloadTooLargeException"
     sender_fault: bool = False
     status_code: int = 413
-    Measure: Optional[BytesMeasure]
-    Limit: Optional[Float]
-    Size: Optional[Float]
+    Measure: BytesMeasure | None
+    Limit: Float | None
+    Size: Float | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -184,7 +185,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    ResourceName: Optional[String]
+    ResourceName: String | None
 
 
 class ServiceQuotaExceededException(ServiceException):
@@ -225,12 +226,12 @@ class DeletionProtectionSettings(TypedDict, total=False):
     environments that were created in the past hour.
     """
 
-    Enabled: Optional[Boolean]
-    ProtectionPeriodInMinutes: Optional[DeletionProtectionDuration]
+    Enabled: Boolean | None
+    ProtectionPeriodInMinutes: DeletionProtectionDuration | None
 
 
 class AccountSettings(TypedDict, total=False):
-    DeletionProtection: Optional[DeletionProtectionSettings]
+    DeletionProtection: DeletionProtectionSettings | None
 
 
 class Action(TypedDict, total=False):
@@ -260,63 +261,63 @@ class Action(TypedDict, total=False):
     in the extension.
     """
 
-    Name: Optional[Name]
-    Description: Optional[Description]
-    Uri: Optional[Uri]
-    RoleArn: Optional[Arn]
+    Name: Name | None
+    Description: Description | None
+    Uri: Uri | None
+    RoleArn: Arn | None
 
 
 class ActionInvocation(TypedDict, total=False):
     """An extension that was invoked as part of a deployment event."""
 
-    ExtensionIdentifier: Optional[Identifier]
-    ActionName: Optional[Name]
-    Uri: Optional[Uri]
-    RoleArn: Optional[Arn]
-    ErrorMessage: Optional[String]
-    ErrorCode: Optional[String]
-    InvocationId: Optional[Id]
+    ExtensionIdentifier: Identifier | None
+    ActionName: Name | None
+    Uri: Uri | None
+    RoleArn: Arn | None
+    ErrorMessage: String | None
+    ErrorCode: String | None
+    InvocationId: Id | None
 
 
-ActionInvocations = List[ActionInvocation]
-ActionList = List[Action]
-ActionsMap = Dict[ActionPoint, ActionList]
+ActionInvocations = list[ActionInvocation]
+ActionList = list[Action]
+ActionsMap = dict[ActionPoint, ActionList]
 
 
 class Application(TypedDict, total=False):
-    Id: Optional[Id]
-    Name: Optional[Name]
-    Description: Optional[Description]
+    Id: Id | None
+    Name: Name | None
+    Description: Description | None
 
 
-ApplicationList = List[Application]
+ApplicationList = list[Application]
 
 
 class Applications(TypedDict, total=False):
-    Items: Optional[ApplicationList]
-    NextToken: Optional[NextToken]
+    Items: ApplicationList | None
+    NextToken: NextToken | None
 
 
-ParameterValueMap = Dict[ExtensionOrParameterName, StringWithLengthBetween1And2048]
+ParameterValueMap = dict[ExtensionOrParameterName, StringWithLengthBetween1And2048]
 
 
 class AppliedExtension(TypedDict, total=False):
     """An extension that was invoked during a deployment."""
 
-    ExtensionId: Optional[Id]
-    ExtensionAssociationId: Optional[Id]
-    VersionNumber: Optional[Integer]
-    Parameters: Optional[ParameterValueMap]
+    ExtensionId: Id | None
+    ExtensionAssociationId: Id | None
+    VersionNumber: Integer | None
+    Parameters: ParameterValueMap | None
 
 
-AppliedExtensions = List[AppliedExtension]
+AppliedExtensions = list[AppliedExtension]
 Blob = bytes
 
 
 class Configuration(TypedDict, total=False):
-    Content: Optional[Union[Blob, IO[Blob], Iterable[Blob]]]
-    ConfigurationVersion: Optional[Version]
-    ContentType: Optional[String]
+    Content: Blob | IO[Blob] | Iterable[Blob] | None
+    ConfigurationVersion: Version | None
+    ContentType: String | None
 
 
 class Validator(TypedDict, total=False):
@@ -334,100 +335,100 @@ class Validator(TypedDict, total=False):
     Content: StringWithLengthBetween0And32768
 
 
-ValidatorList = List[Validator]
+ValidatorList = list[Validator]
 
 
 class ConfigurationProfile(TypedDict, total=False):
-    ApplicationId: Optional[Id]
-    Id: Optional[Id]
-    Name: Optional[LongName]
-    Description: Optional[Description]
-    LocationUri: Optional[Uri]
-    RetrievalRoleArn: Optional[RoleArn]
-    Validators: Optional[ValidatorList]
-    Type: Optional[ConfigurationProfileType]
-    KmsKeyArn: Optional[Arn]
-    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
+    ApplicationId: Id | None
+    Id: Id | None
+    Name: LongName | None
+    Description: Description | None
+    LocationUri: Uri | None
+    RetrievalRoleArn: RoleArn | None
+    Validators: ValidatorList | None
+    Type: ConfigurationProfileType | None
+    KmsKeyArn: Arn | None
+    KmsKeyIdentifier: KmsKeyIdentifier | None
 
 
-ValidatorTypeList = List[ValidatorType]
+ValidatorTypeList = list[ValidatorType]
 
 
 class ConfigurationProfileSummary(TypedDict, total=False):
     """A summary of a configuration profile."""
 
-    ApplicationId: Optional[Id]
-    Id: Optional[Id]
-    Name: Optional[LongName]
-    LocationUri: Optional[Uri]
-    ValidatorTypes: Optional[ValidatorTypeList]
-    Type: Optional[ConfigurationProfileType]
+    ApplicationId: Id | None
+    Id: Id | None
+    Name: LongName | None
+    LocationUri: Uri | None
+    ValidatorTypes: ValidatorTypeList | None
+    Type: ConfigurationProfileType | None
 
 
-ConfigurationProfileSummaryList = List[ConfigurationProfileSummary]
+ConfigurationProfileSummaryList = list[ConfigurationProfileSummary]
 
 
 class ConfigurationProfiles(TypedDict, total=False):
-    Items: Optional[ConfigurationProfileSummaryList]
-    NextToken: Optional[NextToken]
+    Items: ConfigurationProfileSummaryList | None
+    NextToken: NextToken | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class CreateApplicationRequest(ServiceRequest):
     Name: Name
-    Description: Optional[Description]
-    Tags: Optional[TagMap]
+    Description: Description | None
+    Tags: TagMap | None
 
 
 class CreateConfigurationProfileRequest(ServiceRequest):
     ApplicationId: Id
     Name: LongName
-    Description: Optional[Description]
+    Description: Description | None
     LocationUri: Uri
-    RetrievalRoleArn: Optional[RoleArn]
-    Validators: Optional[ValidatorList]
-    Tags: Optional[TagMap]
-    Type: Optional[ConfigurationProfileType]
-    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
+    RetrievalRoleArn: RoleArn | None
+    Validators: ValidatorList | None
+    Tags: TagMap | None
+    Type: ConfigurationProfileType | None
+    KmsKeyIdentifier: KmsKeyIdentifier | None
 
 
 class CreateDeploymentStrategyRequest(ServiceRequest):
     Name: Name
-    Description: Optional[Description]
+    Description: Description | None
     DeploymentDurationInMinutes: MinutesBetween0And24Hours
-    FinalBakeTimeInMinutes: Optional[MinutesBetween0And24Hours]
+    FinalBakeTimeInMinutes: MinutesBetween0And24Hours | None
     GrowthFactor: GrowthFactor
-    GrowthType: Optional[GrowthType]
-    ReplicateTo: Optional[ReplicateTo]
-    Tags: Optional[TagMap]
+    GrowthType: GrowthType | None
+    ReplicateTo: ReplicateTo | None
+    Tags: TagMap | None
 
 
 class Monitor(TypedDict, total=False):
     """Amazon CloudWatch alarms to monitor during the deployment process."""
 
     AlarmArn: StringWithLengthBetween1And2048
-    AlarmRoleArn: Optional[RoleArn]
+    AlarmRoleArn: RoleArn | None
 
 
-MonitorList = List[Monitor]
+MonitorList = list[Monitor]
 
 
 class CreateEnvironmentRequest(ServiceRequest):
     ApplicationId: Id
     Name: Name
-    Description: Optional[Description]
-    Monitors: Optional[MonitorList]
-    Tags: Optional[TagMap]
+    Description: Description | None
+    Monitors: MonitorList | None
+    Tags: TagMap | None
 
 
 class CreateExtensionAssociationRequest(ServiceRequest):
     ExtensionIdentifier: Identifier
-    ExtensionVersionNumber: Optional[Integer]
+    ExtensionVersionNumber: Integer | None
     ResourceIdentifier: Identifier
-    Parameters: Optional[ParameterValueMap]
-    Tags: Optional[TagMap]
+    Parameters: ParameterValueMap | None
+    Tags: TagMap | None
 
 
 class Parameter(TypedDict, total=False):
@@ -439,31 +440,31 @@ class Parameter(TypedDict, total=False):
     in the *AppConfig User Guide*.
     """
 
-    Description: Optional[Description]
-    Required: Optional[Boolean]
-    Dynamic: Optional[Boolean]
+    Description: Description | None
+    Required: Boolean | None
+    Dynamic: Boolean | None
 
 
-ParameterMap = Dict[ExtensionOrParameterName, Parameter]
+ParameterMap = dict[ExtensionOrParameterName, Parameter]
 
 
 class CreateExtensionRequest(ServiceRequest):
     Name: ExtensionOrParameterName
-    Description: Optional[Description]
+    Description: Description | None
     Actions: ActionsMap
-    Parameters: Optional[ParameterMap]
-    Tags: Optional[TagMap]
-    LatestVersionNumber: Optional[Integer]
+    Parameters: ParameterMap | None
+    Tags: TagMap | None
+    LatestVersionNumber: Integer | None
 
 
 class CreateHostedConfigurationVersionRequest(ServiceRequest):
     Content: IO[Blob]
     ApplicationId: Id
     ConfigurationProfileId: Id
-    Description: Optional[Description]
+    Description: Description | None
     ContentType: StringWithLengthBetween1And255
-    LatestVersionNumber: Optional[Integer]
-    VersionLabel: Optional[VersionLabel]
+    LatestVersionNumber: Integer | None
+    VersionLabel: VersionLabel | None
 
 
 class DeleteApplicationRequest(ServiceRequest):
@@ -473,7 +474,7 @@ class DeleteApplicationRequest(ServiceRequest):
 class DeleteConfigurationProfileRequest(ServiceRequest):
     ApplicationId: Id
     ConfigurationProfileId: Id
-    DeletionProtectionCheck: Optional[DeletionProtectionCheck]
+    DeletionProtectionCheck: DeletionProtectionCheck | None
 
 
 class DeleteDeploymentStrategyRequest(ServiceRequest):
@@ -483,7 +484,7 @@ class DeleteDeploymentStrategyRequest(ServiceRequest):
 class DeleteEnvironmentRequest(ServiceRequest):
     EnvironmentId: Id
     ApplicationId: Id
-    DeletionProtectionCheck: Optional[DeletionProtectionCheck]
+    DeletionProtectionCheck: DeletionProtectionCheck | None
 
 
 class DeleteExtensionAssociationRequest(ServiceRequest):
@@ -492,7 +493,7 @@ class DeleteExtensionAssociationRequest(ServiceRequest):
 
 class DeleteExtensionRequest(ServiceRequest):
     ExtensionIdentifier: Identifier
-    VersionNumber: Optional[Integer]
+    VersionNumber: Integer | None
 
 
 class DeleteHostedConfigurationVersionRequest(ServiceRequest):
@@ -507,122 +508,122 @@ Iso8601DateTime = datetime
 class DeploymentEvent(TypedDict, total=False):
     """An object that describes a deployment event."""
 
-    EventType: Optional[DeploymentEventType]
-    TriggeredBy: Optional[TriggeredBy]
-    Description: Optional[Description]
-    ActionInvocations: Optional[ActionInvocations]
-    OccurredAt: Optional[Iso8601DateTime]
+    EventType: DeploymentEventType | None
+    TriggeredBy: TriggeredBy | None
+    Description: Description | None
+    ActionInvocations: ActionInvocations | None
+    OccurredAt: Iso8601DateTime | None
 
 
-DeploymentEvents = List[DeploymentEvent]
+DeploymentEvents = list[DeploymentEvent]
 
 
 class Deployment(TypedDict, total=False):
-    ApplicationId: Optional[Id]
-    EnvironmentId: Optional[Id]
-    DeploymentStrategyId: Optional[Id]
-    ConfigurationProfileId: Optional[Id]
-    DeploymentNumber: Optional[Integer]
-    ConfigurationName: Optional[Name]
-    ConfigurationLocationUri: Optional[Uri]
-    ConfigurationVersion: Optional[Version]
-    Description: Optional[Description]
-    DeploymentDurationInMinutes: Optional[MinutesBetween0And24Hours]
-    GrowthType: Optional[GrowthType]
-    GrowthFactor: Optional[Percentage]
-    FinalBakeTimeInMinutes: Optional[MinutesBetween0And24Hours]
-    State: Optional[DeploymentState]
-    EventLog: Optional[DeploymentEvents]
-    PercentageComplete: Optional[Percentage]
-    StartedAt: Optional[Iso8601DateTime]
-    CompletedAt: Optional[Iso8601DateTime]
-    AppliedExtensions: Optional[AppliedExtensions]
-    KmsKeyArn: Optional[Arn]
-    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
-    VersionLabel: Optional[VersionLabel]
+    ApplicationId: Id | None
+    EnvironmentId: Id | None
+    DeploymentStrategyId: Id | None
+    ConfigurationProfileId: Id | None
+    DeploymentNumber: Integer | None
+    ConfigurationName: Name | None
+    ConfigurationLocationUri: Uri | None
+    ConfigurationVersion: Version | None
+    Description: Description | None
+    DeploymentDurationInMinutes: MinutesBetween0And24Hours | None
+    GrowthType: GrowthType | None
+    GrowthFactor: Percentage | None
+    FinalBakeTimeInMinutes: MinutesBetween0And24Hours | None
+    State: DeploymentState | None
+    EventLog: DeploymentEvents | None
+    PercentageComplete: Percentage | None
+    StartedAt: Iso8601DateTime | None
+    CompletedAt: Iso8601DateTime | None
+    AppliedExtensions: AppliedExtensions | None
+    KmsKeyArn: Arn | None
+    KmsKeyIdentifier: KmsKeyIdentifier | None
+    VersionLabel: VersionLabel | None
 
 
 class DeploymentSummary(TypedDict, total=False):
     """Information about the deployment."""
 
-    DeploymentNumber: Optional[Integer]
-    ConfigurationName: Optional[Name]
-    ConfigurationVersion: Optional[Version]
-    DeploymentDurationInMinutes: Optional[MinutesBetween0And24Hours]
-    GrowthType: Optional[GrowthType]
-    GrowthFactor: Optional[Percentage]
-    FinalBakeTimeInMinutes: Optional[MinutesBetween0And24Hours]
-    State: Optional[DeploymentState]
-    PercentageComplete: Optional[Percentage]
-    StartedAt: Optional[Iso8601DateTime]
-    CompletedAt: Optional[Iso8601DateTime]
-    VersionLabel: Optional[VersionLabel]
+    DeploymentNumber: Integer | None
+    ConfigurationName: Name | None
+    ConfigurationVersion: Version | None
+    DeploymentDurationInMinutes: MinutesBetween0And24Hours | None
+    GrowthType: GrowthType | None
+    GrowthFactor: Percentage | None
+    FinalBakeTimeInMinutes: MinutesBetween0And24Hours | None
+    State: DeploymentState | None
+    PercentageComplete: Percentage | None
+    StartedAt: Iso8601DateTime | None
+    CompletedAt: Iso8601DateTime | None
+    VersionLabel: VersionLabel | None
 
 
-DeploymentList = List[DeploymentSummary]
+DeploymentList = list[DeploymentSummary]
 
 
 class DeploymentStrategy(TypedDict, total=False):
-    Id: Optional[Id]
-    Name: Optional[Name]
-    Description: Optional[Description]
-    DeploymentDurationInMinutes: Optional[MinutesBetween0And24Hours]
-    GrowthType: Optional[GrowthType]
-    GrowthFactor: Optional[Percentage]
-    FinalBakeTimeInMinutes: Optional[MinutesBetween0And24Hours]
-    ReplicateTo: Optional[ReplicateTo]
+    Id: Id | None
+    Name: Name | None
+    Description: Description | None
+    DeploymentDurationInMinutes: MinutesBetween0And24Hours | None
+    GrowthType: GrowthType | None
+    GrowthFactor: Percentage | None
+    FinalBakeTimeInMinutes: MinutesBetween0And24Hours | None
+    ReplicateTo: ReplicateTo | None
 
 
-DeploymentStrategyList = List[DeploymentStrategy]
+DeploymentStrategyList = list[DeploymentStrategy]
 
 
 class DeploymentStrategies(TypedDict, total=False):
-    Items: Optional[DeploymentStrategyList]
-    NextToken: Optional[NextToken]
+    Items: DeploymentStrategyList | None
+    NextToken: NextToken | None
 
 
 class Deployments(TypedDict, total=False):
-    Items: Optional[DeploymentList]
-    NextToken: Optional[NextToken]
+    Items: DeploymentList | None
+    NextToken: NextToken | None
 
 
-DynamicParameterMap = Dict[DynamicParameterKey, StringWithLengthBetween1And2048]
+DynamicParameterMap = dict[DynamicParameterKey, StringWithLengthBetween1And2048]
 
 
 class Environment(TypedDict, total=False):
-    ApplicationId: Optional[Id]
-    Id: Optional[Id]
-    Name: Optional[Name]
-    Description: Optional[Description]
-    State: Optional[EnvironmentState]
-    Monitors: Optional[MonitorList]
+    ApplicationId: Id | None
+    Id: Id | None
+    Name: Name | None
+    Description: Description | None
+    State: EnvironmentState | None
+    Monitors: MonitorList | None
 
 
-EnvironmentList = List[Environment]
+EnvironmentList = list[Environment]
 
 
 class Environments(TypedDict, total=False):
-    Items: Optional[EnvironmentList]
-    NextToken: Optional[NextToken]
+    Items: EnvironmentList | None
+    NextToken: NextToken | None
 
 
 class Extension(TypedDict, total=False):
-    Id: Optional[Id]
-    Name: Optional[Name]
-    VersionNumber: Optional[Integer]
-    Arn: Optional[Arn]
-    Description: Optional[Description]
-    Actions: Optional[ActionsMap]
-    Parameters: Optional[ParameterMap]
+    Id: Id | None
+    Name: Name | None
+    VersionNumber: Integer | None
+    Arn: Arn | None
+    Description: Description | None
+    Actions: ActionsMap | None
+    Parameters: ParameterMap | None
 
 
 class ExtensionAssociation(TypedDict, total=False):
-    Id: Optional[Identifier]
-    ExtensionArn: Optional[Arn]
-    ResourceArn: Optional[Arn]
-    Arn: Optional[Arn]
-    Parameters: Optional[ParameterValueMap]
-    ExtensionVersionNumber: Optional[Integer]
+    Id: Identifier | None
+    ExtensionArn: Arn | None
+    ResourceArn: Arn | None
+    Arn: Arn | None
+    Parameters: ParameterValueMap | None
+    ExtensionVersionNumber: Integer | None
 
 
 class ExtensionAssociationSummary(TypedDict, total=False):
@@ -632,17 +633,17 @@ class ExtensionAssociationSummary(TypedDict, total=False):
     association.
     """
 
-    Id: Optional[Identifier]
-    ExtensionArn: Optional[Arn]
-    ResourceArn: Optional[Arn]
+    Id: Identifier | None
+    ExtensionArn: Arn | None
+    ResourceArn: Arn | None
 
 
-ExtensionAssociationSummaries = List[ExtensionAssociationSummary]
+ExtensionAssociationSummaries = list[ExtensionAssociationSummary]
 
 
 class ExtensionAssociations(TypedDict, total=False):
-    Items: Optional[ExtensionAssociationSummaries]
-    NextToken: Optional[NextToken]
+    Items: ExtensionAssociationSummaries | None
+    NextToken: NextToken | None
 
 
 class ExtensionSummary(TypedDict, total=False):
@@ -650,19 +651,19 @@ class ExtensionSummary(TypedDict, total=False):
     information about an extension.
     """
 
-    Id: Optional[Id]
-    Name: Optional[Name]
-    VersionNumber: Optional[Integer]
-    Arn: Optional[Arn]
-    Description: Optional[Description]
+    Id: Id | None
+    Name: Name | None
+    VersionNumber: Integer | None
+    Arn: Arn | None
+    Description: Description | None
 
 
-ExtensionSummaries = List[ExtensionSummary]
+ExtensionSummaries = list[ExtensionSummary]
 
 
 class Extensions(TypedDict, total=False):
-    Items: Optional[ExtensionSummaries]
-    NextToken: Optional[NextToken]
+    Items: ExtensionSummaries | None
+    NextToken: NextToken | None
 
 
 class GetApplicationRequest(ServiceRequest):
@@ -679,7 +680,7 @@ class GetConfigurationRequest(ServiceRequest):
     Environment: StringWithLengthBetween1And64
     Configuration: StringWithLengthBetween1And64
     ClientId: StringWithLengthBetween1And64
-    ClientConfigurationVersion: Optional[Version]
+    ClientConfigurationVersion: Version | None
 
 
 class GetDeploymentRequest(ServiceRequest):
@@ -703,7 +704,7 @@ class GetExtensionAssociationRequest(ServiceRequest):
 
 class GetExtensionRequest(ServiceRequest):
     ExtensionIdentifier: Identifier
-    VersionNumber: Optional[Integer]
+    VersionNumber: Integer | None
 
 
 class GetHostedConfigurationVersionRequest(ServiceRequest):
@@ -713,86 +714,86 @@ class GetHostedConfigurationVersionRequest(ServiceRequest):
 
 
 class HostedConfigurationVersion(TypedDict, total=False):
-    Content: Optional[Union[Blob, IO[Blob], Iterable[Blob]]]
-    ApplicationId: Optional[Id]
-    ConfigurationProfileId: Optional[Id]
-    VersionNumber: Optional[Integer]
-    Description: Optional[Description]
-    ContentType: Optional[StringWithLengthBetween1And255]
-    VersionLabel: Optional[VersionLabel]
-    KmsKeyArn: Optional[Arn]
+    Content: Blob | IO[Blob] | Iterable[Blob] | None
+    ApplicationId: Id | None
+    ConfigurationProfileId: Id | None
+    VersionNumber: Integer | None
+    Description: Description | None
+    ContentType: StringWithLengthBetween1And255 | None
+    VersionLabel: VersionLabel | None
+    KmsKeyArn: Arn | None
 
 
 class HostedConfigurationVersionSummary(TypedDict, total=False):
     """Information about the configuration."""
 
-    ApplicationId: Optional[Id]
-    ConfigurationProfileId: Optional[Id]
-    VersionNumber: Optional[Integer]
-    Description: Optional[Description]
-    ContentType: Optional[StringWithLengthBetween1And255]
-    VersionLabel: Optional[VersionLabel]
-    KmsKeyArn: Optional[Arn]
+    ApplicationId: Id | None
+    ConfigurationProfileId: Id | None
+    VersionNumber: Integer | None
+    Description: Description | None
+    ContentType: StringWithLengthBetween1And255 | None
+    VersionLabel: VersionLabel | None
+    KmsKeyArn: Arn | None
 
 
-HostedConfigurationVersionSummaryList = List[HostedConfigurationVersionSummary]
+HostedConfigurationVersionSummaryList = list[HostedConfigurationVersionSummary]
 
 
 class HostedConfigurationVersions(TypedDict, total=False):
-    Items: Optional[HostedConfigurationVersionSummaryList]
-    NextToken: Optional[NextToken]
+    Items: HostedConfigurationVersionSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListApplicationsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListConfigurationProfilesRequest(ServiceRequest):
     ApplicationId: Id
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    Type: Optional[ConfigurationProfileType]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    Type: ConfigurationProfileType | None
 
 
 class ListDeploymentStrategiesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListDeploymentsRequest(ServiceRequest):
     ApplicationId: Id
     EnvironmentId: Id
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListEnvironmentsRequest(ServiceRequest):
     ApplicationId: Id
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListExtensionAssociationsRequest(ServiceRequest):
-    ResourceIdentifier: Optional[Arn]
-    ExtensionIdentifier: Optional[Identifier]
-    ExtensionVersionNumber: Optional[Integer]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    ResourceIdentifier: Arn | None
+    ExtensionIdentifier: Identifier | None
+    ExtensionVersionNumber: Integer | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListExtensionsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    Name: Optional[QueryName]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    Name: QueryName | None
 
 
 class ListHostedConfigurationVersionsRequest(ServiceRequest):
     ApplicationId: Id
     ConfigurationProfileId: Id
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    VersionLabel: Optional[QueryName]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    VersionLabel: QueryName | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -800,7 +801,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ResourceTags(TypedDict, total=False):
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class StartDeploymentRequest(ServiceRequest):
@@ -809,20 +810,20 @@ class StartDeploymentRequest(ServiceRequest):
     DeploymentStrategyId: DeploymentStrategyId
     ConfigurationProfileId: Id
     ConfigurationVersion: Version
-    Description: Optional[Description]
-    Tags: Optional[TagMap]
-    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
-    DynamicExtensionParameters: Optional[DynamicParameterMap]
+    Description: Description | None
+    Tags: TagMap | None
+    KmsKeyIdentifier: KmsKeyIdentifier | None
+    DynamicExtensionParameters: DynamicParameterMap | None
 
 
 class StopDeploymentRequest(ServiceRequest):
     ApplicationId: Id
     EnvironmentId: Id
     DeploymentNumber: Integer
-    AllowRevert: Optional[Boolean]
+    AllowRevert: Boolean | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -836,53 +837,53 @@ class UntagResourceRequest(ServiceRequest):
 
 
 class UpdateAccountSettingsRequest(ServiceRequest):
-    DeletionProtection: Optional[DeletionProtectionSettings]
+    DeletionProtection: DeletionProtectionSettings | None
 
 
 class UpdateApplicationRequest(ServiceRequest):
     ApplicationId: Id
-    Name: Optional[Name]
-    Description: Optional[Description]
+    Name: Name | None
+    Description: Description | None
 
 
 class UpdateConfigurationProfileRequest(ServiceRequest):
     ApplicationId: Id
     ConfigurationProfileId: Id
-    Name: Optional[LongName]
-    Description: Optional[Description]
-    RetrievalRoleArn: Optional[RoleArn]
-    Validators: Optional[ValidatorList]
-    KmsKeyIdentifier: Optional[KmsKeyIdentifierOrEmpty]
+    Name: LongName | None
+    Description: Description | None
+    RetrievalRoleArn: RoleArn | None
+    Validators: ValidatorList | None
+    KmsKeyIdentifier: KmsKeyIdentifierOrEmpty | None
 
 
 class UpdateDeploymentStrategyRequest(ServiceRequest):
     DeploymentStrategyId: DeploymentStrategyId
-    Description: Optional[Description]
-    DeploymentDurationInMinutes: Optional[MinutesBetween0And24Hours]
-    FinalBakeTimeInMinutes: Optional[MinutesBetween0And24Hours]
-    GrowthFactor: Optional[GrowthFactor]
-    GrowthType: Optional[GrowthType]
+    Description: Description | None
+    DeploymentDurationInMinutes: MinutesBetween0And24Hours | None
+    FinalBakeTimeInMinutes: MinutesBetween0And24Hours | None
+    GrowthFactor: GrowthFactor | None
+    GrowthType: GrowthType | None
 
 
 class UpdateEnvironmentRequest(ServiceRequest):
     ApplicationId: Id
     EnvironmentId: Id
-    Name: Optional[Name]
-    Description: Optional[Description]
-    Monitors: Optional[MonitorList]
+    Name: Name | None
+    Description: Description | None
+    Monitors: MonitorList | None
 
 
 class UpdateExtensionAssociationRequest(ServiceRequest):
     ExtensionAssociationId: Id
-    Parameters: Optional[ParameterValueMap]
+    Parameters: ParameterValueMap | None
 
 
 class UpdateExtensionRequest(ServiceRequest):
     ExtensionIdentifier: Identifier
-    Description: Optional[Description]
-    Actions: Optional[ActionsMap]
-    Parameters: Optional[ParameterMap]
-    VersionNumber: Optional[Integer]
+    Description: Description | None
+    Actions: ActionsMap | None
+    Parameters: ParameterMap | None
+    VersionNumber: Integer | None
 
 
 class ValidateConfigurationRequest(ServiceRequest):
@@ -892,8 +893,8 @@ class ValidateConfigurationRequest(ServiceRequest):
 
 
 class AppconfigApi:
-    service = "appconfig"
-    version = "2019-10-09"
+    service: str = "appconfig"
+    version: str = "2019-10-09"
 
     @handler("CreateApplication")
     def create_application(

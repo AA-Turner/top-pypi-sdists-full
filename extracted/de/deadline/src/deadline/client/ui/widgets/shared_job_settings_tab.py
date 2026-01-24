@@ -26,7 +26,7 @@ from qtpy.QtWidgets import (  # type: ignore
 
 from ... import api
 from ...config import get_setting
-from .. import CancelationFlag
+from .._utils import CancelationFlag, tr
 from .openjd_parameters_widget import OpenJDParametersWidget
 from ...api import get_queue_parameter_definitions
 
@@ -63,7 +63,11 @@ class SharedJobSettingsWidget(QWidget):  # pylint: disable=too-few-public-method
     _queue_parameters_update = Signal(int, list)
 
     def __init__(
-        self, *, initial_settings, initial_shared_parameter_values: dict[str, Any], parent=None
+        self,
+        *,
+        initial_settings: Any,
+        initial_shared_parameter_values: dict[str, Any],
+        parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
         layout = QVBoxLayout(self)
@@ -249,8 +253,8 @@ class SharedJobPropertiesWidget(QGroupBox):  # pylint: disable=too-few-public-me
       - `description: str`  The description of the Job to submit.
     """
 
-    def __init__(self, *, initial_settings, parent=None):
-        super().__init__("Job Properties", parent=parent)
+    def __init__(self, *, initial_settings, parent: Optional[QWidget] = None):
+        super().__init__(tr("Job Properties"), parent=parent)
 
         self._build_ui()
         self.refresh_ui(initial_settings)
@@ -263,22 +267,22 @@ class SharedJobPropertiesWidget(QGroupBox):  # pylint: disable=too-few-public-me
         self.sub_name_edit.setMaxLength(128)
         self.layout.addRow("Name", self.sub_name_edit)
 
-        self.desc_label = QLabel("Description")
+        self.desc_label = QLabel(tr("Description"))
         self.desc_edit = QLineEdit()
         self.desc_edit.setMaxLength(2048)
         self.layout.addRow(self.desc_label, self.desc_edit)
 
-        self.priority_box_label = QLabel("Priority")
+        self.priority_box_label = QLabel(tr("Priority"))
         self.priority_box = QSpinBox(parent=self)
         self.priority_box.setRange(0, 100)
         self.layout.addRow(self.priority_box_label, self.priority_box)
 
-        self.initial_status_box_label = QLabel("Initial state")
+        self.initial_status_box_label = QLabel(tr("Initial state"))
         self.initial_status_box = QComboBox(parent=self)
         self.initial_status_box.addItems(["READY", "SUSPENDED"])
         self.layout.addRow(self.initial_status_box_label, self.initial_status_box)
 
-        self.max_failed_tasks_count_box_label = QLabel("Maximum failed tasks count")
+        self.max_failed_tasks_count_box_label = QLabel(tr("Maximum failed tasks count"))
         self.max_failed_tasks_count_box_label.setToolTip(
             "Maximum number of tasks that can fail before the job will be marked as failed."
         )
@@ -286,7 +290,7 @@ class SharedJobPropertiesWidget(QGroupBox):  # pylint: disable=too-few-public-me
         self.max_failed_tasks_count_box.setRange(0, 2147483647)
         self.layout.addRow(self.max_failed_tasks_count_box_label, self.max_failed_tasks_count_box)
 
-        self.max_retries_per_task_box_label = QLabel("Maximum retries per task")
+        self.max_retries_per_task_box_label = QLabel(tr("Maximum retries per task"))
         self.max_retries_per_task_box_label.setToolTip(
             "Maximum number of times that a task will retry before it's marked as failed."
         )
@@ -294,12 +298,12 @@ class SharedJobPropertiesWidget(QGroupBox):  # pylint: disable=too-few-public-me
         self.max_retries_per_task_box.setRange(0, 2147483647)
         self.layout.addRow(self.max_retries_per_task_box_label, self.max_retries_per_task_box)
 
-        self.max_worker_count_box_label = QLabel("Maximum worker count")
-        self.max_worker_count_box_label.setToolTip("Maximum worker count of job.")
+        self.max_worker_count_box_label = QLabel(tr("Maximum worker count"))
+        self.max_worker_count_box_label.setToolTip(tr("Maximum worker count of job."))
         self.max_worker_count_box = QSpinBox()
         self.max_worker_count_box.setRange(1, 2147483647)
-        self.unlimited_max_worker_count = QRadioButton("No max worker count")
-        self.limited_max_worker_count = QRadioButton("Set max worker count")
+        self.unlimited_max_worker_count = QRadioButton(tr("No max worker count"))
+        self.limited_max_worker_count = QRadioButton(tr("Set max worker count"))
         self.limited_max_worker_count.toggled.connect(
             self.limited_max_worker_count_radio_button_toggled
         )
@@ -473,7 +477,7 @@ class DeadlineCloudSettingsWidget(QGroupBox):
     """
 
     def __init__(self, *, parent: Optional[QWidget] = None):
-        super().__init__("Deadline Cloud settings", parent=parent)
+        super().__init__(tr("Deadline Cloud settings"), parent=parent)
         self.deadline_settings: Dict[str, Any] = {"counter": -1}
         self.layout = QFormLayout(self)
         self.layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -489,11 +493,11 @@ class DeadlineCloudSettingsWidget(QGroupBox):
         """
         Build the UI for the Deadline settings
         """
-        self.farm_box_label = QLabel("Farm")
+        self.farm_box_label = QLabel(tr("Farm"))
         self.farm_box = DeadlineFarmDisplay()
         self.layout.addRow(self.farm_box_label, self.farm_box)
 
-        self.queue_box_label = QLabel("Queue")
+        self.queue_box_label = QLabel(tr("Queue"))
         self.queue_box = DeadlineQueueDisplay()
         self.layout.addRow(self.queue_box_label, self.queue_box)
 
@@ -531,7 +535,7 @@ class _DeadlineNamedResourceDisplay(QWidget):
     # provides (refresh_id, id, name, description)
     _item_update = Signal(int, str, str, str)
 
-    def __init__(self, *, resource_name, setting_name, parent=None):
+    def __init__(self, *, resource_name, setting_name, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
 
         self.__refresh_thread = None
@@ -620,7 +624,7 @@ class _DeadlineNamedResourceDisplay(QWidget):
 
 
 class DeadlineFarmDisplay(_DeadlineNamedResourceDisplay):
-    def __init__(self, *, parent=None):
+    def __init__(self, *, parent: Optional[QWidget] = None):
         super().__init__(resource_name="Farm", setting_name="defaults.farm_id", parent=parent)
 
     def get_item(self):
@@ -634,7 +638,7 @@ class DeadlineFarmDisplay(_DeadlineNamedResourceDisplay):
 
 
 class DeadlineQueueDisplay(_DeadlineNamedResourceDisplay):
-    def __init__(self, *, parent=None):
+    def __init__(self, *, parent: Optional[QWidget] = None):
         super().__init__(resource_name="Queue", setting_name="defaults.queue_id", parent=parent)
 
     def get_item(self):
@@ -653,7 +657,7 @@ class DeadlineStorageProfileNameDisplay(_DeadlineNamedResourceDisplay):
     MAC_OS = "Macos"
     LINUX_OS = "Linux"
 
-    def __init__(self, *, parent=None):
+    def __init__(self, *, parent: Optional[QWidget] = None):
         super().__init__(
             resource_name="Storage profile name",
             setting_name="settings.storage_profile_id",

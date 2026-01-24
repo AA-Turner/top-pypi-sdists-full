@@ -1,3 +1,5 @@
+use crate::unwrap_or_return;
+
 use super::{window_iter::WindowIter, Version};
 
 pub struct Tokenizer;
@@ -6,8 +8,7 @@ impl Tokenizer {
     // Ideal UserAgent format: <product>/<product-version> (<os-information>) <engine> (<platform-details>) <optional-details>
     pub fn run(input: &str) -> TokenizerResult<'_> {
         let mut result = TokenizerResult::default();
-        let mut win = WindowIter::new(input);
-
+        let mut win: WindowIter<'_> = WindowIter::new(input);
         while !win.is_empty() {
             let (curr, next1, next2, next3) = win.get_window();
             let (curr, next1, next2, next3) = (
@@ -28,6 +29,8 @@ impl Tokenizer {
             if curr.starts_with("AppleTV") {
                 result.add_tag("ATV OS X", None);
                 win.slide_window_by(1);
+            } else if curr == "like" && next1 == Some("Mac") && next2 == Some("OS") {
+                win.slide_window_by(3);
             }
             // Mac OS X
             else if curr == "Mac" && next1 == Some("OS") && next2 == Some("X") {
@@ -38,7 +41,11 @@ impl Tokenizer {
                 win.slide_window_by(2);
             }
             // iPhone OS
-            else if curr == "iPhone" && next1 == Some("OS") {
+            else if curr == "iOS" {
+                result.add_possible_os_tag("iOS", consume_if_numeric(&mut win, next1));
+                result.ios_hint = true;
+                win.slide_window_by(1);
+            } else if curr == "iPhone" && next1 == Some("OS") {
                 result.add_possible_os_tag("iOS", consume_if_numeric(&mut win, next2));
 
                 win.slide_window_by(1);
@@ -115,6 +122,9 @@ impl Tokenizer {
                 };
 
                 result.add_possible_os_tag("Windows", version);
+            } else if curr == "MSIE" {
+                let version = consume_if_numeric(&mut win, next1);
+                result.add_possible_browser_tag("IE", version);
             }
             // Yahoo Slurp
             else if curr == "Yahoo!" && next1 == Some("Slurp") {
@@ -138,7 +148,7 @@ impl Tokenizer {
                 result.add_tag("Mobile", None);
             }
             // Linux
-            else if curr == "Linux" {
+            else if curr == "Linux" || curr == "linux" {
                 result.linux_hint = true;
                 result.add_tag("Linux", None);
             }
@@ -152,6 +162,16 @@ impl Tokenizer {
                 win.slide_window_by(1);
                 continue;
             }
+            // Bot
+            else if curr == "Better" && next1 == Some("Uptime") && next2 == Some("Bot") {
+                result.add_possible_browser_tag_for_bot("Better Uptime Bot", None);
+            } else if curr == "Radius" && next1 == Some("Compilance") && next2 == Some("Bot") {
+                result.add_possible_browser_tag_for_bot("Radius Compilance Bot", None);
+            } else if curr == "AdsBot-Google-Mobile" {
+                result.add_possible_browser_tag_for_bot("AdsBot-Google", None);
+            } else if curr == "Uptime" && next1 == Some("Monitoring") && next2 == Some("Bot") {
+                result.add_possible_browser_tag_for_bot("Uptime Monitoring Bot", None);
+            }
             // Rest
             else {
                 let parts = curr.split_once(['/', ';', ':']);
@@ -164,9 +184,22 @@ impl Tokenizer {
                 //
                 else if tag == "FxiOS" {
                     result.add_possible_browser_tag("Firefox iOS", version);
+                } else if tag == "EdgiOS" {
+                    if let Some(os_token) = result.possible_os_token.as_ref() {
+                        if os_token.tag == "Mac OS X" {
+                            result.add_possible_os_tag_override_existing("iOS", None);
+                        }
+                    }
+                    result.add_possible_browser_tag("Edge Mobile", version);
                 }
                 //
                 else if tag == "CriOS" {
+                    result.ios_hint = true;
+                    if let Some(os_token) = result.possible_os_token.as_ref() {
+                        if os_token.tag == "Mac OS X" {
+                            result.add_possible_os_tag_override_existing("iOS", None);
+                        }
+                    }
                     result.add_possible_browser_tag("Chrome Mobile iOS", version);
                 }
                 //
@@ -183,7 +216,7 @@ impl Tokenizer {
                 }
                 //
                 else if tag == "OPR" {
-                    result.add_possible_browser_tag("Opera", version);
+                    result.add_tag("Opera", version);
                 }
                 //
                 else if tag == "SamsungBrowser" {
@@ -210,10 +243,16 @@ impl Tokenizer {
                 //
                 else if tag == "Electron" {
                     result.add_possible_browser_tag("Electron", version);
+                } else if tag == "IEMobile" {
+                    result.add_possible_browser_tag("IE Mobile", version);
                 }
-                // Bot
-                else if tag.contains("Bot") || tag.contains("bot") {
-                    result.add_possible_browser_tag(tag, version);
+                // Bot or crawler
+                else if tag.contains("Bot")
+                    || tag.contains("bot")
+                    || tag.contains("crawler")
+                    || tag.contains("Crawler")
+                {
+                    result.add_possible_browser_tag_for_bot(tag, version);
                 }
                 // Mobile
                 else if tag == "Mobile" {
@@ -226,6 +265,15 @@ impl Tokenizer {
                     result.safari_hint = true;
 
                     result.add_tag("Safari", version);
+                } else if tag == "CFNetwork" {
+                    result.cfnetwork_hint = true;
+                    result.ios_hint = true;
+                } else if tag.contains("crawler") || version.is_some_and(|v| v.contains("crawler"))
+                {
+                    result.crawler_hint = true;
+                } else if tag == "OculusBrowser" {
+                    // Oculus os is android, but fake to be linux
+                    result.add_possible_os_tag_override_existing("Android", None);
                 }
                 //
                 else {
@@ -256,6 +304,9 @@ pub struct TokenizerResult<'a> {
     pub safari_hint: bool,
     pub playstation_hint: bool,
     pub huawei_hint: bool,
+    pub cfnetwork_hint: bool,
+    pub crawler_hint: bool,
+    pub bot_detected: bool,
 }
 
 impl<'a> TokenizerResult<'a> {
@@ -280,6 +331,18 @@ impl<'a> TokenizerResult<'a> {
         self.add_tag(tag, version);
     }
 
+    pub fn add_possible_os_tag_override_existing(
+        &mut self,
+        tag: &'a str,
+        version: Option<&'a str>,
+    ) {
+        self.possible_os_token = Some(Token {
+            position: self.position,
+            tag,
+            version,
+        });
+    }
+
     pub fn add_possible_browser_tag(&mut self, tag: &'a str, version: Option<&'a str>) {
         self.add_possible_browser_tag_impl(tag, version);
         self.add_tag(tag, version);
@@ -295,6 +358,20 @@ impl<'a> TokenizerResult<'a> {
         }
 
         self.possible_os_token = Some(Token {
+            position: self.position,
+            tag,
+            version,
+        });
+    }
+
+    fn add_possible_browser_tag_for_bot(&mut self, tag: &'a str, version: Option<&'a str>) {
+        if self.bot_detected {
+            // Most of useragent string from bot attaches url
+            // e.g. Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
+            return;
+        }
+        self.bot_detected = true;
+        self.possible_browser_token = Some(Token {
             position: self.position,
             tag,
             version,
@@ -323,7 +400,7 @@ pub struct Token<'a> {
 
 impl<'a> Token<'a> {
     pub fn get_version(&self) -> Option<Version<'a>> {
-        let version = self.version?;
+        let version = unwrap_or_return!(self.version, Some(Version::major("0.0.0")));
 
         if self.tag == "Windows" {
             let mapped = match version {
@@ -333,7 +410,7 @@ impl<'a> Token<'a> {
                 "6.1" => "7", // lol
                 "6.3" => "8.1",
                 "10.0" => "10",
-                _ => return None,
+                _ => "0.0.0",
             };
 
             return Some(Version::major(mapped));
@@ -370,7 +447,9 @@ impl<'a> Token<'a> {
 
 fn trim_invalid_chars(s: Option<&str>) -> Option<&str> {
     let trimmed = s.map(|s| {
-        s.trim_matches(|c| c == '(' || c == ')' || c == ';' || c == ',' || c == '+' || c == '_')
+        s.trim_matches(|c| {
+            c == '(' || c == ')' || c == ';' || c == ',' || c == '+' || c == '_' || c == '"'
+        })
     });
 
     match trimmed {

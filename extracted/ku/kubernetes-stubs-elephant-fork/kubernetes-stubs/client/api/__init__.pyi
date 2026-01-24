@@ -61,19 +61,20 @@ from kubernetes.client.api.rbacAuthorization_api import RbacAuthorizationApi
 from kubernetes.client.api.rbacAuthorization_v1_api import \
     RbacAuthorizationV1Api
 from kubernetes.client.api.resource_api import ResourceApi
+from kubernetes.client.api.resource_v1_api import ResourceV1Api
 from kubernetes.client.api.resource_v1alpha3_api import ResourceV1alpha3Api
 from kubernetes.client.api.resource_v1beta1_api import ResourceV1beta1Api
 from kubernetes.client.api.resource_v1beta2_api import ResourceV1beta2Api
 from kubernetes.client.api.scheduling_api import SchedulingApi
 from kubernetes.client.api.scheduling_v1_api import SchedulingV1Api
+from kubernetes.client.api.scheduling_v1alpha1_api import SchedulingV1alpha1Api
 from kubernetes.client.api.storage_api import StorageApi
 from kubernetes.client.api.storage_v1_api import StorageV1Api
-from kubernetes.client.api.storage_v1alpha1_api import StorageV1alpha1Api
 from kubernetes.client.api.storage_v1beta1_api import StorageV1beta1Api
 from kubernetes.client.api.storagemigration_api import StoragemigrationApi
-from kubernetes.client.api.storagemigration_v1alpha1_api import \
-    StoragemigrationV1alpha1Api
+from kubernetes.client.api.storagemigration_v1beta1_api import \
+    StoragemigrationV1beta1Api
 from kubernetes.client.api.version_api import VersionApi
 from kubernetes.client.api.WellKnown_api import WellKnownApi
 
-__all__ = ["CoreApi", "CoreV1Api", "ApisApi", "AdmissionregistrationApi", "AdmissionregistrationV1Api", "AdmissionregistrationV1alpha1Api", "AdmissionregistrationV1beta1Api", "ApiextensionsApi", "ApiextensionsV1Api", "ApiregistrationApi", "ApiregistrationV1Api", "AppsApi", "AppsV1Api", "AuthenticationApi", "AuthenticationV1Api", "AuthorizationApi", "AuthorizationV1Api", "AutoscalingApi", "AutoscalingV1Api", "AutoscalingV2Api", "BatchApi", "BatchV1Api", "CertificatesApi", "CertificatesV1Api", "CertificatesV1alpha1Api", "CertificatesV1beta1Api", "CoordinationApi", "CoordinationV1Api", "CoordinationV1alpha2Api", "CoordinationV1beta1Api", "DiscoveryApi", "DiscoveryV1Api", "EventsApi", "EventsV1Api", "FlowcontrolApiserverApi", "FlowcontrolApiserverV1Api", "InternalApiserverApi", "InternalApiserverV1alpha1Api", "NetworkingApi", "NetworkingV1Api", "NetworkingV1beta1Api", "NodeApi", "NodeV1Api", "PolicyApi", "PolicyV1Api", "RbacAuthorizationApi", "RbacAuthorizationV1Api", "ResourceApi", "ResourceV1alpha3Api", "ResourceV1beta1Api", "ResourceV1beta2Api", "SchedulingApi", "SchedulingV1Api", "StorageApi", "StorageV1Api", "StorageV1alpha1Api", "StorageV1beta1Api", "StoragemigrationApi", "StoragemigrationV1alpha1Api", "LogsApi", "VersionApi", "CustomObjectsApi", "WellKnownApi", "OpenidApi"]
+__all__ = ["CoreApi", "CoreV1Api", "ApisApi", "AdmissionregistrationApi", "AdmissionregistrationV1Api", "AdmissionregistrationV1alpha1Api", "AdmissionregistrationV1beta1Api", "ApiextensionsApi", "ApiextensionsV1Api", "ApiregistrationApi", "ApiregistrationV1Api", "AppsApi", "AppsV1Api", "AuthenticationApi", "AuthenticationV1Api", "AuthorizationApi", "AuthorizationV1Api", "AutoscalingApi", "AutoscalingV1Api", "AutoscalingV2Api", "BatchApi", "BatchV1Api", "CertificatesApi", "CertificatesV1Api", "CertificatesV1alpha1Api", "CertificatesV1beta1Api", "CoordinationApi", "CoordinationV1Api", "CoordinationV1alpha2Api", "CoordinationV1beta1Api", "DiscoveryApi", "DiscoveryV1Api", "EventsApi", "EventsV1Api", "FlowcontrolApiserverApi", "FlowcontrolApiserverV1Api", "InternalApiserverApi", "InternalApiserverV1alpha1Api", "NetworkingApi", "NetworkingV1Api", "NetworkingV1beta1Api", "NodeApi", "NodeV1Api", "PolicyApi", "PolicyV1Api", "RbacAuthorizationApi", "RbacAuthorizationV1Api", "ResourceApi", "ResourceV1Api", "ResourceV1alpha3Api", "ResourceV1beta1Api", "ResourceV1beta2Api", "SchedulingApi", "SchedulingV1Api", "SchedulingV1alpha1Api", "StorageApi", "StorageV1Api", "StorageV1beta1Api", "StoragemigrationApi", "StoragemigrationV1beta1Api", "LogsApi", "VersionApi", "CustomObjectsApi", "WellKnownApi", "OpenidApi"]

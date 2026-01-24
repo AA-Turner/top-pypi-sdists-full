@@ -1,7 +1,8 @@
 import pytest
 from django.contrib.contenttypes.models import ContentType
-from guardian.shortcuts import UserObjectPermission
+
 from wbcore.contrib.authentication.models.users import Permission
+from wbcore.contrib.guardian.models import UserObjectPermission
 from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
 from wbcore.contrib.guardian.utils import (
     assign_permissions,

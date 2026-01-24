@@ -103,8 +103,11 @@ CORE = [
         name="number",
         priority=401,
         pattern=group(
-            r"(\+|-)?\d+(\.\d*)?(e(\+|-)?\d+)?(bd|d|f)?",
-            r"(\+|-)?\.\d+(e(\+|-)?\d+)?(bd|d|f)?",
+            r"0x[0-9a-f]+",
+            r"0o[0-7]+",
+            r"0b[0-1]+",
+            r"(\+|-)?\d+(_\d+)*(\.\d*(_\d+)*)?(e(\+|-)?\d+)?(bd|d|f)?",
+            r"(\+|-)?\.\d+(_\d+)*(e(\+|-)?\d+)?(bd|d|f)?",
         ),
         action=actions.handle_number,
     ),
@@ -206,6 +209,7 @@ CORE = [
             r"<<(=|\|)?",
             r"=>",
             r"->>?",  # json extraction
+            r"\?(&|\|)",  # pg json contains keys
             r"&&",
             r"&<\|?",  # not extends
             r"\|?&>",  # not extends

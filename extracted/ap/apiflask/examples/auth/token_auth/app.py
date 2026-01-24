@@ -59,7 +59,7 @@ def get_token(id: int):
     return {'token': f'Bearer {get_user_by_id(id).get_token()}'}
 
 
-@app.get('/name/<int:id>')
+@app.get('/name')
 @app.auth_required(auth)
-def get_secret(id):
+def get_secret():
     return auth.current_user.secret

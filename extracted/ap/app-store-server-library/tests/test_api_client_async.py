@@ -7,6 +7,7 @@ from httpx import Response
 
 from appstoreserverlibrary.api_client import APIError, APIException, AsyncAppStoreServerAPIClient, GetTransactionHistoryVersion
 from appstoreserverlibrary.models.AccountTenure import AccountTenure
+from appstoreserverlibrary.models.AppTransactionInfoResponse import AppTransactionInfoResponse
 from appstoreserverlibrary.models.AutoRenewStatus import AutoRenewStatus
 from appstoreserverlibrary.models.ConsumptionRequest import ConsumptionRequest
 from appstoreserverlibrary.models.ConsumptionStatus import ConsumptionStatus
@@ -40,6 +41,12 @@ from appstoreserverlibrary.models.TransactionReason import TransactionReason
 from appstoreserverlibrary.models.Type import Type
 from appstoreserverlibrary.models.UpdateAppAccountTokenRequest import UpdateAppAccountTokenRequest
 from appstoreserverlibrary.models.UserStatus import UserStatus
+from appstoreserverlibrary.models.DefaultConfigurationRequest import DefaultConfigurationRequest
+from appstoreserverlibrary.models.ImageState import ImageState
+from appstoreserverlibrary.models.MessageState import MessageState
+from appstoreserverlibrary.models.UploadMessageImage import UploadMessageImage
+from appstoreserverlibrary.models.UploadMessageRequestBody import UploadMessageRequestBody
+from uuid import UUID
 
 from tests.util import decode_json_from_signed_date, read_data_from_binary_file, read_data_from_file
 
@@ -565,26 +572,188 @@ class DecodedPayloads(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(True)
 
+    async def test_upload_image(self):
+        client = self.get_client_with_body(b'',
+                                           'PUT',
+                                           'https://local-testing-base-url/inApps/v1/messaging/image/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890',
+                                           {},
+                                           None,
+                                           200,
+                                           bytes([1, 2, 3]),
+                                           'image/png')
+        await client.upload_image(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'), bytes([1, 2, 3]))
+
+    async def test_delete_image(self):
+        client = self.get_client_with_body(b'',
+                                           'DELETE',
+                                           'https://local-testing-base-url/inApps/v1/messaging/image/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890',
+                                           {},
+                                           None)
+        await client.delete_image(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'))
+
+    async def test_get_image_list(self):
+        client = self.get_client_with_body_from_file('tests/resources/models/getImageListResponse.json',
+                                           'GET',
+                                           'https://local-testing-base-url/inApps/v1/messaging/image/list',
+                                           {},
+                                           None)
+        response = await client.get_image_list()
+        self.assertIsNotNone(response)
+        self.assertEqual(1, len(response.imageIdentifiers))
+        self.assertEqual(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'), response.imageIdentifiers[0].imageIdentifier)
+        self.assertEqual(ImageState.APPROVED, response.imageIdentifiers[0].imageState)
+
+    async def test_upload_message(self):
+        client = self.get_client_with_body(b'',
+                                           'PUT',
+                                           'https://local-testing-base-url/inApps/v1/messaging/message/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890',
+                                           {},
+                                           {'header': 'Header text', 'body': 'Body text'})
+        upload_message_request_body = UploadMessageRequestBody(header='Header text', body='Body text')
+        await client.upload_message(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'), upload_message_request_body)
+
+    async def test_upload_message_with_image(self):
+        client = self.get_client_with_body(b'',
+                                           'PUT',
+                                           'https://local-testing-base-url/inApps/v1/messaging/message/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890',
+                                           {},
+                                           {'header': 'Header text', 'body': 'Body text', 'image': {'imageIdentifier': 'b2c3d4e5-f6a7-8901-b2c3-d4e5f6a78901', 'altText': 'Alt text'}})
+        image = UploadMessageImage(imageIdentifier=UUID('b2c3d4e5-f6a7-8901-b2c3-d4e5f6a78901'), altText='Alt text')
+        upload_message_request_body = UploadMessageRequestBody(header='Header text', body='Body text', image=image)
+        await client.upload_message(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'), upload_message_request_body)
+
+    async def test_delete_message(self):
+        client = self.get_client_with_body(b'',
+                                           'DELETE',
+                                           'https://local-testing-base-url/inApps/v1/messaging/message/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890',
+                                           {},
+                                           None)
+        await client.delete_message(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'))
+
+    async def test_get_message_list(self):
+        client = self.get_client_with_body_from_file('tests/resources/models/getMessageListResponse.json',
+                                           'GET',
+                                           'https://local-testing-base-url/inApps/v1/messaging/message/list',
+                                           {},
+                                           None)
+        response = await client.get_message_list()
+        self.assertIsNotNone(response)
+        self.assertEqual(1, len(response.messageIdentifiers))
+        self.assertEqual(UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'), response.messageIdentifiers[0].messageIdentifier)
+        self.assertEqual(MessageState.APPROVED, response.messageIdentifiers[0].messageState)
+
+    async def test_configure_default_message(self):
+        client = self.get_client_with_body(b'',
+                                           'PUT',
+                                           'https://local-testing-base-url/inApps/v1/messaging/default/com.example.product/en-US',
+                                           {},
+                                           {'messageIdentifier': 'a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'})
+        default_configuration_request = DefaultConfigurationRequest(messageIdentifier=UUID('a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'))
+        await client.configure_default_message('com.example.product', 'en-US', default_configuration_request)
+
+    async def test_delete_default_message(self):
+        client = self.get_client_with_body(b'',
+                                           'DELETE',
+                                           'https://local-testing-base-url/inApps/v1/messaging/default/com.example.product/en-US',
+                                           {},
+                                           None)
+        await client.delete_default_message('com.example.product', 'en-US')
+    
+    async def test_get_app_transaction_info_success(self):
+        client = self.get_client_with_body_from_file('tests/resources/models/appTransactionInfoResponse.json',
+                                           'GET',
+                                           'https://local-testing-base-url/inApps/v1/transactions/appTransactions/1234',
+                                           {},
+                                           None)
+
+        app_transaction_info_response = await client.get_app_transaction_info('1234')
+
+        self.assertIsNotNone(app_transaction_info_response)
+        self.assertEqual('signed_app_transaction_info_value', app_transaction_info_response.signedAppTransactionInfo)
+
+    async def test_get_app_transaction_info_invalid_transaction_id(self):
+        client = self.get_client_with_body_from_file('tests/resources/models/invalidTransactionIdError.json',
+                                                     'GET',
+                                                     'https://local-testing-base-url/inApps/v1/transactions/appTransactions/invalid_id',
+                                                     {},
+                                                     None,
+                                                     400)
+        try:
+            await client.get_app_transaction_info('invalid_id')
+        except APIException as e:
+            self.assertEqual(400, e.http_status_code)
+            self.assertEqual(4000006, e.raw_api_error)
+            self.assertEqual(APIError.INVALID_TRANSACTION_ID, e.api_error)
+            self.assertEqual("Invalid transaction id.", e.error_message)
+            return
+
+        self.assertFalse(True)
+
+    async def test_get_app_transaction_info_app_transaction_does_not_exist(self):
+        client = self.get_client_with_body_from_file('tests/resources/models/appTransactionDoesNotExistError.json',
+                                                     'GET',
+                                                     'https://local-testing-base-url/inApps/v1/transactions/appTransactions/nonexistent_id',
+                                                     {},
+                                                     None,
+                                                     404)
+        try:
+            await client.get_app_transaction_info('nonexistent_id')
+        except APIException as e:
+            self.assertEqual(404, e.http_status_code)
+            self.assertEqual(4040019, e.raw_api_error)
+            self.assertEqual(APIError.APP_TRANSACTION_DOES_NOT_EXIST_ERROR, e.api_error)
+            self.assertEqual("No AppTransaction exists for the customer.", e.error_message)
+            return
+
+        self.assertFalse(True)
+
+    async def test_get_app_transaction_info_transaction_id_not_found(self):
+        client = self.get_client_with_body_from_file('tests/resources/models/transactionIdNotFoundError.json',
+                                                     'GET',
+                                                     'https://local-testing-base-url/inApps/v1/transactions/appTransactions/not_found_id',
+                                                     {},
+                                                     None,
+                                                     404)
+        try:
+            await client.get_app_transaction_info('not_found_id')
+        except APIException as e:
+            self.assertEqual(404, e.http_status_code)
+            self.assertEqual(4040010, e.raw_api_error)
+            self.assertEqual(APIError.TRANSACTION_ID_NOT_FOUND, e.api_error)
+            self.assertEqual("Transaction id not found.", e.error_message)
+            return
+
+        self.assertFalse(True)
+
     def get_signing_key(self):
         return read_data_from_binary_file('tests/resources/certs/testSigningKey.p8')
-    
-    def get_client_with_body(self, body: str, expected_method: str, expected_url: str, expected_params: Dict[str, Union[str, List[str]]], expected_json: Dict[str, Any], status_code: int = 200):
+
+    def get_client_with_body(self, body: str, expected_method: str, expected_url: str, expected_params: Dict[str, Union[str, List[str]]], expected_json: Dict[str, Any], status_code: int = 200, expected_data: bytes = None, expected_content_type: str = None):
         signing_key = self.get_signing_key()
         client = AsyncAppStoreServerAPIClient(signing_key, 'keyId', 'issuerId', 'com.example', Environment.LOCAL_TESTING)
-        async def fake_execute_and_validate_inputs(method: bytes, url: str, params: Dict[str, Union[str, List[str]]], headers: Dict[str, str], json: Dict[str, Any]):
+        async def fake_execute_and_validate_inputs(method: bytes, url: str, params: Dict[str, Union[str, List[str]]], headers: Dict[str, str], json: Dict[str, Any], data: bytes):
             self.assertEqual(expected_method, method)
             self.assertEqual(expected_url, url)
             self.assertEqual(expected_params, params)
-            self.assertEqual(['User-Agent', 'Authorization', 'Accept'], list(headers.keys()))
-            self.assertEqual('application/json', headers['Accept'])
             self.assertTrue(headers['User-Agent'].startswith('app-store-server-library/python'))
             self.assertTrue(headers['Authorization'].startswith('Bearer '))
+            self.assertEqual('application/json', headers['Accept'])
             decoded_jwt = decode_json_from_signed_date(headers['Authorization'][7:])
             self.assertEqual('appstoreconnect-v1', decoded_jwt['payload']['aud'])
             self.assertEqual('issuerId', decoded_jwt['payload']['iss'])
             self.assertEqual('keyId', decoded_jwt['header']['kid'])
             self.assertEqual('com.example', decoded_jwt['payload']['bid'])
-            self.assertEqual(expected_json, json)
+
+            # Content-specific validation
+            if expected_data is not None:
+                self.assertEqual(['User-Agent', 'Authorization', 'Accept', 'Content-Type'], list(headers.keys()))
+                self.assertEqual(expected_content_type, headers['Content-Type'])
+                self.assertIsNone(json)
+                self.assertEqual(expected_data, data)
+            else:
+                self.assertEqual(['User-Agent', 'Authorization', 'Accept'], list(headers.keys()))
+                self.assertEqual(expected_json, json)
+
             response = Response(status_code, headers={'Content-Type': 'application/json'}, content=body)
             return response
 

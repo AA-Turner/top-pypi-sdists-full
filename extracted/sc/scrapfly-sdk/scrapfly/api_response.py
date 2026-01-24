@@ -226,14 +226,22 @@ class ApiResponse:
             message = "<-- %s | %s - %s." % (self.response.status_code, self.error['code'], self.error['message'])
 
             if self.error['links']:
-                message += " Checkout the related doc: %s" % list(self.error['links'].values())[0]
+                links = self.error['links']
+                if isinstance(links, dict):
+                    message += " Checkout the related doc: %s" % list(links.values())[0]
+                elif isinstance(links, list):
+                    message += " Checkout the related doc: %s" % ", ".join(links)
 
             return message
 
         message = "<-- %s | %s." % (self.response.status_code, self.result['message'])
 
         if self.result.get('links'):
-            message += " Checkout the related doc: %s" % ", ".join(self.result['links'])
+            links = self.result['links']
+            if isinstance(links, dict):
+                message += " Checkout the related doc: %s" % list(links.values())[0]
+            elif isinstance(links, list):
+                message += " Checkout the related doc: %s" % ", ".join(links)
 
         return message
 

@@ -351,7 +351,7 @@ def _mk_tile_compressor(
     )
 
 
-def _compress_cog_tile(encoder, block, idx):
+def _compress_cog_tile(encoder, block, idx: int) -> list[tuple]:
     return [(encoder(block), idx)]
 
 
@@ -369,7 +369,8 @@ def _compress_tiles(
     # pylint: disable=import-outside-toplevel
     have.check_or_error("dask")
     from dask.bag import Bag
-    from dask.base import quote, tokenize
+    from dask.base import tokenize
+    from dask.core import quote
     from dask.highlevelgraph import HighLevelGraph
 
     from .._interop import is_dask_collection

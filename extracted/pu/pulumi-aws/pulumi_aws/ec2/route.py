@@ -624,8 +624,6 @@ class Route(pulumi.CustomResource):
         """
         Provides a resource to create a routing table entry (a route) in a VPC routing table.
 
-        > **NOTE on Route Tables and Routes:** This provider currently provides both a standalone Route resource and a Route Table resource with routes defined in-line. At this time you cannot use a Route Table with in-line routes in conjunction with any Route resources. Doing so will cause a conflict of rule settings and will overwrite rules.
-
         > **NOTE on `gateway_id` attribute:** The AWS API is very forgiving with the resource ID passed in the `gateway_id` attribute. For example an `ec2.Route` resource can be created with an `ec2.NatGateway` or `ec2.EgressOnlyInternetGateway` ID specified for the `gateway_id` attribute. Specifying anything other than an `ec2.InternetGateway` or `ec2.VpnGateway` ID will lead to this provider reporting a permanent diff between your configuration and recorded state, as the AWS API returns the more-specific attribute. If you are experiencing constant diffs with an `ec2.Route` resource, the first thing to check is that the correct attribute is being specified.
 
         > **NOTE on combining `vpc_endpoint_id` and `destination_prefix_list_id` attributes:** To associate a Gateway VPC Endpoint (such as S3) with destination prefix list, use the `ec2.VpcEndpointRouteTableAssociation` resource instead.
@@ -664,21 +662,21 @@ class Route(pulumi.CustomResource):
 
         #### Required
 
-        - `route_table_id` - (String) ID of the route table.
+        * `route_table_id` - (String) ID of the route table.
 
         #### Optional
 
         ~> Exactly one of of `destination_cidr_block`, `destination_ipv6_cidr_block`, or `destination_prefix_list_id` is required.
 
-        - `account_id` (String) AWS Account where this resource is managed.
+        * `account_id` (String) AWS Account where this resource is managed.
 
-        - `destination_cidr_block` - (String) Destination IPv4 CIDR block.
+        * `destination_cidr_block` - (String) Destination IPv4 CIDR block.
 
-        - `destination_ipv6_cidr_block` - (String) Destination IPv6 CIDR block.
+        * `destination_ipv6_cidr_block` - (String) Destination IPv6 CIDR block.
 
-        - `destination_prefix_list_id` - (String) Destination IPv6 CIDR block.
+        * `destination_prefix_list_id` - (String) Destination IPv6 CIDR block.
 
-        - `region` (String) Region where this resource is managed.
+        * `region` (String) Region where this resource is managed.
 
         Import a route in route table `rtb-656C65616E6F72` with an IPv6 destination CIDR of `2620:0:2d0:200::8/125`:
 
@@ -708,19 +706,13 @@ class Route(pulumi.CustomResource):
 
         Import a route in route table `rtb-656C65616E6F72` with an IPv4 destination CIDR of `10.42.0.0/16`:
 
-        console
-
         % pulumi import aws_route.my_route rtb-656C65616E6F72_10.42.0.0/16
 
         Import a route in route table `rtb-656C65616E6F72` with an IPv6 destination CIDR of `2620:0:2d0:200::8/125`:
 
-        console
-
         % pulumi import aws_route.my_route rtb-656C65616E6F72_2620:0:2d0:200::8/125
 
         Import a route in route table `rtb-656C65616E6F72` with a managed prefix list destination of `pl-0570a1d2d725c16be`:
-
-        console
 
         % pulumi import aws_route.my_route rtb-656C65616E6F72_pl-0570a1d2d725c16be
 
@@ -757,8 +749,6 @@ class Route(pulumi.CustomResource):
         """
         Provides a resource to create a routing table entry (a route) in a VPC routing table.
 
-        > **NOTE on Route Tables and Routes:** This provider currently provides both a standalone Route resource and a Route Table resource with routes defined in-line. At this time you cannot use a Route Table with in-line routes in conjunction with any Route resources. Doing so will cause a conflict of rule settings and will overwrite rules.
-
         > **NOTE on `gateway_id` attribute:** The AWS API is very forgiving with the resource ID passed in the `gateway_id` attribute. For example an `ec2.Route` resource can be created with an `ec2.NatGateway` or `ec2.EgressOnlyInternetGateway` ID specified for the `gateway_id` attribute. Specifying anything other than an `ec2.InternetGateway` or `ec2.VpnGateway` ID will lead to this provider reporting a permanent diff between your configuration and recorded state, as the AWS API returns the more-specific attribute. If you are experiencing constant diffs with an `ec2.Route` resource, the first thing to check is that the correct attribute is being specified.
 
         > **NOTE on combining `vpc_endpoint_id` and `destination_prefix_list_id` attributes:** To associate a Gateway VPC Endpoint (such as S3) with destination prefix list, use the `ec2.VpcEndpointRouteTableAssociation` resource instead.
@@ -797,21 +787,21 @@ class Route(pulumi.CustomResource):
 
         #### Required
 
-        - `route_table_id` - (String) ID of the route table.
+        * `route_table_id` - (String) ID of the route table.
 
         #### Optional
 
         ~> Exactly one of of `destination_cidr_block`, `destination_ipv6_cidr_block`, or `destination_prefix_list_id` is required.
 
-        - `account_id` (String) AWS Account where this resource is managed.
+        * `account_id` (String) AWS Account where this resource is managed.
 
-        - `destination_cidr_block` - (String) Destination IPv4 CIDR block.
+        * `destination_cidr_block` - (String) Destination IPv4 CIDR block.
 
-        - `destination_ipv6_cidr_block` - (String) Destination IPv6 CIDR block.
+        * `destination_ipv6_cidr_block` - (String) Destination IPv6 CIDR block.
 
-        - `destination_prefix_list_id` - (String) Destination IPv6 CIDR block.
+        * `destination_prefix_list_id` - (String) Destination IPv6 CIDR block.
 
-        - `region` (String) Region where this resource is managed.
+        * `region` (String) Region where this resource is managed.
 
         Import a route in route table `rtb-656C65616E6F72` with an IPv6 destination CIDR of `2620:0:2d0:200::8/125`:
 
@@ -841,19 +831,13 @@ class Route(pulumi.CustomResource):
 
         Import a route in route table `rtb-656C65616E6F72` with an IPv4 destination CIDR of `10.42.0.0/16`:
 
-        console
-
         % pulumi import aws_route.my_route rtb-656C65616E6F72_10.42.0.0/16
 
         Import a route in route table `rtb-656C65616E6F72` with an IPv6 destination CIDR of `2620:0:2d0:200::8/125`:
 
-        console
-
         % pulumi import aws_route.my_route rtb-656C65616E6F72_2620:0:2d0:200::8/125
 
         Import a route in route table `rtb-656C65616E6F72` with a managed prefix list destination of `pl-0570a1d2d725c16be`:
-
-        console
 
         % pulumi import aws_route.my_route rtb-656C65616E6F72_pl-0570a1d2d725c16be
 

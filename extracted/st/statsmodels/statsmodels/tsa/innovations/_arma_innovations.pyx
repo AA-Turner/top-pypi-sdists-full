@@ -12,7 +12,7 @@ License: Simplified-BSD
 import numpy as np
 import warnings
 from statsmodels.tsa import arima_process
-from statsmodels.src.math cimport NPY_PI, dlog, zlog
+from statsmodels.src.math cimport M_PI, dlog, zlog
 cimport numpy as cnp
 cimport cython
 
@@ -455,7 +455,7 @@ cpdef sarma_loglikeobs_fast(cnp.float32_t [:] endog,
     dim1[0] = nobs;
     llf_obs = cnp.PyArray_ZEROS(1, dim1, cnp.NPY_FLOAT32, C)
 
-    const = dlog(2*NPY_PI)
+    const = dlog(2*M_PI)
     for i in range(nobs):
         llf_obs[i] = -0.5 * u[i]**2 / (sigma2 * v[i]) - 0.5 * (const + dlog(sigma2 * v[i]))
 
@@ -895,7 +895,7 @@ cpdef darma_loglikeobs_fast(cnp.float64_t [:] endog,
     dim1[0] = nobs;
     llf_obs = cnp.PyArray_ZEROS(1, dim1, cnp.NPY_FLOAT64, C)
 
-    const = dlog(2*NPY_PI)
+    const = dlog(2*M_PI)
     for i in range(nobs):
         llf_obs[i] = -0.5 * u[i]**2 / (sigma2 * v[i]) - 0.5 * (const + dlog(sigma2 * v[i]))
 
@@ -1335,7 +1335,7 @@ cpdef carma_loglikeobs_fast(cnp.complex64_t [:] endog,
     dim1[0] = nobs;
     llf_obs = cnp.PyArray_ZEROS(1, dim1, cnp.NPY_COMPLEX64, C)
 
-    const = zlog(2*NPY_PI)
+    const = zlog(2*M_PI)
     for i in range(nobs):
         llf_obs[i] = -0.5 * u[i]**2 / (sigma2 * v[i]) - 0.5 * (const + zlog(sigma2 * v[i]))
 
@@ -1775,7 +1775,7 @@ cpdef zarma_loglikeobs_fast(cnp.complex128_t [:] endog,
     dim1[0] = nobs;
     llf_obs = cnp.PyArray_ZEROS(1, dim1, cnp.NPY_COMPLEX128, C)
 
-    const = zlog(2*NPY_PI)
+    const = zlog(2*M_PI)
     for i in range(nobs):
         llf_obs[i] = -0.5 * u[i]**2 / (sigma2 * v[i]) - 0.5 * (const + zlog(sigma2 * v[i]))
 

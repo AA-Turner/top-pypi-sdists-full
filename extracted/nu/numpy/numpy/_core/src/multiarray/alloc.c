@@ -31,15 +31,16 @@
  * instrumentation is enabled. The cache makes ASAN use-after-free or MSAN
  * use-of-uninitialized-memory warnings less useful. */
 #ifdef Py_GIL_DISABLED
-  #define USE_ALLOC_CACHE 0
+#    define USE_ALLOC_CACHE 0
 #elif defined(__has_feature)
-  #if __has_feature(address_sanitizer) || __has_feature(memory_sanitizer)
-    #define USE_ALLOC_CACHE 0
-  #endif
+#    if __has_feature(address_sanitizer) || __has_feature(memory_sanitizer)
+#        define USE_ALLOC_CACHE 0
+#    endif
 #endif
 #ifndef USE_ALLOC_CACHE
-  #define USE_ALLOC_CACHE 1
+#    define USE_ALLOC_CACHE 1
 #endif
+
 
 # define NBUCKETS 1024 /* number of buckets for data*/
 # define NBUCKETS_DIM 16 /* number of buckets for dimensions/strides */

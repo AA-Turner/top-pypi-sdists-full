@@ -1,12 +1,14 @@
 import asyncio
 import datetime
 import json
+import warnings
 from typing import AsyncIterator, Optional, Sequence, TypeVar
 
 from opentelemetry.trace import SpanKind
 from pydantic import BaseModel
 
-from ..chat import BaseChat, BaseClient, Chunk, PollTimer, Response
+from ..chat import BaseChat, BaseClient, Chunk, Response
+from ..poll_timer import PollTimer
 from ..proto import chat_pb2, deferred_pb2
 from ..telemetry import get_tracer
 
@@ -48,7 +50,7 @@ class Client(BaseClient["Chat"]):
             "Previously generated response content"
         """
         response = await self._stub.GetStoredCompletion(chat_pb2.GetStoredCompletionRequest(response_id=response_id))
-        return [Response(response, i) for i in range(len(response.choices))]
+        return [Response(response, i) for i in range(len(response.outputs))]
 
     async def delete_stored_completion(self, response_id: str) -> str:
         """Deletes a stored chat completion response from the xAI backend.
@@ -105,8 +107,10 @@ class Chat(BaseChat):
             kind=SpanKind.CLIENT,
             attributes=self._make_span_request_attributes(),
         ) as span:
+            index = None if self._uses_server_side_tools() else 0
             response_pb = await self._stub.GetCompletion(self._make_request(1))
-            response = Response(response_pb, 0)
+            index = self._auto_detect_multi_output_mode(index, response_pb.outputs)
+            response = Response(response_pb, index)
             span.set_attributes(self._make_span_response_attributes([response]))
             return response
 
@@ -134,6 +138,12 @@ class Chat(BaseChat):
             Option 2: A scarf
             Option 3: A gift card
         """
+        warnings.warn(
+            "chat.sample_batch will be deprecated in a future version release. Use chat.sample() instead.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+
         with tracer.start_as_current_span(
             name=f"chat.sample_batch {self._proto.model}",
             kind=SpanKind.CLIENT,
@@ -173,7 +183,8 @@ class Chat(BaseChat):
             kind=SpanKind.CLIENT,
             attributes=self._make_span_request_attributes(),
         ) as span:
-            response = Response(chat_pb2.GetChatCompletionResponse(choices=[chat_pb2.Choice()]), 0)
+            index = None if self._uses_server_side_tools() else 0
+            response = Response(chat_pb2.GetChatCompletionResponse(outputs=[chat_pb2.CompletionOutput()]), index)
             stream = self._stub.GetCompletionChunk(self._make_request(1))
 
             async for chunk in stream:
@@ -183,8 +194,12 @@ class Chat(BaseChat):
                     )
                     first_chunk_received = True
 
+                # Auto-detect if server added tools implicitly
+                index = self._auto_detect_multi_output_mode(index, chunk.outputs)
+                response._index = index
+
                 response.process_chunk(chunk)
-                chunk_obj = Chunk(chunk, 0)
+                chunk_obj = Chunk(chunk, index)
                 yield response, chunk_obj
 
             span.set_attributes(self._make_span_response_attributes([response]))
@@ -219,7 +234,13 @@ class Chat(BaseChat):
             >>> for i, response in enumerate(responses):
             ...     print(f"Final Response {i+1}: {response.content}")
         """
-        proto = chat_pb2.GetChatCompletionResponse(choices=[chat_pb2.Choice(index=i) for i in range(n)])
+        warnings.warn(
+            "chat.stream_batch will be deprecated in a future version release. Use chat.stream() instead.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+
+        proto = chat_pb2.GetChatCompletionResponse(outputs=[chat_pb2.CompletionOutput(index=i) for i in range(n)])
         responses = [Response(proto, i) for i in range(n)]
         first_chunk_received = False
 
@@ -284,7 +305,9 @@ class Chat(BaseChat):
             attributes=self._make_span_request_attributes(),
         ) as span:
             response = await self._stub.GetCompletion(self._make_request(1))
-            r = Response(response, 0)
+            index = None if self._uses_server_side_tools() else 0
+            index = self._auto_detect_multi_output_mode(index, response.outputs)
+            r = Response(response, index)
             parsed = shape.model_validate_json(r.content)
             span.set_attributes(self._make_span_response_attributes([r]))
             return r, parsed
@@ -398,5 +421,11 @@ class Chat(BaseChat):
             Option 2: A scarf
             Option 3: A gift card
         """
+        warnings.warn(
+            "chat.defer_batch will be deprecated in a future version release. Use chat.defer() instead.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+
         response = await self._defer(n, timeout, interval)
         return [Response(response, i) for i in range(n)]

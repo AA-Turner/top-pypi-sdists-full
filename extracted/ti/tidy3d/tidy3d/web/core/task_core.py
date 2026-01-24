@@ -6,25 +6,34 @@ import os
 import pathlib
 import tempfile
 from datetime import datetime
+from os import PathLike
 from typing import Callable, Optional, Union
 
-import pydantic.v1 as pd
+import requests
 from botocore.exceptions import ClientError
 from pydantic.v1 import Extra, Field, parse_obj_as
 
 import tidy3d as td
+from tidy3d.config import config
 from tidy3d.exceptions import ValidationError
 
 from . import http_util
 from .cache import FOLDER_CACHE
-from .constants import SIM_ERROR_FILE, SIM_FILE_HDF5_GZ, SIM_LOG_FILE, SIMULATION_DATA_HDF5_GZ
+from .constants import (
+    SIM_ERROR_FILE,
+    SIM_FILE_HDF5_GZ,
+    SIM_LOG_FILE,
+    SIM_VALIDATION_FILE,
+    SIMULATION_DATA_HDF5_GZ,
+)
 from .core_config import get_logger_console
-from .environment import Env
 from .exceptions import WebError, WebNotFoundError
 from .file_util import read_simulation_from_hdf5
+from .http_util import get_version as _get_protocol_version
 from .http_util import http
 from .s3utils import download_file, download_gz_file, upload_file
 from .stub import TaskStub
+from .task_info import BatchDetail, TaskInfo
 from .types import PayType, Queryable, ResourceLifecycle, Submittable, Tidy3DResource
 
 
@@ -37,7 +46,7 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
     )
 
     @classmethod
-    def list(cls) -> []:
+    def list(cls, projects_endpoint: str = "tidy3d/projects") -> []:
         """List all folders.
 
         Returns
@@ -45,7 +54,7 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
         folders : [Folder]
             List of folders
         """
-        resp = http.get("tidy3d/projects")
+        resp = http.get(projects_endpoint)
         return (
             parse_obj_as(
                 list[Folder],
@@ -56,7 +65,13 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
         )
 
     @classmethod
-    def get(cls, folder_name: str, create: bool = False):
+    def get(
+        cls,
+        folder_name: str,
+        create: bool = False,
+        projects_endpoint: str = "tidy3d/projects",
+        project_endpoint: str = "tidy3d/project",
+    ) -> Folder:
         """Get folder by name.
 
         Parameters
@@ -72,18 +87,18 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
         """
         folder = FOLDER_CACHE.get(folder_name)
         if not folder:
-            resp = http.get("tidy3d/project", params={"projectName": folder_name})
+            resp = http.get(project_endpoint, params={"projectName": folder_name})
             if resp:
                 folder = Folder(**resp)
         if create and not folder:
-            resp = http.post("tidy3d/projects", {"projectName": folder_name})
+            resp = http.post(projects_endpoint, {"projectName": folder_name})
             if resp:
                 folder = Folder(**resp)
         FOLDER_CACHE[folder_name] = folder
         return folder
 
     @classmethod
-    def create(cls, folder_name: str):
+    def create(cls, folder_name: str) -> Folder:
         """Create a folder, return existing folder if there is one has the same name.
 
         Parameters
@@ -97,10 +112,10 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
         """
         return Folder.get(folder_name, True)
 
-    def delete(self):
+    def delete(self, projects_endpoint: str = "tidy3d/projects") -> None:
         """Remove this folder."""
 
-        http.delete(f"tidy3d/projects/{self.folder_id}")
+        http.delete(f"{projects_endpoint}/{self.folder_id}")
 
     def delete_old(self, days_old: int) -> int:
         """Remove folder contents older than ``days_old``."""
@@ -110,7 +125,7 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
             params={"daysOld": days_old},
         )
 
-    def list_tasks(self) -> list[Tidy3DResource]:
+    def list_tasks(self, projects_endpoint: str = "tidy3d/projects") -> list[Tidy3DResource]:
         """List all tasks in this folder.
 
         Returns
@@ -118,7 +133,7 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
         tasks : List[:class:`.SimulationTask`]
             List of tasks in this folder
         """
-        resp = http.get(f"tidy3d/projects/{self.folder_id}/tasks")
+        resp = http.get(f"{projects_endpoint}/{self.folder_id}/tasks")
         return (
             parse_obj_as(
                 list[SimulationTask],
@@ -129,8 +144,8 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
         )
 
 
-class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
-    """Interface for managing the running of a :class:`.Simulation` task on server."""
+class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
+    """Interface for managing the running a task on the server."""
 
     task_id: Optional[str] = Field(
         ...,
@@ -138,6 +153,239 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         description="Task ID number, set when the task is uploaded, leave as None.",
         alias="taskId",
     )
+
+    @classmethod
+    def create(
+        cls,
+        task_type: str,
+        task_name: str,
+        folder_name: str = "default",
+        callback_url: Optional[str] = None,
+        simulation_type: str = "tidy3d",
+        parent_tasks: Optional[list[str]] = None,
+        file_type: str = "Gz",
+        projects_endpoint: str = "tidy3d/projects",
+    ) -> SimulationTask:
+        """Create a new task on the server.
+
+        Parameters
+        ----------
+        task_type: :class".TaskType"
+            The type of task.
+        task_name: str
+            The name of the task.
+        folder_name: str,
+            The name of the folder to store the task. Default is "default".
+        callback_url: str
+            Http PUT url to receive simulation finish event. The body content is a json file with
+            fields ``{'id', 'status', 'name', 'workUnit', 'solverVersion'}``.
+        simulation_type : str
+            Type of simulation being uploaded.
+        parent_tasks : List[str]
+            List of related task ids.
+        file_type: str
+            the simulation file type Json, Hdf5, Gz
+
+        Returns
+        -------
+        :class:`SimulationTask`
+            :class:`SimulationTask` object containing info about status, size,
+            credits of task and others.
+        """
+
+        # handle backwards compatibility, "tidy3d" is the default simulation_type
+        if simulation_type is None:
+            simulation_type = "tidy3d"
+
+        folder = Folder.get(folder_name, create=True)
+
+        if task_type in ["RF", "TERMINAL_CM", "MODAL_CM"]:
+            payload = {
+                "groupName": task_name,
+                "folderId": folder.folder_id,
+                "fileType": file_type,
+                "taskType": task_type,
+            }
+            resp = http.post("rf/task", payload)
+        else:
+            payload = {
+                "taskName": task_name,
+                "taskType": task_type,
+                "callbackUrl": callback_url,
+                "simulationType": simulation_type,
+                "parentTasks": parent_tasks,
+                "fileType": file_type,
+            }
+            resp = http.post(f"{projects_endpoint}/{folder.folder_id}/tasks", payload)
+
+        return SimulationTask(**resp, taskType=task_type, folder_name=folder_name)
+
+    def get_url(self) -> str:
+        base = str(config.web.website_endpoint or "")
+        if isinstance(self, BatchTask):
+            return "/".join([base.rstrip("/"), f"rf?taskId={self.task_id}"])
+        return "/".join([base.rstrip("/"), f"workbench?taskId={self.task_id}"])
+
+    def get_folder_url(self) -> Optional[str]:
+        folder_id = getattr(self, "folder_id", None)
+        if not folder_id:
+            return None
+        base = str(config.web.website_endpoint or "")
+        return "/".join([base.rstrip("/"), f"folders/{folder_id}"])
+
+    def get_log(
+        self,
+        to_file: PathLike,
+        verbose: bool = True,
+        progress_callback: Optional[Callable[[float], None]] = None,
+    ) -> pathlib.Path:
+        """Get log file from Server.
+
+        Parameters
+        ----------
+        to_file: PathLike
+            Save file to path.
+        verbose: bool = True
+            Whether to display progress bars.
+        progress_callback : Callable[[float], None] = None
+            Optional callback function called while downloading the data.
+
+        Returns
+        -------
+        path: pathlib.Path
+            Path to saved file.
+        """
+
+        if not self.task_id:
+            raise WebError("Expected field 'task_id' is unset.")
+
+        target_path = pathlib.Path(to_file)
+
+        return download_file(
+            self.task_id,
+            SIM_LOG_FILE,
+            to_file=target_path,
+            verbose=verbose,
+            progress_callback=progress_callback,
+        )
+
+    def get_data_hdf5(
+        self,
+        to_file: PathLike,
+        remote_data_file_gz: PathLike = SIMULATION_DATA_HDF5_GZ,
+        verbose: bool = True,
+        progress_callback: Optional[Callable[[float], None]] = None,
+    ) -> pathlib.Path:
+        """Download data artifact (simulation or batch) with gz fallback handling.
+
+        Parameters
+        ----------
+        remote_data_file_gz : PathLike
+            Gzipped remote filename.
+        to_file : PathLike
+            Local target path.
+        verbose : bool
+            Whether to log progress.
+        progress_callback : Optional[Callable[[float], None]]
+            Progress callback.
+
+        Returns
+        -------
+        pathlib.Path
+            Saved local path.
+        """
+        if not self.task_id:
+            raise WebError("Expected field 'task_id' is unset.")
+        target_path = pathlib.Path(to_file)
+        file = None
+        try:
+            file = download_gz_file(
+                resource_id=self.task_id,
+                remote_filename=remote_data_file_gz,
+                to_file=target_path,
+                verbose=verbose,
+                progress_callback=progress_callback,
+            )
+        except ClientError:
+            if verbose:
+                console = get_logger_console()
+                console.log(f"Unable to download '{remote_data_file_gz}'.")
+        if not file:
+            try:
+                file = download_file(
+                    resource_id=self.task_id,
+                    remote_filename=str(remote_data_file_gz)[:-3],
+                    to_file=target_path,
+                    verbose=verbose,
+                    progress_callback=progress_callback,
+                )
+            except Exception as e:
+                raise WebError(
+                    "Failed to download the data file from the server. "
+                    "Please confirm that the task completed successfully."
+                ) from e
+        return file
+
+    @staticmethod
+    def is_batch(resource_id: str) -> bool:
+        """Checks if a given resource ID corresponds to a valid batch task.
+
+        This is a utility function to verify a batch task's existence before
+        instantiating the class.
+
+        Parameters
+        ----------
+        resource_id : str
+            The unique identifier for the resource.
+
+        Returns
+        -------
+        bool
+            ``True`` if the resource is a valid batch task, ``False`` otherwise.
+        """
+        try:
+            # TODO PROPERLY FIXME
+            # Disable non critical logs due to check for resourceId, until we have a dedicated API for this
+            resp = http.get(
+                f"rf/task/{resource_id}/statistics",
+                suppress_404=True,
+            )
+            status = bool(resp and isinstance(resp, dict) and "status" in resp)
+            return status
+        except Exception:
+            return False
+
+    def delete(self, versions: bool = False) -> None:
+        """Delete current task from server.
+
+        Parameters
+        ----------
+        versions : bool = False
+            If ``True``, delete all versions of the task in the task group. Otherwise, delete only
+            the version associated with the current task ID.
+        """
+        if not self.task_id:
+            raise ValueError("Task id not found.")
+
+        task_details = self.detail().dict()
+
+        if task_details and "groupId" in task_details:
+            group_id = task_details["groupId"]
+            if versions:
+                http.delete("tidy3d/group", json={"groupIds": [group_id]})
+                return
+            elif "version" in task_details:
+                version = task_details["version"]
+                http.delete(f"tidy3d/group/{group_id}/versions", json={"versions": [version]})
+                return
+
+        # Fallback to old method if we can't get the groupId and version
+        http.delete(f"tidy3d/tasks/{self.task_id}")
+
+
+class SimulationTask(WebTask):
+    """Interface for managing the running of solver tasks on the server."""
+
     folder_id: Optional[str] = Field(
         None,
         title="folder_id",
@@ -185,76 +433,6 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
     #     description="List of parent task ids for the simulation, used internally only."
     # )
 
-    @pd.root_validator(pre=True)
-    def _error_if_jax_sim(cls, values):
-        """Raise error if user tries to submit simulation that's a JaxSimulation."""
-        sim = values.get("simulation")
-        if sim is None:
-            return values
-        if "JaxSimulation" in str(type(sim)):
-            raise ValueError(
-                "'JaxSimulation' not compatible with regular webapi functions. "
-                "Either convert it to Simulation with 'jax_sim.to_simulation()[0]' or use "
-                "the 'adjoint.run' function to run JaxSimulations."
-            )
-        return values
-
-    @classmethod
-    def create(
-        cls,
-        task_type: str,
-        task_name: str,
-        folder_name: str = "default",
-        callback_url: Optional[str] = None,
-        simulation_type: str = "tidy3d",
-        parent_tasks: Optional[list[str]] = None,
-        file_type: str = "Gz",
-    ) -> SimulationTask:
-        """Create a new task on the server.
-
-        Parameters
-        ----------
-        task_type: :class".TaskType"
-            The type of task.
-        task_name: str
-            The name of the task.
-        folder_name: str,
-            The name of the folder to store the task. Default is "default".
-        callback_url: str
-            Http PUT url to receive simulation finish event. The body content is a json file with
-            fields ``{'id', 'status', 'name', 'workUnit', 'solverVersion'}``.
-        simulation_type : str
-            Type of simulation being uploaded.
-        parent_tasks : List[str]
-            List of related task ids.
-        file_type: str
-            the simulation file type Json, Hdf5, Gz
-
-        Returns
-        -------
-        :class:`SimulationTask`
-            :class:`SimulationTask` object containing info about status, size,
-            credits of task and others.
-        """
-
-        # handle backwards compatibility, "tidy3d" is the default simulation_type
-        if simulation_type is None:
-            simulation_type = "tidy3d"
-
-        folder = Folder.get(folder_name, create=True)
-        resp = http.post(
-            f"tidy3d/projects/{folder.folder_id}/tasks",
-            {
-                "taskName": task_name,
-                "taskType": task_type,
-                "callbackUrl": callback_url,
-                "simulationType": simulation_type,
-                "parentTasks": parent_tasks,
-                "fileType": file_type,
-            },
-        )
-        return SimulationTask(**resp, taskType=task_type, folder_name=folder_name)
-
     @classmethod
     def get(cls, task_id: str, verbose: bool = True) -> SimulationTask:
         """Get task from the server by id.
@@ -296,46 +474,31 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
             return []
         return parse_obj_as(list[SimulationTask], resp)
 
-    def delete(self, versions: bool = False):
-        """Delete current task from server.
+    def detail(self) -> TaskInfo:
+        """Fetches the detailed information and status of the task.
 
-        Parameters
-        ----------
-        versions : bool = False
-            If ``True``, delete all versions of the task in the task group. Otherwise, delete only the version associated with the current task ID.
+        Returns
+        -------
+        TaskInfo
+            An object containing the task's latest data.
         """
-        if not self.task_id:
-            raise ValueError("Task id not found.")
+        resp = http.get(f"tidy3d/tasks/{self.task_id}/detail")
+        return TaskInfo(**{"taskId": self.task_id, "taskType": self.task_type, **resp})
 
-        task_details = http.get(f"tidy3d/tasks/{self.task_id}")
-
-        if task_details and "groupId" in task_details and "version" in task_details:
-            group_id = task_details["groupId"]
-            version = task_details["version"]
-            if versions:
-                http.delete("tidy3d/group", json={"groupIds": [group_id]})
-            else:
-                http.delete(f"tidy3d/group/{group_id}/versions", json={"versions": [version]})
-        else:  # Fallback to old method if we can't get the groupId and version
-            http.delete(f"tidy3d/tasks/{self.task_id}")
-
-    def get_simulation_json(self, to_file: str, verbose: bool = True) -> pathlib.Path:
+    def get_simulation_json(self, to_file: PathLike, verbose: bool = True) -> None:
         """Get json file for a :class:`.Simulation` from server.
 
         Parameters
         ----------
-        to_file: str
+        to_file: PathLike
             Save file to path.
         verbose: bool = True
             Whether to display progress bars.
-
-        Returns
-        -------
-        path: pathlib.Path
-            Path to saved file.
         """
         if not self.task_id:
             raise WebError("Expected field 'task_id' is unset.")
+
+        to_file = pathlib.Path(to_file)
 
         hdf5_file, hdf5_file_path = tempfile.mkstemp(".hdf5")
         os.close(hdf5_file)
@@ -343,7 +506,8 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
             self.get_simulation_hdf5(hdf5_file_path)
             if os.path.exists(hdf5_file_path):
                 json_string = read_simulation_from_hdf5(hdf5_file_path)
-                with open(to_file, "w") as file:
+                to_file.parent.mkdir(parents=True, exist_ok=True)
+                with to_file.open("w", encoding="utf-8") as file:
                     # Write the string to the file
                     file.write(json_string.decode("utf-8"))
                     if verbose:
@@ -359,7 +523,7 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         stub: TaskStub,
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
-        remote_sim_file: str = SIM_FILE_HDF5_GZ,
+        remote_sim_file: PathLike = SIM_FILE_HDF5_GZ,
     ) -> None:
         """Upload :class:`.Simulation` object to Server.
 
@@ -395,7 +559,7 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
 
     def upload_file(
         self,
-        local_file: str,
+        local_file: PathLike,
         remote_filename: str,
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
@@ -405,8 +569,8 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
          as :class".simulation".
         Parameters
         ----------
-        local_file: str
-            local file path.
+        local_file: PathLike
+            Local file path.
         remote_filename: str
             file name on the server
         verbose: bool = True
@@ -431,7 +595,7 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         worker_group: Optional[str] = None,
         pay_type: Union[PayType, str] = PayType.AUTO,
         priority: Optional[int] = None,
-    ):
+    ) -> None:
         """Kick off this task.
 
         It will be uploaded to server before
@@ -447,7 +611,8 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         pay_type: Union[PayType, str] = PayType.AUTO
             Which method to pay the simulation.
         priority: int = None
-            Task priority for vGPU queue (1=lowest, 10=highest).
+            Priority of the simulation in the Virtual GPU (vGPU) queue (1 = lowest, 10 = highest).
+            It affects only simulations from vGPU licenses and does not impact simulations using FlexCredits.
         """
         pay_type = PayType(pay_type) if not isinstance(pay_type, PayType) else pay_type
 
@@ -462,13 +627,13 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
                 "solverVersion": solver_version,
                 "workerGroup": worker_group,
                 "protocolVersion": protocol_version,
-                "enableCaching": Env.current.enable_caching,
+                "enableCaching": config.web.enable_caching,
                 "payType": pay_type.value,
                 "priority": priority,
             },
         )
 
-    def estimate_cost(self, solver_version=None) -> float:
+    def estimate_cost(self, solver_version: Optional[str] = None) -> float:
         """Compute the maximum flex unit charge for a given task, assuming the simulation runs for
         the full ``run_time``. If early shut-off is triggered, the cost is adjusted proportionately.
 
@@ -499,75 +664,18 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         )
         return resp
 
-    def get_sim_data_hdf5(
-        self,
-        to_file: str,
-        verbose: bool = True,
-        progress_callback: Optional[Callable[[float], None]] = None,
-        remote_data_file: str = SIMULATION_DATA_HDF5_GZ,
-    ) -> pathlib.Path:
-        """Get simulation data file from Server.
-
-        Parameters
-        ----------
-        to_file: str
-            Save file to path.
-        verbose: bool = True
-            Whether to display progress bars.
-        progress_callback : Callable[[float], None] = None
-            Optional callback function called while downloading the data.
-
-        Returns
-        -------
-        path: pathlib.Path
-            Path to saved file.
-        """
-        if not self.task_id:
-            raise WebError("Expected field 'task_id' is unset.")
-
-        file = None
-        try:
-            file = download_gz_file(
-                resource_id=self.task_id,
-                remote_filename=remote_data_file,
-                to_file=to_file,
-                verbose=verbose,
-                progress_callback=progress_callback,
-            )
-        except ClientError:
-            if verbose:
-                console = get_logger_console()
-                console.log(f"Unable to download '{remote_data_file}'.")
-
-        if not file:
-            try:
-                file = download_file(
-                    resource_id=self.task_id,
-                    remote_filename=remote_data_file[:-3],
-                    to_file=to_file,
-                    verbose=verbose,
-                    progress_callback=progress_callback,
-                )
-            except Exception as e:
-                raise WebError(
-                    "Failed to download the simulation data file from the server. "
-                    "Please confirm that the task was successfully run."
-                ) from e
-
-        return file
-
     def get_simulation_hdf5(
         self,
-        to_file: str,
+        to_file: PathLike,
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
-        remote_sim_file: str = SIM_FILE_HDF5_GZ,
+        remote_sim_file: PathLike = SIM_FILE_HDF5_GZ,
     ) -> pathlib.Path:
         """Get simulation.hdf5 file from Server.
 
         Parameters
         ----------
-        to_file: str
+        to_file: PathLike
             Save file to path.
         verbose: bool = True
             Whether to display progress bars.
@@ -582,10 +690,12 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         if not self.task_id:
             raise WebError("Expected field 'task_id' is unset.")
 
+        target_path = pathlib.Path(to_file)
+
         return download_gz_file(
             resource_id=self.task_id,
             remote_filename=remote_sim_file,
-            to_file=to_file,
+            to_file=target_path,
             verbose=verbose,
             progress_callback=progress_callback,
         )
@@ -612,7 +722,7 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
 
     def get_log(
         self,
-        to_file: str,
+        to_file: PathLike,
         verbose: bool = True,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> pathlib.Path:
@@ -620,7 +730,7 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
 
         Parameters
         ----------
-        to_file: str
+        to_file: PathLike
             Save file to path.
         verbose: bool = True
             Whether to display progress bars.
@@ -636,23 +746,29 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         if not self.task_id:
             raise WebError("Expected field 'task_id' is unset.")
 
+        target_path = pathlib.Path(to_file)
+
         return download_file(
             self.task_id,
             SIM_LOG_FILE,
-            to_file=to_file,
+            to_file=target_path,
             verbose=verbose,
             progress_callback=progress_callback,
         )
 
-    def get_error_json(self, to_file: str, verbose: bool = True) -> pathlib.Path:
+    def get_error_json(
+        self, to_file: PathLike, verbose: bool = True, validation: bool = False
+    ) -> pathlib.Path:
         """Get error json file for a :class:`.Simulation` from server.
 
         Parameters
         ----------
-        to_file: str
+        to_file: PathLike
             Save file to path.
         verbose: bool = True
             Whether to display progress bars.
+        validation: bool = False
+            Whether to get a validation error file or a solver error file.
 
         Returns
         -------
@@ -662,22 +778,25 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         if not self.task_id:
             raise WebError("Expected field 'task_id' is unset.")
 
+        target_path = pathlib.Path(to_file)
+        target_file = SIM_ERROR_FILE if not validation else SIM_VALIDATION_FILE
+
         return download_file(
             self.task_id,
-            SIM_ERROR_FILE,
-            to_file=to_file,
+            target_file,
+            to_file=target_path,
             verbose=verbose,
         )
 
-    def abort(self):
-        """Abort current task from server."""
+    def abort(self) -> requests.Response:
+        """Abort the current task on the server."""
         if not self.task_id:
             raise ValueError("Task id not found.")
         return http.put(
             "tidy3d/tasks/abort", json={"taskType": self.task_type, "taskId": self.task_id}
         )
 
-    def validate_post_upload(self, parent_tasks: Optional[list[str]] = None):
+    def validate_post_upload(self, parent_tasks: Optional[list[str]] = None) -> None:
         """Perform checks after task is uploaded and metadata is processed."""
         if self.task_type == "HEAT_CHARGE" and parent_tasks:
             try:
@@ -706,3 +825,162 @@ class SimulationTask(ResourceLifecycle, Submittable, extra=Extra.allow):
 
             except Exception as e:
                 raise WebError(f"Provided 'parent_tasks' failed validation: {e!s}") from e
+
+
+class BatchTask(WebTask):
+    """Interface for managing a batch task on the server."""
+
+    @classmethod
+    def get(cls, task_id: str, verbose: bool = True) -> BatchTask:
+        """Get batch task by id.
+
+        Parameters
+        ----------
+        task_id: str
+            Unique identifier of batch on server.
+        verbose:
+            If `True`, will print progressbars and status, otherwise, will run silently.
+
+        Returns
+        -------
+        :class:`.BatchTask` | None
+            BatchTask object if found, otherwise None.
+        """
+        try:
+            resp = http.get(f"rf/task/{task_id}/statistics")
+        except WebNotFoundError as e:
+            td.log.error(f"The requested batch ID '{task_id}' does not exist.")
+            raise e
+        # We only need to validate existence; store id on the instance.
+        return BatchTask(taskId=task_id) if resp else None
+
+    def detail(self) -> BatchDetail:
+        """Fetches the detailed information and status of the batch.
+
+        Returns
+        -------
+        BatchDetail
+            An object containing the batch's latest data.
+        """
+        resp = http.get(
+            f"rf/task/{self.task_id}/statistics",
+        )
+        # Some backends may return null for collection fields; coerce to sensible defaults
+        if isinstance(resp, dict):
+            if resp.get("tasks") is None:
+                resp["tasks"] = []
+        return BatchDetail(**(resp or {}))
+
+    def check(
+        self,
+        check_task_type: str,
+        solver_version: Optional[str] = None,
+        protocol_version: Optional[str] = None,
+    ) -> requests.Response:
+        """Submits a request to validate the batch configuration on the server.
+
+        Parameters
+        ----------
+        solver_version : Optional[str], default=None
+            The version of the solver to use for validation.
+        protocol_version : Optional[str], default=None
+            The data protocol version. Defaults to the current version.
+
+        Returns
+        -------
+        Any
+            The server's response to the check request.
+        """
+        if protocol_version is None:
+            protocol_version = _get_protocol_version()
+        return http.post(
+            f"rf/task/{self.task_id}/check",
+            {
+                "solverVersion": solver_version,
+                "protocolVersion": protocol_version,
+                "taskType": check_task_type,
+            },
+        )
+
+    def submit(
+        self,
+        solver_version: Optional[str] = None,
+        protocol_version: Optional[str] = None,
+        worker_group: Optional[str] = None,
+        pay_type: Union[PayType, str] = PayType.AUTO,
+        priority: Optional[int] = None,
+    ) -> requests.Response:
+        """Submits the batch for execution on the server.
+
+        Parameters
+        ----------
+        solver_version : Optional[str], default=None
+            The version of the solver to use for execution.
+        protocol_version : Optional[str], default=None
+            The data protocol version. Defaults to the current version.
+        worker_group : Optional[str], default=None
+            Optional identifier for a specific worker group to run on.
+
+        Returns
+        -------
+        Any
+            The server's response to the submit request.
+        """
+
+        # TODO: add support for pay_type and priority arguments
+        if pay_type != PayType.AUTO:
+            raise NotImplementedError(
+                "The 'pay_type' argument is not yet supported and will be ignored."
+            )
+        if priority is not None:
+            raise NotImplementedError(
+                "The 'priority' argument is not yet supported and will be ignored."
+            )
+
+        if protocol_version is None:
+            protocol_version = _get_protocol_version()
+        return http.post(
+            f"rf/task/{self.task_id}/submit",
+            {
+                "solverVersion": solver_version,
+                "protocolVersion": protocol_version,
+                "workerGroup": worker_group,
+            },
+        )
+
+    def abort(self) -> requests.Response:
+        """Abort the current task on the server."""
+        if not self.task_id:
+            raise ValueError("Batch id not found.")
+        return http.put(f"rf/task/{self.task_id}/abort", {})
+
+
+class TaskFactory:
+    """Factory for obtaining the correct task subclass."""
+
+    _REGISTRY: dict[str, str] = {}
+
+    @classmethod
+    def reset(cls) -> None:
+        """Clear the cached task kind registry (used in tests)."""
+        cls._REGISTRY.clear()
+
+    @classmethod
+    def register(cls, task_id: str, kind: str) -> None:
+        cls._REGISTRY[task_id] = kind
+
+    @classmethod
+    def get(cls, task_id: str, verbose: bool = True) -> WebTask:
+        kind = cls._REGISTRY.get(task_id)
+        if kind == "batch":
+            return BatchTask.get(task_id, verbose=verbose)
+        if kind == "simulation":
+            task = SimulationTask.get(task_id, verbose=verbose)
+            return task
+        if WebTask.is_batch(task_id):
+            cls.register(task_id, "batch")
+            return BatchTask.get(task_id, verbose=verbose)
+        task = SimulationTask.get(task_id, verbose=verbose)
+        if task:
+            cls.register(task_id, "simulation")
+        return task

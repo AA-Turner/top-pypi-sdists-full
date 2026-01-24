@@ -1,7 +1,8 @@
 [package]
 name = "rignore"
-version = "0.6.4"
+version = "0.7.6"
 edition = "2021"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -10,4 +11,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ignore = "0.4.23"
-pyo3 = "0.25.1"
+pyo3 = "0.26.0"

@@ -4,13 +4,11 @@ from unittest.mock import Mock, patch
 from montecarlodata.common.user import UserService
 from montecarlodata.integrations.onboarding.data_lake.spark import (
     SPARK_BINARY_MODE_CONFIG_TYPE,
-    SPARK_DATABRICKS_CONFIG_TYPE,
     SPARK_HTTP_MODE_CONFIG_TYPE,
     SparkOnboardingService,
 )
 from montecarlodata.queries.onboarding import (
     TEST_SPARK_BINARY_MODE_CRED_MUTATION,
-    TEST_SPARK_DATABRICKS_CRED_MUTATION,
     TEST_SPARK_HTTP_MODE_CRED_MUTATION,
 )
 from montecarlodata.utils import AwsClientWrapper, GqlWrapper
@@ -53,18 +51,6 @@ class SparkOnboardingTest(TestCase):
 
         self._service.onboard_spark(SPARK_HTTP_MODE_CONFIG_TYPE, **options, **_SAMPLE_BASE_OPTIONS)
         self._assert_onboard(TEST_SPARK_HTTP_MODE_CRED_MUTATION, options, onboard_mock)
-
-    @patch.object(SparkOnboardingService, "onboard")
-    def test_spark_databricks_flow(self, onboard_mock):
-        options = {
-            "workspace_url": "workspace_url",
-            "workspace_id": "workspace_id",
-            "cluster_id": "cluster_id",
-            "token": "token",
-        }
-
-        self._service.onboard_spark(SPARK_DATABRICKS_CONFIG_TYPE, **options, **_SAMPLE_BASE_OPTIONS)
-        self._assert_onboard(TEST_SPARK_DATABRICKS_CRED_MUTATION, options, onboard_mock)
 
     @staticmethod
     def _assert_onboard(mutation, options, onboard_mock):

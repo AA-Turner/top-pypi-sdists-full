@@ -1,64 +1,64 @@
 Metadata-Version: 2.4
 Name: tslearn
-Version: 0.6.4
+Version: 0.7.0
 Summary: A machine learning toolkit dedicated to time-series data
-Home-page: http://tslearn.readthedocs.io/
-Author: Romain Tavenard
-Author-email: romain.tavenard@univ-rennes2.fr
-License: BSD-2-Clause
-Project-URL: Source, https://github.com/tslearn-team/tslearn
-Classifier: License :: OSI Approved :: BSD License
+Author-email: Romain Tavenard <romain.tavenard@univ-rennes2.fr>
+License-Expression: BSD-2-Clause
+Project-URL: documentation, http://tslearn.readthedocs.io
+Project-URL: source, https://github.com/tslearn-team/tslearn
+Project-URL: issues, https://github.com/tslearn-team/tslearn/issues
+Project-URL: changelog, https://github.com/tslearn-team/tslearn/CHANGELOG.md
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: scikit-learn<1.7,>=1.3.2
-Requires-Dist: numpy<2.3,>=1.24.3
-Requires-Dist: scipy<1.17,>=1.10.1
-Requires-Dist: numba<0.62,>=0.58.1
-Requires-Dist: joblib<1.6,>=0.12
+Requires-Dist: scikit-learn>=1.4
+Requires-Dist: numpy>=1.24.3
+Requires-Dist: scipy>=1.10.1
+Requires-Dist: numba>=0.58.1
+Requires-Dist: joblib>=1.2
 Provides-Extra: pytorch
 Requires-Dist: torch; extra == "pytorch"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
-Requires-Dist: torch; extra == "tests"
 Requires-Dist: h5py; extra == "tests"
-Requires-Dist: tensorflow==2.9.0; python_version == "3.8" and extra == "tests"
-Requires-Dist: tensorflow>=2; (python_version != "3.8" and python_version < "3.13") and extra == "tests"
-Requires-Dist: stumpy; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: pydata_sphinx_theme; extra == "docs"
+Requires-Dist: sphinx-gallery; extra == "docs"
+Requires-Dist: sphinx_copybutton; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
+Requires-Dist: pypandoc; extra == "docs"
 Provides-Extra: all-features
 Requires-Dist: torch; extra == "all-features"
+Requires-Dist: numpy<2; ("darwin" in sys_platform and "x86_64" in platform_machine) and extra == "all-features"
 Requires-Dist: h5py; extra == "all-features"
-Requires-Dist: tensorflow==2.9.0; python_version == "3.8" and extra == "all-features"
-Requires-Dist: tensorflow>=2; (python_version != "3.8" and python_version < "3.13") and extra == "all-features"
-Requires-Dist: cesium>=0.12.2; (python_version >= "3.9" and "darwin" not in sys_platform) and extra == "all-features"
-Requires-Dist: cesium; (python_version < "3.9" or "darwin" in sys_platform) and extra == "all-features"
+Requires-Dist: keras<3.12; ("darwin" in sys_platform and "x86_64" in platform_machine) and extra == "all-features"
+Requires-Dist: keras; extra == "all-features"
+Requires-Dist: cesium; extra == "all-features"
 Requires-Dist: pandas; extra == "all-features"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: stumpy; extra == "all-features"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
-<!-- Our title -->
+<!-- Our logo and description -->
 <div align="center">
-  <h3>tslearn </h3>
+  <p><a href="https://tslearn.readthedocs.io"><image src="https://raw.githubusercontent.com/tslearn-team/tslearn/main/docs/_static/tslearn_logo_white_background.png?cache-control=no-cache" width="20%" alt="tslearn logo"/></a></p>
+  <h1>The machine learning toolkit for time series analysis in Python</h1>
 </div>
-
-<!-- Short description -->
-<p align="center">
-   The machine learning toolkit for time series analysis in Python
-</p>
 
 <!-- The badges -->
 <p align="center">
     <a href="https://badge.fury.io/py/tslearn">
-        <img alt="PyPI" src="https://badge.fury.io/py/tslearn.svg">
+        <img alt="PyPI" src="https://badge.fury.io/py/tslearn.svg?cache-control=no-cache">
+    </a>
+    <a href="https://www.python.org/downloads/releases">
+        <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg">
     </a>
     <a href="http://tslearn.readthedocs.io/en/stable/?badge=stable">
         <img alt="Documentation" src="https://readthedocs.org/projects/tslearn/badge/?version=stable">
@@ -88,7 +88,7 @@ Dynamic: summary
 | [Contributing](#contributing) | A guide for heroes willing to contribute |
 | [Citation](#referencing-tslearn) | A citation for tslearn for scholarly articles |
 
-## Installation
+## Installation<a id="installation"></a>
 There are different alternatives to install tslearn:
 * PyPi: `python -m pip install tslearn`
 * Conda: `conda install -c conda-forge tslearn`
@@ -96,7 +96,7 @@ There are different alternatives to install tslearn:
 
 In order for the installation to be successful, the required dependencies must be installed. For a more detailed guide on how to install tslearn, please see the [Documentation](https://tslearn.readthedocs.io/en/stable/?badge=stable#installation).
 
-## Getting started
+## Getting started<a id="getting-started"></a>
 
 ### 1. Getting the data in the right format
 tslearn expects a time series dataset to be formatted as a 3D `numpy` array. The three dimensions correspond to the number of time series, the number of measurements per time series and the number of dimensions respectively (`n_ts, max_sz, d`). In order to get the data in the right format, different solutions exist:
@@ -148,7 +148,7 @@ As can be seen, the models in tslearn follow the same API as those of the well-k
 
 tslearn further allows to perform all different types of analysis. Examples include [calculating barycenters](https://tslearn.readthedocs.io/en/stable/gen_modules/tslearn.barycenters.html#module-tslearn.barycenters) of a group of time series or calculate the distances between time series using a [variety of distance metrics](https://tslearn.readthedocs.io/en/stable/gen_modules/tslearn.metrics.html#module-tslearn.metrics).
 
-## Available features
+## Available features<a id="available-features"></a>
 
 | data                                                                                                                                                                                         | processing                                                                                                              | clustering                                                                                                                                                       | classification                                                                                                                                                                          | regression                                                                                                                                                                           | metrics                                                                                                                              |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
@@ -158,15 +158,15 @@ tslearn further allows to perform all different types of analysis. Examples incl
 |                                                                                                                                                                                              |                                                                                                                         |                                                                                                                                                                  | [Early Classification](https://tslearn.readthedocs.io/en/stable/gen_modules/tslearn.early_classification.html#module-tslearn.early_classification)                                      |                                                                                                                                                                                      | [Matrix Profile](https://tslearn.readthedocs.io/en/stable/gen_modules/tslearn.matrix_profile.html#module-tslearn.matrix_profile)     |
 
 
-## Documentation
+## Documentation<a id="documentation"></a>
 
 The documentation is hosted at [readthedocs](http://tslearn.readthedocs.io/en/stable/index.html). It includes an [API](https://tslearn.readthedocs.io/en/stable/reference.html), [gallery of examples](https://tslearn.readthedocs.io/en/stable/auto_examples/index.html) and a [user guide](https://tslearn.readthedocs.io/en/stable/user_guide/userguide.html).
 
-## Contributing
+## Contributing<a id="contributing"></a>
 
-If you would like to contribute to `tslearn`, please have a look at [our contribution guidelines](CONTRIBUTING.md). A list of interesting TODO's can be found [here](https://github.com/tslearn-team/tslearn/issues?utf8=✓&q=is%3Aissue%20is%3Aopen%20label%3A%22new%20feature%22%20). **If you want other ML methods for time series to be added to this TODO list, do not hesitate to [open an issue](https://github.com/tslearn-team/tslearn/issues/new/choose)!**
+If you would like to contribute to `tslearn`, please have a look at [our contribution guidelines](https://github.com/tslearn-team/tslearn/blob/main/CONTRIBUTING.md). A list of interesting TODO's can be found [here](https://github.com/tslearn-team/tslearn/issues?utf8=✓&q=is%3Aissue%20is%3Aopen%20label%3A%22new%20feature%22%20). **If you want other ML methods for time series to be added to this TODO list, do not hesitate to [open an issue](https://github.com/tslearn-team/tslearn/issues/new/choose)!**
 
-## Referencing tslearn
+## Referencing tslearn<a id="referencing-tslearn"></a>
 
 If you use `tslearn` in a scientific publication, we would appreciate citations:
 

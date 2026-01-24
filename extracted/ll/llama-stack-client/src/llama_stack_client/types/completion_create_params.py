@@ -1,82 +1,63 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, TypedDict
+
+from .._types import SequenceNotStr
 
 __all__ = ["CompletionCreateParamsBase", "CompletionCreateParamsNonStreaming", "CompletionCreateParamsStreaming"]
 
 
 class CompletionCreateParamsBase(TypedDict, total=False):
     model: Required[str]
-    """The identifier of the model to use.
 
-    The model must be registered with Llama Stack and available via the /models
-    endpoint.
-    """
+    prompt: Required[Union[str, SequenceNotStr[str], Iterable[int], Iterable[Iterable[int]]]]
 
-    prompt: Required[Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]]
-    """The prompt to generate a completion for."""
+    best_of: Optional[int]
 
-    best_of: int
-    """(Optional) The number of completions to generate."""
+    echo: Optional[bool]
 
-    echo: bool
-    """(Optional) Whether to echo the prompt."""
+    frequency_penalty: Optional[float]
 
-    frequency_penalty: float
-    """(Optional) The penalty for repeated tokens."""
+    logit_bias: Optional[Dict[str, float]]
 
-    guided_choice: List[str]
+    logprobs: Optional[bool]
 
-    logit_bias: Dict[str, float]
-    """(Optional) The logit bias to use."""
+    max_tokens: Optional[int]
 
-    logprobs: bool
-    """(Optional) The log probabilities to use."""
+    n: Optional[int]
 
-    max_tokens: int
-    """(Optional) The maximum number of tokens to generate."""
+    presence_penalty: Optional[float]
 
-    n: int
-    """(Optional) The number of completions to generate."""
+    seed: Optional[int]
 
-    presence_penalty: float
-    """(Optional) The penalty for repeated tokens."""
+    stop: Union[str, SequenceNotStr[str], None]
 
-    prompt_logprobs: int
+    stream_options: Optional[Dict[str, object]]
 
-    seed: int
-    """(Optional) The seed to use."""
+    suffix: Optional[str]
 
-    stop: Union[str, List[str]]
-    """(Optional) The stop tokens to use."""
+    temperature: Optional[float]
 
-    stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
-    """(Optional) The stream options to use."""
+    top_p: Optional[float]
 
-    suffix: str
-    """(Optional) The suffix that should be appended to the completion."""
-
-    temperature: float
-    """(Optional) The temperature to use."""
-
-    top_p: float
-    """(Optional) The top p to use."""
-
-    user: str
-    """(Optional) The user to use."""
+    user: Optional[str]
 
 
 class CompletionCreateParamsNonStreaming(CompletionCreateParamsBase, total=False):
-    stream: Literal[False]
-    """(Optional) Whether to stream the response."""
+    stream: Optional[Literal[False]]
 
 
 class CompletionCreateParamsStreaming(CompletionCreateParamsBase):
     stream: Required[Literal[True]]
-    """(Optional) Whether to stream the response."""
 
 
 CompletionCreateParams = Union[CompletionCreateParamsNonStreaming, CompletionCreateParamsStreaming]

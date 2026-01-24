@@ -1,0 +1,2 @@
+class RowParsingException(Exception):
+    pass

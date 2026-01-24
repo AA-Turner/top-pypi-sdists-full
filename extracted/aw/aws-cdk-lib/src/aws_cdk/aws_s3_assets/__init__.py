@@ -180,6 +180,7 @@ This can be done using [BundlingOptions](https://docs.aws.amazon.com/cdk/api/v2/
 Some optional properties to pass to the docker bundling
 
 ```python
+from aws_cdk import BundlingOptions
 import aws_cdk.aws_lambda as lambda_
 
 
@@ -261,8 +262,8 @@ from .. import (
     SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
 )
 from ..aws_iam import IGrantable as _IGrantable_71c4f5de
-from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_s3 import IBucket as _IBucket_42e086fd
+from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
 
 
 @jsii.implements(_IAsset_03c624d8)
@@ -292,20 +293,20 @@ class Asset(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         path: builtins.str,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
+        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
+        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -345,7 +346,7 @@ class Asset(
     @jsii.member(jsii_name="addResourceMetadata")
     def add_resource_metadata(
         self,
-        resource: _CfnResource_9df397a6,
+        resource: "_CfnResource_9df397a6",
         resource_property: builtins.str,
     ) -> None:
         '''Adds CloudFormation template metadata to the specified resource with information that indicates which resource property is mapped to this local asset.
@@ -369,8 +370,10 @@ class Asset(
         return typing.cast(None, jsii.invoke(self, "addResourceMetadata", [resource, resource_property]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: _IGrantable_71c4f5de) -> None:
+    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> None:
         '''Grants read permissions to the principal on the assets bucket.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''
@@ -402,9 +405,9 @@ class Asset(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> _IBucket_42e086fd:
+    def bucket(self) -> "_IBucket_42e086fd":
         '''The S3 bucket in which this asset resides.'''
-        return typing.cast(_IBucket_42e086fd, jsii.get(self, "bucket"))
+        return typing.cast("_IBucket_42e086fd", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="httpUrl")
@@ -478,15 +481,15 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         self,
         *,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
+        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
+        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
     ) -> None:
         '''
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
@@ -504,6 +507,7 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
 
         Example::
 
+            from aws_cdk import BundlingOptions
             lambda_.Function(self, "Function",
                 code=lambda_.Code.from_asset(path.join(__dirname, "my-python-handler"),
                     bundling=BundlingOptions(
@@ -573,7 +577,7 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def asset_hash_type(self) -> typing.Optional[_AssetHashType_05b67f2d]:
+    def asset_hash_type(self) -> typing.Optional["_AssetHashType_05b67f2d"]:
         '''Specifies the type of hash to calculate for this asset.
 
         If ``assetHash`` is configured, this option must be ``undefined`` or
@@ -585,10 +589,10 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         '''
         result = self._values.get("asset_hash_type")
-        return typing.cast(typing.Optional[_AssetHashType_05b67f2d], result)
+        return typing.cast(typing.Optional["_AssetHashType_05b67f2d"], result)
 
     @builtins.property
-    def bundling(self) -> typing.Optional[_BundlingOptions_588cc936]:
+    def bundling(self) -> typing.Optional["_BundlingOptions_588cc936"]:
         '''Bundle the asset by executing a command in a Docker container or a custom bundling provider.
 
         The asset path will be mounted at ``/asset-input``. The Docker
@@ -602,7 +606,7 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         archived into a .zip file and uploaded to S3 otherwise
         '''
         result = self._values.get("bundling")
-        return typing.cast(typing.Optional[_BundlingOptions_588cc936], result)
+        return typing.cast(typing.Optional["_BundlingOptions_588cc936"], result)
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -617,22 +621,22 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def follow_symlinks(self) -> typing.Optional[_SymlinkFollowMode_047ec1f6]:
+    def follow_symlinks(self) -> typing.Optional["_SymlinkFollowMode_047ec1f6"]:
         '''A strategy for how to handle symlinks.
 
         :default: SymlinkFollowMode.NEVER
         '''
         result = self._values.get("follow_symlinks")
-        return typing.cast(typing.Optional[_SymlinkFollowMode_047ec1f6], result)
+        return typing.cast(typing.Optional["_SymlinkFollowMode_047ec1f6"], result)
 
     @builtins.property
-    def ignore_mode(self) -> typing.Optional[_IgnoreMode_655a98e8]:
+    def ignore_mode(self) -> typing.Optional["_IgnoreMode_655a98e8"]:
         '''The ignore behavior to use for ``exclude`` patterns.
 
         :default: IgnoreMode.GLOB
         '''
         result = self._values.get("ignore_mode")
-        return typing.cast(typing.Optional[_IgnoreMode_655a98e8], result)
+        return typing.cast(typing.Optional["_IgnoreMode_655a98e8"], result)
 
     @builtins.property
     def deploy_time(self) -> typing.Optional[builtins.bool]:
@@ -678,7 +682,7 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readers(self) -> typing.Optional[typing.List[_IGrantable_71c4f5de]]:
+    def readers(self) -> typing.Optional[typing.List["_IGrantable_71c4f5de"]]:
         '''A list of principals that should be able to read this asset from S3.
 
         You can use ``asset.grantRead(principal)`` to grant read permissions later.
@@ -686,16 +690,16 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         :default: - No principals that can read file asset.
         '''
         result = self._values.get("readers")
-        return typing.cast(typing.Optional[typing.List[_IGrantable_71c4f5de]], result)
+        return typing.cast(typing.Optional[typing.List["_IGrantable_71c4f5de"]], result)
 
     @builtins.property
-    def source_kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
+    def source_kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
         '''The ARN of the KMS key used to encrypt the handler code.
 
         :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
         '''
         result = self._values.get("source_kms_key")
-        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
+        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -731,15 +735,15 @@ class AssetProps(AssetOptions):
         self,
         *,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
+        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
+        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         path: builtins.str,
     ) -> None:
         '''
@@ -831,7 +835,7 @@ class AssetProps(AssetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def asset_hash_type(self) -> typing.Optional[_AssetHashType_05b67f2d]:
+    def asset_hash_type(self) -> typing.Optional["_AssetHashType_05b67f2d"]:
         '''Specifies the type of hash to calculate for this asset.
 
         If ``assetHash`` is configured, this option must be ``undefined`` or
@@ -843,10 +847,10 @@ class AssetProps(AssetOptions):
         explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         '''
         result = self._values.get("asset_hash_type")
-        return typing.cast(typing.Optional[_AssetHashType_05b67f2d], result)
+        return typing.cast(typing.Optional["_AssetHashType_05b67f2d"], result)
 
     @builtins.property
-    def bundling(self) -> typing.Optional[_BundlingOptions_588cc936]:
+    def bundling(self) -> typing.Optional["_BundlingOptions_588cc936"]:
         '''Bundle the asset by executing a command in a Docker container or a custom bundling provider.
 
         The asset path will be mounted at ``/asset-input``. The Docker
@@ -860,7 +864,7 @@ class AssetProps(AssetOptions):
         archived into a .zip file and uploaded to S3 otherwise
         '''
         result = self._values.get("bundling")
-        return typing.cast(typing.Optional[_BundlingOptions_588cc936], result)
+        return typing.cast(typing.Optional["_BundlingOptions_588cc936"], result)
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -875,22 +879,22 @@ class AssetProps(AssetOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def follow_symlinks(self) -> typing.Optional[_SymlinkFollowMode_047ec1f6]:
+    def follow_symlinks(self) -> typing.Optional["_SymlinkFollowMode_047ec1f6"]:
         '''A strategy for how to handle symlinks.
 
         :default: SymlinkFollowMode.NEVER
         '''
         result = self._values.get("follow_symlinks")
-        return typing.cast(typing.Optional[_SymlinkFollowMode_047ec1f6], result)
+        return typing.cast(typing.Optional["_SymlinkFollowMode_047ec1f6"], result)
 
     @builtins.property
-    def ignore_mode(self) -> typing.Optional[_IgnoreMode_655a98e8]:
+    def ignore_mode(self) -> typing.Optional["_IgnoreMode_655a98e8"]:
         '''The ignore behavior to use for ``exclude`` patterns.
 
         :default: IgnoreMode.GLOB
         '''
         result = self._values.get("ignore_mode")
-        return typing.cast(typing.Optional[_IgnoreMode_655a98e8], result)
+        return typing.cast(typing.Optional["_IgnoreMode_655a98e8"], result)
 
     @builtins.property
     def deploy_time(self) -> typing.Optional[builtins.bool]:
@@ -936,7 +940,7 @@ class AssetProps(AssetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readers(self) -> typing.Optional[typing.List[_IGrantable_71c4f5de]]:
+    def readers(self) -> typing.Optional[typing.List["_IGrantable_71c4f5de"]]:
         '''A list of principals that should be able to read this asset from S3.
 
         You can use ``asset.grantRead(principal)`` to grant read permissions later.
@@ -944,16 +948,16 @@ class AssetProps(AssetOptions):
         :default: - No principals that can read file asset.
         '''
         result = self._values.get("readers")
-        return typing.cast(typing.Optional[typing.List[_IGrantable_71c4f5de]], result)
+        return typing.cast(typing.Optional[typing.List["_IGrantable_71c4f5de"]], result)
 
     @builtins.property
-    def source_kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
+    def source_kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
         '''The ARN of the KMS key used to encrypt the handler code.
 
         :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
         '''
         result = self._values.get("source_kms_key")
-        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
+        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
 
     @builtins.property
     def path(self) -> builtins.str:
@@ -996,7 +1000,7 @@ def _typecheckingstub__00df81fd3b746cf2ee52c0e7a23b6fdc1b45db97673ca7e25a9651e7e
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
     bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1031,7 +1035,7 @@ def _typecheckingstub__11950fe0327642dd25ddfeb2c620bb33847718475fe489bf003d096a0
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1047,7 +1051,7 @@ def _typecheckingstub__f879318d3885bc2e9c71c124fac7ad5a955812e438be7c03244c3aad7
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
     path: builtins.str,
 ) -> None:
     """Type checking stubs"""

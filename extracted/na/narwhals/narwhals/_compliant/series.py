@@ -13,6 +13,7 @@ from narwhals._compliant.column import CompliantColumn
 from narwhals._compliant.typing import (
     CompliantSeriesT_co,
     EagerDataFrameAny,
+    EagerSeriesT,
     EagerSeriesT_co,
     NativeSeriesT,
     NativeSeriesT_co,
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
         Into1DArray,
         IntoDType,
         MultiIndexSelector,
+        PythonLiteral,
         RollingInterpolationMethod,
         SizedMultiIndexSelector,
         _1DArray,
@@ -126,11 +128,14 @@ class CompliantSeries(
     def __ror__(self, other: Any) -> Self: ...
     def all(self) -> bool: ...
     def any(self) -> bool: ...
+    def any_value(self, *, ignore_nulls: bool) -> PythonLiteral: ...
     def arg_max(self) -> int: ...
     def arg_min(self) -> int: ...
     def arg_true(self) -> Self: ...
     def count(self) -> int: ...
     def filter(self, predicate: Any) -> Self: ...
+    def first(self) -> PythonLiteral: ...
+    def last(self) -> PythonLiteral: ...
     def gather_every(self, n: int, offset: int) -> Self: ...
     def head(self, n: int) -> Self: ...
     def is_empty(self) -> bool:
@@ -321,17 +326,17 @@ class EagerSeriesDateTimeNamespace(  # type: ignore[misc]
 ): ...
 
 
-class EagerSeriesListNamespace(  # type: ignore[misc]
-    _SeriesNamespace[EagerSeriesT_co, NativeSeriesT_co],
-    ListNamespace[EagerSeriesT_co],
-    Protocol[EagerSeriesT_co, NativeSeriesT_co],
+class EagerSeriesListNamespace(  # pyright: ignore[reportInvalidTypeVarUse]
+    _SeriesNamespace[EagerSeriesT, NativeSeriesT_co],
+    ListNamespace[EagerSeriesT],
+    Protocol[EagerSeriesT, NativeSeriesT_co],
 ): ...
 
 
-class EagerSeriesStringNamespace(  # type: ignore[misc]
-    _SeriesNamespace[EagerSeriesT_co, NativeSeriesT_co],
-    StringNamespace[EagerSeriesT_co],
-    Protocol[EagerSeriesT_co, NativeSeriesT_co],
+class EagerSeriesStringNamespace(
+    _SeriesNamespace[EagerSeriesT, NativeSeriesT_co],
+    StringNamespace[EagerSeriesT],
+    Protocol[EagerSeriesT, NativeSeriesT_co],
 ): ...
 
 

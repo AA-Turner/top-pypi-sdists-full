@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: unicode-rbnf
-Version: 2.3.0
+Version: 2.4.0
 Summary: Rule-based number formatting using Unicode CLDR data
 Author-email: Michael Hansen <mike@rhasspy.org>
 License: MIT
@@ -20,6 +20,14 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
+Provides-Extra: dev
+Requires-Dist: black==24.8.0; extra == "dev"
+Requires-Dist: flake8==7.1.1; extra == "dev"
+Requires-Dist: mypy==1.14.0; extra == "dev"
+Requires-Dist: pylint==3.2.7; extra == "dev"
+Requires-Dist: pytest==8.3.4; extra == "dev"
+Requires-Dist: build==1.2.2; extra == "dev"
+Dynamic: license-file
 
 # Unicode RBNF
 

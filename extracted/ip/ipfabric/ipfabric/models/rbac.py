@@ -44,12 +44,12 @@ class Role(RBAC, BaseModel):
     @computed_field
     @property
     def policies_by_name(self) -> dict[str, Policy]:
-        return {_.name: _ for _ in self.policies} if self.policies else dict()
+        return {_.name: _ for _ in self.policies} if self.policies else {}
 
     @computed_field
     @property
     def policies_by_id(self) -> dict[str, Policy]:
-        return {_.policy_id: _ for _ in self.policies} if self.policies else dict()
+        return {_.policy_id: _ for _ in self.policies} if self.policies else {}
 
     def __hash__(self):
         return hash(self.role_id)

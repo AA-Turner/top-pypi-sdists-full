@@ -73,36 +73,32 @@ class CustomModelTest(APIObject):
     """
 
     _path = "customModelTests/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("custom_model_image_id"): String(),
-            t.Key("image_type"): t.Enum(*CUSTOM_MODEL_IMAGE_TYPE.ALL),
-            t.Key("overall_status"): String(),
-            t.Key("testing_status")
-            >> "detailed_status": t.Dict(
-                {
-                    t.Key(test_type): t.Dict(
-                        {t.Key("status"): String(), t.Key("message"): String(allow_blank=True)}
-                    ).allow_extra("*")
-                    for test_type in [
-                        "error_check",
-                        "null_value_imputation",
-                        "long_running_service",
-                        "side_effects",
-                    ]
-                }
-            ).allow_extra("*"),
-            t.Key("created_by"): String(),
-            t.Key("dataset_id", optional=True): String(),
-            t.Key("dataset_version_id", optional=True): String(),
-            t.Key("completed_at", optional=True): String(allow_blank=True),
-            t.Key("created", optional=True) >> "created_at": String(),
-            t.Key("network_egress_policy", optional=True): t.Enum(*NETWORK_EGRESS_POLICY.ALL),
-            t.Key("maximum_memory", optional=True): Int(),
-            t.Key("replicas", optional=True): Int(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("custom_model_image_id"): String(),
+        t.Key("image_type"): t.Enum(*CUSTOM_MODEL_IMAGE_TYPE.ALL),
+        t.Key("overall_status"): String(),
+        t.Key("testing_status") >> "detailed_status": t.Dict({
+            t.Key(test_type): t.Dict({
+                t.Key("status"): String(),
+                t.Key("message"): String(allow_blank=True),
+            }).allow_extra("*")
+            for test_type in [
+                "error_check",
+                "null_value_imputation",
+                "long_running_service",
+                "side_effects",
+            ]
+        }).allow_extra("*"),
+        t.Key("created_by"): String(),
+        t.Key("dataset_id", optional=True): String(),
+        t.Key("dataset_version_id", optional=True): String(),
+        t.Key("completed_at", optional=True): String(allow_blank=True),
+        t.Key("created", optional=True) >> "created_at": String(),
+        t.Key("network_egress_policy", optional=True): t.Enum(*NETWORK_EGRESS_POLICY.ALL),
+        t.Key("maximum_memory", optional=True): Int(),
+        t.Key("replicas", optional=True): Int(),
+    }).ignore_extra("*")
 
     def __init__(self, **kwargs):
         self._set_values(**kwargs)
@@ -213,9 +209,7 @@ class CustomModelTest(APIObject):
         else:
             try:
                 # wait for the test to finish
-                custom_model_test_loc = wait_for_async_resolution(
-                    cls._client, response.headers["Location"], max_wait
-                )
+                custom_model_test_loc = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
                 return cls.from_location(custom_model_test_loc)
             except AsyncProcessUnsuccessfulError:
                 # if the job was aborted server sends appropriate status and

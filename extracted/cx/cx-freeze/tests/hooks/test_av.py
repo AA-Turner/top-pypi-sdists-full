@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from cx_Freeze._compat import (
-    ABI_THREAD,
     IS_ARM_64,
     IS_CONDA,
     IS_LINUX,
     IS_MACOS,
     IS_MINGW,
+    IS_UCRT,
     IS_WINDOWS,
 )
 
-TIMEOUT_ULTRA_VERY_SLOW = 240 if IS_CONDA else 60
+TIMEOUT_ULTRA_VERY_SLOW = 240 if IS_CONDA else 120
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -49,21 +47,15 @@ pyproject.toml
     reason="av (pyAV) is too slow in conda-forge (Linux and OSX_ARM64)",
 )
 @pytest.mark.xfail(
-    IS_MINGW,
+    IS_MINGW and not IS_UCRT,
     raises=ModuleNotFoundError,
-    reason="av (pyAV) not supported in mingw",
+    reason="av (pyAV) supported only in mingw linked to ucrt",
     strict=True,
 )
 @pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="av (pyAV) does not support Windows arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
-    raises=ModuleNotFoundError,
-    reason="av (pyAV) does not support Python 3.13t",
     strict=True,
 )
 @pytest.mark.venv

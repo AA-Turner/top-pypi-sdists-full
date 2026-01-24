@@ -10,7 +10,7 @@ import tests
 import tests.ibd as ibd
 import tests.test_wright_fisher as wf
 import tskit
-from tests.test_highlevel import get_example_tree_sequences
+from tests.tsutil import get_example_tree_sequences
 
 """
 Tests of IBD finding algorithms.
@@ -275,7 +275,7 @@ class TestIbdInterface:
 
     @pytest.mark.parametrize("ts", example_ts())
     def test_tables_interface(self, ts):
-        ibd_tab = ts.tables.ibd_segments(store_segments=True)
+        ibd_tab = ts.dump_tables().ibd_segments(store_segments=True)
         ibd_ts = ts.ibd_segments(store_segments=True)
         assert ibd_tab == ibd_ts
 

@@ -1,4 +1,4 @@
-"""Standard LangChain interface tests"""
+"""Standard LangChain interface tests."""
 
 from langchain_core.language_models import BaseChatModel
 from langchain_tests.unit_tests import (  # type: ignore[import-not-found]
@@ -35,3 +35,12 @@ class TestFireworksStandard(ChatModelUnitTests):
                 "fireworks_api_base": "https://base.com",
             },
         )
+
+
+def test_profile() -> None:
+    """Test that model profile is loaded correctly."""
+    model = ChatFireworks(
+        model="accounts/fireworks/models/gpt-oss-20b",
+        api_key="test_key",  # type: ignore[arg-type]
+    )
+    assert model.profile

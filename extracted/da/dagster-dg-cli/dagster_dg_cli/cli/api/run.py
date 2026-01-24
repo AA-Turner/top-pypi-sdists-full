@@ -15,7 +15,7 @@ def format_run_table(run) -> str:
     """Format run as human-readable table."""
     lines = [
         f"Run ID: {run.id}",
-        f"Status: {run.status}",
+        f"Status: {run.status.value}",
         f"Created: {run.created_at}",
     ]
 
@@ -29,7 +29,7 @@ def format_run_table(run) -> str:
     return "\n".join(lines)
 
 
-@click.command(name="get", cls=DgClickCommand, unlaunched=True)
+@click.command(name="get", cls=DgClickCommand)
 @click.argument("run_id", type=str)
 @click.option(
     "--json",
@@ -80,7 +80,6 @@ def get_run_command(
 @click.group(
     name="run",
     cls=DgClickGroup,
-    unlaunched=True,
     commands={
         "get": get_run_command,
     },

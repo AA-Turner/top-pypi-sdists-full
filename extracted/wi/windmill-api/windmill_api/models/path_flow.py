@@ -14,10 +14,12 @@ T = TypeVar("T", bound="PathFlow")
 
 @_attrs_define
 class PathFlow:
-    """
+    """Reference to an existing flow by path. Use this to call another flow as a subflow
+
     Attributes:
-        input_transforms (PathFlowInputTransforms):
-        path (str):
+        input_transforms (PathFlowInputTransforms): Map of parameter names to their values (static or JavaScript
+            expressions). These become the subflow's input arguments
+        path (str): Path to the flow in the workspace (e.g., 'f/flows/process_user')
         type (PathFlowType):
     """
 

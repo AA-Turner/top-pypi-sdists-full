@@ -10,13 +10,13 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 keywords = ["validate", "protobuf", "protocol buffer"]
 # Keep our minimum version synced with ./.python-version.
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Operating System :: OS Independent",
   "Typing :: Typed",
 ]
@@ -24,6 +24,9 @@ dynamic = ["version"]
 dependencies = [
     "protobuf>=5",
     "cel-python==0.2.*",
+    # We need at least this version, which started publishing wheels for Python 3.14.
+    # Ref: https://github.com/google/re2/issues/580
+    "google-re2>=1.1.20251105; python_version == '3.14'",
     # We need at least this version, which started publishing wheels for Python 3.13.
     # Ref: https://github.com/google/re2/issues/516
     "google-re2>=1.1.20250722; python_version == '3.13'",

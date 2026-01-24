@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cdsapi
-Version: 0.7.6
+Version: 0.7.7
 Summary: Climate Data Store API
 Home-page: https://github.com/ecmwf/cdsapi
 Author: ECMWF
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 License-File: LICENSE.txt
-Requires-Dist: ecmwf-datastores-client
+Requires-Dist: ecmwf-datastores-client>=0.4.0
 Requires-Dist: requests>=2.5.0
 Requires-Dist: tqdm
 Dynamic: author

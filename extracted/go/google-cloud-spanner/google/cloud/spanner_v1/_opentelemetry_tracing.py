@@ -21,20 +21,16 @@ import os
 from google.cloud.spanner_v1 import SpannerClient
 from google.cloud.spanner_v1 import gapic_version
 from google.cloud.spanner_v1._helpers import (
+    _get_cloud_region,
     _metadata_with_span_context,
 )
 
-try:
-    from opentelemetry import trace
-    from opentelemetry.trace.status import Status, StatusCode
-    from opentelemetry.semconv.attributes.otel_attributes import (
-        OTEL_SCOPE_NAME,
-        OTEL_SCOPE_VERSION,
-    )
-
-    HAS_OPENTELEMETRY_INSTALLED = True
-except ImportError:
-    HAS_OPENTELEMETRY_INSTALLED = False
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
+from opentelemetry.semconv.attributes.otel_attributes import (
+    OTEL_SCOPE_NAME,
+    OTEL_SCOPE_VERSION,
+)
 
 from google.cloud.spanner_v1.metrics.metrics_capture import MetricsCapture
 
@@ -70,11 +66,6 @@ def trace_call(
     if session:
         session._last_use_time = datetime.now()
 
-    if not (HAS_OPENTELEMETRY_INSTALLED and name):
-        # Empty context manager. Users will have to check if the generated value is None or a span
-        yield None
-        return
-
     tracer_provider = None
 
     # By default enable_extended_tracing=True because in a bid to minimize
@@ -85,6 +76,7 @@ def trace_call(
     enable_end_to_end_tracing = False
 
     db_name = ""
+    cloud_region = None
     if session and getattr(session, "_database", None):
         db_name = session._database.name
 
@@ -98,6 +90,7 @@ def trace_call(
         )
         db_name = observability_options.get("db_name", db_name)
 
+    cloud_region = _get_cloud_region()
     tracer = get_tracer(tracer_provider)
 
     # Set base attributes that we know for every trace created
@@ -107,6 +100,7 @@ def trace_call(
         "db.instance": db_name,
         "net.host.name": SpannerClient.DEFAULT_ENDPOINT,
         OTEL_SCOPE_NAME: TRACER_NAME,
+        "cloud.region": cloud_region,
         OTEL_SCOPE_VERSION: TRACER_VERSION,
         # Standard GCP attributes for OTel, attributes are used for internal purpose and are subjected to change
         "gcp.client.service": "spanner",
@@ -116,6 +110,11 @@ def trace_call(
 
     if extra_attributes:
         attributes.update(extra_attributes)
+
+    if "request_options" in attributes:
+        request_options = attributes.pop("request_options")
+        if request_options and request_options.request_tag:
+            attributes["request.tag"] = request_options.request_tag
 
     if extended_tracing_globally_disabled:
         enable_extended_tracing = False
@@ -155,11 +154,8 @@ def trace_call(
 
 
 def get_current_span():
-    if not HAS_OPENTELEMETRY_INSTALLED:
-        return None
     return trace.get_current_span()
 
 
 def add_span_event(span, event_name, event_attributes=None):
-    if span:
-        span.add_event(event_name, event_attributes)
+    span.add_event(event_name, event_attributes)

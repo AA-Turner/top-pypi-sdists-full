@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-harmony
-Version: 0.0.4
+Version: 0.0.8
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

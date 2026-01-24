@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: unstructured_inference
-Version: 1.0.5
+Version: 1.1.7
 Summary: A library for performing inference using trained models.
 Home-page: https://github.com/Unstructured-IO/unstructured-inference
 Author: Unstructured Technologies
 Author-email: devops@unstructuredai.io
 License: Apache-2.0
 Keywords: NLP PDF HTML CV XML parsing preprocessing
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -20,6 +19,33 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
+Requires-Dist: python-multipart
+Requires-Dist: huggingface-hub
+Requires-Dist: numpy
+Requires-Dist: opencv-python>=4.13.0.90
+Requires-Dist: onnx
+Requires-Dist: onnxruntime>=1.18.0
+Requires-Dist: matplotlib
+Requires-Dist: torch
+Requires-Dist: timm
+Requires-Dist: transformers>=4.25.1
+Requires-Dist: accelerate
+Requires-Dist: rapidfuzz
+Requires-Dist: pandas
+Requires-Dist: scipy
+Requires-Dist: pypdfium2
+Requires-Dist: pdfminer-six
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <h3 align="center">
   <img
@@ -111,5 +137,3 @@ information on how to report security vulnerabilities.
 | [Unstructured Community Github](https://github.com/Unstructured-IO/community) | Information about Unstructured.io community projects  |
 | [Unstructured Github](https://github.com/Unstructured-IO) | Unstructured.io open source repositories |
 | [Company Website](https://unstructured.io) | Unstructured.io product and company info |
-
-

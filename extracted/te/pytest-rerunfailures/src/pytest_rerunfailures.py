@@ -52,6 +52,14 @@ def pytest_addoption(parser):
         "rerunfailures", "re-run failing tests to eliminate flaky failures"
     )
     group._addoption(
+        "--force-reruns",
+        action="store",
+        dest="force_reruns",
+        type=int,
+        help="Force rerunning all tests the specified number of times,"
+        " irrespective of individual test markers.",
+    )
+    group._addoption(
         "--only-rerun",
         action="append",
         dest="only_rerun",
@@ -112,6 +120,10 @@ def _get_marker(item):
 
 
 def get_reruns_count(item):
+    reruns = item.session.config.getvalue("force_reruns")
+    if reruns is not None:
+        return reruns
+
     rerun_marker = _get_marker(item)
     # use the marker as a priority over the global setting.
     if rerun_marker is not None:
@@ -349,8 +361,24 @@ class XDistHooks:
         db = sched.config.failures_db
         reruns = db.get_test_reruns(crashitem)
         if db.get_test_failures(crashitem) < reruns:
-            sched.mark_test_pending(crashitem)
-            report.outcome = "rerun"
+            try:
+                sched.mark_test_pending(crashitem)
+                report.outcome = "rerun"
+            except NotImplementedError:
+                # Some schedulers (like LoadScopeScheduling) don't implement
+                # mark_test_pending
+                # In this case, we can't reschedule the crashed test for rerun
+                # Mark it as failed with a clear message about why it couldn't be rerun
+                report.outcome = "failed"
+                if not hasattr(report, "longrepr") or report.longrepr is None:
+                    error_msg = (
+                        "Test crashed and could not be rescheduled for rerun."
+                        f" The scheduler '{sched.__class__.__name__}' does not support"
+                        " rescheduling crashed tests"
+                        " (mark_test_pending not implemented)."
+                        f" Remaining reruns: {reruns - db.get_test_failures(crashitem)}"
+                    )
+                    report.longrepr = error_msg
 
         db.add_test_failure(crashitem)
 
@@ -421,7 +449,7 @@ class SocketDB(StatusDB):
 class ServerStatusDB(SocketDB):
     def __init__(self):
         super().__init__()
-        self.sock.bind(("localhost", 0))
+        self.sock.bind(("127.0.0.1", 0))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         self.rerunfailures_db = {}
@@ -463,7 +491,7 @@ class ServerStatusDB(SocketDB):
 class ClientStatusDB(SocketDB):
     def __init__(self, sock_port):
         super().__init__()
-        self.sock.connect(("localhost", sock_port))
+        self.sock.connect(("127.0.0.1", sock_port))
 
     def _set(self, i: str, k: str, v: int):
         self._sock_send(self.sock, "|".join(("set", i, k, str(v))))

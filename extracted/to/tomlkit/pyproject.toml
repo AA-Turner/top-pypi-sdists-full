@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tomlkit"
-version = "0.13.3"
+version = "0.14.0"
 description = "Style preserving TOML library"
 authors = [
     "Sébastien Eustace <sebastien@eustace.io>",
@@ -21,7 +21,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8"
+python = ">=3.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"

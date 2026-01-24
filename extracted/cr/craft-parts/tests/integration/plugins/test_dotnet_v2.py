@@ -14,12 +14,27 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import platform
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 from craft_parts import LifecycleManager, Step, plugins
+from craft_parts.infos import _get_host_architecture
 from craft_parts.plugins import dotnet_v2_plugin
+
+pytestmark = [
+    pytest.mark.plugin,
+    pytest.mark.skipif(
+        _get_host_architecture() not in dotnet_v2_plugin._DEBIAN_ARCH_TO_DOTNET_RID,
+        reason="No dotnet runtime for this architecture.",
+    ),
+    pytest.mark.skipif(
+        platform.libc_ver()[1] < "2.34",
+        reason="glibc too old. This plugin is only expected to work with jammy or later.",
+    ),
+]
 
 
 def test_dotnet_plugin(new_dir, partitions):

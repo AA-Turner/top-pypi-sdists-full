@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from snowflake.core.cortex.analyst_service._generated.models.annotated_sql_query import (
     AnnotatedSqlQuery,
@@ -40,9 +40,10 @@ class SqlInputs(BaseModel):
 
     __properties = ["queries"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -67,7 +68,7 @@ class SqlInputs(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in queries (list)
         _items = []
@@ -90,9 +91,9 @@ class SqlInputs(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return SqlInputs.parse_obj(obj)
+            return SqlInputs.model_validate(obj)
 
-        _obj = SqlInputs.parse_obj(
+        _obj = SqlInputs.model_validate(
             {
                 "queries": [AnnotatedSqlQuery.from_dict(_item) for _item in obj.get("queries")]
                 if obj.get("queries") is not None

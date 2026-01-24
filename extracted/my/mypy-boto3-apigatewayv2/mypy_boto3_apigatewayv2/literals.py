@@ -44,17 +44,25 @@ __all__ = (
     "IntegrationTypeType",
     "IpAddressTypeType",
     "JSONYAMLType",
+    "ListPortalProductsPaginatorName",
+    "ListPortalsPaginatorName",
+    "ListProductPagesPaginatorName",
+    "ListProductRestEndpointPagesPaginatorName",
     "ListRoutingRulesPaginatorName",
     "LoggingLevelType",
     "OAS30Type",
     "PaginatorName",
     "PassthroughBehaviorType",
+    "PreviewStatusType",
     "ProtocolTypeType",
+    "PublishStatusType",
     "RegionName",
     "ResourceServiceName",
     "RoutingModeType",
     "SecurityPolicyType",
     "ServiceName",
+    "StatusType",
+    "TryItStateType",
     "VpcLinkStatusType",
     "VpcLinkVersionType",
 )
@@ -82,13 +90,21 @@ GetStagesPaginatorName = Literal["get_stages"]
 IntegrationTypeType = Literal["AWS", "AWS_PROXY", "HTTP", "HTTP_PROXY", "MOCK"]
 IpAddressTypeType = Literal["dualstack", "ipv4"]
 JSONYAMLType = Literal["JSON", "YAML"]
+ListPortalProductsPaginatorName = Literal["list_portal_products"]
+ListPortalsPaginatorName = Literal["list_portals"]
+ListProductPagesPaginatorName = Literal["list_product_pages"]
+ListProductRestEndpointPagesPaginatorName = Literal["list_product_rest_endpoint_pages"]
 ListRoutingRulesPaginatorName = Literal["list_routing_rules"]
 LoggingLevelType = Literal["ERROR", "INFO", "OFF"]
 OAS30Type = Literal["OAS30"]
 PassthroughBehaviorType = Literal["NEVER", "WHEN_NO_MATCH", "WHEN_NO_TEMPLATES"]
+PreviewStatusType = Literal["PREVIEW_FAILED", "PREVIEW_IN_PROGRESS", "PREVIEW_READY"]
 ProtocolTypeType = Literal["HTTP", "WEBSOCKET"]
+PublishStatusType = Literal["DISABLED", "PUBLISHED", "PUBLISH_FAILED", "PUBLISH_IN_PROGRESS"]
 RoutingModeType = Literal["API_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_API_MAPPING"]
 SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
+StatusType = Literal["AVAILABLE", "FAILED", "IN_PROGRESS"]
+TryItStateType = Literal["DISABLED", "ENABLED"]
 VpcLinkStatusType = Literal["AVAILABLE", "DELETING", "FAILED", "INACTIVE", "PENDING"]
 VpcLinkVersionType = Literal["V2"]
 ApiGatewayV2ServiceName = Literal["apigatewayv2"]
@@ -118,7 +134,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -130,8 +146,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -185,6 +203,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -283,7 +302,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -322,8 +340,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -358,6 +374,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -367,18 +384,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -400,8 +419,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -416,15 +433,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -455,8 +473,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -507,16 +525,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "get_apis",
@@ -529,6 +538,10 @@ PaginatorName = Literal[
     "get_route_responses",
     "get_routes",
     "get_stages",
+    "list_portal_products",
+    "list_portals",
+    "list_product_pages",
+    "list_product_rest_endpoint_pages",
     "list_routing_rules",
 ]
 RegionName = Literal[
@@ -545,6 +558,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

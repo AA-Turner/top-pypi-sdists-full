@@ -41,6 +41,7 @@ from rasterio.dtypes import (
     int32,
     int64,
     uint64,
+    float16,
     float32,
     float64,
     complex_,
@@ -82,7 +83,7 @@ except ImportError:
     have_vsi_plugin = False
 
 __all__ = ['band', 'open', 'pad', 'Band', 'Env', 'CRS']
-__version__ = "1.4.3"
+__version__ = "1.5.0"
 __gdal_version__ = gdal_version()
 __proj_version__ = ".".join([str(version) for version in get_proj_version()])
 __geos_version__ = ".".join([str(version) for version in get_geos_version()])
@@ -109,6 +110,7 @@ def open(
     dtype=None,
     nodata=None,
     sharing=False,
+    thread_safe=False,
     opener=None,
     **kwargs
 ):
@@ -177,27 +179,31 @@ def open(
         descriptors, rasterio maintains a pool of shared low level
         dataset handles. If True this function will use a shared
         handle if one is available. Multithreaded programs must avoid
-        sharing and should set *sharing* to `False`.
+        sharing and should set *sharing* to False.
+    thread_safe: bool, optional
+        Open GDAL dataset in `thread safe mode <https://gdal.org/en/stable/user/multithreading.html>`__.
+        For multithreaded read-only GDAL dataset operations (e.g. ``GDAL_NUM_THREADS``, `LIBERTIFF driver <https://gdal.org/en/stable/drivers/raster/libertiff.html#open-options>`__).
+        Requires rasterio 1.5+ & GDAL 3.10+.
     opener : callable, optional
         A custom dataset opener which can serve GDAL's virtual
         filesystem machinery via Python file-like objects. The
         underlying file-like object is obtained by calling *opener* with
-        (*fp*, *mode*) or (*fp*, *mode* + "b") depending on the format
+        (*fp*, *mode*) or (*fp*, *mode* + 'b') depending on the format
         driver's native mode. *opener* must return a Python file-like
         object that provides read, seek, tell, and close methods. Note:
-        only one opener at a time per fp, mode pair is allowed. 
+        only one opener at a time per fp, mode pair is allowed.
     kwargs : optional
         These are passed to format drivers as directives for creating or
         interpreting datasets. For example: in 'w' or 'w+' modes
-        a `tiled=True` keyword argument will direct the GeoTIFF format
+        a tiled=True keyword argument will direct the GeoTIFF format
         driver to create a tiled, rather than striped, TIFF.
 
     Returns
     -------
     :class:`rasterio.io.DatasetReader`
-        If `mode` is "r".
+        If mode is 'r'.
     :class:`rasterio.io.DatasetWriter`
-        If `mode` is "r+", "w", or "w+".
+        If mode is 'r+', 'w', or 'w+'.
 
     Raises
     ------
@@ -209,6 +215,12 @@ def open(
     :class:`rasterio.errors.DriverCapabilityError`
         If the detected format driver does not support the requested
         opening mode.
+
+    Notes
+    -----
+    If *fp* is a is a file-like object, its entire contents will be
+    read into a MemoryFile instance. It will almost always be better
+    to use a path or URL, or the *opener* keyword argument.
 
     Examples
     --------
@@ -268,7 +280,7 @@ def open(
     # TODO: test for a shared base class or abstract type.
     elif isinstance(fp, (FilePath, MemoryFile)):
         if mode.startswith("r"):
-            dataset = fp.open(driver=driver, sharing=sharing, **kwargs)
+            dataset = fp.open(driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
 
         # Note: FilePath does not support writing and an exception will
         # result from this.
@@ -288,8 +300,7 @@ def open(
 
         return dataset
 
-    # If the fp argument is a file-like object and can be adapted by
-    # rasterio's FilePath we do so. Otherwise, we use a MemoryFile to
+    # If the fp argument is a file-like object we use a MemoryFile to
     # hold fp's contents and store that in an ExitStack attached to the
     # dataset object that we will return. When a dataset's close method
     # is called, this ExitStack will be unwound and the MemoryFile's
@@ -338,7 +349,7 @@ def open(
             opener = fp.fs.open
         else:
             raw_dataset_path = os.fspath(fp)
- 
+
         try:
             # when opener is a callable that takes a filename or URL and returns
             # a file-like object with read, seek, tell, and close methods, we
@@ -353,7 +364,7 @@ def open(
                 path = _parse_path(raw_dataset_path)
 
             if mode == "r":
-                dataset = DatasetReader(path, driver=driver, sharing=sharing, **kwargs)
+                dataset = DatasetReader(path, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
             elif mode == "r+":
                 dataset = get_writer_for_path(path, driver=driver)(
                     path, mode, driver=driver, sharing=sharing, **kwargs

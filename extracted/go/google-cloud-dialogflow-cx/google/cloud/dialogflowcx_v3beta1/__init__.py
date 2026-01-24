@@ -13,10 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
+
+import google.api_core as api_core
+
 from google.cloud.dialogflowcx_v3beta1 import gapic_version as package_version
 
 __version__ = package_version.__version__
 
+if sys.version_info >= (3, 8):  # pragma: NO COVER
+    from importlib import metadata
+else:  # pragma: NO COVER
+    # TODO(https://github.com/googleapis/python-api-core/issues/835): Remove
+    # this code path once we drop support for Python 3.7
+    import importlib_metadata as metadata
 
 from .services.agents import AgentsAsyncClient, AgentsClient
 from .services.changelogs import ChangelogsAsyncClient, ChangelogsClient
@@ -90,6 +100,7 @@ from .types.changelog import (
     ListChangelogsRequest,
     ListChangelogsResponse,
 )
+from .types.code_block import CodeBlock
 from .types.conversation_history import (
     Conversation,
     DeleteConversationRequest,
@@ -145,22 +156,13 @@ from .types.environment import (
     UpdateEnvironmentRequest,
 )
 from .types.example import (
-    Action,
-    AgentUtterance,
     CreateExampleRequest,
     DeleteExampleRequest,
     Example,
-    FlowInvocation,
     GetExampleRequest,
     ListExamplesRequest,
     ListExamplesResponse,
-    OutputState,
-    PlaybookInput,
-    PlaybookInvocation,
-    PlaybookOutput,
-    ToolUse,
     UpdateExampleRequest,
-    UserUtterance,
 )
 from .types.experiment import (
     CreateExperimentRequest,
@@ -240,21 +242,33 @@ from .types.page import (
     TransitionRoute,
     UpdatePageRequest,
 )
-from .types.parameter_definition import ParameterDefinition
+from .types.parameter_definition import (
+    DataType,
+    InlineSchema,
+    ParameterDefinition,
+    TypeSchema,
+)
 from .types.playbook import (
     CreatePlaybookRequest,
     CreatePlaybookVersionRequest,
     DeletePlaybookRequest,
     DeletePlaybookVersionRequest,
+    ExportPlaybookRequest,
+    ExportPlaybookResponse,
     GetPlaybookRequest,
     GetPlaybookVersionRequest,
     Handler,
+    ImportPlaybookRequest,
+    ImportPlaybookResponse,
     ListPlaybooksRequest,
     ListPlaybooksResponse,
     ListPlaybookVersionsRequest,
     ListPlaybookVersionsResponse,
     Playbook,
+    PlaybookImportStrategy,
     PlaybookVersion,
+    RestorePlaybookVersionRequest,
+    RestorePlaybookVersionResponse,
     UpdatePlaybookRequest,
 )
 from .types.response_message import ResponseMessage
@@ -276,6 +290,7 @@ from .types.session import (
     CloudConversationDebuggingInfo,
     DetectIntentRequest,
     DetectIntentResponse,
+    DetectIntentResponseView,
     DtmfInput,
     EventInput,
     FilterSpecs,
@@ -363,6 +378,26 @@ from .types.tool import (
     UpdateToolRequest,
 )
 from .types.tool_call import ToolCall, ToolCallResult
+from .types.trace import (
+    Action,
+    AgentUtterance,
+    Event,
+    ExceptionDetail,
+    FlowInvocation,
+    FlowTransition,
+    LlmCall,
+    NamedMetric,
+    OutputState,
+    PlaybookInput,
+    PlaybookInvocation,
+    PlaybookOutput,
+    PlaybookTransition,
+    RetrievalStrategy,
+    Span,
+    Status,
+    ToolUse,
+    UserUtterance,
+)
 from .types.transition_route_group import (
     CreateTransitionRouteGroupRequest,
     DeleteTransitionRouteGroupRequest,
@@ -400,6 +435,100 @@ from .types.webhook import (
     WebhookRequest,
     WebhookResponse,
 )
+
+if hasattr(api_core, "check_python_version") and hasattr(
+    api_core, "check_dependency_versions"
+):  # pragma: NO COVER
+    api_core.check_python_version("google.cloud.dialogflowcx_v3beta1")  # type: ignore
+    api_core.check_dependency_versions("google.cloud.dialogflowcx_v3beta1")  # type: ignore
+else:  # pragma: NO COVER
+    # An older version of api_core is installed which does not define the
+    # functions above. We do equivalent checks manually.
+    try:
+        import sys
+        import warnings
+
+        _py_version_str = sys.version.split()[0]
+        _package_label = "google.cloud.dialogflowcx_v3beta1"
+        if sys.version_info < (3, 9):
+            warnings.warn(
+                "You are using a non-supported Python version "
+                + f"({_py_version_str}).  Google will not post any further "
+                + f"updates to {_package_label} supporting this Python version. "
+                + "Please upgrade to the latest Python version, or at "
+                + f"least to Python 3.9, and then update {_package_label}.",
+                FutureWarning,
+            )
+        if sys.version_info[:2] == (3, 9):
+            warnings.warn(
+                f"You are using a Python version ({_py_version_str}) "
+                + f"which Google will stop supporting in {_package_label} in "
+                + "January 2026. Please "
+                + "upgrade to the latest Python version, or at "
+                + "least to Python 3.10, before then, and "
+                + f"then update {_package_label}.",
+                FutureWarning,
+            )
+
+        def parse_version_to_tuple(version_string: str):
+            """Safely converts a semantic version string to a comparable tuple of integers.
+            Example: "4.25.8" -> (4, 25, 8)
+            Ignores non-numeric parts and handles common version formats.
+            Args:
+                version_string: Version string in the format "x.y.z" or "x.y.z<suffix>"
+            Returns:
+                Tuple of integers for the parsed version string.
+            """
+            parts = []
+            for part in version_string.split("."):
+                try:
+                    parts.append(int(part))
+                except ValueError:
+                    # If it's a non-numeric part (e.g., '1.0.0b1' -> 'b1'), stop here.
+                    # This is a simplification compared to 'packaging.parse_version', but sufficient
+                    # for comparing strictly numeric semantic versions.
+                    break
+            return tuple(parts)
+
+        def _get_version(dependency_name):
+            try:
+                version_string: str = metadata.version(dependency_name)
+                parsed_version = parse_version_to_tuple(version_string)
+                return (parsed_version, version_string)
+            except Exception:
+                # Catch exceptions from metadata.version() (e.g., PackageNotFoundError)
+                # or errors during parse_version_to_tuple
+                return (None, "--")
+
+        _dependency_package = "google.protobuf"
+        _next_supported_version = "4.25.8"
+        _next_supported_version_tuple = (4, 25, 8)
+        _recommendation = " (we recommend 6.x)"
+        (_version_used, _version_used_string) = _get_version(_dependency_package)
+        if _version_used and _version_used < _next_supported_version_tuple:
+            warnings.warn(
+                f"Package {_package_label} depends on "
+                + f"{_dependency_package}, currently installed at version "
+                + f"{_version_used_string}. Future updates to "
+                + f"{_package_label} will require {_dependency_package} at "
+                + f"version {_next_supported_version} or higher{_recommendation}."
+                + " Please ensure "
+                + "that either (a) your Python environment doesn't pin the "
+                + f"version of {_dependency_package}, so that updates to "
+                + f"{_package_label} can require the higher version, or "
+                + "(b) you manually update your Python environment to use at "
+                + f"least version {_next_supported_version} of "
+                + f"{_dependency_package}.",
+                FutureWarning,
+            )
+    except Exception:
+        warnings.warn(
+            "Could not determine the version of Python "
+            + "currently being used. To continue receiving "
+            + "updates for {_package_label}, ensure you are "
+            + "using a supported version of Python; see "
+            + "https://devguide.python.org/versions/"
+        )
 
 __all__ = (
     "AgentsAsyncClient",
@@ -445,6 +574,7 @@ __all__ = (
     "Changelog",
     "ChangelogsClient",
     "CloudConversationDebuggingInfo",
+    "CodeBlock",
     "CompareVersionsRequest",
     "CompareVersionsResponse",
     "ContinuousTestResult",
@@ -474,6 +604,7 @@ __all__ = (
     "DataStoreConnection",
     "DataStoreConnectionSignals",
     "DataStoreType",
+    "DataType",
     "DeleteAgentRequest",
     "DeleteConversationRequest",
     "DeleteEntityTypeRequest",
@@ -500,16 +631,19 @@ __all__ = (
     "DeploymentsClient",
     "DetectIntentRequest",
     "DetectIntentResponse",
+    "DetectIntentResponseView",
     "DocumentProcessingMode",
     "DtmfInput",
     "EntityType",
     "EntityTypesClient",
     "Environment",
     "EnvironmentsClient",
+    "Event",
     "EventHandler",
     "EventInput",
     "Example",
     "ExamplesClient",
+    "ExceptionDetail",
     "Experiment",
     "ExperimentsClient",
     "ExportAgentRequest",
@@ -522,6 +656,8 @@ __all__ = (
     "ExportIntentsMetadata",
     "ExportIntentsRequest",
     "ExportIntentsResponse",
+    "ExportPlaybookRequest",
+    "ExportPlaybookResponse",
     "ExportTestCasesMetadata",
     "ExportTestCasesRequest",
     "ExportTestCasesResponse",
@@ -532,6 +668,7 @@ __all__ = (
     "Flow",
     "FlowImportStrategy",
     "FlowInvocation",
+    "FlowTransition",
     "FlowValidationResult",
     "FlowsClient",
     "Form",
@@ -578,11 +715,14 @@ __all__ = (
     "ImportIntentsMetadata",
     "ImportIntentsRequest",
     "ImportIntentsResponse",
+    "ImportPlaybookRequest",
+    "ImportPlaybookResponse",
     "ImportStrategy",
     "ImportTestCasesMetadata",
     "ImportTestCasesRequest",
     "ImportTestCasesResponse",
     "InlineDestination",
+    "InlineSchema",
     "InlineSource",
     "InputAudioConfig",
     "Intent",
@@ -640,6 +780,7 @@ __all__ = (
     "ListVersionsResponse",
     "ListWebhooksRequest",
     "ListWebhooksResponse",
+    "LlmCall",
     "LlmModelSettings",
     "LoadVersionRequest",
     "LookupEnvironmentHistoryRequest",
@@ -647,6 +788,7 @@ __all__ = (
     "Match",
     "MatchIntentRequest",
     "MatchIntentResponse",
+    "NamedMetric",
     "NluSettings",
     "OutputAudioConfig",
     "OutputAudioEncoding",
@@ -657,9 +799,11 @@ __all__ = (
     "ParameterDefinition",
     "Phrase",
     "Playbook",
+    "PlaybookImportStrategy",
     "PlaybookInput",
     "PlaybookInvocation",
     "PlaybookOutput",
+    "PlaybookTransition",
     "PlaybookVersion",
     "PlaybooksClient",
     "QueryInput",
@@ -668,8 +812,11 @@ __all__ = (
     "ResourceName",
     "ResponseMessage",
     "RestoreAgentRequest",
+    "RestorePlaybookVersionRequest",
+    "RestorePlaybookVersionResponse",
     "RestoreToolVersionRequest",
     "RestoreToolVersionResponse",
+    "RetrievalStrategy",
     "RolloutConfig",
     "RolloutState",
     "RunContinuousTestMetadata",
@@ -687,11 +834,13 @@ __all__ = (
     "SessionEntityTypesClient",
     "SessionInfo",
     "SessionsClient",
+    "Span",
     "SpeechModelVariant",
     "SpeechToTextSettings",
     "SpeechWordInfo",
     "SsmlVoiceGender",
     "StartExperimentRequest",
+    "Status",
     "StopExperimentRequest",
     "StreamingDetectIntentRequest",
     "StreamingDetectIntentResponse",
@@ -720,6 +869,7 @@ __all__ = (
     "TransitionRouteGroup",
     "TransitionRouteGroupCoverage",
     "TransitionRouteGroupsClient",
+    "TypeSchema",
     "UpdateAgentRequest",
     "UpdateEntityTypeRequest",
     "UpdateEnvironmentRequest",

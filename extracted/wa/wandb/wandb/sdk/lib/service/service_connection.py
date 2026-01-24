@@ -4,8 +4,8 @@ import atexit
 import pathlib
 from typing import Callable
 
+from wandb.proto import wandb_api_pb2, wandb_settings_pb2, wandb_sync_pb2
 from wandb.proto import wandb_server_pb2 as spb
-from wandb.proto import wandb_settings_pb2, wandb_sync_pb2
 from wandb.sdk import wandb_settings
 from wandb.sdk.interface.interface import InterfaceBase
 from wandb.sdk.interface.interface_sock import InterfaceSock
@@ -22,6 +22,10 @@ class WandbAttachFailedError(Exception):
     """Failed to attach to a run."""
 
 
+class WandbApiFailedError(Exception):
+    """Failed to execute an API request to wandb-core."""
+
+
 def connect_to_service(
     asyncer: asyncio_manager.AsyncioManager,
     settings: wandb_settings.Settings,
@@ -31,6 +35,7 @@ def connect_to_service(
 
     if token:
         return ServiceConnection(
+            asyncer=asyncer,
             client=token.connect(asyncer=asyncer),
             proc=None,
         )
@@ -60,6 +65,7 @@ def _start_and_connect_service(
         conn.teardown(hooks.exit_code)
 
     conn = ServiceConnection(
+        asyncer=asyncer,
         client=client,
         proc=proc,
         cleanup=lambda: atexit.unregister(teardown_atexit),
@@ -71,10 +77,14 @@ def _start_and_connect_service(
 
 
 class ServiceConnection:
-    """A connection to the W&B internal service process."""
+    """A connection to the W&B internal service process.
+
+    None of the synchronous methods may be called in an asyncio context.
+    """
 
     def __init__(
         self,
+        asyncer: asyncio_manager.AsyncioManager,
         client: ServiceClient,
         proc: service_process.ServiceProcess | None,
         cleanup: Callable[[], None] | None = None,
@@ -82,13 +92,12 @@ class ServiceConnection:
         """Returns a new ServiceConnection.
 
         Args:
-            mailbox: The mailbox to use for all communication over the socket.
-            router: A handle to the thread that reads from the socket and
-                updates the mailbox.
-            client: A socket that's connected to the service.
+            asyncer: An asyncio runner.
+            client: A client for communicating with the service over a socket.
             proc: The service process if we own it, or None otherwise.
             cleanup: A callback to run on teardown before doing anything.
         """
+        self._asyncer = asyncer
         self._client = client
         self._proc = proc
         self._torn_down = False
@@ -96,24 +105,39 @@ class ServiceConnection:
 
     def make_interface(self, stream_id: str) -> InterfaceBase:
         """Returns an interface for communicating with the service."""
-        return InterfaceSock(self._client, stream_id=stream_id)
+        return InterfaceSock(
+            self._asyncer,
+            self._client,
+            stream_id=stream_id,
+        )
 
-    def init_sync(
+    async def init_sync(
         self,
         paths: set[pathlib.Path],
         settings: wandb_settings.Settings,
+        *,
+        cwd: pathlib.Path | None,
+        live: bool,
+        entity: str,
+        project: str,
+        run_id: str,
     ) -> MailboxHandle[wandb_sync_pb2.ServerInitSyncResponse]:
         """Send a ServerInitSyncRequest."""
         init_sync = wandb_sync_pb2.ServerInitSyncRequest(
             path=(str(path) for path in paths),
+            cwd=str(cwd) if cwd else "",
+            live=live,
             settings=settings.to_proto(),
+            new_entity=entity,
+            new_project=project,
+            new_run_id=run_id,
         )
         request = spb.ServerRequest(init_sync=init_sync)
 
-        handle = self._client.deliver(request)
+        handle = await self._client.deliver(request)
         return handle.map(lambda r: r.init_sync_response)
 
-    def sync(
+    async def sync(
         self,
         id: str,
         *,
@@ -123,10 +147,36 @@ class ServiceConnection:
         sync = wandb_sync_pb2.ServerSyncRequest(id=id, parallelism=parallelism)
         request = spb.ServerRequest(sync=sync)
 
-        handle = self._client.deliver(request)
+        handle = await self._client.deliver(request)
         return handle.map(lambda r: r.sync_response)
 
-    def sync_status(
+    def api_init_request(
+        self,
+        settings: wandb_settings_pb2.Settings,
+    ) -> None:
+        """Tells wandb-core to initialize resources for handling API requests."""
+        api_init_request = wandb_api_pb2.ServerApiInitRequest(settings=settings)
+        request = spb.ServerRequest(api_init_request=api_init_request)
+        handle = self._asyncer.run(lambda: self._client.deliver(request))
+
+        try:
+            response = handle.wait_or(timeout=10)
+        except (MailboxClosedError, HandleAbandonedError):
+            raise WandbApiFailedError(
+                "Failed to initialize API resources:"
+                + " the service process is not running.",
+            ) from None
+        except TimeoutError:
+            raise WandbApiFailedError(
+                "Failed to initialize API resources:"
+                + " the service process is busy and did not respond in time.",
+            ) from None
+
+        api_init_response = response.api_init_response
+        if api_init_response.error_message:
+            raise WandbApiFailedError(api_init_response.error_message)
+
+    async def sync_status(
         self,
         id: str,
     ) -> MailboxHandle[wandb_sync_pb2.ServerSyncStatusResponse]:
@@ -134,8 +184,41 @@ class ServiceConnection:
         sync_status = wandb_sync_pb2.ServerSyncStatusRequest(id=id)
         request = spb.ServerRequest(sync_status=sync_status)
 
-        handle = self._client.deliver(request)
+        handle = await self._client.deliver(request)
         return handle.map(lambda r: r.sync_status_response)
+
+    def api_request(
+        self,
+        api_request: wandb_api_pb2.ApiRequest,
+        timeout: float | None = None,
+    ) -> wandb_api_pb2.ApiResponse:
+        """Send an ApiRequest and wait for a response."""
+        request = spb.ServerRequest()
+        request.api_request.CopyFrom(api_request)
+        handle = self._asyncer.run(lambda: self._client.deliver(request))
+        try:
+            response = handle.wait_or(timeout=timeout)
+        except (MailboxClosedError, HandleAbandonedError):
+            raise WandbApiFailedError(
+                "Failed to initialize API resources:"
+                + " the service process is not running.",
+            ) from None
+        except TimeoutError:
+            raise WandbApiFailedError(
+                "Failed to initialize API resources:"
+                + " the service process is busy and did not respond in time.",
+            ) from None
+
+        api_response = response.api_response
+        if api_response.HasField("api_error_response"):
+            raise Exception(api_response.api_error_response.message)
+        return api_response
+
+    def api_publish(self, api_request: wandb_api_pb2.ApiRequest) -> None:
+        """Publish an ApiRequest without waiting for a response."""
+        request = spb.ServerRequest()
+        request.api_request.CopyFrom(api_request)
+        self._asyncer.run(lambda: self._client.publish(request))
 
     def inform_init(
         self,
@@ -146,13 +229,17 @@ class ServiceConnection:
         request = spb.ServerInformInitRequest()
         request.settings.CopyFrom(settings)
         request._info.stream_id = run_id
-        self._client.publish(spb.ServerRequest(inform_init=request))
+        self._asyncer.run(
+            lambda: self._client.publish(spb.ServerRequest(inform_init=request))
+        )
 
     def inform_finish(self, run_id: str) -> None:
         """Send an finish request to the service."""
         request = spb.ServerInformFinishRequest()
         request._info.stream_id = run_id
-        self._client.publish(spb.ServerRequest(inform_finish=request))
+        self._asyncer.run(
+            lambda: self._client.publish(spb.ServerRequest(inform_finish=request))
+        )
 
     def inform_attach(
         self,
@@ -166,7 +253,7 @@ class ServiceConnection:
         request.inform_attach._info.stream_id = attach_id
 
         try:
-            handle = self._client.deliver(request)
+            handle = self._asyncer.run(lambda: self._client.deliver(request))
             response = handle.wait_or(timeout=10)
 
         except (MailboxClosedError, HandleAbandonedError):
@@ -177,8 +264,8 @@ class ServiceConnection:
         except TimeoutError:
             raise WandbAttachFailedError(
                 "Failed to attach because the run does not belong to"
-                " the current service process, or because the service"
-                " process is busy (unlikely)."
+                + " the current service process, or because the service"
+                + " process is busy (unlikely)."
             ) from None
 
         else:
@@ -210,13 +297,16 @@ class ServiceConnection:
         # Clear the service token to prevent new connections to the process.
         service_token.clear_service_in_env()
 
-        self._client.publish(
-            spb.ServerRequest(
-                inform_teardown=spb.ServerInformTeardownRequest(
-                    exit_code=exit_code,
-                )
-            ),
-        )
-        self._client.close()
+        async def publish_teardown_and_close() -> None:
+            await self._client.publish(
+                spb.ServerRequest(
+                    inform_teardown=spb.ServerInformTeardownRequest(
+                        exit_code=exit_code,
+                    )
+                ),
+            )
+            await self._client.close()
+
+        self._asyncer.run(publish_teardown_and_close)
 
         return self._proc.join()

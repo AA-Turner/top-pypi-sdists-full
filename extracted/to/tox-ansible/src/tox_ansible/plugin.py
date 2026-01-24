@@ -44,10 +44,10 @@ ALLOWED_EXTERNALS = [
 ]
 ENV_LIST = """
 galaxy
-{integration, sanity, unit}-py3.10-{2.17}
+{integration, sanity, unit}-py3.10-{2.16, 2.17}
 {integration, sanity, unit}-py3.11-{2.17, 2.18, 2.19}
-{integration, sanity, unit}-py3.12-{2.17, 2.18, 2.19, milestone, devel}
-{integration, sanity, unit}-py3.13-{2.18, 2.19, milestone, devel}
+{integration, sanity, unit}-py3.12-{2.17, 2.18, 2.19, 2.20, milestone, devel}
+{integration, sanity, unit}-py3.13-{2.18, 2.19, 2.20, milestone, devel}
 """
 # Without the minimal pytest-ansible condition, installation may fail in some
 # cases (pip, uv).
@@ -55,6 +55,7 @@ OUR_DEPS = [
     "pytest>=7.4.3",  # Oct 2023
     "pytest-xdist>=3.4.0",  # Nov 2023
     "pytest-ansible>=v4.1.1",  # latest version still supporting py39 (Oct 2023)
+    "ansible-compat>=25.11.0",  # Nov 2025
 ]
 
 T = TypeVar("T", bound=ConfigSet)

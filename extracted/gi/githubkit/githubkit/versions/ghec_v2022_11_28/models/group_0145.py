@@ -17,19 +17,22 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0146 import RepositoryRuleMergeQueuePropParameters
+
+class RepositoryRuleBranchNamePatternPropParameters(GitHubModel):
+    """RepositoryRuleBranchNamePatternPropParameters"""
+
+    name: Missing[str] = Field(
+        default=UNSET, description="How this rule will appear to users."
+    )
+    negate: Missing[bool] = Field(
+        default=UNSET, description="If true, the rule will fail if the pattern matches."
+    )
+    operator: Literal["starts_with", "ends_with", "contains", "regex"] = Field(
+        description="The operator to use for matching."
+    )
+    pattern: str = Field(description="The pattern to match with.")
 
 
-class RepositoryRuleMergeQueue(GitHubModel):
-    """merge_queue
+model_rebuild(RepositoryRuleBranchNamePatternPropParameters)
 
-    Merges must be performed via a merge queue.
-    """
-
-    type: Literal["merge_queue"] = Field()
-    parameters: Missing[RepositoryRuleMergeQueuePropParameters] = Field(default=UNSET)
-
-
-model_rebuild(RepositoryRuleMergeQueue)
-
-__all__ = ("RepositoryRuleMergeQueue",)
+__all__ = ("RepositoryRuleBranchNamePatternPropParameters",)

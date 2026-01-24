@@ -7,19 +7,21 @@ Created on Mon Jun 19 12:11:03 2023
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 import xarray as xr
 from test_linear_expression import m, u, x  # noqa: F401
 from xarray import DataArray
 from xarray.testing.assertions import assert_equal
 
-from linopy import LinearExpression, Variable
+from linopy import LinearExpression, Model, Variable
 from linopy.common import (
     align,
     as_dataarray,
     assign_multiindex_safe,
     best_int,
     get_dims_with_index_levels,
+    is_constant,
     iterate_slices,
 )
 from linopy.testing import assert_linequal, assert_varequal
@@ -115,6 +117,16 @@ def test_as_dataarray_with_series_aligned_coords() -> None:
     assert list(da.coords[target_dim].values) == target_index
 
     da = as_dataarray(s, coords={target_dim: target_index})
+    assert isinstance(da, DataArray)
+    assert da.dims == (target_dim,)
+    assert list(da.coords[target_dim].values) == target_index
+
+
+def test_as_dataarray_with_pl_series_dims_default() -> None:
+    target_dim = "dim_0"
+    target_index = [0, 1, 2]
+    s = pl.Series([1, 2, 3])
+    da = as_dataarray(s)
     assert isinstance(da, DataArray)
     assert da.dims == (target_dim,)
     assert list(da.coords[target_dim].values) == target_index
@@ -363,6 +375,14 @@ def test_as_dataarray_with_ndarray_coords_dict_set_dims_not_aligned() -> None:
 
 def test_as_dataarray_with_number() -> None:
     num = 1
+    da = as_dataarray(num, dims=["dim1"], coords=[["a"]])
+    assert isinstance(da, DataArray)
+    assert da.dims == ("dim1",)
+    assert list(da.coords["dim1"].values) == ["a"]
+
+
+def test_as_dataarray_with_np_number() -> None:
+    num = np.float64(1)
     da = as_dataarray(num, dims=["dim1"], coords=[["a"]])
     assert isinstance(da, DataArray)
     assert da.dims == ("dim1",)
@@ -692,3 +712,28 @@ def test_align(x: Variable, u: Variable) -> None:  # noqa: F811
     assert expr_obs.shape == (1, 1)  # _term dim
     assert isinstance(expr_obs, LinearExpression)
     assert_linequal(expr_obs, expr.loc[[1]])
+
+
+def test_is_constant() -> None:
+    model = Model()
+    index = pd.Index(range(10), name="t")
+    a = model.add_variables(name="a", coords=[index])
+    b = a.sel(t=1)
+    c = a * 2
+    d = a * a
+
+    non_constant = [a, b, c, d]
+    for nc in non_constant:
+        assert not is_constant(nc)
+
+    constant_values = [
+        5,
+        3.14,
+        np.int32(7),
+        np.float64(2.71),
+        pd.Series([1, 2, 3]),
+        np.array([4, 5, 6]),
+        xr.DataArray([k for k in range(10)], coords=[index]),
+    ]
+    for cv in constant_values:
+        assert is_constant(cv)

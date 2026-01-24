@@ -1,0 +1,45 @@
+
+# Copyright 2017-2019 The FIAAS Authors
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version: v1.0
+name: Publish k8s library
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu2004
+blocks:
+  - name: Publish
+    task:
+      secrets:
+        - name: github-credentials
+        - name: pypi-credentials
+      env_vars:
+        - name: PIP_CACHE_DIR
+          value: .pip_cache
+      prologue:
+        commands:
+          - sem-version python 3.9
+          - export PATH="${HOME}/.local/bin":"${PATH}"
+          - checkout
+          - mkdir "${PIP_CACHE_DIR}"
+          - cache restore "setup-${SEMAPHORE_GIT_BRANCH}-$(checksum setup.py)","setup-${SEMAPHORE_GIT_BRANCH}",setup-master
+          - pip install publish
+      jobs:
+        - name: Publish
+          commands:
+            - publish fiaas k8s
+      epilogue:
+        commands:
+          - cache store "setup-${SEMAPHORE_GIT_BRANCH}-$(checksum setup.py)" "${PIP_CACHE_DIR}"

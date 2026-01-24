@@ -1,13 +1,14 @@
 import contextlib
 import dataclasses
 import io
-from typing import Dict, List, TypeVar, Union
+import sys
+from typing import Any, Dict, List, Tuple, TypeVar, Union
 
 import pytest
 from typing_extensions import Annotated, Literal
 
 import tyro
-from tyro.constructors import UnsupportedTypeAnnotationError
+from tyro._strings import strip_ansi_sequences
 
 
 # Must be global.
@@ -17,7 +18,7 @@ class _CycleDataclass:
 
 
 def test_cycle() -> None:
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(_CycleDataclass, args=[])
 
 
@@ -25,13 +26,92 @@ def test_uncallable_annotation() -> None:
     def main(arg: 5) -> None:  # type: ignore
         pass
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=[])
 
 
 def test_uncallable_annotation_direct() -> None:
-    with pytest.raises(UnsupportedTypeAnnotationError):
-        tyro.cli(5, args=[])  # type: ignore
+    # Now caught early and provides a nice error message.
+    # In Python 3.10-3.11, this raises AttributeError due to typing internals.
+    if sys.version_info >= (3, 10) and sys.version_info < (3, 12):
+        with pytest.raises(AttributeError, match="__module__"):
+            tyro.cli(5, args=[])  # type: ignore
+    else:
+        with pytest.raises(SystemExit):
+            tyro.cli(5, args=[])  # type: ignore
+
+
+def test_unsupported_type_annotation_error_message_attribute() -> None:
+    """Test that UnsupportedTypeAnnotationError.message attribute is set correctly."""
+    from tyro._parsers import ParserSpecification
+    from tyro._singleton import MISSING_NONPROP
+    from tyro.constructors._primitive_spec import UnsupportedTypeAnnotationError
+
+    # This will raise UnsupportedTypeAnnotationError with a formatted message.
+    # In Python 3.10-3.11, this raises AttributeError due to typing internals.
+    if sys.version_info >= (3, 10) and sys.version_info < (3, 12):
+        with pytest.raises(AttributeError, match="__module__"):
+            ParserSpecification.from_callable_or_type(
+                5,  # type: ignore
+                markers=set(),
+                description=None,
+                parent_classes=set(),
+                default_instance=MISSING_NONPROP,
+                intern_prefix="",
+                extern_prefix="",
+                subcommand_prefix="",
+                support_single_arg_types=False,
+                prog_suffix="",
+            )
+    else:
+        with pytest.raises(UnsupportedTypeAnnotationError) as exc_info:
+            ParserSpecification.from_callable_or_type(
+                5,  # type: ignore
+                markers=set(),
+                description=None,
+                parent_classes=set(),
+                default_instance=MISSING_NONPROP,
+                intern_prefix="",
+                extern_prefix="",
+                subcommand_prefix="",
+                support_single_arg_types=False,
+                prog_suffix="",
+            )
+
+        # Verify the message attribute exists and is a tuple of formatted text.
+        assert hasattr(exc_info.value, "message")
+        assert isinstance(exc_info.value.message, tuple)
+        assert len(exc_info.value.message) > 0
+
+
+def test_any_type_error() -> None:
+    """Test that using Any as a type annotation raises an error."""
+
+    def main(arg: Any) -> None:
+        pass
+
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=[])
+
+
+def test_dict_with_any_key_error() -> None:
+    """Test that using Dict with Any key raises an error."""
+
+    def main(arg: Dict[Any, str]) -> None:
+        pass
+
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=[])
+
+
+def test_dict_with_any_value_error() -> None:
+    """Test that using Dict with Any value raises an error."""
+
+    def main(arg: Dict[str, Any]) -> None:
+        pass
+
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=[])
 
 
 def test_nested_annotation() -> None:
@@ -42,36 +122,36 @@ def test_nested_annotation() -> None:
     def main(arg: List[OneIntArg]) -> List[OneIntArg]:  # type: ignore
         return arg
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=[])
 
     @dataclasses.dataclass
     class OneStringArg:
         x: str
 
-    def main(arg: List[OneStringArg]) -> List[OneStringArg]:  # type: ignore
+    def main2(arg: List[OneStringArg]) -> List[OneStringArg]:  # type: ignore
         return arg
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
-        tyro.cli(main, args=["--arg", "0", "1", "2"])
+    with pytest.raises(SystemExit):
+        tyro.cli(main2, args=["--arg", "0", "1", "2"])
 
     @dataclasses.dataclass
     class TwoStringArg:
         x: str
         y: str
 
-    def main2(arg: List[TwoStringArg]) -> None:
+    def main3(arg: List[TwoStringArg]) -> None:
         pass
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
-        tyro.cli(main2, args=[])
+    with pytest.raises(SystemExit):
+        tyro.cli(main3, args=[])
 
 
 def test_missing_annotation_1() -> None:
     def main(a, b) -> None:
         pass
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
 
@@ -79,7 +159,7 @@ def test_missing_annotation_2() -> None:
     def main(*, a) -> None:
         pass
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
 
@@ -88,7 +168,7 @@ def test_tuple_needs_default() -> None:
         pass
 
     # This formerly raised an error, but now defaults to Tuple[str, ...].
-    #  with pytest.raises(UnsupportedTypeAnnotationError):
+    #  with pytest.raises(SystemExit):
     with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
@@ -99,7 +179,7 @@ def test_unbound_typevar() -> None:
     def main(arg: T) -> None:  # type: ignore
         pass
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
 
@@ -107,7 +187,7 @@ def test_missing_default_fixed() -> None:
     def main(value: tyro.conf.SuppressFixed[tyro.conf.Fixed[int]]) -> int:
         return value
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
 
@@ -115,7 +195,7 @@ def test_missing_default_suppressed() -> None:
     def main(value: tyro.conf.Suppress[int]) -> int:
         return value
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
 
@@ -124,7 +204,7 @@ def test_ambiguous_sequence() -> None:
         return None
 
     # This formerly raised an error, but now defaults to List[str].
-    #  with pytest.raises(UnsupportedTypeAnnotationError):
+    #  with pytest.raises(SystemExit):
     with pytest.raises(SystemExit):
         tyro.cli(main, args=["--help"])
 
@@ -144,7 +224,7 @@ def test_similar_arguments_basic() -> None:
 
     error = target.getvalue()
     assert "Unrecognized option" in error
-    assert "Perhaps you meant:" in error
+    assert "Perhaps you meant:" in error or "Missing from" in error
 
     assert error.count("--reward.track") == 1
     assert error.count("--help") == 1
@@ -205,7 +285,7 @@ def test_similar_arguments_subcommands() -> None:
 
     error = target.getvalue()
     assert "Unrecognized option" in error
-    assert "Perhaps you meant:" in error
+    assert "Perhaps you meant:" in error or "Missing from" in error
     assert error.count("--reward.track") == 1
     assert error.count("--help") == 3
 
@@ -225,7 +305,7 @@ def test_different_metavar_subcommands() -> None:
 
     error = target.getvalue()
     assert "Unrecognized option" in error
-    assert "Perhaps you meant:" in error
+    assert "Perhaps you meant:" in error or "Missing from" in error
     assert error.count("--arg") == 2
     assert error.count("--arg {a}") == 1
     assert error.count("--arg {b}") == 1
@@ -282,8 +362,48 @@ def test_similar_arguments_subcommands_multiple_contains_match() -> None:
             args="class-b --reward.track True --reward.trace 7".split(" "),
         )  # type: ignore
 
-    error = target.getvalue()
+    error = strip_ansi_sequences(target.getvalue())
     assert "Unrecognized or misplaced" in error
+    assert "so ordering" in error
+    assert (
+        "(applied to " in error and "class-b)" in error
+    )  # (applied to {root prog} class-b)
+    assert "Arguments similar to" in error
+    assert error.count("--reward.track {True,False}") == 2
+    assert error.count("--reward.trace INT") == 2
+    assert error.count("--help") == 5  # 2 subcommands * 2 arguments + usage hint.
+
+
+def test_similar_arguments_subcommands_multiple_contains_match_cascading() -> None:
+    @dataclasses.dataclass
+    class RewardConfigA:
+        track: bool
+        trace: int
+
+    @dataclasses.dataclass
+    class RewardConfigB: ...
+
+    @dataclasses.dataclass
+    class ClassA:
+        reward: RewardConfigA
+
+    @dataclasses.dataclass
+    class ClassB:
+        reward: RewardConfigB
+
+    target = io.StringIO()
+    with pytest.raises(SystemExit), contextlib.redirect_stderr(target):
+        tyro.cli(
+            Union[ClassA, ClassB],
+            args="class-b --reward.track True --reward.trace 7".split(" "),
+            config=(tyro.conf.CascadeSubcommandArgs,),
+        )  # type: ignore
+
+    error = strip_ansi_sequences(target.getvalue())
+    assert "Unrecognized or misplaced" in error
+
+    # We shouldn't include ordering note when using cascading args.
+    assert "so ordering" in error
     assert (
         "(applied to " in error and "class-b)" in error
     )  # (applied to {root prog} class-b)
@@ -313,7 +433,7 @@ def test_similar_arguments_subcommands_multiple_contains_match_alt() -> None:
 
     error = target.getvalue()
     assert "Unrecognized option" in error
-    assert "Perhaps you meant:" in error
+    assert "Perhaps you meant:" in error or "Missing from" in error
     assert error.count("--reward.track {True,False}") == 1
     assert (
         error.count("--help") == 3
@@ -355,7 +475,7 @@ def test_similar_arguments_subcommands_overflow_different() -> None:
 
     error = target.getvalue()
     assert "Unrecognized option" in error
-    assert "Perhaps you meant:" in error
+    assert "Perhaps you meant:" in error or "Missing from" in error
     assert error.count("--reward.track") == 10
     assert "[...]" not in error
     assert error.count("--help") == 21
@@ -423,7 +543,7 @@ def test_similar_arguments_subcommands_overflow_same() -> None:
 
     error = target.getvalue()
     assert "Unrecognized option" in error
-    assert "Perhaps you meant:" in error
+    assert "Perhaps you meant:" in error or "Missing from" in error
     assert error.count("--reward.track") == 1
     assert "[...]" in error
     assert error.count("--help") == 5
@@ -606,7 +726,7 @@ def test_metavar_error() -> None:
     with pytest.raises(SystemExit), contextlib.redirect_stderr(target):
         tyro.cli(Train, args=[])
 
-    error = target.getvalue()
+    error = strip_ansi_sequences(target.getvalue())
     assert "--residual {residual,double}" in error
     assert "DoubleConv" not in error
 
@@ -624,7 +744,113 @@ def test_alias_error() -> None:
     with pytest.raises(SystemExit), contextlib.redirect_stderr(target):
         tyro.cli(Train, args=[])
 
-    error = target.getvalue()
-    assert "-r/--residual" in error
-    assert "-r, --residual {residual,double}" in error
+    error = strip_ansi_sequences(target.getvalue())
+    assert ", --residual" in error
+    assert "-r {residual,double}, --residual {residual,double}" in error
     assert "DoubleConv" not in error
+
+
+def test_required_arg_error_subcommand_context() -> None:
+    """Test that required argument error messages show correct subcommand context.
+
+    When a required argument is missing in a subcommand, the error message should
+    consistently indicate that the argument belongs to that subcommand, not the root.
+    """
+
+    @dataclasses.dataclass
+    class Checkout:
+        """Checkout a branch."""
+
+        branch: str
+
+    @dataclasses.dataclass
+    class Commit:
+        """Commit changes."""
+
+        message: str
+        inner: Union[Checkout, None]
+
+    target = io.StringIO()
+    with pytest.raises(SystemExit), contextlib.redirect_stderr(target):
+        # Missing required argument in subcommand.
+        tyro.cli(  # type: ignore
+            Union[Checkout, Commit],
+            args=["commit", "inner:checkout", "--inner.branch", "main"],
+        )
+
+    error = strip_ansi_sequences(target.getvalue())
+    print(error)
+    assert error.count("commit") == 2
+    assert "--help" in error
+
+
+def test_error_dummy() -> None:
+    target = io.StringIO()
+    with pytest.raises(SystemExit), contextlib.redirect_stderr(target):
+        tyro.cli(Dict[str, int], args="hello 5 world".split(" "))
+    error = strip_ansi_sequences(target.getvalue())
+    assert "dummy" not in error
+
+
+def test_unsupported_generic_collection() -> None:
+    @dataclasses.dataclass
+    class MiscStruct:
+        max_steps: Union[int, None] = 5
+        headless: bool = False
+
+    with pytest.raises(SystemExit):
+        tyro.cli(List[MiscStruct], args=[])
+
+
+def test_invalid_default_nested_field_error_message() -> None:
+    """Test that invalid default errors show which nested field failed.
+
+    When a default value doesn't match the type annotation in a nested struct,
+    the error message should show:
+    1. Which subcommand failed
+    2. Which field in that struct had the problem
+    3. What type was expected vs. what was provided
+    """
+
+    @dataclasses.dataclass(frozen=True)
+    class ActuatorCfg:
+        stiffness: int
+
+    @dataclasses.dataclass(frozen=True)
+    class EntityArticulationInfoCfg:
+        actuators: Tuple[ActuatorCfg, ...] = ()
+
+    @dataclasses.dataclass(frozen=True)
+    class Args:
+        """Base class for argument containers."""
+
+        articulation: Union[EntityArticulationInfoCfg, None] = (
+            EntityArticulationInfoCfg(
+                actuators=[ActuatorCfg(100), ActuatorCfg(200)]  # type: ignore
+            )
+        )
+
+    target = io.StringIO()
+    with pytest.raises(SystemExit), contextlib.redirect_stderr(target):
+        tyro.cli(Args, args=[], config=(tyro.conf.AvoidSubcommands,))
+
+    error = strip_ansi_sequences(target.getvalue())
+
+    # Should show which subcommand failed.
+    assert "articulation:entity-articulation-info-cfg" in error
+
+    # Should show which field in the struct had the problem.
+    assert "Field actuators has invalid default" in error
+
+    # Should show the type mismatch (may be wrapped across lines).
+    # Remove newlines and extra spaces to check content regardless of wrapping.
+    error_unwrapped = " ".join(error.split())
+    assert (
+        "tuple" in error_unwrapped or "ple[" in error_unwrapped
+    ) and "ActuatorCfg" in error_unwrapped
+    assert "does not match type" in error_unwrapped
+
+    # Should show it's a list that was provided.
+    assert "with type list" in error_unwrapped
+    assert "stiffness=100" in error_unwrapped
+    assert "stiffness=200" in error_unwrapped

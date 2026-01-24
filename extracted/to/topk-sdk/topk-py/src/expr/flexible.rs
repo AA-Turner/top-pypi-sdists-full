@@ -1,7 +1,7 @@
 use super::logical::LogicalExpr;
 use crate::data::{
     list::{List, Values},
-    scalar::Scalar,
+    value::Value,
 };
 use pyo3::{
     exceptions::PyTypeError,
@@ -22,34 +22,36 @@ impl Into<LogicalExpr> for FlexibleExpr {
     fn into(self) -> LogicalExpr {
         match self {
             FlexibleExpr::String(s) => LogicalExpr::Literal {
-                value: Scalar::String(s),
+                value: Value::String(s),
             },
             FlexibleExpr::Int(i) => LogicalExpr::Literal {
-                value: Scalar::Int(i),
+                value: Value::Int(i),
             },
             FlexibleExpr::Float(f) => LogicalExpr::Literal {
-                value: Scalar::Float(f),
+                value: Value::Float(f),
             },
             FlexibleExpr::Bool(b) => LogicalExpr::Literal {
-                value: Scalar::Bool(b),
+                value: Value::Bool(b),
             },
             FlexibleExpr::Expr(e) => e,
         }
     }
 }
 
-impl<'py> FromPyObject<'py> for FlexibleExpr {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = obj.downcast_exact::<PyString>() {
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexibleExpr {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(s) = obj.cast_exact::<PyString>() {
             Ok(FlexibleExpr::String(s.extract()?))
-        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
+        } else if let Ok(i) = obj.cast_exact::<PyInt>() {
             Ok(FlexibleExpr::Int(i.extract()?))
-        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
+        } else if let Ok(f) = obj.cast_exact::<PyFloat>() {
             Ok(FlexibleExpr::Float(f.extract()?))
-        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
+        } else if let Ok(b) = obj.cast_exact::<PyBool>() {
             Ok(FlexibleExpr::Bool(b.extract()?))
         // NOTE: it's safe to use `downcast` for `LogicalExpr` since it's a custom type
-        } else if let Ok(e) = obj.downcast::<LogicalExpr>() {
+        } else if let Ok(e) = obj.cast::<LogicalExpr>() {
             Ok(FlexibleExpr::Expr(e.get().clone()))
         } else {
             Err(PyTypeError::new_err(format!(
@@ -76,10 +78,10 @@ impl Into<LogicalExpr> for Numeric {
     fn into(self) -> LogicalExpr {
         match self {
             Numeric::Int(i) => LogicalExpr::Literal {
-                value: Scalar::Int(i),
+                value: Value::Int(i),
             },
             Numeric::Float(f) => LogicalExpr::Literal {
-                value: Scalar::Float(f),
+                value: Value::Float(f),
             },
             Numeric::Expr(e) => e,
         }
@@ -100,7 +102,7 @@ impl Into<LogicalExpr> for Ordered {
         match self {
             Ordered::Numeric(n) => n.into(),
             Ordered::String(s) => LogicalExpr::Literal {
-                value: Scalar::String(s),
+                value: Value::String(s),
             },
         }
     }
@@ -119,7 +121,7 @@ impl Into<LogicalExpr> for Boolish {
     fn into(self) -> LogicalExpr {
         match self {
             Boolish::Bool(b) => LogicalExpr::Literal {
-                value: Scalar::Bool(b),
+                value: Value::Bool(b),
             },
             Boolish::Expr(e) => e,
         }
@@ -139,7 +141,7 @@ impl Into<LogicalExpr> for Stringy {
     fn into(self) -> LogicalExpr {
         match self {
             Stringy::String(s) => LogicalExpr::Literal {
-                value: Scalar::String(s),
+                value: Value::String(s),
             },
             Stringy::Expr(e) => e,
         }
@@ -157,7 +159,7 @@ impl Into<LogicalExpr> for StringyWithList {
         match self {
             StringyWithList::Stringy(s) => s.into(),
             StringyWithList::List(values) => LogicalExpr::Literal {
-                value: Scalar::List(List {
+                value: Value::List(List {
                     values: Values::String(values),
                 }),
             },
@@ -190,23 +192,23 @@ impl Into<LogicalExpr> for Iterable {
     fn into(self) -> LogicalExpr {
         match self {
             Iterable::String(s) => LogicalExpr::Literal {
-                value: Scalar::String(s),
+                value: Value::String(s),
             },
             Iterable::List(l) => LogicalExpr::Literal {
-                value: Scalar::List(l),
+                value: Value::List(l),
             },
             Iterable::StringList(l) => LogicalExpr::Literal {
-                value: Scalar::List(List {
+                value: Value::List(List {
                     values: Values::String(l),
                 }),
             },
             Iterable::IntList(l) => LogicalExpr::Literal {
-                value: Scalar::List(List {
+                value: Value::List(List {
                     values: Values::I64(l),
                 }),
             },
             Iterable::FloatList(l) => LogicalExpr::Literal {
-                value: Scalar::List(List {
+                value: Value::List(List {
                     values: Values::F32(l),
                 }),
             },

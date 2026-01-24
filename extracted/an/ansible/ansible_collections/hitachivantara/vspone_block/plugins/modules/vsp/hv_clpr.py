@@ -39,16 +39,16 @@ options:
     required: true
     suboptions:
       clpr_id:
-        description: ID of the CLPR.
+        description: ID of the CLPR. Required for Update and Delete tasks.
         type: int
         required: false
       clpr_name:
-        description: Name of the CLPR.
+        description: Name of the CLPR. Required for Create and Update tasks.
         type: str
         required: false
       cache_memory_capacity_mb:
         description:
-          - Cache memory capacity in MB.
+          - Cache memory capacity in MB. Required for Create and Update tasks.
           - For VSP 5000 series storage systems, specify a multiple of 4096.
           - For other storage systems, specify a multiple of 2048.
         type: int
@@ -98,23 +98,55 @@ clpr_info:
     clpr_id:
       description: CLPR ID
       type: int
-      sample: 1
+      sample: 3
     clpr_name:
       description: CLPR name
       type: str
-      sample: "CLPRDEV"
+      sample: "CLPRDEV34"
+    cache_memory_capacity_in_gb:
+      description: Cache memory capacity in GB
+      type: float
+      sample: 12.0
     cache_memory_capacity_in_mb:
       description: Cache memory capacity in MB
+      type: int
+      sample: 12288
+    cache_memory_used_capacity_in_gb:
+      description: Used cache memory in GB
       type: float
-      sample: 435.712
+      sample: 0.0
     cache_memory_used_capacity_in_mb:
       description: Used cache memory in MB
-      type: float
-      sample: 243.9475
+      type: int
+      sample: 0
     cache_usage_rate:
       description: Cache usage rate percentage
       type: int
-      sample: 59
+      sample: 0
+    side_files_capacity_in_gb:
+      description: Side files capacity in GB
+      type: float
+      sample: 0.0
+    side_files_capacity_in_mb:
+      description: Side files capacity in MB
+      type: int
+      sample: 0
+    side_files_usage_rate:
+      description: Side files usage rate percentage
+      type: int
+      sample: 0
+    write_pending_data_capacity_in_gb:
+      description: Write pending data capacity in GB
+      type: float
+      sample: 0.0
+    write_pending_data_capacity_in_mb:
+      description: Write pending data capacity in MB
+      type: int
+      sample: 0
+    write_pending_data_rate:
+      description: Write pending data rate percentage
+      type: int
+      sample: 0
 """
 
 from ansible.module_utils.basic import AnsibleModule

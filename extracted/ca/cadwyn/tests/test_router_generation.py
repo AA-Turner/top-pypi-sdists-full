@@ -1047,9 +1047,9 @@ def test__router_generation_updating_unused_dependencies__with_migration(
     assert resp.status_code == 200
 
     assert saved_enum_names == [
-        "b",  # Fastapi called our dependency and got b in 2000
+        "b",  # FastAPI called our dependency and got b in 2000
         "a",  # We called our dependency and got a in 2001
-        "a",  # Fastapi called our dependency and got a in 2001
+        "a",  # FastAPI called our dependency and got a in 2001
         "a",  # We called our dependency and got a in 2001
     ]
 
@@ -1197,7 +1197,7 @@ class MyHTTPBearer(HTTPBearer):
 
 @pytest.mark.parametrize(
     ("security_cls", "expected_status_code"),
-    [(HTTPBearer, 403), (MyHTTPBearer, 403), (HTTPBasic, 401)],
+    [(HTTPBearer, 401), (MyHTTPBearer, 401), (HTTPBasic, 401)],
 )
 def test__basic_router_generation__using_http_security_dependency__should_generate_the_required_security_params(
     router: VersionedAPIRouter,
@@ -1222,7 +1222,7 @@ def test__basic_router_generation__using_http_security_dependency__should_genera
     client_2000, *_ = create_versioned_clients().values()
 
     dependant = cast("APIRoute", client_2000.app.router.versioned_routers["2000-01-01"].routes[-1]).dependant
-    assert dependant.dependencies[1].dependencies[0].security_requirements[0].security_scheme is auth_header_scheme
+    assert dependant.dependencies[1].dependencies[0]._security_scheme is auth_header_scheme
     response = client_2000.get("/test")
     assert response.status_code == expected_status_code
     assert response.json() == {"detail": "Not authenticated"}
@@ -1256,7 +1256,7 @@ def test__basic_router_generation__using_custom_class_based_dependency__should_m
     assert response.json() == {"foo": 3}
 
     # This is not a nice behavior but this is the way Cadwyn functions: the dependency is going to be called
-    # twice: once by fastapi with solve_dependencies for the old version and once by Cadwyn
+    # twice: once by FastAPI with solve_dependencies for the old version and once by Cadwyn
     # with solve_dependencies for the new version.
     assert payloads_dependency_was_called_with == [
         {"foo": 3, "bar": "meaw"},  # client_2000

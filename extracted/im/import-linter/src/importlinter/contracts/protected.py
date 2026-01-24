@@ -4,7 +4,6 @@ from importlinter.application import contract_utils
 from ._common import Link
 from importlinter.domain import helpers, imports
 from importlinter import Contract, ContractCheck, fields, output
-from typing import Optional
 
 
 class ProtectedContract(Contract):
@@ -13,8 +12,10 @@ class ProtectedContract(Contract):
     modules.
 
     Configuration options:
-        - protected_modules:    The modules that must not be imported except by allowed_importers,
-                                and by each other.
+        - protected_modules:    The modules that must not be imported except by allowed_importers.
+                                The modules that must not be imported except by the list of allowed
+                                importers. If `as_packages` is True, descendants of a protected
+                                module are also allowed to import each other.
         - allowed_importers:    The only modules allowed to import the protected modules.
         - ignore_imports:       A set of ImportExpressions. These imports will be ignored if the
                                 import would cause a contract to be broken, adding it to the set
@@ -56,9 +57,7 @@ class ProtectedContract(Contract):
             )
         }
 
-        protected_modules_expressions: set[
-            imports.ModuleExpression
-        ] = self.protected_modules  # type: ignore
+        protected_modules_expressions: set[imports.ModuleExpression] = self.protected_modules  # type: ignore
 
         illegal_imports_metadata: list[BrokenContractMetadata] = []
 
@@ -66,7 +65,9 @@ class ProtectedContract(Contract):
             top_level_protected_modules = {
                 module.name
                 for module in helpers.module_expression_to_modules(
-                    graph=graph, expression=protected_module_expression, as_packages=False
+                    graph=graph,
+                    expression=protected_module_expression,
+                    as_packages=False,
                 )
             }
 
@@ -152,4 +153,4 @@ class ProtectedContract(Contract):
 class BrokenContractMetadata:
     top_level_module: str
     illegal_links: list[Link]
-    original_expression: Optional[str]
+    original_expression: str | None

@@ -1,22 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aodhclient
-Version: 3.9.1
+Version: 3.10.0
 Summary: Python client library for Aodh
-Home-page: https://docs.openstack.org/python-aodhclient/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/python-aodhclient
+Project-URL: Repository, https://opendev.org/openstack/python-aodhclient
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0
 Requires-Dist: cliff>=1.17.0
@@ -27,10 +32,16 @@ Requires-Dist: oslo.utils>=2.0.0
 Requires-Dist: osprofiler>=1.4.0
 Requires-Dist: keystoneauth1>=1.0.0
 Requires-Dist: pyparsing>2.1.0
+Dynamic: license-file
+Dynamic: requires-dist
 
 ==========
 aodhclient
 ==========
+
+.. image:: https://governance.openstack.org/tc/badges/python-aodhclient.svg
+
+.. Change things from this point on
 
 Python bindings to the OpenStack Aodh API
 
@@ -44,5 +55,4 @@ as aodh). Each implements the entire OpenStack Aodh API.
 * Release notes: https://releases.openstack.org/teams/telemetry.html
 * Documentation: https://docs.openstack.org/python-aodhclient/latest/
 * Source: https://opendev.org/openstack/python-aodhclient
-* Bugs: https://storyboard.openstack.org/#!/project/openstack/python-aodhclient
-
+* Bugs: https://launchpad.net/python-aodhclient

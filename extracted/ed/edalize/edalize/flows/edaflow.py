@@ -138,6 +138,11 @@ class Edaflow(object):
             "desc": "Tools to run before main flow",
             "list": True,
         },
+        "flow_make_options": {
+            "type": "str",
+            "desc": "Additional options to pass to make when executing the flow graph",
+            "list": True,
+        },
     }
 
     @classmethod
@@ -293,6 +298,7 @@ class Edaflow(object):
 
         self.work_root = work_root
 
+        self.verbose = verbose
         self.stdout = None
         self.stderr = None
 

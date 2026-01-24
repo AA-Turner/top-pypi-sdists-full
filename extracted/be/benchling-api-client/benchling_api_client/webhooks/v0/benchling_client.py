@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
+from importlib.metadata import version
 import sys
 from typing import Dict
 
 import attr
-import pkg_resources
 
 from benchling_api_client.v2.client import Client
 
@@ -32,7 +32,7 @@ class BenchlingApiClient(Client):
             [str(x) for x in (sys.version_info.major, sys.version_info.minor, sys.version_info.micro)]
         )
         try:
-            package_version = pkg_resources.get_distribution(package).version
+            package_version = version(package)
         except:
             package_version = "Unknown"
         return f"{user_agent_name}/{package_version} (Python {python_version})"

@@ -20,6 +20,7 @@ from metricflow_semantics.collection_helpers.merger import Mergeable
 from metricflow_semantics.dag.id_prefix import IdPrefix, StaticIdPrefix
 from metricflow_semantics.dag.mf_dag import DagNode, DisplayedProperty
 from metricflow_semantics.mf_logging.pretty_formatter import PrettyFormatContext
+from metricflow_semantics.model.semantics.simple_metric_input import SimpleMetricInputAggregation
 from metricflow_semantics.sql.sql_bind_parameters import SqlBindParameterSet
 from metricflow_semantics.visitor import Visitable, VisitorOutputT
 
@@ -805,7 +806,7 @@ class SqlFunctionExpression(SqlExpressionNode):
     def build_expression_from_aggregation_type(
         aggregation_type: AggregationType,
         sql_column_expression: SqlColumnReferenceExpression,
-        agg_params: Optional[MeasureAggregationParameters] = None,
+        agg_params: Optional[SimpleMetricInputAggregation] = None,
     ) -> SqlFunctionExpression:
         """Returns sql function expression depending on aggregation type."""
         if aggregation_type is AggregationType.PERCENTILE:
@@ -927,7 +928,7 @@ class SqlPercentileExpressionArgument:
 
     @staticmethod
     def from_aggregation_parameters(agg_params: MeasureAggregationParameters) -> SqlPercentileExpressionArgument:
-        """Given the measure parameters, returns a SqlPercentileExpressionArgument with the corresponding percentile args."""
+        """Given the simple-metric input parameters, returns a SqlPercentileExpressionArgument with the corresponding percentile args."""
         if not agg_params.percentile:
             raise RuntimeError("Percentile value is none - this should have been caught during model parsing.")
 

@@ -44,7 +44,6 @@ Test battery associated with fparser.common.readfortran package.
 
 import io
 import os.path
-import tempfile
 import pytest
 
 from fparser.common.readfortran import (
@@ -262,6 +261,42 @@ def test_base_handle_multilines(log):
     expected = 'following character continuation: "\'", expected None.'
     result = log.messages["warning"][0].split("<==")[1].lstrip()
     assert result == expected
+
+
+def test_fortranreaderbase_is_comment_line():
+    """
+    Tests for the is_comment_line() utility method.
+    """
+    reader = FortranStringReader("    ")
+    # Make the reader free-format.
+    reader.set_format(FortranFormat(True, True))
+    assert not reader.is_comment_line("      ")
+    assert reader.is_comment_line("!")
+    assert reader.is_comment_line("!   ")
+    assert not reader.is_comment_line("call a_func()")
+    # Make the reader fixed-format.
+    reader.set_format(FortranFormat(False, True))
+    assert not reader.is_comment_line("      ")
+    assert reader.is_comment_line("!     a comment")
+    assert reader.is_comment_line("c     a comment")
+    assert reader.is_comment_line("c         ")
+
+
+def test_base_handle_quoted_backslashes(log):
+    """
+    Test that the reader isn't tripped-up when a string contains a backslash.
+    """
+    log.reset()
+    code = "If (MetFolder(L:L) == '\\' .and. L <= MaxFileNameLength) Then"
+    reader = FortranStringReader(code)
+    mode = FortranFormat(True, True)
+    reader.set_format(mode)  # Force strict free format
+    reader.get_source_item()
+    assert log.messages["debug"] == []
+    assert log.messages["info"] == []
+    assert log.messages["error"] == []
+    assert log.messages["critical"] == []
+    assert log.messages["warning"] == []
 
 
 def test_base_fixed_nonlabel(log):
@@ -787,12 +822,11 @@ FULL_FREE_EXPECTED = [
 ##############################################################################
 
 
-def test_filename_reader():
+def test_filename_reader(tmpdir):
     """
     Tests that a Fortran source file can be read given its filename.
     """
-    handle, filename = tempfile.mkstemp(suffix=".f90", text=True)
-    os.close(handle)
+    filename = f"{tmpdir}/out.f90"
     try:
         with io.open(filename, mode="w", encoding="UTF-8") as source_file:
             source_file.write(FULL_FREE_SOURCE)
@@ -811,12 +845,11 @@ def test_filename_reader():
 ##############################################################################
 
 
-def test_file_reader():
+def test_file_reader(tmpdir):
     """
     Tests that a Fortran source file can be read given a file object of it.
     """
-    handle, filename = tempfile.mkstemp(suffix=".f90", text=True)
-    os.close(handle)
+    filename = f"{tmpdir}/out.f90"
     try:
         with io.open(filename, mode="w", encoding="UTF-8") as source_file:
             source_file.write(FULL_FREE_SOURCE)
@@ -833,12 +866,11 @@ def test_file_reader():
         raise
 
 
-def test_none_in_fifo(log):
+def test_none_in_fifo(tmpdir, log):
     """Check that a None entry in the reader FIFO buffer is handled
     correctly."""
     log.reset()
-    handle, filename = tempfile.mkstemp(suffix=".f90", text=True)
-    os.close(handle)
+    filename = f"{tmpdir}/out.f90"
 
     with io.open(filename, mode="w", encoding="UTF-8") as source_file:
         source_file.write(FULL_FREE_SOURCE)
@@ -913,7 +945,7 @@ def test_reader_ignore_encoding(reader_cls, tmp_path):
     assert reader2.format == FortranFormat(False, True)
 
 
-def test_inherited_f77():
+def test_inherited_f77(tmpdir):
     """
     A grab bag of functional tests inherited from readfortran.py.
     """
@@ -948,8 +980,8 @@ a    'g
         assert str(item) == stack.pop(0)
 
     # Reading from file
-    handle, filename = tempfile.mkstemp(suffix=".f", text=True)
-    os.close(handle)
+    filename = f"{tmpdir}/out.f"
+
     with open(filename, "w") as fortran_file:
         print(string_f77, file=fortran_file)
 
@@ -1698,3 +1730,25 @@ def test_conditional_include_omp_conditional_liness_free_format_multiple():
     line = reader.next()
     # 8 spaces in input_text, plus two for replacing the !$
     assert line.line == "bla          bla"
+
+
+def test_process_directives_option_read_fortran():
+    """Test handling of the process_directives option.
+
+    Note that the funcionality tests for this option are in
+    fparser/two/tests/test_comments_and_directives.py"""
+
+    input_text = "!$omp target\n! comment"
+    reader = FortranStringReader(input_text)
+    assert not reader.process_directives
+    assert reader._ignore_comments
+
+    reader = FortranStringReader(input_text, process_directives=True)
+    assert reader.process_directives
+    assert not reader._ignore_comments
+
+    reader = FortranStringReader(
+        input_text, ignore_comments=False, process_directives=True
+    )
+    assert reader.process_directives
+    assert not reader._ignore_comments

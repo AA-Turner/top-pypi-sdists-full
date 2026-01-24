@@ -1,8 +1,7 @@
 #include "transformer.h"
 
 namespace tiledbsoma {
-TransformerPipeline::TransformerPipeline(
-    std::unique_ptr<ArrowArray> array, std::unique_ptr<ArrowSchema> schema)
+TransformerPipeline::TransformerPipeline(managed_unique_ptr<ArrowArray> array, managed_unique_ptr<ArrowSchema> schema)
     : array(std::move(array))
     , schema(std::move(schema)) {
 }
@@ -15,8 +14,7 @@ TransformerPipeline::TransformerPipeline(TransformerPipeline&& other)
 TransformerPipeline::~TransformerPipeline() {
 }
 
-TransformerPipeline& TransformerPipeline::operator=(
-    TransformerPipeline&& other) {
+TransformerPipeline& TransformerPipeline::operator=(TransformerPipeline&& other) {
     if (this != &other) {
         this->array = std::move(other.array);
         this->schema = std::move(other.schema);

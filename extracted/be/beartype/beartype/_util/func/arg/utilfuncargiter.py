@@ -18,7 +18,7 @@ from beartype.typing import (
     Optional,
     Tuple,
 )
-from beartype._data.hint.datahinttyping import TypeException
+from beartype._data.typing.datatyping import TypeException
 from beartype._data.kind.datakindiota import Iota
 from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
 from beartype._util.func.arg.utilfuncarglen import get_func_args_lens
@@ -129,7 +129,7 @@ this arises include:
 
 The caller is thus responsible for mapping parameters to type hints. Thankfully,
 the existing
-:attr:`beartype._check.meta.checkdecor.BeartypeDecorMeta.func_arg_name_to_hint`
+:attr:`beartype._check.meta.checkdecor.BeartypeDecorMeta.func_annotations`
 dictionary makes this trivial for most use cases.
 '''
 
@@ -420,7 +420,7 @@ def iter_func_args(
 
     # ..................{ LOCALS ~ len                       }..................
     # Number of both optional and mandatory positional-only parameters accepted
-    # by that callable,  standardized under Python >= 3.8 by PEP 570.
+    # by that callable, standardized under Python >= 3.8 by PEP 570.
     args_len_posonly = func_codeobj.co_posonlyargcount  # type: ignore[attr-defined]
     assert args_len_posonly_or_flex >= args_len_posonly, (
         f'Positional-only and flexible argument count {args_len_posonly_or_flex} < '

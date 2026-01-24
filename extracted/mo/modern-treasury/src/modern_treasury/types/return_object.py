@@ -14,6 +14,11 @@ __all__ = ["ReturnObject", "Corrections", "ReferenceNumbers", "ReferenceNumber"]
 
 
 class Corrections(BaseModel):
+    """Only relevant for ACH NOC returns.
+
+    This is an object containing all of the new and corrected information provided by the bank that was previously incorrect on the original outgoing payment.
+    """
+
     account_number: Optional[str] = None
     """
     The updated account number that should replace the one originally used on the
@@ -72,15 +77,13 @@ class ReferenceNumber(BaseModel):
         "ach_trace_number",
         "bankprov_payment_activity_date",
         "bankprov_payment_id",
+        "blockchain_transaction_hash",
         "bnk_dev_prenotification_id",
         "bnk_dev_transfer_id",
         "bny_mellon_transaction_reference_number",
         "bofa_end_to_end_id",
         "bofa_transaction_id",
         "brale_transfer_id",
-        "bridge_destination_transaction_hash",
-        "bridge_source_transaction_hash",
-        "bridge_transfer_id",
         "check_number",
         "citibank_reference_number",
         "citibank_worldlink_clearing_system_reference_number",
@@ -124,8 +127,12 @@ class ReferenceNumber(BaseModel):
         "jpmc_payment_returned_datetime",
         "jpmc_transaction_reference_number",
         "lob_check_id",
+        "mt_flow_ach_noc_id",
+        "mt_flow_transfer_id",
         "other",
         "partial_swift_mir",
+        "paxos_orchestration_id",
+        "paxos_transfer_id",
         "pnc_clearing_reference",
         "pnc_instruction_id",
         "pnc_multipayment_id",
@@ -329,6 +336,9 @@ class ReturnObject(BaseModel):
     human readable string.
     """
 
+    reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
+    """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
+
     reference_numbers: List[ReferenceNumber]
     """An array of Payment Reference objects."""
 
@@ -341,7 +351,7 @@ class ReturnObject(BaseModel):
     role: Literal["originating", "receiving"]
     """The role of the return, can be `originating` or `receiving`."""
 
-    status: Literal["completed", "failed", "pending", "processing", "returned", "sent"]
+    status: Literal["cancelled", "completed", "failed", "pending", "processing", "returned", "sent"]
     """The current status of the return."""
 
     transaction_id: Optional[str] = None
@@ -351,7 +361,20 @@ class ReturnObject(BaseModel):
     """The ID of the relevant Transaction Line Item or `null`."""
 
     type: Literal[
-        "ach", "ach_noc", "au_becs", "bacs", "book", "check", "cross_border", "eft", "interac", "manual", "sepa", "wire"
+        "ach",
+        "ach_noc",
+        "au_becs",
+        "bacs",
+        "book",
+        "check",
+        "cross_border",
+        "eft",
+        "gb_fps",
+        "interac",
+        "manual",
+        "sepa",
+        "wire",
+        "zengin",
     ]
     """The type of return.
 

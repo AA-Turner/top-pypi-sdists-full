@@ -13,32 +13,23 @@ def activate_viewer(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Activate selected viewer node in compositor and geometry nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Activate selected viewer node in compositor and geometry nodes"""
 
 def add_closure_zone(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    use_transform: bool | None = False,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
+    use_transform: bool | None = False,
     offset: collections.abc.Iterable[float] | None = (150.0, 0.0),
 ) -> None:
     """Add a Closure zone
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param use_transform: Use Transform, Start transform operator after inserting the node
-    :type use_transform: bool | None
     :param settings: Settings, Settings to be applied on the newly created node
-    :type settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting] | None
+    :param use_transform: Use Transform, Start transform operator after inserting the node
     :param offset: Offset, Offset of nodes from the cursor when added
-    :type offset: collections.abc.Iterable[float] | None
     """
 
 def add_collection(
@@ -51,12 +42,8 @@ def add_collection(
 ) -> None:
     """Add a collection info node to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the data-block to use by the operator
-    :type name: str
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
-    :type session_uid: int | None
     """
 
 def add_color(
@@ -70,14 +57,9 @@ def add_color(
 ) -> None:
     """Add a color node to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param color: Color, Source color
-    :type color: collections.abc.Iterable[float] | None
     :param gamma: Gamma Corrected, The source color is gamma corrected
-    :type gamma: bool | None
     :param has_alpha: Has Alpha, The source color contains an Alpha component
-    :type has_alpha: bool | None
     """
 
 def add_empty_group(
@@ -85,18 +67,14 @@ def add_empty_group(
     undo: bool | None = None,
     /,
     *,
-    use_transform: bool | None = False,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
+    use_transform: bool | None = False,
 ) -> None:
     """Add a group node with an empty group
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param use_transform: Use Transform, Start transform operator after inserting the node
-    :type use_transform: bool | None
     :param settings: Settings, Settings to be applied on the newly created node
-    :type settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting] | None
+    :param use_transform: Use Transform, Start transform operator after inserting the node
     """
 
 def add_foreach_geometry_element_zone(
@@ -104,21 +82,16 @@ def add_foreach_geometry_element_zone(
     undo: bool | None = None,
     /,
     *,
-    use_transform: bool | None = False,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
+    use_transform: bool | None = False,
     offset: collections.abc.Iterable[float] | None = (150.0, 0.0),
 ) -> None:
     """Add a For Each Geometry Element zone that allows executing nodes e.g. for each vertex separately
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param use_transform: Use Transform, Start transform operator after inserting the node
-    :type use_transform: bool | None
     :param settings: Settings, Settings to be applied on the newly created node
-    :type settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting] | None
+    :param use_transform: Use Transform, Start transform operator after inserting the node
     :param offset: Offset, Offset of nodes from the cursor when added
-    :type offset: collections.abc.Iterable[float] | None
     """
 
 def add_group(
@@ -132,14 +105,9 @@ def add_group(
 ) -> None:
     """Add an existing node group to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the data-block to use by the operator
-    :type name: str
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
-    :type session_uid: int | None
     :param show_datablock_in_node: Show the data-block selector in the node
-    :type show_datablock_in_node: bool | None
     """
 
 def add_group_asset(
@@ -154,14 +122,9 @@ def add_group_asset(
 ) -> None:
     """Add a node group asset to the active node tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param asset_library_type: Asset Library Type
-    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
     :param asset_library_identifier: Asset Library Identifier
-    :type asset_library_identifier: str
     :param relative_asset_identifier: Relative Asset Identifier
-    :type relative_asset_identifier: str
     """
 
 def add_group_input_node(
@@ -174,12 +137,8 @@ def add_group_input_node(
 ) -> None:
     """Add a Group Input node with selected sockets to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param socket_identifier: Socket Identifier, Socket to include in the added group input/output node
-    :type socket_identifier: str
     :param panel_identifier: Panel Identifier, Panel from which to add sockets to the added group input/output node
-    :type panel_identifier: int | None
     """
 
 def add_image(
@@ -231,58 +190,31 @@ def add_image(
 ) -> None:
     """Add a image/movie file as node to the current node editor
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -296,7 +228,6 @@ def add_image(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
 
     DEFAULT
@@ -316,11 +247,8 @@ def add_image(
 
     ASSET_CATALOG
     Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
-        :type sort_method: typing.Literal['DEFAULT','FILE_SORT_ALPHA','FILE_SORT_EXTENSION','FILE_SORT_TIME','FILE_SORT_SIZE','ASSET_CATALOG'] | None
         :param name: Name, Name of the data-block to use by the operator
-        :type name: str
         :param session_uid: Session UID, Session UID of the data-block to use by the operator
-        :type session_uid: int | None
     """
 
 def add_import_node(
@@ -334,12 +262,8 @@ def add_import_node(
 ) -> None:
     """Add an import node to the node tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param directory: Directory, Directory of the file
-    :type directory: str
     :param files: Files
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     """
 
 def add_mask(
@@ -352,12 +276,8 @@ def add_mask(
 ) -> None:
     """Add a mask node to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the data-block to use by the operator
-    :type name: str
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
-    :type session_uid: int | None
     """
 
 def add_material(
@@ -370,12 +290,8 @@ def add_material(
 ) -> None:
     """Add a material node to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the data-block to use by the operator
-    :type name: str
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
-    :type session_uid: int | None
     """
 
 def add_node(
@@ -383,24 +299,18 @@ def add_node(
     undo: bool | None = None,
     /,
     *,
-    use_transform: bool | None = False,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
+    use_transform: bool | None = False,
     type: str = "",
     visible_output: str = "",
 ) -> None:
     """Add a node to the active tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param use_transform: Use Transform, Start transform operator after inserting the node
-    :type use_transform: bool | None
     :param settings: Settings, Settings to be applied on the newly created node
-    :type settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting] | None
+    :param use_transform: Use Transform, Start transform operator after inserting the node
     :param type: Node Type, Node type
-    :type type: str
     :param visible_output: Output Name, If provided, all outputs that are named differently will be hidden
-    :type visible_output: str
     """
 
 def add_object(
@@ -413,12 +323,8 @@ def add_object(
 ) -> None:
     """Add an object info node to the current node editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the data-block to use by the operator
-    :type name: str
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
-    :type session_uid: int | None
     """
 
 def add_repeat_zone(
@@ -426,21 +332,16 @@ def add_repeat_zone(
     undo: bool | None = None,
     /,
     *,
-    use_transform: bool | None = False,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
+    use_transform: bool | None = False,
     offset: collections.abc.Iterable[float] | None = (150.0, 0.0),
 ) -> None:
     """Add a repeat zone that allows executing nodes a dynamic number of times
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param use_transform: Use Transform, Start transform operator after inserting the node
-    :type use_transform: bool | None
     :param settings: Settings, Settings to be applied on the newly created node
-    :type settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting] | None
+    :param use_transform: Use Transform, Start transform operator after inserting the node
     :param offset: Offset, Offset of nodes from the cursor when added
-    :type offset: collections.abc.Iterable[float] | None
     """
 
 def add_reroute(
@@ -453,12 +354,8 @@ def add_reroute(
 ) -> None:
     """Add a reroute node
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param path: Path
-    :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
     :param cursor: Cursor
-    :type cursor: int | None
     """
 
 def add_simulation_zone(
@@ -466,21 +363,39 @@ def add_simulation_zone(
     undo: bool | None = None,
     /,
     *,
-    use_transform: bool | None = False,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
+    use_transform: bool | None = False,
     offset: collections.abc.Iterable[float] | None = (150.0, 0.0),
 ) -> None:
     """Add simulation zone input and output nodes to the active tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param use_transform: Use Transform, Start transform operator after inserting the node
-    :type use_transform: bool | None
     :param settings: Settings, Settings to be applied on the newly created node
-    :type settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting] | None
+    :param use_transform: Use Transform, Start transform operator after inserting the node
     :param offset: Offset, Offset of nodes from the cursor when added
-    :type offset: collections.abc.Iterable[float] | None
+    """
+
+def add_zone(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
+    use_transform: bool | None = False,
+    offset: collections.abc.Iterable[float] | None = (150.0, 0.0),
+    input_node_type: str = "",
+    output_node_type: str = "",
+    add_default_geometry_link: bool | None = False,
+) -> None:
+    """Undocumented, consider contributing.
+
+    :param settings: Settings, Settings to be applied on the newly created node
+    :param use_transform: Use Transform, Start transform operator after inserting the node
+    :param offset: Offset, Offset of nodes from the cursor when added
+    :param input_node_type: Input Node, Specifies the input node used by the created zone
+    :param output_node_type: Output Node, Specifies the output node used by the created zone
+    :param add_default_geometry_link: Add Geometry Link, When enabled, create a link between geometry sockets in this zone
     """
 
 def attach(
@@ -488,44 +403,28 @@ def attach(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Attach active node to a frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Attach active node to a frame"""
 
 def backimage_fit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Fit the background image to the view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Fit the background image to the view"""
 
 def backimage_move(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move node backdrop
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move node backdrop"""
 
 def backimage_sample(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Use mouse to sample background image
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Use mouse to sample background image"""
 
 def backimage_zoom(
     execution_context: int | str | None = None,
@@ -536,21 +435,19 @@ def backimage_zoom(
 ) -> None:
     """Zoom in/out the background image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor
-    :type factor: float | None
     """
 
 def bake_node_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def bake_node_item_move(
@@ -559,35 +456,36 @@ def bake_node_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def bake_node_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def capture_attribute_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def capture_attribute_item_move(
@@ -596,24 +494,24 @@ def capture_attribute_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def capture_attribute_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def clear_viewer_border(
@@ -621,22 +519,14 @@ def clear_viewer_border(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear the boundaries for viewer operations
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear the boundaries for viewer operations"""
 
 def clipboard_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the selected nodes to the internal clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the selected nodes to the internal clipboard"""
 
 def clipboard_paste(
     execution_context: int | str | None = None,
@@ -647,21 +537,19 @@ def clipboard_paste(
 ) -> None:
     """Paste nodes from the internal clipboard to the active node tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param offset: Location, The 2D view location for the center of the new nodes, or unchanged if not set
-    :type offset: collections.abc.Iterable[float] | None
     """
 
 def closure_input_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def closure_input_item_move(
@@ -670,35 +558,36 @@ def closure_input_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def closure_input_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def closure_output_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def closure_output_item_move(
@@ -707,24 +596,24 @@ def closure_output_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def closure_output_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def collapse_hide_unused_toggle(
@@ -732,21 +621,18 @@ def collapse_hide_unused_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle collapsed nodes and hide unused sockets
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle collapsed nodes and hide unused sockets"""
 
 def combine_bundle_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def combine_bundle_item_move(
@@ -755,24 +641,24 @@ def combine_bundle_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def combine_bundle_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def connect_to_output(
@@ -784,10 +670,7 @@ def connect_to_output(
 ) -> None:
     """Connect active node to the active output node of the node tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param run_in_geometry_nodes: Run in Geometry Nodes Editor
-    :type run_in_geometry_nodes: bool | None
     """
 
 def cryptomatte_layer_add(
@@ -795,77 +678,49 @@ def cryptomatte_layer_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new input layer to a Cryptomatte node
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new input layer to a Cryptomatte node"""
 
 def cryptomatte_layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove layer from a Cryptomatte node
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove layer from a Cryptomatte node"""
 
 def deactivate_viewer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deactivate selected viewer node in geometry nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deactivate selected viewer node in geometry nodes"""
 
 def default_group_width_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the width based on the parent group node in the current context
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the width based on the parent group node in the current context"""
 
 def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove selected nodes"""
 
 def delete_reconnect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove nodes and reconnect nodes as if deletion was muted
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove nodes and reconnect nodes as if deletion was muted"""
 
 def detach(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Detach selected nodes from parents
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Detach selected nodes from parents"""
 
 def detach_translate_attach(
     execution_context: int | str | None = None,
@@ -878,14 +733,9 @@ def detach_translate_attach(
 ) -> None:
     """Detach nodes, move and attach to frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_detach: Detach Nodes, Detach selected nodes from parents
-    :type NODE_OT_detach: detach | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     :param NODE_OT_attach: Attach Nodes, Attach active node to a frame
-    :type NODE_OT_attach: attach | None
     """
 
 def duplicate(
@@ -898,13 +748,23 @@ def duplicate(
 ) -> None:
     """Duplicate selected nodes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param keep_inputs: Keep Inputs, Keep the input links to duplicated nodes
-    :type keep_inputs: bool | None
     :param linked: Linked, Duplicate node but not node trees, linking to the original data
-    :type linked: bool | None
     """
+
+def duplicate_compositing_modifier_node_group(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Duplicate the currently assigned compositing node group."""
+
+def duplicate_compositing_node_group(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Duplicate the currently assigned compositing node group."""
 
 def duplicate_move(
     execution_context: int | str | None = None,
@@ -916,12 +776,8 @@ def duplicate_move(
 ) -> None:
     """Duplicate selected nodes and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_duplicate: Duplicate Nodes, Duplicate selected nodes
-    :type NODE_OT_duplicate: duplicate | None
     :param NODE_OT_translate_attach: Move and Attach, Move nodes and attach to frame
-    :type NODE_OT_translate_attach: translate_attach | None
     """
 
 def duplicate_move_keep_inputs(
@@ -934,12 +790,8 @@ def duplicate_move_keep_inputs(
 ) -> None:
     """Duplicate selected nodes keeping input links and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_duplicate: Duplicate Nodes, Duplicate selected nodes
-    :type NODE_OT_duplicate: duplicate | None
     :param NODE_OT_translate_attach: Move and Attach, Move nodes and attach to frame
-    :type NODE_OT_translate_attach: translate_attach | None
     """
 
 def duplicate_move_linked(
@@ -952,23 +804,20 @@ def duplicate_move_linked(
 ) -> None:
     """Duplicate selected nodes, but not their node trees, and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_duplicate: Duplicate Nodes, Duplicate selected nodes
-    :type NODE_OT_duplicate: duplicate | None
     :param NODE_OT_translate_attach: Move and Attach, Move nodes and attach to frame
-    :type NODE_OT_translate_attach: translate_attach | None
     """
 
 def enum_definition_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def enum_definition_item_move(
@@ -977,35 +826,36 @@ def enum_definition_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def enum_definition_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def evaluate_closure_input_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def evaluate_closure_input_item_move(
@@ -1014,35 +864,36 @@ def evaluate_closure_input_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def evaluate_closure_input_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def evaluate_closure_output_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def evaluate_closure_output_item_move(
@@ -1051,35 +902,112 @@ def evaluate_closure_output_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def evaluate_closure_output_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def field_to_grid_item_add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_identifier: int | None = 0,
+) -> None:
+    """Add item below active item
+
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def field_to_grid_item_move(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
+) -> None:
+    """Move active item
+
+    :param direction: Direction, Move direction
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def field_to_grid_item_remove(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_identifier: int | None = 0,
+) -> None:
+    """Remove active item
+
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def field_to_list_item_add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_identifier: int | None = 0,
+) -> None:
+    """Add item below active item
+
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def field_to_list_item_move(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
+) -> None:
+    """Move active item
+
+    :param direction: Direction, Move direction
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def field_to_list_item_remove(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_identifier: int | None = 0,
+) -> None:
+    """Remove active item
+
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def file_output_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def file_output_item_move(
@@ -1088,24 +1016,24 @@ def file_output_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def file_output_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def find_node(
@@ -1113,21 +1041,18 @@ def find_node(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Search for a node by name and focus and select it
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Search for a node by name and focus and select it"""
 
 def foreach_geometry_element_zone_generation_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_generation_item_move(
@@ -1136,35 +1061,36 @@ def foreach_geometry_element_zone_generation_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_generation_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_input_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_input_item_move(
@@ -1173,35 +1099,36 @@ def foreach_geometry_element_zone_input_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_input_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_main_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_main_item_move(
@@ -1210,35 +1137,36 @@ def foreach_geometry_element_zone_main_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def foreach_geometry_element_zone_main_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def format_string_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def format_string_item_move(
@@ -1247,24 +1175,62 @@ def format_string_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def format_string_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def geometry_nodes_viewer_item_add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_identifier: int | None = 0,
+) -> None:
+    """Add item below active item
+
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def geometry_nodes_viewer_item_move(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
+) -> None:
+    """Move active item
+
+    :param direction: Direction, Move direction
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
+    """
+
+def geometry_nodes_viewer_item_remove(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_identifier: int | None = 0,
+) -> None:
+    """Remove active item
+
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def gltf_settings_node_operator(
@@ -1272,11 +1238,7 @@ def gltf_settings_node_operator(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a node to the active tree for glTF export
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a node to the active tree for glTF export"""
 
 def group_edit(
     execution_context: int | str | None = None,
@@ -1287,33 +1249,29 @@ def group_edit(
 ) -> None:
     """Edit node group
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param exit: Exit
-    :type exit: bool | None
     """
+
+def group_enter_exit(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Enter or exit node group based on cursor location"""
 
 def group_insert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Insert selected nodes into a node group
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Insert selected nodes into a node group"""
 
 def group_make(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make group from selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make group from selected nodes"""
 
 def group_separate(
     execution_context: int | str | None = None,
@@ -1324,8 +1282,6 @@ def group_separate(
 ) -> None:
     """Separate selected nodes from the node group
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     COPY
@@ -1333,7 +1289,6 @@ def group_separate(
 
     MOVE
     Move -- Move to parent node tree, remove from group.
-        :type type: typing.Literal['COPY','MOVE'] | None
     """
 
 def group_ungroup(
@@ -1341,43 +1296,32 @@ def group_ungroup(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Ungroup selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Ungroup selected nodes"""
 
 def hide_socket_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle unused node socket display
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle unused node socket display"""
 
 def hide_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle collapsing of selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle collapsing of selected nodes"""
 
 def index_switch_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
-    """Add bake item
+    """Add an item to the index switch
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def index_switch_item_remove(
@@ -1389,10 +1333,7 @@ def index_switch_item_remove(
 ) -> None:
     """Remove an item from the index switch
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index, Index to remove
-    :type index: int | None
     """
 
 def insert_offset(
@@ -1400,81 +1341,61 @@ def insert_offset(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Automatically offset nodes on insertion
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Automatically offset nodes on insertion"""
 
 def interface_item_duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a copy of the active item to the interface
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a copy of the active item to the interface"""
 
 def interface_item_make_panel_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make the active boolean socket a toggle for its parent panel
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make the active boolean socket a toggle for its parent panel"""
 
 def interface_item_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    item_type: str | None = "",
+    item_type: typing.Literal["INPUT", "OUTPUT", "PANEL"] | None = "INPUT",
 ) -> None:
     """Add a new item to the interface
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param item_type: Item Type, Type of the item to create
-    :type item_type: str | None
     """
+
+def interface_item_new_panel_toggle(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Add a checkbox to the currently selected panel"""
 
 def interface_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove active item from the interface
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove selected items from the interface"""
 
 def interface_item_unlink_panel_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make the panel toggle a stand-alone socket
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make the panel toggle a stand-alone socket"""
 
 def join(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Attach selected nodes to a new common frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Attach selected nodes to a new common frame"""
 
 def join_named(
     execution_context: int | str | None = None,
@@ -1486,13 +1407,16 @@ def join_named(
 ) -> None:
     """Create a new frame node around the selected nodes and name it immediately
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param NODE_OT_join: Join Nodes, Attach selected nodes to a new common frame
-    :type NODE_OT_join: join | None
+    :param NODE_OT_join: Join Nodes in Frame, Attach selected nodes to a new common frame
     :param WM_OT_call_panel: Call Panel, Open a predefined panel
-    :type WM_OT_call_panel: bpy.ops.wm.call_panel | None
     """
+
+def join_nodes(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Merge selected group input nodes into one if possible"""
 
 def link(
     execution_context: int | str | None = None,
@@ -1510,24 +1434,14 @@ def link(
 ) -> None:
     """Use the mouse to create a link between two nodes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param detach: Detach, Detach and redirect existing links
-    :type detach: bool | None
     :param drag_start: Drag Start, The position of the mouse cursor at the start of the operation
-    :type drag_start: collections.abc.Iterable[float] | None
     :param inside_padding: Inside Padding, Inside distance in UI units from the edge of the region within which to start panning
-    :type inside_padding: float | None
     :param outside_padding: Outside Padding, Outside distance in UI units from the edge of the region at which to stop panning
-    :type outside_padding: float | None
     :param speed_ramp: Speed Ramp, Width of the zone in UI units where speed increases with distance from the edge
-    :type speed_ramp: float | None
     :param max_speed: Max Speed, Maximum speed in UI units per second
-    :type max_speed: float | None
     :param delay: Delay, Delay in seconds before maximum speed is reached
-    :type delay: float | None
     :param zoom_influence: Zoom Influence, Influence of the zoom factor on scroll speed
-    :type zoom_influence: float | None
     """
 
 def link_make(
@@ -1539,10 +1453,7 @@ def link_make(
 ) -> None:
     """Make a link between selected output and input sockets
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param replace: Replace, Replace socket connections with the new links
-    :type replace: bool | None
     """
 
 def link_viewer(
@@ -1550,11 +1461,7 @@ def link_viewer(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Link to viewer node
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Link to viewer node"""
 
 def links_cut(
     execution_context: int | str | None = None,
@@ -1566,12 +1473,8 @@ def links_cut(
 ) -> None:
     """Use the mouse to cut (remove) some links
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param path: Path
-    :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
     :param cursor: Cursor
-    :type cursor: int | None
     """
 
 def links_detach(
@@ -1579,11 +1482,7 @@ def links_detach(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove all links to selected nodes, and try to connect neighbor nodes together
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove all links to selected nodes, and try to connect neighbor nodes together"""
 
 def links_mute(
     execution_context: int | str | None = None,
@@ -1595,12 +1494,8 @@ def links_mute(
 ) -> None:
     """Use the mouse to mute links
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param path: Path
-    :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
     :param cursor: Cursor
-    :type cursor: int | None
     """
 
 def move_detach_links(
@@ -1613,12 +1508,8 @@ def move_detach_links(
 ) -> None:
     """Move a node to detach links
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_links_detach: Detach Links, Remove all links to selected nodes, and try to connect neighbor nodes together
-    :type NODE_OT_links_detach: links_detach | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def move_detach_links_release(
@@ -1631,12 +1522,8 @@ def move_detach_links_release(
 ) -> None:
     """Move a node to detach links
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_links_detach: Detach Links, Remove all links to selected nodes, and try to connect neighbor nodes together
-    :type NODE_OT_links_detach: links_detach | None
     :param NODE_OT_translate_attach: Move and Attach, Move nodes and attach to frame
-    :type NODE_OT_translate_attach: translate_attach | None
     """
 
 def mute_toggle(
@@ -1644,25 +1531,30 @@ def mute_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle muting of selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle muting of selected nodes"""
 
 def new_compositing_node_group(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    name: str = "Compositor Nodes",
+    name: str = "",
 ) -> None:
     """Create a new compositing node group and initialize it with default nodes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name
-    :type name: str
+    """
+
+def new_compositor_sequencer_node_group(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    name: str = "Sequencer Compositor Nodes",
+) -> None:
+    """Create a new compositor node group for sequencer
+
+    :param name: Name
     """
 
 def new_geometry_node_group_assign(
@@ -1670,33 +1562,21 @@ def new_geometry_node_group_assign(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new geometry node group and assign it to the active modifier
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new geometry node group and assign it to the active modifier"""
 
 def new_geometry_node_group_tool(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new geometry node group for a tool
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new geometry node group for a tool"""
 
 def new_geometry_nodes_modifier(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new modifier with a new geometry node group
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new modifier with a new geometry node group"""
 
 def new_node_tree(
     execution_context: int | str | None = None,
@@ -1708,12 +1588,8 @@ def new_node_tree(
 ) -> None:
     """Create a new node tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Tree Type
-    :type type: str | None
     :param name: Name
-    :type name: str
     """
 
 def node_color_preset_add(
@@ -1727,14 +1603,9 @@ def node_color_preset_add(
 ) -> None:
     """Add or remove a Node Color Preset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def node_copy_color(
@@ -1742,76 +1613,53 @@ def node_copy_color(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy color to all selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy color to all selected nodes"""
 
 def options_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle option buttons display for selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle option buttons display for selected nodes"""
 
 def parent_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Attach selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Attach selected nodes"""
 
 def preview_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle preview display for selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle preview display for selected nodes"""
 
 def read_viewlayers(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Read all render layers of all used scenes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Read all render layers of all used scenes"""
 
 def render_changed(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Render current scene, when input nodes layer has been changed
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Render current scene, when input nodes layer has been changed"""
 
 def repeat_zone_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def repeat_zone_item_move(
@@ -1820,24 +1668,24 @@ def repeat_zone_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def repeat_zone_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def resize(
@@ -1845,11 +1693,7 @@ def resize(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Resize a node
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Resize a node"""
 
 def select(
     execution_context: int | str | None = None,
@@ -1867,24 +1711,14 @@ def select(
 ) -> None:
     """Select the node under the cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     :param deselect: Deselect, Remove from selection
-    :type deselect: bool | None
     :param toggle: Toggle Selection, Toggle the selection
-    :type toggle: bool | None
     :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :type deselect_all: bool | None
     :param select_passthrough: Only Select Unselected, Ignore the select action when the element is already selected
-    :type select_passthrough: bool | None
     :param location: Location, Mouse location
-    :type location: collections.abc.Iterable[int] | None
     :param socket_select: Socket Select
-    :type socket_select: bool | None
     :param clear_viewer: Clear Viewer, Deactivate geometry nodes viewer when clicking in empty space
-    :type clear_viewer: bool | None
     """
 
 def select_all(
@@ -1896,8 +1730,6 @@ def select_all(
 ) -> None:
     """(De)select all nodes
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -1911,7 +1743,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -1929,20 +1760,12 @@ def select_box(
 ) -> None:
     """Use box selection to select nodes
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param tweak: Tweak, Only activate when mouse is not over a node (useful for tweak gesture)
-        :type tweak: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -1953,7 +1776,6 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_circle(
@@ -1969,16 +1791,10 @@ def select_circle(
 ) -> None:
     """Use circle selection to select nodes
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param x: X
-        :type x: int | None
         :param y: Y
-        :type y: int | None
         :param radius: Radius
-        :type radius: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -1989,7 +1805,6 @@ def select_circle(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_grouped(
@@ -2002,12 +1817,8 @@ def select_grouped(
 ) -> None:
     """Select nodes with similar properties
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     :param type: Type
-    :type type: typing.Literal['TYPE','COLOR','PREFIX','SUFFIX'] | None
     """
 
 def select_lasso(
@@ -2024,18 +1835,11 @@ def select_lasso(
 ) -> None:
     """Select nodes using lasso selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param tweak: Tweak, Only activate when mouse is not over a node (useful for tweak gesture)
-        :type tweak: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param mode: Mode
 
     SET
@@ -2046,7 +1850,6 @@ def select_lasso(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_link_viewer(
@@ -2059,12 +1862,8 @@ def select_link_viewer(
 ) -> None:
     """Select node and link it to a viewer node
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param NODE_OT_select: Select, Select the node under the cursor
-    :type NODE_OT_select: select | None
     :param NODE_OT_link_viewer: Link to Viewer Node, Link to viewer node
-    :type NODE_OT_link_viewer: link_viewer | None
     """
 
 def select_linked_from(
@@ -2072,22 +1871,14 @@ def select_linked_from(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select nodes linked from the selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select nodes linked from the selected ones"""
 
 def select_linked_to(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select nodes linked to the selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select nodes linked to the selected ones"""
 
 def select_same_type_step(
     execution_context: int | str | None = None,
@@ -2098,21 +1889,19 @@ def select_same_type_step(
 ) -> None:
     """Activate and view same node type, step by step
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param prev: Previous
-    :type prev: bool | None
     """
 
 def separate_bundle_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def separate_bundle_item_move(
@@ -2121,24 +1910,24 @@ def separate_bundle_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def separate_bundle_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def shader_script_update(
@@ -2146,21 +1935,18 @@ def shader_script_update(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update shader script node with new sockets and options from the script
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update shader script node with new sockets and options from the script"""
 
 def simulation_zone_item_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Add item below active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def simulation_zone_item_move(
@@ -2169,24 +1955,24 @@ def simulation_zone_item_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
+    node_identifier: int | None = 0,
 ) -> None:
     """Move active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Move direction
-    :type direction: typing.Literal['UP','DOWN'] | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def simulation_zone_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    node_identifier: int | None = 0,
 ) -> None:
     """Remove active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+    :param node_identifier: Node Identifier, Optional identifier of the node to operate on
     """
 
 def sockets_sync(
@@ -2198,10 +1984,75 @@ def sockets_sync(
 ) -> None:
     """Update sockets to match what is actually used
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param node_name: Node Name
-    :type node_name: str
+    """
+
+def swap_empty_group(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
+) -> None:
+    """Replace active node with an empty group
+
+    :param settings: Settings, Settings to be applied on the newly created node
+    """
+
+def swap_group_asset(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    | None = "LOCAL",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
+) -> None:
+    """Swap selected nodes with the specified node group asset
+
+    :param asset_library_type: Asset Library Type
+    :param asset_library_identifier: Asset Library Identifier
+    :param relative_asset_identifier: Relative Asset Identifier
+    """
+
+def swap_node(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
+    type: str = "",
+    visible_output: str = "",
+) -> None:
+    """Replace the selected nodes with the specified type
+
+    :param settings: Settings, Settings to be applied on the newly created node
+    :param type: Node Type, Node type
+    :param visible_output: Output Name, If provided, all outputs that are named differently will be hidden
+    """
+
+def swap_zone(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
+    offset: collections.abc.Iterable[float] | None = (150.0, 0.0),
+    input_node_type: str = "",
+    output_node_type: str = "",
+    add_default_geometry_link: bool | None = False,
+) -> None:
+    """Undocumented, consider contributing.
+
+    :param settings: Settings, Settings to be applied on the newly created node
+    :param offset: Offset, Offset of nodes from the cursor when added
+    :param input_node_type: Input Node, Specifies the input node used by the created zone
+    :param output_node_type: Output Node, Specifies the output node used by the created zone
+    :param add_default_geometry_link: Add Geometry Link, When enabled, create a link between geometry sockets in this zone
     """
 
 def test_inlining_shader_nodes(
@@ -2209,22 +2060,14 @@ def test_inlining_shader_nodes(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new inlined shader node tree as is consumed by renderers
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new inlined shader node tree as is consumed by renderers"""
 
 def toggle_viewer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle selected viewer node in compositor and geometry nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle selected viewer node in compositor and geometry nodes"""
 
 def translate_attach(
     execution_context: int | str | None = None,
@@ -2236,12 +2079,8 @@ def translate_attach(
 ) -> None:
     """Move nodes and attach to frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     :param NODE_OT_attach: Attach Nodes, Attach active node to a frame
-    :type NODE_OT_attach: attach | None
     """
 
 def translate_attach_remove_on_cancel(
@@ -2254,12 +2093,8 @@ def translate_attach_remove_on_cancel(
 ) -> None:
     """Move nodes and attach to frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     :param NODE_OT_attach: Attach Nodes, Attach active node to a frame
-    :type NODE_OT_attach: attach | None
     """
 
 def tree_path_parent(
@@ -2271,10 +2106,7 @@ def tree_path_parent(
 ) -> None:
     """Go to parent node tree
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param parent_tree_index: Parent Index, Parent index in context path
-    :type parent_tree_index: int | None
     """
 
 def view_all(
@@ -2282,22 +2114,14 @@ def view_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Resize view so you can see all nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Resize view so you can see all nodes"""
 
 def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Resize view so you can see selected nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Resize view so you can see selected nodes"""
 
 def viewer_border(
     execution_context: int | str | None = None,
@@ -2312,18 +2136,11 @@ def viewer_border(
 ) -> None:
     """Set the boundaries for viewer operations
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     """
 
 def viewer_shortcut_get(
@@ -2335,10 +2152,7 @@ def viewer_shortcut_get(
 ) -> None:
     """Toggle a specific viewer node using 1,2,..,9 keys
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param viewer_index: Viewer Index, Index corresponding to the shortcut, e.g. number key 1 corresponds to index 1 etc..
-    :type viewer_index: int | None
     """
 
 def viewer_shortcut_set(
@@ -2350,8 +2164,5 @@ def viewer_shortcut_set(
 ) -> None:
     """Create a viewer shortcut for the selected node by pressing ctrl+1,2,..9
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param viewer_index: Viewer Index, Index corresponding to the shortcut, e.g. number key 1 corresponds to index 1 etc..
-    :type viewer_index: int | None
     """

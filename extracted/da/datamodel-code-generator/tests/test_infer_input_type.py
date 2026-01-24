@@ -1,3 +1,5 @@
+"""Tests for input type inference functionality."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,14 +11,16 @@ from datamodel_code_generator import Error, InputFileType, infer_input_type
 DATA_PATH: Path = Path(__file__).parent / "data"
 
 
-def test_infer_input_type() -> None:
+def test_infer_input_type() -> None:  # noqa: PLR0912
+    """Test automatic input type detection for various file formats."""
+
     def assert_infer_input_type(file: Path, raw_data_type: InputFileType) -> None:
         __tracebackhide__ = True
         if file.is_dir():
             return
         if file.suffix not in {".yaml", ".json"}:
             return
-        result = infer_input_type(file.read_text())
+        result = infer_input_type(file.read_text(encoding="utf-8"))
         assert result == raw_data_type, f"{file} was the wrong type!"
 
     def assert_invalid_infer_input_type(file: Path) -> None:
@@ -27,7 +31,7 @@ def test_infer_input_type() -> None:
                 r"Please specify the input file type explicitly with --input-file-type option."
             ),
         ):
-            infer_input_type(file.read_text())
+            infer_input_type(file.read_text(encoding="utf-8"))
 
     for file in (DATA_PATH / "csv").rglob("*"):
         assert_infer_input_type(file, InputFileType.CSV)
@@ -41,13 +45,28 @@ def test_infer_input_type() -> None:
             "external_child.json",
             "external_child.yaml",
             "extra_data_msgspec.json",
+            "field_validators_config.json",
+            "field_validators_multi_fields_config.json",
+            "list_only.json",
+            "list_only.yaml",
+            "whitespace_only.yaml",
         )):
+            continue
+        if "ref_to_json_list" in file.parts and file.name == "list.json":
             continue
         assert_infer_input_type(file, InputFileType.JsonSchema)
     for file in (DATA_PATH / "openapi").rglob("*"):
         if "all_of_with_relative_ref" in file.parts:
             continue
         if "reference_same_hierarchy_directory" in file.parts:
+            continue
+        if "external_ref_with_transitive_local_ref" in file.parts and file.name != "openapi.yaml":
+            continue
+        if "paths_external_ref" in file.parts and file.name != "openapi.yaml":
+            continue
+        if "paths_ref_with_external_schema" in file.parts and file.name != "openapi.yaml":
+            continue
+        if "webhooks_ref_with_external_schema" in file.parts and file.name != "openapi.yaml":
             continue
         if file.name.endswith((
             "aliases.json",

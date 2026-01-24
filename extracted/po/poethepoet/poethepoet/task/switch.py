@@ -1,14 +1,17 @@
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from ..exceptions import ConfigValidationError, ExecutionError, PoeException
 from .base import PoeTask, TaskContext
 
 if TYPE_CHECKING:
-    from collections.abc import MutableMapping
+    from collections.abc import Mapping, MutableMapping
 
     from ..config import ConfigPartition, PoeConfig
     from ..context import RunContext
     from ..env.manager import EnvVarsManager
+    from ..executor.task_run import PoeTaskRun
     from .base import TaskSpecFactory
 
 
@@ -26,48 +29,50 @@ class SwitchTask(PoeTask):
     __content_type__: ClassVar[type] = list
 
     class TaskOptions(PoeTask.TaskOptions):
-        control: Union[str, dict]
+        control: str | dict
         default: Literal["pass", "fail"] = "fail"
 
         @classmethod
         def normalize(
             cls,
-            config: Any,
+            source: Mapping[str, Any] | list[Mapping[str, Any]],
             strict: bool = True,
         ):
             """
             Perform validations that require access to to the raw config.
             """
-            if strict and isinstance(config, dict):
-                # Subtasks may not declare certain options
-                for subtask_def in config.get("switch", tuple()):
-                    for banned_option in SUBTASK_OPTIONS_BLOCKLIST:
-                        if banned_option in subtask_def:
-                            if "case" not in subtask_def:
-                                raise ConfigValidationError(
-                                    "Default case includes incompatible option "
-                                    f"{banned_option!r}"
-                                )
-                            raise ConfigValidationError(
-                                f"Case {subtask_def.get('case')!r} includes "
-                                f"incompatible option {banned_option!r}"
-                            )
 
-            return super().normalize(config, strict)
+            for item in super().normalize(source, strict):
+                if strict:
+                    # Subtasks may not declare certain options
+                    for subtask_def in item.get("switch", ()):
+                        for banned_option in SUBTASK_OPTIONS_BLOCKLIST:
+                            if banned_option in subtask_def:
+                                if "case" not in subtask_def:
+                                    raise ConfigValidationError(
+                                        "Default case includes incompatible option "
+                                        f"{banned_option!r}"
+                                    )
+                                raise ConfigValidationError(
+                                    f"Case {subtask_def.get('case')!r} includes "
+                                    f"incompatible option {banned_option!r}"
+                                )
+
+                yield item
 
     class TaskSpec(PoeTask.TaskSpec):
         control_task_spec: PoeTask.TaskSpec
         case_task_specs: tuple[tuple[tuple[Any, ...], PoeTask.TaskSpec], ...]
-        options: "SwitchTask.TaskOptions"
+        options: SwitchTask.TaskOptions
 
         def __init__(
             self,
             name: str,
             task_def: dict[str, Any],
-            factory: "TaskSpecFactory",
-            source: "ConfigPartition",
+            factory: TaskSpecFactory,
+            source: ConfigPartition,
             *,
-            parent: Optional["PoeTask.TaskSpec"] = None,
+            parent: PoeTask.TaskSpec | None = None,
         ):
             super().__init__(name, task_def, factory, source, parent=parent)
 
@@ -108,7 +113,7 @@ class SwitchTask(PoeTask):
 
             self.case_task_specs = tuple(case_task_specs)
 
-        def _task_validations(self, config: "PoeConfig", task_specs: "TaskSpecFactory"):
+        def _task_validations(self, config: PoeConfig, task_specs: TaskSpecFactory):
             from collections import defaultdict
 
             allowed_control_task_types = ("expr", "cmd", "script")
@@ -187,12 +192,10 @@ class SwitchTask(PoeTask):
             for case_key in case_keys:
                 self.switch_tasks[case_key] = case_task
 
-    def _handle_run(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
-    ) -> int:
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
+    async def _handle_run(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+    ):
+        named_arg_values, _ = self.get_parsed_arguments(env)
         env.update(named_arg_values)
 
         if not named_arg_values and any(arg.strip() for arg in self.invocation[1:]):
@@ -201,8 +204,10 @@ class SwitchTask(PoeTask):
         # Indicate on the global context that there are multiple stages to this task
         context.multistage = True
 
-        task_result = self.control_task.run(context=context, parent_env=env)
-        if task_result:
+        control_task_run = await self.control_task.run(context=context, parent_env=env)
+        await task_state.add_child(control_task_run)
+        await control_task_run.wait(suppress_errors=False)
+        if control_task_run.has_failure:
             raise ExecutionError(
                 f"Switch task {self.name!r} aborted after failed control task"
             )
@@ -211,7 +216,7 @@ class SwitchTask(PoeTask):
             self._print_action(
                 "unresolved case for switch task", dry=True, unresolved=True
             )
-            return 0
+            return
 
         control_task_output = context.get_task_output(self.control_task.invocation)
         case_task = self.switch_tasks.get(
@@ -220,19 +225,20 @@ class SwitchTask(PoeTask):
 
         if case_task is None:
             if self.spec.options.default == "pass":
-                return 0
+                return
             raise ExecutionError(
                 f"Control value {control_task_output!r} did not match any cases in "
                 f"switch task {self.name!r}."
             )
 
-        result = case_task.run(context=context, parent_env=env)
+        case_task_run = await case_task.run(context=context, parent_env=env)
+        await task_state.add_child(case_task_run)
+        await task_state.finalize()
 
         if self.capture_stdout is True:
             # The executor saved output for the case task, but we need it to be
             # registered for this switch task as well
+            await case_task_run.wait(suppress_errors=False)
             context.save_task_output(
                 self.invocation, context.get_task_output(case_task.invocation).encode()
             )
-
-        return result

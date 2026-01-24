@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -1343,17 +1343,17 @@ class UnsupportedActionForDeploymentTypeException(ServiceException):
     status_code: int = 400
 
 
-InstanceNameList = List[InstanceName]
+InstanceNameList = list[InstanceName]
 
 
 class Tag(TypedDict, total=False):
     """Information about a tag."""
 
-    Key: Optional[Key]
-    Value: Optional[Value]
+    Key: Key | None
+    Value: Value | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class AddTagsToOnPremisesInstancesInput(ServiceRequest):
@@ -1368,10 +1368,10 @@ class AddTagsToOnPremisesInstancesInput(ServiceRequest):
 class Alarm(TypedDict, total=False):
     """Information about an alarm."""
 
-    name: Optional[AlarmName]
+    name: AlarmName | None
 
 
-AlarmList = List[Alarm]
+AlarmList = list[Alarm]
 
 
 class AlarmConfiguration(TypedDict, total=False):
@@ -1379,9 +1379,9 @@ class AlarmConfiguration(TypedDict, total=False):
     group.
     """
 
-    enabled: Optional[Boolean]
-    ignorePollAlarmFailure: Optional[Boolean]
-    alarms: Optional[AlarmList]
+    enabled: Boolean | None
+    ignorePollAlarmFailure: Boolean | None
+    alarms: AlarmList | None
 
 
 class AppSpecContent(TypedDict, total=False):
@@ -1391,8 +1391,8 @@ class AppSpecContent(TypedDict, total=False):
     replaces the deprecated ``RawString`` data type.
     """
 
-    content: Optional[RawStringContent]
-    sha256: Optional[RawStringSha256]
+    content: RawStringContent | None
+    sha256: RawStringSha256 | None
 
 
 Timestamp = datetime
@@ -1401,17 +1401,17 @@ Timestamp = datetime
 class ApplicationInfo(TypedDict, total=False):
     """Information about an application."""
 
-    applicationId: Optional[ApplicationId]
-    applicationName: Optional[ApplicationName]
-    createTime: Optional[Timestamp]
-    linkedToGitHub: Optional[Boolean]
-    gitHubAccountName: Optional[GitHubAccountTokenName]
-    computePlatform: Optional[ComputePlatform]
+    applicationId: ApplicationId | None
+    applicationName: ApplicationName | None
+    createTime: Timestamp | None
+    linkedToGitHub: Boolean | None
+    gitHubAccountName: GitHubAccountTokenName | None
+    computePlatform: ComputePlatform | None
 
 
-ApplicationsInfoList = List[ApplicationInfo]
-ApplicationsList = List[ApplicationName]
-AutoRollbackEventsList = List[AutoRollbackEvent]
+ApplicationsInfoList = list[ApplicationInfo]
+ApplicationsList = list[ApplicationName]
+AutoRollbackEventsList = list[AutoRollbackEvent]
 
 
 class AutoRollbackConfiguration(TypedDict, total=False):
@@ -1420,20 +1420,20 @@ class AutoRollbackConfiguration(TypedDict, total=False):
     completed successfully.
     """
 
-    enabled: Optional[Boolean]
-    events: Optional[AutoRollbackEventsList]
+    enabled: Boolean | None
+    events: AutoRollbackEventsList | None
 
 
 class AutoScalingGroup(TypedDict, total=False):
     """Information about an Auto Scaling group."""
 
-    name: Optional[AutoScalingGroupName]
-    hook: Optional[AutoScalingGroupHook]
-    terminationHook: Optional[AutoScalingGroupHook]
+    name: AutoScalingGroupName | None
+    hook: AutoScalingGroupHook | None
+    terminationHook: AutoScalingGroupHook | None
 
 
-AutoScalingGroupList = List[AutoScalingGroup]
-AutoScalingGroupNameList = List[AutoScalingGroupName]
+AutoScalingGroupList = list[AutoScalingGroup]
+AutoScalingGroupNameList = list[AutoScalingGroupName]
 
 
 class RawString(TypedDict, total=False):
@@ -1442,8 +1442,8 @@ class RawString(TypedDict, total=False):
     as the AppSpec file.
     """
 
-    content: Optional[RawStringContent]
-    sha256: Optional[RawStringSha256]
+    content: RawStringContent | None
+    sha256: RawStringSha256 | None
 
 
 class GitHubLocation(TypedDict, total=False):
@@ -1451,8 +1451,8 @@ class GitHubLocation(TypedDict, total=False):
     GitHub.
     """
 
-    repository: Optional[Repository]
-    commitId: Optional[CommitId]
+    repository: Repository | None
+    commitId: CommitId | None
 
 
 class S3Location(TypedDict, total=False):
@@ -1460,24 +1460,24 @@ class S3Location(TypedDict, total=False):
     S3.
     """
 
-    bucket: Optional[S3Bucket]
-    key: Optional[S3Key]
-    bundleType: Optional[BundleType]
-    version: Optional[VersionId]
-    eTag: Optional[ETag]
+    bucket: S3Bucket | None
+    key: S3Key | None
+    bundleType: BundleType | None
+    version: VersionId | None
+    eTag: ETag | None
 
 
 class RevisionLocation(TypedDict, total=False):
     """Information about the location of an application revision."""
 
-    revisionType: Optional[RevisionLocationType]
-    s3Location: Optional[S3Location]
-    gitHubLocation: Optional[GitHubLocation]
-    string: Optional[RawString]
-    appSpecContent: Optional[AppSpecContent]
+    revisionType: RevisionLocationType | None
+    s3Location: S3Location | None
+    gitHubLocation: GitHubLocation | None
+    string: RawString | None
+    appSpecContent: AppSpecContent | None
 
 
-RevisionLocationList = List[RevisionLocation]
+RevisionLocationList = list[RevisionLocation]
 
 
 class BatchGetApplicationRevisionsInput(ServiceRequest):
@@ -1487,35 +1487,35 @@ class BatchGetApplicationRevisionsInput(ServiceRequest):
     revisions: RevisionLocationList
 
 
-DeploymentGroupsList = List[DeploymentGroupName]
+DeploymentGroupsList = list[DeploymentGroupName]
 
 
 class GenericRevisionInfo(TypedDict, total=False):
     """Information about an application revision."""
 
-    description: Optional[Description]
-    deploymentGroups: Optional[DeploymentGroupsList]
-    firstUsedTime: Optional[Timestamp]
-    lastUsedTime: Optional[Timestamp]
-    registerTime: Optional[Timestamp]
+    description: Description | None
+    deploymentGroups: DeploymentGroupsList | None
+    firstUsedTime: Timestamp | None
+    lastUsedTime: Timestamp | None
+    registerTime: Timestamp | None
 
 
 class RevisionInfo(TypedDict, total=False):
     """Information about an application revision."""
 
-    revisionLocation: Optional[RevisionLocation]
-    genericRevisionInfo: Optional[GenericRevisionInfo]
+    revisionLocation: RevisionLocation | None
+    genericRevisionInfo: GenericRevisionInfo | None
 
 
-RevisionInfoList = List[RevisionInfo]
+RevisionInfoList = list[RevisionInfo]
 
 
 class BatchGetApplicationRevisionsOutput(TypedDict, total=False):
     """Represents the output of a ``BatchGetApplicationRevisions`` operation."""
 
-    applicationName: Optional[ApplicationName]
-    errorMessage: Optional[ErrorMessage]
-    revisions: Optional[RevisionInfoList]
+    applicationName: ApplicationName | None
+    errorMessage: ErrorMessage | None
+    revisions: RevisionInfoList | None
 
 
 class BatchGetApplicationsInput(ServiceRequest):
@@ -1527,7 +1527,7 @@ class BatchGetApplicationsInput(ServiceRequest):
 class BatchGetApplicationsOutput(TypedDict, total=False):
     """Represents the output of a ``BatchGetApplications`` operation."""
 
-    applicationsInfo: Optional[ApplicationsInfoList]
+    applicationsInfo: ApplicationsInfoList | None
 
 
 class BatchGetDeploymentGroupsInput(ServiceRequest):
@@ -1542,47 +1542,47 @@ class ECSService(TypedDict, total=False):
     deployment's target.
     """
 
-    serviceName: Optional[ECSServiceName]
-    clusterName: Optional[ECSClusterName]
+    serviceName: ECSServiceName | None
+    clusterName: ECSClusterName | None
 
 
-ECSServiceList = List[ECSService]
+ECSServiceList = list[ECSService]
 
 
 class TagFilter(TypedDict, total=False):
     """Information about an on-premises instance tag filter."""
 
-    Key: Optional[Key]
-    Value: Optional[Value]
-    Type: Optional[TagFilterType]
+    Key: Key | None
+    Value: Value | None
+    Type: TagFilterType | None
 
 
-TagFilterList = List[TagFilter]
-OnPremisesTagSetList = List[TagFilterList]
+TagFilterList = list[TagFilter]
+OnPremisesTagSetList = list[TagFilterList]
 
 
 class OnPremisesTagSet(TypedDict, total=False):
     """Information about groups of on-premises instance tags."""
 
-    onPremisesTagSetList: Optional[OnPremisesTagSetList]
+    onPremisesTagSetList: OnPremisesTagSetList | None
 
 
 class EC2TagFilter(TypedDict, total=False):
     """Information about an EC2 tag filter."""
 
-    Key: Optional[Key]
-    Value: Optional[Value]
-    Type: Optional[EC2TagFilterType]
+    Key: Key | None
+    Value: Value | None
+    Type: EC2TagFilterType | None
 
 
-EC2TagFilterList = List[EC2TagFilter]
-EC2TagSetList = List[EC2TagFilterList]
+EC2TagFilterList = list[EC2TagFilter]
+EC2TagSetList = list[EC2TagFilterList]
 
 
 class EC2TagSet(TypedDict, total=False):
     """Information about groups of Amazon EC2 instance tags."""
 
-    ec2TagSetList: Optional[EC2TagSetList]
+    ec2TagSetList: EC2TagSetList | None
 
 
 class LastDeploymentInfo(TypedDict, total=False):
@@ -1590,13 +1590,13 @@ class LastDeploymentInfo(TypedDict, total=False):
     a deployment group.
     """
 
-    deploymentId: Optional[DeploymentId]
-    status: Optional[DeploymentStatus]
-    endTime: Optional[Timestamp]
-    createTime: Optional[Timestamp]
+    deploymentId: DeploymentId | None
+    status: DeploymentStatus | None
+    endTime: Timestamp | None
+    createTime: Timestamp | None
 
 
-ListenerArnList = List[ListenerArn]
+ListenerArnList = list[ListenerArn]
 
 
 class TrafficRoute(TypedDict, total=False):
@@ -1604,7 +1604,7 @@ class TrafficRoute(TypedDict, total=False):
     route traffic that is received from the load balancer to a target group.
     """
 
-    listenerArns: Optional[ListenerArnList]
+    listenerArns: ListenerArnList | None
 
 
 class TargetGroupInfo(TypedDict, total=False):
@@ -1613,10 +1613,10 @@ class TargetGroupInfo(TypedDict, total=False):
     traffic is routed to the target group.
     """
 
-    name: Optional[TargetGroupName]
+    name: TargetGroupName | None
 
 
-TargetGroupInfoList = List[TargetGroupInfo]
+TargetGroupInfoList = list[TargetGroupInfo]
 
 
 class TargetGroupPairInfo(TypedDict, total=False):
@@ -1624,12 +1624,12 @@ class TargetGroupPairInfo(TypedDict, total=False):
     Amazon ECS deployment. An optional test traffic route can be specified.
     """
 
-    targetGroups: Optional[TargetGroupInfoList]
-    prodTrafficRoute: Optional[TrafficRoute]
-    testTrafficRoute: Optional[TrafficRoute]
+    targetGroups: TargetGroupInfoList | None
+    prodTrafficRoute: TrafficRoute | None
+    testTrafficRoute: TrafficRoute | None
 
 
-TargetGroupPairInfoList = List[TargetGroupPairInfo]
+TargetGroupPairInfoList = list[TargetGroupPairInfo]
 
 
 class ELBInfo(TypedDict, total=False):
@@ -1638,10 +1638,10 @@ class ELBInfo(TypedDict, total=False):
     balancer, and traffic is routed to the load balancer.
     """
 
-    name: Optional[ELBName]
+    name: ELBName | None
 
 
-ELBInfoList = List[ELBInfo]
+ELBInfoList = list[ELBInfo]
 
 
 class LoadBalancerInfo(TypedDict, total=False):
@@ -1655,9 +1655,9 @@ class LoadBalancerInfo(TypedDict, total=False):
     ``targetGroupInfoList``.
     """
 
-    elbInfoList: Optional[ELBInfoList]
-    targetGroupInfoList: Optional[TargetGroupInfoList]
-    targetGroupPairInfoList: Optional[TargetGroupPairInfoList]
+    elbInfoList: ELBInfoList | None
+    targetGroupInfoList: TargetGroupInfoList | None
+    targetGroupPairInfoList: TargetGroupPairInfoList | None
 
 
 class GreenFleetProvisioningOption(TypedDict, total=False):
@@ -1665,7 +1665,7 @@ class GreenFleetProvisioningOption(TypedDict, total=False):
     environment in a blue/green deployment.
     """
 
-    action: Optional[GreenFleetProvisioningAction]
+    action: GreenFleetProvisioningAction | None
 
 
 class DeploymentReadyOption(TypedDict, total=False):
@@ -1673,8 +1673,8 @@ class DeploymentReadyOption(TypedDict, total=False):
     environment in a blue/green deployment.
     """
 
-    actionOnTimeout: Optional[DeploymentReadyAction]
-    waitTimeInMinutes: Optional[Duration]
+    actionOnTimeout: DeploymentReadyAction | None
+    waitTimeInMinutes: Duration | None
 
 
 class BlueInstanceTerminationOption(TypedDict, total=False):
@@ -1683,16 +1683,16 @@ class BlueInstanceTerminationOption(TypedDict, total=False):
     ``BlueInstanceTerminationOption`` does not apply to Lambda deployments.
     """
 
-    action: Optional[InstanceAction]
-    terminationWaitTimeInMinutes: Optional[Duration]
+    action: InstanceAction | None
+    terminationWaitTimeInMinutes: Duration | None
 
 
 class BlueGreenDeploymentConfiguration(TypedDict, total=False):
     """Information about blue/green deployment options for a deployment group."""
 
-    terminateBlueInstancesOnDeploymentSuccess: Optional[BlueInstanceTerminationOption]
-    deploymentReadyOption: Optional[DeploymentReadyOption]
-    greenFleetProvisioningOption: Optional[GreenFleetProvisioningOption]
+    terminateBlueInstancesOnDeploymentSuccess: BlueInstanceTerminationOption | None
+    deploymentReadyOption: DeploymentReadyOption | None
+    greenFleetProvisioningOption: GreenFleetProvisioningOption | None
 
 
 class DeploymentStyle(TypedDict, total=False):
@@ -1701,63 +1701,63 @@ class DeploymentStyle(TypedDict, total=False):
     balancer.
     """
 
-    deploymentType: Optional[DeploymentType]
-    deploymentOption: Optional[DeploymentOption]
+    deploymentType: DeploymentType | None
+    deploymentOption: DeploymentOption | None
 
 
-TriggerEventTypeList = List[TriggerEventType]
+TriggerEventTypeList = list[TriggerEventType]
 
 
 class TriggerConfig(TypedDict, total=False):
     """Information about notification triggers for the deployment group."""
 
-    triggerName: Optional[TriggerName]
-    triggerTargetArn: Optional[TriggerTargetArn]
-    triggerEvents: Optional[TriggerEventTypeList]
+    triggerName: TriggerName | None
+    triggerTargetArn: TriggerTargetArn | None
+    triggerEvents: TriggerEventTypeList | None
 
 
-TriggerConfigList = List[TriggerConfig]
+TriggerConfigList = list[TriggerConfig]
 
 
 class DeploymentGroupInfo(TypedDict, total=False):
     """Information about a deployment group."""
 
-    applicationName: Optional[ApplicationName]
-    deploymentGroupId: Optional[DeploymentGroupId]
-    deploymentGroupName: Optional[DeploymentGroupName]
-    deploymentConfigName: Optional[DeploymentConfigName]
-    ec2TagFilters: Optional[EC2TagFilterList]
-    onPremisesInstanceTagFilters: Optional[TagFilterList]
-    autoScalingGroups: Optional[AutoScalingGroupList]
-    serviceRoleArn: Optional[Role]
-    targetRevision: Optional[RevisionLocation]
-    triggerConfigurations: Optional[TriggerConfigList]
-    alarmConfiguration: Optional[AlarmConfiguration]
-    autoRollbackConfiguration: Optional[AutoRollbackConfiguration]
-    deploymentStyle: Optional[DeploymentStyle]
-    outdatedInstancesStrategy: Optional[OutdatedInstancesStrategy]
-    blueGreenDeploymentConfiguration: Optional[BlueGreenDeploymentConfiguration]
-    loadBalancerInfo: Optional[LoadBalancerInfo]
-    lastSuccessfulDeployment: Optional[LastDeploymentInfo]
-    lastAttemptedDeployment: Optional[LastDeploymentInfo]
-    ec2TagSet: Optional[EC2TagSet]
-    onPremisesTagSet: Optional[OnPremisesTagSet]
-    computePlatform: Optional[ComputePlatform]
-    ecsServices: Optional[ECSServiceList]
-    terminationHookEnabled: Optional[Boolean]
+    applicationName: ApplicationName | None
+    deploymentGroupId: DeploymentGroupId | None
+    deploymentGroupName: DeploymentGroupName | None
+    deploymentConfigName: DeploymentConfigName | None
+    ec2TagFilters: EC2TagFilterList | None
+    onPremisesInstanceTagFilters: TagFilterList | None
+    autoScalingGroups: AutoScalingGroupList | None
+    serviceRoleArn: Role | None
+    targetRevision: RevisionLocation | None
+    triggerConfigurations: TriggerConfigList | None
+    alarmConfiguration: AlarmConfiguration | None
+    autoRollbackConfiguration: AutoRollbackConfiguration | None
+    deploymentStyle: DeploymentStyle | None
+    outdatedInstancesStrategy: OutdatedInstancesStrategy | None
+    blueGreenDeploymentConfiguration: BlueGreenDeploymentConfiguration | None
+    loadBalancerInfo: LoadBalancerInfo | None
+    lastSuccessfulDeployment: LastDeploymentInfo | None
+    lastAttemptedDeployment: LastDeploymentInfo | None
+    ec2TagSet: EC2TagSet | None
+    onPremisesTagSet: OnPremisesTagSet | None
+    computePlatform: ComputePlatform | None
+    ecsServices: ECSServiceList | None
+    terminationHookEnabled: Boolean | None
 
 
-DeploymentGroupInfoList = List[DeploymentGroupInfo]
+DeploymentGroupInfoList = list[DeploymentGroupInfo]
 
 
 class BatchGetDeploymentGroupsOutput(TypedDict, total=False):
     """Represents the output of a ``BatchGetDeploymentGroups`` operation."""
 
-    deploymentGroupsInfo: Optional[DeploymentGroupInfoList]
-    errorMessage: Optional[ErrorMessage]
+    deploymentGroupsInfo: DeploymentGroupInfoList | None
+    errorMessage: ErrorMessage | None
 
 
-InstancesList = List[InstanceId]
+InstancesList = list[InstanceId]
 
 
 class BatchGetDeploymentInstancesInput(ServiceRequest):
@@ -1772,47 +1772,47 @@ class Diagnostics(TypedDict, total=False):
     deployment.
     """
 
-    errorCode: Optional[LifecycleErrorCode]
-    scriptName: Optional[ScriptName]
-    message: Optional[LifecycleMessage]
-    logTail: Optional[LogTail]
+    errorCode: LifecycleErrorCode | None
+    scriptName: ScriptName | None
+    message: LifecycleMessage | None
+    logTail: LogTail | None
 
 
 class LifecycleEvent(TypedDict, total=False):
     """Information about a deployment lifecycle event."""
 
-    lifecycleEventName: Optional[LifecycleEventName]
-    diagnostics: Optional[Diagnostics]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    status: Optional[LifecycleEventStatus]
+    lifecycleEventName: LifecycleEventName | None
+    diagnostics: Diagnostics | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    status: LifecycleEventStatus | None
 
 
-LifecycleEventList = List[LifecycleEvent]
+LifecycleEventList = list[LifecycleEvent]
 
 
 class InstanceSummary(TypedDict, total=False):
     """Information about an instance in a deployment."""
 
-    deploymentId: Optional[DeploymentId]
-    instanceId: Optional[InstanceId]
-    status: Optional[InstanceStatus]
-    lastUpdatedAt: Optional[Timestamp]
-    lifecycleEvents: Optional[LifecycleEventList]
-    instanceType: Optional[InstanceType]
+    deploymentId: DeploymentId | None
+    instanceId: InstanceId | None
+    status: InstanceStatus | None
+    lastUpdatedAt: Timestamp | None
+    lifecycleEvents: LifecycleEventList | None
+    instanceType: InstanceType | None
 
 
-InstanceSummaryList = List[InstanceSummary]
+InstanceSummaryList = list[InstanceSummary]
 
 
 class BatchGetDeploymentInstancesOutput(TypedDict, total=False):
     """Represents the output of a ``BatchGetDeploymentInstances`` operation."""
 
-    instancesSummary: Optional[InstanceSummaryList]
-    errorMessage: Optional[ErrorMessage]
+    instancesSummary: InstanceSummaryList | None
+    errorMessage: ErrorMessage | None
 
 
-TargetIdList = List[TargetId]
+TargetIdList = list[TargetId]
 
 
 class BatchGetDeploymentTargetsInput(ServiceRequest):
@@ -1829,13 +1829,13 @@ class CloudFormationTarget(TypedDict, total=False):
     initiated by a CloudFormation stack update.
     """
 
-    deploymentId: Optional[DeploymentId]
-    targetId: Optional[TargetId]
-    lastUpdatedAt: Optional[Time]
-    lifecycleEvents: Optional[LifecycleEventList]
-    status: Optional[TargetStatus]
-    resourceType: Optional[CloudFormationResourceType]
-    targetVersionWeight: Optional[TrafficWeight]
+    deploymentId: DeploymentId | None
+    targetId: TargetId | None
+    lastUpdatedAt: Time | None
+    lifecycleEvents: LifecycleEventList | None
+    status: TargetStatus | None
+    resourceType: CloudFormationResourceType | None
+    targetVersionWeight: TrafficWeight | None
 
 
 ECSTaskSetCount = int
@@ -1850,39 +1850,39 @@ class ECSTaskSet(TypedDict, total=False):
     service as a task set.
     """
 
-    identifer: Optional[ECSTaskSetIdentifier]
-    desiredCount: Optional[ECSTaskSetCount]
-    pendingCount: Optional[ECSTaskSetCount]
-    runningCount: Optional[ECSTaskSetCount]
-    status: Optional[ECSTaskSetStatus]
-    trafficWeight: Optional[TrafficWeight]
-    targetGroup: Optional[TargetGroupInfo]
-    taskSetLabel: Optional[TargetLabel]
+    identifer: ECSTaskSetIdentifier | None
+    desiredCount: ECSTaskSetCount | None
+    pendingCount: ECSTaskSetCount | None
+    runningCount: ECSTaskSetCount | None
+    status: ECSTaskSetStatus | None
+    trafficWeight: TrafficWeight | None
+    targetGroup: TargetGroupInfo | None
+    taskSetLabel: TargetLabel | None
 
 
-ECSTaskSetList = List[ECSTaskSet]
+ECSTaskSetList = list[ECSTaskSet]
 
 
 class ECSTarget(TypedDict, total=False):
     """Information about the target of an Amazon ECS deployment."""
 
-    deploymentId: Optional[DeploymentId]
-    targetId: Optional[TargetId]
-    targetArn: Optional[TargetArn]
-    lastUpdatedAt: Optional[Time]
-    lifecycleEvents: Optional[LifecycleEventList]
-    status: Optional[TargetStatus]
-    taskSetsInfo: Optional[ECSTaskSetList]
+    deploymentId: DeploymentId | None
+    targetId: TargetId | None
+    targetArn: TargetArn | None
+    lastUpdatedAt: Time | None
+    lifecycleEvents: LifecycleEventList | None
+    status: TargetStatus | None
+    taskSetsInfo: ECSTaskSetList | None
 
 
 class LambdaFunctionInfo(TypedDict, total=False):
     """Information about a Lambda function specified in a deployment."""
 
-    functionName: Optional[LambdaFunctionName]
-    functionAlias: Optional[LambdaFunctionAlias]
-    currentVersion: Optional[Version]
-    targetVersion: Optional[Version]
-    targetVersionWeight: Optional[TrafficWeight]
+    functionName: LambdaFunctionName | None
+    functionAlias: LambdaFunctionAlias | None
+    currentVersion: Version | None
+    targetVersion: Version | None
+    targetVersionWeight: TrafficWeight | None
 
 
 class LambdaTarget(TypedDict, total=False):
@@ -1890,13 +1890,13 @@ class LambdaTarget(TypedDict, total=False):
     deployment.
     """
 
-    deploymentId: Optional[DeploymentId]
-    targetId: Optional[TargetId]
-    targetArn: Optional[TargetArn]
-    status: Optional[TargetStatus]
-    lastUpdatedAt: Optional[Time]
-    lifecycleEvents: Optional[LifecycleEventList]
-    lambdaFunctionInfo: Optional[LambdaFunctionInfo]
+    deploymentId: DeploymentId | None
+    targetId: TargetId | None
+    targetArn: TargetArn | None
+    status: TargetStatus | None
+    lastUpdatedAt: Time | None
+    lifecycleEvents: LifecycleEventList | None
+    lambdaFunctionInfo: LambdaFunctionInfo | None
 
 
 class InstanceTarget(TypedDict, total=False):
@@ -1904,33 +1904,33 @@ class InstanceTarget(TypedDict, total=False):
     uses the EC2/On-premises compute platform.
     """
 
-    deploymentId: Optional[DeploymentId]
-    targetId: Optional[TargetId]
-    targetArn: Optional[TargetArn]
-    status: Optional[TargetStatus]
-    lastUpdatedAt: Optional[Time]
-    lifecycleEvents: Optional[LifecycleEventList]
-    instanceLabel: Optional[TargetLabel]
+    deploymentId: DeploymentId | None
+    targetId: TargetId | None
+    targetArn: TargetArn | None
+    status: TargetStatus | None
+    lastUpdatedAt: Time | None
+    lifecycleEvents: LifecycleEventList | None
+    instanceLabel: TargetLabel | None
 
 
 class DeploymentTarget(TypedDict, total=False):
     """Information about the deployment target."""
 
-    deploymentTargetType: Optional[DeploymentTargetType]
-    instanceTarget: Optional[InstanceTarget]
-    lambdaTarget: Optional[LambdaTarget]
-    ecsTarget: Optional[ECSTarget]
-    cloudFormationTarget: Optional[CloudFormationTarget]
+    deploymentTargetType: DeploymentTargetType | None
+    instanceTarget: InstanceTarget | None
+    lambdaTarget: LambdaTarget | None
+    ecsTarget: ECSTarget | None
+    cloudFormationTarget: CloudFormationTarget | None
 
 
-DeploymentTargetList = List[DeploymentTarget]
+DeploymentTargetList = list[DeploymentTarget]
 
 
 class BatchGetDeploymentTargetsOutput(TypedDict, total=False):
-    deploymentTargets: Optional[DeploymentTargetList]
+    deploymentTargets: DeploymentTargetList | None
 
 
-DeploymentsList = List[DeploymentId]
+DeploymentsList = list[DeploymentId]
 
 
 class BatchGetDeploymentsInput(ServiceRequest):
@@ -1942,11 +1942,11 @@ class BatchGetDeploymentsInput(ServiceRequest):
 class RelatedDeployments(TypedDict, total=False):
     """Information about deployments related to the specified deployment."""
 
-    autoUpdateOutdatedInstancesRootDeploymentId: Optional[DeploymentId]
-    autoUpdateOutdatedInstancesDeploymentIds: Optional[DeploymentsList]
+    autoUpdateOutdatedInstancesRootDeploymentId: DeploymentId | None
+    autoUpdateOutdatedInstancesDeploymentIds: DeploymentsList | None
 
 
-DeploymentStatusMessageList = List[ErrorMessage]
+DeploymentStatusMessageList = list[ErrorMessage]
 
 
 class TargetInstances(TypedDict, total=False):
@@ -1954,17 +1954,17 @@ class TargetInstances(TypedDict, total=False):
     environment in a blue/green deployment.
     """
 
-    tagFilters: Optional[EC2TagFilterList]
-    autoScalingGroups: Optional[AutoScalingGroupNameList]
-    ec2TagSet: Optional[EC2TagSet]
+    tagFilters: EC2TagFilterList | None
+    autoScalingGroups: AutoScalingGroupNameList | None
+    ec2TagSet: EC2TagSet | None
 
 
 class RollbackInfo(TypedDict, total=False):
     """Information about a deployment rollback."""
 
-    rollbackDeploymentId: Optional[DeploymentId]
-    rollbackTriggeringDeploymentId: Optional[DeploymentId]
-    rollbackMessage: Optional[Description]
+    rollbackDeploymentId: DeploymentId | None
+    rollbackTriggeringDeploymentId: DeploymentId | None
+    rollbackMessage: Description | None
 
 
 InstanceCount = int
@@ -1975,63 +1975,63 @@ class DeploymentOverview(TypedDict, total=False):
     deployment.
     """
 
-    Pending: Optional[InstanceCount]
-    InProgress: Optional[InstanceCount]
-    Succeeded: Optional[InstanceCount]
-    Failed: Optional[InstanceCount]
-    Skipped: Optional[InstanceCount]
-    Ready: Optional[InstanceCount]
+    Pending: InstanceCount | None
+    InProgress: InstanceCount | None
+    Succeeded: InstanceCount | None
+    Failed: InstanceCount | None
+    Skipped: InstanceCount | None
+    Ready: InstanceCount | None
 
 
 class ErrorInformation(TypedDict, total=False):
     """Information about a deployment error."""
 
-    code: Optional[ErrorCode]
-    message: Optional[ErrorMessage]
+    code: ErrorCode | None
+    message: ErrorMessage | None
 
 
 class DeploymentInfo(TypedDict, total=False):
     """Information about a deployment."""
 
-    applicationName: Optional[ApplicationName]
-    deploymentGroupName: Optional[DeploymentGroupName]
-    deploymentConfigName: Optional[DeploymentConfigName]
-    deploymentId: Optional[DeploymentId]
-    previousRevision: Optional[RevisionLocation]
-    revision: Optional[RevisionLocation]
-    status: Optional[DeploymentStatus]
-    errorInformation: Optional[ErrorInformation]
-    createTime: Optional[Timestamp]
-    startTime: Optional[Timestamp]
-    completeTime: Optional[Timestamp]
-    deploymentOverview: Optional[DeploymentOverview]
-    description: Optional[Description]
-    creator: Optional[DeploymentCreator]
-    ignoreApplicationStopFailures: Optional[Boolean]
-    autoRollbackConfiguration: Optional[AutoRollbackConfiguration]
-    updateOutdatedInstancesOnly: Optional[Boolean]
-    rollbackInfo: Optional[RollbackInfo]
-    deploymentStyle: Optional[DeploymentStyle]
-    targetInstances: Optional[TargetInstances]
-    instanceTerminationWaitTimeStarted: Optional[Boolean]
-    blueGreenDeploymentConfiguration: Optional[BlueGreenDeploymentConfiguration]
-    loadBalancerInfo: Optional[LoadBalancerInfo]
-    additionalDeploymentStatusInfo: Optional[AdditionalDeploymentStatusInfo]
-    fileExistsBehavior: Optional[FileExistsBehavior]
-    deploymentStatusMessages: Optional[DeploymentStatusMessageList]
-    computePlatform: Optional[ComputePlatform]
-    externalId: Optional[ExternalId]
-    relatedDeployments: Optional[RelatedDeployments]
-    overrideAlarmConfiguration: Optional[AlarmConfiguration]
+    applicationName: ApplicationName | None
+    deploymentGroupName: DeploymentGroupName | None
+    deploymentConfigName: DeploymentConfigName | None
+    deploymentId: DeploymentId | None
+    previousRevision: RevisionLocation | None
+    revision: RevisionLocation | None
+    status: DeploymentStatus | None
+    errorInformation: ErrorInformation | None
+    createTime: Timestamp | None
+    startTime: Timestamp | None
+    completeTime: Timestamp | None
+    deploymentOverview: DeploymentOverview | None
+    description: Description | None
+    creator: DeploymentCreator | None
+    ignoreApplicationStopFailures: Boolean | None
+    autoRollbackConfiguration: AutoRollbackConfiguration | None
+    updateOutdatedInstancesOnly: Boolean | None
+    rollbackInfo: RollbackInfo | None
+    deploymentStyle: DeploymentStyle | None
+    targetInstances: TargetInstances | None
+    instanceTerminationWaitTimeStarted: Boolean | None
+    blueGreenDeploymentConfiguration: BlueGreenDeploymentConfiguration | None
+    loadBalancerInfo: LoadBalancerInfo | None
+    additionalDeploymentStatusInfo: AdditionalDeploymentStatusInfo | None
+    fileExistsBehavior: FileExistsBehavior | None
+    deploymentStatusMessages: DeploymentStatusMessageList | None
+    computePlatform: ComputePlatform | None
+    externalId: ExternalId | None
+    relatedDeployments: RelatedDeployments | None
+    overrideAlarmConfiguration: AlarmConfiguration | None
 
 
-DeploymentsInfoList = List[DeploymentInfo]
+DeploymentsInfoList = list[DeploymentInfo]
 
 
 class BatchGetDeploymentsOutput(TypedDict, total=False):
     """Represents the output of a ``BatchGetDeployments`` operation."""
 
-    deploymentsInfo: Optional[DeploymentsInfoList]
+    deploymentsInfo: DeploymentsInfoList | None
 
 
 class BatchGetOnPremisesInstancesInput(ServiceRequest):
@@ -2043,46 +2043,46 @@ class BatchGetOnPremisesInstancesInput(ServiceRequest):
 class InstanceInfo(TypedDict, total=False):
     """Information about an on-premises instance."""
 
-    instanceName: Optional[InstanceName]
-    iamSessionArn: Optional[IamSessionArn]
-    iamUserArn: Optional[IamUserArn]
-    instanceArn: Optional[InstanceArn]
-    registerTime: Optional[Timestamp]
-    deregisterTime: Optional[Timestamp]
-    tags: Optional[TagList]
+    instanceName: InstanceName | None
+    iamSessionArn: IamSessionArn | None
+    iamUserArn: IamUserArn | None
+    instanceArn: InstanceArn | None
+    registerTime: Timestamp | None
+    deregisterTime: Timestamp | None
+    tags: TagList | None
 
 
-InstanceInfoList = List[InstanceInfo]
+InstanceInfoList = list[InstanceInfo]
 
 
 class BatchGetOnPremisesInstancesOutput(TypedDict, total=False):
     """Represents the output of a ``BatchGetOnPremisesInstances`` operation."""
 
-    instanceInfos: Optional[InstanceInfoList]
+    instanceInfos: InstanceInfoList | None
 
 
 class ContinueDeploymentInput(ServiceRequest):
-    deploymentId: Optional[DeploymentId]
-    deploymentWaitType: Optional[DeploymentWaitType]
+    deploymentId: DeploymentId | None
+    deploymentWaitType: DeploymentWaitType | None
 
 
 class CreateApplicationInput(ServiceRequest):
     """Represents the input of a ``CreateApplication`` operation."""
 
     applicationName: ApplicationName
-    computePlatform: Optional[ComputePlatform]
-    tags: Optional[TagList]
+    computePlatform: ComputePlatform | None
+    tags: TagList | None
 
 
 class CreateApplicationOutput(TypedDict, total=False):
     """Represents the output of a ``CreateApplication`` operation."""
 
-    applicationId: Optional[ApplicationId]
+    applicationId: ApplicationId | None
 
 
 class MinimumHealthyHostsPerZone(TypedDict, total=False):
-    type: Optional[MinimumHealthyHostsPerZoneType]
-    value: Optional[MinimumHealthyHostsPerZoneValue]
+    type: MinimumHealthyHostsPerZoneType | None
+    value: MinimumHealthyHostsPerZoneValue | None
 
 
 WaitTimeInSeconds = int
@@ -2104,9 +2104,9 @@ class ZonalConfig(TypedDict, total=False):
     in the *CodeDeploy User Guide*.
     """
 
-    firstZoneMonitorDurationInSeconds: Optional[WaitTimeInSeconds]
-    monitorDurationInSeconds: Optional[WaitTimeInSeconds]
-    minimumHealthyHostsPerZone: Optional[MinimumHealthyHostsPerZone]
+    firstZoneMonitorDurationInSeconds: WaitTimeInSeconds | None
+    monitorDurationInSeconds: WaitTimeInSeconds | None
+    minimumHealthyHostsPerZone: MinimumHealthyHostsPerZone | None
 
 
 class TimeBasedLinear(TypedDict, total=False):
@@ -2117,8 +2117,8 @@ class TimeBasedLinear(TypedDict, total=False):
     AppSpec file.
     """
 
-    linearPercentage: Optional[Percentage]
-    linearInterval: Optional[WaitTimeInMins]
+    linearPercentage: Percentage | None
+    linearInterval: WaitTimeInMins | None
 
 
 class TimeBasedCanary(TypedDict, total=False):
@@ -2128,35 +2128,35 @@ class TimeBasedCanary(TypedDict, total=False):
     specified in the deployment's AppSpec file.
     """
 
-    canaryPercentage: Optional[Percentage]
-    canaryInterval: Optional[WaitTimeInMins]
+    canaryPercentage: Percentage | None
+    canaryInterval: WaitTimeInMins | None
 
 
 class TrafficRoutingConfig(TypedDict, total=False):
-    type: Optional[TrafficRoutingType]
-    timeBasedCanary: Optional[TimeBasedCanary]
-    timeBasedLinear: Optional[TimeBasedLinear]
+    type: TrafficRoutingType | None
+    timeBasedCanary: TimeBasedCanary | None
+    timeBasedLinear: TimeBasedLinear | None
 
 
 class MinimumHealthyHosts(TypedDict, total=False):
-    type: Optional[MinimumHealthyHostsType]
-    value: Optional[MinimumHealthyHostsValue]
+    type: MinimumHealthyHostsType | None
+    value: MinimumHealthyHostsValue | None
 
 
 class CreateDeploymentConfigInput(ServiceRequest):
     """Represents the input of a ``CreateDeploymentConfig`` operation."""
 
     deploymentConfigName: DeploymentConfigName
-    minimumHealthyHosts: Optional[MinimumHealthyHosts]
-    trafficRoutingConfig: Optional[TrafficRoutingConfig]
-    computePlatform: Optional[ComputePlatform]
-    zonalConfig: Optional[ZonalConfig]
+    minimumHealthyHosts: MinimumHealthyHosts | None
+    trafficRoutingConfig: TrafficRoutingConfig | None
+    computePlatform: ComputePlatform | None
+    zonalConfig: ZonalConfig | None
 
 
 class CreateDeploymentConfigOutput(TypedDict, total=False):
     """Represents the output of a ``CreateDeploymentConfig`` operation."""
 
-    deploymentConfigId: Optional[DeploymentConfigId]
+    deploymentConfigId: DeploymentConfigId | None
 
 
 class CreateDeploymentGroupInput(ServiceRequest):
@@ -2164,51 +2164,51 @@ class CreateDeploymentGroupInput(ServiceRequest):
 
     applicationName: ApplicationName
     deploymentGroupName: DeploymentGroupName
-    deploymentConfigName: Optional[DeploymentConfigName]
-    ec2TagFilters: Optional[EC2TagFilterList]
-    onPremisesInstanceTagFilters: Optional[TagFilterList]
-    autoScalingGroups: Optional[AutoScalingGroupNameList]
+    deploymentConfigName: DeploymentConfigName | None
+    ec2TagFilters: EC2TagFilterList | None
+    onPremisesInstanceTagFilters: TagFilterList | None
+    autoScalingGroups: AutoScalingGroupNameList | None
     serviceRoleArn: Role
-    triggerConfigurations: Optional[TriggerConfigList]
-    alarmConfiguration: Optional[AlarmConfiguration]
-    autoRollbackConfiguration: Optional[AutoRollbackConfiguration]
-    outdatedInstancesStrategy: Optional[OutdatedInstancesStrategy]
-    deploymentStyle: Optional[DeploymentStyle]
-    blueGreenDeploymentConfiguration: Optional[BlueGreenDeploymentConfiguration]
-    loadBalancerInfo: Optional[LoadBalancerInfo]
-    ec2TagSet: Optional[EC2TagSet]
-    ecsServices: Optional[ECSServiceList]
-    onPremisesTagSet: Optional[OnPremisesTagSet]
-    tags: Optional[TagList]
-    terminationHookEnabled: Optional[NullableBoolean]
+    triggerConfigurations: TriggerConfigList | None
+    alarmConfiguration: AlarmConfiguration | None
+    autoRollbackConfiguration: AutoRollbackConfiguration | None
+    outdatedInstancesStrategy: OutdatedInstancesStrategy | None
+    deploymentStyle: DeploymentStyle | None
+    blueGreenDeploymentConfiguration: BlueGreenDeploymentConfiguration | None
+    loadBalancerInfo: LoadBalancerInfo | None
+    ec2TagSet: EC2TagSet | None
+    ecsServices: ECSServiceList | None
+    onPremisesTagSet: OnPremisesTagSet | None
+    tags: TagList | None
+    terminationHookEnabled: NullableBoolean | None
 
 
 class CreateDeploymentGroupOutput(TypedDict, total=False):
     """Represents the output of a ``CreateDeploymentGroup`` operation."""
 
-    deploymentGroupId: Optional[DeploymentGroupId]
+    deploymentGroupId: DeploymentGroupId | None
 
 
 class CreateDeploymentInput(ServiceRequest):
     """Represents the input of a ``CreateDeployment`` operation."""
 
     applicationName: ApplicationName
-    deploymentGroupName: Optional[DeploymentGroupName]
-    revision: Optional[RevisionLocation]
-    deploymentConfigName: Optional[DeploymentConfigName]
-    description: Optional[Description]
-    ignoreApplicationStopFailures: Optional[Boolean]
-    targetInstances: Optional[TargetInstances]
-    autoRollbackConfiguration: Optional[AutoRollbackConfiguration]
-    updateOutdatedInstancesOnly: Optional[Boolean]
-    fileExistsBehavior: Optional[FileExistsBehavior]
-    overrideAlarmConfiguration: Optional[AlarmConfiguration]
+    deploymentGroupName: DeploymentGroupName | None
+    revision: RevisionLocation | None
+    deploymentConfigName: DeploymentConfigName | None
+    description: Description | None
+    ignoreApplicationStopFailures: Boolean | None
+    targetInstances: TargetInstances | None
+    autoRollbackConfiguration: AutoRollbackConfiguration | None
+    updateOutdatedInstancesOnly: Boolean | None
+    fileExistsBehavior: FileExistsBehavior | None
+    overrideAlarmConfiguration: AlarmConfiguration | None
 
 
 class CreateDeploymentOutput(TypedDict, total=False):
     """Represents the output of a ``CreateDeployment`` operation."""
 
-    deploymentId: Optional[DeploymentId]
+    deploymentId: DeploymentId | None
 
 
 class DeleteApplicationInput(ServiceRequest):
@@ -2233,23 +2233,23 @@ class DeleteDeploymentGroupInput(ServiceRequest):
 class DeleteDeploymentGroupOutput(TypedDict, total=False):
     """Represents the output of a ``DeleteDeploymentGroup`` operation."""
 
-    hooksNotCleanedUp: Optional[AutoScalingGroupList]
+    hooksNotCleanedUp: AutoScalingGroupList | None
 
 
 class DeleteGitHubAccountTokenInput(ServiceRequest):
     """Represents the input of a ``DeleteGitHubAccount`` operation."""
 
-    tokenName: Optional[GitHubAccountTokenName]
+    tokenName: GitHubAccountTokenName | None
 
 
 class DeleteGitHubAccountTokenOutput(TypedDict, total=False):
     """Represents the output of a ``DeleteGitHubAccountToken`` operation."""
 
-    tokenName: Optional[GitHubAccountTokenName]
+    tokenName: GitHubAccountTokenName | None
 
 
 class DeleteResourcesByExternalIdInput(ServiceRequest):
-    externalId: Optional[ExternalId]
+    externalId: ExternalId | None
 
 
 class DeleteResourcesByExternalIdOutput(TypedDict, total=False):
@@ -2259,17 +2259,17 @@ class DeleteResourcesByExternalIdOutput(TypedDict, total=False):
 class DeploymentConfigInfo(TypedDict, total=False):
     """Information about a deployment configuration."""
 
-    deploymentConfigId: Optional[DeploymentConfigId]
-    deploymentConfigName: Optional[DeploymentConfigName]
-    minimumHealthyHosts: Optional[MinimumHealthyHosts]
-    createTime: Optional[Timestamp]
-    computePlatform: Optional[ComputePlatform]
-    trafficRoutingConfig: Optional[TrafficRoutingConfig]
-    zonalConfig: Optional[ZonalConfig]
+    deploymentConfigId: DeploymentConfigId | None
+    deploymentConfigName: DeploymentConfigName | None
+    minimumHealthyHosts: MinimumHealthyHosts | None
+    createTime: Timestamp | None
+    computePlatform: ComputePlatform | None
+    trafficRoutingConfig: TrafficRoutingConfig | None
+    zonalConfig: ZonalConfig | None
 
 
-DeploymentConfigsList = List[DeploymentConfigName]
-DeploymentStatusList = List[DeploymentStatus]
+DeploymentConfigsList = list[DeploymentConfigName]
+DeploymentStatusList = list[DeploymentStatus]
 
 
 class DeregisterOnPremisesInstanceInput(ServiceRequest):
@@ -2278,7 +2278,7 @@ class DeregisterOnPremisesInstanceInput(ServiceRequest):
     instanceName: InstanceName
 
 
-FilterValueList = List[FilterValue]
+FilterValueList = list[FilterValue]
 
 
 class GetApplicationInput(ServiceRequest):
@@ -2290,7 +2290,7 @@ class GetApplicationInput(ServiceRequest):
 class GetApplicationOutput(TypedDict, total=False):
     """Represents the output of a ``GetApplication`` operation."""
 
-    application: Optional[ApplicationInfo]
+    application: ApplicationInfo | None
 
 
 class GetApplicationRevisionInput(ServiceRequest):
@@ -2303,9 +2303,9 @@ class GetApplicationRevisionInput(ServiceRequest):
 class GetApplicationRevisionOutput(TypedDict, total=False):
     """Represents the output of a ``GetApplicationRevision`` operation."""
 
-    applicationName: Optional[ApplicationName]
-    revision: Optional[RevisionLocation]
-    revisionInfo: Optional[GenericRevisionInfo]
+    applicationName: ApplicationName | None
+    revision: RevisionLocation | None
+    revisionInfo: GenericRevisionInfo | None
 
 
 class GetDeploymentConfigInput(ServiceRequest):
@@ -2317,7 +2317,7 @@ class GetDeploymentConfigInput(ServiceRequest):
 class GetDeploymentConfigOutput(TypedDict, total=False):
     """Represents the output of a ``GetDeploymentConfig`` operation."""
 
-    deploymentConfigInfo: Optional[DeploymentConfigInfo]
+    deploymentConfigInfo: DeploymentConfigInfo | None
 
 
 class GetDeploymentGroupInput(ServiceRequest):
@@ -2330,7 +2330,7 @@ class GetDeploymentGroupInput(ServiceRequest):
 class GetDeploymentGroupOutput(TypedDict, total=False):
     """Represents the output of a ``GetDeploymentGroup`` operation."""
 
-    deploymentGroupInfo: Optional[DeploymentGroupInfo]
+    deploymentGroupInfo: DeploymentGroupInfo | None
 
 
 class GetDeploymentInput(ServiceRequest):
@@ -2349,13 +2349,13 @@ class GetDeploymentInstanceInput(ServiceRequest):
 class GetDeploymentInstanceOutput(TypedDict, total=False):
     """Represents the output of a ``GetDeploymentInstance`` operation."""
 
-    instanceSummary: Optional[InstanceSummary]
+    instanceSummary: InstanceSummary | None
 
 
 class GetDeploymentOutput(TypedDict, total=False):
     """Represents the output of a ``GetDeployment`` operation."""
 
-    deploymentInfo: Optional[DeploymentInfo]
+    deploymentInfo: DeploymentInfo | None
 
 
 class GetDeploymentTargetInput(ServiceRequest):
@@ -2364,7 +2364,7 @@ class GetDeploymentTargetInput(ServiceRequest):
 
 
 class GetDeploymentTargetOutput(TypedDict, total=False):
-    deploymentTarget: Optional[DeploymentTarget]
+    deploymentTarget: DeploymentTarget | None
 
 
 class GetOnPremisesInstanceInput(ServiceRequest):
@@ -2376,182 +2376,182 @@ class GetOnPremisesInstanceInput(ServiceRequest):
 class GetOnPremisesInstanceOutput(TypedDict, total=False):
     """Represents the output of a ``GetOnPremisesInstance`` operation."""
 
-    instanceInfo: Optional[InstanceInfo]
+    instanceInfo: InstanceInfo | None
 
 
-GitHubAccountTokenNameList = List[GitHubAccountTokenName]
-InstanceStatusList = List[InstanceStatus]
-InstanceTypeList = List[InstanceType]
+GitHubAccountTokenNameList = list[GitHubAccountTokenName]
+InstanceStatusList = list[InstanceStatus]
+InstanceTypeList = list[InstanceType]
 
 
 class ListApplicationRevisionsInput(ServiceRequest):
     """Represents the input of a ``ListApplicationRevisions`` operation."""
 
     applicationName: ApplicationName
-    sortBy: Optional[ApplicationRevisionSortBy]
-    sortOrder: Optional[SortOrder]
-    s3Bucket: Optional[S3Bucket]
-    s3KeyPrefix: Optional[S3Key]
-    deployed: Optional[ListStateFilterAction]
-    nextToken: Optional[NextToken]
+    sortBy: ApplicationRevisionSortBy | None
+    sortOrder: SortOrder | None
+    s3Bucket: S3Bucket | None
+    s3KeyPrefix: S3Key | None
+    deployed: ListStateFilterAction | None
+    nextToken: NextToken | None
 
 
 class ListApplicationRevisionsOutput(TypedDict, total=False):
     """Represents the output of a ``ListApplicationRevisions`` operation."""
 
-    revisions: Optional[RevisionLocationList]
-    nextToken: Optional[NextToken]
+    revisions: RevisionLocationList | None
+    nextToken: NextToken | None
 
 
 class ListApplicationsInput(ServiceRequest):
     """Represents the input of a ``ListApplications`` operation."""
 
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListApplicationsOutput(TypedDict, total=False):
     """Represents the output of a ListApplications operation."""
 
-    applications: Optional[ApplicationsList]
-    nextToken: Optional[NextToken]
+    applications: ApplicationsList | None
+    nextToken: NextToken | None
 
 
 class ListDeploymentConfigsInput(ServiceRequest):
     """Represents the input of a ``ListDeploymentConfigs`` operation."""
 
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListDeploymentConfigsOutput(TypedDict, total=False):
     """Represents the output of a ``ListDeploymentConfigs`` operation."""
 
-    deploymentConfigsList: Optional[DeploymentConfigsList]
-    nextToken: Optional[NextToken]
+    deploymentConfigsList: DeploymentConfigsList | None
+    nextToken: NextToken | None
 
 
 class ListDeploymentGroupsInput(ServiceRequest):
     """Represents the input of a ``ListDeploymentGroups`` operation."""
 
     applicationName: ApplicationName
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListDeploymentGroupsOutput(TypedDict, total=False):
     """Represents the output of a ``ListDeploymentGroups`` operation."""
 
-    applicationName: Optional[ApplicationName]
-    deploymentGroups: Optional[DeploymentGroupsList]
-    nextToken: Optional[NextToken]
+    applicationName: ApplicationName | None
+    deploymentGroups: DeploymentGroupsList | None
+    nextToken: NextToken | None
 
 
 class ListDeploymentInstancesInput(ServiceRequest):
     """Represents the input of a ``ListDeploymentInstances`` operation."""
 
     deploymentId: DeploymentId
-    nextToken: Optional[NextToken]
-    instanceStatusFilter: Optional[InstanceStatusList]
-    instanceTypeFilter: Optional[InstanceTypeList]
+    nextToken: NextToken | None
+    instanceStatusFilter: InstanceStatusList | None
+    instanceTypeFilter: InstanceTypeList | None
 
 
 class ListDeploymentInstancesOutput(TypedDict, total=False):
     """Represents the output of a ``ListDeploymentInstances`` operation."""
 
-    instancesList: Optional[InstancesList]
-    nextToken: Optional[NextToken]
+    instancesList: InstancesList | None
+    nextToken: NextToken | None
 
 
-TargetFilters = Dict[TargetFilterName, FilterValueList]
+TargetFilters = dict[TargetFilterName, FilterValueList]
 
 
 class ListDeploymentTargetsInput(ServiceRequest):
     deploymentId: DeploymentId
-    nextToken: Optional[NextToken]
-    targetFilters: Optional[TargetFilters]
+    nextToken: NextToken | None
+    targetFilters: TargetFilters | None
 
 
 class ListDeploymentTargetsOutput(TypedDict, total=False):
-    targetIds: Optional[TargetIdList]
-    nextToken: Optional[NextToken]
+    targetIds: TargetIdList | None
+    nextToken: NextToken | None
 
 
 class TimeRange(TypedDict, total=False):
     """Information about a time range."""
 
-    start: Optional[Timestamp]
-    end: Optional[Timestamp]
+    start: Timestamp | None
+    end: Timestamp | None
 
 
 class ListDeploymentsInput(ServiceRequest):
     """Represents the input of a ``ListDeployments`` operation."""
 
-    applicationName: Optional[ApplicationName]
-    deploymentGroupName: Optional[DeploymentGroupName]
-    externalId: Optional[ExternalId]
-    includeOnlyStatuses: Optional[DeploymentStatusList]
-    createTimeRange: Optional[TimeRange]
-    nextToken: Optional[NextToken]
+    applicationName: ApplicationName | None
+    deploymentGroupName: DeploymentGroupName | None
+    externalId: ExternalId | None
+    includeOnlyStatuses: DeploymentStatusList | None
+    createTimeRange: TimeRange | None
+    nextToken: NextToken | None
 
 
 class ListDeploymentsOutput(TypedDict, total=False):
     """Represents the output of a ``ListDeployments`` operation."""
 
-    deployments: Optional[DeploymentsList]
-    nextToken: Optional[NextToken]
+    deployments: DeploymentsList | None
+    nextToken: NextToken | None
 
 
 class ListGitHubAccountTokenNamesInput(ServiceRequest):
     """Represents the input of a ``ListGitHubAccountTokenNames`` operation."""
 
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListGitHubAccountTokenNamesOutput(TypedDict, total=False):
     """Represents the output of a ``ListGitHubAccountTokenNames`` operation."""
 
-    tokenNameList: Optional[GitHubAccountTokenNameList]
-    nextToken: Optional[NextToken]
+    tokenNameList: GitHubAccountTokenNameList | None
+    nextToken: NextToken | None
 
 
 class ListOnPremisesInstancesInput(ServiceRequest):
     """Represents the input of a ``ListOnPremisesInstances`` operation."""
 
-    registrationStatus: Optional[RegistrationStatus]
-    tagFilters: Optional[TagFilterList]
-    nextToken: Optional[NextToken]
+    registrationStatus: RegistrationStatus | None
+    tagFilters: TagFilterList | None
+    nextToken: NextToken | None
 
 
 class ListOnPremisesInstancesOutput(TypedDict, total=False):
     """Represents the output of the list on-premises instances operation."""
 
-    instanceNames: Optional[InstanceNameList]
-    nextToken: Optional[NextToken]
+    instanceNames: InstanceNameList | None
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
     ResourceArn: Arn
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    Tags: Optional[TagList]
-    NextToken: Optional[NextToken]
+    Tags: TagList | None
+    NextToken: NextToken | None
 
 
 class PutLifecycleEventHookExecutionStatusInput(ServiceRequest):
-    deploymentId: Optional[DeploymentId]
-    lifecycleEventHookExecutionId: Optional[LifecycleEventHookExecutionId]
-    status: Optional[LifecycleEventStatus]
+    deploymentId: DeploymentId | None
+    lifecycleEventHookExecutionId: LifecycleEventHookExecutionId | None
+    status: LifecycleEventStatus | None
 
 
 class PutLifecycleEventHookExecutionStatusOutput(TypedDict, total=False):
-    lifecycleEventHookExecutionId: Optional[LifecycleEventHookExecutionId]
+    lifecycleEventHookExecutionId: LifecycleEventHookExecutionId | None
 
 
 class RegisterApplicationRevisionInput(ServiceRequest):
     """Represents the input of a RegisterApplicationRevision operation."""
 
     applicationName: ApplicationName
-    description: Optional[Description]
+    description: Description | None
     revision: RevisionLocation
 
 
@@ -2559,8 +2559,8 @@ class RegisterOnPremisesInstanceInput(ServiceRequest):
     """Represents the input of the register on-premises instance operation."""
 
     instanceName: InstanceName
-    iamSessionArn: Optional[IamSessionArn]
-    iamUserArn: Optional[IamUserArn]
+    iamSessionArn: IamSessionArn | None
+    iamUserArn: IamUserArn | None
 
 
 class RemoveTagsFromOnPremisesInstancesInput(ServiceRequest):
@@ -2573,24 +2573,24 @@ class RemoveTagsFromOnPremisesInstancesInput(ServiceRequest):
 
 
 class SkipWaitTimeForInstanceTerminationInput(ServiceRequest):
-    deploymentId: Optional[DeploymentId]
+    deploymentId: DeploymentId | None
 
 
 class StopDeploymentInput(ServiceRequest):
     """Represents the input of a ``StopDeployment`` operation."""
 
     deploymentId: DeploymentId
-    autoRollbackEnabled: Optional[NullableBoolean]
+    autoRollbackEnabled: NullableBoolean | None
 
 
 class StopDeploymentOutput(TypedDict, total=False):
     """Represents the output of a ``StopDeployment`` operation."""
 
-    status: Optional[StopStatus]
-    statusMessage: Optional[Message]
+    status: StopStatus | None
+    statusMessage: Message | None
 
 
-TagKeyList = List[Key]
+TagKeyList = list[Key]
 
 
 class TagResourceInput(ServiceRequest):
@@ -2614,8 +2614,8 @@ class UntagResourceOutput(TypedDict, total=False):
 class UpdateApplicationInput(ServiceRequest):
     """Represents the input of an ``UpdateApplication`` operation."""
 
-    applicationName: Optional[ApplicationName]
-    newApplicationName: Optional[ApplicationName]
+    applicationName: ApplicationName | None
+    newApplicationName: ApplicationName | None
 
 
 class UpdateDeploymentGroupInput(ServiceRequest):
@@ -2623,34 +2623,34 @@ class UpdateDeploymentGroupInput(ServiceRequest):
 
     applicationName: ApplicationName
     currentDeploymentGroupName: DeploymentGroupName
-    newDeploymentGroupName: Optional[DeploymentGroupName]
-    deploymentConfigName: Optional[DeploymentConfigName]
-    ec2TagFilters: Optional[EC2TagFilterList]
-    onPremisesInstanceTagFilters: Optional[TagFilterList]
-    autoScalingGroups: Optional[AutoScalingGroupNameList]
-    serviceRoleArn: Optional[Role]
-    triggerConfigurations: Optional[TriggerConfigList]
-    alarmConfiguration: Optional[AlarmConfiguration]
-    autoRollbackConfiguration: Optional[AutoRollbackConfiguration]
-    outdatedInstancesStrategy: Optional[OutdatedInstancesStrategy]
-    deploymentStyle: Optional[DeploymentStyle]
-    blueGreenDeploymentConfiguration: Optional[BlueGreenDeploymentConfiguration]
-    loadBalancerInfo: Optional[LoadBalancerInfo]
-    ec2TagSet: Optional[EC2TagSet]
-    ecsServices: Optional[ECSServiceList]
-    onPremisesTagSet: Optional[OnPremisesTagSet]
-    terminationHookEnabled: Optional[NullableBoolean]
+    newDeploymentGroupName: DeploymentGroupName | None
+    deploymentConfigName: DeploymentConfigName | None
+    ec2TagFilters: EC2TagFilterList | None
+    onPremisesInstanceTagFilters: TagFilterList | None
+    autoScalingGroups: AutoScalingGroupNameList | None
+    serviceRoleArn: Role | None
+    triggerConfigurations: TriggerConfigList | None
+    alarmConfiguration: AlarmConfiguration | None
+    autoRollbackConfiguration: AutoRollbackConfiguration | None
+    outdatedInstancesStrategy: OutdatedInstancesStrategy | None
+    deploymentStyle: DeploymentStyle | None
+    blueGreenDeploymentConfiguration: BlueGreenDeploymentConfiguration | None
+    loadBalancerInfo: LoadBalancerInfo | None
+    ec2TagSet: EC2TagSet | None
+    ecsServices: ECSServiceList | None
+    onPremisesTagSet: OnPremisesTagSet | None
+    terminationHookEnabled: NullableBoolean | None
 
 
 class UpdateDeploymentGroupOutput(TypedDict, total=False):
     """Represents the output of an ``UpdateDeploymentGroup`` operation."""
 
-    hooksNotCleanedUp: Optional[AutoScalingGroupList]
+    hooksNotCleanedUp: AutoScalingGroupList | None
 
 
 class CodedeployApi:
-    service = "codedeploy"
-    version = "2014-10-06"
+    service: str = "codedeploy"
+    version: str = "2014-10-06"
 
     @handler("AddTagsToOnPremisesInstances")
     def add_tags_to_on_premises_instances(

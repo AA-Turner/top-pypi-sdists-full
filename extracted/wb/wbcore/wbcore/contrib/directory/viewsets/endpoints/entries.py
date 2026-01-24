@@ -29,3 +29,13 @@ class UserIsManagerEndpointConfig(EndpointViewConfig):
         base_url = "wbcore:directory:clientmanagerrelationship-list"
         filter_url = f"?relationship_manager={self.request.user.profile.id}"
         return f"{reverse(base_url, args=[], request=self.request)}{filter_url}"
+
+
+class PersonRepresentationEndpointConfig(EndpointViewConfig):
+    def get_create_endpoint(self, **kwargs):
+        return PersonModelEndpointConfig(self.view, self.request, self.instance).get_create_endpoint(**kwargs)
+
+
+class CompanyRepresentationEndpointConfig(EndpointViewConfig):
+    def get_create_endpoint(self, **kwargs):
+        return CompanyModelEndpointConfig(self.view, self.request, self.instance).get_create_endpoint(**kwargs)

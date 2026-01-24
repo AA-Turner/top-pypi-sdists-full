@@ -10,23 +10,23 @@
 #include "include/core/SkColor.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkColorType.h"
-#include "include/core/SkDeferredDisplayListRecorder.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
-#include "include/core/SkSurfaceCharacterization.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/private/chromium/GrDeferredDisplayListRecorder.h"
+#include "include/private/chromium/GrSurfaceCharacterization.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkAutoPixmapStorage.h"
-#include "src/core/SkCanvasPriv.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/SkBackingFit.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrDrawingManager.h"
 #include "src/gpu/ganesh/GrImageInfo.h"
@@ -38,11 +38,12 @@
 #include "src/gpu/ganesh/GrTextureProxy.h"
 #include "src/gpu/ganesh/SurfaceContext.h"
 #include "src/gpu/ganesh/SurfaceFillContext.h"
+#include "tests/ComparePixels.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
-#include "tests/TestUtils.h"
+#include "tests/ganesh/GaneshTestUtils.h"
+#include "tools/ganesh/ProxyUtils.h"
 #include "tools/gpu/BackendSurfaceFactory.h"
-#include "tools/gpu/ProxyUtils.h"
 
 #include <functional>
 #include <memory>
@@ -53,14 +54,20 @@ DEF_GANESH_TEST_FOR_ALL_CONTEXTS(WrappedSurfaceCopyOnWrite,
                                  reporter,
                                  ctxInfo,
                                  CtsEnforcement::kApiLevel_T) {
+    using namespace skgpu;
+
     GrDirectContext* dContext = ctxInfo.directContext();
+
+    Protected isProtected = Protected(dContext->priv().caps()->supportsProtectedContent());
 
     auto makeDirectBackendSurface = [&]() {
         auto info = SkImageInfo::Make({10, 10}, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
         return sk_gpu_test::MakeBackendTextureSurface(dContext,
                                                       info,
                                                       kTopLeft_GrSurfaceOrigin,
-                                                      /*sample count*/ 1);
+                                                      /* sampleCnt= */ 1,
+                                                      Mipmapped::kNo,
+                                                      isProtected);
     };
 
     auto imageProxyID = [&](const sk_sp<SkImage>& img) {
@@ -68,7 +75,7 @@ DEF_GANESH_TEST_FOR_ALL_CONTEXTS(WrappedSurfaceCopyOnWrite,
     };
 
     auto surfaceProxyID = [&](const sk_sp<SkSurface>& surf) {
-        GrRenderTargetProxy* rtp = SkCanvasPriv::TopDeviceTargetProxy(surf->getCanvas());
+        GrRenderTargetProxy* rtp = skgpu::ganesh::TopDeviceTargetProxy(surf->getCanvas());
         return rtp->uniqueID();
     };
 
@@ -89,9 +96,9 @@ DEF_GANESH_TEST_FOR_ALL_CONTEXTS(WrappedSurfaceCopyOnWrite,
     img = surf->makeImageSnapshot();
     REPORTER_ASSERT(reporter, imageProxyID(img) != imageID);
 
-    SkSurfaceCharacterization characterization;
+    GrSurfaceCharacterization characterization;
     REPORTER_ASSERT(reporter, surf->characterize(&characterization));
-    SkDeferredDisplayListRecorder recorder(characterization);
+    GrDeferredDisplayListRecorder recorder(characterization);
 
     // Using an image from a direct context on a recording context should trigger using the copy.
     surf = makeDirectBackendSurface();

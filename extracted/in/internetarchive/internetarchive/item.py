@@ -42,7 +42,7 @@ from requests import Request, Response
 from requests.exceptions import HTTPError
 from tqdm import tqdm
 
-from internetarchive import catalog
+from internetarchive import catalog, exceptions
 from internetarchive.auth import S3Auth
 from internetarchive.files import File
 from internetarchive.iarequest import MetadataRequest, S3Request
@@ -610,6 +610,7 @@ class Item(BaseItem):
                         if not any(fnmatch(f.get('name', ''), e) for e in exclude_patterns):
                             yield self.get_file(str(f.get('name')))
 
+    # ruff: noqa: PLR0912
     def download(self,
                  files: File | list[File] | None = None,
                  formats: str | list[str] | None = None,
@@ -774,7 +775,12 @@ class Item(BaseItem):
             if no_directory:
                 path = f.name
             else:
-                path = os.path.join(str(self.identifier), f.name)
+                # Use forward slash as logical separator even on Windows so that
+                # downstream sanitization treats backslashes inside remote filenames as data.
+                if os.name == 'nt':
+                    path = f'{self.identifier}/{f.name}'
+                else:
+                    path = os.path.join(str(self.identifier), f.name)
             if dry_run:
                 print(f.url)
                 continue
@@ -782,9 +788,18 @@ class Item(BaseItem):
                 ors = True
             else:
                 ors = False
-            r = f.download(path, verbose, ignore_existing, checksum, checksum_archive,
-                           destdir, retries, ignore_errors, fileobj, return_responses,
-                           no_change_timestamp, params, None, stdout, ors, timeout)
+            try:
+                r = f.download(path, verbose, ignore_existing, checksum, checksum_archive,
+                               destdir, retries, ignore_errors, fileobj, return_responses,
+                               no_change_timestamp, params, None, stdout, ors, timeout)
+            except exceptions.DirectoryTraversalError as exc:  # type: ignore
+                # Record error and continue; do not abort entire download batch.
+                msg = f'error: {exc}'
+                log.error(msg)
+                # Always surface to stderr so user sees the skip.
+                print(f' {msg}', file=sys.stderr)
+                errors.append(f.name)
+                continue
             if return_responses:
                 responses.append(r)
 
@@ -904,7 +919,7 @@ class Item(BaseItem):
     def delete_flag(
             self,
             category: str,
-            user: Optional[str] = None,  # noqa: UP007
+            user: Optional[str] = None,  # noqa: UP045
     ) -> Response:
         if user is None:
             user = f"@{self.session.config.get('general', {}).get('screenname')}"
@@ -917,7 +932,7 @@ class Item(BaseItem):
     def add_flag(
             self,
             category: str,
-            user: Optional[str] = None,  # noqa: UP007
+            user: Optional[str] = None,  # noqa: UP045
     ) -> Response:
         if user is None:
             user = f"@{self.session.config.get('general', {}).get('screenname')}"
@@ -952,7 +967,7 @@ class Item(BaseItem):
         r = self.session.post(self.urls.metadata, data=data)  # type: ignore
         return r
 
-    def upload_file(self, body,  # noqa: PLR0915; TODO: Refactor this method to reduce complexity
+    def upload_file(self, body,  # noqa: PLR0915 TODO: Refactor this method to reduce complexity
                     key: str | None = None,
                     metadata: Mapping | None = None,
                     file_metadata: Mapping | None = None,

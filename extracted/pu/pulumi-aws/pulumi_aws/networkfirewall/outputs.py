@@ -476,7 +476,7 @@ class FirewallPolicyFirewallPolicy(dict):
         :param Sequence[_builtins.str] stateless_fragment_default_actions: Set of actions to take on a fragmented packet if it does not match any of the stateless rules in the policy. You must specify one of the standard actions including: `aws:drop`, `aws:pass`, or `aws:forward_to_sfe`.
                In addition, you can specify custom actions that are compatible with your standard action choice. If you want non-matching packets to be forwarded for stateful inspection, specify `aws:forward_to_sfe`.
         :param 'FirewallPolicyFirewallPolicyPolicyVariablesArgs' policy_variables: . Contains variables that you can use to override default Suricata settings in your firewall policy. See Rule Variables for details.
-        :param Sequence[_builtins.str] stateful_default_actions: Set of actions to take on a packet if it does not match any stateful rules in the policy. This can only be specified if the policy has a `stateful_engine_options` block with a `rule_order` value of `STRICT_ORDER`. You can specify one of either or neither values of `aws:drop_strict` or `aws:drop_established`, as well as any combination of `aws:alert_strict` and `aws:alert_established`.
+        :param Sequence[_builtins.str] stateful_default_actions: Set of actions to take on a packet if it does not match any stateful rules in the policy. This can only be specified if the policy has a `stateful_engine_options` block with a `rule_order` value of `STRICT_ORDER`. Value values: `aws:drop_strict`, `aws:drop_established`, `aws:drop_established_app_layer`, `aws:alert_strict`, `aws:alert_established, `aws:alert_established_app_layer`. For more information, see [Strict evaluation order](https://docs.aws.amazon.com/network-firewall/latest/developerguide/suricata-rule-evaluation-order.html#suricata-strict-rule-evaluation-order.html) in the AWS Network Firewall Developer Guide.
         :param 'FirewallPolicyFirewallPolicyStatefulEngineOptionsArgs' stateful_engine_options: A configuration block that defines options on how the policy handles stateful rules. See Stateful Engine Options below for details.
         :param Sequence['FirewallPolicyFirewallPolicyStatefulRuleGroupReferenceArgs'] stateful_rule_group_references: Set of configuration blocks containing references to the stateful rule groups that are used in the policy. See Stateful Rule Group Reference below for details.
         :param Sequence['FirewallPolicyFirewallPolicyStatelessCustomActionArgs'] stateless_custom_actions: Set of configuration blocks describing the custom action definitions that are available for use in the firewall policy's `stateless_default_actions`. See Stateless Custom Action below for details.
@@ -530,7 +530,7 @@ class FirewallPolicyFirewallPolicy(dict):
     @pulumi.getter(name="statefulDefaultActions")
     def stateful_default_actions(self) -> Optional[Sequence[_builtins.str]]:
         """
-        Set of actions to take on a packet if it does not match any stateful rules in the policy. This can only be specified if the policy has a `stateful_engine_options` block with a `rule_order` value of `STRICT_ORDER`. You can specify one of either or neither values of `aws:drop_strict` or `aws:drop_established`, as well as any combination of `aws:alert_strict` and `aws:alert_established`.
+        Set of actions to take on a packet if it does not match any stateful rules in the policy. This can only be specified if the policy has a `stateful_engine_options` block with a `rule_order` value of `STRICT_ORDER`. Value values: `aws:drop_strict`, `aws:drop_established`, `aws:drop_established_app_layer`, `aws:alert_strict`, `aws:alert_established, `aws:alert_established_app_layer`. For more information, see [Strict evaluation order](https://docs.aws.amazon.com/network-firewall/latest/developerguide/suricata-rule-evaluation-order.html#suricata-strict-rule-evaluation-order.html) in the AWS Network Firewall Developer Guide.
         """
         return pulumi.get(self, "stateful_default_actions")
 
@@ -2321,7 +2321,7 @@ class RuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRu
     def __init__(__self__, *,
                  address_definition: _builtins.str):
         """
-        :param _builtins.str address_definition: An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4.
+        :param _builtins.str address_definition: An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4 and IPv6.
         """
         pulumi.set(__self__, "address_definition", address_definition)
 
@@ -2329,7 +2329,7 @@ class RuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRu
     @pulumi.getter(name="addressDefinition")
     def address_definition(self) -> _builtins.str:
         """
-        An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4.
+        An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4 and IPv6.
         """
         return pulumi.get(self, "address_definition")
 
@@ -2405,7 +2405,7 @@ class RuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRu
     def __init__(__self__, *,
                  address_definition: _builtins.str):
         """
-        :param _builtins.str address_definition: An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4.
+        :param _builtins.str address_definition: An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4 and IPv6.
         """
         pulumi.set(__self__, "address_definition", address_definition)
 
@@ -2413,7 +2413,7 @@ class RuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRu
     @pulumi.getter(name="addressDefinition")
     def address_definition(self) -> _builtins.str:
         """
-        An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4.
+        An IP address or a block of IP addresses in CIDR notation. AWS Network Firewall supports all address ranges for IPv4 and IPv6.
         """
         return pulumi.get(self, "address_definition")
 
@@ -3885,19 +3885,23 @@ class GetFirewallPolicyFirewallPolicyStatefulEngineOptionFlowTimeoutResult(dict)
 class GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceResult(dict):
     def __init__(__self__, *,
                  deep_threat_inspection: _builtins.str,
+                 overrides: Sequence['outputs.GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceOverrideResult'],
                  priority: _builtins.int,
-                 resource_arn: _builtins.str,
-                 overrides: Optional[Sequence['outputs.GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceOverrideResult']] = None):
+                 resource_arn: _builtins.str):
         pulumi.set(__self__, "deep_threat_inspection", deep_threat_inspection)
+        pulumi.set(__self__, "overrides", overrides)
         pulumi.set(__self__, "priority", priority)
         pulumi.set(__self__, "resource_arn", resource_arn)
-        if overrides is not None:
-            pulumi.set(__self__, "overrides", overrides)
 
     @_builtins.property
     @pulumi.getter(name="deepThreatInspection")
     def deep_threat_inspection(self) -> _builtins.str:
         return pulumi.get(self, "deep_threat_inspection")
+
+    @_builtins.property
+    @pulumi.getter
+    def overrides(self) -> Sequence['outputs.GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceOverrideResult']:
+        return pulumi.get(self, "overrides")
 
     @_builtins.property
     @pulumi.getter
@@ -3909,22 +3913,16 @@ class GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceResult(dict):
     def resource_arn(self) -> _builtins.str:
         return pulumi.get(self, "resource_arn")
 
-    @_builtins.property
-    @pulumi.getter
-    def overrides(self) -> Optional[Sequence['outputs.GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceOverrideResult']]:
-        return pulumi.get(self, "overrides")
-
 
 @pulumi.output_type
 class GetFirewallPolicyFirewallPolicyStatefulRuleGroupReferenceOverrideResult(dict):
     def __init__(__self__, *,
-                 action: Optional[_builtins.str] = None):
-        if action is not None:
-            pulumi.set(__self__, "action", action)
+                 action: _builtins.str):
+        pulumi.set(__self__, "action", action)
 
     @_builtins.property
     @pulumi.getter
-    def action(self) -> Optional[_builtins.str]:
+    def action(self) -> _builtins.str:
         return pulumi.get(self, "action")
 
 

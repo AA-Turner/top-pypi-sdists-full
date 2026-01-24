@@ -696,7 +696,23 @@ class CreateViewStatementSegment(BaseSegment):
         Ref("BracketedColumnReferenceListGrammar", optional=True),
         "AS",
         OptionallyBracketed(Ref("SelectableGrammar")),
+        Ref("WithCheckOptionSegment", optional=True),
         Ref("WithNoSchemaBindingClauseSegment", optional=True),
+    )
+
+
+class WithCheckOptionSegment(BaseSegment):
+    """WITH CHECK OPTION for CREATE/REPLACE View Syntax.
+
+    As specified in https://docs.teradata.com/r/Enterprise_IntelliFlex_VMware/SQL-Data-Definition-Language-Syntax-and-Examples/View-Statements/CREATE-VIEW-and-REPLACE-VIEW/CREATE-VIEW-and-REPLACE-VIEW-Syntax  # noqa: E501
+    """
+
+    type = "with_check_options"
+
+    match_grammar: Matchable = Sequence(
+        "WITH",
+        "CHECK",
+        "OPTION",
     )
 
 
@@ -825,6 +841,9 @@ class SelectStatementSegment(ansi.SelectStatementSegment):
     match_grammar = match_grammar_with_qualify_clause.copy(
         insert=[Ref("LockingClauseSegment", optional=True)],
         before=Ref("SelectClauseSegment"),
+        terminators=[
+            Ref("WithCheckOptionSegment"),
+        ],
     )
 
 
@@ -848,6 +867,9 @@ class UnorderedSelectStatementSegment(ansi.UnorderedSelectStatementSegment):
     match_grammar = ansi.UnorderedSelectStatementSegment.match_grammar.copy(
         insert=[Ref("QualifyClauseSegment", optional=True)],
         before=Ref("OverlapsClauseSegment", optional=True),
+        terminators=[
+            Ref("WithCheckOptionSegment"),
+        ],
     )
 
 

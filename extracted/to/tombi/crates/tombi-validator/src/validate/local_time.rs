@@ -2,13 +2,14 @@ use tombi_comment_directive::value::{LocalTimeCommonFormatRules, LocalTimeCommon
 use tombi_document_tree::{LocalTime, ValueImpl};
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::ValueSchema;
-use tombi_severity_level::{SeverityLevelDefaultError, SeverityLevelDefaultWarn};
+use tombi_severity_level::SeverityLevelDefaultError;
 
 use crate::{
-    comment_directive::get_tombi_key_table_value_rules_and_diagnostics, validate::type_mismatch,
+    comment_directive::get_tombi_key_table_value_rules_and_diagnostics,
+    validate::{handle_deprecated_value, handle_type_mismatch, handle_unused_noqa},
 };
 
-use super::{validate_all_of, validate_any_of, validate_one_of, Validate};
+use super::{Validate, validate_all_of, validate_any_of, validate_one_of};
 
 impl Validate for LocalTime {
     fn validate<'a: 'b, 'b>(
@@ -16,33 +17,24 @@ impl Validate for LocalTime {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>> {
+    ) -> BoxFuture<'b, Result<(), crate::Error>> {
         async move {
-            let mut total_diagnostics = vec![];
-            let value_rules = if let Some(comment_directives) = self.comment_directives() {
-                let (value_rules, diagnostics) = get_tombi_key_table_value_rules_and_diagnostics::<
-                    LocalTimeCommonFormatRules,
-                    LocalTimeCommonLintRules,
-                >(comment_directives, accessors)
-                .await;
+            let (lint_rules, lint_rules_diagnostics) =
+                if let Some(comment_directives) = self.comment_directives() {
+                    get_tombi_key_table_value_rules_and_diagnostics::<
+                        LocalTimeCommonFormatRules,
+                        LocalTimeCommonLintRules,
+                    >(comment_directives, accessors)
+                    .await
+                } else {
+                    (None, Vec::with_capacity(0))
+                };
 
-                total_diagnostics.extend(diagnostics);
-
-                value_rules
-            } else {
-                None
-            };
-
-            if let Some(current_schema) = current_schema {
+            let result = if let Some(current_schema) = current_schema {
                 match current_schema.value_schema.as_ref() {
                     ValueSchema::LocalTime(local_time_schema) => {
-                        validate_local_time(
-                            self,
-                            accessors,
-                            local_time_schema,
-                            value_rules.as_ref(),
-                        )
-                        .await
+                        validate_local_time(self, accessors, local_time_schema, lint_rules.as_ref())
+                            .await
                     }
                     ValueSchema::OneOf(one_of_schema) => {
                         validate_one_of(
@@ -51,7 +43,8 @@ impl Validate for LocalTime {
                             one_of_schema,
                             current_schema,
                             schema_context,
-                            value_rules.as_ref().map(|rules| &rules.common),
+                            self.comment_directives(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
                         )
                         .await
                     }
@@ -62,7 +55,8 @@ impl Validate for LocalTime {
                             any_of_schema,
                             current_schema,
                             schema_context,
-                            value_rules.as_ref().map(|rules| &rules.common),
+                            self.comment_directives(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
                         )
                         .await
                     }
@@ -73,20 +67,35 @@ impl Validate for LocalTime {
                             all_of_schema,
                             current_schema,
                             schema_context,
-                            value_rules.as_ref().map(|rules| &rules.common),
+                            self.comment_directives(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
                         )
                         .await
                     }
                     ValueSchema::Null => return Ok(()),
-                    value_schema => type_mismatch(
+                    value_schema => handle_type_mismatch(
                         value_schema.value_type().await,
                         self.value_type(),
                         self.range(),
-                        value_rules.as_ref().map(|rules| &rules.common),
+                        lint_rules.as_ref().map(|rules| &rules.common),
                     ),
                 }
             } else {
                 Ok(())
+            };
+
+            match result {
+                Ok(()) => {
+                    if lint_rules_diagnostics.is_empty() {
+                        Ok(())
+                    } else {
+                        Err(lint_rules_diagnostics.into())
+                    }
+                }
+                Err(mut error) => {
+                    error.prepend_diagnostics(lint_rules_diagnostics);
+                    Err(error)
+                }
             }
         }
         .boxed()
@@ -97,84 +106,89 @@ async fn validate_local_time(
     local_time_value: &LocalTime,
     accessors: &[tombi_schema_store::Accessor],
     local_time_schema: &tombi_schema_store::LocalTimeSchema,
-    value_rules: Option<&LocalTimeCommonLintRules>,
-) -> Result<(), Vec<tombi_diagnostic::Diagnostic>> {
+    lint_rules: Option<&LocalTimeCommonLintRules>,
+) -> Result<(), crate::Error> {
     let mut diagnostics = vec![];
     let value_string = local_time_value.value().to_string();
     let range = local_time_value.range();
 
-    if let Some(const_value) = &local_time_schema.const_value {
-        if value_string != *const_value {
-            let level = value_rules
-                .map(|rules| &rules.common)
-                .and_then(|rules| {
-                    rules
-                        .const_value
-                        .as_ref()
-                        .map(SeverityLevelDefaultError::from)
-                })
-                .unwrap_or_default();
+    if let Some(const_value) = &local_time_schema.const_value
+        && value_string != *const_value
+    {
+        let level = lint_rules
+            .map(|rules| &rules.common)
+            .and_then(|rules| {
+                rules
+                    .const_value
+                    .as_ref()
+                    .map(SeverityLevelDefaultError::from)
+            })
+            .unwrap_or_default();
 
-            crate::Diagnostic {
-                kind: Box::new(crate::DiagnosticKind::Const {
-                    expected: const_value.clone(),
-                    actual: value_string.clone(),
-                }),
-                range,
-            }
-            .push_diagnostic_with_level(level, &mut diagnostics);
+        crate::Diagnostic {
+            kind: Box::new(crate::DiagnosticKind::Const {
+                expected: const_value.clone(),
+                actual: value_string.clone(),
+            }),
+            range,
         }
+        .push_diagnostic_with_level(level, &mut diagnostics);
+    } else if lint_rules
+        .and_then(|rules| rules.common.const_value.as_ref())
+        .and_then(|rules| rules.disabled)
+        == Some(true)
+    {
+        handle_unused_noqa(
+            &mut diagnostics,
+            local_time_value.comment_directives(),
+            lint_rules.as_ref().map(|rules| &rules.common),
+            "const-value",
+        );
     }
 
-    if let Some(enumerate) = &local_time_schema.enumerate {
-        if !enumerate.contains(&value_string) {
-            let level = value_rules
-                .map(|rules| &rules.common)
-                .and_then(|rules| {
-                    rules
-                        .enumerate
-                        .as_ref()
-                        .map(SeverityLevelDefaultError::from)
-                })
-                .unwrap_or_default();
+    if let Some(r#enum) = &local_time_schema.r#enum
+        && !r#enum.contains(&value_string)
+    {
+        let level = lint_rules
+            .map(|rules| &rules.common)
+            .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
+            .unwrap_or_default();
 
-            crate::Diagnostic {
-                kind: Box::new(crate::DiagnosticKind::Enumerate {
-                    expected: enumerate.iter().map(ToString::to_string).collect(),
-                    actual: value_string.clone(),
-                }),
-                range,
-            }
-            .push_diagnostic_with_level(level, &mut diagnostics);
+        crate::Diagnostic {
+            kind: Box::new(crate::DiagnosticKind::Enum {
+                expected: r#enum.iter().map(ToString::to_string).collect(),
+                actual: value_string.clone(),
+            }),
+            range,
         }
+        .push_diagnostic_with_level(level, &mut diagnostics);
+    } else if lint_rules
+        .and_then(|rules| rules.common.r#enum())
+        .and_then(|rules| rules.disabled)
+        == Some(true)
+    {
+        handle_unused_noqa(
+            &mut diagnostics,
+            local_time_value.comment_directives(),
+            lint_rules.as_ref().map(|rules| &rules.common),
+            "enum",
+        );
     }
 
     if diagnostics.is_empty() {
-        if local_time_schema.deprecated == Some(true) {
-            let level = value_rules
-                .map(|rules| &rules.common)
-                .and_then(|rules| {
-                    rules
-                        .deprecated
-                        .as_ref()
-                        .map(SeverityLevelDefaultWarn::from)
-                })
-                .unwrap_or_default();
-
-            crate::Diagnostic {
-                kind: Box::new(crate::DiagnosticKind::DeprecatedValue(
-                    tombi_schema_store::SchemaAccessors::from(accessors),
-                    value_string,
-                )),
-                range,
-            }
-            .push_diagnostic_with_level(level, &mut diagnostics);
-        }
+        handle_deprecated_value(
+            &mut diagnostics,
+            local_time_schema.deprecated,
+            accessors,
+            local_time_value,
+            local_time_value.comment_directives(),
+            lint_rules.as_ref().map(|rules| &rules.common),
+        );
     }
 
     if diagnostics.is_empty() {
         Ok(())
     } else {
-        Err(diagnostics)
+        Err(diagnostics.into())
     }
 }

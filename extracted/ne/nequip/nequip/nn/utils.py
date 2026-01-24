@@ -76,7 +76,9 @@ def with_edge_vectors_(
     """Compute the edge displacement vectors for a graph."""
     if edge_vec_field in data:
         if with_lengths and edge_len_field not in data:
-            data[edge_len_field] = torch.linalg.norm(data[edge_vec_field], dim=-1)
+            data[edge_len_field] = (
+                data[edge_vec_field].square().sum(1, keepdim=True).sqrt()
+            )
         return data
     else:
         # Build it dynamically
@@ -114,3 +116,18 @@ def with_edge_vectors_(
         if with_lengths:
             data[edge_len_field] = edge_vec.square().sum(1, keepdim=True).sqrt()
         return data
+
+
+def with_edge_type_(
+    data: AtomicDataDict.Type,
+    edge_type_field: str = AtomicDataDict.EDGE_TYPE_KEY,
+) -> AtomicDataDict.Type:
+    """Add edge types to data if not already present."""
+    if edge_type_field not in data:
+        edge_type = torch.index_select(
+            data[AtomicDataDict.ATOM_TYPE_KEY].view(-1),
+            0,
+            data[AtomicDataDict.EDGE_INDEX_KEY].view(-1),
+        ).view(2, -1)
+        data[edge_type_field] = edge_type
+    return data

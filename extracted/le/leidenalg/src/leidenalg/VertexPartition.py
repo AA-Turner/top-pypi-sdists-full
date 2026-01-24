@@ -5,7 +5,7 @@ from .functions import _get_py_capsule
 class MutableVertexPartition(_ig.VertexClustering):
   """ Contains a partition of a graph, derives from
   :class:`ig.VertexClustering`. Please see the `documentation
-  <https://igraph.org/python/api/latest/igraph.clustering.VertexClustering.html>`_
+  <https://python.igraph.org/en/stable/api/igraph.VertexClustering.html>`_
   of :class:`ig.VertexClustering` for more details about its functionality.
 
   This class contains the basic implementation for optimising a partition.
@@ -385,7 +385,7 @@ class MutableVertexPartition(_ig.VertexClustering):
     return _c_leiden._MutableVertexPartition_weight_from_comm(self._partition, v, comm)
 
 class ModularityVertexPartition(MutableVertexPartition):
-  """ Implements modularity. This quality function is well-defined only for positive edge weights.
+  r""" Implements modularity. This quality function is well-defined only for positive edge weights.
 
   Notes
   -----
@@ -410,7 +410,7 @@ class ModularityVertexPartition(MutableVertexPartition):
   Note that for directed graphs a slightly different formulation is used, as
   proposed by Leicht and Newman [2]:
 
-  .. math:: Q = \\frac{1}{m} \\sum_{ij} \\left(A_{ij} - \\frac{k_i^\mathrm{out} k_j^\mathrm{in}}{m} \\right)\\delta(\\sigma_i, \\sigma_j),
+  .. math:: Q = \\frac{1}{m} \\sum_{ij} \\left(A_{ij} - \\frac{k_i^\\mathrm{out} k_j^\\mathrm{in}}{m} \\right)\\delta(\\sigma_i, \\sigma_j),
 
   where :math:`k_i^\\mathrm{out}` and :math:`k_i^\\mathrm{in}` refers to
   respectively the outdegree and indegree of node :math:`i`, and :math:`A_{ij}`
@@ -758,7 +758,7 @@ class RBERVertexPartition(LinearResolutionParameterVertexPartition):
     return new_partition
 
 class RBConfigurationVertexPartition(LinearResolutionParameterVertexPartition):
-  """ Implements Reichardt and Bornholdt's Potts model with a configuration null model.
+  r""" Implements Reichardt and Bornholdt's Potts model with a configuration null model.
   This quality function is well-defined only for positive edge weights.
   This quality function uses a linear resolution parameter.
 
@@ -785,7 +785,7 @@ class RBConfigurationVertexPartition(LinearResolutionParameterVertexPartition):
   Note that for directed graphs a slightly different formulation is used, as
   proposed by Leicht and Newman [2]:
 
-  .. math:: Q = \\sum_{ij} \\left(A_{ij} - \\gamma \\frac{k_i^\mathrm{out} k_j^\mathrm{in}}{m} \\right)\\delta(\\sigma_i, \\sigma_j),
+  .. math:: Q = \\sum_{ij} \\left(A_{ij} - \\gamma \\frac{k_i^\\mathrm{out} k_j^\\mathrm{in}}{m} \\right)\\delta(\\sigma_i, \\sigma_j),
 
   where :math:`k_i^\\mathrm{out}` and :math:`k_i^\\mathrm{in}` refers to
   respectively the outdegree and indegree of node :math:`i`, and :math:`A_{ij}`

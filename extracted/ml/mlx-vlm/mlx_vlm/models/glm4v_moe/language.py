@@ -1,5 +1,3 @@
-# Copyright © 2025 Apple Inc.
-
 import math
 from dataclasses import dataclass
 from functools import partial
@@ -94,9 +92,9 @@ class GLM4VRotaryEmbedding(nn.Module):
 
 def rotate_half_llm(x):
     """Rotates half the hidden dims of the input."""
-    x1 = x[..., 0::2]
-    x2 = x[..., 1::2]
-    return mx.flatten(mx.stack([-x2, x1], axis=-1), start_axis=-2)
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2 :]
+    return mx.concatenate([-x2, x1], axis=-1)
 
 
 def apply_multimodal_rotary_pos_emb(q, k, cos, sin, mrope_section):
@@ -393,7 +391,7 @@ class LanguageModel(nn.Module):
         self.model_type = args.model_type
         self.model = GLM4VModel(args)
         self.lm_head = nn.Linear(args.hidden_size, args.vocab_size, bias=False)
-        self.rope_deltas = None
+        self._rope_deltas = None
 
     def get_rope_index(
         self,
@@ -587,23 +585,23 @@ class LanguageModel(nn.Module):
         video_grid_thw = kwargs.pop("video_grid_thw", None)
         # reset rope_deltas when processing a new image/video
         if pixel_values is not None:
-            self.rope_deltas = None
+            self._rope_deltas = None
 
         if position_ids is None and (mask is None or mask.ndim == 2):
             # Calculate RoPE index once per generation in the pre-fill stage only
             if (
                 (cache is not None and cache[0] is not None and cache[0].offset == 0)
-                or self.rope_deltas is None
+                or self._rope_deltas is None
                 or cache is None
             ):
                 position_ids, rope_deltas = self.get_rope_index(
                     inputs, image_grid_thw, video_grid_thw, mask
                 )
-                self.rope_deltas = rope_deltas
+                self._rope_deltas = rope_deltas
             else:
                 # Use the prev pre-calculated rope-deltas to get the correct position ids
                 batch_size, seq_length = inputs.shape
-                delta = cache[-1].offset + self.rope_deltas if cache is not None else 0
+                delta = cache[-1].offset + self._rope_deltas if cache is not None else 0
                 delta = delta[None, None, ...]
                 position_ids = mx.arange(seq_length).reshape(1, seq_length)
                 position_ids = mx.broadcast_to(position_ids, (batch_size, seq_length))
@@ -653,3 +651,7 @@ class LanguageModel(nn.Module):
             return "e_score_correction_bias" not in k
 
         return predicate
+
+    @property
+    def n_kv_heads(self):
+        return self.args.num_key_value_heads

@@ -4,7 +4,7 @@ Tests for "typed_settings.dict_utils".
 
 import collections
 import dataclasses
-from typing import Any, Union
+from typing import Any
 
 import attrs
 import pytest
@@ -119,7 +119,7 @@ def test_iter_settings() -> None:
         ("u.2", IndexError),
     ],
 )
-def test_get_path(path: str, expected: Union[int, type[Exception]]) -> None:
+def test_get_path(path: str, expected: int | type[Exception]) -> None:
     """Tests for get_path()."""
     dct = {
         "a": 1,

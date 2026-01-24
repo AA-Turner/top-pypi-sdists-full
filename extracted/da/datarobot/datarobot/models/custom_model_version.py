@@ -93,20 +93,16 @@ class TrainingData(APIObject):
         The assignment error message.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("dataset_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("dataset_version_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("dataset_name", optional=True): t.Or(String(), t.Null()),
-            t.Key("assignment_in_progress", optional=True): t.Bool(),
-            t.Key("assignment_error", optional=True): t.Dict(
-                {
-                    t.Key("message"): t.Or(String(), t.Null()),
-                }
-            )
-            | t.Null,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("dataset_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("dataset_version_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("dataset_name", optional=True): t.Or(String(), t.Null()),
+        t.Key("assignment_in_progress", optional=True): t.Bool(),
+        t.Key("assignment_error", optional=True): t.Dict({
+            t.Key("message"): t.Or(String(), t.Null()),
+        })
+        | t.Null,
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -142,14 +138,12 @@ class HoldoutData(APIObject):
         The name of the partitions column.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("dataset_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("dataset_version_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("dataset_name", optional=True): t.Or(String(), t.Null()),
-            t.Key("partition_column", optional=True): t.Or(String(), t.Null()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("dataset_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("dataset_version_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("dataset_name", optional=True): t.Or(String(), t.Null()),
+        t.Key("partition_column", optional=True): t.Or(String(), t.Null()),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -185,15 +179,13 @@ class CustomModelFileItem(APIObject):
         ISO-8601 formatted timestamp of when the version was created.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("file_name"): String(),
-            t.Key("file_path"): String(),
-            t.Key("file_source"): String(),
-            t.Key("created", optional=True) >> "created_at": String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("file_name"): String(),
+        t.Key("file_path"): String(),
+        t.Key("file_source"): String(),
+        t.Key("created", optional=True) >> "created_at": String(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -234,15 +226,13 @@ class CustomModelVersionDependencyBuild(APIObject):
     _path = "customModels/{}/versions/{}/dependencyBuild/"
     _log_path = "customModels/{}/versions/{}/dependencyBuildLog/"
 
-    _converter = t.Dict(
-        {
-            t.Key("custom_model_id"): String(),
-            t.Key("custom_model_version_id"): String(),
-            t.Key("build_status"): String(),
-            t.Key("build_start") >> "started_at": String(),
-            t.Key("build_end", optional=True) >> "completed_at": String(allow_blank=True),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("custom_model_id"): String(),
+        t.Key("custom_model_version_id"): String(),
+        t.Key("build_status"): String(),
+        t.Key("build_start") >> "started_at": String(),
+        t.Key("build_end", optional=True) >> "completed_at": String(allow_blank=True),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -276,15 +266,11 @@ class CustomModelVersionDependencyBuild(APIObject):
         cls, server_data: Dict[str, Any], custom_model_id: str, custom_model_version_id: str
     ) -> Dict[str, Any]:
         updated_data = copy.copy(server_data)
-        updated_data.update(
-            {"customModelId": custom_model_id, "customModelVersionId": custom_model_version_id}
-        )
+        updated_data.update({"customModelId": custom_model_id, "customModelVersionId": custom_model_version_id})
         return updated_data
 
     @classmethod
-    def get_build_info(
-        cls, custom_model_id: str, custom_model_version_id: str
-    ) -> CustomModelVersionDependencyBuild:
+    def get_build_info(cls, custom_model_id: str, custom_model_version_id: str) -> CustomModelVersionDependencyBuild:
         """Retrieve information about a custom model version's dependency build
 
         .. versionadded:: v2.22
@@ -304,9 +290,7 @@ class CustomModelVersionDependencyBuild(APIObject):
         url = cls._path.format(custom_model_id, custom_model_version_id)
         response = cls._client.get(url)
         server_data = response.json()
-        updated_data = cls._update_server_data(
-            server_data, custom_model_id, custom_model_version_id
-        )
+        updated_data = cls._update_server_data(server_data, custom_model_id, custom_model_version_id)
         return cls.from_server_data(updated_data)
 
     @classmethod
@@ -334,9 +318,7 @@ class CustomModelVersionDependencyBuild(APIObject):
         def build_complete(response: Response) -> Optional[CustomModelVersionDependencyBuild]:
             data = response.json()
             if data["buildStatus"] in ["success", "failed"]:
-                updated_data = cls._update_server_data(
-                    data, custom_model_id, custom_model_version_id
-                )
+                updated_data = cls._update_server_data(data, custom_model_id, custom_model_version_id)
                 return cls.from_server_data(updated_data)
             return None
 
@@ -345,9 +327,7 @@ class CustomModelVersionDependencyBuild(APIObject):
 
         if max_wait is None:
             server_data = response.json()
-            updated_data = cls._update_server_data(
-                server_data, custom_model_id, custom_model_version_id
-            )
+            updated_data = cls._update_server_data(server_data, custom_model_id, custom_model_version_id)
             return cls.from_server_data(updated_data)
         else:
             return cast(
@@ -402,9 +382,7 @@ class CustomModelVersionDependencyBuild(APIObject):
         response = self._client.get(url)
 
         data = response.json()
-        updated_data = self._update_server_data(
-            data, self.custom_model_id, self.custom_model_version_id
-        )
+        updated_data = self._update_server_data(data, self.custom_model_id, self.custom_model_version_id)
         self._set_values(**self._safe_data(updated_data, do_recursive=True))
 
 
@@ -421,9 +399,7 @@ class CustomDependencyConstraint(APIObject):
         The version to use in the dependency's constraint.
     """
 
-    _converter = t.Dict(
-        {t.Key("constraint_type"): String(), t.Key("version"): String()}
-    ).ignore_extra("*")
+    _converter = t.Dict({t.Key("constraint_type"): String(), t.Key("version"): String()}).ignore_extra("*")
 
     schema = _converter
 
@@ -459,14 +435,12 @@ class CustomDependency(APIObject):
         The line number the requirement was on in the requirements file.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("package_name"): String(),
-            t.Key("constraints"): t.List(CustomDependencyConstraint.schema),
-            t.Key("line"): String(),
-            t.Key("line_number"): Int(gt=0),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("package_name"): String(),
+        t.Key("constraints"): t.List(CustomDependencyConstraint.schema),
+        t.Key("line"): String(),
+        t.Key("line_number"): Int(gt=0),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -545,33 +519,29 @@ class CustomModelVersion(APIObject):
 
     _path = "customModels/{}/versions/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("custom_model_id"): String(),
-            t.Key("version_minor"): Int(),
-            t.Key("version_major"): Int(),
-            t.Key("is_frozen"): t.Bool(),
-            t.Key("items"): t.List(CustomModelFileItem.schema),
-            # base_environment_id will be required once dependency management is enabled by default
-            # in 6.2, but for backwards compatibility, this should be optional
-            t.Key("base_environment_id", optional=True): String(),
-            t.Key("base_environment_version_id", optional=True): String(),
-            t.Key("label", optional=True): t.Or(String(max_length=50, allow_blank=True), t.Null()),
-            t.Key("description", optional=True): t.Or(
-                String(max_length=10000, allow_blank=True), t.Null()
-            ),
-            t.Key("created", optional=True) >> "created_at": String(),
-            t.Key("dependencies", optional=True): t.List(CustomDependency.schema),
-            t.Key("network_egress_policy", optional=True): t.Enum(*NETWORK_EGRESS_POLICY.ALL),
-            t.Key("maximum_memory", optional=True): Int(),
-            t.Key("replicas", optional=True): Int(),
-            t.Key("required_metadata_values", optional=True): t.List(RequiredMetadataValue.schema),
-            t.Key("training_data", optional=True): t.Or(TrainingData.schema, t.Null()),
-            t.Key("holdout_data", optional=True): t.Or(HoldoutData.schema, t.Null()),
-            t.Key("runtime_parameters", optional=True): t.List(RuntimeParameter.schema),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("custom_model_id"): String(),
+        t.Key("version_minor"): Int(),
+        t.Key("version_major"): Int(),
+        t.Key("is_frozen"): t.Bool(),
+        t.Key("items"): t.List(CustomModelFileItem.schema),
+        # base_environment_id will be required once dependency management is enabled by default
+        # in 6.2, but for backwards compatibility, this should be optional
+        t.Key("base_environment_id", optional=True): String(),
+        t.Key("base_environment_version_id", optional=True): String(),
+        t.Key("label", optional=True): t.Or(String(max_length=50, allow_blank=True), t.Null()),
+        t.Key("description", optional=True): t.Or(String(max_length=10000, allow_blank=True), t.Null()),
+        t.Key("created", optional=True) >> "created_at": String(),
+        t.Key("dependencies", optional=True): t.List(CustomDependency.schema),
+        t.Key("network_egress_policy", optional=True): t.Enum(*NETWORK_EGRESS_POLICY.ALL),
+        t.Key("maximum_memory", optional=True): Int(),
+        t.Key("replicas", optional=True): Int(),
+        t.Key("required_metadata_values", optional=True): t.List(RequiredMetadataValue.schema),
+        t.Key("training_data", optional=True): t.Or(TrainingData.schema, t.Null()),
+        t.Key("holdout_data", optional=True): t.Or(HoldoutData.schema, t.Null()),
+        t.Key("runtime_parameters", optional=True): t.List(RuntimeParameter.schema),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -632,9 +602,7 @@ class CustomModelVersion(APIObject):
         )
 
     @classmethod
-    def from_server_data(
-        cls, data: ServerDataType, keep_attrs: Optional[Iterable[str]] = None
-    ) -> CustomModelVersion:
+    def from_server_data(cls, data: ServerDataType, keep_attrs: Optional[Iterable[str]] = None) -> CustomModelVersion:
         initial = super().from_server_data(data, keep_attrs)
         # from_server_data will make the keys in requiredMetadata lowercase,
         # which is not OK. we need to preserve case
@@ -1046,10 +1014,7 @@ class CustomModelVersion(APIObject):
                 start_time = time.time()
                 while time.time() < start_time + max_wait:
                     version.refresh()
-                    if (
-                        not version.training_data
-                        or not version.training_data.assignment_in_progress
-                    ):
+                    if not version.training_data or not version.training_data.assignment_in_progress:
                         break
                     time.sleep(5)
 
@@ -1119,17 +1084,12 @@ class CustomModelVersion(APIObject):
                 upload_data.append(("replicas", str(replicas)))
 
             if required_metadata_values is not None:
-                upload_data.append(
-                    (
-                        "requiredMetadataValues",
-                        json.dumps(
-                            [
-                                {camelize(k): v for k, v in val.to_dict().items()}
-                                for val in required_metadata_values
-                            ]
-                        ),
-                    )
-                )
+                upload_data.append((
+                    "requiredMetadataValues",
+                    json.dumps([
+                        {camelize(k): v for k, v in val.to_dict().items()} for val in required_metadata_values
+                    ]),
+                ))
 
             if training_dataset_id:
                 keep_training_holdout_data = False
@@ -1147,23 +1107,18 @@ class CustomModelVersion(APIObject):
                 if partition_column:
                     hd_payload["partitionColumn"] = partition_column
 
-                if len(hd_payload):
+                if hd_payload:
                     upload_data.append(("holdoutData", json.dumps(hd_payload)))
             if keep_training_holdout_data is not None:
                 upload_data.append(("keepTrainingHoldoutData", str(keep_training_holdout_data)))
 
             if runtime_parameter_values is not None:
-                upload_data.append(
-                    (
-                        "runtimeParameterValues",
-                        json.dumps(
-                            [
-                                {camelize(k): v for k, v in param.to_dict().items()}
-                                for param in runtime_parameter_values
-                            ]
-                        ),
-                    )
-                )
+                upload_data.append((
+                    "runtimeParameterValues",
+                    json.dumps([
+                        {camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameter_values
+                    ]),
+                ))
 
             encoder = MultipartEncoder(fields=upload_data)
             headers = {"Content-Type": encoder.content_type}
@@ -1289,9 +1244,7 @@ class CustomModelVersion(APIObject):
             payload.update({"description": description})
 
         if required_metadata_values is not None:
-            payload.update(
-                {"requiredMetadataValues": [val.to_dict() for val in required_metadata_values]}
-            )
+            payload.update({"requiredMetadataValues": [val.to_dict() for val in required_metadata_values]})
 
         url = self._path.format(self.custom_model_id)
         path = f"{url}{self.id}/"
@@ -1412,26 +1365,22 @@ class CustomModelVersionConversion(APIObject):
 
     _path = "customModels/{}/versions/{}/conversions/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("custom_model_version_id"): String(),
-            t.Key("created"): String(),
-            t.Key("main_program_item_id", optional=True): String(),
-            t.Key("log_message", optional=True): t.Or(String(), t.Null()),
-            t.Key("generated_metadata", optional=True): t.Dict(
-                {
-                    t.Key("output_datasets"): t.List(t.String, min_length=0, max_length=50),
-                    t.Key("output_columns"): t.List(
-                        t.List(t.String, min_length=0, max_length=1024), min_length=1, max_length=50
-                    ),
-                }
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("custom_model_version_id"): String(),
+        t.Key("created"): String(),
+        t.Key("main_program_item_id", optional=True): String(),
+        t.Key("log_message", optional=True): t.Or(String(), t.Null()),
+        t.Key("generated_metadata", optional=True): t.Dict({
+            t.Key("output_datasets"): t.List(t.String, min_length=0, max_length=50),
+            t.Key("output_columns"): t.List(
+                t.List(t.String, min_length=0, max_length=1024), min_length=1, max_length=50
             ),
-            t.Key("conversion_succeeded", optional=True): t.Bool() | t.Null(),
-            t.Key("conversion_in_progress", optional=True): t.Bool() | t.Null(),
-            t.Key("should_stop", optional=True): t.Bool(),
-        }
-    ).ignore_extra("*")
+        }),
+        t.Key("conversion_succeeded", optional=True): t.Bool() | t.Null(),
+        t.Key("conversion_in_progress", optional=True): t.Bool() | t.Null(),
+        t.Key("should_stop", optional=True): t.Bool(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -1507,9 +1456,7 @@ class CustomModelVersionConversion(APIObject):
         return cast(str, response.json()["conversionId"])
 
     @classmethod
-    def stop_conversion(
-        cls, custom_model_id: str, custom_model_version_id: str, conversion_id: str
-    ) -> Response:
+    def stop_conversion(cls, custom_model_id: str, custom_model_version_id: str, conversion_id: str) -> Response:
         """
         Stop a conversion that is in progress.
 
@@ -1573,9 +1520,7 @@ class CustomModelVersionConversion(APIObject):
         return cls.from_location(conversion_entity_url)
 
     @classmethod
-    def get_latest(
-        cls, custom_model_id: str, custom_model_version_id: str
-    ) -> Optional[CustomModelVersionConversion]:
+    def get_latest(cls, custom_model_id: str, custom_model_version_id: str) -> Optional[CustomModelVersionConversion]:
         """Get latest custom model version conversion for a given custom model version.
 
         .. versionadded:: v2.27
@@ -1605,9 +1550,7 @@ class CustomModelVersionConversion(APIObject):
         return cls.from_server_data(next(data))
 
     @classmethod
-    def list(
-        cls, custom_model_id: str, custom_model_version_id: str
-    ) -> List[CustomModelVersionConversion]:
+    def list(cls, custom_model_id: str, custom_model_version_id: str) -> List[CustomModelVersionConversion]:
         """Get custom model version conversions list per custom model version.
 
         .. versionadded:: v2.27

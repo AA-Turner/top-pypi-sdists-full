@@ -4,18 +4,29 @@ from transformers.models.deepseek_v3.modeling_deepseek_v3 import (
     DeepseekV3MoE as OriginalDeepseekV3MoE,
 )
 
+from llmcompressor.modeling.moe_context import MoECalibrationModule
 
-class DeepseekV3MoECalibrate(torch.nn.Module):
+
+@MoECalibrationModule.register("DeepseekV3MoE")
+class CalibrationDeepseekV3MoE(MoECalibrationModule):
     """
-    Patched DeepseekV3MoE which sends all tokens to all experts for calibration
+    Calibration version of DeepseekV3MoE that sends all tokens to all experts.
     """
 
-    def __init__(self, config: DeepseekV3Config, original: OriginalDeepseekV3MoE):
+    is_permanent = True
+
+    def __init__(
+        self,
+        original: OriginalDeepseekV3MoE,
+        config: DeepseekV3Config,
+        calibrate_all_experts: bool = True,
+    ):
         super().__init__()
         self.config = config
         self.experts = original.experts
         self.gate = original.gate
         self.shared_experts = original.shared_experts
+        self.calibrate_all_experts = calibrate_all_experts
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         residuals = hidden_states
@@ -30,24 +41,30 @@ class DeepseekV3MoECalibrate(torch.nn.Module):
         )
         expert_mask = expert_mask.permute(2, 0, 1)
 
-        for expert_idx in range(len(self.experts)):
-            expert = self.experts[expert_idx]
-            mask = expert_mask[expert_idx]
-            token_indices, weight_indices = torch.where(mask)
+        for expert_idx, expert in enumerate(self.experts):
+            token_indices, weight_indices = torch.where(expert_mask[expert_idx])
+            has_tokens = token_indices.numel() > 0
 
-            expert_weights = topk_weights[token_indices, weight_indices]
-            expert_input = hidden_states[token_indices]
-            expert_output = expert(expert_input)
-            weighted_output = expert_output * expert_weights.unsqueeze(-1)
+            if self.calibrate_all_experts:
+                expert_input = hidden_states
+                expert_output = expert(expert_input)
 
-            if token_indices.numel() > 0:
-                final_hidden_states.index_add_(0, token_indices, weighted_output)
+                if has_tokens:
+                    expert_weights = topk_weights[token_indices, weight_indices]
+                    routed_output = expert_output[
+                        token_indices
+                    ] * expert_weights.unsqueeze(-1)
+                    final_hidden_states.index_add_(0, token_indices, routed_output)
+            else:
+                # Normal MoE: only process tokens routed to this expert
+                if has_tokens:
+                    expert_input = hidden_states[token_indices]
+                    expert_output = expert(expert_input)
+                    expert_weights = topk_weights[token_indices, weight_indices]
+                    routed_output = expert_output * expert_weights.unsqueeze(-1)
+                    final_hidden_states.index_add_(0, token_indices, routed_output)
         # End MoE
 
         hidden_states = final_hidden_states.type(hidden_states.dtype).view(*orig_shape)
         hidden_states = hidden_states + self.shared_experts(residuals)
         return hidden_states
-
-
-def replace(config: DeepseekV3Config, module: OriginalDeepseekV3MoE):
-    return DeepseekV3MoECalibrate(config=config, original=module)

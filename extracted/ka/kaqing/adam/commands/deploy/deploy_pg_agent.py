@@ -1,5 +1,5 @@
 from adam.commands.command import Command
-from adam.commands.postgres.postgres_session import PostgresSession
+from adam.commands.postgres.postgres_databases import PostgresDatabases
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 
@@ -25,14 +25,11 @@ class DeployPgAgent(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
-            return state
-
-        PostgresSession.deploy_pg_agent(Config().get('pg.agent.name', 'ops-pg-agent'), state.namespace)
+        with self.validate(args, state) as (args, state):
+            PostgresDatabases.deploy_pg_agent(Config().get('pg.agent.name', 'ops-pg-agent'), state.namespace)
 
     def completion(self, state: ReplState):
         return super().completion(state)
 
-    def help(self, _: ReplState):
-        return f'{DeployPgAgent.COMMAND}\t deploy Postgres agent'
+    def help(self, state: ReplState):
+        return super().help(state, 'deploy Postgres agent')

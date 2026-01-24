@@ -2,6 +2,7 @@
 from __future__ import annotations
 import asyncio
 import atexit
+import fasteners
 import http.cookiejar
 import json
 import logging
@@ -15,7 +16,10 @@ import urllib.parse
 import urllib.request
 import warnings
 from collections import defaultdict
+from contextlib import suppress
 from seleniumbase import config as sb_config
+from seleniumbase.fixtures import constants
+from seleniumbase.fixtures import shared_utils
 from typing import List, Optional, Set, Tuple, Union
 import mycdp as cdp
 from . import cdp_util as util
@@ -34,7 +38,7 @@ def get_registered_instances():
 def deconstruct_browser():
     for _ in __registered__instances__:
         if not _.stopped:
-            _.stop()
+            _.stop(deconstruct=True)
         for attempt in range(5):
             try:
                 if _.config and not _.config.uses_custom_data_dir:
@@ -178,7 +182,6 @@ class Browser:
         if self._process and self._process.returncode is None:
             return False
         return True
-        # return (self._process and self._process.returncode) or False
 
     async def wait(self, time: Union[float, int] = 1) -> Browser:
         """Wait for <time> seconds. Important to use,
@@ -251,6 +254,59 @@ class Browser:
             )
             self.targets.remove(current_tab)
 
+    def get_rd_host(self):
+        return self.config.host
+
+    def get_rd_port(self):
+        return self.config.port
+
+    def get_rd_url(self):
+        """Returns the remote-debugging URL, which is used for
+        allowing the Playwright integration to launch stealthy.
+        Also sets an environment variable to hide this warning:
+        Deprecation: "url.parse() behavior is not standardized".
+        (github.com/microsoft/playwright-python/issues/3016)"""
+        os.environ["NODE_NO_WARNINGS"] = "1"
+        host = self.config.host
+        port = self.config.port
+        return f"http://{host}:{port}"
+
+    def get_endpoint_url(self):
+        return self.get_rd_url()
+
+    def get_port(self):
+        return self.get_rd_port()
+
+    async def set_auth(self, username, password, tab):
+        async def auth_challenge_handler(event: cdp.fetch.AuthRequired):
+            await tab.send(
+                cdp.fetch.continue_with_auth(
+                    request_id=event.request_id,
+                    auth_challenge_response=cdp.fetch.AuthChallengeResponse(
+                        response="ProvideCredentials",
+                        username=username,
+                        password=password,
+                    ),
+                )
+            )
+
+        async def req_paused(event: cdp.fetch.RequestPaused):
+            await tab.send(
+                cdp.fetch.continue_request(request_id=event.request_id)
+            )
+
+        tab.add_handler(
+            cdp.fetch.RequestPaused,
+            lambda event: asyncio.create_task(req_paused(event)),
+        )
+
+        tab.add_handler(
+            cdp.fetch.AuthRequired,
+            lambda event: asyncio.create_task(auth_challenge_handler(event)),
+        )
+
+        await tab.send(cdp.fetch.enable(handle_auth_requests=True))
+
     async def get(
         self,
         url="about:blank",
@@ -266,6 +322,7 @@ class Browser:
         :param new_window: Open new window
         :return: Page
         """
+        await asyncio.sleep(0.005)
         if url and ":" not in url:
             url = "https://" + url
         if new_tab or new_window:
@@ -277,115 +334,211 @@ class Browser:
             )
             connection: tab.Tab = next(
                 filter(
-                    lambda item: item.type_ == "page" and item.target_id == target_id,  # noqa
+                    lambda item: (
+                        item.type_ == "page" and item.target_id == target_id
+                    ),
                     self.targets,
                 )
             )
             connection.browser = self
         else:
-            # First tab from browser.tabs
-            connection: tab.Tab = next(
-                filter(lambda item: item.type_ == "page", self.targets)
+            try:
+                # Most recently opened tab
+                connection = self.targets[-1]
+                await connection.sleep(0.005)
+            except Exception:
+                # First tab from browser.tabs
+                connection: tab.Tab = next(
+                    filter(lambda item: item.type_ == "page", self.targets)
+                )
+                await connection.sleep(0.005)
+        _cdp_timezone = None
+        _cdp_user_agent = ""
+        _cdp_locale = None
+        _cdp_platform = None
+        _cdp_disable_csp = None
+        _cdp_geolocation = None
+        _cdp_mobile_mode = None
+        _cdp_recorder = None
+        _cdp_ad_block = None
+        if getattr(sb_config, "_cdp_timezone", None):
+            _cdp_timezone = sb_config._cdp_timezone
+        if getattr(sb_config, "_cdp_user_agent", None):
+            _cdp_user_agent = sb_config._cdp_user_agent
+        if getattr(sb_config, "_cdp_locale", None):
+            _cdp_locale = sb_config._cdp_locale
+        if getattr(sb_config, "_cdp_platform", None):
+            _cdp_platform = sb_config._cdp_platform
+        if getattr(sb_config, "_cdp_geolocation", None):
+            _cdp_geolocation = sb_config._cdp_geolocation
+        if getattr(sb_config, "_cdp_mobile_mode", None):
+            _cdp_mobile_mode = sb_config._cdp_mobile_mode
+        if getattr(sb_config, "ad_block_on", None):
+            _cdp_ad_block = sb_config.ad_block_on
+        if getattr(sb_config, "disable_csp", None):
+            _cdp_disable_csp = sb_config.disable_csp
+        if "timezone" in kwargs:
+            _cdp_timezone = kwargs["timezone"]
+        elif "tzone" in kwargs:
+            _cdp_timezone = kwargs["tzone"]
+        if "user_agent" in kwargs:
+            _cdp_user_agent = kwargs["user_agent"]
+        elif "agent" in kwargs:
+            _cdp_user_agent = kwargs["agent"]
+        if "locale" in kwargs:
+            _cdp_locale = kwargs["locale"]
+        elif "lang" in kwargs:
+            _cdp_locale = kwargs["lang"]
+        elif "locale_code" in kwargs:
+            _cdp_locale = kwargs["locale_code"]
+        if "platform" in kwargs:
+            _cdp_platform = kwargs["platform"]
+        elif "plat" in kwargs:
+            _cdp_platform = kwargs["plat"]
+        if "disable_csp" in kwargs:
+            _cdp_disable_csp = kwargs["disable_csp"]
+        if "geolocation" in kwargs:
+            _cdp_geolocation = kwargs["geolocation"]
+        elif "geoloc" in kwargs:
+            _cdp_geolocation = kwargs["geoloc"]
+        if "ad_block" in kwargs:
+            _cdp_ad_block = kwargs["ad_block"]
+        if "mobile" in kwargs:
+            _cdp_mobile_mode = kwargs["mobile"]
+        if "recorder" in kwargs:
+            _cdp_recorder = kwargs["recorder"]
+        await connection.sleep(0.01)
+        await connection.send(cdp.network.enable())
+        await connection.sleep(0.01)
+        if _cdp_timezone:
+            await connection.set_timezone(_cdp_timezone)
+        if _cdp_locale:
+            await connection.set_locale(_cdp_locale)
+        if _cdp_user_agent or _cdp_locale or _cdp_platform:
+            await connection.set_user_agent(
+                user_agent=_cdp_user_agent,
+                accept_language=_cdp_locale,
+                platform=_cdp_platform,
             )
-            _cdp_timezone = None
-            _cdp_user_agent = ""
-            _cdp_locale = None
-            _cdp_platform = None
-            _cdp_geolocation = None
-            _cdp_recorder = None
-            if (
-                hasattr(sb_config, "_cdp_timezone") and sb_config._cdp_timezone
-            ):
-                _cdp_timezone = sb_config._cdp_timezone
-            if (
-                hasattr(sb_config, "_cdp_user_agent")
-                and sb_config._cdp_user_agent
-            ):
-                _cdp_user_agent = sb_config._cdp_user_agent
-            if hasattr(sb_config, "_cdp_locale") and sb_config._cdp_locale:
-                _cdp_locale = sb_config._cdp_locale
-            if hasattr(sb_config, "_cdp_platform") and sb_config._cdp_platform:
-                _cdp_platform = sb_config._cdp_platform
-            if (
-                hasattr(sb_config, "_cdp_geolocation")
-                and sb_config._cdp_geolocation
-            ):
-                _cdp_geolocation = sb_config._cdp_geolocation
-            if "timezone" in kwargs:
-                _cdp_timezone = kwargs["timezone"]
-            elif "tzone" in kwargs:
-                _cdp_timezone = kwargs["tzone"]
-            if "user_agent" in kwargs:
-                _cdp_user_agent = kwargs["user_agent"]
-            elif "agent" in kwargs:
-                _cdp_user_agent = kwargs["agent"]
-            if "locale" in kwargs:
-                _cdp_locale = kwargs["locale"]
-            elif "lang" in kwargs:
-                _cdp_locale = kwargs["lang"]
-            elif "locale_code" in kwargs:
-                _cdp_locale = kwargs["locale_code"]
-            if "platform" in kwargs:
-                _cdp_platform = kwargs["platform"]
-            elif "plat" in kwargs:
-                _cdp_platform = kwargs["plat"]
-            if "geolocation" in kwargs:
-                _cdp_geolocation = kwargs["geolocation"]
-            elif "geoloc" in kwargs:
-                _cdp_geolocation = kwargs["geoloc"]
-            if "recorder" in kwargs:
-                _cdp_recorder = kwargs["recorder"]
-            if _cdp_timezone:
-                await connection.send(cdp.page.navigate("about:blank"))
-                await connection.set_timezone(_cdp_timezone)
-            if _cdp_locale:
-                await connection.set_locale(_cdp_locale)
-            if _cdp_user_agent or _cdp_locale or _cdp_platform:
-                await connection.send(cdp.page.navigate("about:blank"))
-                await connection.set_user_agent(
-                    user_agent=_cdp_user_agent,
-                    accept_language=_cdp_locale,
-                    platform=_cdp_platform,
+        if _cdp_ad_block:
+            await connection.send(cdp.network.set_blocked_urls(
+                urls=[
+                    "*.cloudflareinsights.com*",
+                    "*.googlesyndication.com*",
+                    "*.googletagmanager.com*",
+                    "*.google-analytics.com*",
+                    "*.amazon-adsystem.com*",
+                    "*.adsafeprotected.com*",
+                    "*.ads.linkedin.com*",
+                    "*.casalemedia.com*",
+                    "*.doubleclick.net*",
+                    "*.admanmedia.com*",
+                    "*.quantserve.com*",
+                    "*.fastclick.net*",
+                    "*.snigelweb.com*",
+                    "*.bidswitch.net*",
+                    "*.360yield.com*",
+                    "*.adthrive.com*",
+                    "*.pubmatic.com*",
+                    "*.id5-sync.com*",
+                    "*.moatads.com*",
+                    "*.dotomi.com*",
+                    "*.adsrvr.org*",
+                    "*.atmtd.com*",
+                    "*.liadm.com*",
+                    "*.loopme.me*",
+                    "*.adnxs.com*",
+                    "*.openx.net*",
+                    "*.tapad.com*",
+                    "*.3lift.com*",
+                    "*.turn.com*",
+                    "*.2mdn.net*",
+                    "*.cpx.to*",
+                    "*.ad.gt*",
+                ]
+            ))
+        if _cdp_geolocation:
+            await connection.set_geolocation(_cdp_geolocation)
+        if _cdp_disable_csp:
+            await connection.send(cdp.page.set_bypass_csp(enabled=True))
+        if _cdp_mobile_mode:
+            await connection.send(
+                cdp.emulation.set_device_metrics_override(
+                    width=412, height=732, device_scale_factor=3, mobile=True
                 )
-            if _cdp_geolocation:
-                await connection.send(cdp.page.navigate("about:blank"))
-                await connection.set_geolocation(_cdp_geolocation)
-            # Use the tab to navigate to new url
-            if (
-                hasattr(sb_config, "_cdp_proxy")
-                and "@" in sb_config._cdp_proxy
-                and sb_config._cdp_proxy
-                and "auth" not in kwargs
-            ):
-                username_and_password = sb_config._cdp_proxy.split("@")[0]
-                proxy_user = username_and_password.split(":")[0]
-                proxy_pass = username_and_password.split(":")[1]
-                await connection.set_auth(
-                    proxy_user, proxy_pass, self.tabs[0]
-                )
-                time.sleep(0.25)
-            elif "auth" in kwargs and kwargs["auth"] and ":" in kwargs["auth"]:
-                username_and_password = kwargs["auth"]
-                proxy_user = username_and_password.split(":")[0]
-                proxy_pass = username_and_password.split(":")[1]
-                await connection.set_auth(
-                    proxy_user, proxy_pass, self.tabs[0]
-                )
-                time.sleep(0.25)
-            frame_id, loader_id, *_ = await connection.send(
-                cdp.page.navigate(url)
             )
-            if _cdp_recorder:
-                pass  # (The code below was for the Chrome 137 extension fix)
-                '''from seleniumbase.js_code.recorder_js import recorder_js
-                recorder_code = (
-                    """window.onload = function() { %s };""" % recorder_js
+        # (The code below is for the Chrome 142 extension fix)
+        if (
+            getattr(sb_config, "_cdp_proxy", None)
+            and "@" in sb_config._cdp_proxy
+            and "auth" not in kwargs
+        ):
+            username_and_password = sb_config._cdp_proxy.split("@")[0]
+            proxy_user = username_and_password.split(":")[0]
+            proxy_pass = username_and_password.split(":")[1]
+            if (
+                hasattr(self.main_tab, "_last_auth")
+                and self.main_tab._last_auth == username_and_password
+            ):
+                pass  # Auth was already set
+            else:
+                self.main_tab._last_auth = username_and_password
+                await self.set_auth(proxy_user, proxy_pass, self.tabs[0])
+                time.sleep(0.25)
+        if "auth" in kwargs and kwargs["auth"] and ":" in kwargs["auth"]:
+            username_and_password = kwargs["auth"]
+            proxy_user = username_and_password.split(":")[0]
+            proxy_pass = username_and_password.split(":")[1]
+            if (
+                hasattr(self.main_tab, "_last_auth")
+                and self.main_tab._last_auth == username_and_password
+            ):
+                pass  # Auth was already set
+            else:
+                self.main_tab._last_auth = username_and_password
+                await self.set_auth(proxy_user, proxy_pass, self.tabs[0])
+                time.sleep(0.25)
+        await connection.sleep(0.15)
+        frame_id, loader_id, *_ = await connection.send(
+            cdp.page.navigate(url)
+        )
+        major_browser_version = None
+        try:
+            major_browser_version = (
+                int(self.info["Browser"].split("/")[-1].split(".")[0])
+            )
+        except Exception:
+            pass
+        if (
+            _cdp_recorder
+            and (
+                not hasattr(sb_config, "browser")
+                or (
+                    sb_config.browser == "chrome"
+                    and (
+                        not major_browser_version
+                        or major_browser_version >= 142
+                    )
                 )
-                await connection.send(cdp.runtime.evaluate(recorder_code))'''
-            # Update the frame_id on the tab
-            connection.frame_id = frame_id
-            connection.browser = self
+            )
+        ):
+            # (The code below is for the Chrome 142 extension fix)
+            from seleniumbase.js_code.recorder_js import recorder_js
+            recorder_code = (
+                """window.onload = function() { %s };""" % recorder_js
+            )
+            await connection.send(
+                cdp.page.add_script_to_evaluate_on_new_document(recorder_code)
+            )
+            await connection.sleep(0.25)
+            await self.wait(0.05)
+            await connection.send(cdp.runtime.evaluate(recorder_js))
+        # Update the frame_id on the tab
+        connection.frame_id = frame_id
+        connection.browser = self
+        # Give settings time to take effect
         await connection.sleep(0.25)
+        await self.wait(0.05)
         return connection
 
     async def start(self=None) -> Browser:
@@ -425,7 +578,7 @@ class Browser:
                     If you are sure about the browser executable,
                     set it using `browser_executable_path='{}` parameter."""
                     ).format(
-                        "/path/to/browser/executable"
+                        "/path/to/your/browser/executable"
                         if is_posix
                         else "c:/path/to/your/browser.exe"
                     )
@@ -437,7 +590,7 @@ class Browser:
             )  # noqa
         exe = self.config.browser_executable_path
         params = self.config()
-        logger.info(
+        logger.debug(
             "Starting\n\texecutable :%s\n\narguments:\n%s",
             exe,
             "\n\t".join(params),
@@ -445,8 +598,6 @@ class Browser:
         if not connect_existing:
             self._process: asyncio.subprocess.Process = (
                 await asyncio.create_subprocess_exec(
-                    # self.config.browser_executable_path,
-                    # *cmdparams,
                     exe,
                     *params,
                     stdin=asyncio.subprocess.PIPE,
@@ -455,36 +606,49 @@ class Browser:
                     close_fds=is_posix,
                 )
             )
+            await asyncio.sleep(0.05)
             self._process_pid = self._process.pid
+        await asyncio.sleep(0.05)
         self._http = HTTPApi((self.config.host, self.config.port))
+        await asyncio.sleep(0.05)
         get_registered_instances().add(self)
-        await asyncio.sleep(0.25)
-        for _ in range(5):
+        await asyncio.sleep(0.15)
+        for attempt in range(5):
             try:
                 self.info = ContraDict(
                     await self._http.get("version"), silent=True
                 )
             except (Exception,):
-                if _ == 4:
+                if attempt == 4:
                     logger.debug("Could not start", exc_info=True)
-                await self.sleep(0.5)
+                else:
+                    await self.sleep(0.5)
             else:
                 break
         if not self.info:
-            raise Exception(
-                (
-                    """
-                    --------------------------------
-                    Failed to connect to the browser
-                    --------------------------------
-                    """
+            chromium = "Chromium"
+            if getattr(sb_config, "_cdp_browser", None):
+                chromium = sb_config._cdp_browser
+                chromium = chromium[0].upper() + chromium[1:]
+            message = "Failed to connect to the browser"
+            if not exe or not os.path.exists(exe):
+                message = (
+                    "%s executable not found. Is it installed?" % chromium
                 )
+            dash_len = len(message)
+            dashes = "-" * dash_len
+            raise Exception(
+                """
+                %s
+                %s
+                %s
+                """ % (dashes, message, dashes)
             )
         self.connection = Connection(
-            self.info.webSocketDebuggerUrl, _owner=self
+            self.info.webSocketDebuggerUrl, browser=self
         )
         if self.config.autodiscover_targets:
-            logger.info("Enabling autodiscover targets")
+            logger.debug("Enabling autodiscover targets")
             self.connection.handlers[cdp.target.TargetInfoChanged] = [
                 self._handle_target_update
             ]
@@ -580,8 +744,11 @@ class Browser:
         try:
             import mss
         except Exception:
-            from seleniumbase.fixtures import shared_utils
-            shared_utils.pip_install("mss")
+            pip_find_lock = fasteners.InterProcessLock(
+                constants.PipInstall.FINDLOCK
+            )
+            with pip_find_lock:  # Prevent issues with multiple processes
+                shared_utils.pip_install("mss")
             import mss
         m = mss.mss()
         screen, screen_width, screen_height = 3 * (None,)
@@ -655,7 +822,7 @@ class Browser:
                             f"/{t.target_id}"
                         ),
                         target=t,
-                        _owner=self,
+                        browser=self,
                     )
                 )
         await asyncio.sleep(0)
@@ -690,11 +857,17 @@ class Browser:
                 else:
                     del self._i
 
-    def stop(self):
+    def stop(self, deconstruct=False):
+        if (
+            not hasattr(sb_config, "_closed_connection_ids")
+            or not isinstance(sb_config._closed_connection_ids, list)
+        ):
+            sb_config._closed_connection_ids = []
+        connection_id = None
+        with suppress(Exception):
+            connection_id = self.connection.websocket.id.hex
+        close_success = False
         try:
-            # asyncio.get_running_loop().create_task(
-            #     self.connection.send(cdp.browser.close())
-            # )
             if self.connection:
                 asyncio.get_event_loop().create_task(self.connection.aclose())
                 logger.debug(
@@ -703,23 +876,26 @@ class Browser:
         except RuntimeError:
             if self.connection:
                 try:
-                    # asyncio.run(self.connection.send(cdp.browser.close()))
                     asyncio.run(self.connection.aclose())
                     logger.debug("Closed the connection using asyncio.run()")
                 except Exception:
                     pass
         for _ in range(3):
             try:
-                self._process.terminate()
-                logger.info(
-                    "Terminated browser with pid %d successfully."
-                    % self._process.pid
-                )
-                break
+                if connection_id not in sb_config._closed_connection_ids:
+                    self._process.terminate()
+                    logger.debug(
+                        "Terminated browser with pid %d successfully."
+                        % self._process.pid
+                    )
+                    if connection_id:
+                        sb_config._closed_connection_ids.append(connection_id)
+                        close_success = True
+                    break
             except (Exception,):
                 try:
                     self._process.kill()
-                    logger.info(
+                    logger.debug(
                         "Killed browser with pid %d successfully."
                         % self._process.pid
                     )
@@ -728,14 +904,14 @@ class Browser:
                     try:
                         if hasattr(self, "browser_process_pid"):
                             os.kill(self._process_pid, 15)
-                            logger.info(
+                            logger.debug(
                                 "Killed browser with pid %d "
                                 "using signal 15 successfully."
                                 % self._process.pid
                             )
                             break
                     except (TypeError,):
-                        logger.info("typerror", exc_info=True)
+                        logger.info("TypeError", exc_info=True)
                         pass
                     except (PermissionError,):
                         logger.info(
@@ -744,12 +920,45 @@ class Browser:
                         )
                         pass
                     except (ProcessLookupError,):
-                        logger.info("Process lookup failure!")
+                        logger.info("ProcessLookupError")
                         pass
                     except (Exception,):
                         raise
             self._process = None
             self._process_pid = None
+        if (
+            hasattr(sb_config, "_xvfb_users")
+            and isinstance(sb_config._xvfb_users, int)
+            and close_success
+            and hasattr(sb_config, "_virtual_display")
+            and sb_config._virtual_display
+        ):
+            sb_config._xvfb_users -= 1
+            if sb_config._xvfb_users < 0:
+                sb_config._xvfb_users = 0
+        if (
+            shared_utils.is_linux()
+            and (
+                hasattr(sb_config, "_virtual_display")
+                and sb_config._virtual_display
+                and hasattr(sb_config._virtual_display, "stop")
+            )
+            and sb_config._xvfb_users == 0
+        ):
+            try:
+                sb_config._virtual_display.stop()
+                sb_config._virtual_display = None
+                sb_config.headless_active = False
+            except AttributeError:
+                pass
+            except Exception:
+                pass
+        if (
+            deconstruct
+            and connection_id
+            and connection_id in sb_config._closed_connection_ids
+        ):
+            sb_config._closed_connection_ids.remove(connection_id)
 
     def quit(self):
         self.stop()
@@ -781,7 +990,7 @@ class CookieJar:
         """
         connection = None
         for _tab in self._browser.tabs:
-            if hasattr(_tab, "closed") and _tab.closed:
+            if getattr(_tab, "closed", None):
                 continue
             connection = _tab
             break
@@ -811,7 +1020,7 @@ class CookieJar:
         """
         connection = None
         for _tab in self._browser.tabs:
-            if hasattr(_tab, "closed") and _tab.closed:
+            if getattr(_tab, "closed", None):
                 continue
             connection = _tab
             break
@@ -838,7 +1047,7 @@ class CookieJar:
         save_path = pathlib.Path(file).resolve()
         connection = None
         for _tab in self._browser.tabs:
-            if hasattr(_tab, "closed") and _tab.closed:
+            if getattr(_tab, "closed", None):
                 continue
             connection = _tab
             break
@@ -884,7 +1093,7 @@ class CookieJar:
         included_cookies = []
         connection = None
         for _tab in self._browser.tabs:
-            if hasattr(_tab, "closed") and _tab.closed:
+            if getattr(_tab, "closed", None):
                 continue
             connection = _tab
             break
@@ -907,7 +1116,7 @@ class CookieJar:
         """
         connection = None
         for _tab in self._browser.tabs:
-            if hasattr(_tab, "closed") and _tab.closed:
+            if getattr(_tab, "closed", None):
                 continue
             connection = _tab
             break

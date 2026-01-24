@@ -9,9 +9,10 @@ from .property_crmcontact_address import (
     PropertyCrmContactAddressTypedDict,
 )
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CrmContactTypedDict(TypedDict):
@@ -24,9 +25,13 @@ class CrmContactTypedDict(TypedDict):
     created_at: NotRequired[datetime]
     deal_ids: NotRequired[List[str]]
     r"""An array of deal IDs associated with this contact"""
+    department: NotRequired[str]
     emails: NotRequired[List[CrmEmailTypedDict]]
     r"""An array of email addresses for this contact"""
+    first_name: NotRequired[str]
     id: NotRequired[str]
+    image_url: NotRequired[str]
+    last_name: NotRequired[str]
     link_urls: NotRequired[List[str]]
     r"""Additional URLs associated with the contact e.g., LinkedIn, website, etc"""
     metadata: NotRequired[List[CrmMetadataTypedDict]]
@@ -54,10 +59,18 @@ class CrmContact(BaseModel):
     deal_ids: Optional[List[str]] = None
     r"""An array of deal IDs associated with this contact"""
 
+    department: Optional[str] = None
+
     emails: Optional[List[CrmEmail]] = None
     r"""An array of email addresses for this contact"""
 
+    first_name: Optional[str] = None
+
     id: Optional[str] = None
+
+    image_url: Optional[str] = None
+
+    last_name: Optional[str] = None
 
     link_urls: Optional[List[str]] = None
     r"""Additional URLs associated with the contact e.g., LinkedIn, website, etc"""
@@ -76,3 +89,41 @@ class CrmContact(BaseModel):
     updated_at: Optional[datetime] = None
 
     user_id: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "address",
+                "company",
+                "company_ids",
+                "created_at",
+                "deal_ids",
+                "department",
+                "emails",
+                "first_name",
+                "id",
+                "image_url",
+                "last_name",
+                "link_urls",
+                "metadata",
+                "name",
+                "raw",
+                "telephones",
+                "title",
+                "updated_at",
+                "user_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

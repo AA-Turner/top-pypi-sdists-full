@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coffea
-Version: 2025.9.0
+Version: 2025.12.0
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
@@ -20,13 +20,18 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: aiohttp
 Requires-Dist: awkward>=2.8.9
 Requires-Dist: cachetools
@@ -35,7 +40,10 @@ Requires-Dist: correctionlib>=2.6.0
 Requires-Dist: dask-awkward>=2025.9.0
 Requires-Dist: dask-histogram>=2025.2.0
 Requires-Dist: dask[array]>=2024.3.0
+Requires-Dist: fsspec
 Requires-Dist: hist>=2
+Requires-Dist: ipywidgets
+Requires-Dist: loky>=3.5.6
 Requires-Dist: lz4
 Requires-Dist: matplotlib>=3
 Requires-Dist: mplhep>=0.1.18
@@ -44,13 +52,16 @@ Requires-Dist: numpy>=1.22
 Requires-Dist: packaging
 Requires-Dist: pandas
 Requires-Dist: pyarrow>=6.0.0
+Requires-Dist: pydantic
 Requires-Dist: requests
+Requires-Dist: rich
 Requires-Dist: scipy>=1.1.0
 Requires-Dist: toml>=0.10.2
 Requires-Dist: tqdm>=4.27.0
 Requires-Dist: uproot>=5.6.0
 Requires-Dist: vector!=1.6.0,>=1.4.1
 Provides-Extra: dask
+Requires-Dist: blosc2; extra == 'dask'
 Requires-Dist: bokeh!=3.0.*,>=2.4.2; extra == 'dask'
 Requires-Dist: distributed>=2024.3.0; extra == 'dask'
 Provides-Extra: dev
@@ -58,8 +69,10 @@ Requires-Dist: black; extra == 'dev'
 Requires-Dist: distributed>=2023.4.0; extra == 'dev'
 Requires-Dist: flake8; extra == 'dev'
 Requires-Dist: ipython; extra == 'dev'
+Requires-Dist: myst-nb; extra == 'dev'
 Requires-Dist: nbsphinx; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pydata-sphinx-theme; extra == 'dev'
 Requires-Dist: pyinstrument; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
@@ -74,10 +87,8 @@ Provides-Extra: parsl
 Requires-Dist: parsl>=2024.12.09; extra == 'parsl'
 Provides-Extra: rucio
 Requires-Dist: rucio-clients>=32; extra == 'rucio'
-Provides-Extra: spark
-Requires-Dist: ipywidgets; extra == 'spark'
-Requires-Dist: jinja2; extra == 'spark'
-Requires-Dist: pyspark>=3.3.0; extra == 'spark'
+Provides-Extra: triton
+Requires-Dist: tritonclient[grpc,http]>=2.56.0; extra == 'triton'
 Provides-Extra: xrootd
 Requires-Dist: fsspec-xrootd>=0.5.1; extra == 'xrootd'
 Description-Content-Type: text/x-rst
@@ -133,8 +144,8 @@ to data, and correct for discrepancies in Monte Carlo simulations compared to da
 coffea also supplies facilities for horizontally scaling an analysis in order to reduce
 time-to-insight in a way that is largely independent of the resource the analysis
 is being executed on. By making use of modern *big-data* technologies like
-`Apache Spark <https://spark.apache.org/>`_,  `parsl <https://github.com/Parsl/parsl>`_,
-`Dask <https://dask.org>`_ , and `Work Queue <http://ccl.cse.nd.edu/software/workqueue>`_,
+`parsl <https://github.com/Parsl/parsl>`_, `Dask <https://dask.org>`_ ,
+and `TaskVine <https://ccl.cse.nd.edu/software/taskvine>`_,
 it is possible with coffea to scale a HEP analysis from a testing
 on a laptop to: a large multi-core server, computing clusters, and super-computers without
 the need to alter or otherwise adapt the analysis code itself.

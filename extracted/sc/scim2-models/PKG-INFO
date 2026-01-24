@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scim2-models
-Version: 0.5.0
+Version: 0.5.2
 Summary: SCIM2 models serialization and validation with pydantic
 Keywords: scim,scim2,provisioning,pydantic,rfc7643,rfc7644
 Author: Yaal Coop
@@ -219,7 +219,7 @@ Classifier: Environment :: Web Environment
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
 Requires-Dist: pydantic[email]>=2.7.0
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: changelog, https://scim2-models.readthedocs.io/en/latest/changelog.html
 Project-URL: documentation, https://scim2-models.readthedocs.io
 Project-URL: funding, https://github.com/sponsors/python-scim

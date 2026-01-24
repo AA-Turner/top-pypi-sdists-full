@@ -3,6 +3,10 @@
 from __future__ import annotations
 from .hriscompensation import HrisCompensation, HrisCompensationTypedDict
 from .hrisemail import HrisEmail, HrisEmailTypedDict
+from .hrisemployeerelationship import (
+    HrisEmployeerelationship,
+    HrisEmployeerelationshipTypedDict,
+)
 from .hrisgroup import HrisGroup, HrisGroupTypedDict
 from .hrislocation import HrisLocation, HrisLocationTypedDict
 from .hrismetadata import HrisMetadata, HrisMetadataTypedDict
@@ -14,12 +18,12 @@ from .property_hrisemployee_address import (
 from .property_hrisemployee_employee_roles import PropertyHrisEmployeeEmployeeRoles
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class EmploymentStatus(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -61,21 +65,21 @@ class HrisEmployeeTypedDict(TypedDict):
     created_at: NotRequired[datetime]
     currency: NotRequired[str]
     date_of_birth: NotRequired[datetime]
-    department: NotRequired[str]
-    division: NotRequired[str]
     emails: NotRequired[List[HrisEmailTypedDict]]
     employee_number: NotRequired[str]
     employee_roles: NotRequired[List[PropertyHrisEmployeeEmployeeRoles]]
     employment_status: NotRequired[EmploymentStatus]
     employment_type: NotRequired[HrisEmployeeEmploymentType]
+    first_name: NotRequired[str]
     gender: NotRequired[HrisEmployeeGender]
     groups: NotRequired[List[HrisGroupTypedDict]]
     r"""Which groups/teams/units that this employee/user belongs to.  May not have all of the Group fields present, but should have id, name, or email."""
+    has_mfa: NotRequired[bool]
     hired_at: NotRequired[datetime]
     id: NotRequired[str]
     image_url: NotRequired[str]
     language_locale: NotRequired[str]
-    location: NotRequired[str]
+    last_name: NotRequired[str]
     locations: NotRequired[List[HrisLocationTypedDict]]
     manager_id: NotRequired[str]
     marital_status: NotRequired[MaritalStatus]
@@ -83,6 +87,8 @@ class HrisEmployeeTypedDict(TypedDict):
     name: NotRequired[str]
     pronouns: NotRequired[str]
     raw: NotRequired[Dict[str, Any]]
+    relationships: NotRequired[List[HrisEmployeerelationshipTypedDict]]
+    r"""the employee's personal relationships (eg. emergency contacts, spouse, dependants, ...)"""
     salutation: NotRequired[str]
     ssn_sin: NotRequired[str]
     storage_quota_allocated: NotRequired[float]
@@ -90,6 +96,7 @@ class HrisEmployeeTypedDict(TypedDict):
     storage_quota_used: NotRequired[float]
     telephones: NotRequired[List[HrisTelephoneTypedDict]]
     terminated_at: NotRequired[datetime]
+    termination_reason: NotRequired[str]
     timezone: NotRequired[str]
     title: NotRequired[str]
     updated_at: NotRequired[datetime]
@@ -110,37 +117,24 @@ class HrisEmployee(BaseModel):
 
     date_of_birth: Optional[datetime] = None
 
-    department: Optional[str] = None
-
-    division: Optional[str] = None
-
     emails: Optional[List[HrisEmail]] = None
 
     employee_number: Optional[str] = None
 
-    employee_roles: Optional[
-        List[
-            Annotated[
-                PropertyHrisEmployeeEmployeeRoles,
-                PlainValidator(validate_open_enum(False)),
-            ]
-        ]
-    ] = None
+    employee_roles: Optional[List[PropertyHrisEmployeeEmployeeRoles]] = None
 
-    employment_status: Annotated[
-        Optional[EmploymentStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    employment_status: Optional[EmploymentStatus] = None
 
-    employment_type: Annotated[
-        Optional[HrisEmployeeEmploymentType], PlainValidator(validate_open_enum(False))
-    ] = None
+    employment_type: Optional[HrisEmployeeEmploymentType] = None
 
-    gender: Annotated[
-        Optional[HrisEmployeeGender], PlainValidator(validate_open_enum(False))
-    ] = None
+    first_name: Optional[str] = None
+
+    gender: Optional[HrisEmployeeGender] = None
 
     groups: Optional[List[HrisGroup]] = None
     r"""Which groups/teams/units that this employee/user belongs to.  May not have all of the Group fields present, but should have id, name, or email."""
+
+    has_mfa: Optional[bool] = None
 
     hired_at: Optional[datetime] = None
 
@@ -150,15 +144,13 @@ class HrisEmployee(BaseModel):
 
     language_locale: Optional[str] = None
 
-    location: Optional[str] = None
+    last_name: Optional[str] = None
 
     locations: Optional[List[HrisLocation]] = None
 
     manager_id: Optional[str] = None
 
-    marital_status: Annotated[
-        Optional[MaritalStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    marital_status: Optional[MaritalStatus] = None
 
     metadata: Optional[List[HrisMetadata]] = None
 
@@ -167,6 +159,9 @@ class HrisEmployee(BaseModel):
     pronouns: Optional[str] = None
 
     raw: Optional[Dict[str, Any]] = None
+
+    relationships: Optional[List[HrisEmployeerelationship]] = None
+    r"""the employee's personal relationships (eg. emergency contacts, spouse, dependants, ...)"""
 
     salutation: Optional[str] = None
 
@@ -182,8 +177,105 @@ class HrisEmployee(BaseModel):
 
     terminated_at: Optional[datetime] = None
 
+    termination_reason: Optional[str] = None
+
     timezone: Optional[str] = None
 
     title: Optional[str] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("employment_status")
+    def serialize_employment_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.EmploymentStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("employment_type")
+    def serialize_employment_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.HrisEmployeeEmploymentType(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("gender")
+    def serialize_gender(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.HrisEmployeeGender(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("marital_status")
+    def serialize_marital_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.MaritalStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "address",
+                "bio",
+                "company_id",
+                "compensation",
+                "created_at",
+                "currency",
+                "date_of_birth",
+                "emails",
+                "employee_number",
+                "employee_roles",
+                "employment_status",
+                "employment_type",
+                "first_name",
+                "gender",
+                "groups",
+                "has_mfa",
+                "hired_at",
+                "id",
+                "image_url",
+                "language_locale",
+                "last_name",
+                "locations",
+                "manager_id",
+                "marital_status",
+                "metadata",
+                "name",
+                "pronouns",
+                "raw",
+                "relationships",
+                "salutation",
+                "ssn_sin",
+                "storage_quota_allocated",
+                "storage_quota_available",
+                "storage_quota_used",
+                "telephones",
+                "terminated_at",
+                "termination_reason",
+                "timezone",
+                "title",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

@@ -1,0 +1,209 @@
+# Packaging
+# ---------
+
+[build-system]
+requires = ["setuptools>=67.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# This is the default but we include it to be explicit.
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Include the root-package `py.typed` file so Mypy uses inline type annotations.
+"django_pg_migration_tools" = ["django_pg_migration_tools/py.typed"]
+
+# Project
+# -------
+
+[project]
+name = "django_pg_migration_tools"
+version = "0.1.24"
+description = "Tools for making Django migrations safer and more scalable."
+license.file = "LICENSE"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+
+[project.urls]
+# See https://daniel.feldroy.com/posts/2023-08-pypi-project-urls-cheatsheet for
+# additional URLs that can be included here.
+repository = "https://github.com/kraken-tech/django-pg-migration-tools"
+changelog = "https://github.com/kraken-tech/django-pg-migration-tools/blob/main/CHANGELOG.md"
+docs = "https://django-pg-migration-tools.readthedocs.io/"
+
+[project.optional-dependencies]
+# Used for running the test matrix via `nox` locally or by remote checks.
+# Also reused in the `dev` dependencies list.
+pytest-in-nox-base = [
+    "coverage>=7.6.1",
+    "dj-database-url>=2.1.0",
+    "django-stubs>=5.0.0",
+    "environs>=11.0.0",
+    "nox>=2024.4.15",
+    "pytest-django>=4.8.0",
+    "pytest>=8.2.0",
+]
+pytest-in-nox-psycopg3 = [
+    "django_pg_migration_tools[pytest-in-nox-base]",
+    "psycopg[binary]>=3.1.18",
+]
+pytest-in-nox-psycopg2 = [
+    "django_pg_migration_tools[pytest-in-nox-base]",
+    "psycopg2-binary>=2.9.9",
+]
+docs = [
+  "sphinx>=7.4.7",
+  "sphinx_rtd_theme>=2.0.0",
+  "sphinx_lint>=0.9.1",
+  "sphinx_design>=0.6.1",
+]
+dev = [
+    # Testing
+    "django_pg_migration_tools[pytest-in-nox-psycopg3]",
+    "django_pg_migration_tools[docs]",
+    "django>=4.2.0",  # Django is needed for `make test`, but not for `nox`.
+
+    # Linting
+    "ruff>=0.5.2",
+    "mypy>=1.10.1",
+    "pre-commit>=3.7.1",
+    "types-psycopg2>=2.9.21.20241019",
+
+    # Packaging
+    "build>=1.2.1",
+    "bump-my-version>=1.1.2",
+]
+
+# Ruff
+# ----
+
+[tool.ruff]
+lint.select = [
+    # pycodestyle
+    "E",
+    # pyflakes
+    "F",
+    # isort
+    "I",
+]
+lint.ignore = [
+    # Ruff's formatter will try to respect the `line-length` setting
+    # but doesn't guarantee it - so we ignore the possible line length
+    # errors that the checker might raise.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow unused imports in `__init__.py` files as these are convenience imports.
+"**/__init__.py" = [ "F401" ]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "project",
+    "local-folder",
+]
+
+[tool.ruff.lint.isort.sections]
+"project" = [
+    "django_pg_migration_tools",
+    "tests",
+]
+
+# Mypy
+# ----
+
+[tool.mypy]
+files = "."
+exclude = "build/"
+plugins = ["mypy_django_plugin.main"]
+
+# Use strict defaults
+strict = true
+warn_unreachable = true
+warn_no_return = true
+
+[[tool.mypy.overrides]]
+# Don't require test functions to include types
+module = "tests.*"
+allow_untyped_defs = true
+disable_error_code = "attr-defined"
+
+[tool.django-stubs]
+django_settings_module = "tests.example_app.settings"
+
+# Pytest
+# ------
+
+[tool.pytest.ini_options]
+# Ensure error warnings are converted into test errors.
+filterwarnings = "error"
+# Ensure that tests fail if an xfail test unexpectedly passes.
+xfail_strict = true
+DJANGO_SETTINGS_MODULE = "tests.example_app.settings"
+
+# Coverage
+# --------
+
+[tool.coverage.report]
+exclude_also = [
+    '@overload',
+]
+
+# Bump My Version
+# ---------------
+
+[tool.bumpversion]
+# Do not manually edit the version, use `make version_{type}` instead.
+current_version = "0.1.24"
+
+# Relabel the Unreleased section of the changelog and add a new unreleased section as a reminder to
+# add to it.
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [Unreleased]"
+replace = "## [Unreleased]\n\n_No notable unreleased changes_\n\n## [{new_version}] - {now:%Y-%m-%d}"
+
+# The next three sections are used to update the GitHub links at the bottom of CHANGELOG.md
+
+# Change the most recent `compare` link to end at the new version rather than HEAD
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "...HEAD"
+replace = "...v{new_version}"
+ignore_missing_version = true
+
+# The first time bump version is run we need to change a `commits` link rather than a `compare` one.
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "commits/HEAD"
+replace = "commits/v{new_version}"
+ignore_missing_version = true
+
+# Relabel the latest `compare` line and insert a new one for unreleased changes after this version.
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "[Unreleased]:"
+replace = """\
+[Unreleased]: https://github.com/octoenergy/django-migration-helpers/compare/v{new_version}...HEAD
+[{new_version}]:"""

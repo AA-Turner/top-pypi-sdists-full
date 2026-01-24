@@ -9,7 +9,7 @@ executors:
       version:
         default: "3.12"
         type: enum
-        enum: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        enum: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     docker:
       - image: "ghcr.io/astral-sh/uv:python<<parameters.version>>-bookworm"
     resource_class: small
@@ -17,7 +17,7 @@ executors:
       FORCE_COLOR: "1"
   pypy_executor:
     docker:
-      - image: "pypy:3.10-bookworm"
+      - image: "pypy:3.11-bookworm"
         auth:
           username: $DOCKERHUB_USERNAME
           password: $DOCKERHUB_PASSWORD
@@ -91,7 +91,7 @@ jobs:
       python_version:
         type: enum
         description: "python version"
-        enum: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        enum: ["3.10", "3.11", "3.12", "3.13", "3.14"]
       event_loop:
         type: enum
         description: "event loop type"
@@ -149,7 +149,7 @@ jobs:
     executor:
       name: pypy_executor
     environment:
-      COVERAGE_FILE: "coverage-results/.coverage.pypy3.10-asyncio"
+      COVERAGE_FILE: "coverage-results/.coverage.pypy3.11-asyncio"
       HYPOTHESIS_PROFILE: "ci"
       BIND_ADDR: "127.0.0.1"
     steps:
@@ -160,9 +160,9 @@ jobs:
       - run: python -m pip install dist/*.whl
       - run: |
           python -m pytest --cov \
-            --cov-report=xml:coverage-results/coverage-pypy3.10-asyncio.xml \
+            --cov-report=xml:coverage-results/coverage-pypy3.11-asyncio.xml \
             --cov-config=pyproject.toml \
-            --junitxml=test-results/junit-pypy3.10-asyncio.xml \
+            --junitxml=test-results/junit-pypy3.11-asyncio.xml \
             --override-ini=pythonpath= \
             --event-loop=asyncio \
             --bind-addr=$BIND_ADDR \
@@ -178,13 +178,13 @@ jobs:
       - codecov/upload:
           report_type: test_results
           disable_search: true
-          files: "test-results/junit-pypy3.10-asyncio.xml"
-          flags: "pypy3.10,asyncio"
+          files: "test-results/junit-pypy3.11-asyncio.xml"
+          flags: "pypy3.11,asyncio"
       - codecov/upload:
           report_type: coverage
           disable_search: true
-          files: "coverage-results/coverage-pypy3.10-asyncio.xml"
-          flags: "pypy3.10,asyncio"
+          files: "coverage-results/coverage-pypy3.11-asyncio.xml"
+          flags: "pypy3.11,asyncio"
 
   coverage:
     executor:
@@ -233,7 +233,7 @@ workflows:
             - build
       - test-pypy:
           <<: *base-job
-          name: "test-asyncio-pypy3.10"
+          name: "test-asyncio-pypy3.11"
           requires:
             - build
       - test:
@@ -243,7 +243,7 @@ workflows:
             alias: "test-cpython-asyncio"
             parameters:
               event_loop: ["asyncio"]
-              python_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+              python_version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
           requires:
             - build
       - test:
@@ -253,7 +253,7 @@ workflows:
             alias: "test-cpython-uvloop"
             parameters:
               event_loop: ["uvloop"]
-              python_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+              python_version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
           requires:
             - build
             - "test-asyncio-<< matrix.python_version >>"
@@ -262,7 +262,7 @@ workflows:
           requires:
             - test-cpython-asyncio
             - test-cpython-uvloop
-            - test-asyncio-pypy3.10
+            - test-asyncio-pypy3.11
       - deploy:
           requires:
             - build
@@ -270,7 +270,7 @@ workflows:
             - docs
             - test-cpython-asyncio
             - test-cpython-uvloop
-            - test-asyncio-pypy3.10
+            - test-asyncio-pypy3.11
           context:
             - docker-hub-credentials
           filters:

@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from snowflake.core.cortex.inference_service._generated.models.cache_control import CacheControl, CacheControlModel
 from snowflake.core.cortex.inference_service._generated.models.tool_tool_spec import ToolToolSpec, ToolToolSpecModel
@@ -42,9 +42,10 @@ class Tool(BaseModel):
 
     __properties = ["tool_spec", "cache_control"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -69,7 +70,7 @@ class Tool(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of tool_spec
         if self.tool_spec:
@@ -96,9 +97,9 @@ class Tool(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Tool.parse_obj(obj)
+            return Tool.model_validate(obj)
 
-        _obj = Tool.parse_obj(
+        _obj = Tool.model_validate(
             {
                 "tool_spec": ToolToolSpec.from_dict(obj.get("tool_spec")) if obj.get("tool_spec") is not None else None,
                 "cache_control": CacheControl.from_dict(obj.get("cache_control"))

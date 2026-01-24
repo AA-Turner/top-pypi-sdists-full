@@ -32,11 +32,12 @@ class RecentRequestBuilder(BaseRequestBuilder):
     
     async def get(self,request_configuration: Optional[RequestConfiguration[RecentRequestBuilderGetQueryParameters]] = None) -> Optional[RecentGetResponse]:
         """
-        List a set of items that have been recently used by the signed in user.This collection includes items that are in the user's drive and items they have access to from other drives.
+        List a set of items recently used by the signed-in user.This collection includes items that are in the user's drive and items they have access to from other drives.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[RecentGetResponse]
         Find more info here: https://learn.microsoft.com/graph/api/drive-recent?view=graph-rest-1.0
         """
+        warn("This API is deprecated and will stop returning data after November, 2027. as of 2025-11/Removal on 2025-11-13 and will be removed 2027-11-01", DeprecationWarning)
         request_info = self.to_get_request_information(
             request_configuration
         )
@@ -53,10 +54,11 @@ class RecentRequestBuilder(BaseRequestBuilder):
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[RecentRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
-        List a set of items that have been recently used by the signed in user.This collection includes items that are in the user's drive and items they have access to from other drives.
+        List a set of items recently used by the signed-in user.This collection includes items that are in the user's drive and items they have access to from other drives.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
+        warn("This API is deprecated and will stop returning data after November, 2027. as of 2025-11/Removal on 2025-11-13 and will be removed 2027-11-01", DeprecationWarning)
         request_info = RequestInformation(Method.GET, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
@@ -68,6 +70,7 @@ class RecentRequestBuilder(BaseRequestBuilder):
         param raw_url: The raw URL to use for the request builder.
         Returns: RecentRequestBuilder
         """
+        warn("This API is deprecated and will stop returning data after November, 2027. as of 2025-11/Removal on 2025-11-13 and will be removed 2027-11-01", DeprecationWarning)
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return RecentRequestBuilder(self.request_adapter, raw_url)
@@ -75,7 +78,7 @@ class RecentRequestBuilder(BaseRequestBuilder):
     @dataclass
     class RecentRequestBuilderGetQueryParameters():
         """
-        List a set of items that have been recently used by the signed in user.This collection includes items that are in the user's drive and items they have access to from other drives.
+        List a set of items recently used by the signed-in user.This collection includes items that are in the user's drive and items they have access to from other drives.
         """
         def get_query_parameter(self,original_name: str) -> str:
             """

@@ -23,6 +23,7 @@ from itertools import chain
 
 import numpy
 import requests
+import requests_cache
 from requests.utils import urlparse, urlunparse
 from webob.response import Response as webob_Response
 
@@ -269,7 +270,7 @@ class DAPHandler(BaseHandler):
                 token, index = var.pop(0)
                 target = target[token]
                 if isinstance(target, BaseType):
-                    target.data.slice = fix_slice(index, target.shape)
+                    target.data.slice = fix_slice(index, target.shape, projection=True)
 
     def add_dap2_proxies(self):
         # now add data proxies
@@ -305,9 +306,9 @@ class DAPHandler(BaseHandler):
                 token, index = var.pop(0)
                 target = target[token]
                 if isinstance(target, BaseType):
-                    target.data.slice = fix_slice(index, target.shape)
+                    target.data.slice = fix_slice(index, target.shape, projection=True)
                 elif isinstance(target, GridType):
-                    index = fix_slice(index, target.array.shape)
+                    index = fix_slice(index, target.array.shape, projection=True)
                     target.array.data.slice = index
                     for s, child in zip(index, target.maps):
                         target[child].data.slice = (s,)
@@ -486,10 +487,20 @@ class BaseProxyDap4(BaseProxyDap2):
         self.checksums = checksums
         self.user_charset = user_charset
         self.get_kwargs = get_kwargs or {}
+        self.ce = None
 
     def __repr__(self):
         return "Dap4BaseProxy(%s)" % ", ".join(
-            map(repr, [self.baseurl, self.id, self.dtype, self.shape, self.slice])
+            map(
+                repr,
+                [
+                    self.baseurl,
+                    self.id,
+                    self.dtype,
+                    self.shape,
+                    self.ce if self.ce is not None else self.slice,
+                ],
+            )
         )
 
     def __getitem__(self, index, build_only=False):
@@ -497,7 +508,10 @@ class BaseProxyDap4(BaseProxyDap2):
         index = combine_slices(self.slice, fix_slice(index, self.shape))
 
         scheme, netloc, path, _, query, fragment = urlparse(self.baseurl)
-        self.ce = "dap4.ce=" + self.id + hyperslab(index)
+        if self.id.startswith("/"):
+            self.ce = "dap4.ce=" + self.id + hyperslab(index)
+        else:
+            self.ce = "dap4.ce=/" + self.id + hyperslab(index)
 
         if build_only:
             # In batch mode: just store CE, don't fetch
@@ -512,6 +526,15 @@ class BaseProxyDap4(BaseProxyDap2):
         # download and unpack data
         logger.info("Fetching URL: %s" % url)
 
+        cache_kwargs = {}
+        if isinstance(self.session, requests_cache.CachedSession):
+            _vars = getattr(self.session.settings.key_fn, "_collapse_vars", None)
+            concat_dim = getattr(self.session.settings.key_fn, "_concat_dim", None)
+            _vars = [] if _vars is None else list(_vars)
+            _vars += [] if concat_dim is None else concat_dim
+            if self.id not in _vars and "debug" not in self.session.cache.cache_name:
+                cache_kwargs = {"skip": True}
+
         r = GET(
             url,
             self.application,
@@ -519,6 +542,7 @@ class BaseProxyDap4(BaseProxyDap2):
             timeout=self.timeout,
             verify=self.verify,
             get_kwargs=self.get_kwargs,
+            cache_kwargs=cache_kwargs,
         )
 
         dataset = UNPACKDAP4DATA(r, self.checksums, self.user_charset).dataset

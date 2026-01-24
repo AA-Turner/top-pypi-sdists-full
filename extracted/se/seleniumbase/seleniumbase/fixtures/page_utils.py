@@ -1,5 +1,4 @@
 """This module contains useful utility methods"""
-import codecs
 import fasteners
 import os
 import re
@@ -110,10 +109,10 @@ def looks_like_a_page_url(url):
     navigate to the page if a URL is detected, but will instead call
     self.get_element(URL_AS_A_SELECTOR) if the input is not a URL."""
     return url.startswith((
-        "http:", "https:", "://", "about:", "blob:", "chrome:",
+        "http:", "https:", "://", "about:", "blob:", "chrome:", "opera:",
         "data:", "edge:", "file:", "view-source:", "chrome-search:",
         "chrome-extension:", "chrome-untrusted:", "isolated-app:",
-        "chrome-devtools:", "devtools:"
+        "chrome-devtools:", "devtools:", "brave:", "comet:", "atlas:"
     ))
 
 
@@ -294,18 +293,20 @@ def _print_unique_links_with_status_codes(page_url, soup):
         print(link, " -> ", status_code)
 
 
-def _download_file_to(file_url, destination_folder, new_file_name=None):
+def _download_file_to(
+    file_url, destination_folder, new_file_name=None, headers=None
+):
     if new_file_name:
         file_name = new_file_name
     else:
         file_name = file_url.split("/")[-1]
-    r = requests.get(file_url, timeout=5)
+    r = requests.get(file_url, headers=headers, timeout=5)
     file_path = os.path.join(destination_folder, file_name)
     download_file_lock = fasteners.InterProcessLock(
         constants.MultiBrowser.DOWNLOAD_FILE_LOCK
     )
     with download_file_lock:
-        with open(file_path, "wb") as code:
+        with open(file_path, mode="wb") as code:
             code.write(r.content)
 
 
@@ -314,8 +315,10 @@ def _save_data_as(data, destination_folder, file_name):
         constants.MultiBrowser.FILE_IO_LOCK
     )
     with file_io_lock:
-        out_file = codecs.open(
-            os.path.join(destination_folder, file_name), "w+", encoding="utf-8"
+        out_file = open(
+            os.path.join(destination_folder, file_name),
+            mode="w+",
+            encoding="utf-8",
         )
         out_file.writelines(data)
         out_file.close()
@@ -328,12 +331,16 @@ def _append_data_to_file(data, destination_folder, file_name):
     with file_io_lock:
         existing_data = ""
         if os.path.exists(os.path.join(destination_folder, file_name)):
-            with open(os.path.join(destination_folder, file_name), "r") as f:
+            with open(
+                os.path.join(destination_folder, file_name), mode="r"
+            ) as f:
                 existing_data = f.read()
             if not existing_data.split("\n")[-1] == "":
                 existing_data += "\n"
-        out_file = codecs.open(
-            os.path.join(destination_folder, file_name), "w+", encoding="utf-8"
+        out_file = open(
+            os.path.join(destination_folder, file_name),
+            mode="w+",
+            encoding="utf-8",
         )
         out_file.writelines("%s%s" % (existing_data, data))
         out_file.close()
@@ -346,7 +353,7 @@ def _get_file_data(folder, file_name):
     with file_io_lock:
         if not os.path.exists(os.path.join(folder, file_name)):
             raise Exception("File not found!")
-        with open(os.path.join(folder, file_name), "r") as f:
+        with open(os.path.join(folder, file_name), mode="r") as f:
             data = f.read()
         return data
 

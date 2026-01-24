@@ -35,8 +35,8 @@ def _remove_non_handoff_tool_calls(
         content = [
             content_block
             for content_block in content
-            if (content_block["type"] == "tool_use" and content_block["id"] == handoff_tool_call_id)
-            or content_block["type"] != "tool_use"
+            if (content_block["type"] == "tool_use" and content_block["id"] == handoff_tool_call_id)  # type: ignore[invalid-argument-type]
+            or content_block["type"] != "tool_use"  # type: ignore[invalid-argument-type]
         ]
 
     last_ai_message = AIMessage(
@@ -73,7 +73,7 @@ def create_handoff_tool(
         description: Optional description for the handoff tool.
             If not provided, the description will be `Ask agent <agent_name> for help`.
         add_handoff_messages: Whether to add handoff messages to the message history.
-            If False, the handoff messages will be omitted from the message history.
+            If `False`, the handoff messages will be omitted from the message history.
     """
     if name is None:
         name = f"transfer_to_{_normalize_agent_name(agent_name)}"

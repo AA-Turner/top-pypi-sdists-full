@@ -1,21 +1,17 @@
 import sys
 
-vi = sys.version_info
-if vi < (3, 8):
-    raise RuntimeError('httptools require Python 3.8 or greater')
-else:
-    import os.path
-    import pathlib
+import os.path
+import pathlib
 
-    from setuptools import setup, Extension
-    from setuptools.command.build_ext import build_ext as build_ext
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext as build_ext
 
 
 CFLAGS = ['-O2']
 
 ROOT = pathlib.Path(__file__).parent
 
-CYTHON_DEPENDENCY = 'Cython>=0.29.24'
+CYTHON_DEPENDENCY = 'Cython>=3.1.0'
 
 
 class httptools_build_ext(build_ext):
@@ -52,6 +48,8 @@ class httptools_build_ext(build_ext):
         self.cython_always = False
         self.cython_annotate = None
         self.cython_directives = None
+        if 'editable_wheel' in sys.argv:
+            self.inplace = True
 
     def finalize_options(self):
         # finalize_options() may be called multiple times on the
@@ -82,12 +80,9 @@ class httptools_build_ext(build_ext):
             try:
                 import Cython
             except ImportError:
-                raise RuntimeError(
-                    'please install Cython to compile httptools from source')
+                import setuptools.build_meta
 
-            if Cython.__version__ < '0.29':
-                raise RuntimeError(
-                    'httptools requires Cython version 0.29 or greater')
+                raise setuptools.build_meta.SetupRequirementsError([CYTHON_DEPENDENCY])
 
             from Cython.Build import cythonize
 
@@ -145,10 +140,6 @@ class httptools_build_ext(build_ext):
         super().build_extensions()
 
 
-with open(str(ROOT / 'README.md')) as f:
-    long_description = f.read()
-
-
 with open(str(ROOT / 'httptools' / '_version.py')) as f:
     for line in f:
         if line.startswith('__version__ ='):
@@ -160,36 +151,10 @@ with open(str(ROOT / 'httptools' / '_version.py')) as f:
             'unable to read the version from httptools/_version.py')
 
 
-setup_requires = []
-
-if (not (ROOT / 'httptools' / 'parser' / 'parser.c').exists() or
-        '--cython-always' in sys.argv):
-    # No Cython output, require Cython to build.
-    setup_requires.append(CYTHON_DEPENDENCY)
-
-
 setup(
-    name='httptools',
     version=VERSION,
-    description='A collection of framework independent HTTP protocol utils.',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    url='https://github.com/MagicStack/httptools',
-    classifiers=[
-        'License :: OSI Approved :: MIT License',
-        'Intended Audience :: Developers',
-        'Programming Language :: Python :: 3',
-        'Operating System :: POSIX',
-        'Operating System :: MacOS :: MacOS X',
-        'Environment :: Web Environment',
-        'Development Status :: 5 - Production/Stable',
-    ],
     platforms=['macOS', 'POSIX', 'Windows'],
-    python_requires='>=3.8.0',
     zip_safe=False,
-    author='Yury Selivanov',
-    author_email='yury@magic.io',
-    license='MIT',
     packages=['httptools', 'httptools.parser'],
     cmdclass={
         'build_ext': httptools_build_ext,
@@ -212,11 +177,4 @@ setup(
     ],
     include_package_data=True,
     exclude_package_data={"": ["*.c", "*.h"]},
-    test_suite='tests.suite',
-    setup_requires=setup_requires,
-    extras_require={
-        'test': [
-            CYTHON_DEPENDENCY
-        ]
-    }
 )

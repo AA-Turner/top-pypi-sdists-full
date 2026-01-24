@@ -2,12 +2,109 @@
 
 from __future__ import annotations
 from orq_ai_sdk.types import BaseModel, Nullable, UNSET_SENTINEL
-from pydantic import model_serializer
+from orq_ai_sdk.utils import get_discriminator
+from pydantic import Discriminator, Tag, model_serializer
 from typing import List, Literal, Optional, Union
-from typing_extensions import NotRequired, TypeAliasType, TypedDict
+from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
 
 ParseChunkingRequestChunkingRequestRequestBodyReturnType = Literal[
+    "chunks",
+    "texts",
+]
+r"""Return format: chunks (with metadata) or texts (plain strings)"""
+
+
+FastChunker = Literal["fast",]
+
+
+class FastChunkerStrategyTypedDict(TypedDict):
+    r"""High-performance SIMD-optimized byte-level chunking. Best for large files (>1MB) where speed and memory efficiency are critical. 2x faster and 3x less memory than token-based chunking."""
+
+    text: str
+    r"""The text content to be chunked"""
+    strategy: FastChunker
+    metadata: NotRequired[bool]
+    r"""Whether to include metadata for each chunk"""
+    return_type: NotRequired[ParseChunkingRequestChunkingRequestRequestBodyReturnType]
+    r"""Return format: chunks (with metadata) or texts (plain strings)"""
+    target_size: NotRequired[int]
+    r"""Target chunk size in bytes"""
+    delimiters: NotRequired[str]
+    r"""Single-byte delimiter characters. Each character is treated as a separate delimiter (e.g., \".?!\" splits on period, question mark, or exclamation). Use escaped sequences for special chars."""
+    pattern: NotRequired[str]
+    r"""Multi-byte pattern for splitting (e.g., \"▁\" for SentencePiece tokenizers). Takes precedence over delimiters if set."""
+    prefix: NotRequired[bool]
+    r"""Attach delimiter to start of next chunk instead of end of current chunk"""
+    consecutive: NotRequired[bool]
+    r"""When true, splits at the START of consecutive delimiter runs, keeping the run with the following chunk (e.g., splits before \"\n\n\n\" not in the middle)"""
+    forward_fallback: NotRequired[bool]
+    r"""Search forward if no delimiter found in backward search window"""
+
+
+class FastChunkerStrategy(BaseModel):
+    r"""High-performance SIMD-optimized byte-level chunking. Best for large files (>1MB) where speed and memory efficiency are critical. 2x faster and 3x less memory than token-based chunking."""
+
+    text: str
+    r"""The text content to be chunked"""
+
+    strategy: FastChunker
+
+    metadata: Optional[bool] = True
+    r"""Whether to include metadata for each chunk"""
+
+    return_type: Optional[ParseChunkingRequestChunkingRequestRequestBodyReturnType] = (
+        "chunks"
+    )
+    r"""Return format: chunks (with metadata) or texts (plain strings)"""
+
+    target_size: Optional[int] = 4096
+    r"""Target chunk size in bytes"""
+
+    delimiters: Optional[str] = "\n.?"
+    r"""Single-byte delimiter characters. Each character is treated as a separate delimiter (e.g., \".?!\" splits on period, question mark, or exclamation). Use escaped sequences for special chars."""
+
+    pattern: Optional[str] = None
+    r"""Multi-byte pattern for splitting (e.g., \"▁\" for SentencePiece tokenizers). Takes precedence over delimiters if set."""
+
+    prefix: Optional[bool] = False
+    r"""Attach delimiter to start of next chunk instead of end of current chunk"""
+
+    consecutive: Optional[bool] = False
+    r"""When true, splits at the START of consecutive delimiter runs, keeping the run with the following chunk (e.g., splits before \"\n\n\n\" not in the middle)"""
+
+    forward_fallback: Optional[bool] = False
+    r"""Search forward if no delimiter found in backward search window"""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "metadata",
+                "return_type",
+                "target_size",
+                "delimiters",
+                "pattern",
+                "prefix",
+                "consecutive",
+                "forward_fallback",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+ParseChunkingRequestChunkingRequestReturnType = Literal[
     "chunks",
     "texts",
 ]
@@ -24,10 +121,10 @@ class AgenticChunkerStrategyTypedDict(TypedDict):
     r"""The text content to be chunked"""
     strategy: AgenticChunker
     model: str
-    r"""Chat model to use for chunking. (Available models)[https://docs.orq.ai/docs/proxy#chat-models]"""
+    r"""Model to use for chunking. (Available models)[https://docs.orq.ai/docs/proxy/supported-models#chat-models]"""
     metadata: NotRequired[bool]
     r"""Whether to include metadata for each chunk"""
-    return_type: NotRequired[ParseChunkingRequestChunkingRequestRequestBodyReturnType]
+    return_type: NotRequired[ParseChunkingRequestChunkingRequestReturnType]
     r"""Return format: chunks (with metadata) or texts (plain strings)"""
     chunk_size: NotRequired[int]
     r"""Maximum tokens per chunk"""
@@ -46,14 +143,12 @@ class AgenticChunkerStrategy(BaseModel):
     strategy: AgenticChunker
 
     model: str
-    r"""Chat model to use for chunking. (Available models)[https://docs.orq.ai/docs/proxy#chat-models]"""
+    r"""Model to use for chunking. (Available models)[https://docs.orq.ai/docs/proxy/supported-models#chat-models]"""
 
     metadata: Optional[bool] = True
     r"""Whether to include metadata for each chunk"""
 
-    return_type: Optional[ParseChunkingRequestChunkingRequestRequestBodyReturnType] = (
-        "chunks"
-    )
+    return_type: Optional[ParseChunkingRequestChunkingRequestReturnType] = "chunks"
     r"""Return format: chunks (with metadata) or texts (plain strings)"""
 
     chunk_size: Optional[int] = 1024
@@ -65,89 +160,29 @@ class AgenticChunkerStrategy(BaseModel):
     min_characters_per_chunk: Optional[int] = 24
     r"""Minimum characters allowed per chunk"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "metadata",
+                "return_type",
+                "chunk_size",
+                "candidate_size",
+                "min_characters_per_chunk",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
 
-ParseChunkingRequestChunkingRequestReturnType = Literal[
-    "chunks",
-    "texts",
-]
-r"""Return format: chunks (with metadata) or texts (plain strings)"""
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
 
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
 
-SDPMChunker = Literal["sdpm",]
-
-
-ParseThreshold2 = Literal["auto",]
-
-
-ChunkingRequestThresholdTypedDict = TypeAliasType(
-    "ChunkingRequestThresholdTypedDict", Union[float, ParseThreshold2]
-)
-r"""Similarity threshold for grouping (0-1) or \"auto\" for automatic detection"""
-
-
-ChunkingRequestThreshold = TypeAliasType(
-    "ChunkingRequestThreshold", Union[float, ParseThreshold2]
-)
-r"""Similarity threshold for grouping (0-1) or \"auto\" for automatic detection"""
-
-
-ChunkingRequestMode = Literal[
-    "window",
-    "sentence",
-]
-r"""Chunking mode: window-based or sentence-based similarity"""
-
-
-class SDPMChunkerStrategyTypedDict(TypedDict):
-    r"""Sub-Document Prose Model chunker that uses skip-gram patterns to identify optimal split points. Good for technical documents with structured content."""
-
-    text: str
-    r"""The text content to be chunked"""
-    strategy: SDPMChunker
-    embedding_model: str
-    r"""Embedding model to use for semantic similarity. (Available embedding models)[https://docs.orq.ai/docs/proxy#embedding-models]"""
-    metadata: NotRequired[bool]
-    r"""Whether to include metadata for each chunk"""
-    return_type: NotRequired[ParseChunkingRequestChunkingRequestReturnType]
-    r"""Return format: chunks (with metadata) or texts (plain strings)"""
-    chunk_size: NotRequired[int]
-    r"""Maximum tokens per chunk"""
-    skip_window: NotRequired[int]
-    r"""Window size for skip-gram patterns"""
-    threshold: NotRequired[ChunkingRequestThresholdTypedDict]
-    r"""Similarity threshold for grouping (0-1) or \"auto\" for automatic detection"""
-    mode: NotRequired[ChunkingRequestMode]
-    r"""Chunking mode: window-based or sentence-based similarity"""
-
-
-class SDPMChunkerStrategy(BaseModel):
-    r"""Sub-Document Prose Model chunker that uses skip-gram patterns to identify optimal split points. Good for technical documents with structured content."""
-
-    text: str
-    r"""The text content to be chunked"""
-
-    strategy: SDPMChunker
-
-    embedding_model: str
-    r"""Embedding model to use for semantic similarity. (Available embedding models)[https://docs.orq.ai/docs/proxy#embedding-models]"""
-
-    metadata: Optional[bool] = True
-    r"""Whether to include metadata for each chunk"""
-
-    return_type: Optional[ParseChunkingRequestChunkingRequestReturnType] = "chunks"
-    r"""Return format: chunks (with metadata) or texts (plain strings)"""
-
-    chunk_size: Optional[int] = 512
-    r"""Maximum tokens per chunk"""
-
-    skip_window: Optional[int] = 1
-    r"""Window size for skip-gram patterns"""
-
-    threshold: Optional[ChunkingRequestThreshold] = None
-    r"""Similarity threshold for grouping (0-1) or \"auto\" for automatic detection"""
-
-    mode: Optional[ChunkingRequestMode] = "window"
-    r"""Chunking mode: window-based or sentence-based similarity"""
+        return m
 
 
 ParseChunkingRequestChunkingReturnType = Literal[
@@ -185,7 +220,7 @@ class SemanticChunkerStrategyTypedDict(TypedDict):
     r"""The text content to be chunked"""
     strategy: SemanticChunker
     embedding_model: str
-    r"""Embedding model to use for semantic similarity. (Available embedding models)[https://docs.orq.ai/docs/proxy#embedding-models]"""
+    r"""Embedding model to use for semantic similarity. (Available embedding models)[https://docs.orq.ai/docs/proxy/supported-models#embedding-models]"""
     metadata: NotRequired[bool]
     r"""Whether to include metadata for each chunk"""
     return_type: NotRequired[ParseChunkingRequestChunkingReturnType]
@@ -194,6 +229,10 @@ class SemanticChunkerStrategyTypedDict(TypedDict):
     r"""Maximum tokens per chunk"""
     threshold: NotRequired[ThresholdTypedDict]
     r"""Similarity threshold for grouping (0-1) or \"auto\" for automatic detection"""
+    dimensions: NotRequired[int]
+    r"""Number of dimensions for the embedding output. Required for text-embedding-3 models. Supported range: 256-3072 for text-embedding-3-large, 256-1536 for text-embedding-3-small."""
+    max_tokens: NotRequired[int]
+    r"""Maximum number of tokens per embedding request. Default is 8191 for text-embedding-3 models."""
     mode: NotRequired[Mode]
     r"""Chunking mode: window-based or sentence-based similarity"""
     similarity_window: NotRequired[int]
@@ -209,7 +248,7 @@ class SemanticChunkerStrategy(BaseModel):
     strategy: SemanticChunker
 
     embedding_model: str
-    r"""Embedding model to use for semantic similarity. (Available embedding models)[https://docs.orq.ai/docs/proxy#embedding-models]"""
+    r"""Embedding model to use for semantic similarity. (Available embedding models)[https://docs.orq.ai/docs/proxy/supported-models#embedding-models]"""
 
     metadata: Optional[bool] = True
     r"""Whether to include metadata for each chunk"""
@@ -223,11 +262,44 @@ class SemanticChunkerStrategy(BaseModel):
     threshold: Optional[Threshold] = None
     r"""Similarity threshold for grouping (0-1) or \"auto\" for automatic detection"""
 
+    dimensions: Optional[int] = None
+    r"""Number of dimensions for the embedding output. Required for text-embedding-3 models. Supported range: 256-3072 for text-embedding-3-large, 256-1536 for text-embedding-3-small."""
+
+    max_tokens: Optional[int] = None
+    r"""Maximum number of tokens per embedding request. Default is 8191 for text-embedding-3 models."""
+
     mode: Optional[Mode] = "window"
     r"""Chunking mode: window-based or sentence-based similarity"""
 
     similarity_window: Optional[int] = 1
     r"""Window size for similarity comparison"""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "metadata",
+                "return_type",
+                "chunk_size",
+                "threshold",
+                "dimensions",
+                "max_tokens",
+                "mode",
+                "similarity_window",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 ParseChunkingRequestReturnType = Literal[
@@ -281,6 +353,30 @@ class RecursiveChunkerStrategy(BaseModel):
     min_characters_per_chunk: Optional[int] = 24
     r"""Minimum characters allowed per chunk"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "metadata",
+                "return_type",
+                "chunk_size",
+                "separators",
+                "min_characters_per_chunk",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 ChunkingRequestReturnType = Literal[
     "chunks",
@@ -333,6 +429,30 @@ class SentenceChunkerStrategy(BaseModel):
     min_sentences_per_chunk: Optional[int] = 1
     r"""Minimum number of sentences per chunk"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "metadata",
+                "return_type",
+                "chunk_size",
+                "chunk_overlap",
+                "min_sentences_per_chunk",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 ReturnType = Literal[
     "chunks",
@@ -380,6 +500,24 @@ class TokenChunkerStrategy(BaseModel):
     chunk_overlap: Optional[int] = 0
     r"""Number of tokens to overlap between chunks"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["metadata", "return_type", "chunk_size", "chunk_overlap"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 ParseChunkingRequestTypedDict = TypeAliasType(
     "ParseChunkingRequestTypedDict",
@@ -388,24 +526,24 @@ ParseChunkingRequestTypedDict = TypeAliasType(
         SentenceChunkerStrategyTypedDict,
         RecursiveChunkerStrategyTypedDict,
         AgenticChunkerStrategyTypedDict,
+        FastChunkerStrategyTypedDict,
         SemanticChunkerStrategyTypedDict,
-        SDPMChunkerStrategyTypedDict,
     ],
 )
 r"""Request payload for text chunking with strategy-specific configuration"""
 
 
-ParseChunkingRequest = TypeAliasType(
-    "ParseChunkingRequest",
+ParseChunkingRequest = Annotated[
     Union[
-        TokenChunkerStrategy,
-        SentenceChunkerStrategy,
-        RecursiveChunkerStrategy,
-        AgenticChunkerStrategy,
-        SemanticChunkerStrategy,
-        SDPMChunkerStrategy,
+        Annotated[TokenChunkerStrategy, Tag("token")],
+        Annotated[SentenceChunkerStrategy, Tag("sentence")],
+        Annotated[RecursiveChunkerStrategy, Tag("recursive")],
+        Annotated[SemanticChunkerStrategy, Tag("semantic")],
+        Annotated[AgenticChunkerStrategy, Tag("agentic")],
+        Annotated[FastChunkerStrategy, Tag("fast")],
     ],
-)
+    Discriminator(lambda m: get_discriminator(m, "strategy", "strategy")),
+]
 r"""Request payload for text chunking with strategy-specific configuration"""
 
 
@@ -424,30 +562,14 @@ class ParseMetadata(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = []
-        nullable_fields = ["start_index", "end_index", "token_count"]
-        null_default_fields = []
-
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
+            if val != UNSET_SENTINEL:
                 m[k] = val
 
         return m
@@ -469,6 +591,22 @@ class Chunks(BaseModel):
     r"""The position index of this chunk in the sequence"""
 
     metadata: Optional[ParseMetadata] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["metadata"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 class ParseResponseBodyTypedDict(TypedDict):

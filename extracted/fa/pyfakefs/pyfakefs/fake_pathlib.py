@@ -36,7 +36,9 @@ import re
 import sys
 import warnings
 from pathlib import PurePath
-from typing import Callable, List, Optional
+
+from collections.abc import Callable
+from typing import Any, Union
 from unittest import mock
 from urllib.parse import quote_from_bytes as urlquote_from_bytes
 
@@ -208,25 +210,23 @@ class _FakeAccessor(accessor):  # type: ignore[valid-type, misc]
         os.symlink,
     )
 
-    if (3, 8) <= sys.version_info:
-        link_to = _wrap_binary_strfunc(
-            lambda fs, file_path, link_target: FakeFilesystem.link(
-                fs, file_path, link_target
-            ),
-            os.link,
-        )
+    link_to = _wrap_binary_strfunc(
+        lambda fs, file_path, link_target: FakeFilesystem.link(
+            fs, file_path, link_target
+        ),
+        os.link,
+    )
 
-    if sys.version_info >= (3, 10):
-        link = _wrap_binary_strfunc(
-            lambda fs, file_path, link_target: FakeFilesystem.link(
-                fs, file_path, link_target
-            ),
-            os.link,
-        )
+    link = _wrap_binary_strfunc(
+        lambda fs, file_path, link_target: FakeFilesystem.link(
+            fs, file_path, link_target
+        ),
+        os.link,
+    )
 
-        # this will use the fake filesystem because os is patched
-        def getcwd(self):
-            return os.getcwd()
+    # this will use the fake filesystem because os is patched
+    def getcwd(self):
+        return os.getcwd()
 
     readlink = _wrap_strfunc(FakeFilesystem.readlink, os.readlink)
 
@@ -516,7 +516,7 @@ if sys.version_info < (3, 12):
         """
 
         sep = "/"
-        altsep: Optional[str] = None
+        altsep: str | None = None
         has_drv = False
         pathmod = posixpath
 
@@ -592,7 +592,7 @@ class FakePath(pathlib.Path):
 
     # the underlying fake filesystem
     filesystem = None
-    skip_names: List[str] = []
+    skip_names: list[str] = []
 
     def __new__(cls, *args, **kwargs):
         """Creates the correct subclass based on OS."""
@@ -635,8 +635,6 @@ class FakePath(pathlib.Path):
             """Initializer called from base class."""
             # only needed until Python 3.10
             self._accessor = _fake_accessor
-            # only needed until Python 3.8
-            self._closed = False
 
     def _path(self):
         """Returns the underlying path string as used by the fake
@@ -667,7 +665,6 @@ class FakePath(pathlib.Path):
             """
             if strict is None:
                 strict = False
-            self._raise_on_closed()
             path = self._flavour.resolve(
                 self, strict=strict
             )  # pytype: disable=attribute-error
@@ -684,7 +681,6 @@ class FakePath(pathlib.Path):
             OSError: if the target object is a directory, the path is invalid
                 or permission is denied.
         """
-        self._raise_on_closed()
         return fake_open(
             self.filesystem,
             self.skip_names,
@@ -753,7 +749,6 @@ class FakePath(pathlib.Path):
                 default locale encoding is used
             errors: (str) Defines how encoding errors are handled.
             newline: Controls universal newlines, passed to stream object.
-                New in Python 3.10.
         Raises:
             TypeError: if data is not of type 'str'.
             OSError: if the target object is a directory, the path is
@@ -761,8 +756,6 @@ class FakePath(pathlib.Path):
         """
         if not isinstance(data, str):
             raise TypeError("data must be str, not %s" % data.__class__.__name__)
-        if newline is not None and sys.version_info < (3, 10):
-            raise TypeError("write_text() got an unexpected keyword argument 'newline'")
         with fake_open(
             self.filesystem,
             self.skip_names,
@@ -818,10 +811,6 @@ class FakePath(pathlib.Path):
             )
         )
 
-    def _raise_on_closed(self):
-        if sys.version_info < (3, 9) and self._closed:
-            self._raise_closed()
-
     def touch(self, mode=0o666, exist_ok=True):
         """Create a fake file for the path with the given access mode,
         if it doesn't exist.
@@ -834,7 +823,6 @@ class FakePath(pathlib.Path):
         Raises:
             FileExistsError: if the file exists and ``exits_ok`` is `False`.
         """
-        self._raise_on_closed()
         if self.exists():
             if exist_ok:
                 self.filesystem.utime(self._path(), times=None)
@@ -844,6 +832,35 @@ class FakePath(pathlib.Path):
             fake_file = self.open("w", encoding="utf8")
             fake_file.close()
             self.chmod(mode)
+
+    if sys.version_info >= (3, 14):
+
+        def _copy_from_file(self, source, preserve_metadata=False):
+            if sys.platform == "win32":
+                # do not use the optimized version that uses OS functions in Windows
+                if hasattr(self, "_copy_from_file_fallback"):
+                    return self._copy_from_file_fallback(source, preserve_metadata)
+                else:
+                    return super()._copy_from_file(source, preserve_metadata)  # type: ignore[attr-defined]
+            else:
+                # make pathlib think that no system calls are available so that it
+                # will fall back to pure Python calls
+                pathlib_os = pathlib.pathlib_module._os  # type: ignore[attr-defined]
+                old_fcopyfile = pathlib_os._fcopyfile
+                pathlib_os._fcopyfile = None
+                old_copy_file_range = pathlib_os._copy_file_range  # type: ignore[attr-defined]
+                pathlib_os._copy_file_range = None
+                old_ficlone = pathlib_os._ficlone  # type: ignore[attr-defined]
+                pathlib_os._ficlone = None
+                old_sendfile = pathlib_os._sendfile  # type: ignore[attr-defined]
+                pathlib_os._sendfile = None
+                try:
+                    return super()._copy_from_file(source, preserve_metadata)  # type: ignore[attr-defined]
+                finally:
+                    pathlib_os._fcopyfile = old_fcopyfile
+                    pathlib_os._copy_file_range = old_copy_file_range
+                    pathlib_os._ficlone = old_ficlone
+                    pathlib_os._sendfile = old_sendfile
 
 
 def _warn_is_reserved_deprecated():
@@ -875,7 +892,7 @@ class FakePathlibModule:
                 Will be set to `True` if instantiated from `Patcher`.
         """
         init_module(filesystem)
-        self._pathlib_module = pathlib
+        self.pathlib_module = pathlib
         self._os = None
         self._os_patcher = None
         if not from_patcher:
@@ -900,10 +917,11 @@ class FakePathlibModule:
 
         __slots__ = ()
         if sys.version_info >= (3, 12):
+            if sys.version_info < (3, 15):
 
-            def is_reserved(self):
-                _warn_is_reserved_deprecated()
-                return False
+                def is_reserved(self):
+                    _warn_is_reserved_deprecated()
+                    return False
 
             def is_absolute(self):
                 with os.path.filesystem.use_fs_type(FSType.POSIX):  # type: ignore[module-attr]
@@ -998,7 +1016,7 @@ class FakePathlibModule:
 
     def __getattr__(self, name):
         """Forwards any unfaked calls to the standard pathlib module."""
-        return getattr(self._pathlib_module, name)
+        return getattr(self.pathlib_module, name)
 
 
 class FakePathlibPathModule:
@@ -1009,6 +1027,12 @@ class FakePathlibPathModule:
     def __init__(self, filesystem=None, from_patcher=False):
         if self.fake_pathlib is None:
             self.__class__.fake_pathlib = FakePathlibModule(filesystem, from_patcher)
+
+    def __or__(self, other: Any) -> Any:
+        # workaround for #1242 - pytest chokes on Path | ... type hint in wrapped function
+        return Union[self, other]
+
+    __ror__ = __or__
 
     @property
     def skip_names(self):

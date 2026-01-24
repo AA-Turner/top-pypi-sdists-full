@@ -9,14 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class CodeScanningAutofixCommitsResponseType(TypedDict):
-    """CodeScanningAutofixCommitsResponse"""
+class RateLimitType(TypedDict):
+    """Rate Limit"""
 
-    target_ref: NotRequired[str]
-    sha: NotRequired[str]
+    limit: int
+    remaining: int
+    reset: int
+    used: int
 
 
-__all__ = ("CodeScanningAutofixCommitsResponseType",)
+class RateLimitTypeForResponse(TypedDict):
+    """Rate Limit"""
+
+    limit: int
+    remaining: int
+    reset: int
+    used: int
+
+
+__all__ = (
+    "RateLimitType",
+    "RateLimitTypeForResponse",
+)

@@ -89,8 +89,8 @@ class SqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Delete an async SQL search.
-          Delete an async SQL search or a stored synchronous SQL search.
+          <p>Delete an async SQL search.</p>
+          <p>Delete an async SQL search or a stored synchronous SQL search.
           If the search is still running, the API cancels it.</p>
           <p>If the Elasticsearch security features are enabled, only the following users can use this API to delete a search:</p>
           <ul>
@@ -145,8 +145,8 @@ class SqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get async SQL search results.
-          Get the current status and available results for an async SQL search or stored synchronous SQL search.</p>
+          <p>Get async SQL search results.</p>
+          <p>Get the current status and available results for an async SQL search or stored synchronous SQL search.</p>
           <p>If the Elasticsearch security features are enabled, only the user who first submitted the SQL search can retrieve the search using this API.</p>
 
 
@@ -208,8 +208,8 @@ class SqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get the async SQL search status.
-          Get the current status of an async SQL search or a stored synchronous SQL search.</p>
+          <p>Get the async SQL search status.</p>
+          <p>Get the current status of an async SQL search or a stored synchronous SQL search.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-sql-get-async-status>`_
@@ -285,6 +285,7 @@ class SqlClient(NamespacedClient):
         page_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         params: t.Optional[t.Sequence[t.Any]] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         query: t.Optional[str] = None,
         request_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         runtime_mappings: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
@@ -297,8 +298,8 @@ class SqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get SQL search results.
-          Run an SQL request.</p>
+          <p>Get SQL search results.</p>
+          <p>Run an SQL request.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-sql-query>`_
@@ -332,6 +333,10 @@ class SqlClient(NamespacedClient):
             is no longer available. Subsequent scroll requests prolong the lifetime of
             the scroll cursor by the duration of `page_timeout` in the scroll request.
         :param params: The values for parameters in the query.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param query: The SQL query to run.
         :param request_timeout: The timeout before the request fails.
         :param runtime_mappings: One or more runtime fields for the search request. These
@@ -357,6 +362,8 @@ class SqlClient(NamespacedClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if not __body:
             if allow_partial_search_results is not None:
                 __body["allow_partial_search_results"] = allow_partial_search_results
@@ -422,8 +429,8 @@ class SqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Translate SQL into Elasticsearch queries.
-          Translate an SQL search into a search API request containing Query DSL.
+          <p>Translate SQL into Elasticsearch queries.</p>
+          <p>Translate an SQL search into a search API request containing Query DSL.
           It accepts the same request body parameters as the SQL search API, excluding <code>cursor</code>.</p>
 
 

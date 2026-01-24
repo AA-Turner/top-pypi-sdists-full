@@ -117,7 +117,7 @@ class TestBackend:
         with sftpserver.serve_content(VFS):
             import_credential = import_credential_factory.create(
                 username="user",
-                password="password",
+                password="password",  # noqa
                 additional_resources={
                     "host": sftpserver.host,
                     "port": sftpserver.port,

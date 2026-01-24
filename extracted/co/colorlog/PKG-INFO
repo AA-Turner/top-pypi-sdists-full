@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: colorlog
-Version: 6.9.0
+Version: 6.10.1
 Summary: Add colours to the output of Python's logging module.
 Home-page: https://github.com/borntyping/python-colorlog
 Author: Sam Clements
@@ -25,8 +25,25 @@ Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
-Provides-Extra: development
 License-File: LICENSE
+Requires-Dist: colorama; sys_platform == "win32"
+Provides-Extra: development
+Requires-Dist: black; extra == "development"
+Requires-Dist: flake8; extra == "development"
+Requires-Dist: mypy; extra == "development"
+Requires-Dist: pytest; extra == "development"
+Requires-Dist: types-colorama; extra == "development"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 # Log formatting with colors!
 
@@ -243,7 +260,7 @@ Tests similar to the above examples are found in `tests/test_colorlog.py`.
 ## Status
 
 colorlog is in maintenance mode. I try and ensure bugfixes are published,
-but compatibility with Python 2.6+ and Python 3+ makes this a difficult
+but compatibility a wide set of Python versions makes this a difficult
 codebase to add features to. Any changes that might break backwards
 compatibility for existing users will not be considered.
 
@@ -263,7 +280,7 @@ Some early adopters included [Errbot], [Pythran], and [zenlog].
 
 ## Licence
 
-Copyright (c) 2012-2021 Sam Clements <sam@borntyping.co.uk>
+Copyright (c) 2012-2025 Sam Clements <sam@borntyping.co.uk>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in

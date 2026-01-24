@@ -3,7 +3,7 @@ Type annotations for identitystore service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -67,12 +68,6 @@ from .type_defs import (
     UpdateUserRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -81,14 +76,14 @@ else:
 __all__ = ("IdentityStoreClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class IdentityStoreClient(BaseClient):
     """
@@ -153,7 +148,7 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#create_user)
         """
 
-    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Delete a group within an identity store given <code>GroupId</code>.
 
@@ -163,7 +158,7 @@ class IdentityStoreClient(BaseClient):
 
     def delete_group_membership(
         self, **kwargs: Unpack[DeleteGroupMembershipRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a membership within a group given <code>MembershipId</code>.
 
@@ -171,7 +166,7 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#delete_group_membership)
         """
 
-    def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a user within an identity store given <code>UserId</code>.
 
@@ -254,7 +249,8 @@ class IdentityStoreClient(BaseClient):
     ) -> ListGroupMembershipsResponseTypeDef:
         """
         For the specified group in the specified identity store, returns the list of
-        all <code>GroupMembership</code> objects and returns results in paginated form.
+        all <code> GroupMembership</code> objects and returns results in paginated
+        form.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/list_group_memberships.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#list_group_memberships)
@@ -265,7 +261,8 @@ class IdentityStoreClient(BaseClient):
     ) -> ListGroupMembershipsForMemberResponseTypeDef:
         """
         For the specified member in the specified identity store, returns the list of
-        all <code>GroupMembership</code> objects and returns results in paginated form.
+        all <code> GroupMembership</code> objects and returns results in paginated
+        form.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/list_group_memberships_for_member.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#list_group_memberships_for_member)
@@ -287,19 +284,19 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#list_users)
         """
 
-    def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> Dict[str, Any]:
+    def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> dict[str, Any]:
         """
-        For the specified group in the specified identity store, updates the group
-        metadata and attributes.
+        Updates the specified group metadata and attributes in the specified identity
+        store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/update_group.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#update_group)
         """
 
-    def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> Dict[str, Any]:
+    def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> dict[str, Any]:
         """
-        For the specified user in the specified identity store, updates the user
-        metadata and attributes.
+        Updates the specified user metadata and attributes in the specified identity
+        store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/update_user.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#update_user)

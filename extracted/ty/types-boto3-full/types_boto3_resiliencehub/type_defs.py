@@ -3,7 +3,7 @@ Type annotations for resiliencehub service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehub/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -65,12 +66,6 @@ from .literals import (
     TestTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -283,7 +278,7 @@ class FailedGroupingRecommendationEntryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -317,7 +312,7 @@ AppComponentTypeDef = TypedDict(
     {
         "name": str,
         "type": str,
-        "additionalInfo": NotRequired[Dict[str, List[str]]],
+        "additionalInfo": NotRequired[dict[str, list[str]]],
         "id": NotRequired[str],
     },
 )
@@ -358,7 +353,7 @@ PermissionModelOutputTypeDef = TypedDict(
     "PermissionModelOutputTypeDef",
     {
         "type": PermissionModelTypeType,
-        "crossAccountRoleArns": NotRequired[List[str]],
+        "crossAccountRoleArns": NotRequired[list[str]],
         "invokerRoleName": NotRequired[str],
     },
 )
@@ -372,7 +367,7 @@ class AppVersionSummaryTypeDef(TypedDict):
 
 
 class AssessmentRiskRecommendationTypeDef(TypedDict):
-    appComponents: NotRequired[List[str]]
+    appComponents: NotRequired[list[str]]
     recommendation: NotRequired[str]
     risk: NotRequired[str]
 
@@ -540,7 +535,7 @@ class DescribeResourceGroupingRecommendationTaskRequestTypeDef(TypedDict):
 
 class EksSourceOutputTypeDef(TypedDict):
     eksClusterArn: str
-    namespaces: List[str]
+    namespaces: list[str]
 
 
 class EksSourceTypeDef(TypedDict):
@@ -814,7 +809,7 @@ class AcceptResourceGroupingRecommendationsRequestTypeDef(TypedDict):
 
 class AcceptResourceGroupingRecommendationsResponseTypeDef(TypedDict):
     appArn: str
-    failedEntries: List[FailedGroupingRecommendationEntryTypeDef]
+    failedEntries: list[FailedGroupingRecommendationEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -850,7 +845,7 @@ class DescribeAppVersionResourcesResolutionStatusResponseTypeDef(TypedDict):
 
 
 class DescribeAppVersionResponseTypeDef(TypedDict):
-    additionalInfo: Dict[str, List[str]]
+    additionalInfo: dict[str, list[str]]
     appArn: str
     appVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -871,13 +866,13 @@ class DescribeResourceGroupingRecommendationTaskResponseTypeDef(TypedDict):
 
 
 class ListMetricsResponseTypeDef(TypedDict):
-    rows: List[List[str]]
+    rows: list[list[str]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -897,7 +892,7 @@ class PutDraftAppVersionTemplateResponseTypeDef(TypedDict):
 
 class RejectResourceGroupingRecommendationsResponseTypeDef(TypedDict):
     appArn: str
-    failedEntries: List[FailedGroupingRecommendationEntryTypeDef]
+    failedEntries: list[FailedGroupingRecommendationEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -930,7 +925,7 @@ class StartResourceGroupingRecommendationTaskResponseTypeDef(TypedDict):
 
 
 class UpdateAppVersionResponseTypeDef(TypedDict):
-    additionalInfo: Dict[str, List[str]]
+    additionalInfo: dict[str, list[str]]
     appArn: str
     appVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -955,7 +950,7 @@ class AppAssessmentSummaryTypeDef(TypedDict):
 
 class ComplianceDriftTypeDef(TypedDict):
     actualReferenceId: NotRequired[str]
-    actualValue: NotRequired[Dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
+    actualValue: NotRequired[dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
     appId: NotRequired[str]
     appVersion: NotRequired[str]
     diffType: NotRequired[DifferenceTypeType]
@@ -963,7 +958,7 @@ class ComplianceDriftTypeDef(TypedDict):
     entityId: NotRequired[str]
     entityType: NotRequired[str]
     expectedReferenceId: NotRequired[str]
-    expectedValue: NotRequired[Dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
+    expectedValue: NotRequired[dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
 
 
 class CreateAppVersionAppComponentResponseTypeDef(TypedDict):
@@ -989,7 +984,7 @@ class DescribeAppVersionAppComponentResponseTypeDef(TypedDict):
 
 class ListAppVersionAppComponentsResponseTypeDef(TypedDict):
     appArn: str
-    appComponents: List[AppComponentTypeDef]
+    appComponents: list[AppComponentTypeDef]
     appVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -1020,7 +1015,7 @@ class DeleteAppInputSourceRequestTypeDef(TypedDict):
 
 
 class ListAppsResponseTypeDef(TypedDict):
-    appSummaries: List[AppSummaryTypeDef]
+    appSummaries: list[AppSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1034,7 +1029,7 @@ class AppTypeDef(TypedDict):
     complianceStatus: NotRequired[AppComplianceStatusTypeType]
     description: NotRequired[str]
     driftStatus: NotRequired[AppDriftStatusTypeType]
-    eventSubscriptions: NotRequired[List[EventSubscriptionTypeDef]]
+    eventSubscriptions: NotRequired[list[EventSubscriptionTypeDef]]
     lastAppComplianceEvaluationTime: NotRequired[datetime]
     lastDriftEvaluationTime: NotRequired[datetime]
     lastResiliencyScoreEvaluationTime: NotRequired[datetime]
@@ -1044,17 +1039,17 @@ class AppTypeDef(TypedDict):
     rpoInSecs: NotRequired[int]
     rtoInSecs: NotRequired[int]
     status: NotRequired[AppStatusTypeType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListAppVersionsResponseTypeDef(TypedDict):
-    appVersions: List[AppVersionSummaryTypeDef]
+    appVersions: list[AppVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class AssessmentSummaryTypeDef(TypedDict):
-    riskRecommendations: NotRequired[List[AssessmentRiskRecommendationTypeDef]]
+    riskRecommendations: NotRequired[list[AssessmentRiskRecommendationTypeDef]]
     summary: NotRequired[str]
 
 
@@ -1081,14 +1076,14 @@ class ConfigRecommendationTypeDef(TypedDict):
     optimizationType: ConfigRecommendationOptimizationTypeType
     referenceId: str
     appComponentName: NotRequired[str]
-    compliance: NotRequired[Dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
+    compliance: NotRequired[dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
     cost: NotRequired[CostTypeDef]
     description: NotRequired[str]
     haArchitecture: NotRequired[HaArchitectureType]
     recommendationCompliance: NotRequired[
-        Dict[DisruptionTypeType, RecommendationDisruptionComplianceTypeDef]
+        dict[DisruptionTypeType, RecommendationDisruptionComplianceTypeDef]
     ]
-    suggestedChanges: NotRequired[List[str]]
+    suggestedChanges: NotRequired[list[str]]
 
 
 class CreateAppVersionResourceRequestTypeDef(TypedDict):
@@ -1156,11 +1151,11 @@ class ResiliencyPolicyTypeDef(TypedDict):
     creationTime: NotRequired[datetime]
     dataLocationConstraint: NotRequired[DataLocationConstraintType]
     estimatedCostTier: NotRequired[EstimatedCostTierType]
-    policy: NotRequired[Dict[DisruptionTypeType, FailurePolicyTypeDef]]
+    policy: NotRequired[dict[DisruptionTypeType, FailurePolicyTypeDef]]
     policyArn: NotRequired[str]
     policyDescription: NotRequired[str]
     policyName: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     tier: NotRequired[ResiliencyPolicyTierType]
 
 
@@ -1176,7 +1171,7 @@ class UpdateResiliencyPolicyRequestTypeDef(TypedDict):
 class DescribeDraftAppVersionResourcesImportStatusResponseTypeDef(TypedDict):
     appArn: str
     appVersion: str
-    errorDetails: List[ErrorDetailTypeDef]
+    errorDetails: list[ErrorDetailTypeDef]
     errorMessage: str
     status: ResourceImportStatusTypeType
     statusChangeTime: datetime
@@ -1198,15 +1193,15 @@ RecommendationTemplateTypeDef = TypedDict(
         "format": TemplateFormatType,
         "name": str,
         "recommendationTemplateArn": str,
-        "recommendationTypes": List[RenderRecommendationTypeType],
+        "recommendationTypes": list[RenderRecommendationTypeType],
         "status": RecommendationTemplateStatusType,
         "appArn": NotRequired[str],
         "endTime": NotRequired[datetime],
         "message": NotRequired[str],
         "needsReplacements": NotRequired[bool],
-        "recommendationIds": NotRequired[List[str]],
+        "recommendationIds": NotRequired[list[str]],
         "startTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "templatesLocation": NotRequired[S3LocationTypeDef],
     },
 )
@@ -1215,10 +1210,10 @@ RecommendationTemplateTypeDef = TypedDict(
 class ImportResourcesToDraftAppVersionResponseTypeDef(TypedDict):
     appArn: str
     appVersion: str
-    eksSources: List[EksSourceOutputTypeDef]
-    sourceArns: List[str]
+    eksSources: list[EksSourceOutputTypeDef]
+    sourceArns: list[str]
     status: ResourceImportStatusTypeType
-    terraformSources: List[TerraformSourceTypeDef]
+    terraformSources: list[TerraformSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1241,15 +1236,15 @@ class GroupingResourceTypeDef(TypedDict):
     physicalResourceId: PhysicalResourceIdTypeDef
     resourceName: str
     resourceType: str
-    sourceAppComponentIds: List[str]
+    sourceAppComponentIds: list[str]
 
 
 class PhysicalResourceTypeDef(TypedDict):
     logicalResourceId: LogicalResourceIdTypeDef
     physicalResourceId: PhysicalResourceIdTypeDef
     resourceType: str
-    additionalInfo: NotRequired[Dict[str, List[str]]]
-    appComponents: NotRequired[List[AppComponentTypeDef]]
+    additionalInfo: NotRequired[dict[str, list[str]]]
+    appComponents: NotRequired[list[AppComponentTypeDef]]
     excluded: NotRequired[bool]
     parentResourceName: NotRequired[str]
     resourceName: NotRequired[str]
@@ -1329,26 +1324,26 @@ class RejectResourceGroupingRecommendationsRequestTypeDef(TypedDict):
 
 
 class ResiliencyScoreTypeDef(TypedDict):
-    disruptionScore: Dict[DisruptionTypeType, float]
+    disruptionScore: dict[DisruptionTypeType, float]
     score: float
     componentScore: NotRequired[
-        Dict[ResiliencyScoreTypeType, ScoringComponentResiliencyScoreTypeDef]
+        dict[ResiliencyScoreTypeType, ScoringComponentResiliencyScoreTypeDef]
     ]
 
 
 class ResourceErrorsDetailsTypeDef(TypedDict):
     hasMoreErrors: NotRequired[bool]
-    resourceErrors: NotRequired[List[ResourceErrorTypeDef]]
+    resourceErrors: NotRequired[list[ResourceErrorTypeDef]]
 
 
 class ListAppAssessmentsResponseTypeDef(TypedDict):
-    assessmentSummaries: List[AppAssessmentSummaryTypeDef]
+    assessmentSummaries: list[AppAssessmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAppAssessmentComplianceDriftsResponseTypeDef(TypedDict):
-    complianceDrifts: List[ComplianceDriftTypeDef]
+    complianceDrifts: list[ComplianceDriftTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1360,7 +1355,7 @@ class DeleteAppInputSourceResponseTypeDef(TypedDict):
 
 
 class ListAppInputSourcesResponseTypeDef(TypedDict):
-    appInputSources: List[AppInputSourceTypeDef]
+    appInputSources: list[AppInputSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1382,8 +1377,8 @@ class UpdateAppResponseTypeDef(TypedDict):
 
 class BatchUpdateRecommendationStatusResponseTypeDef(TypedDict):
     appArn: str
-    failedEntries: List[BatchUpdateRecommendationStatusFailedEntryTypeDef]
-    successfulEntries: List[BatchUpdateRecommendationStatusSuccessfulEntryTypeDef]
+    failedEntries: list[BatchUpdateRecommendationStatusFailedEntryTypeDef]
+    successfulEntries: list[BatchUpdateRecommendationStatusSuccessfulEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1394,7 +1389,7 @@ class BatchUpdateRecommendationStatusRequestTypeDef(TypedDict):
 
 class ComponentRecommendationTypeDef(TypedDict):
     appComponentName: str
-    configRecommendations: List[ConfigRecommendationTypeDef]
+    configRecommendations: list[ConfigRecommendationTypeDef]
     recommendationStatus: RecommendationComplianceStatusType
 
 
@@ -1417,13 +1412,13 @@ class DescribeResiliencyPolicyResponseTypeDef(TypedDict):
 
 
 class ListResiliencyPoliciesResponseTypeDef(TypedDict):
-    resiliencyPolicies: List[ResiliencyPolicyTypeDef]
+    resiliencyPolicies: list[ResiliencyPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSuggestedResiliencyPoliciesResponseTypeDef(TypedDict):
-    resiliencyPolicies: List[ResiliencyPolicyTypeDef]
+    resiliencyPolicies: list[ResiliencyPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1439,7 +1434,7 @@ class CreateRecommendationTemplateResponseTypeDef(TypedDict):
 
 
 class ListRecommendationTemplatesResponseTypeDef(TypedDict):
-    recommendationTemplates: List[RecommendationTemplateTypeDef]
+    recommendationTemplates: list[RecommendationTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1460,9 +1455,9 @@ AlarmRecommendationTypeDef = TypedDict(
         "referenceId": str,
         "type": AlarmTypeType,
         "appComponentName": NotRequired[str],
-        "appComponentNames": NotRequired[List[str]],
+        "appComponentNames": NotRequired[list[str]],
         "description": NotRequired[str],
-        "items": NotRequired[List[RecommendationItemTypeDef]],
+        "items": NotRequired[list[RecommendationItemTypeDef]],
         "prerequisite": NotRequired[str],
         "recommendationStatus": NotRequired[RecommendationStatusType],
     },
@@ -1475,7 +1470,7 @@ class SopRecommendationTypeDef(TypedDict):
     serviceType: Literal["SSM"]
     appComponentName: NotRequired[str]
     description: NotRequired[str]
-    items: NotRequired[List[RecommendationItemTypeDef]]
+    items: NotRequired[list[RecommendationItemTypeDef]]
     name: NotRequired[str]
     prerequisite: NotRequired[str]
     recommendationStatus: NotRequired[RecommendationStatusType]
@@ -1487,10 +1482,10 @@ TestRecommendationTypeDef = TypedDict(
         "referenceId": str,
         "appComponentId": NotRequired[str],
         "appComponentName": NotRequired[str],
-        "dependsOnAlarms": NotRequired[List[str]],
+        "dependsOnAlarms": NotRequired[list[str]],
         "description": NotRequired[str],
         "intent": NotRequired[str],
-        "items": NotRequired[List[RecommendationItemTypeDef]],
+        "items": NotRequired[list[RecommendationItemTypeDef]],
         "name": NotRequired[str],
         "prerequisite": NotRequired[str],
         "recommendationId": NotRequired[str],
@@ -1506,8 +1501,8 @@ class GroupingRecommendationTypeDef(TypedDict):
     creationTime: datetime
     groupingAppComponent: GroupingAppComponentTypeDef
     groupingRecommendationId: str
-    recommendationReasons: List[str]
-    resources: List[GroupingResourceTypeDef]
+    recommendationReasons: list[str]
+    resources: list[GroupingResourceTypeDef]
     score: float
     status: GroupingRecommendationStatusTypeType
     rejectionReason: NotRequired[GroupingRecommendationRejectionReasonType]
@@ -1535,7 +1530,7 @@ class DescribeAppVersionResourceResponseTypeDef(TypedDict):
 
 
 class ListAppVersionResourcesResponseTypeDef(TypedDict):
-    physicalResources: List[PhysicalResourceTypeDef]
+    physicalResources: list[PhysicalResourceTypeDef]
     resolutionId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -1556,19 +1551,19 @@ class AddDraftAppVersionResourceMappingsRequestTypeDef(TypedDict):
 class AddDraftAppVersionResourceMappingsResponseTypeDef(TypedDict):
     appArn: str
     appVersion: str
-    resourceMappings: List[ResourceMappingTypeDef]
+    resourceMappings: list[ResourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAppVersionResourceMappingsResponseTypeDef(TypedDict):
-    resourceMappings: List[ResourceMappingTypeDef]
+    resourceMappings: list[ResourceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListUnsupportedAppVersionResourcesResponseTypeDef(TypedDict):
     resolutionId: str
-    unsupportedResources: List[UnsupportedResourceTypeDef]
+    unsupportedResources: list[UnsupportedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1597,7 +1592,7 @@ class UpdateAppRequestTypeDef(TypedDict):
 
 class AppComponentComplianceTypeDef(TypedDict):
     appComponentName: NotRequired[str]
-    compliance: NotRequired[Dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
+    compliance: NotRequired[dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
     cost: NotRequired[CostTypeDef]
     message: NotRequired[str]
     resiliencyScore: NotRequired[ResiliencyScoreTypeDef]
@@ -1611,7 +1606,7 @@ class AppAssessmentTypeDef(TypedDict):
     appArn: NotRequired[str]
     appVersion: NotRequired[str]
     assessmentName: NotRequired[str]
-    compliance: NotRequired[Dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
+    compliance: NotRequired[dict[DisruptionTypeType, DisruptionComplianceTypeDef]]
     complianceStatus: NotRequired[ComplianceStatusType]
     cost: NotRequired[CostTypeDef]
     driftStatus: NotRequired[DriftStatusType]
@@ -1622,48 +1617,48 @@ class AppAssessmentTypeDef(TypedDict):
     resourceErrorsDetails: NotRequired[ResourceErrorsDetailsTypeDef]
     startTime: NotRequired[datetime]
     summary: NotRequired[AssessmentSummaryTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     versionName: NotRequired[str]
 
 
 class ListAppComponentRecommendationsResponseTypeDef(TypedDict):
-    componentRecommendations: List[ComponentRecommendationTypeDef]
+    componentRecommendations: list[ComponentRecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAppAssessmentResourceDriftsResponseTypeDef(TypedDict):
-    resourceDrifts: List[ResourceDriftTypeDef]
+    resourceDrifts: list[ResourceDriftTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAlarmRecommendationsResponseTypeDef(TypedDict):
-    alarmRecommendations: List[AlarmRecommendationTypeDef]
+    alarmRecommendations: list[AlarmRecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSopRecommendationsResponseTypeDef(TypedDict):
-    sopRecommendations: List[SopRecommendationTypeDef]
+    sopRecommendations: list[SopRecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTestRecommendationsResponseTypeDef(TypedDict):
-    testRecommendations: List[TestRecommendationTypeDef]
+    testRecommendations: list[TestRecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListResourceGroupingRecommendationsResponseTypeDef(TypedDict):
-    groupingRecommendations: List[GroupingRecommendationTypeDef]
+    groupingRecommendations: list[GroupingRecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAppComponentCompliancesResponseTypeDef(TypedDict):
-    componentCompliances: List[AppComponentComplianceTypeDef]
+    componentCompliances: list[AppComponentComplianceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

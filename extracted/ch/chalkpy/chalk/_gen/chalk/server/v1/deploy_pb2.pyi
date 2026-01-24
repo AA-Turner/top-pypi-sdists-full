@@ -5,6 +5,7 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -55,21 +56,30 @@ class DeployBranchResponse(_message.Message):
     ) -> None: ...
 
 class CreateBranchFromSourceDeploymentRequest(_message.Message):
-    __slots__ = ("branch_name", "source_branch_name", "source_deployment_id", "current_mainline_deployment")
+    __slots__ = (
+        "branch_name",
+        "source_branch_name",
+        "source_deployment_id",
+        "current_mainline_deployment",
+        "override_graph",
+    )
     BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
     SOURCE_BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
     SOURCE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     CURRENT_MAINLINE_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_GRAPH_FIELD_NUMBER: _ClassVar[int]
     branch_name: str
     source_branch_name: str
     source_deployment_id: str
     current_mainline_deployment: _empty_pb2.Empty
+    override_graph: _graph_pb2.Graph
     def __init__(
         self,
         branch_name: _Optional[str] = ...,
         source_branch_name: _Optional[str] = ...,
         source_deployment_id: _Optional[str] = ...,
         current_mainline_deployment: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...,
+        override_graph: _Optional[_Union[_graph_pb2.Graph, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateBranchFromSourceDeploymentResponse(_message.Message):
@@ -91,16 +101,28 @@ class CreateBranchFromSourceDeploymentResponse(_message.Message):
     ) -> None: ...
 
 class GetDeploymentRequest(_message.Message):
-    __slots__ = ("deployment_id",)
+    __slots__ = ("deployment_id", "read_mask")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
-    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+    read_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
 
 class GetDeploymentResponse(_message.Message):
-    __slots__ = ("deployment",)
+    __slots__ = ("deployment", "export")
     DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    EXPORT_FIELD_NUMBER: _ClassVar[int]
     deployment: _deployment_pb2.Deployment
-    def __init__(self, deployment: _Optional[_Union[_deployment_pb2.Deployment, _Mapping]] = ...) -> None: ...
+    export: _export_pb2.Export
+    def __init__(
+        self,
+        deployment: _Optional[_Union[_deployment_pb2.Deployment, _Mapping]] = ...,
+        export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
+    ) -> None: ...
 
 class ListDeploymentsRequest(_message.Message):
     __slots__ = ("cursor", "limit", "include_branch", "branch_name")
@@ -197,3 +219,15 @@ class GetActiveDeploymentsResponse(_message.Message):
     def __init__(
         self, deployments: _Optional[_Iterable[_Union[_deployment_pb2.Deployment, _Mapping]]] = ...
     ) -> None: ...
+
+class GetDeploymentSourceRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetDeploymentSourceResponse(_message.Message):
+    __slots__ = ("signed_url",)
+    SIGNED_URL_FIELD_NUMBER: _ClassVar[int]
+    signed_url: str
+    def __init__(self, signed_url: _Optional[str] = ...) -> None: ...

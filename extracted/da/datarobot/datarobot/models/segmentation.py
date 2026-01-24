@@ -98,34 +98,26 @@ class SegmentationTask(APIObject):
         "data",
     ]
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("project_id"): t.String,
-            t.Key("name"): t.String,
-            t.Key("type"): t.String,
-            t.Key("created"): parse_time,
-            t.Key("segments_count"): t.Int,
-            t.Key("segments"): t.List(t.String),
-            t.Key("metadata"): t.Dict(
-                {
-                    t.Key("use_time_series"): t.Bool,
-                    t.Key("use_multiseries_id_columns"): t.Bool,
-                    t.Key("use_automated_segmentation"): t.Bool,
-                }
-            ).ignore_extra("*"),
-            t.Key("data"): t.Dict(
-                {
-                    t.Key("datetime_partition_column", optional=True): t.Or(t.String, t.Null),
-                    t.Key("multiseries_id_columns", optional=True): t.Or(t.List(t.String), t.Null),
-                    t.Key("user_defined_segment_id_columns", optional=True): t.Or(
-                        t.List(t.String), t.Null
-                    ),
-                    t.Key("model_package_id", optional=True): t.Or(t.String, t.Null),
-                }
-            ).ignore_extra("*"),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("project_id"): t.String,
+        t.Key("name"): t.String,
+        t.Key("type"): t.String,
+        t.Key("created"): parse_time,
+        t.Key("segments_count"): t.Int,
+        t.Key("segments"): t.List(t.String),
+        t.Key("metadata"): t.Dict({
+            t.Key("use_time_series"): t.Bool,
+            t.Key("use_multiseries_id_columns"): t.Bool,
+            t.Key("use_automated_segmentation"): t.Bool,
+        }).ignore_extra("*"),
+        t.Key("data"): t.Dict({
+            t.Key("datetime_partition_column", optional=True): t.Or(t.String, t.Null),
+            t.Key("multiseries_id_columns", optional=True): t.Or(t.List(t.String), t.Null),
+            t.Key("user_defined_segment_id_columns", optional=True): t.Or(t.List(t.String), t.Null),
+            t.Key("model_package_id", optional=True): t.Or(t.String, t.Null),
+        }).ignore_extra("*"),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -218,20 +210,14 @@ class SegmentationTask(APIObject):
         }
         if use_time_series:
             if datetime_partition_column is None:
-                raise ValueError(
-                    "A datetime_partition_column value must be specified for time series."
-                )
+                raise ValueError("A datetime_partition_column value must be specified for time series.")
             payload.update({"datetime_partition_column": datetime_partition_column})
 
             if multiseries_id_columns is None:
-                raise ValueError(
-                    "A multiseries_id_columns value must be specified for time series."
-                )
+                raise ValueError("A multiseries_id_columns value must be specified for time series.")
             if not isinstance(multiseries_id_columns, (list, tuple)):
                 raise ValueError(
-                    "Expected list of str for multiseries_id_columns, got: {}".format(
-                        multiseries_id_columns
-                    )
+                    "Expected list of str for multiseries_id_columns, got: {}".format(multiseries_id_columns)
                 )
             payload.update({"multiseries_id_columns": multiseries_id_columns})
 
@@ -254,9 +240,7 @@ class SegmentationTask(APIObject):
             )
 
         response = cls._client.post(cls._base_url.format(project_id), data=payload)
-        results_url = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait=max_wait
-        )
+        results_url = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait=max_wait)
         results_response = cls._client.get(results_url)
 
         data = results_response.json()
@@ -340,17 +324,15 @@ class SegmentInfo(APIObject):
 
     _base_url = "projects/{}/combinedModels/{}/segments/"
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): t.String,
-            t.Key("segment"): t.String,
-            t.Key("project_stage"): t.String,
-            t.Key("project_status_error"): t.String(allow_blank=True),
-            t.Key("autopilot_done"): t.Bool,
-            t.Key("model_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("model_id", optional=True): t.Or(t.String, t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): t.String,
+        t.Key("segment"): t.String,
+        t.Key("project_stage"): t.String,
+        t.Key("project_status_error"): t.String(allow_blank=True),
+        t.Key("autopilot_done"): t.Bool,
+        t.Key("model_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("model_id", optional=True): t.Or(t.String, t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,

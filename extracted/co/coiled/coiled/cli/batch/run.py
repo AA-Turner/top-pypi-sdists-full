@@ -10,12 +10,12 @@ import shlex
 
 import click
 import dask.config
-import yaml
 from dask.utils import format_bytes, format_time, parse_timedelta
 from rich.console import Console
 from rich.panel import Panel
 
 import coiled
+from coiled.cli.batch.util import load_sidecar_spec
 from coiled.cli.batch.wait import batch_job_wait
 from coiled.cli.curl import sync_request
 from coiled.cli.run import dict_from_key_val_list
@@ -196,6 +196,7 @@ def get_kwargs_from_header(f: dict, click_params: list):
         "default is to use the entrypoint (if any) set on the image."
     ),
 )
+@click.option("--run-on-host", default=None, help="Run code directly on host, not inside docker container.")
 @click.option(
     "--env",
     "-e",
@@ -472,6 +473,7 @@ def get_kwargs_from_header(f: dict, click_params: list):
         "For example, you can specify '30 minutes' or '1 hour'. Default is no timeout."
     ),
 )
+@click.option("--dask-container", default=None, type=str)
 @click.argument("command", nargs=-1, required=True)
 def batch_run_cli(ctx, **kwargs):
     """
@@ -501,6 +503,14 @@ def batch_run_cli(ctx, **kwargs):
 
 def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
     command = kwargs["command"]
+    user_files = []
+
+    if isinstance(command, str) and (command.startswith("#!") or kwargs.get("command_as_script")):
+        user_files.append({
+            "path": "script",
+            "content": command,
+        })
+        command = ["script"]
 
     # Handle command as string case (e.g. `coiled batch run "python myscript.py"`)
     if len(command) == 1:
@@ -522,7 +532,6 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
     # unescape escaped COILED env vars in command
     command = [part.replace("\\$COILED", "$COILED") for part in command]
 
-    user_files = []
     kwargs_from_header = None
 
     # identify implicit files referenced in commands like "python foo.py" or "foo.sh"
@@ -713,8 +722,8 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
     if user_files_from_content:
         user_files.extend(user_files_from_content)
 
-    host_setup_content = None
-    if kwargs["host_setup_script"]:
+    host_setup_content = kwargs.get("host_setup_script_content")
+    if not host_setup_content and kwargs["host_setup_script"]:
         with open(kwargs["host_setup_script"]) as f:
             host_setup_content = f.read()
 
@@ -754,25 +763,11 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
     batch_job_container = f"{kwargs['container']}!" if kwargs["ignore_container_entrypoint"] else kwargs["container"]
 
-    scheduler_sidecars = []
-    if kwargs.get("scheduler_sidecar_spec"):
-        with open(kwargs["scheduler_sidecar_spec"]) as f:
-            if kwargs["scheduler_sidecar_spec"].endswith((".yaml", ".yml")):
-                sidecar_spec = yaml.safe_load(f)
-            elif kwargs["scheduler_sidecar_spec"].endswith(".json"):
-                sidecar_spec = json.load(f)
-            else:
-                raise ValueError(f"Unknown format for {kwargs['scheduler_sidecar_spec']}, json or yaml expected.")
+    scheduler_sidecars = load_sidecar_spec(kwargs.get("scheduler_sidecar_spec"))
 
-            # support either list-like or dict-like
-            if isinstance(sidecar_spec, list):
-                scheduler_sidecars = sidecar_spec
-            if isinstance(sidecar_spec, dict):
-                scheduler_sidecars = [{"name": key, **val} for key, val in sidecar_spec.items()]
-
-            for sidecar in scheduler_sidecars:
-                # allow `image` as the key, to match docker compose spec
-                sidecar["container"] = sidecar.get("container") or sidecar.get("image")
+    dask_container = (
+        kwargs.get("dask_container") or dask.config.get("coiled.batch.dask-container", None) or "ghcr.io/dask/dask"
+    )
 
     cluster_kwargs = {
         "name": kwargs["name"],
@@ -786,7 +781,9 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         # if batch job is running in extra container, then we just need a pretty minimal dask container
         # so for now switch the default in that case to basic dask container
         # TODO would it be better to use a pre-built senv with our `cloud-env-run` container instead?
-        "container": "daskdev/dask:latest" if kwargs["container"] and not kwargs["software"] else None,
+        "container": dask_container
+        if (kwargs["container"] or kwargs.get("run_on_host")) and not kwargs["software"]
+        else None,
         "region": kwargs["region"],
         "scheduler_options": {
             "idle_timeout": "520 weeks",  # TODO allow job timeout?
@@ -807,6 +804,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "package_sync_ignore": kwargs.get("package_sync_ignore"),
         "allow_cross_zone": True if kwargs["allow_cross_zone"] is None else kwargs["allow_cross_zone"],
         "scheduler_sidecars": scheduler_sidecars,
+        **(kwargs.get("cluster_kwargs") or {}),
     }
 
     # when task will run on scheduler, give it the same VM specs as worker node
@@ -842,6 +840,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "pipe_to_files": bool(kwargs.get("pipe_to_files")),
         "host_setup": host_setup_content,
         "job_timeout_seconds": parse_timedelta(kwargs["job_timeout"]) if kwargs["job_timeout"] else None,
+        "run_in_container": not kwargs.get("run_on_host"),
     }
 
     with coiled.Cloud(workspace=kwargs["workspace"]) as cloud:
@@ -879,6 +878,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
             or kwargs.get("pipe_to_files")
             or kwargs.get("input_filestore")
             or kwargs.get("output_filestore")
+            or kwargs.get("buffers_to_upload")
         ):
             fs_base_name = kwargs["name"] or f"batch-job-{job_id}"
 
@@ -899,9 +899,11 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
                 {"id": out_fs["id"], "output": True, "path": "/scratch/batch/", "primary": True},
             ])
 
-            if kwargs.get("local_upload_path") or kwargs.get("local_sync_path"):
+            if kwargs.get("local_upload_path") or kwargs.get("local_sync_path") or kwargs.get("buffers_to_upload"):
                 upload_to_filestore_with_ui(
-                    fs=in_fs, local_dir=kwargs.get("local_upload_path") or kwargs.get("local_sync_path")
+                    fs=in_fs,
+                    local_dir=kwargs.get("local_upload_path") or kwargs.get("local_sync_path"),
+                    file_buffers=kwargs.get("buffers_to_upload"),
                 )
 
         # Run the job on a cluster

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import abc
 import collections
 import functools
 import re
@@ -31,7 +30,7 @@ from ovsdbapp.backend.ovs_idl import vlog
 from neutron.agent.linux import external_process
 from neutron.agent.linux import ip_lib
 from neutron.agent.linux import iptables_manager
-from neutron.agent.ovn.agent import ovn_neutron_agent
+from neutron.agent.ovn.extensions import extension_manager
 from neutron.agent.ovn.metadata import driver as metadata_driver
 from neutron.agent.ovn.metadata import ovsdb
 from neutron.agent.ovn.metadata import server_socket as metadata_server
@@ -87,39 +86,12 @@ class ConfigException(Exception):
     """
 
 
-class _OVNExtensionEvent(metaclass=abc.ABCMeta):
-    """Implements a method to retrieve the correct caller agent
-
-    The events inheriting from this class could be called from the OVN metadata
-    agent or as part of an extension of the OVN agent ("metadata" extension,
-    for example). In future releases, the OVN metadata agent will be superseded
-    by the OVN agent (with the "metadata" extension) and this class removed,
-    keeping only the compatibility with the OVN agent (to be removed in C+2).
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._agent_or_extension = None
-        self._agent = None
-
-    @property
-    def agent(self):
-        """This method provide support for the OVN agent
-
-        This event can be used in the OVN metadata agent and in the OVN
-        agent metadata extension.
-        """
-        if not self._agent_or_extension:
-            if isinstance(self._agent, ovn_neutron_agent.OVNNeutronAgent):
-                self._agent_or_extension = self._agent['metadata']
-            else:
-                self._agent_or_extension = self._agent
-        return self._agent_or_extension
-
-
-class PortBindingEvent(_OVNExtensionEvent, row_event.RowEvent):
+class PortBindingEvent(extension_manager.OVNExtensionEvent,
+                       row_event.RowEvent):
     def __init__(self, agent):
         table = 'Port_Binding'
-        super().__init__((self.__class__.EVENT,), table, None)
+        super().__init__((self.__class__.EVENT,), table, None,
+                         extension_name='metadata')
         self._agent = agent
         self.event_name = self.__class__.__name__
         self._log_msg = (
@@ -301,7 +273,7 @@ class PortBindingDeletedEvent(PortBindingEvent):
         return True
 
 
-class ChassisPrivateCreateEvent(_OVNExtensionEvent, row_event.RowEvent):
+class ChassisPrivateCreateEvent(row_event.RowEvent):
     """Row create event - Chassis name == our_chassis.
 
     On connection, we get a dump of all chassis so if we catch a creation
@@ -314,9 +286,7 @@ class ChassisPrivateCreateEvent(_OVNExtensionEvent, row_event.RowEvent):
         self.first_time = True
         events = (self.ROW_CREATE,)
         super().__init__(events, 'Chassis_Private', None)
-        # NOTE(ralonsoh): ``self._agent`` needs to be assigned before being
-        # used in the property ``self.agent``.
-        self._agent = agent
+        self.agent = agent
         self.conditions = (('name', '=', self.agent.chassis),)
         self.event_name = self.__class__.__name__
 
@@ -332,14 +302,14 @@ class ChassisPrivateCreateEvent(_OVNExtensionEvent, row_event.RowEvent):
             self.agent.sync()
 
 
-class SbGlobalUpdateEvent(_OVNExtensionEvent, row_event.RowEvent):
+class SbGlobalUpdateEvent(row_event.RowEvent):
     """Row update event on SB_Global table."""
 
     def __init__(self, agent):
         table = 'SB_Global'
         events = (self.ROW_UPDATE,)
         super().__init__(events, table, None)
-        self._agent = agent
+        self.agent = agent
         self.event_name = self.__class__.__name__
         self.first_run = True
 
@@ -431,6 +401,37 @@ class MetadataAgent:
             'Chassis_Private', self.chassis,
             ('external_ids', external_ids)).execute(check_error=True)
 
+    def _update_metadata_sb_cfg_key(self):
+        """Update the Chassis_Private nb_cfg information in external_ids
+
+        This method should be called once the Metadata Agent has been
+        registered (method ``register_metadata_agent`` has been called) and
+        the corresponding Chassis_Private register has been created/updated
+        and chassis private config has been updated.
+        """
+        nb_cfg = self.sb_idl.db_get('Chassis_Private',
+                                    self.chassis, 'nb_cfg').execute()
+        external_ids = {ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY: str(nb_cfg)}
+        self.sb_idl.db_set(
+            'Chassis_Private', self.chassis,
+            ('external_ids', external_ids)).execute(check_error=True)
+
+    def _cleanup_previous_tags(self):
+        """Remove any existing tag related to the OVN agent
+
+        The OVN Metadata agent is deprecated and marked for removal in 2026.2.
+
+        While both agents can provide the same functionality (OVN Metadata
+        agent and OVN agent with the metadata extension), it is needed to
+        provide a cleanup method for any leftover tag from the other agent.
+        """
+        metadata_keys = (ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY,
+                         ovn_const.OVN_AGENT_NEUTRON_DESC_KEY,
+                         ovn_const.OVN_AGENT_NEUTRON_ID_KEY)
+        self.sb_idl.db_remove(
+            'Chassis_Private', self.chassis, 'external_ids',
+            *metadata_keys, if_exists=True).execute(check_error=True)
+
     @_sync_lock
     def resync(self):
         """Resync the agent.
@@ -439,6 +440,7 @@ class MetadataAgent:
         """
         self._load_config()
         self._update_chassis_private_config()
+        self._update_metadata_sb_cfg_key()
         self.sync()
 
     def start(self):
@@ -472,9 +474,15 @@ class MetadataAgent:
         self.sync(provision=False)
 
         # Register the agent with its corresponding Chassis
+        self._cleanup_previous_tags()
         self.register_metadata_agent()
         self._update_chassis_private_config()
+        self._update_metadata_sb_cfg_key()
 
+        LOG.warning(
+            'The OVN Metadata agent is deprecated in favor of the OVN agent '
+            'with the metadata extension. It has been deprecated in 2025.2 '
+            'and will be removed in 2026.2')
         self._proxy.wait()
 
     @ovn_utils.retry()
@@ -544,7 +552,7 @@ class MetadataAgent:
                              ns not in metadata_namespaces]
         for ns in unused_namespaces:
             try:
-                self.teardown_datapath(self._get_datapath_name(ns))
+                self.teardown_datapath(self._get_network_name(ns))
             except Exception:
                 LOG.exception('Error unable to destroy namespace: %s', ns)
 
@@ -561,7 +569,7 @@ class MetadataAgent:
                                 datapath[:10], i) for i in [0, 1]]
 
     @staticmethod
-    def _get_datapath_name(namespace):
+    def _get_network_name(namespace):
         return namespace[len(NS_PREFIX):]
 
     @staticmethod

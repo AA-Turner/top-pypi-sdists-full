@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import uuid
 
-from globus_sdk import utils
+from globus_sdk._payload import GlobusPayload
 
 
-class DependentScopeSpec(utils.PayloadWrapper):
+class DependentScopeSpec(GlobusPayload):
     """
     Utility class for creating dependent scope values as parameters to
     :meth:`AuthClient.create_scope <globus_sdk.AuthClient.create_scope>`

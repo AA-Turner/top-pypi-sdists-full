@@ -49,6 +49,7 @@ class Transaction:
     class AuthorizationReason(Enum):
         BLOCKING_FUNDS = "blocking_funds"
         VERIFICATION = "verification"
+        SCHEDULED_CAPTURE = "scheduled_capture"
 
         def __str__(self):
             return self.value
@@ -111,6 +112,7 @@ class Transaction:
         processor_error_code: NotRequired[str]
         processor_error_message: NotRequired[str]
         error_cause_id: NotRequired[str]
+        processor_advice_code: NotRequired[str]
 
     class CreateAuthorizationParams(TypedDict):
         customer_id: Required[str]

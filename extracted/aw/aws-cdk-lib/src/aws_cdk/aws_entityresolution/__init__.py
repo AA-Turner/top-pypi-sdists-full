@@ -77,1431 +77,21 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.CfnIdMappingWorkflowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "id_mapping_techniques": "idMappingTechniques",
-        "input_source_config": "inputSourceConfig",
-        "role_arn": "roleArn",
-        "workflow_name": "workflowName",
-        "description": "description",
-        "id_mapping_incremental_run_config": "idMappingIncrementalRunConfig",
-        "output_source_config": "outputSourceConfig",
-        "tags": "tags",
-    },
+from ..interfaces.aws_entityresolution import (
+    IIdMappingWorkflowRef as _IIdMappingWorkflowRef_719b905c,
+    IIdNamespaceRef as _IIdNamespaceRef_b89c1cab,
+    IMatchingWorkflowRef as _IMatchingWorkflowRef_66c9c4fe,
+    IPolicyStatementRef as _IPolicyStatementRef_d5a3e09a,
+    ISchemaMappingRef as _ISchemaMappingRef_a699d3c7,
+    IdMappingWorkflowReference as _IdMappingWorkflowReference_f119ae06,
+    IdNamespaceReference as _IdNamespaceReference_262ea9b2,
+    MatchingWorkflowReference as _MatchingWorkflowReference_e1146cf4,
+    PolicyStatementReference as _PolicyStatementReference_c4ae3493,
+    SchemaMappingReference as _SchemaMappingReference_99c0db60,
 )
-class CfnIdMappingWorkflowProps:
-    def __init__(
-        self,
-        *,
-        id_mapping_techniques: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
-        input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        role_arn: builtins.str,
-        workflow_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIdMappingWorkflow``.
 
-        :param id_mapping_techniques: An object which defines the ID mapping technique and any additional configurations.
-        :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
-        :param workflow_name: The name of the workflow. There can't be multiple ``IdMappingWorkflows`` with the same name.
-        :param description: A description of the workflow.
-        :param id_mapping_incremental_run_config: 
-        :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
-        :param tags: The tags used to organize, track, or control access for this resource.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            cfn_id_mapping_workflow_props = entityresolution.CfnIdMappingWorkflowProps(
-                id_mapping_techniques=entityresolution.CfnIdMappingWorkflow.IdMappingTechniquesProperty(
-                    id_mapping_type="idMappingType",
-                    provider_properties=entityresolution.CfnIdMappingWorkflow.ProviderPropertiesProperty(
-                        provider_service_arn="providerServiceArn",
-            
-                        # the properties below are optional
-                        intermediate_source_configuration=entityresolution.CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty(
-                            intermediate_s3_path="intermediateS3Path"
-                        ),
-                        provider_configuration={
-                            "provider_configuration_key": "providerConfiguration"
-                        }
-                    ),
-                    rule_based_properties=entityresolution.CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty(
-                        attribute_matching_model="attributeMatchingModel",
-                        record_matching_model="recordMatchingModel",
-            
-                        # the properties below are optional
-                        rule_definition_type="ruleDefinitionType",
-                        rules=[entityresolution.CfnIdMappingWorkflow.RuleProperty(
-                            matching_keys=["matchingKeys"],
-                            rule_name="ruleName"
-                        )]
-                    )
-                ),
-                input_source_config=[entityresolution.CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty(
-                    input_source_arn="inputSourceArn",
-            
-                    # the properties below are optional
-                    schema_arn="schemaArn",
-                    type="type"
-                )],
-                role_arn="roleArn",
-                workflow_name="workflowName",
-            
-                # the properties below are optional
-                description="description",
-                id_mapping_incremental_run_config=entityresolution.CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty(
-                    incremental_run_type="incrementalRunType"
-                ),
-                output_source_config=[entityresolution.CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty(
-                    output_s3_path="outputS3Path",
-            
-                    # the properties below are optional
-                    kms_arn="kmsArn"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a92ec1b5f460936930fefdd0c239f69c3ec93198e4a71c3867bbe1bf1a48bf11)
-            check_type(argname="argument id_mapping_techniques", value=id_mapping_techniques, expected_type=type_hints["id_mapping_techniques"])
-            check_type(argname="argument input_source_config", value=input_source_config, expected_type=type_hints["input_source_config"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument id_mapping_incremental_run_config", value=id_mapping_incremental_run_config, expected_type=type_hints["id_mapping_incremental_run_config"])
-            check_type(argname="argument output_source_config", value=output_source_config, expected_type=type_hints["output_source_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "id_mapping_techniques": id_mapping_techniques,
-            "input_source_config": input_source_config,
-            "role_arn": role_arn,
-            "workflow_name": workflow_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if id_mapping_incremental_run_config is not None:
-            self._values["id_mapping_incremental_run_config"] = id_mapping_incremental_run_config
-        if output_source_config is not None:
-            self._values["output_source_config"] = output_source_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def id_mapping_techniques(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingTechniquesProperty"]:
-        '''An object which defines the ID mapping technique and any additional configurations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-idmappingtechniques
-        '''
-        result = self._values.get("id_mapping_techniques")
-        assert result is not None, "Required property 'id_mapping_techniques' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingTechniquesProperty"], result)
-
-    @builtins.property
-    def input_source_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]]:
-        '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-inputsourceconfig
-        '''
-        result = self._values.get("input_source_config")
-        assert result is not None, "Required property 'input_source_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role.
-
-        AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workflow_name(self) -> builtins.str:
-        '''The name of the workflow.
-
-        There can't be multiple ``IdMappingWorkflows`` with the same name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-workflowname
-        '''
-        result = self._values.get("workflow_name")
-        assert result is not None, "Required property 'workflow_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def id_mapping_incremental_run_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-idmappingincrementalrunconfig
-        '''
-        result = self._values.get("id_mapping_incremental_run_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]], result)
-
-    @builtins.property
-    def output_source_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]]:
-        '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-outputsourceconfig
-        '''
-        result = self._values.get("output_source_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIdMappingWorkflowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.CfnIdNamespaceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "id_namespace_name": "idNamespaceName",
-        "type": "type",
-        "description": "description",
-        "id_mapping_workflow_properties": "idMappingWorkflowProperties",
-        "input_source_config": "inputSourceConfig",
-        "role_arn": "roleArn",
-        "tags": "tags",
-    },
-)
-class CfnIdNamespaceProps:
-    def __init__(
-        self,
-        *,
-        id_namespace_name: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        id_mapping_workflow_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.IdNamespaceInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIdNamespace``.
-
-        :param id_namespace_name: The name of the ID namespace.
-        :param type: The type of ID namespace. There are two types: ``SOURCE`` and ``TARGET`` . The ``SOURCE`` contains configurations for ``sourceId`` data that will be processed in an ID mapping workflow. The ``TARGET`` contains a configuration of ``targetId`` which all ``sourceIds`` will resolve to.
-        :param description: The description of the ID namespace.
-        :param id_mapping_workflow_properties: Determines the properties of ``IdMappingWorflow`` where this ``IdNamespace`` can be used as a ``Source`` or a ``Target`` .
-        :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to access the resources defined in this ``IdNamespace`` on your behalf as part of the workflow run.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            cfn_id_namespace_props = entityresolution.CfnIdNamespaceProps(
-                id_namespace_name="idNamespaceName",
-                type="type",
-            
-                # the properties below are optional
-                description="description",
-                id_mapping_workflow_properties=[entityresolution.CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty(
-                    id_mapping_type="idMappingType",
-            
-                    # the properties below are optional
-                    provider_properties=entityresolution.CfnIdNamespace.NamespaceProviderPropertiesProperty(
-                        provider_service_arn="providerServiceArn",
-            
-                        # the properties below are optional
-                        provider_configuration={
-                            "provider_configuration_key": "providerConfiguration"
-                        }
-                    ),
-                    rule_based_properties=entityresolution.CfnIdNamespace.NamespaceRuleBasedPropertiesProperty(
-                        attribute_matching_model="attributeMatchingModel",
-                        record_matching_models=["recordMatchingModels"],
-                        rule_definition_types=["ruleDefinitionTypes"],
-                        rules=[entityresolution.CfnIdNamespace.RuleProperty(
-                            matching_keys=["matchingKeys"],
-                            rule_name="ruleName"
-                        )]
-                    )
-                )],
-                input_source_config=[entityresolution.CfnIdNamespace.IdNamespaceInputSourceProperty(
-                    input_source_arn="inputSourceArn",
-            
-                    # the properties below are optional
-                    schema_name="schemaName"
-                )],
-                role_arn="roleArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08dbceaf6584c6ddec9cc5b62fe86da5739412407f6e361f15be9f4533370973)
-            check_type(argname="argument id_namespace_name", value=id_namespace_name, expected_type=type_hints["id_namespace_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument id_mapping_workflow_properties", value=id_mapping_workflow_properties, expected_type=type_hints["id_mapping_workflow_properties"])
-            check_type(argname="argument input_source_config", value=input_source_config, expected_type=type_hints["input_source_config"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "id_namespace_name": id_namespace_name,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if id_mapping_workflow_properties is not None:
-            self._values["id_mapping_workflow_properties"] = id_mapping_workflow_properties
-        if input_source_config is not None:
-            self._values["input_source_config"] = input_source_config
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def id_namespace_name(self) -> builtins.str:
-        '''The name of the ID namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-idnamespacename
-        '''
-        result = self._values.get("id_namespace_name")
-        assert result is not None, "Required property 'id_namespace_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of ID namespace. There are two types: ``SOURCE`` and ``TARGET`` .
-
-        The ``SOURCE`` contains configurations for ``sourceId`` data that will be processed in an ID mapping workflow.
-
-        The ``TARGET`` contains a configuration of ``targetId`` which all ``sourceIds`` will resolve to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the ID namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def id_mapping_workflow_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]]:
-        '''Determines the properties of ``IdMappingWorflow`` where this ``IdNamespace`` can be used as a ``Source`` or a ``Target`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-idmappingworkflowproperties
-        '''
-        result = self._values.get("id_mapping_workflow_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]], result)
-
-    @builtins.property
-    def input_source_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]]:
-        '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-inputsourceconfig
-        '''
-        result = self._values.get("input_source_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role.
-
-        AWS Entity Resolution assumes this role to access the resources defined in this ``IdNamespace`` on your behalf as part of the workflow run.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIdNamespaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "input_source_config": "inputSourceConfig",
-        "output_source_config": "outputSourceConfig",
-        "resolution_techniques": "resolutionTechniques",
-        "role_arn": "roleArn",
-        "workflow_name": "workflowName",
-        "description": "description",
-        "incremental_run_config": "incrementalRunConfig",
-        "tags": "tags",
-    },
-)
-class CfnMatchingWorkflowProps:
-    def __init__(
-        self,
-        *,
-        input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.InputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        output_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.OutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        resolution_techniques: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.ResolutionTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
-        role_arn: builtins.str,
-        workflow_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.IncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMatchingWorkflow``.
-
-        :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-        :param output_source_config: A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
-        :param resolution_techniques: An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
-        :param workflow_name: The name of the workflow. There can't be multiple ``MatchingWorkflows`` with the same name.
-        :param description: A description of the workflow.
-        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            cfn_matching_workflow_props = entityresolution.CfnMatchingWorkflowProps(
-                input_source_config=[entityresolution.CfnMatchingWorkflow.InputSourceProperty(
-                    input_source_arn="inputSourceArn",
-                    schema_arn="schemaArn",
-            
-                    # the properties below are optional
-                    apply_normalization=False
-                )],
-                output_source_config=[entityresolution.CfnMatchingWorkflow.OutputSourceProperty(
-                    output=[entityresolution.CfnMatchingWorkflow.OutputAttributeProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        hashed=False
-                    )],
-                    output_s3_path="outputS3Path",
-            
-                    # the properties below are optional
-                    apply_normalization=False,
-                    kms_arn="kmsArn"
-                )],
-                resolution_techniques=entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty(
-                    provider_properties=entityresolution.CfnMatchingWorkflow.ProviderPropertiesProperty(
-                        provider_service_arn="providerServiceArn",
-            
-                        # the properties below are optional
-                        intermediate_source_configuration=entityresolution.CfnMatchingWorkflow.IntermediateSourceConfigurationProperty(
-                            intermediate_s3_path="intermediateS3Path"
-                        ),
-                        provider_configuration={
-                            "provider_configuration_key": "providerConfiguration"
-                        }
-                    ),
-                    resolution_type="resolutionType",
-                    rule_based_properties=entityresolution.CfnMatchingWorkflow.RuleBasedPropertiesProperty(
-                        attribute_matching_model="attributeMatchingModel",
-                        rules=[entityresolution.CfnMatchingWorkflow.RuleProperty(
-                            matching_keys=["matchingKeys"],
-                            rule_name="ruleName"
-                        )],
-            
-                        # the properties below are optional
-                        match_purpose="matchPurpose"
-                    ),
-                    rule_condition_properties=entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty(
-                        rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
-                            condition="condition",
-                            rule_name="ruleName"
-                        )]
-                    )
-                ),
-                role_arn="roleArn",
-                workflow_name="workflowName",
-            
-                # the properties below are optional
-                description="description",
-                incremental_run_config=entityresolution.CfnMatchingWorkflow.IncrementalRunConfigProperty(
-                    incremental_run_type="incrementalRunType"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2be3b46399b509a45bb640cf4a70ab0714322917a6d3dc4c241cb16ab2d1dbb0)
-            check_type(argname="argument input_source_config", value=input_source_config, expected_type=type_hints["input_source_config"])
-            check_type(argname="argument output_source_config", value=output_source_config, expected_type=type_hints["output_source_config"])
-            check_type(argname="argument resolution_techniques", value=resolution_techniques, expected_type=type_hints["resolution_techniques"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument incremental_run_config", value=incremental_run_config, expected_type=type_hints["incremental_run_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input_source_config": input_source_config,
-            "output_source_config": output_source_config,
-            "resolution_techniques": resolution_techniques,
-            "role_arn": role_arn,
-            "workflow_name": workflow_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if incremental_run_config is not None:
-            self._values["incremental_run_config"] = incremental_run_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def input_source_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.InputSourceProperty"]]]:
-        '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-inputsourceconfig
-        '''
-        result = self._values.get("input_source_config")
-        assert result is not None, "Required property 'input_source_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.InputSourceProperty"]]], result)
-
-    @builtins.property
-    def output_source_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]]:
-        '''A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-outputsourceconfig
-        '''
-        result = self._values.get("output_source_config")
-        assert result is not None, "Required property 'output_source_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]], result)
-
-    @builtins.property
-    def resolution_techniques(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ResolutionTechniquesProperty"]:
-        '''An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-resolutiontechniques
-        '''
-        result = self._values.get("resolution_techniques")
-        assert result is not None, "Required property 'resolution_techniques' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ResolutionTechniquesProperty"], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role.
-
-        AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workflow_name(self) -> builtins.str:
-        '''The name of the workflow.
-
-        There can't be multiple ``MatchingWorkflows`` with the same name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-workflowname
-        '''
-        result = self._values.get("workflow_name")
-        assert result is not None, "Required property 'workflow_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def incremental_run_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]]:
-        '''Optional.
-
-        An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console.
-        .. epigraph::
-
-           For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-incrementalrunconfig
-        '''
-        result = self._values.get("incremental_run_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMatchingWorkflowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.CfnPolicyStatementProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "arn": "arn",
-        "statement_id": "statementId",
-        "action": "action",
-        "condition": "condition",
-        "effect": "effect",
-        "principal": "principal",
-    },
-)
-class CfnPolicyStatementProps:
-    def __init__(
-        self,
-        *,
-        arn: builtins.str,
-        statement_id: builtins.str,
-        action: typing.Optional[typing.Sequence[builtins.str]] = None,
-        condition: typing.Optional[builtins.str] = None,
-        effect: typing.Optional[builtins.str] = None,
-        principal: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPolicyStatement``.
-
-        :param arn: The Amazon Resource Name (ARN) of the resource that will be accessed by the principal.
-        :param statement_id: A statement identifier that differentiates the statement from others in the same policy.
-        :param action: The action that the principal can use on the resource. For example, ``entityresolution:GetIdMappingJob`` , ``entityresolution:GetMatchingJob`` .
-        :param condition: A set of condition keys that you can use in key policies.
-        :param effect: Determines whether the permissions specified in the policy are to be allowed ( ``Allow`` ) or denied ( ``Deny`` ). .. epigraph:: If you set the value of the ``effect`` parameter to ``Deny`` for the ``AddPolicyStatement`` operation, you must also set the value of the ``effect`` parameter in the ``policy`` to ``Deny`` for the ``PutPolicy`` operation.
-        :param principal: The AWS service or AWS account that can access the resource defined as ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            cfn_policy_statement_props = entityresolution.CfnPolicyStatementProps(
-                arn="arn",
-                statement_id="statementId",
-            
-                # the properties below are optional
-                action=["action"],
-                condition="condition",
-                effect="effect",
-                principal=["principal"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb81bcce6b9a473cbe53da03368a24fe3bffbe3a0fa4df32a086651b803e974a)
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
-            check_type(argname="argument effect", value=effect, expected_type=type_hints["effect"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "arn": arn,
-            "statement_id": statement_id,
-        }
-        if action is not None:
-            self._values["action"] = action
-        if condition is not None:
-            self._values["condition"] = condition
-        if effect is not None:
-            self._values["effect"] = effect
-        if principal is not None:
-            self._values["principal"] = principal
-
-    @builtins.property
-    def arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource that will be accessed by the principal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-arn
-        '''
-        result = self._values.get("arn")
-        assert result is not None, "Required property 'arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def statement_id(self) -> builtins.str:
-        '''A statement identifier that differentiates the statement from others in the same policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-statementid
-        '''
-        result = self._values.get("statement_id")
-        assert result is not None, "Required property 'statement_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The action that the principal can use on the resource.
-
-        For example, ``entityresolution:GetIdMappingJob`` , ``entityresolution:GetMatchingJob`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-action
-        '''
-        result = self._values.get("action")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def condition(self) -> typing.Optional[builtins.str]:
-        '''A set of condition keys that you can use in key policies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-condition
-        '''
-        result = self._values.get("condition")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def effect(self) -> typing.Optional[builtins.str]:
-        '''Determines whether the permissions specified in the policy are to be allowed ( ``Allow`` ) or denied ( ``Deny`` ).
-
-        .. epigraph::
-
-           If you set the value of the ``effect`` parameter to ``Deny`` for the ``AddPolicyStatement`` operation, you must also set the value of the ``effect`` parameter in the ``policy`` to ``Deny`` for the ``PutPolicy`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-effect
-        '''
-        result = self._values.get("effect")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def principal(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The AWS service or AWS account that can access the resource defined as ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-principal
-        '''
-        result = self._values.get("principal")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPolicyStatementProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.CfnSchemaMappingProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "mapped_input_fields": "mappedInputFields",
-        "schema_name": "schemaName",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnSchemaMappingProps:
-    def __init__(
-        self,
-        *,
-        mapped_input_fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSchemaMapping.SchemaInputAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        schema_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSchemaMapping``.
-
-        :param mapped_input_fields: A list of ``MappedInputFields`` . Each ``MappedInputField`` corresponds to a column the source data table, and contains column name plus additional information that AWS Entity Resolution uses for matching.
-        :param schema_name: The name of the schema. There can't be multiple ``SchemaMappings`` with the same name.
-        :param description: A description of the schema.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            cfn_schema_mapping_props = entityresolution.CfnSchemaMappingProps(
-                mapped_input_fields=[entityresolution.CfnSchemaMapping.SchemaInputAttributeProperty(
-                    field_name="fieldName",
-                    type="type",
-            
-                    # the properties below are optional
-                    group_name="groupName",
-                    hashed=False,
-                    match_key="matchKey",
-                    sub_type="subType"
-                )],
-                schema_name="schemaName",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbadfeefbc588fc98477889c4f0b74bc9f51ac6d9fd8188d64b6ad629a494dad)
-            check_type(argname="argument mapped_input_fields", value=mapped_input_fields, expected_type=type_hints["mapped_input_fields"])
-            check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "mapped_input_fields": mapped_input_fields,
-            "schema_name": schema_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def mapped_input_fields(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSchemaMapping.SchemaInputAttributeProperty"]]]:
-        '''A list of ``MappedInputFields`` .
-
-        Each ``MappedInputField`` corresponds to a column the source data table, and contains column name plus additional information that AWS Entity Resolution uses for matching.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-mappedinputfields
-        '''
-        result = self._values.get("mapped_input_fields")
-        assert result is not None, "Required property 'mapped_input_fields' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSchemaMapping.SchemaInputAttributeProperty"]]], result)
-
-    @builtins.property
-    def schema_name(self) -> builtins.str:
-        '''The name of the schema.
-
-        There can't be multiple ``SchemaMappings`` with the same name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-schemaname
-        '''
-        result = self._values.get("schema_name")
-        assert result is not None, "Required property 'schema_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSchemaMappingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_entityresolution.IIdMappingWorkflowRef")
-class IIdMappingWorkflowRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a IdMappingWorkflow.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="idMappingWorkflowRef")
-    def id_mapping_workflow_ref(self) -> "IdMappingWorkflowReference":
-        '''(experimental) A reference to a IdMappingWorkflow resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIdMappingWorkflowRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a IdMappingWorkflow.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_entityresolution.IIdMappingWorkflowRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="idMappingWorkflowRef")
-    def id_mapping_workflow_ref(self) -> "IdMappingWorkflowReference":
-        '''(experimental) A reference to a IdMappingWorkflow resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IdMappingWorkflowReference", jsii.get(self, "idMappingWorkflowRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIdMappingWorkflowRef).__jsii_proxy_class__ = lambda : _IIdMappingWorkflowRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_entityresolution.IIdNamespaceRef")
-class IIdNamespaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a IdNamespace.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="idNamespaceRef")
-    def id_namespace_ref(self) -> "IdNamespaceReference":
-        '''(experimental) A reference to a IdNamespace resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIdNamespaceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a IdNamespace.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_entityresolution.IIdNamespaceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="idNamespaceRef")
-    def id_namespace_ref(self) -> "IdNamespaceReference":
-        '''(experimental) A reference to a IdNamespace resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IdNamespaceReference", jsii.get(self, "idNamespaceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIdNamespaceRef).__jsii_proxy_class__ = lambda : _IIdNamespaceRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_entityresolution.IMatchingWorkflowRef")
-class IMatchingWorkflowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a MatchingWorkflow.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="matchingWorkflowRef")
-    def matching_workflow_ref(self) -> "MatchingWorkflowReference":
-        '''(experimental) A reference to a MatchingWorkflow resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMatchingWorkflowRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MatchingWorkflow.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_entityresolution.IMatchingWorkflowRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="matchingWorkflowRef")
-    def matching_workflow_ref(self) -> "MatchingWorkflowReference":
-        '''(experimental) A reference to a MatchingWorkflow resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MatchingWorkflowReference", jsii.get(self, "matchingWorkflowRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMatchingWorkflowRef).__jsii_proxy_class__ = lambda : _IMatchingWorkflowRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_entityresolution.IPolicyStatementRef")
-class IPolicyStatementRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a PolicyStatement.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="policyStatementRef")
-    def policy_statement_ref(self) -> "PolicyStatementReference":
-        '''(experimental) A reference to a PolicyStatement resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPolicyStatementRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a PolicyStatement.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_entityresolution.IPolicyStatementRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="policyStatementRef")
-    def policy_statement_ref(self) -> "PolicyStatementReference":
-        '''(experimental) A reference to a PolicyStatement resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PolicyStatementReference", jsii.get(self, "policyStatementRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPolicyStatementRef).__jsii_proxy_class__ = lambda : _IPolicyStatementRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_entityresolution.ISchemaMappingRef")
-class ISchemaMappingRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SchemaMapping.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="schemaMappingRef")
-    def schema_mapping_ref(self) -> "SchemaMappingReference":
-        '''(experimental) A reference to a SchemaMapping resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISchemaMappingRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SchemaMapping.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_entityresolution.ISchemaMappingRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="schemaMappingRef")
-    def schema_mapping_ref(self) -> "SchemaMappingReference":
-        '''(experimental) A reference to a SchemaMapping resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SchemaMappingReference", jsii.get(self, "schemaMappingRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISchemaMappingRef).__jsii_proxy_class__ = lambda : _ISchemaMappingRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.IdMappingWorkflowReference",
-    jsii_struct_bases=[],
-    name_mapping={"workflow_name": "workflowName"},
-)
-class IdMappingWorkflowReference:
-    def __init__(self, *, workflow_name: builtins.str) -> None:
-        '''A reference to a IdMappingWorkflow resource.
-
-        :param workflow_name: The WorkflowName of the IdMappingWorkflow resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            id_mapping_workflow_reference = entityresolution.IdMappingWorkflowReference(
-                workflow_name="workflowName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64be2f057e6f7f57a614c29cb388586833ea2100ad9561a6119972ac05c33e56)
-            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "workflow_name": workflow_name,
-        }
-
-    @builtins.property
-    def workflow_name(self) -> builtins.str:
-        '''The WorkflowName of the IdMappingWorkflow resource.'''
-        result = self._values.get("workflow_name")
-        assert result is not None, "Required property 'workflow_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IdMappingWorkflowReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.IdNamespaceReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "id_namespace_arn": "idNamespaceArn",
-        "id_namespace_name": "idNamespaceName",
-    },
-)
-class IdNamespaceReference:
-    def __init__(
-        self,
-        *,
-        id_namespace_arn: builtins.str,
-        id_namespace_name: builtins.str,
-    ) -> None:
-        '''A reference to a IdNamespace resource.
-
-        :param id_namespace_arn: The ARN of the IdNamespace resource.
-        :param id_namespace_name: The IdNamespaceName of the IdNamespace resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            id_namespace_reference = entityresolution.IdNamespaceReference(
-                id_namespace_arn="idNamespaceArn",
-                id_namespace_name="idNamespaceName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee2092ac168efc0dffd6918ef6ef2a96ad3bf96e1c1edcc37d4d3d745bcf98d)
-            check_type(argname="argument id_namespace_arn", value=id_namespace_arn, expected_type=type_hints["id_namespace_arn"])
-            check_type(argname="argument id_namespace_name", value=id_namespace_name, expected_type=type_hints["id_namespace_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "id_namespace_arn": id_namespace_arn,
-            "id_namespace_name": id_namespace_name,
-        }
-
-    @builtins.property
-    def id_namespace_arn(self) -> builtins.str:
-        '''The ARN of the IdNamespace resource.'''
-        result = self._values.get("id_namespace_arn")
-        assert result is not None, "Required property 'id_namespace_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def id_namespace_name(self) -> builtins.str:
-        '''The IdNamespaceName of the IdNamespace resource.'''
-        result = self._values.get("id_namespace_name")
-        assert result is not None, "Required property 'id_namespace_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IdNamespaceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.MatchingWorkflowReference",
-    jsii_struct_bases=[],
-    name_mapping={"workflow_name": "workflowName"},
-)
-class MatchingWorkflowReference:
-    def __init__(self, *, workflow_name: builtins.str) -> None:
-        '''A reference to a MatchingWorkflow resource.
-
-        :param workflow_name: The WorkflowName of the MatchingWorkflow resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            matching_workflow_reference = entityresolution.MatchingWorkflowReference(
-                workflow_name="workflowName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dad5ee4bd32095733859ee82adcfd4c8c93ff2cda395a8595593b3e3cc21003)
-            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "workflow_name": workflow_name,
-        }
-
-    @builtins.property
-    def workflow_name(self) -> builtins.str:
-        '''The WorkflowName of the MatchingWorkflow resource.'''
-        result = self._values.get("workflow_name")
-        assert result is not None, "Required property 'workflow_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MatchingWorkflowReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.PolicyStatementReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "policy_statement_arn": "policyStatementArn",
-        "statement_id": "statementId",
-    },
-)
-class PolicyStatementReference:
-    def __init__(
-        self,
-        *,
-        policy_statement_arn: builtins.str,
-        statement_id: builtins.str,
-    ) -> None:
-        '''A reference to a PolicyStatement resource.
-
-        :param policy_statement_arn: The Arn of the PolicyStatement resource.
-        :param statement_id: The StatementId of the PolicyStatement resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            policy_statement_reference = entityresolution.PolicyStatementReference(
-                policy_statement_arn="policyStatementArn",
-                statement_id="statementId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0482829c795517064566440085f4b47fb7f306fd83065da99886985df13a1d16)
-            check_type(argname="argument policy_statement_arn", value=policy_statement_arn, expected_type=type_hints["policy_statement_arn"])
-            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_statement_arn": policy_statement_arn,
-            "statement_id": statement_id,
-        }
-
-    @builtins.property
-    def policy_statement_arn(self) -> builtins.str:
-        '''The Arn of the PolicyStatement resource.'''
-        result = self._values.get("policy_statement_arn")
-        assert result is not None, "Required property 'policy_statement_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def statement_id(self) -> builtins.str:
-        '''The StatementId of the PolicyStatement resource.'''
-        result = self._values.get("statement_id")
-        assert result is not None, "Required property 'statement_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PolicyStatementReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_entityresolution.SchemaMappingReference",
-    jsii_struct_bases=[],
-    name_mapping={"schema_name": "schemaName"},
-)
-class SchemaMappingReference:
-    def __init__(self, *, schema_name: builtins.str) -> None:
-        '''A reference to a SchemaMapping resource.
-
-        :param schema_name: The SchemaName of the SchemaMapping resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_entityresolution as entityresolution
-            
-            schema_mapping_reference = entityresolution.SchemaMappingReference(
-                schema_name="schemaName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__999b58f70972eac7cdd77a25a49287d8e052e8a742059fd352cfc13dbdd93ed1)
-            check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "schema_name": schema_name,
-        }
-
-    @builtins.property
-    def schema_name(self) -> builtins.str:
-        '''The SchemaName of the SchemaMapping resource.'''
-        result = self._values.get("schema_name")
-        assert result is not None, "Required property 'schema_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SchemaMappingReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IIdMappingWorkflowRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IIdMappingWorkflowRef_719b905c, _ITaggableV2_4e6798f8)
 class CfnIdMappingWorkflow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1520,6 +110,7 @@ class CfnIdMappingWorkflow(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_entityresolution as entityresolution
@@ -1527,6 +118,7 @@ class CfnIdMappingWorkflow(
         cfn_id_mapping_workflow = entityresolution.CfnIdMappingWorkflow(self, "MyCfnIdMappingWorkflow",
             id_mapping_techniques=entityresolution.CfnIdMappingWorkflow.IdMappingTechniquesProperty(
                 id_mapping_type="idMappingType",
+                normalization_version="normalizationVersion",
                 provider_properties=entityresolution.CfnIdMappingWorkflow.ProviderPropertiesProperty(
                     provider_service_arn="providerServiceArn",
         
@@ -1580,19 +172,20 @@ class CfnIdMappingWorkflow(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        id_mapping_techniques: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
-        input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        id_mapping_techniques: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_source_config: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         role_arn: builtins.str,
         workflow_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        id_mapping_incremental_run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_source_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EntityResolution::IdMappingWorkflow``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param id_mapping_techniques: An object which defines the ID mapping technique and any additional configurations.
@@ -1621,8 +214,55 @@ class CfnIdMappingWorkflow(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForIdMappingWorkflow")
+    @builtins.classmethod
+    def arn_for_id_mapping_workflow(
+        cls,
+        resource: "_IIdMappingWorkflowRef_719b905c",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__697e2283ce07279283f9e7b8da760b2f965cb796abe9786a0d96cb3daab2c644)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIdMappingWorkflow", [resource]))
+
+    @jsii.member(jsii_name="fromWorkflowName")
+    @builtins.classmethod
+    def from_workflow_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        workflow_name: builtins.str,
+    ) -> "_IIdMappingWorkflowRef_719b905c":
+        '''Creates a new IIdMappingWorkflowRef from a workflowName.
+
+        :param scope: -
+        :param id: -
+        :param workflow_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c71e3475fcf92412e60d6b5cded8ce1be5e96efeb895e07d62610a74d2c5d706)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
+        return typing.cast("_IIdMappingWorkflowRef_719b905c", jsii.sinvoke(cls, "fromWorkflowName", [scope, id, workflow_name]))
+
+    @jsii.member(jsii_name="isCfnIdMappingWorkflow")
+    @builtins.classmethod
+    def is_cfn_id_mapping_workflow(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIdMappingWorkflow.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f06a58dfc980a92830c528615909e9a139b0d7538288a394c71bac3d1b6ca75)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdMappingWorkflow", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1680,9 +320,9 @@ class CfnIdMappingWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1691,22 +331,22 @@ class CfnIdMappingWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="idMappingWorkflowRef")
-    def id_mapping_workflow_ref(self) -> IdMappingWorkflowReference:
+    def id_mapping_workflow_ref(self) -> "_IdMappingWorkflowReference_f119ae06":
         '''A reference to a IdMappingWorkflow resource.'''
-        return typing.cast(IdMappingWorkflowReference, jsii.get(self, "idMappingWorkflowRef"))
+        return typing.cast("_IdMappingWorkflowReference_f119ae06", jsii.get(self, "idMappingWorkflowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="idMappingTechniques")
     def id_mapping_techniques(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingTechniquesProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingTechniquesProperty"]:
         '''An object which defines the ID mapping technique and any additional configurations.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingTechniquesProperty"], jsii.get(self, "idMappingTechniques"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingTechniquesProperty"], jsii.get(self, "idMappingTechniques"))
 
     @id_mapping_techniques.setter
     def id_mapping_techniques(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingTechniquesProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingTechniquesProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98386f6c6b4518a801b696fa8f0f873daefcfe1d2a7891af04eaf6e011722023)
@@ -1717,14 +357,14 @@ class CfnIdMappingWorkflow(
     @jsii.member(jsii_name="inputSourceConfig")
     def input_source_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]]:
         '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]], jsii.get(self, "inputSourceConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]], jsii.get(self, "inputSourceConfig"))
 
     @input_source_config.setter
     def input_source_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a9193affb5fa4439a48ce7bed8e4da128d477cf32b5570d11bbf2989fbb8c87)
@@ -1774,13 +414,13 @@ class CfnIdMappingWorkflow(
     @jsii.member(jsii_name="idMappingIncrementalRunConfig")
     def id_mapping_incremental_run_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]], jsii.get(self, "idMappingIncrementalRunConfig"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]], jsii.get(self, "idMappingIncrementalRunConfig"))
 
     @id_mapping_incremental_run_config.setter
     def id_mapping_incremental_run_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05343eaa423891f629815a20fdb306f3b3da6aa0d3418d30466a32ec633713a2)
@@ -1791,14 +431,14 @@ class CfnIdMappingWorkflow(
     @jsii.member(jsii_name="outputSourceConfig")
     def output_source_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]]:
         '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]], jsii.get(self, "outputSourceConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]], jsii.get(self, "outputSourceConfig"))
 
     @output_source_config.setter
     def output_source_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c441bfde4467a201e4e9322b69a020514feb4e0efb56d31892f1f02e461d7119)
@@ -1807,12 +447,12 @@ class CfnIdMappingWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1c5de5e1db5e25e42cb52039b70835fa351dc563f560ac5ff3604bab3a7c6d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1885,7 +525,7 @@ class CfnIdMappingWorkflow(
             attribute_matching_model: builtins.str,
             record_matching_model: builtins.str,
             rule_definition_type: typing.Optional[builtins.str] = None,
-            rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''An object that defines the list of matching rules to run in an ID mapping workflow.
 
@@ -1972,13 +612,13 @@ class CfnIdMappingWorkflow(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.RuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.RuleProperty"]]]]:
             '''The rules that can be used for ID mapping.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingrulebasedproperties.html#cfn-entityresolution-idmappingworkflow-idmappingrulebasedproperties-rules
             '''
             result = self._values.get("rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.RuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.RuleProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1996,6 +636,7 @@ class CfnIdMappingWorkflow(
         jsii_struct_bases=[],
         name_mapping={
             "id_mapping_type": "idMappingType",
+            "normalization_version": "normalizationVersion",
             "provider_properties": "providerProperties",
             "rule_based_properties": "ruleBasedProperties",
         },
@@ -2005,12 +646,14 @@ class CfnIdMappingWorkflow(
             self,
             *,
             id_mapping_type: typing.Optional[builtins.str] = None,
-            provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.ProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            normalization_version: typing.Optional[builtins.str] = None,
+            provider_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.ProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_based_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An object which defines the ID mapping technique and any additional configurations.
 
             :param id_mapping_type: The type of ID mapping.
+            :param normalization_version: 
             :param provider_properties: An object which defines any additional configurations required by the provider service.
             :param rule_based_properties: An object which defines any additional configurations required by rule-based matching.
 
@@ -2025,6 +668,7 @@ class CfnIdMappingWorkflow(
                 
                 id_mapping_techniques_property = entityresolution.CfnIdMappingWorkflow.IdMappingTechniquesProperty(
                     id_mapping_type="idMappingType",
+                    normalization_version="normalizationVersion",
                     provider_properties=entityresolution.CfnIdMappingWorkflow.ProviderPropertiesProperty(
                         provider_service_arn="providerServiceArn",
                 
@@ -2052,11 +696,14 @@ class CfnIdMappingWorkflow(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__14f084baf89be97b69b754d6755f29c921f7ef9044bf1e234a903b93f7718bcc)
                 check_type(argname="argument id_mapping_type", value=id_mapping_type, expected_type=type_hints["id_mapping_type"])
+                check_type(argname="argument normalization_version", value=normalization_version, expected_type=type_hints["normalization_version"])
                 check_type(argname="argument provider_properties", value=provider_properties, expected_type=type_hints["provider_properties"])
                 check_type(argname="argument rule_based_properties", value=rule_based_properties, expected_type=type_hints["rule_based_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if id_mapping_type is not None:
                 self._values["id_mapping_type"] = id_mapping_type
+            if normalization_version is not None:
+                self._values["normalization_version"] = normalization_version
             if provider_properties is not None:
                 self._values["provider_properties"] = provider_properties
             if rule_based_properties is not None:
@@ -2072,26 +719,34 @@ class CfnIdMappingWorkflow(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def normalization_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingtechniques.html#cfn-entityresolution-idmappingworkflow-idmappingtechniques-normalizationversion
+            '''
+            result = self._values.get("normalization_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def provider_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.ProviderPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.ProviderPropertiesProperty"]]:
             '''An object which defines any additional configurations required by the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingtechniques.html#cfn-entityresolution-idmappingworkflow-idmappingtechniques-providerproperties
             '''
             result = self._values.get("provider_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.ProviderPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.ProviderPropertiesProperty"]], result)
 
         @builtins.property
         def rule_based_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty"]]:
             '''An object which defines any additional configurations required by rule-based matching.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingtechniques.html#cfn-entityresolution-idmappingworkflow-idmappingtechniques-rulebasedproperties
             '''
             result = self._values.get("rule_based_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2215,7 +870,7 @@ class CfnIdMappingWorkflow(
             '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
 
             :param output_s3_path: The S3 path to which AWS Entity Resolution will write the output table.
-            :param kms_arn: Customer AWS KMS ARN for encryption at rest. If not provided, system will use an AWS Entity Resolution managed KMS key.
+            :param kms_arn: Customer AWS ARN for encryption at rest. If not provided, system will use an AWS Entity Resolution managed KMS key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingworkflowoutputsource.html
             :exampleMetadata: fixture=_generated
@@ -2255,7 +910,7 @@ class CfnIdMappingWorkflow(
 
         @builtins.property
         def kms_arn(self) -> typing.Optional[builtins.str]:
-            '''Customer AWS KMS ARN for encryption at rest.
+            '''Customer AWS  ARN for encryption at rest.
 
             If not provided, system will use an AWS Entity Resolution managed KMS key.
 
@@ -2345,8 +1000,8 @@ class CfnIdMappingWorkflow(
             self,
             *,
             provider_service_arn: builtins.str,
-            intermediate_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            intermediate_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''An object containing the ``providerServiceARN`` , ``intermediateSourceConfiguration`` , and ``providerConfiguration`` .
 
@@ -2401,7 +1056,7 @@ class CfnIdMappingWorkflow(
         @builtins.property
         def intermediate_source_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty"]]:
             '''The Amazon S3 location that temporarily stores your data while it processes.
 
             Your information won't be saved permanently.
@@ -2409,18 +1064,18 @@ class CfnIdMappingWorkflow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-providerproperties.html#cfn-entityresolution-idmappingworkflow-providerproperties-intermediatesourceconfiguration
             '''
             result = self._values.get("intermediate_source_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty"]], result)
 
         @builtins.property
         def provider_configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''The required configuration fields to use with the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-providerproperties.html#cfn-entityresolution-idmappingworkflow-providerproperties-providerconfiguration
             '''
             result = self._values.get("provider_configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2507,7 +1162,233 @@ class CfnIdMappingWorkflow(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IIdNamespaceRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_entityresolution.CfnIdMappingWorkflowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "id_mapping_techniques": "idMappingTechniques",
+        "input_source_config": "inputSourceConfig",
+        "role_arn": "roleArn",
+        "workflow_name": "workflowName",
+        "description": "description",
+        "id_mapping_incremental_run_config": "idMappingIncrementalRunConfig",
+        "output_source_config": "outputSourceConfig",
+        "tags": "tags",
+    },
+)
+class CfnIdMappingWorkflowProps:
+    def __init__(
+        self,
+        *,
+        id_mapping_techniques: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_source_config: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        role_arn: builtins.str,
+        workflow_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        id_mapping_incremental_run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_source_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIdMappingWorkflow``.
+
+        :param id_mapping_techniques: An object which defines the ID mapping technique and any additional configurations.
+        :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
+        :param workflow_name: The name of the workflow. There can't be multiple ``IdMappingWorkflows`` with the same name.
+        :param description: A description of the workflow.
+        :param id_mapping_incremental_run_config: 
+        :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_entityresolution as entityresolution
+            
+            cfn_id_mapping_workflow_props = entityresolution.CfnIdMappingWorkflowProps(
+                id_mapping_techniques=entityresolution.CfnIdMappingWorkflow.IdMappingTechniquesProperty(
+                    id_mapping_type="idMappingType",
+                    normalization_version="normalizationVersion",
+                    provider_properties=entityresolution.CfnIdMappingWorkflow.ProviderPropertiesProperty(
+                        provider_service_arn="providerServiceArn",
+            
+                        # the properties below are optional
+                        intermediate_source_configuration=entityresolution.CfnIdMappingWorkflow.IntermediateSourceConfigurationProperty(
+                            intermediate_s3_path="intermediateS3Path"
+                        ),
+                        provider_configuration={
+                            "provider_configuration_key": "providerConfiguration"
+                        }
+                    ),
+                    rule_based_properties=entityresolution.CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty(
+                        attribute_matching_model="attributeMatchingModel",
+                        record_matching_model="recordMatchingModel",
+            
+                        # the properties below are optional
+                        rule_definition_type="ruleDefinitionType",
+                        rules=[entityresolution.CfnIdMappingWorkflow.RuleProperty(
+                            matching_keys=["matchingKeys"],
+                            rule_name="ruleName"
+                        )]
+                    )
+                ),
+                input_source_config=[entityresolution.CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty(
+                    input_source_arn="inputSourceArn",
+            
+                    # the properties below are optional
+                    schema_arn="schemaArn",
+                    type="type"
+                )],
+                role_arn="roleArn",
+                workflow_name="workflowName",
+            
+                # the properties below are optional
+                description="description",
+                id_mapping_incremental_run_config=entityresolution.CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty(
+                    incremental_run_type="incrementalRunType"
+                ),
+                output_source_config=[entityresolution.CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty(
+                    output_s3_path="outputS3Path",
+            
+                    # the properties below are optional
+                    kms_arn="kmsArn"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a92ec1b5f460936930fefdd0c239f69c3ec93198e4a71c3867bbe1bf1a48bf11)
+            check_type(argname="argument id_mapping_techniques", value=id_mapping_techniques, expected_type=type_hints["id_mapping_techniques"])
+            check_type(argname="argument input_source_config", value=input_source_config, expected_type=type_hints["input_source_config"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument id_mapping_incremental_run_config", value=id_mapping_incremental_run_config, expected_type=type_hints["id_mapping_incremental_run_config"])
+            check_type(argname="argument output_source_config", value=output_source_config, expected_type=type_hints["output_source_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "id_mapping_techniques": id_mapping_techniques,
+            "input_source_config": input_source_config,
+            "role_arn": role_arn,
+            "workflow_name": workflow_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if id_mapping_incremental_run_config is not None:
+            self._values["id_mapping_incremental_run_config"] = id_mapping_incremental_run_config
+        if output_source_config is not None:
+            self._values["output_source_config"] = output_source_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def id_mapping_techniques(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingTechniquesProperty"]:
+        '''An object which defines the ID mapping technique and any additional configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-idmappingtechniques
+        '''
+        result = self._values.get("id_mapping_techniques")
+        assert result is not None, "Required property 'id_mapping_techniques' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingTechniquesProperty"], result)
+
+    @builtins.property
+    def input_source_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]]:
+        '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-inputsourceconfig
+        '''
+        result = self._values.get("input_source_config")
+        assert result is not None, "Required property 'input_source_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty"]]], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role.
+
+        AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workflow_name(self) -> builtins.str:
+        '''The name of the workflow.
+
+        There can't be multiple ``IdMappingWorkflows`` with the same name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-workflowname
+        '''
+        result = self._values.get("workflow_name")
+        assert result is not None, "Required property 'workflow_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def id_mapping_incremental_run_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-idmappingincrementalrunconfig
+        '''
+        result = self._values.get("id_mapping_incremental_run_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty"]], result)
+
+    @builtins.property
+    def output_source_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]]:
+        '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-outputsourceconfig
+        '''
+        result = self._values.get("output_source_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIdMappingWorkflowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IIdNamespaceRef_b89c1cab, _ITaggableV2_4e6798f8)
 class CfnIdNamespace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2523,6 +1404,7 @@ class CfnIdNamespace(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_entityresolution as entityresolution
@@ -2571,18 +1453,19 @@ class CfnIdNamespace(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         id_namespace_name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        id_mapping_workflow_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.IdNamespaceInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        id_mapping_workflow_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_source_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.IdNamespaceInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EntityResolution::IdNamespace``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param id_namespace_name: The name of the ID namespace.
@@ -2609,8 +1492,76 @@ class CfnIdNamespace(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForIdNamespace")
+    @builtins.classmethod
+    def arn_for_id_namespace(
+        cls,
+        resource: "_IIdNamespaceRef_b89c1cab",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8487355a1908faec8f5403f9bd7f4ff193f787822e0a99e51747b4a60e79a42b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIdNamespace", [resource]))
+
+    @jsii.member(jsii_name="fromIdNamespaceArn")
+    @builtins.classmethod
+    def from_id_namespace_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IIdNamespaceRef_b89c1cab":
+        '''Creates a new IIdNamespaceRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a37393a68cafd76cc27f2d6601ae82638be7969941bff433eb43c0d7ff73e003)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IIdNamespaceRef_b89c1cab", jsii.sinvoke(cls, "fromIdNamespaceArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromIdNamespaceName")
+    @builtins.classmethod
+    def from_id_namespace_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        id_namespace_name: builtins.str,
+    ) -> "_IIdNamespaceRef_b89c1cab":
+        '''Creates a new IIdNamespaceRef from a idNamespaceName.
+
+        :param scope: -
+        :param id: -
+        :param id_namespace_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07807daadfdacde57ae7950ec0b76d29c32466721c6de08f5dc2ea57c64564b1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument id_namespace_name", value=id_namespace_name, expected_type=type_hints["id_namespace_name"])
+        return typing.cast("_IIdNamespaceRef_b89c1cab", jsii.sinvoke(cls, "fromIdNamespaceName", [scope, id, id_namespace_name]))
+
+    @jsii.member(jsii_name="isCfnIdNamespace")
+    @builtins.classmethod
+    def is_cfn_id_namespace(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIdNamespace.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8288d0a707c515aebdc97dcca824f4f7cb59e205d1ec3e2406f756aac3d60397)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdNamespace", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2668,9 +1619,9 @@ class CfnIdNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2679,9 +1630,9 @@ class CfnIdNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="idNamespaceRef")
-    def id_namespace_ref(self) -> IdNamespaceReference:
+    def id_namespace_ref(self) -> "_IdNamespaceReference_262ea9b2":
         '''A reference to a IdNamespace resource.'''
-        return typing.cast(IdNamespaceReference, jsii.get(self, "idNamespaceRef"))
+        return typing.cast("_IdNamespaceReference_262ea9b2", jsii.get(self, "idNamespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="idNamespaceName")
@@ -2729,14 +1680,14 @@ class CfnIdNamespace(
     @jsii.member(jsii_name="idMappingWorkflowProperties")
     def id_mapping_workflow_properties(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]]:
         '''Determines the properties of ``IdMappingWorflow`` where this ``IdNamespace`` can be used as a ``Source`` or a ``Target`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]], jsii.get(self, "idMappingWorkflowProperties"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]], jsii.get(self, "idMappingWorkflowProperties"))
 
     @id_mapping_workflow_properties.setter
     def id_mapping_workflow_properties(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf3f06822761d2f6d3dffb9e7372b2e0adbfdbe7d2d1a69ccbf7fe76c0cd3563)
@@ -2747,14 +1698,14 @@ class CfnIdNamespace(
     @jsii.member(jsii_name="inputSourceConfig")
     def input_source_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]]:
         '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]], jsii.get(self, "inputSourceConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]], jsii.get(self, "inputSourceConfig"))
 
     @input_source_config.setter
     def input_source_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07ed70fcfed9befc6606046de0c338bb1c3c4a34f8857c885f1ee4de60a117a5)
@@ -2776,12 +1727,12 @@ class CfnIdNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f05afda3b318f866f888a36136617b66dbba80a6134a0504f9adc95f42fbdff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2801,8 +1752,8 @@ class CfnIdNamespace(
             self,
             *,
             id_mapping_type: builtins.str,
-            provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.NamespaceProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.NamespaceRuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            provider_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.NamespaceProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_based_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.NamespaceRuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An object containing ``idMappingType`` , ``providerProperties`` , and ``ruleBasedProperties`` .
 
@@ -2868,24 +1819,24 @@ class CfnIdNamespace(
         @builtins.property
         def provider_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.NamespaceProviderPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.NamespaceProviderPropertiesProperty"]]:
             '''An object which defines any additional configurations required by the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idnamespace-idnamespaceidmappingworkflowproperties.html#cfn-entityresolution-idnamespace-idnamespaceidmappingworkflowproperties-providerproperties
             '''
             result = self._values.get("provider_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.NamespaceProviderPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.NamespaceProviderPropertiesProperty"]], result)
 
         @builtins.property
         def rule_based_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.NamespaceRuleBasedPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.NamespaceRuleBasedPropertiesProperty"]]:
             '''An object which defines any additional configurations required by rule-based matching.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idnamespace-idnamespaceidmappingworkflowproperties.html#cfn-entityresolution-idnamespace-idnamespaceidmappingworkflowproperties-rulebasedproperties
             '''
             result = self._values.get("rule_based_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.NamespaceRuleBasedPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.NamespaceRuleBasedPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2987,7 +1938,7 @@ class CfnIdNamespace(
             self,
             *,
             provider_service_arn: builtins.str,
-            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''An object containing ``providerConfiguration`` and ``providerServiceArn`` .
 
@@ -3035,13 +1986,13 @@ class CfnIdNamespace(
         @builtins.property
         def provider_configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''An object which defines any additional configurations required by the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idnamespace-namespaceproviderproperties.html#cfn-entityresolution-idnamespace-namespaceproviderproperties-providerconfiguration
             '''
             result = self._values.get("provider_configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3071,7 +2022,7 @@ class CfnIdNamespace(
             attribute_matching_model: typing.Optional[builtins.str] = None,
             record_matching_models: typing.Optional[typing.Sequence[builtins.str]] = None,
             rule_definition_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The rule-based properties of an ID namespace.
 
@@ -3157,13 +2108,13 @@ class CfnIdNamespace(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.RuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.RuleProperty"]]]]:
             '''The rules for the ID namespace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idnamespace-namespacerulebasedproperties.html#cfn-entityresolution-idnamespace-namespacerulebasedproperties-rules
             '''
             result = self._values.get("rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdNamespace.RuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.RuleProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3250,7 +2201,204 @@ class CfnIdNamespace(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IMatchingWorkflowRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_entityresolution.CfnIdNamespaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "id_namespace_name": "idNamespaceName",
+        "type": "type",
+        "description": "description",
+        "id_mapping_workflow_properties": "idMappingWorkflowProperties",
+        "input_source_config": "inputSourceConfig",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnIdNamespaceProps:
+    def __init__(
+        self,
+        *,
+        id_namespace_name: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        id_mapping_workflow_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_source_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdNamespace.IdNamespaceInputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIdNamespace``.
+
+        :param id_namespace_name: The name of the ID namespace.
+        :param type: The type of ID namespace. There are two types: ``SOURCE`` and ``TARGET`` . The ``SOURCE`` contains configurations for ``sourceId`` data that will be processed in an ID mapping workflow. The ``TARGET`` contains a configuration of ``targetId`` which all ``sourceIds`` will resolve to.
+        :param description: The description of the ID namespace.
+        :param id_mapping_workflow_properties: Determines the properties of ``IdMappingWorflow`` where this ``IdNamespace`` can be used as a ``Source`` or a ``Target`` .
+        :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to access the resources defined in this ``IdNamespace`` on your behalf as part of the workflow run.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_entityresolution as entityresolution
+            
+            cfn_id_namespace_props = entityresolution.CfnIdNamespaceProps(
+                id_namespace_name="idNamespaceName",
+                type="type",
+            
+                # the properties below are optional
+                description="description",
+                id_mapping_workflow_properties=[entityresolution.CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty(
+                    id_mapping_type="idMappingType",
+            
+                    # the properties below are optional
+                    provider_properties=entityresolution.CfnIdNamespace.NamespaceProviderPropertiesProperty(
+                        provider_service_arn="providerServiceArn",
+            
+                        # the properties below are optional
+                        provider_configuration={
+                            "provider_configuration_key": "providerConfiguration"
+                        }
+                    ),
+                    rule_based_properties=entityresolution.CfnIdNamespace.NamespaceRuleBasedPropertiesProperty(
+                        attribute_matching_model="attributeMatchingModel",
+                        record_matching_models=["recordMatchingModels"],
+                        rule_definition_types=["ruleDefinitionTypes"],
+                        rules=[entityresolution.CfnIdNamespace.RuleProperty(
+                            matching_keys=["matchingKeys"],
+                            rule_name="ruleName"
+                        )]
+                    )
+                )],
+                input_source_config=[entityresolution.CfnIdNamespace.IdNamespaceInputSourceProperty(
+                    input_source_arn="inputSourceArn",
+            
+                    # the properties below are optional
+                    schema_name="schemaName"
+                )],
+                role_arn="roleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08dbceaf6584c6ddec9cc5b62fe86da5739412407f6e361f15be9f4533370973)
+            check_type(argname="argument id_namespace_name", value=id_namespace_name, expected_type=type_hints["id_namespace_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument id_mapping_workflow_properties", value=id_mapping_workflow_properties, expected_type=type_hints["id_mapping_workflow_properties"])
+            check_type(argname="argument input_source_config", value=input_source_config, expected_type=type_hints["input_source_config"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "id_namespace_name": id_namespace_name,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if id_mapping_workflow_properties is not None:
+            self._values["id_mapping_workflow_properties"] = id_mapping_workflow_properties
+        if input_source_config is not None:
+            self._values["input_source_config"] = input_source_config
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def id_namespace_name(self) -> builtins.str:
+        '''The name of the ID namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-idnamespacename
+        '''
+        result = self._values.get("id_namespace_name")
+        assert result is not None, "Required property 'id_namespace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of ID namespace. There are two types: ``SOURCE`` and ``TARGET`` .
+
+        The ``SOURCE`` contains configurations for ``sourceId`` data that will be processed in an ID mapping workflow.
+
+        The ``TARGET`` contains a configuration of ``targetId`` which all ``sourceIds`` will resolve to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the ID namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def id_mapping_workflow_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]]:
+        '''Determines the properties of ``IdMappingWorflow`` where this ``IdNamespace`` can be used as a ``Source`` or a ``Target`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-idmappingworkflowproperties
+        '''
+        result = self._values.get("id_mapping_workflow_properties")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty"]]]], result)
+
+    @builtins.property
+    def input_source_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]]:
+        '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-inputsourceconfig
+        '''
+        result = self._values.get("input_source_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdNamespace.IdNamespaceInputSourceProperty"]]]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role.
+
+        AWS Entity Resolution assumes this role to access the resources defined in this ``IdNamespace`` on your behalf as part of the workflow run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html#cfn-entityresolution-idnamespace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIdNamespaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMatchingWorkflowRef_66c9c4fe, _ITaggableV2_4e6798f8)
 class CfnMatchingWorkflow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3269,6 +2417,7 @@ class CfnMatchingWorkflow(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_entityresolution as entityresolution
@@ -3288,11 +2437,15 @@ class CfnMatchingWorkflow(
                     # the properties below are optional
                     hashed=False
                 )],
-                output_s3_path="outputS3Path",
         
                 # the properties below are optional
                 apply_normalization=False,
-                kms_arn="kmsArn"
+                customer_profiles_integration_config=entityresolution.CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty(
+                    domain_arn="domainArn",
+                    object_type_arn="objectTypeArn"
+                ),
+                kms_arn="kmsArn",
+                output_s3_path="outputS3Path"
             )],
             resolution_techniques=entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty(
                 provider_properties=entityresolution.CfnMatchingWorkflow.ProviderPropertiesProperty(
@@ -3341,19 +2494,20 @@ class CfnMatchingWorkflow(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.InputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        output_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.OutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        resolution_techniques: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.ResolutionTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_source_config: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.InputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        output_source_config: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.OutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resolution_techniques: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.ResolutionTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
         workflow_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.IncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        incremental_run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.IncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EntityResolution::MatchingWorkflow``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
@@ -3382,8 +2536,55 @@ class CfnMatchingWorkflow(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMatchingWorkflow")
+    @builtins.classmethod
+    def arn_for_matching_workflow(
+        cls,
+        resource: "_IMatchingWorkflowRef_66c9c4fe",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d81291d8a011f4111786dc94259660197e1d500c558af67b8f88a9e40fbe4eef)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMatchingWorkflow", [resource]))
+
+    @jsii.member(jsii_name="fromWorkflowName")
+    @builtins.classmethod
+    def from_workflow_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        workflow_name: builtins.str,
+    ) -> "_IMatchingWorkflowRef_66c9c4fe":
+        '''Creates a new IMatchingWorkflowRef from a workflowName.
+
+        :param scope: -
+        :param id: -
+        :param workflow_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0297ecf2a3d621f0a163726b6bf516267f2bcd4d3bc199bc19736d31d80c70d0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
+        return typing.cast("_IMatchingWorkflowRef_66c9c4fe", jsii.sinvoke(cls, "fromWorkflowName", [scope, id, workflow_name]))
+
+    @jsii.member(jsii_name="isCfnMatchingWorkflow")
+    @builtins.classmethod
+    def is_cfn_matching_workflow(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMatchingWorkflow.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f65a3a6c23dbb03978f07274fe583074664439f03eb4cd985397aad0d08030b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMatchingWorkflow", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3441,9 +2642,9 @@ class CfnMatchingWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3452,22 +2653,22 @@ class CfnMatchingWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="matchingWorkflowRef")
-    def matching_workflow_ref(self) -> MatchingWorkflowReference:
+    def matching_workflow_ref(self) -> "_MatchingWorkflowReference_e1146cf4":
         '''A reference to a MatchingWorkflow resource.'''
-        return typing.cast(MatchingWorkflowReference, jsii.get(self, "matchingWorkflowRef"))
+        return typing.cast("_MatchingWorkflowReference_e1146cf4", jsii.get(self, "matchingWorkflowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="inputSourceConfig")
     def input_source_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.InputSourceProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.InputSourceProperty"]]]:
         '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.InputSourceProperty"]]], jsii.get(self, "inputSourceConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.InputSourceProperty"]]], jsii.get(self, "inputSourceConfig"))
 
     @input_source_config.setter
     def input_source_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.InputSourceProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.InputSourceProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46336e1b290b62290456cef0086653d1bf7bde247391e85b7b88570883b249d6)
@@ -3478,14 +2679,14 @@ class CfnMatchingWorkflow(
     @jsii.member(jsii_name="outputSourceConfig")
     def output_source_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputSourceProperty"]]]:
         '''A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]], jsii.get(self, "outputSourceConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputSourceProperty"]]], jsii.get(self, "outputSourceConfig"))
 
     @output_source_config.setter
     def output_source_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputSourceProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6752620fe10a272a45c22eb2493e5e30fcac8bb82fcc95b6f46271727dadc72)
@@ -3496,14 +2697,14 @@ class CfnMatchingWorkflow(
     @jsii.member(jsii_name="resolutionTechniques")
     def resolution_techniques(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ResolutionTechniquesProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ResolutionTechniquesProperty"]:
         '''An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ResolutionTechniquesProperty"], jsii.get(self, "resolutionTechniques"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ResolutionTechniquesProperty"], jsii.get(self, "resolutionTechniques"))
 
     @resolution_techniques.setter
     def resolution_techniques(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ResolutionTechniquesProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ResolutionTechniquesProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfbb583351458ecc2896a0f04d4bae86260e8762b28c2687fe570562260a9a48)
@@ -3553,14 +2754,14 @@ class CfnMatchingWorkflow(
     @jsii.member(jsii_name="incrementalRunConfig")
     def incremental_run_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IncrementalRunConfigProperty"]]:
         '''Optional.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]], jsii.get(self, "incrementalRunConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IncrementalRunConfigProperty"]], jsii.get(self, "incrementalRunConfig"))
 
     @incremental_run_config.setter
     def incremental_run_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IncrementalRunConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdee84f9bb03bc6201cd3324ee7101913cc3ab4894303fd18c5ddddd2246eac3)
@@ -3569,16 +2770,84 @@ class CfnMatchingWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7a7896d7bea53a4e2ffc9445d9a42b8864f5ac9a6cf43c3b27fe3c77bd39a83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain_arn": "domainArn", "object_type_arn": "objectTypeArn"},
+    )
+    class CustomerProfilesIntegrationConfigProperty:
+        def __init__(
+            self,
+            *,
+            domain_arn: builtins.str,
+            object_type_arn: builtins.str,
+        ) -> None:
+            '''
+            :param domain_arn: 
+            :param object_type_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-customerprofilesintegrationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_entityresolution as entityresolution
+                
+                customer_profiles_integration_config_property = entityresolution.CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty(
+                    domain_arn="domainArn",
+                    object_type_arn="objectTypeArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__aa3ba606cf7a153b938c702550dffbddb54ca5c20b8f83e3d3d4a402111e4d1f)
+                check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+                check_type(argname="argument object_type_arn", value=object_type_arn, expected_type=type_hints["object_type_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "domain_arn": domain_arn,
+                "object_type_arn": object_type_arn,
+            }
+
+        @builtins.property
+        def domain_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-customerprofilesintegrationconfig.html#cfn-entityresolution-matchingworkflow-customerprofilesintegrationconfig-domainarn
+            '''
+            result = self._values.get("domain_arn")
+            assert result is not None, "Required property 'domain_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def object_type_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-customerprofilesintegrationconfig.html#cfn-entityresolution-matchingworkflow-customerprofilesintegrationconfig-objecttypearn
+            '''
+            result = self._values.get("object_type_arn")
+            assert result is not None, "Required property 'object_type_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomerProfilesIntegrationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.IncrementalRunConfigProperty",
@@ -3656,7 +2925,7 @@ class CfnMatchingWorkflow(
             *,
             input_source_arn: builtins.str,
             schema_arn: builtins.str,
-            apply_normalization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            apply_normalization: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''An object containing ``inputSourceARN`` , ``schemaName`` , and ``applyNormalization`` .
 
@@ -3716,7 +2985,7 @@ class CfnMatchingWorkflow(
         @builtins.property
         def apply_normalization(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Normalizes the attributes defined in the schema in the input data.
 
             For example, if an attribute has an ``AttributeType`` of ``PHONE_NUMBER`` , and the data in the input table is in a format of 1234567890, AWS Entity Resolution will normalize this field in the output to (123)-456-7890.
@@ -3724,7 +2993,7 @@ class CfnMatchingWorkflow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-inputsource.html#cfn-entityresolution-matchingworkflow-inputsource-applynormalization
             '''
             result = self._values.get("apply_normalization")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3803,7 +3072,7 @@ class CfnMatchingWorkflow(
             self,
             *,
             name: builtins.str,
-            hashed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            hashed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''A list of ``OutputAttribute`` objects, each of which have the fields ``Name`` and ``Hashed`` .
 
@@ -3853,13 +3122,13 @@ class CfnMatchingWorkflow(
         @builtins.property
         def hashed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Enables the ability to hash the column values in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputattribute.html#cfn-entityresolution-matchingworkflow-outputattribute-hashed
             '''
             result = self._values.get("hashed")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3877,28 +3146,31 @@ class CfnMatchingWorkflow(
         jsii_struct_bases=[],
         name_mapping={
             "output": "output",
-            "output_s3_path": "outputS3Path",
             "apply_normalization": "applyNormalization",
+            "customer_profiles_integration_config": "customerProfilesIntegrationConfig",
             "kms_arn": "kmsArn",
+            "output_s3_path": "outputS3Path",
         },
     )
     class OutputSourceProperty:
         def __init__(
             self,
             *,
-            output: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.OutputAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            output_s3_path: builtins.str,
-            apply_normalization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            output: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.OutputAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            apply_normalization: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            customer_profiles_integration_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             kms_arn: typing.Optional[builtins.str] = None,
+            output_s3_path: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A list of ``OutputAttribute`` objects, each of which have the fields ``Name`` and ``Hashed`` .
 
             Each of these objects selects a column to be included in the output table, and whether the values of the column should be hashed.
 
             :param output: A list of ``OutputAttribute`` objects, each of which have the fields ``Name`` and ``Hashed`` . Each of these objects selects a column to be included in the output table, and whether the values of the column should be hashed.
-            :param output_s3_path: The S3 path to which AWS Entity Resolution will write the output table.
             :param apply_normalization: Normalizes the attributes defined in the schema in the input data. For example, if an attribute has an ``AttributeType`` of ``PHONE_NUMBER`` , and the data in the input table is in a format of 1234567890, AWS Entity Resolution will normalize this field in the output to (123)-456-7890.
+            :param customer_profiles_integration_config: 
             :param kms_arn: Customer KMS ARN for encryption at rest. If not provided, system will use an AWS Entity Resolution managed KMS key.
+            :param output_s3_path: The S3 path to which AWS Entity Resolution will write the output table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html
             :exampleMetadata: fixture=_generated
@@ -3916,32 +3188,40 @@ class CfnMatchingWorkflow(
                         # the properties below are optional
                         hashed=False
                     )],
-                    output_s3_path="outputS3Path",
                 
                     # the properties below are optional
                     apply_normalization=False,
-                    kms_arn="kmsArn"
+                    customer_profiles_integration_config=entityresolution.CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty(
+                        domain_arn="domainArn",
+                        object_type_arn="objectTypeArn"
+                    ),
+                    kms_arn="kmsArn",
+                    output_s3_path="outputS3Path"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__92bb2dc25f018fe0017c7ab79f29b2fdfb4238d6fb1293a9cd606b9f93976df8)
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
-                check_type(argname="argument output_s3_path", value=output_s3_path, expected_type=type_hints["output_s3_path"])
                 check_type(argname="argument apply_normalization", value=apply_normalization, expected_type=type_hints["apply_normalization"])
+                check_type(argname="argument customer_profiles_integration_config", value=customer_profiles_integration_config, expected_type=type_hints["customer_profiles_integration_config"])
                 check_type(argname="argument kms_arn", value=kms_arn, expected_type=type_hints["kms_arn"])
+                check_type(argname="argument output_s3_path", value=output_s3_path, expected_type=type_hints["output_s3_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "output": output,
-                "output_s3_path": output_s3_path,
             }
             if apply_normalization is not None:
                 self._values["apply_normalization"] = apply_normalization
+            if customer_profiles_integration_config is not None:
+                self._values["customer_profiles_integration_config"] = customer_profiles_integration_config
             if kms_arn is not None:
                 self._values["kms_arn"] = kms_arn
+            if output_s3_path is not None:
+                self._values["output_s3_path"] = output_s3_path
 
         @builtins.property
         def output(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputAttributeProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputAttributeProperty"]]]:
             '''A list of ``OutputAttribute`` objects, each of which have the fields ``Name`` and ``Hashed`` .
 
             Each of these objects selects a column to be included in the output table, and whether the values of the column should be hashed.
@@ -3950,22 +3230,12 @@ class CfnMatchingWorkflow(
             '''
             result = self._values.get("output")
             assert result is not None, "Required property 'output' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputAttributeProperty"]]], result)
-
-        @builtins.property
-        def output_s3_path(self) -> builtins.str:
-            '''The S3 path to which AWS Entity Resolution will write the output table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html#cfn-entityresolution-matchingworkflow-outputsource-outputs3path
-            '''
-            result = self._values.get("output_s3_path")
-            assert result is not None, "Required property 'output_s3_path' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputAttributeProperty"]]], result)
 
         @builtins.property
         def apply_normalization(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Normalizes the attributes defined in the schema in the input data.
 
             For example, if an attribute has an ``AttributeType`` of ``PHONE_NUMBER`` , and the data in the input table is in a format of 1234567890, AWS Entity Resolution will normalize this field in the output to (123)-456-7890.
@@ -3973,7 +3243,17 @@ class CfnMatchingWorkflow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html#cfn-entityresolution-matchingworkflow-outputsource-applynormalization
             '''
             result = self._values.get("apply_normalization")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def customer_profiles_integration_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html#cfn-entityresolution-matchingworkflow-outputsource-customerprofilesintegrationconfig
+            '''
+            result = self._values.get("customer_profiles_integration_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty"]], result)
 
         @builtins.property
         def kms_arn(self) -> typing.Optional[builtins.str]:
@@ -3984,6 +3264,15 @@ class CfnMatchingWorkflow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html#cfn-entityresolution-matchingworkflow-outputsource-kmsarn
             '''
             result = self._values.get("kms_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_s3_path(self) -> typing.Optional[builtins.str]:
+            '''The S3 path to which AWS Entity Resolution will write the output table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html#cfn-entityresolution-matchingworkflow-outputsource-outputs3path
+            '''
+            result = self._values.get("output_s3_path")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -4011,8 +3300,8 @@ class CfnMatchingWorkflow(
             self,
             *,
             provider_service_arn: builtins.str,
-            intermediate_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.IntermediateSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            intermediate_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.IntermediateSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''An object containing the ``providerServiceARN`` , ``intermediateSourceConfiguration`` , and ``providerConfiguration`` .
 
@@ -4067,7 +3356,7 @@ class CfnMatchingWorkflow(
         @builtins.property
         def intermediate_source_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IntermediateSourceConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IntermediateSourceConfigurationProperty"]]:
             '''The Amazon S3 location that temporarily stores your data while it processes.
 
             Your information won't be saved permanently.
@@ -4075,18 +3364,18 @@ class CfnMatchingWorkflow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-providerproperties.html#cfn-entityresolution-matchingworkflow-providerproperties-intermediatesourceconfiguration
             '''
             result = self._values.get("intermediate_source_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IntermediateSourceConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IntermediateSourceConfigurationProperty"]], result)
 
         @builtins.property
         def provider_configuration(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''The required configuration fields to use with the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-providerproperties.html#cfn-entityresolution-matchingworkflow-providerproperties-providerconfiguration
             '''
             result = self._values.get("provider_configuration")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4113,10 +3402,10 @@ class CfnMatchingWorkflow(
         def __init__(
             self,
             *,
-            provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.ProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            provider_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.ProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             resolution_type: typing.Optional[builtins.str] = None,
-            rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_condition_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleConditionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_based_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.RuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_condition_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.RuleConditionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
 
@@ -4184,13 +3473,13 @@ class CfnMatchingWorkflow(
         @builtins.property
         def provider_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ProviderPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ProviderPropertiesProperty"]]:
             '''The properties of the provider service.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-providerproperties
             '''
             result = self._values.get("provider_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.ProviderPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ProviderPropertiesProperty"]], result)
 
         @builtins.property
         def resolution_type(self) -> typing.Optional[builtins.str]:
@@ -4208,24 +3497,24 @@ class CfnMatchingWorkflow(
         @builtins.property
         def rule_based_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleBasedPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleBasedPropertiesProperty"]]:
             '''An object which defines the list of matching rules to run and has a field ``rules`` , which is a list of rule objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-rulebasedproperties
             '''
             result = self._values.get("rule_based_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleBasedPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleBasedPropertiesProperty"]], result)
 
         @builtins.property
         def rule_condition_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleConditionPropertiesProperty"]]:
             '''An object containing the ``rules`` for a matching workflow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-ruleconditionproperties
             '''
             result = self._values.get("rule_condition_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleConditionPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4252,7 +3541,7 @@ class CfnMatchingWorkflow(
             self,
             *,
             attribute_matching_model: builtins.str,
-            rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
             match_purpose: typing.Optional[builtins.str] = None,
         ) -> None:
             '''An object which defines the list of matching rules to run in a matching workflow.
@@ -4310,14 +3599,14 @@ class CfnMatchingWorkflow(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleProperty"]]]:
             '''A list of ``Rule`` objects, each of which have fields ``RuleName`` and ``MatchingKeys`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-rulebasedproperties.html#cfn-entityresolution-matchingworkflow-rulebasedproperties-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleProperty"]]], result)
 
         @builtins.property
         def match_purpose(self) -> typing.Optional[builtins.str]:
@@ -4352,7 +3641,7 @@ class CfnMatchingWorkflow(
         def __init__(
             self,
             *,
-            rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The properties of a rule condition that provides the ability to use more complex syntax.
 
@@ -4384,14 +3673,14 @@ class CfnMatchingWorkflow(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleConditionProperty"]]]:
             '''A list of rule objects, each of which have fields ``ruleName`` and ``condition`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-ruleconditionproperties.html#cfn-entityresolution-matchingworkflow-ruleconditionproperties-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleConditionProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4558,7 +3847,254 @@ class CfnMatchingWorkflow(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IPolicyStatementRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "input_source_config": "inputSourceConfig",
+        "output_source_config": "outputSourceConfig",
+        "resolution_techniques": "resolutionTechniques",
+        "role_arn": "roleArn",
+        "workflow_name": "workflowName",
+        "description": "description",
+        "incremental_run_config": "incrementalRunConfig",
+        "tags": "tags",
+    },
+)
+class CfnMatchingWorkflowProps:
+    def __init__(
+        self,
+        *,
+        input_source_config: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.InputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        output_source_config: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.OutputSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resolution_techniques: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.ResolutionTechniquesProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        workflow_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        incremental_run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.IncrementalRunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMatchingWorkflow``.
+
+        :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
+        :param output_source_config: A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
+        :param resolution_techniques: An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
+        :param workflow_name: The name of the workflow. There can't be multiple ``MatchingWorkflows`` with the same name.
+        :param description: A description of the workflow.
+        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_entityresolution as entityresolution
+            
+            cfn_matching_workflow_props = entityresolution.CfnMatchingWorkflowProps(
+                input_source_config=[entityresolution.CfnMatchingWorkflow.InputSourceProperty(
+                    input_source_arn="inputSourceArn",
+                    schema_arn="schemaArn",
+            
+                    # the properties below are optional
+                    apply_normalization=False
+                )],
+                output_source_config=[entityresolution.CfnMatchingWorkflow.OutputSourceProperty(
+                    output=[entityresolution.CfnMatchingWorkflow.OutputAttributeProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        hashed=False
+                    )],
+            
+                    # the properties below are optional
+                    apply_normalization=False,
+                    customer_profiles_integration_config=entityresolution.CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty(
+                        domain_arn="domainArn",
+                        object_type_arn="objectTypeArn"
+                    ),
+                    kms_arn="kmsArn",
+                    output_s3_path="outputS3Path"
+                )],
+                resolution_techniques=entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty(
+                    provider_properties=entityresolution.CfnMatchingWorkflow.ProviderPropertiesProperty(
+                        provider_service_arn="providerServiceArn",
+            
+                        # the properties below are optional
+                        intermediate_source_configuration=entityresolution.CfnMatchingWorkflow.IntermediateSourceConfigurationProperty(
+                            intermediate_s3_path="intermediateS3Path"
+                        ),
+                        provider_configuration={
+                            "provider_configuration_key": "providerConfiguration"
+                        }
+                    ),
+                    resolution_type="resolutionType",
+                    rule_based_properties=entityresolution.CfnMatchingWorkflow.RuleBasedPropertiesProperty(
+                        attribute_matching_model="attributeMatchingModel",
+                        rules=[entityresolution.CfnMatchingWorkflow.RuleProperty(
+                            matching_keys=["matchingKeys"],
+                            rule_name="ruleName"
+                        )],
+            
+                        # the properties below are optional
+                        match_purpose="matchPurpose"
+                    ),
+                    rule_condition_properties=entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty(
+                        rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
+                            condition="condition",
+                            rule_name="ruleName"
+                        )]
+                    )
+                ),
+                role_arn="roleArn",
+                workflow_name="workflowName",
+            
+                # the properties below are optional
+                description="description",
+                incremental_run_config=entityresolution.CfnMatchingWorkflow.IncrementalRunConfigProperty(
+                    incremental_run_type="incrementalRunType"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2be3b46399b509a45bb640cf4a70ab0714322917a6d3dc4c241cb16ab2d1dbb0)
+            check_type(argname="argument input_source_config", value=input_source_config, expected_type=type_hints["input_source_config"])
+            check_type(argname="argument output_source_config", value=output_source_config, expected_type=type_hints["output_source_config"])
+            check_type(argname="argument resolution_techniques", value=resolution_techniques, expected_type=type_hints["resolution_techniques"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument incremental_run_config", value=incremental_run_config, expected_type=type_hints["incremental_run_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "input_source_config": input_source_config,
+            "output_source_config": output_source_config,
+            "resolution_techniques": resolution_techniques,
+            "role_arn": role_arn,
+            "workflow_name": workflow_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if incremental_run_config is not None:
+            self._values["incremental_run_config"] = incremental_run_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def input_source_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.InputSourceProperty"]]]:
+        '''A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-inputsourceconfig
+        '''
+        result = self._values.get("input_source_config")
+        assert result is not None, "Required property 'input_source_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.InputSourceProperty"]]], result)
+
+    @builtins.property
+    def output_source_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputSourceProperty"]]]:
+        '''A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-outputsourceconfig
+        '''
+        result = self._values.get("output_source_config")
+        assert result is not None, "Required property 'output_source_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.OutputSourceProperty"]]], result)
+
+    @builtins.property
+    def resolution_techniques(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ResolutionTechniquesProperty"]:
+        '''An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-resolutiontechniques
+        '''
+        result = self._values.get("resolution_techniques")
+        assert result is not None, "Required property 'resolution_techniques' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.ResolutionTechniquesProperty"], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role.
+
+        AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workflow_name(self) -> builtins.str:
+        '''The name of the workflow.
+
+        There can't be multiple ``MatchingWorkflows`` with the same name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-workflowname
+        '''
+        result = self._values.get("workflow_name")
+        assert result is not None, "Required property 'workflow_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def incremental_run_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IncrementalRunConfigProperty"]]:
+        '''Optional.
+
+        An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console.
+        .. epigraph::
+
+           For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-incrementalrunconfig
+        '''
+        result = self._values.get("incremental_run_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.IncrementalRunConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMatchingWorkflowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPolicyStatementRef_d5a3e09a)
 class CfnPolicyStatement(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4592,7 +4128,7 @@ class CfnPolicyStatement(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         arn: builtins.str,
@@ -4602,7 +4138,8 @@ class CfnPolicyStatement(
         effect: typing.Optional[builtins.str] = None,
         principal: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EntityResolution::PolicyStatement``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param arn: The Amazon Resource Name (ARN) of the resource that will be accessed by the principal.
@@ -4627,8 +4164,20 @@ class CfnPolicyStatement(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnPolicyStatement")
+    @builtins.classmethod
+    def is_cfn_policy_statement(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicyStatement.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7c1e2c60cfbec0735c91df3c0d06e58ec867df7c3735cdcd15c891f88c73bef)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicyStatement", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4664,9 +4213,9 @@ class CfnPolicyStatement(
 
     @builtins.property
     @jsii.member(jsii_name="policyStatementRef")
-    def policy_statement_ref(self) -> PolicyStatementReference:
+    def policy_statement_ref(self) -> "_PolicyStatementReference_c4ae3493":
         '''A reference to a PolicyStatement resource.'''
-        return typing.cast(PolicyStatementReference, jsii.get(self, "policyStatementRef"))
+        return typing.cast("_PolicyStatementReference_c4ae3493", jsii.get(self, "policyStatementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="arn")
@@ -4747,7 +4296,154 @@ class CfnPolicyStatement(
         jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ISchemaMappingRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_entityresolution.CfnPolicyStatementProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arn": "arn",
+        "statement_id": "statementId",
+        "action": "action",
+        "condition": "condition",
+        "effect": "effect",
+        "principal": "principal",
+    },
+)
+class CfnPolicyStatementProps:
+    def __init__(
+        self,
+        *,
+        arn: builtins.str,
+        statement_id: builtins.str,
+        action: typing.Optional[typing.Sequence[builtins.str]] = None,
+        condition: typing.Optional[builtins.str] = None,
+        effect: typing.Optional[builtins.str] = None,
+        principal: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicyStatement``.
+
+        :param arn: The Amazon Resource Name (ARN) of the resource that will be accessed by the principal.
+        :param statement_id: A statement identifier that differentiates the statement from others in the same policy.
+        :param action: The action that the principal can use on the resource. For example, ``entityresolution:GetIdMappingJob`` , ``entityresolution:GetMatchingJob`` .
+        :param condition: A set of condition keys that you can use in key policies.
+        :param effect: Determines whether the permissions specified in the policy are to be allowed ( ``Allow`` ) or denied ( ``Deny`` ). .. epigraph:: If you set the value of the ``effect`` parameter to ``Deny`` for the ``AddPolicyStatement`` operation, you must also set the value of the ``effect`` parameter in the ``policy`` to ``Deny`` for the ``PutPolicy`` operation.
+        :param principal: The AWS service or AWS account that can access the resource defined as ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_entityresolution as entityresolution
+            
+            cfn_policy_statement_props = entityresolution.CfnPolicyStatementProps(
+                arn="arn",
+                statement_id="statementId",
+            
+                # the properties below are optional
+                action=["action"],
+                condition="condition",
+                effect="effect",
+                principal=["principal"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb81bcce6b9a473cbe53da03368a24fe3bffbe3a0fa4df32a086651b803e974a)
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+            check_type(argname="argument effect", value=effect, expected_type=type_hints["effect"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "arn": arn,
+            "statement_id": statement_id,
+        }
+        if action is not None:
+            self._values["action"] = action
+        if condition is not None:
+            self._values["condition"] = condition
+        if effect is not None:
+            self._values["effect"] = effect
+        if principal is not None:
+            self._values["principal"] = principal
+
+    @builtins.property
+    def arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource that will be accessed by the principal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-arn
+        '''
+        result = self._values.get("arn")
+        assert result is not None, "Required property 'arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def statement_id(self) -> builtins.str:
+        '''A statement identifier that differentiates the statement from others in the same policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-statementid
+        '''
+        result = self._values.get("statement_id")
+        assert result is not None, "Required property 'statement_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The action that the principal can use on the resource.
+
+        For example, ``entityresolution:GetIdMappingJob`` , ``entityresolution:GetMatchingJob`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-action
+        '''
+        result = self._values.get("action")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def condition(self) -> typing.Optional[builtins.str]:
+        '''A set of condition keys that you can use in key policies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-condition
+        '''
+        result = self._values.get("condition")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def effect(self) -> typing.Optional[builtins.str]:
+        '''Determines whether the permissions specified in the policy are to be allowed ( ``Allow`` ) or denied ( ``Deny`` ).
+
+        .. epigraph::
+
+           If you set the value of the ``effect`` parameter to ``Deny`` for the ``AddPolicyStatement`` operation, you must also set the value of the ``effect`` parameter in the ``policy`` to ``Deny`` for the ``PutPolicy`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-effect
+        '''
+        result = self._values.get("effect")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def principal(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The AWS service or AWS account that can access the resource defined as ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-policystatement.html#cfn-entityresolution-policystatement-principal
+        '''
+        result = self._values.get("principal")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyStatementProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISchemaMappingRef_a699d3c7, _ITaggableV2_4e6798f8)
 class CfnSchemaMapping(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4763,6 +4459,7 @@ class CfnSchemaMapping(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_entityresolution as entityresolution
@@ -4791,15 +4488,16 @@ class CfnSchemaMapping(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        mapped_input_fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSchemaMapping.SchemaInputAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        mapped_input_fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchemaMapping.SchemaInputAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         schema_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EntityResolution::SchemaMapping``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param mapped_input_fields: A list of ``MappedInputFields`` . Each ``MappedInputField`` corresponds to a column the source data table, and contains column name plus additional information that AWS Entity Resolution uses for matching.
@@ -4820,8 +4518,55 @@ class CfnSchemaMapping(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSchemaMapping")
+    @builtins.classmethod
+    def arn_for_schema_mapping(
+        cls,
+        resource: "_ISchemaMappingRef_a699d3c7",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__629fe383aa819a7167f535711217a938aaec348eeb575093b5c7ed67aa0f107f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSchemaMapping", [resource]))
+
+    @jsii.member(jsii_name="fromSchemaName")
+    @builtins.classmethod
+    def from_schema_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        schema_name: builtins.str,
+    ) -> "_ISchemaMappingRef_a699d3c7":
+        '''Creates a new ISchemaMappingRef from a schemaName.
+
+        :param scope: -
+        :param id: -
+        :param schema_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4e67d191ac2d56f2d5b950bb060013ba8cf469fdc4b50abec8add67f9b2192b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
+        return typing.cast("_ISchemaMappingRef_a699d3c7", jsii.sinvoke(cls, "fromSchemaName", [scope, id, schema_name]))
+
+    @jsii.member(jsii_name="isCfnSchemaMapping")
+    @builtins.classmethod
+    def is_cfn_schema_mapping(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSchemaMapping.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c1ab6d2237e8fae3ea366abb6104430f13a756b31286b2b44e180cc3d11b92b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSchemaMapping", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4861,12 +4606,12 @@ class CfnSchemaMapping(
 
     @builtins.property
     @jsii.member(jsii_name="attrHasWorkflows")
-    def attr_has_workflows(self) -> _IResolvable_da3f097b:
+    def attr_has_workflows(self) -> "_IResolvable_da3f097b":
         '''The boolean value that indicates whether or not a SchemaMapping has MatchingWorkflows that are associated with.
 
         :cloudformationAttribute: HasWorkflows
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrHasWorkflows"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrHasWorkflows"))
 
     @builtins.property
     @jsii.member(jsii_name="attrSchemaArn")
@@ -4888,9 +4633,9 @@ class CfnSchemaMapping(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4899,22 +4644,22 @@ class CfnSchemaMapping(
 
     @builtins.property
     @jsii.member(jsii_name="schemaMappingRef")
-    def schema_mapping_ref(self) -> SchemaMappingReference:
+    def schema_mapping_ref(self) -> "_SchemaMappingReference_99c0db60":
         '''A reference to a SchemaMapping resource.'''
-        return typing.cast(SchemaMappingReference, jsii.get(self, "schemaMappingRef"))
+        return typing.cast("_SchemaMappingReference_99c0db60", jsii.get(self, "schemaMappingRef"))
 
     @builtins.property
     @jsii.member(jsii_name="mappedInputFields")
     def mapped_input_fields(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSchemaMapping.SchemaInputAttributeProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchemaMapping.SchemaInputAttributeProperty"]]]:
         '''A list of ``MappedInputFields`` .'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSchemaMapping.SchemaInputAttributeProperty"]]], jsii.get(self, "mappedInputFields"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchemaMapping.SchemaInputAttributeProperty"]]], jsii.get(self, "mappedInputFields"))
 
     @mapped_input_fields.setter
     def mapped_input_fields(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSchemaMapping.SchemaInputAttributeProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchemaMapping.SchemaInputAttributeProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__582cf934b619d5bd24742b664e76c854f1f5f978250eb7c8b069eea939a36d15)
@@ -4949,12 +4694,12 @@ class CfnSchemaMapping(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb00d34c669b02d875a4d122d6517a31b19c4fe763a25a3d3e60b62a88dc81c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4979,7 +4724,7 @@ class CfnSchemaMapping(
             field_name: builtins.str,
             type: builtins.str,
             group_name: typing.Optional[builtins.str] = None,
-            hashed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            hashed: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             match_key: typing.Optional[builtins.str] = None,
             sub_type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5084,7 +4829,7 @@ class CfnSchemaMapping(
         @builtins.property
         def hashed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates if the column values are hashed in the schema input.
 
             If the value is set to ``TRUE`` , the column values are hashed.
@@ -5094,7 +4839,7 @@ class CfnSchemaMapping(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-schemamapping-schemainputattribute.html#cfn-entityresolution-schemamapping-schemainputattribute-hashed
             '''
             result = self._values.get("hashed")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def match_key(self) -> typing.Optional[builtins.str]:
@@ -5130,6 +4875,134 @@ class CfnSchemaMapping(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_entityresolution.CfnSchemaMappingProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "mapped_input_fields": "mappedInputFields",
+        "schema_name": "schemaName",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnSchemaMappingProps:
+    def __init__(
+        self,
+        *,
+        mapped_input_fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSchemaMapping.SchemaInputAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        schema_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSchemaMapping``.
+
+        :param mapped_input_fields: A list of ``MappedInputFields`` . Each ``MappedInputField`` corresponds to a column the source data table, and contains column name plus additional information that AWS Entity Resolution uses for matching.
+        :param schema_name: The name of the schema. There can't be multiple ``SchemaMappings`` with the same name.
+        :param description: A description of the schema.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_entityresolution as entityresolution
+            
+            cfn_schema_mapping_props = entityresolution.CfnSchemaMappingProps(
+                mapped_input_fields=[entityresolution.CfnSchemaMapping.SchemaInputAttributeProperty(
+                    field_name="fieldName",
+                    type="type",
+            
+                    # the properties below are optional
+                    group_name="groupName",
+                    hashed=False,
+                    match_key="matchKey",
+                    sub_type="subType"
+                )],
+                schema_name="schemaName",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fbadfeefbc588fc98477889c4f0b74bc9f51ac6d9fd8188d64b6ad629a494dad)
+            check_type(argname="argument mapped_input_fields", value=mapped_input_fields, expected_type=type_hints["mapped_input_fields"])
+            check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mapped_input_fields": mapped_input_fields,
+            "schema_name": schema_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def mapped_input_fields(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchemaMapping.SchemaInputAttributeProperty"]]]:
+        '''A list of ``MappedInputFields`` .
+
+        Each ``MappedInputField`` corresponds to a column the source data table, and contains column name plus additional information that AWS Entity Resolution uses for matching.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-mappedinputfields
+        '''
+        result = self._values.get("mapped_input_fields")
+        assert result is not None, "Required property 'mapped_input_fields' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSchemaMapping.SchemaInputAttributeProperty"]]], result)
+
+    @builtins.property
+    def schema_name(self) -> builtins.str:
+        '''The name of the schema.
+
+        There can't be multiple ``SchemaMappings`` with the same name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-schemaname
+        '''
+        result = self._values.get("schema_name")
+        assert result is not None, "Required property 'schema_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-schemamapping.html#cfn-entityresolution-schemamapping-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSchemaMappingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnIdMappingWorkflow",
     "CfnIdMappingWorkflowProps",
@@ -5141,119 +5014,9 @@ __all__ = [
     "CfnPolicyStatementProps",
     "CfnSchemaMapping",
     "CfnSchemaMappingProps",
-    "IIdMappingWorkflowRef",
-    "IIdNamespaceRef",
-    "IMatchingWorkflowRef",
-    "IPolicyStatementRef",
-    "ISchemaMappingRef",
-    "IdMappingWorkflowReference",
-    "IdNamespaceReference",
-    "MatchingWorkflowReference",
-    "PolicyStatementReference",
-    "SchemaMappingReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__a92ec1b5f460936930fefdd0c239f69c3ec93198e4a71c3867bbe1bf1a48bf11(
-    *,
-    id_mapping_techniques: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingTechniquesProperty, typing.Dict[builtins.str, typing.Any]]],
-    input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    role_arn: builtins.str,
-    workflow_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08dbceaf6584c6ddec9cc5b62fe86da5739412407f6e361f15be9f4533370973(
-    *,
-    id_namespace_name: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    id_mapping_workflow_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    input_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdNamespace.IdNamespaceInputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2be3b46399b509a45bb640cf4a70ab0714322917a6d3dc4c241cb16ab2d1dbb0(
-    *,
-    input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.InputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    output_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.OutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    resolution_techniques: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.ResolutionTechniquesProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: builtins.str,
-    workflow_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.IncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fb81bcce6b9a473cbe53da03368a24fe3bffbe3a0fa4df32a086651b803e974a(
-    *,
-    arn: builtins.str,
-    statement_id: builtins.str,
-    action: typing.Optional[typing.Sequence[builtins.str]] = None,
-    condition: typing.Optional[builtins.str] = None,
-    effect: typing.Optional[builtins.str] = None,
-    principal: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fbadfeefbc588fc98477889c4f0b74bc9f51ac6d9fd8188d64b6ad629a494dad(
-    *,
-    mapped_input_fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchemaMapping.SchemaInputAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    schema_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__64be2f057e6f7f57a614c29cb388586833ea2100ad9561a6119972ac05c33e56(
-    *,
-    workflow_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ee2092ac168efc0dffd6918ef6ef2a96ad3bf96e1c1edcc37d4d3d745bcf98d(
-    *,
-    id_namespace_arn: builtins.str,
-    id_namespace_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7dad5ee4bd32095733859ee82adcfd4c8c93ff2cda395a8595593b3e3cc21003(
-    *,
-    workflow_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0482829c795517064566440085f4b47fb7f306fd83065da99886985df13a1d16(
-    *,
-    policy_statement_arn: builtins.str,
-    statement_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__999b58f70972eac7cdd77a25a49287d8e052e8a742059fd352cfc13dbdd93ed1(
-    *,
-    schema_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__498454075de816db2ba240e783f9530effd93522c63f637ee5bff5bbf25b7214(
     scope: _constructs_77d1e7e8.Construct,
@@ -5267,6 +5030,26 @@ def _typecheckingstub__498454075de816db2ba240e783f9530effd93522c63f637ee5bff5bbf
     id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__697e2283ce07279283f9e7b8da760b2f965cb796abe9786a0d96cb3daab2c644(
+    resource: _IIdMappingWorkflowRef_719b905c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c71e3475fcf92412e60d6b5cded8ce1be5e96efeb895e07d62610a74d2c5d706(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    workflow_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f06a58dfc980a92830c528615909e9a139b0d7538288a394c71bac3d1b6ca75(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5351,6 +5134,7 @@ def _typecheckingstub__4bb92f6ba90c637e6800332c85746dca9a127a9d4ac3f6130ef5f9057
 def _typecheckingstub__14f084baf89be97b69b754d6755f29c921f7ef9044bf1e234a903b93f7718bcc(
     *,
     id_mapping_type: typing.Optional[builtins.str] = None,
+    normalization_version: typing.Optional[builtins.str] = None,
     provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.ProviderPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingRuleBasedPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -5398,6 +5182,20 @@ def _typecheckingstub__9a2722d057e717d3981c452673ade46182ba7a7c53c282a417854ec75
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a92ec1b5f460936930fefdd0c239f69c3ec93198e4a71c3867bbe1bf1a48bf11(
+    *,
+    id_mapping_techniques: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingTechniquesProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowInputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    role_arn: builtins.str,
+    workflow_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    id_mapping_incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingIncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__725fcecd44cb8acaba43bacc813f1feb11b78b50f21d8344c7e80f5e92917340(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5409,6 +5207,34 @@ def _typecheckingstub__725fcecd44cb8acaba43bacc813f1feb11b78b50f21d8344c7e80f5e9
     input_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdNamespace.IdNamespaceInputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8487355a1908faec8f5403f9bd7f4ff193f787822e0a99e51747b4a60e79a42b(
+    resource: _IIdNamespaceRef_b89c1cab,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a37393a68cafd76cc27f2d6601ae82638be7969941bff433eb43c0d7ff73e003(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07807daadfdacde57ae7950ec0b76d29c32466721c6de08f5dc2ea57c64564b1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    id_namespace_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8288d0a707c515aebdc97dcca824f4f7cb59e205d1ec3e2406f756aac3d60397(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5510,6 +5336,19 @@ def _typecheckingstub__a7b7b4615999e81b09ce8264e01ece7b6902a9159ab61791c90867353
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__08dbceaf6584c6ddec9cc5b62fe86da5739412407f6e361f15be9f4533370973(
+    *,
+    id_namespace_name: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    id_mapping_workflow_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdNamespace.IdNamespaceIdMappingWorkflowPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    input_source_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdNamespace.IdNamespaceInputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8c9e9b620b89ac2aae774eb42384e0472b5a13eeb28983708b164b2400ebcd39(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5522,6 +5361,26 @@ def _typecheckingstub__8c9e9b620b89ac2aae774eb42384e0472b5a13eeb28983708b164b240
     description: typing.Optional[builtins.str] = None,
     incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.IncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d81291d8a011f4111786dc94259660197e1d500c558af67b8f88a9e40fbe4eef(
+    resource: _IMatchingWorkflowRef_66c9c4fe,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0297ecf2a3d621f0a163726b6bf516267f2bcd4d3bc199bc19736d31d80c70d0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    workflow_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f65a3a6c23dbb03978f07274fe583074664439f03eb4cd985397aad0d08030b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5586,6 +5445,14 @@ def _typecheckingstub__a7a7896d7bea53a4e2ffc9445d9a42b8864f5ac9a6cf43c3b27fe3c77
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aa3ba606cf7a153b938c702550dffbddb54ca5c20b8f83e3d3d4a402111e4d1f(
+    *,
+    domain_arn: builtins.str,
+    object_type_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e88ed5ec9e5f2edc300dbdd925bb99b748b330b8e099b18f65b28da2cb124640(
     *,
     incremental_run_type: builtins.str,
@@ -5620,9 +5487,10 @@ def _typecheckingstub__006a3c9280759d8123ca560d0c7cfef20e64f8703bb04be12b8a7e087
 def _typecheckingstub__92bb2dc25f018fe0017c7ab79f29b2fdfb4238d6fb1293a9cd606b9f93976df8(
     *,
     output: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.OutputAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    output_s3_path: builtins.str,
     apply_normalization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    customer_profiles_integration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_arn: typing.Optional[builtins.str] = None,
+    output_s3_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5678,6 +5546,20 @@ def _typecheckingstub__8ad893f1319125d264f9286a93c40cd8616031944a24803bccedd15e3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2be3b46399b509a45bb640cf4a70ab0714322917a6d3dc4c241cb16ab2d1dbb0(
+    *,
+    input_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.InputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    output_source_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.OutputSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resolution_techniques: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.ResolutionTechniquesProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    workflow_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    incremental_run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.IncrementalRunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__76540fbabac41cc4870b4370f399836643d3d5e41180fcf50e53a6c17addfb5a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5688,6 +5570,12 @@ def _typecheckingstub__76540fbabac41cc4870b4370f399836643d3d5e41180fcf50e53a6c17
     condition: typing.Optional[builtins.str] = None,
     effect: typing.Optional[builtins.str] = None,
     principal: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7c1e2c60cfbec0735c91df3c0d06e58ec867df7c3735cdcd15c891f88c73bef(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5740,6 +5628,18 @@ def _typecheckingstub__d0f1297ccea599d72dd52d3bb273838ce431126a148b946f018fb1f63
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fb81bcce6b9a473cbe53da03368a24fe3bffbe3a0fa4df32a086651b803e974a(
+    *,
+    arn: builtins.str,
+    statement_id: builtins.str,
+    action: typing.Optional[typing.Sequence[builtins.str]] = None,
+    condition: typing.Optional[builtins.str] = None,
+    effect: typing.Optional[builtins.str] = None,
+    principal: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d4b85e0c42d14b4681c4f948114178ba1c1a3d4eee3aed6f96a55a11624008b9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5748,6 +5648,26 @@ def _typecheckingstub__d4b85e0c42d14b4681c4f948114178ba1c1a3d4eee3aed6f96a55a116
     schema_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__629fe383aa819a7167f535711217a938aaec348eeb575093b5c7ed67aa0f107f(
+    resource: _ISchemaMappingRef_a699d3c7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4e67d191ac2d56f2d5b950bb060013ba8cf469fdc4b50abec8add67f9b2192b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    schema_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c1ab6d2237e8fae3ea366abb6104430f13a756b31286b2b44e180cc3d11b92b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5796,6 +5716,16 @@ def _typecheckingstub__d608d145fae97c0a85e57f344f3785207a465f180330e5a7bec62b411
     hashed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     match_key: typing.Optional[builtins.str] = None,
     sub_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbadfeefbc588fc98477889c4f0b74bc9f51ac6d9fd8188d64b6ad629a494dad(
+    *,
+    mapped_input_fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchemaMapping.SchemaInputAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    schema_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

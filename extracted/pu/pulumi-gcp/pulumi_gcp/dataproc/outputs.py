@@ -2777,6 +2777,8 @@ class ClusterClusterConfigGceClusterConfig(dict):
             suggest = "node_group_affinity"
         elif key == "reservationAffinity":
             suggest = "reservation_affinity"
+        elif key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
         elif key == "serviceAccount":
             suggest = "service_account"
         elif key == "serviceAccountScopes":
@@ -2802,6 +2804,7 @@ class ClusterClusterConfigGceClusterConfig(dict):
                  network: Optional[_builtins.str] = None,
                  node_group_affinity: Optional['outputs.ClusterClusterConfigGceClusterConfigNodeGroupAffinity'] = None,
                  reservation_affinity: Optional['outputs.ClusterClusterConfigGceClusterConfigReservationAffinity'] = None,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None,
                  service_account: Optional[_builtins.str] = None,
                  service_account_scopes: Optional[Sequence[_builtins.str]] = None,
                  shielded_instance_config: Optional['outputs.ClusterClusterConfigGceClusterConfigShieldedInstanceConfig'] = None,
@@ -2822,6 +2825,9 @@ class ClusterClusterConfigGceClusterConfig(dict):
                If neither is specified, this defaults to the "default" network.
         :param 'ClusterClusterConfigGceClusterConfigNodeGroupAffinityArgs' node_group_affinity: Node Group Affinity for sole-tenant clusters.
         :param 'ClusterClusterConfigGceClusterConfigReservationAffinityArgs' reservation_affinity: Reservation Affinity for consuming zonal reservation.
+        :param Mapping[str, _builtins.str] resource_manager_tags: A map of resource manager tags to add to all instances.
+               Keys must be in the format `tagKeys/{tag_key_id}` and values in the format `tagValues/{tag_value_id}`
+               (see [Secure tags](https://cloud.google.com/dataproc/docs/guides/use-secure-tags)).
         :param _builtins.str service_account: The service account to be used by the Node VMs.
                If not specified, the "default" service account is used.
         :param Sequence[_builtins.str] service_account_scopes: The set of Google API scopes
@@ -2856,6 +2862,8 @@ class ClusterClusterConfigGceClusterConfig(dict):
             pulumi.set(__self__, "node_group_affinity", node_group_affinity)
         if reservation_affinity is not None:
             pulumi.set(__self__, "reservation_affinity", reservation_affinity)
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
         if service_account is not None:
             pulumi.set(__self__, "service_account", service_account)
         if service_account_scopes is not None:
@@ -2923,6 +2931,16 @@ class ClusterClusterConfigGceClusterConfig(dict):
         Reservation Affinity for consuming zonal reservation.
         """
         return pulumi.get(self, "reservation_affinity")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        A map of resource manager tags to add to all instances.
+        Keys must be in the format `tagKeys/{tag_key_id}` and values in the format `tagValues/{tag_value_id}`
+        (see [Secure tags](https://cloud.google.com/dataproc/docs/guides/use-secure-tags)).
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
@@ -3251,10 +3269,14 @@ class ClusterClusterConfigLifecycleConfig(dict):
         suggest = None
         if key == "autoDeleteTime":
             suggest = "auto_delete_time"
+        elif key == "autoStopTime":
+            suggest = "auto_stop_time"
         elif key == "idleDeleteTtl":
             suggest = "idle_delete_ttl"
         elif key == "idleStartTime":
             suggest = "idle_start_time"
+        elif key == "idleStopTtl":
+            suggest = "idle_stop_ttl"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ClusterClusterConfigLifecycleConfig. Access the value via the '{suggest}' property getter instead.")
@@ -3269,10 +3291,15 @@ class ClusterClusterConfigLifecycleConfig(dict):
 
     def __init__(__self__, *,
                  auto_delete_time: Optional[_builtins.str] = None,
+                 auto_stop_time: Optional[_builtins.str] = None,
                  idle_delete_ttl: Optional[_builtins.str] = None,
-                 idle_start_time: Optional[_builtins.str] = None):
+                 idle_start_time: Optional[_builtins.str] = None,
+                 idle_stop_ttl: Optional[_builtins.str] = None):
         """
         :param _builtins.str auto_delete_time: The time when cluster will be auto-deleted.
+               A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds.
+               Example: "2014-10-02T15:01:23.045123456Z".
+        :param _builtins.str auto_stop_time: The time when cluster will be auto-stopped.
                A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds.
                Example: "2014-10-02T15:01:23.045123456Z".
                
@@ -3281,13 +3308,19 @@ class ClusterClusterConfigLifecycleConfig(dict):
                (no jobs running). After this TTL, the cluster will be deleted. Valid range: [10m, 14d].
         :param _builtins.str idle_start_time: Time when the cluster became idle
                (most recent job finished) and became eligible for deletion due to idleness.
+        :param _builtins.str idle_stop_ttl: The duration to keep the cluster alive while idling
+               (no jobs running). After this TTL, the cluster will be stopped. Valid range: [10m, 14d].
         """
         if auto_delete_time is not None:
             pulumi.set(__self__, "auto_delete_time", auto_delete_time)
+        if auto_stop_time is not None:
+            pulumi.set(__self__, "auto_stop_time", auto_stop_time)
         if idle_delete_ttl is not None:
             pulumi.set(__self__, "idle_delete_ttl", idle_delete_ttl)
         if idle_start_time is not None:
             pulumi.set(__self__, "idle_start_time", idle_start_time)
+        if idle_stop_ttl is not None:
+            pulumi.set(__self__, "idle_stop_ttl", idle_stop_ttl)
 
     @_builtins.property
     @pulumi.getter(name="autoDeleteTime")
@@ -3296,10 +3329,20 @@ class ClusterClusterConfigLifecycleConfig(dict):
         The time when cluster will be auto-deleted.
         A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds.
         Example: "2014-10-02T15:01:23.045123456Z".
+        """
+        return pulumi.get(self, "auto_delete_time")
+
+    @_builtins.property
+    @pulumi.getter(name="autoStopTime")
+    def auto_stop_time(self) -> Optional[_builtins.str]:
+        """
+        The time when cluster will be auto-stopped.
+        A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds.
+        Example: "2014-10-02T15:01:23.045123456Z".
 
         - - -
         """
-        return pulumi.get(self, "auto_delete_time")
+        return pulumi.get(self, "auto_stop_time")
 
     @_builtins.property
     @pulumi.getter(name="idleDeleteTtl")
@@ -3318,6 +3361,15 @@ class ClusterClusterConfigLifecycleConfig(dict):
         (most recent job finished) and became eligible for deletion due to idleness.
         """
         return pulumi.get(self, "idle_start_time")
+
+    @_builtins.property
+    @pulumi.getter(name="idleStopTtl")
+    def idle_stop_ttl(self) -> Optional[_builtins.str]:
+        """
+        The duration to keep the cluster alive while idling
+        (no jobs running). After this TTL, the cluster will be stopped. Valid range: [10m, 14d].
+        """
+        return pulumi.get(self, "idle_stop_ttl")
 
 
 @pulumi.output_type

@@ -327,15 +327,25 @@ async def janela_conhecimento_frete(cte):
     await worker_sleep(2)
     type_text_into_field(vencimento, data_vencimento, True, "2")
 
+    await worker_sleep(3)
+
     # clicar no botao de inserir o valor
-    btn_inserir_valor = main_window.child_window(
-        class_name="TBitBtn", found_index=0
-    ).click()
+    try:
+        btn_inserir_valor = main_window.child_window(
+            class_name="TBitBtn", found_index=0
+        ).click()
+    except Exception as e:
+        raise Exception(f"Erro ao clicar no botão de inserir valor (parcelamento): {e}")
 
     # Clicar no botão + para salvar
-    btn_salvar = main_window.child_window(
-        class_name="TDBIBitBtn", found_index=5
-    ).click()
+    try:
+        btn_salvar = main_window.child_window(
+            class_name="TDBIBitBtn", found_index=5
+        ).click()
+    except Exception as e:
+        raise Exception(
+            f"Erro ao clicar no botão de salvar registro (parcelamento): {e}"
+        )
 
     # Clicar no botão + para salvar tudo(aguarda dados de rateio)
     try:
@@ -343,7 +353,7 @@ async def janela_conhecimento_frete(cte):
         await worker_sleep(3)
 
     except Exception as e:
-        raise Exception(f"Erro ao clicar em Valores: {e}")
+        raise Exception(f"Erro ao clicar em + para salvar tudo: {e}")
 
 
 async def janela_information():

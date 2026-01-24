@@ -59,33 +59,25 @@ class FairnessInsights(APIObject):
 
     _path = "/projects/{}/models/{}/fairnessInsights/"
 
-    per_class_fairness_trafaret = t.Dict(
-        {
-            t.Key("class_name"): t.String(),
-            t.Key("value"): t.Float(),
-            t.Key("absolute_value"): t.Float(),
-            t.Key("entries_count"): t.Int,
-            t.Key("is_statistically_significant"): t.Bool,
-        }
-    )
+    per_class_fairness_trafaret = t.Dict({
+        t.Key("class_name"): t.String(),
+        t.Key("value"): t.Float(),
+        t.Key("absolute_value"): t.Float(),
+        t.Key("entries_count"): t.Int,
+        t.Key("is_statistically_significant"): t.Bool,
+    })
 
-    single_fairness_insight_trafaret = t.Dict(
-        {
-            t.Key("fairness_metric"): t.Or(t.String(), t.Null),
-            t.Key("fairness_threshold", optional=True, default=0.8): t.Float(),
-            t.Key("prediction_threshold"): t.Or(t.Float(), t.Null),
-            t.Key("protected_feature"): t.Or(t.String(), t.Null),
-            t.Key("per_class_fairness"): t.List(per_class_fairness_trafaret),
-        }
-    )
+    single_fairness_insight_trafaret = t.Dict({
+        t.Key("fairness_metric"): t.Or(t.String(), t.Null),
+        t.Key("fairness_threshold", optional=True, default=0.8): t.Float(),
+        t.Key("prediction_threshold"): t.Or(t.Float(), t.Null),
+        t.Key("protected_feature"): t.Or(t.String(), t.Null),
+        t.Key("per_class_fairness"): t.List(per_class_fairness_trafaret),
+    })
 
-    _converter = t.Dict(
-        {
-            t.Key("data"): t.List(
-                t.Dict({t.Key("model_id"): t.String()}).merge(single_fairness_insight_trafaret)
-            )
-        }
-    )
+    _converter = t.Dict({
+        t.Key("data"): t.List(t.Dict({t.Key("model_id"): t.String()}).merge(single_fairness_insight_trafaret))
+    })
 
     def __init__(self, data: List[Dict[str, Any]]) -> None:
         self.model_id = [insight_data.pop("model_id") for insight_data in data][0]

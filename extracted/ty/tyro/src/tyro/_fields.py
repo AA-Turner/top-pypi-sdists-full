@@ -3,26 +3,35 @@ defaults, from general callables."""
 
 from __future__ import annotations
 
-import collections.abc
 import contextlib
 import dataclasses
 import functools
 import inspect
 import sys
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Literal, Tuple
 
 import docstring_parser
-from typing_extensions import Annotated, Doc, get_args, get_origin, get_original_bases
+from typing_extensions import (
+    Annotated,
+    Doc,
+    get_args,
+    get_origin,
+    get_original_bases,
+    is_typeddict,
+)
 
 from tyro.conf._mutex_group import _MutexGroupConfig
+from tyro.constructors._primitive_spec import PrimitiveConstructorSpec
 
 from . import _docstrings, _resolver, _strings, _unsafe_cache
-from ._singleton import MISSING_AND_MISSING_NONPROP, MISSING_NONPROP
+from . import _fmtlib as fmt
+from ._singleton import MISSING_NONPROP, is_missing
 from ._typing import TypeForm
-from ._typing_compat import is_typing_annotated
+from ._typing_compat import is_typing_annotated, is_typing_unpack
 from .conf import _confstruct, _markers
 from .constructors._registry import ConstructorRegistry, check_default_instances
 from .constructors._struct_spec import (
+    InvalidDefaultInstanceError,
     StructFieldSpec,
     StructTypeInfo,
     UnsupportedStructTypeMessage,
@@ -39,7 +48,7 @@ class FieldDefinition:
     """Full type, including runtime annotations."""
     type_stripped: TypeForm[Any] | Callable
     default: Any
-    helptext: str | None
+    helptext: str | Callable[[], str | None] | None
     markers: set[Any]
     custom_constructor: bool
 
@@ -49,6 +58,13 @@ class FieldDefinition:
     # Override the name in our kwargs. Useful whenever the user-facing argument name
     # doesn't match the keyword expected by our callable.
     call_argname: Any
+
+    # How this field should be passed to the callable.
+    # - "kwarg": passed as keyword argument (default)
+    # - "positional": passed as positional argument
+    # - "unpack_args": unpacked as *args
+    # - "unpack_kwargs": unpacked as **kwargs
+    call_mode: Literal["kwarg", "positional", "unpack_args", "unpack_kwargs"] = "kwarg"
 
     @staticmethod
     @contextlib.contextmanager
@@ -76,17 +92,15 @@ class FieldDefinition:
         name: str,
         typ: TypeForm[Any] | Callable,
         default: Any,
-        helptext: str | None,
+        helptext: str | Callable[[], str | None] | None,
         call_argname_override: Any | None = None,
+        call_mode: Literal[
+            "kwarg", "positional", "unpack_args", "unpack_kwargs"
+        ] = "kwarg",
     ):
         # Narrow types.
-        if typ is Any and default not in MISSING_AND_MISSING_NONPROP:
+        if typ is Any and not is_missing(default):
             typ = type(default)
-
-        # Be forgiving about default instances.
-        typ = _resolver.narrow_collection_types(typ, default)
-        if not check_default_instances():
-            typ = _resolver.expand_union_types(typ, default)
 
         # Get all Annotated[] metadata.
         # This will unpack types in the form Annotated[type_stripped, *metadata].
@@ -142,7 +156,8 @@ class FieldDefinition:
         if default is MISSING_NONPROP and len(argconfs) > 0:
             default = argconf.default
 
-        return FieldDefinition(
+        # Construct field.
+        out = FieldDefinition(
             intern_name=name,
             extern_name=name if argconf.name is None else argconf.name,
             type=typ,
@@ -158,7 +173,18 @@ class FieldDefinition:
             call_argname=(
                 call_argname_override if call_argname_override is not None else name
             ),
+            call_mode=call_mode,
         )
+
+        # Be forgiving about default instances.
+        type_stripped = _resolver.narrow_collection_types(type_stripped, default)
+        if not check_default_instances():
+            type_stripped = _resolver.expand_union_types(type_stripped, default)
+
+        if type_stripped != out.type_stripped:
+            return out.with_new_type_stripped(type_stripped)
+        else:
+            return out
 
     def with_new_type_stripped(
         self, new_type_stripped: TypeForm[Any] | Callable
@@ -173,42 +199,33 @@ class FieldDefinition:
             type_stripped=new_type_stripped,
         )
 
-    def is_positional(self) -> bool:
-        """Returns True if the argument should be positional in the commandline."""
-        return (
-            # Explicit positionals.
-            _markers.Positional in self.markers
-            # Dummy dataclasses should have a single positional field.
-            or self.intern_name == _strings.dummy_field_name
-            or (
-                # Make required arguments positional.
-                _markers.PositionalRequiredArgs in self.markers
-                and self.default in MISSING_AND_MISSING_NONPROP
-            )
-        )
-
-    def is_positional_call(self) -> bool:
-        """Returns True if the argument should be positional in underlying Python call."""
-        return (
-            # Explicit positionals.
-            _markers._PositionalCall in self.markers
-            # Dummy dataclasses should have a single positional field.
-            or self.intern_name == _strings.dummy_field_name
-        )
-
 
 @_unsafe_cache.unsafe_cache(maxsize=1024)
-def is_struct_type(typ: TypeForm[Any] | Callable, default_instance: Any) -> bool:
+def is_struct_type(
+    typ: TypeForm[Any] | Callable, default_instance: Any, in_union_context: bool
+) -> bool:
     """Determine whether a type should be treated as a 'struct type', where a single
     type can be broken down into multiple fields (eg for nested dataclasses or
-    classes)."""
+    classes).
+
+    The `in_union_context` flag indicates whether this type is being evaluated as part
+    of a union. When True, allows collection types like List[Struct] or Dict[str, Struct]
+    without defaults to be treated as struct types (for subcommand creation).
+    """
+
+    # Fast path: common primitive types are never struct types.
+    if type(typ) is type and typ in (int, str, float, bool, bytes, type(None)):
+        return False
 
     list_or_error = field_list_from_type_or_callable(
-        typ, default_instance, support_single_arg_types=False
+        typ,
+        default_instance,
+        support_single_arg_types=False,
+        in_union_context=in_union_context,
     )
     return not isinstance(
         list_or_error,
-        UnsupportedStructTypeMessage,
+        (UnsupportedStructTypeMessage, InvalidDefaultInstanceError),
     )
 
 
@@ -216,24 +233,54 @@ def field_list_from_type_or_callable(
     f: Callable | TypeForm[Any],
     default_instance: Any,
     support_single_arg_types: bool,
+    in_union_context: bool,
 ) -> (
     UnsupportedStructTypeMessage
+    | InvalidDefaultInstanceError
     | tuple[Callable | TypeForm[Any], list[FieldDefinition]]
 ):
     """Generate a list of generic 'field' objects corresponding to the inputs of some
     annotated callable.
 
-    Returns:
-        The type that `f` is resolved as.
-        A list of field definitions.
-    """
+    The `in_union_context` flag indicates whether this type is being evaluated as part
+    of a union. When True, allows collection types like List[Struct] or Dict[str, Struct]
+    without defaults to be treated as struct types (for subcommand creation).
 
-    type_info = StructTypeInfo.make(f, default_instance)
+    Returns:
+        - tuple[type, list[FieldDefinition]] if successful: the resolved type and its field definitions.
+        - UnsupportedStructTypeMessage if the type cannot be treated as a struct (e.g., not a dataclass, function, etc.).
+        - InvalidDefaultInstanceError if the type can be treated as a struct, but the provided default instance is incompatible with the type.
+    """
+    if len(_resolver.unwrap_annotated(f, PrimitiveConstructorSpec)[1]) > 0:
+        return UnsupportedStructTypeMessage(
+            f"{f} should be parsed as a primitive type."
+        )
+
+    type_info = StructTypeInfo.make(f, default_instance, in_union_context)
     type_orig = f
     del f
 
+    # Special case when treating `None` as a struct type.
+    if support_single_arg_types and type_info.type is type(None):
+        if not is_missing(default_instance) and default_instance is not None:
+            return InvalidDefaultInstanceError(
+                (
+                    fmt.text(
+                        "Default type ",
+                        fmt.text["cyan"](str(type(default_instance))),
+                        " is not ",
+                        fmt.text["magenta"]("None"),
+                    ),
+                )
+            )
+        return (lambda: None, [])
+
     with type_info._typevar_context:
         spec = ConstructorRegistry.get_struct_spec(type_info)
+
+        # Check if we got an error instead of a spec.
+        if isinstance(spec, InvalidDefaultInstanceError):
+            return spec
 
         with FieldDefinition.marker_context(type_info.markers):
             if spec is not None:
@@ -243,9 +290,7 @@ def field_list_from_type_or_callable(
 
             is_primitive = ConstructorRegistry._is_primitive_type(type_orig, set())
             if is_primitive and support_single_arg_types:
-                with FieldDefinition.marker_context(
-                    (_markers.Positional, _markers._PositionalCall)
-                ):
+                with FieldDefinition.marker_context((_markers.Positional,)):
                     return (
                         lambda x: x,
                         [
@@ -254,6 +299,7 @@ def field_list_from_type_or_callable(
                                 typ=type_orig,
                                 default=default_instance,
                                 helptext="",
+                                call_mode="positional",
                             )
                         ],
                     )
@@ -270,12 +316,14 @@ def field_list_from_type_or_callable(
 def _field_list_from_function(
     f: Callable, default_instance: Any, markers: tuple[_markers.Marker, ...]
 ) -> UnsupportedStructTypeMessage | tuple[Callable, list[FieldDefinition]]:
-    """Generate field lists from non-class callables."""
+    """Generate field lists from callables."""
 
     # Development note: separate conditions are helpful for test coverage reports.
     if f is Any:
         return UnsupportedStructTypeMessage("`Any` is not a valid struct type!")
-    if get_origin(f) is collections.abc.Callable:
+
+    f_origin = get_origin(f)
+    if getattr(f_origin, "__module__", None) in ("collections.abc", "builtins"):
         return UnsupportedStructTypeMessage(f"`{f}` is not a valid struct type!")
 
     try:
@@ -408,7 +456,9 @@ def _field_list_from_function(
     # we'll be more conservative in converting `--x` to a {fixed} argument.
     # The latter case requires returning an UnsupportedStructTypeMessage to avoid
     # unpacking the arguments of SomeScaryType.
-    if (len(hints) == 0 or len(params) == 0) and inspect.isclass(f_before_init_unwrap):
+    if (len(hints) == 0 or len(params) == 0) and not inspect.isfunction(
+        f_before_init_unwrap
+    ):
         return UnsupportedStructTypeMessage(f"Empty hints for {f}!")
 
     field_list = []
@@ -419,34 +469,53 @@ def _field_list_from_function(
         # Get helptext from docstring.
         helptext = docstring_from_arg_name.get(param.name)
         if helptext is None and inspect.isclass(f_before_init_unwrap):
-            helptext = _docstrings.get_field_docstring(
-                f_before_init_unwrap, param.name, markers
+            # Lazy docstring parsing: use partial to defer expensive parsing.
+            helptext = functools.partial(
+                _docstrings.get_field_docstring,
+                f_before_init_unwrap,
+                param.name,
+                markers,
             )
 
-        # Set markers for positional + variadic arguments.
+        # Set call_mode and markers for positional + variadic arguments.
         func_markers: Tuple[Any, ...] = ()
+        call_mode: Literal["kwarg", "positional", "unpack_args", "unpack_kwargs"] = (
+            "kwarg"
+        )
         typ: Any = hints.get(param.name, Any)
         if param.kind is inspect.Parameter.POSITIONAL_ONLY:
-            func_markers = (_markers.Positional, _markers._PositionalCall)
+            func_markers = (_markers.Positional,)
+            call_mode = "positional"
         elif param.kind is inspect.Parameter.VAR_POSITIONAL:
             # Handle *args signatures.
             #
             # This will create a `--args T [T ...]` CLI argument.
-            func_markers = (_markers._UnpackArgsCall,)
+            call_mode = "unpack_args"
             typ = Tuple[(typ, ...)]  # type: ignore
-            default = ()
+            # Only set empty default when there's no default_instance.
+            # When default_instance is provided, we want MISSING_NONPROP so that
+            # the _OPTIONAL_GROUP logic can return the default_instance directly.
+            if is_missing(default_instance):
+                default = ()
         elif param.kind is inspect.Parameter.VAR_KEYWORD:
-            # Handle *kwargs signatures.
-            #
-            # This will create a `--kwargs STR T [STR T ...]` CLI argument.
-            #
-            # It would be straightforward to make both this and *args truly
-            # positional, omitting the --args/--kwargs prefix, but we are
-            # choosing not to because it would make *args and **kwargs
-            # difficult to use in conjunction.
-            func_markers = (_markers._UnpackKwargsCall,)
-            typ = Dict[str, typ]  # type: ignore
-            default = {}
+            # Handle **kwargs signatures.
+            call_mode = "unpack_kwargs"
+            typ_origin = get_origin(typ)
+            unpack_args = get_args(typ)
+
+            # Check for Unpack[TypedDict] pattern.
+            if (
+                is_typing_unpack(typ_origin)
+                and len(unpack_args) == 1
+                and is_typeddict(unpack_args[0])
+            ):
+                # Treat as nested TypedDict struct.
+                typ = unpack_args[0]
+                default = MISSING_NONPROP  # Let TypedDict rule handle defaults.
+            else:
+                # Original behavior: creates `--kwargs STR T [STR T ...]` argument.
+                typ = Dict[str, typ]  # type: ignore
+                default = {}
 
         with FieldDefinition.marker_context(func_markers):
             field_list.append(
@@ -454,10 +523,11 @@ def _field_list_from_function(
                     name=param.name,
                     # param.annotation doesn't resolve forward references.
                     typ=typ
-                    if default_instance in MISSING_AND_MISSING_NONPROP
+                    if is_missing(default_instance)
                     else Annotated[(typ, _markers._OPTIONAL_GROUP)],  # type: ignore
                     default=default if default is not param.empty else MISSING_NONPROP,
                     helptext=helptext,
+                    call_mode=call_mode,
                 )
             )
 

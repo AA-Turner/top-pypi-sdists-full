@@ -9,17 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
 
-class OidcCustomSubRepoType(TypedDict):
-    """Actions OIDC subject customization for a repository
+class InteractionLimitType(TypedDict):
+    """Interaction Restrictions
 
-    Actions OIDC subject customization for a repository
+    Limit interactions to a specific type of user for a specified duration
     """
 
-    use_default: bool
-    include_claim_keys: NotRequired[list[str]]
+    limit: Literal["existing_users", "contributors_only", "collaborators_only"]
+    expiry: NotRequired[
+        Literal["one_day", "three_days", "one_week", "one_month", "six_months"]
+    ]
 
 
-__all__ = ("OidcCustomSubRepoType",)
+class InteractionLimitTypeForResponse(TypedDict):
+    """Interaction Restrictions
+
+    Limit interactions to a specific type of user for a specified duration
+    """
+
+    limit: Literal["existing_users", "contributors_only", "collaborators_only"]
+    expiry: NotRequired[
+        Literal["one_day", "three_days", "one_week", "one_month", "six_months"]
+    ]
+
+
+__all__ = (
+    "InteractionLimitType",
+    "InteractionLimitTypeForResponse",
+)

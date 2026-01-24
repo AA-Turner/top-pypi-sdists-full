@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: openmm-mdanalysis-reporter
+Version: 0.0.1
+Summary: MDAnalysis trajectory reporter for OpenMM
+Author-email: Stephen Farr <stephen.farr@ed.ac.uk>
+License-File: LICENSE

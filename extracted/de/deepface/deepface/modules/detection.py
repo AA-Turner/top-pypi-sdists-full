@@ -1,24 +1,31 @@
 # built-in dependencies
-from typing import Any, Dict, IO, List, Tuple, Union, Optional
+from typing import Any, Dict, IO, List, Tuple, Union, Optional, cast
 from heapq import nlargest
 
 # 3rd part dependencies
 import numpy as np
+from numpy.typing import NDArray
 import cv2
 
 # project dependencies
 from deepface.modules import modeling
 from deepface.models.Detector import Detector, DetectedFace, FacialAreaRegion
 from deepface.commons import image_utils
-
+from deepface.models.face_detection import OpenCv
+from deepface.modules.exceptions import FaceNotDetected
+from deepface.modules.exceptions import UnimplementedError, ImgNotFound
 from deepface.commons.logger import Logger
 
 logger = Logger()
 
-# pylint: disable=no-else-raise
+# pylint: disable=no-else-raise, too-many-positional-arguments
 
 
-def is_valid_landmark(coord: Optional[Union[tuple, list]], width: int, height: int) -> bool:
+def is_valid_landmark(
+    coord: Optional[Union[Tuple[int, int], Tuple[float, float], List[Union[float, int]]]],
+    width: int,
+    height: int,
+) -> bool:
     """
     Check if a landmark coordinate is within valid image bounds.
 
@@ -38,7 +45,7 @@ def is_valid_landmark(coord: Optional[Union[tuple, list]], width: int, height: i
 
 
 def extract_faces(
-    img_path: Union[str, np.ndarray, IO[bytes]],
+    img_path: Union[str, NDArray[Any], IO[bytes], List[str], List[NDArray[Any]], List[IO[bytes]]],
     detector_backend: str = "opencv",
     enforce_detection: bool = True,
     align: bool = True,
@@ -48,17 +55,18 @@ def extract_faces(
     normalize_face: bool = True,
     anti_spoofing: bool = False,
     max_faces: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+) -> Union[List[Dict[str, Any]], List[List[Dict[str, Any]]]]:
     """
     Extract faces from a given image
 
     Args:
-        img_path (str or np.ndarray or IO[bytes]): Path to the first image. Accepts exact image path
-            as a string, numpy array (BGR), a file object that supports at least `.read` and is
-            opened in binary mode, or base64 encoded images.
+        img_path (str or list of str ornp.ndarray or IO[bytes]): Path to the first image.
+            Accepts exact image path as a string, list of string, numpy array (BGR), a file object
+            that supports at least `.read` and is opened in binary mode, or base64 encoded images.
 
         detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
-            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'yolov11n', 'yolov11s', 'yolov11m',
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8n', 'yolov8m', 'yolov8l', 'yolov11n',
+            'yolov11s', 'yolov11m', 'yolov11l', 'yolov12n', 'yolov12s', 'yolov12m','yolov12l'
             'centerface' or 'skip' (default is opencv)
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
@@ -98,8 +106,33 @@ def extract_faces(
         - "antispoof_score" (float): score of antispoofing analyze result. this key is
             just available in the result only if anti_spoofing is set to True in input arguments.
     """
+    if isinstance(img_path, list) or (isinstance(img_path, np.ndarray) and img_path.ndim == 4):
+        if isinstance(img_path, np.ndarray):
+            img_paths = [img_path[i] for i in range(img_path.shape[0])]
+        else:
+            img_paths = img_path
 
-    resp_objs = []
+        all_faces: List[List[Dict[str, Any]]] = []
+        for single_img_path in img_paths:
+            faces = cast(
+                List[Dict[str, Any]],
+                extract_faces(
+                    img_path=single_img_path,
+                    detector_backend=detector_backend,
+                    enforce_detection=enforce_detection,
+                    align=align,
+                    expand_percentage=expand_percentage,
+                    grayscale=grayscale,
+                    color_face=color_face,
+                    normalize_face=normalize_face,
+                    anti_spoofing=anti_spoofing,
+                    max_faces=max_faces,
+                ),
+            )
+            all_faces.append(faces)
+        return all_faces
+
+    resp_objs: List[Dict[str, Any]] = []
 
     # img might be path, base64 or numpy array. Convert it to numpy whatever it is.
     img, img_name = image_utils.load_image(img_path)
@@ -125,13 +158,13 @@ def extract_faces(
     # in case of no face found
     if len(face_objs) == 0 and enforce_detection is True:
         if img_name is not None:
-            raise ValueError(
+            raise FaceNotDetected(
                 f"Face could not be detected in {img_name}."
                 "Please confirm that the picture is a face photo "
                 "or consider to set enforce_detection param to False."
             )
         else:
-            raise ValueError(
+            raise FaceNotDetected(
                 "Face could not be detected. Please confirm that the picture is a face photo "
                 "or consider to set enforce_detection param to False."
             )
@@ -157,7 +190,9 @@ def extract_faces(
             elif color_face == "gray":
                 current_img = cv2.cvtColor(current_img, cv2.COLOR_BGR2GRAY)
             else:
-                raise ValueError(f"The color_face can be rgb, bgr or gray, but it is {color_face}.")
+                raise UnimplementedError(
+                    f"The color_face can be rgb, bgr or gray, but it is {color_face}."
+                )
 
         if normalize_face:
             current_img = current_img / 255  # normalize input in [0, 1]
@@ -175,6 +210,11 @@ def extract_faces(
             "mouth_left": current_region.mouth_left,
             "mouth_right": current_region.mouth_right,
         }
+
+        # convert these to raw python types to ensure compability with Flask
+        for key, value in landmarks.items():
+            if value is not None:
+                landmarks[key] = (int(value[0]), int(value[1]))
 
         # Sanitize landmarks - set invalid ones to None
         for key, value in landmarks.items():
@@ -213,7 +253,7 @@ def extract_faces(
         resp_objs.append(resp_obj)
 
     if len(resp_objs) == 0 and enforce_detection == True:
-        raise ValueError(
+        raise ImgNotFound(
             f"Exception while extracting faces from {img_name}."
             "Consider to set enforce_detection arg to False."
         )
@@ -223,7 +263,7 @@ def extract_faces(
 
 def detect_faces(
     detector_backend: str,
-    img: np.ndarray,
+    img: NDArray[Any],
     align: bool = True,
     expand_percentage: int = 0,
     max_faces: Optional[int] = None,
@@ -295,6 +335,7 @@ def detect_faces(
             expand_percentage=expand_percentage,
             width_border=width_border,
             height_border=height_border,
+            detector_backend=detector_backend,
         )
         for facial_area in facial_areas
     ]
@@ -302,11 +343,12 @@ def detect_faces(
 
 def extract_face(
     facial_area: FacialAreaRegion,
-    img: np.ndarray,
+    img: NDArray[Any],
     align: bool,
     expand_percentage: int,
     width_border: int,
     height_border: int,
+    detector_backend: str,
 ) -> DetectedFace:
     x = facial_area.x
     y = facial_area.y
@@ -332,6 +374,24 @@ def extract_face(
 
     # extract detected face unaligned
     detected_face = img[int(y) : int(y + h), int(x) : int(x + w)]
+
+    # use opencv if eyes aren't provided by the detector (e.g. ssd, yolo)
+    if detector_backend != "opencv" and (left_eye is None or right_eye is None):
+        default_detector: OpenCv.OpenCvClient = modeling.build_model(
+            task="face_detector", model_name="opencv"
+        )
+        left_eye_new, right_eye_new = default_detector.find_eyes(detected_face)
+        if left_eye is None and left_eye_new is not None:
+            left_eye = (int(left_eye_new[0]) + x, int(left_eye_new[1]) + y)
+            logger.debug(
+                f"left eye wasn't detected by {detector_backend}, overwritten by cv2 - {left_eye}"
+            )
+        if right_eye is None and right_eye_new is not None:
+            right_eye = (int(right_eye_new[0]) + x, int(right_eye_new[1]) + y)
+            logger.debug(
+                f"right eye wasn't detected by {detector_backend}, overwritten by cv2 - {right_eye}"
+            )
+
     # align original image, then find projection of detected face area after alignment
     if align is True:  # and left_eye is not None and right_eye is not None:
         # we were aligning the original image before, but this comes with an extra cost
@@ -394,8 +454,8 @@ def extract_face(
 
 
 def extract_sub_image(
-    img: np.ndarray, facial_area: Tuple[int, int, int, int]
-) -> Tuple[np.ndarray, int, int]:
+    img: NDArray[Any], facial_area: Tuple[int, int, int, int]
+) -> Tuple[NDArray[Any], int, int]:
     """
     Get the sub image with given facial area while expanding the facial region
         to ensure alignment does not shift the face outside the image.
@@ -446,10 +506,10 @@ def extract_sub_image(
 
 
 def align_img_wrt_eyes(
-    img: np.ndarray,
-    left_eye: Optional[Union[list, tuple]],
-    right_eye: Optional[Union[list, tuple]],
-) -> Tuple[np.ndarray, float]:
+    img: NDArray[Any],
+    left_eye: Optional[Union[List[float], List[int], Tuple[float, float], Tuple[int, int]]],
+    right_eye: Optional[Union[List[float], List[int], Tuple[float, float], Tuple[int, int]]],
+) -> Tuple[NDArray[Any], float]:
     """
     Align a given image horizantally with respect to their left and right eye locations
     Args:

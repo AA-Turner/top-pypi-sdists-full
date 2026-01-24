@@ -42,20 +42,29 @@ class V1GetUserResponse(object):
     """
     swagger_types = {
         'agree_to_terms_and_conditions': 'bool',
+        'allow_credits_auto_replenish': 'bool',
         'api_key': 'str',
+        'auto_replenish_amount': 'float',
+        'auto_replenish_threshold': 'float',
         'country': 'str',
+        'disable_shell_persistence': 'bool',
         'email': 'str',
+        'experimentation_id': 'str',
         'features': 'V1UserFeatures',
         'first_name': 'str',
         'general_audience_mode': 'bool',
         'id': 'str',
+        'internal_blog_admin': 'bool',
         'internal_docs_admin': 'bool',
+        'invite_code': 'str',
         'is_internal': 'bool',
         'last_name': 'str',
+        'linux_username': 'str',
         'non_developer_mode': 'bool',
         'opted_in_marketing_emails': 'bool',
         'organization': 'str',
         'organizations': 'list[V1Organization]',
+        'phone_number': 'str',
         'picture_url': 'str',
         'preferred_color_scheme': 'str',
         'preferred_ide': 'str',
@@ -66,7 +75,11 @@ class V1GetUserResponse(object):
         'saw_forums_login_merge_dialog': 'bool',
         'saw_free_credits_notification': 'bool',
         'sb': 'bool',
+        'source': 'str',
         'status': 'Externalv1UserStatus',
+        'storage_bytes': 'str',
+        'storage_overuse_deletion_at': 'datetime',
+        'test_user': 'bool',
         'user_metadata': 'str',
         'username': 'str',
         'waitlisted': 'bool',
@@ -75,20 +88,29 @@ class V1GetUserResponse(object):
 
     attribute_map = {
         'agree_to_terms_and_conditions': 'agreeToTermsAndConditions',
+        'allow_credits_auto_replenish': 'allowCreditsAutoReplenish',
         'api_key': 'apiKey',
+        'auto_replenish_amount': 'autoReplenishAmount',
+        'auto_replenish_threshold': 'autoReplenishThreshold',
         'country': 'country',
+        'disable_shell_persistence': 'disableShellPersistence',
         'email': 'email',
+        'experimentation_id': 'experimentationId',
         'features': 'features',
         'first_name': 'firstName',
         'general_audience_mode': 'generalAudienceMode',
         'id': 'id',
+        'internal_blog_admin': 'internalBlogAdmin',
         'internal_docs_admin': 'internalDocsAdmin',
+        'invite_code': 'inviteCode',
         'is_internal': 'isInternal',
         'last_name': 'lastName',
+        'linux_username': 'linuxUsername',
         'non_developer_mode': 'nonDeveloperMode',
         'opted_in_marketing_emails': 'optedInMarketingEmails',
         'organization': 'organization',
         'organizations': 'organizations',
+        'phone_number': 'phoneNumber',
         'picture_url': 'pictureUrl',
         'preferred_color_scheme': 'preferredColorScheme',
         'preferred_ide': 'preferredIde',
@@ -99,30 +121,43 @@ class V1GetUserResponse(object):
         'saw_forums_login_merge_dialog': 'sawForumsLoginMergeDialog',
         'saw_free_credits_notification': 'sawFreeCreditsNotification',
         'sb': 'sb',
+        'source': 'source',
         'status': 'status',
+        'storage_bytes': 'storageBytes',
+        'storage_overuse_deletion_at': 'storageOveruseDeletionAt',
+        'test_user': 'testUser',
         'user_metadata': 'userMetadata',
         'username': 'username',
         'waitlisted': 'waitlisted',
         'website': 'website'
     }
 
-    def __init__(self, agree_to_terms_and_conditions: 'bool' =None, api_key: 'str' =None, country: 'str' =None, email: 'str' =None, features: 'V1UserFeatures' =None, first_name: 'str' =None, general_audience_mode: 'bool' =None, id: 'str' =None, internal_docs_admin: 'bool' =None, is_internal: 'bool' =None, last_name: 'str' =None, non_developer_mode: 'bool' =None, opted_in_marketing_emails: 'bool' =None, organization: 'str' =None, organizations: 'list[V1Organization]' =None, picture_url: 'str' =None, preferred_color_scheme: 'str' =None, preferred_ide: 'str' =None, preferred_shell: 'str' =None, preferred_vscode_marketplace: 'str' =None, role: 'str' =None, saw_create_first_project_dialog: 'bool' =None, saw_forums_login_merge_dialog: 'bool' =None, saw_free_credits_notification: 'bool' =None, sb: 'bool' =None, status: 'Externalv1UserStatus' =None, user_metadata: 'str' =None, username: 'str' =None, waitlisted: 'bool' =None, website: 'str' =None):  # noqa: E501
+    def __init__(self, agree_to_terms_and_conditions: 'bool' =None, allow_credits_auto_replenish: 'bool' =None, api_key: 'str' =None, auto_replenish_amount: 'float' =None, auto_replenish_threshold: 'float' =None, country: 'str' =None, disable_shell_persistence: 'bool' =None, email: 'str' =None, experimentation_id: 'str' =None, features: 'V1UserFeatures' =None, first_name: 'str' =None, general_audience_mode: 'bool' =None, id: 'str' =None, internal_blog_admin: 'bool' =None, internal_docs_admin: 'bool' =None, invite_code: 'str' =None, is_internal: 'bool' =None, last_name: 'str' =None, linux_username: 'str' =None, non_developer_mode: 'bool' =None, opted_in_marketing_emails: 'bool' =None, organization: 'str' =None, organizations: 'list[V1Organization]' =None, phone_number: 'str' =None, picture_url: 'str' =None, preferred_color_scheme: 'str' =None, preferred_ide: 'str' =None, preferred_shell: 'str' =None, preferred_vscode_marketplace: 'str' =None, role: 'str' =None, saw_create_first_project_dialog: 'bool' =None, saw_forums_login_merge_dialog: 'bool' =None, saw_free_credits_notification: 'bool' =None, sb: 'bool' =None, source: 'str' =None, status: 'Externalv1UserStatus' =None, storage_bytes: 'str' =None, storage_overuse_deletion_at: 'datetime' =None, test_user: 'bool' =None, user_metadata: 'str' =None, username: 'str' =None, waitlisted: 'bool' =None, website: 'str' =None):  # noqa: E501
         """V1GetUserResponse - a model defined in Swagger"""  # noqa: E501
         self._agree_to_terms_and_conditions = None
+        self._allow_credits_auto_replenish = None
         self._api_key = None
+        self._auto_replenish_amount = None
+        self._auto_replenish_threshold = None
         self._country = None
+        self._disable_shell_persistence = None
         self._email = None
+        self._experimentation_id = None
         self._features = None
         self._first_name = None
         self._general_audience_mode = None
         self._id = None
+        self._internal_blog_admin = None
         self._internal_docs_admin = None
+        self._invite_code = None
         self._is_internal = None
         self._last_name = None
+        self._linux_username = None
         self._non_developer_mode = None
         self._opted_in_marketing_emails = None
         self._organization = None
         self._organizations = None
+        self._phone_number = None
         self._picture_url = None
         self._preferred_color_scheme = None
         self._preferred_ide = None
@@ -133,7 +168,11 @@ class V1GetUserResponse(object):
         self._saw_forums_login_merge_dialog = None
         self._saw_free_credits_notification = None
         self._sb = None
+        self._source = None
         self._status = None
+        self._storage_bytes = None
+        self._storage_overuse_deletion_at = None
+        self._test_user = None
         self._user_metadata = None
         self._username = None
         self._waitlisted = None
@@ -141,12 +180,22 @@ class V1GetUserResponse(object):
         self.discriminator = None
         if agree_to_terms_and_conditions is not None:
             self.agree_to_terms_and_conditions = agree_to_terms_and_conditions
+        if allow_credits_auto_replenish is not None:
+            self.allow_credits_auto_replenish = allow_credits_auto_replenish
         if api_key is not None:
             self.api_key = api_key
+        if auto_replenish_amount is not None:
+            self.auto_replenish_amount = auto_replenish_amount
+        if auto_replenish_threshold is not None:
+            self.auto_replenish_threshold = auto_replenish_threshold
         if country is not None:
             self.country = country
+        if disable_shell_persistence is not None:
+            self.disable_shell_persistence = disable_shell_persistence
         if email is not None:
             self.email = email
+        if experimentation_id is not None:
+            self.experimentation_id = experimentation_id
         if features is not None:
             self.features = features
         if first_name is not None:
@@ -155,12 +204,18 @@ class V1GetUserResponse(object):
             self.general_audience_mode = general_audience_mode
         if id is not None:
             self.id = id
+        if internal_blog_admin is not None:
+            self.internal_blog_admin = internal_blog_admin
         if internal_docs_admin is not None:
             self.internal_docs_admin = internal_docs_admin
+        if invite_code is not None:
+            self.invite_code = invite_code
         if is_internal is not None:
             self.is_internal = is_internal
         if last_name is not None:
             self.last_name = last_name
+        if linux_username is not None:
+            self.linux_username = linux_username
         if non_developer_mode is not None:
             self.non_developer_mode = non_developer_mode
         if opted_in_marketing_emails is not None:
@@ -169,6 +224,8 @@ class V1GetUserResponse(object):
             self.organization = organization
         if organizations is not None:
             self.organizations = organizations
+        if phone_number is not None:
+            self.phone_number = phone_number
         if picture_url is not None:
             self.picture_url = picture_url
         if preferred_color_scheme is not None:
@@ -189,8 +246,16 @@ class V1GetUserResponse(object):
             self.saw_free_credits_notification = saw_free_credits_notification
         if sb is not None:
             self.sb = sb
+        if source is not None:
+            self.source = source
         if status is not None:
             self.status = status
+        if storage_bytes is not None:
+            self.storage_bytes = storage_bytes
+        if storage_overuse_deletion_at is not None:
+            self.storage_overuse_deletion_at = storage_overuse_deletion_at
+        if test_user is not None:
+            self.test_user = test_user
         if user_metadata is not None:
             self.user_metadata = user_metadata
         if username is not None:
@@ -222,6 +287,29 @@ class V1GetUserResponse(object):
         self._agree_to_terms_and_conditions = agree_to_terms_and_conditions
 
     @property
+    def allow_credits_auto_replenish(self) -> 'bool':
+        """Gets the allow_credits_auto_replenish of this V1GetUserResponse.  # noqa: E501
+
+        If true, credits will be auto-replenished from the credit card on file.  # noqa: E501
+
+        :return: The allow_credits_auto_replenish of this V1GetUserResponse.  # noqa: E501
+        :rtype: bool
+        """
+        return self._allow_credits_auto_replenish
+
+    @allow_credits_auto_replenish.setter
+    def allow_credits_auto_replenish(self, allow_credits_auto_replenish: 'bool'):
+        """Sets the allow_credits_auto_replenish of this V1GetUserResponse.
+
+        If true, credits will be auto-replenished from the credit card on file.  # noqa: E501
+
+        :param allow_credits_auto_replenish: The allow_credits_auto_replenish of this V1GetUserResponse.  # noqa: E501
+        :type: bool
+        """
+
+        self._allow_credits_auto_replenish = allow_credits_auto_replenish
+
+    @property
     def api_key(self) -> 'str':
         """Gets the api_key of this V1GetUserResponse.  # noqa: E501
 
@@ -241,6 +329,48 @@ class V1GetUserResponse(object):
         """
 
         self._api_key = api_key
+
+    @property
+    def auto_replenish_amount(self) -> 'float':
+        """Gets the auto_replenish_amount of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The auto_replenish_amount of this V1GetUserResponse.  # noqa: E501
+        :rtype: float
+        """
+        return self._auto_replenish_amount
+
+    @auto_replenish_amount.setter
+    def auto_replenish_amount(self, auto_replenish_amount: 'float'):
+        """Sets the auto_replenish_amount of this V1GetUserResponse.
+
+
+        :param auto_replenish_amount: The auto_replenish_amount of this V1GetUserResponse.  # noqa: E501
+        :type: float
+        """
+
+        self._auto_replenish_amount = auto_replenish_amount
+
+    @property
+    def auto_replenish_threshold(self) -> 'float':
+        """Gets the auto_replenish_threshold of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The auto_replenish_threshold of this V1GetUserResponse.  # noqa: E501
+        :rtype: float
+        """
+        return self._auto_replenish_threshold
+
+    @auto_replenish_threshold.setter
+    def auto_replenish_threshold(self, auto_replenish_threshold: 'float'):
+        """Sets the auto_replenish_threshold of this V1GetUserResponse.
+
+
+        :param auto_replenish_threshold: The auto_replenish_threshold of this V1GetUserResponse.  # noqa: E501
+        :type: float
+        """
+
+        self._auto_replenish_threshold = auto_replenish_threshold
 
     @property
     def country(self) -> 'str':
@@ -264,6 +394,27 @@ class V1GetUserResponse(object):
         self._country = country
 
     @property
+    def disable_shell_persistence(self) -> 'bool':
+        """Gets the disable_shell_persistence of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The disable_shell_persistence of this V1GetUserResponse.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_shell_persistence
+
+    @disable_shell_persistence.setter
+    def disable_shell_persistence(self, disable_shell_persistence: 'bool'):
+        """Sets the disable_shell_persistence of this V1GetUserResponse.
+
+
+        :param disable_shell_persistence: The disable_shell_persistence of this V1GetUserResponse.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_shell_persistence = disable_shell_persistence
+
+    @property
     def email(self) -> 'str':
         """Gets the email of this V1GetUserResponse.  # noqa: E501
 
@@ -283,6 +434,27 @@ class V1GetUserResponse(object):
         """
 
         self._email = email
+
+    @property
+    def experimentation_id(self) -> 'str':
+        """Gets the experimentation_id of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The experimentation_id of this V1GetUserResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._experimentation_id
+
+    @experimentation_id.setter
+    def experimentation_id(self, experimentation_id: 'str'):
+        """Sets the experimentation_id of this V1GetUserResponse.
+
+
+        :param experimentation_id: The experimentation_id of this V1GetUserResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._experimentation_id = experimentation_id
 
     @property
     def features(self) -> 'V1UserFeatures':
@@ -369,6 +541,27 @@ class V1GetUserResponse(object):
         self._id = id
 
     @property
+    def internal_blog_admin(self) -> 'bool':
+        """Gets the internal_blog_admin of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The internal_blog_admin of this V1GetUserResponse.  # noqa: E501
+        :rtype: bool
+        """
+        return self._internal_blog_admin
+
+    @internal_blog_admin.setter
+    def internal_blog_admin(self, internal_blog_admin: 'bool'):
+        """Sets the internal_blog_admin of this V1GetUserResponse.
+
+
+        :param internal_blog_admin: The internal_blog_admin of this V1GetUserResponse.  # noqa: E501
+        :type: bool
+        """
+
+        self._internal_blog_admin = internal_blog_admin
+
+    @property
     def internal_docs_admin(self) -> 'bool':
         """Gets the internal_docs_admin of this V1GetUserResponse.  # noqa: E501
 
@@ -388,6 +581,27 @@ class V1GetUserResponse(object):
         """
 
         self._internal_docs_admin = internal_docs_admin
+
+    @property
+    def invite_code(self) -> 'str':
+        """Gets the invite_code of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The invite_code of this V1GetUserResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._invite_code
+
+    @invite_code.setter
+    def invite_code(self, invite_code: 'str'):
+        """Sets the invite_code of this V1GetUserResponse.
+
+
+        :param invite_code: The invite_code of this V1GetUserResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._invite_code = invite_code
 
     @property
     def is_internal(self) -> 'bool':
@@ -430,6 +644,27 @@ class V1GetUserResponse(object):
         """
 
         self._last_name = last_name
+
+    @property
+    def linux_username(self) -> 'str':
+        """Gets the linux_username of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The linux_username of this V1GetUserResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._linux_username
+
+    @linux_username.setter
+    def linux_username(self, linux_username: 'str'):
+        """Sets the linux_username of this V1GetUserResponse.
+
+
+        :param linux_username: The linux_username of this V1GetUserResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._linux_username = linux_username
 
     @property
     def non_developer_mode(self) -> 'bool':
@@ -514,6 +749,27 @@ class V1GetUserResponse(object):
         """
 
         self._organizations = organizations
+
+    @property
+    def phone_number(self) -> 'str':
+        """Gets the phone_number of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The phone_number of this V1GetUserResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._phone_number
+
+    @phone_number.setter
+    def phone_number(self, phone_number: 'str'):
+        """Sets the phone_number of this V1GetUserResponse.
+
+
+        :param phone_number: The phone_number of this V1GetUserResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._phone_number = phone_number
 
     @property
     def picture_url(self) -> 'str':
@@ -726,6 +982,27 @@ class V1GetUserResponse(object):
         self._sb = sb
 
     @property
+    def source(self) -> 'str':
+        """Gets the source of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The source of this V1GetUserResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._source
+
+    @source.setter
+    def source(self, source: 'str'):
+        """Sets the source of this V1GetUserResponse.
+
+
+        :param source: The source of this V1GetUserResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._source = source
+
+    @property
     def status(self) -> 'Externalv1UserStatus':
         """Gets the status of this V1GetUserResponse.  # noqa: E501
 
@@ -745,6 +1022,69 @@ class V1GetUserResponse(object):
         """
 
         self._status = status
+
+    @property
+    def storage_bytes(self) -> 'str':
+        """Gets the storage_bytes of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The storage_bytes of this V1GetUserResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._storage_bytes
+
+    @storage_bytes.setter
+    def storage_bytes(self, storage_bytes: 'str'):
+        """Sets the storage_bytes of this V1GetUserResponse.
+
+
+        :param storage_bytes: The storage_bytes of this V1GetUserResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._storage_bytes = storage_bytes
+
+    @property
+    def storage_overuse_deletion_at(self) -> 'datetime':
+        """Gets the storage_overuse_deletion_at of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The storage_overuse_deletion_at of this V1GetUserResponse.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._storage_overuse_deletion_at
+
+    @storage_overuse_deletion_at.setter
+    def storage_overuse_deletion_at(self, storage_overuse_deletion_at: 'datetime'):
+        """Sets the storage_overuse_deletion_at of this V1GetUserResponse.
+
+
+        :param storage_overuse_deletion_at: The storage_overuse_deletion_at of this V1GetUserResponse.  # noqa: E501
+        :type: datetime
+        """
+
+        self._storage_overuse_deletion_at = storage_overuse_deletion_at
+
+    @property
+    def test_user(self) -> 'bool':
+        """Gets the test_user of this V1GetUserResponse.  # noqa: E501
+
+
+        :return: The test_user of this V1GetUserResponse.  # noqa: E501
+        :rtype: bool
+        """
+        return self._test_user
+
+    @test_user.setter
+    def test_user(self, test_user: 'bool'):
+        """Sets the test_user of this V1GetUserResponse.
+
+
+        :param test_user: The test_user of this V1GetUserResponse.  # noqa: E501
+        :type: bool
+        """
+
+        self._test_user = test_user
 
     @property
     def user_metadata(self) -> 'str':

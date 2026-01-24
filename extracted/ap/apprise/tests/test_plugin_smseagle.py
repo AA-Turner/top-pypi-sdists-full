@@ -129,6 +129,7 @@ apprise_url_tests = (
             "instance": NotifySMSEagle,
             # Our response expected server response
             "requests_response_text": SMSEAGLE_GOOD_RESPONSE,
+            "force_debug": True,
         },
     ),
     # Set priority
@@ -331,7 +332,7 @@ apprise_url_tests = (
         "smseagle://token@localhost/{}".format("4" * 11),
         {
             "instance": NotifySMSEagle,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
             # Our response expected server response
@@ -343,7 +344,7 @@ apprise_url_tests = (
         {
             "instance": NotifySMSEagle,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),

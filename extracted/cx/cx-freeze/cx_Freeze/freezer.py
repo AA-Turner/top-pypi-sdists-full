@@ -27,13 +27,14 @@ from cx_Freeze._compat import (
     IS_CONDA,
     IS_MACOS,
     IS_MINGW,
+    IS_UCRT,
     IS_WINDOWS,
     PYTHON_VERSION,
 )
+from cx_Freeze._license import frozen_license
 from cx_Freeze.common import process_path_specs, resource_path
 from cx_Freeze.dep_parser import ELFParser, Parser, PEParser
-from cx_Freeze.exception import FileError, OptionError
-from cx_Freeze.executable import Executable
+from cx_Freeze.exception import OptionError
 from cx_Freeze.finder import ModuleFinder
 from cx_Freeze.module import ConstantsModule, DistributionCache, Module
 
@@ -41,26 +42,38 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from cx_Freeze._typing import IncludesList, InternalIncludesList
+    from cx_Freeze.executable import Executable
 
 if IS_WINDOWS or IS_MINGW:
-    with suppress(ImportError):
-        from .util import AddIcon, GetSystemDir, GetWindowsDir, UpdateCheckSum
+    from freeze_core.util import (
+        AddIcon,
+        GetSystemDir,
+        GetWindowsDir,
+        UpdateCheckSum,
+    )
+    from freeze_core.winmsvcr import MSVC_FILES, UCRT_FILES
+    from freeze_core.winmsvcr_repack import get_msvcr_files
+
 elif IS_MACOS:
-    from .darwintools import DarwinFile, DarwinFileTracker, MachOReference
+    from cx_Freeze.darwintools import (
+        DarwinFile,
+        DarwinFileTracker,
+        MachOReference,
+    )
 
-__all__ = ["ConstantsModule", "Executable", "Freezer"]
+__all__ = ["Freezer"]
 
-WARNING_PIP_CX_FREEZE_IN_CONDA_PYTHON = """WARNING:
+WARNING_PIP_FREEZE_CORE_IN_CONDA_PYTHON = """WARNING:
 
-    It is not recommended to use cx_Freeze installed from pip with conda \
-python.
-    To install cx_Freeze as conda package (cx_freeze):
-        pip uninstall cx_Freeze
-        conda install conda-forge::cx_freeze
+    It is not recommended to use freeze-core installed using pip in the conda \
+python environment.
+    To install freeze-core as conda package (freeze_core):
+        pip uninstall freeze_core
+        conda install conda-forge::freeze_core
 
-    To fix this issue, refer to the documentation:
+    See why in article 'Using Pip in a Conda Environment':
         \
-https://cx-freeze.readthedocs.io/en/stable/installation.html#conda-forge
+https://www.anaconda.com/blog/using-pip-in-a-conda-environment
 
     On macOS, you should get an error shortly.
 """
@@ -128,8 +141,8 @@ class Freezer:
         self.compress: bool = True if compress is None else compress
         self.optimize: int = int(optimize or 0)
         self.path: list[str] | None = self._validate_path(path)
-        # include-msvcr is used on Windows, but not in MingW
-        self.include_msvcr: bool = IS_WINDOWS and bool(include_msvcr)
+        # include-msvcr is used on Windows and some MSYS2 environments
+        self.include_msvcr: bool = IS_UCRT and bool(include_msvcr)
         self.include_msvcr_version: str | None = include_msvcr_version
         self.target_dir = target_dir
         self.default_bin_includes: list[str] = self._default_bin_includes()
@@ -197,6 +210,15 @@ class Freezer:
                 raise OptionError(msg) from None
         self._targetdir: Path = path
 
+    def _add_license(self) -> None:
+        """Add the freeze-core license file into frozen application."""
+        license_file = frozen_license(self.finder.cache_path)
+        self._copy_file(
+            license_file,
+            self.target_dir / license_file.name,
+            copy_dependent_files=False,
+        )
+
     def _add_resources(self, exe: Executable) -> None:
         """Add resources for an executable, platform dependent."""
         # Copy icon into application. (Overridden on Windows)
@@ -211,9 +233,9 @@ class Freezer:
 
     def _check_installation(self) -> None:
         if IS_CONDA:
-            dist = DistributionCache(self.finder.cache_path, "cx_Freeze")
+            dist = DistributionCache(self.finder.cache_path, "freeze_core")
             if dist.installer == "pip":
-                print(WARNING_PIP_CX_FREEZE_IN_CONDA_PYTHON, file=sys.stderr)
+                print(WARNING_PIP_FREEZE_CORE_IN_CONDA_PYTHON, file=sys.stderr)
 
     def _copy_file(
         self,
@@ -253,12 +275,15 @@ class Freezer:
     def _copy_package_data(self, module: Module, target_dir: Path) -> None:
         """Copy any non-Python files to the target directory."""
         ignore_patterns = [
-            "*.pxd",
+            "*.c",
+            "*.cpp",
+            "*.pxd",  # cython declaration file
+            "*.pxi",  # cython include file
             "*.py",
             "*.pyc",
-            "*.pyi",
+            "*.pyi",  # python stub files
             "*.pyo",
-            "*.pyx",
+            "*.pyx",  # cython source
             "__pycache__",
             "py.typed",
         ]
@@ -349,19 +374,8 @@ class Freezer:
             mode = target_path.stat().st_mode
             target_path.chmod(mode | stat.S_IWUSR)
 
-        # copy a file with a the cx_freeze license into frozen application
-        respath = resource_path("initscripts/frozen_application_license.txt")
-        if respath is None:
-            msg = "Unable to find license for frozen application."
-            raise FileError(msg)
-        self._copy_file(
-            respath.absolute(),
-            self.target_dir / "frozen_application_license.txt",
-            copy_dependent_files=False,
-            include_mode=False,
-        )
-
-        # Add resources like version metadata and icon
+        # Add license and resources like version metadata and icon
+        self._add_license()
         self._add_resources(exe)
 
     @abstractmethod
@@ -525,18 +539,24 @@ class Freezer:
         modules when it differs from the running python built-in modules.
         """
         path = list(map(os.path.normpath, path or sys.path))
-        dynload = resource_path("bases/lib-dynload")
-        if dynload and dynload.is_dir():
-            # add bases/lib-dynload to the finder path, if has modules
+        core_lib = resource_path("lib")
+        if core_lib and core_lib.is_dir():
+            # add freeze-core 'lib' to the finder path, if has modules
             ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
-            if len(list(dynload.glob(f"*{ext_suffix}"))) > 0:
+            if len(list(core_lib.glob(f"*{ext_suffix}"))) > 0:
                 index = 0
                 dest_shared = sysconfig.get_config_var("DESTSHARED")
                 if dest_shared:
                     with suppress(ValueError, IndexError):
                         index = path.index(dest_shared)
                         path.pop(index)
-                path.insert(index, os.path.normpath(dynload))
+                path.insert(index, os.path.normpath(core_lib))
+        # remove setuptools._vendor path
+        path_vendor = os.path.join("setuptools", "_vendor")
+        for index, p in enumerate(path):
+            if p.endswith(path_vendor):
+                path.pop(index)
+                break
         return path
 
     @staticmethod
@@ -1035,8 +1055,6 @@ class WinFreezer(Freezer, PEParser):
 
     def _post_freeze_hook(self) -> None:
         if self.include_msvcr:
-            from cx_Freeze.winmsvcr_repack import get_msvcr_files
-
             # remove MSVC runtime from default excludes
             excludes = set(self.default_bin_excludes)
             runtime = self._runtime_files()
@@ -1054,8 +1072,6 @@ class WinFreezer(Freezer, PEParser):
 
     def _runtime_files(self) -> set[str]:
         """Deal with C-runtime files."""
-        from cx_Freeze.winmsvcr import MSVC_FILES, UCRT_FILES
-
         return [*MSVC_FILES, *UCRT_FILES]
 
     def _default_bin_excludes(self) -> list[str]:
@@ -1151,7 +1167,7 @@ class DarwinFreezer(Freezer, Parser):
 
     def _default_bin_includes(self) -> list[str]:
         python_shared_libs: list[Path] = []
-        # Check for distributed "cx_Freeze/bases/lib/Python"
+        # Check for distributed "freeze_core/lib/Python"
         name = f"Python{ABI_THREAD.upper()}"
         for bin_path in self._default_bin_path_includes():
             fullname = Path(bin_path, name).resolve()
@@ -1179,9 +1195,9 @@ class DarwinFreezer(Freezer, Parser):
 
     def _default_bin_path_includes(self) -> list[str]:
         # use macpython distributed files if available
-        bases_lib = resource_path("bases/lib")
-        if bases_lib:
-            return self._validate_bin_path([bases_lib])
+        core_lib = resource_path("bases/lib")
+        if core_lib:
+            return self._validate_bin_path([core_lib])
         # use default
         return super()._default_bin_path_includes()
 

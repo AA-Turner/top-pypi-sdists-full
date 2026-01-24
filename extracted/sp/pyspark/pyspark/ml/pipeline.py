@@ -25,12 +25,10 @@ from pyspark.ml.util import (
     MLReadable,
     MLWritable,
     JavaMLWriter,
-    JavaMLReader,
     DefaultParamsReader,
     DefaultParamsWriter,
     MLWriter,
     MLReader,
-    JavaMLReadable,
     JavaMLWritable,
     try_remote_read,
     try_remote_write,
@@ -250,11 +248,8 @@ class PipelineReader(MLReader[Pipeline]):
 
     def load(self, path: str) -> Pipeline:
         metadata = DefaultParamsReader.loadMetadata(path, self.sparkSession)
-        if "language" not in metadata["paramMap"] or metadata["paramMap"]["language"] != "Python":
-            return JavaMLReader(cast(Type["JavaMLReadable[Pipeline]"], self.cls)).load(path)
-        else:
-            uid, stages = PipelineSharedReadWrite.load(metadata, self.sparkSession, path)
-            return Pipeline(stages=stages)._resetUid(uid)
+        uid, stages = PipelineSharedReadWrite.load(metadata, self.sparkSession, path)
+        return Pipeline(stages=stages)._resetUid(uid)
 
 
 @inherit_doc
@@ -287,11 +282,8 @@ class PipelineModelReader(MLReader["PipelineModel"]):
 
     def load(self, path: str) -> "PipelineModel":
         metadata = DefaultParamsReader.loadMetadata(path, self.sparkSession)
-        if "language" not in metadata["paramMap"] or metadata["paramMap"]["language"] != "Python":
-            return JavaMLReader(cast(Type["JavaMLReadable[PipelineModel]"], self.cls)).load(path)
-        else:
-            uid, stages = PipelineSharedReadWrite.load(metadata, self.sparkSession, path)
-            return PipelineModel(stages=cast(List[Transformer], stages))._resetUid(uid)
+        uid, stages = PipelineSharedReadWrite.load(metadata, self.sparkSession, path)
+        return PipelineModel(stages=cast(List[Transformer], stages))._resetUid(uid)
 
 
 @inherit_doc
@@ -420,10 +412,11 @@ class PipelineSharedReadWrite:
         """
         stageUids = [stage.uid for stage in stages]
         jsonParams = {"stageUids": stageUids, "language": "Python"}
-        DefaultParamsWriter.saveMetadata(instance, path, sc, paramMap=jsonParams)
+        spark = cast(SparkSession, sc) if hasattr(sc, "createDataFrame") else SparkSession.active()
+        DefaultParamsWriter.saveMetadata(instance, path, spark, paramMap=jsonParams)
         stagesDir = os.path.join(path, "stages")
         for index, stage in enumerate(stages):
-            cast(MLWritable, stage).write().save(
+            cast(MLWritable, stage).write().session(spark).save(
                 PipelineSharedReadWrite.getStagePath(stage.uid, index, len(stages), stagesDir)
             )
 
@@ -443,12 +436,13 @@ class PipelineSharedReadWrite:
         """
         stagesDir = os.path.join(path, "stages")
         stageUids = metadata["paramMap"]["stageUids"]
+        spark = cast(SparkSession, sc) if hasattr(sc, "createDataFrame") else SparkSession.active()
         stages = []
         for index, stageUid in enumerate(stageUids):
             stagePath = PipelineSharedReadWrite.getStagePath(
                 stageUid, index, len(stageUids), stagesDir
             )
-            stage: "PipelineStage" = DefaultParamsReader.loadParamsInstance(stagePath, sc)
+            stage: "PipelineStage" = DefaultParamsReader.loadParamsInstance(stagePath, spark)
             stages.append(stage)
         return (metadata["uid"], stages)
 

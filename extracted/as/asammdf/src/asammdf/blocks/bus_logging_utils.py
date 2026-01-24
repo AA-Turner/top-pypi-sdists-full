@@ -13,7 +13,7 @@ from .conversion_utils import from_dict
 from .utils import as_non_byte_sized_signed_int, MdfException
 
 MAX_VALID_J1939: Final = {
-    2: 1,
+    # 2: 1,     removed (see https://github.com/danielhrisca/asammdf/issues/1237)
     4: 0xA,
     8: 0xFA,
     10: 0x3FA,
@@ -29,7 +29,7 @@ MAX_VALID_J1939: Final = {
 
 def defined_j1939_bit_count(signal: Signal) -> int:
     size = typing.cast(int, signal.size)
-    for defined_size in (2, 4, 8, 10, 12, 16, 20, 24, 28, 32, 64):
+    for defined_size in (4, 8, 10, 12, 16, 20, 24, 28, 32, 64):  # 2 removed (see https://github.com/danielhrisca/asammdf/issues/1237)
         if size <= defined_size:
             return defined_size
     return size

@@ -6,11 +6,11 @@ from typing import ClassVar, Generic, Optional, TypeVar
 from vellum.workflows.nodes.displayable.code_execution_node import CodeExecutionNode
 from vellum.workflows.types.core import JsonObject
 from vellum.workflows.utils.vellum_variables import primitive_type_to_vellum_variable_type
-from vellum_ee.workflows.display.exceptions import NodeValidationError
 from vellum_ee.workflows.display.nodes.base_node_display import BaseNodeDisplay
 from vellum_ee.workflows.display.nodes.utils import raise_if_descriptor
 from vellum_ee.workflows.display.nodes.vellum.utils import create_node_input
 from vellum_ee.workflows.display.types import WorkflowDisplayContext
+from vellum_ee.workflows.display.utils.exceptions import NodeValidationError
 from vellum_ee.workflows.display.utils.expressions import virtual_open
 
 _CodeExecutionNodeType = TypeVar("_CodeExecutionNodeType", bound=CodeExecutionNode)
@@ -25,7 +25,7 @@ def _read_file_from_path_with_virtual_support(node_filepath: str, script_filepat
     full_filepath = os.path.join(node_filepath_dir, normalized_script_filepath)
 
     try:
-        with virtual_open(full_filepath, "r") as file:
+        with virtual_open(full_filepath) as file:
             return file.read()
     except (FileNotFoundError, IsADirectoryError):
         return None

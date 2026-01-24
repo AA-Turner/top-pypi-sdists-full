@@ -12,7 +12,7 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Mapping, Optional, Type, Union
 import uuid
 import itertools
 from collections import defaultdict
@@ -45,7 +45,7 @@ from snakemake.io import (
     contains_wildcard,
 )
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake
+from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )
@@ -430,7 +430,7 @@ class FileRecord(FileRecordInterface):
             except Exception as e:
                 raise WorkflowError(
                     "Error loading caption file {} of output marked for report.".format(
-                        self.raw_caption.get_path_or_uri()
+                        self.raw_caption.get_path_or_uri(secret_free=True)
                     ),
                     e,
                 )
@@ -453,6 +453,26 @@ class FileRecord(FileRecordInterface):
     @property
     def workflow(self):
         return self.job.rule.workflow
+
+
+def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]]):
+    file_records = [
+        res
+        for cat, subcats in results.items()
+        for subcat, catresults in subcats.items()
+        for res in catresults
+    ]
+    full_ids = [rec.id for rec in file_records]
+    shortened_ids = [rec.id[:FILE_HASH_PREFIX_LEN] for rec in file_records]
+    # We only need to check for collisions that appear because of the shortening
+    if len(set(shortened_ids)) != len(set(full_ids)):
+        raise WorkflowError(
+            "Collision detected when shortening report file hashes to 16 characters. "
+            "Please open an issue at https://github.com/snakemake/snakemake/issues/new to request a greater hash length."
+        )
+
+    for rec, short_id in zip(file_records, shortened_ids):
+        rec.id = short_id
 
 
 async def expand_labels(labels, wildcards, job):
@@ -657,6 +677,7 @@ async def auto_report(
                             "See report documentation.",
                             rule=job.rule,
                         )
+    shorten_ids(results)
 
     for subcats in results.values():
         for catresults in subcats.values():
@@ -735,7 +756,7 @@ async def auto_report(
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
-                        dag.workflow.report_text.get_path_or_uri()
+                        dag.workflow.report_text.get_path_or_uri(secret_free=True)
                     ),
                     e,
                 )

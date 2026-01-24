@@ -6,8 +6,8 @@ import functools
 import inspect
 import logging
 import time
-from collections.abc import Awaitable, Iterable
-from typing import Any, Callable
+from collections.abc import Awaitable, Callable, Iterable
+from typing import Any
 
 from procrastinate import (
     app,
@@ -73,13 +73,14 @@ class Worker:
 
         self.worker_id: int | None = None
 
-        self._loop_task: asyncio.Future | None = None
+        self._loop_task: asyncio.Future[Any] | None = None
         self._new_job_event = asyncio.Event()
-        self._running_jobs: dict[asyncio.Task, job_context.JobContext] = {}
+        self._running_jobs: dict[asyncio.Task[Any], job_context.JobContext] = {}
         self._job_semaphore = asyncio.Semaphore(self.concurrency)
         self._stop_event = asyncio.Event()
         self.shutdown_graceful_timeout = shutdown_graceful_timeout
         self._job_ids_to_abort: dict[int, job_context.AbortReason] = dict()
+        self.run_task: asyncio.Task[Any] | None = None
 
     def stop(self):
         if self._stop_event.is_set():
@@ -100,7 +101,7 @@ class Worker:
         )
         return await deferrer.worker()
 
-    def find_task(self, task_name: str) -> tasks.Task:
+    def find_task(self, task_name: str) -> tasks.Task[Any, Any, Any]:
         try:
             return self.app.tasks[task_name]
         except KeyError as exc:
@@ -241,8 +242,8 @@ class Worker:
 
             exc_info: bool | BaseException = False
 
-            async def ensure_async() -> Callable[..., Awaitable]:
-                await_func: Callable[..., Awaitable]
+            async def ensure_async() -> Callable[..., Awaitable[Any]]:
+                await_func: Callable[..., Awaitable[Any]]
                 if inspect.iscoroutinefunction(task.func):
                     await_func = task
                 else:
@@ -453,7 +454,7 @@ class Worker:
 
     def _abort_job(
         self,
-        process_job_task: asyncio.Task,
+        process_job_task: asyncio.Task[Any],
         context: job_context.JobContext,
         reason: job_context.AbortReason,
     ):
@@ -464,7 +465,7 @@ class Worker:
         task = self.app.tasks.get(context.job.task_name)
         if not task:
             log_message = "Received a request to abort a job but the job has no associated task. No action to perform"
-        elif not asyncio.iscoroutinefunction(task.func):
+        elif not inspect.iscoroutinefunction(task.func):
             log_message = "Received a request to abort a synchronous job. Job is responsible for aborting by checking context.should_abort"
         else:
             log_message = "Received a request to abort an asynchronous job. Cancelling asyncio task"
@@ -475,7 +476,7 @@ class Worker:
             extra=self._log_extra(action="abort_job", context=context, job_result=None),
         )
 
-    async def _shutdown(self, side_tasks: list[asyncio.Task]):
+    async def _shutdown(self, side_tasks: list[asyncio.Task[Any]]):
         """
         Gracefully shutdown the worker by cancelling side tasks
         and waiting for all pending jobs.
@@ -530,7 +531,7 @@ class Worker:
 
         await asyncio.gather(*self._running_jobs, return_exceptions=True)
 
-    def _start_side_tasks(self) -> list[asyncio.Task]:
+    def _start_side_tasks(self) -> list[asyncio.Task[Any]]:
         """Start side tasks such as periodic deferrer and notification listener"""
         side_tasks = [
             asyncio.create_task(self._update_heartbeat(), name="update_heartbeats"),
@@ -544,6 +545,39 @@ class Worker:
             )
             side_tasks.append(asyncio.create_task(listener_coro, name="listener"))
         return side_tasks
+
+    async def _monitor_side_tasks(self, side_tasks: list[asyncio.Task[Any]]):
+        """Monitor side tasks and stop the worker if any task fails"""
+        try:
+            done, _pending = await asyncio.wait(
+                side_tasks, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                if exc := task.exception():
+                    self.logger.error(
+                        f"Side task {task.get_name()} failed with exception: {exc}, stopping worker",
+                        extra=self._log_extra(
+                            action="side_task_failed",
+                            context=None,
+                            job_result=None,
+                            task_name=task.get_name(),
+                            exception=str(exc),
+                        ),
+                        exc_info=exc,
+                    )
+                    self.stop()
+                    return
+        except Exception as exc:
+            self.logger.exception(
+                f"Side task monitor failed: {exc}",
+                extra=self._log_extra(
+                    action="side_task_monitor_failed",
+                    context=None,
+                    job_result=None,
+                    exception=str(exc),
+                ),
+            )
+            raise
 
     async def _run_loop(self):
         """
@@ -560,6 +594,9 @@ class Worker:
         self._running_jobs = {}
         self._job_semaphore = asyncio.Semaphore(self.concurrency)
         side_tasks = self._start_side_tasks()
+        side_tasks_monitor = asyncio.create_task(
+            self._monitor_side_tasks(side_tasks), name="side_tasks_monitor"
+        )
 
         context = (
             signals.on_stop(self.stop)
@@ -583,7 +620,7 @@ class Worker:
                     self._stop_event.set()
 
                 while not self._stop_event.is_set():
-                    # wait for a new job notification, a stop even or the next polling interval
+                    # wait for a new job notification, a stop event or the next polling interval
                     await utils.wait_any(
                         self._new_job_event.wait(),
                         asyncio.sleep(self.fetch_job_polling_interval),
@@ -591,4 +628,6 @@ class Worker:
                     )
                     await self._fetch_and_process_jobs()
         finally:
+            if not side_tasks_monitor.done():
+                side_tasks_monitor.cancel()
             await self._shutdown(side_tasks=side_tasks)

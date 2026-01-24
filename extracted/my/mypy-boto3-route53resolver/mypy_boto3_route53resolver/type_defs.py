@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import (
     ActionType,
@@ -50,12 +51,6 @@ from .literals import (
     ValidationType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -265,7 +260,7 @@ class FirewallRuleGroupAssociationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -282,7 +277,7 @@ class ResolverEndpointTypeDef(TypedDict):
     CreatorRequestId: NotRequired[str]
     Arn: NotRequired[str]
     Name: NotRequired[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
     Direction: NotRequired[ResolverEndpointDirectionType]
     IpAddressCount: NotRequired[int]
     HostVPCId: NotRequired[str]
@@ -293,7 +288,9 @@ class ResolverEndpointTypeDef(TypedDict):
     OutpostArn: NotRequired[str]
     PreferredInstanceType: NotRequired[str]
     ResolverEndpointType: NotRequired[ResolverEndpointTypeType]
-    Protocols: NotRequired[List[ProtocolType]]
+    Protocols: NotRequired[list[ProtocolType]]
+    RniEnhancedMetricsEnabled: NotRequired[bool]
+    TargetNameServerMetricsEnabled: NotRequired[bool]
 
 
 class AssociateResolverQueryLogConfigRequestTypeDef(TypedDict):
@@ -826,19 +823,19 @@ class ImportFirewallDomainsResponseTypeDef(TypedDict):
 
 
 class ListFirewallDomainsResponseTypeDef(TypedDict):
-    Domains: List[str]
+    Domains: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFirewallRuleGroupAssociationsResponseTypeDef(TypedDict):
-    FirewallRuleGroupAssociations: List[FirewallRuleGroupAssociationTypeDef]
+    FirewallRuleGroupAssociations: list[FirewallRuleGroupAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -908,7 +905,7 @@ class GetResolverEndpointResponseTypeDef(TypedDict):
 
 class ListResolverEndpointsResponseTypeDef(TypedDict):
     MaxResults: int
-    ResolverEndpoints: List[ResolverEndpointTypeDef]
+    ResolverEndpoints: list[ResolverEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -936,7 +933,7 @@ class GetResolverQueryLogConfigAssociationResponseTypeDef(TypedDict):
 class ListResolverQueryLogConfigAssociationsResponseTypeDef(TypedDict):
     TotalCount: int
     TotalFilteredCount: int
-    ResolverQueryLogConfigAssociations: List[ResolverQueryLogConfigAssociationTypeDef]
+    ResolverQueryLogConfigAssociations: list[ResolverQueryLogConfigAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -958,7 +955,7 @@ class GetResolverRuleAssociationResponseTypeDef(TypedDict):
 
 class ListResolverRuleAssociationsResponseTypeDef(TypedDict):
     MaxResults: int
-    ResolverRuleAssociations: List[ResolverRuleAssociationTypeDef]
+    ResolverRuleAssociations: list[ResolverRuleAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1004,7 +1001,7 @@ class DeleteFirewallRuleResponseTypeDef(TypedDict):
 
 
 class ListFirewallRulesResponseTypeDef(TypedDict):
-    FirewallRules: List[FirewallRuleTypeDef]
+    FirewallRules: list[FirewallRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1030,7 +1027,7 @@ class GetOutpostResolverResponseTypeDef(TypedDict):
 
 
 class ListOutpostResolversResponseTypeDef(TypedDict):
-    OutpostResolvers: List[OutpostResolverTypeDef]
+    OutpostResolvers: list[OutpostResolverTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1051,6 +1048,8 @@ class CreateResolverEndpointRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     ResolverEndpointType: NotRequired[ResolverEndpointTypeType]
     Protocols: NotRequired[Sequence[ProtocolType]]
+    RniEnhancedMetricsEnabled: NotRequired[bool]
+    TargetNameServerMetricsEnabled: NotRequired[bool]
 
 
 class CreateResolverQueryLogConfigResponseTypeDef(TypedDict):
@@ -1071,7 +1070,7 @@ class GetResolverQueryLogConfigResponseTypeDef(TypedDict):
 class ListResolverQueryLogConfigsResponseTypeDef(TypedDict):
     TotalCount: int
     TotalFilteredCount: int
-    ResolverQueryLogConfigs: List[ResolverQueryLogConfigTypeDef]
+    ResolverQueryLogConfigs: list[ResolverQueryLogConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1102,7 +1101,7 @@ class ResolverRuleTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     RuleType: NotRequired[RuleTypeOptionType]
     Name: NotRequired[str]
-    TargetIps: NotRequired[List[TargetAddressTypeDef]]
+    TargetIps: NotRequired[list[TargetAddressTypeDef]]
     ResolverEndpointId: NotRequired[str]
     OwnerId: NotRequired[str]
     ShareStatus: NotRequired[ShareStatusType]
@@ -1157,7 +1156,7 @@ class GetFirewallConfigResponseTypeDef(TypedDict):
 
 
 class ListFirewallConfigsResponseTypeDef(TypedDict):
-    FirewallConfigs: List[FirewallConfigTypeDef]
+    FirewallConfigs: list[FirewallConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1168,13 +1167,13 @@ class UpdateFirewallConfigResponseTypeDef(TypedDict):
 
 
 class ListFirewallDomainListsResponseTypeDef(TypedDict):
-    FirewallDomainLists: List[FirewallDomainListMetadataTypeDef]
+    FirewallDomainLists: list[FirewallDomainListMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFirewallRuleGroupsResponseTypeDef(TypedDict):
-    FirewallRuleGroups: List[FirewallRuleGroupMetadataTypeDef]
+    FirewallRuleGroups: list[FirewallRuleGroupMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1185,7 +1184,7 @@ class GetResolverConfigResponseTypeDef(TypedDict):
 
 
 class ListResolverConfigsResponseTypeDef(TypedDict):
-    ResolverConfigs: List[ResolverConfigTypeDef]
+    ResolverConfigs: list[ResolverConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1201,7 +1200,7 @@ class GetResolverDnssecConfigResponseTypeDef(TypedDict):
 
 
 class ListResolverDnssecConfigsResponseTypeDef(TypedDict):
-    ResolverDnssecConfigs: List[ResolverDnssecConfigTypeDef]
+    ResolverDnssecConfigs: list[ResolverDnssecConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1213,7 +1212,7 @@ class UpdateResolverDnssecConfigResponseTypeDef(TypedDict):
 
 class ListResolverEndpointIpAddressesResponseTypeDef(TypedDict):
     MaxResults: int
-    IpAddresses: List[IpAddressResponseTypeDef]
+    IpAddresses: list[IpAddressResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1309,6 +1308,8 @@ class UpdateResolverEndpointRequestTypeDef(TypedDict):
     ResolverEndpointType: NotRequired[ResolverEndpointTypeType]
     UpdateIpAddresses: NotRequired[Sequence[UpdateIpAddressTypeDef]]
     Protocols: NotRequired[Sequence[ProtocolType]]
+    RniEnhancedMetricsEnabled: NotRequired[bool]
+    TargetNameServerMetricsEnabled: NotRequired[bool]
 
 
 class UpdateResolverRuleRequestTypeDef(TypedDict):
@@ -1333,7 +1334,7 @@ class GetResolverRuleResponseTypeDef(TypedDict):
 
 class ListResolverRulesResponseTypeDef(TypedDict):
     MaxResults: int
-    ResolverRules: List[ResolverRuleTypeDef]
+    ResolverRules: list[ResolverRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

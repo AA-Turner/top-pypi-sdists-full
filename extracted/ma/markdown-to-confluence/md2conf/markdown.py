@@ -1,13 +1,13 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
 
 import xml.etree.ElementTree
-from typing import Any, Optional
+from typing import Any
 
 import markdown
 
@@ -15,11 +15,11 @@ import markdown
 def _emoji_generator(
     index: str,
     shortname: str,
-    alias: Optional[str],
-    uc: Optional[str],
+    alias: str | None,
+    uc: str | None,
     alt: str,
-    title: Optional[str],
-    category: Optional[str],
+    title: str | None,
+    category: str | None,
     options: dict[str, Any],
     md: markdown.Markdown,
 ) -> xml.etree.ElementTree.Element:
@@ -46,9 +46,9 @@ def _verbatim_formatter(
     css_class: str,
     options: dict[str, Any],
     md: markdown.Markdown,
-    classes: Optional[list[str]] = None,
+    classes: list[str] | None = None,
     id_value: str = "",
-    attrs: Optional[dict[str, str]] = None,
+    attrs: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> str:
     """

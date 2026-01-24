@@ -28,17 +28,16 @@ from typing import (
 )
 
 import zenml
-from zenml.config import DockerSettings
 from zenml.config.docker_settings import (
     DockerBuildConfig,
+    DockerBuildOptions,
+    DockerSettings,
     PythonEnvironmentExportMethod,
     PythonPackageInstaller,
 )
 from zenml.constants import (
     ENV_ZENML_CONFIG_PATH,
     ENV_ZENML_ENABLE_REPO_INIT_WARNINGS,
-    ENV_ZENML_LOGGING_COLORS_DISABLED,
-    handle_bool_env_var,
 )
 from zenml.enums import OperatingSystemType
 from zenml.integrations.registry import integration_registry
@@ -86,6 +85,7 @@ class PipelineDockerImageBuilder:
         entrypoint: Optional[str] = None,
         extra_files: Optional[Dict[str, str]] = None,
         code_repository: Optional["BaseCodeRepository"] = None,
+        extra_requirements_files: Dict[str, List[str]] = {},
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Builds (and optionally pushes) a Docker image to run a pipeline.
 
@@ -104,6 +104,10 @@ class PipelineDockerImageBuilder:
                 content or a file path.
             code_repository: The code repository from which files will be
                 downloaded.
+            extra_requirements_files: Extra requirements to install in the
+                Docker image. Each key is the name of a Python requirements file
+                to be created and the value is the list of requirements to be
+                installed.
 
         Returns:
             A tuple (image_digest, dockerfile, requirements):
@@ -171,6 +175,7 @@ class PipelineDockerImageBuilder:
                 include_files,
                 entrypoint,
                 extra_files,
+                extra_requirements_files,
             ]
         )
 
@@ -234,8 +239,7 @@ class PipelineDockerImageBuilder:
             image_name_or_digest = image_builder.build(
                 image_name=user_image_name,
                 build_context=build_context,
-                docker_build_options=build_config.build_options
-                or docker_settings.build_options,
+                docker_build_options=build_config.build_options,
                 container_registry=container_registry if push else None,
             )
 
@@ -278,6 +282,7 @@ class PipelineDockerImageBuilder:
                 docker_settings=docker_settings,
                 stack=stack,
                 code_repository=code_repository,
+                extra_requirements_files=extra_requirements_files,
             )
 
             self._add_requirements_files(
@@ -313,9 +318,12 @@ class PipelineDockerImageBuilder:
                 # The default parent image is static and doesn't require a pull
                 # each time
                 pull_parent_image = False
-            elif docker_settings.dockerfile and not container_registry:
-                # We built a custom parent image and there was no container
-                # registry in the stack to push to, this is a local image
+            elif docker_settings.dockerfile and (
+                not container_registry or image_builder.is_building_locally
+            ):
+                # We built a custom parent image and there was either no
+                # container registry in the stack to push to or the image was
+                # built locally and not pushed, so this is a local image
                 pull_parent_image = False
             elif not image_builder.is_building_locally:
                 # Remote image builders always need to pull the image
@@ -328,11 +336,11 @@ class PipelineDockerImageBuilder:
                     parent_image
                 )
 
-            build_options = {
-                "pull": pull_parent_image,
-                "rm": False,
-                **build_config.build_options,
-            }
+            build_options = build_config.build_options or DockerBuildOptions()
+            build_options.pull = pull_parent_image
+            if build_options.rm is None:
+                build_options.rm = False
+
             dockerfile = self._generate_zenml_pipeline_dockerfile(
                 parent_image=parent_image,
                 docker_settings=docker_settings,
@@ -414,6 +422,7 @@ class PipelineDockerImageBuilder:
         stack: "Stack",
         code_repository: Optional["BaseCodeRepository"] = None,
         log: bool = True,
+        extra_requirements_files: Dict[str, List[str]] = {},
     ) -> List[Tuple[str, str, List[str]]]:
         """Gathers and/or generates pip requirements files.
 
@@ -429,6 +438,10 @@ class PipelineDockerImageBuilder:
             code_repository: The code repository from which files will be
                 downloaded.
             log: If True, will log the requirements.
+            extra_requirements_files: Extra requirements to install in the
+                Docker image. Each key is the name of a Python requirements file
+                to be created and the value is the list of requirements to be
+                installed.
 
         Raises:
             RuntimeError: If the command to export the local python packages
@@ -442,6 +455,7 @@ class PipelineDockerImageBuilder:
             The files will be in the following order:
             - Packages installed in the local Python environment
             - Requirements defined by stack integrations
+            - Extra requirements files
             - Requirements defined by user integrations
             - Requirements exported from a pyproject.toml
             - User-defined requirements
@@ -551,6 +565,17 @@ class PipelineDockerImageBuilder:
                         "- Including stack requirements: %s",
                         ", ".join(f"`{r}`" for r in stack_requirements_list),
                     )
+
+        for filename, extra_requirements in extra_requirements_files.items():
+            requirements_list = sorted(extra_requirements)
+            requirements_file = "\n".join(requirements_list)
+            requirements_files.append((filename, requirements_file, []))
+            if log:
+                logger.info(
+                    "- Including extra requirements from file `%s`: %s",
+                    filename,
+                    ", ".join(f"`{r}`" for r in requirements_list),
+                )
 
         # Generate requirements file for all required integrations
         integration_requirements = set(
@@ -706,10 +731,6 @@ class PipelineDockerImageBuilder:
         """
         lines = [f"FROM {parent_image}", f"WORKDIR {DOCKER_IMAGE_WORKDIR}"]
 
-        # Set color logging to whatever is locally configured
-        lines.append(
-            f"ENV {ENV_ZENML_LOGGING_COLORS_DISABLED}={str(handle_bool_env_var(ENV_ZENML_LOGGING_COLORS_DISABLED, False))}"
-        )
         for key, value in docker_settings.environment.items():
             lines.append(f"ENV {key.upper()}='{value}'")
 
@@ -772,6 +793,9 @@ class PipelineDockerImageBuilder:
             lines.append(f"RUN chown -R {docker_settings.user} .")
             # Switch back to specified user for subsequent instructions
             lines.append(f"USER {docker_settings.user}")
+
+        for key, value in docker_settings.runtime_environment.items():
+            lines.append(f"ENV {key.upper()}='{value}'")
 
         if entrypoint:
             lines.append(f"ENTRYPOINT {entrypoint}")

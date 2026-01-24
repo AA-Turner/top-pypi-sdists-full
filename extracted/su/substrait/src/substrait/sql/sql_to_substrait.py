@@ -1,45 +1,49 @@
 import random
 import string
+from typing import Callable
+
+from deepdiff import DeepDiff
 from sqloxide import parse_sql
+
 from substrait.builders.extended_expression import (
     UnboundExtendedExpression,
-    column,
-    scalar_function,
-    literal,
     aggregate_function,
+    column,
+    literal,
+    scalar_function,
     window_function,
 )
 from substrait.builders.plan import (
-    read_named_table,
-    project,
-    filter,
-    sort,
-    fetch,
-    set,
-    join,
     aggregate,
+    fetch,
+    filter,
+    join,
+    read_named_table,
+    select,
+    set,
+    sort,
 )
-from substrait.gen.proto import type_pb2 as stt
-from substrait.gen.proto import algebra_pb2 as stalg
 from substrait.extension_registry import ExtensionRegistry
-from typing import Callable
-from deepdiff import DeepDiff
+from substrait.gen.proto import algebra_pb2 as stalg
+from substrait.gen.proto import type_pb2 as stt
 
 SchemaResolver = Callable[[str], stt.NamedStruct]
 
 function_mapping = {
-    "Plus": ("functions_arithmetic.yaml", "add"),
-    "Minus": ("functions_arithmetic.yaml", "subtract"),
-    "Gt": ("functions_comparison.yaml", "gt"),
-    "GtEq": ("functions_comparison.yaml", "gte"),
-    "Lt": ("functions_comparison.yaml", "lt"),
-    "Eq": ("functions_comparison.yaml", "equal"),
+    "Plus": ("extension:io.substrait:functions_arithmetic", "add"),
+    "Minus": ("extension:io.substrait:functions_arithmetic", "subtract"),
+    "Gt": ("extension:io.substrait:functions_comparison", "gt"),
+    "GtEq": ("extension:io.substrait:functions_comparison", "gte"),
+    "Lt": ("extension:io.substrait:functions_comparison", "lt"),
+    "Eq": ("extension:io.substrait:functions_comparison", "equal"),
 }
 
-aggregate_function_mapping = {"SUM": ("functions_arithmetic.yaml", "sum")}
+aggregate_function_mapping = {
+    "SUM": ("extension:io.substrait:functions_arithmetic", "sum")
+}
 
 window_function_mapping = {
-    "row_number": ("functions_arithmetic.yaml", "row_number"),
+    "row_number": ("extension:io.substrait:functions_arithmetic", "row_number"),
 }
 
 
@@ -307,7 +311,7 @@ def translate(ast: dict, schema_resolver: SchemaResolver, registry: ExtensionReg
         if having_predicate:
             relation = filter(relation, having_predicate)(registry)
 
-        return project(relation, expressions=projection)(registry)
+        return select(relation, expressions=projection)(registry)
     elif op == "Table":
         name = ast["name"][0]["Identifier"]["value"]
         return read_named_table(name, schema_resolver(name))
@@ -333,7 +337,13 @@ def translate(ast: dict, schema_resolver: SchemaResolver, registry: ExtensionReg
         raise Exception(f"Unknown op {op}")
 
 
-def convert(query: str, dialect: str, schema_resolver: SchemaResolver):
+def convert(
+    query: str,
+    dialect: str,
+    schema_resolver: SchemaResolver,
+    registry: ExtensionRegistry = None,
+):
     ast = parse_sql(sql=query, dialect=dialect)[0]
-    registry = ExtensionRegistry(load_default_extensions=True)
+    if not registry:
+        registry = ExtensionRegistry(load_default_extensions=True)
     return translate(ast, schema_resolver=schema_resolver, registry=registry)

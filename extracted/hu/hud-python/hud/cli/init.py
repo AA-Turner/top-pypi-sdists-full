@@ -14,24 +14,29 @@ import typer
 
 from hud.utils.hud_console import HUDConsole
 
-# Presets mapping to environment folders in public SDK repo
+# Presets mapping to public GitHub repositories under hud-evals org
 GITHUB_OWNER = "hud-evals"
-GITHUB_REPO = "hud-python"
 GITHUB_BRANCH = "main"
 
 PRESET_MAP: dict[str, str | None] = {
-    "blank": "blank",
-    "deep-research": "deepresearch",
-    "browser": "browser",
+    "blank": "hud-blank",
+    "deep-research": "hud-deepresearch",
+    "browser": "hud-browser",
+    "rubrics": "hud-rubrics",
+    "verilog-coding-template": "verilog-coding-template",
+    "data-science-template": "data-science-template",
 }
 
 SKIP_DIR_NAMES = {"node_modules", "__pycache__", "dist", "build", ".next", ".git"}
 
 # Files that need placeholder replacement
 PLACEHOLDER_FILES = {
-    "pyproject.toml",
+    "server/pyproject.toml",
+    "environment/pyproject.toml",
+    "server/main.py",
+    "server/README.md",
+    "environment/README.md",
     "tasks.json",
-    "src/controller/server.py",
     "test_env.ipynb",
     "README.md",
 }
@@ -48,7 +53,7 @@ def _replace_placeholders(target_dir: Path, env_name: str) -> list[str]:
         List of files that were modified
     """
     modified_files = []
-    placeholder = "test_test"
+    placeholder = "blank"  # Placeholder used in blank environment template
 
     # Normalize environment name for use in code/configs
     # Replace spaces and special chars with underscores for Python identifiers
@@ -86,8 +91,11 @@ def _prompt_for_preset() -> str:
     try:
         choices = [
             {"name": "blank", "message": "blank"},
-            {"name": "deep-research", "message": "deep-research"},
             {"name": "browser", "message": "browser"},
+            {"name": "deep-research", "message": "deep-research"},
+            {"name": "rubrics", "message": "rubrics"},
+            {"name": "verilog-coding-template", "message": "verilog-coding-template"},
+            {"name": "data-science-template", "message": "data-science-template"},
         ]
         display_choices = [c["message"] for c in choices]
         selected = questionary.select(
@@ -103,10 +111,10 @@ def _prompt_for_preset() -> str:
         return "blank"
 
 
-def _download_tarball_subdir(
-    owner: str, repo: str, ref: str, subdir: str, dest_dir: Path, files_created: list[str]
+def _download_tarball_repo(
+    owner: str, repo: str, ref: str, dest_dir: Path, files_created: list[str]
 ) -> None:
-    """Download a GitHub tarball and extract only a subdirectory."""
+    """Download a GitHub tarball and extract the entire repository."""
     tarball_url = f"https://codeload.github.com/{owner}/{repo}/tar.gz/{ref}"
 
     token = os.getenv("GITHUB_TOKEN")
@@ -135,16 +143,17 @@ def _download_tarball_subdir(
             if not members:
                 return
             top = members[0].name.split("/", 1)[0]
-            target_prefix = f"{top}/environments/{subdir.strip('/')}"
 
             for member in members:
                 name = member.name
-                if not (name == target_prefix or name.startswith(target_prefix + "/")):
+                if name == top:
                     continue
 
-                rel_path = name[len(target_prefix) :].lstrip("/")
+                if not name.startswith(top + "/"):
+                    continue
+
+                rel_path = name[len(top) + 1 :]
                 if not rel_path:
-                    dest_dir.mkdir(parents=True, exist_ok=True)
                     continue
 
                 out_path = (dest_dir / rel_path).resolve()
@@ -177,21 +186,21 @@ def create_environment(
 
     hud_console = HUDConsole()
 
-    # Determine environment name/target directory
-    if name is None:
-        current_dir = Path.cwd()
-        name = current_dir.name
-        target_dir = current_dir
-        hud_console.info(f"Using current directory name: {name}")
-    else:
-        target_dir = Path(directory) / name
-
     # Choose preset
     preset_normalized = (preset or "").strip().lower() if preset else _prompt_for_preset()
+
+    # If no name is provided, use the preset name as the environment name
+    if name is None:
+        name = preset_normalized
+        hud_console.info(f"Using preset name as environment name: {name}")
+
+    # Always create a new directory based on the name
+    target_dir = Path.cwd() / name if directory == "." else Path(directory) / name
+
     if preset_normalized not in PRESET_MAP:
+        available = ", ".join(sorted(PRESET_MAP.keys()))
         hud_console.warning(
-            f"Unknown preset '{preset_normalized}', defaulting to 'blank' "
-            "(available: blank, deep-research, browser)"
+            f"Unknown preset '{preset_normalized}', defaulting to 'blank' (available: {available})"
         )
         preset_normalized = "blank"
 
@@ -205,17 +214,14 @@ def create_environment(
             hud_console.warning(f"Overwriting existing files in {target_dir}")
 
     # Download preset from GitHub
-    env_folder = PRESET_MAP[preset_normalized]
-    if env_folder is None:
-        hud_console.error("Internal error: preset mapping missing folder name")
+    repo_name = PRESET_MAP[preset_normalized]
+    if repo_name is None:
+        hud_console.error("Internal error: preset mapping missing repo name")
         raise typer.Exit(1)
 
     hud_console.header(f"Initializing HUD Environment: {name} (preset: {preset_normalized})")
-    hud_console.section_title("Downloading template from public SDK")
-    source_url = (
-        f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/tree/"
-        f"{GITHUB_BRANCH}/environments/{env_folder}"
-    )
+    hud_console.section_title("Downloading template from GitHub")
+    source_url = f"https://github.com/{GITHUB_OWNER}/{repo_name}"
     hud_console.info("Source: " + source_url)
 
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -223,11 +229,10 @@ def create_environment(
     started = time.time()
     files_created_dl: list[str] = []
     try:
-        _download_tarball_subdir(
+        _download_tarball_repo(
             owner=GITHUB_OWNER,
-            repo=GITHUB_REPO,
+            repo=repo_name,
             ref=GITHUB_BRANCH,
-            subdir=env_folder,
             dest_dir=target_dir,
             files_created=files_created_dl,
         )
@@ -240,31 +245,28 @@ def create_environment(
         f"Downloaded {len(files_created_dl)} files in {duration_ms} ms into {target_dir}"
     )
 
-    # Replace placeholders in template files
-    hud_console.section_title("Customizing template files")
-    modified_files = _replace_placeholders(target_dir, name)
-    if modified_files:
-        hud_console.success(f"Replaced placeholders in {len(modified_files)} files:")
-        for file in modified_files[:5]:  # Show first 5 files
-            hud_console.status_item(file, "updated")
-        if len(modified_files) > 5:
-            hud_console.info(f"... and {len(modified_files) - 5} more files")
-    else:
-        hud_console.info("No placeholder replacements needed")
+    # Replace placeholders in template files (only for blank preset)
+    if preset_normalized == "blank":
+        hud_console.section_title("Customizing template files")
+        modified_files = _replace_placeholders(target_dir, name)
+        if modified_files:
+            hud_console.success(f"Replaced placeholders in {len(modified_files)} files:")
+            for file in modified_files[:5]:  # Show first 5 files
+                hud_console.status_item(file, "updated")
+            if len(modified_files) > 5:
+                hud_console.info(f"... and {len(modified_files) - 5} more files")
+        else:
+            hud_console.info("No placeholder replacements needed")
 
     hud_console.section_title("Top-level files and folders")
     for entry in sorted(os.listdir(target_dir)):
         hud_console.status_item(entry, "added")
 
     hud_console.section_title("Next steps")
-    if target_dir == Path.cwd():
-        hud_console.info("1. Start development server (with MCP inspector):")
-        hud_console.command_example("hud dev --inspector")
-    else:
-        hud_console.info("1. Enter the directory:")
-        hud_console.command_example(f"cd {target_dir}")
-        hud_console.info("\n2. Start development server (with MCP inspector):")
-        hud_console.command_example("hud dev --inspector")
-
+    # Since we now almost always create a new directory, show cd command
+    hud_console.info("1. Enter the directory:")
+    hud_console.command_example(f"cd {target_dir.name}")
+    hud_console.info("\n2. Start development server (with MCP inspector):")
+    hud_console.command_example("hud dev --inspector")
     hud_console.info("\n3. Review the README in this preset for specific instructions.")
     hud_console.info("\n4. Customize as needed.")

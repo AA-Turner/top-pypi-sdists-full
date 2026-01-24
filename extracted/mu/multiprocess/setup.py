@@ -2,7 +2,7 @@
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
 # Copyright (c) 2008-2016 California Institute of Technology.
-# Copyright (c) 2016-2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2016-2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/multiprocess/blob/master/LICENSE
 #
@@ -16,8 +16,8 @@ import os
 import sys
 import glob
 # drop support for older python
-if sys.version_info < (3, 8):
-    unsupported = 'Versions of Python before 3.8 are not supported'
+if sys.version_info < (3, 9):
+    unsupported = 'Versions of Python before 3.9 are not supported'
     raise ValueError(unsupported)
 
 #is_jython = sys.platform.startswith('java')
@@ -217,7 +217,7 @@ class BinaryDistribution(Distribution):
         return True
 
 # define dependencies
-dill_version = 'dill>=0.4.0'
+dill_version = 'dill>=0.4.1'
 
 def run_setup(with_extensions=True):
     extensions = []
@@ -255,19 +255,19 @@ def run_setup(with_extensions=True):
             'Source Code':'https://github.com/uqfoundation/multiprocess',
             'Bug Tracker':'https://github.com/uqfoundation/multiprocess/issues',
         },
-        python_requires = '>=3.8',
+        python_requires = '>=3.9',
         classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Intended Audience :: Developers',
             'Intended Audience :: Science/Research',
             'License :: OSI Approved :: BSD License',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
             'Programming Language :: Python :: 3.13',
+            'Programming Language :: Python :: 3.14',
             'Programming Language :: Python :: Implementation :: CPython',
             'Programming Language :: Python :: Implementation :: PyPy',
             'Topic :: Scientific/Engineering',

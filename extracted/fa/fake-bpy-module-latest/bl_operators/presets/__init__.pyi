@@ -52,14 +52,12 @@ class AddPresetCamera(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetCameraSafeAreas(AddPresetBase, _bpy_types.Operator):
@@ -79,14 +77,12 @@ class AddPresetCameraSafeAreas(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetCloth(AddPresetBase, _bpy_types.Operator):
@@ -106,14 +102,12 @@ class AddPresetCloth(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetColorManagementWhiteBalance(AddPresetBase, _bpy_types.Operator):
@@ -133,14 +127,12 @@ class AddPresetColorManagementWhiteBalance(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetEEVEERaytracing(AddPresetBase, _bpy_types.Operator):
@@ -160,14 +152,12 @@ class AddPresetEEVEERaytracing(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetFluid(AddPresetBase, _bpy_types.Operator):
@@ -187,14 +177,12 @@ class AddPresetFluid(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetGpencilBrush(AddPresetBase, _bpy_types.Operator):
@@ -214,14 +202,12 @@ class AddPresetGpencilBrush(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetGpencilMaterial(AddPresetBase, _bpy_types.Operator):
@@ -241,14 +227,12 @@ class AddPresetGpencilMaterial(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetHairDynamics(AddPresetBase, _bpy_types.Operator):
@@ -268,14 +252,12 @@ class AddPresetHairDynamics(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
@@ -293,14 +275,12 @@ class AddPresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def post_cb(self, context, filepath) -> None:
@@ -332,14 +312,12 @@ class AddPresetKeyconfig(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetNodeColor(AddPresetBase, _bpy_types.Operator):
@@ -359,14 +337,12 @@ class AddPresetNodeColor(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetOperator(AddPresetBase, _bpy_types.Operator):
@@ -386,14 +362,12 @@ class AddPresetOperator(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @staticmethod
@@ -420,14 +394,12 @@ class AddPresetRender(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetTextEditor(AddPresetBase, _bpy_types.Operator):
@@ -447,14 +419,12 @@ class AddPresetTextEditor(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetTrackingCamera(AddPresetBase, _bpy_types.Operator):
@@ -474,14 +444,12 @@ class AddPresetTrackingCamera(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetTrackingSettings(AddPresetBase, _bpy_types.Operator):
@@ -501,14 +469,12 @@ class AddPresetTrackingSettings(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class AddPresetTrackingTrackColor(AddPresetBase, _bpy_types.Operator):
@@ -528,14 +494,12 @@ class AddPresetTrackingTrackColor(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class ExecutePreset(_bpy_types.Operator):
@@ -550,14 +514,12 @@ class ExecutePreset(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -581,14 +543,12 @@ class RemovePresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def invoke(self, context, event) -> None:
@@ -620,14 +580,12 @@ class RemovePresetKeyconfig(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def invoke(self, context, event) -> None:
@@ -665,14 +623,12 @@ class SavePresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -699,14 +655,12 @@ class WM_MT_operator_presets(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -727,14 +681,12 @@ class WM_OT_operator_presets_cleanup(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -758,14 +710,12 @@ class WM_PT_operator_presets(bl_ui.utils.PresetPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

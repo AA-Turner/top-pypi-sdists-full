@@ -13,6 +13,11 @@ metadata = {
     "orders": ["id", "ordered_date", "status"],
     "select": ["id", "insert", "ABC"],
     "réveillé": ["id", "insert", "ABC"],
+    "time_zone": ["Time_zone_id"],
+    "time_zone_leap_second": ["Time_zone_id"],
+    "time_zone_name": ["Time_zone_id"],
+    "time_zone_transition": ["Time_zone_id"],
+    "time_zone_transition_type": ["Time_zone_id"],
 }
 
 
@@ -32,6 +37,7 @@ def completer():
     comp.extend_schemata("test")
     comp.extend_relations(tables, kind="tables")
     comp.extend_columns(columns, kind="tables")
+    comp.extend_enum_values([("orders", "status", ["pending", "shipped"])])
     comp.extend_special_commands(special.COMMANDS)
 
     return comp
@@ -55,14 +61,23 @@ def test_empty_string_completion(completer, complete_event):
     text = ""
     position = 0
     result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
-    assert list(map(Completion, completer.keywords + completer.special_commands)) == result
+    assert list(map(Completion, completer.special_commands + completer.keywords)) == result
 
 
 def test_select_keyword_completion(completer, complete_event):
     text = "SEL"
     position = len("SEL")
     result = completer.get_completions(Document(text=text, cursor_position=position), complete_event)
-    assert list(result) == [Completion(text="SELECT", start_position=-3)]
+    assert list(result) == [
+        Completion(text='SELECT', start_position=-3),
+        Completion(text='SERIAL', start_position=-3),
+        Completion(text='MASTER_LOG_FILE', start_position=-3),
+        Completion(text='MASTER_LOG_POS', start_position=-3),
+        Completion(text='MASTER_TLS_CIPHERSUITES', start_position=-3),
+        Completion(text='MASTER_TLS_VERSION', start_position=-3),
+        Completion(text='SCHEDULE', start_position=-3),
+        Completion(text='SERIALIZABLE', start_position=-3),
+    ]
 
 
 def test_select_star(completer, complete_event):
@@ -81,6 +96,21 @@ def test_table_completion(completer, complete_event):
         Completion(text="orders", start_position=0),
         Completion(text="`select`", start_position=0),
         Completion(text="`réveillé`", start_position=0),
+        Completion(text="time_zone", start_position=0),
+        Completion(text="time_zone_leap_second", start_position=0),
+        Completion(text="time_zone_name", start_position=0),
+        Completion(text="time_zone_transition", start_position=0),
+        Completion(text="time_zone_transition_type", start_position=0),
+    ]
+
+
+def test_enum_value_completion(completer, complete_event):
+    text = "SELECT * FROM orders WHERE status = "
+    position = len(text)
+    result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
+    assert result == [
+        Completion(text="'pending'", start_position=0),
+        Completion(text="'shipped'", start_position=0),
     ]
 
 
@@ -89,15 +119,76 @@ def test_function_name_completion(completer, complete_event):
     position = len("SELECT MA")
     result = completer.get_completions(Document(text=text, cursor_position=position), complete_event)
     assert list(result) == [
-        Completion(text="MAX", start_position=-2),
-        Completion(text="CHANGE MASTER TO", start_position=-2),
-        Completion(text="CURRENT_TIMESTAMP", start_position=-2),
-        Completion(text="DECIMAL", start_position=-2),
-        Completion(text="FORMAT", start_position=-2),
-        Completion(text="MASTER", start_position=-2),
-        Completion(text="PRIMARY", start_position=-2),
-        Completion(text="ROW_FORMAT", start_position=-2),
-        Completion(text="SMALLINT", start_position=-2),
+        Completion(text='MAX', start_position=-2),
+        Completion(text='MAKE_SET', start_position=-2),
+        Completion(text='MAKEDATE', start_position=-2),
+        Completion(text='MAKETIME', start_position=-2),
+        Completion(text='MASTER_POS_WAIT', start_position=-2),
+        Completion(text='MATCH', start_position=-2),
+        Completion(text='MASTER', start_position=-2),
+        Completion(text='MAX_ROWS', start_position=-2),
+        Completion(text='MAX_SIZE', start_position=-2),
+        Completion(text='MAXVALUE', start_position=-2),
+        Completion(text='MASTER_SSL', start_position=-2),
+        Completion(text='MASTER_BIND', start_position=-2),
+        Completion(text='MASTER_HOST', start_position=-2),
+        Completion(text='MASTER_PORT', start_position=-2),
+        Completion(text='MASTER_USER', start_position=-2),
+        Completion(text='MASTER_DELAY', start_position=-2),
+        Completion(text='MASTER_SSL_CA', start_position=-2),
+        Completion(text='MASTER_LOG_POS', start_position=-2),
+        Completion(text='MASTER_SSL_CRL', start_position=-2),
+        Completion(text='MASTER_SSL_KEY', start_position=-2),
+        Completion(text='MASTER_LOG_FILE', start_position=-2),
+        Completion(text='MASTER_PASSWORD', start_position=-2),
+        Completion(text='MASTER_SSL_CERT', start_position=-2),
+        Completion(text='MASTER_SSL_CAPATH', start_position=-2),
+        Completion(text='MASTER_SSL_CIPHER', start_position=-2),
+        Completion(text='MASTER_RETRY_COUNT', start_position=-2),
+        Completion(text='MASTER_SSL_CRLPATH', start_position=-2),
+        Completion(text='MASTER_TLS_VERSION', start_position=-2),
+        Completion(text='MASTER_AUTO_POSITION', start_position=-2),
+        Completion(text='MASTER_CONNECT_RETRY', start_position=-2),
+        Completion(text='MAX_QUERIES_PER_HOUR', start_position=-2),
+        Completion(text='MAX_UPDATES_PER_HOUR', start_position=-2),
+        Completion(text='MAX_USER_CONNECTIONS', start_position=-2),
+        Completion(text='MASTER_PUBLIC_KEY_PATH', start_position=-2),
+        Completion(text='MASTER_HEARTBEAT_PERIOD', start_position=-2),
+        Completion(text='MASTER_TLS_CIPHERSUITES', start_position=-2),
+        Completion(text='MAX_CONNECTIONS_PER_HOUR', start_position=-2),
+        Completion(text='MASTER_COMPRESSION_ALGORITHMS', start_position=-2),
+        Completion(text='MASTER_SSL_VERIFY_SERVER_CERT', start_position=-2),
+        Completion(text='MASTER_ZSTD_COMPRESSION_LEVEL', start_position=-2),
+        Completion(text='DECIMAL', start_position=-2),
+        Completion(text='SMALLINT', start_position=-2),
+        Completion(text='TIMESTAMP', start_position=-2),
+        Completion(text='COLUMN_FORMAT', start_position=-2),
+        Completion(text='COLUMN_NAME', start_position=-2),
+        Completion(text='COMPACT', start_position=-2),
+        Completion(text='CONSTRAINT_SCHEMA', start_position=-2),
+        Completion(text='CURRENT_TIMESTAMP', start_position=-2),
+        Completion(text='FORMAT', start_position=-2),
+        Completion(text='GET_FORMAT', start_position=-2),
+        Completion(text='GET_MASTER_PUBLIC_KEY', start_position=-2),
+        Completion(text='LOCALTIMESTAMP', start_position=-2),
+        Completion(text='MESSAGE_TEXT', start_position=-2),
+        Completion(text='MIGRATE', start_position=-2),
+        Completion(text='NETWORK_NAMESPACE', start_position=-2),
+        Completion(text='PRIMARY', start_position=-2),
+        Completion(text='REQUIRE_ROW_FORMAT', start_position=-2),
+        Completion(text='REQUIRE_TABLE_PRIMARY_KEY_CHECK', start_position=-2),
+        Completion(text='ROW_FORMAT', start_position=-2),
+        Completion(text='SCHEMA', start_position=-2),
+        Completion(text='SCHEMA_NAME', start_position=-2),
+        Completion(text='SCHEMAS', start_position=-2),
+        Completion(text='SQL_SMALL_RESULT', start_position=-2),
+        Completion(text='TEMPORARY', start_position=-2),
+        Completion(text='TEMPTABLE', start_position=-2),
+        Completion(text='TERMINATED', start_position=-2),
+        Completion(text='TIMESTAMPADD', start_position=-2),
+        Completion(text='TIMESTAMPDIFF', start_position=-2),
+        Completion(text='UTC_TIMESTAMP', start_position=-2),
+        Completion(text='CHANGE MASTER TO', start_position=-2),
     ]
 
 
@@ -304,6 +395,45 @@ def test_table_names_after_from(completer, complete_event):
         Completion(text="orders", start_position=0),
         Completion(text="`select`", start_position=0),
         Completion(text="`réveillé`", start_position=0),
+        Completion(text="time_zone", start_position=0),
+        Completion(text="time_zone_leap_second", start_position=0),
+        Completion(text="time_zone_name", start_position=0),
+        Completion(text="time_zone_transition", start_position=0),
+        Completion(text="time_zone_transition_type", start_position=0),
+    ]
+
+
+def test_table_names_leading_partial(completer, complete_event):
+    text = "SELECT * FROM time_zone"
+    position = len("SELECT * FROM time_zone")
+    result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
+    assert result == [
+        Completion(text="time_zone", start_position=-9),
+        Completion(text="time_zone_name", start_position=-9),
+        Completion(text="time_zone_transition", start_position=-9),
+        Completion(text="time_zone_leap_second", start_position=-9),
+        Completion(text="time_zone_transition_type", start_position=-9),
+    ]
+
+
+def test_table_names_inter_partial(completer, complete_event):
+    text = "SELECT * FROM time_leap"
+    position = len("SELECT * FROM time_leap")
+    result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
+    assert result == [
+        Completion(text="time_zone_leap_second", start_position=-9),
+        Completion(text='time_zone_name', start_position=-9),
+        Completion(text='time_zone_transition', start_position=-9),
+        Completion(text='time_zone_transition_type', start_position=-9),
+    ]
+
+
+def test_table_names_fuzzy(completer, complete_event):
+    text = "SELECT * FROM tim_leap"
+    position = len("SELECT * FROM tim_leap")
+    result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
+    assert result == [
+        Completion(text="time_zone_leap_second", start_position=-8),
     ]
 
 
@@ -315,7 +445,7 @@ def test_auto_escaped_col_names(completer, complete_event):
         Completion(text="*", start_position=0),
         Completion(text="id", start_position=0),
         Completion(text="`insert`", start_position=0),
-        Completion(text="`ABC`", start_position=0),
+        Completion(text="ABC", start_position=0),
     ] + list(map(Completion, completer.functions)) + [Completion(text="select", start_position=0)] + list(
         map(Completion, completer.keywords)
     )
@@ -330,12 +460,44 @@ def test_un_escaped_table_names(completer, complete_event):
             Completion(text="*", start_position=0),
             Completion(text="id", start_position=0),
             Completion(text="`insert`", start_position=0),
-            Completion(text="`ABC`", start_position=0),
+            Completion(text="ABC", start_position=0),
         ]
         + list(map(Completion, completer.functions))
         + [Completion(text="réveillé", start_position=0)]
         + list(map(Completion, completer.keywords))
     )
+
+
+# todo: the fixtures are insufficient; the database name should also appear in the result
+def test_grant_on_suggets_tables_and_schemata(completer, complete_event):
+    text = "GRANT ALL ON "
+    position = len(text)
+    result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
+    assert result == [
+        Completion(text='users', start_position=0),
+        Completion(text='orders', start_position=0),
+        Completion(text='`select`', start_position=0),
+        Completion(text='`réveillé`', start_position=0),
+        Completion(text='time_zone', start_position=0),
+        Completion(text='time_zone_leap_second', start_position=0),
+        Completion(text='time_zone_name', start_position=0),
+        Completion(text='time_zone_transition', start_position=0),
+        Completion(text='time_zone_transition_type', start_position=0),
+    ]
+
+
+# todo: this test belongs more logically in test_naive_completion.py, but it didn't work there:
+#       multiple completion candidates were not suggested.
+def test_deleted_keyword_completion(completer, complete_event):
+    text = "exi"
+    position = len("exi")
+    result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
+    assert result == [
+        Completion(text="exit", start_position=-3),
+        Completion(text='exists', start_position=-3),
+        Completion(text='expire', start_position=-3),
+        Completion(text='explain', start_position=-3),
+    ]
 
 
 def dummy_list_path(dir_name):

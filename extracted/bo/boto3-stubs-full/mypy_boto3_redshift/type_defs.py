@@ -3,7 +3,7 @@ Type annotations for redshift service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,11 +17,13 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import (
     ActionTypeType,
+    ApplicationTypeType,
     AquaConfigurationStatusType,
     AquaStatusType,
     AuthorizationStatusType,
@@ -30,6 +32,8 @@ from .literals import (
     DataShareStatusType,
     DescribeIntegrationsFilterNameType,
     ImpactRankingTypeType,
+    LakehouseIdcRegistrationType,
+    LakehouseRegistrationType,
     LogDestinationTypeType,
     ModeType,
     NamespaceRegistrationStatusType,
@@ -57,12 +61,6 @@ from .literals import (
     ZeroETLIntegrationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -119,6 +117,7 @@ __all__ = (
     "ClusterVersionTypeDef",
     "ClusterVersionsMessageTypeDef",
     "ClustersMessageTypeDef",
+    "ConnectTypeDef",
     "CopyClusterSnapshotMessageTypeDef",
     "CopyClusterSnapshotResultTypeDef",
     "CreateAuthenticationProfileMessageTypeDef",
@@ -301,6 +300,8 @@ __all__ = (
     "FailoverPrimaryComputeResultTypeDef",
     "GetClusterCredentialsMessageTypeDef",
     "GetClusterCredentialsWithIAMMessageTypeDef",
+    "GetIdentityCenterAuthTokenRequestTypeDef",
+    "GetIdentityCenterAuthTokenResponseTypeDef",
     "GetReservedNodeExchangeConfigurationOptionsInputMessagePaginateTypeDef",
     "GetReservedNodeExchangeConfigurationOptionsInputMessageTypeDef",
     "GetReservedNodeExchangeConfigurationOptionsOutputMessageTypeDef",
@@ -323,6 +324,7 @@ __all__ = (
     "IntegrationsMessageTypeDef",
     "LakeFormationQueryTypeDef",
     "LakeFormationScopeUnionTypeDef",
+    "LakehouseConfigurationTypeDef",
     "ListRecommendationsMessagePaginateTypeDef",
     "ListRecommendationsMessageTypeDef",
     "ListRecommendationsResultTypeDef",
@@ -352,6 +354,7 @@ __all__ = (
     "ModifyEventSubscriptionMessageTypeDef",
     "ModifyEventSubscriptionResultTypeDef",
     "ModifyIntegrationMessageTypeDef",
+    "ModifyLakehouseConfigurationMessageTypeDef",
     "ModifyRedshiftIdcApplicationMessageTypeDef",
     "ModifyRedshiftIdcApplicationResultTypeDef",
     "ModifyScheduledActionMessageTypeDef",
@@ -388,6 +391,7 @@ __all__ = (
     "RecommendedActionTypeDef",
     "RecurringChargeTypeDef",
     "RedshiftIdcApplicationTypeDef",
+    "RedshiftScopeUnionTypeDef",
     "ReferenceLinkTypeDef",
     "RegisterNamespaceInputMessageTypeDef",
     "RegisterNamespaceOutputMessageTypeDef",
@@ -470,7 +474,7 @@ class AcceptReservedNodeExchangeInputMessageTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -535,7 +539,7 @@ class AuthorizeSnapshotAccessMessageTypeDef(TypedDict):
 
 class AuthorizedTokenIssuerOutputTypeDef(TypedDict):
     TrustedTokenIssuerArn: NotRequired[str]
-    AuthorizedAudiencesList: NotRequired[List[str]]
+    AuthorizedAudiencesList: NotRequired[list[str]]
 
 
 class AuthorizedTokenIssuerTypeDef(TypedDict):
@@ -701,6 +705,10 @@ class ClusterVersionTypeDef(TypedDict):
     ClusterVersion: NotRequired[str]
     ClusterParameterGroupFamily: NotRequired[str]
     Description: NotRequired[str]
+
+
+class ConnectTypeDef(TypedDict):
+    Authorization: ServiceAuthorizationType
 
 
 class CopyClusterSnapshotMessageTypeDef(TypedDict):
@@ -1150,13 +1158,13 @@ class EndpointAuthorizationTypeDef(TypedDict):
     ClusterStatus: NotRequired[str]
     Status: NotRequired[AuthorizationStatusType]
     AllowedAllVPCs: NotRequired[bool]
-    AllowedVPCs: NotRequired[List[str]]
+    AllowedVPCs: NotRequired[list[str]]
     EndpointCount: NotRequired[int]
 
 
 class EventInfoMapTypeDef(TypedDict):
     EventId: NotRequired[str]
-    EventCategories: NotRequired[List[str]]
+    EventCategories: NotRequired[list[str]]
     EventDescription: NotRequired[str]
     Severity: NotRequired[str]
 
@@ -1165,7 +1173,7 @@ class EventTypeDef(TypedDict):
     SourceIdentifier: NotRequired[str]
     SourceType: NotRequired[SourceTypeType]
     Message: NotRequired[str]
-    EventCategories: NotRequired[List[str]]
+    EventCategories: NotRequired[list[str]]
     Severity: NotRequired[str]
     Date: NotRequired[datetime]
     EventId: NotRequired[str]
@@ -1190,6 +1198,10 @@ class GetClusterCredentialsWithIAMMessageTypeDef(TypedDict):
     ClusterIdentifier: NotRequired[str]
     DurationSeconds: NotRequired[int]
     CustomDomainName: NotRequired[str]
+
+
+class GetIdentityCenterAuthTokenRequestTypeDef(TypedDict):
+    ClusterIds: Sequence[str]
 
 
 class GetReservedNodeExchangeConfigurationOptionsInputMessageTypeDef(TypedDict):
@@ -1283,6 +1295,7 @@ class ModifyClusterMessageTypeDef(TypedDict):
     MasterPasswordSecretKmsKeyId: NotRequired[str]
     IpAddressType: NotRequired[str]
     MultiAZ: NotRequired[bool]
+    ExtraComputeForAutomaticOptimization: NotRequired[bool]
 
 
 class ModifyClusterSnapshotMessageTypeDef(TypedDict):
@@ -1328,6 +1341,15 @@ class ModifyIntegrationMessageTypeDef(TypedDict):
     IntegrationArn: str
     Description: NotRequired[str]
     IntegrationName: NotRequired[str]
+
+
+class ModifyLakehouseConfigurationMessageTypeDef(TypedDict):
+    ClusterIdentifier: str
+    LakehouseRegistration: NotRequired[LakehouseRegistrationType]
+    CatalogName: NotRequired[str]
+    LakehouseIdcRegistration: NotRequired[LakehouseIdcRegistrationType]
+    LakehouseIdcApplicationArn: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class ModifySnapshotCopyRetentionPeriodMessageTypeDef(TypedDict):
@@ -1496,6 +1518,8 @@ class RestoreFromClusterSnapshotMessageTypeDef(TypedDict):
     MasterPasswordSecretKmsKeyId: NotRequired[str]
     IpAddressType: NotRequired[str]
     MultiAZ: NotRequired[bool]
+    CatalogName: NotRequired[str]
+    RedshiftIdcApplicationArn: NotRequired[str]
 
 
 class RestoreTableFromClusterSnapshotMessageTypeDef(TypedDict):
@@ -1636,8 +1660,22 @@ class EndpointAuthorizationResponseTypeDef(TypedDict):
     ClusterStatus: str
     Status: AuthorizationStatusType
     AllowedAllVPCs: bool
-    AllowedVPCs: List[str]
+    AllowedVPCs: list[str]
     EndpointCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetIdentityCenterAuthTokenResponseTypeDef(TypedDict):
+    Token: str
+    ExpirationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class LakehouseConfigurationTypeDef(TypedDict):
+    ClusterIdentifier: str
+    LakehouseIdcApplicationArn: str
+    LakehouseRegistrationStatus: str
+    CatalogArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1649,7 +1687,7 @@ class LoggingStatusTypeDef(TypedDict):
     LastFailureTime: datetime
     LastFailureMessage: str
     LogDestinationType: LogDestinationTypeType
-    LogExports: List[str]
+    LogExports: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1683,9 +1721,9 @@ class ResizeProgressMessageTypeDef(TypedDict):
     TargetNumberOfNodes: int
     TargetClusterType: str
     Status: str
-    ImportTablesCompleted: List[str]
-    ImportTablesInProgress: List[str]
-    ImportTablesNotStarted: List[str]
+    ImportTablesCompleted: list[str]
+    ImportTablesInProgress: list[str]
+    ImportTablesNotStarted: list[str]
     AvgResizeRateInMegaBytesPerSecond: float
     TotalResizeDataInMegaBytes: int
     ProgressInMegaBytes: int
@@ -1700,7 +1738,7 @@ class ResizeProgressMessageTypeDef(TypedDict):
 
 class AccountAttributeTypeDef(TypedDict):
     AttributeName: NotRequired[str]
-    AttributeValues: NotRequired[List[AttributeValueTargetTypeDef]]
+    AttributeValues: NotRequired[list[AttributeValueTargetTypeDef]]
 
 
 class ModifyAquaOutputMessageTypeDef(TypedDict):
@@ -1711,11 +1749,11 @@ class ModifyAquaOutputMessageTypeDef(TypedDict):
 class AssociationTypeDef(TypedDict):
     CustomDomainCertificateArn: NotRequired[str]
     CustomDomainCertificateExpiryDate: NotRequired[datetime]
-    CertificateAssociations: NotRequired[List[CertificateAssociationTypeDef]]
+    CertificateAssociations: NotRequired[list[CertificateAssociationTypeDef]]
 
 
 class DescribeAuthenticationProfilesResultTypeDef(TypedDict):
-    AuthenticationProfiles: List[AuthenticationProfileTypeDef]
+    AuthenticationProfiles: list[AuthenticationProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1726,7 +1764,7 @@ AuthorizedTokenIssuerUnionTypeDef = Union[
 
 class AvailabilityZoneTypeDef(TypedDict):
     Name: NotRequired[str]
-    SupportedPlatforms: NotRequired[List[SupportedPlatformTypeDef]]
+    SupportedPlatforms: NotRequired[list[SupportedPlatformTypeDef]]
 
 
 class BatchDeleteClusterSnapshotsRequestTypeDef(TypedDict):
@@ -1734,14 +1772,14 @@ class BatchDeleteClusterSnapshotsRequestTypeDef(TypedDict):
 
 
 class BatchDeleteClusterSnapshotsResultTypeDef(TypedDict):
-    Resources: List[str]
-    Errors: List[SnapshotErrorMessageTypeDef]
+    Resources: list[str]
+    Errors: list[SnapshotErrorMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchModifyClusterSnapshotsOutputMessageTypeDef(TypedDict):
-    Resources: List[str]
-    Errors: List[SnapshotErrorMessageTypeDef]
+    Resources: list[str]
+    Errors: list[SnapshotErrorMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1749,16 +1787,16 @@ class ClusterDbRevisionTypeDef(TypedDict):
     ClusterIdentifier: NotRequired[str]
     CurrentDatabaseRevision: NotRequired[str]
     DatabaseRevisionReleaseDate: NotRequired[datetime]
-    RevisionTargets: NotRequired[List[RevisionTargetTypeDef]]
+    RevisionTargets: NotRequired[list[RevisionTargetTypeDef]]
 
 
 class SecondaryClusterInfoTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
-    ClusterNodes: NotRequired[List[ClusterNodeTypeDef]]
+    ClusterNodes: NotRequired[list[ClusterNodeTypeDef]]
 
 
 class ClusterParameterGroupDetailsTypeDef(TypedDict):
-    Parameters: List[ParameterTypeDef]
+    Parameters: list[ParameterTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1766,7 +1804,7 @@ class ClusterParameterGroupDetailsTypeDef(TypedDict):
 class DefaultClusterParametersTypeDef(TypedDict):
     ParameterGroupFamily: NotRequired[str]
     Marker: NotRequired[str]
-    Parameters: NotRequired[List[ParameterTypeDef]]
+    Parameters: NotRequired[list[ParameterTypeDef]]
 
 
 class ModifyClusterParameterGroupMessageTypeDef(TypedDict):
@@ -1783,14 +1821,14 @@ class ResetClusterParameterGroupMessageTypeDef(TypedDict):
 class ClusterParameterGroupStatusTypeDef(TypedDict):
     ParameterGroupName: NotRequired[str]
     ParameterApplyStatus: NotRequired[str]
-    ClusterParameterStatusList: NotRequired[List[ClusterParameterStatusTypeDef]]
+    ClusterParameterStatusList: NotRequired[list[ClusterParameterStatusTypeDef]]
 
 
 class ClusterParameterGroupTypeDef(TypedDict):
     ParameterGroupName: NotRequired[str]
     ParameterGroupFamily: NotRequired[str]
     Description: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class CreateClusterMessageTypeDef(TypedDict):
@@ -1833,6 +1871,8 @@ class CreateClusterMessageTypeDef(TypedDict):
     IpAddressType: NotRequired[str]
     MultiAZ: NotRequired[bool]
     RedshiftIdcApplicationArn: NotRequired[str]
+    CatalogName: NotRequired[str]
+    ExtraComputeForAutomaticOptimization: NotRequired[bool]
 
 
 class CreateClusterParameterGroupMessageTypeDef(TypedDict):
@@ -1932,7 +1972,7 @@ class EC2SecurityGroupTypeDef(TypedDict):
     Status: NotRequired[str]
     EC2SecurityGroupName: NotRequired[str]
     EC2SecurityGroupOwnerId: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class EventSubscriptionTypeDef(TypedDict):
@@ -1942,17 +1982,17 @@ class EventSubscriptionTypeDef(TypedDict):
     Status: NotRequired[str]
     SubscriptionCreationTime: NotRequired[datetime]
     SourceType: NotRequired[str]
-    SourceIdsList: NotRequired[List[str]]
-    EventCategoriesList: NotRequired[List[str]]
+    SourceIdsList: NotRequired[list[str]]
+    EventCategoriesList: NotRequired[list[str]]
     Severity: NotRequired[str]
     Enabled: NotRequired[bool]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class HsmClientCertificateTypeDef(TypedDict):
     HsmClientCertificateIdentifier: NotRequired[str]
     HsmClientCertificatePublicKey: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class HsmConfigurationTypeDef(TypedDict):
@@ -1960,40 +2000,40 @@ class HsmConfigurationTypeDef(TypedDict):
     Description: NotRequired[str]
     HsmIpAddress: NotRequired[str]
     HsmPartitionName: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class IPRangeTypeDef(TypedDict):
     Status: NotRequired[str]
     CIDRIP: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class SnapshotCopyGrantTypeDef(TypedDict):
     SnapshotCopyGrantName: NotRequired[str]
     KmsKeyId: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class SnapshotScheduleResponseTypeDef(TypedDict):
-    ScheduleDefinitions: List[str]
+    ScheduleDefinitions: list[str]
     ScheduleIdentifier: str
     ScheduleDescription: str
-    Tags: List[TagTypeDef]
-    NextInvocations: List[datetime]
+    Tags: list[TagTypeDef]
+    NextInvocations: list[datetime]
     AssociatedClusterCount: int
-    AssociatedClusters: List[ClusterAssociatedToScheduleTypeDef]
+    AssociatedClusters: list[ClusterAssociatedToScheduleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SnapshotScheduleTypeDef(TypedDict):
-    ScheduleDefinitions: NotRequired[List[str]]
+    ScheduleDefinitions: NotRequired[list[str]]
     ScheduleIdentifier: NotRequired[str]
     ScheduleDescription: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
-    NextInvocations: NotRequired[List[datetime]]
+    Tags: NotRequired[list[TagTypeDef]]
+    NextInvocations: NotRequired[list[datetime]]
     AssociatedClusterCount: NotRequired[int]
-    AssociatedClusters: NotRequired[List[ClusterAssociatedToScheduleTypeDef]]
+    AssociatedClusters: NotRequired[list[ClusterAssociatedToScheduleTypeDef]]
 
 
 class SnapshotTypeDef(TypedDict):
@@ -2015,7 +2055,7 @@ class SnapshotTypeDef(TypedDict):
     Encrypted: NotRequired[bool]
     KmsKeyId: NotRequired[str]
     EncryptedWithHSM: NotRequired[bool]
-    AccountsWithRestoreAccess: NotRequired[List[AccountWithRestoreAccessTypeDef]]
+    AccountsWithRestoreAccess: NotRequired[list[AccountWithRestoreAccessTypeDef]]
     OwnerAccount: NotRequired[str]
     TotalBackupSizeInMegaBytes: NotRequired[float]
     ActualIncrementalBackupSizeInMegaBytes: NotRequired[float]
@@ -2024,8 +2064,8 @@ class SnapshotTypeDef(TypedDict):
     EstimatedSecondsToCompletion: NotRequired[int]
     ElapsedTimeInSeconds: NotRequired[int]
     SourceRegion: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
-    RestorableNodeTypes: NotRequired[List[str]]
+    Tags: NotRequired[list[TagTypeDef]]
+    RestorableNodeTypes: NotRequired[list[str]]
     EnhancedVpcRouting: NotRequired[bool]
     MaintenanceTrackName: NotRequired[str]
     ManualSnapshotRetentionPeriod: NotRequired[int]
@@ -2050,7 +2090,7 @@ class UsageLimitResponseTypeDef(TypedDict):
     Amount: int
     Period: UsageLimitPeriodType
     BreachAction: UsageLimitBreachActionType
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2062,19 +2102,23 @@ class UsageLimitTypeDef(TypedDict):
     Amount: NotRequired[int]
     Period: NotRequired[UsageLimitPeriodType]
     BreachAction: NotRequired[UsageLimitBreachActionType]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class DescribeReservedNodeExchangeStatusOutputMessageTypeDef(TypedDict):
-    ReservedNodeExchangeStatusDetails: List[ReservedNodeExchangeStatusTypeDef]
+    ReservedNodeExchangeStatusDetails: list[ReservedNodeExchangeStatusTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ClusterVersionsMessageTypeDef(TypedDict):
     Marker: str
-    ClusterVersions: List[ClusterVersionTypeDef]
+    ClusterVersions: list[ClusterVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RedshiftScopeUnionTypeDef(TypedDict):
+    Connect: NotRequired[ConnectTypeDef]
 
 
 class DescribeEventsMessageTypeDef(TypedDict):
@@ -2100,7 +2144,7 @@ class DataShareResponseTypeDef(TypedDict):
     DataShareArn: str
     ProducerArn: str
     AllowPubliclyAccessibleConsumers: bool
-    DataShareAssociations: List[DataShareAssociationTypeDef]
+    DataShareAssociations: list[DataShareAssociationTypeDef]
     ManagedBy: str
     DataShareType: Literal["INTERNAL"]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2110,7 +2154,7 @@ class DataShareTypeDef(TypedDict):
     DataShareArn: NotRequired[str]
     ProducerArn: NotRequired[str]
     AllowPubliclyAccessibleConsumers: NotRequired[bool]
-    DataShareAssociations: NotRequired[List[DataShareAssociationTypeDef]]
+    DataShareAssociations: NotRequired[list[DataShareAssociationTypeDef]]
     ManagedBy: NotRequired[str]
     DataShareType: NotRequired[Literal["INTERNAL"]]
 
@@ -2437,7 +2481,7 @@ class DescribeNodeConfigurationOptionsMessageTypeDef(TypedDict):
 
 
 class DescribePartnersOutputMessageTypeDef(TypedDict):
-    PartnerIntegrationInfoList: List[PartnerIntegrationInfoTypeDef]
+    PartnerIntegrationInfoList: list[PartnerIntegrationInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2463,19 +2507,19 @@ class DescribeScheduledActionsMessageTypeDef(TypedDict):
 
 
 class EndpointAuthorizationListTypeDef(TypedDict):
-    EndpointAuthorizationList: List[EndpointAuthorizationTypeDef]
+    EndpointAuthorizationList: list[EndpointAuthorizationTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EventCategoriesMapTypeDef(TypedDict):
     SourceType: NotRequired[str]
-    Events: NotRequired[List[EventInfoMapTypeDef]]
+    Events: NotRequired[list[EventInfoMapTypeDef]]
 
 
 class EventsMessageTypeDef(TypedDict):
     Marker: str
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2494,7 +2538,7 @@ class InboundIntegrationTypeDef(TypedDict):
     SourceArn: NotRequired[str]
     TargetArn: NotRequired[str]
     Status: NotRequired[ZeroETLIntegrationStatusType]
-    Errors: NotRequired[List[IntegrationErrorTypeDef]]
+    Errors: NotRequired[list[IntegrationErrorTypeDef]]
     CreateTime: NotRequired[datetime]
 
 
@@ -2504,12 +2548,12 @@ class IntegrationResponseTypeDef(TypedDict):
     SourceArn: str
     TargetArn: str
     Status: ZeroETLIntegrationStatusType
-    Errors: List[IntegrationErrorTypeDef]
+    Errors: list[IntegrationErrorTypeDef]
     CreateTime: datetime
     Description: str
     KMSKeyId: str
-    AdditionalEncryptionContext: Dict[str, str]
-    Tags: List[TagTypeDef]
+    AdditionalEncryptionContext: dict[str, str]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2519,12 +2563,12 @@ class IntegrationTypeDef(TypedDict):
     SourceArn: NotRequired[str]
     TargetArn: NotRequired[str]
     Status: NotRequired[ZeroETLIntegrationStatusType]
-    Errors: NotRequired[List[IntegrationErrorTypeDef]]
+    Errors: NotRequired[list[IntegrationErrorTypeDef]]
     CreateTime: NotRequired[datetime]
     Description: NotRequired[str]
     KMSKeyId: NotRequired[str]
-    AdditionalEncryptionContext: NotRequired[Dict[str, str]]
-    Tags: NotRequired[List[TagTypeDef]]
+    AdditionalEncryptionContext: NotRequired[dict[str, str]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class LakeFormationScopeUnionTypeDef(TypedDict):
@@ -2539,11 +2583,11 @@ class NamespaceIdentifierUnionTypeDef(TypedDict):
 class VpcEndpointTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
     VpcId: NotRequired[str]
-    NetworkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    NetworkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
 
 class NodeConfigurationOptionsMessageTypeDef(TypedDict):
-    NodeConfigurationOptionList: List[NodeConfigurationOptionTypeDef]
+    NodeConfigurationOptionList: list[NodeConfigurationOptionTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2563,8 +2607,8 @@ class RecommendationTypeDef(TypedDict):
     Observation: NotRequired[str]
     ImpactRanking: NotRequired[ImpactRankingTypeType]
     RecommendationText: NotRequired[str]
-    RecommendedActions: NotRequired[List[RecommendedActionTypeDef]]
-    ReferenceLinks: NotRequired[List[ReferenceLinkTypeDef]]
+    RecommendedActions: NotRequired[list[RecommendedActionTypeDef]]
+    ReferenceLinks: NotRequired[list[ReferenceLinkTypeDef]]
 
 
 class ReservedNodeOfferingTypeDef(TypedDict):
@@ -2575,7 +2619,7 @@ class ReservedNodeOfferingTypeDef(TypedDict):
     UsagePrice: NotRequired[float]
     CurrencyCode: NotRequired[str]
     OfferingType: NotRequired[str]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
     ReservedNodeOfferingType: NotRequired[ReservedNodeOfferingTypeType]
 
 
@@ -2591,7 +2635,7 @@ class ReservedNodeTypeDef(TypedDict):
     NodeCount: NotRequired[int]
     State: NotRequired[str]
     OfferingType: NotRequired[str]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
     ReservedNodeOfferingType: NotRequired[ReservedNodeOfferingTypeType]
 
 
@@ -2601,7 +2645,7 @@ class RestoreTableFromClusterSnapshotResultTypeDef(TypedDict):
 
 
 class TableRestoreStatusMessageTypeDef(TypedDict):
-    TableRestoreStatusDetails: List[TableRestoreStatusTypeDef]
+    TableRestoreStatusDetails: list[TableRestoreStatusTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2615,17 +2659,17 @@ class ScheduledActionTypeTypeDef(TypedDict):
 class UpdateTargetTypeDef(TypedDict):
     MaintenanceTrackName: NotRequired[str]
     DatabaseVersion: NotRequired[str]
-    SupportedOperations: NotRequired[List[SupportedOperationTypeDef]]
+    SupportedOperations: NotRequired[list[SupportedOperationTypeDef]]
 
 
 class AccountAttributeListTypeDef(TypedDict):
-    AccountAttributes: List[AccountAttributeTypeDef]
+    AccountAttributes: list[AccountAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CustomDomainAssociationsMessageTypeDef(TypedDict):
     Marker: str
-    Associations: List[AssociationTypeDef]
+    Associations: list[AssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2633,7 +2677,7 @@ class OrderableClusterOptionTypeDef(TypedDict):
     ClusterVersion: NotRequired[str]
     ClusterType: NotRequired[str]
     NodeType: NotRequired[str]
-    AvailabilityZones: NotRequired[List[AvailabilityZoneTypeDef]]
+    AvailabilityZones: NotRequired[list[AvailabilityZoneTypeDef]]
 
 
 class SubnetTypeDef(TypedDict):
@@ -2644,7 +2688,7 @@ class SubnetTypeDef(TypedDict):
 
 class ClusterDbRevisionsMessageTypeDef(TypedDict):
     Marker: str
-    ClusterDbRevisions: List[ClusterDbRevisionTypeDef]
+    ClusterDbRevisions: list[ClusterDbRevisionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2655,7 +2699,7 @@ class DescribeDefaultClusterParametersResultTypeDef(TypedDict):
 
 class ClusterParameterGroupsMessageTypeDef(TypedDict):
     Marker: str
-    ParameterGroups: List[ClusterParameterGroupTypeDef]
+    ParameterGroups: list[ClusterParameterGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2671,7 +2715,7 @@ class CreateEventSubscriptionResultTypeDef(TypedDict):
 
 class EventSubscriptionsMessageTypeDef(TypedDict):
     Marker: str
-    EventSubscriptionsList: List[EventSubscriptionTypeDef]
+    EventSubscriptionsList: list[EventSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2687,7 +2731,7 @@ class CreateHsmClientCertificateResultTypeDef(TypedDict):
 
 class HsmClientCertificateMessageTypeDef(TypedDict):
     Marker: str
-    HsmClientCertificates: List[HsmClientCertificateTypeDef]
+    HsmClientCertificates: list[HsmClientCertificateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2698,16 +2742,16 @@ class CreateHsmConfigurationResultTypeDef(TypedDict):
 
 class HsmConfigurationMessageTypeDef(TypedDict):
     Marker: str
-    HsmConfigurations: List[HsmConfigurationTypeDef]
+    HsmConfigurations: list[HsmConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ClusterSecurityGroupTypeDef(TypedDict):
     ClusterSecurityGroupName: NotRequired[str]
     Description: NotRequired[str]
-    EC2SecurityGroups: NotRequired[List[EC2SecurityGroupTypeDef]]
-    IPRanges: NotRequired[List[IPRangeTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    EC2SecurityGroups: NotRequired[list[EC2SecurityGroupTypeDef]]
+    IPRanges: NotRequired[list[IPRangeTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class CreateSnapshotCopyGrantResultTypeDef(TypedDict):
@@ -2717,12 +2761,12 @@ class CreateSnapshotCopyGrantResultTypeDef(TypedDict):
 
 class SnapshotCopyGrantMessageTypeDef(TypedDict):
     Marker: str
-    SnapshotCopyGrants: List[SnapshotCopyGrantTypeDef]
+    SnapshotCopyGrants: list[SnapshotCopyGrantTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeSnapshotSchedulesOutputMessageTypeDef(TypedDict):
-    SnapshotSchedules: List[SnapshotScheduleTypeDef]
+    SnapshotSchedules: list[SnapshotScheduleTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2759,54 +2803,54 @@ class RevokeSnapshotAccessResultTypeDef(TypedDict):
 
 class SnapshotMessageTypeDef(TypedDict):
     Marker: str
-    Snapshots: List[SnapshotTypeDef]
+    Snapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TaggedResourceListMessageTypeDef(TypedDict):
-    TaggedResources: List[TaggedResourceTypeDef]
+    TaggedResources: list[TaggedResourceTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UsageLimitListTypeDef(TypedDict):
-    UsageLimits: List[UsageLimitTypeDef]
+    UsageLimits: list[UsageLimitTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeDataSharesForConsumerResultTypeDef(TypedDict):
-    DataShares: List[DataShareTypeDef]
+    DataShares: list[DataShareTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeDataSharesForProducerResultTypeDef(TypedDict):
-    DataShares: List[DataShareTypeDef]
+    DataShares: list[DataShareTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeDataSharesResultTypeDef(TypedDict):
-    DataShares: List[DataShareTypeDef]
+    DataShares: list[DataShareTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EventCategoriesMessageTypeDef(TypedDict):
-    EventCategoriesMapList: List[EventCategoriesMapTypeDef]
+    EventCategoriesMapList: list[EventCategoriesMapTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class InboundIntegrationsMessageTypeDef(TypedDict):
     Marker: str
-    InboundIntegrations: List[InboundIntegrationTypeDef]
+    InboundIntegrations: list[InboundIntegrationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class IntegrationsMessageTypeDef(TypedDict):
     Marker: str
-    Integrations: List[IntegrationTypeDef]
+    Integrations: list[IntegrationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2829,7 +2873,7 @@ class EndpointAccessResponseTypeDef(TypedDict):
     EndpointCreateTime: datetime
     Port: int
     Address: str
-    VpcSecurityGroups: List[VpcSecurityGroupMembershipTypeDef]
+    VpcSecurityGroups: list[VpcSecurityGroupMembershipTypeDef]
     VpcEndpoint: VpcEndpointTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2843,41 +2887,43 @@ class EndpointAccessTypeDef(TypedDict):
     EndpointCreateTime: NotRequired[datetime]
     Port: NotRequired[int]
     Address: NotRequired[str]
-    VpcSecurityGroups: NotRequired[List[VpcSecurityGroupMembershipTypeDef]]
+    VpcSecurityGroups: NotRequired[list[VpcSecurityGroupMembershipTypeDef]]
     VpcEndpoint: NotRequired[VpcEndpointTypeDef]
 
 
 class EndpointTypeDef(TypedDict):
     Address: NotRequired[str]
     Port: NotRequired[int]
-    VpcEndpoints: NotRequired[List[VpcEndpointTypeDef]]
+    VpcEndpoints: NotRequired[list[VpcEndpointTypeDef]]
 
 
 class ServiceIntegrationsUnionOutputTypeDef(TypedDict):
-    LakeFormation: NotRequired[List[LakeFormationScopeUnionTypeDef]]
-    S3AccessGrants: NotRequired[List[S3AccessGrantsScopeUnionTypeDef]]
+    LakeFormation: NotRequired[list[LakeFormationScopeUnionTypeDef]]
+    S3AccessGrants: NotRequired[list[S3AccessGrantsScopeUnionTypeDef]]
+    Redshift: NotRequired[list[RedshiftScopeUnionTypeDef]]
 
 
 class ServiceIntegrationsUnionTypeDef(TypedDict):
     LakeFormation: NotRequired[Sequence[LakeFormationScopeUnionTypeDef]]
     S3AccessGrants: NotRequired[Sequence[S3AccessGrantsScopeUnionTypeDef]]
+    Redshift: NotRequired[Sequence[RedshiftScopeUnionTypeDef]]
 
 
 class ListRecommendationsResultTypeDef(TypedDict):
-    Recommendations: List[RecommendationTypeDef]
+    Recommendations: list[RecommendationTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetReservedNodeExchangeOfferingsOutputMessageTypeDef(TypedDict):
     Marker: str
-    ReservedNodeOfferings: List[ReservedNodeOfferingTypeDef]
+    ReservedNodeOfferings: list[ReservedNodeOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ReservedNodeOfferingsMessageTypeDef(TypedDict):
     Marker: str
-    ReservedNodeOfferings: List[ReservedNodeOfferingTypeDef]
+    ReservedNodeOfferings: list[ReservedNodeOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2899,7 +2945,7 @@ class ReservedNodeConfigurationOptionTypeDef(TypedDict):
 
 class ReservedNodesMessageTypeDef(TypedDict):
     Marker: str
-    ReservedNodes: List[ReservedNodeTypeDef]
+    ReservedNodes: list[ReservedNodeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2932,7 +2978,7 @@ class ScheduledActionResponseTypeDef(TypedDict):
     IamRole: str
     ScheduledActionDescription: str
     State: ScheduledActionStateType
-    NextInvocations: List[datetime]
+    NextInvocations: list[datetime]
     StartTime: datetime
     EndTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2945,7 +2991,7 @@ class ScheduledActionTypeDef(TypedDict):
     IamRole: NotRequired[str]
     ScheduledActionDescription: NotRequired[str]
     State: NotRequired[ScheduledActionStateType]
-    NextInvocations: NotRequired[List[datetime]]
+    NextInvocations: NotRequired[list[datetime]]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
 
@@ -2953,11 +2999,11 @@ class ScheduledActionTypeDef(TypedDict):
 class MaintenanceTrackTypeDef(TypedDict):
     MaintenanceTrackName: NotRequired[str]
     DatabaseVersion: NotRequired[str]
-    UpdateTargets: NotRequired[List[UpdateTargetTypeDef]]
+    UpdateTargets: NotRequired[list[UpdateTargetTypeDef]]
 
 
 class OrderableClusterOptionsMessageTypeDef(TypedDict):
-    OrderableClusterOptions: List[OrderableClusterOptionTypeDef]
+    OrderableClusterOptions: list[OrderableClusterOptionTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2967,9 +3013,9 @@ class ClusterSubnetGroupTypeDef(TypedDict):
     Description: NotRequired[str]
     VpcId: NotRequired[str]
     SubnetGroupStatus: NotRequired[str]
-    Subnets: NotRequired[List[SubnetTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
-    SupportedClusterIpAddressTypes: NotRequired[List[str]]
+    Subnets: NotRequired[list[SubnetTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    SupportedClusterIpAddressTypes: NotRequired[list[str]]
 
 
 class AuthorizeClusterSecurityGroupIngressResultTypeDef(TypedDict):
@@ -2979,7 +3025,7 @@ class AuthorizeClusterSecurityGroupIngressResultTypeDef(TypedDict):
 
 class ClusterSecurityGroupMessageTypeDef(TypedDict):
     Marker: str
-    ClusterSecurityGroups: List[ClusterSecurityGroupTypeDef]
+    ClusterSecurityGroups: list[ClusterSecurityGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2994,7 +3040,7 @@ class RevokeClusterSecurityGroupIngressResultTypeDef(TypedDict):
 
 
 class EndpointAccessListTypeDef(TypedDict):
-    EndpointAccessList: List[EndpointAccessTypeDef]
+    EndpointAccessList: list[EndpointAccessTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3011,9 +3057,9 @@ class ClusterTypeDef(TypedDict):
     ClusterCreateTime: NotRequired[datetime]
     AutomatedSnapshotRetentionPeriod: NotRequired[int]
     ManualSnapshotRetentionPeriod: NotRequired[int]
-    ClusterSecurityGroups: NotRequired[List[ClusterSecurityGroupMembershipTypeDef]]
-    VpcSecurityGroups: NotRequired[List[VpcSecurityGroupMembershipTypeDef]]
-    ClusterParameterGroups: NotRequired[List[ClusterParameterGroupStatusTypeDef]]
+    ClusterSecurityGroups: NotRequired[list[ClusterSecurityGroupMembershipTypeDef]]
+    VpcSecurityGroups: NotRequired[list[VpcSecurityGroupMembershipTypeDef]]
+    ClusterParameterGroups: NotRequired[list[ClusterParameterGroupStatusTypeDef]]
     ClusterSubnetGroupName: NotRequired[str]
     VpcId: NotRequired[str]
     AvailabilityZone: NotRequired[str]
@@ -3029,17 +3075,17 @@ class ClusterTypeDef(TypedDict):
     HsmStatus: NotRequired[HsmStatusTypeDef]
     ClusterSnapshotCopyStatus: NotRequired[ClusterSnapshotCopyStatusTypeDef]
     ClusterPublicKey: NotRequired[str]
-    ClusterNodes: NotRequired[List[ClusterNodeTypeDef]]
+    ClusterNodes: NotRequired[list[ClusterNodeTypeDef]]
     ElasticIpStatus: NotRequired[ElasticIpStatusTypeDef]
     ClusterRevisionNumber: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     KmsKeyId: NotRequired[str]
     EnhancedVpcRouting: NotRequired[bool]
-    IamRoles: NotRequired[List[ClusterIamRoleTypeDef]]
-    PendingActions: NotRequired[List[str]]
+    IamRoles: NotRequired[list[ClusterIamRoleTypeDef]]
+    PendingActions: NotRequired[list[str]]
     MaintenanceTrackName: NotRequired[str]
     ElasticResizeNumberOfNodeOptions: NotRequired[str]
-    DeferredMaintenanceWindows: NotRequired[List[DeferredMaintenanceWindowTypeDef]]
+    DeferredMaintenanceWindows: NotRequired[list[DeferredMaintenanceWindowTypeDef]]
     SnapshotScheduleIdentifier: NotRequired[str]
     SnapshotScheduleState: NotRequired[ScheduleStateType]
     ExpectedNextSnapshotScheduleTime: NotRequired[datetime]
@@ -3060,6 +3106,9 @@ class ClusterTypeDef(TypedDict):
     IpAddressType: NotRequired[str]
     MultiAZ: NotRequired[str]
     MultiAZSecondary: NotRequired[SecondaryClusterInfoTypeDef]
+    LakehouseRegistrationStatus: NotRequired[str]
+    CatalogArn: NotRequired[str]
+    ExtraComputeForAutomaticOptimization: NotRequired[str]
 
 
 class RedshiftIdcApplicationTypeDef(TypedDict):
@@ -3071,8 +3120,11 @@ class RedshiftIdcApplicationTypeDef(TypedDict):
     IamRoleArn: NotRequired[str]
     IdcManagedApplicationArn: NotRequired[str]
     IdcOnboardStatus: NotRequired[str]
-    AuthorizedTokenIssuerList: NotRequired[List[AuthorizedTokenIssuerOutputTypeDef]]
-    ServiceIntegrations: NotRequired[List[ServiceIntegrationsUnionOutputTypeDef]]
+    AuthorizedTokenIssuerList: NotRequired[list[AuthorizedTokenIssuerOutputTypeDef]]
+    ServiceIntegrations: NotRequired[list[ServiceIntegrationsUnionOutputTypeDef]]
+    ApplicationType: NotRequired[ApplicationTypeType]
+    Tags: NotRequired[list[TagTypeDef]]
+    SsoTagKeys: NotRequired[list[str]]
 
 
 ServiceIntegrationsUnionUnionTypeDef = Union[
@@ -3082,25 +3134,25 @@ ServiceIntegrationsUnionUnionTypeDef = Union[
 
 class GetReservedNodeExchangeConfigurationOptionsOutputMessageTypeDef(TypedDict):
     Marker: str
-    ReservedNodeConfigurationOptionList: List[ReservedNodeConfigurationOptionTypeDef]
+    ReservedNodeConfigurationOptionList: list[ReservedNodeConfigurationOptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ScheduledActionsMessageTypeDef(TypedDict):
     Marker: str
-    ScheduledActions: List[ScheduledActionTypeDef]
+    ScheduledActions: list[ScheduledActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TrackListMessageTypeDef(TypedDict):
-    MaintenanceTracks: List[MaintenanceTrackTypeDef]
+    MaintenanceTracks: list[MaintenanceTrackTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ClusterSubnetGroupMessageTypeDef(TypedDict):
     Marker: str
-    ClusterSubnetGroups: List[ClusterSubnetGroupTypeDef]
+    ClusterSubnetGroups: list[ClusterSubnetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3116,7 +3168,7 @@ class ModifyClusterSubnetGroupResultTypeDef(TypedDict):
 
 class ClustersMessageTypeDef(TypedDict):
     Marker: str
-    Clusters: List[ClusterTypeDef]
+    Clusters: list[ClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3206,7 +3258,7 @@ class CreateRedshiftIdcApplicationResultTypeDef(TypedDict):
 
 
 class DescribeRedshiftIdcApplicationsResultTypeDef(TypedDict):
-    RedshiftIdcApplications: List[RedshiftIdcApplicationTypeDef]
+    RedshiftIdcApplications: list[RedshiftIdcApplicationTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3224,6 +3276,9 @@ class CreateRedshiftIdcApplicationMessageTypeDef(TypedDict):
     IdentityNamespace: NotRequired[str]
     AuthorizedTokenIssuerList: NotRequired[Sequence[AuthorizedTokenIssuerUnionTypeDef]]
     ServiceIntegrations: NotRequired[Sequence[ServiceIntegrationsUnionUnionTypeDef]]
+    ApplicationType: NotRequired[ApplicationTypeType]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    SsoTagKeys: NotRequired[Sequence[str]]
 
 
 class ModifyRedshiftIdcApplicationMessageTypeDef(TypedDict):

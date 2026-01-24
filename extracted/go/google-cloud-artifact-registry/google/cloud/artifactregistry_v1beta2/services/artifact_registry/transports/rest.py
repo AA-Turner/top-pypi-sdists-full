@@ -1473,12 +1473,12 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
     The resources managed by this API are:
 
-    -  Repositories, which group packages and their data.
-    -  Packages, which group versions and their tags.
-    -  Versions, which are specific forms of a package.
-    -  Tags, which represent alternative names for versions.
-    -  Files, which contain content and are optionally associated with a
-       Package or Version.
+    - Repositories, which group packages and their data.
+    - Packages, which group versions and their tags.
+    - Versions, which are specific forms of a package.
+    - Tags, which represent alternative names for versions.
+    - Files, which contain content and are optionally associated with a
+      Package or Version.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -1513,9 +1513,10 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client

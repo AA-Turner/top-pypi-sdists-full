@@ -4,14 +4,13 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
 DOCUMENTATION = """
 ---
 module: hv_sds_block_cluster
-short_description: Manages storage cluster on Hitachi SDS block storage systems.
+short_description: Manages VSP One SDS Block and Cloud system clusters.
 description:
   - This module allows adding storage node to the cluster, and removing storage node from the cluster.
   - For examples, go to URL
@@ -27,13 +26,41 @@ attributes:
     support: none
 extends_documentation_fragment:
   - hitachivantara.vspone_block.common.sdsb_connection_info
+notes:
+  - Replace node operation steps for GCP platform
+    1) The node should be on block state before replacement.
+    2) Create configuration file using hv_sds_block_cluster module with state as download_config_file and
+      export_file_type as replace_storage_node and id of the existing node.
+    3) Run the terraform file generated using the above step to replace the node (it will remove the existing node from GCP).
+    4) Create configuration file using hv_sds_block_cluster module with state as download_config_file and
+      export_file_type as replace_storage_node with recover_single_node as true.
+    5) Run the terraform file generated using the above step to add the new node to GCP (it will add the new node to GCP).
+    6) Add the new node to the cluster using hv_sds_block_cluster module with state as replace_storage_node and
+      node_id as the id of the existing node.
+  - Replace node operation steps for AWS platform
+    1) The node should be on block state before replacement.
+    2) Create configuration file using hv_sds_block_cluster module with state as download_config_file and
+      export_file_type as replace_storage_node and id of the existing node.
+    3) Transfer the configuration file to the S3 location specified in vm_configuration_file_s3_uri.
+    4) Add the new node to the cluster using hv_sds_block_cluster module with state as replace_storage_node,
+      node_id as the id of the existing node and machine_image_id as the AMI id
+  - Replace node operation steps for Azure platform
+    1) The node should be on block state before replacement.
+    2) Add the new node to the cluster using hv_sds_block_cluster module with state as replace_storage_node,
+      node_id as the id of the existing node and machine_image_id as the VM image id.
+  - Replace node operation steps for on-premise platform
+    1) The node should be on block state before replacement.
+    2) add the new node to the cluster using hv_sds_block_cluster module with state as replace_storage_node,
+      node_id as the id of the existing node.
 options:
   state:
     description: The desired state of the storage cluster.
     type: str
-    required: true
-    # default: "present"
-    choices: ["add_storage_node", "remove_storage_node", "download_config_file"]
+    required: false
+    choices: ['present', 'add_storage_node', 'remove_storage_node', 'download_config_file',
+              'stop_removing_storage_node', 'replace_storage_node', 'system_requirement_file_present',
+              'stop_storage_cluster']
+    default: "present"
   spec:
     description: Specification for the storage node to be added to or removed from the cluster.
     type: dict
@@ -49,15 +76,65 @@ options:
           required field when the state field is C(download_config_file).
         type: str
         required: false
+      export_file_type:
+        description: Specifies the type of the configuration file to be output for download. This is a valid field
+          when the state field is C(download_config_file).
+        type: str
+        required: false
+        choices: ['normal', 'add_storage_nodes', 'add_drives', 'replace_storage_node']
+        default: 'normal'
+      should_recover_single_node:
+        description: Whether to recover a single node. This is a valid field when the state field is C(download_config_file)
+          and export_file_type is C(replace_storage_node) for GCP platform.
+        type: bool
+        required: false
+      machine_image_id:
+        description: The ID of the machine image be used for storage node addition or storage node replacement.
+        type: str
+        required: false
+      system_requirement_file:
+        description: The path of system requirements file, that describes system requirements to be updated. This field is
+          valid and mandatory when the state field is C(system_requirement_file_present).
+        type: str
+        required: false
+      template_s3_url:
+        description: URL (https) of Amazon S3 where the VM configuration file is to be stored at the time of each
+          maintenance operation. This option is a mandatory parameter for the cloud model for AWS when the state field is
+          C(download_config_file) and refresh is true. This parameter is ignored if it is specified for other platforms.
+        type: str
+        required: false
+      vm_configuration_file_s3_uri:
+        description: URI (starting with "s3") of Amazon S3 where the VMConfigurationFile.yml VM configuration file is stored.
+          If the bucket name contains a period (.), the URI cannot be specified.
+          This option is a mandatory parameter for the cloud model for AWS when the state field is C(add_storage_node).
+          This parameter is ignored if it is specified for other platforms.
+        type: str
+        required: false
+      no_of_drives:
+        description: The number of drives to be installed per storage node after adding the drives. The specified number
+          of drives applies to all storage nodes. This is a required field when the export_file_type is C(add_drives).
+        type: int
+        required: false
       refresh:
         description: Whether to create the cluster configuration file. This is a valid field
           when the state field is C(download_config_file).
         type: bool
         required: false
         default: false
+      controller_id:
+        description: The ID of the storage controller node for which capacity balancing setting will be
+          changded to value specified by attribute is_capacity_balancing_enabled.
+        type: str
+        required: false
+      is_capacity_balancing_enabled:
+        description: Enables or disables capacity balancing. If this is true, capacity balancing applies.
+          If this is false, capacity balancing does not apply. If controller_id is not specified it will be
+          applied to the cluster, otherwise it will be applied to the controller node.
+        type: bool
+        required: false
       node_id:
-        description: The ID of the storage node that will be removed. This field is valid
-          when the state field is C(remove_storage_node).
+        description: The ID of the storage node that will be removed or replaced. This field is valid
+          when the state field is C(remove_storage_node) and C(replace_storage_node).
         type: str
         required: false
       node_name:
@@ -69,6 +146,28 @@ options:
         description: Setup user password.
         type: str
         required: false
+      force:
+        description: This is a valid field when the state field is C(stop_storage_cluster). Specifies whether to perform the operation forcibly.
+          When true is specified, the operation is performed forcibly.
+          Specify `true` for this parameter only when instructed to do so in a document or by customer support.
+          When true is specified for reboot or config_parameter_setting_mode, true cannot be specified here.
+        type: bool
+        required: false
+        default: false
+      reboot:
+        description: This is a valid field when the state field is C(stop_storage_cluster). Specifies whether to restart the storage cluster.
+          Specify false to stop it, or true to restart it. When true is specified for force, true cannot be specified.
+        type: bool
+        required: false
+        default: false
+      config_parameter_setting_mode:
+        description: This is a valid field when the state field is C(stop_storage_cluster). Specifies whether to start the storage cluster in
+          the configuration parameter setting mode after shutdown. If true is specified, the storage node cluster will start in the configuration
+          parameter setting mode. When true is specified for force, true cannot be specified.
+          Specify `true` for this parameter only when instructed to do so in a document or by customer support.
+        type: bool
+        required: false
+        default: false
       storage_nodes:
         description: List of storage node objects.
         type: list
@@ -216,7 +315,7 @@ EXAMPLES = """
       state: "add_storage_node"
       spec:
         configuration_file: "/tmp/download2/SystemConfigurationFile.csv"
-        setup_user_password: "Hitachi1"
+        setup_user_password: "CHANGE_ME_SET_YOUR_PASSWORD"
 
 - name: Add storage node to the cluster using ansible variables
   hitachivantara.vspone_block.sds_block.hv_sds_block_cluster:
@@ -226,7 +325,7 @@ EXAMPLES = """
       password: "secret"
       state: "add_storage_node"
       spec:
-        setup_user_password: "Hitachi1"
+        setup_user_password: "CHANGE_ME_SET_YOUR_PASSWORD"
         storage_nodes:
           - host_name: "SDSB-NODE6"
             fault_domain_name: "SC01-PD01-FD01"

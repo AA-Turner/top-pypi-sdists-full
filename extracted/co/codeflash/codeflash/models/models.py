@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import TYPE_CHECKING
 
+import libcst as cst
 from rich.tree import Tree
 
 from codeflash.cli_cmds.console import DEBUG_MODE, lsp_log
@@ -19,14 +20,14 @@ from collections.abc import Collection
 from enum import Enum, IntEnum
 from pathlib import Path
 from re import Pattern
-from typing import Annotated, Optional, cast
+from typing import Annotated, NamedTuple, Optional, cast
 
 from jedi.api.classes import Name
-from pydantic import AfterValidator, BaseModel, ConfigDict, PrivateAttr, ValidationError
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PrivateAttr, ValidationError
 from pydantic.dataclasses import dataclass
 
 from codeflash.cli_cmds.console import console, logger
-from codeflash.code_utils.code_utils import module_name_from_file_path, validate_python_code
+from codeflash.code_utils.code_utils import diff_length, module_name_from_file_path, validate_python_code
 from codeflash.code_utils.env_utils import is_end_to_end
 from codeflash.verification.comparator import comparator
 
@@ -36,14 +37,69 @@ class AIServiceRefinerRequest:
     optimization_id: str
     original_source_code: str
     read_only_dependency_code: str
-    original_code_runtime: str
+    original_code_runtime: int
     optimized_source_code: str
     optimized_explanation: str
-    optimized_code_runtime: str
+    optimized_code_runtime: int
     speedup: str
     trace_id: str
     original_line_profiler_results: str
     optimized_line_profiler_results: str
+    function_references: str | None = None
+    call_sequence: int | None = None
+
+
+# this should be possible to auto serialize
+@dataclass(frozen=True)
+class AdaptiveOptimizedCandidate:
+    optimization_id: str
+    source_code: str
+    # TODO: introduce repair explanation for code repair candidates to help the llm understand the full process
+    explanation: str
+    source: OptimizedCandidateSource
+    speedup: str
+
+
+@dataclass(frozen=True)
+class AIServiceAdaptiveOptimizeRequest:
+    trace_id: str
+    original_source_code: str
+    candidates: list[AdaptiveOptimizedCandidate]
+
+
+class TestDiffScope(str, Enum):
+    RETURN_VALUE = "return_value"
+    STDOUT = "stdout"
+    DID_PASS = "did_pass"  # noqa: S105
+
+
+@dataclass
+class TestDiff:
+    scope: TestDiffScope
+    original_pass: bool
+    candidate_pass: bool
+
+    original_value: str | None = None
+    candidate_value: str | None = None
+    test_src_code: Optional[str] = None
+    candidate_pytest_error: Optional[str] = None
+    original_pytest_error: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class AIServiceCodeRepairRequest:
+    optimization_id: str
+    original_source_code: str
+    modified_source_code: str
+    trace_id: str
+    test_diffs: list[TestDiff]
+
+
+class OptimizationReviewResult(NamedTuple):
+    """Result from the optimization review API."""
+
+    review: str  # "high", "medium", "low", or ""
+    explanation: str
 
 
 # If the method spam is in the class Ham, which is at the top level of the module eggs in the package foo, the fully
@@ -103,6 +159,7 @@ class BestOptimization(BaseModel):
     winning_benchmarking_test_results: TestResults
     winning_replay_benchmarking_test_results: Optional[TestResults] = None
     line_profiler_test_results: dict
+    async_throughput: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -162,7 +219,7 @@ class CodeString(BaseModel):
 
 
 def get_code_block_splitter(file_path: Path) -> str:
-    return f"# file: {file_path}"
+    return f"# file: {file_path.as_posix()}"
 
 
 markdown_pattern = re.compile(r"```python:([^\n]+)\n(.*?)\n```", re.DOTALL)
@@ -208,7 +265,7 @@ class CodeStringsMarkdown(BaseModel):
         """
         return "\n".join(
             [
-                f"```python{':' + str(code_string.file_path) if code_string.file_path else ''}\n{code_string.code.strip()}\n```"
+                f"```python{':' + code_string.file_path.as_posix() if code_string.file_path else ''}\n{code_string.code.strip()}\n```"
                 for code_string in self.code_strings
             ]
         )
@@ -241,19 +298,19 @@ class CodeStringsMarkdown(BaseModel):
 
         """
         matches = markdown_pattern.findall(markdown_code)
-        results = CodeStringsMarkdown()
+        code_string_list = []
         try:
             for file_path, code in matches:
                 path = file_path.strip()
-                results.code_strings.append(CodeString(code=code, file_path=Path(path)))
-            return results  # noqa: TRY300
+                code_string_list.append(CodeString(code=code, file_path=Path(path)))
+            return CodeStringsMarkdown(code_strings=code_string_list)
         except ValidationError:
             # if any file is invalid, return an empty CodeStringsMarkdown for the entire context
             return CodeStringsMarkdown()
 
 
 class CodeOptimizationContext(BaseModel):
-    testgen_context_code: str = ""
+    testgen_context: CodeStringsMarkdown
     read_writable_code: CodeStringsMarkdown
     read_only_context_code: str = ""
     hashing_code_context: str = ""
@@ -277,6 +334,7 @@ class OptimizedCandidateResult(BaseModel):
     replay_benchmarking_test_results: Optional[dict[BenchmarkKey, TestResults]] = None
     optimization_candidate_index: int
     total_candidate_timing: int
+    async_throughput: Optional[int] = None
 
 
 class GeneratedTests(BaseModel):
@@ -343,6 +401,79 @@ class OptimizationSet(BaseModel):
     experiment: Optional[list[OptimizedCandidate]]
 
 
+@dataclass
+class CandidateEvaluationContext:
+    """Holds tracking state during candidate evaluation in determine_best_candidate."""
+
+    speedup_ratios: dict[str, float | None] = Field(default_factory=dict)
+    optimized_runtimes: dict[str, float | None] = Field(default_factory=dict)
+    is_correct: dict[str, bool] = Field(default_factory=dict)
+    optimized_line_profiler_results: dict[str, str] = Field(default_factory=dict)
+    ast_code_to_id: dict = Field(default_factory=dict)
+    optimizations_post: dict[str, str] = Field(default_factory=dict)
+    valid_optimizations: list = Field(default_factory=list)
+
+    def record_failed_candidate(self, optimization_id: str) -> None:
+        """Record results for a failed candidate."""
+        self.optimized_runtimes[optimization_id] = None
+        self.is_correct[optimization_id] = False
+        self.speedup_ratios[optimization_id] = None
+
+    def record_successful_candidate(self, optimization_id: str, runtime: float, speedup: float) -> None:
+        """Record results for a successful candidate."""
+        self.optimized_runtimes[optimization_id] = runtime
+        self.is_correct[optimization_id] = True
+        self.speedup_ratios[optimization_id] = speedup
+
+    def record_line_profiler_result(self, optimization_id: str, result: str) -> None:
+        """Record line profiler results for a candidate."""
+        self.optimized_line_profiler_results[optimization_id] = result
+
+    def handle_duplicate_candidate(
+        self, candidate: OptimizedCandidate, normalized_code: str, code_context: CodeOptimizationContext
+    ) -> None:
+        """Handle a candidate that has been seen before."""
+        past_opt_id = self.ast_code_to_id[normalized_code]["optimization_id"]
+
+        # Copy results from the previous evaluation
+        self.speedup_ratios[candidate.optimization_id] = self.speedup_ratios[past_opt_id]
+        self.is_correct[candidate.optimization_id] = self.is_correct[past_opt_id]
+        self.optimized_runtimes[candidate.optimization_id] = self.optimized_runtimes[past_opt_id]
+
+        # Line profiler results only available for successful runs
+        if past_opt_id in self.optimized_line_profiler_results:
+            self.optimized_line_profiler_results[candidate.optimization_id] = self.optimized_line_profiler_results[
+                past_opt_id
+            ]
+
+        self.optimizations_post[candidate.optimization_id] = self.ast_code_to_id[normalized_code][
+            "shorter_source_code"
+        ].markdown
+        self.optimizations_post[past_opt_id] = self.ast_code_to_id[normalized_code]["shorter_source_code"].markdown
+
+        # Update to shorter code if this candidate has a shorter diff
+        new_diff_len = diff_length(candidate.source_code.flat, code_context.read_writable_code.flat)
+        if new_diff_len < self.ast_code_to_id[normalized_code]["diff_len"]:
+            self.ast_code_to_id[normalized_code]["shorter_source_code"] = candidate.source_code
+            self.ast_code_to_id[normalized_code]["diff_len"] = new_diff_len
+
+    def register_new_candidate(
+        self, normalized_code: str, candidate: OptimizedCandidate, code_context: CodeOptimizationContext
+    ) -> None:
+        """Register a new candidate that hasn't been seen before."""
+        self.ast_code_to_id[normalized_code] = {
+            "optimization_id": candidate.optimization_id,
+            "shorter_source_code": candidate.source_code,
+            "diff_len": diff_length(candidate.source_code.flat, code_context.read_writable_code.flat),
+        }
+
+    def get_speedup_ratio(self, optimization_id: str) -> float | None:
+        return self.speedup_ratios.get(optimization_id)
+
+    def get_optimized_runtime(self, optimization_id: str) -> float | None:
+        return self.optimized_runtimes.get(optimization_id)
+
+
 @dataclass(frozen=True)
 class TestsInFile:
     test_file: Path
@@ -351,11 +482,22 @@ class TestsInFile:
     test_type: TestType
 
 
+class OptimizedCandidateSource(str, Enum):
+    OPTIMIZE = "OPTIMIZE"
+    OPTIMIZE_LP = "OPTIMIZE_LP"
+    REFINE = "REFINE"
+    REPAIR = "REPAIR"
+    ADAPTIVE = "ADAPTIVE"
+
+
 @dataclass(frozen=True)
 class OptimizedCandidate:
     source_code: CodeStringsMarkdown
     explanation: str
     optimization_id: str
+    source: OptimizedCandidateSource
+    parent_id: str | None = None
+    model: str | None = None  # Which LLM model generated this candidate
 
 
 @dataclass(frozen=True)
@@ -383,6 +525,7 @@ class OriginalCodeBaseline(BaseModel):
     line_profile_results: dict
     runtime: int
     coverage_results: Optional[CoverageData]
+    async_throughput: Optional[int] = None
 
 
 class CoverageStatus(Enum):
@@ -501,6 +644,44 @@ class InvocationId:
             f"{self.function_getting_tested}:{self.iteration_id}"
         )
 
+    # TestSuiteClass.test_function_name
+    def test_fn_qualified_name(self) -> str:
+        # Use f-string with inline conditional to reduce string concatenation operations
+        return (
+            f"{self.test_class_name}.{self.test_function_name}"
+            if self.test_class_name
+            else str(self.test_function_name)
+        )
+
+    def find_func_in_class(self, class_node: cst.ClassDef, func_name: str) -> Optional[cst.FunctionDef]:
+        for stmt in class_node.body.body:
+            if isinstance(stmt, cst.FunctionDef) and stmt.name.value == func_name:
+                return stmt
+        return None
+
+    def get_src_code(self, test_path: Path) -> Optional[str]:
+        if not test_path.exists():
+            return None
+        try:
+            test_src = test_path.read_text(encoding="utf-8")
+            module_node = cst.parse_module(test_src)
+        except Exception:
+            return None
+
+        if self.test_class_name:
+            for stmt in module_node.body:
+                if isinstance(stmt, cst.ClassDef) and stmt.name.value == self.test_class_name:
+                    func_node = self.find_func_in_class(stmt, self.test_function_name)
+                    if func_node:
+                        return module_node.code_for_node(func_node).strip()
+            return None
+
+        # Otherwise, look for a top level function
+        for stmt in module_node.body:
+            if isinstance(stmt, cst.FunctionDef) and stmt.name.value == self.test_function_name:
+                return module_node.code_for_node(stmt).strip()
+        return None
+
     @staticmethod
     def from_str_id(string_id: str, iteration_id: str | None = None) -> InvocationId:
         components = string_id.split(":")
@@ -546,14 +727,20 @@ class TestResults(BaseModel):  # noqa: PLW1641
     test_results: list[FunctionTestInvocation] = []
     test_result_idx: dict[str, int] = {}
 
+    perf_stdout: Optional[str] = None
+    # mapping between test function name and stdout failure message
+    test_failures: Optional[dict[str, str]] = None
+
     def add(self, function_test_invocation: FunctionTestInvocation) -> None:
         unique_id = function_test_invocation.unique_invocation_loop_id
-        if unique_id in self.test_result_idx:
+        test_result_idx = self.test_result_idx
+        if unique_id in test_result_idx:
             if DEBUG_MODE:
                 logger.warning(f"Test result with id {unique_id} already exists. SKIPPING")
             return
-        self.test_result_idx[unique_id] = len(self.test_results)
-        self.test_results.append(function_test_invocation)
+        test_results = self.test_results
+        test_result_idx[unique_id] = len(test_results)
+        test_results.append(function_test_invocation)
 
     def merge(self, other: TestResults) -> None:
         original_len = len(self.test_results)
@@ -669,6 +856,16 @@ class TestResults(BaseModel):  # noqa: PLW1641
         return sum(
             [min(usable_runtime_data) for _, usable_runtime_data in self.usable_runtime_data_by_test_case().items()]
         )
+
+    def file_to_no_of_tests(self, test_functions_to_remove: list[str]) -> Counter[Path]:
+        map_gen_test_file_to_no_of_tests = Counter()
+        for gen_test_result in self.test_results:
+            if (
+                gen_test_result.test_type == TestType.GENERATED_REGRESSION
+                and gen_test_result.id.test_function_name not in test_functions_to_remove
+            ):
+                map_gen_test_file_to_no_of_tests[gen_test_result.file_name] += 1
+        return map_gen_test_file_to_no_of_tests
 
     def __iter__(self) -> Iterator[FunctionTestInvocation]:
         return iter(self.test_results)

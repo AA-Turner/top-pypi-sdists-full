@@ -3,7 +3,7 @@ Type annotations for bcm-pricing-calculator service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_pricing_calculator/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -30,6 +31,7 @@ from .literals import (
     BatchUpdateBillScenarioUsageModificationErrorCodeType,
     BillEstimateStatusType,
     BillScenarioStatusType,
+    GroupSharingPreferenceEnumType,
     ListBillEstimateLineItemsFilterNameType,
     ListBillEstimatesFilterNameType,
     ListBillScenariosFilterNameType,
@@ -44,12 +46,6 @@ from .literals import (
     WorkloadEstimateUpdateUsageErrorCodeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -224,7 +220,7 @@ class BatchCreateBillScenarioCommitmentModificationErrorTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -375,6 +371,8 @@ class CreateBillScenarioRequestTypeDef(TypedDict):
     name: str
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    groupSharingPreference: NotRequired[GroupSharingPreferenceEnumType]
+    costCategoryGroupSharingPreferenceArn: NotRequired[str]
 
 
 class CreateWorkloadEstimateRequestTypeDef(TypedDict):
@@ -398,8 +396,8 @@ class DeleteWorkloadEstimateRequestTypeDef(TypedDict):
 
 class ExpressionFilterOutputTypeDef(TypedDict):
     key: NotRequired[str]
-    matchOptions: NotRequired[List[str]]
-    values: NotRequired[List[str]]
+    matchOptions: NotRequired[list[str]]
+    values: NotRequired[list[str]]
 
 
 class ExpressionFilterTypeDef(TypedDict):
@@ -530,9 +528,9 @@ CreateWorkloadEstimateResponseTypeDef = TypedDict(
 
 
 class GetPreferencesResponseTypeDef(TypedDict):
-    managementAccountRateTypeSelections: List[RateTypeType]
-    memberAccountRateTypeSelections: List[RateTypeType]
-    standaloneAccountRateTypeSelections: List[RateTypeType]
+    managementAccountRateTypeSelections: list[RateTypeType]
+    memberAccountRateTypeSelections: list[RateTypeType]
+    standaloneAccountRateTypeSelections: list[RateTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -555,14 +553,14 @@ GetWorkloadEstimateResponseTypeDef = TypedDict(
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdatePreferencesResponseTypeDef(TypedDict):
-    managementAccountRateTypeSelections: List[RateTypeType]
-    memberAccountRateTypeSelections: List[RateTypeType]
-    standaloneAccountRateTypeSelections: List[RateTypeType]
+    managementAccountRateTypeSelections: list[RateTypeType]
+    memberAccountRateTypeSelections: list[RateTypeType]
+    standaloneAccountRateTypeSelections: list[RateTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -585,17 +583,17 @@ UpdateWorkloadEstimateResponseTypeDef = TypedDict(
 
 
 class BatchDeleteBillScenarioCommitmentModificationResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteBillScenarioCommitmentModificationErrorTypeDef]
+    errors: list[BatchDeleteBillScenarioCommitmentModificationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeleteBillScenarioUsageModificationResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteBillScenarioUsageModificationErrorTypeDef]
+    errors: list[BatchDeleteBillScenarioUsageModificationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeleteWorkloadEstimateUsageResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteWorkloadEstimateUsageErrorTypeDef]
+    errors: list[BatchDeleteWorkloadEstimateUsageErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -647,7 +645,7 @@ BillEstimateLineItemSummaryTypeDef = TypedDict(
         "estimatedCost": NotRequired[CostAmountTypeDef],
         "historicalUsageQuantity": NotRequired[UsageQuantityResultTypeDef],
         "historicalCost": NotRequired[CostAmountTypeDef],
-        "savingsPlanArns": NotRequired[List[str]],
+        "savingsPlanArns": NotRequired[list[str]],
     },
 )
 BillEstimateSummaryTypeDef = TypedDict(
@@ -671,6 +669,8 @@ BillScenarioSummaryTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "expiresAt": NotRequired[datetime],
         "failureMessage": NotRequired[str],
+        "groupSharingPreference": NotRequired[GroupSharingPreferenceEnumType],
+        "costCategoryGroupSharingPreferenceArn": NotRequired[str],
     },
 )
 CreateBillScenarioResponseTypeDef = TypedDict(
@@ -683,6 +683,8 @@ CreateBillScenarioResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "expiresAt": datetime,
         "failureMessage": str,
+        "groupSharingPreference": GroupSharingPreferenceEnumType,
+        "costCategoryGroupSharingPreferenceArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -696,6 +698,8 @@ GetBillScenarioResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "expiresAt": datetime,
         "failureMessage": str,
+        "groupSharingPreference": GroupSharingPreferenceEnumType,
+        "costCategoryGroupSharingPreferenceArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -709,6 +713,8 @@ UpdateBillScenarioResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "expiresAt": datetime,
         "failureMessage": str,
+        "groupSharingPreference": GroupSharingPreferenceEnumType,
+        "costCategoryGroupSharingPreferenceArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -734,6 +740,8 @@ class UpdateBillScenarioRequestTypeDef(TypedDict):
     identifier: str
     name: NotRequired[str]
     expiresAt: NotRequired[TimestampTypeDef]
+    groupSharingPreference: NotRequired[GroupSharingPreferenceEnumType]
+    costCategoryGroupSharingPreferenceArn: NotRequired[str]
 
 
 class UpdateWorkloadEstimateRequestTypeDef(TypedDict):
@@ -757,9 +765,9 @@ class BillScenarioCommitmentModificationActionTypeDef(TypedDict):
 ExpressionOutputTypeDef = TypedDict(
     "ExpressionOutputTypeDef",
     {
-        "and": NotRequired[List[Dict[str, Any]]],
-        "or": NotRequired[List[Dict[str, Any]]],
-        "not": NotRequired[Dict[str, Any]],
+        "and": NotRequired[list[dict[str, Any]]],
+        "or": NotRequired[list[dict[str, Any]]],
+        "not": NotRequired[dict[str, Any]],
         "costCategories": NotRequired[ExpressionFilterOutputTypeDef],
         "dimensions": NotRequired[ExpressionFilterOutputTypeDef],
         "tags": NotRequired[ExpressionFilterOutputTypeDef],
@@ -768,9 +776,9 @@ ExpressionOutputTypeDef = TypedDict(
 ExpressionPaginatorTypeDef = TypedDict(
     "ExpressionPaginatorTypeDef",
     {
-        "and": NotRequired[List[Dict[str, Any]]],
-        "or": NotRequired[List[Dict[str, Any]]],
-        "not": NotRequired[Dict[str, Any]],
+        "and": NotRequired[list[dict[str, Any]]],
+        "or": NotRequired[list[dict[str, Any]]],
+        "not": NotRequired[dict[str, Any]],
         "costCategories": NotRequired[ExpressionFilterOutputTypeDef],
         "dimensions": NotRequired[ExpressionFilterOutputTypeDef],
         "tags": NotRequired[ExpressionFilterOutputTypeDef],
@@ -847,36 +855,36 @@ class ListBillEstimateLineItemsRequestTypeDef(TypedDict):
 
 
 class ListWorkloadEstimatesResponseTypeDef(TypedDict):
-    items: List[WorkloadEstimateSummaryTypeDef]
+    items: list[WorkloadEstimateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListBillEstimateCommitmentsResponseTypeDef(TypedDict):
-    items: List[BillEstimateCommitmentSummaryTypeDef]
+    items: list[BillEstimateCommitmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BillEstimateCostSummaryTypeDef(TypedDict):
     totalCostDifference: NotRequired[CostDifferenceTypeDef]
-    serviceCostDifferences: NotRequired[Dict[str, CostDifferenceTypeDef]]
+    serviceCostDifferences: NotRequired[dict[str, CostDifferenceTypeDef]]
 
 
 class ListBillEstimateLineItemsResponseTypeDef(TypedDict):
-    items: List[BillEstimateLineItemSummaryTypeDef]
+    items: list[BillEstimateLineItemSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListBillEstimatesResponseTypeDef(TypedDict):
-    items: List[BillEstimateSummaryTypeDef]
+    items: list[BillEstimateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListBillScenariosResponseTypeDef(TypedDict):
-    items: List[BillScenarioSummaryTypeDef]
+    items: list[BillScenarioSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1018,6 +1026,9 @@ CreateBillEstimateResponseTypeDef = TypedDict(
         "costSummary": BillEstimateCostSummaryTypeDef,
         "createdAt": datetime,
         "expiresAt": datetime,
+        "groupSharingPreference": GroupSharingPreferenceEnumType,
+        "costCategoryGroupSharingPreferenceArn": str,
+        "costCategoryGroupSharingPreferenceEffectiveDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1032,6 +1043,9 @@ GetBillEstimateResponseTypeDef = TypedDict(
         "costSummary": BillEstimateCostSummaryTypeDef,
         "createdAt": datetime,
         "expiresAt": datetime,
+        "groupSharingPreference": GroupSharingPreferenceEnumType,
+        "costCategoryGroupSharingPreferenceArn": str,
+        "costCategoryGroupSharingPreferenceEffectiveDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1046,6 +1060,9 @@ UpdateBillEstimateResponseTypeDef = TypedDict(
         "costSummary": BillEstimateCostSummaryTypeDef,
         "createdAt": datetime,
         "expiresAt": datetime,
+        "groupSharingPreference": GroupSharingPreferenceEnumType,
+        "costCategoryGroupSharingPreferenceArn": str,
+        "costCategoryGroupSharingPreferenceEffectiveDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1063,25 +1080,25 @@ class BatchCreateBillScenarioCommitmentModificationRequestTypeDef(TypedDict):
 
 
 class BatchCreateBillScenarioCommitmentModificationResponseTypeDef(TypedDict):
-    items: List[BatchCreateBillScenarioCommitmentModificationItemTypeDef]
-    errors: List[BatchCreateBillScenarioCommitmentModificationErrorTypeDef]
+    items: list[BatchCreateBillScenarioCommitmentModificationItemTypeDef]
+    errors: list[BatchCreateBillScenarioCommitmentModificationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBillEstimateInputCommitmentModificationsResponseTypeDef(TypedDict):
-    items: List[BillEstimateInputCommitmentModificationSummaryTypeDef]
+    items: list[BillEstimateInputCommitmentModificationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchUpdateBillScenarioCommitmentModificationResponseTypeDef(TypedDict):
-    items: List[BillScenarioCommitmentModificationItemTypeDef]
-    errors: List[BatchUpdateBillScenarioCommitmentModificationErrorTypeDef]
+    items: list[BillScenarioCommitmentModificationItemTypeDef]
+    errors: list[BatchUpdateBillScenarioCommitmentModificationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBillScenarioCommitmentModificationsResponseTypeDef(TypedDict):
-    items: List[BillScenarioCommitmentModificationItemTypeDef]
+    items: list[BillScenarioCommitmentModificationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1097,7 +1114,7 @@ BatchCreateBillScenarioUsageModificationItemTypeDef = TypedDict(
         "id": NotRequired[str],
         "group": NotRequired[str],
         "usageAccountId": NotRequired[str],
-        "quantities": NotRequired[List[UsageQuantityTypeDef]],
+        "quantities": NotRequired[list[UsageQuantityTypeDef]],
         "historicalUsage": NotRequired[HistoricalUsageEntityOutputTypeDef],
         "key": NotRequired[str],
     },
@@ -1131,7 +1148,7 @@ BillEstimateInputUsageModificationSummaryTypeDef = TypedDict(
         "id": NotRequired[str],
         "group": NotRequired[str],
         "usageAccountId": NotRequired[str],
-        "quantities": NotRequired[List[UsageQuantityTypeDef]],
+        "quantities": NotRequired[list[UsageQuantityTypeDef]],
         "historicalUsage": NotRequired[HistoricalUsageEntityOutputTypeDef],
     },
 )
@@ -1146,7 +1163,7 @@ BillScenarioUsageModificationItemTypeDef = TypedDict(
         "id": NotRequired[str],
         "group": NotRequired[str],
         "usageAccountId": NotRequired[str],
-        "quantities": NotRequired[List[UsageQuantityTypeDef]],
+        "quantities": NotRequired[list[UsageQuantityTypeDef]],
         "historicalUsage": NotRequired[HistoricalUsageEntityOutputTypeDef],
     },
 )
@@ -1178,7 +1195,7 @@ BillEstimateInputUsageModificationSummaryPaginatorTypeDef = TypedDict(
         "id": NotRequired[str],
         "group": NotRequired[str],
         "usageAccountId": NotRequired[str],
-        "quantities": NotRequired[List[UsageQuantityTypeDef]],
+        "quantities": NotRequired[list[UsageQuantityTypeDef]],
         "historicalUsage": NotRequired[HistoricalUsageEntityPaginatorTypeDef],
     },
 )
@@ -1193,7 +1210,7 @@ BillScenarioUsageModificationItemPaginatorTypeDef = TypedDict(
         "id": NotRequired[str],
         "group": NotRequired[str],
         "usageAccountId": NotRequired[str],
-        "quantities": NotRequired[List[UsageQuantityTypeDef]],
+        "quantities": NotRequired[list[UsageQuantityTypeDef]],
         "historicalUsage": NotRequired[HistoricalUsageEntityPaginatorTypeDef],
     },
 )
@@ -1218,61 +1235,61 @@ ExpressionUnionTypeDef = Union[ExpressionTypeDef, ExpressionOutputTypeDef]
 
 
 class BatchCreateBillScenarioUsageModificationResponseTypeDef(TypedDict):
-    items: List[BatchCreateBillScenarioUsageModificationItemTypeDef]
-    errors: List[BatchCreateBillScenarioUsageModificationErrorTypeDef]
+    items: list[BatchCreateBillScenarioUsageModificationItemTypeDef]
+    errors: list[BatchCreateBillScenarioUsageModificationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchCreateWorkloadEstimateUsageResponseTypeDef(TypedDict):
-    items: List[BatchCreateWorkloadEstimateUsageItemTypeDef]
-    errors: List[BatchCreateWorkloadEstimateUsageErrorTypeDef]
+    items: list[BatchCreateWorkloadEstimateUsageItemTypeDef]
+    errors: list[BatchCreateWorkloadEstimateUsageErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBillEstimateInputUsageModificationsResponseTypeDef(TypedDict):
-    items: List[BillEstimateInputUsageModificationSummaryTypeDef]
+    items: list[BillEstimateInputUsageModificationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchUpdateBillScenarioUsageModificationResponseTypeDef(TypedDict):
-    items: List[BillScenarioUsageModificationItemTypeDef]
-    errors: List[BatchUpdateBillScenarioUsageModificationErrorTypeDef]
+    items: list[BillScenarioUsageModificationItemTypeDef]
+    errors: list[BatchUpdateBillScenarioUsageModificationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBillScenarioUsageModificationsResponseTypeDef(TypedDict):
-    items: List[BillScenarioUsageModificationItemTypeDef]
+    items: list[BillScenarioUsageModificationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchUpdateWorkloadEstimateUsageResponseTypeDef(TypedDict):
-    items: List[WorkloadEstimateUsageItemTypeDef]
-    errors: List[BatchUpdateWorkloadEstimateUsageErrorTypeDef]
+    items: list[WorkloadEstimateUsageItemTypeDef]
+    errors: list[BatchUpdateWorkloadEstimateUsageErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListWorkloadEstimateUsageResponseTypeDef(TypedDict):
-    items: List[WorkloadEstimateUsageItemTypeDef]
+    items: list[WorkloadEstimateUsageItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListBillEstimateInputUsageModificationsResponsePaginatorTypeDef(TypedDict):
-    items: List[BillEstimateInputUsageModificationSummaryPaginatorTypeDef]
+    items: list[BillEstimateInputUsageModificationSummaryPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListBillScenarioUsageModificationsResponsePaginatorTypeDef(TypedDict):
-    items: List[BillScenarioUsageModificationItemPaginatorTypeDef]
+    items: list[BillScenarioUsageModificationItemPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkloadEstimateUsageResponsePaginatorTypeDef(TypedDict):
-    items: List[WorkloadEstimateUsageItemPaginatorTypeDef]
+    items: list[WorkloadEstimateUsageItemPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

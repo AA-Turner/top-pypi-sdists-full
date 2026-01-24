@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -25,7 +25,7 @@ class IBenchmark(metaclass=abc.ABCMeta):
 
 
 class SecurityBenchmark(System.Object, QuantConnect.Benchmarks.IBenchmark):
-    """Creates a benchmark defined by the closing price of a Security instance"""
+    """Creates a benchmark defined by the closing price of a security instance"""
 
     @property
     def security(self) -> QuantConnect.Securities.Security:
@@ -37,7 +37,7 @@ class SecurityBenchmark(System.Object, QuantConnect.Benchmarks.IBenchmark):
         ...
 
     @staticmethod
-    def create_instance(securities: QuantConnect.Securities.SecurityManager, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Benchmarks.SecurityBenchmark:
+    def create_instance(securities: QuantConnect.Securities.SecurityManager, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Benchmarks.SecurityBenchmark:
         """
         Helper function that will create a security with the given SecurityManager
         for a specific symbol and then create a SecurityBenchmark for it
@@ -53,7 +53,8 @@ class SecurityBenchmark(System.Object, QuantConnect.Benchmarks.IBenchmark):
         Evaluates this benchmark at the specified time in units of the account's currency.
         
         :param time: The time to evaluate the benchmark at
-        :returns: The value of the benchmark at the specified time in units of the account's currency.
+        :returns: The value of the benchmark at the specified time
+        in units of the account's currency.
         """
         ...
 
@@ -63,7 +64,11 @@ class FuncBenchmark(System.Object, QuantConnect.Benchmarks.IBenchmark):
 
     @overload
     def __init__(self, py_func: typing.Any) -> None:
-        """Create a function benchmark from a Python function"""
+        """
+        Create a function benchmark from a Python function
+        
+        :param py_func: 
+        """
         ...
 
     @overload

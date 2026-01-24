@@ -23,10 +23,13 @@ class TestCAOHunting:
     def test_all_code_paths(self):
         error_checks = True
         tests = {
+            "AggregateHuntingGuides": falcon.aggregate_guides(body={}),
             "AggregateIntelligenceQueries": falcon.aggregate_queries(),
             "GetArchiveExport": falcon.create_export_archive(),
             "GetIntelligenceQueries": falcon.get_queries(),
-            "SearchIntelligenceQueries": falcon.search_queries()
+            "SearchIntelligenceQueries": falcon.search_queries(),
+            "GetHuntingGuides": falcon.get_guides(ids="12345678"),
+            "SearchHuntingGuides": falcon.search_guides()
         }
         for key in tests:
             if tests[key]["status_code"] not in AllowedResponses:

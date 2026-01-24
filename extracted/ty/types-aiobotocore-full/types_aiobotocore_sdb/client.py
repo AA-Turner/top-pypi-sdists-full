@@ -3,7 +3,7 @@ Type annotations for sdb service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sdb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -47,11 +48,6 @@ from .type_defs import (
     SelectResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -62,24 +58,24 @@ __all__ = ("SimpleDBClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AttributeDoesNotExist: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DuplicateItemName: Type[BotocoreClientError]
-    InvalidNextToken: Type[BotocoreClientError]
-    InvalidNumberPredicates: Type[BotocoreClientError]
-    InvalidNumberValueTests: Type[BotocoreClientError]
-    InvalidParameterValue: Type[BotocoreClientError]
-    InvalidQueryExpression: Type[BotocoreClientError]
-    MissingParameter: Type[BotocoreClientError]
-    NoSuchDomain: Type[BotocoreClientError]
-    NumberDomainAttributesExceeded: Type[BotocoreClientError]
-    NumberDomainBytesExceeded: Type[BotocoreClientError]
-    NumberDomainsExceeded: Type[BotocoreClientError]
-    NumberItemAttributesExceeded: Type[BotocoreClientError]
-    NumberSubmittedAttributesExceeded: Type[BotocoreClientError]
-    NumberSubmittedItemsExceeded: Type[BotocoreClientError]
-    RequestTimeout: Type[BotocoreClientError]
-    TooManyRequestedAttributes: Type[BotocoreClientError]
+    AttributeDoesNotExist: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DuplicateItemName: type[BotocoreClientError]
+    InvalidNextToken: type[BotocoreClientError]
+    InvalidNumberPredicates: type[BotocoreClientError]
+    InvalidNumberValueTests: type[BotocoreClientError]
+    InvalidParameterValue: type[BotocoreClientError]
+    InvalidQueryExpression: type[BotocoreClientError]
+    MissingParameter: type[BotocoreClientError]
+    NoSuchDomain: type[BotocoreClientError]
+    NumberDomainAttributesExceeded: type[BotocoreClientError]
+    NumberDomainBytesExceeded: type[BotocoreClientError]
+    NumberDomainsExceeded: type[BotocoreClientError]
+    NumberItemAttributesExceeded: type[BotocoreClientError]
+    NumberSubmittedAttributesExceeded: type[BotocoreClientError]
+    NumberSubmittedItemsExceeded: type[BotocoreClientError]
+    RequestTimeout: type[BotocoreClientError]
+    TooManyRequestedAttributes: type[BotocoreClientError]
 
 
 class SimpleDBClient(AioBaseClient):
@@ -251,7 +247,7 @@ class SimpleDBClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

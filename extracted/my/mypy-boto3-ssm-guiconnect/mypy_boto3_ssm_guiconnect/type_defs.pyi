@@ -17,14 +17,9 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import Union
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -51,7 +46,7 @@ class DeleteConnectionRecordingPreferencesRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -64,7 +59,7 @@ class DeleteConnectionRecordingPreferencesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RecordingDestinationsOutputTypeDef(TypedDict):
-    S3Buckets: List[S3BucketTypeDef]
+    S3Buckets: list[S3BucketTypeDef]
 
 class RecordingDestinationsTypeDef(TypedDict):
     S3Buckets: Sequence[S3BucketTypeDef]

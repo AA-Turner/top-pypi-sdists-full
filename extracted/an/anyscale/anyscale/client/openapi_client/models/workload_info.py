@@ -39,7 +39,8 @@ class WorkloadInfo(object):
         'workload_cloud': 'str',
         'workload_project': 'str',
         'workload_creator': 'str',
-        'url': 'str'
+        'url': 'str',
+        'tags': 'list[TagKeyValue]'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class WorkloadInfo(object):
         'workload_cloud': 'workload_cloud',
         'workload_project': 'workload_project',
         'workload_creator': 'workload_creator',
-        'url': 'url'
+        'url': 'url',
+        'tags': 'tags'
     }
 
-    def __init__(self, workload_name=None, workload_type=None, workload_start_time=None, workload_cloud=None, workload_project='', workload_creator='', url='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload_name=None, workload_type=None, workload_start_time=None, workload_cloud=None, workload_project='', workload_creator='', url='', tags=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class WorkloadInfo(object):
         self._workload_project = None
         self._workload_creator = None
         self._url = None
+        self._tags = None
         self.discriminator = None
 
         self.workload_name = workload_name
@@ -77,6 +80,8 @@ class WorkloadInfo(object):
             self.workload_creator = workload_creator
         if url is not None:
             self.url = url
+        if tags is not None:
+            self.tags = tags
 
     @property
     def workload_name(self):
@@ -246,6 +251,29 @@ class WorkloadInfo(object):
         """
 
         self._url = url
+
+    @property
+    def tags(self):
+        """Gets the tags of this WorkloadInfo.  # noqa: E501
+
+        User Managed tags associated with this workload.  # noqa: E501
+
+        :return: The tags of this WorkloadInfo.  # noqa: E501
+        :rtype: list[TagKeyValue]
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this WorkloadInfo.
+
+        User Managed tags associated with this workload.  # noqa: E501
+
+        :param tags: The tags of this WorkloadInfo.  # noqa: E501
+        :type: list[TagKeyValue]
+        """
+
+        self._tags = tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

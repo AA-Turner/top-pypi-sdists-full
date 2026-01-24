@@ -340,6 +340,32 @@ def test_workflow__unsupported_graph_item():
     assert "Unexpected graph type: <class 'int'>" in str(exc_info.value)
 
 
+def test_resolve_graph__non_class_item_in_set():
+    """Test that _resolve_graph properly handles non-class items in a set without crashing on issubclass()."""
+    # GIVEN a non-class value (a string, not a class)
+    # WHEN we call _resolve_graph with a set containing a non-class value
+    with pytest.raises(ValueError) as exc_info:
+        BaseWorkflow._resolve_graph({"not_a_class"})  # type: ignore
+
+    # THEN it should raise ValueError instead of crashing with "issubclass() arg 1 must be a class"
+    assert "Unexpected graph type:" in str(exc_info.value)
+    assert "<class 'str'>" in str(exc_info.value)
+
+
+def test_resolve_graph__non_class_value():
+    """Test that _resolve_graph properly handles non-class values without crashing on issubclass()."""
+    # GIVEN a non-class value (a string, not a class)
+    non_class_value = "not_a_class"
+
+    # WHEN we call _resolve_graph with a non-class value
+    with pytest.raises(ValueError) as exc_info:
+        BaseWorkflow._resolve_graph(non_class_value)  # type: ignore
+
+    # THEN it should raise ValueError instead of crashing with "issubclass() arg 1 must be a class"
+    assert "Unexpected graph type:" in str(exc_info.value)
+    assert "<class 'str'>" in str(exc_info.value)
+
+
 def test_base_workflow__deserialize_state():
     # GIVEN a state definition
     class State(BaseState):
@@ -783,3 +809,28 @@ def test_base_workflow__run_node_with_inputs():
     # AND the execution result should use the overridden and non-overridden attributes
     fulfilled_event = events[1]
     assert fulfilled_event.body.outputs.result == "overridden_overridden_value_default_value2_not_overridden"
+
+
+def test_base_workflow__invalid_graph__outgoing_edge_with_no_ports():
+    """Test that graph construction fails if we attempt to create an outgoing edge from a node with no ports."""
+
+    # GIVEN
+    class StartNode(BaseNode[BaseState]):
+        pass
+
+    class MyFinalOutput(BaseNode[BaseState]):
+        class Ports(BaseNode.Ports):
+            pass
+
+    class EndNode(BaseNode[BaseState]):
+        pass
+
+    # THEN
+    with pytest.raises(
+        ValueError,
+        match="Cannot create edges from graph because all terminal nodes have no ports defined: MyFinalOutput. "
+        + "Nodes with empty Ports classes cannot be connected to other nodes.",
+    ):
+
+        class InvalidWorkflow(BaseWorkflow[BaseInputs, BaseState]):
+            graph = StartNode >> MyFinalOutput >> EndNode

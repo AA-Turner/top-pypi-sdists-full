@@ -15,7 +15,7 @@ import httpx
 import orjson
 import structlog
 import uvicorn
-from langchain_core.runnables.config import RunnableConfig
+from langchain_core.runnables.config import RunnableConfig, merge_configs
 from langchain_core.runnables.graph import Edge, Node
 from langchain_core.runnables.graph import Graph as DrawableGraph
 from langchain_core.runnables.schema import (
@@ -49,6 +49,7 @@ from langgraph_api.js.sse import SSEDecoder, aiter_lines_raw
 from langgraph_api.route import ApiResponse
 from langgraph_api.schema import Config
 from langgraph_api.serde import json_dumpb
+from langgraph_api.utils import get_auth_ctx, get_user_id
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -170,9 +171,9 @@ class RemotePregel(BaseRemotePregel):
             "getGraph",
             {
                 "graph_id": self.graph_id,
-                "graph_config": self.config,
+                "graph_config": self._inject_auth_to_config(self.config),
                 "graph_name": self.name,
-                "config": config,
+                "config": self._inject_auth_to_config(config),
                 "xray": xray,
             },
         )
@@ -211,11 +212,11 @@ class RemotePregel(BaseRemotePregel):
             "getSubgraphs",
             {
                 "graph_id": self.graph_id,
-                "graph_config": self.config,
+                "graph_config": self._inject_auth_to_config(self.config),
                 "graph_name": self.name,
                 "namespace": namespace,
                 "recurse": recurse,
-                "config": config,
+                "config": self._inject_auth_to_config(config),
             },
         )
 
@@ -248,7 +249,7 @@ class RemotePregel(BaseRemotePregel):
 
         return StateSnapshot(  # type: ignore[missing-argument]
             item.get("values"),
-            cast(tuple, item.get("next", ())),
+            cast("tuple", item.get("next", ())),
             item.get("config"),
             item.get("metadata"),
             item.get("createdAt"),
@@ -266,9 +267,9 @@ class RemotePregel(BaseRemotePregel):
                 "getState",
                 {
                     "graph_id": self.graph_id,
-                    "graph_config": self.config,
+                    "graph_config": self._inject_auth_to_config(self.config),
                     "graph_name": self.name,
-                    "config": config,
+                    "config": self._inject_auth_to_config(config),
                     "subgraphs": subgraphs,
                 },
             )
@@ -284,9 +285,9 @@ class RemotePregel(BaseRemotePregel):
             "updateState",
             {
                 "graph_id": self.graph_id,
-                "graph_config": self.config,
+                "graph_config": self._inject_auth_to_config(self.config),
                 "graph_name": self.name,
-                "config": config,
+                "config": self._inject_auth_to_config(config),
                 "values": values,
                 "as_node": as_node,
             },
@@ -305,9 +306,9 @@ class RemotePregel(BaseRemotePregel):
             "getStateHistory",
             {
                 "graph_id": self.graph_id,
-                "graph_config": self.config,
+                "graph_config": self._inject_auth_to_config(self.config),
                 "graph_name": self.name,
-                "config": config,
+                "config": self._inject_auth_to_config(config),
                 "limit": limit,
                 "filter": filter,
                 "before": before,
@@ -352,6 +353,27 @@ class RemotePregel(BaseRemotePregel):
             graph_id=self.graph_id,
         )
         return result["nodesExecuted"]
+
+    def _inject_auth_to_config(self, config: RunnableConfig | Config):
+        if ctx := get_auth_ctx():
+            user_id = get_user_id(cast("BaseUser | None", ctx.user))
+
+            # Skip if cannot serialize the user to JSON
+            if not hasattr(ctx.user, "model_dump"):
+                return config
+
+            return merge_configs(
+                config,
+                {
+                    "configurable": {
+                        "langgraph_auth_user": ctx.user,
+                        "langgraph_auth_user_id": user_id,
+                        "langgraph_auth_permissions": list(ctx.permissions),
+                    }
+                },
+            )
+
+        return config
 
 
 async def run_js_process(paths_str: str | None, watch: bool = False):
@@ -498,10 +520,10 @@ class PassthroughSerialiser(SerializerProtocol):
         return _safe_json_loads(payload)
 
 
-def _get_passthrough_checkpointer():
-    from langgraph_runtime.checkpoint import Checkpointer
+async def _get_passthrough_checkpointer():
+    from langgraph_api import _checkpointer as api_checkpointer
 
-    checkpointer = Checkpointer()
+    checkpointer = await api_checkpointer.get_checkpointer()
     # This checkpointer does not attempt to revive LC-objects.
     # Instead, it will pass through the JSON values as-is.
     checkpointer.serde = PassthroughSerialiser()
@@ -520,7 +542,7 @@ async def run_remote_checkpointer():
         """Search checkpoints"""
 
         result = []
-        checkpointer = _get_passthrough_checkpointer()
+        checkpointer = await _get_passthrough_checkpointer()
         async for item in checkpointer.alist(
             config=payload.get("config"),
             limit=int(payload.get("limit") or 10),
@@ -534,7 +556,7 @@ async def run_remote_checkpointer():
     async def checkpointer_put(payload: dict):
         """Put the new checkpoint metadata"""
 
-        checkpointer = _get_passthrough_checkpointer()
+        checkpointer = await _get_passthrough_checkpointer()
         return await checkpointer.aput(
             payload["config"],
             payload["checkpoint"],
@@ -544,13 +566,13 @@ async def run_remote_checkpointer():
 
     async def checkpointer_get_tuple(payload: dict):
         """Get actual checkpoint values (reads)"""
-        checkpointer = _get_passthrough_checkpointer()
+        checkpointer = await _get_passthrough_checkpointer()
         return await checkpointer.aget_tuple(config=payload["config"])
 
     async def checkpointer_put_writes(payload: dict):
         """Put actual checkpoint values (writes)"""
 
-        checkpointer = _get_passthrough_checkpointer()
+        checkpointer = await _get_passthrough_checkpointer()
         return await checkpointer.aput_writes(
             payload["config"],
             payload["writes"],
@@ -632,13 +654,13 @@ async def run_remote_checkpointer():
 
     async def store_get(payload: dict):
         """Get store data"""
-        namespaces_str = payload.get("namespace")
+        namespaces = payload.get("namespace")
         key = payload.get("key")
 
-        if not namespaces_str or not key:
+        if not namespaces or not key:
             raise ValueError("Both namespaces and key are required")
 
-        namespaces = namespaces_str.split(".")
+        namespaces = tuple(namespaces)
 
         store = await _get_passthrough_store()
         result = await store.aget(namespaces, key)
@@ -648,7 +670,7 @@ async def run_remote_checkpointer():
     async def store_put(payload: dict):
         """Put the new store data"""
 
-        namespace = tuple(payload["namespace"].split("."))
+        namespace = tuple(payload["namespace"])
         key = payload["key"]
         value = payload["value"]
         index = payload.get("index")
@@ -958,7 +980,7 @@ async def handle_js_auth_event(
 
         raise HTTPException(status_code=status, detail=message, headers=headers)
 
-    filters = cast(Auth.types.FilterType | None, response.get("filters"))
+    filters = cast("Auth.types.FilterType | None", response.get("filters"))
 
     # mutate metadata in value if applicable
     # we need to preserve the identity of the object, so cannot create a new

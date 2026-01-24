@@ -63,7 +63,7 @@ impl PyObj {
 
     /// Downcast to a specific type *exactly*. Cannot be used for heap types,
     /// use `extract` instead.
-    pub(crate) fn cast<T: PyStaticType>(self) -> Option<T> {
+    pub(crate) fn cast_exact<T: PyStaticType>(self) -> Option<T> {
         T::isinstance_exact(self)
             .then_some(unsafe { T::from_ptr_unchecked(self.as_py_obj().inner.as_ptr()) })
     }
@@ -130,7 +130,7 @@ pub(crate) trait PyBase: FromPy {
             unsafe { PyErr_Clear() };
             return f.write_str("<repr() failed>");
         };
-        let Some(py_str) = repr_obj.cast::<PyStr>() else {
+        let Some(py_str) = repr_obj.cast_exact::<PyStr>() else {
             // i.e. repr() didn't return a string
             return f.write_str("<repr() failed>");
         };
@@ -192,6 +192,10 @@ pub(crate) trait PyBase: FromPy {
     /// Determine if the object is *exactly equal* to `True`.
     fn is_true(&self) -> bool {
         unsafe { self.as_ptr() == Py_True() }
+    }
+
+    fn is_false(&self) -> bool {
+        unsafe { self.as_ptr() == Py_False() }
     }
 }
 

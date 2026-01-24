@@ -1,5 +1,5 @@
+from collections.abc import Callable, Sequence
 from tkinter import TclError
-from typing import Callable, List, Sequence, Union
 
 from ase.db import connect
 from ase.gui.gui import GUI
@@ -61,7 +61,7 @@ class InteractivePlot:
         on the annotations for lines in the ax object.
     """
 
-    def __init__(self, fig, annotated_axes: Union[AnnotatedAx, Sequence[AnnotatedAx]]):
+    def __init__(self, fig, annotated_axes: AnnotatedAx | Sequence[AnnotatedAx]):
         self.fig = fig
         self.annotated_axes = annotated_axes
 
@@ -85,7 +85,7 @@ class InteractivePlot:
 
         self.connect_mpl()
 
-    def get_mpl_events(self) -> List[MPLEvent]:
+    def get_mpl_events(self) -> list[MPLEvent]:
         event = MPLEvent("motion_notify_event", self.hover)
         return [event]
 
@@ -191,7 +191,7 @@ class InteractivePlot:
 
 
 class ShowStructureOnClick(InteractivePlot):
-    def __init__(self, fig, axes: Union[AnnotatedAx, Sequence[AnnotatedAx]], db_name: str):
+    def __init__(self, fig, axes: AnnotatedAx | Sequence[AnnotatedAx], db_name: str):
         self.db_name = db_name
         self.active_images = Images()
         # Uninitilized GUI. We don't create this until we click,
@@ -199,7 +199,7 @@ class ShowStructureOnClick(InteractivePlot):
         self.gui = None
         super().__init__(fig, axes)
 
-    def get_mpl_events(self) -> List[MPLEvent]:
+    def get_mpl_events(self) -> list[MPLEvent]:
         event = MPLEvent("button_press_event", self.on_click)
         events = super().get_mpl_events()
         events.append(event)

@@ -5,12 +5,15 @@ from __future__ import annotations
 import functools
 import pathlib
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, Union
+from collections.abc import Iterable, Sequence
+from os import PathLike
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import autograd.numpy as np
 import pydantic.v1 as pydantic
 import shapely
-import xarray as xr
+from numpy._typing import ArrayLike, NDArray
+from typing_extensions import Self
 
 try:
     from matplotlib import patches
@@ -18,10 +21,17 @@ except ImportError:
     pass
 
 from tidy3d.compat import _shapely_is_older_than
-from tidy3d.components.autograd import AutogradFieldMap, TracedCoordinate, TracedSize, get_static
-from tidy3d.components.autograd.constants import GRADIENT_DTYPE_FLOAT
-from tidy3d.components.autograd.derivative_utils import DerivativeInfo, integrate_within_bounds
+from tidy3d.components.autograd import (
+    AutogradFieldMap,
+    TracedCoordinate,
+    TracedFloat,
+    TracedSize,
+    get_static,
+)
+from tidy3d.components.autograd.derivative_utils import DerivativeInfo
 from tidy3d.components.base import Tidy3dBaseModel, cached_property
+from tidy3d.components.geometry.bound_ops import bounds_intersection, bounds_union
+from tidy3d.components.geometry.float_utils import increment_float
 from tidy3d.components.transformation import ReflectionFromPlane, RotationAroundAxis
 from tidy3d.components.types import (
     ArrayFloat2D,
@@ -62,7 +72,10 @@ from tidy3d.exceptions import (
 from tidy3d.log import log
 from tidy3d.packaging import verify_packages_import
 
-from .bound_ops import bounds_intersection, bounds_union
+if TYPE_CHECKING:
+    from gdstk import Cell
+    from matplotlib.backend_bases import Event
+    from matplotlib.patches import FancyArrowPatch
 
 POLY_GRID_SIZE = 1e-12
 POLY_TOLERANCE_RATIO = 1e-12
@@ -88,13 +101,11 @@ class Geometry(Tidy3dBaseModel, ABC):
     """Abstract base class, defines where something exists in space."""
 
     @cached_property
-    def plot_params(self):
+    def plot_params(self) -> PlotParams:
         """Default parameters for plotting a Geometry object."""
         return plot_params_geometry
 
-    def inside(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
         volume of the :class:`Geometry`, and ``False`` otherwise.
@@ -114,7 +125,7 @@ class Geometry(Tidy3dBaseModel, ABC):
             ``True`` for every point that is inside the geometry.
         """
 
-        def point_inside(x: float, y: float, z: float):
+        def point_inside(x: float, y: float, z: float) -> bool:
             """Returns ``True`` if a single point ``(x, y, z)`` is inside."""
             shapes_intersect = self.intersections_plane(z=z)
             loc = self.make_shapely_point(x, y)
@@ -129,7 +140,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return inside.reshape(arrays[0].shape)
 
     @staticmethod
-    def _ensure_equal_shape(*arrays):
+    def _ensure_equal_shape(*arrays: Any) -> None:
         """Ensure all input arrays have the same shape."""
         shapes = {np.array(arr).shape for arr in arrays}
         if len(shapes) > 1:
@@ -156,7 +167,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return shapely.Point(minx, miny)
 
     def _inds_inside_bounds(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
+        self, x: NDArray[float], y: NDArray[float], z: NDArray[float]
     ) -> tuple[slice, slice, slice]:
         """Return slices into the sorted input arrays that are inside the geometry bounds.
 
@@ -183,8 +194,8 @@ class Geometry(Tidy3dBaseModel, ABC):
         return tuple(inds_in)
 
     def inside_meshgrid(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+        self, x: NDArray[float], y: NDArray[float], z: NDArray[float]
+    ) -> NDArray[bool]:
         """Perform ``self.inside`` on a set of sorted 1D coordinates. Applies meshgrid to the
         supplied coordinates before checking inside.
 
@@ -218,7 +229,12 @@ class Geometry(Tidy3dBaseModel, ABC):
 
     @abstractmethod
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -230,6 +246,11 @@ class Geometry(Tidy3dBaseModel, ABC):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -240,7 +261,12 @@ class Geometry(Tidy3dBaseModel, ABC):
         """
 
     def intersections_plane(
-        self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Returns list of shapely geometries at plane specified by one non-None value of x,y,z.
 
@@ -252,6 +278,11 @@ class Geometry(Tidy3dBaseModel, ABC):
             Position of plane in y direction, only one of x,y,z can be specified to define plane.
         z : float = None
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -267,7 +298,9 @@ class Geometry(Tidy3dBaseModel, ABC):
         if axis != 2:
             last, indices = self.pop_axis((0, 1, 2), axis)
             to_2D = to_2D[[*list(indices), last, 3]]
-        return self.intersections_tilted_plane(normal, origin, to_2D)
+        return self.intersections_tilted_plane(
+            normal, origin, to_2D, cleanup=cleanup, quad_segs=quad_segs
+        )
 
     def intersections_2dbox(self, plane: Box) -> list[Shapely]:
         """Returns list of shapely geometries representing the intersections of the geometry with
@@ -286,7 +319,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return plane.intersections_with(self)
 
     def intersects(
-        self, other, strict_inequality: tuple[bool, bool, bool] = [False, False, False]
+        self, other: Geometry, strict_inequality: tuple[bool, bool, bool] = [False, False, False]
     ) -> bool:
         """Returns ``True`` if two :class:`Geometry` have intersecting `.bounds`.
 
@@ -424,7 +457,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return bounds_union(bounds1, bounds2)
 
     @cached_property
-    def bounding_box(self):
+    def bounding_box(self) -> Box:
         """Returns :class:`Box` representation of the bounding box of a :class:`Geometry`.
 
         Returns
@@ -500,7 +533,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         ax: Ax = None,
         plot_length_units: LengthUnit = None,
         viz_spec: VisualizationSpec = None,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot geometry cross section at single (x,y,z) coordinate.
 
@@ -575,7 +608,9 @@ class Geometry(Tidy3dBaseModel, ABC):
         return ax
 
     @staticmethod
-    def _do_not_intersect(bounds_a, bounds_b, shape_a, shape_b):
+    def _do_not_intersect(
+        bounds_a: float, bounds_b: float, shape_a: Shapely, shape_b: Shapely
+    ) -> bool:
         """Check whether two shapes intersect."""
 
         # do a bounding box check to see if any intersection to do anything about
@@ -698,7 +733,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return ax
 
     @staticmethod
-    def _evaluate_inf(array):
+    def _evaluate_inf(array: ArrayLike) -> NDArray[np.floating]:
         """Processes values and evaluates any infs into large (signed) numbers."""
         array = get_static(np.array(array))
         return np.where(np.isinf(array), np.sign(array) * LARGE_NUMBER, array)
@@ -709,11 +744,14 @@ class Geometry(Tidy3dBaseModel, ABC):
         if not any(np.isinf(b) for b in shape.bounds):
             return shape
 
+        def _processed_coords(coords: Sequence[tuple[Any, ...]]) -> list[tuple[float, ...]]:
+            evaluated = Geometry._evaluate_inf(np.array(coords))
+            return [tuple(point) for point in evaluated.tolist()]
+
         if shape.geom_type == "Polygon":
-            return shapely.Polygon(
-                Geometry._evaluate_inf(np.array(shape.exterior.coords)),
-                [Geometry._evaluate_inf(np.array(g.coords)) for g in shape.interiors],
-            )
+            shell = _processed_coords(shape.exterior.coords)
+            holes = [_processed_coords(g.coords) for g in shape.interiors]
+            return shapely.Polygon(shell, holes)
         if shape.geom_type in {"Point", "LineString", "LinearRing"}:
             return shape.__class__(Geometry._evaluate_inf(np.array(shape.coords)))
         if shape.geom_type in {
@@ -770,7 +808,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return tuple(coords)
 
     @staticmethod
-    def parse_xyz_kwargs(**xyz) -> tuple[Axis, float]:
+    def parse_xyz_kwargs(**xyz: Any) -> tuple[Axis, float]:
         """Turns x,y,z kwargs into index of the normal axis and position along that axis.
 
         Parameters
@@ -795,7 +833,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         return axis, position
 
     @staticmethod
-    def parse_two_xyz_kwargs(**xyz) -> list[tuple[Axis, float]]:
+    def parse_two_xyz_kwargs(**xyz: Any) -> list[tuple[Axis, float]]:
         """Turns x,y,z kwargs into indices of axes and the position along each axis.
 
         Parameters
@@ -874,7 +912,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         return points_new
 
-    def volume(self, bounds: Bound = None):
+    def volume(self, bounds: Bound = None) -> float:
         """Returns object's volume with optional bounds.
 
         Parameters
@@ -897,7 +935,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     def _volume(self, bounds: Bound) -> float:
         """Returns object's volume within given bounds."""
 
-    def surface_area(self, bounds: Bound = None):
+    def surface_area(self, bounds: Bound = None) -> float:
         """Returns object's surface area with optional bounds.
 
         Parameters
@@ -1147,7 +1185,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     @staticmethod
     @verify_packages_import(["gdstk"])
     def load_gds_vertices_gdstk(
-        gds_cell,
+        gds_cell: Cell,
         gds_layer: int,
         gds_dtype: Optional[int] = None,
         gds_scale: pydantic.PositiveFloat = 1.0,
@@ -1199,7 +1237,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     @staticmethod
     @verify_packages_import(["gdstk"])
     def from_gds(
-        gds_cell,
+        gds_cell: Cell,
         axis: Axis,
         slab_bounds: tuple[float, float],
         gds_layer: int,
@@ -1363,7 +1401,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     @verify_packages_import(["gdstk"])
     def to_gds(
         self,
-        cell,
+        cell: Cell,
         x: Optional[float] = None,
         y: Optional[float] = None,
         z: Optional[float] = None,
@@ -1403,7 +1441,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     @verify_packages_import(["gdstk"])
     def to_gds_file(
         self,
-        fname: str,
+        fname: PathLike,
         x: Optional[float] = None,
         y: Optional[float] = None,
         z: Optional[float] = None,
@@ -1415,7 +1453,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the .gds file to save the :class:`Geometry` slice to.
         x : float = None
             Position of plane in x direction, only one of x,y,z can be specified to define plane.
@@ -1441,7 +1479,8 @@ class Geometry(Tidy3dBaseModel, ABC):
         library = gdstk.Library()
         cell = library.new_cell(gds_cell_name)
         self.to_gds(cell, x=x, y=y, z=z, gds_layer=gds_layer, gds_dtype=gds_dtype)
-        pathlib.Path(fname).parent.mkdir(parents=True, exist_ok=True)
+        fname = pathlib.Path(fname)
+        fname.parent.mkdir(parents=True, exist_ok=True)
         library.write_gds(fname)
 
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
@@ -1457,65 +1496,65 @@ class Geometry(Tidy3dBaseModel, ABC):
             return (self.geometry_a, self.geometry_b)
         return (self,)
 
-    def __add__(self, other):
+    def __add__(self, other: Union[int, Geometry]) -> Union[Self, GeometryGroup]:
         """Union of geometries"""
         # This allows the user to write sum(geometries...) with the default start=0
         if isinstance(other, int):
             return self
         if not isinstance(other, Geometry):
-            return NotImplemented
+            return NotImplemented  # type: ignore[return-value]
         return GeometryGroup(geometries=self._as_union() + other._as_union())
 
-    def __radd__(self, other):
+    def __radd__(self, other: Union[int, Geometry]) -> Union[Self, GeometryGroup]:
         """Union of geometries"""
         # This allows the user to write sum(geometries...) with the default start=0
         if isinstance(other, int):
             return self
         if not isinstance(other, Geometry):
-            return NotImplemented
+            return NotImplemented  # type: ignore[return-value]
         return GeometryGroup(geometries=other._as_union() + self._as_union())
 
-    def __or__(self, other):
+    def __or__(self, other: Geometry) -> GeometryGroup:
         """Union of geometries"""
         if not isinstance(other, Geometry):
             return NotImplemented
         return GeometryGroup(geometries=self._as_union() + other._as_union())
 
-    def __mul__(self, other):
+    def __mul__(self, other: Geometry) -> ClipOperation:
         """Intersection of geometries"""
         if not isinstance(other, Geometry):
             return NotImplemented
         return ClipOperation(operation="intersection", geometry_a=self, geometry_b=other)
 
-    def __and__(self, other):
+    def __and__(self, other: Geometry) -> ClipOperation:
         """Intersection of geometries"""
         if not isinstance(other, Geometry):
             return NotImplemented
         return ClipOperation(operation="intersection", geometry_a=self, geometry_b=other)
 
-    def __sub__(self, other):
+    def __sub__(self, other: Geometry) -> ClipOperation:
         """Difference of geometries"""
         if not isinstance(other, Geometry):
-            return NotImplemented
+            return NotImplemented  # type: ignore[return-value]
         return ClipOperation(operation="difference", geometry_a=self, geometry_b=other)
 
-    def __xor__(self, other):
+    def __xor__(self, other: Geometry) -> ClipOperation:
         """Symmetric difference of geometries"""
         if not isinstance(other, Geometry):
             return NotImplemented
         return ClipOperation(operation="symmetric_difference", geometry_a=self, geometry_b=other)
 
-    def __pos__(self):
+    def __pos__(self) -> Self:
         """No op"""
         return self
 
-    def __neg__(self):
+    def __neg__(self) -> ClipOperation:
         """Opposite of a geometry"""
         return ClipOperation(
             operation="difference", geometry_a=Box(size=(inf, inf, inf)), geometry_b=self
         )
 
-    def __invert__(self):
+    def __invert__(self) -> ClipOperation:
         """Opposite of a geometry"""
         return ClipOperation(
             operation="difference", geometry_a=Box(size=(inf, inf, inf)), geometry_b=self
@@ -1536,7 +1575,7 @@ class Centered(Geometry, ABC):
     )
 
     @pydantic.validator("center", always=True)
-    def _center_not_inf(cls, val):
+    def _center_not_inf(cls, val: tuple[float, float, float]) -> tuple[float, float, float]:
         """Make sure center is not infinitiy."""
         if any(np.isinf(v) for v in val):
             raise ValidationError("center can not contain td.inf terms.")
@@ -1547,7 +1586,12 @@ class SimplePlaneIntersection(Geometry, ABC):
     """A geometry where intersections with an axis aligned plane may be computed efficiently."""
 
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
         Checks special cases before relying on the complete computation.
@@ -1560,6 +1604,11 @@ class SimplePlaneIntersection(Geometry, ABC):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -1574,11 +1623,11 @@ class SimplePlaneIntersection(Geometry, ABC):
             axis = np.argmax(np.abs(normal)).item()
             coord = "xyz"[axis]
             kwargs = {coord: origin[axis]}
-            section = self.intersections_plane(**kwargs)
+            section = self.intersections_plane(cleanup=cleanup, quad_segs=quad_segs, **kwargs)
             # Apply transformation in the plane by removing row and column
             to_2D_in_plane = np.delete(np.delete(to_2D, 2, 0), axis, 1)
 
-            def transform(p_array):
+            def transform(p_array: NDArray) -> NDArray:
                 return np.dot(
                     np.hstack((p_array, np.ones((p_array.shape[0], 1)))), to_2D_in_plane.T
                 )[:, :2]
@@ -1586,11 +1635,17 @@ class SimplePlaneIntersection(Geometry, ABC):
             transformed_section = shapely.transform(section, transformation=transform)
             return transformed_section
         # Otherwise compute the arbitrary intersection
-        return self._do_intersections_tilted_plane(normal=normal, origin=origin, to_2D=to_2D)
+        return self._do_intersections_tilted_plane(
+            normal=normal, origin=origin, to_2D=to_2D, quad_segs=quad_segs
+        )
 
     @abstractmethod
     def _do_intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -1602,6 +1657,8 @@ class SimplePlaneIntersection(Geometry, ABC):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes.
 
         Returns
         -------
@@ -1619,7 +1676,7 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
         2, title="Axis", description="Specifies dimension of the planar axis (0,1,2) -> (x,y,z)."
     )
 
-    sidewall_angle: float = pydantic.Field(
+    sidewall_angle: TracedFloat = pydantic.Field(
         0.0,
         title="Sidewall angle",
         description="Angle of the sidewall. "
@@ -1669,9 +1726,31 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
         """
         return min(self.length_axis, LARGE_NUMBER)
 
+    @property
+    def reference_axis_pos(self) -> float:
+        """Coordinate along the slab axis at the reference plane.
+
+        Returns the axis coordinate corresponding to the selected
+        reference_plane:
+        - "bottom": lower bound of slab_bounds
+        - "middle": center_axis
+        - "top": upper bound of slab_bounds
+        """
+        if self.reference_plane == "bottom":
+            return self.slab_bounds[0]
+        if self.reference_plane == "top":
+            return self.slab_bounds[1]
+        # default to middle
+        return self.center_axis
+
     def intersections_plane(
-        self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None
-    ):
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
+    ) -> list[Shapely]:
         """Returns shapely geometry at plane specified by one non None value of x,y,z.
 
         Parameters
@@ -1682,29 +1761,37 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
             Position of plane in y direction, only one of x,y,z can be specified to define plane.
         z : float
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
         List[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
-        `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
+        `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>``.
         """
         axis, position = self.parse_xyz_kwargs(x=x, y=y, z=z)
         if not self.intersects_axis_position(axis, position):
             return []
         if axis == self.axis:
-            return self._intersections_normal(position)
+            return self._intersections_normal(position, quad_segs=quad_segs)
         return self._intersections_side(position, axis)
 
     @abstractmethod
-    def _intersections_normal(self, z: float) -> list:
+    def _intersections_normal(self, z: float, quad_segs: Optional[int] = None) -> list:
         """Find shapely geometries intersecting planar geometry with axis normal to slab.
 
         Parameters
         ----------
         z : float
             Position along the axis normal to slab
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -1715,7 +1802,7 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
         """
 
     @abstractmethod
-    def _intersections_side(self, position: float, axis: Axis) -> list:
+    def _intersections_side(self, position: float, axis: Axis) -> list[Shapely]:
         """Find shapely geometries intersecting planar geometry with axis orthogonal to plane.
 
         Parameters
@@ -1792,13 +1879,13 @@ class Circular(Geometry):
     )
 
     @pydantic.validator("radius", always=True)
-    def _radius_not_inf(cls, val):
+    def _radius_not_inf(cls, val: float) -> float:
         """Make sure center is not infinitiy."""
         if np.isinf(val):
             raise ValidationError("radius can not be td.inf.")
         return val
 
-    def _intersect_dist(self, position, z0) -> float:
+    def _intersect_dist(self, position: float, z0: float) -> float:
         """Distance between points on circle at z=position where center of circle at z=z0.
 
         Parameters
@@ -1824,7 +1911,7 @@ class Circular(Geometry):
 
 class Box(SimplePlaneIntersection, Centered):
     """Rectangular prism.
-       Also base class for :class:`Simulation`, :class:`Monitor`, and :class:`Source`.
+       Also base class for :class:`.Simulation`, :class:`Monitor`, and :class:`Source`.
 
     Example
     -------
@@ -1839,7 +1926,7 @@ class Box(SimplePlaneIntersection, Centered):
     )
 
     @classmethod
-    def from_bounds(cls, rmin: Coordinate, rmax: Coordinate, **kwargs):
+    def from_bounds(cls, rmin: Coordinate, rmax: Coordinate, **kwargs: Any) -> Self:
         """Constructs a :class:`Box` from minimum and maximum coordinate bounds
 
         Parameters
@@ -1868,7 +1955,7 @@ class Box(SimplePlaneIntersection, Centered):
         return self.size.index(0.0)
 
     @classmethod
-    def surfaces(cls, size: Size, center: Coordinate, **kwargs):
+    def surfaces(cls, size: Size, center: Coordinate, **kwargs: Any) -> list[Self]:
         """Returns a list of 6 :class:`Box` instances corresponding to each surface of a 3D volume.
         The output surfaces are stored in the order [x-, x+, y-, y+, z-, z+], where x, y, and z
         denote which axis is perpendicular to that surface, while "-" and "+" denote the direction
@@ -1933,7 +2020,7 @@ class Box(SimplePlaneIntersection, Centered):
         del_idx = [[2 * i, 2 * i + 1] for i in del_idx]
         del_idx = [item for sublist in del_idx for item in sublist]
 
-        def del_items(items, indices):
+        def del_items(items: Iterable, indices: int) -> list:
             """Delete list items at indices."""
             return [i for j, i in enumerate(items) if j not in indices]
 
@@ -1956,7 +2043,7 @@ class Box(SimplePlaneIntersection, Centered):
         return surfaces
 
     @classmethod
-    def surfaces_with_exclusion(cls, size: Size, center: Coordinate, **kwargs):
+    def surfaces_with_exclusion(cls, size: Size, center: Coordinate, **kwargs: Any) -> list[Self]:
         """Returns a list of 6 :class:`Box` instances corresponding to each surface of a 3D volume.
         The output surfaces are stored in the order [x-, x+, y-, y+, z-, z+], where x, y, and z
         denote which axis is perpendicular to that surface, while "-" and "+" denote the direction
@@ -1987,7 +2074,11 @@ class Box(SimplePlaneIntersection, Centered):
 
     @verify_packages_import(["trimesh"])
     def _do_intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -1999,6 +2090,8 @@ class Box(SimplePlaneIntersection, Centered):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. Not used for Box geometry.
 
         Returns
         -------
@@ -2037,8 +2130,13 @@ class Box(SimplePlaneIntersection, Centered):
         return path.polygons_full
 
     def intersections_plane(
-        self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None
-    ):
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
+    ) -> list[Shapely]:
         """Returns shapely geometry at plane specified by one non None value of x,y,z.
 
         Parameters
@@ -2049,6 +2147,10 @@ class Box(SimplePlaneIntersection, Centered):
             Position of plane in y direction, only one of x,y,z can be specified to define plane.
         z : float = None
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. Not used for Box geometry.
 
         Returns
         -------
@@ -2077,9 +2179,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         return [self.make_shapely_box(minx, miny, maxx, maxy)]
 
-    def inside(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
         volume of the :class:`Geometry`, and ``False`` otherwise.
@@ -2106,9 +2206,21 @@ class Box(SimplePlaneIntersection, Centered):
         dist_z = np.abs(z - z0)
         return (dist_x <= Lx / 2) * (dist_y <= Ly / 2) * (dist_z <= Lz / 2)
 
-    def intersections_with(self, other):
+    def intersections_with(
+        self, other: Shapely, cleanup: bool = True, quad_segs: Optional[int] = None
+    ) -> list[Shapely]:
         """Returns list of shapely geometries representing the intersections of the geometry with
         this 2D box.
+
+        Parameters
+        ----------
+        other : Shapely
+            Geometry to intersect with.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -2133,7 +2245,7 @@ class Box(SimplePlaneIntersection, Centered):
         dim = "xyz"[normal_ind]
         pos = self.center[normal_ind]
         xyz_kwargs = {dim: pos}
-        shapes_plane = other.intersections_plane(**xyz_kwargs)
+        shapes_plane = other.intersections_plane(cleanup=cleanup, quad_segs=quad_segs, **xyz_kwargs)
 
         # intersect all shapes with the input self
         bs_min, bs_max = (self.pop_axis(bounds, axis=normal_ind)[1] for bounds in self.bounds)
@@ -2141,6 +2253,58 @@ class Box(SimplePlaneIntersection, Centered):
         shapely_box = self.make_shapely_box(bs_min[0], bs_min[1], bs_max[0], bs_max[1])
         shapely_box = Geometry.evaluate_inf_shape(shapely_box)
         return [Geometry.evaluate_inf_shape(shape) & shapely_box for shape in shapes_plane]
+
+    def slightly_enlarged_copy(self) -> Box:
+        """Box size slightly enlarged around machine precision."""
+        size = [increment_float(orig_length, 1) for orig_length in self.size]
+        return self.updated_copy(size=size)
+
+    def padded_copy(
+        self,
+        x: Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None,
+        y: Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None,
+        z: Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None,
+    ) -> Box:
+        """Created a padded copy of a :class:`Box` instance.
+
+        Parameters
+        ----------
+        x : Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None
+            Padding sizes at the left and right boundaries of the box along x-axis.
+        y : Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None
+            Padding sizes at the left and right boundaries of the box along y-axis.
+        z : Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None
+            Padding sizes at the left and right boundaries of the box along z-axis.
+
+        Returns
+        -------
+        Box
+            Padded instance of :class:`Box`.
+        """
+
+        # Validate that padding values are non-negative
+        for axis_name, axis_padding in zip(("x", "y", "z"), (x, y, z)):
+            if axis_padding is not None:
+                if not isinstance(axis_padding, (tuple, list)) or len(axis_padding) != 2:
+                    raise ValueError(f"Padding for {axis_name}-axis must be a tuple of two values.")
+                if any(p < 0 for p in axis_padding):
+                    raise ValueError(
+                        f"Padding values for {axis_name}-axis must be non-negative. Got {axis_padding}."
+                    )
+
+        rmin, rmax = self.bounds
+
+        def bound_array(arrs: ArrayLike, idx: int) -> NDArray:
+            return np.array([(a[idx] if a is not None else 0) for a in arrs])
+
+        # parse padding sizes for simulation
+        drmin = bound_array((x, y, z), 0)
+        drmax = bound_array((x, y, z), 1)
+
+        rmin = np.array(rmin) - drmin
+        rmax = np.array(rmax) + drmax
+
+        return Box.from_bounds(rmin=rmin, rmax=rmax)
 
     @cached_property
     def bounds(self) -> Bound:
@@ -2158,7 +2322,7 @@ class Box(SimplePlaneIntersection, Centered):
         return (coord_min, coord_max)
 
     @cached_property
-    def geometry(self):
+    def geometry(self) -> Box:
         """:class:`Box` representation of self (used for subclasses of Box).
 
         Returns
@@ -2290,8 +2454,14 @@ class Box(SimplePlaneIntersection, Centered):
         return ax
 
     @staticmethod
-    def _arrow_shape_cb(arrow, pos, direction, sign, bend_radius):
-        def _cb(event):
+    def _arrow_shape_cb(
+        arrow: FancyArrowPatch,
+        pos: tuple[float, float],
+        direction: ArrayLike,
+        sign: float,
+        bend_radius: float | None,
+    ) -> Callable[[Event], None]:
+        def _cb(event: Event) -> None:
             # We only want to set the shape once, so we disconnect ourselves
             event.canvas.mpl_disconnect(arrow.set_shape_cb[0])
 
@@ -2414,11 +2584,15 @@ class Box(SimplePlaneIntersection, Centered):
     def _derivative_faces(self, derivative_info: DerivativeInfo) -> Bound:
         """Derivative with respect to normal position of 6 faces of ``Box``."""
 
+        axes_to_compute = (0, 1, 2)
+        if len(derivative_info.paths[0]) > 1:
+            axes_to_compute = tuple(info[1] for info in derivative_info.paths)
+
         # change in permittivity between inside and outside
         vjp_faces = np.zeros((2, 3))
 
         for min_max_index, _ in enumerate((0, -1)):
-            for axis in range(3):
+            for axis in axes_to_compute:
                 vjp_face = self._derivative_face(
                     min_max_index=min_max_index,
                     axis_normal=axis,
@@ -2438,94 +2612,148 @@ class Box(SimplePlaneIntersection, Centered):
     ) -> float:
         """Compute the derivative w.r.t. shifting a face in the normal direction."""
 
-        # normal and tangential dims
-        dim_normal, dims_perp = self.pop_axis("xyz", axis=axis_normal)
-        fld_normal, flds_perp = self.pop_axis(("Ex", "Ey", "Ez"), axis=axis_normal)
+        interpolators = derivative_info.interpolators or derivative_info.create_interpolators()
+        _, axis_perp = self.pop_axis((0, 1, 2), axis=axis_normal)
 
-        # fields and bounds
-        D_normal = derivative_info.D_der_map[fld_normal]
-        Es_perp = tuple(derivative_info.E_der_map[key] for key in flds_perp)
+        # First, check if the face is outside the simulation domain in which case set the
+        # face gradient to 0.
         bounds_normal, bounds_perp = self.pop_axis(
             np.array(derivative_info.bounds).T, axis=axis_normal
         )
-
-        # define the integration plane
         coord_normal_face = bounds_normal[min_max_index]
-        bounds_perp = np.array(bounds_perp).T  # put (min / max) first dimension for integrator
 
-        # normal field data coordinates
-        fld_coords_normal = D_normal.coords[dim_normal]
+        if min_max_index == 0:
+            if coord_normal_face < derivative_info.simulation_bounds[0][axis_normal]:
+                return 0.0
+        else:
+            if coord_normal_face > derivative_info.simulation_bounds[1][axis_normal]:
+                return 0.0
 
-        # condition: a face is entirely outside of the domain, skip!
-        sign = (-1, 1)[min_max_index]
-        normal_coord_positive = sign * coord_normal_face
-        fld_coords_positive = sign * fld_coords_normal
-        if all(fld_coords_positive < normal_coord_positive):
-            log.info(
-                f"skipping VJP for 'Box' face '{dim_normal}{'-+'[min_max_index]}' "
-                "as it is entirely outside of the simulation domain."
-            )
+        intersect_min, intersect_max = map(np.asarray, derivative_info.bounds_intersect)
+        extents = intersect_max - intersect_min
+        _, intersect_min_perp = self.pop_axis(np.array(intersect_min), axis=axis_normal)
+        _, intersect_max_perp = self.pop_axis(np.array(intersect_max), axis=axis_normal)
+
+        is_2d_map = []
+        for axis_idx in range(3):
+            if axis_idx == axis_normal:
+                continue
+            is_2d_map.append(np.isclose(extents[axis_idx], 0.0))
+
+        if np.all(is_2d_map):
             return 0.0
 
-        # permittivity data
-        eps_xyz = [derivative_info.eps_data[f"eps_{dim}{dim}"] for dim in "xyz"]
+        is_2d = np.any(is_2d_map)
 
-        # number of cells from the edge of data to register "inside" (index = num_cells_in - 1)
-        num_cells_in = 4
+        sim_bounds_normal, sim_bounds_perp = self.pop_axis(
+            np.array(derivative_info.simulation_bounds).T, axis=axis_normal
+        )
 
-        # if not enough data, just use best guess using eps in medium and simulation
-        needs_eps_approx = any(len(eps.coords[dim_normal]) <= num_cells_in for eps in eps_xyz)
+        # Build point grid
+        adaptive_spacing = derivative_info.adaptive_vjp_spacing()
 
-        if derivative_info.eps_approx or needs_eps_approx:
-            eps_xyz_inside = 3 * [derivative_info.eps_in]
-            eps_xyz_outside = 3 * [derivative_info.eps_out]
-            # TODO: not tested...
+        def spacing_to_grid_points(
+            spacing: float, min_coord: float, max_coord: float
+        ) -> NDArray[float]:
+            N = np.maximum(3, 1 + int((max_coord - min_coord) / spacing))
 
-        # otherwise, try to grab the data at the edges
-        else:
-            if min_max_index == 0:
-                index_out, index_in = (0, num_cells_in - 1)
+            points = np.linspace(min_coord, max_coord, N)
+            centers = 0.5 * (points[0:-1] + points[1:])
+
+            return centers
+
+        def verify_integration_interval(bound: tuple[float, float]) -> bool:
+            # assume the bounds should not be equal or else this integration interval
+            # would be the flat dimension of a 2D geometry.
+            return bound[1] > bound[0]
+
+        def compute_integration_weight(grid_points: NDArray[float]) -> float:
+            grid_spacing = grid_points[1] - grid_points[0]
+            if grid_spacing == 0.0:
+                integration_weight = 1.0 / len(grid_points)
             else:
-                index_out, index_in = (-1, -num_cells_in)
-            eps_xyz_inside = [eps.isel(**{dim_normal: index_in}) for eps in eps_xyz]
-            eps_xyz_outside = [eps.isel(**{dim_normal: index_out}) for eps in eps_xyz]
+                integration_weight = grid_points[1] - grid_points[0]
 
-        # put in normal / tangential basis
-        eps_in_normal, eps_in_perps = self.pop_axis(eps_xyz_inside, axis=axis_normal)
-        eps_out_normal, eps_out_perps = self.pop_axis(eps_xyz_outside, axis=axis_normal)
+            return integration_weight
 
-        # compute integration pre-factors
-        delta_eps_perps = [eps_in - eps_out for eps_in, eps_out in zip(eps_in_perps, eps_out_perps)]
-        delta_eps_inv_normal = 1.0 / eps_in_normal - 1.0 / eps_out_normal
+        if is_2d:
+            # build 1D grid for sampling points along the face, which is an edge in the 2D case
+            zero_dim = np.where(is_2d_map)[0][0]
+            # zero dim is one of the perpendicular directions, so the other perpendicular direction
+            # is the nonzero dimension
+            nonzero_dim = 1 - zero_dim
 
-        def integrate_face(arr: xr.DataArray) -> complex:
-            """Interpolate and integrate a scalar field data over the face using bounds."""
-
-            arr_at_face = arr.interp(**{dim_normal: float(coord_normal_face)}, assume_sorted=True)
-
-            integral_result = integrate_within_bounds(
-                arr=arr_at_face,
-                dims=dims_perp,
-                bounds=bounds_perp,
+            # clip at simulation bounds for integration dimension
+            integration_bounds_perp = (
+                intersect_min_perp[nonzero_dim],
+                intersect_max_perp[nonzero_dim],
             )
 
-            return complex(integral_result.sum("f"))
+            if not verify_integration_interval(integration_bounds_perp):
+                return 0.0
 
-        # compute vjp from field integrals
-        vjp_value = 0.0
+            grid_points_linear = spacing_to_grid_points(
+                adaptive_spacing, integration_bounds_perp[0], integration_bounds_perp[1]
+            )
+            integration_weight = compute_integration_weight(grid_points_linear)
 
-        # perform D-normal integral
-        integrand_D = -delta_eps_inv_normal * D_normal
-        integral_D = integrate_face(integrand_D)
-        vjp_value += integral_D
+            grid_points = np.repeat(np.expand_dims(grid_points_linear.copy(), 1), 3, axis=1)
 
-        # perform E-perpendicular integrals
-        for E_perp, delta_eps_perp in zip(Es_perp, delta_eps_perps):
-            integrand_E = E_perp * delta_eps_perp
-            integral_E = integrate_face(integrand_E)
-            vjp_value += integral_E
+            # set up grid points to pass into evaluate_gradient_at_points
+            grid_points[:, axis_perp[nonzero_dim]] = grid_points_linear
+            grid_points[:, axis_perp[zero_dim]] = intersect_min_perp[zero_dim]
+            grid_points[:, axis_normal] = coord_normal_face
+        else:
+            # build 3D grid for sampling points along the face
 
-        return np.real(vjp_value)
+            # clip at simulation bounds for each integration dimension
+            integration_bounds_perp = (
+                (intersect_min_perp[0], intersect_max_perp[0]),
+                (intersect_min_perp[1], intersect_max_perp[1]),
+            )
+
+            if not np.all([verify_integration_interval(b) for b in integration_bounds_perp]):
+                return 0.0
+
+            grid_points_perp_1 = spacing_to_grid_points(
+                adaptive_spacing, integration_bounds_perp[0][0], integration_bounds_perp[0][1]
+            )
+            grid_points_perp_2 = spacing_to_grid_points(
+                adaptive_spacing, integration_bounds_perp[1][0], integration_bounds_perp[1][1]
+            )
+            integration_weight = compute_integration_weight(
+                grid_points_perp_1
+            ) * compute_integration_weight(grid_points_perp_2)
+
+            mesh_perp1, mesh_perp2 = np.meshgrid(grid_points_perp_1, grid_points_perp_2)
+
+            zip_perp_coords = np.array(list(zip(mesh_perp1.flatten(), mesh_perp2.flatten())))
+
+            grid_points = np.pad(zip_perp_coords.copy(), ((0, 0), (1, 0)), mode="constant")
+
+            # set up grid points to pass into evaluate_gradient_at_points
+            grid_points[:, axis_perp[0]] = zip_perp_coords[:, 0]
+            grid_points[:, axis_perp[1]] = zip_perp_coords[:, 1]
+            grid_points[:, axis_normal] = coord_normal_face
+
+        normals = np.zeros_like(grid_points)
+        perps1 = np.zeros_like(grid_points)
+        perps2 = np.zeros_like(grid_points)
+
+        normals[:, axis_normal] = -1 if (min_max_index == 0) else 1
+        perps1[:, axis_perp[0]] = 1
+        perps2[:, axis_perp[1]] = 1
+
+        gradient_at_points = derivative_info.evaluate_gradient_at_points(
+            spatial_coords=grid_points,
+            normals=normals,
+            perps1=perps1,
+            perps2=perps2,
+            interpolators=interpolators,
+        )
+
+        vjp_value = np.sum(integration_weight * np.real(gradient_at_points))
+        return vjp_value
 
 
 """Compound subclasses"""
@@ -2545,13 +2773,13 @@ class Transformed(Geometry):
     )
 
     @pydantic.validator("transform")
-    def _transform_is_invertible(cls, val):
+    def _transform_is_invertible(cls, val: MatrixReal4x4) -> MatrixReal4x4:
         # If the transform is not invertible, this will raise an error
         _ = np.linalg.inv(val)
         return val
 
     @pydantic.validator("geometry")
-    def _geometry_is_finite(cls, val):
+    def _geometry_is_finite(cls, val: GeometryType) -> GeometryType:
         if not np.isfinite(val.bounds).all():
             raise ValidationError(
                 "Transformations are only supported on geometries with finite dimensions. "
@@ -2561,7 +2789,7 @@ class Transformed(Geometry):
         return val
 
     @pydantic.root_validator(skip_on_failure=True)
-    def _apply_transforms(cls, values):
+    def _apply_transforms(cls, values: dict[str, Any]) -> dict[str, Any]:
         while isinstance(values["geometry"], Transformed):
             inner = values["geometry"]
             values["geometry"] = inner.geometry
@@ -2614,7 +2842,12 @@ class Transformed(Geometry):
         return (tuple(vertices.min(axis=1)), tuple(vertices.max(axis=1)))
 
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -2626,6 +2859,11 @@ class Transformed(Geometry):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -2638,11 +2876,11 @@ class Transformed(Geometry):
             tuple(np.dot((normal[0], normal[1], normal[2], 0.0), self.transform)[:3]),
             tuple(np.dot(self.inverse, (origin[0], origin[1], origin[2], 1.0))[:3]),
             np.dot(to_2D, self.transform),
+            cleanup=cleanup,
+            quad_segs=quad_segs,
         )
 
-    def inside(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
         volume of the :class:`Geometry`, and ``False`` otherwise.
@@ -2849,7 +3087,7 @@ class ClipOperation(Geometry):
     )
 
     @pydantic.validator("geometry_a", "geometry_b", always=True)
-    def _geometries_untraced(cls, val):
+    def _geometries_untraced(cls, val: GeometryType) -> GeometryType:
         """Make sure that ``ClipOperation`` geometries do not contain tracers."""
         traced = val._strip_traced_fields()
         if traced:
@@ -2880,7 +3118,9 @@ class ClipOperation(Geometry):
         unfiltered_geoms = []
         if base_geometry.geom_type == "GeometryCollection":
             unfiltered_geoms = [
-                p for geom in base_geometry.geoms for p in ClipOperation.to_polygon_list(geom)
+                p
+                for geom in base_geometry.geoms
+                for p in ClipOperation.to_polygon_list(geom, cleanup)
             ]
         if base_geometry.geom_type == "MultiPolygon":
             unfiltered_geoms = [p for p in base_geometry.geoms if not p.is_empty]
@@ -2923,7 +3163,12 @@ class ClipOperation(Geometry):
         return result
 
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -2935,6 +3180,11 @@ class ClipOperation(Geometry):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -2943,17 +3193,26 @@ class ClipOperation(Geometry):
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
         """
-        a = self.geometry_a.intersections_tilted_plane(normal, origin, to_2D)
-        b = self.geometry_b.intersections_tilted_plane(normal, origin, to_2D)
+        a = self.geometry_a.intersections_tilted_plane(
+            normal, origin, to_2D, cleanup=cleanup, quad_segs=quad_segs
+        )
+        b = self.geometry_b.intersections_tilted_plane(
+            normal, origin, to_2D, cleanup=cleanup, quad_segs=quad_segs
+        )
         geom_a = shapely.unary_union([Geometry.evaluate_inf_shape(g) for g in a])
         geom_b = shapely.unary_union([Geometry.evaluate_inf_shape(g) for g in b])
         return ClipOperation.to_polygon_list(
             self._shapely_operation(geom_a, geom_b),
-            cleanup=True,
+            cleanup=cleanup,
         )
 
     def intersections_plane(
-        self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Returns list of shapely geometries at plane specified by one non-None value of x,y,z.
 
@@ -2965,6 +3224,11 @@ class ClipOperation(Geometry):
             Position of plane in y direction, only one of x,y,z can be specified to define plane.
         z : float = None
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -2973,13 +3237,13 @@ class ClipOperation(Geometry):
             For more details refer to
             `Shapely's Documentaton <https://shapely.readthedocs.io/en/stable/project.html>`_.
         """
-        a = self.geometry_a.intersections_plane(x, y, z)
-        b = self.geometry_b.intersections_plane(x, y, z)
+        a = self.geometry_a.intersections_plane(x, y, z, cleanup=cleanup, quad_segs=quad_segs)
+        b = self.geometry_b.intersections_plane(x, y, z, cleanup=cleanup, quad_segs=quad_segs)
         geom_a = shapely.unary_union([Geometry.evaluate_inf_shape(g) for g in a])
         geom_b = shapely.unary_union([Geometry.evaluate_inf_shape(g) for g in b])
         return ClipOperation.to_polygon_list(
             self._shapely_operation(geom_a, geom_b),
-            cleanup=True,
+            cleanup=cleanup,
         )
 
     @cached_property
@@ -3010,9 +3274,7 @@ class ClipOperation(Geometry):
             )
         return result
 
-    def inside(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
         volume of the :class:`Geometry`, and ``False`` otherwise.
@@ -3036,8 +3298,8 @@ class ClipOperation(Geometry):
         return self._bit_operation(inside_a, inside_b)
 
     def inside_meshgrid(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+        self, x: NDArray[float], y: NDArray[float], z: NDArray[float]
+    ) -> NDArray[bool]:
         """Faster way to check ``self.inside`` on a meshgrid. The input arrays are assumed sorted.
 
         Parameters
@@ -3114,7 +3376,9 @@ class GeometryGroup(Geometry):
     )
 
     @pydantic.validator("geometries", always=True)
-    def _geometries_not_empty(cls, val):
+    def _geometries_not_empty(
+        cls, val: tuple[annotate_type(GeometryType), ...]
+    ) -> tuple[annotate_type(GeometryType), ...]:
         """make sure geometries are not empty."""
         if not len(val) > 0:
             raise ValidationError("GeometryGroup.geometries must not be empty.")
@@ -3137,7 +3401,12 @@ class GeometryGroup(Geometry):
         )
 
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -3149,6 +3418,11 @@ class GeometryGroup(Geometry):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -3160,11 +3434,18 @@ class GeometryGroup(Geometry):
         return [
             intersection
             for geometry in self.geometries
-            for intersection in geometry.intersections_tilted_plane(normal, origin, to_2D)
+            for intersection in geometry.intersections_tilted_plane(
+                normal, origin, to_2D, cleanup=cleanup, quad_segs=quad_segs
+            )
         ]
 
     def intersections_plane(
-        self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Returns list of shapely geometries at plane specified by one non-None value of x,y,z.
 
@@ -3176,6 +3457,11 @@ class GeometryGroup(Geometry):
             Position of plane in y direction, only one of x,y,z can be specified to define plane.
         z : float = None
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
 
         Returns
         -------
@@ -3189,7 +3475,9 @@ class GeometryGroup(Geometry):
         return [
             intersection
             for geometry in self.geometries
-            for intersection in geometry.intersections_plane(x=x, y=y, z=z)
+            for intersection in geometry.intersections_plane(
+                x=x, y=y, z=z, cleanup=cleanup, quad_segs=quad_segs
+            )
         ]
 
     def intersects_axis_position(self, axis: float, position: float) -> bool:
@@ -3209,9 +3497,7 @@ class GeometryGroup(Geometry):
         """
         return any(geom.intersects_axis_position(axis, position) for geom in self.geometries)
 
-    def inside(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
         volume of the :class:`Geometry`, and ``False`` otherwise.
@@ -3234,8 +3520,8 @@ class GeometryGroup(Geometry):
         return functools.reduce(lambda a, b: a | b, individual_insides)
 
     def inside_meshgrid(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+        self, x: NDArray[float], y: NDArray[float], z: NDArray[float]
+    ) -> NDArray[bool]:
         """Faster way to check ``self.inside`` on a meshgrid. The input arrays are assumed sorted.
 
         Parameters
@@ -3258,13 +3544,11 @@ class GeometryGroup(Geometry):
 
     def _volume(self, bounds: Bound) -> float:
         """Returns object's volume within given bounds."""
-        individual_volumes = (geometry.volume(bounds) for geometry in self.geometries)
-        return np.sum(individual_volumes)
+        return sum(geometry.volume(bounds) for geometry in self.geometries)
 
     def _surface_area(self, bounds: Bound) -> float:
         """Returns object's surface area within given bounds."""
-        individual_areas = (geometry.surface_area(bounds) for geometry in self.geometries)
-        return np.sum(individual_areas)
+        return sum(geometry.surface_area(bounds) for geometry in self.geometries)
 
     @cached_property
     def _normal_2dmaterial(self) -> Axis:
@@ -3299,9 +3583,7 @@ class GeometryGroup(Geometry):
         grad_vjps = {}
 
         # create interpolators once for all geometries to avoid redundant field data conversions
-        interpolators = derivative_info.interpolators or derivative_info.create_interpolators(
-            dtype=GRADIENT_DTYPE_FLOAT
-        )
+        interpolators = derivative_info.interpolators or derivative_info.create_interpolators()
 
         for field_path in derivative_info.paths:
             _, index, *geo_path = field_path
@@ -3310,6 +3592,9 @@ class GeometryGroup(Geometry):
             geo_info = derivative_info.updated_copy(
                 paths=[tuple(geo_path)],
                 bounds=geo.bounds,
+                bounds_intersect=self.bounds_intersection(
+                    geo.bounds, derivative_info.simulation_bounds
+                ),
                 eps_approx=True,
                 deep=False,
                 interpolators=interpolators,

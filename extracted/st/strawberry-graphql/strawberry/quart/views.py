@@ -1,16 +1,15 @@
 import asyncio
 import warnings
-from collections.abc import AsyncGenerator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
 from datetime import timedelta
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Callable, ClassVar, Optional, Union
-from typing_extensions import TypeGuard
+from typing import TYPE_CHECKING, ClassVar, TypeGuard, Union
 
-from lia import HTTPException, QuartHTTPRequestAdapter
-
+from cross_web import HTTPException, QuartHTTPRequestAdapter
 from quart import Request, Response, Websocket, request, websocket
 from quart.ctx import has_websocket_context
 from quart.views import View
+
 from strawberry.http.async_base_view import (
     AsyncBaseHTTPView,
     AsyncWebSocketAdapter,
@@ -26,6 +25,7 @@ from strawberry.subscriptions import GRAPHQL_TRANSPORT_WS_PROTOCOL, GRAPHQL_WS_P
 
 if TYPE_CHECKING:
     from quart.typing import ResponseReturnValue
+
     from strawberry.http import GraphQLHTTPResponse
     from strawberry.schema.base import BaseSchema
 
@@ -61,7 +61,8 @@ class QuartWebSocketAdapter(AsyncWebSocketAdapter):
         try:
             # Raises asyncio.CancelledError when the connection is closed.
             # https://quart.palletsprojects.com/en/latest/how_to_guides/websockets.html#detecting-disconnection
-            await self.ws.send(self.view.encode_json(message))
+            await self.ws.send(self.view.encode_json(message))  # type:ignore
+            # quart is misusing AnyStr, leading to type errors for unions, see https://github.com/pallets/quart/issues/451
         except asyncio.CancelledError as exc:
             raise WebSocketDisconnected from exc
 
@@ -78,13 +79,13 @@ class GraphQLView(
     methods: ClassVar[list[str]] = ["GET", "POST"]
     allow_queries_via_get: bool = True
     request_adapter_class = QuartHTTPRequestAdapter
-    websocket_adapter_class = QuartWebSocketAdapter
+    websocket_adapter_class = QuartWebSocketAdapter  # type: ignore
 
     def __init__(
         self,
         schema: "BaseSchema",
-        graphiql: Optional[bool] = None,
-        graphql_ide: Optional[GraphQL_IDE] = "graphiql",
+        graphiql: bool | None = None,
+        graphql_ide: GraphQL_IDE | None = "graphiql",
         allow_queries_via_get: bool = True,
         keep_alive: bool = True,
         keep_alive_interval: float = 1,
@@ -126,13 +127,11 @@ class GraphQLView(
         return sub_response
 
     async def get_context(
-        self, request: Union[Request, Websocket], response: Response
+        self, request: Request | Websocket, response: Response
     ) -> Context:
         return {"request": request, "response": response}  # type: ignore
 
-    async def get_root_value(
-        self, request: Union[Request, Websocket]
-    ) -> Optional[RootValue]:
+    async def get_root_value(self, request: Request | Websocket) -> RootValue | None:
         return None
 
     async def get_sub_response(self, request: Request) -> Response:
@@ -147,6 +146,7 @@ class GraphQLView(
             return Response(
                 response=e.reason,
                 status=e.status_code,
+                content_type="text/plain",
             )
 
     async def create_streaming_response(
@@ -166,18 +166,18 @@ class GraphQLView(
         )
 
     def is_websocket_request(
-        self, request: Union[Request, Websocket]
+        self, request: Request | Websocket
     ) -> TypeGuard[Websocket]:
         return has_websocket_context()
 
-    async def pick_websocket_subprotocol(self, request: Websocket) -> Optional[str]:
+    async def pick_websocket_subprotocol(self, request: Websocket) -> str | None:
         protocols = request.requested_subprotocols
         intersection = set(protocols) & set(self.subscription_protocols)
         sorted_intersection = sorted(intersection, key=protocols.index)
         return next(iter(sorted_intersection), None)
 
     async def create_websocket_response(
-        self, request: Websocket, subprotocol: Optional[str]
+        self, request: Websocket, subprotocol: str | None
     ) -> Response:
         await request.accept(subprotocol=subprotocol)
         return Response()

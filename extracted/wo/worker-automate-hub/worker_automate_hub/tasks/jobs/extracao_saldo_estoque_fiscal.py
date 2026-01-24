@@ -5,6 +5,8 @@ from pywinauto import Application, timings, findwindows, keyboard, Desktop
 import sys
 import io
 import win32gui
+import pyperclip
+from unidecode import unidecode
 
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
@@ -43,6 +45,88 @@ emsys = EMSys()
 console = Console()
 pyautogui.PAUSE = 0.5
 pyautogui.FAILSAFE = False
+
+# -------- Configs de velocidade  --------
+SLEEP_BETWEEN_KEYS = 0.03   # 30ms entre DOWNs
+SLEEP_AFTER_COPY   = 0.06   # 60ms após Ctrl+C
+
+# -------- Utilidades --------
+def _get_main_window_by_class(timeout_s: int = 5):
+    app = Application(backend="win32").connect(class_name="TFrmMovtoLivroFiscal", timeout=timeout_s)
+    win = app.window(class_name="TFrmMovtoLivroFiscal")
+    try: win.set_focus()
+    except Exception: pass
+    return app, win
+
+def _find_grid_descendant(win):
+    # pega o maior TcxGridSite/TcxGrid
+    best, best_area = None, -1
+    for d in win.descendants():
+        try:
+            cls = (d.class_name() or "").lower()
+            if "tcxgridsite" in cls or "tcxgrid" in cls:
+                r = d.rectangle()
+                area = max(0,(r.right-r.left)) * max(0,(r.bottom-r.top))
+                if area > best_area:
+                    best, best_area = d, area
+        except: 
+            pass
+    if not best:
+        raise RuntimeError("Grid não localizado (TcxGrid/TcxGridSite).")
+    return best
+
+def _copy_active_row_text(retries: int = 1) -> str:
+    pyperclip.copy("")
+    send_keys("^c")
+    time.sleep(SLEEP_AFTER_COPY)
+    txt = pyperclip.paste().strip()
+    if txt or retries <= 0:
+        return txt
+    # 1 tentativa extra (às vezes a 1ª vem vazia)
+    return _copy_active_row_text(retries-1)
+
+def _linha_bate_criterio(txt: str, mes: str, ano: str) -> bool:
+    if not txt:
+        return False
+    t = unidecode(re.sub(r"\s+"," ", txt)).lower()
+    # dd/MM/AAAA do mês/ano desejado
+    if not re.search(rf"\b(0[1-9]|[12]\d|3[01])/{mes}/{ano}\b", t):
+        return False
+    return "livro - inventario" in t
+
+# -------- Varredura assumindo que JÁ ESTÁ na 1ª linha --------
+def selecionar_inventario_por_competencia(competencia_mm_aaaa: str, max_linhas: int = 800) -> bool:
+    """
+    Pré-condição: o foco já está na PRIMEIRA LINHA do grid (você clicou por coordenada).
+    A função só navega com SETA-PARA-BAIXO até encontrar a linha alvo e PARA.
+    """
+    # Selecionar primeira linha inventario
+    pyautogui.click(928, 475)
+    time.sleep(1)
+    m = re.fullmatch(r"(\d{2})/(\d{4})", competencia_mm_aaaa.strip())
+    if not m:
+        raise ValueError("Competência deve ser MM/AAAA (ex.: '09/2025').")
+    mes, ano = m.groups()
+
+    # garantir foco na janela/grid (não move o cursor de linha)
+    _, win = _get_main_window_by_class()
+    grid = _find_grid_descendant(win)
+    try:
+        grid.set_focus()
+    except Exception:
+        pass
+
+    for i in range(max_linhas):
+        linha = _copy_active_row_text()
+        if _linha_bate_criterio(linha, mes, ano):
+            # ✅ Linha correta já está selecionada (sem cliques)
+            # print(f"[OK] Encontrado em {i+1} passos: {linha}")
+            return True
+        send_keys("{DOWN}")
+        time.sleep(SLEEP_BETWEEN_KEYS)
+
+    # print("[WARN] Não encontrado dentro do limite de linhas.")
+    return False
 
 
 async def extracao_saldo_estoque_fiscal(
@@ -131,6 +215,7 @@ async def extracao_saldo_estoque_fiscal(
 
         # Caminho da imagem do botão
         imagem_botao = r"assets\\extracao_relatorios\\btn_incluir_livro.png"
+        # imagem_botao = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\extracao_relatorios\btn_incluir_livro.png"
 
         if os.path.exists(imagem_botao):
             try:
@@ -214,27 +299,19 @@ async def extracao_saldo_estoque_fiscal(
         if win is None:
             raise TimeoutError(f"Janela '{CLASS}' não apareceu dentro do timeout.")
 
-        # 2) Conecta ao app usando o handle da janela encontrada
-        app = Application(backend="win32").connect(handle=win.handle)
-        main_window = app.window(handle=win.handle)
-
-        # Dá o foco na janela
-        main_window.set_focus()
-
-        await worker_sleep(2)
-
-        main_window.close()
+        w.close()
 
         await worker_sleep(2)
 
         ##### Janela Movimento Livro Fiscal #####
         # Selecionar primeira linha inventario
-        pyautogui.click(928, 475)
+        selecionar_inventario_por_competencia(periodo)
 
         await worker_sleep(2)
 
         # Clicar em visualizar livro
         caminho = r"assets\\extracao_relatorios\\btn_visu_livros.png"
+        # caminho =r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\extracao_relatorios\btn_visu_livros.png"
         # Verifica se o arquivo existe
         if os.path.isfile(caminho):
             print("A imagem existe:", caminho)
@@ -313,6 +390,7 @@ async def extracao_saldo_estoque_fiscal(
             # 1) Abrir o picker pelo botão (imagem)
             console.print("Procurando botão de salvar (imagem)...", style="bold cyan")
             caminho_img = r"assets\\extracao_relatorios\btn_salvar.png"
+            # caminho_img = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\extracao_relatorios\btn_salvar.png"
             if os.path.isfile(caminho_img):
                 pos = pyautogui.locateCenterOnScreen(caminho_img, confidence=0.9)
                 if pos:
@@ -607,3 +685,4 @@ async def extracao_saldo_estoque_fiscal(
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
+

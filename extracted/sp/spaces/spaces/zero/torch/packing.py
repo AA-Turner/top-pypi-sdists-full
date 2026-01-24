@@ -1,7 +1,5 @@
 """
 """
-from __future__ import annotations
-
 import time
 
 import ctypes
@@ -11,13 +9,13 @@ from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 from dataclasses import dataclass
 from queue import Queue
+from typing import Any
 from typing import Callable
 
 from ...utils import debug
 from .utils import empty_like_raw_alloc
 
 import torch
-from typing_extensions import TypeAlias
 
 
 PAGE_SIZE = 4096
@@ -28,7 +26,7 @@ BUFFER_SIZE = 128 * 2**20
 BUFFER_COUNT = 2
 
 
-TensorWithSizes: TypeAlias = 'tuple[torch.Tensor, int, int]'
+TensorWithSizes = tuple[torch.Tensor, int, int]
 
 @dataclass
 class ZeroGPUTensorPack:
@@ -65,7 +63,7 @@ def pack_tensors(
     tensors: set[torch.Tensor],
     fakes: dict[torch.Tensor, list[torch.Tensor]],
     offload_dir: str,
-    callback: Callable[[int]] | None = None,
+    callback: Callable[[int], Any] | None = None,
 ):
 
     callback = (lambda bytes: None) if callback is None else callback
@@ -125,7 +123,7 @@ def pack_tensors(
         os.close(fd)
 
 
-def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int]] | None = None):
+def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int], Any] | None = None):
 
     callback = (lambda bytes: None) if callback is None else callback
 

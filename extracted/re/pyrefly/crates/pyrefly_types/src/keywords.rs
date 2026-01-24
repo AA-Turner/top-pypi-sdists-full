@@ -8,7 +8,6 @@
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
@@ -20,7 +19,9 @@ use crate::tuple::Tuple;
 use crate::types::CalleeKind;
 use crate::types::Type;
 
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash, Visit, VisitMut
+)]
 pub struct TypeMap(pub OrderedMap<Name, Type>);
 
 impl TypeMap {
@@ -34,25 +35,9 @@ impl TypeMap {
 
     pub fn get_string(&self, name: &Name) -> Option<&str> {
         self.0.get(name).and_then(|t| match t {
-            Type::Literal(Lit::Str(s)) => Some(&**s),
+            Type::Literal(lit) if let Lit::Str(s) = &lit.value => Some(&**s),
             _ => None,
         })
-    }
-}
-
-impl Visit<Type> for TypeMap {
-    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
-        for (_, ty) in self.0.iter() {
-            ty.visit(f);
-        }
-    }
-}
-
-impl VisitMut<Type> for TypeMap {
-    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
-        for (_, ty) in self.0.iter_mut() {
-            ty.visit_mut(f);
-        }
     }
 }
 
@@ -78,7 +63,7 @@ impl KwCall {
 /// See https://typing.python.org/en/latest/spec/dataclasses.html#dataclass-transform-parameters.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
-pub struct DataclassTransformKeywords {
+pub struct DataclassTransformMetadata {
     pub eq_default: bool,
     pub order_default: bool,
     pub kw_only_default: bool,
@@ -86,7 +71,7 @@ pub struct DataclassTransformKeywords {
     pub field_specifiers: Vec<CalleeKind>,
 }
 
-impl DataclassTransformKeywords {
+impl DataclassTransformMetadata {
     const EQ_DEFAULT: Name = Name::new_static("eq_default");
     const ORDER_DEFAULT: Name = Name::new_static("order_default");
     const KW_ONLY_DEFAULT: Name = Name::new_static("kw_only_default");
@@ -113,23 +98,58 @@ impl DataclassTransformKeywords {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, TypeEq)]
+pub struct ConverterMap(OrderedMap<Type, Type>);
+
+impl ConverterMap {
+    pub fn new() -> Self {
+        Self(OrderedMap::new())
+    }
+
+    pub fn from_map(map: OrderedMap<Type, Type>) -> Self {
+        Self(map)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn get(&self, key: &Type) -> Option<&Type> {
+        self.0.get(key)
+    }
+}
+
+impl VisitMut<Type> for ConverterMap {
+    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
+        // The converter map is built from static type information, so the keys shouldn't contain
+        // anything interesting for visiting.
+        for value in self.0.values_mut() {
+            value.visit_mut(f);
+        }
+    }
+}
+
 /// Parameters to dataclass field specifiers.
 /// See https://typing.python.org/en/latest/spec/dataclasses.html#field-specifier-parameters.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct DataclassFieldKeywords {
     pub init: bool,
-    /// Whether this field has a default. Note that this is derived from the various
+    /// This field's default, if any. Note that this is derived from the various
     /// default-related parameters but does not correspond directly to any of them
-    pub default: bool,
+    pub default: Option<Type>,
     /// None means that kw_only was not explicitly set
     pub kw_only: Option<bool>,
-    /// Alias that is used in `__init__` rather than the field name. None means no alias
-    pub alias: Option<Name>,
+    /// Whether this field should have a corresponding parameter in `__init__` with the field name.
+    pub init_by_name: bool,
+    /// If non-None, this field should have a corresponding parameter in `__init__` with the given alias.
+    pub init_by_alias: Option<Name>,
     /// gt and lt specify the range of values that the field can take. None means no constraint
     pub lt: Option<Type>,
     pub gt: Option<Type>,
     pub ge: Option<Type>,
+    pub le: Option<Type>,
     /// Whether we should strictly evaluate the type of the field
     pub strict: Option<bool>,
     /// If a converter callable is passed in, its first positional parameter
@@ -138,8 +158,7 @@ pub struct DataclassFieldKeywords {
 
 impl DataclassFieldKeywords {
     pub const INIT: Name = Name::new_static("init");
-    /// We combine default, default_factory, and factory into a single "default" keyword indicating
-    /// whether the field has a default. The default value isn't stored.
+    /// We combine default, default_factory, and factory into a single "default" keyword.
     pub const DEFAULT: Name = Name::new_static("default");
     pub const DEFAULT_FACTORY: Name = Name::new_static("default_factory");
     pub const FACTORY: Name = Name::new_static("factory");
@@ -151,12 +170,14 @@ impl DataclassFieldKeywords {
     pub fn new() -> Self {
         Self {
             init: true,
-            default: false,
+            default: None,
             kw_only: None,
-            alias: None,
+            init_by_name: true,
+            init_by_alias: None,
             lt: None,
             gt: None,
             ge: None,
+            le: None,
             converter_param: None,
             strict: None,
         }
@@ -180,8 +201,12 @@ pub struct DataclassKeywords {
     pub eq: bool,
     pub unsafe_hash: bool,
     pub slots: bool,
-    // are extra fields allowed? appears as an actual keyword in pydantic models, while implicitly false in dataclasses
+    /// are extra fields allowed? appears as an actual keyword in pydantic models, while implicitly false in dataclasses
     pub extra: bool,
+    /// Are field types strictly enforced? Pydantic models have "lax" and "strict" modes that determine whether type
+    /// coercion (e.g., allowing `'0'` for an int field and coercing it to `0`) is allowed. `strict` is always true
+    /// for non-Pydantic dataclasses.
+    pub strict: bool,
 }
 
 impl DataclassKeywords {
@@ -194,7 +219,7 @@ impl DataclassKeywords {
     const UNSAFE_HASH: Name = Name::new_static("unsafe_hash");
     const SLOTS: Name = Name::new_static("slots");
 
-    pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformKeywords) -> Self {
+    pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformMetadata) -> Self {
         Self {
             init: map.get_bool(&Self::INIT).unwrap_or(true),
             order: map.get_bool(&Self::ORDER).unwrap_or(defaults.order_default),
@@ -209,10 +234,11 @@ impl DataclassKeywords {
             unsafe_hash: map.get_bool(&Self::UNSAFE_HASH).unwrap_or(false),
             slots: map.get_bool(&Self::SLOTS).unwrap_or(false),
             extra: false,
+            strict: true,
         }
     }
 
     pub fn new() -> Self {
-        Self::from_type_map(&TypeMap::new(), &DataclassTransformKeywords::new())
+        Self::from_type_map(&TypeMap::new(), &DataclassTransformMetadata::new())
     }
 }

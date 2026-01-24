@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mgrs
-Version: 1.5.0
+Version: 1.5.3
 Summary: MGRS coordinate conversion for Python
 Author: Howard Butler
 Author-email: howard@hobu.co
@@ -42,6 +42,7 @@ Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 .. _home:
 
@@ -61,6 +62,24 @@ This library has an internal copy of some of the files from GeoTrans_ 2.4.2.
 
 ChangeLog
 ------------------------------------------------------------------------------
+
+1.5.3
+
+* Fix busted auto-release
+
+1.5.2
+
+* Use ABI name for finding DLL
+
+1.5.1
+
+* Wheels
+* fix broken test with fixed precision comparison
+
+1.5.0
+
+* Wheels
+* pyproject.toml-based metadata
 
 1.4.3
 

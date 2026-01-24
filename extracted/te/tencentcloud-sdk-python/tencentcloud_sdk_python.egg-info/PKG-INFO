@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tencentcloud-sdk-python
-Version: 3.0.1465
+Version: 3.1.36
 Summary: Tencent Cloud SDK for Python
 Home-page: https://github.com/TencentCloud/tencentcloud-sdk-python
 Author: Tencent Cloud
@@ -20,6 +20,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
+Requires-Dist: requests>=2.16.0
+Provides-Extra: async
+Requires-Dist: httpx>=0.22.0; extra == "async"
 
 ============================
 Tencent Cloud SDK for Python
@@ -46,5 +49,3 @@ or download source code from github and install:
     $ git clone https://github.com/tencentcloud/tencentcloud-sdk-python.git
     $ cd tencentcloud-sdk-python
     $ python setup.py install
-
-

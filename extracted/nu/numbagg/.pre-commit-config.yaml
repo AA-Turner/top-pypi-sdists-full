@@ -8,15 +8,11 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.11
+    rev: v0.14.8
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: ["--fix"]
       - id: ruff-format
-  - repo: https://github.com/keewis/blackdoc
-    rev: v0.4.1
-    hooks:
-      - id: blackdoc
   - repo: https://github.com/Carreau/velin
     rev: 0.0.12
     hooks:
@@ -30,13 +26,14 @@ repos:
   #      additional_dependencies:
   #        [types-setuptools, numpy, types-Pygments, types-colorama]
   - repo: https://github.com/adhtruong/mirrors-typos
-    rev: v1.35.6
+    rev: v1.40.0
     hooks:
       - id: typos
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.7
+    rev: v1.7.9
     hooks:
       - id: actionlint
+        exclude: dependabot.yml
   - repo: local
     hooks:
       - id: no-print

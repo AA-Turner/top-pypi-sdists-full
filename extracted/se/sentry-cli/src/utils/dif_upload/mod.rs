@@ -14,7 +14,6 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read as _, Seek as _, Write as _};
 use std::iter::IntoIterator;
 use std::mem::transmute;
-use std::ops::Deref;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use std::str;
@@ -23,7 +22,6 @@ use std::time::Duration;
 use anyhow::{bail, format_err, Error, Result};
 use console::style;
 use log::{debug, info, warn};
-use sha1_smol::Digest;
 use symbolic::common::{Arch, AsSelf, ByteView, DebugId, SelfCell, Uuid};
 use symbolic::debuginfo::macho::{BcSymbolMap, UuidMapping};
 use symbolic::debuginfo::pe::PeObject;
@@ -33,25 +31,20 @@ use symbolic::il2cpp::ObjectLineMapping;
 use walkdir::WalkDir;
 use which::which;
 use zip::result::ZipError;
-use zip::write::SimpleFileOptions;
-use zip::{ZipArchive, ZipWriter};
+use zip::ZipArchive;
 
 use self::error::ValidationError;
-use crate::api::{Api, ChunkServerOptions, ChunkUploadCapability};
+use crate::api::{Api, ChunkServerOptions};
 use crate::config::Config;
 use crate::constants::{DEFAULT_MAX_DIF_SIZE, DEFAULT_MAX_WAIT};
 use crate::utils::chunks;
-use crate::utils::chunks::{Assemblable, BatchedSliceExt as _, ChunkOptions, Chunked, ItemSize};
+use crate::utils::chunks::{Assemblable, ChunkOptions, Chunked};
 use crate::utils::dif::ObjectDifFeatures;
-use crate::utils::fs::{get_sha1_checksum, TempDir, TempFile};
+use crate::utils::fs::{TempDir, TempFile};
 use crate::utils::progress::{ProgressBar, ProgressStyle};
-use crate::utils::ui::{copy_with_progress, make_byte_progress_bar};
 
 /// A debug info file on the server.
 pub use crate::api::DebugInfoFile;
-
-/// Fallback maximum number of chunks in a batch for the legacy upload.
-static MAX_CHUNKS: u64 = 64;
 
 /// A Debug Information File.
 ///
@@ -212,11 +205,6 @@ impl<'data> DifMatch<'data> {
         }
     }
 
-    /// Returns the size of of this DIF in bytes.
-    pub fn size(&self) -> u64 {
-        self.data().len() as u64
-    }
-
     /// Returns the path of this DIF relative to the search origin.
     pub fn path(&self) -> &str {
         &self.name
@@ -306,46 +294,12 @@ impl Display for DifMatch<'_> {
 
 impl Assemblable for DifMatch<'_> {
     /// A DIF's name is its file name.
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         self.file_name().into()
     }
 
     fn debug_id(&self) -> Option<DebugId> {
         self.debug_id
-    }
-}
-
-/// A `DifMatch` with computed SHA1 checksum.
-#[derive(Debug)]
-struct HashedDifMatch<'data> {
-    inner: DifMatch<'data>,
-    checksum: Digest,
-}
-
-impl<'data> HashedDifMatch<'data> {
-    /// Calculates the SHA1 checksum for the given DIF.
-    fn from(inner: DifMatch<'data>) -> Result<Self> {
-        let checksum = get_sha1_checksum(inner.data())?;
-        Ok(HashedDifMatch { inner, checksum })
-    }
-
-    /// Returns the SHA1 checksum of this DIF.
-    fn checksum(&self) -> Digest {
-        self.checksum
-    }
-}
-
-impl<'data> Deref for HashedDifMatch<'data> {
-    type Target = DifMatch<'data>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl ItemSize for HashedDifMatch<'_> {
-    fn size(&self) -> u64 {
-        self.deref().size()
     }
 }
 
@@ -527,7 +481,7 @@ where
                     if let Err(err) = walk_difs_zip(zip, options, &mut func) {
                         if let Some(e) = err.downcast_ref::<ZipError>() {
                             debug!("skipping zip archive {}", path.display());
-                            debug!("error: {}", e);
+                            debug!("error: {e}");
                             continue;
                         };
                         return Err(err);
@@ -537,7 +491,7 @@ where
                 }
                 Err(e) => {
                     debug!("skipping zip archive {}", path.display());
-                    debug!("error: {}", e);
+                    debug!("error: {e}");
                     continue;
                 }
                 Ok(None) => {
@@ -619,10 +573,9 @@ fn fix_pdb_ages(difs: &mut [DifMatch<'_>], age_overrides: &BTreeMap<Uuid, u32>) 
             }
 
             debug!(
-                "overriding age for {} ({} -> {})",
+                "overriding age for {} ({} -> {age})",
                 dif.name,
-                debug_id.appendix(),
-                age
+                debug_id.appendix()
             );
 
             dif.debug_id = Some(DebugId::from_parts(debug_id.uuid(), age));
@@ -652,7 +605,7 @@ fn search_difs(options: &DifUpload) -> Result<Vec<DifMatch<'static>>> {
             continue;
         }
         walk_difs_directory(base_path, options, |source, name, buffer| {
-            debug!("trying to process {}", name);
+            debug!("trying to process {name}");
             pb.set_message(&name);
 
             if Archive::peek(&buffer) != FileFormat::Unknown {
@@ -669,7 +622,7 @@ fn search_difs(options: &DifUpload) -> Result<Vec<DifMatch<'static>>> {
                 }
             };
 
-            pb.set_prefix(&collected.len().to_string());
+            pb.set_prefix(collected.len().to_string());
             Ok(())
         })?;
     }
@@ -741,11 +694,7 @@ fn collect_auxdif<'a>(
             if kind == AuxDifKind::BcSymbolMap {
                 // There are loads of plists in a normal XCode Archive that are not valid
                 // UUID mappings.  Warning for all these is pointless.
-                warn!(
-                    "Skipping {kind} with invalid filename: {name}",
-                    kind = kind,
-                    name = name
-                );
+                warn!("Skipping {kind} with invalid filename: {name}");
             }
             return Ok(None);
         }
@@ -757,12 +706,7 @@ fn collect_auxdif<'a>(
     let dif = match dif_result {
         Ok(dif) => dif,
         Err(err) => {
-            warn!(
-                "Skipping invalid {kind} file {name}: {err}",
-                kind = kind,
-                name = name,
-                err = err
-            );
+            warn!("Skipping invalid {kind} file {name}: {err}");
             return Ok(None);
         }
     };
@@ -801,11 +745,11 @@ fn collect_object_dif<'a>(
         return Ok(collected);
     }
 
-    debug!("trying to parse dif {}", name);
+    debug!("trying to parse dif {name}");
     let archive = match Archive::parse(&buffer) {
         Ok(archive) => archive,
         Err(e) => {
-            warn!("Skipping invalid debug file {}: {}", name, e);
+            warn!("Skipping invalid debug file {name}: {e}");
             return Ok(collected);
         }
     };
@@ -942,7 +886,7 @@ fn resolve_hidden_symbols<'a>(dif: DifMatch<'a>, symbol_map: &Path) -> Result<Di
 
     if !output.status.success() {
         if let Ok(error) = str::from_utf8(&output.stderr) {
-            bail!("Could not resolve BCSymbolMaps: {}", error);
+            bail!("Could not resolve BCSymbolMaps: {error}");
         } else {
             bail!("Could not resolve BCSymbolMaps due to an unknown error");
         }
@@ -1087,7 +1031,7 @@ pub fn filter_bad_sources(
 
     // Ignore files embedded in the object itself.
     if embedded_source.is_some() {
-        debug!("Skipping embedded source file: {}", path);
+        debug!("Skipping embedded source file: {path}");
         return false;
     }
 
@@ -1095,16 +1039,13 @@ pub fn filter_bad_sources(
     if let Ok(meta) = fs::metadata(path) {
         let item_size = meta.len();
         if item_size > max_size {
-            warn!(
-                "Source exceeded maximum item size limit ({}). {}",
-                item_size, path
-            );
+            warn!("Source exceeded maximum item size limit ({item_size}). {path}");
             return false;
         }
     }
 
     // if a file metadata could not be read it will be skipped later.
-    debug!("Trying to add source file: {}", path);
+    debug!("Trying to add source file: {path}");
     true
 }
 
@@ -1131,7 +1072,7 @@ fn create_source_bundles<'a>(
         let name = dif.path();
         pb.inc(1);
         pb.set_message(name);
-        debug!("trying to collect sources for {}", name);
+        debug!("trying to collect sources for {name}");
 
         let object = match dif.object() {
             Some(object) => object,
@@ -1149,7 +1090,7 @@ fn create_source_bundles<'a>(
             .with_skipped_file_callback(|skipped_info| info!("{skipped_info}"))
             .write_object_with_filter(object, dif.file_name(), filter_bad_sources)?;
         if !written {
-            debug!("No sources found for {}", name);
+            debug!("No sources found for {name}");
             continue;
         }
 
@@ -1249,132 +1190,18 @@ fn upload_difs_chunked(
         processed.extend(source_bundles);
     }
 
+    let chunk_size = chunk_options.chunk_size;
+
     // Calculate checksums and chunks
-    let chunked = prepare_difs(processed, |m| {
-        Chunked::from(m, chunk_options.chunk_size as usize)
-    })?;
+    let chunked = prepare_difs(processed, |m| Ok(Chunked::from(m, chunk_size)))?;
+
+    if options.no_upload {
+        println!("{} skipping upload.", style(">").dim());
+        return Ok(Default::default());
+    }
 
     let options = options.into_chunk_options(chunk_options);
     chunks::upload_chunked_objects(&chunked, options)
-}
-
-/// Returns debug files missing on the server.
-fn get_missing_difs<'data>(
-    objects: Vec<HashedDifMatch<'data>>,
-    options: &DifUpload,
-) -> Result<Vec<HashedDifMatch<'data>>> {
-    info!(
-        "Checking for missing debug information files: {:#?}",
-        &objects
-    );
-
-    let api = Api::current();
-    let missing_checksums = {
-        let checksums = objects.iter().map(HashedDifMatch::checksum);
-        api.authenticated()?
-            .find_missing_dif_checksums(options.org, options.project, checksums)?
-    };
-
-    let missing = objects
-        .into_iter()
-        .filter(|sym| missing_checksums.contains(&sym.checksum()))
-        .collect();
-
-    info!("Missing debug information files: {:#?}", &missing);
-    Ok(missing)
-}
-
-/// Compresses the given batch into a ZIP archive.
-fn create_batch_archive(difs: &[HashedDifMatch<'_>]) -> Result<TempFile> {
-    let total_bytes = difs.iter().map(ItemSize::size).sum();
-    let pb = make_byte_progress_bar(total_bytes);
-    let tf = TempFile::create()?;
-
-    {
-        let mut zip = ZipWriter::new(tf.open()?);
-
-        for symbol in difs {
-            zip.start_file(symbol.file_name(), SimpleFileOptions::default())?;
-            copy_with_progress(&pb, &mut symbol.data(), &mut zip)?;
-        }
-    }
-
-    pb.finish_and_clear();
-    Ok(tf)
-}
-
-/// Uploads the given DIFs to the server in batched ZIP archives.
-fn upload_in_batches(
-    objects: &[HashedDifMatch<'_>],
-    options: &DifUpload,
-) -> Result<Vec<DebugInfoFile>> {
-    let api = Api::current();
-    let max_size = Config::current().get_max_dif_archive_size();
-    let mut dsyms = Vec::new();
-
-    for (i, (batch, _)) in objects.batches(max_size, MAX_CHUNKS).enumerate() {
-        println!("\n{}", style(format!("Batch {}", i + 1)).bold());
-
-        println!(
-            "{} Compressing {} debug symbol files",
-            style(">").dim(),
-            style(batch.len()).yellow()
-        );
-        let archive = create_batch_archive(batch)?;
-
-        println!("{} Uploading debug symbol files", style(">").dim());
-        dsyms.extend(
-            api.authenticated()?
-                .region_specific(options.org)
-                .upload_dif_archive(options.project, archive.path())?,
-        );
-    }
-
-    Ok(dsyms)
-}
-
-/// Uploads debug info files using the legacy endpoint.
-fn upload_difs_batched(options: &DifUpload) -> Result<Vec<DebugInfoFile>> {
-    // Search for debug files in the file system and ZIPs
-    let found = search_difs(options)?;
-    if found.is_empty() {
-        println!("{} No debug information files found", style(">").dim());
-        return Ok(Default::default());
-    }
-
-    // Try to resolve BCSymbolMaps
-    let symbol_map = options.symbol_map.as_deref();
-    let processed = process_symbol_maps(found, symbol_map)?;
-
-    // Calculate checksums
-    let hashed = prepare_difs(processed, HashedDifMatch::from)?;
-
-    // Check which files are missing on the server
-    let missing = get_missing_difs(hashed, options)?;
-    if missing.is_empty() {
-        println!(
-            "{} Nothing to upload, all files are on the server",
-            style(">").dim()
-        );
-        println!("{} Nothing to upload", style(">").dim());
-        return Ok(Default::default());
-    }
-
-    // Upload missing DIFs in batches
-    let uploaded = upload_in_batches(&missing, options)?;
-    if !uploaded.is_empty() {
-        println!("{} File upload complete:\n", style(">").dim());
-        for dif in &uploaded {
-            println!(
-                "  {} ({}; {})",
-                style(&dif.id()).dim(),
-                &dif.object_name,
-                dif.cpu_name
-            );
-        }
-    }
-
-    Ok(uploaded)
 }
 
 /// The format of a Debug Information File (DIF).
@@ -1440,14 +1267,10 @@ pub struct DifUpload<'a> {
     zips_allowed: bool,
     max_file_size: u64,
     max_wait: Duration,
-    pdbs_allowed: bool,
-    portablepdbs_allowed: bool,
-    sources_allowed: bool,
     include_sources: bool,
-    bcsymbolmaps_allowed: bool,
     wait: bool,
     upload_il2cpp_mappings: bool,
-    il2cpp_mappings_allowed: bool,
+    no_upload: bool,
 }
 
 impl<'a> DifUpload<'a> {
@@ -1480,14 +1303,10 @@ impl<'a> DifUpload<'a> {
             zips_allowed: true,
             max_file_size: DEFAULT_MAX_DIF_SIZE,
             max_wait: DEFAULT_MAX_WAIT,
-            pdbs_allowed: false,
-            portablepdbs_allowed: false,
-            sources_allowed: false,
             include_sources: false,
-            bcsymbolmaps_allowed: false,
             wait: false,
             upload_il2cpp_mappings: false,
-            il2cpp_mappings_allowed: false,
+            no_upload: false,
         }
     }
 
@@ -1599,6 +1418,14 @@ impl<'a> DifUpload<'a> {
         self
     }
 
+    /// Set whether to skip uploading the detected debug files for troubleshooting purposes.
+    ///
+    /// Defaults to `false`.
+    pub fn no_upload(&mut self, skip: bool) -> &mut Self {
+        self.no_upload = skip;
+        self
+    }
+
     /// Performs the search for DIFs and uploads them.
     ///
     /// ```
@@ -1618,75 +1445,17 @@ impl<'a> DifUpload<'a> {
         }
 
         let api = Api::current();
-        if let Some(chunk_options) = api.authenticated()?.get_chunk_upload_options(self.org)? {
-            if chunk_options.max_file_size > 0 {
-                self.max_file_size = chunk_options.max_file_size;
-            }
-            if chunk_options.max_wait > 0 {
-                self.max_wait = self
-                    .max_wait
-                    .min(Duration::from_secs(chunk_options.max_wait));
-            }
-
-            self.pdbs_allowed = chunk_options.supports(ChunkUploadCapability::Pdbs);
-            self.portablepdbs_allowed = chunk_options.supports(ChunkUploadCapability::PortablePdbs);
-            self.sources_allowed = chunk_options.supports(ChunkUploadCapability::Sources);
-            self.bcsymbolmaps_allowed = chunk_options.supports(ChunkUploadCapability::BcSymbolmap);
-            self.il2cpp_mappings_allowed = chunk_options.supports(ChunkUploadCapability::Il2Cpp);
-
-            if chunk_options.supports(ChunkUploadCapability::DebugFiles) {
-                self.validate_capabilities();
-                return upload_difs_chunked(self, chunk_options);
-            }
+        let chunk_options = api.authenticated()?.get_chunk_upload_options(self.org)?;
+        if chunk_options.max_file_size > 0 {
+            self.max_file_size = chunk_options.max_file_size;
+        }
+        if chunk_options.max_wait > 0 {
+            self.max_wait = self
+                .max_wait
+                .min(Duration::from_secs(chunk_options.max_wait));
         }
 
-        self.validate_capabilities();
-        Ok((upload_difs_batched(&self)?, false))
-    }
-
-    /// Validate that the server supports all requested capabilities.
-    fn validate_capabilities(&mut self) {
-        // Checks whether source bundles are *explicitly* requested on the command line.
-        if (self
-            .formats
-            .contains(&DifFormat::Object(FileFormat::SourceBundle))
-            || self.include_sources)
-            && !self.sources_allowed
-        {
-            warn!("Source uploads are not supported by the configured Sentry server");
-            self.include_sources = false;
-        }
-
-        // Checks whether PDBs or PEs were *explicitly* requested on the command line.
-        if (self.formats.contains(&DifFormat::Object(FileFormat::Pdb))
-            || self.formats.contains(&DifFormat::Object(FileFormat::Pe)))
-            && !self.pdbs_allowed
-        {
-            warn!("PDBs and PEs are not supported by the configured Sentry server");
-            // This is validated additionally in .valid_format()
-        }
-
-        // Checks whether Portable PDBs were *explicitly* requested on the command line.
-        if self
-            .formats
-            .contains(&DifFormat::Object(FileFormat::PortablePdb))
-            && !self.portablepdbs_allowed
-        {
-            warn!("Portable PDBs are not supported by the configured Sentry server");
-            // This is validated additionally in .valid_format()
-        }
-
-        // Checks whether BCSymbolMaps and PLists are **explicitly** requested on the command line.
-        if (self.formats.contains(&DifFormat::BcSymbolMap)
-            || self.formats.contains(&DifFormat::PList))
-            && !self.bcsymbolmaps_allowed
-        {
-            warn!("BCSymbolMaps are not supported by the configured Sentry server");
-        }
-
-        if self.upload_il2cpp_mappings && !self.il2cpp_mappings_allowed {
-            warn!("il2cpp line mappings are not supported by the configured Sentry server");
-        }
+        upload_difs_chunked(self, chunk_options)
     }
 
     /// Determines if this `DebugId` matches the search criteria.
@@ -1703,11 +1472,6 @@ impl<'a> DifUpload<'a> {
     fn valid_format(&self, format: DifFormat) -> bool {
         match format {
             DifFormat::Object(FileFormat::Unknown) => false,
-            DifFormat::Object(FileFormat::Pdb) if !self.pdbs_allowed => false,
-            DifFormat::Object(FileFormat::Pe) if !self.pdbs_allowed => false,
-            DifFormat::Object(FileFormat::SourceBundle) if !self.sources_allowed => false,
-            DifFormat::Object(FileFormat::PortablePdb) if !self.portablepdbs_allowed => false,
-            DifFormat::BcSymbolMap | DifFormat::PList if !self.bcsymbolmaps_allowed => false,
             format => self.formats.is_empty() || self.formats.contains(&format),
         }
     }

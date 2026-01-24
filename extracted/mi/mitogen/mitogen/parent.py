@@ -79,8 +79,7 @@ except IOError:
     SELINUX_ENABLED = False
 
 
-if mitogen.core.PY3:
-    xrange = range
+if sys.version_info >= (3, 0):
     closure_attr = '__closure__'
     IM_SELF_ATTR = '__self__'
 else:
@@ -1396,10 +1395,6 @@ class Connection(object):
     # with a custom argv.
     #   * Optimized for minimum byte count after minification & compression.
     #     The script preamble_size.py measures this.
-    #   * 'CONTEXT_NAME' and 'PREAMBLE_COMPRESSED_LEN' are substituted with
-    #     their respective values.
-    #   * CONTEXT_NAME must be prefixed with the name of the Python binary in
-    #     order to allow virtualenvs to detect their install prefix.
     #
     # macOS tweaks for Python 2.7 must be kept in sync with the the Ansible
     # module test_echo_module, used by the integration tests.
@@ -1419,9 +1414,8 @@ class Connection(object):
     #   W: write side of interpreter stdin.
     #   r: read side of core_src FD.
     #   w: write side of core_src FD.
-    #   C: the decompressed core source.
 
-    # Final os.close(STDOUT_FILENO) to avoid --py-debug build corrupting stream with
+    # Final os.close(STDERR_FILENO) to avoid --py-debug build corrupting stream with
     # "[1234 refs]" during exit.
     @staticmethod
     def _first_stage():
@@ -1435,20 +1429,30 @@ class Connection(object):
             os.close(r)
             os.close(W)
             os.close(w)
-            if os.uname()[0]=='Darwin'and os.uname()[2][:2]<'19'and sys.executable=='/usr/bin/python':sys.executable='/usr/bin/python2.7'
-            if os.uname()[0]=='Darwin'and os.uname()[2][:2]in'2021'and sys.version[:3]=='2.7':os.environ['PYTHON_LAUNCHED_FROM_WRAPPER']='1'
+            if os.uname()[0]+os.uname()[2][:2]+sys.executable=='Darwin19/usr/bin/python':sys.executable+='2.7'
+            if os.uname()[0]+os.uname()[2][:2]+sys.version[:3]=='Darwin202.7':os.environ['PYTHON_LAUNCHED_FROM_WRAPPER']='1'
+            if os.uname()[0]+os.uname()[2][:2]+sys.version[:3]=='Darwin212.7':os.environ['PYTHON_LAUNCHED_FROM_WRAPPER']='1'
             os.environ['ARGV0']=sys.executable
-            os.execl(sys.executable,sys.executable+'(mitogen:CONTEXT_NAME)')
+            os.execl(sys.executable,sys.executable+'(mitogen:%s)'%sys.argv[2])
         os.write(1,'MITO000\n'.encode())
+        # Size of the compressed core source to be read
+        n=int(sys.argv[3])
+        # Read `len(compressed preamble)` bytes sent by our Mitogen parent.
+        # `select()` handles non-blocking stdin (e.g. sudo + log_output).
+        # `C` accumulates compressed bytes.
         C=''.encode()
-        while PREAMBLE_COMPRESSED_LEN-len(C)and select.select([0],[],[]):C+=os.read(0,PREAMBLE_COMPRESSED_LEN-len(C))
+        # data chunk
+        V='V'
+        # Stop looping if no more data is needed or EOF is detected (empty bytes).
+        while n-len(C) and V:select.select([0],[],[]);V=os.read(0,n-len(C));C+=V
+        # Raises `zlib.error` if compressed preamble is truncated or invalid
         C=zlib.decompress(C)
-        fp=os.fdopen(W,'wb',0)
-        fp.write(C)
-        fp.close()
-        fp=os.fdopen(w,'wb',0)
-        fp.write(C)
-        fp.close()
+        f=os.fdopen(W,'wb',0)
+        f.write(C)
+        f.close()
+        f=os.fdopen(w,'wb',0)
+        f.write(C)
+        f.close()
         os.write(1,'MITO001\n'.encode())
         os.close(2)
 
@@ -1466,14 +1470,14 @@ class Connection(object):
         return [self.options.python_path]
 
     def get_boot_command(self):
-        source = inspect.getsource(self._first_stage)
-        source = textwrap.dedent('\n'.join(source.strip().split('\n')[2:]))
+        lines = inspect.getsourcelines(self._first_stage)[0][2:]
+        # Remove line comments, leading indentation, trailing newline
+        source = textwrap.dedent(''.join(s for s in lines if '#' not in s))[:-1]
         source = source.replace('    ', ' ')
-        source = source.replace('CONTEXT_NAME', self.options.remote_name)
-        preamble_compressed = self.get_preamble()
-        source = source.replace('PREAMBLE_COMPRESSED_LEN',
-                                str(len(preamble_compressed)))
-        compressed = zlib.compress(source.encode(), 9)
+        compressor = zlib.compressobj(
+            zlib.Z_BEST_COMPRESSION, zlib.DEFLATED, -zlib.MAX_WBITS,
+        )
+        compressed = compressor.compress(source.encode()) + compressor.flush()
         encoded = binascii.b2a_base64(compressed).replace(b('\n'), b(''))
 
         # Just enough to decode, decompress, and exec the first stage.
@@ -1484,7 +1488,10 @@ class Connection(object):
             '-c',
             'import sys;sys.path=[p for p in sys.path if p];'
             'import binascii,os,select,zlib;'
-            'exec(zlib.decompress(binascii.a2b_base64("%s")))' % (encoded.decode(),),
+            'exec(zlib.decompress(binascii.a2b_base64(sys.argv[1]),-15))',
+            encoded.decode(),
+            self.options.remote_name,
+            str(len(self.get_preamble())),
         ]
 
     def get_econtext_config(self):
@@ -1721,7 +1728,7 @@ class ChildIdAllocator(object):
     def __init__(self, router):
         self.router = router
         self.lock = threading.Lock()
-        self.it = iter(xrange(0))
+        self.it = iter(mitogen.core.range(0))
 
     def allocate(self):
         """
@@ -1745,7 +1752,7 @@ class ChildIdAllocator(object):
             start, end = master.send_await(
                 mitogen.core.Message(dst_id=0, handle=mitogen.core.ALLOCATE_ID)
             )
-            self.it = iter(xrange(start, end))
+            self.it = iter(mitogen.core.range(start, end))
         finally:
             self.lock.release()
 
@@ -2306,6 +2313,11 @@ class Router(mitogen.core.Router):
             parent_context=parent,
             importer=importer,
         )
+        self.resource_responder = ResourceForwarder(
+            self,
+            parent,
+            importer._resource_requester,
+        )
         self.route_monitor = RouteMonitor(self, parent)
         self.add_handler(
             fn=self._on_detaching,
@@ -2791,3 +2803,45 @@ class ModuleForwarder(object):
                     handle=mitogen.core.LOAD_MODULE,
                 )
             )
+
+
+class ResourceForwarder(object):
+    """
+    Handle :data:`mitogen.core.GET_RESOURCE` requests from children by
+    forwarding the request to our parent, or satisfying the request from
+    our local :class:`mitogen.core.ResourceRequester` cache.
+    """
+    def __init__(self, router, parent_context, requester):
+        self.router = router
+        self.parent_context = parent_context
+        self.requester = requester
+        router.add_handler(
+            fn=self._on_get_resource,
+            handle=mitogen.core.GET_RESOURCE,
+            persist=True,
+            policy=is_immediate_child,
+        )
+
+    def _on_get_resource(self, msg):
+        if msg.is_dead:
+            return
+
+        fullname_b, resource_b = msg.unpickle()
+        fullname, resource = fullname_b.decode(), resource_b.decode()
+
+        callback = lambda: self._on_cache_callback(msg, fullname, resource)
+        self.requester._request_resource(fullname, resource, callback)
+
+    def _on_cache_callback(self, msg, fullname, resource):
+        stream = self.router.stream_by_id(msg.src_id)
+        self._send_resource(stream, fullname, resource)
+
+    def _send_resource(self, stream, fullname, resource):
+        content = self.requester._cache[(fullname, resource)]
+
+        msg = mitogen.core.Message.pickled(
+            (fullname, resource, content),
+            dst_id=stream.protocol.remote_id,
+            handle=mitogen.core.LOAD_RESOURCE,
+        )
+        self.router._async_route(msg)

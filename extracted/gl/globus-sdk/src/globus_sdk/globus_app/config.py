@@ -10,14 +10,14 @@ from globus_sdk.login_flows import (
     LocalServerLoginFlowManager,
     LoginFlowManager,
 )
-from globus_sdk.tokenstorage import (
+from globus_sdk.token_storage import (
     JSONTokenStorage,
     MemoryTokenStorage,
     SQLiteTokenStorage,
     TokenStorage,
     TokenValidationError,
 )
-from globus_sdk.tokenstorage.v2.validating_token_storage import IdentityMismatchError
+from globus_sdk.token_storage.validating_token_storage import IdentityMismatchError
 
 from .protocols import (
     IDTokenDecoderProvider,
@@ -67,13 +67,16 @@ class GlobusAppConfig:
     :ivar bool request_refresh_tokens: Whether to request ``refresh tokens`` (expire
         after 6 months of no use) or use exclusively ``access tokens`` (expire 2 hours
         after issuance). Default: ``False``.
+    :ivar bool auto_redrive_gares: If true, Globus Authorization Required Errors (GAREs)
+        encountered during service interaction will automatically trigger a login flow
+        to obtain new tokens and retry the failed request. Default: ``False``.
 
     :ivar str | ``TokenStorage`` | ``TokenStorageProvider`` token_storage:
         A class responsible for storing and retrieving tokens.
         This may be either a well-known provider (one of
-        :class:`"json" <globus_sdk.tokenstorage.JSONTokenStorage>`,
-        :class:`"sqlite" <globus_sdk.tokenstorage.SQLiteTokenStorage>`, or
-        :class:`"memory" <globus_sdk.tokenstorage.MemoryTokenStorage>`) or a custom
+        :class:`"json" <globus_sdk.token_storage.JSONTokenStorage>`,
+        :class:`"sqlite" <globus_sdk.token_storage.SQLiteTokenStorage>`, or
+        :class:`"memory" <globus_sdk.token_storage.MemoryTokenStorage>`) or a custom
         storage/provider. Default: ``"json"``.
 
     :ivar str | ``LoginFlowManager`` | ``LoginFlowManagerProvider`` login_flow_manager:
@@ -119,6 +122,7 @@ class GlobusAppConfig:
     login_redirect_uri: str | None = None
     token_storage: KnownTokenStorage | TokenStorageProvider | TokenStorage = "json"
     request_refresh_tokens: bool = False
+    auto_redrive_gares: bool = False
     token_validation_error_handler: TokenValidationErrorHandler | None = (
         resolve_by_login_flow
     )

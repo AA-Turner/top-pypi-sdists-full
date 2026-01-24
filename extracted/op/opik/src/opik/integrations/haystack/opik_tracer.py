@@ -5,10 +5,8 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 
 from haystack import tracing
 
-import opik.url_helpers as url_helpers
-import opik.decorator.tracing_runtime_config as tracing_runtime_config
-import opik.decorator.span_creation_handler as span_creation_handler
-import opik.decorator.arguments_helpers as arguments_helpers
+from opik import tracing_runtime_config, url_helpers
+from opik.decorator import arguments_helpers, span_creation_handler
 from opik.api_objects import opik_client
 from opik.api_objects import span as opik_span
 from opik.api_objects import trace as opik_trace
@@ -82,9 +80,7 @@ class OpikTracer(tracing.Tracer):
     ) -> opik_span_bridge.OpikSpanBridge:
         """Create a span or trace based on existing context using span_creation_handler."""
         # For pipeline operations, use the pipeline name, otherwise use component name
-        final_name = (
-            self._name if operation_name == constants.PIPELINE_RUN_KEY else span_name
-        )
+        final_name = self._name if "pipeline.run" in operation_name else span_name
         metadata = {"created_from": "haystack", "operation": operation_name}
 
         # Always use span_creation_handler - it handles existing context properly
@@ -95,12 +91,12 @@ class OpikTracer(tracing.Tracer):
             project_name=self._project_name,
         )
 
-        trace_data, span_data = span_creation_handler.create_span_respecting_context(
+        result = span_creation_handler.create_span_respecting_context(
             start_span_arguments=start_span_parameters,
             distributed_trace_headers=None,
         )
         final_span_or_trace_data: Union[opik_span.SpanData, opik_trace.TraceData] = (
-            trace_data if trace_data is not None else span_data
+            result.trace_data if result.trace_data is not None else result.span_data
         )
 
         return opik_span_bridge.OpikSpanBridge(final_span_or_trace_data)

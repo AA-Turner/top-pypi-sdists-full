@@ -1,15 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 __NAMESPACE__ = "http://hello/"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class HelloByeError:
     class Meta:
         namespace = "http://hello/"
 
-    message: Optional[str] = field(
+    message: None | str = field(
         default=None,
         metadata={
             "type": "Element",
@@ -18,12 +19,12 @@ class HelloByeError:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class HelloError:
     class Meta:
         namespace = "http://hello/"
 
-    message: Optional[str] = field(
+    message: None | str = field(
         default=None,
         metadata={
             "type": "Element",
@@ -32,90 +33,83 @@ class HelloError:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class GetHelloAsString:
     class Meta:
         name = "getHelloAsString"
         namespace = "http://hello/"
 
-    arg0: Optional[str] = field(
-        default=None,
+    arg0: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class GetHelloAsStringResponse:
     class Meta:
         name = "getHelloAsStringResponse"
         namespace = "http://hello/"
 
-    return_value: Optional[str] = field(
-        default=None,
+    return_value: str = field(
         metadata={
             "name": "return",
             "type": "Element",
             "namespace": "",
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class HelloGetHelloAsStringInput:
     class Meta:
         name = "Envelope"
         namespace = "http://schemas.xmlsoap.org/soap/envelope/"
 
-    body: Optional["HelloGetHelloAsStringInput.Body"] = field(
-        default=None,
+    body: HelloGetHelloAsStringInput.Body = field(
         metadata={
             "name": "Body",
             "type": "Element",
-        },
+        }
     )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class Body:
-        get_hello_as_string: Optional[GetHelloAsString] = field(
-            default=None,
+        get_hello_as_string: GetHelloAsString = field(
             metadata={
                 "name": "getHelloAsString",
                 "type": "Element",
                 "namespace": "http://hello/",
-            },
+            }
         )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class HelloGetHelloAsStringOutput:
     class Meta:
         name = "Envelope"
         namespace = "http://schemas.xmlsoap.org/soap/envelope/"
 
-    body: Optional["HelloGetHelloAsStringOutput.Body"] = field(
-        default=None,
+    body: HelloGetHelloAsStringOutput.Body = field(
         metadata={
             "name": "Body",
             "type": "Element",
-        },
+        }
     )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class Body:
-        get_hello_as_string_response: Optional[GetHelloAsStringResponse] = (
-            field(
-                default=None,
-                metadata={
-                    "name": "getHelloAsStringResponse",
-                    "type": "Element",
-                    "namespace": "http://hello/",
-                },
-            )
+        get_hello_as_string_response: None | GetHelloAsStringResponse = field(
+            default=None,
+            metadata={
+                "name": "getHelloAsStringResponse",
+                "type": "Element",
+                "namespace": "http://hello/",
+            },
         )
-        fault: Optional["HelloGetHelloAsStringOutput.Body.Fault"] = field(
+        fault: None | HelloGetHelloAsStringOutput.Body.Fault = field(
             default=None,
             metadata={
                 "name": "Fault",
@@ -123,42 +117,40 @@ class HelloGetHelloAsStringOutput:
             },
         )
 
-        @dataclass
+        @dataclass(kw_only=True)
         class Fault:
-            faultcode: Optional[str] = field(
+            faultcode: str = field(
+                metadata={
+                    "type": "Element",
+                    "namespace": "",
+                }
+            )
+            faultstring: str = field(
+                metadata={
+                    "type": "Element",
+                    "namespace": "",
+                }
+            )
+            faultactor: None | str = field(
                 default=None,
                 metadata={
                     "type": "Element",
                     "namespace": "",
                 },
             )
-            faultstring: Optional[str] = field(
-                default=None,
-                metadata={
-                    "type": "Element",
-                    "namespace": "",
-                },
-            )
-            faultactor: Optional[str] = field(
-                default=None,
-                metadata={
-                    "type": "Element",
-                    "namespace": "",
-                },
-            )
-            detail: Optional[
-                "HelloGetHelloAsStringOutput.Body.Fault.Detail"
-            ] = field(
-                default=None,
-                metadata={
-                    "type": "Element",
-                    "namespace": "",
-                },
+            detail: None | HelloGetHelloAsStringOutput.Body.Fault.Detail = (
+                field(
+                    default=None,
+                    metadata={
+                        "type": "Element",
+                        "namespace": "",
+                    },
+                )
             )
 
-            @dataclass
+            @dataclass(kw_only=True)
             class Detail:
-                hello_error: Optional[HelloError] = field(
+                hello_error: None | HelloError = field(
                     default=None,
                     metadata={
                         "name": "HelloError",
@@ -166,7 +158,7 @@ class HelloGetHelloAsStringOutput:
                         "namespace": "http://hello/",
                     },
                 )
-                hello_bye_error: Optional[HelloByeError] = field(
+                hello_bye_error: None | HelloByeError = field(
                     default=None,
                     metadata={
                         "name": "HelloByeError",

@@ -5,7 +5,7 @@
 
 '''
 **Beartype sanified type hint metadata dataclass** (i.e., class aggregating
-*all* metadata returned by :mod:`beartype._check.convert.convsanify` functions).
+*all* metadata returned by :mod:`beartype._check.convert.convmain` functions).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
@@ -16,8 +16,8 @@ from beartype.typing import (
 )
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._check.metadata.hint.hintsane import HintSane
-from beartype._data.hint.datahintpep import Hint
-from beartype._util.kind.map.utilmapfrozen import FrozenDict
+from beartype._data.typing.datatypingport import Hint
+from beartype._util.kind.maplike.utilmapfrozen import FrozenDict
 
 # ....................{ TESTERS                            }....................
 #FIXME: Unit test us up, please.
@@ -67,7 +67,7 @@ def is_hint_recursive(
         * If this recursable hint is a root type hint, :data:`None`.
         * Else, **sanified parent type hint metadata** (i.e., immutable and thus
           hashable object encapsulating *all* metadata previously returned by
-          :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+          :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
           the possibly PEP-noncompliant parent hint of this recursable hint into
           a fully PEP-compliant parent hint).
     hint_recursable_depth_max : int, default: 0
@@ -164,7 +164,7 @@ def make_hint_sane_recursable(
         * If this recursable type hint is a root type hint, :data:`None`.
         * Else, **sanified parent type hint metadata** (i.e., immutable and thus
           hashable object encapsulating *all* metadata previously returned by
-          :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+          :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
           the possibly PEP-noncompliant parent hint of this hint into a fully
           PEP-compliant parent hint).
 

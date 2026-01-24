@@ -151,6 +151,11 @@ pub enum Op<'doc> {
     /// comment is permitted. Features that don't have an associated comment
     /// are ignored, while features with multiple comments will be rejected.
     ReplaceComment { new: Cow<'doc, str> },
+    /// Emplace a comment at the given path.
+    ///
+    /// This is like `ReplaceComment`, but will insert a new comment
+    /// if none exists.
+    EmplaceComment { new: Cow<'doc, str> },
     /// Replace the value at the given path
     Replace(serde_yaml::Value),
     /// Add a new key-value pair at the given path.
@@ -176,6 +181,10 @@ pub enum Op<'doc> {
     /// Remove the key at the given path
     #[allow(dead_code)]
     Remove,
+    /// Append a new item to a sequence at the given path.
+    ///
+    /// The sequence must be a block sequence; flow sequences are not supported.
+    Append { value: serde_yaml::Value },
 }
 
 /// Apply a sequence of YAML patch operations to a YAML document.
@@ -215,7 +224,7 @@ fn apply_single_patch(
     patch: &Patch,
 ) -> Result<yamlpath::Document, Error> {
     let content = document.source();
-    match &patch.operation {
+    let mut patched_content = match &patch.operation {
         Op::RewriteFragment { from, to } => {
             let Some(feature) = route_to_feature_exact(&patch.route, document)? else {
                 return Err(Error::InvalidOperation(format!(
@@ -244,12 +253,9 @@ fn apply_single_patch(
 
             // Finally, put our patch back into the overall content.
             let mut patched_content = content.to_string();
-            patched_content.replace_range(
-                feature.location.byte_span.0..feature.location.byte_span.1,
-                &patched_feature,
-            );
+            patched_content.replace_range(&feature, &patched_feature);
 
-            yamlpath::Document::new(patched_content).map_err(Error::from)
+            patched_content
         }
         Op::ReplaceComment { new } => {
             let feature = route_to_feature_exact(&patch.route, document)?.ok_or_else(|| {
@@ -272,10 +278,71 @@ fn apply_single_patch(
             };
 
             let mut result = content.to_string();
-            let span = comment_feature.location.byte_span;
-            result.replace_range(span.0..span.1, new);
+            result.replace_range(comment_feature, new);
 
-            yamlpath::Document::new(result).map_err(Error::from)
+            result
+        }
+        Op::EmplaceComment { new } => {
+            // FIXME: We should gracefully handle empty features here,
+            // since `foo:` -> `foo: # comment` is a reasonable operation.
+            let feature = route_to_feature_exact(&patch.route, document)?.ok_or_else(|| {
+                Error::InvalidOperation(format!(
+                    "no existing feature at {route:?}",
+                    route = patch.route
+                ))
+            })?;
+
+            // FIXME: We can't emplace comments on non-block multi-line
+            // scalars with the technique below, since the comment
+            // would end up inside the scalar. We just exclude these for now.
+            if matches!(
+                Style::from_feature(&feature, document),
+                Style::SingleQuoted | Style::DoubleQuoted
+            ) && feature.is_multiline()
+            {
+                return Err(Error::InvalidOperation(format!(
+                    "cannot emplace comment on non-block multi-line scalar at {route:?}",
+                    route = patch.route
+                )));
+            }
+
+            let comment_features = document.feature_comments(&feature);
+            match comment_features.len() {
+                0 => {
+                    // No existing comment; emplace a new one.
+                    // The 'right' emplacement location is subjective;
+                    // we capriciously choose to emplace the new comment at the end
+                    // of the first line of the feature.
+                    let line_range = line_span(document, feature.location.byte_span.0);
+                    let mut insert_pos = line_range.end;
+                    if let Some(b'\n') = document.source().as_bytes().get(insert_pos - 1) {
+                        insert_pos -= 1;
+                    }
+                    if let Some(b'\r') = document.source().as_bytes().get(insert_pos - 1) {
+                        insert_pos -= 1;
+                    }
+
+                    let mut result = content.to_string();
+                    result.insert_str(insert_pos, &format!(" {new}"));
+
+                    result
+                }
+                1 => {
+                    return apply_single_patch(
+                        document,
+                        &Patch {
+                            route: patch.route.clone(),
+                            operation: Op::ReplaceComment { new: new.clone() },
+                        },
+                    );
+                }
+                _ => {
+                    return Err(Error::InvalidOperation(format!(
+                        "multiple comments found at {route:?}",
+                        route = patch.route
+                    )));
+                }
+            }
         }
         Op::Replace(value) => {
             let feature = route_to_feature_pretty(&patch.route, document)?;
@@ -302,7 +369,7 @@ fn apply_single_patch(
             let mut result = content.to_string();
             result.replace_range(start_span..end_span, &replacement);
 
-            yamlpath::Document::new(result).map_err(Error::from)
+            result
         }
         Op::Add { key, value } => {
             // Check to see whether `key` is already present within the route.
@@ -350,11 +417,9 @@ fn apply_single_patch(
 
             // Replace the content in the document
             let mut result = content.to_string();
-            result.replace_range(
-                feature.location.byte_span.0..feature.location.byte_span.1,
-                &updated_feature,
-            );
-            yamlpath::Document::new(result).map_err(Error::from)
+            result.replace_range(&feature, &updated_feature);
+
+            result
         }
         Op::MergeInto { key, updates } => {
             let existing_key_route = patch.route.with_key(key.as_str());
@@ -421,25 +486,29 @@ fn apply_single_patch(
                         }
                     }
 
-                    Ok(current_document)
+                    return Ok(current_document);
                 }
                 // The key exists, but has an empty body.
                 // TODO: Support this.
-                Ok(None) => Err(Error::InvalidOperation(format!(
-                    "MergeInto: cannot merge into empty key at {existing_key_route:?}"
-                ))),
+                Ok(None) => {
+                    return Err(Error::InvalidOperation(format!(
+                        "MergeInto: cannot merge into empty key at {existing_key_route:?}"
+                    )));
+                }
                 // The key does not exist.
-                Err(Error::Query(yamlpath::QueryError::ExhaustedMapping(_))) => apply_single_patch(
-                    document,
-                    &Patch {
-                        route: patch.route.clone(),
-                        operation: Op::Add {
-                            key: key.clone(),
-                            value: serde_yaml::to_value(updates.clone())?,
+                Err(Error::Query(yamlpath::QueryError::ExhaustedMapping(_))) => {
+                    return apply_single_patch(
+                        document,
+                        &Patch {
+                            route: patch.route.clone(),
+                            operation: Op::Add {
+                                key: key.clone(),
+                                value: serde_yaml::to_value(updates.clone())?,
+                            },
                         },
-                    },
-                ),
-                Err(e) => Err(e),
+                    );
+                }
+                Err(e) => return Err(e),
             }
         }
         Op::Remove => {
@@ -465,9 +534,50 @@ fn apply_single_patch(
 
             let mut result = content.to_string();
             result.replace_range(start_pos..end_pos, "");
-            yamlpath::Document::new(result).map_err(Error::from)
+
+            result
         }
+        Op::Append { value } => {
+            let feature = route_to_feature_exact(&patch.route, document)?.ok_or_else(|| {
+                Error::InvalidOperation(format!(
+                    "no existing sequence at {route:?}",
+                    route = patch.route
+                ))
+            })?;
+
+            let style = Style::from_feature(&feature, document);
+
+            match style {
+                Style::BlockSequence => {
+                    let updated_feature = handle_block_sequence_append(document, &feature, value)?;
+
+                    // Replace the content in the document
+                    let mut result = content.to_string();
+                    result.replace_range(&feature, &updated_feature);
+
+                    result
+                }
+                Style::FlowSequence => {
+                    return Err(Error::InvalidOperation(format!(
+                        "append operation is not permitted against flow sequence route: {:?}",
+                        patch.route
+                    )));
+                }
+                _ => {
+                    return Err(Error::InvalidOperation(format!(
+                        "append operation is only permitted against sequence routes: {:?}",
+                        patch.route
+                    )));
+                }
+            }
+        }
+    };
+
+    if !patched_content.ends_with('\n') {
+        patched_content.push('\n');
     }
+
+    yamlpath::Document::new(patched_content).map_err(Error::from)
 }
 
 pub fn route_to_feature_pretty<'a>(
@@ -582,7 +692,10 @@ pub fn serialize_flow(value: &serde_yaml::Value) -> Result<String, Error> {
 fn line_span(doc: &yamlpath::Document, pos: usize) -> core::ops::Range<usize> {
     let pos = TextSize::new(pos as u32);
     let LineCol { line, .. } = doc.line_index().line_col(pos);
-    doc.line_index().line(line).unwrap().into()
+    doc.line_index()
+        .line(line)
+        .expect("impossible: line index gave us an invalid line")
+        .into()
 }
 
 /// Extract the number of leading spaces need to align a block item with
@@ -780,6 +893,59 @@ fn handle_block_mapping_addition(
     Ok(updated_feature)
 }
 
+fn handle_block_sequence_append(
+    doc: &yamlpath::Document,
+    feature: &yamlpath::Feature,
+    value: &serde_yaml::Value,
+) -> Result<String, Error> {
+    let feature_content = doc.extract(feature);
+    let indent = extract_leading_whitespace(doc, feature);
+
+    // Use flow-style for nested sequences to produce more idiomatic YAML
+    let value_str = if matches!(value, serde_yaml::Value::Sequence(_)) {
+        serialize_flow(value)?
+    } else {
+        serialize_yaml_value(value)?
+    };
+    let insertion_point = find_content_end(feature, doc);
+    let bias = feature.location.byte_span.0;
+    let relative_insertion_point = insertion_point - bias;
+
+    // Check if a newline is needed before adding the new item.
+    let needs_leading_newline = if relative_insertion_point > 0 {
+        feature_content.chars().nth(relative_insertion_point - 1) != Some('\n')
+    } else {
+        !feature_content.is_empty()
+    };
+
+    let mut new_item = String::new();
+    if needs_leading_newline {
+        new_item.push('\n');
+    }
+
+    let mut lines = value_str.lines();
+    if let Some(first_line) = lines.next() {
+        // The first line of the item is placed next to the dash.
+        new_item.push_str(&format!("{}- {}", indent, first_line));
+
+        // Subsequent lines are indented two spaces deeper than the dash.
+        let item_content_indent = format!("{}  ", indent);
+        for line in lines {
+            new_item.push('\n');
+            new_item.push_str(&item_content_indent);
+            new_item.push_str(line);
+        }
+    } else {
+        // This handles cases like an empty string value.
+        new_item.push_str(&format!("{}- {}", indent, value_str));
+    }
+
+    let mut updated_feature = feature_content.to_string();
+    updated_feature.insert_str(relative_insertion_point, &new_item);
+
+    Ok(updated_feature)
+}
+
 /// Handle adding a key-value pair to a flow mapping while preserving flow style
 fn handle_flow_mapping_addition(
     feature_content: &str,
@@ -895,7 +1061,7 @@ fn apply_value_replacement(
                         .join("\n");
 
                     // Find the position of | in the original content and include it
-                    let pipe_pos = value_part.find('|').unwrap();
+                    let pipe_pos = value_part.find('|').expect("impossible");
                     let key_with_pipe = &current_content_with_ws
                         [..colon_pos + 1 + value_part[..pipe_pos].len() + 1];
                     return Ok(format!(

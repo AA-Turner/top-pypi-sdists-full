@@ -20,7 +20,7 @@ from uuid import UUID
 
 from pydantic import ConfigDict
 from sqlalchemy import UniqueConstraint
-from sqlalchemy.orm import object_session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 from sqlalchemy.sql.base import ExecutableOption
 from sqlmodel import TEXT, Column, Field, Relationship, select
 
@@ -32,14 +32,18 @@ from zenml.enums import (
     ExecutionMode,
     ExecutionStatus,
     MetadataResourceTypes,
+    PipelineRunTriggeredByType,
     TaggableResourceTypes,
+    VisualizationResourceTypes,
 )
 from zenml.logger import get_logger
 from zenml.models import (
+    PipelineResponse,
     PipelineRunRequest,
     PipelineRunResponse,
     PipelineRunResponseBody,
     PipelineRunResponseMetadata,
+    PipelineRunTriggerInfo,
     PipelineRunUpdate,
     RunMetadataEntry,
 )
@@ -52,10 +56,10 @@ from zenml.utils.time_utils import utc_now
 from zenml.zen_stores.schemas.base_schemas import NamedSchema
 from zenml.zen_stores.schemas.constants import MODEL_VERSION_TABLENAME
 from zenml.zen_stores.schemas.pipeline_build_schemas import PipelineBuildSchema
-from zenml.zen_stores.schemas.pipeline_deployment_schemas import (
-    PipelineDeploymentSchema,
-)
 from zenml.zen_stores.schemas.pipeline_schemas import PipelineSchema
+from zenml.zen_stores.schemas.pipeline_snapshot_schemas import (
+    PipelineSnapshotSchema,
+)
 from zenml.zen_stores.schemas.project_schemas import ProjectSchema
 from zenml.zen_stores.schemas.schedule_schema import ScheduleSchema
 from zenml.zen_stores.schemas.schema_utils import (
@@ -70,6 +74,9 @@ from zenml.zen_stores.schemas.utils import (
 )
 
 if TYPE_CHECKING:
+    from zenml.zen_stores.schemas.curated_visualization_schemas import (
+        CuratedVisualizationSchema,
+    )
     from zenml.zen_stores.schemas.logs_schemas import LogsSchema
     from zenml.zen_stores.schemas.model_schemas import (
         ModelVersionPipelineRunSchema,
@@ -89,9 +96,9 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
     __tablename__ = "pipeline_run"
     __table_args__ = (
         UniqueConstraint(
-            "deployment_id",
+            "snapshot_id",
             "orchestrator_run_id",
-            name="unique_orchestrator_run_id_for_deployment_id",
+            name="unique_orchestrator_run_id_for_snapshot_id",
         ),
         UniqueConstraint(
             "name",
@@ -110,12 +117,14 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
     orchestrator_environment: Optional[str] = Field(
         sa_column=Column(TEXT, nullable=True)
     )
+    index: int = Field(nullable=False)
+    enable_heartbeat: bool = Field(nullable=False)
 
     # Foreign keys
-    deployment_id: Optional[UUID] = build_foreign_key_field(
+    snapshot_id: Optional[UUID] = build_foreign_key_field(
         source=__tablename__,
-        target=PipelineDeploymentSchema.__tablename__,
-        source_column="deployment_id",
+        target=PipelineSnapshotSchema.__tablename__,
+        source_column="snapshot_id",
         target_column="id",
         ondelete="CASCADE",
         nullable=True,
@@ -154,7 +163,7 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
     )
 
     # Relationships
-    deployment: Optional["PipelineDeploymentSchema"] = Relationship(
+    snapshot: Optional["PipelineSnapshotSchema"] = Relationship(
         back_populates="pipeline_runs"
     )
     project: "ProjectSchema" = Relationship(back_populates="runs")
@@ -172,7 +181,10 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
         sa_relationship_kwargs={"cascade": "delete"},
     )
     step_runs: List["StepRunSchema"] = Relationship(
-        sa_relationship_kwargs={"cascade": "delete"},
+        sa_relationship_kwargs={
+            "cascade": "delete",
+            "order_by": "asc(StepRunSchema.start_time)",
+        },
     )
     model_version: "ModelVersionSchema" = Relationship(
         back_populates="pipeline_runs",
@@ -224,6 +236,8 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
     schedule: Optional["ScheduleSchema"] = Relationship()
     pipeline: Optional["PipelineSchema"] = Relationship()
     trigger_execution: Optional["TriggerExecutionSchema"] = Relationship()
+    triggered_by: Optional[UUID] = None
+    triggered_by_type: Optional[str] = None
 
     services: List["ServiceSchema"] = Relationship(
         back_populates="pipeline_run",
@@ -235,6 +249,18 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             secondaryjoin="TagSchema.id == foreign(TagResourceSchema.tag_id)",
             order_by="TagSchema.name",
             overlaps="tags",
+        ),
+    )
+    visualizations: List["CuratedVisualizationSchema"] = Relationship(
+        sa_relationship_kwargs=dict(
+            primaryjoin=(
+                "and_(CuratedVisualizationSchema.resource_type"
+                f"=='{VisualizationResourceTypes.PIPELINE_RUN.value}', "
+                "foreign(CuratedVisualizationSchema.resource_id)==PipelineRunSchema.id)"
+            ),
+            overlaps="visualizations",
+            cascade="delete",
+            order_by="CuratedVisualizationSchema.display_order",
         ),
     )
 
@@ -269,23 +295,7 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
         """
         from zenml.zen_stores.schemas import ModelVersionSchema
 
-        options = [
-            selectinload(jl_arg(PipelineRunSchema.deployment)).joinedload(
-                jl_arg(PipelineDeploymentSchema.pipeline)
-            ),
-            selectinload(jl_arg(PipelineRunSchema.deployment)).joinedload(
-                jl_arg(PipelineDeploymentSchema.stack)
-            ),
-            selectinload(jl_arg(PipelineRunSchema.deployment)).joinedload(
-                jl_arg(PipelineDeploymentSchema.build)
-            ),
-            selectinload(jl_arg(PipelineRunSchema.deployment)).joinedload(
-                jl_arg(PipelineDeploymentSchema.schedule)
-            ),
-            selectinload(jl_arg(PipelineRunSchema.deployment)).joinedload(
-                jl_arg(PipelineDeploymentSchema.code_reference)
-            ),
-        ]
+        options = []
 
         # if include_metadata:
         #     options.extend(
@@ -302,9 +312,32 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                     ).joinedload(
                         jl_arg(ModelVersionSchema.model), innerjoin=True
                     ),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.snapshot)
+                    ).joinedload(
+                        jl_arg(PipelineSnapshotSchema.source_snapshot)
+                    ),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.snapshot)
+                    ).joinedload(jl_arg(PipelineSnapshotSchema.pipeline)),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.snapshot)
+                    ).joinedload(jl_arg(PipelineSnapshotSchema.stack)),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.snapshot)
+                    ).joinedload(jl_arg(PipelineSnapshotSchema.build)),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.snapshot)
+                    ).joinedload(jl_arg(PipelineSnapshotSchema.schedule)),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.snapshot)
+                    ).joinedload(
+                        jl_arg(PipelineSnapshotSchema.code_reference)
+                    ),
                     selectinload(jl_arg(PipelineRunSchema.logs)),
                     selectinload(jl_arg(PipelineRunSchema.user)),
                     selectinload(jl_arg(PipelineRunSchema.tags)),
+                    selectinload(jl_arg(PipelineRunSchema.visualizations)),
                 ]
             )
 
@@ -312,12 +345,19 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
 
     @classmethod
     def from_request(
-        cls, request: "PipelineRunRequest"
+        cls,
+        request: "PipelineRunRequest",
+        pipeline_id: UUID,
+        index: int,
+        enable_heartbeat: bool,
     ) -> "PipelineRunSchema":
         """Convert a `PipelineRunRequest` to a `PipelineRunSchema`.
 
         Args:
             request: The request to convert.
+            pipeline_id: The ID of the pipeline.
+            index: The index of the pipeline run.
+            enable_heartbeat: Whether the heartbeat should be enabled.
 
         Returns:
             The created `PipelineRunSchema`.
@@ -330,6 +370,16 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             )
             orchestrator_environment = "{}"
 
+        triggered_by = None
+        triggered_by_type = None
+        if request.trigger_info:
+            if request.trigger_info.step_run_id:
+                triggered_by = request.trigger_info.step_run_id
+                triggered_by_type = PipelineRunTriggeredByType.STEP_RUN.value
+            elif request.trigger_info.deployment_id:
+                triggered_by = request.trigger_info.deployment_id
+                triggered_by_type = PipelineRunTriggeredByType.DEPLOYMENT.value
+
         return cls(
             project_id=request.project,
             user_id=request.user,
@@ -337,27 +387,32 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             orchestrator_run_id=request.orchestrator_run_id,
             orchestrator_environment=orchestrator_environment,
             start_time=request.start_time,
+            end_time=request.end_time,
             status=request.status.value,
+            index=index,
             in_progress=not request.status.is_finished,
             status_reason=request.status_reason,
-            pipeline_id=request.pipeline,
-            deployment_id=request.deployment,
+            pipeline_id=pipeline_id,
+            snapshot_id=request.snapshot,
             trigger_execution_id=request.trigger_execution_id,
+            triggered_by=triggered_by,
+            triggered_by_type=triggered_by_type,
+            enable_heartbeat=enable_heartbeat,
         )
 
     def get_pipeline_configuration(self) -> PipelineConfiguration:
         """Get the pipeline configuration for the pipeline run.
 
         Raises:
-            RuntimeError: if the pipeline run has no deployment and no pipeline
+            RuntimeError: if the pipeline run has no snapshot and no pipeline
                 configuration.
 
         Returns:
             The pipeline configuration.
         """
-        if self.deployment:
+        if self.snapshot:
             pipeline_config = PipelineConfiguration.model_validate_json(
-                self.deployment.pipeline_configuration
+                self.snapshot.pipeline_configuration
             )
         elif self.pipeline_configuration:
             pipeline_config = PipelineConfiguration.model_validate_json(
@@ -365,7 +420,7 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             )
         else:
             raise RuntimeError(
-                "Pipeline run has no deployment and no pipeline configuration."
+                "Pipeline run has no snapshot and no pipeline configuration."
             )
 
         pipeline_config.finalize_substitutions(
@@ -380,21 +435,21 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             step_name: The name of the step to get the configuration for.
 
         Raises:
-            RuntimeError: If the pipeline run has no deployment.
+            RuntimeError: If the pipeline run has no snapshot.
 
         Returns:
             The step configuration.
         """
-        if self.deployment:
+        if self.snapshot:
             pipeline_configuration = self.get_pipeline_configuration()
             return Step.from_dict(
                 data=json.loads(
-                    self.deployment.get_step_configuration(step_name).config
+                    self.snapshot.get_step_configuration(step_name).config
                 ),
                 pipeline_configuration=pipeline_configuration,
             )
         else:
-            raise RuntimeError("Pipeline run has no deployment.")
+            raise RuntimeError("Pipeline run has no snapshot.")
 
     def get_upstream_steps(self) -> Dict[str, List[str]]:
         """Get the list of all the upstream steps for each step.
@@ -403,21 +458,19 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             The list of upstream steps for each step.
 
         Raises:
-            RuntimeError: If the pipeline run has no deployment or
-                the deployment has no pipeline spec.
+            RuntimeError: If the pipeline run has no snapshot or
+                the snapshot has no pipeline spec.
         """
-        if self.deployment and self.deployment.pipeline_spec:
+        if self.snapshot and self.snapshot.pipeline_spec:
             pipeline_spec = PipelineSpec.model_validate_json(
-                self.deployment.pipeline_spec
+                self.snapshot.pipeline_spec
             )
             steps = {}
             for step_spec in pipeline_spec.steps:
-                steps[step_spec.pipeline_parameter_name] = (
-                    step_spec.upstream_steps
-                )
+                steps[step_spec.invocation_id] = step_spec.upstream_steps
             return steps
         else:
-            raise RuntimeError("Pipeline run has no deployment.")
+            raise RuntimeError("Pipeline run has no snapshot.")
 
     def fetch_metadata_collection(
         self, include_full_metadata: bool = False, **kwargs: Any
@@ -443,8 +496,8 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                     metadata_collection[f"{s.name}::{k}"] = v
 
             # Fetch the metadata related to the schedule of this run
-            if self.deployment is not None:
-                if schedule := self.deployment.schedule:
+            if self.snapshot is not None:
+                if schedule := self.snapshot.schedule:
                     schedule_metadata = schedule.fetch_metadata_collection()
                     for k, v in schedule_metadata.items():
                         metadata_collection[f"schedule:{k}"] = v
@@ -475,38 +528,11 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
         Raises:
             RuntimeError: if the model creation fails.
         """
-        if self.deployment is not None:
+        if self.snapshot is not None:
             config = PipelineConfiguration.model_validate_json(
-                self.deployment.pipeline_configuration
+                self.snapshot.pipeline_configuration
             )
-            client_environment = json.loads(self.deployment.client_environment)
-
-            stack = (
-                self.deployment.stack.to_model()
-                if self.deployment.stack
-                else None
-            )
-            pipeline = (
-                self.deployment.pipeline.to_model()
-                if self.deployment.pipeline
-                else None
-            )
-            build = (
-                self.deployment.build.to_model()
-                if self.deployment.build
-                else None
-            )
-            schedule = (
-                self.deployment.schedule.to_model()
-                if self.deployment.schedule
-                else None
-            )
-            code_reference = (
-                self.deployment.code_reference.to_model()
-                if self.deployment.code_reference
-                else None
-            )
-
+            client_environment = json.loads(self.snapshot.client_environment)
         elif self.pipeline_configuration is not None:
             config = PipelineConfiguration.model_validate_json(
                 self.pipeline_configuration
@@ -516,17 +542,10 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 if self.client_environment
                 else {}
             )
-
-            stack = self.stack.to_model() if self.stack else None
-            pipeline = self.pipeline.to_model() if self.pipeline else None
-            build = self.build.to_model() if self.build else None
-            schedule = self.schedule.to_model() if self.schedule else None
-            code_reference = None
-
         else:
             raise RuntimeError(
                 "Pipeline run model creation has failed. Each pipeline run "
-                "entry should either have a deployment_id or "
+                "entry should either have a snapshot_id or "
                 "pipeline_configuration."
             )
 
@@ -537,30 +556,19 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             project_id=self.project_id,
             status=ExecutionStatus(self.status),
             status_reason=self.status_reason,
-            stack=stack,
-            pipeline=pipeline,
-            build=build,
-            schedule=schedule,
-            code_reference=code_reference,
-            trigger_execution=(
-                self.trigger_execution.to_model()
-                if self.trigger_execution
-                else None
-            ),
             created=self.created,
             updated=self.updated,
-            deployment_id=self.deployment_id,
-            model_version_id=self.model_version_id,
             in_progress=self.in_progress,
+            index=self.index,
         )
         metadata = None
         if include_metadata:
             is_templatable = False
             if (
-                self.deployment
-                and self.deployment.build
-                and not self.deployment.build.is_local
-                and self.deployment.build.stack_id
+                self.snapshot
+                and self.snapshot.build
+                and not self.snapshot.build.is_local
+                and self.snapshot.build.stack_id
             ):
                 is_templatable = True
 
@@ -574,6 +582,23 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 client_environment.pop("python_packages", None)
                 orchestrator_environment.pop("python_packages", None)
 
+            trigger_info: Optional[PipelineRunTriggerInfo] = None
+            if self.triggered_by and self.triggered_by_type:
+                if (
+                    self.triggered_by_type
+                    == PipelineRunTriggeredByType.STEP_RUN.value
+                ):
+                    trigger_info = PipelineRunTriggerInfo(
+                        step_run_id=self.triggered_by,
+                    )
+                elif (
+                    self.triggered_by_type
+                    == PipelineRunTriggeredByType.DEPLOYMENT.value
+                ):
+                    trigger_info = PipelineRunTriggerInfo(
+                        deployment_id=self.triggered_by,
+                    )
+
             metadata = PipelineRunResponseMetadata(
                 run_metadata=self.fetch_metadata(
                     include_full_metadata=include_full_metadata
@@ -584,33 +609,80 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 client_environment=client_environment,
                 orchestrator_environment=orchestrator_environment,
                 orchestrator_run_id=self.orchestrator_run_id,
-                code_path=self.deployment.code_path
-                if self.deployment
-                else None,
-                template_id=self.deployment.template_id
-                if self.deployment
+                code_path=self.snapshot.code_path if self.snapshot else None,
+                template_id=self.snapshot.template_id
+                if self.snapshot
                 else None,
                 is_templatable=is_templatable,
+                trigger_info=trigger_info,
+                enable_heartbeat=self.enable_heartbeat,
             )
 
         resources = None
         if include_resources:
-            # Add the client logs as "logs" if they exist, for backwards compatibility
-            # TODO: This will be safe to remove in future releases (>0.84.0).
-            client_logs = [
-                log_entry
-                for log_entry in self.logs
-                if log_entry.source == "client"
-            ]
+            if self.snapshot:
+                source_snapshot = (
+                    self.snapshot.source_snapshot.to_model()
+                    if self.snapshot.source_snapshot
+                    else None
+                )
+                stack = (
+                    self.snapshot.stack.to_model()
+                    if self.snapshot.stack
+                    else None
+                )
+                pipeline: Optional["PipelineResponse"] = (
+                    self.snapshot.pipeline.to_model()
+                )
+                build = (
+                    self.snapshot.build.to_model()
+                    if self.snapshot.build
+                    else None
+                )
+                schedule = (
+                    self.snapshot.schedule.to_model()
+                    if self.snapshot.schedule
+                    else None
+                )
+                code_reference = (
+                    self.snapshot.code_reference.to_model()
+                    if self.snapshot.code_reference
+                    else None
+                )
+            else:
+                source_snapshot = None
+                stack = self.stack.to_model() if self.stack else None
+                pipeline = self.pipeline.to_model() if self.pipeline else None
+                build = self.build.to_model() if self.build else None
+                schedule = self.schedule.to_model() if self.schedule else None
+                code_reference = None
 
             resources = PipelineRunResponseResources(
                 user=self.user.to_model() if self.user else None,
+                snapshot=self.snapshot.to_model() if self.snapshot else None,
+                source_snapshot=source_snapshot,
+                stack=stack,
+                pipeline=pipeline,
+                build=build,
+                schedule=schedule,
+                code_reference=code_reference,
+                trigger_execution=(
+                    self.trigger_execution.to_model()
+                    if self.trigger_execution
+                    else None
+                ),
                 model_version=self.model_version.to_model()
                 if self.model_version
                 else None,
                 tags=[tag.to_model() for tag in self.tags],
-                logs=client_logs[0].to_model() if client_logs else None,
                 log_collection=[log.to_model() for log in self.logs],
+                visualizations=[
+                    visualization.to_model(
+                        include_metadata=False,
+                        include_resources=False,
+                    )
+                    for visualization in self.visualizations
+                ],
             )
 
         return PipelineRunResponse(
@@ -627,6 +699,10 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
         Args:
             run_update: The `PipelineRunUpdate` to update with.
 
+        Raises:
+            ValueError: When trying to update the orchestrator run ID of a
+                run that already has a different one.
+
         Returns:
             The updated `PipelineRunSchema`.
         """
@@ -640,14 +716,34 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 pass
             else:
                 self.status = run_update.status.value
-                self.end_time = run_update.end_time
 
                 if run_update.status_reason:
                     self.status_reason = run_update.status_reason
 
-            self.in_progress = self._check_if_run_in_progress()
+            if run_update.is_finished:
+                self.in_progress = False
+            elif self.snapshot and self.snapshot.is_dynamic:
+                # In dynamic pipelines, we can't actually check if the run is
+                # in progress by inspecting the DAG. Only once the orchestration
+                # container finishes we know for sure.
+                pass
+            else:
+                self.in_progress = self._check_if_run_in_progress()
+
+            if not self.in_progress:
+                # Only set the end time if the run is not in progress anymore.
+                self.end_time = run_update.end_time
 
         if run_update.orchestrator_run_id:
+            if (
+                self.orchestrator_run_id
+                and self.orchestrator_run_id != run_update.orchestrator_run_id
+            ):
+                raise ValueError(
+                    "Updating the orchestrator run ID of a run with an "
+                    "existing orchestrator run ID "
+                    f"({self.orchestrator_run_id}) is not allowed."
+                )
             self.orchestrator_run_id = run_update.orchestrator_run_id
 
         self.updated = utc_now()
@@ -682,12 +778,11 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             )
 
         if (
-            self.deployment_id != request.deployment
-            or self.pipeline_id != request.pipeline
+            self.snapshot_id != request.snapshot
             or self.project_id != request.project
         ):
             raise ValueError(
-                "Deployment, project or pipeline ID of placeholder run "
+                "Snapshot or project ID of placeholder run "
                 "do not match the IDs of the run request."
             )
 
@@ -727,6 +822,28 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             ExecutionStatus.PROVISIONING.value,
         }
 
+    @staticmethod
+    def _step_in_progress(step_id: UUID, session: Session) -> bool:
+        from zenml.steps.heartbeat import is_heartbeat_unhealthy
+        from zenml.zen_stores.schemas.step_run_schemas import StepRunSchema
+
+        step_run = session.execute(
+            select(StepRunSchema).where(StepRunSchema.id == step_id)
+        ).scalar_one_or_none()
+
+        if not step_run:
+            return False
+
+        status: ExecutionStatus = ExecutionStatus(step_run.status)
+
+        return not is_heartbeat_unhealthy(
+            step_run_id=step_run.id,
+            status=status,
+            heartbeat_threshold=step_run.heartbeat_threshold,
+            start_time=step_run.start_time,
+            latest_heartbeat=step_run.latest_heartbeat,
+        )
+
     def _check_if_run_in_progress(self) -> bool:
         """Checks whether the run is in progress.
 
@@ -755,19 +872,25 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
 
                 if session := object_session(self):
                     step_run_statuses = session.execute(
-                        select(StepRunSchema.name, StepRunSchema.status).where(
-                            StepRunSchema.pipeline_run_id == self.id
-                        )
+                        select(
+                            StepRunSchema.id,
+                            StepRunSchema.name,
+                            StepRunSchema.status,
+                        ).where(StepRunSchema.pipeline_run_id == self.id)
                     ).all()
 
-                    if self.deployment and self.deployment.pipeline_spec:
+                    if self.snapshot and self.snapshot.pipeline_spec:
                         step_dict = self.get_upstream_steps()
 
                         dag = build_dag(step_dict)
 
+                        step_name_to_id = {
+                            name: id_ for id_, name, _ in step_run_statuses
+                        }
+
                         failed_steps = {
                             name
-                            for name, status in step_run_statuses
+                            for _, name, status in step_run_statuses
                             if ExecutionStatus(status).is_failed
                         }
 
@@ -777,28 +900,44 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                                 find_all_downstream_steps(failed_step, dag)
                             )
 
-                        steps_to_skip.update(failed_steps)
+                        completed_steps = {
+                            name
+                            for _, name, status in step_run_statuses
+                            if ExecutionStatus(status).is_finished
+                        }
+
+                        steps_to_skip.update(
+                            failed_steps
+                        )  # skip downstream steps
+                        steps_to_skip.update(
+                            completed_steps
+                        )  # skip completed steps
 
                         steps_statuses = {
                             name: ExecutionStatus(status)
-                            for name, status in step_run_statuses
+                            for _, name, status in step_run_statuses
                         }
 
                         for step_name, _ in step_dict.items():
                             if step_name in steps_to_skip:
+                                # failed steps downstream
                                 continue
 
                             if step_name not in steps_statuses:
+                                # steps that haven't started yet
                                 return True
 
-                            elif not steps_statuses[step_name].is_finished:
+                            if self._step_in_progress(
+                                step_name_to_id[step_name], session=session
+                            ):
+                                # running steps without unhealthy heartbeats
                                 return True
 
                         return False
                     else:
                         in_progress = any(
                             not ExecutionStatus(status).is_finished
-                            for name, status in step_run_statuses
+                            for _, _, status in step_run_statuses
                         )
                         return in_progress
                 else:

@@ -17,7 +17,7 @@ class ManagedMixin(models.Model):
         abstract = True
 
 
-class Tag(ManagedMixin, ComplexToStringMixin, WBModel):
+class Tag(ComplexToStringMixin, ManagedMixin):
     title = models.CharField(max_length=255)
 
     slug = models.CharField(max_length=255, null=True, blank=True)
@@ -31,9 +31,12 @@ class Tag(ManagedMixin, ComplexToStringMixin, WBModel):
     )
 
     class Meta:
-        unique_together = [("slug", "content_type")]
+        constraints = (models.UniqueConstraint(name="unique_tag", fields=("slug", "content_type")),)
         verbose_name = "Tag"
         verbose_name_plural = "Tags"
+
+    def __str__(self) -> str:
+        return super().__str__()
 
     @classmethod
     def get_endpoint_basename(cls):

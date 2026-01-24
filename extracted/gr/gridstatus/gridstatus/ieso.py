@@ -7,6 +7,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
+from io import StringIO
 from typing import Literal, Optional
 from urllib.error import HTTPError
 from warnings import warn
@@ -29,6 +30,7 @@ from gridstatus.ieso_constants import (
     HISTORICAL_FUEL_MIX_TEMPLATE_URL,
     INTERTIE_ACTUAL_SCHEDULE_FLOW_HOURLY_COLUMNS,
     INTERTIE_FLOW_5_MIN_COLUMNS,
+    INTERTIE_LIMITS_COLUMNS,
     MAXIMUM_DAYS_IN_PAST_FOR_COMPLETE_GENERATOR_REPORT,
     NAMESPACES_FOR_XML,
     ONTARIO_LOCATION,
@@ -941,6 +943,55 @@ class IESO(ISOBase):
         logger.debug(f"DataFrame Shape: {df.shape}")
         return df.sort_values(["Interval Start", "Publish Time", "Last Modified"])
 
+    def get_resource_adequacy_report_by_last_modified(
+        self,
+        last_modified: str | datetime.date | datetime.datetime,
+    ) -> pd.DataFrame:
+        """Retrieve and parse Resource Adequacy Reports modified after last_modified time.
+        This method bypasses date iteration and gets all files across all dates.
+        This is useful for ETL systems that want to get all new files at once.
+
+        Args:
+            last_modified: The last modified time after which to get report(s)
+            vintage: The version of the report to get
+
+        Returns:
+            pd.DataFrame: The Resource Adequacy Report df with all files modified after last_modified
+        """
+        if last_modified:
+            last_modified = utils._handle_date(last_modified, tz=self.default_timezone)
+
+        json_data_with_times = self._get_all_resource_adequacy_jsons_by_last_modified(
+            last_modified,
+        )
+        dfs = []
+        for json_data, file_last_modified in json_data_with_times:
+            try:
+                df = self._parse_resource_adequacy_report(json_data)
+                df["Last Modified"] = file_last_modified
+                dfs.append(df)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse resource adequacy report: {str(e)}",
+                )
+                continue
+
+        if not dfs:
+            return pd.DataFrame()
+
+        df = pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
+        df = utils.move_cols_to_front(
+            df,
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Last Modified",
+            ],
+        )
+        logger.debug(f"DataFrame Shape: {df.shape}")
+        return df.sort_values(["Interval Start", "Publish Time", "Last Modified"])
+
     # Note(Kladar): This might be fairly generalizable to other XML reports from IESO
     def _get_latest_resource_adequacy_json(
         self,
@@ -984,9 +1035,10 @@ class IESO(ISOBase):
                     tz=self.default_timezone,
                 )
             filtered_files = [
-                (file, time)
-                for file, time in files_and_times
-                if pd.Timestamp(time, tz=self.default_timezone) >= last_modified
+                (file, last_modified_time)
+                for file, last_modified_time in files_and_times
+                if pd.Timestamp(last_modified_time, tz=self.default_timezone)
+                >= last_modified
             ]
             logger.info(
                 f"Found {len(filtered_files)} files after last modified time {last_modified}",
@@ -1067,9 +1119,10 @@ class IESO(ISOBase):
                     tz=self.default_timezone,
                 )
             filtered_files = [
-                (file, time)
-                for file, time in file_rows
-                if pd.Timestamp(time, tz=self.default_timezone) >= last_modified
+                (file, last_modified_time)
+                for file, last_modified_time in file_rows
+                if pd.Timestamp(last_modified_time, tz=self.default_timezone)
+                >= last_modified
             ]
             logger.info(
                 f"Found {len(filtered_files)} files after last modified time {last_modified}",
@@ -1090,20 +1143,26 @@ class IESO(ISOBase):
             future_to_file = {
                 executor.submit(self._fetch_and_parse_file, base_url, file): (
                     file,
-                    time,
+                    last_modified_time,
                 )
-                for file, time in filtered_files
+                for file, last_modified_time in filtered_files
             }
 
             for future in as_completed(future_to_file):
-                file, time = future_to_file[future]
+                file, last_modified_time = future_to_file[future]
                 retries = 0
                 while retries < max_retries:
                     try:
                         logger.info(f"Processing file {file}...")
                         json_data = future.result()
                         json_data_with_times.append(
-                            (json_data, pd.Timestamp(time, tz=self.default_timezone)),
+                            (
+                                json_data,
+                                pd.Timestamp(
+                                    last_modified_time,
+                                    tz=self.default_timezone,
+                                ),
+                            ),
                         )
                         break
                     except http.client.RemoteDisconnected as e:
@@ -1123,6 +1182,96 @@ class IESO(ISOBase):
                             f"Unexpected error processing file {file}: {str(e)}",
                         )
                         break
+
+        return json_data_with_times
+
+    def _get_all_resource_adequacy_jsons_by_last_modified(
+        self,
+        last_modified: pd.Timestamp,
+    ) -> list[tuple[dict, datetime.datetime]]:
+        """Retrieve all Resource Adequacy Report JSONs modified after last_modified time,
+        bypassing date filtering to get files across all dates.
+
+        Args:
+            last_modified: The last modified time after which to get report(s)
+
+        Returns:
+            list of tuples: List of (JSON data, last modified time) pairs
+        """
+        base_url = RESOURCE_ADEQUACY_REPORT_BASE_URL
+
+        r = self._request(base_url)
+
+        # Match all PUB_Adequacy3 files (not just for a specific date)
+        pattern = r'<a href="(PUB_Adequacy3_.*?\.xml)">.*?</a>\s+(\d{2}-\w{3}-\d{4} \d{2}:\d{2})'
+        file_rows = re.findall(pattern, r.text)
+
+        if not file_rows:
+            raise FileNotFoundError("No resource adequacy files found")
+
+        # Filter by last_modified time across all files
+        if last_modified.tz is None:
+            last_modified = utils._handle_date(
+                last_modified,
+                tz=self.default_timezone,
+            )
+
+        filtered_files = [
+            (file, last_modified_time)
+            for file, last_modified_time in file_rows
+            if pd.Timestamp(last_modified_time, tz=self.default_timezone)
+            >= last_modified
+        ]
+
+        logger.info(
+            f"Found {len(filtered_files)} files after last modified time {last_modified}",
+        )
+
+        if not filtered_files:
+            raise FileNotFoundError(
+                f"No files found after last modified time {last_modified}",
+            )
+
+        json_data_with_times = []
+        max_retries = 3
+        retry_delay = 1
+
+        # Process files sequentially to avoid connection issues
+        for file, last_modified_time in filtered_files:
+            retries = 0
+            success = False
+
+            while retries < max_retries and not success:
+                try:
+                    logger.info(f"Processing file {file}... (attempt {retries + 1})")
+                    json_data = self._fetch_and_parse_file(base_url, file)
+                    json_data_with_times.append(
+                        (
+                            json_data,
+                            pd.Timestamp(last_modified_time, tz=self.default_timezone),
+                        ),
+                    )
+                    success = True
+                except (
+                    http.client.RemoteDisconnected,
+                    requests.exceptions.ConnectionError,
+                ) as e:
+                    retries += 1
+                    if retries < max_retries:
+                        wait_time = retry_delay * (
+                            2 ** (retries - 1)
+                        )  # Exponential backoff
+                        logger.warning(
+                            f"Connection error for file {file}: {str(e)}. Retrying in {wait_time} seconds... (attempt {retries + 1})",
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(
+                            f"Failed to fetch file {file} after {max_retries} retries: {str(e)}",
+                        )
+                except Exception as e:
+                    logger.error(f"Unexpected error processing file {file}: {str(e)}")
+                    break  # Don't retry for unexpected errors
 
         return json_data_with_times
 
@@ -1964,6 +2113,214 @@ class IESO(ISOBase):
         )
 
         return hourly_data
+
+    def _parse_intertie_limits(
+        self,
+        xml_content: str,
+        interval_element_name: str,
+        interval_minutes: int,
+        include_publish_time: bool = False,
+    ) -> tuple[pd.DataFrame, pd.Timestamp | None]:
+        """Shared parser for intertie limit XML data.
+
+        Args:
+            xml_content: Raw XML string
+            interval_element_name: Name of interval element ("IntervalEnergy" or "HourlyEnergy")
+            interval_minutes: Minutes per interval (5 or 60)
+            include_publish_time: Whether to include publish time in result
+
+        Returns:
+            Tuple of (DataFrame, publish_time or None)
+        """
+        ns = {"": "http://www.ieso.ca/schema"}
+        root = ElementTree.fromstring(xml_content)
+
+        publish_time = None
+        if include_publish_time:
+            publish_time = pd.Timestamp(
+                root.find(".//CreatedAt", ns).text,
+                tz=self.default_timezone,
+            )
+
+        delivery_date = root.find(".//DeliveryDate", ns).text
+
+        # For real-time, we have DeliveryHour, for DAM we don't
+        delivery_hour_elem = root.find(".//DeliveryHour", ns)
+        if delivery_hour_elem is not None:
+            delivery_hour = int(delivery_hour_elem.text)
+            base_datetime = pd.Timestamp(
+                delivery_date,
+                tz=self.default_timezone,
+            ) + pd.Timedelta(hours=delivery_hour - 1)
+        else:
+            # DAM doesn't have DeliveryHour
+            base_datetime = pd.Timestamp(delivery_date, tz=self.default_timezone)
+
+        # Map zone codes to column name prefixes
+        zone_mapping = {
+            "MBSI": "Manitoba",
+            "MISI": "Michigan",
+            "MNSI": "Minnesota",
+            "NYSI": "New York",
+            "PQAT": "Quebec AT",
+            "PQBE": "Quebec B5D-B31L",
+            "PQDA": "Quebec D5A",
+            "PQDZ": "Quebec D4Z",
+            "PQHA": "Quebec H9A",
+            "PQHZ": "Quebec H4Z",
+            "PQPC": "Quebec P33C",
+            "PQQC": "Quebec Q4C",
+            "PQXY": "Quebec X2Y",
+            "PQSK": "Manitoba SK1",
+        }
+
+        zones = root.findall(".//IntertieZonalEnergies", ns)
+        zone_data = {}
+
+        for zone in zones:
+            zone_name = zone.find(".//IntertieZoneName", ns).text
+
+            # Skip combined zones (e.g. "MISI+NYSIN")
+            if "+" in zone_name:
+                continue
+
+            # Extract base zone code and direction
+            # Zone names end with N (Ontario "to" zone = export) or X (Ontario "from" zone = import)
+            if zone_name.endswith("N"):
+                base_code = zone_name[:-1]
+                direction = "Export"
+            elif zone_name.endswith("X"):
+                base_code = zone_name[:-1]
+                direction = "Import"
+            else:
+                continue
+
+            if base_code not in zone_mapping:
+                continue
+
+            zone_prefix = zone_mapping[base_code]
+            column_name = f"{zone_prefix} {direction} Limit"
+
+            # Parse interval data - element names differ between real-time and DAM
+            intervals = zone.findall(f".//{interval_element_name}", ns)
+            for interval_elem in intervals:
+                # For real-time it's "Interval", for DAM it's "DeliveryHour"
+                interval_num_elem = interval_elem.find(".//Interval", ns)
+                if interval_num_elem is None:
+                    interval_num_elem = interval_elem.find(".//DeliveryHour", ns)
+
+                interval_num = int(interval_num_elem.text)
+                energy_elem = interval_elem.find(".//EnergyMW", ns)
+                energy = (
+                    float(energy_elem.text)
+                    if energy_elem is not None and energy_elem.text
+                    else None
+                )
+
+                if interval_num not in zone_data:
+                    zone_data[interval_num] = {}
+
+                zone_data[interval_num][column_name] = energy
+
+        # Convert to DataFrame with interval numbers as index
+        df = pd.DataFrame.from_dict(zone_data, orient="index").sort_index()
+
+        # Add time columns based on interval numbers
+        df["Interval Start"] = base_datetime + pd.to_timedelta(
+            (df.index - 1) * interval_minutes,
+            unit="m",
+        )
+        df["Interval End"] = df["Interval Start"] + pd.Timedelta(
+            minutes=interval_minutes,
+        )
+
+        if include_publish_time:
+            df["Publish Time"] = publish_time
+
+        return df, publish_time
+
+    @support_date_range(frequency="HOUR_START")
+    def get_intertie_limits_real_time_5_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get real-time intertie scheduling limits.
+
+        This returns 5-minute interval data showing import and export limits
+        for each of Ontario's intertie zones.
+
+        Args:
+            date: Date or date range to get data for, or "latest"
+            end: End date for date range (optional)
+            verbose: Whether to print verbose output
+
+        Returns:
+            DataFrame with columns for interval start/end and import/export
+            limits for each intertie zone
+        """
+        directory_path = "RealtimeIntertieSchedLimits"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}{file_hour}.xml"
+
+        xml_content = self._request(url, verbose=verbose).text
+
+        df, _ = self._parse_intertie_limits(
+            xml_content,
+            interval_element_name="IntervalEnergy",
+            interval_minutes=5,
+            include_publish_time=False,
+        )
+
+        return df[INTERTIE_LIMITS_COLUMNS].reset_index(drop=True)
+
+    @support_date_range(frequency="DAY_START")
+    def get_intertie_limits_day_ahead_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get day-ahead intertie scheduling limits.
+
+        This returns hourly data showing import and export limits for each
+        of Ontario's intertie zones used in the day-ahead market.
+
+        Args:
+            date: Date or date range to get data for, or "latest"
+            end: End date for date range (optional)
+            verbose: Whether to print verbose output
+
+        Returns:
+            DataFrame with columns for interval start/end and import/export
+            limits for each intertie zone
+        """
+        directory_path = "DAIntertieSchedLimits2"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}.xml"
+
+        xml_content = self._request(url, verbose=verbose).text
+
+        df, _ = self._parse_intertie_limits(
+            xml_content,
+            interval_element_name="HourlyEnergy",
+            interval_minutes=60,
+            include_publish_time=False,
+        )
+
+        return df[INTERTIE_LIMITS_COLUMNS].reset_index(drop=True)
 
     @support_date_range(frequency="HOUR_START")
     def get_lmp_real_time_5_min(
@@ -3775,6 +4132,87 @@ class IESO(ISOBase):
         return data
 
     @support_date_range(frequency="DAY_START")
+    def get_lmp_day_ahead_operating_reserves(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get day-ahead operating reserves LMP data.
+
+        Args:
+            date: The date to get the data for.
+            end: The end date to get the data for.
+            verbose: Whether to print verbose output.
+
+        Returns:
+            DataFrame with operating reserves LMP data.
+        """
+        file_directory = "DAHourlyORLMP"
+
+        if date == "latest":
+            url = (
+                f"{PUBLIC_REPORTS_URL_PREFIX}/{file_directory}/PUB_{file_directory}.csv"
+            )
+            # We don't know which date the latest file is for because it depends on the
+            # time of day. So, we have to extract the date from the file
+            # The first row of the file tells us the date it is for
+            # Example: CREATED AT 2025/08/27 12:31:08 FOR 2025/08/28
+            text = self._request(url, verbose=False).text
+            lines = text.splitlines()
+            first_line = lines[0]
+
+            # Extract the delivery date from the header
+            match = re.search(r"FOR (\d{4}/\d{2}/\d{2})", first_line)
+
+            delivery_date = pd.Timestamp(match.group(1), tz=self.default_timezone)
+            base_datetime = delivery_date.normalize()
+
+            # Read the CSV data from the remaining lines (skip the first header line)
+            csv_text = "\n".join(lines[1:])
+            data = pd.read_csv(StringIO(csv_text))
+        else:
+            # Subtract 1 day to the date to get the file because this is a day-ahead
+            # dataset
+            file_date = date - pd.DateOffset(days=1)
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/{file_directory}/PUB_{file_directory}_{file_date.strftime('%Y%m%d')}.csv"
+
+            data = pd.read_csv(url, skiprows=1)
+            base_datetime = date.normalize()
+
+        data["Interval Start"] = base_datetime + pd.to_timedelta(
+            data["Delivery Hour"] - 1,
+            unit="h",
+        )
+        data["Interval End"] = data["Interval Start"] + pd.Timedelta(hours=1)
+
+        data = data.rename(
+            columns={
+                "Pricing Location": "Location",
+                "Congestion Price 10S": "Congestion 10S",
+                "Congestion Price 10N": "Congestion 10N",
+                "Congestion Price 30R": "Congestion 30R",
+            },
+        ).drop(
+            columns=[
+                "Delivery Hour",
+            ],
+        )
+
+        data = (
+            utils.move_cols_to_front(
+                data,
+                ["Interval Start", "Interval End", "Location"],
+            )
+            .sort_values(
+                ["Interval Start", "Location"],
+            )
+            .reset_index(drop=True)
+        )
+
+        return data
+
+    @support_date_range(frequency="DAY_START")
     def get_shadow_prices_real_time_5_min(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
@@ -3948,17 +4386,23 @@ class IESO(ISOBase):
                     self._fetch_and_parse_shadow_prices_file,
                     base_url,
                     file,
-                ): (file, time)
-                for file, time in filtered_files
+                ): (file, last_modified_time)
+                for file, last_modified_time in filtered_files
             }
             for future in as_completed(future_to_file):
-                file, time = future_to_file[future]
+                file, last_modified_time = future_to_file[future]
                 retries = 0
                 while retries < max_retries:
                     try:
                         json_data = future.result()
                         json_data_with_times.append(
-                            (json_data, pd.Timestamp(time, tz=self.default_timezone)),
+                            (
+                                json_data,
+                                pd.Timestamp(
+                                    last_modified_time,
+                                    tz=self.default_timezone,
+                                ),
+                            ),
                         )
                         break
                     except http.client.RemoteDisconnected as e:
@@ -3984,6 +4428,9 @@ class IESO(ISOBase):
         doc_header = json_data["Document"]["DocHeader"]
         doc_body = json_data["Document"]["DocBody"]
         shadow_prices = doc_body["HourlyPrice"]
+        # Handle case with only one constraint
+        if isinstance(shadow_prices, dict):
+            shadow_prices = [shadow_prices]
         publish_time = pd.Timestamp(doc_header["CreatedAt"], tz=self.default_timezone)
         delivery_date = pd.Timestamp(doc_body["DELIVERYDATE"], tz=self.default_timezone)
 
@@ -4027,7 +4474,12 @@ class IESO(ISOBase):
                 },
             )
 
-        for hourly in doc_body["HourlyPrice"]:
+        # Handle case with one constraint
+        hourly_prices = doc_body["HourlyPrice"]
+        if isinstance(hourly_prices, dict):
+            hourly_prices = [hourly_prices]
+
+        for hourly in hourly_prices:
             constraint = " ".join(hourly["ConstraintName"].split())
             hour = int(hourly["DeliveryHour"])
             intervals = hourly["IntervalShadowPrices"]["Interval"]

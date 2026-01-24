@@ -3,7 +3,7 @@ Type annotations for apigatewayv2 service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_apigatewayv2/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -44,17 +44,25 @@ __all__ = (
     "IntegrationTypeType",
     "IpAddressTypeType",
     "JSONYAMLType",
+    "ListPortalProductsPaginatorName",
+    "ListPortalsPaginatorName",
+    "ListProductPagesPaginatorName",
+    "ListProductRestEndpointPagesPaginatorName",
     "ListRoutingRulesPaginatorName",
     "LoggingLevelType",
     "OAS30Type",
     "PaginatorName",
     "PassthroughBehaviorType",
+    "PreviewStatusType",
     "ProtocolTypeType",
+    "PublishStatusType",
     "RegionName",
     "ResourceServiceName",
     "RoutingModeType",
     "SecurityPolicyType",
     "ServiceName",
+    "StatusType",
+    "TryItStateType",
     "VpcLinkStatusType",
     "VpcLinkVersionType",
 )
@@ -82,13 +90,21 @@ GetStagesPaginatorName = Literal["get_stages"]
 IntegrationTypeType = Literal["AWS", "AWS_PROXY", "HTTP", "HTTP_PROXY", "MOCK"]
 IpAddressTypeType = Literal["dualstack", "ipv4"]
 JSONYAMLType = Literal["JSON", "YAML"]
+ListPortalProductsPaginatorName = Literal["list_portal_products"]
+ListPortalsPaginatorName = Literal["list_portals"]
+ListProductPagesPaginatorName = Literal["list_product_pages"]
+ListProductRestEndpointPagesPaginatorName = Literal["list_product_rest_endpoint_pages"]
 ListRoutingRulesPaginatorName = Literal["list_routing_rules"]
 LoggingLevelType = Literal["ERROR", "INFO", "OFF"]
 OAS30Type = Literal["OAS30"]
 PassthroughBehaviorType = Literal["NEVER", "WHEN_NO_MATCH", "WHEN_NO_TEMPLATES"]
+PreviewStatusType = Literal["PREVIEW_FAILED", "PREVIEW_IN_PROGRESS", "PREVIEW_READY"]
 ProtocolTypeType = Literal["HTTP", "WEBSOCKET"]
+PublishStatusType = Literal["DISABLED", "PUBLISHED", "PUBLISH_FAILED", "PUBLISH_IN_PROGRESS"]
 RoutingModeType = Literal["API_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_API_MAPPING"]
 SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
+StatusType = Literal["AVAILABLE", "FAILED", "IN_PROGRESS"]
+TryItStateType = Literal["DISABLED", "ENABLED"]
 VpcLinkStatusType = Literal["AVAILABLE", "DELETING", "FAILED", "INACTIVE", "PENDING"]
 VpcLinkVersionType = Literal["V2"]
 ApiGatewayV2ServiceName = Literal["apigatewayv2"]
@@ -118,7 +134,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -188,6 +203,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -233,7 +249,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -286,7 +301,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -325,8 +339,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -361,6 +373,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -370,6 +383,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -380,6 +394,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -401,8 +418,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -417,15 +432,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -456,6 +472,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -496,6 +513,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -520,6 +538,10 @@ PaginatorName = Literal[
     "get_route_responses",
     "get_routes",
     "get_stages",
+    "list_portal_products",
+    "list_portals",
+    "list_product_pages",
+    "list_product_rest_endpoint_pages",
     "list_routing_rules",
 ]
 RegionName = Literal[

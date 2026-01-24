@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import time
+import uuid
 
 import pytest
 
@@ -271,7 +272,7 @@ class TestPyLastNetwork(TestPyLastWithLastFm):
 
     def test_track_mbid(self) -> None:
         # Arrange
-        mbid = "ebc037b1-cc9c-44f2-a21f-83c219f0e1e0"
+        mbid = "8e99ebff-c706-33a0-8e73-9c8c6e15035b"
 
         # Act
         track = self.network.get_track_by_mbid(mbid)
@@ -279,8 +280,11 @@ class TestPyLastNetwork(TestPyLastWithLastFm):
 
         # Assert
         assert isinstance(track, pylast.Track)
-        assert track.title == "first"
-        assert track_mbid == mbid
+        assert track.title == "Believe"
+        assert len(track_mbid) == 36
+        # MBID should be a UUID and raise no exception
+        # https://musicbrainz.org/doc/MusicBrainz_Identifier
+        uuid.UUID(track_mbid)
 
     def test_init_with_token(self) -> None:
         # Arrange/Act
@@ -304,7 +308,7 @@ class TestPyLastNetwork(TestPyLastWithLastFm):
         # Act / Assert
         self.network.enable_proxy(proxy)
         assert self.network.is_proxy_enabled()
-        assert self.network.proxy == "http://example.com:1234"
+        assert self.network.proxy == {"https://": "http://example.com:1234"}
 
         self.network.disable_proxy()
         assert not self.network.is_proxy_enabled()
@@ -363,7 +367,7 @@ class TestPyLastNetwork(TestPyLastWithLastFm):
         images = results[0].info["image"]
 
         # Assert
-        assert len(images) == 5
+        assert len(images) == 4
 
         assert images[pylast.SIZE_SMALL].startswith("https://")
         assert images[pylast.SIZE_SMALL].endswith(".png")

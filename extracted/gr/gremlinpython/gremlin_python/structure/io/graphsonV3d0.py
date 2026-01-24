@@ -29,7 +29,8 @@ from aenum import Enum
 from isodate import parse_duration, duration_isoformat
 
 from gremlin_python import statics
-from gremlin_python.statics import FloatType, FunctionType, ShortType, IntType, LongType, TypeType, DictType, ListType, SetType, SingleByte, ByteBufferType, SingleChar
+from gremlin_python.statics import FloatType, FunctionType, ShortType, IntType, LongType, TypeType, DictType, ListType, \
+    SetType, SingleByte, ByteBufferType, SingleChar, BigDecimal, bigdecimal
 from gremlin_python.process.traversal import Binding, Bytecode, Direction, P, TextP, Traversal, Traverser, TraversalStrategy, T
 from gremlin_python.structure.graph import Edge, Property, Vertex, VertexProperty, Path
 from gremlin_python.structure.io.util import HashableDict, SymbolUtil
@@ -240,10 +241,12 @@ class TraversalStrategySerializer(_GraphSONTypeIO):
 
     @classmethod
     def dictify(cls, strategy, writer):
-        configuration = {}
+        strat_dict = {}
+        strat_dict["fqcn"] = strategy.fqcn
+        strat_dict["conf"] = {}
         for key in strategy.configuration:
-            configuration[key] = writer.to_dict(strategy.configuration[key])
-        return GraphSONUtil.typed_value(strategy.strategy_name, configuration)
+            strat_dict["conf"][key] = writer.to_dict(strategy.configuration[key])
+        return GraphSONUtil.typed_value(strategy.strategy_name, strat_dict)
 
 
 class TraverserIO(_GraphSONTypeIO):
@@ -346,7 +349,6 @@ class UUIDIO(_GraphSONTypeIO):
 
 
 class DateIO(_GraphSONTypeIO):
-    python_type = datetime.datetime
     graphson_type = "g:Date"
     graphson_base_type = "Date"
 
@@ -365,6 +367,24 @@ class DateIO(_GraphSONTypeIO):
     def objectify(cls, ts, reader):
         # Python timestamp expects seconds
         return datetime.datetime.utcfromtimestamp(ts / 1000.0)
+
+
+class OffsetDateTimeIO(_GraphSONTypeIO):
+    python_type = datetime.datetime
+    graphson_type = "gx:OffsetDateTime"
+    graphson_base_type = "OffsetDateTime"
+
+    @classmethod
+    def dictify(cls, obj, writer):
+        if obj.tzinfo is None:
+            return DateIO.dictify(obj, writer)
+        return GraphSONUtil.typed_value(cls.graphson_base_type, obj.isoformat(), "gx")
+
+    @classmethod
+    def objectify(cls, dt, reader):
+        # specially handling as python isoformat does not support zulu until 3.11
+        dt_iso = dt[:-1] + '+00:00' if dt.endswith('Z') else dt
+        return datetime.datetime.fromisoformat(dt_iso)
 
 
 # Based on current implementation, this class must always be declared before FloatIO.
@@ -525,34 +545,17 @@ class FloatIO(_NumberIO):
 
 
 class BigDecimalIO(_NumberIO):
-    python_type = Decimal
+    python_type = BigDecimal
     graphson_type = "gx:BigDecimal"
     graphson_base_type = "BigDecimal"
 
     @classmethod
     def dictify(cls, n, writer):
-        if isinstance(n, bool):  # because isinstance(False, int) and isinstance(True, int)
-            return n
-        elif math.isnan(n):
-            return GraphSONUtil.typed_value(cls.graphson_base_type, "NaN", "gx")
-        elif math.isinf(n) and n > 0:
-            return GraphSONUtil.typed_value(cls.graphson_base_type, "Infinity", "gx")
-        elif math.isinf(n) and n < 0:
-            return GraphSONUtil.typed_value(cls.graphson_base_type, "-Infinity", "gx")
-        else:
-            return GraphSONUtil.typed_value(cls.graphson_base_type, str(n), "gx")
+        return GraphSONUtil.typed_value(cls.graphson_base_type, str(n.value), "gx")
 
     @classmethod
     def objectify(cls, v, _):
-        if isinstance(v, str):
-            if v == 'NaN':
-                return Decimal('nan')
-            elif v == "Infinity":
-                return Decimal('inf')
-            elif v == "-Infinity":
-                return Decimal('-inf')
-
-        return Decimal(v)
+        return bigdecimal(v)
 
 
 class DoubleIO(FloatIO):
@@ -685,7 +688,7 @@ class VertexDeserializer(_GraphSONTypeIO):
 
     @classmethod
     def objectify(cls, d, reader):
-        properties = None
+        properties = []
         if "properties" in d:
             properties = reader.to_object(d["properties"])
             if properties is not None:
@@ -698,7 +701,7 @@ class EdgeDeserializer(_GraphSONTypeIO):
 
     @classmethod
     def objectify(cls, d, reader):
-        properties = None
+        properties = []
         if "properties" in d:
             properties = reader.to_object(d["properties"])
             if properties is not None:
@@ -715,7 +718,7 @@ class VertexPropertyDeserializer(_GraphSONTypeIO):
 
     @classmethod
     def objectify(cls, d, reader):
-        properties = None
+        properties = []
         if "properties" in d:
             properties = reader.to_object(d["properties"])
             if properties is not None:

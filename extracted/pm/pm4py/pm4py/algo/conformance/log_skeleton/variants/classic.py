@@ -20,6 +20,7 @@ Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
 from pm4py.objects.log.util import xes
+from pm4py.objects.conversion.log import converter as log_converter
 from pm4py.algo.discovery.log_skeleton import trace_skel
 from pm4py.util import xes_constants
 from pm4py.util import variants_util, pandas_utils
@@ -120,13 +121,7 @@ def apply_log(
         case_id_key = exec_utils.get_param_value(
             Parameters.CASE_ID_KEY, parameters, CASE_CONCEPT_NAME
         )
-        traces = [
-            tuple(x)
-            for x in log.groupby(case_id_key)[activity_key]
-            .agg(list)
-            .to_dict()
-            .values()
-        ]
+        traces = pandas_utils.get_traces(log, case_id_key, activity_key)
     else:
         traces = [tuple(y[activity_key] for y in x) for x in log]
     grouped_traces = {}
@@ -429,7 +424,7 @@ def get_diagnostics_dataframe(log, conf_result, parameters=None):
         Parameters.CASE_ID_KEY, parameters, xes_constants.DEFAULT_TRACEID_KEY
     )
 
-    import pandas as pd
+    log = log_converter.apply(log, variant=log_converter.Variants.TO_EVENT_LOG, parameters=parameters)
 
     diagn_stream = []
 

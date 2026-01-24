@@ -228,9 +228,11 @@ class ServerTests:
         )
 
         # compare the two clones; they should be equal
-        self.assertReposEqual(
-            Repo(self._stub_repo_git.path), Repo(self._stub_repo_dw.path)
-        )
+        repo_git = Repo(self._stub_repo_git.path)
+        self.addCleanup(repo_git.close)
+        repo_dw = Repo(self._stub_repo_dw.path)
+        self.addCleanup(repo_dw.close)
+        self.assertReposEqual(repo_git, repo_dw)
 
     def test_fetch_same_depth_into_shallow_clone_from_dulwich(self) -> None:
         require_git_version(self.min_single_branch_version)
@@ -350,18 +352,13 @@ class ServerTests:
 class NoSideBand64kReceivePackHandler(ReceivePackHandler):
     """ReceivePackHandler that does not support side-band-64k."""
 
-    @classmethod
-    def capabilities(cls):
-        return [
-            c
-            for c in ReceivePackHandler.capabilities()
-            if c != CAPABILITY_SIDE_BAND_64K
-        ]
+    def capabilities(self):
+        return [c for c in super().capabilities() if c != CAPABILITY_SIDE_BAND_64K]
 
 
 def ignore_error(error):
     """Check whether this error is safe to ignore."""
-    (e_type, e_value, e_tb) = error
+    (e_type, e_value, _e_tb) = error
     return issubclass(e_type, socket.error) and e_value[0] in (
         errno.ECONNRESET,
         errno.EPIPE,

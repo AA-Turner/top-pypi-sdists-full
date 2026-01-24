@@ -1,6 +1,6 @@
 # ruff: noqa: ARG002, N804, N805
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 from inspect import signature
 from types import MethodType
 from typing import (
@@ -19,7 +19,7 @@ from typing import (
     Union,
     cast,
 )
-from weakref import ReferenceType, WeakValueDictionary, finalize
+from weakref import ReferenceType, WeakKeyDictionary, WeakValueDictionary, finalize, ref
 
 from django.forms.widgets import Media as MediaCls
 from django.http import HttpRequest, HttpResponse
@@ -27,6 +27,7 @@ from django.template.base import NodeList, Parser, Template, Token
 from django.template.context import Context, RequestContext
 from django.template.loader_tags import BLOCK_CONTEXT_KEY, BlockContext
 from django.test.signals import template_rendered
+from djc_core.template_parser import TagAttr
 
 from django_components.app_settings import ContextBehavior
 from django_components.component_media import ComponentMediaInput, ComponentMediaMeta
@@ -58,12 +59,12 @@ from django_components.extensions.defaults import ComponentDefaults
 from django_components.extensions.view import ComponentView, ViewFn
 from django_components.node import BaseNode
 from django_components.perfutil.component import (
-    ComponentRenderer,
     OnComponentRenderedResult,
     component_context_cache,
+    component_instance_cache,
     component_post_render,
 )
-from django_components.perfutil.provide import register_provide_reference, unregister_provide_reference
+from django_components.perfutil.provide import register_provide_reference, unlink_component_from_provide_on_gc
 from django_components.provide import get_injected_context_var
 from django_components.slots import (
     Slot,
@@ -78,8 +79,14 @@ from django_components.template import cache_component_template_file, prepare_co
 from django_components.util.context import gen_context_processors_data, snapshot_context
 from django_components.util.exception import component_error_message
 from django_components.util.logger import trace_component_msg
-from django_components.util.misc import default, gen_id, hash_comp_cls, to_dict
-from django_components.util.template_tag import TagAttr
+from django_components.util.misc import (
+    convert_class_to_namedtuple,
+    default,
+    gen_id,
+    hash_comp_cls,
+    is_generator,
+    to_dict,
+)
 from django_components.util.weakref import cached_ref
 
 # TODO_REMOVE_IN_V1 - Users should use top-level import instead
@@ -102,13 +109,17 @@ COMP_ONLY_FLAG = "only"
 if sys.version_info >= (3, 9):
     AllComponents = List[ReferenceType[Type["Component"]]]
     CompHashMapping = WeakValueDictionary[str, Type["Component"]]
+    ComponentRef = ReferenceType["Component"]
+    StartedGenerators = WeakKeyDictionary["OnRenderGenerator", bool]
 else:
     AllComponents = List[ReferenceType]
     CompHashMapping = WeakValueDictionary
+    ComponentRef = ReferenceType
+    StartedGenerators = WeakKeyDictionary
 
 
 OnRenderGenerator = Generator[
-    Optional[SlotResult],
+    Optional[Union[SlotResult, Callable[[], SlotResult]]],
     Tuple[Optional[SlotResult], Optional[Exception]],
     Optional[SlotResult],
 ]
@@ -118,7 +129,7 @@ method if it yields (and thus returns a generator).
 
 When `on_render()` is a generator then it:
 
-- Yields a rendered template (string or `None`)
+- Yields a rendered template (string or `None`) or a lambda function to be called later.
 
 - Receives back a tuple of `(final_output, error)`.
 
@@ -127,6 +138,8 @@ When `on_render()` is a generator then it:
 
     The error is `None` if the rendering was successful. Otherwise the error is set
     and the output is `None`.
+
+- Can yield multiple times within the same method for complex rendering scenarios
 
 - At the end it may return a new string to override the final rendered output.
 
@@ -145,13 +158,38 @@ class MyTable(Component):
         # Same as `Component.on_render_before()`
         context["hello"] = "world"
 
-        # Yield rendered template to receive fully-rendered template or error
-        html, error = yield template.render(context)
+        # Yield a function that renders the template
+        # to receive fully-rendered template or error.
+        html, error = yield lambda: template.render(context)
 
         # Do something AFTER rendering template, or post-process
         # the rendered template.
         # Same as `Component.on_render_after()`
-        return html + "<p>Hello</p>"
+        if html is not None:
+            return html + "<p>Hello</p>"
+```
+
+**Multiple yields example:**
+
+```py
+class MyTable(Component):
+    def on_render(self, context, template) -> OnRenderGenerator:
+        # First yield
+        with context.push({"mode": "header"}):
+            header_html, header_error = yield lambda: template.render(context)
+
+        # Second yield
+        with context.push({"mode": "body"}):
+            body_html, body_error = yield lambda: template.render(context)
+
+        # Third yield
+        footer_html, footer_error = yield "Footer content"
+
+        # Process all results
+        if header_error or body_error or footer_error:
+            return "Error occurred during rendering"
+
+        return f"{header_html}\n{body_html}\n{footer_html}"
 ```
 """
 
@@ -280,7 +318,7 @@ class ComponentVars(NamedTuple):
 
     @register("table")
     class Table(Component):
-        class Args(NamedTuple):
+        class Args:
             page: int
             per_page: int
 
@@ -332,7 +370,7 @@ class ComponentVars(NamedTuple):
 
     @register("table")
     class Table(Component):
-        class Kwargs(NamedTuple):
+        class Kwargs:
             page: int
             per_page: int
 
@@ -384,7 +422,7 @@ class ComponentVars(NamedTuple):
 
     @register("table")
     class Table(Component):
-        class Slots(NamedTuple):
+        class Slots:
             footer: SlotInput
 
         template = '''
@@ -475,6 +513,38 @@ class ComponentMeta(ComponentMediaMeta):
             attrs["template_file"] = attrs.pop("template_name")
         attrs["template_name"] = ComponentTemplateNameDescriptor()
 
+        # Allow to define data classes (`Args`, `Kwargs`, `Slots`, `TemplateData`, `JsData`, `CssData`)
+        # without explicitly subclassing anything. In which case we make them into a subclass of `NamedTuple`.
+        # In other words:
+        # ```py
+        # class MyTable(Component):
+        #     class Kwargs(NamedTuple):
+        #         ...
+        # ```
+        # Can be simplified to:
+        # ```py
+        # class MyTable(Component):
+        #     class Kwargs:
+        #         ...
+        # ```
+        # NOTE: Using dataclasses with `slots=True` could be faster than using NamedTuple,
+        #       but in real world web pages that may load 1-2s, data access and instantiation
+        #       is only on the order of milliseconds, or about 0.1% of the overall time.
+        #       See https://github.com/django-components/django-components/pull/1467#discussion_r2449009201
+        for data_class_name in ["Args", "Kwargs", "Slots", "TemplateData", "JsData", "CssData"]:
+            data_class = attrs.get(data_class_name)
+            # Not a class
+            if data_class is None or not isinstance(data_class, type):
+                continue
+            # Is dataclass
+            if is_dataclass(data_class):
+                continue
+            # Has base class(es)
+            has_parents = data_class.__bases__ != (object,)
+            if has_parents:
+                continue
+            attrs[data_class_name] = convert_class_to_namedtuple(data_class)
+
         cls = cast("Type[Component]", super().__new__(mcs, name, bases, attrs))
 
         # If the component defined `template_file`, then associate this Component class
@@ -513,18 +583,42 @@ class ComponentMeta(ComponentMediaMeta):
         extensions.on_component_class_deleted(OnComponentClassDeletedContext(comp_cls))
 
 
+# Internal data that's shared across the entire component tree
+@dataclass
+class ComponentTreeContext:
+    # HTML attributes that are passed from parent to child components
+    component_attrs: Dict[str, List[str]]
+    # When we render a component, the root component, together with all the nested Components,
+    # shares these dictionaries for storing callbacks.
+    # These callbacks are called from within `component_post_render`
+    on_component_intermediate_callbacks: Dict[str, Callable[[Optional[str]], Optional[str]]]
+    on_component_rendered_callbacks: Dict[
+        str,
+        Callable[[Optional[str], Optional[Exception]], OnComponentRenderedResult],
+    ]
+    # Track which generators have been started. We need this info because the input to
+    # `Generator.send()` changes when calling it the first time vs subsequent times.
+    # Moreover, we can't simply store this directly on the generator object themselves
+    # (e.g. `generator.started = True`), because generator object does not allow setting
+    # extra attributes.
+    started_generators: StartedGenerators
+
+
 # Internal data that are made available within the component's template
 @dataclass
 class ComponentContext:
-    component: "Component"
+    component: ComponentRef
     component_path: List[str]
     template_name: Optional[str]
     default_slot: Optional[str]
     outer_context: Optional[Context]
-    # When we render a component, the root component, together with all the nested Components,
-    # shares this dictionary for storing callbacks that are called from within `component_post_render`.
-    # This is so that we can pass them all in when the root component is passed to `component_post_render`.
-    post_render_callbacks: Dict[str, Callable[[Optional[str], Optional[Exception]], OnComponentRenderedResult]]
+    tree: ComponentTreeContext
+
+
+def on_component_garbage_collected(component_id: str) -> None:
+    """Finalizer function to be called when a Component object is garbage collected."""
+    unlink_component_from_provide_on_gc(component_id)
+    component_context_cache.pop(component_id, None)
 
 
 class Component(metaclass=ComponentMeta):
@@ -543,11 +637,10 @@ class Component(metaclass=ComponentMeta):
     will be the instance of this class:
 
     ```py
-    from typing import NamedTuple
     from django_components import Component
 
     class Table(Component):
-        class Args(NamedTuple):
+        class Args:
             color: str
             size: int
 
@@ -559,15 +652,6 @@ class Component(metaclass=ComponentMeta):
                 "size": args.size,
             }
     ```
-
-    The constructor of this class MUST accept positional arguments:
-
-    ```py
-    Args(*args)
-    ```
-
-    As such, a good starting point is to set this field to a subclass of
-    [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple).
 
     Use `Args` to:
 
@@ -585,6 +669,20 @@ class Component(metaclass=ComponentMeta):
     )
     ```
 
+    If you do not specify any bases, the `Args` class will be automatically
+    converted to a `NamedTuple`:
+
+    `class Args:`  ->  `class Args(NamedTuple):`
+
+    If you explicitly set bases, the constructor of this class MUST accept positional arguments:
+
+    ```py
+    Args(*args)
+    ```
+
+    As such, a good starting point is to set this field to a subclass of
+    [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple).
+
     Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
     """
 
@@ -599,13 +697,12 @@ class Component(metaclass=ComponentMeta):
     will be the instance of this class:
 
     ```py
-    from typing import NamedTuple
     from django_components import Component
 
     class Table(Component):
-        class Kwargs(NamedTuple):
+        class Kwargs:
             color: str
-            size: int
+            size: int = 10
 
         def get_template_data(self, args, kwargs: Kwargs, slots, context):
             assert isinstance(kwargs, Table.Kwargs)
@@ -616,21 +713,12 @@ class Component(metaclass=ComponentMeta):
             }
     ```
 
-    The constructor of this class MUST accept keyword arguments:
-
-    ```py
-    Kwargs(**kwargs)
-    ```
-
-    As such, a good starting point is to set this field to a subclass of
-    [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
-    or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
-
     Use `Kwargs` to:
 
     - Validate the input at runtime.
     - Set type hints for the keyword arguments for data methods like
       [`get_template_data()`](../api#django_components.Component.get_template_data).
+    - Set defaults for individual fields
     - Document the component inputs.
 
     You can also use `Kwargs` to validate the keyword arguments for
@@ -641,6 +729,25 @@ class Component(metaclass=ComponentMeta):
         kwargs=Table.Kwargs(color="red", size=10),
     )
     ```
+
+    The defaults set on `Kwargs` will be merged with defaults from
+    [`Component.Defaults`](../api/#django_components.Component.Defaults) class.
+    `Kwargs` takes precendence. Read more about [Component defaults](../../concepts/fundamentals/component_defaults).
+
+    If you do not specify any bases, the `Kwargs` class will be automatically
+    converted to a `NamedTuple`:
+
+    `class Kwargs:`  ->  `class Kwargs(NamedTuple):`
+
+    If you explicitly set bases, the constructor of this class MUST accept keyword arguments:
+
+    ```py
+    Kwargs(**kwargs)
+    ```
+
+    As such, a good starting point is to set this field to a subclass of
+    [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
+    or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
 
     Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
     """
@@ -656,11 +763,10 @@ class Component(metaclass=ComponentMeta):
     will be the instance of this class:
 
     ```py
-    from typing import NamedTuple
     from django_components import Component, Slot, SlotInput
 
     class Table(Component):
-        class Slots(NamedTuple):
+        class Slots:
             header: SlotInput
             footer: Slot
 
@@ -672,16 +778,6 @@ class Component(metaclass=ComponentMeta):
                 "footer": slots.footer,
             }
     ```
-
-    The constructor of this class MUST accept keyword arguments:
-
-    ```py
-    Slots(**slots)
-    ```
-
-    As such, a good starting point is to set this field to a subclass of
-    [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
-    or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
 
     Use `Slots` to:
 
@@ -701,6 +797,21 @@ class Component(metaclass=ComponentMeta):
         ),
     )
     ```
+
+    If you do not specify any bases, the `Slots` class will be automatically
+    converted to a `NamedTuple`:
+
+    `class Slots:`  ->  `class Slots(NamedTuple):`
+
+    If you explicitly set bases, the constructor of this class MUST accept keyword arguments:
+
+    ```py
+    Slots(**slots)
+    ```
+
+    As such, a good starting point is to set this field to a subclass of
+    [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
+    or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
 
     Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
 
@@ -1026,18 +1137,17 @@ class Component(metaclass=ComponentMeta):
         **Example:**
 
         ```py
-        from typing import NamedTuple
         from django.template import Context
         from django_components import Component, SlotInput
 
         class MyComponent(Component):
-            class Args(NamedTuple):
+            class Args:
                 color: str
 
-            class Kwargs(NamedTuple):
+            class Kwargs:
                 size: int
 
-            class Slots(NamedTuple):
+            class Slots:
                 footer: SlotInput
 
             def get_template_data(self, args: Args, kwargs: Kwargs, slots: Slots, context: Context):
@@ -1068,7 +1178,7 @@ class Component(metaclass=ComponentMeta):
 
         ```py
         class MyComponent(Component):
-            class TemplateData(NamedTuple):
+            class TemplateData:
                 color: str
                 size: int
 
@@ -1101,22 +1211,22 @@ class Component(metaclass=ComponentMeta):
     If set and not `None`, then this class will be instantiated with the dictionary returned from
     [`get_template_data()`](../api#django_components.Component.get_template_data) to validate the data.
 
-    The constructor of this class MUST accept keyword arguments:
+    Use `TemplateData` to:
 
-    ```py
-    TemplateData(**template_data)
-    ```
+    - Validate the data returned from
+      [`get_template_data()`](../api#django_components.Component.get_template_data) at runtime.
+    - Set type hints for this data.
+    - Document the component data.
 
     You can also return an instance of `TemplateData` directly from
     [`get_template_data()`](../api#django_components.Component.get_template_data)
     to get type hints:
 
     ```py
-    from typing import NamedTuple
     from django_components import Component
 
     class Table(Component):
-        class TemplateData(NamedTuple):
+        class TemplateData:
             color: str
             size: int
 
@@ -1127,16 +1237,15 @@ class Component(metaclass=ComponentMeta):
             )
     ```
 
+    The constructor of this class MUST accept keyword arguments:
+
+    ```py
+    TemplateData(**template_data)
+    ```
+
     A good starting point is to set this field to a subclass of
     [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
     or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
-
-    Use `TemplateData` to:
-
-    - Validate the data returned from
-      [`get_template_data()`](../api#django_components.Component.get_template_data) at runtime.
-    - Set type hints for this data.
-    - Document the component data.
 
     Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
 
@@ -1321,13 +1430,13 @@ class Component(metaclass=ComponentMeta):
         from django_components import Component, SlotInput
 
         class MyComponent(Component):
-            class Args(NamedTuple):
+            class Args:
                 color: str
 
-            class Kwargs(NamedTuple):
+            class Kwargs:
                 size: int
 
-            class Slots(NamedTuple):
+            class Slots:
                 footer: SlotInput
 
             def get_js_data(self, args: Args, kwargs: Kwargs, slots: Slots, context: Context):
@@ -1358,7 +1467,7 @@ class Component(metaclass=ComponentMeta):
 
         ```py
         class MyComponent(Component):
-            class JsData(NamedTuple):
+            class JsData:
                 color: str
                 size: int
 
@@ -1384,22 +1493,22 @@ class Component(metaclass=ComponentMeta):
     If set and not `None`, then this class will be instantiated with the dictionary returned from
     [`get_js_data()`](../api#django_components.Component.get_js_data) to validate the data.
 
-    The constructor of this class MUST accept keyword arguments:
+    Use `JsData` to:
 
-    ```py
-    JsData(**js_data)
-    ```
+    - Validate the data returned from
+      [`get_js_data()`](../api#django_components.Component.get_js_data) at runtime.
+    - Set type hints for this data.
+    - Document the component data.
 
     You can also return an instance of `JsData` directly from
     [`get_js_data()`](../api#django_components.Component.get_js_data)
     to get type hints:
 
     ```py
-    from typing import NamedTuple
     from django_components import Component
 
     class Table(Component):
-        class JsData(NamedTuple):
+        class JsData(
             color: str
             size: int
 
@@ -1410,16 +1519,15 @@ class Component(metaclass=ComponentMeta):
             )
     ```
 
+    The constructor of this class MUST accept keyword arguments:
+
+    ```py
+    JsData(**js_data)
+    ```
+
     A good starting point is to set this field to a subclass of
     [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
     or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
-
-    Use `JsData` to:
-
-    - Validate the data returned from
-      [`get_js_data()`](../api#django_components.Component.get_js_data) at runtime.
-    - Set type hints for this data.
-    - Document the component data.
 
     Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
 
@@ -1609,18 +1717,17 @@ class Component(metaclass=ComponentMeta):
         **Example:**
 
         ```py
-        from typing import NamedTuple
         from django.template import Context
         from django_components import Component, SlotInput
 
         class MyComponent(Component):
-            class Args(NamedTuple):
+            class Args:
                 color: str
 
-            class Kwargs(NamedTuple):
+            class Kwargs:
                 size: int
 
-            class Slots(NamedTuple):
+            class Slots:
                 footer: SlotInput
 
             def get_css_data(self, args: Args, kwargs: Kwargs, slots: Slots, context: Context):
@@ -1650,7 +1757,7 @@ class Component(metaclass=ComponentMeta):
 
         ```py
         class MyComponent(Component):
-            class CssData(NamedTuple):
+            class CssData:
                 color: str
                 size: int
 
@@ -1676,22 +1783,22 @@ class Component(metaclass=ComponentMeta):
     If set and not `None`, then this class will be instantiated with the dictionary returned from
     [`get_css_data()`](../api#django_components.Component.get_css_data) to validate the data.
 
-    The constructor of this class MUST accept keyword arguments:
+    Use `CssData` to:
 
-    ```py
-    CssData(**css_data)
-    ```
+    - Validate the data returned from
+      [`get_css_data()`](../api#django_components.Component.get_css_data) at runtime.
+    - Set type hints for this data.
+    - Document the component data.
 
     You can also return an instance of `CssData` directly from
     [`get_css_data()`](../api#django_components.Component.get_css_data)
     to get type hints:
 
     ```py
-    from typing import NamedTuple
     from django_components import Component
 
     class Table(Component):
-        class CssData(NamedTuple):
+        class CssData:
             color: str
             size: int
 
@@ -1702,16 +1809,15 @@ class Component(metaclass=ComponentMeta):
             )
     ```
 
+    The constructor of this class MUST accept keyword arguments:
+
+    ```py
+    CssData(**css_data)
+    ```
+
     A good starting point is to set this field to a subclass of
     [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple)
     or a [dataclass](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass).
-
-    Use `CssData` to:
-
-    - Validate the data returned from
-      [`get_css_data()`](../api#django_components.Component.get_css_data) at runtime.
-    - Set type hints for this data.
-    - Document the component data.
 
     Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
 
@@ -1970,7 +2076,7 @@ class Component(metaclass=ComponentMeta):
         ```py
         class MyTable(Component):
             def on_render(self, context, template):
-                html, error = yield template.render(context)
+                html, error = yield lambda: template.render(context)
 
                 if error is None:
                     # The rendering succeeded
@@ -1991,7 +2097,7 @@ class Component(metaclass=ComponentMeta):
             ```py
             class MyTable(Component):
                 def on_render(self, context, template):
-                    html, error = yield template.render(context)
+                    html, error = yield lambda: template.render(context)
 
                     return "NEW HTML"
             ```
@@ -2005,7 +2111,7 @@ class Component(metaclass=ComponentMeta):
             ```py
             class MyTable(Component):
                 def on_render(self, context, template):
-                    html, error = yield template.render(context)
+                    html, error = yield lambda: template.render(context)
 
                     raise Exception("Error message")
             ```
@@ -2021,12 +2127,41 @@ class Component(metaclass=ComponentMeta):
             ```py
             class MyTable(Component):
                 def on_render(self, context, template):
-                    html, error = yield template.render(context)
+                    html, error = yield lambda: template.render(context)
 
                     if error is not None:
                         # The rendering failed
                         print(f"Error: {error}")
             ```
+
+        **Multiple yields**
+
+        You can yield multiple times within the same `on_render` method. This is useful for complex rendering scenarios
+        where you need to render different templates or handle multiple rendering operations:
+
+        ```py
+        class MyTable(Component):
+            def on_render(self, context, template):
+                # First yield - render with one context
+                with context.push({"mode": "header"}):
+                    header_html, header_error = yield lambda: template.render(context)
+
+                # Second yield - render with different context
+                with context.push({"mode": "body"}):
+                    body_html, body_error = yield lambda: template.render(context)
+
+                # Third yield - render a string directly
+                footer_html, footer_error = yield "Footer content"
+
+                # Process all results and return final output
+                if header_error or body_error or footer_error:
+                    return "Error occurred during rendering"
+
+                return f"{header_html}{body_html}{footer_html}"
+        ```
+
+        Each yield operation is independent and returns its own `(html, error)` tuple,
+        allowing you to handle each rendering result separately.
         """
         if template is None:
             return None
@@ -2138,6 +2273,8 @@ class Component(metaclass=ComponentMeta):
     Defaults: ClassVar[Type[ComponentDefaults]]
     """
     The fields of this class are used to set default values for the component's kwargs.
+
+    These defaults will be merged with defaults on [`Component.Kwargs`](../api/#django_components.Component.Kwargs).
 
     Read more about [Component defaults](../../concepts/fundamentals/component_defaults).
 
@@ -2314,6 +2451,9 @@ class Component(metaclass=ComponentMeta):
         self.registry = default(registry, registry_)
         self.node = node
 
+        # Run finalizer when component is garbage collected
+        finalize(self, on_component_garbage_collected, self.id)
+
         extensions._init_component_instance(self)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -2480,7 +2620,7 @@ class Component(metaclass=ComponentMeta):
     from django_components import Component
 
     class Table(Component):
-        class Args(NamedTuple):
+        class Args:
             page: int
             per_page: int
 
@@ -2540,6 +2680,9 @@ class Component(metaclass=ComponentMeta):
         then the `kwargs` property will return an instance of that `Kwargs` class.
     - Otherwise, `kwargs` will be a plain dict.
 
+    Kwargs have the defaults applied to them.
+    Read more about [Component defaults](../../concepts/fundamentals/component_defaults).
+
     **Example:**
 
     With `Kwargs` class:
@@ -2548,7 +2691,7 @@ class Component(metaclass=ComponentMeta):
     from django_components import Component
 
     class Table(Component):
-        class Kwargs(NamedTuple):
+        class Kwargs:
             page: int
             per_page: int
 
@@ -2586,6 +2729,9 @@ class Component(metaclass=ComponentMeta):
     is not typed and will remain as plain dict even if you define the
     [`Component.Kwargs`](../api/#django_components.Component.Kwargs) class.
 
+    `raw_kwargs` have the defaults applied to them.
+    Read more about [Component defaults](../../concepts/fundamentals/component_defaults).
+
     **Example:**
 
     ```python
@@ -2619,7 +2765,7 @@ class Component(metaclass=ComponentMeta):
     from django_components import Component, Slot, SlotInput
 
     class Table(Component):
-        class Slots(NamedTuple):
+        class Slots:
             header: SlotInput
             footer: SlotInput
 
@@ -2940,7 +3086,7 @@ class Component(metaclass=ComponentMeta):
 
         As the `{{ message }}` is taken from the "my_provide" provider.
         """
-        return get_injected_context_var(self.name, self.context, key, default)
+        return get_injected_context_var(self.id, self.name, key, default)
 
     @classmethod
     def as_view(cls, **initkwargs: Any) -> ViewFn:
@@ -3227,19 +3373,19 @@ class Component(metaclass=ComponentMeta):
         Read more on [Typing and validation](../../concepts/fundamentals/typing_and_validation).
 
         ```python
-        from typing import NamedTuple, Optional
+        from typing import Optional
         from django_components import Component, Slot, SlotInput
 
         # Define the component with the types
         class Button(Component):
-            class Args(NamedTuple):
+            class Args:
                 name: str
 
-            class Kwargs(NamedTuple):
+            class Kwargs:
                 surname: str
                 age: int
 
-            class Slots(NamedTuple):
+            class Slots:
                 my_slot: Optional[SlotInput] = None
                 footer: SlotInput
 
@@ -3302,26 +3448,34 @@ class Component(metaclass=ComponentMeta):
         node: Optional["ComponentNode"] = None,
     ) -> str:
         component_name = _get_component_name(cls, registered_name)
+        render_id = _gen_component_id()
 
         # Modify the error to display full component path (incl. slots)
         with component_error_message([component_name]):
-            return cls._render_impl(
-                context=context,
-                args=args,
-                kwargs=kwargs,
-                slots=slots,
-                deps_strategy=deps_strategy,
-                request=request,
-                outer_context=outer_context,
-                # TODO_v2 - Remove `registered_name` and `registry`
-                registry=registry,
-                registered_name=registered_name,
-                node=node,
-            )
+            try:
+                return cls._render_impl(
+                    render_id=render_id,
+                    context=context,
+                    args=args,
+                    kwargs=kwargs,
+                    slots=slots,
+                    deps_strategy=deps_strategy,
+                    request=request,
+                    outer_context=outer_context,
+                    # TODO_v2 - Remove `registered_name` and `registry`
+                    registry=registry,
+                    registered_name=registered_name,
+                    node=node,
+                )
+            except Exception as e:
+                # Clean up if rendering fails
+                component_instance_cache.pop(render_id, None)
+                raise e from None
 
     @classmethod
     def _render_impl(
         comp_cls,
+        render_id: str,
         context: Optional[Union[Dict[str, Any], Context]] = None,
         args: Optional[Any] = None,
         kwargs: Optional[Any] = None,
@@ -3348,7 +3502,8 @@ class Component(metaclass=ComponentMeta):
             if request is None:
                 _, parent_comp_ctx = _get_parent_component_context(context)
                 if parent_comp_ctx:
-                    request = parent_comp_ctx.component.request
+                    parent_comp = parent_comp_ctx.component()
+                    request = parent_comp and parent_comp.request
 
         component_name = _get_component_name(comp_cls, registered_name)
 
@@ -3370,8 +3525,6 @@ class Component(metaclass=ComponentMeta):
         # See https://github.com/django-components/django-components/issues/414
         if not isinstance(context, (Context, RequestContext)):
             context = RequestContext(request, context) if request else Context(context)
-
-        render_id = _gen_component_id()
 
         component = comp_cls(
             id=render_id,
@@ -3416,6 +3569,8 @@ class Component(metaclass=ComponentMeta):
         # 2. Prepare component state
         ######################################
 
+        context_processors_data = component.context_processors_data
+
         # Required for compatibility with Django's {% extends %} tag
         # See https://github.com/django-components/django-components/pull/859
         context.render_context.push(  # type: ignore[union-attr]
@@ -3428,10 +3583,15 @@ class Component(metaclass=ComponentMeta):
         parent_id, parent_comp_ctx = _get_parent_component_context(context)
         if parent_comp_ctx is not None:
             component_path = [*parent_comp_ctx.component_path, component_name]
-            post_render_callbacks = parent_comp_ctx.post_render_callbacks
+            component_tree_context = parent_comp_ctx.tree
         else:
             component_path = [component_name]
-            post_render_callbacks = {}
+            component_tree_context = ComponentTreeContext(
+                component_attrs={},
+                on_component_intermediate_callbacks={},
+                on_component_rendered_callbacks={},
+                started_generators=WeakKeyDictionary(),
+            )
 
         trace_component_msg(
             "COMP_PREP_START",
@@ -3446,11 +3606,14 @@ class Component(metaclass=ComponentMeta):
         )
 
         # Register the component to provide
-        register_provide_reference(context, render_id)
+        register_provide_reference(context, component)
 
-        # This is data that will be accessible (internally) from within the component's template
+        # This is data that will be accessible (internally) from within the component's template.
+        # NOTE: Be careful with the context - Do not store a strong reference to the component,
+        #       because that would prevent the component from being garbage collected.
+        # TODO: Test that ComponentContext and Component are garbage collected after render.
         component_ctx = ComponentContext(
-            component=component,
+            component=ref(component),
             component_path=component_path,
             # Template name is set only once we've resolved the component's Template instance.
             template_name=None,
@@ -3461,7 +3624,7 @@ class Component(metaclass=ComponentMeta):
             default_slot=None,
             # NOTE: This is only a SNAPSHOT of the outer context.
             outer_context=snapshot_context(outer_context) if outer_context is not None else None,
-            post_render_callbacks=post_render_callbacks,
+            tree=component_tree_context,
         )
 
         # Instead of passing the ComponentContext directly through the Context, the entry on the Context
@@ -3477,7 +3640,7 @@ class Component(metaclass=ComponentMeta):
         # 3. Call data methods
         ######################################
 
-        template_data, js_data, css_data = component._call_data_methods(context, args_list, kwargs_dict)
+        template_data, js_data, css_data = component._call_data_methods(args_list, kwargs_dict)
 
         extensions.on_component_data(
             OnComponentDataContext(
@@ -3491,6 +3654,17 @@ class Component(metaclass=ComponentMeta):
                 css_data=css_data,
             ),
         )
+
+        # Check if template_data doesn't conflict with context_processors_data
+        # See https://github.com/django-components/django-components/issues/1482
+        # NOTE: This is done after on_component_data so extensions can modify the data first.
+        if context_processors_data:
+            for key in template_data:
+                if key in context_processors_data:
+                    raise ValueError(
+                        f"Variable '{key}' defined in component '{component_name}' conflicts "
+                        "with the same variable from context processors. Rename the variable in the component."
+                    )
 
         # Cache component's JS and CSS scripts, in case they have been evicted from the cache.
         cache_component_js(comp_cls, force=False)
@@ -3536,7 +3710,7 @@ class Component(metaclass=ComponentMeta):
             with context.update(  # type: ignore[union-attr]
                 {
                     # Make data from context processors available inside templates
-                    **component.context_processors_data,
+                    **context_processors_data,
                     # Private context fields
                     _COMPONENT_CONTEXT_KEY: render_id,
                     COMPONENT_IS_NESTED_KEY: comp_is_nested,
@@ -3569,32 +3743,90 @@ class Component(metaclass=ComponentMeta):
         # Cleanup
         context.render_context.pop()  # type: ignore[union-attr]
 
+        trace_component_msg(
+            "COMP_PREP_END",
+            component_name=component_name,
+            component_id=render_id,
+            slot_name=None,
+            component_path=component_path,
+        )
+
         ######################################
         # 5. Render component
         #
         # NOTE: To support infinite recursion, we don't directly call `Template.render()`.
-        #       Instead, we defer rendering of the component - we prepare a callback that will
-        #       be called when the rendering process reaches this component.
+        #       Instead, we defer rendering of the component - we prepare a generator function
+        #       that will be called when the rendering process reaches this component.
         ######################################
+
+        trace_component_msg(
+            "COMP_RENDER_START",
+            component_name=component.name,
+            component_id=component.id,
+            slot_name=None,
+            component_path=component_path,
+        )
+
+        component.on_render_before(context_snapshot, template)
+
+        # Emit signal that the template is about to be rendered
+        if template is not None:
+            template_rendered.send(sender=template, template=template, context=context_snapshot)
 
         # Instead of rendering component at the time we come across the `{% component %}` tag
         # in the template, we defer rendering in order to scalably handle deeply nested components.
         #
-        # See `_gen_component_renderer()` for more details.
-        deferred_render = component._gen_component_renderer(
+        # See `_make_renderer_generator()` for more details.
+        renderer_generator = component._make_renderer_generator(
             template=template,
             context=context_snapshot,
             component_path=component_path,
-            css_input_hash=css_input_hash,
-            js_input_hash=js_input_hash,
         )
 
-        # This is triggered when a component is rendered, but the component's parents
-        # may not have been rendered yet.
+        # This callback is called with the value that was yielded from `Component.on_render()`.
+        # It may be called multiple times for the same component, e.g. if `Component.on_render()`
+        # contains multiple `yield` keywords.
+        def on_component_intermediate(html_content: Optional[str]) -> Optional[str]:
+            # HTML attributes passed from parent to current component.
+            # NOTE: Is `None` for the root component.
+            curr_comp_attrs = component_tree_context.component_attrs.get(render_id, None)
+
+            if html_content:
+                # Add necessary HTML attributes to work with JS and CSS variables
+                html_content, child_components_attrs = set_component_attrs_for_js_and_css(
+                    html_content=html_content,
+                    component_id=render_id,
+                    css_input_hash=css_input_hash,
+                    root_attributes=curr_comp_attrs,
+                )
+
+                # Store the HTML attributes that will be passed from this component to its children's components
+                component_tree_context.component_attrs.update(child_components_attrs)
+
+            return html_content
+
+        component_tree_context.on_component_intermediate_callbacks[render_id] = on_component_intermediate
+
+        # `on_component_rendered` is triggered when a component is rendered.
+        # The component's parent(s) may not be fully rendered yet.
+        #
+        # NOTE: Inside `on_component_rendered`, we access the component indirectly via `component_instance_cache`.
+        # This is so that the function does not directly hold a strong reference to the component instance,
+        # so that the component instance can be garbage collected.
+        component_instance_cache[render_id] = component
+
+        # NOTE: This is called only once for a single component instance.
         def on_component_rendered(
             html: Optional[str],
             error: Optional[Exception],
         ) -> OnComponentRenderedResult:
+            # NOTE: We expect `on_component_rendered` to be called only once,
+            #       so we can release the strong reference to the component instance.
+            #       This way, the component instance will persist only if the user keeps a reference to it.
+            component = component_instance_cache.pop(render_id, None)
+            if component is None:
+                raise RuntimeError("Component has been garbage collected")
+
             # Allow the user to either:
             # - Override/modify the rendered HTML by returning new value
             # - Raise an exception to discard the HTML and bubble up error
@@ -3608,9 +3840,16 @@ class Component(metaclass=ComponentMeta):
                 error = new_error
                 html = None
 
-            # Remove component from caches
-            del component_context_cache[render_id]  # type: ignore[arg-type]
-            unregister_provide_reference(render_id)  # type: ignore[arg-type]
+            # Prepend an HTML comment to instruct how and what JS and CSS scripts are associated with it.
+            # E.g. `<!-- _RENDERED table,123,a92ef298,bd002c3 -->`
+            if html is not None:
+                html = insert_component_dependencies_comment(
+                    html,
+                    component_cls=comp_cls,
+                    component_id=render_id,
+                    js_input_hash=js_input_hash,
+                    css_input_hash=css_input_hash,
+                )
 
             # Allow extensions to either:
             # - Override/modify the rendered HTML by returning new value
@@ -3629,122 +3868,6 @@ class Component(metaclass=ComponentMeta):
             if result is not None:
                 html, error = result
 
-            return html, error
-
-        post_render_callbacks[render_id] = on_component_rendered
-
-        # This is triggered after a full component tree was rendered, we resolve
-        # all inserted HTML comments into <script> and <link> tags.
-        def on_html_rendered(html: str) -> str:
-            html = _render_dependencies(html, deps_strategy)
-            return html
-
-        trace_component_msg(
-            "COMP_PREP_END",
-            component_name=component_name,
-            component_id=render_id,
-            slot_name=None,
-            component_path=component_path,
-        )
-
-        return component_post_render(
-            renderer=deferred_render,
-            render_id=render_id,
-            component_name=component_name,
-            parent_id=parent_id,
-            on_component_rendered_callbacks=post_render_callbacks,
-            on_html_rendered=on_html_rendered,
-        )
-
-    # Creates a renderer function that will be called only once, when the component is to be rendered.
-    #
-    # By encapsulating components' output as render function, we can render components top-down,
-    # starting from root component, and moving down.
-    #
-    # This way, when it comes to rendering a particular component, we have already rendered its parent,
-    # and we KNOW if there were any HTML attributes that were passed from parent to children.
-    #
-    # Thus, the returned renderer function accepts the extra HTML attributes that were passed from parent,
-    # and returns the updated HTML content.
-    #
-    # Because the HTML attributes are all boolean (e.g. `data-djc-id-ca1b3c4`), they are passed as a list.
-    #
-    # This whole setup makes it possible for multiple components to resolve to the same HTML element.
-    # E.g. if CompA renders CompB, and CompB renders a <div>, then the <div> element will have
-    # IDs of both CompA and CompB.
-    # ```html
-    # <div djc-id-a1b3cf djc-id-f3d3cf>...</div>
-    # ```
-    def _gen_component_renderer(
-        self,
-        template: Optional[Template],
-        context: Context,
-        component_path: List[str],
-        css_input_hash: Optional[str],
-        js_input_hash: Optional[str],
-    ) -> ComponentRenderer:
-        component = self
-        render_id = component.id
-        component_name = component.name
-        component_cls = component.__class__
-
-        def renderer(
-            root_attributes: Optional[List[str]] = None,
-        ) -> Tuple[str, Dict[str, List[str]], Optional[OnRenderGenerator]]:
-            trace_component_msg(
-                "COMP_RENDER_START",
-                component_name=component_name,
-                component_id=render_id,
-                slot_name=None,
-                component_path=component_path,
-            )
-
-            component.on_render_before(context, template)
-
-            # Emit signal that the template is about to be rendered
-            if template is not None:
-                template_rendered.send(sender=template, template=template, context=context)
-
-            # Get the component's HTML
-            # To access the *final* output (with all its children rendered) from within `Component.on_render()`,
-            # users may convert it to a generator by including a `yield` keyword. If they do so, the part of code
-            # AFTER the yield will be called once, when the component's HTML is fully rendered.
-            #
-            # Hence we have to distinguish between the two, and pass the generator with the HTML content
-            html_content_or_generator = component.on_render(context, template)
-
-            if html_content_or_generator is None:
-                html_content: Optional[str] = None
-                on_render_generator: Optional[OnRenderGenerator] = None
-            elif isinstance(html_content_or_generator, str):
-                html_content = html_content_or_generator
-                on_render_generator = None
-            else:
-                # Move generator to the first yield
-                html_content = next(html_content_or_generator)
-                on_render_generator = html_content_or_generator
-
-            if html_content is not None:
-                # Add necessary HTML attributes to work with JS and CSS variables
-                updated_html, child_components = set_component_attrs_for_js_and_css(
-                    html_content=html_content,
-                    component_id=render_id,
-                    css_input_hash=css_input_hash,
-                    root_attributes=root_attributes,
-                )
-
-                # Prepend an HTML comment to instructs how and what JS and CSS scripts are associated with it.
-                updated_html = insert_component_dependencies_comment(
-                    updated_html,
-                    component_cls=component_cls,
-                    component_id=render_id,
-                    js_input_hash=js_input_hash,
-                    css_input_hash=css_input_hash,
-                )
-            else:
-                updated_html = ""
-                child_components = {}
-
             trace_component_msg(
                 "COMP_RENDER_END",
                 component_name=component_name,
@@ -3753,13 +3876,93 @@ class Component(metaclass=ComponentMeta):
                 component_path=component_path,
             )
 
-            return updated_html, child_components, on_render_generator
+            return html, error
 
-        return renderer
+        component_tree_context.on_component_rendered_callbacks[render_id] = on_component_rendered
+
+        # This is triggered after a full component tree was rendered, we resolve
+        # all inserted HTML comments into <script> and <link> tags.
+        def on_component_tree_rendered(html: str) -> str:
+            html = _render_dependencies(html, deps_strategy)
+            return html
+
+        return component_post_render(
+            renderer=renderer_generator,
+            render_id=render_id,
+            component_name=component_name,
+            parent_render_id=parent_id,
+            component_tree_context=component_tree_context,
+            on_component_tree_rendered=on_component_tree_rendered,
+        )
+
+    # Convert `Component.on_render()` to a generator function.
+    #
+    # By encapsulating components' output as a generator, we can render components top-down,
+    # starting from root component, and moving down.
+    #
+    # This allows us to pass HTML attributes from parent to children.
+    # Because by the time we get to a child component, its parent was already rendered.
+    #
+    # This whole setup makes it possible for multiple components to resolve to the same HTML element.
+    # E.g. if CompA renders CompB, and CompB renders a <div>, then the <div> element will have
+    # IDs of both CompA and CompB.
+    # ```html
+    # <div djc-id-a1b3cf djc-id-f3d3cf>...</div>
+    # ```
+    def _make_renderer_generator(
+        self,
+        template: Optional[Template],
+        context: Context,
+        component_path: List[str],
+    ) -> Optional[OnRenderGenerator]:
+        component = self
+
+        # Convert the component's HTML to a generator function.
+        #
+        # To access the *final* output (with all its children rendered) from within `Component.on_render()`,
+        # users may convert it to a generator by including a `yield` keyword. If they do so, the part of code
+        # AFTER the yield will be called once when the component's HTML is fully rendered.
+        #
+        # ```
+        # class MyTable(Component):
+        #     def on_render(self, context, template):
+        #         html, error = yield lamba: template.render(context)
+        #         return html + "<p>Hello</p>"
+        # ```
+        #
+        # However, the way Python works is that when you call a function that contains `yield` keyword,
+        # the function is NOT executed immediately. Instead it returns a generator object.
+        #
+        # On the other hand, if it's a regular function, the function is executed immediately.
+        #
+        # We must be careful not to execute the function immediately, because that will cause the
+        # entire component tree to be rendered recursively. Instead we want to defer the execution
+        # and render nested components via a flat stack, as done in `perfutils/component.py`.
+        # That allows us to create component trees of any depth, without hitting recursion limits.
+        #
+        # So we create a wrapper generator function that we KNOW is a generator when called.
+        def inner_generator() -> OnRenderGenerator:
+            # NOTE: May raise
+            html_content_or_generator = component.on_render(context, template)
+            # If we DIDN'T raise an exception
+            if html_content_or_generator is None:
+                return None
+            # Generator function (with `yield`) - yield multiple times with the result
+            elif is_generator(html_content_or_generator):
+                generator = cast("OnRenderGenerator", html_content_or_generator)
+                result = yield from generator
+                # If the generator had a return statement, `result` will contain that value.
+                # So we pass the return value through.
+                return result
+            # String (or other unknown type) - yield once with the result
+            else:
+                yield html_content_or_generator
+                return None
+
+        return inner_generator()
 
     def _call_data_methods(
         self,
-        context: Context,
         # TODO_V2 - Remove `raw_args` and `raw_kwargs` in v2
         raw_args: List,
         raw_kwargs: Dict,
@@ -3779,11 +3982,11 @@ class Component(metaclass=ComponentMeta):
 
         # TODO - Enable JS and CSS vars - expose, and document
         # JS data
-        maybe_js_data = self.get_js_data(self.args, self.kwargs, self.slots, context)
+        maybe_js_data = self.get_js_data(self.args, self.kwargs, self.slots, self.context)
         js_data = to_dict(default(maybe_js_data, {}))
 
         # CSS data
-        maybe_css_data = self.get_css_data(self.args, self.kwargs, self.slots, context)
+        maybe_css_data = self.get_css_data(self.args, self.kwargs, self.slots, self.context)
         css_data = to_dict(default(maybe_css_data, {}))
 
         # Validate outputs
@@ -3909,21 +4112,27 @@ class ComponentNode(BaseNode):
         registry: ComponentRegistry,  # noqa: F811
         # BaseNode inputs
         params: List[TagAttr],
+        filters: Dict[str, Callable[[Any, Any], Any]],
+        tags: Dict[str, Callable[[Any, Any], Any]],
         flags: Optional[Dict[str, bool]] = None,
         nodelist: Optional[NodeList] = None,
         node_id: Optional[str] = None,
         contents: Optional[str] = None,
         template_name: Optional[str] = None,
         template_component: Optional[Type["Component"]] = None,
+        start_tag_source: Optional[str] = None,
     ) -> None:
         super().__init__(
             params=params,
             flags=flags,
+            filters=filters,
+            tags=tags,
             nodelist=nodelist,
             node_id=node_id,
             contents=contents,
             template_name=template_name,
             template_component=template_component,
+            start_tag_source=start_tag_source,
         )
 
         self.name = name
@@ -4005,7 +4214,9 @@ class ComponentNode(BaseNode):
         return output
 
 
-def _get_parent_component_context(context: Context) -> Union[Tuple[None, None], Tuple[str, ComponentContext]]:
+def _get_parent_component_context(
+    context: Union[Context, Mapping],
+) -> Union[Tuple[None, None], Tuple[str, ComponentContext]]:
     parent_id = context.get(_COMPONENT_CONTEXT_KEY, None)
     if parent_id is None:
         return None, None

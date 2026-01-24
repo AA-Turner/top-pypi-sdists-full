@@ -3,8 +3,8 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AzureConfig, GCSConfig, HTTPConfig, S3Config, huggingface::HuggingFaceConfig,
-    unity::UnityConfig,
+    AzureConfig, GCSConfig, HTTPConfig, S3Config, gravitino::GravitinoConfig,
+    huggingface::HuggingFaceConfig, tos::TosConfig, unity::UnityConfig,
 };
 #[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct IOConfig {
@@ -13,7 +13,11 @@ pub struct IOConfig {
     pub gcs: GCSConfig,
     pub http: HTTPConfig,
     pub unity: UnityConfig,
+    pub gravitino: GravitinoConfig,
     pub hf: HuggingFaceConfig,
+    /// disable suffix range requests, please use range with offset
+    pub disable_suffix_range: bool,
+    pub tos: TosConfig,
 }
 
 impl IOConfig {
@@ -41,8 +45,20 @@ impl IOConfig {
             self.unity.multiline_display().join(", ")
         ));
         res.push(format!(
+            "Gravitino config = {{ {} }}",
+            self.gravitino.multiline_display().join(", ")
+        ));
+        res.push(format!(
             "Hugging Face config = {{ {} }}",
             self.hf.multiline_display().join(", ")
+        ));
+        res.push(format!(
+            "Disable suffix range = {}",
+            self.disable_suffix_range
+        ));
+        res.push(format!(
+            "TOS config = {{ {} }}",
+            self.tos.multiline_display().join(", ")
         ));
         res
     }
@@ -56,8 +72,12 @@ impl Display for IOConfig {
 {}
 {}
 {}
+{}
+{}
+{}
+{}
 {}",
-            self.s3, self.azure, self.gcs, self.http,
+            self.s3, self.azure, self.gcs, self.tos, self.http, self.unity, self.gravitino, self.hf,
         )
     }
 }

@@ -365,7 +365,8 @@ def record_waiting_time(waiting_time: float) -> None:
 
 
 def check_working_limit() -> None:
-    from inspect_ai.log._transcript import SampleLimitEvent, transcript
+    from inspect_ai.event._sample_limit import SampleLimitEvent
+    from inspect_ai.log._transcript import transcript
 
     error = working_limit_exceeded()
     if error is not None:
@@ -377,7 +378,7 @@ def check_working_limit() -> None:
 
 
 def monitor_working_limit(interval: float = 1) -> None:
-    from inspect_ai.log._samples import sample_active
+    from inspect_ai.log._samples import has_active_model_event, sample_active
 
     # get the active sample
     sample = sample_active()
@@ -398,6 +399,12 @@ def monitor_working_limit(interval: float = 1) -> None:
             # don't continue after the sample is completed
             if sample.completed:
                 return
+
+            # don't check if there is an active model event
+            # (need to wait until it completes for the working time
+            # computation to be done)
+            if has_active_model_event():
+                continue
 
             error = working_limit_exceeded()
             if error is not None:
@@ -534,7 +541,8 @@ class _TokenLimit(Limit, _Node):
             )
 
     def _check_self(self) -> None:
-        from inspect_ai.log._transcript import SampleLimitEvent, transcript
+        from inspect_ai.event._sample_limit import SampleLimitEvent
+        from inspect_ai.log._transcript import transcript
 
         if self.limit is None:
             return
@@ -598,7 +606,8 @@ class _MessageLimit(Limit, _Node):
 
         Does not check ancestors.
         """
-        from inspect_ai.log._transcript import SampleLimitEvent, transcript
+        from inspect_ai.event._sample_limit import SampleLimitEvent
+        from inspect_ai.log._transcript import transcript
 
         if self.limit is None:
             return
@@ -644,7 +653,8 @@ class _TimeLimit(Limit, _Node):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        from inspect_ai.log._transcript import SampleLimitEvent, transcript
+        from inspect_ai.event._sample_limit import SampleLimitEvent
+        from inspect_ai.log._transcript import transcript
 
         self._cancel_scope.__exit__(exc_type, exc_val, exc_tb)
         self._end_time = anyio.current_time()

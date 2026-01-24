@@ -1,5 +1,6 @@
 from typing import Optional
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
 from anyscale.cli_logger import BlockLogger
 from anyscale.schedule._private.schedule_sdk import PrivateScheduleSDK
@@ -78,7 +79,7 @@ def set_state(
     cloud: Optional[str] = None,
     project: Optional[str] = None,
     state: ScheduleState,
-    _private_sdk: Optional[PrivateScheduleSDK] = None
+    _private_sdk: Optional[PrivateScheduleSDK] = None,
 ) -> str:
     """Set the state of a schedule.
 
@@ -114,7 +115,7 @@ def status(
     name: Optional[str] = None,
     cloud: Optional[str] = None,
     project: Optional[str] = None,
-    _private_sdk: Optional[PrivateScheduleSDK] = None
+    _private_sdk: Optional[PrivateScheduleSDK] = None,
 ) -> ScheduleStatus:
     """Return the status of the schedule.
     """
@@ -146,8 +147,63 @@ def trigger(
     name: Optional[str] = None,
     cloud: Optional[str] = None,
     project: Optional[str] = None,
-    _private_sdk: Optional[PrivateScheduleSDK] = None
+    _private_sdk: Optional[PrivateScheduleSDK] = None,
 ) -> str:
     """Trigger the execution of the schedule.
     """
     return _private_sdk.trigger(id=id, name=name, cloud=cloud, project=project)  # type: ignore
+
+
+_LIST_EXAMPLE = """
+import anyscale
+from anyscale.schedule.models import ScheduleStatus
+
+# List all schedules
+for schedule in anyscale.schedule.list(max_items=10):
+    print(f"{schedule.name}: {schedule.state}")
+
+# Filter by project
+schedules = list(anyscale.schedule.list(project="my-project"))
+"""
+
+_LIST_ARG_DOCSTRINGS = {
+    "name": "Filter by schedule name.",
+    "schedule_id": "Fetch a specific schedule by ID.",
+    "project": "Filter by project name.",
+    "cloud": "Filter by cloud name.",
+    "creator_id": "Filter by creator ID.",
+    "page_size": "Number of items per page.",
+    "max_items": "Maximum total items to return.",
+}
+
+
+@sdk_command(
+    _SCHEDULE_SDK_SINGLETON_KEY,
+    PrivateScheduleSDK,
+    doc_py_example=_LIST_EXAMPLE,
+    arg_docstrings=_LIST_ARG_DOCSTRINGS,
+)
+def list(  # noqa: A001
+    *,
+    name: Optional[str] = None,
+    schedule_id: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
+    creator_id: Optional[str] = None,
+    page_size: Optional[int] = None,
+    max_items: Optional[int] = None,
+    _private_sdk: Optional[PrivateScheduleSDK] = None,
+) -> ResultIterator[ScheduleStatus]:
+    """List schedules with filtering and pagination.
+
+    Returns a ResultIterator that lazily fetches pages of schedules.
+    """
+    return _private_sdk.list(  # type: ignore
+        name=name,
+        schedule_id=schedule_id,
+        project=project,
+        cloud=cloud,
+        creator_id=creator_id,
+        page_size=page_size,
+        max_items=max_items,
+    )

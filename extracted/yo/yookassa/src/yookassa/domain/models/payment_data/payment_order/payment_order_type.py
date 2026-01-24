@@ -4,7 +4,7 @@ class PaymentOrderType:
     """
     Константы, представляющие значения payment_order_type. Возможные значения:
 
-    * yookassa.domain.common.PaymentOrderType.UTILITIES
+    * utilities - Оплата ЖКУ
     """  # noqa: E501
 
     """

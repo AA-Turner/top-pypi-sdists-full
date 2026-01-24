@@ -1,9 +1,7 @@
 import distutils.ccompiler
 import distutils.dist
 import glob
-import io
 import os
-import sys
 
 import cffi
 
@@ -20,10 +18,10 @@ WIN_GENERATED_SRC_DIR = os.path.join(PACKAGE_ROOT, 'generated', 'windows')
 CMARK_DEF_H_PATH = os.path.join(HERE, 'cmark.cffi.h')
 CMARK_MODULE_H_PATH = os.path.join(HERE, 'cmark_module.h')
 
-with io.open(CMARK_DEF_H_PATH, 'r', encoding='utf-8') as fh:
+with open(CMARK_DEF_H_PATH, encoding='utf-8') as fh:
     CMARK_DEF_H = fh.read()
 
-with io.open(CMARK_MODULE_H_PATH, 'r', encoding='utf-8') as fh:
+with open(CMARK_MODULE_H_PATH, encoding='utf-8') as fh:
     CMARK_MODULE_H = fh.read()
 
 
@@ -37,7 +35,7 @@ def _get_sources(dir, exclude=set()):
     ])
 
 
-SOURCES = _get_sources(SRC_DIR, exclude=set(['main.c']))
+SOURCES = _get_sources(SRC_DIR, exclude={'main.c'})
 SOURCES.extend(_get_sources(EXTENSIONS_SRC_DIR))
 
 
@@ -58,10 +56,11 @@ def _compiler_type():
 
 
 COMPILER_TYPE = _compiler_type()
-PY2 = sys.version_info[0] < 3
-# Note: on Python 2.7 in Windows we're using mingw so we use the unix
-# srcs for that as well.
-if COMPILER_TYPE in {'unix', 'mingw32'} or PY2:
+# Note: on Windows with MSVC the compiler type is 'msvc'. On macOS and
+# Linux it is 'unix'. For MinGW on Windows distutils reports 'mingw32'.
+# Select the appropriate compile args and generated sources directory
+# based solely on the compiler type.
+if COMPILER_TYPE in {'unix', 'mingw32'}:
     EXTRA_COMPILE_ARGS = ['-std=c99']
     GENERATED_SRC_DIR = UNIX_GENERATED_SRC_DIR
 elif COMPILER_TYPE == 'msvc':

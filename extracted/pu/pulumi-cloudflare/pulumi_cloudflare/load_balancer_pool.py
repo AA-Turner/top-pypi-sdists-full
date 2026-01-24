@@ -32,6 +32,7 @@ class LoadBalancerPoolArgs:
                  longitude: Optional[pulumi.Input[_builtins.float]] = None,
                  minimum_origins: Optional[pulumi.Input[_builtins.int]] = None,
                  monitor: Optional[pulumi.Input[_builtins.str]] = None,
+                 monitor_group: Optional[pulumi.Input[_builtins.str]] = None,
                  notification_email: Optional[pulumi.Input[_builtins.str]] = None,
                  notification_filter: Optional[pulumi.Input['LoadBalancerPoolNotificationFilterArgs']] = None,
                  origin_steering: Optional[pulumi.Input['LoadBalancerPoolOriginSteeringArgs']] = None):
@@ -48,6 +49,7 @@ class LoadBalancerPoolArgs:
         :param pulumi.Input[_builtins.float] longitude: The longitude of the data center containing the origins used in this pool in decimal degrees. If this is set, latitude must also be set.
         :param pulumi.Input[_builtins.int] minimum_origins: The minimum number of origins that must be healthy for this pool to serve traffic. If the number of healthy origins falls below this number, the pool will be marked unhealthy and will failover to the next available pool.
         :param pulumi.Input[_builtins.str] monitor: The ID of the Monitor to use for checking the health of origins within this pool.
+        :param pulumi.Input[_builtins.str] monitor_group: The ID of the Monitor Group to use for checking the health of origins within this pool.
         :param pulumi.Input[_builtins.str] notification_email: This field is now deprecated. It has been moved to Cloudflare's Centralized Notification service https://developers.cloudflare.com/fundamentals/notifications/. The email address to send health status notifications to. This can be an individual mailbox or a mailing list. Multiple emails can be supplied as a comma delimited list.
         :param pulumi.Input['LoadBalancerPoolNotificationFilterArgs'] notification_filter: Filter pool and origin health notifications by resource type or health status. Use null to reset.
         :param pulumi.Input['LoadBalancerPoolOriginSteeringArgs'] origin_steering: Configures origin steering for the pool. Controls how origins are selected for new sessions and traffic without session affinity.
@@ -71,6 +73,8 @@ class LoadBalancerPoolArgs:
             pulumi.set(__self__, "minimum_origins", minimum_origins)
         if monitor is not None:
             pulumi.set(__self__, "monitor", monitor)
+        if monitor_group is not None:
+            pulumi.set(__self__, "monitor_group", monitor_group)
         if notification_email is not None:
             pulumi.set(__self__, "notification_email", notification_email)
         if notification_filter is not None:
@@ -211,6 +215,18 @@ class LoadBalancerPoolArgs:
         pulumi.set(self, "monitor", value)
 
     @_builtins.property
+    @pulumi.getter(name="monitorGroup")
+    def monitor_group(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The ID of the Monitor Group to use for checking the health of origins within this pool.
+        """
+        return pulumi.get(self, "monitor_group")
+
+    @monitor_group.setter
+    def monitor_group(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "monitor_group", value)
+
+    @_builtins.property
     @pulumi.getter(name="notificationEmail")
     def notification_email(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -262,6 +278,7 @@ class _LoadBalancerPoolState:
                  minimum_origins: Optional[pulumi.Input[_builtins.int]] = None,
                  modified_on: Optional[pulumi.Input[_builtins.str]] = None,
                  monitor: Optional[pulumi.Input[_builtins.str]] = None,
+                 monitor_group: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  networks: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  notification_email: Optional[pulumi.Input[_builtins.str]] = None,
@@ -280,6 +297,7 @@ class _LoadBalancerPoolState:
         :param pulumi.Input[_builtins.float] longitude: The longitude of the data center containing the origins used in this pool in decimal degrees. If this is set, latitude must also be set.
         :param pulumi.Input[_builtins.int] minimum_origins: The minimum number of origins that must be healthy for this pool to serve traffic. If the number of healthy origins falls below this number, the pool will be marked unhealthy and will failover to the next available pool.
         :param pulumi.Input[_builtins.str] monitor: The ID of the Monitor to use for checking the health of origins within this pool.
+        :param pulumi.Input[_builtins.str] monitor_group: The ID of the Monitor Group to use for checking the health of origins within this pool.
         :param pulumi.Input[_builtins.str] name: A short name (tag) for the pool. Only alphanumeric characters, hyphens, and underscores are allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] networks: List of networks where Load Balancer or Pool is enabled.
         :param pulumi.Input[_builtins.str] notification_email: This field is now deprecated. It has been moved to Cloudflare's Centralized Notification service https://developers.cloudflare.com/fundamentals/notifications/. The email address to send health status notifications to. This can be an individual mailbox or a mailing list. Multiple emails can be supplied as a comma delimited list.
@@ -311,6 +329,8 @@ class _LoadBalancerPoolState:
             pulumi.set(__self__, "modified_on", modified_on)
         if monitor is not None:
             pulumi.set(__self__, "monitor", monitor)
+        if monitor_group is not None:
+            pulumi.set(__self__, "monitor_group", monitor_group)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if networks is not None:
@@ -463,6 +483,18 @@ class _LoadBalancerPoolState:
         pulumi.set(self, "monitor", value)
 
     @_builtins.property
+    @pulumi.getter(name="monitorGroup")
+    def monitor_group(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The ID of the Monitor Group to use for checking the health of origins within this pool.
+        """
+        return pulumi.get(self, "monitor_group")
+
+    @monitor_group.setter
+    def monitor_group(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "monitor_group", value)
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -550,6 +582,7 @@ class LoadBalancerPool(pulumi.CustomResource):
                  longitude: Optional[pulumi.Input[_builtins.float]] = None,
                  minimum_origins: Optional[pulumi.Input[_builtins.int]] = None,
                  monitor: Optional[pulumi.Input[_builtins.str]] = None,
+                 monitor_group: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  notification_email: Optional[pulumi.Input[_builtins.str]] = None,
                  notification_filter: Optional[pulumi.Input[Union['LoadBalancerPoolNotificationFilterArgs', 'LoadBalancerPoolNotificationFilterArgsDict']]] = None,
@@ -558,6 +591,53 @@ class LoadBalancerPool(pulumi.CustomResource):
                  __props__=None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_load_balancer_pool = cloudflare.LoadBalancerPool("example_load_balancer_pool",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            name="primary-dc-1",
+            origins=[{
+                "address": "0.0.0.0",
+                "enabled": True,
+                "header": {
+                    "host": ["example.com"],
+                },
+                "name": "app-server-1",
+                "port": 0,
+                "virtual_network_id": "a5624d4e-044a-4ff0-b3e1-e2465353d4b4",
+                "weight": 0.6,
+            }],
+            description="Primary data center - Provider XYZ",
+            enabled=False,
+            latitude=0,
+            load_shedding={
+                "default_percent": 0,
+                "default_policy": "random",
+                "session_percent": 0,
+                "session_policy": "hash",
+            },
+            longitude=0,
+            minimum_origins=0,
+            monitor="monitor",
+            monitor_group="monitor_group",
+            notification_email="someone@example.com,sometwo@example.com",
+            notification_filter={
+                "origin": {
+                    "disable": True,
+                    "healthy": True,
+                },
+                "pool": {
+                    "disable": True,
+                    "healthy": False,
+                },
+            },
+            origin_steering={
+                "policy": "random",
+            })
+        ```
 
         ## Import
 
@@ -576,6 +656,7 @@ class LoadBalancerPool(pulumi.CustomResource):
         :param pulumi.Input[_builtins.float] longitude: The longitude of the data center containing the origins used in this pool in decimal degrees. If this is set, latitude must also be set.
         :param pulumi.Input[_builtins.int] minimum_origins: The minimum number of origins that must be healthy for this pool to serve traffic. If the number of healthy origins falls below this number, the pool will be marked unhealthy and will failover to the next available pool.
         :param pulumi.Input[_builtins.str] monitor: The ID of the Monitor to use for checking the health of origins within this pool.
+        :param pulumi.Input[_builtins.str] monitor_group: The ID of the Monitor Group to use for checking the health of origins within this pool.
         :param pulumi.Input[_builtins.str] name: A short name (tag) for the pool. Only alphanumeric characters, hyphens, and underscores are allowed.
         :param pulumi.Input[_builtins.str] notification_email: This field is now deprecated. It has been moved to Cloudflare's Centralized Notification service https://developers.cloudflare.com/fundamentals/notifications/. The email address to send health status notifications to. This can be an individual mailbox or a mailing list. Multiple emails can be supplied as a comma delimited list.
         :param pulumi.Input[Union['LoadBalancerPoolNotificationFilterArgs', 'LoadBalancerPoolNotificationFilterArgsDict']] notification_filter: Filter pool and origin health notifications by resource type or health status. Use null to reset.
@@ -590,6 +671,53 @@ class LoadBalancerPool(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_load_balancer_pool = cloudflare.LoadBalancerPool("example_load_balancer_pool",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            name="primary-dc-1",
+            origins=[{
+                "address": "0.0.0.0",
+                "enabled": True,
+                "header": {
+                    "host": ["example.com"],
+                },
+                "name": "app-server-1",
+                "port": 0,
+                "virtual_network_id": "a5624d4e-044a-4ff0-b3e1-e2465353d4b4",
+                "weight": 0.6,
+            }],
+            description="Primary data center - Provider XYZ",
+            enabled=False,
+            latitude=0,
+            load_shedding={
+                "default_percent": 0,
+                "default_policy": "random",
+                "session_percent": 0,
+                "session_policy": "hash",
+            },
+            longitude=0,
+            minimum_origins=0,
+            monitor="monitor",
+            monitor_group="monitor_group",
+            notification_email="someone@example.com,sometwo@example.com",
+            notification_filter={
+                "origin": {
+                    "disable": True,
+                    "healthy": True,
+                },
+                "pool": {
+                    "disable": True,
+                    "healthy": False,
+                },
+            },
+            origin_steering={
+                "policy": "random",
+            })
+        ```
 
         ## Import
 
@@ -621,6 +749,7 @@ class LoadBalancerPool(pulumi.CustomResource):
                  longitude: Optional[pulumi.Input[_builtins.float]] = None,
                  minimum_origins: Optional[pulumi.Input[_builtins.int]] = None,
                  monitor: Optional[pulumi.Input[_builtins.str]] = None,
+                 monitor_group: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  notification_email: Optional[pulumi.Input[_builtins.str]] = None,
                  notification_filter: Optional[pulumi.Input[Union['LoadBalancerPoolNotificationFilterArgs', 'LoadBalancerPoolNotificationFilterArgsDict']]] = None,
@@ -646,6 +775,7 @@ class LoadBalancerPool(pulumi.CustomResource):
             __props__.__dict__["longitude"] = longitude
             __props__.__dict__["minimum_origins"] = minimum_origins
             __props__.__dict__["monitor"] = monitor
+            __props__.__dict__["monitor_group"] = monitor_group
             if name is None and not opts.urn:
                 raise TypeError("Missing required property 'name'")
             __props__.__dict__["name"] = name
@@ -681,6 +811,7 @@ class LoadBalancerPool(pulumi.CustomResource):
             minimum_origins: Optional[pulumi.Input[_builtins.int]] = None,
             modified_on: Optional[pulumi.Input[_builtins.str]] = None,
             monitor: Optional[pulumi.Input[_builtins.str]] = None,
+            monitor_group: Optional[pulumi.Input[_builtins.str]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             networks: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             notification_email: Optional[pulumi.Input[_builtins.str]] = None,
@@ -704,6 +835,7 @@ class LoadBalancerPool(pulumi.CustomResource):
         :param pulumi.Input[_builtins.float] longitude: The longitude of the data center containing the origins used in this pool in decimal degrees. If this is set, latitude must also be set.
         :param pulumi.Input[_builtins.int] minimum_origins: The minimum number of origins that must be healthy for this pool to serve traffic. If the number of healthy origins falls below this number, the pool will be marked unhealthy and will failover to the next available pool.
         :param pulumi.Input[_builtins.str] monitor: The ID of the Monitor to use for checking the health of origins within this pool.
+        :param pulumi.Input[_builtins.str] monitor_group: The ID of the Monitor Group to use for checking the health of origins within this pool.
         :param pulumi.Input[_builtins.str] name: A short name (tag) for the pool. Only alphanumeric characters, hyphens, and underscores are allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] networks: List of networks where Load Balancer or Pool is enabled.
         :param pulumi.Input[_builtins.str] notification_email: This field is now deprecated. It has been moved to Cloudflare's Centralized Notification service https://developers.cloudflare.com/fundamentals/notifications/. The email address to send health status notifications to. This can be an individual mailbox or a mailing list. Multiple emails can be supplied as a comma delimited list.
@@ -727,6 +859,7 @@ class LoadBalancerPool(pulumi.CustomResource):
         __props__.__dict__["minimum_origins"] = minimum_origins
         __props__.__dict__["modified_on"] = modified_on
         __props__.__dict__["monitor"] = monitor
+        __props__.__dict__["monitor_group"] = monitor_group
         __props__.__dict__["name"] = name
         __props__.__dict__["networks"] = networks
         __props__.__dict__["notification_email"] = notification_email
@@ -824,6 +957,14 @@ class LoadBalancerPool(pulumi.CustomResource):
         The ID of the Monitor to use for checking the health of origins within this pool.
         """
         return pulumi.get(self, "monitor")
+
+    @_builtins.property
+    @pulumi.getter(name="monitorGroup")
+    def monitor_group(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The ID of the Monitor Group to use for checking the health of origins within this pool.
+        """
+        return pulumi.get(self, "monitor_group")
 
     @_builtins.property
     @pulumi.getter

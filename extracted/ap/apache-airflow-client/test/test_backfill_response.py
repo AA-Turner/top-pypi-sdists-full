@@ -37,8 +37,9 @@ class TestBackfillResponse(unittest.TestCase):
             return BackfillResponse(
                 completed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                dag_display_name = '',
                 dag_id = '',
-                dag_run_conf = airflow_client.client.models.dag_run_conf.Dag Run Conf(),
+                dag_run_conf = { },
                 from_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = 0.0,
                 is_paused = True,
@@ -50,8 +51,9 @@ class TestBackfillResponse(unittest.TestCase):
         else:
             return BackfillResponse(
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                dag_display_name = '',
                 dag_id = '',
-                dag_run_conf = airflow_client.client.models.dag_run_conf.Dag Run Conf(),
+                dag_run_conf = { },
                 from_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = 0.0,
                 is_paused = True,

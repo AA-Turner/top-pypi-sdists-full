@@ -144,12 +144,14 @@ class SpatialVariable(IndependentVariable):
         auxiliary_domains: AuxiliaryDomainType = None,
         domains: DomainsType = None,
         coord_sys=None,
+        direction=None,
     ) -> None:
         self.coord_sys = coord_sys
         super().__init__(
             name, domain=domain, auxiliary_domains=auxiliary_domains, domains=domains
         )
         domain = self.domain
+        self.direction = direction
 
         if domain == []:
             raise ValueError("domain must be provided")
@@ -201,16 +203,6 @@ class SpatialVariableEdge(SpatialVariable):
         (not both). In future, the 'domain' and 'auxiliary_domains' arguments may be
         deprecated.
     """
-
-    def __init__(
-        self,
-        name: str,
-        domain: DomainType = None,
-        auxiliary_domains: AuxiliaryDomainType = None,
-        domains: DomainsType = None,
-        coord_sys=None,
-    ) -> None:
-        super().__init__(name, domain, auxiliary_domains, domains, coord_sys)
 
     def _evaluates_on_edges(self, dimension):
         return True

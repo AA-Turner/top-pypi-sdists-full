@@ -2,8 +2,9 @@ import logging
 import re
 import sys
 import time
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any, Dict, Generic, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse, urlunparse
 
 from ldclient.impl.http import _base_headers
@@ -26,8 +27,16 @@ __BUILTINS__ = ["key", "ip", "country", "email", "firstName", "lastName", "avata
 
 __BASE_TYPES__ = (str, float, int, bool)
 
+# Maximum length for SDK keys
+_MAX_SDK_KEY_LENGTH = 8192
 
-_retryable_statuses = [400, 408, 429]
+_RETRYABLE_STATUSES = [400, 408, 429]
+
+# Compiled regex pattern for valid characters in application values and SDK keys
+_VALID_CHARACTERS_REGEX = re.compile(r"[^a-zA-Z0-9._-]")
+
+_LD_ENVID_HEADER = 'X-LD-EnvID'
+_LD_FD_FALLBACK_HEADER = 'X-LD-FD-Fallback'
 
 
 def validate_application_info(application: dict, logger: logging.Logger) -> dict:
@@ -45,11 +54,33 @@ def validate_application_value(value: Any, name: str, logger: logging.Logger) ->
         logger.warning('Value of application[%s] was longer than 64 characters and was discarded' % name)
         return ""
 
-    if re.search(r"[^a-zA-Z0-9._-]", value):
+    if _VALID_CHARACTERS_REGEX.search(value):
         logger.warning('Value of application[%s] contained invalid characters and was discarded' % name)
         return ""
 
     return value
+
+
+def validate_sdk_key_format(sdk_key: str, logger: logging.Logger) -> str:
+    """
+    Validates that an SDK key does not contain invalid characters and is not too long for our systems.
+
+    :param sdk_key: the SDK key to validate
+    :param logger: the logger to use for logging warnings
+    :return: the validated SDK key, or empty string if the SDK key is invalid
+    """
+    if sdk_key is None or sdk_key == '':
+        return ""
+
+    if not isinstance(sdk_key, str):
+        return ""
+    if len(sdk_key) > _MAX_SDK_KEY_LENGTH:
+        logger.warning('SDK key was longer than %d characters and was discarded' % _MAX_SDK_KEY_LENGTH)
+        return ""
+    if _VALID_CHARACTERS_REGEX.search(sdk_key):
+        logger.warning('SDK key contained invalid characters and was discarded')
+        return ""
+    return sdk_key
 
 
 def _headers(config):
@@ -105,7 +136,7 @@ def throw_if_unsuccessful_response(resp):
 
 def is_http_error_recoverable(status):
     if status >= 400 and status < 500:
-        return status in _retryable_statuses  # all other 4xx besides these are unrecoverable
+        return status in _RETRYABLE_STATUSES  # all other 4xx besides these are unrecoverable
     return True  # all other errors are recoverable
 
 
@@ -161,7 +192,7 @@ class Result:
 
     Results can either be considered a success or a failure.
 
-    In the event of success, the Result will contain an option, nullable value
+    In the event of success, the Result will contain an optional, nullable value
     to hold any success value back to the calling function.
 
     If the operation fails, the Result will contain an error describing the
@@ -220,12 +251,46 @@ class Result:
 
     @property
     def value(self) -> Optional[Any]:
+        """
+        Retrieve the value from this result, if it exists. If this result
+        represents failure, this will be None.
+        """
         return self.__value
 
     @property
     def error(self) -> Optional[str]:
+        """
+        Retrieve the error from this result, if it exists. If this result
+        represents success, this will be None.
+        """
         return self.__error
 
     @property
     def exception(self) -> Optional[Exception]:
+        """
+        Retrieve the exception from this result, if it exists. If this result
+        represents success, this will be None.
+        """
+
         return self.__exception
+
+
+T = TypeVar("T")
+E = TypeVar("E")
+
+
+@dataclass(frozen=True)
+class _Success(Generic[T]):
+    value: T
+
+
+@dataclass(frozen=True)
+class _Fail(Generic[E]):
+    error: E
+    exception: Optional[Exception] = None
+    headers: Optional[Mapping[str, Any]] = None
+
+
+# TODO(breaking): Replace the above Result class with an improved generic
+# version.
+_Result = Union[_Success[T], _Fail[E]]

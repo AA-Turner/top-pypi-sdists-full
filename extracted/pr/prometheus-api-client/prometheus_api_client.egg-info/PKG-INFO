@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prometheus-api-client
-Version: 0.6.0
+Version: 0.7.0
 Summary: A small python api to collect data from prometheus
 Home-page: https://github.com/4n4nd/prometheus-api-client-python
 Author: Anand Sanmukhani
@@ -12,10 +12,18 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: dateparser
-Requires-Dist: pandas>=1.4.0
-Requires-Dist: numpy
-Requires-Dist: matplotlib
-Requires-Dist: httmock
+Provides-Extra: dataframe
+Requires-Dist: pandas>=1.4.0; extra == "dataframe"
+Provides-Extra: numpy
+Requires-Dist: numpy; extra == "numpy"
+Provides-Extra: plot
+Requires-Dist: matplotlib; extra == "plot"
+Provides-Extra: analytics
+Requires-Dist: numpy; extra == "analytics"
+Provides-Extra: all
+Requires-Dist: pandas>=1.4.0; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -23,6 +31,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 
@@ -38,6 +47,18 @@ A Python wrapper for the Prometheus http api and some tools for metrics processi
 To install the latest release:
 
 `pip install prometheus-api-client`
+
+To install with all optional dependencies (pandas, numpy, matplotlib):
+
+`pip install prometheus-api-client[all]`
+
+**Note:** Starting from version 0.7.0, pandas, numpy, and matplotlib are optional dependencies. 
+If you only need `PrometheusConnect` without DataFrame support or plotting capabilities, you can install the minimal version which significantly reduces memory footprint and installation time, especially on Alpine-based Docker images.
+
+To install only specific extras:
+- For DataFrame support: `pip install prometheus-api-client[dataframe]`
+- For analytics/aggregation operations: `pip install prometheus-api-client[analytics]`
+- For plotting support: `pip install prometheus-api-client[plot]`
 
 To install directly from this branch:
 
@@ -229,7 +250,7 @@ For more functions included in the `prometheus-api-client` library, please refer
 
 ## Running tests
 
-`PROM_URL="http://demo.robustperception.io:9090/" pytest`
+`PROM_URL="https://demo.promlabs.com/" pytest`
 
 ## Code Styling and Linting
 

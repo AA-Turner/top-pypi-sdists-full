@@ -13,9 +13,27 @@ class ServiceTogglesConfig(UniversalBaseModel):
     trace_thread_python_evaluator_enabled: typing_extensions.Annotated[
         bool, FieldMetadata(alias="traceThreadPythonEvaluatorEnabled")
     ]
+    span_llm_as_judge_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="spanLlmAsJudgeEnabled")]
+    span_user_defined_metric_python_enabled: typing_extensions.Annotated[
+        bool, FieldMetadata(alias="spanUserDefinedMetricPythonEnabled")
+    ]
     guardrails_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="guardrailsEnabled")]
     opik_ai_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="opikAIEnabled")]
-    human_annotation_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="humanAnnotationEnabled")]
+    alerts_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="alertsEnabled")]
+    welcome_wizard_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="welcomeWizardEnabled")]
+    csv_upload_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="csvUploadEnabled")]
+    export_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="exportEnabled")]
+    optimization_studio_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="optimizationStudioEnabled")]
+    dataset_versioning_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="datasetVersioningEnabled")]
+    dataset_export_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="datasetExportEnabled")]
+    openai_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="openaiProviderEnabled")]
+    anthropic_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="anthropicProviderEnabled")]
+    gemini_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="geminiProviderEnabled")]
+    openrouter_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="openrouterProviderEnabled")]
+    vertexai_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="vertexaiProviderEnabled")]
+    bedrock_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="bedrockProviderEnabled")]
+    customllm_provider_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="customllmProviderEnabled")]
+    collaborators_tab_enabled: typing_extensions.Annotated[bool, FieldMetadata(alias="collaboratorsTabEnabled")]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -24,6 +24,43 @@ if TYPE_CHECKING:
     from google.genai import types
 
 
+def _get_model_schema(response_model: Any) -> dict[str, Any]:
+    """
+    Safely get the JSON schema from a response model.
+
+    Handles both regular models and Partial-wrapped models by using hasattr
+    to check for the model_json_schema method.
+
+    Args:
+        response_model: The response model (may be regular or Partial-wrapped)
+
+    Returns:
+        The JSON schema dictionary
+    """
+    if hasattr(response_model, "model_json_schema") and callable(
+        response_model.model_json_schema
+    ):
+        return response_model.model_json_schema()
+    # Fallback for wrapped types
+    return getattr(response_model, "model_json_schema", {})  # type: ignore[return-value]
+
+
+def _get_model_name(response_model: Any) -> str:
+    """
+    Safely get the name of a response model.
+
+    Handles both regular models and Partial-wrapped models by using getattr
+    with a fallback to 'Model'.
+
+    Args:
+        response_model: The response model (may be regular or Partial-wrapped)
+
+    Returns:
+        The model name
+    """
+    return getattr(response_model, "__name__", "Model")
+
+
 def transform_to_gemini_prompt(
     messages_chatgpt: list[ChatCompletionMessageParam],
 ) -> list[dict[str, Any]]:
@@ -91,40 +128,25 @@ def transform_to_gemini_prompt(
     return messages_gemini
 
 
-def verify_no_unions(obj: dict[str, Any]) -> bool:
+def verify_no_unions(obj: dict[str, Any]) -> bool:  # noqa: ARG001
     """
     Verify that the object does not contain any Union types (except Optional and Decimal).
     Optional[T] is allowed as it becomes Union[T, None].
     Decimal types are allowed as Union[str, float] or Union[float, str].
+
+    Note: As of December 2024, Google GenAI now supports Union types
+    (see https://github.com/googleapis/python-genai/issues/447).
+    This function is kept for backward compatibility but now returns True
+    for all schemas. The validation is no longer necessary.
+
+    Args:
+        obj: The schema object to verify (kept for backward compatibility).
+
+    Returns:
+        Always returns True since Union types are now supported.
     """
-    for prop_value in obj["properties"].values():
-        if "anyOf" in prop_value:
-            any_of_list = prop_value["anyOf"]
-            if not isinstance(any_of_list, list) or len(any_of_list) != 2:
-                return False
-
-            # Extract the types from the anyOf list
-            types_in_union = []
-            for item in any_of_list:
-                if isinstance(item, dict) and "type" in item:
-                    types_in_union.append(item["type"])
-
-            # Check if this is an Optional type (Union with None/null)
-            if "null" in types_in_union:
-                # This is Optional[T] - allow it
-                continue
-
-            # Check if this is a Decimal type (Union of string and number)
-            if set(types_in_union) == {"string", "number"}:
-                # This is a Decimal type (string | number) - allow it
-                continue
-
-            # This is some other Union type - reject it
-            return False
-
-        if "properties" in prop_value and not verify_no_unions(prop_value):
-            return False
-
+    # Google GenAI now supports Union types, so we no longer need to validate.
+    # See: https://github.com/instructor-ai/instructor/issues/1964
     return True
 
 
@@ -135,7 +157,7 @@ def map_to_gemini_function_schema(obj: dict[str, Any]) -> dict[str, Any]:
     Transforms a standard JSON schema to Gemini's expected format:
     - Adds 'format': 'enum' for enum fields
     - Converts Optional[T] (anyOf with null) to nullable fields
-    - Rejects true Union types (non-Optional anyOf)
+    - Preserves Union types (anyOf) as they are now supported by GenAI SDK
 
     Ref: https://ai.google.dev/api/python/google/generativeai/protos/Schema
     """
@@ -214,11 +236,50 @@ def map_to_gemini_function_schema(obj: dict[str, Any]) -> dict[str, Any]:
     return FunctionSchema(**schema).model_dump(exclude_none=True, exclude_unset=True)
 
 
+if TYPE_CHECKING:
+    from google.genai import types as genai_types
+
+
+def map_to_genai_schema(obj: dict[str, Any]) -> genai_types.Schema:
+    from google.genai import types
+
+    schema = map_to_gemini_function_schema(obj)
+
+    def normalize(node: Any) -> Any:
+        if isinstance(node, list):
+            return [normalize(item) for item in node]
+
+        if not isinstance(node, dict):
+            return node
+
+        key_map = {
+            "anyOf": "any_of",
+            "$ref": "ref",
+            "$defs": "defs",
+            "maxItems": "max_items",
+            "minItems": "min_items",
+            "maxLength": "max_length",
+            "minLength": "min_length",
+            "maxProperties": "max_properties",
+            "minProperties": "min_properties",
+        }
+
+        normalized: dict[str, Any] = {}
+        for key, value in node.items():
+            normalized[key_map.get(key, key)] = normalize(value)
+        return normalized
+
+    return types.Schema.model_validate(normalize(schema))
+
+
 def update_genai_kwargs(
     kwargs: dict[str, Any], base_config: dict[str, Any]
 ) -> dict[str, Any]:
     """
     Update keyword arguments for google.genai package from OpenAI format.
+
+    Handles merging of user-provided config with instructor's base config,
+    including special handling for thinking_config and other config fields.
     """
     from google.genai.types import HarmBlockThreshold, HarmCategory
 
@@ -243,31 +304,165 @@ def update_genai_kwargs(
             if val is not None:  # Only set if value is not None
                 base_config[gemini_key] = val
 
+    def _genai_kwargs_has_image_content(genai_kwargs: dict[str, Any]) -> bool:
+        """
+        Best-effort check for image content in a GenAI request.
+
+        We use this to decide whether to send text vs image harm categories in
+        `safety_settings`. The google-genai SDK has separate image categories
+        (e.g., `HARM_CATEGORY_IMAGE_HATE`) which are required for image content.
+        """
+        # Prefer typed GenAI contents if present (works with autodetect_images)
+        contents = genai_kwargs.get("contents")
+        if isinstance(contents, list):
+            for content in contents:
+                parts = getattr(content, "parts", None)
+                if not parts:
+                    continue
+                for part in parts:
+                    inline_data = getattr(part, "inline_data", None)
+                    if inline_data is not None:
+                        mime_type = getattr(inline_data, "mime_type", None)
+                        if isinstance(mime_type, str) and mime_type.startswith(
+                            "image/"
+                        ):
+                            return True
+
+                    file_data = getattr(part, "file_data", None)
+                    if file_data is not None:
+                        mime_type = getattr(file_data, "mime_type", None)
+                        if isinstance(mime_type, str) and mime_type.startswith(
+                            "image/"
+                        ):
+                            return True
+
+        # Fall back to OpenAI-style messages if present
+        messages = genai_kwargs.get("messages")
+        if isinstance(messages, list):
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                content = message.get("content")
+                if isinstance(content, Image):
+                    return True
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, Image):
+                            return True
+                        if isinstance(item, dict) and item.get("type") in {
+                            "image",
+                            "image_url",
+                            "input_image",
+                        }:
+                            return True
+                if isinstance(content, dict) and content.get("type") in {
+                    "image",
+                    "image_url",
+                    "input_image",
+                }:
+                    return True
+
+        return False
+
     safety_settings = new_kwargs.pop("safety_settings", {})
     base_config["safety_settings"] = []
 
+    # If users pass a list of settings, assume it's already in SDK format.
+    # This preserves compatibility with advanced usage.
+    if isinstance(safety_settings, list):
+        base_config["safety_settings"] = safety_settings
+        safety_settings = None
+
     # Filter out image related harm categories which are not
     # supported for text based models
-    supported_categories = [
-        c
-        for c in HarmCategory
-        if c != HarmCategory.HARM_CATEGORY_UNSPECIFIED
-        and not c.name.startswith("HARM_CATEGORY_IMAGE_")
-    ]
+    # Exclude JAILBREAK category as it's only for Vertex AI, not google.genai
+    excluded_categories = {HarmCategory.HARM_CATEGORY_UNSPECIFIED}
+    if hasattr(HarmCategory, "HARM_CATEGORY_JAILBREAK"):
+        excluded_categories.add(HarmCategory.HARM_CATEGORY_JAILBREAK)
 
-    for category in supported_categories:
-        threshold = safety_settings.get(category, HarmBlockThreshold.OFF)
-        base_config["safety_settings"].append(
-            {
-                "category": category,
-                "threshold": threshold,
-            }
+    if safety_settings is not None:
+        # google-genai has separate categories for image content.
+        has_image = _genai_kwargs_has_image_content(new_kwargs)
+        image_categories = [
+            c
+            for c in HarmCategory
+            if c not in excluded_categories
+            and c.name.startswith("HARM_CATEGORY_IMAGE_")
+        ]
+        text_categories = [
+            c
+            for c in HarmCategory
+            if c not in excluded_categories
+            and not c.name.startswith("HARM_CATEGORY_IMAGE_")
+        ]
+
+        supported_categories = (
+            image_categories if (has_image and image_categories) else text_categories
         )
 
-    # Handle thinking_config parameter - pass through directly since it's already in genai format
+        def _map_text_to_image_category_name(image_category_name: str) -> str | None:
+            suffix = image_category_name.removeprefix("HARM_CATEGORY_IMAGE_")
+            # google-genai uses IMAGE_HATE while text uses HATE_SPEECH
+            if suffix == "HATE":
+                return "HARM_CATEGORY_HATE_SPEECH"
+            return f"HARM_CATEGORY_{suffix}"
+
+        for category in supported_categories:
+            threshold = HarmBlockThreshold.OFF
+            if isinstance(safety_settings, dict):
+                if category in safety_settings:
+                    threshold = safety_settings[category]
+                # If we are using image categories, try to honor thresholds passed via text categories.
+                elif has_image and category.name.startswith("HARM_CATEGORY_IMAGE_"):
+                    mapped_name = _map_text_to_image_category_name(category.name)
+                    if mapped_name is not None and hasattr(HarmCategory, mapped_name):
+                        mapped_category = getattr(HarmCategory, mapped_name)
+                        if mapped_category in safety_settings:
+                            threshold = safety_settings[mapped_category]
+
+            base_config["safety_settings"].append(
+                {
+                    "category": category,
+                    "threshold": threshold,
+                }
+            )
+
+    # Extract thinking_config from user's config if provided (dict or object)
+    # This ensures thinking_config inside config parameter is not ignored.
+    user_config = new_kwargs.get("config")
+    user_thinking_config = None
+    if isinstance(user_config, dict):
+        user_thinking_config = user_config.get("thinking_config")
+    elif user_config is not None and hasattr(user_config, "thinking_config"):
+        user_thinking_config = user_config.thinking_config
+
+    # Handle thinking_config parameter - prioritize kwarg over config.thinking_config
     thinking_config = new_kwargs.pop("thinking_config", None)
+    if thinking_config is None:
+        thinking_config = user_thinking_config
+
     if thinking_config is not None:
         base_config["thinking_config"] = thinking_config
+
+    # Extract other relevant fields from user's config (dict or object).
+    # This ensures fields like automatic_function_calling / labels / cached_content
+    # are not ignored when config is passed as a dict.
+    if user_config is not None:
+        config_fields_to_merge = [
+            "automatic_function_calling",
+            "labels",
+            "cached_content",
+        ]
+        for field in config_fields_to_merge:
+            if isinstance(user_config, dict):
+                field_value = user_config.get(field)
+            elif hasattr(user_config, field):
+                field_value = getattr(user_config, field)
+            else:
+                field_value = None
+
+            if field_value is not None and field not in base_config:
+                base_config[field] = field_value
 
     return base_config
 
@@ -530,7 +725,7 @@ def reask_vertexai_tools(
     Kwargs modifications:
     - Adds: "contents" (tool response messages indicating validation errors)
     """
-    from instructor.client_vertexai import vertexai_function_response_parser
+    from ..vertexai.client import vertexai_function_response_parser
 
     kwargs = kwargs.copy()
     reask_msgs = [
@@ -552,7 +747,7 @@ def reask_vertexai_json(
     Kwargs modifications:
     - Adds: "contents" (user message requesting JSON correction)
     """
-    from instructor.client_vertexai import vertexai_message_parser
+    from ..vertexai.client import vertexai_message_parser
 
     kwargs = kwargs.copy()
 
@@ -711,7 +906,7 @@ def handle_gemini_json(
         As a genius expert, your task is to understand the content and provide
         the parsed objects in json that match the following json_schema:\n
 
-        {json.dumps(response_model.model_json_schema(), indent=2, ensure_ascii=False)}
+        {json.dumps(_get_model_schema(response_model), indent=2, ensure_ascii=False)}
 
         Make sure to return an instance of the JSON, not the schema itself
         """
@@ -757,7 +952,7 @@ def handle_gemini_tools(
     new_kwargs["tool_config"] = {
         "function_calling_config": {
             "mode": "ANY",
-            "allowed_function_names": [response_model.__name__],
+            "allowed_function_names": [_get_model_name(response_model)],
         },
     }
 
@@ -792,6 +987,25 @@ def handle_genai_structured_outputs(
     if new_kwargs.get("stream", False) and not issubclass(response_model, PartialBase):
         response_model = Partial[response_model]
 
+    # Extract thinking_config and cached_content from user-provided config (dict or object).
+    # This fixes issue #1966 (thinking_config ignored) and ensures cached_content
+    # is detected even when config is provided as a dict.
+    user_config = new_kwargs.get("config")
+    user_thinking_config = None
+    user_cached_content = None
+    if isinstance(user_config, dict):
+        user_thinking_config = user_config.get("thinking_config")
+        user_cached_content = user_config.get("cached_content")
+    elif user_config is not None:
+        if hasattr(user_config, "thinking_config"):
+            user_thinking_config = user_config.thinking_config
+        if hasattr(user_config, "cached_content"):
+            user_cached_content = user_config.cached_content
+
+    # Prioritize kwarg thinking_config over config.thinking_config
+    if "thinking_config" not in new_kwargs and user_thinking_config is not None:
+        new_kwargs["thinking_config"] = user_thinking_config
+
     if new_kwargs.get("system"):
         system_message = new_kwargs.pop("system")
     elif new_kwargs.get("messages"):
@@ -809,13 +1023,17 @@ def handle_genai_structured_outputs(
     )
 
     # We validate that the schema doesn't contain any Union fields
-    map_to_gemini_function_schema(response_model.model_json_schema())
+    map_to_gemini_function_schema(_get_model_schema(response_model))
 
     base_config = {
-        "system_instruction": system_message,
         "response_mime_type": "application/json",
         "response_schema": response_model,
     }
+
+    # Only set system_instruction if NOT using cached_content
+    # When cached_content is used, the system instruction is already part of the cache
+    if user_cached_content is None:
+        base_config["system_instruction"] = system_message
 
     generation_config = update_genai_kwargs(new_kwargs, base_config)
 
@@ -824,6 +1042,7 @@ def handle_genai_structured_outputs(
     new_kwargs.pop("messages", None)
     new_kwargs.pop("generation_config", None)
     new_kwargs.pop("safety_settings", None)
+    new_kwargs.pop("thinking_config", None)
 
     return response_model, new_kwargs
 
@@ -855,10 +1074,29 @@ def handle_genai_tools(
     if new_kwargs.get("stream", False) and not issubclass(response_model, PartialBase):
         response_model = Partial[response_model]
 
-    schema = map_to_gemini_function_schema(response_model.model_json_schema())
+    # Extract thinking_config and cached_content from user-provided config (dict or object).
+    # This fixes issue #1966 (thinking_config ignored) and ensures cached_content
+    # is detected even when config is provided as a dict.
+    user_config = new_kwargs.get("config")
+    user_thinking_config = None
+    user_cached_content = None
+    if isinstance(user_config, dict):
+        user_thinking_config = user_config.get("thinking_config")
+        user_cached_content = user_config.get("cached_content")
+    elif user_config is not None:
+        if hasattr(user_config, "thinking_config"):
+            user_thinking_config = user_config.thinking_config
+        if hasattr(user_config, "cached_content"):
+            user_cached_content = user_config.cached_content
+
+    # Prioritize kwarg thinking_config over config.thinking_config
+    if "thinking_config" not in new_kwargs and user_thinking_config is not None:
+        new_kwargs["thinking_config"] = user_thinking_config
+
+    schema = map_to_genai_schema(_get_model_schema(response_model))
     function_definition = types.FunctionDeclaration(
-        name=response_model.__name__,
-        description=response_model.__doc__,
+        name=_get_model_name(response_model),
+        description=getattr(response_model, "__doc__", None),
         parameters=schema,
     )
 
@@ -870,32 +1108,41 @@ def handle_genai_tools(
     else:
         system_message = None
 
-    base_config = {
-        "system_instruction": system_message,
-        "tools": [types.Tool(function_declarations=[function_definition])],
-        "tool_config": types.ToolConfig(
+    base_config: dict[str, Any] = {}
+
+    # When cached_content is used, do NOT add tools, tool_config, or system_instruction
+    # These should already be part of the cache. Adding them causes 400 INVALID_ARGUMENT.
+    # See: https://ai.google.dev/gemini-api/docs/caching
+    if user_cached_content is None:
+        base_config["system_instruction"] = system_message
+        base_config["tools"] = [types.Tool(function_declarations=[function_definition])]
+        base_config["tool_config"] = types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(
-                mode="ANY", allowed_function_names=[response_model.__name__]
+                mode=types.FunctionCallingConfigMode.ANY,
+                allowed_function_names=[_get_model_name(response_model)],
             ),
-        ),
-    }
+        )
 
-    generation_config = update_genai_kwargs(new_kwargs, base_config)
-
-    new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
+    # Convert messages before building config so we can correctly infer whether
+    # this request includes image content (which affects safety_settings).
     new_kwargs["contents"] = convert_to_genai_messages(new_kwargs["messages"])
 
-    # Extract multimodal content for GenAI
+    # Extract multimodal content for GenAI (autodetect_images may turn URLs into images)
     from ...processing.multimodal import extract_genai_multimodal_content
 
     new_kwargs["contents"] = extract_genai_multimodal_content(
         new_kwargs["contents"], autodetect_images
     )
 
+    generation_config = update_genai_kwargs(new_kwargs, base_config)
+
+    new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
+
     new_kwargs.pop("response_model", None)
     new_kwargs.pop("messages", None)
     new_kwargs.pop("generation_config", None)
     new_kwargs.pop("safety_settings", None)
+    new_kwargs.pop("thinking_config", None)
 
     return response_model, new_kwargs
 
@@ -912,7 +1159,7 @@ def handle_vertexai_parallel_tools(
     """
     from typing import get_args
 
-    from instructor.client_vertexai import vertexai_process_response
+    from ..vertexai.client import vertexai_process_response
     from instructor.dsl.parallel import VertexAIParallelModel
 
     if new_kwargs.get("stream", False):
@@ -933,7 +1180,7 @@ def handle_vertexai_parallel_tools(
 def handle_vertexai_tools(
     response_model: type[Any] | None, new_kwargs: dict[str, Any]
 ) -> tuple[type[Any] | None, dict[str, Any]]:
-    from instructor.client_vertexai import vertexai_process_response
+    from ..vertexai.client import vertexai_process_response
 
     """
     Handle Vertex AI tools mode.
@@ -959,7 +1206,7 @@ def handle_vertexai_tools(
 def handle_vertexai_json(
     response_model: type[Any] | None, new_kwargs: dict[str, Any]
 ) -> tuple[type[Any] | None, dict[str, Any]]:
-    from instructor.client_vertexai import vertexai_process_json_response
+    from instructor.providers.vertexai.client import vertexai_process_json_response
 
     """
     Handle Vertex AI JSON mode.

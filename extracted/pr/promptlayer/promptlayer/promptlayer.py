@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import nest_asyncio
 
+from promptlayer import exceptions as _exceptions
 from promptlayer.groups import AsyncGroupManager, GroupManager
 from promptlayer.promptlayer_base import PromptLayerBase
 from promptlayer.promptlayer_mixins import PromptLayerMixin
@@ -24,6 +25,10 @@ from promptlayer.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_base_url(base_url: Union[str, None]):
+    return base_url or os.environ.get("PROMPTLAYER_BASE_URL", "https://api.promptlayer.com")
 
 
 def is_workflow_results_dict(obj: Any) -> bool:
@@ -50,8 +55,10 @@ def is_workflow_results_dict(obj: Any) -> bool:
 class PromptLayer(PromptLayerMixin):
     def __init__(
         self,
-        api_key: str = None,
+        api_key: Union[str, None] = None,
         enable_tracing: bool = False,
+        base_url: Union[str, None] = None,
+        throw_on_error: bool = True,
     ):
         if api_key is None:
             api_key = os.environ.get("PROMPTLAYER_API_KEY")
@@ -62,11 +69,15 @@ class PromptLayer(PromptLayerMixin):
                 "Please set the PROMPTLAYER_API_KEY environment variable or pass the api_key parameter."
             )
 
+        self.base_url = get_base_url(base_url)
         self.api_key = api_key
-        self.templates = TemplateManager(api_key)
-        self.group = GroupManager(api_key)
-        self.tracer_provider, self.tracer = self._initialize_tracer(api_key, enable_tracing)
-        self.track = TrackManager(api_key)
+        self.throw_on_error = throw_on_error
+        self.templates = TemplateManager(api_key, self.base_url, self.throw_on_error)
+        self.group = GroupManager(api_key, self.base_url, self.throw_on_error)
+        self.tracer_provider, self.tracer = self._initialize_tracer(
+            api_key, self.base_url, self.throw_on_error, enable_tracing
+        )
+        self.track = TrackManager(api_key, self.base_url, self.throw_on_error)
 
     def __getattr__(
         self,
@@ -75,15 +86,18 @@ class PromptLayer(PromptLayerMixin):
         if name == "openai":
             import openai as openai_module
 
-            return PromptLayerBase(openai_module, function_name="openai", api_key=self.api_key, tracer=self.tracer)
+            return PromptLayerBase(
+                self.api_key, self.base_url, openai_module, function_name="openai", tracer=self.tracer
+            )
         elif name == "anthropic":
             import anthropic as anthropic_module
 
             return PromptLayerBase(
+                self.api_key,
+                self.base_url,
                 anthropic_module,
                 function_name="anthropic",
                 provider_type="anthropic",
-                api_key=self.api_key,
                 tracer=self.tracer,
             )
         else:
@@ -97,6 +111,7 @@ class PromptLayer(PromptLayerMixin):
         input_variables,
         group_id,
         pl_run_span_id: Union[str, None] = None,
+        request_start_time: Union[float, None] = None,
     ):
         def _track_request(**body):
             track_request_kwargs = self._prepare_track_request_kwargs(
@@ -106,9 +121,10 @@ class PromptLayer(PromptLayerMixin):
                 input_variables,
                 group_id,
                 pl_run_span_id,
+                request_start_time=request_start_time,
                 **body,
             )
-            return track_request(**track_request_kwargs)
+            return track_request(self.base_url, self.throw_on_error, **track_request_kwargs)
 
         return _track_request
 
@@ -128,6 +144,8 @@ class PromptLayer(PromptLayerMixin):
         provider: Union[str, None] = None,
         model: Union[str, None] = None,
     ) -> Dict[str, Any]:
+        import datetime
+
         get_prompt_template_params = self._prepare_get_prompt_template_params(
             prompt_version=prompt_version,
             prompt_release_label=prompt_release_label,
@@ -138,6 +156,12 @@ class PromptLayer(PromptLayerMixin):
             model_parameter_overrides=model_parameter_overrides,
         )
         prompt_blueprint = self.templates.get(prompt_name, get_prompt_template_params)
+        if not prompt_blueprint:
+            raise _exceptions.PromptLayerNotFoundError(
+                f"Prompt template '{prompt_name}' not found.",
+                response=None,
+                body=None,
+            )
         prompt_blueprint_model = self._validate_and_extract_model_from_prompt_blueprint(
             prompt_blueprint=prompt_blueprint, prompt_name=prompt_name
         )
@@ -148,6 +172,9 @@ class PromptLayer(PromptLayerMixin):
             stream=stream,
         )
 
+        # Capture start time before making the LLM request
+        request_start_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
         # response is just whatever the LLM call returns
         # streaming=False > Pydantic model instance
         # streaming=True > generator that yields ChatCompletionChunk pieces as they arrive
@@ -156,6 +183,9 @@ class PromptLayer(PromptLayerMixin):
             client_kwargs=llm_data["client_kwargs"],
             function_kwargs=llm_data["function_kwargs"],
         )
+
+        # Capture end time after the LLM request completes
+        request_end_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
 
         if stream:
             return stream_response(
@@ -166,6 +196,7 @@ class PromptLayer(PromptLayerMixin):
                     input_variables=input_variables,
                     group_id=group_id,
                     pl_run_span_id=pl_run_span_id,
+                    request_start_time=request_start_time,
                 ),
                 map_results=llm_data["stream_function"],
                 metadata=llm_data["prompt_blueprint"]["metadata"],
@@ -184,6 +215,8 @@ class PromptLayer(PromptLayerMixin):
             pl_run_span_id,
             metadata=metadata,
             request_response=request_response,
+            request_start_time=request_start_time,
+            request_end_time=request_end_time,
         )
 
         return {
@@ -212,7 +245,7 @@ class PromptLayer(PromptLayerMixin):
             metadata=metadata,
             **body,
         )
-        return track_request(**track_request_kwargs)
+        return track_request(self.base_url, self.throw_on_error, **track_request_kwargs)
 
     def run(
         self,
@@ -277,12 +310,14 @@ class PromptLayer(PromptLayerMixin):
 
             results = asyncio.run(
                 arun_workflow_request(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                    throw_on_error=self.throw_on_error,
                     workflow_id_or_name=_get_workflow_workflow_id_or_name(workflow_id_or_name, workflow_name),
                     input_variables=input_variables or {},
                     metadata=metadata,
                     workflow_label_name=workflow_label_name,
                     workflow_version_number=workflow_version,
-                    api_key=self.api_key,
                     return_all_outputs=return_all_outputs,
                 )
             )
@@ -290,10 +325,16 @@ class PromptLayer(PromptLayerMixin):
             if not return_all_outputs and is_workflow_results_dict(results):
                 output_nodes = [node_data for node_data in results.values() if node_data.get("is_output_node")]
                 if not output_nodes:
-                    raise Exception("Output nodes not found: %S", json.dumps(results, indent=4))
+                    raise _exceptions.PromptLayerNotFoundError(
+                        f"Output nodes not found: {json.dumps(results, indent=4)}", response=None, body=results
+                    )
 
                 if not any(node.get("status") == "SUCCESS" for node in output_nodes):
-                    raise Exception("None of the output nodes have succeeded", json.dumps(results, indent=4))
+                    raise _exceptions.PromptLayerAPIError(
+                        f"None of the output nodes have succeeded: {json.dumps(results, indent=4)}",
+                        response=None,
+                        body=results,
+                    )
 
             return results
         except Exception as ex:
@@ -301,7 +342,9 @@ class PromptLayer(PromptLayerMixin):
             if RERAISE_ORIGINAL_EXCEPTION:
                 raise
             else:
-                raise Exception(f"Error running workflow: {str(ex)}") from ex
+                raise _exceptions.PromptLayerAPIError(
+                    f"Error running workflow: {str(ex)}", response=None, body=None
+                ) from ex
 
     def log_request(
         self,
@@ -327,9 +370,12 @@ class PromptLayer(PromptLayerMixin):
         score: int = 0,
         prompt_id: Union[int, None] = None,
         score_name: Union[str, None] = None,
+        api_type: Union[str, None] = None,
     ):
         return util_log_request(
             self.api_key,
+            self.base_url,
+            throw_on_error=self.throw_on_error,
             provider=provider,
             model=model,
             input=input,
@@ -349,14 +395,17 @@ class PromptLayer(PromptLayerMixin):
             score=score,
             prompt_id=prompt_id,
             score_name=score_name,
+            api_type=api_type,
         )
 
 
 class AsyncPromptLayer(PromptLayerMixin):
     def __init__(
         self,
-        api_key: str = None,
+        api_key: Union[str, None] = None,
         enable_tracing: bool = False,
+        base_url: Union[str, None] = None,
+        throw_on_error: bool = True,
     ):
         if api_key is None:
             api_key = os.environ.get("PROMPTLAYER_API_KEY")
@@ -367,31 +416,33 @@ class AsyncPromptLayer(PromptLayerMixin):
                 "Please set the PROMPTLAYER_API_KEY environment variable or pass the api_key parameter."
             )
 
+        self.base_url = get_base_url(base_url)
         self.api_key = api_key
-        self.templates = AsyncTemplateManager(api_key)
-        self.group = AsyncGroupManager(api_key)
-        self.tracer_provider, self.tracer = self._initialize_tracer(api_key, enable_tracing)
-        self.track = AsyncTrackManager(api_key)
+        self.throw_on_error = throw_on_error
+        self.templates = AsyncTemplateManager(api_key, self.base_url, self.throw_on_error)
+        self.group = AsyncGroupManager(api_key, self.base_url, self.throw_on_error)
+        self.tracer_provider, self.tracer = self._initialize_tracer(
+            api_key, self.base_url, self.throw_on_error, enable_tracing
+        )
+        self.track = AsyncTrackManager(api_key, self.base_url, self.throw_on_error)
 
     def __getattr__(self, name: Union[Literal["openai"], Literal["anthropic"], Literal["prompts"]]):
         if name == "openai":
             import openai as openai_module
 
             openai = PromptLayerBase(
-                openai_module,
-                function_name="openai",
-                api_key=self.api_key,
-                tracer=self.tracer,
+                self.api_key, self.base_url, openai_module, function_name="openai", tracer=self.tracer
             )
             return openai
         elif name == "anthropic":
             import anthropic as anthropic_module
 
             anthropic = PromptLayerBase(
+                self.api_key,
+                self.base_url,
                 anthropic_module,
                 function_name="anthropic",
                 provider_type="anthropic",
-                api_key=self.api_key,
                 tracer=self.tracer,
             )
             return anthropic
@@ -413,12 +464,14 @@ class AsyncPromptLayer(PromptLayerMixin):
     ) -> Union[Dict[str, Any], Any]:
         try:
             return await arun_workflow_request(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                throw_on_error=self.throw_on_error,
                 workflow_id_or_name=_get_workflow_workflow_id_or_name(workflow_id_or_name, workflow_name),
                 input_variables=input_variables or {},
                 metadata=metadata,
                 workflow_label_name=workflow_label_name,
                 workflow_version_number=workflow_version,
-                api_key=self.api_key,
                 return_all_outputs=return_all_outputs,
             )
         except Exception as ex:
@@ -426,7 +479,9 @@ class AsyncPromptLayer(PromptLayerMixin):
             if RERAISE_ORIGINAL_EXCEPTION:
                 raise
             else:
-                raise Exception(f"Error running workflow: {str(ex)}")
+                raise _exceptions.PromptLayerAPIError(
+                    f"Error running workflow: {str(ex)}", response=None, body=None
+                ) from ex
 
     async def run(
         self,
@@ -491,6 +546,8 @@ class AsyncPromptLayer(PromptLayerMixin):
     ):
         return await autil_log_request(
             self.api_key,
+            self.base_url,
+            throw_on_error=self.throw_on_error,
             provider=provider,
             model=model,
             input=input,
@@ -519,6 +576,7 @@ class AsyncPromptLayer(PromptLayerMixin):
         input_variables,
         group_id,
         pl_run_span_id: Union[str, None] = None,
+        request_start_time: Union[float, None] = None,
     ):
         async def _track_request(**body):
             track_request_kwargs = self._prepare_track_request_kwargs(
@@ -528,9 +586,10 @@ class AsyncPromptLayer(PromptLayerMixin):
                 input_variables,
                 group_id,
                 pl_run_span_id,
+                request_start_time=request_start_time,
                 **body,
             )
-            return await atrack_request(**track_request_kwargs)
+            return await atrack_request(self.base_url, self.throw_on_error, **track_request_kwargs)
 
         return _track_request
 
@@ -554,7 +613,7 @@ class AsyncPromptLayer(PromptLayerMixin):
             metadata=metadata,
             **body,
         )
-        return await atrack_request(**track_request_kwargs)
+        return await atrack_request(self.base_url, self.throw_on_error, **track_request_kwargs)
 
     async def _run_internal(
         self,
@@ -572,6 +631,8 @@ class AsyncPromptLayer(PromptLayerMixin):
         provider: Union[str, None] = None,
         model: Union[str, None] = None,
     ) -> Dict[str, Any]:
+        import datetime
+
         get_prompt_template_params = self._prepare_get_prompt_template_params(
             prompt_version=prompt_version,
             prompt_release_label=prompt_release_label,
@@ -582,6 +643,12 @@ class AsyncPromptLayer(PromptLayerMixin):
             model_parameter_overrides=model_parameter_overrides,
         )
         prompt_blueprint = await self.templates.get(prompt_name, get_prompt_template_params)
+        if not prompt_blueprint:
+            raise _exceptions.PromptLayerNotFoundError(
+                f"Prompt template '{prompt_name}' not found.",
+                response=None,
+                body=None,
+            )
         prompt_blueprint_model = self._validate_and_extract_model_from_prompt_blueprint(
             prompt_blueprint=prompt_blueprint, prompt_name=prompt_name
         )
@@ -593,11 +660,17 @@ class AsyncPromptLayer(PromptLayerMixin):
             is_async=True,
         )
 
+        # Capture start time before making the LLM request
+        request_start_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
         response = await llm_data["request_function"](
             prompt_blueprint=llm_data["prompt_blueprint"],
             client_kwargs=llm_data["client_kwargs"],
             function_kwargs=llm_data["function_kwargs"],
         )
+
+        # Capture end time after the LLM request completes
+        request_end_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
 
         if hasattr(response, "model_dump"):
             request_response = response.model_dump(mode="json")
@@ -611,6 +684,7 @@ class AsyncPromptLayer(PromptLayerMixin):
                 input_variables=input_variables,
                 group_id=group_id,
                 pl_run_span_id=pl_run_span_id,
+                request_start_time=request_start_time,
             )
             return astream_response(
                 request_response,
@@ -627,10 +701,12 @@ class AsyncPromptLayer(PromptLayerMixin):
             pl_run_span_id,
             metadata=metadata,
             request_response=request_response,
+            request_start_time=request_start_time,
+            request_end_time=request_end_time,
         )
 
         return {
             "request_id": request_log.get("request_id", None),
-            "raw_response": request_response,
+            "raw_response": response,
             "prompt_blueprint": request_log.get("prompt_blueprint", None),
         }

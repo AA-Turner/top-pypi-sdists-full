@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixed the shell command to use the correct created virtual environment
-    instead of always defaulting to the base one.

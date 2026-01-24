@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strongtyping
-Version: 3.13.3
+Version: 3.13.4
 Summary: Decorator which checks whether the function is called with the correct type of parameters
 Author-email: FelixTheC <fberndt87@gmail.com>
 License: MIT License

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = """
 module: acme_certificate_order_create
 author: Felix Fontein (@felixfontein)
@@ -14,9 +13,9 @@ short_description: Create an ACME v2 order
 description:
   - Creates an ACME v2 order. This is the first step of obtaining a new certificate
     with the L(ACME protocol,https://tools.ietf.org/html/rfc8555) from a Certificate
-    Authority such as L(Let's Encrypt,https://letsencrypt.org/) or
-    L(Buypass,https://www.buypass.com/). This module does not  support ACME v1, the
-    original version of the ACME protocol before standardization.
+    Authority such as L(Let's Encrypt,https://letsencrypt.org/).
+    This module does not support ACME v1, the original version of the ACME protocol
+    before standardization.
   - The current implementation supports the V(http-01), V(dns-01) and V(tls-alpn-01)
     challenges.
   - This module needs to be used in conjunction with the
@@ -55,10 +54,6 @@ seealso:
     description: Documentation for the Let's Encrypt Certification Authority.
                  Provides useful information for example on rate limits.
     link: https://letsencrypt.org/docs/
-  - name: Buypass Go SSL
-    description: Documentation for the Buypass Certification Authority.
-                 Provides useful information for example on rate limits.
-    link: https://www.buypass.com/ssl/products/acme
   - name: Automatic Certificate Management Environment (ACME)
     description: The specification of the ACME protocol (RFC 8555).
     link: https://tools.ietf.org/html/rfc8555
@@ -273,6 +268,7 @@ challenge_data:
     challenges:
       description:
         - Information for different challenge types supported for this identifier.
+        - Note that the keys are not valid Jinja2 identifiers.
       type: dict
       contains:
         http-01:

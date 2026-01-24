@@ -41,7 +41,7 @@ class PingTask:
     """
     _event: Event
     _current_task: Task
-    _timeout: float
+    timeout: float
     _interval: float
     _plugin: 'XEP_0410'
 
@@ -50,7 +50,7 @@ class PingTask:
         self._event = Event()
         self._plugin = plugin
         self._interval = interval
-        self._timeout = timeout
+        self.timeout = timeout
         self._current_task = plugin.xmpp.loop.create_task(self.run(
             muc_resource,
             orig_jid,
@@ -86,7 +86,7 @@ class PingTask:
                 result = await self._plugin.send_self_ping(
                     muc_resource,
                     orig_jid,
-                    timeout=self._timeout,
+                    timeout=self.timeout,
                 )
                 key = (muc_resource, orig_jid)
                 self._plugin._update_ping_results(key, result)

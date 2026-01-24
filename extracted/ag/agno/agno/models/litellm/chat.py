@@ -1,3 +1,4 @@
+import copy
 import json
 from dataclasses import dataclass
 from os import getenv
@@ -10,8 +11,10 @@ from agno.models.message import Message
 from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse
 from agno.run.agent import RunOutput
+from agno.tools.function import Function
 from agno.utils.log import log_debug, log_error, log_warning
 from agno.utils.openai import _format_file_for_message, audio_to_message, images_to_message
+from agno.utils.tokens import count_schema_tokens
 
 try:
     import litellm
@@ -38,13 +41,25 @@ class LiteLLM(Model):
     max_tokens: Optional[int] = None
     temperature: float = 0.7
     top_p: float = 1.0
+    metadata: Optional[Dict[str, Any]] = None
+    extra_headers: Optional[Dict[str, Any]] = None
+    extra_query: Optional[Dict[str, Any]] = None
+    extra_body: Optional[Dict[str, Any]] = None
     request_params: Optional[Dict[str, Any]] = None
 
     client: Optional[Any] = None
 
+    # Store the original client to preserve it across copies (e.g., for Router instances)
+    _original_client: Optional[Any] = None
+
     def __post_init__(self):
         """Initialize the model after the dataclass initialization."""
         super().__post_init__()
+
+        # Store the original client if provided (e.g., Router instance)
+        # This ensures the client is preserved when the model is copied for background tasks
+        if self.client is not None and self._original_client is None:
+            self._original_client = self.client
 
         # Set up API key from environment variable if not already set
         if not self.client and not self.api_key:
@@ -53,8 +68,8 @@ class LiteLLM(Model):
                 # Check for other present valid keys, e.g. OPENAI_API_KEY if self.id is an OpenAI model
                 env_validation = validate_environment(model=self.id, api_base=self.api_base)
                 if not env_validation.get("keys_in_environment"):
-                    log_warning(
-                        "Missing required key. Please set the LITELLM_API_KEY or other valid environment variables."
+                    log_error(
+                        "LITELLM_API_KEY not set. Please set the LITELLM_API_KEY or other valid environment variables."
                     )
 
     def get_client(self) -> Any:
@@ -64,17 +79,52 @@ class LiteLLM(Model):
         Returns:
             Any: An instance of the LiteLLM client.
         """
+        # First check if we have a current client
         if self.client is not None:
+            return self.client
+
+        # Check if we have an original client (e.g., Router) that was preserved
+        # This handles the case where the model was copied for background tasks
+        if self._original_client is not None:
+            self.client = self._original_client
             return self.client
 
         self.client = litellm
         return self.client
 
-    def _format_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "LiteLLM":
+        """
+        Custom deepcopy to preserve the client (e.g., Router) across copies.
+
+        This is needed because when the model is copied for background tasks
+        (memory, summarization), the client reference needs to be preserved.
+        """
+        # Create a shallow copy first
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+
+        # Copy all attributes, but keep the same client reference
+        for k, v in self.__dict__.items():
+            if k in ("client", "_original_client"):
+                # Keep the same client reference (don't deepcopy Router instances)
+                setattr(result, k, v)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+
+        return result
+
+    def _format_messages(self, messages: List[Message], compress_tool_results: bool = False) -> List[Dict[str, Any]]:
         """Format messages for LiteLLM API."""
         formatted_messages = []
         for m in messages:
-            msg = {"role": m.role, "content": m.content if m.content is not None else ""}
+            # Use compressed content for tool messages if compression is active
+            if m.role == "tool":
+                content = m.get_content(use_compressed_content=compress_tool_results)
+            else:
+                content = m.content if m.content is not None else ""
+
+            msg = {"role": m.role, "content": content}
 
             # Handle media
             if (m.images is not None and len(m.images) > 0) or (m.audio is not None and len(m.audio) > 0):
@@ -94,7 +144,7 @@ class LiteLLM(Model):
                 if isinstance(msg["content"], str):
                     content_list = [{"type": "text", "text": msg["content"]}]
                 else:
-                    content_list = msg["content"]
+                    content_list = msg["content"] if isinstance(msg["content"], list) else []
                 for file in m.files:
                     file_part = _format_file_for_message(file)
                     if file_part:
@@ -148,9 +198,22 @@ class LiteLLM(Model):
             base_params["api_key"] = self.api_key
         if self.api_base:
             base_params["api_base"] = self.api_base
+        if self.extra_headers:
+            base_params["extra_headers"] = self.extra_headers
+        if self.extra_query:
+            base_params["extra_query"] = self.extra_query
         if tools:
             base_params["tools"] = tools
             base_params["tool_choice"] = "auto"
+
+        # Handle metadata via extra_body as per LiteLLM docs
+        if self.metadata:
+            if self.extra_body:
+                base_params["extra_body"] = {**self.extra_body, "metadata": self.metadata}
+            else:
+                base_params["extra_body"] = {"metadata": self.metadata}
+        elif self.extra_body:
+            base_params["extra_body"] = self.extra_body
 
         # Add additional request params if provided
         request_params: Dict[str, Any] = {k: v for k, v in base_params.items() if v is not None}
@@ -169,10 +232,11 @@ class LiteLLM(Model):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         run_response: Optional[RunOutput] = None,
+        compress_tool_results: bool = False,
     ) -> ModelResponse:
         """Sends a chat completion request to the LiteLLM API."""
         completion_kwargs = self.get_request_params(tools=tools)
-        completion_kwargs["messages"] = self._format_messages(messages)
+        completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
 
         if run_response and run_response.metrics:
             run_response.metrics.set_time_to_first_token()
@@ -194,10 +258,11 @@ class LiteLLM(Model):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         run_response: Optional[RunOutput] = None,
+        compress_tool_results: bool = False,
     ) -> Iterator[ModelResponse]:
         """Sends a streaming chat completion request to the LiteLLM API."""
         completion_kwargs = self.get_request_params(tools=tools)
-        completion_kwargs["messages"] = self._format_messages(messages)
+        completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
         completion_kwargs["stream"] = True
         completion_kwargs["stream_options"] = {"include_usage": True}
 
@@ -219,10 +284,11 @@ class LiteLLM(Model):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         run_response: Optional[RunOutput] = None,
+        compress_tool_results: bool = False,
     ) -> ModelResponse:
         """Sends an asynchronous chat completion request to the LiteLLM API."""
         completion_kwargs = self.get_request_params(tools=tools)
-        completion_kwargs["messages"] = self._format_messages(messages)
+        completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
 
         if run_response and run_response.metrics:
             run_response.metrics.set_time_to_first_token()
@@ -244,10 +310,11 @@ class LiteLLM(Model):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         run_response: Optional[RunOutput] = None,
+        compress_tool_results: bool = False,
     ) -> AsyncIterator[ModelResponse]:
         """Sends an asynchronous streaming chat request to the LiteLLM API."""
         completion_kwargs = self.get_request_params(tools=tools)
-        completion_kwargs["messages"] = self._format_messages(messages)
+        completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
         completion_kwargs["stream"] = True
         completion_kwargs["stream_options"] = {"include_usage": True}
 
@@ -278,6 +345,9 @@ class LiteLLM(Model):
         if response_message.content is not None:
             model_response.content = response_message.content
 
+        if hasattr(response_message, "reasoning_content") and response_message.reasoning_content is not None:
+            model_response.reasoning_content = response_message.reasoning_content
+
         if hasattr(response_message, "tool_calls") and response_message.tool_calls:
             model_response.tool_calls = []
             for tool_call in response_message.tool_calls:
@@ -304,6 +374,9 @@ class LiteLLM(Model):
             if choice_delta:
                 if hasattr(choice_delta, "content") and choice_delta.content is not None:
                     model_response.content = choice_delta.content
+
+                if hasattr(choice_delta, "reasoning_content") and choice_delta.reasoning_content is not None:
+                    model_response.reasoning_content = choice_delta.reasoning_content
 
                 if hasattr(choice_delta, "tool_calls") and choice_delta.tool_calls:
                     processed_tool_calls = []
@@ -449,3 +522,26 @@ class LiteLLM(Model):
         metrics.total_tokens = metrics.input_tokens + metrics.output_tokens
 
         return metrics
+
+    def count_tokens(
+        self,
+        messages: List[Message],
+        tools: Optional[List[Union[Function, Dict[str, Any]]]] = None,
+        response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
+    ) -> int:
+        formatted_messages = self._format_messages(messages, compress_tool_results=True)
+        formatted_tools = self._format_tools(tools) if tools else None
+        tokens = litellm.token_counter(
+            model=self.id,
+            messages=formatted_messages,
+            tools=formatted_tools,  # type: ignore
+        )
+        return tokens + count_schema_tokens(response_format, self.id)
+
+    async def acount_tokens(
+        self,
+        messages: List[Message],
+        tools: Optional[List[Union[Function, Dict[str, Any]]]] = None,
+        response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
+    ) -> int:
+        return self.count_tokens(messages, tools, response_format)

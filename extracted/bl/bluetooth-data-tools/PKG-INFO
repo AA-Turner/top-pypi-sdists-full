@@ -1,14 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: bluetooth-data-tools
-Version: 1.28.2
+Version: 1.28.4
 Summary: Tools for converting bluetooth data and packets
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
 Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: docs
 Requires-Dist: Sphinx (>=5,<9) ; extra == "docs"

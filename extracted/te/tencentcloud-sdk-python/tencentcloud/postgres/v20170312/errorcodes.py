@@ -53,6 +53,12 @@ FAILEDOPERATION_CAMSIGANDAUTHERROR = 'FailedOperation.CamSigAndAuthError'
 # 获取项目信息失败，请稍后重试。如果持续不成功，请联系客服进行处理。
 FAILEDOPERATION_CDBCGWCONNECTERROR = 'FailedOperation.CdbCgwConnectError'
 
+# 检查数据库账号状态错误：账号已开启CAM验证，不支持当前操作。
+FAILEDOPERATION_CHECKACCOUNTCAMCLOSEERROR = 'FailedOperation.CheckAccountCAMCloseError'
+
+# 检查数据库账号状态错误：账号未开启CAM验证，不支持当前操作。
+FAILEDOPERATION_CHECKACCOUNTCAMOPENERROR = 'FailedOperation.CheckAccountCAMOpenError'
+
 # 不支持新增基础网络。
 FAILEDOPERATION_CREATEBASICNETWORKDENIEDERROR = 'FailedOperation.CreateBasicNetworkDeniedError'
 
@@ -251,6 +257,9 @@ INTERNALERROR_DFWERROR = 'InternalError.DfwError'
 # 流程创建失败。
 INTERNALERROR_FLOWERROR = 'InternalError.FlowError'
 
+# 服务异常，请稍后重试。
+INTERNALERROR_HTTPERROR = 'InternalError.HttpError'
+
 # 管控系统元数据访问异常，请联系客服处理。
 INTERNALERROR_INSTANCEDATAERROR = 'InternalError.InstanceDataError'
 
@@ -437,6 +446,9 @@ INVALIDPARAMETERVALUE_SPECNOTRECOGNIZEDERROR = 'InvalidParameterValue.SpecNotRec
 # 解析参数出错。
 INVALIDPARAMETERVALUE_STRUCTPARSEFAILED = 'InvalidParameterValue.StructParseFailed'
 
+# 传入地域不支持使用本接口功能。
+INVALIDPARAMETERVALUE_UNSUPPORTEDREGIONERROR = 'InvalidParameterValue.UnsupportedRegionError'
+
 # PID参数输入错误。
 INVALIDPID = 'InvalidPid'
 
@@ -503,6 +515,9 @@ OPERATIONDENIED_TRADEPERMISSIONERROR = 'OperationDenied.TradePermissionError'
 # 用户未进行实名认证，请先进行实名认证才可购买。
 OPERATIONDENIED_USERNOTAUTHENTICATEDERROR = 'OperationDenied.UserNotAuthenticatedError'
 
+# 用户不在白名单内。
+OPERATIONDENIED_USERNOTINWHITELISTERROR = 'OperationDenied.UserNotInWhiteListError'
+
 # 您没有权限操作该VPC网络。
 OPERATIONDENIED_VPCDENIEDERROR = 'OperationDenied.VpcDeniedError'
 
@@ -541,6 +556,9 @@ UNKNOWNERROR = 'UnknownError'
 
 # 未知参数错误。
 UNKNOWNPARAMETER = 'UnknownParameter'
+
+# 服务异常，请稍后重试。
+UNKNOWNPARAMETER_HTTPERROR = 'UnknownParameter.HttpError'
 
 # 操作不支持。
 UNSUPPORTEDOPERATION = 'UnsupportedOperation'

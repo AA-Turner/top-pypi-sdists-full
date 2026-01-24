@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 import types
-from typing import Any, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -26,14 +26,14 @@ except Exception:
     _import_failed = True
 
 # Module-level shared state
-_weave_calls_map: dict[Union[str, tuple[Optional[str], str]], Call] = {}
-_weave_client_instance: Optional[WeaveClient] = None
+_weave_calls_map: dict[str | tuple[str | None, str], Call] = {}
+_weave_client_instance: WeaveClient | None = None
 _accumulators: dict[str, list[Any]] = {}
 
 logger = logging.getLogger(__name__)
 
 
-def get_weave_client() -> Optional[WeaveClient]:
+def get_weave_client() -> WeaveClient | None:
     """Get the weave client, returning None if weave hasn't been initialized."""
     global _weave_client_instance
     if _weave_client_instance is None:
@@ -114,6 +114,48 @@ def _get_op_name_from_span(span_id: str) -> str:
     return f"llama_index.span.{op_name_base}"
 
 
+def _get_kind_for_span(op_name: str) -> str | None:
+    """Determine the OpKind for a span based on its operation name."""
+    op_name_lower = op_name.lower()
+    # LLM-related operations
+    # See https://docs.llamaindex.ai/en/stable/api_reference/llms/ for LLM operation names
+    if any(
+        llm_indicator in op_name_lower
+        for llm_indicator in [
+            "stream_complete",
+            "astream_complete",
+            "stream_chat",
+            "astream_chat",
+            "complete",
+            "chat",
+            "llm",
+            "predict",
+        ]
+    ):
+        return "llm"
+    # Retrieval operations
+    # See https://docs.llamaindex.ai/en/stable/api_reference/retrievers/ for retrieval operation names
+    if any(
+        retrieval_indicator in op_name_lower
+        for retrieval_indicator in ["retrieve", "search", "query"]
+    ):
+        return "search"
+    return None
+
+
+def _get_kind_for_event(base_event_name: str) -> str | None:
+    """Determine the OpKind for an event based on its base name."""
+    event_to_kind = {
+        "LLMCompletion": "llm",
+        "LLMChat": "llm",
+        "LLMPredict": "llm",
+        "Embedding": "llm",
+        "Retrieval": "search",
+        "Reranking": "search",
+    }
+    return event_to_kind.get(base_event_name)
+
+
 if not _import_failed:
 
     class WeaveSpanHandler(BaseSpanHandler[Any]):  # pyright: ignore[reportRedeclaration]
@@ -188,9 +230,9 @@ if not _import_failed:
             self,
             id_: str,
             bound_args: Any,
-            instance: Optional[Any] = None,
-            parent_span_id: Optional[str] = None,
-            tags: Optional[dict[str, Any]] = None,
+            instance: Any | None = None,
+            parent_span_id: str | None = None,
+            tags: dict[str, Any] | None = None,
             **kwargs: Any,
         ) -> None:
             """Creates a Weave call when a LlamaIndex span starts."""
@@ -226,7 +268,13 @@ if not _import_failed:
             )
 
             try:
-                call = gc.create_call(op_name, inputs, parent_call)
+                # Determine kind based on operation name
+                kind = _get_kind_for_span(op_name)
+                span_attributes = {"weave": {"kind": kind}} if kind else None
+
+                call = gc.create_call(
+                    op_name, inputs, parent_call, attributes=span_attributes
+                )
                 _weave_calls_map[id_] = call  # Store by full span ID
                 # we store the spans that are streaming in nature as a dict of id_ to call
                 if self._is_streaming:
@@ -239,8 +287,8 @@ if not _import_failed:
         def _prepare_to_exit_or_drop(
             self,
             id_: str,
-            result: Optional[Any] = None,
-            err: Optional[BaseException] = None,
+            result: Any | None = None,
+            err: BaseException | None = None,
         ) -> None:
             """Common logic for finishing a Weave call for a LlamaIndex span."""
             gc = get_weave_client()
@@ -295,8 +343,8 @@ if not _import_failed:
             self,
             id_: str,
             bound_args: Any,
-            instance: Optional[Any] = None,
-            result: Optional[Any] = None,
+            instance: Any | None = None,
+            result: Any | None = None,
             **kwargs: Any,
         ) -> Any:
             """Finishes the Weave call when a LlamaIndex span exits successfully."""
@@ -307,8 +355,8 @@ if not _import_failed:
             self,
             id_: str,
             bound_args: Any,
-            instance: Optional[Any] = None,
-            err: Optional[BaseException] = None,
+            instance: Any | None = None,
+            err: BaseException | None = None,
             **kwargs: Any,
         ) -> Any:
             """Finishes the Weave call with an error when a LlamaIndex span is dropped."""
@@ -349,12 +397,16 @@ if not _import_failed:
             is_progress_event = event_class_name.endswith("InProgressEvent")
 
             # Key for pairing start and end events.
-            event_pairing_key: tuple[Optional[str], str] = (event.span_id, op_name)
+            event_pairing_key: tuple[str | None, str] = (event.span_id, op_name)
 
             try:
                 raw_event_payload = event.model_dump(exclude_none=True)
             except Exception:
                 raw_event_payload = {"detail": str(event)}
+
+            # Determine kind based on event name
+            kind = _get_kind_for_event(base_event_name)
+            event_attributes = {"weave": {"kind": kind}} if kind else None
 
             try:
                 if is_start_event:
@@ -362,7 +414,10 @@ if not _import_failed:
                     parent_call_for_event = _weave_calls_map.get(event.span_id)
                     # Create a new call for the start event
                     call = gc.create_call(
-                        op_name, raw_event_payload, parent_call_for_event
+                        op_name,
+                        raw_event_payload,
+                        parent_call_for_event,
+                        attributes=event_attributes,
                     )
                     _weave_calls_map[event_pairing_key] = call
 
@@ -377,7 +432,10 @@ if not _import_failed:
                         progress_event_key = (event.span_id, progress_op_name)
                         # Create InProgress call as child of LLM start event
                         progress_call = gc.create_call(
-                            progress_op_name, raw_event_payload, call
+                            progress_op_name,
+                            raw_event_payload,
+                            call,
+                            attributes=event_attributes,
                         )
                         _weave_calls_map[progress_event_key] = progress_call
                         # Update accumulator to point to the pre-created progress call
@@ -426,7 +484,10 @@ if not _import_failed:
                     else:
                         # No matching start event found, create a standalone call
                         call = gc.create_call(
-                            op_name, raw_event_payload, parent_call_for_event
+                            op_name,
+                            raw_event_payload,
+                            parent_call_for_event,
+                            attributes=event_attributes,
                         )
                         gc.finish_call(call, raw_event_payload)
 
@@ -458,7 +519,10 @@ if not _import_failed:
                     parent_call_for_event = _weave_calls_map.get(event.span_id)
                     # Handle non-start/end events as instantaneous events
                     call = gc.create_call(
-                        op_name, raw_event_payload, parent_call_for_event
+                        op_name,
+                        raw_event_payload,
+                        parent_call_for_event,
+                        attributes=event_attributes,
                     )
                     gc.finish_call(call, raw_event_payload)
             except Exception as e:
@@ -480,11 +544,11 @@ class LLamaIndexPatcher(Patcher):  # pyright: ignore[reportRedeclaration]
 
     def __init__(self) -> None:
         super().__init__()
-        self.dispatcher: Optional[Any] = None
-        self._original_event_handlers: Optional[list[BaseEventHandler]] = None
-        self._original_span_handlers: Optional[list[BaseSpanHandler[Any]]] = None
-        self.weave_event_handler: Optional[WeaveEventHandler] = None
-        self.weave_span_handler: Optional[WeaveSpanHandler] = None
+        self.dispatcher: Any | None = None
+        self._original_event_handlers: list[BaseEventHandler] | None = None
+        self._original_span_handlers: list[BaseSpanHandler[Any]] | None = None
+        self.weave_event_handler: WeaveEventHandler | None = None
+        self.weave_span_handler: WeaveSpanHandler | None = None
 
     def attempt_patch(self) -> bool:
         """Attempts to patch LlamaIndex instrumentation and set up Weave handlers."""

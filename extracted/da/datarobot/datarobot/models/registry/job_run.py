@@ -60,20 +60,16 @@ class JobRun(APIObject):
         The duration of the job run.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("custom_job_id"): String(),
-            t.Key("description", optional=True): t.Or(
-                String(max_length=10000, allow_blank=True), t.Null()
-            ),
-            t.Key("created") >> "created_at": String(),
-            t.Key("items"): t.List(JobFileItem.schema),
-            t.Key("status"): t.Enum(*[e.value for e in JobRunStatus]),
-            t.Key("duration"): t.Float(),
-            t.Key("runtime_parameters", optional=True): t.List(RuntimeParameter.schema),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("custom_job_id"): String(),
+        t.Key("description", optional=True): t.Or(String(max_length=10000, allow_blank=True), t.Null()),
+        t.Key("created") >> "created_at": String(),
+        t.Key("items"): t.List(JobFileItem.schema),
+        t.Key("status"): t.Enum(*[e.value for e in JobRunStatus]),
+        t.Key("duration"): t.Float(),
+        t.Key("runtime_parameters", optional=True): t.List(RuntimeParameter.schema),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -178,9 +174,7 @@ class JobRun(APIObject):
         payload = {}
 
         if runtime_parameter_values:
-            payload["runtimeParameterValues"] = [
-                param.to_dict() for param in runtime_parameter_values
-            ]
+            payload["runtimeParameterValues"] = [param.to_dict() for param in runtime_parameter_values]
 
         response = cls._client.post(path, data=payload)
 

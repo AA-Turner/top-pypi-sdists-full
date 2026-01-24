@@ -26,26 +26,15 @@ def bvh(
 ) -> None:
     """Load a BVH motion capture file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Filepath used for importing the file
-        :type filepath: str
         :param filter_glob: filter_glob
-        :type filter_glob: str
         :param target: Target, Import target type
-        :type target: typing.Literal['ARMATURE','OBJECT'] | None
         :param global_scale: Scale, Scale the BVH by this value
-        :type global_scale: float | None
         :param frame_start: Start Frame, Starting frame for the animation
-        :type frame_start: int | None
-        :param use_fps_scale: Scale FPS, Scale the framerate from the BVH to the current scenes, otherwise each BVH frame maps directly to a Blender frame
-        :type use_fps_scale: bool | None
-        :param update_scene_fps: Update Scene FPS, Set the scene framerate to that of the BVH file (note that this nullifies the Scale FPS option, as the scale will be 1:1)
-        :type update_scene_fps: bool | None
+        :param use_fps_scale: Scale FPS, Scale the frame-rate from the BVH to the current scenes, otherwise each BVH frame maps directly to a Blender frame
+        :param update_scene_fps: Update Scene FPS, Set the scene frame-rate to that of the BVH file (note that this nullifies the Scale FPS option, as the scale will be 1:1)
         :param update_scene_duration: Update Scene Duration, Extend the scenes duration to the BVH duration (never shortens the scene)
-        :type update_scene_duration: bool | None
         :param use_cyclic: Loop, Loop the animation playback
-        :type use_cyclic: bool | None
         :param rotate_mode: Rotation, Rotation conversion
 
     QUATERNION
@@ -71,9 +60,6 @@ def bvh(
 
     ZYX
     Euler (ZYX) -- Convert rotations to euler ZYX.
-        :type rotate_mode: typing.Literal['QUATERNION','NATIVE','XYZ','XZY','YXZ','YZX','ZXY','ZYX'] | None
         :param axis_forward: Forward
-        :type axis_forward: typing.Literal['X','Y','Z','-X','-Y','-Z'] | None
         :param axis_up: Up
-        :type axis_up: typing.Literal['X','Y','Z','-X','-Y','-Z'] | None
     """

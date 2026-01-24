@@ -54,15 +54,13 @@ class CustomTaskFileItem(CustomModelFileItem):
         ISO-8601 formatted timestamp of when the version was created
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("file_name"): String(),
-            t.Key("file_path"): String(),
-            t.Key("file_source"): String(),
-            t.Key("created") >> "created_at": String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("file_name"): String(),
+        t.Key("file_path"): String(),
+        t.Key("file_source"): String(),
+        t.Key("created") >> "created_at": String(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -111,29 +109,25 @@ class CustomTaskVersion(APIObject):
     _dependency_build_path = "customTasks/{}/versions/{}/dependencyBuild/"
     _dependency_build_log_path = "customTasks/{}/versions/{}/dependencyBuildLog/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("custom_task_id"): String(),
-            t.Key("version_major"): Int(),
-            t.Key("version_minor"): Int(),
-            t.Key("label"): String(),
-            t.Key("created") >> "created_at": String(),
-            t.Key("is_frozen"): t.Bool(),
-            t.Key("items"): t.List(CustomTaskFileItem.schema),
-            # because `from_server_data` scrubs Nones, this must be optional here.
-            t.Key("description", optional=True): t.Or(
-                String(max_length=10000, allow_blank=True), t.Null()
-            ),
-            t.Key("maximum_memory", optional=True): Int(),
-            t.Key("base_environment_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("base_environment_version_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("dependencies", optional=True): t.List(CustomDependency.schema),
-            t.Key("required_metadata_values", optional=True): t.List(RequiredMetadataValue.schema),
-            t.Key("arguments", optional=True): t.List(UserBlueprintTaskArgument_),
-            t.Key("outbound_network_policy"): t.Enum("ISOLATED", "PUBLIC"),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("custom_task_id"): String(),
+        t.Key("version_major"): Int(),
+        t.Key("version_minor"): Int(),
+        t.Key("label"): String(),
+        t.Key("created") >> "created_at": String(),
+        t.Key("is_frozen"): t.Bool(),
+        t.Key("items"): t.List(CustomTaskFileItem.schema),
+        # because `from_server_data` scrubs Nones, this must be optional here.
+        t.Key("description", optional=True): t.Or(String(max_length=10000, allow_blank=True), t.Null()),
+        t.Key("maximum_memory", optional=True): Int(),
+        t.Key("base_environment_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("base_environment_version_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("dependencies", optional=True): t.List(CustomDependency.schema),
+        t.Key("required_metadata_values", optional=True): t.List(RequiredMetadataValue.schema),
+        t.Key("arguments", optional=True): t.List(UserBlueprintTaskArgument_),
+        t.Key("outbound_network_policy"): t.Enum("ISOLATED", "PUBLIC"),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -172,17 +166,13 @@ class CustomTaskVersion(APIObject):
 
         self.maximum_memory = maximum_memory
         self.required_metadata_values = (
-            [RequiredMetadataValue(**val) for val in required_metadata_values]
-            if required_metadata_values
-            else None
+            [RequiredMetadataValue(**val) for val in required_metadata_values] if required_metadata_values else None
         )
         self.base_environment_id = base_environment_id
         self.base_environment_version_id = base_environment_version_id
         self.dependencies = [CustomDependency(**data) for data in dependencies]
         self.arguments = [UserBlueprintTaskArgument(**argument) for argument in arguments]
-        self.outbound_network_policy = CustomTaskOutboundNetworkPolicy.from_string(
-            outbound_network_policy
-        )
+        self.outbound_network_policy = CustomTaskOutboundNetworkPolicy.from_string(outbound_network_policy)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.label or self.id!r})"
@@ -360,17 +350,10 @@ class CustomTaskVersion(APIObject):
             upload_data += [("filesToDelete", file_id) for file_id in files_to_delete]
 
         if required_metadata_values is not None:
-            upload_data.append(
-                (
-                    "requiredMetadataValues",
-                    json.dumps(
-                        [
-                            {camelize(k): v for k, v in val.to_dict().items()}
-                            for val in required_metadata_values
-                        ]
-                    ),
-                )
-            )
+            upload_data.append((
+                "requiredMetadataValues",
+                json.dumps([{camelize(k): v for k, v in val.to_dict().items()} for val in required_metadata_values]),
+            ))
 
         if maximum_memory:
             upload_data.append(("maximumMemory", str(maximum_memory)))
@@ -473,9 +456,7 @@ class CustomTaskVersion(APIObject):
             if the server responded with 5xx status.
         """
 
-        response = self._client.get(
-            self._single_version_path(self.custom_task_id, self.id) + "download/"
-        )
+        response = self._client.get(self._single_version_path(self.custom_task_id, self.id) + "download/")
         with open(file_path, "wb") as f:
             f.write(response.content)
 
@@ -504,9 +485,7 @@ class CustomTaskVersion(APIObject):
             payload.update({"description": description})
 
         if required_metadata_values is not None:
-            payload.update(
-                {"requiredMetadataValues": [val.to_dict() for val in required_metadata_values]}
-            )
+            payload.update({"requiredMetadataValues": [val.to_dict() for val in required_metadata_values]})
 
         url = self._path.format(self.custom_task_id)
         path = f"{url}{self.id}/"

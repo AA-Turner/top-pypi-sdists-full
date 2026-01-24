@@ -3434,7 +3434,7 @@ class RuleGroupRuleStatementRateBasedStatement(dict):
                  forwarded_ip_config: Optional['outputs.RuleGroupRuleStatementRateBasedStatementForwardedIpConfig'] = None,
                  scope_down_statement: Optional['outputs.RuleGroupRuleStatementRateBasedStatementScopeDownStatement'] = None):
         """
-        :param _builtins.int limit: The limit on requests per 5-minute period for a single originating IP address.
+        :param _builtins.int limit: Limit on requests per 5-minute (or `evaluation_window_sec`) period for a single originating IP address (or for other aggregate key, depending on `aggregate_key_type` and `custom_key`).
         :param _builtins.str aggregate_key_type: Setting that indicates how to aggregate the request counts. Valid values include: `CONSTANT`, `CUSTOM_KEYS`, `FORWARDED_IP` or `IP`. Default: `IP`.
         :param Sequence['RuleGroupRuleStatementRateBasedStatementCustomKeyArgs'] custom_keys: Aggregate the request counts using one or more web request components as the aggregate keys. See `custom_key` below for details.
         :param _builtins.int evaluation_window_sec: The amount of time, in seconds, that AWS WAF should include in its request counts, looking back from the current time. Valid values are `60`, `120`, `300`, and `600`. Defaults to `300` (5 minutes).
@@ -3459,7 +3459,7 @@ class RuleGroupRuleStatementRateBasedStatement(dict):
     @pulumi.getter
     def limit(self) -> _builtins.int:
         """
-        The limit on requests per 5-minute period for a single originating IP address.
+        Limit on requests per 5-minute (or `evaluation_window_sec`) period for a single originating IP address (or for other aggregate key, depending on `aggregate_key_type` and `custom_key`).
         """
         return pulumi.get(self, "limit")
 
@@ -20435,10 +20435,7 @@ class WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManag
                  username_field: Optional['outputs.WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionUsernameField'] = None):
         """
         :param _builtins.str payload_type: The payload type for your login endpoint, either JSON or form encoded.
-        :param 'WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionAddressFieldsArgs' address_fields: The names of the fields in the request payload that contain your customer's primary physical address. See `address_fields` for more details.
-        :param 'WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionEmailFieldArgs' email_field: The name of the field in the request payload that contains your customer's email. See `email_field` for more details.
         :param 'WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionPasswordFieldArgs' password_field: Details about your login page password field. See `password_field` for more details.
-        :param 'WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionPhoneNumberFieldsArgs' phone_number_fields: The names of the fields in the request payload that contain your customer's primary phone number. See `phone_number_fields` for more details.
         :param 'WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionUsernameFieldArgs' username_field: Details about your login page username field. See `username_field` for more details.
         """
         pulumi.set(__self__, "payload_type", payload_type)
@@ -20464,17 +20461,11 @@ class WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManag
     @_builtins.property
     @pulumi.getter(name="addressFields")
     def address_fields(self) -> Optional['outputs.WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionAddressFields']:
-        """
-        The names of the fields in the request payload that contain your customer's primary physical address. See `address_fields` for more details.
-        """
         return pulumi.get(self, "address_fields")
 
     @_builtins.property
     @pulumi.getter(name="emailField")
     def email_field(self) -> Optional['outputs.WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionEmailField']:
-        """
-        The name of the field in the request payload that contains your customer's email. See `email_field` for more details.
-        """
         return pulumi.get(self, "email_field")
 
     @_builtins.property
@@ -20488,9 +20479,6 @@ class WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManag
     @_builtins.property
     @pulumi.getter(name="phoneNumberFields")
     def phone_number_fields(self) -> Optional['outputs.WebAclRuleStatementManagedRuleGroupStatementManagedRuleGroupConfigAwsManagedRulesAcfpRuleSetRequestInspectionPhoneNumberFields']:
-        """
-        The names of the fields in the request payload that contain your customer's primary phone number. See `phone_number_fields` for more details.
-        """
         return pulumi.get(self, "phone_number_fields")
 
     @_builtins.property
@@ -28368,7 +28356,7 @@ class WebAclRuleStatementRateBasedStatement(dict):
                  forwarded_ip_config: Optional['outputs.WebAclRuleStatementRateBasedStatementForwardedIpConfig'] = None,
                  scope_down_statement: Optional['outputs.WebAclRuleStatementRateBasedStatementScopeDownStatement'] = None):
         """
-        :param _builtins.int limit: Limit on requests per 5-minute period for a single originating IP address.
+        :param _builtins.int limit: Limit on requests per 5-minute (or `evaluation_window_sec`) period for a single originating IP address (or for other aggregate key, depending on `aggregate_key_type` and `custom_key`).
         :param _builtins.str aggregate_key_type: Setting that indicates how to aggregate the request counts. Valid values include: `CONSTANT`, `CUSTOM_KEYS`, `FORWARDED_IP`, or `IP`. Default: `IP`.
         :param Sequence['WebAclRuleStatementRateBasedStatementCustomKeyArgs'] custom_keys: Aggregate the request counts using one or more web request components as the aggregate keys. See `custom_key` below for details.
         :param _builtins.int evaluation_window_sec: The amount of time, in seconds, that AWS WAF should include in its request counts, looking back from the current time. Valid values are `60`, `120`, `300`, and `600`. Defaults to `300` (5 minutes).
@@ -28393,7 +28381,7 @@ class WebAclRuleStatementRateBasedStatement(dict):
     @pulumi.getter
     def limit(self) -> _builtins.int:
         """
-        Limit on requests per 5-minute period for a single originating IP address.
+        Limit on requests per 5-minute (or `evaluation_window_sec`) period for a single originating IP address (or for other aggregate key, depending on `aggregate_key_type` and `custom_key`).
         """
         return pulumi.get(self, "limit")
 

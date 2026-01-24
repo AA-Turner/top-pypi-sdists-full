@@ -74,6 +74,10 @@ proxmox_nodes:
       description: Used memory in bytes.
       returned: on success
       type: int
+    network:
+      description: Active network interfaces on the node
+      returned: on success
+      type: dict
     node:
       description: Short hostname of this node.
       returned: on success
@@ -94,6 +98,10 @@ proxmox_nodes:
       description: Node uptime in seconds.
       returned: on success
       type: int
+    version:
+      description: Version of PVE on the node
+      returned: on success
+      type: dict
 """
 
 
@@ -105,6 +113,11 @@ from ansible_collections.community.proxmox.plugins.module_utils.proxmox import (
 class ProxmoxNodeInfoAnsible(ProxmoxAnsible):
     def get_nodes(self):
         nodes = self.proxmox_api.nodes.get()
+        for node in nodes:
+            node_name = node['node']
+            ifaces = self.proxmox_api.nodes(node_name).network.get()
+            node['network'] = ifaces
+            node['version'] = self.proxmox_api.nodes(node_name).version.get()
         return nodes
 
 

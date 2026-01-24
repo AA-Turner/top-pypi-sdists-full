@@ -124,6 +124,7 @@ def test_create_nested_marker_base_constraint(constraint: str, expected: str) ->
         (">3.9", 'python_full_version > "3.9.0"'),
         (">3.9.0", 'python_full_version > "3.9.0"'),
         (">3.9.1", 'python_full_version > "3.9.1"'),
+        (">3.14rc1", 'python_full_version > "3.14.0rc1"'),
         # max
         ("<3", 'python_version < "3"'),
         ("<3.9", 'python_version < "3.9"'),
@@ -133,6 +134,7 @@ def test_create_nested_marker_base_constraint(constraint: str, expected: str) ->
         ("<=3.9", 'python_full_version <= "3.9.0"'),
         ("<=3.9.0", 'python_full_version <= "3.9.0"'),
         ("<=3.9.1", 'python_full_version <= "3.9.1"'),
+        ("<=3.14rc1", 'python_full_version <= "3.14.0rc1"'),
         # min and max
         (">=3.7, <3.9", 'python_version >= "3.7" and python_version < "3.9"'),
         (">=3.7, <=3.9", 'python_version >= "3.7" and python_full_version <= "3.9.0"'),
@@ -175,14 +177,16 @@ def test_create_nested_marker_version_constraint(
         ('python_version == "3.6"', "~3.6"),
         ('python_version == "3.6.*"', "==3.6.*"),
         ('python_version == "3.6.* "', "==3.6.*"),
+        ('python_version == "3"', ">=3.0,<3.1"),
+        ('python_version == "3.*"', ">=3,<4"),
         # !=
         ('python_version != "3.6"', "!=3.6.*"),
         ('python_version != "3.6.*"', "!=3.6.*"),
         ('python_version != "3.6.* "', "!=3.6.*"),
         # <, <=, >, >= precision 1
         ('python_version < "3"', "<3"),
-        ('python_version <= "3"', "<3"),
-        ('python_version > "3"', ">=3"),
+        ('python_version <= "3"', "<3.1"),
+        ('python_version > "3"', ">=3.1"),
         ('python_version >= "3"', ">=3"),
         # <, <=, >, >= precision 2
         ('python_version < "3.6"', "<3.6"),

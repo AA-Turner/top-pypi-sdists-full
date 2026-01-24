@@ -11,23 +11,26 @@ import dataclasses
 import logging
 import pathlib
 import typing as t
-import warnings
 
 from libtmux import exc
-from libtmux._internal.types import StrPath
-from libtmux.common import has_gte_version, has_lt_version, tmux_cmd
+from libtmux.common import tmux_cmd
 from libtmux.constants import (
     PANE_DIRECTION_FLAG_MAP,
     RESIZE_ADJUSTMENT_DIRECTION_FLAG_MAP,
+    OptionScope,
     PaneDirection,
     ResizeAdjustmentDirection,
 )
 from libtmux.formats import FORMAT_SEPARATOR
+from libtmux.hooks import HooksMixin
 from libtmux.neo import Obj, fetch_obj
+from libtmux.options import OptionsMixin
 
 if t.TYPE_CHECKING:
     import sys
     import types
+
+    from libtmux._internal.types import StrPath
 
     from .server import Server
     from .session import Session
@@ -42,7 +45,11 @@ logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass()
-class Pane(Obj):
+class Pane(
+    Obj,
+    OptionsMixin,
+    HooksMixin,
+):
     """:term:`tmux(1)` :term:`Pane` [pane_manual]_.
 
     ``Pane`` instances can send commands directly to a pane, or traverse
@@ -89,6 +96,8 @@ class Pane(Obj):
        Accessed April 1st, 2018.
     """
 
+    default_option_scope: OptionScope | None = OptionScope.Pane
+    default_hook_scope: OptionScope | None = OptionScope.Pane
     server: Server
 
     def __enter__(self) -> Self:
@@ -274,20 +283,21 @@ class Pane(Obj):
         elif height or width:
             # Manual resizing
             if height:
-                if isinstance(height, str):
-                    if height.endswith("%") and not has_gte_version("3.1"):
-                        raise exc.VersionTooLow
-                    if not height.isdigit() and not height.endswith("%"):
-                        raise exc.RequiresDigitOrPercentage
+                if (
+                    isinstance(height, str)
+                    and not height.isdigit()
+                    and not height.endswith("%")
+                ):
+                    raise exc.RequiresDigitOrPercentage
                 tmux_args += (f"-y{height}",)
 
             if width:
-                if isinstance(width, str):
-                    if width.endswith("%") and not has_gte_version("3.1"):
-                        raise exc.VersionTooLow
-                    if not width.isdigit() and not width.endswith("%"):
-                        raise exc.RequiresDigitOrPercentage
-
+                if (
+                    isinstance(width, str)
+                    and not width.isdigit()
+                    and not width.endswith("%")
+                ):
+                    raise exc.RequiresDigitOrPercentage
                 tmux_args += (f"-x{width}",)
         elif zoom:
             # Zoom / Unzoom
@@ -310,36 +320,104 @@ class Pane(Obj):
         self,
         start: t.Literal["-"] | int | None = None,
         end: t.Literal["-"] | int | None = None,
-    ) -> str | list[str]:
-        """Capture text from pane.
+        *,
+        escape_sequences: bool = False,
+        escape_non_printable: bool = False,
+        join_wrapped: bool = False,
+        preserve_trailing: bool = False,
+        trim_trailing: bool = False,
+    ) -> list[str]:
+        r"""Capture text from pane.
 
         ``$ tmux capture-pane`` to pane.
         ``$ tmux capture-pane -S -10`` to pane.
-        ``$ tmux capture-pane`-E 3` to pane.
-        ``$ tmux capture-pane`-S - -E -` to pane.
+        ``$ tmux capture-pane -E 3`` to pane.
+        ``$ tmux capture-pane -S - -E -`` to pane.
 
         Parameters
         ----------
-        start: [str,int]
+        start : str | int, optional
             Specify the starting line number.
             Zero is the first line of the visible pane.
             Positive numbers are lines in the visible pane.
             Negative numbers are lines in the history.
-            `-` is the start of the history.
+            ``-`` is the start of the history.
             Default: None
-        end: [str,int]
+        end : str | int, optional
             Specify the ending line number.
             Zero is the first line of the visible pane.
             Positive numbers are lines in the visible pane.
             Negative numbers are lines in the history.
-            `-` is the end of the visible pane
+            ``-`` is the end of the visible pane.
             Default: None
+        escape_sequences : bool, optional
+            Include ANSI escape sequences for text and background attributes
+            (``-e`` flag). Useful for capturing colored output.
+            Default: False
+        escape_non_printable : bool, optional
+            Escape non-printable characters as octal ``\\xxx`` format
+            (``-C`` flag). Useful for binary-safe capture.
+            Default: False
+        join_wrapped : bool, optional
+            Join wrapped lines and preserve trailing spaces (``-J`` flag).
+            Lines that were wrapped by tmux will be joined back together.
+            Default: False
+        preserve_trailing : bool, optional
+            Preserve trailing spaces at each line's end (``-N`` flag).
+            Default: False
+        trim_trailing : bool, optional
+            Trim trailing positions with no characters (``-T`` flag).
+            Only includes characters up to the last used cell.
+            Requires tmux 3.4+. If used with tmux < 3.4, a warning
+            is issued and the flag is ignored.
+            Default: False
+
+        Returns
+        -------
+        list[str]
+            Captured pane content.
+
+        Examples
+        --------
+        >>> pane = window.split(shell='sh')
+        >>> pane.capture_pane()
+        ['$']
+
+        >>> pane.send_keys('echo "Hello world"', enter=True)
+
+        >>> pane.capture_pane()
+        ['$ echo "Hello world"', 'Hello world', '$']
+
+        >>> print(chr(10).join(pane.capture_pane()))
+        $ echo "Hello world"
+        Hello world
+        $
         """
+        import warnings
+
+        from libtmux.common import has_gte_version
+
         cmd = ["capture-pane", "-p"]
         if start is not None:
             cmd.extend(["-S", str(start)])
         if end is not None:
             cmd.extend(["-E", str(end)])
+        if escape_sequences:
+            cmd.append("-e")
+        if escape_non_printable:
+            cmd.append("-C")
+        if join_wrapped:
+            cmd.append("-J")
+        if preserve_trailing:
+            cmd.append("-N")
+        if trim_trailing:
+            if has_gte_version("3.4"):
+                cmd.append("-T")
+            else:
+                warnings.warn(
+                    "trim_trailing requires tmux 3.4+, ignoring",
+                    stacklevel=2,
+                )
         return self.cmd(*cmd).stdout
 
     def send_keys(
@@ -400,7 +478,7 @@ class Pane(Obj):
         self,
         cmd: str,
         get_text: t.Literal[True],
-    ) -> str | list[str]: ...
+    ) -> list[str]: ...
 
     @t.overload
     def display_message(self, cmd: str, get_text: t.Literal[False]) -> None: ...
@@ -409,7 +487,7 @@ class Pane(Obj):
         self,
         cmd: str,
         get_text: bool = False,
-    ) -> str | list[str] | None:
+    ) -> list[str] | None:
         """Display message to pane.
 
         Displays a message in target-client status line.
@@ -421,6 +499,11 @@ class Pane(Obj):
         get_text : bool, optional
             Returns only text without displaying a message in
             target-client status line.
+
+        Returns
+        -------
+        list[str] | None
+            Message output if get_text is True, otherwise None.
         """
         if get_text:
             return self.cmd("display-message", "-p", cmd).stdout
@@ -533,16 +616,11 @@ class Pane(Obj):
 
            Deprecated in favor of :meth:`.select()`.
         """
-        warnings.warn(
-            "Pane.select_pane() is deprecated in favor of Pane.select()",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Pane.select_pane()",
+            replacement="Pane.select()",
+            version="0.30.0",
         )
-        assert isinstance(self.pane_id, str)
-        pane = self.window.select_pane(self.pane_id)
-        if pane is None:
-            raise exc.PaneNotFound(pane_id=self.pane_id)
-        return pane
 
     def split(
         self,
@@ -584,7 +662,7 @@ class Pane(Obj):
         size: int, optional
             Cell/row or percentage to occupy with respect to current window.
         environment: dict, optional
-            Environmental variables for new pane. tmux 3.0+ only. Passthrough to ``-e``.
+            Environmental variables for new pane. Passthrough to ``-e``.
 
         Examples
         --------
@@ -649,16 +727,7 @@ class Pane(Obj):
             tmux_args += tuple(PANE_DIRECTION_FLAG_MAP[PaneDirection.Below])
 
         if size is not None:
-            if has_lt_version("3.1"):
-                if isinstance(size, str) and size.endswith("%"):
-                    tmux_args += (f"-p{str(size).rstrip('%')}",)
-                else:
-                    warnings.warn(
-                        'Ignored size. Use percent in tmux < 3.1, e.g. "size=50%"',
-                        stacklevel=2,
-                    )
-            else:
-                tmux_args += (f"-l{size}",)
+            tmux_args += (f"-l{size}",)
 
         if full_window_split:
             tmux_args += ("-f",)
@@ -669,7 +738,6 @@ class Pane(Obj):
         tmux_args += ("-P", "-F{}".format("".join(tmux_formats)))  # output
 
         if start_directory:
-            # as of 2014-02-08 tmux 1.9-dev doesn't expand ~ in new-window -c.
             start_path = pathlib.Path(start_directory).expanduser()
             tmux_args += (f"-c{start_path}",)
 
@@ -677,20 +745,14 @@ class Pane(Obj):
             tmux_args += ("-d",)
 
         if environment:
-            if has_gte_version("3.0"):
-                for k, v in environment.items():
-                    tmux_args += (f"-e{k}={v}",)
-            else:
-                logger.warning(
-                    "Environment flag ignored, tmux 3.0 or newer required.",
-                )
+            for k, v in environment.items():
+                tmux_args += (f"-e{k}={v}",)
 
         if shell:
             tmux_args += (shell,)
 
         pane_cmd = self.cmd("split-window", *tmux_args, target=target)
 
-        # tmux < 1.7. This is added in 1.7.
         if pane_cmd.stderr:
             if "pane too small" in pane_cmd.stderr:
                 raise exc.LibTmuxException(pane_cmd.stderr)
@@ -703,7 +765,9 @@ class Pane(Obj):
 
         pane_output = pane_cmd.stdout[0]
 
-        pane_formatters = dict(zip(["pane_id"], pane_output.split(FORMAT_SEPARATOR)))
+        pane_formatters = dict(
+            zip(["pane_id"], pane_output.split(FORMAT_SEPARATOR), strict=False),
+        )
 
         return self.from_pane_id(server=self.server, pane_id=pane_formatters["pane_id"])
 
@@ -717,9 +781,14 @@ class Pane(Obj):
         Parameters
         ----------
         width : int
-            pane width, in cells
+            Pane width, in cells.
+
+        Returns
+        -------
+        :class:`Pane`
+            Self, for method chaining.
         """
-        self.resize_pane(width=width)
+        self.resize(width=width)
         return self
 
     def set_height(self, height: int) -> Pane:
@@ -728,9 +797,14 @@ class Pane(Obj):
         Parameters
         ----------
         height : int
-            height of pain, in cells
+            Pane height, in cells.
+
+        Returns
+        -------
+        :class:`Pane`
+            Self, for method chaining.
         """
-        self.resize_pane(height=height)
+        self.resize(height=height)
         return self
 
     def enter(self) -> Pane:
@@ -890,7 +964,7 @@ class Pane(Obj):
         percent: int, optional
             percentage to occupy with respect to current pane
         environment: dict, optional
-            Environmental variables for new pane. tmux 3.0+ only. Passthrough to ``-e``.
+            Environmental variables for new pane. Passthrough to ``-e``.
 
         Notes
         -----
@@ -898,54 +972,41 @@ class Pane(Obj):
 
            Deprecated in favor of :meth:`.split`.
         """
-        warnings.warn(
-            "Pane.split_window() is deprecated in favor of Pane.split()",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        if size is None and percent is not None:
-            size = f"{str(percent).rstrip('%')}%"
-        return self.split(
-            target=target,
-            attach=attach,
-            start_directory=start_directory,
-            direction=PaneDirection.Below if vertical else PaneDirection.Right,
-            shell=shell,
-            size=size,
-            environment=environment,
+        raise exc.DeprecatedError(
+            deprecated="Pane.split_window()",
+            replacement="Pane.split()",
+            version="0.33.0",
         )
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Return key-based lookup. Deprecated by attributes.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated by attribute lookup, e.g. ``pane['window_name']`` is now
            accessed via ``pane.window_name``.
 
         """
-        warnings.warn(
-            "Pane.get() is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Pane.get()",
+            replacement="direct attribute access (e.g., pane.pane_id)",
+            version="0.17.0",
         )
-        return getattr(self, key, default)
 
     def __getitem__(self, key: str) -> t.Any:
         """Return item lookup by key. Deprecated in favor of attributes.
 
-        .. deprecated:: 0.16
+        .. deprecated:: 0.17
 
            Deprecated in favor of attributes. e.g. ``pane['window_name']`` is now
            accessed via ``pane.window_name``.
 
         """
-        warnings.warn(
-            f"Item lookups, e.g. pane['{key}'] is deprecated",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise exc.DeprecatedError(
+            deprecated="Pane[key] lookup",
+            replacement="direct attribute access (e.g., pane.pane_id)",
+            version="0.17.0",
         )
-        return getattr(self, key)
 
     def resize_pane(
         self,
@@ -968,17 +1029,8 @@ class Pane(Obj):
 
            Deprecated by :meth:`Pane.resize`.
         """
-        warnings.warn(
-            "Deprecated: Use Pane.resize() instead of Pane.resize_pane()",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.resize(
-            adjustment_direction=adjustment_direction,
-            adjustment=adjustment,
-            height=height,
-            width=width,
-            zoom=zoom,
-            mouse=mouse,
-            trim_below=trim_below,
+        raise exc.DeprecatedError(
+            deprecated="Pane.resize_pane()",
+            replacement="Pane.resize()",
+            version="0.28.0",
         )

@@ -2,6 +2,7 @@ import pytest
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from guardian.shortcuts import assign_perm
+
 from wbcore.contrib.authentication.models.users import Permission
 from wbcore.contrib.guardian.viewsets import PivotUserObjectPermissionModelViewSet
 
@@ -10,7 +11,7 @@ class TestPivotUserObjectPermissionModelViewSet:
     def test_cached_property_permissions(self, mocker, request):
         mocked_filter = mocker.patch("wbcore.contrib.guardian.viewsets.viewsets.Permission.objects.filter")
         view = PivotUserObjectPermissionModelViewSet(request=request, kwargs={"content_type_id": 1})
-        view.permissions
+        assert view.permissions
 
         mocked_filter.assert_called_once_with(
             Q(content_type=1)
@@ -24,7 +25,7 @@ class TestPivotUserObjectPermissionModelViewSet:
         mocked_get_object_for_this_type = mocker.Mock()
         mocked_contrib_type.get.return_value = mocked_get_object_for_this_type
         view = PivotUserObjectPermissionModelViewSet(request=request, kwargs={"content_type_id": 1, "object_pk": 1})
-        view.linked_object
+        assert view.linked_object
 
         mocked_get_object_for_this_type.get_object_for_this_type.assert_called_once()
 

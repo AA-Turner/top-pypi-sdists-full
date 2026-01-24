@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xinference-client
-Version: 1.10.0
+Version: 1.16.0
 Summary: Client for Xinference
 Home-page: https://github.com/xorbitsai/inference-client
 Author: Qin Xuye
@@ -11,15 +11,33 @@ License: Apache License 2.0
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Description-Content-Type: text/markdown
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: aiohttp
+Requires-Dist: typing-extensions
+Requires-Dist: pydantic
+Provides-Extra: dev
+Requires-Dist: cython>=0.29; extra == "dev"
+Requires-Dist: pytest>=3.5.0; extra == "dev"
+Requires-Dist: pytest-cov>=2.5.0; extra == "dev"
+Requires-Dist: pytest-timeout>=1.2.0; extra == "dev"
+Requires-Dist: pytest-forked>=1.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.14.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.11.1; extra == "dev"
+Requires-Dist: ipython>=6.5.0; extra == "dev"
+Requires-Dist: flake8>=3.8.0; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
 
 # Xinference Restful Client
 Xinference provides a restful client for managing and accessing models programmatically.

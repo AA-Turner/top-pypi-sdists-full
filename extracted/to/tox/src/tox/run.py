@@ -7,11 +7,14 @@ import logging
 import os
 import sys
 import time
-from typing import Sequence
+from typing import TYPE_CHECKING
 
 from tox.config.cli.parse import get_options
 from tox.report import HandledError, ToxHandler
 from tox.session.state import State
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def run(args: Sequence[str] | None = None) -> None:
@@ -20,7 +23,7 @@ def run(args: Sequence[str] | None = None) -> None:
             result = main(sys.argv[1:] if args is None else args)
     except Exception as exception:
         if isinstance(exception, HandledError):
-            logging.error("%s| %s", type(exception).__name__, str(exception))  # noqa: TRY400
+            logging.error("%s| %s", type(exception).__name__, exception)  # noqa: TRY400
             result = -2
         else:
             raise

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -18,6 +18,8 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_s
     BaseVectorStore,
 )
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
+    DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+    DEFAULT_DOCUMENT_NAME_FIELD,
     LangChainVectorStoreAdapter,
 )
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_connector import (
@@ -63,6 +65,12 @@ class VectorStore(BaseVectorStore):
     :param langchain_vector_store: use LangChain vector store, defaults to None
     :type langchain_vector_store: VectorStore, optional
 
+    :param document_name_field: mapping field for document name, defaults to `document_id`
+    :type document_name_field: str, optional
+
+    :param chunk_sequence_number_field: mapping field for chunk sequence number, defaults to `sequence_number`
+    :type chunk_sequence_number_field: str, optional
+
     **Example:**
 
     To connect, provide the connection asset ID.
@@ -107,19 +115,27 @@ class VectorStore(BaseVectorStore):
         api_client = APIClient(credentials)
 
         vector_store = VectorStore(
-                api_client,
-                index_name='my_test_index',
-                model_id=".elser_model_2_linux-x86_64",
-                cloud_id='***',
-                api_key=IAM_API_KEY
-            )
+            api_client,
+            index_name="my_test_index",
+            model_id=".elser_model_2_linux-x86_64",
+            cloud_id="***",
+            api_key=IAM_API_KEY,
+        )
 
-        vector_store.add_documents([
-            {'content': 'document one content', 'metadata':{'url':'ibm.com'}},
-            {'content': 'document two content', 'metadata':{'url':'ibm.com'}}
-        ])
+        vector_store.add_documents(
+            [
+                {
+                    "content": "document one content",
+                    "metadata": {"url": "ibm.com"},
+                },
+                {
+                    "content": "document two content",
+                    "metadata": {"url": "ibm.com"},
+                },
+            ]
+        )
 
-        vector_store.search('one', k=1)
+        vector_store.search("one", k=1)
 
 
     """
@@ -134,6 +150,8 @@ class VectorStore(BaseVectorStore):
         datasource_type: VectorStoreDataSourceType | str | None = None,
         distance_metric: Literal["euclidean", "cosine"] | None = None,
         langchain_vector_store: LangChainVectorStore | None = None,
+        document_name_field: str = DEFAULT_DOCUMENT_NAME_FIELD,
+        chunk_sequence_number_field: str = DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -155,6 +173,8 @@ class VectorStore(BaseVectorStore):
             else None
         )
         self._distance_metric = distance_metric
+        self._document_name_field = document_name_field
+        self._chunk_sequence_number_field = chunk_sequence_number_field
         self._vector_store: BaseVectorStore
         self._index_properties = kwargs
 
@@ -181,12 +201,14 @@ class VectorStore(BaseVectorStore):
                     properties["index_name"] = self._index_name
                 if self._distance_metric is not None:
                     properties["distance_metric"] = self._distance_metric
+                properties["document_name_field"] = self._document_name_field
+                properties["chunk_sequence_number_field"] = (
+                    self._chunk_sequence_number_field
+                )
 
                 self._vector_store = VectorStoreConnector(
                     properties=properties
-                ).get_from_type(
-                    self._datasource_type  # type: ignore[arg-type]
-                )
+                ).get_from_type(self._datasource_type)
                 logger.info("Success. Vector store initialized correctly.")
             else:
                 raise ValueError(
@@ -196,7 +218,11 @@ class VectorStore(BaseVectorStore):
             self._is_serializable = False
             logger.info("Connecting by already established LangChain vector store.")
             if issubclass(type(langchain_vector_store), LangChainVectorStore):
-                self._vector_store = LangChainVectorStoreAdapter(langchain_vector_store)
+                self._vector_store = LangChainVectorStoreAdapter(
+                    vector_store=langchain_vector_store,
+                    document_name_field=self._document_name_field,
+                    chunk_sequence_number_field=self._chunk_sequence_number_field,
+                )
                 self._datasource_type = (
                     VectorStoreConnector.get_type_from_langchain_vector_store(
                         langchain_vector_store
@@ -211,11 +237,11 @@ class VectorStore(BaseVectorStore):
                     "embeddings": self._embeddings,
                     "index_name": self._index_name,
                     "distance_metric": self._distance_metric,
+                    "document_name_field": self._document_name_field,
+                    "chunk_sequence_number_field": self._chunk_sequence_number_field,
                     **self._index_properties,
                 }
-            ).get_from_type(
-                self._datasource_type  # type: ignore[arg-type]
-            )
+            ).get_from_type(self._datasource_type)
         else:
             raise TypeError(
                 "To establish connection, please provide 'connection_id', 'langchain_vector_store' or 'datasource_type'."

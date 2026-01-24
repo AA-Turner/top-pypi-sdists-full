@@ -181,11 +181,18 @@ nitpick_ignore = {
         'template<typename TOuter> template<typename TInner> Wrapper::Outer<TOuter>::Inner',
     ),
     ('cpp:identifier', 'MyContainer'),
-    ('js:func', 'SomeError'),
-    ('js:func', 'number'),
-    ('js:func', 'string'),
+    ('js:class', 'SomeError'),
+    ('js:class', 'number'),
+    ('js:class', 'string'),
     ('py:attr', 'srcline'),
+    # sphinx.application.Sphinx.connect
     ('py:class', '_AutodocProcessDocstringListener'),
+    # sphinx.application.Sphinx.connect
+    ('py:class', '_AutodocBeforeProcessSignatureListener'),
+    # sphinx.application.Sphinx.connect
+    ('py:class', '_AutodocProcessSignatureListener'),
+    ('py:class', '_AutodocProcessBasesListener'),  # sphinx.application.Sphinx.connect
+    ('py:class', '_AutodocSkipMemberListener'),  # sphinx.application.Sphinx.connect
     ('py:class', '_ConfigRebuild'),  # sphinx.application.Sphinx.add_config_value
     # sphinx.application.Sphinx.add_html_math_renderer
     ('py:class', '_MathsBlockRenderers'),
@@ -231,6 +238,7 @@ nitpick_ignore = {
     ('py:class', 'pygments.lexer.Lexer'),
     ('py:class', 'sphinx.directives.ObjDescT'),
     ('py:class', 'sphinx.domains.IndexEntry'),
+    # sphinx.application.Sphinx.add_autodocumenter
     ('py:class', 'sphinx.ext.autodoc.Documenter'),
     ('py:class', 'sphinx.errors.NoUri'),
     ('py:class', 'sphinx.roles.XRefRole'),
@@ -297,14 +305,12 @@ def linkify_issues_in_changelog(
 ) -> None:
     """Linkify issue references like #123 in changelog to GitHub."""
     if docname == 'changes':
-
-        def linkify(match: re.Match[str]) -> str:
-            url = 'https://github.com/sphinx-doc/sphinx/issues/' + match[1]
-            return f'`{match[0]} <{url}>`_'
-
-        linkified_changelog = re.sub(r'(?:PR)?#([0-9]+)\b', linkify, source[0])
-
+        linkified_changelog = re.sub(r'(?:PR)?#([0-9]+)\b', _linkify, source[0])
         source[0] = linkified_changelog
+
+
+def _linkify(match: re.Match[str], /) -> str:
+    return f'`{match[0]} <https://github.com/sphinx-doc/sphinx/issues/{match[1]}>`__'
 
 
 REDIRECT_TEMPLATE = """

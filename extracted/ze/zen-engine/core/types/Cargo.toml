@@ -1,7 +1,7 @@
 [package]
 name = "zen-types"
 description = "Zen Core Types"
-version = "0.51.0"
+version = "0.53.0"
 edition = "2024"
 license = "MIT"
 
@@ -12,4 +12,4 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 rust_decimal = { workspace = true, features = ["maths-nopanic"] }
 rust_decimal_macros = { workspace = true }
 thiserror = { workspace = true }
-nohash-hasher = "0.2.0"
+nohash-hasher = { workspace = true }

@@ -22,11 +22,15 @@ T = TypeVar("T", bound="GetFlowByPathWithDraftResponse200DraftValuePreprocessorM
 
 @_attrs_define
 class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryConstant]):
-        exponential (Union[Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryExponential]):
-        retry_if (Union[Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryRetryIf]):
+        constant (Union[Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryConstant]): Retry with
+            constant delay between attempts
+        exponential (Union[Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryExponential]): Retry
+            with exponential backoff (delay doubles each time)
+        retry_if (Union[Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryRetryIf]): Conditional
+            retry based on error or result
     """
 
     constant: Union[Unset, "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleRetryConstant"] = UNSET

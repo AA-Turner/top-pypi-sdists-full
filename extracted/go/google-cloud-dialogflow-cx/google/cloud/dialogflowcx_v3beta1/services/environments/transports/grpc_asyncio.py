@@ -152,8 +152,9 @@ class EnvironmentsGrpcAsyncIOTransport(EnvironmentsTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -204,9 +205,10 @@ class EnvironmentsGrpcAsyncIOTransport(EnvironmentsTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -425,10 +427,10 @@ class EnvironmentsGrpcAsyncIOTransport(EnvironmentsTransport):
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``: An empty `Struct
-           message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
-        -  ``response``:
-           [Environment][google.cloud.dialogflow.cx.v3beta1.Environment]
+        - ``metadata``: An empty `Struct
+          message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
+        - ``response``:
+          [Environment][google.cloud.dialogflow.cx.v3beta1.Environment]
 
         Returns:
             Callable[[~.CreateEnvironmentRequest],
@@ -464,10 +466,10 @@ class EnvironmentsGrpcAsyncIOTransport(EnvironmentsTransport):
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``: An empty `Struct
-           message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
-        -  ``response``:
-           [Environment][google.cloud.dialogflow.cx.v3beta1.Environment]
+        - ``metadata``: An empty `Struct
+          message <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct>`__
+        - ``response``:
+          [Environment][google.cloud.dialogflow.cx.v3beta1.Environment]
 
         Returns:
             Callable[[~.UpdateEnvironmentRequest],
@@ -562,10 +564,10 @@ class EnvironmentsGrpcAsyncIOTransport(EnvironmentsTransport):
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [RunContinuousTestMetadata][google.cloud.dialogflow.cx.v3beta1.RunContinuousTestMetadata]
-        -  ``response``:
-           [RunContinuousTestResponse][google.cloud.dialogflow.cx.v3beta1.RunContinuousTestResponse]
+        - ``metadata``:
+          [RunContinuousTestMetadata][google.cloud.dialogflow.cx.v3beta1.RunContinuousTestMetadata]
+        - ``response``:
+          [RunContinuousTestResponse][google.cloud.dialogflow.cx.v3beta1.RunContinuousTestResponse]
 
         Returns:
             Callable[[~.RunContinuousTestRequest],
@@ -631,10 +633,10 @@ class EnvironmentsGrpcAsyncIOTransport(EnvironmentsTransport):
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [DeployFlowMetadata][google.cloud.dialogflow.cx.v3beta1.DeployFlowMetadata]
-        -  ``response``:
-           [DeployFlowResponse][google.cloud.dialogflow.cx.v3beta1.DeployFlowResponse]
+        - ``metadata``:
+          [DeployFlowMetadata][google.cloud.dialogflow.cx.v3beta1.DeployFlowMetadata]
+        - ``response``:
+          [DeployFlowResponse][google.cloud.dialogflow.cx.v3beta1.DeployFlowResponse]
 
         Returns:
             Callable[[~.DeployFlowRequest],

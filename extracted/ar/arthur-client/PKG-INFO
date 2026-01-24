@@ -1,0 +1,40 @@
+Metadata-Version: 2.3
+Name: arthur-client
+Version: 1.4.1763
+Summary: Arthur Python API Client Library
+License: MIT
+Keywords: api arthur client ArthurAI sdk ml model monitoring
+Author: Arthur
+Author-email: info@arthur.ai
+Requires-Python: >=3.12,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Requires-Dist: authlib (>=1.3.2,<2)
+Requires-Dist: click (>=8.1,<9)
+Requires-Dist: pydantic (>=2)
+Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
+Requires-Dist: requests (>=2,<3)
+Requires-Dist: simple-settings (>=1.2.0)
+Requires-Dist: typing-extensions (>=4.7.1)
+Requires-Dist: urllib3 (>=2.5.0,<3.0.0)
+Project-URL: Arthur Homepage, https://arthur.ai
+Project-URL: Documentation, https://docs.arthur.ai
+Description-Content-Type: text/markdown
+
+[//]: # (user-facing readme)
+
+# Arthur API Client
+[Arthur](https://www.arthur.ai/) is the platform for centralized monitoring of production models. 
+We help data scientists, product owners, and business leaders accelerate model operations to optimize 
+for accuracy, explainability, and fairness. As a model- and infrastructure-agnostic platform, Arthur 
+adds a layer of intelligence to your AI stack and scales with your deployments.
+
+Our API Client makes it easy to integrate your models with the Arthur platform. For help getting started or 
+using the SDK, check out [our documentation](https://docs.arthur.ai/).
+

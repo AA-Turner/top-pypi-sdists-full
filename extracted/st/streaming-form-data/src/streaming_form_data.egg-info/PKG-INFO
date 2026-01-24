@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: streaming-form-data
-Version: 1.19.1
+Version: 1.20.0
 Summary: Streaming parser for multipart/form-data
 Author-email: Siddhant Goel <me@sgoel.dev>
 Project-URL: Homepage, https://github.com/siddhantgoel/streaming-form-data
@@ -27,6 +27,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: smart-open>=7.0.5
+Dynamic: license-file
 
 # Streaming multipart/form-data parser
 

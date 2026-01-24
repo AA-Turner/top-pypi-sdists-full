@@ -1,14 +1,13 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -26,16 +25,18 @@ class Import(WMLResource):
 
     def start(
         self,
-        file_path: str,
+        file_path: str | Path,
         space_id: str | None = None,
         project_id: str | None = None,
     ) -> dict:
         """Start the import. You must provide the space_id or the project_id.
 
         :param file_path: file path to the zip file with exported assets
-        :type file_path: str
+        :type file_path: str | Path
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
 
@@ -46,9 +47,14 @@ class Import(WMLResource):
 
         .. code-block:: python
 
-            details = client.import_assets.start(space_id="98a53931-a8c0-4c2f-8319-c793155e4598",
-                                                 file_path="/home/user/data_to_be_imported.zip")
+            details = client.import_assets.start(
+                space_id="98a53931-a8c0-4c2f-8319-c793155e4598",
+                file_path="/home/user/data_to_be_imported.zip",
+            )
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         if space_id is None and project_id is None:
             raise WMLClientError("Either 'space_id' or 'project_id' has to be provided")
 
@@ -57,28 +63,25 @@ class Import(WMLResource):
                 "Either 'space_id' or 'project_id' can be provided, not both"
             )
 
-        if not os.path.isfile(file_path):
+        if not file_path.is_file():
             raise WMLClientError(
                 "File with name: '{}' does not exist".format(file_path)
             )
 
-        with open(file_path, "rb") as file:
-            data = file.read()
-
-        href = self._client._href_definitions.imports_href()
+        data = file_path.read_bytes()
 
         params = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         elif project_id is not None:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        creation_response = requests.post(
-            href,
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.imports_href(),
             params=params,
             headers=self._client._get_headers(content_type="application/zip"),
-            data=data,
+            content=data,
         )
 
         details = self._handle_response(
@@ -122,18 +125,21 @@ class Import(WMLResource):
 
         :param import_id: import the job identifier
         :type import_id: str
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
-
 
         **Example:**
 
         .. code-block:: python
 
-            client.import_assets.cancel(import_id='6213cf1-252f-424b-b52d-5cdd9814956c',
-                                        space_id='3421cf1-252f-424b-b52d-5cdd981495fe')
+            client.import_assets.cancel(
+                import_id="6213cf1-252f-424b-b52d-5cdd9814956c",
+                space_id="3421cf1-252f-424b-b52d-5cdd981495fe",
+            )
 
         """
         Import._validate_type(import_id, "import_id", str, True)
@@ -146,17 +152,17 @@ class Import(WMLResource):
                 "Either 'space_id' or 'project_id' can be provided, not both"
             )
 
-        href = self._client._href_definitions.import_href(import_id)
-
         params = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         elif project_id is not None:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        cancel_response = requests.delete(
-            href, params=params, headers=self._client._get_headers()
+        cancel_response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.import_href(import_id),
+            params=params,
+            headers=self._client._get_headers(),
         )
 
         details = self._handle_response(
@@ -175,8 +181,10 @@ class Import(WMLResource):
 
         :param import_id: import the job identifier
         :type import_id: str
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
 
@@ -184,8 +192,10 @@ class Import(WMLResource):
 
         .. code-block:: python
 
-            client.import_assets.delete(import_id='6213cf1-252f-424b-b52d-5cdd9814956c',
-                                        space_id= '98a53931-a8c0-4c2f-8319-c793155e4598')
+            client.import_assets.delete(
+                import_id="6213cf1-252f-424b-b52d-5cdd9814956c",
+                space_id="98a53931-a8c0-4c2f-8319-c793155e4598",
+            )
         """
         if space_id is None and project_id is None:
             raise WMLClientError("Its mandatory to provide space_id or project_id")
@@ -197,17 +207,17 @@ class Import(WMLResource):
 
         Import._validate_type(import_id, "import_id", str, True)
 
-        href = self._client._href_definitions.import_href(import_id)
-
         params: dict[str, bool | str] = {"hard_delete": True}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         elif project_id is not None:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        delete_response = requests.delete(
-            href, params=params, headers=self._client._get_headers()
+        delete_response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.import_href(import_id),
+            params=params,
+            headers=self._client._get_headers(),
         )
 
         details = self._handle_response(
@@ -232,14 +242,19 @@ class Import(WMLResource):
 
         :param import_id: import the job identifier
         :type import_id: str, optional
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
+
         :param limit: limit number of fetched records
         :type limit: int, optional
+
         :param asynchronous: if `True`, it will work as a generator
         :type asynchronous: bool, optional
+
         :param get_all: if `True`, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
@@ -255,7 +270,9 @@ class Import(WMLResource):
             details = client.import_assets.get_details(limit=100)
             details = client.import_assets.get_details(limit=100, get_all=True)
             details = []
-            for entry in client.import_assets.get_details(limit=100, asynchronous=True, get_all=True):
+            for entry in client.import_assets.get_details(
+                limit=100, asynchronous=True, get_all=True
+            ):
                 details.extend(entry)
 
         """
@@ -275,12 +292,12 @@ class Import(WMLResource):
         params = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         elif project_id is not None:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
         if import_id is None:
-            return self._get_artifact_details(
+            return self._get_artifact_details(  # type: ignore[call-overload]
                 href,
                 import_id,
                 limit,
@@ -305,8 +322,10 @@ class Import(WMLResource):
 
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
+
         :param limit: limit number of fetched records
         :type limit: int, optional
 
@@ -369,5 +388,5 @@ class Import(WMLResource):
         Import._validate_type(import_details, "import_details", object, True)
 
         return WMLResource._get_required_element_from_dict(
-            import_details, "import_details", ["metadata", "id"]
+            import_details, "import_details", ["metadata", "id"], str
         )

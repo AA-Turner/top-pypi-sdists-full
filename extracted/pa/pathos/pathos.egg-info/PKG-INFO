@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: pathos
-Version: 0.3.4
+Version: 0.3.5
 Summary: parallel graph management and execution in heterogeneous computing
 Home-page: https://github.com/uqfoundation/pathos
 Download-URL: https://pypi.org/project/pathos/#files
@@ -20,37 +20,22 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
-Requires-Dist: ppft>=1.7.7
-Requires-Dist: dill>=0.4.0
-Requires-Dist: pox>=0.3.6
-Requires-Dist: multiprocess>=0.70.18
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: platform
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: ppft>=1.7.8
+Requires-Dist: dill>=0.4.1
+Requires-Dist: pox>=0.3.7
+Requires-Dist: multiprocess>=0.70.19
 
 --------------------------------------------------------------------------
 pathos: parallel graph management and execution in heterogeneous computing
@@ -191,12 +176,12 @@ Requirements
 
 ``pathos`` requires:
 
-    - ``python`` (or ``pypy``), **>=3.8**
+    - ``python`` (or ``pypy``), **>=3.9**
     - ``setuptools``, **>=42**
-    - ``pox``, **>=0.3.6**
-    - ``dill``, **>=0.4.0**
-    - ``ppft``, **>=1.7.7**
-    - ``multiprocess``, **>=0.70.18**
+    - ``pox``, **>=0.3.7**
+    - ``dill``, **>=0.4.1**
+    - ``ppft``, **>=1.7.8**
+    - ``multiprocess``, **>=0.70.19**
 
 
 More Information

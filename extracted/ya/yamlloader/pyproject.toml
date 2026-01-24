@@ -27,7 +27,7 @@ authors = [
   { name = "Jonas Eschle", email = "jonas.eschle@gmail.com" },
   { name = "Johannes Lade", email = "johannes.lade@phynix.science" },
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -38,13 +38,13 @@ classifiers = [
   "Natural Language :: English",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries",
   "Topic :: Utilities",
 ]
@@ -55,7 +55,7 @@ dependencies = [ "pyyaml" ]
 
 optional-dependencies.dev = [ "yamlloader[test,doc]" ]
 optional-dependencies.doc = [ "sphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinxcontrib-apidoc" ]
-optional-dependencies.test = [ "coverage", "hypothesis" ]
+optional-dependencies.test = [ "coverage", "hypothesis", "pytest" ]
 urls.Documentation = "https://yamlloader.readthedocs.io/"
 urls.Homepage = "https://github.com/Phynix/yamlloader"
 

@@ -106,3 +106,10 @@ def read_json_file(file_path: str):
         log.error(f"Error loading file {file_path}")
         log.error(e)
         return dict()
+
+def get_all_files_recursively(dir_location: str) -> List[str]:
+    all_files = []
+    for root, dirs, files in os.walk(dir_location):
+        for file in files:
+            all_files.append(os.path.join(root, file))
+    return all_files

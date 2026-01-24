@@ -327,7 +327,7 @@ def transform(curve, tf):
         invT = np.linalg.inv(tf[:2,:2])
         D = reduce(np.matmul, [invT.T, Q, invT])
 
-        eigvals, eigvecs = np.linalg.eig(D)
+        eigvals, eigvecs = np.linalg.eigh(0.5*(D+D.T))  # symmetrized in case of floating point error; D already symmetric
 
         rx = 1 / np.sqrt(eigvals[0])
         ry = 1 / np.sqrt(eigvals[1])
@@ -957,10 +957,11 @@ class QuadraticBezier(object):
 
             dq1_mag = sqrt(c2 * t1 ** 2 + c1 * t1 + c0)
             dq0_mag = sqrt(c2 * t0 ** 2 + c1 * t0 + c0)
-            logarand = (sqrt(c2) * (t1 + beta) + dq1_mag) / \
-                       (sqrt(c2) * (t0 + beta) + dq0_mag)
+            rand_num = sqrt(c2) * (t1 + beta) + dq1_mag
+            rand_den = sqrt(c2) * (t0 + beta) + dq0_mag
+            logarand = log(rand_num / rand_den) if rand_den != 0 else 0
             s = (t1 + beta) * dq1_mag - (t0 + beta) * dq0_mag + \
-                gamma * sqrt(c2) * log(logarand)
+                gamma * sqrt(c2) * logarand
             s /= 2
             if isnan(s):
                 tstar = abs(b) / (2 * abs(a))

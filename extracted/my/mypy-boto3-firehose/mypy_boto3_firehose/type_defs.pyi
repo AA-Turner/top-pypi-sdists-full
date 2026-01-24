@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -57,12 +58,6 @@ from .literals import (
     SSLModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -245,9 +240,9 @@ class VpcConfigurationTypeDef(TypedDict):
     SecurityGroupIds: Sequence[str]
 
 class VpcConfigurationDescriptionTypeDef(TypedDict):
-    SubnetIds: List[str]
+    SubnetIds: list[str]
     RoleARN: str
-    SecurityGroupIds: List[str]
+    SecurityGroupIds: list[str]
     VpcId: str
 
 class AmazonopensearchserviceBufferingHintsTypeDef(TypedDict):
@@ -297,7 +292,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -310,16 +305,16 @@ class SchemaConfigurationTypeDef(TypedDict):
     VersionId: NotRequired[str]
 
 class DatabaseColumnListOutputTypeDef(TypedDict):
-    Include: NotRequired[List[str]]
-    Exclude: NotRequired[List[str]]
+    Include: NotRequired[list[str]]
+    Exclude: NotRequired[list[str]]
 
 class DatabaseColumnListTypeDef(TypedDict):
     Include: NotRequired[Sequence[str]]
     Exclude: NotRequired[Sequence[str]]
 
 class DatabaseListOutputTypeDef(TypedDict):
-    Include: NotRequired[List[str]]
-    Exclude: NotRequired[List[str]]
+    Include: NotRequired[list[str]]
+    Exclude: NotRequired[list[str]]
 
 class DatabaseListTypeDef(TypedDict):
     Include: NotRequired[Sequence[str]]
@@ -342,8 +337,8 @@ class DatabaseSourceVPCConfigurationTypeDef(TypedDict):
     VpcEndpointServiceName: str
 
 class DatabaseTableListOutputTypeDef(TypedDict):
-    Include: NotRequired[List[str]]
-    Exclude: NotRequired[List[str]]
+    Include: NotRequired[list[str]]
+    Exclude: NotRequired[list[str]]
 
 class DatabaseTableListTypeDef(TypedDict):
     Include: NotRequired[Sequence[str]]
@@ -359,12 +354,12 @@ class DescribeDeliveryStreamInputTypeDef(TypedDict):
     ExclusiveStartDestinationId: NotRequired[str]
 
 class HiveJsonSerDeOutputTypeDef(TypedDict):
-    TimestampFormats: NotRequired[List[str]]
+    TimestampFormats: NotRequired[list[str]]
 
 class OpenXJsonSerDeOutputTypeDef(TypedDict):
     ConvertDotsInJsonKeysToUnderscores: NotRequired[bool]
     CaseInsensitive: NotRequired[bool]
-    ColumnToJsonKeyMappings: NotRequired[Dict[str, str]]
+    ColumnToJsonKeyMappings: NotRequired[dict[str, str]]
 
 class DirectPutSourceDescriptionTypeDef(TypedDict):
     ThroughputHintInMBs: NotRequired[int]
@@ -440,7 +435,7 @@ class OrcSerDeOutputTypeDef(TypedDict):
     EnablePadding: NotRequired[bool]
     PaddingTolerance: NotRequired[float]
     Compression: NotRequired[OrcCompressionType]
-    BloomFilterColumns: NotRequired[List[str]]
+    BloomFilterColumns: NotRequired[list[str]]
     BloomFilterFalsePositiveProbability: NotRequired[float]
     DictionaryKeyThreshold: NotRequired[float]
     FormatVersion: NotRequired[OrcFormatVersionType]
@@ -533,12 +528,12 @@ class CreateDeliveryStreamOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDeliveryStreamsOutputTypeDef(TypedDict):
-    DeliveryStreamNames: List[str]
+    DeliveryStreamNames: list[str]
     HasMoreDeliveryStreams: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForDeliveryStreamOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     HasMoreTags: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -585,7 +580,7 @@ HiveJsonSerDeUnionTypeDef = Union[HiveJsonSerDeTypeDef, HiveJsonSerDeOutputTypeD
 
 class HttpEndpointRequestConfigurationOutputTypeDef(TypedDict):
     ContentEncoding: NotRequired[ContentEncodingType]
-    CommonAttributes: NotRequired[List[HttpEndpointCommonAttributeTypeDef]]
+    CommonAttributes: NotRequired[list[HttpEndpointCommonAttributeTypeDef]]
 
 class HttpEndpointRequestConfigurationTypeDef(TypedDict):
     ContentEncoding: NotRequired[ContentEncodingType]
@@ -605,7 +600,7 @@ class SerializerOutputTypeDef(TypedDict):
     OrcSerDe: NotRequired[OrcSerDeOutputTypeDef]
 
 class PartitionSpecOutputTypeDef(TypedDict):
-    Identity: NotRequired[List[PartitionFieldTypeDef]]
+    Identity: NotRequired[list[PartitionFieldTypeDef]]
 
 class PartitionSpecTypeDef(TypedDict):
     Identity: NotRequired[Sequence[PartitionFieldTypeDef]]
@@ -614,7 +609,7 @@ ProcessorOutputTypeDef = TypedDict(
     "ProcessorOutputTypeDef",
     {
         "Type": ProcessorTypeType,
-        "Parameters": NotRequired[List[ProcessorParameterTypeDef]],
+        "Parameters": NotRequired[list[ProcessorParameterTypeDef]],
     },
 )
 ProcessorTypeDef = TypedDict(
@@ -628,7 +623,7 @@ ProcessorTypeDef = TypedDict(
 class PutRecordBatchOutputTypeDef(TypedDict):
     FailedPutCount: int
     Encrypted: bool
-    RequestResponses: List[PutRecordBatchResponseEntryTypeDef]
+    RequestResponses: list[PutRecordBatchResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutRecordBatchInputTypeDef(TypedDict):
@@ -649,9 +644,9 @@ DatabaseSourceDescriptionTypeDef = TypedDict(
         "Databases": NotRequired[DatabaseListOutputTypeDef],
         "Tables": NotRequired[DatabaseTableListOutputTypeDef],
         "Columns": NotRequired[DatabaseColumnListOutputTypeDef],
-        "SurrogateKeys": NotRequired[List[str]],
+        "SurrogateKeys": NotRequired[list[str]],
         "SnapshotWatermarkTable": NotRequired[str],
-        "SnapshotInfo": NotRequired[List[DatabaseSnapshotInfoTypeDef]],
+        "SnapshotInfo": NotRequired[list[DatabaseSnapshotInfoTypeDef]],
         "DatabaseSourceAuthenticationConfiguration": NotRequired[
             DatabaseSourceAuthenticationConfigurationTypeDef
         ],
@@ -726,7 +721,7 @@ class OutputFormatConfigurationOutputTypeDef(TypedDict):
 class DestinationTableConfigurationOutputTypeDef(TypedDict):
     DestinationTableName: str
     DestinationDatabaseName: str
-    UniqueKeys: NotRequired[List[str]]
+    UniqueKeys: NotRequired[list[str]]
     PartitionSpec: NotRequired[PartitionSpecOutputTypeDef]
     S3ErrorOutputPrefix: NotRequired[str]
 
@@ -734,7 +729,7 @@ PartitionSpecUnionTypeDef = Union[PartitionSpecTypeDef, PartitionSpecOutputTypeD
 
 class ProcessingConfigurationOutputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
-    Processors: NotRequired[List[ProcessorOutputTypeDef]]
+    Processors: NotRequired[list[ProcessorOutputTypeDef]]
 
 ProcessorUnionTypeDef = Union[ProcessorTypeDef, ProcessorOutputTypeDef]
 
@@ -817,7 +812,7 @@ class HttpEndpointDestinationDescriptionTypeDef(TypedDict):
     SecretsManagerConfiguration: NotRequired[SecretsManagerConfigurationTypeDef]
 
 class IcebergDestinationDescriptionTypeDef(TypedDict):
-    DestinationTableConfigurationList: NotRequired[List[DestinationTableConfigurationOutputTypeDef]]
+    DestinationTableConfigurationList: NotRequired[list[DestinationTableConfigurationOutputTypeDef]]
     SchemaEvolutionConfiguration: NotRequired[SchemaEvolutionConfigurationTypeDef]
     TableCreationConfiguration: NotRequired[TableCreationConfigurationTypeDef]
     BufferingHints: NotRequired[BufferingHintsTypeDef]
@@ -1180,7 +1175,7 @@ class DeliveryStreamDescriptionTypeDef(TypedDict):
     DeliveryStreamStatus: DeliveryStreamStatusType
     DeliveryStreamType: DeliveryStreamTypeType
     VersionId: str
-    Destinations: List[DestinationDescriptionTypeDef]
+    Destinations: list[DestinationDescriptionTypeDef]
     HasMoreDestinations: bool
     FailureDescription: NotRequired[FailureDescriptionTypeDef]
     DeliveryStreamEncryptionConfiguration: NotRequired[DeliveryStreamEncryptionConfigurationTypeDef]

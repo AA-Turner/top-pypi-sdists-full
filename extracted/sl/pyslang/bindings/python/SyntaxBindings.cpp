@@ -9,10 +9,12 @@
 #include "slang/parsing/Lexer.h"
 #include "slang/parsing/Parser.h"
 #include "slang/parsing/Preprocessor.h"
+#include "slang/syntax/CSTSerializer.h"
 #include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxPrinter.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/syntax/SyntaxVisitor.h"
+#include "slang/text/Json.h"
 #include "slang/text/SourceManager.h"
 
 namespace fs = std::filesystem;
@@ -72,8 +74,8 @@ public:
     // --- Expose protected base methods via public wrappers ---
     void py_remove(const SyntaxNode& node) { this->remove(node); }
 
-    void py_replace(const SyntaxNode& oldNode, SyntaxNode& newNode) {
-        this->replace(oldNode, cloneNode(newNode));
+    void py_replace(const SyntaxNode& oldNode, SyntaxNode& newNode, bool preserveTrivia = false) {
+        this->replace(oldNode, cloneNode(newNode), preserveTrivia);
     }
 
     void py_insertBefore(const SyntaxNode& node, SyntaxNode& newNode) {
@@ -115,8 +117,9 @@ void registerSyntax(py::module_& m) {
     EXPOSE_ENUM(m, TokenKind);
     EXPOSE_ENUM(m, SyntaxKind);
     EXPOSE_ENUM(m, KnownSystemName);
+    EXPOSE_ENUM(m, CSTJsonMode);
 
-    py::class_<Trivia>(m, "Trivia")
+    py::classh<Trivia>(m, "Trivia")
         .def(py::init<>())
         .def(py::init<TriviaKind, std::string_view>(), "kind"_a, "rawText"_a)
         .def_readonly("kind", &Trivia::kind)
@@ -128,7 +131,7 @@ void registerSyntax(py::module_& m) {
             return fmt::format("Trivia(TriviaKind.{})", toString(self.kind));
         });
 
-    py::class_<Token>(m, "Token")
+    py::classh<Token>(m, "Token")
         .def(py::init<>())
         .def(py::init([](BumpAllocator& alloc, TokenKind kind, std::span<Trivia const> trivia,
                          std::string_view rawText, SourceLocation location) {
@@ -245,7 +248,7 @@ void registerSyntax(py::module_& m) {
         size_t index;
     };
 
-    py::class_<SyntaxNode>(m, "SyntaxNode")
+    py::classh<SyntaxNode>(m, "SyntaxNode")
         .def_readonly("parent", &SyntaxNode::parent)
         .def_readonly("kind", &SyntaxNode::kind)
         .def("getFirstToken", &SyntaxNode::getFirstToken)
@@ -278,16 +281,27 @@ void registerSyntax(py::module_& m) {
              [](const SyntaxNode& self) {
                  return fmt::format("SyntaxNode(SyntaxKind.{})", toString(self.kind));
              })
-        .def("__str__", &SyntaxNode::toString);
+        .def("__str__", &SyntaxNode::toString)
+        .def(
+            "to_json",
+            [](const SyntaxNode& self, CSTJsonMode mode = CSTJsonMode::Full) {
+                JsonWriter writer;
+                writer.setPrettyPrint(true);
+                CSTSerializer serializer(writer, mode);
+                serializer.serialize(self);
+                return std::string(writer.view());
+            },
+            py::arg("mode") = CSTJsonMode::Full,
+            "Convert this syntax node to JSON string with optional formatting mode");
 
-    py::class_<IncludeMetadata>(m, "IncludeMetadata")
+    py::classh<IncludeMetadata>(m, "IncludeMetadata")
         .def(py::init<>())
         .def_readonly("syntax", &IncludeMetadata::syntax)
         .def_readonly("path", &IncludeMetadata::path)
         .def_readonly("buffer", &IncludeMetadata::buffer)
         .def_readonly("isSystem", &IncludeMetadata::isSystem);
 
-    py::class_<SyntaxTree, std::shared_ptr<SyntaxTree>>(m, "SyntaxTree")
+    py::classh<SyntaxTree>(m, "SyntaxTree")
         .def_readonly("isLibraryUnit", &SyntaxTree::isLibraryUnit)
         .def_static(
             "fromFile",
@@ -358,14 +372,52 @@ void registerSyntax(py::module_& m) {
         .def_property_readonly("options", &SyntaxTree::options)
         .def_property_readonly("sourceLibrary", &SyntaxTree::getSourceLibrary)
         .def("getIncludeDirectives", &SyntaxTree::getIncludeDirectives)
-        .def_static("getDefaultSourceManager", &SyntaxTree::getDefaultSourceManager, byref);
+        .def_static("getDefaultSourceManager", &SyntaxTree::getDefaultSourceManager, byref)
+        .def("validate", &SyntaxTree::validate)
+        .def(
+            "to_json",
+            [](const SyntaxTree& self, CSTJsonMode mode = CSTJsonMode::Full) {
+                JsonWriter writer;
+                writer.setPrettyPrint(true);
+                CSTSerializer serializer(writer, mode);
+                serializer.serialize(self);
+                return std::string(writer.view());
+            },
+            py::arg("mode") = CSTJsonMode::Full,
+            "Convert this syntax tree to JSON string with optional formatting mode");
 
-    py::class_<LexerOptions>(m, "LexerOptions")
+    py::classh<CommentHandler> commentHandler(m, "CommentHandler");
+    commentHandler.def(py::init<>())
+        .def(py::init<CommentHandler::Kind, std::string_view>(), "kind"_a, "endRegion"_a)
+        .def_readwrite("kind", &CommentHandler::kind)
+        .def_readwrite("endRegion", &CommentHandler::endRegion);
+
+    py::native_enum<CommentHandler::Kind>(commentHandler, "Kind", "enum.Enum")
+        .value("Protect", CommentHandler::Protect)
+        .value("TranslateOff", CommentHandler::TranslateOff)
+        .value("LintOn", CommentHandler::LintOn)
+        .value("LintOff", CommentHandler::LintOff)
+        .value("LintSave", CommentHandler::LintSave)
+        .value("LintRestore", CommentHandler::LintRestore)
+        .export_values()
+        .finalize();
+
+    py::classh<LexerOptions>(m, "LexerOptions")
         .def(py::init<>())
         .def_readwrite("maxErrors", &LexerOptions::maxErrors)
-        .def_readwrite("languageVersion", &LexerOptions::languageVersion);
+        .def_readwrite("languageVersion", &LexerOptions::languageVersion)
+        .def_readwrite("enableLegacyProtect", &LexerOptions::enableLegacyProtect)
+        .def_readwrite("commentHandlers", &LexerOptions::commentHandlers);
 
-    py::class_<PreprocessorOptions>(m, "PreprocessorOptions")
+    py::classh<Lexer>(m, "Lexer")
+        .def(py::init<SourceBuffer, BumpAllocator&, Diagnostics&, SourceManager&, LexerOptions>(),
+             py::keep_alive<1, 3>(), py::keep_alive<1, 4>(), py::keep_alive<1, 5>(), "buffer"_a,
+             "alloc"_a, "diagnostics"_a, "sourceManager"_a, "options"_a = LexerOptions())
+        .def("lex", py::overload_cast<>(&Lexer::lex))
+        .def("isNextTokenOnSameLine", &Lexer::isNextTokenOnSameLine)
+        .def_property_readonly("library", &Lexer::getLibrary);
+
+    py::classh<PreprocessorOptions>(m, "PreprocessorOptions")
         .def(py::init<>())
         .def_readwrite("maxIncludeDepth", &PreprocessorOptions::maxIncludeDepth)
         .def_readwrite("languageVersion", &PreprocessorOptions::languageVersion)
@@ -375,12 +427,12 @@ void registerSyntax(py::module_& m) {
         .def_readwrite("additionalIncludePaths", &PreprocessorOptions::additionalIncludePaths)
         .def_readwrite("ignoreDirectives", &PreprocessorOptions::ignoreDirectives);
 
-    py::class_<ParserOptions>(m, "ParserOptions")
+    py::classh<ParserOptions>(m, "ParserOptions")
         .def(py::init<>())
         .def_readwrite("maxRecursionDepth", &ParserOptions::maxRecursionDepth)
         .def_readwrite("languageVersion", &ParserOptions::languageVersion);
 
-    py::class_<SyntaxPrinter>(m, "SyntaxPrinter")
+    py::classh<SyntaxPrinter>(m, "SyntaxPrinter")
         .def(py::init<>())
         .def(py::init<const SourceManager&>(), py::keep_alive<1, 2>(), "sourceManager"_a)
         .def("append", &SyntaxPrinter::append, byrefint, "text"_a)
@@ -401,9 +453,10 @@ void registerSyntax(py::module_& m) {
         .def("str", &SyntaxPrinter::str)
         .def_static("printFile", &SyntaxPrinter::printFile, "tree"_a);
 
-    py::class_<PySyntaxRewriter>(m, "SyntaxRewriter")
+    py::classh<PySyntaxRewriter>(m, "SyntaxRewriter")
         .def("remove", &PySyntaxRewriter::py_remove)
-        .def("replace", &PySyntaxRewriter::py_replace)
+        .def("replace", &PySyntaxRewriter::py_replace, "oldNode"_a, "newNode"_a,
+             "preserveTrivia"_a = false)
         .def("insert_before", &PySyntaxRewriter::py_insertBefore)
         .def("insert_after", &PySyntaxRewriter::py_insertAfter)
         .def("insert_at_front", &PySyntaxRewriter::py_insertAtFront, py::arg("list"),

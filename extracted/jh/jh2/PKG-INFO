@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jh2
-Version: 5.0.9
+Version: 5.0.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -26,7 +27,7 @@ Summary: HTTP/2 State-Machine based protocol implementation
 Keywords: http2,hpack,h2
 Author-email: Cory Benfield <cory@lukasa.co.uk>
 Maintainer-email: "Ahmed R. TAHRI" <tahri.ahmed@proton.me>
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Changelog, https://github.com/jawah/h2/blob/main/CHANGELOG.rst

@@ -9,8 +9,10 @@ from ..models import Entry
 class EntryRepresentationSerializer(wb_serializers.RepresentationSerializer):
     _detail = wb_serializers.SerializerMethodField()
     _detail_preview = wb_serializers.HyperlinkField(reverse_name="wbcore:directory:entry-detail")
-    primary_email = wb_serializers.CharField(default="", label=_("Primary Email"), allow_null=True)
-    primary_telephone = wb_serializers.TelephoneField(default="", label=_("Primary Telephone"), allow_null=True)
+    primary_email = wb_serializers.CharField(read_only=True, required=False, label=_("Primary Email"), allow_null=True)
+    primary_telephone = wb_serializers.TelephoneField(
+        read_only=True, required=False, label=_("Primary Telephone"), allow_null=True
+    )
 
     def get__detail(self, obj):
         if obj.is_company:

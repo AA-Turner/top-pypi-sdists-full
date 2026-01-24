@@ -1,37 +1,31 @@
 Metadata-Version: 2.4
 Name: scikit-fem
-Version: 11.0.0
+Version: 12.0.1
 Summary: Simple finite element assemblers
-Home-page: https://github.com/kinnala/scikit-fem
 Author: Tom Gustafsson
-License: BSD-3-Clause
-Project-URL: Code, https://github.com/kinnala/scikit-fem
-Project-URL: Issues, https://github.com/kinnala/scikit-fem/issues
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Scientific/Engineering
-Classifier: Topic :: Utilities
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: scipy
+Requires-Dist: matplotlib ; extra == "all"
+Requires-Dist: meshio ; extra == "all"
+Project-URL: Code, https://github.com/kinnala/scikit-fem
+Project-URL: Home, https://github.com/kinnala/scikit-fem
 Provides-Extra: all
-Requires-Dist: meshio>=4.0.4; extra == "all"
-Requires-Dist: matplotlib; extra == "all"
-Dynamic: license-file
 
 # scikit-fem
 
-`scikit-fem` is a pure Python 3.9+ library for performing [finite element
+`scikit-fem` is a pure Python 3.10+ library for performing [finite element
 assembly](https://en.wikipedia.org/wiki/Finite_element_method). Its main
 purpose is the transformation of bilinear forms into sparse matrices and linear
 forms into vectors.
@@ -251,6 +245,44 @@ for first timers include:
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 with respect to documented and/or tested features.
+
+### Unreleased
+
+### [12.0.1] - 2026-01-19
+
+- Fixed: License year updated while changing to a different build system (flit).
+
+### [12.0.0] - 2026-01-19
+
+- Changed: `Mesh.with_defaults` now uses `np.isclose` for
+  finding facets matching `left`, `right`, `top`, `bottom`, etc.
+  instead of direct floating point comparison.
+  Tolerance for `np.isclose` is calculated automatically from
+  the smallest element size.
+  This may result in backwards-incompatible behaviour, i.e.,
+  more edge cases are now covered by the matching and
+  it is more likely that `Mesh.boundaries` gets filled
+  by the call.
+- Added: `Basis.interpolator` now supports interpolating
+  vectorial and tensorial elements
+- Added: Basic support for assembling PETSc matrices via
+  `form.elemental(basis).topetsc()`, see ex52.
+  Requires the optional dependency `petsc4py`.
+- Added: Basic support for distributed assembly of PETSc matrices via
+  decorator `Dofs.decompose`.  Requires the optional dependencies
+  `petsc4py` and `pymetis`.  The decorator `Dofs.decompose` is applied
+  on a function which returns 2-tuple with `Mesh` and `Dofs` objects.
+  This will run METIS on the mesh and distribute the
+  degrees-of-freedom according to the decomposition.  It is then
+  possible to use the standard objects in scikit-fem such as `Basis`
+  and `BilinearForm` to assemble matrices for each of the subdomains
+  in parallel, assuming the script is run using `mpirun`.  These can
+  be turned into distributed PETSc matrices via
+  `form.elemental(basis).topetsc(dofs)`. See ex53 and ex54 for
+  examples.
+- Added: `ElementTriN3`, a third order Nedelec element for triangular meshes.
+- Added: Support for Python 3.14.
+- Removed: Support for Python 3.9.
 
 ### [11.0.0] - 2025-04-24
 
@@ -735,3 +767,4 @@ with respect to documented and/or tested features.
 - Added: `MortarMapping` with basic support for mortar methods in 2D.
 - Added: `Basis` constructors now accept `quadrature` keyword argument for specifying
   a custom quadrature rule.
+

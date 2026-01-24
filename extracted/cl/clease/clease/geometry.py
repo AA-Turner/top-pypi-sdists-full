@@ -1,4 +1,5 @@
 """Module for tools pertaining to geometry of atoms and cells."""
+
 from ase import Atoms
 import numpy as np
 

@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from xsdata.codegen.exceptions import CodegenError
 from xsdata.codegen.models import get_name
@@ -29,13 +29,11 @@ class WsdlElement:
     Args:
         name: The element name
         documentation: The element documentation
-        location: The element location
-        ns_map: The element namespace prefix-URI map
     """
 
     name: str = attribute()
-    documentation: Optional[Documentation] = element()
-    location: Optional[str] = field(default=None, metadata={"type": "Ignore"})
+    documentation: Documentation | None = element()
+    location: str | None = field(default=None, metadata={"type": "Ignore"})
     ns_map: dict[str, str] = field(
         default_factory=dict, init=False, metadata={"type": "Ignore"}
     )
@@ -48,8 +46,6 @@ class ExtensibleElement(WsdlElement):
     Args:
         name: The element name
         documentation: The element documentation
-        location: The element location
-        ns_map: The element namespace prefix-URI map
         extended: A list of generic elements
     """
 
@@ -71,7 +67,7 @@ class Types:
     """
 
     schemas: list[Schema] = array_element(name="schema", namespace=Namespace.XS.uri)
-    documentation: Optional[Documentation] = element()
+    documentation: Documentation | None = element()
 
 
 @dataclass
@@ -83,8 +79,8 @@ class Import:
         namespace: The namespace URI
     """
 
-    location: Optional[str] = attribute()
-    namespace: Optional[str] = attribute()
+    location: str | None = attribute()
+    namespace: str | None = attribute()
 
 
 @dataclass
@@ -94,14 +90,12 @@ class Part(WsdlElement):
     Args:
         name: The part name
         documentation: The part documentation
-        location: The part location
-        ns_map: The part namespace prefix-URI map
         type: The part type
         element: The part element
     """
 
-    type: Optional[str] = attribute()
-    element: Optional[str] = attribute()
+    type: str | None = attribute()
+    element: str | None = attribute()
 
 
 @dataclass
@@ -111,8 +105,6 @@ class Message(WsdlElement):
     Args:
         name: The message name
         documentation: The message documentation
-        location: The message location
-        ns_map: The message namespace prefix-URI map
         parts: The message parts
     """
 
@@ -124,11 +116,8 @@ class PortTypeMessage(WsdlElement):
     """WSDL Port type message model representation.
 
     Args:
-    Args:
         name: The port type name
         documentation: The port type documentation
-        location: The port type location
-        ns_map: The port type namespace prefix-URI map
         message: The port type message
     """
 
@@ -157,8 +146,6 @@ class PortType(ExtensibleElement):
     Args:
         name: The port type name
         documentation: The port type documentation
-        location: The port type location
-        ns_map: The port type namespace prefix-URI map
         extended: The port type extended elements
         operations: The port type operations
     """
@@ -177,8 +164,6 @@ class BindingMessage(ExtensibleElement):
     Args:
         name: The message name
         documentation: The message documentation
-        location: The message location
-        ns_map: The message namespace prefix-URI map
         extended: The message extended elements
     """
 
@@ -193,8 +178,6 @@ class BindingOperation(ExtensibleElement):
         faults: The list of error binding message instances
         name: The operation name
         documentation: The operation documentation
-        location: The operation location
-        ns_map: The operation namespace prefix-URI map
         extended: The operation extended elements
     """
 
@@ -210,8 +193,6 @@ class Binding(ExtensibleElement):
     Args:
         name: The binding name
         documentation: The binding documentation
-        location: The binding location
-        ns_map: The binding namespace prefix-URI map
         extended: The binding extended elements
         type: The binding type
         operations: The binding operations
@@ -235,8 +216,6 @@ class ServicePort(ExtensibleElement):
     Args:
         name: The port name
         documentation: The port documentation
-        location: The port location
-        ns_map: The port namespace prefix-URI map
         extended: The port extended elements
         binding: The port binding
     """
@@ -251,8 +230,6 @@ class Service(WsdlElement):
     Args:
         name: The service name
         documentation: The service documentation
-        location: The service location
-        ns_map: The service namespace prefix-URI map
         ports: The service ports
     """
 
@@ -266,8 +243,6 @@ class Definitions(ExtensibleElement):
     Args:
         name: The definition name
         documentation: The definition documentation
-        location: The definition location
-        ns_map: The definition namespace prefix-URI map
         extended: A list of generic elements
         types: The definition types
         imports: The definition imports
@@ -275,7 +250,6 @@ class Definitions(ExtensibleElement):
         port_types: The definition port types
         bindings: The definition bindings
         services: The definition services
-        extended: The definition extended elements
     """
 
     class Meta:
@@ -284,8 +258,8 @@ class Definitions(ExtensibleElement):
         name = "definitions"
         namespace = "http://schemas.xmlsoap.org/wsdl/"
 
-    target_namespace: Optional[str] = attribute(name="targetNamespace")
-    types: Optional[Types] = element()
+    target_namespace: str | None = attribute(name="targetNamespace")
+    types: Types | None = element()
     imports: list[Import] = array_element(name="import")
     messages: list[Message] = array_element(name="message")
     port_types: list[PortType] = array_element(name="portType")

@@ -8,9 +8,10 @@ T = TypeVar("T", bound="NewEmailTriggerRetryRetryIf")
 
 @_attrs_define
 class NewEmailTriggerRetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

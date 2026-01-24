@@ -2,17 +2,17 @@ use tombi_comment_directive::value::{StringCommonFormatRules, StringCommonLintRu
 use tombi_schema_store::{Accessor, CurrentSchema, StringSchema, ValueSchema};
 
 use crate::{
+    HoverContent,
     comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
     hover::{
+        GetHoverContent, HoverValueContent,
         all_of::get_all_of_hover_content,
         any_of::get_any_of_hover_content,
         comment::get_value_comment_directive_hover_content,
-        constraints::{build_enumerate_values, ValueConstraints},
+        constraints::{ValueConstraints, build_enum_values},
         display_value::DisplayValue,
         one_of::get_one_of_hover_content,
-        GetHoverContent, HoverValueContent,
     },
-    HoverContent,
 };
 use tombi_future::Boxable;
 
@@ -31,22 +31,20 @@ impl GetHoverContent for tombi_document_tree::String {
                     StringCommonFormatRules,
                     StringCommonLintRules,
                 >(self.comment_directives(), position, accessors)
-            {
-                if let Some(hover_content) =
+                && let Some(hover_content) =
                     get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
                         .await
-                {
-                    return Some(hover_content);
-                }
+            {
+                return Some(hover_content);
             }
 
             if let Some(current_schema) = current_schema {
                 match current_schema.value_schema.as_ref() {
                     ValueSchema::String(string_schema) => {
-                        if let Some(enumerate) = &string_schema.enumerate {
-                            if !enumerate.iter().any(|x| x == self.value()) {
-                                return None;
-                            }
+                        if let Some(r#enum) = &string_schema.r#enum
+                            && !r#enum.iter().any(|x| x == self.value())
+                        {
+                            return None;
                         }
 
                         let mut hover_content = string_schema
@@ -140,11 +138,9 @@ impl GetHoverContent for StringSchema {
                 accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
                 value_type: tombi_schema_store::ValueType::String,
                 constraints: Some(ValueConstraints {
-                    enumerate: build_enumerate_values(
-                        &self.const_value,
-                        &self.enumerate,
-                        |value| Some(DisplayValue::String(value.clone())),
-                    ),
+                    r#enum: build_enum_values(&self.const_value, &self.r#enum, |value| {
+                        Some(DisplayValue::String(value.clone()))
+                    }),
                     default: self
                         .default
                         .as_ref()

@@ -125,7 +125,7 @@ from dask._task_spec import Task, TaskRef, parse_input
 from dask.highlevelgraph import HighLevelGraph
 from dask.layers import Layer
 from dask.tokenize import tokenize
-from dask.typing import Key
+from dask.typing import DaskCollection, Key
 from dask.utils import parse_bytes
 
 from distributed.core import PooledRPCCall
@@ -148,8 +148,9 @@ from distributed.shuffle._worker_plugin import ShuffleWorkerPlugin
 from distributed.sizeof import sizeof
 
 if TYPE_CHECKING:
+    from typing import TypeAlias
+
     import numpy as np
-    from typing_extensions import TypeAlias
 
     import dask.array as da
 
@@ -247,7 +248,7 @@ def rechunk_p2p(
         disk=disk,
     )
     return new_da_object(
-        HighLevelGraph.from_collections(name, layer, [x]),
+        HighLevelGraph.from_collections(name, layer, [cast(DaskCollection, x)]),
         name,
         chunks,
         meta=x._meta,
@@ -664,7 +665,7 @@ def _split_partials_per_axis(old_to_new: list[Any]) -> tuple[tuple[_Partial, ...
 
 
 def _slice_new_chunks_into_partials(
-    old_to_new: list[list[list[tuple[int, slice]]]]
+    old_to_new: list[list[list[tuple[int, slice]]]],
 ) -> SlicedAxes:
     """Slice the new chunks into partials that can be computed separately"""
     sliced_axes = []

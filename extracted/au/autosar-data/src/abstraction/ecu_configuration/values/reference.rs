@@ -1,8 +1,7 @@
 use crate::{
     abstraction::{
         ecu_configuration::{
-            EcucInstanceReferenceDef, ecuc_reference_def_to_pyobject,
-            pyobject_to_ecuc_reference_def,
+            EcucInstanceReferenceDef, ecuc_reference_def_to_pyany, pyany_to_ecuc_reference_def,
         },
         *,
     },
@@ -33,6 +32,15 @@ impl EcucInstanceReferenceValue {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[getter]
@@ -160,6 +168,15 @@ impl EcucReferenceValue {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[getter]
     fn element(&self) -> Element {
         Element(self.0.element().clone())
@@ -172,7 +189,7 @@ impl EcucReferenceValue {
     /// set the parameter definition reference
     #[setter]
     fn set_definition(&self, definition: &Bound<'_, PyAny>) -> PyResult<()> {
-        let definition = pyobject_to_ecuc_reference_def(definition)?;
+        let definition = pyany_to_ecuc_reference_def(definition)?;
         self.0
             .set_definition(&definition)
             .map_err(abstraction_err_to_pyerr)
@@ -184,10 +201,10 @@ impl EcucReferenceValue {
     /// could contain either an `EcucFloatParamDef` or an `EcucIntegerParamDef`.
     /// If the definition is not loaded, use `definition_ref()` instead.
     #[getter]
-    fn definition(&self) -> Option<PyObject> {
+    fn definition(&self) -> Option<Py<PyAny>> {
         self.0
             .definition()
-            .map(|value| ecuc_reference_def_to_pyobject(value).unwrap())
+            .map(|value| ecuc_reference_def_to_pyany(value).unwrap())
     }
 
     /// get the referenced definition ref as a string
@@ -252,16 +269,16 @@ impl EcucReferenceValue {
 
 iterator_wrapper!(
     EcucAnyReferenceValueIterator,
-    PyObject,
+    Py<PyAny>,
     "Union[EcucInstanceReferenceValue, EcucReferenceValue]"
 );
 
 //##################################################################
 
-pub(crate) fn ecuc_reference_value_to_pyobject(
+pub(crate) fn ecuc_reference_value_to_pyany(
     value: &autosar_data_abstraction::ecu_configuration::EcucAnyReferenceValue,
-) -> PyResult<PyObject> {
-    Python::with_gil(|py| match value {
+) -> PyResult<Py<PyAny>> {
+    Python::attach(|py| match value {
         autosar_data_abstraction::ecu_configuration::EcucAnyReferenceValue::Instance(value) => {
             EcucInstanceReferenceValue(value.clone()).into_py_any(py)
         }

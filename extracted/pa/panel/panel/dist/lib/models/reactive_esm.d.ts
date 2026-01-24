@@ -52,6 +52,7 @@ export declare class ReactiveESMView extends HTMLBoxView {
     after_rendered(): void;
     render_esm(): void;
     render_children(): void;
+    has_finished(): boolean;
     invalidate_layout(): void;
     remove(): void;
     after_resize(): void;
@@ -61,6 +62,7 @@ export declare class ReactiveESMView extends HTMLBoxView {
     on_child_render(child: string, callback: (new_views: UIElementView[]) => void): void;
     remove_on_child_render(child: string, callback?: (new_views: UIElementView[]) => void): void;
 }
+export declare const RenderPolicy: import("@bokehjs/core/kinds").Kinds.Enum<"children" | "manual">;
 export declare namespace ReactiveESM {
     type Attrs = p.AttrsOf<Props>;
     type Props = HTMLBox.Props & {
@@ -73,6 +75,7 @@ export declare namespace ReactiveESM {
         esm: p.Property<string>;
         events: p.Property<string[]>;
         importmap: p.Property<any>;
+        render_policy: p.Property<typeof RenderPolicy["__type__"]>;
     };
 }
 export interface ReactiveESM extends ReactiveESM.Attrs {

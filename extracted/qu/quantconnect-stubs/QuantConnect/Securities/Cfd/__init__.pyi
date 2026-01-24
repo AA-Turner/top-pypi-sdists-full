@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect
@@ -7,10 +7,6 @@ import QuantConnect.Data
 import QuantConnect.Data.Market
 import QuantConnect.Securities
 import QuantConnect.Securities.Cfd
-
-
-class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class Cfd(QuantConnect.Securities.Security):
@@ -35,13 +31,14 @@ class Cfd(QuantConnect.Securities.Security):
         :param quote_currency: The cash object that represent the quote currency
         :param config: The subscription configuration for this security
         :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount instances into units of the account currency
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
         :param registered_types: Provides all data types registered in the algorithm
         """
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
         """
         Constructor for the CFD security
         
@@ -49,14 +46,15 @@ class Cfd(QuantConnect.Securities.Security):
         :param exchange_hours: Defines the hours this exchange is open
         :param quote_currency: The cash object that represent the quote currency
         :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount instances into units of the account currency
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
         :param registered_types: Provides all data types registered in the algorithm
         :param security_cache: Cache for storing Security data
         """
         ...
 
     @staticmethod
-    def decompose_currency_pair(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], symbol_properties: QuantConnect.Securities.SymbolProperties, base_currency: typing.Optional[str], quote_currency: typing.Optional[str]) -> typing.Tuple[None, str, str]:
+    def decompose_currency_pair(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], symbol_properties: QuantConnect.Securities.SymbolProperties, base_currency: typing.Optional[str], quote_currency: typing.Optional[str]) -> typing.Tuple[None, str, str]:
         """
         Decomposes the specified currency pair into a base and quote currency provided as out parameters
         
@@ -66,6 +64,14 @@ class Cfd(QuantConnect.Securities.Security):
         :param quote_currency: The output quote currency
         """
         ...
+
+
+class CfdCache(QuantConnect.Securities.SecurityCache):
+    """CFD specific caching support"""
+
+
+class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class CfdHolding(QuantConnect.Securities.SecurityHolding):
@@ -97,9 +103,5 @@ class CfdExchange(QuantConnect.Securities.SecurityExchange):
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
-
-
-class CfdCache(QuantConnect.Securities.SecurityCache):
-    """CFD specific caching support"""
 
 

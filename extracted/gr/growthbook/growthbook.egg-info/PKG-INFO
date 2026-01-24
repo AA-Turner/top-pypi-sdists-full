@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: growthbook
-Version: 1.4.3
+Version: 2.1.0
 Summary: Powerful Feature flagging and A/B testing for Python apps
 Home-page: https://github.com/growthbook/growthbook-python
 Author: GrowthBook
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -55,6 +56,24 @@ Powerful Feature flagging and A/B testing for Python apps.
 ## Installation
 
 `pip install growthbook` (recommended) or copy `growthbook.py` into your project
+
+## Type Checking Support
+
+The GrowthBook Python SDK is fully typed and includes inline type hints for all public APIs. This enables:
+
+- **Better IDE support** with autocomplete and inline documentation
+- **Type safety** - catch bugs at development time with mypy or other type checkers
+- **Better code documentation** - types serve as inline documentation
+- **Safer refactoring** - type checkers will catch breaking changes
+
+To use type checking with mypy:
+
+```bash
+pip install mypy
+mypy your_code.py
+```
+
+The SDK includes a `py.typed` marker file and is compliant with [PEP 561](https://www.python.org/dev/peps/pep-0561/).
 
 ## Quick Usage
 
@@ -499,7 +518,6 @@ class MyStickyBucketService(AbstractStickyBucketService):
         })
 
 # Pass in an instance of this service to your GrowthBook constructor
-
 gb = GrowthBook(
   sticky_bucket_service = MyStickyBucketService()
 )

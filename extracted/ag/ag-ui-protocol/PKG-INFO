@@ -1,16 +1,17 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: ag-ui-protocol
-Version: 0.1.9
+Version: 0.1.10
 Summary: 
+License: MIT
 Author: Markus Ecker
 Author-email: markus.ecker@gmail.com
 Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: pydantic (>=2.11.2,<3.0.0)
 Description-Content-Type: text/markdown
 
@@ -52,6 +53,23 @@ event = TextMessageContentEvent(
 encoder = EventEncoder()
 sse_data = encoder.encode(event)
 # Output: data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_123","delta":"Hello from Python!"}\n\n
+```
+
+### Multimodal user message
+
+```python
+from ag_ui.core import UserMessage, TextInputContent, BinaryInputContent
+
+message = UserMessage(
+    id="user-123",
+    content=[
+        TextInputContent(text="Please describe this image"),
+        BinaryInputContent(mime_type="image/png", url="https://example.com/cat.png"),
+    ],
+)
+
+payload = message.model_dump(by_alias=True)
+# {"id": "user-123", "role": "user", "content": [...]}
 ```
 
 ## Packages

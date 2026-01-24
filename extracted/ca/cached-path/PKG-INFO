@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cached_path
-Version: 1.7.3
+Version: 1.8.1
 Summary: A file utility for accessing both local and remote files through a unified interface
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>
 License:                                  Apache License
@@ -213,17 +213,18 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: rich<14.0,>=12.1
 Requires-Dist: filelock<4.0,>=3.4
 Requires-Dist: boto3<2.0,>=1.0
-Requires-Dist: google-cloud-storage<3.0,>=1.32.0
-Requires-Dist: huggingface-hub<1.0,>=0.8.1
+Requires-Dist: google-cloud-storage<4.0,>=1.32.0
+Requires-Dist: huggingface-hub<2.0,>=0.8.1
+Requires-Dist: packaging
 Provides-Extra: dev
-Requires-Dist: beaker-py<2.0,>=1.13.2; extra == "dev"
+Requires-Dist: beaker-py<3.0; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: mypy<2.0,>=1.6.0; extra == "dev"
 Requires-Dist: black<25.0,>=23.1.0; extra == "dev"
@@ -242,7 +243,6 @@ Requires-Dist: myst-parser<3.0,>=1.0.0; extra == "dev"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "dev"
 Requires-Dist: sphinx-autobuild==2021.3.14; extra == "dev"
 Requires-Dist: sphinx-autodoc-typehints; extra == "dev"
-Requires-Dist: packaging; extra == "dev"
 Dynamic: license-file
 
 # [cached-path](https://cached-path.readthedocs.io/)
@@ -328,7 +328,7 @@ then returns the path to the cached file. If it's already a local path,
 it makes sure the file exists and returns the path.
 
 For URLs, `http://`, `https://`, `s3://` (AWS S3), `gs://` (Google Cloud Storage), and `hf://` (HuggingFace Hub) are all supported out-of-the-box.
-Optionally `beaker://` URLs in the form of `beaker://{user_name}/{dataset_name}/{file_path}` are supported, which requires [beaker-py](https://github.com/allenai/beaker-py) to be installed.
+Optionally `beaker://` URLs in the form of `beaker://{user_name}/{dataset_name}/{file_path}` are supported, which requires [beaker-py](https://beaker-py-docs.allen.ai) to be installed.
 
 For example, to download the PyTorch weights for the model `epwalsh/bert-xsmall-dummy`
 on HuggingFace, you could do:

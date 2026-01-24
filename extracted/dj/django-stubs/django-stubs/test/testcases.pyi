@@ -85,7 +85,7 @@ class SimpleTestCase(unittest.TestCase):
     def assertContains(
         self,
         response: HttpResponseBase,
-        text: bytes | int | str,
+        text: bytes | int | _StrOrPromise,
         count: int | None = ...,
         status_code: int = ...,
         msg_prefix: str = ...,
@@ -94,7 +94,7 @@ class SimpleTestCase(unittest.TestCase):
     def assertNotContains(
         self,
         response: HttpResponseBase,
-        text: bytes | str,
+        text: bytes | int | _StrOrPromise,
         status_code: int = ...,
         msg_prefix: str = ...,
         html: bool = ...,
@@ -249,4 +249,4 @@ class SerializeMixin:
 
 def connections_support_transactions(aliases: Iterable[str] | None = ...) -> bool: ...
 
-__all__ = ("TestCase", "TransactionTestCase", "SimpleTestCase", "skipIfDBFeature", "skipUnlessDBFeature")
+__all__ = ("SimpleTestCase", "TestCase", "TransactionTestCase", "skipIfDBFeature", "skipUnlessDBFeature")

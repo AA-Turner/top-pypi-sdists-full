@@ -1,28 +1,13 @@
 import os
-import re
 import sys
 
 from setuptools import Extension, setup
+from setuptools.command.bdist_wheel import bdist_wheel
 from setuptools.command.build_ext import build_ext
-from wheel.bdist_wheel import bdist_wheel
-
-# These were only added to setuptools in 59.0.1.
-try:
-    from setuptools.errors import (
-        CCompilerError,
-        DistutilsExecError,
-        DistutilsPlatformError,
-    )
-except ImportError:
-    from distutils.errors import (
-        CCompilerError,
-        DistutilsExecError,
-        DistutilsPlatformError,
-    )
+from setuptools.errors import CCompilerError, ExecError, PlatformError
 
 cmdclass = {}
 PYPY = hasattr(sys, "pypy_version_info")
-JYTHON = sys.platform.startswith("java")
 
 if os.name == "nt":
     # Disable unknown pragma warning
@@ -74,12 +59,13 @@ else:
 
 # Cargo cult code for installing extension with pure Python fallback.
 # Taken from SQLAlchemy, but this same basic code exists in many modules.
-ext_errors = (CCompilerError, DistutilsExecError, DistutilsPlatformError)
+ext_errors = (CCompilerError, ExecError, PlatformError)
 
 
 class BuildFailed(Exception):
-    def __init__(self) -> None:
-        self.cause = sys.exc_info()[1]
+    def __init__(self, cause: Exception) -> None:
+        super().__init__()
+        self.cause = cause
 
 
 class ve_build_ext(build_ext):
@@ -88,36 +74,22 @@ class ve_build_ext(build_ext):
     def run(self) -> None:
         try:
             build_ext.run(self)
-        except DistutilsPlatformError:
-            raise BuildFailed
+        except PlatformError as ex:
+            raise BuildFailed(ex) from ex
 
     def build_extension(self, ext) -> None:
         try:
             build_ext.build_extension(self, ext)
-        except ext_errors:
-            raise BuildFailed
-        except ValueError:
+        except ext_errors as ex:
+            raise BuildFailed(ex) from ex
+        except ValueError as ex:
             # this can happen on Windows 64 bit, see Python issue 7511
-            if "'path'" in str(sys.exc_info()[1]):
-                raise BuildFailed
+            if "'path'" in str(ex):
+                raise BuildFailed(ex) from ex
             raise
 
 
 cmdclass["build_ext"] = ve_build_ext
-
-
-ROOT = os.path.dirname(__file__)
-
-with open(os.path.join(ROOT, "README.rst"), "rb") as fd:
-    README = fd.read().decode("utf8")
-
-with open(os.path.join(ROOT, "maxminddb", "__init__.py"), "rb") as fd:
-    maxminddb_text = fd.read().decode("utf8")
-    VERSION = (
-        re.compile(r".*__version__ = \"(.*?)\"", re.DOTALL)
-        .match(maxminddb_text)
-        .group(1)
-    )
 
 
 def status_msgs(*msgs):
@@ -144,33 +116,26 @@ def run_setup(with_cext) -> None:
         kwargs["ext_modules"] = ext_module
         loc_cmdclass["bdist_wheel"] = bdist_wheel
 
-    setup(version=VERSION, cmdclass=loc_cmdclass, **kwargs)
+    setup(cmdclass=loc_cmdclass, **kwargs)
 
 
-if JYTHON:
-    run_setup(False)
+try:
+    run_setup(True)
+except BuildFailed as exc:
+    if os.getenv("MAXMINDDB_REQUIRE_EXTENSION"):
+        raise
     status_msgs(
-        "WARNING: Disabling C extension due to Python platform.",
+        exc.cause,
+        "WARNING: The C extension could not be compiled, "
+        + "speedups are not enabled.",
+        "Failure information, if any, is above.",
+        "Retrying the build without the C extension now.",
+    )
+
+    run_setup(False)
+
+    status_msgs(
+        "WARNING: The C extension could not be compiled, "
+        + "speedups are not enabled.",
         "Plain-Python build succeeded.",
     )
-else:
-    try:
-        run_setup(True)
-    except BuildFailed as exc:
-        if os.getenv("MAXMINDDB_REQUIRE_EXTENSION"):
-            raise
-        status_msgs(
-            exc.cause,
-            "WARNING: The C extension could not be compiled, "
-            + "speedups are not enabled.",
-            "Failure information, if any, is above.",
-            "Retrying the build without the C extension now.",
-        )
-
-        run_setup(False)
-
-        status_msgs(
-            "WARNING: The C extension could not be compiled, "
-            + "speedups are not enabled.",
-            "Plain-Python build succeeded.",
-        )

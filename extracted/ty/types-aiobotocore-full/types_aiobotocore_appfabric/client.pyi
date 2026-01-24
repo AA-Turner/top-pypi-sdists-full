@@ -3,7 +3,7 @@ Type annotations for appfabric service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appfabric/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -81,12 +82,6 @@ from .type_defs import (
     UpdateIngestionDestinationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -95,14 +90,14 @@ else:
 __all__ = ("AppFabricClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class AppFabricClient(AioBaseClient):
     """
@@ -204,7 +199,7 @@ class AppFabricClient(AioBaseClient):
 
     async def delete_app_authorization(
         self, **kwargs: Unpack[DeleteAppAuthorizationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an app authorization.
 
@@ -214,7 +209,7 @@ class AppFabricClient(AioBaseClient):
 
     async def delete_app_bundle(
         self, **kwargs: Unpack[DeleteAppBundleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an app bundle.
 
@@ -224,7 +219,7 @@ class AppFabricClient(AioBaseClient):
 
     async def delete_ingestion(
         self, **kwargs: Unpack[DeleteIngestionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ingestion.
 
@@ -234,7 +229,7 @@ class AppFabricClient(AioBaseClient):
 
     async def delete_ingestion_destination(
         self, **kwargs: Unpack[DeleteIngestionDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ingestion destination.
 
@@ -334,7 +329,7 @@ class AppFabricClient(AioBaseClient):
 
     async def start_ingestion(
         self, **kwargs: Unpack[StartIngestionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts (enables) an ingestion, which collects data from an application.
 
@@ -352,7 +347,7 @@ class AppFabricClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appfabric/client/#start_user_access_tasks)
         """
 
-    async def stop_ingestion(self, **kwargs: Unpack[StopIngestionRequestTypeDef]) -> Dict[str, Any]:
+    async def stop_ingestion(self, **kwargs: Unpack[StopIngestionRequestTypeDef]) -> dict[str, Any]:
         """
         Stops (disables) an ingestion.
 
@@ -360,7 +355,7 @@ class AppFabricClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appfabric/client/#stop_ingestion)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified resource.
 
@@ -368,7 +363,7 @@ class AppFabricClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appfabric/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or tags from a resource.
 
@@ -450,7 +445,7 @@ class AppFabricClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

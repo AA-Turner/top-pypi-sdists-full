@@ -6,6 +6,8 @@ set -xeuo pipefail
 # make sure we are in the same directory as the script
 cd "$(dirname "$0")"
 
+rm -f vg_*
+
 # Run test server through valgrind, storing results for each child process in separate XML file
 PYTHONMALLOC=malloc valgrind \
   --leak-check=yes --show-leak-kinds=definite --trace-children=yes \

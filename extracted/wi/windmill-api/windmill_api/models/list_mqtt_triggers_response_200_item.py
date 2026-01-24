@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.list_mqtt_triggers_response_200_item_client_version import ListMqttTriggersResponse200ItemClientVersion
+from ..models.list_mqtt_triggers_response_200_item_mode import ListMqttTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -30,7 +31,6 @@ class ListMqttTriggersResponse200Item:
     Attributes:
         mqtt_resource_path (str):
         subscribe_topics (List['ListMqttTriggersResponse200ItemSubscribeTopicsItem']):
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -39,6 +39,7 @@ class ListMqttTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListMqttTriggersResponse200ItemMode): job trigger mode
         v3_config (Union[Unset, ListMqttTriggersResponse200ItemV3Config]):
         v5_config (Union[Unset, ListMqttTriggersResponse200ItemV5Config]):
         client_id (Union[Unset, str]):
@@ -49,12 +50,11 @@ class ListMqttTriggersResponse200Item:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListMqttTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, ListMqttTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListMqttTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
     mqtt_resource_path: str
     subscribe_topics: List["ListMqttTriggersResponse200ItemSubscribeTopicsItem"]
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -63,6 +63,7 @@ class ListMqttTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListMqttTriggersResponse200ItemMode
     v3_config: Union[Unset, "ListMqttTriggersResponse200ItemV3Config"] = UNSET
     v5_config: Union[Unset, "ListMqttTriggersResponse200ItemV5Config"] = UNSET
     client_id: Union[Unset, str] = UNSET
@@ -83,7 +84,6 @@ class ListMqttTriggersResponse200Item:
 
             subscribe_topics.append(subscribe_topics_item)
 
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -94,6 +94,8 @@ class ListMqttTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         v3_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.v3_config, Unset):
             v3_config = self.v3_config.to_dict()
@@ -128,7 +130,6 @@ class ListMqttTriggersResponse200Item:
             {
                 "mqtt_resource_path": mqtt_resource_path,
                 "subscribe_topics": subscribe_topics,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -137,6 +138,7 @@ class ListMqttTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if v3_config is not UNSET:
@@ -187,8 +189,6 @@ class ListMqttTriggersResponse200Item:
 
             subscribe_topics.append(subscribe_topics_item)
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -204,6 +204,8 @@ class ListMqttTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListMqttTriggersResponse200ItemMode(d.pop("mode"))
 
         _v3_config = d.pop("v3_config", UNSET)
         v3_config: Union[Unset, ListMqttTriggersResponse200ItemV3Config]
@@ -258,7 +260,6 @@ class ListMqttTriggersResponse200Item:
         list_mqtt_triggers_response_200_item = cls(
             mqtt_resource_path=mqtt_resource_path,
             subscribe_topics=subscribe_topics,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -267,6 +268,7 @@ class ListMqttTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             v3_config=v3_config,
             v5_config=v5_config,
             client_id=client_id,

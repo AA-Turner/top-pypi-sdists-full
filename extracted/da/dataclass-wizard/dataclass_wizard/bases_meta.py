@@ -4,35 +4,75 @@ Import scenario if we move it there, since the `loaders` and `dumpers` modules
 both import directly from `bases`.
 
 """
-import logging
-from datetime import datetime, date
+from __future__ import annotations
 
-from .abstractions import AbstractJSONWizard
+import logging
+import warnings
+from datetime import datetime, date
+from typing import Mapping
+
 from .bases import AbstractMeta, META, AbstractEnvMeta
 from .class_helper import (
-    META_INITIALIZER, _META,
+    META_INITIALIZER, _META, get_meta,
     get_outer_class_name, get_class_name, create_new_class,
     json_field_to_dataclass_field, dataclass_field_to_json_field,
-    field_to_env_var, DATACLASS_FIELD_TO_ALIAS_FOR_LOAD,
+    field_to_env_var,
+    DATACLASS_FIELD_TO_ALIAS_FOR_LOAD,
+    DATACLASS_FIELD_TO_ENV_FOR_LOAD,
+    DATACLASS_FIELD_TO_ALIAS_FOR_DUMP,
 )
 from .decorators import try_with_load
-from .dumpers import get_dumper
 from .enums import DateTimeTo, LetterCase, LetterCasePriority
-from .v1.enums import KeyAction, KeyCase
-from .environ.loaders import EnvLoader
 from .errors import ParseError, show_deprecation_warning
-from .loader_selection import get_loader
+from .loader_selection import get_dumper, get_loader
 from .log import LOG
 from .type_def import E
 from .utils.type_conv import date_to_timestamp, as_enum
 
+ALLOWED_MODES = ('runtime', 'v1_codegen')
 
 # global flag to determine if debug mode was ever enabled
 _debug_was_enabled = False
 
 
+def register_type(cls, tp, *, load=None, dump=None, mode=None) -> None:
+    meta = get_meta(cls)
+
+    if meta.v1:
+        if load is None:
+            load = tp
+        if dump is None:
+            dump = str
+
+        if (load_hook := meta.v1_type_to_load_hook) is None:
+            meta.v1_type_to_load_hook = load_hook = {}
+        if (dump_hook := meta.v1_type_to_dump_hook) is None:
+            meta.v1_type_to_dump_hook = dump_hook = {}
+
+        load_hook[tp] = (mode if mode else _infer_mode(load), load)
+        dump_hook[tp] = (mode if mode else _infer_mode(dump), dump)
+
+    else:
+        from .dumpers import DumpMixin
+        from .loaders import LoadMixin
+
+        dumper = get_dumper(cls, base_cls=DumpMixin)
+        loader = get_loader(cls, base_cls=LoadMixin)
+
+        # default hooks
+        load = tp if load is None else load
+        dump = str if dump is None else dump
+
+        # adapt to what v0 expects
+        load = _adapt_to_arity(load, loader.HOOK_ARITY)
+        dump = _adapt_to_arity(dump, dumper.HOOK_ARITY)
+
+        dumper.register_dump_hook(tp, dump)
+        loader.register_load_hook(tp, load)
+
+
 # use `debug_enabled` for log level if it's a str or int.
-def _enable_debug_mode_if_needed(cls_loader, possible_lvl):
+def _enable_debug_mode_if_needed(v1, cls_loader, possible_lvl):
     global _debug_was_enabled
     if not _debug_was_enabled:
         _debug_was_enabled = True
@@ -46,9 +86,10 @@ def _enable_debug_mode_if_needed(cls_loader, possible_lvl):
 
     # Decorate all hooks so they format more helpful messages
     # on error.
-    load_hooks = cls_loader.__LOAD_HOOKS__
-    for typ in load_hooks:
-        load_hooks[typ] = try_with_load(load_hooks[typ])
+    if not v1:
+        load_hooks = cls_loader.__LOAD_HOOKS__
+        for typ in load_hooks:
+            load_hooks[typ] = try_with_load(load_hooks[typ])
 
 
 def _as_enum_safe(cls: type, name: str, base_type: type[E]) -> 'E | None':
@@ -68,6 +109,84 @@ def _as_enum_safe(cls: type, name: str, base_type: type[E]) -> 'E | None':
         e.class_name = get_class_name(cls)
         e.field_name = name
         raise
+
+
+def _arity(hook) -> int:
+    # Python function / method
+    code = getattr(hook, "__code__", None)
+    if code is not None:
+        # reject *args/**kwargs if you want strictness
+        if code.co_flags & 0x04 or code.co_flags & 0x08:
+            return -1
+        return code.co_argcount
+
+    # Classes / C-callables (e.g., IPv4Address) don't expose __code__.
+    # Treat as "callable(value)" i.e., 1-arg constructor.
+    return 1
+
+
+def _adapt_to_arity(fn, target_arity: int):
+    src = _arity(fn)
+
+    if src == -1:
+        # If they already accept *args/**kwargs, it will work everywhere.
+        return fn
+
+    if src == target_arity:
+        return fn
+
+    # Common case: user gives 1-arg callable but backend passes extra info
+    if src == 1 and target_arity > 1:
+        def wrapper(x, *rest):
+            return fn(x)
+        return wrapper
+
+    # Less common: user gives 2-arg (v1 codegen) but v0 expects 1
+    # You can reject this unless you have a sane mapping.
+    raise TypeError(
+        f"Hook {getattr(fn, '__name__', fn)!r} has {src} args, "
+        f"but backend expects {target_arity}."
+    )
+
+
+def _infer_mode(hook) -> str:
+    code = getattr(hook, '__code__', None)
+
+    if code is None:
+        return 'runtime'  # types/builtins
+
+    co_flags = code.co_flags
+    if co_flags & 0x04 or co_flags & 0x08:
+        raise TypeError('hooks must not use *args/**kwargs')
+
+    argc = code.co_argcount
+    if argc == 1:
+        return 'runtime'
+    if argc == 2:
+        return 'v1_codegen'
+
+    raise TypeError('hook must accept 1 arg (runtime) or 2 args (TypeInfo, Extras)')
+
+
+def _normalize_hooks(hooks: Mapping | None) -> None:
+    if not hooks:
+        return
+
+    for tp, hook in hooks.items():
+        if isinstance(hook, tuple):
+            if len(hook) != 2:
+                raise ValueError(f"hook tuple must be (mode, hook), got {hook!r}") from None
+
+            mode, fn = hook
+            if mode not in ALLOWED_MODES:
+                raise ValueError(
+                    f"mode must be 'runtime' or 'v1_codegen' (got {mode!r})"
+                ) from None
+
+        else:
+            mode = _infer_mode(hook)
+            # noinspection PyUnresolvedReferences
+            hooks[tp] = mode, hook
 
 
 class BaseJSONWizardMeta(AbstractMeta):
@@ -101,6 +220,8 @@ class BaseJSONWizardMeta(AbstractMeta):
         if outer_cls_name is not None:
             META_INITIALIZER[outer_cls_name] = cls.bind_to
         else:
+            from .abstractions import AbstractJSONWizard
+
             # The `Meta` class is defined as an outer class. Emit a warning
             # here, just so we can ensure awareness of this special case.
             LOG.warning('The %r class is not declared as an Inner Class, so '
@@ -114,6 +235,10 @@ class BaseJSONWizardMeta(AbstractMeta):
                 AbstractMeta.json_key_to_field = cls.json_key_to_field
             if cls.v1_field_to_alias:
                 AbstractMeta.v1_field_to_alias = cls.v1_field_to_alias
+            if cls.v1_field_to_alias_dump:
+                AbstractMeta.v1_field_to_alias_dump = cls.v1_field_to_alias_dump
+            if cls.v1_field_to_alias_load:
+                AbstractMeta.v1_field_to_alias_load = cls.v1_field_to_alias_load
 
             # Create a new class of `Type[W]`, and then pass `create=False` so
             # that we don't create new loader / dumper for the class.
@@ -122,14 +247,19 @@ class BaseJSONWizardMeta(AbstractMeta):
 
     @classmethod
     def bind_to(cls, dataclass: type, create=True, is_default=True,
-                base_loader=None):
+                base_loader=None,
+                base_dumper=None):
+        from .v1.enums import KeyAction, KeyCase, DateTimeTo as V1DateTimeTo
+        meta = get_meta(dataclass)
+        v1 = cls.v1 or meta.v1
 
         cls_loader = get_loader(dataclass, create=create,
-                                base_cls=base_loader, v1=cls.v1)
-        cls_dumper = get_dumper(dataclass, create=create)
+                                base_cls=base_loader, v1=v1)
+        cls_dumper = get_dumper(dataclass, create=create,
+                                base_cls=base_dumper, v1=v1)
 
         if cls.v1_debug:
-            _enable_debug_mode_if_needed(cls_loader, cls.v1_debug)
+            _enable_debug_mode_if_needed(v1, cls_loader, cls.v1_debug)
 
         elif cls.debug_enabled:
             show_deprecation_warning(
@@ -137,7 +267,7 @@ class BaseJSONWizardMeta(AbstractMeta):
                 fmt="Deprecated Meta setting {name} ({reason}).",
                 reason='Use `v1_debug` instead',
             )
-            _enable_debug_mode_if_needed(cls_loader, cls.debug_enabled)
+            _enable_debug_mode_if_needed(v1, cls_loader, cls.debug_enabled)
 
         if cls.json_key_to_field is not None:
             add_for_both = cls.json_key_to_field.pop('__all__', None)
@@ -157,6 +287,10 @@ class BaseJSONWizardMeta(AbstractMeta):
                 for json_key, field in cls.json_key_to_field.items():
                     if field not in dataclass_to_json_field:
                         dataclass_to_json_field[field] = json_key
+
+
+        if cls.v1_dump_date_time_as is not None:
+            cls.v1_dump_date_time_as = _as_enum_safe(cls, 'v1_dump_date_time_as', V1DateTimeTo)
 
         if cls.marshal_date_time_as is not None:
             enum_val = _as_enum_safe(cls, 'marshal_date_time_as', DateTimeTo)
@@ -179,28 +313,33 @@ class BaseJSONWizardMeta(AbstractMeta):
             cls_loader.transform_json_field = _as_enum_safe(
                 cls, 'key_transform_with_load', LetterCase)
 
-        if cls.v1_key_case is not None:
+        if (key_case := cls.v1_case) is not None:
+            cls.v1_load_case = cls.v1_dump_case = key_case
+            cls.v1_case = None
+
+        if cls.v1_load_case is not None:
             cls_loader.transform_json_field = _as_enum_safe(
-                cls, 'v1_key_case', KeyCase)
+                cls, 'v1_load_case', KeyCase)
+
+        if cls.v1_dump_case is not None:
+            cls_dumper.transform_dataclass_field = _as_enum_safe(
+                cls, 'v1_dump_case', KeyCase)
 
         if (field_to_alias := cls.v1_field_to_alias) is not None:
+            cls.v1_field_to_alias_dump = {
+                k: v if isinstance(v, str) else v[0]
+                for k, v in field_to_alias.items()
+            }
+            cls.v1_field_to_alias_load = field_to_alias
 
-            add_for_load = field_to_alias.pop('__load__', True)
-            add_for_dump = field_to_alias.pop('__dump__', True)
+        if (field_to_alias := cls.v1_field_to_alias_dump) is not None:
+            DATACLASS_FIELD_TO_ALIAS_FOR_DUMP[dataclass].update(field_to_alias)
 
-            # Convert string values to single-element tuples
-            field_to_aliases = {k: (v, ) if isinstance(v, str) else v
-                              for k, v in field_to_alias.items()}
-
-            if add_for_load:
-                DATACLASS_FIELD_TO_ALIAS_FOR_LOAD[dataclass].update(
-                    field_to_aliases
-                )
-
-            if add_for_dump:
-                dataclass_field_to_json_field(dataclass).update(
-                    {k: v[0] for k, v in field_to_aliases.items()}
-                )
+        if (field_to_alias := cls.v1_field_to_alias_load) is not None:
+            DATACLASS_FIELD_TO_ALIAS_FOR_LOAD[dataclass].update({
+                k: (v, ) if isinstance(v, str) else v
+                for k, v in field_to_alias.items()
+            })
 
         if cls.key_transform_with_dump is not None:
             cls_dumper.transform_dataclass_field = _as_enum_safe(
@@ -208,6 +347,9 @@ class BaseJSONWizardMeta(AbstractMeta):
 
         if cls.v1_on_unknown_key is not None:
             cls.v1_on_unknown_key = _as_enum_safe(cls, 'v1_on_unknown_key', KeyAction)
+
+        _normalize_hooks(cls.v1_type_to_load_hook)
+        _normalize_hooks(cls.v1_type_to_dump_hook)
 
         # Finally, if needed, save the meta config for the outer class. This
         # will allow us to access this config as part of the JSON load/dump
@@ -244,6 +386,8 @@ class BaseEnvWizardMeta(AbstractEnvMeta):
         if outer_cls_name is not None:
             META_INITIALIZER[outer_cls_name] = cls.bind_to
         else:
+            from .abstractions import AbstractJSONWizard
+
             # The `Meta` class is defined as an outer class. Emit a warning
             # here, just so we can ensure awareness of this special case.
             LOG.warning('The %r class is not declared as an Inner Class, so '
@@ -255,6 +399,10 @@ class BaseEnvWizardMeta(AbstractEnvMeta):
                 setattr(AbstractEnvMeta, attr, getattr(cls, attr, None))
             if cls.field_to_env_var:
                 AbstractEnvMeta.field_to_env_var = cls.field_to_env_var
+            if cls.v1_field_to_alias_dump:
+                AbstractEnvMeta.v1_field_to_alias_dump = cls.v1_field_to_alias_dump
+            if cls.v1_field_to_env_load:
+                AbstractEnvMeta.v1_field_to_env_load = cls.v1_field_to_env_load
 
             # Create a new class of `Type[W]`, and then pass `create=False` so
             # that we don't create new loader / dumper for the class.
@@ -263,23 +411,89 @@ class BaseEnvWizardMeta(AbstractEnvMeta):
 
     @classmethod
     def bind_to(cls, env_class: type, create=True, is_default=True):
+        from .v1.enums import KeyCase, EnvKeyStrategy, EnvPrecedence
+        meta = get_meta(env_class)
+        v1 = cls.v1 or meta.v1
 
-        cls_loader = get_loader(env_class, create=create, base_cls=EnvLoader)
-        cls_dumper = get_dumper(env_class, create=create)
+        cls_loader = get_loader(
+            env_class,
+            create=create,
+            env=True,
+            v1=v1)
+        cls_dumper = get_dumper(
+            env_class,
+            create=create,
+            v1=v1)
+
+        if cls.v1_debug:
+            _enable_debug_mode_if_needed(v1, cls_loader, cls.v1_debug)
 
         if cls.debug_enabled:
-            _enable_debug_mode_if_needed(cls_loader, cls.debug_enabled)
+            _enable_debug_mode_if_needed(v1, cls_loader, cls.debug_enabled)
 
         if cls.field_to_env_var is not None:
-            field_to_env_var(env_class).update(
-                cls.field_to_env_var
-            )
+            if v1:
+                warnings.warn(
+                    '`field_to_env_var` is deprecated and will be removed in v1. '
+                    'Use `v1_field_to_env_load` instead.',
+                    FutureWarning,
+                    stacklevel=2,
+                )
+                cls.v1_field_to_env_load = cls.field_to_env_var
+            else:
+                field_to_env_var(env_class).update(
+                    cls.field_to_env_var
+                )
 
         cls.key_lookup_with_load = _as_enum_safe(
             cls, 'key_lookup_with_load', LetterCasePriority)
 
-        cls_dumper.transform_dataclass_field = _as_enum_safe(
-            cls, 'key_transform_with_dump', LetterCase)
+        if v1:
+            from . import EnvWizard as V0EnvWizard
+            from .v1 import EnvWizard as V1EnvWizard
+
+            if issubclass(env_class, V0EnvWizard) and not issubclass(env_class, V1EnvWizard):
+                raise TypeError(
+                    f'{env_class.__qualname__} is using Meta(v1=True) but does '
+                    'not inherit from `dataclass_wizard.v1.EnvWizard`.\n\n'
+                    'Fix:\n'
+                    '    from dataclass_wizard.v1 import EnvWizard'
+                ) from None
+
+            if cls.v1_load_case is not None:
+                cls.v1_load_case = _as_enum_safe(
+                    cls, 'v1_load_case', EnvKeyStrategy)
+            if cls.v1_env_precedence is not None:
+                cls.v1_env_precedence = _as_enum_safe(
+                    cls, 'v1_env_precedence', EnvPrecedence)
+
+            # TODO
+            cls_dumper.transform_dataclass_field = _as_enum_safe(
+                cls, 'v1_dump_case', KeyCase)
+
+            if (field_to_alias := cls.v1_field_to_alias_dump) is not None:
+                DATACLASS_FIELD_TO_ALIAS_FOR_DUMP[env_class].update(field_to_alias)
+
+            if (field_to_env := cls.v1_field_to_env_load) is not None:
+                DATACLASS_FIELD_TO_ENV_FOR_LOAD[env_class].update({
+                    k: (v, ) if isinstance(v, str) else v
+                    for k, v in field_to_env.items()
+                })
+
+            # set this attribute in case of nested dataclasses (which
+            # uses codegen in `v1/loaders.py`)
+            cls.v1_on_unknown_key = None
+
+            # if cls.v1_on_unknown_key is not None:
+            #     cls.v1_on_unknown_key = _as_enum_safe(cls, 'v1_on_unknown_key', KeyAction)
+
+            _normalize_hooks(cls.v1_type_to_load_hook)
+            _normalize_hooks(cls.v1_type_to_dump_hook)
+
+        else:
+            cls_dumper.transform_dataclass_field = _as_enum_safe(
+                cls, 'key_transform_with_dump', LetterCase)
+
 
         # Finally, if needed, save the meta config for the outer class. This
         # will allow us to access this config as part of the JSON load/dump
@@ -309,12 +523,21 @@ def LoadMeta(**kwargs) -> META:
         >>> LoadMeta(key_transform='CAMEL').bind_to(MyClass)
         >>> fromdict(MyClass, {"myStr": "value"})
 
-    .. _Docs: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/meta.html
+    .. _Docs: https://dcw.ritviknag.com/en/latest/common_use_cases/meta.html
     """
     base_dict = kwargs | {'__slots__': ()}
 
-    if 'key_transform' in kwargs:
-        base_dict['key_transform_with_load'] = base_dict.pop('key_transform')
+    if (v := base_dict.pop('key_transform', None)) is not None:
+        base_dict['key_transform_with_load'] = v
+
+    if (v := base_dict.pop('v1_case', None)) is not None:
+        base_dict['v1_load_case'] = v
+
+    if (v := base_dict.pop('v1_field_to_alias', None)) is not None:
+        base_dict['v1_field_to_alias_load'] = v
+
+    if (v := base_dict.pop('v1_type_to_hook', None)) is not None:
+        base_dict['v1_type_to_load_hook'] = v
 
     # Create a new subclass of :class:`AbstractMeta`
     # noinspection PyTypeChecker
@@ -337,14 +560,23 @@ def DumpMeta(**kwargs) -> META:
         >>> DumpMeta(key_transform='CAMEL').bind_to(MyClass)
         >>> asdict(MyClass, {"myStr": "value"})
 
-    .. _Docs: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/meta.html
+    .. _Docs: https://dcw.ritviknag.com/en/latest/common_use_cases/meta.html
     """
 
     # Set meta attributes here.
     base_dict = kwargs | {'__slots__': ()}
 
-    if 'key_transform' in kwargs:
-        base_dict['key_transform_with_dump'] = base_dict.pop('key_transform')
+    if (v := base_dict.pop('key_transform', None)) is not None:
+        base_dict['key_transform_with_dump'] = v
+
+    if (v := base_dict.pop('v1_case', None)) is not None:
+        base_dict['v1_dump_case'] = v
+
+    if (v := base_dict.pop('v1_field_to_alias', None)) is not None:
+        base_dict['v1_field_to_alias_dump'] = v
+
+    if (v := base_dict.pop('v1_type_to_hook', None)) is not None:
+        base_dict['v1_type_to_dump_hook'] = v
 
     # Create a new subclass of :class:`AbstractMeta`
     # noinspection PyTypeChecker
@@ -364,7 +596,7 @@ def EnvMeta(**kwargs) -> META:
 
         >>> EnvMeta(key_transform_with_dump='SNAKE').bind_to(MyClass)
 
-    .. _Docs: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/meta.html
+    .. _Docs: https://dcw.ritviknag.com/en/latest/common_use_cases/meta.html
     """
 
     # Set meta attributes here.
@@ -372,4 +604,4 @@ def EnvMeta(**kwargs) -> META:
 
     # Create a new subclass of :class:`AbstractMeta`
     # noinspection PyTypeChecker
-    return type('Meta', (BaseEnvWizardMeta, ), base_dict)
+    return type('EnvMeta', (BaseEnvWizardMeta, ), base_dict)

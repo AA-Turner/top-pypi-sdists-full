@@ -6,6 +6,7 @@ import pytest
 
 from ddtrace.llmobs._utils import safe_json
 from tests.contrib.anthropic.test_anthropic import ANTHROPIC_VERSION
+from tests.contrib.anthropic.test_anthropic import BETA_SKIP_REASON
 from tests.contrib.anthropic.utils import MOCK_MESSAGES_CREATE_REQUEST
 from tests.contrib.anthropic.utils import tools
 from tests.llmobs._utils import _expected_llmobs_llm_span_event
@@ -60,6 +61,13 @@ EXPECTED_TOOL_DEFINITIONS = [
     ],
 )
 class TestLLMObsAnthropic:
+    def test_content_block_stop_without_content_does_not_crash(self, ddtrace_global_config):
+        """Regression test for beta streaming: content_block_stop can arrive without any content blocks."""
+        from ddtrace.contrib.internal.anthropic._streaming import _on_content_block_stop_chunk
+
+        message = {"content": []}
+        assert _on_content_block_stop_chunk(chunk=None, message=message) == message
+
     @patch("anthropic._base_client.SyncAPIClient.post")
     def test_completion_proxy(
         self,
@@ -121,7 +129,7 @@ class TestLLMObsAnthropic:
         )
         span = mock_tracer.pop_traces()[0][0]
         assert mock_llmobs_writer.enqueue.call_count == 2
-        assert mock_llmobs_writer.enqueue.call_args_list[1].args[0]["meta"]["span.kind"] == "llm"
+        assert mock_llmobs_writer.enqueue.call_args_list[1].args[0]["meta"]["span"]["kind"] == "llm"
 
     def test_completion(self, anthropic, ddtrace_global_config, mock_llmobs_writer, mock_tracer, request_vcr):
         """Ensure llmobs records are emitted for completion endpoints when configured.
@@ -665,7 +673,12 @@ class TestLLMObsAnthropic:
                 + " the location is fully specified. We can proceed with calling the get_weather tool.\n</thinking>",
                 "type": "text",
             },
-            {"text": WEATHER_OUTPUT_MESSAGE_2_TOOL_CALL, "type": "text"},
+            {
+                "name": "get_weather",
+                "input": {"location": "San Francisco, CA"},
+                "id": "toolu_01DYJo37oETVsCdLTTcCWcdq",
+                "type": "tool_use",
+            },
         ]
 
         traces = mock_tracer.pop_traces()
@@ -733,7 +746,7 @@ class TestLLMObsAnthropic:
                 input_messages=[
                     {"content": WEATHER_PROMPT, "role": "user"},
                     {"content": message[0]["text"], "role": "assistant"},
-                    {"content": message[1]["text"], "role": "assistant"},
+                    {"content": "", "role": "assistant", "tool_calls": WEATHER_OUTPUT_MESSAGE_2_TOOL_CALL},
                     {"content": "", "role": "user", "tool_results": WEATHER_TOOL_RESULT},
                 ],
                 output_messages=[
@@ -1054,4 +1067,32 @@ class TestLLMObsAnthropic:
                     )
                 ),
             ]
+        )
+
+    @pytest.mark.skipif(ANTHROPIC_VERSION < (0, 37), reason=BETA_SKIP_REASON)
+    def test_beta_completion(self, anthropic, ddtrace_global_config, mock_llmobs_writer, mock_tracer, request_vcr):
+        """Ensure llmobs records are emitted for beta completion endpoints."""
+        llm = anthropic.Anthropic()
+        with request_vcr.use_cassette("anthropic_completion.yaml"):
+            response = llm.beta.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=15,
+                messages=[{"role": "user", "content": "What does Nietzsche mean by 'God is dead'?"}],
+            )
+        span = mock_tracer.pop_traces()[0][0]
+        mock_llmobs_writer.enqueue.assert_called_with(
+            _expected_llmobs_llm_span_event(
+                span,
+                model_name="claude-3-opus-20240229",
+                model_provider="anthropic",
+                input_messages=[{"content": "What does Nietzsche mean by 'God is dead'?", "role": "user"}],
+                output_messages=[{"content": response.content[0].text, "role": "assistant"}],
+                metadata={"max_tokens": 15.0},
+                token_metrics={
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
+                },
+                tags={"ml_app": "<ml-app-name>", "service": "tests.contrib.anthropic"},
+            )
         )

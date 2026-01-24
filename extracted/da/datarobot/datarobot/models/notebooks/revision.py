@@ -19,14 +19,12 @@ from datarobot._compat import TypedDict
 from datarobot.models.api_object import APIObject
 
 # TODO: We aren't handling `created` and `updated` for now
-notebook_revision_trafaret = t.Dict(
-    {
-        t.Key("revision_id"): t.String,
-        t.Key("notebook_id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("is_auto"): t.Bool,
-    }
-).ignore_extra("*")
+notebook_revision_trafaret = t.Dict({
+    t.Key("revision_id"): t.String,
+    t.Key("notebook_id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("is_auto"): t.Bool,
+}).ignore_extra("*")
 
 
 class CreateRevisionPayload(TypedDict, total=False):
@@ -74,9 +72,7 @@ class NotebookRevision(APIObject):
         return f'{self.__class__.__name__}(name="{self.name}", id={self.revision_id}, notebook_id={self.notebook_id})'
 
     @classmethod
-    def create(
-        cls, notebook_id: str, payload: Optional[CreateRevisionPayload] = None
-    ) -> "NotebookRevision":
+    def create(cls, notebook_id: str, payload: Optional[CreateRevisionPayload] = None) -> "NotebookRevision":
         """
         Create a new notebook revision.
 

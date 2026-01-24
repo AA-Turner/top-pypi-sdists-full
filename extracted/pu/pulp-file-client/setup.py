@@ -22,10 +22,10 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "pulp_file-client"
-VERSION = "3.90.0"
+VERSION = "3.101.0"
 PYTHON_REQUIRES = ">= 3.9"
 REQUIRES = [
-    "urllib3 >= 2.1.0, < 3.0.0",
+    "urllib3 >= 2.1.0, < 2.7",
     "python-dateutil >= 2.8.2, < 3.0.0",
     "pydantic >= 2",
     "typing-extensions >= 4.7.1",

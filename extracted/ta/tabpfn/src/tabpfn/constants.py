@@ -7,7 +7,9 @@
 # enumeration of things
 from __future__ import annotations
 
-from typing import Any, Literal
+import pathlib
+from enum import Enum
+from typing import Any, Literal, Union
 from typing_extensions import TypeAlias
 
 import joblib
@@ -23,12 +25,23 @@ SampleWeightType: TypeAlias = Any
 YType: TypeAlias = Any
 TODO_TYPE1: TypeAlias = str
 
+ModelPath: TypeAlias = Union[str, pathlib.Path]
+
+
+class ModelVersion(str, Enum):
+    """Version of the model."""
+
+    V2 = "v2"
+    V2_5 = "v2.5"
+
+
 NA_PLACEHOLDER = "__MISSING__"
 
 SKLEARN_16_DECIMAL_PRECISION = 16
 PROBABILITY_EPSILON_ROUND_ZERO = 1e-3
 REGRESSION_NAN_BORDER_LIMIT_UPPER = 1e3
 REGRESSION_NAN_BORDER_LIMIT_LOWER = -1e3
+REGRESSION_CONSTANT_TARGET_BORDER_EPSILON = 1e-5
 AUTOCAST_DTYPE_BYTE_SIZE = 2  # bfloat16
 DEFAULT_DTYPE_BYTE_SIZE = 4  # float32
 

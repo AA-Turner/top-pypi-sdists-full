@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -143,7 +143,7 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
-AccessControls = List[AccessControl]
+AccessControls = list[AccessControl]
 
 
 class Encryption(TypedDict, total=False):
@@ -154,10 +154,10 @@ class Encryption(TypedDict, total=False):
     use to encrypt your output files.
     """
 
-    Mode: Optional[EncryptionMode]
-    Key: Optional[Base64EncodedString]
-    KeyMd5: Optional[Base64EncodedString]
-    InitializationVector: Optional[ZeroTo255String]
+    Mode: EncryptionMode | None
+    Key: Base64EncodedString | None
+    KeyMd5: Base64EncodedString | None
+    InitializationVector: ZeroTo255String | None
 
 
 class Artwork(TypedDict, total=False):
@@ -172,36 +172,36 @@ class Artwork(TypedDict, total=False):
     "Prepend", "Append", or "Fallback", and use an empty ``Artwork`` array.
     """
 
-    InputKey: Optional[WatermarkKey]
-    MaxWidth: Optional[DigitsOrAuto]
-    MaxHeight: Optional[DigitsOrAuto]
-    SizingPolicy: Optional[SizingPolicy]
-    PaddingPolicy: Optional[PaddingPolicy]
-    AlbumArtFormat: Optional[JpgOrPng]
-    Encryption: Optional[Encryption]
+    InputKey: WatermarkKey | None
+    MaxWidth: DigitsOrAuto | None
+    MaxHeight: DigitsOrAuto | None
+    SizingPolicy: SizingPolicy | None
+    PaddingPolicy: PaddingPolicy | None
+    AlbumArtFormat: JpgOrPng | None
+    Encryption: Encryption | None
 
 
-Artworks = List[Artwork]
+Artworks = list[Artwork]
 
 
 class AudioCodecOptions(TypedDict, total=False):
     """Options associated with your audio codec."""
 
-    Profile: Optional[AudioCodecProfile]
-    BitDepth: Optional[AudioBitDepth]
-    BitOrder: Optional[AudioBitOrder]
-    Signed: Optional[AudioSigned]
+    Profile: AudioCodecProfile | None
+    BitDepth: AudioBitDepth | None
+    BitOrder: AudioBitOrder | None
+    Signed: AudioSigned | None
 
 
 class AudioParameters(TypedDict, total=False):
     """Parameters required for transcoding audio."""
 
-    Codec: Optional[AudioCodec]
-    SampleRate: Optional[AudioSampleRate]
-    BitRate: Optional[AudioBitRate]
-    Channels: Optional[AudioChannels]
-    AudioPackingMode: Optional[AudioPackingMode]
-    CodecOptions: Optional[AudioCodecOptions]
+    Codec: AudioCodec | None
+    SampleRate: AudioSampleRate | None
+    BitRate: AudioBitRate | None
+    Channels: AudioChannels | None
+    AudioPackingMode: AudioPackingMode | None
+    CodecOptions: AudioCodecOptions | None
 
 
 class CancelJobRequest(ServiceRequest):
@@ -223,12 +223,12 @@ class CaptionFormat(TypedDict, total=False):
     Elastic Transcoder returns an error.
     """
 
-    Format: Optional[CaptionFormatFormat]
-    Pattern: Optional[CaptionFormatPattern]
-    Encryption: Optional[Encryption]
+    Format: CaptionFormatFormat | None
+    Pattern: CaptionFormatPattern | None
+    Encryption: Encryption | None
 
 
-CaptionFormats = List[CaptionFormat]
+CaptionFormats = list[CaptionFormat]
 
 
 class CaptionSource(TypedDict, total=False):
@@ -236,29 +236,29 @@ class CaptionSource(TypedDict, total=False):
     process.
     """
 
-    Key: Optional[LongKey]
-    Language: Optional[Key]
-    TimeOffset: Optional[TimeOffset]
-    Label: Optional[Name]
-    Encryption: Optional[Encryption]
+    Key: LongKey | None
+    Language: Key | None
+    TimeOffset: TimeOffset | None
+    Label: Name | None
+    Encryption: Encryption | None
 
 
-CaptionSources = List[CaptionSource]
+CaptionSources = list[CaptionSource]
 
 
 class Captions(TypedDict, total=False):
     """The captions to be created, if any."""
 
-    MergePolicy: Optional[CaptionMergePolicy]
-    CaptionSources: Optional[CaptionSources]
-    CaptionFormats: Optional[CaptionFormats]
+    MergePolicy: CaptionMergePolicy | None
+    CaptionSources: CaptionSources | None
+    CaptionFormats: CaptionFormats | None
 
 
 class TimeSpan(TypedDict, total=False):
     """Settings that determine when a clip begins and how long it lasts."""
 
-    StartTime: Optional[Time]
-    Duration: Optional[Time]
+    StartTime: Time | None
+    Duration: Time | None
 
 
 class Clip(TypedDict, total=False):
@@ -266,18 +266,18 @@ class Clip(TypedDict, total=False):
     the same clip settings.
     """
 
-    TimeSpan: Optional[TimeSpan]
+    TimeSpan: TimeSpan | None
 
 
-CodecOptions = Dict[CodecOption, CodecOption]
-Composition = List[Clip]
+CodecOptions = dict[CodecOption, CodecOption]
+Composition = list[Clip]
 
 
 class JobAlbumArt(TypedDict, total=False):
     """The .jpg or .png file associated with an audio file."""
 
-    MergePolicy: Optional[MergePolicy]
-    Artwork: Optional[Artworks]
+    MergePolicy: MergePolicy | None
+    Artwork: Artworks | None
 
 
 class JobWatermark(TypedDict, total=False):
@@ -286,31 +286,31 @@ class JobWatermark(TypedDict, total=False):
     transparency.
     """
 
-    PresetWatermarkId: Optional[PresetWatermarkId]
-    InputKey: Optional[WatermarkKey]
-    Encryption: Optional[Encryption]
+    PresetWatermarkId: PresetWatermarkId | None
+    InputKey: WatermarkKey | None
+    Encryption: Encryption | None
 
 
-JobWatermarks = List[JobWatermark]
+JobWatermarks = list[JobWatermark]
 
 
 class CreateJobOutput(TypedDict, total=False):
     """The ``CreateJobOutput`` structure."""
 
-    Key: Optional[Key]
-    ThumbnailPattern: Optional[ThumbnailPattern]
-    ThumbnailEncryption: Optional[Encryption]
-    Rotate: Optional[Rotate]
-    PresetId: Optional[Id]
-    SegmentDuration: Optional[FloatString]
-    Watermarks: Optional[JobWatermarks]
-    AlbumArt: Optional[JobAlbumArt]
-    Composition: Optional[Composition]
-    Captions: Optional[Captions]
-    Encryption: Optional[Encryption]
+    Key: Key | None
+    ThumbnailPattern: ThumbnailPattern | None
+    ThumbnailEncryption: Encryption | None
+    Rotate: Rotate | None
+    PresetId: Id | None
+    SegmentDuration: FloatString | None
+    Watermarks: JobWatermarks | None
+    AlbumArt: JobAlbumArt | None
+    Composition: Composition | None
+    Captions: Captions | None
+    Encryption: Encryption | None
 
 
-CreateJobOutputs = List[CreateJobOutput]
+CreateJobOutputs = list[CreateJobOutput]
 
 
 class PlayReadyDrm(TypedDict, total=False):
@@ -323,12 +323,12 @@ class PlayReadyDrm(TypedDict, total=False):
     master playlist.
     """
 
-    Format: Optional[PlayReadyDrmFormatString]
-    Key: Optional[NonEmptyBase64EncodedString]
-    KeyMd5: Optional[NonEmptyBase64EncodedString]
-    KeyId: Optional[KeyIdGuid]
-    InitializationVector: Optional[ZeroTo255String]
-    LicenseAcquisitionUrl: Optional[OneTo512String]
+    Format: PlayReadyDrmFormatString | None
+    Key: NonEmptyBase64EncodedString | None
+    KeyMd5: NonEmptyBase64EncodedString | None
+    KeyId: KeyIdGuid | None
+    InitializationVector: ZeroTo255String | None
+    LicenseAcquisitionUrl: OneTo512String | None
 
 
 class HlsContentProtection(TypedDict, total=False):
@@ -336,29 +336,29 @@ class HlsContentProtection(TypedDict, total=False):
     Transcoder to apply to your output files.
     """
 
-    Method: Optional[HlsContentProtectionMethod]
-    Key: Optional[Base64EncodedString]
-    KeyMd5: Optional[Base64EncodedString]
-    InitializationVector: Optional[ZeroTo255String]
-    LicenseAcquisitionUrl: Optional[ZeroTo512String]
-    KeyStoragePolicy: Optional[KeyStoragePolicy]
+    Method: HlsContentProtectionMethod | None
+    Key: Base64EncodedString | None
+    KeyMd5: Base64EncodedString | None
+    InitializationVector: ZeroTo255String | None
+    LicenseAcquisitionUrl: ZeroTo512String | None
+    KeyStoragePolicy: KeyStoragePolicy | None
 
 
-OutputKeys = List[Key]
+OutputKeys = list[Key]
 
 
 class CreateJobPlaylist(TypedDict, total=False):
     """Information about the master playlist."""
 
-    Name: Optional[Filename]
-    Format: Optional[PlaylistFormat]
-    OutputKeys: Optional[OutputKeys]
-    HlsContentProtection: Optional[HlsContentProtection]
-    PlayReadyDrm: Optional[PlayReadyDrm]
+    Name: Filename | None
+    Format: PlaylistFormat | None
+    OutputKeys: OutputKeys | None
+    HlsContentProtection: HlsContentProtection | None
+    PlayReadyDrm: PlayReadyDrm | None
 
 
-CreateJobPlaylists = List[CreateJobPlaylist]
-UserMetadata = Dict[String, String]
+CreateJobPlaylists = list[CreateJobPlaylist]
+UserMetadata = dict[String, String]
 NullableLong = int
 
 
@@ -367,57 +367,57 @@ class DetectedProperties(TypedDict, total=False):
     these values from the input file.
     """
 
-    Width: Optional[NullableInteger]
-    Height: Optional[NullableInteger]
-    FrameRate: Optional[FloatString]
-    FileSize: Optional[NullableLong]
-    DurationMillis: Optional[NullableLong]
+    Width: NullableInteger | None
+    Height: NullableInteger | None
+    FrameRate: FloatString | None
+    FileSize: NullableLong | None
+    DurationMillis: NullableLong | None
 
 
 class InputCaptions(TypedDict, total=False):
     """The captions to be created, if any."""
 
-    MergePolicy: Optional[CaptionMergePolicy]
-    CaptionSources: Optional[CaptionSources]
+    MergePolicy: CaptionMergePolicy | None
+    CaptionSources: CaptionSources | None
 
 
 class JobInput(TypedDict, total=False):
     """Information about the file that you're transcoding."""
 
-    Key: Optional[LongKey]
-    FrameRate: Optional[FrameRate]
-    Resolution: Optional[Resolution]
-    AspectRatio: Optional[AspectRatio]
-    Interlaced: Optional[Interlaced]
-    Container: Optional[JobContainer]
-    Encryption: Optional[Encryption]
-    TimeSpan: Optional[TimeSpan]
-    InputCaptions: Optional[InputCaptions]
-    DetectedProperties: Optional[DetectedProperties]
+    Key: LongKey | None
+    FrameRate: FrameRate | None
+    Resolution: Resolution | None
+    AspectRatio: AspectRatio | None
+    Interlaced: Interlaced | None
+    Container: JobContainer | None
+    Encryption: Encryption | None
+    TimeSpan: TimeSpan | None
+    InputCaptions: InputCaptions | None
+    DetectedProperties: DetectedProperties | None
 
 
-JobInputs = List[JobInput]
+JobInputs = list[JobInput]
 
 
 class CreateJobRequest(ServiceRequest):
     """The ``CreateJobRequest`` structure."""
 
     PipelineId: Id
-    Input: Optional[JobInput]
-    Inputs: Optional[JobInputs]
-    Output: Optional[CreateJobOutput]
-    Outputs: Optional[CreateJobOutputs]
-    OutputKeyPrefix: Optional[Key]
-    Playlists: Optional[CreateJobPlaylists]
-    UserMetadata: Optional[UserMetadata]
+    Input: JobInput | None
+    Inputs: JobInputs | None
+    Output: CreateJobOutput | None
+    Outputs: CreateJobOutputs | None
+    OutputKeyPrefix: Key | None
+    Playlists: CreateJobPlaylists | None
+    UserMetadata: UserMetadata | None
 
 
 class Timing(TypedDict, total=False):
     """Details about the timing of a job."""
 
-    SubmitTimeMillis: Optional[NullableLong]
-    StartTimeMillis: Optional[NullableLong]
-    FinishTimeMillis: Optional[NullableLong]
+    SubmitTimeMillis: NullableLong | None
+    StartTimeMillis: NullableLong | None
+    FinishTimeMillis: NullableLong | None
 
 
 class Playlist(TypedDict, total=False):
@@ -429,16 +429,16 @@ class Playlist(TypedDict, total=False):
     playlists in a job is 30.
     """
 
-    Name: Optional[Filename]
-    Format: Optional[PlaylistFormat]
-    OutputKeys: Optional[OutputKeys]
-    HlsContentProtection: Optional[HlsContentProtection]
-    PlayReadyDrm: Optional[PlayReadyDrm]
-    Status: Optional[JobStatus]
-    StatusDetail: Optional[Description]
+    Name: Filename | None
+    Format: PlaylistFormat | None
+    OutputKeys: OutputKeys | None
+    HlsContentProtection: HlsContentProtection | None
+    PlayReadyDrm: PlayReadyDrm | None
+    Status: JobStatus | None
+    StatusDetail: Description | None
 
 
-Playlists = List[Playlist]
+Playlists = list[Playlist]
 
 
 class JobOutput(TypedDict, total=False):
@@ -450,30 +450,30 @@ class JobOutput(TypedDict, total=False):
     is listed for the first output in the ``Outputs`` object.
     """
 
-    Id: Optional[String]
-    Key: Optional[Key]
-    ThumbnailPattern: Optional[ThumbnailPattern]
-    ThumbnailEncryption: Optional[Encryption]
-    Rotate: Optional[Rotate]
-    PresetId: Optional[Id]
-    SegmentDuration: Optional[FloatString]
-    Status: Optional[JobStatus]
-    StatusDetail: Optional[Description]
-    Duration: Optional[NullableLong]
-    Width: Optional[NullableInteger]
-    Height: Optional[NullableInteger]
-    FrameRate: Optional[FloatString]
-    FileSize: Optional[NullableLong]
-    DurationMillis: Optional[NullableLong]
-    Watermarks: Optional[JobWatermarks]
-    AlbumArt: Optional[JobAlbumArt]
-    Composition: Optional[Composition]
-    Captions: Optional[Captions]
-    Encryption: Optional[Encryption]
-    AppliedColorSpaceConversion: Optional[String]
+    Id: String | None
+    Key: Key | None
+    ThumbnailPattern: ThumbnailPattern | None
+    ThumbnailEncryption: Encryption | None
+    Rotate: Rotate | None
+    PresetId: Id | None
+    SegmentDuration: FloatString | None
+    Status: JobStatus | None
+    StatusDetail: Description | None
+    Duration: NullableLong | None
+    Width: NullableInteger | None
+    Height: NullableInteger | None
+    FrameRate: FloatString | None
+    FileSize: NullableLong | None
+    DurationMillis: NullableLong | None
+    Watermarks: JobWatermarks | None
+    AlbumArt: JobAlbumArt | None
+    Composition: Composition | None
+    Captions: Captions | None
+    Encryption: Encryption | None
+    AppliedColorSpaceConversion: String | None
 
 
-JobOutputs = List[JobOutput]
+JobOutputs = list[JobOutput]
 
 
 class Job(TypedDict, total=False):
@@ -481,43 +481,43 @@ class Job(TypedDict, total=False):
     that is created.
     """
 
-    Id: Optional[Id]
-    Arn: Optional[String]
-    PipelineId: Optional[Id]
-    Input: Optional[JobInput]
-    Inputs: Optional[JobInputs]
-    Output: Optional[JobOutput]
-    Outputs: Optional[JobOutputs]
-    OutputKeyPrefix: Optional[Key]
-    Playlists: Optional[Playlists]
-    Status: Optional[JobStatus]
-    UserMetadata: Optional[UserMetadata]
-    Timing: Optional[Timing]
+    Id: Id | None
+    Arn: String | None
+    PipelineId: Id | None
+    Input: JobInput | None
+    Inputs: JobInputs | None
+    Output: JobOutput | None
+    Outputs: JobOutputs | None
+    OutputKeyPrefix: Key | None
+    Playlists: Playlists | None
+    Status: JobStatus | None
+    UserMetadata: UserMetadata | None
+    Timing: Timing | None
 
 
 class CreateJobResponse(TypedDict, total=False):
     """The CreateJobResponse structure."""
 
-    Job: Optional[Job]
+    Job: Job | None
 
 
 class Permission(TypedDict, total=False):
     """The ``Permission`` structure."""
 
-    GranteeType: Optional[GranteeType]
-    Grantee: Optional[Grantee]
-    Access: Optional[AccessControls]
+    GranteeType: GranteeType | None
+    Grantee: Grantee | None
+    Access: AccessControls | None
 
 
-Permissions = List[Permission]
+Permissions = list[Permission]
 
 
 class PipelineOutputConfig(TypedDict, total=False):
     """The ``PipelineOutputConfig`` structure."""
 
-    Bucket: Optional[BucketName]
-    StorageClass: Optional[StorageClass]
-    Permissions: Optional[Permissions]
+    Bucket: BucketName | None
+    StorageClass: StorageClass | None
+    Permissions: Permissions | None
 
 
 class Notifications(TypedDict, total=False):
@@ -528,10 +528,10 @@ class Notifications(TypedDict, total=False):
     the Amazon SNS console.
     """
 
-    Progressing: Optional[SnsTopic]
-    Completed: Optional[SnsTopic]
-    Warning: Optional[SnsTopic]
-    Error: Optional[SnsTopic]
+    Progressing: SnsTopic | None
+    Completed: SnsTopic | None
+    Warning: SnsTopic | None
+    Error: SnsTopic | None
 
 
 class CreatePipelineRequest(ServiceRequest):
@@ -539,12 +539,12 @@ class CreatePipelineRequest(ServiceRequest):
 
     Name: Name
     InputBucket: BucketName
-    OutputBucket: Optional[BucketName]
+    OutputBucket: BucketName | None
     Role: Role
-    AwsKmsKeyArn: Optional[KeyArn]
-    Notifications: Optional[Notifications]
-    ContentConfig: Optional[PipelineOutputConfig]
-    ThumbnailConfig: Optional[PipelineOutputConfig]
+    AwsKmsKeyArn: KeyArn | None
+    Notifications: Notifications | None
+    ContentConfig: PipelineOutputConfig | None
+    ThumbnailConfig: PipelineOutputConfig | None
 
 
 class Warning(TypedDict, total=False):
@@ -556,27 +556,27 @@ class Warning(TypedDict, total=False):
     and prevents cross-regional charges.
     """
 
-    Code: Optional[String]
-    Message: Optional[String]
+    Code: String | None
+    Message: String | None
 
 
-Warnings = List[Warning]
+Warnings = list[Warning]
 
 
 class Pipeline(TypedDict, total=False):
     """The pipeline (queue) that is used to manage jobs."""
 
-    Id: Optional[Id]
-    Arn: Optional[String]
-    Name: Optional[Name]
-    Status: Optional[PipelineStatus]
-    InputBucket: Optional[BucketName]
-    OutputBucket: Optional[BucketName]
-    Role: Optional[Role]
-    AwsKmsKeyArn: Optional[KeyArn]
-    Notifications: Optional[Notifications]
-    ContentConfig: Optional[PipelineOutputConfig]
-    ThumbnailConfig: Optional[PipelineOutputConfig]
+    Id: Id | None
+    Arn: String | None
+    Name: Name | None
+    Status: PipelineStatus | None
+    InputBucket: BucketName | None
+    OutputBucket: BucketName | None
+    Role: Role | None
+    AwsKmsKeyArn: KeyArn | None
+    Notifications: Notifications | None
+    ContentConfig: PipelineOutputConfig | None
+    ThumbnailConfig: PipelineOutputConfig | None
 
 
 class CreatePipelineResponse(TypedDict, total=False):
@@ -584,21 +584,21 @@ class CreatePipelineResponse(TypedDict, total=False):
     you specified in the request.
     """
 
-    Pipeline: Optional[Pipeline]
-    Warnings: Optional[Warnings]
+    Pipeline: Pipeline | None
+    Warnings: Warnings | None
 
 
 class Thumbnails(TypedDict, total=False):
     """Thumbnails for videos."""
 
-    Format: Optional[JpgOrPng]
-    Interval: Optional[Digits]
-    Resolution: Optional[ThumbnailResolution]
-    AspectRatio: Optional[AspectRatio]
-    MaxWidth: Optional[DigitsOrAuto]
-    MaxHeight: Optional[DigitsOrAuto]
-    SizingPolicy: Optional[SizingPolicy]
-    PaddingPolicy: Optional[PaddingPolicy]
+    Format: JpgOrPng | None
+    Interval: Digits | None
+    Resolution: ThumbnailResolution | None
+    AspectRatio: AspectRatio | None
+    MaxWidth: DigitsOrAuto | None
+    MaxHeight: DigitsOrAuto | None
+    SizingPolicy: SizingPolicy | None
+    PaddingPolicy: PaddingPolicy | None
 
 
 class PresetWatermark(TypedDict, total=False):
@@ -619,50 +619,50 @@ class PresetWatermark(TypedDict, total=False):
     same preset for up to four watermarks that have different dimensions.
     """
 
-    Id: Optional[PresetWatermarkId]
-    MaxWidth: Optional[PixelsOrPercent]
-    MaxHeight: Optional[PixelsOrPercent]
-    SizingPolicy: Optional[WatermarkSizingPolicy]
-    HorizontalAlign: Optional[HorizontalAlign]
-    HorizontalOffset: Optional[PixelsOrPercent]
-    VerticalAlign: Optional[VerticalAlign]
-    VerticalOffset: Optional[PixelsOrPercent]
-    Opacity: Optional[Opacity]
-    Target: Optional[Target]
+    Id: PresetWatermarkId | None
+    MaxWidth: PixelsOrPercent | None
+    MaxHeight: PixelsOrPercent | None
+    SizingPolicy: WatermarkSizingPolicy | None
+    HorizontalAlign: HorizontalAlign | None
+    HorizontalOffset: PixelsOrPercent | None
+    VerticalAlign: VerticalAlign | None
+    VerticalOffset: PixelsOrPercent | None
+    Opacity: Opacity | None
+    Target: Target | None
 
 
-PresetWatermarks = List[PresetWatermark]
+PresetWatermarks = list[PresetWatermark]
 
 
 class VideoParameters(TypedDict, total=False):
     """The ``VideoParameters`` structure."""
 
-    Codec: Optional[VideoCodec]
-    CodecOptions: Optional[CodecOptions]
-    KeyframesMaxDist: Optional[KeyframesMaxDist]
-    FixedGOP: Optional[FixedGOP]
-    BitRate: Optional[VideoBitRate]
-    FrameRate: Optional[FrameRate]
-    MaxFrameRate: Optional[MaxFrameRate]
-    Resolution: Optional[Resolution]
-    AspectRatio: Optional[AspectRatio]
-    MaxWidth: Optional[DigitsOrAuto]
-    MaxHeight: Optional[DigitsOrAuto]
-    DisplayAspectRatio: Optional[AspectRatio]
-    SizingPolicy: Optional[SizingPolicy]
-    PaddingPolicy: Optional[PaddingPolicy]
-    Watermarks: Optional[PresetWatermarks]
+    Codec: VideoCodec | None
+    CodecOptions: CodecOptions | None
+    KeyframesMaxDist: KeyframesMaxDist | None
+    FixedGOP: FixedGOP | None
+    BitRate: VideoBitRate | None
+    FrameRate: FrameRate | None
+    MaxFrameRate: MaxFrameRate | None
+    Resolution: Resolution | None
+    AspectRatio: AspectRatio | None
+    MaxWidth: DigitsOrAuto | None
+    MaxHeight: DigitsOrAuto | None
+    DisplayAspectRatio: AspectRatio | None
+    SizingPolicy: SizingPolicy | None
+    PaddingPolicy: PaddingPolicy | None
+    Watermarks: PresetWatermarks | None
 
 
 class CreatePresetRequest(ServiceRequest):
     """The ``CreatePresetRequest`` structure."""
 
     Name: Name
-    Description: Optional[Description]
+    Description: Description | None
     Container: PresetContainer
-    Video: Optional[VideoParameters]
-    Audio: Optional[AudioParameters]
-    Thumbnails: Optional[Thumbnails]
+    Video: VideoParameters | None
+    Audio: AudioParameters | None
+    Thumbnails: Thumbnails | None
 
 
 class Preset(TypedDict, total=False):
@@ -674,22 +674,22 @@ class Preset(TypedDict, total=False):
     use when you create a job.
     """
 
-    Id: Optional[Id]
-    Arn: Optional[String]
-    Name: Optional[Name]
-    Description: Optional[Description]
-    Container: Optional[PresetContainer]
-    Audio: Optional[AudioParameters]
-    Video: Optional[VideoParameters]
-    Thumbnails: Optional[Thumbnails]
-    Type: Optional[PresetType]
+    Id: Id | None
+    Arn: String | None
+    Name: Name | None
+    Description: Description | None
+    Container: PresetContainer | None
+    Audio: AudioParameters | None
+    Video: VideoParameters | None
+    Thumbnails: Thumbnails | None
+    Type: PresetType | None
 
 
 class CreatePresetResponse(TypedDict, total=False):
     """The ``CreatePresetResponse`` structure."""
 
-    Preset: Optional[Preset]
-    Warning: Optional[String]
+    Preset: Preset | None
+    Warning: String | None
 
 
 class DeletePipelineRequest(ServiceRequest):
@@ -716,72 +716,72 @@ class DeletePresetResponse(TypedDict, total=False):
     pass
 
 
-ExceptionMessages = List[String]
-Jobs = List[Job]
+ExceptionMessages = list[String]
+Jobs = list[Job]
 
 
 class ListJobsByPipelineRequest(ServiceRequest):
     """The ``ListJobsByPipelineRequest`` structure."""
 
     PipelineId: Id
-    Ascending: Optional[Ascending]
-    PageToken: Optional[Id]
+    Ascending: Ascending | None
+    PageToken: Id | None
 
 
 class ListJobsByPipelineResponse(TypedDict, total=False):
     """The ``ListJobsByPipelineResponse`` structure."""
 
-    Jobs: Optional[Jobs]
-    NextPageToken: Optional[Id]
+    Jobs: Jobs | None
+    NextPageToken: Id | None
 
 
 class ListJobsByStatusRequest(ServiceRequest):
     """The ``ListJobsByStatusRequest`` structure."""
 
     Status: JobStatus
-    Ascending: Optional[Ascending]
-    PageToken: Optional[Id]
+    Ascending: Ascending | None
+    PageToken: Id | None
 
 
 class ListJobsByStatusResponse(TypedDict, total=False):
     """The ``ListJobsByStatusResponse`` structure."""
 
-    Jobs: Optional[Jobs]
-    NextPageToken: Optional[Id]
+    Jobs: Jobs | None
+    NextPageToken: Id | None
 
 
 class ListPipelinesRequest(ServiceRequest):
     """The ``ListPipelineRequest`` structure."""
 
-    Ascending: Optional[Ascending]
-    PageToken: Optional[Id]
+    Ascending: Ascending | None
+    PageToken: Id | None
 
 
-Pipelines = List[Pipeline]
+Pipelines = list[Pipeline]
 
 
 class ListPipelinesResponse(TypedDict, total=False):
     """A list of the pipelines associated with the current AWS account."""
 
-    Pipelines: Optional[Pipelines]
-    NextPageToken: Optional[Id]
+    Pipelines: Pipelines | None
+    NextPageToken: Id | None
 
 
 class ListPresetsRequest(ServiceRequest):
     """The ``ListPresetsRequest`` structure."""
 
-    Ascending: Optional[Ascending]
-    PageToken: Optional[Id]
+    Ascending: Ascending | None
+    PageToken: Id | None
 
 
-Presets = List[Preset]
+Presets = list[Preset]
 
 
 class ListPresetsResponse(TypedDict, total=False):
     """The ``ListPresetsResponse`` structure."""
 
-    Presets: Optional[Presets]
-    NextPageToken: Optional[Id]
+    Presets: Presets | None
+    NextPageToken: Id | None
 
 
 class ReadJobRequest(ServiceRequest):
@@ -793,7 +793,7 @@ class ReadJobRequest(ServiceRequest):
 class ReadJobResponse(TypedDict, total=False):
     """The ``ReadJobResponse`` structure."""
 
-    Job: Optional[Job]
+    Job: Job | None
 
 
 class ReadPipelineRequest(ServiceRequest):
@@ -805,8 +805,8 @@ class ReadPipelineRequest(ServiceRequest):
 class ReadPipelineResponse(TypedDict, total=False):
     """The ``ReadPipelineResponse`` structure."""
 
-    Pipeline: Optional[Pipeline]
-    Warnings: Optional[Warnings]
+    Pipeline: Pipeline | None
+    Warnings: Warnings | None
 
 
 class ReadPresetRequest(ServiceRequest):
@@ -818,10 +818,10 @@ class ReadPresetRequest(ServiceRequest):
 class ReadPresetResponse(TypedDict, total=False):
     """The ``ReadPresetResponse`` structure."""
 
-    Preset: Optional[Preset]
+    Preset: Preset | None
 
 
-SnsTopics = List[SnsTopic]
+SnsTopics = list[SnsTopic]
 
 
 class TestRoleRequest(ServiceRequest):
@@ -836,8 +836,8 @@ class TestRoleRequest(ServiceRequest):
 class TestRoleResponse(TypedDict, total=False):
     """The ``TestRoleResponse`` structure."""
 
-    Success: Optional[Success]
-    Messages: Optional[ExceptionMessages]
+    Success: Success | None
+    Messages: ExceptionMessages | None
 
 
 class UpdatePipelineNotificationsRequest(ServiceRequest):
@@ -850,20 +850,20 @@ class UpdatePipelineNotificationsRequest(ServiceRequest):
 class UpdatePipelineNotificationsResponse(TypedDict, total=False):
     """The ``UpdatePipelineNotificationsResponse`` structure."""
 
-    Pipeline: Optional[Pipeline]
+    Pipeline: Pipeline | None
 
 
 class UpdatePipelineRequest(ServiceRequest):
     """The ``UpdatePipelineRequest`` structure."""
 
     Id: Id
-    Name: Optional[Name]
-    InputBucket: Optional[BucketName]
-    Role: Optional[Role]
-    AwsKmsKeyArn: Optional[KeyArn]
-    Notifications: Optional[Notifications]
-    ContentConfig: Optional[PipelineOutputConfig]
-    ThumbnailConfig: Optional[PipelineOutputConfig]
+    Name: Name | None
+    InputBucket: BucketName | None
+    Role: Role | None
+    AwsKmsKeyArn: KeyArn | None
+    Notifications: Notifications | None
+    ContentConfig: PipelineOutputConfig | None
+    ThumbnailConfig: PipelineOutputConfig | None
 
 
 class UpdatePipelineResponse(TypedDict, total=False):
@@ -871,8 +871,8 @@ class UpdatePipelineResponse(TypedDict, total=False):
     you specified in the request.
     """
 
-    Pipeline: Optional[Pipeline]
-    Warnings: Optional[Warnings]
+    Pipeline: Pipeline | None
+    Warnings: Warnings | None
 
 
 class UpdatePipelineStatusRequest(ServiceRequest):
@@ -887,12 +887,12 @@ class UpdatePipelineStatusResponse(TypedDict, total=False):
     values that you specified in the request.
     """
 
-    Pipeline: Optional[Pipeline]
+    Pipeline: Pipeline | None
 
 
 class ElastictranscoderApi:
-    service = "elastictranscoder"
-    version = "2012-09-25"
+    service: str = "elastictranscoder"
+    version: str = "2012-09-25"
 
     @handler("CancelJob")
     def cancel_job(self, context: RequestContext, id: Id, **kwargs) -> CancelJobResponse:

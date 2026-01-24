@@ -3,12 +3,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 import datetime
 from typing import Any
-import warnings
+from typing import TYPE_CHECKING
 
 from optuna import logging
-from optuna import trial
+from optuna._warnings import optuna_warn
 from optuna.study._study_direction import StudyDirection
 
+
+if TYPE_CHECKING:
+    from optuna.trial import FrozenTrial
 
 _logger = logging.get_logger(__name__)
 
@@ -54,7 +57,7 @@ class StudySummary:
         self,
         study_name: str,
         direction: StudyDirection | None,
-        best_trial: trial.FrozenTrial | None,
+        best_trial: FrozenTrial | None,
         user_attrs: dict[str, Any],
         system_attrs: dict[str, Any],
         n_trials: int,
@@ -112,7 +115,7 @@ class StudySummary:
 
     @property
     def system_attrs(self) -> dict[str, Any]:
-        warnings.warn(
+        optuna_warn(
             "`system_attrs` has been deprecated in v3.1.0. "
             "The removal of this feature is currently scheduled for v5.0.0, "
             "but this schedule is subject to change. "

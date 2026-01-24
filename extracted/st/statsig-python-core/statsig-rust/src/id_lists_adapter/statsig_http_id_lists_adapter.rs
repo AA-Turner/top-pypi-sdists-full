@@ -1,13 +1,13 @@
 use super::IdListMetadata;
 use crate::id_lists_adapter::{IdListUpdate, IdListsAdapter, IdListsUpdateListener};
-use crate::networking::{NetworkClient, NetworkError, RequestArgs, Response};
+use crate::networking::{NetworkClient, NetworkError, RequestArgs, Response, ResponseData};
 use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::diagnostics::ContextType;
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
 use crate::statsig_metadata::StatsigMetadata;
 use crate::{
-    log_d, log_error_to_statsig_and_console, log_w, StatsigErr, StatsigOptions, StatsigRuntime,
+    log_d, log_e, log_error_to_statsig_and_console, StatsigErr, StatsigOptions, StatsigRuntime,
 };
 use async_trait::async_trait;
 use parking_lot::RwLock;
@@ -17,6 +17,7 @@ use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::time::sleep;
 
+const STATSIG_CDN_URL: &str = "https://api.statsigcdn.com";
 const DEFAULT_CDN_ID_LISTS_MANIFEST_URL: &str = "https://api.statsigcdn.com/v1/get_id_lists";
 const DEFAULT_ID_LIST_SYNC_INTERVAL_MS: u32 = 60_000;
 
@@ -120,19 +121,33 @@ impl StatsigHttpIdListsAdapter {
         list_url: &str,
         list_size: u64,
     ) -> Result<String, StatsigErr> {
-        let headers = HashMap::from([("Range".into(), format!("bytes={list_size}-"))]);
+        let (headers, query_params) = if list_url.starts_with(STATSIG_CDN_URL) {
+            (
+                None,
+                Some(HashMap::from([("range".into(), format!("{list_size}-"))])),
+            )
+        } else {
+            (
+                Some(HashMap::from([(
+                    "Range".into(),
+                    format!("bytes={list_size}-"),
+                )])),
+                None,
+            )
+        };
 
         let response = self
             .network
             .get(RequestArgs {
                 url: list_url.to_string(),
-                headers: Some(headers),
+                headers,
+                query_params,
                 ..RequestArgs::new()
             })
             .await
             .map_err(StatsigErr::NetworkError)?;
 
-        let response_body = match response.data.filter(|data| !data.is_empty()) {
+        let mut response_body = match response.data {
             Some(data) => data,
             None => {
                 let msg = "No ID List changes from network".to_string();
@@ -140,7 +155,7 @@ impl StatsigHttpIdListsAdapter {
             }
         };
 
-        String::from_utf8(response_body).map_err(|err| {
+        response_body.read_to_string().map_err(|err| {
             let msg = format!("Failed to parse ID List changes: {err:?}");
             StatsigErr::JsonParseError("IdList".to_string(), msg)
         })
@@ -161,6 +176,7 @@ impl StatsigHttpIdListsAdapter {
             Err(e) => Err(StatsigErr::NetworkError(e)),
         }
     }
+
     async fn run_background_sync(weak_self: &Weak<Self>) {
         let strong_self = match weak_self.upgrade() {
             Some(s) => s,
@@ -172,7 +188,10 @@ impl StatsigHttpIdListsAdapter {
             .set_diagnostics_context(ContextType::ConfigSync);
 
         if let Err(e) = strong_self.sync_id_lists().await {
-            log_w!(TAG, "IDList background sync failed {}", e);
+            if let StatsigErr::NetworkError(NetworkError::DisableNetworkOn(_)) = e {
+                return;
+            }
+            log_e!(TAG, "IDList background sync failed {}", e);
         }
 
         strong_self.ops_stats.enqueue_diagnostics_event(
@@ -186,8 +205,11 @@ impl StatsigHttpIdListsAdapter {
             .starts_with(DEFAULT_CDN_ID_LISTS_MANIFEST_URL)
     }
 
-    fn parse_response(&self, response: Option<Vec<u8>>) -> Result<IdListsResponse, StatsigErr> {
-        let response = match response.filter(|r| !r.is_empty()) {
+    fn parse_response(
+        &self,
+        response: Option<ResponseData>,
+    ) -> Result<IdListsResponse, StatsigErr> {
+        let mut data = match response {
             Some(r) => r,
             None => {
                 let msg = "No ID List results from network".to_string();
@@ -198,10 +220,11 @@ impl StatsigHttpIdListsAdapter {
             }
         };
 
-        serde_json::from_slice::<IdListsResponse>(&response).map_err(|parse_err| {
-            let msg = format!("Failed to parse JSON: {parse_err}");
-            StatsigErr::JsonParseError(stringify!(IdListsResponse).to_string(), msg)
-        })
+        data.deserialize_into::<IdListsResponse>()
+            .map_err(|parse_err| {
+                let msg = format!("Failed to parse JSON: {parse_err}");
+                StatsigErr::JsonParseError(stringify!(IdListsResponse).to_string(), msg)
+            })
     }
 
     fn set_listener(&self, listener: Arc<dyn IdListsUpdateListener>) {
@@ -257,12 +280,15 @@ impl StatsigHttpIdListsAdapter {
 
         for (list_name, entry) in new_manifest {
             let (requires_download, range_start) = match curr_manifest.get(&list_name) {
-                Some(current) => (
-                    entry.size > current.size
-                        || entry.creation_time > current.creation_time
-                        || entry.file_id != current.file_id,
-                    current.size,
-                ),
+                Some(current) => {
+                    if entry.creation_time > current.creation_time
+                        || entry.file_id != current.file_id
+                    {
+                        (true, 0u64)
+                    } else {
+                        (entry.size > current.size, current.size)
+                    }
+                }
                 None => (true, 0),
             };
 

@@ -1,6 +1,7 @@
 """Test gpu accelerated tree functions."""
 
 import numpy as np
+import pandas as pd
 import pytest
 import sklearn
 
@@ -230,6 +231,11 @@ def test_gpu_tree_explainer_shap(task, feature_perturbation):
     host_shap = ex.shap_values(X, check_additivity=True)
     gpu_shap = gpu_ex.shap_values(X, check_additivity=True)
 
+    # todo: this should actually happen in the GPUTreeExplainer
+    if np.array(gpu_shap).ndim == 3:
+        gpu_shap = np.moveaxis(np.array(gpu_shap), [0, 1, 2], [2, 0, 1])
+    else:
+        gpu_shap = np.array(gpu_shap, copy=False)
     # Check outputs roughly the same as CPU algorithm
     assert np.allclose(ex.expected_value, gpu_ex.expected_value, 1e-3, 1e-3)
     assert np.allclose(host_shap, gpu_shap, 1e-3, 1e-3)
@@ -242,11 +248,43 @@ def test_gpu_tree_explainer_shap_interactions(task, feature_perturbation):
     ex = shap.GPUTreeExplainer(model, X, feature_perturbation=feature_perturbation)
     shap_values = np.array(ex.shap_interaction_values(X), copy=False)
 
-    assert (
-        np.abs(
-            np.sum(shap_values, axis=(len(shap_values.shape) - 1, len(shap_values.shape) - 2)).T
-            + ex.expected_value
-            - margin
-        ).max()
-        < 1e-4
-    ), "SHAP values don't sum to model output!"
+    assert np.allclose(np.sum(shap_values, axis=(1, 2)) + ex.expected_value, margin, atol=1e-4)
+
+
+@pytest.mark.xfail(reason="Categorical features not correctly implemented for GPU TreeSHAP")
+@pytest.mark.parametrize("use_interactions", [False, True])
+def test_lightgbm_categorical_split(use_interactions):
+    # GH 480
+    """Checks that shap interaction values are computed without error when the LightGBM model has categorical splits."""
+    lightgbm = pytest.importorskip("lightgbm")
+    X, y = shap.datasets.california(n_points=10000)
+    # Add HouseAgeGroup categorical variable
+    target_variable = "HouseAge"
+    X["HouseAgeGroup"] = pd.cut(
+        X[target_variable],
+        bins=[-float("inf"), 17, 27, 37, float("inf")],
+        labels=[0, 1, 2, 3],
+        right=False,
+    ).astype(int)
+    model = lightgbm.LGBMRegressor(n_estimators=400, max_cat_to_onehot=1)
+    model.fit(
+        X, y, categorical_feature=[X.columns.get_loc("HouseAgeGroup")]
+    )  # Set HouseAgeGroup as categorical variable
+    preds = model.predict(X, raw_score=True)
+
+    explainer = shap.GPUTreeExplainer(model)
+
+    # Check that the warning is issued
+    with pytest.warns(
+        UserWarning,
+        match="Categorical features detected. GPU TreeSHAP currently only supports numerical features. Results may be incorrect.",
+    ):
+        if use_interactions:
+            # Check SHAP interaction values sum to model output
+            shap_interaction_values = explainer.shap_interaction_values(X.iloc[:10, :])
+            assert np.allclose(
+                shap_interaction_values.sum(axis=(1, 2)) + explainer.expected_value, preds[:10], atol=1e-4
+            )
+        else:
+            shap_values = explainer.shap_values(X.iloc[:10, :])
+            assert np.allclose(shap_values.sum(axis=1) + explainer.expected_value, preds[:10], atol=1e-4)

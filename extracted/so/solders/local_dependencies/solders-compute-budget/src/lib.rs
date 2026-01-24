@@ -15,6 +15,11 @@ pub fn request_heap_frame(bytes_: u32) -> Instruction {
     ComputeBudgetInstruction::request_heap_frame(bytes_).into()
 }
 
+#[pyfunction]
+pub fn set_loaded_accounts_data_size_limit(bytes_: u32) -> Instruction {
+    ComputeBudgetInstruction::set_loaded_accounts_data_size_limit(bytes_).into()
+}
+
 /// Set a specific compute unit limit that the transaction is allowed to consume.
 #[pyfunction]
 pub fn set_compute_unit_limit(units: u32) -> Instruction {
@@ -46,8 +51,8 @@ impl ComputeBudget {
 
     #[allow(clippy::new_without_default)]
     #[new]
-    pub fn new() -> Self {
-        Self(ComputeBudgetOriginal::default())
+    pub fn new(simd_0296_active: bool) -> Self {
+        Self(ComputeBudgetOriginal::new_with_defaults(simd_0296_active))
     }
 
     #[getter]
@@ -147,14 +152,6 @@ impl ComputeBudget {
     #[getter]
     pub fn log_pubkey_units(&self) -> u64 {
         self.0.log_pubkey_units
-    }
-    #[setter]
-    pub fn set_max_cpi_instruction_size(&mut self, val: usize) {
-        self.0.max_cpi_instruction_size = val
-    }
-    #[getter]
-    pub fn max_cpi_instruction_size(&self) -> usize {
-        self.0.max_cpi_instruction_size
     }
     #[setter]
     pub fn set_cpi_bytes_per_unit(&mut self, val: u64) {
@@ -421,6 +418,7 @@ pub fn include_compute_budget(m: &Bound<'_, PyModule>) -> PyResult<()> {
         wrap_pyfunction!(request_heap_frame, m)?,
         wrap_pyfunction!(set_compute_unit_limit, m)?,
         wrap_pyfunction!(set_compute_unit_price, m)?,
+        wrap_pyfunction!(set_loaded_accounts_data_size_limit, m)?,
     ];
     for func in funcs {
         m.add_function(func)?;

@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -11,26 +11,30 @@ import uvicorn
 
 import marimo._server.api.lifespans as lifespans
 from marimo._cli.print import echo
+from marimo._cli.sandbox import SandboxMode
 from marimo._config.manager import get_default_config_manager
 from marimo._config.settings import GLOBAL_SETTINGS
-from marimo._messaging.ops import StartupLogs
-from marimo._runtime.requests import SerializedCLIArgs
+from marimo._mcp.server.main import setup_mcp_server
+from marimo._messaging.notification import StartupLogsNotification
+from marimo._runtime.commands import SerializedCLIArgs
+from marimo._server.config import (
+    StarletteServerStateInit,
+)
 from marimo._server.file_router import AppFileRouter
 from marimo._server.lsp import CompositeLspServer, NoopLspServer
 from marimo._server.main import create_starlette_app
-from marimo._server.model import SessionMode
 from marimo._server.registry import LIFESPAN_REGISTRY
-from marimo._server.sessions import SessionManager
+from marimo._server.session_manager import SessionManager
 from marimo._server.tokens import AuthToken
 from marimo._server.utils import (
-    find_free_port,
     initialize_asyncio,
     initialize_fd_limit,
 )
 from marimo._server.uvicorn_utils import initialize_signals
+from marimo._session.model import SessionMode
 from marimo._tracer import LOGGER
 from marimo._utils.lifespans import Lifespans
-from marimo._utils.paths import marimo_package_path
+from marimo._utils.net import find_free_port
 
 DEFAULT_PORT = 2718
 PROXY_REGEX = re.compile(r"^(.*):(\d+)$")
@@ -42,26 +46,28 @@ def _execute_startup_command(
     """Execute a server startup command in a background thread and stream logs."""
 
     def run_command() -> None:
-        buffer = StartupLogs(content="", status="start")
+        buffer = StartupLogsNotification(content="", status="start")
+
+        def write_to_all_sessions(
+            content: StartupLogsNotification,
+            buffer: StartupLogsNotification,
+        ) -> None:
+            for session in session_manager.sessions.values():
+                # Clear buffer if it has content
+                if buffer.content != "":
+                    session.notify(buffer, from_consumer_id=None)
+                    buffer = StartupLogsNotification(
+                        content="", status="start"
+                    )
+                session.notify(content, from_consumer_id=None)
+            else:
+                buffer.content += content.content
+                buffer.status = content.status
 
         try:
-
-            def write_to_all_sessions(
-                content: StartupLogs, buffer: StartupLogs
-            ) -> None:
-                for session in session_manager.sessions.values():
-                    # Clear buffer if it has content
-                    if buffer.content != "":
-                        session.write_operation(buffer, from_consumer_id=None)
-                        buffer = StartupLogs(content="", status="start")
-                    session.write_operation(content, from_consumer_id=None)
-                else:
-                    buffer.content += content.content
-                    buffer.status = content.status
-
             # Broadcast start message to all sessions
             write_to_all_sessions(
-                StartupLogs(content="", status="start"), buffer
+                StartupLogsNotification(content="", status="start"), buffer
             )
 
             # Execute the command
@@ -78,7 +84,8 @@ def _execute_startup_command(
             if process.stdout:
                 for line in process.stdout:
                     write_to_all_sessions(
-                        StartupLogs(content=line, status="append"), buffer
+                        StartupLogsNotification(content=line, status="append"),
+                        buffer,
                     )
                     echo(line, nl=False)
 
@@ -90,7 +97,8 @@ def _execute_startup_command(
                 f"\nProcess completed with exit code: {return_code}\n"
             )
             write_to_all_sessions(
-                StartupLogs(content=final_message, status="done"), buffer
+                StartupLogsNotification(content=final_message, status="done"),
+                buffer,
             )
             echo(final_message)
 
@@ -98,7 +106,8 @@ def _execute_startup_command(
             # Broadcast error message
             error_message = f"\nError executing startup command: {str(e)}\n"
             write_to_all_sessions(
-                StartupLogs(content=error_message, status="done"), buffer
+                StartupLogsNotification(content=error_message, status="done"),
+                buffer,
             )
             echo(error_message)
 
@@ -169,10 +178,22 @@ def start(
     server_startup_command: Optional[str] = None,
     asset_url: Optional[str] = None,
     timeout: Optional[float] = None,
+    sandbox_mode: SandboxMode | None = None,
 ) -> None:
     """
     Start the server.
     """
+    import packaging.version
+
+    # Defaults when mcp is enabled
+    if mcp:
+        # Turn on watch mode
+        watch = True
+        # Turn off skew protection for MCP server
+        # since it is more convenient to connect to.
+        # Skew protection is not a security thing, but rather
+        # prevents connecting to old servers.
+        skew_protection = False
 
     # Find a free port if none is specified
     # if the user specifies a port, we don't try to find a free one
@@ -196,19 +217,8 @@ def start(
             min_port=DEFAULT_PORT + 400,
         )
 
-    # If watch is true, disable auto-save and format-on-save,
-    # watch is enabled when they are editing in another editor
-    if watch:
-        config_reader = config_reader.with_overrides(
-            {
-                "save": {
-                    "autosave": "off",
-                    "format_on_save": False,
-                    "autosave_delay": 1000,
-                }
-            }
-        )
-        LOGGER.info("Watch mode enabled, auto-save is disabled")
+    if watch and config_reader.is_auto_save_enabled:
+        LOGGER.warning("Enabling watch mode may interfere with auto-save.")
 
     if GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA:
         config_reader = config_reader.with_overrides(
@@ -225,7 +235,6 @@ def start(
     session_manager = SessionManager(
         file_router=file_router,
         mode=mode,
-        development_mode=development_mode,
         quiet=quiet,
         include_code=include_code,
         ttl_seconds=ttl_seconds,
@@ -236,6 +245,7 @@ def start(
         auth_token=auth_token,
         redirect_console_to_browser=redirect_console_to_browser,
         watch=watch,
+        sandbox_mode=sandbox_mode,
     )
 
     log_level = "info" if development_mode else "error"
@@ -251,7 +261,9 @@ def start(
         *LIFESPAN_REGISTRY.get_all(),
     ]
 
-    if mcp and mode == SessionMode.EDIT:
+    mcp_enabled = mcp and mode == SessionMode.EDIT
+
+    if mcp_enabled:
         from marimo._mcp.server.lifespan import mcp_server_lifespan
 
         lifespans_list.append(mcp_server_lifespan)
@@ -271,19 +283,24 @@ def start(
         timeout=timeout,
     )
 
-    app.state.port = external_port
-    app.state.host = external_host
+    if mcp_enabled:
+        setup_mcp_server(app)
 
-    app.state.headless = headless
-    app.state.watch = watch
-    app.state.session_manager = session_manager
-    app.state.base_url = base_url
-    app.state.asset_url = asset_url
-    app.state.config_manager = config_reader
-    app.state.remote_url = remote_url
-    app.state.mcp_server_enabled = mcp
-    app.state.skew_protection = skew_protection
-    app.state.enable_auth = enable_auth
+    init_state = StarletteServerStateInit(
+        port=external_port,
+        host=external_host,
+        base_url=base_url,
+        asset_url=asset_url,
+        headless=headless,
+        quiet=quiet,
+        session_manager=session_manager,
+        config_manager=config_reader,
+        remote_url=remote_url,
+        mcp_server_enabled=mcp,
+        skew_protection=skew_protection,
+        enable_auth=enable_auth,
+    )
+    init_state.apply(app.state)
 
     # Resource initialization
     # Increase the limit on open file descriptors to prevent resource
@@ -291,22 +308,38 @@ def start(
     initialize_fd_limit(limit=4096)
     initialize_signals()
 
+    # Platform-specific initialization of the event loop policy (Windows
+    # requires SelectorEventLoop).
+    initialize_asyncio()
+
+    if packaging.version.Version(
+        uvicorn.__version__
+    ) >= packaging.version.Version("0.36.0"):
+        # uvicorn 0.36.0 introduced custom event loop policies, and uses a loop
+        # factory instead of asyncio's global event loop policy (the latter was
+        # deprecated in Python 3.14).
+        #
+        # We have to use a SelectorEventLoop on Windows in particular (because
+        # we use the add_reader API); Selector is already the default on Unix.
+        #
+        # The syntax is awkward: <module>:function
+        edit_loop_policy = "asyncio:SelectorEventLoop"
+    else:
+        # Older versions of uvicorn use the globally configured event
+        # loop policy
+        edit_loop_policy = "asyncio"
+
+    # Under uvloop, reading the socket we monitor under add_reader()
+    # occasionally throws BlockingIOError (errno 11, or errno 35,
+    # ...). RUN mode no longer uses a socket (it has no IPC) but EDIT
+    # does, so force asyncio.
+    loop_policy = edit_loop_policy if mode == SessionMode.EDIT else "auto"
+
     server = uvicorn.Server(
         uvicorn.Config(
             app,
             port=port,
             host=host,
-            # TODO: cannot use reload unless the app is an import string
-            # although cannot use import string because it breaks the
-            # session manager
-            # reload=development_mode,
-            reload_dirs=(
-                [
-                    str((marimo_package_path() / "_static").resolve()),
-                ]
-                if development_mode
-                else None
-            ),
             log_level=log_level,
             # uvicorn times out HTTP connections (i.e. TCP sockets) every 5
             # seconds by default; for some reason breaks the server in
@@ -318,16 +351,12 @@ def start(
             # close the websocket if we don't receive a pong after 60 seconds
             ws_ping_timeout=60,
             timeout_graceful_shutdown=1,
-            # Under uvloop, reading the socket we monitor under add_reader()
-            # occasionally throws BlockingIOError (errno 11, or errno 35,
-            # ...). RUN mode no longer uses a socket (it has no IPC) but EDIT
-            # does, so force asyncio.
-            loop="asyncio" if mode == SessionMode.EDIT else "auto",
+            # loop can take an arbitrary string but mypy is complaining
+            # expecting it to be a Literal
+            loop=loop_policy,  # type:ignore[arg-type]
         )
     )
     app.state.server = server
-
-    initialize_asyncio()
 
     # Execute server startup command if provided
     if server_startup_command:

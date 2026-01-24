@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 
 from ..config import Config
 from ..typing import AppWrapper, ASGIReceiveEvent, ASGISendEvent, LifespanScope, LifespanState
@@ -59,15 +60,13 @@ class Lifespan:
                 partial(self.loop.run_in_executor, None),
                 _call_soon,
             )
-        except LifespanFailureError:
-            # Lifespan failures should crash the server
+        except (LifespanFailureError, asyncio.CancelledError):
             raise
         except (BaseExceptionGroup, Exception) as error:
             if isinstance(error, BaseExceptionGroup):
-                failure_error = error.subgroup(LifespanFailureError)
-                if failure_error is not None:
-                    # Lifespan failures should crash the server
-                    raise failure_error
+                reraise_error = error.subgroup((LifespanFailureError, asyncio.CancelledError))
+                if reraise_error is not None:
+                    raise reraise_error
 
             self.supported = False
             if not self.startup.is_set():

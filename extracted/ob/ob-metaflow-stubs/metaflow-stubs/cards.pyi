@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.672232                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.833458                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -19,6 +19,9 @@ from .plugins.cards.card_modules.components import VegaChart as VegaChart
 from .plugins.cards.card_modules.components import ProgressBar as ProgressBar
 from .plugins.cards.card_modules.components import ValueBox as ValueBox
 from .plugins.cards.card_modules.components import PythonCode as PythonCode
+from .plugins.cards.card_modules.components import EventsTimeline as EventsTimeline
+from .plugins.cards.card_modules.components import JSONViewer as JSONViewer
+from .plugins.cards.card_modules.components import YAMLViewer as YAMLViewer
 from .plugins.cards.card_modules.basic import DefaultCard as DefaultCard
 from .plugins.cards.card_modules.basic import PageComponent as PageComponent
 from .plugins.cards.card_modules.basic import ErrorCard as ErrorCard

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pyo3::{prelude::*, types::PyDict};
+use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict, IntoPyObjectExt};
 
 use crate::{
     catalog::XCatalog,
@@ -24,6 +24,7 @@ pub enum NodeType {
     Fragment,
     ScriptElement,
     Element,
+    NSElement,
     Expression,
     Text,
     Comment,
@@ -43,7 +44,7 @@ impl XFragment {
     }
 
     #[getter]
-    fn children(&self) -> Vec<XNode> {
+    pub fn children(&self) -> Vec<XNode> {
         self.children.clone()
     }
 
@@ -127,6 +128,23 @@ impl ToHtml for XScriptElement {
     }
 }
 
+#[inline]
+fn render_attr<'py>(
+    py: Python<'py>,
+    catalog: &XCatalog,
+    node: &XNode,
+    name: &str,
+    context: &mut RenderContext,
+) -> PyResult<String> {
+    let value = catalog.render_node(py, &node, context)?;
+    let attr = if value.contains('"') {
+        format!(" {}='{}'", name, value.replace('\'', "\\'"))
+    } else {
+        format!(" {}=\"{}\"", name, value)
+    };
+    Ok(attr)
+}
+
 #[pyclass(eq)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct XElement {
@@ -152,12 +170,12 @@ impl XElement {
     }
 
     #[getter]
-    fn attrs(&self) -> HashMap<String, XNode> {
+    pub fn attrs(&self) -> HashMap<String, XNode> {
         self.attrs.clone()
     }
 
     #[getter]
-    fn children(&self) -> Vec<XNode> {
+    pub fn children(&self) -> Vec<XNode> {
         self.children.clone()
     }
 
@@ -165,23 +183,6 @@ impl XElement {
     fn __match_args__() -> (&'static str, &'static str, &'static str) {
         ("name", "attrs", "children")
     }
-}
-
-#[inline]
-fn render_attr<'py>(
-    py: Python<'py>,
-    catalog: &XCatalog,
-    node: &XNode,
-    name: &str,
-    context: &mut RenderContext,
-) -> PyResult<String> {
-    let value = catalog.render_node(py, &node, context)?;
-    let attr = if value.contains('"') {
-        format!(" {}='{}'", name, value.replace('\'', "\\'"))
-    } else {
-        format!(" {}=\"{}\"", name, value)
-    };
-    Ok(attr)
 }
 
 impl ToHtml for XElement {
@@ -196,6 +197,11 @@ impl ToHtml for XElement {
         match catalog.get(py, self.name()) {
             Some(py_template) => {
                 debug!("Rendering template {}", py_template);
+                let namespaces = py_template
+                    .getattr("namespaces")?
+                    .downcast::<PyDict>()?
+                    .copy()?;
+                context.push_ns(py, namespaces.clone())?;
 
                 let node = py_template.getattr("node")?.extract::<XNode>()?;
                 let node_attrs = py_template
@@ -229,17 +235,14 @@ impl ToHtml for XElement {
                     node_attrs.set_item("children", childchildren)?;
                 }
 
-                let gblk = LiteralKey::Str("globals".to_string());
-                let mut shadow_context = RenderContext::new();
-                if let Some(glb) = context.get(&gblk) {
-                    shadow_context.insert(gblk, glb.clone());
-                }
+                let mut shadow_context = context.shadow();
                 shadow_context.push(py, node_attrs)?;
                 result.push_str(
                     catalog
                         .render_node(py, &node, &mut shadow_context)?
                         .as_str(),
                 );
+                context.pop_ns();
             }
             None => {
                 debug!("Rendering final element <{}/>", self.name);
@@ -268,6 +271,141 @@ impl ToHtml for XElement {
                 } else {
                     result.push_str("/>");
                 }
+            }
+        }
+        Ok(result)
+    }
+}
+
+#[pyclass(eq)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct XNSElement {
+    namespace: String,
+    name: String,
+    attrs: HashMap<String, XNode>,
+    children: Vec<XNode>,
+}
+
+#[pymethods]
+impl XNSElement {
+    #[new]
+    pub fn new(
+        namespace: String,
+        name: String,
+        attrs: HashMap<String, XNode>,
+        children: Vec<XNode>,
+    ) -> Self {
+        XNSElement {
+            namespace,
+            name,
+            attrs,
+            children,
+        }
+    }
+
+    #[getter]
+    fn namespace(&self) -> &str {
+        self.namespace.as_str()
+    }
+
+    #[getter]
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    #[getter]
+    pub fn attrs(&self) -> HashMap<String, XNode> {
+        self.attrs.clone()
+    }
+
+    #[getter]
+    pub fn children(&self) -> Vec<XNode> {
+        self.children.clone()
+    }
+
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str, &'static str, &'static str) {
+        ("namespace", "name", "attrs", "children")
+    }
+}
+
+impl XNSElement {
+    fn get_catalog(&self, context: &RenderContext) -> PyResult<Literal> {
+        let rnscatalog = context.get(&LiteralKey::Str(self.namespace.clone()));
+        if rnscatalog.is_none() {
+            error!("{:?}", context);
+            return Err(PyValueError::new_err(format!(
+                "Reference to unknown catalog {}",
+                self.namespace
+            )));
+        }
+        Ok(rnscatalog.unwrap().clone())
+    }
+}
+impl ToHtml for XNSElement {
+    fn to_html<'py>(
+        &self,
+        py: Python<'py>,
+        catalog: &XCatalog,
+        context: &mut RenderContext,
+    ) -> PyResult<String> {
+        let mut result = String::new();
+        let nscatalog = self.get_catalog(&context)?;
+        match &nscatalog {
+            Literal::Object(o) => {
+                // result.push_str(format!("{:?}", nscatalog).as_str());
+                let template = o.obj().call_method1(py, "get", (self.name(),))?;
+                let xnode = template.getattr(py, "node")?;
+
+                let namespaces = template.getattr(py, "namespaces")?;
+                let pynamespaces: &Bound<'_, PyDict> = namespaces.bind(py).downcast().unwrap();
+
+                let defaults = template.getattr(py, "defaults")?;
+                let node_attrs = defaults.bind(py).downcast().unwrap().copy().unwrap();
+
+                context.push_ns(py, pynamespaces.clone())?;
+                for (name, attrnode) in self.attrs() {
+                    let name = match name.as_str() {
+                        "class" => "class_".to_string(),
+                        "for" => "for_".to_string(),
+                        _ => name.replace('-', "_"),
+                    };
+                    if let XNode::Expression(ref expression) = attrnode {
+                        let node_attr_v =
+                            eval_expression(py, expression.expression(), &catalog, context)?;
+                        node_attrs.set_item(name, node_attr_v.into_py(py))?;
+                    } else {
+                        node_attrs.set_item(
+                            name,
+                            Literal::Str(catalog.render_node(py, &attrnode, context)?),
+                        )?;
+                    }
+                }
+
+                if self.children().len() > 0 {
+                    let mut childchildren = String::new();
+                    for child in self.children() {
+                        childchildren.push_str(child.to_html(py, catalog, context)?.as_str())
+                    }
+                    node_attrs.set_item("children", childchildren)?;
+                }
+
+                let mut shadow_context = context.shadow();
+                shadow_context.push(py, node_attrs.clone())?;
+
+                let pycontext = shadow_context.into_py_any(py)?;
+                let res = o
+                    .obj()
+                    .call_method1(py, "render_node", (xnode, pycontext))?;
+
+                context.pop_ns();
+                result.push_str(format!("{}", res).as_str());
+            }
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "Reference to catalog {} does not map to catalog: {:?}",
+                    self.namespace, nscatalog
+                )));
             }
         }
         Ok(result)
@@ -396,7 +534,7 @@ impl XExpression {
     }
 
     #[getter]
-    fn expression(&self) -> &str {
+    pub fn expression(&self) -> &str {
         self.expression.as_str()
     }
 
@@ -422,8 +560,7 @@ impl ToHtml for XExpression {
         catalog: &XCatalog,
         context: &mut RenderContext,
     ) -> PyResult<String> {
-        info!("Evaluating expression {}", self.expression());
-        debug!("{:?}", context);
+        info!("Evaluating xexpression {}", self.expression());
         let res = self.to_literal(py, catalog, context)?;
         res.to_html(py, catalog, context)
     }
@@ -435,6 +572,7 @@ pub enum XNode {
     Fragment(XFragment),
     ScriptElement(XScriptElement),
     Element(XElement),
+    NSElement(XNSElement),
     DocType(XDocType),
     Text(XText),
     Comment(XComment),
@@ -462,6 +600,28 @@ impl std::fmt::Display for XNode {
                         write!(f, "{}", child)?;
                     }
                     write!(f, "</{}>", name)
+                }
+            }
+
+            XNode::NSElement(XNSElement {
+                namespace,
+                name,
+                attrs,
+                children,
+            }) => {
+                let joined_attrs = attrs
+                    .iter()
+                    .map(|(k, v)| format!(" {}=\"{}\"", k, v.__repr__()))
+                    .collect::<String>();
+
+                if children.is_empty() {
+                    write!(f, "<{}.{}{}/>", namespace, name, joined_attrs)
+                } else {
+                    write!(f, "<{}.{}{}>", namespace, name, joined_attrs)?;
+                    for child in children {
+                        write!(f, "{}", child)?;
+                    }
+                    write!(f, "</{}.{}>", namespace, name)
                 }
             }
             XNode::ScriptElement(XScriptElement { name, attrs, body }) => {
@@ -498,6 +658,7 @@ impl XNode {
             XNode::Fragment(_) => NodeType::Fragment,
             XNode::ScriptElement(_) => NodeType::ScriptElement,
             XNode::Element(_) => NodeType::Element,
+            XNode::NSElement(_) => NodeType::NSElement,
             XNode::DocType(_) => NodeType::DocType,
             XNode::Text(_) => NodeType::Text,
             XNode::Comment(_) => NodeType::Comment,
@@ -513,7 +674,7 @@ impl XNode {
     }
 
     #[pyo3(signature = ())]
-    pub fn unwrap(&self, py: Python<'_>) -> PyObject {
+    pub fn unwrap(&self, py: Python<'_>) -> Py<PyAny> {
         match self {
             XNode::Fragment(children) => children
                 .clone()
@@ -528,6 +689,12 @@ impl XNode {
                 .into_any()
                 .unbind(),
             XNode::Element(element) => element
+                .clone()
+                .into_pyobject(py)
+                .unwrap()
+                .into_any()
+                .unbind(),
+            XNode::NSElement(element) => element
                 .clone()
                 .into_pyobject(py)
                 .unwrap()
@@ -576,9 +743,11 @@ impl ToHtml for XNode {
         catalog: &XCatalog,
         context: &mut RenderContext,
     ) -> PyResult<String> {
+        debug!("Rendering {:?} with {:?}", self, context);
         match self {
             XNode::Fragment(f) => f.to_html(py, catalog, context),
             XNode::Element(e) => e.to_html(py, catalog, context),
+            XNode::NSElement(e) => e.to_html(py, catalog, context),
             XNode::ScriptElement(e) => e.to_html(py, catalog, context),
             XNode::DocType(d) => d.to_html(py, catalog, context),
             XNode::Text(t) => t.to_html(py, catalog, context),

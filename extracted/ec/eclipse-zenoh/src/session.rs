@@ -21,6 +21,7 @@ use zenoh::{session::EntityId, Wait};
 
 use crate::{
     bytes::{Encoding, ZBytes},
+    cancellation::CancellationToken,
     config::{Config, ZenohId},
     handlers::{into_handler, HandlerImpl},
     key_expr::KeyExpr,
@@ -29,7 +30,7 @@ use crate::{
     pubsub::{Publisher, Subscriber},
     qos::{CongestionControl, Priority, Reliability},
     query::{Querier, QueryConsolidation, QueryTarget, Queryable, Reply, Selector},
-    sample::Locality,
+    sample::{Locality, SourceInfo},
     time::Timestamp,
     utils::{duration, wait, IntoPython, MapInto},
 };
@@ -52,6 +53,11 @@ impl Session {
     ) -> PyResult<PyObject> {
         self.close(py)?;
         Ok(py.None())
+    }
+
+    #[getter]
+    fn id(&self) -> EntityGlobalId {
+        self.0.id().into()
     }
 
     fn zid(&self) -> PyResult<ZenohId> {
@@ -87,7 +93,7 @@ impl Session {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (key_expr, payload, *, encoding = None, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None, allowed_destination = None))]
+    #[pyo3(signature = (key_expr, payload, *, encoding = None, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None, allowed_destination = None, source_info = None))]
     fn put(
         &self,
         py: Python,
@@ -100,6 +106,7 @@ impl Session {
         #[pyo3(from_py_with = ZBytes::from_py_opt)] attachment: Option<ZBytes>,
         timestamp: Option<Timestamp>,
         allowed_destination: Option<Locality>,
+        source_info: Option<SourceInfo>,
     ) -> PyResult<()> {
         let build = build!(
             self.0.put(key_expr, payload),
@@ -110,12 +117,13 @@ impl Session {
             attachment,
             timestamp,
             allowed_destination,
+            source_info,
         );
         wait(py, build)
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (key_expr, *, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None, allowed_destination = None))]
+    #[pyo3(signature = (key_expr, *, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None, allowed_destination = None, source_info = None))]
     fn delete(
         &self,
         py: Python,
@@ -126,6 +134,7 @@ impl Session {
         #[pyo3(from_py_with = ZBytes::from_py_opt)] attachment: Option<ZBytes>,
         timestamp: Option<Timestamp>,
         allowed_destination: Option<Locality>,
+        source_info: Option<SourceInfo>,
     ) -> PyResult<()> {
         let build = build!(
             self.0.delete(key_expr),
@@ -135,12 +144,13 @@ impl Session {
             attachment,
             timestamp,
             allowed_destination,
+            source_info
         );
         wait(py, build)
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (selector, handler = None, *, target = None, consolidation = None, timeout = None, congestion_control = None, priority = None, express = None, payload = None, encoding = None, attachment = None, allowed_destination = None))]
+    #[pyo3(signature = (selector, handler = None, *, target = None, consolidation = None, timeout = None, congestion_control = None, priority = None, express = None, payload = None, encoding = None, attachment = None, allowed_destination = None, source_info = None, cancellation_token = None))]
     fn get(
         &self,
         py: Python,
@@ -158,8 +168,10 @@ impl Session {
         #[pyo3(from_py_with = Encoding::from_py_opt)] encoding: Option<Encoding>,
         #[pyo3(from_py_with = ZBytes::from_py_opt)] attachment: Option<ZBytes>,
         allowed_destination: Option<Locality>,
+        source_info: Option<SourceInfo>,
+        cancellation_token: Option<CancellationToken>,
     ) -> PyResult<HandlerImpl<Reply>> {
-        let (handler, _) = into_handler(py, handler)?;
+        let (handler, _) = into_handler(py, handler, cancellation_token.as_ref())?;
         let builder = build!(
             self.0.get(selector),
             target,
@@ -172,7 +184,10 @@ impl Session {
             encoding,
             attachment,
             allowed_destination,
+            source_info,
+            cancellation_token
         );
+
         wait(py, builder.with(handler)).map_into()
     }
 
@@ -189,7 +204,7 @@ impl Session {
         handler: Option<&Bound<PyAny>>,
         allowed_origin: Option<Locality>,
     ) -> PyResult<Subscriber> {
-        let (handler, background) = into_handler(py, handler)?;
+        let (handler, background) = into_handler(py, handler, None)?;
         let builder = build!(self.0.declare_subscriber(key_expr), allowed_origin);
         let mut subscriber = wait(py, builder.with(handler))?;
         if background {
@@ -207,7 +222,7 @@ impl Session {
         complete: Option<bool>,
         allowed_origin: Option<Locality>,
     ) -> PyResult<Queryable> {
-        let (handler, background) = into_handler(py, handler)?;
+        let (handler, background) = into_handler(py, handler, None)?;
         let builder = build!(self.0.declare_queryable(key_expr), complete, allowed_origin);
         let mut queryable = wait(py, builder.with(handler))?;
         if background {
@@ -317,7 +332,7 @@ impl SessionInfo {
     // TODO __repr__
 }
 
-wrapper!(zenoh::session::EntityGlobalId);
+wrapper!(zenoh::session::EntityGlobalId: Clone);
 
 #[pymethods]
 impl EntityGlobalId {

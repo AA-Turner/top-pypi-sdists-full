@@ -7,12 +7,12 @@ from ..testing_utils import assert_no_logs
 
 @assert_no_logs
 @pytest.mark.parametrize(
-    'expected_pixels, html', (
+    ('expected_pixels', 'html'), [
         ((10 * (10 * 'B' + '\n')), '''
            <style>
              @page { size: 10px }
              /* body’s background propagates to the whole canvas */
-             body { margin: 2px; background: #00f; height: 5px }
+             body { margin: 2px; background: #00f; height: 5Px }
            </style>
          <body>'''),
         ('''
@@ -35,7 +35,7 @@ from ..testing_utils import assert_no_logs
              body { margin: 1px; background: #00f; height: 5px }
           </style>
           <body>'''),
-    ))
+    ])
 def test_canvas_background(assert_pixels, expected_pixels, html):
     assert_pixels(expected_pixels, html)
 
@@ -66,7 +66,7 @@ def test_canvas_background_size(assert_pixels):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('css, pixels', (
+@pytest.mark.parametrize(('css', 'pixels'), [
     ('url(pattern.png)', '''
         ______________
         ______________
@@ -176,7 +176,7 @@ def test_canvas_background_size(assert_pixels):
         ______________
         ______________
     '''),
-    ('url(pattern.png) no-repeat bottom 6px right 0', '''
+    ('url(pattern.png) no-repeat bottom 6PX right 0', '''
         ______________
         ______________
         ________rBBB__
@@ -357,7 +357,7 @@ def test_canvas_background_size(assert_pixels):
         ______________
         ______________
     '''),
-    ('url(pattern.png) repeat-y local 2px 1px', '''
+    ('url(pattern.png) repeat-y local 2pX 1px', '''
         ______________
         ______________
         ____BBBB______
@@ -468,7 +468,7 @@ def test_canvas_background_size(assert_pixels):
         ______________
         ______________
     '''),
-))
+])
 def test_background_image(assert_pixels, css, pixels):
     assert_pixels(pixels, '''
       <style>
@@ -509,7 +509,7 @@ def test_background_image_zero_size_background(assert_pixels):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('css, pixels', (
+@pytest.mark.parametrize(('css', 'pixels'), [
     ('border-box', '''
         ____________
         ____________
@@ -566,7 +566,7 @@ def test_background_image_zero_size_background(assert_pixels):
         ____________
         ____________
     ''')
-))
+])
 def test_background_origin(assert_pixels, css, pixels):
     """Test the background-origin property."""
     assert_pixels(pixels, '''
@@ -599,7 +599,7 @@ def test_background_transform(assert_pixels):
         body { position: absolute;
                width: 5px; height: 5px;
                top: -5px; left: -5px;
-               transform: translate(6px 6px);
+               transform: translate(6px,6px);
                background: red }
       </style>
       <body>''')
@@ -702,7 +702,7 @@ def test_background_repeat_space_4(assert_pixels):
       <style>
         @page { size: 8px }
         html { background: #fff }
-        body { margin: 1px; height: 6px;
+        body { margin: 1px; height: 6Px;
                background: url(pattern.png) space lime }
       </style>
       <body>''')
@@ -825,7 +825,7 @@ def test_background_repeat_round_4(assert_pixels):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('css, pixels', (
+@pytest.mark.parametrize(('css', 'pixels'), [
     ('#00f border-box', '''
         ________
         _BBBBBB_
@@ -866,7 +866,7 @@ def test_background_repeat_round_4(assert_pixels):
         _GGGGGG_
         ________
     '''),
-))
+])
 def test_background_clip(assert_pixels, css, pixels):
     assert_pixels(pixels, '''
       <style>
@@ -880,7 +880,7 @@ def test_background_clip(assert_pixels, css, pixels):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('expected_pixels, html', (
+@pytest.mark.parametrize(('expected_pixels', 'html'), [
     ('''
          ____________
          ____________
@@ -1016,7 +1016,7 @@ def test_background_clip(assert_pixels, css, pixels):
                 background: url(pattern.png) no-repeat right 0/cover }
        </style>
        <body>'''),
-    )
+    ]
 )
 def test_background_size(assert_pixels, expected_pixels, html):
     assert_pixels(expected_pixels, html)

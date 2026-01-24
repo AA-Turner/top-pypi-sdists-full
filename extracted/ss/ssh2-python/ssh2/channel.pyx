@@ -1,18 +1,19 @@
-# This file is part of ssh2-python.
-# Copyright (C) 2017-2020 Panos Kittenis
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from libc.stdlib cimport malloc, free
 
@@ -333,14 +334,6 @@ cdef class Channel:
             rc = c_ssh2.libssh2_channel_window_write(self._channel)
         return handle_error_codes(rc)
 
-    def receive_window_adjust(self, unsigned long adjustment,
-                              unsigned long force):
-        cdef unsigned long rc
-        with nogil:
-            rc = c_ssh2.libssh2_channel_receive_window_adjust(
-                self._channel, adjustment, force)
-        return handle_error_codes(rc)
-
     def receive_window_adjust2(self, unsigned long adjustment,
                                unsigned long force):
         cdef unsigned long rc
@@ -545,12 +538,6 @@ cdef class Channel:
             rc = c_ssh2.libssh2_poll_channel_read(self._channel, extended)
         return handle_error_codes(rc)
 
-    def handle_extended_data(self, int ignore_mode):
-        """Deprecated, use handle_extended_data2"""
-        with nogil:
-            c_ssh2.libssh2_channel_handle_extended_data(
-                self._channel, ignore_mode)
-
     def handle_extended_data2(self, int ignore_mode):
         cdef int rc
         with nogil:
@@ -558,15 +545,28 @@ cdef class Channel:
                 self._channel, ignore_mode)
         return handle_error_codes(rc)
 
-    def ignore_extended_data(self, int ignore_mode):
-        """Deprecated, use handle_extended_data2"""
-        with nogil:
-            c_ssh2.libssh2_channel_handle_extended_data(
-                self._channel, ignore_mode)
-
     def request_auth_agent(self):
         """Request SSH agent authentication forwarding on channel."""
         cdef int rc
         with nogil:
             rc = c_ssh2.libssh2_channel_request_auth_agent(self._channel)
+        return handle_error_codes(rc)
+
+    def signal(self, signame not None):
+        """
+        Send signal to channel.
+
+        Signame must be a free form signal name without the leading SIG. Eg 'HUP', 'INT', 'TERM' and so forth.
+
+        See :py:mod:`signal.Signals`.
+
+        :param signame: Signal name to send to channel.
+        :type signame: str
+        """
+        cdef int rc
+        cdef bytes b_signame = to_bytes(signame)
+        cdef const char *c_signame = b_signame
+        cdef int signame_len = len(signame)
+        with nogil:
+            rc = c_ssh2.libssh2_channel_signal_ex(self._channel, c_signame, signame_len)
         return handle_error_codes(rc)

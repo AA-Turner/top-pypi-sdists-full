@@ -12,7 +12,6 @@ import pytest
 import cmd2
 
 from .conftest import (
-    HELP_HISTORY,
     normalize,
     run_cmd,
 )
@@ -498,7 +497,7 @@ def test_history_item_properties(histitem) -> None:
 def test_base_history(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
-    out, err = run_cmd(base_app, 'history')
+    out, _err = run_cmd(base_app, 'history')
     expected = normalize(
         """
     1  help
@@ -507,7 +506,7 @@ def test_base_history(base_app) -> None:
     )
     assert out == expected
 
-    out, err = run_cmd(base_app, 'history he')
+    out, _err = run_cmd(base_app, 'history he')
     expected = normalize(
         """
     1  help
@@ -516,7 +515,7 @@ def test_base_history(base_app) -> None:
     assert out == expected
     verify_hi_last_result(base_app, 1)
 
-    out, err = run_cmd(base_app, 'history sh')
+    out, _err = run_cmd(base_app, 'history sh')
     expected = normalize(
         """
     2  shortcuts
@@ -529,7 +528,7 @@ def test_base_history(base_app) -> None:
 def test_history_script_format(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
-    out, err = run_cmd(base_app, 'history -s')
+    out, _err = run_cmd(base_app, 'history -s')
     expected = normalize(
         """
 help
@@ -544,7 +543,7 @@ def test_history_with_string_argument(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
     run_cmd(base_app, 'help history')
-    out, err = run_cmd(base_app, 'history help')
+    out, _err = run_cmd(base_app, 'history help')
     expected = normalize(
         """
     1  help
@@ -560,7 +559,7 @@ def test_history_expanded_with_string_argument(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'help history')
     run_cmd(base_app, 'sc')
-    out, err = run_cmd(base_app, 'history -v shortcuts')
+    out, _err = run_cmd(base_app, 'history -v shortcuts')
     expected = normalize(
         """
     1  alias create sc shortcuts
@@ -577,7 +576,7 @@ def test_history_expanded_with_regex_argument(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'help history')
     run_cmd(base_app, 'sc')
-    out, err = run_cmd(base_app, 'history -v /sh.*cuts/')
+    out, _err = run_cmd(base_app, 'history -v /sh.*cuts/')
     expected = normalize(
         """
     1  alias create sc shortcuts
@@ -592,7 +591,7 @@ def test_history_expanded_with_regex_argument(base_app) -> None:
 def test_history_with_integer_argument(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
-    out, err = run_cmd(base_app, 'history 1')
+    out, _err = run_cmd(base_app, 'history 1')
     expected = normalize(
         """
     1  help
@@ -606,7 +605,7 @@ def test_history_with_integer_span(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
     run_cmd(base_app, 'help history')
-    out, err = run_cmd(base_app, 'history 1..2')
+    out, _err = run_cmd(base_app, 'history 1..2')
     expected = normalize(
         """
     1  help
@@ -621,7 +620,7 @@ def test_history_with_span_start(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
     run_cmd(base_app, 'help history')
-    out, err = run_cmd(base_app, 'history 2:')
+    out, _err = run_cmd(base_app, 'history 2:')
     expected = normalize(
         """
     2  shortcuts
@@ -636,7 +635,7 @@ def test_history_with_span_end(base_app) -> None:
     run_cmd(base_app, 'help')
     run_cmd(base_app, 'shortcuts')
     run_cmd(base_app, 'help history')
-    out, err = run_cmd(base_app, 'history :2')
+    out, _err = run_cmd(base_app, 'history :2')
     expected = normalize(
         """
     1  help
@@ -724,8 +723,8 @@ def test_history_run_all_commands(base_app) -> None:
 
 
 def test_history_run_one_command(base_app) -> None:
-    out1, err1 = run_cmd(base_app, 'help')
-    out2, err2 = run_cmd(base_app, 'history -r 1')
+    out1, _err1 = run_cmd(base_app, 'help')
+    out2, _err2 = run_cmd(base_app, 'history -r 1')
     assert out1 == out2
     assert base_app.last_result is True
 
@@ -769,10 +768,8 @@ def test_history_verbose_with_other_options(base_app) -> None:
     # make sure -v shows a usage error if any other options are present
     options_to_test = ['-r', '-e', '-o file', '-t file', '-c', '-x']
     for opt in options_to_test:
-        out, err = run_cmd(base_app, 'history -v ' + opt)
-        assert 4 <= len(out) <= 5
-        assert out[0] == '-v cannot be used with any other options'
-        assert out[1].startswith('Usage:')
+        out, _err = run_cmd(base_app, 'history -v ' + opt)
+        assert '-v cannot be used with any other options' in out
         assert base_app.last_result is False
 
 
@@ -780,7 +777,7 @@ def test_history_verbose(base_app) -> None:
     # validate function of -v option
     run_cmd(base_app, 'alias create s shortcuts')
     run_cmd(base_app, 's')
-    out, err = run_cmd(base_app, 'history -v')
+    out, _err = run_cmd(base_app, 'history -v')
 
     expected = normalize(
         """
@@ -797,10 +794,8 @@ def test_history_script_with_invalid_options(base_app) -> None:
     # make sure -s shows a usage error if -c, -r, -e, -o, or -t are present
     options_to_test = ['-r', '-e', '-o file', '-t file', '-c']
     for opt in options_to_test:
-        out, err = run_cmd(base_app, 'history -s ' + opt)
-        assert 4 <= len(out) <= 5
-        assert out[0] == '-s and -x cannot be used with -c, -r, -e, -o, or -t'
-        assert out[1].startswith('Usage:')
+        out, _err = run_cmd(base_app, 'history -s ' + opt)
+        assert '-s and -x cannot be used with -c, -r, -e, -o, or -t' in out
         assert base_app.last_result is False
 
 
@@ -808,7 +803,7 @@ def test_history_script(base_app) -> None:
     cmds = ['alias create s shortcuts', 's']
     for cmd in cmds:
         run_cmd(base_app, cmd)
-    out, err = run_cmd(base_app, 'history -s')
+    out, _err = run_cmd(base_app, 'history -s')
     assert out == cmds
     verify_hi_last_result(base_app, 2)
 
@@ -817,10 +812,8 @@ def test_history_expanded_with_invalid_options(base_app) -> None:
     # make sure -x shows a usage error if -c, -r, -e, -o, or -t are present
     options_to_test = ['-r', '-e', '-o file', '-t file', '-c']
     for opt in options_to_test:
-        out, err = run_cmd(base_app, 'history -x ' + opt)
-        assert 4 <= len(out) <= 5
-        assert out[0] == '-s and -x cannot be used with -c, -r, -e, -o, or -t'
-        assert out[1].startswith('Usage:')
+        out, _err = run_cmd(base_app, 'history -x ' + opt)
+        assert '-s and -x cannot be used with -c, -r, -e, -o, or -t' in out
         assert base_app.last_result is False
 
 
@@ -829,7 +822,7 @@ def test_history_expanded(base_app) -> None:
     cmds = ['alias create s shortcuts', 's']
     for cmd in cmds:
         run_cmd(base_app, cmd)
-    out, err = run_cmd(base_app, 'history -x')
+    out, _err = run_cmd(base_app, 'history -x')
     expected = ['    1  alias create s shortcuts', '    2  shortcuts']
     assert out == expected
     verify_hi_last_result(base_app, 2)
@@ -840,15 +833,10 @@ def test_history_script_expanded(base_app) -> None:
     cmds = ['alias create s shortcuts', 's']
     for cmd in cmds:
         run_cmd(base_app, cmd)
-    out, err = run_cmd(base_app, 'history -sx')
+    out, _err = run_cmd(base_app, 'history -sx')
     expected = ['alias create s shortcuts', 'shortcuts']
     assert out == expected
     verify_hi_last_result(base_app, 2)
-
-
-def test_base_help_history(base_app) -> None:
-    out, err = run_cmd(base_app, 'help history')
-    assert out == normalize(HELP_HISTORY)
 
 
 def test_exclude_from_history(base_app) -> None:
@@ -857,7 +845,7 @@ def test_exclude_from_history(base_app) -> None:
     verify_hi_last_result(base_app, 0)
 
     # Verify that the history is empty
-    out, err = run_cmd(base_app, 'history')
+    out, _err = run_cmd(base_app, 'history')
     assert out == []
     verify_hi_last_result(base_app, 0)
 
@@ -865,7 +853,7 @@ def test_exclude_from_history(base_app) -> None:
     run_cmd(base_app, 'help')
 
     # And verify we have a history now ...
-    out, err = run_cmd(base_app, 'history')
+    out, _err = run_cmd(base_app, 'history')
     expected = normalize("""    1  help""")
     assert out == expected
     verify_hi_last_result(base_app, 1)

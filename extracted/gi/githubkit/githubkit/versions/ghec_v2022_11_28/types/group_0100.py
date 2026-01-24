@@ -9,22 +9,36 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
-
-from .group_0101 import (
-    EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationIdType,
-)
+from typing_extensions import NotRequired, TypedDict
 
 
-class EnterpriseRulesetConditionsOrganizationIdTargetType(TypedDict):
-    """Repository ruleset conditions for organization IDs
+class NetworkSettingsType(TypedDict):
+    """Hosted compute network settings resource
 
-    Parameters for an organization ID condition
+    A hosted compute network settings resource.
     """
 
-    organization_id: (
-        EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationIdType
-    )
+    id: str
+    network_configuration_id: NotRequired[str]
+    name: str
+    subnet_id: str
+    region: str
 
 
-__all__ = ("EnterpriseRulesetConditionsOrganizationIdTargetType",)
+class NetworkSettingsTypeForResponse(TypedDict):
+    """Hosted compute network settings resource
+
+    A hosted compute network settings resource.
+    """
+
+    id: str
+    network_configuration_id: NotRequired[str]
+    name: str
+    subnet_id: str
+    region: str
+
+
+__all__ = (
+    "NetworkSettingsType",
+    "NetworkSettingsTypeForResponse",
+)

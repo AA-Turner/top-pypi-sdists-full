@@ -80,22 +80,40 @@ Critical Volume of Mixtures
 .. autofunction:: chemicals.critical.Chueh_Prausnitz_Vc
 .. autofunction:: chemicals.critical.modified_Wilson_Vc
 """
+from __future__ import annotations
 
-__all__ = ['Tc', 'Pc', 'Vc', 'Zc',
-           'Mersmann_Kind_predictor',
-           'third_property',
-           'critical_surface',
-           'Ihmels', 'Meissner', 'Grigoras', 'Hekayati_Raeissi', 'Li',
-           'Tb_Tc_relationship',
-           'Chueh_Prausnitz_Tc', 'Grieves_Thodos',
-           'modified_Wilson_Tc', 'Chueh_Prausnitz_Vc',
-           'modified_Wilson_Vc',
-           'Tc_methods', 'Pc_methods',
-           'Vc_methods', 'Zc_methods',
-           'critical_surface_methods',
-           'Tc_all_methods', 'Pc_all_methods',
-           'Vc_all_methods', 'Zc_all_methods',
-           'critical_surface_all_methods']
+from typing import TYPE_CHECKING
+
+__all__: list[str] = [
+    "Chueh_Prausnitz_Tc",
+    "Chueh_Prausnitz_Vc",
+    "Grieves_Thodos",
+    "Grigoras",
+    "Hekayati_Raeissi",
+    "Ihmels",
+    "Li",
+    "Meissner",
+    "Mersmann_Kind_predictor",
+    "Pc",
+    "Pc_all_methods",
+    "Pc_methods",
+    "Tb_Tc_relationship",
+    "Tc",
+    "Tc_all_methods",
+    "Tc_methods",
+    "Vc",
+    "Vc_all_methods",
+    "Vc_methods",
+    "Zc",
+    "Zc_all_methods",
+    "Zc_methods",
+    "critical_surface",
+    "critical_surface_all_methods",
+    "critical_surface_methods",
+    "modified_Wilson_Tc",
+    "modified_Wilson_Vc",
+    "third_property",
+]
 
 
 from fluids.constants import N_A, R, R_inv
@@ -111,65 +129,85 @@ from chemicals.data_reader import (
     retrieve_any_from_df_dict,
     retrieve_from_df_dict,
 )
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
 
-folder = os_path_join(source_path, 'Critical Properties')
-IUPAC = 'IUPAC'
-MATTHEWS = 'MATTHEWS'
-CRC = 'CRC'
-PSRK = 'PSRK'
-PD = 'PD'
-YAWS = 'YAWS'
-PINAMARTINES = 'PINAMARTINES'
-FEDORS = 'FEDORS'
-WILSON_JASPERSON = 'WILSON_JASPERSON'
-ACENTRIC_DEFINITION = 'ACENTRIC_DEFINITION'
+if TYPE_CHECKING:
+    from pandas.core.frame import DataFrame
+
+folder = os_path_join(source_path, "Critical Properties")
+
+# Module-level variables for lazy-loaded data
+critical_data_IUPAC: DataFrame
+critical_data_Matthews: DataFrame
+critical_data_CRC: DataFrame
+critical_data_PSRKR4: DataFrame
+critical_data_Yaws: DataFrame
+critical_data_PassutDanner: DataFrame
+critical_data_PinaMartines: DataFrame
+critical_data_WilsonJasperson: DataFrame
+critical_data_Fedors: DataFrame
+critical_data_omega_Psat_Tc: DataFrame
+Tc_sources: dict[str, DataFrame]
+Pc_sources: dict[str, DataFrame]
+Vc_sources: dict[str, DataFrame]
+Zc_sources: dict[str, DataFrame]
+omega_sources: dict[str, DataFrame]
+IUPAC = "IUPAC"
+MATTHEWS = "MATTHEWS"
+CRC = "CRC"
+PSRK = "PSRK"
+PD = "PD"
+YAWS = "YAWS"
+PINAMARTINES = "PINAMARTINES"
+FEDORS = "FEDORS"
+WILSON_JASPERSON = "WILSON_JASPERSON"
+ACENTRIC_DEFINITION = "ACENTRIC_DEFINITION"
 
 ### Register data sources and lazy load them
 
 @mark_numba_incompatible
-def _add_Zc_to_df(df):
+def _add_Zc_to_df(df: DataFrame) -> None:
     # Some files don't have the `Zc` column; this adds it
     # TODO: Think about adding these to the files
     import pandas as pd
-    if 'Zc' in df: return
-    df['Zc'] = pd.Series(df['Pc']*df['Vc']*R_inv/df['Tc'], index=df.index)
+    if "Zc" in df: return
+    df["Zc"] = pd.Series(df["Pc"]*df["Vc"]*R_inv/df["Tc"], index=df.index)
 
 # IUPAC Organic data series
 # TODO: 12E of this data http://pubsdc3.acs.org/doi/10.1021/acs.jced.5b00571
-register_df_source(folder, 'IUPACOrganicCriticalProps.tsv')
+register_df_source(folder, "IUPACOrganicCriticalProps.tsv")
 
 # CRC Handbook from TRC Organic data section (only in 2015)
 # No Inorganic table was taken, although it is already present;
 # data almost all from IUPAC
-register_df_source(folder, 'CRCCriticalOrganics.tsv', postload=_add_Zc_to_df)
-register_df_source(folder, 'Mathews1972InorganicCriticalProps.tsv')
-register_df_source(folder, 'Appendix to PSRK Revision 4.tsv', postload=_add_Zc_to_df)
-register_df_source(folder, 'PassutDanner1973.tsv')
-register_df_source(folder, 'Yaws Collection.tsv', postload=_add_Zc_to_df)
-register_df_source(folder, 'DIPPRPinaMartines.tsv', postload=_add_Zc_to_df)
-register_df_source(folder, 'wilson_jasperson_Tc_Pc_predictions.tsv', int_CAS=True)
-register_df_source(folder, 'fedors_Vc_predictions.tsv', int_CAS=True)
-register_df_source(folder, 'omega_Psat_Tc_predictions.tsv', int_CAS=True)
+register_df_source(folder, "CRCCriticalOrganics.tsv", postload=_add_Zc_to_df)
+register_df_source(folder, "Mathews1972InorganicCriticalProps.tsv")
+register_df_source(folder, "Appendix to PSRK Revision 4.tsv", postload=_add_Zc_to_df)
+register_df_source(folder, "PassutDanner1973.tsv")
+register_df_source(folder, "Yaws Collection.tsv", postload=_add_Zc_to_df)
+register_df_source(folder, "DIPPRPinaMartines.tsv", postload=_add_Zc_to_df)
+register_df_source(folder, "wilson_jasperson_Tc_Pc_predictions.tsv", int_CAS=True)
+register_df_source(folder, "fedors_Vc_predictions.tsv", int_CAS=True)
+register_df_source(folder, "omega_Psat_Tc_predictions.tsv", int_CAS=True)
 
 _critical_data_loaded = False
 @mark_numba_incompatible
-def _load_critical_data():
+def _load_critical_data() -> None:
     global critical_data_IUPAC, critical_data_Matthews, critical_data_CRC
     global critical_data_PSRKR4, critical_data_Yaws, critical_data_PassutDanner, critical_data_PinaMartines
     global critical_data_WilsonJasperson, critical_data_Fedors, critical_data_omega_Psat_Tc
     global Tc_sources, Pc_sources, Vc_sources, Zc_sources, omega_sources
     global _critical_data_loaded
-    critical_data_IUPAC = data_source('IUPACOrganicCriticalProps.tsv')
-    critical_data_Matthews = data_source('Mathews1972InorganicCriticalProps.tsv')
-    critical_data_CRC = data_source('CRCCriticalOrganics.tsv')
-    critical_data_PSRKR4 = data_source('Appendix to PSRK Revision 4.tsv')
-    critical_data_Yaws = data_source('Yaws Collection.tsv')
-    critical_data_PassutDanner = data_source('PassutDanner1973.tsv')
-    critical_data_PinaMartines = data_source('DIPPRPinaMartines.tsv')
-    critical_data_WilsonJasperson = data_source('wilson_jasperson_Tc_Pc_predictions.tsv')
-    critical_data_Fedors = data_source('fedors_Vc_predictions.tsv')
-    critical_data_omega_Psat_Tc = data_source('omega_Psat_Tc_predictions.tsv')
+    critical_data_IUPAC = data_source("IUPACOrganicCriticalProps.tsv")
+    critical_data_Matthews = data_source("Mathews1972InorganicCriticalProps.tsv")
+    critical_data_CRC = data_source("CRCCriticalOrganics.tsv")
+    critical_data_PSRKR4 = data_source("Appendix to PSRK Revision 4.tsv")
+    critical_data_Yaws = data_source("Yaws Collection.tsv")
+    critical_data_PassutDanner = data_source("PassutDanner1973.tsv")
+    critical_data_PinaMartines = data_source("DIPPRPinaMartines.tsv")
+    critical_data_WilsonJasperson = data_source("wilson_jasperson_Tc_Pc_predictions.tsv")
+    critical_data_Fedors = data_source("fedors_Vc_predictions.tsv")
+    critical_data_omega_Psat_Tc = data_source("omega_Psat_Tc_predictions.tsv")
     _critical_data_loaded = True
     Tc_sources = {
         miscdata.HEOS: miscdata.heos_data,
@@ -223,22 +261,18 @@ def _load_critical_data():
         ACENTRIC_DEFINITION: critical_data_omega_Psat_Tc
     }
 
-if PY37:
-    def __getattr__(name):
-        if name in ('critical_data_IUPAC', 'critical_data_Matthews',
-                    'critical_data_CRC', 'critical_data_PSRKR4',
-                    'critical_data_Yaws', 'critical_data_PassutDanner',
-                    'critical_data_PinaMartines',
-                    'critical_data_WilsonJasperson', 'critical_data_Fedors',
-                    'critical_data_omega_Psat_Tc',
-                    'Tc_sources', 'Pc_sources', 'Vc_sources', 'Zc_sources',
-                    'omega_sources'):
-            _load_critical_data()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else: # pragma: no cover
-    if can_load_data:
+def __getattr__(name: str) -> DataFrame:
+    if name in ("critical_data_IUPAC", "critical_data_Matthews",
+                "critical_data_CRC", "critical_data_PSRKR4",
+                "critical_data_Yaws", "critical_data_PassutDanner",
+                "critical_data_PinaMartines",
+                "critical_data_WilsonJasperson", "critical_data_Fedors",
+                "critical_data_omega_Psat_Tc",
+                "Tc_sources", "Pc_sources", "Vc_sources", "Zc_sources",
+                "omega_sources"):
         _load_critical_data()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 ### Critical point functions
 
@@ -263,7 +297,7 @@ Tc_all_method_types = {
 
 
 @mark_numba_incompatible
-def Tc_methods(CASRN):
+def Tc_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the critical temperature for the
     desired chemical.
 
@@ -282,11 +316,11 @@ def Tc_methods(CASRN):
     Tc
     """
     if not _critical_data_loaded: _load_critical_data()
-    return list_available_methods_from_df_dict(Tc_sources, CASRN, 'Tc')
+    return list_available_methods_from_df_dict(Tc_sources, CASRN, "Tc")
 
 @mark_numba_incompatible
 def Tc(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's critical
+    r"""This function handles the retrieval of a chemical's critical
     temperature. Lookup is based on CASRNs. Will automatically select a data
     source to use if no method is provided; returns None if the data is not
     available.
@@ -436,21 +470,21 @@ def Tc(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'Tc')
+        val, found = database_constant_lookup(CASRN, "Tc")
         if found: return val
     if not _critical_data_loaded: _load_critical_data()
     if method:
-        return retrieve_from_df_dict(Tc_sources, CASRN, 'Tc', method)
+        return retrieve_from_df_dict(Tc_sources, CASRN, "Tc", method)
     else:
-        return retrieve_any_from_df_dict(Tc_sources, CASRN, 'Tc')
+        return retrieve_any_from_df_dict(Tc_sources, CASRN, "Tc")
 
 Pc_all_methods = (miscdata.HEOS, IUPAC, MATTHEWS, CRC, PD, miscdata.WEBBOOK, PSRK, PINAMARTINES, YAWS, WILSON_JASPERSON, miscdata.JOBACK)
 """Tuple of method name keys. See the `Pc` for the actual references"""
 
 @mark_numba_incompatible
-def Pc_methods(CASRN):
+def Pc_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the critical pressure for the
     desired chemical.
 
@@ -469,11 +503,11 @@ def Pc_methods(CASRN):
     Pc
     """
     if not _critical_data_loaded: _load_critical_data()
-    return list_available_methods_from_df_dict(Pc_sources, CASRN, 'Pc')
+    return list_available_methods_from_df_dict(Pc_sources, CASRN, "Pc")
 
 @mark_numba_incompatible
 def Pc(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's critical
+    r"""This function handles the retrieval of a chemical's critical
     pressure. Lookup is based on CASRNs. Will automatically select a data
     source to use if no method is provided; returns None if the data is not
     available.
@@ -623,21 +657,21 @@ def Pc(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'Pc')
+        val, found = database_constant_lookup(CASRN, "Pc")
         if found: return val
     if not _critical_data_loaded: _load_critical_data()
     if method:
-        return retrieve_from_df_dict(Pc_sources, CASRN, 'Pc', method)
+        return retrieve_from_df_dict(Pc_sources, CASRN, "Pc", method)
     else:
-        return retrieve_any_from_df_dict(Pc_sources, CASRN, 'Pc')
+        return retrieve_any_from_df_dict(Pc_sources, CASRN, "Pc")
 
 Vc_all_methods = (miscdata.HEOS, IUPAC, MATTHEWS, CRC, miscdata.WEBBOOK, PSRK, PINAMARTINES, YAWS, FEDORS, miscdata.JOBACK)
 """Tuple of method name keys. See the `Vc` for the actual references"""
 
 @mark_numba_incompatible
-def Vc_methods(CASRN):
+def Vc_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the critical volume for the
     desired chemical.
 
@@ -656,11 +690,11 @@ def Vc_methods(CASRN):
     Vc
     """
     if not _critical_data_loaded: _load_critical_data()
-    return list_available_methods_from_df_dict(Vc_sources, CASRN, 'Vc')
+    return list_available_methods_from_df_dict(Vc_sources, CASRN, "Vc")
 
 @mark_numba_incompatible
 def Vc(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's critical
+    r"""This function handles the retrieval of a chemical's critical
     volume. Lookup is based on CASRNs. Will automatically select a data
     source to use if no method is provided; returns None if the data is not
     available.
@@ -803,21 +837,21 @@ def Vc(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'Vc')
+        val, found = database_constant_lookup(CASRN, "Vc")
         if found: return val
     if not _critical_data_loaded: _load_critical_data()
     if method:
-        return retrieve_from_df_dict(Vc_sources, CASRN, 'Vc', method)
+        return retrieve_from_df_dict(Vc_sources, CASRN, "Vc", method)
     else:
-        return retrieve_any_from_df_dict(Vc_sources, CASRN, 'Vc')
+        return retrieve_any_from_df_dict(Vc_sources, CASRN, "Vc")
 
 Zc_all_methods = (miscdata.HEOS, IUPAC, MATTHEWS, CRC, miscdata.WEBBOOK, PSRK, PINAMARTINES, YAWS, miscdata.JOBACK)
 """Tuple of method name keys. See the `Zc` for the actual references"""
 
 @mark_numba_incompatible
-def Zc_methods(CASRN):
+def Zc_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the critical compressibility for
     the desired chemical.
 
@@ -836,11 +870,11 @@ def Zc_methods(CASRN):
     Zc
     """
     if not _critical_data_loaded: _load_critical_data()
-    return list_available_methods_from_df_dict(Zc_sources, CASRN, 'Zc')
+    return list_available_methods_from_df_dict(Zc_sources, CASRN, "Zc")
 
 @mark_numba_incompatible
-def Zc(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's critical
+def Zc(CASRN: str, method: str | None=None) -> float | None:
+    r"""This function handles the retrieval of a chemical's critical
     compressibility. Lookup is based on CASRNs. Will automatically select a
     data source to use if no method is provided; returns None if the data is
     not available.
@@ -980,63 +1014,63 @@ def Zc(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'Zc')
+        val, found = database_constant_lookup(CASRN, "Zc")
         if found: return val
     if not _critical_data_loaded: _load_critical_data()
     if method:
-        return retrieve_from_df_dict(Zc_sources, CASRN, 'Zc', method)
+        return retrieve_from_df_dict(Zc_sources, CASRN, "Zc", method)
     else:
-        return retrieve_any_from_df_dict(Zc_sources, CASRN, 'Zc')
+        return retrieve_any_from_df_dict(Zc_sources, CASRN, "Zc")
 
-rcovs_Mersmann_Kind = {'C': 0.77, 'Cl': 0.99, 'I': 1.33, 'H': 0.37, 'F': 0.71,
-                       'S': 1.04, 'O': 0.6, 'N': 0.71, 'Si': 1.17, 'Br': 1.14}
+rcovs_Mersmann_Kind = {"C": 0.77, "Cl": 0.99, "I": 1.33, "H": 0.37, "F": 0.71,
+                       "S": 1.04, "O": 0.6, "N": 0.71, "Si": 1.17, "Br": 1.14}
 
 rcovs_regressed =  {
-    'Nb': 0.5139380605234125,
-    'Ne': 0.7708216694154189,
-    'Al': 1.004994775098707,
-    'Re': 1.1164444694484814,
-    'Rb': 2.9910506044828837,
-    'Rn': 1.9283158156480653,
-    'Xe': 1.694221043013319,
-    'Ta': 1.1185133195453156,
-    'Bi': 1.8436438207262267,
-    'Br': 1.3081458724155532,
-    'Hf': 0.8829545460486594,
-    'Mo': 0.740396259301556,
-    'He': 0.9808144122544257,
-    'C': 0.6068586007600608,
-    'B': 0.7039677272439753,
-    'F': 0.5409105884533288,
-    'I': 1.7262432419406561,
-    'H': 0.33296601702348533,
-    'K': 0.7384112258842432,
-    'O': 0.5883254088243008,
-    'N': 0.5467979701131293,
-    'P': 1.0444655158949694,
-    'Si': 1.4181434041348049,
-    'U': 1.5530287578073485,
-    'Sn': 1.3339487990207999,
-    'W': 0.8355335838735266,
-    'V': 0.6714619384794069,
-    'Sb': 0.8840680681215854,
-    'Se': 1.5747549515496795,
-    'Ge': 1.0730584829731715,
-    'Kr': 1.393999829252709,
-    'Cl': 1.0957835025011224,
-    'S': 1.0364452121761167,
-    'Hg': 0.6750818243474633,
-    'As': 0.6750687692915264,
-    'Ar': 1.2008872952022298,
-    'Cs': 3.433699060142929,
-    'Zr': 0.9346554283483623}
+    "Nb": 0.5139380605234125,
+    "Ne": 0.7708216694154189,
+    "Al": 1.004994775098707,
+    "Re": 1.1164444694484814,
+    "Rb": 2.9910506044828837,
+    "Rn": 1.9283158156480653,
+    "Xe": 1.694221043013319,
+    "Ta": 1.1185133195453156,
+    "Bi": 1.8436438207262267,
+    "Br": 1.3081458724155532,
+    "Hf": 0.8829545460486594,
+    "Mo": 0.740396259301556,
+    "He": 0.9808144122544257,
+    "C": 0.6068586007600608,
+    "B": 0.7039677272439753,
+    "F": 0.5409105884533288,
+    "I": 1.7262432419406561,
+    "H": 0.33296601702348533,
+    "K": 0.7384112258842432,
+    "O": 0.5883254088243008,
+    "N": 0.5467979701131293,
+    "P": 1.0444655158949694,
+    "Si": 1.4181434041348049,
+    "U": 1.5530287578073485,
+    "Sn": 1.3339487990207999,
+    "W": 0.8355335838735266,
+    "V": 0.6714619384794069,
+    "Sb": 0.8840680681215854,
+    "Se": 1.5747549515496795,
+    "Ge": 1.0730584829731715,
+    "Kr": 1.393999829252709,
+    "Cl": 1.0957835025011224,
+    "S": 1.0364452121761167,
+    "Hg": 0.6750818243474633,
+    "As": 0.6750687692915264,
+    "Ar": 1.2008872952022298,
+    "Cs": 3.433699060142929,
+    "Zr": 0.9346554283483623}
 
 @mark_numba_incompatible
-def Mersmann_Kind_predictor(atoms, coeff=3.645, power=0.5,
-                            covalent_radii=rcovs_Mersmann_Kind):
-    r'''Predicts the critical molar volume of a chemical based only on its
+def Mersmann_Kind_predictor(atoms: dict[str, int], coeff: float=3.645, power: float=0.5,
+                            covalent_radii: dict[str, float]=rcovs_Mersmann_Kind) -> float:
+    r"""Predicts the critical molar volume of a chemical based only on its
     atomic composition according to [1]_ and [2]_. This is a crude approach,
     but provides very reasonable
     estimates in practice. Optionally, the `coeff` used and the `power` in the
@@ -1111,13 +1145,13 @@ def Mersmann_Kind_predictor(atoms, coeff=3.645, power=0.5,
        Thermal Properties of Pure Liquids, of Critical Data, and of Vapor
        Pressure." Industrial & Engineering Chemistry Research, January 31,
        2017. https://doi.org/10.1021/acs.iecr.6b04323.
-    '''
-    H_RADIUS_COV = covalent_radii['H']
-    tot = 0
+    """
+    H_RADIUS_COV = covalent_radii["H"]
+    tot = 0.0
     atom_count = 0
     for atom, count in atoms.items():
         if atom not in covalent_radii:
-            raise Exception(f'Atom {atom} is not supported by the supplied dictionary')
+            raise ValueError(f"Atom {atom} is not supported by the supplied dictionary")
         tot += count*covalent_radii[atom]
         atom_count += count
     da = 2.*tot/atom_count
@@ -1127,8 +1161,8 @@ def Mersmann_Kind_predictor(atoms, coeff=3.645, power=0.5,
 
 ### Property Relationships
 
-def Tb_Tc_relationship(Tb=None, Tc=None, fit='Perry8E'):
-    r'''This function relates the normal boiling point and the critical point
+def Tb_Tc_relationship(Tb=None, Tc=None, fit="Perry8E"):
+    r"""This function relates the normal boiling point and the critical point
     of a compound. It is inspired by the relationship shown in [1]_ on page
     2-468 for inorganic compounds.
 
@@ -1194,36 +1228,36 @@ def Tb_Tc_relationship(Tb=None, Tc=None, fit='Perry8E'):
     ----------
     .. [1] Green, Don, and Robert Perry. Perry's Chemical Engineers' Handbook,
        Eighth Edition. McGraw-Hill Professional, 2007.
-    '''
-    if Tb is None and Tc is None or (Tc is not None and Tb is not None):
+    """
+    if (Tb is None and Tc is None) or (Tc is not None and Tb is not None):
         raise ValueError("This function relates boiling and critical temperature; only one value must be provided")
-    if fit == 'Perry8E':
+    if fit == "Perry8E":
         coeff = 1.64
-    elif fit == 'Chemicals2021FitInorganic':
+    elif fit == "Chemicals2021FitInorganic":
         coeff = 1.606
-    elif fit == 'Chemicals2021FitOrganic':
+    elif fit == "Chemicals2021FitOrganic":
         coeff = 1.453
-    elif fit == 'Chemicals2021FitElements':
+    elif fit == "Chemicals2021FitElements":
         coeff = 1.748
-    elif fit == 'Chemicals2021FitBinary':
+    elif fit == "Chemicals2021FitBinary":
         coeff = 1.568
-    elif fit == 'Chemicals2021FitTernary':
+    elif fit == "Chemicals2021FitTernary":
         coeff = 1.601
-    elif fit == 'Chemicals2021FitCl':
+    elif fit == "Chemicals2021FitCl":
         coeff = 1.558
-    elif fit == 'Chemicals2021FitN':
+    elif fit == "Chemicals2021FitN":
         coeff = 1.616
-    elif fit == 'Chemicals2021FitC':
+    elif fit == "Chemicals2021FitC":
         coeff = 1.611
-    elif fit == 'Chemicals2021FitF':
+    elif fit == "Chemicals2021FitF":
         coeff = 1.573
-    elif fit == 'Chemicals2021FitO':
+    elif fit == "Chemicals2021FitO":
         coeff = 1.613
-    elif fit == 'Chemicals2021FitI':
+    elif fit == "Chemicals2021FitI":
         coeff = 1.452
-    elif fit == 'Chemicals2021FitBr':
+    elif fit == "Chemicals2021FitBr":
         coeff = 1.564
-    elif fit == 'Chemicals2021FitSi':
+    elif fit == "Chemicals2021FitSi":
         coeff = 1.526
     else:
         raise ValueError("Unrecognized method")
@@ -1232,19 +1266,8 @@ def Tb_Tc_relationship(Tb=None, Tc=None, fit='Perry8E'):
     elif Tc is None:
         return coeff*Tb
 
-def _assert_two_critical_properties_provided(Tc, Pc, Vc):
-    specs = 0 # numba compatibility
-    if Tc is not None:
-        specs += 1
-    if Pc is not None:
-        specs += 1
-    if Vc is not None:
-        specs += 1
-    if specs != 2:
-        raise ValueError('Two and only two of Tc, Pc, and Vc must be provided')
-
-def Ihmels(Tc=None, Pc=None, Vc=None):
-    r'''Most recent, and most recommended method of estimating critical
+def Ihmels(Tc: float | None=None, Pc: float | None=None, Vc: float | None=None) -> float:
+    r"""Most recent, and most recommended method of estimating critical
     properties from each other. Two of the three properties are required.
     This model uses the "critical surface", a general plot of Tc vs Pc vs Vc.
     The model used 421 organic compounds to derive equation.
@@ -1288,8 +1311,7 @@ def Ihmels(Tc=None, Pc=None, Vc=None):
     .. [1] Ihmels, E. Christian. "The Critical Surface." Journal of Chemical
        & Engineering Data 55, no. 9 (September 9, 2010): 3474-80.
        doi:10.1021/je100167w.
-    '''
-    _assert_two_critical_properties_provided(Tc, Pc, Vc)
+    """
     if Tc is not None and Vc is not None:
         Vc = Vc*1E6  # m^3/mol to cm^3/mol
         Pc_calc = -0.025+2.215*Tc/Vc
@@ -1300,14 +1322,17 @@ def Ihmels(Tc=None, Pc=None, Vc=None):
         Vc_calc = 443.0*Tc/(200.0*Pc+5.0)
         Vc_calc = Vc_calc/1E6  # cm^3/mol to m^3/mol
         return Vc_calc
-    else: # Pc and Vc
+    elif Pc is not None and Vc is not None:
         Pc = Pc*1e-6  # Pa to MPa
         Vc = Vc*1E6  # m^3/mol to cm^3/mol
         Tc_calc = 5.0/443.0*(40.0*Pc*Vc + Vc)
         return Tc_calc
+    else:
+        raise ValueError("Two and only two of Tc, Pc, and Vc must be provided")
 
-def Meissner(Tc=None, Pc=None, Vc=None):
-    r'''Old (1942) relationship for estimating critical
+
+def Meissner(Tc: float | None=None, Pc: float | None=None, Vc: float | None=None) -> float:
+    r"""Old (1942) relationship for estimating critical
     properties from each other. Two of the three properties are required.
     This model uses the "critical surface", a general plot of Tc vs Pc vs Vc.
     The model used 42 organic and inorganic compounds to derive the equation.
@@ -1351,26 +1376,27 @@ def Meissner(Tc=None, Pc=None, Vc=None):
     .. [1] Meissner, H. P., and E. M. Redding. "Prediction of Critical
            Constants." Industrial & Engineering Chemistry 34, no. 5
            (May 1, 1942): 521-26. doi:10.1021/ie50389a003.
-    '''
-    _assert_two_critical_properties_provided(Tc, Pc, Vc)
-    if Tc and Vc:
+    """
+    if Tc is not None and Vc is not None:
         Vc = Vc*1E6
         Pc = 20.8*Tc/(Vc-8)
         Pc = 101325*Pc  # atm to Pa
         return Pc
-    elif Tc and Pc:
+    elif Tc is not None and Pc is not None:
         Pc = Pc/101325.  # Pa to atm
         Vc = 104/5.0*Tc/Pc+8
         Vc = Vc/1E6  # cm^3/mol to m^3/mol
         return Vc
-    else: # Pc and Vc
+    elif Pc is not None and Vc is not None:
         Pc = Pc/101325.  # Pa to atm
         Vc = Vc*1E6  # m^3/mol to cm^3/mol
         Tc = 5./104.0*Pc*(Vc-8)
         return Tc
+    else:
+        raise ValueError("Two and only two of Tc, Pc, and Vc must be provided")
 
-def Grigoras(Tc=None, Pc=None, Vc=None):
-    r'''Relatively recent (1990) relationship for estimating critical
+def Grigoras(Tc: float | None=None, Pc: float | None=None, Vc: float | None=None) -> float:
+    r"""Relatively recent (1990) relationship for estimating critical
     properties from each other. Two of the three properties are required.
     This model uses the "critical surface", a general plot of Tc vs Pc vs Vc.
     The model used 137 organic and inorganic compounds to derive the equation.
@@ -1416,26 +1442,27 @@ def Grigoras(Tc=None, Pc=None, Vc=None):
            Critical Volume and Related Properties." Journal of Computational
            Chemistry 11, no. 4 (May 1, 1990): 493-510.
            doi:10.1002/jcc.540110408
-    '''
-    _assert_two_critical_properties_provided(Tc, Pc, Vc)
-    if Tc and Vc:
+    """
+    if Tc is not None and Vc is not None:
         Vc = Vc*1E6  # m^3/mol to cm^3/mol
         Pc = 2.9 + 20.2*Tc/Vc
         Pc = Pc*1E5  # bar to Pa
         return Pc
-    elif Tc and Pc:
+    elif Tc is not None and Pc is not None:
         Pc = Pc/1E5  # Pa to bar
         Vc = 202.0*Tc/(10*Pc-29.0)
         Vc = Vc/1E6  # cm^3/mol to m^3/mol
         return Vc
-    else: # Pc and Vc
+    elif Pc is not None and Vc is not None:
         Pc = Pc/1E5  # Pa to bar
         Vc = Vc*1E6  # m^3/mol to cm^3/mol
         Tc = 1.0/202*(10*Pc-29.0)*Vc
         return Tc
+    else:
+        raise ValueError("Two and only two of Tc, Pc, and Vc must be provided")
 
 def Hekayati_Raeissi(MW, V_sat=None, Tc=None, Pc=None, Vc=None):
-    r'''Estimation model for missing critical constants of a fluid
+    r"""Estimation model for missing critical constants of a fluid
     according to [1]_. Based on the molecular weight and saturation
     molar volume of a fluid, and requires one of `Tc` or `Pc`.
     Optionally, `Vc` can be provided to increase the accuracy of
@@ -1480,7 +1507,7 @@ def Hekayati_Raeissi(MW, V_sat=None, Tc=None, Pc=None, Vc=None):
     .. [1] Hekayati, Javad, and Sona Raeissi. "Estimation of the Critical
        Properties of Compounds Using Volume-Based Thermodynamics." AIChE Journal
        n/a, no. n/a (n.d.): e17004. https://doi.org/10.1002/aic.17004.
-    '''
+    """
     if Tc is None and Pc is None:
         raise ValueError("One of `Tc` or `Pc` are required.")
     if Pc is not None:
@@ -1549,13 +1576,13 @@ def Hekayati_Raeissi(MW, V_sat=None, Tc=None, Pc=None, Vc=None):
     Vc *= 1e-3
     return (Tc_ans, Pc_ans, Vc)
 
-IHMELS = 'IHMELS'
-MEISSNER = 'MEISSNER'
-GRIGORAS = 'GRIGORAS'
+IHMELS = "IHMELS"
+MEISSNER = "MEISSNER"
+GRIGORAS = "GRIGORAS"
 critical_surface_all_methods = (IHMELS, MEISSNER, GRIGORAS)
 
 @mark_numba_incompatible
-def critical_surface_methods(Tc=None, Pc=None, Vc=None):
+def critical_surface_methods(Tc: float | None=None, Pc: float | None=None, Vc: None=None) -> list[str]:
     """Return all methods available to obtain the third critial property for the
     desired chemical.
 
@@ -1586,9 +1613,9 @@ def critical_surface_methods(Tc=None, Pc=None, Vc=None):
         return []
 
 @mark_numba_incompatible
-def critical_surface(Tc=None, Pc=None, Vc=None,
-                     method=None):
-    r'''Function for calculating a critical property of a substance from its
+def critical_surface(Tc: float | None=None, Pc: float | None=None, Vc: float | None=None,
+                     method: str | None=None) -> float:
+    r"""Function for calculating a critical property of a substance from its
     other two critical properties. Calls functions Ihmels, Meissner, and
     Grigoras, each of which use a general 'Critical surface' type of equation.
     Limited accuracy is expected due to very limited theoretical backing.
@@ -1620,7 +1647,7 @@ def critical_surface(Tc=None, Pc=None, Vc=None,
     --------
     critical_surface_methods_methods
 
-    '''
+    """
     # Numba compatibility should come eventually with no work done here
     if not method or method == IHMELS:
         return Ihmels(Tc=Tc, Pc=Pc, Vc=Vc)
@@ -1632,8 +1659,8 @@ def critical_surface(Tc=None, Pc=None, Vc=None,
         raise ValueError('Method not recognized; available methods are "IHMELS", "MEISSNER", and "GRIGORAS"')
 
 @mark_numba_incompatible
-def third_property(CASRN=None, T=False, P=False, V=False):
-    r'''Function for calculating a critical property of a substance from its
+def third_property(CASRN: str | None=None, T: bool=False, P: bool=False, V: bool=False) -> float:
+    r"""Function for calculating a critical property of a substance from its
     other two critical properties, but retrieving the actual other critical
     values for convenient calculation.
     Calls functions Ihmels, Meissner, and
@@ -1667,7 +1694,7 @@ def third_property(CASRN=None, T=False, P=False, V=False):
 
     >>> third_property('110-15-6', P=True)
     6095016.233766234
-    '''
+    """
     specs = 0
     if T:
         specs += 1
@@ -1697,8 +1724,8 @@ def third_property(CASRN=None, T=False, P=False, V=False):
 
 ### Crtical Temperature of Mixtures - Estimation routines
 
-def Li(zs, Tcs, Vcs):
-    r'''Calculates critical temperature of a mixture according to
+def Li(zs: list[float], Tcs: list[float], Vcs: list[float]) -> float:
+    r"""Calculates critical temperature of a mixture according to
     mixing rules in [1]_. Better than simple mixing rules.
 
     .. math::
@@ -1749,7 +1776,7 @@ def Li(zs, Tcs, Vcs):
     .. [1] Li, C. C. "Critical Temperature Estimation for Simple Mixtures."
        The Canadian Journal of Chemical Engineering 49, no. 5
        (October 1, 1971): 709-10. doi:10.1002/cjce.5450490529.
-    '''
+    """
     N = len(zs)
     denominator_inv = 0.0
     for i in range(N):
@@ -1760,8 +1787,8 @@ def Li(zs, Tcs, Vcs):
         Tcm += zs[i]*Vcs[i]*Tcs[i]*denominator_inv
     return Tcm
 
-def Chueh_Prausnitz_Tc(zs, Tcs, Vcs, taus):
-    r'''Calculates critical temperature of a mixture according to
+def Chueh_Prausnitz_Tc(zs: list[float], Tcs: list[float], Vcs: list[float], taus: list[list[float]]) -> float:
+    r"""Calculates critical temperature of a mixture according to
     mixing rules in [1]_.
 
     .. math::
@@ -1814,7 +1841,7 @@ def Chueh_Prausnitz_Tc(zs, Tcs, Vcs, taus):
        "Prediction of True Critical Temperature of Multi-Component Mixtures:
        Extending Fast Estimation Methods." Fluid Phase Equilibria 392
        (April 25, 2015): 104-26. doi:10.1016/j.fluid.2015.02.001.
-    '''
+    """
     N = len(zs)
     denominator_inv = 0.0
     zi_Vc_23s = [0.0]*N
@@ -1831,8 +1858,8 @@ def Chueh_Prausnitz_Tc(zs, Tcs, Vcs, taus):
     Tcm *= denominator_inv
     return Tcm
 
-def Grieves_Thodos(zs, Tcs, Aijs):
-    r'''Calculates critical temperature of a mixture according to
+def Grieves_Thodos(zs: list[float], Tcs: list[float], Aijs: list[list[float]]) -> float:
+    r"""Calculates critical temperature of a mixture according to
     mixing rules in [1]_.
 
     .. math::
@@ -1879,7 +1906,7 @@ def Grieves_Thodos(zs, Tcs, Aijs):
        "Prediction of True Critical Temperature of Multi-Component Mixtures:
        Extending Fast Estimation Methods." Fluid Phase Equilibria 392
        (April 25, 2015): 104-26. doi:10.1016/j.fluid.2015.02.001.
-    '''
+    """
     N = len(zs)
     Tcm = 0.0
     for i in range(N):
@@ -1890,8 +1917,8 @@ def Grieves_Thodos(zs, Tcs, Aijs):
         Tcm += Tcs[i]/(1. + 1./zs[i]*tot)
     return Tcm
 
-def modified_Wilson_Tc(zs, Tcs, Aijs):
-    r'''Calculates critical temperature of a mixture according to
+def modified_Wilson_Tc(zs: list[float], Tcs: list[float], Aijs: list[list[float]]) -> float:
+    r"""Calculates critical temperature of a mixture according to
     mixing rules in [1]_. Equation
 
     .. math::
@@ -1943,7 +1970,7 @@ def modified_Wilson_Tc(zs, Tcs, Aijs):
        "Prediction of True Critical Temperature of Multi-Component Mixtures:
        Extending Fast Estimation Methods." Fluid Phase Equilibria 392
        (April 25, 2015): 104-26. doi:10.1016/j.fluid.2015.02.001.
-    '''
+    """
     N = len(zs)
     Tcm = 0.0
     for i in range(N):
@@ -1959,8 +1986,8 @@ def modified_Wilson_Tc(zs, Tcs, Aijs):
     return Tcm
 
 ### Crtical Volume of Mixtures
-def Chueh_Prausnitz_Vc(zs, Vcs, nus):
-    r'''Calculates critical volume of a mixture according to
+def Chueh_Prausnitz_Vc(zs: list[float], Vcs: list[float], nus: list[list[float]]) -> float:
+    r"""Calculates critical volume of a mixture according to
     mixing rules in [1]_ with an interaction parameter.
 
     .. math::
@@ -2004,7 +2031,7 @@ def Chueh_Prausnitz_Vc(zs, Vcs, nus):
        "Prediction of True Critical Volume of Multi-Component Mixtures:
        Extending Fast Estimation Methods." Fluid Phase Equilibria 386
        (January 25, 2015): 13-29. doi:10.1016/j.fluid.2014.11.008.
-    '''
+    """
     N = len(zs)
     denominator_inv = 0.0
     zi_Vc_23s = [0.0]*N
@@ -2025,8 +2052,8 @@ def Chueh_Prausnitz_Vc(zs, Vcs, nus):
     return Vcm
 
 
-def modified_Wilson_Vc(zs, Vcs, Aijs):
-    r'''Calculates critical volume of a mixture according to
+def modified_Wilson_Vc(zs: list[float], Vcs: list[float], Aijs: list[list[float]]) -> float:
+    r"""Calculates critical volume of a mixture according to
     mixing rules in [1]_ with parameters. Equation
 
     .. math::
@@ -2079,7 +2106,7 @@ def modified_Wilson_Vc(zs, Vcs, Aijs):
        "Prediction of True Critical Temperature of Multi-Component Mixtures:
        Extending Fast Estimation Methods." Fluid Phase Equilibria 392
        (April 25, 2015): 104-26. doi:10.1016/j.fluid.2015.02.001.
-    '''
+    """
     N = len(zs)
     Vcm = 0.0
     for i in range(N):

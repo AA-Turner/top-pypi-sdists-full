@@ -38,7 +38,7 @@ def _parallel(
     if num_cpus is None:
         num_cpus = cpu_count()
     elif isinstance(num_cpus, float):
-        num_cpus = int(round(num_cpus * cpu_count()))
+        num_cpus = round(num_cpus * cpu_count())
 
     # Determine length of tqdm (equal to length of shortest iterable or total kwarg), if possible
     total = kwargs.pop("total", None)

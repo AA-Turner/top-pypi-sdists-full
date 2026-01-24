@@ -11,7 +11,8 @@ from testfixtures import (
     replace_in_environ,
     replace_on_class,
     replace_in_module,
-    )
+    ShouldWarn,
+)
 from unittest import TestCase
 
 import os
@@ -381,12 +382,25 @@ class TestReplace(TestCase):
         r = Replacer()
         r.replace('testfixtures.tests.sample1.left_behind',
                   object(), strict=False)
-        with catch_warnings(record=True) as w:
+        with ShouldWarn(
+            UserWarning(
+                "Replacer deleted without being restored, originals not restored: "
+                "'testfixtures.tests.sample1.left_behind': original = <not_there>"
+            )
+        ):
             del r
-            self.assertTrue(len(w), 1)
-            compare(str(w[0].message),
-                    "Replacer deleted without being restored, originals left:"
-                    " {'testfixtures.tests.sample1.left_behind': <Resolved: <not_there>>}")
+
+    def test_replacer_del_env_replaced(self):
+        with replace_in_environ('TEST_ENV_VAR', not_there):
+            r = Replacer()
+            r.in_environ('TEST_ENV_VAR', 'test_value')
+            with ShouldWarn(
+                UserWarning(
+                    "Replacer deleted without being restored, originals not restored: "
+                    "<class 'os._Environ'> ('TEST_ENV_VAR'): original = <not_there>"
+                )
+            ):
+                del r
 
     def test_multiple_replaces(self):
         orig = os.path.sep

@@ -17,20 +17,67 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.observability_pipeline_config_destination_item import (
         ObservabilityPipelineConfigDestinationItem,
     )
-    from datadog_api_client.v2.model.observability_pipeline_config_processor_item import (
-        ObservabilityPipelineConfigProcessorItem,
+    from datadog_api_client.v2.model.observability_pipeline_config_pipeline_type import (
+        ObservabilityPipelineConfigPipelineType,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_config_processor_group import (
+        ObservabilityPipelineConfigProcessorGroup,
     )
     from datadog_api_client.v2.model.observability_pipeline_config_source_item import (
         ObservabilityPipelineConfigSourceItem,
     )
-    from datadog_api_client.v2.model.observability_pipeline_datadog_logs_destination import (
-        ObservabilityPipelineDatadogLogsDestination,
+    from datadog_api_client.v2.model.observability_pipeline_http_client_destination import (
+        ObservabilityPipelineHttpClientDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_amazon_open_search_destination import (
+        ObservabilityPipelineAmazonOpenSearchDestination,
     )
     from datadog_api_client.v2.model.observability_pipeline_amazon_s3_destination import (
         ObservabilityPipelineAmazonS3Destination,
     )
+    from datadog_api_client.v2.model.observability_pipeline_amazon_security_lake_destination import (
+        ObservabilityPipelineAmazonSecurityLakeDestination,
+    )
+    from datadog_api_client.v2.model.azure_storage_destination import AzureStorageDestination
+    from datadog_api_client.v2.model.observability_pipeline_cloud_prem_destination import (
+        ObservabilityPipelineCloudPremDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination import (
+        ObservabilityPipelineCrowdStrikeNextGenSiemDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_datadog_logs_destination import (
+        ObservabilityPipelineDatadogLogsDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_elasticsearch_destination import (
+        ObservabilityPipelineElasticsearchDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_google_chronicle_destination import (
+        ObservabilityPipelineGoogleChronicleDestination,
+    )
     from datadog_api_client.v2.model.observability_pipeline_google_cloud_storage_destination import (
         ObservabilityPipelineGoogleCloudStorageDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_google_pub_sub_destination import (
+        ObservabilityPipelineGooglePubSubDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_kafka_destination import (
+        ObservabilityPipelineKafkaDestination,
+    )
+    from datadog_api_client.v2.model.microsoft_sentinel_destination import MicrosoftSentinelDestination
+    from datadog_api_client.v2.model.observability_pipeline_new_relic_destination import (
+        ObservabilityPipelineNewRelicDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_open_search_destination import (
+        ObservabilityPipelineOpenSearchDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_rsyslog_destination import (
+        ObservabilityPipelineRsyslogDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_sentinel_one_destination import (
+        ObservabilityPipelineSentinelOneDestination,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_socket_destination import (
+        ObservabilityPipelineSocketDestination,
     )
     from datadog_api_client.v2.model.observability_pipeline_splunk_hec_destination import (
         ObservabilityPipelineSplunkHecDestination,
@@ -38,117 +85,49 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.observability_pipeline_sumo_logic_destination import (
         ObservabilityPipelineSumoLogicDestination,
     )
-    from datadog_api_client.v2.model.observability_pipeline_elasticsearch_destination import (
-        ObservabilityPipelineElasticsearchDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_rsyslog_destination import (
-        ObservabilityPipelineRsyslogDestination,
-    )
     from datadog_api_client.v2.model.observability_pipeline_syslog_ng_destination import (
         ObservabilityPipelineSyslogNgDestination,
     )
-    from datadog_api_client.v2.model.azure_storage_destination import AzureStorageDestination
-    from datadog_api_client.v2.model.microsoft_sentinel_destination import MicrosoftSentinelDestination
-    from datadog_api_client.v2.model.observability_pipeline_google_chronicle_destination import (
-        ObservabilityPipelineGoogleChronicleDestination,
+    from datadog_api_client.v2.model.observability_pipeline_datadog_metrics_destination import (
+        ObservabilityPipelineDatadogMetricsDestination,
     )
-    from datadog_api_client.v2.model.observability_pipeline_new_relic_destination import (
-        ObservabilityPipelineNewRelicDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_sentinel_one_destination import (
-        ObservabilityPipelineSentinelOneDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_open_search_destination import (
-        ObservabilityPipelineOpenSearchDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_amazon_open_search_destination import (
-        ObservabilityPipelineAmazonOpenSearchDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_socket_destination import (
-        ObservabilityPipelineSocketDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_amazon_security_lake_destination import (
-        ObservabilityPipelineAmazonSecurityLakeDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination import (
-        ObservabilityPipelineCrowdStrikeNextGenSiemDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_filter_processor import ObservabilityPipelineFilterProcessor
-    from datadog_api_client.v2.model.observability_pipeline_parse_json_processor import (
-        ObservabilityPipelineParseJSONProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_quota_processor import ObservabilityPipelineQuotaProcessor
-    from datadog_api_client.v2.model.observability_pipeline_add_fields_processor import (
-        ObservabilityPipelineAddFieldsProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_remove_fields_processor import (
-        ObservabilityPipelineRemoveFieldsProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_rename_fields_processor import (
-        ObservabilityPipelineRenameFieldsProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_generate_metrics_processor import (
-        ObservabilityPipelineGenerateMetricsProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_sample_processor import ObservabilityPipelineSampleProcessor
-    from datadog_api_client.v2.model.observability_pipeline_parse_grok_processor import (
-        ObservabilityPipelineParseGrokProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_sensitive_data_scanner_processor import (
-        ObservabilityPipelineSensitiveDataScannerProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_ocsf_mapper_processor import (
-        ObservabilityPipelineOcsfMapperProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_add_env_vars_processor import (
-        ObservabilityPipelineAddEnvVarsProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_dedupe_processor import ObservabilityPipelineDedupeProcessor
-    from datadog_api_client.v2.model.observability_pipeline_enrichment_table_processor import (
-        ObservabilityPipelineEnrichmentTableProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_reduce_processor import ObservabilityPipelineReduceProcessor
-    from datadog_api_client.v2.model.observability_pipeline_throttle_processor import (
-        ObservabilityPipelineThrottleProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_custom_processor import ObservabilityPipelineCustomProcessor
-    from datadog_api_client.v2.model.observability_pipeline_datadog_tags_processor import (
-        ObservabilityPipelineDatadogTagsProcessor,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_kafka_source import ObservabilityPipelineKafkaSource
     from datadog_api_client.v2.model.observability_pipeline_datadog_agent_source import (
         ObservabilityPipelineDatadogAgentSource,
     )
-    from datadog_api_client.v2.model.observability_pipeline_splunk_tcp_source import (
-        ObservabilityPipelineSplunkTcpSource,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_splunk_hec_source import (
-        ObservabilityPipelineSplunkHecSource,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_amazon_s3_source import ObservabilityPipelineAmazonS3Source
-    from datadog_api_client.v2.model.observability_pipeline_fluentd_source import ObservabilityPipelineFluentdSource
-    from datadog_api_client.v2.model.observability_pipeline_fluent_bit_source import (
-        ObservabilityPipelineFluentBitSource,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_http_server_source import (
-        ObservabilityPipelineHttpServerSource,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_sumo_logic_source import (
-        ObservabilityPipelineSumoLogicSource,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_rsyslog_source import ObservabilityPipelineRsyslogSource
-    from datadog_api_client.v2.model.observability_pipeline_syslog_ng_source import ObservabilityPipelineSyslogNgSource
     from datadog_api_client.v2.model.observability_pipeline_amazon_data_firehose_source import (
         ObservabilityPipelineAmazonDataFirehoseSource,
     )
+    from datadog_api_client.v2.model.observability_pipeline_amazon_s3_source import ObservabilityPipelineAmazonS3Source
+    from datadog_api_client.v2.model.observability_pipeline_fluent_bit_source import (
+        ObservabilityPipelineFluentBitSource,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_fluentd_source import ObservabilityPipelineFluentdSource
     from datadog_api_client.v2.model.observability_pipeline_google_pub_sub_source import (
         ObservabilityPipelineGooglePubSubSource,
     )
     from datadog_api_client.v2.model.observability_pipeline_http_client_source import (
         ObservabilityPipelineHttpClientSource,
     )
+    from datadog_api_client.v2.model.observability_pipeline_http_server_source import (
+        ObservabilityPipelineHttpServerSource,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_kafka_source import ObservabilityPipelineKafkaSource
     from datadog_api_client.v2.model.observability_pipeline_logstash_source import ObservabilityPipelineLogstashSource
+    from datadog_api_client.v2.model.observability_pipeline_rsyslog_source import ObservabilityPipelineRsyslogSource
     from datadog_api_client.v2.model.observability_pipeline_socket_source import ObservabilityPipelineSocketSource
+    from datadog_api_client.v2.model.observability_pipeline_splunk_hec_source import (
+        ObservabilityPipelineSplunkHecSource,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_splunk_tcp_source import (
+        ObservabilityPipelineSplunkTcpSource,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_sumo_logic_source import (
+        ObservabilityPipelineSumoLogicSource,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_syslog_ng_source import ObservabilityPipelineSyslogNgSource
+    from datadog_api_client.v2.model.observability_pipeline_opentelemetry_source import (
+        ObservabilityPipelineOpentelemetrySource,
+    )
 
 
 class ObservabilityPipelineConfig(ModelNormal):
@@ -157,8 +136,11 @@ class ObservabilityPipelineConfig(ModelNormal):
         from datadog_api_client.v2.model.observability_pipeline_config_destination_item import (
             ObservabilityPipelineConfigDestinationItem,
         )
-        from datadog_api_client.v2.model.observability_pipeline_config_processor_item import (
-            ObservabilityPipelineConfigProcessorItem,
+        from datadog_api_client.v2.model.observability_pipeline_config_pipeline_type import (
+            ObservabilityPipelineConfigPipelineType,
+        )
+        from datadog_api_client.v2.model.observability_pipeline_config_processor_group import (
+            ObservabilityPipelineConfigProcessorGroup,
         )
         from datadog_api_client.v2.model.observability_pipeline_config_source_item import (
             ObservabilityPipelineConfigSourceItem,
@@ -166,12 +148,16 @@ class ObservabilityPipelineConfig(ModelNormal):
 
         return {
             "destinations": ([ObservabilityPipelineConfigDestinationItem],),
-            "processors": ([ObservabilityPipelineConfigProcessorItem],),
+            "pipeline_type": (ObservabilityPipelineConfigPipelineType,),
+            "processor_groups": ([ObservabilityPipelineConfigProcessorGroup],),
+            "processors": ([ObservabilityPipelineConfigProcessorGroup],),
             "sources": ([ObservabilityPipelineConfigSourceItem],),
         }
 
     attribute_map = {
         "destinations": "destinations",
+        "pipeline_type": "pipeline_type",
+        "processor_groups": "processor_groups",
         "processors": "processors",
         "sources": "sources",
     }
@@ -181,73 +167,56 @@ class ObservabilityPipelineConfig(ModelNormal):
         destinations: List[
             Union[
                 ObservabilityPipelineConfigDestinationItem,
-                ObservabilityPipelineDatadogLogsDestination,
+                ObservabilityPipelineHttpClientDestination,
+                ObservabilityPipelineAmazonOpenSearchDestination,
                 ObservabilityPipelineAmazonS3Destination,
+                ObservabilityPipelineAmazonSecurityLakeDestination,
+                AzureStorageDestination,
+                ObservabilityPipelineCloudPremDestination,
+                ObservabilityPipelineCrowdStrikeNextGenSiemDestination,
+                ObservabilityPipelineDatadogLogsDestination,
+                ObservabilityPipelineElasticsearchDestination,
+                ObservabilityPipelineGoogleChronicleDestination,
                 ObservabilityPipelineGoogleCloudStorageDestination,
+                ObservabilityPipelineGooglePubSubDestination,
+                ObservabilityPipelineKafkaDestination,
+                MicrosoftSentinelDestination,
+                ObservabilityPipelineNewRelicDestination,
+                ObservabilityPipelineOpenSearchDestination,
+                ObservabilityPipelineRsyslogDestination,
+                ObservabilityPipelineSentinelOneDestination,
+                ObservabilityPipelineSocketDestination,
                 ObservabilityPipelineSplunkHecDestination,
                 ObservabilityPipelineSumoLogicDestination,
-                ObservabilityPipelineElasticsearchDestination,
-                ObservabilityPipelineRsyslogDestination,
                 ObservabilityPipelineSyslogNgDestination,
-                AzureStorageDestination,
-                MicrosoftSentinelDestination,
-                ObservabilityPipelineGoogleChronicleDestination,
-                ObservabilityPipelineNewRelicDestination,
-                ObservabilityPipelineSentinelOneDestination,
-                ObservabilityPipelineOpenSearchDestination,
-                ObservabilityPipelineAmazonOpenSearchDestination,
-                ObservabilityPipelineSocketDestination,
-                ObservabilityPipelineAmazonSecurityLakeDestination,
-                ObservabilityPipelineCrowdStrikeNextGenSiemDestination,
+                ObservabilityPipelineDatadogMetricsDestination,
             ]
         ],
         sources: List[
             Union[
                 ObservabilityPipelineConfigSourceItem,
-                ObservabilityPipelineKafkaSource,
                 ObservabilityPipelineDatadogAgentSource,
-                ObservabilityPipelineSplunkTcpSource,
-                ObservabilityPipelineSplunkHecSource,
-                ObservabilityPipelineAmazonS3Source,
-                ObservabilityPipelineFluentdSource,
-                ObservabilityPipelineFluentBitSource,
-                ObservabilityPipelineHttpServerSource,
-                ObservabilityPipelineSumoLogicSource,
-                ObservabilityPipelineRsyslogSource,
-                ObservabilityPipelineSyslogNgSource,
                 ObservabilityPipelineAmazonDataFirehoseSource,
+                ObservabilityPipelineAmazonS3Source,
+                ObservabilityPipelineFluentBitSource,
+                ObservabilityPipelineFluentdSource,
                 ObservabilityPipelineGooglePubSubSource,
                 ObservabilityPipelineHttpClientSource,
+                ObservabilityPipelineHttpServerSource,
+                ObservabilityPipelineKafkaSource,
                 ObservabilityPipelineLogstashSource,
+                ObservabilityPipelineRsyslogSource,
                 ObservabilityPipelineSocketSource,
+                ObservabilityPipelineSplunkHecSource,
+                ObservabilityPipelineSplunkTcpSource,
+                ObservabilityPipelineSumoLogicSource,
+                ObservabilityPipelineSyslogNgSource,
+                ObservabilityPipelineOpentelemetrySource,
             ]
         ],
-        processors: Union[
-            List[
-                Union[
-                    ObservabilityPipelineConfigProcessorItem,
-                    ObservabilityPipelineFilterProcessor,
-                    ObservabilityPipelineParseJSONProcessor,
-                    ObservabilityPipelineQuotaProcessor,
-                    ObservabilityPipelineAddFieldsProcessor,
-                    ObservabilityPipelineRemoveFieldsProcessor,
-                    ObservabilityPipelineRenameFieldsProcessor,
-                    ObservabilityPipelineGenerateMetricsProcessor,
-                    ObservabilityPipelineSampleProcessor,
-                    ObservabilityPipelineParseGrokProcessor,
-                    ObservabilityPipelineSensitiveDataScannerProcessor,
-                    ObservabilityPipelineOcsfMapperProcessor,
-                    ObservabilityPipelineAddEnvVarsProcessor,
-                    ObservabilityPipelineDedupeProcessor,
-                    ObservabilityPipelineEnrichmentTableProcessor,
-                    ObservabilityPipelineReduceProcessor,
-                    ObservabilityPipelineThrottleProcessor,
-                    ObservabilityPipelineCustomProcessor,
-                    ObservabilityPipelineDatadogTagsProcessor,
-                ]
-            ],
-            UnsetType,
-        ] = unset,
+        pipeline_type: Union[ObservabilityPipelineConfigPipelineType, UnsetType] = unset,
+        processor_groups: Union[List[ObservabilityPipelineConfigProcessorGroup], UnsetType] = unset,
+        processors: Union[List[ObservabilityPipelineConfigProcessorGroup], UnsetType] = unset,
         **kwargs,
     ):
         """
@@ -256,12 +225,24 @@ class ObservabilityPipelineConfig(ModelNormal):
         :param destinations: A list of destination components where processed logs are sent.
         :type destinations: [ObservabilityPipelineConfigDestinationItem]
 
-        :param processors: A list of processors that transform or enrich log data.
-        :type processors: [ObservabilityPipelineConfigProcessorItem], optional
+        :param pipeline_type: The type of data being ingested. Defaults to ``logs`` if not specified.
+        :type pipeline_type: ObservabilityPipelineConfigPipelineType, optional
+
+        :param processor_groups: A list of processor groups that transform or enrich log data.
+        :type processor_groups: [ObservabilityPipelineConfigProcessorGroup], optional
+
+        :param processors: A list of processor groups that transform or enrich log data.
+
+            **Deprecated:** This field is deprecated, you should now use the processor_groups field. **Deprecated**.
+        :type processors: [ObservabilityPipelineConfigProcessorGroup], optional
 
         :param sources: A list of configured data sources for the pipeline.
         :type sources: [ObservabilityPipelineConfigSourceItem]
         """
+        if pipeline_type is not unset:
+            kwargs["pipeline_type"] = pipeline_type
+        if processor_groups is not unset:
+            kwargs["processor_groups"] = processor_groups
         if processors is not unset:
             kwargs["processors"] = processors
         super().__init__(kwargs)

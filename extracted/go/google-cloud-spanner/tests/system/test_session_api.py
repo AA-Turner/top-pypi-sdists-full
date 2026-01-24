@@ -20,6 +20,7 @@ import math
 import struct
 import threading
 import time
+import uuid
 import pytest
 
 import grpc
@@ -30,6 +31,7 @@ from google.cloud import spanner_v1
 from google.cloud.spanner_admin_database_v1 import DatabaseDialect
 from google.cloud._helpers import UTC
 
+from google.cloud.spanner_v1._helpers import _get_cloud_region
 from google.cloud.spanner_v1._helpers import AtomicCounter
 from google.cloud.spanner_v1.data_types import JsonObject
 from google.cloud.spanner_v1.database_sessions_manager import TransactionType
@@ -295,7 +297,9 @@ def sessions_database(
 
     _helpers.retry_has_all_dll(sessions_database.reload)()
     # Some tests expect there to be a session present in the pool.
-    pool.put(pool.get())
+    # Experimental host connections only support multiplexed sessions
+    if not _helpers.USE_EXPERIMENTAL_HOST:
+        pool.put(pool.get())
 
     yield sessions_database
 
@@ -354,6 +358,7 @@ def _make_attributes(db_instance, **kwargs):
         "db.url": "spanner.googleapis.com",
         "net.host.name": "spanner.googleapis.com",
         "db.instance": db_instance,
+        "cloud.region": _get_cloud_region(),
         "gcp.client.service": "spanner",
         "gcp.client.version": ot_helpers.LIB_VERSION,
         "gcp.client.repo": "googleapis/python-spanner",
@@ -2268,7 +2273,7 @@ def test_read_with_range_keys_and_index_open_open(sessions_database):
         assert rows == expected
 
 
-def test_partition_read_w_index(sessions_database, not_emulator):
+def test_partition_read_w_index(sessions_database, not_emulator, not_experimental_host):
     sd = _sample_data
     row_count = 10
     columns = sd.COLUMNS[1], sd.COLUMNS[2]
@@ -3052,7 +3057,19 @@ def test_execute_sql_returning_transfinite_floats(sessions_database, not_postgre
         assert math.isnan(float_array[2])
 
 
-def test_partition_query(sessions_database, not_emulator):
+def test_execute_sql_w_uuid_bindings(sessions_database, database_dialect):
+    if database_dialect == DatabaseDialect.POSTGRESQL:
+        pytest.skip("UUID parameter type is not yet supported in PostgreSQL dialect.")
+    _bind_test_helper(
+        sessions_database,
+        database_dialect,
+        spanner_v1.param_types.UUID,
+        uuid.uuid4(),
+        [uuid.uuid4(), uuid.uuid4()],
+    )
+
+
+def test_partition_query(sessions_database, not_emulator, not_experimental_host):
     row_count = 40
     sql = f"SELECT * FROM {_sample_data.TABLE}"
     committed = _set_up_table(sessions_database, row_count)
@@ -3071,7 +3088,7 @@ def test_partition_query(sessions_database, not_emulator):
     batch_txn.close()
 
 
-def test_run_partition_query(sessions_database, not_emulator):
+def test_run_partition_query(sessions_database, not_emulator, not_experimental_host):
     row_count = 40
     sql = f"SELECT * FROM {_sample_data.TABLE}"
     committed = _set_up_table(sessions_database, row_count)

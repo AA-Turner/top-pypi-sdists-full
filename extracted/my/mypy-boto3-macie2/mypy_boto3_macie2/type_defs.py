@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -79,12 +80,6 @@ from .literals import (
     UserIdentityTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -506,7 +501,7 @@ class BatchGetCustomDataIdentifiersRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -591,7 +586,7 @@ class ObjectLevelStatisticsTypeDef(TypedDict):
 class ReplicationDetailsTypeDef(TypedDict):
     replicated: NotRequired[bool]
     replicatedExternally: NotRequired[bool]
-    replicationAccounts: NotRequired[List[str]]
+    replicationAccounts: NotRequired[list[str]]
 
 
 class BucketSortCriteriaTypeDef(TypedDict):
@@ -657,7 +652,7 @@ class CreateSampleFindingsRequestTypeDef(TypedDict):
 class SimpleCriterionForJobOutputTypeDef(TypedDict):
     comparator: NotRequired[JobComparatorType]
     key: NotRequired[SimpleCriterionKeyForJobType]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 
 class SimpleCriterionForJobTypeDef(TypedDict):
@@ -667,13 +662,13 @@ class SimpleCriterionForJobTypeDef(TypedDict):
 
 
 class CriterionAdditionalPropertiesOutputTypeDef(TypedDict):
-    eq: NotRequired[List[str]]
-    eqExactMatch: NotRequired[List[str]]
+    eq: NotRequired[list[str]]
+    eqExactMatch: NotRequired[list[str]]
     gt: NotRequired[int]
     gte: NotRequired[int]
     lt: NotRequired[int]
     lte: NotRequired[int]
-    neq: NotRequired[List[str]]
+    neq: NotRequired[list[str]]
 
 
 class CriterionAdditionalPropertiesTypeDef(TypedDict):
@@ -821,7 +816,7 @@ FindingsFilterListItemTypeDef = TypedDict(
         "arn": NotRequired[str],
         "id": NotRequired[str],
         "name": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -939,13 +934,13 @@ GetSensitivityInspectionTemplateRequestTypeDef = TypedDict(
 
 
 class SensitivityInspectionTemplateExcludesOutputTypeDef(TypedDict):
-    managedDataIdentifierIds: NotRequired[List[str]]
+    managedDataIdentifierIds: NotRequired[list[str]]
 
 
 class SensitivityInspectionTemplateIncludesOutputTypeDef(TypedDict):
-    allowListIds: NotRequired[List[str]]
-    customDataIdentifierIds: NotRequired[List[str]]
-    managedDataIdentifierIds: NotRequired[List[str]]
+    allowListIds: NotRequired[list[str]]
+    customDataIdentifierIds: NotRequired[list[str]]
+    managedDataIdentifierIds: NotRequired[list[str]]
 
 
 class UsageStatisticsFilterTypeDef(TypedDict):
@@ -1012,7 +1007,7 @@ class WeeklyScheduleTypeDef(TypedDict):
 class SimpleScopeTermOutputTypeDef(TypedDict):
     comparator: NotRequired[JobComparatorType]
     key: NotRequired[ScopeFilterKeyType]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 
 class SimpleScopeTermTypeDef(TypedDict):
@@ -1023,7 +1018,7 @@ class SimpleScopeTermTypeDef(TypedDict):
 
 class S3BucketDefinitionForJobOutputTypeDef(TypedDict):
     accountId: str
-    buckets: List[str]
+    buckets: list[str]
 
 
 class ListAllowListsRequestTypeDef(TypedDict):
@@ -1095,7 +1090,7 @@ class MemberTypeDef(TypedDict):
     invitedAt: NotRequired[datetime]
     masterAccountId: NotRequired[str]
     relationshipStatus: NotRequired[RelationshipStatusType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     updatedAt: NotRequired[datetime]
 
 
@@ -1170,7 +1165,7 @@ class ServerSideEncryptionTypeDef(TypedDict):
 
 
 class S3ClassificationScopeExclusionTypeDef(TypedDict):
-    bucketNames: List[str]
+    bucketNames: list[str]
 
 
 class S3ClassificationScopeExclusionUpdateTypeDef(TypedDict):
@@ -1330,13 +1325,13 @@ class BatchUpdateAutomatedDiscoveryAccountsRequestTypeDef(TypedDict):
 
 
 class BatchGetCustomDataIdentifiersResponseTypeDef(TypedDict):
-    customDataIdentifiers: List[BatchGetCustomDataIdentifierSummaryTypeDef]
-    notFoundIdentifierIds: List[str]
+    customDataIdentifiers: list[BatchGetCustomDataIdentifierSummaryTypeDef]
+    notFoundIdentifierIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchUpdateAutomatedDiscoveryAccountsResponseTypeDef(TypedDict):
-    errors: List[AutomatedDiscoveryAccountUpdateErrorTypeDef]
+    errors: list[AutomatedDiscoveryAccountUpdateErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1415,43 +1410,43 @@ class GetMemberResponseTypeDef(TypedDict):
     invitedAt: datetime
     masterAccountId: str
     relationshipStatus: RelationshipStatusType
-    tags: Dict[str, str]
+    tags: dict[str, str]
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetSensitiveDataOccurrencesAvailabilityResponseTypeDef(TypedDict):
     code: AvailabilityCodeType
-    reasons: List[UnavailabilityReasonCodeType]
+    reasons: list[UnavailabilityReasonCodeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAllowListsResponseTypeDef(TypedDict):
-    allowLists: List[AllowListSummaryTypeDef]
+    allowLists: list[AllowListSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAutomatedDiscoveryAccountsResponseTypeDef(TypedDict):
-    items: List[AutomatedDiscoveryAccountTypeDef]
+    items: list[AutomatedDiscoveryAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListFindingsResponseTypeDef(TypedDict):
-    findingIds: List[str]
+    findingIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListOrganizationAdminAccountsResponseTypeDef(TypedDict):
-    adminAccounts: List[AdminAccountTypeDef]
+    adminAccounts: list[AdminAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1522,7 +1517,7 @@ class ClassificationExportConfigurationTypeDef(TypedDict):
 
 
 class ListClassificationScopesResponseTypeDef(TypedDict):
-    classificationScopes: List[ClassificationScopeSummaryTypeDef]
+    classificationScopes: list[ClassificationScopeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1547,35 +1542,35 @@ GetCustomDataIdentifierResponseTypeDef = TypedDict(
         "deleted": bool,
         "description": str,
         "id": str,
-        "ignoreWords": List[str],
-        "keywords": List[str],
+        "ignoreWords": list[str],
+        "keywords": list[str],
         "maximumMatchDistance": int,
         "name": str,
         "regex": str,
-        "severityLevels": List[SeverityLevelTypeDef],
-        "tags": Dict[str, str],
+        "severityLevels": list[SeverityLevelTypeDef],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 
 class CreateInvitationsResponseTypeDef(TypedDict):
-    unprocessedAccounts: List[UnprocessedAccountTypeDef]
+    unprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeclineInvitationsResponseTypeDef(TypedDict):
-    unprocessedAccounts: List[UnprocessedAccountTypeDef]
+    unprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteInvitationsResponseTypeDef(TypedDict):
-    unprocessedAccounts: List[UnprocessedAccountTypeDef]
+    unprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class FindingCriteriaOutputTypeDef(TypedDict):
-    criterion: NotRequired[Dict[str, CriterionAdditionalPropertiesOutputTypeDef]]
+    criterion: NotRequired[dict[str, CriterionAdditionalPropertiesOutputTypeDef]]
 
 
 class FindingCriteriaTypeDef(TypedDict):
@@ -1583,7 +1578,7 @@ class FindingCriteriaTypeDef(TypedDict):
 
 
 class ListCustomDataIdentifiersResponseTypeDef(TypedDict):
-    items: List[CustomDataIdentifierSummaryTypeDef]
+    items: list[CustomDataIdentifierSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1649,19 +1644,19 @@ class ListSensitivityInspectionTemplatesRequestPaginateTypeDef(TypedDict):
 
 class GetSensitiveDataOccurrencesResponseTypeDef(TypedDict):
     error: str
-    sensitiveDataOccurrences: Dict[str, List[DetectedDataDetailsTypeDef]]
+    sensitiveDataOccurrences: dict[str, list[DetectedDataDetailsTypeDef]]
     status: RevealRequestStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListResourceProfileDetectionsResponseTypeDef(TypedDict):
-    detections: List[DetectionTypeDef]
+    detections: list[DetectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListFindingsFiltersResponseTypeDef(TypedDict):
-    findingsFilterListItems: List[FindingsFilterListItemTypeDef]
+    findingsFilterListItems: list[FindingsFilterListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1677,13 +1672,13 @@ class GetMasterAccountResponseTypeDef(TypedDict):
 
 
 class ListInvitationsResponseTypeDef(TypedDict):
-    invitations: List[InvitationTypeDef]
+    invitations: list[InvitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class GetFindingStatisticsResponseTypeDef(TypedDict):
-    countsByGroup: List[GroupCountTypeDef]
+    countsByGroup: list[GroupCountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1753,7 +1748,7 @@ class GetUsageStatisticsRequestTypeDef(TypedDict):
 
 class GetUsageTotalsResponseTypeDef(TypedDict):
     timeRange: TimeRangeType
-    usageTotals: List[UsageTotalTypeDef]
+    usageTotals: list[UsageTotalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1766,7 +1761,7 @@ class IpAddressDetailsTypeDef(TypedDict):
 
 
 class JobScheduleFrequencyOutputTypeDef(TypedDict):
-    dailySchedule: NotRequired[Dict[str, Any]]
+    dailySchedule: NotRequired[dict[str, Any]]
     monthlySchedule: NotRequired[MonthlyScheduleTypeDef]
     weeklySchedule: NotRequired[WeeklyScheduleTypeDef]
 
@@ -1783,25 +1778,25 @@ class ListJobsFilterCriteriaTypeDef(TypedDict):
 
 
 class ListManagedDataIdentifiersResponseTypeDef(TypedDict):
-    items: List[ManagedDataIdentifierSummaryTypeDef]
+    items: list[ManagedDataIdentifierSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListMembersResponseTypeDef(TypedDict):
-    members: List[MemberTypeDef]
+    members: list[MemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListResourceProfileArtifactsResponseTypeDef(TypedDict):
-    artifacts: List[ResourceProfileArtifactTypeDef]
+    artifacts: list[ResourceProfileArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSensitivityInspectionTemplatesResponseTypeDef(TypedDict):
-    sensitivityInspectionTemplates: List[SensitivityInspectionTemplatesEntryTypeDef]
+    sensitivityInspectionTemplates: list[SensitivityInspectionTemplatesEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1823,7 +1818,7 @@ class S3ObjectTypeDef(TypedDict):
     serverSideEncryption: NotRequired[ServerSideEncryptionTypeDef]
     size: NotRequired[int]
     storageClass: NotRequired[StorageClassType]
-    tags: NotRequired[List[KeyValuePairTypeDef]]
+    tags: NotRequired[list[KeyValuePairTypeDef]]
     versionId: NotRequired[str]
 
 
@@ -1869,7 +1864,7 @@ class UpdateResourceProfileDetectionsRequestTypeDef(TypedDict):
 
 class TagCriterionForJobOutputTypeDef(TypedDict):
     comparator: NotRequired[JobComparatorType]
-    tagValues: NotRequired[List[TagCriterionPairForJobTypeDef]]
+    tagValues: NotRequired[list[TagCriterionPairForJobTypeDef]]
 
 
 class TagCriterionForJobTypeDef(TypedDict):
@@ -1880,7 +1875,7 @@ class TagCriterionForJobTypeDef(TypedDict):
 class TagScopeTermOutputTypeDef(TypedDict):
     comparator: NotRequired[JobComparatorType]
     key: NotRequired[str]
-    tagValues: NotRequired[List[TagValuePairTypeDef]]
+    tagValues: NotRequired[list[TagValuePairTypeDef]]
     target: NotRequired[Literal["S3_OBJECT"]]
 
 
@@ -1914,7 +1909,7 @@ GetAllowListResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "status": AllowListStatusTypeDef,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1981,7 +1976,7 @@ GetFindingsFilterResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "position": int,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2005,11 +2000,11 @@ class ListClassificationJobsRequestTypeDef(TypedDict):
 
 
 class OccurrencesTypeDef(TypedDict):
-    cells: NotRequired[List[CellTypeDef]]
-    lineRanges: NotRequired[List[RangeTypeDef]]
-    offsetRanges: NotRequired[List[RangeTypeDef]]
-    pages: NotRequired[List[PageTypeDef]]
-    records: NotRequired[List[RecordTypeDef]]
+    cells: NotRequired[list[CellTypeDef]]
+    lineRanges: NotRequired[list[RangeTypeDef]]
+    offsetRanges: NotRequired[list[RangeTypeDef]]
+    pages: NotRequired[list[PageTypeDef]]
+    records: NotRequired[list[RecordTypeDef]]
 
 
 GetClassificationScopeResponseTypeDef = TypedDict(
@@ -2050,7 +2045,7 @@ class UsageRecordTypeDef(TypedDict):
     accountId: NotRequired[str]
     automatedDiscoveryFreeTrialStartDate: NotRequired[datetime]
     freeTrialStartDate: NotRequired[datetime]
-    usage: NotRequired[List[UsageByAccountTypeDef]]
+    usage: NotRequired[list[UsageByAccountTypeDef]]
 
 
 class AssumedRoleTypeDef(TypedDict):
@@ -2095,7 +2090,7 @@ class BucketPublicAccessTypeDef(TypedDict):
 
 
 class SearchResourcesResponseTypeDef(TypedDict):
-    matchingResources: List[MatchingResourceTypeDef]
+    matchingResources: list[MatchingResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2168,7 +2163,7 @@ SearchResourcesCriteriaBlockTypeDef = TypedDict(
 
 
 class GetUsageStatisticsResponseTypeDef(TypedDict):
-    records: List[UsageRecordTypeDef]
+    records: list[UsageRecordTypeDef]
     timeRange: TimeRangeType
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -2189,7 +2184,7 @@ UserIdentityTypeDef = TypedDict(
 CriteriaBlockForJobOutputTypeDef = TypedDict(
     "CriteriaBlockForJobOutputTypeDef",
     {
-        "and": NotRequired[List[CriteriaForJobOutputTypeDef]],
+        "and": NotRequired[list[CriteriaForJobOutputTypeDef]],
     },
 )
 CriteriaBlockForJobTypeDef = TypedDict(
@@ -2201,7 +2196,7 @@ CriteriaBlockForJobTypeDef = TypedDict(
 JobScopingBlockOutputTypeDef = TypedDict(
     "JobScopingBlockOutputTypeDef",
     {
-        "and": NotRequired[List[JobScopeTermOutputTypeDef]],
+        "and": NotRequired[list[JobScopeTermOutputTypeDef]],
     },
 )
 JobScopingBlockTypeDef = TypedDict(
@@ -2236,7 +2231,7 @@ class BucketMetadataTypeDef(TypedDict):
     sharedAccess: NotRequired[SharedAccessType]
     sizeInBytes: NotRequired[int]
     sizeInBytesCompressed: NotRequired[int]
-    tags: NotRequired[List[KeyValuePairTypeDef]]
+    tags: NotRequired[list[KeyValuePairTypeDef]]
     unclassifiableObjectCount: NotRequired[ObjectLevelStatisticsTypeDef]
     unclassifiableObjectSizeInBytes: NotRequired[ObjectLevelStatisticsTypeDef]
     versioning: NotRequired[bool]
@@ -2250,17 +2245,17 @@ class S3BucketTypeDef(TypedDict):
     name: NotRequired[str]
     owner: NotRequired[S3BucketOwnerTypeDef]
     publicAccess: NotRequired[BucketPublicAccessTypeDef]
-    tags: NotRequired[List[KeyValuePairTypeDef]]
+    tags: NotRequired[list[KeyValuePairTypeDef]]
 
 
 class CustomDataIdentifiersTypeDef(TypedDict):
-    detections: NotRequired[List[CustomDetectionTypeDef]]
+    detections: NotRequired[list[CustomDetectionTypeDef]]
     totalCount: NotRequired[int]
 
 
 class SensitiveDataItemTypeDef(TypedDict):
     category: NotRequired[SensitiveDataItemCategoryType]
-    detections: NotRequired[List[DefaultDetectionTypeDef]]
+    detections: NotRequired[list[DefaultDetectionTypeDef]]
     totalCount: NotRequired[int]
 
 
@@ -2296,7 +2291,7 @@ class ScopingTypeDef(TypedDict):
 
 
 class DescribeBucketsResponseTypeDef(TypedDict):
-    buckets: List[BucketMetadataTypeDef]
+    buckets: list[BucketMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2310,7 +2305,7 @@ class ClassificationResultTypeDef(TypedDict):
     additionalOccurrences: NotRequired[bool]
     customDataIdentifiers: NotRequired[CustomDataIdentifiersTypeDef]
     mimeType: NotRequired[str]
-    sensitiveData: NotRequired[List[SensitiveDataItemTypeDef]]
+    sensitiveData: NotRequired[list[SensitiveDataItemTypeDef]]
     sizeClassified: NotRequired[int]
     status: NotRequired[ClassificationResultStatusTypeDef]
 
@@ -2335,7 +2330,7 @@ class PolicyDetailsTypeDef(TypedDict):
 
 class JobSummaryTypeDef(TypedDict):
     bucketCriteria: NotRequired[S3BucketCriteriaForJobOutputTypeDef]
-    bucketDefinitions: NotRequired[List[S3BucketDefinitionForJobOutputTypeDef]]
+    bucketDefinitions: NotRequired[list[S3BucketDefinitionForJobOutputTypeDef]]
     createdAt: NotRequired[datetime]
     jobId: NotRequired[str]
     jobStatus: NotRequired[JobStatusType]
@@ -2347,7 +2342,7 @@ class JobSummaryTypeDef(TypedDict):
 
 class S3JobDefinitionOutputTypeDef(TypedDict):
     bucketCriteria: NotRequired[S3BucketCriteriaForJobOutputTypeDef]
-    bucketDefinitions: NotRequired[List[S3BucketDefinitionForJobOutputTypeDef]]
+    bucketDefinitions: NotRequired[list[S3BucketDefinitionForJobOutputTypeDef]]
     scoping: NotRequired[ScopingOutputTypeDef]
 
 
@@ -2366,16 +2361,16 @@ class ClassificationDetailsTypeDef(TypedDict):
 
 
 class ListClassificationJobsResponseTypeDef(TypedDict):
-    items: List[JobSummaryTypeDef]
+    items: list[JobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeClassificationJobResponseTypeDef(TypedDict):
-    allowListIds: List[str]
+    allowListIds: list[str]
     clientToken: str
     createdAt: datetime
-    customDataIdentifierIds: List[str]
+    customDataIdentifierIds: list[str]
     description: str
     initialRun: bool
     jobArn: str
@@ -2384,14 +2379,14 @@ class DescribeClassificationJobResponseTypeDef(TypedDict):
     jobType: JobTypeType
     lastRunErrorStatus: LastRunErrorStatusTypeDef
     lastRunTime: datetime
-    managedDataIdentifierIds: List[str]
+    managedDataIdentifierIds: list[str]
     managedDataIdentifierSelector: ManagedDataIdentifierSelectorType
     name: str
     s3JobDefinition: S3JobDefinitionOutputTypeDef
     samplingPercentage: int
     scheduleFrequency: JobScheduleFrequencyOutputTypeDef
     statistics: StatisticsTypeDef
-    tags: Dict[str, str]
+    tags: dict[str, str]
     userPausedDetails: UserPausedDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2439,5 +2434,5 @@ class CreateClassificationJobRequestTypeDef(TypedDict):
 
 
 class GetFindingsResponseTypeDef(TypedDict):
-    findings: List[FindingTypeDef]
+    findings: list[FindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

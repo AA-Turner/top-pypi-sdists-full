@@ -38,7 +38,9 @@ def get_unauthenticated_openapi_client():
 def anyscale_login(no_expire: bool, expire_in_days: int, no_browser: bool) -> None:
     """Log in to Anyscale using a URL
     This is the only unauthenticated API usage in the CLI."""
-    if expire_in_days < 0 or no_expire:
+    if (  # noqa: SIM108 - inline comments explain magic values
+        expire_in_days < 0 or no_expire
+    ):
         duration_seconds = 0  # no expiration
     else:
         duration_seconds = expire_in_days * 24 * 60 * 60  # seconds

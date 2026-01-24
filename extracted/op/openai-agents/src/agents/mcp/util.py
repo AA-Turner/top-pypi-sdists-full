@@ -1,8 +1,9 @@
 import functools
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, Union
 
+import httpx
 from typing_extensions import NotRequired, TypedDict
 
 from .. import _debug
@@ -19,6 +20,21 @@ if TYPE_CHECKING:
 
     from ..agent import AgentBase
     from .server import MCPServer
+
+
+class HttpClientFactory(Protocol):
+    """Protocol for HTTP client factory functions.
+
+    This interface matches the MCP SDK's McpHttpClientFactory but is defined locally
+    to avoid accessing internal MCP SDK modules.
+    """
+
+    def __call__(
+        self,
+        headers: Optional[dict[str, str]] = None,
+        timeout: Optional[httpx.Timeout] = None,
+        auth: Optional[httpx.Auth] = None,
+    ) -> httpx.AsyncClient: ...
 
 
 @dataclass
@@ -185,9 +201,14 @@ class MCPUtil:
 
         try:
             result = await server.call_tool(tool.name, json_data)
+        except UserError:
+            # Re-raise UserError as-is (it already has a good message)
+            raise
         except Exception as e:
-            logger.error(f"Error invoking MCP tool {tool.name}: {e}")
-            raise AgentsException(f"Error invoking MCP tool {tool.name}: {e}") from e
+            logger.error(f"Error invoking MCP tool {tool.name} on server '{server.name}': {e}")
+            raise AgentsException(
+                f"Error invoking MCP tool {tool.name} on server '{server.name}': {e}"
+            ) from e
 
         if _debug.DONT_LOG_TOOL_DATA:
             logger.debug(f"MCP tool {tool.name} completed.")

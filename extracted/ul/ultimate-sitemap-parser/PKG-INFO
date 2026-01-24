@@ -1,34 +1,36 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ultimate-sitemap-parser
-Version: 1.6.0
+Version: 1.7.0.post2
 Summary: A performant library for parsing and crawling sitemaps
-License: GPL-3.0-or-later
 Keywords: sitemap,crawler,indexing,xml,rss,atom,google news
-Author: Linas Valiukas
-Author-email: linas@media.mit.edu
-Maintainer: Freddy Heppell
-Maintainer-email: f.heppell@sheffield.ac.uk
-Requires-Python: >=3.9
+Author: Linas Valiukas, Hal Roberts, Freddy Heppell
+Author-email: Linas Valiukas <linas@media.mit.edu>, Hal Roberts <hroberts@cyber.law.harvard.edu>, Freddy Heppell <f.heppell@sheffield.ac.uk>
+License-Expression: GPL-3.0-or-later
+License-File: LICENSE
+License-File: NOTICE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
-Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
+Classifier: Topic :: Text Processing :: Indexing
+Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
-Classifier: Topic :: Text Processing :: Indexing
-Classifier: Topic :: Text Processing :: Markup :: XML
-Requires-Dist: python-dateutil (>=2.7,<3.0.0)
-Requires-Dist: requests (>=2.2.1,<3.0.0)
-Project-URL: Documentation, https://ultimate-sitemap-parser.readthedocs.io/
-Project-URL: Homepage, https://ultimate-sitemap-parser.readthedocs.io/
-Project-URL: Repository, https://github.com/GateNLP/ultimate-sitemap-parser
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: python-dateutil>=2.7,<3.0.0
+Requires-Dist: requests>=2.2.1,<3.0.0
+Maintainer: Freddy Heppell
+Maintainer-email: Freddy Heppell <f.heppell@sheffield.ac.uk>
+Requires-Python: >=3.10
+Project-URL: homepage, https://ultimate-sitemap-parser.readthedocs.io/
+Project-URL: documentation, https://ultimate-sitemap-parser.readthedocs.io/
+Project-URL: repository, https://github.com/GateNLP/ultimate-sitemap-parser
 Description-Content-Type: text/x-rst
 
 Ultimate Sitemap Parser
@@ -106,4 +108,3 @@ Usage
 hierarchy found on the website; see a `reference of AbstractSitemap subclasses <https://ultimate-sitemap-parser.readthedocs.io/en/latest/reference/api/usp.objects.sitemap.html>`_. `AbstractSitemap.all_pages()` returns a generator to efficiently iterate over pages without loading the entire tree into memory.
 
 For more examples and details, see the `documentation <https://ultimate-sitemap-parser.readthedocs.io/en/latest/>`_.
-

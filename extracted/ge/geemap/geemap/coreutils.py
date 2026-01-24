@@ -1,11 +1,22 @@
+import base64
 import json
 import os
+import random
+import string
 import sys
+import tempfile
+from typing import Any, Union
+import uuid
+import webbrowser
 import zipfile
-from typing import Any, Dict, List, Optional, Tuple, Union
 
+import box
 import ee
+import ipyleaflet
 import ipywidgets as widgets
+from matplotlib import colors
+
+from . import colormaps
 
 try:
     from IPython.display import display, Javascript
@@ -13,16 +24,13 @@ except ImportError:
     pass
 
 
-def get_env_var(key: str) -> Optional[str]:
-    """Retrieves an environment variable or Colab secret for the given key.
+def get_env_var(key: str) -> str | None:
+    """Returns an environment variable or Colab secret for the given key.
 
     Colab secrets have precedence over environment variables.
 
     Args:
-        key (str): The key that's used to fetch the environment variable.
-
-    Returns:
-        Optional[str]: The retrieved key, or None if no environment variable was found.
+        key: The key that's used to fetch the environment variable.
     """
     if not key:
         return None
@@ -40,31 +48,29 @@ def get_env_var(key: str) -> Optional[str]:
 
 def ee_initialize(
     token_name: str = "EARTHENGINE_TOKEN",
-    auth_mode: Optional[str] = None,
-    auth_args: Optional[Dict[str, Any]] = None,
+    auth_mode: str | None = None,
+    auth_args: dict[str, Any] | None = None,
     user_agent_prefix: str = "geemap",
-    project: Optional[str] = None,
+    project: str | None = None,
     **kwargs: Any,
 ) -> None:
-    """Authenticates Earth Engine and initialize an Earth Engine session
+    """Authenticates Earth Engine and initialize an Earth Engine session.
 
     Args:
-        token_name (str, optional): The name of the Earth Engine token.
+        token_name: The name of the Earth Engine token.
             Defaults to "EARTHENGINE_TOKEN". In Colab, you can also set a secret
             named "EE_PROJECT_ID" to initialize Earth Engine.
-        auth_mode (str, optional): The authentication mode, can be one of colab,
-            notebook, localhost, or gcloud.
-            See https://developers.google.com/earth-engine/guides/auth for more
+        auth_mode: The authentication mode, can be one of colab, notebook, localhost, or
+            gcloud. See https://developers.google.com/earth-engine/guides/auth for more
             details. Defaults to None.
-        auth_args (dict, optional): Additional authentication parameters for
-            aa.Authenticate(). Defaults to {}.
-        user_agent_prefix (str, optional): If set, the prefix (version-less)
-            value used for setting the user-agent string. Defaults to "geemap".
-        project (str, optional): The Google cloud project ID for Earth Engine.
-            Defaults to None.
-        kwargs (dict, optional): Additional parameters for ee.Initialize().
-            For example, opt_url='https://earthengine-highvolume.googleapis.com'
-            to use the Earth Engine High-Volume platform. Defaults to {}.
+        auth_args: Additional authentication parameters for aa.Authenticate().
+            Defaults to {}.
+        user_agent_prefix: If set, the prefix (version-less) value used for setting the
+            user-agent string. Defaults to "geemap".
+        project: The Google cloud project ID for Earth Engine. Defaults to None.
+        kwargs: Additional parameters for ee.Initialize(). For example,
+            opt_url='https://earthengine-highvolume.googleapis.com' to use the Earth
+            Engine High-Volume platform. Defaults to {}.
     """
     import google.oauth2.credentials
     from .__init__ import __version__
@@ -72,7 +78,8 @@ def ee_initialize(
     user_agent = f"{user_agent_prefix}/{__version__}"
     ee.data.setUserAgent(user_agent)
 
-    if ee.data._credentials is not None:
+    # pylint: disable-next=protected-access
+    if ee.data._get_state().credentials is not None:
         return
 
     ee_token = get_env_var(token_name)
@@ -100,7 +107,8 @@ def ee_initialize(
         kwargs["project"] = project
 
     if auth_mode is None:
-        if in_colab_shell() and (ee.data._credentials is None):
+        # pylint: disable-next=protected-access
+        if in_colab_shell() and (ee.data._get_state().credentials is None):
             ee.Authenticate()
             ee.Initialize(**kwargs)
             return
@@ -115,10 +123,10 @@ def ee_initialize(
 
 def new_tree_node(
     label: str,
-    children: Optional[list[dict[str, Any]]] = None,
+    children: list[dict[str, Any]] | None = None,
     expanded: bool = False,
     top_level: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Returns node JSON for an interactive representation of an EE ComputedObject."""
     return {
         "label": label,
@@ -138,10 +146,10 @@ def _order_items(item_dict: dict[str, Any], ordering_list: list[str]) -> dict[st
     # - keys not in ordering_list, sorted.
     ordered_pairs = [x for x in ordering_list if x in item_dict.keys()]
     remaining = sorted([x for x in item_dict if x not in ordering_list])
-    return dict([(key, item_dict[key]) for key in ordered_pairs + remaining])
+    return {key: item_dict[key] for key in ordered_pairs + remaining}
 
 
-def _format_dictionary_node_name(index: int, item: Dict[str, Any]) -> str:
+def _format_dictionary_node_name(index: int, item: dict[str, Any]) -> str:
     node_name = f"{index}: "
     extensions = []
     if "id" in item:
@@ -158,7 +166,7 @@ def _format_dictionary_node_name(index: int, item: Dict[str, Any]) -> str:
 
 
 def _generate_tree(
-    info: Union[list[Any], dict[str, Any]], opened: bool
+    info: list[Any] | dict[str, Any], opened: bool
 ) -> list[dict[str, Any]]:
     node_list = []
     if isinstance(info, list):
@@ -187,7 +195,7 @@ def _generate_tree(
 
 
 def build_computed_object_tree(
-    ee_object: Union[ee.FeatureCollection, ee.Image, ee.Geometry, ee.Feature],
+    ee_object: ee.FeatureCollection | ee.Image | ee.Geometry | ee.Feature,
     layer_name: str = "",
     opened: bool = False,
 ) -> dict[str, Any]:
@@ -197,15 +205,13 @@ def build_computed_object_tree(
     Credits to Tyler Erickson.
 
     Args:
-        ee_object (Union[ee.FeatureCollection, ee.Image, ee.Geometry, ee.Feature]):
-            The Earth Engine object.
-        layer_name (str, optional): The name of the layer. Defaults to "".
-        opened (bool, optional): Whether to expand the tree. Defaults to False.
+        ee_object: The Earth Engine object.
+        layer_name: The name of the layer. Defaults to "".
+        opened: Whether to expand the tree. Defaults to False.
 
     Returns:
-        dict[str, Any]: The node representing the Earth Engine object information.
+        The node representing the Earth Engine object information.
     """
-
     # Convert EE object props to dicts. It's easier to traverse the nested structure.
     if isinstance(ee_object, ee.FeatureCollection):
         ee_object = ee_object.map(lambda f: ee.Feature(None, f.toDictionary()))
@@ -240,47 +246,48 @@ def build_computed_object_tree(
 
 
 def get_info(
-    ee_object: Union[ee.FeatureCollection, ee.Image, ee.Geometry, ee.Feature],
+    ee_object: ee.FeatureCollection | ee.Image | ee.Geometry | ee.Feature,
     layer_name: str = "",
     opened: bool = False,
     return_node: bool = False,
 ) -> Union["Node", "Tree", None]:
     """Print out the information for an Earth Engine object using a tree structure.
+
     The source code was adapted from https://github.com/google/earthengine-jupyter.
     Credits to Tyler Erickson.
 
     Args:
-        ee_object (Union[ee.FeatureCollection, ee.Image, ee.Geometry, ee.Feature]):
-            The Earth Engine object.
-        layer_name (str, optional): The name of the layer. Defaults to "".
-        opened (bool, optional): Whether to expand the tree. Defaults to False.
-        return_node (bool, optional): Whether to return the widget as ipytree.Node.
+        ee_object: The Earth Engine object.
+        layer_name: The name of the layer. Defaults to "".
+        opened: Whether to expand the tree. Defaults to False.
+        return_node: Whether to return the widget as ipytree.Node.
             If False, returns the widget as ipytree.Tree. Defaults to False.
 
     Returns:
-        Union[Node, Tree, None]: The tree or node representing the Earth Engine
-            object information.
+        The tree or node representing the Earth Engine object information.
     """
-    from ipytree import Node, Tree
+    import ipytree
 
     tree_json = build_computed_object_tree(ee_object, layer_name, opened)
 
     def _create_node(data):
         """Create a widget for the computed object tree."""
-        node = Node(data.get("label", "Node"), opened=data.get("expanded", False))
+        node = ipytree.Node(
+            data.get("label", "Node"), opened=data.get("expanded", False)
+        )
         if children := data.get("children"):
             for child in children:
                 node.add_node(_create_node(child))
         else:
             node.icon = "file"
-            node.value = str(data)  # Store the entire data as a string
+            node.value = str(data)  # Store the entire data as a string.
         return node
 
     root_node = _create_node(tree_json)
     if return_node:
         return root_node
     else:
-        tree = Tree()
+        tree = ipytree.Tree()
         tree.add_node(root_node)
         return tree
 
@@ -289,12 +296,10 @@ def create_code_cell(code: str = "", where: str = "below") -> None:
     """Creates a code cell in the IPython Notebook.
 
     Args:
-        code (str, optional): Code to fill the new code cell with. Defaults to ''.
-        where (str, optional): Where to add the new code cell. It can be one of
-            the following: above, below, at_bottom. Defaults to 'below'.
+        code: Code to fill the new code cell with. Defaults to ''.
+        where: Where to add the new code cell. It can be one of the following: above,
+            below, at_bottom. Defaults to 'below'.
     """
-
-    import base64
     import pyperclip
 
     try:
@@ -305,12 +310,10 @@ def create_code_cell(code: str = "", where: str = "below") -> None:
     encoded_code = (base64.b64encode(str.encode(code))).decode()
     display(
         Javascript(
-            """
-        var code = IPython.notebook.insert_cell_{0}('code');
-        code.set_text(atob("{1}"));
-    """.format(
-                where, encoded_code
-            )
+            f"""
+        var code = IPython.notebook.insert_cell_{where}('code');
+        code.set_text(atob("{encoded_code}"));
+    """
         )
     )
 
@@ -319,11 +322,11 @@ def geometry_type(ee_object: Any) -> str:
     """Get geometry type of an Earth Engine object.
 
     Args:
-        ee_object (Any): An Earth Engine object.
+        ee_object: An Earth Engine object.
 
     Returns:
-        str: Returns geometry type. One of Point, MultiPoint, LineString,
-            LinearRing, MultiLineString, BBox, Rectangle, Polygon, MultiPolygon.
+        One of Point, MultiPoint, LineString, LinearRing, MultiLineString, BBox,
+            Rectangle, Polygon, MultiPolygon.
 
     Raises:
         TypeError: If the ee_object is not one of ee.Geometry, ee.Feature,
@@ -337,21 +340,16 @@ def geometry_type(ee_object: Any) -> str:
         return ee.Feature(ee_object.first()).geometry().type().getInfo()
     else:
         raise TypeError(
-            "The ee_object must be one of ee.Geometry, ee.Feature, ee.FeatureCollection."
+            "ee_object must be one of ee.Geometry, ee.Feature, ee.FeatureCollection."
         )
 
 
-def get_google_maps_api_key(key: str = "GOOGLE_MAPS_API_KEY") -> Optional[str]:
-    """
-    Retrieves the Google Maps API key from the environment or Colab user data.
+def get_google_maps_api_key(key: str = "GOOGLE_MAPS_API_KEY") -> str | None:
+    """Returns the Google Maps API key from the environment or Colab user data.
 
     Args:
-        key (str, optional): The name of the environment variable or Colab user
-            data key where the API key is stored. Defaults to
-            'GOOGLE_MAPS_API_KEY'.
-
-    Returns:
-        str: The API key, or None if it could not be found.
+        key: The name of the environment variable or Colab user data key where the API
+            key is stored. Defaults to 'GOOGLE_MAPS_API_KEY'.
     """
     if api_key := get_env_var(key):
         return api_key
@@ -359,45 +357,40 @@ def get_google_maps_api_key(key: str = "GOOGLE_MAPS_API_KEY") -> Optional[str]:
 
 
 def in_colab_shell() -> bool:
-    """
-    Checks if the code is running in a Google Colab environment.
-
-    Returns:
-        bool: True if running in Google Colab, False otherwise.
-    """
+    """Returns True if the code is running in a Google Colab environment."""
     return "google.colab" in sys.modules
 
 
-def check_color(in_color: Union[str, Tuple, List]) -> str:
+def check_color(in_color: str | tuple | list) -> str:
     """Checks the input color and returns the corresponding hex color code.
 
     Args:
-        in_color (str or tuple or list): It can be a string (e.g., 'red', '#ffff00', 'ffff00', 'ff0') or RGB tuple/list (e.g., (255, 127, 0)).
+        in_color: Can be a string (e.g., 'red', '#ffff00', 'ffff00', 'ff0') or RGB
+          tuple/list (e.g., (255, 127, 0)).
 
     Returns:
-        str: A hex color code.
+        A hex color code.
     """
-    from matplotlib import colors
-
-    out_color = "#000000"  # default black color
-    # Handle RGB tuple or list
+    out_color = "#000000"  # Default black color.
+    # Handle RGB tuple or list.
     if isinstance(in_color, (tuple, list)) and len(in_color) == 3:
-        # rescale color if necessary
+        # Rescale color if necessary.
         if all(isinstance(item, int) for item in in_color):
-            # Ensure values are floats between 0 and 1 for to_hex
+            # Ensure values are floats between 0 and 1 for to_hex.
             in_color = [c / 255.0 for c in in_color]
         try:
             return colors.to_hex(in_color)
         except ValueError:
             print(
-                f"The provided RGB color ({in_color}) is invalid. Using the default black color."
+                f"The provided RGB color ({in_color}) is invalid. "
+                "Using the default black color."
             )
             return out_color
 
-    # Handle string color input
+    # Handle string color input.
     elif isinstance(in_color, str):
         try:
-            # Try converting directly (handles color names and hex with #)
+            # Try converting directly (handles color names and hex with #).
             return colors.to_hex(in_color)
         except ValueError:
             try:
@@ -405,32 +398,30 @@ def check_color(in_color: Union[str, Tuple, List]) -> str:
                 return colors.to_hex(f"#{in_color}")
             except ValueError:
                 print(
-                    f"The provided color string ({in_color}) is invalid. Using the default black color."
+                    f"The provided color string ({in_color}) is invalid. "
+                    "Using the default black color."
                 )
                 return out_color
     else:
         print(
-            f"The provided color type ({type(in_color)}) is invalid. Using the default black color."
+            f"The provided color type ({type(in_color)}) is invalid. "
+            "Using the default black color."
         )
         return out_color
 
 
-def check_cmap(cmap: Union[str, List[str]]) -> List[str]:
+def check_cmap(cmap: str | list[str]) -> list[str] | str:
     """Check the colormap and return a list of colors.
 
     Args:
-        cmap (Union[str, List[str], Box]): The colormap to check.
+        cmap: The colormap to check.
 
     Returns:
-        List[str]: A list of colors.
+        A list of colors.
     """
-
-    from box import Box
-    from .colormaps import get_palette
-
     if isinstance(cmap, str):
         try:
-            palette = get_palette(cmap)
+            palette = colormaps.get_palette(cmap)
             if isinstance(palette, dict):
                 palette = palette["default"]
             return palette
@@ -439,49 +430,53 @@ def check_cmap(cmap: Union[str, List[str]]) -> List[str]:
                 return check_color(cmap)
             except Exception as e:
                 raise Exception(f"{cmap} is not a valid colormap.")
-    elif isinstance(cmap, Box):
-        return list(cmap["default"])
+    elif isinstance(cmap, box.Box):
+        return list(cmap["default"])  # pytype: disable=unsupported-operands
     elif isinstance(cmap, list) or isinstance(cmap, tuple):
         return cmap
     else:
         raise Exception(f"{cmap} is not a valid colormap.")
 
 
-def to_hex_colors(colors: List[Union[str, Tuple[int, int, int]]]) -> List[str]:
-    """Convert a GEE color palette into hexadecimal color codes. Can handle mixed formats.
+def to_hex_colors(colors: list[str | tuple[int, int, int]]) -> list[str]:
+    """Convert a GEE color palette into hexadecimal color codes.
+
+    Can handle mixed formats.
 
     Args:
-        colors (List[Union[str, Tuple[int, int, int]]]): A list of colors in hex or RGB format.
+        colors: A list of colors in hex or RGB format.
 
     Returns:
-        List[str]: A list of hex color codes prefixed with #.
+        A list of hex color codes prefixed with #.
     """
-
     return [check_color(c) for c in colors]
 
 
-def rgb_to_hex(rgb: Tuple[int, int, int] = (255, 255, 255)) -> str:
-    """Converts RGB to hex color. In RGB color, R stands for Red, G stands for
-        Green, and B stands for Blue, and it ranges from the decimal value of 0 – 255.
+def rgb_to_hex(rgb: tuple[int, int, int] = (255, 255, 255)) -> str:
+    """Converts RGB to hex color.
+
+    In RGB color, R stands for Red, G stands for Green, and B stands
+    for Blue, and it ranges from the decimal value of 0 – 255.
 
     Args:
-        rgb (Tuple[int, int, int], optional): RGB color code as a tuple of
-            (red, green, blue). Defaults to (255, 255, 255).
+
+        rgb: RGB color code as a tuple of (red, green, blue).
+            Defaults to (255, 255, 255).
 
     Returns:
-        str: Hex color code.
+        Hex color code.
     """
     return "%02x%02x%02x" % rgb
 
 
-def hex_to_rgb(value: str = "FFFFFF") -> Tuple[int, int, int]:
+def hex_to_rgb(value: str = "FFFFFF") -> tuple[int, int, int]:
     """Converts hex color to RGB color.
 
     Args:
-        value (str, optional): Hex color code as a string. Defaults to 'FFFFFF'.
+        value: Hex color code as a string. Defaults to 'FFFFFF'.
 
     Returns:
-        Tuple[int, int, int]: RGB color as a tuple.
+        RGB color as a tuple.
     """
     value = value.lstrip("#")
     lv = len(value)
@@ -489,61 +484,48 @@ def hex_to_rgb(value: str = "FFFFFF") -> Tuple[int, int, int]:
 
 
 def random_string(string_length: int = 3) -> str:
-    """Generates a random string of fixed length.
+    """Returns a random string of fixed length.
 
     Args:
-        string_length (int, optional): Fixed length. Defaults to 3.
-
-    Returns:
-        str: A random string.
+        string_length: Fixed length. Defaults to 3.
     """
-    import random
-    import string
-
-    # random.seed(1001)
     letters = string.ascii_lowercase
     return "".join(random.choice(letters) for i in range(string_length))
 
 
 def widget_template(
-    widget: Optional[widgets.Widget] = None,
+    widget: widgets.Widget | None = None,
     opened: bool = True,
     show_close_button: bool = True,
     widget_icon: str = "gear",
     close_button_icon: str = "times",
-    widget_args: Optional[Dict[str, Any]] = None,
-    close_button_args: Optional[Dict[str, Any]] = None,
-    display_widget: Optional[widgets.Widget] = None,
-    m: Optional["ipyleaflet.Map"] = None,
+    widget_args: dict[str, Any] | None = None,
+    close_button_args: dict[str, Any] | None = None,
+    display_widget: widgets.Widget | None = None,
+    m: ipyleaflet.Map | None = None,
     position: str = "topright",
-) -> Optional[widgets.Widget]:
+) -> widgets.Widget | None:
     """Create a widget template.
 
     Args:
-        widget (Optional[widgets.Widget], optional): The widget to be displayed.
+        widget: The widget to be displayed. Defaults to None.
+        opened: Whether to open the toolbar. Defaults to True.
+        show_close_button: Whether to show the close button. Defaults to True.
+        widget_icon: The icon name for the toolbar button. Defaults to 'gear'.
+        close_button_icon: The icon name for the close button. Defaults to "times".
+        widget_args: Additional arguments to pass to the toolbar button.
             Defaults to None.
-        opened (bool, optional): Whether to open the toolbar. Defaults to True.
-        show_close_button (bool, optional): Whether to show the close button.
-            Defaults to True.
-        widget_icon (str, optional): The icon name for the toolbar button.
-            Defaults to 'gear'.
-        close_button_icon (str, optional): The icon name for the close button.
-            Defaults to "times".
-        widget_args (Optional[Dict[str, Any]], optional): Additional arguments
-            to pass to the toolbar button. Defaults to None.
-        close_button_args (Optional[Dict[str, Any]], optional): Additional
-            arguments to pass to the close button. Defaults to None.
-        display_widget (Optional[widgets.Widget], optional): The widget to be
-            displayed when the toolbar is clicked. Defaults to None.
-        m (Optional[ipyleaflet.Map], optional): The ipyleaflet.Map instance.
+        close_button_args: Additional arguments to pass to the close button.
             Defaults to None.
-        position (str, optional): The position of the toolbar. Defaults to "topright".
+        display_widget: The widget to be displayed when the toolbar is clicked.
+            Defaults to None.
+        m: The ipyleaflet.Map instance. Defaults to None.
+        position: The position of the toolbar. Defaults to "topright".
 
     Returns:
-        Optional[widgets.Widget]: The created widget template.
+        The created widget template.
     """
-
-    name = "_" + random_string()  # a random attribute name
+    name = "_" + random_string()  # A random attribute name.
 
     if widget_args is None:
         widget_args = {}
@@ -634,8 +616,6 @@ def widget_template(
 
     toolbar_button.value = opened
     if m is not None:
-        import ipyleaflet
-
         toolbar_control = ipyleaflet.WidgetControl(
             widget=toolbar_widget, position=position
         )
@@ -653,26 +633,19 @@ def open_url(url: str) -> None:
     """Opens the URL in a new browser tab.
 
     Args:
-        url (str): The URL to open.
+        url: The URL to open.
     """
     if in_colab_shell():
-        display(
-            Javascript('window.open("{url}", "_blank", "noopener")'.format(url=url))
-        )
+        display(Javascript(f'window.open("{url}", "_blank", "noopener")'))
     else:
-        import webbrowser
-
         webbrowser.open_new_tab(url)
 
 
 def github_raw_url(url: str) -> str:
-    """Get the raw URL for a GitHub file.
+    """Returns the raw URL for a GitHub file.
 
     Args:
-        url (str): The GitHub URL.
-
-    Returns:
-        str: The raw URL.
+        url: The GitHub URL.
     """
     if isinstance(url, str) and url.startswith("https://github.com/") and "blob" in url:
         url = url.replace("github.com", "raw.githubusercontent.com").replace(
@@ -685,15 +658,8 @@ def temp_file_path(extension: str) -> str:
     """Returns a temporary file path.
 
     Args:
-        extension (str): The file extension.
-
-    Returns:
-        str: The temporary file path.
+        extension: The file extension.
     """
-
-    import tempfile
-    import uuid
-
     if not extension.startswith("."):
         extension = "." + extension
     file_id = str(uuid.uuid4())
@@ -703,14 +669,14 @@ def temp_file_path(extension: str) -> str:
 
 
 def download_file(
-    url: Optional[str] = None,
-    output: Optional[str] = None,
+    url: str | None = None,
+    output: str | None = None,
     quiet: bool = False,
-    proxy: Optional[str] = None,
-    speed: Optional[float] = None,
+    proxy: str | None = None,
+    speed: float | None = None,
     use_cookies: bool = True,
-    verify: Union[bool, str] = True,
-    id: Optional[str] = None,
+    verify: bool | str = True,
+    id: str | None = None,
     fuzzy: bool = False,
     resume: bool = False,
     unzip: bool = True,
@@ -719,31 +685,30 @@ def download_file(
     """Download a file from URL, including Google Drive shared URL.
 
     Args:
-        url (Optional[str], optional): Google Drive URL is also supported.
+        url: Google Drive URL is also supported.
             Defaults to None.
-        output (Optional[str], optional): Output filename. Default is basename of URL.
-        quiet (bool, optional): Suppress terminal output. Default is False.
-        proxy (Optional[str], optional): Proxy. Defaults to None.
-        speed (Optional[float], optional): Download byte size per second (e.g.,
-            256KB/s = 256 * 1024). Defaults to None.
-        use_cookies (bool, optional): Flag to use cookies. Defaults to True.
-        verify (Union[bool, str], optional): Either a bool, in which case it
-            controls whether the server's TLS certificate is verified, or a
-            string, in which case it must be a path to a CA bundle to use.
+        output: Output filename. Default is basename of URL.
+        quiet: Suppress terminal output. Default is False.
+        proxy: Proxy. Defaults to None.
+        speed: Download byte size per second (e.g., 256KB/s = 256 * 1024).
+            Defaults to None.
+        use_cookies: Flag to use cookies. Defaults to True.
+        verify: Either a bool, in which case it controls whether the server's TLS
+            certificate is verified, or a string, in which case it must be a path to a
+            CA bundle to use.
             Default is True.
-        id (Optional[str], optional): Google Drive's file ID. Defaults to None.
-        fuzzy (bool, optional): Fuzzy extraction of Google Drive's file Id.
+        id: Google Drive's file ID. Defaults to None.
+        fuzzy: Fuzzy extraction of Google Drive's file Id.
             Defaults to False.
-        resume (bool, optional): Resume the download from existing tmp file if
-            possible. Defaults to False.
-        unzip (bool, optional): Unzip the file. Defaults to True.
-        overwrite (bool, optional): Overwrite the file if it already exists.
+        resume: Resume the download from existing tmp file if possible.
+            Defaults to False.
+        unzip: Unzip the file. Defaults to True.
+        overwrite: Overwrite the file if it already exists.
             Defaults to False.
 
     Returns:
-        str: The output file path.
+        The output file path.
     """
-
     import gdown
 
     if output is None:
@@ -776,24 +741,24 @@ def download_file(
 
 
 def geojson_to_ee(
-    geo_json: Union[Dict[str, Any], str],
+    geo_json: dict[str, Any] | str,
     geodesic: bool = False,
     encoding: str = "utf-8",
-) -> Union[ee.Geometry, ee.FeatureCollection]:
+) -> ee.Geometry | ee.FeatureCollection:
     """Converts a GeoJSON to an Earth Engine Geometry or FeatureCollection.
 
     Args:
-        geo_json (Union[Dict[str, Any], str]): A GeoJSON geometry dictionary or
-            file path.
-        geodesic (bool, optional): Whether line segments should be interpreted
-            as spherical geodesics. If false, indicates that line segments
-            should be interpreted as planar lines in the specified CRS. If
-            absent, defaults to true if the CRS is geographic (including the
-            default EPSG:4326), or to false if the CRS is projected. Defaults to False.
-        encoding (str, optional): The encoding of characters. Defaults to "utf-8".
+        geo_json: A GeoJSON geometry dictionary or file path.
+        geodesic: Whether line segments should be interpreted as spherical geodesics. If
+            false, indicates that line segments should be interpreted as planar lines in
+            the specified CRS. If absent, defaults to true if the CRS is geographic
+            (including the default EPSG:4326), or to false if the CRS is
+            projected.
+            Defaults to False.
+        encoding: The encoding of characters. Defaults to "utf-8".
 
     Returns:
-        Union[ee.Geometry, ee.FeatureCollection]: An Earth Engine Geometry or FeatureCollection.
+        Earth Engine Geometry or FeatureCollection.
 
     Raises:
         Exception: If the GeoJSON cannot be converted to an Earth Engine object.
@@ -805,7 +770,7 @@ def geojson_to_ee(
                 geo_json = github_raw_url(geo_json)
                 out_geojson = temp_file_path(extension=".geojson")
                 download_file(geo_json, out_geojson)
-                with open(out_geojson, "r", encoding=encoding) as f:
+                with open(out_geojson, encoding=encoding) as f:
                     geo_json = json.loads(f.read())
                 os.remove(out_geojson)
 
@@ -813,7 +778,6 @@ def geojson_to_ee(
                 with open(os.path.abspath(geo_json), encoding=encoding) as f:
                     geo_json = json.load(f)
 
-        # geo_json["geodesic"] = geodesic
         if geo_json["type"] == "FeatureCollection":
             for feature in geo_json["features"]:
                 if feature["geometry"]["type"] != "Point":
@@ -824,7 +788,7 @@ def geojson_to_ee(
             geom = None
             if "style" in geo_json["properties"]:
                 keys = geo_json["properties"]["style"].keys()
-                if "radius" in keys:  # Checks whether it is a circle
+                if "radius" in keys:  # Checks whether it is a circle.
                     geom = ee.Geometry(geo_json["geometry"])
                     radius = geo_json["properties"]["style"]["radius"]
                     geom = geom.buffer(radius)
@@ -834,7 +798,7 @@ def geojson_to_ee(
                     geom = ee.Geometry(geo_json["geometry"], "", geodesic)
             elif (
                 geo_json["geometry"]["type"] == "Point"
-            ):  # Checks whether it is a point
+            ):  # Checks whether it is a point.
                 coordinates = geo_json["geometry"]["coordinates"]
                 longitude = coordinates[0]
                 latitude = coordinates[1]

@@ -4,6 +4,7 @@ import warnings
 
 from typing import TYPE_CHECKING
 from typing import ClassVar
+from typing import TypedDict
 from typing import TypeVar
 
 from packaging.utils import canonicalize_name
@@ -34,6 +35,21 @@ if TYPE_CHECKING:
     from poetry.core.version.markers import BaseMarker
 
     T = TypeVar("T", bound="Package")
+
+
+# TODO: Make use of https://peps.python.org/pep-0655/ when we drop support for Python < 3.11.
+# TODO: Make use of https://peps.python.org/pep-0705/ when we drop support for Python < 3.10.
+# We could also use the backport in typing-extensions, but it is not worth to vendor
+# another dependency just for this.
+class _PackageFile(TypedDict):
+    file: str
+    hash: str
+
+
+class PackageFile(_PackageFile, total=False):
+    url: str  # not required for file dependencies
+    size: int
+    upload_time: str
 
 
 class Package(PackageSpecification):
@@ -112,7 +128,7 @@ class Package(PackageSpecification):
 
         self._dependency_groups: Mapping[NormalizedName, DependencyGroup] = {}
 
-        self.files: Sequence[Mapping[str, str]] = []
+        self.files: Sequence[PackageFile] = []
         self.optional = False
 
         self.classifiers: Sequence[str] = []

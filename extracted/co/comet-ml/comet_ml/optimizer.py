@@ -156,6 +156,7 @@ class Optimizer(object):
             self.api_key,
         )
         self.id = None
+        self.metadata = None
         if os.environ.get("COMET_OPTIMIZER_ID") is not None:
             self.id = os.environ.get("COMET_OPTIMIZER_ID")
             if verbose > 0:
@@ -394,6 +395,44 @@ class Optimizer(object):
         """
         return str(self.id)
 
+    def update(
+        self, experiment: CometExperiment, status: str, metadata: Dict[str, Any]
+    ) -> None:
+        """
+        Update an optimizer assignment status and metadata given the experiment.
+
+        Args:
+            experiment (CometExperiment): an Offline or Online Experiment instance
+            status (str): a status, such as "running"
+            metadata (dict): a dictionary of experiment info
+        """
+        if experiment and experiment.optimizer:
+            pid = experiment.optimizer.get("pid")
+            trial = experiment.optimizer.get("trial")
+            if pid is not None and trial is not None:
+                self._api.optimizer_update(
+                    self.id,
+                    pid,
+                    trial,
+                    status=status,
+                    metadata=metadata,
+                )
+                return
+
+        LOGGER.warning("Unable to update optimizer")
+
+    def set_metadata(self, metadata):
+        """
+        Set metadata for result details.
+
+        This method replaces any previously set metadata for this optimizer instance;
+        it does not merge with existing metadata. The metadata is stored per optimizer
+        instance and persists for the lifetime of the optimizer object, not per experiment.
+        Args:
+            metadata (dict): a dictionary of result details
+        """
+        self.metadata = metadata
+
     def end(self, experiment):
         """
         `Optimizer.end()` is called at end of experiment. Usually,
@@ -403,6 +442,7 @@ class Optimizer(object):
         pid = experiment.optimizer["pid"]
         trial = experiment.optimizer["trial"]
         count = experiment.optimizer["count"]
+        metadata = self.metadata
         status = self.status()
         metric = status["spec"]["metric"]
         objective = "minimum"
@@ -429,7 +469,9 @@ class Optimizer(object):
                 "Optimizer metrics is '%s' but no logged values found. Experiment ignored in sweep.",
                 metric,
             )
-        self._api.optimizer_update(self.id, pid, trial, result, score)
+        self._api.optimizer_update(
+            self.id, pid, trial, result, score, metadata=metadata
+        )
         # Log optimizer results with the experiment:
         experiment._log_other("optimizer_metric", metric, include_context=False)
         experiment._log_other("optimizer_metric_value", score, include_context=False)

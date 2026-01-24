@@ -1,16 +1,14 @@
 import dataclasses
 import inspect
 import json
+import sys
 from functools import partial
 from typing import (
     Annotated,
-    List,
     Literal,
-    Optional,
-    Type,
     TypeVar,
-    Union,
 )
+from unittest.mock import Mock
 
 import pytest
 from langchain_core.language_models import BaseChatModel
@@ -27,14 +25,18 @@ from langchain_core.messages import (
 from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_core.tools import InjectedToolCallId, ToolException
 from langchain_core.tools import tool as dec_tool
-from pydantic import BaseModel, Field
-from pydantic.v1 import BaseModel as BaseModelV1
-from typing_extensions import TypedDict
-
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import START, MessagesState, StateGraph, add_messages
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
+from langgraph.runtime import Runtime
+from langgraph.store.base import BaseStore
+from langgraph.store.memory import InMemoryStore
+from langgraph.types import Command, Interrupt, interrupt
+from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel as BaseModelV1
+from typing_extensions import TypedDict
+
 from langgraph.prebuilt import (
     ToolNode,
     create_react_agent,
@@ -51,13 +53,8 @@ from langgraph.prebuilt.chat_agent_executor import (
 from langgraph.prebuilt.tool_node import (
     InjectedState,
     InjectedStore,
-    _get_state_args,
     _infer_handled_types,
 )
-from langgraph.runtime import Runtime
-from langgraph.store.base import BaseStore
-from langgraph.store.memory import InMemoryStore
-from langgraph.types import Command, Interrupt, interrupt
 from tests.any_str import AnyStr
 from tests.messages import _AnyIdHumanMessage, _AnyIdToolMessage
 from tests.model import FakeToolCallingModel
@@ -65,6 +62,29 @@ from tests.model import FakeToolCallingModel
 pytestmark = pytest.mark.anyio
 
 REACT_TOOL_CALL_VERSIONS = ["v1", "v2"]
+
+
+def _create_mock_runtime(store: BaseStore | None = None) -> Mock:
+    """Create a mock Runtime object for testing ToolNode outside of graph context.
+
+    This helper is needed because ToolNode._func expects a Runtime parameter
+    which is injected by RunnableCallable from config["configurable"]["__pregel_runtime"].
+    When testing ToolNode directly (outside a graph), we need to provide this manually.
+    """
+    mock_runtime = Mock()
+    mock_runtime.store = store
+    mock_runtime.context = None
+    mock_runtime.stream_writer = lambda *args, **kwargs: None
+    return mock_runtime
+
+
+def _create_config_with_runtime(store: BaseStore | None = None) -> RunnableConfig:
+    """Create a RunnableConfig with mock Runtime for testing ToolNode.
+
+    Returns:
+        RunnableConfig with __pregel_runtime in configurable dict.
+    """
+    return {"configurable": {"__pregel_runtime": _create_mock_runtime(store)}}
 
 
 @pytest.mark.parametrize("version", REACT_TOOL_CALL_VERSIONS)
@@ -330,7 +350,8 @@ def test_model_with_tools(tool_style: str, version: str, include_builtin: bool):
                     ],
                 )
             ]
-        }
+        },
+        config=_create_config_with_runtime(),
     )
     tool_messages: ToolMessage = result["messages"][-2:]
     for tool_message in tool_messages:
@@ -419,7 +440,7 @@ def test__infer_handled_types() -> None:
     def handle2(e: Exception) -> str:
         return ""
 
-    def handle3(e: Union[ValueError, ToolException]) -> str:
+    def handle3(e: ValueError | ToolException) -> str:
         return ""
 
     class Handler:
@@ -428,7 +449,7 @@ def test__infer_handled_types() -> None:
 
     handle4 = Handler().handle
 
-    def handle5(e: Union[Union[TypeError, ValueError], ToolException]):
+    def handle5(e: TypeError | ValueError | ToolException):
         return ""
 
     expected: tuple = (Exception,)
@@ -467,7 +488,7 @@ def test__infer_handled_types() -> None:
 
     with pytest.raises(ValueError):
 
-        def handler(e: Union[str, int]):
+        def handler(e: str | int):
             return ""
 
         _infer_handled_types(handler)
@@ -506,7 +527,7 @@ class CustomState(AgentState):
 
 
 class CustomStatePydantic(AgentStatePydantic):
-    user_name: Optional[str] = None
+    user_name: str | None = None
 
 
 @pytest.mark.parametrize("version", REACT_TOOL_CALL_VERSIONS)
@@ -617,8 +638,9 @@ def test_react_agent_parallel_tool_calls(
     for event in agent.stream(
         {"messages": [("user", query)]}, config, stream_mode="values"
     ):
-        if messages := event.get("messages"):
-            message_types.append([m.type for m in messages])
+        if "__interrupt__" not in event:
+            if messages := event.get("messages"):
+                message_types.append([m.type for m in messages])
 
     if version == "v1":
         assert message_types == [
@@ -682,12 +704,18 @@ T = TypeVar("T")
     "schema_",
     [
         _InjectStateSchema,
-        _InjectedStatePydanticSchema,
+        pytest.param(
+            _InjectedStatePydanticSchema,
+            marks=pytest.mark.skipif(
+                sys.version_info >= (3, 14),
+                reason="Pydantic v1 not supported in Python 3.14+",
+            ),
+        ),
         _InjectedStatePydanticV2Schema,
         _InjectedStateDataclassSchema,
     ],
 )
-def test_tool_node_inject_state(schema_: Type[T]) -> None:
+def test_tool_node_inject_state(schema_: type[T]) -> None:
     def tool1(some_val: int, state: Annotated[T, InjectedState]) -> str:
         """Tool 1 docstring."""
         if isinstance(state, dict):
@@ -705,13 +733,13 @@ def test_tool_node_inject_state(schema_: Type[T]) -> None:
     def tool3(
         some_val: int,
         foo: Annotated[str, InjectedState("foo")],
-        msgs: Annotated[List[AnyMessage], InjectedState("messages")],
+        msgs: Annotated[list[AnyMessage], InjectedState("messages")],
     ) -> str:
         """Tool 1 docstring."""
         return foo
 
     def tool4(
-        some_val: int, msgs: Annotated[List[AnyMessage], InjectedState("messages")]
+        some_val: int, msgs: Annotated[list[AnyMessage], InjectedState("messages")]
     ) -> str:
         """Tool 1 docstring."""
         return msgs[0].content
@@ -725,36 +753,12 @@ def test_tool_node_inject_state(schema_: Type[T]) -> None:
             "type": "tool_call",
         }
         msg = AIMessage("hi?", tool_calls=[tool_call])
-        result = node.invoke(schema_(**{"messages": [msg], "foo": "bar"}))
+        result = node.invoke(
+            schema_(**{"messages": [msg], "foo": "bar"}),
+            config=_create_config_with_runtime(),
+        )
         tool_message = result["messages"][-1]
         assert tool_message.content == "bar", f"Failed for tool={tool_name}"
-
-        if tool_name == "tool3":
-            failure_input = None
-            try:
-                failure_input = schema_(**{"messages": [msg], "notfoo": "bar"})
-            except Exception:
-                pass
-            if failure_input is not None:
-                with pytest.raises(KeyError):
-                    node.invoke(failure_input)
-
-                with pytest.raises(ValueError):
-                    node.invoke([msg])
-        else:
-            failure_input = None
-            try:
-                failure_input = schema_(**{"messages": [msg], "notfoo": "bar"})
-            except Exception:
-                # We'd get a validation error from pydantic state and wouldn't make it to the node
-                # anyway
-                pass
-            if failure_input is not None:
-                messages_ = node.invoke(failure_input)
-                tool_message = messages_["messages"][-1]
-                assert "KeyError" in tool_message.content
-                tool_message = node.invoke([msg])[-1]
-                assert "KeyError" in tool_message.content
 
     tool_call = {
         "name": "tool4",
@@ -763,11 +767,13 @@ def test_tool_node_inject_state(schema_: Type[T]) -> None:
         "type": "tool_call",
     }
     msg = AIMessage("hi?", tool_calls=[tool_call])
-    result = node.invoke(schema_(**{"messages": [msg], "foo": ""}))
+    result = node.invoke(
+        schema_(**{"messages": [msg], "foo": ""}), config=_create_config_with_runtime()
+    )
     tool_message = result["messages"][-1]
     assert tool_message.content == "hi?"
 
-    result = node.invoke([msg])
+    result = node.invoke([msg], config=_create_config_with_runtime())
     tool_message = result[-1]
     assert tool_message.content == "hi?"
 
@@ -879,7 +885,9 @@ def test_tool_node_inject_store() -> None:
             "type": "tool_call",
         }
         msg = AIMessage("hi?", tool_calls=[tool_call])
-        node_result = node.invoke({"messages": [msg]}, store=store)
+        node_result = node.invoke(
+            {"messages": [msg]}, config=_create_config_with_runtime(store=store)
+        )
         graph_result = graph.invoke({"messages": [msg]})
         for result in (node_result, graph_result):
             result["messages"][-1]
@@ -895,7 +903,10 @@ def test_tool_node_inject_store() -> None:
         "type": "tool_call",
     }
     msg = AIMessage("hi?", tool_calls=[tool_call])
-    node_result = node.invoke({"messages": [msg], "bar": "baz"}, store=store)
+    node_result = node.invoke(
+        {"messages": [msg], "bar": "baz"},
+        config=_create_config_with_runtime(store=store),
+    )
     graph_result = graph.invoke({"messages": [msg], "bar": "baz"})
     for result in (node_result, graph_result):
         result["messages"][-1]
@@ -920,7 +931,8 @@ def test_tool_node_ensure_utf8() -> None:
     tools = [get_day_list]
     tool_calls = [ToolCall(name=get_day_list.name, args={"days": data}, id="test_id")]
     outputs: list[ToolMessage] = ToolNode(tools).invoke(
-        [AIMessage(content="", tool_calls=tool_calls)]
+        [AIMessage(content="", tool_calls=tool_calls)],
+        config=_create_config_with_runtime(),
     )
     assert outputs[0].content == json.dumps(data, ensure_ascii=False)
 
@@ -1070,21 +1082,6 @@ async def test_return_direct(version: str) -> None:
             id=result["messages"][3].id,
         ),
     ]
-
-
-def test__get_state_args() -> None:
-    class Schema1(BaseModel):
-        a: Annotated[str, InjectedState]
-
-    class Schema2(Schema1):
-        b: Annotated[int, InjectedState("bar")]
-
-    @dec_tool(args_schema=Schema2)
-    def foo(a: str, b: int) -> float:
-        """return"""
-        return 0.0
-
-    assert _get_state_args(foo) == {"a": None, "b": "bar"}
 
 
 def test_inspect_react() -> None:
@@ -2012,7 +2009,7 @@ def test_post_model_hook_with_structured_output() -> None:
         flag: bool
         structured_response: WeatherResponse
 
-    def post_model_hook(state: State) -> Union[dict[str, bool], Command]:
+    def post_model_hook(state: State) -> dict[str, bool] | Command:
         return {"flag": True}
 
     agent = create_react_agent(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deal
-Version: 4.24.5
+Version: 4.24.6
 Summary: **Deal** is a Python library for [design by contract][wiki] (DbC) programming.
 Keywords: deal,contracts,pre,post,invariant,decorators,validation,pythonic,functional
 Author-email: Gram <gram@orsinium.dev>
@@ -39,7 +39,6 @@ Requires-Dist: flake8-quotes ; extra == "lint"
 Requires-Dist: mypy>=0.900 ; extra == "lint"
 Requires-Dist: mypy_test>=0.1.1 ; extra == "lint"
 Requires-Dist: isort ; extra == "lint"
-Requires-Dist: unify ; extra == "lint"
 Requires-Dist: deal-solver>=0.1.2 ; extra == "lint"
 Requires-Dist: hypothesis ; extra == "lint"
 Requires-Dist: pygments ; extra == "lint"

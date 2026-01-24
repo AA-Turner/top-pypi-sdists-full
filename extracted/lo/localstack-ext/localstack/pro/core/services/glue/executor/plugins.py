@@ -12,7 +12,7 @@ class GlueKubernetesJobExecutorRuntimePlugin(GlueJobExecutorRuntimePlugin):
 	name='kubernetes';requires_license=True
 	def load(B,*C,**D):from localstack.pro.core.services.glue.executor.kubernetes import KubernetesJobExecutor as A;return A
 class GlueJobExecutorRuntimePluginManager(PluginManager):
-	def __init__(A,listener=None):super().__init__(GlueJobExecutorRuntimePlugin.namespace,listener=listener)
+	def __init__(A,listener:PluginLifecycleListener=None):super().__init__(GlueJobExecutorRuntimePlugin.namespace,listener=listener)
 	@staticmethod
 	@singleton_factory
-	def get():return GlueJobExecutorRuntimePluginManager(LicensedPluginLoaderGuard())
+	def get()->'GlueJobExecutorRuntimePluginManager':return GlueJobExecutorRuntimePluginManager(LicensedPluginLoaderGuard())

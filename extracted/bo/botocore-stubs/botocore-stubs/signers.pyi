@@ -19,6 +19,7 @@ from botocore.model import ServiceId
 from botocore.utils import datetime2timestamp as datetime2timestamp
 
 class RequestSigner:
+    METHOD_FEATURE_MAP: Mapping[str, str] = ...
     def __init__(
         self,
         service_id: ServiceId,

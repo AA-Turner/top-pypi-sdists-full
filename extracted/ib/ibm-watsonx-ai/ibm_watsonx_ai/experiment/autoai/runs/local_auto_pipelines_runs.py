@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -74,28 +74,30 @@ class LocalAutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             metadata = dict(
-                   prediction_type ='classification',
-                   prediction_column='species',
-                   holdout_size=0.2,
-                   scoring='roc_auc',
-                   max_number_of_estimators=1,
-                   training_data_reference = [DataConnection(
-                       connection_asset_id=connection_id,
-                       location=S3Location(
-                           bucket='autoai-bucket',
-                           path='iris_dataset.csv',
-                       )
-                   )],
-                   training_result_reference = DataConnection(
-                       connection_asset_id=connection_id,
-                       location=S3Location(
-                           bucket='autoai-bucket',
-                           path='.',
-                           model_location="0a8266be-0f3e-4ef9-af89-856022b7c1c9/data/automl/global_output/",
-                           training_status="./75eec2e0-2600-4b7e-bcf2-ea54f2471400/9236e3ab-25e2-4daa-86a8-fd009d4e1e7d/training-status.json",
-                       )
-                   )
-               )
+                prediction_type="classification",
+                prediction_column="species",
+                holdout_size=0.2,
+                scoring="roc_auc",
+                max_number_of_estimators=1,
+                training_data_reference=[
+                    DataConnection(
+                        connection_asset_id=connection_id,
+                        location=S3Location(
+                            bucket="autoai-bucket",
+                            path="iris_dataset.csv",
+                        ),
+                    )
+                ],
+                training_result_reference=DataConnection(
+                    connection_asset_id=connection_id,
+                    location=S3Location(
+                        bucket="autoai-bucket",
+                        path=".",
+                        model_location="0a8266be-0f3e-4ef9-af89-856022b7c1c9/data/automl/global_output/",
+                        training_status="./75eec2e0-2600-4b7e-bcf2-ea54f2471400/9236e3ab-25e2-4daa-86a8-fd009d4e1e7d/training-status.json",
+                    ),
+                ),
+            )
             optimizer = AutoAI().runs.get_optimizer(metadata)
         """
         # note: backward compatibility

@@ -25,7 +25,7 @@ from beartype._check.metadata.hint.hintsane import (
     HintOrSane,
     HintSane,
 )
-from beartype._data.hint.datahintpep import Hint
+from beartype._data.typing.datatypingport import Hint
 from beartype._util.error.utilerrget import get_name_error_attr_name
 from beartype._util.hint.pep.proposal.pep695 import (
     get_hint_pep695_unsubbed_alias)
@@ -59,7 +59,7 @@ def reduce_hint_pep695_subbed(
         * Else, the passed hint is a **child** of some parent hint. In this
           case, the **sanified parent type hint metadata** (i.e., immutable and
           thus hashable object encapsulating *all* metadata previously returned
-          by :mod:`beartype._check.convert.convsanify` sanifiers after
+          by :mod:`beartype._check.convert.convmain` sanifiers after
           sanitizing the possibly PEP-noncompliant parent hint of this child
           hint into a fully PEP-compliant parent hint).
     exception_prefix : str
@@ -79,15 +79,15 @@ def reduce_hint_pep695_subbed(
 
     See Also
     --------
-    ``reduce_hint_pep484_subbed_typevars_to_hints``
+    ``reduce_hint_pep484612646_subbed_typeargs_to_hints``
         Further details.
     '''
     # print(f'Reducing PEP 695 subscripted type alias {hint} with parent {hint_parent_sane}...')
 
     # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
-    from beartype._check.convert._reduce._pep.pep484.redpep484typevar import (
-        reduce_hint_pep484_subbed_typevars_to_hints)
+    from beartype._check.convert._reduce._pep.redpep484612646 import (
+        reduce_hint_pep484612646_subbed_typeargs_to_hints)
 
     # ....................{ RECURSE                        }....................
     # If this PEP 695-compliant subscripted type alias is recursive, ignore this
@@ -123,7 +123,7 @@ def reduce_hint_pep695_subbed(
     #   this unsubscripted alias to all non-type variable hints subscripting
     #   this subscripted alias.
     # print(f'[reduce_hint_pep484585_generic_subbed] Reducing subscripted generic {repr(hint)}...')
-    hint_or_sane = reduce_hint_pep484_subbed_typevars_to_hints(
+    hint_or_sane = reduce_hint_pep484612646_subbed_typeargs_to_hints(
         hint=hint,
         hint_parent_sane=hint_parent_sane,
         exception_prefix=exception_prefix,
@@ -147,7 +147,7 @@ def reduce_hint_pep695_subbed(
     else:
         # Non-recursable form of this type alias, defined as the *UNSUBSCRIPTED*
         # type alias directly returned by the prior call to the
-        # reduce_hint_pep484_subbed_typevars_to_hints() reducer.
+        # reduce_hint_pep484612646_subbed_typeargs_to_hints() reducer.
         hint_nonrecursable = hint_or_sane
 
     # Decide the recursion guard protecting this possibly recursive alias
@@ -167,7 +167,7 @@ def reduce_hint_pep695_subbed(
         hint_recursable=hint,
         # The non-recursable form of this type alias is the new *UNSUBSCRIPTED*
         # type alias encapsulated by the metadata returned by the prior call to
-        # the reduce_hint_pep484_subbed_typevars_to_hints() reducer.
+        # the reduce_hint_pep484612646_subbed_typeargs_to_hints() reducer.
         hint_nonrecursable=hint_nonrecursable,
         hint_parent_sane=hint_parent_sane,
     )
@@ -204,7 +204,7 @@ def reduce_hint_pep695_unsubbed(
         * Else, the passed hint is a **child** of some parent hint. In this
           case, the **sanified parent type hint metadata** (i.e., immutable and
           thus hashable object encapsulating *all* metadata previously returned
-          by :mod:`beartype._check.convert.convsanify` sanifiers after
+          by :mod:`beartype._check.convert.convmain` sanifiers after
           sanitizing the possibly PEP-noncompliant parent hint of this child
           hint into a fully PEP-compliant parent hint).
     exception_prefix : str

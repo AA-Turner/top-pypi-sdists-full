@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: contrast-agent
+Version: 10.23.1
+Summary: Contrast Security's agent for Python web frameworks
+Author-email: "Contrast Security, Inc." <python@contrastsecurity.com>
+License-Expression: LicenseRef-ContrastSecurity-ContrastPlatformLicense
+Project-URL: Contrast, https://www.contrastsecurity.com
+Project-URL: Change Log, https://docs.contrastsecurity.com/en/python-agent-release-notes-and-archive.html
+Project-URL: Support, https://support.contrastsecurity.com
+Project-URL: Trouble Shooting, https://support.contrastsecurity.com/hc/en-us/search?utf8=%E2%9C%93&query=Python
+Project-URL: Wiki, https://docs.contrastsecurity.com/
+Keywords: security development
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: requests<3,>=2.4.2
+Requires-Dist: contrast-agent-lib~=0.12.0
+Requires-Dist: contrast-fireball==0.1.22
+Provides-Extra: debug
+Requires-Dist: viztracer<1.1.0,>=0.16.3; extra == "debug"
+Dynamic: license-file
+
+# Contrast Python Agent
+
+
+The Contrast Python Agent provides interactive vulnerability discovery and
+runtime protection for web applications. The agent is a WSGI-, ASGI-, and
+framework-specific middleware that's compatible with the most popular web
+application frameworks.
+
+For the most up-to-date documentation please see
+[Contrast Docs](https://docs.contrastsecurity.com/en/python.html)

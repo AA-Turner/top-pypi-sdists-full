@@ -68,6 +68,18 @@ class V1RuleResource(object):
     CLOUDSPACE = "cloudSpace"
     FEATUREDORGSTUDIOGALLERY = "featuredOrgStudioGallery"
     MANAGEDENDPOINT = "managedEndpoint"
+    JOB = "job"
+    DEPLOYMENT = "deployment"
+    MODEL = "model"
+    SLURMJOB = "slurmJob"
+    MULTIMACHINEJOB = "multiMachineJob"
+    LITLOGGER = "litLogger"
+    PIPELINE = "pipeline"
+    CLOUDSPACEENVIRONMENTTEMPLATE = "cloudSpaceEnvironmentTemplate"
+    ORGSTORAGE = "orgStorage"
+    KUBERNETESCLUSTER = "kubernetesCluster"
+    STORAGETRANSFER = "storageTransfer"
+    LITDATASET = "litDataset"
     """
     Attributes:
       swagger_types (dict): The key is attribute name

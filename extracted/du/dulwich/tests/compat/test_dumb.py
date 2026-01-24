@@ -21,6 +21,7 @@
 
 """Compatibility tests for dumb HTTP git repositories."""
 
+import io
 import os
 import sys
 import tempfile
@@ -36,6 +37,10 @@ from tests.compat.utils import (
     rmtree_ro,
     run_git_or_fail,
 )
+
+
+def no_op_progress(msg):
+    """Progress callback that does nothing."""
 
 
 class DumbHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -92,6 +97,7 @@ class DumbHTTPGitServer:
     def stop(self):
         """Stop the HTTP server."""
         self.server.shutdown()
+        self.server.server_close()
         if self.thread:
             self.thread.join()
 
@@ -105,6 +111,7 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
     """Tests for dumb HTTP client against real git repositories."""
 
     with_pack = False
+    with_missing_remote_head = False
 
     def setUp(self):
         super().setUp()
@@ -147,6 +154,9 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
         # Update server info for dumb HTTP
         run_git_or_fail(["update-server-info"], cwd=self.origin_path)
 
+        if self.with_missing_remote_head:
+            os.remove(os.path.join(self.origin_path, "HEAD"))
+
         # Start HTTP server
         self.server = DumbHTTPGitServer(self.origin_path)
         self.server.start()
@@ -163,7 +173,9 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
     )
     def test_clone_dumb(self):
         dest_path = os.path.join(self.temp_dir, "cloned")
-        repo = clone(self.server.url, dest_path)
+        # Use a dummy errstream to suppress progress output
+        repo = clone(self.server.url, dest_path, errstream=io.BytesIO())
+        self.addCleanup(repo.close)
         assert b"HEAD" in repo
 
     def test_clone_from_dumb_http(self):
@@ -178,12 +190,14 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
 
         try:
             # Fetch from dumb HTTP
-            def determine_wants(refs):
+            def determine_wants(refs, depth=None):
                 return [
                     sha for ref, sha in refs.items() if ref.startswith(b"refs/heads/")
                 ]
 
-            result = client.fetch("/", dest_repo, determine_wants=determine_wants)
+            result = client.fetch(
+                "/", dest_repo, determine_wants=determine_wants, progress=no_op_progress
+            )
 
             # Update refs
             for ref, sha in result.refs.items():
@@ -230,14 +244,16 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
         try:
             old_refs = dest_repo.get_refs()
 
-            def determine_wants(refs):
+            def determine_wants(refs, depth=None):
                 wants = []
                 for ref, sha in refs.items():
                     if ref.startswith(b"refs/heads/") and sha != old_refs.get(ref):
                         wants.append(sha)
                 return wants
 
-            result = client.fetch("/", dest_repo, determine_wants=determine_wants)
+            result = client.fetch(
+                "/", dest_repo, determine_wants=determine_wants, progress=no_op_progress
+            )
 
             # Update refs
             for ref, sha in result.refs.items():
@@ -275,14 +291,16 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
         try:
             client = HttpGitClient(self.server.url)
 
-            def determine_wants(refs):
+            def determine_wants(refs, depth=None):
                 return [
                     sha
                     for ref, sha in refs.items()
                     if ref.startswith((b"refs/heads/", b"refs/tags/"))
                 ]
 
-            result = client.fetch("/", dest_repo, determine_wants=determine_wants)
+            result = client.fetch(
+                "/", dest_repo, determine_wants=determine_wants, progress=no_op_progress
+            )
 
             # Update refs
             for ref, sha in result.refs.items():
@@ -302,3 +320,16 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
 
 class DumbHTTPClientWithPackTests(DumbHTTPClientNoPackTests):
     with_pack = True
+
+
+class DumbHTTPClientWithMissingRemoteHEAD(DumbHTTPClientNoPackTests):
+    with_missing_remote_head = True
+
+    # we only want to test clone operation as removing the HEAD file
+    # prevents any push operation used in tests below
+
+    def test_fetch_from_dumb_http_with_tags(self):
+        pass
+
+    def test_fetch_new_commit_from_dumb_http(self):
+        pass

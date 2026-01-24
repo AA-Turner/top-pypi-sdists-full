@@ -7,19 +7,17 @@ import torch
 
 try:
     import torch.utils._pytree as pytree
-    from torch._functorch.aot_autograd import create_aot_dispatcher_function
     from torch._inductor.lowering import register_lowering, fallbacks, add_needs_realized_inputs
     from torch._inductor.ir import TensorBox, FallbackKernel, Layout, IRNode
     from torch._inductor.virtualized import V
     from torch._inductor.scheduler import Scheduler
-
-    original_create_aot_dispatcher_function = create_aot_dispatcher_function
 except ImportError:
     pass
 
 from deepspeed.utils.torch import required_torch_version
 from .util import get_input_nodes
 from .graph_param import DSGraphParamManager
+from .partitioner import get_wrapped_partitioner
 
 
 def patch_compiler(original_compiler, dc_compiler, z3_partition: bool, graph_id, graph_param_manager, bwd: bool):
@@ -66,7 +64,8 @@ def wrap_partition_fn(partition_fn, real_inputs, param_indices):
 
     def wrapped_partition_fn(*args, **kwargs):
 
-        fw_module, bw_module = partition_fn(*args, **kwargs)
+        fn = get_wrapped_partitioner(True, param_indices, partition_fn=partition_fn)
+        fw_module, bw_module = fn(*args, **kwargs)
 
         # get parameter names
         pm = DSGraphParamManager(fw_module.graph, real_inputs, param_indices)

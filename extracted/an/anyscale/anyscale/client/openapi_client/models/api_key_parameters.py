@@ -34,15 +34,17 @@ class ApiKeyParameters(object):
     """
     openapi_types = {
         'duration': 'float',
-        'user_id': 'str'
+        'user_id': 'str',
+        'name': 'str'
     }
 
     attribute_map = {
         'duration': 'duration',
-        'user_id': 'user_id'
+        'user_id': 'user_id',
+        'name': 'name'
     }
 
-    def __init__(self, duration=None, user_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, duration=None, user_id=None, name=None, local_vars_configuration=None):  # noqa: E501
         """ApiKeyParameters - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,11 +52,14 @@ class ApiKeyParameters(object):
 
         self._duration = None
         self._user_id = None
+        self._name = None
         self.discriminator = None
 
         self.duration = duration
         if user_id is not None:
             self.user_id = user_id
+        if name is not None:
+            self.name = name
 
     @property
     def duration(self):
@@ -99,6 +104,27 @@ class ApiKeyParameters(object):
         """
 
         self._user_id = user_id
+
+    @property
+    def name(self):
+        """Gets the name of this ApiKeyParameters.  # noqa: E501
+
+
+        :return: The name of this ApiKeyParameters.  # noqa: E501
+        :rtype: str
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        """Sets the name of this ApiKeyParameters.
+
+
+        :param name: The name of this ApiKeyParameters.  # noqa: E501
+        :type: str
+        """
+
+        self._name = name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

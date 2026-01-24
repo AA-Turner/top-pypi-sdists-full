@@ -1,6 +1,6 @@
 import time
 from datetime import date, datetime, timezone, tzinfo
-from typing import Optional
+from zoneinfo import ZoneInfo
 
 TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S"
 TIMESTAMP_FORMAT_TZ = "%Y-%m-%dT%H:%M:%SZ"
@@ -42,6 +42,11 @@ def epoch_timestamp() -> float:
 
 
 def parse_timestamp(ts_str: str) -> datetime:
+    """
+    Parse the incoming date string into a timezone aware datetime object
+    :param ts_str:
+    :return:
+    """
     for ts_format in [
         TIMESTAMP_FORMAT,
         TIMESTAMP_FORMAT_TZ,
@@ -49,13 +54,16 @@ def parse_timestamp(ts_str: str) -> datetime:
         TIMESTAMP_READABLE_FORMAT,
     ]:
         try:
-            return datetime.strptime(ts_str, ts_format)
+            value = datetime.strptime(ts_str, ts_format)
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=ZoneInfo("UTC"))
+            return value
         except ValueError:
             pass
     raise Exception(f"Unable to parse timestamp string with any known formats: {ts_str}")
 
 
-def now(millis: bool = False, tz: Optional[tzinfo] = None) -> int:
+def now(millis: bool = False, tz: tzinfo | None = None) -> int:
     return mktime(datetime.now(tz=tz), millis=millis)
 
 

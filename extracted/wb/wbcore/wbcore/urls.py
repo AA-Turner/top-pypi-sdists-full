@@ -6,16 +6,11 @@ from wbcore.contrib.dynamic_preferences.viewsets import UserPreferencesViewSet
 from wbcore.shares.views import ShareAPIView
 
 from .configs.views import ConfigAPIView
-from .content_type.viewsets import (
-    ContentTypeRepresentationViewSet,
-    DynamicObjectIDRepresentationViewSet,
-)
 from .crontab.viewsets import CrontabScheduleRepresentationViewSet
 from .frontend_user_configuration import FrontendUserConfigurationModelViewSet
 from .markdown.views import (
     AssetCreateView,
     AssetRetrieveView,
-    BlockDiag,
     TemplateTagView,
 )
 from .menus.views import MenuAPIView
@@ -45,12 +40,7 @@ router.register(r"revision", RevisionModelViewSet, basename="revision")
 router.register(r"revisionrepresentation", RevisionRepresentationViewSet, basename="revisionrepresentation")
 router.register(r"versionrepresentation", VersionRepresentationViewSet, basename="versionrepresentation")
 router.register(r"releasenote", ReleaseNoteReadOnlyModelViewSet, basename="releasenote")
-router.register(r"contenttyperepresentation", ContentTypeRepresentationViewSet, basename="contenttyperepresentation")
-router.register(
-    r"dynamiccontenttyperepresentation",
-    DynamicObjectIDRepresentationViewSet,
-    basename="dynamiccontenttyperepresentation",
-)
+
 router.register(
     r"crontabschedulerepresentation", CrontabScheduleRepresentationViewSet, basename="crontabschedulerepresentation"
 )
@@ -65,7 +55,6 @@ urlpatterns = [
     path("menu/", MenuAPIView.as_view(), name="menu"),
     path("preset/<str:display_identifier_path>/", PresetAPIView.as_view(), name="preset"),
     path("share/", ShareAPIView.as_view(), name="share"),
-    path("markdown/blockdiag/", BlockDiag.as_view(), name="blockdiag"),
     path("markdown/asset/", AssetCreateView.as_view(), name="markdown-asset-upload"),
     path("markdown/asset/<uuid>/", AssetRetrieveView.as_view(), name="asset-retrieve"),
     path("markdown/templatetag/", TemplateTagView.as_view(), name="markdown-tags"),
@@ -74,6 +63,10 @@ urlpatterns = [
     path(
         "authentication/",
         include(("wbcore.contrib.authentication.urls", "wbcore.contrib.authentication"), namespace="authentication"),
+    ),
+    path(
+        "content_type/",
+        include(("wbcore.contrib.content_type.urls", "wbcore.contrib.content_type"), namespace="content_type"),
     ),
     path(
         "notifications/",

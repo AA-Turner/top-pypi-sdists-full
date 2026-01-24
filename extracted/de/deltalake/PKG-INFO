@@ -1,25 +1,24 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: deltalake
-Version: 1.1.4
+Version: 1.3.2
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: arro3-core >=0.5.0
-Requires-Dist: deprecated >=1.2.18
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: arro3-core>=0.5.0
+Requires-Dist: deprecated>=1.2.18
 Requires-Dist: pandas ; extra == 'pandas'
-Requires-Dist: pyarrow >=16 ; extra == 'pyarrow'
+Requires-Dist: pyarrow>=16 ; extra == 'pyarrow'
 Provides-Extra: pandas
 Provides-Extra: pyarrow
 License-File: LICENSE.txt
 Summary: Native Delta Lake Python binding based on delta-rs with Pandas integration
 Keywords: deltalake,delta,datalake,pandas,arrow
 Home-Page: https://github.com/delta-io/delta-rs
-Author: Qingping Hou <dave2008713@gmail.com>, Will Jones <willjones127@gmail.com>
-Author-email: Qingping Hou <dave2008713@gmail.com>, Will Jones <willjones127@gmail.com>
-License: MIT
-Requires-Python: >=3.9
+License-Expression: Apache-2.0
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://delta-io.github.io/delta-rs/
 Project-URL: repository, https://github.com/delta-io/delta-rs/tree/main/python/
@@ -41,10 +40,10 @@ from deltalake import DeltaTable
 dt = DeltaTable("../rust/tests/data/delta-0.2.0")
 dt.version()
 3
-dt.files()
-['part-00000-cb6b150b-30b8-4662-ad28-ff32ddab96d2-c000.snappy.parquet',
- 'part-00000-7c2deba3-1994-4fb8-bc07-d46c948aa415-c000.snappy.parquet',
- 'part-00001-c373a5bd-85f0-4758-815e-7eb62007a15c-c000.snappy.parquet']
+dt.file_uris()
+['s3://bucket/table/part-00000-cb6b150b-30b8-4662-ad28-ff32ddab96d2-c000.snappy.parquet',
+ 's3://bucket/table/part-00000-7c2deba3-1994-4fb8-bc07-d46c948aa415-c000.snappy.parquet',
+ 's3://bucket/table/part-00001-c373a5bd-85f0-4758-815e-7eb62007a15c-c000.snappy.parquet']
 ```
 
 See the [user guide](https://delta-io.github.io/delta-rs/usage/installation/) for more examples.
@@ -64,6 +63,33 @@ NOTE: official binary wheels are linked against openssl statically for remote
 objection store communication. Please file Github issue to request for critical
 openssl upgrade.
 
+## Tracing and Observability
+
+Delta-rs supports OpenTelemetry tracing for performance analysis and debugging.
+
+### Basic Example
+
+```python
+import os
+import deltalake
+from deltalake import write_deltalake, DeltaTable
+
+# Enable logging to see trace output in stdout
+os.environ["RUST_LOG"] = "deltalake=debug"
+
+# Initialize tracing (uses default HTTP endpoint or OTEL_EXPORTER_OTLP_ENDPOINT env var)
+# For authentication, set OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key"
+# The HTTP exporter automatically reads OTEL_EXPORTER_OTLP_HEADERS for API keys
+deltalake.init_tracing()
+
+# All Delta operations are now traced
+write_deltalake("my_table", data)
+dt = DeltaTable("my_table")
+df = dt.to_pandas()
+```
+
+When you run this code, you'll see trace information in stdout showing operation timings and execution flow.
+
 ## Build custom wheels
 
 Sometimes you may wish to build custom wheels. Maybe you want to try out some
@@ -71,14 +97,14 @@ unreleased features. Or maybe you want to tweak the optimization of the Rust cod
 
 To compile the package, you will need the Rust compiler and [maturin](https://github.com/PyO3/maturin):
 
-```sh
+````sh
 curl https://sh.rustup.rs -sSf | sh -s
 
 Then you can build wheels for your own platform like so:
 
 ```sh
 uvx maturin build --release --out wheels
-```
+````
 
 Note:
 

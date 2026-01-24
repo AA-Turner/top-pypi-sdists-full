@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pins
-Version: 0.9.0
+Version: 0.9.1
 Summary: Publish data sets, models, and other python objects, making it easy to share them across projects and with your colleagues.
 Author-email: Michael Chow <michael.chow@posit.co>
 Maintainer-email: Isabel Zimmerman <isabel.zimmerman@posit.co>
@@ -18,7 +18,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: appdirs<2
-Requires-Dist: fsspec>=2022.2
+Requires-Dist: fsspec<2025.9,>=2022.2
 Requires-Dist: humanize>=1
 Requires-Dist: importlib-metadata>=4.4
 Requires-Dist: importlib-resources>=1.3
@@ -33,13 +33,13 @@ Requires-Dist: typing_extensions
 Provides-Extra: aws
 Requires-Dist: s3fs; extra == "aws"
 Provides-Extra: azure
-Requires-Dist: adlfs; extra == "azure"
+Requires-Dist: adlfs>=2024.4.1; extra == "azure"
 Provides-Extra: check
 Requires-Dist: pre-commit; extra == "check"
 Requires-Dist: pyright==1.1.372; extra == "check"
 Requires-Dist: ruff==0.5.4; extra == "check"
 Requires-Dist: types-appdirs; extra == "check"
-Requires-Dist: databricks-sdk; extra == "check"
+Requires-Dist: pins[databricks]; extra == "check"
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk; extra == "databricks"
 Provides-Extra: doc
@@ -51,18 +51,18 @@ Requires-Dist: quartodoc; extra == "doc"
 Provides-Extra: gcs
 Requires-Dist: gcsfs; extra == "gcs"
 Provides-Extra: test
-Requires-Dist: adlfs>=2024.4.1; extra == "test"
+Requires-Dist: pins[azure]; extra == "test"
+Requires-Dist: pins[gcs]; extra == "test"
+Requires-Dist: pins[databricks]; extra == "test"
+Requires-Dist: pins[aws]; extra == "test"
 Requires-Dist: fastparquet; extra == "test"
-Requires-Dist: gcsfs; extra == "test"
 Requires-Dist: pip-tools; extra == "test"
 Requires-Dist: pyarrow; extra == "test"
 Requires-Dist: pytest==7.1.3; extra == "test"
 Requires-Dist: pytest-cases; extra == "test"
 Requires-Dist: pytest-dotenv; extra == "test"
 Requires-Dist: pytest-parallel; extra == "test"
-Requires-Dist: s3fs; extra == "test"
 Requires-Dist: rdata; extra == "test"
-Requires-Dist: databricks-sdk; extra == "test"
 Dynamic: license-file
 
 # pins

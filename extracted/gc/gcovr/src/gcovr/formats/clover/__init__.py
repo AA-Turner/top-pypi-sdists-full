@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,23 +17,20 @@
 #
 # ****************************************************************************
 
-from typing import Union
-
 from ...options import GcovrConfigOption, OutputOrDefault
 from ...formats.base import BaseHandler
 
-from ...coverage import CoverageContainer
+from ...data_model.container import CoverageContainer
 
 
 class CloverHandler(BaseHandler):
     """Class to handle Clover format."""
 
     @classmethod
-    def get_options(cls) -> list[Union[GcovrConfigOption, str]]:
+    def get_options(cls) -> list[GcovrConfigOption | str]:
         return [
             # Global options used for merging.
             "merge_mode_functions",
-            "merge_mode_conditions",
             # Local options
             GcovrConfigOption(
                 "clover",

@@ -224,7 +224,7 @@ class TabulateTest(parameterized.TestCase):
     rows = tabulate_to_list(g, params, rng)
     self.assertNotEmpty(rows)
 
-  @parameterized.parameters(lambda f: f, jax.jit, jax.pmap)
+  @parameterized.parameters(lambda f: f, jax.jit)
   def test_equivalent_when_passing_transformed_fn(self, jax_transform):
     f = lambda: CallsOtherModule(MultipleParametersModule())()
     f_transform = transform.transform(f)

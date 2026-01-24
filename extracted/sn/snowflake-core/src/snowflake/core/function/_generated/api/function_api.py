@@ -467,7 +467,7 @@ class FunctionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["function"]:
+        if _params["function"] is not None:
             _body_params = _params["function"]
 
         # set the HTTP header `Accept`
@@ -757,7 +757,7 @@ class FunctionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["function_argument"]:
+        if _params["function_argument"] is not None:
             _body_params = _params["function_argument"]
 
         # set the HTTP header `Accept`

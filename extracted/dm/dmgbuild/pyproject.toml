@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools==76.0.0",
+    "setuptools==80.9.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,8 +9,11 @@ dynamic = ["version"]
 name = "dmgbuild"
 description = "macOS command line utility to build disk images"
 readme = "README.rst"
-requires-python = ">= 3.9"
-license.text = "New BSD"
+requires-python = ">= 3.10"
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
 authors = [
     {name="Alastair Houghton", email="alastair@alastairs-place.net"}
 ]
@@ -22,14 +25,13 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Desktop Environment",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -49,17 +51,39 @@ Source = "https://github.com/dmgbuild/dmgbuild"
 dmgbuild = "dmgbuild.__main__:main"
 
 [project.optional-dependencies]
-dev = [
-    "coverage == 7.7.0",
-    "pre-commit == 4.1.0",
-    "pytest == 8.3.5",
-    "tox == 4.24.2",
+badge_icons = [
+    "pyobjc-framework-Quartz >= 3.0.4"
 ]
+
+[dependency-groups]
+package = [
+    "build == 1.3.0",
+    "twine == 6.2.0",
+]
+
+pre-commit = [
+    "prek == 0.2.25",
+]
+
+test = [
+    "coverage == 7.13.1",
+    "pytest == 9.0.2",
+]
+
+tox = [
+    "tox-uv == 1.29.0"
+]
+
+dev = [
+    {include-group = "pre-commit"},
+    {include-group = "test"},
+    {include-group = "tox"},
+]
+
 # Docs are always built on Py3.12; see RTD and tox config files.
 docs = [
-    "furo == 2024.8.6",
+    "furo == 2025.12.19",
     "sphinx == 8.2.3",
-    "sphinx-autobuild == 2024.10.3",
 ]
 
 [tool.setuptools.dynamic]
@@ -91,12 +115,28 @@ exclude_lines = [
     "if TYPE_CHECKING:",
 ]
 
-[tool.isort]
-profile = "black"
-split_on_trailing_comma = true
-combine_as_imports = true
-skip_glob = [
-    "docs/conf.py",
-    "venv*",
-    "local",
+[tool.ruff.lint]
+# In addition to the default rules, these additional rules will be used:
+extend-select = [
+    "E",      # pycodestyle
+    "W",      # pycodestyle
+    "F",      # pyflakes
+    "UP",     # pyupgrade
+    # "B",      # flake8-bugbear
+    "YTT",    # flake8-2020
+    "ASYNC",  # flake8-async
+    "C4",     # flake8-comprehensions
+    "I",      # isort
+    # "RUF",    # ruff-specific rules
+    "PT",     # flake8-pytest-style
+    "FURB",   # refurb
+    "ISC",    # flake8-implicit-str-concat
+    "PGH",    # pygrep-hooks
+    "T20",    # flake8-print
+    "PIE",    # flake8-pie
+    # "SIM",    # flake8-simplify
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# E501: line too long
+"tests/examples/settings.py" = ["E501"]

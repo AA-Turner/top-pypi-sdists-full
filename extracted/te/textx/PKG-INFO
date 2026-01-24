@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: textX
-Version: 4.2.2
+Version: 4.3.0
 Summary: Meta-language for DSL implementation inspired by Xtext
 Keywords: parser,meta-language,meta-model,language,DSL
 Author-email: "Igor R. Dejanović" <igor.dejanovic@gmail.com>, Pierre Bayerl <noemail@nowhere.com>
@@ -23,26 +23,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+License-File: LICENSE.txt
 Requires-Dist: Arpeggio >= 2.0.0
 Requires-Dist: importlib-metadata; python_version < '3.10'
 Requires-Dist: click >=7.0, <9.0 ; extra == "cli"
-Requires-Dist: textX-dev ; extra == "dev"
-Requires-Dist: click >=7.0, <9.0 ; extra == "dev"
-Requires-Dist: ruff ; extra == "dev"
-Requires-Dist: flit ; extra == "dev"
-Requires-Dist: click >=7.0, <9.0 ; extra == "test"
-Requires-Dist: ruff ; extra == "test"
-Requires-Dist: jinja2 ; extra == "test"
-Requires-Dist: coverage ; extra == "test"
-Requires-Dist: coveralls ; extra == "test"
-Requires-Dist: pytest ; extra == "test"
-Requires-Dist: html5lib ; extra == "test"
 Project-URL: Changelog, https://github.com/textX/textX/blob/master/CHANGELOG.md
 Project-URL: Homepage, https://textx.github.io/textX/
 Project-URL: Repository, https://github.com/textX/textX/
 Provides-Extra: cli
-Provides-Extra: dev
-Provides-Extra: test
 
 ![](https://raw.githubusercontent.com/textX/textX/master/art/textX-logo.png)
 

@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import json
 from unittest.mock import ANY
 
 import jsonschema.validators
 import pytest
 
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.coverage import (
     CoverageContext,
+    CoverageScenario,
     GeneratedValue,
     _positive_number,
     _positive_string,
@@ -26,7 +30,7 @@ def assert_unique(values: list):
     for value in values:
         if isinstance(value, GeneratedValue):
             value = value.value
-        if isinstance(value, (dict, list)):
+        if isinstance(value, (dict | list)):
             serialized = json.dumps(value, sort_keys=True)
             key = (type(value), serialized)
         else:
@@ -65,35 +69,41 @@ def assert_not_conform(values: list, schema: dict):
 
 
 @pytest.fixture
-def ctx():
-    return CoverageContext(
-        location="query",
-        is_required=True,
-        custom_formats=get_default_format_strategies(),
-        validator_cls=jsonschema.validators.Draft202012Validator,
-    )
+def ctx_factory():
+    def _factory(
+        *,
+        location: ParameterLocation = ParameterLocation.QUERY,
+        generation_modes: list[GenerationMode] | None = None,
+        is_required: bool = True,
+        allow_extra_parameters: bool = True,
+    ) -> CoverageContext:
+        return CoverageContext(
+            root_schema={},
+            location=location,
+            media_type=None,
+            generation_modes=generation_modes,
+            is_required=is_required,
+            custom_formats=get_default_format_strategies(),
+            validator_cls=jsonschema.validators.Draft202012Validator,
+            allow_extra_parameters=allow_extra_parameters,
+        )
+
+    return _factory
 
 
 @pytest.fixture
-def pctx():
-    return CoverageContext(
-        location="query",
-        generation_modes=[GenerationMode.POSITIVE],
-        is_required=True,
-        custom_formats=get_default_format_strategies(),
-        validator_cls=jsonschema.validators.Draft202012Validator,
-    )
+def ctx(ctx_factory):
+    return ctx_factory()
 
 
 @pytest.fixture
-def nctx():
-    return CoverageContext(
-        location="query",
-        generation_modes=[GenerationMode.NEGATIVE],
-        is_required=True,
-        custom_formats=get_default_format_strategies(),
-        validator_cls=jsonschema.validators.Draft202012Validator,
-    )
+def pctx(ctx_factory):
+    return ctx_factory(generation_modes=[GenerationMode.POSITIVE])
+
+
+@pytest.fixture
+def nctx(ctx_factory):
+    return ctx_factory(generation_modes=[GenerationMode.NEGATIVE])
 
 
 @pytest.mark.parametrize(
@@ -125,7 +135,7 @@ class AnyString:
 
 class AnyNumber:
     def __eq__(self, value: object, /) -> bool:
-        return not isinstance(value, bool) and isinstance(value, (int, float))
+        return not isinstance(value, bool) and isinstance(value, (int | float))
 
 
 @pytest.mark.parametrize(
@@ -163,6 +173,22 @@ def test_negative_primitive_schemas(nctx, schema, expected):
         assert covered == expected
     assert_unique(covered)
     assert_not_conform(covered, schema)
+
+
+@pytest.mark.parametrize("allow_extra_parameters", [True, False])
+def test_query_unexpected_parameters_control(ctx_factory, allow_extra_parameters):
+    schema = {
+        "type": "object",
+        "properties": {"token": {"type": "string"}},
+        "required": ["token"],
+        "additionalProperties": False,
+    }
+    ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], allow_extra_parameters=allow_extra_parameters)
+    scenarios = {value.scenario for value in cover_schema_iter(ctx, schema) if isinstance(value, GeneratedValue)}
+    if allow_extra_parameters:
+        assert CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES in scenarios
+    else:
+        assert CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES not in scenarios
 
 
 @pytest.mark.parametrize(
@@ -1090,6 +1116,16 @@ def test_negative_pattern_with_incompatible_length(nctx):
     assert_not_conform(covered, schema)
 
 
+def test_negative_multiple_types(nctx):
+    schema = {"type": ["integer", "number", "string"]}
+    assert not cover_schema(nctx, schema)
+
+
+def test_positive_multiple_types(pctx):
+    schema = {"type": ["string", "null"], "format": "date-time"}
+    assert cover_schema(pctx, schema) == ["", None]
+
+
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
@@ -1216,7 +1252,9 @@ def test_negative_combinators(nctx, schema, expected):
 def test_negative_one_of(schema, expected):
     # See GH-2975
     nctx = CoverageContext(
-        location="body",
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        media_type=("application", "json"),
         generation_modes=[GenerationMode.NEGATIVE],
         is_required=True,
         custom_formats=get_default_format_strategies(),
@@ -1647,3 +1685,289 @@ def test_large_arrays_nested(nctx):
         for item in cover_schema(nctx, schema)
         if isinstance(item, dict) and isinstance(item.get("questions"), list)
     }
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        # Basic $ref to simple type in $defs
+        (
+            {"$defs": {"SimpleString": {"type": "string", "minLength": 2}}, "$ref": "#/$defs/SimpleString"},
+            ["00", "000"],
+        ),
+        # $ref in object properties
+        (
+            {
+                "$defs": {"UserId": {"type": "integer", "minimum": 1}},
+                "type": "object",
+                "properties": {"id": {"$ref": "#/$defs/UserId"}},
+                "required": ["id"],
+            },
+            [{"id": 1}, {"id": 2}],
+        ),
+        # $ref in array items
+        (
+            {
+                "$defs": {"Tag": {"type": "string", "enum": ["red", "blue"]}},
+                "type": "array",
+                "items": {"$ref": "#/$defs/Tag"},
+            },
+            [[], ["red"], ["blue"]],
+        ),
+        # Nested $refs - reference pointing to another reference
+        (
+            {
+                "$defs": {
+                    "BaseString": {"type": "string"},
+                    "LimitedString": {"allOf": [{"$ref": "#/$defs/BaseString"}, {"maxLength": 3}]},
+                },
+                "$ref": "#/$defs/LimitedString",
+            },
+            ["000", "00"],
+        ),
+        # $ref in combinators
+        (
+            {
+                "$defs": {
+                    "PositiveInt": {"type": "integer", "minimum": 1},
+                    "NegativeInt": {"type": "integer", "maximum": -1},
+                },
+                "anyOf": [
+                    {"$ref": "#/$defs/PositiveInt"},
+                    {"$ref": "#/$defs/NegativeInt"},
+                ],
+            },
+            [1, 2, -1, -2],
+        ),
+        # $ref to boolean schema
+        (
+            {
+                "$defs": {"Anything": True},
+                "$ref": "#/$defs/Anything",
+            },
+            [
+                None,
+                True,
+                False,
+                "",
+                0,
+                [
+                    None,
+                    None,
+                ],
+                {},
+            ],
+        ),
+    ],
+    ids=["basic", "properties", "array", "nested", "combinators", "bool"],
+)
+def test_positive_bundled_schema_refs(pctx, schema, expected):
+    pctx.root_schema = schema
+    covered = cover_schema(pctx, schema)
+    assert covered == expected
+    assert_unique(covered)
+    assert_conform(covered, schema)
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        # Basic $ref negative case
+        (
+            {"$defs": {"PositiveInt": {"type": "integer", "minimum": 1}}, "$ref": "#/$defs/PositiveInt"},
+            [AnyNumber(), "false", "null", "", ["null", "null"], 0],
+        ),
+        # $ref in object properties - missing required property
+        (
+            {
+                "$defs": {"RequiredString": {"type": "string", "minLength": 3}},
+                "type": "object",
+                "properties": {"name": {"$ref": "#/$defs/RequiredString"}},
+                "required": ["name"],
+            },
+            [
+                0,
+                "false",
+                "null",
+                "",
+                ["null", "null"],
+                {"name": 0},
+                {"name": "00"},
+                {},
+            ],
+        ),
+        # $ref with complex validation
+        (
+            {
+                "$defs": {"Email": {"type": "string", "format": "email", "maxLength": 10}},
+                "type": "object",
+                "properties": {"contact": {"$ref": "#/$defs/Email"}},
+            },
+            [
+                0,
+                "false",
+                "null",
+                "",
+                [
+                    "null",
+                    "null",
+                ],
+                {
+                    "contact": 0,
+                },
+                {
+                    "contact": "false",
+                },
+                {
+                    "contact": "null",
+                },
+                {
+                    "contact": [
+                        "null",
+                        "null",
+                    ],
+                },
+                {"contact": ""},
+                {"contact": AnyString()},
+            ],
+        ),
+    ],
+    ids=["basic", "properties", "nested"],
+)
+def test_negative_bundled_schema_refs(nctx, schema, expected):
+    nctx.root_schema = schema
+    covered = cover_schema(nctx, schema)
+    assert covered == expected
+    assert_unique(covered)
+    assert_not_conform(covered, schema)
+
+
+@pytest.mark.parametrize(
+    ("schema", "min_expected_negative_count", "should_have_positive"),
+    [
+        # "not" schema: anything except strings with maxLength=10
+        # Negative cases are values that MATCH the inner schema (strings ≤10 chars)
+        ({"not": {"type": "string", "maxLength": 10}}, 1, True),
+        # "not" schema: anything except null
+        # Negative case is null (matches inner schema)
+        ({"not": {"type": "null"}}, 1, True),
+        # "not" schema with empty inner schema (nothing is valid)
+        # All values match the empty schema, so all are negative for "not"
+        # No positive cases possible (can't violate an empty schema)
+        ({"not": {}}, 1, False),
+        # "not" schema with type constraint
+        # Negative case is an integer (matches inner schema)
+        ({"not": {"type": "integer"}}, 1, True),
+    ],
+    ids=["maxLength", "null", "empty", "integer"],
+)
+def test_not_schema_generation_modes_consistency(
+    ctx_factory, schema, min_expected_negative_count, should_have_positive
+):
+    # Test with NEGATIVE mode only
+    nctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE])
+    negative_mode_values = list(cover_schema_iter(nctx, schema))
+
+    negative_only_negative = [v for v in negative_mode_values if v.generation_mode == GenerationMode.NEGATIVE]
+    negative_only_positive = [v for v in negative_mode_values if v.generation_mode == GenerationMode.POSITIVE]
+
+    # Test with ALL modes (both POSITIVE and NEGATIVE)
+    all_ctx = ctx_factory(generation_modes=[GenerationMode.POSITIVE, GenerationMode.NEGATIVE])
+    all_mode_values = list(cover_schema_iter(all_ctx, schema))
+
+    all_negative = [v for v in all_mode_values if v.generation_mode == GenerationMode.NEGATIVE]
+    all_positive = [v for v in all_mode_values if v.generation_mode == GenerationMode.POSITIVE]
+
+    # NEGATIVE mode should generate the same negative cases as ALL mode
+    negative_only_count = len(negative_only_negative)
+    all_negative_count = len(all_negative)
+
+    # Both should have at least the minimum expected negative count
+    assert negative_only_count >= min_expected_negative_count, (
+        f"Expected at least {min_expected_negative_count} negative cases in negative mode, "
+        f"but got {negative_only_count}"
+    )
+    assert all_negative_count >= min_expected_negative_count, (
+        f"Expected at least {min_expected_negative_count} negative cases in all mode, but got {all_negative_count}"
+    )
+
+    # The number of negative cases should be equal (the main bug we're testing)
+    assert negative_only_count == all_negative_count, (
+        f"Negative mode generated {negative_only_count} negative cases, "
+        f"but all mode generated {all_negative_count} negative cases. "
+    )
+
+    # ALL mode should have additional positive cases when expected
+    if should_have_positive:
+        assert len(all_positive) > 0, "All mode should generate positive cases for 'not' schemas"
+
+    # NEGATIVE mode should not generate positive cases when only negative mode is requested
+    assert len(negative_only_positive) == 0, (
+        f"Negative mode should not generate positive cases, but got {len(negative_only_positive)}"
+    )
+
+
+def test_items_false_with_prefix_items(pctx):
+    schema = {
+        "type": "array",
+        "items": False,
+        "prefixItems": [{"type": "string"}, {"type": "string"}],
+    }
+    covered = cover_schema(pctx, schema)
+    assert_unique(covered)
+    assert_conform(covered, schema)
+
+
+def test_negative_prefix_items(nctx):
+    schema = {
+        "type": "array",
+        "items": [{"type": "integer"}, {"type": "boolean"}],
+    }
+    covered = cover_schema(nctx, schema)
+    assert_unique(covered)
+    assert_not_conform(covered, schema)
+    # Should have negative cases for each position
+    arrays = [v for v in covered if isinstance(v, list)]
+    assert len(arrays) > 0
+    # Each array should have exactly 2 items (matching prefixItems length)
+    for arr in arrays:
+        assert len(arr) == 2
+
+
+@pytest.mark.parametrize("keyword", ["anyOf", "oneOf"])
+def test_anyof_oneof_with_items_as_list(nctx, keyword):
+    schema = {
+        "type": "object",
+        "properties": {
+            "data": {
+                keyword: [
+                    {"type": "array", "items": [{"type": "string"}]},
+                    {"type": "null"},
+                ]
+            }
+        },
+    }
+    covered = cover_schema(nctx, schema)
+    assert_unique(covered)
+    assert_not_conform(covered, schema)
+
+
+def test_negative_binary_string_type_violation(ctx_factory):
+    # Binary format strings should still generate non-string type violations
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    schema = {
+        "type": "object",
+        "properties": {
+            "key": {"type": "string"},
+            "value": {"type": "string", "format": "binary"},
+        },
+        "required": ["key", "value"],
+    }
+    covered = cover_schema(ctx, schema)
+    assert_unique(covered)
+    # Check that we generate non-string values for the binary property
+    non_string_values = [
+        v for v in covered if isinstance(v, dict) and "value" in v and not isinstance(v["value"], (str | bytes))
+    ]
+    assert len(non_string_values) > 0, "Should generate non-string type violations for binary format"
+    assert_not_conform(covered, schema)

@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from snowflake.core.cortex.inference_service._generated.models.non_streaming_complete_response_choices_inner_message import (
     NonStreamingCompleteResponseChoicesInnerMessage,
@@ -40,9 +40,10 @@ class NonStreamingCompleteResponseChoicesInner(BaseModel):
 
     __properties = ["message"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -67,7 +68,7 @@ class NonStreamingCompleteResponseChoicesInner(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of message
         if self.message:
@@ -86,9 +87,9 @@ class NonStreamingCompleteResponseChoicesInner(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return NonStreamingCompleteResponseChoicesInner.parse_obj(obj)
+            return NonStreamingCompleteResponseChoicesInner.model_validate(obj)
 
-        _obj = NonStreamingCompleteResponseChoicesInner.parse_obj(
+        _obj = NonStreamingCompleteResponseChoicesInner.model_validate(
             {
                 "message": NonStreamingCompleteResponseChoicesInnerMessage.from_dict(obj.get("message"))
                 if obj.get("message") is not None

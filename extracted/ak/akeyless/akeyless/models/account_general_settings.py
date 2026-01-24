@@ -36,6 +36,9 @@ class AccountGeneralSettings(object):
     openapi_types = {
         'account_default_key_item_id': 'int',
         'account_default_key_name': 'str',
+        'ai_insights': 'AiInsightsSetting',
+        'allow_auto_fill': 'bool',
+        'allowed_client_types': 'AllowedClientType',
         'allowed_clients_ips': 'AllowedIpSettings',
         'allowed_gateways_ips': 'AllowedIpSettings',
         'auth_usage_event': 'UsageEventSetting',
@@ -60,6 +63,9 @@ class AccountGeneralSettings(object):
     attribute_map = {
         'account_default_key_item_id': 'account_default_key_item_id',
         'account_default_key_name': 'account_default_key_name',
+        'ai_insights': 'ai_insights',
+        'allow_auto_fill': 'allow_auto_fill',
+        'allowed_client_types': 'allowed_client_types',
         'allowed_clients_ips': 'allowed_clients_ips',
         'allowed_gateways_ips': 'allowed_gateways_ips',
         'auth_usage_event': 'auth_usage_event',
@@ -81,7 +87,7 @@ class AccountGeneralSettings(object):
         'sharing_policy': 'sharing_policy'
     }
 
-    def __init__(self, account_default_key_item_id=None, account_default_key_name=None, allowed_clients_ips=None, allowed_gateways_ips=None, auth_usage_event=None, certificate_expiration_events=None, data_protection_section=None, default_home_page=None, dynamic_secret_max_ttl=None, enable_request_for_access=None, hide_personal_folder=None, hide_static_password=None, invalid_characters=None, item_usage_event=None, lock_default_key=None, password_expiration_info=None, password_policy=None, password_score=None, protect_items_by_default=None, rotation_secret_max_interval=None, sharing_policy=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, account_default_key_item_id=None, account_default_key_name=None, ai_insights=None, allow_auto_fill=None, allowed_client_types=None, allowed_clients_ips=None, allowed_gateways_ips=None, auth_usage_event=None, certificate_expiration_events=None, data_protection_section=None, default_home_page=None, dynamic_secret_max_ttl=None, enable_request_for_access=None, hide_personal_folder=None, hide_static_password=None, invalid_characters=None, item_usage_event=None, lock_default_key=None, password_expiration_info=None, password_policy=None, password_score=None, protect_items_by_default=None, rotation_secret_max_interval=None, sharing_policy=None, local_vars_configuration=None):  # noqa: E501
         """AccountGeneralSettings - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +95,9 @@ class AccountGeneralSettings(object):
 
         self._account_default_key_item_id = None
         self._account_default_key_name = None
+        self._ai_insights = None
+        self._allow_auto_fill = None
+        self._allowed_client_types = None
         self._allowed_clients_ips = None
         self._allowed_gateways_ips = None
         self._auth_usage_event = None
@@ -114,6 +123,12 @@ class AccountGeneralSettings(object):
             self.account_default_key_item_id = account_default_key_item_id
         if account_default_key_name is not None:
             self.account_default_key_name = account_default_key_name
+        if ai_insights is not None:
+            self.ai_insights = ai_insights
+        if allow_auto_fill is not None:
+            self.allow_auto_fill = allow_auto_fill
+        if allowed_client_types is not None:
+            self.allowed_client_types = allowed_client_types
         if allowed_clients_ips is not None:
             self.allowed_clients_ips = allowed_clients_ips
         if allowed_gateways_ips is not None:
@@ -198,6 +213,69 @@ class AccountGeneralSettings(object):
         """
 
         self._account_default_key_name = account_default_key_name
+
+    @property
+    def ai_insights(self):
+        """Gets the ai_insights of this AccountGeneralSettings.  # noqa: E501
+
+
+        :return: The ai_insights of this AccountGeneralSettings.  # noqa: E501
+        :rtype: AiInsightsSetting
+        """
+        return self._ai_insights
+
+    @ai_insights.setter
+    def ai_insights(self, ai_insights):
+        """Sets the ai_insights of this AccountGeneralSettings.
+
+
+        :param ai_insights: The ai_insights of this AccountGeneralSettings.  # noqa: E501
+        :type: AiInsightsSetting
+        """
+
+        self._ai_insights = ai_insights
+
+    @property
+    def allow_auto_fill(self):
+        """Gets the allow_auto_fill of this AccountGeneralSettings.  # noqa: E501
+
+
+        :return: The allow_auto_fill of this AccountGeneralSettings.  # noqa: E501
+        :rtype: bool
+        """
+        return self._allow_auto_fill
+
+    @allow_auto_fill.setter
+    def allow_auto_fill(self, allow_auto_fill):
+        """Sets the allow_auto_fill of this AccountGeneralSettings.
+
+
+        :param allow_auto_fill: The allow_auto_fill of this AccountGeneralSettings.  # noqa: E501
+        :type: bool
+        """
+
+        self._allow_auto_fill = allow_auto_fill
+
+    @property
+    def allowed_client_types(self):
+        """Gets the allowed_client_types of this AccountGeneralSettings.  # noqa: E501
+
+
+        :return: The allowed_client_types of this AccountGeneralSettings.  # noqa: E501
+        :rtype: AllowedClientType
+        """
+        return self._allowed_client_types
+
+    @allowed_client_types.setter
+    def allowed_client_types(self, allowed_client_types):
+        """Sets the allowed_client_types of this AccountGeneralSettings.
+
+
+        :param allowed_client_types: The allowed_client_types of this AccountGeneralSettings.  # noqa: E501
+        :type: AllowedClientType
+        """
+
+        self._allowed_client_types = allowed_client_types
 
     @property
     def allowed_clients_ips(self):

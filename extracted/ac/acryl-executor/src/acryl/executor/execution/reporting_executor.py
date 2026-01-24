@@ -26,7 +26,7 @@ from datahub.metadata.schema_classes import (
     StructuredExecutionReportClass,
     SystemMetadataClass,
 )
-from pydantic import validator
+from pydantic import ConfigDict, field_validator
 
 from acryl.executor.cloud_utils.env_utils import get_payload_max_length
 from acryl.executor.execution.default_executor import (
@@ -57,11 +57,13 @@ class ReportingExecutorConfig(DefaultExecutorConfig):
     graph_client: Optional[DataHubGraph] = None
     graph_client_config: Optional[DatahubClientConfig] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @validator("graph_client")
-    def check_graph_connection(cls, v):
+    @field_validator("graph_client", mode="after")
+    @classmethod
+    def check_graph_connection(
+        cls, v: Optional[DataHubGraph]
+    ) -> Optional[DataHubGraph]:
         if v is not None:
             v.test_connection()
         return v

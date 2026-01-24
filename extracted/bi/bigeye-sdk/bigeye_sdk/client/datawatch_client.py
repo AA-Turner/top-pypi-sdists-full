@@ -5,7 +5,7 @@ import os
 import time
 from abc import ABC
 from json import JSONDecodeError
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Union
 
 from requests.auth import HTTPBasicAuth
 
@@ -21,11 +21,13 @@ from bigeye_sdk.client.enum import Method
 from bigeye_sdk.authentication.config import WorkspaceConfig
 from bigeye_sdk.client.generated_datawatch_client import GeneratedDatawatchClient
 from bigeye_sdk.exceptions.exceptions import NoSourcesFoundException, TableNotFoundException, \
-    BigconfigIncompleteException, WorkspaceNotSetException, AuthenticationFailedException
+    BigconfigIncompleteException, WorkspaceNotSetException, AuthenticationFailedException, CollectionNotFoundException
 from bigeye_sdk.functions.delta_functions import infer_column_mappings, build_ccm
 from bigeye_sdk.functions.metric_functions import set_default_model_type_for_threshold, is_freshness_metric
 from bigeye_sdk.functions.table_functions import get_table_column_priority_first, table_has_metric_time, \
     fully_qualified_table_to_elements
+from bigeye_sdk.generated.com.bigeye.models._generated_root import TagItem, WorkflowV2Id, WorkflowV2StatusResponse, \
+    BulkWorkflowV2StatusRequest, BulkWorkflowV2StatusResponse
 from bigeye_sdk.generated.com.bigeye.models.generated import (
     MetricConfiguration,
     MetricType,
@@ -64,14 +66,22 @@ from bigeye_sdk.generated.com.bigeye.models.generated import (
     TableLineageV2Response,
     ObjectOwnerResponse, SendDbtCoreRunInfoResponse, SendDbtCoreRunInfoRequest, CustomRuleBulkRequest, BulkResponse,
     CustomRulesThresholdType, MetricSchedule, CustomRuleInfo,
-    MetricTemplateParameterType,
-    GetCustomRuleListResponse, Workspace, User, SearchType, SearchResponse, SearchRequest, DataNodeType,
-    LineageSearchResponse, LineageSearchRequest,
+    SearchResponse, SearchRequest, DataNodeType,
     GetCustomRuleListResponse, Workspace, User, BigconfigWorkflowV2StatusResponse, IssueAssignmentUpdate,
-    UpdateIssueRequest, UpdateIssueResponse, Issue
+    UpdateIssueRequest, UpdateIssueResponse, Issue, CustomIntegrationType, GetCustomIntegrationTypesResponse,
+    CustomRepository, GetCustomRepositoriesResponse, CustomNodeType, BulkCreateCustomNodeTypesRequest,
+    GetCustomNodeTypesResponse, LineageNodeV2, CreateLineageNodeV2Request, CreateLineageNodeV2BulkRequest,
+    CustomRepositorySyncRequest, CustomRepositorySyncResponse,
+    ExternalMonitorRunRequest, MetricInfo,
+    IntegrationType, GetCatalogEntityChildrenResponse, GetCatalogEntityChildrenRequest, Tag, TagRequest, TagResponse,
+    UntagRequest, UntagResponse, CreateOrUpdateTagRequest, CreateOrUpdateTagResponse, DeleteTagResponse,
+    GetAllTagsRequest, GetAllTagsResponse, GetTagItemResponse, GetMetricRunsRequest, GetMetricRunsResponse,
+    GetMetricRunsBulkRequest, GetMetricRunsBulkResponse, MetricIdentifier, Collection
 )
+
 from bigeye_sdk.log import get_logger
 from bigeye_sdk.model.delta_facade import SimpleDeltaConfiguration
+from bigeye_sdk.model.integration_facade import SimpleCustomIntegration, CustomIntegrationDeploymentResult
 from bigeye_sdk.model.metric_facade import SimpleUpsertMetricRequest
 from bigeye_sdk.model.protobuf_enum_facade import SimpleCatalogEntityType
 from bigeye_sdk.model.protobuf_extensions import MetricDebugQueries
@@ -153,6 +163,10 @@ def create_agent_api_key(cred: ApiAuth, name: str, description: Optional[str] = 
     return __get_all_workspace_client(cred=cred).create_agent_api_key(name=name, description=description).api_key
 
 
+def create_integration_api_key(cred: ApiAuth, name: str, description: Optional[str] = "") -> str:
+    return __get_all_workspace_client(cred=cred).create_integration_api_key(name=name, description=description).api_key
+
+
 def get_all_workspaces_for_login(cred: ApiAuth) -> List[Workspace]:
     return __get_all_workspace_client(cred=cred).get_workspaces().workspaces
 
@@ -166,12 +180,14 @@ def get_allowed_emails_for_workspace(cred: ApiAuth, workspace_id: int) -> List[s
             __get_all_workspace_client(cred=cred).get_workspace_accessors(workspace_id=workspace_id).users
             ]
 
-def verify_agent_api_key(self, *, base_url: str, agent_api_key: str) -> bool:
+
+def verify_agent_api_key(base_url: str, agent_api_key: str) -> bool:
     response = requests.get(url=f"{base_url}/api/v1/agent-api-keys/verify",
                             headers={"Authorization": f"apikey {agent_api_key}"})
     return True if response.status_code == 204 else False
 
-def verify_personal_api_key(self, *, base_url: str, personal_api_key: str) -> bool:
+
+def verify_personal_api_key(base_url: str, personal_api_key: str) -> bool:
     response = requests.get(url=f"{base_url}/api/v1/personal-api-keys/verify",
                             headers={"Authorization": f"apikey {personal_api_key}"})
     return True if response.status_code == 204 else False
@@ -274,6 +290,16 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
     def get_table_level_metrics_raw(self) -> dict:
         url = '/api/v1/metrics/table-level-metric-names'
         return self._call_datawatch(Method.GET, url=url)
+
+    def get_datawatch_json_response(self,
+                                    method: Method,
+                                    url: str,
+                                    body: Optional[str],
+                                    params: Optional[dict] = None,
+                                    timeout: Optional[int] = None,
+                                    proxies: Optional[dict] = {}
+                                    ) -> dict:
+        return self._call_datawatch(method, url, body=body, params=params, timeout=timeout, proxies=proxies)
 
     def get_sources_by_name(self, source_names: List[str] = None) -> Dict[str, Source]:
         """
@@ -687,7 +713,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
                             purge_all_sources: bool = False,
                             apply: bool = False,
                             namespace: Optional[str] = None
-    ) -> List[MetricSuiteReport]:
+                            ) -> List[MetricSuiteReport]:
         """
         Purges metric suites for all warehouse_ids.
         Args:
@@ -821,6 +847,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
             muted_until_epoch_seconds: int = 0,
             name: str = "",
             description: str = "",
+            rct_override: Optional[str] = None,
             metric_configuration: MetricConfiguration = None
     ) -> MetricConfiguration:
         """Create or update metric"""
@@ -846,6 +873,8 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
                 request.parameters = parameters
             if lookback is not None:
                 request.lookback = lookback
+            if rct_override:
+                request.rct_override = rct_override
             request.lookback_type = lookback_type
             request.metric_creation_state = metric_creation_state
             request.grain_seconds = grain_seconds
@@ -926,6 +955,114 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
             self.backfill_metric(metric_ids=[result.id])
 
         return result.id
+
+    def create_external_monitor(self, metric: MetricConfiguration) -> MetricConfiguration:
+        """
+        Create an external monitor.
+        External monitors allow submitting metric results from external systems.
+
+        Args:
+            metric: MetricConfiguration object defining the external monitor
+
+        Returns:
+            MetricConfiguration object for the created external monitor
+        """
+        url = "/api/v1/monitors/external"
+        response = self._call_datawatch(Method.POST, url=url, body=metric.to_json())
+        return MetricConfiguration().from_dict(response)
+
+    def submit_external_monitor_run(
+        self,
+        monitor_id: int,
+        run_request: ExternalMonitorRunRequest
+    ) -> MetricInfo:
+        """
+        Submit a run result for an external monitor.
+        Args:
+            monitor_id: ID of the external monitor
+            run_request: ExternalMonitorRunRequest containing the run data
+
+        Returns:
+            MetricInfo object containing the result of the monitor run
+        """
+        url = f"/api/v1/monitors/external/{monitor_id}/runs"
+
+        # Manually construct JSON body to ensure observed_value is always included
+        # (betterproto omits fields with default values, and 0.0 is the default for doubles)
+        body_dict = {
+            "observedValue": run_request.observed_value,
+            "runAtEpochSeconds": str(run_request.run_at_epoch_seconds)
+        }
+        body_json = json.dumps(body_dict)
+
+        response = self._call_datawatch(Method.POST, url=url, body=body_json)
+        return MetricInfo().from_dict(response)
+
+    def get_metric_runs(
+        self,
+        metric_id: int,
+        days_of_history: Optional[int] = None,
+        start_epoch_seconds: Optional[int] = None,
+        end_epoch_seconds: Optional[int] = None
+    ) -> GetMetricRunsResponse:
+        """
+        Get metric runs for a single metric.
+
+        Args:
+            metric_id: ID of the metric
+            days_of_history: Optional number of days of history to fetch
+            start_epoch_seconds: Optional start time filter (epoch seconds)
+            end_epoch_seconds: Optional end time filter (epoch seconds)
+
+        Returns:
+            GetMetricRunsResponse containing the metric runs
+        """
+        url = "/api/v1/metrics/runs"
+        request = GetMetricRunsRequest()
+        request.metric_identifier = MetricIdentifier(metric_id=metric_id)
+
+        if days_of_history is not None:
+            request.days_of_history = days_of_history
+        if start_epoch_seconds is not None:
+            request.start_epoch_seconds = start_epoch_seconds
+        if end_epoch_seconds is not None:
+            request.end_epoch_seconds = end_epoch_seconds
+
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return GetMetricRunsResponse().from_dict(response)
+
+    def get_metric_runs_bulk(
+        self,
+        metric_ids: List[int],
+        days_of_history: Optional[int] = None,
+        start_epoch_seconds: Optional[int] = None,
+        end_epoch_seconds: Optional[int] = None
+    ) -> GetMetricRunsBulkResponse:
+        """
+        Get metric runs for multiple metrics in a single request.
+
+        Args:
+            metric_ids: List of metric IDs
+            days_of_history: Optional number of days of history to fetch
+            start_epoch_seconds: Optional start time filter (epoch seconds)
+            end_epoch_seconds: Optional end time filter (epoch seconds)
+
+        Returns:
+            GetMetricRunsBulkResponse containing metric runs for all requested metrics
+        """
+        url = "/api/v1/metrics/runs/bulk"
+        request = GetMetricRunsBulkRequest()
+        request.metric_identifier = [MetricIdentifier(metric_id=mid) for mid in metric_ids]
+
+        if days_of_history is not None:
+            request.days_of_history = days_of_history
+        if start_epoch_seconds is not None:
+            request.start_epoch_seconds = start_epoch_seconds
+        if end_epoch_seconds is not None:
+            request.end_epoch_seconds = end_epoch_seconds
+
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return GetMetricRunsBulkResponse().from_dict(response)
 
     def regen_autometrics(self, table_id: int):
         url = f'/statistics/suggestions/{table_id}/queue'
@@ -1133,7 +1270,8 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         response = self._call_datawatch_impl(method=Method.GET, url=url)
         return TableLineageV2Response(**response)
 
-    def search_lineage(self, search: str, search_type: Optional[DataNodeType] = None, limit: Optional[int] = 100) -> SearchResponse:
+    def search_lineage(self, search: str, search_type: Optional[DataNodeType] = None,
+                       limit: Optional[int] = 100) -> SearchResponse:
         url = f"/api/v1/search"
         request = SearchRequest()
         request.search = search
@@ -1155,3 +1293,740 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         request = UpdateIssueRequest(assignment_update=assignment_update)
         response = self._call_datawatch(Method.PUT, url, request.to_json())
         return UpdateIssueResponse().from_dict(response).issue
+
+    def get_current_workspace(self) -> Workspace:
+        return Workspace().from_dict(
+            self._call_datawatch(Method.GET, url=f"/api/v1/workspaces/{self.config.workspace_id}")
+        )
+
+    # Custom Integration Types
+    def create_custom_integration_type(self, name: str, type: IntegrationType,
+                                       description: Optional[str] = None,
+                                       icon_url: Optional[str] = None) -> CustomIntegrationType:
+        """
+        Create a custom integration type.
+
+        Args:
+            name: Display name for the integration type
+            type: Category of integration (IntegrationType enum - e.g., INTEGRATION_TYPE_DATABASE, INTEGRATION_TYPE_BI_TOOL)
+            description: Optional description of the integration type
+            icon_url: Optional URL to an icon image (.png, .svg, .jpg, .jpeg, .gif, .webp)
+
+        Returns:
+            CustomIntegrationType object containing id, name, description, type, and icon_url
+        """
+        url = "/api/v2/lineage/custom-integration-types"
+        integration_type = CustomIntegrationType(
+            name=name,
+            type=type,
+            description=description or "",
+            icon_url=icon_url or ""
+        )
+        response = self._call_datawatch(Method.POST, url=url, body=integration_type.to_json())
+        return CustomIntegrationType().from_dict(response)
+
+    def get_custom_integration_types(self) -> GetCustomIntegrationTypesResponse:
+        """
+        Get all custom integration types.
+
+        Returns:
+            GetCustomIntegrationTypesResponse containing list of CustomIntegrationType objects
+        """
+        url = "/api/v2/lineage/custom-integration-types"
+        response = self._call_datawatch(Method.GET, url=url)
+        return GetCustomIntegrationTypesResponse().from_dict(response)
+
+    def update_custom_integration_type(self, integration_type_id: int, name: Optional[str] = None,
+                                       type: Optional[IntegrationType] = None,
+                                       description: Optional[str] = None,
+                                       icon_url: Optional[str] = None) -> CustomIntegrationType:
+        """
+        Update a custom integration type.
+
+        Args:
+            integration_type_id: ID of the integration type to update
+            name: Display name for the integration type
+            type: Category of integration (IntegrationType enum)
+            description: Optional description of the integration type
+            icon_url: Optional URL to an icon image
+
+        Returns:
+            CustomIntegrationType object with updated values
+        """
+        url = f"/api/v2/lineage/custom-integration-types/{integration_type_id}"
+        # First get the existing integration type
+        existing = self.get_custom_integration_types()
+        current = next((t for t in existing.types if t.id == integration_type_id), None)
+        if not current:
+            raise Exception(f"Integration type with id {integration_type_id} not found")
+
+        # Update only provided fields
+        updated = CustomIntegrationType(
+            id=integration_type_id,
+            name=name if name is not None else current.name,
+            type=type if type is not None else current.type,
+            description=description if description is not None else current.description,
+            icon_url=icon_url if icon_url is not None else current.icon_url
+        )
+        response = self._call_datawatch(Method.PUT, url=url, body=updated.to_json())
+        return CustomIntegrationType().from_dict(response)
+
+    def delete_custom_integration_type(self, integration_type_id: int) -> None:
+        """
+        Delete a custom integration type.
+
+        Args:
+            integration_type_id: ID of the integration type to delete
+        """
+        url = f"/api/v2/lineage/custom-integration-types/{integration_type_id}"
+        self._call_datawatch(Method.DELETE, url=url)
+
+    # Custom Repositories
+    def create_custom_repository(self, name: str, integration_type_id: int) -> CustomRepository:
+        """
+        Create a custom repository.
+
+        Args:
+            name: Display name for the repository
+            integration_type_id: The ID of the custom integration type
+
+        Returns:
+            CustomRepository object containing id, name, workspace_id and integration_type
+        """
+        url = "/api/v2/lineage/custom-repositories"
+        repository = CustomRepository(
+            name=name,
+            integration_type=CustomIntegrationType(id=integration_type_id),
+            workspace_id=self.config.workspace_id
+        )
+        response = self._call_datawatch(Method.POST, url=url, body=repository.to_json())
+        return CustomRepository().from_dict(response)
+
+    def get_custom_repositories(self) -> GetCustomRepositoriesResponse:
+        """
+        Get all custom repositories.
+
+        Returns:
+            GetCustomRepositoriesResponse containing list of CustomRepository objects
+        """
+        url = "/api/v2/lineage/custom-repositories"
+        response = self._call_datawatch(Method.GET, url=url)
+        return GetCustomRepositoriesResponse().from_dict(response)
+
+    def update_custom_repository(self, repository_id: int, name: Optional[str] = None,
+                                 integration_type_id: Optional[int] = None) -> CustomRepository:
+        """
+        Update a custom repository.
+
+        Args:
+            repository_id: ID of the repository to update
+            name: Display name for the repository
+            integration_type_id: The ID of the custom integration type
+
+        Returns:
+            CustomRepository object with updated values
+        """
+        url = f"/api/v2/lineage/custom-repositories/{repository_id}"
+        # Get existing repository
+        existing = self.get_custom_repositories()
+        current = next((r for r in existing.repositories if r.id == repository_id), None)
+        if not current:
+            raise Exception(f"Repository with id {repository_id} not found")
+
+        # Update only provided fields
+        updated = CustomRepository(
+            id=repository_id,
+            name=name if name is not None else current.name,
+            integration_type=CustomIntegrationType(id=integration_type_id) if integration_type_id is not None else current.integration_type,
+            workspace_id=current.workspace_id
+        )
+        response = self._call_datawatch(Method.PUT, url=url, body=updated.to_json())
+        return CustomRepository().from_dict(response)
+
+    def delete_custom_repository(self, repository_id: int) -> None:
+        """
+        Delete a custom repository.
+
+        Args:
+            repository_id: ID of the repository to delete
+        """
+        url = f"/api/v2/lineage/custom-repositories/{repository_id}"
+        self._call_datawatch(Method.DELETE, url=url)
+
+    def sync_custom_repository(self, request: CustomRepositorySyncRequest) -> CustomRepositorySyncResponse:
+        """
+        Sync a custom repository (declarative sync).
+
+        This endpoint allows you to declaratively define the desired state of a
+        custom repository including all its nodes and edges. The API will compute
+        the differences and perform create/update/delete operations automatically.
+
+        Returns:
+            CustomRepositorySyncResponse with workflow_v2_id for tracking the sync
+        """
+        url = "/api/v2/lineage/custom-repositories/sync"
+        response_dict = self._call_datawatch(
+            method=Method.POST,
+            url=url,
+            body=request.to_json()
+        )
+        return CustomRepositorySyncResponse().from_dict(response_dict)
+
+    # Custom Node Types
+    def create_custom_node_types_bulk(self, types: List[CustomNodeType]) -> BulkResponse:
+        """
+        Create custom node types in bulk.
+
+        Args:
+            types: List of CustomNodeType objects. Each should contain:
+                - name: Singular display name for the node type
+                - name_plural: Plural display name for the node type
+                - integration_type: CustomIntegrationType with id
+                - allowed_parent_types: Optional list of CustomNodeType objects with id or name
+
+        Returns:
+            BulkResponse with successful_ids and failed_updates
+
+        Example:
+            types = [
+                CustomNodeType(
+                    name="Schema",
+                    name_plural="Schemas",
+                    integration_type=CustomIntegrationType(id=1)
+                ),
+                CustomNodeType(
+                    name="Table",
+                    name_plural="Tables",
+                    integration_type=CustomIntegrationType(id=1),
+                    allowed_parent_types=[CustomNodeType(name="Schema")]
+                )
+            ]
+        """
+        url = "/api/v2/lineage/custom-node-types/bulk"
+        request = BulkCreateCustomNodeTypesRequest(types=types)
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return BulkResponse().from_dict(response)
+
+    def get_custom_node_types(self) -> GetCustomNodeTypesResponse:
+        """
+        Get all custom node types.
+
+        Returns:
+            GetCustomNodeTypesResponse containing list of CustomNodeType objects
+        """
+        url = "/api/v2/lineage/custom-node-types"
+        response = self._call_datawatch(Method.GET, url=url)
+        return GetCustomNodeTypesResponse().from_dict(response)
+
+    def update_custom_node_type(self, node_type_id: int, name: Optional[str] = None,
+                                name_plural: Optional[str] = None,
+                                allowed_parent_types: Optional[List[CustomNodeType]] = None) -> CustomNodeType:
+        """
+        Update a custom node type.
+
+        Args:
+            node_type_id: ID of the node type to update
+            name: Singular display name for the node type
+            name_plural: Plural display name for the node type
+            allowed_parent_types: Optional list of CustomNodeType objects with id or name
+
+        Returns:
+            CustomNodeType object with updated values
+        """
+        url = f"/api/v2/lineage/custom-node-types/{node_type_id}"
+        # Get existing node type
+        existing = self.get_custom_node_types()
+        current = next((t for t in existing.types if t.id == node_type_id), None)
+        if not current:
+            raise Exception(f"Node type with id {node_type_id} not found")
+
+        # Update only provided fields
+        updated = CustomNodeType(
+            id=node_type_id,
+            name=name if name is not None else current.name,
+            name_plural=name_plural if name_plural is not None else current.name_plural,
+            integration_type=current.integration_type,
+            allowed_parent_types=allowed_parent_types if allowed_parent_types is not None else current.allowed_parent_types
+        )
+        response = self._call_datawatch(Method.PUT, url=url, body=updated.to_json())
+        return CustomNodeType().from_dict(response)
+
+    def delete_custom_node_type(self, node_type_id: int) -> None:
+        """
+        Delete a custom node type.
+
+        Args:
+            node_type_id: ID of the node type to delete
+        """
+        url = f"/api/v2/lineage/custom-node-types/{node_type_id}"
+        self._call_datawatch(Method.DELETE, url=url)
+
+    # Nodes
+    def create_custom_lineage_node(self, node_name: str, node_type: DataNodeType, node_container_name: str,
+                                   custom_repository_id: int, custom_node_type_id: int,
+                                   node_container_entity_id: Optional[int] = None,
+                                   icon_url: Optional[str] = None) -> LineageNodeV2:
+        """
+        Create a custom lineage node.
+
+        Args:
+            node_name: Name of the node (e.g., "users", "public")
+            node_type: DataNodeType enum - use DATA_NODE_TYPE_CUSTOM for custom nodes or DATA_NODE_TYPE_CUSTOM_ENTRY for leaf nodes
+            node_container_name: Name of the parent container. For root nodes, use the repository name
+            custom_repository_id: The ID of the custom repository
+            custom_node_type_id: The ID of the custom node type
+            node_container_entity_id: Entity ID of the parent node. Required for child nodes, omit for root-level
+            icon_url: Optional icon URL for this specific node
+
+        Returns:
+            LineageNodeV2 object containing id, node_entity_id, node_name, etc.
+        """
+        url = "/api/v2/lineage/nodes"
+        request = CreateLineageNodeV2Request(
+            node_name=node_name,
+            node_type=node_type,
+            node_container_name=node_container_name,
+            workspace_id=self.config.workspace_id,
+            custom_repository_id=custom_repository_id,
+            custom_node_type_id=custom_node_type_id,
+            node_container_entity_id=node_container_entity_id or 0,
+            icon_url=icon_url or ""
+        )
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return LineageNodeV2().from_dict(response)
+
+    def get_lineage_node(self, node_id: int) -> LineageNodeV2:
+        """
+        Get a specific lineage node by ID.
+
+        Args:
+            node_id: ID of the node to retrieve
+
+        Returns:
+            LineageNodeV2 object containing the node details
+        """
+        url = f"/api/v2/lineage/nodes/{node_id}"
+        response = self._call_datawatch(Method.GET, url=url)
+        return LineageNodeV2().from_dict(response)
+
+    def bulk_create_custom_lineage_nodes(self, nodes: List[CreateLineageNodeV2Request]) -> BulkResponse:
+        """
+        Create multiple custom lineage nodes in bulk.
+
+        Args:
+            nodes: List of CreateLineageNodeV2Request objects
+
+        Returns:
+            BulkResponse with successful_ids and failed_updates
+        """
+        url = "/api/v2/lineage/nodes/bulk"
+
+        # Ensure workspace ID is set on each node
+        for node in nodes:
+            if node.workspace_id == 0:
+                node.workspace_id = self.config.workspace_id
+
+        request = CreateLineageNodeV2BulkRequest(nodes=nodes)
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return BulkResponse().from_dict(response)
+
+    def upsert_custom_integration(self, integration: 'SimpleCustomIntegration') -> 'CustomIntegrationDeploymentResult':
+        """
+        Upsert a complete custom integration including integration type, node types, and repositories.
+
+        This method orchestrates the creation/update of all components of a custom integration.
+        It checks if existing resources match the incoming specs and updates them if they differ.
+
+        Args:
+            integration: SimpleCustomIntegration object containing the full integration definition
+
+        Returns:
+            CustomIntegrationDeploymentResult containing IDs of all created/updated resources
+        """
+        # Step 1: Create or update integration type
+        log.info(f"Upserting custom integration: {integration.name}")
+
+        # Check if integration type already exists
+        existing_types = self.get_custom_integration_types()
+        existing_type = next(
+            (t for t in existing_types.types if t.name == integration.name),
+            None
+        )
+
+        if existing_type:
+            log.info(f"Integration type '{integration.name}' already exists with ID {existing_type.id}")
+            integration.integration_type_id = existing_type.id
+
+            # Check if existing integration type matches incoming specs
+            needs_update = False
+            update_fields = {}
+
+            if existing_type.description != (integration.description or ""):
+                needs_update = True
+                update_fields['description'] = integration.description
+                log.info(f"Description differs - will update")
+
+            if existing_type.type != integration.type.to_protobuf():
+                needs_update = True
+                update_fields['type'] = integration.type.to_protobuf()
+                log.info(f"Type differs - will update")
+
+            if existing_type.icon_url != (integration.icon_url or ""):
+                needs_update = True
+                update_fields['icon_url'] = integration.icon_url
+                log.info(f"Icon URL differs - will update")
+
+            if needs_update:
+                log.info(f"Updating integration type '{integration.name}' with fields: {list(update_fields.keys())}")
+                updated_type = self.update_custom_integration_type(
+                    integration_type_id=existing_type.id,
+                    **update_fields
+                )
+                result = CustomIntegrationDeploymentResult(
+                    integration_type_id=updated_type.id,
+                    updated=True
+                )
+            else:
+                log.info(f"Integration type '{integration.name}' matches specs - no update needed")
+                result = CustomIntegrationDeploymentResult(
+                    integration_type_id=existing_type.id,
+                    updated=False
+                )
+        else:
+            log.info(f"Creating new integration type: {integration.name}")
+            created_type = self.create_custom_integration_type(
+                name=integration.name,
+                type=integration.type.to_protobuf(),
+                description=integration.description,
+                icon_url=integration.icon_url
+            )
+            integration.integration_type_id = created_type.id
+            result = CustomIntegrationDeploymentResult(
+                integration_type_id=created_type.id,
+                created=True
+            )
+            log.info(f"Created integration type with ID: {created_type.id}")
+
+        # Step 2: Create or update node types
+        log.info(f"Deploying {len(integration.node_types)} node types")
+
+        # Get existing node types for this integration
+        all_node_types = self.get_custom_node_types()
+        existing_node_types = {
+            nt.name: nt for nt in all_node_types.types
+            if nt.integration_type.id == integration.integration_type_id
+        }
+
+        # Check existing node types and separate new ones
+        new_node_types = []
+        for node_type in integration.node_types:
+            if node_type.name in existing_node_types:
+                existing = existing_node_types[node_type.name]
+                node_type.id = existing.id
+                result.node_type_ids[node_type.name] = existing.id
+                log.info(f"Node type '{node_type.name}' already exists with ID {existing.id}")
+
+                # Check if node type needs updating
+                needs_update = False
+                update_fields = {}
+
+                if existing.name_plural != node_type.name_plural:
+                    needs_update = True
+                    update_fields['name_plural'] = node_type.name_plural
+                    log.info(f"Node type '{node_type.name}' name_plural differs - will update")
+
+                # Compare allowed_parent_types
+                existing_parent_names = set(pt.name for pt in (existing.allowed_parent_types or []))
+                incoming_parent_names = set(node_type.allowed_parent_types or [])
+                if existing_parent_names != incoming_parent_names:
+                    needs_update = True
+                    # Build parent types list with proper structure
+                    parent_types = [CustomNodeType(name=name) for name in incoming_parent_names]
+                    update_fields['allowed_parent_types'] = parent_types
+                    log.info(f"Node type '{node_type.name}' allowed_parent_types differ - will update")
+
+                # Compare is_column_display value
+                if existing.is_column_display != node_type.is_column_display:
+                    needs_update = True
+                    update_fields['is_column_display'] = node_type.is_column_display
+                    log.info(f"Node type '{node_type.name}' is_column_display differs - will update")
+
+                if needs_update:
+                    log.info(f"Updating node type '{node_type.name}' with fields: {list(update_fields.keys())}")
+                    self.update_custom_node_type(
+                        node_type_id=existing.id,
+                        **update_fields
+                    )
+                    result.updated = True
+            else:
+                new_node_types.append(node_type)
+
+        # Create new node types in bulk if any
+        if new_node_types:
+            log.info(f"Creating {len(new_node_types)} new node types")
+            protobuf_node_types = [
+                nt.to_protobuf(integration.integration_type_id)
+                for nt in new_node_types
+            ]
+            bulk_response = self.create_custom_node_types_bulk(protobuf_node_types)
+
+            # Map IDs back to node type names
+            # Note: The bulk response returns IDs in order, so we can match them
+            if bulk_response.successful_ids:
+                for i, node_type in enumerate(new_node_types):
+                    if i < len(bulk_response.successful_ids):
+                        node_id = bulk_response.successful_ids[i]
+                        node_type.id = node_id
+                        result.node_type_ids[node_type.name] = node_id
+                        log.info(f"Created node type '{node_type.name}' with ID {node_id}")
+                result.created = True
+
+            if bulk_response.failed_updates:
+                log.warning(f"Failed to create some node types: {bulk_response.failed_updates}")
+
+        # Step 3: Create or update repositories
+        if integration.repositories:
+            log.info(f"Deploying {len(integration.repositories)} repositories")
+
+            # Get existing repositories for this integration
+            all_repos = self.get_custom_repositories()
+            existing_repos = {
+                r.name: r for r in all_repos.repositories
+                if r.integration_type.id == integration.integration_type_id
+            }
+
+            for repo in integration.repositories:
+                if repo.name in existing_repos:
+                    existing = existing_repos[repo.name]
+                    repo.id = existing.id
+                    result.repository_ids[repo.name] = existing.id
+                    log.info(f"Repository '{repo.name}' already exists with ID {existing.id}")
+                else:
+                    log.info(f"Creating repository: {repo.name}")
+                    created_repo = self.create_custom_repository(
+                        name=repo.name,
+                        integration_type_id=integration.integration_type_id
+                    )
+                    repo.id = created_repo.id
+                    result.repository_ids[repo.name] = created_repo.id
+                    result.created = True
+                    log.info(f"Created repository '{repo.name}' with ID {created_repo.id}")
+
+        log.info(f"Successfully deployed custom integration '{integration.name}'")
+        return result
+
+    # Workspace Tags (v2 API)
+    def get_tag(self, tag_id: int) -> Tag:
+        """
+        Get a single tag by ID.
+
+        Args:
+            tag_id: The ID of the tag
+
+        Returns:
+            Tag object
+        """
+        url = f"/api/v2/tags/{tag_id}"
+        response = self._call_datawatch(Method.GET, url=url)
+        return Tag().from_dict(response)
+
+    def get_all_tags(self, get_tag_counts: bool = False) -> GetAllTagsResponse:
+        """
+        Get all tags with pagination and optional filtering.
+
+        Returns:
+            GetAllTagsResponse with tags and pagination info
+        """
+        request = GetAllTagsRequest()
+        request.workspace_id = self.config.workspace_id
+        request.get_tag_counts = get_tag_counts
+        url = "/api/v2/tags/fetch"
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return GetAllTagsResponse().from_dict(response)
+
+    def create_tag(self, request: CreateOrUpdateTagRequest) -> CreateOrUpdateTagResponse:
+        """
+        Create a new tag.
+
+        Args:
+            request: CreateOrUpdateTagRequest containing tag details (name, color_hex, workspace_id)
+
+        Returns:
+            CreateOrUpdateTagResponse with the created tag
+        """
+        url = "/api/v2/tags"
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return CreateOrUpdateTagResponse().from_dict(response)
+
+    def update_tag(self, tag_id: int, request: CreateOrUpdateTagRequest) -> CreateOrUpdateTagResponse:
+        """
+        Update an existing tag.
+
+        Args:
+            tag_id: The ID of the tag to update
+            request: CreateOrUpdateTagRequest containing updated tag details (name, color_hex)
+
+        Returns:
+            CreateOrUpdateTagResponse with the updated tag
+        """
+        url = f"/api/v2/tags/{tag_id}"
+        response = self._call_datawatch(Method.PUT, url=url, body=request.to_json())
+        return CreateOrUpdateTagResponse().from_dict(response)
+
+    def delete_tag(self, tag_id: int) -> DeleteTagResponse:
+        """
+        Delete a tag.
+
+        Args:
+            tag_id: The ID of the tag to delete
+
+        Returns:
+            DeleteTagResponse with the deleted tag
+        """
+        url = f"/api/v2/tags/{tag_id}"
+        response = self._call_datawatch(Method.DELETE, url=url)
+        return DeleteTagResponse().from_dict(response)
+
+    def tag(self, request: TagRequest) -> TagResponse:
+        """
+        Add a tag to an entity.
+
+        Args:
+            request: TagRequest containing the tag item and optional create_tag_if_does_not_exist flag
+
+        Returns:
+            TagResponse with the tagged item
+        """
+        url = "/api/v2/tags/tag"
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return TagResponse().from_dict(response)
+
+    def untag(self, request: UntagRequest) -> UntagResponse:
+        """
+        Remove a tag from an entity.
+
+        Args:
+            request: UntagRequest containing the tag item details
+
+        Returns:
+            UntagResponse with the untagged item
+        """
+        url = "/api/v2/tags/untag"
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return UntagResponse().from_dict(response)
+
+    def get_tagged_items(self, tag_id: int) -> List[TagItem]:
+        """
+        Get all items that have been tagged with a specific tag.
+
+        Args:
+            tag_id: The ID of the tag
+
+        Returns:
+            List of TagItem objects
+        """
+        url = f"/api/v2/tags/{tag_id}/items"
+        response = self._call_datawatch(Method.GET, url=url)
+        return GetTagItemResponse().from_dict(response).tags
+
+    def get_catalog_entity_children(self, node_type: DataNodeType, node_id: int) -> GetCatalogEntityChildrenResponse:
+        """
+        Get children of a catalog entity. This is a generic method that works for any catalog entity type.
+
+        Args:
+            node_type: The type of the parent node (e.g., DataNodeType.DATA_NODE_TYPE_CUSTOM)
+            node_id: The ID of the parent node
+
+        Returns:
+            GetCatalogEntityChildrenResponse containing all child entities
+        """
+        url = f"/api/v1/catalog-entities/{node_type.name}/{node_id}/children"
+        request = GetCatalogEntityChildrenRequest()
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return GetCatalogEntityChildrenResponse().from_dict(response)
+
+    def get_workflow_v2_status_bulk(self, workflow_v2_ids: List[WorkflowV2Id]) -> BulkWorkflowV2StatusResponse:
+        """
+        Get Workflow V2 status for a list of workflow IDs.
+        """
+        url = "/api/v2/workflows/status/bulk"
+        request = BulkWorkflowV2StatusRequest(workflow_v2_ids=workflow_v2_ids)
+        response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        return BulkWorkflowV2StatusResponse().from_dict(response)
+
+    def wait_for_workflow_v2(
+        self,
+        workflow_id: WorkflowV2Id,
+        poll_interval: int = 10,
+        timeout: int = 600
+    ) -> WorkflowV2StatusResponse:
+        """Wait for a workflow to complete."""
+        start_time = time.time()
+
+        while True:
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                raise TimeoutError(
+                    f"Workflow {workflow_id} did not complete within {timeout} seconds"
+                )
+
+            # Get status
+            response = self.get_workflow_v2_status_bulk(workflow_v2_ids=[workflow_id]).statuses[0]
+
+            # Check status
+            if response.status == WorkflowProcessingStatus.WORKFLOW_PROCESSING_STATUS_COMPLETED:
+                log.info(f"Workflow {workflow_id} completed successfully")
+                return response
+            elif response.status == WorkflowProcessingStatus.WORKFLOW_PROCESSING_STATUS_FAILED:
+                error_msg = response.error or "Unknown error"
+                log.error(f"Workflow {workflow_id} failed: {error_msg}")
+                raise Exception(f"Workflow failed: {error_msg}")
+            elif response.status == WorkflowProcessingStatus.WORKFLOW_PROCESSING_STATUS_TIMED_OUT:
+                log.warning(f"Workflow {workflow_id} has timed out")
+                raise Exception("Workflow was cancelled")
+
+            # Still running, log progress
+            log.info(
+                f"Workflow {workflow_id} status: {response.status.name} "
+                f"(elapsed: {int(elapsed)}s)"
+            )
+
+            # Wait before next check
+            time.sleep(poll_interval)
+
+    def upsert_metric_to_collection(self,
+                                    add_metric_ids: Union[int, List[int]],
+                                    collection_name: Optional[str] = None,
+                                    collection_id: Optional[int] = None) -> Collection:
+
+        if not collection_name and not collection_id:
+            raise InvalidConfigurationException("You must provide either a collection name or a collection id")
+
+        if type(add_metric_ids) == int:
+            mids = list(add_metric_ids)
+        else:
+            mids = add_metric_ids
+
+        collections: List[Collection] = self.get_collections().collections
+
+        if collection_name:
+            collection_to_upsert = [c for c in collections
+                                    if c.name.lower().strip() == collection_name.lower().strip()]
+            if not collection_to_upsert:
+                log.info(f"Collection {collection_name} does not exist. Creating with metric IDs {add_metric_ids}...")
+                return self.create_collection(
+                    collection_name=collection_name, description="Created via SDK", metric_ids=mids
+                ).collection
+        else:
+            collection_to_upsert = [c for c in collections if c.id == collection_id]
+            if not collection_to_upsert:
+                raise CollectionNotFoundException(
+                    f"Collection {collection_id} does not exist. Cannot create collection by ID."
+                )
+
+        collection = collection_to_upsert[0]
+        for mid in mids:
+            collection.metric_ids.append(mid)
+
+        return self.update_collection(collection=collection).collection

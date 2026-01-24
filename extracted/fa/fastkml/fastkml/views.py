@@ -17,11 +17,9 @@
 
 import logging
 from typing import Any
-from typing import Dict
 from typing import Optional
 
 from fastkml import config
-from fastkml.base import _XMLObject
 from fastkml.enums import AltitudeMode
 from fastkml.helpers import enum_subelement
 from fastkml.helpers import float_subelement
@@ -91,7 +89,7 @@ class _AbstractView(TimeMixin, _BaseObject):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         longitude: Optional[float] = None,
@@ -244,7 +242,7 @@ class Camera(_AbstractView):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         longitude: Optional[float] = None,
@@ -358,7 +356,7 @@ class LookAt(_AbstractView):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         longitude: Optional[float] = None,
@@ -366,7 +364,7 @@ class LookAt(_AbstractView):
         altitude: Optional[float] = None,
         heading: Optional[float] = None,
         tilt: Optional[float] = None,
-        range: Optional[float] = None,
+        range: Optional[float] = None,  # noqa: A002
         altitude_mode: Optional[AltitudeMode] = None,
         **kwargs: Any,
     ) -> None:
@@ -454,7 +452,7 @@ registry.register(
 )
 
 
-class LatLonAltBox(_XMLObject):
+class LatLonAltBox(_BaseObject):
     """
     A bounding box defined by geographic coordinates and altitudes.
 
@@ -474,7 +472,9 @@ class LatLonAltBox(_XMLObject):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
+        id: Optional[str] = None,
+        target_id: Optional[str] = None,
         north: Optional[float] = None,
         south: Optional[float] = None,
         east: Optional[float] = None,
@@ -492,6 +492,8 @@ class LatLonAltBox(_XMLObject):
             ns (Optional[str]): The namespace for the view.
             name_spaces (Optional[Dict[str, str]]): A dictionary of namespace prefixes
                 and URIs.
+            id (Optional[str]): The ID of the data.
+            target_id (Optional[str]): The target ID of the data.
             north (Optional[float]): The northern latitude of the view.
             south (Optional[float]): The southern latitude of the view.
             east (Optional[float]): The eastern longitude of the view.
@@ -506,7 +508,13 @@ class LatLonAltBox(_XMLObject):
             None
 
         """
-        super().__init__(ns=ns, name_spaces=name_spaces, **kwargs)
+        super().__init__(
+            ns=ns,
+            name_spaces=name_spaces,
+            id=id,
+            target_id=target_id,
+            **kwargs,
+        )
         self.north = north
         self.south = south
         self.east = east
@@ -521,6 +529,8 @@ class LatLonAltBox(_XMLObject):
             f"{self.__class__.__module__}.{self.__class__.__name__}("
             f"ns={self.ns!r}, "
             f"name_spaces={self.name_spaces!r}, "
+            f"id={self.id!r}, "
+            f"target_id={self.target_id!r}, "
             f"north={self.north!r}, "
             f"south={self.south!r}, "
             f"east={self.east!r}, "
@@ -633,7 +643,7 @@ registry.register(
 )
 
 
-class Lod(_XMLObject):
+class Lod(_BaseObject):
     """
     Lod is an abbreviation for Level of Detail.
 
@@ -655,7 +665,9 @@ class Lod(_XMLObject):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
+        id: Optional[str] = None,
+        target_id: Optional[str] = None,
         min_lod_pixels: Optional[int] = None,
         max_lod_pixels: Optional[int] = None,
         min_fade_extent: Optional[int] = None,
@@ -670,6 +682,8 @@ class Lod(_XMLObject):
             ns (Optional[str]): The namespace for the view.
             name_spaces (Optional[Dict[str, str]]): The dictionary of namespace prefixes
                 and URIs.
+            id (Optional[str]): The ID of the data.
+            target_id (Optional[str]): The target ID of the data.
             min_lod_pixels (Optional[int]): The minimum level of detail in pixels.
             max_lod_pixels (Optional[int]): The maximum level of detail in pixels.
             min_fade_extent (Optional[int]): The minimum fade extent in pixels.
@@ -681,7 +695,13 @@ class Lod(_XMLObject):
             None
 
         """
-        super().__init__(ns=ns, name_spaces=name_spaces, **kwargs)
+        super().__init__(
+            ns=ns,
+            name_spaces=name_spaces,
+            id=id,
+            target_id=target_id,
+            **kwargs,
+        )
         self.min_lod_pixels = min_lod_pixels
         self.max_lod_pixels = max_lod_pixels
         self.min_fade_extent = min_fade_extent
@@ -693,6 +713,8 @@ class Lod(_XMLObject):
             f"{self.__class__.__module__}.{self.__class__.__name__}("
             f"ns={self.ns!r}, "
             f"name_spaces={self.name_spaces!r}, "
+            f"id={self.id!r}, "
+            f"target_id={self.target_id!r}, "
             f"min_lod_pixels={self.min_lod_pixels!r}, "
             f"max_lod_pixels={self.max_lod_pixels!r}, "
             f"min_fade_extent={self.min_fade_extent!r}, "
@@ -781,7 +803,7 @@ class Region(_BaseObject):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         lat_lon_alt_box: Optional[LatLonAltBox] = None,

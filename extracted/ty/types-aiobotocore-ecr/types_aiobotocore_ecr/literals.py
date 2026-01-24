@@ -3,14 +3,14 @@ Type annotations for ecr service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_aiobotocore_ecr.literals import DescribeImageScanFindingsPaginatorName
+    from types_aiobotocore_ecr.literals import ArtifactStatusFilterType
 
-    data: DescribeImageScanFindingsPaginatorName = "describe_image_scan_findings"
+    data: ArtifactStatusFilterType = "ACTIVATING"
     ```
 """
 
@@ -23,6 +23,8 @@ else:
 
 
 __all__ = (
+    "ArtifactStatusFilterType",
+    "ArtifactStatusType",
     "DescribeImageScanFindingsPaginatorName",
     "DescribeImagesPaginatorName",
     "DescribePullThroughCacheRulesPaginatorName",
@@ -35,12 +37,16 @@ __all__ = (
     "ImageActionTypeType",
     "ImageFailureCodeType",
     "ImageScanCompleteWaiterName",
+    "ImageStatusFilterType",
+    "ImageStatusType",
     "ImageTagMutabilityExclusionFilterTypeType",
     "ImageTagMutabilityType",
     "LayerAvailabilityType",
     "LayerFailureCodeType",
     "LifecyclePolicyPreviewCompleteWaiterName",
     "LifecyclePolicyPreviewStatusType",
+    "LifecyclePolicyStorageClassType",
+    "LifecyclePolicyTargetStorageClassType",
     "ListImagesPaginatorName",
     "PaginatorName",
     "RCTAppliedForType",
@@ -54,12 +60,17 @@ __all__ = (
     "ScanningConfigurationFailureCodeType",
     "ScanningRepositoryFilterTypeType",
     "ServiceName",
+    "SigningRepositoryFilterTypeType",
+    "SigningStatusType",
     "TagStatusType",
+    "TargetStorageClassType",
     "UpstreamRegistryType",
     "WaiterName",
 )
 
 
+ArtifactStatusFilterType = Literal["ACTIVATING", "ACTIVE", "ANY", "ARCHIVED"]
+ArtifactStatusType = Literal["ACTIVATING", "ACTIVE", "ARCHIVED"]
 DescribeImageScanFindingsPaginatorName = Literal["describe_image_scan_findings"]
 DescribeImagesPaginatorName = Literal["describe_images"]
 DescribePullThroughCacheRulesPaginatorName = Literal["describe_pull_through_cache_rules"]
@@ -68,8 +79,9 @@ DescribeRepositoryCreationTemplatesPaginatorName = Literal["describe_repository_
 EncryptionTypeType = Literal["AES256", "KMS", "KMS_DSSE"]
 FindingSeverityType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM", "UNDEFINED"]
 GetLifecyclePolicyPreviewPaginatorName = Literal["get_lifecycle_policy_preview"]
-ImageActionTypeType = Literal["EXPIRE"]
+ImageActionTypeType = Literal["EXPIRE", "TRANSITION"]
 ImageFailureCodeType = Literal[
+    "ImageInaccessible",
     "ImageNotFound",
     "ImageReferencedByManifestList",
     "ImageTagDoesNotMatchDigest",
@@ -82,16 +94,20 @@ ImageFailureCodeType = Literal[
     "UpstreamUnavailable",
 ]
 ImageScanCompleteWaiterName = Literal["image_scan_complete"]
+ImageStatusFilterType = Literal["ACTIVATING", "ACTIVE", "ANY", "ARCHIVED"]
+ImageStatusType = Literal["ACTIVATING", "ACTIVE", "ARCHIVED"]
 ImageTagMutabilityExclusionFilterTypeType = Literal["WILDCARD"]
 ImageTagMutabilityType = Literal[
     "IMMUTABLE", "IMMUTABLE_WITH_EXCLUSION", "MUTABLE", "MUTABLE_WITH_EXCLUSION"
 ]
-LayerAvailabilityType = Literal["AVAILABLE", "UNAVAILABLE"]
+LayerAvailabilityType = Literal["ARCHIVED", "AVAILABLE", "UNAVAILABLE"]
 LayerFailureCodeType = Literal["InvalidLayerDigest", "MissingLayerDigest"]
 LifecyclePolicyPreviewCompleteWaiterName = Literal["lifecycle_policy_preview_complete"]
 LifecyclePolicyPreviewStatusType = Literal["COMPLETE", "EXPIRED", "FAILED", "IN_PROGRESS"]
+LifecyclePolicyStorageClassType = Literal["ARCHIVE", "STANDARD"]
+LifecyclePolicyTargetStorageClassType = Literal["ARCHIVE"]
 ListImagesPaginatorName = Literal["list_images"]
-RCTAppliedForType = Literal["PULL_THROUGH_CACHE", "REPLICATION"]
+RCTAppliedForType = Literal["CREATE_ON_PUSH", "PULL_THROUGH_CACHE", "REPLICATION"]
 ReplicationStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 RepositoryFilterTypeType = Literal["PREFIX_MATCH"]
 ScanFrequencyType = Literal["CONTINUOUS_SCAN", "MANUAL", "SCAN_ON_PUSH"]
@@ -100,6 +116,7 @@ ScanStatusType = Literal[
     "COMPLETE",
     "FAILED",
     "FINDINGS_UNAVAILABLE",
+    "IMAGE_ARCHIVED",
     "IN_PROGRESS",
     "LIMIT_EXCEEDED",
     "PENDING",
@@ -109,7 +126,10 @@ ScanStatusType = Literal[
 ScanTypeType = Literal["BASIC", "ENHANCED"]
 ScanningConfigurationFailureCodeType = Literal["REPOSITORY_NOT_FOUND"]
 ScanningRepositoryFilterTypeType = Literal["WILDCARD"]
+SigningRepositoryFilterTypeType = Literal["WILDCARD_MATCH"]
+SigningStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 TagStatusType = Literal["ANY", "TAGGED", "UNTAGGED"]
+TargetStorageClassType = Literal["ARCHIVE", "STANDARD"]
 UpstreamRegistryType = Literal[
     "azure-container-registry",
     "docker-hub",
@@ -147,7 +167,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -217,6 +236,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -262,7 +282,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -315,7 +334,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -354,8 +372,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -390,6 +406,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -399,18 +416,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -432,8 +451,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -448,15 +465,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -487,8 +505,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -528,6 +546,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -539,16 +558,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_image_scan_findings",
@@ -574,6 +584,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

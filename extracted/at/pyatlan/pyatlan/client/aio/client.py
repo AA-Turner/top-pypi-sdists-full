@@ -13,12 +13,12 @@ import copy
 import json
 import logging
 import os
+from contextlib import _AsyncGeneratorContextManager
 from http import HTTPStatus
 from types import SimpleNamespace
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
-from httpx_retries import RetryTransport as AsyncRetryTransport
 from httpx_retries.retry import Retry
 from pydantic.v1 import PrivateAttr
 
@@ -41,6 +41,8 @@ from pyatlan.client.aio.credential import AsyncCredentialClient
 from pyatlan.client.aio.file import AsyncFileClient
 from pyatlan.client.aio.group import AsyncGroupClient
 from pyatlan.client.aio.impersonate import AsyncImpersonationClient
+from pyatlan.client.aio.oauth import AsyncOAuthTokenManager
+from pyatlan.client.aio.oauth_client import AsyncOAuthClient
 from pyatlan.client.aio.open_lineage import AsyncOpenLineageClient
 from pyatlan.client.aio.query import AsyncQueryClient
 from pyatlan.client.aio.role import AsyncRoleClient
@@ -59,6 +61,7 @@ from pyatlan.client.atlan import (
 )
 from pyatlan.client.common import ImpersonateUser
 from pyatlan.client.constants import EVENT_STREAM, GET_TOKEN, UPLOAD_IMAGE
+from pyatlan.client.transport import PyatlanAsyncTransport  # type: ignore
 from pyatlan.errors import ERROR_CODE_FOR_HTTP_STATUS, AtlanError, ErrorCode
 from pyatlan.model.aio.core import AsyncAtlanRequest, AsyncAtlanResponse
 from pyatlan.model.atlan_image import AtlanImage
@@ -89,6 +92,7 @@ class AsyncAtlanClient(AtlanClient):
     """
 
     _async_session: Optional[httpx.AsyncClient] = PrivateAttr(default=None)
+    _async_oauth_token_manager: Optional[Any] = PrivateAttr(default=None)
     _async_admin_client: Optional[AsyncAdminClient] = PrivateAttr(default=None)
     _async_asset_client: Optional[AsyncAssetClient] = PrivateAttr(default=None)
     _async_audit_client: Optional[AsyncAuditClient] = PrivateAttr(default=None)
@@ -110,6 +114,7 @@ class AsyncAtlanClient(AtlanClient):
     _async_sso_client: Optional[AsyncSSOClient] = PrivateAttr(default=None)
     _async_task_client: Optional[AsyncTaskClient] = PrivateAttr(default=None)
     _async_token_client: Optional[AsyncTokenClient] = PrivateAttr(default=None)
+    _async_oauth_client_client: Optional[AsyncOAuthClient] = PrivateAttr(default=None)
     _async_typedef_client: Optional[AsyncTypeDefClient] = PrivateAttr(default=None)
     _async_user_client: Optional[AsyncUserClient] = PrivateAttr(default=None)
     _async_workflow_client: Optional[AsyncWorkflowClient] = PrivateAttr(default=None)
@@ -132,9 +137,38 @@ class AsyncAtlanClient(AtlanClient):
     def __init__(self, **kwargs):
         # Initialize sync client (handles all validation, env vars, etc.)
         super().__init__(**kwargs)
-        # Create async session immediately like sync client - no lazy loading
+        if self.oauth_client_id and self.oauth_client_secret and self.api_key is None:
+            LOGGER.debug(
+                "API Key not provided. Using Async OAuth flow for authentication"
+            )
+            if self._oauth_token_manager:
+                LOGGER.debug("Sync oauth flow open. Closing it for Async oauth flow")
+                self._oauth_token_manager.close()
+                self._oauth_token_manager = None
+
+            final_base_url = self.base_url or os.environ.get(
+                "ATLAN_BASE_URL", "INTERNAL"
+            )
+            final_oauth_client_id = self.oauth_client_id or os.environ.get(
+                "ATLAN_OAUTH_CLIENT_ID"
+            )
+            final_oauth_client_secret = self.oauth_client_secret or os.environ.get(
+                "ATLAN_OAUTH_CLIENT_SECRET"
+            )
+            self._async_oauth_token_manager = AsyncOAuthTokenManager(
+                base_url=final_base_url,
+                client_id=final_oauth_client_id,
+                client_secret=final_oauth_client_secret,
+                connect_timeout=self.connect_timeout,
+                read_timeout=self.read_timeout,
+            )
+
+        # Build proxy/SSL configuration (reuse from sync client)
+        transport_kwargs = self._build_transport_proxy_config(kwargs)
+
+        # Create async session with custom transport that supports retry and proxy
         self._async_session = httpx.AsyncClient(
-            transport=AsyncRetryTransport(retry=self.retry),
+            transport=PyatlanAsyncTransport(retry=self.retry, **transport_kwargs),
             headers={
                 "x-atlan-agent": "sdk",
                 "x-atlan-agent-id": "python",
@@ -229,126 +263,133 @@ class AsyncAtlanClient(AtlanClient):
     def admin(self) -> AsyncAdminClient:  # type: ignore[override]
         """Get async admin client with same API as sync"""
         if self._async_admin_client is None:
-            self._async_admin_client = AsyncAdminClient(self)
+            self._async_admin_client = AsyncAdminClient(self)  # type: ignore[arg-type]
         return self._async_admin_client
 
     @property
     def asset(self) -> AsyncAssetClient:  # type: ignore[override]
         """Get async asset client with same API as sync"""
         if self._async_asset_client is None:
-            self._async_asset_client = AsyncAssetClient(self)
+            self._async_asset_client = AsyncAssetClient(self)  # type: ignore[arg-type]
         return self._async_asset_client
 
     @property
     def audit(self) -> AsyncAuditClient:  # type: ignore[override]
         """Get async audit client with same API as sync"""
         if self._async_audit_client is None:
-            self._async_audit_client = AsyncAuditClient(self)
+            self._async_audit_client = AsyncAuditClient(self)  # type: ignore[arg-type]
         return self._async_audit_client
 
     @property
     def contracts(self) -> AsyncContractClient:  # type: ignore[override]
         """Get async contract client with same API as sync"""
         if self._async_contract_client is None:
-            self._async_contract_client = AsyncContractClient(self)
+            self._async_contract_client = AsyncContractClient(self)  # type: ignore[arg-type]
         return self._async_contract_client
 
     @property
     def credentials(self) -> AsyncCredentialClient:  # type: ignore[override]
         """Get async credential client with same API as sync"""
         if self._async_credential_client is None:
-            self._async_credential_client = AsyncCredentialClient(self)
+            self._async_credential_client = AsyncCredentialClient(self)  # type: ignore[arg-type]
         return self._async_credential_client
 
     @property
     def files(self) -> AsyncFileClient:  # type: ignore[override]
         """Get async file client with same API as sync"""
         if self._async_file_client is None:
-            self._async_file_client = AsyncFileClient(self)
+            self._async_file_client = AsyncFileClient(self)  # type: ignore[arg-type]
         return self._async_file_client
 
     @property
     def group(self) -> AsyncGroupClient:  # type: ignore[override]
         """Get async group client with same API as sync"""
         if self._async_group_client is None:
-            self._async_group_client = AsyncGroupClient(self)
+            self._async_group_client = AsyncGroupClient(self)  # type: ignore[arg-type]
         return self._async_group_client
 
     @property
     def impersonate(self) -> AsyncImpersonationClient:  # type: ignore[override]
         """Get async impersonate client with same API as sync"""
         if self._async_impersonate_client is None:
-            self._async_impersonate_client = AsyncImpersonationClient(self)
+            self._async_impersonate_client = AsyncImpersonationClient(self)  # type: ignore[arg-type]
         return self._async_impersonate_client
 
     @property
     def open_lineage(self) -> AsyncOpenLineageClient:  # type: ignore[override]
         """Get async open lineage client with same API as sync"""
         if self._async_open_lineage_client is None:
-            self._async_open_lineage_client = AsyncOpenLineageClient(self)
+            self._async_open_lineage_client = AsyncOpenLineageClient(self)  # type: ignore[arg-type]
         return self._async_open_lineage_client
 
     @property
     def queries(self) -> AsyncQueryClient:  # type: ignore[override]
         """Get async query client with same API as sync"""
         if self._async_query_client is None:
-            self._async_query_client = AsyncQueryClient(self)
+            self._async_query_client = AsyncQueryClient(self)  # type: ignore[arg-type]
         return self._async_query_client
 
     @property
     def role(self) -> AsyncRoleClient:  # type: ignore[override]
         """Get async role client with same API as sync"""
         if self._async_role_client is None:
-            self._async_role_client = AsyncRoleClient(self)
+            self._async_role_client = AsyncRoleClient(self)  # type: ignore[arg-type]
         return self._async_role_client
 
     @property
     def search_log(self) -> AsyncSearchLogClient:  # type: ignore[override]
         """Get async search log client with same API as sync"""
         if self._async_search_log_client is None:
-            self._async_search_log_client = AsyncSearchLogClient(self)
+            self._async_search_log_client = AsyncSearchLogClient(self)  # type: ignore[arg-type]
         return self._async_search_log_client
 
     @property
     def sso(self) -> AsyncSSOClient:  # type: ignore[override]
         """Get async SSO client with same API as sync"""
         if self._async_sso_client is None:
-            self._async_sso_client = AsyncSSOClient(self)
+            self._async_sso_client = AsyncSSOClient(self)  # type: ignore[arg-type]
         return self._async_sso_client
 
     @property
     def tasks(self) -> AsyncTaskClient:  # type: ignore[override]
         """Get the task client."""
         if self._async_task_client is None:
-            self._async_task_client = AsyncTaskClient(client=self)
+            self._async_task_client = AsyncTaskClient(client=self)  # type: ignore[arg-type]
         return self._async_task_client
 
     @property
     def token(self) -> AsyncTokenClient:  # type: ignore[override]
         """Get async token client with same API as sync"""
         if self._async_token_client is None:
-            self._async_token_client = AsyncTokenClient(self)
+            self._async_token_client = AsyncTokenClient(self)  # type: ignore[arg-type]
         return self._async_token_client
+
+    @property
+    def oauth_client(self) -> AsyncOAuthClient:  # type: ignore[override]
+        """Get async OAuth client client with same API as sync"""
+        if self._async_oauth_client_client is None:
+            self._async_oauth_client_client = AsyncOAuthClient(self)  # type: ignore[arg-type]
+        return self._async_oauth_client_client
 
     @property
     def typedef(self) -> AsyncTypeDefClient:  # type: ignore[override]
         """Get async typedef client with same API as sync"""
         if self._async_typedef_client is None:
-            self._async_typedef_client = AsyncTypeDefClient(self)
+            self._async_typedef_client = AsyncTypeDefClient(self)  # type: ignore[arg-type]
         return self._async_typedef_client
 
     @property
     def user(self) -> AsyncUserClient:  # type: ignore[override]
         """Get async user client with same API as sync"""
         if self._async_user_client is None:
-            self._async_user_client = AsyncUserClient(self)
+            self._async_user_client = AsyncUserClient(self)  # type: ignore[arg-type]
         return self._async_user_client
 
     @property
     def workflow(self) -> AsyncWorkflowClient:  # type: ignore[override]
         """Get async workflow client with same API as sync"""
         if self._async_workflow_client is None:
-            self._async_workflow_client = AsyncWorkflowClient(self)
+            self._async_workflow_client = AsyncWorkflowClient(self)  # type: ignore[arg-type]
         return self._async_workflow_client
 
     @property
@@ -433,6 +474,9 @@ class AsyncAtlanClient(AtlanClient):
         Async version of _create_params that uses AsyncAtlanRequest for AtlanObject instances.
         """
         params = copy.deepcopy(self._request_params)
+        if self._async_oauth_token_manager:
+            token = await self._async_oauth_token_manager.get_token()
+            params["headers"]["authorization"] = f"Bearer {token}"
         params["headers"]["Accept"] = api.consumes
         params["headers"]["content-type"] = api.produces
         if query_params is not None:
@@ -682,7 +726,7 @@ class AsyncAtlanClient(AtlanClient):
 
             # Retry with impersonation (if _user_id is present) on authentication failure
             if (
-                self._user_id
+                (self._user_id or self._async_oauth_token_manager)
                 and not self._401_has_retried.get()
                 and response.status_code
                 == ErrorCode.AUTHENTICATION_PASSTHROUGH.http_error_code
@@ -741,6 +785,21 @@ class AsyncAtlanClient(AtlanClient):
         Async version of token refresh and retry logic.
         Handles token refresh and retries the API request upon a 401 Unauthorized response.
         """
+        if self._async_oauth_token_manager:
+            await self._async_oauth_token_manager.invalidate_token()
+            token = await self._async_oauth_token_manager.get_token()
+            params["headers"]["authorization"] = f"Bearer {token}"
+            self._401_has_retried.set(True)
+            LOGGER.debug("Successfully refreshed OAuth token after 401.")
+            return await self._call_api_internal(
+                api,
+                path,
+                params,
+                binary_data=binary_data,
+                download_file_path=download_file_path,
+                text_response=text_response,
+            )
+
         try:
             # Use sync impersonation call since it's a quick API call
             new_token = await self.impersonate.user(user_id=self._user_id)
@@ -880,17 +939,31 @@ class AsyncAtlanClient(AtlanClient):
         if self._async_session:
             await self._async_session.aclose()
             self._async_session = None
-        if self._async_asset_client:
-            self._async_asset_client = None
-        if self._async_file_client:
-            self._async_file_client = None
-        if self._async_group_client:
-            self._async_group_client = None
 
-    @contextlib.asynccontextmanager
-    async def max_retries(  # type: ignore[override]
+        # Clean up all client references
+        self._async_admin_client = None
+        self._async_asset_client = None
+        self._async_audit_client = None
+        self._async_contract_client = None
+        self._async_credential_client = None
+        self._async_file_client = None
+        self._async_group_client = None
+        self._async_impersonate_client = None
+        self._async_open_lineage_client = None
+        self._async_query_client = None
+        self._async_role_client = None
+        self._async_search_log_client = None
+        self._async_sso_client = None
+        self._async_task_client = None
+        self._async_token_client = None
+        self._async_typedef_client = None
+        self._async_user_client = None
+        self._async_workflow_client = None
+
+    @contextlib.asynccontextmanager  # type: ignore[arg-type]
+    async def max_retries(  # type: ignore[override,misc]
         self, max_retries: Retry = CONNECTION_RETRY
-    ):
+    ) -> _AsyncGeneratorContextManager[None]:
         """Creates an async context manager that can be used to temporarily change parameters used for retrying connections.
         The original Retry information will be restored when the context is exited."""
         # Store current transport and create new one with updated retries
@@ -899,7 +972,15 @@ class AsyncAtlanClient(AtlanClient):
             raise RuntimeError("Async session not initialized")
 
         current_transport = session._transport
-        new_transport = AsyncRetryTransport(retry=max_retries)
+
+        # Build transport kwargs with current proxy/SSL settings
+        transport_kwargs = {}
+        if self.proxy:
+            transport_kwargs["proxy"] = self.proxy
+        if self.verify is not None:
+            transport_kwargs["verify"] = self.verify
+
+        new_transport = PyatlanAsyncTransport(retry=max_retries, **transport_kwargs)
         session._transport = new_transport
 
         LOGGER.debug(

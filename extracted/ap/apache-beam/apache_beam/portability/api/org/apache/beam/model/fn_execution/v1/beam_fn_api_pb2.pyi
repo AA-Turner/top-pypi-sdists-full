@@ -864,6 +864,8 @@ class ProcessBundleRequest(google.protobuf.message.Message):
     PROCESS_BUNDLE_DESCRIPTOR_ID_FIELD_NUMBER: builtins.int
     CACHE_TOKENS_FIELD_NUMBER: builtins.int
     ELEMENTS_FIELD_NUMBER: builtins.int
+    HAS_NO_STATE_FIELD_NUMBER: builtins.int
+    ONLY_BUNDLE_FOR_KEYS_FIELD_NUMBER: builtins.int
     process_bundle_descriptor_id: builtins.str
     """(Required) A reference to the process bundle descriptor that must be
     instantiated and executed by the SDK harness.
@@ -891,15 +893,26 @@ class ProcessBundleRequest(google.protobuf.message.Message):
         beam:protocol:control_request_elements_embedding:v1 capability. See more
         at https://s.apache.org/beam-fn-api-control-data-embedding.
         """
+    has_no_state: builtins.bool
+    """indicates that the runner has no stare for the keys in this bundle
+    so SDk can safely begin stateful processing with a locally-generated
+    initial empty state
+    """
+    only_bundle_for_keys: builtins.bool
+    """indicates that the runner will never process another bundle for the keys
+    in this bundle so state need not be included in the bundle commit.
+    """
     def __init__(
         self,
         *,
         process_bundle_descriptor_id: builtins.str | None = ...,
         cache_tokens: collections.abc.Iterable[global___ProcessBundleRequest.CacheToken] | None = ...,
         elements: global___Elements | None = ...,
+        has_no_state: builtins.bool | None = ...,
+        only_bundle_for_keys: builtins.bool | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["elements", b"elements"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["cache_tokens", b"cache_tokens", "elements", b"elements", "process_bundle_descriptor_id", b"process_bundle_descriptor_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cache_tokens", b"cache_tokens", "elements", b"elements", "has_no_state", b"has_no_state", "only_bundle_for_keys", b"only_bundle_for_keys", "process_bundle_descriptor_id", b"process_bundle_descriptor_id"]) -> None: ...
 
 global___ProcessBundleRequest = ProcessBundleRequest
 
@@ -1487,17 +1500,66 @@ class Elements(google.protobuf.message.Message):
         def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "instruction_id", b"instruction_id", "is_last", b"is_last", "transform_id", b"transform_id"]) -> None: ...
 
     @typing_extensions.final
-    class ElementMetadata(google.protobuf.message.Message):
-        """Element metadata passed as part of WindowedValue to make WindowedValue
-        extensible and backward compatible
-        empty message - add drain, kind, tracing metadata in the future
-        """
-
+    class DrainMode(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Enum:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _EnumEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Elements.DrainMode._Enum.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            UNSPECIFIED: Elements.DrainMode._Enum.ValueType  # 0
+            NOT_DRAINING: Elements.DrainMode._Enum.ValueType  # 1
+            DRAINING: Elements.DrainMode._Enum.ValueType  # 2
+
+        class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
+        UNSPECIFIED: Elements.DrainMode.Enum.ValueType  # 0
+        NOT_DRAINING: Elements.DrainMode.Enum.ValueType  # 1
+        DRAINING: Elements.DrainMode.Enum.ValueType  # 2
 
         def __init__(
             self,
         ) -> None: ...
+
+    @typing_extensions.final
+    class ElementMetadata(google.protobuf.message.Message):
+        """Element metadata passed as part of WindowedValue to make WindowedValue
+        extensible and backward compatible
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        DRAIN_FIELD_NUMBER: builtins.int
+        TRACEPARENT_FIELD_NUMBER: builtins.int
+        TRACESTATE_FIELD_NUMBER: builtins.int
+        drain: global___Elements.DrainMode.Enum.ValueType
+        traceparent: builtins.str
+        """(Optional) As part of https://www.w3.org/TR/trace-context/ we are forwarding a trace and participating in it.
+        Traceparent header represents the incoming request in a tracing system in a common format.
+        Example value: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
+        """
+        tracestate: builtins.str
+        """(Optional) tracestate extends traceparent with open telemetry data represented by a set of name/value pairs.
+        Format specified https://www.w3.org/TR/trace-context/#list for interoperability and commonly used
+        across IOs - Kafka, PubSub, http.
+        Example value: congo=t61rcWkgMzE
+        """
+        def __init__(
+            self,
+            *,
+            drain: global___Elements.DrainMode.Enum.ValueType | None = ...,
+            traceparent: builtins.str | None = ...,
+            tracestate: builtins.str | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["_drain", b"_drain", "_traceparent", b"_traceparent", "_tracestate", b"_tracestate", "drain", b"drain", "traceparent", b"traceparent", "tracestate", b"tracestate"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["_drain", b"_drain", "_traceparent", b"_traceparent", "_tracestate", b"_tracestate", "drain", b"drain", "traceparent", b"traceparent", "tracestate", b"tracestate"]) -> None: ...
+        @typing.overload
+        def WhichOneof(self, oneof_group: typing_extensions.Literal["_drain", b"_drain"]) -> typing_extensions.Literal["drain"] | None: ...
+        @typing.overload
+        def WhichOneof(self, oneof_group: typing_extensions.Literal["_traceparent", b"_traceparent"]) -> typing_extensions.Literal["traceparent"] | None: ...
+        @typing.overload
+        def WhichOneof(self, oneof_group: typing_extensions.Literal["_tracestate", b"_tracestate"]) -> typing_extensions.Literal["tracestate"] | None: ...
 
     @typing_extensions.final
     class Timers(google.protobuf.message.Message):
@@ -1926,6 +1988,47 @@ class StateKey(google.protobuf.message.Message):
         def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "transform_id", b"transform_id", "user_state_id", b"user_state_id", "window", b"window"]) -> None: ...
 
     @typing_extensions.final
+    class MultimapEntriesUserState(google.protobuf.message.Message):
+        """Represents a request for all of the entries of a multimap associated with a
+        specified user key and window for a PTransform. See
+        https://s.apache.org/beam-fn-state-api-and-bundle-processing for further
+        details.
+
+        Can only be used to perform StateGetRequests and StateClearRequests on the
+        user state.
+
+        The response data stream will be a concatenation of pairs, where the first
+        component is the map key and the second component is a concatenation of
+        values associated with that map key.
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        TRANSFORM_ID_FIELD_NUMBER: builtins.int
+        USER_STATE_ID_FIELD_NUMBER: builtins.int
+        WINDOW_FIELD_NUMBER: builtins.int
+        KEY_FIELD_NUMBER: builtins.int
+        transform_id: builtins.str
+        """(Required) The id of the PTransform containing user state."""
+        user_state_id: builtins.str
+        """(Required) The id of the user state."""
+        window: builtins.bytes
+        """(Required) The window encoded in a nested context."""
+        key: builtins.bytes
+        """(Required) The key of the currently executing element encoded in a
+        nested context.
+        """
+        def __init__(
+            self,
+            *,
+            transform_id: builtins.str | None = ...,
+            user_state_id: builtins.str | None = ...,
+            window: builtins.bytes | None = ...,
+            key: builtins.bytes | None = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "transform_id", b"transform_id", "user_state_id", b"user_state_id", "window", b"window"]) -> None: ...
+
+    @typing_extensions.final
     class MultimapUserState(google.protobuf.message.Message):
         """Represents a request for the values of the map key associated with a
         specified user key and window for a PTransform. See
@@ -2020,6 +2123,7 @@ class StateKey(google.protobuf.message.Message):
     MULTIMAP_KEYS_SIDE_INPUT_FIELD_NUMBER: builtins.int
     MULTIMAP_KEYS_VALUES_SIDE_INPUT_FIELD_NUMBER: builtins.int
     MULTIMAP_KEYS_USER_STATE_FIELD_NUMBER: builtins.int
+    MULTIMAP_ENTRIES_USER_STATE_FIELD_NUMBER: builtins.int
     MULTIMAP_USER_STATE_FIELD_NUMBER: builtins.int
     ORDERED_LIST_USER_STATE_FIELD_NUMBER: builtins.int
     @property
@@ -2037,6 +2141,8 @@ class StateKey(google.protobuf.message.Message):
     @property
     def multimap_keys_user_state(self) -> global___StateKey.MultimapKeysUserState: ...
     @property
+    def multimap_entries_user_state(self) -> global___StateKey.MultimapEntriesUserState: ...
+    @property
     def multimap_user_state(self) -> global___StateKey.MultimapUserState: ...
     @property
     def ordered_list_user_state(self) -> global___StateKey.OrderedListUserState: ...
@@ -2050,12 +2156,13 @@ class StateKey(google.protobuf.message.Message):
         multimap_keys_side_input: global___StateKey.MultimapKeysSideInput | None = ...,
         multimap_keys_values_side_input: global___StateKey.MultimapKeysValuesSideInput | None = ...,
         multimap_keys_user_state: global___StateKey.MultimapKeysUserState | None = ...,
+        multimap_entries_user_state: global___StateKey.MultimapEntriesUserState | None = ...,
         multimap_user_state: global___StateKey.MultimapUserState | None = ...,
         ordered_list_user_state: global___StateKey.OrderedListUserState | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["bag_user_state", b"bag_user_state", "iterable_side_input", b"iterable_side_input", "multimap_keys_side_input", b"multimap_keys_side_input", "multimap_keys_user_state", b"multimap_keys_user_state", "multimap_keys_values_side_input", b"multimap_keys_values_side_input", "multimap_side_input", b"multimap_side_input", "multimap_user_state", b"multimap_user_state", "ordered_list_user_state", b"ordered_list_user_state", "runner", b"runner", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["bag_user_state", b"bag_user_state", "iterable_side_input", b"iterable_side_input", "multimap_keys_side_input", b"multimap_keys_side_input", "multimap_keys_user_state", b"multimap_keys_user_state", "multimap_keys_values_side_input", b"multimap_keys_values_side_input", "multimap_side_input", b"multimap_side_input", "multimap_user_state", b"multimap_user_state", "ordered_list_user_state", b"ordered_list_user_state", "runner", b"runner", "type", b"type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["runner", "multimap_side_input", "bag_user_state", "iterable_side_input", "multimap_keys_side_input", "multimap_keys_values_side_input", "multimap_keys_user_state", "multimap_user_state", "ordered_list_user_state"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["bag_user_state", b"bag_user_state", "iterable_side_input", b"iterable_side_input", "multimap_entries_user_state", b"multimap_entries_user_state", "multimap_keys_side_input", b"multimap_keys_side_input", "multimap_keys_user_state", b"multimap_keys_user_state", "multimap_keys_values_side_input", b"multimap_keys_values_side_input", "multimap_side_input", b"multimap_side_input", "multimap_user_state", b"multimap_user_state", "ordered_list_user_state", b"ordered_list_user_state", "runner", b"runner", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["bag_user_state", b"bag_user_state", "iterable_side_input", b"iterable_side_input", "multimap_entries_user_state", b"multimap_entries_user_state", "multimap_keys_side_input", b"multimap_keys_side_input", "multimap_keys_user_state", b"multimap_keys_user_state", "multimap_keys_values_side_input", b"multimap_keys_values_side_input", "multimap_side_input", b"multimap_side_input", "multimap_user_state", b"multimap_user_state", "ordered_list_user_state", b"ordered_list_user_state", "runner", b"runner", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["runner", "multimap_side_input", "bag_user_state", "iterable_side_input", "multimap_keys_side_input", "multimap_keys_values_side_input", "multimap_keys_user_state", "multimap_entries_user_state", "multimap_user_state", "ordered_list_user_state"] | None: ...
 
 global___StateKey = StateKey
 

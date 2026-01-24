@@ -229,7 +229,7 @@ class Model(Object):
         -------
         dict
             A dictionary of metabolite compartments, where the keys are the short
-            version (one letter version) of the compartmetns, and the values are the
+            version (one letter version) of the compartments, and the values are the
             full names (if they exist).
         """
         return {

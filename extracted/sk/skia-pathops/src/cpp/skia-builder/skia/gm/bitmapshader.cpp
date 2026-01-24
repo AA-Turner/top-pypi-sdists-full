@@ -9,6 +9,7 @@
 #include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
+#include "include/core/SkImage.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkMatrix.h"
 #include "include/core/SkPaint.h"
@@ -18,9 +19,12 @@
 #include "include/core/SkString.h"
 #include "include/core/SkTileMode.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrRecordingContext.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrRecordingContext.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
+#endif
 
 namespace skiagm {
 
@@ -55,13 +59,9 @@ protected:
         fMask = draw_mask();
     }
 
-    SkString onShortName() override {
-        return SkString("bitmapshaders");
-    }
+    SkString getName() const override { return SkString("bitmapshaders"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(150, 100);
-    }
+    SkISize getISize() override { return SkISize::Make(150, 100); }
 
     void onDraw(SkCanvas* canvas) override {
         SkPaint paint;
@@ -125,9 +125,11 @@ DEF_SIMPLE_GM(hugebitmapshader, canvas, 100, 100) {
     // (See https://skia-review.googlesource.com/c/skia/+/73200)
     int bitmapW = 1;
     int bitmapH = 60000;
+#if defined(SK_GANESH)
     if (auto ctx = canvas->recordingContext()) {
         bitmapH = ctx->priv().caps()->maxTextureSize() + 1;
     }
+#endif
     bitmap.setInfo(SkImageInfo::MakeA8(bitmapW, bitmapH), bitmapW);
     uint8_t* pixels = new uint8_t[bitmapH];
     for(int i = 0; i < bitmapH; ++i) {

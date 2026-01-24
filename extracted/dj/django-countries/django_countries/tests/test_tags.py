@@ -8,7 +8,6 @@ from django_countries.conf import settings
 
 
 class TestCountriesTags(TestCase):
-
     TEMPLATE_COUNTRY = Template(
         "{% load countries %}{% get_country code as country %}{{ country }}"
     )
@@ -44,7 +43,5 @@ class TestCountriesTags(TestCase):
         rendered = self.TEMPLATE_COUNTRIES.render(Context())
         self.assertEqual(
             rendered,
-            Template("{{ expected }}").render(
-                Context({"expected": [(code, name) for code, name in countries]})
-            ),
+            Template("{{ expected }}").render(Context({"expected": list(countries)})),
         )

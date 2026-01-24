@@ -4,7 +4,7 @@ use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext};
 use crate::{
     node::make_comma,
     rule::array_values_order::{
-        try_array_values_order_by_from_item_schema, SortFailReason, SortableValues,
+        SortFailReason, SortableValues, try_array_values_order_by_from_item_schema,
     },
 };
 
@@ -47,18 +47,17 @@ pub async fn create_integer_sortable_values<'a>(
                     };
                     let comma = comma.unwrap_or(tombi_ast::Comma::cast(make_comma()).unwrap());
 
-                    let mut keys_iter = keys.keys().into_iter();
+                    let mut keys_iter = keys.keys();
                     if let (Some(key), None) = (keys_iter.next(), keys_iter.next()) {
                         let key_text = key.to_raw_text(schema_context.toml_version);
-                        if key_text == array_values_order_by {
-                            if let Some(tombi_document_tree::Value::Integer(integer_node)) =
+                        if key_text == array_values_order_by
+                            && let Some(tombi_document_tree::Value::Integer(integer_node)) =
                                 table_node.get(&key_text)
-                            {
-                                sortable_values.push((integer_node.value(), value, comma));
+                        {
+                            sortable_values.push((integer_node.value(), value, comma));
 
-                                found = true;
-                                break;
-                            }
+                            found = true;
+                            break;
                         }
                     } else {
                         return Err(SortFailReason::DottedKeysInlineTableNotSupported);

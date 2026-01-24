@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Optional, Union, List
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
@@ -23,13 +24,11 @@ class RouterNode(BaseTool):
         result = template.evaluate()
         logger.info(f"RouterNode evaluated condition '{self.condition}' with input {input_data} => {result}")
         result = clean_string(str(result))
-        if result in self.routes:
+        if result in [clean_string(formatted_result) for formatted_result in self.routes]:
             # If the result is one of the routes, return it
             return {"router_output": result}
-        elif result == self.default_output:
-            # If the result is the default output, return it
-            return {"router_output": clean_string(self.default_output)}
-        return {"router_output": 'END'}
+        # For any unmatched condition (including empty string), use the configured default_output
+        return {"router_output": clean_string(self.default_output)}
 
     def _run(self, *args, **kwargs):
         return self.invoke(**kwargs)

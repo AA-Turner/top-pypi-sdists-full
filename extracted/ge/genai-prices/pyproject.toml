@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "genai-prices"
-version = "0.0.27"
+version = "0.0.51"
 description = "Calculate prices for calling LLM inference APIs."
 readme = "README.md"
 authors = [{ name = "Samuel Colvin", email = "samuel@pydantic.dev" }]
@@ -33,9 +33,9 @@ classifiers = [
     "Topic :: Internet",
 ]
 dependencies = [
-    "eval-type-backport>=0.2; python_version < '3.11'",
-    "httpx>=0.28.1",
-    "pydantic>=2.11.7",
+    "eval-type-backport>=0.2; python_version < '3.10'",
+    "httpx>=0.27",
+    "pydantic>=2.10",
 ]
 
 [project.scripts]

@@ -278,7 +278,7 @@
         fail_on_error: true
       register: result
 
-    # mysqlclient 2.0.1 and pymysql 0.10.0+ always return "changed"
+    # pymysql 0.10.0+ always returns "changed"
     - name: Assert that startreplica is not changed
       assert:
         that:
@@ -306,7 +306,7 @@
         timeout: 2
 
     # Test stopreplica mode:
-    # mysqlclient 2.0.1 and pymysql 0.10.0+ always return "changed"
+    # pymysql 0.10.0+ always returns "changed"
     - name: Stop replica that is no longer running
       mysql_replication:
         <<: *mysql_params

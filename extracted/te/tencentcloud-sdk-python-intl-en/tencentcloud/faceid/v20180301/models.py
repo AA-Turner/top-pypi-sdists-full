@@ -522,20 +522,21 @@ Default value: 1
 4: Motion- and reflection-based liveness detection
 Default value: 4
         :type SecurityLevel: int
-        :param _IdCardType: Card Types Supported for Authentication: Currently supported types are as follows:
-1.HK (Default): Hong Kong (China) Identity Card
-2.ML: Malaysia Identity Card
-3.IndonesiaIDCard: Indonesia Identity Card
-4.PhilippinesVoteID: Philippines Voter ID
-5.PhilippinesDrivingLicense: Philippines Driving License
-6.PhilippinesTinID: Philippines Tin ID
-7.PhilippinesSSSID: Philippines SSS ID
-8.PhilippinesUMID: Philippines UMID
-9.MLIDPassport: Passports of Hong Kong, Macao, Taiwan Regions (China) and Foreign Countries
-10.ThailandIDCard: Thailand Identity Card
-11.MainlandIDCard: Mainland China Identity Card
-12.SingaporeIDCard: Singapore Identity Card
-13.HMTPermit: Exit-Entry Permit for Travel to and from Hong Kong, Macao and Taiwan (China)
+        :param _IdCardType: Specifies the identity document type used for authentication. valid values:.  
+
+HK (default): hong kong (china) identity card.
+2. ML: malaysian identity card.
+Indonesian identity card.
+4. PhilippinesVoteID: specifies the voter card in the philippines.
+5. PhilippinesDrivingLicense: specifies the driving license in philippines.
+6. PhilippinesTinID: specifies the philippines tin id.
+7. PhilippinesSSSID: specifies the SSSID in the philippines.
+8. philippines UMID: specifies the philippines UMID.
+9. MLIDPassport: specifies the passport for hong kong (china), macao (china), and taiwan (china) as well as overseas passports.
+ThailandIDCard: specifies the thai identity card.
+Mainland id card.
+12. SingaporeIDCard: specifies the Singapore id card.
+13. HMTPermit: specifies the hong kong, macau and taiwan travel permit.
         :type IdCardType: str
         :param _CompareImage: The Base64-encoded value of the photo to compare, which is required only when `CheckMode` is set to `2`.
         :type CompareImage: str
@@ -546,9 +547,16 @@ Default value: 4
         :param _DisableCheckOcrWarnings: Whether to disable the OCR warnings. Default value: `false` (not disable), where OCR warnings are enabled and the OCR result will not be returned if there is a warning.
 This feature applies only to Hong Kong (China) identity cards, Malaysian identity cards, and passports.
         :type DisableCheckOcrWarnings: bool
+        :param _SelectedWarningCodes: Customize which alarm codes to block. If left blank, all alarm codes will be blocked by default.
+Optional alarm codes are: -9101 (occlusion or incomplete border), -9102 (photocopying), -9103 (screen capture by camera), -9104 (image editing/PS modification), -9107 (glare/reflection), -9108 (blurriness), -9901 (other alarms).
+        :type SelectedWarningCodes: list of int
         :param _Extra: A passthrough field, which is returned together with the verification result and can contain up to 1,024 bits.
         :type Extra: str
-        :param _SdkVersion: ENHANCED: Enhanced Version, BASIC: Basic Version (Default)
+        :param _SdkVersion: BASIC: Basic version (Default).
+ENHANCE: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
         :type SdkVersion: str
         :param _ActionList: This interface is used to control th action sequences.
 Action types are as follows:
@@ -561,6 +569,10 @@ Single action example: "blink"
 Multiple action example: "blink,mouth"
 The default value is blink. The different action types passed in this parameter take effect only when the SecurityLevel is 2 or 4; otherwise, the interface reports an error.
         :type ActionList: str
+        :param _AllowExpiredDocument: Whether expired identity documents are permitted to proceed to the liveness detection process. This parameter only takes effect when the document type is Hong Kong Identity Card (HKID).
+true (default value): Expired HKID is allowed to enter the liveness process.
+false : Expired HKID is rejected and cannot enter the liveness process.
+        :type AllowExpiredDocument: bool
         """
         self._CheckMode = None
         self._SecurityLevel = None
@@ -569,9 +581,11 @@ The default value is blink. The different action types passed in this parameter 
         self._NeedVerifyIdCard = None
         self._DisableChangeOcrResult = None
         self._DisableCheckOcrWarnings = None
+        self._SelectedWarningCodes = None
         self._Extra = None
         self._SdkVersion = None
         self._ActionList = None
+        self._AllowExpiredDocument = None
 
     @property
     def CheckMode(self):
@@ -606,20 +620,21 @@ Default value: 4
 
     @property
     def IdCardType(self):
-        r"""Card Types Supported for Authentication: Currently supported types are as follows:
-1.HK (Default): Hong Kong (China) Identity Card
-2.ML: Malaysia Identity Card
-3.IndonesiaIDCard: Indonesia Identity Card
-4.PhilippinesVoteID: Philippines Voter ID
-5.PhilippinesDrivingLicense: Philippines Driving License
-6.PhilippinesTinID: Philippines Tin ID
-7.PhilippinesSSSID: Philippines SSS ID
-8.PhilippinesUMID: Philippines UMID
-9.MLIDPassport: Passports of Hong Kong, Macao, Taiwan Regions (China) and Foreign Countries
-10.ThailandIDCard: Thailand Identity Card
-11.MainlandIDCard: Mainland China Identity Card
-12.SingaporeIDCard: Singapore Identity Card
-13.HMTPermit: Exit-Entry Permit for Travel to and from Hong Kong, Macao and Taiwan (China)
+        r"""Specifies the identity document type used for authentication. valid values:.  
+
+HK (default): hong kong (china) identity card.
+2. ML: malaysian identity card.
+Indonesian identity card.
+4. PhilippinesVoteID: specifies the voter card in the philippines.
+5. PhilippinesDrivingLicense: specifies the driving license in philippines.
+6. PhilippinesTinID: specifies the philippines tin id.
+7. PhilippinesSSSID: specifies the SSSID in the philippines.
+8. philippines UMID: specifies the philippines UMID.
+9. MLIDPassport: specifies the passport for hong kong (china), macao (china), and taiwan (china) as well as overseas passports.
+ThailandIDCard: specifies the thai identity card.
+Mainland id card.
+12. SingaporeIDCard: specifies the Singapore id card.
+13. HMTPermit: specifies the hong kong, macau and taiwan travel permit.
         :rtype: str
         """
         return self._IdCardType
@@ -678,6 +693,18 @@ This feature applies only to Hong Kong (China) identity cards, Malaysian identit
         self._DisableCheckOcrWarnings = DisableCheckOcrWarnings
 
     @property
+    def SelectedWarningCodes(self):
+        r"""Customize which alarm codes to block. If left blank, all alarm codes will be blocked by default.
+Optional alarm codes are: -9101 (occlusion or incomplete border), -9102 (photocopying), -9103 (screen capture by camera), -9104 (image editing/PS modification), -9107 (glare/reflection), -9108 (blurriness), -9901 (other alarms).
+        :rtype: list of int
+        """
+        return self._SelectedWarningCodes
+
+    @SelectedWarningCodes.setter
+    def SelectedWarningCodes(self, SelectedWarningCodes):
+        self._SelectedWarningCodes = SelectedWarningCodes
+
+    @property
     def Extra(self):
         r"""A passthrough field, which is returned together with the verification result and can contain up to 1,024 bits.
         :rtype: str
@@ -690,7 +717,11 @@ This feature applies only to Hong Kong (China) identity cards, Malaysian identit
 
     @property
     def SdkVersion(self):
-        r"""ENHANCED: Enhanced Version, BASIC: Basic Version (Default)
+        r"""BASIC: Basic version (Default).
+ENHANCE: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
         :rtype: str
         """
         return self._SdkVersion
@@ -719,6 +750,19 @@ The default value is blink. The different action types passed in this parameter 
     def ActionList(self, ActionList):
         self._ActionList = ActionList
 
+    @property
+    def AllowExpiredDocument(self):
+        r"""Whether expired identity documents are permitted to proceed to the liveness detection process. This parameter only takes effect when the document type is Hong Kong Identity Card (HKID).
+true (default value): Expired HKID is allowed to enter the liveness process.
+false : Expired HKID is rejected and cannot enter the liveness process.
+        :rtype: bool
+        """
+        return self._AllowExpiredDocument
+
+    @AllowExpiredDocument.setter
+    def AllowExpiredDocument(self, AllowExpiredDocument):
+        self._AllowExpiredDocument = AllowExpiredDocument
+
 
     def _deserialize(self, params):
         self._CheckMode = params.get("CheckMode")
@@ -728,9 +772,11 @@ The default value is blink. The different action types passed in this parameter 
         self._NeedVerifyIdCard = params.get("NeedVerifyIdCard")
         self._DisableChangeOcrResult = params.get("DisableChangeOcrResult")
         self._DisableCheckOcrWarnings = params.get("DisableCheckOcrWarnings")
+        self._SelectedWarningCodes = params.get("SelectedWarningCodes")
         self._Extra = params.get("Extra")
         self._SdkVersion = params.get("SdkVersion")
         self._ActionList = params.get("ActionList")
+        self._AllowExpiredDocument = params.get("AllowExpiredDocument")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -748,7 +794,7 @@ class ApplySdkVerificationTokenResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SdkToken: The token used to identify an SDK-based verification process. It is valid for 7,200s and can be used to get the verification result after the process is completed.
+        :param _SdkToken: A token that identifies an SDK verification process. the validity time is 10 minutes. after the process is complete, the token can be used to retrieve the verification result.
         :type SdkToken: str
         :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :type RequestId: str
@@ -758,7 +804,7 @@ class ApplySdkVerificationTokenResponse(AbstractModel):
 
     @property
     def SdkToken(self):
-        r"""The token used to identify an SDK-based verification process. It is valid for 7,200s and can be used to get the verification result after the process is completed.
+        r"""A token that identifies an SDK verification process. the validity time is 10 minutes. after the process is complete, the token can be used to retrieve the verification result.
         :rtype: str
         """
         return self._SdkToken
@@ -1108,7 +1154,11 @@ class AttackRiskDetail(AbstractModel):
         r"""
         :param _Type: Suspected attack trace types
 SuspectedSpoofingAttack: Suspected spoofing attack
- SuspectedSynthesisImage: Suspected synthesis image SuspectedSynthesisVideo: Suspected synthesis video SuspectedeAnomalyAttack: Suspected anomaly attack SuspectedAdversarialAttack: Suspected adversarial attack SuspectedBlackIndustry: Suspected batch generation attack
+SuspectedSynthesisImage: Suspected synthesis image
+SuspectedSynthesisVideo: Suspected synthesis video
+SuspectedeAnomalyAttack: Suspected anomaly attack
+SuspectedAdversarialAttack: Suspected adversarial attack 
+SuspectedBlackIndustry: Suspected batch generation attack
 SuspectedWatermark: Suspected watermark
         :type Type: str
         """
@@ -1118,7 +1168,11 @@ SuspectedWatermark: Suspected watermark
     def Type(self):
         r"""Suspected attack trace types
 SuspectedSpoofingAttack: Suspected spoofing attack
- SuspectedSynthesisImage: Suspected synthesis image SuspectedSynthesisVideo: Suspected synthesis video SuspectedeAnomalyAttack: Suspected anomaly attack SuspectedAdversarialAttack: Suspected adversarial attack SuspectedBlackIndustry: Suspected batch generation attack
+SuspectedSynthesisImage: Suspected synthesis image
+SuspectedSynthesisVideo: Suspected synthesis video
+SuspectedeAnomalyAttack: Suspected anomaly attack
+SuspectedAdversarialAttack: Suspected adversarial attack 
+SuspectedBlackIndustry: Suspected batch generation attack
 SuspectedWatermark: Suspected watermark
         :rtype: str
         """
@@ -2352,6 +2406,21 @@ Note: This field may return null, indicating that no valid values can be obtaine
         :type CardInfoInputJson: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
         :param _RequestId: The request ID of this verification process.
         :type RequestId: str
+        :param _LivenessInfoTag: Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :type LivenessInfoTag: list of str
         """
         self._ErrorCode = None
         self._ErrorMsg = None
@@ -2368,6 +2437,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
         self._IsNeedCharge = None
         self._CardInfoInputJson = None
         self._RequestId = None
+        self._LivenessInfoTag = None
 
     @property
     def ErrorCode(self):
@@ -2558,6 +2628,30 @@ Note: This field may return null, indicating that no valid values can be obtaine
     def RequestId(self, RequestId):
         self._RequestId = RequestId
 
+    @property
+    def LivenessInfoTag(self):
+        r"""Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :rtype: list of str
+        """
+        return self._LivenessInfoTag
+
+    @LivenessInfoTag.setter
+    def LivenessInfoTag(self, LivenessInfoTag):
+        self._LivenessInfoTag = LivenessInfoTag
+
 
     def _deserialize(self, params):
         self._ErrorCode = params.get("ErrorCode")
@@ -2587,6 +2681,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
             self._CardInfoInputJson = FileInfo()
             self._CardInfoInputJson._deserialize(params.get("CardInfoInputJson"))
         self._RequestId = params.get("RequestId")
+        self._LivenessInfoTag = params.get("LivenessInfoTag")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3126,15 +3221,15 @@ class Encryption(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _EncryptList: 
+        :param _EncryptList: When using the encryption service, fill in the fields to be encrypted. One or more encrypted fields can be entered in this interface.
         :type EncryptList: list of str
-        :param _CiphertextBlob: 
+        :param _CiphertextBlob: Symmetric key after encryption. For the generation and usage of the key, please refer to the <a href="https://cloud.tencent.com/document/product/1007/47180">Data Encryption</a> document.
         :type CiphertextBlob: str
-        :param _Iv: 
+        :param _Iv: initialization vector for CBC encryption (a customer-defined string with a length of 16 characters).
         :type Iv: str
-        :param _Algorithm: 
+        :param _Algorithm: Encryption algorithm (supports 'AES-256-CBC'/'SM4-GCM'); default: 'AES-256-CBC' if not specified.
         :type Algorithm: str
-        :param _TagList: 
+        :param _TagList: Message digest generated by the SM4-GCM algorithm (used for verifying message integrity).
         :type TagList: list of str
         """
         self._EncryptList = None
@@ -3145,7 +3240,7 @@ class Encryption(AbstractModel):
 
     @property
     def EncryptList(self):
-        r"""
+        r"""When using the encryption service, fill in the fields to be encrypted. One or more encrypted fields can be entered in this interface.
         :rtype: list of str
         """
         return self._EncryptList
@@ -3156,7 +3251,7 @@ class Encryption(AbstractModel):
 
     @property
     def CiphertextBlob(self):
-        r"""
+        r"""Symmetric key after encryption. For the generation and usage of the key, please refer to the <a href="https://cloud.tencent.com/document/product/1007/47180">Data Encryption</a> document.
         :rtype: str
         """
         return self._CiphertextBlob
@@ -3167,7 +3262,7 @@ class Encryption(AbstractModel):
 
     @property
     def Iv(self):
-        r"""
+        r"""initialization vector for CBC encryption (a customer-defined string with a length of 16 characters).
         :rtype: str
         """
         return self._Iv
@@ -3178,7 +3273,7 @@ class Encryption(AbstractModel):
 
     @property
     def Algorithm(self):
-        r"""
+        r"""Encryption algorithm (supports 'AES-256-CBC'/'SM4-GCM'); default: 'AES-256-CBC' if not specified.
         :rtype: str
         """
         return self._Algorithm
@@ -3189,7 +3284,7 @@ class Encryption(AbstractModel):
 
     @property
     def TagList(self):
-        r"""
+        r"""Message digest generated by the SM4-GCM algorithm (used for verifying message integrity).
         :rtype: list of str
         """
         return self._TagList
@@ -3392,6 +3487,12 @@ Note: This field may return null, indicating that no valid values can be obtaine
         :param _Address: Address
 Note: This field may return null, indicating that no valid values can be obtained.
         :type Address: :class:`tencentcloud.faceid.v20180301.models.Address`
+        :param _FullNameLocal: Localized name.
+        :type FullNameLocal: str
+        :param _FirstNameLocal: Localization.
+        :type FirstNameLocal: str
+        :param _LastNameLocal: Localized surname.
+        :type LastNameLocal: str
         """
         self._LicenseNumber = None
         self._PersonalNumber = None
@@ -3412,6 +3513,9 @@ Note: This field may return null, indicating that no valid values can be obtaine
         self._Nationality = None
         self._RegistrationNumber = None
         self._Address = None
+        self._FullNameLocal = None
+        self._FirstNameLocal = None
+        self._LastNameLocal = None
 
     @property
     def LicenseNumber(self):
@@ -3647,6 +3751,39 @@ Note: This field may return null, indicating that no valid values can be obtaine
     def Address(self, Address):
         self._Address = Address
 
+    @property
+    def FullNameLocal(self):
+        r"""Localized name.
+        :rtype: str
+        """
+        return self._FullNameLocal
+
+    @FullNameLocal.setter
+    def FullNameLocal(self, FullNameLocal):
+        self._FullNameLocal = FullNameLocal
+
+    @property
+    def FirstNameLocal(self):
+        r"""Localization.
+        :rtype: str
+        """
+        return self._FirstNameLocal
+
+    @FirstNameLocal.setter
+    def FirstNameLocal(self, FirstNameLocal):
+        self._FirstNameLocal = FirstNameLocal
+
+    @property
+    def LastNameLocal(self):
+        r"""Localized surname.
+        :rtype: str
+        """
+        return self._LastNameLocal
+
+    @LastNameLocal.setter
+    def LastNameLocal(self, LastNameLocal):
+        self._LastNameLocal = LastNameLocal
+
 
     def _deserialize(self, params):
         self._LicenseNumber = params.get("LicenseNumber")
@@ -3670,6 +3807,9 @@ Note: This field may return null, indicating that no valid values can be obtaine
         if params.get("Address") is not None:
             self._Address = Address()
             self._Address._deserialize(params.get("Address"))
+        self._FullNameLocal = params.get("FullNameLocal")
+        self._FirstNameLocal = params.get("FirstNameLocal")
+        self._LastNameLocal = params.get("LastNameLocal")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4082,8 +4222,23 @@ Note: This field may return null, indicating that no valid values can be obtaine
 3 - Medium Risk
 4 - High Risk
 Empty - Risk level not obtained.
-Only returned for the ENHANCED version, with the default value being empty.
+Only returned for the Enhance and Plus version, with the default value being empty.
         :type DeviceInfoLevel: str
+        :param _LivenessInfoTag: Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :type LivenessInfoTag: list of str
         :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :type RequestId: str
         """
@@ -4095,6 +4250,7 @@ Only returned for the ENHANCED version, with the default value being empty.
         self._Similarity = None
         self._Extra = None
         self._DeviceInfoLevel = None
+        self._LivenessInfoTag = None
         self._RequestId = None
 
     @property
@@ -4194,7 +4350,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
 3 - Medium Risk
 4 - High Risk
 Empty - Risk level not obtained.
-Only returned for the ENHANCED version, with the default value being empty.
+Only returned for the Enhance and Plus version, with the default value being empty.
         :rtype: str
         """
         return self._DeviceInfoLevel
@@ -4202,6 +4358,30 @@ Only returned for the ENHANCED version, with the default value being empty.
     @DeviceInfoLevel.setter
     def DeviceInfoLevel(self, DeviceInfoLevel):
         self._DeviceInfoLevel = DeviceInfoLevel
+
+    @property
+    def LivenessInfoTag(self):
+        r"""Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :rtype: list of str
+        """
+        return self._LivenessInfoTag
+
+    @LivenessInfoTag.setter
+    def LivenessInfoTag(self, LivenessInfoTag):
+        self._LivenessInfoTag = LivenessInfoTag
 
     @property
     def RequestId(self):
@@ -4224,6 +4404,7 @@ Only returned for the ENHANCED version, with the default value being empty.
         self._Similarity = params.get("Similarity")
         self._Extra = params.get("Extra")
         self._DeviceInfoLevel = params.get("DeviceInfoLevel")
+        self._LivenessInfoTag = params.get("LivenessInfoTag")
         self._RequestId = params.get("RequestId")
 
 
@@ -4261,7 +4442,11 @@ Single action example: "blink"
 Multiple action example: "blink,mouth"
 The default value is blink. The different action types passed in this parameter take effect only when the SecurityLevel is 2 or 4; otherwise, the interface reports an error.
         :type ActionList: str
-        :param _SdkVersion: ENHANCED: Enhanced Version, BASIC: Basic Version (Default)
+        :param _SdkVersion: BASIC: Basic version (Default).
+ENHANCE: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
         :type SdkVersion: str
         """
         self._CheckMode = None
@@ -4345,7 +4530,11 @@ The default value is blink. The different action types passed in this parameter 
 
     @property
     def SdkVersion(self):
-        r"""ENHANCED: Enhanced Version, BASIC: Basic Version (Default)
+        r"""BASIC: Basic version (Default).
+ENHANCE: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
         :rtype: str
         """
         return self._SdkVersion
@@ -4604,7 +4793,7 @@ class GetSdkVerificationResultResponse(AbstractModel):
 3 - Medium Risk
 4 - High Risk
 Empty - Risk level not obtained.
-Only returned for the ENHANCED version, with the default value being empty.
+Only returned for the Enhance and Plus version, with the default value being empty.
         :type DeviceInfoLevel: str
         :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :type RequestId: str
@@ -4692,7 +4881,7 @@ Only returned for the ENHANCED version, with the default value being empty.
 3 - Medium Risk
 4 - High Risk
 Empty - Risk level not obtained.
-Only returned for the ENHANCED version, with the default value being empty.
+Only returned for the Enhance and Plus version, with the default value being empty.
         :rtype: str
         """
         return self._DeviceInfoLevel
@@ -7722,6 +7911,9 @@ Note: This field may return null, indicating that no valid values can be obtaine
         :param _CurrentIssueDate: The current date of issue
 Note: This field may return null, indicating that no valid values can be obtained.
         :type CurrentIssueDate: str
+        :param _HKIDVersion: Hong kong identity card version.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type HKIDVersion: str
         """
         self._ChineseName = None
         self._FullName = None
@@ -7733,6 +7925,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
         self._Symbol = None
         self._IssuedDate = None
         self._CurrentIssueDate = None
+        self._HKIDVersion = None
 
     @property
     def ChineseName(self):
@@ -7858,6 +8051,18 @@ Note: This field may return null, indicating that no valid values can be obtaine
     def CurrentIssueDate(self, CurrentIssueDate):
         self._CurrentIssueDate = CurrentIssueDate
 
+    @property
+    def HKIDVersion(self):
+        r"""Hong kong identity card version.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._HKIDVersion
+
+    @HKIDVersion.setter
+    def HKIDVersion(self, HKIDVersion):
+        self._HKIDVersion = HKIDVersion
+
 
     def _deserialize(self, params):
         self._ChineseName = params.get("ChineseName")
@@ -7870,6 +8075,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
         self._Symbol = params.get("Symbol")
         self._IssuedDate = params.get("IssuedDate")
         self._CurrentIssueDate = params.get("CurrentIssueDate")
+        self._HKIDVersion = params.get("HKIDVersion")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10686,10 +10892,11 @@ class WebVerificationConfigIntl(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _AutoSkipStartPage: When starting verification, whether to skip the starting verification page. If true, enter the verification process directly. The default is false. This configuration will not take effect if the downgrade policy is triggered.
+        :param _AutoSkipStartPage: When starting verification, whether to skip the starting verification page. If true, enter the verification process directly. This configuration will not take effect if the downgrade policy is triggered. The default is false.
+Example: false
         :type AutoSkipStartPage: bool
         :param _AutoSkip: When the verification passed, whether to skip the result page and automatically jump to RedirectURL. The default value is false.
-Example value: false
+Example: false
         :type AutoSkip: bool
         :param _CheckMode: Detection mode, parameter values are as follows:
 1: OCR+liveness detection & face comparison;
@@ -10697,9 +10904,9 @@ Example value: false
 3: Liveness detection;
 4: OCR;
 The default value is 2.
-Example value: 3
+Example: 3
         :type CheckMode: int
-        :param _IDCardType: The type of lisence used for verification. The following types are supported.
+        :param _IDCardType: Card Type for verification. The following types are supported:
 1.HKIDCard: Hong Kong (China) ID card
 2.MLIDCard: Malaysia ID card
 3.IndonesialDCard: Indonesia ID card
@@ -10715,36 +10922,65 @@ Example value: 3
 Example: HKIDCard
         :type IDCardType: str
         :param _DisableCheckOcrWarnings: Whether to turn off document alarms, the default is false (the alarm detection function is turned on). When enabled, the identity authentication process will be intercepted based on the alarm status of the certificate. If you need to use the document authentication function, please contact us.
+Example: false
         :type DisableCheckOcrWarnings: bool
-        :param _SecurityLevel: Liveness security level: 1:Silent mode;2:Action mode;3:Lighting mode;4:Action+Lighting mode;5:Action+Lighting(High security) mode; default value is 3
+        :param _SecurityLevel: Liveness security level, the default value is 3. The currently supported security level are as follows:
+1:Silent mode;
+2:Action mode;
+3:Lighting mode;
+4:Action+Lighting mode;
+5:Action+Lighting(High security) mode.
+Example: 4
         :type SecurityLevel: int
-        :param _SkipPrivacyPolicy: Whether to skip the agreement page, the default is false. When SkipPrivacyPolicy is false, the agreement page will be displayed and the privacy agreement needs to be checked; when SkipPrivacyPolicy is true, the agreement page will be skipped and the liveness process will be entered directly without checking the privacy agreement page.
+        :param _SkipPrivacyPolicy: Whether to skip the agreement page. When SkipPrivacyPolicy is false, the agreement page will be displayed and the privacy agreement needs to be checked; when SkipPrivacyPolicy is true, the agreement page will be skipped and the liveness process will be entered directly without checking the privacy agreement page. The default is false.
+Example: false
         :type SkipPrivacyPolicy: bool
-        :param _IdCardCutReturn: The default value is false. If it is false, the original ID image will be displayed. If it is true, the cut ID image will be displayed.
+        :param _IdCardCutReturn: whether to display the cropped ID card image. When set to false, the original ID card image is displayed. When set to true, the cropped version is displayed. The default value is false. 
+Example: false
         :type IdCardCutReturn: bool
-        :param _ThemeColor: Front-end theme color, in the format of RGB hexadecimal color code. The default value is "#2d72f1". If the format is incorrect, the default value color will be used. 
+        :param _ThemeColor: Front-end theme color, in the format of RGB hexadecimal color code. If the format is incorrect, the default value color will be used. The default value is "#2d72f1".
+Example: #2d72f1
         :type ThemeColor: str
-        :param _Language: International language, the default value is en (English). Currently supported: th: Thai; en: English; zh-cn: Simplified Chinese; zh-tc: Tradionnal Chinese; id: Bahasa Indonesia.
+        :param _Language: International language, the default value is en (English). The currently supported language are as follows: 
+th: Thai; 
+en: English; 
+zh-cn: Simplified Chinese; 
+zh-tc: Tradionnal Chinese; 
+id: Bahasa Indonesia.
         :type Language: str
-        :param _AutoDowngrade: Automatic downgrade mode, with the following parameter values: 1: Downgrade to silent live mode; 2: Disable downgrade mode. The default value is 1.
+        :param _AutoDowngrade: Automatic downgrade mode, the following parameter are supported: 
+1: Downgrade to silent live mode; 
+2: Disable downgrade mode. 
+The default value is 1.
         :type AutoDowngrade: int
         :param _ActionList: This interface is used to control th action sequences.
-Action types are as follows:
-"blink"
-"mouth"
-"nod"
-"shake"
-You can choose 1-2 actions out of the four.
-Single action example: "blink"
-Multiple action example: "blink,mouth"
-The default value is blink. The different action types passed in this parameter take effect only when the SecurityLevel is 2, 4, or 5; otherwise, the interface reports an error.
+The supported action types are as follows:
+"blink";
+"mouth";
+"nod";
+"shake".
+You can choose 1-2 actions out of the four. Single action example: "blink". Multiple action example: "blink,mouth". The different action types passed in this parameter take effect only when the SecurityLevel is 2, 4, or 5; otherwise, the interface reports an error.
+The default value is blink.
         :type ActionList: str
         :param _LivenessRetryLimit: Control liveness retry number.The value range is 1-99.
+The default value is 99.
         :type LivenessRetryLimit: int
         :param _LivenessTimeout: Specifies the liveness detection timeout period in seconds. value range: (0,600].
+The default value is 45.
         :type LivenessTimeout: int
-        :param _SelectedWarningCodes: Selects OCR alarms requiring attention. When an OCR Alarm occurs, the identity verification process will be interrupted. Default value is empty, indicating all alarms are monitored. This feature requires the parameter DisableCheckOcrWarnings=false. If the Alarm is disabled, this parameter will not be effective.
+        :param _SelectedWarningCodes: Selects OCR alarms requiring attention. When an OCR Alarm occurs, the identity verification process will be interrupted. Default value is empty, indicating all alarms are monitored. This feature requires the parameter DisableCheckOcrWarnings=false. If the Alarm is disabled, this parameter will not be effective. The supported alarm types are as follows:
+-9101: Incomplete Border Alert;
+-9102: Copy Document Alert;
+-9103: Remediated Document Alert;
+-9104: PS-altered Document Alert;
+-9107: Glare Alert;
+-9108: Blurriness Alert;
+-9109: Alert Not Activated.
         :type SelectedWarningCodes: str
+        :param _AllowExpiredDocument: Whether expired identity documents are permitted to proceed to the liveness detection process. This parameter only takes effect when the document type is Hong Kong Identity Card (HKID).
+true (default value): Expired HKID is allowed to enter the liveness process.
+false : Expired HKID is rejected and cannot enter the liveness process.
+        :type AllowExpiredDocument: bool
         """
         self._AutoSkipStartPage = None
         self._AutoSkip = None
@@ -10761,10 +10997,12 @@ The default value is blink. The different action types passed in this parameter 
         self._LivenessRetryLimit = None
         self._LivenessTimeout = None
         self._SelectedWarningCodes = None
+        self._AllowExpiredDocument = None
 
     @property
     def AutoSkipStartPage(self):
-        r"""When starting verification, whether to skip the starting verification page. If true, enter the verification process directly. The default is false. This configuration will not take effect if the downgrade policy is triggered.
+        r"""When starting verification, whether to skip the starting verification page. If true, enter the verification process directly. This configuration will not take effect if the downgrade policy is triggered. The default is false.
+Example: false
         :rtype: bool
         """
         return self._AutoSkipStartPage
@@ -10776,7 +11014,7 @@ The default value is blink. The different action types passed in this parameter 
     @property
     def AutoSkip(self):
         r"""When the verification passed, whether to skip the result page and automatically jump to RedirectURL. The default value is false.
-Example value: false
+Example: false
         :rtype: bool
         """
         return self._AutoSkip
@@ -10793,7 +11031,7 @@ Example value: false
 3: Liveness detection;
 4: OCR;
 The default value is 2.
-Example value: 3
+Example: 3
         :rtype: int
         """
         return self._CheckMode
@@ -10804,7 +11042,7 @@ Example value: 3
 
     @property
     def IDCardType(self):
-        r"""The type of lisence used for verification. The following types are supported.
+        r"""Card Type for verification. The following types are supported:
 1.HKIDCard: Hong Kong (China) ID card
 2.MLIDCard: Malaysia ID card
 3.IndonesialDCard: Indonesia ID card
@@ -10829,6 +11067,7 @@ Example: HKIDCard
     @property
     def DisableCheckOcrWarnings(self):
         r"""Whether to turn off document alarms, the default is false (the alarm detection function is turned on). When enabled, the identity authentication process will be intercepted based on the alarm status of the certificate. If you need to use the document authentication function, please contact us.
+Example: false
         :rtype: bool
         """
         return self._DisableCheckOcrWarnings
@@ -10839,7 +11078,13 @@ Example: HKIDCard
 
     @property
     def SecurityLevel(self):
-        r"""Liveness security level: 1:Silent mode;2:Action mode;3:Lighting mode;4:Action+Lighting mode;5:Action+Lighting(High security) mode; default value is 3
+        r"""Liveness security level, the default value is 3. The currently supported security level are as follows:
+1:Silent mode;
+2:Action mode;
+3:Lighting mode;
+4:Action+Lighting mode;
+5:Action+Lighting(High security) mode.
+Example: 4
         :rtype: int
         """
         return self._SecurityLevel
@@ -10850,7 +11095,8 @@ Example: HKIDCard
 
     @property
     def SkipPrivacyPolicy(self):
-        r"""Whether to skip the agreement page, the default is false. When SkipPrivacyPolicy is false, the agreement page will be displayed and the privacy agreement needs to be checked; when SkipPrivacyPolicy is true, the agreement page will be skipped and the liveness process will be entered directly without checking the privacy agreement page.
+        r"""Whether to skip the agreement page. When SkipPrivacyPolicy is false, the agreement page will be displayed and the privacy agreement needs to be checked; when SkipPrivacyPolicy is true, the agreement page will be skipped and the liveness process will be entered directly without checking the privacy agreement page. The default is false.
+Example: false
         :rtype: bool
         """
         return self._SkipPrivacyPolicy
@@ -10861,7 +11107,8 @@ Example: HKIDCard
 
     @property
     def IdCardCutReturn(self):
-        r"""The default value is false. If it is false, the original ID image will be displayed. If it is true, the cut ID image will be displayed.
+        r"""whether to display the cropped ID card image. When set to false, the original ID card image is displayed. When set to true, the cropped version is displayed. The default value is false. 
+Example: false
         :rtype: bool
         """
         return self._IdCardCutReturn
@@ -10872,7 +11119,8 @@ Example: HKIDCard
 
     @property
     def ThemeColor(self):
-        r"""Front-end theme color, in the format of RGB hexadecimal color code. The default value is "#2d72f1". If the format is incorrect, the default value color will be used. 
+        r"""Front-end theme color, in the format of RGB hexadecimal color code. If the format is incorrect, the default value color will be used. The default value is "#2d72f1".
+Example: #2d72f1
         :rtype: str
         """
         return self._ThemeColor
@@ -10883,7 +11131,12 @@ Example: HKIDCard
 
     @property
     def Language(self):
-        r"""International language, the default value is en (English). Currently supported: th: Thai; en: English; zh-cn: Simplified Chinese; zh-tc: Tradionnal Chinese; id: Bahasa Indonesia.
+        r"""International language, the default value is en (English). The currently supported language are as follows: 
+th: Thai; 
+en: English; 
+zh-cn: Simplified Chinese; 
+zh-tc: Tradionnal Chinese; 
+id: Bahasa Indonesia.
         :rtype: str
         """
         return self._Language
@@ -10894,7 +11147,10 @@ Example: HKIDCard
 
     @property
     def AutoDowngrade(self):
-        r"""Automatic downgrade mode, with the following parameter values: 1: Downgrade to silent live mode; 2: Disable downgrade mode. The default value is 1.
+        r"""Automatic downgrade mode, the following parameter are supported: 
+1: Downgrade to silent live mode; 
+2: Disable downgrade mode. 
+The default value is 1.
         :rtype: int
         """
         return self._AutoDowngrade
@@ -10906,15 +11162,13 @@ Example: HKIDCard
     @property
     def ActionList(self):
         r"""This interface is used to control th action sequences.
-Action types are as follows:
-"blink"
-"mouth"
-"nod"
-"shake"
-You can choose 1-2 actions out of the four.
-Single action example: "blink"
-Multiple action example: "blink,mouth"
-The default value is blink. The different action types passed in this parameter take effect only when the SecurityLevel is 2, 4, or 5; otherwise, the interface reports an error.
+The supported action types are as follows:
+"blink";
+"mouth";
+"nod";
+"shake".
+You can choose 1-2 actions out of the four. Single action example: "blink". Multiple action example: "blink,mouth". The different action types passed in this parameter take effect only when the SecurityLevel is 2, 4, or 5; otherwise, the interface reports an error.
+The default value is blink.
         :rtype: str
         """
         return self._ActionList
@@ -10926,6 +11180,7 @@ The default value is blink. The different action types passed in this parameter 
     @property
     def LivenessRetryLimit(self):
         r"""Control liveness retry number.The value range is 1-99.
+The default value is 99.
         :rtype: int
         """
         return self._LivenessRetryLimit
@@ -10937,6 +11192,7 @@ The default value is blink. The different action types passed in this parameter 
     @property
     def LivenessTimeout(self):
         r"""Specifies the liveness detection timeout period in seconds. value range: (0,600].
+The default value is 45.
         :rtype: int
         """
         return self._LivenessTimeout
@@ -10947,7 +11203,14 @@ The default value is blink. The different action types passed in this parameter 
 
     @property
     def SelectedWarningCodes(self):
-        r"""Selects OCR alarms requiring attention. When an OCR Alarm occurs, the identity verification process will be interrupted. Default value is empty, indicating all alarms are monitored. This feature requires the parameter DisableCheckOcrWarnings=false. If the Alarm is disabled, this parameter will not be effective.
+        r"""Selects OCR alarms requiring attention. When an OCR Alarm occurs, the identity verification process will be interrupted. Default value is empty, indicating all alarms are monitored. This feature requires the parameter DisableCheckOcrWarnings=false. If the Alarm is disabled, this parameter will not be effective. The supported alarm types are as follows:
+-9101: Incomplete Border Alert;
+-9102: Copy Document Alert;
+-9103: Remediated Document Alert;
+-9104: PS-altered Document Alert;
+-9107: Glare Alert;
+-9108: Blurriness Alert;
+-9109: Alert Not Activated.
         :rtype: str
         """
         return self._SelectedWarningCodes
@@ -10955,6 +11218,19 @@ The default value is blink. The different action types passed in this parameter 
     @SelectedWarningCodes.setter
     def SelectedWarningCodes(self, SelectedWarningCodes):
         self._SelectedWarningCodes = SelectedWarningCodes
+
+    @property
+    def AllowExpiredDocument(self):
+        r"""Whether expired identity documents are permitted to proceed to the liveness detection process. This parameter only takes effect when the document type is Hong Kong Identity Card (HKID).
+true (default value): Expired HKID is allowed to enter the liveness process.
+false : Expired HKID is rejected and cannot enter the liveness process.
+        :rtype: bool
+        """
+        return self._AllowExpiredDocument
+
+    @AllowExpiredDocument.setter
+    def AllowExpiredDocument(self, AllowExpiredDocument):
+        self._AllowExpiredDocument = AllowExpiredDocument
 
 
     def _deserialize(self, params):
@@ -10973,6 +11249,7 @@ The default value is blink. The different action types passed in this parameter 
         self._LivenessRetryLimit = params.get("LivenessRetryLimit")
         self._LivenessTimeout = params.get("LivenessTimeout")
         self._SelectedWarningCodes = params.get("SelectedWarningCodes")
+        self._AllowExpiredDocument = params.get("AllowExpiredDocument")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

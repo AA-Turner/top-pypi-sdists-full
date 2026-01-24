@@ -190,7 +190,7 @@ class ConfigFileParseError(Error):
         self.msg = msg
 
     def __str__(self):
-        return 'Failed to parse {}: {}'.format(self.config_file, self.msg)
+        return f'Failed to parse {self.config_file}: {self.msg}'
 
 
 class ConfigSourceValueError(Error, ValueError):
@@ -261,7 +261,7 @@ def _search_dirs(dirs, basename, extension=""):
     :returns: the path to a matching file or directory, or None
     """
     for d in dirs:
-        path = os.path.join(d, '{}{}'.format(basename, extension))
+        path = os.path.join(d, f'{basename}{extension}')
         if os.path.exists(path):
             return path
 
@@ -319,7 +319,7 @@ def find_config_dirs(project=None, prog=None, extension='.conf.d'):
     :param extension: the type of the config directory. Defaults to '.conf.d'
 
     We default to two config dirs: [${project}.conf.d/, ${prog}.conf.d/].
-    If no project name is supplied, we only look for ${prog.conf.d/}.
+    If no project name is supplied, we only look for ${prog}.conf.d/.
 
     And we look for those config dirs in the following directories::
 
@@ -539,7 +539,7 @@ class Opt:
                  deprecated_for_removal=False, deprecated_reason=None,
                  deprecated_since=None, mutable=False, advanced=False):
         if name.startswith('_'):
-            raise ValueError('illegal name {} with prefix _'.format(name))
+            raise ValueError(f'illegal name {name} with prefix _')
         self.name = name
 
         if type is None:
@@ -664,7 +664,7 @@ class Opt:
             self._logged_deprecation = True
             pretty_group = group_name or 'DEFAULT'
             if self.deprecated_reason:
-                pretty_reason = ' ({})'.format(self.deprecated_reason)
+                pretty_reason = f' ({self.deprecated_reason})'
             else:
                 pretty_reason = ''
             format_str = ('Option "%(option)s" from group "%(group)s" is '
@@ -2822,7 +2822,7 @@ class ConfigOpts(abc.Mapping):
             for opt_name in sorted(self._groups[group_name]._opts):
                 opt = self._get_opt_info(opt_name, group_name)['opt']
                 logger.log(lvl, "%-30s = %s",
-                           "{}.{}".format(group_name, opt_name),
+                           f"{group_name}.{opt_name}",
                            _sanitize(opt, getattr(group_attr, opt_name)))
 
         logger.log(lvl, "*" * 80)

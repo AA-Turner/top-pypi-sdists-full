@@ -218,6 +218,7 @@ def get_tables_mirroring_status(
         "Processed Bytes": "int",
         "Processed Rows": "int",
         "Last Sync Date": "datetime",
+        "Last Sync Latency In Seconds": "int",
     }
     df = _create_dataframe(columns=columns)
 
@@ -233,6 +234,7 @@ def get_tables_mirroring_status(
                     "Processed Bytes": m.get("processedBytes"),
                     "Processed Rows": m.get("processedRows"),
                     "Last Sync Date": m.get("lastSyncDateTime"),
+                    "Last Sync Latency In Seconds": m.get("lastSyncLatencyInSeconds"),
                 }
             )
 
@@ -384,7 +386,9 @@ def update_mirrored_database_definition(
     item_id = resolve_item_id(
         item=mirrored_database, type="MirroredDatabase", workspace=workspace
     )
-    payload = base64.b64encode(mirrored_database_content)
+    payload = (
+        base64.b64encode(mirrored_database_content).encode("utf-8").decode("utf-8")
+    )
 
     request_body = {
         "displayName": mirrored_database,

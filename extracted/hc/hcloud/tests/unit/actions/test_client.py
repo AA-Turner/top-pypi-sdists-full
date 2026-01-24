@@ -22,7 +22,9 @@ from hcloud.load_balancers import BoundLoadBalancer, LoadBalancersClient
 from hcloud.networks import BoundNetwork, NetworksClient
 from hcloud.primary_ips import BoundPrimaryIP, PrimaryIPsClient
 from hcloud.servers import BoundServer, ServersClient
+from hcloud.storage_boxes import BoundStorageBox, StorageBoxesClient
 from hcloud.volumes import BoundVolume, VolumesClient
+from hcloud.zones import BoundZone, ZonesClient
 
 from ..conftest import assert_bound_action1, assert_bound_action2
 
@@ -36,6 +38,8 @@ resources_with_actions: dict[str, tuple[ResourceClientBase, BoundModelBase]] = {
     "primary_ips": (PrimaryIPsClient, BoundPrimaryIP),
     "servers": (ServersClient, BoundServer),
     "volumes": (VolumesClient, BoundVolume),
+    "zones": (ZonesClient, BoundZone),
+    "storage_boxes": (StorageBoxesClient, BoundStorageBox),
 }
 
 
@@ -233,13 +237,17 @@ class TestResourceObjectActionsClient:
 
     @pytest.fixture(params=resources_with_actions.keys())
     def resource(self, request):
-        if request.param == "primary_ips":
-            pytest.skip("not implemented yet")
         return request.param
 
     @pytest.fixture()
     def resource_client(self, client: Client, resource: str) -> ResourceClientBase:
         return getattr(client, resource)
+
+    @pytest.fixture()
+    def bound_model(self, client: Client, resource: str) -> BoundModelBase:
+        _, bound_model_class = resources_with_actions[resource]
+        resource_client = getattr(client, resource)
+        return bound_model_class(resource_client, data={"id": 1})
 
     @pytest.mark.parametrize(
         "params",
@@ -253,12 +261,13 @@ class TestResourceObjectActionsClient:
         request_mock: mock.MagicMock,
         resource_client: ResourceClientBase,
         resource: str,
+        bound_model: BoundModelBase,
         action_list_response,
         params,
     ):
         request_mock.return_value = action_list_response
 
-        result = resource_client.get_actions_list(mock.MagicMock(id=1), **params)
+        result = resource_client.get_actions_list(bound_model, **params)
 
         request_mock.assert_called_with(
             method="GET",
@@ -285,12 +294,13 @@ class TestResourceObjectActionsClient:
         request_mock: mock.MagicMock,
         resource_client: ResourceClientBase,
         resource: str,
+        bound_model: BoundModelBase,
         action_list_response,
         params,
     ):
         request_mock.return_value = action_list_response
 
-        actions = resource_client.get_actions(mock.MagicMock(id=1), **params)
+        actions = resource_client.get_actions(bound_model, **params)
 
         request_mock.assert_called_with(
             method="GET",
@@ -310,8 +320,6 @@ class TestBoundModelActions:
 
     @pytest.fixture(params=resources_with_actions.keys())
     def resource(self, request):
-        if request.param == "primary_ips":
-            pytest.skip("not implemented yet")
         return request.param
 
     @pytest.fixture()

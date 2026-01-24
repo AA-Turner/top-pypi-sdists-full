@@ -23,6 +23,8 @@ __all__ = [
     'QueryLoggingConfigurationDestinationFiltersArgsDict',
     'QueryLoggingConfigurationTimeoutsArgs',
     'QueryLoggingConfigurationTimeoutsArgsDict',
+    'ResourcePolicyTimeoutsArgs',
+    'ResourcePolicyTimeoutsArgsDict',
     'ScraperDestinationArgs',
     'ScraperDestinationArgsDict',
     'ScraperDestinationAmpArgs',
@@ -103,7 +105,7 @@ if not MYPY:
     class QueryLoggingConfigurationDestinationCloudwatchLogsArgsDict(TypedDict):
         log_group_arn: pulumi.Input[_builtins.str]
         """
-        The ARN of the CloudWatch log group to which query logs will be sent.
+        The ARN of the CloudWatch log group to which query logs will be sent. The ARN must end with `:*`
         """
 elif False:
     QueryLoggingConfigurationDestinationCloudwatchLogsArgsDict: TypeAlias = Mapping[str, Any]
@@ -113,7 +115,7 @@ class QueryLoggingConfigurationDestinationCloudwatchLogsArgs:
     def __init__(__self__, *,
                  log_group_arn: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] log_group_arn: The ARN of the CloudWatch log group to which query logs will be sent.
+        :param pulumi.Input[_builtins.str] log_group_arn: The ARN of the CloudWatch log group to which query logs will be sent. The ARN must end with `:*`
         """
         pulumi.set(__self__, "log_group_arn", log_group_arn)
 
@@ -121,7 +123,7 @@ class QueryLoggingConfigurationDestinationCloudwatchLogsArgs:
     @pulumi.getter(name="logGroupArn")
     def log_group_arn(self) -> pulumi.Input[_builtins.str]:
         """
-        The ARN of the CloudWatch log group to which query logs will be sent.
+        The ARN of the CloudWatch log group to which query logs will be sent. The ARN must end with `:*`
         """
         return pulumi.get(self, "log_group_arn")
 
@@ -180,6 +182,78 @@ elif False:
 
 @pulumi.input_type
 class QueryLoggingConfigurationTimeoutsArgs:
+    def __init__(__self__, *,
+                 create: Optional[pulumi.Input[_builtins.str]] = None,
+                 delete: Optional[pulumi.Input[_builtins.str]] = None,
+                 update: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] create: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        :param pulumi.Input[_builtins.str] delete: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        :param pulumi.Input[_builtins.str] update: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        if create is not None:
+            pulumi.set(__self__, "create", create)
+        if delete is not None:
+            pulumi.set(__self__, "delete", delete)
+        if update is not None:
+            pulumi.set(__self__, "update", update)
+
+    @_builtins.property
+    @pulumi.getter
+    def create(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "create")
+
+    @create.setter
+    def create(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "create", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delete(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        return pulumi.get(self, "delete")
+
+    @delete.setter
+    def delete(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "delete", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def update(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "update")
+
+    @update.setter
+    def update(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "update", value)
+
+
+if not MYPY:
+    class ResourcePolicyTimeoutsArgsDict(TypedDict):
+        create: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        delete: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        update: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+elif False:
+    ResourcePolicyTimeoutsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ResourcePolicyTimeoutsArgs:
     def __init__(__self__, *,
                  create: Optional[pulumi.Input[_builtins.str]] = None,
                  delete: Optional[pulumi.Input[_builtins.str]] = None,
@@ -653,7 +727,7 @@ if not MYPY:
     class WorkspaceLoggingConfigurationArgsDict(TypedDict):
         log_group_arn: pulumi.Input[_builtins.str]
         """
-        The ARN of the CloudWatch log group to which the vended log data will be published. This log group must exist.
+        The ARN of the CloudWatch log group to which the vended log data will be published. This log group must exist. The ARN must end with `:*`
         """
 elif False:
     WorkspaceLoggingConfigurationArgsDict: TypeAlias = Mapping[str, Any]
@@ -663,7 +737,7 @@ class WorkspaceLoggingConfigurationArgs:
     def __init__(__self__, *,
                  log_group_arn: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] log_group_arn: The ARN of the CloudWatch log group to which the vended log data will be published. This log group must exist.
+        :param pulumi.Input[_builtins.str] log_group_arn: The ARN of the CloudWatch log group to which the vended log data will be published. This log group must exist. The ARN must end with `:*`
         """
         pulumi.set(__self__, "log_group_arn", log_group_arn)
 
@@ -671,7 +745,7 @@ class WorkspaceLoggingConfigurationArgs:
     @pulumi.getter(name="logGroupArn")
     def log_group_arn(self) -> pulumi.Input[_builtins.str]:
         """
-        The ARN of the CloudWatch log group to which the vended log data will be published. This log group must exist.
+        The ARN of the CloudWatch log group to which the vended log data will be published. This log group must exist. The ARN must end with `:*`
         """
         return pulumi.get(self, "log_group_arn")
 

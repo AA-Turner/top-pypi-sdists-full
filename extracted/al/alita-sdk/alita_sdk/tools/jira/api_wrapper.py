@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 import logging
 import re
 import traceback
@@ -160,6 +161,24 @@ LinkIssues = create_model(
                                     To link test to another issue ( test 'test' story, story 'is tested by test').
                                     Use the appropriate issue link type (e.g., "Test", "Relates", "Blocks").
                                     If we use "Test" linktype, the test is inward issue, the story/other issue is outward issue."""))
+)
+
+AddFileToIssueDescription = create_model(
+    "AddFileToIssueDescriptionModel",
+    issue_key=(str, Field(description="Jira issue key where file will be added, e.g. 'PROJ-123'. The file will be uploaded as attachment and referenced in the description.")),
+    artifact_id=(str, Field(description="UUID of the artifact containing the file to attach. Artifact can be any file type (image, PDF, video, document, etc.). Get this from the file/image generation tool's response.")),
+    filename=(Optional[str], Field(description="Filename for the attachment, e.g. 'diagram.png', 'report.pdf'. If not provided, uses the original filename from artifact. Should include file extension.", default=None)),
+    alt_text=(Optional[str], Field(default=None, description="Alternative text for the file (optional). Used for accessibility and as caption.")),
+    position=(Optional[Literal["append", "prepend"]], Field(default="append", description="Where to place the file reference in description: 'append' (end) or 'prepend' (beginning)."))
+)
+
+UpdateCommentWithFile = create_model(
+    "UpdateCommentWithFileModel",
+    issue_key=(str, Field(description="Jira issue key, e.g. 'PROJ-123'.")),
+    comment_id=(str, Field(description="ID of the existing comment to update. Get from list_comments tool.")),
+    artifact_id=(str, Field(description="UUID of the artifact containing the file. Get this from the file/image generation tool's response.")),
+    filename=(Optional[str], Field(description="Filename for the attachment, e.g. 'screenshot.png', 'report.pdf'. If not provided, uses the original filename from artifact.", default=None)),
+    position=(Optional[Literal["append", "prepend"]], Field(default="append", description="Where to place file: 'append' (end) or 'prepend' (beginning) of existing comment."))
 )
 
 SUPPORTED_ATTACHMENT_MIME_TYPES = (
@@ -410,6 +429,7 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
     labels: Optional[List[str]] = []
     additional_fields: list[str] | str | None = []
     verify_ssl: Optional[bool] = True
+    custom_headers: Optional[Dict[str, str]] = {}
     _client: Jira = PrivateAttr()
     _image_cache: ImageDescriptionCache = PrivateAttr(default_factory=lambda: ImageDescriptionCache(max_size=50))
     issue_search_pattern: str = r'/rest/api/\d+/search'
@@ -425,69 +445,131 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
                 "`pip install atlassian-python-api`"
             )
 
-        url = values['base_url']
-        api_key = values.get('api_key')
-        username = values.get('username')
-        token = values.get('token')
-        cloud = values.get('cloud')
-        api_version = values.get('api_version', '2')
+        # Just validate and normalize values - client creation moved to model_post_init
         additional_fields = values.get('additional_fields')
         if isinstance(additional_fields, str):
             values['additional_fields'] = [i.strip() for i in additional_fields.split(',')]
-        if token and is_cookie_token(token):
-            # cookies-based flow
-            # TODO: move to separate auth item after testing
-            session = requests.Session()
-            session.cookies.update(parse_cookie_string(token))
-            cls._client = Jira(url=url, session=session, cloud=cloud, verify_ssl=values['verify_ssl'], api_version=api_version)
-        elif token:
-            cls._client = Jira(url=url, token=token, cloud=cloud, verify_ssl=values['verify_ssl'], api_version=api_version)
-        else:
-            cls._client = Jira(url=url, username=username, password=api_key, cloud=cloud, verify_ssl=values['verify_ssl'], api_version=api_version)
-        custom_headers = values.get('custom_headers') or {}
-        logger.info(f"Jira tool: custom headers length: {len(custom_headers)}")
-        for header, value in custom_headers.items():
-            cls._client._update_header(header, value)
 
-        cls.llm=values.get('llm')
+        cls.llm = values.get('llm')
         return super().validate_toolkit(values)
 
+    def model_post_init(self, __context) -> None:
+        """Initialize the Jira client using the shared ClientRegistry."""
+        # Skip client initialization if this is a schema discovery call (model_construct)
+        # Use getattr for safe access since model_construct() may not set all attributes
+        base_url = getattr(self, 'base_url', None)
+        if not base_url or not isinstance(base_url, str) or not base_url.startswith('http'):
+            return
+
+        from atlassian import Jira
+        from ..client_registry import get_client_registry
+
+        # Extract auth values (handle SecretStr) - safely check type first
+        token = None
+        api_key = None
+        if self.token and hasattr(self.token, 'get_secret_value'):
+            token = self.token.get_secret_value()
+        if self.api_key and hasattr(self.api_key, 'get_secret_value'):
+            api_key = self.api_key.get_secret_value()
+
+        # Build auth config for registry lookup (used for cache key)
+        auth_config = {
+            'token': token,
+            'api_key': api_key,
+            'username': self.username,
+            'cloud': self.cloud,
+            'api_version': self.api_version,
+            'verify_ssl': self.verify_ssl,
+        }
+
+        # Factory function to create Jira client (only called if not cached)
+        def create_jira_client():
+            if token and is_cookie_token(token):
+                session = requests.Session()
+                session.cookies.update(parse_cookie_string(token))
+                return Jira(url=self.base_url, session=session, cloud=self.cloud,
+                           verify_ssl=self.verify_ssl, api_version=self.api_version)
+            elif token:
+                return Jira(url=self.base_url, token=token, cloud=self.cloud,
+                           verify_ssl=self.verify_ssl, api_version=self.api_version)
+            else:
+                return Jira(url=self.base_url, username=self.username, password=api_key,
+                           cloud=self.cloud, verify_ssl=self.verify_ssl, api_version=self.api_version)
+
+        # Get shared client from registry (or create new one)
+        registry = get_client_registry()
+        self._client = registry.get_client(
+            service_type='jira',
+            base_url=self.base_url,
+            auth_config=auth_config,
+            factory=create_jira_client
+        )
+
+        # Apply custom headers (toolkit-specific, applied each time)
+        custom_headers = self.custom_headers or {}
+        if custom_headers:
+            logger.info(f"Jira tool: applying {len(custom_headers)} custom headers")
+            for header, value in custom_headers.items():
+                self._client._update_header(header, value)
+
     def _parse_issues(self, issues: Dict) -> List[dict]:
-        parsed = []
-        for issue in issues["issues"]:
-            if len(parsed) >= self.limit:
+        parsed: List[dict] = []
+        issues_list = issues.get("issues") if isinstance(issues, dict) else None
+        if not isinstance(issues_list, list):
+            return parsed
+
+        for issue in issues_list:
+            if self.limit and len(parsed) >= self.limit:
                 break
-            issue_fields = issue["fields"]
-            key = issue["key"]
-            id = issue["id"]
-            summary = issue_fields["summary"]
-            description = issue_fields["description"]
-            created = issue_fields["created"][0:10]
-            updated = issue_fields["updated"]
-            duedate = issue_fields["duedate"]
-            priority = issue_fields["priority"]["name"]
-            status = issue_fields["status"]["name"]
-            project_id = issue_fields["project"]["id"]
-            issue_url = f"{self._client.url}browse/{key}"
-            try:
-                assignee = issue_fields["assignee"]["displayName"]
-            except Exception:
-                assignee = "None"
+
+            issue_fields = issue.get("fields") or {}
+            key = issue.get("key", "")
+            issue_id = issue.get("id", "")
+
+            summary = issue_fields.get("summary") or ""
+            description = issue_fields.get("description") or ""
+            created_raw = issue_fields.get("created") or ""
+            created = created_raw[:10] if created_raw else ""
+            updated = issue_fields.get("updated") or ""
+            duedate = issue_fields.get("duedate")
+
+            priority_info = issue_fields.get("priority") or {}
+            priority = priority_info.get("name") or "None"
+
+            status_info = issue_fields.get("status") or {}
+            status = status_info.get("name") or "Unknown"
+
+            project_info = issue_fields.get("project") or {}
+            project_id = project_info.get("id") or ""
+
+            issue_url = f"{self._client.url}browse/{key}" if key else self._client.url
+
+            assignee_info = issue_fields.get("assignee") or {}
+            assignee = assignee_info.get("displayName") or "None"
+
             rel_issues = {}
-            for related_issue in issue_fields["issuelinks"]:
-                if "inwardIssue" in related_issue.keys():
-                    rel_type = related_issue["type"]["inward"]
-                    rel_key = related_issue["inwardIssue"]["key"]
+            for related_issue in issue_fields.get("issuelinks") or []:
+                rel_type = None
+                rel_key = None
+                if related_issue.get("inwardIssue"):
+                    rel_type = related_issue.get("type", {}).get("inward")
+                    rel_key = related_issue["inwardIssue"].get("key")
                     # rel_summary = related_issue["inwardIssue"]["fields"]["summary"]
-                if "outwardIssue" in related_issue.keys():
-                    rel_type = related_issue["type"]["outward"]
-                    rel_key = related_issue["outwardIssue"]["key"]
+                elif related_issue.get("outwardIssue"):
+                    rel_type = related_issue.get("type", {}).get("outward")
+                    rel_key = related_issue["outwardIssue"].get("key")
                     # rel_summary = related_issue["outwardIssue"]["fields"]["summary"]
-                rel_issues = {"type": rel_type, "key": rel_key, "url": f"{self._client.url}browse/{rel_key}"}
+
+                if rel_type and rel_key:
+                    rel_issues = {
+                        "type": rel_type,
+                        "key": rel_key,
+                        "url": f"{self._client.url}browse/{rel_key}",
+                    }
 
             parsed_issue = {
                 "key": key,
-                "id": id,
+                "id": issue_id,
                 "projectId": project_id,
                 "summary": summary,
                 "description": description,
@@ -500,10 +582,13 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
                 "url": issue_url,
                 "related_issues": rel_issues,
             }
-            for field in self.additional_fields:
-                field_value = issue_fields.get(field, None)
+
+            for field in (self.additional_fields or []):
+                field_value = issue_fields.get(field)
                 parsed_issue[field] = field_value
+
             parsed.append(parsed_issue)
+
         return parsed
 
     @staticmethod
@@ -563,7 +648,7 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
         Use the appropriate issue link type (e.g., "Test", "Relates", "Blocks").
         If we use "Test" linktype, the test is inward issue, the story/other issue is outward issue.."""
 
-        comment = "This test is linked to the story."
+        comment = f"Issue {inward_issue_key} was linked to {outward_issue_key}."
         comment_body = {"content": [{"content": [{"text": comment,"type": "text"}],"type": "paragraph"}],"type": "doc","version": 1} if self.api_version == "3" else comment
         link_data = {
             "type": {"name": f"{linktype}"},
@@ -710,9 +795,10 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
         try:
             if self.api_version == '3':
                 comment = {"content": [{"content": [{"text": comment,"type": "text"}],"type": "paragraph"}],"type": "doc","version": 1}
-            self._client.issue_add_comment(issue_key, comment)
+            response = self._client.issue_add_comment(issue_key, comment)
+            comment_id = response.get('id', 'unknown') if response else 'unknown'
             issue_url = f"{self._client.url}browse/{issue_key}"
-            output = f"Done. Comment is added for issue {issue_key}. You can view it at {issue_url}"
+            output = f"Done. Comment {comment_id} is added for issue {issue_key}. You can view it at {issue_url}"
             logger.info(output)
             self._add_default_labels(issue_key=issue_key)
             return output
@@ -720,6 +806,294 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
             stacktrace = format_exc()
             logger.error(f"Error adding comment to Jira issue: {stacktrace}")
             return ToolException(f"Error adding comment to Jira issue: {stacktrace}")
+
+    def _text_to_adf(self, text: str) -> Dict[str, Any]:
+        """Convert plain text to Atlassian Document Format."""
+        if not text:
+            return {"type": "doc", "version": 1, "content": []}
+        paragraphs = text.split('\n\n')
+        content = []
+        for para in paragraphs:
+            if para.strip():
+                content.append({
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": para}]
+                })
+        return {"type": "doc", "version": 1, "content": content}
+
+    def _adf_to_text(self, adf: Any) -> str:
+        """Convert Atlassian Document Format to plain text."""
+        if isinstance(adf, str):
+            return adf
+        if not isinstance(adf, dict):
+            return ''
+        content = adf.get('content', [])
+        paragraphs = []
+        for item in content:
+            if item.get('type') == 'paragraph':
+                texts = [c.get('text', '') for c in item.get('content', []) if c.get('type') == 'text']
+                paragraphs.append(''.join(texts))
+        return '\n\n'.join(paragraphs)
+
+    def _get_file_markup(self, filename: str, mime_type: str, alt_text: Optional[str] = None) -> str:
+        """Generate Jira markup for file based on MIME type."""
+        # Images and videos display inline with ! markup
+        if mime_type.startswith('image/') or mime_type.startswith('video/'):
+            if alt_text:
+                return f"!{filename}|alt={alt_text}!"
+            else:
+                return f"!{filename}!"
+        # Other files use attachment link markup
+        else:
+            if alt_text:
+                return f"[^{filename}] ({alt_text})"
+            else:
+                return f"[^{filename}]"
+
+    def _upload_file_from_artifact(self, issue_key: str, artifact_id: str, filename: str = None) -> Dict[str, Any]:
+        """Upload file from artifact storage to Jira issue."""
+        # Get artifact client on the fly - bucket doesn't matter for download by ID
+        artifact_client = self.alita.artifact('__temp__')
+        
+        # Get raw file bytes from artifact storage
+        try:
+            file_bytes, artifact_filename = artifact_client.get_raw_content_by_artifact_id(artifact_id)
+        except Exception as e:
+            raise ToolException(f"Failed to retrieve artifact '{artifact_id}': {str(e)}")
+        
+        # Use provided filename or fallback to artifact filename
+        filename = filename or artifact_filename
+        
+        if not file_bytes:
+            raise ToolException(f"Artifact '{artifact_id}' not found or empty")
+        
+        # Detect MIME type
+        try:
+            import filetype
+            kind = filetype.guess(file_bytes)
+            mime_type = kind.mime if kind else 'application/octet-stream'
+        except Exception:
+            # Fallback to basic detection from extension
+            mime_type = 'application/octet-stream'
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                mime_type = 'image/jpeg' if filename.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+            elif filename.lower().endswith('.gif'):
+                mime_type = 'image/gif'
+            elif filename.lower().endswith('.pdf'):
+                mime_type = 'application/pdf'
+        
+        # Upload to Jira as attachment
+        file_io = BytesIO(file_bytes)
+        file_io.name = filename
+        
+        try:
+            attachment_response = self._client.add_attachment_object(
+                issue_key=issue_key,
+                attachment=file_io
+            )
+        except Exception as e:
+            raise ToolException(f"Failed to upload attachment to {issue_key}: {str(e)}")
+        
+        if not attachment_response or len(attachment_response) == 0:
+            raise ToolException(f"Failed to upload attachment to {issue_key}")
+        
+        # Extract attachment info
+        attachment_info = attachment_response[0] if isinstance(attachment_response, list) else attachment_response
+        uploaded_filename = attachment_info.get('filename', filename)
+        attachment_id = attachment_info.get('id')
+        content_url = attachment_info.get('content', '')
+        
+        return {
+            'filename': uploaded_filename,
+            'mime_type': mime_type,
+            'size': len(file_bytes),
+            'attachment_id': attachment_id,
+            'content_url': content_url
+        }
+
+    def add_file_to_issue_description(
+        self,
+        issue_key: str,
+        artifact_id: str,
+        filename: str,
+        alt_text: Optional[str] = None,
+        position: Literal["append", "prepend"] = "append"
+    ) -> str:
+        """Upload file from artifact and add to issue description. Images/videos inline, others as links."""
+        try:
+            # Upload file to Jira
+            upload_info = self._upload_file_from_artifact(issue_key, artifact_id, filename)
+            uploaded_filename = upload_info['filename']
+            mime_type = upload_info['mime_type']
+            attachment_id = upload_info.get('attachment_id')
+            content_url = upload_info.get('content_url', '')
+            
+            # Get current issue description
+            issue = self._client.issue(issue_key)
+            current_description_raw = issue.get('fields', {}).get('description', '') or ''
+            
+            # Handle v2 vs v3 differently
+            if self.api_version == '3':
+                # For v3: ADF with clickable link to attachment
+                if isinstance(current_description_raw, dict):
+                    current_adf = current_description_raw
+                else:
+                    current_adf = self._text_to_adf(current_description_raw or '')
+                
+                # Create paragraph with clickable link
+                new_node = {
+                    "type": "paragraph",
+                    "content": [
+                        {"type": "text", "text": "See attached file: "},
+                        {
+                            "type": "text",
+                            "text": uploaded_filename,
+                            "marks": [
+                                {
+                                    "type": "link",
+                                    "attrs": {"href": content_url}
+                                }
+                            ]
+                        }
+                    ]
+                }
+                
+                # Add to ADF content
+                content = current_adf.get('content', [])
+                if position == "prepend":
+                    content.insert(0, new_node)
+                else:
+                    content.append(new_node)
+                
+                current_adf['content'] = content
+                new_description = current_adf
+            else:
+                # For v2: Use wiki markup (works perfectly!)
+                if isinstance(current_description_raw, dict):
+                    current_description = self._adf_to_text(current_description_raw)
+                else:
+                    current_description = current_description_raw or ''
+                
+                # Create wiki markup for the attachment
+                file_markup = self._get_file_markup(uploaded_filename, mime_type, alt_text)
+                
+                # Add the file markup
+                if position == "prepend":
+                    new_description = f"{file_markup}\n\n{current_description}"
+                else:
+                    separator = "\n\n" if current_description else ""
+                    new_description = f"{current_description}{separator}{file_markup}"
+            
+            # Update the description field
+            self._client.update_issue_field(
+                key=issue_key,
+                fields={'description': new_description}
+            )
+            
+            # Return success message
+            issue_url = f"{self._client.url.rstrip('/')}/browse/{issue_key}"
+            file_type = "image" if mime_type.startswith('image/') else "video" if mime_type.startswith('video/') else "file"
+            return (
+                f"File '{filename}' uploaded and added to {issue_key} description as {file_type}. "
+                f"View at: {issue_url}"
+            )
+            
+        except ToolException:
+            raise
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(f"Error adding file to issue description: {stacktrace}")
+            raise ToolException(f"Failed to add file to issue description: {str(e)}")
+
+    def update_comment_with_file(
+        self,
+        issue_key: str,
+        comment_id: str,
+        artifact_id: str,
+        filename: str,
+        position: Literal["append", "prepend"] = "append"
+    ) -> str:
+        """Upload file and add to existing comment. Images/videos inline, others as links."""
+        try:
+            # Upload file to Jira
+            upload_info = self._upload_file_from_artifact(issue_key, artifact_id, filename)
+            uploaded_filename = upload_info['filename']
+            mime_type = upload_info['mime_type']
+            attachment_id = upload_info.get('attachment_id')
+            content_url = upload_info.get('content_url', '')
+            
+            # Get existing comment
+            comment = self._client.issue_get_comment(issue_key, comment_id)
+            existing_body_raw = comment.get('body', '')
+            
+            # Handle v2 vs v3 differently
+            if self.api_version == '3':
+                # For v3: ADF with clickable link to attachment
+                if isinstance(existing_body_raw, dict):
+                    existing_adf = existing_body_raw
+                else:
+                    existing_adf = self._text_to_adf(existing_body_raw or '')
+                
+                # Create paragraph with clickable link
+                new_node = {
+                    "type": "paragraph",
+                    "content": [
+                        {"type": "text", "text": "See attached file: "},
+                        {
+                            "type": "text",
+                            "text": uploaded_filename,
+                            "marks": [
+                                {
+                                    "type": "link",
+                                    "attrs": {"href": content_url}
+                                }
+                            ]
+                        }
+                    ]
+                }
+                
+                # Add to ADF content
+                content = existing_adf.get('content', [])
+                if position == "prepend":
+                    content.insert(0, new_node)
+                else:
+                    content.append(new_node)
+                
+                existing_adf['content'] = content
+                new_body = existing_adf
+            else:
+                # For v2: Use wiki markup (works perfectly!)
+                if isinstance(existing_body_raw, dict):
+                    existing_body = self._adf_to_text(existing_body_raw)
+                else:
+                    existing_body = existing_body_raw or ''
+                
+                # Create wiki markup for the attachment
+                file_markup = self._get_file_markup(uploaded_filename, mime_type)
+                
+                # Add the file markup
+                if position == "prepend":
+                    new_body = f"{file_markup}\n\n{existing_body}"
+                else:
+                    separator = "\n\n" if existing_body else ""
+                    new_body = f"{existing_body}{separator}{file_markup}"
+            
+            # Update comment
+            self._client.issue_edit_comment(issue_key, comment_id, new_body)
+            
+            issue_url = f"{self._client.url}browse/{issue_key}"
+            file_type = "image" if mime_type.startswith('image/') else "video" if mime_type.startswith('video/') else "file"
+            return (
+                f"File '{filename}' uploaded and added to {issue_key} comment {comment_id} as {file_type}. "
+                f"View at: {issue_url}"
+            )
+            
+        except ToolException:
+            raise
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(f"Error updating comment with file: {stacktrace}")
+            raise ToolException(f"Failed to update comment with file: {str(e)}")
 
     def list_projects(self):
         """ List all projects in Jira. """
@@ -749,23 +1123,31 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
 
         attachment_data = []
         attachments = self._client.get_attachments_ids_from_issue(issue=jira_issue_key)
+        api_version = str(getattr(self._client, "api_version", "2"))
         for attachment in attachments:
             if attachment_pattern and not re.search(attachment_pattern, attachment['filename']):
                 logger.info(f"Skipping attachment {attachment['filename']} as it does not match pattern {attachment_pattern}")
                 continue
             logger.info(f"Processing attachment {attachment['filename']} with ID {attachment['attachment_id']}")
-            if self.api_version == "3":
-                attachment_data.append(self._client.get_attachment_content(attachment['attachment_id']))
-            else:
-                try:
+            try:
+                attachment_content = None
+
+                # Cloud (REST v3) attachments require signed URLs returned from metadata
+                if api_version in {"3", "latest"} or self.cloud:
+                    attachment_content = self._download_attachment_v3(
+                        attachment['attachment_id'],
+                        attachment['filename']
+                    )
+
+                if attachment_content is None:
                     attachment_content = self._client.get_attachment_content(attachment['attachment_id'])
-                except Exception as e:
-                    logger.error(
-                        f"Failed to download attachment {attachment['filename']} for issue {jira_issue_key}: {str(e)}")
-                    attachment_content = self._client.get(
-                        path=f"secure/attachment/{attachment['attachment_id']}/{attachment['filename']}", not_json_response=True)
-                content_docs = process_content_by_type(attachment_content, attachment['filename'], llm=self.llm)
-                attachment_data.append("filename: " + attachment['filename'] + "\ncontent: " + str([doc.page_content for doc in content_docs]))
+            except Exception as e:
+                logger.error(
+                    f"Failed to download attachment {attachment['filename']} for issue {jira_issue_key}: {str(e)}")
+                attachment_content = self._client.get(
+                    path=f"secure/attachment/{attachment['attachment_id']}/{attachment['filename']}", not_json_response=True)
+            content_docs = process_content_by_type(attachment_content, attachment['filename'], llm=self.llm, fallback_extensions=[".txt", ".png"])
+            attachment_data.append("filename: " + attachment['filename'] + "\ncontent: " + str([doc.page_content for doc in content_docs]))
 
         return "\n\n".join(attachment_data)
 
@@ -799,15 +1181,6 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
         response_string = f"HTTP: {method} {relative_url} -> {response.status_code} {response.reason} {response_text}"
         logger.debug(response_string)
         return response_string
-
-    def _extract_attachment_content(self, attachment):
-        """Extract attachment's content if possible (used for api v.2)"""
-
-        try:
-            content = self._client.get(attachment['content'].replace(self.base_url, ''))
-        except Exception as e:
-            content = f"Unable to parse content of '{attachment['filename']}' due to: {str(e)}"
-        return f"filename: {attachment['filename']}\ncontent: {content}"
 
     # Helper functions for image processing
     @staticmethod
@@ -913,7 +1286,6 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
             return cached_description
 
         try:
-            from io import BytesIO
             from PIL import Image, UnidentifiedImageError
             from ..confluence.utils import image_to_byte_array, bytes_to_base64
             from langchain_core.messages import HumanMessage
@@ -1040,6 +1412,30 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
         except Exception as e:
             logger.error(f"Error downloading attachment: {str(e)}")
             return None
+
+    def _download_attachment_v3(self, attachment_id: str, filename: str | None = None) -> Optional[bytes]:
+        """Download Jira attachment using metadata content URL (required for REST v3 / Cloud)."""
+        try:
+            metadata = self._client.get_attachment(attachment_id)
+        except Exception as e:
+            logger.error(f"Failed to retrieve metadata for attachment {attachment_id}: {str(e)}")
+            return None
+
+        download_url = metadata.get('content') or metadata.get('_links', {}).get('content')
+
+        if not download_url:
+            logger.warning(
+                f"Attachment {attachment_id} ({filename}) metadata does not include a content URL; falling back.")
+            return None
+
+        logger.info(f"Downloading attachment {attachment_id} via metadata content URL (v3).")
+        content = self._download_attachment(download_url)
+
+        if content is None:
+            logger.error(
+                f"Failed to download attachment {attachment_id} ({filename}) from v3 content URL: {download_url}")
+
+        return content
 
     def _extract_image_data(self, field_data):
         """
@@ -1330,7 +1726,7 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
 
             # Use provided JQL query or default to all issues
             if not jql:
-                jql_query = "ORDER BY updated DESC"  # Default to get all issues ordered by update time
+                jql_query = "created >= \"1970-01-01\" ORDER BY updated DESC"  # Default to get all issues ordered by update time
             else:
                 jql_query = jql
 
@@ -1690,6 +2086,18 @@ class JiraApiWrapper(NonCodeIndexerToolkit):
                 "description": self.get_attachments_content.__doc__,
                 "args_schema": GetIssueAttachments,
                 "ref": self.get_attachments_content,
+            },
+            {
+                "name": "add_file_to_issue_description",
+                "description": self.add_file_to_issue_description.__doc__,
+                "args_schema": AddFileToIssueDescription,
+                "ref": self.add_file_to_issue_description,
+            },
+            {
+                "name": "update_comment_with_file",
+                "description": self.update_comment_with_file.__doc__,
+                "args_schema": UpdateCommentWithFile,
+                "ref": self.update_comment_with_file,
             },
             {
                 "name": "execute_generic_rq",

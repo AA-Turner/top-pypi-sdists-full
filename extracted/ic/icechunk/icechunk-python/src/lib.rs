@@ -4,6 +4,7 @@ mod errors;
 mod pickle;
 mod repository;
 mod session;
+mod stats;
 mod store;
 mod streams;
 
@@ -31,7 +32,8 @@ use pyo3::prelude::*;
 use pyo3::types::PyMapping;
 use pyo3::wrap_pyfunction;
 use repository::{PyDiff, PyGCSummary, PyManifestFileInfo, PyRepository, PySnapshotInfo};
-use session::PySession;
+use session::{ChunkType, PySession};
+use stats::PyChunkStorageStats;
 use store::{PyStore, VirtualChunkSpec};
 
 #[cfg(feature = "cli")]
@@ -74,7 +76,7 @@ fn cli_entrypoint(_py: Python) -> PyResult<()> {
 fn log_filters_from_env(py: Python) -> PyResult<Option<String>> {
     let os = py.import("os")?;
     let environ = os.getattr("environ")?;
-    let environ: &Bound<PyMapping> = environ.downcast()?;
+    let environ: &Bound<PyMapping> = environ.cast()?;
     let value = environ.get_item("ICECHUNK_LOG").ok().and_then(|v| v.extract().ok());
     Ok(value)
 }
@@ -109,8 +111,7 @@ fn check_filter_for_misspellings(filter: &str) {
         })
         .for_each(|sanitized| {
             eprintln!(
-                "WARNING: Did you mean 'icechunk' instead of '{}' in log filter?",
-                sanitized
+                "WARNING: Did you mean 'icechunk' instead of '{sanitized}' in log filter?"
             );
         });
 }
@@ -147,9 +148,11 @@ fn _icechunk_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRepository>()?;
     m.add_class::<PyRepositoryConfig>()?;
     m.add_class::<PySession>()?;
+    m.add_class::<ChunkType>()?;
     m.add_class::<PyStore>()?;
     m.add_class::<PySnapshotInfo>()?;
     m.add_class::<PyManifestFileInfo>()?;
+    m.add_class::<PyChunkStorageStats>()?;
     m.add_class::<PyConflictSolver>()?;
     m.add_class::<PyBasicConflictSolver>()?;
     m.add_class::<PyConflictDetector>()?;

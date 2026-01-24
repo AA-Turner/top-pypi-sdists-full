@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-fpdf2"
-version = "2.8.4.20250822"
+version = "2.8.4.20251031"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for fpdf2"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.404
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
 
 It was generated from typeshed commit
-[`ca44e4c45dc40fb47602dc79a3145ba61879add8`](https://github.com/python/typeshed/commit/ca44e4c45dc40fb47602dc79a3145ba61879add8).
+[`0d1f09dc2ea66f1e37b479965d10abaf41c7c8ff`](https://github.com/python/typeshed/commit/0d1f09dc2ea66f1e37b479965d10abaf41c7c8ff).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

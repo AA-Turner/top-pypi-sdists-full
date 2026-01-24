@@ -5,18 +5,11 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import functools
+import inspect
 import random
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import (
-    Awaitable,
-    Callable,
-    TypeAlias,
-    TypeGuard,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
 
 import anyio
 import anyio.to_thread
@@ -26,35 +19,28 @@ from croniter import croniter
 from . import db, errors, helpers, models, queries
 
 AsyncEntrypoint: TypeAlias = Callable[[models.Job], Awaitable[None]]
+AsyncContextEntrypoint: TypeAlias = Callable[[models.Job, models.Context], Awaitable[None]]
 SyncEntrypoint: TypeAlias = Callable[[models.Job], None]
-Entrypoint: TypeAlias = AsyncEntrypoint | SyncEntrypoint
+SyncContextEntrypoint: TypeAlias = Callable[[models.Job, models.Context], None]
+Entrypoint: TypeAlias = (
+    AsyncEntrypoint | AsyncContextEntrypoint | SyncEntrypoint | SyncContextEntrypoint
+)
 EntrypointTypeVar = TypeVar("EntrypointTypeVar", bound=Entrypoint)
 
 
 AsyncCrontab: TypeAlias = Callable[[models.Schedule], Awaitable[None]]
 
 
-@overload
-def is_async_callable(obj: AsyncEntrypoint) -> TypeGuard[AsyncEntrypoint]: ...
-
-
-@overload
-def is_async_callable(obj: SyncEntrypoint) -> TypeGuard[SyncEntrypoint]: ...
-
-
-def is_async_callable(obj: object) -> bool:
+def is_async_callable(obj: Callable[..., object] | object) -> bool:
     """
     Determines whether an object is an asynchronous callable.
     """
     while isinstance(obj, functools.partial):
         obj = obj.func
 
-    return asyncio.iscoroutinefunction(obj) or (
-        callable(obj) and asyncio.iscoroutinefunction(obj.__call__)
+    return inspect.iscoroutinefunction(obj) or (
+        callable(obj) and inspect.iscoroutinefunction(getattr(obj, "__call__", None))
     )
-
-
-######## Entrypoints ########
 
 
 @dataclasses.dataclass
@@ -68,6 +54,7 @@ class EntrypointExecutorParameters:
     retry_timer: timedelta
     serialized_dispatch: bool
     shutdown: asyncio.Event
+    accepts_context: bool = False
 
 
 @dataclasses.dataclass
@@ -100,9 +87,11 @@ class EntrypointExecutor(AbstractEntrypointExecutor):
     """
 
     is_async: bool = dataclasses.field(init=False)
+    accepts_context: bool = dataclasses.field(init=False)
 
     def __post_init__(self) -> None:
-        self.is_async = is_async_callable(self.parameters.func)
+        self.is_async = is_async_callable(cast(Callable[..., object], self.parameters.func))
+        self.accepts_context = self.parameters.accepts_context
 
     async def execute(self, job: models.Job, context: models.Context) -> None:
         """
@@ -112,10 +101,28 @@ class EntrypointExecutor(AbstractEntrypointExecutor):
             job (models.Job): The job to execute.
             context (models.Context): The context for the job.
         """
-        if self.is_async:
-            await cast(AsyncEntrypoint, self.parameters.func)(job)
+        if self.accepts_context:
+            if self.is_async:
+                await cast(AsyncContextEntrypoint, self.parameters.func)(
+                    job,
+                    context,
+                )
+            else:
+                await anyio.to_thread.run_sync(
+                    cast(SyncContextEntrypoint, self.parameters.func),
+                    job,
+                    context,
+                )
         else:
-            await anyio.to_thread.run_sync(cast(SyncEntrypoint, self.parameters.func), job)
+            if self.is_async:
+                await cast(AsyncEntrypoint, self.parameters.func)(
+                    job,
+                )
+            else:
+                await anyio.to_thread.run_sync(
+                    cast(SyncEntrypoint, self.parameters.func),
+                    job,
+                )
 
 
 @dataclasses.dataclass

@@ -1,0 +1,218 @@
+[project]
+name = "odfdo"
+version = "3.19.0"
+description = "Python library for OpenDocument Format"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [{ name = "Jérôme Dumonteil", email = "jerome.dumonteil@gmail.com" }]
+keywords = ["python", "library", "ODF", "OpenDocument"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9, <4"
+dependencies = [
+    "lxml >=4.8.0, <5; python_version == '3.9'",
+    "lxml >=4.8.0, <5.1.1; python_version == '3.10'",
+    "lxml >=4.9.4, <7; python_version >= '3.11' and python_version < '3.13'",
+    "lxml >=5.3.0, <7; python_version >= '3.13'",
+]
+
+[project.urls]
+homepage = "https://github.com/jdum/odfdo"
+repository = "https://github.com/jdum/odfdo"
+changelog = "https://github.com/jdum/odfdo/blob/main/CHANGES.md"
+documentation = "https://jdum.github.io/odfdo/"
+
+[project.scripts]
+odfdo-diff = "odfdo.scripts.diff:main"
+odfdo-folder = 'odfdo.scripts.folder:main'
+odfdo-highlight = 'odfdo.scripts.highlight:main'
+odfdo-show = 'odfdo.scripts.show:main'
+odfdo-styles = 'odfdo.scripts.styles:main'
+odfdo-replace = 'odfdo.scripts.replace:main'
+odfdo-headers = 'odfdo.scripts.headers:main'
+odfdo-table-shrink = 'odfdo.scripts.table_shrink:main'
+odfdo-userfield = 'odfdo.scripts.userfield:main'
+odfdo-markdown = 'odfdo.scripts.to_markdown:main'
+odfdo-from-csv = 'odfdo.scripts.from_csv:main'
+odfdo-to-csv = 'odfdo.scripts.to_csv:main'
+odfdo-meta-print = 'odfdo.scripts.meta_print:main'
+odfdo-meta-update = 'odfdo.scripts.meta_update:main'
+
+[dependency-groups]
+doc = [
+    "mkdocs",
+    "mkdocs-material>=9.6.22",
+    "mkdocstrings>=0.30.1",
+    "mkdocstrings-python>=1.18.2",
+    "mkdocs-include-markdown-plugin>=7.2.0",
+]
+dev = [
+    "iniconfig==2.1.0",  # Python 3.9
+    "pillow>=11.3.0,<12", # Python 3.9
+    "pytest>=8.4.2,<9",  # Python 3.9
+    "pytest-xdist>=3.8.0",
+    "coverage>=7.10.0",
+    "pytest-cov>=7.0.0",  # Python 3.9
+    "tox==4.30.3",  # Python 3.9
+    "ruff>=0.14.10",
+    "isort>=6.1.0",   # Python 3.9
+    "mypy>=1.19.1",
+    "mypy-extensions>=1.1.0",
+    "typing-extensions>=4.15.0",
+    "pytest-xdist>=3.8.0",
+]
+
+[tool.uv]
+default-groups = ["doc", "dev"]
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+exclude = [".venv"]
+# Same as Black.
+line-length = 88
+indent-width = 4
+# Assume Python 3.9
+target-version = "py314"
+
+[tool.ruff.lint]
+# select = ["E4", "E7", "E9", "F", "B"]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E",
+    "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+ignore = [
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+    # Use specific rule codes when ignoring type issues
+    "PGH003",
+    # check for execution of untrusted input
+    "S603",
+    # Class attribute `open` is shadowing a Python builtin
+    "A003",
+    # Use `X | Y` in `isinstance` call instead of `(X, Y)`
+    # "UP038",
+    # Use `X | Y` for type annotations
+    "UP007",
+    # Avoid specifying long messages outside the exception class
+    "TRY003",
+    # Use ternary operator
+    "SIM108",
+    # Use of `assert` detected
+    "S101",
+    # is too complex (12 > 10)
+    "C901",
+    # Within an `except` clause, raise exceptions with `raise ... from err`
+    "B904",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*" = ["S101", "S404", "RUF005", "B007", "UP017", "YTT204"]
+"tests/*/test_*" = ["S101", "S404", "RUF005", "B007", "UP017", "YTT204"]
+"recipes/*" = ["S101", "SIM102", "B903"]
+"recipes/accessing_a_single_element.py" = ["RUF001"]
+
+[tool.mypy]
+files = ["src/odfdo"]
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "lxml.etree"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "odfdo.mixin_md"
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+module = "odfdo.mixin_dc_date"
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+module = "odfdo.mixin_dc_creator"
+disable_error_code = ["attr-defined"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["odfdo"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = false
+fail_under = 70
+exclude_also = [
+    "if TYPE_CHECKING:",
+    'if __name__ == "__main__":'
+]
+
+[tool.docformatter]
+in-place = true
+exclude = ["tests", "recipes"]
+recursive = true
+wrap-summaries = 79
+wrap-descriptions = 79
+blank = false
+close-quotes-on-newline = true
+non-strict = true

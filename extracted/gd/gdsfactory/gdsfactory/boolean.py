@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import kfactory as kf
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def boolean(
     A: ComponentOrReference,
     B: ComponentOrReference,
-    operation: str,
+    operation: Literal["or", "|", "not", "-", "^", "xor", "&", "and", "A-B"],
     layer: LayerSpec,
     layer1: LayerSpec | None = None,
     layer2: LayerSpec | None = None,
@@ -22,10 +22,11 @@ def boolean(
 
     The `operation` parameter specifies the type of boolean operation to perform.
     Supported operations include {'not', 'and', 'or', 'xor', '-', '&', '|', '^'}:
-      - `'|'` is equivalent to `'or'`
-      - `'-'` is equivalent to `'not'`
-      - `'&'` is equivalent to `'and'`
-      - `'^'` is equivalent to `'xor'`
+
+    - `'|'` is equivalent to `'or'`
+    - `'-'` is equivalent to `'not'`
+    - `'&'` is equivalent to `'and'`
+    - `'^'` is equivalent to `'xor'`
 
     Args:
         A: Component(/Reference) or list of Component(/References).

@@ -8,6 +8,7 @@ from PyObjCTest.block2 import OCTestBlock2
 from PyObjCTools.TestSupport import TestCase, min_os_level
 from .fnd import NSMutableArray, NSException
 from .test_metadata import NoObjCClass
+import functools
 
 NSRect_tp = b"{CGRect={CGPoint=dd}{CGSize=dd}}"
 
@@ -557,6 +558,30 @@ class TestBlocks(TestCase):
             obj.callOptionalBlock_withValue_(lambda x: x + x, "hello"), "hellohello"
         )
 
+        def callback(value, *, repeat=6):
+            return value * repeat
+
+        self.assertEqual(
+            obj.callOptionalBlock_withValue_(callback, "hello"), "hello" * 6
+        )
+
+        def callback(value, *, repeat):
+            return value * repeat
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "keyword-only arguments without defaults"
+        ):
+            obj.callOptionalBlock_withValue_(callback, "hello")
+
+        with self.assertRaisesRegex(
+            TypeError,
+            "Sorry, cannot create IMP for instances of type functools.partial",
+        ):
+            # XXX: See comment in libffi_support.m, this is not ideal...
+            obj.callOptionalBlock_withValue_(
+                functools.partial(callback, repeat=2), "hello"
+            )
+
     def test_block_is_collected(self):
 
         for use_function in (0, 1):
@@ -725,6 +750,36 @@ class TestBlocks(TestCase):
 
         with self.assertRaisesRegex(
             ValueError, "did not return None, expecting void return value"
+        ):
+            obj.callIntBlock_withValue_(callback, 42)
+
+    def test_kwonly(self):
+        value = None
+
+        def callback(a, *, k):
+            nonlocal value
+            value = (a, k)
+
+        obj = OCTestBlock.alloc().init()
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has keyword-only arguments without defaults"
+        ):
+            obj.callIntBlock_withValue_(callback, 42)
+
+        def callback(a, *, k=4):
+            nonlocal value
+            value = (a, k)
+
+        obj.callIntBlock_withValue_(callback, 42)
+        self.assertEqual(value, (42, 4))
+
+        def callback():
+            pass
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError,
+            "Objective-C expects 1 arguments, Python argument has 0 arguments ",
         ):
             obj.callIntBlock_withValue_(callback, 42)
 

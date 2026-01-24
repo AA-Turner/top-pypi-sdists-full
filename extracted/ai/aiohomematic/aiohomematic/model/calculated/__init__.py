@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Calculated (derived) data points for AioHomematic.
 
@@ -24,7 +24,7 @@ Factory:
   normal read-only data points.
 
 Modules/classes:
-- ApparentTemperature, DewPoint, FrostPoint, VaporConcentration: Climate-related
+- ApparentTemperature, DewPoint, DewPointSpread, Enthalphy, FrostPoint, VaporConcentration: Climate-related
   sensors implemented in climate.py using well-known formulas (see
   aiohomematic.model.calculated.support for details and references).
 - OperatingVoltageLevel: Interprets battery/voltage values and exposes a human
@@ -39,28 +39,50 @@ from __future__ import annotations
 import logging
 from typing import Final
 
+from aiohomematic.const import ServiceScope
 from aiohomematic.decorators import inspector
-from aiohomematic.model import device as hmd
-from aiohomematic.model.calculated.climate import ApparentTemperature, DewPoint, FrostPoint, VaporConcentration
+from aiohomematic.interfaces.model import ChannelProtocol
+from aiohomematic.model.calculated.climate import (
+    ApparentTemperature,
+    DewPoint,
+    DewPointSpread,
+    Enthalpy,
+    FrostPoint,
+    VaporConcentration,
+)
 from aiohomematic.model.calculated.data_point import CalculatedDataPoint
 from aiohomematic.model.calculated.operating_voltage_level import OperatingVoltageLevel
 
 __all__ = [
-    "ApparentTemperature",
+    # Base
     "CalculatedDataPoint",
+    # Climate
+    "ApparentTemperature",
     "DewPoint",
+    "DewPointSpread",
+    "Enthalpy",
     "FrostPoint",
-    "OperatingVoltageLevel",
     "VaporConcentration",
+    # Factory
     "create_calculated_data_points",
+    # Voltage
+    "OperatingVoltageLevel",
 ]
 
-_CALCULATED_DATA_POINTS: Final = (ApparentTemperature, DewPoint, FrostPoint, OperatingVoltageLevel, VaporConcentration)
+_CALCULATED_DATA_POINTS: Final = (
+    ApparentTemperature,
+    DewPoint,
+    DewPointSpread,
+    Enthalpy,
+    FrostPoint,
+    OperatingVoltageLevel,
+    VaporConcentration,
+)
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-@inspector
-def create_calculated_data_points(channel: hmd.Channel) -> None:
+@inspector(scope=ServiceScope.INTERNAL)
+def create_calculated_data_points(*, channel: ChannelProtocol) -> None:
     """Decides which data point category should be used, and creates the required data points."""
     for dp in _CALCULATED_DATA_POINTS:
         if dp.is_relevant_for_model(channel=channel):

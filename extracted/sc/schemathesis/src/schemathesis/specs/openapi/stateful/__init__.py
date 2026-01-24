@@ -1,31 +1,31 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any
 
-import jsonschema
 from hypothesis import strategies as st
 from hypothesis.stateful import Bundle, Rule, precondition, rule
 
-from schemathesis.core.errors import InvalidStateMachine
+from schemathesis.core import NOT_SET
+from schemathesis.core.errors import InvalidStateMachine, InvalidTransition
 from schemathesis.core.result import Ok
 from schemathesis.core.transforms import UNRESOLVABLE
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
-from schemathesis.generation.hypothesis import strategies
-from schemathesis.generation.meta import ComponentInfo, ComponentKind, TestPhase
+from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
 from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput, StepOutput, _normalize_name
 from schemathesis.schemas import APIOperation
 from schemathesis.specs.openapi.stateful.control import TransitionController
-from schemathesis.specs.openapi.stateful.links import OpenApiLink, get_all_links
+from schemathesis.specs.openapi.stateful.links import OpenApiLink
 from schemathesis.specs.openapi.utils import expand_status_code
 
 if TYPE_CHECKING:
     from schemathesis.generation.stateful.state_machine import StepOutput
-    from schemathesis.specs.openapi.schemas import BaseOpenAPISchema
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 FilterFunction = Callable[["StepOutput"], bool]
 
@@ -48,6 +48,8 @@ class OpenAPIStateMachine(APIStateMachine):
 
 # The proportion of negative tests generated for "root" transitions
 NEGATIVE_TEST_CASES_THRESHOLD = 10
+# How often some transition is skipped
+BASE_EXPLORATION_RATE = 0.15
 
 
 @dataclass
@@ -97,12 +99,14 @@ def collect_transitions(operations: list[APIOperation]) -> ApiTransitions:
     selected_labels = {operation.label for operation in operations}
     errors = []
     for operation in operations:
-        for _, link in get_all_links(operation):
-            if isinstance(link, Ok):
-                if link.ok().target.label in selected_labels:
-                    transitions.add_outgoing(operation.label, link.ok())
-            else:
-                errors.append(link.err())
+        for status_code, response in operation.responses.items():
+            for name, link in response.iter_links():
+                try:
+                    link = OpenApiLink(name, status_code, link, operation)
+                    if link.target.label in selected_labels:
+                        transitions.add_outgoing(operation.label, link)
+                except InvalidTransition as exc:
+                    errors.append(exc)
 
     if errors:
         raise InvalidStateMachine(errors)
@@ -110,15 +114,17 @@ def collect_transitions(operations: list[APIOperation]) -> ApiTransitions:
     return transitions
 
 
-def create_state_machine(schema: BaseOpenAPISchema) -> type[APIStateMachine]:
+def create_state_machine(schema: OpenApiSchema) -> type[APIStateMachine]:
     operations = [result.ok() for result in schema.get_all_operations() if isinstance(result, Ok)]
     bundles = {}
     transitions = collect_transitions(operations)
     _response_matchers: dict[str, Callable[[StepOutput], str | None]] = {}
 
+    # Detect warnings once for all operations tested in stateful phase
+    # Store them as a class attribute to avoid re-detection for each scenario
     # Create bundles and matchers
     for operation in operations:
-        all_status_codes = tuple(operation.definition.raw["responses"])
+        all_status_codes = operation.responses.status_codes
         bundle_matchers = []
 
         if operation.label in transitions.operations:
@@ -158,14 +164,12 @@ def create_state_machine(schema: BaseOpenAPISchema) -> type[APIStateMachine]:
     for target in operations:
         if target.label in transitions.operations:
             incoming = transitions.operations[target.label].incoming
+            config = schema.config.generation_for(operation=target, phase="stateful")
             if incoming:
                 for link in incoming:
                     bundle_name = f"{link.source.label} -> {link.status_code}"
-                    name = _normalize_name(
-                        f"{link.source.label} -> {link.status_code} -> {link.name} -> {target.label}"
-                    )
+                    name = _normalize_name(link.full_name)
                     assert name not in rules, name
-                    config = schema.config.generation_for(operation=target, phase="stateful")
                     rules[name] = precondition(is_transition_allowed(bundle_name, link.source.label, target.label))(
                         transition(
                             name=name,
@@ -177,7 +181,6 @@ def create_state_machine(schema: BaseOpenAPISchema) -> type[APIStateMachine]:
                     )
             if target.label in roots.reliable or (not roots.reliable and target.label in roots.fallback):
                 name = _normalize_name(f"RANDOM -> {target.label}")
-                config = schema.config.generation_for(operation=target, phase="stateful")
                 if len(config.modes) == 1:
                     case_strategy = target.as_strategy(generation_mode=config.modes[0], phase=TestPhase.STATEFUL)
                 else:
@@ -186,7 +189,7 @@ def create_state_machine(schema: BaseOpenAPISchema) -> type[APIStateMachine]:
                         for method in config.modes
                     }
 
-                    @st.composite  # type: ignore[misc]
+                    @st.composite  # type: ignore[untyped-decorator]
                     def case_strategy_factory(
                         draw: st.DrawFn, strategies: dict[GenerationMode, st.SearchStrategy] = _strategies
                     ) -> Case:
@@ -223,7 +226,7 @@ def classify_root_transitions(operations: list[APIOperation], transitions: ApiTr
         if not operation_transitions or not operation_transitions.outgoing:
             continue
 
-        if is_likely_root_transition(operation, operation_transitions):
+        if is_likely_root_transition(operation):
             roots.reliable.add(operation.label)
         else:
             roots.fallback.add(operation.label)
@@ -231,10 +234,10 @@ def classify_root_transitions(operations: list[APIOperation], transitions: ApiTr
     return roots
 
 
-def is_likely_root_transition(operation: APIOperation, transitions: OperationTransitions) -> bool:
+def is_likely_root_transition(operation: APIOperation) -> bool:
     """Check if operation is likely to succeed as a root transition."""
-    # POST operations with request bodies are likely to create resources
-    if operation.method == "post" and operation.body:
+    # POST operations are likely to create resources
+    if operation.method == "post":
         return True
 
     # GET operations without path parameters are likely to return lists
@@ -245,54 +248,96 @@ def is_likely_root_transition(operation: APIOperation, transitions: OperationTra
 
 
 def into_step_input(
-    target: APIOperation, link: OpenApiLink, modes: list[GenerationMode]
+    *, target: APIOperation, link: OpenApiLink, modes: list[GenerationMode]
 ) -> Callable[[StepOutput], st.SearchStrategy[StepInput]]:
+    """A single transition between API operations."""
+
     def builder(_output: StepOutput) -> st.SearchStrategy[StepInput]:
-        @st.composite  # type: ignore[misc]
+        @st.composite  # type: ignore[untyped-decorator]
         def inner(draw: st.DrawFn, output: StepOutput) -> StepInput:
+            random = draw(st.randoms(use_true_random=True))
+
+            def biased_coin(p: float) -> bool:
+                return random.random() < p
+
+            # Extract transition data from previous operation's output
             transition = link.extract(output)
 
-            kwargs: dict[str, Any] = {
-                container: {
-                    name: extracted.value.ok()
-                    for name, extracted in data.items()
-                    if isinstance(extracted.value, Ok) and extracted.value.ok() not in (None, UNRESOLVABLE)
-                }
-                for container, data in transition.parameters.items()
-            }
+            overrides: dict[str, Any] = {}
+            applied_parameters = []
+            for container, data in transition.parameters.items():
+                overrides[container] = {}
 
+                for name, extracted in data.items():
+                    # Skip if extraction failed or returned unusable value
+                    if not isinstance(extracted.value, Ok) or extracted.value.ok() in (None, UNRESOLVABLE):
+                        continue
+
+                    param_key = f"{container}.{name}"
+
+                    # Calculate exploration rate based on parameter characteristics
+                    exploration_rate = BASE_EXPLORATION_RATE
+
+                    # Path parameters are critical for routing - use link values more often
+                    if container == "path_parameters":
+                        exploration_rate *= 0.5
+
+                    # Required parameters should follow links more often, optional ones explored more
+                    # Path params are always required, so they get both multipliers
+                    if extracted.is_required:
+                        exploration_rate *= 0.5
+                    else:
+                        # Explore optional parameters more to avoid only testing link-provided values
+                        exploration_rate *= 3.0
+
+                    if biased_coin(1 - exploration_rate):
+                        overrides[container][name] = extracted.value.ok()
+                        applied_parameters.append(param_key)
+
+            # Get the extracted body value
             if (
                 transition.request_body is not None
                 and isinstance(transition.request_body.value, Ok)
                 and transition.request_body.value.ok() is not UNRESOLVABLE
-                and not link.merge_body
             ):
-                kwargs["body"] = transition.request_body.value.ok()
-            cases = strategies.combine(
-                [target.as_strategy(generation_mode=mode, phase=TestPhase.STATEFUL, **kwargs) for mode in modes]
+                request_body = transition.request_body.value.ok()
+            else:
+                request_body = NOT_SET
+
+            # Link suppose to replace the entire extracted body
+            if request_body is not NOT_SET and not link.merge_body and biased_coin(1 - BASE_EXPLORATION_RATE):
+                overrides["body"] = request_body
+                if isinstance(overrides["body"], dict):
+                    applied_parameters.extend(f"body.{field}" for field in overrides["body"])
+                else:
+                    applied_parameters.append("body")
+
+            cases = st.one_of(
+                [target.as_strategy(generation_mode=mode, phase=TestPhase.STATEFUL, **overrides) for mode in modes]
             )
             case = draw(cases)
-            if (
-                transition.request_body is not None
-                and isinstance(transition.request_body.value, Ok)
-                and transition.request_body.value.ok() is not UNRESOLVABLE
-                and link.merge_body
-            ):
-                new = transition.request_body.value.ok()
-                if isinstance(case.body, dict) and isinstance(new, dict):
-                    case.body = {**case.body, **new}
-                else:
-                    case.body = new
-                if case.meta and case.meta.generation.mode == GenerationMode.NEGATIVE:
-                    # It is possible that the new body is now valid and the whole test case could be valid too
-                    for alternative in case.operation.body:
-                        if alternative.media_type == case.media_type:
-                            schema = alternative.as_json_schema(case.operation)
-                            if jsonschema.validators.validator_for(schema)(schema).is_valid(new):
-                                case.meta.components[ComponentKind.BODY] = ComponentInfo(mode=GenerationMode.POSITIVE)
-                                if all(info.mode == GenerationMode.POSITIVE for info in case.meta.components.values()):
-                                    case.meta.generation.mode = GenerationMode.POSITIVE
-            return StepInput(case=case, transition=transition)
+            if request_body is not NOT_SET and link.merge_body:
+                if isinstance(request_body, dict):
+                    selected_fields = {}
+
+                    for field_name, field_value in request_body.items():
+                        if field_value is UNRESOLVABLE:
+                            continue
+
+                        if biased_coin(1 - BASE_EXPLORATION_RATE):
+                            selected_fields[field_name] = field_value
+                            applied_parameters.append(f"body.{field_name}")
+
+                    if selected_fields:
+                        if isinstance(case.body, dict):
+                            case.body = {**case.body, **selected_fields}
+                        else:
+                            # Can't merge into non-dict, replace entirely
+                            case.body = selected_fields
+                elif biased_coin(1 - BASE_EXPLORATION_RATE):
+                    case.body = request_body
+                    applied_parameters.append("body")
+            return StepInput(case=case, transition=transition, applied_parameters=applied_parameters)
 
         return inner(output=_output)
 
@@ -317,10 +362,13 @@ def transition(*, name: str, target: Bundle, input: st.SearchStrategy[StepInput]
     def step_function(self: OpenAPIStateMachine, input: StepInput) -> StepOutput | None:
         if input.transition is not None:
             self.recorder.record_case(
-                parent_id=input.transition.parent_id, transition=input.transition, case=input.case
+                parent_id=input.transition.parent_id,
+                transition=input.transition,
+                case=input.case,
+                is_transition_applied=input.is_applied,
             )
         else:
-            self.recorder.record_case(parent_id=None, transition=None, case=input.case)
+            self.recorder.record_case(parent_id=None, case=input.case, transition=None, is_transition_applied=False)
         self.control.record_step(input, self.recorder)
         return APIStateMachine._step(self, input=input)
 

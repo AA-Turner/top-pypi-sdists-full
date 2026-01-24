@@ -1,5 +1,3 @@
-from typing import Optional
-
 from ase.db import connect
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +43,7 @@ class ConvexHull:
         select_cond=None,
         atoms_per_fu=1,
         conc_scale=1.0,
-        conc_ranges: Optional[dict] = None,
+        conc_ranges: dict | None = None,
     ):
         if conc_ranges is None:
             conc_ranges = {}
@@ -100,7 +98,7 @@ class ConvexHull:
         for v in end_points.values():
             for k2 in self._unique_elem:
                 v[f"{k2}_conc"] = 0.0
-            v["energy"] = np.infty
+            v["energy"] = np.inf
 
         # Iterate through all rows, update
         # by finding the lowest energy structure,

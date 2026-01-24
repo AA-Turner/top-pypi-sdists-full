@@ -6,7 +6,7 @@ Classes:
     HallucinationGuardrail: Placeholder guardrail that validates task outputs.
 """
 
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from crewai.llm import LLM
 from crewai.tasks.task_output import TaskOutput
@@ -26,21 +26,21 @@ class HallucinationGuardrail:
         >>> # Basic usage with default verdict logic
         >>> guardrail = HallucinationGuardrail(
         ...     context="AI helps with various tasks including analysis and generation.",
-        ...     llm=agent.llm
+        ...     llm=agent.llm,
         ... )
 
         >>> # With custom threshold for stricter validation
         >>> strict_guardrail = HallucinationGuardrail(
         ...     context="Quantum computing uses qubits in superposition.",
         ...     llm=agent.llm,
-        ...     threshold=8.0  # Would require score >= 8 to pass in enterprise version
+        ...     threshold=8.0,  # Would require score >= 8 to pass in enterprise version
         ... )
 
         >>> # With tool response for additional context
         >>> guardrail_with_tools = HallucinationGuardrail(
         ...     context="The current weather data",
         ...     llm=agent.llm,
-        ...     tool_response="Weather API returned: Temperature 22°C, Humidity 65%"
+        ...     tool_response="Weather API returned: Temperature 22°C, Humidity 65%",
         ... )
     """
 
@@ -48,7 +48,7 @@ class HallucinationGuardrail:
         self,
         context: str,
         llm: LLM,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
         tool_response: str = "",
     ):
         """Initialize the HallucinationGuardrail placeholder.
@@ -75,7 +75,7 @@ class HallucinationGuardrail:
         """Generate a description of this guardrail for event logging."""
         return "HallucinationGuardrail (no-op)"
 
-    def __call__(self, task_output: TaskOutput) -> Tuple[bool, Any]:
+    def __call__(self, task_output: TaskOutput) -> tuple[bool, Any]:
         """Validate a task output against hallucination criteria.
 
         In the open source, this method always returns that the output is valid.

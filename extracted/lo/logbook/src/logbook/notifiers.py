@@ -1,11 +1,11 @@
 """
-    logbook.notifiers
-    ~~~~~~~~~~~~~~~~~
+logbook.notifiers
+~~~~~~~~~~~~~~~~~
 
-    System notify handlers for OSX and Linux.
+System notify handlers for OSX and Linux.
 
-    :copyright: (c) 2010 by Armin Ronacher, Christopher Grebs.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2010 by Armin Ronacher, Christopher Grebs.
+:license: BSD, see LICENSE for more details.
 """
 
 import base64
@@ -14,6 +14,8 @@ import sys
 from http import client as http_client
 from time import time
 from urllib.parse import urlencode
+
+from typing_extensions import deprecated
 
 from logbook.base import ERROR, NOTSET, WARNING
 from logbook.handlers import Handler, LimitingHandlerMixin
@@ -57,9 +59,12 @@ class NotificationBaseHandler(Handler, LimitingHandlerMixin):
         return record.message
 
 
+@deprecated("GrowlHandler is deprecated")
 class GrowlHandler(NotificationBaseHandler):
     """A handler that dispatches to Growl.  Requires that either growl-py or
     py-Growl are installed.
+
+    .. deprecated:: 1.9
     """
 
     def __init__(
@@ -228,9 +233,12 @@ class LibNotifyHandler(NotificationBaseHandler):
         notifier.show()
 
 
+@deprecated("BoxcarHandler is deprecated")
 class BoxcarHandler(NotificationBaseHandler):
     """Sends notifications to boxcar.io.  Can be forwarded to your iPhone or
     other compatible device.
+
+    .. deprecated:: 1.9
     """
 
     api_url = "https://boxcar.io/notifications/"
@@ -280,9 +288,12 @@ class BoxcarHandler(NotificationBaseHandler):
         con.close()
 
 
+@deprecated("NotifoHandler is deprecated")
 class NotifoHandler(NotificationBaseHandler):
     """Sends notifications to notifo.com.  Can be forwarded to your Desktop,
     iPhone, or other compatible device.
+
+    .. deprecated:: 1.9
     """
 
     def __init__(

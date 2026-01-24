@@ -21,6 +21,9 @@ class JmMagicConstants:
     ORDER_BY_VIEW = 'mv'
     ORDER_BY_PICTURE = 'mp'
     ORDER_BY_LIKE = 'tf'
+    # 下面这两个目前只在网页上看到，app上没有
+    ORDER_BY_SCORE = 'tr'
+    ORDER_BY_COMMENT = 'md'
 
     ORDER_MONTH_RANKING = 'mv_m'
     ORDER_WEEK_RANKING = 'mv_w'
@@ -77,7 +80,7 @@ class JmMagicConstants:
     APP_TOKEN_SECRET_2 = '18comicAPPContent'
     APP_DATA_SECRET = '185Hcomic3PAPP7R'
     API_DOMAIN_SERVER_SECRET = 'diosfjckwpqpdfjkvnqQjsik'
-    APP_VERSION = '2.0.6'
+    APP_VERSION = '2.0.16'
 
 
 # 模块级别共用配置
@@ -134,6 +137,8 @@ class JmModuleConfig:
     www.cdnplaystation6.cc
     ''')
 
+    DOMAIN_API_UPDATED_LIST = None
+
     # 获取最新移动端API域名的地址
     API_URL_DOMAIN_SERVER_LIST = shuffled('''
     https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt
@@ -148,7 +153,7 @@ class JmModuleConfig:
 
     APP_HEADERS_IMAGE = {
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'X-Requested-With': 'com.jiaohua_browser',
+        'X-Requested-With': 'com.JMComic3.app',
         'Referer': PROT + DOMAIN_API_LIST[0],
         'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
     }
@@ -209,7 +214,6 @@ class JmModuleConfig:
     FLAG_API_CLIENT_REQUIRE_COOKIES = True
     # 自动更新禁漫API域名
     FLAG_API_CLIENT_AUTO_UPDATE_DOMAIN = True
-    FLAG_API_CLIENT_AUTO_UPDATE_DOMAIN_DONE = None
     # log开关标记
     FLAG_ENABLE_JM_LOG = True
     # log时解码url
@@ -411,7 +415,7 @@ class JmModuleConfig:
 
     DEFAULT_OPTION_DICT: dict = {
         'log': None,
-        'dir_rule': {'rule': 'Bd_Pname', 'base_dir': None},
+        'dir_rule': {'rule': 'Bd_Pname', 'base_dir': None, 'normalize_zh': None},
         'download': {
             'cache': True,
             'image': {'decode': True, 'suffix': None},

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OpenFisca-France
-Version: 174.2.3
+Version: 175.0.11
 Summary: OpenFisca Rules as Code model for France.
 Author-email: OpenFisca Team <contact@openfisca.fr>
 Project-URL: Homepage, https://github.com/openfisca/openfisca-france
@@ -22,8 +22,8 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.AGPL.txt
-Requires-Dist: numpy<2,>=1.24.3
-Requires-Dist: openfisca-core[web-api]<44,>=43
+Requires-Dist: numpy<3,>=1.24.3
+Requires-Dist: openfisca-core[web-api]<45,>=43
 Provides-Extra: inversion-revenus
 Requires-Dist: scipy<2.0,>=1.10.1; extra == "inversion-revenus"
 Provides-Extra: de-net-a-brut
@@ -190,7 +190,14 @@ A noter que l'installation d'Openfisca-France peut lever une erreur sur certaine
 Pour faire tourner les tests d'OpenFisca-France, exécutez la commande suivante :
 
 ```sh
-uv run make test
+uv run make test openfisca_args="--in-parallel"
+```
+(Ne fonctionne que si vous avez installé `openfisca-core` version 44.0.1 ou supérieure.)
+
+Si cela utilise trop de mémoire, vous pouvez limiter le nombre de processus parallèles avec l'option `--num-workers` :
+
+```sh
+uv run make test openfisca_args="--in-parallel --num-workers 2"
 ```
 
 Pour utiliser une version spécifique de Python :

@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests of miscellaneous stuff."""
 
@@ -35,7 +35,7 @@ class SetupPyTest(CoverageTest):
         out = output.splitlines()
         assert "measurement" in out[0]
         assert coverage.__version__ == out[1]
-        assert "github.com/nedbat/coveragepy" in out[2]
+        assert "github.com/coveragepy/coveragepy" in out[2]
         assert "Ned Batchelder" in out[3]
 
     @pytest.mark.skipif(
@@ -50,7 +50,7 @@ class SetupPyTest(CoverageTest):
 
         classifiers = cast(list[str], setup_args["classifiers"])
         assert len(classifiers) > 7
-        assert classifiers[-1].startswith("Development Status ::")
+        assert classifiers[0].startswith("Development Status ::")
         assert "Programming Language :: Python :: %d" % sys.version_info[:1] in classifiers
         assert "Programming Language :: Python :: %d.%d" % sys.version_info[:2] in classifiers
 

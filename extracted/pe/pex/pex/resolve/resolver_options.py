@@ -56,9 +56,10 @@ class _HandleTransitiveAction(Action):
 class _ResolveVenvAction(Action):
     def __init__(self, *args, **kwargs):
         kwargs["nargs"] = "?"
-        super(_ResolveVenvAction, self).__init__(*args, **kwargs)
+        super(_ResolveVenvAction, self).__init__(*args, default=[], **kwargs)
 
     def __call__(self, parser, namespace, value, option_str=None):
+        venvs = getattr(namespace, self.dest)
         if value:
             if not os.path.exists(value):
                 raise ArgumentError(
@@ -86,7 +87,7 @@ class _ResolveVenvAction(Action):
                         "path.".format(option=option_str, value=value)
                     ),
                 )
-            setattr(namespace, self.dest, venv)
+            venvs.append(venv)
         else:
             current_venv = Virtualenv.enclosing(python=sys.executable)
             if not current_venv:
@@ -105,7 +106,7 @@ class _ResolveVenvAction(Action):
                             )
                         ),
                     )
-            setattr(namespace, self.dest, current_venv)
+            venvs.append(current_venv)
 
 
 def register(
@@ -320,14 +321,18 @@ def register(
     if include_venv_repository:
         repository_choice.add_argument(
             "--venv-repository",
-            dest="venv_repository",
+            dest="venv_repositories",
             action=_ResolveVenvAction,
-            type=str,
             help=(
                 "Resolve requirements from the given virtual environment instead of from "
                 "--index servers, --find-links repos or a --lock file. The virtual environment to "
                 "resolve from can be specified as the path to the venv or the path of its"
-                "interpreter. If no value is specified, the current active venv is used."
+                "interpreter. If no value is specified, the current active venv is used. Multiple "
+                "virtual environments may be specified via multiple --venv-repository options and "
+                "the resolve will be the combined results. Each virtual environment will be "
+                "resolved from individually and must contain the full transitive closure of "
+                "requirements. This allows for creating a multi-platform PEX by specifying "
+                "multiple virtual environments; say one for Python 3.12 and one for Python 3.13."
             ),
         )
 
@@ -803,9 +808,9 @@ def configure(
             sdists=tuple(sdists), wheels=tuple(wheels), pip_configuration=pip_configuration
         )
 
-    venv = getattr(options, "venv_repository", None)
-    if venv:
-        return VenvRepositoryConfiguration(venv=venv, pip_configuration=pip_configuration)
+    venvs = getattr(options, "venv_repositories", None)
+    if venvs:
+        return VenvRepositoryConfiguration(venvs=tuple(venvs), pip_configuration=pip_configuration)
 
     if pylock:
         return PylockRepositoryConfiguration(
@@ -906,17 +911,18 @@ def _parse_package_repositories(
     scopes_by_name,  # type: Mapping[str, Iterable[Scope]]
     repositories,  # type: Iterable[str]
 ):
-    # type: (...) -> OrderedDict[str, Repo]
+    # type: (...) -> Tuple[OrderedSet[Repo], OrderedDict[str, Repo]]
 
-    parsed = OrderedDict()  # type: OrderedDict[str, List[str]]
+    named = OrderedDict()  # type: OrderedDict[str, List[str]]
+    unnamed_repositories = OrderedSet()  # type: OrderedSet[Repo]
     for repository in repositories:
         name, _, location = repository.partition("=")
         if name in scopes_by_name:
-            parsed.setdefault(name, []).append(location)
+            named.setdefault(name, []).append(location)
         else:
-            parsed.setdefault("", []).append(repository)
+            unnamed_repositories.add(Repo(repository))
 
-    duplicate_names = [name for name, repos in parsed.items() if len(repos) > 1]
+    duplicate_names = [name for name, repos in named.items() if len(repos) > 1]
     if duplicate_names:
         raise InvalidConfigurationError(
             "The following names are being re-used across multiple {package_repositories}: "
@@ -928,13 +934,10 @@ def _parse_package_repositories(
             )
         )
 
-    package_repositories = OrderedDict()  # type: OrderedDict[str, Repo]
-    for name, locations in parsed.items():
-        if name:
-            package_repositories[name] = Repo(locations[0], scopes=tuple(scopes_by_name[name]))
-        else:
-            package_repositories[""] = Repo(locations[0])
-    return package_repositories
+    named_repositories = OrderedDict()  # type: OrderedDict[str, Repo]
+    for name, locations in named.items():
+        named_repositories[name] = Repo(locations[0], scopes=tuple(scopes_by_name[name]))
+    return unnamed_repositories, named_repositories
 
 
 def create_repos_configuration(options):
@@ -957,12 +960,14 @@ def create_repos_configuration(options):
             derive_scopes_from_requirements_files=options.derive_scopes_from_requirements_files,
         )
 
-    parsed_indexes = _parse_package_repositories("index", scopes_by_name, options.indexes)
-    parsed_find_links = _parse_package_repositories(
+    unnamed_indexes, named_indexes = _parse_package_repositories(
+        "index", scopes_by_name, options.indexes
+    )
+    unnamed_find_links, named_find_links = _parse_package_repositories(
         "find links repository", scopes_by_name, options.find_links
     )
 
-    duplicate_names = set(parsed_indexes).intersection(parsed_find_links)
+    duplicate_names = set(named_indexes).intersection(named_find_links)
     if duplicate_names:
         raise InvalidConfigurationError(
             "The following names are being re-used across indexes and find links repos: "
@@ -972,10 +977,15 @@ def create_repos_configuration(options):
             )
         )
 
-    indexes.update(parsed_indexes.values())
+    indexes.update(unnamed_indexes)
+    indexes.update(named_indexes.values())
+
+    find_links = unnamed_find_links
+    find_links.update(named_find_links.values())
+
     return ReposConfiguration.create(
         indexes=tuple(indexes),
-        find_links=tuple(parsed_find_links.values()),
+        find_links=tuple(find_links),
         derive_scopes_from_requirements_files=options.derive_scopes_from_requirements_files,
     )
 

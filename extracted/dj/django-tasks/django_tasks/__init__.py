@@ -4,53 +4,58 @@ import django_stubs_ext
 django_stubs_ext.monkeypatch()
 
 import importlib.metadata
-from typing import Optional
 
+from django.conf import global_settings
 from django.utils.connection import BaseConnectionHandler, ConnectionProxy
 from django.utils.module_loading import import_string
 
 from .backends.base import BaseTaskBackend
-from .exceptions import InvalidTaskBackendError
-from .task import (
-    DEFAULT_QUEUE_NAME,
+from .base import (
     DEFAULT_TASK_BACKEND_ALIAS,
-    ResultStatus,
-    Task,
+    DEFAULT_TASK_QUEUE_NAME,
     TaskContext,
     TaskResult,
+    TaskResultStatus,
     task,
 )
+from .exceptions import InvalidTaskBackendError
 
 __version__ = importlib.metadata.version(__name__)
 
 __all__ = [
-    "tasks",
+    "task_backends",
     "default_task_backend",
     "DEFAULT_TASK_BACKEND_ALIAS",
-    "DEFAULT_QUEUE_NAME",
-    "task",
-    "ResultStatus",
-    "Task",
+    "DEFAULT_TASK_QUEUE_NAME",
+    "TaskResultStatus",
     "TaskResult",
     "TaskContext",
+    "task",
 ]
 
 
-class TasksHandler(BaseConnectionHandler[BaseTaskBackend]):
+class TaskBackendHandler(BaseConnectionHandler[BaseTaskBackend]):
     settings_name = "TASKS"
     exception_class = InvalidTaskBackendError
 
-    def configure_settings(self, settings: Optional[dict]) -> dict:
+    def configure_settings(self, settings: dict | None) -> dict:
         try:
-            return super().configure_settings(settings)
+            task_settings = super().configure_settings(settings)
         except AttributeError:
             # HACK: Force a default task backend.
             # Can be replaced with `django.conf.global_settings` once vendored.
-            return {
+            task_settings = None
+
+        if task_settings is None or task_settings is getattr(
+            global_settings, self.settings_name, None
+        ):
+            task_settings = {
                 DEFAULT_TASK_BACKEND_ALIAS: {
                     "BACKEND": "django_tasks.backends.immediate.ImmediateBackend"
                 }
             }
+
+        return task_settings
 
     def create_connection(self, alias: str) -> BaseTaskBackend:
         params = self.settings[alias]
@@ -67,8 +72,8 @@ class TasksHandler(BaseConnectionHandler[BaseTaskBackend]):
         return backend_cls(alias=alias, params=params)  # type:ignore[no-any-return]
 
 
-tasks = TasksHandler()
+task_backends = TaskBackendHandler()
 
 default_task_backend: BaseTaskBackend = ConnectionProxy(  # type:ignore[assignment]
-    tasks, DEFAULT_TASK_BACKEND_ALIAS
+    task_backends, DEFAULT_TASK_BACKEND_ALIAS
 )

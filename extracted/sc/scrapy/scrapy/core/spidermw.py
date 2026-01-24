@@ -7,10 +7,11 @@ See documentation in docs/topics/spider-middleware.rst
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Callable, Coroutine, Iterable
+from functools import wraps
 from inspect import isasyncgenfunction, iscoroutine
 from itertools import islice
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, cast
 from warnings import warn
 
 from twisted.internet.defer import Deferred, inlineCallbacks
@@ -23,16 +24,16 @@ from scrapy.middleware import MiddlewareManager
 from scrapy.utils.asyncgen import as_async_generator, collect_asyncgen
 from scrapy.utils.conf import build_component_list
 from scrapy.utils.defer import (
-    deferred_f_from_coro_f,
+    _defer_sleep_async,
     deferred_from_coro,
     maybe_deferred_to_future,
-    mustbe_deferred,
 )
 from scrapy.utils.python import MutableAsyncChain, MutableChain, global_object_name
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from scrapy.crawler import Crawler
     from scrapy.settings import BaseSettings
 
 
@@ -40,9 +41,9 @@ logger = logging.getLogger(__name__)
 
 
 _T = TypeVar("_T")
-ScrapeFunc = Callable[
-    [Union[Response, Failure], Request],
-    Deferred[Union[Iterable[_T], AsyncIterator[_T]]],
+ScrapeFunc: TypeAlias = Callable[
+    [Response | Failure, Request],
+    Coroutine[Any, Any, Iterable[_T] | AsyncIterator[_T]],
 ]
 
 
@@ -57,12 +58,12 @@ class SpiderMiddlewareManager(MiddlewareManager):
     def _get_mwlist_from_settings(cls, settings: BaseSettings) -> list[Any]:
         return build_component_list(settings.getwithbase("SPIDER_MIDDLEWARES"))
 
-    def __init__(self, *middlewares: Any) -> None:
+    def __init__(self, *middlewares: Any, crawler: Crawler | None = None) -> None:
         self._check_deprecated_process_start_requests_use(middlewares)
-        super().__init__(*middlewares)
+        super().__init__(*middlewares, crawler=crawler)
 
     def _check_deprecated_process_start_requests_use(
-        self, middlewares: tuple[Any]
+        self, middlewares: tuple[Any, ...]
     ) -> None:
         deprecated_middlewares = [
             middleware
@@ -116,9 +117,10 @@ class SpiderMiddlewareManager(MiddlewareManager):
             )
 
     def _add_middleware(self, mw: Any) -> None:
-        super()._add_middleware(mw)
         if hasattr(mw, "process_spider_input"):
             self.methods["process_spider_input"].append(mw.process_spider_input)
+            self._check_mw_method_spider_arg(mw.process_spider_input)
+
         if self._use_start_requests:
             if hasattr(mw, "process_start_requests"):
                 self.methods["process_start_requests"].appendleft(
@@ -126,22 +128,33 @@ class SpiderMiddlewareManager(MiddlewareManager):
                 )
         elif hasattr(mw, "process_start"):
             self.methods["process_start"].appendleft(mw.process_start)
+
         process_spider_output = self._get_async_method_pair(mw, "process_spider_output")
         self.methods["process_spider_output"].appendleft(process_spider_output)
+        if callable(process_spider_output):
+            self._check_mw_method_spider_arg(process_spider_output)
+        elif isinstance(process_spider_output, tuple):
+            for m in process_spider_output:
+                self._check_mw_method_spider_arg(m)
+
         process_spider_exception = getattr(mw, "process_spider_exception", None)
         self.methods["process_spider_exception"].appendleft(process_spider_exception)
+        if process_spider_exception is not None:
+            self._check_mw_method_spider_arg(process_spider_exception)
 
-    def _process_spider_input(
+    async def _process_spider_input(
         self,
         scrape_func: ScrapeFunc[_T],
         response: Response,
         request: Request,
-        spider: Spider,
-    ) -> Deferred[Iterable[_T] | AsyncIterator[_T]]:
+    ) -> Iterable[_T] | AsyncIterator[_T]:
         for method in self.methods["process_spider_input"]:
-            method = cast(Callable, method)
+            method = cast("Callable", method)
             try:
-                result = method(response=response, spider=spider)
+                if method in self._mw_methods_requiring_spider:
+                    result = method(response=response, spider=self._spider)
+                else:
+                    result = method(response=response)
                 if result is not None:
                     msg = (
                         f"{global_object_name(method)} must return None "
@@ -151,13 +164,12 @@ class SpiderMiddlewareManager(MiddlewareManager):
             except _InvalidOutput:
                 raise
             except Exception:
-                return scrape_func(Failure(), request)
-        return scrape_func(response, request)
+                return await scrape_func(Failure(), request)
+        return await scrape_func(response, request)
 
     def _evaluate_iterable(
         self,
         response: Response,
-        spider: Spider,
         iterable: Iterable[_T] | AsyncIterator[_T],
         exception_processor_index: int,
         recover_to: MutableChain[_T] | MutableAsyncChain[_T],
@@ -167,9 +179,9 @@ class SpiderMiddlewareManager(MiddlewareManager):
                 yield from iterable
             except Exception as ex:
                 exception_result = cast(
-                    Union[Failure, MutableChain[_T]],
+                    "Failure | MutableChain[_T]",
                     self._process_spider_exception(
-                        response, spider, Failure(ex), exception_processor_index
+                        response, ex, exception_processor_index
                     ),
                 )
                 if isinstance(exception_result, Failure):
@@ -183,9 +195,9 @@ class SpiderMiddlewareManager(MiddlewareManager):
                     yield r
             except Exception as ex:
                 exception_result = cast(
-                    Union[Failure, MutableAsyncChain[_T]],
+                    "Failure | MutableAsyncChain[_T]",
                     self._process_spider_exception(
-                        response, spider, Failure(ex), exception_processor_index
+                        response, ex, exception_processor_index
                     ),
                 )
                 if isinstance(exception_result, Failure):
@@ -200,37 +212,36 @@ class SpiderMiddlewareManager(MiddlewareManager):
     def _process_spider_exception(
         self,
         response: Response,
-        spider: Spider,
-        _failure: Failure,
+        exception: Exception,
         start_index: int = 0,
-    ) -> Failure | MutableChain[_T] | MutableAsyncChain[_T]:
-        exception = _failure.value
+    ) -> MutableChain[_T] | MutableAsyncChain[_T]:
         # don't handle _InvalidOutput exception
         if isinstance(exception, _InvalidOutput):
-            return _failure
+            raise exception
         method_list = islice(
             self.methods["process_spider_exception"], start_index, None
         )
         for method_index, method in enumerate(method_list, start=start_index):
             if method is None:
                 continue
-            method = cast(Callable, method)
-            result = method(response=response, exception=exception, spider=spider)
+            method = cast("Callable", method)
+            if method in self._mw_methods_requiring_spider:
+                result = method(
+                    response=response, exception=exception, spider=self._spider
+                )
+            else:
+                result = method(response=response, exception=exception)
             if _isiterable(result):
                 # stop exception handling by handing control over to the
                 # process_spider_output chain if an iterable has been returned
                 dfd: Deferred[MutableChain[_T] | MutableAsyncChain[_T]] = (
-                    self._process_spider_output(
-                        response, spider, result, method_index + 1
-                    )
+                    self._process_spider_output(response, result, method_index + 1)
                 )
                 # _process_spider_output() returns a Deferred only because of downgrading so this can be
                 # simplified when downgrading is removed.
                 if dfd.called:
                     # the result is available immediately if _process_spider_output didn't do downgrading
-                    return cast(
-                        Union[MutableChain[_T], MutableAsyncChain[_T]], dfd.result
-                    )
+                    return cast("MutableChain[_T] | MutableAsyncChain[_T]", dfd.result)
                 # we forbid waiting here because otherwise we would need to return a deferred from
                 # _process_spider_exception too, which complicates the architecture
                 msg = f"Async iterable returned from {global_object_name(method)} cannot be downgraded"
@@ -242,7 +253,7 @@ class SpiderMiddlewareManager(MiddlewareManager):
                 f"or an iterable, got {type(result)}"
             )
             raise _InvalidOutput(msg)
-        return _failure
+        raise exception
 
     # This method cannot be made async def, as _process_spider_exception relies on the Deferred result
     # being available immediately which doesn't work when it's a wrapped coroutine.
@@ -251,7 +262,6 @@ class SpiderMiddlewareManager(MiddlewareManager):
     def _process_spider_output(
         self,
         response: Response,
-        spider: Spider,
         result: Iterable[_T] | AsyncIterator[_T],
         start_index: int = 0,
     ) -> Generator[Deferred[Any], Any, MutableChain[_T] | MutableAsyncChain[_T]]:
@@ -304,19 +314,22 @@ class SpiderMiddlewareManager(MiddlewareManager):
                         )
                         recovered = MutableChain(recovered_collected)
                 # might fail directly if the output value is not a generator
-                result = method(response=response, result=result, spider=spider)
+                if method in self._mw_methods_requiring_spider:
+                    result = method(
+                        response=response, result=result, spider=self._spider
+                    )
+                else:
+                    result = method(response=response, result=result)
             except Exception as ex:
                 exception_result: Failure | MutableChain[_T] | MutableAsyncChain[_T] = (
-                    self._process_spider_exception(
-                        response, spider, Failure(ex), method_index + 1
-                    )
+                    self._process_spider_exception(response, ex, method_index + 1)
                 )
                 if isinstance(exception_result, Failure):
                     raise
                 return exception_result
             if _isiterable(result):
                 result = self._evaluate_iterable(
-                    response, spider, result, method_index + 1, recovered
+                    response, result, method_index + 1, recovered
                 )
             else:
                 if iscoroutine(result):
@@ -340,7 +353,6 @@ class SpiderMiddlewareManager(MiddlewareManager):
     async def _process_callback_output(
         self,
         response: Response,
-        spider: Spider,
         result: Iterable[_T] | AsyncIterator[_T],
     ) -> MutableChain[_T] | MutableAsyncChain[_T]:
         recovered: MutableChain[_T] | MutableAsyncChain[_T]
@@ -348,11 +360,11 @@ class SpiderMiddlewareManager(MiddlewareManager):
             recovered = MutableAsyncChain()
         else:
             recovered = MutableChain()
-        result = self._evaluate_iterable(response, spider, result, 0, recovered)
+        result = self._evaluate_iterable(response, result, 0, recovered)
         result = await maybe_deferred_to_future(
             cast(
                 "Deferred[Iterable[_T] | AsyncIterator[_T]]",
-                self._process_spider_output(response, spider, result),
+                self._process_spider_output(response, result),
             )
         )
         if isinstance(result, AsyncIterator):
@@ -364,49 +376,94 @@ class SpiderMiddlewareManager(MiddlewareManager):
 
     def scrape_response(
         self,
-        scrape_func: ScrapeFunc[_T],
+        scrape_func: Callable[
+            [Response | Failure, Request],
+            Deferred[Iterable[_T] | AsyncIterator[_T]],
+        ],
         response: Response,
         request: Request,
         spider: Spider,
     ) -> Deferred[MutableChain[_T] | MutableAsyncChain[_T]]:
+        warn(
+            "SpiderMiddlewareManager.scrape_response() is deprecated, use scrape_response_async() instead",
+            ScrapyDeprecationWarning,
+            stacklevel=2,
+        )
+
+        @wraps(scrape_func)
+        async def scrape_func_wrapped(
+            response: Response | Failure, request: Request
+        ) -> Iterable[_T] | AsyncIterator[_T]:
+            return await maybe_deferred_to_future(scrape_func(response, request))
+
+        self._set_compat_spider(spider)
+        return deferred_from_coro(
+            self.scrape_response_async(scrape_func_wrapped, response, request)
+        )
+
+    async def scrape_response_async(
+        self,
+        scrape_func: ScrapeFunc[_T],
+        response: Response,
+        request: Request,
+    ) -> MutableChain[_T] | MutableAsyncChain[_T]:
+        if not self.crawler:
+            raise RuntimeError(
+                "scrape_response_async() called on a SpiderMiddlewareManager"
+                " instance created without a crawler."
+            )
+
         async def process_callback_output(
             result: Iterable[_T] | AsyncIterator[_T],
         ) -> MutableChain[_T] | MutableAsyncChain[_T]:
-            return await self._process_callback_output(response, spider, result)
+            return await self._process_callback_output(response, result)
 
         def process_spider_exception(
-            _failure: Failure,
-        ) -> Failure | MutableChain[_T] | MutableAsyncChain[_T]:
-            return self._process_spider_exception(response, spider, _failure)
+            exception: Exception,
+        ) -> MutableChain[_T] | MutableAsyncChain[_T]:
+            return self._process_spider_exception(response, exception)
 
-        dfd: Deferred[Iterable[_T] | AsyncIterator[_T]] = mustbe_deferred(
-            self._process_spider_input, scrape_func, response, request, spider
-        )
-        dfd2: Deferred[MutableChain[_T] | MutableAsyncChain[_T]] = dfd.addCallback(
-            deferred_f_from_coro_f(process_callback_output)
-        )
-        dfd2.addErrback(process_spider_exception)
-        return dfd2
+        try:
+            it: Iterable[_T] | AsyncIterator[_T] = await self._process_spider_input(
+                scrape_func, response, request
+            )
+            return await process_callback_output(it)
+        except Exception as ex:
+            await _defer_sleep_async()
+            return process_spider_exception(ex)
 
-    async def process_start(self, spider: Spider) -> AsyncIterator[Any] | None:
-        self._check_deprecated_start_requests_use(spider)
+    async def process_start(
+        self, spider: Spider | None = None
+    ) -> AsyncIterator[Any] | None:
+        if spider:
+            if self.crawler:
+                msg = (
+                    "Passing a spider argument to SpiderMiddlewareManager.process_start() is deprecated"
+                    " and the passed value is ignored."
+                )
+            else:
+                msg = (
+                    "Passing a spider argument to SpiderMiddlewareManager.process_start() is deprecated,"
+                    " SpiderMiddlewareManager should be instantiated with a Crawler instance instead."
+                )
+            warn(msg, category=ScrapyDeprecationWarning, stacklevel=2)
+            self._set_compat_spider(spider)
+        self._check_deprecated_start_requests_use()
         if self._use_start_requests:
-            sync_start = iter(spider.start_requests())
-            sync_start = await maybe_deferred_to_future(
-                self._process_chain("process_start_requests", sync_start, spider)
+            sync_start = iter(self._spider.start_requests())
+            sync_start = await self._process_chain(
+                "process_start_requests", sync_start, always_add_spider=True
             )
             start: AsyncIterator[Any] = as_async_generator(sync_start)
         else:
-            start = spider.start()
-            start = await maybe_deferred_to_future(
-                self._process_chain("process_start", start)
-            )
+            start = self._spider.start()
+            start = await self._process_chain("process_start", start)
         return start
 
-    def _check_deprecated_start_requests_use(self, spider: Spider):
+    def _check_deprecated_start_requests_use(self):
         start_requests_cls = None
         start_cls = None
-        spidercls = spider.__class__
+        spidercls = self._spider.__class__
         mro = spidercls.__mro__
 
         for cls in mro:

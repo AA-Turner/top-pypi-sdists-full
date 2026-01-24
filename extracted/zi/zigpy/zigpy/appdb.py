@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 import re
@@ -33,7 +33,7 @@ DB_VERSION = 13
 DB_V = f"_v{DB_VERSION}"
 MIN_SQLITE_VERSION = (3, 24, 0)
 
-UNIX_EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
+UNIX_EPOCH = datetime.fromtimestamp(0, tz=UTC)
 DB_V_REGEX = re.compile(r"(?:_v\d+)?$")
 
 MIN_UPDATE_DELTA = timedelta(seconds=30).total_seconds()
@@ -668,24 +668,18 @@ class PersistingListener(zigpy.util.CatchingTaskMixin):
         await self._load_endpoints()
         await self._load_clusters()
 
-        # Quirks require the manufacturer and model name to be populated
-        await self._load_attributes(
-            f"""
-                cluster_type={ClusterType.Server}
-            AND cluster_id={Basic.cluster_id}
-            AND (
-                   attr_id={Basic.AttributeDefs.manufacturer.id}
-                OR attr_id={Basic.AttributeDefs.model.id}
-            )
-            """
-        )
+        # Load as many attributes as we can in the first pass
+        await self._load_attributes()
+        await self._load_unsupported_attributes()
 
         for device in self._application.devices.values():
             device = zigpy.quirks.get_device(device)
             self._application.devices[device.ieee] = device
 
+        # Load them once more, to make sure virtual clusters get re-populated
         await self._load_attributes()
         await self._load_unsupported_attributes()
+
         await self._load_groups()
         await self._load_group_members()
         await self._load_relays()
@@ -694,13 +688,8 @@ class PersistingListener(zigpy.util.CatchingTaskMixin):
         await self._load_network_backups()
         await self._register_device_listeners()
 
-    async def _load_attributes(self, filter: str | None = None) -> None:
-        if filter:
-            query = f"SELECT * FROM attributes_cache{DB_V} WHERE {filter}"
-        else:
-            query = f"SELECT * FROM attributes_cache{DB_V}"
-
-        async with self.execute(query) as cursor:
+    async def _load_attributes(self) -> None:
+        async with self.execute(f"SELECT * FROM attributes_cache{DB_V}") as cursor:
             async for (
                 ieee,
                 endpoint_id,
@@ -728,7 +717,7 @@ class PersistingListener(zigpy.util.CatchingTaskMixin):
 
                 clusters[cluster_id]._attr_cache[attr_id] = value
                 clusters[cluster_id]._attr_last_updated[attr_id] = (
-                    datetime.fromtimestamp(last_updated, timezone.utc)
+                    datetime.fromtimestamp(last_updated, UTC)
                 )
 
                 LOGGER.debug(

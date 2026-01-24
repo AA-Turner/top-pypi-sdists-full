@@ -1,10 +1,9 @@
-import warnings
-from typing import Union, TypedDict, Optional
+from typing import Optional, TypedDict, Union
 
 from scalecodec import ScaleType
 
 from bittensor.core import settings
-from bittensor.utils import deprecated_message
+from bittensor.core.errors import BalanceTypeError, BalanceUnitMismatchError
 
 
 def _check_currencies(self, other):
@@ -13,40 +12,68 @@ def _check_currencies(self, other):
     A warning is raised if the netuids differ.
 
     Example:
-        >>> balance1 = Balance.from_rao(1000).set_unit(12)
-        >>> balance2 = Balance.from_rao(500).set_unit(12)
-        >>> balance1 + balance2  # No warning
+        balance1 = Balance.from_rao(1000).set_unit(14)
+        balance2 = Balance.from_tao(500).set_unit(14)
+        balance1 + balance2  # No error.
 
-        >>> balance3 = Balance.from_rao(200).set_unit(15)
-        >>> balance1 + balance3  # Raises DeprecationWarning
+        balance3 = Balance.from_tao(200).set_unit(5)
+        balance1 + balance3  # Raises BalanceUnitMismatchError.
 
-    In this example:
-        - `from_rao` creates a Balance instance from the amount in rao (smallest unit).
-        - `set_unit(12)` sets the unit to correspond to subnet 12 (i.e., Alpha from netuid 12).
+    Example:
+        - `from_rao` creates a Balance instance from the amount in rao.
+        - `set_unit(14)` sets the unit to correspond to subnet 14 (i.e., Alpha from netuid 14).
     """
     if self.netuid != other.netuid:
-        warnings.simplefilter("default", DeprecationWarning)
-        warnings.warn(
-            "Balance objects must have the same netuid (Alpha currency) to perform arithmetic operations.\n"
-            f"First balance is `{self}`.  Second balance is `{other}`.\n\n"
-            "To create a Balance instance with the correct netuid, use:\n"
-            "Balance.from_rao(1000).set_unit(12)  # 1000 rao in subnet 12",
-            category=DeprecationWarning,
-            stacklevel=2,
+        raise BalanceUnitMismatchError(
+            f"Cannot perform any operations between balances of different currencies: {self} and {other}. "
+            "Both Balance objects must reference the same netuid (Alpha currency). "
+            "For example, to create a Balance instance for subnet 12 you can use: "
+            "Balance.from_tao(10).set_unit(14), which corresponds to 10 TAO in subnet 14."
         )
 
 
 class Balance:
     """
     Represents the bittensor balance of the wallet, stored as rao (int).
-    This class provides a way to interact with balances in two different units: rao and tao.
-    It provides methods to convert between these units, as well as to perform arithmetic and comparison operations.
+
+    This class provides a way to interact with balances in two different units: rao and tao. It provides methods to
+    convert between these units, as well as to perform arithmetic and comparison operations.
 
     Attributes:
         unit (str): A string representing the symbol for the tao unit.
         rao_unit (str): A string representing the symbol for the rao unit.
         rao (int): An integer that stores the balance in rao units.
         tao (float): A float property that gives the balance in tao units.
+
+    Note:
+        To ensure arithmetic operations between `Balance` instances work correctly, they must set the same unit for each
+        using the `netuid`.
+
+    Examples:
+
+        balance_wallet_default = Balance.from_tao(10, netuid=14)
+        balance_wallet_secret = Balance.from_tao(2, netuid=14)
+        total_balance = balance_wallet_default + balance_wallet_secret
+
+        # or
+
+        balance_wallet_default = Balance.from_tao(10).set_unit(netuid=14)
+        balance_wallet_secret = Balance.from_tao(2).set_unit(netuid=14)
+        total_balance = balance_wallet_default + balance_wallet_secret
+
+        The `from_tao()` and `from_rao()` methods accept the `netuid` parameter to set the appropriate unit symbol.
+
+    Note:
+        When performing arithmetic or comparison operations where the first operand is a `Balance` instance and the
+        second operand is not, the second operand is implicitly interpreted as a raw amount in `rao`, using the same
+        unit (netuid) as the first operand. This allows interoperability with integer or float values, but may result in
+        unexpected behavior if the caller assumes the second operand is in `tao`.
+
+    Example:
+        balance = Balance.from_tao(10, netuid=14)
+        result = balance + 5000  # 5 will be treated as 5000 rao, not 5 tao
+        print(result)
+        output: τ10.000005000
     """
 
     unit: str = settings.TAO_SYMBOL  # This is the tao unit
@@ -60,8 +87,8 @@ class Balance:
         Initialize a Balance object. If balance is an int, it's assumed to be in rao.
         If balance is a float, it's assumed to be in tao.
 
-        Args:
-            balance: The initial balance, in either rao (if an int) or tao (if a float).
+        Parameters:
+            The initial balance, in either rao (if an int) or tao (if a float).
         """
         if isinstance(balance, int):
             self.rao = balance
@@ -276,9 +303,10 @@ class Balance:
     def from_float(amount: float, netuid: int = 0) -> "Balance":
         """
         Given tao, return :func:`Balance` object with rao(``int``) and tao(``float``), where rao = int(tao*pow(10,9))
-        Args:
-            amount (float): The amount in tao.
-            netuid (int): The subnet uid for set currency unit. Defaults to `0`.
+
+        Parameters:
+            amount: The amount in tao.
+            netuid: The subnet uid for set currency unit.
 
         Returns:
             A Balance object representing the given amount.
@@ -291,9 +319,9 @@ class Balance:
         """
         Given tao, return Balance object with rao(``int``) and tao(``float``), where rao = int(tao*pow(10,9))
 
-        Args:
-            amount (float): The amount in tao.
-            netuid (int): The subnet uid for set currency unit. Defaults to `0`.
+        Parameters:
+            amount: The amount in tao.
+            netuid: The subnet uid for set currency unit.
 
         Returns:
             A Balance object representing the given amount.
@@ -306,9 +334,9 @@ class Balance:
         """
         Given rao, return Balance object with rao(``int``) and tao(``float``), where rao = int(tao*pow(10,9))
 
-        Args:
-            amount (int): The amount in rao.
-            netuid (int): The subnet uid for set currency unit. Defaults to `0`.
+        Parameters:
+            amount: The amount in rao.
+            netuid: The subnet uid for set currency unit.
 
         Returns:
             A Balance object representing the given amount.
@@ -348,6 +376,7 @@ class FixedPoint(TypedDict):
 def fixed_to_float(
     fixed: Union[FixedPoint, ScaleType], frac_bits: int = 64, total_bits: int = 128
 ) -> float:
+    """Converts a fixed-point value (e.g., U64F64) into a floating-point number."""
     # By default, this is a U64F64
     # which is 64 bits of integer and 64 bits of fractional
     data: int = fb.value if isinstance((fb := fixed["bits"]), ScaleType) else fb
@@ -822,17 +851,31 @@ def rao(amount: int, netuid: int = 0) -> Balance:
     return Balance.from_rao(amount).set_unit(netuid)
 
 
-def check_and_convert_to_balance(
-    amount: Union[float, int, Optional[Balance]],
-) -> Balance:
+def check_balance_amount(amount: Optional[Balance], allow_none: bool = True) -> None:
     """
-    Helper function to check and convert the amount type to a Balance object.
-    This is used to support backwards compatibility while also providing a deprecation notice.
+    Validate that the provided value is a Balance instance.
+
+    This function ensures that the `amount` argument is a `Balance` object.  If a non-Balance type is passed, it raises
+    a `BalanceTypeError` to enforce consistent usage of Balance objects across arithmetic operations.
+
+    Parameters:
+        amount: The value to validate.
+        allow_none: if False then a `BalanceTypeError` is raised if the value is None.
+
+    Returns:
+        None: Always returns None if validation passes.
+
+    Raises:
+        BalanceTypeError: If amount is not a Balance instance and not None.
     """
-    if isinstance(amount, (float, int)):
-        deprecated_message(
-            "Detected a non-balance amount. Converting to Balance from Tao for backwards compatibility."
-            "Please update your code to use tao(amount) or Balance.from_tao(amount) for the main release 10.0.0."
+    if amount is None and allow_none is True:
+        return None
+
+    if not isinstance(amount, Balance):
+        raise BalanceTypeError(
+            f"Invalid type detected: amount type is {type(amount)}, but expected a Balance instance. "
+            "Passing non-Balance types may lead to incorrect calculations. "
+            "Please update your code to explicitly construct Balance instances "
+            "(e.g., Balance.from_tao(value)) before using this function."
         )
-        amount = tao(amount)
-    return amount
+    return None

@@ -1,12 +1,16 @@
 # Copyright Modal Labs 2022
 import asyncio
 import concurrent.futures
+import contextlib
 import functools
 import inspect
 import itertools
+import os
 import sys
 import time
+import types
 import typing
+import warnings
 from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Iterable, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -22,10 +26,14 @@ from typing import (
 
 import synchronicity
 from synchronicity.async_utils import Runner
+from synchronicity.combined_types import MethodWithAio
 from synchronicity.exceptions import NestedEventLoops
 from typing_extensions import ParamSpec, assert_type
 
-from ..exception import InvalidError
+from modal._ipython import is_interactive_ipython
+from modal._utils.deprecation import deprecation_warning
+
+from ..exception import AsyncUsageWarning, InvalidError
 from .logger import logger
 
 T = TypeVar("T")
@@ -36,7 +44,285 @@ if sys.platform == "win32":
     # quick workaround for deadlocks on shutdown - need to investigate further
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-synchronizer = synchronicity.Synchronizer()
+
+def rewrite_sync_to_async(code_line: str, original_func: Callable) -> tuple[bool, str]:
+    """
+    Rewrite a blocking call to use async/await syntax.
+
+    Handles four patterns:
+    1. __aiter__: for x in obj -> async for x in obj
+    2. __aenter__: with obj as x -> async with obj as x
+    3. Async generators in for loops: for x in obj.method(...) -> async for x in obj.method(...)
+    4. Regular methods: obj.method() -> await obj.method.aio()
+
+    Args:
+        code_line: The line of code containing the blocking call
+        original_func: The original function object being called
+
+    Returns:
+        A tuple of (success, rewritten_code):
+        - success: True if the pattern was found and rewritten, False if falling back to generic
+        - rewritten_code: The rewritten code or a generic suggestion
+    """
+    import re
+
+    func_name = original_func.__name__  # type: ignore
+
+    # Check if this is an async generator function
+    is_async_gen = inspect.isasyncgenfunction(original_func)
+
+    # Handle __aiter__ pattern: for x in obj -> async for x in obj
+    if func_name == "__aiter__" and code_line.startswith("for "):
+        suggestion = code_line.replace("for ", "async for ", 1)
+        return (True, suggestion)
+
+    # Handle __aenter__ pattern: with obj as x -> async with obj as x
+    if func_name == "__aenter__" and code_line.startswith("with "):
+        suggestion = code_line.replace("with ", "async with ", 1)
+        return (True, suggestion)
+
+    # Handle __setitem__ pattern: dct['key'] = value -> suggest alternative
+    if func_name == "__setitem__":
+        # Try to extract the object and key from the bracket syntax
+        setitem_match = re.match(r"(\w+)\[([^\]]+)\]\s*=\s*(.+)", code_line.strip())
+        if setitem_match:
+            obj, key, value = setitem_match.groups()
+            suggestion = (
+                f"You can't use `{obj}[{key}] = {value}` syntax asynchronously - "
+                f"there may be an alternative api, e.g. {obj}.put.aio({key}, {value})"
+            )
+            return (False, suggestion)
+        return (False, f"await ...{func_name}.aio(...)")
+
+    # Handle __getitem__ pattern: dct['key'] -> suggest alternative
+    if func_name == "__getitem__":
+        # Try to extract the object and key from the bracket syntax
+        getitem_match = re.match(r"(\w+)\[([^\]]+)\]$", code_line.strip())
+        if getitem_match:
+            obj, key = getitem_match.groups()
+            suggestion = (
+                f"You can't use `{obj}[{key}]` syntax asynchronously - "
+                f"there may be an alternative api, e.g. {obj}.get.aio({key})"
+            )
+            return (False, suggestion)
+        return (False, f"await ...{func_name}.aio(...)")
+
+    # Handle async generator methods in for loops: for x in obj.method(...) -> async for x in obj.method(...)
+    if is_async_gen and code_line.strip().startswith("for "):
+        # Pattern: for <var> in <expr>.<method>(<args>):
+        for_pattern = rf"(for\s+\w+\s+in\s+.*\.){re.escape(func_name)}(\s*\()"
+        for_match = re.search(for_pattern, code_line)
+
+        if for_match:
+            # Just replace "for" with "async for" - no .aio() needed for async generators
+            suggestion = code_line.replace("for ", "async for ", 1)
+            return (True, suggestion)
+
+    # Handle regular method calls and property access
+    # First check if it's a property access (no parentheses after the name)
+    property_pattern = rf"\.{re.escape(func_name)}(?!\s*\()"
+    property_match = re.search(property_pattern, code_line)
+
+    if property_match:
+        # This is a property access, rewrite to use await without .aio()
+        # Find the start of the expression (skip statement keywords and assignments)
+        statement_start = 0
+        prefix_match = re.match(r"^(\s*(?:\w+\s*=|return|yield|raise)\s+)", code_line)
+        if prefix_match:
+            statement_start = len(prefix_match.group(1))
+
+        before_expr = code_line[:statement_start]
+        after_prefix = code_line[statement_start:]
+
+        # Just add await before the expression for properties
+        suggestion = before_expr + "await " + after_prefix.lstrip()
+        return (True, suggestion)
+
+    # Try to find a method call (with parentheses)
+    method_pattern = rf"\.{re.escape(func_name)}\s*\("
+    method_match = re.search(method_pattern, code_line)
+
+    if not method_match:
+        # Can't find the function call or property
+        return (False, f"await ...{func_name}.aio(...)")
+
+    # Safety check: don't attempt rewrite for complex expressions
+    unsafe_keywords = ["if", "elif", "while", "and", "or", "not", "in", "is", "for"]
+
+    # Check if line contains control flow keywords (might be too complex)
+    for keyword in unsafe_keywords:
+        if re.search(rf"\b{keyword}\b", code_line):
+            # Fall back to generic suggestion for complex expressions
+            return (False, f"await ...{func_name}.aio(...)")
+
+    # Find the start of the object expression that leads to the method call
+    # We need to find where the object/chain starts, e.g., in "2 * foo.bar.method()" we want "foo"
+    # Work backwards from the method match to find the start of the identifier chain
+    method_start = method_match.start()
+
+    # Find the start of the identifier chain (the object being called)
+    # Walk backwards to find identifiers and dots that form the chain
+    expr_start = method_start
+    i = method_start - 1
+    while i >= 0:
+        c = code_line[i]
+        if c.isalnum() or c == "_" or c == ".":
+            expr_start = i
+            i -= 1
+        elif c.isspace():
+            # Skip whitespace within the chain (though unusual)
+            i -= 1
+        else:
+            # Found a non-identifier character, stop
+            break
+
+    # Now expr_start points to the start of the object chain (e.g., "foo" in "foo.method()")
+    # But we need to check if the identifier we found is actually a keyword like return/yield/raise
+    # In that case, skip over it and find the actual object
+    before_obj = code_line[:expr_start]
+    obj_and_rest = code_line[expr_start:]
+
+    # Check if what we found starts with a statement keyword
+    keyword_match = re.match(r"^(return|yield|raise)\s+", obj_and_rest)
+    if keyword_match:
+        # The "object" we found is actually a keyword, adjust to skip it
+        keyword_len = len(keyword_match.group(0))
+        before_obj = code_line[: expr_start + keyword_len]
+        obj_and_rest = code_line[expr_start + keyword_len :]
+
+    # Add .aio() after the method name and await before the object
+    rewritten_expr = re.sub(rf"(\.{re.escape(func_name)})\s*\(", r"\1.aio(", obj_and_rest, count=1)
+    suggestion = before_obj + "await " + rewritten_expr
+
+    return (True, suggestion)
+
+
+@dataclass
+class _CallFrame:
+    """Simple dataclass to hold call frame information."""
+
+    filename: str
+    lineno: int
+    line: Optional[str]
+
+
+def _extract_user_call_frame():
+    """
+    Extract the call frame from user code by filtering out frames from synchronicity and asyncio.
+
+    Returns a _CallFrame with the filename, line number, and source line, or None if not found.
+    """
+    import linecache
+    import os
+
+    # Get the current call stack
+    stack = inspect.stack()
+
+    # Get the absolute path of this module to filter it out
+    this_file = os.path.abspath(__file__)
+
+    # Filter out frames from synchronicity, asyncio, and this module
+    for frame_info in stack:
+        filename = frame_info.filename
+        # Skip frames from synchronicity, asyncio packages, and this module
+        # Use path separators to ensure we're matching packages, not just filenames containing these words
+        if (
+            os.path.sep + "synchronicity" + os.path.sep in filename
+            or os.path.sep + "asyncio" + os.path.sep in filename
+            or os.path.abspath(filename) == this_file
+        ):
+            continue
+
+        # Found a user frame
+        line = linecache.getline(filename, frame_info.lineno)
+        return _CallFrame(filename=filename, lineno=frame_info.lineno, line=line if line else None)
+
+    # Fallback if we can't find a suitable frame
+    return None
+
+
+def _blocking_in_async_warning(original_func: types.FunctionType):
+    if is_interactive_ipython():
+        # in notebooks or interactive sessions where sync usage is expected
+        # even if it's actually running in an event loop
+        return
+
+    import warnings
+
+    # Skip warnings for __aexit__ and __anext__ - the __aenter__ and __aiter__ warnings are sufficient
+    if original_func:
+        func_name = getattr(original_func, "__name__", str(original_func))
+        if func_name in ("__aexit__", "__anext__"):
+            # These dunders would typically already have caused a warning on the __aenter__ or __aiter__ respectively
+            return
+
+    # Extract the call frame from the stack
+    call_frame = _extract_user_call_frame()
+
+    # Build detailed warning message with location and function first
+    message_parts = [
+        "A blocking Modal interface is being used in an async context.",
+        "\n\nThis may cause performance issues or bugs.",
+        " Consider rewriting to use Modal's async interfaces:",
+        "\nhttps://modal.com/docs/guide/async",
+    ]
+
+    # Generate intelligent suggestion based on the context
+    suggestion = None
+    code_line = None
+
+    if original_func and call_frame and call_frame.line:
+        code_line = call_frame.line.strip()
+        # Use the unified rewrite function for all patterns
+        _, suggestion = rewrite_sync_to_async(code_line, original_func)
+
+    # Add suggestion in "change X to Y" format
+    if suggestion and code_line:
+        # this is a bit ugly, but the warnings formatter will show the offending source line
+        # on the last line regardless what we do, so we add this to not make it look out of place
+        message_parts.append(f"\n\nSuggested rewrite:\n  {suggestion}\n\nOriginal line:")
+
+    # Use warn_explicit to provide precise location information from the call frame
+    if call_frame:
+        # Extract module name from filename, or use a default
+        module_name = os.path.splitext(os.path.basename(call_frame.filename))[0]
+
+        warnings.warn_explicit(
+            "".join(message_parts),
+            AsyncUsageWarning,
+            filename=call_frame.filename,
+            lineno=call_frame.lineno,
+            module=module_name,
+        )
+    else:
+        # Fallback to regular warn if no frame information available
+        warnings.warn("".join(message_parts), AsyncUsageWarning)
+
+
+def _safe_blocking_in_async_warning(original_func: types.FunctionType):
+    """
+    Safety wrapper around _blocking_in_async_warning to ensure it never raises exceptions.
+
+    This is non-critical functionality (just a warning), so we don't want it to break user code.
+    However, if the warning has been configured to be treated as an error (via filterwarnings),
+    we should let that propagate.
+    """
+    from ..config import config
+
+    if not config.get("async_warnings"):
+        return
+    try:
+        _blocking_in_async_warning(original_func)
+    except AsyncUsageWarning:
+        # Re-raise the warning if it's been configured as an error
+        raise
+    except Exception:
+        # Silently ignore any other errors in the warning system
+        # We don't want the warning mechanism itself to cause problems
+        pass
+
+
+synchronizer = synchronicity.Synchronizer(blocking_in_async_callback=_safe_blocking_in_async_warning)
 
 
 def synchronize_api(obj, target_module=None):
@@ -49,6 +335,10 @@ def synchronize_api(obj, target_module=None):
     if target_module is None:
         target_module = obj.__module__
     return synchronizer.create_blocking(obj, blocking_name, target_module=target_module)
+
+
+# Used for testing to configure the `n_attempts` that `retry` will use.
+RETRY_N_ATTEMPTS_OVERRIDE: Optional[int] = None
 
 
 def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout=90):
@@ -75,8 +365,13 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
     def decorator(fn):
         @functools.wraps(fn)
         async def f_wrapped(*args, **kwargs):
+            if RETRY_N_ATTEMPTS_OVERRIDE is not None:
+                local_n_attempts = RETRY_N_ATTEMPTS_OVERRIDE
+            else:
+                local_n_attempts = n_attempts
+
             delay = base_delay
-            for i in range(n_attempts):
+            for i in range(local_n_attempts):
                 t0 = time.time()
                 try:
                     return await asyncio.wait_for(fn(*args, **kwargs), timeout=timeout)
@@ -84,12 +379,12 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
                     logger.debug(f"Function {fn} was cancelled")
                     raise
                 except Exception as e:
-                    if i >= n_attempts - 1:
+                    if i >= local_n_attempts - 1:
                         raise
                     logger.debug(
                         f"Failed invoking function {fn}: {e}"
                         f" (took {time.time() - t0}s, sleeping {delay}s"
-                        f" and trying {n_attempts - i - 1} more times)"
+                        f" and trying {local_n_attempts - i - 1} more times)"
                     )
                 await asyncio.sleep(delay)
                 delay *= delay_factor
@@ -107,25 +402,32 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
 class TaskContext:
     """A structured group that helps manage stray tasks.
 
-    This differs from the standard library `asyncio.TaskGroup` in that it cancels all tasks still
+    This differs from the standard library `asyncio.TaskGroup` in that it *cancels* tasks still
     running after exiting the context manager, rather than waiting for them to finish.
 
-    A `TaskContext` can have an optional `grace` period in seconds, which will wait for a certain
-    amount of time before cancelling all remaining tasks. This is useful for allowing tasks to
-    gracefully exit when they determine that the context is shutting down.
+    Arguments:
+    `grace: float`: period in seconds, which will wait for a certain amount of time before cancelling
+    all remaining tasks. This is useful for allowing tasks to finish after the context exits.
+
+    `cancellation_grace: float = 1.0`: period in seconds that cancelled tasks are allowed to stall before
+    they exit once they get cancelled (e.g. if they do async handling of the CancelledError). If tasks
+    take longer than this to exit the tasks are left dangling when the context exits.
 
     Usage:
 
     ```python notest
-    async with TaskContext() as task_context:
+    async with TaskContext(grace=1.0) as task_context:
         task = task_context.create_task(coro())
     ```
     """
 
     _loops: set[asyncio.Task]
 
-    def __init__(self, grace: Optional[float] = None):
-        self._grace = grace
+    def __init__(self, grace: Optional[float] = None, *, cancellation_grace: float = 1.0):
+        self._grace = grace  # grace is the time we want for tasks to finish before cancelling them
+        self._cancellation_grace: float = (
+            cancellation_grace  # extra graceperiod for the cancellation itself to "bubble up"
+        )
         self._loops = set()
 
     async def start(self):
@@ -142,10 +444,19 @@ class TaskContext:
         return self
 
     async def stop(self):
+        """This is called when exiting the TaskContext
+
+        Two important properties that we need to maintain here:
+        * Should never raise exceptions as a result
+        of exceptions (incl. cancellations) in the contained tasks
+        * Should not have an open-ended runtime, even if
+        the contained tasks are uncooperative with cancellations.
+        """
         self._exited.set()
         await asyncio.sleep(0)  # Causes any just-created tasks to get started
         unfinished_tasks = [t for t in self._tasks if not t.done()]
         gather_future = None
+
         try:
             if self._grace is not None and unfinished_tasks:
                 gather_future = asyncio.gather(*unfinished_tasks, return_exceptions=True)
@@ -157,26 +468,47 @@ class TaskContext:
             # still needs to be handled
             # (https://stackoverflow.com/a/63356323/2475114)
             if gather_future:
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await gather_future
-                except asyncio.CancelledError:
-                    pass
 
+            cancelled_tasks: list[asyncio.Task] = []
             for task in self._tasks:
-                if task.done() and not task.cancelled():
-                    # Raise any exceptions if they happened.
-                    # Only tasks without a done_callback will still be present in self._tasks
-                    task.result()
+                if task.done():
+                    # consume potential exceptions so we don't get warnings
+                    # not that this is not supposed to reraise exceptions
+                    # since those are expected to be reraised by aexit anyway
+                    with contextlib.suppress(BaseException):
+                        task.result()
+                else:
+                    # Cancel any remaining unfinished tasks.
+                    task.cancel()
+                    cancelled_tasks.append(task)
 
-                if task.done() or task in self._loops:  # Note: Legacy code, we can probably cancel loops.
-                    continue
+            cancellation_gather = asyncio.gather(*cancelled_tasks, return_exceptions=True)
+            try:
+                await asyncio.wait_for(cancellation_gather, timeout=self._cancellation_grace)
+            except asyncio.TimeoutError:
+                warnings.warn(f"Internal warning: Tasks did not cancel in a timely manner: {cancelled_tasks}")
 
-                # Cancel any remaining unfinished tasks.
-                task.cancel()
             await asyncio.sleep(0)  # wake up coroutines waiting for cancellations
 
     async def __aexit__(self, exc_type, value, tb):
-        await self.stop()
+        """
+        This is a bit involved:
+        * If there is an exception within the "context", we typically always want to reraise that
+        * If a cancellation comes in *during* aexit/stop execution itself, we don't actually cancel
+          the exit logic (it's already performing cancellation logic of sorts), but we do reraise
+          the CancelledError to prevent muting cancellation chains
+        """
+        stop_task = asyncio.ensure_future(self.stop())
+        try:
+            await asyncio.shield(stop_task)
+        except asyncio.CancelledError:
+            if not stop_task.done():
+                # External cancellation - wait for stop() to finish, then propagate
+                with contextlib.suppress(asyncio.CancelledError):
+                    await stop_task  # always run stop_task to completion
+            raise
 
     def create_task(self, coro_or_task) -> asyncio.Task:
         if isinstance(coro_or_task, asyncio.Task):
@@ -234,9 +566,9 @@ class TaskContext:
         For example, if you use `asyncio.gather(t1, t2, t3)` and t2 raises an exception, then t1 and
         t3 would continue running. With `TaskContext.gather(t1, t2, t3)`, they are cancelled.
 
-        (It's still acceptable to use `asyncio.gather()` if you don't need cancellation — for
+        It's still useful to use `asyncio.gather()` if you don't need cancellation — for
         example, if you're just gathering quick coroutines with no side-effects. Or if you're
-        gathering the tasks with `return_exceptions=True`.)
+        gathering the tasks with `return_exceptions=True`.
 
         Usage:
 
@@ -254,8 +586,8 @@ class TaskContext:
         ```
         """
         async with TaskContext() as tc:
-            results = await asyncio.gather(*(tc.create_task(coro) for coro in coros))
-        return results
+            tasks = [tc.create_task(coro) for coro in coros]
+            return await asyncio.gather(*tasks)
 
 
 def run_coro_blocking(coro):
@@ -370,6 +702,7 @@ class _WarnIfGeneratorIsNotConsumed:
         self.function_name = function_name
         self.iterated = False
         self.warned = False
+        self.__wrapped__ = gen
 
     def __aiter__(self):
         self.iterated = True
@@ -878,3 +1211,26 @@ async def async_chain(*generators: AsyncGenerator[T, None]) -> AsyncGenerator[T,
                 logger.exception(f"Error closing async generator: {e}")
         if first_exception is not None:
             raise first_exception
+
+
+def deprecate_aio_usage(deprecation_date: tuple[int, int, int], readable_sync_call: str):
+    # Note: Currently only works on methods, not top level functions
+    def deco(sync_implementation):
+        if isinstance(sync_implementation, classmethod):
+            sync_implementation = sync_implementation.__func__
+            is_classmethod = True
+        else:
+            is_classmethod = False
+
+        async def _async_proxy(*args, **kwargs):
+            deprecation_warning(
+                deprecation_date,
+                f"""The async constructor {readable_sync_call}.aio(...) will be deprecated in a future version of Modal.
+                Please use {readable_sync_call}(...) instead (it doesn't perform any IO, and is safe in async contexts)
+                """,
+            )
+            return sync_implementation(*args, **kwargs)
+
+        return MethodWithAio(sync_implementation, _async_proxy, synchronizer, is_classmethod=is_classmethod)
+
+    return deco

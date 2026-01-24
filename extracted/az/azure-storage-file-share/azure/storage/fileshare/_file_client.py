@@ -202,6 +202,22 @@ class ShareFileClient(StorageAccountHostsMixin):
                                         file_request_intent=self.file_request_intent)
         self._client._config.version = get_api_version(kwargs)  # type: ignore [assignment]
 
+    def __enter__(self) -> Self:
+        self._client.__enter__()
+        return self
+
+    def __exit__(self, *args) -> None:
+        self._client.__exit__(*args)
+
+    def close(self) -> None:
+        """This method is to close the sockets opened by the client.
+        It need not be used when using with a context manager.
+
+        :return: None
+        :rtype: None
+        """
+        self._client.close()
+
     @classmethod
     def from_file_url(
         cls, file_url: str,
@@ -446,6 +462,7 @@ class ShareFileClient(StorageAccountHostsMixin):
         timeout = kwargs.pop('timeout', None)
         headers = kwargs.pop('headers', {})
         headers.update(add_metadata_headers(metadata))
+        data = kwargs.pop('data', None)
         file_http_headers = None
         if content_settings:
             file_http_headers = FileHTTPHeaders(
@@ -469,6 +486,8 @@ class ShareFileClient(StorageAccountHostsMixin):
                 file_permission=file_permission,
                 file_permission_key=permission_key,
                 file_http_headers=file_http_headers,
+                optionalbody=data,
+                content_length=len(data) if data is not None else None,
                 lease_access_conditions=access_conditions,
                 headers=headers,
                 timeout=timeout,
@@ -866,6 +885,8 @@ class ShareFileClient(StorageAccountHostsMixin):
             function(current: int, total: int) where current is the number of bytes transferred
             so far, and total is the total size of the download.
         :paramtype progress_hook: Callable[[int, int], None]
+        :keyword bool decompress: If True, any compressed content, identified by the Content-Encoding header, will be
+            decompressed automatically before being returned. Default value is True.
         :keyword int timeout:
             Sets the server-side timeout for the operation in seconds. For more details see
             https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-file-service-operations.

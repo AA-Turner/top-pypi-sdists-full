@@ -18,11 +18,13 @@ T = TypeVar("T", bound="CreatePostgresTriggerJsonBodyRetry")
 
 @_attrs_define
 class CreatePostgresTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, CreatePostgresTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, CreatePostgresTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, CreatePostgresTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, CreatePostgresTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, CreatePostgresTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, CreatePostgresTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "CreatePostgresTriggerJsonBodyRetryConstant"] = UNSET

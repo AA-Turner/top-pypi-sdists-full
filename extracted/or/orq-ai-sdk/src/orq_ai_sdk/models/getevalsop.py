@@ -4,9 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import httpx
 from orq_ai_sdk.models import OrqError
-from orq_ai_sdk.types import BaseModel
-from orq_ai_sdk.utils import FieldMetadata, QueryParamMetadata
+from orq_ai_sdk.types import BaseModel, UNSET_SENTINEL
+from orq_ai_sdk.utils import FieldMetadata, QueryParamMetadata, get_discriminator
 import pydantic
+from pydantic import Discriminator, Tag, model_serializer
 from typing import Any, Dict, List, Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
@@ -39,12 +40,28 @@ class GetEvalsRequest(BaseModel):
     ] = None
     r"""A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list."""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["limit", "starting_after", "ending_before"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class GetEvalsEvalsResponseBodyData(BaseModel):
     message: str
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class GetEvalsEvalsResponseBody(OrqError):
     r"""Workspace ID is not found on the request"""
 
@@ -85,6 +102,7 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONNumberTypedDict(Type
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData72Type
     value: float
     operator: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONOperator
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONNumber(BaseModel):
@@ -96,6 +114,24 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONNumber(BaseModel):
 
     operator: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONOperator
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData7Type = Literal[
     "boolean",
@@ -106,6 +142,7 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONBooleanTypedDict(Typ
     enabled: bool
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData7Type
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONBoolean(BaseModel):
@@ -114,6 +151,24 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONBoolean(BaseModel):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData7Type
 
     value: bool
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataEvalsResponse200ApplicationJSONGuardrailConfigTypedDict = TypeAliasType(
@@ -125,25 +180,28 @@ GetEvalsDataEvalsResponse200ApplicationJSONGuardrailConfigTypedDict = TypeAliasT
 )
 
 
-GetEvalsDataEvalsResponse200ApplicationJSONGuardrailConfig = TypeAliasType(
-    "GetEvalsDataEvalsResponse200ApplicationJSONGuardrailConfig",
+GetEvalsDataEvalsResponse200ApplicationJSONGuardrailConfig = Annotated[
     Union[
-        GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONBoolean,
-        GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONNumber,
+        Annotated[
+            GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONBoolean,
+            Tag("boolean"),
+        ],
+        Annotated[
+            GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONNumber, Tag("number")
+        ],
     ],
-)
-
-
-GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyType = Literal[
-    "typescript_eval",
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
 ]
 
 
-class TypescriptTypedDict(TypedDict):
+GetEvalsDataEvalsResponse200ApplicationJSONType = Literal["typescript_eval",]
+
+
+class DataTypescriptTypedDict(TypedDict):
     id: str
     description: str
     code: str
-    type: GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyType
+    type: GetEvalsDataEvalsResponse200ApplicationJSONType
     key: str
     created: NotRequired[str]
     updated: NotRequired[str]
@@ -152,24 +210,40 @@ class TypescriptTypedDict(TypedDict):
     ]
 
 
-class Typescript(BaseModel):
+class DataTypescript(BaseModel):
     id: Annotated[str, pydantic.Field(alias="_id")]
 
     description: str
 
     code: str
 
-    type: GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyType
+    type: GetEvalsDataEvalsResponse200ApplicationJSONType
 
     key: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[
         GetEvalsDataEvalsResponse200ApplicationJSONGuardrailConfig
     ] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData62Type = Literal[
@@ -192,6 +266,7 @@ class GetEvalsGuardrailConfigEvalsResponse200NumberTypedDict(TypedDict):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData62Type
     value: float
     operator: GetEvalsGuardrailConfigEvalsResponse200Operator
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200Number(BaseModel):
@@ -203,6 +278,24 @@ class GetEvalsGuardrailConfigEvalsResponse200Number(BaseModel):
 
     operator: GetEvalsGuardrailConfigEvalsResponse200Operator
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData6Type = Literal[
     "boolean",
@@ -213,6 +306,7 @@ class GetEvalsGuardrailConfigEvalsResponse200BooleanTypedDict(TypedDict):
     enabled: bool
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData6Type
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200Boolean(BaseModel):
@@ -221,6 +315,24 @@ class GetEvalsGuardrailConfigEvalsResponse200Boolean(BaseModel):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData6Type
 
     value: bool
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataEvalsResponse200GuardrailConfigTypedDict = TypeAliasType(
@@ -232,19 +344,19 @@ GetEvalsDataEvalsResponse200GuardrailConfigTypedDict = TypeAliasType(
 )
 
 
-GetEvalsDataEvalsResponse200GuardrailConfig = TypeAliasType(
-    "GetEvalsDataEvalsResponse200GuardrailConfig",
+GetEvalsDataEvalsResponse200GuardrailConfig = Annotated[
     Union[
-        GetEvalsGuardrailConfigEvalsResponse200Boolean,
-        GetEvalsGuardrailConfigEvalsResponse200Number,
+        Annotated[GetEvalsGuardrailConfigEvalsResponse200Boolean, Tag("boolean")],
+        Annotated[GetEvalsGuardrailConfigEvalsResponse200Number, Tag("number")],
     ],
-)
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
-GetEvalsDataEvalsResponse200ApplicationJSONType = Literal["ragas",]
+GetEvalsDataEvalsResponse200Type = Literal["ragas",]
 
 
-RagasMetric = Literal[
+DataRagasMetric = Literal[
     "context_precision",
     "context_recall",
     "context_entities_recall",
@@ -260,11 +372,11 @@ RagasMetric = Literal[
 ]
 
 
-class RagasTypedDict(TypedDict):
+class DataRagasTypedDict(TypedDict):
     id: str
     description: str
-    type: GetEvalsDataEvalsResponse200ApplicationJSONType
-    ragas_metric: RagasMetric
+    type: GetEvalsDataEvalsResponse200Type
+    ragas_metric: DataRagasMetric
     key: str
     model: str
     created: NotRequired[str]
@@ -272,24 +384,40 @@ class RagasTypedDict(TypedDict):
     guardrail_config: NotRequired[GetEvalsDataEvalsResponse200GuardrailConfigTypedDict]
 
 
-class Ragas(BaseModel):
+class DataRagas(BaseModel):
     id: Annotated[str, pydantic.Field(alias="_id")]
 
     description: str
 
-    type: GetEvalsDataEvalsResponse200ApplicationJSONType
+    type: GetEvalsDataEvalsResponse200Type
 
-    ragas_metric: RagasMetric
+    ragas_metric: DataRagasMetric
 
     key: str
 
     model: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[GetEvalsDataEvalsResponse200GuardrailConfig] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData52Type = Literal[
@@ -312,6 +440,7 @@ class GetEvalsGuardrailConfigEvalsResponseNumberTypedDict(TypedDict):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData52Type
     value: float
     operator: GetEvalsGuardrailConfigEvalsResponseOperator
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponseNumber(BaseModel):
@@ -323,6 +452,24 @@ class GetEvalsGuardrailConfigEvalsResponseNumber(BaseModel):
 
     operator: GetEvalsGuardrailConfigEvalsResponseOperator
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData5Type = Literal[
     "boolean",
@@ -333,6 +480,7 @@ class GetEvalsGuardrailConfigEvalsResponseBooleanTypedDict(TypedDict):
     enabled: bool
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData5Type
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponseBoolean(BaseModel):
@@ -341,6 +489,24 @@ class GetEvalsGuardrailConfigEvalsResponseBoolean(BaseModel):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData5Type
 
     value: bool
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataEvalsResponseGuardrailConfigTypedDict = TypeAliasType(
@@ -352,165 +518,123 @@ GetEvalsDataEvalsResponseGuardrailConfigTypedDict = TypeAliasType(
 )
 
 
-GetEvalsDataEvalsResponseGuardrailConfig = TypeAliasType(
-    "GetEvalsDataEvalsResponseGuardrailConfig",
+GetEvalsDataEvalsResponseGuardrailConfig = Annotated[
     Union[
-        GetEvalsGuardrailConfigEvalsResponseBoolean,
-        GetEvalsGuardrailConfigEvalsResponseNumber,
+        Annotated[GetEvalsGuardrailConfigEvalsResponseBoolean, Tag("boolean")],
+        Annotated[GetEvalsGuardrailConfigEvalsResponseNumber, Tag("number")],
     ],
-)
-
-
-GetEvalsDataEvalsResponse200Type = Literal["function_eval",]
-
-
-GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData535Type = Literal[
-    "bert_coherence",
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
 ]
 
 
-class ThirtyFiveTypedDict(TypedDict):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData535Type
+GetEvalsDataEvalsResponseType = Literal["function_eval",]
 
 
-class ThirtyFive(BaseModel):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData535Type
-
-
-GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData534Type = Literal[
+GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData532Type = Literal[
     "grammar_diversity",
 ]
 
 
-class ThirtyFourTypedDict(TypedDict):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData534Type
-
-
-class ThirtyFour(BaseModel):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData534Type
-
-
-GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData533Type = Literal[
-    "semantic_repetition",
-]
-
-
-class ThirtyThreeTypedDict(TypedDict):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData533Type
-
-
-class ThirtyThree(BaseModel):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData533Type
-
-
-GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData532Type = Literal[
-    "lexical_repetition",
-]
-
-
-class ThirtyTwoTypedDict(TypedDict):
+class GetEvalsFunctionParams32TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData532Type
 
 
-class ThirtyTwo(BaseModel):
+class GetEvalsFunctionParams32(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData532Type
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData531Type = Literal[
-    "sentences_count",
+    "lexical_repetition",
 ]
 
 
-class ThirtyOneTypedDict(TypedDict):
+class GetEvalsFunctionParams31TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData531Type
 
 
-class ThirtyOne(BaseModel):
+class GetEvalsFunctionParams31(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData531Type
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData530Type = Literal[
-    "words_count",
+    "sentences_count",
 ]
 
 
-class ThirtyTypedDict(TypedDict):
+class GetEvalsFunctionParams30TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData530Type
 
 
-class Thirty(BaseModel):
+class GetEvalsFunctionParams30(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData530Type
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData529Type = Literal[
-    "gse_english_level",
+    "words_count",
 ]
 
 
-class TwentyNineTypedDict(TypedDict):
+class GetEvalsFunctionParams29TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData529Type
 
 
-class TwentyNine(BaseModel):
+class GetEvalsFunctionParams29(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData529Type
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData528Type = Literal[
-    "flesch_reading_ease",
+    "gse_english_level",
 ]
 
 
-class TwentyEightTypedDict(TypedDict):
+class GetEvalsFunctionParams28TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData528Type
 
 
-class TwentyEight(BaseModel):
+class GetEvalsFunctionParams28(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData528Type
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData527Type = Literal[
-    "most_repeated_words",
+    "flesch_reading_ease",
 ]
 
 
-class TwentySevenTypedDict(TypedDict):
+class GetEvalsFunctionParams27TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData527Type
 
 
-class TwentySeven(BaseModel):
+class GetEvalsFunctionParams27(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData527Type
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData526Type = Literal[
+    "most_repeated_words",
+]
+
+
+class GetEvalsFunctionParams26TypedDict(TypedDict):
+    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData526Type
+
+
+class GetEvalsFunctionParams26(BaseModel):
+    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData526Type
+
+
+GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData525Type = Literal[
     "keywords_match",
 ]
 
 
-class TwentySixTypedDict(TypedDict):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData526Type
+class GetEvalsFunctionParams25TypedDict(TypedDict):
+    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData525Type
     keywords: List[str]
 
 
-class TwentySix(BaseModel):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData526Type
+class GetEvalsFunctionParams25(BaseModel):
+    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData525Type
 
     keywords: List[str]
-
-
-GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData525Type = Literal[
-    "topic_match",
-]
-
-
-class TwentyFiveTypedDict(TypedDict):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData525Type
-    topic: str
-
-
-class TwentyFive(BaseModel):
-    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData525Type
-
-    topic: str
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData524Type = Literal[
@@ -518,11 +642,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData524Type = L
 ]
 
 
-class TwentyFourTypedDict(TypedDict):
+class GetEvalsFunctionParams24TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData524Type
 
 
-class TwentyFour(BaseModel):
+class GetEvalsFunctionParams24(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData524Type
 
 
@@ -531,11 +655,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData523Type = L
 ]
 
 
-class TwentyThreeTypedDict(TypedDict):
+class GetEvalsFunctionParams23TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData523Type
 
 
-class TwentyThree(BaseModel):
+class GetEvalsFunctionParams23(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData523Type
 
 
@@ -544,11 +668,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData522Type = L
 ]
 
 
-class TwentyTwoTypedDict(TypedDict):
+class GetEvalsFunctionParams22TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData522Type
 
 
-class TwentyTwo(BaseModel):
+class GetEvalsFunctionParams22(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData522Type
 
 
@@ -557,11 +681,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData521Type = L
 ]
 
 
-class TwentyOneTypedDict(TypedDict):
+class GetEvalsFunctionParams21TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData521Type
 
 
-class TwentyOne(BaseModel):
+class GetEvalsFunctionParams21(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData521Type
 
 
@@ -570,11 +694,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData520Type = L
 ]
 
 
-class TwentyTypedDict(TypedDict):
+class GetEvalsFunctionParams20TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData520Type
 
 
-class Twenty(BaseModel):
+class GetEvalsFunctionParams20(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData520Type
 
 
@@ -583,11 +707,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData519Type = L
 ]
 
 
-class NineteenTypedDict(TypedDict):
+class GetEvalsFunctionParams19TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData519Type
 
 
-class Nineteen(BaseModel):
+class GetEvalsFunctionParams19(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData519Type
 
 
@@ -596,11 +720,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData518Type = L
 ]
 
 
-class EighteenTypedDict(TypedDict):
+class GetEvalsFunctionParams18TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData518Type
 
 
-class Eighteen(BaseModel):
+class GetEvalsFunctionParams18(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData518Type
 
 
@@ -609,11 +733,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData517Type = L
 ]
 
 
-class SeventeenTypedDict(TypedDict):
+class GetEvalsFunctionParams17TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData517Type
 
 
-class Seventeen(BaseModel):
+class GetEvalsFunctionParams17(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData517Type
 
 
@@ -622,11 +746,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData516Type = L
 ]
 
 
-class SixteenTypedDict(TypedDict):
+class GetEvalsFunctionParams16TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData516Type
 
 
-class Sixteen(BaseModel):
+class GetEvalsFunctionParams16(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData516Type
 
 
@@ -635,12 +759,12 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData515Type = L
 ]
 
 
-class FifteenTypedDict(TypedDict):
+class GetEvalsFunctionParams15TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData515Type
     pattern: str
 
 
-class Fifteen(BaseModel):
+class GetEvalsFunctionParams15(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData515Type
 
     pattern: str
@@ -651,11 +775,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData514Type = L
 ]
 
 
-class FourteenTypedDict(TypedDict):
+class GetEvalsFunctionParams14TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData514Type
 
 
-class Fourteen(BaseModel):
+class GetEvalsFunctionParams14(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData514Type
 
 
@@ -664,12 +788,12 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData513Type = L
 ]
 
 
-class ThirteenTypedDict(TypedDict):
+class GetEvalsFunctionParams13TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData513Type
     value: float
 
 
-class Thirteen(BaseModel):
+class GetEvalsFunctionParams13(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData513Type
 
     value: float
@@ -680,13 +804,13 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData512Type = L
 ]
 
 
-class TwelveTypedDict(TypedDict):
+class GetEvalsFunctionParams12TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData512Type
     min: float
     max: float
 
 
-class Twelve(BaseModel):
+class GetEvalsFunctionParams12(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData512Type
 
     min: float
@@ -699,12 +823,12 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData511Type = L
 ]
 
 
-class ElevenTypedDict(TypedDict):
+class GetEvalsFunctionParams11TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData511Type
     value: float
 
 
-class Eleven(BaseModel):
+class GetEvalsFunctionParams11(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData511Type
 
     value: float
@@ -715,11 +839,11 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData510Type = L
 ]
 
 
-class TenTypedDict(TypedDict):
+class GetEvalsFunctionParams10TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData510Type
 
 
-class Ten(BaseModel):
+class GetEvalsFunctionParams10(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData510Type
 
 
@@ -728,12 +852,12 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData5Type = Lit
 ]
 
 
-class NineTypedDict(TypedDict):
+class GetEvalsFunctionParams9TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData5Type
     value: str
 
 
-class Nine(BaseModel):
+class GetEvalsFunctionParams9(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData5Type
 
     value: str
@@ -744,12 +868,12 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyDataType = Lite
 ]
 
 
-class EightTypedDict(TypedDict):
+class GetEvalsFunctionParams8TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyDataType
     value: str
 
 
-class Eight(BaseModel):
+class GetEvalsFunctionParams8(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyDataType
 
     value: str
@@ -760,45 +884,45 @@ GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyType = Literal[
 ]
 
 
-class SevenTypedDict(TypedDict):
+class GetEvalsFunctionParams7TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyType
 
 
-class Seven(BaseModel):
+class GetEvalsFunctionParams7(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyType
 
 
 GetEvalsFunctionParamsEvalsResponse200ApplicationJSONType = Literal["contains_url",]
 
 
-class SixTypedDict(TypedDict):
+class GetEvalsFunctionParams6TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONType
 
 
-class Six(BaseModel):
+class GetEvalsFunctionParams6(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONType
 
 
 GetEvalsFunctionParamsEvalsResponse200Type = Literal["contains_email",]
 
 
-class FiveTypedDict(TypedDict):
+class GetEvalsFunctionParams5TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponse200Type
 
 
-class Five(BaseModel):
+class GetEvalsFunctionParams5(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponse200Type
 
 
 GetEvalsFunctionParamsEvalsResponseType = Literal["contains_any",]
 
 
-class FunctionParams4TypedDict(TypedDict):
+class GetEvalsFunctionParams4TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsResponseType
     keywords: List[str]
 
 
-class FunctionParams4(BaseModel):
+class GetEvalsFunctionParams4(BaseModel):
     type: GetEvalsFunctionParamsEvalsResponseType
 
     keywords: List[str]
@@ -807,12 +931,12 @@ class FunctionParams4(BaseModel):
 GetEvalsFunctionParamsEvalsType = Literal["contains_all",]
 
 
-class FunctionParams3TypedDict(TypedDict):
+class GetEvalsFunctionParams3TypedDict(TypedDict):
     type: GetEvalsFunctionParamsEvalsType
     keywords: List[str]
 
 
-class FunctionParams3(BaseModel):
+class GetEvalsFunctionParams3(BaseModel):
     type: GetEvalsFunctionParamsEvalsType
 
     keywords: List[str]
@@ -821,27 +945,29 @@ class FunctionParams3(BaseModel):
 GetEvalsFunctionParamsType = Literal["contains_none",]
 
 
-class FunctionParams2TypedDict(TypedDict):
+class GetEvalsFunctionParams2TypedDict(TypedDict):
     type: GetEvalsFunctionParamsType
     keywords: List[str]
 
 
-class FunctionParams2(BaseModel):
+class GetEvalsFunctionParams2(BaseModel):
     type: GetEvalsFunctionParamsType
 
     keywords: List[str]
 
 
-FunctionParamsType = Literal["contains",]
+GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData51Type = Literal[
+    "contains",
+]
 
 
-class FunctionParams1TypedDict(TypedDict):
-    type: FunctionParamsType
+class GetEvalsFunctionParams1TypedDict(TypedDict):
+    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData51Type
     value: str
 
 
-class FunctionParams1(BaseModel):
-    type: FunctionParamsType
+class GetEvalsFunctionParams1(BaseModel):
+    type: GetEvalsFunctionParamsEvalsResponse200ApplicationJSONResponseBodyData51Type
 
     value: str
 
@@ -849,91 +975,85 @@ class FunctionParams1(BaseModel):
 DataFunctionParamsTypedDict = TypeAliasType(
     "DataFunctionParamsTypedDict",
     Union[
-        ThirtyTypedDict,
-        ThirtyOneTypedDict,
-        ThirtyFourTypedDict,
-        ThirtyThreeTypedDict,
-        FiveTypedDict,
-        SixTypedDict,
-        SevenTypedDict,
-        TwentyEightTypedDict,
-        TwentyNineTypedDict,
-        TenTypedDict,
-        ThirtyFiveTypedDict,
-        TwentyFourTypedDict,
-        ThirtyTwoTypedDict,
-        FourteenTypedDict,
-        TwentySevenTypedDict,
-        SixteenTypedDict,
-        SeventeenTypedDict,
-        EighteenTypedDict,
-        NineteenTypedDict,
-        TwentyTypedDict,
-        TwentyOneTypedDict,
-        TwentyTwoTypedDict,
-        TwentyThreeTypedDict,
-        NineTypedDict,
-        TwentyFiveTypedDict,
-        TwentySixTypedDict,
-        FifteenTypedDict,
-        ThirteenTypedDict,
-        ElevenTypedDict,
-        FunctionParams1TypedDict,
-        EightTypedDict,
-        FunctionParams4TypedDict,
-        FunctionParams3TypedDict,
-        FunctionParams2TypedDict,
-        TwelveTypedDict,
+        GetEvalsFunctionParams27TypedDict,
+        GetEvalsFunctionParams26TypedDict,
+        GetEvalsFunctionParams31TypedDict,
+        GetEvalsFunctionParams30TypedDict,
+        GetEvalsFunctionParams5TypedDict,
+        GetEvalsFunctionParams6TypedDict,
+        GetEvalsFunctionParams7TypedDict,
+        GetEvalsFunctionParams29TypedDict,
+        GetEvalsFunctionParams28TypedDict,
+        GetEvalsFunctionParams10TypedDict,
+        GetEvalsFunctionParams32TypedDict,
+        GetEvalsFunctionParams24TypedDict,
+        GetEvalsFunctionParams22TypedDict,
+        GetEvalsFunctionParams14TypedDict,
+        GetEvalsFunctionParams23TypedDict,
+        GetEvalsFunctionParams16TypedDict,
+        GetEvalsFunctionParams17TypedDict,
+        GetEvalsFunctionParams18TypedDict,
+        GetEvalsFunctionParams19TypedDict,
+        GetEvalsFunctionParams20TypedDict,
+        GetEvalsFunctionParams21TypedDict,
+        GetEvalsFunctionParams9TypedDict,
+        GetEvalsFunctionParams15TypedDict,
+        GetEvalsFunctionParams13TypedDict,
+        GetEvalsFunctionParams25TypedDict,
+        GetEvalsFunctionParams11TypedDict,
+        GetEvalsFunctionParams1TypedDict,
+        GetEvalsFunctionParams8TypedDict,
+        GetEvalsFunctionParams4TypedDict,
+        GetEvalsFunctionParams3TypedDict,
+        GetEvalsFunctionParams2TypedDict,
+        GetEvalsFunctionParams12TypedDict,
     ],
 )
 
 
-DataFunctionParams = TypeAliasType(
-    "DataFunctionParams",
+DataFunctionParams = Annotated[
     Union[
-        Thirty,
-        ThirtyOne,
-        ThirtyFour,
-        ThirtyThree,
-        Five,
-        Six,
-        Seven,
-        TwentyEight,
-        TwentyNine,
-        Ten,
-        ThirtyFive,
-        TwentyFour,
-        ThirtyTwo,
-        Fourteen,
-        TwentySeven,
-        Sixteen,
-        Seventeen,
-        Eighteen,
-        Nineteen,
-        Twenty,
-        TwentyOne,
-        TwentyTwo,
-        TwentyThree,
-        Nine,
-        TwentyFive,
-        TwentySix,
-        Fifteen,
-        Thirteen,
-        Eleven,
-        FunctionParams1,
-        Eight,
-        FunctionParams4,
-        FunctionParams3,
-        FunctionParams2,
-        Twelve,
+        Annotated[GetEvalsFunctionParams1, Tag("contains")],
+        Annotated[GetEvalsFunctionParams2, Tag("contains_none")],
+        Annotated[GetEvalsFunctionParams3, Tag("contains_all")],
+        Annotated[GetEvalsFunctionParams4, Tag("contains_any")],
+        Annotated[GetEvalsFunctionParams5, Tag("contains_email")],
+        Annotated[GetEvalsFunctionParams6, Tag("contains_url")],
+        Annotated[GetEvalsFunctionParams7, Tag("contains_valid_link")],
+        Annotated[GetEvalsFunctionParams8, Tag("start_with")],
+        Annotated[GetEvalsFunctionParams9, Tag("ends_with")],
+        Annotated[GetEvalsFunctionParams10, Tag("exact_match")],
+        Annotated[GetEvalsFunctionParams11, Tag("length_less_than")],
+        Annotated[GetEvalsFunctionParams12, Tag("length_between")],
+        Annotated[GetEvalsFunctionParams13, Tag("length_greater_than")],
+        Annotated[GetEvalsFunctionParams14, Tag("one_line")],
+        Annotated[GetEvalsFunctionParams15, Tag("regex")],
+        Annotated[GetEvalsFunctionParams16, Tag("is_valid_json")],
+        Annotated[GetEvalsFunctionParams17, Tag("moderations_openai")],
+        Annotated[GetEvalsFunctionParams18, Tag("moderations_google")],
+        Annotated[GetEvalsFunctionParams19, Tag("bert_score")],
+        Annotated[GetEvalsFunctionParams20, Tag("bleu_score")],
+        Annotated[GetEvalsFunctionParams21, Tag("rouge_n")],
+        Annotated[GetEvalsFunctionParams22, Tag("meteor_score")],
+        Annotated[GetEvalsFunctionParams23, Tag("cosine_similarity")],
+        Annotated[GetEvalsFunctionParams24, Tag("levenshtein_distance")],
+        Annotated[GetEvalsFunctionParams25, Tag("keywords_match")],
+        Annotated[GetEvalsFunctionParams26, Tag("most_repeated_words")],
+        Annotated[GetEvalsFunctionParams27, Tag("flesch_reading_ease")],
+        Annotated[GetEvalsFunctionParams28, Tag("gse_english_level")],
+        Annotated[GetEvalsFunctionParams29, Tag("words_count")],
+        Annotated[GetEvalsFunctionParams30, Tag("sentences_count")],
+        Annotated[GetEvalsFunctionParams31, Tag("lexical_repetition")],
+        Annotated[GetEvalsFunctionParams32, Tag("grammar_diversity")],
     ],
-)
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
 class DataFunctionTypedDict(TypedDict):
     id: str
     description: str
-    type: GetEvalsDataEvalsResponse200Type
+    type: GetEvalsDataEvalsResponseType
     function_params: DataFunctionParamsTypedDict
     key: str
     created: NotRequired[str]
@@ -946,17 +1066,33 @@ class DataFunction(BaseModel):
 
     description: str
 
-    type: GetEvalsDataEvalsResponse200Type
+    type: GetEvalsDataEvalsResponseType
 
     function_params: DataFunctionParams
 
     key: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[GetEvalsDataEvalsResponseGuardrailConfig] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataType = Literal[
@@ -979,6 +1115,7 @@ class GetEvalsGuardrailConfigEvalsNumberTypedDict(TypedDict):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataType
     value: float
     operator: GetEvalsGuardrailConfigEvalsOperator
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsNumber(BaseModel):
@@ -990,6 +1127,24 @@ class GetEvalsGuardrailConfigEvalsNumber(BaseModel):
 
     operator: GetEvalsGuardrailConfigEvalsOperator
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyType = Literal[
     "boolean",
@@ -1000,6 +1155,7 @@ class GetEvalsGuardrailConfigEvalsBooleanTypedDict(TypedDict):
     enabled: bool
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyType
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsBoolean(BaseModel):
@@ -1008,6 +1164,24 @@ class GetEvalsGuardrailConfigEvalsBoolean(BaseModel):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyType
 
     value: bool
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataEvalsGuardrailConfigTypedDict = TypeAliasType(
@@ -1019,20 +1193,23 @@ GetEvalsDataEvalsGuardrailConfigTypedDict = TypeAliasType(
 )
 
 
-GetEvalsDataEvalsGuardrailConfig = TypeAliasType(
-    "GetEvalsDataEvalsGuardrailConfig",
-    Union[GetEvalsGuardrailConfigEvalsBoolean, GetEvalsGuardrailConfigEvalsNumber],
-)
+GetEvalsDataEvalsGuardrailConfig = Annotated[
+    Union[
+        Annotated[GetEvalsGuardrailConfigEvalsBoolean, Tag("boolean")],
+        Annotated[GetEvalsGuardrailConfigEvalsNumber, Tag("number")],
+    ],
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
-GetEvalsDataEvalsResponseType = Literal["python_eval",]
+GetEvalsDataEvalsType = Literal["python_eval",]
 
 
 class DataPythonTypedDict(TypedDict):
     id: str
     description: str
     code: str
-    type: GetEvalsDataEvalsResponseType
+    type: GetEvalsDataEvalsType
     key: str
     created: NotRequired[str]
     updated: NotRequired[str]
@@ -1046,15 +1223,31 @@ class DataPython(BaseModel):
 
     code: str
 
-    type: GetEvalsDataEvalsResponseType
+    type: GetEvalsDataEvalsType
 
     key: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[GetEvalsDataEvalsGuardrailConfig] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONType = Literal["number",]
@@ -1075,6 +1268,7 @@ class GetEvalsGuardrailConfigNumberTypedDict(TypedDict):
     type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONType
     value: float
     operator: GetEvalsGuardrailConfigOperator
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigNumber(BaseModel):
@@ -1086,6 +1280,24 @@ class GetEvalsGuardrailConfigNumber(BaseModel):
 
     operator: GetEvalsGuardrailConfigOperator
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 GetEvalsGuardrailConfigEvalsResponse200Type = Literal["boolean",]
 
@@ -1094,6 +1306,7 @@ class GetEvalsGuardrailConfigBooleanTypedDict(TypedDict):
     enabled: bool
     type: GetEvalsGuardrailConfigEvalsResponse200Type
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigBoolean(BaseModel):
@@ -1102,6 +1315,24 @@ class GetEvalsGuardrailConfigBoolean(BaseModel):
     type: GetEvalsGuardrailConfigEvalsResponse200Type
 
     value: bool
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataGuardrailConfigTypedDict = TypeAliasType(
@@ -1112,13 +1343,16 @@ GetEvalsDataGuardrailConfigTypedDict = TypeAliasType(
 )
 
 
-GetEvalsDataGuardrailConfig = TypeAliasType(
-    "GetEvalsDataGuardrailConfig",
-    Union[GetEvalsGuardrailConfigBoolean, GetEvalsGuardrailConfigNumber],
-)
+GetEvalsDataGuardrailConfig = Annotated[
+    Union[
+        Annotated[GetEvalsGuardrailConfigBoolean, Tag("boolean")],
+        Annotated[GetEvalsGuardrailConfigNumber, Tag("number")],
+    ],
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
-GetEvalsDataEvalsType = Literal["http_eval",]
+GetEvalsDataType = Literal["http_eval",]
 
 
 DataMethod = Literal[
@@ -1130,7 +1364,7 @@ DataMethod = Literal[
 class DataHTTPTypedDict(TypedDict):
     id: str
     description: str
-    type: GetEvalsDataEvalsType
+    type: GetEvalsDataType
     url: str
     method: DataMethod
     headers: Dict[str, str]
@@ -1146,7 +1380,7 @@ class DataHTTP(BaseModel):
 
     description: str
 
-    type: GetEvalsDataEvalsType
+    type: GetEvalsDataType
 
     url: str
 
@@ -1158,11 +1392,27 @@ class DataHTTP(BaseModel):
 
     key: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[GetEvalsDataGuardrailConfig] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsGuardrailConfigEvalsResponseType = Literal["number",]
@@ -1189,6 +1439,7 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataNumb
     operator: (
         GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataOperator
     )
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataNumber(
@@ -1204,6 +1455,24 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataNumb
         GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataOperator
     )
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 GetEvalsGuardrailConfigEvalsType = Literal["boolean",]
 
@@ -1214,6 +1483,7 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataBool
     enabled: bool
     type: GetEvalsGuardrailConfigEvalsType
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataBoolean(
@@ -1225,6 +1495,64 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataBool
 
     value: bool
 
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyNumberTypedDict(
+    TypedDict
+):
+    enabled: bool
+    type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData1Type
+    value: float
+    operator: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyOperator
+    alert_on_failure: NotRequired[bool]
+
+
+class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyNumber(
+    BaseModel
+):
+    enabled: bool
+
+    type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData1Type
+
+    value: float
+
+    operator: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyOperator
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 DataGuardrailConfigTypedDict = TypeAliasType(
     "DataGuardrailConfigTypedDict",
@@ -1235,22 +1563,28 @@ DataGuardrailConfigTypedDict = TypeAliasType(
 )
 
 
-DataGuardrailConfig = TypeAliasType(
-    "DataGuardrailConfig",
+DataGuardrailConfig = Annotated[
     Union[
-        GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataBoolean,
-        GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataNumber,
+        Annotated[
+            GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataBoolean,
+            Tag("boolean"),
+        ],
+        Annotated[
+            GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyDataNumber,
+            Tag("number"),
+        ],
     ],
-)
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
-GetEvalsDataType = Literal["json_schema",]
+DataType = Literal["json_schema",]
 
 
 class DataJSONTypedDict(TypedDict):
     id: str
     description: str
-    type: GetEvalsDataType
+    type: DataType
     schema_: str
     key: str
     created: NotRequired[str]
@@ -1263,20 +1597,38 @@ class DataJSON(BaseModel):
 
     description: str
 
-    type: GetEvalsDataType
+    type: DataType
 
     schema_: Annotated[str, pydantic.Field(alias="schema")]
 
     key: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[DataGuardrailConfig] = None
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
 
-GetEvalsGuardrailConfigType = Literal["number",]
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData1Type = Literal[
+    "number",
+]
 
 
 GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyOperator = Literal[
@@ -1289,38 +1641,16 @@ GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyOperator = Lit
 ]
 
 
-class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyNumberTypedDict(
-    TypedDict
-):
-    enabled: bool
-    type: GetEvalsGuardrailConfigType
-    value: float
-    operator: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyOperator
-
-
-class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyNumber(
-    BaseModel
-):
-    enabled: bool
-
-    type: GetEvalsGuardrailConfigType
-
-    value: float
-
-    operator: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyOperator
-
-
-GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData1Type = Literal[
-    "boolean",
-]
+GetEvalsGuardrailConfigType = Literal["boolean",]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyBooleanTypedDict(
     TypedDict
 ):
     enabled: bool
-    type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData1Type
+    type: GetEvalsGuardrailConfigType
     value: bool
+    alert_on_failure: NotRequired[bool]
 
 
 class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyBoolean(
@@ -1328,9 +1658,27 @@ class GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyBoolean(
 ):
     enabled: bool
 
-    type: GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyData1Type
+    type: GetEvalsGuardrailConfigType
 
     value: bool
+
+    alert_on_failure: Optional[bool] = False
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["alert_on_failure"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyGuardrailConfigTypedDict = TypeAliasType(
@@ -1342,22 +1690,28 @@ GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyGuardrailConfigTypedDict 
 )
 
 
-GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyGuardrailConfig = TypeAliasType(
-    "GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyGuardrailConfig",
+GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyGuardrailConfig = Annotated[
     Union[
-        GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyBoolean,
-        GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyNumber,
+        Annotated[
+            GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyBoolean,
+            Tag("boolean"),
+        ],
+        Annotated[
+            GetEvalsGuardrailConfigEvalsResponse200ApplicationJSONResponseBodyNumber,
+            Tag("number"),
+        ],
     ],
-)
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
-DataType = Literal["llm_eval",]
+GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyType = Literal["llm_eval",]
 
 
 class DataLLMTypedDict(TypedDict):
     id: str
     description: str
-    type: DataType
+    type: GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyType
     prompt: str
     key: str
     model: str
@@ -1373,7 +1727,7 @@ class DataLLM(BaseModel):
 
     description: str
 
-    type: DataType
+    type: GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyType
 
     prompt: str
 
@@ -1381,13 +1735,29 @@ class DataLLM(BaseModel):
 
     model: str
 
-    created: Optional[str] = "2025-09-22T21:25:53.087Z"
+    created: Optional[str] = "2026-01-23T11:14:03.704Z"
 
-    updated: Optional[str] = "2025-09-22T21:25:53.087Z"
+    updated: Optional[str] = "2026-01-23T11:14:03.704Z"
 
     guardrail_config: Optional[
         GetEvalsDataEvalsResponse200ApplicationJSONResponseBodyGuardrailConfig
     ] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created", "updated", "guardrail_config"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetEvalsDataTypedDict = TypeAliasType(
@@ -1396,18 +1766,26 @@ GetEvalsDataTypedDict = TypeAliasType(
         DataJSONTypedDict,
         DataPythonTypedDict,
         DataFunctionTypedDict,
-        TypescriptTypedDict,
+        DataTypescriptTypedDict,
         DataLLMTypedDict,
-        RagasTypedDict,
+        DataRagasTypedDict,
         DataHTTPTypedDict,
     ],
 )
 
 
-GetEvalsData = TypeAliasType(
-    "GetEvalsData",
-    Union[DataJSON, DataPython, DataFunction, Typescript, DataLLM, Ragas, DataHTTP],
-)
+GetEvalsData = Annotated[
+    Union[
+        Annotated[DataLLM, Tag("llm_eval")],
+        Annotated[DataJSON, Tag("json_schema")],
+        Annotated[DataHTTP, Tag("http_eval")],
+        Annotated[DataPython, Tag("python_eval")],
+        Annotated[DataFunction, Tag("function_eval")],
+        Annotated[DataRagas, Tag("ragas")],
+        Annotated[DataTypescript, Tag("typescript_eval")],
+    ],
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 
 
 class GetEvalsResponseBodyTypedDict(TypedDict):

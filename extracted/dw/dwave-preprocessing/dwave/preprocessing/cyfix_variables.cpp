@@ -1532,13 +1532,13 @@ static const char *__pyx_filename;
 static const char *__pyx_f[] = {
   "dwave/preprocessing/cyfix_variables.pyx",
   "<stringsource>",
-  "env/lib/python3.9/site-packages/dimod/cyvariables.pxd",
-  "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi",
-  "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_float32.pxd",
-  "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi",
-  "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_float32.pxd",
-  "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_float64.pxd",
-  "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_float64.pxd",
+  "env/lib/python3.12/site-packages/dimod/cyvariables.pxd",
+  "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi",
+  "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_float32.pxd",
+  "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi",
+  "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_float32.pxd",
+  "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_float64.pxd",
+  "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_float64.pxd",
 };
 /* #### Code section: utility_code_proto_before_types ### */
 /* ForceInitThreads.proto */
@@ -1797,7 +1797,7 @@ struct __pyx_opt_args_5dimod_11cyvariables_11cyVariables_index {
 };
 struct __pyx_opt_args_5dimod_6binary_5cybqm_13cybqm_float32_14cyBQM_template__index;
 
-/* "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":28
+/* "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":28
  *     # likes to use
  * 
  *     cdef Py_ssize_t _index(self, object, bint permissive=*) except -1             # <<<<<<<<<<<<<<
@@ -1830,7 +1830,7 @@ struct __pyx_obj_5dimod_11cyvariables_cyVariables {
 };
 
 
-/* "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
+/* "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
  * 
  * 
  * cdef class cyQMBase_template:             # <<<<<<<<<<<<<<
@@ -1858,7 +1858,7 @@ struct __pyx_obj_5dimod_8cyqmbase_16cyqmbase_float32_cyQMBase_float32 {
 };
 
 
-/* "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
+/* "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
  * 
  * 
  * cdef class cyBQM_template(cyQMBase):             # <<<<<<<<<<<<<<
@@ -1882,7 +1882,7 @@ struct __pyx_obj_5dimod_6binary_5cybqm_13cybqm_float32_cyBQM_float32 {
 };
 
 
-/* "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
+/* "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
  * 
  * 
  * cdef class cyQMBase_template:             # <<<<<<<<<<<<<<
@@ -1910,7 +1910,7 @@ struct __pyx_obj_5dimod_8cyqmbase_16cyqmbase_float64_cyQMBase_float64 {
 };
 
 
-/* "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
+/* "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
  * 
  * 
  * cdef class cyBQM_template(cyQMBase):             # <<<<<<<<<<<<<<
@@ -2064,7 +2064,7 @@ struct __pyx_vtabstruct_5dimod_11cyvariables_cyVariables {
 static struct __pyx_vtabstruct_5dimod_11cyvariables_cyVariables *__pyx_vtabptr_5dimod_11cyvariables_cyVariables;
 
 
-/* "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
+/* "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
  * 
  * 
  * cdef class cyQMBase_template:             # <<<<<<<<<<<<<<
@@ -2093,7 +2093,7 @@ struct __pyx_vtabstruct_5dimod_8cyqmbase_16cyqmbase_float32_cyQMBase_float32 {
 static struct __pyx_vtabstruct_5dimod_8cyqmbase_16cyqmbase_float32_cyQMBase_float32 *__pyx_vtabptr_5dimod_8cyqmbase_16cyqmbase_float32_cyQMBase_float32;
 
 
-/* "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
+/* "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
  * 
  * 
  * cdef class cyBQM_template(cyQMBase):             # <<<<<<<<<<<<<<
@@ -2136,7 +2136,7 @@ struct __pyx_vtabstruct_5dimod_6binary_5cybqm_13cybqm_float32_cyBQM_float32 {
 static struct __pyx_vtabstruct_5dimod_6binary_5cybqm_13cybqm_float32_cyBQM_float32 *__pyx_vtabptr_5dimod_6binary_5cybqm_13cybqm_float32_cyBQM_float32;
 
 
-/* "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
+/* "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
  * 
  * 
  * cdef class cyQMBase_template:             # <<<<<<<<<<<<<<
@@ -2165,7 +2165,7 @@ struct __pyx_vtabstruct_5dimod_8cyqmbase_16cyqmbase_float64_cyQMBase_float64 {
 static struct __pyx_vtabstruct_5dimod_8cyqmbase_16cyqmbase_float64_cyQMBase_float64 *__pyx_vtabptr_5dimod_8cyqmbase_16cyqmbase_float64_cyQMBase_float64;
 
 
-/* "env/lib/python3.9/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
+/* "env/lib/python3.12/site-packages/dimod/binary/cybqm/cybqm_template.pxd.pxi":21
  * 
  * 
  * cdef class cyBQM_template(cyQMBase):             # <<<<<<<<<<<<<<

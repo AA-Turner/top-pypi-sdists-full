@@ -17,9 +17,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.app_info import AppInfo
+from connector_sdk_types.generated.models.execution_summary import ExecutionSummary
 from connector_sdk_types.generated.models.page import Page
 from typing import Optional, Set
 from typing_extensions import Self
@@ -31,7 +32,8 @@ class AppInfoResponse(BaseModel):
     response: AppInfo
     raw_data: Optional[Any] = None
     page: Optional[Page] = None
-    __properties: ClassVar[List[str]] = ["response", "raw_data", "page"]
+    execution_summary: Optional[ExecutionSummary] = Field(default=None, description="Summary of how the operation executed from the connector's perspective.  This model provides metadata about the execution of the operation, including what effect the operation had, whether it's safe to retry, and any non-fatal errors that occurred during execution.  This field is typically included for write operations (create, update, delete) to provide detailed information about what actually happened in the target system.")
+    __properties: ClassVar[List[str]] = ["response", "raw_data", "page", "execution_summary"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -78,6 +80,9 @@ class AppInfoResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of page
         if self.page:
             _dict['page'] = self.page.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of execution_summary
+        if self.execution_summary:
+            _dict['execution_summary'] = self.execution_summary.to_dict()
         # set to None if raw_data (nullable) is None
         # and model_fields_set contains the field
         if self.raw_data is None and "raw_data" in self.model_fields_set:
@@ -97,7 +102,8 @@ class AppInfoResponse(BaseModel):
         _obj = cls.model_validate({
             "response": AppInfo.from_dict(obj["response"]) if obj.get("response") is not None else None,
             "raw_data": obj.get("raw_data"),
-            "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None
+            "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None,
+            "execution_summary": ExecutionSummary.from_dict(obj["execution_summary"]) if obj.get("execution_summary") is not None else None
         })
         return _obj
 

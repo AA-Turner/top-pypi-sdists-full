@@ -1,6 +1,6 @@
 #
 # -*- coding: utf-8 -*-
-# Copyright 2024 Dell Inc. or its subsidiaries. All Rights Reserved
+# Copyright 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 """
@@ -33,8 +33,12 @@ class FactsArgs(object):  # pylint: disable=R0903
         'bgp_as_paths',
         'bgp_communities',
         'bgp_ext_communities',
+        'dcbx',
         'ospfv2_interfaces',
         'ospfv2',
+        'ospfv3',
+        'ospfv3_area',
+        'ospfv3_interfaces',
         'mclag',
         'prefix_lists',
         'vlan_mapping',
@@ -44,6 +48,7 @@ class FactsArgs(object):  # pylint: disable=R0903
         'users',
         'system',
         'port_breakout',
+        'pms',
         'aaa',
         'ldap',
         'tacacs_server',
@@ -53,6 +58,8 @@ class FactsArgs(object):  # pylint: disable=R0903
         'logging',
         'pki',
         'ip_neighbor',
+        'ip_neighbor_interfaces',
+        'ipv6_router_advertisement',
         'port_group',
         'dhcp_relay',
         'dhcp_snooping',
@@ -76,12 +83,26 @@ class FactsArgs(object):  # pylint: disable=R0903
         'qos_wred',
         'qos_interfaces',
         'pim_global',
+        'ptp_default_ds',
         'pim_interfaces',
+        'ptp_port_ds',
         'login_lockout',
         'poe',
         'mgmt_servers',
         'ospf_area',
         'ssh',
+        'lst',
+        'fbs_classifiers',
+        'fbs_groups',
+        'fbs_policies',
+        'ars',
+        'mirroring',
+        'network_policy',
+        'drop_counter',
+        'br_l2pt',
+        'evpn_esi_multihome',
+        'ssh_server',
+        'ecmp_load_share'
     ]
 
     argument_spec = {

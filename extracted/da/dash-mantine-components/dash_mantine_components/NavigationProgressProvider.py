@@ -70,7 +70,7 @@ Keyword arguments:
 
 - zIndex (optional):
     Progressbar z-index, `9999` by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'NavigationProgressProvider'

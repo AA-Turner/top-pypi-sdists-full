@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openslide-python
-Version: 1.4.2
+Version: 1.4.3
 Summary: Python interface to OpenSlide
 Maintainer-email: OpenSlide project <openslide-users@lists.andrew.cmu.edu>
 License-Expression: LGPL-2.1-only AND BSD-3-Clause AND MIT AND LicenseRef-Public-Domain
@@ -18,14 +18,15 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING.LESSER
 License-File: examples/deepzoom/licenses/LICENSE.jquery
@@ -77,7 +78,7 @@ OpenSlide can read virtual slides in several formats:
 
 ## Requirements
 
-* Python ≥ 3.9
+* Python ≥ 3.10
 * OpenSlide ≥ 3.4.0
 * Pillow
 

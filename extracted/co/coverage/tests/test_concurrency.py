@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for concurrency libraries."""
 
@@ -26,6 +26,7 @@ from coverage.data import line_counts
 from coverage.exceptions import ConfigError
 from coverage.files import abs_file
 from coverage.misc import import_local_file
+from coverage.sqldata import SUFFIX_PATTERN
 
 from tests import testenv
 from tests.coveragetest import CoverageTest
@@ -182,17 +183,18 @@ def cant_trace_msg(concurrency: str, the_module: ModuleType | None) -> str | Non
         parts.remove("multiprocessing")
         concurrency = ",".join(parts)
 
-    if the_module is None:
+    if testenv.SYS_MON and concurrency:
+        expected_out = f"Can't use core=sysmon: it doesn't support concurrency={concurrency}"
+    elif the_module is None:
         # We don't even have the underlying module installed, we expect
         # coverage to alert us to this fact.
-        expected_out = (
-            f"Couldn't trace with concurrency={concurrency}, the module isn't installed.\n"
-        )
+        expected_out = f"Couldn't trace with concurrency={concurrency}, the module isn't installed."
     elif testenv.C_TRACER or concurrency == "thread" or concurrency == "":
         expected_out = None
     else:
         expected_out = (
-            f"Can't support concurrency={concurrency} with PyTracer, only threads are supported.\n"
+            f"Can't support concurrency={concurrency} with {testenv.TRACER_CLASS}, "
+            + "only threads are supported."
         )
     return expected_out
 
@@ -225,7 +227,7 @@ class ConcurrencyTest(CoverageTest):
         expected_cant_trace = cant_trace_msg(concurrency, the_module)
 
         if expected_cant_trace is not None:
-            assert out == expected_cant_trace
+            assert expected_cant_trace in out
             pytest.skip(f"Can't test: {expected_cant_trace}")
         else:
             # We can fully measure the code if we are using the C tracer, which
@@ -250,10 +252,16 @@ class ConcurrencyTest(CoverageTest):
             lines = line_count(code)
             assert line_counts(data)["try_it.py"] == lines
 
+    @pytest.mark.skipif(
+        not testenv.CAN_MEASURE_THREADS, reason="Can't measure threads with this core."
+    )
     def test_threads(self) -> None:
         code = (THREAD + SUM_RANGE_Q + PRINT_SUM_RANGE).format(QLIMIT=self.QLIMIT)
         self.try_some_code(code, "thread", threading)
 
+    @pytest.mark.skipif(
+        not testenv.CAN_MEASURE_THREADS, reason="Can't measure threads with this core."
+    )
     def test_threads_simple_code(self) -> None:
         code = SIMPLE.format(QLIMIT=self.QLIMIT)
         self.try_some_code(code, "thread", threading)
@@ -266,7 +274,7 @@ class ConcurrencyTest(CoverageTest):
         code = SIMPLE.format(QLIMIT=self.QLIMIT)
         self.try_some_code(code, "eventlet", eventlet)
 
-    # https://github.com/nedbat/coveragepy/issues/663
+    # https://github.com/coveragepy/coveragepy/issues/663
     @pytest.mark.skipif(env.WINDOWS, reason="gevent has problems on Windows: #663")
     def test_gevent(self) -> None:
         code = (GEVENT + SUM_RANGE_Q + PRINT_SUM_RANGE).format(QLIMIT=self.QLIMIT)
@@ -317,6 +325,9 @@ class ConcurrencyTest(CoverageTest):
         self.try_some_code(BUG_330, "eventlet", eventlet, "0\n")
 
     # Sometimes a test fails due to inherent randomness. Try more times.
+    @pytest.mark.skipif(
+        not testenv.CAN_MEASURE_THREADS, reason="Can't measure threads with this core."
+    )
     @pytest.mark.flaky(max_runs=3)
     def test_threads_with_gevent(self) -> None:
         self.make_file(
@@ -346,13 +357,14 @@ class ConcurrencyTest(CoverageTest):
         )
         _, out = self.run_command_status("coverage run --concurrency=thread,gevent both.py")
         if gevent is None:
-            assert out == ("Couldn't trace with concurrency=gevent, the module isn't installed.\n")
+            assert "Couldn't trace with concurrency=gevent, the module isn't installed.\n" in out
             pytest.skip("Can't run test without gevent installed.")
         if not testenv.C_TRACER:
+            assert testenv.PY_TRACER
             assert out == (
                 "Can't support concurrency=gevent with PyTracer, only threads are supported.\n"
             )
-            pytest.skip("Can't run gevent with PyTracer")
+            pytest.skip(f"Can't run gevent with {testenv.TRACER_CLASS}.")
 
         assert out == "done\n"
 
@@ -390,7 +402,7 @@ class WithoutConcurrencyModuleTest(CoverageTest):
     def test_missing_module(self, module: str) -> None:
         self.make_file("prog.py", "a = 1")
         sys.modules[module] = None  # type: ignore[assignment]
-        msg = f"Couldn't trace with concurrency={module}, the module isn't installed."
+        msg = rf"Couldn't trace with concurrency={module}, the module isn't installed."
         with pytest.raises(ConfigError, match=msg):
             self.command_line(f"run --concurrency={module} prog.py")
 
@@ -461,7 +473,7 @@ class MultiprocessingTest(CoverageTest):
         self,
         code: str,
         expected_out: str | None,
-        the_module: ModuleType,
+        the_module: ModuleType | None,
         nprocs: int,
         start_method: str,
         concurrency: str = "multiprocessing",
@@ -483,8 +495,7 @@ class MultiprocessingTest(CoverageTest):
         expected_cant_trace = cant_trace_msg(concurrency, the_module)
 
         if expected_cant_trace is not None:
-            print(out)
-            assert out == expected_cant_trace
+            assert expected_cant_trace in out
             pytest.skip(f"Can't test: {expected_cant_trace}")
         else:
             assert out.rstrip() == expected_out
@@ -495,7 +506,7 @@ class MultiprocessingTest(CoverageTest):
             assert len(out_lines) == nprocs + 1
             assert all(
                 re.fullmatch(
-                    r"(Combined data file|Skipping duplicate data) \.coverage\..*\.\d+\.X\w{6}x",
+                    rf"(Combined data file|Skipping duplicate data) \.coverage{SUFFIX_PATTERN}",
                     line,
                 )
                 for line in out_lines
@@ -552,15 +563,15 @@ class MultiprocessingTest(CoverageTest):
             start_method=start_method,
         )
 
+    @pytest.mark.skipif(
+        not testenv.CAN_MEASURE_BRANCHES, reason="Can't measure branches with this core"
+    )
     def test_multiprocessing_with_branching(self, start_method: str) -> None:
         nprocs = 3
         upto = 30
         code = (SQUARE_OR_CUBE_WORK + MULTI_CODE).format(NPROCS=nprocs, UPTO=upto)
         total = sum(x * x if x % 2 else x * x * x for x in range(upto))
         expected_out = f"{nprocs} pids, total = {total}"
-        expect_warn = (
-            env.PYBEHAVIOR.pep669 and (not env.PYBEHAVIOR.branch_right_left) and testenv.SYS_MON
-        )
         self.make_file("multi.py", code)
         self.make_file(
             "multi.rc",
@@ -569,8 +580,7 @@ class MultiprocessingTest(CoverageTest):
             concurrency = multiprocessing
             branch = True
             omit = */site-packages/*
-            """
-            + ("disable_warnings = no-sysmon" if expect_warn else ""),
+            """,
         )
 
         out = self.run_command(f"coverage run --rcfile=multi.rc multi.py {start_method}")
@@ -663,7 +673,7 @@ def test_coverage_stop_in_threads() -> None:
 
 
 def test_thread_safe_save_data(tmp_path: pathlib.Path) -> None:
-    # Non-regression test for: https://github.com/nedbat/coveragepy/issues/581
+    # Non-regression test for: https://github.com/coveragepy/coveragepy/issues/581
 
     # Create some Python modules and put them in the path
     modules_dir = tmp_path / "test_modules"

@@ -1,7 +1,7 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Generic, Literal, NamedTuple, Protocol, Self, TypeAlias, final, overload, type_check_only
-from typing_extensions import TypeVar
+from typing import Any, Generic, Literal, NamedTuple, Never, Protocol, Self, TypeAlias, final, overload, type_check_only
+from typing_extensions import TypeVar, deprecated
 
 import numpy as np
 import optype as op
@@ -10,7 +10,7 @@ import optype.numpy.compat as npc
 
 from ._distn_infrastructure import rv_continuous_frozen
 from ._fit import FitResult
-from ._resampling import PermutationMethod
+from ._resampling import MonteCarloMethod, PermutationMethod
 from ._stats_py import SignificanceResult
 from ._typing import Alternative, BaseBunch, NanPolicy
 from scipy.optimize import OptimizeResult
@@ -51,7 +51,7 @@ __all__ = [
 ###
 
 _T = TypeVar("_T")
-_InexactT = TypeVar("_InexactT", bound=npc.inexact)
+_FloatingT = TypeVar("_FloatingT", bound=npc.floating)
 _NDT_co = TypeVar(
     "_NDT_co",
     covariant=True,
@@ -59,31 +59,7 @@ _NDT_co = TypeVar(
     default=np.float64 | onp.ArrayND[np.float64],
 )  # fmt: skip
 
-@type_check_only
-class _TestResult(NamedTuple, Generic[_NDT_co]):
-    statistic: _NDT_co
-    pvalue: _NDT_co
-
-@type_check_only
-class _ConfidenceInterval(NamedTuple):
-    statistic: float
-    minmax: tuple[float, float]
-
-# represents the e.g. `matplotlib.pyplot` module and a `matplotlib.axes.Axes` object with a `plot` and `text` method
-@type_check_only
-class _CanPlotText(Protocol):
-    # NOTE: `Any` is required as return type because it's covariant, and not shouldn't be `Never`.
-    def plot(self, /, *args: float | onp.ToFloatND | str, **kwargs: object) -> Any: ...
-    def text(self, /, x: float, y: float, s: str, fontdict: dict[str, Any] | None = None, **kwargs: object) -> Any: ...
-
-@type_check_only
-class _CanPPF(Protocol):
-    def ppf(self, q: onp.ArrayND[np.float64], /) -> onp.ArrayND[np.float64]: ...
-
-@type_check_only
-class _HasX(Protocol):
-    x: float | npc.floating
-
+_JustAnyShape: TypeAlias = tuple[Never, Never, Never, Never]  # workaround for https://github.com/microsoft/pyright/issues/10232
 _Tuple2: TypeAlias = tuple[_T, _T]
 _Tuple3: TypeAlias = tuple[_T, _T, _T]
 _Float1D: TypeAlias = onp.Array1D[np.float64]
@@ -167,6 +143,31 @@ _MinFun1D: TypeAlias = Callable[[_ObjFun1D], _HasX] | Callable[[_ObjFun1D], Opti
 
 _AndersonResult: TypeAlias = FitResult[Callable[[onp.ToFloat, onp.ToFloat], np.float64]]
 
+@type_check_only
+class _TestResult(NamedTuple, Generic[_NDT_co]):
+    statistic: _NDT_co
+    pvalue: _NDT_co
+
+@type_check_only
+class _ConfidenceInterval(NamedTuple):
+    statistic: float
+    minmax: tuple[float, float]
+
+# represents the e.g. `matplotlib.pyplot` module and a `matplotlib.axes.Axes` object with a `plot` and `text` method
+@type_check_only
+class _CanPlotText(Protocol):
+    # NOTE: `Any` is required as return type because it's covariant, and not shouldn't be `Never`.
+    def plot(self, /, *args: float | onp.ToFloatND | str, **kwargs: object) -> Any: ...
+    def text(self, /, x: float, y: float, s: str, fontdict: dict[str, Any] | None = None, **kwargs: object) -> Any: ...
+
+@type_check_only
+class _CanPPF(Protocol):
+    def ppf(self, q: onp.ArrayND[np.float64], /) -> onp.ArrayND[np.float64]: ...
+
+@type_check_only
+class _HasX(Protocol):
+    x: float | npc.floating
+
 ###
 
 @final
@@ -210,6 +211,7 @@ class Anderson_ksampResult(BaseBunch[np.float64, _Float1D, np.float64]):
     @property
     def statistic(self, /) -> np.float64: ...
     @property
+    @deprecated("Present only when `variant` is unspecified.")
     def critical_values(self, /) -> _Float1D: ...
     @property
     def pvalue(self, /) -> np.float64: ...
@@ -358,20 +360,38 @@ def ppcc_plot(
     N: int = 80,
 ) -> _Tuple2[onp.ArrayND[np.float64]]: ...
 
-#
+# technically this also supports conplex data, but since boxcox is only for real data, we limit to real here as well
 @overload
 def boxcox_llf(
-    lmb: onp.ToJustFloat64,
-    data: onp.ToIntStrict1D | onp.ToJustFloat64Strict1D,
+    lmb: float | np.float64,
+    data: onp.ArrayND[npc.integer, _JustAnyShape],
     *,
-    axis: Literal[0, -1] | None = 0,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64] | np.float64: ...
+@overload
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict1D[float, npc.integer],
+    *,
+    axis: int | None = 0,
     keepdims: Literal[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> np.float64: ...
 @overload
 def boxcox_llf(
-    lmb: onp.ToJustFloat64,
-    data: onp.ToIntND | onp.ToJustFloat64_ND,
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict2D[float, npc.integer],
+    *,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float64]: ...
+@overload
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayND[float, npc.integer],
     *,
     axis: None,
     keepdims: Literal[False] = False,
@@ -379,97 +399,250 @@ def boxcox_llf(
 ) -> np.float64: ...
 @overload
 def boxcox_llf(
-    lmb: onp.ToJustFloat64,
-    data: onp.ToIntND | onp.ToJustFloat64_ND,
+    lmb: float | np.float64,
+    data: onp.ToArrayND[float, npc.integer],
     *,
     axis: int | None = 0,
     keepdims: Literal[True],
     nan_policy: NanPolicy = "propagate",
 ) -> onp.ArrayND[np.float64]: ...
 @overload
-def boxcox_llf(  # type: ignore[overload-overlap]
-    lmb: float | onp.ToInt | _InexactT,
-    data: onp.CanArray1D[_InexactT] | Sequence[_InexactT],
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ArrayND[_FloatingT, _JustAnyShape],
     *,
-    axis: Literal[0, -1] | None = 0,
+    axis: int = 0,
     keepdims: Literal[False] = False,
     nan_policy: NanPolicy = "propagate",
-) -> _InexactT: ...
+) -> onp.ArrayND[_FloatingT] | _FloatingT: ...
 @overload
-def boxcox_llf(  # type: ignore[overload-overlap]
-    lmb: float | onp.ToInt | _InexactT,
-    data: onp.CanArrayND[_InexactT] | Sequence[_InexactT],
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict1D[_FloatingT, _FloatingT],
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> _FloatingT: ...
+@overload
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict2D[_FloatingT, _FloatingT],
+    *,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[_FloatingT]: ...
+@overload
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayND[_FloatingT, _FloatingT],
     *,
     axis: None,
     keepdims: Literal[False] = False,
     nan_policy: NanPolicy = "propagate",
-) -> _InexactT: ...
+) -> _FloatingT: ...
 @overload
 def boxcox_llf(
-    lmb: float | onp.ToInt | _InexactT,
-    data: onp.CanArrayND[_InexactT] | Sequence[_InexactT],
+    lmb: float | np.float64,
+    data: onp.ToArrayND[_FloatingT, _FloatingT],
     *,
     axis: int | None = 0,
     keepdims: Literal[True],
     nan_policy: NanPolicy = "propagate",
-) -> onp.ArrayND[_InexactT]: ...
+) -> onp.ArrayND[_FloatingT]: ...
 @overload
 def boxcox_llf(
-    lmb: onp.ToFloat,
+    lmb: float | np.float64,
     data: onp.ToFloatStrict1D,
     *,
-    axis: Literal[0, -1] | None = 0,
+    axis: int | None = 0,
     keepdims: Literal[False] = False,
     nan_policy: NanPolicy = "propagate",
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload
 def boxcox_llf(
-    lmb: onp.ToFloat, data: onp.ToFloatND, *, axis: None, keepdims: Literal[False] = False, nan_policy: NanPolicy = "propagate"
-) -> npc.floating: ...
+    lmb: float | np.float64,
+    data: onp.ToFloatND,
+    *,
+    axis: None,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64 | Any: ...
 @overload
 def boxcox_llf(
-    lmb: onp.ToFloat, data: onp.ToFloatND, *, axis: int | None = 0, keepdims: Literal[True], nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.floating]: ...
-@overload
-def boxcox_llf(
-    lmb: onp.ToFloat, data: onp.ToFloatND, *, axis: int | None = 0, keepdims: bool = False, nan_policy: NanPolicy = "propagate"
-) -> npc.floating | onp.ArrayND[npc.floating]: ...
-@overload
-def boxcox_llf(
-    lmb: onp.ToComplex,
-    data: onp.ToJustComplexND,
+    lmb: float | np.float64,
+    data: onp.ToFloatND,
     *,
     axis: int | None = 0,
-    keepdims: bool = False,
+    keepdims: Literal[True],
     nan_policy: NanPolicy = "propagate",
-) -> npc.complexfloating | onp.ArrayND[npc.complexfloating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
+@overload
+def boxcox_llf(
+    lmb: float | np.float64,
+    data: onp.ToFloatND,
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64 | Any] | Any: ...
+
+# keep in sync with `boxcox_llf`
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ArrayND[npc.integer, _JustAnyShape],
+    *,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64] | np.float64: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict1D[float, npc.integer],
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict2D[float, npc.integer],
+    *,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float64]: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayND[float, npc.integer],
+    *,
+    axis: None,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayND[float, npc.integer],
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[True],
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64]: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ArrayND[_FloatingT, _JustAnyShape],
+    *,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[_FloatingT] | _FloatingT: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict1D[_FloatingT, _FloatingT],
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> _FloatingT: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayStrict2D[_FloatingT, _FloatingT],
+    *,
+    axis: int = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[_FloatingT]: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayND[_FloatingT, _FloatingT],
+    *,
+    axis: None,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> _FloatingT: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToArrayND[_FloatingT, _FloatingT],
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[True],
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[_FloatingT]: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToFloatStrict1D,
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64 | Any: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToFloatND,
+    *,
+    axis: None,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64 | Any: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToFloatND,
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[True],
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64 | Any]: ...
+@overload
+def yeojohnson_llf(
+    lmb: float | np.float64,
+    data: onp.ToFloatND,
+    *,
+    axis: int | None = 0,
+    keepdims: Literal[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64 | Any] | Any: ...
 
 #
 @overload
 def boxcox(
-    x: onp.ToFloat | onp.ToFloatND, lmbda: None = None, alpha: None = None, optimizer: _MinFun1D | None = None
+    x: onp.ToFloat1D, lmbda: None = None, alpha: None = None, optimizer: _MinFun1D | None = None
 ) -> tuple[_Float1D, np.float64]: ...
 @overload
-def boxcox(
-    x: onp.ToFloat | onp.ToFloatND,
-    lmbda: onp.ToFloat,
-    alpha: float | npc.floating | None = None,
-    optimizer: _MinFun1D | None = None,
-) -> _Float1D: ...
+def boxcox(x: onp.ToFloat1D, lmbda: onp.ToFloat, alpha: float | None = None, optimizer: _MinFun1D | None = None) -> _Float1D: ...
 @overload
 def boxcox(
-    x: onp.ToFloat | onp.ToFloatND, lmbda: None, alpha: float | npc.floating, optimizer: _MinFun1D | None = None
+    x: onp.ToFloat1D, lmbda: None, alpha: float, optimizer: _MinFun1D | None = None
 ) -> tuple[_Float1D, np.float64, _Tuple2[float]]: ...
 @overload
 def boxcox(
-    x: onp.ToFloat | onp.ToFloatND, lmbda: None = None, *, alpha: float | npc.floating, optimizer: _MinFun1D | None = None
+    x: onp.ToFloat1D, lmbda: None = None, *, alpha: float, optimizer: _MinFun1D | None = None
 ) -> tuple[_Float1D, np.float64, _Tuple2[float]]: ...
+
+#
+@overload
+def yeojohnson(x: onp.ToFloat1D, lmbda: None = None) -> tuple[_Float1D, np.float64]: ...
+@overload
+def yeojohnson(x: onp.ToFloat1D, lmbda: onp.ToFloat) -> _Float1D: ...
 
 #
 @overload
 def boxcox_normmax(
-    x: onp.ToFloat | onp.ToFloatND,
-    brack: _Tuple2[onp.ToFloat] | None = None,
+    x: onp.ToFloat1D,
+    brack: _Tuple2[float] | None = None,
     method: Literal["pearsonr", "mle"] = "pearsonr",
     optimizer: _MinFun1D | None = None,
     *,
@@ -477,59 +650,80 @@ def boxcox_normmax(
 ) -> np.float64: ...
 @overload
 def boxcox_normmax(
-    x: onp.ToFloat | onp.ToFloatND,
-    brack: _Tuple2[onp.ToFloat] | None = None,
-    *,
+    x: onp.ToFloat1D,
+    brack: _Tuple2[float] | None,
     method: Literal["all"],
     optimizer: _MinFun1D | None = None,
+    *,
     ymax: onp.ToFloat | _BigFloat = ...,
 ) -> onp.Array1D[np.float64]: ...
 @overload
 def boxcox_normmax(
-    x: onp.ToFloat | onp.ToFloatND,
-    brack: _Tuple2[onp.ToFloat] | None,
+    x: onp.ToFloat1D,
+    brack: _Tuple2[float] | None = None,
+    *,
     method: Literal["all"],
     optimizer: _MinFun1D | None = None,
-    *,
     ymax: onp.ToFloat | _BigFloat = ...,
 ) -> onp.Array1D[np.float64]: ...
 
 #
+@overload
+def yeojohnson_normmax(
+    x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape], brack: _Tuple2[onp.ToFloat] | None = None
+) -> onp.Array1D[np.float64] | np.float64: ...
+@overload
+def yeojohnson_normmax(x: onp.ToFloatStrict1D, brack: _Tuple2[onp.ToFloat] | None = None) -> np.float64: ...
+@overload
+def yeojohnson_normmax(x: onp.ToFloatStrict2D, brack: _Tuple2[onp.ToFloat] | None = None) -> onp.Array1D[np.float64]: ...
+@overload
+def yeojohnson_normmax(x: onp.ToFloatND, brack: _Tuple2[onp.ToFloat] | None = None) -> onp.Array1D[np.float64] | np.float64: ...
+
+#
 def boxcox_normplot(
-    x: onp.ToFloat | onp.ToFloatND,
-    la: onp.ToFloat,
-    lb: onp.ToFloat,
-    plot: _CanPlotText | ModuleType | None = None,
-    N: onp.ToInt = 80,
-) -> _Tuple2[onp.ArrayND[np.float64]]: ...
-
-#
-def yeojohnson_llf(lmb: onp.ToFloat, data: onp.ToFloatND) -> onp.Array0D[np.float64]: ...
-
-#
-@overload
-def yeojohnson(x: onp.ToFloat | onp.ToFloatND, lmbda: None = None) -> tuple[_Float1D, np.float64]: ...
-@overload
-def yeojohnson(x: onp.ToFloat | onp.ToFloatND, lmbda: onp.ToFloat) -> _Float1D: ...
-
-#
-def yeojohnson_normmax(x: onp.ToFloat | onp.ToFloatND, brack: _Tuple2[onp.ToFloat] | None = None) -> np.float64: ...
+    x: onp.ToFloat1D, la: float, lb: float, plot: _CanPlotText | ModuleType | None = None, N: int = 80
+) -> _Tuple2[onp.Array1D[np.float64]]: ...
 
 #
 def yeojohnson_normplot(
-    x: onp.ToFloat | onp.ToFloatND,
-    la: onp.ToFloat,
-    lb: onp.ToFloat,
-    plot: _CanPlotText | ModuleType | None = None,
-    N: onp.ToInt = 80,
-) -> _Tuple2[onp.ArrayND[np.float64]]: ...
+    x: onp.ToFloat1D, la: float, lb: float, plot: _CanPlotText | ModuleType | None = None, N: int = 80
+) -> _Tuple2[onp.Array1D[np.float64]]: ...
 
 #
-def anderson(x: onp.ToFloat | onp.ToFloatND, dist: _RVCAnderson = "norm") -> AndersonResult: ...
+@overload
+@deprecated(
+    "As of SciPy 1.17, users must choose a p-value calculation method by providing the `method` parameter. "
+    "`method='interpolate'` interpolates the p-value from pre-calculated tables; `method` may also be an instance of "
+    "`MonteCarloMethod` to approximate the p-value via Monte Carlo simulation. "
+    "When `method` is specified, the result object will include a `pvalue` attribute and not attributes `critical_value`, "
+    "`significance_level`, or `fit_result`. "
+    "Beginning in 1.19.0, these other attributes will no longer be available, "
+    "and a p-value will always be computed according to one of the available `method` options.",
+    category=FutureWarning,
+)
+def anderson(x: onp.ToFloatND, dist: _RVCAnderson = "norm", *, method: None = None) -> AndersonResult: ...
+@overload
+def anderson(
+    x: onp.ToFloatND, dist: _RVCAnderson = "norm", *, method: MonteCarloMethod | Literal["interpolated"]
+) -> AndersonResult: ...
 
 #
+@overload
+@deprecated(
+    "Parameter `variant` has been introduced to replace `midrank`; "
+    "`midrank` will be removed in SciPy 1.19.0. Specify `variant` to silence this warning. "
+    "Note that the returned object will no longer be unpackable as a tuple, and `critical_values` will be omitted."
+)
 def anderson_ksamp(
-    samples: onp.ToFloatND, midrank: bool = True, *, method: PermutationMethod | None = None
+    samples: onp.ToFloatND, midrank: bool, *, variant: op.JustObject = ..., method: PermutationMethod | None = None
+) -> Anderson_ksampResult: ...
+@overload
+def anderson_ksamp(
+    samples: onp.ToFloatND,
+    midrank: op.JustObject = ...,
+    *,
+    variant: Literal["midrank", "right", "continuous"] | op.JustObject = ...,
+    method: PermutationMethod | None = None,
 ) -> Anderson_ksampResult: ...
 
 #
@@ -747,7 +941,7 @@ def median_test(
 @overload
 def circmean(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
@@ -757,7 +951,7 @@ def circmean(
 @overload
 def circmean(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: op.CanIndex | None = None,
     nan_policy: NanPolicy = "propagate",
@@ -767,7 +961,7 @@ def circmean(
 @overload
 def circmean(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: op.CanIndex | None = None,
     nan_policy: NanPolicy = "propagate",
@@ -779,7 +973,7 @@ def circmean(
 @overload
 def circvar(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
@@ -789,7 +983,7 @@ def circvar(
 @overload
 def circvar(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: op.CanIndex | None = None,
     nan_policy: NanPolicy = "propagate",
@@ -799,7 +993,7 @@ def circvar(
 @overload
 def circvar(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: op.CanIndex | None = None,
     nan_policy: NanPolicy = "propagate",
@@ -811,7 +1005,7 @@ def circvar(
 @overload
 def circstd(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
@@ -822,7 +1016,7 @@ def circstd(
 @overload
 def circstd(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: op.CanIndex | None = None,
     nan_policy: NanPolicy = "propagate",
@@ -833,7 +1027,7 @@ def circstd(
 @overload
 def circstd(
     samples: onp.ToFloatND,
-    high: onp.ToFloat = ...,
+    high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
     axis: op.CanIndex | None = None,
     nan_policy: NanPolicy = "propagate",

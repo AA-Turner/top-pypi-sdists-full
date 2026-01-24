@@ -9,21 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
+from typing import Literal
 from typing_extensions import TypedDict
 
-from .group_0141 import CustomPropertyValueType
 
+class InteractionLimitResponseType(TypedDict):
+    """Interaction Limits
 
-class OrgRepoCustomPropertyValuesType(TypedDict):
-    """Organization Repository Custom Property Values
-
-    List of custom property values for a repository
+    Interaction limit settings.
     """
 
-    repository_id: int
-    repository_name: str
-    repository_full_name: str
-    properties: list[CustomPropertyValueType]
+    limit: Literal["existing_users", "contributors_only", "collaborators_only"]
+    origin: str
+    expires_at: _dt.datetime
 
 
-__all__ = ("OrgRepoCustomPropertyValuesType",)
+class InteractionLimitResponseTypeForResponse(TypedDict):
+    """Interaction Limits
+
+    Interaction limit settings.
+    """
+
+    limit: Literal["existing_users", "contributors_only", "collaborators_only"]
+    origin: str
+    expires_at: str
+
+
+__all__ = (
+    "InteractionLimitResponseType",
+    "InteractionLimitResponseTypeForResponse",
+)

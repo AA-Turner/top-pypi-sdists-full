@@ -32,6 +32,7 @@ _HERMIT_PROP_REGEXP   = re.compile("^<([^>]+)> \\(known instances:\\s*(.*?)(?:\\
 
 _PELLET_PROP_REGEXP      = re.compile("^PROPINST: ([^ ]+) ([^ ]+) ([^ ]+)$", re.MULTILINE)
 _PELLET_DATA_PROP_REGEXP = re.compile("^DATAPROPVAL: ([^ ]+) ([^ ]+) literal\\((.*),(.*?),(.*?)\\)$", re.MULTILINE)
+_PELLET_STR_ESCAPE_REGEX = re.compile(r"""\\([ntbrf\\'"])|\\(.[0-7]{2})""")
 
 
 _HERE = os.path.dirname(__file__)
@@ -115,6 +116,48 @@ def _decode(s):
     return s.decode("latin")
     
 
+def _unescape_pellet_str(s):
+  """
+  Unescape strings escaped by ATerm's (used by Pellet) toString() method:
+  https://github.com/cwi-swat/aterms/blob/master/aterm-java/src/aterm/pure/AFunImpl.java#L242
+
+  Note that their method mangles non-letter/digit unicode values above U+01FF (0o777), but
+  most of the time this is recoverable. The only times it's not is when it overlaps with a
+  different escape sequence (e.g. is \n00 a newline followed by two 0s, or U+0F80 encoded
+  in ATerm-flavoured octal? We assume the former.)
+  (See: https://github.com/cwi-swat/aterms/blob/master/aterm-java/src/aterm/pure/AFunImpl.java#L321)
+  """
+
+  def _replace(m):
+    if m.group(1): # simple escapes
+      c = m.group(1)
+      return {
+        "n": "\n",
+        "t": "\t",
+        "b": "\b",
+        "r": "\r",
+        "f": "\f",
+        "\\": "\\",
+        "'": "'",
+        '"': '"',
+      }[c]
+    else: # octal
+      oct_str = m.group(2)
+      # ATerm tries to do 3-digit octal, but it doesn't check that the character
+      # is within 0o777, so the first digit will increase beyond 7. The first digit
+      # is therefore allowed to be any value that fits into a Java `char` (2 bytes,
+      # up to U+FFFF). The two remaining digits are modulo'd so they will always be
+      # between 0 and 7, meaning we can simply use int() to convert them.
+      most_significant_digit = ord(oct_str[0]) - ord('0')
+      return chr(most_significant_digit * 8**2 + int(oct_str[1:], 8))
+
+  escaped = _PELLET_STR_ESCAPE_REGEX.sub(_replace, s)
+  # Java chars are UTF-16, so anything above U+FFFF gets sent as "surrogate pairs",
+  # i.e. two UTF-16 chars.
+  # We need to re-encode the string as UTF-16 using 'surrogatepass' so Python can
+  # combine these surrogate pairs into proper Unicode characters when decoding.
+  return escaped.encode('utf-16', 'surrogatepass').decode('utf-16')
+  
 def sync_reasoner_hermit(x = None, infer_property_values = False, debug = 1, keep_tmp_file = False, ignore_unsupported_datatypes = False):
   if   isinstance(x, World):    world = x
   elif isinstance(x, Ontology): world = x.world
@@ -344,6 +387,7 @@ def sync_reasoner_pellet(x = None, infer_property_values = False, infer_data_pro
           python_datatype = owlready2.base._universal_abbrev_2_datatype.get(datatype)
           if   python_datatype is int:   value = int  (value)
           elif python_datatype is float: value = float(value)
+          elif python_datatype is str:   value = _unescape_pellet_str(value)
         if ((not a_storid is None) and
             (not world._has_data_triple_spod(a_storid, prop.storid, value))):
           inferred_data_relations.append((a_storid, prop, value, datatype))

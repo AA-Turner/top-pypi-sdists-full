@@ -6,6 +6,7 @@ Data classes for AWS objects.
 
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
@@ -18,7 +19,6 @@ from deadline.job_attachments.asset_manifests.base_manifest import (
     BaseAssetManifest,
     BaseManifestPath,
 )
-
 from deadline.job_attachments.exceptions import (
     MissingS3RootPrefixError,
     MalformedAttachmentSettingError,
@@ -216,6 +216,48 @@ class ManifestProperties:
             result["outputRelativeDirectories"] = self.outputRelativeDirectories
         return result
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ManifestProperties":
+        """Create ManifestProperties from a dictionary."""
+        return cls(
+            rootPath=data["rootPath"],
+            rootPathFormat=PathFormat(data["rootPathFormat"]),
+            fileSystemLocationName=data.get("fileSystemLocationName"),
+            inputManifestPath=data.get("inputManifestPath"),
+            inputManifestHash=data.get("inputManifestHash"),
+            outputRelativeDirectories=data.get("outputRelativeDirectories"),
+        )
+
+    def as_output_metadata(self) -> dict[str, dict[str, str]]:
+        """
+        Generate S3 metadata for output manifest uploads.
+
+        Creates metadata dictionary containing asset root path and optional file system location.
+        Handles non-ASCII characters in paths by JSON-encoding them with ASCII-safe format.
+
+        Returns:
+            dict[str, str]: S3 metadata dictionary with 'Metadata' key containing:
+                - 'asset-root': ASCII-compatible root path, or JSON-encoded root path for non-ASCII paths
+                - 'asset-root-json': JSON-encoded root path for non-ASCII paths
+                - 'file-system-location-name': Optional file system location name
+        """
+        metadata: dict[str, str] = {}
+        try:
+            # Set 'asset-root' metadata as the path if the path is ASCII
+            self.rootPath.encode(encoding="ascii")
+            metadata["asset-root"] = self.rootPath
+        except UnicodeEncodeError:
+            # S3 metadata must be ASCII
+            # Add both 'asset-root' and 'asset-root-json' metadata encoded to ASCII as a JSON string
+            # Populate both fileds for backward compatibility
+            json_root_path = json.dumps(self.rootPath, ensure_ascii=True)
+            metadata["asset-root-json"] = json_root_path
+            metadata["asset-root"] = json_root_path
+        if self.fileSystemLocationName:
+            metadata["file-system-location-name"] = self.fileSystemLocationName
+
+        return {"Metadata": metadata}
+
 
 @dataclass
 class Attachments:
@@ -331,6 +373,30 @@ class JobAttachmentS3Settings:
             f"{_float_to_iso_datetime_string(time)}_{session_action_id}",
         )
 
+    @staticmethod
+    def partial_session_action_manifest_prefix_without_task(
+        farm_id: str,
+        queue_id: str,
+        job_id: str,
+        step_id: str,
+        session_action_id: str,
+        time: float,
+    ) -> str:
+        """
+        Constructs the partial S3 prefix for storing session action output manifests.
+
+        This method creates a hierarchical path structure for organizing output manifests in S3,
+        following the pattern: farm_id/queue_id/job_id/step_id/timestamp_session_action_id.
+        The timestamp is converted from a float to an ISO datetime string format.
+        """
+        return _join_s3_paths(
+            farm_id,
+            queue_id,
+            job_id,
+            step_id,
+            f"{_float_to_iso_datetime_string(time)}_{session_action_id}",
+        )
+
     def partial_manifest_prefix(self, farm_id, queue_id) -> str:
         guid = _generate_random_guid()
         return _join_s3_paths(
@@ -390,6 +456,14 @@ class StorageProfile:
     osFamily: StorageProfileOperatingSystemFamily
     fileSystemLocations: List[FileSystemLocation] = field(default_factory=list)  # type: ignore
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "storageProfileId": self.storageProfileId,
+            "displayName": self.displayName,
+            "osFamily": self.osFamily.value,
+            "fileSystemLocations": [item.to_dict() for item in self.fileSystemLocations],
+        }
+
 
 @dataclass
 class FileSystemLocation:
@@ -398,6 +472,9 @@ class FileSystemLocation:
     name: str
     path: str
     type: FileSystemLocationType
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "path": self.path, "type": self.type.value}
 
 
 class FileSystemLocationType(str, Enum):

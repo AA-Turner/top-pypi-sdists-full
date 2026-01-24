@@ -56,7 +56,6 @@ from dagster_cloud_cli.core.errors import raise_http_error
 from dagster_cloud_cli.core.workspace import CodeLocationDeployData
 from typing_extensions import Self, TypeAlias
 
-from dagster_cloud.agent.instrumentation.constants import DAGSTER_CLOUD_AGENT_METRIC_PREFIX
 from dagster_cloud.agent.queries import GET_AGENTS_QUERY
 from dagster_cloud.api.dagster_cloud_api import (
     CheckSnapshotResult,
@@ -85,8 +84,6 @@ from dagster_cloud.execution.monitoring import (
     start_run_worker_monitoring_thread,
 )
 from dagster_cloud.instance import DagsterCloudAgentInstance
-from dagster_cloud.opentelemetry.controller import OpenTelemetryController
-from dagster_cloud.opentelemetry.observers.execution_observer import observe_execution
 from dagster_cloud.pex.grpc.client import MultiPexGrpcClient
 from dagster_cloud.pex.grpc.types import (
     CreatePexServerArgs,
@@ -401,6 +398,7 @@ class DagsterCloudUserCodeLauncher(
         self._run_worker_statuses_dict: dict[str, list[CloudRunWorkerStatus]] = {}
         self._run_worker_monitoring_lock = threading.Lock()
 
+        self._in_progress_reconcile_start_time = time.time()
         self._reconcile_count = 0
         self._reconcile_grpc_metadata_shutdown_event = threading.Event()
         self._reconcile_grpc_metadata_thread = None
@@ -888,23 +886,32 @@ class DagsterCloudUserCodeLauncher(
             repository_name,
             code_pointer,
         ) in list_repositories_response.repository_code_pointer_dict.items():
-            external_repository_chunks = [
-                chunk
-                async for chunk in client.gen_streaming_external_repository(
+            if os.getenv("DAGSTER_CLOUD_USE_STREAMING_EXTERNAL_REPOSITORY"):
+                external_repository_chunks = [
+                    chunk
+                    async for chunk in client.gen_streaming_external_repository(
+                        remote_repository_origin=RemoteRepositoryOrigin(
+                            location_origin,
+                            repository_name,
+                        ),
+                        defer_snapshots=True,
+                    )
+                ]
+
+                serialized_repository_data = "".join(
+                    [
+                        chunk["serialized_external_repository_chunk"]
+                        for chunk in external_repository_chunks
+                    ]
+                )
+            else:
+                serialized_repository_data = await client.gen_external_repository(
                     remote_repository_origin=RemoteRepositoryOrigin(
                         location_origin,
                         repository_name,
                     ),
                     defer_snapshots=True,
                 )
-            ]
-
-            serialized_repository_data = "".join(
-                [
-                    chunk["serialized_external_repository_chunk"]
-                    for chunk in external_repository_chunks
-                ]
-            )
 
             # Don't deserialize in case there are breaking changes - let the server do it
             upload_repo_datas.append(
@@ -1115,11 +1122,6 @@ class DagsterCloudUserCodeLauncher(
     ):
         deployment_name, location_name = to_update_key
 
-        attributes = {
-            "deployment": deployment_name,
-            "location": location_name,
-        }
-
         code_location_deploy_data = desired_entry.code_location_deploy_data
         pex_metadata = code_location_deploy_data.pex_metadata
         deployment_info = (
@@ -1132,19 +1134,13 @@ class DagsterCloudUserCodeLauncher(
                 self._logger.info(
                     f"Waiting for new grpc server for {deployment_name}:{location_name} for {deployment_info} to be ready..."
                 )
-                with observe_execution(
-                    opentelemetry=self.opentelemetry,
-                    event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.user_code.server.process_wait",
-                    short_description="waiting for new server process to be ready",
-                    attributes=attributes,
-                ):
-                    await self._wait_for_new_server_ready(
-                        deployment_name,
-                        location_name,
-                        desired_entry,
-                        server_or_error.server_handle,
-                        server_or_error.server_endpoint,
-                    )
+                await self._wait_for_new_server_ready(
+                    deployment_name,
+                    location_name,
+                    desired_entry,
+                    server_or_error.server_handle,
+                    server_or_error.server_endpoint,
+                )
             except Exception:
                 error_info = serializable_error_info_from_exc_info(sys.exc_info())
                 self._logger.error(
@@ -1154,18 +1150,12 @@ class DagsterCloudUserCodeLauncher(
                 server_or_error = error_info
 
         if should_upload:
-            with observe_execution(
-                opentelemetry=self.opentelemetry,
-                event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.user_code.upload",
-                short_description="uploading user code data",
-                attributes=attributes,
-            ):
-                await self._try_update_location_data(
-                    deployment_name,
-                    location_name,
-                    server_or_error,
-                    desired_entry.code_location_deploy_data,
-                )
+            await self._try_update_location_data(
+                deployment_name,
+                location_name,
+                server_or_error,
+                desired_entry.code_location_deploy_data,
+            )
 
         # Once we've verified that the new server has uploaded its data successfully, swap in
         # the server to start serving new requests
@@ -1480,6 +1470,8 @@ class DagsterCloudUserCodeLauncher(
                 self._logger.exception("Failed to refresh actual entries.")
             self._last_refreshed_actual_entries = now
 
+        self._in_progress_reconcile_start_time = time.time()
+
         self._reconcile(
             desired_entries,
             upload_locations,
@@ -1496,6 +1488,7 @@ class DagsterCloudUserCodeLauncher(
                 f"Started polling for requests from {self._instance.dagster_cloud_url}"
             )
 
+        self._in_progress_reconcile_start_time = None
         self._reconcile_count += 1
 
     def _update_metrics_thread(self, shutdown_event):
@@ -1520,6 +1513,10 @@ class DagsterCloudUserCodeLauncher(
         # thread-safe since reconcile_count is an integer
         return self._reconcile_count > 0
 
+    @property
+    def in_progress_reconcile_start_time(self) -> Optional[float]:
+        return self._in_progress_reconcile_start_time
+
     def _make_check_on_running_server_endpoint(
         self, server_endpoint: ServerEndpoint
     ) -> Callable[[], Union[ListRepositoriesResponse, SerializableErrorInfo]]:
@@ -1541,7 +1538,7 @@ class DagsterCloudUserCodeLauncher(
             del self._multipex_servers[deployment_location]
 
     def _refresh_actual_entries(self) -> None:
-        for deployment_location, multipex_server in self._multipex_servers.items():
+        for deployment_location, multipex_server in self._multipex_servers.copy().items():
             if deployment_location in self._actual_entries:
                 # If a multipex server exists, we query it over gRPC
                 # to make sure the pex server is still available.
@@ -1819,28 +1816,16 @@ class DagsterCloudUserCodeLauncher(
                         # confirm it's a valid image since _start_new_server_spinup will launch a container
                         self._check_for_image(desired_entry.code_location_deploy_data)
 
-                        attributes = {
-                            "deployment": deployment_name,
-                            "location": location_name,
-                            "image": desired_entry.code_location_deploy_data.image,
-                            "python_version": desired_python_version,
-                        }
-                        with observe_execution(
-                            opentelemetry=self.opentelemetry,
-                            event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.user_code.multipex_server.start",
-                            short_description="starting new multipex server",
-                            attributes=attributes,
-                        ):
-                            multipex_server = self._start_new_server_spinup(
-                                deployment_name, location_name, desired_entry
-                            )
-                            self._multipex_servers[to_update_key] = multipex_server
-                            assert self._get_multipex_server(
-                                deployment_name,
-                                location_name,
-                                desired_entry.code_location_deploy_data,
-                            )
-                            new_multipex_servers[to_update_key] = multipex_server
+                        multipex_server = self._start_new_server_spinup(
+                            deployment_name, location_name, desired_entry
+                        )
+                        self._multipex_servers[to_update_key] = multipex_server
+                        assert self._get_multipex_server(
+                            deployment_name,
+                            location_name,
+                            desired_entry.code_location_deploy_data,
+                        )
+                        new_multipex_servers[to_update_key] = multipex_server
                     else:
                         self._logger.info(
                             f"Found running multipex server for {multipex_server_repr}"
@@ -2156,11 +2141,6 @@ class DagsterCloudUserCodeLauncher(
     def _start_new_dagster_server(
         self, deployment_name: str, location_name: str, desired_entry: UserCodeLauncherEntry
     ) -> DagsterCloudGrpcServer:
-        attributes = {
-            "deployment": deployment_name,
-            "location": location_name,
-        }
-
         if desired_entry.code_location_deploy_data.pex_metadata:
             multipex_server = self._get_multipex_server(
                 deployment_name, location_name, desired_entry.code_location_deploy_data
@@ -2168,45 +2148,26 @@ class DagsterCloudUserCodeLauncher(
 
             assert multipex_server  # should have been started earlier or we should never reach here
 
-            if desired_entry.code_location_deploy_data.pex_metadata.python_version:
-                attributes["python_version"] = (
-                    desired_entry.code_location_deploy_data.pex_metadata.python_version
-                )
+            self._create_pex_server(deployment_name, location_name, desired_entry, multipex_server)
 
-            with observe_execution(
-                opentelemetry=self.opentelemetry,
-                event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.user_code.pex_server.start",
-                short_description="starting new pex server",
-                attributes=attributes,
-            ):
-                self._create_pex_server(
-                    deployment_name, location_name, desired_entry, multipex_server
-                )
+            server_handle = multipex_server.server_handle
+            multipex_endpoint = multipex_server.server_endpoint
 
-                server_handle = multipex_server.server_handle
-                multipex_endpoint = multipex_server.server_endpoint
-
-                # start a new pex server on the multipexer, which we can count on already existing
-                return DagsterCloudGrpcServer(
-                    server_handle,
-                    multipex_endpoint.with_metadata(
-                        [
-                            ("has_pex", "1"),
-                            ("deployment", deployment_name),
-                            ("location", location_name),
-                            ("timestamp", str(int(desired_entry.update_timestamp))),
-                        ],
-                    ),
-                    desired_entry.code_location_deploy_data,
-                )
+            # start a new pex server on the multipexer, which we can count on already existing
+            return DagsterCloudGrpcServer(
+                server_handle,
+                multipex_endpoint.with_metadata(
+                    [
+                        ("has_pex", "1"),
+                        ("deployment", deployment_name),
+                        ("location", location_name),
+                        ("timestamp", str(int(desired_entry.update_timestamp))),
+                    ],
+                ),
+                desired_entry.code_location_deploy_data,
+            )
         else:
-            with observe_execution(
-                opentelemetry=self.opentelemetry,
-                event_key=f"{DAGSTER_CLOUD_AGENT_METRIC_PREFIX}.user_code.code_server.start",
-                short_description="new code server spin up",
-                attributes=attributes,
-            ):
-                return self._start_new_server_spinup(deployment_name, location_name, desired_entry)
+            return self._start_new_server_spinup(deployment_name, location_name, desired_entry)
 
     def get_grpc_endpoint(
         self,
@@ -2425,13 +2386,6 @@ class DagsterCloudUserCodeLauncher(
                     f" {job_selector.job_name}@{job_selector.repository_name} ({os.path.getsize(dst)} bytes)"
                 )
                 return response
-
-    @property
-    def opentelemetry(self) -> Optional[OpenTelemetryController]:
-        if not self.has_instance:
-            return None
-        else:
-            return self._instance.opentelemetry
 
     def upload_job_snap_direct(
         self,

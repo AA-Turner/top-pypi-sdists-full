@@ -19,7 +19,8 @@ def get_deployment_db_access_endpoint(name: str):
     from ..apps.core.perimeters import PerimeterExtractor
     from ..apps.core.capsule import CapsuleApi
 
-    perimeter, cap_url = PerimeterExtractor.during_metaflow_execution()
+    perimeter, cap_url = PerimeterExtractor.during_programmatic_access()
+    # TODO: Find more natural way to get rid of CapsuleApi here.
     deployment = CapsuleApi(cap_url, perimeter).get_by_name(name)
     if not deployment:
         raise Exception(f"No app deployment found with name `{name}`")

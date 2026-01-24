@@ -6,7 +6,7 @@ from flask import Flask, jsonify
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from schemathesis.specs.openapi.patterns import update_quantifier
+from schemathesis.specs.openapi.patterns import translate_to_python_regex, update_quantifier
 
 SKIP_BEFORE_PY11 = pytest.mark.skipif(
     sys.version_info < (3, 11), reason="Possessive repeat is only available in Python 3.11+"
@@ -148,6 +148,43 @@ def test_update_quantifier_invalid_pattern():
     assert update_quantifier("*", 1, 3) == "*"
 
 
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        # Translatable patterns
+        (
+            r"^[\p{L}]+([ '-][\p{L}]+){0,2}$",
+            r"^[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+([ '-][a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+){0,2}$",
+        ),
+        (r"\p{L}+", r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+"),
+        (r"\p{N}+", r"[0-9]+"),
+        (r"\P{L}", r"[^a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]"),
+        # POSIX-like escapes
+        (r"\p{Alpha}+", r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+"),
+        (r"\p{Digit}+", r"[0-9]+"),
+        (r"\p{Alnum}+", r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F0-9]+"),
+        (r"\p{Space}", r"[ \t\n\r\f\v]"),
+        (r"\p{Z}", r"[ \t\n\r\f\v]"),
+        # Shorthand forms (without braces)
+        (r"\pL+", r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+"),
+        (r"\pN+", r"[0-9]+"),
+        (r"\PL", r"[^a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]"),
+        (r"\PN", r"[^0-9]"),
+        (r"^[\w\s\-\/\pL,.#;:()']+$", r"^[\w\s\-\/[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F],.#;:()']+$"),
+        # No translation needed (already valid Python regex)
+        (r"[a-z]+", None),
+        (r"^\d+$", None),
+        # Unsupported escapes (no translation available)
+        (r"\p{Greek}", None),
+        (r"\p{Script=Latin}", None),
+    ],
+)
+def test_translate_to_python_regex(pattern, expected):
+    assert translate_to_python_regex(pattern) == expected
+    if expected:
+        re.compile(expected)
+
+
 @given(st.data())
 @settings(suppress_health_check=list(HealthCheck))
 def test_update_quantifier_random(data):
@@ -162,8 +199,7 @@ def test_update_quantifier_random(data):
     assume(
         max_length is None
         or min_length is None
-        or min_length <= max_length
-        and not (min_length is None and max_length is None)
+        or (min_length <= max_length and not (min_length is None and max_length is None))
     )
 
     # Apply length constraints
@@ -197,6 +233,93 @@ def is_valid_regex(pattern: str) -> bool:
         return True
     except re.error:
         return False
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_pcre_pattern_in_response_schema_during_dependency_analysis(cli, ctx, app_runner, snapshot_cli):
+    schema = ctx.openapi.build_schema(
+        {
+            "/owners": {
+                "get": {
+                    "operationId": "listOwners",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {"$ref": "#/components/schemas/Owner"},
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/owners/{ownerId}": {
+                "get": {
+                    "operationId": "getOwner",
+                    "parameters": [{"name": "ownerId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        # allOf triggers canonicalize() call in dependency analysis
+                                        "allOf": [
+                                            {"$ref": "#/components/schemas/Owner"},
+                                            {"description": "An owner"},
+                                        ]
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "Owner": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        # PCRE Unicode property escape - this caused the crash
+                        "firstName": {"type": "string", "pattern": r"^[\p{L}]+([ '-][\p{L}]+){0,2}\.?$"},
+                        "lastName": {"type": "string", "pattern": r"^[\p{L}]+([ '-][\p{L}]+){0,2}\.?$"},
+                    },
+                }
+            }
+        },
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def openapi():
+        return jsonify(schema)
+
+    @app.route("/owners")
+    def list_owners():
+        return jsonify([{"id": 1, "firstName": "John", "lastName": "Doe"}])
+
+    @app.route("/owners/<int:owner_id>")
+    def get_owner(owner_id):
+        return jsonify({"id": owner_id, "firstName": "John", "lastName": "Doe"})
+
+    port = app_runner.run_flask_app(app)
+
+    # This should not crash with SchemaError about invalid regex
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--max-examples=1",
+            "--phases=examples",
+        )
+        == snapshot_cli
+    )
 
 
 def test_response_schema_is_not_mutated(cli, app_runner, snapshot_cli):

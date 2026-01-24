@@ -2,6 +2,7 @@ import functools
 import os
 import sys
 import collections
+import inspect
 import importlib
 import warnings
 from contextvars import copy_context
@@ -68,6 +69,7 @@ from . import _validate
 from . import _watch
 from . import _get_app
 
+from ._get_app import with_app_context, with_app_context_async, with_app_context_factory
 from ._grouping import map_grouping, grouping_len, update_args_group
 from ._obsolete import ObsoleteChecker
 
@@ -143,12 +145,12 @@ DASH_VERSION_URL = "https://dash-version.plotly.com:8080/current_version"
 
 # Handles the case in a newly cloned environment where the components are not yet generated.
 try:
-    page_container = html.Div(
+    page_container = html.Div(  # type: ignore[operator]
         [
-            dcc.Location(id=_ID_LOCATION, refresh="callback-nav"),
-            html.Div(id=_ID_CONTENT, disable_n_clicks=True),
-            dcc.Store(id=_ID_STORE),
-            html.Div(id=_ID_DUMMY, disable_n_clicks=True),
+            dcc.Location(id=_ID_LOCATION, refresh="callback-nav"),  # type: ignore[operator]
+            html.Div(id=_ID_CONTENT, disable_n_clicks=True),  # type: ignore[operator]
+            dcc.Store(id=_ID_STORE),  # type: ignore[operator]
+            html.Div(id=_ID_DUMMY, disable_n_clicks=True),  # type: ignore[operator]
         ]
     )
 # pylint: disable-next=bare-except
@@ -161,7 +163,7 @@ def _get_traceback(secret, error: Exception):
         # pylint: disable=import-outside-toplevel
         from werkzeug.debug import tbtools
     except ImportError:
-        tbtools = None
+        tbtools = None  # type: ignore[assignment]
 
     def _get_skip(error):
         from dash._callback import (  # pylint: disable=import-outside-toplevel
@@ -219,7 +221,7 @@ no_update = _callback.NoUpdate()  # pylint: disable=protected-access
 
 async def execute_async_function(func, *args, **kwargs):
     # Check if the function is a coroutine function
-    if asyncio.iscoroutinefunction(func):
+    if inspect.iscoroutinefunction(func):
         return await func(*args, **kwargs)
     # If the function is not a coroutine, call it directly
     return func(*args, **kwargs)
@@ -415,6 +417,10 @@ class Dash(ObsoleteChecker):
     :param use_async: When True, the app will create async endpoints, as a dev,
         they will be responsible for installing the `flask[async]` dependency.
     :type use_async: boolean
+
+    :param health_endpoint: Path for the health check endpoint. Set to None to
+        disable the health endpoint. Default is None.
+    :type health_endpoint: string or None
     """
 
     _plotlyjs_url: str
@@ -435,7 +441,7 @@ class Dash(ObsoleteChecker):
         use_pages: Optional[bool] = None,
         assets_url_path: str = "assets",
         assets_ignore: str = "",
-        assets_path_ignore: List[str] = None,
+        assets_path_ignore: Optional[List[str]] = None,
         assets_external_path: Optional[str] = None,
         eager_loading: bool = False,
         include_assets_files: bool = True,
@@ -465,19 +471,20 @@ class Dash(ObsoleteChecker):
         description: Optional[str] = None,
         on_error: Optional[Callable[[Exception], Any]] = None,
         use_async: Optional[bool] = None,
+        health_endpoint: Optional[str] = None,
         **obsolete,
     ):
 
         if use_async is None:
             try:
-                import asgiref  # pylint: disable=unused-import, import-outside-toplevel # noqa
+                import asgiref  # type: ignore[import-not-found] # pylint: disable=unused-import, import-outside-toplevel # noqa
 
                 use_async = True
             except ImportError:
                 pass
         elif use_async:
             try:
-                import asgiref  # pylint: disable=unused-import, import-outside-toplevel # noqa
+                import asgiref  # type: ignore[import-not-found] # pylint: disable=unused-import, import-outside-toplevel # noqa
             except ImportError as exc:
                 raise Exception(
                     "You are trying to use dash[async] without having installed the requirements please install via: `pip install dash[async]`"
@@ -536,6 +543,8 @@ class Dash(ObsoleteChecker):
             update_title=update_title,
             include_pages_meta=include_pages_meta,
             description=description,
+            health_endpoint=health_endpoint,
+            hide_all_callbacks=False,
         )
         self.config.set_read_only(
             [
@@ -565,15 +574,16 @@ class Dash(ObsoleteChecker):
         self.title = title
 
         # list of dependencies - this one is used by the back end for dispatching
-        self.callback_map = {}
+        self.callback_map: dict = {}
         # same deps as a list to catch duplicate outputs, and to send to the front end
-        self._callback_list = []
+        self._callback_list: list = []
+        self.callback_api_paths: dict = {}
 
         # list of inline scripts
-        self._inline_scripts = []
+        self._inline_scripts: list = []
 
         # index_string has special setter so can't go in config
-        self._index_string = ""
+        self._index_string: str = ""
         self.index_string = index_string
         self._favicon = None
 
@@ -584,10 +594,10 @@ class Dash(ObsoleteChecker):
         self.css = Css(serve_locally)
         self.scripts = Scripts(serve_locally, eager_loading)
 
-        self.registered_paths = collections.defaultdict(set)
+        self.registered_paths: Any = collections.defaultdict(set)
 
         # urls
-        self.routes = []
+        self.routes: Any = []
 
         self._layout = None
         self._layout_is_function = False
@@ -605,7 +615,7 @@ class Dash(ObsoleteChecker):
             changed_assets=[],
         )
 
-        self._assets_files = []
+        self._assets_files: list = []
 
         self._background_manager = background_callback_manager
 
@@ -637,6 +647,8 @@ class Dash(ObsoleteChecker):
             )
         self.setup_startup_routes()
 
+        self._plotly_cloud = None
+
     def _setup_hooks(self):
         # pylint: disable=import-outside-toplevel,protected-access
         from ._hooks import HooksManager
@@ -648,7 +660,7 @@ class Dash(ObsoleteChecker):
             setup(self)
 
         for hook in self._hooks.get_hooks("callback"):
-            callback_args, callback_kwargs = hook.data
+            callback_args, callback_kwargs = hook.data  # type: ignore
             self.callback(*callback_args, **callback_kwargs)(hook.func)
 
         for (
@@ -703,7 +715,7 @@ class Dash(ObsoleteChecker):
         if config.compress:
             try:
                 # pylint: disable=import-outside-toplevel
-                from flask_compress import Compress  # type: ignore[reportMissingImports]
+                from flask_compress import Compress  # type: ignore
 
                 # gzip
                 Compress(self.server)
@@ -765,6 +777,8 @@ class Dash(ObsoleteChecker):
             self._add_url("_dash-update-component", self.dispatch, ["POST"])
         self._add_url("_reload-hash", self.serve_reload_hash)
         self._add_url("_favicon.ico", self._serve_default_favicon)
+        if self.config.health_endpoint is not None:
+            self._add_url(self.config.health_endpoint, self.serve_health)
         self._add_url("", self.index)
 
         if jupyter_dash.active:
@@ -773,14 +787,66 @@ class Dash(ObsoleteChecker):
             )
 
         for hook in self._hooks.get_hooks("routes"):
-            self._add_url(hook.data["name"], hook.func, hook.data["methods"])
+            self._add_url(
+                hook.data["name"],
+                with_app_context_factory(hook.func, self),
+                hook.data["methods"],
+            )
 
         # catch-all for front-end routes, used by dcc.Location
         self._add_url("<path:path>", self.index)
 
+    def setup_apis(self):
+        """
+        Register API endpoints for all callbacks defined using `dash.callback`.
+
+        This method must be called after all callbacks are registered and before the app is served.
+        It ensures that all callback API routes are available for the Dash app to function correctly.
+
+        Typical usage:
+            app = Dash(__name__)
+            # Register callbacks here
+            app.setup_apis()
+            app.run()
+
+        If not called, callback endpoints will not be available and the app will not function as expected.
+        """
+        for k in list(_callback.GLOBAL_API_PATHS):
+            if k in self.callback_api_paths:
+                raise DuplicateCallback(
+                    f"The callback `{k}` provided with `dash.callback` was already "
+                    "assigned with `app.callback`."
+                )
+            self.callback_api_paths[k] = _callback.GLOBAL_API_PATHS.pop(k)
+
+        def make_parse_body(func):
+            def _parse_body():
+                if flask.request.is_json:
+                    data = flask.request.get_json()
+                    return flask.jsonify(func(**data))
+                return flask.jsonify({})
+
+            return _parse_body
+
+        def make_parse_body_async(func):
+            async def _parse_body_async():
+                if flask.request.is_json:
+                    data = flask.request.get_json()
+                    result = await func(**data)
+                    return flask.jsonify(result)
+                return flask.jsonify({})
+
+            return _parse_body_async
+
+        for path, func in self.callback_api_paths.items():
+            if inspect.iscoroutinefunction(func):
+                self._add_url(path, make_parse_body_async(func), ["POST"])
+            else:
+                self._add_url(path, make_parse_body(func), ["POST"])
+
     def _setup_plotlyjs(self):
         # pylint: disable=import-outside-toplevel
-        from plotly.offline import get_plotlyjs_version
+        from plotly.offline import get_plotlyjs_version  # type: ignore[import-untyped]
 
         url = f"https://cdn.plot.ly/plotly-{get_plotlyjs_version()}.min.js"
 
@@ -840,6 +906,7 @@ class Dash(ObsoleteChecker):
         _validate.validate_index("index string", checks, value)
         self._index_string = value
 
+    @with_app_context
     def serve_layout(self):
         layout = self._layout_value()
 
@@ -871,6 +938,20 @@ class Dash(ObsoleteChecker):
             "ddk_version": ddk_version,
             "plotly_version": plotly_version,
         }
+        if self._plotly_cloud is None:
+            if os.getenv("DASH_ENTERPRISE_ENV") == "WORKSPACE":
+                # Disable the placeholder button on workspace.
+                self._plotly_cloud = True
+            else:
+                try:
+                    # pylint: disable=C0415,W0611
+                    import plotly_cloud  # type: ignore  # noqa: F401
+
+                    self._plotly_cloud = True
+                except ImportError:
+                    self._plotly_cloud = False
+
+        config["plotly_cloud_installed"] = self._plotly_cloud
         if not self.config.serve_locally:
             config["plotlyjs_url"] = self._plotlyjs_url
         if self._dev_tools.hot_reload:
@@ -920,6 +1001,13 @@ class Dash(ObsoleteChecker):
             }
         )
 
+    def serve_health(self):
+        """
+        Health check endpoint for monitoring Dash server status.
+        Returns a simple "OK" response with HTTP 200 status.
+        """
+        return flask.Response("OK", status=200, mimetype="text/plain")
+
     def get_dist(self, libraries: Sequence[str]) -> list:
         dists = []
         for dist_type in ("_js_dist", "_css_dist"):
@@ -929,7 +1017,10 @@ class Dash(ObsoleteChecker):
                 dists.append(dict(type=dist_type, url=src))
         return dists
 
-    def _collect_and_register_resources(self, resources, include_async=True):
+    # pylint: disable=too-many-branches
+    def _collect_and_register_resources(
+        self, resources, include_async=True, url_attr="src"
+    ):
         # now needs the app context.
         # template in the necessary component suite JS bundles
         # add the version number of the package as a query parameter
@@ -973,35 +1064,44 @@ class Dash(ObsoleteChecker):
                     self.registered_paths[resource["namespace"]].add(rel_path)
 
                     if not is_dynamic_resource and not excluded:
-                        srcs.append(
-                            _relative_url_path(
-                                relative_package_path=rel_path,
-                                namespace=resource["namespace"],
-                            )
+                        url = _relative_url_path(
+                            relative_package_path=rel_path,
+                            namespace=resource["namespace"],
                         )
+                        if "attributes" in resource:
+                            srcs.append({url_attr: url, **resource["attributes"]})
+                        else:
+                            srcs.append(url)
             elif "external_url" in resource:
                 if not is_dynamic_resource and not excluded:
-                    if isinstance(resource["external_url"], str):
-                        srcs.append(resource["external_url"])
-                    else:
-                        srcs += resource["external_url"]
+                    urls = (
+                        [resource["external_url"]]
+                        if isinstance(resource["external_url"], str)
+                        else resource["external_url"]
+                    )
+                    for url in urls:
+                        if "attributes" in resource:
+                            srcs.append({url_attr: url, **resource["attributes"]})
+                        else:
+                            srcs.append(url)
             elif "absolute_path" in resource:
                 raise Exception("Serving files from absolute_path isn't supported yet")
             elif "asset_path" in resource:
                 static_url = self.get_asset_url(resource["asset_path"])
+                url_with_cache = static_url + f"?m={resource['ts']}"
                 # Import .mjs files with type=module script tag
                 if static_url.endswith(".mjs"):
-                    srcs.append(
-                        {
-                            "src": static_url
-                            + f"?m={resource['ts']}",  # Add a cache-busting query param
-                            "type": "module",
-                        }
-                    )
+                    attrs = {url_attr: url_with_cache, "type": "module"}
+                    if "attributes" in resource:
+                        attrs.update(resource["attributes"])
+                    srcs.append(attrs)
                 else:
-                    srcs.append(
-                        static_url + f"?m={resource['ts']}"
-                    )  # Add a cache-busting query param
+                    if "attributes" in resource:
+                        srcs.append(
+                            {url_attr: url_with_cache, **resource["attributes"]}
+                        )
+                    else:
+                        srcs.append(url_with_cache)
 
         return srcs
 
@@ -1010,7 +1110,8 @@ class Dash(ObsoleteChecker):
         external_links = self.config.external_stylesheets
         links = self._collect_and_register_resources(
             self.css.get_all_css()
-            + self.css._resources._filter_resources(self._hooks.hooks._css_dist)
+            + self.css._resources._filter_resources(self._hooks.hooks._css_dist),
+            url_attr="href",
         )
 
         return "\n".join(
@@ -1058,7 +1159,7 @@ class Dash(ObsoleteChecker):
                     html._js_dist, dev_bundles=dev
                 )
                 + self.scripts._resources._filter_resources(
-                    dash_table._js_dist, dev_bundles=dev
+                    dash_table._js_dist, dev_bundles=dev  # type: ignore
                 )
                 + self.scripts._resources._filter_resources(
                     self._hooks.hooks._js_dist, dev_bundles=dev
@@ -1143,6 +1244,7 @@ class Dash(ObsoleteChecker):
 
         return response
 
+    @with_app_context
     def index(self, *args, **kwargs):  # pylint: disable=unused-argument
         scripts = self._generate_scripts_html()
         css = self._generate_css_dist_html()
@@ -1256,6 +1358,7 @@ class Dash(ObsoleteChecker):
             app_entry=app_entry,
         )
 
+    @with_app_context
     def dependencies(self):
         return flask.Response(
             to_json(self._callback_list),
@@ -1356,6 +1459,7 @@ class Dash(ObsoleteChecker):
             config_prevent_initial_callbacks=self.config.prevent_initial_callbacks,
             callback_list=self._callback_list,
             callback_map=self.callback_map,
+            callback_api_paths=self.callback_api_paths,
             **_kwargs,
         )
 
@@ -1464,6 +1568,7 @@ class Dash(ObsoleteChecker):
         )
         return partial_func
 
+    @with_app_context_async
     async def async_dispatch(self):
         body = flask.request.get_json()
         g = self._initialize_context(body)
@@ -1483,6 +1588,7 @@ class Dash(ObsoleteChecker):
         g.dash_response.set_data(response_data)
         return g.dash_response
 
+    @with_app_context
     def dispatch(self):
         body = flask.request.get_json()
         g = self._initialize_context(body)
@@ -1506,6 +1612,7 @@ class Dash(ObsoleteChecker):
     def _setup_server(self):
         if self._got_first_request["setup_server"]:
             return
+
         self._got_first_request["setup_server"] = True
 
         # Apply _force_eager_loading overrides from modules
@@ -1540,6 +1647,16 @@ class Dash(ObsoleteChecker):
             self.callback_map[k] = _callback.GLOBAL_CALLBACK_MAP.pop(k)
 
         self._callback_list.extend(_callback.GLOBAL_CALLBACK_LIST)
+
+        # For each callback function, if the hidden parameter uses the default value None,
+        # replace it with the actual value of the self.config.hide_all_callbacks.
+        self._callback_list = [
+            {**_callback, "hidden": self.config.get("hide_all_callbacks", False)}
+            if _callback.get("hidden") is None
+            else _callback
+            for _callback in self._callback_list
+        ]
+
         _callback.GLOBAL_CALLBACK_LIST.clear()
 
         _validate.validate_background_callbacks(self.callback_map)
@@ -1833,7 +1950,11 @@ class Dash(ObsoleteChecker):
         Initialize the startup routes stored in STARTUP_ROUTES.
         """
         for _name, _view_func, _methods in self.STARTUP_ROUTES:
-            self._add_url(f"_dash_startup_route/{_name}", _view_func, _methods)
+            self._add_url(
+                f"_dash_startup_route/{_name}",
+                with_app_context_factory(_view_func, self),
+                _methods,
+            )
         self.STARTUP_ROUTES = []
 
     def _setup_dev_tools(self, **kwargs):
@@ -1869,7 +1990,7 @@ class Dash(ObsoleteChecker):
 
         return dev_tools
 
-    def enable_dev_tools(
+    def enable_dev_tools(  # pylint: disable=too-many-branches
         self,
         debug: Optional[bool] = None,
         dev_tools_ui: Optional[bool] = None,
@@ -1984,10 +2105,10 @@ class Dash(ObsoleteChecker):
             _reload = self._hot_reload
             _reload.hash = generate_hash()
 
-            # find_loader should return None on __main__ but doesn't
+            # find_spec should return None on __main__ but doesn't
             # on some Python versions https://bugs.python.org/issue14710
             packages = [
-                pkgutil.find_loader(x)
+                find_spec(x)
                 for x in list(ComponentRegistry.registry)
                 if x != "__main__"
             ]
@@ -2001,31 +2122,53 @@ class Dash(ObsoleteChecker):
                 )
 
                 for index, package in enumerate(packages):
-                    if isinstance(package, AssertionRewritingHook):
+                    if package and isinstance(package.loader, AssertionRewritingHook):
                         dash_spec = importlib.util.find_spec("dash")  # type: ignore[reportAttributeAccess]
-                        dash_test_path = dash_spec.submodule_search_locations[0]
-                        setattr(dash_spec, "path", dash_test_path)
                         packages[index] = dash_spec
 
-            component_packages_dist = [
-                dash_test_path  # type: ignore[reportPossiblyUnboundVariable]
-                if isinstance(package, ModuleSpec)
-                else os.path.dirname(package.path)  # type: ignore[reportAttributeAccessIssue]
-                if hasattr(package, "path")
-                else os.path.dirname(
-                    package._path[0]  # type: ignore[reportAttributeAccessIssue]; pylint: disable=protected-access
-                )
-                if hasattr(package, "_path")
-                else package.filename  # type: ignore[reportAttributeAccessIssue]
-                for package in packages
-            ]
+            component_packages_dist = []
+            for package in packages:
+                if package and isinstance(package, ModuleSpec):
+                    # For ModuleSpec objects, use submodule_search_locations or origin
+                    if package.submodule_search_locations:
+                        component_packages_dist.append(
+                            package.submodule_search_locations[0]
+                        )
+                    elif package.origin:
+                        component_packages_dist.append(os.path.dirname(package.origin))
+                    else:
+                        component_packages_dist.append("")
+                else:
+                    # Fallback for non-ModuleSpec objects (shouldn't happen with find_spec)
+                    if hasattr(package, "path"):
+                        component_packages_dist.append(os.path.dirname(package.path))  # type: ignore
+                    elif hasattr(package, "_path"):
+                        component_packages_dist.append(os.path.dirname(package._path[0]))  # type: ignore # pylint: disable=protected-access
+                    elif hasattr(package, "filename"):
+                        component_packages_dist.append(package.filename)  # type: ignore
+                    else:
+                        component_packages_dist.append("")
 
             for i, package in enumerate(packages):
-                if hasattr(package, "path") and "dash/dash" in os.path.dirname(
-                    package.path  # type: ignore[reportAttributeAccessIssue]
+                if package and isinstance(package, ModuleSpec):
+                    # Check origin for ModuleSpec objects
+                    pkg_dir = (
+                        package.submodule_search_locations[0]
+                        if package.submodule_search_locations
+                        else os.path.dirname(package.origin)
+                        if package.origin
+                        else None
+                    )
+                    if pkg_dir and "dash/dash" in pkg_dir:
+                        component_packages_dist[i : i + 1] = [
+                            os.path.join(pkg_dir, x)
+                            for x in ["dcc", "html", "dash_table"]
+                        ]
+                elif hasattr(package, "path") and "dash/dash" in os.path.dirname(
+                    package.path  # type: ignore[union-attr]
                 ):
                     component_packages_dist[i : i + 1] = [
-                        os.path.join(os.path.dirname(package.path), x)  # type: ignore[reportAttributeAccessIssue]
+                        os.path.join(os.path.dirname(package.path), x)  # type: ignore[union-attr]
                         for x in ["dcc", "html", "dash_table"]
                     ]
 
@@ -2161,6 +2304,7 @@ class Dash(ObsoleteChecker):
         port: Optional[Union[str, int]] = None,
         proxy: Optional[str] = None,
         debug: Optional[bool] = None,
+        hide_all_callbacks: bool = False,
         jupyter_mode: Optional[JupyterDisplayMode] = None,
         jupyter_width: str = "100%",
         jupyter_height: int = 650,
@@ -2208,6 +2352,14 @@ class Dash(ObsoleteChecker):
             ``enable_dev_tools`` is called directly, and ``False`` when called
             via ``run``. env: ``DASH_DEBUG``
         :type debug: bool
+
+        :param hide_all_callbacks: Default ``False``: Sets the default value of
+            ``hidden`` for all callbacks added to the app. Normally all callbacks
+            are visible in the devtools callbacks tab. You can set this for
+            individual callbacks by setting ``hidden`` in their definitions, or set
+            it ``True`` here in which case you must explicitly set it ``False`` for
+            those callbacks you wish to remain visible in the devtools callbacks tab.
+        :type hide_all_callbacks: bool
 
         :param dev_tools_ui: Show the dev tools UI. env: ``DASH_UI``
         :type dev_tools_ui: bool
@@ -2275,6 +2427,10 @@ class Dash(ObsoleteChecker):
 
         :return:
         """
+
+        # Update self.config.hide_all_callbacks
+        self.config.update({"hide_all_callbacks": hide_all_callbacks})
+
         if debug is None:
             debug = get_combined_config("debug", None, False)
 
@@ -2306,7 +2462,7 @@ class Dash(ObsoleteChecker):
 
         # Verify port value
         try:
-            port = int(port)
+            port = int(port)  # type: ignore
             assert port in range(1, 65536)
         except Exception as e:
             e.args = (f"Expecting an integer from 1 to 65535, found port={repr(port)}",)
@@ -2397,6 +2553,7 @@ class Dash(ObsoleteChecker):
                     Output(_ID_STORE, "data"),
                     inputs=inputs,
                     prevent_initial_call=True,
+                    hidden=True,
                 )
                 async def update(pathname_, search_, **states):
                     """
@@ -2463,6 +2620,7 @@ class Dash(ObsoleteChecker):
                     Output(_ID_STORE, "data"),
                     inputs=inputs,
                     prevent_initial_call=True,
+                    hidden=True,
                 )
                 def update(pathname_, search_, **states):
                     """

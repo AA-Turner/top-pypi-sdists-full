@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect
@@ -17,12 +17,17 @@ class JobQueue(System.Object, QuantConnect.Interfaces.IJobQueueHandler):
         """
         This property is protected for testing purposes
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
     def acknowledge_job(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """Desktop/Local acknowledge the task processed. Nothing to do."""
+        """
+        Desktop/Local acknowledge the task processed. Nothing to do.
+        
+        :param job: 
+        """
         ...
 
     @staticmethod
@@ -30,6 +35,7 @@ class JobQueue(System.Object, QuantConnect.Interfaces.IJobQueueHandler):
         """
         Gets Brokerage Factory for provided IDQH
         
+        :param data_queue_handler: 
         :returns: An Instance of Brokerage Factory if possible, otherwise null.
         """
         ...

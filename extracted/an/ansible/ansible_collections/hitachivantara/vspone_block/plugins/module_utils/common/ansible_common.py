@@ -403,6 +403,70 @@ def convert_to_mb(value):
         )
 
 
+def convert_capacity_to_mib(size: str) -> int:
+    """
+    Convert size string (e.g., '1TB', '500GB', '120MB', '10GiB') to MiB.
+
+    Supports both decimal (MB, GB, TB) and binary (MiB, GiB, TiB) units.
+
+    Args:
+        size (str): Size string with unit.
+
+    Returns:
+        int: Equivalent size in MiB (rounded).
+    """
+    size = size.strip().upper()
+
+    # Extract numeric part
+    num = ""
+    for ch in size:
+        if ch.isdigit() or ch == ".":  # allow decimals too
+            num += ch
+        else:
+            break
+
+    if not num:
+        raise ValueError("No numeric value found in input")
+
+    value = float(num)
+    unit = size[len(num) :].strip()
+    if not unit:
+        unit = "MB"
+
+    # Multipliers in bytes
+    multipliers = {
+        "MB": 1024**2,
+        "GB": 1024**3,
+        "TB": 1024**4,
+        "MIB": 1024**2,
+        "GIB": 1024**3,
+        "TIB": 1024**4,
+    }
+
+    if unit not in multipliers:
+        raise ValueError(f"Unit must be one of: {', '.join(multipliers.keys())}")
+
+    # Convert to bytes
+    bytes_value = value * multipliers[unit]
+
+    # Convert to MiB
+    return round(bytes_value / (1024**2))
+
+
+def convert_mib_to_mb(mib: int) -> str:
+    """
+    Convert MiB (binary) to MB (decimal).
+    Returns string with MB unit.
+    """
+    # 1 MiB = 1,048,576 bytes
+    bytes_value = mib * 1024 * 1024
+
+    # Convert bytes → MB (1 MB = 1,000,000 bytes)
+    # value = round(bytes_value / 1_000_000)
+
+    return bytes_value  # f"{value}MB"
+
+
 def check_range(arr, lower_bound, upper_bound):
     return all(lower_bound <= x <= upper_bound for x in arr)
 
@@ -447,3 +511,133 @@ def unzip_targz(file_path, extract_path):
         raise Exception(f"Error reading tar.gz file: {e}")
     except Exception as e:
         raise Exception(f"An unexpected error occurred: {e}")
+
+
+# def to_integer(num):
+#     """
+#     Convert input to integer.
+#     Accepts:
+#       - int (e.g., 42)
+#       - hex string (e.g., '0x2A')
+#       - hex literal (e.g., 0x2A)
+
+#     :param num: int, str, or hex literal
+#     :return: integer value
+#     """
+#     if isinstance(num, str) and num.startswith(("0x", "0X")):
+#         return int(num, 16)
+#     elif isinstance(num, int):
+#         return num
+#     else:
+#         raise ValueError("Input must be an integer, hex string like '0x1A', or hex literal.")
+
+
+def to_integer(num):
+    """
+    Convert input to integer.
+    Accepts:
+      - int (e.g., 42)
+      - decimal string (e.g., '42')
+      - colon-separated hex string (e.g., '1A:2B:3C')
+
+    The colon-separated hex string is treated as a sequence of bytes,
+    concatenated into a single hex value.
+    Example: '01:02' -> 0x0102 -> 258
+    """
+    if isinstance(num, int):
+        return num
+    elif isinstance(num, str):
+        num = num.strip()
+        if ":" in num:  # hex in format xx:xx:xx
+            hex_str = num.replace(":", "")
+            return int(hex_str, 16)
+        else:  # plain decimal string
+            return int(num)
+    else:
+        raise ValueError(f"Unsupported type for to_integer: {type(num)}")
+
+
+def normalize_ldev_id(ldev_id):
+    """
+    Normalize ldev_id in spec to always be an integer.
+    Handles:
+      - int (42)
+      - decimal string ('42')
+      - colon-separated hex string ('1A:2B:3C')
+    """
+    # ldev_id = spec.get("ldev_id")
+
+    if isinstance(ldev_id, int):
+        return ldev_id
+
+    if isinstance(ldev_id, str):
+        ldev_id = ldev_id.strip()
+        try:
+            if ":" in ldev_id:  # hex in format xx:xx:xx
+                hex_str = ldev_id.replace(":", "")
+                return int(hex_str, 16)
+            else:  # decimal string
+                return int(ldev_id)
+        except ValueError:
+            raise ValueError(f"Invalid ldev_id format: {ldev_id}")
+
+    raise TypeError(f"Unsupported ldev_id type: {type(ldev_id)}")
+
+
+def mask_token(token: str, n: int = 12) -> str:
+    """
+    Mask a token string (UUID-like), showing only the last n hex digits (excluding dashes).
+    Dashes remain in their original positions.
+
+    Args:
+        token (str): The token string (with dashes).
+        n (int, optional): Number of hex digits to leave unmasked at the end. Default is 12.
+
+    Returns:
+        str: The masked token string.
+    """
+    if token is None:
+        return None
+
+    # Extract only hex characters (ignore dashes)
+    hex_chars = [c for c in token if c != "-"]
+
+    # Ensure n is not larger than total hex digits (32 for UUID-style tokens)
+    n = min(n, len(hex_chars))
+
+    # Mask all but last n hex digits
+    masked_hex = ["X"] * (len(hex_chars) - n) + hex_chars[-n:]
+
+    # Reinsert dashes in original positions
+    result = []
+    hex_index = 0
+    for c in token:
+        if c == "-":
+            result.append("-")
+        else:
+            result.append(masked_hex[hex_index])
+            hex_index += 1
+
+    return "".join(result)
+
+
+def match_value_with_case_insensitive(value: str, choices: list) -> bool:
+    """
+    Validate if a given string matches any enum member name (case-insensitive).
+    Returns:
+        bool: True if a match is found, False otherwise.
+    """
+    matched = any(value.lower() == choice.lower() for choice in choices)
+    return matched
+
+
+def convert_keys_to_snake_case(obj):
+    if isinstance(obj, dict):
+        return {
+            camel_to_snake_case(k): convert_keys_to_snake_case(v)
+            for k, v in obj.items()
+        }
+    elif isinstance(obj, list):
+        return [convert_keys_to_snake_case(item) for item in obj]
+    else:
+        return obj

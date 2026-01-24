@@ -13,6 +13,7 @@ from legit_api_client.api.dependencies_v2_api import DependenciesV2Api
 from legit_api_client.api.integrations_api import IntegrationsApi
 from legit_api_client.api.issues_api import IssuesApi
 from legit_api_client.api.issues_v2_api import IssuesV2Api
+from legit_api_client.api.models_api import ModelsApi
 from legit_api_client.api.policies_api import PoliciesApi
 from legit_api_client.api.product_units_api import ProductUnitsApi
 from legit_api_client.api.repositories_api import RepositoriesApi

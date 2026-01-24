@@ -37,6 +37,8 @@ class ProductionJobConfig(object):
         'ray_serve_config': 'object',
         'runtime_env': 'RayRuntimeEnvConfig',
         'build_id': 'str',
+        'image_uri': 'str',
+        'registry_login_secret': 'str',
         'compute_config_id': 'str',
         'compute_config': 'CreateClusterComputeConfig',
         'max_retries': 'int',
@@ -49,6 +51,8 @@ class ProductionJobConfig(object):
         'ray_serve_config': 'ray_serve_config',
         'runtime_env': 'runtime_env',
         'build_id': 'build_id',
+        'image_uri': 'image_uri',
+        'registry_login_secret': 'registry_login_secret',
         'compute_config_id': 'compute_config_id',
         'compute_config': 'compute_config',
         'max_retries': 'max_retries',
@@ -56,7 +60,7 @@ class ProductionJobConfig(object):
         'runtime_env_config': 'runtime_env_config'
     }
 
-    def __init__(self, entrypoint='', ray_serve_config=None, runtime_env=None, build_id=None, compute_config_id=None, compute_config=None, max_retries=5, timeout_s=None, runtime_env_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, entrypoint='', ray_serve_config=None, runtime_env=None, build_id=None, image_uri=None, registry_login_secret=None, compute_config_id=None, compute_config=None, max_retries=5, timeout_s=None, runtime_env_config=None, local_vars_configuration=None):  # noqa: E501
         """ProductionJobConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,6 +70,8 @@ class ProductionJobConfig(object):
         self._ray_serve_config = None
         self._runtime_env = None
         self._build_id = None
+        self._image_uri = None
+        self._registry_login_secret = None
         self._compute_config_id = None
         self._compute_config = None
         self._max_retries = None
@@ -80,6 +86,10 @@ class ProductionJobConfig(object):
         if runtime_env is not None:
             self.runtime_env = runtime_env
         self.build_id = build_id
+        if image_uri is not None:
+            self.image_uri = image_uri
+        if registry_login_secret is not None:
+            self.registry_login_secret = registry_login_secret
         self.compute_config_id = compute_config_id
         if compute_config is not None:
             self.compute_config = compute_config
@@ -183,6 +193,52 @@ class ProductionJobConfig(object):
             raise ValueError("Invalid value for `build_id`, must not be `None`")  # noqa: E501
 
         self._build_id = build_id
+
+    @property
+    def image_uri(self):
+        """Gets the image_uri of this ProductionJobConfig.  # noqa: E501
+
+        The image URI of the container in which the job will run. Can be an Anyscale image (anyscale/ray:*), cluster environment image (anyscale/image/*), or a BYOD image from an external registry. Either build_id or image_uri must be provided.  # noqa: E501
+
+        :return: The image_uri of this ProductionJobConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._image_uri
+
+    @image_uri.setter
+    def image_uri(self, image_uri):
+        """Sets the image_uri of this ProductionJobConfig.
+
+        The image URI of the container in which the job will run. Can be an Anyscale image (anyscale/ray:*), cluster environment image (anyscale/image/*), or a BYOD image from an external registry. Either build_id or image_uri must be provided.  # noqa: E501
+
+        :param image_uri: The image_uri of this ProductionJobConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._image_uri = image_uri
+
+    @property
+    def registry_login_secret(self):
+        """Gets the registry_login_secret of this ProductionJobConfig.  # noqa: E501
+
+        The name or identifier of a secret containing credentials to authenticate to the docker registry hosting the image. Only used with image_uri for BYOD images from external registries.  # noqa: E501
+
+        :return: The registry_login_secret of this ProductionJobConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._registry_login_secret
+
+    @registry_login_secret.setter
+    def registry_login_secret(self, registry_login_secret):
+        """Sets the registry_login_secret of this ProductionJobConfig.
+
+        The name or identifier of a secret containing credentials to authenticate to the docker registry hosting the image. Only used with image_uri for BYOD images from external registries.  # noqa: E501
+
+        :param registry_login_secret: The registry_login_secret of this ProductionJobConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._registry_login_secret = registry_login_secret
 
     @property
     def compute_config_id(self):

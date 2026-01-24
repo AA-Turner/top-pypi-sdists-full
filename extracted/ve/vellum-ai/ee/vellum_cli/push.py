@@ -63,7 +63,18 @@ def push_command(
             config.workflows.append(new_config)
             workflow_configs = [new_config]
         elif not module:
-            raise ValueError("No Workflows found in project to push.")
+            handle_cli_error(
+                logger,
+                title="No workflows found in project to push",
+                message="No workflow configurations were found in vellum.lock.json.",
+                suggestion="If you pulled a workflow with a specific sandbox ID"
+                "(e.g., vellum workflows pull --workflow-sandbox-id=<id>), "
+                "you should push without specifying a different sandbox ID:\n\n"
+                "  vellum workflows push\n\n"
+                "Or, if you want to push to a specific module:\n\n"
+                "  vellum workflows push --module=<module-name>",
+            )
+            return
         else:
             raise ValueError(f"No workflow config for '{module}' found in project to push.")
 
@@ -77,11 +88,20 @@ def push_command(
 
     logger.info(f"Loading workflow from {workflow_config.module}")
     resolved_workspace = workspace or workflow_config.workspace or DEFAULT_WORKSPACE_CONFIG.name
-    workspace_config = (
-        next((w for w in config.workspaces if w.name == resolved_workspace), DEFAULT_WORKSPACE_CONFIG)
-        if workspace
-        else DEFAULT_WORKSPACE_CONFIG
-    )
+    workspace_config = next((w for w in config.workspaces if w.name == resolved_workspace), None)
+
+    if workspace_config is None:
+        if resolved_workspace == DEFAULT_WORKSPACE_CONFIG.name:
+            workspace_config = DEFAULT_WORKSPACE_CONFIG
+        else:
+            available_workspaces = sorted(set([w.name for w in config.workspaces] + [DEFAULT_WORKSPACE_CONFIG.name]))
+            handle_cli_error(
+                logger,
+                title=f"Workspace '{resolved_workspace}' not found in config",
+                message=f"Available workspaces: {', '.join(available_workspaces)}",
+            )
+            return
+
     api_key = os.getenv(workspace_config.api_key)
     if not api_key:
         raise ValueError(f"No API key value found in environment for workspace '{workspace_config.name}'.")
@@ -110,13 +130,25 @@ def push_command(
     )
     sys.path.insert(0, os.getcwd())
 
-    # Remove this once we could serialize using the artifact in Vembda
-    # https://app.shortcut.com/vellum/story/5585
-    serialization_result = BaseWorkflowDisplay.serialize_module(
-        workflow_config.module,
-        client=client,
-        dry_run=dry_run or False,
-    )
+    try:
+        serialization_result = BaseWorkflowDisplay.serialize_module(
+            workflow_config.module,
+            client=client,
+            dry_run=dry_run or False,
+        )
+    except ValidationError as e:
+        handle_cli_error(
+            logger,
+            title=f"Validation error while trying to push {workflow_config.module}",
+            message=str(e),
+        )
+    except Exception as e:
+        handle_cli_error(
+            logger,
+            title=f"Error while trying to push {workflow_config.module}",
+            message=str(e),
+        )
+
     exec_config = serialization_result.exec_config
 
     container_tag = workflow_config.container_image_tag
@@ -124,7 +156,8 @@ def push_command(
         container_tag = "latest"
 
     exec_config["runner_config"] = {
-        "sdk_version": metadata.version("vellum-ai"),
+        "sdk_version": metadata.version("vellum-ai"),  # Deprecated in favor of codegen_version
+        "codegen_version": metadata.version("vellum-ai"),
         "container_image_tag": container_tag,
         "container_image_name": workflow_config.container_image_name,
     }
@@ -168,7 +201,7 @@ def push_command(
         module_dir = workflow_config.module.replace(".", os.path.sep)
         for root, _, files in os.walk(module_dir):
             for filename in files:
-                if not filename.endswith(".py"):
+                if not BaseWorkflowDisplay.should_include_file(filename):
                     continue
 
                 file_path = os.path.join(root, filename)
@@ -185,20 +218,41 @@ def push_command(
     artifact.seek(0)
     artifact.name = f"{workflow_config.module.replace('.', '__')}.tar.gz"
 
+    provided_id = workflow_config.workflow_sandbox_id or workflow_sandbox_id
+
+    dataset_serialized = json.dumps(serialization_result.dataset) if serialization_result.dataset else OMIT
+
     try:
         response = client.workflows.push(
-            # Remove this once we could serialize using the artifact in Vembda
-            # https://app.shortcut.com/vellum/story/5585
             exec_config=json.dumps(exec_config),
-            workflow_sandbox_id=workflow_config.workflow_sandbox_id or workflow_sandbox_id,
+            workflow_sandbox_id=provided_id,
             artifact=artifact,
             # We should check with fern if we could auto-serialize typed object fields for us
             # https://app.shortcut.com/vellum/story/5568
             deployment_config=deployment_config_serialized,  # type: ignore[arg-type]
+            dataset=dataset_serialized,  # type: ignore[arg-type]
             dry_run=dry_run,
             strict=strict,
         )
     except ApiError as e:
+        if e.status_code == 404:
+            if provided_id:
+                handle_cli_error(
+                    logger,
+                    title="Workflow Sandbox not found",
+                    message=f"Could not find Workflow Sandbox with ID '{provided_id}' "
+                    f"in workspace '{resolved_workspace}'.",
+                )
+            else:
+                error_detail = e.body.get("detail") if isinstance(e.body, dict) else None
+                default_message = "The `/workflows/push` endpoint failed with a 404 response."
+                handle_cli_error(
+                    logger,
+                    title="Workflow Sandbox not found",
+                    message=error_detail or default_message,
+                )
+            return
+
         if e.status_code == 400 and isinstance(e.body, dict) and "diffs" in e.body:
             diffs: dict = e.body["diffs"]
             generated_only = diffs.get("generated_only", [])
@@ -250,7 +304,7 @@ def push_command(
         raise e
 
     if dry_run:
-        error_messages = serialization_result.errors
+        error_messages = [error.message for error in serialization_result.errors]
         error_message = "\n".join(error_messages) if error_messages else "No errors found."
         logger.info(
             f"""\

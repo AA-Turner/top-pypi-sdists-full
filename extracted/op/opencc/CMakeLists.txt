@@ -21,6 +21,7 @@ cmake_minimum_required(VERSION 3.5)
 set (PACKAGE_NAME opencc)
 project (${PACKAGE_NAME} CXX)
 include (CTest)
+include(GNUInstallDirs)
 
 ######## Options
 option(BUILD_DOCUMENTATION "Use Doxygen to create the HTML based API documentation" OFF)
@@ -41,8 +42,8 @@ option(USE_SYSTEM_TCLAP "Use system version of TCLAP" OFF)
 set (PACKAGE_URL https://github.com/BYVoid/OpenCC)
 set (PACKAGE_BUGREPORT https://github.com/BYVoid/OpenCC/issues)
 set (OPENCC_VERSION_MAJOR 1)
-set (OPENCC_VERSION_MINOR 1)
-set (OPENCC_VERSION_REVISION 9)
+set (OPENCC_VERSION_MINOR 2)
+set (OPENCC_VERSION_REVISION 0)
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
   set (version_suffix .Debug)
@@ -68,15 +69,20 @@ include(CPack)
 #  set(CMAKE_STATIC_LIBRARY_PREFIX ${CMAKE_INSTALL_PREFIX})
 #endif (WIN32)
 
-######## Mac OS X
+######## macOS
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(CMAKE_MACOSX_RPATH 1)
-    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
 ######## Directory
+
+set(LIB_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}" CACHE PATH "")
+if(CMAKE_INSTALL_LIBDIR MATCHES "lib64$")
+  set(LIB_SUFFIX 64)
+endif()
 
 set (DIR_PREFIX ${CMAKE_INSTALL_PREFIX})
 set (DIR_INCLUDE ${DIR_PREFIX}/include)
@@ -152,9 +158,9 @@ add_definitions(
   -DPACKAGE_NAME="${PACKAGE_NAME}"
 )
 
+set(CMAKE_CXX_STANDARD 17) # default C++ version for new target afterward
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   add_definitions(
-    -std=c++14
     -Wall
   )
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
@@ -163,7 +169,6 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   endif ()
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   add_definitions(
-    -std=c++14
     -Wall
   )
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")

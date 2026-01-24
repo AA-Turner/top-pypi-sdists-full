@@ -32,6 +32,8 @@ __all__ = [
     'AnalyticsConfigurationStorageClassAnalysisDataExportDestinationArgsDict',
     'AnalyticsConfigurationStorageClassAnalysisDataExportDestinationS3BucketDestinationArgs',
     'AnalyticsConfigurationStorageClassAnalysisDataExportDestinationS3BucketDestinationArgsDict',
+    'BucketAbacAbacStatusArgs',
+    'BucketAbacAbacStatusArgsDict',
     'BucketAclAccessControlPolicyArgs',
     'BucketAclAccessControlPolicyArgsDict',
     'BucketAclAccessControlPolicyGrantArgs',
@@ -338,6 +340,12 @@ __all__ = [
     'ObjectCopyOverrideProviderDefaultTagsArgsDict',
     'PolicyDocumentArgs',
     'PolicyDocumentArgsDict',
+    'VectorsIndexEncryptionConfigurationArgs',
+    'VectorsIndexEncryptionConfigurationArgsDict',
+    'VectorsIndexMetadataConfigurationArgs',
+    'VectorsIndexMetadataConfigurationArgsDict',
+    'VectorsVectorBucketEncryptionConfigurationArgs',
+    'VectorsVectorBucketEncryptionConfigurationArgsDict',
 ]
 
 MYPY = False
@@ -740,6 +748,43 @@ class AnalyticsConfigurationStorageClassAnalysisDataExportDestinationS3BucketDes
 
 
 if not MYPY:
+    class BucketAbacAbacStatusArgsDict(TypedDict):
+        status: pulumi.Input[_builtins.str]
+        """
+        ABAC status of the general purpose bucket.
+        Valid values are `Enabled` and `Disabled`.
+        By default, ABAC is disabled for all Amazon S3 general purpose buckets.
+        """
+elif False:
+    BucketAbacAbacStatusArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class BucketAbacAbacStatusArgs:
+    def __init__(__self__, *,
+                 status: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] status: ABAC status of the general purpose bucket.
+               Valid values are `Enabled` and `Disabled`.
+               By default, ABAC is disabled for all Amazon S3 general purpose buckets.
+        """
+        pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> pulumi.Input[_builtins.str]:
+        """
+        ABAC status of the general purpose bucket.
+        Valid values are `Enabled` and `Disabled`.
+        By default, ABAC is disabled for all Amazon S3 general purpose buckets.
+        """
+        return pulumi.get(self, "status")
+
+    @status.setter
+    def status(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "status", value)
+
+
+if not MYPY:
     class BucketAclAccessControlPolicyArgsDict(TypedDict):
         owner: pulumi.Input['BucketAclAccessControlPolicyOwnerArgsDict']
         """
@@ -883,6 +928,9 @@ class BucketAclAccessControlPolicyGrantGranteeArgs:
         """
         pulumi.set(__self__, "type", type)
         if display_name is not None:
+            warnings.warn("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""", DeprecationWarning)
+            pulumi.log.warn("""display_name is deprecated: display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
+        if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if email_address is not None:
             pulumi.set(__self__, "email_address", email_address)
@@ -905,6 +953,7 @@ class BucketAclAccessControlPolicyGrantGranteeArgs:
 
     @_builtins.property
     @pulumi.getter(name="displayName")
+    @_utilities.deprecated("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Display name of the owner.
@@ -976,6 +1025,9 @@ class BucketAclAccessControlPolicyOwnerArgs:
         """
         pulumi.set(__self__, "id", id)
         if display_name is not None:
+            warnings.warn("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""", DeprecationWarning)
+            pulumi.log.warn("""display_name is deprecated: display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
+        if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
 
     @_builtins.property
@@ -992,6 +1044,7 @@ class BucketAclAccessControlPolicyOwnerArgs:
 
     @_builtins.property
     @pulumi.getter(name="displayName")
+    @_utilities.deprecated("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Display name of the owner.
@@ -1147,6 +1200,9 @@ class BucketAclV2AccessControlPolicyGrantGranteeArgs:
         """
         pulumi.set(__self__, "type", type)
         if display_name is not None:
+            warnings.warn("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""", DeprecationWarning)
+            pulumi.log.warn("""display_name is deprecated: display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
+        if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if email_address is not None:
             pulumi.set(__self__, "email_address", email_address)
@@ -1169,6 +1225,7 @@ class BucketAclV2AccessControlPolicyGrantGranteeArgs:
 
     @_builtins.property
     @pulumi.getter(name="displayName")
+    @_utilities.deprecated("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Display name of the owner.
@@ -1240,6 +1297,9 @@ class BucketAclV2AccessControlPolicyOwnerArgs:
         """
         pulumi.set(__self__, "id", id)
         if display_name is not None:
+            warnings.warn("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""", DeprecationWarning)
+            pulumi.log.warn("""display_name is deprecated: display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
+        if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
 
     @_builtins.property
@@ -1256,6 +1316,7 @@ class BucketAclV2AccessControlPolicyOwnerArgs:
 
     @_builtins.property
     @pulumi.getter(name="displayName")
+    @_utilities.deprecated("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Display name of the owner.
@@ -1851,8 +1912,6 @@ if not MYPY:
         """
         Configuration block used to identify objects that a Lifecycle Rule applies to.
         See below.
-        If not specified, the `rule` will default to using `prefix`.
-        One of `filter` or `prefix` should be specified.
         """
         noncurrent_version_expiration: NotRequired[pulumi.Input['BucketLifecycleConfigurationRuleNoncurrentVersionExpirationArgsDict']]
         """
@@ -1867,8 +1926,6 @@ if not MYPY:
         **DEPRECATED** Use `filter` instead.
         This has been deprecated by Amazon S3.
         Prefix identifying one or more objects to which the rule applies.
-        Defaults to an empty string (`""`) if `filter` is not specified.
-        One of `prefix` or `filter` should be specified.
         """
         transitions: NotRequired[pulumi.Input[Sequence[pulumi.Input['BucketLifecycleConfigurationRuleTransitionArgsDict']]]]
         """
@@ -1896,15 +1953,11 @@ class BucketLifecycleConfigurationRuleArgs:
         :param pulumi.Input['BucketLifecycleConfigurationRuleExpirationArgs'] expiration: Configuration block that specifies the expiration for the lifecycle of the object in the form of date, days and, whether the object has a delete marker. See below.
         :param pulumi.Input['BucketLifecycleConfigurationRuleFilterArgs'] filter: Configuration block used to identify objects that a Lifecycle Rule applies to.
                See below.
-               If not specified, the `rule` will default to using `prefix`.
-               One of `filter` or `prefix` should be specified.
         :param pulumi.Input['BucketLifecycleConfigurationRuleNoncurrentVersionExpirationArgs'] noncurrent_version_expiration: Configuration block that specifies when noncurrent object versions expire. See below.
         :param pulumi.Input[Sequence[pulumi.Input['BucketLifecycleConfigurationRuleNoncurrentVersionTransitionArgs']]] noncurrent_version_transitions: Set of configuration blocks that specify the transition rule for the lifecycle rule that describes when noncurrent objects transition to a specific storage class. See below.
         :param pulumi.Input[_builtins.str] prefix: **DEPRECATED** Use `filter` instead.
                This has been deprecated by Amazon S3.
                Prefix identifying one or more objects to which the rule applies.
-               Defaults to an empty string (`""`) if `filter` is not specified.
-               One of `prefix` or `filter` should be specified.
         :param pulumi.Input[Sequence[pulumi.Input['BucketLifecycleConfigurationRuleTransitionArgs']]] transitions: Set of configuration blocks that specify when an Amazon S3 object transitions to a specified storage class. See below.
         """
         pulumi.set(__self__, "id", id)
@@ -1981,8 +2034,6 @@ class BucketLifecycleConfigurationRuleArgs:
         """
         Configuration block used to identify objects that a Lifecycle Rule applies to.
         See below.
-        If not specified, the `rule` will default to using `prefix`.
-        One of `filter` or `prefix` should be specified.
         """
         return pulumi.get(self, "filter")
 
@@ -2022,8 +2073,6 @@ class BucketLifecycleConfigurationRuleArgs:
         **DEPRECATED** Use `filter` instead.
         This has been deprecated by Amazon S3.
         Prefix identifying one or more objects to which the rule applies.
-        Defaults to an empty string (`""`) if `filter` is not specified.
-        One of `prefix` or `filter` should be specified.
         """
         return pulumi.get(self, "prefix")
 
@@ -2674,8 +2723,6 @@ if not MYPY:
         """
         Configuration block used to identify objects that a Lifecycle Rule applies to.
         See below.
-        If not specified, the `rule` will default to using `prefix`.
-        One of `filter` or `prefix` should be specified.
         """
         noncurrent_version_expiration: NotRequired[pulumi.Input['BucketLifecycleConfigurationV2RuleNoncurrentVersionExpirationArgsDict']]
         """
@@ -2690,8 +2737,6 @@ if not MYPY:
         **DEPRECATED** Use `filter` instead.
         This has been deprecated by Amazon S3.
         Prefix identifying one or more objects to which the rule applies.
-        Defaults to an empty string (`""`) if `filter` is not specified.
-        One of `prefix` or `filter` should be specified.
         """
         transitions: NotRequired[pulumi.Input[Sequence[pulumi.Input['BucketLifecycleConfigurationV2RuleTransitionArgsDict']]]]
         """
@@ -2719,15 +2764,11 @@ class BucketLifecycleConfigurationV2RuleArgs:
         :param pulumi.Input['BucketLifecycleConfigurationV2RuleExpirationArgs'] expiration: Configuration block that specifies the expiration for the lifecycle of the object in the form of date, days and, whether the object has a delete marker. See below.
         :param pulumi.Input['BucketLifecycleConfigurationV2RuleFilterArgs'] filter: Configuration block used to identify objects that a Lifecycle Rule applies to.
                See below.
-               If not specified, the `rule` will default to using `prefix`.
-               One of `filter` or `prefix` should be specified.
         :param pulumi.Input['BucketLifecycleConfigurationV2RuleNoncurrentVersionExpirationArgs'] noncurrent_version_expiration: Configuration block that specifies when noncurrent object versions expire. See below.
         :param pulumi.Input[Sequence[pulumi.Input['BucketLifecycleConfigurationV2RuleNoncurrentVersionTransitionArgs']]] noncurrent_version_transitions: Set of configuration blocks that specify the transition rule for the lifecycle rule that describes when noncurrent objects transition to a specific storage class. See below.
         :param pulumi.Input[_builtins.str] prefix: **DEPRECATED** Use `filter` instead.
                This has been deprecated by Amazon S3.
                Prefix identifying one or more objects to which the rule applies.
-               Defaults to an empty string (`""`) if `filter` is not specified.
-               One of `prefix` or `filter` should be specified.
         :param pulumi.Input[Sequence[pulumi.Input['BucketLifecycleConfigurationV2RuleTransitionArgs']]] transitions: Set of configuration blocks that specify when an Amazon S3 object transitions to a specified storage class. See below.
         """
         pulumi.set(__self__, "id", id)
@@ -2804,8 +2845,6 @@ class BucketLifecycleConfigurationV2RuleArgs:
         """
         Configuration block used to identify objects that a Lifecycle Rule applies to.
         See below.
-        If not specified, the `rule` will default to using `prefix`.
-        One of `filter` or `prefix` should be specified.
         """
         return pulumi.get(self, "filter")
 
@@ -2845,8 +2884,6 @@ class BucketLifecycleConfigurationV2RuleArgs:
         **DEPRECATED** Use `filter` instead.
         This has been deprecated by Amazon S3.
         Prefix identifying one or more objects to which the rule applies.
-        Defaults to an empty string (`""`) if `filter` is not specified.
-        One of `prefix` or `filter` should be specified.
         """
         return pulumi.get(self, "prefix")
 
@@ -4031,6 +4068,9 @@ class BucketLoggingTargetGrantGranteeArgs:
         """
         pulumi.set(__self__, "type", type)
         if display_name is not None:
+            warnings.warn("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""", DeprecationWarning)
+            pulumi.log.warn("""display_name is deprecated: display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
+        if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if email_address is not None:
             pulumi.set(__self__, "email_address", email_address)
@@ -4053,6 +4093,7 @@ class BucketLoggingTargetGrantGranteeArgs:
 
     @_builtins.property
     @pulumi.getter(name="displayName")
+    @_utilities.deprecated("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "display_name")
 
@@ -4280,6 +4321,9 @@ class BucketLoggingV2TargetGrantGranteeArgs:
         """
         pulumi.set(__self__, "type", type)
         if display_name is not None:
+            warnings.warn("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""", DeprecationWarning)
+            pulumi.log.warn("""display_name is deprecated: display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
+        if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if email_address is not None:
             pulumi.set(__self__, "email_address", email_address)
@@ -4302,6 +4346,7 @@ class BucketLoggingV2TargetGrantGranteeArgs:
 
     @_builtins.property
     @pulumi.getter(name="displayName")
+    @_utilities.deprecated("""display_name is deprecated. This attribute is no longer returned by AWS and will be removed in a future major version.""")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "display_name")
 
@@ -7310,6 +7355,10 @@ if not MYPY:
         """
         Single object for setting server-side encryption by default. See below.
         """
+        blocked_encryption_types: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        List of server-side encryption types to block for object uploads. Valid values are `SSE-C` (blocks uploads using server-side encryption with customer-provided keys) and `NONE` (unblocks all encryption types). Starting in March 2026, Amazon S3 will automatically block SSE-C uploads for all new buckets.
+        """
         bucket_key_enabled: NotRequired[pulumi.Input[_builtins.bool]]
         """
         Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
@@ -7321,13 +7370,17 @@ elif False:
 class BucketServerSideEncryptionConfigurationRuleArgs:
     def __init__(__self__, *,
                  apply_server_side_encryption_by_default: Optional[pulumi.Input['BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefaultArgs']] = None,
+                 blocked_encryption_types: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  bucket_key_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         :param pulumi.Input['BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefaultArgs'] apply_server_side_encryption_by_default: Single object for setting server-side encryption by default. See below.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] blocked_encryption_types: List of server-side encryption types to block for object uploads. Valid values are `SSE-C` (blocks uploads using server-side encryption with customer-provided keys) and `NONE` (unblocks all encryption types). Starting in March 2026, Amazon S3 will automatically block SSE-C uploads for all new buckets.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
         """
         if apply_server_side_encryption_by_default is not None:
             pulumi.set(__self__, "apply_server_side_encryption_by_default", apply_server_side_encryption_by_default)
+        if blocked_encryption_types is not None:
+            pulumi.set(__self__, "blocked_encryption_types", blocked_encryption_types)
         if bucket_key_enabled is not None:
             pulumi.set(__self__, "bucket_key_enabled", bucket_key_enabled)
 
@@ -7342,6 +7395,18 @@ class BucketServerSideEncryptionConfigurationRuleArgs:
     @apply_server_side_encryption_by_default.setter
     def apply_server_side_encryption_by_default(self, value: Optional[pulumi.Input['BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefaultArgs']]):
         pulumi.set(self, "apply_server_side_encryption_by_default", value)
+
+    @_builtins.property
+    @pulumi.getter(name="blockedEncryptionTypes")
+    def blocked_encryption_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of server-side encryption types to block for object uploads. Valid values are `SSE-C` (blocks uploads using server-side encryption with customer-provided keys) and `NONE` (unblocks all encryption types). Starting in March 2026, Amazon S3 will automatically block SSE-C uploads for all new buckets.
+        """
+        return pulumi.get(self, "blocked_encryption_types")
+
+    @blocked_encryption_types.setter
+    def blocked_encryption_types(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "blocked_encryption_types", value)
 
     @_builtins.property
     @pulumi.getter(name="bucketKeyEnabled")
@@ -7413,6 +7478,10 @@ if not MYPY:
         """
         Single object for setting server-side encryption by default. See below.
         """
+        blocked_encryption_types: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        List of server-side encryption types to block for object uploads. Valid values are `SSE-C` (blocks uploads using server-side encryption with customer-provided keys) and `NONE` (unblocks all encryption types). Starting in March 2026, Amazon S3 will automatically block SSE-C uploads for all new buckets.
+        """
         bucket_key_enabled: NotRequired[pulumi.Input[_builtins.bool]]
         """
         Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
@@ -7424,13 +7493,17 @@ elif False:
 class BucketServerSideEncryptionConfigurationV2RuleArgs:
     def __init__(__self__, *,
                  apply_server_side_encryption_by_default: Optional[pulumi.Input['BucketServerSideEncryptionConfigurationV2RuleApplyServerSideEncryptionByDefaultArgs']] = None,
+                 blocked_encryption_types: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  bucket_key_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         :param pulumi.Input['BucketServerSideEncryptionConfigurationV2RuleApplyServerSideEncryptionByDefaultArgs'] apply_server_side_encryption_by_default: Single object for setting server-side encryption by default. See below.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] blocked_encryption_types: List of server-side encryption types to block for object uploads. Valid values are `SSE-C` (blocks uploads using server-side encryption with customer-provided keys) and `NONE` (unblocks all encryption types). Starting in March 2026, Amazon S3 will automatically block SSE-C uploads for all new buckets.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
         """
         if apply_server_side_encryption_by_default is not None:
             pulumi.set(__self__, "apply_server_side_encryption_by_default", apply_server_side_encryption_by_default)
+        if blocked_encryption_types is not None:
+            pulumi.set(__self__, "blocked_encryption_types", blocked_encryption_types)
         if bucket_key_enabled is not None:
             pulumi.set(__self__, "bucket_key_enabled", bucket_key_enabled)
 
@@ -7445,6 +7518,18 @@ class BucketServerSideEncryptionConfigurationV2RuleArgs:
     @apply_server_side_encryption_by_default.setter
     def apply_server_side_encryption_by_default(self, value: Optional[pulumi.Input['BucketServerSideEncryptionConfigurationV2RuleApplyServerSideEncryptionByDefaultArgs']]):
         pulumi.set(self, "apply_server_side_encryption_by_default", value)
+
+    @_builtins.property
+    @pulumi.getter(name="blockedEncryptionTypes")
+    def blocked_encryption_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of server-side encryption types to block for object uploads. Valid values are `SSE-C` (blocks uploads using server-side encryption with customer-provided keys) and `NONE` (unblocks all encryption types). Starting in March 2026, Amazon S3 will automatically block SSE-C uploads for all new buckets.
+        """
+        return pulumi.get(self, "blocked_encryption_types")
+
+    @blocked_encryption_types.setter
+    def blocked_encryption_types(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "blocked_encryption_types", value)
 
     @_builtins.property
     @pulumi.getter(name="bucketKeyEnabled")
@@ -10748,5 +10833,136 @@ class PolicyDocumentArgs:
     @id.setter
     def id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "id", value)
+
+
+if not MYPY:
+    class VectorsIndexEncryptionConfigurationArgsDict(TypedDict):
+        kms_key_arn: pulumi.Input[_builtins.str]
+        """
+        AWS Key Management Service (KMS) customer managed key ID to use for the encryption configuration. This parameter is allowed if and only if `sse_type` is set to `aws:kms`. To specify the KMS key, you must use the format of the KMS key Amazon Resource Name (ARN).
+        """
+        sse_type: pulumi.Input[_builtins.str]
+        """
+        Type of encryption to use. Valid values: `AES256`, `aws:kms`. Defaults to `AES256`.
+        """
+elif False:
+    VectorsIndexEncryptionConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VectorsIndexEncryptionConfigurationArgs:
+    def __init__(__self__, *,
+                 kms_key_arn: pulumi.Input[_builtins.str],
+                 sse_type: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] kms_key_arn: AWS Key Management Service (KMS) customer managed key ID to use for the encryption configuration. This parameter is allowed if and only if `sse_type` is set to `aws:kms`. To specify the KMS key, you must use the format of the KMS key Amazon Resource Name (ARN).
+        :param pulumi.Input[_builtins.str] sse_type: Type of encryption to use. Valid values: `AES256`, `aws:kms`. Defaults to `AES256`.
+        """
+        pulumi.set(__self__, "kms_key_arn", kms_key_arn)
+        pulumi.set(__self__, "sse_type", sse_type)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyArn")
+    def kms_key_arn(self) -> pulumi.Input[_builtins.str]:
+        """
+        AWS Key Management Service (KMS) customer managed key ID to use for the encryption configuration. This parameter is allowed if and only if `sse_type` is set to `aws:kms`. To specify the KMS key, you must use the format of the KMS key Amazon Resource Name (ARN).
+        """
+        return pulumi.get(self, "kms_key_arn")
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "kms_key_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sseType")
+    def sse_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Type of encryption to use. Valid values: `AES256`, `aws:kms`. Defaults to `AES256`.
+        """
+        return pulumi.get(self, "sse_type")
+
+    @sse_type.setter
+    def sse_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "sse_type", value)
+
+
+if not MYPY:
+    class VectorsIndexMetadataConfigurationArgsDict(TypedDict):
+        non_filterable_metadata_keys: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of non-filterable metadata keys.
+        """
+elif False:
+    VectorsIndexMetadataConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VectorsIndexMetadataConfigurationArgs:
+    def __init__(__self__, *,
+                 non_filterable_metadata_keys: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] non_filterable_metadata_keys: List of non-filterable metadata keys.
+        """
+        pulumi.set(__self__, "non_filterable_metadata_keys", non_filterable_metadata_keys)
+
+    @_builtins.property
+    @pulumi.getter(name="nonFilterableMetadataKeys")
+    def non_filterable_metadata_keys(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of non-filterable metadata keys.
+        """
+        return pulumi.get(self, "non_filterable_metadata_keys")
+
+    @non_filterable_metadata_keys.setter
+    def non_filterable_metadata_keys(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "non_filterable_metadata_keys", value)
+
+
+if not MYPY:
+    class VectorsVectorBucketEncryptionConfigurationArgsDict(TypedDict):
+        kms_key_arn: pulumi.Input[_builtins.str]
+        """
+        AWS KMS CMK ARN to use for the default encryption of the vector bucket. Allowed if and only if `sse_type` is set to `aws:kms`.
+        """
+        sse_type: pulumi.Input[_builtins.str]
+        """
+        Server-side encryption type to use for the default encryption of the vector bucket. Valid values: `AES256`, `aws:kms`.
+        """
+elif False:
+    VectorsVectorBucketEncryptionConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VectorsVectorBucketEncryptionConfigurationArgs:
+    def __init__(__self__, *,
+                 kms_key_arn: pulumi.Input[_builtins.str],
+                 sse_type: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] kms_key_arn: AWS KMS CMK ARN to use for the default encryption of the vector bucket. Allowed if and only if `sse_type` is set to `aws:kms`.
+        :param pulumi.Input[_builtins.str] sse_type: Server-side encryption type to use for the default encryption of the vector bucket. Valid values: `AES256`, `aws:kms`.
+        """
+        pulumi.set(__self__, "kms_key_arn", kms_key_arn)
+        pulumi.set(__self__, "sse_type", sse_type)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyArn")
+    def kms_key_arn(self) -> pulumi.Input[_builtins.str]:
+        """
+        AWS KMS CMK ARN to use for the default encryption of the vector bucket. Allowed if and only if `sse_type` is set to `aws:kms`.
+        """
+        return pulumi.get(self, "kms_key_arn")
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "kms_key_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sseType")
+    def sse_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Server-side encryption type to use for the default encryption of the vector bucket. Valid values: `AES256`, `aws:kms`.
+        """
+        return pulumi.get(self, "sse_type")
+
+    @sse_type.setter
+    def sse_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "sse_type", value)
 
 

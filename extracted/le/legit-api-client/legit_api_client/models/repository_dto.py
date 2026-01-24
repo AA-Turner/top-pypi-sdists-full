@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, Stri
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from legit_api_client.models.collaborator_dto import CollaboratorDto
 from legit_api_client.models.product_unit_name_dto import ProductUnitNameDto
+from legit_api_client.models.repository_context_field_dto import RepositoryContextFieldDto
 from legit_api_client.models.repository_group_dto import RepositoryGroupDto
 from legit_api_client.models.repository_visibility import RepositoryVisibility
 from legit_api_client.models.tag_dto import TagDto
@@ -40,12 +41,13 @@ class RepositoryDto(BaseModel):
     owner: Optional[CollaboratorDto] = None
     tags: Optional[List[TagDto]] = None
     product_units: Optional[List[ProductUnitNameDto]] = Field(default=None, alias="productUnits")
+    context_fields: Optional[List[RepositoryContextFieldDto]] = Field(default=None, alias="contextFields")
     issues_count: Optional[StrictInt] = Field(default=None, alias="issuesCount")
     lines_count: Optional[StrictInt] = Field(default=None, alias="linesCount")
     score: Optional[Union[StrictFloat, StrictInt]] = None
     score_out_of100: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="scoreOutOf100")
     group: Optional[RepositoryGroupDto] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "url", "visibility", "isActive", "isArchived", "owner", "tags", "productUnits", "issuesCount", "linesCount", "score", "scoreOutOf100", "group"]
+    __properties: ClassVar[List[str]] = ["id", "name", "url", "visibility", "isActive", "isArchived", "owner", "tags", "productUnits", "contextFields", "issuesCount", "linesCount", "score", "scoreOutOf100", "group"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -105,6 +107,13 @@ class RepositoryDto(BaseModel):
                 if _item_product_units:
                     _items.append(_item_product_units.to_dict())
             _dict['productUnits'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in context_fields (list)
+        _items = []
+        if self.context_fields:
+            for _item_context_fields in self.context_fields:
+                if _item_context_fields:
+                    _items.append(_item_context_fields.to_dict())
+            _dict['contextFields'] = _items
         # override the default output from pydantic by calling `to_dict()` of group
         if self.group:
             _dict['group'] = self.group.to_dict()
@@ -148,6 +157,11 @@ class RepositoryDto(BaseModel):
         if self.product_units is None and "product_units" in self.model_fields_set:
             _dict['productUnits'] = None
 
+        # set to None if context_fields (nullable) is None
+        # and model_fields_set contains the field
+        if self.context_fields is None and "context_fields" in self.model_fields_set:
+            _dict['contextFields'] = None
+
         # set to None if lines_count (nullable) is None
         # and model_fields_set contains the field
         if self.lines_count is None and "lines_count" in self.model_fields_set:
@@ -189,6 +203,7 @@ class RepositoryDto(BaseModel):
             "owner": CollaboratorDto.from_dict(obj["owner"]) if obj.get("owner") is not None else None,
             "tags": [TagDto.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "productUnits": [ProductUnitNameDto.from_dict(_item) for _item in obj["productUnits"]] if obj.get("productUnits") is not None else None,
+            "contextFields": [RepositoryContextFieldDto.from_dict(_item) for _item in obj["contextFields"]] if obj.get("contextFields") is not None else None,
             "issuesCount": obj.get("issuesCount"),
             "linesCount": obj.get("linesCount"),
             "score": obj.get("score"),

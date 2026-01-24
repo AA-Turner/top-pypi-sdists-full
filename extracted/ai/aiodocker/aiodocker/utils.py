@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import codecs
+import contextvars
 import json
 import tarfile
 import tempfile
@@ -17,9 +18,17 @@ from typing import (
     Tuple,
     Union,
     cast,
+    overload,
 )
 
+from multidict import CIMultiDict
+
 from .types import JSONObject
+
+
+_suppress_timeout_deprecation: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "_suppress_timeout_deprecation", default=False
+)
 
 
 async def parse_result(response, response_type=None, *, encoding="utf-8"):
@@ -35,8 +44,7 @@ async def parse_result(response, response_type=None, *, encoding="utf-8"):
             if cl is None or cl == "0":
                 return ""
             raise TypeError(
-                "Cannot auto-detect response type "
-                "due to missing Content-Type header."
+                "Cannot auto-detect response type due to missing Content-Type header."
             )
         main_type, sub_type, extras = parse_content_type(ct)
         if sub_type == "json":
@@ -91,7 +99,7 @@ def parse_content_type(ct: str) -> Tuple[str, str, Mapping[str, str]]:
 
 
 def identical(d1, d2):
-    if type(d1) != type(d2):
+    if type(d1) is not type(d2):
         return False
 
     if isinstance(d1, dict):
@@ -126,7 +134,21 @@ def human_bool(s) -> bool:
         return bool(s)
 
 
-def httpize(d: Optional[JSONObject]) -> Optional[Mapping[str, str]]:
+@overload
+def httpize(
+    d: Optional[CIMultiDict[str | int | bool]],
+) -> Optional[CIMultiDict[str]]: ...
+
+
+@overload
+def httpize(
+    d: Optional[JSONObject],
+) -> Optional[Mapping[str, str]]: ...
+
+
+def httpize(
+    d: Optional[JSONObject | CIMultiDict[str | int | bool]],
+) -> Optional[Mapping[str, str] | CIMultiDict[str | int | bool]]:
     if d is None:
         return None
     converted = {}
@@ -298,4 +320,4 @@ def compose_auth_header(
         auth_json = json.dumps(config).encode("utf-8")
     else:
         raise TypeError("auth must be base64 encoded string/bytes or a dictionary")
-    return base64.b64encode(auth_json).decode("ascii")
+    return base64.urlsafe_b64encode(auth_json).decode("ascii")

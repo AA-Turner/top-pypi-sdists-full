@@ -5,36 +5,24 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import MutableMapping
 from contextlib import ExitStack
-from typing import Any, Generic, MutableMapping, TypeVar
+from typing import Any, ClassVar
 
 import somacore
 from somacore import options
 from typing_extensions import Self
 
 from . import _constants, _tdb_handles
-from ._constants import (
-    SOMA_ENCODING_VERSION_METADATA_KEY,
-    SOMA_OBJECT_TYPE_METADATA_KEY,
-    SUPPORTED_SOMA_ENCODING_VERSIONS,
-)
-from ._exception import SOMAError
+from . import pytiledbsoma as clib
+from ._exception import DoesNotExistError, SOMAError, is_does_not_exist_error
 from ._types import OpenTimestamp
 from ._util import check_type, ms_to_datetime
 from .options import SOMATileDBContext
 from .options._soma_tiledb_context import _validate_soma_tiledb_context
 
-_WrapperType_co = TypeVar(
-    "_WrapperType_co", bound=_tdb_handles.AnyWrapper, covariant=True
-)
 
-"""The type of handle on a backend object that we have.
-
-Covariant because ``_handle`` is read-only.
-"""
-
-
-class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
+class SOMAObject(somacore.SOMAObject):
     """Base class for all TileDB SOMA objects.
 
     Accepts a SOMATileDBContext, to enable session state to be shared
@@ -44,20 +32,10 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         Maturing.
     """
 
-    _wrapper_type: (
-        type[_WrapperType_co]
-        | type[_tdb_handles.DataFrameWrapper]
-        | type[_tdb_handles.DenseNDArrayWrapper]
-        | type[_tdb_handles.SparseNDArrayWrapper]
-        | type[_tdb_handles.CollectionWrapper]
-        | type[_tdb_handles.ExperimentWrapper]
-        | type[_tdb_handles.MeasurementWrapper]
-        | type[_tdb_handles.SceneWrapper]
-        | type[_tdb_handles.MultiscaleImageWrapper]
-    )
-    """Class variable of the Wrapper class used to open this object type."""
+    _handle_type: ClassVar[_tdb_handles.RawHandle]
+    """Class variable of the clib class handle used to open this object type."""
 
-    __slots__ = ("_close_stack", "_handle")
+    __slots__ = ("_close_stack", "_context", "_handle", "_metadata", "_timestamp_ms", "_uri")
 
     @classmethod
     def open(
@@ -76,13 +54,15 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
                 The URI to open.
             mode:
                 The mode to open the object in.
-                - ``r``: Open for reading only (cannot write).
-                - ``w``: Open for writing only (cannot read).
+                - ``r``: Open for reading only (cannot write or delete).
+                - ``w``: Open for writing only (cannot read or delete).
+                - ``d``: Open for deleting only (cannot read or write).
             tiledb_timestamp:
                 The TileDB timestamp to open this object at,
                 either an int representing milliseconds since the Unix epoch
                 or a datetime.datetime object.
-                When not provided (the default), the current time is used.
+                When not provided (the default), the current time_wrapper is used.
+                A value of zero results in default, i.e., the current time.
 
         Returns:
             The opened SOMA object.
@@ -101,40 +81,40 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         """
         del platform_config  # unused
         context = _validate_soma_tiledb_context(context)
-        handle = _tdb_handles.open(
-            uri,
-            mode,
-            context,
-            tiledb_timestamp,
-            clib_type=cls._wrapper_type._WRAPPED_TYPE.__name__,
-        )
-        if _read_soma_type(handle) != cls.soma_type:
-            raise SOMAError(
-                "Unexpected SOMA metadata encoding - object encoding metadata value did not match expected value."
+        open_mode = _tdb_handles._open_mode_to_clib_mode(mode)
+        timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+
+        try:
+            handle = cls._handle_type.open(
+                uri,
+                mode=open_mode,
+                context=context.native_context,
+                timestamp=(0, timestamp_ms),
             )
-        if not isinstance(handle, cls._wrapper_type):
-            handle = cls._wrapper_type.open(uri, mode, context, tiledb_timestamp)
+
+        except (RuntimeError, SOMAError) as tdbe:
+            if is_does_not_exist_error(tdbe):
+                raise DoesNotExistError(tdbe) from tdbe
+            raise SOMAError(tdbe) from tdbe
         return cls(
-            handle,  # type: ignore[arg-type]
-            _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
+            handle, uri=uri, context=context, _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code"
         )
 
     def __init__(
         self,
-        handle: (
-            _WrapperType_co
-            | _tdb_handles.DataFrameWrapper
-            | _tdb_handles.DenseNDArrayWrapper
-            | _tdb_handles.SparseNDArrayWrapper
-        ),
+        handle: _tdb_handles.RawHandle,
         *,
+        uri: str,
+        context: SOMATileDBContext,
         _dont_call_this_use_create_or_open_instead: str = "unset",
-    ):
+    ) -> None:
         """Internal-only common initializer steps.
 
         This function is internal; users should open TileDB SOMA objects using
         the :meth:`create` and :meth:`open` factory class methods.
         """
+        if not isinstance(handle, self._handle_type):
+            raise TypeError("Internal error: Unexpected handle type {type(handle)}. Expected {self._handle_type}.")
         self._close_stack = ExitStack()
         """An exit stack to manage closing handles owned by this object.
 
@@ -152,50 +132,81 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
                 f" or the {name}.open(uri, ...) class method."
                 f" To create a new {name}, use the {name}.create class method."
                 f" Directly calling `{name}(...)` is intended for TileDB SOMA"
-                f" internal use only."
+                f" internal use only.",
             )
         self._handle = handle
+        self._context = context
+        self._uri = uri
+        self._timestamp_ms = self._context._open_timestamp_ms(self._handle.timestamp)
+        self._metadata = _tdb_handles.MetadataWrapper.from_handle(self._handle)
         self._close_stack.enter_context(self._handle)
+        self._check_required_metadata()
+        self._parse_special_metadata()
 
-    def reopen(
-        self, mode: options.OpenMode, tiledb_timestamp: OpenTimestamp | None = None
-    ) -> Self:
+    def _check_required_metadata(self) -> None:
+        encoding_version = self._metadata.get(_constants.SOMA_ENCODING_VERSION_METADATA_KEY)
+        if encoding_version is None:
+            raise SOMAError(
+                f"Cannot access stored TileDB object with TileDB-SOMA. The object is missing "
+                f"the required '{_constants.SOMA_ENCODING_VERSION_METADATA_KEY!r}' metadata key.",
+            )
+        if isinstance(encoding_version, bytes):
+            encoding_version = str(encoding_version, "utf-8")
+        if encoding_version not in _constants.SUPPORTED_SOMA_ENCODING_VERSIONS:
+            raise ValueError(
+                f"Unsupported SOMA object encoding version '{encoding_version}'. TileDB-SOMA "
+                f"needs to be updated to a more recent version.",
+            )
+
+    def _parse_special_metadata(self) -> None:
+        """Helper function the subclasses can override if they require additional validation or set-up."""
+        return
+
+    def reopen(self, mode: options.OpenMode, tiledb_timestamp: OpenTimestamp | None = None) -> Self:
         """Return a new copy of the SOMAObject with the given mode at the current
         Unix timestamp.
 
         Args:
             mode:
                 The mode to open the object in.
-                - ``r``: Open for reading only (cannot write).
-                - ``w``: Open for writing only (cannot read).
+                - ``r``: Open for reading only (cannot write or delete).
+                - ``w``: Open for writing only (cannot read or delete).
+                - ``d``: Open for deleting only (cannot read or write).
             tiledb_timestamp:
-                The TileDB timestamp to open this object at,
-                either an int representing milliseconds since the Unix epoch
-                or a datetime.datetime object.
-                When not provided (the default), the current time is used.
+                The TileDB timestamp to open this object at, either an int representing milliseconds since the Unix
+                epoch or a datetime.datetime object. When not provided (the default), the current time is used.
 
         Raises:
             ValueError:
                 If the user-provided ``mode`` is invalid.
+            SOMAError:
+                If the object has unwritten metadata.
 
         Lifecycle:
             Experimental.
         """
-        handle = self._wrapper_type._from_soma_object(
-            self._handle.reopen(mode, tiledb_timestamp), self.context
+        open_mode = _tdb_handles._open_mode_to_clib_mode(mode)
+        timestamp_ms = self._context._open_timestamp_ms(tiledb_timestamp)
+        self._metadata._write()
+        self._handle.close()
+        self._handle = self._handle_type.open(
+            uri=self._uri, mode=open_mode, context=self._context.native_context, timestamp=(0, timestamp_ms)
         )
-        return self.__class__(
-            handle,  # type: ignore[arg-type]
-            _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
+        self._timestamp_ms = timestamp_ms
+        self._metadata = _tdb_handles.MetadataWrapper.from_handle(
+            self._handle,
         )
+        self._close_stack.enter_context(self._handle)
+        self._parse_special_metadata()
+        return self
 
     @property
     def context(self) -> SOMATileDBContext:
-        return self._handle.context
+        return self._context
 
     @property
     def metadata(self) -> MutableMapping[str, Any]:
-        return self._handle.metadata
+        return self._metadata
 
     def __repr__(self) -> str:
         return f"<{self._my_repr()}>"
@@ -216,7 +227,7 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         Lifecycle:
             Maturing.
         """
-        return self._handle.uri
+        return self._uri
 
     def close(self) -> None:
         """Release any resources held while the object is open.
@@ -228,6 +239,8 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         Lifecycle:
             Maturing.
         """
+        if not self.closed:
+            self._metadata._write()
         self._close_stack.close()
 
     @property
@@ -245,11 +258,11 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         Lifecycle:
             Maturing.
         """
-        return self._handle.closed
+        return self._handle.closed  # type: ignore[no-any-return]
 
     @property
     def mode(self) -> options.OpenMode:
-        """The mode this object was opened in, either ``r`` or ``w``.
+        """The mode this object was opened in, either ``r``, ``w``, or ``d``.
 
         Examples:
             >>> with tiledbsoma.open("an_object") as soma_object:
@@ -260,29 +273,28 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         Lifecycle:
             Maturing.
         """
-        return self._handle.mode
+        return self._handle.mode  # type: ignore[no-any-return]
+
+    def _verify_open_for_deleting(self) -> None:
+        """Raises an error if the object is not open for deleting."""
+        if self.closed:
+            raise SOMAError(f"{self.__class__.__name__} ({self.uri}) must be open for deleting (closed).")
+        if self.mode != "d":
+            raise SOMAError(f"{self.__class__.__name__} ({self.uri}) must be open for deleting. Mode is '{self.mode}'.")
 
     def verify_open_for_writing(self) -> None:
         """Raises an error if the object is not open for writing."""
         if self.closed:
-            raise SOMAError(
-                f"{self.__class__.__name__} ({self.uri}) must be open for writing (closed)"
-            )
+            raise SOMAError(f"{self.__class__.__name__} ({self.uri}) must be open for writing (closed)")
         if self.mode != "w":
-            raise SOMAError(
-                f"{self.__class__.__name__} ({self.uri}) must be open for writing"
-            )
+            raise SOMAError(f"{self.__class__.__name__} ({self.uri}) must be open for writing. Mode is '{self.mode}'.")
 
     def _verify_open_for_reading(self) -> None:
         """Raises an error if the object is not open for reading."""
         if self.closed:
-            raise SOMAError(
-                f"{self.__class__.__name__} ({self.uri}) must be open for reading (closed)"
-            )
+            raise SOMAError(f"{self.__class__.__name__} ({self.uri}) must be open for reading (closed)")
         if self.mode != "r":
-            raise SOMAError(
-                f"{self.__class__.__name__} ({self.uri}) must be open for reading"
-            )
+            raise SOMAError(f"{self.__class__.__name__} ({self.uri}) must be open for reading. Mode is '{self.mode}'.")
 
     @property
     def tiledb_timestamp(self) -> datetime.datetime:
@@ -292,7 +304,7 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
     @property
     def tiledb_timestamp_ms(self) -> int:
         """The time this object was opened, as millis since the Unix epoch."""
-        return self._handle.timestamp_ms
+        return self._timestamp_ms
 
     @classmethod
     def exists(
@@ -313,6 +325,7 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
                 The TileDB timestamp to open this object at,
                 measured in milliseconds since the Unix epoch.
                 When unset (the default), the current time is used.
+                A value of zero results in default, i.e., current time.
 
         Raises:
             TypeError:
@@ -334,49 +347,13 @@ class SOMAObject(somacore.SOMAObject, Generic[_WrapperType_co]):
         check_type("uri", uri, (str,))
         context = _validate_soma_tiledb_context(context)
         try:
-            with cls._wrapper_type.open(uri, "r", context, tiledb_timestamp) as hdl:
-                md_type = hdl.metadata.get(_constants.SOMA_OBJECT_TYPE_METADATA_KEY)
+            timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+            with cls._handle_type.open(
+                uri, mode=clib.OpenMode.soma_read, context=context.native_context, timestamp=(0, timestamp_ms)
+            ) as handle:
+                md_type = handle.type
                 if not isinstance(md_type, str):
                     return False
                 return md_type.lower() == cls.soma_type.lower()
         except (RuntimeError, SOMAError):
             return False
-
-
-AnySOMAObject = SOMAObject[_tdb_handles.AnyWrapper]
-
-
-def _read_soma_type(hdl: _tdb_handles.AnyWrapper) -> str:
-    obj_type = hdl.metadata.get(SOMA_OBJECT_TYPE_METADATA_KEY)
-    encoding_version = hdl.metadata.get(SOMA_ENCODING_VERSION_METADATA_KEY)
-
-    if obj_type is None:
-        raise SOMAError(
-            f"Cannot access stored TileDB object with TileDB-SOMA. The object is missing "
-            f"the required '{SOMA_OBJECT_TYPE_METADATA_KEY!r}' metadata key."
-        )
-
-    if isinstance(obj_type, bytes):
-        obj_type = str(obj_type, "utf-8")
-
-    if not isinstance(obj_type, str):
-        raise SOMAError(
-            f"Cannot access stored TileDB object with TileDB-SOMA. The metadata key "
-            f"'{SOMA_OBJECT_TYPE_METADATA_KEY!r}' has unexpected type '{type(obj_type)}'."
-        )
-    if encoding_version is None:
-        raise SOMAError(
-            f"Cannot access stored TileDB object with TileDB-SOMA. The object is missing "
-            f"the required '{SOMA_ENCODING_VERSION_METADATA_KEY!r}' metadata key."
-        )
-
-    if isinstance(encoding_version, bytes):
-        encoding_version = str(encoding_version, "utf-8")
-
-    if encoding_version not in SUPPORTED_SOMA_ENCODING_VERSIONS:
-        raise ValueError(
-            f"Unsupported SOMA object encoding version '{encoding_version}'. TileDB-SOMA "
-            f"needs to be updated to a more recent version."
-        )
-
-    return obj_type

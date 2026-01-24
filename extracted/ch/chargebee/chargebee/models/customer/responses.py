@@ -79,6 +79,7 @@ class BalanceResponse(Model):
     unbilled_charges: int = None
     currency_code: str = None
     balance_currency_code: str = None
+    business_entity_id: str = None
 
 
 @dataclass
@@ -364,7 +365,7 @@ class HierarchyResponse(Response):
 
 @dataclass
 class ListHierarchyDetailCustomerResponse:
-    hierarchies: List["hierarchy.HierarchyResponse"]
+    hierarchy: "hierarchy.HierarchyResponse"
 
 
 @dataclass

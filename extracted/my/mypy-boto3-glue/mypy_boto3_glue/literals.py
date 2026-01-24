@@ -3,7 +3,7 @@ Type annotations for glue service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -74,6 +74,7 @@ __all__ = (
     "FilterOperationType",
     "FilterOperatorType",
     "FilterValueTypeType",
+    "FunctionTypeType",
     "GetClassifiersPaginatorName",
     "GetConnectionsPaginatorName",
     "GetCrawlerMetricsPaginatorName",
@@ -99,6 +100,7 @@ __all__ = (
     "IcebergSortDirectionType",
     "IcebergStructTypeEnumType",
     "IcebergTargetCompressionTypeType",
+    "IcebergUpdateActionType",
     "InclusionAnnotationValueType",
     "IntegrationStatusType",
     "JDBCConnectionTypeType",
@@ -110,10 +112,12 @@ __all__ = (
     "JoinTypeType",
     "LanguageType",
     "LastCrawlStatusType",
+    "LastRefreshTypeType",
     "ListBlueprintsPaginatorName",
     "ListConnectionTypesPaginatorName",
     "ListEntitiesPaginatorName",
     "ListJobsPaginatorName",
+    "ListMaterializedViewRefreshTaskRunsPaginatorName",
     "ListRegistriesPaginatorName",
     "ListSchemaVersionsPaginatorName",
     "ListSchemasPaginatorName",
@@ -124,6 +128,8 @@ __all__ = (
     "LogicalOperatorType",
     "LogicalType",
     "MLUserDataEncryptionModeStringType",
+    "MaterializedViewRefreshStateType",
+    "MaterializedViewRefreshTypeType",
     "MetadataOperationType",
     "NodeTypeType",
     "OAuth2GrantTypeType",
@@ -286,35 +292,98 @@ ConnectionPropertyKeyType = Literal[
 ]
 ConnectionStatusType = Literal["FAILED", "IN_PROGRESS", "READY"]
 ConnectionTypeType = Literal[
+    "ADOBEANALYTICS",
+    "ASANA",
+    "AZURECOSMOS",
+    "AZURESQL",
+    "BIGQUERY",
+    "BLACKBAUD",
+    "BLACKBAUDRAISEREDGENXT",
+    "CIRCLECI",
+    "CLOUDERAHIVE",
+    "CLOUDERAIMPALA",
+    "CLOUDWATCH",
+    "CLOUDWATCHMETRICS",
+    "CMDB",
     "CUSTOM",
+    "DATADOG",
+    "DATALAKEGEN2",
+    "DB2",
+    "DB2AS400",
+    "DOCUMENTDB",
+    "DOCUSIGNMONITOR",
+    "DOMO",
+    "DYNAMODB",
+    "DYNATRACE",
     "FACEBOOKADS",
+    "FACEBOOKPAGEINSIGHTS",
+    "FRESHDESK",
+    "FRESHSALES",
+    "GITLAB",
     "GOOGLEADS",
     "GOOGLEANALYTICS4",
+    "GOOGLECLOUDSTORAGE",
+    "GOOGLESEARCHCONSOLE",
     "GOOGLESHEETS",
+    "HBASE",
     "HUBSPOT",
     "INSTAGRAMADS",
     "INTERCOM",
     "JDBC",
     "JIRACLOUD",
     "KAFKA",
+    "KUSTOMER",
+    "LINKEDIN",
+    "MAILCHIMP",
     "MARKETO",
     "MARKETPLACE",
+    "MICROSOFTDYNAMIC365FINANCEANDOPS",
+    "MICROSOFTDYNAMICS365CRM",
+    "MICROSOFTTEAMS",
+    "MIXPANEL",
+    "MONDAY",
     "MONGODB",
+    "MYSQL",
     "NETSUITEERP",
     "NETWORK",
+    "OKTA",
+    "OPENSEARCH",
+    "ORACLE",
+    "PAYPAL",
+    "PENDO",
+    "PIPEDIVE",
+    "PIPEDRIVE",
+    "POSTGRESQL",
+    "PRODUCTBOARD",
+    "QUICKBOOKS",
     "SALESFORCE",
+    "SALESFORCECOMMERCECLOUD",
     "SALESFORCEMARKETINGCLOUD",
     "SALESFORCEPARDOT",
+    "SAPCONCUR",
+    "SAPHANA",
     "SAPODATA",
+    "SENDGRID",
     "SERVICENOW",
     "SFTP",
     "SLACK",
+    "SMARTSHEET",
     "SNAPCHATADS",
+    "SQLSERVER",
     "STRIPE",
+    "SYNAPSE",
+    "TERADATA",
+    "TERADATANOS",
+    "TIMESTREAM",
+    "TPCDS",
+    "TWILIO",
+    "VERTICA",
     "VIEW_VALIDATION_ATHENA",
     "VIEW_VALIDATION_REDSHIFT",
+    "WOOCOMMERCE",
     "ZENDESK",
     "ZOHOCRM",
+    "ZOOM",
 ]
 CrawlStateType = Literal["CANCELLED", "CANCELLING", "ERROR", "FAILED", "RUNNING", "SUCCEEDED"]
 CrawlerHistoryStateType = Literal["COMPLETED", "FAILED", "RUNNING", "STOPPED"]
@@ -373,6 +442,7 @@ FilterLogicalOperatorType = Literal["AND", "OR"]
 FilterOperationType = Literal["EQ", "GT", "GTE", "ISNULL", "LT", "LTE", "REGEX"]
 FilterOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "NE"]
 FilterValueTypeType = Literal["COLUMNEXTRACTED", "CONSTANT"]
+FunctionTypeType = Literal["AGGREGATE_FUNCTION", "REGULAR_FUNCTION", "STORED_PROCEDURE"]
 GetClassifiersPaginatorName = Literal["get_classifiers"]
 GetConnectionsPaginatorName = Literal["get_connections"]
 GetCrawlerMetricsPaginatorName = Literal["get_crawler_metrics"]
@@ -399,6 +469,19 @@ IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
 IcebergSortDirectionType = Literal["asc", "desc"]
 IcebergStructTypeEnumType = Literal["struct"]
 IcebergTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
+IcebergUpdateActionType = Literal[
+    "add-encryption-key",
+    "add-schema",
+    "add-sort-order",
+    "add-spec",
+    "remove-encryption-key",
+    "remove-properties",
+    "set-current-schema",
+    "set-default-sort-order",
+    "set-default-spec",
+    "set-location",
+    "set-properties",
+]
 InclusionAnnotationValueType = Literal["EXCLUDE", "INCLUDE"]
 IntegrationStatusType = Literal[
     "ACTIVE", "CREATING", "DELETING", "FAILED", "MODIFYING", "NEEDS_ATTENTION", "SYNCING"
@@ -463,10 +546,14 @@ JobRunStateType = Literal[
 JoinTypeType = Literal["equijoin", "left", "leftanti", "leftsemi", "outer", "right"]
 LanguageType = Literal["PYTHON", "SCALA"]
 LastCrawlStatusType = Literal["CANCELLED", "FAILED", "SUCCEEDED"]
+LastRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 ListBlueprintsPaginatorName = Literal["list_blueprints"]
 ListConnectionTypesPaginatorName = Literal["list_connection_types"]
 ListEntitiesPaginatorName = Literal["list_entities"]
 ListJobsPaginatorName = Literal["list_jobs"]
+ListMaterializedViewRefreshTaskRunsPaginatorName = Literal[
+    "list_materialized_view_refresh_task_runs"
+]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListSchemaVersionsPaginatorName = Literal["list_schema_versions"]
 ListSchemasPaginatorName = Literal["list_schemas"]
@@ -477,6 +564,8 @@ ListWorkflowsPaginatorName = Literal["list_workflows"]
 LogicalOperatorType = Literal["EQUALS"]
 LogicalType = Literal["AND", "ANY"]
 MLUserDataEncryptionModeStringType = Literal["DISABLED", "SSE-KMS"]
+MaterializedViewRefreshStateType = Literal["FAILED", "RUNNING", "STARTING", "STOPPED", "SUCCEEDED"]
+MaterializedViewRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 MetadataOperationType = Literal["CREATE"]
 NodeTypeType = Literal["CRAWLER", "JOB", "TRIGGER"]
 OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
@@ -597,7 +686,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -667,6 +755,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -712,7 +801,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -765,7 +853,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -804,8 +891,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -840,6 +925,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -849,6 +935,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -859,6 +946,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -880,8 +970,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -896,15 +984,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -935,8 +1024,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -976,6 +1065,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -1012,6 +1102,7 @@ PaginatorName = Literal[
     "list_connection_types",
     "list_entities",
     "list_jobs",
+    "list_materialized_view_refresh_task_runs",
     "list_registries",
     "list_schema_versions",
     "list_schemas",

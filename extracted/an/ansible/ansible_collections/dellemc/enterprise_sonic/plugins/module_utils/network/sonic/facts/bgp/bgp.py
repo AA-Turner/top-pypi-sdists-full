@@ -1,6 +1,6 @@
 #
 # -*- coding: utf-8 -*-
-# Copyright 2019 Red Hat
+# Copyright 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 """
@@ -41,6 +41,7 @@ class BgpFacts(object):
         'as_path_ignore': ['route-selection-options', 'ignore-as-path-length'],
         'as_path_multipath_relax': ['use-multiple-paths', 'ebgp', 'config', 'allow-multiple-as'],
         'as_path_multipath_relax_as_set': ['use-multiple-paths', 'ebgp', 'config', 'as-set'],
+        'bandwidth': ['route-selection-options', 'compare-linkbw'],
         'compare_routerid': ['route-selection-options', 'external-compare-router-id'],
         'med_confed': ['route-selection-options', 'med-confed'],
         'med_missing_as_worst': ['route-selection-options', 'med-missing-as-worst'],
@@ -49,13 +50,18 @@ class BgpFacts(object):
         'max_med_on_startup_timer': ['max-med', 'time'],
         'max_med_on_startup_med_val': ['max-med', 'max-med-val'],
         'rt_delay': 'route-map-process-delay',
-        'as_notation': 'as-notation'
+        'as_notation': 'as-notation',
+        'gr_enabled': ['graceful-restart', 'enabled'],
+        'gr_restart_time': ['graceful-restart', 'restart-time'],
+        'gr_stale_routes_time': ['graceful-restart', 'stale-routes-time'],
+        'gr_preserve_fw_state': ['graceful-restart', 'preserve-fw-state']
     }
 
     def __init__(self, module, subspec='config', options='options'):
         self._module = module
         self.argument_spec = BgpArgs.argument_spec
         spec = deepcopy(self.argument_spec)
+
         if subspec:
             if options:
                 facts_argument_spec = spec[subspec][options]
@@ -105,6 +111,7 @@ class BgpFacts(object):
             timers = {}
             as_path = {}
             max_med_on_start_up = {}
+            graceful_restart = {}
 
             conf['log_neighbor_changes'] = conf.get('log_neighbor_changes', False)
 
@@ -122,7 +129,19 @@ class BgpFacts(object):
             timers['holdtime'] = conf.get('holdtime', None)
             timers['keepalive_interval'] = conf.get('keepalive_interval', None)
             conf['timers'] = timers
+            # Do the translation for the values here from REST api to cli format
+            if conf.get("bandwidth"):
+                bandwidth = conf.get('bandwidth').replace("DEFAULT_WT", "default_weight")
+                bandwidth = bandwidth.replace("IGNORE_LB", "ignore_weight")
+                bandwidth = bandwidth.replace("SKIP_MISSING", "skip_missing")
+                bestpath['bandwidth'] = bandwidth
             bestpath['compare_routerid'] = conf.get('compare_routerid', False)
+
+            graceful_restart['enabled'] = conf.get('gr_enabled', False)
+            graceful_restart['restart_time'] = conf.get('gr_restart_time', None)
+            graceful_restart['stale_routes_time'] = conf.get('gr_stale_routes_time', None)
+            graceful_restart['preserve_fw_state'] = conf.get('gr_preserve_fw_state', False)
+            conf['graceful_restart'] = graceful_restart
 
             conf['bestpath'] = bestpath
 
@@ -136,8 +155,8 @@ class BgpFacts(object):
             keys = [
                 'as_path_confed', 'as_path_ignore', 'as_path_multipath_relax', 'as_path_multipath_relax_as_set',
                 'med_confed', 'med_missing_as_worst', 'always_compare_med', 'max_med_val', 'holdtime',
-                'keepalive_interval', 'compare_routerid', 'admin_max_med', 'max_med_on_startup_timer',
-                'max_med_on_startup_med_val',
+                'keepalive_interval', 'compare_routerid', 'admin_max_med', 'max_med_on_startup_timer', 'bandwidth',
+                'max_med_on_startup_med_val', 'gr_enabled', 'gr_restart_time', 'gr_stale_routes_time', 'gr_preserve_fw_state'
             ]
             for key in keys:
                 if key in conf:

@@ -16,20 +16,13 @@ static void count_verbs(const SkPath& path, int counts[6]) {
     for (int i = 0; i < 6; ++i) {
         counts[i] = 0;
     }
-    while (true) {
-        SkPoint pts[4];
-        SkPath::Verb verb = it.next(pts);
-        if (verb == SkPath::kDone_Verb) {
-            break;
-        }
-        if ((unsigned)verb < 6) {
-            counts[(unsigned)verb]++;
-        }
+    while (auto rec = it.next()) {
+        counts[(unsigned)rec->fVerb]++;
     }
 }
 
 void draw(SkCanvas* canvas) {
-    SkFont font(SkTypeface::MakeFromName("DejaVu Sans Mono", SkFontStyle()), 30);
+    SkFont font(fontMgr->matchFamilyStyle("DejaVu Sans Mono", SkFontStyle()), 30);
     SkPath path = make_path(font);
     int counts[6];
     count_verbs(path, counts);

@@ -10,6 +10,8 @@ __all__ = ["ToolkitListResponse", "Item", "ItemDeprecated", "ItemMeta", "ItemMet
 
 
 class ItemDeprecated(BaseModel):
+    """Deprecated toolkit ID"""
+
     toolkit_id: str = FieldInfo(alias="toolkitId")
 
 
@@ -22,6 +24,8 @@ class ItemMetaCategory(BaseModel):
 
 
 class ItemMeta(BaseModel):
+    """Additional metadata about the toolkit"""
+
     categories: List[ItemMetaCategory]
     """List of categories associated with this toolkit"""
 
@@ -43,18 +47,24 @@ class ItemMeta(BaseModel):
     updated_at: str
     """Last modification date and time of the toolkit"""
 
+    version: str
+    """Version of the toolkit"""
+
     app_url: Optional[str] = None
     """Link to the toolkit's main application or service website"""
 
 
 class Item(BaseModel):
+    """Detailed information about a toolkit"""
+
     deprecated: ItemDeprecated
     """Deprecated toolkit ID"""
 
     is_local_toolkit: bool
-    """
-    Indicates if this toolkit is specific to the current project or globally
-    available
+    """DEPRECATED: This field is no longer meaningful and will always return false.
+
+    It was previously used to indicate if a toolkit is specific to the current
+    project.
     """
 
     meta: ItemMeta
@@ -65,6 +75,9 @@ class Item(BaseModel):
 
     slug: str
     """URL-friendly unique identifier for the toolkit"""
+
+    status: str
+    """Lifecycle status of the toolkit"""
 
     auth_schemes: Optional[List[str]] = None
     """List of authentication methods supported by this toolkit"""

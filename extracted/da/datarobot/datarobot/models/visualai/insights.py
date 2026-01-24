@@ -55,21 +55,17 @@ class ImageEmbedding(APIObject):
     _compute_path = "projects/{project_id}/models/{model_id}/imageEmbeddings/"
     _list_metadata_path = "projects/{project_id}/imageEmbeddings/"
     _list_embeddings_path = "projects/{project_id}/models/{model_id}/imageEmbeddings/"
-    _converter = t.Dict(
-        {
-            t.Key("feature_name"): t.String(),
-            t.Key("position_x"): t.Float(),
-            t.Key("position_y"): t.Float(),
-            t.Key("image_id"): String(),
-            t.Key("project_id"): t.String(),
-            t.Key("model_id"): t.String(),
-            t.Key("actual_target_value", optional=True): t.Or(
-                t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)
-            ),
-            t.Key("target_values", optional=True): t.Or(t.List(String()), t.Null),
-            t.Key("target_bins", optional=True): t.Or(t.List(t.Mapping(String(), Float())), t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("feature_name"): t.String(),
+        t.Key("position_x"): t.Float(),
+        t.Key("position_y"): t.Float(),
+        t.Key("image_id"): String(),
+        t.Key("project_id"): t.String(),
+        t.Key("model_id"): t.String(),
+        t.Key("actual_target_value", optional=True): t.Or(t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)),
+        t.Key("target_values", optional=True): t.Or(t.List(String()), t.Null),
+        t.Key("target_bins", optional=True): t.Or(t.List(t.Mapping(String(), Float())), t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -215,26 +211,22 @@ class ImageActivationMap(APIObject):
     _compute_path = "projects/{project_id}/models/{model_id}/imageActivationMaps/"
     _list_metadata_path = "projects/{project_id}/imageActivationMaps/"
     _list_model_path = "projects/{project_id}/models/{model_id}/imageActivationMaps/"
-    _converter = t.Dict(
-        {
-            t.Key("feature_name"): String(),
-            t.Key("activation_values"): t.List(t.List(Int())),
-            t.Key("image_width"): Int(),
-            t.Key("image_height"): Int(),
-            t.Key("image_id"): String(),
-            t.Key("overlay_image_id"): String(),
-            t.Key("project_id"): t.String(),
-            t.Key("model_id"): t.String(),
-            t.Key("actual_target_value", optional=True): t.Or(
-                t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)
-            ),
-            t.Key("predicted_target_value", optional=True): t.Or(
-                t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)
-            ),
-            t.Key("target_values", optional=True): t.Or(t.List(String()), t.Null),
-            t.Key("target_bins", optional=True): t.Or(t.List(t.Mapping(String(), Float())), t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("feature_name"): String(),
+        t.Key("activation_values"): t.List(t.List(Int())),
+        t.Key("image_width"): Int(),
+        t.Key("image_height"): Int(),
+        t.Key("image_id"): String(),
+        t.Key("overlay_image_id"): String(),
+        t.Key("project_id"): t.String(),
+        t.Key("model_id"): t.String(),
+        t.Key("actual_target_value", optional=True): t.Or(t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)),
+        t.Key("predicted_target_value", optional=True): t.Or(
+            t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)
+        ),
+        t.Key("target_values", optional=True): t.Or(t.List(String()), t.Null),
+        t.Key("target_bins", optional=True): t.Or(t.List(t.Mapping(String(), Float())), t.Null),
+    }).ignore_extra("*")
 
     def __repr__(self) -> str:
         return (
@@ -265,9 +257,7 @@ class ImageActivationMap(APIObject):
     ):
         self.project_id = project_id
         self.model_id = model_id
-        self.image = Image(
-            project_id=project_id, width=image_width, height=image_height, image_id=image_id
-        )
+        self.image = Image(project_id=project_id, width=image_width, height=image_height, image_id=image_id)
         self.overlay_image = Image(
             image_id=overlay_image_id,
             project_id=project_id,

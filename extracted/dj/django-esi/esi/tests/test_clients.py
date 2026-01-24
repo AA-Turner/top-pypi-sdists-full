@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+import datetime
 import os
 from unittest.mock import patch, Mock
 import json
@@ -49,7 +49,7 @@ def _load_json_file(path):
 
 class MockResultFuture:
     def __init__(self):
-        dt = datetime.utcnow().replace(tzinfo=timezone.utc) + timedelta(seconds=60)
+        dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=60)
         self.headers = {"Expires": dt.strftime("%a, %d %b %Y %H:%M:%S %Z")}
         self.status_code = 200
         self.text = "dummy"
@@ -57,7 +57,7 @@ class MockResultFuture:
 
 class MockResultPast:
     def __init__(self):
-        dt = datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(seconds=60)
+        dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=60)
         self.headers = {"Expires": dt.strftime("%a, %d %b %Y %H:%M:%S %Z")}
 
 
@@ -198,7 +198,7 @@ class TestTokenAuthenticator(NoSocketsTestCase):
         request.headers = dict()
         request.params = dict()
 
-        self.token.created -= timedelta(121)
+        self.token.created -= datetime.timedelta(121)
 
         x = TokenAuthenticator(token=self.token)
         request2 = x.apply(request)
@@ -212,7 +212,7 @@ class TestTokenAuthenticator(NoSocketsTestCase):
         request.headers = dict()
         request.params = dict()
 
-        self.token.created -= timedelta(121)
+        self.token.created -= datetime.timedelta(121)
         self.token.refresh_token = None
 
         x = TokenAuthenticator(token=self.token)
@@ -733,7 +733,10 @@ class TestClientResult2(NoSocketsTestCase):
         # then
         self.assertTrue(requests_mocker.called)
         request = requests_mocker.last_request
-        self.assertEqual(request._request.headers["User-Agent"], "Django-ESI/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
+
+        expected_title = 'DjangoEsi'
+
+        self.assertEqual(request._request.headers["User-Agent"], f"{expected_title}/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
 
     def test_existing_headers(self, requests_mocker):
         # given
@@ -743,7 +746,10 @@ class TestClientResult2(NoSocketsTestCase):
         # then
         self.assertTrue(requests_mocker.called)
         request = requests_mocker.last_request
-        self.assertEqual(request._request.headers["User-Agent"], "Django-ESI/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
+
+        expected_title = 'DjangoEsi'
+
+        self.assertEqual(request._request.headers["User-Agent"], f"{expected_title}/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
 
 
 class TestRequestsClientPlus(NoSocketsTestCase):
@@ -809,7 +815,9 @@ class TestEsiClientFactoryAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "Django-ESI/1.0.0 (None; +https://gitlab.com/allianceauth/django-esi)")
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_title}/1.0.0 (None; +https://gitlab.com/allianceauth/django-esi)")
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_defaults_email(self, requests_mocker) -> None:
@@ -821,7 +829,9 @@ class TestEsiClientFactoryAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "Django-ESI/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_title}/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", None)
     def test_app_text(self, requests_mocker) -> None:
@@ -835,7 +845,9 @@ class TestEsiClientFactoryAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "my-app v1.0.0 (None) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"my-app v1.0.0 (None) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_app_text_with_email(self, requests_mocker):
@@ -848,7 +860,9 @@ class TestEsiClientFactoryAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "my-app v1.0.0 (email@example.com) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"my-app v1.0.0 (email@example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_ua_generator(self, requests_mocker):
@@ -859,7 +873,41 @@ class TestEsiClientFactoryAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "MyApp/1.0.0 (email@example.com) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_app_name}/1.0.0 (email@example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
+
+    @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
+    def test_ua_generator_for_appname_with_spaces(self, requests_mocker):
+        requests_mocker.register_uri("GET", url="https://esi.evetech.net/_latest/swagger.json", json=self.spec)
+        requests_mocker.register_uri("GET", url="https://esi.evetech.net/latest/swagger.json", json=self.spec)
+        requests_mocker.register_uri("GET", url="https://esi.evetech.net/v1/status/", json=self.status_response)
+        client = esi_client_factory(ua_appname="My App", ua_version="1.0.0")
+
+        # when
+        operation = client.Status.get_status()
+
+        # then
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_app_name}/1.0.0 (email@example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
+
+    @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
+    def test_ua_generator_for_appname_with_hyphens(self, requests_mocker):
+        requests_mocker.register_uri("GET", url="https://esi.evetech.net/_latest/swagger.json", json=self.spec)
+        requests_mocker.register_uri("GET", url="https://esi.evetech.net/latest/swagger.json", json=self.spec)
+        requests_mocker.register_uri("GET", url="https://esi.evetech.net/v1/status/", json=self.status_response)
+        client = esi_client_factory(ua_appname="My-App", ua_version="1.0.0")
+
+        # when
+        operation = client.Status.get_status()
+
+        # then
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_app_name}/1.0.0 (email@example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_ua_generator_with_url(self, requests_mocker):
@@ -870,7 +918,9 @@ class TestEsiClientFactoryAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "MyApp/1.0.0 (email@example.com; +https://example.com) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_app_name}/1.0.0 (email@example.com; +https://example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
 
 @patch(MODULE_PATH + ".__title__", "Django-ESI")
 @patch(MODULE_PATH + ".__version__", "1.0.0")
@@ -897,7 +947,8 @@ class TestEsiClientProviderAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "Django-ESI/1.0.0 (None; +https://gitlab.com/allianceauth/django-esi)")
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_title}/1.0.0 (None; +https://gitlab.com/allianceauth/django-esi)")
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_defaults_email(self, requests_mocker) -> None:
@@ -909,7 +960,8 @@ class TestEsiClientProviderAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "Django-ESI/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_title}/1.0.0 (email@example.com; +https://gitlab.com/allianceauth/django-esi)")
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", None)
     def test_app_text(self, requests_mocker) -> None:
@@ -923,7 +975,8 @@ class TestEsiClientProviderAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "my-app v1.0.0 (None) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"my-app v1.0.0 (None) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_app_text_with_email(self, requests_mocker):
@@ -936,7 +989,8 @@ class TestEsiClientProviderAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "my-app v1.0.0 (email@example.com) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"my-app v1.0.0 (email@example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)",)
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_ua_generator(self, requests_mocker):
@@ -947,7 +1001,9 @@ class TestEsiClientProviderAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "MyApp/1.0.0 (email@example.com) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_app_name}/1.0.0 (email@example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
 
     @patch(MODULE_PATH + ".app_settings.ESI_USER_CONTACT_EMAIL", "email@example.com")
     def test_ua_generator_with_url(self, requests_mocker):
@@ -958,4 +1014,6 @@ class TestEsiClientProviderAppText(NoSocketsTestCase):
         # when
         operation = client.Status.get_status()
         # then
-        self.assertEqual(operation.future.request.headers["User-Agent"], "MyApp/1.0.0 (email@example.com; +https://example.com) Django-ESI/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")
+        expected_app_name = "MyApp"
+        expected_title = 'DjangoEsi'
+        self.assertEqual(operation.future.request.headers["User-Agent"], f"{expected_app_name}/1.0.0 (email@example.com; +https://example.com) {expected_title}/1.0.0 (+https://gitlab.com/allianceauth/django-esi)")

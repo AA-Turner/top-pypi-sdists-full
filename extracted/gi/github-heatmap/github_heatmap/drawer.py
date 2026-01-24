@@ -35,6 +35,42 @@ class Drawer:
             zip(self.poster.type_list, COLOR_TUPLE[: len(self.poster.type_list)])
         )
 
+    def _format_tooltip(self, date_title, value=None, type_name=None):
+        custom_map = getattr(self.poster, "tooltip_by_date", {}) or {}
+        custom = None
+        if custom_map:
+            entry = custom_map.get(date_title)
+            if isinstance(entry, dict):
+                if type_name and type_name in entry:
+                    custom = entry.get(type_name)
+                elif "__default__" in entry:
+                    custom = entry.get("__default__")
+            else:
+                custom = entry
+            if isinstance(custom, list):
+                custom = "\n".join([str(item) for item in custom if item is not None])
+            if custom is not None and custom != "":
+                return str(custom)
+        template = self.poster.tooltip_template
+        if template and value is not None:
+            context = {
+                "date": date_title,
+                "value": value if value is not None else "",
+                "unit": self.poster.units if value is not None else "",
+                "type": type_name or "",
+            }
+            try:
+                tooltip = template.format(**context)
+            except KeyError:
+                tooltip = template
+            if tooltip:
+                return tooltip
+        if value is not None:
+            if type_name:
+                return f"{date_title} {value} for {type_name}"
+            return f"{date_title} {value} {self.poster.units}"
+        return date_title
+
     def make_color(self, length_range, length):
         sp2 = self.poster.special_number.get("special_number2")
         sp1 = self.poster.special_number.get("special_number1")
@@ -90,7 +126,9 @@ class Drawer:
                 color = self.poster.colors.get("special2") or self.poster.colors.get(
                     "special"
                 )
-            date_title = f"{date_title} {day_tracks} {self.poster.units}"
+            tooltip = self._format_tooltip(date_title, day_tracks)
+        else:
+            tooltip = self._format_tooltip(date_title)
         rect = dr.rect(
             (rect_x, rect_y),
             DOM_BOX_TUPLE,
@@ -100,7 +138,7 @@ class Drawer:
         )
         if with_animation:
             rect = self.__add_animation(rect, key_times, animate_index)
-        rect.set_desc(title=date_title)
+        rect.set_desc(title=tooltip)
         yield rect
 
     def _gen_day_boxes(
@@ -126,6 +164,7 @@ class Drawer:
             types_len = len(day_tracks)
             dom_tuple = DOM_BOX_DICT.get(types_len).get("dom")
             index = 0
+            base_title = date_title
             for _type in self.poster.type_list:
                 num = day_tracks.get(_type, 0)
                 length_range = self.poster.length_range_by_date_dict.get(_type, 1)
@@ -140,10 +179,10 @@ class Drawer:
                     rx=DOM_BOX_RADIUS,
                     ry=DOM_BOX_RADIUS,
                 )
-                date_title = f"{date_title} {num} for {_type}"
+                tooltip = self._format_tooltip(base_title, num, _type)
                 if with_animation:
                     rect = self.__add_animation(rect, key_times, animate_index)
-                rect.set_desc(title=date_title)
+                rect.set_desc(title=tooltip)
                 yield rect
                 rect_y += dom_tuple[index][1]
                 index += 1
@@ -269,6 +308,9 @@ class Drawer:
                     "special_number1": loader.special_number1,
                     "special_number2": loader.special_number2,
                 }
+                self.poster.tooltip_by_date = (
+                    getattr(loader, "tooltip_by_date_dict", {}) or {}
+                )
                 self.poster.colors["track"] = loader.track_color or "#4DD2FF"
                 self.poster.units = loader.unit
                 self.poster.compute_track_statistics([loader._type])

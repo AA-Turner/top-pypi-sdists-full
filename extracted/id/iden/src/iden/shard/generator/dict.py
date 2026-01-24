@@ -4,8 +4,9 @@ from __future__ import annotations
 
 __all__ = ["ShardDictGenerator"]
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
+from coola import objects_are_equal
 from coola.utils import repr_indent, repr_mapping, str_indent, str_mapping
 
 from iden.shard import BaseShard, ShardDict, create_shard_dict
@@ -14,57 +15,63 @@ from iden.shard.generator.base import BaseShardGenerator, setup_shard_generator
 if TYPE_CHECKING:
     from pathlib import Path
 
+T = TypeVar("T")
 
-class ShardDictGenerator(BaseShardGenerator[dict[str, BaseShard]]):
-    r"""Implement a ``ShardDict`` generator.
+
+class ShardDictGenerator(BaseShardGenerator[dict[str, BaseShard[T]]]):
+    r"""Implement a shard dictionary generator for creating dictionaries
+    of shards.
+
+    This generator creates ShardDict instances containing multiple named
+    shards, useful for organizing data splits or related datasets.
 
     Args:
         shards: The shard generators or their configurations.
         path_uri: The path where to save the URI file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> import torch
+        >>> from pathlib import Path
+        >>> from iden.data.generator import DataGenerator
+        >>> from iden.shard.generator import ShardDictGenerator, JsonShardGenerator
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     generator = ShardDictGenerator(
+        ...         shards={
+        ...             "train": JsonShardGenerator(
+        ...                 data=DataGenerator([1, 2, 3]),
+        ...                 path_uri=Path(tmpdir).joinpath("uri"),
+        ...                 path_shard=Path(tmpdir).joinpath("data"),
+        ...             )
+        ...         },
+        ...         path_uri=Path(tmpdir).joinpath("uri"),
+        ...     )
+        ...     generator
+        ...     shard = generator.generate("shard1")
+        ...     shard
+        ...
+        ShardDictGenerator(
+          (path_uri): PosixPath('/.../uri')
+          (shards):
+            (train): JsonShardGenerator(
+                (path_uri): PosixPath('/.../uri')
+                (path_shard): PosixPath('/.../data')
+                (data): DataGenerator(copy=False)
+              )
+        )
+        ShardDict(
+          (uri): file:///.../uri/shard1
+          (shards):
+            (train): JsonShard(uri=file:///.../uri/train)
+        )
 
-    ```pycon
-
-    >>> import tempfile
-    >>> import torch
-    >>> from pathlib import Path
-    >>> from iden.data.generator import DataGenerator
-    >>> from iden.shard.generator import ShardDictGenerator, JsonShardGenerator
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     generator = ShardDictGenerator(
-    ...         shards={
-    ...             "train": JsonShardGenerator(
-    ...                 data=DataGenerator([1, 2, 3]),
-    ...                 path_uri=Path(tmpdir).joinpath("uri"),
-    ...                 path_shard=Path(tmpdir).joinpath("data"),
-    ...             )
-    ...         },
-    ...         path_uri=Path(tmpdir).joinpath("uri"),
-    ...     )
-    ...     generator
-    ...     shard = generator.generate("shard1")
-    ...     shard
-    ...
-    ShardDictGenerator(
-      (path_uri): PosixPath('/.../uri')
-      (shards):
-        (train): JsonShardGenerator(
-            (path_uri): PosixPath('/.../uri')
-            (path_shard): PosixPath('/.../data')
-            (data): DataGenerator(copy=False)
-          )
-    )
-    ShardDict(
-      (uri): file:///.../uri/shard1
-      (shards):
-        (train): JsonShard(uri=file:///.../uri/train)
-    )
-
-    ```
+        ```
     """
 
-    def __init__(self, shards: dict[str, BaseShardGenerator | dict], path_uri: Path) -> None:
+    def __init__(
+        self, shards: dict[str, BaseShardGenerator[T] | dict[Any, Any]], path_uri: Path
+    ) -> None:
         self._shards = {key: setup_shard_generator(shard) for key, shard in shards.items()}
         self._path_uri = path_uri
 
@@ -90,6 +97,14 @@ class ShardDictGenerator(BaseShardGenerator[dict[str, BaseShard]]):
         )
         return f"{self.__class__.__qualname__}(\n  {args}\n)"
 
-    def generate(self, shard_id: str) -> ShardDict:
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        if type(other) is not type(self):
+            return False
+        return (
+            objects_are_equal(self._shards, other._shards, equal_nan=equal_nan)
+            and self._path_uri == other._path_uri
+        )
+
+    def generate(self, shard_id: str) -> ShardDict[T]:
         shards = {key: shard.generate(str(key)) for key, shard in self._shards.items()}
         return create_shard_dict(uri=self._path_uri.joinpath(shard_id).as_uri(), shards=shards)

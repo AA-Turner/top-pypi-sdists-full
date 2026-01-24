@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable, Optional
-from typing_extensions import Required, Annotated, TypeAlias, TypedDict
+from typing import Dict, Union, Iterable, Optional
+from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 
 __all__ = ["CompletionCreateParams", "StreamOptions"]
@@ -12,6 +13,12 @@ __all__ = ["CompletionCreateParams", "StreamOptions"]
 
 class CompletionCreateParams(TypedDict, total=False):
     model: Required[str]
+
+    prompt: Required[Union[str, SequenceNotStr[str], Iterable[int], Iterable[Iterable[int]]]]
+    """
+    The prompt(s) to generate completions for, encoded as a string, array of
+    strings, array of tokens, or array of token arrays.
+    """
 
     best_of: Optional[int]
     """
@@ -37,7 +44,7 @@ class CompletionCreateParams(TypedDict, total=False):
     grammar_root: Optional[str]
     """The grammar root used for structured output generation."""
 
-    logit_bias: Optional[object]
+    logit_bias: Optional[Dict[str, float]]
     """Modify the likelihood of specified tokens appearing in the completion.
 
     Accepts a JSON object that maps tokens (specified by their token ID in the
@@ -48,11 +55,12 @@ class CompletionCreateParams(TypedDict, total=False):
     or exclusive selection of the relevant token.
     """
 
-    logprobs: Optional[bool]
-    """Whether to return log probabilities of the output tokens or not.
-
-    If true, returns the log probabilities of each output token returned in the
-    content of message.
+    logprobs: Optional[int]
+    """
+    Include the log probabilities on the logprobs most likely output tokens, as well
+    the chosen tokens. For example, if logprobs is 5, the API will return a list of
+    the 5 most likely tokens. The API will always return the logprob of the sampled
+    token, so there may be up to logprobs+1 elements in the response.
     """
 
     max_tokens: Optional[int]
@@ -83,10 +91,13 @@ class CompletionCreateParams(TypedDict, total=False):
     far, increasing the model's likelihood to talk about new topics.
     """
 
-    prompt: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]
-    """
-    The prompt(s) to generate completions for, encoded as a string, array of
-    strings, array of tokens, or array of token arrays.
+    reasoning_format: Literal["none", "parsed", "text_parsed", "raw", "hidden"]
+    """Determines how reasoning is returned in the response.
+
+    If set to `parsed`, the reasoning will be returned in the `reasoning` field of
+    the response message as a string. If set to `raw`, the reasoning will be
+    returned in the `content` field of the response message with special tokens. If
+    set to `hidden`, the reasoning will not be returned in the response.
     """
 
     return_raw_tokens: Optional[bool]
@@ -99,7 +110,7 @@ class CompletionCreateParams(TypedDict, total=False):
     the same result. Determinism is not guaranteed.
     """
 
-    stop: Union[str, List[str], None]
+    stop: Union[str, SequenceNotStr[str], None]
     """Up to 4 sequences where the API will stop generating further tokens.
 
     The returned text will not contain the stop sequence.
@@ -108,6 +119,7 @@ class CompletionCreateParams(TypedDict, total=False):
     stream: Optional[bool]
 
     stream_options: Optional[StreamOptions]
+    """Options for streaming."""
 
     suffix: Optional[str]
     """The suffix that comes after a completion of inserted text.
@@ -145,6 +157,8 @@ class CompletionCreateParams(TypedDict, total=False):
 
 
 class StreamOptionsTyped(TypedDict, total=False):
+    """Options for streaming."""
+
     include_usage: Optional[bool]
 
 

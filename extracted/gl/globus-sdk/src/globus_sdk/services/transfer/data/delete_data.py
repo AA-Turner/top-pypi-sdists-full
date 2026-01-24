@@ -5,15 +5,14 @@ import logging
 import typing as t
 import uuid
 
-from globus_sdk import exc, utils
-
-if t.TYPE_CHECKING:
-    import globus_sdk
+from globus_sdk._internal.remarshal import stringify
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk._payload import GlobusPayload
 
 log = logging.getLogger(__name__)
 
 
-class DeleteData(utils.PayloadWrapper):
+class DeleteData(GlobusPayload):
     r"""
     Convenience class for constructing a delete document, to use as the
     `data` parameter to
@@ -22,20 +21,12 @@ class DeleteData(utils.PayloadWrapper):
     At least one item must be added using
     :meth:`add_item <globus_sdk.DeleteData.add_item>`.
 
-    If ``submission_id`` isn't passed, one will be fetched automatically. The
-    submission ID can be pulled out of here to inspect, but the document
-    can be used as-is multiple times over to retry a potential submission
-    failure (so there shouldn't be any need to inspect it).
-
-    :param transfer_client: A ``TransferClient`` instance which will be used to get a
-        submission ID if one is not supplied. Should be the same instance that is used
-        to submit the deletion.
     :param endpoint: The endpoint ID which is targeted by this deletion Task
     :param label: A string label for the Task
-    :param submission_id: A submission ID value fetched via
-        :meth:`get_submission_id <globus_sdk.TransferClient.get_submission_id>`.
-        Defaults to using ``transfer_client.get_submission_id`` if a ``transfer_client``
-        is provided
+    :param submission_id: A submission ID value fetched via :meth:`get_submission_id
+        <globus_sdk.TransferClient.get_submission_id>`. By default, the SDK
+        will fetch and populate this field when :meth:`submit_delete
+        <globus_sdk.TransferClient.submit_delete>` is called.
     :param recursive: Recursively delete subdirectories on the target endpoint
       [default: ``False``]
     :param ignore_missing: Ignore nonexistent files and directories instead of treating
@@ -49,8 +40,6 @@ class DeleteData(utils.PayloadWrapper):
         timestamp is in UTC to avoid confusion and ambiguity. Examples of ISO-8601
         timestamps include ``2017-10-12 09:30Z``, ``2017-10-12 12:33:54+00:00``, and
         ``2017-10-12``
-    :param skip_activation_check: When true, allow submission even if the endpoint
-        isn't currently activated
     :param notify_on_succeeded: Send a notification email when the delete task
         completes with a status of SUCCEEDED.
         [default: ``True``]
@@ -74,10 +63,10 @@ class DeleteData(utils.PayloadWrapper):
     **External Documentation**
 
     See the
-    `Task document definition \
+    `Task document definition
     <https://docs.globus.org/api/transfer/task_submit/#document_types>`_
     and
-    `Delete specific fields \
+    `Delete specific fields
     <https://docs.globus.org/api/transfer/task_submit/#delete_specific_fields>`_
     in the REST documentation for more details on Delete Task documents.
 
@@ -86,51 +75,34 @@ class DeleteData(utils.PayloadWrapper):
 
     def __init__(
         self,
-        transfer_client: globus_sdk.TransferClient | None = None,
-        endpoint: uuid.UUID | str | None = None,
+        endpoint: uuid.UUID | str,
         *,
-        label: str | None = None,
-        submission_id: uuid.UUID | str | None = None,
-        recursive: bool = False,
-        ignore_missing: bool = False,
-        interpret_globs: bool = False,
-        deadline: str | datetime.datetime | None = None,
-        skip_activation_check: bool | None = None,
-        notify_on_succeeded: bool = True,
-        notify_on_failed: bool = True,
-        notify_on_inactive: bool = True,
-        local_user: str | None = None,
+        label: str | MissingType = MISSING,
+        submission_id: uuid.UUID | str | MissingType = MISSING,
+        recursive: bool | MissingType = MISSING,
+        ignore_missing: bool | MissingType = MISSING,
+        interpret_globs: bool | MissingType = MISSING,
+        deadline: str | datetime.datetime | MissingType = MISSING,
+        notify_on_succeeded: bool | MissingType = MISSING,
+        notify_on_failed: bool | MissingType = MISSING,
+        notify_on_inactive: bool | MissingType = MISSING,
+        local_user: str | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> None:
         super().__init__()
-        # this must be checked explicitly to handle the fact that `transfer_client` is
-        # the first arg
-        if endpoint is None:
-            raise exc.GlobusSDKUsageError("endpoint is required")
-
         self["DATA_TYPE"] = "delete"
         self["DATA"] = []
-        self._set_optstrs(
-            endpoint=endpoint,
-            label=label,
-            submission_id=submission_id
-            or (
-                transfer_client.get_submission_id()["value"]
-                if transfer_client
-                else None
-            ),
-            deadline=deadline,
-            local_user=local_user,
-        )
-        self._set_optbools(
-            recursive=recursive,
-            ignore_missing=ignore_missing,
-            interpret_globs=interpret_globs,
-            skip_activation_check=skip_activation_check,
-            notify_on_succeeded=notify_on_succeeded,
-            notify_on_failed=notify_on_failed,
-            notify_on_inactive=notify_on_inactive,
-        )
+        self["endpoint"] = endpoint
+        self["label"] = label
+        self["submission_id"] = submission_id
+        self["deadline"] = stringify(deadline)
+        self["local_user"] = local_user
+        self["recursive"] = recursive
+        self["ignore_missing"] = ignore_missing
+        self["interpret_globs"] = interpret_globs
+        self["notify_on_succeeded"] = notify_on_succeeded
+        self["notify_on_failed"] = notify_on_failed
+        self["notify_on_inactive"] = notify_on_inactive
 
         for k, v in self.items():
             log.debug("DeleteData.%s = %s", k, v)
@@ -160,9 +132,11 @@ class DeleteData(utils.PayloadWrapper):
         :param path: Path to the directory or file to be deleted
         :param additional_fields: additional fields to be added to the delete item
         """
-        item_data = {"DATA_TYPE": "delete_item", "path": path}
-        if additional_fields is not None:
-            item_data.update(additional_fields)
+        item_data = {
+            "DATA_TYPE": "delete_item",
+            "path": path,
+            **(additional_fields or {}),
+        }
         log.debug('DeleteData[{}].add_item: "{}"'.format(self["endpoint"], path))
         self["DATA"].append(item_data)
 

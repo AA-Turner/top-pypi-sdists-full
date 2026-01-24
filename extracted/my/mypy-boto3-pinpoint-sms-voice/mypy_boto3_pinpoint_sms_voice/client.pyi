@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -39,12 +40,6 @@ from .type_defs import (
     UpdateConfigurationSetEventDestinationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -53,13 +48,13 @@ else:
 __all__ = ("PinpointSMSVoiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AlreadyExistsException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class PinpointSMSVoiceClient(BaseClient):
     """
@@ -98,7 +93,7 @@ class PinpointSMSVoiceClient(BaseClient):
 
     def create_configuration_set(
         self, **kwargs: Unpack[CreateConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new configuration set.
 
@@ -108,7 +103,7 @@ class PinpointSMSVoiceClient(BaseClient):
 
     def create_configuration_set_event_destination(
         self, **kwargs: Unpack[CreateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new event destination in a configuration set.
 
@@ -118,7 +113,7 @@ class PinpointSMSVoiceClient(BaseClient):
 
     def delete_configuration_set(
         self, **kwargs: Unpack[DeleteConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing configuration set.
 
@@ -128,7 +123,7 @@ class PinpointSMSVoiceClient(BaseClient):
 
     def delete_configuration_set_event_destination(
         self, **kwargs: Unpack[DeleteConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an event destination in a configuration set.
 
@@ -171,7 +166,7 @@ class PinpointSMSVoiceClient(BaseClient):
 
     def update_configuration_set_event_destination(
         self, **kwargs: Unpack[UpdateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update an event destination in a configuration set.
 

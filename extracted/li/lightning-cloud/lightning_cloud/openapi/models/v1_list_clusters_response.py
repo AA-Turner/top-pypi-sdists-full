@@ -41,7 +41,7 @@ class V1ListClustersResponse(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'clusters': 'list[Externalv1Cluster]',
+        'clusters': 'list[V1ExternalCluster]',
         'default_cluster': 'str'
     }
 
@@ -50,7 +50,7 @@ class V1ListClustersResponse(object):
         'default_cluster': 'defaultCluster'
     }
 
-    def __init__(self, clusters: 'list[Externalv1Cluster]' =None, default_cluster: 'str' =None):  # noqa: E501
+    def __init__(self, clusters: 'list[V1ExternalCluster]' =None, default_cluster: 'str' =None):  # noqa: E501
         """V1ListClustersResponse - a model defined in Swagger"""  # noqa: E501
         self._clusters = None
         self._default_cluster = None
@@ -61,22 +61,22 @@ class V1ListClustersResponse(object):
             self.default_cluster = default_cluster
 
     @property
-    def clusters(self) -> 'list[Externalv1Cluster]':
+    def clusters(self) -> 'list[V1ExternalCluster]':
         """Gets the clusters of this V1ListClustersResponse.  # noqa: E501
 
 
         :return: The clusters of this V1ListClustersResponse.  # noqa: E501
-        :rtype: list[Externalv1Cluster]
+        :rtype: list[V1ExternalCluster]
         """
         return self._clusters
 
     @clusters.setter
-    def clusters(self, clusters: 'list[Externalv1Cluster]'):
+    def clusters(self, clusters: 'list[V1ExternalCluster]'):
         """Sets the clusters of this V1ListClustersResponse.
 
 
         :param clusters: The clusters of this V1ListClustersResponse.  # noqa: E501
-        :type: list[Externalv1Cluster]
+        :type: list[V1ExternalCluster]
         """
 
         self._clusters = clusters

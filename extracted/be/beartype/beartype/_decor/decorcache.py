@@ -22,7 +22,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.roar import BeartypeConfException
+# from beartype.roar import BeartypeConfException
 from beartype.typing import (
     Dict,
     Optional,
@@ -30,12 +30,38 @@ from beartype.typing import (
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
 from beartype._conf.conftest import die_unless_conf
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     BeartypeConfedDecorator,
     BeartypeReturn,
     BeartypeableT,
 )
 from beartype._decor.decorcore import beartype_object
+from collections.abc import Callable
+
+# Intentionally import the standard mypy-friendly @typing.overload decorator
+# rather than a possibly mypy-unfriendly @beartype.typing.overload decorator --
+# which, in any case, would be needlessly inefficient and thus bad.
+from typing import overload
+
+# ....................{ OVERLOADS                          }....................
+# Declare PEP 484-compliant overloads to avoid breaking downstream code
+# statically type-checked by a static type checker (e.g., mypy). The concrete
+# @beartype decorator declared below is permissively annotated as returning a
+# union of multiple types desynchronized from the types of the passed arguments
+# and thus fails to accurately convey the actual public API of that decorator.
+# See also:
+#     https://www.python.org/dev/peps/pep-0484/#function-method-overloading
+#
+# Note that the "Callable[[BeartypeableT], BeartypeableT]" type hint should
+# ideally instead be a reference to our "BeartypeConfedDecorator" type hint.
+# Indeed, it used to be. Unfortunately, a significant regression in mypy
+# required us to inline that type hint away. See also this issue:
+#     https://github.com/beartype/beartype/issues/332
+@overload
+def beartype(obj: BeartypeableT) -> BeartypeableT: ...
+@overload
+def beartype(*, conf: BeartypeConf) -> (
+    Callable[[BeartypeableT], BeartypeableT]): ...
 
 # ....................{ DECORATORS                         }....................
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -72,8 +98,8 @@ def beartype(
     # trusted to violate PEP 561-compliance if they so choose. So... *shrug*
     if obj is not None:
         return beartype_object(obj, conf)
-    # Else, we were passed *NO* object to be decorated. In this case, this
-    # decorator is in configuration rather than decoration mode.
+    # Else, this decorator was passed *NO* object to be decorated. In this case,
+    # this decorator is in configuration rather than decoration mode.
 
     # Private decorator (possibly previously generated and cached by a prior
     # call to this decorator also in configuration mode) generically applying
@@ -94,7 +120,7 @@ def beartype(
 
     # Define a private decorator generically applying this configuration to any
     # beartypeable object passed to this decorator.
-    def beartype_confed(obj: BeartypeableT) -> BeartypeableT:
+    def _beartype_confed(obj: BeartypeableT) -> BeartypeableT:
         '''
         Decorate the passed **beartypeable** (i.e., pure-Python callable or
         class) with optimal type-checking dynamically generated unique to
@@ -107,17 +133,17 @@ def beartype(
             Beartypeable to be decorated.
 
         Returns
-        ----------
+        -------
         BeartypeableT
             Either:
 
-            * If the passed object is a class, this existing class
-              embellished with dynamically generated type-checking.
-            * If the passed object is a callable, a new callable wrapping
-              that callable with dynamically generated type-checking.
+            * If the passed object is a class, this existing class embellished
+              with dynamically generated type-checking.
+            * If the passed object is a callable, a new callable wrapping that
+              callable with dynamically generated type-checking.
 
         See Also
-        ----------
+        --------
         :func:`beartype.beartype`
             Further details.
         '''
@@ -127,10 +153,10 @@ def beartype(
         return beartype_object(obj, conf)
 
     # Cache this private decorator against this configuration.
-    _bear_conf_to_decor[conf] = beartype_confed
+    _bear_conf_to_decor[conf] = _beartype_confed
 
     # Return this private decorator.
-    return beartype_confed
+    return _beartype_confed
 
 # ....................{ SINGLETONS                         }....................
 _bear_conf_to_decor: Dict[BeartypeConf, BeartypeConfedDecorator] = {}

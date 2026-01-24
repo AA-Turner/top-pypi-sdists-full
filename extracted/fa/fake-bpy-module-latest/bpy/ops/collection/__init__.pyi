@@ -8,14 +8,11 @@ def create(
     undo: bool | None = None,
     /,
     *,
-    name: str = "Collection",
+    name: str = "",
 ) -> None:
     """Create an object collection from selected objects
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the new collection
-    :type name: str
     """
 
 def export_all(
@@ -23,11 +20,7 @@ def export_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Invoke all configured exporters on this collection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Invoke all configured exporters on this collection"""
 
 def exporter_add(
     execution_context: int | str | None = None,
@@ -38,10 +31,7 @@ def exporter_add(
 ) -> None:
     """Add exporter to the exporter list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, FileHandler idname
-    :type name: str
     """
 
 def exporter_export(
@@ -53,10 +43,7 @@ def exporter_export(
 ) -> None:
     """Invoke the export operation
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index, Exporter index
-    :type index: int | None
     """
 
 def exporter_move(
@@ -68,10 +55,7 @@ def exporter_move(
 ) -> None:
     """Move exporter up or down in the exporter list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Direction to move the active exporter
-    :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def exporter_remove(
@@ -83,10 +67,7 @@ def exporter_remove(
 ) -> None:
     """Remove exporter from the exporter list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index, Exporter index
-    :type index: int | None
     """
 
 def objects_add_active(
@@ -98,10 +79,7 @@ def objects_add_active(
 ) -> None:
     """Add selected objects to one of the collections the active-object is part of. Optionally add to "All Collections" to ensure selected objects are included in the same collections as the active object
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param collection: Collection, The collection to add other selected objects to
-    :type collection: str | None
     """
 
 def objects_remove(
@@ -113,10 +91,7 @@ def objects_remove(
 ) -> None:
     """Remove selected objects from a collection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param collection: Collection, The collection to remove this object from
-    :type collection: str | None
     """
 
 def objects_remove_active(
@@ -128,10 +103,7 @@ def objects_remove_active(
 ) -> None:
     """Remove the object from an object collection that contains the active object
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param collection: Collection, The collection to remove other selected objects from
-    :type collection: str | None
     """
 
 def objects_remove_all(
@@ -139,8 +111,4 @@ def objects_remove_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove selected objects from all collections
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove selected objects from all collections"""

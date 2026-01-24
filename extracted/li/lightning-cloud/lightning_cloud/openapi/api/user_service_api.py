@@ -43,6 +43,91 @@ class UserServiceApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
+    def user_service_ack_user_storage_violation(self, **kwargs) -> 'V1AckUserStorageViolationResponse':  # noqa: E501
+        """user_service_ack_user_storage_violation  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_ack_user_storage_violation(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :return: V1AckUserStorageViolationResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_ack_user_storage_violation_with_http_info(**kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_ack_user_storage_violation_with_http_info(**kwargs)  # noqa: E501
+            return data
+
+    def user_service_ack_user_storage_violation_with_http_info(self, **kwargs) -> 'V1AckUserStorageViolationResponse':  # noqa: E501
+        """user_service_ack_user_storage_violation  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_ack_user_storage_violation_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :return: V1AckUserStorageViolationResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = []  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_ack_user_storage_violation" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/storage/ack-violation', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1AckUserStorageViolationResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def user_service_complete_onboarding(self, **kwargs) -> 'V1CompleteOnboardingResponse':  # noqa: E501
         """user_service_complete_onboarding  # noqa: E501
 
@@ -121,6 +206,313 @@ class UserServiceApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='V1CompleteOnboardingResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_create_affiliate_link(self, body: 'UserServiceCreateAffiliateLinkBody', user_id: 'str', **kwargs) -> 'V1AffiliateLink':  # noqa: E501
+        """create affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_create_affiliate_link(body, user_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param UserServiceCreateAffiliateLinkBody body: (required)
+        :param str user_id: (required)
+        :return: V1AffiliateLink
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_create_affiliate_link_with_http_info(body, user_id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_create_affiliate_link_with_http_info(body, user_id, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_create_affiliate_link_with_http_info(self, body: 'UserServiceCreateAffiliateLinkBody', user_id: 'str', **kwargs) -> 'V1AffiliateLink':  # noqa: E501
+        """create affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_create_affiliate_link_with_http_info(body, user_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param UserServiceCreateAffiliateLinkBody body: (required)
+        :param str user_id: (required)
+        :return: V1AffiliateLink
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'user_id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_create_affiliate_link" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `user_service_create_affiliate_link`")  # noqa: E501
+        # verify the required parameter 'user_id' is set
+        if ('user_id' not in params or
+                params['user_id'] is None):
+            raise ValueError("Missing the required parameter `user_id` when calling `user_service_create_affiliate_link`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'user_id' in params:
+            path_params['userId'] = params['user_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/{userId}/affiliate-links', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1AffiliateLink',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_delete_affiliate_link(self, user_id: 'str', id: 'str', **kwargs) -> 'V1DeleteAffiliateLinkResponse':  # noqa: E501
+        """delete affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_delete_affiliate_link(user_id, id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str user_id: (required)
+        :param str id: (required)
+        :return: V1DeleteAffiliateLinkResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_delete_affiliate_link_with_http_info(user_id, id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_delete_affiliate_link_with_http_info(user_id, id, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_delete_affiliate_link_with_http_info(self, user_id: 'str', id: 'str', **kwargs) -> 'V1DeleteAffiliateLinkResponse':  # noqa: E501
+        """delete affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_delete_affiliate_link_with_http_info(user_id, id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str user_id: (required)
+        :param str id: (required)
+        :return: V1DeleteAffiliateLinkResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['user_id', 'id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_delete_affiliate_link" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'user_id' is set
+        if ('user_id' not in params or
+                params['user_id'] is None):
+            raise ValueError("Missing the required parameter `user_id` when calling `user_service_delete_affiliate_link`")  # noqa: E501
+        # verify the required parameter 'id' is set
+        if ('id' not in params or
+                params['id'] is None):
+            raise ValueError("Missing the required parameter `id` when calling `user_service_delete_affiliate_link`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'user_id' in params:
+            path_params['userId'] = params['user_id']  # noqa: E501
+        if 'id' in params:
+            path_params['id'] = params['id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/{userId}/affiliate-links/{id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1DeleteAffiliateLinkResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_get_affiliate_link(self, user_id: 'str', id: 'str', **kwargs) -> 'V1GetAffiliateLinkResponse':  # noqa: E501
+        """get affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_get_affiliate_link(user_id, id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str user_id: (required)
+        :param str id: (required)
+        :return: V1GetAffiliateLinkResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_get_affiliate_link_with_http_info(user_id, id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_get_affiliate_link_with_http_info(user_id, id, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_get_affiliate_link_with_http_info(self, user_id: 'str', id: 'str', **kwargs) -> 'V1GetAffiliateLinkResponse':  # noqa: E501
+        """get affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_get_affiliate_link_with_http_info(user_id, id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str user_id: (required)
+        :param str id: (required)
+        :return: V1GetAffiliateLinkResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['user_id', 'id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_get_affiliate_link" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'user_id' is set
+        if ('user_id' not in params or
+                params['user_id'] is None):
+            raise ValueError("Missing the required parameter `user_id` when calling `user_service_get_affiliate_link`")  # noqa: E501
+        # verify the required parameter 'id' is set
+        if ('id' not in params or
+                params['id'] is None):
+            raise ValueError("Missing the required parameter `id` when calling `user_service_get_affiliate_link`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'user_id' in params:
+            path_params['userId'] = params['user_id']  # noqa: E501
+        if 'id' in params:
+            path_params['id'] = params['id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/{userId}/affiliate-links/{id}', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1GetAffiliateLinkResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=params.get('async_req'),
             _return_http_data_only=params.get('_return_http_data_only'),
@@ -314,6 +706,273 @@ class UserServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def user_service_get_user_storage_breakdown(self, **kwargs) -> 'V1GetUserStorageBreakdownResponse':  # noqa: E501
+        """user_service_get_user_storage_breakdown  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_get_user_storage_breakdown(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :return: V1GetUserStorageBreakdownResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_get_user_storage_breakdown_with_http_info(**kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_get_user_storage_breakdown_with_http_info(**kwargs)  # noqa: E501
+            return data
+
+    def user_service_get_user_storage_breakdown_with_http_info(self, **kwargs) -> 'V1GetUserStorageBreakdownResponse':  # noqa: E501
+        """user_service_get_user_storage_breakdown  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_get_user_storage_breakdown_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :return: V1GetUserStorageBreakdownResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = []  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_get_user_storage_breakdown" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/storage/breakdown', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1GetUserStorageBreakdownResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_list_affiliate_links(self, user_id: 'str', **kwargs) -> 'V1ListAffiliateLinksResponse':  # noqa: E501
+        """list affiliate links  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_list_affiliate_links(user_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str user_id: (required)
+        :return: V1ListAffiliateLinksResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_list_affiliate_links_with_http_info(user_id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_list_affiliate_links_with_http_info(user_id, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_list_affiliate_links_with_http_info(self, user_id: 'str', **kwargs) -> 'V1ListAffiliateLinksResponse':  # noqa: E501
+        """list affiliate links  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_list_affiliate_links_with_http_info(user_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str user_id: (required)
+        :return: V1ListAffiliateLinksResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['user_id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_list_affiliate_links" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'user_id' is set
+        if ('user_id' not in params or
+                params['user_id'] is None):
+            raise ValueError("Missing the required parameter `user_id` when calling `user_service_list_affiliate_links`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'user_id' in params:
+            path_params['userId'] = params['user_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/{userId}/affiliate-links', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1ListAffiliateLinksResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_list_notification_dialogs(self, **kwargs) -> 'V1ListNotificationDialogsResponse':  # noqa: E501
+        """we use this to show ne user unseen new features modal  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_list_notification_dialogs(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param bool unseen: if true, only return unseen features
+        :return: V1ListNotificationDialogsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_list_notification_dialogs_with_http_info(**kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_list_notification_dialogs_with_http_info(**kwargs)  # noqa: E501
+            return data
+
+    def user_service_list_notification_dialogs_with_http_info(self, **kwargs) -> 'V1ListNotificationDialogsResponse':  # noqa: E501
+        """we use this to show ne user unseen new features modal  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_list_notification_dialogs_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param bool unseen: if true, only return unseen features
+        :return: V1ListNotificationDialogsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['unseen']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_list_notification_dialogs" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'unseen' in params:
+            query_params.append(('unseen', params['unseen']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/notification-dialogs', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1ListNotificationDialogsResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def user_service_request_verification_code(self, **kwargs) -> 'V1RequestVerificationCodeResponse':  # noqa: E501
         """user_service_request_verification_code  # noqa: E501
 
@@ -422,7 +1081,8 @@ class UserServiceApi(object):
         :param async_req bool
         :param str page_token:
         :param str page_size:
-        :param str query:
+        :param str query: they can query can be by id, username, email, or name (if org provided)
+        :param str organization_id:
         :return: V1SearchUsersResponse
                  If the method is called asynchronously,
                  returns the request thread.
@@ -445,13 +1105,14 @@ class UserServiceApi(object):
         :param async_req bool
         :param str page_token:
         :param str page_size:
-        :param str query:
+        :param str query: they can query can be by id, username, email, or name (if org provided)
+        :param str organization_id:
         :return: V1SearchUsersResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['page_token', 'page_size', 'query']  # noqa: E501
+        all_params = ['page_token', 'page_size', 'query', 'organization_id']  # noqa: E501
         all_params.append('async_req')
         all_params.append('_return_http_data_only')
         all_params.append('_preload_content')
@@ -478,6 +1139,8 @@ class UserServiceApi(object):
             query_params.append(('pageSize', params['page_size']))  # noqa: E501
         if 'query' in params:
             query_params.append(('query', params['query']))  # noqa: E501
+        if 'organization_id' in params:
+            query_params.append(('organizationId', params['organization_id']))  # noqa: E501
 
         header_params = {}
 
@@ -508,7 +1171,322 @@ class UserServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def user_service_upload_settings(self, body: 'object', filename: 'str', **kwargs) -> 'V1UploadSettingsResponse':  # noqa: E501
+    def user_service_update_affiliate_link(self, body: 'UserServiceUpdateAffiliateLinkBody', user_id: 'str', id: 'str', **kwargs) -> 'V1AffiliateLink':  # noqa: E501
+        """update affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_update_affiliate_link(body, user_id, id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param UserServiceUpdateAffiliateLinkBody body: (required)
+        :param str user_id: (required)
+        :param str id: (required)
+        :return: V1AffiliateLink
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_update_affiliate_link_with_http_info(body, user_id, id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_update_affiliate_link_with_http_info(body, user_id, id, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_update_affiliate_link_with_http_info(self, body: 'UserServiceUpdateAffiliateLinkBody', user_id: 'str', id: 'str', **kwargs) -> 'V1AffiliateLink':  # noqa: E501
+        """update affiliate link  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_update_affiliate_link_with_http_info(body, user_id, id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param UserServiceUpdateAffiliateLinkBody body: (required)
+        :param str user_id: (required)
+        :param str id: (required)
+        :return: V1AffiliateLink
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'user_id', 'id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_update_affiliate_link" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `user_service_update_affiliate_link`")  # noqa: E501
+        # verify the required parameter 'user_id' is set
+        if ('user_id' not in params or
+                params['user_id'] is None):
+            raise ValueError("Missing the required parameter `user_id` when calling `user_service_update_affiliate_link`")  # noqa: E501
+        # verify the required parameter 'id' is set
+        if ('id' not in params or
+                params['id'] is None):
+            raise ValueError("Missing the required parameter `id` when calling `user_service_update_affiliate_link`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'user_id' in params:
+            path_params['userId'] = params['user_id']  # noqa: E501
+        if 'id' in params:
+            path_params['id'] = params['id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/{userId}/affiliate-links/{id}', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1AffiliateLink',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_update_user_credits_auto_replenish(self, body: 'UserServiceUpdateUserCreditsAutoReplenishBody', user_id: 'str', **kwargs) -> 'V1UpdateUserCreditsAutoReplenishResponse':  # noqa: E501
+        """user_service_update_user_credits_auto_replenish  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_update_user_credits_auto_replenish(body, user_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param UserServiceUpdateUserCreditsAutoReplenishBody body: (required)
+        :param str user_id: (required)
+        :return: V1UpdateUserCreditsAutoReplenishResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_update_user_credits_auto_replenish_with_http_info(body, user_id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_update_user_credits_auto_replenish_with_http_info(body, user_id, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_update_user_credits_auto_replenish_with_http_info(self, body: 'UserServiceUpdateUserCreditsAutoReplenishBody', user_id: 'str', **kwargs) -> 'V1UpdateUserCreditsAutoReplenishResponse':  # noqa: E501
+        """user_service_update_user_credits_auto_replenish  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_update_user_credits_auto_replenish_with_http_info(body, user_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param UserServiceUpdateUserCreditsAutoReplenishBody body: (required)
+        :param str user_id: (required)
+        :return: V1UpdateUserCreditsAutoReplenishResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'user_id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_update_user_credits_auto_replenish" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `user_service_update_user_credits_auto_replenish`")  # noqa: E501
+        # verify the required parameter 'user_id' is set
+        if ('user_id' not in params or
+                params['user_id'] is None):
+            raise ValueError("Missing the required parameter `user_id` when calling `user_service_update_user_credits_auto_replenish`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'user_id' in params:
+            path_params['userId'] = params['user_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/{userId}/credits/auto-replenish', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1UpdateUserCreditsAutoReplenishResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_update_user_viewed_new_features(self, body: 'V1UpdateUserViewedNewFeaturesRequest', **kwargs) -> 'V1UpdateUserViewedNewFeaturesResponse':  # noqa: E501
+        """we use this to update user viewed new features  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_update_user_viewed_new_features(body, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param V1UpdateUserViewedNewFeaturesRequest body: (required)
+        :return: V1UpdateUserViewedNewFeaturesResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.user_service_update_user_viewed_new_features_with_http_info(body, **kwargs)  # noqa: E501
+        else:
+            (data) = self.user_service_update_user_viewed_new_features_with_http_info(body, **kwargs)  # noqa: E501
+            return data
+
+    def user_service_update_user_viewed_new_features_with_http_info(self, body: 'V1UpdateUserViewedNewFeaturesRequest', **kwargs) -> 'V1UpdateUserViewedNewFeaturesResponse':  # noqa: E501
+        """we use this to update user viewed new features  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.user_service_update_user_viewed_new_features_with_http_info(body, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param V1UpdateUserViewedNewFeaturesRequest body: (required)
+        :return: V1UpdateUserViewedNewFeaturesResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method user_service_update_user_viewed_new_features" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `user_service_update_user_viewed_new_features`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/users/new-features', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1UpdateUserViewedNewFeaturesResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def user_service_upload_settings(self, body: 'UserServiceUploadSettingsBody', filename: 'str', **kwargs) -> 'V1UploadSettingsResponse':  # noqa: E501
         """user_service_upload_settings  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -517,7 +1495,7 @@ class UserServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param object body: (required)
+        :param UserServiceUploadSettingsBody body: (required)
         :param str filename: (required)
         :return: V1UploadSettingsResponse
                  If the method is called asynchronously,
@@ -530,7 +1508,7 @@ class UserServiceApi(object):
             (data) = self.user_service_upload_settings_with_http_info(body, filename, **kwargs)  # noqa: E501
             return data
 
-    def user_service_upload_settings_with_http_info(self, body: 'object', filename: 'str', **kwargs) -> 'V1UploadSettingsResponse':  # noqa: E501
+    def user_service_upload_settings_with_http_info(self, body: 'UserServiceUploadSettingsBody', filename: 'str', **kwargs) -> 'V1UploadSettingsResponse':  # noqa: E501
         """user_service_upload_settings  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -539,7 +1517,7 @@ class UserServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param object body: (required)
+        :param UserServiceUploadSettingsBody body: (required)
         :param str filename: (required)
         :return: V1UploadSettingsResponse
                  If the method is called asynchronously,

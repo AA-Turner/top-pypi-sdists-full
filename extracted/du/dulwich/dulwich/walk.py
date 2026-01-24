@@ -21,11 +21,19 @@
 
 """General implementation of walking commits and their contents."""
 
-import collections
+__all__ = [
+    "ALL_ORDERS",
+    "ORDER_DATE",
+    "ORDER_TOPO",
+    "WalkEntry",
+    "Walker",
+]
+
 import heapq
-from collections.abc import Iterator
+from collections import defaultdict, deque
+from collections.abc import Callable, Iterator, Sequence
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from .object_store import BaseObjectStore
@@ -53,15 +61,21 @@ class WalkEntry:
     """Object encapsulating a single result from a walk."""
 
     def __init__(self, walker: "Walker", commit: Commit) -> None:
+        """Initialize WalkEntry.
+
+        Args:
+          walker: Walker instance that created this entry
+          commit: Commit object for this entry
+        """
         self.commit = commit
         self._store = walker.store
         self._get_parents = walker.get_parents
-        self._changes: dict[Optional[bytes], list[TreeChange]] = {}
+        self._changes: dict[bytes | None, list[TreeChange]] = {}
         self._rename_detector = walker.rename_detector
 
     def changes(
-        self, path_prefix: Optional[bytes] = None
-    ) -> Union[list[TreeChange], list[list[TreeChange]]]:
+        self, path_prefix: bytes | None = None
+    ) -> list[TreeChange] | list[list[TreeChange]]:
         """Get the tree changes for this entry.
 
         Args:
@@ -81,18 +95,23 @@ class WalkEntry:
                 parent = None
             elif len(self._get_parents(commit)) == 1:
                 changes_func = tree_changes
-                parent = cast(Commit, self._store[self._get_parents(commit)[0]]).tree
+                parent_commit = self._store[self._get_parents(commit)[0]]
+                assert isinstance(parent_commit, Commit)
+                parent = parent_commit.tree
                 if path_prefix:
-                    mode, subtree_sha = parent.lookup_path(
+                    _mode, subtree_sha = parent.lookup_path(
                         self._store.__getitem__,
                         path_prefix,
                     )
                     parent = self._store[subtree_sha]
             else:
                 # For merge commits, we need to handle multiple parents differently
-                parent = [
-                    cast(Commit, self._store[p]).tree for p in self._get_parents(commit)
-                ]
+                parent_trees = []
+                for p in self._get_parents(commit):
+                    parent_commit = self._store[p]
+                    assert isinstance(parent_commit, Commit)
+                    parent_trees.append(parent_commit.tree)
+                parent = parent_trees
                 # Use a lambda to adapt the signature
                 changes_func = cast(
                     Any,
@@ -111,7 +130,7 @@ class WalkEntry:
                             from .objects import Tree
 
                             assert isinstance(p, Tree)
-                            mode, st = p.lookup_path(
+                            _mode, st = p.lookup_path(
                                 self._store.__getitem__,
                                 path_prefix,
                             )
@@ -125,7 +144,7 @@ class WalkEntry:
                 from .objects import Tree
 
                 assert isinstance(commit_tree, Tree)
-                mode, commit_tree_sha = commit_tree.lookup_path(
+                _mode, commit_tree_sha = commit_tree.lookup_path(
                     self._store.__getitem__,
                     path_prefix,
                 )
@@ -141,6 +160,7 @@ class WalkEntry:
         return self._changes[path_prefix]
 
     def __repr__(self) -> str:
+        """Return string representation of WalkEntry."""
         return f"<WalkEntry commit={self.commit.id.decode('ascii')}, changes={self.changes()!r}>"
 
 
@@ -157,7 +177,7 @@ class _CommitTimeQueue:
         self._seen: set[ObjectID] = set()
         self._done: set[ObjectID] = set()
         self._min_time = walker.since
-        self._last: Optional[Commit] = None
+        self._last: Commit | None = None
         self._extra_commits_left = _MAX_EXTRA_COMMITS
         self._is_finished = False
 
@@ -193,10 +213,12 @@ class _CommitTimeQueue:
                     # some caching (which DiskObjectStore currently does not).
                     # We could either add caching in this class or pass around
                     # parsed queue entry objects instead of commits.
-                    todo.append(cast(Commit, self._store[parent]))
+                    parent_commit = self._store[parent]
+                    assert isinstance(parent_commit, Commit)
+                    todo.append(parent_commit)
                 excluded.add(parent)
 
-    def next(self) -> Optional[WalkEntry]:
+    def next(self) -> WalkEntry | None:
         if self._is_finished:
             return None
         while self._pq:
@@ -260,17 +282,17 @@ class Walker:
     def __init__(
         self,
         store: "BaseObjectStore",
-        include: list[bytes],
-        exclude: Optional[list[bytes]] = None,
+        include: ObjectID | Sequence[ObjectID],
+        exclude: Sequence[ObjectID] | None = None,
         order: str = "date",
         reverse: bool = False,
-        max_entries: Optional[int] = None,
-        paths: Optional[list[bytes]] = None,
-        rename_detector: Optional[RenameDetector] = None,
+        max_entries: int | None = None,
+        paths: Sequence[bytes] | None = None,
+        rename_detector: RenameDetector | None = None,
         follow: bool = False,
-        since: Optional[int] = None,
-        until: Optional[int] = None,
-        get_parents: Callable[[Commit], list[bytes]] = lambda commit: commit.parents,
+        since: int | None = None,
+        until: int | None = None,
+        get_parents: Callable[[Commit], list[ObjectID]] = lambda commit: commit.parents,
         queue_cls: type = _CommitTimeQueue,
     ) -> None:
         """Constructor.
@@ -324,9 +346,9 @@ class Walker:
 
         self._num_entries = 0
         self._queue = queue_cls(self)
-        self._out_queue: collections.deque[WalkEntry] = collections.deque()
+        self._out_queue: deque[WalkEntry] = deque()
 
-    def _path_matches(self, changed_path: Optional[bytes]) -> bool:
+    def _path_matches(self, changed_path: bytes | None) -> bool:
         if changed_path is None:
             return False
         if self.paths is None:
@@ -346,10 +368,12 @@ class Walker:
         if not change:
             return False
 
-        old_path = change.old.path
-        new_path = change.new.path
+        old_path = change.old.path if change.old is not None else None
+        new_path = change.new.path if change.new is not None else None
         if self._path_matches(new_path):
             if self.follow and change.type in RENAME_CHANGE_TYPES:
+                assert old_path is not None
+                assert new_path is not None
                 self.paths.add(old_path)
                 self.paths.remove(new_path)
             return True
@@ -357,7 +381,7 @@ class Walker:
             return True
         return False
 
-    def _should_return(self, entry: WalkEntry) -> Optional[bool]:
+    def _should_return(self, entry: WalkEntry) -> bool | None:
         """Determine if a walk entry should be returned..
 
         Args:
@@ -377,32 +401,43 @@ class Walker:
             return True
 
         if len(self.get_parents(commit)) > 1:
-            for path_changes in entry.changes():
+            changes_result = entry.changes()
+            # For merge commits, changes() returns list[list[TreeChange]]
+            assert isinstance(changes_result, list)
+            for path_changes in changes_result:
                 # For merge commits, only include changes with conflicts for
                 # this path. Since a rename conflict may include different
                 # old.paths, we have to check all of them.
+                assert isinstance(path_changes, list)
                 for change in path_changes:
+                    from .diff_tree import TreeChange
+
+                    assert isinstance(change, TreeChange)
                     if self._change_matches(change):
                         return True
         else:
             changes = entry.changes()
+            from .diff_tree import TreeChange
+
             # Handle both list[TreeChange] and list[list[TreeChange]]
             if changes and isinstance(changes[0], list):
                 # It's list[list[TreeChange]], flatten it
                 for change_list in changes:
+                    assert isinstance(change_list, list)
                     for change in change_list:
+                        assert isinstance(change, TreeChange)
                         if self._change_matches(change):
                             return True
             else:
                 # It's list[TreeChange]
-                from .diff_tree import TreeChange
-
-                for change in changes:
-                    if isinstance(change, TreeChange) and self._change_matches(change):
+                assert isinstance(changes, list)
+                for item in changes:
+                    assert isinstance(item, TreeChange)
+                    if self._change_matches(item):
                         return True
         return None
 
-    def _next(self) -> Optional[WalkEntry]:
+    def _next(self) -> WalkEntry | None:
         max_entries = self.max_entries
         while max_entries is None or self._num_entries < max_entries:
             entry = next(self._queue)
@@ -419,7 +454,7 @@ class Walker:
 
     def _reorder(
         self, results: Iterator[WalkEntry]
-    ) -> Union[Iterator[WalkEntry], list[WalkEntry]]:
+    ) -> Iterator[WalkEntry] | list[WalkEntry]:
         """Possibly reorder a results iterator.
 
         Args:
@@ -435,12 +470,13 @@ class Walker:
         return results
 
     def __iter__(self) -> Iterator[WalkEntry]:
+        """Iterate over walk entries."""
         return iter(self._reorder(iter(self._next, None)))
 
 
 def _topo_reorder(
     entries: Iterator[WalkEntry],
-    get_parents: Callable[[Commit], list[bytes]] = lambda commit: commit.parents,
+    get_parents: Callable[[Commit], list[ObjectID]] = lambda commit: commit.parents,
 ) -> Iterator[WalkEntry]:
     """Reorder an iterable of entries topologically.
 
@@ -453,9 +489,9 @@ def _topo_reorder(
     Returns: iterator over WalkEntry objects from entries in FIFO order, except
         where a parent would be yielded before any of its children.
     """
-    todo: collections.deque[WalkEntry] = collections.deque()
+    todo: deque[WalkEntry] = deque()
     pending: dict[bytes, WalkEntry] = {}
-    num_children: dict[bytes, int] = collections.defaultdict(int)
+    num_children: dict[bytes, int] = defaultdict(int)
     for entry in entries:
         todo.append(entry)
         for p in get_parents(entry.commit):

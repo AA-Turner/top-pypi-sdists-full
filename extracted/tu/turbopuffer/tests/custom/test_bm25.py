@@ -59,12 +59,12 @@ def test_bm25(tpuf: Turbopuffer):
         top_k=2,
         rank_by=(
             "Sum",
-            [("blabla", "BM25", "walrus tusk"), ("blabla", "BM25", "jumping fox")],
+            [("blabla", "BM25", "walrus slow"), ("blabla", "BM25", "jumping fox")],
         ),
         filters=("fact_id", "NotEq", "z"),
     )
     assert result.rows is not None
-    assert [item.id for item in result.rows] == [2, 4]
+    assert [item.id for item in result.rows] == [4, 2]
 
     # Upsert with row-based upsert format
     ns.write(
@@ -135,26 +135,24 @@ def test_bm25_product_operator(tpuf: Turbopuffer):
 
     # Try out a bunch of query variations
     queries: list[RankBy] = [
-        ("Product", (0.5, ("title", "BM25", "quick brown"))),
-        ("Product", (("title", "BM25", "quick brown"), 0.5)),
+        ("Product", 0.5, ("title", "BM25", "quick brown")),
+        ("Product", ("title", "BM25", "quick brown"), 0.5),
         (
             "Sum",
             [
-                ("Product", (0.5, ("title", "BM25", "quick brown"))),
+                ("Product", 0.5, ("title", "BM25", "quick brown")),
                 ("content", "BM25", "brown"),
             ],
         ),
         (
             "Product",
+            0.5,
             (
-                0.5,
-                (
-                    "Sum",
-                    [
-                        ("Product", (0.5, ("title", "BM25", "quick brown"))),
-                        ("content", "BM25", "brown"),
-                    ],
-                ),
+                "Sum",
+                [
+                    ("Product", 0.5, ("title", "BM25", "quick brown")),
+                    ("content", "BM25", "brown"),
+                ],
             ),
         ),
     ]

@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import System
@@ -8,7 +8,7 @@ import System.Net.Sockets
 import System.Runtime.Serialization
 
 
-class SocketError(Enum):
+class SocketError(IntEnum):
     """This class has no documentation."""
 
     SUCCESS = 0
@@ -105,12 +105,9 @@ class SocketError(Enum):
 
     OPERATION_ABORTED = ...
 
-    def __int__(self) -> int:
-        ...
-
 
 class SocketException(System.ComponentModel.Win32Exception):
-    """Provides socket exceptions to the application."""
+    """This class has no documentation."""
 
     @property
     def message(self) -> str:
@@ -125,32 +122,24 @@ class SocketException(System.ComponentModel.Win32Exception):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the System.Net.Sockets.SocketException class with the default error code."""
-        ...
-
-    @overload
     def __init__(self, error_code: int) -> None:
-        """Creates a new instance of the System.Net.Sockets.SocketException class with the specified error code."""
         ...
 
     @overload
     def __init__(self, error_code: int, message: str) -> None:
-        """Initializes a new instance of the System.Net.Sockets.SocketException class with the specified error code and optional message."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
         ...
 
     @overload
     def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
 
-class AddressFamily(Enum):
-    """Specifies the addressing scheme that an instance of the Socket class can use."""
+class AddressFamily(IntEnum):
+    """This class has no documentation."""
 
     UNKNOWN = -1
 
@@ -217,8 +206,5 @@ class AddressFamily(Enum):
     PACKET = 65536
 
     CONTROLLER_AREA_NETWORK = 65537
-
-    def __int__(self) -> int:
-        ...
 
 

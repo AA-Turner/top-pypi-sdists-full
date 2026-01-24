@@ -28,6 +28,18 @@ class PreferredRefNameConfiguration(_message.Message):
     v1: _containers.RepeatedCompositeFieldContainer[_types_pb2.RefNameAndType]
     def __init__(self, v1: _Optional[_Iterable[_Union[_types_pb2.RefNameAndType, _Mapping]]] = ...) -> None: ...
 
+class ProcedureSettings(_message.Message):
+    __slots__ = ("v1",)
+    V1_FIELD_NUMBER: _ClassVar[int]
+    v1: ProcedureSettingsV1
+    def __init__(self, v1: _Optional[_Union[ProcedureSettingsV1, _Mapping]] = ...) -> None: ...
+
+class ProcedureSettingsV1(_message.Message):
+    __slots__ = ("workspace_procedures",)
+    WORKSPACE_PROCEDURES_FIELD_NUMBER: _ClassVar[int]
+    workspace_procedures: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, workspace_procedures: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class RemoveType(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -75,10 +87,12 @@ class Workspace(_message.Message):
     def __init__(self, id: _Optional[str] = ..., rid: _Optional[str] = ..., org: _Optional[str] = ..., display_name: _Optional[str] = ..., symbol: _Optional[_Union[WorkspaceSymbol, _Mapping]] = ..., settings: _Optional[_Union[WorkspaceSettings, _Mapping]] = ...) -> None: ...
 
 class WorkspaceSettings(_message.Message):
-    __slots__ = ("ref_names",)
+    __slots__ = ("ref_names", "procedures")
     REF_NAMES_FIELD_NUMBER: _ClassVar[int]
+    PROCEDURES_FIELD_NUMBER: _ClassVar[int]
     ref_names: PreferredRefNameConfiguration
-    def __init__(self, ref_names: _Optional[_Union[PreferredRefNameConfiguration, _Mapping]] = ...) -> None: ...
+    procedures: ProcedureSettings
+    def __init__(self, ref_names: _Optional[_Union[PreferredRefNameConfiguration, _Mapping]] = ..., procedures: _Optional[_Union[ProcedureSettings, _Mapping]] = ...) -> None: ...
 
 class WorkspaceSymbol(_message.Message):
     __slots__ = ("icon", "emoji", "image")

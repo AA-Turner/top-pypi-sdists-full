@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shinywidgets
-Version: 0.7.0
+Version: 0.7.1
 Summary: Render ipywidgets in Shiny applications
 Home-page: https://github.com/rstudio/py-shinywidgets
 Author: Carson Sievert
@@ -14,11 +14,12 @@ Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ipywidgets>=7.6.5
@@ -30,8 +31,7 @@ Provides-Extra: test
 Requires-Dist: pytest>=6.2.4; extra == "test"
 Provides-Extra: dev
 Requires-Dist: black>=23.1.0; extra == "dev"
-Requires-Dist: flake8==3.9.2; python_version <= "3.7" and extra == "dev"
-Requires-Dist: flake8>=6.0.0; python_version > "3.7" and extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
 Requires-Dist: isort>=5.11.2; extra == "dev"
 Requires-Dist: pyright>=1.1.284; extra == "dev"
 Requires-Dist: wheel; extra == "dev"

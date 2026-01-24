@@ -1,19 +1,19 @@
-# This file is part of parallel-ssh.
+#  This file is part of parallel-ssh.
+#  Copyright (C) 2014-2025 Panos Kittenis.
+#  Copyright (C) 2014-2025 parallel-ssh Contributors.
 #
-# Copyright (C) 2014-2022 Panos Kittenis and contributors.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 
 """Output module of ParallelSSH"""
@@ -57,11 +57,14 @@ class HostOutput(object):
     __slots__ = ('host', 'channel', 'stdin',
                  'client', 'alias', 'exception',
                  'encoding', 'read_timeout', 'buffers',
+                 'fully_qualified_command',
                  )
 
     def __init__(self, host, channel, stdin,
                  client, alias=None, exception=None, encoding='utf-8', read_timeout=None,
-                 buffers=None):
+                 buffers=None,
+                 fully_qualified_command=None,
+                 ):
         """
         :param host: Host name output is for
         :type host: str
@@ -79,6 +82,15 @@ class HostOutput(object):
         :type read_timeout: float
         :param buffers: Host buffer data.
         :type buffers: :py:class:`HostOutputBuffers`
+        :param fully_qualified_command: The fully qualified command after any per-host argument substitution and
+          including command string substitution required for executing via sudo or user-switching via 'su -c', using
+          any specified shell on `run_command` *and* conversion to bytes via provided encoding.
+          The fully_qualified_command is therefor a bytes object that can be saved or otherwise used anywhere bytes can
+          be used without conversion.
+          Use `fully_qualified_command.decode(encoding)` to decode with the encoding used for the equivalent host
+          output object.
+          Always `None` on `HostOutput` from interactive shells.
+        :type fully_qualified_command: bytes
         """
         self.host = host
         self.channel = channel
@@ -89,6 +101,7 @@ class HostOutput(object):
         self.encoding = encoding
         self.read_timeout = read_timeout
         self.buffers = buffers
+        self.fully_qualified_command = fully_qualified_command
 
     @property
     def stdout(self):
@@ -125,10 +138,12 @@ class HostOutput(object):
             "\tchannel={channel}{linesep}" \
             "\texception={exception}{linesep}" \
             "\tencoding={encoding}{linesep}" \
-            "\tread_timeout={read_timeout}".format(
+            "\tread_timeout={read_timeout}{linesep}" \
+            "\tfully_qualified_command={fully_qualified_command}".format(
                 host=self.host, alias=self.alias, channel=self.channel,
                 exception=self.exception, linesep=linesep,
                 exit_code=self.exit_code, encoding=self.encoding, read_timeout=self.read_timeout,
+                fully_qualified_command=self.fully_qualified_command,
             )
 
     def __str__(self):

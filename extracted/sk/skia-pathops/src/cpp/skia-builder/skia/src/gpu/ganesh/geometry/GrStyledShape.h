@@ -9,15 +9,25 @@
 #define GrStyledShape_DEFINED
 
 #include "include/core/SkPath.h"
+#include "include/core/SkPathTypes.h"
 #include "include/core/SkRRect.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkScalar.h"
+#include "include/private/base/SkAssert.h"
 #include "include/private/base/SkTemplates.h"
-#include "src/base/SkTLazy.h"
+#include "src/core/SkPathEnums.h"
 #include "src/core/SkPathPriv.h"
 #include "src/gpu/ganesh/GrStyle.h"
 #include "src/gpu/ganesh/geometry/GrShape.h"
-#include <new>
 
+#include <cstdint>
+#include <optional>
+
+struct SkArc;
 class SkIDChangeListener;
+class SkPaint;
+struct SkPoint;
 
 /**
  * Represents a geometric shape (rrect or path) and the GrStyle that it should be rendered with.
@@ -77,11 +87,8 @@ public:
 
     GrStyledShape(const SkRRect& rrect, const GrStyle& style,
                   DoSimplify doSimplify = DoSimplify::kYes)
-            : fShape(rrect), fStyle(style) {
-        if (doSimplify == DoSimplify::kYes) {
-            this->simplify();
-        }
-    }
+            // Preserve legacy indices (6 for CW), see SkPathBuilder::addRRect().
+            : GrStyledShape(rrect, SkPathDirection::kCW, 6, false, style, doSimplify) {}
 
     GrStyledShape(const SkRRect& rrect, SkPathDirection dir, unsigned start, bool inverted,
                   const GrStyle& style, DoSimplify doSimplify = DoSimplify::kYes)
@@ -104,8 +111,8 @@ public:
 
     GrStyledShape(const GrStyledShape&);
 
-    static GrStyledShape MakeArc(const SkRect& oval, SkScalar startAngleDegrees,
-                                 SkScalar sweepAngleDegrees, bool useCenter, const GrStyle& style,
+    static GrStyledShape MakeArc(const SkArc& arc,
+                                 const GrStyle& style,
                                  DoSimplify = DoSimplify::kYes);
 
     GrStyledShape& operator=(const GrStyledShape& that);
@@ -151,7 +158,7 @@ public:
     }
 
     /** Returns the unstyled geometry as a rrect if possible. */
-    bool asRRect(SkRRect* rrect, SkPathDirection* dir, unsigned* start, bool* inverted) const;
+    bool asRRect(SkRRect* rrect, bool* inverted) const;
 
     /**
      * If the unstyled shape is a straight line segment, returns true and sets pts to the endpoints.
@@ -163,8 +170,8 @@ public:
     bool asNestedRects(SkRect rects[2]) const;
 
     /** Returns the unstyled geometry as a path. */
-    void asPath(SkPath* out) const {
-        fShape.asPath(out, fStyle.isSimpleFill());
+    SkPath asPath() const {
+        return fShape.asPath(fStyle.isSimpleFill());
     }
 
     /**
@@ -210,7 +217,7 @@ public:
     bool inverseFilled() const {
         // Since the path tracks inverted-fillness itself, it should match what was recorded.
         SkASSERT(!fShape.isPath() || fShape.inverted() == fShape.path().isInverseFillType());
-        // Dashing ignores inverseness. We should have caught this earlier. skbug.com/5421
+        // Dashing ignores inverseness. We should have caught this earlier. skbug.com/40036591
         SkASSERT(!(fShape.inverted() && this->style().isDashed()));
         return fShape.inverted();
     }
@@ -307,7 +314,7 @@ private:
     bool    fClosed     = false;
     bool    fSimplified = false;
 
-    SkTLazy<SkPath>            fInheritedPathForListeners;
+    std::optional<SkPath>                  fInheritedPathForListeners;
     skia_private::AutoSTArray<8, uint32_t> fInheritedKey;
 };
 #endif

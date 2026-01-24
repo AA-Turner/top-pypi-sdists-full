@@ -32,6 +32,7 @@ from meilisearch.errors import (  # noqa: F401
 from meilisearch.index import Index
 from meilisearch.models.key import Key, KeysResults
 from meilisearch.models.task import Batch, BatchResults, Task, TaskInfo, TaskResults
+from meilisearch.models.webhook import Webhook, WebhooksResults
 from meilisearch.task import TaskHandler
 
 
@@ -73,11 +74,20 @@ class Client:
 
         self.config = Config(url, api_key, timeout=timeout, client_agents=client_agents)
 
+        # Store custom headers so they can be propagated to sub-clients (Index, TaskHandler, etc.)
+        self._custom_headers = custom_headers
+
         self.http = HttpRequests(self.config, custom_headers)
 
-        self.task_handler = TaskHandler(self.config)
+        self.task_handler = TaskHandler(self.config, custom_headers)
 
-    def create_index(self, uid: str, options: Optional[Mapping[str, Any]] = None) -> TaskInfo:
+    def create_index(
+        self,
+        uid: str,
+        options: Optional[Mapping[str, Any]] = None,
+        *,
+        metadata: Optional[str] = None,
+    ) -> TaskInfo:
         """Create an index.
 
         Parameters
@@ -86,6 +96,8 @@ class Client:
             UID of the index.
         options (optional): dict
             Options passed during index creation (ex: primaryKey).
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -98,15 +110,19 @@ class Client:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return Index.create(self.config, uid, options)
+        return Index.create(
+            self.config, uid, options, custom_headers=self._custom_headers, metadata=metadata
+        )
 
-    def delete_index(self, uid: str) -> TaskInfo:
+    def delete_index(self, uid: str, *, metadata: Optional[str] = None) -> TaskInfo:
         """Deletes an index
 
         Parameters
         ----------
         uid:
             UID of the index.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -120,7 +136,10 @@ class Client:
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
 
-        task = self.http.delete(f"{self.config.paths.index}/{uid}")
+        url = f"{self.config.paths.index}/{uid}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        task = self.http.delete(url)
 
         return TaskInfo(**task)
 
@@ -152,6 +171,7 @@ class Client:
                 index["primaryKey"],
                 index["createdAt"],
                 index["updatedAt"],
+                custom_headers=self._custom_headers,
             )
             for index in response["results"]
         ]
@@ -200,7 +220,7 @@ class Client:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return Index(self.config, uid).fetch_info()
+        return Index(self.config, uid, custom_headers=self._custom_headers).fetch_info()
 
     def get_raw_index(self, uid: str) -> Dict[str, Any]:
         """Get the index as a dictionary.
@@ -238,7 +258,7 @@ class Client:
             An Index instance.
         """
         if uid is not None:
-            return Index(self.config, uid=uid)
+            return Index(self.config, uid=uid, custom_headers=self._custom_headers)
         raise ValueError("The index UID should not be None")
 
     def multi_search(
@@ -465,6 +485,119 @@ class Client:
 
         return response.status_code
 
+    # WEBHOOKS ROUTES
+
+    def get_webhooks(self) -> WebhooksResults:
+        """Get all webhooks.
+
+        Returns
+        -------
+        webhooks:
+            WebhooksResults instance containing list of webhooks and pagination info.
+            https://www.meilisearch.com/docs/reference/api/webhooks
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        webhooks = self.http.get(f"{self.config.paths.webhooks}")
+        return WebhooksResults(**webhooks)
+
+    def get_webhook(self, webhook_uuid: str) -> Webhook:
+        """Get information about a specific webhook.
+
+        Parameters
+        ----------
+        webhook_uuid:
+            The uuid of the webhook to retrieve.
+
+        Returns
+        -------
+        webhook:
+            The webhook information.
+            https://www.meilisearch.com/docs/reference/api/webhooks#get-one-webhook
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        webhook = self.http.get(f"{self.config.paths.webhooks}/{webhook_uuid}")
+        return Webhook(**webhook)
+
+    def create_webhook(self, options: Mapping[str, Any]) -> Webhook:
+        """Create a new webhook.
+
+        Parameters
+        ----------
+        options:
+            The webhook configuration. Can include:
+            - url: The URL to send the webhook to
+            - headers: Dictionary of HTTP headers to include in webhook requests
+
+        Returns
+        -------
+        webhook:
+            The newly created webhook.
+            https://www.meilisearch.com/docs/reference/api/webhooks#create-a-webhook
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        webhook = self.http.post(self.config.paths.webhooks, options)
+        return Webhook(**webhook)
+
+    def update_webhook(self, webhook_uuid: str, options: Mapping[str, Any]) -> Webhook:
+        """Update an existing webhook.
+
+        Parameters
+        ----------
+        webhook_uuid:
+            The uuid of the webhook to update.
+        options:
+            The webhook fields to update. Can include:
+            - url: The URL to send the webhook to
+            - headers: Dictionary of HTTP headers to include in webhook requests
+
+        Returns
+        -------
+        webhook:
+            The updated webhook.
+            https://www.meilisearch.com/docs/reference/api/webhooks#update-a-webhook
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        webhook = self.http.patch(f"{self.config.paths.webhooks}/{webhook_uuid}", options)
+        return Webhook(**webhook)
+
+    def delete_webhook(self, webhook_uuid: str) -> int:
+        """Delete a webhook.
+
+        Parameters
+        ----------
+        webhook_uuid:
+            The uuid of the webhook to delete.
+
+        Returns
+        -------
+        status_code:
+            The Response status code. 204 signifies a successful delete.
+            https://www.meilisearch.com/docs/reference/api/webhooks#delete-a-webhook
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        response = self.http.delete(f"{self.config.paths.webhooks}/{webhook_uuid}")
+        return response.status_code
+
     def get_version(self) -> Dict[str, str]:
         """Get version Meilisearch
 
@@ -531,13 +664,16 @@ class Client:
 
         return TaskInfo(**task)
 
-    def swap_indexes(self, parameters: List[Mapping[str, List[str]]]) -> TaskInfo:
+    def swap_indexes(self, parameters: List[Mapping[str, List[str] | bool]]) -> TaskInfo:
         """Swap two indexes.
 
         Parameters
         ----------
         indexes:
-            List of indexes to swap (ex: [{"indexes": ["indexA", "indexB"]}).
+            List of indexes to swap ex:
+             1: {"indexes": ["indexA", "indexB"]}  # default rename to false
+            2: {"indexes": ["indexA", "indexB"], "rename": false}
+            3: {"indexes": ["indexA", "indexB"], "rename": true}
 
         Returns
         -------
@@ -593,13 +729,17 @@ class Client:
         """
         return self.task_handler.get_task(uid)
 
-    def cancel_tasks(self, parameters: MutableMapping[str, Any]) -> TaskInfo:
+    def cancel_tasks(
+        self, parameters: MutableMapping[str, Any], *, metadata: Optional[str] = None
+    ) -> TaskInfo:
         """Cancel a list of enqueued or processing tasks.
 
         Parameters
         ----------
         parameters:
             parameters accepted by the cancel tasks route:https://www.meilisearch.com/docs/reference/api/tasks#cancel-tasks.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -612,15 +752,19 @@ class Client:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return self.task_handler.cancel_tasks(parameters=parameters)
+        return self.task_handler.cancel_tasks(parameters=parameters, metadata=metadata)
 
-    def delete_tasks(self, parameters: MutableMapping[str, Any]) -> TaskInfo:
+    def delete_tasks(
+        self, parameters: MutableMapping[str, Any], *, metadata: Optional[str] = None
+    ) -> TaskInfo:
         """Delete a list of finished tasks.
 
         Parameters
         ----------
         parameters (optional):
             parameters accepted by the delete tasks route:https://www.meilisearch.com/docs/reference/api/tasks#delete-task.
+        metadata (optional):
+            Custom metadata string to attach to the task.
         Returns
         -------
         task_info:
@@ -631,7 +775,7 @@ class Client:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return self.task_handler.delete_tasks(parameters=parameters)
+        return self.task_handler.delete_tasks(parameters=parameters, metadata=metadata)
 
     def wait_for_task(
         self,
@@ -777,12 +921,14 @@ class Client:
         return jwt_token
 
     def add_or_update_networks(self, body: Union[MutableMapping[str, Any], None]) -> Dict[str, str]:
-        """Set all the Remote Networks
+        """Configure the network topology
 
         Parameters
         ----------
         body:
-            Remote networks that are allowed
+            The network configuration dictionary. must contain either:
+            - 'remotes': A dictionary of instances in the network
+            - 'leader': The leader instance (should be a key in the `remotes` dictionary)
 
         Returns
         -------
@@ -996,3 +1142,41 @@ class Client:
         )
         match = uuid4hex.match(uuid)
         return bool(match)
+
+    def get_experimental_features(self) -> Dict[str, Any]:
+        """Retrieve the current settings for all experimental features.
+
+        Returns
+        -------
+        features:
+            A dictionary mapping feature names to their enabled/disabled state.
+            For example: {"multimodal": True, "vectorStore": False}
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        return self.http.get(self.config.paths.experimental_features)
+
+    def update_experimental_features(self, features: Dict[str, bool]) -> Dict[str, Any]:
+        """Update one or more experimental features.
+
+        Parameters
+        ----------
+        features:
+            A dictionary mapping feature names to booleans.
+            For example, {"multimodal": True} to enable multimodal,
+            or {"multimodal": True, "vectorStore": False} to update multiple features.
+
+        Returns
+        -------
+        features:
+            The updated experimental features settings as a dictionary.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        return self.http.patch(self.config.paths.experimental_features, body=features)

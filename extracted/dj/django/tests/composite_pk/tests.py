@@ -11,7 +11,7 @@ except ImportError:
 
 from django import forms
 from django.core import serializers
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db import IntegrityError, connection
 from django.db.models import CompositePrimaryKey
 from django.forms import modelform_factory
@@ -147,20 +147,24 @@ class CompositePKTests(TestCase):
         result = Comment.objects.in_bulk([self.comment.pk])
         self.assertEqual(result, {self.comment.pk: self.comment})
 
-    @unittest.mock.patch.object(
-        type(connection.features), "max_query_params", new_callable=lambda: 10
-    )
-    def test_in_bulk_batching(self, mocked_max_query_params):
+    def test_in_bulk_batching(self):
         Comment.objects.all().delete()
-        num_requiring_batching = (connection.features.max_query_params // 2) + 1
-        comments = [
-            Comment(id=i, tenant=self.tenant, user=self.user)
-            for i in range(1, num_requiring_batching + 1)
-        ]
-        Comment.objects.bulk_create(comments)
-        id_list = list(Comment.objects.values_list("pk", flat=True))
-        with self.assertNumQueries(2):
-            comment_dict = Comment.objects.in_bulk(id_list=id_list)
+        batching_required = connection.features.max_query_params is not None
+        expected_queries = 2 if batching_required else 1
+        with unittest.mock.patch.object(
+            type(connection.features), "max_query_params", 10
+        ):
+            num_requiring_batching = (
+                connection.ops.bulk_batch_size([Comment._meta.pk], []) + 1
+            )
+            comments = [
+                Comment(id=i, tenant=self.tenant, user=self.user)
+                for i in range(1, num_requiring_batching + 1)
+            ]
+            Comment.objects.bulk_create(comments)
+            id_list = list(Comment.objects.values_list("pk", flat=True))
+            with self.assertNumQueries(expected_queries):
+                comment_dict = Comment.objects.in_bulk(id_list=id_list)
         self.assertQuerySetEqual(comment_dict, id_list)
 
     def test_iterator(self):
@@ -173,6 +177,20 @@ class CompositePKTests(TestCase):
     def test_query(self):
         users = User.objects.values_list("pk").order_by("pk")
         self.assertNotIn('AS "pk"', str(users.query))
+
+    def test_raw(self):
+        users = User.objects.raw("SELECT * FROM composite_pk_user")
+        self.assertEqual(len(users), 1)
+        user = users[0]
+        self.assertEqual(user.tenant_id, self.user.tenant_id)
+        self.assertEqual(user.id, self.user.id)
+        self.assertEqual(user.email, self.user.email)
+
+    def test_raw_missing_PK_fields(self):
+        query = "SELECT tenant_id, email FROM composite_pk_user"
+        msg = "Raw query must include the primary key"
+        with self.assertRaisesMessage(FieldDoesNotExist, msg):
+            list(User.objects.raw(query))
 
     def test_only(self):
         users = User.objects.only("pk")

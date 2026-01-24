@@ -9,6 +9,7 @@ import pyarrow
 from chalk import DataFrame, Features, StaticOperator
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk.client import ChalkError, ChalkException, ErrorCode, ErrorCodeCategory
+from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
 from chalk.features.feature_field import Feature
 
 
@@ -79,7 +80,7 @@ def static_resolver_to_operator(
     fn: Callable,
     inputs: Sequence[Union[Feature, type[DataFrame]]],
     output: Optional[type[Features]],
-) -> StaticOperator | DfPlaceholder | ChalkDataFrame:
+) -> StaticOperator | DfPlaceholder | ChalkDataFrame | LazyFramePlaceholder:
     if output is None:
         raise _GetStaticOperatorError(
             resolver_fqn=fqn,
@@ -96,8 +97,14 @@ def static_resolver_to_operator(
             message="Static resolver must take no arguments and have exactly one DataFrame output",
             underlying_exception=None,
         )
+
     try:
-        placeholder_inputs = [DfPlaceholder(schema_dict=schema_for_input(input_type)) for input_type in inputs]
+        placeholder_inputs = [
+            LazyFramePlaceholder.named_table(
+                name=f"resolver_df_input_{input_index}", schema=pyarrow.schema(schema_for_input(input_type))
+            )
+            for input_index, input_type in enumerate(inputs)
+        ]
         static_operator = fn(*placeholder_inputs)
     except Exception as e:
         # Weird hacky way to return a placeholder even if the resolver fails.
@@ -108,9 +115,13 @@ def static_resolver_to_operator(
         )
     else:
         if (
-            not isinstance(static_operator, (StaticOperator, DfPlaceholder))
+            not isinstance(static_operator, (StaticOperator, DfPlaceholder, LazyFramePlaceholder))
             and not static_operator.__class__.__name__ == "ChalkDataFrame"
             and not static_operator.__class__.__name__ == "LazyFrame"
+            and not (
+                static_operator.__class__.__name__ == "DataFrame"
+                and static_operator.__class__.__module__ == "chalkdf.dataframe"
+            )
         ):
             raise _GetStaticOperatorError(
                 resolver_fqn=fqn,

@@ -1,0 +1,19 @@
+pipeline: release-health
+description: release health metrics (before indexer)
+services:
+  producers:
+    - getsentry/relay
+  consumers:
+    - getsentry/sentry
+    - getsentry/super-big-consumers
+schemas:
+  - version: 1
+    compatibility_mode: none
+    type: json
+    resource: ingest-metrics.v1.schema.json
+    examples:
+      - ingest-metrics/1/
+topic_creation_config:
+  compression.type: lz4
+  retention.ms: "86400000"
+  max.message.bytes: "10000000"

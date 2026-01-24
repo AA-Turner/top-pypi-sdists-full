@@ -8,6 +8,10 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
+    CancelWorkflowExecutionRequest,
+    CancelWorkflowExecutionResponse,
+    ForceCancelJobQueueJobRequest,
+    ForceCancelJobQueueJobResponse,
     GetDataPlaneJobQueueRequest,
     GetDataPlaneJobQueueResponse,
     GetJobQueueAuxiliaryResourcesRequest,
@@ -16,6 +20,8 @@ from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     GetJobQueueOperationSummaryResponse,
     ListDataPlaneJobQueueRequest,
     ListDataPlaneJobQueueResponse,
+    ListJobQueueAttemptsRequest,
+    ListJobQueueAttemptsResponse,
 )
 from grpc import (
     Channel,
@@ -41,6 +47,18 @@ class DataPlaneJobQueueServiceStub:
     GetJobQueueOperationSummary: UnaryUnaryMultiCallable[
         GetJobQueueOperationSummaryRequest,
         GetJobQueueOperationSummaryResponse,
+    ]
+    ListJobQueueAttempts: UnaryUnaryMultiCallable[
+        ListJobQueueAttemptsRequest,
+        ListJobQueueAttemptsResponse,
+    ]
+    ForceCancelJobQueueJob: UnaryUnaryMultiCallable[
+        ForceCancelJobQueueJobRequest,
+        ForceCancelJobQueueJobResponse,
+    ]
+    CancelWorkflowExecution: UnaryUnaryMultiCallable[
+        CancelWorkflowExecutionRequest,
+        CancelWorkflowExecutionResponse,
     ]
 
 class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
@@ -68,6 +86,24 @@ class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
         request: GetJobQueueOperationSummaryRequest,
         context: ServicerContext,
     ) -> GetJobQueueOperationSummaryResponse: ...
+    @abstractmethod
+    def ListJobQueueAttempts(
+        self,
+        request: ListJobQueueAttemptsRequest,
+        context: ServicerContext,
+    ) -> ListJobQueueAttemptsResponse: ...
+    @abstractmethod
+    def ForceCancelJobQueueJob(
+        self,
+        request: ForceCancelJobQueueJobRequest,
+        context: ServicerContext,
+    ) -> ForceCancelJobQueueJobResponse: ...
+    @abstractmethod
+    def CancelWorkflowExecution(
+        self,
+        request: CancelWorkflowExecutionRequest,
+        context: ServicerContext,
+    ) -> CancelWorkflowExecutionResponse: ...
 
 def add_DataPlaneJobQueueServiceServicer_to_server(
     servicer: DataPlaneJobQueueServiceServicer, server: Server

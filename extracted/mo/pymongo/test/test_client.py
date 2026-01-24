@@ -1040,9 +1040,6 @@ class TestClient(IntegrationTest):
             coll.count_documents({})
 
     def test_close_kills_cursors(self):
-        if sys.platform.startswith("java"):
-            # We can't figure out how to make this test reliable with Jython.
-            raise SkipTest("Can't test with Jython")
         test_client = self.rs_or_single_client()
         # Kill any cursors possibly queued up by previous tests.
         gc.collect()
@@ -1062,7 +1059,7 @@ class TestClient(IntegrationTest):
         cursor = coll.aggregate([], batchSize=10)
         self.assertTrue(bool(next(cursor)))
         del cursor
-        # Required for PyPy, Jython and other Python implementations that
+        # Required for PyPy and other Python implementations that
         # don't use reference counting garbage collection.
         gc.collect()
 
@@ -1416,12 +1413,6 @@ class TestClient(IntegrationTest):
 
     @client_context.require_sync
     def test_interrupt_signal(self):
-        if sys.platform.startswith("java"):
-            # We can't figure out how to raise an exception on a thread that's
-            # blocked on a socket, whether that's the main thread or a worker,
-            # without simply killing the whole thread in Jython. This suggests
-            # PYTHON-294 can't actually occur in Jython.
-            raise SkipTest("Can't test interrupts in Jython")
         if is_greenthread_patched():
             raise SkipTest("Can't reliably test interrupts with green threads")
 
@@ -2016,7 +2007,7 @@ class TestClient(IntegrationTest):
     def test_handshake_01_aws(self):
         self._test_handshake(
             {
-                "AWS_EXECUTION_ENV": "AWS_Lambda_python3.9",
+                "AWS_EXECUTION_ENV": "AWS_Lambda_python3.10",
                 "AWS_REGION": "us-east-2",
                 "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "1024",
             },
@@ -2054,7 +2045,7 @@ class TestClient(IntegrationTest):
 
     def test_handshake_05_multiple(self):
         self._test_handshake(
-            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.9", "FUNCTIONS_WORKER_RUNTIME": "python"},
+            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.10", "FUNCTIONS_WORKER_RUNTIME": "python"},
             None,
         )
         # Extra cases for other combos.
@@ -2066,13 +2057,16 @@ class TestClient(IntegrationTest):
 
     def test_handshake_06_region_too_long(self):
         self._test_handshake(
-            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.9", "AWS_REGION": "a" * 512},
+            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.10", "AWS_REGION": "a" * 512},
             {"name": "aws.lambda"},
         )
 
     def test_handshake_07_memory_invalid_int(self):
         self._test_handshake(
-            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.9", "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "big"},
+            {
+                "AWS_EXECUTION_ENV": "AWS_Lambda_python3.10",
+                "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "big",
+            },
             {"name": "aws.lambda"},
         )
 
@@ -2359,7 +2353,7 @@ class TestExhaustCursor(IntegrationTest):
         client = self.rs_or_single_client()
         self.addCleanup(client.close)
         coll = client.pymongo_test.test
-        pool = get_pool(client)
+        pool = get_pool(client)  # type:ignore
 
         # Patch the pool to delay the connect method.
         def delayed_connect(*args, **kwargs):

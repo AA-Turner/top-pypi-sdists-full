@@ -49,5 +49,40 @@ class TestMessageStanzas(SlixTest):
           </message>
         """)
 
+    def testSubject(self):
+        msg = self.Message()
+        assert "subject" not in msg
+        msg["subject"] = "some subject"
+        assert "subject" in msg
+        self.check(
+            msg,
+            """
+            <message>
+            <subject>some subject</subject>
+            </message>
+            """,
+        )
+        assert msg["subject"] == "some subject"
+        del msg["subject"]
+        assert "subject" not in msg
+        assert not msg["subject"]
+        assert "subject" not in msg
+        self.check(msg, "<message />")
+        msg = self.Message()
+        msg["subject"] = ""
+        assert "subject" in msg
+        self.check(
+            msg,
+            """
+        <message>
+            <subject />
+        </message>
+        """,
+        use_values=False  # third stanza produced does not contain the <subject /> element
+        )
+        del msg["subject"]
+        assert "subject" not in msg
+        self.check(msg, "<message />")
+
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestMessageStanzas)

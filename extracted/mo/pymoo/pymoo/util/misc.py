@@ -1,13 +1,11 @@
 from collections import OrderedDict
-from datetime import datetime
 from itertools import combinations
 
 import numpy as np
 
-
 from pymoo.core.population import Population
 from pymoo.core.sampling import Sampling
-
+from pymoo.util import default_random_state
 
 
 def parameter_less(F, CV, fmax=None, inplace=False):
@@ -58,10 +56,11 @@ def parameter_less_constraints(F, CV, F_max=None):
     return F
 
 
-def random_permutations(n, l, concat=True):
+@default_random_state
+def random_permutations(n, l, concat=True, random_state=None):
     P = []
     for i in range(n):
-        P.append(np.random.permutation(l))
+        P.append(random_state.permutation(l))
     if concat:
         P = np.concatenate(P)
     return P
@@ -251,7 +250,7 @@ def stack(*args, flatten=True):
     if not flatten:
         ps = np.concatenate([e[None, ...] for e in args])
     else:
-        ps = np.row_stack(args)
+        ps = np.vstack(args)
     return ps
 
 
@@ -310,19 +309,6 @@ def set_if_none_from_tuples(kwargs, *args):
         if key not in kwargs:
             kwargs[key] = val
 
-
-def calc_perpendicular_distance(N, ref_dirs):
-    u = np.tile(ref_dirs, (len(N), 1))
-    v = np.repeat(N, len(ref_dirs), axis=0)
-
-    norm_u = np.linalg.norm(u, axis=1)
-
-    scalar_proj = np.sum(v * u, axis=1) / norm_u
-    proj = scalar_proj[:, None] * u / norm_u[:, None]
-    val = np.linalg.norm(proj - v, axis=1)
-    matrix = np.reshape(val, (len(N), len(ref_dirs)))
-
-    return matrix
 
 
 def distance_of_closest_points_to_others(X):
@@ -453,8 +439,9 @@ def crossover_mask(X, M):
     return _X
 
 
-def row_at_least_once_true(M):
+@default_random_state
+def row_at_least_once_true(M, random_state=None):
     _, d = M.shape
     for k in np.where(~np.any(M, axis=1))[0]:
-        M[k, np.random.randint(d)] = True
+        M[k, random_state.integers(d)] = True
     return M

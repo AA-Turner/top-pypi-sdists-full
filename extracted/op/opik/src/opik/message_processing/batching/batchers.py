@@ -1,10 +1,10 @@
 from typing import Union, cast, List
 
-from . import base_batcher, sequence_splitter
-from .. import messages
 from opik.rest_api.types import span_write, trace_write
-import opik.jsonable_encoder as jsonable_encoder
 import opik.dict_utils as dict_utils
+
+from . import base_batcher, sequence_splitter
+from .. import messages, encoder_helpers
 
 
 class CreateSpanMessageBatcher(base_batcher.BaseBatcher):
@@ -18,8 +18,10 @@ class CreateSpanMessageBatcher(base_batcher.BaseBatcher):
             cleaned_span_write_kwargs = dict_utils.remove_none_from_dict(
                 span_write_kwargs
             )
-            cleaned_span_write_kwargs = jsonable_encoder.encode(
-                cleaned_span_write_kwargs
+            cleaned_span_write_kwargs = encoder_helpers.encode_and_anonymize(
+                cleaned_span_write_kwargs,
+                fields_to_anonymize=messages.CreateSpansBatchMessage.fields_to_anonymize(),
+                object_type="span",
             )
             rest_spans.append(span_write.SpanWrite(**cleaned_span_write_kwargs))
 
@@ -35,8 +37,9 @@ class CreateSpanMessageBatcher(base_batcher.BaseBatcher):
         return batches
 
     def add(self, message: messages.CreateSpanMessage) -> None:  # type: ignore
-        # remove any duplicate spans from the batch that was already added
-        self._remove_matching_messages(lambda x: x.span_id == message.span_id)  # type: ignore
+        # remove any duplicate start span message from the batch that was already added
+        if message.end_time is not None:
+            self._remove_matching_messages(lambda x: x.span_id == message.span_id)  # type: ignore
 
         return super().add(message)
 
@@ -52,8 +55,10 @@ class CreateTraceMessageBatcher(base_batcher.BaseBatcher):
             cleaned_trace_write_kwargs = dict_utils.remove_none_from_dict(
                 trace_write_kwargs
             )
-            cleaned_trace_write_kwargs = jsonable_encoder.encode(
-                cleaned_trace_write_kwargs
+            cleaned_trace_write_kwargs = encoder_helpers.encode_and_anonymize(
+                cleaned_trace_write_kwargs,
+                fields_to_anonymize=messages.CreateTraceBatchMessage.fields_to_anonymize(),
+                object_type="trace",
             )
             rest_traces.append(trace_write.TraceWrite(**cleaned_trace_write_kwargs))
 
@@ -69,8 +74,9 @@ class CreateTraceMessageBatcher(base_batcher.BaseBatcher):
         return batches
 
     def add(self, message: messages.CreateTraceMessage) -> None:  # type: ignore
-        # remove any duplicate traces from the batch that was already added
-        self._remove_matching_messages(lambda x: x.trace_id == message.trace_id)  # type: ignore
+        # remove any duplicate start trace message from the batch that was already added
+        if message.end_time is not None:
+            self._remove_matching_messages(lambda x: x.trace_id == message.trace_id)  # type: ignore
 
         return super().add(message)
 
@@ -95,26 +101,21 @@ class BaseAddFeedbackScoresBatchMessageBatcher(base_batcher.BaseBatcher):
             messages.AddThreadsFeedbackScoresBatchMessage,
         ],
     ) -> None:
-        with self._lock:
-            new_messages = message.batch
-            n_new_messages = len(new_messages)
-            n_accumulated_messages = len(self._accumulated_messages)
+        new_messages = message.batch
+        n_new_messages = len(new_messages)
+        n_accumulated_messages = len(self._accumulated_messages)
 
-            if n_new_messages + n_accumulated_messages >= self._max_batch_size:
-                free_space_in_accumulator = (
-                    self._max_batch_size - n_accumulated_messages
-                )
+        if n_new_messages + n_accumulated_messages >= self._max_batch_size:
+            free_space_in_accumulator = self._max_batch_size - n_accumulated_messages
 
-                messages_that_fit_in_batch = new_messages[:free_space_in_accumulator]
-                messages_that_dont_fit_in_batch = new_messages[
-                    free_space_in_accumulator:
-                ]
+            messages_that_fit_in_batch = new_messages[:free_space_in_accumulator]
+            messages_that_dont_fit_in_batch = new_messages[free_space_in_accumulator:]
 
-                self._accumulated_messages += messages_that_fit_in_batch
-                new_messages = messages_that_dont_fit_in_batch
-                self.flush()
+            self._accumulated_messages += messages_that_fit_in_batch
+            new_messages = messages_that_dont_fit_in_batch
+            self.flush()
 
-            self._accumulated_messages += new_messages
+        self._accumulated_messages += new_messages
 
 
 class AddSpanFeedbackScoresBatchMessageBatcher(
@@ -175,3 +176,34 @@ class GuardrailBatchMessageBatcher(base_batcher.BaseBatcher):
 
     def add(self, message: messages.GuardrailBatchMessage) -> None:  # type: ignore
         return super().add(message)
+
+
+class CreateExperimentItemsBatchMessageBatcher(base_batcher.BaseBatcher):
+    def _create_batches_from_accumulated_messages(  # type: ignore
+        self,
+    ) -> List[messages.CreateExperimentItemsBatchMessage]:
+        return [
+            messages.CreateExperimentItemsBatchMessage(
+                batch=self._accumulated_messages,  # type: ignore
+                supports_batching=False,
+            )
+        ]
+
+    def add(  # type: ignore
+        self, message: messages.CreateExperimentItemsBatchMessage
+    ) -> None:
+        new_messages = message.batch
+        n_new_messages = len(new_messages)
+        n_accumulated_messages = len(self._accumulated_messages)
+
+        if n_new_messages + n_accumulated_messages >= self._max_batch_size:
+            free_space_in_accumulator = self._max_batch_size - n_accumulated_messages
+
+            messages_that_fit_in_batch = new_messages[:free_space_in_accumulator]
+            messages_that_dont_fit_in_batch = new_messages[free_space_in_accumulator:]
+
+            self._accumulated_messages += messages_that_fit_in_batch
+            new_messages = messages_that_dont_fit_in_batch
+            self.flush()
+
+        self._accumulated_messages += new_messages

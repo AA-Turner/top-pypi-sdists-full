@@ -3,12 +3,12 @@
 from __future__ import annotations
 from enum import Enum
 import pydantic
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class TaskMetadata1TypedDict(TypedDict):
@@ -100,12 +100,9 @@ class TaskMetadataTypedDict(TypedDict):
 class TaskMetadata(BaseModel):
     extra_data: Optional[TaskMetadataExtraData] = None
 
-    format_: Annotated[
-        Annotated[
-            Optional[TaskMetadataFormat], PlainValidator(validate_open_enum(False))
-        ],
-        pydantic.Field(alias="format"),
-    ] = None
+    format_: Annotated[Optional[TaskMetadataFormat], pydantic.Field(alias="format")] = (
+        None
+    )
 
     id: Optional[str] = None
 
@@ -118,3 +115,30 @@ class TaskMetadata(BaseModel):
     type: Optional[str] = None
 
     value: Optional[TaskMetadataValue] = None
+
+    @field_serializer("format_")
+    def serialize_format_(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.TaskMetadataFormat(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["extra_data", "format", "id", "key", "namespace", "slug", "type", "value"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

@@ -1,7 +1,6 @@
 """Cmd2 testing for argument parsing"""
 
 import argparse
-from typing import Optional
 
 import pytest
 
@@ -32,9 +31,8 @@ class ArgparseApp(cmd2.Cmd):
         return say_parser
 
     @cmd2.with_argparser(_say_parser_builder)
-    def do_say(self, args, *, keyword_arg: Optional[str] = None) -> None:
-        """Repeat what you
-        tell me to.
+    def do_say(self, args, *, keyword_arg: str | None = None) -> None:
+        """Repeat what you tell me to.
 
         :param args: argparse namespace
         :param keyword_arg: Optional keyword arguments
@@ -71,7 +69,7 @@ class ArgparseApp(cmd2.Cmd):
         self.stdout.write(f'{args.custom_stuff}')
 
     @cmd2.with_argument_list
-    def do_arglist(self, arglist, *, keyword_arg: Optional[str] = None) -> None:
+    def do_arglist(self, arglist, *, keyword_arg: str | None = None) -> None:
         if isinstance(arglist, list):
             self.stdout.write('True')
         else:
@@ -93,7 +91,7 @@ class ArgparseApp(cmd2.Cmd):
         return known_parser
 
     @cmd2.with_argparser(_speak_parser_builder, with_unknown_args=True)
-    def do_speak(self, args, extra, *, keyword_arg: Optional[str] = None) -> None:
+    def do_speak(self, args, extra, *, keyword_arg: str | None = None) -> None:
         """Repeat what you tell me to."""
         words = []
         for word in extra:
@@ -128,17 +126,17 @@ def argparse_app():
 
 
 def test_invalid_syntax(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'speak "')
+    _out, err = run_cmd(argparse_app, 'speak "')
     assert err[0] == "Invalid syntax: No closing quotation"
 
 
 def test_argparse_basic_command(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'say hello')
+    out, _err = run_cmd(argparse_app, 'say hello')
     assert out == ['hello']
 
 
 def test_argparse_remove_quotes(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'say "hello there"')
+    out, _err = run_cmd(argparse_app, 'say "hello there"')
     assert out == ['hello there']
 
 
@@ -152,99 +150,98 @@ def test_argparse_with_no_args(argparse_app) -> None:
 def test_argparser_kwargs(argparse_app, capsys) -> None:
     """Test with_argparser wrapper passes through kwargs to command function"""
     argparse_app.do_say('word', keyword_arg="foo")
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out == "foo\n"
 
 
 def test_argparse_preserve_quotes(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'tag mytag "hello"')
+    out, _err = run_cmd(argparse_app, 'tag mytag "hello"')
     assert out[0] == '<mytag>"hello"</mytag>'
 
 
 def test_argparse_custom_namespace(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'test_argparse_ns')
+    out, _err = run_cmd(argparse_app, 'test_argparse_ns')
     assert out[0] == 'custom'
 
 
 def test_argparse_with_list(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'speak -s hello world!')
+    out, _err = run_cmd(argparse_app, 'speak -s hello world!')
     assert out == ['HELLO WORLD!']
 
 
 def test_argparse_with_list_remove_quotes(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'speak -s hello "world!"')
+    out, _err = run_cmd(argparse_app, 'speak -s hello "world!"')
     assert out == ['HELLO WORLD!']
 
 
 def test_argparse_with_list_preserve_quotes(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'test_argparse_with_list_quotes "hello" person')
+    out, _err = run_cmd(argparse_app, 'test_argparse_with_list_quotes "hello" person')
     assert out[0] == '"hello" person'
 
 
 def test_argparse_with_list_custom_namespace(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'test_argparse_with_list_ns')
+    out, _err = run_cmd(argparse_app, 'test_argparse_with_list_ns')
     assert out[0] == 'custom'
 
 
 def test_argparse_with_list_and_empty_doc(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'speak -s hello world!')
+    out, _err = run_cmd(argparse_app, 'speak -s hello world!')
     assert out == ['HELLO WORLD!']
 
 
 def test_argparser_correct_args_with_quotes_and_midline_options(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, "speak 'This  is a' -s test of the emergency broadcast system!")
+    out, _err = run_cmd(argparse_app, "speak 'This  is a' -s test of the emergency broadcast system!")
     assert out == ['THIS  IS A TEST OF THE EMERGENCY BROADCAST SYSTEM!']
 
 
 def test_argparser_and_unknown_args_kwargs(argparse_app, capsys) -> None:
     """Test with_argparser wrapper passing through kwargs to command function"""
     argparse_app.do_speak('', keyword_arg="foo")
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out == "foo\n"
 
 
 def test_argparse_quoted_arguments_multiple(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'say "hello  there" "rick & morty"')
+    out, _err = run_cmd(argparse_app, 'say "hello  there" "rick & morty"')
     assert out == ['hello  there rick & morty']
 
 
 def test_argparse_help_docstring(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'help say')
+    out, _err = run_cmd(argparse_app, 'help say')
     assert out[0].startswith('Usage: say')
     assert out[1] == ''
-    assert out[2] == 'Repeat what you'
-    assert out[3] == 'tell me to.'
+    assert out[2] == 'Repeat what you tell me to.'
     for line in out:
         assert not line.startswith(':')
 
 
 def test_argparse_help_description(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'help tag')
+    out, _err = run_cmd(argparse_app, 'help tag')
     assert out[0].startswith('Usage: tag')
     assert out[1] == ''
     assert out[2] == 'create a html tag'
 
 
 def test_argparse_prog(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'help tag')
+    out, _err = run_cmd(argparse_app, 'help tag')
     progname = out[0].split(' ')[1]
     assert progname == 'tag'
 
 
 def test_arglist(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'arglist "we  should" get these')
+    out, _err = run_cmd(argparse_app, 'arglist "we  should" get these')
     assert out[0] == 'True'
 
 
 def test_arglist_kwargs(argparse_app, capsys) -> None:
     """Test with_argument_list wrapper passes through kwargs to command function"""
     argparse_app.do_arglist('arg', keyword_arg="foo")
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out == "foo\n"
 
 
 def test_preservelist(argparse_app) -> None:
-    out, err = run_cmd(argparse_app, 'preservelist foo "bar baz"')
+    out, _err = run_cmd(argparse_app, 'preservelist foo "bar baz"')
     assert out[0] == "['foo', '\"bar baz\"']"
 
 
@@ -292,7 +289,7 @@ class SubcommandApp(cmd2.Cmd):
     parser_bar.set_defaults(func=base_bar)
 
     # create the parser for the "helpless" subcommand
-    # This subcommand has aliases and no help text. It exists to prevent changes to _set_parser_prog() which
+    # This subcommand has aliases and no help text. It exists to prevent changes to set_parser_prog() which
     # use an approach which relies on action._choices_actions list. See comment in that function for more
     # details.
     parser_helpless = base_subparsers.add_parser('helpless', aliases=['helpless_1', 'helpless_2'])
@@ -335,23 +332,23 @@ def subcommand_app():
 
 
 def test_subcommand_foo(subcommand_app) -> None:
-    out, err = run_cmd(subcommand_app, 'base foo -x2 5.0')
+    out, _err = run_cmd(subcommand_app, 'base foo -x2 5.0')
     assert out == ['10.0']
 
 
 def test_subcommand_bar(subcommand_app) -> None:
-    out, err = run_cmd(subcommand_app, 'base bar baz')
+    out, _err = run_cmd(subcommand_app, 'base bar baz')
     assert out == ['((baz))']
 
 
 def test_subcommand_invalid(subcommand_app) -> None:
-    out, err = run_cmd(subcommand_app, 'base baz')
+    _out, err = run_cmd(subcommand_app, 'base baz')
     assert err[0].startswith('Usage: base')
     assert err[1].startswith("Error: argument SUBCOMMAND: invalid choice: 'baz'")
 
 
 def test_subcommand_base_help(subcommand_app) -> None:
-    out, err = run_cmd(subcommand_app, 'help base')
+    out, _err = run_cmd(subcommand_app, 'help base')
     assert out[0].startswith('Usage: base')
     assert out[1] == ''
     assert out[2] == 'Base command help'
@@ -359,51 +356,51 @@ def test_subcommand_base_help(subcommand_app) -> None:
 
 def test_subcommand_help(subcommand_app) -> None:
     # foo has no aliases
-    out, err = run_cmd(subcommand_app, 'help base foo')
+    out, _err = run_cmd(subcommand_app, 'help base foo')
     assert out[0].startswith('Usage: base foo')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
     # bar has aliases (usage should never show alias name)
-    out, err = run_cmd(subcommand_app, 'help base bar')
+    out, _err = run_cmd(subcommand_app, 'help base bar')
     assert out[0].startswith('Usage: base bar')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
-    out, err = run_cmd(subcommand_app, 'help base bar_1')
+    out, _err = run_cmd(subcommand_app, 'help base bar_1')
     assert out[0].startswith('Usage: base bar')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
-    out, err = run_cmd(subcommand_app, 'help base bar_2')
+    out, _err = run_cmd(subcommand_app, 'help base bar_2')
     assert out[0].startswith('Usage: base bar')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
     # helpless has aliases and no help text (usage should never show alias name)
-    out, err = run_cmd(subcommand_app, 'help base helpless')
+    out, _err = run_cmd(subcommand_app, 'help base helpless')
     assert out[0].startswith('Usage: base helpless')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
-    out, err = run_cmd(subcommand_app, 'help base helpless_1')
+    out, _err = run_cmd(subcommand_app, 'help base helpless_1')
     assert out[0].startswith('Usage: base helpless')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
-    out, err = run_cmd(subcommand_app, 'help base helpless_2')
+    out, _err = run_cmd(subcommand_app, 'help base helpless_2')
     assert out[0].startswith('Usage: base helpless')
     assert out[1] == ''
-    assert out[2] == 'positional arguments:'
+    assert out[2] == 'Positional Arguments:'
 
 
 def test_subcommand_invalid_help(subcommand_app) -> None:
-    out, err = run_cmd(subcommand_app, 'help base baz')
+    out, _err = run_cmd(subcommand_app, 'help base baz')
     assert out[0].startswith('Usage: base')
 
 
 def test_add_another_subcommand(subcommand_app) -> None:
-    """This tests makes sure _set_parser_prog() sets _prog_prefix on every _SubParsersAction so that all future calls
+    """This tests makes sure set_parser_prog() sets _prog_prefix on every _SubParsersAction so that all future calls
     to add_parser() write the correct prog value to the parser being added.
     """
     base_parser = subcommand_app._command_parsers.get(subcommand_app.do_base)
@@ -428,7 +425,7 @@ def test_subcmd_decorator(subcommand_app) -> None:
 
     # Test subcommand that has no help option
     out, err = run_cmd(subcommand_app, 'test_subcmd_decorator helpless_subcmd')
-    assert "'subcommand': 'helpless_subcmd'" in out[0]
+    assert "'subcommand': 'helpless_subcmd'" in out[1]
 
     out, err = run_cmd(subcommand_app, 'help test_subcmd_decorator helpless_subcmd')
     assert out[0] == 'Usage: test_subcmd_decorator helpless_subcmd'

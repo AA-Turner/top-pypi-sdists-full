@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from vellum import (
     AdHocExecutePromptEvent,
+    AdHocExpandMeta,
     ChatMessagePromptBlock,
     ExecutePromptEvent,
     FulfilledAdHocExecutePromptEvent,
@@ -25,6 +26,7 @@ from vellum import (
     PromptRequestStringInput,
     PromptRequestVideoInput,
     PromptSettings,
+    RejectedExecutePromptEvent,
     RichTextPromptBlock,
     StringVellumValue,
     VariablePromptBlock,
@@ -32,6 +34,7 @@ from vellum import (
     VellumAudioRequest,
     VellumDocument,
     VellumDocumentRequest,
+    VellumError,
     VellumImage,
     VellumImageRequest,
     VellumVideo,
@@ -336,7 +339,7 @@ def test_inline_prompt_node__json_output(
 
     vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.assert_called_once_with(
         blocks=[],
-        expand_meta=None,
+        expand_meta=AdHocExpandMeta(finish_reason=True),
         functions=None,
         input_values=[],
         input_variables=[],
@@ -406,7 +409,7 @@ def test_inline_prompt_node__streaming_disabled(vellum_adhoc_prompt_client):
     # AND we should have made the expected call to Vellum search
     vellum_adhoc_prompt_client.adhoc_execute_prompt.assert_called_once_with(
         blocks=[],
-        expand_meta=None,
+        expand_meta=AdHocExpandMeta(finish_reason=True),
         functions=None,
         input_values=[],
         input_variables=[],
@@ -500,7 +503,7 @@ def test_inline_prompt_node__json_output_with_streaming_disabled(vellum_adhoc_pr
     # AND we should have made the expected call to Vellum search
     vellum_adhoc_prompt_client.adhoc_execute_prompt.assert_called_once_with(
         blocks=[],
-        expand_meta=None,
+        expand_meta=AdHocExpandMeta(finish_reason=True),
         functions=None,
         input_values=[],
         input_variables=[],
@@ -788,9 +791,32 @@ def test_inline_prompt_node__empty_string_output_with_length_finish_reason(vellu
             "DOCUMENT",
             [PromptRequestDocumentInput(key="file_input", value=VellumDocument(src="mockdocument"))],
         ),
+        (
+            {"src": "https://example.com/document.pdf"},
+            "DOCUMENT",
+            [
+                PromptRequestDocumentInput(
+                    key="file_input", value=VellumDocument(src="https://example.com/document.pdf")
+                )
+            ],
+        ),
+        (
+            {"src": "https://example.com/document.pdf", "metadata": {"author": "test"}},
+            "DOCUMENT",
+            [
+                PromptRequestDocumentInput(
+                    key="file_input",
+                    value=VellumDocument(src="https://example.com/document.pdf", metadata={"author": "test"}),
+                )
+            ],
+        ),
     ],
 )
 def test_file_input_compilation(raw_input, expected_vellum_variable_type, expected_compiled_inputs):
+    """
+    Tests that file inputs are correctly compiled to the appropriate input type.
+    """
+
     # GIVEN a prompt node with file input
     class MyPromptDeploymentNode(InlinePromptNode):
         ml_model = "test-model"
@@ -805,3 +831,111 @@ def test_file_input_compilation(raw_input, expected_vellum_variable_type, expect
     assert len(vellum_variables) == 1
     assert vellum_variables[0].type == expected_vellum_variable_type
     assert compiled_inputs == expected_compiled_inputs
+
+
+def test_inline_prompt_node__json_output_with_markdown_code_blocks(vellum_adhoc_prompt_client):
+    """
+    Tests that InlinePromptNodes correctly parse JSON from markdown code blocks.
+    """
+
+    # GIVEN a node that subclasses InlinePromptNode
+    class Inputs(BaseInputs):
+        input: str
+
+    class State(BaseState):
+        pass
+
+    class MyInlinePromptNode(InlinePromptNode):
+        ml_model = "gpt-4o"
+        blocks = []
+        parameters = PromptParameters(
+            stop=[],
+            temperature=0.0,
+            max_tokens=4096,
+            top_p=1.0,
+            top_k=0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
+            logit_bias=None,
+            custom_parameters={},
+        )
+
+    expected_json = {"result": "Hello, world!"}
+    markdown_wrapped_json = f"```json\n{json.dumps(expected_json)}\n```"
+    expected_outputs: List[PromptOutput] = [
+        StringVellumValue(value=markdown_wrapped_json),
+    ]
+
+    def generate_prompt_events(*args: Any, **kwargs: Any) -> Iterator[ExecutePromptEvent]:
+        execution_id = str(uuid4())
+        events: List[ExecutePromptEvent] = [
+            InitiatedExecutePromptEvent(execution_id=execution_id),
+            FulfilledExecutePromptEvent(
+                execution_id=execution_id,
+                outputs=expected_outputs,
+            ),
+        ]
+        yield from events
+
+    vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.side_effect = generate_prompt_events
+
+    # WHEN the node is run
+    node = MyInlinePromptNode(
+        state=State(
+            meta=StateMeta(workflow_inputs=Inputs(input="Generate JSON.")),
+        )
+    )
+    outputs = [o for o in node.run()]
+
+    # THEN the node should have produced the outputs we expect
+    results_output = outputs[0]
+    assert results_output.name == "results"
+    assert results_output.value == expected_outputs
+
+    text_output = outputs[1]
+    assert text_output.name == "text"
+    assert text_output.value == markdown_wrapped_json
+
+    json_output = outputs[2]
+    assert json_output.name == "json"
+    assert json_output.value == expected_json
+
+
+def test_inline_prompt_node__provider_error_from_api(vellum_adhoc_prompt_client):
+    """
+    Tests that InlinePromptNode raises NodeException with PROVIDER_ERROR code when first event is REJECTED.
+    """
+
+    # GIVEN an InlinePromptNode with basic configuration
+    class TestNode(InlinePromptNode):
+        ml_model = "test-model"
+        blocks = []
+        prompt_inputs = {}
+
+    # AND the API returns a REJECTED event as the first event with a provider error
+    provider_error = VellumError(
+        code="PROVIDER_ERROR",
+        message="Provider rate limit exceeded",
+    )
+
+    def generate_prompt_events(*args: Any, **kwargs: Any) -> Iterator[ExecutePromptEvent]:
+        execution_id = str(uuid4())
+        events: List[ExecutePromptEvent] = [
+            RejectedExecutePromptEvent(
+                execution_id=execution_id,
+                error=provider_error,
+            ),
+        ]
+        yield from events
+
+    vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.side_effect = generate_prompt_events
+
+    # WHEN the node is run
+    node = TestNode()
+
+    # THEN it should raise a NodeException with PROVIDER_ERROR error code
+    with pytest.raises(NodeException) as excinfo:
+        list(node.run())
+
+    # AND the exception should have the correct error code
+    assert excinfo.value.code == WorkflowErrorCode.PROVIDER_ERROR

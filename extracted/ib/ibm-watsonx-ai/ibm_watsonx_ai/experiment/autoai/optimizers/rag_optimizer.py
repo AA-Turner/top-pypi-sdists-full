@@ -1,16 +1,20 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from warnings import warn
 
 from pandas import DataFrame
 
-from ibm_watsonx_ai.foundation_models.schema import BaseSchema
+from ibm_watsonx_ai.foundation_models.schema import (
+    AutoAIRAGDeploymentConfig,
+    BaseSchema,
+)
 from ibm_watsonx_ai.helpers.connections import (
     ContainerLocation,
     DataConnection,
@@ -18,7 +22,8 @@ from ibm_watsonx_ai.helpers.connections import (
     S3Location,
 )
 from ibm_watsonx_ai.metanames import RAGOptimizerConfigurationMetaNames
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.utils.autoai.knowledge_base import BaseKnowledgeBase
+from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
@@ -67,6 +72,8 @@ class RAGOptimizer:
     :param retrieval: Retrieval settings to be used.
     :type retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig], optional
 
+    :param deployment: Best pattern deployment related properties.
+    :type deployment: dict[str, Any] | AutoAIRAGDeploymentConfig, optional
     """
 
     def __init__(
@@ -85,6 +92,7 @@ class RAGOptimizer:
         chunking: list[dict] | None = None,
         generation: dict[str, Any] | AutoAIRAGGenerationConfig | None = None,
         retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig] | None = None,
+        deployment: dict[str, Any] | AutoAIRAGDeploymentConfig | None = None,
         **kwargs: dict[str, Any],
     ):
         self._engine = engine
@@ -97,6 +105,9 @@ class RAGOptimizer:
             foundation_models, "foundation_models", list, mandatory=False
         )
         WMLResource._validate_type(retrieval, "retrieval", list, mandatory=False)
+        WMLResource._validate_type(
+            deployment, "deployment", [dict, AutoAIRAGDeploymentConfig], mandatory=False
+        )
 
         self._params: dict[str, Any] = {}
 
@@ -108,6 +119,7 @@ class RAGOptimizer:
                 "embedding_models": embedding_models,
                 "max_number_of_rag_patterns": max_number_of_rag_patterns,
                 "optimization_metrics": optimization_metrics,
+                "deployment": deployment,
             }
         )
 
@@ -159,33 +171,39 @@ class RAGOptimizer:
 
     def run(
         self,
-        input_data_references: list[DataConnection],
+        input_data_references: list[DataConnection] | None = None,
         test_data_references: list[DataConnection] | None = None,
         results_reference: DataConnection | None = None,
         vector_store_references: list[DataConnection] | None = None,
         background_mode: bool = True,
+        knowledge_base_references: list[BaseKnowledgeBase] | None = None,
     ) -> dict:
         """Create an AutoAI RAG job that will find the best RAG pattern.
 
-        :param input_data_references: Data storage connection details to inform where training data is stored
+        :param input_data_references: data storage connection details to inform where training data is stored
         :type input_data_references: list[DataConnection]
 
-        :param test_data_references: A set of test data references
+        :param test_data_references: a set of test data references
         :type test_data_references: list[DataConnection], optional
 
-        :param results_reference: The training results
+        :param results_reference: the training results
         :type results_reference: DataConnection, optional
 
-        :param vector_store_references: A set of vector store references
+        :param vector_store_references: set of vector store references
         :type vector_store_references: list[DataConnection], optional
 
-        :param background_mode: Indicator if run() method will run in background (async) or (sync)
+        :param background_mode: indicator if run() method will run in background (async) or (sync)
         :type background_mode: bool, optional
+
+        :param knowledge_base_references: collection of knowledge base references
+        :type knowledge_base_references: list[BaseKnowledgeBase], optional
 
         :return: run details
         :rtype: dict
 
-        **Example**
+        **Examples**
+
+        Example with input data references:
 
         .. code-block:: python
 
@@ -197,24 +215,88 @@ class RAGOptimizer:
             rag_optimizer = experiment.rag_optimizer(...)
 
             rag_optimizer.run(
-                input_data_references=[DataConnection(
-                    data_asset_id=training_data_asset_id
-                )],
-                test_data_references=[DataConnection(
-                    data_asset_id=test_data_asset_id
-                )],
-                vector_store_references=[DataConnection(
-                    connection_asset_id=milvus_connection_id
-                )],
-                results_reference=[DataConnection(
-                    location=ContainerLocation(
-                        path="."
-                    )
-                )],
-                background_mode=False
+                input_data_references=[
+                    DataConnection(data_asset_id=training_data_asset_id),
+                ],
+                test_data_references=[
+                    DataConnection(data_asset_id=test_data_asset_id),
+                ],
+                vector_store_references=[
+                    DataConnection(connection_asset_id=milvus_connection_id),
+                ],
+                results_reference=[
+                    DataConnection(location=ContainerLocation(path=".")),
+                ],
+                background_mode=False,
             )
 
+        Example with vector store knowledge base references:
+
+        .. code-block:: python
+
+            from ibm_watsonx_ai.experiment import AutoAI
+            from ibm_watsonx_ai.utils.autoai.enums import TShirtSize
+            from ibm_watsonx_ai.utils.autoai.knowledge_base import (
+                VectorStoreKnowledgeBase,
+            )
+            from ibm_watsonx_ai.helpers import DataConnection, ContainerLocation
+
+            experiment = AutoAI(credentials, ...)
+            rag_optimizer = experiment.rag_optimizer(...)
+
+            vector_store_knowledge_bases = [VectorStoreKnowledgeBase(...), ...]
+
+            rag_optimizer.run(
+                knowledge_base_references=vector_store_knowledge_bases,
+                test_data_references=[
+                    DataConnection(data_asset_id=test_data_asset_id),
+                ],
+                results_reference=[
+                    DataConnection(location=ContainerLocation(path=".")),
+                ],
+                background_mode=False,
+            )
+
+        Example with SQL database knowledge base references:
+
+        .. code-block:: python
+
+            from ibm_watsonx_ai.experiment import AutoAI
+            from ibm_watsonx_ai.utils.autoai.enums import TShirtSize
+            from ibm_watsonx_ai.utils.autoai.knowledge_base import (
+                DatabaseKnowledgeBase,
+            )
+            from ibm_watsonx_ai.helpers import DataConnection, ContainerLocation
+
+            experiment = AutoAI(credentials, ...)
+            rag_optimizer = experiment.rag_optimizer(...)
+
+            database_knowledge_bases = [DatabaseKnowledgeBase(...), ...]
+
+            rag_optimizer.run(
+                knowledge_base_references=database_knowledge_bases,
+                test_data_references=[
+                    DataConnection(data_asset_id=test_data_asset_id),
+                ],
+                results_reference=[
+                    DataConnection(location=ContainerLocation(path=".")),
+                ],
+                background_mode=False,
+            )
         """
+
+        if input_data_references is None and knowledge_base_references is None:
+            raise InvalidMultipleArguments(
+                ["input_data_references", "knowledge_base_references"],
+                "Either `input_data_references` or `knowledge_base_references` must be provided.",
+            )
+
+        if input_data_references is not None and knowledge_base_references is not None:
+            raise InvalidMultipleArguments(
+                ["input_data_references", "knowledge_base_references"],
+                "`input_data_references` and `knowledge_base_references` cannot be provided at once.",
+            )
+
         results_reference = self._determine_result_reference(
             results_reference, "default_autoai_rag_out"
         )
@@ -227,6 +309,7 @@ class RAGOptimizer:
             test_data_references=test_data_references,
             vector_store_references=vector_store_references,
             background_mode=background_mode,
+            knowledge_base_references=knowledge_base_references,
         )
 
     def _determine_result_reference(
@@ -375,8 +458,10 @@ class RAGOptimizer:
             rag_optimizer = experiment.rag_optimizer(...)
 
             rag_optimizer.summary()
-            rag_optimizer.summary(scoring='answer_correctness')
-            rag_optimizer.summary(scoring=['answer_correctness', 'context_correctness'])
+            rag_optimizer.summary(scoring="answer_correctness")
+            rag_optimizer.summary(
+                scoring=["answer_correctness", "context_correctness"]
+            )
 
             # Result:
             #                  mean_answer_correctness  ...  ci_high_faithfulness
@@ -409,7 +494,7 @@ class RAGOptimizer:
             rag_optimizer = experiment.rag_optimizer(...)
 
             pattern_1 = rag_optimizer.get_pattern()
-            pattern_2 = rag_optimizer.get_pattern(pattern_name='Pattern2')
+            pattern_2 = rag_optimizer.get_pattern(pattern_name="Pattern2")
 
         """
         return self._engine.get_pattern(pattern_name=pattern_name)
@@ -433,7 +518,7 @@ class RAGOptimizer:
             rag_optimizer = experiment.rag_optimizer(...)
 
             rag_optimizer.get_pattern_details()
-            rag_optimizer.get_pattern_details(pattern_name='Pattern1')
+            rag_optimizer.get_pattern_details(pattern_name="Pattern1")
 
         """
         return self._engine.get_pattern_details(pattern_name=pattern_name)
@@ -442,7 +527,7 @@ class RAGOptimizer:
         self,
         *,
         pattern_name: str | None = None,
-        local_path: str = ".",
+        local_path: str | Path = ".",
         filename: str | None = None,
     ) -> str:
         """Download specified inference notebook from Service.
@@ -452,7 +537,7 @@ class RAGOptimizer:
         :type pattern_name: str, optional
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param filename: filename under which the pattern notebook will be saved
         :type filename: str, optional
@@ -471,8 +556,7 @@ class RAGOptimizer:
 
             inference_notebook_path_1 = rag_optimizer.get_inference_notebook()
             inference_notebook_path_2 = rag_optimizer.get_inference_notebook(
-                pattern_name='Pattern1',
-                filename='inference_notebook'
+                pattern_name="Pattern1", filename="inference_notebook"
             )
 
         """
@@ -484,7 +568,7 @@ class RAGOptimizer:
         self,
         *,
         pattern_name: str | None = None,
-        local_path: str = ".",
+        local_path: str | Path = ".",
         filename: str | None = None,
     ) -> str:
         """Download specified indexing notebook from Service.
@@ -494,7 +578,7 @@ class RAGOptimizer:
         :type pattern_name: str, optional
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param filename: filename under which the pattern notebook will be saved
         :type filename: str, optional
@@ -513,8 +597,7 @@ class RAGOptimizer:
 
             indexing_notebook_path_1 = rag_optimizer.get_indexing_notebook()
             indexing_notebook_path_2 = rag_optimizer.get_indexing_notebook(
-                pattern_name='Pattern1',
-                filename='indexing_notebook'
+                pattern_name="Pattern1", filename="indexing_notebook"
             )
 
         """
@@ -563,7 +646,7 @@ class RAGOptimizer:
 
             rag_optimizer.get_evaluation_results()
             # or
-            rag_optimizer.get_evaluation_results(pattern_name='Pattern1')
+            rag_optimizer.get_evaluation_results(pattern_name="Pattern1")
 
         """
         return self._engine.get_evaluation_results(pattern_name=pattern_name)

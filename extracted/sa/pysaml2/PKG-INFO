@@ -1,39 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pysaml2
-Version: 7.5.2
+Version: 7.5.4
 Summary: Python implementation of SAML Version 2 Standard
-Home-page: https://idpy.org
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Keywords: saml,saml2,standard,federation,identity,idpy,IdentityPython
 Author: IdentityPython
 Author-email: discuss@idpy.org
 Maintainer: IdentityPython
 Maintainer-email: discuss@idpy.org
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >= 3.9
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: s2repoze
 Requires-Dist: cryptography (>=3.1)
 Requires-Dist: defusedxml
-Requires-Dist: importlib-metadata (>=1.7.0) ; python_version < "3.8"
-Requires-Dist: importlib-resources ; python_version < "3.9"
 Requires-Dist: paste ; extra == "s2repoze"
 Requires-Dist: pyopenssl (<24.3.0)
 Requires-Dist: python-dateutil
-Requires-Dist: pytz
 Requires-Dist: repoze.who ; extra == "s2repoze"
-Requires-Dist: requests (>=2,<3)
-Requires-Dist: xmlschema (>=2,<3)
+Requires-Dist: requests (>=2.0.0,<3.0.0)
+Requires-Dist: xmlschema (>=2.0.0,<3.0.0)
 Requires-Dist: zope.interface ; extra == "s2repoze"
 Project-URL: Bug Tracker, https://github.com/IdentityPython/pysaml2/issues
-Project-URL: Documentation, https://pysaml2.readthedocs.io
-Project-URL: Repository, https://github.com/IdentityPython/pysaml2
 Description-Content-Type: text/markdown
 
 # PySAML2 - SAML2 for Python

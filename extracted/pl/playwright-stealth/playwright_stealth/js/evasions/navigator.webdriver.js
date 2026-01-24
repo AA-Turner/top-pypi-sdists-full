@@ -5,13 +5,15 @@ log("loading navigator.webdriver.js");
 // if args include --disable-blink-features=AutomationControlled, we do not need to mock this
 if (navigator.webdriver) {
   utils.replaceProperty(Object.getPrototypeOf(navigator), "webdriver", {
-    get: new Proxy(Object.getOwnPropertyDescriptor(Object.getPrototypeOf(navigator), "webdriver").get, {
-      apply: (target, thisArg, args) => {
-        // emulate getter call validation
-        Reflect.apply(target, thisArg, args);
-        return false;
-      },
-    }),
+    get: new Proxy(
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(navigator),
+        "webdriver").get, {
+        apply: (target, thisArg, args) => {
+          // emulate getter call validation
+          Reflect.apply(target, thisArg, args);
+          return false;
+        }
+      })
   });
 } else {
   log("not patching navigator.webdriver, assuming CLI args were used instead");

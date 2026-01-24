@@ -90,6 +90,18 @@ STANDARD_LIBRARY_MODULES = {
         "Counter",
         "defaultdict",
     },
+    "dataclasses": {
+        "asdict",
+        "astuple",
+        "dataclass",
+        "field",
+        "Field",
+        "fields",
+        "InitVar",
+        "is_dataclass",
+        "make_dataclass",
+        "replace",
+    },
     "datetime": {
         "date",
         "datetime",
@@ -126,6 +138,7 @@ STANDARD_LIBRARY_MODULES = {
     "json": {
         "dumps",
         "loads",
+        "JSONDecodeError",
     },
     "operator": {
         "and_",
@@ -168,6 +181,7 @@ STANDARD_LIBRARY_MODULES = {
         "Tuple",
         "Type",
         "TypedDict",
+        "TypeGuard",
         "Union",
     },
     "urllib": {
@@ -180,6 +194,9 @@ STANDARD_LIBRARY_MODULES = {
     "uuid": {
         "uuid4",
         "UUID",
+    },
+    "defusedxml.ElementTree": {
+        "fromstring",
     },
     "zoneinfo": {
         "ZoneInfo",
@@ -194,23 +211,39 @@ THIRD_PARTY_MODULES = {
         "utcnow",
     },
     "django.db.models": {
+        "Avg",
         "BigIntegerField",
         "Case",
         "CharField",
         "Count",
+        "Exists",
         "F",
         "IntegerField",
+        "Max",
+        "Min",
         "Model",  # remove when hyperscribe no longer needs it
+        "OuterRef",
+        "Prefetch",
         "Q",
+        "Subquery",
+        "Sum",
         "Value",
         "When",
     },
     "django.db.models.expressions": {
         "Case",
+        "Exists",
+        "OuterRef",
+        "Subquery",
         "Value",
         "When",
     },
+    "django.db.models.functions": {
+        "Coalesce",
+        "Trim",
+    },
     "django.db.models.query": {
+        "Prefetch",
         "QuerySet",
     },
     "django.utils.functional": {
@@ -658,6 +691,7 @@ class Sandbox:
                 "property": builtins.property,
                 "reversed": builtins.reversed,
                 "staticmethod": builtins.staticmethod,
+                "sum": builtins.sum,
                 "super": builtins.super,
                 "vars": builtins.vars,
             },

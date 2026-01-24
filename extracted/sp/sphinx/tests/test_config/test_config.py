@@ -13,21 +13,19 @@ import sphinx
 from sphinx.config import (
     ENUM,
     Config,
-    _Opt,
     check_confval_types,
     is_serializable,
 )
-from sphinx.deprecation import RemovedInSphinx90Warning
 from sphinx.errors import ConfigError, ExtensionError, VersionRequirementError
+from sphinx.testing.util import SphinxTestApp
+from sphinx.util.tags import Tags
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from typing import TypeAlias
+    from pathlib import Path
 
-    from sphinx.testing.util import SphinxTestApp
-
-    CircularList: TypeAlias = list[int | 'CircularList']
-    CircularDict: TypeAlias = dict[str, int | 'CircularDict']
+    type CircularList = list[int | 'CircularList']
+    type CircularDict = dict[str, int | 'CircularDict']
 
 
 def check_is_serializable(subject: object, *, circular: bool) -> None:
@@ -53,7 +51,8 @@ def test_is_serializable() -> None:
     subject = [1, [2, {3, 'a'}], {'x': {'y': frozenset((4, 5))}}]
     check_is_serializable(subject, circular=False)
 
-    a, b = [1], [2]  # type: (CircularList, CircularList)
+    a: CircularList = [1]
+    b: CircularList = [2]
     a.append(b)
     b.append(a)
     check_is_serializable(a, circular=True)
@@ -62,19 +61,6 @@ def test_is_serializable() -> None:
     x: CircularDict = {'a': 1, 'b': {'c': 1}}
     x['b'] = x
     check_is_serializable(x, circular=True)
-
-
-def test_config_opt_deprecated(recwarn):
-    opt = _Opt('default', '', ())
-
-    with pytest.warns(RemovedInSphinx90Warning):
-        default, rebuild, valid_types = opt
-
-    with pytest.warns(RemovedInSphinx90Warning):
-        _ = opt[0]
-
-    with pytest.warns(RemovedInSphinx90Warning):
-        _ = list(opt)
 
 
 @pytest.mark.sphinx(
@@ -139,11 +125,11 @@ def test_core_config(app: SphinxTestApp) -> None:
 
 def test_config_not_found(tmp_path):
     with pytest.raises(ConfigError):
-        Config.read(tmp_path)
+        Config.read(tmp_path, overrides={}, tags=Tags())
 
 
 @pytest.mark.parametrize('protocol', list(range(pickle.HIGHEST_PROTOCOL)))
-def test_config_pickle_protocol(tmp_path, protocol: int):
+def test_config_pickle_protocol(protocol: int) -> None:
     config = Config()
 
     pickled_config = pickle.loads(pickle.dumps(config, protocol))
@@ -153,7 +139,8 @@ def test_config_pickle_protocol(tmp_path, protocol: int):
 
 
 def test_config_pickle_circular_reference_in_list():
-    a, b = [1], [2]  # type: (CircularList, CircularList)
+    a: CircularList = [1]
+    b: CircularList = [2]
     a.append(b)
     b.append(a)
 
@@ -198,9 +185,9 @@ def test_config_pickle_circular_reference_in_list():
         u: list[list[object] | int],
         v: list[list[object] | int],
         *,
-        counter: Counter[type, int] | None = None,
+        counter: Counter[type] | None = None,
         guard: frozenset[int] = frozenset(),
-    ) -> Counter[type, int]:
+    ) -> Counter[type]:
         counter = Counter() if counter is None else counter
 
         if id(u) in guard and id(v) in guard:
@@ -262,7 +249,7 @@ def test_config_pickle_circular_reference_in_dict():
         u: dict[str, dict[str, object] | int],
         v: dict[str, dict[str, object] | int],
         *,
-        counter: Counter[type, int] | None = None,
+        counter: Counter[type] | None = None,
         guard: frozenset[int] = frozenset(),
     ) -> Counter:
         counter = Counter() if counter is None else counter
@@ -394,12 +381,12 @@ def test_errors_warnings(logger, tmp_path):
     # test the error for syntax errors in the config file
     (tmp_path / 'conf.py').write_text('project = \n', encoding='ascii')
     with pytest.raises(ConfigError) as excinfo:
-        Config.read(tmp_path, {}, None)
+        Config.read(tmp_path, overrides={}, tags=Tags())
     assert 'conf.py' in str(excinfo.value)
 
     # test the automatic conversion of 2.x only code in configs
     (tmp_path / 'conf.py').write_text('project = u"Jägermeister"\n', encoding='utf8')
-    cfg = Config.read(tmp_path, {}, None)
+    cfg = Config.read(tmp_path, overrides={}, tags=Tags())
     assert cfg.project == 'Jägermeister'
     assert logger.called is False
 
@@ -440,7 +427,7 @@ def test_config_eol(logger, tmp_path):
     configfile = tmp_path / 'conf.py'
     for eol in (b'\n', b'\r\n'):
         configfile.write_bytes(b'project = "spam"' + eol)
-        cfg = Config.read(tmp_path, {}, None)
+        cfg = Config.read(tmp_path, overrides={}, tags=Tags())
         assert cfg.project == 'spam'
         assert logger.called is False
 
@@ -678,7 +665,7 @@ def test_conf_py_language_none(tmp_path):
     (tmp_path / 'conf.py').write_text('language = None', encoding='utf-8')
 
     # When we load conf.py into a Config object
-    cfg = Config.read(tmp_path, {}, None)
+    cfg = Config.read(tmp_path, overrides={}, tags=Tags())
 
     # Then the language is coerced to English
     assert cfg.language == 'en'
@@ -691,7 +678,7 @@ def test_conf_py_language_none_warning(logger, tmp_path):
     (tmp_path / 'conf.py').write_text('language = None', encoding='utf-8')
 
     # When we load conf.py into a Config object
-    Config.read(tmp_path, {}, None)
+    Config.read(tmp_path, overrides={}, tags=Tags())
 
     # Then a warning is raised
     assert logger.warning.called
@@ -708,7 +695,7 @@ def test_conf_py_no_language(tmp_path):
     (tmp_path / 'conf.py').touch()
 
     # When we load conf.py into a Config object
-    cfg = Config.read(tmp_path, {}, None)
+    cfg = Config.read(tmp_path, overrides={}, tags=Tags())
 
     # Then the language is coerced to English
     assert cfg.language == 'en'
@@ -720,7 +707,7 @@ def test_conf_py_nitpick_ignore_list(tmp_path):
     (tmp_path / 'conf.py').touch()
 
     # When we load conf.py into a Config object
-    cfg = Config.read(tmp_path, {}, None)
+    cfg = Config.read(tmp_path, overrides={}, tags=Tags())
 
     # Then the default nitpick_ignore[_regex] is an empty list
     assert cfg.nitpick_ignore == []
@@ -810,3 +797,14 @@ def test_root_doc_and_master_doc_are_synchronized() -> None:
     c.root_doc = '1234'
     assert c.master_doc == '1234'
     assert c.root_doc == c.master_doc
+
+
+def test_source_encoding_deprecation(tmp_path: Path) -> None:
+    (tmp_path / 'conf.py').touch()
+    app = SphinxTestApp(
+        buildername='dummy',
+        srcdir=tmp_path,
+        confoverrides={'source_encoding': 'latin-1'},
+    )
+    expected = 'Support for source encodings other than UTF-8 is deprecated and will be removed'
+    assert expected in app.warning.getvalue()

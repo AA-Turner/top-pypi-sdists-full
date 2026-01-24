@@ -3,7 +3,7 @@ Type annotations for outposts service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -91,6 +92,8 @@ from .type_defs import (
     StartCapacityTaskOutputTypeDef,
     StartConnectionRequestTypeDef,
     StartConnectionResponseTypeDef,
+    StartOutpostDecommissionInputTypeDef,
+    StartOutpostDecommissionOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateOutpostInputTypeDef,
@@ -103,12 +106,6 @@ from .type_defs import (
     UpdateSiteRackPhysicalPropertiesOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -119,13 +116,13 @@ __all__ = ("OutpostsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OutpostsClient(BaseClient):
@@ -165,7 +162,7 @@ class OutpostsClient(BaseClient):
 
     def cancel_capacity_task(
         self, **kwargs: Unpack[CancelCapacityTaskInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the capacity task.
 
@@ -173,7 +170,7 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#cancel_capacity_task)
         """
 
-    def cancel_order(self, **kwargs: Unpack[CancelOrderInputTypeDef]) -> Dict[str, Any]:
+    def cancel_order(self, **kwargs: Unpack[CancelOrderInputTypeDef]) -> dict[str, Any]:
         """
         Cancels the specified order for an Outpost.
 
@@ -207,7 +204,7 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#create_site)
         """
 
-    def delete_outpost(self, **kwargs: Unpack[DeleteOutpostInputTypeDef]) -> Dict[str, Any]:
+    def delete_outpost(self, **kwargs: Unpack[DeleteOutpostInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified Outpost.
 
@@ -215,7 +212,7 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#delete_outpost)
         """
 
-    def delete_site(self, **kwargs: Unpack[DeleteSiteInputTypeDef]) -> Dict[str, Any]:
+    def delete_site(self, **kwargs: Unpack[DeleteSiteInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified site.
 
@@ -424,7 +421,17 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#start_connection)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def start_outpost_decommission(
+        self, **kwargs: Unpack[StartOutpostDecommissionInputTypeDef]
+    ) -> StartOutpostDecommissionOutputTypeDef:
+        """
+        Starts the decommission process to return the Outposts racks or servers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/start_outpost_decommission.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#start_outpost_decommission)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to the specified resource.
 
@@ -432,7 +439,7 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified resource.
 

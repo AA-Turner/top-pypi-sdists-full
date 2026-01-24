@@ -3626,7 +3626,11 @@ class Project:
         if project_name is None:
             project_name = project_info.name
         new_project_info = api.project.create(
-            workspace_id, project_name, change_name_if_conflict=True
+            workspace_id,
+            project_name,
+            description=project_info.description,
+            change_name_if_conflict=True,
+            readme=project_info.readme,
         )
         custom_data = new_project_info.custom_data
         version_num = project_info.version.get("version", None) if project_info.version else 0
@@ -4584,6 +4588,7 @@ def upload_project(
         blob_file_infos = []
 
     for ds_fs in project_fs.datasets:
+        logger.debug(f"Processing dataset: {ds_fs.name}")
         if len(ds_fs.parents) > 0:
             parent = f"{os.path.sep}".join(ds_fs.parents)
             parent_id = dataset_map.get(parent)
@@ -4624,8 +4629,15 @@ def upload_project(
                 if os.path.isfile(path):
                     valid_indices.append(i)
                     valid_paths.append(path)
-                else:
+                elif len(project_fs.blob_files) > 0:
                     offset_indices.append(i)
+                else:
+                    if img_infos[i] is not None:
+                        logger.debug(f"Image will be uploaded by image_info: {names[i]}")
+                    else:
+                        logger.warning(
+                            f"Image and image info file not found, image will be skipped: {names[i]}"
+                        )
             img_paths = valid_paths
             ann_paths = list(filter(lambda x: os.path.isfile(x), ann_paths))
             # Create a mapping from name to index position for quick lookups

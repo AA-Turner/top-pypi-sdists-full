@@ -504,7 +504,7 @@ class ImportFileWindow(NextGenWindow):
         check_box = data_item.descendants(control_type="CheckBox")[index]
         self.desktop_app.untoggle_checkbox(check_box)
 
-    def unselect_count_check_boxes(self, max_iterations: int = 10):
+    def unselect_count_check_boxes(self, max_iterations: int = 10) -> None:
         """Unselect the Count checkboxes in the Columns Window.
 
         Args:
@@ -535,7 +535,7 @@ class ImportFileWindow(NextGenWindow):
         )
         self.desktop_app.untoggle_checkbox(count_record_check_box)
 
-    def click_refresh_report_button(self):
+    def click_refresh_report_button(self) -> None:
         """Click on the Refresh Report button."""
         self.logger.debug("Clicking on the Refresh Report button.")
         custom = self.enhanced_report_mode_window.child_window(auto_id="Me", control_type="Custom")
@@ -561,7 +561,7 @@ class ImportFileWindow(NextGenWindow):
         for check_box in check_boxes:
             self.desktop_app.untoggle_checkbox(check_box)
 
-    def click_close_button_in_import_posting_report_window(self):
+    def click_close_button_in_import_posting_report_window(self) -> None:
         """Click on the Close button in the Import Posting Report Window."""
         self.logger.debug("Clicking on the Close button in the Import Posting Report Window.")
         with contextlib.suppress(_ctypes.COMError):

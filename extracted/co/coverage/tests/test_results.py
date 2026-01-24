@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.py's results analysis."""
 
@@ -91,6 +91,8 @@ class NumbersTest(CoverageTest):
             n_missing_branches=3,
             n_partial_branches=1000,
         )
+        assert n.ratio_statements == (153, 200)
+        assert n.ratio_branches == (7, 10)
         assert n.ratio_covered == (160, 210)
 
 

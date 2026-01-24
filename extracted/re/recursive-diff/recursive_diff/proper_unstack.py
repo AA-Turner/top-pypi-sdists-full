@@ -2,12 +2,13 @@
 
 Copy-pasted from xarray-extras
 """
+
 from __future__ import annotations
 
 from collections.abc import Hashable
 from typing import TypeVar
 
-import pandas
+import pandas as pd
 import xarray
 
 T = TypeVar("T", xarray.DataArray, xarray.Dataset)
@@ -34,6 +35,7 @@ def proper_unstack(array: T, dim: Hashable) -> T:
     # Regenerate Pandas multi-index to be ordered by first appearance
     mindex = array.coords[dim].to_pandas().index
 
+    prev_names: list[Hashable] = mindex.names
     levels = []
     codes = []
 
@@ -47,17 +49,18 @@ def proper_unstack(array: T, dim: Hashable) -> T:
         levels.append([levels_i[k] for k in level_map])
         codes.append([level_map[k] for k in codes_i])
 
-    mindex = pandas.MultiIndex(levels, codes, names=mindex.names)
+    mindex = pd.MultiIndex(levels, codes, names=mindex.names)
     array = array.copy()
-    array.coords[dim] = mindex
+    array = array.drop_vars([dim, *prev_names])
+    array.coords.update(xarray.Coordinates.from_pandas_multiindex(mindex, dim))
 
     # Invoke builtin unstack
     array = array.unstack((dim,))
 
     # Convert numpy arrays of Python objects to numpy arrays of C floats, ints,
     # strings, etc.
-    for dim in mindex.names:
-        if array.coords[dim].dtype == object:
-            array.coords[dim] = array.coords[dim].values.tolist()
+    for name in mindex.names:
+        if array.coords[name].dtype == object:
+            array.coords[name] = array.coords[name].values.tolist()
 
     return array

@@ -3,7 +3,7 @@ Type annotations for datapipeline service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datapipeline/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -61,12 +62,6 @@ from .type_defs import (
     ValidatePipelineDefinitionOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -77,12 +72,12 @@ __all__ = ("DataPipelineClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServiceError: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    PipelineDeletedException: Type[BotocoreClientError]
-    PipelineNotFoundException: Type[BotocoreClientError]
-    TaskNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceError: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    PipelineDeletedException: type[BotocoreClientError]
+    PipelineNotFoundException: type[BotocoreClientError]
+    TaskNotFoundException: type[BotocoreClientError]
 
 
 class DataPipelineClient(BaseClient):
@@ -120,7 +115,7 @@ class DataPipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datapipeline/client/#generate_presigned_url)
         """
 
-    def activate_pipeline(self, **kwargs: Unpack[ActivatePipelineInputTypeDef]) -> Dict[str, Any]:
+    def activate_pipeline(self, **kwargs: Unpack[ActivatePipelineInputTypeDef]) -> dict[str, Any]:
         """
         Validates the specified pipeline and starts processing pipeline tasks.
 
@@ -128,7 +123,7 @@ class DataPipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datapipeline/client/#activate_pipeline)
         """
 
-    def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> Dict[str, Any]:
+    def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> dict[str, Any]:
         """
         Adds or modifies tags for the specified pipeline.
 
@@ -148,7 +143,7 @@ class DataPipelineClient(BaseClient):
 
     def deactivate_pipeline(
         self, **kwargs: Unpack[DeactivatePipelineInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deactivates the specified running pipeline.
 
@@ -248,7 +243,7 @@ class DataPipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datapipeline/client/#query_objects)
         """
 
-    def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> Dict[str, Any]:
+    def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> dict[str, Any]:
         """
         Removes existing tags from the specified pipeline.
 
@@ -287,7 +282,7 @@ class DataPipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datapipeline/client/#set_status)
         """
 
-    def set_task_status(self, **kwargs: Unpack[SetTaskStatusInputTypeDef]) -> Dict[str, Any]:
+    def set_task_status(self, **kwargs: Unpack[SetTaskStatusInputTypeDef]) -> dict[str, Any]:
         """
         Task runners call <code>SetTaskStatus</code> to notify AWS Data Pipeline that a
         task is completed and provide information about the final status.

@@ -2,7 +2,6 @@
 Functions for retrieving entity submission data from the SEC.
 """
 import json
-from functools import lru_cache
 from typing import Any, Dict, Optional
 
 import httpx
@@ -65,10 +64,13 @@ def load_company_submissions_from_local(cik: int) -> Optional[Dict[str, Any]]:
             return None
 
 
-@lru_cache(maxsize=32)
 def download_entity_submissions_from_sec(cik: int) -> Optional[Dict[str, Any]]:
     """
     Get the company filings for a given cik.
+
+    Note: This function no longer uses @lru_cache (removed in Issue #471 fix) to allow
+    HttpxThrottleCache to control freshness. The HTTP cache now has a 30-second TTL
+    for submissions, providing a balance between freshness and performance.
 
     Args:
         cik: The company CIK
@@ -77,7 +79,8 @@ def download_entity_submissions_from_sec(cik: int) -> Optional[Dict[str, Any]]:
         Optional[Dict[str, Any]]: The entity submissions JSON data, or None if not found
     """
     try:
-        submission_json = download_json(f"https://data.sec.gov/submissions/CIK{cik:010}.json")
+        from edgar.urls import build_submissions_url
+        submission_json = download_json(build_submissions_url(cik))
     except httpx.HTTPStatusError as e:
         # Handle the case where the cik is invalid and not found on Edgar
         if e.response.status_code == 404:
@@ -87,10 +90,12 @@ def download_entity_submissions_from_sec(cik: int) -> Optional[Dict[str, Any]]:
     return submission_json
 
 
-@lru_cache(maxsize=32)
 def get_entity_submissions(cik: int) -> Optional[Any]:
     """
     Get the entity data from the SEC submissions endpoint.
+
+    Note: This function no longer uses @lru_cache (removed in Issue #471 fix) to allow
+    HttpxThrottleCache to control freshness with a 30-second TTL.
 
     Args:
         cik: The company CIK

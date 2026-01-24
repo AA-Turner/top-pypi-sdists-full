@@ -45,7 +45,8 @@ class TestPulpExport(unittest.TestCase):
                 chunk_size = '0',
                 start_versions = [
                     ''
-                    ]
+                    ],
+                meta = None
             )
         else:
             return PulpExport(

@@ -16,14 +16,17 @@ __all__ = ["NewFloatingGroupedTieredPrice", "GroupedTieredConfig", "GroupedTiere
 
 
 class GroupedTieredConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class GroupedTieredConfig(BaseModel):
+    """Configuration for grouped_tiered pricing"""
+
     grouping_key: str
     """The billable metric property used to group before tiering"""
 

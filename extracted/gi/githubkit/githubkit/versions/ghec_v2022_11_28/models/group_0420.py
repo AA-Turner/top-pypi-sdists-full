@@ -13,17 +13,31 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0242 import Link
+
+class GitRef(GitHubModel):
+    """Git Reference
+
+    Git references within a repository
+    """
+
+    ref: str = Field()
+    node_id: str = Field()
+    url: str = Field()
+    object_: GitRefPropObject = Field(alias="object")
 
 
-class ReviewCommentPropLinks(GitHubModel):
-    """ReviewCommentPropLinks"""
+class GitRefPropObject(GitHubModel):
+    """GitRefPropObject"""
 
-    self_: Link = Field(alias="self", title="Link", description="Hypermedia Link")
-    html: Link = Field(title="Link", description="Hypermedia Link")
-    pull_request: Link = Field(title="Link", description="Hypermedia Link")
+    type: str = Field()
+    sha: str = Field(min_length=40, max_length=40, description="SHA for the reference")
+    url: str = Field()
 
 
-model_rebuild(ReviewCommentPropLinks)
+model_rebuild(GitRef)
+model_rebuild(GitRefPropObject)
 
-__all__ = ("ReviewCommentPropLinks",)
+__all__ = (
+    "GitRef",
+    "GitRefPropObject",
+)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import os
 
-from tango.api_util import ApiUtil
+from tango import ApiUtil
 
 
 def test_get_env_var():

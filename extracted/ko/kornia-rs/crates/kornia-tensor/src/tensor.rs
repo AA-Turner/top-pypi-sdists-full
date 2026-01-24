@@ -82,10 +82,7 @@ pub struct Tensor<T, const N: usize, A: TensorAllocator> {
     pub strides: [usize; N],
 }
 
-impl<T, const N: usize, A: TensorAllocator> Tensor<T, N, A>
-where
-    A: 'static,
-{
+impl<T, const N: usize, A: TensorAllocator> Tensor<T, N, A> {
     /// Get the data of the tensor as a slice.
     ///
     /// # Returns
@@ -510,7 +507,7 @@ where
     pub fn reshape<const M: usize>(
         &self,
         shape: [usize; M],
-    ) -> Result<TensorView<T, M, A>, TensorError> {
+    ) -> Result<TensorView<'_, T, M, A>, TensorError> {
         let numel = shape.iter().product::<usize>();
         if numel != self.storage.len() {
             return Err(TensorError::DimensionMismatch(format!(
@@ -540,7 +537,7 @@ where
     /// # Returns
     ///
     /// A view of the tensor with the dimensions permuted.
-    pub fn permute_axes(&self, axes: [usize; N]) -> TensorView<T, N, A> {
+    pub fn permute_axes(&self, axes: [usize; N]) -> TensorView<'_, T, N, A> {
         let mut new_shape = [0; N];
         let mut new_strides = [0; N];
         for (i, &axis) in axes.iter().enumerate() {
@@ -562,7 +559,7 @@ where
     /// # Returns
     ///
     /// A `TensorView` instance.
-    pub fn view(&self) -> TensorView<T, N, A> {
+    pub fn view(&self) -> TensorView<'_, T, N, A> {
         TensorView {
             storage: &self.storage,
             shape: self.shape,
@@ -619,6 +616,99 @@ where
             shape: self.shape,
             strides: self.strides,
         }
+    }
+
+    /// Checks if the Tensor has a standard contiguous layout according to its `shape` and `strides`.
+    ///
+    /// # Returns
+    ///
+    /// boolean, true if contiguous and false if not
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kornia_tensor::{Tensor, CpuAllocator};
+    /// let data: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    /// let mut t = Tensor::<u8, 3, CpuAllocator>::from_shape_vec([2, 2, 3], data, CpuAllocator).unwrap();
+    /// // arbitrary incorrect stride
+    /// t.strides = [10, 5, 1];
+    /// assert!(!t.is_standard_layout());
+    /// ```
+    pub fn is_standard_layout(&self) -> bool {
+        let mut expected_stride: usize = 1;
+        for (&dim, &stride) in self.shape.iter().rev().zip(self.strides.iter().rev()) {
+            if stride != expected_stride {
+                return false;
+            }
+            expected_stride = expected_stride.saturating_mul(dim);
+        }
+        true
+    }
+
+    /// Copy Tensor storage data into contiguous memory if not already
+    ///
+    /// # Returns
+    ///
+    /// A new Tensor with contiguous storage
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kornia_tensor::{Tensor, CpuAllocator};
+    /// let data: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    /// let mut t = Tensor::<u8, 3, CpuAllocator>::from_shape_vec([2, 2, 3], data.clone(), CpuAllocator).unwrap();
+    /// // altering strides
+    /// t.strides = [1, 6, 2];
+    /// assert!(!t.is_standard_layout());
+    /// let t2 = t.to_standard_layout(CpuAllocator);
+    /// match t.to_standard_layout(CpuAllocator) {
+    ///     Ok(t2) => {
+    ///         assert!(t2.is_standard_layout());
+    ///     }
+    ///     Err(e) => {
+    ///         eprintln!("to_standard_layout failed: {}", e);
+    ///     }
+    /// }
+    /// ```
+    pub fn to_standard_layout(&self, alloc: A) -> Result<Self, TensorError>
+    where
+        T: Clone + std::fmt::Debug,
+    {
+        if self.is_standard_layout() {
+            return Ok(self.clone());
+        }
+
+        let total_elems: usize = self.shape.iter().product();
+        let mut flat = Vec::with_capacity(total_elems);
+        let mut idx = [0; N];
+        let slice = self.storage.as_slice();
+
+        for _ in 0..total_elems {
+            let offset = idx
+                .iter()
+                .zip(self.strides.iter())
+                .map(|(&i, &s)| i * s)
+                .sum::<usize>();
+
+            flat.push(slice[offset].clone());
+
+            // increment index
+            for dim in (0..N).rev() {
+                idx[dim] += 1;
+                if idx[dim] < self.shape[dim] {
+                    break;
+                } else {
+                    idx[dim] = 0;
+                }
+            }
+        }
+
+        Tensor::from_shape_vec(self.shape, flat, alloc).map_err(|_| {
+            TensorError::DimensionMismatch(format!(
+                "Cannot construct tensor of shape {:?} with {:?} elements",
+                self.shape, total_elems,
+            ))
+        })
     }
 
     /// Cast the tensor to a new type.
@@ -724,7 +814,7 @@ where
 impl<T, const N: usize, A> Clone for Tensor<T, N, A>
 where
     T: Clone,
-    A: TensorAllocator + Clone + 'static,
+    A: TensorAllocator + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -738,7 +828,7 @@ where
 impl<T, const N: usize, A> std::fmt::Display for Tensor<T, N, A>
 where
     T: std::fmt::Display + std::fmt::LowerExp,
-    A: TensorAllocator + 'static,
+    A: TensorAllocator,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let width = self
@@ -1332,6 +1422,57 @@ mod tests {
         std::mem::forget(data);
         assert_eq!(t.shape, [2, 2]);
         assert_eq!(t.as_slice(), &[1, 2, 3, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn contiguous_tensor_is_standard_layout_true() -> Result<(), TensorError> {
+        let data: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        let t = Tensor::<u8, 3, CpuAllocator>::from_shape_vec([2, 2, 3], data, CpuAllocator)?;
+        assert!(t.is_standard_layout());
+        Ok(())
+    }
+
+    #[test]
+    fn broken_stride_is_standard_layout_false() -> Result<(), TensorError> {
+        let data: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        let mut t = Tensor::<u8, 3, CpuAllocator>::from_shape_vec([2, 2, 3], data, CpuAllocator)?;
+        // arbitrary incorrect stride
+        t.strides = [10, 5, 1];
+        assert!(!t.is_standard_layout());
+        Ok(())
+    }
+
+    #[test]
+    fn contiguous_tensor_roundtrip() -> Result<(), TensorError> {
+        let data: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        let t =
+            Tensor::<u8, 3, CpuAllocator>::from_shape_vec([2, 2, 3], data.clone(), CpuAllocator)?;
+        assert!(t.is_standard_layout());
+        match t.to_standard_layout(CpuAllocator) {
+            Ok(t2) => {
+                assert!(t2.is_standard_layout());
+                assert_eq!(t2.storage.as_slice(), data.as_slice());
+            }
+            Err(e) => return Err(e),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn non_contiguous_to_standard_layout() -> Result<(), TensorError> {
+        let data: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        let mut t =
+            Tensor::<u8, 3, CpuAllocator>::from_shape_vec([2, 2, 3], data.clone(), CpuAllocator)?;
+        // altering strides
+        t.strides = [1, 6, 2];
+        assert!(!t.is_standard_layout());
+        match t.to_standard_layout(CpuAllocator) {
+            Ok(t2) => {
+                assert!(t2.is_standard_layout());
+            }
+            Err(e) => return Err(e),
+        }
         Ok(())
     }
 }

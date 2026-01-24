@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
     import httpx
 
+    from langchain_mcp_adapters.callbacks import _MCPCallbacks
+
 EncodingErrorHandler = Literal["strict", "ignore", "replace"]
 
 DEFAULT_ENCODING = "utf-8"
@@ -187,7 +189,7 @@ Connection = (
 
 
 @asynccontextmanager
-async def _create_stdio_session(  # noqa: PLR0913
+async def _create_stdio_session(
     *,
     command: str,
     args: list[str],
@@ -233,7 +235,7 @@ async def _create_stdio_session(  # noqa: PLR0913
 
 
 @asynccontextmanager
-async def _create_sse_session(  # noqa: PLR0913
+async def _create_sse_session(
     *,
     url: str,
     headers: dict[str, Any] | None = None,
@@ -273,7 +275,7 @@ async def _create_sse_session(  # noqa: PLR0913
 
 
 @asynccontextmanager
-async def _create_streamable_http_session(  # noqa: PLR0913
+async def _create_streamable_http_session(
     *,
     url: str,
     headers: dict[str, Any] | None = None,
@@ -339,7 +341,7 @@ async def _create_websocket_session(
         ImportError: If websockets package is not installed.
     """
     try:
-        from mcp.client.websocket import websocket_client
+        from mcp.client.websocket import websocket_client  # noqa: PLC0415
     except ImportError:
         msg = (
             "Could not import websocket_client. "
@@ -356,11 +358,14 @@ async def _create_websocket_session(
 
 
 @asynccontextmanager
-async def create_session(connection: Connection) -> AsyncIterator[ClientSession]:  # noqa: C901
+async def create_session(
+    connection: Connection, *, mcp_callbacks: _MCPCallbacks | None = None
+) -> AsyncIterator[ClientSession]:
     """Create a new session to an MCP server.
 
     Args:
         connection: Connection config to use to connect to the server
+        mcp_callbacks: mcp sdk compatible callbacks to use for the ClientSession
 
     Raises:
         ValueError: If transport is not recognized
@@ -373,7 +378,7 @@ async def create_session(connection: Connection) -> AsyncIterator[ClientSession]
         msg = (
             "Configuration error: Missing 'transport' key in server configuration. "
             "Each server must include 'transport' with one of: "
-            "'stdio', 'sse', 'websocket', 'streamable_http'. "
+            "'stdio', 'sse', 'websocket', 'http'. "
             "Please refer to the langchain-mcp-adapters documentation for more details."
         )
         raise ValueError(msg)
@@ -381,13 +386,24 @@ async def create_session(connection: Connection) -> AsyncIterator[ClientSession]
     transport = connection["transport"]
     params = {k: v for k, v in connection.items() if k != "transport"}
 
+    if mcp_callbacks is not None:
+        params["session_kwargs"] = params.get("session_kwargs", {})
+        if mcp_callbacks.logging_callback is not None:
+            params["session_kwargs"]["logging_callback"] = (
+                mcp_callbacks.logging_callback
+            )
+        if mcp_callbacks.elicitation_callback is not None:
+            params["session_kwargs"]["elicitation_callback"] = (
+                mcp_callbacks.elicitation_callback
+            )
+
     if transport == "sse":
         if "url" not in params:
             msg = "'url' parameter is required for SSE connection"
             raise ValueError(msg)
         async with _create_sse_session(**params) as session:
             yield session
-    elif transport == "streamable_http":
+    elif transport in {"streamable_http", "streamable-http", "http"}:
         if "url" not in params:
             msg = "'url' parameter is required for Streamable HTTP connection"
             raise ValueError(msg)
@@ -411,6 +427,6 @@ async def create_session(connection: Connection) -> AsyncIterator[ClientSession]
     else:
         msg = (
             f"Unsupported transport: {transport}. "
-            f"Must be one of: 'stdio', 'sse', 'websocket', 'streamable_http'"
+            f"Must be one of: 'stdio', 'sse', 'websocket', 'http'"
         )
         raise ValueError(msg)

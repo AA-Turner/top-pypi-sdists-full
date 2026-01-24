@@ -1,9 +1,10 @@
 """Tests for the quirks v2 module."""
 
 import pathlib
-from typing import Final
+from typing import Any, Final
 from unittest.mock import AsyncMock
 
+from frozendict import frozendict
 import pytest
 
 from zigpy.const import (
@@ -27,6 +28,7 @@ from zigpy.quirks.v2 import (
     EntityMetadata,
     EntityPlatform,
     EntityType,
+    ExposesFeatureMetadata,
     FirmwareVersionFilterMetadata,
     NumberMetadata,
     PreventDefaultEntityCreationMetadata,
@@ -36,6 +38,7 @@ from zigpy.quirks.v2 import (
     ZCLCommandButtonMetadata,
     ZCLSensorMetadata,
     add_to_registry_v2,
+    recursive_freeze,
 )
 from zigpy.quirks.v2.homeassistant import EntityType, UnitOfTime
 from zigpy.quirks.v2.homeassistant.sensor import SensorDeviceClass, SensorStateClass
@@ -1451,6 +1454,7 @@ async def test_quirks_v2_change_entity_metadata(device_mock: Device) -> None:
             endpoint_id=1,
             cluster_id=OnOff.cluster_id,
             new_translation_key="custom_key",
+            new_translation_placeholders={"index": "subkey"},
         )
         .change_entity_metadata(
             endpoint_id=1,
@@ -1479,6 +1483,7 @@ async def test_quirks_v2_change_entity_metadata(device_mock: Device) -> None:
             new_primary=True,
             new_unique_id=None,
             new_translation_key=None,
+            new_translation_placeholders=None,
             new_device_class=None,
             new_state_class=None,
             new_entity_category=None,
@@ -1494,6 +1499,7 @@ async def test_quirks_v2_change_entity_metadata(device_mock: Device) -> None:
             new_primary=None,
             new_unique_id=None,
             new_translation_key="custom_key",
+            new_translation_placeholders={"index": "subkey"},
             new_device_class=None,
             new_state_class=None,
             new_entity_category=None,
@@ -1509,6 +1515,7 @@ async def test_quirks_v2_change_entity_metadata(device_mock: Device) -> None:
             new_primary=None,
             new_unique_id=None,
             new_translation_key=None,
+            new_translation_placeholders=None,
             new_device_class=SensorDeviceClass.POWER,
             new_state_class=SensorStateClass.MEASUREMENT,
             new_entity_category=EntityType.CONFIG,
@@ -1524,6 +1531,7 @@ async def test_quirks_v2_change_entity_metadata(device_mock: Device) -> None:
             new_primary=None,
             new_unique_id="custom_unique_id",
             new_translation_key=None,
+            new_translation_placeholders=None,
             new_device_class=None,
             new_state_class=None,
             new_entity_category=None,
@@ -1531,3 +1539,82 @@ async def test_quirks_v2_change_entity_metadata(device_mock: Device) -> None:
             new_fallback_name="Custom Fallback Name",
         ),
     )
+
+
+async def test_quirks_v2_exposes_feature(device_mock: Device) -> None:
+    """Test exposes feature functionality."""
+    registry = DeviceRegistry()
+
+    entry = (
+        QuirkBuilder(device_mock.manufacturer, device_mock.model, registry=registry)
+        .exposes_feature("some_feature")
+        .exposes_feature("another_feature", config={"option": True})
+        .add_to_registry()
+    )
+
+    assert entry.exposes_features == (
+        ExposesFeatureMetadata(feature="some_feature"),
+        ExposesFeatureMetadata(feature="another_feature", config={"option": True}),
+    )
+
+
+def strict_eq(a: Any, b: Any) -> bool:
+    """Recursively check equality and type matching."""
+    if type(a) is not type(b):
+        return False
+    if a != b:
+        return False
+    if isinstance(a, dict):
+        if a.keys() != b.keys():
+            return False
+        return all(strict_eq(a[k], b[k]) for k in a)
+    if isinstance(a, tuple | list):
+        if len(a) != len(b):
+            return False
+        return all(
+            strict_eq(a_item, b_item) for a_item, b_item in zip(a, b, strict=False)
+        )
+    return True
+
+
+@pytest.mark.parametrize(
+    ("obj", "expected"),
+    [
+        ({}, frozendict()),
+        ([], ()),
+        ({"a": 1, "b": 2}, frozendict({"a": 1, "b": 2})),
+        ([1, 2, 3], (1, 2, 3)),
+        (
+            {"outer": {"inner": "value"}},
+            frozendict({"outer": frozendict({"inner": "value"})}),
+        ),
+        ({"key": [1, 2, 3]}, frozendict({"key": (1, 2, 3)})),
+        ([{"a": 1}, {"b": 2}], (frozendict({"a": 1}), frozendict({"b": 2}))),
+        ([[1, 2], [3, 4]], ((1, 2), (3, 4))),
+        (
+            {"a": [1, {"b": 2}], "c": {"d": [3, 4]}},
+            frozendict(
+                {"a": (1, frozendict({"b": 2})), "c": frozendict({"d": (3, 4)})}
+            ),
+        ),
+        (42, 42),
+        ("string", "string"),
+        (None, None),
+        (True, True),
+        (3.14, 3.14),
+        (frozendict({"a": 1}), frozendict({"a": 1})),
+        ((1, 2, 3), (1, 2, 3)),
+        ((1, [2], {3: 4}), (1, (2,), frozendict({3: 4}))),
+        (
+            {"triggers": {("key1", "key2"): {"param": 0}}},
+            frozendict(
+                {"triggers": frozendict({("key1", "key2"): frozendict({"param": 0})})}
+            ),
+        ),
+    ],
+)
+def test_recursive_freeze(obj, expected):
+    """Test recursive_freeze converts mutable collections to immutable ones."""
+    result = recursive_freeze(obj)
+    assert strict_eq(result, expected)
+    hash(result)

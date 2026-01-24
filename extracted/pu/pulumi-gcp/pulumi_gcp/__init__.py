@@ -59,6 +59,8 @@ if typing.TYPE_CHECKING:
     certificateauthority = __certificateauthority
     import pulumi_gcp.certificatemanager as __certificatemanager
     certificatemanager = __certificatemanager
+    import pulumi_gcp.ces as __ces
+    ces = __ces
     import pulumi_gcp.chronicle as __chronicle
     chronicle = __chronicle
     import pulumi_gcp.cloudasset as __cloudasset
@@ -87,6 +89,8 @@ if typing.TYPE_CHECKING:
     cloudrunv2 = __cloudrunv2
     import pulumi_gcp.cloudscheduler as __cloudscheduler
     cloudscheduler = __cloudscheduler
+    import pulumi_gcp.cloudsecuritycompliance as __cloudsecuritycompliance
+    cloudsecuritycompliance = __cloudsecuritycompliance
     import pulumi_gcp.cloudtasks as __cloudtasks
     cloudtasks = __cloudtasks
     import pulumi_gcp.colab as __colab
@@ -203,6 +207,8 @@ if typing.TYPE_CHECKING:
     networkservices = __networkservices
     import pulumi_gcp.notebooks as __notebooks
     notebooks = __notebooks
+    import pulumi_gcp.observability as __observability
+    observability = __observability
     import pulumi_gcp.oracledatabase as __oracledatabase
     oracledatabase = __oracledatabase
     import pulumi_gcp.organizations as __organizations
@@ -302,6 +308,7 @@ else:
     blockchainnodeengine = _utilities.lazy_import('pulumi_gcp.blockchainnodeengine')
     certificateauthority = _utilities.lazy_import('pulumi_gcp.certificateauthority')
     certificatemanager = _utilities.lazy_import('pulumi_gcp.certificatemanager')
+    ces = _utilities.lazy_import('pulumi_gcp.ces')
     chronicle = _utilities.lazy_import('pulumi_gcp.chronicle')
     cloudasset = _utilities.lazy_import('pulumi_gcp.cloudasset')
     cloudbuild = _utilities.lazy_import('pulumi_gcp.cloudbuild')
@@ -316,6 +323,7 @@ else:
     cloudrun = _utilities.lazy_import('pulumi_gcp.cloudrun')
     cloudrunv2 = _utilities.lazy_import('pulumi_gcp.cloudrunv2')
     cloudscheduler = _utilities.lazy_import('pulumi_gcp.cloudscheduler')
+    cloudsecuritycompliance = _utilities.lazy_import('pulumi_gcp.cloudsecuritycompliance')
     cloudtasks = _utilities.lazy_import('pulumi_gcp.cloudtasks')
     colab = _utilities.lazy_import('pulumi_gcp.colab')
     composer = _utilities.lazy_import('pulumi_gcp.composer')
@@ -374,6 +382,7 @@ else:
     networksecurity = _utilities.lazy_import('pulumi_gcp.networksecurity')
     networkservices = _utilities.lazy_import('pulumi_gcp.networkservices')
     notebooks = _utilities.lazy_import('pulumi_gcp.notebooks')
+    observability = _utilities.lazy_import('pulumi_gcp.observability')
     oracledatabase = _utilities.lazy_import('pulumi_gcp.oracledatabase')
     organizations = _utilities.lazy_import('pulumi_gcp.organizations')
     orgpolicy = _utilities.lazy_import('pulumi_gcp.orgpolicy')
@@ -737,6 +746,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "apigee/apiDeployment",
+  "fqn": "pulumi_gcp.apigee",
+  "classes": {
+   "gcp:apigee/apiDeployment:ApiDeployment": "ApiDeployment"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "apigee/apiProduct",
   "fqn": "pulumi_gcp.apigee",
   "classes": {
@@ -765,6 +782,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.apigee",
   "classes": {
    "gcp:apigee/developer:Developer": "Developer"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "apigee/developerApp",
+  "fqn": "pulumi_gcp.apigee",
+  "classes": {
+   "gcp:apigee/developerApp:DeveloperApp": "DeveloperApp"
   }
  },
  {
@@ -829,6 +854,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.apigee",
   "classes": {
    "gcp:apigee/environmentAddonsConfig:EnvironmentAddonsConfig": "EnvironmentAddonsConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "apigee/environmentApiRevisionDeployment",
+  "fqn": "pulumi_gcp.apigee",
+  "classes": {
+   "gcp:apigee/environmentApiRevisionDeployment:EnvironmentApiRevisionDeployment": "EnvironmentApiRevisionDeployment"
   }
  },
  {
@@ -941,6 +974,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.apigee",
   "classes": {
    "gcp:apigee/securityAction:SecurityAction": "SecurityAction"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "apigee/securityFeedback",
+  "fqn": "pulumi_gcp.apigee",
+  "classes": {
+   "gcp:apigee/securityFeedback:SecurityFeedback": "SecurityFeedback"
   }
  },
  {
@@ -1105,6 +1146,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "apphub/boundary",
+  "fqn": "pulumi_gcp.apphub",
+  "classes": {
+   "gcp:apphub/boundary:Boundary": "Boundary"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "apphub/service",
   "fqn": "pulumi_gcp.apphub",
   "classes": {
@@ -1225,6 +1274,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "backupdisasterrecovery/restoreWorkload",
+  "fqn": "pulumi_gcp.backupdisasterrecovery",
+  "classes": {
+   "gcp:backupdisasterrecovery/restoreWorkload:RestoreWorkload": "RestoreWorkload"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "backupdisasterrecovery/serviceConfig",
   "fqn": "pulumi_gcp.backupdisasterrecovery",
   "classes": {
@@ -1337,6 +1394,38 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "biglake/icebergCatalog",
+  "fqn": "pulumi_gcp.biglake",
+  "classes": {
+   "gcp:biglake/icebergCatalog:IcebergCatalog": "IcebergCatalog"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "biglake/icebergCatalogIamBinding",
+  "fqn": "pulumi_gcp.biglake",
+  "classes": {
+   "gcp:biglake/icebergCatalogIamBinding:IcebergCatalogIamBinding": "IcebergCatalogIamBinding"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "biglake/icebergCatalogIamMember",
+  "fqn": "pulumi_gcp.biglake",
+  "classes": {
+   "gcp:biglake/icebergCatalogIamMember:IcebergCatalogIamMember": "IcebergCatalogIamMember"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "biglake/icebergCatalogIamPolicy",
+  "fqn": "pulumi_gcp.biglake",
+  "classes": {
+   "gcp:biglake/icebergCatalogIamPolicy:IcebergCatalogIamPolicy": "IcebergCatalogIamPolicy"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "biglake/table",
   "fqn": "pulumi_gcp.biglake",
   "classes": {
@@ -1405,6 +1494,38 @@ _utilities.register(
   "fqn": "pulumi_gcp.bigquery",
   "classes": {
    "gcp:bigquery/dataTransferConfig:DataTransferConfig": "DataTransferConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "bigquery/datapolicyv2DataPolicy",
+  "fqn": "pulumi_gcp.bigquery",
+  "classes": {
+   "gcp:bigquery/datapolicyv2DataPolicy:Datapolicyv2DataPolicy": "Datapolicyv2DataPolicy"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "bigquery/datapolicyv2DataPolicyIamBinding",
+  "fqn": "pulumi_gcp.bigquery",
+  "classes": {
+   "gcp:bigquery/datapolicyv2DataPolicyIamBinding:Datapolicyv2DataPolicyIamBinding": "Datapolicyv2DataPolicyIamBinding"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "bigquery/datapolicyv2DataPolicyIamMember",
+  "fqn": "pulumi_gcp.bigquery",
+  "classes": {
+   "gcp:bigquery/datapolicyv2DataPolicyIamMember:Datapolicyv2DataPolicyIamMember": "Datapolicyv2DataPolicyIamMember"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "bigquery/datapolicyv2DataPolicyIamPolicy",
+  "fqn": "pulumi_gcp.bigquery",
+  "classes": {
+   "gcp:bigquery/datapolicyv2DataPolicyIamPolicy:Datapolicyv2DataPolicyIamPolicy": "Datapolicyv2DataPolicyIamPolicy"
   }
  },
  {
@@ -1969,6 +2090,70 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "ces/agent",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/agent:Agent": "Agent"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/app",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/app:App": "App"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/appVersion",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/appVersion:AppVersion": "AppVersion"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/deployment",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/deployment:Deployment": "Deployment"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/example",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/example:Example": "Example"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/guardrail",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/guardrail:Guardrail": "Guardrail"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/tool",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/tool:Tool": "Tool"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "ces/toolset",
+  "fqn": "pulumi_gcp.ces",
+  "classes": {
+   "gcp:ces/toolset:Toolset": "Toolset"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "chronicle/dataAccessLabel",
   "fqn": "pulumi_gcp.chronicle",
   "classes": {
@@ -2477,6 +2662,30 @@ _utilities.register(
   "fqn": "pulumi_gcp.cloudscheduler",
   "classes": {
    "gcp:cloudscheduler/job:Job": "Job"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "cloudsecuritycompliance/cloudControl",
+  "fqn": "pulumi_gcp.cloudsecuritycompliance",
+  "classes": {
+   "gcp:cloudsecuritycompliance/cloudControl:CloudControl": "CloudControl"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "cloudsecuritycompliance/framework",
+  "fqn": "pulumi_gcp.cloudsecuritycompliance",
+  "classes": {
+   "gcp:cloudsecuritycompliance/framework:Framework": "Framework"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "cloudsecuritycompliance/frameworkDeployment",
+  "fqn": "pulumi_gcp.cloudsecuritycompliance",
+  "classes": {
+   "gcp:cloudsecuritycompliance/frameworkDeployment:FrameworkDeployment": "FrameworkDeployment"
   }
  },
  {
@@ -3457,10 +3666,26 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "compute/regionHealthAggregationPolicy",
+  "fqn": "pulumi_gcp.compute",
+  "classes": {
+   "gcp:compute/regionHealthAggregationPolicy:RegionHealthAggregationPolicy": "RegionHealthAggregationPolicy"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "compute/regionHealthCheck",
   "fqn": "pulumi_gcp.compute",
   "classes": {
    "gcp:compute/regionHealthCheck:RegionHealthCheck": "RegionHealthCheck"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "compute/regionHealthSource",
+  "fqn": "pulumi_gcp.compute",
+  "classes": {
+   "gcp:compute/regionHealthSource:RegionHealthSource": "RegionHealthSource"
   }
  },
  {
@@ -4505,6 +4730,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "dataplex/entryLink",
+  "fqn": "pulumi_gcp.dataplex",
+  "classes": {
+   "gcp:dataplex/entryLink:EntryLink": "EntryLink"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "dataplex/entryType",
   "fqn": "pulumi_gcp.dataplex",
   "classes": {
@@ -5153,6 +5386,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "diagflow/generator",
+  "fqn": "pulumi_gcp.diagflow",
+  "classes": {
+   "gcp:diagflow/generator:Generator": "Generator"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "diagflow/intent",
   "fqn": "pulumi_gcp.diagflow",
   "classes": {
@@ -5161,10 +5402,26 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "diagflow/version",
+  "fqn": "pulumi_gcp.diagflow",
+  "classes": {
+   "gcp:diagflow/version:Version": "Version"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "discoveryengine/aclConfig",
   "fqn": "pulumi_gcp.discoveryengine",
   "classes": {
    "gcp:discoveryengine/aclConfig:AclConfig": "AclConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "discoveryengine/assistant",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/assistant:Assistant": "Assistant"
   }
  },
  {
@@ -5185,10 +5442,34 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "discoveryengine/control",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/control:Control": "Control"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "discoveryengine/dataConnector",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/dataConnector:DataConnector": "DataConnector"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "discoveryengine/dataStore",
   "fqn": "pulumi_gcp.discoveryengine",
   "classes": {
    "gcp:discoveryengine/dataStore:DataStore": "DataStore"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "discoveryengine/licenseConfig",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/licenseConfig:LicenseConfig": "LicenseConfig"
   }
  },
  {
@@ -5217,6 +5498,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "discoveryengine/servingConfig",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/servingConfig:ServingConfig": "ServingConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "discoveryengine/sitemap",
   "fqn": "pulumi_gcp.discoveryengine",
   "classes": {
@@ -5229,6 +5518,22 @@ _utilities.register(
   "fqn": "pulumi_gcp.discoveryengine",
   "classes": {
    "gcp:discoveryengine/targetSite:TargetSite": "TargetSite"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "discoveryengine/userStore",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/userStore:UserStore": "UserStore"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "discoveryengine/widgetConfig",
+  "fqn": "pulumi_gcp.discoveryengine",
+  "classes": {
+   "gcp:discoveryengine/widgetConfig:WidgetConfig": "WidgetConfig"
   }
  },
  {
@@ -5773,6 +6078,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.firestore",
   "classes": {
    "gcp:firestore/index:Index": "Index"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "firestore/userCreds",
+  "fqn": "pulumi_gcp.firestore",
+  "classes": {
+   "gcp:firestore/userCreds:UserCreds": "UserCreds"
   }
  },
  {
@@ -6513,6 +6826,22 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "iam/workforcePoolProviderScimTenant",
+  "fqn": "pulumi_gcp.iam",
+  "classes": {
+   "gcp:iam/workforcePoolProviderScimTenant:WorkforcePoolProviderScimTenant": "WorkforcePoolProviderScimTenant"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "iam/workforcePoolProviderScimToken",
+  "fqn": "pulumi_gcp.iam",
+  "classes": {
+   "gcp:iam/workforcePoolProviderScimToken:WorkforcePoolProviderScimToken": "WorkforcePoolProviderScimToken"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "iam/workloadIdentityPool",
   "fqn": "pulumi_gcp.iam",
   "classes": {
@@ -7081,6 +7410,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "kms/folderKajPolicyConfig",
+  "fqn": "pulumi_gcp.kms",
+  "classes": {
+   "gcp:kms/folderKajPolicyConfig:FolderKajPolicyConfig": "FolderKajPolicyConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "kms/keyHandle",
   "fqn": "pulumi_gcp.kms",
   "classes": {
@@ -7125,6 +7462,22 @@ _utilities.register(
   "fqn": "pulumi_gcp.kms",
   "classes": {
    "gcp:kms/keyRingImportJob:KeyRingImportJob": "KeyRingImportJob"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "kms/organizationKajPolicyConfig",
+  "fqn": "pulumi_gcp.kms",
+  "classes": {
+   "gcp:kms/organizationKajPolicyConfig:OrganizationKajPolicyConfig": "OrganizationKajPolicyConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "kms/projectKajPolicyConfig",
+  "fqn": "pulumi_gcp.kms",
+  "classes": {
+   "gcp:kms/projectKajPolicyConfig:ProjectKajPolicyConfig": "ProjectKajPolicyConfig"
   }
  },
  {
@@ -7537,6 +7890,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "netapp/hostGroup",
+  "fqn": "pulumi_gcp.netapp",
+  "classes": {
+   "gcp:netapp/hostGroup:HostGroup": "HostGroup"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "netapp/kmsconfig",
   "fqn": "pulumi_gcp.netapp",
   "classes": {
@@ -7585,6 +7946,22 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "networkconnectivity/destination",
+  "fqn": "pulumi_gcp.networkconnectivity",
+  "classes": {
+   "gcp:networkconnectivity/destination:Destination": "Destination"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkconnectivity/gatewayAdvertisedRoute",
+  "fqn": "pulumi_gcp.networkconnectivity",
+  "classes": {
+   "gcp:networkconnectivity/gatewayAdvertisedRoute:GatewayAdvertisedRoute": "GatewayAdvertisedRoute"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "networkconnectivity/group",
   "fqn": "pulumi_gcp.networkconnectivity",
   "classes": {
@@ -7605,6 +7982,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.networkconnectivity",
   "classes": {
    "gcp:networkconnectivity/internalRange:InternalRange": "InternalRange"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkconnectivity/multicloudDataTransferConfig",
+  "fqn": "pulumi_gcp.networkconnectivity",
+  "classes": {
+   "gcp:networkconnectivity/multicloudDataTransferConfig:MulticloudDataTransferConfig": "MulticloudDataTransferConfig"
   }
  },
  {
@@ -7729,6 +8114,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "networksecurity/dnsThreatDetector",
+  "fqn": "pulumi_gcp.networksecurity",
+  "classes": {
+   "gcp:networksecurity/dnsThreatDetector:DnsThreatDetector": "DnsThreatDetector"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "networksecurity/firewallEndpoint",
   "fqn": "pulumi_gcp.networksecurity",
   "classes": {
@@ -7809,6 +8202,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "networksecurity/mirroringEndpoint",
+  "fqn": "pulumi_gcp.networksecurity",
+  "classes": {
+   "gcp:networksecurity/mirroringEndpoint:MirroringEndpoint": "MirroringEndpoint"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "networksecurity/mirroringEndpointGroup",
   "fqn": "pulumi_gcp.networksecurity",
   "classes": {
@@ -7821,6 +8222,22 @@ _utilities.register(
   "fqn": "pulumi_gcp.networksecurity",
   "classes": {
    "gcp:networksecurity/mirroringEndpointGroupAssociation:MirroringEndpointGroupAssociation": "MirroringEndpointGroupAssociation"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networksecurity/sacAttachment",
+  "fqn": "pulumi_gcp.networksecurity",
+  "classes": {
+   "gcp:networksecurity/sacAttachment:SacAttachment": "SacAttachment"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networksecurity/sacRealm",
+  "fqn": "pulumi_gcp.networksecurity",
+  "classes": {
+   "gcp:networksecurity/sacRealm:SacRealm": "SacRealm"
   }
  },
  {
@@ -7929,6 +8346,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "networkservices/lbEdgeExtension",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/lbEdgeExtension:LbEdgeExtension": "LbEdgeExtension"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "networkservices/lbRouteExtension",
   "fqn": "pulumi_gcp.networkservices",
   "classes": {
@@ -7949,6 +8374,78 @@ _utilities.register(
   "fqn": "pulumi_gcp.networkservices",
   "classes": {
    "gcp:networkservices/mesh:Mesh": "Mesh"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastConsumerAssociation",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastConsumerAssociation:MulticastConsumerAssociation": "MulticastConsumerAssociation"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastDomain",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastDomain:MulticastDomain": "MulticastDomain"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastDomainActivation",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastDomainActivation:MulticastDomainActivation": "MulticastDomainActivation"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastDomainGroup",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastDomainGroup:MulticastDomainGroup": "MulticastDomainGroup"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastGroupConsumerActivation",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastGroupConsumerActivation:MulticastGroupConsumerActivation": "MulticastGroupConsumerActivation"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastGroupProducerActivation",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastGroupProducerActivation:MulticastGroupProducerActivation": "MulticastGroupProducerActivation"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastGroupRange",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastGroupRange:MulticastGroupRange": "MulticastGroupRange"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastGroupRangeActivation",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastGroupRangeActivation:MulticastGroupRangeActivation": "MulticastGroupRangeActivation"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/multicastProducerAssociation",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/multicastProducerAssociation:MulticastProducerAssociation": "MulticastProducerAssociation"
   }
  },
  {
@@ -7981,6 +8478,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.networkservices",
   "classes": {
    "gcp:networkservices/tlsRoute:TlsRoute": "TlsRoute"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "networkservices/wasmPlugin",
+  "fqn": "pulumi_gcp.networkservices",
+  "classes": {
+   "gcp:networkservices/wasmPlugin:WasmPlugin": "WasmPlugin"
   }
  },
  {
@@ -8057,6 +8562,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "observability/traceScope",
+  "fqn": "pulumi_gcp.observability",
+  "classes": {
+   "gcp:observability/traceScope:TraceScope": "TraceScope"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "oracledatabase/autonomousDatabase",
   "fqn": "pulumi_gcp.oracledatabase",
   "classes": {
@@ -8077,6 +8590,22 @@ _utilities.register(
   "fqn": "pulumi_gcp.oracledatabase",
   "classes": {
    "gcp:oracledatabase/cloudVmCluster:CloudVmCluster": "CloudVmCluster"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "oracledatabase/dbSystem",
+  "fqn": "pulumi_gcp.oracledatabase",
+  "classes": {
+   "gcp:oracledatabase/dbSystem:DbSystem": "DbSystem"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "oracledatabase/exascaleDbStorageVault",
+  "fqn": "pulumi_gcp.oracledatabase",
+  "classes": {
+   "gcp:oracledatabase/exascaleDbStorageVault:ExascaleDbStorageVault": "ExascaleDbStorageVault"
   }
  },
  {
@@ -8285,6 +8814,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.privilegedaccessmanager",
   "classes": {
    "gcp:privilegedaccessmanager/entitlement:entitlement": "Entitlement"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "privilegedaccessmanager/settings",
+  "fqn": "pulumi_gcp.privilegedaccessmanager",
+  "classes": {
+   "gcp:privilegedaccessmanager/settings:Settings": "Settings"
   }
  },
  {
@@ -8601,10 +9138,42 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "saasruntime/release",
+  "fqn": "pulumi_gcp.saasruntime",
+  "classes": {
+   "gcp:saasruntime/release:Release": "Release"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "saasruntime/rolloutKind",
+  "fqn": "pulumi_gcp.saasruntime",
+  "classes": {
+   "gcp:saasruntime/rolloutKind:RolloutKind": "RolloutKind"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "saasruntime/saaS",
   "fqn": "pulumi_gcp.saasruntime",
   "classes": {
    "gcp:saasruntime/saaS:SaaS": "SaaS"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "saasruntime/tenant",
+  "fqn": "pulumi_gcp.saasruntime",
+  "classes": {
+   "gcp:saasruntime/tenant:Tenant": "Tenant"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "saasruntime/unit",
+  "fqn": "pulumi_gcp.saasruntime",
+  "classes": {
+   "gcp:saasruntime/unit:Unit": "Unit"
   }
  },
  {
@@ -8701,6 +9270,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.securesourcemanager",
   "classes": {
    "gcp:securesourcemanager/branchRule:BranchRule": "BranchRule"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "securesourcemanager/hook",
+  "fqn": "pulumi_gcp.securesourcemanager",
+  "classes": {
+   "gcp:securesourcemanager/hook:Hook": "Hook"
   }
  },
  {
@@ -9721,6 +10298,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "vertex/aiCacheConfig",
+  "fqn": "pulumi_gcp.vertex",
+  "classes": {
+   "gcp:vertex/aiCacheConfig:AiCacheConfig": "AiCacheConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "vertex/aiDataset",
   "fqn": "pulumi_gcp.vertex",
   "classes": {
@@ -9989,6 +10574,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.vertex",
   "classes": {
    "gcp:vertex/aiRagEngineConfig:AiRagEngineConfig": "AiRagEngineConfig"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "vertex/aiReasoningEngine",
+  "fqn": "pulumi_gcp.vertex",
+  "classes": {
+   "gcp:vertex/aiReasoningEngine:AiReasoningEngine": "AiReasoningEngine"
   }
  },
  {

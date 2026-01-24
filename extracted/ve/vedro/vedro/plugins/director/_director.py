@@ -72,12 +72,14 @@ class DirectorPlugin(Plugin):
                                       choices=self._registered_reporters,
                                       default=self._default_reporters,
                                       help=help_message)
+        # TODO: In v2, do not use sys.argv directly - accept argv as parameter for testability
+        # parse_known_args() without arguments implicitly uses sys.argv, which makes testing harder
         args, *_ = event.arg_parser.parse_known_args()
         for reporter_name in args.reporters:
             if reporter_name not in self._registered_reporters:
                 raise ValueError(f"Unknown reporter specified: '{reporter_name}'.")
             reporter = self._registered_reporters[reporter_name]
-            reporter.on_chosen()
+            reporter.on_chosen()  # TODO: Consider passing the dispatcher as a parameter
 
     def register(self, name: str, reporter: Reporter) -> None:
         """
@@ -96,6 +98,7 @@ class Director(PluginConfig):
     This configuration allows defining default reporters that are used
     if no other reporters are specified via CLI.
     """
+
     plugin = DirectorPlugin
     description = "Manages and configures reporters for scenario execution"
 

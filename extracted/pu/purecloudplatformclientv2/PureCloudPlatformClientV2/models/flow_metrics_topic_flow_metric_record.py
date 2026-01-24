@@ -929,7 +929,7 @@ class FlowMetricsTopicFlowMetricRecord(object):
         """
         if isinstance(disconnect_type, int):
             disconnect_type = str(disconnect_type)
-        allowed_values = ["client", "conferenceTransfer", "consultTransfer", "endpoint", "endpointDnd", "error", "forwardTransfer", "inactivity", "noAnswerTransfer", "notAvailableTransfer", "other", "peer", "spam", "system", "timeout", "transfer", "transferDnd", "transportFailure", "uncallable"]
+        allowed_values = ["client", "conferenceTransfer", "consultTransfer", "endpoint", "endpointDnd", "error", "forwardTransfer", "inactivity", "noAnswerTransfer", "notAvailableTransfer", "other", "peer", "sessionExpired", "spam", "system", "timeout", "transfer", "transferDnd", "transportFailure", "uncallable"]
         if disconnect_type.lower() not in map(str.lower, allowed_values):
             # print("Invalid value for disconnect_type -> " + disconnect_type)
             self._disconnect_type = "outdated_sdk_version"
@@ -1818,7 +1818,7 @@ class FlowMetricsTopicFlowMetricRecord(object):
         """
         if isinstance(media_type, int):
             media_type = str(media_type)
-        allowed_values = ["callback", "chat", "cobrowse", "email", "internalmessage", "message", "screenshare", "unknown", "video", "voice"]
+        allowed_values = ["callback", "chat", "cobrowse", "email", "internalmessage", "message", "screenmonitoring", "screenshare", "unknown", "video", "voice"]
         if media_type.lower() not in map(str.lower, allowed_values):
             # print("Invalid value for media_type -> " + media_type)
             self._media_type = "outdated_sdk_version"

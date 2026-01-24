@@ -3,11 +3,12 @@
 https://nbsphinx.readthedocs.io/
 
 """
-__version__ = '0.9.7'
+__version__ = '0.9.8'
 
 import collections.abc
 import copy
 import html
+import html.parser
 from itertools import chain
 import json
 import os
@@ -18,16 +19,33 @@ from urllib.parse import unquote
 import uuid
 
 import docutils
+import docutils.nodes
+import docutils.transforms
+import docutils.frontend
+import docutils.utils
 from docutils.parsers import rst
+from docutils.parsers.rst import directives as rst_directives
 import jinja2
 import nbconvert
+import nbconvert.utils
+import nbconvert.utils.pandoc
+import nbconvert.utils.version
 import nbformat
 import sphinx
+import sphinx.addnodes
 import sphinx.directives
+import sphinx.directives.code
 import sphinx.directives.other
 import sphinx.environment
+import sphinx.environment.adapters.toctree
 import sphinx.errors
 import sphinx.transforms.post_transforms.images
+import sphinx.util
+import sphinx.util.fileutil
+import sphinx.util.images
+import sphinx.util.logging
+import sphinx.util.nodes
+import sphinx.util.osutil
 from sphinx.util.matching import patmatch
 try:
     from sphinx.util.display import status_iterator
@@ -35,6 +53,7 @@ except ImportError:
     # This will be removed in Sphinx 8:
     from sphinx.util import status_iterator
 import traitlets
+import traitlets.config
 
 
 if sys.version_info >= (3, 8) and sys.platform == 'win32':
@@ -272,7 +291,7 @@ RST_TEMPLATE = """
 {{ (cell.source or '% empty raw cell') | indent }}
 {%- elif raw_mimetype == 'text/markdown' %}
 {{ cell.source | markdown2rst }}
-{%- elif raw_mimetype == 'text/restructuredtext' %}
+{%- elif raw_mimetype in ['text/restructuredtext', 'text/x-rst'] %}
 {{ cell.source }}
 {% endif %}
 {% endblock rawcell %}
@@ -577,7 +596,7 @@ class NotebookParser(rst.Parser):
         formats = {
             '.ipynb': lambda s: nbformat.reads(s, as_version=_ipynbversion)}
         formats.update(env.config.nbsphinx_custom_formats)
-        srcfile = str(env.doc2path(env.docname, base=None))
+        srcfile = str(env.doc2path(env.docname, base=False))
         for format, converter in formats.items():
             if srcfile.endswith(format):
                 break
@@ -635,14 +654,14 @@ class NotebookParser(rst.Parser):
         except nbconvert.preprocessors.CellExecutionError as e:
             lines = str(e).split('\n')
             lines[0] = 'CellExecutionError in {}:'.format(
-                env.doc2path(env.docname, base=None))
+                env.doc2path(env.docname, base=False))
             lines.append("You can ignore this error by setting the following "
                          "in conf.py:\n\n    nbsphinx_allow_errors = True\n")
             raise NotebookError('\n'.join(lines))
         except Exception as e:
             raise NotebookError(
                 type(e).__name__ + ' in ' +
-                str(env.doc2path(env.docname, base=None)) + ':\n' + str(e))
+                str(env.doc2path(env.docname, base=False)) + ':\n' + str(e))
 
         rststring = """
 .. role:: nbsphinx-math(raw)
@@ -782,10 +801,10 @@ class NbInput(rst.Directive):
     optional_arguments = 1  # lexer name
     final_argument_whitespace = False
     option_spec = {
-        'execution-count': rst.directives.positive_int,
-        'empty-lines-before': rst.directives.nonnegative_int,
-        'empty-lines-after': rst.directives.nonnegative_int,
-        'no-output': rst.directives.flag,
+        'execution-count': rst_directives.positive_int,
+        'empty-lines-before': rst_directives.nonnegative_int,
+        'empty-lines-after': rst_directives.nonnegative_int,
+        'no-output': rst_directives.flag,
     }
     has_content = True
 
@@ -800,10 +819,10 @@ class NbOutput(rst.Directive):
     required_arguments = 0
     final_argument_whitespace = False
     option_spec = {
-        'execution-count': rst.directives.positive_int,
-        'more-to-come': rst.directives.flag,
-        'fancy': rst.directives.flag,
-        'class': rst.directives.unchanged,
+        'execution-count': rst_directives.positive_int,
+        'more-to-come': rst_directives.flag,
+        'fancy': rst_directives.flag,
+        'class': rst_directives.unchanged,
     }
     has_content = True
 
@@ -867,10 +886,10 @@ class NbLinkGallery(NbGallery):
 
     # Not all options of TocTree are allowed:
     option_spec = {
-        'name': rst.directives.unchanged,
-        'caption': rst.directives.unchanged_required,
-        'glob': rst.directives.flag,
-        'reversed': rst.directives.flag,
+        'name': rst_directives.unchanged,
+        'caption': rst_directives.unchanged_required,
+        'glob': rst_directives.flag,
+        'reversed': rst_directives.flag,
     }
 
 
@@ -1328,7 +1347,7 @@ class CreateSectionLabels(docutils.transforms.Transform):
 
     def apply(self):
         env = self.document.settings.env
-        file_ext = str(env.doc2path(env.docname, base=None))[len(env.docname):]
+        file_ext = str(env.doc2path(env.docname, base=False))[len(env.docname):]
         i_still_have_to_create_the_document_label = True
         for section in self.document.findall(docutils.nodes.section):
             assert section.children
@@ -1359,7 +1378,7 @@ class CreateDomainObjectLabels(docutils.transforms.Transform):
 
     def apply(self):
         env = self.document.settings.env
-        file_ext = str(env.doc2path(env.docname, base=None))[len(env.docname):]
+        file_ext = str(env.doc2path(env.docname, base=False))[len(env.docname):]
         for sig in self.document.findall(sphinx.addnodes.desc_signature):
             try:
                 title = sig['ids'][0]
@@ -1470,6 +1489,9 @@ class ForceEquations(docutils.transforms.Transform):
     def apply(self):
         env = self.document.settings.env
         if env.config.nbsphinx_assume_equations:
+            # sphinx >= 8.2
+            self.document['nbsphinx_assume_equations'] = True
+            # sphinx < 8.2
             env.get_domain('math').data['has_equations'][env.docname] = True
 
 
@@ -1572,19 +1594,24 @@ def config_inited(app, config):
         # this only works if mathjax_config or mathjax2_config is specified.
         if config.mathjax3_config is None:
             config.mathjax3_config = {}
-        mathjax3_config = config.mathjax3_config
+        mathjax_config = config.mathjax3_config
+        if not mathjax_config and hasattr(config, 'mathjax4_config'):
+            # mathjax4_config was added in Sphinx 9
+            if config.mathjax4_config is None:
+                config.mathjax4_config = {}
+            mathjax_config = config.mathjax4_config
         tex = {
             'inlineMath': mathjax_inline_math,
             'processEscapes': True,
         }
-        tex.update(mathjax3_config.get('tex', {}))
-        mathjax3_config['tex'] = tex
+        tex.update(mathjax_config.get('tex', {}))
+        mathjax_config['tex'] = tex
         options = {
             'ignoreHtmlClass': mathjax_ignore_class,
             'processHtmlClass': mathjax_process_class,
         }
-        options.update(mathjax3_config.get('options', {}))
-        mathjax3_config['options'] = options
+        options.update(mathjax_config.get('options', {}))
+        mathjax_config['options'] = options
     else:
         if hasattr(config, 'mathjax2_config'):
             # Sphinx >= 4.0
@@ -1680,6 +1707,16 @@ def env_purge_doc(app, env, docname):
     env.nbsphinx_widgets.discard(docname)
 
 
+def set_flag_to_add_mathjax(app, pagename, templatename, context, doctree):
+    """Tell Sphinx to load MathJax for pages created by this extension.
+
+    Unless ``nbsphinx_assume_equations`` config variable was set to false.
+    """
+    if doctree and doctree.get('nbsphinx_assume_equations'):
+        # This context variable is used by Sphinx starting in version 8.2
+        context['has_maths_elements'] = True
+
+
 def html_page_context(app, pagename, templatename, context, doctree):
     """Add CSS files for code cells and galleries."""
     # NB: the CSS files are copied in html_collect_pages().
@@ -1711,7 +1748,7 @@ def html_collect_pages(app):
     for file_list in app.env.nbsphinx_files.values():
         files.update(file_list)
     for file in status_iterator(files, 'copying linked files... ',
-                                sphinx.util.console.brown, len(files)):
+                                'brown', len(files)):
         target = os.path.join(app.builder.outdir, file)
         sphinx.util.ensuredir(os.path.dirname(target))
         try:
@@ -2075,6 +2112,10 @@ def setup(app):
     app.connect('builder-inited', builder_inited)
     app.connect('config-inited', config_inited)
     app.connect('html-page-context', html_page_context)
+    # Give our handler higher priority so that it executes before MathJax's. We
+    # need to write the context variable `has_maths_elements` before the MathJax
+    # Sphinx extension reads it.
+    app.connect('html-page-context', set_flag_to_add_mathjax, priority=100)
     app.connect('html-collect-pages', html_collect_pages)
     app.connect('env-purge-doc', env_purge_doc)
     app.connect('env-updated', env_updated)
@@ -2089,7 +2130,7 @@ def setup(app):
     # Make docutils' "code" directive (generated by markdown2rst/pandoc)
     # behave like Sphinx's "code-block",
     # see https://github.com/sphinx-doc/sphinx/issues/2155:
-    rst.directives.register_directive('code', sphinx.directives.code.CodeBlock)
+    rst_directives.register_directive('code', sphinx.directives.code.CodeBlock)
 
     # Monkey-patch Sphinx TocTree adapter
     if hasattr(sphinx.environment.adapters.toctree, '_resolve_toctree'):

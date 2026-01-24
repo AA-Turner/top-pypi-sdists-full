@@ -17,7 +17,7 @@ pub(crate) fn get_serializeable_param_stores(
     context: &mut EvaluatorContext,
     options: &ClientInitResponseOptions,
 ) -> SerializeableParamStore {
-    let stores = match &context.spec_store_data.values.param_stores {
+    let stores = match &context.specs_data.param_stores {
         Some(stores) => stores,
         None => return HashMap::new(),
     };
@@ -34,7 +34,7 @@ pub(crate) fn get_serializeable_param_stores(
         }
 
         if let Some(param_store_filter) = &options.param_store_filter {
-            if !param_store_filter.contains(name) {
+            if !param_store_filter.contains(name.as_str()) {
                 continue;
             }
         }

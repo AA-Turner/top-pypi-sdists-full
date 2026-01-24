@@ -5,9 +5,9 @@ import subprocess
 
 from adam.apps import Apps
 from adam.config import Config
-from adam.k8s_utils.ingresses import Ingresses
-from adam.k8s_utils.services import Services
-from adam.utils import log2, random_alphanumeric
+from adam.utils_k8s.ingresses import Ingresses
+from adam.utils_k8s.services import Services
+from adam.utils import debug, log2, random_alphanumeric
 
 def start_user_code(namespace: str):
     try:
@@ -57,7 +57,7 @@ def kill_process_by_pattern(pattern, dry=False):
         pids = process.stdout.strip().split('\n')
 
         if not pids or pids == ['']:
-            Config().debug(f"No processes found matching pattern: '{pattern}'")
+            debug(f"No processes found matching pattern: '{pattern}'")
             return
 
         for pid in pids:
@@ -66,7 +66,7 @@ def kill_process_by_pattern(pattern, dry=False):
                     if not dry:
                         subprocess.run(f"kill -9 {pid}", shell=True, check=True)
 
-                    Config().debug(f"Killed process with PID: {pid} (matching pattern: '{pattern}')")
+                    debug(f"Killed process with PID: {pid} (matching pattern: '{pattern}')")
                 except subprocess.CalledProcessError as e:
                     log2(f"Error killing process {pid}: {e}")
 

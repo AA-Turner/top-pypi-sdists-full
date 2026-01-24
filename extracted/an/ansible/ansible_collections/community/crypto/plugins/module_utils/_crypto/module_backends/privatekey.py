@@ -13,6 +13,7 @@ import traceback
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_bytes
+
 from ansible_collections.community.crypto.plugins.module_utils._argspec import (
     ArgumentSpec,
 )
@@ -35,17 +36,17 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
-        AnsibleActionModule,
-    )
     from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
         PrivateKeyTypes,
     )
 
-    GeneralAnsibleModule = t.Union[
+    from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
+        AnsibleActionModule,
+    )
+
+    GeneralAnsibleModule = t.Union[  # noqa: UP007
         AnsibleModule, AnsibleActionModule
     ]  # pragma: no cover
 
@@ -493,26 +494,28 @@ class PrivateKeyBackend:
                 " set to `full_idempotence` or `always`, or with `force=true`."
             )
         self._ensure_existing_private_key_loaded()
-        if self.regenerate != "never":
-            if not self._check_size_and_type():
-                if self.regenerate in ("partial_idempotence", "full_idempotence"):
-                    return True
-                self.module.fail_json(
-                    msg="Key has wrong type and/or size."
-                    " Will not proceed. To force regeneration, call the module with `generate`"
-                    " set to `partial_idempotence`, `full_idempotence` or `always`, or with `force=true`."
-                )
+        if self.regenerate != "never" and not self._check_size_and_type():
+            if self.regenerate in ("partial_idempotence", "full_idempotence"):
+                return True
+            self.module.fail_json(
+                msg="Key has wrong type and/or size."
+                " Will not proceed. To force regeneration, call the module with `generate`"
+                " set to `partial_idempotence`, `full_idempotence` or `always`, or with `force=true`."
+            )
         # During generation step, regenerate if format does not match and format_mismatch == 'regenerate'
-        if self.format_mismatch == "regenerate" and self.regenerate != "never":
-            if not self._check_format():
-                if self.regenerate in ("partial_idempotence", "full_idempotence"):
-                    return True
-                self.module.fail_json(
-                    msg="Key has wrong format."
-                    " Will not proceed. To force regeneration, call the module with `generate`"
-                    " set to `partial_idempotence`, `full_idempotence` or `always`, or with `force=true`."
-                    " To convert the key, set `format_mismatch` to `convert`."
-                )
+        if (
+            self.format_mismatch == "regenerate"
+            and self.regenerate != "never"
+            and not self._check_format()
+        ):
+            if self.regenerate in ("partial_idempotence", "full_idempotence"):
+                return True
+            self.module.fail_json(
+                msg="Key has wrong format."
+                " Will not proceed. To force regeneration, call the module with `generate`"
+                " set to `partial_idempotence`, `full_idempotence` or `always`, or with `force=true`."
+                " To convert the key, set `format_mismatch` to `convert`."
+            )
         return False
 
     def needs_conversion(self) -> bool:
@@ -651,8 +654,8 @@ def get_privatekey_argument_spec() -> ArgumentSpec:
 
 
 __all__ = (
-    "PrivateKeyError",
     "PrivateKeyBackend",
-    "select_backend",
+    "PrivateKeyError",
     "get_privatekey_argument_spec",
+    "select_backend",
 )

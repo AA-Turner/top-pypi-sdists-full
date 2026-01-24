@@ -46,8 +46,8 @@ setup(
 	install_requires=[
 		'asn1crypto>=1.5.1',
 		'oscrypto>=1.3.0',
-		'asysocks>=0.2.8',
-		'unicrypto>=0.0.10',
+		'asysocks>=0.2.18',
+		'unicrypto>=0.0.12',
 		'tqdm',
         'six',
 	],
@@ -68,7 +68,8 @@ setup(
 			'minikerberos-kerb23hashdecrypt = minikerberos.examples.kerb23hashdecrypt:main',
 			'minikerberos-kerberoast   = minikerberos.examples.spnroast:main',
             'minikerberos-asreproast   = minikerberos.examples.asreproast:main',
-            'minikerberos-changepw   = minikerberos.examples.changepassword:main',
+            'minikerberos-pw   = minikerberos.examples.changepassword:main',
+			'minikerberos-keylist   = minikerberos.examples.keylist:main',
 		],
 	}
 )

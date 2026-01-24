@@ -1,9 +1,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mem0 import Memory, MemoryClient
-
 from crewai.memory.storage.mem0_storage import Mem0Storage
+from mem0 import Memory, MemoryClient
 
 
 # Define the class (if not already defined)

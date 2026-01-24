@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -137,12 +138,6 @@ from .waiter import (
     TargetInServiceWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -153,63 +148,63 @@ __all__ = ("ElasticLoadBalancingv2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    ALPNPolicyNotSupportedException: Type[BotocoreClientError]
-    AllocationIdNotFoundException: Type[BotocoreClientError]
-    AvailabilityZoneNotSupportedException: Type[BotocoreClientError]
-    CaCertificatesBundleNotFoundException: Type[BotocoreClientError]
-    CapacityDecreaseRequestsLimitExceededException: Type[BotocoreClientError]
-    CapacityReservationPendingException: Type[BotocoreClientError]
-    CapacityUnitsLimitExceededException: Type[BotocoreClientError]
-    CertificateNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DeleteAssociationSameAccountException: Type[BotocoreClientError]
-    DuplicateListenerException: Type[BotocoreClientError]
-    DuplicateLoadBalancerNameException: Type[BotocoreClientError]
-    DuplicateTagKeysException: Type[BotocoreClientError]
-    DuplicateTargetGroupNameException: Type[BotocoreClientError]
-    DuplicateTrustStoreNameException: Type[BotocoreClientError]
-    HealthUnavailableException: Type[BotocoreClientError]
-    IncompatibleProtocolsException: Type[BotocoreClientError]
-    InsufficientCapacityException: Type[BotocoreClientError]
-    InvalidCaCertificatesBundleException: Type[BotocoreClientError]
-    InvalidConfigurationRequestException: Type[BotocoreClientError]
-    InvalidLoadBalancerActionException: Type[BotocoreClientError]
-    InvalidRevocationContentException: Type[BotocoreClientError]
-    InvalidSchemeException: Type[BotocoreClientError]
-    InvalidSecurityGroupException: Type[BotocoreClientError]
-    InvalidSubnetException: Type[BotocoreClientError]
-    InvalidTargetException: Type[BotocoreClientError]
-    ListenerNotFoundException: Type[BotocoreClientError]
-    LoadBalancerNotFoundException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    PriorRequestNotCompleteException: Type[BotocoreClientError]
-    PriorityInUseException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    RevocationContentNotFoundException: Type[BotocoreClientError]
-    RevocationIdNotFoundException: Type[BotocoreClientError]
-    RuleNotFoundException: Type[BotocoreClientError]
-    SSLPolicyNotFoundException: Type[BotocoreClientError]
-    SubnetNotFoundException: Type[BotocoreClientError]
-    TargetGroupAssociationLimitException: Type[BotocoreClientError]
-    TargetGroupNotFoundException: Type[BotocoreClientError]
-    TooManyActionsException: Type[BotocoreClientError]
-    TooManyCertificatesException: Type[BotocoreClientError]
-    TooManyListenersException: Type[BotocoreClientError]
-    TooManyLoadBalancersException: Type[BotocoreClientError]
-    TooManyRegistrationsForTargetIdException: Type[BotocoreClientError]
-    TooManyRulesException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    TooManyTargetGroupsException: Type[BotocoreClientError]
-    TooManyTargetsException: Type[BotocoreClientError]
-    TooManyTrustStoreRevocationEntriesException: Type[BotocoreClientError]
-    TooManyTrustStoresException: Type[BotocoreClientError]
-    TooManyUniqueTargetGroupsPerLoadBalancerException: Type[BotocoreClientError]
-    TrustStoreAssociationNotFoundException: Type[BotocoreClientError]
-    TrustStoreInUseException: Type[BotocoreClientError]
-    TrustStoreNotFoundException: Type[BotocoreClientError]
-    TrustStoreNotReadyException: Type[BotocoreClientError]
-    UnsupportedProtocolException: Type[BotocoreClientError]
+    ALPNPolicyNotSupportedException: type[BotocoreClientError]
+    AllocationIdNotFoundException: type[BotocoreClientError]
+    AvailabilityZoneNotSupportedException: type[BotocoreClientError]
+    CaCertificatesBundleNotFoundException: type[BotocoreClientError]
+    CapacityDecreaseRequestsLimitExceededException: type[BotocoreClientError]
+    CapacityReservationPendingException: type[BotocoreClientError]
+    CapacityUnitsLimitExceededException: type[BotocoreClientError]
+    CertificateNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DeleteAssociationSameAccountException: type[BotocoreClientError]
+    DuplicateListenerException: type[BotocoreClientError]
+    DuplicateLoadBalancerNameException: type[BotocoreClientError]
+    DuplicateTagKeysException: type[BotocoreClientError]
+    DuplicateTargetGroupNameException: type[BotocoreClientError]
+    DuplicateTrustStoreNameException: type[BotocoreClientError]
+    HealthUnavailableException: type[BotocoreClientError]
+    IncompatibleProtocolsException: type[BotocoreClientError]
+    InsufficientCapacityException: type[BotocoreClientError]
+    InvalidCaCertificatesBundleException: type[BotocoreClientError]
+    InvalidConfigurationRequestException: type[BotocoreClientError]
+    InvalidLoadBalancerActionException: type[BotocoreClientError]
+    InvalidRevocationContentException: type[BotocoreClientError]
+    InvalidSchemeException: type[BotocoreClientError]
+    InvalidSecurityGroupException: type[BotocoreClientError]
+    InvalidSubnetException: type[BotocoreClientError]
+    InvalidTargetException: type[BotocoreClientError]
+    ListenerNotFoundException: type[BotocoreClientError]
+    LoadBalancerNotFoundException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    PriorRequestNotCompleteException: type[BotocoreClientError]
+    PriorityInUseException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    RevocationContentNotFoundException: type[BotocoreClientError]
+    RevocationIdNotFoundException: type[BotocoreClientError]
+    RuleNotFoundException: type[BotocoreClientError]
+    SSLPolicyNotFoundException: type[BotocoreClientError]
+    SubnetNotFoundException: type[BotocoreClientError]
+    TargetGroupAssociationLimitException: type[BotocoreClientError]
+    TargetGroupNotFoundException: type[BotocoreClientError]
+    TooManyActionsException: type[BotocoreClientError]
+    TooManyCertificatesException: type[BotocoreClientError]
+    TooManyListenersException: type[BotocoreClientError]
+    TooManyLoadBalancersException: type[BotocoreClientError]
+    TooManyRegistrationsForTargetIdException: type[BotocoreClientError]
+    TooManyRulesException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    TooManyTargetGroupsException: type[BotocoreClientError]
+    TooManyTargetsException: type[BotocoreClientError]
+    TooManyTrustStoreRevocationEntriesException: type[BotocoreClientError]
+    TooManyTrustStoresException: type[BotocoreClientError]
+    TooManyUniqueTargetGroupsPerLoadBalancerException: type[BotocoreClientError]
+    TrustStoreAssociationNotFoundException: type[BotocoreClientError]
+    TrustStoreInUseException: type[BotocoreClientError]
+    TrustStoreNotFoundException: type[BotocoreClientError]
+    TrustStoreNotReadyException: type[BotocoreClientError]
+    UnsupportedProtocolException: type[BotocoreClientError]
 
 
 class ElasticLoadBalancingv2Client(BaseClient):
@@ -258,7 +253,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#add_listener_certificates)
         """
 
-    def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> Dict[str, Any]:
+    def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified Elastic Load Balancing resource.
 
@@ -326,7 +321,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#create_trust_store)
         """
 
-    def delete_listener(self, **kwargs: Unpack[DeleteListenerInputTypeDef]) -> Dict[str, Any]:
+    def delete_listener(self, **kwargs: Unpack[DeleteListenerInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified listener.
 
@@ -336,7 +331,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
 
     def delete_load_balancer(
         self, **kwargs: Unpack[DeleteLoadBalancerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified Application Load Balancer, Network Load Balancer, or
         Gateway Load Balancer.
@@ -345,7 +340,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#delete_load_balancer)
         """
 
-    def delete_rule(self, **kwargs: Unpack[DeleteRuleInputTypeDef]) -> Dict[str, Any]:
+    def delete_rule(self, **kwargs: Unpack[DeleteRuleInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified rule.
 
@@ -355,7 +350,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
 
     def delete_shared_trust_store_association(
         self, **kwargs: Unpack[DeleteSharedTrustStoreAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a shared trust store association.
 
@@ -365,7 +360,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
 
     def delete_target_group(
         self, **kwargs: Unpack[DeleteTargetGroupInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified target group.
 
@@ -373,7 +368,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#delete_target_group)
         """
 
-    def delete_trust_store(self, **kwargs: Unpack[DeleteTrustStoreInputTypeDef]) -> Dict[str, Any]:
+    def delete_trust_store(self, **kwargs: Unpack[DeleteTrustStoreInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a trust store.
 
@@ -381,7 +376,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#delete_trust_store)
         """
 
-    def deregister_targets(self, **kwargs: Unpack[DeregisterTargetsInputTypeDef]) -> Dict[str, Any]:
+    def deregister_targets(self, **kwargs: Unpack[DeregisterTargetsInputTypeDef]) -> dict[str, Any]:
         """
         Deregisters the specified targets from the specified target group.
 
@@ -674,7 +669,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#modify_trust_store)
         """
 
-    def register_targets(self, **kwargs: Unpack[RegisterTargetsInputTypeDef]) -> Dict[str, Any]:
+    def register_targets(self, **kwargs: Unpack[RegisterTargetsInputTypeDef]) -> dict[str, Any]:
         """
         Registers the specified targets with the specified target group.
 
@@ -684,7 +679,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
 
     def remove_listener_certificates(
         self, **kwargs: Unpack[RemoveListenerCertificatesInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified certificate from the certificate list for the specified
         HTTPS or TLS listener.
@@ -693,7 +688,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/client/#remove_listener_certificates)
         """
 
-    def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> Dict[str, Any]:
+    def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified Elastic Load Balancing resources.
 
@@ -703,7 +698,7 @@ class ElasticLoadBalancingv2Client(BaseClient):
 
     def remove_trust_store_revocations(
         self, **kwargs: Unpack[RemoveTrustStoreRevocationsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified revocation file from the specified trust store.
 

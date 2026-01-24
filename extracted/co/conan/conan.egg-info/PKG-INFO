@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: conan
-Version: 2.20.1
+Version: 2.24.0
 Summary: Conan C/C++ package manager
 Home-page: https://conan.io
 Author: JFrog LTD
@@ -23,7 +23,7 @@ Description: <picture>
         - Homepage: https://conan.io/
         - Github: https://github.com/conan-io/conan
         - Docs: https://docs.conan.io
-        - Slack: https://cpplang.slack.com (#conan channel. Please, click [here](https://join.slack.com/t/cpplang/shared_invite/zt-1snzdn6rp-rOUxF3166oz1_11Tr5H~xg) to get an invitation)
+        - Slack: https://cpplang.slack.com (#conan channel. Please, click [here](https://cppalliance.org/slack/#cpp-slack) to get an invitation)
         - Twitter: https://twitter.com/conan_io
         - Blog: https://blog.conan.io
         - Security reports: https://jfrog.com/trust/report-vulnerability

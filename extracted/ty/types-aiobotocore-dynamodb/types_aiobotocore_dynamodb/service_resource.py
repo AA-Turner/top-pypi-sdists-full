@@ -3,7 +3,7 @@ Type annotations for dynamodb service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dynamodb/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,6 +24,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from datetime import datetime
 from typing import NoReturn
 
@@ -77,11 +78,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -136,7 +132,7 @@ class ServiceResourceTablesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Table]]:
+    ) -> AsyncIterator[list[Table]]:
         """
         A generator which yields pages of Tables.
 
@@ -168,9 +164,9 @@ class Table(AIOBoto3ServiceResource):
     """
 
     name: str
-    attribute_definitions: Awaitable[List[AttributeDefinitionTypeDef]]
+    attribute_definitions: Awaitable[list[AttributeDefinitionTypeDef]]
     table_name: Awaitable[str]
-    key_schema: Awaitable[List[KeySchemaElementTypeDef]]
+    key_schema: Awaitable[list[KeySchemaElementTypeDef]]
     table_status: Awaitable[TableStatusType]
     creation_date_time: Awaitable[datetime]
     provisioned_throughput: Awaitable[ProvisionedThroughputDescriptionTypeDef]
@@ -179,14 +175,14 @@ class Table(AIOBoto3ServiceResource):
     table_arn: Awaitable[str]
     table_id: Awaitable[str]
     billing_mode_summary: Awaitable[BillingModeSummaryTypeDef]
-    local_secondary_indexes: Awaitable[List[LocalSecondaryIndexDescriptionTypeDef]]
-    global_secondary_indexes: Awaitable[List[GlobalSecondaryIndexDescriptionTypeDef]]
+    local_secondary_indexes: Awaitable[list[LocalSecondaryIndexDescriptionTypeDef]]
+    global_secondary_indexes: Awaitable[list[GlobalSecondaryIndexDescriptionTypeDef]]
     stream_specification: Awaitable[StreamSpecificationTypeDef]
     latest_stream_label: Awaitable[str]
     latest_stream_arn: Awaitable[str]
     global_table_version: Awaitable[str]
-    replicas: Awaitable[List[ReplicaDescriptionTypeDef]]
-    global_table_witnesses: Awaitable[List[GlobalTableWitnessDescriptionTypeDef]]
+    replicas: Awaitable[list[ReplicaDescriptionTypeDef]]
+    global_table_witnesses: Awaitable[list[GlobalTableWitnessDescriptionTypeDef]]
     restore_summary: Awaitable[RestoreSummaryTypeDef]
     sse_description: Awaitable[SSEDescriptionTypeDef]
     archival_summary: Awaitable[ArchivalSummaryTypeDef]
@@ -300,7 +296,7 @@ class Table(AIOBoto3ServiceResource):
 
     def batch_writer(
         self,
-        overwrite_by_pkeys: List[str] | None = ...,
+        overwrite_by_pkeys: list[str] | None = ...,
         flush_amount: int = ...,
         on_exit_loop_sleep: int = ...,
     ) -> BatchWriter:

@@ -23,7 +23,7 @@ use crate::types::types::Var;
 // Soft type hints are used for `e1 or e1` expressions.
 pub struct Hint<'a>(Type, Option<&'a ErrorCollector>);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct HintRef<'a, 'b>(&'b Type, Option<&'a ErrorCollector>);
 
 impl<'a> Hint<'a> {
@@ -46,6 +46,11 @@ impl<'a> Hint<'a> {
 impl<'a, 'b> HintRef<'a, 'b> {
     pub fn new(hint: &'b Type, errors: Option<&'a ErrorCollector>) -> Self {
         Self(hint, errors)
+    }
+
+    /// Construct a "soft" type hint that doesn't report an error when the hint is incompatible.
+    pub fn soft(hint: &'b Type) -> Self {
+        Self(hint, None)
     }
 
     pub fn ty(&self) -> &Type {
@@ -110,10 +115,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match ty {
             Type::Any(style) => Type::Any(*style),
             Type::Never(style) => Type::Never(*style),
-            _ => self.solver().expand(var.to_type()),
+            _ => self.solver().expand_vars(var.to_type()),
         }
     }
 
+    pub fn behaves_like_any(&self, ty: &Type) -> bool {
+        ty.is_any() || (!ty.is_never() && self.is_subset_eq(ty, &Type::never()))
+    }
+
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
     pub fn unwrap_mapping(&self, ty: &Type) -> Option<(Type, Type)> {
         let key = self.fresh_var();
         let value = self.fresh_var();
@@ -128,6 +138,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
     pub fn unwrap_awaitable(&self, ty: &Type) -> Option<Type> {
         let var = self.fresh_var();
         let awaitable_ty = self.stdlib.awaitable(var.to_type()).to_type();
@@ -138,6 +149,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Warning: this returns `true` if the type is `Any` or a class that extends `Any`
     pub fn is_coroutine(&self, ty: &Type) -> bool {
         let var1 = self.fresh_var();
         let var2 = self.fresh_var();
@@ -149,6 +161,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.is_subset_eq(ty, &coroutine_ty)
     }
 
+    /// Check if a type is a sequence type for pattern matching purposes (PEP 634).
+    ///
+    /// Per PEP 634, sequence patterns match:
+    /// - Builtins with Py_TPFLAGS_SEQUENCE: list, tuple, range, memoryview,
+    ///   collections.deque, array.array
+    /// - Classes that inherit from collections.abc.Sequence
+    /// - Classes registered as collections.abc.Sequence (cannot detect statically)
+    ///
+    /// Explicitly excluded (even though they're sequences in other contexts):
+    /// - str, bytes, bytearray
+    ///
+    /// Warning: this returns `true` if the type is `Any` or a class that extends `Any`
+    pub fn is_sequence_for_pattern(&self, ty: &Type) -> bool {
+        // Handle special exclusions first - str, bytes, bytearray are NOT sequences
+        // for pattern matching per PEP 634
+        match ty {
+            Type::ClassType(cls)
+                if cls.is_builtin("str")
+                    || cls.is_builtin("bytes")
+                    || cls.is_builtin("bytearray") =>
+            {
+                return false;
+            }
+            Type::LiteralString(_) => return false,
+            // Tuples are always sequences for pattern matching
+            Type::Tuple(_) => return true,
+            _ => {}
+        }
+
+        // Check if the type is a subtype of Sequence[T] for some T
+        let var = self.fresh_var();
+        let sequence_ty = self.stdlib.sequence(var.to_type()).to_type();
+        self.is_subset_eq(ty, &sequence_ty)
+    }
+
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
     pub fn unwrap_coroutine(&self, ty: &Type) -> Option<(Type, Type, Type)> {
         let yield_ty = self.fresh_var();
         let send_ty = self.fresh_var();
@@ -167,6 +215,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
     pub fn unwrap_generator(&self, ty: &Type) -> Option<(Type, Type, Type)> {
         let yield_ty = self.fresh_var();
         let send_ty = self.fresh_var();
@@ -185,6 +234,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
     pub fn unwrap_iterable(&self, ty: &Type) -> Option<Type> {
         let iter_ty = self.fresh_var();
         let iterable_ty = self.stdlib.iterable(iter_ty.to_type()).to_type();
@@ -195,11 +245,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
     pub fn unwrap_async_iterable(&self, ty: &Type) -> Option<Type> {
         let iter_ty = self.fresh_var();
         let iterable_ty = self.stdlib.async_iterable(iter_ty.to_type()).to_type();
         if self.is_subset_eq(ty, &iterable_ty) {
             Some(self.resolve_var(ty, iter_ty))
+        } else {
+            None
+        }
+    }
+
+    /// Warning: this returns `Some` if the type is `Any` or a class that extends `Any`
+    pub fn unwrap_async_iterator(&self, ty: &Type) -> Option<Type> {
+        let var = self.fresh_var();
+        let iterator_ty = self.stdlib.async_iterator(var.to_type()).to_type();
+        if self.is_subset_eq(ty, &iterator_ty) {
+            Some(self.resolve_var(ty, var))
         } else {
             None
         }
@@ -235,6 +297,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let elem = self.fresh_var();
         let list_type = self.stdlib.list(elem.to_type()).to_type();
         if self.is_subset_eq(&list_type, hint.ty()) {
+            hint.map_ty_opt(|ty| self.resolve_var_opt(ty, elem))
+        } else {
+            None
+        }
+    }
+
+    pub fn decompose_tuple<'b>(&self, hint: HintRef<'b, '_>) -> Option<Hint<'b>> {
+        let elem = self.fresh_var();
+        let tuple_type = self.stdlib.tuple(elem.to_type()).to_type();
+        if self.is_subset_eq(&tuple_type, hint.ty()) {
             hint.map_ty_opt(|ty| self.resolve_var_opt(ty, elem))
         } else {
             None
@@ -327,11 +399,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Tuple::Unpacked(box (prefix, middle, suffix)) => {
                 let mut elements = prefix;
-                if let Type::Tuple(Tuple::Unbounded(unbounded_middle)) = middle {
-                    elements.push(*unbounded_middle);
-                } else {
-                    // We can't figure out the middle, fall back to `object`
-                    elements.push(self.stdlib.object().clone().to_type())
+                match middle {
+                    Type::Tuple(Tuple::Unbounded(unbounded_middle)) => {
+                        elements.push(*unbounded_middle);
+                    }
+                    Type::Quantified(q) if q.is_type_var_tuple() => {
+                        elements.push(Type::ElementOfTypeVarTuple(q))
+                    }
+                    _ => {
+                        // We can't figure out the middle, fall back to `object`
+                        elements.push(self.stdlib.object().clone().to_type())
+                    }
                 }
                 elements.extend(suffix);
                 self.stdlib.tuple(self.unions(elements))

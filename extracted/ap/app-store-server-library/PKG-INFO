@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: app-store-server-library
-Version: 1.9.0
+Version: 2.0.0
 Summary: The App Store Server Library
 License: MIT
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7, <4
+Requires-Python: <4,>=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: NOTICE.txt
@@ -17,18 +17,10 @@ Requires-Dist: asn1==2.8.0
 Requires-Dist: cattrs>=23.1.2
 Provides-Extra: async
 Requires-Dist: httpx; extra == "async"
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Apple App Store Server Python Library
-The [Python](https://github.com/apple/app-store-server-library-python) server library for the [App Store Server API](https://developer.apple.com/documentation/appstoreserverapi) and [App Store Server Notifications](https://developer.apple.com/documentation/appstoreservernotifications). Also available in [Swift](https://github.com/apple/app-store-server-library-swift), [Node.js](https://github.com/apple/app-store-server-library-node), and [Java](https://github.com/apple/app-store-server-library-java).
+The [Python](https://github.com/apple/app-store-server-library-python) server library for the [App Store Server API](https://developer.apple.com/documentation/appstoreserverapi), [App Store Server Notifications](https://developer.apple.com/documentation/appstoreservernotifications), and [Retention Messaging API](https://developer.apple.com/documentation/retentionmessaging). Also available in [Swift](https://github.com/apple/app-store-server-library-swift), [Node.js](https://github.com/apple/app-store-server-library-node), and [Java](https://github.com/apple/app-store-server-library-java).
 
 ## Table of Contents
 1. [Installation](#installation)

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -26,16 +27,11 @@ from .literals import (
     ImportModeType,
     IngestionModeType,
     ObjectiveSensitivityType,
+    RankingInfluenceTypeType,
     TrainingModeType,
     TrainingTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -293,7 +289,7 @@ class AlgorithmImageTypeDef(TypedDict):
 
 class AutoMLConfigOutputTypeDef(TypedDict):
     metricName: NotRequired[str]
-    recipeList: NotRequired[List[str]]
+    recipeList: NotRequired[list[str]]
 
 
 class AutoMLConfigTypeDef(TypedDict):
@@ -310,11 +306,13 @@ class AutoTrainingConfigTypeDef(TypedDict):
 
 
 class BatchInferenceJobConfigOutputTypeDef(TypedDict):
-    itemExplorationConfig: NotRequired[Dict[str, str]]
+    itemExplorationConfig: NotRequired[dict[str, str]]
+    rankingInfluence: NotRequired[dict[RankingInfluenceTypeType, float]]
 
 
 class BatchInferenceJobConfigTypeDef(TypedDict):
     itemExplorationConfig: NotRequired[Mapping[str, str]]
+    rankingInfluence: NotRequired[Mapping[RankingInfluenceTypeType, float]]
 
 
 class S3DataConfigTypeDef(TypedDict):
@@ -344,15 +342,17 @@ class BatchSegmentJobSummaryTypeDef(TypedDict):
 
 
 class CampaignConfigOutputTypeDef(TypedDict):
-    itemExplorationConfig: NotRequired[Dict[str, str]]
+    itemExplorationConfig: NotRequired[dict[str, str]]
     enableMetadataWithRecommendations: NotRequired[bool]
     syncWithLatestSolutionVersion: NotRequired[bool]
+    rankingInfluence: NotRequired[dict[RankingInfluenceTypeType, float]]
 
 
 class CampaignConfigTypeDef(TypedDict):
     itemExplorationConfig: NotRequired[Mapping[str, str]]
     enableMetadataWithRecommendations: NotRequired[bool]
     syncWithLatestSolutionVersion: NotRequired[bool]
+    rankingInfluence: NotRequired[Mapping[RankingInfluenceTypeType, float]]
 
 
 class CampaignSummaryTypeDef(TypedDict):
@@ -366,7 +366,7 @@ class CampaignSummaryTypeDef(TypedDict):
 
 class CategoricalHyperParameterRangeOutputTypeDef(TypedDict):
     name: NotRequired[str]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 
 class CategoricalHyperParameterRangeTypeDef(TypedDict):
@@ -388,7 +388,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -496,7 +496,7 @@ class DatasetUpdateSummaryTypeDef(TypedDict):
 
 class DefaultCategoricalHyperParameterRangeTypeDef(TypedDict):
     name: NotRequired[str]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
     isTunable: NotRequired[bool]
 
 
@@ -608,7 +608,7 @@ class DescribeFeatureTransformationRequestTypeDef(TypedDict):
 class FeatureTransformationTypeDef(TypedDict):
     name: NotRequired[str]
     featureTransformationArn: NotRequired[str]
-    defaultParameters: NotRequired[Dict[str, str]]
+    defaultParameters: NotRequired[dict[str, str]]
     creationDateTime: NotRequired[datetime]
     lastUpdatedDateTime: NotRequired[datetime]
     status: NotRequired[str]
@@ -872,15 +872,17 @@ class OptimizationObjectiveTypeDef(TypedDict):
 
 
 class TrainingDataConfigOutputTypeDef(TypedDict):
-    excludedDatasetColumns: NotRequired[Dict[str, List[str]]]
+    excludedDatasetColumns: NotRequired[dict[str, list[str]]]
+    includedDatasetColumns: NotRequired[dict[str, list[str]]]
 
 
 class TrainingDataConfigTypeDef(TypedDict):
     excludedDatasetColumns: NotRequired[Mapping[str, Sequence[str]]]
+    includedDatasetColumns: NotRequired[Mapping[str, Sequence[str]]]
 
 
 class TunedHPOParamsTypeDef(TypedDict):
-    algorithmHyperParameters: NotRequired[Dict[str, str]]
+    algorithmHyperParameters: NotRequired[dict[str, str]]
 
 
 class StartRecommenderRequestTypeDef(TypedDict):
@@ -1072,30 +1074,30 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class GetSolutionMetricsResponseTypeDef(TypedDict):
     solutionVersionArn: str
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBatchInferenceJobsResponseTypeDef(TypedDict):
-    batchInferenceJobs: List[BatchInferenceJobSummaryTypeDef]
+    batchInferenceJobs: list[BatchInferenceJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListBatchSegmentJobsResponseTypeDef(TypedDict):
-    batchSegmentJobs: List[BatchSegmentJobSummaryTypeDef]
+    batchSegmentJobs: list[BatchSegmentJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListCampaignsResponseTypeDef(TypedDict):
-    campaigns: List[CampaignSummaryTypeDef]
+    campaigns: list[CampaignSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1146,7 +1148,7 @@ class CreateDatasetImportJobRequestTypeDef(TypedDict):
     jobName: str
     datasetArn: str
     dataSource: DataSourceTypeDef
-    roleArn: str
+    roleArn: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     importMode: NotRequired[ImportModeType]
     publishAttributionMetricsToS3: NotRequired[bool]
@@ -1180,25 +1182,25 @@ class DatasetImportJobTypeDef(TypedDict):
 
 
 class ListMetricAttributionMetricsResponseTypeDef(TypedDict):
-    metrics: List[MetricAttributeTypeDef]
+    metrics: list[MetricAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListDataDeletionJobsResponseTypeDef(TypedDict):
-    dataDeletionJobs: List[DataDeletionJobSummaryTypeDef]
+    dataDeletionJobs: list[DataDeletionJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListDatasetExportJobsResponseTypeDef(TypedDict):
-    datasetExportJobs: List[DatasetExportJobSummaryTypeDef]
+    datasetExportJobs: list[DatasetExportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListDatasetGroupsResponseTypeDef(TypedDict):
-    datasetGroups: List[DatasetGroupSummaryTypeDef]
+    datasetGroups: list[DatasetGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1209,13 +1211,13 @@ class DescribeDatasetGroupResponseTypeDef(TypedDict):
 
 
 class ListDatasetImportJobsResponseTypeDef(TypedDict):
-    datasetImportJobs: List[DatasetImportJobSummaryTypeDef]
+    datasetImportJobs: list[DatasetImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSchemasResponseTypeDef(TypedDict):
-    schemas: List[DatasetSchemaSummaryTypeDef]
+    schemas: list[DatasetSchemaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1226,7 +1228,7 @@ class DescribeSchemaResponseTypeDef(TypedDict):
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    datasets: List[DatasetSummaryTypeDef]
+    datasets: list[DatasetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1245,9 +1247,9 @@ class DatasetTypeDef(TypedDict):
 
 
 class DefaultHyperParameterRangesTypeDef(TypedDict):
-    integerHyperParameterRanges: NotRequired[List[DefaultIntegerHyperParameterRangeTypeDef]]
-    continuousHyperParameterRanges: NotRequired[List[DefaultContinuousHyperParameterRangeTypeDef]]
-    categoricalHyperParameterRanges: NotRequired[List[DefaultCategoricalHyperParameterRangeTypeDef]]
+    integerHyperParameterRanges: NotRequired[list[DefaultIntegerHyperParameterRangeTypeDef]]
+    continuousHyperParameterRanges: NotRequired[list[DefaultContinuousHyperParameterRangeTypeDef]]
+    categoricalHyperParameterRanges: NotRequired[list[DefaultCategoricalHyperParameterRangeTypeDef]]
 
 
 class DescribeEventTrackerResponseTypeDef(TypedDict):
@@ -1275,7 +1277,7 @@ class DescribeRecipeResponseTypeDef(TypedDict):
 
 
 class EventsConfigOutputTypeDef(TypedDict):
-    eventParametersList: NotRequired[List[EventParametersTypeDef]]
+    eventParametersList: NotRequired[list[EventParametersTypeDef]]
 
 
 class EventsConfigTypeDef(TypedDict):
@@ -1283,7 +1285,7 @@ class EventsConfigTypeDef(TypedDict):
 
 
 class ListEventTrackersResponseTypeDef(TypedDict):
-    eventTrackers: List[EventTrackerSummaryTypeDef]
+    eventTrackers: list[EventTrackerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1293,15 +1295,15 @@ class ThemeGenerationConfigTypeDef(TypedDict):
 
 
 class ListFiltersResponseTypeDef(TypedDict):
-    Filters: List[FilterSummaryTypeDef]
+    Filters: list[FilterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class HyperParameterRangesOutputTypeDef(TypedDict):
-    integerHyperParameterRanges: NotRequired[List[IntegerHyperParameterRangeTypeDef]]
-    continuousHyperParameterRanges: NotRequired[List[ContinuousHyperParameterRangeTypeDef]]
-    categoricalHyperParameterRanges: NotRequired[List[CategoricalHyperParameterRangeOutputTypeDef]]
+    integerHyperParameterRanges: NotRequired[list[IntegerHyperParameterRangeTypeDef]]
+    continuousHyperParameterRanges: NotRequired[list[ContinuousHyperParameterRangeTypeDef]]
+    categoricalHyperParameterRanges: NotRequired[list[CategoricalHyperParameterRangeOutputTypeDef]]
 
 
 class HyperParameterRangesTypeDef(TypedDict):
@@ -1390,31 +1392,31 @@ class ListSolutionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListMetricAttributionsResponseTypeDef(TypedDict):
-    metricAttributions: List[MetricAttributionSummaryTypeDef]
+    metricAttributions: list[MetricAttributionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRecipesResponseTypeDef(TypedDict):
-    recipes: List[RecipeSummaryTypeDef]
+    recipes: list[RecipeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSolutionVersionsResponseTypeDef(TypedDict):
-    solutionVersions: List[SolutionVersionSummaryTypeDef]
+    solutionVersions: list[SolutionVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSolutionsResponseTypeDef(TypedDict):
-    solutions: List[SolutionSummaryTypeDef]
+    solutions: list[SolutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class RecommenderConfigOutputTypeDef(TypedDict):
-    itemExplorationConfig: NotRequired[Dict[str, str]]
+    itemExplorationConfig: NotRequired[dict[str, str]]
     minRecommendationRequestsPerSecond: NotRequired[int]
     trainingDataConfig: NotRequired[TrainingDataConfigOutputTypeDef]
     enableMetadataWithRecommendations: NotRequired[bool]
@@ -1547,9 +1549,9 @@ class AlgorithmTypeDef(TypedDict):
     name: NotRequired[str]
     algorithmArn: NotRequired[str]
     algorithmImage: NotRequired[AlgorithmImageTypeDef]
-    defaultHyperParameters: NotRequired[Dict[str, str]]
+    defaultHyperParameters: NotRequired[dict[str, str]]
     defaultHyperParameterRanges: NotRequired[DefaultHyperParameterRangesTypeDef]
-    defaultResourceConfig: NotRequired[Dict[str, str]]
+    defaultResourceConfig: NotRequired[dict[str, str]]
     trainingInputMode: NotRequired[str]
     roleArn: NotRequired[str]
     creationDateTime: NotRequired[datetime]
@@ -1661,6 +1663,7 @@ class SolutionUpdateSummaryTypeDef(TypedDict):
     solutionUpdateConfig: NotRequired[SolutionUpdateConfigOutputTypeDef]
     status: NotRequired[str]
     performAutoTraining: NotRequired[bool]
+    performIncrementalUpdate: NotRequired[bool]
     creationDateTime: NotRequired[datetime]
     lastUpdatedDateTime: NotRequired[datetime]
     failureReason: NotRequired[str]
@@ -1679,8 +1682,8 @@ class DescribeBatchInferenceJobResponseTypeDef(TypedDict):
 class SolutionConfigOutputTypeDef(TypedDict):
     eventValueThreshold: NotRequired[str]
     hpoConfig: NotRequired[HPOConfigOutputTypeDef]
-    algorithmHyperParameters: NotRequired[Dict[str, str]]
-    featureTransformationParameters: NotRequired[Dict[str, str]]
+    algorithmHyperParameters: NotRequired[dict[str, str]]
+    featureTransformationParameters: NotRequired[dict[str, str]]
     autoMLConfig: NotRequired[AutoMLConfigOutputTypeDef]
     eventsConfig: NotRequired[EventsConfigOutputTypeDef]
     optimizationObjective: NotRequired[OptimizationObjectiveTypeDef]
@@ -1701,7 +1704,7 @@ class SolutionConfigTypeDef(TypedDict):
 
 
 class ListRecommendersResponseTypeDef(TypedDict):
-    recommenders: List[RecommenderSummaryTypeDef]
+    recommenders: list[RecommenderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1717,7 +1720,7 @@ class RecommenderTypeDef(TypedDict):
     status: NotRequired[str]
     failureReason: NotRequired[str]
     latestRecommenderUpdate: NotRequired[RecommenderUpdateSummaryTypeDef]
-    modelMetrics: NotRequired[Dict[str, float]]
+    modelMetrics: NotRequired[dict[str, float]]
 
 
 class CreateRecommenderRequestTypeDef(TypedDict):
@@ -1736,6 +1739,7 @@ class UpdateRecommenderRequestTypeDef(TypedDict):
 class UpdateSolutionRequestTypeDef(TypedDict):
     solutionArn: str
     performAutoTraining: NotRequired[bool]
+    performIncrementalUpdate: NotRequired[bool]
     solutionUpdateConfig: NotRequired[SolutionUpdateConfigUnionTypeDef]
 
 
@@ -1745,6 +1749,7 @@ class SolutionTypeDef(TypedDict):
     performHPO: NotRequired[bool]
     performAutoML: NotRequired[bool]
     performAutoTraining: NotRequired[bool]
+    performIncrementalUpdate: NotRequired[bool]
     recipeArn: NotRequired[str]
     datasetGroupArn: NotRequired[str]
     eventType: NotRequired[str]
@@ -1763,6 +1768,7 @@ class SolutionVersionTypeDef(TypedDict):
     solutionArn: NotRequired[str]
     performHPO: NotRequired[bool]
     performAutoML: NotRequired[bool]
+    performIncrementalUpdate: NotRequired[bool]
     recipeArn: NotRequired[str]
     eventType: NotRequired[str]
     datasetGroupArn: NotRequired[str]
@@ -1801,6 +1807,7 @@ class CreateSolutionRequestTypeDef(TypedDict):
     performHPO: NotRequired[bool]
     performAutoML: NotRequired[bool]
     performAutoTraining: NotRequired[bool]
+    performIncrementalUpdate: NotRequired[bool]
     recipeArn: NotRequired[str]
     eventType: NotRequired[str]
     solutionConfig: NotRequired[SolutionConfigUnionTypeDef]

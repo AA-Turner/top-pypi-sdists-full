@@ -32,8 +32,8 @@ float4 main(float2 _38)
 
 void frag_main()
 {
-    float2 _18 = 0.0f.xx;
-    sk_FragColor = main(_18);
+    float2 _19 = 0.0f.xx;
+    sk_FragColor = main(_19);
 }
 
 SPIRV_Cross_Output main()

@@ -3,7 +3,7 @@ Type annotations for invoicing service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,6 +14,7 @@ Usage::
     from types_aiobotocore_invoicing.paginator import (
         ListInvoiceSummariesPaginator,
         ListInvoiceUnitsPaginator,
+        ListProcurementPortalPreferencesPaginator,
     )
 
     session = get_session()
@@ -22,6 +23,7 @@ Usage::
 
         list_invoice_summaries_paginator: ListInvoiceSummariesPaginator = client.get_paginator("list_invoice_summaries")
         list_invoice_units_paginator: ListInvoiceUnitsPaginator = client.get_paginator("list_invoice_units")
+        list_procurement_portal_preferences_paginator: ListProcurementPortalPreferencesPaginator = client.get_paginator("list_procurement_portal_preferences")
     ```
 """
 
@@ -37,6 +39,8 @@ from .type_defs import (
     ListInvoiceSummariesResponseTypeDef,
     ListInvoiceUnitsRequestPaginateTypeDef,
     ListInvoiceUnitsResponseTypeDef,
+    ListProcurementPortalPreferencesRequestPaginateTypeDef,
+    ListProcurementPortalPreferencesResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -44,7 +48,11 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListInvoiceSummariesPaginator", "ListInvoiceUnitsPaginator")
+__all__ = (
+    "ListInvoiceSummariesPaginator",
+    "ListInvoiceUnitsPaginator",
+    "ListProcurementPortalPreferencesPaginator",
+)
 
 if TYPE_CHECKING:
     _ListInvoiceSummariesPaginatorBase = AioPaginator[ListInvoiceSummariesResponseTypeDef]
@@ -80,4 +88,24 @@ class ListInvoiceUnitsPaginator(_ListInvoiceUnitsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/paginator/ListInvoiceUnits.html#Invoicing.Paginator.ListInvoiceUnits.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/paginators/#listinvoiceunitspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListProcurementPortalPreferencesPaginatorBase = AioPaginator[
+        ListProcurementPortalPreferencesResponseTypeDef
+    ]
+else:
+    _ListProcurementPortalPreferencesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListProcurementPortalPreferencesPaginator(_ListProcurementPortalPreferencesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/paginator/ListProcurementPortalPreferences.html#Invoicing.Paginator.ListProcurementPortalPreferences)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/paginators/#listprocurementportalpreferencespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProcurementPortalPreferencesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListProcurementPortalPreferencesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/paginator/ListProcurementPortalPreferences.html#Invoicing.Paginator.ListProcurementPortalPreferences.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/paginators/#listprocurementportalpreferencespaginator)
         """

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Dict, Union, Optional
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
 from .._types import SequenceNotStr
@@ -52,8 +52,20 @@ class AuthConfigUnionMember0(TypedDict, total=False):
 
     credentials: AuthConfigUnionMember0Credentials
 
+    is_enabled_for_tool_router: bool
+    """Whether this auth config is enabled for tool router"""
+
     name: str
     """The name of the integration"""
+
+    restrict_to_following_tools: SequenceNotStr[str]
+    """Use tool_access_config instead. This field will be deprecated in the future."""
+
+    shared_credentials: Dict[str, Optional[object]]
+    """
+    [EXPERIMENTAL] Shared credentials that will be inherited by all connected
+    accounts using this auth config
+    """
 
     tool_access_config: AuthConfigUnionMember0ToolAccessConfig
 
@@ -94,6 +106,9 @@ class AuthConfigUnionMember1(TypedDict, total=False):
                 "NO_AUTH",
                 "BASIC_WITH_JWT",
                 "CALCOM_AUTH",
+                "SERVICE_ACCOUNT",
+                "SAML",
+                "DCR_OAUTH",
             ],
             PropertyInfo(alias="authScheme"),
         ]
@@ -103,10 +118,22 @@ class AuthConfigUnionMember1(TypedDict, total=False):
 
     credentials: AuthConfigUnionMember1Credentials
 
+    is_enabled_for_tool_router: bool
+    """Whether this auth config is enabled for tool router"""
+
     name: str
     """The name of the integration"""
 
-    proxy_config: AuthConfigUnionMember1ProxyConfig
+    proxy_config: Optional[AuthConfigUnionMember1ProxyConfig]
+
+    restrict_to_following_tools: SequenceNotStr[str]
+    """Use tool_access_config instead. This field will be deprecated in the future."""
+
+    shared_credentials: Dict[str, Optional[object]]
+    """
+    [EXPERIMENTAL] Shared credentials that will be inherited by all connected
+    accounts using this auth config
+    """
 
     tool_access_config: AuthConfigUnionMember1ToolAccessConfig
 

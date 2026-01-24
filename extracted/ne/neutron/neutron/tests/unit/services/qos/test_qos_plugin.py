@@ -135,6 +135,28 @@ class TestQosPlugin(base.BaseQosTestCase):
         self._rp_tun_name = cfg.CONF.ml2.tunnelled_network_rp_name
         self._rp_tun_trait = n_const.TRAIT_NETWORK_TUNNEL
 
+        self.network_id = uuidutils.generate_uuid()
+
+        self.ports_res = [
+            {
+                "resource_request": {
+                    "port_id": uuidutils.generate_uuid(),
+                    "qos_id": self.policy.id,
+                    "network_id": self.network_id,
+                    "vnic_type": "normal",
+
+                }
+            },
+            {
+                "resource_request": {
+                    "port_id": uuidutils.generate_uuid(),
+                    "qos_id": self.policy.id,
+                    "network_id": self.network_id,
+                    "vnic_type": "normal",
+                }
+            },
+        ]
+
     def _validate_driver_params(self, method_name, ctxt):
         call_args = self.qos_plugin.driver_manager.call.call_args[0]
         self.assertTrue(self.qos_plugin.driver_manager.call.called)
@@ -185,34 +207,17 @@ class TestQosPlugin(base.BaseQosTestCase):
 
     def _create_and_extend_ports(self, min_bw_rules, min_pps_rules=None,
                                  physical_network='public',
-                                 request_groups_uuids=None):
-        network_id = uuidutils.generate_uuid()
-
-        ports_res = [
-            {
-                "resource_request": {
-                    "port_id": uuidutils.generate_uuid(),
-                    "qos_id": self.policy.id,
-                    "network_id": network_id,
-                    "vnic_type": "normal",
-
-                }
-            },
-            {
-                "resource_request": {
-                    "port_id": uuidutils.generate_uuid(),
-                    "qos_id": self.policy.id,
-                    "network_id": network_id,
-                    "vnic_type": "normal",
-                }
-            },
-        ]
-        segment_mock = mock.MagicMock(network_id=network_id,
-                                      physical_network=physical_network)
+                                 request_groups_uuids=None,
+                                 net_segments=None):
+        network_id = self.network_id
+        ports_res = self.ports_res
+        segment_mock = (net_segments if net_segments is not None else
+                        [mock.MagicMock(network_id=network_id,
+                                       physical_network=physical_network)])
         min_pps_rules = min_pps_rules if min_pps_rules else []
 
         with mock.patch('neutron.objects.network.NetworkSegment.get_objects',
-                        return_value=[segment_mock]), \
+                        return_value=segment_mock), \
                 mock.patch(
                     'neutron.objects.qos.rule.QosMinimumBandwidthRule.'
                     'get_objects',
@@ -224,7 +229,13 @@ class TestQosPlugin(base.BaseQosTestCase):
                 mock.patch(
                     'uuid.uuid5',
                     return_value='fake_uuid',
-                    side_effect=request_groups_uuids):
+                    side_effect=request_groups_uuids), \
+                mock.patch(
+                    'neutron.objects.qos.rule.QosMinimumBandwidthRule.count',
+                    return_value=len(min_bw_rules)), \
+                mock.patch(
+                    'neutron.objects.qos.rule.QosMinimumPacketRateRule.count',
+                    return_value=len(min_pps_rules)):
             return qos_plugin.QoSPlugin._extend_port_resource_request_bulk(
                 ports_res, None)
 
@@ -469,6 +480,93 @@ class TestQosPlugin(base.BaseQosTestCase):
             self.assertEqual(
                 ['fake_uuid0', 'fake_uuid1'],
                 port['resource_request']['same_subtree'],
+            )
+
+    def test__extend_port_resource_request_bulk_non_min_bw_or_pps_rule(self):
+        network_id = self.network_id
+        ports_res = self.ports_res
+        segment_mock = mock.MagicMock(network_id=network_id,
+                                  physical_network='public')
+        min_bw_rules = []
+        min_pps_rules = []
+
+        with mock.patch('neutron.objects.network.NetworkSegment.get_objects',
+                        return_value=[segment_mock]) as network_segment_mock, \
+                mock.patch(
+                    'neutron.objects.qos.rule.QosMinimumBandwidthRule.'
+                    'get_objects',
+                    return_value=min_bw_rules) as qos_min_bw_rule_mock, \
+                mock.patch(
+                    'neutron.objects.qos.rule.QosMinimumPacketRateRule.'
+                    'get_objects',
+                    return_value=min_pps_rules) as qos_min_pps_rule_mock, \
+                mock.patch(
+                    'uuid.uuid5',
+                    return_value='fake_uuid',
+                    side_effect=None):
+            ports = qos_plugin.QoSPlugin._extend_port_resource_request_bulk(
+                ports_res, None)
+
+            self.assertEqual(network_segment_mock.call_count, 0)
+            self.assertEqual(qos_min_bw_rule_mock.call_count, 1)
+            self.assertEqual(qos_min_pps_rule_mock.call_count, 1)
+            for port in ports:
+                self.assertIsNone(port.get('resource_request'))
+
+    def test__extend_port_resource_request_bulk_non_bw_and_pps_rule(
+            self):
+        ports_res = self.ports_res
+
+        with mock.patch(
+                    'neutron.objects.qos.rule.QosMinimumBandwidthRule.'
+                    'get_objects', return_value=[]), \
+                mock.patch(
+                    'neutron.objects.qos.rule.QosMinimumPacketRateRule.'
+                    'get_objects', return_value=[]), \
+                mock.patch(
+                    'neutron.services.qos.qos_plugin.QoSPlugin'
+                    '._get_resource_request') as resource_request_mock:
+            ports = qos_plugin.QoSPlugin._extend_port_resource_request_bulk(
+                ports_res, None)
+            resource_request_mock.assert_not_called()
+            for port in ports:
+                self.assertIsNone(port.get('resource_request'))
+
+    def test__extend_port_resource_request_bulk_no_network_segment(self):
+        self.min_bw_rule.direction = lib_constants.EGRESS_DIRECTION
+        self.min_pps_rule.direction = lib_constants.EGRESS_DIRECTION
+        request_groups_uuids = ['fake_uuid0', 'fake_uuid0']
+        min_bw_rule_ingress_data = {
+            'id': uuidutils.generate_uuid(),
+            'min_kbps': 20,
+            'direction': lib_constants.INGRESS_DIRECTION}
+        min_pps_rule_ingress_data = {
+            'id': uuidutils.generate_uuid(),
+            'min_kpps': 20,
+            'direction': lib_constants.INGRESS_DIRECTION}
+        min_bw_rule_ingress = rule_object.QosMinimumBandwidthRule(
+            self.ctxt, **min_bw_rule_ingress_data)
+        min_pps_rule_ingress = rule_object.QosMinimumPacketRateRule(
+            self.ctxt, **min_pps_rule_ingress_data)
+        ports = self._create_and_extend_ports(
+            [self.min_bw_rule, min_bw_rule_ingress],
+            [self.min_pps_rule, min_pps_rule_ingress],
+            request_groups_uuids=request_groups_uuids,
+            net_segments=[])
+
+        for port in ports:
+            self.assertEqual(1,
+                             len(port['resource_request']['request_groups']))
+            self.assertEqual(
+                {
+                    'id': 'fake_uuid0',
+                    'required': ['CUSTOM_VNIC_TYPE_NORMAL'],
+                    'resources': {
+                        orc.NET_PACKET_RATE_EGR_KILOPACKET_PER_SEC: 10,
+                        orc.NET_PACKET_RATE_IGR_KILOPACKET_PER_SEC: 20,
+                    },
+                },
+                port['resource_request']['request_groups'][0]
             )
 
     def test__extend_port_resource_request_no_qos_policy(self):

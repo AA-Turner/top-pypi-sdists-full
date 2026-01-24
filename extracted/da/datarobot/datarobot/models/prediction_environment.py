@@ -61,46 +61,36 @@ class PredictionEnvironment(APIObject):
 
     _path = "predictionEnvironments/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("platform"): t.Enum(*PredictionEnvironmentPlatform.ALL),
-            t.Key("description", optional=True): String(allow_blank=True),
-            t.Key("permissions", optional=True): t.List(t.String),
-            t.Key("is_deleted"): t.Bool(),
-            t.Key("supported_model_formats", optional=True): t.List(
-                t.Enum(*PredictionEnvironmentModelFormats.ALL)
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("platform"): t.Enum(*PredictionEnvironmentPlatform.ALL),
+        t.Key("description", optional=True): String(allow_blank=True),
+        t.Key("permissions", optional=True): t.List(t.String),
+        t.Key("is_deleted"): t.Bool(),
+        t.Key("supported_model_formats", optional=True): t.List(t.Enum(*PredictionEnvironmentModelFormats.ALL)),
+        t.Key("import_meta", optional=True): t.Dict({
+            t.Key("date_created", optional=True): t.Call(dateutil.parser.parse),
+            t.Key("creator_id", optional=True): String(),
+            t.Key("creator_username", optional=True): String(),
+        }),
+        t.Key("management_meta", optional=True): t.Dict({
+            t.Key("user_id", optional=True): String(),
+            t.Key("additional_metadata", optional=True): t.List(
+                t.Dict({t.Key("key"): String(), t.Key("value"): String()})
             ),
-            t.Key("import_meta", optional=True): t.Dict(
-                {
-                    t.Key("date_created", optional=True): t.Call(dateutil.parser.parse),
-                    t.Key("creator_id", optional=True): String(),
-                    t.Key("creator_username", optional=True): String(),
-                }
-            ),
-            t.Key("management_meta", optional=True): t.Dict(
-                {
-                    t.Key("user_id", optional=True): String(),
-                    t.Key("additional_metadata", optional=True): t.List(
-                        t.Dict({t.Key("key"): String(), t.Key("value"): String()})
-                    ),
-                    t.Key("username", optional=True): String(),
-                }
-            ),
-            t.Key("health", optional=True): t.Dict(
-                {
-                    t.Key("status"): t.Enum(*PredictionEnvironmentHealthType.ALL),
-                    t.Key("message"): String(),
-                    t.Key("timestamp"): t.Call(dateutil.parser.parse),
-                }
-            ),
-            t.Key("is_managed_by_management_agent", optional=True): t.Bool(),
-            t.Key("plugin", optional=True): String(),
-            t.Key("datastore_id", optional=True): String(),
-            t.Key("credential_id", optional=True): String(),
-        }
-    ).allow_extra("*")
+            t.Key("username", optional=True): String(),
+        }),
+        t.Key("health", optional=True): t.Dict({
+            t.Key("status"): t.Enum(*PredictionEnvironmentHealthType.ALL),
+            t.Key("message"): String(),
+            t.Key("timestamp"): t.Call(dateutil.parser.parse),
+        }),
+        t.Key("is_managed_by_management_agent", optional=True): t.Bool(),
+        t.Key("plugin", optional=True): String(),
+        t.Key("datastore_id", optional=True): String(),
+        t.Key("credential_id", optional=True): String(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -166,9 +156,7 @@ class PredictionEnvironment(APIObject):
             ]
         """
 
-        return [
-            cls.from_server_data(item) for item in pagination.unpaginate(cls._path, {}, cls._client)
-        ]
+        return [cls.from_server_data(item) for item in pagination.unpaginate(cls._path, {}, cls._client)]
 
     @classmethod
     def get(cls, pe_id: str) -> PredictionEnvironment:

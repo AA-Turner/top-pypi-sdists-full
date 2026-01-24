@@ -1,13 +1,13 @@
 # Licensed under a 3-clause BSD style license, see LICENSE.
 
-from typing import List
-
 from . import constants
 from .constants import (
     Avogadro,
     c_light,
     c_light_sq,
+    e_SI,
     e_sq,
+    electronvolt,
     eminus,
     eplus,
     h_Planck,
@@ -32,7 +32,9 @@ __all__ = (
     "c_light",
     "c_light_sq",
     "constants",
+    "e_SI",
     "e_sq",
+    "electronvolt",
     "eminus",
     "eplus",
     "h_Planck",
@@ -53,5 +55,5 @@ __all__ = (
 )
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return list(__all__)

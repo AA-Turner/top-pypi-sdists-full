@@ -54,35 +54,40 @@ attribute of this module.
     In [2]: chemicals.permittivity.permittivity_data_CRC
 
 """
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
 
-__all__ = ['permittivity_IAPWS', 'permittivity_CRC']
+__all__: list[str] = ["permittivity_CRC", "permittivity_IAPWS"]
 
 from fluids.numerics import numpy as np
 from fluids.numerics import sqrt
 
 from chemicals.data_reader import data_source, register_df_source
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
 
-folder = os_path_join(source_path, 'Electrolytes')
-register_df_source(folder, 'Permittivity (Dielectric Constant) of Liquids.tsv')
+if TYPE_CHECKING:
+    from pandas.core.frame import DataFrame
 
-_permittivity_data_loaded = False
+folder = os_path_join(source_path, "Electrolytes")
+
+# Module-level variables for lazy-loaded data
+permittivity_data_CRC: DataFrame
+permittivity_values_CRC: np.ndarray
+
+register_df_source(folder, "Permittivity (Dielectric Constant) of Liquids.tsv")
+
 @mark_numba_incompatible
-def _load_permittivity_data():
-    global _permittivity_data_loaded, permittivity_values_CRC, permittivity_data_CRC
-    permittivity_data_CRC = data_source('Permittivity (Dielectric Constant) of Liquids.tsv')
+def _load_permittivity_data() -> None:
+    global permittivity_values_CRC, permittivity_data_CRC
+    permittivity_data_CRC = data_source("Permittivity (Dielectric Constant) of Liquids.tsv")
     permittivity_values_CRC = np.array(permittivity_data_CRC.values[:, 1:], dtype=float)
 
-if PY37:
-    def __getattr__(name):
-        if name in ('permittivity_values_CRC', 'permittivity_data_CRC'):
-            _load_permittivity_data()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else:
-    if can_load_data:
+def __getattr__(name: str) -> DataFrame:
+    if name in ("permittivity_values_CRC", "permittivity_data_CRC"):
         _load_permittivity_data()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 def permittivity_CRC(T, a, b, c, d):
     r"""
@@ -126,8 +131,8 @@ def permittivity_CRC(T, a, b, c, d):
     """
     return a + T*(b + T*(c + d*T))
 
-def permittivity_IAPWS(T, rho):
-    r'''Calculate the relative permittivity of pure water as a function of.
+def permittivity_IAPWS(T: float, rho: float) -> float:
+    r"""Calculate the relative permittivity of pure water as a function of.
     temperature and density. Assumes the 1997 IAPWS [1]_ formulation.
 
     .. math::
@@ -199,7 +204,7 @@ def permittivity_IAPWS(T, rho):
     .. [1] IAPWS. 1997. Release on the Static Dielectric Constant of Ordinary
        Water Substance for Temperatures from 238 K to 873 K and Pressures up
        to 1000 MPa.
-    '''
+    """
 #    k = 1.38064852e-23
     # actual molecular dipole moment of water, in C*m
 #    dipole2 = 3.7675044000000003e-59 # dipole = 6.138E-30 # but we square it

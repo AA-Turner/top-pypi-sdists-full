@@ -112,8 +112,14 @@ options:
     description:
     - The type of service to proxy through the load balancer.
     type: str
-    choices: ['s3', 'swift']
+    choices: ['s3', 'swift', 'management']
     default: 's3'
+  closed_on_untrusted_client_network:
+    description:
+    - Whether to close the port on an untrusted Client Network.
+    type: bool
+    required: false
+    version_added: '21.16.0'
   server_certificate:
     description:
     - X.509 server certificate in PEM-encoding.
@@ -261,6 +267,7 @@ class SgGridGateway:
                 enable_ipv6=dict(required=False, type="bool", default=True),
                 enable_tenant_manager=dict(required=False, type="bool"),
                 enable_grid_manager=dict(required=False, type="bool"),
+                closed_on_untrusted_client_network=dict(required=False, type="bool"),
                 binding_mode=dict(
                     required=False, type="str", choices=["global", "ha-groups", "node-interfaces"], default="global"
                 ),
@@ -276,7 +283,7 @@ class SgGridGateway:
                 ),
                 node_type=dict(required=False, type="str", choices=["adminNode", "apiGatewayNode"]),
                 # Arguments for setting Gateway Virtual Server
-                default_service_type=dict(required=False, type="str", choices=["s3", "swift"], default="s3"),
+                default_service_type=dict(required=False, type="str", choices=["s3", "swift", "management"], default="s3"),
                 server_certificate=dict(required=False, type="str"),
                 ca_bundle=dict(required=False, type="str"),
                 private_key=dict(required=False, type="str", no_log=True),
@@ -298,7 +305,10 @@ class SgGridGateway:
         }
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
-            required_if=[("state", "present", ["display_name"])],
+            required_if=[
+                ("state", "present", ["display_name"]),
+                ("default_service_type", "management", ["enable_tenant_manager", "enable_grid_manager"], True),
+            ],
             supports_check_mode=True,
         )
 
@@ -310,6 +320,7 @@ class SgGridGateway:
         self.rest_api = SGRestAPI(self.module)
         # Get API version
         self.rest_api.get_sg_product_version()
+        self.api_version = self.rest_api.get_api_version()
 
         # Checking for the parameters passed and create new parameters list
 
@@ -335,6 +346,8 @@ class SgGridGateway:
 
         if self.parameters["binding_mode"] != "global":
             self.rest_api.fail_if_not_sg_minimum_version("non-global binding mode", 11, 5)
+        if self.parameters["default_service_type"] == "management":
+            self.rest_api.fail_if_not_sg_minimum_version("management default service type", 11, 8)
 
         self.data_gateway["pinTargets"] = {
             "haGroups": [],
@@ -348,16 +361,21 @@ class SgGridGateway:
         elif self.parameters["binding_mode"] == "node-interfaces":
             self.data_gateway["pinTargets"]["nodeInterfaces"] = self.build_node_interface_list()
 
-        # Parameters for allowing Management Interfaces for a gateway port
-        self.data_gateway["managementInterfaces"] = {
-            "enableTenantManager": self.parameters.get("enable_tenant_manager"),
-            "enableGridManager": self.parameters.get("enable_grid_manager")
-        }
+        # Parameters for configuring Management Interface
+        if self.parameters["default_service_type"] == "management":
+            self.data_gateway["managementInterfaces"] = {
+                "enableTenantManager": self.parameters.get("enable_tenant_manager"),
+                "enableGridManager": self.parameters.get("enable_grid_manager")
+            }
+            self.data_gateway["closedOnUntrustedClientNetwork"] = self.parameters.get("closed_on_untrusted_client_network")
+            # If no binding targets are specified, default to adminNode
+            if not any(self.data_gateway["pinTargets"].values()):
+                self.data_gateway["pinTargets"]["nodeTypes"] = ["adminNode"]
 
     def build_ha_group_list(self):
         ha_group_ids = []
 
-        api = "api/v3/private/ha-groups"
+        api = "api/%s/private/ha-groups" % self.api_version
         ha_groups, error = self.rest_api.get(api)
         if error:
             self.module.fail_json(msg=error)
@@ -376,7 +394,7 @@ class SgGridGateway:
     def build_node_interface_list(self):
         node_interfaces = []
 
-        api = "api/v3/grid/node-health"
+        api = "api/%s/grid/node-health" % self.api_version
         nodes, error = self.rest_api.get(api)
 
         if error:
@@ -395,7 +413,7 @@ class SgGridGateway:
         return node_interfaces
 
     def get_grid_gateway_config(self, gateway_id):
-        api = "api/v3/private/gateway-configs/%s" % gateway_id
+        api = "api/%s/private/gateway-configs/%s" % (self.api_version, gateway_id)
         response, error = self.rest_api.get(api)
 
         if error:
@@ -407,7 +425,7 @@ class SgGridGateway:
         return gateway, gateway_config
 
     def get_grid_gateway_server_config(self, gateway_id):
-        api = "api/v3/private/gateway-configs/%s/server-config" % gateway_id
+        api = "api/%s/private/gateway-configs/%s/server-config" % (self.api_version, gateway_id)
         response, error = self.rest_api.get(api)
 
         if error:
@@ -421,7 +439,7 @@ class SgGridGateway:
         gateway = {}
         gateway_config = {}
 
-        api = "api/v3/private/gateway-configs"
+        api = "api/%s/private/gateway-configs" % self.api_version
         response, error = self.rest_api.get(api)
 
         if error:
@@ -442,7 +460,7 @@ class SgGridGateway:
         return gateway, gateway_config
 
     def create_grid_gateway(self):
-        api = "api/v3/private/gateway-configs"
+        api = "api/%s/private/gateway-configs" % self.api_version
         response, error = self.rest_api.post(api, self.data_gateway)
 
         if error:
@@ -451,7 +469,7 @@ class SgGridGateway:
         return response["data"]
 
     def delete_grid_gateway(self, gateway_id):
-        api = "api/v3/private/gateway-configs/" + gateway_id
+        api = "api/%s/private/gateway-configs/%s" % (self.api_version, gateway_id)
         self.data = None
         response, error = self.rest_api.delete(api, self.data)
 
@@ -459,7 +477,7 @@ class SgGridGateway:
             self.module.fail_json(msg=error)
 
     def update_grid_gateway(self, gateway_id):
-        api = "api/v3/private/gateway-configs/%s" % gateway_id
+        api = "api/%s/private/gateway-configs/%s" % (self.api_version, gateway_id)
         response, error = self.rest_api.put(api, self.data_gateway)
 
         if error:
@@ -468,7 +486,7 @@ class SgGridGateway:
         return response["data"]
 
     def update_grid_gateway_server(self, gateway_id):
-        api = "api/v3/private/gateway-configs/%s/server-config" % gateway_id
+        api = "api/%s/private/gateway-configs/%s/server-config" % (self.api_version, gateway_id)
         response, error = self.rest_api.put(api, self.data_server)
 
         if error:

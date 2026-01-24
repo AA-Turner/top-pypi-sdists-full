@@ -1,6 +1,8 @@
 import json
-from uuid import UUID
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, Iterator, List, Optional, Set, Union, cast
+from uuid import UUID, uuid4
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, Iterator, List, Optional, Set, Type, Union, cast
+
+import httpx
 
 from vellum import (
     ChatMessage,
@@ -15,16 +17,18 @@ from vellum import (
 from vellum.client.core import RequestOptions
 from vellum.client.core.api_error import ApiError
 from vellum.client.types.chat_message_request import ChatMessageRequest
-from vellum.workflows.constants import LATEST_RELEASE_TAG, OMIT
+from vellum.workflows.constants import LATEST_RELEASE_TAG, OMIT, undefined
 from vellum.workflows.context import execution_context, get_execution_context, get_parent_context
 from vellum.workflows.errors import WorkflowErrorCode
 from vellum.workflows.errors.types import workflow_event_error_to_workflow_error
-from vellum.workflows.events.types import default_serializer
+from vellum.workflows.events.exception_handling import stream_initialization_exception
+from vellum.workflows.events.types import WorkflowDeploymentParentContext, default_serializer
 from vellum.workflows.events.workflow import is_workflow_event
-from vellum.workflows.exceptions import NodeException
+from vellum.workflows.exceptions import NodeException, WorkflowInitializationException
 from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.nodes.bases.base import BaseNode
 from vellum.workflows.outputs.base import BaseOutput
+from vellum.workflows.state.context import WorkflowContext, WorkflowDeploymentMetadata
 from vellum.workflows.types.core import EntityInputsInterface, MergeBehavior
 from vellum.workflows.types.generics import StateType
 from vellum.workflows.workflows.event_filters import all_workflow_event_filter
@@ -46,6 +50,10 @@ class SubworkflowDeploymentNode(BaseNode[StateType], Generic[StateType]):
     metadata: Optional[Dict[str, Optional[Any]]] = OMIT - The metadata to use for the Workflow Execution
     request_options: Optional[RequestOptions] = None - The request options to use for the Workflow Execution
     """
+
+    class Display(BaseNode.Display):
+        icon = "vellum:icon:diagram-sankey"
+        color = "grass"
 
     # Either the Workflow Deployment's UUID or its name.
     deployment: ClassVar[Union[UUID, str]]
@@ -155,58 +163,105 @@ class SubworkflowDeploymentNode(BaseNode[StateType], Generic[StateType]):
             filtered_inputs = {k: v for k, v in self.subworkflow_inputs.items() if v is not None}
             return inputs_class(**filtered_inputs)
 
-    def _run_resolved_workflow(self, resolved_workflow: "BaseWorkflow") -> Iterator[BaseOutput]:
+    def _run_resolved_workflow(
+        self,
+        workflow_class: Type["BaseWorkflow"],
+        deployment_metadata: Optional[WorkflowDeploymentMetadata],
+    ) -> Iterator[BaseOutput]:
         """Execute resolved workflow directly (similar to InlineSubworkflowNode)."""
-        with execution_context(parent_context=get_parent_context()):
-            subworkflow_stream = resolved_workflow.stream(
-                inputs=self._compile_subworkflow_inputs_for_direct_invocation(resolved_workflow),
-                event_filter=all_workflow_event_filter,
-                node_output_mocks=self._context._get_all_node_output_mocks(),
+        # Construct the parent context hierarchy for the subworkflow
+        parent_context = get_parent_context()
+
+        # If we have deployment metadata, wrap the parent context with WorkflowDeploymentParentContext
+        if deployment_metadata:
+            parent_context = WorkflowDeploymentParentContext(
+                span_id=uuid4(),
+                deployment_id=deployment_metadata.deployment_id,
+                deployment_name=deployment_metadata.deployment_name,
+                deployment_history_item_id=deployment_metadata.deployment_history_item_id,
+                release_tag_id=deployment_metadata.release_tag_id,
+                release_tag_name=deployment_metadata.release_tag_name,
+                workflow_version_id=deployment_metadata.workflow_version_id,
+                external_id=self.external_id if self.external_id is not OMIT else None,
+                metadata=self.metadata if self.metadata is not OMIT else None,
+                parent=parent_context,
             )
 
-        outputs = None
-        exception = None
-        fulfilled_output_names: Set[str] = set()
+        with execution_context(parent_context=parent_context):
+            # Instantiate the workflow inside the execution context so it captures the correct parent context
+            resolved_workflow = workflow_class(
+                context=WorkflowContext.create_from(self._context), parent_state=self.state
+            )
 
-        for event in subworkflow_stream:
-            self._context._emit_subworkflow_event(event)
+            try:
+                # The stream creation and first event retrieval are wrapped in try/except because
+                # WorkflowInitializationException can be raised during stream creation (e.g., when
+                # inputs are invalid) or when getting the first event
+                subworkflow_inputs = self._compile_subworkflow_inputs_for_direct_invocation(resolved_workflow)
+                subworkflow_stream = resolved_workflow.stream(
+                    inputs=subworkflow_inputs,
+                    event_filter=all_workflow_event_filter,
+                    node_output_mocks=self._context._get_all_node_output_mocks(),
+                    event_max_size=self._context.event_max_size,
+                )
+                first_event = next(subworkflow_stream)
+                self._context._emit_subworkflow_event(first_event)
+            except WorkflowInitializationException as e:
+                # Emit initiated and rejected events for the subworkflow so that
+                # the parent workflow can see the subworkflow's lifecycle events
+                for init_failure_event in stream_initialization_exception(e):
+                    self._context._emit_subworkflow_event(init_failure_event)
+
+                hashed_module = e.definition.__module__
+                raise NodeException(
+                    message=e.message,
+                    code=e.code,
+                    raw_data={"hashed_module": hashed_module},
+                ) from e
+
+            outputs = None
+            exception = None
+            fulfilled_output_names: Set[str] = set()
+
+            for event in subworkflow_stream:
+                self._context._emit_subworkflow_event(event)
+                if exception:
+                    continue
+
+                if not is_workflow_event(event):
+                    continue
+                if event.workflow_definition != resolved_workflow.__class__:
+                    continue
+
+                if event.name == "workflow.execution.streaming":
+                    if event.output.is_fulfilled:
+                        fulfilled_output_names.add(event.output.name)
+                    yield event.output
+                elif event.name == "workflow.execution.fulfilled":
+                    outputs = event.outputs
+                elif event.name == "workflow.execution.rejected":
+                    exception = NodeException.of(event.error)
+                elif event.name == "workflow.execution.paused":
+                    exception = NodeException(
+                        code=WorkflowErrorCode.INVALID_OUTPUTS,
+                        message="Subworkflow unexpectedly paused",
+                    )
+
             if exception:
-                continue
+                raise exception
 
-            if not is_workflow_event(event):
-                continue
-            if event.workflow_definition != resolved_workflow.__class__:
-                continue
-
-            if event.name == "workflow.execution.streaming":
-                if event.output.is_fulfilled:
-                    fulfilled_output_names.add(event.output.name)
-                yield event.output
-            elif event.name == "workflow.execution.fulfilled":
-                outputs = event.outputs
-            elif event.name == "workflow.execution.rejected":
-                exception = NodeException.of(event.error)
-            elif event.name == "workflow.execution.paused":
-                exception = NodeException(
+            if outputs is None:
+                raise NodeException(
+                    message="Expected to receive outputs from Workflow Deployment",
                     code=WorkflowErrorCode.INVALID_OUTPUTS,
-                    message="Subworkflow unexpectedly paused",
                 )
 
-        if exception:
-            raise exception
-
-        if outputs is None:
-            raise NodeException(
-                message="Expected to receive outputs from Workflow Deployment",
-                code=WorkflowErrorCode.INVALID_OUTPUTS,
-            )
-
-        for output_descriptor, output_value in outputs:
-            if output_descriptor.name not in fulfilled_output_names:
-                yield BaseOutput(
-                    name=output_descriptor.name,
-                    value=output_value,
-                )
+            for output_descriptor, output_value in outputs:
+                if output_descriptor.name not in fulfilled_output_names:
+                    yield BaseOutput(
+                        name=output_descriptor.name,
+                        value=output_value,
+                    )
 
     def run(self) -> Iterator[BaseOutput]:
         execution_context = get_execution_context()
@@ -215,6 +270,12 @@ class SubworkflowDeploymentNode(BaseNode[StateType], Generic[StateType]):
             "execution_context": execution_context.model_dump(mode="json"),
             **request_options.get("additional_body_parameters", {}),
         }
+
+        if self.deployment is undefined:
+            raise NodeException(
+                code=WorkflowErrorCode.NODE_EXECUTION,
+                message="Expected subworkflow deployment attribute to be either a UUID or STR, got `undefined` instead",
+            )
 
         try:
             deployment_id = str(self.deployment) if isinstance(self.deployment, UUID) else None
@@ -231,11 +292,12 @@ class SubworkflowDeploymentNode(BaseNode[StateType], Generic[StateType]):
                 message="Expected deployment name to be provided for subworkflow execution.",
             )
 
-        resolved_workflow = self._context.resolve_workflow_deployment(
+        resolved_result = self._context.resolve_workflow_deployment(
             deployment_name=deployment_name, release_tag=self.release_tag, state=self.state
         )
-        if resolved_workflow:
-            yield from self._run_resolved_workflow(resolved_workflow)
+        if resolved_result:
+            workflow_class, deployment_metadata = resolved_result
+            yield from self._run_resolved_workflow(workflow_class, deployment_metadata)
             return
 
         try:
@@ -249,6 +311,11 @@ class SubworkflowDeploymentNode(BaseNode[StateType], Generic[StateType]):
                 metadata=self.metadata,
                 request_options=request_options,
             )
+        except httpx.TransportError:
+            raise NodeException(
+                message="Failed to connect to Vellum server",
+                code=WorkflowErrorCode.INTERNAL_ERROR,
+            )
         except ApiError as e:
             self._handle_api_error(e)
 
@@ -256,6 +323,11 @@ class SubworkflowDeploymentNode(BaseNode[StateType], Generic[StateType]):
         # and use the exception handling to catch other api level errors
         try:
             next(subworkflow_stream)
+        except httpx.TransportError:
+            raise NodeException(
+                message="Failed to connect to Vellum server",
+                code=WorkflowErrorCode.INTERNAL_ERROR,
+            )
         except ApiError as e:
             self._handle_api_error(e)
 

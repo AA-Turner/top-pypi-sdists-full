@@ -23,16 +23,20 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
 #include "include/private/base/SkTArray.h"
+#include "src/image/SkImage_Base.h"
+#include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrPixmap.h"
-#include "src/image/SkImage_Base.h"
-#include "src/image/SkImage_Gpu.h"
-#include "tools/ToolUtils.h"
-#include "tools/gpu/ProxyUtils.h"
+#include "src/gpu/ganesh/image/SkImage_Ganesh.h"
+#include "tools/ganesh/ProxyUtils.h"
+#endif
 
 #include <string.h>
 #include <utility>
@@ -87,17 +91,17 @@ static sk_sp<SkImage> make_text_image(const char* text, SkColor color) {
     paint.setAntiAlias(true);
     paint.setColor(color);
 
-    SkFont font;
+    SkFont font = ToolUtils::DefaultPortableFont();
     font.setEdging(SkFont::Edging::kAntiAlias);
-    font.setTypeface(ToolUtils::create_portable_typeface());
     font.setSize(32);
 
     SkRect bounds;
     font.measureText(text, strlen(text), SkTextEncoding::kUTF8, &bounds);
-    const SkMatrix mat = SkMatrix::RectToRect(bounds, SkRect::MakeWH(kLabelSize, kLabelSize));
+    const SkMatrix mat = SkMatrix::RectToRectOrIdentity(bounds,
+                                                        SkRect::MakeWH(kLabelSize, kLabelSize));
 
     const SkImageInfo ii = SkImageInfo::MakeN32Premul(kLabelSize, kLabelSize);
-    sk_sp<SkSurface> surf = SkSurface::MakeRaster(ii);
+    sk_sp<SkSurface> surf = SkSurfaces::Raster(ii);
 
     SkCanvas* canvas = surf->getCanvas();
 
@@ -133,8 +137,9 @@ static sk_sp<SkImage> make_reference_image(SkCanvas* mainCanvas,
         bm.setImmutable();
     }
 
-    auto dContext = GrAsDirectContext(mainCanvas->recordingContext());
-    if (dContext && !dContext->abandoned()) {
+#if defined(SK_GANESH)
+    if (auto dContext = GrAsDirectContext(mainCanvas->recordingContext());
+        dContext && !dContext->abandoned()) {
         auto origin = bottomLeftOrigin ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
 
         auto view = sk_gpu_test::MakeTextureProxyViewFromData(dContext, GrRenderable::kNo, origin,
@@ -143,13 +148,12 @@ static sk_sp<SkImage> make_reference_image(SkCanvas* mainCanvas,
             return nullptr;
         }
 
-        return sk_make_sp<SkImage_Gpu>(sk_ref_sp(dContext),
-                                       kNeedNewImageUniqueID,
-                                       std::move(view),
-                                       ii.colorInfo());
+        return sk_make_sp<SkImage_Ganesh>(
+                sk_ref_sp(dContext), kNeedNewImageUniqueID, std::move(view), ii.colorInfo());
     }
+#endif
 
-    return SkImage::MakeFromBitmap(bm);
+    return SkImages::RasterFromBitmap(bm);
 }
 
 // Here we're converting from a matrix that is intended for UVs to a matrix that is intended
@@ -179,13 +183,9 @@ public:
     }
 
 private:
-    SkString onShortName() override {
-        return SkString("flippity");
-    }
+    SkString getName() const override { return SkString("flippity"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(kGMWidth, kGMHeight);
-    }
+    SkISize getISize() override { return SkISize::Make(kGMWidth, kGMHeight); }
 
     // Draw the reference image and the four corner labels in the matrix's coordinate space
     void drawImageWithMatrixAndLabels(SkCanvas* canvas, SkImage* image, int matIndex,
@@ -258,7 +258,7 @@ private:
         SkASSERT(kNumLabels == fLabels.size());
     }
 
-    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg) override {
+    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg, GraphiteTestContext*) override {
         this->makeLabels();
         fReferenceImages[0] = make_reference_image(canvas, fLabels, false);
         fReferenceImages[1] = make_reference_image(canvas, fLabels, true);

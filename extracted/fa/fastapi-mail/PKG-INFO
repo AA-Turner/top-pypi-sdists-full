@@ -1,34 +1,33 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fastapi-mail
-Version: 1.5.0
+Version: 1.6.1
 Summary: Simple lightweight mail library for FastApi
 License: MIT
+License-File: LICENSE
 Author: Sabuhi Shukurov
 Author-email: sabuhi.shukurov@gmail.com
-Requires-Python: >=3.8.1,<4.0
-Classifier: Intended Audience :: Developers
+Requires-Python: >=3.10.0,<4.0.0
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: httpx
 Provides-Extra: redis
-Requires-Dist: Jinja2 (>=3.0,<4.0)
-Requires-Dist: aiosmtplib (>=3.0.2,<4.0.0)
-Requires-Dist: blinker (>=1.5,<2.0)
-Requires-Dist: email-validator (>=2.2.0,<3.0.0)
-Requires-Dist: httpx[httpx] (>=0.23,<0.24) ; extra == "httpx"
-Requires-Dist: pydantic (>=2.10.1,<3.0.0)
+Requires-Dist: aiosmtplib (>=5.0.0,<6.0.0)
+Requires-Dist: blinker (>=1.9.0,<2.0.0)
+Requires-Dist: cryptography (>=46.0.3,<47.0.0)
+Requires-Dist: email-validator (>=2.3.0,<3.0.0)
+Requires-Dist: httpx (>=0.28.1,<0.29.0) ; extra == "httpx"
+Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
+Requires-Dist: pydantic (>=2.12.5,<3.0.0)
 Requires-Dist: pydantic-settings (>=2.6.1,<3.0.0)
-Requires-Dist: redis[redis] (>=4.3,<5.0) ; extra == "redis"
+Requires-Dist: redis (>=6.4.0,<7.0.0) ; extra == "redis"
+Requires-Dist: regex (>=2025.11.3,<2026.0.0)
 Requires-Dist: starlette (>=0.24,<1.0)
+Requires-Dist: typing-extensions (>=4.15.0,<5.0.0)
 Project-URL: Homepage, https://github.com/sabuhish/fastapi-mail
 Project-URL: Repository, https://github.com/sabuhish/fastapi-mail
 Description-Content-Type: text/markdown
@@ -87,6 +86,7 @@ The key features are:
 -  sending emails using FastApi background task managment
 -  sending files either from form-data or files from server
 -  Using Jinja2 HTML Templates
+-  **NameEmail support** - recipients can be specified as `"Name <email@domain.com>"` format
 -  email utils (utility allows you to check temporary email addresses, you can block any email or domain)
 -  email utils has two available classes ```DefaultChecker``` and  ```WhoIsXmlApi```
 -  Unittests using FastapiMail
@@ -102,14 +102,14 @@ More information on [Getting-Started](https://sabuhish.github.io/fastapi-mail/ge
 from typing import List
 
 from fastapi import BackgroundTasks, FastAPI
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType, NameEmail
 from pydantic import BaseModel, EmailStr
 from starlette.responses import JSONResponse
 
 
 
 class EmailSchema(BaseModel):
-    email: List[EmailStr]
+    email: List[NameEmail]  # Supports both "user@example.com" and "Name <user@example.com>" formats
 
 
 conf = ConnectionConfig(
@@ -137,7 +137,7 @@ async def simple_send(email: EmailSchema) -> JSONResponse:
 
     message = MessageSchema(
         subject="Fastapi-Mail module",
-        recipients=email.dict().get("email"),
+        recipients=email.dict().get("email"),  # Can include "Name <email@domain.com>" format
         body=html,
         subtype=MessageType.html)
 

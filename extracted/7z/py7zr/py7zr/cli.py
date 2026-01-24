@@ -29,9 +29,8 @@ import re
 import shutil
 import sys
 from lzma import CHECK_CRC64, CHECK_SHA256, is_check_supported
-from typing import Any, Optional
+from typing import Any
 
-import _lzma  # type: ignore
 import multivolumefile
 import texttable  # type: ignore
 
@@ -94,7 +93,7 @@ class Cli:
         self.parser = self._create_parser()
         self.unit_pattern = re.compile(r"^([0-9]+)([bkmg]?)$", re.IGNORECASE)
 
-    def run(self, arg: Optional[Any] = None) -> int:
+    def run(self, arg: Any | None = None) -> int:
         args = self.parser.parse_args(arg)
         if args.version:
             return self.show_version()
@@ -116,6 +115,7 @@ class Cli:
         extract_parser.set_defaults(func=self.run_extract)
         extract_parser.add_argument("arcfile", type=pathlib.Path, help="7z archive file")
         extract_parser.add_argument("odir", nargs="?", help="output directory")
+        extract_parser.add_argument("--files", nargs="+", help="List of archive members to extract")
         extract_parser.add_argument(
             "-P",
             "--password",
@@ -326,7 +326,7 @@ class Cli:
             print("not a 7z file")
             return 1
         if not args.password:
-            password = None  # type: Optional[str]
+            password: str | None = None
         else:
             try:
                 password = getpass.getpass()
@@ -347,18 +347,22 @@ class Cli:
             else:
                 print("The archive is corrupted, or password is wrong. ABORT.")
             return 1
-        except _lzma.LZMAError:
-            return 1
 
-        cb = None  # Optional[ExtractCallback]
+        cb: ExtractCallback | None = None
         if verbose:
             archive_info = a.archiveinfo()
             cb = CliExtractCallback(total_bytes=archive_info.uncompressed, ofd=sys.stderr)
         try:
-            if args.odir:
-                a.extractall(path=args.odir, callback=cb)
+            if args.files:
+                a.extract(
+                    path=args.odir,
+                    callback=cb,
+                    targets=args.files,
+                    # Allow to provide directories and extract all files in them.
+                    recursive=True,
+                )
             else:
-                a.extractall(callback=cb)
+                a.extractall(path=args.odir, callback=cb)
         except py7zr.exceptions.UnsupportedCompressionMethodError:
             print("Unsupported compression method is used in archive. ABORT.")
             return 1
@@ -373,8 +377,6 @@ class Cli:
                 print("The archive is corrupted. ABORT.")
             else:
                 print("The archive is corrupted, or password is wrong. ABORT.")
-            return 1
-        except _lzma.LZMAError:
             return 1
         else:
             return 0
@@ -410,7 +412,7 @@ class Cli:
             self.show_help(args)
             exit(1)
         if not args.password:
-            password = None  # type: Optional[str]
+            password: str | None = None
         else:
             try:
                 password = getpass.getpass()

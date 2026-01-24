@@ -27,5 +27,5 @@ class FSMPreprocessor(Preprocessor):
 
 
 class FSMExtension(Extension):
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self, md, md_globals):  # noqa
         md.preprocessors.register(FSMPreprocessor(), "wbcore-fsm", 100)

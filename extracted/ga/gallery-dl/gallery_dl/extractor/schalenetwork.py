@@ -62,10 +62,11 @@ class SchalenetworkExtractor(Extractor):
                 pass
             params["page"] += 1
 
-    def _token(self):
+    def _token(self, required=True):
         if token := self.config("token"):
-            return f"Bearer {token.rpartition(' ')[2]}"
-        raise exception.AuthRequired("'token'", "your favorites")
+            return "Bearer " + token.rpartition(' ')[2]
+        if required:
+            raise exception.AuthRequired("'token'", "your favorites")
 
     def _crt(self):
         crt = self.config("crt")
@@ -88,7 +89,7 @@ class SchalenetworkExtractor(Extractor):
         else:
             msg = f"{exc.status} {exc.response.reason}"
         raise exception.AuthRequired(
-            "'crt' query parameter & matching '--user-agent'", None, msg)
+            "'crt' query parameter & matching 'user-agent'", None, msg)
 
 
 class SchalenetworkGalleryExtractor(SchalenetworkExtractor, GalleryExtractor):
@@ -97,7 +98,7 @@ class SchalenetworkGalleryExtractor(SchalenetworkExtractor, GalleryExtractor):
     directory_fmt = ("{category}", "{id} {title}")
     archive_fmt = "{id}_{num}"
     request_interval = 0.0
-    pattern = rf"{BASE_PATTERN}/(?:g|reader)/(\d+)/(\w+)"
+    pattern = BASE_PATTERN + r"/(?:g|reader)/(\d+)/(\w+)"
     example = "https://niyaniya.moe/g/12345/67890abcde/"
 
     TAG_TYPES = {
@@ -114,53 +115,74 @@ class SchalenetworkGalleryExtractor(SchalenetworkExtractor, GalleryExtractor):
         10: "mixed",
         11: "language",
         12: "other",
+        13: "reclass",
     }
 
     def metadata(self, _):
         _, gid, gkey = self.groups
+
         url = f"{self.root_api}/books/detail/{gid}/{gkey}"
-        data = self.request_json(url, headers=self.headers)
-        data["date"] = text.parse_timestamp(data["created_at"] // 1000)
-
-        tags = []
-        types = self.TAG_TYPES
-        tags_data = data["tags"]
-
-        for tag in tags_data:
-            name = tag["name"]
-            namespace = tag.get("namespace", 0)
-            tags.append(types[namespace] + ":" + name)
-        data["tags"] = tags
-
-        if self.config("tags", False):
-            tags = collections.defaultdict(list)
-            for tag in tags_data    :
-                tags[tag.get("namespace", 0)].append(tag["name"])
-            for type, values in tags.items():
-                data["tags_" + types[type]] = values
+        headers = self.headers
+        data = self.request_json(url, headers=headers)
 
         try:
+            data["date"] = self.parse_timestamp(data["created_at"] / 1000)
             data["count"] = len(data["thumbnails"]["entries"])
             del data["thumbnails"]
         except Exception:
             pass
 
-        return data
+        tags = []
+        types = self.TAG_TYPES
+        for tag in data["tags"]:
+            name = tag["name"]
+            namespace = tag.get("namespace", 0)
+            tags.append(types[namespace] + ":" + name)
+        if self.config("tags", False):
+            categories = collections.defaultdict(list)
+            for tag in data["tags"]:
+                categories[tag.get("namespace", 0)].append(tag["name"])
+            for type, values in categories.items():
+                data["tags_" + types[type]] = values
+        data["tags"] = tags
 
-    def images(self, _):
-        crt = self._crt()
-        _, gid, gkey = self.groups
-        url = f"{self.root_api}/books/detail/{gid}/{gkey}?crt={crt}"
+        url = f"{self.root_api}/books/detail/{gid}/{gkey}?crt={self._crt()}"
+        if token := self._token(False):
+            headers = headers.copy()
+            headers["Authorization"] = token
         try:
-            data = self.request_json(url, method="POST", headers=self.headers)
+            data_fmt = self.request_json(
+                url, method="POST", headers=headers)
         except exception.HttpError as exc:
             self._require_auth(exc)
 
-        fmt = self._select_format(data["data"])
+        self.fmt = self._select_format(data_fmt["data"])
+        data["source"] = data_fmt.get("source")
+
+        return data
+
+    def images(self, _):
+        _, gid, gkey = self.groups
+        fmt = self.fmt
 
         url = (f"{self.root_api}/books/data/{gid}/{gkey}"
-               f"/{fmt['id']}/{fmt['key']}/{fmt['w']}?crt={crt}")
-        data = self.request_json(url, headers=self.headers)
+               f"/{fmt['id']}/{fmt['key']}/{fmt['w']}?crt={self._crt()}")
+        headers = self.headers
+
+        if self.config("cbz", False):
+            headers["Authorization"] = self._token()
+            dl = self.request_json(
+                url + "&action=dl", method="POST", headers=headers)
+            # 'crt' parameter here is necessary for 'hdoujin' downloads
+            url = f"{dl['base']}?crt={self._crt()}"
+            info = text.nameext_from_url(url)
+            if "fallback" in dl:
+                info["_fallback"] = (dl["fallback"],)
+            if not info["extension"]:
+                info["extension"] = "cbz"
+            return ((url, info),)
+
+        data = self.request_json(url, headers=headers)
         base = data["base"]
 
         results = []
@@ -169,7 +191,7 @@ class SchalenetworkGalleryExtractor(SchalenetworkExtractor, GalleryExtractor):
             info = {
                 "width" : dimensions[0],
                 "height": dimensions[1],
-                "_http_headers": self.headers,
+                "_http_headers": headers,
             }
             results.append((base + entry["path"], info))
         return results
@@ -205,7 +227,7 @@ class SchalenetworkGalleryExtractor(SchalenetworkExtractor, GalleryExtractor):
 class SchalenetworkSearchExtractor(SchalenetworkExtractor):
     """Extractor for schale.network search results"""
     subcategory = "search"
-    pattern = rf"{BASE_PATTERN}/(?:tag/([^/?#]+)|browse)?(?:/?\?([^#]*))?$"
+    pattern = BASE_PATTERN + r"/(?:tag/([^/?#]+)|browse)?(?:/?\?([^#]*))?$"
     example = "https://niyaniya.moe/browse?s=QUERY"
 
     def items(self):
@@ -230,14 +252,14 @@ class SchalenetworkSearchExtractor(SchalenetworkExtractor):
 class SchalenetworkFavoriteExtractor(SchalenetworkExtractor):
     """Extractor for schale.network favorites"""
     subcategory = "favorite"
-    pattern = rf"{BASE_PATTERN}/favorites(?:\?([^#]*))?"
+    pattern = BASE_PATTERN + r"/favorites(?:\?([^#]*))?"
     example = "https://niyaniya.moe/favorites"
 
     def items(self):
         params = text.parse_query(self.groups[1])
         params["page"] = text.parse_int(params.get("page"), 1)
         self.headers["Authorization"] = self._token()
-        return self._pagination(f"/books/favorites?crt={self._crt()}", params)
+        return self._pagination("/books/favorites?crt=" + self._crt(), params)
 
 
 SchalenetworkExtractor.extr_class = SchalenetworkGalleryExtractor

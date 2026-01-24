@@ -36,11 +36,11 @@ except ImportError:
     ResponseOutputMessageParam = Dict[str, Any]
     RESPONSES_AVAILABLE = False
 
-from lmnr.opentelemetry_lib.decorators import json_dumps
 from lmnr.opentelemetry_lib.tracing.context import (
     get_current_context,
     get_event_attributes_from_context,
 )
+from lmnr.sdk.utils import json_dumps
 from openai._legacy_response import LegacyAPIResponse
 from opentelemetry import context as context_api
 from opentelemetry.instrumentation.utils import _SUPPRESS_INSTRUMENTATION_KEY
@@ -144,6 +144,9 @@ class TracedData(pydantic.BaseModel):
     request_reasoning_summary: Optional[str] = pydantic.Field(default=None)
     request_reasoning_effort: Optional[str] = pydantic.Field(default=None)
 
+    request_service_tier: Optional[str] = pydantic.Field(default=None)
+    response_service_tier: Optional[str] = pydantic.Field(default=None)
+
 
 responses: dict[str, TracedData] = {}
 
@@ -230,6 +233,17 @@ def set_data_attributes(traced_response: TracedData, span: Span):
         span,
         f"{SpanAttributes.LLM_REQUEST_REASONING_EFFORT}",
         traced_response.request_reasoning_effort or (),
+    )
+
+    _set_span_attribute(
+        span,
+        "openai.request.service_tier",
+        traced_response.request_service_tier,
+    )
+    _set_span_attribute(
+        span,
+        "openai.response.service_tier",
+        traced_response.response_service_tier,
     )
 
     if should_send_prompts():
@@ -496,6 +510,10 @@ def responses_get_or_create_wrapper(tracer: Tracer, wrapped, instance, args, kwa
                 request_reasoning_effort=kwargs.get("reasoning", {}).get(
                     "effort", existing_data.get("request_reasoning_effort")
                 ),
+                request_service_tier=kwargs.get(
+                    "service_tier", existing_data.get("request_service_tier")
+                ),
+                # response_service_tier=existing_data.get("response_service_tier"),
             )
         except Exception:
             traced_data = None
@@ -547,6 +565,13 @@ def responses_get_or_create_wrapper(tracer: Tracer, wrapped, instance, args, kwa
             ),
             request_reasoning_effort=existing_data.get(
                 "request_reasoning_effort", kwargs.get("reasoning", {}).get("effort")
+            ),
+            request_service_tier=existing_data.get(
+                "request_service_tier", kwargs.get("service_tier")
+            ),
+            response_service_tier=existing_data.get(
+                "response_service_tier",
+                parsed_response.service_tier,
             ),
         )
         responses[parsed_response.id] = traced_data
@@ -607,6 +632,10 @@ async def async_responses_get_or_create_wrapper(
                 request_reasoning_effort=kwargs.get("reasoning", {}).get(
                     "effort", existing_data.get("request_reasoning_effort")
                 ),
+                request_service_tier=kwargs.get(
+                    "service_tier", existing_data.get("request_service_tier")
+                ),
+                # response_service_tier=existing_data.get("response_service_tier"),
             )
         except Exception:
             traced_data = None
@@ -658,6 +687,13 @@ async def async_responses_get_or_create_wrapper(
             ),
             request_reasoning_effort=existing_data.get(
                 "request_reasoning_effort", kwargs.get("reasoning", {}).get("effort")
+            ),
+            request_service_tier=existing_data.get(
+                "request_service_tier", kwargs.get("service_tier")
+            ),
+            response_service_tier=existing_data.get(
+                "response_service_tier",
+                parsed_response.service_tier,
             ),
         )
         responses[parsed_response.id] = traced_data

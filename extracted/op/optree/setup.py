@@ -27,9 +27,10 @@ import shutil
 import subprocess
 import sys
 import sysconfig
+import textwrap
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TextIO
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
@@ -48,7 +49,11 @@ else:
 
 
 HERE = Path(__file__).absolute().parent
-CMAKE_MINIMUM_VERSION = '3.18'
+CMAKE_MINIMUM_VERSION = os.getenv('CMAKE_MINIMUM_VERSION') or '3.18'
+
+
+def eprint(*args: Any, file: TextIO = sys.stderr, flush: bool = True, **kwargs: Any) -> None:
+    print(*args, file=file, flush=flush, **kwargs)
 
 
 @contextlib.contextmanager
@@ -68,46 +73,55 @@ def unset_python_path() -> Generator[str | None]:
             os.environ['PYTHONNOUSERSITE'] = python_no_user_site
 
 
+@contextlib.contextmanager
 def cmake_context(
     cmake: os.PathLike[str] | str,
     *,
     dry_run: bool = False,
     verbose: bool = False,
-) -> contextlib.AbstractContextManager[str | None]:
-    if dry_run:
-        return contextlib.nullcontext()
+) -> Generator[str]:
+    cmake = Path(cmake)
+    if not cmake.is_absolute():
+        cmake = Path(shutil.which(cmake) or cmake)
+    cmake_exe = os.fspath(cmake)
 
-    cmake = os.fspath(cmake)
+    if verbose:
+        eprint(f'-- Using CMake executable: {cmake_exe}')
+
+    if dry_run:
+        yield cmake_exe
+        return
+
     spawn_context = contextlib.nullcontext
     output = ''
     try:
         # System CMake or CMake in the build environment
         output = subprocess.check_output(  # noqa: S603
-            [cmake, '--version'],
+            [cmake_exe, '--version'],
             stderr=subprocess.STDOUT,
             text=True,
             encoding='utf-8',
         ).strip()
     except (OSError, subprocess.CalledProcessError):
-        print(
+        eprint(
             f'Could not run `{cmake}` directly. '
             'Unset the `PYTHONPATH` environment variable in the build environment.',
-            file=sys.stderr,
         )
         spawn_context = unset_python_path  # type: ignore[assignment]
         with unset_python_path():
             # CMake in the parent virtual environment
             output = subprocess.check_output(  # noqa: S603
-                [cmake, '--version'],
+                [cmake_exe, '--version'],
                 stderr=subprocess.STDOUT,
                 text=True,
                 encoding='utf-8',
             ).strip()
 
     if verbose and output:
-        print(output, file=sys.stderr)
+        eprint(textwrap.indent(output, prefix='-- > ', predicate=bool))
 
-    return spawn_context()
+    with spawn_context():
+        yield cmake_exe
 
 
 # pylint: disable-next=too-few-public-methods
@@ -132,36 +146,39 @@ class CMakeExtension(Extension):
         verbose: bool = False,
     ) -> str | None:
         cmake = os.getenv('CMAKE_COMMAND') or os.getenv('CMAKE_EXECUTABLE') or shutil.which('cmake')
-        if cmake and minimum_version is not None:
-            with cmake_context(cmake, verbose=verbose):
-                try:
-                    cmake_capabilities = json.loads(
-                        subprocess.check_output(  # noqa: S603
-                            [cmake, '-E', 'capabilities'],
-                            stderr=subprocess.DEVNULL,
-                            text=True,
-                            encoding='utf-8',
-                        ),
-                    )
-                except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
-                    cmake_capabilities = {}
-            cmake_version = Version(cmake_capabilities.get('version', {}).get('string', '0.0.0'))
-            if isinstance(minimum_version, str):
-                minimum_version = Version(minimum_version)
-            if cmake_version < minimum_version:
-                cmake = None
-        return cmake
+        if not cmake:
+            return None
+
+        if minimum_version is None:
+            minimum_version = '0.0.0'
+
+        with cmake_context(cmake, verbose=verbose) as cmake_exe:
+            try:
+                cmake_capabilities = json.loads(
+                    subprocess.check_output(  # noqa: S603
+                        [cmake_exe, '-E', 'capabilities'],
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                        encoding='utf-8',
+                    ),
+                )
+            except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
+                cmake_capabilities = {}
+            cmake_version = cmake_capabilities.get('version', {}).get('string', '0.0.0')
+            if Version(cmake_version) < Version(minimum_version):
+                return None
+            return cmake_exe
 
 
 # pylint: disable-next=invalid-name
 class cmake_build_ext(build_ext):  # noqa: N801
-    # pylint: disable-next=too-many-branches
+    # pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
     def build_extension(self, ext: Extension) -> None:  # noqa: C901
         if not isinstance(ext, CMakeExtension):
             super().build_extension(ext)
             return
 
-        cmake = ext.cmake_executable()
+        cmake = ext.cmake_executable(minimum_version=CMAKE_MINIMUM_VERSION, verbose=self.debug)
         if cmake is None:
             raise RuntimeError('Cannot find CMake executable.')
 
@@ -175,18 +192,68 @@ class cmake_build_ext(build_ext):  # noqa: N801
             f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{config.upper()}={build_temp}',
         ]
 
+        # Print debug information
+        eprint(f'-- Building CMake extension: {ext.name} ({config})')
+        eprint(f'-- CMake source directory: {ext.source_dir}')
+        eprint(f'-- Extension output path: {ext_path}')
+        eprint(f'-- Extension build directory: {build_temp}')
+        eprint(f'-- Extension platform: {self.plat_name} (Python: {sysconfig.get_platform()})')
+        eprint(f'-- Python executable: {sys.executable} ({sys.version.splitlines()[0]})')
+        eprint('-- Python `sysconfig.get_config_vars()`: {')
+        sysconfig_vars = sysconfig.get_config_vars()
+        for key in sorted(
+            {
+                'ABIFLAGS',
+                'EXT_SUFFIX',
+                'INCLUDEDIR',
+                'INCLUDEPY',
+                'LIBDEST',
+                'LIBDIR',
+                'LIBPYTHON',
+                'LIBRARY_DEPS',
+                'LIBRARY',
+                'LIBS',
+                'SOABI',
+                *(k for k in sysconfig_vars if k == k.lower()),
+            },
+        ):
+            value = sysconfig_vars.get(key)
+            if value is not None:
+                eprint(f'--     {key!r}: {value!r},')
+        eprint('--     ...,')
+        eprint('-- }')
+        eprint('-- Python `sysconfig.get_paths()`: {')
+        for key, value in sysconfig.get_paths().items():
+            eprint(f'--     {key!r}: {value!r},')
+        eprint('-- }')
+        if self.debug or os.getenv('CI') or os.getenv('CIBUILDWHEEL'):
+            eprint('-- Python `os.environ`: {')
+            for key, value in sorted(os.environ.items()):
+                key_lowercase = key.lower()
+                if any(
+                    substring in key_lowercase
+                    for substring in ('secret', 'token', 'key', 'password', 'proxy')
+                ):
+                    value = '***'
+                eprint(f'--     {key!r}: {value!r},')
+            eprint('-- }')
+
         # Cross-compilation support
-        cmake_system_name = os.getenv('CMAKE_SYSTEM_NAME')
-        if cmake_system_name:
-            cmake_args += [f'-DCMAKE_SYSTEM_NAME={cmake_system_name}']
-        cmake_osx_sysroot = os.getenv('CMAKE_OSX_SYSROOT')
-        if cmake_osx_sysroot:
-            cmake_args += [f'-DCMAKE_OSX_SYSROOT={cmake_osx_sysroot}']
-        if platform.system() == 'Darwin':
+        cmake_vars = {
+            varname: os.getenv(varname)
+            for varname in (
+                'CMAKE_SYSTEM_NAME',
+                'CMAKE_OSX_SYSROOT',
+                'CMAKE_OSX_DEPLOYMENT_TARGET',
+                'CMAKE_OSX_ARCHITECTURES',
+            )
+            if os.getenv(varname)
+        }
+        if platform.system() == 'Darwin' and 'CMAKE_OSX_ARCHITECTURES' not in cmake_vars:
             # macOS - respect ARCHFLAGS if set
             archs = re.findall(r'-arch\s+(\S+)', os.getenv('ARCHFLAGS', ''))
             if archs:
-                cmake_args += [f'-DCMAKE_OSX_ARCHITECTURES={";".join(archs)}']
+                cmake_vars['CMAKE_OSX_ARCHITECTURES'] = ';'.join(archs)
         elif platform.system() == 'Windows':
             # Windows - set correct CMAKE_GENERATOR_PLATFORM
             cmake_generator_platform = os.getenv('CMAKE_GENERATOR_PLATFORM')
@@ -199,12 +266,16 @@ class cmake_build_ext(build_ext):  # noqa: N801
                 }.get(self.plat_name)
             if cmake_generator_platform:
                 cmake_args[:] = [f'-A={cmake_generator_platform}', *cmake_args]
+        cmake_args += [f'-D{varname}={varvalue}' for varname, varvalue in cmake_vars.items()]
 
         # Python interpreter and include/library directories
         cmake_args += [
             f'-DPython_EXECUTABLE={sys.executable}',
             f'-DPython_INCLUDE_DIR={sysconfig.get_path("platinclude")}',
         ]
+        python_root_dir = os.getenv('Python_ROOT_DIR') or sysconfig_vars.get('installed_platbase')  # noqa: SIM112
+        if python_root_dir is not None:
+            cmake_args += [f'-DPython_ROOT_DIR={python_root_dir}']
         if self.include_dirs:
             cmake_args += [f'-DPython_EXTRA_INCLUDE_DIRS={";".join(self.include_dirs)}']
         if self.library_dirs:
@@ -229,9 +300,9 @@ class cmake_build_ext(build_ext):  # noqa: N801
         build_args += ['--target', ext.target, '--']
 
         self.mkpath(str(build_temp))
-        with cmake_context(cmake, dry_run=self.dry_run, verbose=True):
-            self.spawn([cmake, '-S', str(ext.source_dir), '-B', str(build_temp), *cmake_args])
-            self.spawn([cmake, '--build', str(build_temp), *build_args])
+        with cmake_context(cmake, dry_run=self.dry_run, verbose=True) as cmake_exe:
+            self.spawn([cmake_exe, '-S', str(ext.source_dir), '-B', str(build_temp), *cmake_args])
+            self.spawn([cmake_exe, '--build', str(build_temp), *build_args])
 
 
 @contextlib.contextmanager

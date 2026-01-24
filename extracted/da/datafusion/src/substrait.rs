@@ -15,19 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use pyo3::{prelude::*, types::PyBytes};
+use datafusion_substrait::logical_plan::{consumer, producer};
+use datafusion_substrait::serializer;
+use datafusion_substrait::substrait::proto::Plan;
+use prost::Message;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 
 use crate::context::PySessionContext;
 use crate::errors::{py_datafusion_err, PyDataFusionError, PyDataFusionResult};
 use crate::sql::logical::PyLogicalPlan;
 use crate::utils::wait_for_future;
 
-use datafusion_substrait::logical_plan::{consumer, producer};
-use datafusion_substrait::serializer;
-use datafusion_substrait::substrait::proto::Plan;
-use prost::Message;
-
-#[pyclass(name = "Plan", module = "datafusion.substrait", subclass)]
+#[pyclass(frozen, name = "Plan", module = "datafusion.substrait", subclass)]
 #[derive(Debug, Clone)]
 pub struct PyPlan {
     pub plan: Plan,
@@ -35,7 +35,7 @@ pub struct PyPlan {
 
 #[pymethods]
 impl PyPlan {
-    fn encode(&self, py: Python) -> PyResult<PyObject> {
+    fn encode(&self, py: Python) -> PyResult<Py<PyAny>> {
         let mut proto_bytes = Vec::<u8>::new();
         self.plan
             .encode(&mut proto_bytes)
@@ -59,7 +59,7 @@ impl From<Plan> for PyPlan {
 /// A PySubstraitSerializer is a representation of a Serializer that is capable of both serializing
 /// a `LogicalPlan` instance to Substrait Protobuf bytes and also deserialize Substrait Protobuf bytes
 /// to a valid `LogicalPlan` instance.
-#[pyclass(name = "Serde", module = "datafusion.substrait", subclass)]
+#[pyclass(frozen, name = "Serde", module = "datafusion.substrait", subclass)]
 #[derive(Debug, Clone)]
 pub struct PySubstraitSerializer;
 
@@ -93,7 +93,7 @@ impl PySubstraitSerializer {
         sql: &str,
         ctx: PySessionContext,
         py: Python,
-    ) -> PyDataFusionResult<PyObject> {
+    ) -> PyDataFusionResult<Py<PyAny>> {
         let proto_bytes: Vec<u8> =
             wait_for_future(py, serializer::serialize_bytes(sql, &ctx.ctx))??;
         Ok(PyBytes::new(py, &proto_bytes).into())
@@ -112,7 +112,7 @@ impl PySubstraitSerializer {
     }
 }
 
-#[pyclass(name = "Producer", module = "datafusion.substrait", subclass)]
+#[pyclass(frozen, name = "Producer", module = "datafusion.substrait", subclass)]
 #[derive(Debug, Clone)]
 pub struct PySubstraitProducer;
 
@@ -129,7 +129,7 @@ impl PySubstraitProducer {
     }
 }
 
-#[pyclass(name = "Consumer", module = "datafusion.substrait", subclass)]
+#[pyclass(frozen, name = "Consumer", module = "datafusion.substrait", subclass)]
 #[derive(Debug, Clone)]
 pub struct PySubstraitConsumer;
 
@@ -138,7 +138,7 @@ impl PySubstraitConsumer {
     /// Convert Substrait Plan to DataFusion DataFrame
     #[staticmethod]
     pub fn from_substrait_plan(
-        ctx: &mut PySessionContext,
+        ctx: &PySessionContext,
         plan: PyPlan,
         py: Python,
     ) -> PyDataFusionResult<PyLogicalPlan> {

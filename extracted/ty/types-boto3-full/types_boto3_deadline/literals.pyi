@@ -3,7 +3,7 @@ Type annotations for deadline service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -44,9 +44,11 @@ __all__ = (
     "FleetStatusType",
     "GetSessionsStatisticsAggregationPaginatorName",
     "JobAttachmentsFileSystemType",
+    "JobCompleteWaiterName",
     "JobCreateCompleteWaiterName",
     "JobEntityErrorCodeType",
     "JobLifecycleStatusType",
+    "JobSucceededWaiterName",
     "JobTargetTaskRunStatusType",
     "JobTemplateTypeType",
     "LicenseEndpointDeletedWaiterName",
@@ -94,6 +96,7 @@ __all__ = (
     "QueueSchedulingBlockedWaiterName",
     "QueueSchedulingWaiterName",
     "QueueStatusType",
+    "RangeConstraintType",
     "ResourceServiceName",
     "RunAsType",
     "SearchTermMatchingTypeType",
@@ -131,7 +134,14 @@ BudgetActionTypeType = Literal[
 ]
 BudgetStatusType = Literal["ACTIVE", "INACTIVE"]
 ComparisonOperatorType = Literal[
-    "EQUAL", "GREATER_THAN", "GREATER_THAN_EQUAL_TO", "LESS_THAN", "LESS_THAN_EQUAL_TO", "NOT_EQUAL"
+    "ALL_NOT_EQUALS",
+    "ANY_EQUALS",
+    "EQUAL",
+    "GREATER_THAN",
+    "GREATER_THAN_EQUAL_TO",
+    "LESS_THAN",
+    "LESS_THAN_EQUAL_TO",
+    "NOT_EQUAL",
 ]
 CompletedStatusType = Literal["CANCELED", "FAILED", "INTERRUPTED", "NEVER_ATTEMPTED", "SUCCEEDED"]
 CpuArchitectureTypeType = Literal["arm64", "x86_64"]
@@ -156,6 +166,7 @@ FleetStatusType = Literal[
 ]
 GetSessionsStatisticsAggregationPaginatorName = Literal["get_sessions_statistics_aggregation"]
 JobAttachmentsFileSystemType = Literal["COPIED", "VIRTUAL"]
+JobCompleteWaiterName = Literal["job_complete"]
 JobCreateCompleteWaiterName = Literal["job_create_complete"]
 JobEntityErrorCodeType = Literal[
     "AccessDeniedException",
@@ -176,6 +187,7 @@ JobLifecycleStatusType = Literal[
     "UPLOAD_FAILED",
     "UPLOAD_IN_PROGRESS",
 ]
+JobSucceededWaiterName = Literal["job_succeeded"]
 JobTargetTaskRunStatusType = Literal[
     "CANCELED", "FAILED", "PENDING", "READY", "SUCCEEDED", "SUSPENDED"
 ]
@@ -230,6 +242,7 @@ QueueLimitAssociationStoppedWaiterName = Literal["queue_limit_association_stoppe
 QueueSchedulingBlockedWaiterName = Literal["queue_scheduling_blocked"]
 QueueSchedulingWaiterName = Literal["queue_scheduling"]
 QueueStatusType = Literal["IDLE", "SCHEDULING", "SCHEDULING_BLOCKED"]
+RangeConstraintType = Literal["CONTIGUOUS", "NONCONTIGUOUS"]
 RunAsType = Literal["QUEUE_CONFIGURED_USER", "WORKER_AGENT_USER"]
 SearchTermMatchingTypeType = Literal["CONTAINS", "FUZZY_MATCH"]
 ServiceManagedFleetOperatingSystemFamilyType = Literal["LINUX", "WINDOWS"]
@@ -328,7 +341,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -398,6 +410,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -443,7 +456,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -496,7 +508,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -535,8 +546,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -571,6 +580,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -580,6 +590,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -590,6 +601,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -611,8 +625,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -627,15 +639,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -666,6 +679,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -706,6 +720,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -752,7 +767,9 @@ PaginatorName = Literal[
 ]
 WaiterName = Literal[
     "fleet_active",
+    "job_complete",
     "job_create_complete",
+    "job_succeeded",
     "license_endpoint_deleted",
     "license_endpoint_valid",
     "queue_fleet_association_stopped",

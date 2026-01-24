@@ -9,88 +9,88 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
-from githubkit.compat import ExtraGitHubModel, GitHubModel, model_rebuild
+from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0353 import Metadata
+from .group_0010 import Integration
+from .group_0204 import PullRequestMinimal
+from .group_0355 import DeploymentSimple
 
 
-class Snapshot(GitHubModel):
-    """snapshot
+class CheckRun(GitHubModel):
+    """CheckRun
 
-    Create a new snapshot of a repository's dependencies.
+    A check performed on the code of a given code change
     """
 
-    version: int = Field(
-        description="The version of the repository snapshot submission."
+    id: int = Field(description="The id of the check.")
+    head_sha: str = Field(description="The SHA of the commit that is being checked.")
+    node_id: str = Field()
+    external_id: Union[str, None] = Field()
+    url: str = Field()
+    html_url: Union[str, None] = Field()
+    details_url: Union[str, None] = Field()
+    status: Literal[
+        "queued", "in_progress", "completed", "waiting", "requested", "pending"
+    ] = Field(
+        description="The phase of the lifecycle that the check is currently in. Statuses of waiting, requested, and pending are reserved for GitHub Actions check runs."
     )
-    job: SnapshotPropJob = Field()
-    sha: str = Field(
-        min_length=40,
-        max_length=40,
-        description="The commit SHA associated with this dependency snapshot. Maximum length: 40 characters.",
+    conclusion: Union[
+        None,
+        Literal[
+            "success",
+            "failure",
+            "neutral",
+            "cancelled",
+            "skipped",
+            "timed_out",
+            "action_required",
+        ],
+    ] = Field()
+    started_at: Union[_dt.datetime, None] = Field()
+    completed_at: Union[_dt.datetime, None] = Field()
+    output: CheckRunPropOutput = Field()
+    name: str = Field(description="The name of the check.")
+    check_suite: Union[CheckRunPropCheckSuite, None] = Field()
+    app: Union[None, Integration, None] = Field()
+    pull_requests: list[PullRequestMinimal] = Field(
+        description="Pull requests that are open with a `head_sha` or `head_branch` that matches the check. The returned pull requests do not necessarily indicate pull requests that triggered the check."
     )
-    ref: str = Field(
-        pattern="^refs/",
-        description="The repository branch that triggered this snapshot.",
-    )
-    detector: SnapshotPropDetector = Field(
-        description="A description of the detector used."
-    )
-    metadata: Missing[Metadata] = Field(
+    deployment: Missing[DeploymentSimple] = Field(
         default=UNSET,
-        title="metadata",
-        description="User-defined metadata to store domain-specific information limited to 8 keys with scalar values.",
+        title="Deployment",
+        description="A deployment created as the result of an Actions check run from a workflow that references an environment",
     )
-    manifests: Missing[SnapshotPropManifests] = Field(
-        default=UNSET,
-        description="A collection of package manifests, which are a collection of related dependencies declared in a file or representing a logical group of dependencies.",
-    )
-    scanned: datetime = Field(description="The time at which the snapshot was scanned.")
 
 
-class SnapshotPropJob(GitHubModel):
-    """SnapshotPropJob"""
+class CheckRunPropOutput(GitHubModel):
+    """CheckRunPropOutput"""
 
-    id: str = Field(description="The external ID of the job.")
-    correlator: str = Field(
-        description="Correlator provides a key that is used to group snapshots submitted over time. Only the \"latest\" submitted snapshot for a given combination of `job.correlator` and `detector.name` will be considered when calculating a repository's current dependencies. Correlator should be as unique as it takes to distinguish all detection runs for a given \"wave\" of CI workflow you run. If you're using GitHub Actions, a good default value for this could be the environment variables GITHUB_WORKFLOW and GITHUB_JOB concatenated together. If you're using a build matrix, then you'll also need to add additional key(s) to distinguish between each submission inside a matrix variation."
-    )
-    html_url: Missing[str] = Field(default=UNSET, description="The url for the job.")
-
-
-class SnapshotPropDetector(GitHubModel):
-    """SnapshotPropDetector
-
-    A description of the detector used.
-    """
-
-    name: str = Field(description="The name of the detector used.")
-    version: str = Field(description="The version of the detector used.")
-    url: str = Field(description="The url of the detector used.")
+    title: Union[str, None] = Field()
+    summary: Union[str, None] = Field()
+    text: Union[str, None] = Field()
+    annotations_count: int = Field()
+    annotations_url: str = Field()
 
 
-class SnapshotPropManifests(ExtraGitHubModel):
-    """SnapshotPropManifests
+class CheckRunPropCheckSuite(GitHubModel):
+    """CheckRunPropCheckSuite"""
 
-    A collection of package manifests, which are a collection of related
-    dependencies declared in a file or representing a logical group of dependencies.
-    """
+    id: int = Field()
 
 
-model_rebuild(Snapshot)
-model_rebuild(SnapshotPropJob)
-model_rebuild(SnapshotPropDetector)
-model_rebuild(SnapshotPropManifests)
+model_rebuild(CheckRun)
+model_rebuild(CheckRunPropOutput)
+model_rebuild(CheckRunPropCheckSuite)
 
 __all__ = (
-    "Snapshot",
-    "SnapshotPropDetector",
-    "SnapshotPropJob",
-    "SnapshotPropManifests",
+    "CheckRun",
+    "CheckRunPropCheckSuite",
+    "CheckRunPropOutput",
 )

@@ -3,7 +3,7 @@ Type annotations for cognito-sync service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_sync/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -63,12 +64,6 @@ from .type_defs import (
     UpdateRecordsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -77,20 +72,20 @@ else:
 __all__ = ("CognitoSyncClient",)
 
 class Exceptions(BaseClientExceptions):
-    AlreadyStreamedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    DuplicateRequestException: Type[BotocoreClientError]
-    InternalErrorException: Type[BotocoreClientError]
-    InvalidConfigurationException: Type[BotocoreClientError]
-    InvalidLambdaFunctionOutputException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    LambdaThrottledException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    ResourceConflictException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AlreadyStreamedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    DuplicateRequestException: type[BotocoreClientError]
+    InternalErrorException: type[BotocoreClientError]
+    InvalidConfigurationException: type[BotocoreClientError]
+    InvalidLambdaFunctionOutputException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    LambdaThrottledException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class CognitoSyncClient(AioBaseClient):
     """
@@ -273,7 +268,7 @@ class CognitoSyncClient(AioBaseClient):
 
     async def subscribe_to_dataset(
         self, **kwargs: Unpack[SubscribeToDatasetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Subscribes to receive notifications when a dataset is modified by another
         device.
@@ -284,7 +279,7 @@ class CognitoSyncClient(AioBaseClient):
 
     async def unsubscribe_from_dataset(
         self, **kwargs: Unpack[UnsubscribeFromDatasetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Unsubscribes from receiving notifications when a dataset is modified by another
         device.
@@ -311,7 +306,7 @@ class CognitoSyncClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

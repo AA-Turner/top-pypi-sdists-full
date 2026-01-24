@@ -1,9 +1,9 @@
 import time
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from clarifai_grpc.grpc.api import resources_pb2, service_pb2
-from clarifai_grpc.grpc.api.status import status_code_pb2
+from clarifai_grpc.grpc.api.status import status_code_pb2, status_pb2
 from google.protobuf import json_format
 
 from clarifai.client.base import BaseClient
@@ -19,35 +19,35 @@ class Pipeline(Lister, BaseClient):
 
     def __init__(
         self,
-        url: str = None,
-        pipeline_id: str = None,
-        pipeline_version_id: str = None,
-        pipeline_version_run_id: str = None,
-        user_id: str = None,
-        app_id: str = None,
-        nodepool_id: str = None,
-        compute_cluster_id: str = None,
-        log_file: str = None,
+        url: Optional[str] = None,
+        pipeline_id: Optional[str] = None,
+        pipeline_version_id: Optional[str] = None,
+        pipeline_version_run_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        app_id: Optional[str] = None,
+        nodepool_id: Optional[str] = None,
+        compute_cluster_id: Optional[str] = None,
+        log_file: Optional[str] = None,
         base_url: str = DEFAULT_BASE,
-        pat: str = None,
-        token: str = None,
-        root_certificates_path: str = None,
+        pat: Optional[str] = None,
+        token: Optional[str] = None,
+        root_certificates_path: Optional[str] = None,
         **kwargs,
     ):
         """Initializes a Pipeline object.
 
         Args:
-            url (str): The URL to initialize the pipeline object.
-            pipeline_id (str): The Pipeline ID to interact with.
-            pipeline_version_id (str): The Pipeline Version ID to interact with.
-            pipeline_version_run_id (str): The Pipeline Version Run ID. If not provided, a UUID will be generated.
-            user_id (str): The User ID that owns the pipeline.
-            app_id (str): The App ID that contains the pipeline.
-            nodepool_id (str): The Nodepool ID to run the pipeline on.
-            compute_cluster_id (str): The Compute Cluster ID to run the pipeline on.
-            log_file (str): Path to file where logs should be written. If not provided, logs are displayed on console.
+            url (Optional[str]): The URL to initialize the pipeline object.
+            pipeline_id (Optional[str]): The Pipeline ID to interact with.
+            pipeline_version_id (Optional[str]): The Pipeline Version ID to interact with.
+            pipeline_version_run_id (Optional[str]): The Pipeline Version Run ID. If not provided, a UUID will be generated.
+            user_id (Optional[str]): The User ID that owns the pipeline.
+            app_id (Optional[str]): The App ID that contains the pipeline.
+            nodepool_id (Optional[str]): The Nodepool ID to run the pipeline on.
+            compute_cluster_id (Optional[str]): The Compute Cluster ID to run the pipeline on.
+            log_file (Optional[str]): Path to file where logs should be written. If not provided, logs are displayed on console.
             base_url (str): Base API url. Default "https://api.clarifai.com"
-            pat (str): A personal access token for authentication. Can be set as env var CLARIFAI_PAT
+            pat (Optional[str]): A personal access token for authentication. Can be set as env var CLARIFAI_PAT
             token (str): A session token for authentication. Accepts either a session token or a pat. Can be set as env var CLARIFAI_SESSION_TOKEN
             root_certificates_path (str): Path to the SSL root certificates file, used to establish secure gRPC connections.
             **kwargs: Additional keyword arguments to be passed to the Pipeline.
@@ -100,13 +100,20 @@ class Pipeline(Lister, BaseClient):
                 nodepool_id=self.nodepool_id,
             )
 
-    def run(self, inputs: List = None, timeout: int = 3600, monitor_interval: int = 10) -> Dict:
+    def run(
+        self,
+        inputs: List = None,
+        timeout: int = 3600,
+        monitor_interval: int = 10,
+        input_args_override: Optional["resources_pb2.OrchestrationArgsOverride"] = None,
+    ) -> Dict:
         """Run the pipeline and monitor its progress.
 
         Args:
             inputs (List): List of inputs to run the pipeline with. If None, runs without inputs.
             timeout (int): Maximum time to wait for completion in seconds. Default 3600 (1 hour).
             monitor_interval (int): Interval between status checks in seconds. Default 10.
+            input_args_override (OrchestrationArgsOverride): Override arguments for the pipeline run.
 
         Returns:
             Dict: The pipeline run result.
@@ -114,6 +121,10 @@ class Pipeline(Lister, BaseClient):
         # Create a new pipeline version run
         pipeline_version_run = resources_pb2.PipelineVersionRun()
         pipeline_version_run.id = self.pipeline_version_run_id
+
+        # Set input arguments override if provided (server will handle merging)
+        if input_args_override:
+            pipeline_version_run.input_args_override.CopyFrom(input_args_override)
 
         # Set nodepools if nodepool information is available
         if self.nodepool_id and self.compute_cluster_id:
@@ -136,6 +147,7 @@ class Pipeline(Lister, BaseClient):
             run_request.runner_selector.CopyFrom(self._runner_selector)
 
         logger.info(f"Starting pipeline run for pipeline {self.pipeline_id}")
+
         response = self.STUB.PostPipelineVersionRuns(
             run_request, metadata=self.auth_helper.metadata
         )
@@ -330,3 +342,62 @@ class Pipeline(Lister, BaseClient):
             logger.debug(f"Error fetching logs: {e}")
             # Return current page on error to retry the same page next fetch
             return current_page
+
+    def patch_pipeline_version_run(
+        self,
+        pipeline_version_run_id: str,
+        orchestration_status_code: int,
+    ) -> Dict:
+        """Patch a pipeline version run's orchestration status.
+
+        This method can be used to pause, cancel, or resume a pipeline run.
+
+        Args:
+            pipeline_version_run_id (str): The pipeline version run ID to patch.
+            orchestration_status_code (int): The status code to set (e.g., JOB_PAUSED, JOB_CANCELLED, JOB_RUNNING).
+
+        Returns:
+            Dict: The response as a dictionary.
+
+        Raises:
+            UserError: If the patch request fails.
+        """
+        # Create the orchestration status
+        orchestration_status = resources_pb2.OrchestrationStatus(
+            status=status_pb2.Status(code=orchestration_status_code)
+        )
+
+        # Create the pipeline version run with only the ID and status
+        pipeline_version_run = resources_pb2.PipelineVersionRun(
+            id=pipeline_version_run_id, orchestration_status=orchestration_status
+        )
+
+        # Create the patch request
+        patch_request = service_pb2.PatchPipelineVersionRunsRequest()
+        patch_request.user_app_id.CopyFrom(self.user_app_id)
+        patch_request.pipeline_id = self.pipeline_id
+        patch_request.pipeline_version_id = self.pipeline_version_id or ""
+        patch_request.pipeline_version_runs.append(pipeline_version_run)
+        patch_request.action = "overwrite"
+
+        # Make the API call
+        response = self.STUB.PatchPipelineVersionRuns(
+            patch_request, metadata=self.auth_helper.metadata
+        )
+
+        # Check for errors
+        if response.status.code != status_code_pb2.StatusCode.SUCCESS:
+            raise UserError(
+                f"Failed to patch pipeline version run: {response.status.description}. "
+                f"Details: {response.status.details}. "
+                f"Code: {status_code_pb2.StatusCode.Name(response.status.code)}."
+            )
+
+        logger.info(
+            f"Successfully patched pipeline version run {pipeline_version_run_id} "
+            f"to status code {orchestration_status_code} "
+            f"(user_id: {self.user_app_id.user_id}, app_id: {self.user_app_id.app_id}, "
+            f"pipeline_id: {self.pipeline_id}, pipeline_version_id: {self.pipeline_version_id})"
+        )
+
+        return json_format.MessageToDict(response, preserving_proto_field_name=True)

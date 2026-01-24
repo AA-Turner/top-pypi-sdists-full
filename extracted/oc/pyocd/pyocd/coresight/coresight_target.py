@@ -82,6 +82,9 @@ class CoreSightTarget(SoCTarget):
                 DeviceRegion(name="PPB",        start=0xE0000000, length=0x20000000, access='rw'),
                 )
 
+    def flush(self) -> None:
+        self.dp.flush()
+
     def load_svd(self) -> None:
         def svd_load_completed_cb(svdDevice):
             self._svd_device = svdDevice
@@ -237,7 +240,7 @@ class CoreSightTarget(SoCTarget):
             for core in self.cores.values():
                 try:
                     if mode == 'under-reset':
-                        core.set_reset_catch(Target.ResetType.HW)
+                        core.set_reset_catch(Target.ResetType.HARDWARE)
                     else:
                         core.halt()
                 except exceptions.Error as err:
@@ -258,7 +261,7 @@ class CoreSightTarget(SoCTarget):
             # Apply to all cores.
             for core in self.cores.values():
                 try:
-                    core.clear_reset_catch(Target.ResetType.HW)
+                    core.clear_reset_catch(Target.ResetType.HARDWARE)
                 except exceptions.Error as err:
                     LOG.warning("Could not halt core #%d: %s", core.core_number, err,
                         exc_info=self.session.log_tracebacks)
@@ -368,4 +371,3 @@ class CoreSightTarget(SoCTarget):
                     pname=self.selected_core_or_raise.node_name)
             result = True
         return result
-

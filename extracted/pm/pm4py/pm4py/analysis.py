@@ -31,9 +31,9 @@ from pm4py.objects.process_tree.obj import ProcessTree
 from pm4py.utils import get_properties, pandas_utils, constants
 from pm4py.util.pandas_utils import check_is_pandas_dataframe, check_pandas_dataframe_columns
 from pm4py.util import labels_similarity as ls_util
+from pm4py.util import deprecation
 
 import pandas as pd
-import deprecation
 
 
 @deprecation.deprecated(
@@ -201,6 +201,55 @@ def solve_extended_marking_equation(
     return extended_marking_equation.get_h_value(me)
 
 
+def check_is_sound(petri_net: PetriNet,
+                   initial_marking: Marking,
+                   final_marking: Marking) -> bool:
+    """
+    Checks if a given Petri net is a sound Workflow net (WF-net).
+    Returns a boolean value.
+
+    A Petri net is a WF-net if and only if:
+        - It has a unique source place.
+        - It has a unique end place.
+        - Every element in the WF-net is on a path from the source to the sink place.
+
+    A WF-net is sound if and only if:
+        - It contains no live-locks.
+        - It contains no deadlocks.
+        - It is always possible to reach the final marking from any reachable marking.
+
+    :param petri_net: The Petri net to check.
+    :param initial_marking: The initial marking of the Petri net.
+    :param final_marking: The final marking of the Petri net.
+    :returns: boolean (True if the Petri net is sound)
+    """
+    try:
+        from pm4py.convert import convert_to_powl
+        powl_model = convert_to_powl(petri_net, initial_marking, final_marking)
+        return True
+    except:
+        pass
+
+    from pm4py.algo.analysis.woflan import algorithm as woflan
+    soundness = woflan.apply(
+        petri_net,
+        initial_marking,
+        final_marking,
+        parameters={
+            "return_asap_when_not_sound": True,
+            "return_diagnostics": True,
+            "print_diagnostics": False,
+        },
+    )
+
+    return soundness[0]
+
+
+@deprecation.deprecated(
+    deprecated_in="2.3.0",
+    removed_in="3.0.0",
+    details="this method will be removed in a future release.",
+)
 def check_soundness(
     petri_net: PetriNet,
     initial_marking: Marking,
@@ -815,8 +864,9 @@ def structural_similarity(*args) -> float:
     Computes the structural similarity between two semi-block-structured process models,
     following an approach similar to:
 
-    Dijkman, Remco, et al. "Similarity of business process models: Metrics and evaluation."
-    Information Systems 36.2 (2011): 498-516.
+    Yan, Z., Dijkman, R., & Grefen, P. (2012). Fast business process similarity search.
+    Distributed and Parallel Databases, 30(2), 105–144.
+    (https://doi.org/10.1007/s10619-012-7089-z)
 
     Examples:
     * pm4py.structural_similarity(petri_net, im, fm, process_tree)

@@ -1,7 +1,6 @@
 import json
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
-from typing import Optional, Union
 from xml.etree.ElementTree import QName
 
 from tests import fixtures_dir
@@ -26,6 +25,16 @@ from xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
 from xsdata.formats.dataclass.parsers import DictDecoder
 from xsdata.models.datatype import XmlDate
 from xsdata.utils.testing import FactoryTestCase
+
+# Default values for BookForm required fields
+BOOK_DEFAULTS = {
+    "author": "Test Author",
+    "title": "Test Title",
+    "genre": "Fiction",
+    "price": 9.99,
+    "pub_date": XmlDate(2020, 1, 1),
+    "review": "Test review",
+}
 
 
 class DictDecoderTests(FactoryTestCase):
@@ -66,10 +75,6 @@ class DictDecoderTests(FactoryTestCase):
             ),
             books.book[1],
         )
-
-    def test_decode_empty_document(self) -> None:
-        self.assertEqual(BookForm(), self.decoder.decode({}, BookForm))
-        self.assertEqual([], self.decoder.decode([], list[BookForm]))
 
     def test_decode_list_of_objects(self) -> None:
         path = fixtures_dir.joinpath("books/books.json")
@@ -141,8 +146,8 @@ class DictDecoderTests(FactoryTestCase):
             ({}, list[BookForm], "Document is object, expected array"),
             (
                 {},
-                Optional[ChoiceType],
-                f"Invalid clazz argument: {Optional[ChoiceType]}",
+                None | ChoiceType,
+                f"Invalid clazz argument: {None | ChoiceType}",
             ),
             ([], list[int], f"Invalid clazz argument: {list[int]}"),
         ]
@@ -187,13 +192,24 @@ class DictDecoderTests(FactoryTestCase):
             "value": {
                 "author": "Nagata, Suanne",
                 "title": "Becoming Somebody",
+                "genre": "Biography",
+                "price": 19.99,
+                "pub_date": "2020-01-01",
+                "review": "A masterpiece.",
             },
         }
 
         actual = self.decoder.bind_dataclass(data, BookForm)
         expected = DerivedElement(
             qname="{urn:books}BookForm",
-            value=BookForm(author="Nagata, Suanne", title="Becoming Somebody"),
+            value=BookForm(
+                author="Nagata, Suanne",
+                title="Becoming Somebody",
+                genre="Biography",
+                price=19.99,
+                pub_date=XmlDate(2020, 1, 1),
+                review="A masterpiece.",
+            ),
             type=None,
         )
         self.assertEqual(expected, actual)
@@ -205,13 +221,24 @@ class DictDecoderTests(FactoryTestCase):
             "value": {
                 "author": "Nagata, Suanne",
                 "title": "Becoming Somebody",
+                "genre": "Biography",
+                "price": 19.99,
+                "pub_date": "2020-01-01",
+                "review": "A masterpiece.",
             },
         }
 
         actual = self.decoder.bind_dataclass(data, DerivedElement)
         expected = DerivedElement(
             qname="foobar",
-            value=BookForm(author="Nagata, Suanne", title="Becoming Somebody"),
+            value=BookForm(
+                author="Nagata, Suanne",
+                title="Becoming Somebody",
+                genre="Biography",
+                price=19.99,
+                pub_date=XmlDate(2020, 1, 1),
+                review="A masterpiece.",
+            ),
             type="{urn:books}BookForm",
         )
         self.assertEqual(expected, actual)
@@ -221,7 +248,7 @@ class DictDecoderTests(FactoryTestCase):
             self.decoder.bind_dataclass(data, DerivedElement)
 
         self.assertEqual(
-            "Unable to locate derived model with properties(['author', 'title'])",
+            "Unable to locate derived model with properties(['author', 'title', 'genre', 'price', 'pub_date', 'review'])",
             str(cm.exception),
         )
 
@@ -390,7 +417,7 @@ class DictDecoderTests(FactoryTestCase):
     def test_bind_text_with_unions(self) -> None:
         @dataclass
         class Fixture:
-            x: list[Union[int, float, str, bool]] = field(metadata={"tokens": True})
+            x: list[int | float | str | bool] = field(metadata={"tokens": True})
 
         values = ["foo", 12.2, "12.2", 12, "12", True, "false"]
 

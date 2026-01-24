@@ -1,4 +1,5 @@
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
 
 from ...call_builder.base import BaseLedgersCallBuilder
 from ...call_builder.call_builder_sync.base_call_builder import BaseCallBuilder
@@ -11,7 +12,7 @@ class LedgersCallBuilder(BaseCallBuilder, BaseLedgersCallBuilder):
     """Creates a new :class:`LedgersCallBuilder` pointed to server defined by horizon_url.
     Do not create this object directly, use :func:`stellar_sdk.Server.ledgers`.
 
-    See `List All Ledgers <https://developers.stellar.org/api/resources/ledgers/list/>`__ for more information.
+    See `List All Ledgers <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-all-ledgers>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -22,7 +23,7 @@ class LedgersCallBuilder(BaseCallBuilder, BaseLedgersCallBuilder):
 
     def stream(
         self,
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Creates an EventSource that listens for events from the `Ledgers` endpoint.
 
         See `Streaming <https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming>`__ for more information.

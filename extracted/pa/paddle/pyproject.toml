@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "paddle"
+version = "1.2.1"
+description = "Python Atmospheric Dynamics: Discovery and Learning about Exoplanets. An open-source, user-friendly python frontend of canoe"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "Elijah Mullens", email = "eem85@cornell.edu" },
+  { name = "Cheng Li", email = "chengcli@umich.edu" },
+]
+keywords = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Atmospheric Science",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+dependencies = [
+  "torch>=2.7.0,<=2.7.1",
+  "snapy>=1.1.5",
+  "scipy"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+]
+
+[project.urls]
+Homepage = "https://github.com/elijah-mullens/paddle"
+Repository = "https://github.com/elijah-mullens/paddle"
+Issues = "https://github.com/elijah-mullens/paddle/issues"
+
+[project.scripts]
+paddle = "paddle.__main__:main"

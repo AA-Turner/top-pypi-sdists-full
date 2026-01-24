@@ -2,7 +2,8 @@
 
 import contextlib
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from collections.abc import Callable
+from typing import Any, cast
 
 import attr
 import numpy
@@ -34,7 +35,7 @@ from rio_tiler.errors import (
 from rio_tiler.expression import parse_expression
 from rio_tiler.io.base import BaseReader
 from rio_tiler.models import BandStatistics, ImageData, Info, PointData
-from rio_tiler.types import BBox, Indexes, NumType, RIOResampling
+from rio_tiler.types import BBox, Indexes, RIOResampling
 from rio_tiler.utils import (
     CRS_to_uri,
     _validate_shape_input,
@@ -73,14 +74,14 @@ class Reader(BaseReader):
 
     """
 
-    input: str = attr.ib()
-    dataset: Union[DatasetReader, DatasetWriter, MemoryFile, WarpedVRT] = attr.ib(
+    input: str | None = attr.ib()
+    dataset: DatasetReader | DatasetWriter | MemoryFile | WarpedVRT | None = attr.ib(
         default=None
     )
 
     tms: TileMatrixSet = attr.ib(default=WEB_MERCATOR_TMS)
 
-    colormap: Dict = attr.ib(default=None)
+    colormap: dict | None = attr.ib(default=None)
 
     options: reader.Options = attr.ib()
 
@@ -214,14 +215,14 @@ class Reader(BaseReader):
     def statistics(
         self,
         categorical: bool = False,
-        categories: Optional[List[float]] = None,
-        percentiles: Optional[List[int]] = None,
-        hist_options: Optional[Dict] = None,
+        categories: list[float] | None = None,
+        percentiles: list[int] | None = None,
+        hist_options: dict | None = None,
         max_size: int = 1024,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
         **kwargs: Any,
-    ) -> Dict[str, BandStatistics]:
+    ) -> dict[str, BandStatistics]:
         """Return bands statistics from a dataset.
 
         Args:
@@ -254,9 +255,9 @@ class Reader(BaseReader):
         tile_y: int,
         tile_z: int,
         tilesize: int = 256,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
-        buffer: Optional[float] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        buffer: float | None = None,
         **kwargs: Any,
     ) -> ImageData:
         """Read a Web Map tile from a Dataset.
@@ -281,7 +282,7 @@ class Reader(BaseReader):
             )
 
         return self.part(
-            tuple(self.tms.xy_bounds(Tile(x=tile_x, y=tile_y, z=tile_z))),
+            cast(BBox, self.tms.xy_bounds(Tile(x=tile_x, y=tile_y, z=tile_z))),
             dst_crs=self.tms.rasterio_crs,
             bounds_crs=self.tms.rasterio_crs,
             height=tilesize,
@@ -296,14 +297,14 @@ class Reader(BaseReader):
     def part(
         self,
         bbox: BBox,
-        dst_crs: Optional[CRS] = None,
+        dst_crs: CRS | None = None,
         bounds_crs: CRS = WGS84_CRS,
-        indexes: Optional[Union[int, Sequence]] = None,
-        expression: Optional[str] = None,
-        max_size: Optional[int] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
-        buffer: Optional[float] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        max_size: int | None = None,
+        height: int | None = None,
+        width: int | None = None,
+        buffer: float | None = None,
         **kwargs: Any,
     ) -> ImageData:
         """Read part of a Dataset.
@@ -359,11 +360,11 @@ class Reader(BaseReader):
 
     def preview(
         self,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
         max_size: int = 1024,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
+        height: int | None = None,
+        width: int | None = None,
         **kwargs: Any,
     ) -> ImageData:
         """Return a preview of a Dataset.
@@ -394,8 +395,8 @@ class Reader(BaseReader):
         lon: float,
         lat: float,
         coord_crs: CRS = WGS84_CRS,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
         **kwargs: Any,
     ) -> PointData:
         """Read a pixel value from a Dataset.
@@ -435,15 +436,15 @@ class Reader(BaseReader):
 
     def feature(
         self,
-        shape: Dict,
-        dst_crs: Optional[CRS] = None,
+        shape: dict,
+        dst_crs: CRS | None = None,
         shape_crs: CRS = WGS84_CRS,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
-        max_size: Optional[int] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
-        buffer: Optional[NumType] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        max_size: int | None = None,
+        height: int | None = None,
+        width: int | None = None,
+        buffer: float | None = None,
         **kwargs: Any,
     ) -> ImageData:
         """Read part of a Dataset defined by a geojson feature.
@@ -514,8 +515,8 @@ class Reader(BaseReader):
 
     def read(
         self,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
         **kwargs: Any,
     ) -> ImageData:
         """Read the Dataset.
@@ -560,7 +561,7 @@ class LocalTileMatrixSet:
     minzoom: int = attr.ib(init=False, default=0)
     maxzoom: int = attr.ib(init=False)
 
-    rasterio_crs: CRS = attr.ib(init=False, default=None)
+    rasterio_crs: CRS | None = attr.ib(init=False, default=None)
 
     @maxzoom.default
     def _maxzoom(self):
@@ -594,7 +595,7 @@ class ImageReader(Reader):
 
     tms: TileMatrixSet = attr.ib(init=False)
 
-    crs: CRS = attr.ib(init=False, default=None)
+    crs: CRS | None = attr.ib(init=False, default=None)
     transform: Affine = attr.ib(init=False)
 
     def __attrs_post_init__(self):
@@ -635,15 +636,13 @@ class ImageReader(Reader):
         tile_y: int,
         tile_z: int,
         tilesize: int = 256,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
-        force_binary_mask: bool = True,
-        out_dtype: Optional[Union[str, numpy.dtype]] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        out_dtype: str | numpy.dtype | None = None,
         resampling_method: RIOResampling = "nearest",
         unscale: bool = False,
-        post_process: Optional[
-            Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
-        ] = None,
+        post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
+        | None = None,
     ) -> ImageData:
         """Read a Web Map tile from an Image.
 
@@ -654,7 +653,6 @@ class ImageReader(Reader):
             tilesize (int, optional): Output image size. Defaults to `256`.
             indexes (int or sequence of int, optional): Band indexes.
             expression (str, optional): rio-tiler expression (e.g. b1/b2+b3).
-            force_binary_mask (bool, optional): Cast returned mask to binary values (0 or 255). Defaults to `True`.
             resampling_method (RIOResampling, optional): RasterIO resampling algorithm. Defaults to `nearest`.
             unscale (bool, optional): Apply 'scales' and 'offsets' on output data value. Defaults to `False`.
             post_process (callable, optional): Function to apply on output data and mask values.
@@ -669,13 +667,12 @@ class ImageReader(Reader):
             )
 
         return self.part(
-            tuple(self.tms.xy_bounds(Tile(x=tile_x, y=tile_y, z=tile_z))),
+            cast(BBox, self.tms.xy_bounds(Tile(x=tile_x, y=tile_y, z=tile_z))),
             height=tilesize,
             width=tilesize,
             max_size=None,
             indexes=indexes,
             expression=expression,
-            force_binary_mask=force_binary_mask,
             out_dtype=out_dtype,
             resampling_method=resampling_method,
             unscale=unscale,
@@ -685,18 +682,16 @@ class ImageReader(Reader):
     def part(  # type: ignore
         self,
         bbox: BBox,
-        indexes: Optional[Union[int, Sequence]] = None,
-        expression: Optional[str] = None,
-        max_size: Optional[int] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
-        force_binary_mask: bool = True,
-        out_dtype: Optional[Union[str, numpy.dtype]] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        max_size: int | None = None,
+        height: int | None = None,
+        width: int | None = None,
+        out_dtype: str | numpy.dtype | None = None,
         resampling_method: RIOResampling = "nearest",
         unscale: bool = False,
-        post_process: Optional[
-            Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
-        ] = None,
+        post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
+        | None = None,
     ) -> ImageData:
         """Read part of an Image.
 
@@ -707,7 +702,6 @@ class ImageReader(Reader):
             max_size (int, optional): Limit the size of the longest dimension of the dataset read, respecting bounds X/Y aspect ratio.
             height (int, optional): Output height of the array.
             width (int, optional): Output width of the array.
-            force_binary_mask (bool, optional): Cast returned mask to binary values (0 or 255). Defaults to `True`.
             resampling_method (RIOResampling, optional): RasterIO resampling algorithm. Defaults to `nearest`.
             unscale (bool, optional): Apply 'scales' and 'offsets' on output data value. Defaults to `False`.
             post_process (callable, optional): Function to apply on output data and mask values.
@@ -733,7 +727,6 @@ class ImageReader(Reader):
             width=width,
             height=height,
             indexes=indexes,
-            force_binary_mask=force_binary_mask,
             out_dtype=out_dtype,
             resampling_method=resampling_method,
             unscale=unscale,
@@ -750,14 +743,13 @@ class ImageReader(Reader):
         self,
         x: float,
         y: float,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
-        out_dtype: Optional[Union[str, numpy.dtype]] = None,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        out_dtype: str | numpy.dtype | None = None,
         resampling_method: RIOResampling = "nearest",
         unscale: bool = False,
-        post_process: Optional[
-            Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
-        ] = None,
+        post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
+        | None = None,
     ) -> PointData:
         """Read a pixel value from an Image.
 
@@ -793,30 +785,29 @@ class ImageReader(Reader):
             coordinates=self.dataset.xy(x, y),
             crs=self.dataset.crs,
             band_names=img.band_names,
+            band_descriptions=img.band_descriptions,
             pixel_location=(x, y),
         )
 
     def feature(  # type: ignore
         self,
-        shape: Dict,
-        indexes: Optional[Indexes] = None,
-        expression: Optional[str] = None,
-        max_size: Optional[int] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
-        force_binary_mask: bool = True,
-        out_dtype: Optional[Union[str, numpy.dtype]] = None,
+        shape: dict,
+        indexes: Indexes | None = None,
+        expression: str | None = None,
+        max_size: int | None = None,
+        height: int | None = None,
+        width: int | None = None,
+        out_dtype: str | numpy.dtype | None = None,
         resampling_method: RIOResampling = "nearest",
         unscale: bool = False,
-        post_process: Optional[
-            Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
-        ] = None,
+        post_process: Callable[[numpy.ma.MaskedArray], numpy.ma.MaskedArray]
+        | None = None,
     ) -> ImageData:
         """Read part of an Image defined by a geojson feature."""
         bbox = featureBounds(shape)
 
         # If Image Origin is top Left (non-geo) we need to invert the bbox
-        bbox = [bbox[0], bbox[3], bbox[2], bbox[1]]
+        bbox = (bbox[0], bbox[3], bbox[2], bbox[1])
 
         img = self.part(
             bbox,
@@ -824,7 +815,6 @@ class ImageReader(Reader):
             max_size=max_size,
             height=height,
             width=width,
-            force_binary_mask=force_binary_mask,
             out_dtype=out_dtype,
             resampling_method=resampling_method,
             unscale=unscale,

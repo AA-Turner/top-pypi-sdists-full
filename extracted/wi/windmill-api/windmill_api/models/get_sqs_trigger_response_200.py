@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.get_sqs_trigger_response_200_aws_auth_resource_type import GetSqsTriggerResponse200AwsAuthResourceType
+from ..models.get_sqs_trigger_response_200_mode import GetSqsTriggerResponse200Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,7 +25,6 @@ class GetSqsTriggerResponse200:
         queue_url (str):
         aws_auth_resource_type (GetSqsTriggerResponse200AwsAuthResourceType):
         aws_resource_path (str):
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -33,6 +33,7 @@ class GetSqsTriggerResponse200:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (GetSqsTriggerResponse200Mode): job trigger mode
         message_attributes (Union[Unset, List[str]]):
         server_id (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
@@ -40,13 +41,12 @@ class GetSqsTriggerResponse200:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GetSqsTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the script
             or flow
-        retry (Union[Unset, GetSqsTriggerResponse200Retry]):
+        retry (Union[Unset, GetSqsTriggerResponse200Retry]): Retry configuration for failed module executions
     """
 
     queue_url: str
     aws_auth_resource_type: GetSqsTriggerResponse200AwsAuthResourceType
     aws_resource_path: str
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -55,6 +55,7 @@ class GetSqsTriggerResponse200:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: GetSqsTriggerResponse200Mode
     message_attributes: Union[Unset, List[str]] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -69,7 +70,6 @@ class GetSqsTriggerResponse200:
         aws_auth_resource_type = self.aws_auth_resource_type.value
 
         aws_resource_path = self.aws_resource_path
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -80,6 +80,8 @@ class GetSqsTriggerResponse200:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         message_attributes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
             message_attributes = self.message_attributes
@@ -106,7 +108,6 @@ class GetSqsTriggerResponse200:
                 "queue_url": queue_url,
                 "aws_auth_resource_type": aws_auth_resource_type,
                 "aws_resource_path": aws_resource_path,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -115,6 +116,7 @@ class GetSqsTriggerResponse200:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if message_attributes is not UNSET:
@@ -147,8 +149,6 @@ class GetSqsTriggerResponse200:
 
         aws_resource_path = d.pop("aws_resource_path")
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -164,6 +164,8 @@ class GetSqsTriggerResponse200:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = GetSqsTriggerResponse200Mode(d.pop("mode"))
 
         message_attributes = cast(List[str], d.pop("message_attributes", UNSET))
 
@@ -198,7 +200,6 @@ class GetSqsTriggerResponse200:
             queue_url=queue_url,
             aws_auth_resource_type=aws_auth_resource_type,
             aws_resource_path=aws_resource_path,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -207,6 +208,7 @@ class GetSqsTriggerResponse200:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             message_attributes=message_attributes,
             server_id=server_id,
             last_server_ping=last_server_ping,

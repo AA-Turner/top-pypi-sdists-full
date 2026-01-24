@@ -4,10 +4,16 @@
 
 import enum
 from abc import ABCMeta, abstractmethod
+from collections.abc import (
+    Collection,
+    Iterable,
+    Iterator,
+)
 from decimal import Decimal
 from logging import Logger, LoggerAdapter
 from numbers import Real
-from typing import Collection, Iterable, Iterator, final, overload
+from typing import final, overload
+from typing_extensions import disjoint_base
 
 @final
 class _LogEntry:
@@ -55,6 +61,7 @@ class _LogEntry:
     @property
     def path(self) -> str | None: ...
 
+@disjoint_base
 class _BaseErrorLog(metaclass=ABCMeta):
     """The base class of all other error logs"""
 
@@ -67,6 +74,7 @@ class _BaseErrorLog(metaclass=ABCMeta):
     @abstractmethod
     def receive(self, entry: _LogEntry) -> None: ...
 
+@disjoint_base
 class _ListErrorLog(_BaseErrorLog, Collection[_LogEntry]):
     """Immutable base version of a list based error log"""
 
@@ -114,6 +122,7 @@ def _ErrorLog() -> _ListErrorLog:
     is seldom instantiated by itself.
     """
 
+@disjoint_base
 class _RotatingErrorLog(_ListErrorLog):
     """Error log that has entry limit and uses FIFO rotation"""
 
@@ -124,6 +133,7 @@ class _RotatingErrorLog(_ListErrorLog):
 # the class in open source lxml is entirely broken and not touched
 # since 2006.
 
+@disjoint_base
 class PyErrorLog(_BaseErrorLog):
     """Global error log that connects to the Python stdlib logging package
 
@@ -161,12 +171,15 @@ class PyErrorLog(_BaseErrorLog):
     def __init__(
         self,
         *,
-        logger: Logger | LoggerAdapter[Logger] | None = None,
+        logger: Logger
+        | LoggerAdapter[Logger]
+        | None = None,  # pyrefly: ignore[not-a-type]
     ) -> None: ...
     # copy() is disallowed, implementation chooses to fail in a
     # silent way by returning dummy _ListErrorLog. We skip it altogether.
     def log(self, log_entry: _LogEntry, message: str, *args: object) -> None: ...
-    def receive(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def receive(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self, log_entry: _LogEntry
     ) -> None: ...
 
@@ -244,8 +257,6 @@ class ErrorTypes(enum.IntEnum):
     in the end they are just integers. No enum properties and mechanics
     would work on them.
     """
-
-    def __getattr__(self, name: str) -> ErrorTypes: ...
 
     ERR_OK = 0
     ERR_INTERNAL_ERROR = 1
@@ -360,6 +371,12 @@ class ErrorTypes(enum.IntEnum):
     ERR_NAME_TOO_LONG = 110
     ERR_USER_STOP = 111
     ERR_COMMENT_ABRUPTLY_ENDED = 112
+    WAR_ENCODING_MISMATCH = 113
+    ERR_RESOURCE_LIMIT = 114
+    ERR_ARGUMENT = 115
+    ERR_SYSTEM = 116
+    ERR_REDECL_PREDEF_ENTITY = 117
+    ERR_INT_SUBSET_NOT_FINISHED = 118
     NS_ERR_XML_NAMESPACE = 200
     NS_ERR_UNDEFINED_NAMESPACE = 201
     NS_ERR_QNAME = 202
@@ -410,6 +427,7 @@ class ErrorTypes(enum.IntEnum):
     DTD_DUP_TOKEN = 541
     HTML_STRUCURE_ERROR = 800
     HTML_UNKNOWN_TAG = 801
+    HTML_INCORRECTLY_OPENED_COMMENT = 802
     RNGP_ANYNAME_ATTR_ANCESTOR = 1000
     RNGP_ATTR_CONFLICT = 1001
     RNGP_ATTRIBUTE_CHILDREN = 1002
@@ -621,6 +639,7 @@ class ErrorTypes(enum.IntEnum):
     IO_EADDRINUSE = 1554
     IO_EALREADY = 1555
     IO_EAFNOSUPPORT = 1556
+    IO_UNSUPPORTED_PROTOCOL = 1557
     XINCLUDE_RECURSION = 1600
     XINCLUDE_PARSE_VALUE = 1601
     XINCLUDE_ENTITY_DEF_MISMATCH = 1602

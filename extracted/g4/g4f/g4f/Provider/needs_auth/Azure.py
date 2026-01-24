@@ -14,11 +14,9 @@ from ..helper import format_media_prompt
 class Azure(OpenaiTemplate):
     label = "Azure ☁️"
     url = "https://ai.azure.com"
-    api_base = "https://host.g4f.dev/api/Azure"
+    base_url = "https://g4f.space/api/azure"
     working = True
-    needs_auth = True
-    models_needs_auth = True
-    active_by_default = True
+    active_by_default = False
     login_url = "https://discord.gg/qXA4Wf4Fsm"
     routes: dict[str, str] = {}
     audio_models = ["gpt-4o-mini-audio-preview"]
@@ -132,9 +130,7 @@ class Azure(OpenaiTemplate):
             for key, value in cls.model_extra_body[model].items():
                 kwargs.setdefault(key, value)
             stream = False
-        if stream:
-            kwargs.setdefault("stream_options", {"include_usage": True})
-        if cls.failed.get(api_key, 0) >= 3:
+        if cls.failed.get(model + api_key, 0) >= 3:
             raise MissingAuthError(f"API key has failed too many times.")
         try:
             async for chunk in super().create_async_generator(
@@ -148,5 +144,5 @@ class Azure(OpenaiTemplate):
             ):
                 yield chunk
         except MissingAuthError as e:
-            cls.failed[api_key] = cls.failed.get(api_key, 0) + 1
+            cls.failed[model + api_key] = cls.failed.get(model + api_key, 0) + 1
             raise MissingAuthError(f"{e}. Ask for help in the {cls.login_url} Discord server.") from e

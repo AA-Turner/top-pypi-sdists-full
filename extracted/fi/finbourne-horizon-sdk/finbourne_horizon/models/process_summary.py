@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
 from finbourne_horizon.models.file_details import FileDetails
 from finbourne_horizon.models.row_details import RowDetails
 
@@ -27,12 +29,12 @@ class ProcessSummary(BaseModel):
     """
     Completed event details  # noqa: E501
     """
-    end_time: Optional[datetime] = Field(None, alias="endTime")
+    end_time: Optional[datetime] = Field(default=None, alias="endTime")
     category:  Optional[StrictStr] = Field(None,alias="category", description="") 
     status:  StrictStr = Field(...,alias="status", description="") 
     message:  StrictStr = Field(...,alias="message", description="") 
-    rows: RowDetails = Field(...)
-    file_details: Optional[conlist(FileDetails)] = Field(None, alias="fileDetails")
+    rows: RowDetails
+    file_details: Optional[List[FileDetails]] = Field(default=None, alias="fileDetails")
     __properties = ["endTime", "category", "status", "message", "rows", "fileDetails"]
 
     class Config:
@@ -112,3 +114,5 @@ class ProcessSummary(BaseModel):
             "file_details": [FileDetails.from_dict(_item) for _item in obj.get("fileDetails")] if obj.get("fileDetails") is not None else None
         })
         return _obj
+
+ProcessSummary.update_forward_refs()

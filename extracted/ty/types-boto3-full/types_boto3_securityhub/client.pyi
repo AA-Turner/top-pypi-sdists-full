@@ -3,7 +3,7 @@ Type annotations for securityhub service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -34,8 +35,10 @@ from .paginator import (
     GetEnabledStandardsPaginator,
     GetFindingHistoryPaginator,
     GetFindingsPaginator,
+    GetFindingsTrendsV2Paginator,
     GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
@@ -75,8 +78,6 @@ from .type_defs import (
     BatchUpdateFindingsV2ResponseTypeDef,
     BatchUpdateStandardsControlAssociationsRequestTypeDef,
     BatchUpdateStandardsControlAssociationsResponseTypeDef,
-    ConnectorRegistrationsV2RequestTypeDef,
-    ConnectorRegistrationsV2ResponseTypeDef,
     CreateActionTargetRequestTypeDef,
     CreateActionTargetResponseTypeDef,
     CreateAggregatorV2RequestTypeDef,
@@ -157,6 +158,8 @@ from .type_defs import (
     GetFindingsResponseTypeDef,
     GetFindingStatisticsV2RequestTypeDef,
     GetFindingStatisticsV2ResponseTypeDef,
+    GetFindingsTrendsV2RequestTypeDef,
+    GetFindingsTrendsV2ResponseTypeDef,
     GetFindingsV2RequestTypeDef,
     GetFindingsV2ResponseTypeDef,
     GetInsightResultsRequestTypeDef,
@@ -169,6 +172,8 @@ from .type_defs import (
     GetMembersResponseTypeDef,
     GetResourcesStatisticsV2RequestTypeDef,
     GetResourcesStatisticsV2ResponseTypeDef,
+    GetResourcesTrendsV2RequestTypeDef,
+    GetResourcesTrendsV2ResponseTypeDef,
     GetResourcesV2RequestTypeDef,
     GetResourcesV2ResponseTypeDef,
     GetSecurityControlDefinitionRequestTypeDef,
@@ -203,6 +208,8 @@ from .type_defs import (
     ListStandardsControlAssociationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    RegisterConnectorV2RequestTypeDef,
+    RegisterConnectorV2ResponseTypeDef,
     StartConfigurationPolicyAssociationRequestTypeDef,
     StartConfigurationPolicyAssociationResponseTypeDef,
     StartConfigurationPolicyDisassociationRequestTypeDef,
@@ -225,12 +232,6 @@ from .type_defs import (
     UpdateStandardsControlRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -239,19 +240,20 @@ else:
 __all__ = ("SecurityHubClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidAccessException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceConflictException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidAccessException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SecurityHubClient(BaseClient):
     """
@@ -290,7 +292,7 @@ class SecurityHubClient(BaseClient):
 
     def accept_administrator_invitation(
         self, **kwargs: Unpack[AcceptAdministratorInvitationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         We recommend using Organizations instead of Security Hub invitations to manage
         your member accounts.
@@ -299,7 +301,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#accept_administrator_invitation)
         """
 
-    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> Dict[str, Any]:
+    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> dict[str, Any]:
         """
         This method is deprecated.
 
@@ -436,16 +438,6 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_update_standards_control_associations)
         """
 
-    def connector_registrations_v2(
-        self, **kwargs: Unpack[ConnectorRegistrationsV2RequestTypeDef]
-    ) -> ConnectorRegistrationsV2ResponseTypeDef:
-        """
-        Grants permission to complete the authorization based on input parameters.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/connector_registrations_v2.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#connector_registrations_v2)
-        """
-
     def create_action_target(
         self, **kwargs: Unpack[CreateActionTargetRequestTypeDef]
     ) -> CreateActionTargetResponseTypeDef:
@@ -571,7 +563,7 @@ class SecurityHubClient(BaseClient):
 
     def delete_aggregator_v2(
         self, **kwargs: Unpack[DeleteAggregatorV2RequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the Aggregator V2.
 
@@ -581,7 +573,7 @@ class SecurityHubClient(BaseClient):
 
     def delete_automation_rule_v2(
         self, **kwargs: Unpack[DeleteAutomationRuleV2RequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a V2 automation rule.
 
@@ -591,7 +583,7 @@ class SecurityHubClient(BaseClient):
 
     def delete_configuration_policy(
         self, **kwargs: Unpack[DeleteConfigurationPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configuration policy.
 
@@ -601,7 +593,7 @@ class SecurityHubClient(BaseClient):
 
     def delete_connector_v2(
         self, **kwargs: Unpack[DeleteConnectorV2RequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Grants permission to delete a connectorV2.
 
@@ -611,7 +603,7 @@ class SecurityHubClient(BaseClient):
 
     def delete_finding_aggregator(
         self, **kwargs: Unpack[DeleteFindingAggregatorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <i>aggregation Region</i> is now called the <i>home Region</i>.
 
@@ -732,7 +724,7 @@ class SecurityHubClient(BaseClient):
 
     def disable_import_findings_for_product(
         self, **kwargs: Unpack[DisableImportFindingsForProductRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables the integration of the specified product with Security Hub.
 
@@ -742,7 +734,7 @@ class SecurityHubClient(BaseClient):
 
     def disable_organization_admin_account(
         self, **kwargs: Unpack[DisableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables a Security Hub administrator account.
 
@@ -750,7 +742,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_organization_admin_account)
         """
 
-    def disable_security_hub(self) -> Dict[str, Any]:
+    def disable_security_hub(self) -> dict[str, Any]:
         """
         Disables Security Hub in your account only in the current Amazon Web Services
         Region.
@@ -759,7 +751,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub)
         """
 
-    def disable_security_hub_v2(self) -> Dict[str, Any]:
+    def disable_security_hub_v2(self) -> dict[str, Any]:
         """
         Disable the service for the current Amazon Web Services Region or specified
         Amazon Web Services Region.
@@ -768,7 +760,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub_v2)
         """
 
-    def disassociate_from_administrator_account(self) -> Dict[str, Any]:
+    def disassociate_from_administrator_account(self) -> dict[str, Any]:
         """
         Disassociates the current Security Hub member account from the associated
         administrator account.
@@ -777,7 +769,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disassociate_from_administrator_account)
         """
 
-    def disassociate_from_master_account(self) -> Dict[str, Any]:
+    def disassociate_from_master_account(self) -> dict[str, Any]:
         """
         This method is deprecated.
 
@@ -787,7 +779,7 @@ class SecurityHubClient(BaseClient):
 
     def disassociate_members(
         self, **kwargs: Unpack[DisassociateMembersRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified member accounts from the associated administrator
         account.
@@ -818,7 +810,7 @@ class SecurityHubClient(BaseClient):
 
     def enable_security_hub(
         self, **kwargs: Unpack[EnableSecurityHubRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables Security Hub for your account in the current Region or the Region you
         specify in the request.
@@ -948,6 +940,16 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_findings)
         """
 
+    def get_findings_trends_v2(
+        self, **kwargs: Unpack[GetFindingsTrendsV2RequestTypeDef]
+    ) -> GetFindingsTrendsV2ResponseTypeDef:
+        """
+        Returns findings trend data based on the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings_trends_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_findings_trends_v2)
+        """
+
     def get_findings_v2(
         self, **kwargs: Unpack[GetFindingsV2RequestTypeDef]
     ) -> GetFindingsV2ResponseTypeDef:
@@ -1013,6 +1015,16 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_statistics_v2.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_resources_statistics_v2)
+        """
+
+    def get_resources_trends_v2(
+        self, **kwargs: Unpack[GetResourcesTrendsV2RequestTypeDef]
+    ) -> GetResourcesTrendsV2ResponseTypeDef:
+        """
+        Returns resource trend data based on the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_trends_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_resources_trends_v2)
         """
 
     def get_resources_v2(
@@ -1195,6 +1207,16 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_tags_for_resource)
         """
 
+    def register_connector_v2(
+        self, **kwargs: Unpack[RegisterConnectorV2RequestTypeDef]
+    ) -> RegisterConnectorV2ResponseTypeDef:
+        """
+        Grants permission to complete the authorization based on input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/register_connector_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#register_connector_v2)
+        """
+
     def start_configuration_policy_association(
         self, **kwargs: Unpack[StartConfigurationPolicyAssociationRequestTypeDef]
     ) -> StartConfigurationPolicyAssociationResponseTypeDef:
@@ -1208,7 +1230,7 @@ class SecurityHubClient(BaseClient):
 
     def start_configuration_policy_disassociation(
         self, **kwargs: Unpack[StartConfigurationPolicyDisassociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a target account, organizational unit, or the root from a
         specified configuration.
@@ -1217,7 +1239,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#start_configuration_policy_disassociation)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a resource.
 
@@ -1225,7 +1247,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a resource.
 
@@ -1235,7 +1257,7 @@ class SecurityHubClient(BaseClient):
 
     def update_action_target(
         self, **kwargs: Unpack[UpdateActionTargetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the name and description of a custom action target in Security Hub.
 
@@ -1255,7 +1277,7 @@ class SecurityHubClient(BaseClient):
 
     def update_automation_rule_v2(
         self, **kwargs: Unpack[UpdateAutomationRuleV2RequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a V2 automation rule.
 
@@ -1275,7 +1297,7 @@ class SecurityHubClient(BaseClient):
 
     def update_connector_v2(
         self, **kwargs: Unpack[UpdateConnectorV2RequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Grants permission to update a connectorV2 based on its id and input parameters.
 
@@ -1293,7 +1315,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_finding_aggregator)
         """
 
-    def update_findings(self, **kwargs: Unpack[UpdateFindingsRequestTypeDef]) -> Dict[str, Any]:
+    def update_findings(self, **kwargs: Unpack[UpdateFindingsRequestTypeDef]) -> dict[str, Any]:
         """
         <code>UpdateFindings</code> is a deprecated operation.
 
@@ -1301,7 +1323,7 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_findings)
         """
 
-    def update_insight(self, **kwargs: Unpack[UpdateInsightRequestTypeDef]) -> Dict[str, Any]:
+    def update_insight(self, **kwargs: Unpack[UpdateInsightRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the Security Hub insight identified by the specified insight ARN.
 
@@ -1311,7 +1333,7 @@ class SecurityHubClient(BaseClient):
 
     def update_organization_configuration(
         self, **kwargs: Unpack[UpdateOrganizationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of your organization in Security Hub.
 
@@ -1321,7 +1343,7 @@ class SecurityHubClient(BaseClient):
 
     def update_security_control(
         self, **kwargs: Unpack[UpdateSecurityControlRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the properties of a security control.
 
@@ -1331,7 +1353,7 @@ class SecurityHubClient(BaseClient):
 
     def update_security_hub_configuration(
         self, **kwargs: Unpack[UpdateSecurityHubConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates configuration options for Security Hub.
 
@@ -1341,7 +1363,7 @@ class SecurityHubClient(BaseClient):
 
     def update_standards_control(
         self, **kwargs: Unpack[UpdateStandardsControlRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to control whether an individual security standard control is enabled or
         disabled.
@@ -1440,6 +1462,17 @@ class SecurityHubClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_findings_trends_v2"]
+    ) -> GetFindingsTrendsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_findings_v2"]
     ) -> GetFindingsV2Paginator:
         """
@@ -1453,6 +1486,17 @@ class SecurityHubClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_insights"]
     ) -> GetInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_resources_trends_v2"]
+    ) -> GetResourcesTrendsV2Paginator:
         """
         Create a paginator for an operation.
 

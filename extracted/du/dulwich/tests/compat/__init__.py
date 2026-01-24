@@ -24,8 +24,10 @@
 import unittest
 
 
-def test_suite():
+def test_suite() -> unittest.TestSuite:
     names = [
+        "aiohttp",
+        "bitmap",
         "bundle",
         "check_ignore",
         "client",
@@ -33,12 +35,16 @@ def test_suite():
         "dumb",
         "index",
         "lfs",
+        "midx",
         "pack",
+        "partial_clone",
         "patch",
         "porcelain",
         "reftable",
         "repository",
         "server",
+        "sha256",
+        "sha256_packs",
         "utils",
         "web",
     ]

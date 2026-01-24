@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -38,13 +39,15 @@ class capture(Generic[Yield, Send, Return]):
         self._send: Optional[Send] = None
         self._result: Union[Return, object] = Sentinel
 
-    def __iter__(self) -> Generator[Yield, Send, Return]:
+    def __iter__(self) -> Generator[Yield, Send, Union[Return, object]]:
         try:
             while True:
                 value = self.generator.send(cast(Send, self._send))
+                # type: ignore # pyrefly todo
                 self._send = None
                 answer = yield value
                 if answer is not None:
+                    # type: ignore # pyrefly todo
                     self._send = answer
         except StopIteration as stop:
             self._result = cast(Return, stop.value)
@@ -87,3 +90,13 @@ def append_sys_path(path: Path) -> Generator[None, None, None]:
     # already there: do nothing, and don't remove it later
     else:
         yield
+
+
+@contextmanager
+def chdir(path: Path) -> Generator[None, None, None]:
+    cwd = Path.cwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(cwd)

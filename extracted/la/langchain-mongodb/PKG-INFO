@@ -1,15 +1,20 @@
 Metadata-Version: 2.4
 Name: langchain-mongodb
-Version: 0.7.0
+Version: 0.11.0
 Summary: An integration package connecting MongoDB and LangChain
 License-File: LICENSE
-Requires-Python: >=3.9
-Requires-Dist: langchain-core>=0.3
-Requires-Dist: langchain-text-splitters>=0.3
-Requires-Dist: langchain>=0.3
+Requires-Python: >=3.10
+Requires-Dist: langchain-classic>=1.0
+Requires-Dist: langchain-core>=1.2.5
+Requires-Dist: langchain-text-splitters>=1.0
+Requires-Dist: langchain>=1.0
 Requires-Dist: lark<2.0.0,>=1.1.9
 Requires-Dist: numpy>=1.26
+Requires-Dist: pymongo-search-utils>=0.2.1
 Requires-Dist: pymongo>=4.6.1
+Provides-Extra: viz
+Requires-Dist: holoviews>=1.19; extra == 'viz'
+Requires-Dist: networkx>=3.0; extra == 'viz'
 Description-Content-Type: text/markdown
 
 from libs.community.tests.unit_tests.chains.test_pebblo_retrieval import retriever

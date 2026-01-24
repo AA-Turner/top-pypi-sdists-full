@@ -1,17 +1,17 @@
 import functools
+import json
 import logging
 import time
-import json
 from urllib.parse import urljoin
 
 import httpx
 import msgpack
 
-from ably.sync.rest.auth import AuthSync
 from ably.sync.http.httputils import HttpUtils
+from ably.sync.rest.auth import AuthSync
 from ably.sync.transport.defaults import Defaults
 from ably.sync.util.exceptions import AblyException
-from ably.sync.util.helper import is_token_error, extract_url_params
+from ably.sync.util.helper import extract_url_params, is_token_error
 
 log = logging.getLogger(__name__)
 
@@ -140,9 +140,9 @@ class HttpSync:
         else:
             return json.dumps(body, separators=(',', ':'))
 
-    def get_rest_hosts(self):
-        hosts = self.options.get_rest_hosts()
-        host = self.__host or self.options.fallback_realtime_host
+    def get_hosts(self):
+        hosts = self.options.get_hosts()
+        host = self.__host or self.options.fallback_host
         if host is None:
             return hosts
 
@@ -186,16 +186,14 @@ class HttpSync:
         http_max_retry_duration = self.http_max_retry_duration
         requested_at = time.time()
 
-        hosts = self.get_rest_hosts()
+        hosts = self.get_hosts()
         for retry_count, host in enumerate(hosts):
-            def should_stop_retrying():
+            def should_stop_retrying(retry_count=retry_count):
                 time_passed = time.time() - requested_at
                 # if it's the last try or cumulative timeout is done, we stop retrying
                 return retry_count == len(hosts) - 1 or time_passed > http_max_retry_duration
 
-            base_url = "%s://%s:%d" % (self.preferred_scheme,
-                                       host,
-                                       self.preferred_port)
+            base_url = f"{self.preferred_scheme}://{host}:{self.preferred_port}"
             url = urljoin(base_url, path)
 
             (clean_url, url_params) = extract_url_params(url)
@@ -231,7 +229,7 @@ class HttpSync:
                         continue
 
                     # Keep fallback host for later (RSC15f)
-                    if retry_count > 0 and host != self.options.get_rest_host():
+                    if retry_count > 0 and host != self.options.get_host():
                         self.__host = host
                         self.__host_expires = time.time() + (self.options.fallback_retry_timeout / 1000.0)
 
@@ -279,7 +277,7 @@ class HttpSync:
 
     @property
     def preferred_host(self):
-        return self.options.get_rest_host()
+        return self.options.get_host()
 
     @property
     def preferred_port(self):

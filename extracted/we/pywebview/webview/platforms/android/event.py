@@ -15,8 +15,7 @@ class EventDispatcher:
 
         # Ensure that the user has at least declared the default handler
         if not hasattr(self, event_type):
-            raise Exception(
-                f'Missing default handler {event_type} in {self.__class__.__name__}')
+            raise Exception(f'Missing default handler {event_type} in {self.__class__.__name__}')
 
         # Add the event type to the stack
         if event_type not in self.__event_stack:
@@ -27,7 +26,7 @@ class EventDispatcher:
 
     def bind(self, **kwargs):
         for key, value in kwargs.items():
-            assert callable(value), '{!r} is not callable'.format(value)
+            assert callable(value), f'{value!r} is not callable'
             if key[:3] == 'on_':
                 observers: list = self.__event_stack.get(key)
                 if observers is None:
@@ -45,8 +44,7 @@ class EventDispatcher:
                 observers.remove(value)
 
     def is_event_type(self, event_type):
-        """Return True if the event_type is already registered.
-        """
+        """Return True if the event_type is already registered."""
         return event_type in self.__event_stack
 
     def dispatch(self, event_type, *args, **kwargs):
@@ -65,9 +63,11 @@ class EventDispatcher:
            positional arguments would be collected and forwarded.
         """
         observers: list = self.__event_stack.get(event_type)
-        observers.reverse()
-        for callbacks in observers:
-            callbacks(*args, **kwargs)
+
+        if observers:
+            observers.reverse()
+            for callbacks in observers:
+                callbacks(*args, **kwargs)
 
         handler = getattr(self, event_type)
         return handler(*args, **kwargs)

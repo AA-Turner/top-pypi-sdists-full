@@ -15,8 +15,9 @@ import sys
 from typing import Any, Dict, List, Optional, TextIO, Union, cast
 
 import backoff
-from websockets.client import WebSocketClientProtocol
-from websockets.client import connect as ws_connect
+from websockets import ClientConnection as WebSocketClientProtocol
+from websockets import connect as ws_connect
+from websockets.exceptions import ConnectionClosedOK
 
 from mcli.api.exceptions import MintConnectionException, MintServerException, handle_mint_errors
 from mcli.api.mint import tty
@@ -103,6 +104,8 @@ class MintShell:
         stdin: Optional[TextIO] = sys.stdin,
         stdout: TextIO = sys.stdout,
     ) -> None:
+        # pylint: disable=too-many-statements
+
         """
         Connection helper
 
@@ -118,14 +121,18 @@ class MintShell:
 
         async def read_stdin(readable: TextIO, ws: WebSocketClientProtocol):
             """Reads the stdin and write to the websocket"""
-            while True:
-                char = readable.read()
-                if char:
-                    message = MINTMessage(user_input=UserInput(input=char))
-                    await ws.send(message.SerializeToString())
-                else:
-                    # This can be very short, since its main purpose is to not block the event loop
-                    await asyncio.sleep(0.01)
+            try:
+                while True:
+                    char = readable.read()
+                    if char:
+                        message = MINTMessage(user_input=UserInput(input=char))
+                        await ws.send(message.SerializeToString())
+                    else:
+                        # This can be very short, since its main purpose is to not block the event loop
+                        await asyncio.sleep(0.01)
+            except ConnectionClosedOK:
+                # Connection closed normally, stop sending
+                pass
 
         async def write_stdout(ws: WebSocketClientProtocol):
             """Reads from the websocket and writes to stdout"""
@@ -141,21 +148,25 @@ class MintShell:
 
             This sends the width x height tuple as a byte string so MINT can parse it
             """
-            size = None
-            while True:
-                new_size = shutil.get_terminal_size()
-                if new_size != size:
-                    message = MINTMessage(terminal_size=TerminalSize(width=new_size.columns, height=new_size.lines))
-                    await ws.send(message.SerializeToString())
-                    size = new_size
-                await asyncio.sleep(0.1)
+            try:
+                size = None
+                while True:
+                    new_size = shutil.get_terminal_size()
+                    if new_size != size:
+                        message = MINTMessage(terminal_size=TerminalSize(width=new_size.columns, height=new_size.lines))
+                        await ws.send(message.SerializeToString())
+                        size = new_size
+                    await asyncio.sleep(0.1)
+            except ConnectionClosedOK:
+                # Connection closed normally, stop monitoring
+                pass
 
         header = self._make_header(command, container)
 
         use_logger = logger if logger.isEnabledFor(logging.DEBUG) else None
         connect_params = {
             "uri": uri,
-            "extra_headers": header,
+            "additional_headers": header,
             # Useful for debugging. If logging is set to DEBUG level, this will log debug statements
             "logger": use_logger,
             # Set the close timeout to a small value. When the server closes connection, it often

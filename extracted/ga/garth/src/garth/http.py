@@ -1,7 +1,8 @@
 import base64
 import json
 import os
-from typing import IO, Any, Dict, Literal, Tuple
+from collections.abc import Callable
+from typing import IO, Any, Literal
 from urllib.parse import urljoin
 
 from requests import HTTPError, Response, Session
@@ -9,11 +10,12 @@ from requests.adapters import HTTPAdapter, Retry
 
 from . import sso
 from .auth_tokens import OAuth1Token, OAuth2Token
-from .exc import GarthHTTPError
+from .exc import GarthException, GarthHTTPError
+from .telemetry import Telemetry
 from .utils import asdict
 
 
-USER_AGENT = {"User-Agent": "GCM-iOS-5.7.2.1"}
+USER_AGENT = {"User-Agent": "GCM-iOS-5.19.1.2"}
 
 
 class Client:
@@ -24,15 +26,18 @@ class Client:
     oauth2_token: OAuth2Token | dict[str, Any] | None = None
     timeout: int = 10
     retries: int = 3
-    status_forcelist: Tuple[int, ...] = (408, 429, 500, 502, 503, 504)
+    status_forcelist: tuple[int, ...] = (408, 500, 502, 503, 504)
     backoff_factor: float = 0.5
     pool_connections: int = 10
     pool_maxsize: int = 10
-    _user_profile: Dict[str, Any] | None = None
+    _user_profile: dict[str, Any] | None = None
+    _garth_home: str | None = None
+    telemetry: Telemetry
 
     def __init__(self, session: Session | None = None, **kwargs):
         self.sess = session if session else Session()
         self.sess.headers.update(USER_AGENT)
+        self.telemetry = Telemetry()
         self.configure(
             timeout=self.timeout,
             retries=self.retries,
@@ -40,6 +45,7 @@ class Client:
             backoff_factor=self.backoff_factor,
             **kwargs,
         )
+        self._auto_resume()
 
     def configure(
         self,
@@ -47,14 +53,19 @@ class Client:
         oauth1_token: OAuth1Token | None = None,
         oauth2_token: OAuth2Token | None = None,
         domain: str | None = None,
-        proxies: Dict[str, str] | None = None,
+        proxies: dict[str, str] | None = None,
         ssl_verify: bool | None = None,
         timeout: int | None = None,
         retries: int | None = None,
-        status_forcelist: Tuple[int, ...] | None = None,
+        status_forcelist: tuple[int, ...] | None = None,
         backoff_factor: float | None = None,
         pool_connections: int | None = None,
         pool_maxsize: int | None = None,
+        telemetry_enabled: bool | None = None,
+        telemetry_service_name: str | None = None,
+        telemetry_send_to_logfire: bool | None = None,
+        telemetry_token: str | None = None,
+        telemetry_callback: Callable[[dict], None] | None = None,
     ):
         if oauth1_token is not None:
             self.oauth1_token = oauth1_token
@@ -90,6 +101,31 @@ class Client:
             pool_maxsize=self.pool_maxsize,
         )
         self.sess.mount("https://", adapter)
+
+        self.telemetry.configure(
+            enabled=telemetry_enabled,
+            service_name=telemetry_service_name,
+            send_to_logfire=telemetry_send_to_logfire,
+            token=telemetry_token,
+            callback=telemetry_callback,
+        )
+        self.telemetry.attach(self.sess)
+
+    def _auto_resume(self):
+        """Auto-resume session from GARTH_HOME or GARTH_TOKEN env vars."""
+        garth_home = os.environ.get("GARTH_HOME")
+        garth_token = os.environ.get("GARTH_TOKEN")
+
+        if garth_home and garth_token:
+            raise GarthException(
+                msg="GARTH_HOME and GARTH_TOKEN cannot both be set"
+            )
+
+        if garth_home:
+            self.load(garth_home)
+            self._garth_home = garth_home
+        elif garth_token:
+            self.loads(garth_token)
 
     @property
     def user_profile(self):
@@ -182,10 +218,12 @@ class Client:
         # There is a way to perform a refresh of an OAuth2 token, but it
         # appears even Garmin uses this approach when the OAuth2 is expired
         self.oauth2_token = sso.exchange(self.oauth1_token, self)
+        if self._garth_home:
+            self.dump(self._garth_home, oauth2_only=True)
 
     def connectapi(
         self, path: str, method="GET", **kwargs
-    ) -> Dict[str, Any] | None:
+    ) -> dict[str, Any] | list[dict[str, Any]] | None:
         resp = self.request(method, "connectapi", path, api=True, **kwargs)
         if resp.status_code == 204:
             return None
@@ -197,7 +235,7 @@ class Client:
 
     def upload(
         self, fp: IO[bytes], /, path: str = "/upload-service/upload"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         fname = os.path.basename(fp.name)
         files = {"file": (fname, fp)}
         result = self.connectapi(
@@ -206,14 +244,16 @@ class Client:
             files=files,
         )
         assert result is not None, "No result from upload"
+        assert isinstance(result, dict)
         return result
 
-    def dump(self, dir_path: str):
+    def dump(self, dir_path: str, /, oauth2_only: bool = False):
         dir_path = os.path.expanduser(dir_path)
         os.makedirs(dir_path, exist_ok=True)
-        with open(os.path.join(dir_path, "oauth1_token.json"), "w") as f:
-            if self.oauth1_token:
-                json.dump(asdict(self.oauth1_token), f, indent=4)
+        if not oauth2_only:
+            with open(os.path.join(dir_path, "oauth1_token.json"), "w") as f:
+                if self.oauth1_token:
+                    json.dump(asdict(self.oauth1_token), f, indent=4)
         with open(os.path.join(dir_path, "oauth2_token.json"), "w") as f:
             if self.oauth2_token:
                 json.dump(asdict(self.oauth2_token), f, indent=4)

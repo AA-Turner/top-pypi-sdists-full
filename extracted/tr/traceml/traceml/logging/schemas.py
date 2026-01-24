@@ -53,7 +53,7 @@ class V1Log(BaseSchemaModel):
             except Exception as e:
                 raise ValueError("Received an invalid timestamp") from e
 
-        return cls.construct(
+        return cls.model_construct(
             timestamp=timestamp if timestamp else now(tzinfo=True),
             node=node,
             pod=pod,
@@ -84,7 +84,7 @@ class V1Logs(BaseSchemaModel):
 
     @classmethod
     def get_csv_header(cls) -> str:
-        return V1Log._SEPARATOR.join(V1Log.model_fields.keys())
+        return V1Log._SEPARATOR.join(V1Log.get_model_fields().keys())
 
     def to_csv(self):
         _logs = ["\n{}".format(e.to_csv()) for e in self.logs if e.value]
@@ -125,9 +125,9 @@ class V1Logs(BaseSchemaModel):
                 engine="pyarrow",
             )
 
-        return cls.construct(
+        return cls.model_construct(
             logs=[
-                V1Log.construct(
+                V1Log.model_construct(
                     timestamp=i.get("timestamp"),
                     node=i.get("node"),
                     pod=i.get("pod"),
@@ -154,9 +154,9 @@ class V1Logs(BaseSchemaModel):
         df = df.replace({np.nan: None}).to_dict(orient="records")
         if not to_structured:
             return df
-        return cls.construct(
+        return cls.model_construct(
             logs=[
-                V1Log.construct(
+                V1Log.model_construct(
                     timestamp=parse_datetime(i.get("timestamp")),
                     node=i.get("node"),
                     pod=i.get("pod"),

@@ -1,5 +1,4 @@
 from . import _ffi as ffi
-from ctypes import *
 import ctypes
 from wasmtime import WasmtimeError, Managed
 import typing
@@ -161,6 +160,18 @@ class Config(Managed["ctypes._Pointer[ffi.wasm_config_t]"]):
         ffi.wasmtime_config_wasm_relaxed_simd_deterministic_set(self.ptr(), enable)
 
     @setter_property
+    def wasm_exceptions(self, enable: bool) -> None:
+        """
+        Configures whether the wasm [exceptions proposal] is enabled.
+
+        [exceptions proposal]: https://github.com/WebAssembly/exception-handling
+        """
+
+        if not isinstance(enable, bool):
+            raise TypeError('expected a bool')
+        ffi.wasmtime_config_wasm_exceptions_set(self.ptr(), enable)
+
+    @setter_property
     def strategy(self, strategy: str) -> None:
         """
         Configures the compilation strategy used for wasm code.
@@ -223,7 +234,8 @@ class Config(Managed["ctypes._Pointer[ffi.wasm_config_t]"]):
             error = ffi.wasmtime_config_cache_config_load(self.ptr(), None)
         elif isinstance(enabled, str):
             error = ffi.wasmtime_config_cache_config_load(self.ptr(),
-                                                          c_char_p(enabled.encode('utf-8')))
+                ctypes.c_char_p(enabled.encode('utf-8')),
+            )
         else:
             raise TypeError("expected string or bool")
         if error:
@@ -266,3 +278,14 @@ class Config(Managed["ctypes._Pointer[ffi.wasm_config_t]"]):
         if not isinstance(enable, bool):
             raise TypeError('expected a bool')
         ffi.wasmtime_config_parallel_compilation_set(self.ptr(), enable)
+
+    @setter_property
+    def shared_memory(self, enable: bool) -> None:
+        """
+        Configures whether shared memories can be created.
+
+        This is disabled by default.
+        """
+        if not isinstance(enable, bool):
+            raise TypeError('expected a bool')
+        ffi.wasmtime_config_shared_memory_set(self.ptr(), enable)

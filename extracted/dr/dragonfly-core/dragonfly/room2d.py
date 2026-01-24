@@ -8,8 +8,7 @@ from ladybug_geometry.geometry2d import Point2D, Vector2D, Ray2D, LineSegment2D,
     Polyline2D, Polygon2D
 from ladybug_geometry.geometry3d import Point3D, Vector3D, Ray3D, LineSegment3D, \
     Plane, Polyline3D, Face3D, Polyface3D
-from ladybug_geometry.intersection2d import closest_point2d_between_line2d, \
-    closest_point2d_on_line2d
+from ladybug_geometry.intersection2d import closest_point2d_on_line2d
 from ladybug_geometry.intersection3d import closest_point3d_on_line3d, \
     closest_point3d_on_line3d_infinite, intersect_line3d_plane_infinite
 from ladybug_geometry.bounding import bounding_box, overlapping_bounding_boxes, \
@@ -17,7 +16,8 @@ from ladybug_geometry.bounding import bounding_box, overlapping_bounding_boxes, 
 import ladybug_geometry.boolean as pb
 from ladybug_geometry_polyskel.polysplit import perimeter_core_subfaces
 
-from honeybee.typing import float_positive, clean_string, clean_and_id_string
+from honeybee.typing import float_positive, float_in_range, \
+    clean_string, clean_and_id_string
 from honeybee.orientation import angles_from_num_orient, orient_index
 from honeybee.search import get_attr_nested
 import honeybee.boundarycondition as hbc
@@ -101,7 +101,9 @@ class Room2D(_BaseGeometry):
         * segment_count
         * segment_normals
         * floor_height
+        * floor_elevation
         * ceiling_height
+        * ceiling_elevation
         * highest_plenum_floor_height
         * volume
         * floor_area
@@ -411,16 +413,13 @@ class Room2D(_BaseGeometry):
             room_2d.zone = room.zone
 
         # check if there are any skylights to be added
-        skylights, are_doors = [], []
+        skylights = []
         for f in room.faces:
             if isinstance(f.type, RoofCeiling) and f.tilt < 89:
                 sf_objs = f._apertures + f._doors
-                for sf in sf_objs:
-                    verts2d = tuple(Point2D(pt.x, pt.y) for pt in sf.geometry.boundary)
-                    skylights.append(Polygon2D(verts2d))
-                    are_doors.append(isinstance(sf, Door) and not sf.is_glass)
+                skylights.extend(sf_objs)
         if len(skylights) != 0:
-            room_2d.skylight_parameters = DetailedSkylights(skylights, are_doors)
+            room_2d.skylight_parameters = DetailedSkylights.from_honeybee(skylights)
 
         # add the extra optional attributes
         final_ab = []
@@ -791,13 +790,54 @@ class Room2D(_BaseGeometry):
 
     @property
     def floor_height(self):
-        """Get a number for the height of the floor above the ground."""
+        """Get or set a number for the elevation of the floor above the ground."""
         return self._floor_geometry[0].z
+
+    @floor_height.setter
+    def floor_height(self, value):
+        value = float_in_range(value, input_name='floor height')
+        height_diff = value - self.floor_height
+        self.move(Vector3D(0, 0, height_diff))
+
+    @property
+    def floor_elevation(self):
+        """Get or set a number for the elevation of the floor above the ground.
+
+        Note that this property is exactly the same as floor_height but just
+        repeated under a different name for ease of use.
+        """
+        return self.floor_height
+
+    @floor_elevation.setter
+    def floor_elevation(self, value):
+        self.floor_height = value
 
     @property
     def ceiling_height(self):
-        """Get a number for the height of the ceiling above the ground."""
+        """Get or set a number for the elevation of the ceiling above the ground.
+
+        Note that setting this value will only adjust the floor_to_ceiling_height
+        of the Room2D and not the floor elevation.
+        """
         return self.floor_height + self.floor_to_ceiling_height
+
+    @ceiling_height.setter
+    def ceiling_height(self, value):
+        value = float_in_range(value, input_name='ceiling height')
+        self.floor_to_ceiling_height = value - self.floor_height
+
+    @property
+    def ceiling_elevation(self):
+        """Get or set a number for the elevation of the ceiling above the ground.
+
+        Note that setting this value will only adjust the floor_to_ceiling_height
+        of the Room2D and not the floor elevation.
+        """
+        return self.ceiling_height
+
+    @ceiling_elevation.setter
+    def ceiling_elevation(self, value):
+        self.ceiling_height = value
 
     @property
     def highest_plenum_floor_height(self):
@@ -1365,7 +1405,7 @@ class Room2D(_BaseGeometry):
             for e_ap in hb_room.apertures:
                 for n_sf in sf_to_add:
                     if isinstance(n_sf, Aperture) and \
-                            n_sf.is_centered_adjacent(e_ap, tolerance):
+                            n_sf.geometry.is_centered_adjacent(e_ap.geometry, tolerance):
                         break  # it's a duplicated in the input sub-faces
                 else:
                     unique_ap.append(e_ap)
@@ -1373,15 +1413,17 @@ class Room2D(_BaseGeometry):
             for e_dr in hb_room.doors:
                 for n_sf in sf_to_add:
                     if isinstance(n_sf, Door) and \
-                            n_sf.is_centered_adjacent(e_dr, tolerance):
+                            n_sf.geometry.is_centered_adjacent(e_dr.geometry, tolerance):
                         break  # it's a duplicated in the input sub-faces
                 else:
                     unique_dr.append(e_dr)
             sf_to_add = unique_ap + unique_dr + sf_to_add
 
         # add the apertures to the room if any were found
-        skylight_sfs = []
-        wps = [[] for _ in floor_segments]
+        wps, skylight_sfs, user_dts = [], [], []
+        for _ in floor_segments:
+            wps.append([])
+            user_dts.append({'identifier': []})
         if len(sf_to_add) != 0:
             ext_vec = Vector3D(0, 0, ftc)
             walls = []
@@ -1415,30 +1457,36 @@ class Room2D(_BaseGeometry):
                                             and not sf.is_glass else False
                                         wps[i].append((pj_geo, isd))
                                         already_assigned[i].append(pj_geo.center)
+                                        ud = user_dts[i]
+                                        ud['identifier'].append(sf.identifier)
+                                        if sf.user_data is not None:
+                                            for key, val in sf.user_data.items():
+                                                try:
+                                                    ud[key].append(val)
+                                                except KeyError:  # first time attribute
+                                                    ud[key] = [val]
 
         # convert any projected Face3Ds to DetailedWindows and assign them
         sliver_tol = 3 * tolerance
         new_win_pars = []
-        for wp, seg in zip(wps, floor_segments):
+        for wp, u_data, seg in zip(wps, user_dts, floor_segments):
             if len(wp) == 0:
                 new_win_pars.append(None)
             else:
                 win_to_add, are_doors = zip(*wp)
                 det_win = DetailedWindows.from_face3ds(win_to_add, seg, are_doors)
                 det_win = det_win.adjust_for_segment(seg, ftc, tolerance, sliver_tol)
+                if det_win is not None:
+                    det_win.user_data = u_data
                 new_win_pars.append(det_win)
         self.window_parameters = new_win_pars
 
         # search the remaining un-assigned sub-faces to see if they should be a skylight
         if len(skylight_sfs) != 0:
-            sky_poly, are_doors = [], []
-            for sf in skylight_sfs:
-                bnd_pts = sf.geometry.boundary
-                sky_poly.append(Polygon2D(tuple(Point2D(pt.x, pt.y) for pt in bnd_pts)))
-                isd = True if isinstance(sf, Door) and not sf.is_glass else False
-                are_doors.append(isd)
-            self.skylight_parameters = DetailedSkylights(sky_poly, are_doors)
+            self.skylight_parameters = DetailedSkylights.from_honeybee(skylight_sfs)
             self.offset_skylights_from_edges(5 * tolerance, tolerance)
+        elif overwrite:  # remove existing skylights
+            self.skylight_parameters = None
 
     def add_prefix(self, prefix):
         """Change the identifier of this object by inserting a prefix.
@@ -1528,9 +1576,13 @@ class Room2D(_BaseGeometry):
                         other_room_2d._window_parameters[other_seg_index] = \
                             wp1.flip(seg2.length) if isinstance(wp1, _AsymmetricBase) \
                             else wp1
+                        u_data = other_room_2d._window_parameters[other_seg_index].user_data
                     else:
                         self._window_parameters[self_seg_index] = wp2.flip(seg1.length) \
                             if isinstance(wp2, _AsymmetricBase) else wp2
+                        u_data = self._window_parameters[self_seg_index].user_data
+                    if u_data is not None and 'identifier' in u_data:
+                        u_data['identifier'] = '{}_Rev'.format(u_data['identifier'])
                 else:
                     if wp1 != wp2:
                         msg = 'Window parameters do not match between adjacent ' \
@@ -1860,14 +1912,16 @@ class Room2D(_BaseGeometry):
         # if the base plane is specified, convert to the plane's coordinate system
         original_segs = self.floor_segments
         boundary, holes = self._floor_geometry.boundary, self._floor_geometry.holes
-        z_val, pl_ang = boundary[0].z, None
+        z_val, pl_ang, t_vec = boundary[0].z, None, None
         if base_plane is not None and base_plane.n.z != 0:
             origin = base_plane.o
+            t_vec = Vector3D(-origin.x, -origin.y)
             x_axis = Vector2D(base_plane.x.x, base_plane.x.y)
             pl_ang = x_axis.angle_counterclockwise(Vector2D(1, 0))
-            boundary = [pt.rotate_xy(pl_ang, origin) for pt in boundary]
+            boundary = [pt.rotate_xy(pl_ang, origin).move(t_vec) for pt in boundary]
             if holes is not None:
-                holes = [[pt.rotate_xy(pl_ang, origin) for pt in hole] for hole in holes]
+                holes = [[pt.rotate_xy(pl_ang, origin).move(t_vec) for pt in hole]
+                         for hole in holes]
 
         # loop through the vertices and snap them
         new_boundary, new_holes = [], None
@@ -1887,9 +1941,11 @@ class Room2D(_BaseGeometry):
 
         # if the base plane is specified, convert back to the world coordinate system
         if pl_ang is not None:
-            new_boundary = [pt.rotate_xy(-pl_ang, origin) for pt in new_boundary]
+            r_vec = -t_vec
+            new_boundary = [pt.move(r_vec).rotate_xy(-pl_ang, origin)
+                            for pt in new_boundary]
             if new_holes is not None:
-                new_holes = [[pt.rotate_xy(-pl_ang, origin) for pt in hole]
+                new_holes = [[pt.move(r_vec).rotate_xy(-pl_ang, origin) for pt in hole]
                              for hole in new_holes]
 
         # rebuild the new floor geometry and assign it to the Room2D
@@ -3080,9 +3136,15 @@ class Room2D(_BaseGeometry):
                     h_verts, h_bcs, h_w_par = self._remove_colinear_props(
                         pts_3d, pts_2d, segs_2d, bound_cds, win_pars,
                         ftc_height, tolerance)
+                    if h_verts is None:
+                        continue
                     holes.append(h_verts)
                     new_bcs.extend(h_bcs)
                     new_w_par.extend(h_w_par)
+            if bound_verts is None:
+                raise ValueError(
+                    'Room2D "{}" is degenerate with dimensions less than the '
+                    'tolerance.'.format(self.display_name))
 
             # create the new Room2D
             new_geo = Face3D(bound_verts, holes=holes)
@@ -4163,13 +4225,23 @@ class Room2D(_BaseGeometry):
                     hb_face.remove_sub_faces()
                     glz_par.add_window_to_face(hb_face, tolerance)
                 if has_roof and isinstance(glz_par, _AsymmetricBase):
-                    valid_sf = []
+                    valid_sf, trim_sf = [], []
                     for sf in hb_face.sub_faces:
-                        if hb_face.geometry._is_sub_face(sf.geometry):
+                        p_geo, sf_geo = hb_face.geometry, sf.geometry
+                        verts2d = tuple(p_geo.plane.xyz_to_xy(v) for v in sf_geo.vertices)
+                        sub_poly = Polygon2D(verts2d)
+                        if p_geo.polygon2d.is_polygon_inside(sub_poly):
                             valid_sf.append(sf)
+                        elif not p_geo.polygon2d.is_polygon_outside(sub_poly):
+                            trim_sf.append(sf)
                     if len(hb_face.sub_faces) != len(valid_sf):
                         hb_face.remove_sub_faces()
-                        hb_face.add_sub_faces(valid_sf)
+                        hb_face.add_sub_faces(valid_sf + trim_sf)
+                        if len(trim_sf) != 0:
+                            hb_face.fix_invalid_sub_faces(
+                                trim_with_parent=True, union_overlaps=False,
+                                offset_distance=tolerance, tolerance=tolerance
+                            )
         skip = 0
         for i, shd_par in enumerate(self._shading_parameters):
             if ex_wall_i is not None and i in ex_wall_i:
@@ -5332,7 +5404,7 @@ class Room2D(_BaseGeometry):
 
     @staticmethod
     def room_orientation_plane(room_2ds, angle_tolerance=1.0):
-        """Get a Plane from the most frequently-occuring right angle across Room2Ds.
+        """Get a Plane from the most frequently-occurring right angle across Room2Ds.
 
         Args:
             room_2ds: A list of Room2Ds which will have their right-angles analyzed
@@ -5345,7 +5417,7 @@ class Room2D(_BaseGeometry):
         Returns:
             A ladybug-geometry Plane object derived from the input Room2Ds. If there
             were not enough right angles among the input Room2Ds to determine a
-            plane, the Wolrd XY will be returned.
+            plane, the World XY will be returned.
         """
         # define variables to be used throughout the evaluation
         ang_tol = math.radians(angle_tolerance)
@@ -5357,6 +5429,8 @@ class Room2D(_BaseGeometry):
         for room in room_2ds:
             segments = room.floor_segments_2d
             for i, seg in enumerate(segments):
+                if seg.length == 0 or segments[i - 1].length == 0:
+                    continue
                 if min_ang < seg.v.angle(segments[i - 1].v) < max_ang:  # right angle!
                     if seg.v.x > 0 and seg.v.y >= 0:
                         x_vec = seg.v
@@ -5554,11 +5628,11 @@ class Room2D(_BaseGeometry):
             return None, None, None
 
         # create the walls from the segments by intersecting them with the roof
-        if len(roof_faces) > len(rel_rf_polys):  # new roofs added; rebuild polygons
-            rel_rf_polys = [
-                Polygon2D(tuple(Point2D(pt.x, pt.y) for pt in geo.boundary))
-                for geo in roof_faces]
-            rel_rf_planes = [geo.plane for geo in roof_faces]
+        # rebuild the relevant roof polygons from the output
+        rel_rf_polys = [
+            Polygon2D(tuple(Point2D(pt.x, pt.y) for pt in geo.boundary))
+            for geo in roof_faces]
+        rel_rf_planes = [geo.plane for geo in roof_faces]
         walls = self._wall_faces_with_roof(
             all_room_poly, all_segments, rel_rf_polys, rel_rf_planes, tolerance)
         if walls is None:  # invalid roof geometry
@@ -5804,32 +5878,50 @@ class Room2D(_BaseGeometry):
 
                 # start building the wall face
                 face_pts = [seg.p1, seg.p2]
-                int_pts, int_pls = [(seg.p1, 0)], [current_plane]
-                # find where the segment leaves the polygon
                 seg_2d = LineSegment2D.from_array(((pt1.x, pt1.y), (pt2.x, pt2.y)))
+                int_pts, int_pls = [(seg_2d.p1, 0)], [current_plane]
+
+                # find if the room segment leaves the start roof polygon
                 for rf_seg in current_poly.segments:
+                    dist_1 = rf_seg.distance_to_point(seg_2d.p1)
+                    dist_2 = rf_seg.distance_to_point(seg_2d.p2)
+                    dist_3 = seg_2d.distance_to_point(rf_seg.p1)
+                    dist_4 = seg_2d.distance_to_point(rf_seg.p2)
+                    dists = [dist_1, dist_2, dist_3, dist_4]
+                    pts = [seg_2d.p1, seg_2d.p2, rf_seg.p1, rf_seg.p2]
+                    co_pts = [pt for pt, d in zip(pts, dists) if d < tolerance]
+                    if len(co_pts) > 0:
+                        # segments are colinear and overlap; add all relevant points
+                        for co_pt in co_pts:
+                            int_pts.append((co_pt, 0))
+                            int_pls.append(current_plane)
+                    # check to see if the line segments directly intersect
                     int_pt = seg_2d.intersect_line_ray(rf_seg)
-                    if int_pt is None:
-                        dist, cls_pts = closest_point2d_between_line2d(seg_2d, rf_seg)
-                        if dist <= tolerance:
-                            int_pt = cls_pts[0]
                     if int_pt is not None:
                         int_pts.append((int_pt, 0))
                         int_pls.append(current_plane)
 
-                # if the segment ends in the same face it starts, the solution is simple
-                pts_set = set(str((round(pt[0].x, rtol), round(pt[0].y, rtol)))
-                              for pt in int_pts)
-                if len(pts_set) <= 2 and \
-                        current_poly.point_relationship(pt2, tolerance) >= 0:
-                    face_pts.append(current_plane.project_point(seg.p2, proj_dir))
-                    face_pts.append(current_plane.project_point(seg.p1, proj_dir))
-                    wall_faces.append(Face3D(face_pts))  # make the final Face3D
-                    pt1 = pt2  # increment for next segment
-                    continue
+                # if the segment ends in same polygon it starts, add the end point
+                starts_where_ends = False
+                if current_poly.point_relationship(pt2, tolerance) >= 0:
+                    int_pts.append((pt2, 0))
+                    int_pls.append(current_plane)
+                    starts_where_ends = True
 
-                # otherwise, we must find where it intersects the other roof polygons
-                for o_poly, o_pl in zip(other_poly, other_planes):
+                # if the segment never leaves the start polygon, then solution is simple
+                if starts_where_ends:
+                    pts_set = set(str((round(pt[0].x, rtol), round(pt[0].y, rtol)))
+                                  for pt in int_pts)
+                    if len(pts_set) <= 2:
+                        face_pts.append(current_plane.project_point(seg.p2, proj_dir))
+                        face_pts.append(current_plane.project_point(seg.p1, proj_dir))
+                        wall_faces.append(Face3D(face_pts))  # make the final Face3D
+                        pt1 = pt2  # increment for next segment
+                        continue
+
+                # the room segment interacts with multiple roof polygons
+                # find where the room segment intersects the other roof polygons
+                for pi, (o_poly, o_pl) in enumerate(zip(other_poly, other_planes)):
                     for o_seg in o_poly.segments:
                         dist_1 = o_seg.distance_to_point(seg_2d.p1)
                         dist_2 = o_seg.distance_to_point(seg_2d.p2)
@@ -5838,90 +5930,96 @@ class Room2D(_BaseGeometry):
                         dists = [dist_1, dist_2, dist_3, dist_4]
                         pts = [seg_2d.p1, seg_2d.p2, o_seg.p1, o_seg.p2]
                         co_pts = [pt for pt, d in zip(pts, dists) if d < tolerance]
-                        if len(co_pts) > 1:
-                            # segments are colinear and overlap; add both points
+                        if len(co_pts) > 0:
+                            # segments are colinear and overlap; add all relevant points
                             for co_pt in co_pts:
-                                int_pts.append((co_pt, 1))
+                                int_pts.append((co_pt, pi + 1))
                                 int_pls.append(o_pl)
-                        else:
-                            int_pt = seg_2d.intersect_line_ray(o_seg)
-                            if int_pt is None:
-                                d, cls_pts = closest_point2d_between_line2d(seg_2d, o_seg)
-                                if d <= tolerance:
-                                    int_pt = cls_pts[0]
-                            if int_pt is not None:
-                                int_pts.append((int_pt, 1))
-                                int_pls.append(o_pl)
+                        # check to see if the line segments directly intersect
+                        int_pt = seg_2d.intersect_line_ray(o_seg)
+                        if int_pt is not None:
+                            int_pts.append((int_pt, pi + 1))
+                            int_pls.append(o_pl)
 
-                # sort the intersections points along the segment
-                pt_dists = [(round(seg_2d.p1.distance_to_point(ipt[0]), rtol), ipt[1])
+                # add a vertex for where the segment ends in the polygon
+                if not starts_where_ends:
+                    for i, (rf_py, rf_pl) in enumerate(zip(other_poly, other_planes)):
+                        if rf_py.point_relationship(pt2, tolerance) >= 0:
+                            int_pts.append((pt2, i + 1))
+                            int_pls.append(rf_pl)
+                            break
+
+                # remove any duplicates among the intersection points
+                int_set, clean_int_pts, clean_int_pls = set(), [], []
+                for ipt, ipl in zip(int_pts, int_pls):
+                    str_pt = str((round(ipt[0].x, rtol), round(ipt[0].y, rtol), ipt[1]))
+                    if str_pt not in int_set:
+                        clean_int_pts.append(ipt)
+                        clean_int_pls.append(ipl)
+                    int_set.add(str_pt)
+                int_pts, int_pls = clean_int_pts, clean_int_pls
+
+                # sort the intersection points along the segment
+                pt_dists = [(seg_2d.p1.distance_to_point(ipt[0]), ipt[1])
                             for ipt in int_pts]
                 pts_pls = [
-                    (
-                        i_pt[0],
-                        i_pl,
-                        i_pl.project_point(Point3D.from_point2d(i_pt[0]), proj_dir)
-                    )
-                    for i_pt, i_pl in zip(int_pts, int_pls)
+                    (ipl.project_point(Point3D.from_point2d(ipt[0]), proj_dir), ipt[1])
+                    for ipt, ipl in zip(int_pts, int_pls)
                 ]
                 sort_obj = sorted(zip(pt_dists, pts_pls), key=lambda pair: pair[0])
-                # remove any point/plane combinations that are duplicates
-                i_to_remove = []
-                for i, (dist_tup, (pt, pln, pt3)) in enumerate(sort_obj[1:]):
-                    if dist_tup[0] < tolerance:
-                        i_to_remove.append(i + 1)
-                    elif pt3.distance_to_point(sort_obj[i][1][2]) < tolerance:
-                        if len(i_to_remove) == 0 or i_to_remove[-1] != i:
-                            i_to_remove.append(i)
-                for del_i in reversed(i_to_remove):
-                    sort_obj.pop(del_i)
-                # if there are any jumps back in the segment, correct them
-                prev_seg_i = 0
-                for b, pt_grp in enumerate(sort_obj):
-                    current_seg_i = pt_grp[0][1]
-                    if current_seg_i < prev_seg_i:  # move it ahead one place
-                        if b < len(sort_obj):
-                            sort_obj.insert(b + 1, sort_obj.pop(b))
-                    prev_seg_i = current_seg_i
-                sort_pts_pls = [x for _, x in sort_obj]
-                # if two points are equivalent, reorder with the previous point plane
-                ord_pts = [x[0] for x in sort_pts_pls]
-                ord_pls = [x[1] for x in sort_pts_pls]
-                ord_pts3 = [x[2] for x in sort_pts_pls]
-                for i, (pt, pln, pt3) in enumerate(sort_pts_pls[1:]):
-                    if i == 0:
-                        continue
-                    if pt.distance_to_point(ord_pts[i]) < tolerance:
-                        prev_pl = ord_pls[i - 1]
-                        if prev_pl.distance_to_point(pt3) < \
-                                prev_pl.distance_to_point(sort_pts_pls[i][2]):
-                            # reorder the points
-                            ord_pts[i], ord_pts[i + 1] = ord_pts[i + 1], ord_pts[i]
-                            ord_pls[i], ord_pls[i + 1] = ord_pls[i + 1], ord_pls[i]
-                            ord_pts3[i], ord_pts3[i + 1] = ord_pts3[i + 1], ord_pts3[i]
-                # project the points onto the planes
-                rf_pts = [ipl.project_point(Point3D.from_point2d(ipt), proj_dir)
-                          for ipt, ipl in zip(ord_pts, ord_pls)]
-                # add a vertex for where the segment ends in the polygon
-                for i, (rf_py, rf_pl) in enumerate(zip(other_poly, other_planes)):
-                    if rf_py.point_relationship(pt2, tolerance) >= 0:
-                        other_poly.pop(i)
-                        other_poly.append(current_poly)
-                        other_planes.pop(i)
-                        other_planes.append(current_plane)
-                        current_poly, current_plane = rf_py, rf_pl
-                        rf_pts.append(
-                            rf_pl.project_point(Point3D.from_point2d(pt2), proj_dir))
-                        break
-                # remove duplicated vertices from the list
-                rf_pts = [pt for i, pt in enumerate(rf_pts)
-                          if not pt.is_equivalent(rf_pts[i - 1], tolerance)]
-                if current_poly is None or len(rf_pts) < 2:
-                    return None  # point not inside a roof; invalid roof
-                # check that the first two vertices are not a sliver
-                if abs(rf_pts[0].x - rf_pts[1].x) < tolerance and \
-                        abs(rf_pts[0].y - rf_pts[1].y) < tolerance:
-                    rf_pts.pop(0)
+
+                # group the intersection points together that are equivalent in tolerance
+                pt_groups, prev_dist = [[sort_obj[0][1]]], 0
+                for i, ((dist, _), pt_tup) in enumerate(sort_obj[1:]):
+                    if abs(dist - prev_dist) < tolerance:
+                        pt_groups[-1].append(pt_tup)
+                    else:  # the start of a new point group
+                        pt_groups.append([pt_tup])
+                    prev_dist = dist
+
+                # move through each group and connect the points along common roof polys
+                rf_pts, rf_ids = [], []
+                for i, pt_grp in enumerate(pt_groups):
+                    # determine the start point of the group
+                    if i == 0:  # check if there is a point in the next group to connect
+                        st_pt = None
+                        if len(pt_groups) > 1:
+                            for c_pt in pt_grp:
+                                for p_pt in pt_groups[1]:
+                                    if c_pt[1] == p_pt[1]:
+                                        st_pt = c_pt[0]
+                                        rf_id = c_pt[1]
+                                        break
+                        if st_pt is None:  # otherwise, we can just pick the first vertex
+                            st_pt, rf_id = pt_grp[0]
+                    else:  # base it on the previous group
+                        st_pts, pt_ids = [], []
+                        for c_pt in pt_grp:
+                            for p_pt in pt_groups[i - 1]:
+                                if c_pt[1] == p_pt[1]:
+                                    st_pts.append(c_pt[0])
+                                    pt_ids.append(c_pt[1])
+                        if len(st_pts) == 1:  # a single connection; best result
+                            st_pt, rf_id = st_pts[0], pt_ids[0]
+                        elif len(st_pts) == 0:  # failed to connect points; not a good sign
+                            st_pt, rf_id = pt_grp[0]
+                        else:  # multiple possible connections; find the best fit
+                            for spt, rid in zip(st_pts, pt_ids):
+                                if rid == rf_ids[-1]:
+                                    st_pt, rf_id = spt, rid
+                                    break
+                            else:
+                                st_pt, rf_id = st_pts[0], pt_ids[0]
+                    rf_pts.append(st_pt)
+                    rf_ids.append(rf_id)
+                    # add an extra point if there are any vertical jumps in the group
+                    if i != 0:
+                        z_diffs = [abs(st_pt.z - pt3.z) for (pt3, _) in pt_grp]
+                        sort_z = sorted(zip(z_diffs, pt_grp), key=lambda pair: pair[0])
+                        if sort_z[-1][0] > tolerance:
+                            rf_pts.append(sort_z[-1][1][0])
+                            rf_ids.append(sort_z[-1][1][1])
+
                 # add the points to the Face3D vertices
                 rf_pts.reverse()
                 face_pts.extend(rf_pts)
@@ -6234,6 +6332,8 @@ class Room2D(_BaseGeometry):
                     if lseg.length == 0:
                         continue
                     mid_dist = self.floor_to_ceiling_height - ciel_diff - flr_diff
+                    if mid_dist == 0:
+                        continue
                     vec1 = Vector3D(0, 0, flr_diff)
                     vec2 = Vector3D(0, 0, self.floor_to_ceiling_height - ciel_diff)
                     below = Face3D.from_extrusion(lseg, vec1)
@@ -6263,6 +6363,8 @@ class Room2D(_BaseGeometry):
                     if lseg.length == 0:
                         continue
                     mid_dist = self.floor_to_ceiling_height - flr_diff
+                    if mid_dist == 0:
+                        continue
                     vec1 = Vector3D(0, 0, flr_diff)
                     below = Face3D.from_extrusion(lseg, vec1)
                     mid = Face3D.from_extrusion(
@@ -6282,6 +6384,8 @@ class Room2D(_BaseGeometry):
                     if lseg.length == 0:
                         continue
                     mid_dist = self.floor_to_ceiling_height - ciel_diff
+                    if mid_dist == 0:
+                        continue
                     vec1 = Vector3D(0, 0, mid_dist)
                     mid = Face3D.from_extrusion(lseg, vec1)
                     above = Face3D.from_extrusion(
@@ -6476,6 +6580,9 @@ class Room2D(_BaseGeometry):
                 m_bcs, m_w_par, m_segs = [], [], []
             else:  # vertex is colinear; continue
                 skip += 1
+        # catch the case of degenerate rooms
+        if len(new_vertices) < 3:
+            return None, None, None
         # catch case of last few vertices being equal but distinct from first point
         if skip != 0 and first_skip != -1:
             _v2, _v1, _v = pts_2d[-2 - skip], pts_2d[-1], pts_2d[first_skip]
@@ -6498,12 +6605,18 @@ class Room2D(_BaseGeometry):
                 new_w_par.append(new_wp)
             else:
                 new_w_par[0] = new_wp
+                new_bcs[0] = new_bc
         elif skip != 0:
             w_par_for_merge = m_w_par + [new_w_par[0]]
-            if not all(wp is None for wp in w_par_for_merge):
-                segs_for_merge = m_segs + [segs_2d[-1]]
-                new_w_par[0] = DetailedWindows.merge(
-                    w_par_for_merge, segs_for_merge, ftc_height)
+            bcs_for_merge = m_bcs + [new_bcs[0]]
+            if all(not isinstance(bc, Ground) for bc in bcs_for_merge):
+                if not all(wp is None for wp in w_par_for_merge):
+                    segs_for_merge = m_segs + [segs_2d[-1]]
+                    new_w_par[0] = DetailedWindows.merge(
+                        w_par_for_merge, segs_for_merge, ftc_height)
+            else:
+                new_w_par[0] = None
+                new_bcs[0] = bcs.ground
         # move the first properties to the end to match with the vertices
         new_bcs.append(new_bcs.pop(0))
         new_w_par.append(new_w_par.pop(0))

@@ -58,20 +58,26 @@ def _normalize_to_openai_messages_list(
 # Helper function to process individual scores
 def _process_score(
     key: str, value: Any
-) -> tuple[float, Union[str, None], Union[dict, None]]:
+) -> tuple[float, Union[str, None], Union[dict, None], Optional[str]]:
     if isinstance(value, dict):
         if "score" in value:
-            return value["score"], value.get("reasoning"), value.get("metadata", None)  # type: ignore
+            return (
+                value["score"],
+                value.get("reasoning"),
+                value.get("metadata", None),
+                value.get("source_run_id", None),
+            )  # type: ignore
         raise ValueError(
             f"Expected a dictionary with keys 'score' and 'reasoning', but got {value}"
         )
-    return value, None, None
+    return value, None, None, None
 
 
-def _add_metadata_to_run_tree(
+def _add_metadata_and_inputs_to_run_tree(
     run_name: str,
     framework: Union[str, None] = None,
     results: Optional[Union[dict, list[dict]]] = None,
+    inputs: Optional[Any] = None,
 ):
     rt = get_current_run_tree()
     if rt is not None:
@@ -86,6 +92,8 @@ def _add_metadata_to_run_tree(
                         rt.metadata.update(results.get("metadata", None))
                 except Exception:
                     pass
+            if inputs is not None:
+                rt.inputs = inputs
         rt.metadata["__ls_framework"] = framework
         rt.metadata["__ls_evaluator"] = run_name
         rt.metadata["__ls_language"] = "python"
@@ -133,25 +141,31 @@ def _run_evaluator_untyped(
             for key, value in score.items():
                 if isinstance(value, list):
                     for item in value:
-                        key_score, reasoning, metadata = _process_score(key, item)
-                        results.append(
-                            EvaluatorResult(
-                                key=key,
-                                score=key_score,
-                                comment=reasoning,
-                                metadata=metadata,
-                            )
+                        key_score, reasoning, metadata, source_run_id = _process_score(
+                            key, item
                         )
-                else:
-                    key_score, reasoning, metadata = _process_score(key, value)
-                    results.append(
-                        EvaluatorResult(
+                        result = EvaluatorResult(
                             key=key,
                             score=key_score,
                             comment=reasoning,
                             metadata=metadata,
                         )
+                        if source_run_id is not None:
+                            result["source_run_id"] = source_run_id
+                        results.append(result)
+                else:
+                    key_score, reasoning, metadata, source_run_id = _process_score(
+                        key, value
                     )
+                    result = EvaluatorResult(
+                        key=key,
+                        score=key_score,
+                        comment=reasoning,
+                        metadata=metadata,
+                    )
+                    if source_run_id is not None:
+                        result["source_run_id"] = source_run_id
+                    results.append(result)
             return results
         else:
             # Handle single score
@@ -174,7 +188,19 @@ def _run_evaluator_untyped(
     if _TEST_CASE.get():
         with t.trace_feedback(name=run_name):
             results = _run_scorer(**kwargs)
-            _add_metadata_to_run_tree(run_name, ls_framework, results)
+
+            _add_metadata_and_inputs_to_run_tree(
+                run_name,
+                ls_framework,
+                results,
+                inputs={
+                    "inputs": kwargs.get("inputs", None),
+                    "reference_outputs": kwargs.get("reference_outputs", None),
+                }
+                if kwargs.get("inputs", None) is not None
+                or kwargs.get("reference_outputs", None) is not None
+                else None,
+            )
             if not return_raw_outputs:
                 if isinstance(results, list):
                     for result in results:
@@ -191,7 +217,7 @@ def _run_evaluator_untyped(
                     )
     else:
         results = _run_scorer(**kwargs)
-        _add_metadata_to_run_tree(run_name, ls_framework, results)
+        _add_metadata_and_inputs_to_run_tree(run_name, ls_framework, results)
 
     # Return single result or list of results
     return results
@@ -243,25 +269,31 @@ async def _arun_evaluator_untyped(
             for key, value in score.items():
                 if isinstance(value, list):
                     for item in value:
-                        key_score, reasoning, metadata = _process_score(key, item)
-                        results.append(
-                            EvaluatorResult(
-                                key=key,
-                                score=key_score,
-                                comment=reasoning,
-                                metadata=metadata,
-                            )
+                        key_score, reasoning, metadata, source_run_id = _process_score(
+                            key, item
                         )
-                else:
-                    key_score, reasoning, metadata = _process_score(key, value)
-                    results.append(
-                        EvaluatorResult(
+                        result = EvaluatorResult(
                             key=key,
                             score=key_score,
                             comment=reasoning,
                             metadata=metadata,
                         )
+                        if source_run_id is not None:
+                            result["source_run_id"] = source_run_id
+                        results.append(result)
+                else:
+                    key_score, reasoning, metadata, source_run_id = _process_score(
+                        key, value
                     )
+                    result = EvaluatorResult(
+                        key=key,
+                        score=key_score,
+                        comment=reasoning,
+                        metadata=metadata,
+                    )
+                    if source_run_id is not None:
+                        result["source_run_id"] = source_run_id
+                    results.append(result)
             return results
         else:
             # Handle single score
@@ -284,7 +316,18 @@ async def _arun_evaluator_untyped(
     if _TEST_CASE.get():
         with t.trace_feedback(name=run_name):
             results = await _arun_scorer(**kwargs)
-            _add_metadata_to_run_tree(run_name, ls_framework, results)
+            _add_metadata_and_inputs_to_run_tree(
+                run_name,
+                ls_framework,
+                results,
+                inputs={
+                    "inputs": kwargs.get("inputs", None),
+                    "reference_outputs": kwargs.get("reference_outputs", None),
+                }
+                if kwargs.get("inputs", None) is not None
+                or kwargs.get("reference_outputs", None) is not None
+                else None,
+            )
             if not return_raw_outputs:
                 if isinstance(results, list):
                     for result in results:
@@ -301,7 +344,7 @@ async def _arun_evaluator_untyped(
                     )
     else:
         results = await _arun_scorer(**kwargs)
-        _add_metadata_to_run_tree(run_name, ls_framework, results)
+        _add_metadata_and_inputs_to_run_tree(run_name, ls_framework, results)
 
     # Return single result or list of results
     return results

@@ -15,20 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
-/// Implements a Datafusion physical ExecutionPlan that delegates to a PyArrow Dataset
-/// This actually performs the projection, filtering and scanning of a Dataset
-use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyIterator, PyList};
-
 use std::any::Any;
 use std::sync::Arc;
 
-use futures::{stream, TryStreamExt};
-
 use datafusion::arrow::datatypes::SchemaRef;
-use datafusion::arrow::error::ArrowError;
-use datafusion::arrow::error::Result as ArrowResult;
+use datafusion::arrow::error::{ArrowError, Result as ArrowResult};
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::error::{DataFusionError as InnerDataFusionError, Result as DFResult};
@@ -36,11 +27,17 @@ use datafusion::execution::context::TaskContext;
 use datafusion::logical_expr::utils::conjunction;
 use datafusion::logical_expr::Expr;
 use datafusion::physical_expr::{EquivalenceProperties, LexOrdering};
+use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::{
     DisplayAs, DisplayFormatType, ExecutionPlan, ExecutionPlanProperties, Partitioning,
     SendableRecordBatchStream, Statistics,
 };
+use futures::{stream, TryStreamExt};
+/// Implements a Datafusion physical ExecutionPlan that delegates to a PyArrow Dataset
+/// This actually performs the projection, filtering and scanning of a Dataset
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyIterator, PyList};
 
 use crate::errors::PyDataFusionResult;
 use crate::pyarrow_filter_expression::PyArrowFilterExpression;
@@ -53,7 +50,7 @@ impl Iterator for PyArrowBatchesAdapter {
     type Item = ArrowResult<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let mut batches = self.batches.clone_ref(py).into_bound(py);
             Some(
                 batches
@@ -68,11 +65,11 @@ impl Iterator for PyArrowBatchesAdapter {
 // Wraps a pyarrow.dataset.Dataset class and implements a Datafusion ExecutionPlan around it
 #[derive(Debug)]
 pub(crate) struct DatasetExec {
-    dataset: PyObject,
+    dataset: Py<PyAny>,
     schema: SchemaRef,
     fragments: Py<PyList>,
     columns: Option<Vec<String>>,
-    filter_expr: Option<PyObject>,
+    filter_expr: Option<Py<PyAny>>,
     projected_statistics: Statistics,
     plan_properties: datafusion::physical_plan::PlanProperties,
 }
@@ -97,7 +94,7 @@ impl DatasetExec {
                 .collect()
         });
         let columns: Option<Vec<String>> = columns.transpose()?;
-        let filter_expr: Option<PyObject> = conjunction(filters.to_owned())
+        let filter_expr: Option<Py<PyAny>> = conjunction(filters.to_owned())
             .map(|filters| {
                 PyArrowFilterExpression::try_from(&filters)
                     .map(|filter_expr| filter_expr.inner().clone_ref(py))
@@ -187,7 +184,7 @@ impl ExecutionPlan for DatasetExec {
         context: Arc<TaskContext>,
     ) -> DFResult<SendableRecordBatchStream> {
         let batch_size = context.session_config().batch_size();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let dataset = self.dataset.bind(py);
             let fragments = self.fragments.bind(py);
             let fragment = fragments
@@ -272,7 +269,7 @@ impl ExecutionPlanProperties for DatasetExec {
 
 impl DisplayAs for DatasetExec {
     fn fmt_as(&self, t: DisplayFormatType, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let number_of_fragments = self.fragments.bind(py).len();
             match t {
                 DisplayFormatType::Default

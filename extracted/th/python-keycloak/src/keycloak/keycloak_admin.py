@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import copy
 import json
+from typing import Any
 
 from requests_toolbelt import MultipartEncoder
 
@@ -39,7 +40,6 @@ from .exceptions import (
     HTTP_CONFLICT,
     HTTP_CREATED,
     HTTP_NO_CONTENT,
-    HTTP_NOT_FOUND,
     HTTP_OK,
     KeycloakDeleteError,
     KeycloakGetError,
@@ -88,6 +88,8 @@ class KeycloakAdmin:
     :type max_retries: int
     :param connection: A KeycloakOpenIDConnection as an alternative to individual params.
     :type connection: KeycloakOpenIDConnection
+    :param pool_maxsize: The maximum number of connections to save in the pool.
+    :type pool_maxsize: int
     """
 
     PAGE_SIZE = 100
@@ -99,8 +101,8 @@ class KeycloakAdmin:
         username: str | None = None,
         password: str | None = None,
         token: dict | None = None,
-        totp: str | None = None,
-        realm_name: str = "master",
+        totp: int | None = None,
+        realm_name: str | None = "master",
         client_id: str = "admin-cli",
         verify: bool | str = True,
         client_secret_key: str | None = None,
@@ -110,6 +112,7 @@ class KeycloakAdmin:
         cert: str | tuple | None = None,
         max_retries: int = 1,
         connection: KeycloakOpenIDConnection | None = None,
+        pool_maxsize: int | None = None,
     ) -> None:
         """
         Init method.
@@ -149,6 +152,8 @@ class KeycloakAdmin:
         :type max_retries: int
         :param connection: An OpenID Connection as an alternative to individual params.
         :type connection: KeycloakOpenIDConnection
+        :param pool_maxsize: The maximum number of connections to save in the pool.
+        :type pool_maxsize: int
         """
         self.connection = connection or KeycloakOpenIDConnection(
             server_url=server_url,
@@ -166,6 +171,7 @@ class KeycloakAdmin:
             timeout=timeout,
             cert=cert,
             max_retries=max_retries,
+            pool_maxsize=pool_maxsize,
         )
 
     @property
@@ -221,7 +227,7 @@ class KeycloakAdmin:
 
         return results
 
-    def __fetch_paginated(self, url: str, query: dict | None = None) -> dict | list:
+    def __fetch_paginated(self, url: str, query: dict | None = None) -> list:
         """
         Make a specific paginated request.
 
@@ -233,14 +239,21 @@ class KeycloakAdmin:
         :rtype: dict
         """
         query = query or {}
-        return raise_error_from_response(self.connection.raw_get(url, **query), KeycloakGetError)
+        res = raise_error_from_response(self.connection.raw_get(url, **query), KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                f"Unexpected response type. Expected list, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_current_realm(self) -> str:
+        return res
+
+    def get_current_realm(self) -> str | None:
         """
         Return the currently configured realm.
 
         :returns: Currently configured realm name
-        :rtype: str
+        :rtype: str | None
         """
         return self.connection.realm_name
 
@@ -253,7 +266,7 @@ class KeycloakAdmin:
         """
         self.connection.realm_name = realm_name
 
-    def import_realm(self, payload: dict) -> dict | bytes:
+    def import_realm(self, payload: dict) -> bytes:
         """
         Import a new realm from a RealmRepresentation.
 
@@ -265,19 +278,26 @@ class KeycloakAdmin:
         :param payload: RealmRepresentation
         :type payload: dict
         :return: RealmRepresentation
-        :rtype: dict
+        :rtype: bytes
         """
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_REALMS,
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                f"Unexpected response type. Expected bytes, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def partial_import_realm(self, realm_name: str, payload: dict) -> dict | bytes:
+        return res
+
+    def partial_import_realm(self, realm_name: str, payload: dict) -> dict:
         """
         Partial import realm configuration from PartialImportRepresentation.
 
@@ -299,7 +319,14 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_PARTIAL_IMPORT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def export_realm(
         self,
@@ -331,7 +358,14 @@ class KeycloakAdmin:
             exportClients=export_clients,
             exportGroupsAndRoles=export_groups_and_role,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realms(self) -> list:
         """
@@ -341,7 +375,14 @@ class KeycloakAdmin:
         :rtype: list
         """
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_REALMS)
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                f"Unexpected response type. Expected list, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realm(self, realm_name: str) -> dict:
         """
@@ -357,9 +398,16 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": realm_name}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_REALM.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def create_realm(self, payload: dict, skip_exists: bool = False) -> dict | bytes:
+        return res
+
+    def create_realm(self, payload: dict, skip_exists: bool = False) -> bytes:
         """
         Create a realm.
 
@@ -377,14 +425,28 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALMS,
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED]
             + ([HTTP_BAD_REQUEST, HTTP_CONFLICT] if skip_exists else []),
         )
+        if isinstance(res, dict) and res in [
+            {"msg": "Already exists"},
+            {"errorMessage": "Realm test already exists"},
+            {"errorMessage": "Conflict detected. See logs for details"},
+        ]:
+            return json.dumps(res).encode()
 
-    def update_realm(self, realm_name: str, payload: dict) -> dict | bytes:
+        if not isinstance(res, bytes):
+            msg = (
+                f"Unexpected response type. Expected bytes, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
+
+    def update_realm(self, realm_name: str, payload: dict) -> dict:
         """
         Update a realm.
 
@@ -406,13 +468,20 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_realm(self, realm_name: str) -> dict | bytes:
+        return res
+
+    def delete_realm(self, realm_name: str) -> dict:
         """
         Delete a realm.
 
@@ -423,11 +492,18 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": realm_name}
         data_raw = self.connection.raw_delete(urls_patterns.URL_ADMIN_REALM.format(**params_path))
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_organizations(self, query: dict | None = None) -> list:
         """
@@ -492,7 +568,14 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_BY_ID.format(**params_path)
         )
 
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_organization(self, organization_id: str) -> dict:
         """
@@ -515,7 +598,14 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_BY_ID.format(**params_path)
         )
 
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                f"Unexpected response type. Expected dict, received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_organization(self, payload: dict) -> str | None:
         """
@@ -571,7 +661,7 @@ class KeycloakAdmin:
         except KeyError:
             return None
 
-    def update_organization(self, organization_id: str, payload: dict) -> dict | bytes:
+    def update_organization(self, organization_id: str, payload: dict) -> dict:
         """
         Update an existing organization.
 
@@ -583,7 +673,7 @@ class KeycloakAdmin:
         :param payload: Dictionary with updated organization details
         :type payload: dict
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -594,11 +684,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_BY_ID.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw, KeycloakPutError, expected_codes=[HTTP_NO_CONTENT]
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_organization(self, organization_id: str, payload: dict) -> dict | bytes:
+        return res
+
+    async def a_update_organization(self, organization_id: str, payload: dict) -> dict:
         """
         Update an existing organization asynchronously.
 
@@ -621,18 +719,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_BY_ID.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw, KeycloakPutError, expected_codes=[HTTP_NO_CONTENT]
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_organization(self, organization_id: str) -> dict | bytes:
+        return res
+
+    def delete_organization(self, organization_id: str) -> dict:
         """
         Delete an organization.
 
         :param organization_id: ID of the organization
         :type organization_id: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -643,18 +749,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_BY_ID.format(**params_path)
         )
 
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw, KeycloakDeleteError, expected_codes=[HTTP_NO_CONTENT]
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_organization(self, organization_id: str) -> dict | bytes:
+        return res
+
+    async def a_delete_organization(self, organization_id: str) -> dict:
         """
         Delete an organization asynchronously.
 
         :param organization_id: ID of the organization
         :type organization_id: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -665,9 +779,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_BY_ID.format(**params_path)
         )
 
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw, KeycloakDeleteError, expected_codes=[HTTP_NO_CONTENT]
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_organization_idps(self, organization_id: str) -> list:
         """
@@ -689,7 +811,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_ORGANIZATION_IDPS.format(**params_path)
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_organization_idps(self, organization_id: str) -> list:
         """
@@ -711,9 +841,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_ORGANIZATION_IDPS.format(**params_path)
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def organization_idp_add(self, organization_id: str, idp_alias: str) -> dict | bytes:
+        return res
+
+    def organization_idp_add(self, organization_id: str, idp_alias: str) -> dict:
         """
         Add an IDP to an organization.
 
@@ -732,11 +870,19 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_ORGANIZATION_IDPS.format(**params_path), data=idp_alias
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw, KeycloakPostError, expected_codes=[HTTP_NO_CONTENT]
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_organization_idp_add(self, organization_id: str, idp_alias: str) -> dict | bytes:
+        return res
+
+    async def a_organization_idp_add(self, organization_id: str, idp_alias: str) -> dict:
         """
         Add an IDP to an organization asynchronously.
 
@@ -745,7 +891,7 @@ class KeycloakAdmin:
         :param idp_alias: Alias of the IDP
         :type idp_alias: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -755,16 +901,25 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_ORGANIZATION_IDPS.format(**params_path), data=idp_alias
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw, KeycloakPostError, expected_codes=[HTTP_NO_CONTENT]
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def organization_idp_remove(self, organization_id: str, idp_alias: str) -> dict | bytes:
+        return res
+
+    def organization_idp_remove(self, organization_id: str, idp_alias: str) -> dict:
         """
         Remove an IDP from an organization.
 
         :param organization_id: ID of the organization
         :type organization_id: str
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -776,20 +931,27 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_IDP_BY_ALIAS.format(**params_path)
         )
 
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_organization_idp_remove(
-        self, organization_id: str, idp_alias: str
-    ) -> dict | bytes:
+        return res
+
+    async def a_organization_idp_remove(self, organization_id: str, idp_alias: str) -> dict:
         """
         Remove an IDP from an organization asynchronously.
 
         :param organization_id: ID of the organization
         :type organization_id: str
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -801,11 +963,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_ORGANIZATION_IDP_BY_ALIAS.format(**params_path)
         )
 
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_user_organizations(self, user_id: str) -> list:
         """
@@ -823,7 +993,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_ORGANIZATIONS.format(**params_path)
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_user_organizations(self, user_id: str) -> list:
         """
@@ -841,7 +1019,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_ORGANIZATIONS.format(**params_path)
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_organization_members(self, organization_id: str, query: dict | None = None) -> list:
         """
@@ -919,7 +1105,14 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_ORGANIZATION_MEMBERS_COUNT.format(**params_path)
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, int):
+            msg = (
+                f"Unexpected response type. Expected 'int', received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_organization_members_count(self, organization_id: str) -> int:
         """
@@ -937,9 +1130,16 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_ORGANIZATION_MEMBERS_COUNT.format(**params_path)
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, int):
+            msg = (
+                f"Unexpected response type. Expected 'int', received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def organization_user_add(self, user_id: str, organization_id: str) -> dict | bytes:
+        return res
+
+    def organization_user_add(self, user_id: str, organization_id: str) -> bytes:
         """
         Add a user to an organization.
 
@@ -948,7 +1148,7 @@ class KeycloakAdmin:
         :param organization_id: ID of the organization
         :type organization_id: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: bytes
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -958,11 +1158,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_ORGANIZATION_MEMBERS.format(**params_path), data=user_id
         )
-        return raise_error_from_response(
-            data_raw, KeycloakPostError, expected_codes=[HTTP_CREATED]
-        )
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_CREATED])
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_organization_user_add(self, user_id: str, organization_id: str) -> dict | bytes:
+        return res
+
+    async def a_organization_user_add(self, user_id: str, organization_id: str) -> bytes:
         """
         Add a user to an organization asynchronously.
 
@@ -971,7 +1177,7 @@ class KeycloakAdmin:
         :param organization_id: ID of the organization
         :type organization_id: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: bytes
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -981,11 +1187,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_ORGANIZATION_MEMBERS.format(**params_path), data=user_id
         )
-        return raise_error_from_response(
-            data_raw, KeycloakPostError, expected_codes=[HTTP_CREATED]
-        )
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_CREATED])
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def organization_user_remove(self, user_id: str, organization_id: str) -> dict | bytes:
+        return res
+
+    def organization_user_remove(self, user_id: str, organization_id: str) -> dict:
         """
         Remove a user from an organization.
 
@@ -994,7 +1206,7 @@ class KeycloakAdmin:
         :param organization_id: ID of the organization
         :type organization_id: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -1004,13 +1216,21 @@ class KeycloakAdmin:
 
         url = urls_patterns.URL_ADMIN_ORGANIZATION_DEL_MEMBER_BY_ID.format(**params_path)
         data_raw = self.connection.raw_delete(url)
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_organization_user_remove(self, user_id: str, organization_id: str) -> dict | bytes:
+        return res
+
+    async def a_organization_user_remove(self, user_id: str, organization_id: str) -> dict:
         """
         Remove a user from an organization asynchronously.
 
@@ -1019,7 +1239,7 @@ class KeycloakAdmin:
         :param organization_id: ID of the organization
         :type organization_id: str
         :return: Response from Keycloak
-        :rtype: dict | bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -1029,11 +1249,19 @@ class KeycloakAdmin:
 
         url = urls_patterns.URL_ADMIN_ORGANIZATION_DEL_MEMBER_BY_ID.format(**params_path)
         data_raw = await self.connection.a_raw_delete(url)
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_users(self, query: dict | None = None) -> list:
         """
@@ -1058,7 +1286,7 @@ class KeycloakAdmin:
 
         return self.__fetch_all(url, query)
 
-    def create_idp(self, payload: dict) -> dict | bytes:
+    def create_idp(self, payload: dict) -> bytes:
         """
         Create an ID Provider.
 
@@ -1068,20 +1296,28 @@ class KeycloakAdmin:
         :param: payload: IdentityProviderRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: dict
+        :rtype: bytes
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_IDPS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_idp(self, idp_alias: str, payload: dict) -> dict | bytes:
+        return res
+
+    def update_idp(self, idp_alias: str, payload: dict) -> dict:
         """
         Update an ID Provider.
 
@@ -1100,13 +1336,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_IDP.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def add_mapper_to_idp(self, idp_alias: str, payload: dict) -> dict | bytes:
+        return res
+
+    def add_mapper_to_idp(self, idp_alias: str, payload: dict) -> bytes:
         """
         Create an ID Provider.
 
@@ -1118,20 +1362,28 @@ class KeycloakAdmin:
         :param: payload: IdentityProviderMapperRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: dict
+        :rtype: bytes
         """
         params_path = {"realm-name": self.connection.realm_name, "idp-alias": idp_alias}
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_IDP_MAPPERS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_mapper_in_idp(self, idp_alias: str, mapper_id: str, payload: dict) -> dict | bytes:
+        return res
+
+    def update_mapper_in_idp(self, idp_alias: str, mapper_id: str, payload: dict) -> dict:
         """
         Update an IdP mapper.
 
@@ -1158,11 +1410,19 @@ class KeycloakAdmin:
             data=json.dumps(payload),
         )
 
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_idp_mappers(self, idp_alias: str) -> list:
         """
@@ -1182,7 +1442,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_IDP_MAPPERS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_idps(self) -> list:
         """
@@ -1198,7 +1466,15 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_IDPS.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_idp(self, idp_alias: str) -> dict:
         """
@@ -1216,9 +1492,17 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name, "alias": idp_alias}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_IDP.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_idp(self, idp_alias: str) -> dict | bytes:
+        return res
+
+    def delete_idp(self, idp_alias: str) -> dict:
         """
         Delete an ID Provider.
 
@@ -1229,11 +1513,19 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name, "alias": idp_alias}
         data_raw = self.connection.raw_delete(urls_patterns.URL_ADMIN_IDP.format(**params_path))
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_user(self, payload: dict, exist_ok: bool = False) -> str:
         """
@@ -1287,7 +1579,14 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USERS_COUNT.format(**params_path),
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, int):
+            msg = (
+                f"Unexpected response type. Expected 'int', received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_user_id(self, username: str) -> str | None:
         """
@@ -1326,7 +1625,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER.format(**params_path),
             userProfileMetadata=user_profile_metadata,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_user_groups(
         self,
@@ -1363,7 +1670,7 @@ class KeycloakAdmin:
 
         return self.__fetch_all(url, query)
 
-    def update_user(self, user_id: str, payload: dict) -> dict | bytes:
+    def update_user(self, user_id: str, payload: dict) -> dict:
         """
         Update the user.
 
@@ -1380,13 +1687,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def disable_user(self, user_id: str) -> dict | bytes:
+        return res
+
+    def disable_user(self, user_id: str) -> dict:
         """
         Disable the user from the realm. Disabled users can not log in.
 
@@ -1394,11 +1709,11 @@ class KeycloakAdmin:
         :type user_id: str
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         return self.update_user(user_id=user_id, payload={"enabled": False})
 
-    def enable_user(self, user_id: str) -> dict | bytes:
+    def enable_user(self, user_id: str) -> dict:
         """
         Enable the user from the realm.
 
@@ -1406,7 +1721,7 @@ class KeycloakAdmin:
         :type user_id: str
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         return self.update_user(user_id=user_id, payload={"enabled": True})
 
@@ -1424,29 +1739,37 @@ class KeycloakAdmin:
             user_id = user["id"]
             self.enable_user(user_id=user_id)
 
-    def delete_user(self, user_id: str) -> dict | bytes:
+    def delete_user(self, user_id: str) -> dict:
         """
         Delete the user.
 
         :param user_id: User id
         :type user_id: str
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         data_raw = self.connection.raw_delete(urls_patterns.URL_ADMIN_USER.format(**params_path))
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def set_user_password(
         self,
         user_id: str,
         password: str,
         temporary: bool = True,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Set up a password for the user.
 
@@ -1471,11 +1794,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_RESET_PASSWORD.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_credentials(self, user_id: str) -> list:
         """
@@ -1495,9 +1826,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_CREDENTIALS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_credential(self, user_id: str, credential_id: str) -> dict | bytes:
+        return res
+
+    def delete_credential(self, user_id: str, credential_id: str) -> dict:
         """
         Delete credential of the user.
 
@@ -1509,7 +1848,7 @@ class KeycloakAdmin:
         :param: credential_id: credential id
         :type credential_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -1519,9 +1858,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_USER_CREDENTIAL.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def user_logout(self, user_id: str) -> dict | bytes:
+        return res
+
+    def user_logout(self, user_id: str) -> dict:
         """
         Log out the user.
 
@@ -1537,11 +1884,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_LOGOUT.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def user_consents(self, user_id: str) -> list:
         """
@@ -1559,9 +1914,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_CONSENTS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def revoke_consent(self, user_id: str, client_id: str) -> dict | bytes:
+        return res
+
+    def revoke_consent(self, user_id: str, client_id: str) -> dict:
         """
         Revoke consent and offline tokens for particular client from user.
 
@@ -1579,11 +1942,19 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_USER_CONSENT.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_user_social_logins(self, user_id: str) -> list:
         """
@@ -1600,7 +1971,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_FEDERATED_IDENTITIES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def add_user_social_login(
         self,
@@ -1608,7 +1987,7 @@ class KeycloakAdmin:
         provider_id: str,
         provider_userid: str,
         provider_username: str,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Add a federated identity / social login provider to the user.
 
@@ -1637,13 +2016,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_FEDERATED_IDENTITY.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED, HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_user_social_login(self, user_id: str, provider_id: str) -> dict | bytes:
+        return res
+
+    def delete_user_social_login(self, user_id: str, provider_id: str) -> dict:
         """
         Delete a federated identity / social login provider from the user.
 
@@ -1652,7 +2039,7 @@ class KeycloakAdmin:
         :param provider_id: Social login provider id
         :type provider_id: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -1662,20 +2049,28 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_USER_FEDERATED_IDENTITY.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def send_update_account(
         self,
         user_id: str,
-        payload: dict,
+        payload: list,
         client_id: str | None = None,
         lifespan: int | None = None,
         redirect_uri: str | None = None,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Send an update account email to the user.
 
@@ -1693,7 +2088,7 @@ class KeycloakAdmin:
         :type redirect_uri: str
 
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         params_query = {"client_id": client_id, "lifespan": lifespan, "redirect_uri": redirect_uri}
@@ -1702,14 +2097,22 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             **params_query,
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def send_verify_email(
         self,
         user_id: str,
         client_id: str | None = None,
         redirect_uri: str | None = None,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Send a update account email to the user.
 
@@ -1723,7 +2126,7 @@ class KeycloakAdmin:
         :type redirect_uri: str
 
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         params_query = {"client_id": client_id, "redirect_uri": redirect_uri}
@@ -1732,7 +2135,15 @@ class KeycloakAdmin:
             data={},
             **params_query,
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_sessions(self, user_id: str) -> list:
         """
@@ -1750,7 +2161,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_GET_SESSIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_server_info(self) -> dict:
         """
@@ -1763,7 +2182,15 @@ class KeycloakAdmin:
         :rtype: dict
         """
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_SERVER_INFO)
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_groups(self, query: dict | None = None, full_hierarchy: bool = False) -> list:
         """
@@ -1801,11 +2228,14 @@ class KeycloakAdmin:
                 group["subGroups"] = self.get_group_children(
                     group_id=group.get("id"),
                     full_hierarchy=full_hierarchy,
+                    query=query,
                 )
 
         return groups
 
-    def get_group(self, group_id: str, full_hierarchy: bool = False) -> dict:
+    def get_group(
+        self, group_id: str, full_hierarchy: bool = False, query: dict | None = None
+    ) -> dict:
         """
         Get group by id.
 
@@ -1819,26 +2249,28 @@ class KeycloakAdmin:
         :param full_hierarchy: If True, return all of the nested children groups, otherwise only
             the first level children are returned
         :type full_hierarchy: bool
+        :param query: Additional query parameters passed into the subgroup fetch requests
+        :type query: dict | None
         :return: Keycloak server response (GroupRepresentation)
         :rtype: dict
         """
+        query = query or {}
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         response = self.connection.raw_get(urls_patterns.URL_ADMIN_GROUP.format(**params_path))
 
         if response.status_code >= HTTP_BAD_REQUEST:
-            return raise_error_from_response(response, KeycloakGetError)
+            raise_error_from_response(response, KeycloakGetError)
 
         # For version +23.0.0
         group = response.json()
         if group.get("subGroupCount"):
             group["subGroups"] = self.get_group_children(
-                group.get("id"),
-                full_hierarchy=full_hierarchy,
+                group.get("id"), full_hierarchy=full_hierarchy, query=query
             )
 
         return group
 
-    def get_subgroups(self, group: str, path: str) -> dict | None:
+    def get_subgroups(self, group: dict, path: str) -> dict | None:
         """
         Get subgroups.
 
@@ -1871,7 +2303,7 @@ class KeycloakAdmin:
         group_id: str,
         query: dict | None = None,
         full_hierarchy: bool = False,
-    ) -> dict:
+    ) -> list:
         """
         Get group children by parent id.
 
@@ -1884,7 +2316,7 @@ class KeycloakAdmin:
         :param full_hierarchy: If True, return all of the nested children groups
         :type full_hierarchy: bool
         :return: Keycloak server response (GroupRepresentation)
-        :rtype: dict
+        :rtype: list
         :raises ValueError: If both query and full_hierarchy parameters are used
         """
         query = query or {}
@@ -1896,6 +2328,7 @@ class KeycloakAdmin:
         url = urls_patterns.URL_ADMIN_GROUP_CHILD.format(**params_path)
         if "first" in query or "max" in query:
             return self.__fetch_paginated(url, query)
+
         res = self.__fetch_all(url, query)
 
         if not full_hierarchy:
@@ -1906,6 +2339,7 @@ class KeycloakAdmin:
                 group["subGroups"] = self.get_group_children(
                     group_id=group.get("id"),
                     full_hierarchy=full_hierarchy,
+                    query=query,
                 )
 
         return res
@@ -1942,6 +2376,8 @@ class KeycloakAdmin:
 
         Returns full group details for a group defined by path
 
+        Raises an `KeycloakGetError` if the group was not found.
+
         GroupRepresentation
         https://www.keycloak.org/docs-api/24.0.2/rest-api/#_grouprepresentation
 
@@ -1954,7 +2390,19 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_GROUP_BY_PATH.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, [HTTP_OK, HTTP_NOT_FOUND])
+        # PR https://github.com/marcospereirampj/python-keycloak/pull/627
+        # added `HTTP_NOT_FOUND` to the `expected_codes` argument.
+        # This change has since been reverted, see:
+        # https://github.com/marcospereirampj/python-keycloak/issues/675
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_group(
         self,
@@ -2003,7 +2451,7 @@ class KeycloakAdmin:
         except KeyError:
             return None
 
-    def update_group(self, group_id: str, payload: dict) -> dict | bytes:
+    def update_group(self, group_id: str, payload: dict) -> dict:
         """
         Update group, ignores subgroups.
 
@@ -2016,18 +2464,26 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_GROUP.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def groups_count(self, query: dict | None = None) -> dict:
         """
@@ -2047,9 +2503,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_COUNT.format(**params_path),
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def group_set_permissions(self, group_id: str, enabled: bool = True) -> bytes:
+        return res
+
+    def group_set_permissions(self, group_id: str, enabled: bool = True) -> dict:
         """
         Enable/Disable permissions for a group.
 
@@ -2060,16 +2524,24 @@ class KeycloakAdmin:
         :param enabled: Enabled flag
         :type enabled: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_GROUP_PERMISSIONS.format(**params_path),
             data=json.dumps({"enabled": enabled}),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def group_user_add(self, user_id: str, group_id: str) -> bytes:
+        return res
+
+    def group_user_add(self, user_id: str, group_id: str) -> dict:
         """
         Add user to group (user_id and group_id).
 
@@ -2078,7 +2550,7 @@ class KeycloakAdmin:
         :param group_id:  id of group to add to
         :type group_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2089,13 +2561,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_GROUP.format(**params_path),
             data=None,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def group_user_remove(self, user_id: str, group_id: str) -> bytes:
+        return res
+
+    def group_user_remove(self, user_id: str, group_id: str) -> dict:
         """
         Remove user from group (user_id and group_id).
 
@@ -2104,7 +2584,7 @@ class KeycloakAdmin:
         :param group_id:  id of group to remove from
         :type group_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2114,28 +2594,44 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_USER_GROUP.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_group(self, group_id: str) -> dict | bytes:
+        return res
+
+    def delete_group(self, group_id: str) -> dict:
         """
         Delete a group in the Realm.
 
         :param group_id:  id of group to delete
         :type group_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         data_raw = self.connection.raw_delete(urls_patterns.URL_ADMIN_GROUP.format(**params_path))
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_clients(self) -> list:
         """
@@ -2151,7 +2647,15 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_CLIENTS.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client(self, client_id: str) -> dict:
         """
@@ -2167,7 +2671,15 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_CLIENT.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_id(self, client_id: str) -> str | None:
         """
@@ -2187,6 +2699,12 @@ class KeycloakAdmin:
             clientId=client_id,
         )
         data_response = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(data_response, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(data_response)}', value '{data_response}'."
+            )
+            raise TypeError(msg)
 
         for client in data_response:
             if client_id == client.get("clientId"):
@@ -2208,14 +2726,57 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SETTINGS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
+
+    def import_client_authz_config(self, client_id: str, payload: dict) -> dict:
+        """
+        Import client authorization configuration.
+
+        ResourceServerRepresentation
+        https://www.keycloak.org/docs-api/latest/rest-api/index.html#ResourceServerRepresentation
+
+        :param client_id: id in ClientRepresentation
+            https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
+        :type client_id: str
+        :param payload: ResourceServerRepresentation
+        :type payload: dict
+
+        :return: None
+        """
+        params_path = {"realm-name": self.connection.realm_name, "id": client_id}
+        data_raw = self.connection.raw_post(
+            urls_patterns.URL_ADMIN_CLIENT_AUTHZ_IMPORT.format(**params_path),
+            data=json.dumps(payload),
+        )
+
+        res = raise_error_from_response(
+            data_raw,
+            KeycloakPostError,
+            expected_codes=[HTTP_NO_CONTENT],
+        )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_client_authz_resource(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Create resources of client.
 
@@ -2229,7 +2790,7 @@ class KeycloakAdmin:
         :type skip_exists: bool
 
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
 
@@ -2238,19 +2799,27 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def update_client_authz_resource(
         self,
         client_id: str,
         resource_id: str,
         payload: dict,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Update resource of client.
 
@@ -2282,13 +2851,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_client_authz_resource(self, client_id: str, resource_id: str) -> bytes:
+        return res
+
+    def delete_client_authz_resource(self, client_id: str, resource_id: str) -> dict:
         """
         Delete a client resource.
 
@@ -2300,7 +2877,7 @@ class KeycloakAdmin:
         :type resource_id: str
 
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2310,11 +2887,19 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_resources(self, client_id: str) -> list:
         """
@@ -2331,9 +2916,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCES.format(**params_path),
             max=-1,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_client_authz_resource(self, client_id: str, resource_id: str) -> dict | bytes:
+        return res
+
+    def get_client_authz_resource(self, client_id: str, resource_id: str) -> dict:
         """
         Get a client resource.
 
@@ -2355,14 +2948,22 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_client_authz_role_based_policy(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Create role-based policy of client.
 
@@ -2398,19 +2999,27 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_client_authz_policy(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Create an authz policy of client.
 
@@ -2435,7 +3044,7 @@ class KeycloakAdmin:
         :param skip_exists: Skip creation in case the object exists
         :type skip_exists: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
 
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
@@ -2446,19 +3055,27 @@ class KeycloakAdmin:
             max=-1,
             permission=False,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_client_authz_resource_based_permission(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> bytes:
+    ) -> dict:
         """
         Create resource-based permission of client.
 
@@ -2485,7 +3102,7 @@ class KeycloakAdmin:
         :param skip_exists: Skip creation in case the object already exists
         :type skip_exists: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
 
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
@@ -2495,12 +3112,20 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_scopes(self, client_id: str) -> list:
         """
@@ -2517,9 +3142,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SCOPES.format(**params_path),
             max=-1,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def create_client_authz_scopes(self, client_id: str, payload: dict) -> bytes:
+        return res
+
+    def create_client_authz_scopes(self, client_id: str, payload: dict) -> dict:
         """
         Create scopes for client.
 
@@ -2530,7 +3163,7 @@ class KeycloakAdmin:
         :type payload: dict
         :type client_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_post(
@@ -2538,11 +3171,19 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_permissions(self, client_id: str) -> list:
         """
@@ -2559,7 +3200,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_PERMISSIONS.format(**params_path),
             max=-1,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_policies(self, client_id: str) -> list:
         """
@@ -2577,9 +3226,17 @@ class KeycloakAdmin:
             max=-1,
             permission=False,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_client_authz_policy(self, client_id: str, policy_id: str) -> dict | bytes:
+        return res
+
+    def delete_client_authz_policy(self, client_id: str, policy_id: str) -> dict:
         """
         Delete a policy from client.
 
@@ -2600,11 +3257,19 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_policy(self, client_id: str, policy_id: str) -> dict:
         """
@@ -2627,7 +3292,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_service_account_user(self, client_id: str) -> dict:
         """
@@ -2643,7 +3316,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SERVICE_ACCOUNT_USER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_default_client_scopes(self, client_id: str) -> list:
         """
@@ -2659,14 +3340,22 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_DEFAULT_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def add_client_default_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Add a client scope to the default client scopes from client.
 
@@ -2686,7 +3375,7 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2697,13 +3386,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_DEFAULT_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def delete_client_default_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Delete a client scope from the default client scopes of the client.
 
@@ -2713,7 +3410,7 @@ class KeycloakAdmin:
         :type client_scope_id: str
 
         :return: list of client scopes with id and name
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2723,7 +3420,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_DEFAULT_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_optional_client_scopes(self, client_id: str) -> list:
         """
@@ -2739,14 +3444,22 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_OPTIONAL_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def add_client_optional_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Add a client scope to the optional client scopes from client.
 
@@ -2766,7 +3479,7 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2777,13 +3490,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def delete_client_optional_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Delete a client scope from the optional client scopes of the client.
 
@@ -2793,7 +3514,7 @@ class KeycloakAdmin:
         :type client_scope_id: str
 
         :return: list of client scopes with id and name
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2803,9 +3524,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def create_initial_access_token(self, count: int = 1, expiration: int = 1) -> dict | bytes:
+        return res
+
+    def create_initial_access_token(self, count: int = 1, expiration: int = 1) -> dict:
         """
         Create an initial access token.
 
@@ -2822,7 +3551,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_INITIAL_ACCESS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_client(self, payload: dict, skip_exists: bool = False) -> str:
         """
@@ -2858,7 +3595,7 @@ class KeycloakAdmin:
         _last_slash_idx = data_raw.headers["Location"].rindex("/")
         return data_raw.headers["Location"][_last_slash_idx + 1 :]
 
-    def update_client(self, client_id: str, payload: dict) -> bytes:
+    def update_client(self, client_id: str, payload: dict) -> dict:
         """
         Update a client.
 
@@ -2868,20 +3605,28 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_CLIENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_client(self, client_id: str) -> bytes:
+        return res
+
+    def delete_client(self, client_id: str) -> dict:
         """
         Get representation of the client.
 
@@ -2891,17 +3636,25 @@ class KeycloakAdmin:
         :param client_id: keycloak client id (not oauth client-id)
         :type client_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_delete(urls_patterns.URL_ADMIN_CLIENT.format(**params_path))
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_client_installation_provider(self, client_id: str, provider_id: str) -> list:
+        return res
+
+    def get_client_installation_provider(self, client_id: str, provider_id: str) -> dict:
         """
         Get content for given installation provider.
 
@@ -2916,7 +3669,7 @@ class KeycloakAdmin:
         :param provider_id: provider id to specify response format
         :type provider_id: str
         :returns: Installation providers
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -2926,7 +3679,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_INSTALLATION_PROVIDER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realm_users_profile(self) -> dict:
         """
@@ -2944,7 +3705,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REALM_USER_PROFILE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realm_roles(
         self, brief_representation: bool = True, search_text: str = "", query: dict | None = None
@@ -2966,7 +3735,7 @@ class KeycloakAdmin:
         """
         query = query or {}
         params_path = {"realm-name": self.connection.realm_name}
-        params = {"briefRepresentation": brief_representation}
+        params: dict[str, str | bool] = {"briefRepresentation": brief_representation}
         url = urls_patterns.URL_ADMIN_REALM_ROLES.format(**params_path)
 
         if search_text is not None and search_text.strip() != "":
@@ -3059,9 +3828,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES_REALM.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def remove_realm_default_roles(self, payload: dict) -> dict | bytes:
+        return res
+
+    def remove_realm_default_roles(self, payload: list) -> dict:
         """
         Remove a set of default realm roles.
 
@@ -3078,9 +3855,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def add_realm_default_roles(self, payload: dict) -> dict | bytes:
+        return res
+
+    def add_realm_default_roles(self, payload: list) -> dict:
         """
         Add a set of default realm roles.
 
@@ -3097,7 +3882,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_roles(self, client_id: str, brief_representation: bool = True) -> list:
         """
@@ -3119,7 +3912,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLES.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_role(self, client_id: str, role_name: str) -> dict:
         """
@@ -3143,7 +3944,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_ROLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_role_id(self, client_id: str, role_name: str) -> str | None:
         """
@@ -3211,7 +4020,7 @@ class KeycloakAdmin:
         client_role_id: str,
         role_name: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Add composite roles to client role.
 
@@ -3234,18 +4043,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLES_COMPOSITE_CLIENT_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def remove_composite_client_roles_from_role(
         self,
         client_role_id: str,
         role_name: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Remove composite roles from a client role.
 
@@ -3256,7 +4073,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be removed
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -3268,13 +4085,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLES_COMPOSITE_CLIENT_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_client_role(self, client_id: str, role_name: str, payload: dict) -> bytes:
+        return res
+
+    def update_client_role(self, client_id: str, role_name: str, payload: dict) -> dict:
         """
         Update a client role.
 
@@ -3288,7 +4113,7 @@ class KeycloakAdmin:
         :param payload: RoleRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -3299,13 +4124,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_client_role(self, client_role_id: str, role_name: str) -> bytes:
+        return res
+
+    def delete_client_role(self, client_role_id: str, role_name: str) -> dict:
         """
         Delete a client role.
 
@@ -3317,7 +4150,7 @@ class KeycloakAdmin:
         :param role_name: role's name (not id!)
         :type role_name: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -3327,13 +4160,21 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_ROLE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def assign_client_role(self, user_id: str, client_id: str, roles: str | list) -> bytes:
+        return res
+
+    def assign_client_role(self, user_id: str, client_id: str, roles: str | list) -> dict:
         """
         Assign a client role to a user.
 
@@ -3344,7 +4185,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -3356,13 +4197,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_client_role_members(self, client_id: str, role_name: str, **query: dict) -> list:
+        return res
+
+    def get_client_role_members(self, client_id: str, role_name: str, **query: Any) -> list:  # noqa: ANN401
         """
         Get members by client role.
 
@@ -3386,7 +4235,7 @@ class KeycloakAdmin:
             query,
         )
 
-    def get_client_role_groups(self, client_id: str, role_name: str, **query: dict) -> list:
+    def get_client_role_groups(self, client_id: str, role_name: str, **query: Any) -> list:  # noqa: ANN401
         """
         Get group members by client role.
 
@@ -3426,9 +4275,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_role_by_id(self, role_id: str, payload: dict) -> bytes:
+        return res
+
+    def update_role_by_id(self, role_id: str, payload: dict) -> dict:
         """
         Update the role.
 
@@ -3440,20 +4297,28 @@ class KeycloakAdmin:
         :param role_id: id of role
         :type role_id: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "role-id": role_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_role_by_id(self, role_id: str) -> bytes:
+        return res
+
+    def delete_role_by_id(self, role_id: str) -> dict:
         """
         Delete a role by its id.
 
@@ -3463,17 +4328,45 @@ class KeycloakAdmin:
         :param role_id: id of role
         :type role_id: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "role-id": role_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
+
+    def get_role_composites_by_id(self, role_id: str, query: dict | None = None) -> list:
+        """
+        Get all composite roles by role id.
+
+        :param role_id: id of role
+        :type role_id: str
+        :param query: Query parameters (optional). Supported keys: 'first', 'max', 'search'
+        :type query: dict
+        :return: Keycloak server response (RoleRepresentation)
+        :rtype: list
+        """
+        query = query or {}
+        params_path = {"realm-name": self.connection.realm_name, "role-id": role_id}
+        url = urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES.format(**params_path)
+
+        if "first" in query or "max" in query:
+            return self.__fetch_paginated(url, query)
+
+        return self.__fetch_all(url, query)
 
     def create_realm_role(self, payload: dict, skip_exists: bool = False) -> str:
         """
@@ -3523,7 +4416,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_NAME.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realm_role_by_id(self, role_id: str) -> dict:
         """
@@ -3541,9 +4442,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_realm_role(self, role_name: str, payload: dict) -> bytes:
+        return res
+
+    def update_realm_role(self, role_name: str, payload: dict) -> dict:
         """
         Update a role for the realm by name.
 
@@ -3559,11 +4468,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_NAME.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def update_realm_users_profile(self, payload: dict) -> dict:
         """
@@ -3579,32 +4496,48 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_USER_PROFILE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_OK],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_realm_role(self, role_name: str) -> bytes:
+        return res
+
+    def delete_realm_role(self, role_name: str) -> dict:
         """
         Delete a role for the realm by name.
 
         :param role_name: The role name
         :type role_name: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_NAME.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def add_composite_realm_roles_to_role(self, role_name: str, roles: str | list) -> bytes:
+        return res
+
+    def add_composite_realm_roles_to_role(self, role_name: str, roles: str | list) -> dict:
         """
         Add composite roles to the role.
 
@@ -3613,7 +4546,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be updated
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
@@ -3621,13 +4554,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLES_COMPOSITE_REALM_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def remove_composite_realm_roles_to_role(self, role_name: str, roles: str | list) -> bytes:
+        return res
+
+    def remove_composite_realm_roles_to_role(self, role_name: str, roles: str | list) -> dict:
         """
         Remove composite roles from the role.
 
@@ -3636,7 +4577,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be removed
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
@@ -3644,11 +4585,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLES_COMPOSITE_REALM_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_composite_realm_roles_of_role(self, role_name: str) -> list:
         """
@@ -3663,7 +4612,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_COMPOSITE_REALM_ROLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_composite_client_roles_of_role(self, client_id: str, role_name: str) -> list:
         """
@@ -3684,9 +4641,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_ROLES_COMPOSITE_CLIENT_ROLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def assign_realm_roles_to_client_scope(self, client_id: str, roles: str | list) -> bytes:
+        return res
+
+    def assign_realm_roles_to_client_scope(self, client_id: str, roles: str | list) -> dict:
         """
         Assign realm roles to a client's scope.
 
@@ -3695,7 +4660,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
@@ -3703,13 +4668,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_realm_roles_of_client_scope(self, client_id: str, roles: str | list) -> bytes:
+        return res
+
+    def delete_realm_roles_of_client_scope(self, client_id: str, roles: str | list) -> dict:
         """
         Delete realm roles of a client's scope.
 
@@ -3726,11 +4699,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realm_roles_of_client_scope(self, client_id: str) -> list:
         """
@@ -3745,14 +4726,22 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_REALM_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def assign_client_roles_to_client_scope(
         self,
         client_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Assign client roles to a client's dedicated scope.
 
@@ -3765,7 +4754,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -3777,18 +4766,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def delete_client_roles_of_client_scope(
         self,
         client_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles of a client's dedicated scope.
 
@@ -3801,7 +4798,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -3813,11 +4810,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_roles_of_client_scope(self, client_id: str, client_roles_owner_id: str) -> list:
         """
@@ -3840,9 +4845,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_CLIENT_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def assign_realm_roles(self, user_id: str, roles: str | list) -> bytes:
+        return res
+
+    def assign_realm_roles(self, user_id: str, roles: str | list) -> dict:
         """
         Assign realm roles to a user.
 
@@ -3851,7 +4864,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
@@ -3859,13 +4872,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_realm_roles_of_user(self, user_id: str, roles: str | list) -> bytes:
+        return res
+
+    def delete_realm_roles_of_user(self, user_id: str, roles: str | list) -> dict:
         """
         Delete realm roles of a user.
 
@@ -3874,7 +4895,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
@@ -3882,11 +4903,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_realm_roles_of_user(self, user_id: str) -> list:
         """
@@ -3901,7 +4930,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_REALM_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_available_realm_roles_of_user(self, user_id: str) -> list:
         """
@@ -3916,7 +4953,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_REALM_ROLES_AVAILABLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_composite_realm_roles_of_user(
         self,
@@ -3939,9 +4984,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_REALM_ROLES_COMPOSITE.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def assign_group_realm_roles(self, group_id: str, roles: str | list) -> bytes:
+        return res
+
+    def assign_group_realm_roles(self, group_id: str, roles: str | list) -> dict:
         """
         Assign realm roles to a group.
 
@@ -3950,7 +5003,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
@@ -3958,13 +5011,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_group_realm_roles(self, group_id: str, roles: str | list) -> bytes:
+        return res
+
+    def delete_group_realm_roles(self, group_id: str, roles: str | list) -> dict:
         """
         Delete realm roles of a group.
 
@@ -3973,7 +5034,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
@@ -3981,11 +5042,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_group_realm_roles(self, group_id: str, brief_representation: bool = True) -> list:
         """
@@ -4004,9 +5073,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_REALM_ROLES.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def assign_group_client_roles(self, group_id: str, client_id: str, roles: str | list) -> bytes:
+        return res
+
+    def assign_group_client_roles(self, group_id: str, client_id: str, roles: str | list) -> dict:
         """
         Assign client roles to a group.
 
@@ -4017,7 +5094,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -4029,11 +5106,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_group_client_roles(self, group_id: str, client_id: str) -> list:
         """
@@ -4054,9 +5139,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_group_client_roles(self, group_id: str, client_id: str, roles: str | list) -> bytes:
+        return res
+
+    def delete_group_client_roles(self, group_id: str, client_id: str, roles: str | list) -> dict:
         """
         Delete client roles of a group.
 
@@ -4067,7 +5160,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response (array RoleRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -4079,11 +5172,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_all_roles_of_user(self, user_id: str) -> dict:
         """
@@ -4098,7 +5199,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_USER_ALL_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_roles_of_user(self, user_id: str, client_id: str) -> list:
         """
@@ -4165,7 +5274,7 @@ class KeycloakAdmin:
         client_level_role_mapping_url: str,
         user_id: str,
         client_id: str,
-        **params: dict,
+        **params: Any,  # noqa: ANN401
     ) -> list:
         """
         Get client roles of a single user helper.
@@ -4190,14 +5299,22 @@ class KeycloakAdmin:
             client_level_role_mapping_url.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def delete_client_roles_of_user(
         self,
         user_id: str,
         client_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles from a user.
 
@@ -4208,7 +5325,7 @@ class KeycloakAdmin:
         :param roles: roles list or role to delete (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -4220,11 +5337,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_authentication_flows(self) -> list:
         """
@@ -4240,7 +5365,15 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_FLOWS.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_authentication_flow_for_id(self, flow_id: str) -> dict:
         """
@@ -4260,7 +5393,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_FLOWS_ALIAS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_authentication_flow(self, payload: dict, skip_exists: bool = False) -> bytes:
         """
@@ -4281,14 +5422,25 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if isinstance(res, dict) and res == {"msg": "Already exists"}:
+            return json.dumps(res).encode()
 
-    def update_authentication_flow(self, flow_id: str, payload: dict) -> bytes:
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
+
+    def update_authentication_flow(self, flow_id: str, payload: dict) -> dict:
         """
         Update an authentication flow.
 
@@ -4300,18 +5452,26 @@ class KeycloakAdmin:
         :param payload: AuthenticationFlowRepresentation
         :type payload: dict
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"id": flow_id, "realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_FLOW.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_ACCEPTED, HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def copy_authentication_flow(self, payload: dict, flow_alias: str) -> bytes:
         """
@@ -4331,13 +5491,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS_COPY.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_authentication_flow(self, flow_id: str) -> bytes:
+        return res
+
+    def delete_authentication_flow(self, flow_id: str) -> dict:
         """
         Delete authentication flow.
 
@@ -4347,15 +5515,23 @@ class KeycloakAdmin:
         :param flow_id: authentication flow id
         :type flow_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": flow_id}
         data_raw = self.connection.raw_delete(urls_patterns.URL_ADMIN_FLOW.format(**params_path))
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_authentication_flow_executions(self, flow_alias: str) -> list:
         """
@@ -4372,9 +5548,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_authentication_flow_executions(self, payload: dict, flow_alias: str) -> bytes:
+        return res
+
+    def update_authentication_flow_executions(self, payload: dict, flow_alias: str) -> dict:
         """
         Update an authentication flow execution.
 
@@ -4386,20 +5570,28 @@ class KeycloakAdmin:
         :param flow_alias: The flow alias
         :type flow_alias: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "flow-alias": flow_alias}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_ACCEPTED, HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_authentication_flow_execution(self, execution_id: str) -> list:
+        return res
+
+    def get_authentication_flow_execution(self, execution_id: str) -> dict:
         """
         Get authentication flow execution.
 
@@ -4415,7 +5607,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_authentication_flow_execution(self, payload: dict, flow_alias: str) -> bytes:
         """
@@ -4436,13 +5636,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS_EXECUTION.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_authentication_flow_execution(self, execution_id: str) -> bytes:
+        return res
+
+    def delete_authentication_flow_execution(self, execution_id: str) -> dict:
         """
         Delete authentication flow execution.
 
@@ -4452,17 +5660,25 @@ class KeycloakAdmin:
         :param execution_id: keycloak client id (not oauth client-id)
         :type execution_id: str
         :return: Keycloak server response (json)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": execution_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTION.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def change_execution_priority(self, execution_id: str, diff: int) -> None:
         """
@@ -4529,12 +5745,23 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS_FLOW.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if isinstance(res, dict) and res == {"msg": "Already exists"}:
+            return json.dumps(res).encode()
+
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_authenticator_providers(self) -> list:
         """
@@ -4547,7 +5774,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_PROVIDERS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_authenticator_provider_config_description(self, provider_id: str) -> dict:
         """
@@ -4565,7 +5800,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG_DESCRIPTION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_authenticator_config(self, config_id: str) -> dict:
         """
@@ -4582,7 +5825,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_execution_config(self, execution_id: str, payload: dict) -> bytes:
         """
@@ -4596,20 +5847,28 @@ class KeycloakAdmin:
         :param payload: Configuration to add to the execution
         :type payload: dir
         :return: Response(json)
-        :rtype: dict
+        :rtype: bytes
         """
         params_path = {"id": execution_id, "realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTION_CONFIG.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_authenticator_config(self, payload: dict, config_id: str) -> bytes:
+        return res
+
+    def update_authenticator_config(self, payload: dict, config_id: str) -> dict:
         """
         Update an authenticator configuration.
 
@@ -4621,20 +5880,28 @@ class KeycloakAdmin:
         :param config_id: Authenticator config id
         :type config_id: str
         :return: Response(json)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": config_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_authenticator_config(self, config_id: str) -> bytes:
+        return res
+
+    def delete_authenticator_config(self, config_id: str) -> dict:
         """
         Delete a authenticator configuration.
 
@@ -4643,19 +5910,27 @@ class KeycloakAdmin:
         :param config_id: Authenticator config id
         :type config_id: str
         :return: Keycloak server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": config_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def sync_users(self, storage_id: str, action: str) -> bytes:
+        return res
+
+    def sync_users(self, storage_id: str, action: str) -> dict:
         """
         Trigger user sync from provider.
 
@@ -4664,7 +5939,7 @@ class KeycloakAdmin:
         :param action: Action can be "triggerFullSync" or "triggerChangedUsersSync"
         :type action: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         data = {"action": action}
         params_query = {"action": action}
@@ -4675,7 +5950,15 @@ class KeycloakAdmin:
             data=json.dumps(data),
             **params_query,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_scopes(self) -> list:
         """
@@ -4691,7 +5974,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_scope(self, client_scope_id: str) -> dict:
         """
@@ -4709,9 +6000,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_client_scope_by_name(self, client_scope_name: str) -> dict:
+        return res
+
+    def get_client_scope_by_name(self, client_scope_name: str) -> dict | None:
         """
         Get client scope by name.
 
@@ -4764,7 +6063,7 @@ class KeycloakAdmin:
         _last_slash_idx = data_raw.headers["Location"].rindex("/")
         return data_raw.headers["Location"][_last_slash_idx + 1 :]
 
-    def update_client_scope(self, client_scope_id: str, payload: dict) -> bytes:
+    def update_client_scope(self, client_scope_id: str, payload: dict) -> dict:
         """
         Update a client scope.
 
@@ -4776,20 +6075,28 @@ class KeycloakAdmin:
         :param payload: ClientScopeRepresentation
         :type payload: dict
         :return: Keycloak server response (ClientScopeRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "scope-id": client_scope_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_client_scope(self, client_scope_id: str) -> bytes:
+        return res
+
+    def delete_client_scope(self, client_scope_id: str) -> dict:
         """
         Delete existing client scope.
 
@@ -4799,17 +6106,25 @@ class KeycloakAdmin:
         :param client_scope_id: The id of the client scope
         :type client_scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "scope-id": client_scope_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_mappers_from_client_scope(self, client_scope_id: str) -> list:
         """
@@ -4825,7 +6140,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_ADD_MAPPER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def add_mapper_to_client_scope(self, client_scope_id: str, payload: dict) -> bytes:
         """
@@ -4845,17 +6168,25 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_ADD_MAPPER.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def delete_mapper_from_client_scope(
         self,
         client_scope_id: str,
         protocol_mapper_id: str,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete a mapper from a client scope.
 
@@ -4866,7 +6197,7 @@ class KeycloakAdmin:
         :param protocol_mapper_id: Protocol mapper id
         :type protocol_mapper_id: str
         :return: Keycloak server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -4876,18 +6207,26 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_MAPPERS.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def update_mapper_in_client_scope(
         self,
         client_scope_id: str,
         protocol_mapper_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Update an existing protocol mapper in a client scope.
 
@@ -4901,7 +6240,7 @@ class KeycloakAdmin:
         :param payload: ProtocolMapperRepresentation
         :type payload: dict
         :return: Keycloak server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -4912,11 +6251,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_MAPPERS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_default_default_client_scopes(self) -> list:
         """
@@ -4931,35 +6278,51 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_DEFAULT_DEFAULT_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_default_default_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    def delete_default_default_client_scope(self, scope_id: str) -> dict:
         """
         Delete default default client scope.
 
         :param scope_id: default default client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_DEFAULT_DEFAULT_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def add_default_default_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    def add_default_default_client_scope(self, scope_id: str) -> dict:
         """
         Add default default client scope.
 
         :param scope_id: default default client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         payload = {"realm": self.connection.realm_name, "clientScopeId": scope_id}
@@ -4967,11 +6330,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_DEFAULT_DEFAULT_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_default_optional_client_scopes(self) -> list:
         """
@@ -4986,35 +6357,51 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_DEFAULT_OPTIONAL_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_default_optional_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    def delete_default_optional_client_scope(self, scope_id: str) -> dict:
         """
         Delete default optional client scope.
 
         :param scope_id: default optional client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_DEFAULT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def add_default_optional_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    def add_default_optional_client_scope(self, scope_id: str) -> dict:
         """
         Add default optional client scope.
 
         :param scope_id: default optional client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         payload = {"realm": self.connection.realm_name, "clientScopeId": scope_id}
@@ -5022,18 +6409,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_DEFAULT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def add_client_specific_roles_to_client_scope(
         self,
         client_scope_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Assign client roles to a client scope.
 
@@ -5046,7 +6441,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation, must include id and name)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -5058,18 +6453,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS_CLIENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def remove_client_specific_roles_of_client_scope(
         self,
         client_scope_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles of a client scope.
 
@@ -5082,7 +6485,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation, must include id and name)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -5094,11 +6497,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS_CLIENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_specific_roles_of_client_scope(
         self,
@@ -5125,9 +6536,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS_CLIENT.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_all_roles_of_client_scope(self, client_scope_id: str) -> list:
+        return res
+
+    def get_all_roles_of_client_scope(self, client_scope_id: str) -> dict:
         """
         Get all client roles for a client scope.
 
@@ -5143,7 +6562,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_mappers_from_client(self, client_id: str) -> list:
         """
@@ -5160,7 +6587,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPERS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def add_mapper_to_client(self, client_id: str, payload: dict) -> bytes:
         """
@@ -5180,13 +6615,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPERS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_client_mapper(self, client_id: str, mapper_id: str, payload: dict) -> bytes:
+        return res
+
+    def update_client_mapper(self, client_id: str, mapper_id: str, payload: dict) -> dict:
         """
         Update client mapper.
 
@@ -5197,7 +6640,7 @@ class KeycloakAdmin:
         :param payload: ProtocolMapperRepresentation
         :type payload: dict
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -5208,13 +6651,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPER.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def remove_client_mapper(self, client_id: str, client_mapper_id: str) -> bytes:
+        return res
+
+    def remove_client_mapper(self, client_id: str, client_mapper_id: str) -> dict:
         """
         Remove a mapper from the client.
 
@@ -5235,13 +6686,21 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPER.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def generate_client_secrets(self, client_id: str) -> bytes:
+        return res
+
+    def generate_client_secrets(self, client_id: str) -> dict:
         """
         Generate a new secret for the client.
 
@@ -5250,14 +6709,22 @@ class KeycloakAdmin:
         :param client_id:  id of client (not client-id)
         :type client_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_CLIENT_SECRETS.format(**params_path),
             data=None,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_secrets(self, client_id: str) -> dict:
         """
@@ -5274,7 +6741,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SECRETS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_components(self, query: dict | None = None) -> list:
         """
@@ -5297,7 +6772,15 @@ class KeycloakAdmin:
             data=None,
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def create_component(self, payload: dict) -> str:
         """
@@ -5336,9 +6819,17 @@ class KeycloakAdmin:
         """
         params_path = {"realm-name": self.connection.realm_name, "component-id": component_id}
         data_raw = self.connection.raw_get(urls_patterns.URL_ADMIN_COMPONENT.format(**params_path))
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_component(self, component_id: str, payload: dict) -> bytes:
+        return res
+
+    def update_component(self, component_id: str, payload: dict) -> dict:
         """
         Update the component.
 
@@ -5348,39 +6839,55 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_componentrepresentation
         :type payload: dict
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "component-id": component_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_COMPONENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def delete_component(self, component_id: str) -> bytes:
+        return res
+
+    def delete_component(self, component_id: str) -> dict:
         """
         Delete the component.
 
         :param component_id: Component id
         :type component_id: str
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "component-id": component_id}
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_COMPONENT.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_keys(self) -> list:
+        return res
+
+    def get_keys(self) -> dict:
         """
         Get keys.
 
@@ -5390,14 +6897,22 @@ class KeycloakAdmin:
         https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_key_resource
 
         :return: keys list
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_KEYS.format(**params_path),
             data=None,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_admin_events(self, query: dict | None = None) -> list:
         """
@@ -5421,7 +6936,15 @@ class KeycloakAdmin:
             data=None,
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_events(self, query: dict | None = None) -> list:
         """
@@ -5444,9 +6967,17 @@ class KeycloakAdmin:
             data=None,
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def set_events(self, payload: dict) -> bytes:
+        return res
+
+    def set_events(self, payload: dict) -> dict:
         """
         Set realm events configuration.
 
@@ -5456,18 +6987,26 @@ class KeycloakAdmin:
         :param payload: Payload object for the events configuration
         :type payload: dict
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_EVENTS_CONFIG.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_all_sessions(self, client_id: str, query: dict | None = None) -> list:
         """
@@ -5491,22 +7030,30 @@ class KeycloakAdmin:
 
         return self.__fetch_all(url, query)
 
-    def get_client_sessions_stats(self) -> dict:
+    def get_client_sessions_stats(self) -> list:
         """
         Get current session count for all clients with active sessions.
 
         https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_getclientsessionstats
 
         :return: Dict of clients and session count
-        :rtype: dict
+        :rtype: list
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SESSION_STATS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_client_management_permissions(self, client_id: str) -> list:
+        return res
+
+    def get_client_management_permissions(self, client_id: str) -> dict:
         """
         Get management permissions for a client.
 
@@ -5514,15 +7061,23 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_MANAGEMENT_PERMISSIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def update_client_management_permissions(self, payload: dict, client_id: str) -> bytes:
+        return res
+
+    def update_client_management_permissions(self, payload: dict, client_id: str) -> dict:
         """
         Update management permissions for a client.
 
@@ -5541,14 +7096,22 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_CLIENT_MANAGEMENT_PERMISSIONS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_policy_scopes(self, client_id: str, policy_id: str) -> list:
         """
@@ -5570,7 +7133,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_policy_resources(self, client_id: str, policy_id: str) -> list:
         """
@@ -5592,9 +7163,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY_RESOURCES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def get_client_authz_scope_permission(self, client_id: str, scope_id: str) -> list:
+        return res
+
+    def get_client_authz_scope_permission(self, client_id: str, scope_id: str) -> dict:
         """
         Get permissions for a given scope.
 
@@ -5604,7 +7183,7 @@ class KeycloakAdmin:
         :param scope_id: No Document
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -5614,9 +7193,17 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SCOPE_PERMISSION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def create_client_authz_scope_permission(self, payload: dict, client_id: str) -> bytes:
+        return res
+
+    def create_client_authz_scope_permission(self, payload: dict, client_id: str) -> dict:
         """
         Create permissions for a authz scope.
 
@@ -5638,7 +7225,7 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_post(
@@ -5646,11 +7233,19 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def update_client_authz_scope_permission(
         self,
@@ -5693,7 +7288,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SCOPE_PERMISSION.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        res = raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def update_client_authz_resource_permission(
         self,
@@ -5736,7 +7339,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE_PERMISSION.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        res = raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_client_policies(self, client_id: str) -> list:
         """
@@ -5752,7 +7363,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_CLIENT_POLICY.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_client_authz_permission_associated_policies(
         self,
@@ -5781,9 +7400,17 @@ class KeycloakAdmin:
                 **params_path,
             ),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    def create_client_authz_client_policy(self, payload: dict, client_id: str) -> bytes:
+        return res
+
+    def create_client_authz_client_policy(self, payload: dict, client_id: str) -> dict:
         """
         Create a new policy for a given client.
 
@@ -5803,18 +7430,26 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response (RoleRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_post(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_CLIENT_POLICY.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_composite_client_roles_of_group(
         self,
@@ -5844,7 +7479,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES_COMPOSITE.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_role_client_level_children(self, client_id: str, role_id: str) -> list:
         """
@@ -5865,7 +7508,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_CLIENT_ROLE_CHILDREN.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def upload_certificate(self, client_id: str, certcont: str) -> dict:
         """
@@ -5885,7 +7536,8 @@ class KeycloakAdmin:
             "attr": "jwt.credential",
         }
         m = MultipartEncoder(fields={"keystoreFormat": "Certificate PEM", "file": certcont})
-        new_headers = copy.deepcopy(self.connection.headers)
+        orig_headers = copy.deepcopy(self.connection.headers or {})
+        new_headers = copy.deepcopy(orig_headers)
         new_headers["Content-Type"] = m.content_type
         self.connection.headers = new_headers
         data_raw = self.connection.raw_post(
@@ -5893,7 +7545,16 @@ class KeycloakAdmin:
             data=m,
             headers=new_headers,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        self.connection.headers = orig_headers
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_required_action_by_alias(self, action_alias: str) -> dict | None:
         """
@@ -5921,7 +7582,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_REQUIRED_ACTIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def update_required_action(self, action_alias: str, payload: dict) -> dict:
         """
@@ -5934,14 +7603,20 @@ class KeycloakAdmin:
         :return: empty dictionary.
         :rtype: dict
         """
-        if not isinstance(payload, str):
-            payload = json.dumps(payload)
         params_path = {"realm-name": self.connection.realm_name, "action-alias": action_alias}
         data_raw = self.connection.raw_put(
             urls_patterns.URL_ADMIN_REQUIRED_ACTIONS_ALIAS.format(**params_path),
-            data=payload,
+            data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def get_bruteforce_detection_status(self, user_id: str) -> dict:
         """
@@ -5956,7 +7631,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_get(
             urls_patterns.URL_ADMIN_ATTACK_DETECTION_USER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def clear_bruteforce_attempts_for_user(self, user_id: str) -> dict:
         """
@@ -5971,7 +7654,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_ATTACK_DETECTION_USER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def clear_all_bruteforce_attempts(self) -> dict:
         """
@@ -5984,7 +7675,15 @@ class KeycloakAdmin:
         data_raw = self.connection.raw_delete(
             urls_patterns.URL_ADMIN_ATTACK_DETECTION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def clear_keys_cache(self) -> dict:
         """
@@ -5998,11 +7697,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLEAR_KEYS_CACHE.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def clear_realm_cache(self) -> dict:
         """
@@ -6016,11 +7723,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLEAR_REALM_CACHE.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     def clear_user_cache(self) -> dict:
         """
@@ -6034,11 +7749,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLEAR_USER_CACHE.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     # async functions start
     async def a___fetch_all(self, url: str, query: dict | None = None) -> list:
@@ -6090,12 +7813,20 @@ class KeycloakAdmin:
         :rtype: list
         """
         query = query or {}
-        return raise_error_from_response(
+        res = raise_error_from_response(
             await self.connection.a_raw_get(url, **query),
             KeycloakGetError,
         )
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_current_realm(self) -> str:
+        return res
+
+    async def a_get_current_realm(self) -> str | None:
         """
         Return the currently configured realm asynchronously.
 
@@ -6113,7 +7844,7 @@ class KeycloakAdmin:
         """
         self.connection.realm_name = realm_name
 
-    async def a_import_realm(self, payload: dict) -> dict:
+    async def a_import_realm(self, payload: dict) -> bytes:
         """
         Import a new realm asynchronously from a RealmRepresentation.
 
@@ -6125,17 +7856,25 @@ class KeycloakAdmin:
         :param payload: RealmRepresentation
         :type payload: dict
         :return: RealmRepresentation
-        :rtype: dict
+        :rtype: bytes
         """
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_REALMS,
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_partial_import_realm(self, realm_name: str, payload: dict) -> dict:
         """
@@ -6159,7 +7898,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_PARTIAL_IMPORT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_export_realm(
         self,
@@ -6191,7 +7938,15 @@ class KeycloakAdmin:
             exportClients=export_clients,
             exportGroupsAndRoles=export_groups_and_role,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realms(self) -> list:
         """
@@ -6201,7 +7956,15 @@ class KeycloakAdmin:
         :rtype: list
         """
         data_raw = await self.connection.a_raw_get(urls_patterns.URL_ADMIN_REALMS)
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realm(self, realm_name: str) -> dict:
         """
@@ -6219,9 +7982,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_create_realm(self, payload: dict, skip_exists: bool = False) -> dict:
+        return res
+
+    async def a_create_realm(self, payload: dict, skip_exists: bool = False) -> bytes:
         """
         Create a realm asynchronously.
 
@@ -6233,18 +8004,33 @@ class KeycloakAdmin:
         :param skip_exists: Skip if Realm already exist.
         :type skip_exists: bool
         :return: Keycloak server response (RealmRepresentation)
-        :rtype: dict
+        :rtype: bytes
         """
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_REALMS,
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED]
             + ([HTTP_BAD_REQUEST, HTTP_CONFLICT] if skip_exists else []),
         )
+        if isinstance(res, dict) and res in [
+            {"msg": "Already exists"},
+            {"errorMessage": "Realm test already exists"},
+            {"errorMessage": "Conflict detected. See logs for details"},
+        ]:
+            return json.dumps(res).encode()
+
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_realm(self, realm_name: str, payload: dict) -> dict:
         """
@@ -6268,11 +8054,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_realm_users_profile(self, payload: dict) -> dict:
         """
@@ -6288,30 +8082,46 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_USER_PROFILE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_OK],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_realm(self, realm_name: str) -> bytes:
+        return res
+
+    async def a_delete_realm(self, realm_name: str) -> dict:
         """
         Delete a realm asynchronously.
 
         :param realm_name: Realm name (not the realm id)
         :type realm_name: str
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": realm_name}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_REALM.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_users(self, query: dict | None = None) -> list:
         """
@@ -6336,7 +8146,7 @@ class KeycloakAdmin:
 
         return await self.a___fetch_all(url, query)
 
-    async def a_create_idp(self, payload: dict) -> dict:
+    async def a_create_idp(self, payload: dict) -> bytes:
         """
         Create an ID Provider asynchronously.
 
@@ -6346,20 +8156,28 @@ class KeycloakAdmin:
         :param: payload: IdentityProviderRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: dict
+        :rtype: bytes
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_IDPS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_idp(self, idp_alias: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_idp(self, idp_alias: str, payload: dict) -> dict:
         """
         Update an ID Provider asynchronously.
 
@@ -6371,20 +8189,28 @@ class KeycloakAdmin:
         :param: payload: The IdentityProviderRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "alias": idp_alias}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_IDP.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_add_mapper_to_idp(self, idp_alias: str, payload: dict) -> dict:
+        return res
+
+    async def a_add_mapper_to_idp(self, idp_alias: str, payload: dict) -> bytes:
         """
         Create an ID Provider asynchronously.
 
@@ -6396,20 +8222,28 @@ class KeycloakAdmin:
         :param: payload: IdentityProviderMapperRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: dict
+        :rtype: bytes
         """
         params_path = {"realm-name": self.connection.realm_name, "idp-alias": idp_alias}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_IDP_MAPPERS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_mapper_in_idp(self, idp_alias: str, mapper_id: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_mapper_in_idp(self, idp_alias: str, mapper_id: str, payload: dict) -> dict:
         """
         Update an IdP mapper asynchronously.
 
@@ -6423,7 +8257,7 @@ class KeycloakAdmin:
         :param: payload: IdentityProviderMapperRepresentation
         :type payload: dict
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -6436,11 +8270,19 @@ class KeycloakAdmin:
             data=json.dumps(payload),
         )
 
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_idp_mappers(self, idp_alias: str) -> list:
         """
@@ -6460,7 +8302,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_IDP_MAPPERS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_idps(self) -> list:
         """
@@ -6478,7 +8328,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_IDPS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_idp(self, idp_alias: str) -> dict:
         """
@@ -6498,7 +8356,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_IDP.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_idp(self, idp_alias: str) -> dict:
         """
@@ -6513,11 +8379,19 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_IDP.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_user(self, payload: dict, exist_ok: bool = False) -> str:
         """
@@ -6571,9 +8445,16 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USERS_COUNT.format(**params_path),
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, int):
+            msg = (
+                f"Unexpected response type. Expected 'int', received '{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_user_id(self, username: str) -> str:
+        return res
+
+    async def a_get_user_id(self, username: str) -> str | None:
         """
         Get internal keycloak user id from username asynchronously.
 
@@ -6612,7 +8493,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER.format(**params_path),
             userProfileMetadata=user_profile_metadata,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_user_groups(
         self,
@@ -6645,7 +8534,7 @@ class KeycloakAdmin:
 
         return await self.a___fetch_all(url, query)
 
-    async def a_update_user(self, user_id: str, payload: dict) -> bytes:
+    async def a_update_user(self, user_id: str, payload: dict) -> dict:
         """
         Update the user asynchronously.
 
@@ -6655,20 +8544,28 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_USER.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_disable_user(self, user_id: str) -> bytes:
+        return res
+
+    async def a_disable_user(self, user_id: str) -> dict:
         """
         Disable the user asynchronously from the realm. Disabled users can not log in.
 
@@ -6680,7 +8577,7 @@ class KeycloakAdmin:
         """
         return await self.a_update_user(user_id=user_id, payload={"enabled": False})
 
-    async def a_enable_user(self, user_id: str) -> bytes:
+    async def a_enable_user(self, user_id: str) -> dict:
         """
         Enable the user from the realm asynchronously.
 
@@ -6706,31 +8603,39 @@ class KeycloakAdmin:
             user_id = user["id"]
             await self.a_enable_user(user_id=user_id)
 
-    async def a_delete_user(self, user_id: str) -> bytes:
+    async def a_delete_user(self, user_id: str) -> dict:
         """
         Delete the user asynchronously.
 
         :param user_id: User id
         :type user_id: str
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_USER.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_set_user_password(
         self,
         user_id: str,
         password: str,
         temporary: bool = True,
-    ) -> bytes:
+    ) -> dict:
         """
         Set up a password for the user asynchronously.
 
@@ -6747,7 +8652,7 @@ class KeycloakAdmin:
         :param temporary: True if password is temporary
         :type temporary: bool
         :returns: Response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = {"type": "password", "temporary": temporary, "value": password}
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
@@ -6755,11 +8660,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_RESET_PASSWORD.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_credentials(self, user_id: str) -> list:
         """
@@ -6779,9 +8692,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_CREDENTIALS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_credential(self, user_id: str, credential_id: str) -> bytes:
+        return res
+
+    async def a_delete_credential(self, user_id: str, credential_id: str) -> dict:
         """
         Delete credential of the user asynchronously.
 
@@ -6793,7 +8714,7 @@ class KeycloakAdmin:
         :param: credential_id: credential id
         :type credential_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -6803,9 +8724,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_USER_CREDENTIAL.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_user_logout(self, user_id: str) -> bytes:
+        return res
+
+    async def a_user_logout(self, user_id: str) -> dict:
         """
         Log out the user.
 
@@ -6814,18 +8743,26 @@ class KeycloakAdmin:
         :param user_id: User id
         :type user_id: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_USER_LOGOUT.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_user_consents(self, user_id: str) -> list:
         """
@@ -6843,9 +8780,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_CONSENTS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_revoke_consent(self, user_id: str, client_id: str) -> dict | bytes:
+        return res
+
+    async def a_revoke_consent(self, user_id: str, client_id: str) -> dict:
         """
         Asynchronously revoke consent and offline tokens for particular client from user.
 
@@ -6853,6 +8798,7 @@ class KeycloakAdmin:
         :type user_id: str
         :param client_id: Client id
         :type client_id: str
+        :rtype: dict
 
         """
         params_path = {
@@ -6863,11 +8809,19 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_USER_CONSENT.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_user_social_logins(self, user_id: str) -> list:
         """
@@ -6884,7 +8838,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_FEDERATED_IDENTITIES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_user_social_login(
         self,
@@ -6892,7 +8854,7 @@ class KeycloakAdmin:
         provider_id: str,
         provider_userid: str,
         provider_username: str,
-    ) -> bytes:
+    ) -> dict:
         """
         Add a federated identity / social login provider asynchronously to the user.
 
@@ -6905,7 +8867,7 @@ class KeycloakAdmin:
         :param provider_username: username specified by the provider
         :type provider_username: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = {
             "identityProvider": provider_id,
@@ -6921,13 +8883,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_FEDERATED_IDENTITY.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED, HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_user_social_login(self, user_id: str, provider_id: str) -> bytes:
+        return res
+
+    async def a_delete_user_social_login(self, user_id: str, provider_id: str) -> dict:
         """
         Delete a federated identity / social login provider asynchronously from the user.
 
@@ -6936,7 +8906,7 @@ class KeycloakAdmin:
         :param provider_id: Social login provider id
         :type provider_id: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -6946,20 +8916,28 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_USER_FEDERATED_IDENTITY.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_send_update_account(
         self,
         user_id: str,
-        payload: dict,
+        payload: list,
         client_id: str | None = None,
         lifespan: int | None = None,
         redirect_uri: str | None = None,
-    ) -> bytes:
+    ) -> dict:
         """
         Send an update account email to the user asynchronously.
 
@@ -6977,7 +8955,7 @@ class KeycloakAdmin:
         :type redirect_uri: str
 
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         params_query = {"client_id": client_id, "lifespan": lifespan, "redirect_uri": redirect_uri}
@@ -6986,14 +8964,22 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             **params_query,
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_send_verify_email(
         self,
         user_id: str,
         client_id: str | None = None,
         redirect_uri: str | None = None,
-    ) -> bytes:
+    ) -> dict:
         """
         Send a update account email to the user asynchronously.
 
@@ -7007,7 +8993,7 @@ class KeycloakAdmin:
         :type redirect_uri: str
 
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         params_query = {"client_id": client_id, "redirect_uri": redirect_uri}
@@ -7016,7 +9002,15 @@ class KeycloakAdmin:
             data={},
             **params_query,
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_sessions(self, user_id: str) -> list:
         """
@@ -7034,7 +9028,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_GET_SESSIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_server_info(self) -> dict:
         """
@@ -7047,7 +9049,15 @@ class KeycloakAdmin:
         :rtype: dict
         """
         data_raw = await self.connection.a_raw_get(urls_patterns.URL_ADMIN_SERVER_INFO)
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_groups(self, query: dict | None = None, full_hierarchy: bool = False) -> list:
         """
@@ -7083,13 +9093,14 @@ class KeycloakAdmin:
         for group in groups:
             if group.get("subGroupCount"):
                 group["subGroups"] = await self.a_get_group_children(
-                    group_id=group.get("id"),
-                    full_hierarchy=full_hierarchy,
+                    group_id=group.get("id"), full_hierarchy=full_hierarchy, query=query
                 )
 
         return groups
 
-    async def a_get_group(self, group_id: str, full_hierarchy: bool = False) -> dict:
+    async def a_get_group(
+        self, group_id: str, full_hierarchy: bool = False, query: dict | None = None
+    ) -> dict:
         """
         Get group by id asynchronously.
 
@@ -7103,28 +9114,30 @@ class KeycloakAdmin:
         :param full_hierarchy: If True, return all of the nested children groups, otherwise only
             the first level children are returned
         :type full_hierarchy: bool
+        :param query: Additional query parameters to pass into the subgroups fetch requests.
+        :type query: dict | None
         :return: Keycloak server response (GroupRepresentation)
         :rtype: dict
         """
+        query = query or {}
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         response = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_GROUP.format(**params_path),
         )
 
         if response.status_code >= HTTP_BAD_REQUEST:
-            return raise_error_from_response(response, KeycloakGetError)
+            raise_error_from_response(response, KeycloakGetError)
 
         # For version +23.0.0
         group = response.json()
         if group.get("subGroupCount"):
             group["subGroups"] = await self.a_get_group_children(
-                group.get("id"),
-                full_hierarchy=full_hierarchy,
+                group.get("id"), full_hierarchy=full_hierarchy, query=query
             )
 
         return group
 
-    async def a_get_subgroups(self, group: str, path: str) -> dict | None:
+    async def a_get_subgroups(self, group: dict, path: str) -> dict | None:
         """
         Get subgroups asynchronously.
 
@@ -7189,8 +9202,7 @@ class KeycloakAdmin:
         for group in res:
             if group.get("subGroupCount"):
                 group["subGroups"] = await self.a_get_group_children(
-                    group_id=group.get("id"),
-                    full_hierarchy=full_hierarchy,
+                    group_id=group.get("id"), full_hierarchy=full_hierarchy, query=query
                 )
 
         return res
@@ -7239,7 +9251,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_GROUP_BY_PATH.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, [HTTP_OK, 404])
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_group(
         self,
@@ -7288,7 +9308,7 @@ class KeycloakAdmin:
         except KeyError:
             return None
 
-    async def a_update_group(self, group_id: str, payload: dict) -> bytes:
+    async def a_update_group(self, group_id: str, payload: dict) -> dict:
         """
         Update group, ignores subgroups asynchronously.
 
@@ -7308,11 +9328,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUP.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_groups_count(self, query: dict | None = None) -> dict:
         """
@@ -7332,9 +9360,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_COUNT.format(**params_path),
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_group_set_permissions(self, group_id: str, enabled: bool = True) -> bytes:
+        return res
+
+    async def a_group_set_permissions(self, group_id: str, enabled: bool = True) -> dict:
         """
         Enable/Disable permissions for a group asynchronously.
 
@@ -7345,16 +9381,24 @@ class KeycloakAdmin:
         :param enabled: Enabled flag
         :type enabled: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_GROUP_PERMISSIONS.format(**params_path),
             data=json.dumps({"enabled": enabled}),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_group_user_add(self, user_id: str, group_id: str) -> bytes:
+        return res
+
+    async def a_group_user_add(self, user_id: str, group_id: str) -> dict:
         """
         Add user to group (user_id and group_id) asynchronously.
 
@@ -7363,7 +9407,7 @@ class KeycloakAdmin:
         :param group_id:  id of group to add to
         :type group_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -7374,13 +9418,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_GROUP.format(**params_path),
             data=None,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_group_user_remove(self, user_id: str, group_id: str) -> bytes:
+        return res
+
+    async def a_group_user_remove(self, user_id: str, group_id: str) -> dict:
         """
         Remove user from group (user_id and group_id) asynchronously.
 
@@ -7389,7 +9441,7 @@ class KeycloakAdmin:
         :param group_id:  id of group to remove from
         :type group_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -7399,30 +9451,46 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_USER_GROUP.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_group(self, group_id: str) -> bytes:
+        return res
+
+    async def a_delete_group(self, group_id: str) -> dict:
         """
         Delete a group in the Realm asynchronously.
 
         :param group_id:  id of group to delete
         :type group_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_GROUP.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_clients(self) -> list:
         """
@@ -7440,7 +9508,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENTS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client(self, client_id: str) -> dict:
         """
@@ -7458,7 +9534,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_id(self, client_id: str) -> str | None:
         """
@@ -7478,6 +9562,12 @@ class KeycloakAdmin:
             clientId=client_id,
         )
         data_response = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(data_response, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(data_response)}', value '{data_response}'."
+            )
+            raise TypeError(msg)
 
         for client in data_response:
             if client_id == client.get("clientId"):
@@ -7499,14 +9589,58 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SETTINGS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
+
+    async def a_import_client_authz_config(self, client_id: str, payload: dict) -> dict:
+        """
+        Import client authorization configuration asynchronously.
+
+        ResourceServerRepresentation
+        https://www.keycloak.org/docs-api/latest/rest-api/index.html#ResourceServerRepresentation
+
+        :param client_id: id in ClientRepresentation
+            https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
+        :type client_id: str
+        :param payload: ResourceServerRepresentation
+        :type payload: dict
+
+        :return: Server response
+        :rtype: dict
+        """
+        params_path = {"realm-name": self.connection.realm_name, "id": client_id}
+        data_raw = await self.connection.a_raw_post(
+            urls_patterns.URL_ADMIN_CLIENT_AUTHZ_IMPORT.format(**params_path),
+            data=json.dumps(payload),
+        )
+
+        res = raise_error_from_response(
+            data_raw,
+            KeycloakPostError,
+            expected_codes=[HTTP_NO_CONTENT],
+        )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_client_authz_resource(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> bytes | dict:
+    ) -> dict:
         """
         Create resources of client asynchronously.
 
@@ -7520,7 +9654,7 @@ class KeycloakAdmin:
         :type skip_exists: bool
 
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
 
@@ -7529,19 +9663,27 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_client_authz_resource(
         self,
         client_id: str,
         resource_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Update resource of client asynchronously.
 
@@ -7562,7 +9704,7 @@ class KeycloakAdmin:
         :type resource_id: str
 
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -7573,13 +9715,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_client_authz_resource(self, client_id: str, resource_id: str) -> bytes:
+        return res
+
+    async def a_delete_client_authz_resource(self, client_id: str, resource_id: str) -> dict:
         """
         Delete a client resource asynchronously.
 
@@ -7591,7 +9741,7 @@ class KeycloakAdmin:
         :type resource_id: str
 
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -7601,11 +9751,19 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_resources(self, client_id: str) -> list:
         """
@@ -7622,7 +9780,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCES.format(**params_path),
             max=-1,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_resource(self, client_id: str, resource_id: str) -> dict:
         """
@@ -7646,14 +9812,22 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_client_authz_role_based_policy(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> bytes:
+    ) -> dict:
         """
         Create role-based policy of client asynchronously.
 
@@ -7679,7 +9853,7 @@ class KeycloakAdmin:
         :param skip_exists: Skip creation in case the object exists
         :type skip_exists: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
@@ -7687,19 +9861,27 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_client_authz_policy(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> bytes:
+    ) -> dict:
         """
         Create an authz policy of client asynchronously.
 
@@ -7724,7 +9906,7 @@ class KeycloakAdmin:
         :param skip_exists: Skip creation in case the object exists
         :type skip_exists: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
@@ -7733,19 +9915,27 @@ class KeycloakAdmin:
             max=-1,
             permission=False,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_client_authz_resource_based_permission(
         self,
         client_id: str,
         payload: dict,
         skip_exists: bool = False,
-    ) -> bytes:
+    ) -> dict:
         """
         Create resource-based permission of client asynchronously.
 
@@ -7772,7 +9962,7 @@ class KeycloakAdmin:
         :param skip_exists: Skip creation in case the object already exists
         :type skip_exists: bool
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
@@ -7780,12 +9970,20 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_scopes(self, client_id: str) -> list:
         """
@@ -7802,9 +10000,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SCOPES.format(**params_path),
             max=-1,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_create_client_authz_scopes(self, client_id: str, payload: dict) -> bytes:
+        return res
+
+    async def a_create_client_authz_scopes(self, client_id: str, payload: dict) -> dict:
         """
         Create scopes for client asynchronously.
 
@@ -7815,7 +10021,7 @@ class KeycloakAdmin:
         :type payload: dict
         :type client_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
@@ -7823,11 +10029,19 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_permissions(self, client_id: str) -> list:
         """
@@ -7844,7 +10058,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_PERMISSIONS.format(**params_path),
             max=-1,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_policies(self, client_id: str) -> list:
         """
@@ -7862,9 +10084,17 @@ class KeycloakAdmin:
             max=-1,
             permission=False,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_client_authz_policy(self, client_id: str, policy_id: str) -> bytes:
+        return res
+
+    async def a_delete_client_authz_policy(self, client_id: str, policy_id: str) -> dict:
         """
         Delete a policy from client asynchronously.
 
@@ -7885,11 +10115,19 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_policy(self, client_id: str, policy_id: str) -> dict:
         """
@@ -7912,7 +10150,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_service_account_user(self, client_id: str) -> dict:
         """
@@ -7928,7 +10174,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SERVICE_ACCOUNT_USER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_default_client_scopes(self, client_id: str) -> list:
         """
@@ -7944,14 +10198,22 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_DEFAULT_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_client_default_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Add a client scope to the default client scopes from client asynchronously.
 
@@ -7971,7 +10233,7 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -7982,13 +10244,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_DEFAULT_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_client_default_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete a client scope from the default client scopes of the client asynchronously.
 
@@ -7998,7 +10268,7 @@ class KeycloakAdmin:
         :type client_scope_id: str
 
         :return: list of client scopes with id and name
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8008,7 +10278,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_DEFAULT_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_optional_client_scopes(self, client_id: str) -> list:
         """
@@ -8024,14 +10302,22 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_OPTIONAL_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_client_optional_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Add a client scope to the optional client scopes from client asynchronously.
 
@@ -8051,7 +10337,7 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8062,13 +10348,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_client_optional_client_scope(
         self,
         client_id: str,
         client_scope_id: str,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete a client scope from the optional client scopes of the client asynchronously.
 
@@ -8078,7 +10372,7 @@ class KeycloakAdmin:
         :type client_scope_id: str
 
         :return: list of client scopes with id and name
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8088,13 +10382,21 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_initial_access_token(
         self,
         count: int = 1,
         expiration: int = 1,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Create an initial access token asynchronously.
 
@@ -8111,7 +10413,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_INITIAL_ACCESS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_client(self, payload: dict, skip_exists: bool = False) -> str:
         """
@@ -8147,7 +10457,7 @@ class KeycloakAdmin:
         _last_slash_idx = data_raw.headers["Location"].rindex("/")
         return data_raw.headers["Location"][_last_slash_idx + 1 :]
 
-    async def a_update_client(self, client_id: str, payload: dict) -> bytes:
+    async def a_update_client(self, client_id: str, payload: dict) -> dict:
         """
         Update a client asynchronously.
 
@@ -8157,20 +10467,28 @@ class KeycloakAdmin:
         :type payload: dict
 
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_CLIENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_client(self, client_id: str) -> bytes:
+        return res
+
+    async def a_delete_client(self, client_id: str) -> dict:
         """
         Get representation of the client asynchronously.
 
@@ -8180,19 +10498,27 @@ class KeycloakAdmin:
         :param client_id: keycloak client id (not oauth client-id)
         :type client_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_client_installation_provider(self, client_id: str, provider_id: str) -> list:
+        return res
+
+    async def a_get_client_installation_provider(self, client_id: str, provider_id: str) -> dict:
         """
         Get content for given installation provider asynchronously.
 
@@ -8207,7 +10533,7 @@ class KeycloakAdmin:
         :param provider_id: provider id to specify response format
         :type provider_id: str
         :returns: Installation providers
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8217,7 +10543,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_INSTALLATION_PROVIDER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realm_users_profile(self) -> dict:
         """
@@ -8228,6 +10562,7 @@ class KeycloakAdmin:
 
         Return https://www.keycloak.org/docs-api/26.0.0/rest-api/index.html#UPConfig
         :returns: UPConfig
+        :rtype: dict
 
         """
         params_path = {"realm-name": self.connection.realm_name}
@@ -8235,7 +10570,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM_USER_PROFILE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realm_roles(
         self, brief_representation: bool = True, search_text: str = "", query: dict | None = None
@@ -8257,7 +10600,7 @@ class KeycloakAdmin:
         """
         query = query or {}
         params_path = {"realm-name": self.connection.realm_name}
-        params = {"briefRepresentation": brief_representation}
+        params: dict[str, str | bool] = {"briefRepresentation": brief_representation}
         url = urls_patterns.URL_ADMIN_REALM_ROLES.format(**params_path)
 
         if search_text is not None and search_text.strip() != "":
@@ -8347,16 +10690,24 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES_REALM.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_remove_realm_default_roles(self, payload: dict) -> bytes:
+        return res
+
+    async def a_remove_realm_default_roles(self, payload: list) -> dict:
         """
         Remove a set of default realm roles asynchronously.
 
         :param payload: List of RoleRepresentations
         :type payload: list
         :return: Keycloak Server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8366,16 +10717,24 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_add_realm_default_roles(self, payload: dict) -> bytes:
+        return res
+
+    async def a_add_realm_default_roles(self, payload: list) -> dict:
         """
         Add a set of default realm roles asynchronously.
 
         :param payload: List of RoleRepresentations
         :type payload: list
         :return: Keycloak Server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8385,7 +10744,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_roles(self, client_id: str, brief_representation: bool = True) -> list:
         """
@@ -8407,7 +10774,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLES.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_role(self, client_id: str, role_name: str) -> dict:
         """
@@ -8428,9 +10803,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_ROLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_client_role_id(self, client_id: str, role_name: str) -> str:
+        return res
+
+    async def a_get_client_role_id(self, client_id: str, role_name: str) -> str | None:
         """
         Get client role id by name asynchronously.
 
@@ -8444,7 +10827,7 @@ class KeycloakAdmin:
         :param role_name: role's name (not id!)
         :type role_name: str
         :return: role_id
-        :rtype: str
+        :rtype: str | None
         """
         role = await self.a_get_client_role(client_id, role_name)
         return role.get("id")
@@ -8499,7 +10882,7 @@ class KeycloakAdmin:
         client_role_id: str,
         role_name: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Add composite roles to client role asynchronously.
 
@@ -8510,7 +10893,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be updated
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -8522,18 +10905,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLES_COMPOSITE_CLIENT_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_remove_composite_client_roles_from_role(
         self,
         client_role_id: str,
         role_name: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Remove composite roles from a client role asynchronously.
 
@@ -8544,7 +10935,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be removed
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -8556,13 +10947,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLES_COMPOSITE_CLIENT_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_client_role(self, client_id: str, role_name: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_client_role(self, client_id: str, role_name: str, payload: dict) -> dict:
         """
         Update a client role asynchronously.
 
@@ -8576,7 +10975,7 @@ class KeycloakAdmin:
         :param payload: RoleRepresentation
         :type payload: dict
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8587,13 +10986,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_client_role(self, client_role_id: str, role_name: str) -> bytes:
+        return res
+
+    async def a_delete_client_role(self, client_role_id: str, role_name: str) -> dict:
         """
         Delete a client role asynchronously.
 
@@ -8605,7 +11012,7 @@ class KeycloakAdmin:
         :param role_name: role's name (not id!)
         :type role_name: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -8615,13 +11022,21 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_ROLE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_assign_client_role(self, user_id: str, client_id: str, roles: str | list) -> bytes:
+        return res
+
+    async def a_assign_client_role(self, user_id: str, client_id: str, roles: str | list) -> dict:
         """
         Assign a client role to a user asynchronously.
 
@@ -8632,7 +11047,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -8644,17 +11059,25 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_role_members(
         self,
         client_id: str,
         role_name: str,
-        **query: dict,
+        **query: Any,  # noqa: ANN401
     ) -> list:
         """
         Get members by client role asynchronously.
@@ -8683,7 +11106,7 @@ class KeycloakAdmin:
         self,
         client_id: str,
         role_name: str,
-        **query: dict,
+        **query: Any,  # noqa: ANN401
     ) -> list:
         """
         Get group members by client role asynchronously.
@@ -8724,9 +11147,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_role_by_id(self, role_id: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_role_by_id(self, role_id: str, payload: dict) -> dict:
         """
         Update the role asynchronously.
 
@@ -8738,20 +11169,28 @@ class KeycloakAdmin:
         :param role_id: id of role
         :type role_id: str
         :returns: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "role-id": role_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_role_by_id(self, role_id: str) -> bytes:
+        return res
+
+    async def a_delete_role_by_id(self, role_id: str) -> dict:
         """
         Delete a role by its id asynchronously.
 
@@ -8767,11 +11206,39 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
+
+    async def a_get_role_composites_by_id(self, role_id: str, query: dict | None = None) -> list:
+        """
+        Get all composite roles by role id asynchronously.
+
+        :param role_id: id of role
+        :type role_id: str
+        :param query: Query parameters (optional). Supported keys: 'first', 'max', 'search'
+        :type query: dict
+        :return: Keycloak server response (RoleRepresentation)
+        :rtype: list
+        """
+        query = query or {}
+        params_path = {"realm-name": self.connection.realm_name, "role-id": role_id}
+        url = urls_patterns.URL_ADMIN_REALM_ROLE_COMPOSITES.format(**params_path)
+
+        if "first" in query or "max" in query:
+            return await self.a___fetch_paginated(url, query)
+
+        return await self.a___fetch_all(url, query)
 
     async def a_create_realm_role(self, payload: dict, skip_exists: bool = False) -> str:
         """
@@ -8821,7 +11288,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_NAME.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realm_role_by_id(self, role_id: str) -> dict:
         """
@@ -8839,9 +11314,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_ID.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_realm_role(self, role_name: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_realm_role(self, role_name: str, payload: dict) -> dict:
         """
         Update a role for the realm by name asynchronously.
 
@@ -8850,43 +11333,59 @@ class KeycloakAdmin:
         :param payload: The role (use RoleRepresentation)
         :type payload: dict
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_NAME.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_realm_role(self, role_name: str) -> bytes:
+        return res
+
+    async def a_delete_realm_role(self, role_name: str) -> dict:
         """
         Delete a role for the realm by name asynchronously.
 
         :param role_name: The role name
         :type role_name: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_REALM_ROLES_ROLE_BY_NAME.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_composite_realm_roles_to_role(
         self,
         role_name: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Add composite roles to the role asynchronously.
 
@@ -8895,7 +11394,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be updated
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
@@ -8903,17 +11402,25 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLES_COMPOSITE_REALM_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_remove_composite_realm_roles_to_role(
         self,
         role_name: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Remove composite roles from the role asynchronously.
 
@@ -8922,7 +11429,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation) to be removed
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "role-name": role_name}
@@ -8930,11 +11437,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_REALM_ROLES_COMPOSITE_REALM_ROLE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_composite_realm_roles_of_role(self, role_name: str) -> list:
         """
@@ -8949,7 +11464,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REALM_ROLES_COMPOSITE_REALM_ROLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_composite_client_roles_of_role(self, client_id: str, role_name: str) -> list:
         """
@@ -8970,13 +11493,21 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_ROLES_COMPOSITE_CLIENT_ROLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_assign_realm_roles_to_client_scope(
         self,
         client_id: str,
         roles: str | list,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Assign realm roles to a client's scope asynchronously.
 
@@ -8993,17 +11524,25 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_realm_roles_of_client_scope(
         self,
         client_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete realm roles of a client's scope asynchronously.
 
@@ -9020,11 +11559,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realm_roles_of_client_scope(self, client_id: str) -> list:
         """
@@ -9039,14 +11586,22 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_REALM_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_assign_client_roles_to_client_scope(
         self,
         client_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> dict | bytes:
+    ) -> dict:
         """
         Assign client roles to a client's dedicated scope asynchronously.
 
@@ -9071,18 +11626,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_client_roles_of_client_scope(
         self,
         client_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles of a client's dedicated scope asynchronously.
 
@@ -9107,11 +11670,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_roles_of_client_scope(
         self,
@@ -9138,9 +11709,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_MAPPINGS_CLIENT_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_assign_realm_roles(self, user_id: str, roles: str | list) -> bytes:
+        return res
+
+    async def a_assign_realm_roles(self, user_id: str, roles: str | list) -> dict:
         """
         Assign realm roles to a user asynchronously.
 
@@ -9149,7 +11728,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
@@ -9157,13 +11736,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_realm_roles_of_user(self, user_id: str, roles: str | list) -> bytes:
+        return res
+
+    async def a_delete_realm_roles_of_user(self, user_id: str, roles: str | list) -> dict:
         """
         Delete realm roles of a user asynchronously.
 
@@ -9172,7 +11759,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
@@ -9180,11 +11767,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_realm_roles_of_user(self, user_id: str) -> list:
         """
@@ -9199,7 +11794,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_REALM_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_available_realm_roles_of_user(self, user_id: str) -> list:
         """
@@ -9214,7 +11817,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_REALM_ROLES_AVAILABLE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_composite_realm_roles_of_user(
         self,
@@ -9237,9 +11848,17 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_REALM_ROLES_COMPOSITE.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_assign_group_realm_roles(self, group_id: str, roles: str | list) -> bytes:
+        return res
+
+    async def a_assign_group_realm_roles(self, group_id: str, roles: str | list) -> dict:
         """
         Assign realm roles to a group asynchronously.
 
@@ -9248,7 +11867,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
@@ -9256,13 +11875,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_group_realm_roles(self, group_id: str, roles: str | list) -> bytes:
+        return res
+
+    async def a_delete_group_realm_roles(self, group_id: str, roles: str | list) -> dict:
         """
         Delete realm roles of a group asynchronously.
 
@@ -9271,7 +11898,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {"realm-name": self.connection.realm_name, "id": group_id}
@@ -9279,11 +11906,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_REALM_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_group_realm_roles(
         self,
@@ -9306,14 +11941,22 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_REALM_ROLES.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_assign_group_client_roles(
         self,
         group_id: str,
         client_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Assign client roles to a group asynchronously.
 
@@ -9324,7 +11967,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -9336,11 +11979,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_group_client_roles(self, group_id: str, client_id: str) -> list:
         """
@@ -9361,14 +12012,22 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_group_client_roles(
         self,
         group_id: str,
         client_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles of a group asynchronously.
 
@@ -9379,7 +12038,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use GroupRoleRepresentation)
         :type roles: list
         :return: Keycloak server response (array RoleRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -9391,11 +12050,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_all_roles_of_user(self, user_id: str) -> dict:
         """
@@ -9410,7 +12077,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_USER_ALL_ROLES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_roles_of_user(self, user_id: str, client_id: str) -> list:
         """
@@ -9477,7 +12152,7 @@ class KeycloakAdmin:
         client_level_role_mapping_url: str,
         user_id: str,
         client_id: str,
-        **params: dict,
+        **params: Any,  # noqa: ANN401
     ) -> list:
         """
         Get client roles of a single user helper asynchronously.
@@ -9502,14 +12177,22 @@ class KeycloakAdmin:
             client_level_role_mapping_url.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_client_roles_of_user(
         self,
         user_id: str,
         client_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles from a user asynchronously.
 
@@ -9520,7 +12203,7 @@ class KeycloakAdmin:
         :param roles: roles list or role to delete (use RoleRepresentation)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -9532,11 +12215,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_USER_CLIENT_ROLES.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authentication_flows(self) -> list:
         """
@@ -9554,7 +12245,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_FLOWS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authentication_flow_for_id(self, flow_id: str) -> dict:
         """
@@ -9574,7 +12273,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_FLOWS_ALIAS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_authentication_flow(
         self,
@@ -9599,12 +12306,23 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if isinstance(res, dict) and res == {"msg": "Already exists"}:
+            return json.dumps(res).encode()
+
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_copy_authentication_flow(self, payload: dict, flow_alias: str) -> bytes:
         """
@@ -9624,13 +12342,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS_COPY.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_authentication_flow(self, flow_id: str) -> bytes:
+        return res
+
+    async def a_delete_authentication_flow(self, flow_id: str) -> dict:
         """
         Delete authentication flow asynchronously.
 
@@ -9640,17 +12366,25 @@ class KeycloakAdmin:
         :param flow_id: authentication flow id
         :type flow_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": flow_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_FLOW.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authentication_flow_executions(self, flow_alias: str) -> list:
         """
@@ -9667,13 +12401,21 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_authentication_flow_executions(
         self,
         payload: dict,
         flow_alias: str,
-    ) -> bytes:
+    ) -> dict:
         """
         Update an authentication flow execution asynchronously.
 
@@ -9685,18 +12427,26 @@ class KeycloakAdmin:
         :param flow_alias: The flow alias
         :type flow_alias: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "flow-alias": flow_alias}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_ACCEPTED, HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authentication_flow_execution(self, execution_id: str) -> dict:
         """
@@ -9714,7 +12464,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_authentication_flow_execution(
         self,
@@ -9739,13 +12497,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS_EXECUTION.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_authentication_flow_execution(self, execution_id: str) -> bytes:
+        return res
+
+    async def a_delete_authentication_flow_execution(self, execution_id: str) -> dict:
         """
         Delete authentication flow execution asynchronously.
 
@@ -9755,17 +12521,25 @@ class KeycloakAdmin:
         :param execution_id: keycloak client id (not oauth client-id)
         :type execution_id: str
         :return: Keycloak server response (json)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": execution_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTION.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_authentication_flow_subflow(
         self,
@@ -9793,12 +12567,23 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_FLOWS_EXECUTIONS_FLOW.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
             skip_exists=skip_exists,
         )
+        if isinstance(res, dict) and res == {"msg": "Already exists"}:
+            return json.dumps(res).encode()
+
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authenticator_providers(self) -> list:
         """
@@ -9811,7 +12596,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_PROVIDERS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authenticator_provider_config_description(self, provider_id: str) -> dict:
         """
@@ -9829,7 +12622,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG_DESCRIPTION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_authenticator_config(self, config_id: str) -> dict:
         """
@@ -9846,9 +12647,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_authenticator_config(self, payload: dict, config_id: str) -> bytes:
+        return res
+
+    async def a_update_authenticator_config(self, payload: dict, config_id: str) -> dict:
         """
         Update an authenticator configuration asynchronously.
 
@@ -9860,20 +12669,28 @@ class KeycloakAdmin:
         :param config_id: Authenticator config id
         :type config_id: str
         :return: Response(json)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": config_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_authenticator_config(self, config_id: str) -> bytes:
+        return res
+
+    async def a_delete_authenticator_config(self, config_id: str) -> dict:
         """
         Delete a authenticator configuration asynchronously.
 
@@ -9882,19 +12699,27 @@ class KeycloakAdmin:
         :param config_id: Authenticator config id
         :type config_id: str
         :return: Keycloak server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": config_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_AUTHENTICATOR_CONFIG.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_sync_users(self, storage_id: str, action: str) -> bytes:
+        return res
+
+    async def a_sync_users(self, storage_id: str, action: str) -> dict:
         """
         Trigger user sync from provider asynchronously.
 
@@ -9903,7 +12728,7 @@ class KeycloakAdmin:
         :param action: Action can be "triggerFullSync" or "triggerChangedUsersSync"
         :type action: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         data = {"action": action}
         params_query = {"action": action}
@@ -9914,7 +12739,15 @@ class KeycloakAdmin:
             data=json.dumps(data),
             **params_query,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_scopes(self) -> list:
         """
@@ -9930,7 +12763,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_scope(self, client_scope_id: str) -> dict:
         """
@@ -9948,7 +12789,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_scope_by_name(self, client_scope_name: str) -> dict | None:
         """
@@ -10003,7 +12852,7 @@ class KeycloakAdmin:
         _last_slash_idx = data_raw.headers["Location"].rindex("/")
         return data_raw.headers["Location"][_last_slash_idx + 1 :]
 
-    async def a_update_client_scope(self, client_scope_id: str, payload: dict) -> bytes:
+    async def a_update_client_scope(self, client_scope_id: str, payload: dict) -> dict:
         """
         Update a client scope asynchronously.
 
@@ -10015,20 +12864,28 @@ class KeycloakAdmin:
         :param payload: ClientScopeRepresentation
         :type payload: dict
         :return: Keycloak server response (ClientScopeRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "scope-id": client_scope_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_client_scope(self, client_scope_id: str) -> bytes:
+        return res
+
+    async def a_delete_client_scope(self, client_scope_id: str) -> dict:
         """
         Delete existing client scope asynchronously.
 
@@ -10038,17 +12895,25 @@ class KeycloakAdmin:
         :param client_scope_id: The id of the client scope
         :type client_scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "scope-id": client_scope_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_mappers_from_client_scope(self, client_scope_id: str) -> list:
         """
@@ -10064,7 +12929,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_ADD_MAPPER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_mapper_to_client_scope(self, client_scope_id: str, payload: dict) -> bytes:
         """
@@ -10084,17 +12957,25 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_ADD_MAPPER.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_delete_mapper_from_client_scope(
         self,
         client_scope_id: str,
         protocol_mapper_id: str,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete a mapper from a client scope asynchronously.
 
@@ -10105,7 +12986,7 @@ class KeycloakAdmin:
         :param protocol_mapper_id: Protocol mapper id
         :type protocol_mapper_id: str
         :return: Keycloak server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -10115,18 +12996,26 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_MAPPERS.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_mapper_in_client_scope(
         self,
         client_scope_id: str,
         protocol_mapper_id: str,
         payload: dict,
-    ) -> bytes:
+    ) -> dict:
         """
         Update an existing protocol mapper in a client scope asynchronously.
 
@@ -10140,7 +13029,7 @@ class KeycloakAdmin:
         :param payload: ProtocolMapperRepresentation
         :type payload: dict
         :return: Keycloak server Response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -10151,11 +13040,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPES_MAPPERS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_default_default_client_scopes(self) -> list:
         """
@@ -10170,35 +13067,51 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_DEFAULT_DEFAULT_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_default_default_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    async def a_delete_default_default_client_scope(self, scope_id: str) -> dict:
         """
         Delete default default client scope asynchronously.
 
         :param scope_id: default default client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_DEFAULT_DEFAULT_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_add_default_default_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    async def a_add_default_default_client_scope(self, scope_id: str) -> dict:
         """
         Add default default client scope asynchronously.
 
         :param scope_id: default default client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         payload = {"realm": self.connection.realm_name, "clientScopeId": scope_id}
@@ -10206,11 +13119,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_DEFAULT_DEFAULT_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_default_optional_client_scopes(self) -> list:
         """
@@ -10225,35 +13146,51 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_DEFAULT_OPTIONAL_CLIENT_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_default_optional_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    async def a_delete_default_optional_client_scope(self, scope_id: str) -> dict:
         """
         Delete default optional client scope asynchronously.
 
         :param scope_id: default optional client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_DEFAULT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_add_default_optional_client_scope(self, scope_id: str) -> bytes:
+        return res
+
+    async def a_add_default_optional_client_scope(self, scope_id: str) -> dict:
         """
         Add default optional client scope asynchronously.
 
         :param scope_id: default optional client scope id
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": scope_id}
         payload = {"realm": self.connection.realm_name, "clientScopeId": scope_id}
@@ -10261,18 +13198,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_DEFAULT_OPTIONAL_CLIENT_SCOPE.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_client_specific_roles_to_client_scope(
         self,
         client_scope_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Assign client roles to a client scope asynchronously.
 
@@ -10298,18 +13243,26 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS_CLIENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_remove_client_specific_roles_of_client_scope(
         self,
         client_scope_id: str,
         client_roles_owner_id: str,
         roles: str | list,
-    ) -> bytes:
+    ) -> dict:
         """
         Delete client roles of a client scope asynchronously.
 
@@ -10323,7 +13276,7 @@ class KeycloakAdmin:
         :param roles: roles list or role (use RoleRepresentation, must include id and name)
         :type roles: list
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         payload = roles if isinstance(roles, list) else [roles]
         params_path = {
@@ -10335,11 +13288,19 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS_CLIENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_specific_roles_of_client_scope(
         self,
@@ -10367,9 +13328,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS_CLIENT.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_all_roles_of_client_scope(self, client_scope_id: str) -> list:
+        return res
+
+    async def a_get_all_roles_of_client_scope(self, client_scope_id: str) -> dict:
         """
         Get all client roles for a client scope.
 
@@ -10385,7 +13354,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SCOPE_ROLE_MAPPINGS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_mappers_from_client(self, client_id: str) -> list:
         """
@@ -10403,7 +13380,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPERS.format(**params_path),
         )
 
-        return raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPostError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_add_mapper_to_client(self, client_id: str, payload: dict) -> bytes:
         """
@@ -10423,13 +13408,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPERS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_client_mapper(self, client_id: str, mapper_id: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_client_mapper(self, client_id: str, mapper_id: str, payload: dict) -> dict:
         """
         Update client mapper asynchronously.
 
@@ -10440,7 +13433,7 @@ class KeycloakAdmin:
         :param payload: ProtocolMapperRepresentation
         :type payload: dict
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -10451,13 +13444,21 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPER.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_remove_client_mapper(self, client_id: str, client_mapper_id: str) -> bytes:
+        return res
+
+    async def a_remove_client_mapper(self, client_id: str, client_mapper_id: str) -> dict:
         """
         Remove a mapper from the client asynchronously.
 
@@ -10468,7 +13469,7 @@ class KeycloakAdmin:
         :param client_mapper_id: The id of the mapper to be deleted
         :type client_mapper_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -10478,13 +13479,21 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_CLIENT_PROTOCOL_MAPPER.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_generate_client_secrets(self, client_id: str) -> bytes:
+        return res
+
+    async def a_generate_client_secrets(self, client_id: str) -> dict:
         """
         Generate a new secret for the client asynchronously.
 
@@ -10493,14 +13502,22 @@ class KeycloakAdmin:
         :param client_id:  id of client (not client-id)
         :type client_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_CLIENT_SECRETS.format(**params_path),
             data=None,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_secrets(self, client_id: str) -> dict:
         """
@@ -10517,7 +13534,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SECRETS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_components(self, query: dict | None = None) -> list:
         """
@@ -10540,7 +13565,15 @@ class KeycloakAdmin:
             data=None,
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_create_component(self, payload: dict) -> str:
         """
@@ -10563,7 +13596,7 @@ class KeycloakAdmin:
         _last_slash_idx = data_raw.headers["Location"].rindex("/")
         return data_raw.headers["Location"][_last_slash_idx + 1 :]
 
-    async def a_get_component(self, component_id: str) -> dict | bytes:
+    async def a_get_component(self, component_id: str) -> dict:
         """
         Get representation of the component asynchronously.
 
@@ -10581,9 +13614,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_COMPONENT.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_component(self, component_id: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_component(self, component_id: str, payload: dict) -> dict:
         """
         Update the component asynchronously.
 
@@ -10593,39 +13634,55 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_componentrepresentation
         :type payload: dict
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "component-id": component_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_COMPONENT.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_delete_component(self, component_id: str) -> bytes:
+        return res
+
+    async def a_delete_component(self, component_id: str) -> dict:
         """
         Delete the component asynchronously.
 
         :param component_id: Component id
         :type component_id: str
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "component-id": component_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_COMPONENT.format(**params_path),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakDeleteError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_keys(self) -> list:
+        return res
+
+    async def a_get_keys(self) -> dict:
         """
         Get keys asynchronously.
 
@@ -10635,14 +13692,22 @@ class KeycloakAdmin:
         https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_key_resource
 
         :return: keys list
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_KEYS.format(**params_path),
             data=None,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_admin_events(self, query: dict | None = None) -> list:
         """
@@ -10666,7 +13731,15 @@ class KeycloakAdmin:
             data=None,
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_events(self, query: dict | None = None) -> list:
         """
@@ -10689,9 +13762,17 @@ class KeycloakAdmin:
             data=None,
             **query,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_set_events(self, payload: dict) -> bytes:
+        return res
+
+    async def a_set_events(self, payload: dict) -> dict:
         """
         Set realm events configuration asynchronously.
 
@@ -10701,18 +13782,26 @@ class KeycloakAdmin:
         :param payload: Payload object for the events configuration
         :type payload: dict
         :return: Http response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_EVENTS_CONFIG.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_all_sessions(self, client_id: str, query: dict | None = None) -> list:
         """
@@ -10736,22 +13825,30 @@ class KeycloakAdmin:
 
         return await self.a___fetch_all(url, query)
 
-    async def a_get_client_sessions_stats(self) -> dict:
+    async def a_get_client_sessions_stats(self) -> list:
         """
         Get current session count for all clients with active sessions asynchronously.
 
         https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_getclientsessionstats
 
         :return: Dict of clients and session count
-        :rtype: dict
+        :rtype: list
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_SESSION_STATS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_client_management_permissions(self, client_id: str) -> list:
+        return res
+
+    async def a_get_client_management_permissions(self, client_id: str) -> dict:
         """
         Get management permissions for a client asynchronously.
 
@@ -10759,15 +13856,23 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_MANAGEMENT_PERMISSIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_client_management_permissions(self, payload: dict, client_id: str) -> bytes:
+        return res
+
+    async def a_update_client_management_permissions(self, payload: dict, client_id: str) -> dict:
         """
         Update management permissions for a client asynchronously.
 
@@ -10786,14 +13891,22 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_CLIENT_MANAGEMENT_PERMISSIONS.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_OK])
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_policy_scopes(self, client_id: str, policy_id: str) -> list:
         """
@@ -10815,7 +13928,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY_SCOPES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_policy_resources(self, client_id: str, policy_id: str) -> list:
         """
@@ -10837,9 +13958,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_POLICY_RESOURCES.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_client_authz_scope_permission(self, client_id: str, scope_id: str) -> list:
+        return res
+
+    async def a_get_client_authz_scope_permission(self, client_id: str, scope_id: str) -> dict:
         """
         Get permissions for a given scope asynchronously.
 
@@ -10849,7 +13978,7 @@ class KeycloakAdmin:
         :param scope_id: No Document
         :type scope_id: str
         :return: Keycloak server response
-        :rtype: list
+        :rtype: dict
         """
         params_path = {
             "realm-name": self.connection.realm_name,
@@ -10859,9 +13988,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SCOPE_PERMISSION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_create_client_authz_scope_permission(self, payload: dict, client_id: str) -> bytes:
+        return res
+
+    async def a_create_client_authz_scope_permission(self, payload: dict, client_id: str) -> dict:
         """
         Create permissions for a authz scope asynchronously.
 
@@ -10883,7 +14020,7 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
@@ -10891,11 +14028,19 @@ class KeycloakAdmin:
             data=json.dumps(payload),
             max=-1,
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_client_authz_scope_permission(
         self,
@@ -10938,7 +14083,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_SCOPE_PERMISSION.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        res = raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_update_client_authz_resource_permission(
         self,
@@ -10981,7 +14134,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_RESOURCE_PERMISSION.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        res = raise_error_from_response(data_raw, KeycloakPutError, expected_codes=[HTTP_CREATED])
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_client_policies(self, client_id: str) -> list:
         """
@@ -10997,7 +14158,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_CLIENT_POLICY.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_client_authz_permission_associated_policies(
         self,
@@ -11026,9 +14195,17 @@ class KeycloakAdmin:
                 **params_path,
             ),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        res = raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_create_client_authz_client_policy(self, payload: dict, client_id: str) -> bytes:
+        return res
+
+    async def a_create_client_authz_client_policy(self, payload: dict, client_id: str) -> dict:
         """
         Create a new policy for a given client asynchronously.
 
@@ -11048,18 +14225,26 @@ class KeycloakAdmin:
             https://www.keycloak.org/docs-api/24.0.2/rest-api/index.html#_clientrepresentation
         :type client_id: str
         :return: Keycloak server response (RoleRepresentation)
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_CLIENT_AUTHZ_CLIENT_POLICY.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_composite_client_roles_of_group(
         self,
@@ -11089,7 +14274,15 @@ class KeycloakAdmin:
             urls_patterns.URL_ADMIN_GROUPS_CLIENT_ROLES_COMPOSITE.format(**params_path),
             **params,
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_role_client_level_children(self, client_id: str, role_id: str) -> list:
         """
@@ -11110,7 +14303,15 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_CLIENT_ROLE_CHILDREN.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_upload_certificate(self, client_id: str, certcont: str) -> dict:
         """
@@ -11130,7 +14331,8 @@ class KeycloakAdmin:
             "attr": "jwt.credential",
         }
         m = MultipartEncoder(fields={"keystoreFormat": "Certificate PEM", "file": certcont})
-        new_headers = copy.deepcopy(self.connection.headers)
+        orig_headers = copy.deepcopy(self.connection.headers or {})
+        new_headers = copy.deepcopy(orig_headers)
         new_headers["Content-Type"] = m.content_type
         self.connection.headers = new_headers
         data_raw = await self.connection.a_raw_post(
@@ -11138,9 +14340,18 @@ class KeycloakAdmin:
             data=m,
             headers=new_headers,
         )
-        return raise_error_from_response(data_raw, KeycloakPostError)
+        self.connection.headers = orig_headers
+        res = raise_error_from_response(data_raw, KeycloakPostError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_get_required_action_by_alias(self, action_alias: str) -> dict:
+        return res
+
+    async def a_get_required_action_by_alias(self, action_alias: str) -> dict | None:
         """
         Get a required action by its alias asynchronously.
 
@@ -11166,9 +14377,17 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_REQUIRED_ACTIONS.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, list):
+            msg = (
+                "Unexpected response type. Expected 'list', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_required_action(self, action_alias: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_required_action(self, action_alias: str, payload: dict) -> dict:
         """
         Update a required action asynchronously.
 
@@ -11177,16 +14396,22 @@ class KeycloakAdmin:
         :param payload: the new required action (RequiredActionProviderRepresentation).
         :type payload: dict
         :return: empty dictionary.
-        :rtype: bytes
+        :rtype: dict
         """
-        if not isinstance(payload, str):
-            payload = json.dumps(payload)
         params_path = {"realm-name": self.connection.realm_name, "action-alias": action_alias}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_REQUIRED_ACTIONS_ALIAS.format(**params_path),
-            data=payload,
+            data=json.dumps(payload),
         )
-        return raise_error_from_response(data_raw, KeycloakPutError)
+        res = raise_error_from_response(data_raw, KeycloakPutError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_get_bruteforce_detection_status(self, user_id: str) -> dict:
         """
@@ -11201,89 +14426,137 @@ class KeycloakAdmin:
         data_raw = await self.connection.a_raw_get(
             urls_patterns.URL_ADMIN_ATTACK_DETECTION_USER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        res = raise_error_from_response(data_raw, KeycloakGetError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_clear_bruteforce_attempts_for_user(self, user_id: str) -> bytes:
+        return res
+
+    async def a_clear_bruteforce_attempts_for_user(self, user_id: str) -> dict:
         """
         Clear bruteforce attempts for user asynchronously.
 
         :param user_id: User id
         :type user_id: str
         :return: empty dictionary.
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": user_id}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_ATTACK_DETECTION_USER.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_clear_all_bruteforce_attempts(self) -> bytes:
+        return res
+
+    async def a_clear_all_bruteforce_attempts(self) -> dict:
         """
         Clear bruteforce attempts for all users in realm asynchronously.
 
         :return: empty dictionary.
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_delete(
             urls_patterns.URL_ADMIN_ATTACK_DETECTION.format(**params_path),
         )
-        return raise_error_from_response(data_raw, KeycloakDeleteError)
+        res = raise_error_from_response(data_raw, KeycloakDeleteError)
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_clear_keys_cache(self) -> bytes:
+        return res
+
+    async def a_clear_keys_cache(self) -> dict:
         """
         Clear keys cache asynchronously.
 
         :return: empty dictionary.
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_CLEAR_KEYS_CACHE.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_clear_realm_cache(self) -> bytes:
+        return res
+
+    async def a_clear_realm_cache(self) -> dict:
         """
         Clear realm cache asynchronously.
 
         :return: empty dictionary.
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_CLEAR_REALM_CACHE.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_clear_user_cache(self) -> bytes:
+        return res
+
+    async def a_clear_user_cache(self) -> dict:
         """
         Clear user cache asynchronously.
 
         :return: empty dictionary.
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_CLEAR_USER_CACHE.format(**params_path),
             data="",
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res
 
     async def a_change_execution_priority(self, execution_id: str, diff: int) -> None:
         """
@@ -11336,20 +14609,28 @@ class KeycloakAdmin:
         :param payload: Configuration to add to the execution
         :type payload: dir
         :return: Response(json)
-        :rtype: dict
+        :rtype: bytes
         """
         params_path = {"id": execution_id, "realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_post(
             urls_patterns.URL_ADMIN_FLOWS_EXECUTION_CONFIG.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPostError,
             expected_codes=[HTTP_CREATED],
         )
+        if not isinstance(res, bytes):
+            msg = (
+                "Unexpected response type. Expected 'bytes', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
 
-    async def a_update_authentication_flow(self, flow_id: str, payload: dict) -> bytes:
+        return res
+
+    async def a_update_authentication_flow(self, flow_id: str, payload: dict) -> dict:
         """
         Update an authentication flow.
 
@@ -11361,15 +14642,23 @@ class KeycloakAdmin:
         :param payload: AuthenticationFlowRepresentation
         :type payload: dict
         :return: Keycloak server response
-        :rtype: bytes
+        :rtype: dict
         """
         params_path = {"id": flow_id, "realm-name": self.connection.realm_name}
         data_raw = await self.connection.a_raw_put(
             urls_patterns.URL_ADMIN_FLOW.format(**params_path),
             data=json.dumps(payload),
         )
-        return raise_error_from_response(
+        res = raise_error_from_response(
             data_raw,
             KeycloakPutError,
             expected_codes=[HTTP_ACCEPTED, HTTP_NO_CONTENT],
         )
+        if not isinstance(res, dict):
+            msg = (
+                "Unexpected response type. Expected 'dict', received "
+                f"'{type(res)}', value '{res}'."
+            )
+            raise TypeError(msg)
+
+        return res

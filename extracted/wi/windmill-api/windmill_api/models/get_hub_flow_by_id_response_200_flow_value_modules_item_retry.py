@@ -22,11 +22,15 @@ T = TypeVar("T", bound="GetHubFlowByIdResponse200FlowValueModulesItemRetry")
 
 @_attrs_define
 class GetHubFlowByIdResponse200FlowValueModulesItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetHubFlowByIdResponse200FlowValueModulesItemRetryConstant]):
-        exponential (Union[Unset, GetHubFlowByIdResponse200FlowValueModulesItemRetryExponential]):
-        retry_if (Union[Unset, GetHubFlowByIdResponse200FlowValueModulesItemRetryRetryIf]):
+        constant (Union[Unset, GetHubFlowByIdResponse200FlowValueModulesItemRetryConstant]): Retry with constant delay
+            between attempts
+        exponential (Union[Unset, GetHubFlowByIdResponse200FlowValueModulesItemRetryExponential]): Retry with
+            exponential backoff (delay doubles each time)
+        retry_if (Union[Unset, GetHubFlowByIdResponse200FlowValueModulesItemRetryRetryIf]): Conditional retry based on
+            error or result
     """
 
     constant: Union[Unset, "GetHubFlowByIdResponse200FlowValueModulesItemRetryConstant"] = UNSET

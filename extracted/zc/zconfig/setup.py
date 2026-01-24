@@ -19,7 +19,7 @@ tests_require = [
 
 setup(
     name="ZConfig",
-    version='4.2',
+    version='4.3',
     author="Fred L. Drake, Jr.",
     author_email="fred@fdrake.net",
     maintainer="Zope Foundation and Contributors",
@@ -27,7 +27,7 @@ setup(
     keywords=('configuration structured simple flexible typed hierarchy'
               ' logging'),
     long_description=README + "\n\n" + CHANGES,
-    license="ZPL 2.1",
+    license="ZPL-2.1",
     url="https://github.com/zopefoundation/ZConfig/",
     # List packages explicitly so we don't have to assume setuptools:
     packages=[
@@ -62,17 +62,17 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Operating System :: OS Independent',
         'Topic :: Software Development',
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.10',
     extras_require={
         'test': tests_require,
         'docs': [

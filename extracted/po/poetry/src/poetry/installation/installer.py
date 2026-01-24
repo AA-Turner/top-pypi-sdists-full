@@ -16,9 +16,11 @@ from poetry.repositories.lockfile_repository import LockfileRepository
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from collections.abc import Mapping
 
     from cleo.io.io import IO
     from packaging.utils import NormalizedName
+    from poetry.core.packages.dependency import Dependency
     from poetry.core.packages.package import Package
     from poetry.core.packages.path_dependency import PathDependency
     from poetry.core.packages.project_package import ProjectPackage
@@ -42,6 +44,8 @@ class Installer:
         installed: InstalledRepository | None = None,
         executor: Executor | None = None,
         disable_cache: bool = False,
+        *,
+        build_constraints: Mapping[NormalizedName, list[Dependency]] | None = None,
     ) -> None:
         self._io = io
         self._env = env
@@ -64,7 +68,12 @@ class Installer:
 
         if executor is None:
             executor = Executor(
-                self._env, self._pool, config, self._io, disable_cache=disable_cache
+                self._env,
+                self._pool,
+                config,
+                self._io,
+                disable_cache=disable_cache,
+                build_constraints=build_constraints,
             )
 
         self._executor = executor
@@ -207,7 +216,7 @@ class Installer:
         from poetry.puzzle.solver import Solver
 
         locked_repository = Repository("poetry-locked")
-        reresolve = self._config.get("installer.re-resolve", True)
+        reresolve = self._config.get("installer.re-resolve", False)
         solved_packages: dict[Package, TransitivePackageInfo] = {}
         lockfile_repo = LockfileRepository()
 

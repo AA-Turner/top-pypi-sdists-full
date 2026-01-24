@@ -1,15 +1,9 @@
 import re
-import sys
 import textwrap
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
-from typing import (
-    Any,
-    Callable,
-    Optional,
-)
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any
 
-from docformatter import configuration, format
 from jinja2 import Environment
 
 from xsdata.codegen.models import Attr, AttrType, Class
@@ -53,10 +47,8 @@ class Filters:
         "module_safe_prefix",
         "package_case",
         "package_safe_prefix",
-        "postponed_annotations",
         "relative_imports",
         "substitutions",
-        "union_type",
     )
 
     def __init__(self, config: GeneratorConfig):
@@ -83,6 +75,7 @@ class Filters:
                 patterns.update(
                     [
                         f"({ext.func_name}",
+                        f", {ext.func_name}",
                         f" {ext.func_name})",
                     ]
                 )
@@ -99,10 +92,8 @@ class Filters:
         self.module_safe_prefix: str = config.conventions.module_name.safe_prefix
         self.docstring_style: DocstringStyle = config.output.docstring_style
         self.max_line_length: int = config.output.max_line_length
-        self.union_type: bool = config.output.union_type
         self.generic_collections: bool = config.output.generic_collections
         self.relative_imports: bool = config.output.relative_imports
-        self.postponed_annotations: bool = config.output.postponed_annotations
         self.format = config.output.format
 
         # Build things
@@ -161,8 +152,8 @@ class Filters:
             args.append("frozen=True")
         if fmt.slots:
             args.append("slots=True")
-        if fmt.kw_only:
-            args.append("kw_only=True")
+
+        args.append("kw_only=True")
 
         return f"@dataclass({', '.join(args)})" if args else "@dataclass"
 
@@ -249,7 +240,7 @@ class Filters:
         self,
         obj: Class,
         attr: Attr,
-        parent_namespace: Optional[str],
+        parent_namespace: str | None,
     ) -> str:
         """Return the field definition with any extra metadata."""
         ns_map = obj.ns_map
@@ -415,14 +406,14 @@ class Filters:
 
         return module
 
-    def import_class(self, name: str, alias: Optional[str]) -> str:
+    def import_class(self, name: str, alias: str | None) -> str:
         """Convert import class name with alias support."""
         if alias:
             return f"{self.class_name(name)} as {self.class_name(alias)}"
 
         return self.class_name(name)
 
-    def post_meta_hook(self, obj: Class) -> Optional[str]:
+    def post_meta_hook(self, obj: Class) -> str | None:
         """Plugin hook to render additional information after the xsdata meta class."""
         return None
 
@@ -430,7 +421,7 @@ class Filters:
         self,
         obj: Class,
         attr: Attr,
-        parent_namespace: Optional[str],
+        parent_namespace: str | None,
     ) -> dict:
         """Return a metadata dictionary for the given attribute."""
         if attr.is_prohibited:
@@ -467,8 +458,8 @@ class Filters:
         self,
         obj: Class,
         attr: Attr,
-        parent_namespace: Optional[str],
-    ) -> Optional[tuple]:
+        parent_namespace: str | None,
+    ) -> tuple | None:
         """Return a tuple of field metadata if the attr has choices."""
         if not attr.choices:
             return None
@@ -619,7 +610,7 @@ class Filters:
         )
 
     @classmethod
-    def clean_docstring(cls, string: Optional[str], escape: bool = True) -> str:
+    def clean_docstring(cls, string: str | None, escape: bool = True) -> str:
         """Prepare string for docstring generation.
 
         - Strip whitespace from each line
@@ -646,7 +637,18 @@ class Filters:
         return "\n".join(_clean(line) for line in string.splitlines() if line.strip())
 
     def format_docstring(self, doc_string: str, level: int) -> str:
-        """Format doc strings."""
+        """Format docstrings with proper wrapping.
+
+        Splits text into summary (first sentence) and description (rest),
+        then wraps each appropriately.
+
+        Args:
+            doc_string: The raw docstring from the template
+            level: The indentation level (1 for top-level class, 2+ for nested)
+
+        Returns:
+            The formatted docstring with proper line wrapping.
+        """
         sep_pos = doc_string.rfind('"""')
         if sep_pos == -1:
             return ""
@@ -654,46 +656,90 @@ class Filters:
         content = doc_string[:sep_pos]
         params = doc_string[sep_pos + 3 :].strip()
 
-        if content.strip() == '"""' and not params:
+        # Extract the text (between opening """ and closing """)
+        text = content[3:].strip() if content.startswith('"""') else content.strip()
+
+        # Empty docstring with no params
+        if not text and not params:
             return ""
 
-        content += ' """' if content.endswith('"') else '"""'
+        # Calculate available width for text (accounting for indentation and quotes)
+        indent_width = level * 4
+        wrap_width = self.max_line_length - indent_width - 4
 
-        max_length = self.max_line_length - level * 4
-        configurator = configuration.Configurater(
-            [
-                "--wrap-summaries",
-                str(max_length - 3),
-                "--wrap-descriptions",
-                str(max_length - 7),
-                "--make-summary-multi-line",
-            ]
-        )
-        configurator.do_parse_arguments()
-        formatter = format.Formatter(
-            configurator.args,
-            sys.stderr,
-            sys.stdin,
-            sys.stdout,
-        )
-        content = formatter._do_format_code(content)
+        # Process the text: split into summary and description
+        if text:
+            # Normalize whitespace
+            text = " ".join(text.split())
 
+            # Add period if text doesn't end with punctuation
+            if text and text[-1] not in ".!?:":
+                text += "."
+
+            # Split into summary (first sentence) and description (rest)
+            summary, description = self._split_docstring(text)
+
+            # Wrap summary and description separately
+            wrapped_summary = "\n".join(
+                textwrap.wrap(
+                    summary,
+                    width=wrap_width,
+                    break_long_words=False,
+                    break_on_hyphens=False,
+                )
+            )
+
+            if description:
+                wrapped_description = "\n".join(
+                    textwrap.wrap(
+                        description,
+                        width=wrap_width,
+                        break_long_words=False,
+                        break_on_hyphens=False,
+                    )
+                )
+                wrapped_text = f"{wrapped_summary}\n\n{wrapped_description}"
+            else:
+                wrapped_text = wrapped_summary
+        else:
+            wrapped_text = ""
+
+        # Build the final docstring
         if params:
-            # Remove trailing triple quotes
-            content = content[:-3].strip()
-            new_lines = "\n" if content.endswith('"""') else "\n\n"
-            content += f'{new_lines}{params}\n"""'
+            if wrapped_text:
+                return f'"""\n{wrapped_text}\n\n{params}\n"""'
+            return f'"""\n{params}\n"""'
+        return f'"""\n{wrapped_text}\n"""'
 
-        return content
+    @staticmethod
+    def _split_docstring(text: str) -> tuple[str, str]:
+        """Split docstring text into summary and description.
 
-    def field_default_value(self, attr: Attr, ns_map: Optional[dict] = None) -> Any:
+        The summary is the first sentence (ending with '. ' followed by
+        a capital letter). The description is everything after.
+
+        Args:
+            text: The normalized docstring text
+
+        Returns:
+            A tuple of (summary, description)
+        """
+        # Look for sentence end: period/exclamation/question followed by
+        # space and a capital letter (start of new sentence)
+        match = re.search(r"[.!?] (?=[A-Z])", text)
+        if match:
+            split_pos = match.start() + 1  # Include the punctuation
+            return text[:split_pos], text[split_pos:].strip()
+        return text, ""
+
+    def field_default_value(self, attr: Attr, ns_map: dict | None = None) -> Any:
         """Generate the field default value/factory for the given attribute."""
         if attr.is_list or (attr.is_tokens and not attr.default):
             return "tuple" if self.format.frozen else "list"
         if attr.is_dict:
             return "dict"
         if attr.default is None:
-            return False if self.format.kw_only and not attr.is_optional else None
+            return None if attr.is_optional else False
         if not isinstance(attr.default, str):
             return literal_value(attr.default)
         if attr.default.startswith("@enum@"):
@@ -729,7 +775,7 @@ class Filters:
         return f"{class_name}.{self.constant_name(reference, name)}"
 
     def field_default_tokens(
-        self, attr: Attr, types: list[type], ns_map: Optional[dict]
+        self, attr: Attr, types: list[type], ns_map: dict | None
     ) -> str:
         """Generate the default value for tokens fields."""
         assert isinstance(attr.default, str)
@@ -772,10 +818,8 @@ class Filters:
 
             return "dict[str, str]"
 
-        if attr.is_nillable or (
-            attr.default is None and (attr.is_optional or not self.format.kw_only)
-        ):
-            return f"None | {result}" if self.union_type else f"Optional[{result}]"
+        if attr.is_nillable or (attr.default is None and attr.is_optional):
+            return f"None | {result}"
 
         return result
 
@@ -802,8 +846,8 @@ class Filters:
         if attr.is_list:
             return iterable_fmt.format(result)
 
-        if attr.is_optional or not self.format.kw_only:
-            return f"None | {result}" if self.union_type else f"Optional[{result}]"
+        if attr.is_optional:
+            return f"None | {result}"
 
         return result
 
@@ -849,10 +893,7 @@ class Filters:
         if len(type_names) == 1:
             return type_names[0]
 
-        if self.union_type:
-            return " | ".join(type_names)
-
-        return f"Union[{', '.join(type_names)}]"
+        return " | ".join(type_names)
 
     def _field_type_name(
         self, obj: Class, attr_type: AttrType, choice: bool = False
@@ -865,7 +906,7 @@ class Filters:
         elif attr_type.circular:
             name = f'"{name}"'
 
-        if self.postponed_annotations and not choice:
+        if not choice:
             name = name.strip('"')
 
         return name
@@ -883,7 +924,7 @@ class Filters:
 
     def default_imports(self, output: str) -> str:
         """Generate the default imports for the given package output."""
-        imports = []
+        imports = ["from __future__ import annotations"]
         for library, types in self.import_patterns.items():
             names = [
                 name
@@ -896,14 +937,11 @@ class Filters:
             elif names:
                 imports.append(f"from {library} import {', '.join(names)}")
 
-        if self.postponed_annotations:
-            imports.append("from __future__ import annotations")
-
         return "\n".join(collections.unique_sequence(imports))
 
     def _get_iterable_format(self) -> str:
         if self.generic_collections:
-            return "Iterable[{}]"
+            return "Sequence[{}]"
 
         return "tuple[{}, ...]" if self.format.frozen else "list[{}]"
 
@@ -916,13 +954,11 @@ class Filters:
             "decimal": {"Decimal": type_patterns("Decimal")},
             "enum": {"Enum": ["(Enum)"]},
             "typing": {
-                "Optional": ["Optional["],
-                "Union": ["Union["],
                 "ForwardRef": [": ForwardRef("],
                 "Any": type_patterns("Any"),
             },
             "collections.abc": {
-                "Iterable": [": Iterable["],
+                "Sequence": [": Sequence["],
                 "Mapping": [": Mapping["],
             },
             "xml.etree.ElementTree": {"QName": type_patterns("QName")},

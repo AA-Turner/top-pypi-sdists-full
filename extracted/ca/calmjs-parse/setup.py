@@ -21,7 +21,7 @@ class BuildHook(build_py):
 
 # Attributes
 
-version = '1.3.3'
+version = '1.3.4'
 
 classifiers = """
 Development Status :: 5 - Production/Stable
@@ -40,6 +40,7 @@ Programming Language :: Python :: 3.10
 Programming Language :: Python :: 3.11
 Programming Language :: Python :: 3.12
 Programming Language :: Python :: 3.13
+Programming Language :: Python :: 3.14
 """.strip().splitlines()
 
 long_description = (

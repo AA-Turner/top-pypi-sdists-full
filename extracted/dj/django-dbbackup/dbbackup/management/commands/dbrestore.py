@@ -3,6 +3,10 @@ Restore database.
 """
 
 import io
+import json
+import os
+import sys
+from importlib import import_module
 
 from django.conf import settings
 from django.core.management.base import CommandError
@@ -98,6 +102,59 @@ class Command(BaseDbBackupCommand):
             raise CommandError(msg)
         return database_name, settings.DATABASES[database_name]
 
+    def _check_metadata(self, filename):
+        """
+        Check if the backup file has metadata and if it matches the current database.
+        """
+        metadata_filename = f"{filename}.metadata"
+        metadata = None
+
+        if self.path:
+            # Local file
+            # self.path is the full path to the backup file
+            metadata_path = f"{self.path}.metadata"
+            if os.path.exists(metadata_path):
+                with open(metadata_path) as fd:
+                    metadata = json.load(fd)
+        else:
+            # Storage file
+            try:
+                # Check if metadata file exists in storage
+                # list_directory returns a list of filenames
+                # We can't easily check existence without listing or trying to open
+                # But read_file might fail if not exists depending on storage
+                # Let's try to read it
+                metadata_file = self.storage.read_file(metadata_filename)
+            except Exception:
+                self.logger.debug("No metadata file found for '%s'", filename)
+                return None
+
+            # Read and parse metadata
+            try:
+                metadata = json.load(metadata_file)
+            except Exception:
+                self.logger.warning(
+                    "Malformatted metadata file for '%s'! Dbbackup will ignore this metadata.", filename
+                )
+                return None
+
+        if not metadata:
+            return None
+
+        backup_engine = metadata.get("engine")
+        current_engine = settings.DATABASES[self.database_name]["ENGINE"]
+        backup_connector = metadata.get("connector")
+
+        if backup_engine != current_engine and backup_connector != "dbbackup.db.django.DjangoConnector":
+            msg = (
+                f"Backup file '{filename}' was created with database engine '{backup_engine}', "
+                f"but you are restoring to a database using '{current_engine}'. "
+                "Restoring to a different database engine is not supported."
+            )
+            raise CommandError(msg)
+
+        return metadata
+
     def _restore_backup(self):
         """Restore the specified database."""
         input_filename, input_file = self._get_backup_file(
@@ -114,6 +171,8 @@ class Command(BaseDbBackupCommand):
             self.logger.info(f"Restoring schemas: {self.schemas}")  # noqa: G004
 
         self.logger.info(f"Restoring: {input_filename}")  # noqa: G004
+
+        metadata = self._check_metadata(input_filename)
 
         # Send pre_restore signal
         pre_restore.send(
@@ -154,7 +213,33 @@ class Command(BaseDbBackupCommand):
             self._ask_confirmation()
 
         input_file.seek(0)
-        self.connector = get_connector(self.database_name)
+
+        # Try to use connector from metadata if available
+        self.connector = None
+        if metadata and "connector" in metadata:
+            connector_path = metadata["connector"]
+            try:
+                module_name = ".".join(connector_path.split(".")[:-1])
+                class_name = connector_path.split(".")[-1]
+                module = import_module(module_name)
+                connector_class = getattr(module, class_name)
+                self.connector = connector_class(self.database_name)
+                self.logger.info("Using connector from metadata: '%s'", connector_path)
+            except (ImportError, AttributeError):
+                self.logger.warning(
+                    "Connector '%s' from metadata not found!!! Falling back to the connector in your Django settings.",
+                    connector_path,
+                )
+                if self.interactive:
+                    answer = input("Do you want to continue with the connector defined in your Django settings? [Y/n] ")
+                    if not answer.lower().startswith("y"):
+                        self.logger.info("Quitting")
+                        sys.exit(0)
+
+        # Fallback to a connector from Django settings and/or our default connector map.
+        if not self.connector:
+            self.connector = get_connector(self.database_name)
+
         if self.schemas:
             self.connector.schemas = self.schemas
         self.connector.drop = not self.no_drop

@@ -5,14 +5,16 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="simple_dwd_weatherforecast",
-    version="v3.1.6",
+    version="v3.2.2",
     author="Max Fermor",
     description="A simple tool to retrieve a weather forecast from DWD OpenData",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/FL550/simple_dwd_weatherforecast.git",
     packages=setuptools.find_packages(),
-    package_data={"": ["stations.json", "uv_stations.json"]},
+    package_data={
+        "": ["stations.json", "uv_stations.json", "airquality_stations.json"]
+    },
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",

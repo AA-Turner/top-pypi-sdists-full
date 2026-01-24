@@ -24,6 +24,7 @@ import logging
 import os
 import time
 import typing as ty
+import uuid
 import warnings
 
 from cliff import columns as cliff_columns
@@ -443,13 +444,13 @@ def format_size(size: int | float | None) -> str:
 def get_client_class(
     api_name: str,
     version: str | int | float,
-    version_map: dict[str, type[_T]],
+    version_map: dict[str, str],
 ) -> ty.Any:
     """Returns the client class for the requested API version
 
     :param api_name: the name of the API, e.g. 'compute', 'image', etc
     :param version: the requested API version
-    :param version_map: a dict of client classes keyed by version
+    :param version_map: a dict of client class strings keyed by version
     :rtype: a client class for the requested API version
     """
     warnings.warn(
@@ -480,12 +481,16 @@ def get_client_class(
     return importutils.import_class(client_path)
 
 
+FormatterT = (
+    type[cliff_columns.FormattableColumn[ty.Any]] | functools.partial[ty.Any]
+)
+
+
 def get_dict_properties(
     item: dict[str, _T],
     fields: collections.abc.Sequence[str],
     mixed_case_fields: collections.abc.Sequence[str] | None = None,
-    formatters: dict[str, type[cliff_columns.FormattableColumn[ty.Any]]]
-    | None = None,
+    formatters: collections.abc.Mapping[str, FormatterT] | None = None,
 ) -> tuple[ty.Any, ...]:
     """Return a tuple containing the item properties.
 
@@ -528,6 +533,7 @@ def get_dict_properties(
                 raise exceptions.CommandError(msg)
 
         row.append(data)
+
     return tuple(row)
 
 
@@ -535,8 +541,7 @@ def get_item_properties(
     item: dict[str, _T],
     fields: collections.abc.Sequence[str],
     mixed_case_fields: collections.abc.Sequence[str] | None = None,
-    formatters: dict[str, type[cliff_columns.FormattableColumn[ty.Any]]]
-    | None = None,
+    formatters: collections.abc.Mapping[str, FormatterT] | None = None,
 ) -> tuple[ty.Any, ...]:
     """Return a tuple containing the item properties.
 
@@ -864,3 +869,25 @@ def get_osc_show_columns_for_sdk_resource(
         new_column = attr_map[column] if column in attr_map else column
         attr_columns.append(new_column)
     return tuple(sorted_display_columns), tuple(attr_columns)
+
+
+def is_uuid_like(value: ty.Any) -> bool:
+    """Returns validation of a value as a UUID.
+
+    :param val: Value to verify
+    :returns: True if UUID-like, else False.
+    """
+    if not isinstance(value, str):
+        return False
+
+    try:
+        formatted_value = (
+            value.replace('urn:', '')
+            .replace('uuid:', '')
+            .strip('{}')
+            .replace('-', '')
+            .lower()
+        )
+        return str(uuid.UUID(value)).replace('-', '') == formatted_value
+    except (TypeError, ValueError, AttributeError):
+        return False

@@ -1,11 +1,12 @@
-from substrait.sql.sql_to_substrait import convert
-import pyarrow
-import substrait.json
+import sys
 import tempfile
+
+import pyarrow
 import pyarrow.substrait as pa_substrait
 import pytest
-import sys
 
+from substrait.extension_registry import ExtensionRegistry
+from substrait.sql.sql_to_substrait import convert
 
 data: pyarrow.Table = pyarrow.Table.from_batches(
     [
@@ -30,6 +31,8 @@ sales_data = pyarrow.Table.from_batches(
     ]
 )
 
+registry = ExtensionRegistry(load_default_extensions=True)
+
 
 def sort_arrow(table: pyarrow.Table):
     import pyarrow.compute as pc
@@ -52,7 +55,7 @@ def assert_query_datafusion(query: str, ignore_order=True):
         pa_schema = ctx.sql(f"SELECT * FROM {name} LIMIT 0").schema()
         return pa_substrait.serialize_schema(pa_schema).to_pysubstrait().base_schema
 
-    plan = convert(query, "generic", df_schema_resolver)
+    plan = convert(query, "generic", df_schema_resolver, registry)
 
     sql_arrow = ctx.sql(query).to_arrow_table()
 
@@ -86,15 +89,14 @@ def assert_query_duckdb(query: str, ignore_order=True):
         conn.register("stores", data)
         conn.register("sales", sales_data)
 
-        plan = convert(query, "duckdb", duckdb_schema_resolver)
+        plan = convert(query, "duckdb", duckdb_schema_resolver, registry)
 
         conn.install_extension("substrait", repository="community")
         conn.load_extension("substrait")
 
-        plan_json = substrait.json.dump_json(plan)
-        sql = f"CALL from_substrait_json('{plan_json}')"
+        sql = "CALL from_substrait(?)"
+        substrait_out = conn.sql(sql, params=[plan.SerializeToString()])
 
-        substrait_out = conn.sql(sql)
         sql_out = conn.sql(query)
 
         substrait_arrow = substrait_out.arrow()

@@ -1,13 +1,13 @@
 """Container for the result of running optimization"""
 
 from collections import OrderedDict
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 from cmdstanpy.cmdstan_args import Method, OptimizeArgs
-from cmdstanpy.utils import get_logger, scan_optimize_csv
+from cmdstanpy.utils import get_logger, stancsv
 
 from .metadata import InferenceMetadata
 from .runset import RunSet
@@ -34,7 +34,52 @@ class CmdStanMLE:
             optimize_args, OptimizeArgs
         )  # make the typechecker happy
         self._save_iterations: bool = optimize_args.save_iterations
-        self._set_mle_attrs(runset.csv_files[0])
+
+        csv_file = self.runset.csv_files[0]
+        try:
+            (
+                comment_lines,
+                header,
+                draws_lines,
+            ) = stancsv.parse_comments_header_and_draws(
+                self.runset.csv_files[0]
+            )
+            self._metadata = InferenceMetadata(
+                stancsv.construct_config_header_dict(comment_lines, header)
+            )
+            all_draws = stancsv.csv_bytes_list_to_numpy(draws_lines)
+
+        except Exception as exc:
+            raise ValueError(
+                f"An error occurred when parsing Stan csv {csv_file}"
+            ) from exc
+        self._mle: np.ndarray = all_draws[-1]
+        if self._save_iterations:
+            self._all_iters: np.ndarray = all_draws
+
+    def create_inits(
+        self, seed: Optional[int] = None, chains: int = 4
+    ) -> dict[str, np.ndarray]:
+        """
+        Create initial values for the parameters of the model
+        from the MLE.
+
+        :param seed: Unused. Kept for compatibility with other
+        create_inits methods.
+        :param chains: Unused. Kept for compatibility with other
+        create_inits methods.
+        :return: The initial values for the parameters of the model.
+
+        Returns a dictionary of MLE estimates in the format expected
+        for the ``inits`` argument of :meth:`CmdStanModel.sample`.
+        When running multi-chain sampling, all chains will be initialized
+        at the same points.
+        """
+        # pylint: disable=unused-argument
+
+        return {
+            name: np.array(val) for name, val in self.stan_variables().items()
+        }
 
     def __repr__(self) -> str:
         repr = 'CmdStanMLE: model={}{}'.format(
@@ -60,21 +105,13 @@ class CmdStanMLE:
             # pylint: disable=raise-missing-from
             raise AttributeError(*e.args)
 
-    def _set_mle_attrs(self, sample_csv_0: str) -> None:
-        meta = scan_optimize_csv(sample_csv_0, self._save_iterations)
-        self._metadata = InferenceMetadata(meta)
-        self._column_names: Tuple[str, ...] = meta['column_names']
-        self._mle: np.ndarray = meta['mle']
-        if self._save_iterations:
-            self._all_iters: np.ndarray = meta['all_iters']
-
     @property
-    def column_names(self) -> Tuple[str, ...]:
+    def column_names(self) -> tuple[str, ...]:
         """
         Names of estimated quantities, includes joint log probability,
         and all parameters, transformed parameters, and generated quantities.
         """
-        return self._column_names
+        return self.metadata.column_names
 
     @property
     def metadata(self) -> InferenceMetadata:
@@ -152,7 +189,7 @@ class CmdStanMLE:
         return pd.DataFrame(self._all_iters, columns=self.column_names)
 
     @property
-    def optimized_params_dict(self) -> Dict[str, np.float64]:
+    def optimized_params_dict(self) -> dict[str, np.float64]:
         """
         Returns all estimates from the optimizer, including `lp__` as a
         Python Dict.  Only returns estimate from final iteration.
@@ -236,7 +273,7 @@ class CmdStanMLE:
 
     def stan_variables(
         self, inc_iterations: bool = False
-    ) -> Dict[str, Union[np.ndarray, float]]:
+    ) -> dict[str, Union[np.ndarray, float]]:
         """
         Return a dictionary mapping Stan program variables names
         to the corresponding numpy.ndarray containing the inferred values.

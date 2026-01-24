@@ -381,6 +381,7 @@ class CodePackager:
                     "google-auth",
                     "simple-gcp-object-downloader",
                     "google-cloud-secret-manager",
+                    "packaging",
                 ],
                 "local": [],
             }

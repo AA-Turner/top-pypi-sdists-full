@@ -3,7 +3,7 @@ Type annotations for rds-data service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_rds_data/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,18 +17,13 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
 from .literals import DecimalReturnTypeType, LongReturnTypeType, RecordsFormatTypeType, TypeHintType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -68,11 +63,11 @@ __all__ = (
 )
 
 class ArrayValueOutputTypeDef(TypedDict):
-    booleanValues: NotRequired[List[bool]]
-    longValues: NotRequired[List[int]]
-    doubleValues: NotRequired[List[float]]
-    stringValues: NotRequired[List[str]]
-    arrayValues: NotRequired[List[Dict[str, Any]]]
+    booleanValues: NotRequired[list[bool]]
+    longValues: NotRequired[list[int]]
+    doubleValues: NotRequired[list[float]]
+    stringValues: NotRequired[list[str]]
+    arrayValues: NotRequired[list[dict[str, Any]]]
 
 class ArrayValueTypeDef(TypedDict):
     booleanValues: NotRequired[Sequence[bool]]
@@ -84,7 +79,7 @@ class ArrayValueTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -137,7 +132,7 @@ class RollbackTransactionRequestTypeDef(TypedDict):
     transactionId: str
 
 class StructValueTypeDef(TypedDict):
-    attributes: NotRequired[List[Dict[str, Any]]]
+    attributes: NotRequired[list[dict[str, Any]]]
 
 class FieldOutputTypeDef(TypedDict):
     isNull: NotRequired[bool]
@@ -164,7 +159,7 @@ class RollbackTransactionResponseTypeDef(TypedDict):
 
 class ResultSetMetadataTypeDef(TypedDict):
     columnCount: NotRequired[int]
-    columnMetadata: NotRequired[List[ColumnMetadataTypeDef]]
+    columnMetadata: NotRequired[list[ColumnMetadataTypeDef]]
 
 class ValueTypeDef(TypedDict):
     isNull: NotRequired[bool]
@@ -175,19 +170,19 @@ class ValueTypeDef(TypedDict):
     realValue: NotRequired[float]
     stringValue: NotRequired[str]
     blobValue: NotRequired[bytes]
-    arrayValues: NotRequired[List[Dict[str, Any]]]
+    arrayValues: NotRequired[list[dict[str, Any]]]
     structValue: NotRequired[StructValueTypeDef]
 
 class ExecuteStatementResponseTypeDef(TypedDict):
-    records: List[List[FieldOutputTypeDef]]
-    columnMetadata: List[ColumnMetadataTypeDef]
+    records: list[list[FieldOutputTypeDef]]
+    columnMetadata: list[ColumnMetadataTypeDef]
     numberOfRecordsUpdated: int
-    generatedFields: List[FieldOutputTypeDef]
+    generatedFields: list[FieldOutputTypeDef]
     formattedRecords: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateResultTypeDef(TypedDict):
-    generatedFields: NotRequired[List[FieldOutputTypeDef]]
+    generatedFields: NotRequired[list[FieldOutputTypeDef]]
 
 class FieldTypeDef(TypedDict):
     isNull: NotRequired[bool]
@@ -199,17 +194,17 @@ class FieldTypeDef(TypedDict):
     arrayValue: NotRequired[ArrayValueUnionTypeDef]
 
 class RecordTypeDef(TypedDict):
-    values: NotRequired[List[ValueTypeDef]]
+    values: NotRequired[list[ValueTypeDef]]
 
 class BatchExecuteStatementResponseTypeDef(TypedDict):
-    updateResults: List[UpdateResultTypeDef]
+    updateResults: list[UpdateResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 FieldUnionTypeDef = Union[FieldTypeDef, FieldOutputTypeDef]
 
 class ResultFrameTypeDef(TypedDict):
     resultSetMetadata: NotRequired[ResultSetMetadataTypeDef]
-    records: NotRequired[List[RecordTypeDef]]
+    records: NotRequired[list[RecordTypeDef]]
 
 class SqlParameterTypeDef(TypedDict):
     name: NotRequired[str]
@@ -243,5 +238,5 @@ class ExecuteStatementRequestTypeDef(TypedDict):
     formatRecordsAs: NotRequired[RecordsFormatTypeType]
 
 class ExecuteSqlResponseTypeDef(TypedDict):
-    sqlStatementResults: List[SqlStatementResultTypeDef]
+    sqlStatementResults: list[SqlStatementResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

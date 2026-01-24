@@ -2,18 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Union, Optional
 
 import httpx
 
-from .handle import (
-    HandleResource,
-    AsyncHandleResource,
-    HandleResourceWithRawResponse,
-    AsyncHandleResourceWithRawResponse,
-    HandleResourceWithStreamingResponse,
-    AsyncHandleResourceWithStreamingResponse,
-)
 from .manage import (
     ManageResource,
     AsyncManageResource,
@@ -42,10 +34,6 @@ __all__ = ["TriggerInstancesResource", "AsyncTriggerInstancesResource"]
 
 class TriggerInstancesResource(SyncAPIResource):
     @cached_property
-    def handle(self) -> HandleResource:
-        return HandleResource(self._client)
-
-    @cached_property
     def manage(self) -> ManageResource:
         return ManageResource(self._client)
 
@@ -72,20 +60,20 @@ class TriggerInstancesResource(SyncAPIResource):
         self,
         *,
         query_auth_config_ids_1: Optional[SequenceNotStr[str]] | Omit = omit,
-        query_auth_config_ids_2: str | Omit = omit,
+        query_auth_config_ids_2: Optional[SequenceNotStr[str]] | Omit = omit,
         query_connected_account_ids_1: Optional[SequenceNotStr[str]] | Omit = omit,
-        query_connected_account_ids_2: str | Omit = omit,
+        query_connected_account_ids_2: Optional[SequenceNotStr[str]] | Omit = omit,
         cursor: str | Omit = omit,
         deprecated_auth_config_uuids: Optional[SequenceNotStr[str]] | Omit = omit,
         deprecated_connected_account_uuids: Optional[SequenceNotStr[str]] | Omit = omit,
         limit: Optional[float] | Omit = omit,
-        page: float | Omit = omit,
         query_show_disabled_1: Optional[bool] | Omit = omit,
-        query_show_disabled_2: str | Omit = omit,
+        query_show_disabled_2: Optional[bool] | Omit = omit,
         query_trigger_ids_1: Optional[SequenceNotStr[str]] | Omit = omit,
         query_trigger_names_1: Optional[SequenceNotStr[str]] | Omit = omit,
-        query_trigger_ids_2: str | Omit = omit,
-        query_trigger_names_2: str | Omit = omit,
+        query_trigger_ids_2: Optional[SequenceNotStr[str]] | Omit = omit,
+        query_trigger_names_2: Optional[SequenceNotStr[str]] | Omit = omit,
+        user_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -97,26 +85,44 @@ class TriggerInstancesResource(SyncAPIResource):
         Args:
           query_auth_config_ids_1: Array of auth config IDs to filter triggers by
 
+          query_auth_config_ids_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              auth_config_ids instead.
+
           query_connected_account_ids_1: Array of connected account IDs to filter triggers by
+
+          query_connected_account_ids_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              connected_account_ids instead.
 
           cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
               limit. The page is the page number and the limit is the number of items per
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          deprecated_auth_config_uuids: Array of auth config UUIDs to filter triggers by
+          deprecated_auth_config_uuids: DEPRECATED: This parameter will be removed in a future version. Please use
+              auth_config_ids instead.
 
-          deprecated_connected_account_uuids: Array of connected account UUIDs to filter triggers by
+          deprecated_connected_account_uuids: DEPRECATED: This parameter will be removed in a future version. Please use
+              connected_account_ids instead.
 
-          limit: Number of items per page
-
-          page: Page number for pagination. Starts from 1.
+          limit: Number of items per page, max allowed is 1000
 
           query_show_disabled_1: When set to true, includes disabled triggers in the response.
 
+          query_show_disabled_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              show_disabled instead.
+
           query_trigger_ids_1: Array of trigger IDs to filter triggers by
 
-          query_trigger_names_1: Array of trigger names to filter triggers by
+          query_trigger_names_1: Array of trigger names to filter triggers by. Case-insensitive (internally
+              normalized to uppercase).
+
+          query_trigger_ids_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              trigger_ids instead.
+
+          query_trigger_names_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              trigger_names instead.
+
+          user_ids: Array of user IDs to filter triggers by
 
           extra_headers: Send extra headers
 
@@ -143,13 +149,13 @@ class TriggerInstancesResource(SyncAPIResource):
                         "deprecated_auth_config_uuids": deprecated_auth_config_uuids,
                         "deprecated_connected_account_uuids": deprecated_connected_account_uuids,
                         "limit": limit,
-                        "page": page,
                         "query_show_disabled_1": query_show_disabled_1,
                         "query_show_disabled_2": query_show_disabled_2,
                         "query_trigger_ids_1": query_trigger_ids_1,
                         "query_trigger_names_1": query_trigger_names_1,
                         "query_trigger_ids_2": query_trigger_ids_2,
                         "query_trigger_names_2": query_trigger_names_2,
+                        "user_ids": user_ids,
                     },
                     trigger_instance_list_active_params.TriggerInstanceListActiveParams,
                 ),
@@ -162,8 +168,11 @@ class TriggerInstancesResource(SyncAPIResource):
         slug: str,
         *,
         connected_account_id: str | Omit = omit,
+        connected_auth_id: str | Omit = omit,
+        toolkit_versions: Union[str, Dict[str, str], None] | Omit = omit,
         body_trigger_config_1: Dict[str, Optional[object]] | Omit = omit,
         body_trigger_config_2: Dict[str, Optional[object]] | Omit = omit,
+        version: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -171,15 +180,27 @@ class TriggerInstancesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TriggerInstanceUpsertResponse:
-        """
-        Args:
-          slug: The slug of the trigger instance
+        """Args:
+          slug: The slug of the trigger instance.
+
+        Case-insensitive (internally normalized to
+              uppercase).
 
           connected_account_id: Connected account nanoid
 
+          connected_auth_id: DEPRECATED: This parameter will be removed in a future version. Please use
+              connected_account_id instead.
+
+          toolkit_versions: Toolkit version specification. Supports "latest" string or a record mapping
+              toolkit slugs to specific versions.
+
           body_trigger_config_1: Trigger configuration
 
-          body_trigger_config_2: Trigger configuration (deprecated)
+          body_trigger_config_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              trigger_config instead.
+
+          version: DEPRECATED: This parameter will be removed in a future version. Please use
+              toolkit_versions instead.
 
           extra_headers: Send extra headers
 
@@ -196,8 +217,11 @@ class TriggerInstancesResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "connected_account_id": connected_account_id,
+                    "connected_auth_id": connected_auth_id,
+                    "toolkit_versions": toolkit_versions,
                     "body_trigger_config_1": body_trigger_config_1,
                     "body_trigger_config_2": body_trigger_config_2,
+                    "version": version,
                 },
                 trigger_instance_upsert_params.TriggerInstanceUpsertParams,
             ),
@@ -209,10 +233,6 @@ class TriggerInstancesResource(SyncAPIResource):
 
 
 class AsyncTriggerInstancesResource(AsyncAPIResource):
-    @cached_property
-    def handle(self) -> AsyncHandleResource:
-        return AsyncHandleResource(self._client)
-
     @cached_property
     def manage(self) -> AsyncManageResource:
         return AsyncManageResource(self._client)
@@ -240,20 +260,20 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
         self,
         *,
         query_auth_config_ids_1: Optional[SequenceNotStr[str]] | Omit = omit,
-        query_auth_config_ids_2: str | Omit = omit,
+        query_auth_config_ids_2: Optional[SequenceNotStr[str]] | Omit = omit,
         query_connected_account_ids_1: Optional[SequenceNotStr[str]] | Omit = omit,
-        query_connected_account_ids_2: str | Omit = omit,
+        query_connected_account_ids_2: Optional[SequenceNotStr[str]] | Omit = omit,
         cursor: str | Omit = omit,
         deprecated_auth_config_uuids: Optional[SequenceNotStr[str]] | Omit = omit,
         deprecated_connected_account_uuids: Optional[SequenceNotStr[str]] | Omit = omit,
         limit: Optional[float] | Omit = omit,
-        page: float | Omit = omit,
         query_show_disabled_1: Optional[bool] | Omit = omit,
-        query_show_disabled_2: str | Omit = omit,
+        query_show_disabled_2: Optional[bool] | Omit = omit,
         query_trigger_ids_1: Optional[SequenceNotStr[str]] | Omit = omit,
         query_trigger_names_1: Optional[SequenceNotStr[str]] | Omit = omit,
-        query_trigger_ids_2: str | Omit = omit,
-        query_trigger_names_2: str | Omit = omit,
+        query_trigger_ids_2: Optional[SequenceNotStr[str]] | Omit = omit,
+        query_trigger_names_2: Optional[SequenceNotStr[str]] | Omit = omit,
+        user_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -265,26 +285,44 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
         Args:
           query_auth_config_ids_1: Array of auth config IDs to filter triggers by
 
+          query_auth_config_ids_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              auth_config_ids instead.
+
           query_connected_account_ids_1: Array of connected account IDs to filter triggers by
+
+          query_connected_account_ids_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              connected_account_ids instead.
 
           cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
               limit. The page is the page number and the limit is the number of items per
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          deprecated_auth_config_uuids: Array of auth config UUIDs to filter triggers by
+          deprecated_auth_config_uuids: DEPRECATED: This parameter will be removed in a future version. Please use
+              auth_config_ids instead.
 
-          deprecated_connected_account_uuids: Array of connected account UUIDs to filter triggers by
+          deprecated_connected_account_uuids: DEPRECATED: This parameter will be removed in a future version. Please use
+              connected_account_ids instead.
 
-          limit: Number of items per page
-
-          page: Page number for pagination. Starts from 1.
+          limit: Number of items per page, max allowed is 1000
 
           query_show_disabled_1: When set to true, includes disabled triggers in the response.
 
+          query_show_disabled_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              show_disabled instead.
+
           query_trigger_ids_1: Array of trigger IDs to filter triggers by
 
-          query_trigger_names_1: Array of trigger names to filter triggers by
+          query_trigger_names_1: Array of trigger names to filter triggers by. Case-insensitive (internally
+              normalized to uppercase).
+
+          query_trigger_ids_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              trigger_ids instead.
+
+          query_trigger_names_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              trigger_names instead.
+
+          user_ids: Array of user IDs to filter triggers by
 
           extra_headers: Send extra headers
 
@@ -311,13 +349,13 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
                         "deprecated_auth_config_uuids": deprecated_auth_config_uuids,
                         "deprecated_connected_account_uuids": deprecated_connected_account_uuids,
                         "limit": limit,
-                        "page": page,
                         "query_show_disabled_1": query_show_disabled_1,
                         "query_show_disabled_2": query_show_disabled_2,
                         "query_trigger_ids_1": query_trigger_ids_1,
                         "query_trigger_names_1": query_trigger_names_1,
                         "query_trigger_ids_2": query_trigger_ids_2,
                         "query_trigger_names_2": query_trigger_names_2,
+                        "user_ids": user_ids,
                     },
                     trigger_instance_list_active_params.TriggerInstanceListActiveParams,
                 ),
@@ -330,8 +368,11 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
         slug: str,
         *,
         connected_account_id: str | Omit = omit,
+        connected_auth_id: str | Omit = omit,
+        toolkit_versions: Union[str, Dict[str, str], None] | Omit = omit,
         body_trigger_config_1: Dict[str, Optional[object]] | Omit = omit,
         body_trigger_config_2: Dict[str, Optional[object]] | Omit = omit,
+        version: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -339,15 +380,27 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TriggerInstanceUpsertResponse:
-        """
-        Args:
-          slug: The slug of the trigger instance
+        """Args:
+          slug: The slug of the trigger instance.
+
+        Case-insensitive (internally normalized to
+              uppercase).
 
           connected_account_id: Connected account nanoid
 
+          connected_auth_id: DEPRECATED: This parameter will be removed in a future version. Please use
+              connected_account_id instead.
+
+          toolkit_versions: Toolkit version specification. Supports "latest" string or a record mapping
+              toolkit slugs to specific versions.
+
           body_trigger_config_1: Trigger configuration
 
-          body_trigger_config_2: Trigger configuration (deprecated)
+          body_trigger_config_2: DEPRECATED: This parameter will be removed in a future version. Please use
+              trigger_config instead.
+
+          version: DEPRECATED: This parameter will be removed in a future version. Please use
+              toolkit_versions instead.
 
           extra_headers: Send extra headers
 
@@ -364,8 +417,11 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "connected_account_id": connected_account_id,
+                    "connected_auth_id": connected_auth_id,
+                    "toolkit_versions": toolkit_versions,
                     "body_trigger_config_1": body_trigger_config_1,
                     "body_trigger_config_2": body_trigger_config_2,
+                    "version": version,
                 },
                 trigger_instance_upsert_params.TriggerInstanceUpsertParams,
             ),
@@ -388,10 +444,6 @@ class TriggerInstancesResourceWithRawResponse:
         )
 
     @cached_property
-    def handle(self) -> HandleResourceWithRawResponse:
-        return HandleResourceWithRawResponse(self._trigger_instances.handle)
-
-    @cached_property
     def manage(self) -> ManageResourceWithRawResponse:
         return ManageResourceWithRawResponse(self._trigger_instances.manage)
 
@@ -406,10 +458,6 @@ class AsyncTriggerInstancesResourceWithRawResponse:
         self.upsert = async_to_raw_response_wrapper(
             trigger_instances.upsert,
         )
-
-    @cached_property
-    def handle(self) -> AsyncHandleResourceWithRawResponse:
-        return AsyncHandleResourceWithRawResponse(self._trigger_instances.handle)
 
     @cached_property
     def manage(self) -> AsyncManageResourceWithRawResponse:
@@ -428,10 +476,6 @@ class TriggerInstancesResourceWithStreamingResponse:
         )
 
     @cached_property
-    def handle(self) -> HandleResourceWithStreamingResponse:
-        return HandleResourceWithStreamingResponse(self._trigger_instances.handle)
-
-    @cached_property
     def manage(self) -> ManageResourceWithStreamingResponse:
         return ManageResourceWithStreamingResponse(self._trigger_instances.manage)
 
@@ -446,10 +490,6 @@ class AsyncTriggerInstancesResourceWithStreamingResponse:
         self.upsert = async_to_streamed_response_wrapper(
             trigger_instances.upsert,
         )
-
-    @cached_property
-    def handle(self) -> AsyncHandleResourceWithStreamingResponse:
-        return AsyncHandleResourceWithStreamingResponse(self._trigger_instances.handle)
 
     @cached_property
     def manage(self) -> AsyncManageResourceWithStreamingResponse:

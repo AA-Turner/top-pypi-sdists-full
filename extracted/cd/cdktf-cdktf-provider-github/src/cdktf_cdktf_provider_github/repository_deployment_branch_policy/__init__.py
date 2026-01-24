@@ -1,7 +1,7 @@
 r'''
 # `github_repository_deployment_branch_policy`
 
-Refer to the Terraform Registry for docs: [`github_repository_deployment_branch_policy`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy).
+Refer to the Terraform Registry for docs: [`github_repository_deployment_branch_policy`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryDeploymentBranchPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryDeploymentBranchPolicy.RepositoryDeploymentBranchPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy github_repository_deployment_branch_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy github_repository_deployment_branch_policy}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class RepositoryDeploymentBranchPolicy(
         environment_name: builtins.str,
         name: builtins.str,
         repository: builtins.str,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -63,14 +64,15 @@ class RepositoryDeploymentBranchPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy github_repository_deployment_branch_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy github_repository_deployment_branch_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param environment_name: The target environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#environment_name RepositoryDeploymentBranchPolicy#environment_name}
-        :param name: The name of the branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#name RepositoryDeploymentBranchPolicy#name}
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#repository RepositoryDeploymentBranchPolicy#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#id RepositoryDeploymentBranchPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param environment_name: The target environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#environment_name RepositoryDeploymentBranchPolicy#environment_name}
+        :param name: The name of the branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#name RepositoryDeploymentBranchPolicy#name}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#repository RepositoryDeploymentBranchPolicy#repository}
+        :param etag: An etag representing the Branch object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#etag RepositoryDeploymentBranchPolicy#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#id RepositoryDeploymentBranchPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -87,6 +89,7 @@ class RepositoryDeploymentBranchPolicy(
             environment_name=environment_name,
             name=name,
             repository=repository,
+            etag=etag,
             id=id,
             connection=connection,
             count=count,
@@ -112,7 +115,7 @@ class RepositoryDeploymentBranchPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryDeploymentBranchPolicy to import.
-        :param import_from_id: The id of the existing RepositoryDeploymentBranchPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryDeploymentBranchPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryDeploymentBranchPolicy to import is found.
         '''
         if __debug__:
@@ -122,6 +125,10 @@ class RepositoryDeploymentBranchPolicy(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetEtag")
+    def reset_etag(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEtag", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -141,14 +148,14 @@ class RepositoryDeploymentBranchPolicy(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
-    @jsii.member(jsii_name="etag")
-    def etag(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "etag"))
-
-    @builtins.property
     @jsii.member(jsii_name="environmentNameInput")
     def environment_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="etagInput")
+    def etag_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "etagInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -176,6 +183,18 @@ class RepositoryDeploymentBranchPolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__e6206371ae34da75e57cedf73eeca26ddb0832debeda042edf316c694f21d29f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="etag")
+    def etag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "etag"))
+
+    @etag.setter
+    def etag(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6c1a99be97bf29ffcae87e06c5c87d5a52775d7853bc9b39feec48b3659d572)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "etag", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -228,6 +247,7 @@ class RepositoryDeploymentBranchPolicy(
         "environment_name": "environmentName",
         "name": "name",
         "repository": "repository",
+        "etag": "etag",
         "id": "id",
     },
 )
@@ -245,6 +265,7 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         environment_name: builtins.str,
         name: builtins.str,
         repository: builtins.str,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -255,10 +276,11 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param environment_name: The target environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#environment_name RepositoryDeploymentBranchPolicy#environment_name}
-        :param name: The name of the branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#name RepositoryDeploymentBranchPolicy#name}
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#repository RepositoryDeploymentBranchPolicy#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#id RepositoryDeploymentBranchPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param environment_name: The target environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#environment_name RepositoryDeploymentBranchPolicy#environment_name}
+        :param name: The name of the branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#name RepositoryDeploymentBranchPolicy#name}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#repository RepositoryDeploymentBranchPolicy#repository}
+        :param etag: An etag representing the Branch object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#etag RepositoryDeploymentBranchPolicy#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#id RepositoryDeploymentBranchPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -274,6 +296,7 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument etag", value=etag, expected_type=type_hints["etag"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "environment_name": environment_name,
@@ -294,6 +317,8 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if etag is not None:
+            self._values["etag"] = etag
         if id is not None:
             self._values["id"] = id
 
@@ -365,7 +390,7 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def environment_name(self) -> builtins.str:
         '''The target environment name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#environment_name RepositoryDeploymentBranchPolicy#environment_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#environment_name RepositoryDeploymentBranchPolicy#environment_name}
         '''
         result = self._values.get("environment_name")
         assert result is not None, "Required property 'environment_name' is missing"
@@ -375,7 +400,7 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def name(self) -> builtins.str:
         '''The name of the branch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#name RepositoryDeploymentBranchPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#name RepositoryDeploymentBranchPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -385,15 +410,24 @@ class RepositoryDeploymentBranchPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def repository(self) -> builtins.str:
         '''The GitHub repository name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#repository RepositoryDeploymentBranchPolicy#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#repository RepositoryDeploymentBranchPolicy#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def etag(self) -> typing.Optional[builtins.str]:
+        '''An etag representing the Branch object.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#etag RepositoryDeploymentBranchPolicy#etag}
+        '''
+        result = self._values.get("etag")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_deployment_branch_policy#id RepositoryDeploymentBranchPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_deployment_branch_policy#id RepositoryDeploymentBranchPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -427,6 +461,7 @@ def _typecheckingstub__e493e0aead5c76a424c4dd15df7470582e97efa4b48c5fc4c223996c3
     environment_name: builtins.str,
     name: builtins.str,
     repository: builtins.str,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -449,6 +484,12 @@ def _typecheckingstub__fbe19a6e2b7c408ff222ab805a7e22319d2276ffbc45a6ad858575752
     pass
 
 def _typecheckingstub__e6206371ae34da75e57cedf73eeca26ddb0832debeda042edf316c694f21d29f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6c1a99be97bf29ffcae87e06c5c87d5a52775d7853bc9b39feec48b3659d572(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -484,6 +525,7 @@ def _typecheckingstub__20ef6b0dc24c64b5405d9e6cf897dbad14bd5ce81f6b8653c46b5549e
     environment_name: builtins.str,
     name: builtins.str,
     repository: builtins.str,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

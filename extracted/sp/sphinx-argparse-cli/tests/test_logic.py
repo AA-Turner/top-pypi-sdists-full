@@ -23,7 +23,7 @@ def opt_grp_name() -> tuple[str, str]:
 
 
 @pytest.fixture
-def build_outcome(app: SphinxTestApp, request: SubRequest) -> str:
+def build_outcome(app: SphinxTestApp, request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> str:
     prepare_marker = request.node.get_closest_marker("prepare")
     if prepare_marker:
         directive_args: list[str] | None = prepare_marker.kwargs.get("directive_args")
@@ -41,6 +41,8 @@ def build_outcome(app: SphinxTestApp, request: SubRequest) -> str:
     assert sphinx_marker is not None
     ext = ext_mapping[sphinx_marker.kwargs.get("buildername")]
 
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    monkeypatch.delenv("NO_COLOR", raising=False)
     app.build()
     return (Path(app.outdir) / f"index.{ext}").read_text()
 
@@ -168,7 +170,7 @@ def test_suppressed_action(build_outcome: str) -> None:
     ],
 )
 def test_help_loader(example: str, output: str) -> None:
-    from sphinx_argparse_cli._logic import load_help_text
+    from sphinx_argparse_cli._logic import load_help_text  # noqa: PLC0415
 
     result = load_help_text(example)
     assert result == output

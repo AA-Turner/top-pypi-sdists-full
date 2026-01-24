@@ -48,6 +48,9 @@ def check_license_data(broker):
                 return DatasourceProvider(
                     content=json.dumps(collections.OrderedDict(sorted(filter_result.items()))),
                     relative_path='insights_datasources/awx_manage_check_license_data',
+                    ds=Specs.awx_manage_check_license_data,
+                    ctx=broker.get(HostContext),
+                    cleaner=broker.get("cleaner"),
                 )
     except Exception as e:
         raise SkipComponent("Unexpected exception:{e}".format(e=str(e)))

@@ -1,15 +1,18 @@
+"""Balance Control Window module."""
+
 import contextlib
 
 import _ctypes
 
 from t_nextgen.nextgen_window import NextGenWindow
+from pywinauto.application import WindowSpecification
 
 
 class BalanceControlWindow(NextGenWindow):
     """Balance Control Class with methods to interact with balance control window."""
 
     @property
-    def window(self):
+    def window(self) -> WindowSpecification:
         """Get Balance Control Window."""
         return self.desktop_app.dialog.child_window(title="BalanceControl", control_type="Window")
 

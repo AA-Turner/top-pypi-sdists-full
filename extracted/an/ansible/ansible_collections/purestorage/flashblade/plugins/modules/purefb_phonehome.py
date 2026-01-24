@@ -29,7 +29,7 @@ options:
     - Define state of phone home
     type: str
     default: present
-    choices: [ present, absent ]
+    choices: [ present, absent, test ]
 extends_documentation_fragment:
 - purestorage.flashblade.purestorage.fb
 """
@@ -51,29 +51,28 @@ RETURN = r"""
 
 HAS_PURITY_FB = True
 try:
-    from purity_fb import Support
+    from pypureclient.flashblade import Support
 except ImportError:
     HAS_PURITY_FB = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
-    get_blade,
+    get_system,
     purefb_argument_spec,
 )
-
-
-MIN_REQUIRED_API_VERSION = "1.6"
 
 
 def enable_ph(module, blade):
     """Enable Phone Hone"""
     changed = True
     if not module.check_mode:
-        ph_settings = Support(phonehome_enabled=True)
-        try:
-            blade.support.update_support(support=ph_settings)
-        except Exception:
-            module.fail_json(msg="Enabling Phone Home failed")
+        res = blade.patch_support(support=Support(phonehome_enabled=True))
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Enabling Phone Home failed. Error: {0}".format(
+                    res.errors[0].message
+                )
+            )
     module.exit_json(changed=changed)
 
 
@@ -81,42 +80,67 @@ def disable_ph(module, blade):
     """Disable Phone Home"""
     changed = True
     if not module.check_mode:
-        ph_settings = Support(phonehome_enabled=False)
-        try:
-            blade.support.update_support(support=ph_settings)
-        except Exception:
-            module.fail_json(msg="Disabling Phone Home failed")
+        res = blade.patch_support(support=Support(phonehome_enabled=False))
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Disabling Phone Home failed. Error: {0}".format(
+                    res.errors[0].message
+                )
+            )
     module.exit_json(changed=changed)
+
+
+def test_ph(module, blade):
+    """Test phonehome configuration"""
+    test_response = []
+    response = list(blade.get_support_test(test_type="phonehome").items)
+    for component in range(len(response)):
+        if response[component].enabled:
+            enabled = "true"
+        else:
+            enabled = "false"
+        if response[component].success:
+            success = "true"
+        else:
+            success = "false"
+        test_response.append(
+            {
+                "component_address": response[component].component_address,
+                "component_name": response[component].component_name,
+                "description": response[component].description,
+                "destination": response[component].destination,
+                "enabled": enabled,
+                "result_details": getattr(response[component], "result_details", ""),
+                "success": success,
+                "test_type": response[component].test_type,
+            }
+        )
+    module.exit_json(changed=False, test_response=test_response)
 
 
 def main():
     argument_spec = purefb_argument_spec()
     argument_spec.update(
         dict(
-            state=dict(type="str", default="present", choices=["present", "absent"]),
+            state=dict(
+                type="str", default="present", choices=["present", "absent", "test"]
+            ),
         )
     )
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
 
-    blade = get_blade(module)
-    api_version = blade.api_version.list_versions().versions
-    if MIN_REQUIRED_API_VERSION not in api_version:
-        module.fail_json(msg="Purity//FB must be upgraded to support this module.")
+    blade = get_system(module)
 
     if not HAS_PURITY_FB:
-        module.fail_json(msg="purity_fb SDK is required for this module")
-
-    if (
-        module.params["state"] == "present"
-        and not blade.support.list_support().items[0].phonehome_enabled
-    ):
+        module.fail_json(msg="py-pure-client SDK is required for this module")
+    support = list(blade.get_support().items)[0].phonehome_enabled
+    if module.params["state"] == "present" and not support:
         enable_ph(module, blade)
-    elif (
-        module.params["state"] == "absent"
-        and blade.support.list_support().items[0].phonehome_enabled
-    ):
+    elif module.params["state"] == "absent" and support:
         disable_ph(module, blade)
+    elif module.params["state"] == "test":
+        test_ph(module, blade)
     module.exit_json(changed=False)
 
 

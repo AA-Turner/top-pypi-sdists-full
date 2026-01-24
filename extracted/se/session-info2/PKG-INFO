@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: session-info2
-Version: 0.2.2
+Version: 0.3
 Summary: Print versions of imported packages.
 Project-URL: Documentation, https://github.com/flying-sheep/session-info2#readme
 Project-URL: Issues, https://github.com/flying-sheep/session-info2/issues
@@ -16,11 +16,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Provides-Extra: docs
+Requires-Dist: click!=8.3; extra == 'docs'
 Requires-Dist: furo; extra == 'docs'
 Requires-Dist: hatch; extra == 'docs'
 Requires-Dist: ipywidgets; extra == 'docs'
@@ -63,6 +65,8 @@ pip install session-info2
 
 See <https://session-info2.readthedocs.io/>
 In short:
+
+Use the `session-info` CLI program (see `session-info -h`) or use it programmatically:
 
 Import whayever your script/notebook relies on,
 as well as [session_info][].

@@ -3,20 +3,36 @@
 //! This module provides a unified abstraction for routing policies that work
 //! across both regular and prefill-decode (PD) routing modes.
 
-use crate::core::Worker;
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
+use crate::{
+    core::{HashRing, Worker},
+    mesh::OptionalMeshSyncManager,
+};
+
+mod bucket;
 mod cache_aware;
+mod consistent_hashing;
 mod factory;
+mod manual;
 mod power_of_two;
+mod prefix_hash;
 mod random;
+mod registry;
 mod round_robin;
-
+pub mod tree;
+pub(crate) mod utils;
+pub use bucket::BucketPolicy;
 pub use cache_aware::CacheAwarePolicy;
+pub use consistent_hashing::ConsistentHashingPolicy;
 pub use factory::PolicyFactory;
+pub use manual::{ManualConfig, ManualPolicy};
 pub use power_of_two::PowerOfTwoPolicy;
+pub use prefix_hash::{PrefixHashConfig, PrefixHashPolicy};
 pub use random::RandomPolicy;
+pub use registry::PolicyRegistry;
 pub use round_robin::RoundRobinPolicy;
+pub use tree::PrefixMatchResult;
 
 /// Core trait for load balancing policies
 ///
@@ -26,27 +42,12 @@ pub trait LoadBalancingPolicy: Send + Sync + Debug {
     /// Select a single worker from the available workers
     ///
     /// This is used for regular routing mode where requests go to a single worker.
-    fn select_worker(
-        &self,
-        workers: &[Box<dyn Worker>],
-        request_text: Option<&str>,
-    ) -> Option<usize>;
-
-    /// Select a pair of workers (prefill and decode) for PD routing
+    /// Now uses Arc<dyn Worker> for better performance and to avoid unnecessary cloning.
     ///
-    /// Returns indices of (prefill_worker, decode_worker) from their respective arrays.
-    /// Default implementation uses select_worker for each array independently.
-    fn select_worker_pair(
-        &self,
-        prefill_workers: &[Box<dyn Worker>],
-        decode_workers: &[Box<dyn Worker>],
-        request_text: Option<&str>,
-    ) -> Option<(usize, usize)> {
-        // Default implementation: independently select from each pool
-        let prefill_idx = self.select_worker(prefill_workers, request_text)?;
-        let decode_idx = self.select_worker(decode_workers, request_text)?;
-        Some((prefill_idx, decode_idx))
-    }
+    /// # Arguments
+    /// * `workers` - Available workers to select from
+    /// * `info` - Additional information for routing decisions
+    fn select_worker(&self, workers: &[Arc<dyn Worker>], info: &SelectWorkerInfo) -> Option<usize>;
 
     /// Update policy state after request completion
     ///
@@ -69,6 +70,11 @@ pub trait LoadBalancingPolicy: Send + Sync + Debug {
     /// This is called periodically with current load information for load-aware policies.
     fn update_loads(&self, _loads: &std::collections::HashMap<String, isize>) {
         // Default: no-op for policies that don't use load information
+    }
+
+    /// Set mesh sync manager
+    fn set_mesh_sync(&mut self, _mesh_sync: OptionalMeshSyncManager) {
+        // Default: no-op for policies that don't use mesh sync
     }
 
     /// Reset any internal state
@@ -104,36 +110,90 @@ impl Default for CacheAwareConfig {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BucketConfig {
+    pub balance_abs_threshold: usize,
+    pub balance_rel_threshold: f32,
+    pub bucket_adjust_interval_secs: usize,
+}
+
+impl Default for BucketConfig {
+    fn default() -> Self {
+        Self {
+            balance_abs_threshold: 32,
+            balance_rel_threshold: 1.0001,
+            bucket_adjust_interval_secs: 5,
+        }
+    }
+}
+
 /// Helper function to filter healthy workers and return their indices
-pub(crate) fn get_healthy_worker_indices(workers: &[Box<dyn Worker>]) -> Vec<usize> {
+pub(crate) fn get_healthy_worker_indices(workers: &[Arc<dyn Worker>]) -> Vec<usize> {
     workers
         .iter()
         .enumerate()
-        .filter(|(_, w)| w.is_healthy())
+        .filter(|(_, w)| w.is_healthy() && w.circuit_breaker().can_execute())
         .map(|(idx, _)| idx)
         .collect()
+}
+
+/// Helper function to normalize model_id to a key for policy lookups.
+///
+/// Returns UNKNOWN_MODEL_ID for empty model_ids to ensure consistent behavior
+/// across single-model and multi-model deployments.
+#[inline]
+pub(crate) fn normalize_model_key(model_id: &str) -> &str {
+    if model_id.is_empty() {
+        crate::core::UNKNOWN_MODEL_ID
+    } else {
+        model_id
+    }
+}
+
+/// Information passed to policy for worker selection
+#[derive(Debug, Clone, Default)]
+pub struct SelectWorkerInfo<'a> {
+    /// Request text for cache-aware routing
+    pub request_text: Option<&'a str>,
+    /// Tokenized request for prefix-hash routing
+    /// Used by PrefixHashPolicy for token-based prefix hashing
+    pub tokens: Option<&'a [u32]>,
+    /// HTTP headers for header-based routing policies
+    /// Policies can extract routing information from headers like:
+    /// - X-SMG-Target-Worker: Direct routing to a specific worker by index
+    /// - X-SMG-Routing-Key: Consistent hash routing for session affinity
+    pub headers: Option<&'a http::HeaderMap>,
+    /// Pre-computed hash ring for O(log n) consistent hashing
+    /// Built and cached by WorkerRegistry, passed through to avoid per-request rebuilds
+    pub hash_ring: Option<Arc<HashRing>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{BasicWorker, WorkerType};
+    use crate::core::{BasicWorkerBuilder, WorkerType};
 
     #[test]
     fn test_get_healthy_worker_indices() {
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w3:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .api_key("test_api_key")
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .api_key("test_api_key2")
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w3:8000")
+                    .worker_type(WorkerType::Regular)
+                    .api_key("test_api_key")
+                    .build(),
+            ),
         ];
 
         // All healthy initially

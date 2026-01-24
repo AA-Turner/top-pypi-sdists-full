@@ -1,14 +1,16 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests of miscellaneous stuff."""
 
 from __future__ import annotations
 
 import sys
+from typing import Any
 from unittest import mock
 
 import pytest
+from hypothesis import example, given, strategies as st
 
 from coverage.exceptions import CoverageException
 from coverage.misc import file_be_gone
@@ -16,6 +18,16 @@ from coverage.misc import Hasher, substitute_variables, import_third_party
 from coverage.misc import human_sorted, human_sorted_items, stdout_link
 
 from tests.coveragetest import CoverageTest
+from tests.strategies import nested_data_strategies
+
+
+# Make two sets which are equal but iterate differently.
+numset1 = set(range(20))
+numset2 = set(range(20))
+for i in range(0, 20, 2):
+    numset2.remove(i)
+for i in range(0, 20, 2):
+    numset2.add(i)
 
 
 class HasherTest(CoverageTest):
@@ -23,43 +35,40 @@ class HasherTest(CoverageTest):
 
     run_in_temp_dir = False
 
-    def test_string_hashing(self) -> None:
-        h1 = Hasher()
-        h1.update("Hello, world!")
-        h2 = Hasher()
-        h2.update("Goodbye!")
-        h3 = Hasher()
-        h3.update("Hello, world!")
-        assert h1.hexdigest() != h2.hexdigest()
-        assert h1.hexdigest() == h3.hexdigest()
+    def test_scrambled_sets(self) -> None:
+        assert numset1 == numset2
+        assert list(numset1) != list(numset2)
 
-    def test_bytes_hashing(self) -> None:
+    # Use nested_data_strategies to generate data schemas, then use it twice in
+    # the test to get two chunks of data with the "same shape" but different
+    # data.
+    @example(([1, None, 2, None], [1, 2]))
+    @example(("Hello, world!", "Hello, world!"))
+    @example(("Hello", "Goodbye"))
+    @example((b"Hello", b"Goodbye"))
+    @example(("Hello \N{SNOWMAN}", "Goodbye"))
+    @example(({"a": 17, "b": 23}, {"b": 23, "a": 17}))
+    @example(({"a": 17, "b": {"c": 1, "d": 2}}, {"a": 17, "b": {"c": 1}, "d": 2}))
+    @example((numset1, numset2))
+    @example(({(1, 2), (3, 4), (5, 6)}, {(1, 2)}))
+    # https://github.com/coveragepy/coveragepy/issues/2108
+    @example((["", []], [".<class 'list'>"]))
+    @example((["5", []], [".<class 'list'>"]))
+    @given(nested_data_strategies.flatmap(lambda s: st.tuples(s, s)))
+    def test_equality_matches_hash(self, data_pair: tuple[Any, Any]) -> None:
+        data1, data2 = data_pair
         h1 = Hasher()
-        h1.update(b"Hello, world!")
+        h1.update(data1)
         h2 = Hasher()
-        h2.update(b"Goodbye!")
-        assert h1.hexdigest() != h2.hexdigest()
-
-    def test_unicode_hashing(self) -> None:
-        h1 = Hasher()
-        h1.update("Hello, world! \N{SNOWMAN}")
-        h2 = Hasher()
-        h2.update("Goodbye!")
-        assert h1.hexdigest() != h2.hexdigest()
-
-    def test_dict_hashing(self) -> None:
-        h1 = Hasher()
-        h1.update({"a": 17, "b": 23})
-        h2 = Hasher()
-        h2.update({"b": 23, "a": 17})
-        assert h1.hexdigest() == h2.hexdigest()
-
-    def test_dict_collision(self) -> None:
-        h1 = Hasher()
-        h1.update({"a": 17, "b": {"c": 1, "d": 2}})
-        h2 = Hasher()
-        h2.update({"a": 17, "b": {"c": 1}, "d": 2})
-        assert h1.hexdigest() != h2.hexdigest()
+        h2.update(data2)
+        if data1 == data2:
+            assert h1.hexdigest() == h2.hexdigest()
+            assert h1.digest() == h2.digest()
+        else:
+            # Strictly speaking, unequal data can produce equal hashes, but
+            # it's very unlikely, so test for it anyway.
+            assert h1.hexdigest() != h2.hexdigest()
+            assert h1.digest() != h2.digest()
 
 
 class RemoveFileTest(CoverageTest):

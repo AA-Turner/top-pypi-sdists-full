@@ -17,6 +17,71 @@ from prefect.utilities.annotations import NotSet
 from ._models import PrefectYamlModel
 
 
+def _format_validation_error(exc: ValidationError, raw_data: dict[str, Any]) -> str:
+    """Format Pydantic validation errors into user-friendly messages."""
+    deployment_errors: dict[str, set[str]] = {}
+    top_level_errors: list[tuple[str, str]] = []
+
+    for error in exc.errors():
+        loc = error.get("loc", ())
+        msg = error.get("msg", "Invalid value")
+
+        # Handle deployment-level errors
+        if len(loc) >= 2 and loc[0] == "deployments" and isinstance(loc[1], int):
+            idx = loc[1]
+            deployments = raw_data.get("deployments", [])
+            name = (
+                deployments[idx].get("name", f"#{idx}")
+                if idx < len(deployments)
+                else f"#{idx}"
+            )
+
+            # Get field path (only include string field names, not indices or type names)
+            field_parts = []
+            for part in loc[2:]:
+                if isinstance(part, str) and not part.startswith("function-"):
+                    # Assume lowercase names are field names, not type names
+                    if part[0].islower():
+                        field_parts.append(part)
+
+            if field_parts:
+                field = field_parts[0]  # Just use the top-level field
+                if name not in deployment_errors:
+                    deployment_errors[name] = set()
+                deployment_errors[name].add(field)
+        # Handle top-level field errors (prefect-version, name, build, push, pull, etc.)
+        elif len(loc) >= 1 and isinstance(loc[0], str):
+            field_name = loc[0]
+            top_level_errors.append((field_name, msg))
+
+    if not deployment_errors and not top_level_errors:
+        return "Validation error in config file"
+
+    lines = []
+
+    # Format top-level errors
+    if top_level_errors:
+        lines.append("Invalid top-level fields in config file:\n")
+        for field_name, msg in top_level_errors:
+            lines.append(f"  • {field_name}: {msg}")
+        lines.append(
+            "\nFor valid prefect.yaml fields, see: https://docs.prefect.io/v3/how-to-guides/deployments/prefect-yaml"
+        )
+
+    # Format deployment-level errors
+    if deployment_errors:
+        if top_level_errors:
+            lines.append("")  # blank line separator
+        lines.append("Invalid fields in deployments:\n")
+        for name, fields in sorted(deployment_errors.items()):
+            lines.append(f"  • {name}: {', '.join(sorted(fields))}")
+        lines.append(
+            "\nFor valid deployment fields and examples, go to: https://docs.prefect.io/v3/concepts/deployments#deployment-schema"
+        )
+
+    return "\n".join(lines)
+
+
 def _merge_with_default_deploy_config(deploy_config: dict[str, Any]) -> dict[str, Any]:
     deploy_config = deepcopy(deploy_config)
     DEFAULT_DEPLOY_CONFIG: dict[str, Any] = {
@@ -78,12 +143,11 @@ def _load_deploy_configs_and_actions(
     try:
         model = PrefectYamlModel.model_validate(raw)
     except ValidationError as exc:
-        # Match prior behavior: warn and continue with empty configuration
+        # Format and display validation errors
+        error_message = _format_validation_error(exc, raw)
+        app.console.print(error_message, style="yellow")
         app.console.print(
-            (
-                "The specified config file contains invalid fields. "
-                "Validation error: " + str(exc.errors()[0].get("msg", exc))
-            ),
+            "\nSkipping deployment configuration due to validation errors.",
             style="yellow",
         )
         model = PrefectYamlModel()
@@ -419,7 +483,7 @@ def _pick_deploy_configs(
         selected_deploy_config = _handle_pick_deploy_without_name(deploy_configs)
         if not selected_deploy_config:
             return [
-                _merge_with_default_deploy_config(deploy_configs[0]),
+                _merge_with_default_deploy_config({}),
             ]
         return selected_deploy_config
 

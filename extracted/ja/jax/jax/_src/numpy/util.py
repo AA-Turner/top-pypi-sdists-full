@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from functools import partial
 from typing import Any, overload
 import math
 import warnings
@@ -50,23 +49,16 @@ def promote_shapes(fun_name: str, *args: ArrayLike) -> list[Array]:
     return [lax.asarray(arg) for arg in args]
   else:
     shapes = [np.shape(arg) for arg in args]
-    if config.dynamic_shapes.value:
-      # With dynamic shapes we don't support singleton-dimension broadcasting;
-      # we instead broadcast out to the full shape as a temporary workaround.
-      # TODO(mattjj): revise this workaround
-      res_shape = lax.broadcast_shapes(*shapes)  # Can raise an error!
-      return [_broadcast_to(arg, res_shape) for arg, shp in zip(args, shapes)]
+    if all(len(shapes[0]) == len(s) for s in shapes[1:]):
+      return [lax.asarray(arg) for arg in args]  # no need for rank promotion, so rely on lax promotion
+    nonscalar_ranks = {len(shp) for shp in shapes if shp}
+    if len(nonscalar_ranks) < 2:
+      return [lax.asarray(arg) for arg in args]  # rely on lax scalar promotion
     else:
-      if all(len(shapes[0]) == len(s) for s in shapes[1:]):
-        return [lax.asarray(arg) for arg in args]  # no need for rank promotion, so rely on lax promotion
-      nonscalar_ranks = {len(shp) for shp in shapes if shp}
-      if len(nonscalar_ranks) < 2:
-        return [lax.asarray(arg) for arg in args]  # rely on lax scalar promotion
-      else:
-        if config.numpy_rank_promotion.value != "allow":
-          _rank_promotion_warning_or_error(fun_name, shapes)
-        result_rank = len(lax.broadcast_shapes(*shapes))
-        return [lax.broadcast_to_rank(arg, result_rank) for arg in args]
+      if config.numpy_rank_promotion.value != "allow":
+        _rank_promotion_warning_or_error(fun_name, shapes)
+      result_rank = len(lax.broadcast_shapes(*shapes))
+      return [lax.broadcast_to_rank(arg, result_rank) for arg in args]
 
 
 def _rank_promotion_warning_or_error(fun_name: str, shapes: Sequence[Shape]):
@@ -124,7 +116,7 @@ def promote_dtypes_complex(*args: ArrayLike) -> list[Array]:
           for x in args]
 
 
-_arraylike_types = (np.ndarray, Array, literals.LiteralArray)
+_arraylike_types = (np.ndarray, Array, literals.TypedNdArray)
 
 def _arraylike(x: ArrayLike) -> bool:
   return (isinstance(x, _arraylike_types) or
@@ -249,14 +241,7 @@ def promote_args_inexact(fun_name: str, *args: ArrayLike) -> list[Array]:
   return promote_shapes(fun_name, *promote_dtypes_inexact(*args))
 
 
-def canonicalize_device_to_sharding(device: xc.Device | Sharding | None
-                                    ) -> Sharding | None:
-  if isinstance(device, xc.Device):
-    return SingleDeviceSharding(device)
-  return device
-
-
-@partial(api.jit, inline=True)
+@api.jit(inline=True)
 def _broadcast_arrays(*args: ArrayLike) -> list[Array]:
   """Like Numpy's broadcast_arrays but doesn't return views."""
   avals = [core.shaped_abstractify(arg) for arg in args]
@@ -318,12 +303,11 @@ def _where(condition: ArrayLike, x: ArrayLike, y: ArrayLike) -> Array:
     is_always_empty = False  # can fail with dynamic shapes
   return lax.select(condition, x_arr, y_arr) if not is_always_empty else x_arr
 
-
-def normalize_device_to_sharding(device: xc.Device | Sharding | None) -> Sharding | None:
+def canonicalize_device_to_sharding(device: xc.Device | Sharding | None
+                                    ) -> Sharding | None:
   if isinstance(device, xc.Device):
     return SingleDeviceSharding(device)
-  else:
-    return device
+  return device
 
 def choose_device_or_out_sharding(device: xc.Device | Sharding | None,
                                   out_sharding: NamedSharding | P | None,
@@ -333,7 +317,7 @@ def choose_device_or_out_sharding(device: xc.Device | Sharding | None,
         f"Only one of `device` or `out_sharding` can be set. Got {device=} and"
         f" {out_sharding=}")
   if device is not None and out_sharding is None:
-    return normalize_device_to_sharding(device)
+    return canonicalize_device_to_sharding(device)
   if device is None and out_sharding is not None:
     return canonicalize_sharding(out_sharding, name)
   return None

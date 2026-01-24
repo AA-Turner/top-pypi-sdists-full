@@ -7,13 +7,14 @@ license-files = { paths = ["LICENSE", "NOTICE"] }
 requires-python = ">=3.10"
 keywords = ["Databricks"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "License :: Other/Proprietary License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = ["databricks-sdk>=0.16.0"]
@@ -40,11 +41,12 @@ path = "src/databricks/labs/blueprint/__about__.py"
 dependencies = [
     "databricks-labs-blueprint[yaml]",
     "coverage[toml]~=7.4.4",
-    "mypy~=1.9.0",
-    "pylint~=3.1.0",
-    "pylint-pytest==2.0.0a0",
+    "mypy~=1.18.0",
+    "pylint~=4.0.0",
+    # "pylint-pytest==2.0.0a0"  # Incorrect dependency constraint (pylint<4), installed separately below.
     "databricks-labs-pylint~=0.3.0",
     "pytest~=8.1.0",
+    "pytest-asyncio~=0.23.0",
     "pytest-cov~=4.1.0",
     "pytest-mock~=3.14.0",
     "pytest-timeout~=2.3.1",
@@ -52,6 +54,10 @@ dependencies = [
     "ruff~=0.3.4",
     "types-PyYAML~=6.0.12",
     "types-requests~=2.31.0",
+]
+
+post-install-commands = [
+    "pip install --no-deps pylint-pytest==2.0.0a0",  # See above; installed here to avoid dependency conflict.
 ]
 
 # store virtual env as the child of this folder. Helps VSCode (and PyCharm) to run better
@@ -78,6 +84,7 @@ profile = "black"
 [tool.pytest.ini_options]
 addopts = "--no-header"
 cache_dir = ".venv/pytest-cache"
+asyncio_mode = "auto"
 
 [tool.black]
 target-version = ["py310"]
@@ -205,10 +212,6 @@ py-version = "3.10"
 # directory used to determine a package namespace for modules located under the
 # source root.
 # source-roots =
-
-# When enabled, pylint would attempt to guess common misconfiguration and emit
-# user-friendly hints instead of false-positive error messages.
-suggestion-mode = true
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.

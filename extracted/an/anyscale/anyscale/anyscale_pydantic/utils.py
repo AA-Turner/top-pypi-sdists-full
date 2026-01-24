@@ -3,7 +3,10 @@ import warnings
 import weakref
 from collections import OrderedDict, defaultdict, deque
 from copy import deepcopy
+from importlib import import_module
+from inspect import Parameter, Signature, signature
 from itertools import islice, zip_longest
+from pathlib import Path
 from types import BuiltinFunctionType, CodeType, FunctionType, GeneratorType, LambdaType, ModuleType
 from typing import (
     TYPE_CHECKING,
@@ -42,14 +45,11 @@ from .typing import (
 from .version import version_info
 
 if TYPE_CHECKING:
-    from inspect import Signature
-    from pathlib import Path
-
-    from .config import BaseConfig
-    from .dataclasses import Dataclass
-    from .fields import ModelField
-    from .main import BaseModel
-    from .typing import AbstractSetIntStr, DictIntStrAny, IntStr, MappingIntStrAny, ReprArgs
+    from .config import BaseConfig # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .dataclasses import Dataclass # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .fields import ModelField # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .typing import AbstractSetIntStr, DictIntStrAny, IntStr, MappingIntStrAny, ReprArgs # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     RichReprResult = Iterable[Union[Any, Tuple[Any], Tuple[str, Any], Tuple[str, Any, Any]]]
 
@@ -123,8 +123,6 @@ def import_string(dotted_path: str) -> Any:
     Stolen approximately from django. Import a dotted module path and return the attribute/class designated by the
     last name in the path. Raise ImportError if the import fails.
     """
-    from importlib import import_module
-
     try:
         module_path, class_name = dotted_path.strip(' ').rsplit('.', 1)
     except ValueError as e:
@@ -238,9 +236,7 @@ def generate_model_signature(
     """
     Generate signature for model based on its fields
     """
-    from inspect import Parameter, Signature, signature
-
-    from .config import Extra
+    from .config import Extra # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     present_params = signature(init).parameters.values()
     merged_params: Dict[str, Parameter] = {}
@@ -298,7 +294,7 @@ def generate_model_signature(
 
 
 def get_model(obj: Union[Type['BaseModel'], Type['Dataclass']]) -> Type['BaseModel']:
-    from .main import BaseModel
+    from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     try:
         model_cls = obj.__pydantic_model__  # type: ignore

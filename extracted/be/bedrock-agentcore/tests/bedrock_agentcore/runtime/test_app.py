@@ -173,6 +173,7 @@ class TestBedrockAgentCoreApp:
 
         context = bedrock_agentcore._build_request_context(mock_request)
         assert context.session_id is None
+        assert context.request is None
 
     def test_takes_context_exception_handling(self):
         """Test _takes_context handles exceptions gracefully."""
@@ -265,6 +266,32 @@ class TestBedrockAgentCoreApp:
                 access_log=True,  # Debug mode enables access logs
                 log_level="info",  # Debug mode uses info level
             )
+
+    @patch("uvicorn.run")
+    def test_run_with_kwargs(self, mock_uvicorn):
+        """Test that kwargs are passed through to uvicorn.run."""
+        bedrock_agentcore = BedrockAgentCoreApp()
+
+        # Test with custom log_config and other uvicorn parameters
+        custom_log_config = {
+            "version": 1,
+            "formatters": {
+                "json": {"format": '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'}
+            },
+        }
+
+        bedrock_agentcore.run(port=9000, host="test-host", log_config=custom_log_config, workers=4, reload=True)
+
+        mock_uvicorn.assert_called_once_with(
+            bedrock_agentcore,
+            host="test-host",
+            port=9000,
+            access_log=False,
+            log_level="warning",
+            log_config=custom_log_config,
+            workers=4,
+            reload=True,
+        )
 
     def test_invocation_with_request_id_header(self):
         """Test that request ID from header is used."""
@@ -362,6 +389,36 @@ class TestBedrockAgentCoreApp:
         with TestClient(app) as client:
             response = client.get("/ping")
             assert response.status_code == 200
+
+    def test_custom_middleware_on_init(self):
+        """Test that user-supplied middleware passed at init is applied."""
+        from starlette.middleware import Middleware
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        class AddHeaderMiddleware(BaseHTTPMiddleware):
+            def __init__(self, app, header_name: str = "x-test", header_value: str = "1"):
+                super().__init__(app)
+                self.header_name = header_name
+                self.header_value = header_value
+
+            async def dispatch(self, request, call_next):
+                response = await call_next(request)
+                response.headers[self.header_name] = self.header_value
+                return response
+
+        app = BedrockAgentCoreApp(
+            middleware=[Middleware(AddHeaderMiddleware, header_name="x-custom-mw", header_value="mw")]
+        )
+
+        @app.entrypoint
+        def handler(payload):
+            return {"ok": True}
+
+        client = TestClient(app)
+        response = client.post("/invocations", json={"input": "test"})
+
+        assert response.status_code == 200
+        assert response.headers.get("x-custom-mw") == "mw"
 
 
 class TestConcurrentInvocations:
@@ -1531,3 +1588,563 @@ class TestRequestContextFormatter:
         assert "requestId" not in log_data
         assert "sessionId" not in log_data
         assert "timestamp" in log_data
+
+
+class TestRequestHeadersExtraction:
+    """Test request headers extraction and context building."""
+
+    def test_build_request_context_with_authorization_header(self):
+        """Test _build_request_context extracts Authorization header."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {"Authorization": "Bearer test-auth-token", "Content-Type": "application/json"}
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        assert context.request_headers is not None
+        assert context.request_headers["Authorization"] == "Bearer test-auth-token"
+        assert "Content-Type" not in context.request_headers  # Only Auth and Custom headers
+
+    def test_build_request_context_with_custom_headers(self):
+        """Test _build_request_context extracts custom headers with correct prefix."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Header1": "value1",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Header2": "value2",
+                    "X-Other-Header": "should-not-include",
+                    "Content-Type": "application/json",
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        assert context.request_headers is not None
+        assert context.request_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Header1"] == "value1"
+        assert context.request_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Header2"] == "value2"
+        assert "X-Other-Header" not in context.request_headers
+        assert "Content-Type" not in context.request_headers
+
+    def test_build_request_context_with_both_auth_and_custom_headers(self):
+        """Test _build_request_context with both Authorization and custom headers."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    "Authorization": "Bearer combined-token",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-UserAgent": "test-agent/1.0",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-ClientId": "client-123",
+                    "Content-Type": "application/json",
+                    "X-Other-Header": "ignored",
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        expected_headers = {
+            "Authorization": "Bearer combined-token",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Custom-UserAgent": "test-agent/1.0",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Custom-ClientId": "client-123",
+        }
+
+        assert context.request_headers == expected_headers
+        assert len(context.request_headers) == 3
+
+    def test_build_request_context_with_no_relevant_headers(self):
+        """Test _build_request_context when no Authorization or custom headers present."""
+        import contextvars
+
+        # Run in fresh context to avoid cross-test contamination
+        ctx = contextvars.Context()
+
+        def test_in_new_context():
+            app = BedrockAgentCoreApp()
+
+            class MockRequest:
+                def __init__(self):
+                    self.headers = {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-Other-Header": "not-relevant",
+                    }
+                    self.state = type("State", (), {})()
+
+            mock_request = MockRequest()
+            context = app._build_request_context(mock_request)
+            return context.request_headers
+
+        result = ctx.run(test_in_new_context)
+        assert result is None
+
+    def test_build_request_context_with_empty_headers(self):
+        """Test _build_request_context with completely empty headers."""
+        import contextvars
+
+        # Run in fresh context to avoid cross-test contamination
+        ctx = contextvars.Context()
+
+        def test_in_new_context():
+            app = BedrockAgentCoreApp()
+
+            class MockRequest:
+                def __init__(self):
+                    self.headers = {}
+                    self.state = type("State", (), {})()
+
+            mock_request = MockRequest()
+            context = app._build_request_context(mock_request)
+            return context.request_headers
+
+        result = ctx.run(test_in_new_context)
+        assert result is None
+
+    def test_build_request_context_header_case_insensitive_prefix_matching(self):
+        """Test that custom header prefix matching is case insensitive."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    "x-amzn-bedrock-agentcore-runtime-custom-lowercase": "lower-value",
+                    "X-AMZN-BEDROCK-AGENTCORE-RUNTIME-CUSTOM-UPPERCASE": "upper-value",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-MixedCase": "mixed-value",
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        assert context.request_headers is not None
+        assert len(context.request_headers) == 3
+        assert "lower-value" in context.request_headers.values()
+        assert "upper-value" in context.request_headers.values()
+        assert "mixed-value" in context.request_headers.values()
+
+    def test_build_request_context_headers_set_in_bedrock_context(self):
+        """Test that headers are properly set in BedrockAgentCoreContext."""
+        from bedrock_agentcore.runtime.context import BedrockAgentCoreContext
+
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    "Authorization": "Bearer context-test-token",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Test": "context-test-value",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Request-Id": "test-request-123",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": "test-session-456",
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        # Check that BedrockAgentCoreContext has the headers
+        bedrock_context_headers = BedrockAgentCoreContext.get_request_headers()
+        assert bedrock_context_headers is not None
+        assert bedrock_context_headers["Authorization"] == "Bearer context-test-token"
+        assert bedrock_context_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Test"] == "context-test-value"
+
+        # Check that RequestContext also has the headers
+        assert context.request_headers == bedrock_context_headers
+
+    def test_invocation_with_request_headers_in_context(self):
+        """Test end-to-end invocation where handler receives headers via context."""
+        app = BedrockAgentCoreApp()
+
+        received_headers = None
+
+        @app.entrypoint
+        def handler(payload, context):
+            nonlocal received_headers
+            received_headers = context.request_headers
+            return {"status": "ok", "headers_received": context.request_headers is not None}
+
+        client = TestClient(app)
+        headers = {
+            "Authorization": "Bearer integration-test-token",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Custom-ClientId": "integration-client-123",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": "integration-session",
+        }
+
+        response = client.post("/invocations", json={"test": "data"}, headers=headers)
+
+        assert response.status_code == 200
+        result = response.json()
+        assert result["status"] == "ok"
+        assert result["headers_received"] is True
+
+        # Check that the handler actually received the headers
+        assert received_headers is not None
+
+        # HTTP headers are case-insensitive - find by case-insensitive search
+        auth_key = next((k for k in received_headers.keys() if k.lower() == "authorization"), None)
+        client_id_key = next(
+            (k for k in received_headers.keys() if k.lower() == "x-amzn-bedrock-agentcore-runtime-custom-clientid"),
+            None,
+        )
+
+        available_headers = list(received_headers.keys())
+        assert auth_key is not None, f"Authorization header not found. Available headers: {available_headers}"
+        assert client_id_key is not None, f"Custom ClientId header not found. Available headers: {available_headers}"
+
+        assert received_headers[auth_key] == "Bearer integration-test-token"
+        assert received_headers[client_id_key] == "integration-client-123"
+
+    def test_invocation_without_headers_in_context(self):
+        """Test invocation where no relevant headers are provided."""
+        import contextvars
+
+        # Run in fresh context to avoid cross-test contamination
+        ctx = contextvars.Context()
+
+        def test_in_new_context():
+            app = BedrockAgentCoreApp()
+
+            received_headers = None
+
+            @app.entrypoint
+            def handler(payload, context):
+                nonlocal received_headers
+                received_headers = context.request_headers
+                return {"status": "ok", "headers_received": context.request_headers is not None}
+
+            client = TestClient(app)
+            headers = {"Content-Type": "application/json", "Accept": "application/json"}
+
+            response = client.post("/invocations", json={"test": "data"}, headers=headers)
+
+            return response, received_headers
+
+        response, received_headers = ctx.run(test_in_new_context)
+
+        assert response.status_code == 200
+        result = response.json()
+        assert result["status"] == "ok"
+        assert result["headers_received"] is False
+
+        # Check that no headers were received
+        assert received_headers is None
+
+    def test_header_values_with_special_characters(self):
+        """Test headers with special characters and encoding."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    "Authorization": "Bearer token-with-special-chars!@#$%^&*()",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Unicode": "value-with-unicode-世界",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Spaces": "value with spaces",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Quotes": 'value-with-"quotes"',
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        assert context.request_headers is not None
+        assert context.request_headers["Authorization"] == "Bearer token-with-special-chars!@#$%^&*()"
+        assert context.request_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Unicode"] == "value-with-unicode-世界"
+        assert context.request_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Spaces"] == "value with spaces"
+        assert context.request_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Quotes"] == 'value-with-"quotes"'
+
+    def test_header_prefix_boundary_cases(self):
+        """Test edge cases for header prefix matching."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    # Exact prefix match - should be included
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-": "empty-suffix",
+                    # Prefix with additional content - should be included
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-LongHeaderName": "long-name",
+                    # Similar but not exact prefix - should NOT be included
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custo": "not-exact",
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom": "missing-dash",
+                    # Prefix as substring - should NOT be included
+                    "PrefixX-Amzn-Bedrock-AgentCore-Runtime-Custom-": "has-prefix",
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        assert context.request_headers is not None
+        # Should include headers with exact prefix match
+        assert "X-Amzn-Bedrock-AgentCore-Runtime-Custom-" in context.request_headers
+        assert "X-Amzn-Bedrock-AgentCore-Runtime-Custom-LongHeaderName" in context.request_headers
+
+        # Should NOT include headers without exact prefix match
+        assert "X-Amzn-Bedrock-AgentCore-Runtime-Custo" not in context.request_headers
+        assert "X-Amzn-Bedrock-AgentCore-Runtime-Custom" not in context.request_headers
+        assert "PrefixX-Amzn-Bedrock-AgentCore-Runtime-Custom-" not in context.request_headers
+
+        assert len(context.request_headers) == 2
+
+    def test_multiple_authorization_headers_scenario(self):
+        """Test scenario with multiple authorization-like headers."""
+        app = BedrockAgentCoreApp()
+
+        class MockRequest:
+            def __init__(self):
+                self.headers = {
+                    "Authorization": "Bearer primary-token",
+                    "X-Authorization": "Bearer secondary-token",  # Should NOT be included
+                    "Proxy-Authorization": "Bearer proxy-token",  # Should NOT be included
+                    "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Auth": "Bearer custom-token",  # Should be included
+                }
+                self.state = type("State", (), {})()
+
+        mock_request = MockRequest()
+        context = app._build_request_context(mock_request)
+
+        assert context.request_headers is not None
+        assert context.request_headers["Authorization"] == "Bearer primary-token"
+        assert context.request_headers["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Auth"] == "Bearer custom-token"
+
+        # Only standard Authorization and custom headers should be included
+        assert "X-Authorization" not in context.request_headers
+        assert "Proxy-Authorization" not in context.request_headers
+        assert len(context.request_headers) == 2
+
+    def test_empty_header_values(self):
+        """Test handling of empty header values."""
+        import contextvars
+
+        # Run in fresh context to avoid cross-test contamination
+        ctx = contextvars.Context()
+
+        def test_in_new_context():
+            app = BedrockAgentCoreApp()
+
+            class MockRequest:
+                def __init__(self):
+                    self.headers = {
+                        "Authorization": "",  # Empty authorization
+                        "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Empty": "",  # Empty custom header
+                        "X-Amzn-Bedrock-AgentCore-Runtime-Custom-Valid": "valid-value",
+                    }
+                    self.state = type("State", (), {})()
+
+            mock_request = MockRequest()
+            context = app._build_request_context(mock_request)
+            return context.request_headers
+
+        result = ctx.run(test_in_new_context)
+
+        assert result is not None
+        # Empty values should still be included
+        assert result["Authorization"] == ""
+        assert result["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Empty"] == ""
+        assert result["X-Amzn-Bedrock-AgentCore-Runtime-Custom-Valid"] == "valid-value"
+        assert len(result) == 3
+
+
+class TestWebSocketSupport:
+    """Test WebSocket decorator and handler functionality."""
+
+    def test_websocket_initialization(self):
+        """Test that WebSocket route is registered during initialization."""
+        app = BedrockAgentCoreApp()
+        routes = app.routes
+        route_paths = [route.path for route in routes]  # type: ignore
+
+        assert "/ws" in route_paths
+
+    def test_websocket_decorator(self):
+        """Test @app.websocket decorator registers handler."""
+        app = BedrockAgentCoreApp()
+
+        @app.websocket
+        async def test_handler(websocket, context):
+            await websocket.accept()
+
+        assert app._websocket_handler is not None
+        assert app._websocket_handler == test_handler
+
+    def test_websocket_no_handler_defined(self):
+        """Test WebSocket endpoint when no handler is defined."""
+        from starlette.websockets import WebSocketDisconnect
+
+        app = BedrockAgentCoreApp()
+        client = TestClient(app)
+
+        with pytest.raises((WebSocketDisconnect, RuntimeError)):
+            with client.websocket_connect("/ws"):
+                pass
+
+    def test_websocket_basic_communication(self):
+        """Test basic WebSocket send/receive."""
+        app = BedrockAgentCoreApp()
+
+        @app.websocket
+        async def handler(websocket, context):
+            await websocket.accept()
+            data = await websocket.receive_json()
+            await websocket.send_json({"echo": data})
+            await websocket.close()
+
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_json({"message": "Hello"})
+            response = websocket.receive_json()
+            assert response == {"echo": {"message": "Hello"}}
+
+    def test_websocket_with_context(self):
+        """Test WebSocket handler receives context with session ID."""
+        app = BedrockAgentCoreApp()
+
+        received_context = None
+
+        @app.websocket
+        async def handler(websocket, context):
+            nonlocal received_context
+            received_context = context
+            await websocket.accept()
+            await websocket.send_json({"session_id": context.session_id})
+            await websocket.close()
+
+        client = TestClient(app)
+
+        with client.websocket_connect(
+            "/ws", headers={"X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": "ws-session-123"}
+        ) as websocket:
+            response = websocket.receive_json()
+            assert response["session_id"] == "ws-session-123"
+            assert received_context is not None
+            assert received_context.session_id == "ws-session-123"
+
+    def test_websocket_handler_exception(self):
+        """Test WebSocket handler exceptions are caught and logged."""
+        from starlette.websockets import WebSocketDisconnect
+
+        app = BedrockAgentCoreApp()
+
+        @app.websocket
+        async def handler(websocket, context):
+            await websocket.accept()
+            raise ValueError("Test WebSocket error")
+
+        client = TestClient(app)
+
+        with pytest.raises((WebSocketDisconnect, ValueError, RuntimeError)):
+            with client.websocket_connect("/ws") as websocket:
+                websocket.receive_json()
+
+    def test_websocket_multiple_messages(self):
+        """Test WebSocket can handle multiple messages."""
+        app = BedrockAgentCoreApp()
+
+        @app.websocket
+        async def handler(websocket, context):
+            await websocket.accept()
+            for _ in range(3):
+                data = await websocket.receive_json()
+                await websocket.send_json({"received": data})
+            await websocket.close()
+
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            for i in range(3):
+                websocket.send_json({"count": i})
+                response = websocket.receive_json()
+                assert response == {"received": {"count": i}}
+
+    def test_websocket_disconnect_handling(self):
+        """Test WebSocket gracefully handles client disconnect."""
+        from starlette.websockets import WebSocketDisconnect
+
+        app = BedrockAgentCoreApp()
+
+        disconnect_handled = False
+
+        @app.websocket
+        async def handler(websocket, context):
+            nonlocal disconnect_handled
+            await websocket.accept()
+            try:
+                while True:
+                    await websocket.receive_json()
+            except WebSocketDisconnect:
+                disconnect_handled = True
+                raise
+
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_json({"message": "test"})
+
+        # Disconnect should be handled gracefully
+        assert disconnect_handled
+
+    def test_websocket_with_request_headers(self):
+        """Test WebSocket handler receives custom request headers via context."""
+        app = BedrockAgentCoreApp()
+
+        received_headers = None
+
+        @app.websocket
+        async def handler(websocket, context):
+            nonlocal received_headers
+            received_headers = context.request_headers
+            await websocket.accept()
+            await websocket.send_json({"has_headers": context.request_headers is not None})
+            await websocket.close()
+
+        client = TestClient(app)
+
+        headers = {
+            "Authorization": "Bearer ws-token",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Custom-ClientId": "ws-client-123",
+        }
+
+        with client.websocket_connect("/ws", headers=headers) as websocket:
+            response = websocket.receive_json()
+            assert response["has_headers"] is True
+
+        assert received_headers is not None
+        # Find authorization header (case-insensitive)
+        auth_key = next((k for k in received_headers.keys() if k.lower() == "authorization"), None)
+        assert auth_key is not None
+        assert received_headers[auth_key] == "Bearer ws-token"
+
+    def test_websocket_streaming_data(self):
+        """Test WebSocket can stream multiple data chunks."""
+        app = BedrockAgentCoreApp()
+
+        @app.websocket
+        async def handler(websocket, context):
+            await websocket.accept()
+            # Stream data
+            for i in range(5):
+                await websocket.send_json({"chunk": i, "data": f"chunk_{i}"})
+            await websocket.send_json({"done": True})
+            await websocket.close()
+
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            chunks = []
+            for _ in range(5):
+                chunk = websocket.receive_json()
+                chunks.append(chunk)
+
+            final = websocket.receive_json()
+
+            assert len(chunks) == 5
+            assert chunks[0] == {"chunk": 0, "data": "chunk_0"}
+            assert chunks[4] == {"chunk": 4, "data": "chunk_4"}
+            assert final == {"done": True}

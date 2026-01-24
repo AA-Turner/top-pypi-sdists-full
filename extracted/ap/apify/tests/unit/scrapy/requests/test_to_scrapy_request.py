@@ -5,9 +5,9 @@ import binascii
 import pytest
 from scrapy import Request, Spider
 
-from crawlee import Request as CrawleeRequest
 from crawlee._types import HttpHeaders
 
+from apify import Request as ApifyRequest
 from apify.scrapy.requests import to_scrapy_request
 
 
@@ -23,7 +23,7 @@ def spider() -> DummySpider:
 
 def test_without_reconstruction(spider: Spider) -> None:
     # Without reconstruction of encoded Scrapy request
-    apify_request = CrawleeRequest(
+    apify_request = ApifyRequest(
         url='https://example.com',
         method='GET',
         unique_key='https://example.com',
@@ -36,13 +36,12 @@ def test_without_reconstruction(spider: Spider) -> None:
     assert isinstance(scrapy_request, Request)
     assert apify_request.url == scrapy_request.url
     assert apify_request.method == scrapy_request.method
-    assert apify_request.id == scrapy_request.meta.get('apify_request_id')
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
 
 
 def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     # Without reconstruction of encoded Scrapy request
-    apify_request = CrawleeRequest(
+    apify_request = ApifyRequest(
         url='https://crawlee.dev',
         method='GET',
         unique_key='https://crawlee.dev',
@@ -56,7 +55,6 @@ def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
     assert isinstance(scrapy_request, Request)
     assert apify_request.url == scrapy_request.url
     assert apify_request.method == scrapy_request.method
-    assert apify_request.id == scrapy_request.meta.get('apify_request_id')
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
 
     scrapy_request_headers = scrapy_request.headers.get('authorization')
@@ -67,7 +65,7 @@ def test_without_reconstruction_with_optional_fields(spider: Spider) -> None:
 
 def test_with_reconstruction(spider: Spider) -> None:
     # With reconstruction of encoded Scrapy request
-    apify_request = CrawleeRequest(
+    apify_request = ApifyRequest(
         url='https://apify.com',
         method='GET',
         id='fvwscO2UJLdr10B',
@@ -82,14 +80,13 @@ def test_with_reconstruction(spider: Spider) -> None:
     assert isinstance(scrapy_request, Request)
     assert apify_request.url == scrapy_request.url
     assert apify_request.method == scrapy_request.method
-    assert apify_request.id == scrapy_request.meta.get('apify_request_id')
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
     assert apify_request.user_data == scrapy_request.meta.get('userData')
 
 
 def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
     # With reconstruction of encoded Scrapy request
-    apify_request = CrawleeRequest(
+    apify_request = ApifyRequest(
         url='https://apify.com',
         method='GET',
         id='fvwscO2UJLdr10B',
@@ -106,7 +103,6 @@ def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
     assert isinstance(scrapy_request, Request)
     assert apify_request.url == scrapy_request.url
     assert apify_request.method == scrapy_request.method
-    assert apify_request.id == scrapy_request.meta.get('apify_request_id')
     assert apify_request.unique_key == scrapy_request.meta.get('apify_request_unique_key')
 
     scrapy_request_headers = scrapy_request.headers.get('authorization')
@@ -116,7 +112,7 @@ def test_with_reconstruction_with_optional_fields(spider: Spider) -> None:
 
 
 def test_invalid_request_for_reconstruction(spider: Spider) -> None:
-    apify_request = CrawleeRequest(
+    apify_request = ApifyRequest(
         url='https://example.com',
         method='GET',
         id='invalid123',

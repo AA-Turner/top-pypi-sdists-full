@@ -2,28 +2,34 @@ import logging
 import re
 from functools import cached_property, wraps
 from pathlib import Path
-from ssl import SSLContext
-from typing import Optional, Any, Union, Literal, Mapping, OrderedDict, Iterator, Generator
+from typing import Optional, Any, Union, Literal, OrderedDict, Iterator, Generator
+from urllib.parse import urlparse
 
 from dotenv import find_dotenv
-from httpx import Client, BaseTransport, URL, Response
-from httpx._client import EventHook
-from httpx._types import CertTypes
-from pydantic import ConfigDict, Field, InstanceOf, FilePath, BaseModel
+from niquests import Session, RetryConfiguration, Response, LifeCycleHook
+
+# See https://github.com/jawah/niquests/issues/324 for the PathLike import
+from niquests.typing import TLSVerifyType, TimeoutType, ProxyType, TLSClientCertType, PathLike  # noqa: F401
+from pydantic import ConfigDict, Field, FilePath, BaseModel, AnyUrl
 from pydantic_settings.sources import DotenvType
 
-from ipfabric.auth import Setup, ProxyTypes, TimeoutTypes
+from ipfabric.auth import Setup
 from ipfabric.models import Snapshot, OAS, Endpoint, Snapshots, Methods, User, create_snapshot
-from ipfabric.models.snapshot import ScheduledSnapshot
-from ipfabric.models.discovery import SeedList, Networks
 from ipfabric.models.authentication import CredentialList, PrivilegeList
+from ipfabric.models.discovery import SeedList, Networks
+from ipfabric.models.snapshot import ScheduledSnapshot
 from ipfabric.tools.configuration import trigger_backup
-from ipfabric.tools.shared import VALID_REFS, raise_for_status, VALID_IP
+from ipfabric.tools.shared import VALID_REFS, raise_for_status, VALID_IP, api_header
 
 logger = logging.getLogger("ipfabric")
 
 LAST_ID, PREV_ID, LASTLOCKED_ID = VALID_REFS
-RE_PATH = re.compile(r"^/?(api/)?v\d(\.\d+)?/")
+RE_PATH = re.compile(r"^/?(api/)?(v\d(\.\d+)?/)?")
+
+
+IPFabricRetry = RetryConfiguration(
+    total=3, status=3, status_forcelist=[429, 500, 502, 503, 504], backoff_factor=0.5, backoff_jitter=0.5
+)
 
 
 def check_deprecated(http_method: str = None):
@@ -56,16 +62,15 @@ class IPFabricAPI(BaseModel):
         base_url: IP Fabric instance provided in 'base_url' parameter, or the 'IPF_URL' environment variable
         api_version: [Optional] Version of IP Fabric API
         snapshot_id: IP Fabric snapshot ID to use by default for database actions - defaults to '$last'
-        auth: API token, tuple (username, password), or custom Auth to pass to httpx
+        auth: API token, tuple (username, password), or custom Auth to pass to niquests
         unloaded: True to load metadata from unloaded snapshots
         env_file: Path to .env file to load
         streaming: Default True to use streaming instead of paging.
-        verify: httpx.Client - Default True to verify IPF SSL certificate.
-        timeout: httpx.Client - Default 5
-        proxy: httpx.Client
-        mounts: httpx.Client
-        cert: httpx.Client
-        event_hooks: httpx.Client
+        verify: niquests.Session - Default True to verify IPF SSL certificate.
+        timeout: niquests.Session - Default 5
+        proxy: niquests.Session Proxy Configuration, e.g. {"http": "http://proxy:port", "https": "https://proxy:port"}
+        cert: niquests.Session TLS Client Certificate, e.g. ("/path/to/cert.pem", "/path/to/key.pem")
+        event_hooks: niquests.Session Event Hooks, e.g. {"response": [hook_function]}
         local_oas: Default True, False mainly for development purposes
         local_oas_file: Default True, False mainly for development purposes
         debug: Enable Debug.
@@ -73,7 +78,7 @@ class IPFabricAPI(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    base_url: Optional[Union[str, InstanceOf[URL]]] = Field(
+    base_url: Optional[Union[str, AnyUrl]] = Field(
         None, description="Base URL of the IPF instance", examples=["https://demo.ipfabric.io"]
     )
     auth: Optional[Any] = Field(default=None, exclude=True)
@@ -82,30 +87,31 @@ class IPFabricAPI(BaseModel):
     unloaded: bool = Field(False, description="Default False, do not load unloaded snapshot metadata.")
     streaming: bool = Field(True, description="Default True; use streaming results instead of pagination.")
 
-    # HTTPX Options:
-    verify: Optional[Union[SSLContext, str, bool]] = Field(default=None, exclude=True)
-    timeout: Optional[Union[TimeoutTypes, Literal["DEFAULT"]]] = Field(default="DEFAULT", exclude=True)
-    proxy: Optional[ProxyTypes] = Field(default=None, exclude=True)
-    mounts: Optional[Mapping[str, Optional[BaseTransport]]] = Field(default=None, exclude=True)
-    cert: Optional[CertTypes] = Field(default=None, exclude=True)
-    event_hooks: Optional[Mapping[str, list[EventHook]]] = Field(default=None, exclude=True)
+    # niquests Options:
+    event_hooks: Optional[dict[str, list[LifeCycleHook]]] = Field(default=None, exclude=True)
     http2: Optional[bool] = Field(default=True, exclude=True)
+    verify: Optional[TLSVerifyType] = Field(default=None, exclude=True)
+    cert: Optional[TLSClientCertType] = Field(default=None, exclude=True)
+    timeout: Union[None, TimeoutType, Literal["DEFAULT"]] = Field(default="DEFAULT", exclude=True)
+    proxy: Optional[ProxyType] = None
+    retry_config: Optional[RetryConfiguration] = Field(None, description="Retries configuration for niquests client.")
 
     # Debug/Other less used
     nvd_api_key: Optional[str] = None
     debug: bool = False
-    api_version: Optional[str] = Field(None, description="Defaults to SDK or API version.")
+    api_version: Optional[str] = Field(None, description="Defaults to SDK or API version.")  # TODO: Deprecate?
     local_oas: bool = Field(True, description="Default True, use local minified OAS file instead of servers.")
     local_oas_file: Optional[FilePath] = None
     _os_version: Optional[str] = None
     _os_api_version: Optional[str] = None
-    _client: Client = None
+    _client: Session = None
     _prev_snapshot_id: Optional[str] = None
     _attribute_filters: Optional[dict] = None
     _no_loaded_snapshots: bool = False
     _oas: Optional[OAS] = None
     _user: Optional[User] = None
     _snapshots: Optional[Snapshots] = None
+    _psql: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         env_file = (
@@ -117,13 +123,14 @@ class IPFabricAPI(BaseModel):
             api_version=self.api_version,
             auth=self.auth,
             _env_file=env_file,
+            nvd_api_key=self.nvd_api_key,
             snapshot_id=self.snapshot_id,
             verify=self.verify,
             timeout=self.timeout,
             proxy=self.proxy,
-            mounts=self.mounts,
             cert=self.cert,
             event_hooks=self.event_hooks,
+            retry_config=self.retry_config or IPFabricRetry,
             debug=self.debug,
             http2=self.http2,
         )
@@ -135,7 +142,7 @@ class IPFabricAPI(BaseModel):
         self._snapshots = Snapshots(client=self)
         self.snapshot_id = setup.snapshot_id
         logger.debug(
-            f"Successfully connected to '{self.base_url.host}' IPF version '{self.os_version}' "
+            f"Successfully connected to '{self.hostname}' IPF version '{self.os_version}' "
             f"as user '{self.user.username}'"
         )
 
@@ -160,35 +167,35 @@ class IPFabricAPI(BaseModel):
         raise ValueError(f"Incorrect Snapshot ID: '{snapshot_id}'")
 
     @check_deprecated("get")
-    def get(self, url, *args, params=None, **kwargs) -> Response:
-        return self._client.get(url, *args, params=params, **kwargs)
+    def get(self, url, *args, params=None, headers=None, **kwargs) -> Response:
+        return self._client.get(url, *args, params=params, headers=headers, **kwargs)
 
     @check_deprecated("post")
-    def post(self, url, *args, json=None, **kwargs) -> Response:
-        return self._client.post(url, *args, json=json, **kwargs)
+    def post(self, url, *args, json=None, headers=None, **kwargs) -> Response:
+        return self._client.post(url, *args, json=json, headers=headers, **kwargs)
 
     @check_deprecated("put")
-    def put(self, url, *args, json=None, **kwargs) -> Response:
-        return self._client.put(url, *args, json=json, **kwargs)
+    def put(self, url, *args, json=None, headers=None, **kwargs) -> Response:
+        return self._client.put(url, *args, json=json, headers=headers, **kwargs)
 
     @check_deprecated("patch")
-    def patch(self, url, *args, json=None, **kwargs) -> Response:
-        return self._client.patch(url, *args, json=json, **kwargs)
+    def patch(self, url, *args, json=None, headers=None, **kwargs) -> Response:
+        return self._client.patch(url, *args, json=json, headers=headers, **kwargs)
 
-    def request(self, method, url, *args, json=None, **kwargs) -> Response:
-        return self._client.request(method, url, *args, json=json, **kwargs)
+    def request(self, method, url, *args, json=None, headers=None, **kwargs) -> Response:
+        return self._client.request(method, url, *args, json=json, headers=headers, **kwargs)
 
     @check_deprecated("delete")
-    def delete(self, url, *args, **kwargs) -> Response:
-        return self._client.delete(url, *args, **kwargs)
+    def delete(self, url, headers=None, *args, **kwargs) -> Response:
+        return self._client.delete(url, headers=headers, *args, **kwargs)
 
-    def stream(self, method, url, *args, **kwargs) -> Iterator[Response]:
-        return self._client.stream(method, url, *args, **kwargs)
+    def stream(self, url, *args, **kwargs) -> Iterator[Response]:
+        return self._client.get(url, stream=True, *args, **kwargs)
 
     def _check_url(self, url) -> str:
         """Optimized URL processing with compiled regex and early returns"""
 
-        path = URL(url).path
+        path = urlparse(url).path
         if not path.startswith("/"):
             path = "/" + url
 
@@ -227,7 +234,7 @@ class IPFabricAPI(BaseModel):
             return resp.json()["hostname"]
         else:
             logger.critical(self._api_insuf_rights + 'on GET "/os/hostname"; Using URL host.')
-            return str(self.base_url.host)
+            return urlparse(self.base_url).hostname
 
     @cached_property
     def oas(self) -> dict[str, Methods]:
@@ -309,17 +316,15 @@ class IPFabricAPI(BaseModel):
         return user
 
     def _ipf_pager(
-        self,
-        url: str,
-        payload: dict,
-        limit: int = 1000,
-        start: int = 0,
+        self, url: str, payload: dict, limit: int = 1000, start: int = 0, api_version: Optional[Union[str, int]] = None
     ) -> Generator:
         """
         Loops through and collects all the data from the tables
         :param url: str: Full URL to post to
         :param payload: dict: Data to submit to IP Fabric
         :param start: int: Where to start for the data
+        :param limit: int: How many records to pull per request
+        :param api_version: str, int: API version to use for the request
         :return: Generator: List of dictionaries
         """
         payload.setdefault("pagination", {})
@@ -327,7 +332,7 @@ class IPFabricAPI(BaseModel):
 
         while True:
             payload["pagination"]["start"] = start
-            response = raise_for_status(self.post(url, json=payload))
+            response = raise_for_status(self.post(url, json=payload, headers=api_header(api_version)))
             chunk = response.json()["data"]
 
             if not chunk:

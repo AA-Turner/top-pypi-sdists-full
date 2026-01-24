@@ -19,10 +19,10 @@ from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Generator, Li
 import backoff
 import requests
 from gql.client import Client, ReconnectingAsyncClientSession
+from gql.graphql_request import GraphQLRequest
 from gql.transport import AsyncTransport
-from gql.transport.exceptions import TransportQueryError
+from gql.transport.exceptions import TransportConnectionFailed, TransportQueryError
 from gql.transport.websockets import WebsocketsTransport
-from graphql import DocumentNode
 from websockets.exceptions import ConnectionClosed, PayloadTooBig, WebSocketException
 
 from mcli.api.engine.retry import retry_with_backoff
@@ -239,7 +239,7 @@ class MAPIConnection:
 
     def subscribe(
         self,
-        query: DocumentNode,
+        query: GraphQLRequest,
         variables: Dict[str, Any],
         callback: Callable[[Dict[str, Any]], T],
         retry_callback: Callable[[Dict[str, Any]], Dict[str, Any]],
@@ -247,7 +247,7 @@ class MAPIConnection:
         """Subscribe to the given query and return a generator of futures
 
         Args:
-            query (DocumentNode): The GraphQL query document
+            query (GraphQLRequest): The GraphQL query request
             variables (Dict[str, Any]): A dictionary of variables to supply with the query
 
         Yields:
@@ -272,7 +272,12 @@ class MAPIConnection:
                 )
 
         finally:
-            async_gen.aclose()
+            # Safely close the async generator, handling the case where it might be running
+            try:
+                asyncio.run_coroutine_threadsafe(async_gen.aclose(), self._loop).result(timeout=0.1)
+            except (RuntimeError, asyncio.TimeoutError) as e:
+                # Generator is already running or timeout during close - this is expected on Ctrl-C
+                logger.debug(f"Could not cleanly close async generator: {e}")
 
     async def init_session(self):
         check_python_certificates()
@@ -289,7 +294,7 @@ class MAPIConnection:
 
     async def _async_subscribe(
         self,
-        query: DocumentNode,
+        query: GraphQLRequest,
         variables: Dict[str, Any],
         retry_callback: Callable[[Dict[str, str]], Dict[str, Any]],
     ) -> AsyncGenerator[Dict[str, Any], None]:
@@ -320,10 +325,10 @@ class MAPIConnection:
                     yield result
                 break
 
-            except (ConnectionClosed, PayloadTooBig) as e:
+            except (ConnectionClosed, PayloadTooBig, TransportConnectionFailed) as e:
                 # This frees up resources from the old generator, otherwise we run into websocket exceptions
                 # https://github.com/aaugustin/websockets/blame/8e1628a14e0dd2ca98871c7500484b5d42d16b67/src/websockets/legacy/protocol.py#L922
-                async_generator.aclose()
+                await async_generator.aclose()
                 await self._session.stop_connecting_task()
                 max_retries = max_retries - 1
                 if max_retries == 0:

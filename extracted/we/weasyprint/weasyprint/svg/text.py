@@ -18,6 +18,10 @@ class TextBox:
         return self.pango_layout.text
 
 
+class Style(dict):
+    """Dummy class to store dict."""
+
+
 def text(svg, node, font_size):
     """Draw text node."""
     from ..css.properties import INITIAL_VALUES
@@ -25,7 +29,9 @@ def text(svg, node, font_size):
     from ..text.line_break import split_first_line
 
     # TODO: use real computed values
-    style = INITIAL_VALUES.copy()
+    style = Style()
+    style.update(INITIAL_VALUES)
+    style.font_config = svg.font_config
     style['font_family'] = [
         font.strip('"\'') for font in
         node.get('font-family', 'sans-serif').split(',')]
@@ -123,6 +129,7 @@ def text(svg, node, font_size):
         return
 
     svg.stream.push_state()
+    svg.set_graphical_state(node, font_size, text=True)
     svg.stream.begin_text()
     emoji_lines = []
 
@@ -166,4 +173,6 @@ def text(svg, node, font_size):
     svg.stream.pop_state()
 
     for font_size, x, y, emojis in emoji_lines:
-        draw_emojis(svg.stream, font_size, x, y, emojis)
+        # TODO: pass real style instead of dict.
+        style = {'font_size': font_size}
+        draw_emojis(svg.stream, style, x, y, emojis)

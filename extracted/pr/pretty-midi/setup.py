@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pretty_midi',
-    version='0.2.10',
+    version='0.2.11',
     description='Functions and classes for handling MIDI data conveniently.',
     author='Colin Raffel',
     author_email='craffel@gmail.com',
@@ -26,5 +26,9 @@ setup(
         'numpy >= 1.7.0',
         'mido >= 1.1.16',
         'six',
-    ]
+        'importlib_resources',
+    ],
+    extras_require={
+        'fluidsynth': ['pyfluidsynth>=1.3.1',],
+    },
 )

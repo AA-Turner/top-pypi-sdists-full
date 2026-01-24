@@ -1,7 +1,9 @@
 """Calculator for Cluster Expansion."""
+
+from collections.abc import Sequence
 import contextlib
 import sys
-from typing import Any, Dict, List, Optional, Sequence, TextIO, Union
+from typing import Any, TextIO
 
 from ase import Atoms
 from ase.calculators.calculator import PropertyNotImplementedError
@@ -49,9 +51,9 @@ class Clease:
     def __init__(
         self,
         settings: ClusterExpansionSettings,
-        eci: Dict[str, float],
-        init_cf: Optional[Dict[str, float]] = None,
-        logfile: Union[TextIO, str, None] = None,
+        eci: dict[str, float],
+        init_cf: dict[str, float] | None = None,
+        logfile: TextIO | str | None = None,
     ) -> None:
         if not isinstance(settings, ClusterExpansionSettings):
             msg = "settings must be CEBulk or CECrystal object."
@@ -142,7 +144,7 @@ class Clease:
     def reset(self) -> None:
         self.results = {}
 
-    def calculate_cf_from_scratch(self) -> Dict[str, float]:
+    def calculate_cf_from_scratch(self) -> dict[str, float]:
         """Calculate correlation functions from scratch."""
         self.require_updater()
         return self.updater.calculate_cf_from_scratch(self.atoms, self.cf_names)
@@ -157,9 +159,9 @@ class Clease:
 
     def calculate(
         self,
-        atoms: Optional[Atoms] = None,
-        properties: Optional[List[str]] = None,
-        system_changes: Optional[SystemChanges] = None,
+        atoms: Atoms | None = None,
+        properties: list[str] | None = None,
+        system_changes: SystemChanges | None = None,
     ) -> float:
         """Calculate the energy of the passed Atoms object.
 
@@ -196,9 +198,7 @@ class Clease:
         self.update_energy()
         return self.energy
 
-    def get_property(
-        self, name: str, atoms: Optional[Atoms] = None, allow_calculation: bool = True
-    ):
+    def get_property(self, name: str, atoms: Atoms | None = None, allow_calculation: bool = True):
         """Get a property from the calculator.
 
         Exists due to compatibility with ASE, should not be used directly.
@@ -209,7 +209,7 @@ class Clease:
             return self.energy
         return self.get_potential_energy(atoms=atoms)
 
-    def get_potential_energy(self, atoms: Optional[Atoms] = None) -> float:
+    def get_potential_energy(self, atoms: Atoms | None = None) -> float:
         """Calculate the energy from scratch with an atoms object"""
         # self.set_atoms(atoms)
         return self.calculate(atoms=atoms)
@@ -223,9 +223,7 @@ class Clease:
         self.update_cf()
         self.energy = self.updater.get_energy()
 
-    def calculation_required(
-        self, atoms: Atoms, properties: Optional[Sequence[str]] = None
-    ) -> bool:
+    def calculation_required(self, atoms: Atoms, properties: Sequence[str] | None = None) -> bool:
         """Check whether a calculation is required for a given atoms object.
         The ``properties`` argument only exists for compatibility reasons, and has no effect.
         Primarily for ASE compatibility.
@@ -238,7 +236,7 @@ class Clease:
         changed_indices = self.get_changed_sites(atoms)
         return bool(changed_indices)
 
-    def check_state(self, atoms: Atoms) -> List[str]:
+    def check_state(self, atoms: Atoms) -> list[str]:
         """Method for checking if energy needs calculation.
         Primarily for ASE compatibility.
         """
@@ -256,7 +254,7 @@ class Clease:
         self.results["energy"] = value
 
     @property
-    def indices_of_changed_atoms(self) -> List[int]:
+    def indices_of_changed_atoms(self) -> list[int]:
         """Return the indices of atoms that have been changed."""
         changed = self.get_changed_sites(self.atoms)
         for index in changed:
@@ -266,16 +264,16 @@ class Clease:
 
         return changed
 
-    def get_changed_sites(self, atoms: Atoms) -> List[int]:
+    def get_changed_sites(self, atoms: Atoms) -> list[int]:
         """Return the list of indices which differ from the internal ones."""
         self.require_updater()
         return self.updater.get_changed_sites(atoms)
 
-    def get_cf(self) -> Dict[str, float]:
+    def get_cf(self) -> dict[str, float]:
         """Return the correlation functions as a dict"""
         return self.updater.get_cf()
 
-    def update_cf(self, system_changes: Optional[SystemChanges] = None) -> None:
+    def update_cf(self, system_changes: SystemChanges | None = None) -> None:
         """Update correlation function based on the reference value.
 
         :param system_changes: List of system changes. For example, if the
@@ -302,7 +300,7 @@ class Clease:
             self.updater.update_cf(change)
 
     @property
-    def cf(self) -> List[float]:
+    def cf(self) -> list[float]:
         temp_cf = self.updater.get_cf()
         return [temp_cf[x] for x in self.cf_names]
 
@@ -313,7 +311,7 @@ class Clease:
         self.logfile.write(f"{self.energy}\n")
         self.logfile.flush()
 
-    def update_eci(self, eci: Dict[str, float]) -> None:
+    def update_eci(self, eci: dict[str, float]) -> None:
         """Update the ECI values.
 
         :param eci: dictionary with new ECI values
@@ -323,7 +321,8 @@ class Clease:
         self._on_eci_changed()
 
     def get_singlets(self) -> np.ndarray:
-        return self.updater.get_singlets()
+        singlets = self.updater.get_singlets()
+        return np.array(singlets, dtype=float)
 
     def get_energy(self) -> float:
         self.energy = self.updater.get_energy()
@@ -415,7 +414,7 @@ class Clease:
             raise UnitializedCEError("Updater hasn't been initialized yet.")
 
     @property
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Return a dictionary with relevant parameters."""
         return {"eci": self.eci}
 
@@ -426,7 +425,7 @@ class Clease:
         return self.parameters
 
 
-def _check_properties(properties: Optional[List[str]], implemented_properties: List[str]) -> None:
+def _check_properties(properties: list[str] | None, implemented_properties: list[str]) -> None:
     """Check whether the passed properties is supported. If it is None, nothing is checked.
     Raises PropertyNotImplementedError upon finding a bad property.
     """

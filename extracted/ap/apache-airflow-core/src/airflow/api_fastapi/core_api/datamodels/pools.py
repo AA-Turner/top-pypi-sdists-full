@@ -17,7 +17,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Callable
+from collections.abc import Callable
+from typing import Annotated
 
 from pydantic import BeforeValidator, Field
 
@@ -38,7 +39,7 @@ class BasePool(BaseModel):
 
     pool: str = Field(serialization_alias="name")
     slots: int
-    description: str | None
+    description: str | None = Field(default=None)
     include_deferred: bool
 
 

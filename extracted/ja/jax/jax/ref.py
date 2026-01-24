@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__all__ = ['AbstractRef', 'Ref', 'ArrayRef', 'addupdate', 'new_ref', 'array_ref',
-           'freeze', 'get', 'set', 'swap']
+__all__ = [
+    'AbstractRef', 'Ref', 'addupdate', 'freeze', 'get', 'new_ref', 'set', 'swap'
+]
 
-from jax._src.core import Ref, ArrayRef, freeze
-from jax._src.ref import new_ref, array_ref
+from jax._src.core import Ref, freeze
+from jax._src.ref import new_ref
 from jax._src.state.types import AbstractRef
 from jax._src.state.primitives import (
     ref_get as get,
@@ -24,3 +25,20 @@ from jax._src.state.primitives import (
     ref_swap as swap,
     ref_addupdate as addupdate,
 )
+
+
+_deprecations = {
+  # Remove in v0.10.0
+  "array_ref": (
+    "jax.array_ref was removed in JAX v0.9.0; use jax.new_ref instead.",
+    None
+  ),
+  "ArrayRef": (
+    "jax.ArrayRef was removed in JAX v0.9.0; use jax.Ref instead.",
+    None
+  ),
+}
+
+from jax._src.deprecations import deprecation_getattr as _deprecation_getattr
+__getattr__ = _deprecation_getattr(__name__, _deprecations)
+del _deprecation_getattr

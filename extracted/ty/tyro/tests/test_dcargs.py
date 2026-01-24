@@ -112,7 +112,7 @@ def test_init_false() -> None:
         dir: pathlib.Path
         ignored: str = dataclasses.field(default="hello", init=False)
 
-    assert tyro.cli(
+    result = tyro.cli(
         InitFalseDataclass,
         args=[
             "--i",
@@ -124,24 +124,63 @@ def test_init_false() -> None:
             "--dir",
             "~",
         ],
-    ) == InitFalseDataclass(i=5, s="5", f=5.0, dir=pathlib.Path("~"))
+    )
+    assert result == InitFalseDataclass(i=5, s="5", f=5.0, dir=pathlib.Path("~"))
+    # init=False fields without a default instance are not included in CLI.
+    # The field retains its default value from the dataclass definition.
+    assert result.ignored == "hello"
 
-    with pytest.raises(SystemExit):
-        tyro.cli(
-            InitFalseDataclass,
-            args=[
-                "--i",
-                "5",
-                "--s",
-                "5",
-                "--f",
-                "5",
-                "--dir",
-                "~",
-                "--ignored",
-                "blah",
-            ],
-        )
+
+def test_init_false_with_default_instance() -> None:
+    """Test that init=False fields preserve values from default instance (issue #390)."""
+
+    @dataclasses.dataclass
+    class Conv1dConfig:
+        in_channel: int = dataclasses.field(init=False)
+        out_channel: int = 3
+
+    # Create a default instance and set the init=False field.
+    default = Conv1dConfig()
+    default.in_channel = 10
+
+    # The init=False field should preserve its value from the default instance.
+    config = tyro.cli(Conv1dConfig, default=default, args=["--out-channel", "5"])
+    assert config.in_channel == 10
+    assert config.out_channel == 5
+
+    # Test with no args (should use default values).
+    config2 = tyro.cli(Conv1dConfig, default=default, args=[])
+    assert config2.in_channel == 10
+    assert config2.out_channel == 3
+
+    # Test with falsy value (0) to ensure we don't skip None check incorrectly.
+    default_falsy = Conv1dConfig()
+    default_falsy.in_channel = 0
+    config3 = tyro.cli(Conv1dConfig, default=default_falsy, args=["--out-channel", "7"])
+    assert config3.in_channel == 0
+    assert config3.out_channel == 7
+
+
+def test_init_false_with_frozen_dataclass() -> None:
+    """Test that init=False fields work with frozen dataclasses (issue #415)."""
+
+    @dataclasses.dataclass(frozen=True)
+    class FrozenConfig:
+        in_channel: int = dataclasses.field(init=False, default=5)
+        out_channel: int = 3
+
+    @dataclasses.dataclass
+    class Application:
+        config: FrozenConfig
+
+    default_config = FrozenConfig()
+    default_app = Application(config=default_config)
+
+    result = tyro.cli(
+        Application, default=default_app, args=["--config.out-channel", "7"]
+    )
+    assert result.config.in_channel == 5
+    assert result.config.out_channel == 7
 
 
 def test_required() -> None:
@@ -709,6 +748,20 @@ def test_return_unknown_args() -> None:
     assert unknown_args == ["positional", "--y", "7"]
 
 
+def test_return_unknown_args_with_equal() -> None:
+    @dataclasses.dataclass
+    class A:
+        x: int = 0
+
+    a, unknown_args = tyro.cli(
+        A,
+        args=["positional", "--x", "5", "--y", "7", "--z=3"],
+        return_unknown_args=True,
+    )
+    assert a == A(x=5)
+    assert unknown_args == ["positional", "--y", "7", "--z=3"]
+
+
 def test_unknown_args_with_arg_fixing() -> None:
     @dataclasses.dataclass
     class A:
@@ -741,14 +794,20 @@ def test_disallow_ambiguous_args_when_returning_unknown_args() -> None:
     class A:
         x: int = 0
 
-    # If there's an argument that's ambiguous then we should raise an error when we're
-    # returning unknown args.
-    with pytest.raises(RuntimeError, match="Ambiguous .* --a_b and --a-b"):
-        tyro.cli(
+    if tyro._experimental_options["backend"] == "tyro":
+        _, unknown_args = tyro.cli(
             A,
             args=["--x", "5", "--a_b", "--a-b"],
             return_unknown_args=True,
         )
+        assert unknown_args == ["--a_b", "--a-b"]
+    else:
+        with pytest.raises(RuntimeError, match="Ambiguous .* --a_b and --a-b"):
+            tyro.cli(
+                A,
+                args=["--x", "5", "--a_b", "--a-b"],
+                return_unknown_args=True,
+            )
 
 
 def test_unknown_args_with_consistent_duplicates() -> None:
@@ -781,11 +840,172 @@ def test_unknown_args_with_consistent_duplicates() -> None:
     assert unknown_args == ["--e-f", "--e-f", "--g_h", "--g_h"]
 
 
+def test_subcommand_delimiter_swapping() -> None:
+    """Test that subcommands support both hyphen and underscore delimiters."""
+    if tyro._experimental_options["backend"] != "tyro":
+        pytest.skip("Subcommand delimiter swapping only supported in tyro backend")
+
+    @dataclasses.dataclass
+    class TrainConfig:
+        learning_rate: float = 0.001
+
+    @dataclasses.dataclass
+    class EvalConfig:
+        batch_size: int = 32
+
+    # Test using underscore when subcommand name has hyphens.
+    result = tyro.cli(
+        Union[TrainConfig, EvalConfig],  # type: ignore
+        args=["train_config", "--learning-rate", "0.01"],
+    )
+    assert isinstance(result, TrainConfig)
+    assert result.learning_rate == 0.01
+
+    # Test using hyphen when subcommand name has underscores.
+    result = tyro.cli(
+        Union[TrainConfig, EvalConfig],  # type: ignore
+        args=["eval-config", "--batch-size", "64"],
+    )
+    assert isinstance(result, EvalConfig)
+    assert result.batch_size == 64
+
+    # Test original delimiter still works.
+    result = tyro.cli(
+        Union[TrainConfig, EvalConfig],  # type: ignore
+        args=["train-config", "--learning-rate", "0.02"],
+    )
+    assert isinstance(result, TrainConfig)
+    assert result.learning_rate == 0.02
+
+
+def test_nested_subcommand_delimiter_swapping() -> None:
+    """Test delimiter swapping with nested subcommands."""
+    if tyro._experimental_options["backend"] != "tyro":
+        pytest.skip("Subcommand delimiter swapping only supported in tyro backend")
+
+    @dataclasses.dataclass
+    class HttpServer:
+        port: int = 8080
+
+    @dataclasses.dataclass
+    class SmtpServer:
+        host: str = "localhost"
+
+    @dataclasses.dataclass
+    class Config:
+        server: Union[HttpServer, SmtpServer]
+
+    # Test using underscores for nested subcommand with hyphens.
+    result = tyro.cli(
+        Config,
+        args=["server:http_server", "--server.port", "9000"],
+    )
+    assert isinstance(result.server, HttpServer)
+    assert result.server.port == 9000
+
+    # Test using hyphens for nested subcommand.
+    result = tyro.cli(
+        Config,
+        args=["server:smtp-server", "--server.host", "example.com"],
+    )
+    assert isinstance(result.server, SmtpServer)
+    assert result.server.host == "example.com"
+
+
+def test_subcommand_delimiter_with_flags() -> None:
+    """Test that delimiter swapping works for both subcommands and their flags."""
+    if tyro._experimental_options["backend"] != "tyro":
+        pytest.skip("Subcommand delimiter swapping only supported in tyro backend")
+
+    @dataclasses.dataclass
+    class ModelConfig:
+        max_epochs: int = 10
+        learning_rate: float = 0.001
+
+    @dataclasses.dataclass
+    class DataConfig:
+        batch_size: int = 32
+
+    # Use underscores in subcommand and hyphens in flags.
+    result = tyro.cli(
+        Union[ModelConfig, DataConfig],  # type: ignore
+        args=["model_config", "--max-epochs", "20", "--learning-rate", "0.01"],
+    )
+    assert isinstance(result, ModelConfig)
+    assert result.max_epochs == 20
+    assert result.learning_rate == 0.01
+
+    # Use hyphens in subcommand and underscores in flags.
+    result = tyro.cli(
+        Union[ModelConfig, DataConfig],  # type: ignore
+        args=["data-config", "--batch_size", "64"],
+    )
+    assert isinstance(result, DataConfig)
+    assert result.batch_size == 64
+
+
+def test_short_flag_with_equals() -> None:
+    """Test that short flags with equals signs work correctly (e.g., -f=value)."""
+    if tyro._experimental_options["backend"] != "tyro":
+        pytest.skip("Short flag equals handling only tested in tyro backend")
+
+    @dataclasses.dataclass
+    class Config:
+        file: Annotated[str, tyro.conf.arg(aliases=["-f"])] = "default.txt"
+
+    # Test short flag with equals sign.
+    result = tyro.cli(
+        Config,
+        args=["-f=test.txt"],
+    )
+    assert result.file == "test.txt"
+
+    # Test that it also works without equals.
+    result = tyro.cli(
+        Config,
+        args=["-f", "other.txt"],
+    )
+    assert result.file == "other.txt"
+
+
 def test_pathlike():
     def main(x: os.PathLike) -> os.PathLike:
         return x
 
     assert tyro.cli(main, args=["--x", "/dev/null"]) == pathlib.Path("/dev/null")
+
+
+def test_upath() -> None:
+    """Test basic UPath parsing."""
+    from upath import UPath
+
+    def main(x: UPath) -> UPath:
+        return x
+
+    assert tyro.cli(main, args=["--x", "s3://bucket/path"]) == UPath("s3://bucket/path")
+
+
+def test_upath_subclass() -> None:
+    """Test UPath subclass (GCSPath) parsing."""
+    from upath.implementations.cloud import GCSPath
+
+    def main(x: GCSPath) -> GCSPath:
+        return x
+
+    assert tyro.cli(main, args=["--x", "gcs://bucket/file"]) == GCSPath(
+        "gcs://bucket/file"
+    )
+
+
+def test_upath_with_default() -> None:
+    """Test UPath with default value."""
+    from upath import UPath
+
+    def main(x: UPath = UPath("s3://default/path")) -> UPath:
+        return x
+
+    assert tyro.cli(main, args=[]) == UPath("s3://default/path")
+    assert tyro.cli(main, args=["--x", "s3://other/path"]) == UPath("s3://other/path")
 
 
 def test_unpack() -> None:
@@ -1022,6 +1242,9 @@ def test_runtime_checkable_edge_case() -> None:
     )
 
 
+test_runtime_checkable_edge_case()
+
+
 def test_linear_inheritance() -> None:
     @dataclasses.dataclass(frozen=True)
     class A:
@@ -1036,8 +1259,8 @@ def test_linear_inheritance() -> None:
         pass
 
     helptext = get_helptext_with_checks(C)
-    assert "5" not in helptext
-    assert "10" in helptext
+    assert ": 5" not in helptext
+    assert ": 10" in helptext
     assert "INT" in helptext
     assert tyro.cli(C, args=[]) == C(10)
     assert tyro.cli(C, args=["--field", "3"]) == C(3)
@@ -1065,8 +1288,8 @@ def test_diamond_inheritance() -> None:
     # Despite C coming earlier in the MRO than A, the field is inherited from
     # A. This appears to be a Python bug.
     # https://github.com/python/cpython/issues/108611
-    assert "5" in helptext
-    assert "10" not in helptext
+    assert ": 5" in helptext
+    assert ": 10" not in helptext
 
     # The type, however, currently comes from C. This matches the MRO and the
     # behavior of pyright and mypy but not of dataclasses.fields().

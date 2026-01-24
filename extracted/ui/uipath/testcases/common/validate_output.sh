@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Common utility to print UiPath output file
-# Usage: source /app/testcases/common/print_output.sh
+# Usage: source /app/testcases/common/validate_output.sh
 
 debug_print_uipath_output() {
     echo "Printing output file..."
@@ -22,14 +22,18 @@ debug_print_uipath_output() {
     fi
 }
 
-validate_output() {
-    echo "Printing output file for validation..."
-    debug_print_uipath_output
-
-    echo "Validating output..."
-    python src/assert.py || { echo "Validation failed!"; exit 1; }
-
-    echo "Testcase completed successfully."
+# Run assertions from the testcase's src directory
+run_assertions() {
+    echo "Running assertions..."
+    if [ -f "src/assert.py" ]; then
+        # Use uv run to ensure testcase dependencies are available
+        # Prepend the common directory to the python path so it can be resolved
+        PYTHONPATH="../common:$PYTHONPATH" uv run python src/assert.py
+    else
+        echo "assert.py not found in src directory!"
+        exit 1
+    fi
 }
 
-validate_output
+debug_print_uipath_output
+run_assertions

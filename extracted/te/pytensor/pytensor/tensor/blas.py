@@ -77,16 +77,15 @@ Optimizations associated with these BLAS Ops are in tensor.rewriting.blas
 
 import functools
 import logging
-import os
 import shlex
 import warnings
 from pathlib import Path
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_tuple
 from scipy.linalg import get_blas_funcs
 
-from pytensor.graph import vectorize_graph
-from pytensor.npy_2_compat import normalize_axis_tuple
+from pytensor.graph import Variable, vectorize_graph
 
 
 try:
@@ -97,7 +96,7 @@ except ImportError:
 
 import pytensor.scalar
 from pytensor.configdefaults import config
-from pytensor.graph.basic import Apply, view_roots
+from pytensor.graph.basic import Apply
 from pytensor.graph.op import Op
 from pytensor.graph.utils import InconsistencyError, MethodNotDefined, TestValueError
 from pytensor.link.c.op import COp
@@ -112,6 +111,25 @@ from pytensor.tensor.type import DenseTensorType, tensor
 
 
 _logger = logging.getLogger("pytensor.tensor.blas")
+
+
+def view_roots(node: Variable) -> list[Variable]:
+    """Return the leaves from a search through consecutive view-maps."""
+    owner = node.owner
+    if owner is not None:
+        try:
+            vars_to_views = {owner.outputs[o]: i for o, i in owner.op.view_map.items()}
+        except AttributeError:
+            return [node]
+        if node in vars_to_views:
+            answer = []
+            for i in vars_to_views[node]:
+                answer += view_roots(owner.inputs[i])
+            return answer
+        else:
+            return [node]
+    else:
+        return [node]
 
 
 def must_initialize_y_gemv():
@@ -383,9 +401,9 @@ def _ldflags(
             include_dir=False,
         )
         for d in dirs:
-            for f in os.listdir(d.strip('"')):
-                if f.endswith(".so") or f.endswith(".dylib") or f.endswith(".dll"):
-                    if any(f.find(ll) >= 0 for ll in l):
+            for f in Path(d.strip('"')).iterdir():
+                if f.suffix in {".so", ".dylib", ".dll"}:
+                    if any(f.stem.find(ll) >= 0 for ll in l):
                         found_dyn = True
         # Special treatment of clang framework. Specifically for MacOS Accelerate
         if "-framework" in l and "Accelerate" in l:
@@ -930,8 +948,8 @@ class Gemm(GemmRelated):
         z_shape, _, x_shape, y_shape, _ = input_shapes
         return [
             (
-                pytensor.scalar.scalar_maximum(z_shape[0], x_shape[0]),
-                pytensor.scalar.scalar_maximum(z_shape[1], y_shape[1]),
+                pytensor.scalar.maximum(z_shape[0], x_shape[0]),
+                pytensor.scalar.maximum(z_shape[1], y_shape[1]),
             )
         ]
 
@@ -1625,7 +1643,7 @@ class BatchedDot(COp):
                 iv1 = pytensor.graph.op.get_test_value(inputs[1])
             except TestValueError:
                 pytensor.graph.op.missing_test_message(
-                    "second input passed to BatchedDot.R_op has no test value"
+                    "second input passed to BatchedDot. R_op has no test value"
                 )
                 test_values_enabled = False
 
@@ -1634,8 +1652,7 @@ class BatchedDot(COp):
                     ev0 = pytensor.graph.op.get_test_value(eval_points[0])
                 except TestValueError:
                     pytensor.graph.op.missing_test_message(
-                        "first eval point passed to BatchedDot.R_op "
-                        "has no test value"
+                        "first eval point passed to BatchedDot. R_op has no test value"
                     )
                     test_values_enabled = False
             if eval_points[1]:
@@ -1643,8 +1660,7 @@ class BatchedDot(COp):
                     ev1 = pytensor.graph.op.get_test_value(eval_points[1])
                 except TestValueError:
                     pytensor.graph.op.missing_test_message(
-                        "second eval point passed to BatchedDot.R_op "
-                        "has no test value"
+                        "second eval point passed to BatchedDot.R_op has no test value"
                     )
                     test_values_enabled = False
 

@@ -62,6 +62,8 @@ use jiff::civil::{DateDifference, DateTimeDifference, TimeDifference};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
 use pyo3::{IntoPyObjectExt, intern};
+use ryo3_core::PyAsciiString;
+use ryo3_macro_rules::py_type_err;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct DifferenceOptions {
@@ -94,7 +96,7 @@ impl DifferenceOptions {
 // DateDifference
 // ============================================================================
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "DateDifference", frozen)]
+#[pyclass(name = "DateDifference", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyDateDifference {
     date: RyDate,
@@ -109,22 +111,20 @@ impl RyDateDifference {
         signature = (
             date,
             *,
-            smallest = None,
-            largest = None,
-            mode = None,
+            smallest = JiffUnit::DAY,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
             increment = 1
         ),
     )]
     #[must_use]
     fn py_new(
-        date: &RyDate,
-        smallest: Option<JiffUnit>,
+        date: RyDate,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
+        mode: JiffRoundMode,
         increment: i64,
     ) -> Self {
-        let smallest = smallest.unwrap_or(JiffUnit(jiff::Unit::Nanosecond));
-        let mode = mode.unwrap_or(JiffRoundMode(jiff::RoundMode::Trunc));
         let mut diff = DateDifference::new(date.0)
             .smallest(smallest.0)
             .mode(mode.0)
@@ -139,7 +139,7 @@ impl RyDateDifference {
             increment,
         };
         Self {
-            date: *date,
+            date,
             options,
             diff,
         }
@@ -150,8 +150,9 @@ impl RyDateDifference {
         let kwargs = self.to_dict(py)?.into_bound_py_any(py)?;
         PyTuple::new(py, vec![args, kwargs])
     }
-    fn __repr__(&self) -> String {
-        format!("{self}")
+
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -272,37 +273,54 @@ impl std::fmt::Display for RyDateDifference {
         write!(f, ")")
     }
 }
-#[derive(Debug, Clone, FromPyObject)]
-pub(crate) enum DateDifferenceArg {
-    Zoned(RyZoned),
-    Date(RyDate),
-    DateTime(RyDateTime),
+
+#[derive(Debug, Clone)]
+pub(crate) enum DateDifferenceArg<'a, 'py> {
+    Zoned(Borrowed<'a, 'py, RyZoned>),
+    Date(Borrowed<'a, 'py, RyDate>),
+    DateTime(Borrowed<'a, 'py, RyDateTime>),
 }
 
-impl DateDifferenceArg {
+impl<'a, 'py> FromPyObject<'a, 'py> for DateDifferenceArg<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(z) = obj.cast_exact::<RyZoned>() {
+            Ok(Self::Zoned(z))
+        } else if let Ok(t) = obj.cast_exact::<RyDate>() {
+            Ok(Self::Date(t))
+        } else if let Ok(dt) = obj.cast_exact::<RyDateTime>() {
+            Ok(Self::DateTime(dt))
+        } else {
+            py_type_err!("Expected ZonedDateTime, DateTime, or Date")
+        }
+    }
+}
+
+impl<'a, 'py> From<DateDifferenceArg<'a, 'py>> for DateDifference {
+    fn from(val: DateDifferenceArg<'a, 'py>) -> Self {
+        match val {
+            DateDifferenceArg::Zoned(z) => Self::from(&z.get().0),
+            DateDifferenceArg::Date(t) => Self::from(t.get().0),
+            DateDifferenceArg::DateTime(dt) => Self::from(dt.get().0),
+        }
+    }
+}
+
+impl DateDifferenceArg<'_, '_> {
     pub(crate) fn build(
         self,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> DateDifference {
-        let mut diff = match self {
-            Self::Zoned(zoned) => DateDifference::from(zoned.0),
-            Self::Date(date) => DateDifference::from(date.0),
-            Self::DateTime(date_time) => DateDifference::from(date_time.0),
-        };
-        if let Some(smallest) = smallest {
-            diff = diff.smallest(smallest.0);
-        }
+        let mut diff = DateDifference::from(self)
+            .increment(increment)
+            .mode(mode.0)
+            .smallest(smallest.0);
         if let Some(largest) = largest {
             diff = diff.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            diff = diff.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            diff = diff.increment(increment);
         }
         diff
     }
@@ -313,7 +331,12 @@ impl DateDifferenceArg {
 // ============================================================================
 
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "DateTimeDifference", frozen)]
+#[pyclass(
+    name = "DateTimeDifference",
+    frozen,
+    immutable_type,
+    skip_from_py_object
+)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyDateTimeDifference {
     datetime: RyDateTime,
@@ -328,22 +351,20 @@ impl RyDateTimeDifference {
         signature = (
             datetime,
             *,
-            smallest = None,
-            largest = None,
-            mode = None,
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
             increment = 1
         ),
     )]
     #[must_use]
     fn py_new(
-        datetime: &RyDateTime,
-        smallest: Option<JiffUnit>,
+        datetime: RyDateTime,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
+        mode: JiffRoundMode,
         increment: i64,
     ) -> Self {
-        let smallest = smallest.unwrap_or(JiffUnit(jiff::Unit::Nanosecond));
-        let mode = mode.unwrap_or(JiffRoundMode(jiff::RoundMode::Trunc));
         let mut diff = DateTimeDifference::new(datetime.0)
             .smallest(smallest.0)
             .mode(mode.0)
@@ -358,7 +379,7 @@ impl RyDateTimeDifference {
             increment,
         };
         Self {
-            datetime: *datetime,
+            datetime,
             options,
             diff,
         }
@@ -369,8 +390,8 @@ impl RyDateTimeDifference {
         let kwargs = self.to_dict(py)?.into_bound_py_any(py)?;
         PyTuple::new(py, vec![args, kwargs])
     }
-    fn __repr__(&self) -> String {
-        format!("{self}")
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -488,37 +509,53 @@ impl std::fmt::Display for RyDateTimeDifference {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
-pub(crate) enum DateTimeDifferenceArg {
-    Zoned(RyZoned),
-    Date(RyDate),
-    DateTime(RyDateTime),
+#[derive(Debug, Clone)]
+pub(crate) enum DateTimeDifferenceArg<'a, 'py> {
+    Zoned(Borrowed<'a, 'py, RyZoned>),
+    Date(Borrowed<'a, 'py, RyDate>),
+    DateTime(Borrowed<'a, 'py, RyDateTime>),
 }
 
-impl DateTimeDifferenceArg {
+impl<'a, 'py> FromPyObject<'a, 'py> for DateTimeDifferenceArg<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(z) = obj.cast_exact::<RyZoned>() {
+            Ok(Self::Zoned(z))
+        } else if let Ok(t) = obj.cast_exact::<RyDate>() {
+            Ok(Self::Date(t))
+        } else if let Ok(dt) = obj.cast_exact::<RyDateTime>() {
+            Ok(Self::DateTime(dt))
+        } else {
+            py_type_err!("Expected ZonedDateTime, DateTime, or Date")
+        }
+    }
+}
+
+impl From<DateTimeDifferenceArg<'_, '_>> for DateTimeDifference {
+    fn from(val: DateTimeDifferenceArg<'_, '_>) -> Self {
+        match val {
+            DateTimeDifferenceArg::Zoned(z) => Self::from(&z.get().0),
+            DateTimeDifferenceArg::Date(t) => Self::from(t.get().0),
+            DateTimeDifferenceArg::DateTime(dt) => Self::from(dt.get().0),
+        }
+    }
+}
+
+impl DateTimeDifferenceArg<'_, '_> {
     pub(crate) fn build(
         self,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> DateTimeDifference {
-        let mut diff = match self {
-            Self::Zoned(other) => DateTimeDifference::from(other.0),
-            Self::DateTime(other) => DateTimeDifference::from(other.0),
-            Self::Date(other) => DateTimeDifference::from(other.0),
-        };
-        if let Some(smallest) = smallest {
-            diff = diff.smallest(smallest.0);
-        }
+        let mut diff = DateTimeDifference::from(self)
+            .increment(increment)
+            .mode(mode.0)
+            .smallest(smallest.0);
         if let Some(largest) = largest {
             diff = diff.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            diff = diff.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            diff = diff.increment(increment);
         }
         diff
     }
@@ -528,7 +565,7 @@ impl DateTimeDifferenceArg {
 // TimeDifference
 // ============================================================================
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "TimeDifference", frozen)]
+#[pyclass(name = "TimeDifference", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyTimeDifference {
     time: RyTime,
@@ -543,22 +580,20 @@ impl RyTimeDifference {
         signature = (
             time,
             *,
-            smallest = None,
-            largest = None,
-            mode = None,
-            increment = 1
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
         ),
     )]
     #[must_use]
     fn py_new(
-        time: &RyTime,
-        smallest: Option<JiffUnit>,
+        time: RyTime,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
+        mode: JiffRoundMode,
         increment: i64,
     ) -> Self {
-        let smallest = smallest.unwrap_or(JiffUnit(jiff::Unit::Nanosecond));
-        let mode = mode.unwrap_or(JiffRoundMode(jiff::RoundMode::Trunc));
         let mut diff = TimeDifference::new(time.0)
             .smallest(smallest.0)
             .mode(mode.0)
@@ -573,7 +608,7 @@ impl RyTimeDifference {
             increment,
         };
         Self {
-            time: *time,
+            time,
             options,
             diff,
         }
@@ -584,8 +619,9 @@ impl RyTimeDifference {
         let kwargs = self.to_dict(py)?.into_bound_py_any(py)?;
         PyTuple::new(py, vec![args, kwargs])
     }
-    fn __repr__(&self) -> String {
-        format!("{self}")
+
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -713,37 +749,53 @@ impl std::fmt::Display for RyTimeDifference {
 // Zoned/Time/DateTime
 // ============================================================================
 
-#[derive(Debug, Clone, FromPyObject)]
-pub(crate) enum TimeDifferenceArg {
-    Zoned(RyZoned),
-    Time(RyTime),
-    DateTime(RyDateTime),
+#[derive(Debug, Clone)]
+pub(crate) enum TimeDifferenceArg<'a, 'py> {
+    Zoned(Borrowed<'a, 'py, RyZoned>),
+    Time(Borrowed<'a, 'py, RyTime>),
+    DateTime(Borrowed<'a, 'py, RyDateTime>),
 }
 
-impl TimeDifferenceArg {
+impl<'a, 'py> FromPyObject<'a, 'py> for TimeDifferenceArg<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(z) = obj.cast_exact::<RyZoned>() {
+            Ok(Self::Zoned(z))
+        } else if let Ok(t) = obj.cast_exact::<RyTime>() {
+            Ok(Self::Time(t))
+        } else if let Ok(dt) = obj.cast_exact::<RyDateTime>() {
+            Ok(Self::DateTime(dt))
+        } else {
+            py_type_err!("Expected ZonedDateTime, Time, or DateTime")
+        }
+    }
+}
+
+impl From<TimeDifferenceArg<'_, '_>> for TimeDifference {
+    fn from(val: TimeDifferenceArg<'_, '_>) -> Self {
+        match val {
+            TimeDifferenceArg::Zoned(z) => Self::from(&z.get().0),
+            TimeDifferenceArg::Time(t) => Self::from(t.get().0),
+            TimeDifferenceArg::DateTime(dt) => Self::from(dt.get().0),
+        }
+    }
+}
+
+impl TimeDifferenceArg<'_, '_> {
     pub(crate) fn build(
         self,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> TimeDifference {
-        let mut diff = match self {
-            Self::Time(other) => TimeDifference::from(other.0),
-            Self::Zoned(other) => TimeDifference::from(other.0),
-            Self::DateTime(other) => TimeDifference::from(other.0),
-        };
-        if let Some(smallest) = smallest {
-            diff = diff.smallest(smallest.0);
-        }
+        let mut diff = TimeDifference::from(self)
+            .increment(increment)
+            .mode(mode.0)
+            .smallest(smallest.0);
         if let Some(largest) = largest {
             diff = diff.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            diff = diff.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            diff = diff.increment(increment);
         }
         diff
     }
@@ -753,7 +805,12 @@ impl TimeDifferenceArg {
 // TimestampDifference
 // ============================================================================
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "TimestampDifference", frozen)]
+#[pyclass(
+    name = "TimestampDifference",
+    frozen,
+    immutable_type,
+    skip_from_py_object
+)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyTimestampDifference {
     timestamp: RyTimestamp,
@@ -768,22 +825,20 @@ impl RyTimestampDifference {
         signature = (
             timestamp,
             *,
-            smallest = None,
-            largest = None,
-            mode = None,
-            increment = 1
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
         ),
     )]
     #[must_use]
     fn py_new(
-        timestamp: &RyTimestamp,
-        smallest: Option<JiffUnit>,
+        timestamp: RyTimestamp,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
+        mode: JiffRoundMode,
         increment: i64,
     ) -> Self {
-        let smallest = smallest.unwrap_or(JiffUnit(jiff::Unit::Nanosecond));
-        let mode = mode.unwrap_or(JiffRoundMode(jiff::RoundMode::Trunc));
         let mut diff = TimestampDifference::new(timestamp.0)
             .smallest(smallest.0)
             .mode(mode.0)
@@ -798,7 +853,7 @@ impl RyTimestampDifference {
             increment,
         };
         Self {
-            timestamp: *timestamp,
+            timestamp,
             options,
             diff,
         }
@@ -809,8 +864,9 @@ impl RyTimestampDifference {
         let kwargs = self.to_dict(py)?.into_bound_py_any(py)?;
         PyTuple::new(py, vec![args, kwargs])
     }
-    fn __repr__(&self) -> String {
-        format!("{self}")
+
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -935,35 +991,49 @@ impl std::fmt::Display for RyTimestampDifference {
 // Zoned/Time/DateTime
 // ============================================================================
 
-#[derive(Debug, Clone, FromPyObject)]
-pub(crate) enum TimestampDifferenceArg {
-    Zoned(RyZoned),
-    Timestamp(RyTimestamp),
+#[derive(Debug, Clone)]
+pub(crate) enum TimestampDifferenceArg<'a, 'py> {
+    Zoned(Borrowed<'a, 'py, RyZoned>),
+    Timestamp(Borrowed<'a, 'py, RyTimestamp>),
 }
 
-impl TimestampDifferenceArg {
+impl<'a, 'py> FromPyObject<'a, 'py> for TimestampDifferenceArg<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(z) = obj.cast_exact::<RyZoned>() {
+            Ok(Self::Zoned(z))
+        } else if let Ok(t) = obj.cast_exact::<RyTimestamp>() {
+            Ok(Self::Timestamp(t))
+        } else {
+            py_type_err!("Expected ZonedDateTime or Timestamp")
+        }
+    }
+}
+
+impl<'a, 'py> From<TimestampDifferenceArg<'a, 'py>> for TimestampDifference {
+    fn from(val: TimestampDifferenceArg<'a, 'py>) -> Self {
+        match val {
+            TimestampDifferenceArg::Zoned(z) => Self::from(&z.get().0),
+            TimestampDifferenceArg::Timestamp(t) => Self::from(t.get().0),
+        }
+    }
+}
+
+impl TimestampDifferenceArg<'_, '_> {
     pub(crate) fn build(
         self,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> TimestampDifference {
-        let mut diff = match self {
-            Self::Zoned(zoned) => TimestampDifference::from(zoned.0),
-            Self::Timestamp(date) => TimestampDifference::from(date.0),
-        };
-        if let Some(smallest) = smallest {
-            diff = diff.smallest(smallest.0);
-        }
+        let mut diff = TimestampDifference::from(self)
+            .increment(increment)
+            .mode(mode.0)
+            .smallest(smallest.0);
         if let Some(largest) = largest {
             diff = diff.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            diff = diff.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            diff = diff.increment(increment);
         }
         diff
     }
@@ -973,7 +1043,12 @@ impl TimestampDifferenceArg {
 // ZonedDateTimeDifference
 // ============================================================================
 #[derive(Debug, Clone)]
-#[pyclass(name = "ZonedDateTimeDifference", frozen)]
+#[pyclass(
+    name = "ZonedDateTimeDifference",
+    frozen,
+    immutable_type,
+    skip_from_py_object
+)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyZonedDifference {
     zoned: RyZoned,
@@ -987,32 +1062,27 @@ impl RyZonedDifference {
         signature = (
             zoned,
             *,
-            smallest = None,
-            largest = None,
-            mode = None,
-            increment = 1
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
         ),
     )]
     #[must_use]
     fn py_new(
-        zoned: &RyZoned,
-        smallest: Option<JiffUnit>,
+        zoned: RyZoned,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
+        mode: JiffRoundMode,
         increment: i64,
     ) -> Self {
-        let smallest = smallest.unwrap_or(JiffUnit(jiff::Unit::Nanosecond));
-        let mode = mode.unwrap_or(JiffRoundMode(jiff::RoundMode::Trunc));
         let options = DifferenceOptions {
             smallest,
             largest,
             mode,
             increment,
         };
-        Self {
-            zoned: zoned.clone(),
-            options,
-        }
+        Self { zoned, options }
     }
 
     fn __getnewargs_ex__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -1021,8 +1091,8 @@ impl RyZonedDifference {
         PyTuple::new(py, vec![args, kwargs])
     }
 
-    fn __repr__(&self) -> String {
-        format!("{self}")
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __eq__(&self, other: &Self) -> bool {

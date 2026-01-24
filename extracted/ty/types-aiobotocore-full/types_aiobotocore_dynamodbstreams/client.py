@@ -3,7 +3,7 @@ Type annotations for dynamodbstreams service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dynamodbstreams/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -39,11 +40,6 @@ from .type_defs import (
     ListStreamsOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -54,12 +50,12 @@ __all__ = ("DynamoDBStreamsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ExpiredIteratorException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TrimmedDataAccessException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ExpiredIteratorException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TrimmedDataAccessException: type[BotocoreClientError]
 
 
 class DynamoDBStreamsClient(AioBaseClient):
@@ -148,7 +144,7 @@ class DynamoDBStreamsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

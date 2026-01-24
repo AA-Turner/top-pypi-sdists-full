@@ -41,9 +41,18 @@ Triple Pressure
 .. autodata:: chemicals.triple.Pt_all_methods
 
 """
+from __future__ import annotations
 
-__all__ = ['Tt_all_methods', 'Tt_methods', 'Tt',
-           'Pt_all_methods', 'Pt_methods', 'Pt']
+from typing import TYPE_CHECKING
+
+__all__: list[str] = [
+    "Pt",
+    "Pt_all_methods",
+    "Pt_methods",
+    "Tt",
+    "Tt_all_methods",
+    "Tt_methods",
+]
 
 from chemicals import data_reader as dr
 from chemicals import miscdata
@@ -56,19 +65,27 @@ from chemicals.data_reader import (
     retrieve_from_df_dict,
 )
 from chemicals.phase_change import Tm
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
+
+if TYPE_CHECKING:
+    from pandas.core.frame import DataFrame
 
 # Register data sources and lazy load them
-folder = os_path_join(source_path, 'Triple Properties')
-register_df_source(folder, 'Staveley 1981.tsv')
+folder = os_path_join(source_path, "Triple Properties")
 
-STAVELEY = 'STAVELEY'
-MELTING = 'MELTING'
+# Module-level variables for lazy-loaded data
+triple_data_Staveley: DataFrame
+Tt_sources: dict[str, DataFrame]
+Pt_sources: dict[str, DataFrame]
+register_df_source(folder, "Staveley 1981.tsv")
+
+STAVELEY = "STAVELEY"
+MELTING = "MELTING"
 
 _triple_data_loaded = False
-def _load_triple_data():
+def _load_triple_data() -> None:
     global triple_data_Staveley, _triple_data_loaded, Tt_sources, Pt_sources
-    triple_data_Staveley = data_source('Staveley 1981.tsv')
+    triple_data_Staveley = data_source("Staveley 1981.tsv")
     _triple_data_loaded = True
     Tt_sources = {
         miscdata.HEOS: miscdata.heos_data,
@@ -77,21 +94,17 @@ def _load_triple_data():
     }
     Pt_sources = Tt_sources.copy()
 
-if PY37:
-    def __getattr__(name):
-        if name in ('triple_data_Staveley', 'Tt_sources', 'Pt_sources'):
-            _load_triple_data()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else:
-    if can_load_data:
+def __getattr__(name: str) -> DataFrame:
+    if name in ("triple_data_Staveley", "Tt_sources", "Pt_sources"):
         _load_triple_data()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 Tt_all_methods = (miscdata.HEOS, STAVELEY, miscdata.WEBBOOK, MELTING)
 """Tuple of method name keys. See the `Tt` for the actual references"""
 
 @mark_numba_incompatible
-def Tt_methods(CASRN):
+def Tt_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the triple temperature for the
     desired chemical.
 
@@ -111,13 +124,13 @@ def Tt_methods(CASRN):
     Tt
     """
     if not _triple_data_loaded: _load_triple_data()
-    methods = list_available_methods_from_df_dict(Tt_sources, CASRN, 'Tt')
+    methods = list_available_methods_from_df_dict(Tt_sources, CASRN, "Tt")
     if Tm(CASRN): methods.append(MELTING)
     return methods
 
 @mark_numba_incompatible
 def Tt(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's triple temperature.
+    r"""This function handles the retrieval of a chemical's triple temperature.
     Lookup is based on CASRNs. Will automatically select a data source to use
     if no method is provided; returns None if the data is not available.
 
@@ -173,18 +186,18 @@ def Tt(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'Tt')
+        val, found = database_constant_lookup(CASRN, "Tt")
         if found: return val
     if not _triple_data_loaded: _load_triple_data()
     if method:
         if method == MELTING:
             return Tm(CASRN)
         else:
-            return retrieve_from_df_dict(Tt_sources, CASRN, 'Tt', method)
+            return retrieve_from_df_dict(Tt_sources, CASRN, "Tt", method)
     else:
-        Tt = retrieve_any_from_df_dict(Tt_sources, CASRN, 'Tt')
+        Tt = retrieve_any_from_df_dict(Tt_sources, CASRN, "Tt")
         if Tt: return Tt
         return Tm(CASRN)
 
@@ -192,7 +205,7 @@ Pt_all_methods = (miscdata.HEOS, STAVELEY, miscdata.WEBBOOK)
 """Tuple of method name keys. See the `Pt` for the actual references"""
 
 @mark_numba_incompatible
-def Pt_methods(CASRN):
+def Pt_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the Pt for the desired chemical.
 
     Parameters
@@ -211,11 +224,11 @@ def Pt_methods(CASRN):
     Pt
     """
     if not _triple_data_loaded: _load_triple_data()
-    return list_available_methods_from_df_dict(Pt_sources, CASRN, 'Pt')
+    return list_available_methods_from_df_dict(Pt_sources, CASRN, "Pt")
 
 @mark_numba_incompatible
 def Pt(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's triple pressure.
+    r"""This function handles the retrieval of a chemical's triple pressure.
     Lookup is based on CASRNs. Will automatically select a data source to use
     if no method is provided; returns None if the data is not available.
 
@@ -267,13 +280,13 @@ def Pt(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'Pt')
+        val, found = database_constant_lookup(CASRN, "Pt")
         if found: return val
     if not _triple_data_loaded: _load_triple_data()
     if method:
-        return retrieve_from_df_dict(Pt_sources, CASRN, 'Pt', method)
+        return retrieve_from_df_dict(Pt_sources, CASRN, "Pt", method)
     else:
-        return retrieve_any_from_df_dict(Pt_sources, CASRN, 'Pt')
+        return retrieve_any_from_df_dict(Pt_sources, CASRN, "Pt")
 

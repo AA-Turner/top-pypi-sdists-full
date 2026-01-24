@@ -2,6 +2,13 @@ import base64
 import json
 
 import typer
+from urllib.parse import urlsplit, urlunsplit
+
+from safety.tool.constants import (
+    NPMJS_PUBLIC_REPOSITORY_URL,
+    PYPI_PUBLIC_REPOSITORY_URL,
+)
+from typing import Optional, Literal
 
 
 def index_credentials(ctx: typer.Context) -> str:
@@ -33,3 +40,29 @@ def index_credentials(ctx: typer.Context) -> str:
         }
     )
     return base64.urlsafe_b64encode(auth_envelop.encode("utf-8")).decode("utf-8")
+
+
+def build_index_url(
+    ctx: typer.Context, index_url: Optional[str], index_type: Literal["pypi", "npm"]
+) -> str:
+    """
+    Builds the index URL for the current context.
+    """
+    if index_url is None:
+        # TODO: Make this to select the index based on auth org or project
+        index_url = {
+            "pypi": PYPI_PUBLIC_REPOSITORY_URL,
+            "npm": NPMJS_PUBLIC_REPOSITORY_URL,
+        }[index_type]
+
+    url = urlsplit(index_url)
+
+    encoded_auth = index_credentials(ctx)
+    netloc = f"user:{encoded_auth}@{url.netloc}"
+
+    if type(url.netloc) is bytes:
+        url = url._replace(netloc=netloc.encode("utf-8"))
+    elif type(url.netloc) is str:
+        url = url._replace(netloc=netloc)
+
+    return urlunsplit(url)

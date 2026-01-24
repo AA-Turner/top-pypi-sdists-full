@@ -6,11 +6,12 @@ from langgraph.types import Interrupt, StateSnapshot
 
 from langgraph_api.feature_flags import USE_NEW_INTERRUPTS
 from langgraph_api.js.base import RemoteInterrupt
-from langgraph_api.schema import Checkpoint, DeprecatedInterrupt, ThreadState
-from langgraph_api.schema import Interrupt as InterruptSchema
 
 if typing.TYPE_CHECKING:
     from langchain_core.runnables.config import RunnableConfig
+
+    from langgraph_api.schema import Checkpoint, DeprecatedInterrupt, ThreadState
+    from langgraph_api.schema import Interrupt as InterruptSchema
 
 
 def runnable_config_to_checkpoint(

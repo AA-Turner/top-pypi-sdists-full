@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: smbus2
-Version: 0.5.0
+Version: 0.6.0
 Summary: smbus2 is a drop-in replacement for smbus-cffi/smbus-python in pure Python
 Home-page: https://github.com/kplindegaard/smbus2
 Author: Karl-Petter Lindegaard
@@ -21,12 +21,24 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: docs
 Requires-Dist: sphinx>=1.5.3; extra == "docs"
 Provides-Extra: qa
 Requires-Dist: flake8; extra == "qa"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 # smbus2
 A drop-in replacement for smbus-cffi/smbus-python in pure Python

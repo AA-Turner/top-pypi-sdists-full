@@ -4,12 +4,12 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 import pydantic
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class Ethnicity(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -78,22 +78,72 @@ class PropertyScimUserUrnIetfParamsScimSchemasExtensionLatticeAttributes10User(
 
     birth_date: Annotated[Optional[datetime], pydantic.Field(alias="birthDate")] = None
 
-    ethnicity: Annotated[
-        Optional[Ethnicity], PlainValidator(validate_open_enum(False))
-    ] = None
+    ethnicity: Optional[Ethnicity] = None
 
-    gender: Annotated[
-        Optional[
-            PropertyScimUserUrnIetfParamsScimSchemasExtensionLatticeAttributes10UserGender
-        ],
-        PlainValidator(validate_open_enum(False)),
+    gender: Optional[
+        PropertyScimUserUrnIetfParamsScimSchemasExtensionLatticeAttributes10UserGender
     ] = None
 
     sexual_orientation: Annotated[
-        Annotated[
-            Optional[SexualOrientation], PlainValidator(validate_open_enum(False))
-        ],
-        pydantic.Field(alias="sexualOrientation"),
+        Optional[SexualOrientation], pydantic.Field(alias="sexualOrientation")
     ] = None
 
     start_date: Annotated[Optional[datetime], pydantic.Field(alias="startDate")] = None
+
+    @field_serializer("ethnicity")
+    def serialize_ethnicity(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Ethnicity(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("gender")
+    def serialize_gender(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.PropertyScimUserUrnIetfParamsScimSchemasExtensionLatticeAttributes10UserGender(
+                    value
+                )
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("sexual_orientation")
+    def serialize_sexual_orientation(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.SexualOrientation(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "Job Level",
+                "People Manager (Reviews)",
+                "Remote Work - Location",
+                "Salary Information",
+                "Sub Departments",
+                "birthDate",
+                "ethnicity",
+                "gender",
+                "sexualOrientation",
+                "startDate",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

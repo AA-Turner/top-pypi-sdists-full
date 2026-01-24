@@ -27,7 +27,6 @@ from ..experimental import read_dispatched
 from .specs import read_elem, write_elem
 from .specs.registry import IOSpec, write_spec
 from .utils import (
-    H5PY_V3,
     _read_legacy_raw,
     idx_chunks_along_axis,
     no_write_dataset_2d,
@@ -42,6 +41,7 @@ if TYPE_CHECKING:
 
     from .._core.file_backing import AnnDataFileManager
     from .._core.raw import Raw
+    from .._types import StorageType
 
 T = TypeVar("T")
 
@@ -262,17 +262,15 @@ def read_h5ad(
 
     with h5py.File(filename, "r") as f:
 
-        def callback(func, elem_name: str, elem, iospec):
+        def callback(read_func, elem_name: str, elem: StorageType, iospec: IOSpec):
             if iospec.encoding_type == "anndata" or elem_name.endswith("/"):
-                return AnnData(
-                    **{
-                        # This is covering up backwards compat in the anndata initializer
-                        # In most cases we should be able to call `func(elen[k])` instead
-                        k: read_dispatched(elem[k], callback)
-                        for k in elem
-                        if not k.startswith("raw.")
-                    }
-                )
+                return AnnData(**{
+                    # This is covering up backwards compat in the anndata initializer
+                    # In most cases we should be able to call `func(elen[k])` instead
+                    k: read_dispatched(elem[k], callback)
+                    for k in elem
+                    if not k.startswith("raw.")
+                })
             elif elem_name.startswith("/raw."):
                 return None
             elif elem_name == "/X" and "X" in as_sparse:
@@ -282,7 +280,7 @@ def read_h5ad(
             elif elem_name in {"/obs", "/var"}:
                 # Backwards compat
                 return read_dataframe(elem)
-            return func(elem)
+            return read_func(elem)
 
         adata = read_dispatched(f, callback=callback)
 
@@ -326,16 +324,12 @@ def read_dataframe_legacy(dataset: h5py.Dataset) -> pd.DataFrame:
         "Consider rewriting it."
     )
     warn(msg, OldFormatWarning, stacklevel=2)
-    if H5PY_V3:
-        df = pd.DataFrame(
-            _decode_structured_array(
-                _from_fixed_length_strings(dataset[()]), dtype=dataset.dtype
-            )
+    df = pd.DataFrame(
+        _decode_structured_array(
+            _from_fixed_length_strings(dataset[()]), dtype=dataset.dtype
         )
-    else:
-        df = pd.DataFrame(_from_fixed_length_strings(dataset[()]))
-    df.set_index(df.columns[0], inplace=True)
-    return df
+    )
+    return df.set_index(df.columns[0])
 
 
 def read_dataframe(group: h5py.Group | h5py.Dataset) -> pd.DataFrame:
@@ -348,10 +342,9 @@ def read_dataframe(group: h5py.Group | h5py.Dataset) -> pd.DataFrame:
 
 @report_read_key_on_error
 def read_dataset(dataset: h5py.Dataset):
-    if H5PY_V3:
-        string_dtype = h5py.check_string_dtype(dataset.dtype)
-        if (string_dtype is not None) and (string_dtype.encoding == "utf-8"):
-            dataset = dataset.asstr()
+    string_dtype = h5py.check_string_dtype(dataset.dtype)
+    if (string_dtype is not None) and (string_dtype.encoding == "utf-8"):
+        dataset = dataset.asstr()
     value = dataset[()]
     if not hasattr(value, "dtype"):
         return value
@@ -364,10 +357,9 @@ def read_dataset(dataset: h5py.Dataset):
             return value[0]
     elif len(value.dtype.descr) > 1:  # Compound dtype
         # For backwards compat, now strings are written as variable length
-        dtype = value.dtype
-        value = _from_fixed_length_strings(value)
-        if H5PY_V3:
-            value = _decode_structured_array(value, dtype=dtype)
+        value = _decode_structured_array(
+            _from_fixed_length_strings(value), dtype=value.dtype
+        )
     if value.shape == ():
         value = value[()]
     return value

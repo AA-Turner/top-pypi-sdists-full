@@ -231,14 +231,16 @@ class RandomId(pulumi.CustomResource):
                 "ami_id": ami_id,
             },
             byte_length=8)
-        server_instance = aws.ec2.Instance("server",
+        server_instance = aws.index.Instance("server",
             tags={
-                "Name": server.hex.apply(lambda hex: f"web-server {hex}"),
+                name: fweb-server {server.hex},
             },
-            ami=server.keepers["amiId"])
+            ami=server.keepers.ami_id)
         ```
 
         ## Import
+
+        The `pulumi import` command can be used, for example:
 
         Random IDs can be imported using the b64_url with an optional prefix. This
 
@@ -300,14 +302,16 @@ class RandomId(pulumi.CustomResource):
                 "ami_id": ami_id,
             },
             byte_length=8)
-        server_instance = aws.ec2.Instance("server",
+        server_instance = aws.index.Instance("server",
             tags={
-                "Name": server.hex.apply(lambda hex: f"web-server {hex}"),
+                name: fweb-server {server.hex},
             },
-            ami=server.keepers["amiId"])
+            ami=server.keepers.ami_id)
         ```
 
         ## Import
+
+        The `pulumi import` command can be used, for example:
 
         Random IDs can be imported using the b64_url with an optional prefix. This
 

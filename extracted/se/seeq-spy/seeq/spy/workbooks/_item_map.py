@@ -28,9 +28,17 @@ class ItemMap:
                 self.fall_through)
 
     def __setstate__(self, state):
+        def get(i, default=None):
+            return state[i] if i < len(state) else default
+
+        # Accessing by index with a default allows us to maintain compatibility with previously-pickled ItemMap objects
         self.data_item_cache = _common.LRUCache()
-        (self._item_map, self._lookup_df, self._logs, self._dummy_items, self.only_override_maps,
-         self.fall_through) = state
+        self._item_map = get(0, dict())
+        self._lookup_df = get(1)
+        self._logs = get(2, dict())
+        self._dummy_items = get(3, pd.DataFrame({'ID': pd.Series(dtype=str)}))
+        self.only_override_maps = get(4, False)
+        self.fall_through = get(5, False)
 
     def __init__(self, item_map=None, lookup_df: Optional[pd.DataFrame] = None):
         self._item_map = item_map if item_map is not None else dict()

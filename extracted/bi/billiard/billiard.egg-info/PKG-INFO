@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: billiard
-Version: 4.2.2
+Version: 4.2.4
 Summary: Python multiprocessing fork with improvements and bugfixes
 Home-page: https://github.com/celery/billiard
 Author: R Oudkerk / Python Software Foundation
@@ -36,7 +36,7 @@ billiard
 
 |build-status-lin| |build-status-win| |license| |wheel| |pyversion| |pyimp|
 
-:Version: 4.2.2
+:Version: 4.2.4
 :Web: https://billiard.readthedocs.io
 :Download: https://pypi.org/project/billiard/
 :Source: https://github.com/celery/billiard/

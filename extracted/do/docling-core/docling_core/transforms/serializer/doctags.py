@@ -1,7 +1,7 @@
 """Define classes for Doctags serialization."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
 from typing_extensions import override
@@ -23,6 +23,7 @@ from docling_core.transforms.serializer.base import (
 from docling_core.transforms.serializer.common import (
     CommonParams,
     DocSerializer,
+    _should_use_legacy_annotations,
     create_ser_result,
 )
 from docling_core.types.doc.base import BoundingBox
@@ -44,11 +45,12 @@ from docling_core.types.doc.document import (
     PictureTabularChartData,
     ProvenanceItem,
     SectionHeaderItem,
+    TableData,
     TableItem,
     TextItem,
 )
 from docling_core.types.doc.labels import DocItemLabel, PictureClassificationLabel
-from docling_core.types.doc.tokens import DocumentToken
+from docling_core.types.doc.tokens import DocumentToken, TableToken
 
 
 def _wrap(text: str, wrap_tag: str) -> str:
@@ -74,6 +76,8 @@ class DocTagsParams(CommonParams):
     add_page_break: bool = True
 
     mode: Mode = Mode.HUMAN_FRIENDLY
+
+    do_self_closing: bool = False
 
 
 def _get_delim(params: DocTagsParams) -> str:
@@ -102,17 +106,25 @@ class DocTagsTextSerializer(BaseModel, BaseTextSerializer):
         """Serializes the passed item."""
         my_visited = visited if visited is not None else set()
         params = DocTagsParams(**kwargs)
-        wrap_tag: Optional[str] = DocumentToken.create_token_name_from_doc_item_label(
+        # Decide wrapping up-front so ListItem never gets wrapped here
+        wrap_tag_token: Optional[str] = DocumentToken.create_token_name_from_doc_item_label(
             label=item.label,
             **({"level": item.level} if isinstance(item, SectionHeaderItem) else {}),
         )
+        wrap_tag: Optional[str] = None if isinstance(item, ListItem) else wrap_tag_token
         parts: list[str] = []
+
+        if item.meta:
+            meta_res = doc_serializer.serialize_meta(item=item, **kwargs)
+            if meta_res.text:
+                parts.append(meta_res.text)
 
         if params.add_location:
             location = item.get_location_tokens(
                 doc=doc,
                 xsize=params.xsize,
                 ysize=params.ysize,
+                self_closing=params.do_self_closing,
             )
             if location:
                 parts.append(location)
@@ -121,9 +133,7 @@ class DocTagsTextSerializer(BaseModel, BaseTextSerializer):
             if (
                 item.text == ""
                 and len(item.children) == 1
-                and isinstance(
-                    (child_group := item.children[0].resolve(doc)), InlineGroup
-                )
+                and isinstance((child_group := item.children[0].resolve(doc)), InlineGroup)
             ):
                 ser_res = doc_serializer.serialize(item=child_group, visited=my_visited)
                 text_part = ser_res.text
@@ -137,12 +147,11 @@ class DocTagsTextSerializer(BaseModel, BaseTextSerializer):
             if isinstance(item, CodeItem):
                 language_token = DocumentToken.get_code_language_token(
                     code_language=item.code_language,
+                    self_closing=params.do_self_closing,
                 )
                 text_part = f"{language_token}{text_part}"
             else:
                 text_part = text_part.strip()
-                if isinstance(item, ListItem):
-                    wrap_tag = None  # deferring list item tags to list handling
 
             if text_part:
                 parts.append(text_part)
@@ -160,6 +169,9 @@ class DocTagsTextSerializer(BaseModel, BaseTextSerializer):
 
 class DocTagsTableSerializer(BaseTableSerializer):
     """DocTags-specific table item serializer."""
+
+    def _get_table_token(self) -> Any:
+        return TableToken
 
     @override
     def serialize(
@@ -182,16 +194,19 @@ class DocTagsTableSerializer(BaseTableSerializer):
                     doc=doc,
                     xsize=params.xsize,
                     ysize=params.ysize,
+                    self_closing=params.do_self_closing,
                 )
                 res_parts.append(create_ser_result(text=loc_text, span_source=item))
 
             otsl_text = item.export_to_otsl(
                 doc=doc,
                 add_cell_location=params.add_table_cell_location,
-                add_cell_text=params.add_table_cell_text,
+                # Suppress cell text when global content is disabled
+                add_cell_text=(params.add_table_cell_text and params.add_content),
                 xsize=params.xsize,
                 ysize=params.ysize,
                 visited=visited,
+                table_token=self._get_table_token(),
             )
             res_parts.append(create_ser_result(text=otsl_text, span_source=item))
 
@@ -231,15 +246,24 @@ class DocTagsPictureSerializer(BasePictureSerializer):
                     doc=doc,
                     xsize=params.xsize,
                     ysize=params.ysize,
+                    self_closing=params.do_self_closing,
                 )
 
-            classifications = [
-                ann
-                for ann in item.annotations
-                if isinstance(ann, PictureClassificationData)
-            ]
-            if len(classifications) > 0:
-                predicted_class = classifications[0].predicted_classes[0].class_name
+            # handle classification data
+            predicted_class: Optional[str] = None
+            if item.meta:
+                if item.meta.classification:
+                    predicted_class = item.meta.classification.get_main_prediction().class_name
+            elif _should_use_legacy_annotations(
+                params=params,
+                item=item,
+                kind=PictureClassificationData.model_fields["kind"].default,
+            ):
+                if classifications := [ann for ann in item.annotations if isinstance(ann, PictureClassificationData)]:
+                    if classifications[0].predicted_classes:
+                        predicted_class = classifications[0].predicted_classes[0].class_name
+            if predicted_class:
+                body += DocumentToken.get_picture_classification_token(predicted_class)
                 if predicted_class in [
                     PictureClassificationLabel.PIE_CHART,
                     PictureClassificationLabel.BAR_CHART,
@@ -250,29 +274,40 @@ class DocTagsPictureSerializer(BasePictureSerializer):
                     PictureClassificationLabel.HEATMAP,
                 ]:
                     is_chart = True
-                body += DocumentToken.get_picture_classification_token(predicted_class)
 
-            smiles_annotations = [
-                ann for ann in item.annotations if isinstance(ann, PictureMoleculeData)
-            ]
-            if len(smiles_annotations) > 0:
-                body += _wrap(
-                    text=smiles_annotations[0].smi, wrap_tag=DocumentToken.SMILES.value
-                )
+            # handle molecule data
+            smi: Optional[str] = None
+            if item.meta:
+                if item.meta.molecule:
+                    smi = item.meta.molecule.smi
+            elif _should_use_legacy_annotations(
+                params=params,
+                item=item,
+                kind=PictureMoleculeData.model_fields["kind"].default,
+            ):
+                if smiles_annotations := [ann for ann in item.annotations if isinstance(ann, PictureMoleculeData)]:
+                    smi = smiles_annotations[0].smi
+            if smi:
+                body += _wrap(text=smi, wrap_tag=DocumentToken.SMILES.value)
 
-            tabular_chart_annotations = [
-                ann
-                for ann in item.annotations
-                if isinstance(ann, PictureTabularChartData)
-            ]
-            if len(tabular_chart_annotations) > 0:
+            # handle tabular chart data
+            chart_data: Optional[TableData] = None
+            if item.meta:
+                if item.meta.tabular_chart:
+                    chart_data = item.meta.tabular_chart.chart_data
+            elif _should_use_legacy_annotations(
+                params=params,
+                item=item,
+                kind=PictureTabularChartData.model_fields["kind"].default,
+            ):
+                if tabular_chart_annotations := [
+                    ann for ann in item.annotations if isinstance(ann, PictureTabularChartData)
+                ]:
+                    chart_data = tabular_chart_annotations[0].chart_data
+            if chart_data and chart_data.table_cells:
                 temp_doc = DoclingDocument(name="temp")
-                temp_table = temp_doc.add_table(
-                    data=tabular_chart_annotations[0].chart_data
-                )
-                otsl_content = temp_table.export_to_otsl(
-                    temp_doc, add_cell_location=False
-                )
+                temp_table = temp_doc.add_table(data=chart_data)
+                otsl_content = temp_table.export_to_otsl(temp_doc, add_cell_location=False)
                 body += otsl_content
             res_parts.append(create_ser_result(text=body, span_source=item))
 
@@ -316,14 +351,13 @@ class DocTagsKeyValueSerializer(BaseKeyValueSerializer):
                 doc=doc,
                 xsize=params.xsize,
                 ysize=params.ysize,
+                self_closing=params.do_self_closing,
             )
 
         # mapping from source_cell_id to a list of target_cell_ids
-        source_to_targets: Dict[int, List[int]] = {}
+        source_to_targets: dict[int, list[int]] = {}
         for link in item.graph.links:
-            source_to_targets.setdefault(link.source_cell_id, []).append(
-                link.target_cell_id
-            )
+            source_to_targets.setdefault(link.source_cell_id, []).append(link.target_cell_id)
 
         for cell in item.graph.cells:
             cell_txt = ""
@@ -407,13 +441,10 @@ class DocTagsListSerializer(BaseModel, BaseListSerializer):
             **kwargs,
         )
         delim = _get_delim(params=params)
+
         if parts:
             text_res = delim.join(
-                [
-                    t
-                    for p in parts
-                    if (t := _wrap(text=p.text, wrap_tag=DocumentToken.LIST_ITEM.value))
-                ]
+                [t for p in parts if (t := _wrap(text=p.text, wrap_tag=DocumentToken.LIST_ITEM.value))]
             )
             text_res = f"{text_res}{delim}"
             wrap_tag = (
@@ -433,7 +464,6 @@ class DocTagsInlineSerializer(BaseInlineSerializer):
     def _get_inline_location_tags(
         self, doc: DoclingDocument, item: InlineGroup, params: DocTagsParams
     ) -> SerializationResult:
-
         prov: Optional[ProvenanceItem] = None
         boxes: list[BoundingBox] = []
         doc_items: list[DocItem] = []
@@ -456,6 +486,7 @@ class DocTagsInlineSerializer(BaseInlineSerializer):
             page_h=page_h,
             xsize=params.xsize,
             ysize=params.ysize,
+            self_closing=params.do_self_closing,
         )
 
         return SerializationResult(
@@ -477,7 +508,7 @@ class DocTagsInlineSerializer(BaseInlineSerializer):
         """Serializes the passed item."""
         my_visited = visited if visited is not None else set()
         params = DocTagsParams(**kwargs)
-        parts: List[SerializationResult] = []
+        parts: list[SerializationResult] = []
         if params.add_location:
             inline_loc_tags_ser_res = self._get_inline_location_tags(
                 doc=doc,
@@ -582,17 +613,19 @@ class DocTagsDocSerializer(DocSerializer):
         results: list[SerializationResult] = []
         if item.captions:
             cap_res = super().serialize_captions(item, **kwargs)
-            if cap_res.text:
-                if params.add_location:
-                    for caption in item.captions:
-                        if caption.cref not in self.get_excluded_refs(**kwargs):
-                            if isinstance(cap := caption.resolve(self.doc), DocItem):
-                                loc_txt = cap.get_location_tokens(
-                                    doc=self.doc,
-                                    xsize=params.xsize,
-                                    ysize=params.ysize,
-                                )
-                                results.append(create_ser_result(text=loc_txt))
+            if cap_res.text and params.add_location:
+                for caption in item.captions:
+                    if caption.cref not in self.get_excluded_refs(**kwargs):
+                        if isinstance(cap := caption.resolve(self.doc), DocItem):
+                            loc_txt = cap.get_location_tokens(
+                                doc=self.doc,
+                                xsize=params.xsize,
+                                ysize=params.ysize,
+                                self_closing=params.do_self_closing,
+                            )
+                            results.append(create_ser_result(text=loc_txt))
+            # Only include caption textual content when add_content is True
+            if cap_res.text and params.add_content:
                 results.append(cap_res)
         text_res = "".join([r.text for r in results])
         if text_res:

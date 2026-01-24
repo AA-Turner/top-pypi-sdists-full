@@ -84,28 +84,33 @@ def validate_engine(engine):
     Property: DBCluster.Engine
     """
 
-    VALID_DB_ENGINES = (
-        "MySQL",
-        "mysql",
-        "oracle-se1",
-        "oracle-se2",
-        "oracle-se",
-        "oracle-ee",
-        "sqlserver-ee",
-        "sqlserver-se",
-        "sqlserver-ex",
-        "sqlserver-web",
-        "postgres",
-        "aurora",
+    VALID_DB_ENGINES = {
         "aurora-mysql",
         "aurora-postgresql",
-        "mariadb",
         "custom-oracle-ee",
         "custom-oracle-ee-cdb",
         "custom-sqlserver-ee",
         "custom-sqlserver-se",
         "custom-sqlserver-web",
-    )
+        "db2-ae",
+        "db2-se",
+        "mariadb",
+        "mysql",
+        "oracle-ee",
+        "oracle-ee-cdb",
+        "oracle-se2",
+        "oracle-se2-cdb",
+        "postgres",
+        "sqlserver-ee",
+        "sqlserver-se",
+        "sqlserver-ex",
+        "sqlserver-web",
+        # Old engines from previous versions of troposphere
+        "aurora",
+        "MySQL",
+        "oracle-se",
+        "oracle-se1",
+    }
 
     if engine not in VALID_DB_ENGINES:
         raise ValueError(
@@ -425,7 +430,7 @@ def validate_dbinstance(self) -> None:
         and not isinstance(storage_type, (AWSHelperFn, nonetype))
         and engine
         and not isinstance(engine, (AWSHelperFn, nonetype))
-        and "oracle" in engine
+        and engine in ["oracle"]
         and storage_type in ["gp3"]
         and not isinstance(allocated_storage, AWSHelperFn)
         and int(allocated_storage) < 200
@@ -443,7 +448,11 @@ def validate_dbinstance(self) -> None:
         and storage_type not in ["gp3"]
     ):
         min_storage_size = 100
-        if not isinstance(engine, AWSHelperFn) and engine.startswith("sqlserver"):
+        if (
+            engine
+            and not isinstance(engine, AWSHelperFn)
+            and engine.startswith("sqlserver")
+        ):
             min_storage_size = 20
 
         if (
@@ -466,6 +475,7 @@ def validate_dbinstance(self) -> None:
         not dbclusteridentifier
         and iops
         and not isinstance(iops, AWSHelperFn)
+        and not isinstance(engine, (AWSHelperFn, nonetype))
         and storage_type in ["gp3"]
     ):
         # https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Storage.html#gp3-storage
@@ -473,9 +483,9 @@ def validate_dbinstance(self) -> None:
         max_iops_to_allocated_storage_ratio = 500.0
         if engine in ["mariadb", "mysql", "postgres"]:
             min_storage_size = 400
-        elif "oracle" in engine:
+        elif engine.startswith("oracle"):
             min_storage_size = 200
-        elif "sqlserver" in engine:
+        elif engine.startswith("sqlserver"):
             min_storage_size = 20
             min_iops_to_allocated_storage_ratio = 0.5
         else:

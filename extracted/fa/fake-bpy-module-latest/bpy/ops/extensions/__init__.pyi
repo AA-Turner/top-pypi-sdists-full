@@ -9,11 +9,7 @@ def package_disable(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Turn off this extension
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Turn off this extension"""
 
 def package_install(
     execution_context: int | str | None = None,
@@ -29,20 +25,12 @@ def package_install(
 ) -> None:
     """Download and install the extension
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param repo_directory: Repo Directory
-    :type repo_directory: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param enable_on_install: Enable on Install, Enable after installing
-    :type enable_on_install: bool | None
     :param url: URL
-    :type url: str
     :param do_legacy_replace: Do Legacy Replace
-    :type do_legacy_replace: bool | None
     """
 
 def package_install_files(
@@ -63,26 +51,15 @@ def package_install_files(
 ) -> None:
     """Install extensions from files into a locally managed repository
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filter_glob: filter_glob
-    :type filter_glob: str
     :param directory: Directory
-    :type directory: str
     :param files: files
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     :param filepath: filepath
-    :type filepath: str
     :param repo: User Repository, The user repository to install extensions into
-    :type repo: str | None
     :param enable_on_install: Enable on Install, Enable after installing
-    :type enable_on_install: bool | None
     :param target: Legacy Target Path, Path to install legacy add-on packages to
-    :type target: str | None
     :param overwrite: Legacy Overwrite, Remove existing add-ons with the same ID
-    :type overwrite: bool | None
     :param url: URL
-    :type url: str
     """
 
 def package_install_marked(
@@ -94,10 +71,7 @@ def package_install_marked(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param enable_on_install: Enable on Install, Enable after installing
-    :type enable_on_install: bool | None
     """
 
 def package_mark_clear(
@@ -110,12 +84,8 @@ def package_mark_clear(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_mark_clear_all(
@@ -123,11 +93,7 @@ def package_mark_clear_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def package_mark_set(
     execution_context: int | str | None = None,
@@ -139,12 +105,8 @@ def package_mark_set(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_mark_set_all(
@@ -152,22 +114,14 @@ def package_mark_set_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def package_obsolete_marked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Zeroes package versions, useful for development - to test upgrading
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Zeroes package versions, useful for development - to test upgrading"""
 
 def package_show_clear(
     execution_context: int | str | None = None,
@@ -179,12 +133,8 @@ def package_show_clear(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_show_set(
@@ -197,12 +147,8 @@ def package_show_set(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_show_settings(
@@ -215,12 +161,8 @@ def package_show_settings(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_theme_disable(
@@ -233,12 +175,8 @@ def package_theme_disable(
 ) -> None:
     """Turn off this theme
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_theme_enable(
@@ -251,12 +189,8 @@ def package_theme_enable(
 ) -> None:
     """Turn off this theme
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def package_uninstall(
@@ -270,14 +204,9 @@ def package_uninstall(
 ) -> None:
     """Disable and uninstall the extension
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param repo_directory: Repo Directory
-    :type repo_directory: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     :param pkg_id: Package ID
-    :type pkg_id: str
     """
 
 def package_uninstall_marked(
@@ -285,22 +214,14 @@ def package_uninstall_marked(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def package_uninstall_system(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def package_upgrade_all(
     execution_context: int | str | None = None,
@@ -311,10 +232,7 @@ def package_upgrade_all(
 ) -> None:
     """Upgrade all the extensions to their latest version for all the remote repositories
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_active_only: Active Only, Only sync the active repository
-    :type use_active_only: bool | None
     """
 
 def repo_enable_from_drop(
@@ -326,10 +244,7 @@ def repo_enable_from_drop(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def repo_lock_all(
@@ -337,11 +252,7 @@ def repo_lock_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Lock repositories - to test locking
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Lock repositories - to test locking"""
 
 def repo_refresh_all(
     execution_context: int | str | None = None,
@@ -352,10 +263,7 @@ def repo_refresh_all(
 ) -> None:
     """Scan extension & legacy add-ons for changes to modules & meta-data (similar to restarting). Any issues are reported as warnings
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_active_only: Active Only, Only refresh the active repository
-    :type use_active_only: bool | None
     """
 
 def repo_sync(
@@ -368,12 +276,8 @@ def repo_sync(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param repo_directory: Repo Directory
-    :type repo_directory: str
     :param repo_index: Repo Index
-    :type repo_index: int | None
     """
 
 def repo_sync_all(
@@ -385,10 +289,7 @@ def repo_sync_all(
 ) -> None:
     """Refresh the list of extensions for all the remote repositories
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_active_only: Active Only, Only sync the active repository
-    :type use_active_only: bool | None
     """
 
 def repo_unlock(
@@ -396,88 +297,56 @@ def repo_unlock(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the repository file-system lock
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the repository file-system lock"""
 
 def repo_unlock_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Unlock repositories - to test unlocking
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Unlock repositories - to test unlocking"""
 
 def status_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def status_clear_errors(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def userpref_allow_online(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality"""
 
 def userpref_allow_online_popup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality"""
 
 def userpref_show_for_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Open extensions preferences
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Open extensions preferences"""
 
 def userpref_show_online(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Show system preferences "Network" panel to allow online access
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Show system preferences "Network" panel to allow online access"""
 
 def userpref_tags_set(
     execution_context: int | str | None = None,
@@ -489,10 +358,6 @@ def userpref_tags_set(
 ) -> None:
     """Set the value of all tags
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param value: Value, Enable or disable all tags
-    :type value: bool | None
     :param data_path: Data Path
-    :type data_path: str
     """

@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from robot.api import Token
 from robot.parsing.model.blocks import Keyword, TestCase
 from robot.parsing.model.statements import Comment, EmptyLine, KeywordCall
-from robot.parsing.model.visitor import ModelVisitor
 
 from robocop.linter.utils.misc import ROBOT_VERSION
 
@@ -38,14 +37,14 @@ class TrailingWhitespaceRule(Rule):
 
     Invisible, unnecessary whitespace can be confusing.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***  \n
         Validate Result\n
         [Arguments]    ${variable}\n
             Should Be True    ${variable}    \n
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***\n
         Validate Result\n
@@ -63,6 +62,7 @@ class TrailingWhitespaceRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1001",)
 
 
 class MissingTrailingBlankLineRule(Rule):
@@ -77,6 +77,7 @@ class MissingTrailingBlankLineRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1002",)
 
 
 class EmptyLinesBetweenSectionsRule(Rule):
@@ -85,7 +86,7 @@ class EmptyLinesBetweenSectionsRule(Rule):
 
     Ensure there is the same number of empty lines between sections for consistency and readability.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Settings ***
         Documentation    Only one empty line after this section.
@@ -94,7 +95,7 @@ class EmptyLinesBetweenSectionsRule(Rule):
         Keyword Definition
             No Operation
 
-    Correct code::
+    Correct code:
 
         *** Settings ***
         Documentation    Only one empty line after this section.
@@ -123,6 +124,7 @@ class EmptyLinesBetweenSectionsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1003",)
 
 
 class EmptyLinesBetweenTestCasesRule(Rule):
@@ -131,7 +133,7 @@ class EmptyLinesBetweenTestCasesRule(Rule):
 
     Ensure there is the same number of empty lines between test cases for consistency and readability.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Test Cases ***
         First test case
@@ -141,7 +143,7 @@ class EmptyLinesBetweenTestCasesRule(Rule):
         Second test case
             No Operation
 
-    Correct code::
+    Correct code:
 
         *** Test Cases ***
         First test case
@@ -169,6 +171,7 @@ class EmptyLinesBetweenTestCasesRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1004",)
 
 
 class EmptyLinesBetweenKeywordsRule(Rule):
@@ -177,7 +180,7 @@ class EmptyLinesBetweenKeywordsRule(Rule):
 
     Ensure there is the same number of empty lines between keywords for consistency and readability.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         First Keyword
@@ -187,7 +190,7 @@ class EmptyLinesBetweenKeywordsRule(Rule):
         Second Keyword
             No Operation
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         First Keyword
@@ -215,11 +218,12 @@ class EmptyLinesBetweenKeywordsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1005",)
 
 
 class MixedTabsAndSpacesRule(Rule):
     """
-    Mixed tabs and spaces in file.
+    Mixed tabs and spaces in the file.
 
     File contains both spaces and tabs. Use only one type of separators - preferably spaces.
     """
@@ -227,23 +231,23 @@ class MixedTabsAndSpacesRule(Rule):
     name = "mixed-tabs-and-spaces"
     rule_id = "SPC06"
     message = "Inconsistent use of tabs and spaces in file"
-    file_wide_rule = True
     severity = RuleSeverity.WARNING
     added_in_version = "1.1.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1006",)
 
 
 class BadIndentRule(Rule):
     """
     Line is misaligned or indent is invalid.
 
-    This rule reports warning if the line is misaligned in the current block.
+    This rule reports a warning if the line is misaligned in the current block.
     The correct indentation is determined by the most common indentation in the current block.
-    It is possible to switch for more strict mode using ``indent`` parameter (default ``-1``).
+    It is possible to switch for stricter mode using the `` indent `` parameter (default ``-1``).
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Keyword
@@ -252,7 +256,7 @@ class BadIndentRule(Rule):
             IF    $condition    RETURN
            Keyword Call
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Keyword
@@ -284,6 +288,7 @@ class BadIndentRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1008",)
 
 
 class EmptyLineAfterSectionRule(Rule):
@@ -292,13 +297,13 @@ class EmptyLineAfterSectionRule(Rule):
 
     Empty lines after the section header are not allowed by default.
 
-    Incorrect code example::
+    Incorrect code example:
 
          *** Test Cases ***
 
          Test case name
 
-    Correct code::
+    Correct code:
 
          *** Test Cases ***
          Test case name
@@ -323,6 +328,7 @@ class EmptyLineAfterSectionRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1009",)
 
 
 class TooManyTrailingBlankLinesRule(Rule):
@@ -342,13 +348,14 @@ class TooManyTrailingBlankLinesRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1010",)
 
 
 class MisalignedContinuationRule(Rule):
     """
     Misaligned continuation marker.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Settings ***
             Default Tags       default tag 1    default tag 2    default tag 3
@@ -359,7 +366,7 @@ class MisalignedContinuationRule(Rule):
             Do X    first argument    second argument    third argument
           ...    fourth argument    fifth argument    sixth argument
 
-    Correct code::
+    Correct code:
 
         *** Settings ***
         Default Tags       default tag 1    default tag 2    default tag 3
@@ -381,13 +388,14 @@ class MisalignedContinuationRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1011",)
 
 
 class ConsecutiveEmptyLinesRule(Rule):
     """
     Too many consecutive empty lines.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Variables ***
         ${VAR}    value
@@ -403,7 +411,7 @@ class ConsecutiveEmptyLinesRule(Rule):
 
             Step 2
 
-    Correct code::
+    Correct code:
 
         *** Variables ***
         ${VAR}    value
@@ -441,6 +449,7 @@ class ConsecutiveEmptyLinesRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1012",)
 
 
 class EmptyLinesInStatementRule(Rule):
@@ -449,7 +458,7 @@ class EmptyLinesInStatementRule(Rule):
 
     Avoid using empty lines between continuation markers in multi line statement.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Test Cases ***
         Test case
@@ -460,7 +469,7 @@ class EmptyLinesInStatementRule(Rule):
 
             ...  3
 
-    Correct code::
+    Correct code:
 
         *** Test Cases ***
         Test case
@@ -480,19 +489,20 @@ class EmptyLinesInStatementRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1013",)
 
 
 class VariableNotLeftAlignedRule(Rule):
     """
     Variable in ``*** Variables ***`` section should be left aligned.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Variables ***
          ${VAR}  1
           ${VAR2}  2
 
-    Correct code::
+    Correct code:
 
         *** Variables ***
         ${VAR}  1
@@ -510,13 +520,14 @@ class VariableNotLeftAlignedRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1014", "variable-should-be-left-aligned")
 
 
 class MisalignedContinuationRowRule(Rule):
     """
     Continuation marker should be aligned with the previous one.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Variable ***
         ${VAR}    This is a long string.
@@ -529,7 +540,7 @@ class MisalignedContinuationRowRule(Rule):
             ...    arg1
             ...   arg2  # misaligned
 
-    Correct code::
+    Correct code:
 
         *** Variable ***
         ${VAR}    This is a long string.
@@ -558,20 +569,21 @@ class MisalignedContinuationRowRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1015",)
 
 
 class SuiteSettingNotLeftAlignedRule(Rule):
     """
     Settings in ``*** Settings ***`` section should be left aligned.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Settings ***
             Library  Collections
         Resource  data.resource
             Variables  vars.robot
 
-    Correct code::
+    Correct code:
 
         *** Settings ***
         Library  Collections
@@ -590,6 +602,7 @@ class SuiteSettingNotLeftAlignedRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
+    deprecated_names = ("1016", "suite-setting-should-be-left-aligned")
 
 
 class BadBlockIndentRule(Rule):
@@ -599,7 +612,7 @@ class BadBlockIndentRule(Rule):
     Reports occurrences where indentation is less than two spaces than current block parent element (such as
     ``FOR``/``IF``/``WHILE``/``TRY`` header).
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Some Keyword
@@ -609,7 +622,7 @@ class BadBlockIndentRule(Rule):
         # bad comment
             END
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Some Keyword
@@ -630,13 +643,14 @@ class BadBlockIndentRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1017",)
 
 
 class FirstArgumentInNewLineRule(Rule):
     """
     First argument is not in the same level as ``[Arguments]`` setting.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Custom Keyword With Five Required Arguments
@@ -644,7 +658,7 @@ class FirstArgumentInNewLineRule(Rule):
         ...    ${name}
         ...    ${surname}
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Custom Keyword With Five Required Arguments
@@ -661,6 +675,7 @@ class FirstArgumentInNewLineRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("1018",)
 
 
 class InvalidSpacingChecker(RawFileChecker):  # TODO merge, we can just use single RawFileChecker
@@ -893,29 +908,36 @@ class InconsistentUseOfTabsAndSpacesChecker(VisitorChecker):  # TODO: add found 
     mixed_tabs_and_spaces: MixedTabsAndSpacesRule
 
     def __init__(self):
-        self.found, self.tabs, self.spaces = False, False, False
+        self.tabs = []
+        self.spaces = []
         super().__init__()
 
     def visit_File(self, node: File) -> None:  # noqa: N802
-        self.found, self.tabs, self.spaces = False, False, False
+        self.tabs = []
+        self.spaces = []
         super().visit_File(node)
+        if self.tabs and self.spaces:
+            less_popular = self.tabs if len(self.tabs) < len(self.spaces) else self.spaces
+            for token in less_popular:
+                self.report(
+                    self.mixed_tabs_and_spaces,
+                    node=token,
+                    lineno=token.lineno,
+                    col=token.col_offset + 1,
+                    end_col=token.end_col_offset,
+                )
 
     def visit_Statement(self, node: Statement) -> None:  # noqa: N802
-        if self.found:
-            return
         for token in node.get_tokens(Token.SEPARATOR):
-            self.tabs = "\t" in token.value or self.tabs
-            self.spaces = " " in token.value or self.spaces
-
-            if self.tabs and self.spaces:
-                self.report(self.mixed_tabs_and_spaces, node=node, lineno=1)
-                self.found = True
-                break
+            if "\t" in token.value:
+                self.tabs.append(token)
+            elif " " in token.value:
+                self.spaces.append(token)
 
 
 def get_indent(node: type[Node]) -> int:
     """
-    Calculate the indentation length for given node
+    Calculate the indentation length for a given node.
 
     Returns:
         int: Indentation length
@@ -932,10 +954,10 @@ def get_indent(node: type[Node]) -> int:
 
 def count_indents(node: type[Node]) -> Counter:
     """
-    Count number of occurrences for unique indent values
+    Count the number of occurrences for unique indent values
 
     Returns:
-        Counter: A counter of unique indent values with associated number of occurrences in given node
+        Counter: A counter of unique indent values with an associated number of occurrences in the given node
 
     """
     indents = Counter()
@@ -1146,7 +1168,7 @@ class UnevenIndentChecker(VisitorChecker):
     def visit_Statement(self, statement) -> None:  # noqa: N802
         if statement is None or isinstance(statement, EmptyLine) or not self.indents:
             return
-        # Ignore indent if current line is on the same line as parent, i.e. test case header or inline IFs
+        # Ignore indent if the current line is on the same line as a parent, i.e. test case header or inline IFs
         if self.parent_line == statement.lineno:
             return
         indent = get_indent(statement)
@@ -1171,7 +1193,7 @@ class UnevenIndentChecker(VisitorChecker):
         )
 
 
-class MisalignedContinuation(VisitorChecker, ModelVisitor):
+class MisalignedContinuation(VisitorChecker):
     """Checker for misaligned continuation line markers."""
 
     misaligned_continuation: MisalignedContinuationRule

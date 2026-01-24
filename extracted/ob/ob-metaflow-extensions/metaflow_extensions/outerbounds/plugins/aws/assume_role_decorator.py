@@ -25,10 +25,29 @@ class assume_role(FlowMutator):
         def end(self):
             from metaflow import get_aws_client
             client = get_aws_client("dynamodb")  # Automatically uses the role in the flow decorator
+
+    You can also filter which steps should use the role:
+    @assume_role(role_arn="arn:aws:iam::123456789012:role/my-iam-role", steps=["start", "process"])
+    class MyFlow(FlowSpec):
+        @step
+        def start(self):
+            # user code in this step will use the assumed role
+            pass
+
+        @step
+        def process(self):
+            # user code in this step will use the assumed role
+            pass
+
+        @step
+        def end(self):
+            # user code in this step will NOT use the assumed role
+            pass
     """
 
     def init(self, *args, **kwargs):
         self.role_arn = kwargs.get("role_arn", None)
+        self.steps = kwargs.get("steps", None)
 
         if self.role_arn is None:
             raise ValueError(
@@ -40,6 +59,13 @@ class assume_role(FlowMutator):
                 "`role_arn` must be a valid AWS IAM role ARN starting with 'arn:aws:iam::'"
             )
 
+        # Validate steps parameter
+        if self.steps is not None:
+            if not isinstance(self.steps, (list, tuple)):
+                raise ValueError("`steps` must be a list or tuple of step names")
+            if not all(isinstance(s, str) for s in self.steps):
+                raise ValueError("All step names in `steps` must be strings")
+
     def pre_mutate(self, mutable_flow: MutableFlow) -> None:
         """
         This method is called by Metaflow to apply the decorator to the flow.
@@ -48,6 +74,18 @@ class assume_role(FlowMutator):
         """
         # Import environment decorator at runtime to avoid circular imports
         from metaflow import environment
+
+        # Validate that all specified steps exist in the flow
+        if self.steps is not None:
+            flow_step_names = {step_name for step_name, _ in mutable_flow.steps}
+            specified_steps = set(self.steps)
+            missing_steps = specified_steps - flow_step_names
+
+            if missing_steps:
+                raise ValueError(
+                    f"Step(s) {sorted(missing_steps)} specified in `steps` parameter "
+                    f"do not exist in the flow. Available steps: {sorted(flow_step_names)}"
+                )
 
         def _swap_environment_variables(step: MutableStep, role_arn: str) -> None:
             _step_has_env_set = True
@@ -73,6 +111,8 @@ class assume_role(FlowMutator):
         def _setup_role_assumption(step: MutableStep) -> None:
             _swap_environment_variables(step, self.role_arn)
 
-        # Apply the role assumption setup to all steps in the flow
-        for _, step in mutable_flow.steps:
-            _setup_role_assumption(step)
+        # Apply the role assumption setup to all steps in the flow (or filtered steps)
+        for step_name, step in mutable_flow.steps:
+            # If steps filter is specified, only apply to those steps
+            if self.steps is None or step_name in self.steps:
+                _setup_role_assumption(step)

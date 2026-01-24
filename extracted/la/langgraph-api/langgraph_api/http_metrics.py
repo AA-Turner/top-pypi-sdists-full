@@ -1,28 +1,15 @@
 from collections import defaultdict
 from typing import Any
 
-FILTERED_ROUTES = {"/ok", "/info", "/metrics", "/docs", "/openapi.json"}
+from langgraph_api import config
+from langgraph_api.http_metrics_utils import (
+    HTTP_LATENCY_BUCKETS,
+    get_route,
+    should_filter_route,
+)
 
 MAX_REQUEST_COUNT_ENTRIES = 5000
 MAX_HISTOGRAM_ENTRIES = 1000
-
-
-def get_route(route: Any) -> str | None:
-    try:
-        # default lg api routes use the custom APIRoute where scope["route"] is set to a string
-        if isinstance(route, str):
-            return route
-        else:
-            # custom FastAPI routes provided by user_router attach an object to scope["route"]
-            route_path = getattr(route, "path", None)
-            return route_path
-    except Exception:
-        return None
-
-
-def should_filter_route(route_path: str) -> bool:
-    # use endswith to honor MOUNT_PREFIX
-    return any(route_path.endswith(suffix) for suffix in FILTERED_ROUTES)
 
 
 class HTTPMetricsCollector:
@@ -30,22 +17,7 @@ class HTTPMetricsCollector:
         # Counter: Key: (method, route, status), Value: count
         self._request_counts: dict[tuple[str, str, int], int] = defaultdict(int)
 
-        self._histogram_buckets = [
-            0.01,
-            0.1,
-            0.5,
-            1,
-            5,
-            15,
-            30,
-            60,
-            120,
-            300,
-            600,
-            1800,
-            3600,
-            float("inf"),
-        ]
+        self._histogram_buckets = HTTP_LATENCY_BUCKETS
         self._histogram_bucket_labels = [
             "+Inf" if value == float("inf") else str(value)
             for value in self._histogram_buckets
@@ -96,6 +68,14 @@ class HTTPMetricsCollector:
 
         hist_data["sum"] += latency_seconds
         hist_data["count"] += 1
+
+        try:
+            if config.LANGGRAPH_METRICS_ENABLED:
+                from langgraph_api.self_hosted_metrics import record_http_request
+
+                record_http_request(method, route_path, status, latency_seconds)
+        except Exception:
+            pass
 
     def get_metrics(
         self,

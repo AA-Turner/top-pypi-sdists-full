@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import sys
 from typing import Generator, List, Optional, Tuple
 
 import click
@@ -79,6 +80,12 @@ def main(
     """
     Submit stacks of diffs to Github
     """
+    if sys.version_info >= (3, 14):
+        # Create new event loop as asyncio.get_event_loop() throws runtime error in 3.14
+        import asyncio as _asyncio
+
+        _asyncio.set_event_loop(_asyncio.new_event_loop())
+
     EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
 
     if not ctx.invoked_subcommand:
@@ -113,8 +120,13 @@ def action(close: bool, pull_request: str) -> None:
 
 
 @main.command("checkout")
+@click.option(
+    "--same-base",
+    is_flag=True,
+    help="Only checkout if merge-base with main branch would remain the same",
+)
 @click.argument("pull_request", metavar="PR")
-def checkout(pull_request: str) -> None:
+def checkout(same_base: bool, pull_request: str) -> None:
     """
     Checkout a PR
     """
@@ -124,6 +136,7 @@ def checkout(pull_request: str) -> None:
             github=github,
             sh=shell,
             remote_name=config.remote_name,
+            same_base=same_base,
         )
 
 
@@ -251,6 +264,18 @@ def status(pull_request: str) -> None:
     "listed in the command line.",
 )
 @click.option(
+    "--reviewer",
+    default=None,
+    help="Comma-separated list of GitHub usernames to add as reviewers to new PRs "
+    "(overrides .ghstackrc setting)",
+)
+@click.option(
+    "--label",
+    default=None,
+    help="Comma-separated list of labels to add to new PRs "
+    "(overrides .ghstackrc setting)",
+)
+@click.option(
     "--direct/--no-direct",
     "direct_opt",
     default=None,
@@ -273,6 +298,8 @@ def submit(
     base: Optional[str],
     revs: Tuple[str, ...],
     stack: bool,
+    reviewer: Optional[str],
+    label: Optional[str],
 ) -> None:
     """
     Submit or update a PR stack
@@ -294,6 +321,8 @@ def submit(
             revs=revs,
             stack=stack,
             direct_opt=direct_opt,
+            reviewer=reviewer if reviewer is not None else config.reviewer,
+            label=label if label is not None else config.label,
         )
 
 

@@ -1,17 +1,18 @@
 use crate::{
     Element,
     abstraction::{
-        AutosarAbstractionError, EcuInstance, abstraction_err_to_pyerr,
+        AutosarAbstractionError, ByteOrder, EcuInstance, abstraction_err_to_pyerr,
         communication::{
             CanPhysicalChannel, CommunicationDirection, EthernetPhysicalChannel,
-            FlexrayPhysicalChannel, ISignalTriggering,
+            FlexrayPhysicalChannel, ISignal, ISignalGroup, ISignalTriggering, LinPhysicalChannel,
+            TransferProperty,
         },
     },
     iterator_wrapper,
 };
 use autosar_data_abstraction::{
     self, AbstractionElement, IdentifiableAbstractionElement,
-    communication::{AbstractIpdu, AbstractPdu},
+    communication::{AbstractIpdu, AbstractPdu, SignalPdu},
 };
 use pyo3::{IntoPyObjectExt, prelude::*};
 
@@ -44,6 +45,15 @@ impl NmPdu {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -61,6 +71,62 @@ impl NmPdu {
 
     fn __repr__(&self) -> String {
         format!("{:#?}", self.0)
+    }
+
+    /// returns an iterator over all signals and signal groups mapped to the PDU
+    fn mapped_signals(&self) -> ISignalToIPduMappingIterator {
+        ISignalToIPduMappingIterator::new(self.0.mapped_signals().map(ISignalToIPduMapping))
+    }
+
+    /// map a signal to the `ISignalIPdu`
+    ///
+    /// If this signal is part of a signal group, then the group must be mapped first
+    #[pyo3(signature = (signal, start_position, byte_order, /, *, update_bit=None, transfer_property=TransferProperty::Pending))]
+    #[pyo3(
+        text_signature = "(self, signal: ISignal, start_position: int, byte_order: ByteOrder, /, *, update_bit: Optional[int] = None, transfer_property: TransferProperty = TransferProperty.Pending)"
+    )]
+    fn map_signal(
+        &self,
+        signal: &ISignal,
+        start_position: u32,
+        byte_order: ByteOrder,
+        update_bit: Option<u32>,
+        transfer_property: TransferProperty,
+    ) -> PyResult<ISignalToIPduMapping> {
+        match self.0.map_signal(
+            &signal.0,
+            start_position,
+            byte_order.into(),
+            update_bit,
+            transfer_property.into(),
+        ) {
+            Ok(value) => Ok(ISignalToIPduMapping(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    /// map a signal group to the PDU
+    #[pyo3(signature = (signal_group, /))]
+    #[pyo3(text_signature = "(self, signal_group: ISignalGroup, /)")]
+    fn map_signal_group(&self, signal_group: &ISignalGroup) -> PyResult<ISignalToIPduMapping> {
+        match self.0.map_signal_group(&signal_group.0) {
+            Ok(value) => Ok(ISignalToIPduMapping(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    /// set the unused bit pattern for this PDU
+    #[setter]
+    fn set_unused_bit_pattern(&self, pattern: u8) -> PyResult<()> {
+        self.0
+            .set_unused_bit_pattern(pattern)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    /// get the unused bit pattern for this PDU
+    #[getter]
+    fn unused_bit_pattern(&self) -> Option<u8> {
+        self.0.unused_bit_pattern()
     }
 
     // --------- AbstractPdu methods ---------
@@ -106,6 +172,15 @@ impl NPdu {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -194,6 +269,15 @@ impl DcmIPdu {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -211,6 +295,18 @@ impl DcmIPdu {
 
     fn __repr__(&self) -> String {
         format!("{:#?}", self.0)
+    }
+
+    #[getter]
+    fn diag_pdu_type(&self) -> Option<DiagPduType> {
+        self.0.diag_pdu_type().map(Into::into)
+    }
+
+    #[setter]
+    fn set_diag_pdu_type(&self, diag_pdu_type: DiagPduType) -> PyResult<()> {
+        self.0
+            .set_diag_pdu_type(diag_pdu_type.into())
+            .map_err(abstraction_err_to_pyerr)
     }
 
     // --------- AbstractPdu methods ---------
@@ -257,6 +353,54 @@ impl DcmIPdu {
 
 //##################################################################
 
+/// The category of a `GeneralPurposePdu`
+///
+/// The Autosar standard defines the following categories:
+/// - `SD`
+/// - `GLOBAL_TIME`
+/// - `DOIP`
+#[pyclass(
+    frozen,
+    eq,
+    eq_int,
+    module = "autosar_data._autosar_data._abstraction._communication"
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DiagPduType {
+    /// diagnostic request
+    DiagRequest,
+    /// diagnostic response
+    DiagResponse,
+}
+
+impl From<autosar_data_abstraction::communication::DiagPduType> for DiagPduType {
+    fn from(category: autosar_data_abstraction::communication::DiagPduType) -> Self {
+        match category {
+            autosar_data_abstraction::communication::DiagPduType::DiagRequest => {
+                DiagPduType::DiagRequest
+            }
+            autosar_data_abstraction::communication::DiagPduType::DiagResponse => {
+                DiagPduType::DiagResponse
+            }
+        }
+    }
+}
+
+impl From<DiagPduType> for autosar_data_abstraction::communication::DiagPduType {
+    fn from(category: DiagPduType) -> Self {
+        match category {
+            DiagPduType::DiagRequest => {
+                autosar_data_abstraction::communication::DiagPduType::DiagRequest
+            }
+            DiagPduType::DiagResponse => {
+                autosar_data_abstraction::communication::DiagPduType::DiagResponse
+            }
+        }
+    }
+}
+
+//##################################################################
+
 /// This element is used for AUTOSAR Pdus without additional attributes that are routed by a bus interface
 #[pyclass(
     frozen,
@@ -278,6 +422,15 @@ impl GeneralPurposePdu {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -420,6 +573,15 @@ impl GeneralPurposeIPdu {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -569,6 +731,196 @@ impl MultiplexedIPdu {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    #[setter]
+    fn set_name(&self, name: &str) -> PyResult<()> {
+        self.0.set_name(name).map_err(abstraction_err_to_pyerr)
+    }
+
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.0.name()
+    }
+
+    #[getter]
+    fn element(&self) -> Element {
+        Element(self.0.element().clone())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self.0)
+    }
+
+    #[setter]
+    fn set_static_part(&self, static_part: &ISignalIPdu) -> PyResult<()> {
+        self.0
+            .set_static_part(&static_part.0)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    #[getter]
+    fn static_part(&self) -> Option<ISignalIPdu> {
+        self.0.static_part().map(|pdu| ISignalIPdu(pdu.clone()))
+    }
+
+    // --------- AbstractPdu methods ---------
+
+    /// set the length of this PDU
+    #[setter]
+    fn set_length(&self, length: u32) -> PyResult<()> {
+        self.0.set_length(length).map_err(abstraction_err_to_pyerr)
+    }
+
+    /// get the length of this PDU
+    #[getter]
+    fn length(&self) -> Option<u32> {
+        self.0.length()
+    }
+
+    /// iterate over the `PduTriggerings` that trigger this PDU
+    fn pdu_triggerings(&self) -> Vec<PduTriggering> {
+        self.0
+            .pdu_triggerings()
+            .into_iter()
+            .map(PduTriggering)
+            .collect()
+    }
+
+    /// addd a dynamic part alternative to this `MultiplexedIPdu`
+    #[pyo3(signature = (dynamic_ipdu, selector_code, /, *, initial_dynamic_part))]
+    #[pyo3(
+        text_signature = "(self, dynamic_ipdu: ISignalIPdu, selector_code: int, /, *, initial_dynamic_part: bool = false)"
+    )]
+    fn add_dynamic_part(
+        &self,
+        dynamic_ipdu: &ISignalIPdu,
+        selector_code: u16,
+        initial_dynamic_part: bool,
+    ) -> PyResult<DynamicPartAlternative> {
+        match self
+            .0
+            .add_dynamic_part(&dynamic_ipdu.0, selector_code, initial_dynamic_part)
+        {
+            Ok(value) => Ok(DynamicPartAlternative(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    fn dynamic_part_alternatives(&self) -> DynamicPartAlternativesIterator {
+        DynamicPartAlternativesIterator::new(
+            self.0
+                .dynamic_part_alternatives()
+                .map(DynamicPartAlternative),
+        )
+    }
+
+    // --------- AbstractIPdu methods ---------
+
+    /// set the ContainedIPduProps for this `IPdu`
+    ///
+    /// This is only relevant for IPdus that will be transmitted in `ContainerIPdus`
+    #[setter]
+    fn set_contained_ipdu_props(&self, props: Option<&ContainedIPduProps>) -> PyResult<()> {
+        self.0
+            .set_contained_ipdu_props(props.map(Into::into).as_ref())
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    /// get the ContainedIPduProps for this `IPdu`
+    #[getter]
+    fn contained_ipdu_props(&self) -> Option<ContainedIPduProps> {
+        self.0.contained_ipdu_props().map(Into::into)
+    }
+}
+
+//##################################################################
+
+iterator_wrapper!(DynamicPartAlternativesIterator, DynamicPartAlternative);
+
+//##################################################################
+
+/// An alternative for the dynamic part of a `MultiplexedIPdu`
+#[pyclass(
+    frozen,
+    eq,
+    module = "autosar_data._autosar_data._abstraction._communication"
+)]
+#[derive(Clone, PartialEq)]
+pub(crate) struct DynamicPartAlternative(
+    pub(crate) autosar_data_abstraction::communication::DynamicPartAlternative,
+);
+
+#[pymethods]
+impl DynamicPartAlternative {
+    #[new]
+    fn new(element: &Element) -> PyResult<Self> {
+        match autosar_data_abstraction::communication::DynamicPartAlternative::try_from(
+            element.0.clone(),
+        ) {
+            Ok(value) => Ok(Self(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
+    #[getter]
+    fn element(&self) -> Element {
+        Element(self.0.element().clone())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self.0)
+    }
+}
+
+//##################################################################
+
+/// user-defined PDU
+#[pyclass(
+    frozen,
+    eq,
+    module = "autosar_data._autosar_data._abstraction._communication"
+)]
+#[derive(Clone, PartialEq)]
+pub(crate) struct UserDefinedPdu(
+    pub(crate) autosar_data_abstraction::communication::UserDefinedPdu,
+);
+
+#[pymethods]
+impl UserDefinedPdu {
+    #[new]
+    fn new(element: &Element) -> PyResult<Self> {
+        match autosar_data_abstraction::communication::UserDefinedPdu::try_from(element.0.clone()) {
+            Ok(value) => Ok(Self(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -610,24 +962,6 @@ impl MultiplexedIPdu {
             .map(PduTriggering)
             .collect()
     }
-
-    // --------- AbstractIPdu methods ---------
-
-    /// set the ContainedIPduProps for this `IPdu`
-    ///
-    /// This is only relevant for IPdus that will be transmitted in `ContainerIPdus`
-    #[setter]
-    fn set_contained_ipdu_props(&self, props: Option<&ContainedIPduProps>) -> PyResult<()> {
-        self.0
-            .set_contained_ipdu_props(props.map(Into::into).as_ref())
-            .map_err(abstraction_err_to_pyerr)
-    }
-
-    /// get the ContainedIPduProps for this `IPdu`
-    #[getter]
-    fn contained_ipdu_props(&self) -> Option<ContainedIPduProps> {
-        self.0.contained_ipdu_props().map(Into::into)
-    }
 }
 
 //##################################################################
@@ -651,6 +985,15 @@ impl PduTriggering {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -672,13 +1015,13 @@ impl PduTriggering {
 
     /// get the Pdu that is triggered by this pdu triggering
     #[getter]
-    fn pdu(&self) -> Option<PyObject> {
+    fn pdu(&self) -> Option<Py<PyAny>> {
         self.0.pdu().and_then(|pdu| pdu_to_pyany(&pdu).ok())
     }
 
     /// get the physical channel that contains this pdu triggering
     #[getter]
-    fn physical_channel(&self, py: Python) -> PyResult<PyObject> {
+    fn physical_channel(&self, py: Python) -> PyResult<Py<PyAny>> {
         match self.0.physical_channel() {
             Ok(physical_channel) => match physical_channel {
                 autosar_data_abstraction::communication::PhysicalChannel::Can(
@@ -690,6 +1033,9 @@ impl PduTriggering {
                 autosar_data_abstraction::communication::PhysicalChannel::Flexray(
                     flexray_physical_channel,
                 ) => FlexrayPhysicalChannel(flexray_physical_channel).into_py_any(py),
+                autosar_data_abstraction::communication::PhysicalChannel::Lin(
+                    lin_physical_channel,
+                ) => LinPhysicalChannel(lin_physical_channel).into_py_any(py),
             },
             Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
         }
@@ -745,6 +1091,15 @@ impl IPduPort {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -840,8 +1195,8 @@ impl From<PduCollectionTrigger> for autosar_data_abstraction::communication::Pdu
 
 pub(crate) fn pdu_to_pyany(
     pdu: &autosar_data_abstraction::communication::Pdu,
-) -> PyResult<PyObject> {
-    Python::with_gil(|py| match pdu {
+) -> PyResult<Py<PyAny>> {
+    Python::attach(|py| match pdu {
         autosar_data_abstraction::communication::Pdu::ISignalIPdu(isignal_ipdu) => {
             ISignalIPdu(isignal_ipdu.clone()).into_py_any(py)
         }
@@ -868,6 +1223,9 @@ pub(crate) fn pdu_to_pyany(
         }
         autosar_data_abstraction::communication::Pdu::MultiplexedIPdu(multiplexed_ipdu) => {
             MultiplexedIPdu(multiplexed_ipdu.clone()).into_py_any(py)
+        }
+        autosar_data_abstraction::communication::Pdu::UserDefinedPdu(user_defined_pdu) => {
+            UserDefinedPdu(user_defined_pdu.clone()).into_py_any(py)
         }
     })
 }
@@ -917,8 +1275,8 @@ pub(crate) fn pyany_to_pdu(
 
 pub(crate) fn ipdu_to_pyany(
     ipdu: &autosar_data_abstraction::communication::IPdu,
-) -> PyResult<PyObject> {
-    Python::with_gil(|py| match ipdu {
+) -> PyResult<Py<PyAny>> {
+    Python::attach(|py| match ipdu {
         autosar_data_abstraction::communication::IPdu::ISignalIPdu(isignal_ipdu) => {
             ISignalIPdu(isignal_ipdu.clone()).into_py_any(py)
         }

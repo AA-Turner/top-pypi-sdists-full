@@ -35,6 +35,7 @@ import semgrep.app.auth as auth
 import semgrep.rpc_call
 import semgrep.run_scan
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
+from semgrep import simple_profiling as simple_profiling_module
 from semgrep import tracing
 from semgrep.app.project_config import ProjectConfig
 from semgrep.app.scans import ScanHandler
@@ -49,6 +50,7 @@ from semgrep.engine import EngineType
 from semgrep.error import FATAL_EXIT_CODE
 from semgrep.error import INVALID_API_KEY_EXIT_CODE
 from semgrep.error import MISSING_CONFIG_EXIT_CODE
+from semgrep.error import SemgrepCoreError
 from semgrep.error import SemgrepError
 from semgrep.git import git_check_output
 from semgrep.git import is_git_repo_empty
@@ -63,6 +65,8 @@ from semgrep.parsing_data import ParsingData
 from semgrep.rule import Rule
 from semgrep.rule_match import RuleMatch
 from semgrep.rule_match import RuleMatchMap
+from semgrep.run_scan import AutofixBehavior
+from semgrep.simple_profiling import profiling
 from semgrep.state import get_state
 from semgrep.target_manager import ALL_PRODUCTS
 from semgrep.target_manager import SAST_PRODUCT
@@ -268,6 +272,7 @@ def ci(
     interfile_timeout: Optional[int],
     trace: bool,
     trace_endpoint: str,
+    profile: bool,
     use_git_ignore: bool,
     semgrepignore_v2: Optional[bool],  # ignored legacy option
     force_novcs_project: bool,  # unused but needed to receive options from 'scan'
@@ -276,10 +281,12 @@ def ci(
     ],  # unused but needed to receive options from 'scan'
     verbose: bool,
     x_eio: bool,
-    x_tr: bool,
+    x_parmap: bool,
+    enable_transitive_reachability: Optional[bool],
     x_pro_naming: bool,
     x_semgrepignore_filename: Optional[str],
     x_no_python_schema_validation: bool,
+    x_simple_profiling: bool,
     path_sensitive: bool,
     allow_local_builds: bool,
     dump_n_rule_partitions: Optional[int],
@@ -288,13 +295,17 @@ def ci(
     partial_config: Optional[Path],
     partial_output: Optional[Path],
     x_group_taint_rules: bool,
+    x_dump_symbol_analysis: bool,
 ) -> None:
+    if x_simple_profiling:
+        simple_profiling_module.enabled_simple_profiling = True
+
     state = get_state()
 
     state.traces.configure(trace, trace_endpoint)
     with tracing.TRACER.start_as_current_span(
         "semgrep.commands.ci", kind=tracing.TOP_LEVEL_SPAN_KIND
-    ):
+    ) as semgrep_commands_ci_span:
         state.terminal.configure(
             verbose=verbose,
             debug=debug,
@@ -302,6 +313,9 @@ def ci(
             force_color=force_color,
             output_format=output_format,
         )
+
+        if trace:
+            logger.verbose(f"Trace ID: {state.traces.get_trace_id():x}")
 
         state.metrics.configure(metrics)
         state.error_handler.configure(suppress_errors)
@@ -323,6 +337,17 @@ def ci(
             logger.info(
                 "WARNING: `semgrep ci` is meant to be run from the root of a git repo.\nWhen `semgrep ci` is not run from a git repo, it will not be able to perform all operations.\nWhen `semgrep ci` is run from a git repo, but not the root, links in the uploaded findings may be broken.\n\nTo run `semgrep ci` on only a subdirectory of a git repo, see `--subdir`."
             )
+
+        if x_eio:
+            if x_parmap:
+                logger.warning(
+                    "WARN: --x-eio and --x-parmap both set.  Choosing the latter."
+                )
+            else:
+                logger.warning(
+                    "WARN: --x-eio (Multicore Semgrep) now enabled by default.  "
+                    + "This flag will be removed in a future version of Semgrep."
+                )
 
         if config and partial_config:
             logger.info(
@@ -382,6 +407,7 @@ def ci(
                 dry_run = True
 
             scan_handler = ScanHandler(
+                enable_transitive_reachability=enable_transitive_reachability,
                 dry_run=dry_run,
                 partial_output=partial_output,
                 dump_scan_id_path=dump_scan_id_path,
@@ -423,6 +449,7 @@ def ci(
                         matches_by_rule=FilteredMatches(kept={}, removed={}),
                         rules=[],
                         targets=set(),
+                        skipped_paths=set(),
                         renamed_targets=set(),
                         ignored_targets=frozenset(),
                         cli_suggested_exit_code=0,  # Inform app that we are exiting with code 0
@@ -462,6 +489,7 @@ def ci(
 
         fix_head_if_github_action(metadata)
 
+        rules_string = None
         try:
             # Note this needs to happen within fix_head_if_github_action
             # so that metadata of current commit is correct
@@ -491,39 +519,40 @@ def ci(
                         out.Product(out.Secrets())
                     )
 
-                with Progress(
-                    TextColumn("  {task.description}"),
-                    SpinnerColumn(spinner_name="simpleDotsScrolling"),
-                    console=console,
-                ) as progress_bar:
-                    start_scan_desc = "Initializing scan"
+                with profiling("Initializing scan"):
+                    with Progress(
+                        TextColumn("  {task.description}"),
+                        SpinnerColumn(spinner_name="simpleDotsScrolling"),
+                        console=console,
+                    ) as progress_bar:
+                        start_scan_desc = "Initializing scan"
 
-                    start_scan_task = progress_bar.add_task(start_scan_desc)
-                    scan_handler.start_scan(project_meta, project_config)
-                    extra_fields = []
-                    if scan_handler.fips_mode:
-                        extra_fields.append("fips=true")
-                    if scan_handler.deployment_name:
-                        extra_fields.append(
-                            f"deployment={scan_handler.deployment_name}"
+                        start_scan_task = progress_bar.add_task(start_scan_desc)
+                        scan_handler.start_scan(project_meta, project_config)
+                        extra_fields = []
+                        if scan_handler.fips_mode:
+                            extra_fields.append("fips=true")
+                        if scan_handler.deployment_name:
+                            extra_fields.append(
+                                f"deployment={scan_handler.deployment_name}"
+                            )
+                        if scan_handler.scan_id:
+                            extra_fields.append(f"scan_id={scan_handler.scan_id}")
+                        if extra_fields:
+                            start_scan_desc += f" ({', '.join(extra_fields)})"
+                        progress_bar.update(
+                            start_scan_task, completed=100, description=start_scan_desc
                         )
-                    if scan_handler.scan_id:
-                        extra_fields.append(f"scan_id={scan_handler.scan_id}")
-                    if extra_fields:
-                        start_scan_desc += f" ({', '.join(extra_fields)})"
-                    progress_bar.update(
-                        start_scan_task, completed=100, description=start_scan_desc
-                    )
 
-                    product_names = [
-                        PRODUCT_NAMES_MAP.get(p) or p
-                        for p in scan_handler.enabled_products
-                    ]
-                    products_str = ", ".join(product_names) or "None"
-                    products_task = progress_bar.add_task(
-                        f"Enabled products: [bold]{products_str}[/bold]"
-                    )
-                    progress_bar.update(products_task, completed=100)
+                        product_names = [
+                            PRODUCT_NAMES_MAP.get(p) or p
+                            for p in scan_handler.enabled_products
+                        ]
+                        products_str = ", ".join(product_names) or "None"
+                        products_task = progress_bar.add_task(
+                            f"Enabled products: [bold]{products_str}[/bold]"
+                        )
+                        progress_bar.update(products_task, completed=100)
 
                 if scan_handler.rules == '{"rules":[]}' and set(
                     scan_handler.enabled_products
@@ -539,7 +568,7 @@ def ci(
                 if partial_config:
                     config = (str(partial_config),)
                 else:
-                    config = (scan_handler.rules,)
+                    rules_string = scan_handler.rules
 
         except Exception as e:
             import traceback
@@ -661,6 +690,15 @@ def ci(
                 )
             final_baseline_commit = metadata.merge_base_ref
 
+        autofix_behavior = (
+            AutofixBehavior.REPORT
+            if scan_handler and scan_handler.autofix
+            else AutofixBehavior.IGNORE
+        )
+
+        semgrep_commands_ci_span.set_attribute(
+            "scan.scan_type", "diff" if baseline_commit is not None else "full"
+        )
         # Base arguments for actually running the scan. This is done here so we can
         # re-use this in the event we need to perform a second scan. Currently the
         # only case for this is a separate "historical" scan, where we scan the git
@@ -676,7 +714,8 @@ def ci(
             "scanning_roots": [scanning_root],
             "pattern": None,
             "lang": None,
-            "configs": config,
+            "rules_string": rules_string,
+            "config_strs": config,
             "no_rewrite_rule_ids": (not rewrite_rule_ids),
             "dump_command_for_core": dump_command_for_core,
             "jobs": jobs,
@@ -684,8 +723,8 @@ def ci(
             "exclude": per_product_excludes,
             "exclude_rule": exclude_rule,
             "max_target_bytes": max_target_bytes,
-            "autofix": scan_handler.autofix if scan_handler else False,
-            "dryrun": dry_run,
+            "autofix": autofix_behavior,
+            "write_to_tr_cache": not dry_run,
             # Determine whether or not we will sort ignored matches into the
             # `kept` category of FilteredMatches.
             # If there are multiple outputs and any request to keep_ignores
@@ -698,6 +737,7 @@ def ci(
             "interfile_timeout": interfile_timeout,
             "trace": trace,
             "trace_endpoint": trace_endpoint,
+            "profile": profile,
             "timeout_threshold": timeout_threshold,
             "skip_unknown_extensions": (not scan_unknown_extensions),
             "allow_untrusted_validators": allow_untrusted_validators,
@@ -706,9 +746,11 @@ def ci(
             "baseline_commit_is_mergebase": True,
             "capture_core_stderr": capture_core_stderr,
             "allow_local_builds": allow_local_builds,
-            "x_eio": x_eio,
-            "x_tr": (
-                scan_handler.transitive_reachability_enabled if scan_handler else x_tr
+            "x_parmap": x_parmap,
+            "enable_transitive_reachability": (
+                scan_handler.transitive_reachability_enabled
+                if scan_handler
+                else enable_transitive_reachability
             ),
             "x_pro_naming": x_pro_naming,
             "dump_rule_partitions_params": dump_rule_partitions_params,
@@ -716,10 +758,13 @@ def ci(
             "resolve_all_deps_in_diff_scan": (
                 scan_handler.resolve_all_deps_in_diff_scan if scan_handler else False
             ),
-            "symbol_analysis": scan_handler.symbol_analysis if scan_handler else False,
+            "run_symbol_analysis": scan_handler.symbol_analysis
+            if scan_handler
+            else False,
             "fips_mode": scan_handler.fips_mode if scan_handler else False,
             "semgrepignore_filename": x_semgrepignore_filename,
             "x_group_taint_rules": x_group_taint_rules,
+            "x_dump_symbol_analysis": x_dump_symbol_analysis,
         }
 
         try:
@@ -747,6 +792,8 @@ def ci(
                 _executed_rule_count,
                 _missed_rule_count,
                 all_subprojects,
+                symbol_analysis,
+                sca_symbol_analysis,
             ) = semgrep.run_scan.run_scan(
                 **run_scan_args  # type: ignore
             )
@@ -761,6 +808,9 @@ def ci(
                 exit_code = e.code
             else:
                 exit_code = FATAL_EXIT_CODE
+
+            semgrep_commands_ci_span.set_attribute("scan.cli_exitcode", exit_code)
+
             if scan_handler:
                 scan_handler.report_failure(exit_code)
 
@@ -816,6 +866,8 @@ def ci(
                     _executed_rule_count,
                     _missed_rule_count,
                     _historical_all_subprojects,
+                    _symbol_analysis,
+                    _sca_symbol_analysis,
                 ) = semgrep.run_scan.run_scan(
                     **run_scan_args,  # type: ignore
                     historical_secrets=True,
@@ -920,9 +972,57 @@ def ci(
 
             logger.info("CI scan completed successfully.")
 
+        # Collect paths that failed to scan (timeout, OOM, etc.)
+        skipped_paths: set[Path] = set()
+        for err in semgrep_errors:
+            if isinstance(err, SemgrepCoreError) and err.is_scan_failure():
+                if err.core.location and err.core.location.path:
+                    fpath = Path(err.core.location.path.value)
+                    logger.info(f"Skipping {fpath} due to scan failures. Error: {err}")
+                    skipped_paths.add(fpath)
+
         complete_result: out.CiScanCompleteResponse | None = None
         contributions = semgrep.rpc_call.contributions()
         if scan_handler:
+            # Before we finish the scan, let's upload our symbol analysis if we have it.
+            # This is "scan-adjacent information", which is information we want to save,
+            # but doesn't really have to do with the meat of the scan (findings, etc).
+            # We upload it separately, and outsource to `osemgrep` so we don't duplicate
+            # the implementation.
+            #
+            # This upload takes place before findings are reported to the app via the
+            # /complete endpoint, so that the symbol analysis is available by the time
+            # the dependencies are processed.
+            if scan_handler.symbol_analysis and scan_handler.scan_id and token:
+                # legacy combined symbol analysis
+                #
+                # we can remove this in favor of subproject-based
+                # symbol analysis once we confirm nobody else is
+                # depending on it
+                try:
+                    if symbol_analysis is not None:
+                        semgrep.rpc_call.upload_symbol_analysis(
+                            token, scan_handler.scan_id, symbol_analysis
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to upload symbol analysis: {e}")
+
+                if sca_symbol_analysis is not None:
+                    for subproject_symbol_analysis in sca_symbol_analysis:
+                        manifest = subproject_symbol_analysis.manifest
+                        manifest_path = manifest.path if manifest else None
+
+                        lockfile = subproject_symbol_analysis.lockfile
+                        lockfile_path = lockfile.path if lockfile else None
+
+                        semgrep.rpc_call.upload_subproject_symbol_analysis(
+                            token,
+                            scan_handler.scan_id,
+                            manifest_path,
+                            lockfile_path,
+                            subproject_symbol_analysis.symbol_analysis,
+                        )
+
             with Progress(
                 TextColumn("  {task.description}"),
                 SpinnerColumn(spinner_name="simpleDotsScrolling"),
@@ -932,6 +1032,7 @@ def ci(
                     matches_by_rule=filtered_matches_by_rule,
                     rules=filtered_rules,
                     targets=output_extra.all_targets.targets,
+                    skipped_paths=skipped_paths,
                     renamed_targets=renamed_targets,
                     ignored_targets=ignore_log.unsupported_lang_paths(
                         product=SAST_PRODUCT
@@ -966,24 +1067,6 @@ def ci(
                             num_blocking_findings += 1
                         else:
                             num_nonblocking_findings += 1
-
-            # Before we finish the scan, let's upload our symbol analysis if we have it.
-            # This is "scan-adjacent information", which is information we want to save,
-            # but doesn't really have to do with the meat of the scan (findings, etc).
-            # We upload it separately, and outsource to `osemgrep` so we don't duplicate
-            # the implementation.
-            if (
-                output_extra.core.symbol_analysis is not None
-                and scan_handler.scan_id
-                and token
-            ):
-                logger.debug(
-                    f"Attempting to upload symbol analysis of {len(output_extra.core.symbol_analysis.value)} symbols"
-                )
-                symbol_analysis = output_extra.core.symbol_analysis
-                semgrep.rpc_call.upload_symbol_analysis(
-                    token, scan_handler.scan_id, symbol_analysis
-                )
 
             if not internal_ci_scan_results:
                 output_handler.output(
@@ -1095,4 +1178,5 @@ def ci(
 
             version_check()
 
+        semgrep_commands_ci_span.set_attribute("scan.cli_exitcode", exit_code)
         sys.exit(exit_code)

@@ -15,7 +15,7 @@ from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/admiral/secret/v0/secret.proto\x12\x16qwak.admiral.secret.v0\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x1f\n\x0eUserSecretSpec\x12\r\n\x05value\x18\x02 \x01(\t\"L\n\x10SystemSecretSpec\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).qwak.admiral.secret.v0.SystemSecretValue\"\x99\x01\n\x16SystemSecretDefinition\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32(.qwak.admiral.secret.v0.SystemSecretSpec\"C\n\x1b\x45nvironmentSecretIdentifier\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\"\xa0\x01\n\x1fSetUserEnvironmentSecretOptions\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12\x34\n\x04spec\x18\x02 \x01(\x0b\x32&.qwak.admiral.secret.v0.UserSecretSpec\"\xa4\x01\n!SetSystemEnvironmentSecretOptions\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32(.qwak.admiral.secret.v0.SystemSecretSpec\"\xa5\x01\n\x11SystemSecretValue\x12\x10\n\x06opaque\x18\x02 \x01(\tH\x00\x12\x35\n\x12\x64ocker_config_json\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructH\x00\x12>\n\x0bopaque_pair\x18\x04 \x01(\x0b\x32\'.qwak.admiral.secret.v0.OpaquePairValueH\x00\x42\x07\n\x05value\"\x82\x01\n\x0fOpaquePairValue\x12\x41\n\x05pairs\x18\x04 \x03(\x0b\x32\x32.qwak.admiral.secret.v0.OpaquePairValue.PairsEntry\x1a,\n\nPairsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"T\n\x0e\x41\x63\x63ountSecrets\x12\x42\n\x07secrets\x18\x01 \x03(\x0b\x32\x31.qwak.admiral.secret.v0.EnvironmentSecretMetadata\"\xc9\x01\n\x19\x45nvironmentSecretMetadata\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12.\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x33\n\x0flast_updated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x8c\x01\n\x1d\x63om.qwak.ai.admiral.secret.v0P\x01Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/admiral/secret/v0/secret.proto\x12\x16qwak.admiral.secret.v0\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x1f\n\x0eUserSecretSpec\x12\r\n\x05value\x18\x02 \x01(\t\"L\n\x10SystemSecretSpec\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).qwak.admiral.secret.v0.SystemSecretValue\"\x99\x01\n\x16SystemSecretDefinition\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32(.qwak.admiral.secret.v0.SystemSecretSpec\"C\n\x1b\x45nvironmentSecretIdentifier\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\"\x82\x02\n\x1fSetUserEnvironmentSecretOptions\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12\x34\n\x04spec\x18\x02 \x01(\x0b\x32&.qwak.admiral.secret.v0.UserSecretSpec\x12\x43\n\x10platform_options\x18\x03 \x01(\x0b\x32\'.qwak.admiral.secret.v0.PlatformOptionsH\x00\x42\x1b\n\x19optional_platform_options\"&\n\x0fPlatformOptions\x12\x13\n\x0bproject_key\x18\x01 \x01(\t\"\xa4\x01\n!SetSystemEnvironmentSecretOptions\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32(.qwak.admiral.secret.v0.SystemSecretSpec\"\xa5\x01\n\x11SystemSecretValue\x12\x10\n\x06opaque\x18\x02 \x01(\tH\x00\x12\x35\n\x12\x64ocker_config_json\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructH\x00\x12>\n\x0bopaque_pair\x18\x04 \x01(\x0b\x32\'.qwak.admiral.secret.v0.OpaquePairValueH\x00\x42\x07\n\x05value\"\x82\x01\n\x0fOpaquePairValue\x12\x41\n\x05pairs\x18\x04 \x03(\x0b\x32\x32.qwak.admiral.secret.v0.OpaquePairValue.PairsEntry\x1a,\n\nPairsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"T\n\x0e\x41\x63\x63ountSecrets\x12\x42\n\x07secrets\x18\x01 \x03(\x0b\x32\x31.qwak.admiral.secret.v0.EnvironmentSecretMetadata\"\xc9\x01\n\x19\x45nvironmentSecretMetadata\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\x12.\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x33\n\x0flast_updated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x8c\x01\n\x1d\x63om.qwak.ai.admiral.secret.v0P\x01Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,17 +35,19 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_ENVIRONMENTSECRETIDENTIFIER']._serialized_start=393
   _globals['_ENVIRONMENTSECRETIDENTIFIER']._serialized_end=460
   _globals['_SETUSERENVIRONMENTSECRETOPTIONS']._serialized_start=463
-  _globals['_SETUSERENVIRONMENTSECRETOPTIONS']._serialized_end=623
-  _globals['_SETSYSTEMENVIRONMENTSECRETOPTIONS']._serialized_start=626
-  _globals['_SETSYSTEMENVIRONMENTSECRETOPTIONS']._serialized_end=790
-  _globals['_SYSTEMSECRETVALUE']._serialized_start=793
-  _globals['_SYSTEMSECRETVALUE']._serialized_end=958
-  _globals['_OPAQUEPAIRVALUE']._serialized_start=961
-  _globals['_OPAQUEPAIRVALUE']._serialized_end=1091
-  _globals['_OPAQUEPAIRVALUE_PAIRSENTRY']._serialized_start=1047
-  _globals['_OPAQUEPAIRVALUE_PAIRSENTRY']._serialized_end=1091
-  _globals['_ACCOUNTSECRETS']._serialized_start=1093
-  _globals['_ACCOUNTSECRETS']._serialized_end=1177
-  _globals['_ENVIRONMENTSECRETMETADATA']._serialized_start=1180
-  _globals['_ENVIRONMENTSECRETMETADATA']._serialized_end=1381
+  _globals['_SETUSERENVIRONMENTSECRETOPTIONS']._serialized_end=721
+  _globals['_PLATFORMOPTIONS']._serialized_start=723
+  _globals['_PLATFORMOPTIONS']._serialized_end=761
+  _globals['_SETSYSTEMENVIRONMENTSECRETOPTIONS']._serialized_start=764
+  _globals['_SETSYSTEMENVIRONMENTSECRETOPTIONS']._serialized_end=928
+  _globals['_SYSTEMSECRETVALUE']._serialized_start=931
+  _globals['_SYSTEMSECRETVALUE']._serialized_end=1096
+  _globals['_OPAQUEPAIRVALUE']._serialized_start=1099
+  _globals['_OPAQUEPAIRVALUE']._serialized_end=1229
+  _globals['_OPAQUEPAIRVALUE_PAIRSENTRY']._serialized_start=1185
+  _globals['_OPAQUEPAIRVALUE_PAIRSENTRY']._serialized_end=1229
+  _globals['_ACCOUNTSECRETS']._serialized_start=1231
+  _globals['_ACCOUNTSECRETS']._serialized_end=1315
+  _globals['_ENVIRONMENTSECRETMETADATA']._serialized_start=1318
+  _globals['_ENVIRONMENTSECRETMETADATA']._serialized_end=1519
 # @@protoc_insertion_point(module_scope)

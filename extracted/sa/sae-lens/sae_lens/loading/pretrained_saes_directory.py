@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import cache
-from importlib import resources
+from importlib.resources import files
 from typing import Any
 
 import yaml
@@ -24,7 +24,8 @@ def get_pretrained_saes_directory() -> dict[str, PretrainedSAELookup]:
     package = "sae_lens"
     # Access the file within the package using importlib.resources
     directory: dict[str, PretrainedSAELookup] = {}
-    with resources.open_text(package, "pretrained_saes.yaml") as file:
+    yaml_file = files(package).joinpath("pretrained_saes.yaml")
+    with yaml_file.open("r") as file:
         # Load the YAML file content
         data = yaml.safe_load(file)
         for release, value in data.items():
@@ -68,7 +69,8 @@ def get_norm_scaling_factor(release: str, sae_id: str) -> float | None:
         float | None: The norm_scaling_factor if it exists, None otherwise.
     """
     package = "sae_lens"
-    with resources.open_text(package, "pretrained_saes.yaml") as file:
+    yaml_file = files(package).joinpath("pretrained_saes.yaml")
+    with yaml_file.open("r") as file:
         data = yaml.safe_load(file)
         if release in data:
             for sae_info in data[release]["saes"]:
@@ -101,3 +103,21 @@ def get_config_overrides(release: str, sae_id: str) -> dict[str, Any]:
         if sae_info.neuronpedia_id is not None and sae_id in sae_info.neuronpedia_id:
             config_overrides["neuronpedia_id"] = sae_info.neuronpedia_id[sae_id]
     return config_overrides
+
+
+def get_releases_for_repo_id(repo_id: str) -> list[str]:
+    """
+    Find all release names that use the given HuggingFace repo_id.
+
+    Args:
+        repo_id: The HuggingFace repository ID to search for.
+
+    Returns:
+        A list of release names that use this repo_id.
+    """
+    saes_directory = get_pretrained_saes_directory()
+    return [
+        release
+        for release, lookup in saes_directory.items()
+        if lookup.repo_id == repo_id
+    ]

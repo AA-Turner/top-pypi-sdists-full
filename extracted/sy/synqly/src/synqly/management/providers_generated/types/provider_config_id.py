@@ -11,6 +11,16 @@ class ProviderConfigId(str, enum.Enum):
     List of supported providers.
     """
 
+    APPSEC_AMAZON_INSPECTOR = "appsec_amazon_inspector"
+    """
+    Amazon Inspector
+    """
+
+    APPSEC_GIT_HUB = "appsec_github"
+    """
+    GitHub
+    """
+
     APPSEC_GIT_LAB = "appsec_gitlab"
     """
     GitLab
@@ -19,6 +29,11 @@ class ProviderConfigId(str, enum.Enum):
     APPSEC_HCL_APP_SCAN_ON_CLOUD = "appsec_hcl_appscan_on_cloud"
     """
     HCL AppScan on Cloud
+    """
+
+    APPSEC_OPEN_TEXT_APPLICATION_SECURITY = "appsec_opentext_application_security"
+    """
+    OpenText Application Security
     """
 
     APPSEC_OPEN_TEXT_CORE_APPLICATION_SECURITY = (
@@ -33,6 +48,11 @@ class ProviderConfigId(str, enum.Enum):
     )
     """
     [MOCK] OpenText Core Application Security
+    """
+
+    APP_SEC_SNYK = "appsec_snyk"
+    """
+    Snyk
     """
 
     ASSETS_ARMIS_CENTRIX = "assets_armis_centrix"
@@ -55,6 +75,11 @@ class ProviderConfigId(str, enum.Enum):
     [MOCK] Axonius Asset Cloud
     """
 
+    ASSETS_CLAROTY_XDOME = "assets_claroty_xdome"
+    """
+    Claroty xDome
+    """
+
     ASSETS_CROWD_STRIKE = "assets_crowdstrike"
     """
     CrowdStrike Falcon Spotlight
@@ -63,6 +88,16 @@ class ProviderConfigId(str, enum.Enum):
     ASSETS_CROWD_STRIKE_MOCK = "assets_crowdstrike_mock"
     """
     [MOCK] CrowdStrike Falcon Spotlight
+    """
+
+    ASSETS_IVANTI_NEURONS = "assets_ivanti_neurons"
+    """
+    Ivanti Neurons
+    """
+
+    ASSETS_IVANTI_NEURONS_MOCK = "assets_ivanti_neurons_mock"
+    """
+    [MOCK] Ivanti Neurons
     """
 
     ASSETS_NOZOMI_VANTAGE = "assets_nozomi_vantage"
@@ -130,9 +165,24 @@ class ProviderConfigId(str, enum.Enum):
     Microsoft Defender for Cloud
     """
 
+    CLOUD_SECURITY_PALO_ALTO = "cloudsecurity_paloalto"
+    """
+    Palo Alto Networks Cortex Cloud Security
+    """
+
+    CUSTOM_SYNQLY = "custom_synqly"
+    """
+    Synqly Custom Provider
+    """
+
     EDR_CROWD_STRIKE = "edr_crowdstrike"
     """
     CrowdStrike Falcon® Insight EDR
+    """
+
+    EDR_CROWD_STRIKE_MOCK = "edr_crowdstrike_mock"
+    """
+    [MOCK] CrowdStrike Falcon® Insight EDR
     """
 
     EDR_DEFENDER = "edr_defender"
@@ -178,6 +228,16 @@ class ProviderConfigId(str, enum.Enum):
     IDENTITY_PING_ONE = "identity_pingone"
     """
     PingOne Cloud Platform
+    """
+
+    INCIDENT_RESPONSE_INCIDENT_IO = "incidentresponse_incidentio"
+    """
+    incident.io
+    """
+
+    INCIDENT_RESPONSE_PAGER_DUTY = "incidentresponse_pagerduty"
+    """
+    PagerDuty Operations Cloud
     """
 
     NOTIFICATIONS_JIRA = "notifications_jira"
@@ -275,6 +335,11 @@ class ProviderConfigId(str, enum.Enum):
     Amazon Simple Queue Service (SQS)
     """
 
+    SINK_AZURE_BLOB = "sink_azure_blob"
+    """
+    Microsoft Azure Blob Storage
+    """
+
     SINK_AZURE_MONITOR_LOGS = "sink_azure_monitor_logs"
     """
     Microsoft Azure Monitor Logs
@@ -290,6 +355,11 @@ class ProviderConfigId(str, enum.Enum):
     Elasticsearch
     """
 
+    SINK_GCS = "sink_gcs"
+    """
+    Google Cloud Storage
+    """
+
     SINK_GOOGLE_SEC_OPS = "sink_google_sec_ops"
     """
     Google Security Operations (Chronicle Compatibility)
@@ -298,6 +368,11 @@ class ProviderConfigId(str, enum.Enum):
     SINK_GOOGLE_SECURITY_OPERATIONS = "sink_google_security_operations"
     """
     Google Security Operations
+    """
+
+    SINK_HTTP = "sink_http"
+    """
+    Generic HTTP Receiver
     """
 
     SINK_MOCK = "sink_mock_sink"
@@ -310,6 +385,11 @@ class ProviderConfigId(str, enum.Enum):
     OpenSearch
     """
 
+    SINK_PANTHER = "sink_panther"
+    """
+    Panther SIEM
+    """
+
     SINK_Q_RADAR = "sink_q_radar"
     """
     IBM QRadar Sink
@@ -318,6 +398,11 @@ class ProviderConfigId(str, enum.Enum):
     SINK_SPLUNK = "sink_splunk"
     """
     Splunk Enterprise Security
+    """
+
+    SINK_SUMO_LOGIC = "sink_sumo_logic"
+    """
+    Sumo Logic Sink
     """
 
     STORAGE_AWS_S_3 = "storage_aws_s3"
@@ -350,6 +435,16 @@ class ProviderConfigId(str, enum.Enum):
     Freshdesk
     """
 
+    TICKETING_IVANTI = "ticketing_ivanti"
+    """
+    Ivanti Neurons Ticketing
+    """
+
+    TICKETING_IVANTI_MOCK = "ticketing_ivanti_mock"
+    """
+    [MOCK] Ivanti Neurons Ticketing
+    """
+
     TICKETING_JIRA = "ticketing_jira"
     """
     Atlassian Jira
@@ -370,6 +465,11 @@ class ProviderConfigId(str, enum.Enum):
     PagerDuty Operations Cloud
     """
 
+    TICKETING_PAGER_DUTY_MOCK = "ticketing_pagerduty_mock"
+    """
+    [MOCK] PagerDuty Operations Cloud
+    """
+
     TICKETING_SERVICE_NOW = "ticketing_servicenow"
     """
     ServiceNow IT Service Management (ITSM)
@@ -388,6 +488,11 @@ class ProviderConfigId(str, enum.Enum):
     TICKETING_ZENDESK = "ticketing_zendesk"
     """
     Zendesk
+    """
+
+    VULNERABILITIES_AMAZON_INSPECTOR = "vulnerabilities_amazon_inspector"
+    """
+    Amazon Inspector
     """
 
     VULNERABILITIES_CROWD_STRIKE = "vulnerabilities_crowdstrike"
@@ -439,7 +544,7 @@ class ProviderConfigId(str, enum.Enum):
 
     VULNERABILITIES_TANIUM_CLOUD_MOCK = "vulnerabilities_tanium_cloud_mock"
     """
-    [MOCK] Tsanium Vulnerability Management
+    [MOCK] Tanium Vulnerability Management
     """
 
     VULNERABILITIES_TENABLE_CLOUD = "vulnerabilities_tenable_cloud"
@@ -465,16 +570,23 @@ class ProviderConfigId(str, enum.Enum):
 
     def visit(
         self,
+        appsec_amazon_inspector: typing.Callable[[], T_Result],
+        appsec_git_hub: typing.Callable[[], T_Result],
         appsec_git_lab: typing.Callable[[], T_Result],
         appsec_hcl_app_scan_on_cloud: typing.Callable[[], T_Result],
+        appsec_open_text_application_security: typing.Callable[[], T_Result],
         appsec_open_text_core_application_security: typing.Callable[[], T_Result],
         appsec_open_text_core_application_security_mock: typing.Callable[[], T_Result],
+        app_sec_snyk: typing.Callable[[], T_Result],
         assets_armis_centrix: typing.Callable[[], T_Result],
         assets_armis_centrix_mock: typing.Callable[[], T_Result],
         assets_axonius: typing.Callable[[], T_Result],
         assets_axonius_mock: typing.Callable[[], T_Result],
+        assets_claroty_xdome: typing.Callable[[], T_Result],
         assets_crowd_strike: typing.Callable[[], T_Result],
         assets_crowd_strike_mock: typing.Callable[[], T_Result],
+        assets_ivanti_neurons: typing.Callable[[], T_Result],
+        assets_ivanti_neurons_mock: typing.Callable[[], T_Result],
         assets_nozomi_vantage: typing.Callable[[], T_Result],
         assets_nozomi_vantage_mock: typing.Callable[[], T_Result],
         assets_qualys_cloud: typing.Callable[[], T_Result],
@@ -488,7 +600,10 @@ class ProviderConfigId(str, enum.Enum):
         cloud_security_aws: typing.Callable[[], T_Result],
         cloud_security_crowd_strike: typing.Callable[[], T_Result],
         cloud_security_defender: typing.Callable[[], T_Result],
+        cloud_security_palo_alto: typing.Callable[[], T_Result],
+        custom_synqly: typing.Callable[[], T_Result],
         edr_crowd_strike: typing.Callable[[], T_Result],
+        edr_crowd_strike_mock: typing.Callable[[], T_Result],
         edr_defender: typing.Callable[[], T_Result],
         edr_malwarebytes: typing.Callable[[], T_Result],
         edr_sentinel_one: typing.Callable[[], T_Result],
@@ -498,6 +613,8 @@ class ProviderConfigId(str, enum.Enum):
         identity_google: typing.Callable[[], T_Result],
         identity_okta: typing.Callable[[], T_Result],
         identity_ping_one: typing.Callable[[], T_Result],
+        incident_response_incident_io: typing.Callable[[], T_Result],
+        incident_response_pager_duty: typing.Callable[[], T_Result],
         notifications_jira: typing.Callable[[], T_Result],
         notifications_mock: typing.Callable[[], T_Result],
         notifications_slack_webhook: typing.Callable[[], T_Result],
@@ -517,29 +634,38 @@ class ProviderConfigId(str, enum.Enum):
         sink_aws_s_3: typing.Callable[[], T_Result],
         sink_aws_security_lake: typing.Callable[[], T_Result],
         sink_aws_sqs: typing.Callable[[], T_Result],
+        sink_azure_blob: typing.Callable[[], T_Result],
         sink_azure_monitor_logs: typing.Callable[[], T_Result],
         sink_crowdstrike_hec: typing.Callable[[], T_Result],
         sink_elasticsearch: typing.Callable[[], T_Result],
+        sink_gcs: typing.Callable[[], T_Result],
         sink_google_sec_ops: typing.Callable[[], T_Result],
         sink_google_security_operations: typing.Callable[[], T_Result],
+        sink_http: typing.Callable[[], T_Result],
         sink_mock: typing.Callable[[], T_Result],
         sink_open_search: typing.Callable[[], T_Result],
+        sink_panther: typing.Callable[[], T_Result],
         sink_q_radar: typing.Callable[[], T_Result],
         sink_splunk: typing.Callable[[], T_Result],
+        sink_sumo_logic: typing.Callable[[], T_Result],
         storage_aws_s_3: typing.Callable[[], T_Result],
         storage_azure_blob: typing.Callable[[], T_Result],
         storage_gcs: typing.Callable[[], T_Result],
         storage_mock: typing.Callable[[], T_Result],
         ticketing_autotask: typing.Callable[[], T_Result],
         ticketing_freshdesk: typing.Callable[[], T_Result],
+        ticketing_ivanti: typing.Callable[[], T_Result],
+        ticketing_ivanti_mock: typing.Callable[[], T_Result],
         ticketing_jira: typing.Callable[[], T_Result],
         ticketing_jira_service_management: typing.Callable[[], T_Result],
         ticketing_mock: typing.Callable[[], T_Result],
         ticketing_pager_duty: typing.Callable[[], T_Result],
+        ticketing_pager_duty_mock: typing.Callable[[], T_Result],
         ticketing_service_now: typing.Callable[[], T_Result],
         ticketing_service_now_sir: typing.Callable[[], T_Result],
         ticketing_torq: typing.Callable[[], T_Result],
         ticketing_zendesk: typing.Callable[[], T_Result],
+        vulnerabilities_amazon_inspector: typing.Callable[[], T_Result],
         vulnerabilities_crowd_strike: typing.Callable[[], T_Result],
         vulnerabilities_crowd_strike_mock: typing.Callable[[], T_Result],
         vulnerabilities_nucleus: typing.Callable[[], T_Result],
@@ -554,14 +680,22 @@ class ProviderConfigId(str, enum.Enum):
         all_: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
+        if self is ProviderConfigId.APPSEC_AMAZON_INSPECTOR:
+            return appsec_amazon_inspector()
+        if self is ProviderConfigId.APPSEC_GIT_HUB:
+            return appsec_git_hub()
         if self is ProviderConfigId.APPSEC_GIT_LAB:
             return appsec_git_lab()
         if self is ProviderConfigId.APPSEC_HCL_APP_SCAN_ON_CLOUD:
             return appsec_hcl_app_scan_on_cloud()
+        if self is ProviderConfigId.APPSEC_OPEN_TEXT_APPLICATION_SECURITY:
+            return appsec_open_text_application_security()
         if self is ProviderConfigId.APPSEC_OPEN_TEXT_CORE_APPLICATION_SECURITY:
             return appsec_open_text_core_application_security()
         if self is ProviderConfigId.APPSEC_OPEN_TEXT_CORE_APPLICATION_SECURITY_MOCK:
             return appsec_open_text_core_application_security_mock()
+        if self is ProviderConfigId.APP_SEC_SNYK:
+            return app_sec_snyk()
         if self is ProviderConfigId.ASSETS_ARMIS_CENTRIX:
             return assets_armis_centrix()
         if self is ProviderConfigId.ASSETS_ARMIS_CENTRIX_MOCK:
@@ -570,10 +704,16 @@ class ProviderConfigId(str, enum.Enum):
             return assets_axonius()
         if self is ProviderConfigId.ASSETS_AXONIUS_MOCK:
             return assets_axonius_mock()
+        if self is ProviderConfigId.ASSETS_CLAROTY_XDOME:
+            return assets_claroty_xdome()
         if self is ProviderConfigId.ASSETS_CROWD_STRIKE:
             return assets_crowd_strike()
         if self is ProviderConfigId.ASSETS_CROWD_STRIKE_MOCK:
             return assets_crowd_strike_mock()
+        if self is ProviderConfigId.ASSETS_IVANTI_NEURONS:
+            return assets_ivanti_neurons()
+        if self is ProviderConfigId.ASSETS_IVANTI_NEURONS_MOCK:
+            return assets_ivanti_neurons_mock()
         if self is ProviderConfigId.ASSETS_NOZOMI_VANTAGE:
             return assets_nozomi_vantage()
         if self is ProviderConfigId.ASSETS_NOZOMI_VANTAGE_MOCK:
@@ -600,8 +740,14 @@ class ProviderConfigId(str, enum.Enum):
             return cloud_security_crowd_strike()
         if self is ProviderConfigId.CLOUD_SECURITY_DEFENDER:
             return cloud_security_defender()
+        if self is ProviderConfigId.CLOUD_SECURITY_PALO_ALTO:
+            return cloud_security_palo_alto()
+        if self is ProviderConfigId.CUSTOM_SYNQLY:
+            return custom_synqly()
         if self is ProviderConfigId.EDR_CROWD_STRIKE:
             return edr_crowd_strike()
+        if self is ProviderConfigId.EDR_CROWD_STRIKE_MOCK:
+            return edr_crowd_strike_mock()
         if self is ProviderConfigId.EDR_DEFENDER:
             return edr_defender()
         if self is ProviderConfigId.EDR_MALWAREBYTES:
@@ -620,6 +766,10 @@ class ProviderConfigId(str, enum.Enum):
             return identity_okta()
         if self is ProviderConfigId.IDENTITY_PING_ONE:
             return identity_ping_one()
+        if self is ProviderConfigId.INCIDENT_RESPONSE_INCIDENT_IO:
+            return incident_response_incident_io()
+        if self is ProviderConfigId.INCIDENT_RESPONSE_PAGER_DUTY:
+            return incident_response_pager_duty()
         if self is ProviderConfigId.NOTIFICATIONS_JIRA:
             return notifications_jira()
         if self is ProviderConfigId.NOTIFICATIONS_MOCK:
@@ -658,24 +808,34 @@ class ProviderConfigId(str, enum.Enum):
             return sink_aws_security_lake()
         if self is ProviderConfigId.SINK_AWS_SQS:
             return sink_aws_sqs()
+        if self is ProviderConfigId.SINK_AZURE_BLOB:
+            return sink_azure_blob()
         if self is ProviderConfigId.SINK_AZURE_MONITOR_LOGS:
             return sink_azure_monitor_logs()
         if self is ProviderConfigId.SINK_CROWDSTRIKE_HEC:
             return sink_crowdstrike_hec()
         if self is ProviderConfigId.SINK_ELASTICSEARCH:
             return sink_elasticsearch()
+        if self is ProviderConfigId.SINK_GCS:
+            return sink_gcs()
         if self is ProviderConfigId.SINK_GOOGLE_SEC_OPS:
             return sink_google_sec_ops()
         if self is ProviderConfigId.SINK_GOOGLE_SECURITY_OPERATIONS:
             return sink_google_security_operations()
+        if self is ProviderConfigId.SINK_HTTP:
+            return sink_http()
         if self is ProviderConfigId.SINK_MOCK:
             return sink_mock()
         if self is ProviderConfigId.SINK_OPEN_SEARCH:
             return sink_open_search()
+        if self is ProviderConfigId.SINK_PANTHER:
+            return sink_panther()
         if self is ProviderConfigId.SINK_Q_RADAR:
             return sink_q_radar()
         if self is ProviderConfigId.SINK_SPLUNK:
             return sink_splunk()
+        if self is ProviderConfigId.SINK_SUMO_LOGIC:
+            return sink_sumo_logic()
         if self is ProviderConfigId.STORAGE_AWS_S_3:
             return storage_aws_s_3()
         if self is ProviderConfigId.STORAGE_AZURE_BLOB:
@@ -688,6 +848,10 @@ class ProviderConfigId(str, enum.Enum):
             return ticketing_autotask()
         if self is ProviderConfigId.TICKETING_FRESHDESK:
             return ticketing_freshdesk()
+        if self is ProviderConfigId.TICKETING_IVANTI:
+            return ticketing_ivanti()
+        if self is ProviderConfigId.TICKETING_IVANTI_MOCK:
+            return ticketing_ivanti_mock()
         if self is ProviderConfigId.TICKETING_JIRA:
             return ticketing_jira()
         if self is ProviderConfigId.TICKETING_JIRA_SERVICE_MANAGEMENT:
@@ -696,6 +860,8 @@ class ProviderConfigId(str, enum.Enum):
             return ticketing_mock()
         if self is ProviderConfigId.TICKETING_PAGER_DUTY:
             return ticketing_pager_duty()
+        if self is ProviderConfigId.TICKETING_PAGER_DUTY_MOCK:
+            return ticketing_pager_duty_mock()
         if self is ProviderConfigId.TICKETING_SERVICE_NOW:
             return ticketing_service_now()
         if self is ProviderConfigId.TICKETING_SERVICE_NOW_SIR:
@@ -704,6 +870,8 @@ class ProviderConfigId(str, enum.Enum):
             return ticketing_torq()
         if self is ProviderConfigId.TICKETING_ZENDESK:
             return ticketing_zendesk()
+        if self is ProviderConfigId.VULNERABILITIES_AMAZON_INSPECTOR:
+            return vulnerabilities_amazon_inspector()
         if self is ProviderConfigId.VULNERABILITIES_CROWD_STRIKE:
             return vulnerabilities_crowd_strike()
         if self is ProviderConfigId.VULNERABILITIES_CROWD_STRIKE_MOCK:

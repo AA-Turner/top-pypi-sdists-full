@@ -9,8 +9,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import collections
 import contextlib
 import errno
 import logging
@@ -20,6 +20,11 @@ import select
 import signal
 import sys
 import threading
+import typing
+
+
+if typing.TYPE_CHECKING:
+    import types
 
 
 if os.name == "posix":
@@ -28,7 +33,7 @@ if os.name == "posix":
 LOG = logging.getLogger(__name__)
 
 
-_SIGNAL_TO_NAME = {
+_SIGNAL_TO_NAME: dict[int, str] = {
     getattr(signal, name): name
     for name in dir(signal)
     if name.startswith("SIG") and isinstance(getattr(signal, name), signal.Signals)
@@ -37,31 +42,51 @@ _SIGNAL_TO_NAME = {
 SIGNAL_WAKEUP_FD_READ_SIZE = 4096
 
 
-def signal_to_name(sig):
-    return _SIGNAL_TO_NAME.get(sig, sig)
+def signal_to_name(sig: int) -> str:
+    return _SIGNAL_TO_NAME.get(sig, str(sig))
 
 
-def spawn(target, *args, **kwargs):
+P = typing.ParamSpec("P")
+R = typing.TypeVar("R")
+
+
+def spawn(
+    target: typing.Callable[P, R],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> threading.Thread:
     t = threading.Thread(target=target, args=args, kwargs=kwargs)
     t.daemon = True
     t.start()
     return t
 
 
-def check_workers(workers, minimum) -> None:
+def check_workers(workers: int, minimum: int) -> None:
     if not isinstance(workers, int) or workers < minimum:
         msg = f"'workers' must be an int >= {minimum}, not: {workers} ({type(workers).__name__})"
         raise ValueError(msg)
 
 
-def check_callable(thing, name) -> None:
+def check_callable(
+    thing: typing.Any,  # noqa: ANN401
+    name: str,
+) -> None:
     if not callable(thing):
         msg = f"'{name}' must be a callable"
         raise TypeError(msg)
 
 
-def spawn_process(target, *args, **kwargs):
-    p = multiprocessing.Process(
+def spawn_process(
+    target: typing.Callable[P, R],
+    ctx: multiprocessing.context.BaseContext | None = None,
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> multiprocessing.Process:
+    # typeshed doesn't expose "Process" on BaseContext, but it's there at runtime
+    process_factory = (
+        multiprocessing.Process if ctx is None else ctx.Process  # type: ignore[attr-defined]
+    )
+    p = process_factory(
         target=target,
         args=args,
         kwargs=kwargs,
@@ -70,19 +95,30 @@ def spawn_process(target, *args, **kwargs):
     return p
 
 
+_setproctitle: typing.Callable[[str], None] | None
 try:
-    from setproctitle import setproctitle
+    from setproctitle import setproctitle as _setproctitle
 except ImportError:
-
-    def setproctitle(*args, **kwargs) -> None:
-        pass
+    _setproctitle = None
 
 
-def get_process_name():
+def set_process_title(title: str) -> None:
+    if _setproctitle is None:
+        return
+
+    _setproctitle(title)
+
+
+def get_process_name() -> str:
     return os.path.basename(sys.argv[0])
 
 
-def run_hooks(name, hooks, *args, **kwargs) -> None:
+def run_hooks(
+    name: str,
+    hooks: list[typing.Callable[P, R]],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> None:
     try:
         for hook in hooks:
             hook(*args, **kwargs)
@@ -91,11 +127,12 @@ def run_hooks(name, hooks, *args, **kwargs) -> None:
 
 
 @contextlib.contextmanager
-def exit_on_exception():
+def exit_on_exception() -> typing.Iterator[None]:
     try:
         yield
     except SystemExit as exc:
-        os._exit(exc.code)
+        # mypy is sick, it's a int, not int|str|None
+        os._exit(exc.code)  # type: ignore[arg-type]
     except BaseException:
         LOG.exception("Unhandled exception")
         os._exit(2)
@@ -105,11 +142,8 @@ if os.name == "posix":
     SIGALRM = signal.SIGALRM
     SIGHUP = signal.SIGHUP
     SIGCHLD = signal.SIGCHLD
-    SIBREAK = None
 else:
-    SIGALRM = SIGHUP = None
-    SIGCHLD = "fake sigchld"
-    SIGBREAK = signal.SIGBREAK
+    SIGALRM = SIGHUP = SIGCHLD = None  # type: ignore[assignment]
 
 
 class SignalManager:
@@ -122,9 +156,6 @@ class SignalManager:
             self._set_autoclose(self.signal_pipe_r)
             self._set_autoclose(self.signal_pipe_w)
             signal.set_wakeup_fd(self.signal_pipe_w)
-
-        self._pid = os.getpid()
-        self._signals_received = collections.deque()
 
         if os.name == "posix":
             signal.signal(signal.SIGCHLD, signal.SIG_DFL)
@@ -139,29 +170,27 @@ class SignalManager:
             # TODO(sileht): should allow to catch signal CTRL_BREAK_EVENT,
             # but we to create the child process with CREATE_NEW_PROCESS_GROUP
             # to make this work, so current this is a noop for later fix
-            signal.signal(signal.SIGBREAK, self._signal_catcher)
+            # NOTE(sileht): is mypy posix only ?
+            signal.signal(signal.SIGBREAK, self._signal_catcher)  # type: ignore[attr-defined]
 
     @staticmethod
-    def _set_nonblock(fd) -> None:
+    def _set_nonblock(fd: int) -> None:
         flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
         flags |= os.O_NONBLOCK
         fcntl.fcntl(fd, fcntl.F_SETFL, flags)
 
     @staticmethod
-    def _set_autoclose(fd) -> None:
+    def _set_autoclose(fd: int) -> None:
         flags = fcntl.fcntl(fd, fcntl.F_GETFD)
         fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
 
-    def _signal_catcher(self, sig, frame) -> None:
+    def _signal_catcher(self, sig: int, frame: types.FrameType | None) -> None:
         # Needed to receive the signal via set_wakeup_fd
         pass
 
     def _wait_forever(self) -> None:
         # Wait forever
         while True:
-            # Check if signals have been received
-            self._run_signal_handlers()
-
             # NOTE(sileht): signals can be missed when received by non-main threads
             # (https://bugs.python.org/issue5315)
             # We use signal.set_wakeup_fd + select.select() which is more reliable
@@ -178,21 +207,10 @@ class SignalManager:
                     break
 
                 for sig in signals:
-                    if sig in {SIGALRM, signal.SIGTERM, signal.SIGINT}:
-                        self._signals_received.appendleft(sig)
-                    else:
-                        self._signals_received.append(sig)
+                    self._on_signal_received(sig)
 
                 if len(signals) < SIGNAL_WAKEUP_FD_READ_SIZE:
                     break
 
-    def _run_signal_handlers(self) -> None:
-        while True:
-            try:
-                sig = self._signals_received.popleft()
-            except IndexError:
-                return
-            self._on_signal_received(sig)
-
-    def _on_signal_received(self, sig) -> None:
+    def _on_signal_received(self, sig: int) -> None:
         pass

@@ -41,6 +41,8 @@ class ParallelExecutor:
         self.error_count = 0
         self.error_lock = threading.Lock()
         self.cancel_jobs = threading.Event()
+        self.failed_indices = []
+        self.exceptions_map = {}
 
     def execute(self, function, data):
         tqdm.tqdm._instances.clear()
@@ -62,7 +64,7 @@ class ParallelExecutor:
                     logger.error(f"Error for {item}: {e}\n{traceback.format_exc()}")
                 else:
                     logger.error(f"Error for {item}: {e}. Set `provide_traceback=True` for traceback.")
-                return None
+                return e
 
         return safe_func
 
@@ -87,10 +89,11 @@ class ParallelExecutor:
             from dspy.dsp.utils.settings import thread_local_overrides
 
             original = thread_local_overrides.get()
-            token = thread_local_overrides.set({**original, **parent_overrides.copy()})
-            if parent_overrides.get("usage_tracker"):
+            new_overrides = {**original, **parent_overrides.copy()}
+            if new_overrides.get("usage_tracker"):
                 # Usage tracker needs to be deep copied across threads so that each thread tracks its own usage
-                thread_local_overrides.overrides["usage_tracker"] = copy.deepcopy(parent_overrides["usage_tracker"])
+                new_overrides["usage_tracker"] = copy.deepcopy(new_overrides["usage_tracker"])
+            token = thread_local_overrides.set(new_overrides)
 
             try:
                 return index, function(item)
@@ -155,7 +158,14 @@ class ParallelExecutor:
                             pass
                         else:
                             if outcome != job_cancelled and results[index] is None:
-                                results[index] = outcome
+                                # Check if this is an exception
+                                if isinstance(outcome, Exception):
+                                    with self.error_lock:
+                                        self.failed_indices.append(index)
+                                        self.exceptions_map[index] = outcome
+                                    results[index] = None  # Keep None for failed examples
+                                else:
+                                    results[index] = outcome
 
                             # Update progress
                             if self.compare_results:

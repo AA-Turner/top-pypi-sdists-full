@@ -19,8 +19,6 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-from __future__ import print_function, division
-
 try:
     unicode
 except:
@@ -101,7 +99,7 @@ def auto_type(string):
             return string
 
 
-class AVMContainer(object):
+class AVMContainer:
 
     def __init__(self, allow_value=False):
         if allow_value:
@@ -460,7 +458,7 @@ class AVM(AVMContainer):
             raise NoSpatialInformation("AVM meta-data does not contain any spatial information")
 
         if use_full_header and self.Spatial.FITSheader is not None:
-            header = fits.Header.from_string(self.Spatial.FITSheader)
+            header = fits.Header.fromstring(self.Spatial.FITSheader)
             return WCS(header)
 
         # Initializing WCS object

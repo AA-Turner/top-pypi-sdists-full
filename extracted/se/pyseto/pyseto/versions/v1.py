@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 from secrets import token_bytes
-from typing import Any, Union
+from typing import Any, cast
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -26,7 +26,7 @@ class V1Local(NISTKey):
     _VERSION = 1
     _TYPE = "local"
 
-    def __init__(self, key: Union[str, bytes]):
+    def __init__(self, key: str | bytes):
         super().__init__(key)
         return
 
@@ -42,7 +42,7 @@ class V1Local(NISTKey):
         self,
         payload: bytes,
         footer: bytes = b"",
-        implicit_assertion: bytes = b"",
+        _implicit_assertion: bytes = b"",
         nonce: bytes = b"",
     ) -> bytes:
         if nonce:
@@ -75,7 +75,7 @@ class V1Local(NISTKey):
             token += b"." + base64url_encode(footer)
         return token
 
-    def decrypt(self, payload: bytes, footer: bytes = b"", implicit_assertion: bytes = b"") -> bytes:
+    def decrypt(self, payload: bytes, footer: bytes = b"", _implicit_assertion: bytes = b"") -> bytes:
         n = payload[0:32]
         t = payload[-48:]
         c = payload[32 : len(payload) - 48]
@@ -128,7 +128,7 @@ class V1Public(NISTKey):
         paserk: str,
         wrapping_key: bytes = b"",
         password: bytes = b"",
-        unsealing_key: bytes = b"",
+        _unsealing_key: bytes = b"",
     ) -> KeyInterface:
         if wrapping_key and password:
             raise ValueError("Only one of wrapping_key or password should be specified.")
@@ -170,13 +170,13 @@ class V1Public(NISTKey):
 
     def to_paserk(
         self,
-        wrapping_key: Union[bytes, str] = b"",
-        password: Union[bytes, str] = b"",
-        sealing_key: Union[bytes, str] = b"",
+        wrapping_key: bytes | str = b"",
+        password: bytes | str = b"",
+        _sealing_key: bytes | str = b"",
         iteration: int = 100000,
-        memory_cost: int = 15 * 1024,
-        time_cost: int = 2,
-        parallelism: int = 1,
+        _memory_cost: int = 15 * 1024,
+        _time_cost: int = 2,
+        _parallelism: int = 1,
     ) -> str:
         if wrapping_key and password:
             raise ValueError("Only one of wrapping_key or password should be specified.")
@@ -188,7 +188,7 @@ class V1Public(NISTKey):
 
             bkey = wrapping_key if isinstance(wrapping_key, bytes) else wrapping_key.encode("utf-8")
             h = "k1.secret-wrap.pie."
-            priv = self._key.private_bytes(
+            priv = self._key.private_bytes(  # type: ignore[attr-defined]
                 encoding=serialization.Encoding.DER,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption(),
@@ -202,7 +202,7 @@ class V1Public(NISTKey):
 
             bpw = password if isinstance(password, bytes) else password.encode("utf-8")
             h = "k1.secret-pw."
-            priv = self._key.private_bytes(
+            priv = self._key.private_bytes(  # type: ignore[attr-defined]
                 encoding=serialization.Encoding.DER,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption(),
@@ -249,16 +249,16 @@ class V1Public(NISTKey):
         d = digest.finalize()
         return h + base64url_encode(d[0:33]).decode("utf-8")
 
-    def sign(self, payload: bytes, footer: bytes = b"", implicit_assertion: bytes = b"") -> bytes:
+    def sign(self, payload: bytes, footer: bytes = b"", _implicit_assertion: bytes = b"") -> bytes:
         if isinstance(self._key, RSAPublicKey):
             raise ValueError("A public key cannot be used for signing.")
         m2 = pae([self.header, payload, footer])
         try:
-            return self._key.sign(m2, self._padding, hashes.SHA384())
+            return cast(bytes, self._key.sign(m2, self._padding, hashes.SHA384()))
         except Exception as err:
             raise SignError("Failed to sign.") from err
 
-    def verify(self, payload: bytes, footer: bytes = b"", implicit_assertion: bytes = b""):
+    def verify(self, payload: bytes, footer: bytes = b"", _implicit_assertion: bytes = b"") -> bytes:
         if len(payload) <= self._sig_size:
             raise ValueError("Invalid payload.")
 

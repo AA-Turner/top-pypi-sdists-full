@@ -8,7 +8,7 @@ _SCHEMA = struct.Struct(">HH")
 
 @dataclass(frozen=True)
 class ControlRecord:
-    __slots__ = ("version", "type_")
+    __slots__ = ("type_", "version")
 
     version: int
     type_: int
@@ -17,6 +17,8 @@ class ControlRecord:
         if isinstance(other, ControlRecord):
             return other.version == self.version and other.type_ == self.type_
         return False
+
+    __hash__ = object.__hash__  # unhashable
 
     @classmethod
     def parse(cls, data: bytes) -> Self:

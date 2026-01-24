@@ -82,6 +82,7 @@
 #include "agg_conv_stroke.h"
 #include "agg_conv_transform.h"
 #include "agg_ellipse.h"
+#include "agg_rounded_rect.h"
 #if defined(HAVE_FREETYPE2)
 #include "agg_font_freetype.h"
 #endif
@@ -1189,7 +1190,7 @@ draw_line(DrawObject* self, PyObject* args)
         path.move_to(xy[0].X, xy[0].Y);
         for (int i = 1; i < count; i++)
             path.line_to(xy[i].X, xy[i].Y);
-        delete xy;
+        delete [] xy;
         self->draw->draw(path, pen);
     }
 
@@ -1285,7 +1286,7 @@ draw_polygon(DrawObject* self, PyObject* args)
         for (int i = 1; i < count; i++)
             path.line_to(xy[i].X, xy[i].Y);
         path.close_polygon();
-        delete xy;
+        delete [] xy;
         self->draw->draw(path, pen, brush);
     }
 
@@ -1302,7 +1303,8 @@ const char *draw_rectangle_doc = "Draw a rectangle.\n"
                                  "Parameters\n"
                                  "----------\n"
                                  "xy : iterable\n"
-                                 "    A Python sequence (x, y, x, y, …).\n"
+                                 "    A 4-element Python sequence (x, y, x, y), with the\n"
+                                 "    upper left corner given first.\n"
                                  "pen : Pen\n"
                                  "    Optional pen object created by the `Pen` factory.\n"
                                  "brush : Brush\n"
@@ -1324,6 +1326,45 @@ draw_rectangle(DrawObject* self, PyObject* args)
     path.line_to(x1, y1);
     path.line_to(x0, y1);
     path.close_polygon();
+
+    self->draw->draw(path, pen, brush);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+const char *draw_rounded_rectangle_doc = "Draw a rounded rectangle.\n"
+                               "\n"
+                               "If a brush is given, it is used to fill the rounded rectangle.\n"
+                               "If a pen is given, it is used to draw an outline around the rounded rectangle.\n"
+                               "Either one (or both) can be left out.\n"
+                               "\n"
+                               "Parameters\n"
+                               "----------\n"
+                               "xy : iterable\n"
+                               "    A 4-element Python sequence (x, y, x, y), with the\n"
+                               "    upper left corner given first.\n"
+                               "radius : float\n"
+                               "    The corner radius\n"
+                               "pen : Pen\n"
+                               "    Optional pen object created by the `Pen` factory.\n"
+                               "brush : Brush\n"
+                               "    Optional brush object created by the `Brush` factory.\n";
+
+static PyObject*
+draw_rounded_rectangle(DrawObject* self, PyObject* args)
+{
+    float x0, y0, x1, y1, r;
+    PyObject* brush = NULL;
+    PyObject* pen = NULL;
+    if (!PyArg_ParseTuple(args, "(ffff)f|OO:rounded_rectangle",
+                          &x0, &y0, &x1, &y1, &r, &brush, &pen))
+        return NULL;
+
+    agg::path_storage path;
+    agg::rounded_rect rr(x0, y0, x1, y1, r);
+    rr.approximation_scale(1);
+    path.add_path(rr);
 
     self->draw->draw(path, pen, brush);
 
@@ -1409,7 +1450,7 @@ draw_symbol(DrawObject* self, PyObject* args)
         self->draw->draw(p, pen, brush);
     }
 
-    delete xy;
+    delete [] xy;
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1726,6 +1767,7 @@ static PyMethodDef draw_methods[] = {
     {"line", (PyCFunction) draw_line, METH_VARARGS, draw_line_doc},
     {"polygon", (PyCFunction) draw_polygon, METH_VARARGS, draw_polygon_doc},
     {"rectangle", (PyCFunction) draw_rectangle, METH_VARARGS, draw_rectangle_doc},
+    {"rounded_rectangle", (PyCFunction) draw_rounded_rectangle, METH_VARARGS, draw_rounded_rectangle_doc},
 
 #if defined(HAVE_FREETYPE2)
     {"text", (PyCFunction) draw_text, METH_VARARGS, draw_text_doc},
@@ -2078,7 +2120,7 @@ path_new(PyObject* self_, PyObject* args)
         self->path->move_to(xy[0].X, xy[0].Y);
         for (int i = 1; i < count; i++)
             self->path->line_to(xy[i].X, xy[i].Y);
-        delete xy;
+        delete [] xy;
     }
 
     return (PyObject*) self;
@@ -2467,7 +2509,7 @@ path_polygon(PathObject* self, PyObject* args)
     for (int i = 1; i < count; i++)
         path.line_to(xy[i].X, xy[i].Y);
     path.close_polygon();
-    delete xy;
+    delete [] xy;
 
     self->path->add_path(path, 0, false);
 
@@ -2652,6 +2694,11 @@ aggdraw_init(void)
         );
 
     aggdraw_getcolor_obj = PyDict_GetItemString(g, "getcolor");
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED);
+#endif
+
     return module;
 }
 

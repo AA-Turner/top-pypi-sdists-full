@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from os.path import join
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from somacore.options import PlatformConfig
 
 from tiledbsoma import Experiment, SOMATileDBContext
 from tiledbsoma._collection import AnyTileDBCollection, Collection
-from tiledbsoma.io._common import AdditionalMetadata, UnsMapping
+from tiledbsoma.io._common import AdditionalMetadata, UnsMapping, UnsNode
 from tiledbsoma.io._registration import AxisIDMapping
 from tiledbsoma.io.ingest import (
     IngestionParams,
@@ -111,9 +111,7 @@ def _update_uns(
         at the corresponding level, and the update is skipped.
     """
     if measurement_name not in exp.ms:
-        raise ValueError(
-            f"cannot find measurement name {measurement_name} within experiment at {exp.uri}"
-        )
+        raise ValueError(f"cannot find measurement name {measurement_name} within experiment at {exp.uri}")
 
     ingest_platform_ctx = IngestPlatformCtx(
         context=context,
@@ -158,42 +156,38 @@ def _update_uns_dict(
             cur = coll[k]
         if k in coll.metadata:
             if cur is not None:
-                logger.warn(f"{coll.uri}[{k}] exists as both metadata and child")
+                logger.warning(f"{coll.uri}[{k}] exists as both metadata and child")
             else:
                 cur = coll.metadata[k]
         exists = cur is not None
 
-        def can_write() -> bool:
-            if exists:
+        def can_write(k: str, v: UnsNode, cur: Any | None) -> bool:  # noqa: ANN401
+            if cur is not None:
                 msg = f"{coll.uri}[{k}]: already exists (type {type(cur).__name__}), refusing to overwrite with {v}"
                 if strict in ["dry_run", "raise"]:
                     raise ValueError(msg)
-                else:
-                    msg = f"Skipping {msg}"
-                    if strict == "warn":
-                        logger.warn(msg)
-                    elif strict == "info":
-                        logger.info(msg)
-                    elif strict == "debug":
-                        logger.debug(msg)
-                    return False
-            else:
-                return strict != "dry_run"
+                msg = f"Skipping {msg}"
+                if strict == "warn":
+                    logger.warning(msg)
+                elif strict == "info":
+                    logger.info(msg)
+                elif strict == "debug":
+                    logger.debug(msg)
+                return False
+            return strict != "dry_run"
 
         if isinstance(v, (str, int, float, np.generic)):
             if k in coll:
-                raise ValueError(
-                    f"can't overwrite {type(cur).__name__} at {coll.uri}/{k} with scalar {v}"
-                )
+                raise ValueError(f"can't overwrite {type(cur).__name__} at {coll.uri}/{k} with scalar {v}")
             if isinstance(v, np.generic):
                 # Unwrap numpy scalar
                 v = v.item()
             if strict != "dry_run":
                 coll.metadata[k] = v
         elif isinstance(v, pd.DataFrame):
-            if can_write():
+            if can_write(k, v, cur):
                 with _write_dataframe(
-                    df_uri=join(coll.uri, k),
+                    df_uri=join(coll.uri, k),  # noqa: PTH118
                     df=v.copy(),  # `_write_dataframe` modifies the `pd.DataFrame` it's passed
                     id_column_name=default_index_name,
                     ingestion_params=ingest_platform_ctx["ingestion_params"],
@@ -204,11 +198,8 @@ def _update_uns_dict(
                 ) as df:
                     _maybe_set(coll, k, df, use_relative_uri=use_relative_uri)
         elif isinstance(v, dict):
-            if exists:
-                if not isinstance(cur, Collection):
-                    raise ValueError(
-                        f"{coll.uri}/{k}: expected Collection, found {type(cur).__name__}"
-                    )
+            if exists and not isinstance(cur, Collection):
+                raise ValueError(f"{coll.uri}/{k}: expected Collection, found {type(cur).__name__}")
             _update_uns_dict(
                 coll[k],
                 v,
@@ -218,7 +209,7 @@ def _update_uns_dict(
                 strict=strict,
             )
         elif isinstance(v, np.ndarray):
-            if can_write():
+            if can_write(k, v, cur):
                 _ingest_uns_array(
                     coll,
                     k,

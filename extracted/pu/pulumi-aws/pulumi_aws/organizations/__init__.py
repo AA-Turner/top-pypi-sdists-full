@@ -8,6 +8,7 @@ import typing
 # Export this package's modules as members:
 from .account import *
 from .delegated_administrator import *
+from .get_account import *
 from .get_delegated_administrators import *
 from .get_delegated_services import *
 from .get_organization import *
@@ -25,5 +26,6 @@ from .organizational_unit import *
 from .policy import *
 from .policy_attachment import *
 from .resource_policy import *
+from .tag import *
 from ._inputs import *
 from . import outputs

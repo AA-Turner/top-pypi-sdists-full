@@ -2,12 +2,12 @@
 import asyncio
 import inspect
 import os
+import typing
 from collections.abc import AsyncGenerator
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Literal, Optional
 
-from grpclib import GRPCError
 from grpclib.exceptions import StreamTerminatedError
 
 import modal_proto
@@ -17,7 +17,9 @@ from modal_proto.modal_api_grpc import ModalClientModal
 from .._serialization import (
     deserialize,
     deserialize_data_format,
+    get_preferred_payload_format,
     serialize,
+    serialize_data_format as _serialize_data_format,
     signature_to_parameter_specs,
 )
 from .._traceback import append_modal_tb
@@ -26,9 +28,11 @@ from ..exception import (
     DeserializationError,
     ExecutionError,
     FunctionTimeoutError,
+    InternalError,
     InternalFailure,
     InvalidError,
     RemoteError,
+    ServiceError,
 )
 from ..mount import ROOT_DIR, _is_modal_path, _Mount
 from .blob_utils import (
@@ -36,7 +40,9 @@ from .blob_utils import (
     blob_download,
     blob_upload_with_r2_failure_info,
 )
-from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES
+
+if typing.TYPE_CHECKING:
+    import modal._functions
 
 
 class FunctionInfoType(Enum):
@@ -67,6 +73,10 @@ def entrypoint_only_package_mount_condition(entrypoint_file):
 
 def is_global_object(object_qual_name: str):
     return "<locals>" not in object_qual_name.split(".")
+
+
+def is_flash_object(experimental_options: Optional[dict[str, Any]], http_config: Optional[api_pb2.HTTPConfig]) -> bool:
+    return bool(experimental_options and experimental_options.get("flash", False)) or http_config is not None
 
 
 def is_method_fn(object_qual_name: str):
@@ -119,6 +129,7 @@ class FunctionInfo:
 
     raw_f: Optional[Callable[..., Any]]  # if None - this is a "class service function"
     function_name: str
+    implementation_name: str
     user_cls: Optional[type[Any]]
     module_name: Optional[str]
 
@@ -149,21 +160,16 @@ class FunctionInfo:
     ):
         self.raw_f = f
         self.user_cls = user_cls
-
-        if name_override is not None:
-            if not serialized:
-                # We may relax this constraint in the future, but currently we don't track the distinction between
-                # the Function's name inside modal and the name of the object that we need to import in a container.
-                raise InvalidError("Setting a custom `name=` also requires setting `serialized=True`")
-            self.function_name = name_override
-        elif f is None and user_cls:
+        if f is None and user_cls:
             # "service function" for running all methods of a class
-            self.function_name = f"{user_cls.__name__}.*"
+            self.implementation_name = f"{user_cls.__name__}.*"
         elif f and user_cls:
             # Method may be defined on superclass of the wrapped class
-            self.function_name = f"{user_cls.__name__}.{f.__name__}"
+            self.implementation_name = f"{user_cls.__name__}.{f.__name__}"
         else:
-            self.function_name = f.__qualname__
+            self.implementation_name = f.__qualname__
+
+        self.function_name = name_override or self.implementation_name
 
         # If it's a cls, the @method could be defined in a base class in a different file.
         if user_cls is not None:
@@ -257,8 +263,7 @@ class FunctionInfo:
         LOAD_ATTR = opcode.opmap["LOAD_ATTR"]
         STORE_ATTR = opcode.opmap["STORE_ATTR"]
 
-        func = self.raw_f
-        code = func.__code__
+        code = self.raw_f.__code__
         f_attr_ops = set()
         for instr in dis.get_instructions(code):
             if instr.opcode == LOAD_ATTR:
@@ -430,15 +435,14 @@ async def _stream_function_call_data(
 
                 last_index = chunk.index
                 yield message
-        except (GRPCError, StreamTerminatedError) as exc:
+        except (ServiceError, InternalError, StreamTerminatedError) as exc:
             if retries_remaining > 0:
                 retries_remaining -= 1
-                if isinstance(exc, GRPCError):
-                    if exc.status in RETRYABLE_GRPC_STATUS_CODES:
-                        logger.debug(f"{variant} stream retrying with delay {delay_ms}ms due to {exc}")
-                        await asyncio.sleep(delay_ms / 1000)
-                        delay_ms = min(1000, delay_ms * 10)
-                        continue
+                if isinstance(exc, (ServiceError, InternalError)):
+                    logger.debug(f"{variant} stream retrying with delay {delay_ms}ms due to {exc}")
+                    await asyncio.sleep(delay_ms / 1000)
+                    delay_ms = min(1000, delay_ms * 10)
+                    continue
                 elif isinstance(exc, StreamTerminatedError):
                     continue
             raise
@@ -486,7 +490,12 @@ async def _process_result(result: api_pb2.GenericResult, data_format: int, stub,
     elif result.status == api_pb2.GenericResult.GENERIC_STATUS_INTERNAL_FAILURE:
         raise InternalFailure(result.exception)
     elif result.status != api_pb2.GenericResult.GENERIC_STATUS_SUCCESS:
-        if data:
+        if data and data_format in (api_pb2.DATA_FORMAT_PICKLE, api_pb2.DATA_FORMAT_UNSPECIFIED):
+            # *Unspecified data format here but data present usually means that the exception
+            # was created by the server representing an exception that occurred during container
+            # startup (crash looping) that eventually got escalated to input failures.
+            # TaskResult doesn't specify data format, so these results don't have that metadata
+            # the moment.
             try:
                 exc = deserialize(data, client)
             except DeserializationError as deser_exc:
@@ -549,27 +558,35 @@ async def _create_input(
     kwargs,
     stub: ModalClientModal,
     *,
-    max_object_size_bytes: int,
+    function: "modal._functions._Function",
     idx: Optional[int] = None,
-    method_name: Optional[str] = None,
     function_call_invocation_type: Optional["api_pb2.FunctionCallInvocationType.ValueType"] = None,
 ) -> api_pb2.FunctionPutInputsItem:
     """Serialize function arguments and create a FunctionInput protobuf,
     uploading to blob storage if needed.
     """
+    method_name = function._use_method_name
+    max_object_size_bytes = function._max_object_size_bytes
+
     if idx is None:
         idx = 0
-    if method_name is None:
-        method_name = ""  # proto compatible
 
-    args_serialized = serialize((args, kwargs))
+    data_format = get_preferred_payload_format()
+    if not function._metadata:
+        raise ExecutionError("Attempted to call function that has not been hydrated with metadata")
+
+    supported_input_formats = function._metadata.supported_input_formats or [api_pb2.DATA_FORMAT_PICKLE]
+    if data_format not in supported_input_formats:
+        data_format = supported_input_formats[0]
+
+    args_serialized = _serialize_data_format((args, kwargs), data_format)
 
     if should_upload(len(args_serialized), max_object_size_bytes, function_call_invocation_type):
         args_blob_id, r2_failed, r2_throughput_bytes_s = await blob_upload_with_r2_failure_info(args_serialized, stub)
         return api_pb2.FunctionPutInputsItem(
             input=api_pb2.FunctionInput(
                 args_blob_id=args_blob_id,
-                data_format=api_pb2.DATA_FORMAT_PICKLE,
+                data_format=data_format,
                 method_name=method_name,
             ),
             idx=idx,
@@ -580,7 +597,7 @@ async def _create_input(
         return api_pb2.FunctionPutInputsItem(
             input=api_pb2.FunctionInput(
                 args=args_serialized,
-                data_format=api_pb2.DATA_FORMAT_PICKLE,
+                data_format=data_format,
                 method_name=method_name,
             ),
             idx=idx,
@@ -622,14 +639,13 @@ class FunctionCreationStatus:
         if not self.response:
             self.status_row.finish(f"Unknown error when creating function {self.tag}")
 
-        elif self.response.function.web_url:
+        elif web_url := self.response.handle_metadata.web_url:
             url_info = self.response.function.web_url_info
             requires_proxy_auth = self.response.function.webhook_config.requires_proxy_auth
             proxy_auth_suffix = " 🔑" if requires_proxy_auth else ""
             # Ensure terms used here match terms used in modal.com/docs/guide/webhook-urls doc.
             suffix = _get_suffix_from_web_url_info(url_info)
             # TODO: this is only printed when we're showing progress. Maybe move this somewhere else.
-            web_url = self.response.handle_metadata.web_url
             for warning in self.response.server_warnings:
                 self.status_row.warning(warning)
             self.status_row.finish(
@@ -645,10 +661,11 @@ class FunctionCreationStatus:
                 )
 
         elif self.response.function.flash_service_urls:
+            self.status_row.finish(f"Created function {self.tag}.")
             for flash_service_url in self.response.function.flash_service_urls:
                 flash_service_url_status_row = self.resolver.add_status_row()
                 flash_service_url_status_row.finish(
-                    f"Created flash service endpoint for {self.tag} => "
+                    f"Created server endpoints for {self.tag} => "
                     f"[magenta underline]{flash_service_url}[/magenta underline]"
                 )
 

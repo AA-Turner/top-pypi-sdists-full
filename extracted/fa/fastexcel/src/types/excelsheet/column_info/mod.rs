@@ -105,6 +105,8 @@ pub struct ColumnInfo {
     pub name: String,
     /// The column's index
     pub index: usize,
+    /// The column's absolute index
+    pub absolute_index: usize,
     /// The column's data type
     pub dtype: DType,
     /// How the column name was determined
@@ -117,6 +119,7 @@ impl ColumnInfo {
     pub(crate) fn new(
         name: String,
         index: usize,
+        absolute_index: usize,
         column_name_from: ColumnNameFrom,
         dtype: DType,
         dtype_from: DTypeFrom,
@@ -124,6 +127,7 @@ impl ColumnInfo {
         Self {
             name,
             index,
+            absolute_index,
             dtype,
             column_name_from,
             dtype_from,
@@ -138,6 +142,7 @@ impl ColumnInfo {
 pub(crate) struct ColumnInfoNoDtype {
     name: String,
     index: usize,
+    absolute_index: usize,
     column_name_from: ColumnNameFrom,
 }
 
@@ -152,10 +157,16 @@ impl PartialEq<IdxOrName> for ColumnInfoNoDtype {
 }
 
 impl ColumnInfoNoDtype {
-    pub(super) fn new(name: String, index: usize, column_name_from: ColumnNameFrom) -> Self {
+    pub(super) fn new(
+        name: String,
+        index: usize,
+        absolute_index: usize,
+        column_name_from: ColumnNameFrom,
+    ) -> Self {
         Self {
             name,
             index,
+            absolute_index,
             column_name_from,
         }
     }
@@ -169,8 +180,8 @@ impl ColumnInfoNoDtype {
         &self.name
     }
 
-    pub(super) fn index(&self) -> usize {
-        self.index
+    pub(super) fn absolute_index(&self) -> usize {
+        self.absolute_index
     }
 
     fn dtype_info<D: CalamineDataProvider>(
@@ -180,6 +191,7 @@ impl ColumnInfoNoDtype {
         end_row: usize,
         specified_dtypes: Option<&DTypes>,
         dtype_coercion: &DTypeCoercion,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<(DType, DTypeFrom)> {
         specified_dtypes
             .and_then(|dtypes| {
@@ -188,7 +200,7 @@ impl ColumnInfoNoDtype {
                     DTypes::Map(dtypes) => {
                         // if we have dtypes, look the dtype up by index, and fall back on a lookup by name
                         // (done in this order because copying an usize is cheaper than cloning a string)
-                        if let Some(dtype) = dtypes.get(&self.index.into()) {
+                        if let Some(dtype) = dtypes.get(&self.absolute_index().into()) {
                             Some((*dtype, DTypeFrom::ProvidedByIndex))
                         } else {
                             dtypes
@@ -201,8 +213,14 @@ impl ColumnInfoNoDtype {
             .map(FastExcelResult::Ok)
             // If we could not look up a dtype, guess it from the data
             .unwrap_or_else(|| {
-                data.dtype_for_column(start_row, end_row, self.index, dtype_coercion)
-                    .map(|dtype| (dtype, DTypeFrom::Guessed))
+                data.dtype_for_column(
+                    start_row,
+                    end_row,
+                    self.index,
+                    dtype_coercion,
+                    whitespace_as_null,
+                )
+                .map(|dtype| (dtype, DTypeFrom::Guessed))
             })
     }
 
@@ -213,13 +231,22 @@ impl ColumnInfoNoDtype {
         end_row: usize,
         specified_dtypes: Option<&DTypes>,
         dtype_coercion: &DTypeCoercion,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<ColumnInfo> {
         let (dtype, dtype_from) = self
-            .dtype_info(data, start_row, end_row, specified_dtypes, dtype_coercion)
+            .dtype_info(
+                data,
+                start_row,
+                end_row,
+                specified_dtypes,
+                dtype_coercion,
+                whitespace_as_null,
+            )
             .with_context(|| format!("could not determine dtype for column {}", self.name))?;
         Ok(ColumnInfo::new(
             self.name,
             self.index,
+            self.absolute_index,
             self.column_name_from,
             dtype,
             dtype_from,
@@ -236,7 +263,9 @@ pub(crate) trait CalamineDataProvider {
         end_row: usize,
         col: usize,
         dtype_coercion: &DTypeCoercion,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<DType>;
+    fn start(&self) -> Option<(usize, usize)>;
 }
 
 impl CalamineDataProvider for ExcelSheetData<'_> {
@@ -254,8 +283,13 @@ impl CalamineDataProvider for ExcelSheetData<'_> {
         end_row: usize,
         col: usize,
         dtype_coercion: &DTypeCoercion,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<DType> {
-        self.dtype_for_column(start_row, end_row, col, dtype_coercion)
+        self.dtype_for_column(start_row, end_row, col, dtype_coercion, whitespace_as_null)
+    }
+
+    fn start(&self) -> Option<(usize, usize)> {
+        self.start()
     }
 }
 
@@ -274,8 +308,19 @@ impl CalamineDataProvider for calamine::Range<calamine::Data> {
         end_row: usize,
         col: usize,
         dtype_coercion: &DTypeCoercion,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<DType> {
-        get_dtype_for_column(self, start_row, end_row, col, dtype_coercion)
+        get_dtype_for_column(
+            self,
+            start_row,
+            end_row,
+            col,
+            dtype_coercion,
+            whitespace_as_null,
+        )
+    }
+    fn start(&self) -> Option<(usize, usize)> {
+        self.start().map(|(r, c)| (r as usize, c as usize))
     }
 }
 
@@ -285,12 +330,14 @@ fn column_info_from_header<D: CalamineDataProvider>(
     header: &Header,
 ) -> FastExcelResult<Vec<ColumnInfoNoDtype>> {
     let width = data.width();
+    let (_, col_off) = data.start().unwrap_or((0, 0));
     match header {
         Header::None => Ok((0..width)
             .map(|col_idx| {
                 ColumnInfoNoDtype::new(
                     format!("__UNNAMED__{col_idx}"),
                     col_idx,
+                    col_off + col_idx,
                     ColumnNameFrom::Generated,
                 )
             })
@@ -310,6 +357,7 @@ fn column_info_from_header<D: CalamineDataProvider>(
                         ColumnInfoNoDtype::new(
                             sanitized_col_name,
                             col_idx,
+                            col_off + col_idx,
                             ColumnNameFrom::LookedUp,
                         )
                     })
@@ -317,6 +365,7 @@ fn column_info_from_header<D: CalamineDataProvider>(
                         ColumnInfoNoDtype::new(
                             format!("__UNNAMED__{col_idx}"),
                             col_idx,
+                            col_off + col_idx,
                             ColumnNameFrom::Generated,
                         )
                     })
@@ -326,7 +375,7 @@ fn column_info_from_header<D: CalamineDataProvider>(
             if let SelectedColumns::Selection(column_selection) = selected_columns {
                 if column_selection.len() != names.len() {
                     return Err(FastExcelErrorKind::InvalidParameters(
-                        "column_names and use_columns must have the same length".to_string(),
+                        "column_names and use_columns must have the same length when a header is provided".to_string(),
                     )
                     .into());
                 }
@@ -345,8 +394,10 @@ fn column_info_from_header<D: CalamineDataProvider>(
 
                 Ok((0..width)
                     .map(|col_idx| {
-                        let provided_name_opt = if let Some(pos_in_names) =
-                            selected_indices.iter().position(|idx| idx == &col_idx)
+                        let absolute_col_idx = col_idx + col_off;
+                        let provided_name_opt = if let Some(pos_in_names) = selected_indices
+                            .iter()
+                            .position(|idx| *idx == absolute_col_idx)
                         {
                             names.get(pos_in_names).cloned()
                         } else {
@@ -357,11 +408,13 @@ fn column_info_from_header<D: CalamineDataProvider>(
                             Some(provided_name) => ColumnInfoNoDtype::new(
                                 provided_name,
                                 col_idx,
+                                col_off + col_idx,
                                 ColumnNameFrom::Provided,
                             ),
                             None => ColumnInfoNoDtype::new(
                                 format!("__UNNAMED__{col_idx}"),
                                 col_idx,
+                                col_off + col_idx,
                                 ColumnNameFrom::Generated,
                             ),
                         }
@@ -373,12 +426,18 @@ fn column_info_from_header<D: CalamineDataProvider>(
                     .iter()
                     .enumerate()
                     .map(|(col_idx, name)| {
-                        ColumnInfoNoDtype::new(name.to_owned(), col_idx, ColumnNameFrom::Provided)
+                        ColumnInfoNoDtype::new(
+                            name.to_owned(),
+                            col_idx,
+                            col_off + col_idx,
+                            ColumnNameFrom::Provided,
+                        )
                     })
                     .chain((nameless_start_idx..width).map(|col_idx| {
                         ColumnInfoNoDtype::new(
                             format!("__UNNAMED__{col_idx}"),
                             col_idx,
+                            col_off + col_idx,
                             ColumnNameFrom::Generated,
                         )
                     }))
@@ -441,18 +500,26 @@ pub(crate) fn finalize_column_info<D: CalamineDataProvider>(
     end_row: usize,
     specified_dtypes: Option<&DTypes>,
     dtype_coercion: &DTypeCoercion,
+    whitespace_as_null: bool,
 ) -> FastExcelResult<Vec<ColumnInfo>> {
     available_columns_info
         .into_iter()
         .map(|column_info_builder| {
-            column_info_builder.finish(data, start_row, end_row, specified_dtypes, dtype_coercion)
+            column_info_builder.finish(
+                data,
+                start_row,
+                end_row,
+                specified_dtypes,
+                dtype_coercion,
+                whitespace_as_null,
+            )
         })
         .collect()
 }
 
 #[derive(Debug)]
 pub(crate) enum AvailableColumns {
-    Pending(SelectedColumns),
+    Pending,
     Loaded(Vec<ColumnInfo>),
 }
 
@@ -460,13 +527,11 @@ impl AvailableColumns {
     pub(crate) fn as_loaded(&self) -> FastExcelResult<&[ColumnInfo]> {
         match self {
             AvailableColumns::Loaded(column_infos) => Ok(column_infos),
-            AvailableColumns::Pending(selected_columns) => {
-                Err(FastExcelErrorKind::Internal(format!(
-                    "Expected available columns to be loaded, got {selected_columns:?}. \
+            AvailableColumns::Pending => Err(FastExcelErrorKind::Internal(format!(
+                "Expected available columns to be loaded, got {self:?}. \
                     This is a bug, please report it to the fastexcel repository"
-                ))
-                .into())
-            }
+            ))
+            .into()),
         }
     }
 }

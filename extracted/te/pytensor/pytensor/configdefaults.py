@@ -45,8 +45,12 @@ def _filter_mode(val):
         "NanGuardMode",
         "FAST_COMPILE",
         "DEBUG_MODE",
+        "CVM",
+        "C",
         "JAX",
         "NUMBA",
+        "PYTORCH",
+        "MLX",
     ]
     if val in str_options:
         return val
@@ -67,8 +71,7 @@ def _warn_cxx(val):
     """We only support clang++ as otherwise we hit strange g++/OSX bugs."""
     if sys.platform == "darwin" and val and "clang++" not in val:
         _logger.warning(
-            "Only clang++ is supported. With g++,"
-            " we end up with strange g++/OSX bugs."
+            "Only clang++ is supported. With g++, we end up with strange g++/OSX bugs."
         )
     return True
 
@@ -268,15 +271,6 @@ def add_basic_configvars():
     )
 
     config.add(
-        "conv__assert_shape",
-        "If True, AbstractConv* ops will verify that user-provided"
-        " shapes match the runtime shapes (debugging option,"
-        " may slow down compilation)",
-        BoolParam(False),
-        in_c_key=False,
-    )
-
-    config.add(
         "print_global_stats",
         "Print some global statistics (time spent) at the end",
         BoolParam(False),
@@ -368,13 +362,26 @@ def add_compile_configvars():
     )
     del param
 
+    default_linker = "auto"
+
     if rc == 0 and config.cxx != "":
         # Keep the default linker the same as the one for the mode FAST_RUN
-        linker_options = ["c|py", "py", "c", "c|py_nogc", "vm", "vm_nogc", "cvm_nogc"]
+        linker_options = [
+            "cvm",
+            "c|py",
+            "py",
+            "c",
+            "c|py_nogc",
+            "vm",
+            "vm_nogc",
+            "cvm_nogc",
+            "numba",
+            "jax",
+        ]
     else:
         # g++ is not present or the user disabled it,
         # linker should default to python only.
-        linker_options = ["py", "vm_nogc"]
+        linker_options = ["py", "vm", "vm_nogc", "numba", "jax"]
         if type(config).cxx.is_default:
             # If the user provided an empty value for cxx, do not warn.
             _logger.warning(
@@ -386,9 +393,8 @@ def add_compile_configvars():
 
     config.add(
         "linker",
-        "Default linker used if the pytensor flags mode is Mode",
-        # Not mutable because the default mode is cached after the first use.
-        EnumStr("cvm", linker_options, mutable=False),
+        "Default linker used if the pytensor flags mode is Mode or FAST_RUN",
+        EnumStr(default_linker, linker_options, mutable=True),
         in_c_key=False,
     )
 
@@ -427,6 +433,13 @@ def add_compile_configvars():
         "optimizer_verbose_ignore",
         "Do not print information for rewrites with these names when `optimizer_verbose` is `True`. Separate names with ','",
         StrParam(""),
+        in_c_key=False,
+    )
+
+    config.add(
+        "compiler_verbose",
+        "Print information about compilation steps.",
+        BoolParam(False),
         in_c_key=False,
     )
 
@@ -1093,12 +1106,6 @@ def add_scan_configvars():
 
 
 def add_numba_configvars():
-    config.add(
-        "numba__vectorize_target",
-        ("Default target for numba.vectorize."),
-        EnumStr("cpu", ["parallel", "cuda"], mutable=True),
-        in_c_key=False,
-    )
     config.add(
         "numba__fastmath",
         ("If True, use Numba's fastmath mode."),

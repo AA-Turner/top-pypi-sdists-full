@@ -1,18 +1,21 @@
 import datetime
 from collections.abc import Generator
-from typing import Any, Optional, Union
+from typing import Any
 
 from django.contrib.admin.templatetags.admin_list import (
     ResultList,
     _coerce_field_name,
+    admin_actions,
     result_hidden_fields,
 )
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.templatetags.base import InclusionAdminNode
 from django.contrib.admin.utils import label_for_field, lookup_field
 from django.contrib.admin.views.main import (
+    IS_POPUP_VAR,
     ORDER_VAR,
     PAGE_VAR,
+    SEARCH_VAR,
     ChangeList,
 )
 from django.core.exceptions import ObjectDoesNotExist
@@ -34,7 +37,14 @@ from unfold.utils import (
     display_for_label,
     display_for_value,
 )
+from unfold.views import DatasetChangeList
 from unfold.widgets import UnfoldBooleanWidget
+
+try:
+    from django.contrib.admin.views.main import IS_FACETS_VAR
+except ImportError:
+    # TODO: remove once django 4.x is not supported
+    IS_FACETS_VAR = None
 
 register = Library()
 
@@ -99,6 +109,9 @@ def result_headers(cl):
     Generate the list column headers.
     """
     ordering_field_columns = cl.get_ordering_field_columns()
+    ordering_field = getattr(cl.model_admin, "ordering_field", None)
+    hide_ordering_field = getattr(cl.model_admin, "hide_ordering_field", False)
+
     for i, field_name in enumerate(cl.list_display):
         text, attr = label_for_field(
             field_name, cl.model, model_admin=cl.model_admin, return_attr=True
@@ -114,6 +127,7 @@ def result_headers(cl):
                     "text": UnfoldBooleanWidget(
                         {
                             "id": "action-toggle",
+                            "class": "action-toggle",
                             "aria-label": _(
                                 "Select all objects on this page for an action"
                             ),
@@ -145,6 +159,10 @@ def result_headers(cl):
         order_type = ""
         new_order_type = "asc"
         sort_priority = 0
+
+        if ordering_field and field_name == ordering_field and hide_ordering_field:
+            th_classes.append("!hidden")
+
         # Is it currently being sorted on?
         is_sorted = i in ordering_field_columns
         if is_sorted:
@@ -209,6 +227,9 @@ def items_for_result(
 
     for field_index, field_name in enumerate(cl.list_display):
         empty_value_display = cl.model_admin.get_empty_value_display()
+        ordering_field = getattr(cl.model_admin, "ordering_field", None)
+        hide_ordering_field = getattr(cl.model_admin, "hide_ordering_field", False)
+
         row_classes = [
             f"field-{_coerce_field_name(field_name, field_index)}",
             *ROW_CLASSES,
@@ -241,7 +262,7 @@ def items_for_result(
                 else:
                     result_repr = display_for_value(value, empty_value_display, boolean)
 
-                if isinstance(value, (datetime.date, datetime.time)):
+                if isinstance(value, datetime.date | datetime.time):
                     row_classes.append("nowrap")
             else:
                 if isinstance(f.remote_field, models.ManyToOneRel):
@@ -253,7 +274,7 @@ def items_for_result(
                 else:
                     result_repr = display_for_field(value, f, empty_value_display)
                 if isinstance(
-                    f, (models.DateField, models.TimeField, models.ForeignKey)
+                    f, models.DateField | models.TimeField | models.ForeignKey
                 ):
                     row_classes.append("nowrap")
 
@@ -321,6 +342,9 @@ def items_for_result(
                 if bf.errors:
                     row_classes += ["group", "errors"]
 
+            if ordering_field and field_name == ordering_field and hide_ordering_field:
+                row_classes.append("!hidden")
+
             row_class = mark_safe(f' class="{" ".join(row_classes)}"')
 
             if field_index != 0:
@@ -346,7 +370,7 @@ class UnfoldResultList(ResultList):
     def __init__(
         self,
         instance: Model,
-        form: Optional[Form],
+        form: Form | None,
         *items: Any,
     ) -> None:
         self.instance = instance
@@ -395,23 +419,67 @@ def result_list_tag(parser: Parser, token: Token) -> InclusionAdminNode:
 
 
 @register.simple_tag
-def paginator_number(cl: ChangeList, i: Union[str, int]) -> Union[str, SafeText]:
+def paginator_number(cl: ChangeList, i: str | int) -> str | SafeText:
     """
     Generate an individual page index link in a paginated list.
     """
     if i == cl.paginator.ELLIPSIS:
         return render_to_string(
             "unfold/helpers/pagination_ellipsis.html",
-            {"ellipsis": cl.paginator.ELLIPSIS},
+            {
+                "ellipsis": cl.paginator.ELLIPSIS,
+            },
         )
     elif i == cl.page_num:
         return render_to_string(
             "unfold/helpers/pagination_current_item.html", {"number": i}
         )
     else:
+        page_param = PAGE_VAR
+
+        if isinstance(cl, DatasetChangeList):
+            page_param = f"{cl.model._meta.model_name}-p"
+
         return format_html(
-            '<a href="{}"{}>{}</a> ',
-            cl.get_query_string({PAGE_VAR: i}),
+            '<a href="{}"{} x-data x-on:click.prevent="window.location.href = $el.href + window.location.hash">{}</a> ',
+            cl.get_query_string(
+                {
+                    page_param: i,
+                }
+            ),
             mark_safe(' class="end"' if i == cl.paginator.num_pages else ""),
             i,
         )
+
+
+def unfold_search_form(cl):
+    model_name = cl.model_admin.model._meta.model_name
+
+    return {
+        "cl": cl,
+        "show_result_count": cl.result_count != cl.full_result_count,
+        "search_var": f"{model_name}-{SEARCH_VAR}",
+        "is_popup_var": IS_POPUP_VAR,
+        "is_facets_var": IS_FACETS_VAR,
+    }
+
+
+@register.tag(name="unfold_search_form")
+def unfold_search_form_tag(parser, token):
+    return InclusionAdminNode(
+        parser,
+        token,
+        func=unfold_search_form,
+        template_name="search_form.html",
+        takes_context=False,
+    )
+
+
+@register.tag(name="unfold_admin_actions")
+def unfold_admin_actions_tag(parser, token):
+    return InclusionAdminNode(
+        parser,
+        token,
+        func=admin_actions,
+        template_name="dataset_actions.html",
+    )

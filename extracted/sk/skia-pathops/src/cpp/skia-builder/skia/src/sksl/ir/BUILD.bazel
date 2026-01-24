@@ -1,8 +1,10 @@
-load("//bazel:skia_rules.bzl", "exports_files_legacy", "skia_filegroup", "split_srcs_and_hdrs")
+load("//bazel:skia_rules.bzl", "split_srcs_and_hdrs")
+
+package(
+    default_applicable_licenses = ["//:license"],
+)
 
 licenses(["notice"])
-
-exports_files_legacy()
 
 IR_FILES = [
     "SkSLBinaryExpression.cpp",
@@ -37,14 +39,16 @@ IR_FILES = [
     "SkSLDiscardStatement.h",
     "SkSLDoStatement.cpp",
     "SkSLDoStatement.h",
+    "SkSLEmptyExpression.h",
     "SkSLExpression.cpp",
     "SkSLExpression.h",
     "SkSLExpressionStatement.cpp",
     "SkSLExpressionStatement.h",
+    "SkSLExtension.cpp",
     "SkSLExtension.h",
-    "SkSLField.h",
     "SkSLFieldAccess.cpp",
     "SkSLFieldAccess.h",
+    "SkSLFieldSymbol.h",
     "SkSLForStatement.cpp",
     "SkSLForStatement.h",
     "SkSLFunctionCall.cpp",
@@ -61,11 +65,17 @@ IR_FILES = [
     "SkSLIndexExpression.h",
     "SkSLInterfaceBlock.cpp",
     "SkSLInterfaceBlock.h",
+    "SkSLIRHelpers.h",
+    "SkSLIRNode.h",
     "SkSLLayout.cpp",
+    "SkSLLayout.h",
     "SkSLLiteral.cpp",
     "SkSLLiteral.h",
     "SkSLMethodReference.h",
-    "SkSLModifiers.cpp",
+    "SkSLModifierFlags.cpp",
+    "SkSLModifierFlags.h",
+    "SkSLModifiers.h",
+    "SkSLModifiersDeclaration.cpp",
     "SkSLModifiersDeclaration.h",
     "SkSLNop.h",
     "SkSLPoison.h",
@@ -75,15 +85,21 @@ IR_FILES = [
     "SkSLPrefixExpression.h",
     "SkSLProgram.cpp",
     "SkSLProgram.h",
+    "SkSLProgramElement.h",
     "SkSLReturnStatement.h",
     "SkSLSetting.cpp",
     "SkSLSetting.h",
+    "SkSLStatement.h",
+    "SkSLStructDefinition.cpp",
     "SkSLStructDefinition.h",
+    "SkSLSwitchCase.cpp",
     "SkSLSwitchCase.h",
     "SkSLSwitchStatement.cpp",
     "SkSLSwitchStatement.h",
     "SkSLSwizzle.cpp",
     "SkSLSwizzle.h",
+    "SkSLSymbol.cpp",
+    "SkSLSymbol.h",
     "SkSLSymbolTable.cpp",
     "SkSLSymbolTable.h",
     "SkSLTernaryExpression.cpp",
@@ -103,16 +119,5 @@ IR_FILES = [
 split_srcs_and_hdrs(
     name = "ir",
     files = IR_FILES,
-)
-
-skia_filegroup(
-    name = "srcs",
-    srcs = [":ir_srcs"],
-    visibility = ["//src/sksl:__pkg__"],
-)
-
-skia_filegroup(
-    name = "private_hdrs",
-    srcs = [":ir_hdrs"],
     visibility = ["//src/sksl:__pkg__"],
 )

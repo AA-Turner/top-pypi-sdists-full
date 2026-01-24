@@ -20,11 +20,9 @@ import os
 
 from stanza.models import identity_lemmatizer
 from stanza.models import lemmatizer
-from stanza.models.lemma import attach_lemma_classifier
 
 from stanza.utils.training import common
 from stanza.utils.training.common import Mode, add_charlm_args, build_lemma_charlm_args, choose_lemma_charlm
-from stanza.utils.training import run_lemma_classifier
 
 from stanza.utils.datasets.prepare_lemma_treebank import check_lemmas
 import stanza.utils.datasets.prepare_lemma_classifier as prepare_lemma_classifier
@@ -72,18 +70,15 @@ def build_model_filename(paths, short_name, command_args, extra_args):
     save_name = lemmatizer.build_model_filename(args)
     return save_name
 
-def run_treebank(mode, paths, treebank, short_name,
-                 temp_output_file, command_args, extra_args):
+def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
     short_language, dataset = short_name.split("_", 1)
 
     lemma_dir      = paths["LEMMA_DATA_DIR"]
     train_file     = f"{lemma_dir}/{short_name}.train.in.conllu"
     dev_in_file    = f"{lemma_dir}/{short_name}.dev.in.conllu"
-    dev_gold_file  = f"{lemma_dir}/{short_name}.dev.gold.conllu"
-    dev_pred_file  = temp_output_file if temp_output_file else f"{lemma_dir}/{short_name}.dev.pred.conllu"
+    dev_pred_file  = f"{lemma_dir}/{short_name}.dev.pred.conllu"
     test_in_file   = f"{lemma_dir}/{short_name}.test.in.conllu"
-    test_gold_file = f"{lemma_dir}/{short_name}.test.gold.conllu"
-    test_pred_file = temp_output_file if temp_output_file else f"{lemma_dir}/{short_name}.test.pred.conllu"
+    test_pred_file = f"{lemma_dir}/{short_name}.test.pred.conllu"
 
     charlm_args = build_lemma_charlm_args(short_language, dataset, command_args.charlm)
 
@@ -98,17 +93,19 @@ def run_treebank(mode, paths, treebank, short_name,
         if mode == Mode.TRAIN or mode == Mode.SCORE_DEV:
             train_args = ["--train_file", train_file,
                           "--eval_file", dev_in_file,
-                          "--output_file", dev_pred_file,
-                          "--gold_file", dev_gold_file,
+                          "--gold_file", dev_in_file,
                           "--shorthand", short_name]
+            if command_args.save_output:
+                train_args.extend(["--output_file", dev_pred_file])
             logger.info("Running identity lemmatizer for {} with args {}".format(treebank, train_args))
             identity_lemmatizer.main(train_args)
         elif mode == Mode.SCORE_TEST:
             train_args = ["--train_file", train_file,
                           "--eval_file", test_in_file,
-                          "--output_file", test_pred_file,
-                          "--gold_file", test_gold_file,
+                          "--gold_file", test_in_file,
                           "--shorthand", short_name]
+            if command_args.save_output:
+                train_args.extend(["--output_file", test_pred_file])
             logger.info("Running identity lemmatizer for {} with args {}".format(treebank, train_args))
             identity_lemmatizer.main(train_args)            
     else:
@@ -121,8 +118,6 @@ def run_treebank(mode, paths, treebank, short_name,
 
             train_args = ["--train_file", train_file,
                           "--eval_file", dev_in_file,
-                          "--output_file", dev_pred_file,
-                          "--gold_file", dev_gold_file,
                           "--shorthand", short_name,
                           "--num_epoch", num_epochs,
                           "--mode", "train"]
@@ -132,20 +127,20 @@ def run_treebank(mode, paths, treebank, short_name,
 
         if mode == Mode.SCORE_DEV or mode == Mode.TRAIN:
             dev_args = ["--eval_file", dev_in_file,
-                        "--output_file", dev_pred_file,
-                        "--gold_file", dev_gold_file,
                         "--shorthand", short_name,
                         "--mode", "predict"]
+            if command_args.save_output:
+                train_args.extend(["--output_file", dev_pred_file])
             dev_args = dev_args + charlm_args + extra_args
             logger.info("Running dev lemmatizer for {} with args {}".format(treebank, dev_args))
             lemmatizer.main(dev_args)
 
         if mode == Mode.SCORE_TEST:
             test_args = ["--eval_file", test_in_file,
-                         "--output_file", test_pred_file,
-                         "--gold_file", test_gold_file,
                          "--shorthand", short_name,
                          "--mode", "predict"]
+            if command_args.save_output:
+                train_args.extend(["--output_file", test_pred_file])
             test_args = test_args + charlm_args + extra_args
             logger.info("Running test lemmatizer for {} with args {}".format(treebank, test_args))
             lemmatizer.main(test_args)
@@ -155,6 +150,12 @@ def run_treebank(mode, paths, treebank, short_name,
             use_lemma_classifier = command_args.charlm is not None
         use_lemma_classifier = use_lemma_classifier and short_name in prepare_lemma_classifier.DATASET_MAPPING
         if use_lemma_classifier and mode == Mode.TRAIN:
+            # some installations may not have transformers,
+            # so we bury the lemma_classifier import in the codepath
+            # which actually needs it
+            from stanza.models.lemma import attach_lemma_classifier
+            from stanza.utils.training import run_lemma_classifier
+
             lc_charlm_args = ['--no_charlm'] if command_args.charlm is None else ['--charlm', command_args.charlm]
             lemma_classifier_args = [treebank] + lc_charlm_args
             if command_args.force:

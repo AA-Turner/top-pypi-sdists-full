@@ -249,7 +249,7 @@ Token Lexer::lex(KeywordVersion keywordVersion) {
         sourceBuffer = sourceEnd - 1;
 
         triviaBuffer.push_back(Trivia(TriviaKind::DisabledText, lexeme()));
-        return Token(alloc, TokenKind::EndOfFile, triviaBuffer.copy(alloc), token.rawText(),
+        return Token(alloc, TokenKind::Unknown, triviaBuffer.copy(alloc), token.rawText(),
                      token.location());
     }
 
@@ -289,6 +289,11 @@ bool Lexer::isNextTokenOnSameLine() {
             case '\r':
             case '\n':
                 return false;
+            case '`':
+                // Only macro usages are considered to be on the same line; directives are not.
+                mark();
+                advance();
+                return lexDirective().directiveKind() == SyntaxKind::MacroUsage;
             default:
                 return true;
         }

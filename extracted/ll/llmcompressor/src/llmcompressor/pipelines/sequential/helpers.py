@@ -2,16 +2,18 @@ import contextlib
 import inspect
 from collections import deque
 from dataclasses import dataclass
+from types import FunctionType, MethodType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
 
 import torch
 from accelerate.hooks import remove_hook_from_module
-from compressed_tensors.quantization import find_name_or_class_matches
 from compressed_tensors.utils import (
     has_offloaded_params,
     offloaded_dispatch,
+    patch_attr,
     remove_dispatch,
 )
+from compressed_tensors.utils.match import match_targets
 from loguru import logger
 from torch.fx import Graph, GraphModule, Node
 from torch.fx.graph import PythonCode
@@ -19,14 +21,14 @@ from torch.fx.proxy import Argument
 from torch.nn import Module
 from transformers import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
-from transformers.utils.fx import HFTracer
 
 from llmcompressor.modifiers import Modifier
 from llmcompressor.modifiers.utils.hooks import HooksMixin
-from llmcompressor.utils.helpers import calibration_forward_context, patch_attr
+from llmcompressor.pipelines.sequential.transformers_helpers import HFTracer
+from llmcompressor.utils.helpers import calibration_forward_context
 from llmcompressor.utils.pytorch.module import get_no_split_params
 
-from .ast_helpers import autowrap_forwards
+from .ast_helpers import append_autowrap_source_on_fail, autowrap_forwards
 
 if TYPE_CHECKING:
     from llmcompressor.args.dataset_arguments import DatasetArguments
@@ -69,15 +71,16 @@ class Subgraph:
 
         forward_fn = self._code.globals.get("forward")
 
-        try:
-            outputs = forward_fn(*args, **kwargs)
-        except Exception as exception:
-            raise RuntimeError(
-                "Raised an exception during execution of the following code:\n"
-                f"```\n{add_line_numbers(self._code.src)}\n```"
-            ) from exception
+        with append_autowrap_source_on_fail():
+            return forward_fn(*args, **kwargs)
 
-        return outputs
+    def submodules(self, model: Module, recurse: bool = False) -> Set[Module]:
+        nodes = self.graph.find_nodes(op="call_module")
+        modules = set(model.get_submodule(node.target) for node in nodes)
+        if recurse:
+            modules = set(m for module in modules for m in module.modules())
+
+        return modules
 
 
 def trace_subgraphs(
@@ -118,19 +121,26 @@ def trace_subgraphs(
 
         # autowrap forwards
         stack.enter_context(autowrap_forwards(ancestors, ignore))
-        stack.enter_context(patch_attr(type(model), "forward", model.forward.__func__))
 
-        graph = GraphModule(
-            model,
-            tracer.trace(
+        # avoid bug where pytorch cannot handle wrapped root functions
+        unwrapped = inspect.unwrap(model.forward).__get__(model)
+        stack.enter_context(patch_attr(model, "forward", unwrapped))
+        stack.enter_context(patch_attr(type(model), "forward", unwrapped.__func__))
+        assert isinstance(model.forward, MethodType)
+        assert isinstance(type(model).forward, FunctionType)
+
+        with append_autowrap_source_on_fail():
+            graph = GraphModule(
                 model,
-                dummy_inputs=sample_input,
-                concrete_args=concrete_args,
-                complete_concrete_args_with_inputs_not_in_dummy_inputs=False,
-                # bug in trace throws an error for variadic
-                # args and kwargs in function signature
-            ),
-        )
+                tracer.trace(
+                    model,
+                    dummy_inputs=sample_input,
+                    concrete_args=concrete_args,
+                    complete_concrete_args_with_inputs_not_in_dummy_inputs=False,
+                    # bug in trace throws an error for variadic
+                    # args and kwargs in function signature
+                ),
+            )
 
     # copy metadata
     graph.config = model.config
@@ -303,10 +313,12 @@ def topological_partition(graph: GraphModule, targets: Set[Module]) -> List[List
                 if user in partitions[index]:
                     user_partitions.append(index)
                     break
-        partition_index = min(user_partitions)
-        partitions[partition_index].insert(0, node)
 
-    assert set().union(*partitions) == set(graph.graph.nodes)
+        # workaround
+        if len(user_partitions):
+            partition_index = min(user_partitions)
+            partitions[partition_index].insert(0, node)
+
     return partitions
 
 
@@ -424,7 +436,7 @@ def match_modules(model: Module, target_names: List[str]) -> Set[Module]:
     return set(
         module
         for name, module in model.named_modules()
-        if find_name_or_class_matches(name, module, target_names)
+        if match_targets(name, module, target_names)
     )
 
 
@@ -517,8 +529,8 @@ def get_sequential_ancestors(model: Module, targets: Set[Module]) -> Set[Module]
 def dispatch_for_sequential(model: PreTrainedModel) -> PreTrainedModel:
     """
     Dispatch a model for sequential calibration using a sequential pipeline.
-    The model will be offloaded to the CPU and dispatched to CUDA device if available.
-    Removes any existing hooks.
+    The model will be offloaded to the CPU and dispatched to CUDA/XPU device
+    if available. Removes any existing hooks.
 
     :param model: model to dispatch
     :return: dispatched model
@@ -527,8 +539,10 @@ def dispatch_for_sequential(model: PreTrainedModel) -> PreTrainedModel:
 
     if torch.cuda.is_available():
         offloaded_dispatch(model, execution_device=torch.device("cuda:0"))
+    elif hasattr(torch, "xpu") and torch.xpu.is_available():
+        offloaded_dispatch(model, execution_device=torch.device("xpu:0"))
     else:
-        logger.warning("CUDA is not available! Compressing model on CPU instead")
+        logger.warning("CUDA/XPU is not available! Compressing model on CPU instead")
 
     return model
 

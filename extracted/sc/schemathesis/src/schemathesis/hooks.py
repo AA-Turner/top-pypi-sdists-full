@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import inspect
 from collections import defaultdict
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum, unique
 from functools import lru_cache, partial
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generator, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+from schemathesis.core.errors import HookExecutionError
 from schemathesis.core.marks import Mark
 from schemathesis.core.transport import Response
 from schemathesis.filters import FilterSet, attach_filter_chain
@@ -226,16 +228,19 @@ class HookDispatcher:
             if _should_skip_hook(hook, context):
                 continue
             hook = partial(hook, context)
+            hook = _wrap_hook_for_generated_value(hook)
             strategy = strategy.filter(hook)
         for hook in self.get_all_by_name(f"map_{container}"):
             if _should_skip_hook(hook, context):
                 continue
             hook = partial(hook, context)
+            hook = _wrap_hook_for_generated_value(hook)
             strategy = strategy.map(hook)
         for hook in self.get_all_by_name(f"flatmap_{container}"):
             if _should_skip_hook(hook, context):
                 continue
             hook = partial(hook, context)
+            hook = _wrap_hook_for_generated_value(hook)
             strategy = strategy.flatmap(hook)
         return strategy
 
@@ -246,11 +251,14 @@ class HookDispatcher:
         for hook in self.get_all_by_name(name):
             if _should_skip_hook(hook, context):
                 continue
-            # NOTE: It is a backward-compat shim to support calling `before_call` with `**kwargs` OR with `kwargs`.
-            if _with_dual_style_kwargs and not has_var_keyword(hook):
-                hook(context, *args, kwargs)
-            else:
-                hook(context, *args, **kwargs)
+            try:
+                # NOTE: It is a backward-compat shim to support calling `before_call` with `**kwargs` OR with `kwargs`.
+                if _with_dual_style_kwargs and not has_var_keyword(hook):
+                    hook(context, *args, kwargs)
+                else:
+                    hook(context, *args, **kwargs)
+            except Exception as exc:
+                raise HookExecutionError(name, exc) from exc
 
     def unregister(self, hook: Callable) -> None:
         """Unregister a specific hook."""
@@ -275,6 +283,24 @@ def has_var_keyword(hook: Callable) -> bool:
 def _should_skip_hook(hook: Callable, ctx: HookContext) -> bool:
     filter_set = getattr(hook, "filter_set", None)
     return filter_set is not None and ctx.operation is not None and not filter_set.match(ctx)
+
+
+def _wrap_hook_for_generated_value(hook: Callable) -> Callable:
+    """Wrap hook to handle GeneratedValue transparently.
+
+    In NEGATIVE mode, strategies yield GeneratedValue wrappers instead of raw dicts.
+    This wrapper ensures hooks always receive raw dict values and preserves the
+    GeneratedValue wrapper with its metadata after the hook processes the value.
+    """
+    from schemathesis.specs.openapi.negative import GeneratedValue
+
+    def wrapper(value: Any) -> Any:
+        if isinstance(value, GeneratedValue):
+            result = hook(value.value)
+            return GeneratedValue(value=result, meta=value.meta)
+        return hook(value)
+
+    return wrapper
 
 
 def apply_to_all_dispatchers(

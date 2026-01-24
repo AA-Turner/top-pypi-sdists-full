@@ -2,8 +2,9 @@ import base64
 import json
 import re
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Sequence
 
+import numpy as np
 import pytest
 
 from mistral_common.tokens.tokenizers.base import SpecialTokenPolicy, SpecialTokens, TokenizerVersion
@@ -17,7 +18,7 @@ from mistral_common.tokens.tokenizers.tekken import (
 )
 
 
-def _quick_vocab(extra_toks: Sequence[bytes] = ()) -> List[TokenInfo]:
+def quick_vocab(extra_toks: Sequence[bytes] = ()) -> list[TokenInfo]:
     vocab = [TokenInfo(rank=i, token_bytes=base64.b64encode(bytes([i])).decode(), token_str=chr(i)) for i in range(256)]
     for i, tok in enumerate(extra_toks):
         vocab.append(
@@ -30,13 +31,13 @@ def _quick_vocab(extra_toks: Sequence[bytes] = ()) -> List[TokenInfo]:
     return vocab
 
 
-def _get_deprecated_special_tokens() -> List[SpecialTokenInfo]:
+def _get_deprecated_special_tokens() -> list[SpecialTokenInfo]:
     return list(Tekkenizer.DEPRECATED_SPECIAL_TOKENS)
 
 
 def get_special_tokens(
     tokenizer_version: TokenizerVersion, add_audio: bool = False, add_think: bool = False
-) -> List[SpecialTokenInfo]:
+) -> list[SpecialTokenInfo]:
     special_tokens = list(Tekkenizer.DEPRECATED_SPECIAL_TOKENS)
     if tokenizer_version < TokenizerVersion.v7 and add_audio:
         raise ValueError("Audio tokens are only supported in v7 and above")
@@ -92,15 +93,15 @@ def get_special_tokens(
 
 def _write_tekkenizer_model(
     tmp_path: Path,
-    vocab: Optional[List[TokenInfo]] = None,
-    special_tokens: Optional[List[SpecialTokenInfo]] = None,
+    vocab: list[TokenInfo] | None = None,
+    special_tokens: list[SpecialTokenInfo] | None = None,
     pattern: str = ".",
     num_special_tokens: int = 100,
-    version: Optional[str] = "v3",
+    version: str | None = "v3",
 ) -> None:
     # Create the vocab.json file
     if vocab is None:
-        vocab = _quick_vocab()
+        vocab = quick_vocab()
 
     config = {
         "pattern": pattern,
@@ -112,7 +113,7 @@ def _write_tekkenizer_model(
         config["version"] = version
 
     model = ModelData(
-        vocab=vocab if vocab else _quick_vocab(),
+        vocab=vocab if vocab else quick_vocab(),
         config=TekkenConfig(**config),  # type: ignore
         special_tokens=special_tokens,
         version=1,
@@ -124,7 +125,7 @@ def _write_tekkenizer_model(
 
 def test_roundtrip() -> None:
     tekkenizer = Tekkenizer(
-        _quick_vocab(extra_toks=[b"beau", b"My", b"unused"]),
+        quick_vocab(extra_toks=[b"beau", b"My", b"unused"]),
         list(Tekkenizer.DEPRECATED_SPECIAL_TOKENS),
         pattern=".",
         vocab_size=256 + 3 + 100,
@@ -140,7 +141,7 @@ def test_roundtrip() -> None:
 def test_version(tmp_path: Path) -> None:
     tokpath = tmp_path / "tekken.json"
 
-    vocab = _quick_vocab(extra_toks=[b"beau", b"My", b"unused"])
+    vocab = quick_vocab(extra_toks=[b"beau", b"My", b"unused"])
     pattern = "."
     num_special_tokens = 100
 
@@ -164,7 +165,7 @@ def test_version(tmp_path: Path) -> None:
 def test_read_from_file(tmp_path: Path) -> None:
     inputs = "My very beatuiful string"
     tokpath = tmp_path / "tekken.json"
-    vocab = _quick_vocab(extra_toks=[b"beau", b"My", b"unused"])
+    vocab = quick_vocab(extra_toks=[b"beau", b"My", b"unused"])
     pattern = "."
     num_special_tokens = 100
     _write_tekkenizer_model(tokpath, vocab, None, pattern, num_special_tokens)
@@ -216,7 +217,7 @@ def test_istekken(tmp_path: Path) -> None:
 
 def test_isbyte() -> None:
     tekkenizer = Tekkenizer(
-        _quick_vocab([b"hello"]),
+        quick_vocab([b"hello"]),
         list(Tekkenizer.DEPRECATED_SPECIAL_TOKENS),
         pattern=r".+",  # single token, whole string
         vocab_size=256 + 1 + 100,
@@ -234,7 +235,7 @@ def test_isbyte() -> None:
 
 
 def test_id_to_byte_piece() -> None:
-    vocab = _quick_vocab([b"hello"])
+    vocab = quick_vocab([b"hello"])
     tekkenizer = Tekkenizer(
         vocab,
         special_tokens=_get_deprecated_special_tokens(),
@@ -289,3 +290,28 @@ def test_frozen_special_tokens_list() -> None:
         "[TOOL_CONTENT]",
     ]  # DO NOT MODIFY
     assert FROZEN_TOKENS_DO_NOT_MODIFY == [token["token_str"] for token in _get_deprecated_special_tokens()]
+
+
+@pytest.mark.parametrize(
+    ("token", "is_special"),
+    [
+        ("</s>", True),
+        ("a", False),
+        (1, True),
+        (1001, False),
+        (np.int64(0), True),
+        (np.int64(1), True),
+        (np.int64(1001), False),
+    ],
+)
+def test_is_control(token: str | int, is_special: bool) -> None:
+    vocab = quick_vocab([b"hello"])
+    tekkenizer = Tekkenizer(
+        vocab,
+        special_tokens=_get_deprecated_special_tokens(),
+        pattern=r".+",  # single token, whole string
+        vocab_size=len(vocab) + len(_get_deprecated_special_tokens()),
+        num_special_tokens=len(_get_deprecated_special_tokens()),
+        version=TokenizerVersion.v3,
+    )
+    assert tekkenizer.is_special(token) is is_special

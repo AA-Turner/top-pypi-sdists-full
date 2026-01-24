@@ -36,7 +36,7 @@ def check_images(model):
 
 @skip_if_no_google
 def test_google_images():
-    check_images("google/gemini-1.5-flash")
+    check_images("google/gemini-2.5-flash")
 
 
 @skip_if_no_openai
@@ -51,7 +51,7 @@ def test_openai_responses_images():
 
 @skip_if_no_anthropic
 def test_anthropic_images():
-    check_images("anthropic/claude-3-sonnet-20240229")
+    check_images("anthropic/claude-sonnet-4-5")
 
 
 @skip_if_no_mistral

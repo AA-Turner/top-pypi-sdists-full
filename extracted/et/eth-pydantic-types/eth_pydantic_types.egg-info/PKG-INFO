@@ -1,26 +1,26 @@
 Metadata-Version: 2.4
 Name: eth-pydantic-types
-Version: 0.2.2
-Summary: eth-pydantic-types: Pydantic Types for Ethereum
-Home-page: https://github.com/ApeWorX/eth-pydantic-types
-Author: ApeWorX Ltd.
-Author-email: admin@apeworx.io
-License: Apache-2.0
-Keywords: ethereum
+Version: 0.2.5
+Summary: Pydantic Types for Ethereum
+Author-email: "ApeWorX Ltd." <admin@apeworx.io>
+License-Expression: Apache-2.0
+Project-URL: Repository, https://github.com/ApeWorX/eth-pydantic-types
+Project-URL: Issues, https://github.com/ApeWorX/eth-pydantic-types/issues
+Project-URL: Documentation, https://docs.apeworx.io/eth-pydantic-types
+Keywords: ethereum,pydantic,validation
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9,<4
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cchecksum<1,>=0.0.3
@@ -29,66 +29,7 @@ Requires-Dist: eth-utils<6,>=2.3.1
 Requires-Dist: eth-typing<6,>=3.5.2
 Requires-Dist: pydantic<3,>=2.5.2
 Requires-Dist: typing_extensions<5,>=4.8.0
-Provides-Extra: test
-Requires-Dist: pytest>=6.0; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: pytest-cov<5,>=4.0.0; extra == "test"
-Requires-Dist: pytest-mock; extra == "test"
-Requires-Dist: hypothesis<7.0,>=6.2.0; extra == "test"
-Requires-Dist: hypothesis-jsonschema==0.19.0; extra == "test"
-Requires-Dist: eth-hash[pycryptodome]; extra == "test"
-Provides-Extra: lint
-Requires-Dist: ruff>=0.12.0; extra == "lint"
-Requires-Dist: mypy<2,>=1.16.1; extra == "lint"
-Requires-Dist: types-setuptools; extra == "lint"
-Requires-Dist: mdformat>=0.7.22; extra == "lint"
-Requires-Dist: mdformat-gfm>=0.3.5; extra == "lint"
-Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "lint"
-Requires-Dist: mdformat-pyproject>=0.0.2; extra == "lint"
-Provides-Extra: doc
-Requires-Dist: sphinx-ape; extra == "doc"
-Provides-Extra: release
-Requires-Dist: setuptools>=75.6.0; extra == "release"
-Requires-Dist: wheel; extra == "release"
-Requires-Dist: twine==3.8.0; extra == "release"
-Requires-Dist: packaging<24,>=23.1; extra == "release"
-Provides-Extra: dev
-Requires-Dist: pytest>=6.0; extra == "dev"
-Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pytest-cov<5,>=4.0.0; extra == "dev"
-Requires-Dist: pytest-mock; extra == "dev"
-Requires-Dist: hypothesis<7.0,>=6.2.0; extra == "dev"
-Requires-Dist: hypothesis-jsonschema==0.19.0; extra == "dev"
-Requires-Dist: eth-hash[pycryptodome]; extra == "dev"
-Requires-Dist: ruff>=0.12.0; extra == "dev"
-Requires-Dist: mypy<2,>=1.16.1; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: mdformat>=0.7.22; extra == "dev"
-Requires-Dist: mdformat-gfm>=0.3.5; extra == "dev"
-Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "dev"
-Requires-Dist: mdformat-pyproject>=0.0.2; extra == "dev"
-Requires-Dist: sphinx-ape; extra == "dev"
-Requires-Dist: setuptools>=75.6.0; extra == "dev"
-Requires-Dist: wheel; extra == "dev"
-Requires-Dist: twine==3.8.0; extra == "dev"
-Requires-Dist: packaging<24,>=23.1; extra == "dev"
-Requires-Dist: commitizen<2.41,>=2.40; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest-watch; extra == "dev"
-Requires-Dist: ipdb; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # eth-pydantic-types
 

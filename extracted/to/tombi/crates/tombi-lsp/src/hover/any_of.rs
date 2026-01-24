@@ -1,12 +1,13 @@
 use std::borrow::Cow;
 
+use tombi_diagnostic::Diagnostic;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext, SchemaUri};
 
-use crate::{hover::display_value::GetEnumerate, HoverContent};
+use crate::{HoverContent, hover::display_value::GetEnum};
 
 use super::{
-    constraints::ValueConstraints, display_value::DisplayValue, GetHoverContent, HoverValueContent,
+    GetHoverContent, HoverValueContent, constraints::ValueConstraints, display_value::DisplayValue,
 };
 
 pub fn get_any_of_hover_content<'a: 'b, 'b, T>(
@@ -37,7 +38,7 @@ where
         let mut any_hover_value_contents = vec![];
         let mut valid_hover_value_contents = vec![];
         let mut value_type_set = indexmap::IndexSet::new();
-        let mut enumerate_values = Vec::new();
+        let mut enum_values = Vec::new();
         let default = any_of_schema
             .default
             .as_ref()
@@ -57,10 +58,10 @@ where
 
             if let Some(values) = value_schema
                 .as_ref()
-                .get_enumerate(schema_uri, definitions, schema_context)
+                .get_enum(schema_uri, definitions, schema_context)
                 .await
             {
-                enumerate_values.extend(values);
+                enum_values.extend(values);
             }
 
             value_type_set.insert(value_schema.value_type().await);
@@ -110,14 +111,12 @@ where
                     }
 
                     match value
-                        .validate(&accessors, Some(&current_schema), schema_context)
+                        .validate(accessors, Some(&current_schema), schema_context)
                         .await
                     {
                         Ok(()) => valid_hover_value_contents.push(hover_value_content.clone()),
-                        Err(errors)
-                            if errors
-                                .iter()
-                                .all(|error| error.level() == tombi_diagnostic::Level::WARNING) =>
+                        Err(tombi_validator::Error { diagnostics, .. })
+                            if diagnostics.iter().all(Diagnostic::is_warning) =>
                         {
                             valid_hover_value_contents.push(hover_value_content.clone());
                         }
@@ -168,12 +167,12 @@ where
             }
         }
 
-        if !enumerate_values.is_empty() {
+        if !enum_values.is_empty() {
             if let Some(constraints) = hover_value_content.constraints.as_mut() {
-                constraints.enumerate = Some(enumerate_values);
+                constraints.r#enum = Some(enum_values);
             } else {
                 hover_value_content.constraints = Some(ValueConstraints {
-                    enumerate: Some(enumerate_values),
+                    r#enum: Some(enum_values),
                     ..Default::default()
                 });
             }
@@ -200,7 +199,7 @@ impl GetHoverContent for tombi_schema_store::AnyOfSchema {
 
             let mut title_description_set = ahash::AHashSet::new();
             let mut value_type_set = indexmap::IndexSet::new();
-            let mut enumerate_values = Vec::new();
+            let mut enum_values = Vec::new();
             let default = self
                 .default
                 .as_ref()
@@ -232,10 +231,10 @@ impl GetHoverContent for tombi_schema_store::AnyOfSchema {
 
                 if let Some(values) = value_schema
                     .as_ref()
-                    .get_enumerate(&schema_uri, &definitions, schema_context)
+                    .get_enum(&schema_uri, &definitions, schema_context)
                     .await
                 {
-                    enumerate_values.extend(values);
+                    enum_values.extend(values);
                 }
             }
 
@@ -283,12 +282,12 @@ impl GetHoverContent for tombi_schema_store::AnyOfSchema {
                 }
             }
 
-            if !enumerate_values.is_empty() {
+            if !enum_values.is_empty() {
                 if let Some(constraints) = hover_value_content.constraints.as_mut() {
-                    constraints.enumerate = Some(enumerate_values);
+                    constraints.r#enum = Some(enum_values);
                 } else {
                     hover_value_content.constraints = Some(ValueConstraints {
-                        enumerate: Some(enumerate_values),
+                        r#enum: Some(enum_values),
                         ..Default::default()
                     });
                 }

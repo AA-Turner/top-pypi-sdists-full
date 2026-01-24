@@ -18,6 +18,9 @@
 
 #include "gtest/gtest.h"
 
+#include <unordered_map>
+#include <unordered_set>
+
 #include "src/Lexicon.hpp"
 #include "src/MarisaDict.hpp"
 #include "src/UTF8Util.hpp"
@@ -44,15 +47,29 @@ protected:
 
 std::string DictionaryTest::runfile_dir_;
 
+class DictionaryRunfilesTest : public ::testing::Test {
+protected:
+  static void SetUpTestSuite() {
+    std::string program_filename = ::testing::internal::GetArgvs().front();
+    size_t suffix_pos = program_filename.find(RUNFILE_SUFFIX);
+    ASSERT_NE(suffix_pos, std::string::npos);
+    runfile_dir_ =
+        program_filename.substr(0, suffix_pos + strlen(RUNFILE_SUFFIX));
+  }
+
+  static std::string runfile_dir_;
+};
+
+std::string DictionaryRunfilesTest::runfile_dir_;
+
 INSTANTIATE_TEST_SUITE_P(
     , DictionaryTest,
-    ::testing::Values("HKVariants", "HKVariantsRevPhrases",
-                      "JPShinjitaiCharacters", "JPShinjitaiPhrases",
-                      "JPVariants", "STCharacters", "STPhrases", "TSCharacters",
-                      "TSPhrases", "TWPhrasesIT", "TWPhrasesName",
-                      "TWPhrasesOther", "TWVariants", "TWVariantsRevPhrases",
-                      "TWPhrases", "TWVariantsRev", "TWPhrasesRev",
-                      "HKVariantsRev", "JPVariantsRev"),
+    ::testing::Values(
+        "HKVariants", "HKVariantsRev", "HKVariantsRevPhrases",
+        "JPShinjitaiCharacters", "JPShinjitaiPhrases", "JPVariants",
+        "JPVariantsRev", "STCharacters", "STPhrases", "TSCharacters",
+        "TSPhrases", "TWPhrases", "TWPhrasesRev", "TWVariants",
+        "TWVariantsRev", "TWVariantsRevPhrases"),
     [](const testing::TestParamInfo<DictionaryTest::ParamType>& info) {
       return info.param;
     });
@@ -85,6 +102,72 @@ TEST_P(DictionaryTest, BinaryTest) {
   LexiconPtr txt_lexicon = Lexicon::ParseLexiconFromFile(fp_txt);
 
   EXPECT_EQ(dict->GetLexicon()->Length(), txt_lexicon->Length());
+}
+
+TEST_F(DictionaryRunfilesTest, TWPhrasesReverseMapping) {
+  const std::string twPhrasesFile =
+      runfile_dir_ + "/data/dictionary/TWPhrases.txt";
+  const std::string twPhrasesRevFile =
+      runfile_dir_ + "/data/dictionary/TWPhrasesRev.txt";
+
+  auto loadLexicon = [](const std::string& path) -> LexiconPtr {
+    FILE* fp = fopen(UTF8Util::GetPlatformString(path).c_str(), "rb");
+    EXPECT_NE(fp, nullptr) << path;
+    if (fp == nullptr) {
+      return LexiconPtr();
+    }
+    return Lexicon::ParseLexiconFromFile(fp);
+  };
+
+  auto buildMap = [](const LexiconPtr& lexicon)
+      -> std::unordered_map<std::string, std::unordered_set<std::string>> {
+    std::unordered_map<std::string, std::unordered_set<std::string>> map;
+    if (!lexicon) {
+      return map;
+    }
+    for (size_t i = 0; i < lexicon->Length(); ++i) {
+      const DictEntry* entry = lexicon->At(i);
+      auto& values = map[entry->Key()];
+      for (const auto& value : entry->Values()) {
+        values.insert(value);
+      }
+    }
+    return map;
+  };
+
+  try {
+    LexiconPtr twPhrases = loadLexicon(twPhrasesFile);
+    LexiconPtr twPhrasesRev = loadLexicon(twPhrasesRevFile);
+    ASSERT_NE(twPhrases, nullptr);
+    ASSERT_NE(twPhrasesRev, nullptr);
+
+    auto twMap = buildMap(twPhrases);
+    auto twRevMap = buildMap(twPhrasesRev);
+
+    for (const auto& entry : twMap) {
+      const std::string& key = entry.first;
+      for (const auto& value : entry.second) {
+        auto it = twRevMap.find(value);
+        EXPECT_TRUE(it != twRevMap.end() && it->second.count(key) > 0)
+            << "Missing reverse mapping: " << key << " -> " << value;
+      }
+    }
+
+    for (const auto& entry : twRevMap) {
+      const std::string& key = entry.first;
+      for (const auto& value : entry.second) {
+        auto it = twMap.find(value);
+        EXPECT_TRUE(it != twMap.end() && it->second.count(key) > 0)
+            << "Missing reverse mapping: " << key << " -> " << value;
+      }
+    }
+  } catch (const Exception& ex) {
+    FAIL() << "Exception: " << ex.what();
+  } catch (const std::exception& ex) {
+    FAIL() << "std::exception: " << ex.what();
+  } catch (...) {
+    FAIL() << "Unknown exception thrown during reverse mapping check.";
+  }
 }
 
 } // namespace opencc

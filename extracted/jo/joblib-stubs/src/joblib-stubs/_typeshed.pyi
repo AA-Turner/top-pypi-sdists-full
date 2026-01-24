@@ -1,7 +1,9 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from pickle import Unpickler
-from typing import Any, Concatenate, Literal, NamedTuple, Protocol, TypeAlias
+from typing import Any, Concatenate, Literal, Protocol, TypeAlias, overload
 
+from joblib.memory import AsyncMemorizedFunc as AsyncMemorizedFunc
+from joblib.memory import MemorizedFunc as MemorizedFunc
 from typing_extensions import ParamSpec, TypedDict, TypeVar
 
 _T = TypeVar("_T")
@@ -24,18 +26,38 @@ class Process(Protocol):
 class ItemInfo(TypedDict, total=True):
     location: str
 
-class FullArgSpec(NamedTuple):
-    args: list[str]
-    varargs: str
-    varkw: str
-    defaults: tuple[Any, ...]
-    kwonlyargs: list[str]
-    kwonlydefaults: dict[str, Any] | None
-    annotations: dict[str, Any] | None
-
 class ArrayMemmapForwardReducerReduceKwargs(TypedDict, total=True):
     verbose: int
     prewarm: bool
+
+class MemoryCacheFunc(Protocol):
+    @overload
+    def __call__(
+        self,
+        func: None,
+        ignore: list[str] | None = ...,
+        verbose: int | None = ...,
+        mmap_mode: MmapMode | bool = ...,
+        cache_validation_callback: Callable[..., Any] | None = ...,
+    ) -> MemoryCacheFunc: ...
+    @overload
+    def __call__(
+        self,
+        func: Callable[_P, Awaitable[_T]],
+        ignore: list[str] | None = ...,
+        verbose: int | None = ...,
+        mmap_mode: MmapMode | bool = ...,
+        cache_validation_callback: Callable[..., Any] | None = ...,
+    ) -> AsyncMemorizedFunc[_P, _T]: ...
+    @overload
+    def __call__(
+        self,
+        func: Callable[_P, _T],
+        ignore: list[str] | None = ...,
+        verbose: int | None = ...,
+        mmap_mode: MmapMode | bool = ...,
+        cache_validation_callback: Callable[..., Any] | None = ...,
+    ) -> MemorizedFunc[_P, _T]: ...
 
 RebuildExc: TypeAlias = Callable[[_BaseExceptionT, str], _BaseExceptionT]
 WindowsError: type[OSError | None]
@@ -44,7 +66,9 @@ DaskScatterIterItem: TypeAlias = list[Any] | dict[Any, Any]
 Prefer: TypeAlias = Literal["processes", "threads"]
 Require: TypeAlias = Literal["sharedmem"]
 HashType: TypeAlias = Literal["md5", "sha1"]
-MmapMode: TypeAlias = Literal["r+", "r", "w+", "c"]
+MmapMode: TypeAlias = Literal[
+    "readonly", "r", "copyonwrite", "c", "readwrite", "r+", "write", "w+"
+]
 Reducer: TypeAlias = Callable[Concatenate[type[_T], ...], Any]
 Dispatch: TypeAlias = Callable[[Unpickler, _T], None]
 ReturnList: TypeAlias = Literal["list"]

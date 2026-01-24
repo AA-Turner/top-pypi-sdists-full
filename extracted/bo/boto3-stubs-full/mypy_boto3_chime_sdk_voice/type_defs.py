@@ -3,7 +3,7 @@ Type annotations for chime-sdk-voice service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_chime_sdk_voice/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -28,6 +29,7 @@ from .literals import (
     ContactCenterSystemTypeType,
     ErrorCodeType,
     GeoMatchLevelType,
+    NetworkTypeType,
     NotificationTargetType,
     NumberSelectionBehaviorType,
     OrderedPhoneNumberStatusType,
@@ -45,12 +47,6 @@ from .literals import (
     VoiceConnectorIntegrationTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -319,7 +315,7 @@ class PhoneNumberErrorTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -410,6 +406,7 @@ class VoiceConnectorTypeDef(TypedDict):
     UpdatedTimestamp: NotRequired[datetime]
     VoiceConnectorArn: NotRequired[str]
     IntegrationType: NotRequired[VoiceConnectorIntegrationTypeType]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class ServerSideEncryptionConfigurationTypeDef(TypedDict):
@@ -513,8 +510,8 @@ class DisassociatePhoneNumbersFromVoiceConnectorRequestTypeDef(TypedDict):
 
 
 class ExternalSystemsConfigurationTypeDef(TypedDict):
-    SessionBorderControllerTypes: NotRequired[List[SessionBorderControllerTypeType]]
-    ContactCenterSystemTypes: NotRequired[List[ContactCenterSystemTypeType]]
+    SessionBorderControllerTypes: NotRequired[list[SessionBorderControllerTypeType]]
+    ContactCenterSystemTypes: NotRequired[list[ContactCenterSystemTypeType]]
 
 
 class VoiceConnectorSettingsTypeDef(TypedDict):
@@ -540,7 +537,7 @@ class GetSipMediaApplicationAlexaSkillConfigurationRequestTypeDef(TypedDict):
 
 class SipMediaApplicationAlexaSkillConfigurationOutputTypeDef(TypedDict):
     AlexaSkillStatus: AlexaSkillStatusType
-    AlexaSkillIds: List[str]
+    AlexaSkillIds: list[str]
 
 
 class GetSipMediaApplicationLoggingConfigurationRequestTypeDef(TypedDict):
@@ -597,7 +594,7 @@ class ProxyTypeDef(TypedDict):
     DefaultSessionExpiryMinutes: NotRequired[int]
     Disabled: NotRequired[bool]
     FallBackPhoneNumber: NotRequired[str]
-    PhoneNumberCountries: NotRequired[List[str]]
+    PhoneNumberCountries: NotRequired[list[str]]
 
 
 class GetVoiceConnectorRequestTypeDef(TypedDict):
@@ -624,8 +621,8 @@ class GetVoiceConnectorTerminationRequestTypeDef(TypedDict):
 class TerminationOutputTypeDef(TypedDict):
     CpsLimit: NotRequired[int]
     DefaultPhoneNumber: NotRequired[str]
-    CallingRegions: NotRequired[List[str]]
-    CidrAllowedList: NotRequired[List[str]]
+    CallingRegions: NotRequired[list[str]]
+    CidrAllowedList: NotRequired[list[str]]
     Disabled: NotRequired[bool]
 
 
@@ -687,7 +684,7 @@ class ListSupportedPhoneNumberCountriesRequestTypeDef(TypedDict):
 
 class PhoneNumberCountryTypeDef(TypedDict):
     CountryCode: NotRequired[str]
-    SupportedPhoneNumberTypes: NotRequired[List[PhoneNumberTypeType]]
+    SupportedPhoneNumberTypes: NotRequired[list[PhoneNumberTypeType]]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -912,32 +909,32 @@ class ValidateE911AddressRequestTypeDef(TypedDict):
 
 
 class AssociatePhoneNumbersWithVoiceConnectorGroupResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AssociatePhoneNumbersWithVoiceConnectorResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeletePhoneNumberResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchUpdatePhoneNumberResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DisassociatePhoneNumbersFromVoiceConnectorGroupResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DisassociatePhoneNumbersFromVoiceConnectorResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -952,17 +949,17 @@ class GetPhoneNumberSettingsResponseTypeDef(TypedDict):
 
 
 class ListAvailableVoiceConnectorRegionsResponseTypeDef(TypedDict):
-    VoiceConnectorRegions: List[VoiceConnectorAwsRegionType]
+    VoiceConnectorRegions: list[VoiceConnectorAwsRegionType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVoiceConnectorTerminationCredentialsResponseTypeDef(TypedDict):
-    Usernames: List[str]
+    Usernames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchAvailablePhoneNumbersResponseTypeDef(TypedDict):
-    E164PhoneNumbers: List[str]
+    E164PhoneNumbers: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -985,7 +982,7 @@ class ValidateE911AddressResponseTypeDef(TypedDict):
     ValidationResult: int
     AddressExternalId: str
     Address: AddressTypeDef
-    CandidateAddressList: List[CandidateAddressTypeDef]
+    CandidateAddressList: list[CandidateAddressTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1014,7 +1011,7 @@ class SipMediaApplicationTypeDef(TypedDict):
     SipMediaApplicationId: NotRequired[str]
     AwsRegion: NotRequired[str]
     Name: NotRequired[str]
-    Endpoints: NotRequired[List[SipMediaApplicationEndpointTypeDef]]
+    Endpoints: NotRequired[list[SipMediaApplicationEndpointTypeDef]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
     SipMediaApplicationArn: NotRequired[str]
@@ -1039,10 +1036,11 @@ class CreateVoiceConnectorRequestTypeDef(TypedDict):
     AwsRegion: NotRequired[VoiceConnectorAwsRegionType]
     Tags: NotRequired[Sequence[TagTypeDef]]
     IntegrationType: NotRequired[VoiceConnectorIntegrationTypeType]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1065,7 +1063,7 @@ class SipRuleTypeDef(TypedDict):
     Disabled: NotRequired[bool]
     TriggerType: NotRequired[SipRuleTriggerTypeType]
     TriggerValue: NotRequired[str]
-    TargetApplications: NotRequired[List[SipRuleTargetApplicationTypeDef]]
+    TargetApplications: NotRequired[list[SipRuleTargetApplicationTypeDef]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
 
@@ -1091,7 +1089,7 @@ class UpdateVoiceConnectorGroupRequestTypeDef(TypedDict):
 class VoiceConnectorGroupTypeDef(TypedDict):
     VoiceConnectorGroupId: NotRequired[str]
     Name: NotRequired[str]
-    VoiceConnectorItems: NotRequired[List[VoiceConnectorItemTypeDef]]
+    VoiceConnectorItems: NotRequired[list[VoiceConnectorItemTypeDef]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
     VoiceConnectorGroupArn: NotRequired[str]
@@ -1108,7 +1106,7 @@ class GetVoiceConnectorResponseTypeDef(TypedDict):
 
 
 class ListVoiceConnectorsResponseTypeDef(TypedDict):
-    VoiceConnectors: List[VoiceConnectorTypeDef]
+    VoiceConnectors: list[VoiceConnectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1157,7 +1155,7 @@ class PutVoiceConnectorTerminationCredentialsRequestTypeDef(TypedDict):
 
 
 class EmergencyCallingConfigurationOutputTypeDef(TypedDict):
-    DNIS: NotRequired[List[DNISEmergencyCallingConfigurationTypeDef]]
+    DNIS: NotRequired[list[DNISEmergencyCallingConfigurationTypeDef]]
 
 
 class EmergencyCallingConfigurationTypeDef(TypedDict):
@@ -1264,18 +1262,18 @@ class ListSipRulesRequestPaginateTypeDef(TypedDict):
 
 
 class ListSupportedPhoneNumberCountriesResponseTypeDef(TypedDict):
-    PhoneNumberCountries: List[PhoneNumberCountryTypeDef]
+    PhoneNumberCountries: list[PhoneNumberCountryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVoiceProfileDomainsResponseTypeDef(TypedDict):
-    VoiceProfileDomains: List[VoiceProfileDomainSummaryTypeDef]
+    VoiceProfileDomains: list[VoiceProfileDomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListVoiceProfilesResponseTypeDef(TypedDict):
-    VoiceProfiles: List[VoiceProfileSummaryTypeDef]
+    VoiceProfiles: list[VoiceProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1285,14 +1283,14 @@ class PhoneNumberOrderTypeDef(TypedDict):
     ProductType: NotRequired[PhoneNumberProductTypeType]
     Status: NotRequired[PhoneNumberOrderStatusType]
     OrderType: NotRequired[PhoneNumberOrderTypeType]
-    OrderedPhoneNumbers: NotRequired[List[OrderedPhoneNumberTypeDef]]
+    OrderedPhoneNumbers: NotRequired[list[OrderedPhoneNumberTypeDef]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
     FocDate: NotRequired[datetime]
 
 
 class OriginationOutputTypeDef(TypedDict):
-    Routes: NotRequired[List[OriginationRouteTypeDef]]
+    Routes: NotRequired[list[OriginationRouteTypeDef]]
     Disabled: NotRequired[bool]
 
 
@@ -1307,11 +1305,11 @@ class ProxySessionTypeDef(TypedDict):
     Name: NotRequired[str]
     Status: NotRequired[ProxySessionStatusType]
     ExpiryMinutes: NotRequired[int]
-    Capabilities: NotRequired[List[CapabilityType]]
+    Capabilities: NotRequired[list[CapabilityType]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
     EndedTimestamp: NotRequired[datetime]
-    Participants: NotRequired[List[ParticipantTypeDef]]
+    Participants: NotRequired[list[ParticipantTypeDef]]
     NumberSelectionBehavior: NotRequired[NumberSelectionBehaviorType]
     GeoMatchLevel: NotRequired[GeoMatchLevelType]
     GeoMatchParams: NotRequired[GeoMatchParamsTypeDef]
@@ -1327,7 +1325,7 @@ PhoneNumberTypeDef = TypedDict(
         "ProductType": NotRequired[PhoneNumberProductTypeType],
         "Status": NotRequired[PhoneNumberStatusType],
         "Capabilities": NotRequired[PhoneNumberCapabilitiesTypeDef],
-        "Associations": NotRequired[List[PhoneNumberAssociationTypeDef]],
+        "Associations": NotRequired[list[PhoneNumberAssociationTypeDef]],
         "CallingName": NotRequired[str],
         "CallingNameStatus": NotRequired[CallingNameStatusType],
         "CreatedTimestamp": NotRequired[datetime],
@@ -1344,14 +1342,14 @@ SipMediaApplicationAlexaSkillConfigurationUnionTypeDef = Union[
 
 
 class SpeakerSearchDetailsTypeDef(TypedDict):
-    Results: NotRequired[List[SpeakerSearchResultTypeDef]]
+    Results: NotRequired[list[SpeakerSearchResultTypeDef]]
     VoiceprintGenerationStatus: NotRequired[str]
 
 
 class StreamingConfigurationOutputTypeDef(TypedDict):
     DataRetentionInHours: int
     Disabled: bool
-    StreamingNotificationTargets: NotRequired[List[StreamingNotificationTargetTypeDef]]
+    StreamingNotificationTargets: NotRequired[list[StreamingNotificationTargetTypeDef]]
     MediaInsightsConfiguration: NotRequired[MediaInsightsConfigurationTypeDef]
 
 
@@ -1386,7 +1384,7 @@ class GetSipMediaApplicationResponseTypeDef(TypedDict):
 
 
 class ListSipMediaApplicationsResponseTypeDef(TypedDict):
-    SipMediaApplications: List[SipMediaApplicationTypeDef]
+    SipMediaApplications: list[SipMediaApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1407,7 +1405,7 @@ class GetSipRuleResponseTypeDef(TypedDict):
 
 
 class ListSipRulesResponseTypeDef(TypedDict):
-    SipRules: List[SipRuleTypeDef]
+    SipRules: list[SipRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1428,7 +1426,7 @@ class GetVoiceConnectorGroupResponseTypeDef(TypedDict):
 
 
 class ListVoiceConnectorGroupsResponseTypeDef(TypedDict):
-    VoiceConnectorGroups: List[VoiceConnectorGroupTypeDef]
+    VoiceConnectorGroups: list[VoiceConnectorGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1479,7 +1477,7 @@ class GetPhoneNumberOrderResponseTypeDef(TypedDict):
 
 
 class ListPhoneNumberOrdersResponseTypeDef(TypedDict):
-    PhoneNumberOrders: List[PhoneNumberOrderTypeDef]
+    PhoneNumberOrders: list[PhoneNumberOrderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1508,7 +1506,7 @@ class GetProxySessionResponseTypeDef(TypedDict):
 
 
 class ListProxySessionsResponseTypeDef(TypedDict):
-    ProxySessions: List[ProxySessionTypeDef]
+    ProxySessions: list[ProxySessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1524,7 +1522,7 @@ class GetPhoneNumberResponseTypeDef(TypedDict):
 
 
 class ListPhoneNumbersResponseTypeDef(TypedDict):
-    PhoneNumbers: List[PhoneNumberTypeDef]
+    PhoneNumbers: list[PhoneNumberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

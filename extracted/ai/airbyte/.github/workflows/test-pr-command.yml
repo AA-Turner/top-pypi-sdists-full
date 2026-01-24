@@ -1,0 +1,185 @@
+name: On-Demand PR Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR Number'
+        type: string
+        required: true
+      comment-id:
+        description: 'Comment ID (Optional)'
+        type: string
+        required: false
+
+env:
+  AIRBYTE_ANALYTICS_ID: ${{ vars.AIRBYTE_ANALYTICS_ID }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: write
+  actions: write
+  statuses: write
+
+jobs:
+  start-workflow:
+    name: Start Workflow
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Resolve workflow variables
+      id: vars
+      uses: aaronsteers/resolve-ci-vars-action@2e56afab0344bbe03c047dfa39bae559d0291472 # v0.1.6
+
+    - name: Append comment with job run link
+      id: first-comment-action
+      uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+      with:
+        comment-id: ${{ github.event.inputs.comment-id }}
+        issue-number: ${{ github.event.inputs.pr }}
+        body: |
+
+          > PR test job started... [Check job output.][1]
+
+          [1]: ${{ steps.vars.outputs.run-url }}
+
+    outputs:
+      source-repo: ${{ steps.vars.outputs.pr-source-repo-name-full }}
+      source-branch: ${{ steps.vars.outputs.pr-source-git-branch }}
+      commit-sha: ${{ steps.vars.outputs.pr-source-git-sha }}
+      pr-number: ${{ steps.vars.outputs.pr-number }}
+      pr-title: ${{ steps.vars.outputs.pr-title }}
+      job-run-url: ${{ steps.vars.outputs.run-url }}
+
+  # This is copied from the `python_pytest.yml` file.
+  # Only the first two steps of the job are different, and they check out the PR's branch.
+  pytest-on-demand:
+    name: On-Demand PR Pytest (All, Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    needs: [start-workflow]
+    strategy:
+      matrix:
+        python-version: [
+          '3.10',
+          '3.11',
+        ]
+        os: [
+          Ubuntu,
+          Windows,
+        ]
+      fail-fast: false
+    runs-on: "${{ matrix.os }}-latest"
+    env:
+      # Enforce UTF-8 encoding so Windows runners don't fail inside the connector code.
+      # TODO: See if we can fully enforce this within PyAirbyte itself.
+      PYTHONIOENCODING: utf-8
+    steps:
+
+    - name: Authenticate as GitHub App
+      uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+      id: get-app-token
+      with:
+        owner: "airbytehq"
+        repositories: "PyAirbyte"
+        app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+        private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+    - name: Checkout PR
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: ${{ needs.start-workflow.outputs.commit-sha }}
+
+    # Post "In Progress" status to the PR.
+    # This is required because otherwise slash commands won't automatically
+    # update the PR checks status.
+    - name: Create "Pending" Check Status
+      if: always() && !cancelled()
+      uses: LouisBrunner/checks-action@6b626ffbad7cc56fd58627f774b9067e6118af23 # v2.0.0
+      with:
+        name: "Pytest (All, Python ${{ matrix.python-version }}, ${{ matrix.os }})"
+        repo: "airbytehq/PyAirbyte"  # Post to the main repo, not the fork
+        sha: ${{ needs.start-workflow.outputs.commit-sha }}
+        status: in_progress
+        action_url: ${{ needs.start-workflow.outputs.job-run-url }}
+        details_url: ${{ needs.start-workflow.outputs.job-run-url }}
+        token: ${{ steps.get-app-token.outputs.token }}
+
+    # Same as the `python_pytest.yml` file:
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
+      with:
+        version: "latest"
+        python-version: ${{ matrix.python-version }}
+    - name: Install dev dependencies
+      # We only need helper libraries
+      run: uv sync --group dev
+
+    - name: Run Pytest
+      timeout-minutes: 60
+      env:
+        GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+      # We exclude super-slow and flaky tests in order to expedite PR reviews
+      # and to reduce chance of unrelated noise in the review process.
+      run: >
+        uv run pytest
+        --verbose
+        -m "not super_slow and not flaky"
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@34d7c956a59aed1bfebf31df77b8de55db9bbaaf # v2.21.0
+      if: always() && !cancelled()
+      continue-on-error: true
+      with:
+        check_name: "PyTest Results (On-Demand)"
+        large_files: true
+        files: |
+          build/test-results/**/*.xml
+
+    # Post completion status to the PR.
+    # This is required because otherwise slash commands won't automatically
+    # update the PR checks status.
+    - name: Create Final Check Status
+      if: always()
+      uses: LouisBrunner/checks-action@6b626ffbad7cc56fd58627f774b9067e6118af23 # v2.0.0
+      with:
+        name: "Pytest (All, Python ${{ matrix.python-version }}, ${{ matrix.os }})"
+        repo: "airbytehq/PyAirbyte"  # Post to the main repo, not the fork
+        sha: ${{ needs.start-workflow.outputs.commit-sha }}
+        status: completed
+        conclusion: ${{ job.status }}
+        action_url: ${{ needs.start-workflow.outputs.job-run-url }}
+        details_url: ${{ needs.start-workflow.outputs.job-run-url }}
+        token: ${{ steps.get-app-token.outputs.token }}
+
+  log-success-comment:
+    name: Append 'Success' Comment
+    needs: [pytest-on-demand]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Append success comment
+      uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+      with:
+        issue-number: ${{ github.event.inputs.pr }}
+        comment-id: ${{ github.event.inputs.comment-id }}
+        reactions: hooray
+        body: |
+          > ✅ Tests passed.
+
+  log-failure-comment:
+    name: Append 'Failure' Comment
+    # This job will only run if the workflow fails
+    needs: [pytest-on-demand, start-workflow]
+    if: always() && needs.pytest-on-demand.result == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Append failure comment
+      uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+      with:
+        issue-number: ${{ github.event.inputs.pr }}
+        comment-id: ${{ github.event.inputs.comment-id }}
+        reactions: confused
+        body: |
+          > ❌ Tests failed.

@@ -1,9 +1,13 @@
+# XXX: This file needs to be refactored
 import functools
 import sys
 import gc
 import io
 import warnings
 import types
+import struct
+import fractions
+import objc.simd
 
 import objc
 from PyObjCTest import copying, structargs
@@ -17,6 +21,7 @@ rct = structargs.StructArgClass.someRect.__metadata__()["retval"]["type"]
 
 NSInvocation = objc.lookUpClass("NSInvocation")
 NSArray = objc.lookUpClass("NSArray")
+NSString = objc.lookUpClass("NSString")
 
 
 class OCTestRegrWithGetItem(NSObject):
@@ -172,12 +177,27 @@ class TestRegressions(TestCase):
         v = o.compP_aRect_anOp_((1, 2), ((3, 4), (5, 6)), 7)
         self.assertEqual(v, "aP:{1, 2} aR:{{3, 4}, {5, 6}} anO:7")
 
+    def test_large_structs(self):
+
+        # "Large" but simple APIs use a different code path, ensure
+        # we're actually hitting that path.
+        tp = structargs.StructArgClass.sumA_b_c_d_e_f_g_.__metadata__()["retval"][
+            "type"
+        ]
+        self.assertGreater(objc._sizeOfType(tp) * 8, 256)
+
+        inval = ((n,) * 6 for n in range(7))
+        outval = structargs.StructArgClass.sumA_b_c_d_e_f_g_(*inval)
+        self.assertEqual(outval, (sum(range(7)),) * 6)
+
     def test_empty_struct(self):
         o = structargs.StructArgClass.alloc().init()
 
         # libffi doesn't support calling functions with an empty struct
         # arguments (e.g. "struct empty {}", even if C compilers do.
-        with self.assertRaisesRegex(objc.error, "Cannot setup FFI CIF: bad typedef"):
+        with self.assertRaisesRegex(
+            objc.error, "Cannot create FFI CIF for i@:{empty=}: bad typedef"
+        ):
             self.assertEqual(o.callWithEmpty_(()), 99)
 
     def testInitialize(self):
@@ -753,20 +773,124 @@ class TestDelRevives(TestCase):
         VALUE = None
         o = DeallocRevives()
 
-        orig_stderr = sys.stderr
-        try:
-            sys.stderr = captured_stderr = io.StringIO()
-            del o
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "default", category=objc.RevivedObjectiveCObjectWarning
+            )
+            orig_stderr = sys.stderr
+            try:
+                sys.stderr = captured_stderr = io.StringIO()
+                del o
 
-        finally:
-            sys.stderr = orig_stderr
+            finally:
+                sys.stderr = orig_stderr
 
+        stderr_value = captured_stderr.getvalue()
         self.assertIn(
             "revived Objective-C object of type DeallocRevives. Object is zero-ed out.",
-            captured_stderr.getvalue(),
+            stderr_value,
         )
+        self.assertNotIn("Exception ignored in", stderr_value)
 
         self.assertEqual(repr(VALUE), "<null>")
+        VALUE = None
+
+    def test_basic_error(self):
+        global VALUE
+
+        VALUE = None
+        o = DeallocRevives()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error", category=objc.RevivedObjectiveCObjectWarning
+            )
+            orig_stderr = sys.stderr
+            try:
+                sys.stderr = captured_stderr = io.StringIO()
+                del o
+
+            finally:
+                sys.stderr = orig_stderr
+
+            stderr_value = captured_stderr.getvalue()
+            self.assertIn(
+                "revived Objective-C object of type DeallocRevives. Object is zero-ed out.",
+                stderr_value,
+            )
+            self.assertIn("Exception ignored in", stderr_value)
+
+            self.assertEqual(repr(VALUE), "<null>")
+            VALUE = None
+
+
+class TestMisCConversions(TestCase):
+    def test_sel(self):
+        # XXX: Fix me for PyObjC 12:
+        self.assertEqual(objc.repythonify(b"hello", objc._C_SEL), "hello")
+        self.assertEqual(objc.repythonify("hello", objc._C_SEL), "hello")
+        self.assertEqual(
+            objc.repythonify(NSArray.description, objc._C_SEL), "description"
+        )
+        self.assertEqual(objc.repythonify("hello", objc._C_SEL), "hello")
+        self.assertEqual(objc.repythonify(bytearray(b"hello"), objc._C_SEL), "hello")
+
+        self.assertEqual(objc.repythonify(b"", objc._C_SEL), None)
+        self.assertEqual(objc.repythonify(bytearray(b""), objc._C_SEL), None)
+        self.assertEqual(objc.repythonify("", objc._C_SEL), None)
+        self.assertEqual(objc.repythonify(None, objc._C_SEL), None)
+
+        with self.assertRaisesRegex(ValueError, "depythonifying 'SEL', got 'int'"):
+            objc.repythonify(42, objc._C_SEL)
+
+        with self.assertRaises(UnicodeEncodeError):
+            objc.repythonify("hel\udffflo", objc._C_SEL)
+
+    def test_class(self):
+        self.assertEqual(objc.repythonify(None, objc._C_CLASS), None)
+        self.assertEqual(objc.repythonify(NSArray, objc._C_CLASS), NSArray)
+        self.assertEqual(objc.repythonify(type(NSArray), objc._C_CLASS), NSArray)
+
+        with self.assertRaisesRegex(ValueError, "depythonifying 'Class', got 'object'"):
+            objc.repythonify(object(), objc._C_CLASS)
+
+        with self.assertRaisesRegex(ValueError, "depythonifying 'Class', got 'type'"):
+            objc.repythonify(type, objc._C_CLASS)
+
+    def test_union(self):
+        inval = struct.pack("=i", 42)
+        outval = objc.repythonify(inval, b"(p=if)")
+        self.assertEqual(inval, outval)
+
+        inval = struct.pack("=f", 42.5)
+        outval = objc.repythonify(inval, b"(p=fi)")
+        self.assertEqual(inval, outval)
+
+        with self.assertRaisesRegex(
+            ValueError, "depythonifying 'union' of size 4, got byte string of 3"
+        ):
+            objc.repythonify(inval[:-1], b"(p=fi)")
+
+    def test_vector(self):
+        out = objc.repythonify((42,) * 4, b"<4i>")
+        self.assertEqual(out, objc.simd.vector_int4(42, 42, 42, 42))
+
+        with self.assertRaisesRegex(objc.error, "Unsupported SIMD encoding: <5i>"):
+            objc.repythonify((42,) * 5, b"<5i>")
+
+    def test_float(self):
+        for encoding in (objc._C_FLT, objc._C_DBL, objc._C_LNG_DBL):
+            self.assertEqual(objc.repythonify(2.5, encoding), 2.5)
+
+            f = fractions.Fraction(1, 2)
+            self.assertEqual(float(f), 0.5)
+
+            self.assertEqual(objc.repythonify(f, encoding), 0.5)
+
+            with self.assertRaisesRegex(
+                ValueError, "depythonifying '[a-z ]*', got 'str'"
+            ):
+                objc.repythonify("2.5", encoding)
 
 
 class TestConvertNegativeToUnsigedWarns(TestCase):
@@ -787,3 +911,404 @@ class TestConvertNegativeToUnsigedWarns(TestCase):
                 DeprecationWarning, "converting negative value to unsigned integer"
             ):
                 objc.repythonify(Number(), b"I")
+
+
+class TestKeywordArgumentsForSelect(TestCase):
+    def test_kwargs_not_allowed(self):
+        with self.assertRaisesRegex(TypeError, "does not accept keyword arguments"):
+            NSArray.arrayWithArray_(a=4)
+
+
+class TestInvokingMethods(TestCase):
+    def invokeDescriptionOf(self, value):
+        signature = value.methodSignatureForSelector_(b"description")
+        inv = NSInvocation.invocationWithMethodSignature_(signature)
+        inv.setTarget_(value)
+        inv.setSelector_(b"description")
+        value.forwardInvocation_(inv)
+        return inv.getReturnValue_(None)
+
+    def test_nsobject(self):
+        v = NSObject.alloc().init()
+        with self.assertRaisesRegex(
+            ValueError, "unrecognized selector sent to instance"
+        ):
+            self.invokeDescriptionOf(v)
+
+    def test_pyobject(self):
+        v = OCTestRegrWithGetItem.alloc().init()
+        with self.assertRaisesRegex(
+            ValueError, "unrecognized selector sent to instance"
+        ):
+            self.invokeDescriptionOf(v)
+
+    def test_pyobject_with_descr(self):
+        class OC_ObjectWithDescription(NSObject):
+            def description(self):
+                return "<an object>"
+
+        v = OC_ObjectWithDescription.alloc().init()
+        self.assertEqual(v.description(), "<an object>")
+        self.assertEqual(self.invokeDescriptionOf(v), "<an object>")
+
+    def test_forward_invalid(self):
+        value = OCTestRegrWithGetItem.alloc().init()
+
+        signature = value.methodSignatureForSelector_(b"description")
+        inv = NSInvocation.invocationWithMethodSignature_(signature)
+        inv.setTarget_(value)
+        inv.setSelector_(b"descriptions")
+
+        with self.assertRaisesRegex(
+            ValueError, "unrecognized selector sent to instance"
+        ):
+            value.forwardInvocation_(inv)
+
+
+class TestSelectorEdgeCases(TestCase):
+    def test_sel_incomparable(self):
+        def function(self):
+            pass
+
+        sel1 = objc.selector(function, selector=b"hello", signature=b"@@:")
+
+        class Callable:
+            def __call__(self):
+                return 99
+
+            def __eq__(self, other):
+                raise RuntimeError("no comparison")
+
+        sel2 = objc.selector(Callable(), selector=b"hello", signature=b"@@:")
+
+        with self.assertRaisesRegex(RuntimeError, "no comparison"):
+            sel1 == sel2  # noqa: B015
+
+    def test_callable_with_name_issues(self):
+        class Callable:
+            def __call__(self):
+                return 99
+
+        func = Callable()
+        with self.assertRaisesRegex(
+            AttributeError, "'Callable' object has no attribute '__name__'"
+        ):
+            objc.selector(func)
+
+        func.__name__ = "hello \udff0"
+        with self.assertRaisesRegex(UnicodeEncodeError, "surrogates"):
+            objc.selector(func)
+
+        func.__name__ = 42
+        with self.assertRaisesRegex(TypeError, "__name__ is not a string"):
+            objc.selector(func)
+
+    def test_calling_abstract(self):
+        obj = NSObject.alloc().init()
+
+        sel = objc.selector(None, selector=b"hello:", signature=b"@@:n^f")
+
+        with self.assertRaisesRegex(
+            TypeError, "Calling abstract methods with selector 'hello:'"
+        ):
+            sel(obj, None)
+
+    def test_classmethod(self):
+        @classmethod
+        def func(cls):
+            pass
+
+        sel = objc.selector(func)
+        self.assertEqual(sel.selector, b"func")
+        self.assertTrue(sel.isClassMethod)
+
+    def test_staticmethod(self):
+        @staticmethod
+        def func():
+            pass
+
+        with self.assertRaisesRegex(TypeError, "cannot use staticmethod"):
+            objc.selector(func)
+
+
+class TestStringSpecials(TestCase):
+    def test_passing_string_as_self(self):
+        strval = NSString.stringWithString_("hello")
+        arrval = NSArray.alloc().init()
+        self.assertEqual(arrval.count(), 0)
+
+        m = arrval.count.definingClass.__dict__["count"]
+        self.assertEqual(m(arrval), 0)
+
+        with self.assertRaisesRegex(
+            TypeError,
+            "Expecting instance of .* as self, got one of objc.pyobjc_unicode",
+        ):
+            m(strval)
+
+    def test_passing_non_string_as_self_simple(self):
+        o = NSString.stringWithString_("hello")
+        self.assertEqual(o.length(), 5)
+        m = o.length.definingClass.__dict__["length"]
+
+        self.assertEqual(m(o), 5)
+        self.assertEqual(m(o.nsstring()), 5)
+        with self.assertRaisesRegex(
+            TypeError, "Expecting instance of .* as self, got one of str"
+        ):
+            m("Theo")
+
+        with self.assertRaisesRegex(
+            TypeError, "Expecting instance of .* as self, got one of int"
+        ):
+            m(42)
+
+    def test_passing_non_string_as_self_complex(self):
+        o = NSString.stringWithString_("hello")
+
+        if not o.getCharacters_range_.__metadata__()["arguments"][2]["type"].startswith(
+            b"o"
+        ):
+            objc.registerMetaDataForSelector(
+                b"NSString",
+                b"getCharacters:range:",
+                {
+                    "arguments": {
+                        2
+                        + 0: {
+                            "type_modifier": b"o",
+                            "c_array_length_in_arg": 2 + 1,
+                            "type": b"^" + objc._C_UNICHAR,
+                        }
+                    }
+                },
+            )
+
+        self.assertArgIsOut(o.getCharacters_range_, 0)
+        self.assertArgSizeInArg(o.getCharacters_range_, 0, 1)
+
+        self.assertEqual(o.getCharacters_range_(None, (0, 2)), "he")
+
+        m = o.getCharacters_range_.definingClass.__dict__["getCharacters_range_"]
+
+        self.assertEqual(m(o, None, (0, 3)), "hel")
+        self.assertEqual(m(o.nsstring(), None, (0, 3)), "hel")
+
+        with self.assertRaisesRegex(
+            TypeError, "Expecting instance of .* as self, got one of str"
+        ):
+            m("Theo", None, (0, 3))
+
+        with self.assertRaisesRegex(
+            TypeError, "Expecting instance of .* as self, got one of int"
+        ):
+            m(42, None, (0, 3))
+
+
+class TestClasses(TestCase):
+    def test_setting_invalid_attribute(self):
+        # XXX: This is a side effect of supporting KVO. Consider adding
+        #      the same limitation to classes for consistency.
+        name = "\udfffname"
+        o = OCTestRegrWithGetItem.alloc().init()
+        with self.assertRaisesRegex(UnicodeEncodeError, "surrogates not allowed"):
+            setattr(o, name, 42)
+
+    def test_attributes(self):
+        o = OCTestRegrWithGetItem.alloc().init()
+        o.key = 42
+        self.assertEqual(o.key, 42)
+
+        del o.key
+        with self.assertRaises(AttributeError):
+            del o.nosuchkey
+
+    def test_class_comparisons(self):
+        with self.assertRaisesRegex(
+            TypeError, "not supported between instances of 'NSArray' and 'int'"
+        ):
+            NSArray < 42  # noqa: B015
+
+        with self.assertRaisesRegex(
+            TypeError, "not supported between instances of 'int' and 'NSObject'"
+        ):
+            42 < NSObject  # noqa: B015
+
+    def test_compare_class_with_non_class(self):
+        self.assertTrue(NSObject != 42)
+        self.assertTrue(42 != NSObject)
+        self.assertFalse(NSObject == 42)
+        self.assertFalse(42 == NSObject)
+
+    def test_compare_class_with_class(self):
+        self.assertTrue(NSObject != objc.objc_object)
+        self.assertFalse(NSObject == objc.objc_object)
+        self.assertTrue(objc.objc_object != NSObject)
+        self.assertFalse(objc.objc_object == NSObject)
+
+        self.assertTrue(NSObject != NSString)
+        self.assertFalse(NSObject == NSString)
+
+        self.assertTrue(NSObject == NSObject)
+        self.assertFalse(NSObject != NSObject)
+
+        self.assertFalse(NSObject < NSObject)
+        self.assertTrue(NSObject <= NSObject)
+        self.assertFalse(NSObject > NSObject)
+        self.assertTrue(NSObject >= NSObject)
+
+        self.assertTrue(NSObject < NSString)
+        self.assertTrue(NSObject <= NSString)
+        self.assertFalse(NSObject > NSString)
+        self.assertFalse(NSObject >= NSString)
+
+        self.assertFalse(NSString < NSObject)
+        self.assertFalse(NSString <= NSObject)
+        self.assertTrue(NSString > NSObject)
+        self.assertTrue(NSString >= NSObject)
+
+        self.assertTrue(objc.objc_object < NSObject)
+        self.assertTrue(objc.objc_object <= NSObject)
+        self.assertFalse(objc.objc_object > NSObject)
+        self.assertFalse(objc.objc_object >= NSObject)
+
+        self.assertFalse(NSObject < objc.objc_object)
+        self.assertFalse(NSObject <= objc.objc_object)
+        self.assertTrue(NSObject > objc.objc_object)
+        self.assertTrue(NSObject >= objc.objc_object)
+
+
+class TestSelectorDetails(TestCase):
+    def test_selector_unbound(self):
+        o = NSString.alloc().initWithString_("hello")
+        m = o.description.definingClass.__dict__["description"]
+        r1 = m(o)
+        r2 = m(o)
+        self.assertEqual(r1, r2)
+        self.assertIsInstance(r1, str)
+
+        with self.assertRaisesRegex(TypeError, "Missing argument: self"):
+            m()
+
+        r3 = m(o.nsstring())
+        self.assertEqual(r1, r3)
+
+        m = o.getCharacters_range_.definingClass.__dict__["getCharacters_range_"]
+        with self.assertRaisesRegex(TypeError, "Missing argument: self"):
+            m()
+
+        m = NSObject.alloc().init().description.definingClass.__dict__["description"]
+        with self.assertRaisesRegex(
+            TypeError,
+            "Expecting instance of NSObject as self, got one of objc.pyobjc_unicode",
+        ):
+            m(o)
+        with self.assertRaisesRegex(
+            TypeError,
+            "Expecting instance of NSObject as self, got one of objc.pyobjc_unicode",
+        ):
+            m(o)
+
+    def test_selector_invalid_typestr(self):
+        o = NSArray.array()
+        m = o.reversedArray
+        m.signature = b"X@:"
+        with self.assertRaisesRegex(objc.error, "Unhandled type"):
+            m()
+        m.signature = b"@@:"
+
+        NSArray.__dict__["reversedArray"].signature = b"X@:"
+        with self.assertRaisesRegex(objc.error, "Unhandled type"):
+            self.assertEqual(o.reversedArray.signature, b"X@:")
+        NSArray.__dict__["reversedArray"].signature = b"@@:"
+        self.assertEqual(o.reversedArray.signature, b"@@:")
+
+    def test_selector_no_compare(self):
+        class C:
+            def __call__(self, a):
+                pass
+
+            def __eq__(self, b):
+                raise RuntimeError("no compare")
+
+        s = objc.selector(C(), selector=b"method:")
+        t = objc.selector(lambda x, y: 42, selector=b"method:")
+
+        with self.assertRaisesRegex(RuntimeError, "no compare"):
+            s == t  # noqa: B015
+
+        with self.assertRaisesRegex(RuntimeError, "no compare"):
+            s != t  # noqa: B015
+
+    def test_calling_abstract_selector(self):
+        o = NSObject.alloc().init()
+        s = objc.selector(None, selector=b"method:", signature=b"@@:@")
+        with self.assertRaisesRegex(
+            TypeError, "Calling abstract methods with selector 'method:'"
+        ):
+            s(o, 1)
+
+    def test_calling_without_self(self):
+        s = objc.selector(lambda s: 42, selector=b"method", signature=b"@@:")
+
+        with self.assertRaisesRegex(TypeError, "need self argument"):
+            s()
+
+    def test_selector_classmethod(self):
+        @classmethod
+        def classMethod(cls):
+            pass
+
+        s = objc.selector(classMethod)
+        self.assertTrue(s.isClassMethod)
+        self.assertEqual(s.selector, b"classMethod")
+        self.assertEqual(s.signature, b"v@:")
+
+    def test_selector_staticmethod(self):
+        @staticmethod
+        def classMethod(cls):
+            pass
+
+        with self.assertRaisesRegex(
+            TypeError, "cannot use staticmethod as the callable for a selector."
+        ):
+            objc.selector(classMethod)
+
+    def test_descr_get_instance(self):
+        @objc.selector
+        def method(self):
+            return 42
+
+        bound = method.__get__(NSObject.alloc().init())
+
+        class MyClass:
+            method = bound
+
+        self.assertIs(MyClass().method, bound)
+
+    def test_descr_get_class(self):
+        @objc.selector
+        @classmethod
+        def method(self):
+            return 42
+
+        with self.assertRaisesRegex(TypeError, "class is NULL"):
+            # XXX: This doesn't match the behaviour of classmethod()
+            method.__get__(NSObject)
+
+    def test_invalid_signature(self):
+        with self.assertRaisesRegex(ValueError, "invalid signature"):
+            objc.selector(lambda x: 42, selector=b"method", signature=b"X@:")
+
+        s = objc.selector(lambda x: 42, selector=b"method", signature=b"@@:")
+        self.assertEqual(s.native_signature, b"@@:")
+        s.signature = b"X@:"
+        with self.assertRaisesRegex(objc.error, " Unhandled type"):
+            s.signature
+
+        with self.assertRaisesRegex(AttributeError, "not writable"):
+            s.native_signature = b"X@:"
+        self.assertEqual(s.native_signature, b"@@:")
+        s.__get__(NSObject())
+        with self.assertRaisesRegex(objc.error, " Unhandled type"):
+            s.__metadata__()

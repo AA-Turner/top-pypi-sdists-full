@@ -71,7 +71,7 @@ impl MonthDay {
     }
 }
 
-impl PyWrapped for MonthDay {}
+impl PySimpleAlloc for MonthDay {}
 
 impl Display for MonthDay {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -80,6 +80,9 @@ impl Display for MonthDay {
 }
 
 fn __new__(cls: HeapType<MonthDay>, args: PyTuple, kwargs: Option<PyDict>) -> PyReturn {
+    if args.len() == 1 && kwargs.map_or(0, |d| d.len()) == 0 {
+        return parse_iso(cls, args.iter().next().unwrap());
+    }
     let mut month: c_long = 0;
     let mut day: c_long = 0;
     parse_args_kwargs!(args, kwargs, c"ll:MonthDay", month, day);
@@ -89,7 +92,7 @@ fn __new__(cls: HeapType<MonthDay>, args: PyTuple, kwargs: Option<PyDict>) -> Py
 }
 
 fn __repr__(_: PyType, slf: MonthDay) -> PyReturn {
-    format!("MonthDay({slf})").to_py()
+    format!("MonthDay(\"{slf}\")").to_py()
 }
 
 extern "C" fn __hash__(slf: PyObj) -> Py_hash_t {
@@ -149,18 +152,30 @@ static mut SLOTS: &[PyType_Slot] = &[
     },
 ];
 
-fn format_common_iso(cls: PyType, slf: MonthDay) -> PyReturn {
+fn format_iso(cls: PyType, slf: MonthDay) -> PyReturn {
     __str__(cls, slf)
 }
 
-fn parse_common_iso(cls: HeapType<MonthDay>, s: PyObj) -> PyReturn {
+fn parse_iso(cls: HeapType<MonthDay>, s: PyObj) -> PyReturn {
     MonthDay::parse(
-        s.cast::<PyStr>()
-            .ok_or_type_err("argument must be str")?
+        s.cast_allow_subclass::<PyStr>()
+            // NOTE: this exception message also needs to make sense when
+            // called through the constructor
+            .ok_or_type_err("When parsing from ISO format, the argument must be str")?
             .as_utf8()?,
     )
     .ok_or_else_value_err(|| format!("Invalid format: {s}"))?
     .to_obj(cls)
+}
+
+fn format_common_iso(cls: PyType, slf: MonthDay) -> PyReturn {
+    deprecation_warn(c"format_common_iso() has been renamed to format_iso()")?;
+    format_iso(cls, slf)
+}
+
+fn parse_common_iso(cls: HeapType<MonthDay>, arg: PyObj) -> PyReturn {
+    deprecation_warn(c"parse_common_iso() has been renamed to parse_iso()")?;
+    parse_iso(cls, arg)
 }
 
 fn __reduce__(
@@ -191,12 +206,12 @@ fn replace(
         handle_kwargs("replace", kwargs, |key, value, eq| {
             if eq(key, str_month) {
                 month = value
-                    .cast::<PyInt>()
+                    .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("month must be an integer")?
                     .to_long()?;
             } else if eq(key, str_day) {
                 day = value
-                    .cast::<PyInt>()
+                    .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("day must be an integer")?
                     .to_long()?;
             } else {
@@ -217,7 +232,7 @@ fn in_year(
 ) -> PyReturn {
     let year = Year::from_long(
         year_obj
-            .cast::<PyInt>()
+            .cast_allow_subclass::<PyInt>()
             .ok_or_type_err("year must be an integer")?
             .to_long()?,
     )
@@ -236,8 +251,10 @@ static mut METHODS: &[PyMethodDef] = &[
     method0!(MonthDay, __reduce__, c""),
     method0!(MonthDay, __copy__, c""),
     method1!(MonthDay, __deepcopy__, c""),
-    method0!(MonthDay, format_common_iso, doc::MONTHDAY_FORMAT_COMMON_ISO),
-    classmethod1!(MonthDay, parse_common_iso, doc::MONTHDAY_PARSE_COMMON_ISO),
+    method0!(MonthDay, format_iso, doc::MONTHDAY_FORMAT_ISO),
+    method0!(MonthDay, format_common_iso, c""), // deprecated alias
+    classmethod1!(MonthDay, parse_iso, doc::MONTHDAY_PARSE_ISO),
+    classmethod1!(MonthDay, parse_common_iso, c""), // deprecated alias
     method1!(MonthDay, in_year, doc::MONTHDAY_IN_YEAR),
     method0!(MonthDay, is_leap, doc::MONTHDAY_IS_LEAP),
     method_kwargs!(MonthDay, replace, doc::MONTHDAY_REPLACE),
@@ -247,7 +264,7 @@ static mut METHODS: &[PyMethodDef] = &[
 
 pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
     let py_bytes = arg
-        .cast::<PyBytes>()
+        .cast_exact::<PyBytes>()
         .ok_or_type_err("Invalid pickle data")?;
     let mut packed = py_bytes.as_bytes()?;
     if packed.len() != 2 {

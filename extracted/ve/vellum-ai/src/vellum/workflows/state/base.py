@@ -5,7 +5,7 @@ from dataclasses import field
 from datetime import datetime
 import logging
 from queue import Queue
-from threading import Lock
+from threading import RLock
 from uuid import UUID, uuid4
 from typing import (
     TYPE_CHECKING,
@@ -25,13 +25,19 @@ from typing import (
 from typing_extensions import dataclass_transform
 
 from pydantic import GetCoreSchemaHandler, ValidationInfo, field_serializer, field_validator
+from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
 from vellum.utils.uuid import is_valid_uuid
 from vellum.workflows.constants import undefined
 from vellum.workflows.inputs.base import BaseInputs
-from vellum.workflows.references import ExternalInputReference, OutputReference, StateValueReference
+from vellum.workflows.references import (
+    ExternalInputReference,
+    OutputReference,
+    StateValueReference,
+    TriggerAttributeReference,
+)
 from vellum.workflows.state.delta import AppendStateDelta, SetStateDelta, StateDelta
 from vellum.workflows.types.definition import CodeResourceDefinition, serialize_type_encoder_with_id
 from vellum.workflows.types.generics import StateType, import_workflow_class, is_workflow_class
@@ -48,10 +54,14 @@ logger = logging.getLogger(__name__)
 class _Snapshottable:
     _snapshot_callback: Callable[[Optional[StateDelta]], None]
     _path: str
+    _lock: Optional[RLock]
 
-    def __bind__(self, path: str, snapshot_callback: Callable[[Optional[StateDelta]], None]) -> None:
+    def __bind__(
+        self, path: str, snapshot_callback: Callable[[Optional[StateDelta]], None], lock: Optional[RLock] = None
+    ) -> None:
         self._snapshot_callback = snapshot_callback
         self._path = path
+        self._lock = lock
 
 
 @dataclass_transform(kw_only_default=True)
@@ -60,7 +70,9 @@ class _BaseStateMeta(type):
         if not name.startswith("_"):
             instance = vars(cls).get(name, undefined)
             types = infer_types(cls, name)
-            return StateValueReference(name=name, types=types, instance=instance)
+            return StateValueReference(
+                name=name, types=types, instance=instance, state_class=cast(Type["BaseState"], cls)
+            )
 
         return super().__getattribute__(name)
 
@@ -81,7 +93,11 @@ class _BaseStateMeta(type):
 
 class _SnapshottableDict(dict, _Snapshottable):
     def __setitem__(self, key: Any, value: Any) -> None:
-        super().__setitem__(key, value)
+        if self._lock:
+            with self._lock:
+                super().__setitem__(key, value)
+        else:
+            super().__setitem__(key, value)
         self._snapshot_callback(SetStateDelta(name=f"{self._path}.{key}", delta=value))
 
     def __deepcopy__(self, memo: Any) -> "_SnapshottableDict":
@@ -91,19 +107,27 @@ class _SnapshottableDict(dict, _Snapshottable):
             y[deepcopy(key, memo)] = deepcopy(value, memo)
 
         y = _SnapshottableDict(y)
-        y.__bind__(self._path, self._snapshot_callback)
+        y.__bind__(self._path, self._snapshot_callback, self._lock)
         memo[id(self)] = y
         return y
 
 
 class _SnapshottableList(list, _Snapshottable):
     def __setitem__(self, index: Union[SupportsIndex, slice], value: Any) -> None:
-        super().__setitem__(index, value)
+        if self._lock:
+            with self._lock:
+                super().__setitem__(index, value)
+        else:
+            super().__setitem__(index, value)
         if isinstance(index, int):
             self._snapshot_callback(SetStateDelta(name=f"{self._path}.{index}", delta=value))
 
     def append(self, value: Any) -> None:
-        super().append(value)
+        if self._lock:
+            with self._lock:
+                super().append(value)
+        else:
+            super().append(value)
         self._snapshot_callback(AppendStateDelta(name=self._path, delta=value))
 
     def __deepcopy__(self, memo: Any) -> "_SnapshottableList":
@@ -114,27 +138,33 @@ class _SnapshottableList(list, _Snapshottable):
             append(deepcopy(a, memo))
 
         y = _SnapshottableList(y)
-        y.__bind__(self._path, self._snapshot_callback)
+        y.__bind__(self._path, self._snapshot_callback, self._lock)
         memo[id(self)] = y
         return y
 
 
-def _make_snapshottable(path: str, value: Any, snapshot_callback: Callable[[Optional[StateDelta]], None]) -> Any:
+def _make_snapshottable(
+    path: str,
+    value: Any,
+    snapshot_callback: Callable[[Optional[StateDelta]], None],
+    lock: Optional[RLock] = None,
+) -> Any:
     """
     Edits any value to make it snapshottable on edit. Made as a separate function from `BaseState` to
     avoid namespace conflicts with subclasses.
     """
     if isinstance(value, _Snapshottable):
+        value.__bind__(path, snapshot_callback, lock)
         return value
 
     if isinstance(value, dict):
         snapshottable_dict = _SnapshottableDict(value)
-        snapshottable_dict.__bind__(path, snapshot_callback)
+        snapshottable_dict.__bind__(path, snapshot_callback, lock)
         return snapshottable_dict
 
     if isinstance(value, list):
         snapshottable_list = _SnapshottableList(value)
-        snapshottable_list.__bind__(path, snapshot_callback)
+        snapshottable_list.__bind__(path, snapshot_callback, lock)
         return snapshottable_list
 
     return value
@@ -271,6 +301,10 @@ class NodeExecutionCache:
             },
         }
 
+    def __vellum_encode__(self) -> Dict[str, Any]:
+        """Return a JSON-serializable representation of this cache."""
+        return self.dump()
+
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Type[Any], handler: GetCoreSchemaHandler
@@ -298,7 +332,8 @@ class StateMeta(UniversalBaseModel):
     id: UUID = field(default_factory=uuid4_default_factory)
     span_id: UUID = field(default_factory=uuid4_default_factory)
     updated_ts: datetime = field(default_factory=default_datetime_factory)
-    workflow_inputs: BaseInputs = field(default_factory=BaseInputs)
+    trigger_attributes: Optional[Dict[TriggerAttributeReference, Any]] = field(default=None)
+    workflow_inputs: Optional[BaseInputs] = field(default=None)
     external_inputs: Dict[ExternalInputReference, Any] = field(default_factory=dict)
     node_outputs: Dict[OutputReference, Any] = field(default_factory=dict)
     node_execution_cache: NodeExecutionCache = field(default_factory=NodeExecutionCache)
@@ -308,9 +343,27 @@ class StateMeta(UniversalBaseModel):
     def model_post_init(self, context: Any) -> None:
         self.__snapshot_callback__ = None
 
-    def add_snapshot_callback(self, callback: Callable[[Optional[StateDelta]], None]) -> None:
-        self.node_outputs = _make_snapshottable("meta.node_outputs", self.node_outputs, callback)
-        self.external_inputs = _make_snapshottable("meta.external_inputs", self.external_inputs, callback)
+        # Auto-populate workflow_inputs with defaults only if trigger_attributes is None
+        # (trigger_attributes being set indicates a trigger-based workflow where we don't want default inputs)
+        if self.workflow_inputs is None and self.trigger_attributes is None:
+            workflow_definition = (
+                self.workflow_definition if is_workflow_class(self.workflow_definition) else import_workflow_class()
+            )
+            try:
+                inputs_class = workflow_definition.get_inputs_class()
+                self.workflow_inputs = inputs_class()
+            except Exception:
+                self.workflow_inputs = BaseInputs()
+
+    def add_snapshot_callback(
+        self, callback: Callable[[Optional[StateDelta]], None], lock: Optional[RLock] = None
+    ) -> None:
+        self.node_outputs = _make_snapshottable("meta.node_outputs", self.node_outputs, callback, lock)
+        self.external_inputs = _make_snapshottable("meta.external_inputs", self.external_inputs, callback, lock)
+        if self.trigger_attributes is not None:
+            self.trigger_attributes = _make_snapshottable(
+                "meta.trigger_attributes", self.trigger_attributes, callback, lock
+            )
         self.__snapshot_callback__ = callback
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -344,6 +397,14 @@ class StateMeta(UniversalBaseModel):
     @field_serializer("node_outputs")
     def serialize_node_outputs(self, node_outputs: Dict[OutputReference, Any], _info: Any) -> Dict[str, Any]:
         return {str(descriptor.id): value for descriptor, value in node_outputs.items()}
+
+    @field_serializer("trigger_attributes")
+    def serialize_trigger_attributes(
+        self, trigger_attributes: Optional[Dict[TriggerAttributeReference, Any]], _info: Any
+    ) -> Dict[str, Any]:
+        if trigger_attributes is None:
+            return {}
+        return {str(descriptor.id): value for descriptor, value in trigger_attributes.items()}
 
     @field_validator("node_outputs", mode="before")
     @classmethod
@@ -379,6 +440,41 @@ class StateMeta(UniversalBaseModel):
 
         return node_outputs
 
+    @field_validator("trigger_attributes", mode="before")
+    @classmethod
+    def deserialize_trigger_attributes(cls, trigger_attributes: Any, info: ValidationInfo):
+        if isinstance(trigger_attributes, dict):
+            workflow_definition = cls._get_workflow(info)
+            if not workflow_definition:
+                return trigger_attributes
+
+            trigger_attribute_map: Dict[Union[str, UUID], TriggerAttributeReference] = {}
+            for subgraph in workflow_definition.get_subgraphs():
+                for trigger_class in subgraph.triggers:
+                    for attribute in trigger_class:
+                        trigger_attribute_map[str(attribute)] = attribute
+                        attr_id = getattr(attribute, "id", None)
+                        if isinstance(attr_id, UUID):
+                            trigger_attribute_map[attr_id] = attribute
+                            trigger_attribute_map[str(attr_id)] = attribute
+
+            deserialized_attributes: Dict[TriggerAttributeReference, Any] = {}
+            for key, value in trigger_attributes.items():
+                reference: Optional[TriggerAttributeReference]
+                if is_valid_uuid(key):
+                    reference = trigger_attribute_map.get(UUID(key))
+                else:
+                    reference = trigger_attribute_map.get(key)
+
+                if not reference:
+                    continue
+
+                deserialized_attributes[reference] = value
+
+            return deserialized_attributes
+
+        return trigger_attributes
+
     @field_validator("node_execution_cache", mode="before")
     @classmethod
     def deserialize_node_execution_cache(cls, node_execution_cache: Any, info: ValidationInfo):
@@ -400,11 +496,10 @@ class StateMeta(UniversalBaseModel):
     @field_validator("workflow_inputs", mode="before")
     @classmethod
     def deserialize_workflow_inputs(cls, workflow_inputs: Any, info: ValidationInfo):
-        workflow_definition = cls._get_workflow(info)
+        context = info.context if isinstance(info.context, dict) else {}
+        workflow_definition = context.get("workflow_definition") or cls._get_workflow(info)
 
         if workflow_definition:
-            if workflow_inputs is None:
-                return workflow_definition.get_inputs_class()()
             if isinstance(workflow_inputs, dict):
                 return workflow_definition.get_inputs_class()(**workflow_inputs)
 
@@ -442,14 +537,24 @@ class StateMeta(UniversalBaseModel):
         if not memo:
             memo = {}
 
+        node_output_keys = list(self.node_outputs.keys())
         new_node_outputs = {
-            descriptor: value if isinstance(value, Queue) else deepcopy(value, memo)
-            for descriptor, value in self.node_outputs.items()
+            descriptor: (
+                self.node_outputs[descriptor]
+                if isinstance(self.node_outputs[descriptor], Queue)
+                else deepcopy(self.node_outputs[descriptor], memo)
+            )
+            for descriptor in node_output_keys
         }
 
+        external_input_keys = list(self.external_inputs.keys())
         new_external_inputs = {
-            descriptor: value if isinstance(value, Queue) else deepcopy(value, memo)
-            for descriptor, value in self.external_inputs.items()
+            descriptor: (
+                self.external_inputs[descriptor]
+                if isinstance(self.external_inputs[descriptor], Queue)
+                else deepcopy(self.external_inputs[descriptor], memo)
+            )
+            for descriptor in external_input_keys
         }
 
         memo[id(self.node_outputs)] = new_node_outputs
@@ -476,7 +581,7 @@ class StateMeta(UniversalBaseModel):
 class BaseState(metaclass=_BaseStateMeta):
     meta: StateMeta = field(init=False)
 
-    __lock__: Lock = field(init=False)
+    __lock__: RLock = field(init=False)
     __is_quiet__: bool = field(init=False)
     __is_atomic__: bool = field(init=False)
     __snapshot_callback__: Callable[["BaseState", List[StateDelta]], None] = field(init=False)
@@ -487,16 +592,23 @@ class BaseState(metaclass=_BaseStateMeta):
         self.__is_atomic__ = False
         self.__snapshot_callback__ = lambda state, deltas: None
         self.__deltas__ = []
-        self.__lock__ = Lock()
+        self.__lock__ = RLock()
 
         self.meta = meta or StateMeta()
-        self.meta.add_snapshot_callback(self.__snapshot__)
+        self.meta.add_snapshot_callback(self.__snapshot__, self.__lock__)
 
         # Make all class attribute values snapshottable
         for name, value in self.__class__.__dict__.items():
             if not name.startswith("_") and name != "meta":
+                if isinstance(value, FieldInfo):
+                    if value.default_factory is not None:
+                        value = cast(Callable[[], Any], value.default_factory)()
+                    elif hasattr(value, "default") and value.default is not ...:
+                        value = value.default
+                    else:
+                        continue
                 # Bypass __is_quiet__ instead of `setattr`
-                snapshottable_value = _make_snapshottable(name, value, self.__snapshot__)
+                snapshottable_value = _make_snapshottable(name, value, self.__snapshot__, self.__lock__)
                 super().__setattr__(name, snapshottable_value)
 
         for name, value in kwargs.items():
@@ -508,11 +620,17 @@ class BaseState(metaclass=_BaseStateMeta):
         new_state = deepcopy_with_exclusions(
             self,
             exclusions={
-                "__lock__": Lock(),
+                "__lock__": RLock(),
             },
             memo=memo,
         )
-        new_state.meta.add_snapshot_callback(new_state.__snapshot__)
+        new_state.meta.add_snapshot_callback(new_state.__snapshot__, new_state.__lock__)
+
+        for name, value in list(vars(new_state).items()):
+            if not name.startswith("_") and name != "meta":
+                rebound_value = _make_snapshottable(name, value, new_state.__snapshot__, new_state.__lock__)
+                object.__setattr__(new_state, name, rebound_value)
+
         return new_state
 
     def __repr__(self) -> str:
@@ -553,8 +671,9 @@ class BaseState(metaclass=_BaseStateMeta):
             super().__setattr__(name, delta)
             return
 
-        snapshottable_value = _make_snapshottable(name, delta, self.__snapshot__)
-        super().__setattr__(name, snapshottable_value)
+        snapshottable_value = _make_snapshottable(name, delta, self.__snapshot__, self.__lock__)
+        with self.__lock__:
+            super().__setattr__(name, snapshottable_value)
         self.meta.updated_ts = datetime_now()
         self.__snapshot__(SetStateDelta(name=name, delta=delta))
 
@@ -600,7 +719,9 @@ class BaseState(metaclass=_BaseStateMeta):
             return
 
         try:
-            self.__snapshot_callback__(deepcopy(self), self.__deltas__)
+            with self.__lock__:
+                state_copy = deepcopy(self)
+            self.__snapshot_callback__(state_copy, self.__deltas__)
         except Exception:
             logger.exception("Failed to snapshot Workflow state.")
 
@@ -624,6 +745,10 @@ class BaseState(metaclass=_BaseStateMeta):
         finally:
             self.__is_atomic__ = prev
             self.__snapshot__()
+
+    def __vellum_encode__(self) -> Dict[str, Any]:
+        """Return a JSON-serializable representation of this state."""
+        return dict(self)
 
     @classmethod
     def __get_pydantic_core_schema__(

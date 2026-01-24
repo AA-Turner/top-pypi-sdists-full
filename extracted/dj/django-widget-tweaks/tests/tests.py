@@ -1,14 +1,20 @@
 from unittest import TestCase
 
-from .forms import render_field, render_field_from_tag, render_form, MyForm
+from .forms import (
+    render_field,
+    render_choice_field,
+    render_field_from_tag,
+    render_form,
+    MyForm,
+)
 
 
 def assertIn(value, obj):
-    assert value in obj, "%s not in %s" % (value, obj)
+    assert value in obj, f"{value} not in {obj}"
 
 
 def assertNotIn(value, obj):
-    assert value not in obj, "%s in %s" % (value, obj)
+    assert value not in obj, f"{value} in {obj}"
 
 
 # ===============================
@@ -340,7 +346,7 @@ class RenderFieldTagFieldReuseTest(TestCase):
 
 
 class RenderFieldTagUseTemplateVariableTest(TestCase):
-    def test_use_template_variable_in_parametrs(self):
+    def test_use_template_variable_in_parameters(self):
         res = render_form(
             '{% render_field form.with_attrs egg+="pahaz" placeholder=form.with_attrs.label %}'
         )
@@ -389,3 +395,52 @@ class RenderFieldTagNonValueAttribute(TestCase):
     def test_field_double_colon_missing(self):
         res = render_form('{{ form.simple|attr:"::class:{active:True}" }}')
         assertIn(':class="{active:True}"', res)
+
+
+class SelectFieldTest(TestCase):
+    def test_parent_field(self):
+        res = render_field("choice", "attr", "foo:bar")
+        assertIn("select", res)
+        assertIn('name="choice"', res)
+        assertIn('id="id_choice"', res)
+        assertIn('foo="bar"', res)
+        assertIn('<option value="1">one</option>', res)
+        assertIn('<option value="2">two</option>', res)
+
+    def test_rendering_id_class(self):
+        res = render_form(
+            '{% render_field form.choice id="id_1" class="c_1" %}'
+            '{% render_field form.choice id="id_2" class="c_2" %}'
+        )
+        self.assertEqual(res.count("id_1"), 1)
+        self.assertEqual(res.count("id_2"), 1)
+        self.assertEqual(res.count("c_1"), 1)
+        self.assertEqual(res.count("c_2"), 1)
+
+
+class RadioFieldTest(TestCase):
+    def test_first_choice(self):
+        res = render_choice_field("radio", 0, "attr", "foo:bar")
+        assertIn('type="radio"', res)
+        assertIn('name="radio"', res)
+        assertIn('value="option1"', res)
+        assertIn('id="id_radio_0"', res)
+        assertIn('foo="bar"', res)
+
+    def test_second_choice(self):
+        res = render_choice_field("radio", 1, "attr", "foo:bar")
+        assertIn('type="radio"', res)
+        assertIn('name="radio"', res)
+        assertIn('value="option2"', res)
+        assertIn('id="id_radio_1"', res)
+        assertIn('foo="bar"', res)
+
+    def test_rendering_id_class(self):
+        res = render_form(
+            '{% render_field form.radio.0 id="id_1" class="c_1" %}'
+            '{% render_field form.radio.1 id="id_2" class="c_2" %}'
+        )
+        self.assertEqual(res.count("id_1"), 1)
+        self.assertEqual(res.count("id_2"), 1)
+        self.assertEqual(res.count("c_1"), 1)
+        self.assertEqual(res.count("c_2"), 1)

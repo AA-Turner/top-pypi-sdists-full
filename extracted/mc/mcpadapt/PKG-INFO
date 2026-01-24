@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpadapt
-Version: 0.1.16
+Version: 0.1.20
 Summary: Adapt MCP servers to many agentic framework.
 Project-URL: Homepage, https://github.com/grll/mcpadapt
 Project-URL: Repository, https://github.com/grll/mcpadapt
@@ -11,19 +11,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Requires-Dist: jsonref>=1.1.0
-Requires-Dist: mcp>=1.10.1
+Requires-Dist: mcp[ws]>=1.10.1
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: python-dotenv>=1.0.1
 Provides-Extra: audio
 Requires-Dist: soundfile>=0.13.1; extra == 'audio'
 Requires-Dist: torchaudio>=2.7.1; extra == 'audio'
+Requires-Dist: torchcodec>=0.8.0; extra == 'audio'
 Provides-Extra: crewai
 Requires-Dist: crewai>=0.108.0; extra == 'crewai'
 Provides-Extra: google-genai
@@ -48,6 +47,7 @@ Requires-Dist: pytest>=8.3.4; extra == 'test'
 Requires-Dist: smolagents>=1.2.2; extra == 'test'
 Requires-Dist: soundfile>=0.13.1; extra == 'test'
 Requires-Dist: torchaudio>=2.7.1; extra == 'test'
+Requires-Dist: torchcodec>=0.8.0; extra == 'test'
 Description-Content-Type: text/markdown
 
 # MCPAdapt

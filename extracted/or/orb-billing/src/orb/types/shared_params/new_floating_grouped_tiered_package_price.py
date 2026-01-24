@@ -19,19 +19,21 @@ __all__ = [
 
 
 class GroupedTieredPackageConfigTier(TypedDict, total=False):
+    """Configuration for a single tier"""
+
     per_unit: Required[str]
-    """Price per package"""
+    """Per package"""
 
     tier_lower_bound: Required[str]
-    """Tier lower bound"""
 
 
 class GroupedTieredPackageConfig(TypedDict, total=False):
+    """Configuration for grouped_tiered_package pricing"""
+
     grouping_key: Required[str]
     """The event property used to group before tiering"""
 
     package_size: Required[str]
-    """Package size"""
 
     tiers: Required[Iterable[GroupedTieredPackageConfigTier]]
     """Apply tiered pricing after rounding up the quantity to the package size.

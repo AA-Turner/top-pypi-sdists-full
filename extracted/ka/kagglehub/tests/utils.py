@@ -3,18 +3,19 @@ import hashlib
 import mimetypes
 import os
 import sys
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Callable
+from typing import Any
 from unittest import mock
 
 from flask import Flask, Response
 from flask.typing import ResponseReturnValue
+from kagglesdk.kaggle_env import get_endpoint, get_env
 
 import kagglehub
-from kagglehub.config import CACHE_FOLDER_ENV_VAR_NAME, get_kaggle_api_endpoint
+from kagglehub.config import CACHE_FOLDER_ENV_VAR_NAME
 from kagglehub.handle import ResourceHandle
 from kagglehub.integrity import GCS_HASH_HEADER, to_b64_digest
 
@@ -35,7 +36,7 @@ def resolve_endpoint(var_name: str = "KAGGLE_API_ENDPOINT") -> tuple[str, int]:
 
 
 def get_mocked_gcs_signed_url(file_name: str) -> str:
-    return f"{get_kaggle_api_endpoint()}{MOCK_GCS_BUCKET_BASE_PATH}/{file_name}?X-Goog-Headers=all-kinds-of-stuff"
+    return f"{get_endpoint(get_env())}{MOCK_GCS_BUCKET_BASE_PATH}/{file_name}?X-Goog-Headers=all-kinds-of-stuff"
 
 
 # All downloads, regardless of archive or file, happen via GCS signed URLs. We mock the 302 and handle
@@ -107,12 +108,10 @@ def handle_mock_gcs_redirect(file_name: str) -> ResponseReturnValue:
         )
 
 
-def login(username: str, api_key: str, validate_credentials: bool = True) -> None:  # noqa: FBT002, FBT001
-    with mock.patch("builtins.input") as mock_input:
-        with mock.patch("getpass.getpass") as mock_getpass:
-            mock_input.side_effect = [username]
-            mock_getpass.return_value = api_key
-            kagglehub.login(validate_credentials=validate_credentials)
+def login(api_token: str, validate_credentials: bool = True) -> None:  # noqa: FBT002, FBT001
+    with mock.patch("getpass.getpass") as mock_getpass:
+        mock_getpass.return_value = api_token
+        kagglehub.login(validate_credentials=validate_credentials)
 
 
 def clear_imported_kaggle_packages() -> None:

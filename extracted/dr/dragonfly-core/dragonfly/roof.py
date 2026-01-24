@@ -6,7 +6,7 @@ import math
 from ladybug_geometry.geometry2d import Vector2D, Point2D, Ray2D, LineSegment2D, \
     Polyline2D, Polygon2D
 from ladybug_geometry.geometry3d import Vector3D, Point3D, LineSegment3D, \
-    Plane, Polyline3D, Face3D, Polyface3D
+    Plane, Polyline3D, Face3D, Mesh3D, Polyface3D
 from ladybug_geometry.intersection2d import closest_point2d_on_line2d, \
     closest_point2d_on_line2d_infinite
 
@@ -142,16 +142,33 @@ class RoofSpecification(object):
         return cls(all_geos)
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data, tolerance=0):
         """Initialize RoofSpecification from a dictionary.
 
         Args:
             data: A dictionary representation of an RoofSpecification object.
+            tolerance: The maximum difference between z values at which point vertices
+                are considered equivalent. This is used to triangulate non-planar
+                mesh quads if they are found in the geometry. Default is 0, which
+                will not perform any check.
         """
         # check the type of dictionary
         assert data['type'] == 'RoofSpecification', 'Expected RoofSpecification ' \
             'dictionary. Got {}.'.format(data['type'])
-        geometry = tuple(Face3D.from_dict(shd_geo) for shd_geo in data['geometry'])
+        geometry = []
+        for rf_geo in data['geometry']:
+            if rf_geo['type'] == 'Face3D':
+                geometry.append(Face3D.from_dict(rf_geo))
+            else:  # it is a Mesh3D
+                mesh = Mesh3D.from_dict(rf_geo)
+                for face_pts in mesh.face_vertices:
+                    geo = Face3D(face_pts)
+                    if tolerance != 0 and len(geo.vertices) == 4 and not \
+                            geo.check_planar(tolerance, False):
+                        geometry.append(Face3D((geo[0], geo[1], geo[2])))
+                        geometry.append(Face3D((geo[2], geo[3], geo[0])))
+                    else:
+                        geometry.append(geo)
         return cls(geometry)
 
     @property
@@ -728,12 +745,14 @@ class RoofSpecification(object):
                 suitable for objects in meters).
         """
         # if the base plane is specified, convert to the plane's coordinate system
-        pl_ang = None
+        pl_ang, t_vec = None, None
         if isinstance(base_plane, Plane) and base_plane.n.z != 0:
             origin = base_plane.o
+            t_vec = Vector3D(-origin.x, -origin.y)
             x_axis = Vector2D(base_plane.x.x, base_plane.x.y)
             pl_ang = x_axis.angle_counterclockwise(Vector2D(1, 0))
-            self.geometry = [f.rotate_xy(pl_ang, origin) for f in self.geometry]
+            self.geometry = [f.rotate_xy(pl_ang, origin).move(t_vec)
+                             for f in self.geometry]
 
         # get the ridge lines of the roof to determine if snapping is possible
         poly_ridge_info = self._compute_ridge_line_info(tolerance)
@@ -775,7 +794,8 @@ class RoofSpecification(object):
 
         # rotate the geometry back to normal if a base plane was used
         if pl_ang is not None:
-            new_geo = [f.rotate_xy(-pl_ang, origin) for f in new_geo]
+            r_vec = -t_vec
+            new_geo = [f.move(r_vec).rotate_xy(-pl_ang, origin) for f in new_geo]
         self.geometry = new_geo
 
     def align(self, line_ray, distance, tolerance=0.01):
@@ -1332,7 +1352,7 @@ class RoofSpecification(object):
             # get the roof faces using polygon boolean operations
             roof_faces = room._roof_faces(
                 all_room_poly, rel_rf_polys, rel_rf_planes, tolerance)
-            if roof_faces is None:  # invalid roof geometry
+            if roof_faces is None or len(roof_faces) == 0:  # invalid roof geometry
                 continue
             roof_min = min(f.min.z for f in roof_faces)
             if roof_min < hp_flr_hgt - tolerance:

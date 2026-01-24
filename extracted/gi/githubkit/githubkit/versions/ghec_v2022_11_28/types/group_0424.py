@@ -9,20 +9,56 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
 from typing_extensions import NotRequired, TypedDict
 
+from .group_0011 import WebhookConfigType, WebhookConfigTypeForResponse
+from .group_0423 import HookResponseType, HookResponseTypeForResponse
 
-class RepositoryRuleRulesetInfoType(TypedDict):
-    """repository ruleset data for rule
 
-    User-defined metadata to store domain-specific information limited to 8 keys
-    with scalar values.
+class HookType(TypedDict):
+    """Webhook
+
+    Webhooks for repositories.
     """
 
-    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
-    ruleset_source: NotRequired[str]
-    ruleset_id: NotRequired[int]
+    type: str
+    id: int
+    name: str
+    active: bool
+    events: list[str]
+    config: WebhookConfigType
+    updated_at: _dt.datetime
+    created_at: _dt.datetime
+    url: str
+    test_url: str
+    ping_url: str
+    deliveries_url: NotRequired[str]
+    last_response: HookResponseType
 
 
-__all__ = ("RepositoryRuleRulesetInfoType",)
+class HookTypeForResponse(TypedDict):
+    """Webhook
+
+    Webhooks for repositories.
+    """
+
+    type: str
+    id: int
+    name: str
+    active: bool
+    events: list[str]
+    config: WebhookConfigTypeForResponse
+    updated_at: str
+    created_at: str
+    url: str
+    test_url: str
+    ping_url: str
+    deliveries_url: NotRequired[str]
+    last_response: HookResponseTypeForResponse
+
+
+__all__ = (
+    "HookType",
+    "HookTypeForResponse",
+)

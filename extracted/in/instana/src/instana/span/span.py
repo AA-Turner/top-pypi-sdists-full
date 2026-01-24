@@ -1,4 +1,4 @@
-# (c) Copyright IBM Corp. 2021
+# (c) Copyright IBM Corp. 2021, 2025
 # (c) Copyright Instana Inc. 2017
 
 """
@@ -36,6 +36,7 @@ from instana.log import logger
 from instana.recorder import StanRecorder
 from instana.span.kind import HTTP_SPANS
 from instana.span.readable_span import Event, ReadableSpan
+from instana.span.stack_trace import add_stack_trace_if_needed
 from instana.span_context import SpanContext
 
 
@@ -196,6 +197,8 @@ class InstanaSpan(Span, ReadableSpan):
         with self._lock:
             self._end_time = end_time if end_time else time_ns()
             self._duration = self._end_time - self._start_time
+
+        add_stack_trace_if_needed(self)
 
         self._span_processor.record_span(self._readable_span())
 

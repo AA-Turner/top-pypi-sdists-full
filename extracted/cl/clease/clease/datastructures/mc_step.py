@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 import attr
 
@@ -35,7 +35,7 @@ class MCStep(AttrSavable):
     )
     # Optional extra information an MC object may choose to pass along.
     # Is not included in equality comparison.
-    other: Dict[str, Any] = attr.field(default=attr.Factory(dict), eq=False)
+    other: dict[str, Any] = attr.field(default=attr.Factory(dict), eq=False)
 
     @property
     def move_rejected(self) -> bool:

@@ -1,231 +1,254 @@
 """
-This module provides asynchronous functionalities for registering a wallet with the subtensor network using
-Proof-of-Work (PoW).
-
-Extrinsics:
-- register_extrinsic: Registers the wallet to the subnet.
-- burned_register_extrinsic: Registers the wallet to chain by recycling TAO.
+This module provides async functionalities for registering a wallet with the subtensor network using Proof-of-Work (PoW).
 """
 
 import asyncio
 from typing import Optional, Union, TYPE_CHECKING
 
-from bittensor.core.extrinsics.asyncex.utils import get_extrinsic_fee
-from bittensor.utils import unlock_key
+from bittensor.core.errors import RegistrationError
+from bittensor.core.extrinsics.asyncex.mev_shield import submit_encrypted_extrinsic
+from bittensor.core.extrinsics.pallets import SubtensorModule
+from bittensor.core.settings import DEFAULT_MEV_PROTECTION
+from bittensor.core.types import ExtrinsicResponse
 from bittensor.utils.btlogging import logging
-from bittensor.utils.registration import log_no_torch_error, create_pow_async, torch
+from bittensor.utils.registration import create_pow_async, log_no_torch_error, torch
 
 if TYPE_CHECKING:
     from bittensor_wallet import Wallet
     from bittensor.core.async_subtensor import AsyncSubtensor
-    from bittensor.utils.registration.pow import POWSolution
-
-
-async def _do_burned_register(
-    subtensor: "AsyncSubtensor",
-    netuid: int,
-    wallet: "Wallet",
-    wait_for_inclusion: bool = False,
-    wait_for_finalization: bool = True,
-    period: Optional[int] = None,
-) -> tuple[bool, str]:
-    """
-    Performs a burned register extrinsic call to the Subtensor chain.
-
-    This method sends a registration transaction to the Subtensor blockchain using the burned register mechanism.
-
-    Args:
-        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): Subtensor instance.
-        netuid (int): The network unique identifier to register on.
-        wallet (bittensor_wallet.Wallet): The wallet to be registered.
-        wait_for_inclusion (bool): Whether to wait for the transaction to be included in a block. Default is False.
-        wait_for_finalization (bool): Whether to wait for the transaction to be finalized. Default is True.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
-
-    Returns:
-        Tuple[bool, Optional[str]]: A tuple containing a boolean indicating success or failure, and an optional error
-            message.
-    """
-
-    # create extrinsic call
-    call = await subtensor.substrate.compose_call(
-        call_module="SubtensorModule",
-        call_function="burned_register",
-        call_params={
-            "netuid": netuid,
-            "hotkey": wallet.hotkey.ss58_address,
-        },
-    )
-    fee = await get_extrinsic_fee(
-        subtensor=subtensor, call=call, keypair=wallet.coldkeypub
-    )
-    logging.info(
-        f"The registration fee for SN #[blue]{netuid}[/blue] is [blue]{fee}[/blue]."
-    )
-    return await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-    )
 
 
 async def burned_register_extrinsic(
     subtensor: "AsyncSubtensor",
     wallet: "Wallet",
     netuid: int,
-    wait_for_inclusion: bool = False,
-    wait_for_finalization: bool = True,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-) -> bool:
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
     """Registers the wallet to chain by recycling TAO.
 
-    Args:
-        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): Subtensor instance.
-        wallet (bittensor.wallet): Bittensor wallet object.
-        netuid (int): The ``netuid`` of the subnet to register on.
-        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning ``True``, or
-            returns ``False`` if the extrinsic fails to enter the block within the timeout.
-        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
-            ``True``, or returns ``False`` if the extrinsic fails to be finalized within the timeout.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+    Parameters:
+        subtensor: Subtensor instance.
+        wallet: Bittensor wallet object.
+        netuid: The ``netuid`` of the subnet to register on.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        success (bool): Flag is ``True`` if extrinsic was finalized or included in the block. If we did not wait for
-            finalization / inclusion, the response is ``True``.
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
-    block_hash = await subtensor.substrate.get_chain_head()
-    if not await subtensor.subnet_exists(netuid, block_hash=block_hash):
-        logging.error(
-            f":cross_mark: [red]Failed error:[/red] subnet [blue]{netuid}[/blue] does not exist."
-        )
-        return False
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(
+                wallet, raise_error, unlock_type="both"
+            )
+        ).success:
+            return unlocked
 
-    if not (unlock := unlock_key(wallet)).success:
-        logging.error(unlock.message)
-        return False
-
-    logging.info(
-        f":satellite: [magenta]Checking Account on subnet[/magenta] [blue]{netuid}[/blue][magenta] ...[/magenta]"
-    )
-
-    # We could do this as_completed because we don't need old_balance and recycle
-    # if neuron is null, but the complexity isn't worth it considering the small performance
-    # gains we'd hypothetically receive in this situation
-    neuron, old_balance, recycle_amount = await asyncio.gather(
-        subtensor.get_neuron_for_pubkey_and_subnet(
-            wallet.hotkey.ss58_address, netuid=netuid, block_hash=block_hash
-        ),
-        subtensor.get_balance(wallet.coldkeypub.ss58_address, block_hash=block_hash),
-        subtensor.recycle(netuid=netuid, block_hash=block_hash),
-    )
-
-    if not neuron.is_null:
-        logging.info(":white_heavy_check_mark: [green]Already Registered[/green]")
-        logging.info(f"\t\tuid: [blue]{neuron.uid}[/blue]")
-        logging.info(f"\t\tnetuid: [blue]{neuron.netuid}[/blue]")
-        logging.info(f"\t\thotkey: [blue]{neuron.hotkey}[/blue]")
-        logging.info(f"\t\tcoldkey: [blue]{neuron.coldkey}[/blue]")
-        return True
-
-    logging.debug(":satellite: [magenta]Recycling TAO for Registration...[/magenta]")
-
-    success, err_msg = await _do_burned_register(
-        subtensor=subtensor,
-        netuid=netuid,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-    )
-
-    if not success:
-        logging.error(f":cross_mark: [red]Failed error:[/red] {err_msg}")
-        await asyncio.sleep(0.5)
-        return False
-    # Successful registration, final check for neuron and pubkey
-    else:
-        logging.info(":satellite: [magenta]Checking Balance...[/magenta]")
         block_hash = await subtensor.substrate.get_chain_head()
-        new_balance = await subtensor.get_balance(
-            wallet.coldkeypub.ss58_address, block_hash=block_hash
+        if not await subtensor.subnet_exists(netuid=netuid, block_hash=block_hash):
+            return ExtrinsicResponse(
+                False, f"Subnet {netuid} does not exist."
+            ).with_log()
+
+        neuron, old_balance, recycle_amount = await asyncio.gather(
+            subtensor.get_neuron_for_pubkey_and_subnet(
+                netuid=netuid,
+                hotkey_ss58=wallet.hotkey.ss58_address,
+                block_hash=block_hash,
+            ),
+            subtensor.get_balance(
+                address=wallet.coldkeypub.ss58_address, block_hash=block_hash
+            ),
+            subtensor.recycle(netuid=netuid, block_hash=block_hash),
         )
 
-        logging.info(
+        if not neuron.is_null:
+            message = "Already registered."
+            logging.debug(f"[green]{message}[/green]")
+            logging.debug(f"\t\tuid: [blue]{neuron.uid}[/blue]")
+            logging.debug(f"\t\tnetuid: [blue]{neuron.netuid}[/blue]")
+            logging.debug(f"\t\thotkey: [blue]{neuron.hotkey}[/blue]")
+            logging.debug(f"\t\tcoldkey: [blue]{neuron.coldkey}[/blue]")
+            return ExtrinsicResponse(
+                message=message, data={"neuron": neuron, "old_balance": old_balance}
+            )
+
+        logging.debug(f"Recycling {recycle_amount} to register on subnet:{netuid}")
+
+        call = await SubtensorModule(subtensor).burned_register(
+            netuid=netuid, hotkey=wallet.hotkey.ss58_address
+        )
+
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
+        extrinsic_fee = response.extrinsic_fee
+        logging.debug(
+            f"The registration fee for SN #[blue]{netuid}[/blue] is [blue]{extrinsic_fee}[/blue]."
+        )
+        if not response.success:
+            logging.error(f"[red]{response.message}[/red]")
+            await asyncio.sleep(0.5)
+            return response
+
+        # Successful registration, final check for neuron and pubkey
+        new_balance = await subtensor.get_balance(
+            address=wallet.coldkeypub.ss58_address
+        )
+
+        logging.debug(
             f"Balance: [blue]{old_balance}[/blue] :arrow_right: [green]{new_balance}[/green]"
         )
         is_registered = await subtensor.is_hotkey_registered(
             netuid=netuid, hotkey_ss58=wallet.hotkey.ss58_address
         )
+
+        response.data = {
+            "neuron": neuron,
+            "balance_before": old_balance,
+            "balance_after": new_balance,
+            "recycle_amount": recycle_amount,
+        }
+
         if is_registered:
-            logging.info(":white_heavy_check_mark: [green]Registered[/green]")
-            return True
-        else:
-            # neuron not found, try again
-            logging.error(":cross_mark: [red]Unknown error. Neuron not found.[/red]")
-            return False
+            logging.debug("[green]Registered.[/green]")
+            return response
+
+        # neuron not found
+        message = f"Neuron with hotkey {wallet.hotkey.ss58_address} not found in subnet {netuid} after registration."
+        return ExtrinsicResponse(
+            success=False,
+            message=message,
+            extrinsic=response.extrinsic,
+            error=RegistrationError(message),
+        ).with_log()
+
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)
 
 
-async def _do_pow_register(
+async def register_subnet_extrinsic(
     subtensor: "AsyncSubtensor",
-    netuid: int,
     wallet: "Wallet",
-    pow_result: "POWSolution",
-    wait_for_inclusion: bool = False,
-    wait_for_finalization: bool = True,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-) -> tuple[bool, Optional[str]]:
-    """Sends a (POW) register extrinsic to the chain.
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
+    """
+    Registers a new subnetwork on the Bittensor blockchain asynchronously.
 
-    Args:
-        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): The subtensor to send the extrinsic to.
-        netuid (int): The subnet to register on.
-        wallet (bittensor.wallet): The wallet to register.
-        pow_result (POWSolution): The PoW result to register.
-        wait_for_inclusion (bool): If ``True``, waits for the extrinsic to be included in a block. Default to `False`.
-        wait_for_finalization (bool): If ``True``, waits for the extrinsic to be finalized. Default to `True`.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+    Parameters:
+        subtensor: The subtensor interface to send the extrinsic.
+        wallet: The wallet to be used for subnet registration.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        success (bool): ``True`` if the extrinsic was included in a block.
-        error (Optional[str]): ``None`` on success or not waiting for inclusion/finalization, otherwise the error
-            message.
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
-    # create extrinsic call
-    call = await subtensor.substrate.compose_call(
-        call_module="SubtensorModule",
-        call_function="register",
-        call_params={
-            "netuid": netuid,
-            "block_number": pow_result.block_number,
-            "nonce": pow_result.nonce,
-            "work": [int(byte_) for byte_ in pow_result.seal],
-            "hotkey": wallet.hotkey.ss58_address,
-            "coldkey": wallet.coldkeypub.ss58_address,
-        },
-    )
-    return await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-    )
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(
+                wallet, raise_error, unlock_type="both"
+            )
+        ).success:
+            return unlocked
+
+        balance = await subtensor.get_balance(wallet.coldkeypub.ss58_address)
+        burn_cost = await subtensor.get_subnet_burn_cost()
+
+        if burn_cost > balance:
+            return ExtrinsicResponse(
+                False,
+                f"Insufficient balance {balance} to register subnet. Current burn cost is {burn_cost} TAO.",
+            ).with_log()
+
+        call = await SubtensorModule(subtensor).register_network(
+            hotkey=wallet.hotkey.ss58_address
+        )
+
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
+
+        if not wait_for_finalization and not wait_for_inclusion:
+            return response
+
+        if response.success:
+            logging.debug("[green]Successfully registered subnet.[/green]")
+            return response
+
+        logging.error(f"Failed to register subnet: {response.message}")
+        return response
+
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)
 
 
 async def register_extrinsic(
     subtensor: "AsyncSubtensor",
     wallet: "Wallet",
     netuid: int,
-    wait_for_inclusion: bool = False,
-    wait_for_finalization: bool = True,
     max_allowed_attempts: int = 3,
     output_in_place: bool = True,
     cuda: bool = False,
@@ -234,238 +257,198 @@ async def register_extrinsic(
     num_processes: Optional[int] = None,
     update_interval: Optional[int] = None,
     log_verbose: bool = False,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-) -> bool:
-    """Registers the wallet to the chain.
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
+    """Registers a neuron on the Bittensor subnet with provided netuid using the provided wallet.
 
-    Args:
-        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): initialized AsyncSubtensor object to use for chain
-            interactions
-        wallet (bittensor_wallet.Wallet): Bittensor wallet object.
-        netuid (int): The ``netuid`` of the subnet to register on.
-        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning `True`, or returns
-            `False` if the extrinsic fails to enter the block within the timeout.
-        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
-            `True`, or returns `False` if the extrinsic fails to be finalized within the timeout.
-        max_allowed_attempts (int): Maximum number of attempts to register the wallet.
-        output_in_place (bool): Whether the POW solving should be outputted to the console as it goes along.
-        cuda (bool): If `True`, the wallet should be registered using CUDA device(s).
+    Registration is a critical step for a neuron to become an active participant in the network, enabling it to stake,
+    set weights, and receive incentives.
+
+    Parameters:
+        subtensor: Subtensor object to use for chain interactions
+        wallet: Bittensor wallet object.
+        netuid: The ``netuid`` of the subnet to register on.
+        max_allowed_attempts: Maximum number of attempts to register the wallet.
+        output_in_place: Whether the POW solving should be outputted to the console as it goes along.
+        cuda: If `True`, the wallet should be registered using CUDA device(s).
         dev_id: The CUDA device id to use, or a list of device ids.
         tpb: The number of threads per block (CUDA).
         num_processes: The number of processes to use to register.
         update_interval: The number of nonces to solve between updates.
         log_verbose: If `True`, the registration process will log more information.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        `True` if extrinsic was finalized or included in the block. If we did not wait for finalization/inclusion, the
-            response is `True`.
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
-    block_hash = await subtensor.substrate.get_chain_head()
-    logging.debug("[magenta]Checking subnet status... [/magenta]")
-    if not await subtensor.subnet_exists(netuid, block_hash=block_hash):
-        logging.error(
-            f":cross_mark: [red]Failed error:[/red] subnet [blue]{netuid}[/blue] does not exist."
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(
+                wallet, raise_error, unlock_type="both"
+            )
+        ).success:
+            return unlocked
+
+        block_hash = await subtensor.substrate.get_chain_head()
+        if not await subtensor.subnet_exists(netuid, block_hash=block_hash):
+            return ExtrinsicResponse(
+                False, f"Subnet {netuid} does not exist."
+            ).with_log()
+
+        neuron = await subtensor.get_neuron_for_pubkey_and_subnet(
+            hotkey_ss58=wallet.hotkey.ss58_address, netuid=netuid, block_hash=block_hash
         )
-        return False
 
-    logging.info(
-        f":satellite: [magenta]Checking Account on subnet[/magenta] [blue]{netuid}[/blue] [magenta]...[/magenta]"
-    )
-    neuron = await subtensor.get_neuron_for_pubkey_and_subnet(
-        hotkey_ss58=wallet.hotkey.ss58_address, netuid=netuid, block_hash=block_hash
-    )
+        if not neuron.is_null:
+            message = "Already registered."
+            logging.debug(f"[green]{message}[/green]")
+            logging.debug(f"\t\tuid: [blue]{neuron.uid}[/blue]")
+            logging.debug(f"\t\tnetuid: [blue]{neuron.netuid}[/blue]")
+            logging.debug(f"\t\thotkey: [blue]{neuron.hotkey}[/blue]")
+            logging.debug(f"\t\tcoldkey: [blue]{neuron.coldkey}[/blue]")
+            return ExtrinsicResponse(message=message, data={"neuron": neuron})
 
-    if not neuron.is_null:
-        logging.info(":white_heavy_check_mark: [green]Already Registered[/green]")
-        logging.info(f"\t\tuid: [blue]{neuron.uid}[/blue]")
-        logging.info(f"\t\tnetuid: [blue]{neuron.netuid}[/blue]")
-        logging.info(f"\t\thotkey: [blue]{neuron.hotkey}[/blue]")
-        logging.info(f"\t\tcoldkey: [blue]{neuron.coldkey}[/blue]")
-        return True
-
-    logging.debug(
-        f"Registration hotkey: <blue>{wallet.hotkey.ss58_address}</blue>, <green>Public</green> coldkey: "
-        f"<blue>{wallet.coldkey.ss58_address}</blue> in the network: <blue>{subtensor.network}</blue>."
-    )
-
-    if not torch:
-        log_no_torch_error()
-        return False
-
-    # Attempt rolling registration.
-    attempts = 1
-
-    while True:
-        logging.info(
-            f":satellite: [magenta]Registering...[/magenta] [blue]({attempts}/{max_allowed_attempts})[/blue]"
+        logging.debug(
+            f"Registration hotkey: [blue]{wallet.hotkey.ss58_address}[/blue], Public coldkey: "
+            f"[blue]{wallet.coldkey.ss58_address}[/blue] in the network: [blue]{subtensor.network}[/blue]."
         )
-        # Solve latest POW.
-        if cuda:
-            if not torch.cuda.is_available():
-                return False
 
-            pow_result = await create_pow_async(
-                subtensor=subtensor,
-                wallet=wallet,
-                netuid=netuid,
-                output_in_place=output_in_place,
-                cuda=cuda,
-                dev_id=dev_id,
-                tpb=tpb,
-                num_processes=num_processes,
-                update_interval=update_interval,
-                log_verbose=log_verbose,
-            )
-        else:
-            pow_result = await create_pow_async(
-                subtensor=subtensor,
-                wallet=wallet,
-                netuid=netuid,
-                output_in_place=output_in_place,
-                cuda=cuda,
-                num_processes=num_processes,
-                update_interval=update_interval,
-                log_verbose=log_verbose,
-            )
+        if not torch:
+            log_no_torch_error()
+            return ExtrinsicResponse(False, "Torch is not installed.").with_log()
 
-        # pow failed
-        if not pow_result:
-            # might be registered already on this subnet
-            is_registered = await subtensor.is_hotkey_registered(
-                netuid=netuid, hotkey_ss58=wallet.hotkey.ss58_address
-            )
-            if is_registered:
-                logging.error(
-                    f":white_heavy_check_mark: [green]Already registered on netuid:[/green] [blue]{netuid}[/blue]"
-                )
-                return True
+        # Attempt rolling registration.
+        attempts = 1
 
-        # pow successful, proceed to submit pow to chain for registration
-        else:
-            logging.info(":satellite: [magenta]Submitting POW...[/magenta]")
-            # check if a pow result is still valid
-            while not await pow_result.is_stale_async(subtensor=subtensor):
-                result: tuple[bool, Optional[str]] = await _do_pow_register(
+        while True:
+            # Solve latest POW.
+            if cuda:
+                if not torch.cuda.is_available():
+                    return ExtrinsicResponse(False, "CUDA not available.").with_log()
+
+                logging.debug(f"Creating a POW with CUDA.")
+                pow_result = await create_pow_async(
                     subtensor=subtensor,
-                    netuid=netuid,
                     wallet=wallet,
-                    pow_result=pow_result,
-                    wait_for_inclusion=wait_for_inclusion,
-                    wait_for_finalization=wait_for_finalization,
-                    period=period,
+                    netuid=netuid,
+                    output_in_place=output_in_place,
+                    cuda=cuda,
+                    dev_id=dev_id,
+                    tpb=tpb,
+                    num_processes=num_processes,
+                    update_interval=update_interval,
+                    log_verbose=log_verbose,
+                )
+            else:
+                logging.debug(f"Creating a POW.")
+                pow_result = await create_pow_async(
+                    subtensor=subtensor,
+                    wallet=wallet,
+                    netuid=netuid,
+                    output_in_place=output_in_place,
+                    cuda=cuda,
+                    num_processes=num_processes,
+                    update_interval=update_interval,
+                    log_verbose=log_verbose,
                 )
 
-                success, err_msg = result
-                if not success:
-                    # Look error here
-                    # https://github.com/opentensor/subtensor/blob/development/pallets/subtensor/src/errors.rs
+            # pow failed
+            if not pow_result:
+                # might be registered already on this subnet
+                is_registered = await subtensor.is_hotkey_registered(
+                    netuid=netuid, hotkey_ss58=wallet.hotkey.ss58_address
+                )
+                if is_registered:
+                    message = f"Already registered in subnet {netuid}."
+                    logging.debug(f"[green]{message}[/green]")
+                    return ExtrinsicResponse(message=message)
 
-                    if "HotKeyAlreadyRegisteredInSubNet" in err_msg:
-                        logging.info(
-                            f":white_heavy_check_mark: [green]Already Registered on subnet:[/green] "
-                            f"[blue]{netuid}[/blue]."
-                        )
-                        return True
-                    logging.error(f":cross_mark: [red]Failed[/red]: {err_msg}")
-                    await asyncio.sleep(0.5)
-
-                # Successful registration, final check for neuron and pubkey
-                if success:
-                    logging.info(":satellite: Checking Registration status...")
-                    is_registered = await subtensor.is_hotkey_registered(
-                        netuid=netuid, hotkey_ss58=wallet.hotkey.ss58_address
-                    )
-                    if is_registered:
-                        logging.success(
-                            ":white_heavy_check_mark: [green]Registered[/green]"
-                        )
-                        return True
-                    else:
-                        # neuron not found, try again
-                        logging.error(
-                            ":cross_mark: [red]Unknown error. Neuron not found.[/red]"
-                        )
-                        continue
+            # pow successful, proceed to submit pow to chain for registration
             else:
-                # Exited loop because pow is no longer valid.
-                logging.error("[red]POW is stale.[/red]")
-                # Try again.
+                # check if a pow result is still valid
+                while not await pow_result.is_stale_async(subtensor=subtensor):
+                    call = await SubtensorModule(subtensor).register(
+                        netuid=netuid,
+                        coldkey=wallet.coldkeypub.ss58_address,
+                        hotkey=wallet.hotkey.ss58_address,
+                        block_number=pow_result.block_number,
+                        nonce=pow_result.nonce,
+                        work=[int(byte_) for byte_ in pow_result.seal],
+                    )
+                    if mev_protection:
+                        response = await submit_encrypted_extrinsic(
+                            subtensor=subtensor,
+                            wallet=wallet,
+                            call=call,
+                            period=period,
+                            raise_error=raise_error,
+                            wait_for_inclusion=wait_for_inclusion,
+                            wait_for_finalization=wait_for_finalization,
+                            wait_for_revealed_execution=wait_for_revealed_execution,
+                        )
+                    else:
+                        response = await subtensor.sign_and_send_extrinsic(
+                            call=call,
+                            wallet=wallet,
+                            period=period,
+                            raise_error=raise_error,
+                            wait_for_inclusion=wait_for_inclusion,
+                            wait_for_finalization=wait_for_finalization,
+                        )
 
-        if attempts < max_allowed_attempts:
-            # Failed registration, retry pow
-            attempts += 1
-            logging.error(
-                f":satellite: [magenta]Failed registration, retrying pow ...[/magenta] "
-                f"[blue]({attempts}/{max_allowed_attempts})[/blue]"
-            )
-        else:
-            # Failed to register after max attempts.
-            logging.error("[red]No more attempts.[/red]")
-            return False
+                    if not response.success:
+                        # Look error here
+                        # https://github.com/opentensor/subtensor/blob/development/pallets/subtensor/src/errors.rs
+                        if "HotKeyAlreadyRegisteredInSubNet" in response.message:
+                            logging.debug(
+                                f"[green]Already registered on subnet:[/green] [blue]{netuid}[/blue]."
+                            )
+                            return response
+                        await asyncio.sleep(0.5)
 
+                    if response.success:
+                        is_registered = await subtensor.is_hotkey_registered(
+                            netuid=netuid, hotkey_ss58=wallet.hotkey.ss58_address
+                        )
+                        if is_registered:
+                            logging.debug("[green]Registered.[/green]")
+                            return response
 
-async def register_subnet_extrinsic(
-    subtensor: "AsyncSubtensor",
-    wallet: "Wallet",
-    wait_for_inclusion: bool = False,
-    wait_for_finalization: bool = True,
-    period: Optional[int] = None,
-) -> bool:
-    """
-    Registers a new subnetwork on the Bittensor blockchain asynchronously.
+                        # neuron not found, try again
+                        logging.warning("[red]Unknown error. Neuron not found.[/red]")
+                        continue
+                else:
+                    # Exited loop because pow is no longer valid.
+                    logging.warning("[red]POW is stale.[/red]")
+                    # Try again.
 
-    Args:
-        subtensor (AsyncSubtensor): The async subtensor interface to send the extrinsic.
-        wallet (Wallet): The wallet to be used for subnet registration.
-        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning true.
-        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning true.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+            if attempts < max_allowed_attempts:
+                # Failed registration, retry pow
+                attempts += 1
+                logging.warning(
+                    f"Failed registration, retrying pow ... [blue]({attempts}/{max_allowed_attempts})[/blue]"
+                )
+            else:
+                # Failed to register after max attempts.
+                return ExtrinsicResponse(False, "No more attempts.").with_log()
 
-    Returns:
-        bool: True if the subnet registration was successful, False otherwise.
-    """
-    balance = await subtensor.get_balance(wallet.coldkeypub.ss58_address)
-    burn_cost = await subtensor.get_subnet_burn_cost()
-
-    if burn_cost > balance:
-        logging.error(
-            f"Insufficient balance {balance} to register subnet. Current burn cost is {burn_cost} TAO"
-        )
-        return False
-
-    call = await subtensor.substrate.compose_call(
-        call_module="SubtensorModule",
-        call_function="register_network",
-        call_params={
-            "hotkey": wallet.hotkey.ss58_address,
-            "mechid": 1,
-        },
-    )
-
-    success, message = await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-    )
-
-    if not wait_for_finalization and not wait_for_inclusion:
-        return True
-
-    if success:
-        logging.success(
-            ":white_heavy_check_mark: [green]Successfully registered subnet[/green]"
-        )
-        return True
-
-    logging.error(f"Failed to register subnet: {message}")
-    return False
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)
 
 
 async def set_subnet_identity_extrinsic(
@@ -480,75 +463,97 @@ async def set_subnet_identity_extrinsic(
     discord: str,
     description: str,
     additional: str,
-    wait_for_inclusion: bool = False,
-    wait_for_finalization: bool = True,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-) -> tuple[bool, str]:
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
     """
     Set the identity information for a given subnet.
 
-    Arguments:
-        subtensor (AsyncSubtensor): An instance of the Subtensor class to interact with the blockchain.
-        wallet (Wallet): A wallet instance used to sign and submit the extrinsic.
-        netuid (int): The unique ID for the subnet.
-        subnet_name (str): The name of the subnet to assign the identity information.
-        github_repo (str): URL of the GitHub repository related to the subnet.
-        subnet_contact (str): Subnet's contact information, e.g., email or contact link.
-        subnet_url (str): The URL of the subnet's primary web portal.
-        logo_url (str): The URL of the logo's primary web portal.
-        discord (str): Discord server or contact for the subnet.
-        description (str): A textual description of the subnet.
-        additional (str): Any additional metadata or information related to the subnet.
-        wait_for_inclusion (bool): Whether to wait for the extrinsic inclusion in a block (default: False).
-        wait_for_finalization (bool): Whether to wait for the extrinsic finalization in a block (default: True).
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+    Parameters:
+        subtensor: An instance of the Subtensor class to interact with the blockchain.
+        wallet: A wallet instance used to sign and submit the extrinsic.
+        netuid: The unique ID for the subnet.
+        subnet_name: The name of the subnet to assign the identity information.
+        github_repo: URL of the GitHub repository related to the subnet.
+        subnet_contact: Subnet's contact information, e.g., email or contact link.
+        subnet_url: The URL of the subnet's primary web portal.
+        logo_url: The URL of the logo's primary web portal.
+        discord: Discord server or contact for the subnet.
+        description: A textual description of the subnet.
+        additional: Any additional metadata or information related to the subnet.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        tuple[bool, str]: A tuple where the first element indicates success or failure (True/False), and the second
-            element contains a descriptive message.
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(
+                wallet, raise_error, unlock_type="both"
+            )
+        ).success:
+            return unlocked
 
-    if not (unlock := unlock_key(wallet)).success:
-        logging.error(unlock.message)
-        return False, unlock.message
-
-    call = await subtensor.substrate.compose_call(
-        call_module="SubtensorModule",
-        call_function="set_subnet_identity",
-        call_params={
-            "hotkey": wallet.hotkey.ss58_address,
-            "netuid": netuid,
-            "subnet_name": subnet_name,
-            "github_repo": github_repo,
-            "subnet_contact": subnet_contact,
-            "subnet_url": subnet_url,
-            "logo_url": logo_url,
-            "discord": discord,
-            "description": description,
-            "additional": additional,
-        },
-    )
-
-    success, message = await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-    )
-
-    if not wait_for_finalization and not wait_for_inclusion:
-        return True, message
-
-    if success:
-        logging.success(
-            f":white_heavy_check_mark: [green]Identities for subnet[/green] [blue]{netuid}[/blue] [green]are set.[/green]"
+        call = await SubtensorModule(subtensor).set_subnet_identity(
+            netuid=netuid,
+            subnet_name=subnet_name,
+            github_repo=github_repo,
+            subnet_contact=subnet_contact,
+            subnet_url=subnet_url,
+            logo_url=logo_url,
+            discord=discord,
+            description=description,
+            additional=additional,
         )
-        return True, f"Identities for subnet {netuid} are set."
 
-    logging.error(
-        f":cross_mark: Failed to set identity for subnet [blue]{netuid}[/blue]: {message}"
-    )
-    return False, f"Failed to set identity for subnet {netuid}: {message}"
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
+
+        if not wait_for_finalization and not wait_for_inclusion:
+            return response
+
+        if response.success:
+            logging.debug(
+                f"[green]Identities for subnet[/green] [blue]{netuid}[/blue] [green]are set.[/green]"
+            )
+            return response
+
+        logging.error(
+            f"[red]Failed to set identity for subnet {netuid}: {response.message}[/red]"
+        )
+        return response
+
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)

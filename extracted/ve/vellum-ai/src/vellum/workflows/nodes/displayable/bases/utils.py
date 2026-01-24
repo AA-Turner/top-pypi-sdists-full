@@ -1,5 +1,6 @@
 import enum
 import json
+import re
 from typing import Any, List, Optional, Tuple, Union, cast
 
 from vellum import PromptOutput
@@ -31,8 +32,8 @@ from vellum.client.types.vellum_value import VellumValue
 from vellum.client.types.vellum_value_request import VellumValueRequest
 from vellum.client.types.video_vellum_value import VideoVellumValue
 from vellum.client.types.video_vellum_value_request import VideoVellumValueRequest
+from vellum.utils.json_encoder import VellumJsonEncoder
 from vellum.workflows.errors.types import WorkflowError, workflow_error_to_vellum_error
-from vellum.workflows.state.encoder import DefaultStateEncoder
 
 VELLUM_VALUE_REQUEST_TUPLE = (
     StringVellumValueRequest,
@@ -102,7 +103,7 @@ def primitive_to_vellum_value(value: Any) -> VellumValue:
         return value  # type: ignore
 
     try:
-        json_value = json.dumps(value, cls=DefaultStateEncoder)
+        json_value = json.dumps(value, cls=VellumJsonEncoder)
     except json.JSONDecodeError:
         raise ValueError(f"Unsupported variable type: {value.__class__.__name__}")
 
@@ -126,6 +127,37 @@ def primitive_to_vellum_value_request(value: Any) -> VellumValueRequest:
     return vellum_value_request_class.model_validate(vellum_value.model_dump())
 
 
+def _strip_markdown_json(text: str) -> str:
+    """
+    Strip markdown code block formatting from JSON text.
+
+    Handles cases like:
+    ```json
+    {"key": "value"}
+    ```
+
+    Or with surrounding text:
+    Here is the json you asked for!
+
+    ```json
+    {"key": "value"}
+    ```
+
+    Args:
+        text: The text potentially containing markdown-formatted JSON
+
+    Returns:
+        The stripped JSON text, or the original text if no markdown formatting found
+    """
+    pattern = r"```(?:json)?\s*\n(.*?)\n```"
+
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    return text
+
+
 def process_additional_prompt_outputs(outputs: List[PromptOutput]) -> Tuple[str, Optional[Any]]:
     """
     Process prompt outputs using the same logic as prompt nodes to determine text output.
@@ -145,10 +177,12 @@ def process_additional_prompt_outputs(outputs: List[PromptOutput]) -> Tuple[str,
 
         if output.type == "STRING":
             string_outputs.append(output.value)
-            try:
-                json_output = json.loads(output.value)
-            except (json.JSONDecodeError, TypeError):
-                pass
+            for value_to_parse in [output.value, _strip_markdown_json(output.value)]:
+                try:
+                    json_output = json.loads(value_to_parse)
+                    break
+                except (json.JSONDecodeError, TypeError):
+                    continue
         elif output.type == "JSON":
             string_outputs.append(json.dumps(output.value, indent=4))
             json_output = output.value

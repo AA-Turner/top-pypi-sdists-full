@@ -33,7 +33,7 @@ class DocumentOption(TypedDict):
 
 class AutomatedDocument(APIObject):
     """
-    An :ref:`automated documentation <automated-documentation-overview>` object.
+    An automated documentation object.
 
     .. versionadded:: v2.24
 
@@ -70,17 +70,15 @@ class AutomatedDocument(APIObject):
     _path = "automatedDocuments/"
     _model_compliance_initialization_path = "modelComplianceDocsInitializations/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("created_at"): parse_time,
-            t.Key("entity_id"): String(),
-            t.Key("output_format"): String(),
-            t.Key("locale"): String(),
-            t.Key("document_type"): String(),
-            t.Key("template_id", optional=True): t.Or(String(), t.Null()),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("created_at"): parse_time,
+        t.Key("entity_id"): String(),
+        t.Key("output_format"): String(),
+        t.Key("locale"): String(),
+        t.Key("document_type"): String(),
+        t.Key("template_id", optional=True): t.Or(String(), t.Null()),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -202,9 +200,7 @@ class AutomatedDocument(APIObject):
 
         """
 
-        response = self._client.post(
-            f"{self._model_compliance_initialization_path}{self.entity_id}/"
-        )
+        response = self._client.post(f"{self._model_compliance_initialization_path}{self.entity_id}/")
         location = wait_for_async_resolution(self._client, response.headers["Location"])
         return self._model_compliance_initialization_status(location)
 
@@ -249,9 +245,7 @@ class AutomatedDocument(APIObject):
         payload = {key: val for key, val in payload.items() if val is not None}
 
         response = self._client.post(self._path, data=payload)
-        location = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        location = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
         self.id = get_id_from_location(location)
 
         return cast(Response, response)
@@ -315,9 +309,7 @@ class AutomatedDocument(APIObject):
 
         """
         if not self.id:
-            raise AttributeError(
-                "Document ID not provided. Assign it to AutomatedDocument object `id` attribute."
-            )
+            raise AttributeError("Document ID not provided. Assign it to AutomatedDocument object `id` attribute.")
         response = self._client.get(f"{self._path}{self.id}/", stream=True)
 
         if not self.filepath:
@@ -467,9 +459,7 @@ class AutomatedDocument(APIObject):
 
         if not limit:
             params["limit"] = cls.DEFAULT_BATCH_SIZE
-            return [
-                cls.from_server_data(item) for item in unpaginate(cls._path, params, cls._client)
-            ]
+            return [cls.from_server_data(item) for item in unpaginate(cls._path, params, cls._client)]
 
         items = cls._client.get(cls._path, params=params).json()["data"]
         return [cls.from_server_data(item) for item in items]

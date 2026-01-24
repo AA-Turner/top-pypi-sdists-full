@@ -22,7 +22,7 @@ from tiledbsoma.options._soma_tiledb_context import _validate_soma_tiledb_contex
 )
 def test_duplicate_key_indexer_error(keys: np.array | list[int], lookups: np.array):
     context = _validate_soma_tiledb_context(SOMATileDBContext())
-    with pytest.raises(SOMAError, match="There are duplicate keys."):
+    with pytest.raises(SOMAError, match=r"There are duplicate keys."):
         IntIndexer(keys, context=context)
 
     pd_index = pd.Index(keys)
@@ -76,14 +76,14 @@ def test_duplicate_key_indexer_error(keys: np.array | list[int], lookups: np.arr
                     list(range(1, 10000)),
                     list(range(10000, 20000)),
                     list(range(30000, 40000)),
-                ]
+                ],
             ),
             pa.chunked_array(
                 [
                     list(range(1, 10000)),
                     list(range(10000, 20000)),
                     list(range(30000, 40000)),
-                ]
+                ],
             ),
         ),
         (
@@ -93,10 +93,7 @@ def test_duplicate_key_indexer_error(keys: np.array | list[int], lookups: np.arr
     ],
 )
 def test_indexer(contextual: bool, keys: np.array, lookups: np.array):
-    if contextual:
-        context = _validate_soma_tiledb_context(SOMATileDBContext())
-    else:
-        context = None
+    context = _validate_soma_tiledb_context(SOMATileDBContext()) if contextual else None
     all_results = []
     num_threads = 10
 
@@ -121,7 +118,6 @@ def test_indexer(contextual: bool, keys: np.array, lookups: np.array):
 
 
 def test_expected_errors() -> None:
-
     context = SOMATileDBContext()
 
     # ndim != 1
@@ -129,7 +125,7 @@ def test_expected_errors() -> None:
         IntIndexer(np.array([[0, 1], [2, 3]], dtype=np.int64), context=context)
     with pytest.raises(ValueError):
         IntIndexer(np.array([0, 1, 2, 3], dtype=np.int64), context=context).get_indexer(
-            np.array([[0, 1]], dtype=np.int64)
+            np.array([[0, 1]], dtype=np.int64),
         )
 
     # non-native byte order (one of the two must fail)
@@ -138,10 +134,10 @@ def test_expected_errors() -> None:
         IntIndexer(np.array([0, 1, 2, 3], dtype=np.dtype(">i8")), context=context)
     with pytest.raises(TypeError):
         IntIndexer(np.array([0, 1, 2, 3], dtype=np.int64), context=context).get_indexer(
-            np.array([0], dtype=np.dtype("<i8"))
+            np.array([0], dtype=np.dtype("<i8")),
         )
         IntIndexer(np.array([0, 1, 2, 3], dtype=np.int64), context=context).get_indexer(
-            np.array([0], dtype=np.dtype(">i8"))
+            np.array([0], dtype=np.dtype(">i8")),
         )
 
     # unsupported dtype
@@ -149,7 +145,7 @@ def test_expected_errors() -> None:
         IntIndexer(np.array([0, 1, 2], dtype=np.uint64), context=context)
     with pytest.raises(TypeError):
         IntIndexer(np.array([0, 1, 2], dtype=np.int64), context=context).get_indexer(
-            np.array([0, 1, 2], dtype=np.float64)
+            np.array([0, 1, 2], dtype=np.float64),
         )
 
 
@@ -160,8 +156,6 @@ def test_arrow_offset_handling() -> None:
         np.array([1]),
     )
     assert np.array_equal(
-        IntIndexer([0, 1, 2, 3, 4, 5]).get_indexer(
-            pa.chunked_array([[0, 1], [2, 3]]).slice(offset=1, length=2)
-        ),
+        IntIndexer([0, 1, 2, 3, 4, 5]).get_indexer(pa.chunked_array([[0, 1], [2, 3]]).slice(offset=1, length=2)),
         np.array([1, 2]),
     )

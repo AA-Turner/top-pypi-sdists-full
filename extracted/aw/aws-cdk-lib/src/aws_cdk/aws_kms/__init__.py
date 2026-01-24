@@ -341,6 +341,14 @@ from ..aws_iam import (
     PrincipalBase as _PrincipalBase_b5077813,
     PrincipalPolicyFragment as _PrincipalPolicyFragment_6a855d11,
 )
+from ..interfaces.aws_kms import (
+    AliasReference as _AliasReference_b94b5fd4,
+    IAliasRef as _IAliasRef_43fafabd,
+    IKeyRef as _IKeyRef_d4fc6ef3,
+    IReplicaKeyRef as _IReplicaKeyRef_61fa3e10,
+    KeyReference as _KeyReference_751b3d66,
+    ReplicaKeyReference as _ReplicaKeyReference_21781a17,
+)
 
 
 @jsii.data_type(
@@ -423,7 +431,7 @@ class AliasProps:
         *,
         alias_name: builtins.str,
         target_key: "IKey",
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Construction properties for a KMS Key Alias object.
 
@@ -435,6 +443,7 @@ class AliasProps:
 
         Example::
 
+            from aws_cdk import Environment
             # Passing an encrypted replication bucket created in a different stack.
             app = App()
             replication_stack = Stack(app, "ReplicationStack",
@@ -490,13 +499,13 @@ class AliasProps:
         return typing.cast("IKey", result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
         '''Policy to apply when the alias is removed from this stack.
 
         :default: - The alias will be deleted
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -510,53 +519,151 @@ class AliasProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kms.AliasReference",
-    jsii_struct_bases=[],
-    name_mapping={"alias_name": "aliasName"},
-)
-class AliasReference:
-    def __init__(self, *, alias_name: builtins.str) -> None:
-        '''A reference to a Alias resource.
+@jsii.implements(_IInspectable_c2943556, _IAliasRef_43fafabd)
+class CfnAlias(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kms.CfnAlias",
+):
+    '''The ``AWS::KMS::Alias`` resource specifies a display name for a `KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys>`_ . You can use an alias to identify a KMS key in the AWS  console, in the `DescribeKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>`_ operation, and in `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ , such as `Decrypt <https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html>`_ and `GenerateDataKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_GenerateDataKey.html>`_ .
 
-        :param alias_name: The AliasName of the Alias resource.
+    .. epigraph::
 
-        :exampleMetadata: fixture=_generated
+       Adding, deleting, or updating an alias can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-        Example::
+    Using an alias to refer to a KMS key can help you simplify key management. For example, an alias in your code can be associated with different KMS keys in different AWS Regions . For more information, see `Using aliases <https://docs.aws.amazon.com/kms/latest/developerguide/kms-alias.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kms as kms
-            
-            alias_reference = kms.AliasReference(
-                alias_name="aliasName"
-            )
+    When specifying an alias, observe the following rules.
+
+    - Each alias is associated with one KMS key, but multiple aliases can be associated with the same KMS key.
+    - The alias and its associated KMS key must be in the same AWS account and Region.
+    - The alias name must be unique in the AWS account and Region. However, you can create aliases with the same name in different AWS Regions . For example, you can have an ``alias/projectKey`` in multiple Regions, each of which is associated with a KMS key in its Region.
+    - Each alias name must begin with ``alias/`` followed by a name, such as ``alias/exampleKey`` . The alias name can contain only alphanumeric characters, forward slashes (/), underscores (_), and dashes (-). Alias names cannot begin with ``alias/aws/`` . That alias name prefix is reserved for `AWS managed keys <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk>`_ .
+
+    *Regions*
+
+    AWS  CloudFormation resources are available in all AWS Regions in which AWS  and CloudFormation are supported.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-alias.html
+    :cloudformationResource: AWS::KMS::Alias
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kms as kms
+        
+        cfn_alias = kms.CfnAlias(self, "MyCfnAlias",
+            alias_name="aliasName",
+            target_key_id="targetKeyId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        alias_name: builtins.str,
+        target_key_id: typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"],
+    ) -> None:
+        '''Create a new ``AWS::KMS::Alias``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param alias_name: Specifies the alias name. This value must begin with ``alias/`` followed by a name, such as ``alias/ExampleAlias`` . .. epigraph:: If you change the value of the ``AliasName`` property, the existing alias is deleted and a new alias is created for the specified KMS key. This change can disrupt applications that use the alias. It can also allow or deny access to a KMS key affected by attribute-based access control (ABAC). The alias must be string of 1-256 characters. It can contain only alphanumeric characters, forward slashes (/), underscores (_), and dashes (-). The alias name cannot begin with ``alias/aws/`` . The ``alias/aws/`` prefix is reserved for `AWS managed keys <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk>`_ .
+        :param target_key_id: Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region. A valid key ID is required. If you supply a null or empty string value, this operation returns an error. For help finding the key ID and ARN, see `Finding the key ID and ARN <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html#find-cmk-id-arn>`_ in the *AWS Key Management Service Developer Guide* . Specify the key ID or the key ARN of the KMS key. For example: - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` To get the key ID and key ARN for a KMS key, use `ListKeys <https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeys.html>`_ or `DescribeKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13847423bbb605956825c7efa8e78e08bab451e839e11a6e07beeec45ad8989d)
-            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alias_name": alias_name,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__9ed5a3924f89c3ad638de218f71940a644d4f9331e3a66f708de865cc3551205)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAliasProps(alias_name=alias_name, target_key_id=target_key_id)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnAlias")
+    @builtins.classmethod
+    def is_cfn_alias(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAlias.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e80558a98b03b885d95d989843060b9b93618c41f5f93432adc0b2fd67e7319)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlias", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91d92bc86df739cdbb4a623f1bec0006f2c4e912b1d6817e7e5fc8fc28d6d61d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be1861ad699c79ab6c6405435694534bc0b254bb6fe02fa309564e05b8ab5a6f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> "_AliasReference_b94b5fd4":
+        '''A reference to a Alias resource.'''
+        return typing.cast("_AliasReference_b94b5fd4", jsii.get(self, "aliasRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasName")
     def alias_name(self) -> builtins.str:
-        '''The AliasName of the Alias resource.'''
-        result = self._values.get("alias_name")
-        assert result is not None, "Required property 'alias_name' is missing"
-        return typing.cast(builtins.str, result)
+        '''Specifies the alias name.
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+        This value must begin with ``alias/`` followed by a name, such as ``alias/ExampleAlias`` .
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasName"))
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    @alias_name.setter
+    def alias_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__293c0aafbebd8a831d41848f3d7035971f2665e6401dfe8705989d1abae2c2c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
 
-    def __repr__(self) -> str:
-        return "AliasReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    @builtins.property
+    @jsii.member(jsii_name="targetKeyId")
+    def target_key_id(self) -> builtins.str:
+        '''Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region.'''
+        return typing.cast(builtins.str, jsii.get(self, "targetKeyId"))
+
+    @target_key_id.setter
+    def target_key_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa393b6fb2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetKeyId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -569,7 +676,7 @@ class CfnAliasProps:
         self,
         *,
         alias_name: builtins.str,
-        target_key_id: builtins.str,
+        target_key_id: typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"],
     ) -> None:
         '''Properties for defining a ``CfnAlias``.
 
@@ -616,7 +723,9 @@ class CfnAliasProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def target_key_id(self) -> builtins.str:
+    def target_key_id(
+        self,
+    ) -> typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"]:
         '''Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region.
 
         A valid key ID is required. If you supply a null or empty string value, this operation returns an error.
@@ -636,7 +745,7 @@ class CfnAliasProps:
         '''
         result = self._values.get("target_key_id")
         assert result is not None, "Required property 'target_key_id' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -648,6 +757,456 @@ class CfnAliasProps:
         return "CfnAliasProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IKeyRef_d4fc6ef3, _ITaggable_36806126)
+class CfnKey(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kms.CfnKey",
+):
+    '''The ``AWS::KMS::Key`` resource specifies an `KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys>`_ in AWS Key Management Service . You can use this resource to create symmetric encryption KMS keys, asymmetric KMS keys for encryption or signing, and symmetric HMAC KMS keys. You can use ``AWS::KMS::Key`` to create `multi-Region primary keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html#mrk-primary-key>`_ of all supported types. To replicate a multi-Region key, use the ``AWS::KMS::ReplicaKey`` resource.
+
+    .. epigraph::
+
+       If you change the value of the ``KeySpec`` , ``KeyUsage`` , ``Origin`` , or ``MultiRegion`` properties of an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing any of its immutable property values. > AWS  replaced the term *customer master key (CMK)* with *AWS KMS key* and *KMS key* . The concept has not changed. To prevent breaking changes, AWS  is keeping some variations of this term.
+
+    You can use symmetric encryption KMS keys to encrypt and decrypt small amounts of data, but they are more commonly used to generate data keys and data key pairs. You can also use a symmetric encryption KMS key to encrypt data stored in AWS services that are `integrated with AWS <https://docs.aws.amazon.com//kms/features/#AWS_Service_Integration>`_ . For more information, see `Symmetric encryption KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#symmetric-cmks>`_ in the *AWS Key Management Service Developer Guide* .
+
+    You can use asymmetric KMS keys to encrypt and decrypt data or sign messages and verify signatures. To create an asymmetric key, you must specify an asymmetric ``KeySpec`` value and a ``KeyUsage`` value. For details, see `Asymmetric keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+    You can use HMAC KMS keys (which are also symmetric keys) to generate and verify hash-based message authentication codes. To create an HMAC key, you must specify an HMAC ``KeySpec`` value and a ``KeyUsage`` value of ``GENERATE_VERIFY_MAC`` . For details, see `HMAC keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/hmac.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+    You can also create symmetric encryption, asymmetric, and HMAC multi-Region primary keys. To create a multi-Region primary key, set the ``MultiRegion`` property to ``true`` . For information about multi-Region keys, see `Multi-Region keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+    You cannot use the ``AWS::KMS::Key`` resource to specify a KMS key with `imported key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ or a KMS key in a `custom key store <https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html>`_ .
+
+    *Regions*
+
+    AWS  CloudFormation resources are available in all Regions in which AWS  and CloudFormation are supported. You can use the ``AWS::KMS::Key`` resource to create and manage all KMS key types that are supported in a Region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html
+    :cloudformationResource: AWS::KMS::Key
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_kms as kms
+        
+        
+        kms_key = kms.Key(self, "myKMSKey")
+        my_bucket = s3.Bucket(self, "mySSEKMSEncryptedBucket",
+            encryption=s3.BucketEncryption.KMS,
+            encryption_key=kms_key,
+            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
+        )
+        cloudfront.Distribution(self, "myDist",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3BucketOrigin.with_origin_access_control(my_bucket)
+            )
+        )
+        
+        # Add the following to scope down the key policy
+        scoped_down_key_policy = {
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::111122223333:root"
+                },
+                "Action": "kms:*",
+                "Resource": "*"
+            }, {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "cloudfront.amazonaws.com"
+                },
+                "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey*"
+                ],
+                "Resource": "*",
+                "Condition": {
+                    "StringEquals": {
+                        "AWS:SourceArn": "arn:aws:cloudfront::111122223333:distribution/<CloudFront distribution ID>"
+                    }
+                }
+            }
+            ]
+        }
+        cfn_key = (kms_key.node.default_child)
+        cfn_key.key_policy = scoped_down_key_policy
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        key_policy: typing.Any = None,
+        key_spec: typing.Optional[builtins.str] = None,
+        key_usage: typing.Optional[builtins.str] = None,
+        multi_region: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        origin: typing.Optional[builtins.str] = None,
+        pending_window_in_days: typing.Optional[jsii.Number] = None,
+        rotation_period_in_days: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::KMS::Key``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param bypass_policy_lockout_safety_check: Skips ("bypasses") the key policy lockout safety check. The default value is false. .. epigraph:: Setting this value to true increases the risk that the KMS key becomes unmanageable. Do not set this value to true indiscriminately. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html#prevent-unmanageable-key>`_ in the *AWS Key Management Service Developer Guide* . Use this parameter only when you intend to prevent the principal that is making the request from making a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. Default: - false
+        :param description: A description of the KMS key. Use a description that helps you to distinguish this KMS key from others in the account, such as its intended use.
+        :param enabled: Specifies whether the KMS key is enabled. Disabled KMS keys cannot be used in cryptographic operations. When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` . The actual key state of the KMS key might be affected by actions taken outside of CloudFormation, such as running the `EnableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKey.html>`_ , `DisableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DisableKey.html>`_ , or `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operations. For information about the key states of a KMS key, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param enable_key_rotation: Enables automatic rotation of the key material for the specified KMS key. By default, automatic key rotation is not enabled. AWS supports automatic rotation only for symmetric encryption KMS keys ( ``KeySpec`` = ``SYMMETRIC_DEFAULT`` ). For asymmetric KMS keys, HMAC KMS keys, and KMS keys with Origin ``EXTERNAL`` , omit the ``EnableKeyRotation`` property or set it to ``false`` . To enable automatic key rotation of the key material for a multi-Region KMS key, set ``EnableKeyRotation`` to ``true`` on the primary key (created by using ``AWS::KMS::Key`` ). AWS copies the rotation status to all replica keys. For details, see `Rotating multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-manage.html#multi-region-rotate>`_ in the *AWS Key Management Service Developer Guide* . When you enable automatic rotation, AWS automatically creates new key material for the KMS key one year after the enable date and every year thereafter. AWS retains all key material until you delete the KMS key. For detailed information about automatic key rotation, see `Rotating KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param key_policy: The key policy to attach to the KMS key. If you provide a key policy, it must meet the following criteria: - The key policy must allow the caller to make a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ in the *AWS Key Management Service Developer Guide* . (To omit this condition, set ``BypassPolicyLockoutSafetyCheck`` to true.) - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . If you do not provide a key policy, AWS attaches a default key policy to the KMS key. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default>`_ in the *AWS Key Management Service Developer Guide* . A key policy document can include only the following characters: - Printable ASCII characters - Printable characters in the Basic Latin and Latin-1 Supplement character set - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
+        :param key_spec: Specifies the type of KMS key to create. The default value, ``SYMMETRIC_DEFAULT`` , creates a KMS key with a 256-bit symmetric key for encryption and decryption. In China Regions, ``SYMMETRIC_DEFAULT`` creates a 128-bit symmetric key that uses SM4 encryption. You can't change the ``KeySpec`` value after the KMS key is created. For help choosing a key spec for your KMS key, see `Choosing a KMS key type <https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose.html>`_ in the *AWS Key Management Service Developer Guide* . The ``KeySpec`` property determines the type of key material in the KMS key and the algorithms that the KMS key supports. To further restrict the algorithms that can be used with the KMS key, use a condition key in its key policy or IAM policy. For more information, see `AWS condition keys <https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you change the value of the ``KeySpec`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. > `AWS services that are integrated with AWS <https://docs.aws.amazon.com/kms/features/#AWS_Service_Integration>`_ use symmetric encryption KMS keys to protect your data. These services do not support encryption with asymmetric KMS keys. For help determining whether a KMS key is asymmetric, see `Identifying asymmetric KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/find-symm-asymm.html>`_ in the *AWS Key Management Service Developer Guide* . AWS supports the following key specs for KMS keys: - Symmetric encryption key (default) - ``SYMMETRIC_DEFAULT`` (AES-256-GCM) - HMAC keys (symmetric) - ``HMAC_224`` - ``HMAC_256`` - ``HMAC_384`` - ``HMAC_512`` - Asymmetric RSA key pairs (encryption and decryption *or* signing and verification) - ``RSA_2048`` - ``RSA_3072`` - ``RSA_4096`` - Asymmetric NIST-recommended elliptic curve key pairs (signing and verification *or* deriving shared secrets) - ``ECC_NIST_P256`` (secp256r1) - ``ECC_NIST_P384`` (secp384r1) - ``ECC_NIST_P521`` (secp521r1) - ``ECC_NIST_EDWARDS25519`` (ed25519) - signing and verification only - *Note:* For ECC_NIST_EDWARDS25519 KMS keys, the ED25519_SHA_512 signing algorithm requires ```MessageType:RAW`` <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType>`_ , while ED25519_PH_SHA_512 requires ```MessageType:DIGEST`` <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType>`_ . These message types cannot be used interchangeably. - Other asymmetric elliptic curve key pairs (signing and verification) - ``ECC_SECG_P256K1`` (secp256k1), commonly used for cryptocurrencies. - Asymmetric ML-DSA key pairs (signing and verification) - ``ML_DSA_44`` - ``ML_DSA_65`` - ``ML_DSA_87`` - SM2 key pairs (encryption and decryption *or* signing and verification *or* deriving shared secrets) - ``SM2`` (China Regions only) Default: - "SYMMETRIC_DEFAULT"
+        :param key_usage: Determines the `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ for which you can use the KMS key. The default value is ``ENCRYPT_DECRYPT`` . This property is required for asymmetric KMS keys and HMAC KMS keys. You can't change the ``KeyUsage`` value after the KMS key is created. .. epigraph:: If you change the value of the ``KeyUsage`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. Select only one valid value. - For symmetric encryption KMS keys, omit the parameter or specify ``ENCRYPT_DECRYPT`` . - For HMAC KMS keys (symmetric), specify ``GENERATE_VERIFY_MAC`` . - For asymmetric KMS keys with RSA key pairs, specify ``ENCRYPT_DECRYPT`` or ``SIGN_VERIFY`` . - For asymmetric KMS keys with NIST-recommended elliptic curve key pairs, specify ``SIGN_VERIFY`` or ``KEY_AGREEMENT`` . - For asymmetric KMS keys with ``ECC_SECG_P256K1`` key pairs, specify ``SIGN_VERIFY`` . - For asymmetric KMS keys with ML-DSA key pairs, specify ``SIGN_VERIFY`` . - For asymmetric KMS keys with SM2 key pairs (China Regions only), specify ``ENCRYPT_DECRYPT`` , ``SIGN_VERIFY`` , or ``KEY_AGREEMENT`` . Default: - "ENCRYPT_DECRYPT"
+        :param multi_region: Creates a multi-Region primary key that you can replicate in other AWS Regions . You can't change the ``MultiRegion`` value after the KMS key is created. For a list of AWS Regions in which multi-Region keys are supported, see `Multi-Region keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** . .. epigraph:: If you change the value of the ``MultiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. For a multi-Region key, set to this property to ``true`` . For a single-Region key, omit this property or set it to ``false`` . The default value is ``false`` . *Multi-Region keys* are an AWS feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . You can create a symmetric encryption, HMAC, or asymmetric multi-Region KMS key, and you can create a multi-Region key with imported key material. However, you cannot create a multi-Region key in a custom key store. To create a replica of this primary key in a different AWS Region , create an `AWS::KMS::ReplicaKey <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html>`_ resource in a CloudFormation stack in the replica Region. Specify the key ARN of this primary key. Default: - false
+        :param origin: The source of the key material for the KMS key. You cannot change the origin after you create the KMS key. The default is ``AWS_KMS`` , which means that AWS creates the key material. To `create a KMS key with no key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys-create-cmk.html>`_ (for imported key material), set this value to ``EXTERNAL`` . For more information about importing key material into AWS , see `Importing Key Material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . You can ignore ``ENABLED`` when Origin is ``EXTERNAL`` . When a KMS key with Origin ``EXTERNAL`` is created, the key state is ``PENDING_IMPORT`` and ``ENABLED`` is ``false`` . After you import the key material, ``ENABLED`` updated to ``true`` . The KMS key can then be used for Cryptographic Operations. .. epigraph:: - CloudFormation doesn't support creating an ``Origin`` parameter of the ``AWS_CLOUDHSM`` or ``EXTERNAL_KEY_STORE`` values. - ``EXTERNAL`` is not supported for ML-DSA keys. Default: - "AWS_KMS"
+        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS deletes a KMS key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a KMS key from a CloudFormation stack, AWS schedules the KMS key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of KMS key is ``Pending Deletion`` or ``Pending Replica Deletion`` , which prevents the KMS key from being used in cryptographic operations. When the waiting period expires, AWS permanently deletes the KMS key. AWS will not delete a `multi-Region primary key <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ that has replica keys. If you remove a multi-Region primary key from a CloudFormation stack, its key state changes to ``PendingReplicaDeletion`` so it cannot be replicated or used in cryptographic operations. This state can persist indefinitely. When the last of its replica keys is deleted, the key state of the primary key changes to ``PendingDeletion`` and the waiting period specified by ``PendingWindowInDays`` begins. When this waiting period expires, AWS deletes the primary key. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . You cannot use a CloudFormation template to cancel deletion of the KMS key after you remove it from the stack, regardless of the waiting period. If you specify a KMS key in your template, even one with the same name, CloudFormation creates a new KMS key. To cancel deletion of a KMS key, use the AWS console or the `CancelKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_CancelKeyDeletion.html>`_ operation. For information about the ``Pending Deletion`` and ``Pending Replica Deletion`` key states, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param rotation_period_in_days: Specifies a custom period of time between each rotation date. If no value is specified, the default value is 365 days. The rotation period defines the number of days after you enable automatic key rotation that AWS will rotate your key material, and the number of days between each automatic rotation thereafter. You can use the ```kms:RotationPeriodInDays`` <https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-rotation-period-in-days>`_ condition key to further constrain the values that principals can specify in the ``RotationPeriodInDays`` parameter. For more information about rotating KMS keys and automatic rotation, see `Rotating keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* . Default: - 365
+        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in AWS , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e196d8783c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnKeyProps(
+            bypass_policy_lockout_safety_check=bypass_policy_lockout_safety_check,
+            description=description,
+            enabled=enabled,
+            enable_key_rotation=enable_key_rotation,
+            key_policy=key_policy,
+            key_spec=key_spec,
+            key_usage=key_usage,
+            multi_region=multi_region,
+            origin=origin,
+            pending_window_in_days=pending_window_in_days,
+            rotation_period_in_days=rotation_period_in_days,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForKey")
+    @builtins.classmethod
+    def arn_for_key(cls, resource: "_IKeyRef_d4fc6ef3") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0e1d5b4f549c0607d9643ccfe53af7d2dd89011c40d52dc462eb598c7b26187)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForKey", [resource]))
+
+    @jsii.member(jsii_name="fromKeyArn")
+    @builtins.classmethod
+    def from_key_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IKeyRef_d4fc6ef3":
+        '''Creates a new IKeyRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__717dcad4d9cbf2639e4a7706f2520822fc3c58d7d28a72e3e2c89cd6ecd9ec77)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IKeyRef_d4fc6ef3", jsii.sinvoke(cls, "fromKeyArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromKeyId")
+    @builtins.classmethod
+    def from_key_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        key_id: builtins.str,
+    ) -> "_IKeyRef_d4fc6ef3":
+        '''Creates a new IKeyRef from a keyId.
+
+        :param scope: -
+        :param id: -
+        :param key_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__017d6fb56914db7b54b414d0535f40acc821857d39e3de53a3749ea5b44c245a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+        return typing.cast("_IKeyRef_d4fc6ef3", jsii.sinvoke(cls, "fromKeyId", [scope, id, key_id]))
+
+    @jsii.member(jsii_name="isCfnKey")
+    @builtins.classmethod
+    def is_cfn_key(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnKey.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89642e771ba2a812f40a717a96d411721a80787ba9dc32888fe3f5c03f286fac)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnKey", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6311cde99d8265c1aa77cad19077d4dc11fa11a16a0a5d601158013e78b4de6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7468635e1eaf46c92748f2c14a3230215aa887e54ed03c370eee59b7ed05117b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the KMS key, such as ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` .
+
+        For information about the key ARN of a KMS key, see `Key ARN <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKeyId")
+    def attr_key_id(self) -> builtins.str:
+        '''The key ID of the KMS key, such as ``1234abcd-12ab-34cd-56ef-1234567890ab`` .
+
+        For information about the key ID of a KMS key, see `Key ID <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-id>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :cloudformationAttribute: KeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyRef")
+    def key_ref(self) -> "_KeyReference_751b3d66":
+        '''A reference to a Key resource.'''
+        return typing.cast("_KeyReference_751b3d66", jsii.get(self, "keyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bypassPolicyLockoutSafetyCheck")
+    def bypass_policy_lockout_safety_check(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Skips ("bypasses") the key policy lockout safety check.
+
+        The default value is false.
+        '''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "bypassPolicyLockoutSafetyCheck"))
+
+    @bypass_policy_lockout_safety_check.setter
+    def bypass_policy_lockout_safety_check(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bypassPolicyLockoutSafetyCheck", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the KMS key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01ec2bc212e875693eedcd62e8c0a2303fbbcbb0c0520e369d7b6372f89ba8ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether the KMS key is enabled.
+
+        Disabled KMS keys cannot be used in cryptographic operations.
+        '''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762a591e56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableKeyRotation")
+    def enable_key_rotation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Enables automatic rotation of the key material for the specified KMS key.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableKeyRotation"))
+
+    @enable_key_rotation.setter
+    def enable_key_rotation(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableKeyRotation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPolicy")
+    def key_policy(self) -> typing.Any:
+        '''The key policy to attach to the KMS key.'''
+        return typing.cast(typing.Any, jsii.get(self, "keyPolicy"))
+
+    @key_policy.setter
+    def key_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keySpec")
+    def key_spec(self) -> typing.Optional[builtins.str]:
+        '''Specifies the type of KMS key to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keySpec"))
+
+    @key_spec.setter
+    def key_spec(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00b8e7e0c6c26ba4d81ad2ec83a06ba02111a601de28c48a34e711a20bdb960d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keySpec", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keyUsage")
+    def key_usage(self) -> typing.Optional[builtins.str]:
+        '''Determines the `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ for which you can use the KMS key. The default value is ``ENCRYPT_DECRYPT`` . This property is required for asymmetric KMS keys and HMAC KMS keys. You can't change the ``KeyUsage`` value after the KMS key is created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyUsage"))
+
+    @key_usage.setter
+    def key_usage(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3644201e513b7c747f1fac050f42c4761013ce447fd095d4670a875776c68562)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyUsage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegion")
+    def multi_region(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Creates a multi-Region primary key that you can replicate in other AWS Regions .'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiRegion"))
+
+    @multi_region.setter
+    def multi_region(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a81f5a9d29ef2c8fdbd0a5b47659d6f998118db687737549f32e443f43446da)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "multiRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="origin")
+    def origin(self) -> typing.Optional[builtins.str]:
+        '''The source of the key material for the KMS key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "origin"))
+
+    @origin.setter
+    def origin(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e82f572625e8bbed987a6ede9a751d501f7398289c234e243ea2f716f23608b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "origin", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pendingWindowInDays")
+    def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the number of days in the waiting period before AWS  deletes a KMS key that has been removed from a CloudFormation stack.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "pendingWindowInDays"))
+
+    @pending_window_in_days.setter
+    def pending_window_in_days(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d3e524eda3827ec1d53e329afc207f3ef954caf7cf407b25faef721f3a2016d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rotationPeriodInDays")
+    def rotation_period_in_days(self) -> typing.Optional[jsii.Number]:
+        '''Specifies a custom period of time between each rotation date.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "rotationPeriodInDays"))
+
+    @rotation_period_in_days.setter
+    def rotation_period_in_days(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b766cb0a8ed53bed340510bfb429fb6a5f36d2f63f9c7718fb1f0c92f2fbc59)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rotationPeriodInDays", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Assigns one or more tags to the replica key.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd91c4576)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -672,39 +1231,40 @@ class CfnKeyProps:
     def __init__(
         self,
         *,
-        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         key_policy: typing.Any = None,
         key_spec: typing.Optional[builtins.str] = None,
         key_usage: typing.Optional[builtins.str] = None,
-        multi_region: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        multi_region: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         origin: typing.Optional[builtins.str] = None,
         pending_window_in_days: typing.Optional[jsii.Number] = None,
         rotation_period_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnKey``.
 
         :param bypass_policy_lockout_safety_check: Skips ("bypasses") the key policy lockout safety check. The default value is false. .. epigraph:: Setting this value to true increases the risk that the KMS key becomes unmanageable. Do not set this value to true indiscriminately. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html#prevent-unmanageable-key>`_ in the *AWS Key Management Service Developer Guide* . Use this parameter only when you intend to prevent the principal that is making the request from making a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. Default: - false
         :param description: A description of the KMS key. Use a description that helps you to distinguish this KMS key from others in the account, such as its intended use.
         :param enabled: Specifies whether the KMS key is enabled. Disabled KMS keys cannot be used in cryptographic operations. When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` . The actual key state of the KMS key might be affected by actions taken outside of CloudFormation, such as running the `EnableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKey.html>`_ , `DisableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DisableKey.html>`_ , or `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operations. For information about the key states of a KMS key, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param enable_key_rotation: Enables automatic rotation of the key material for the specified KMS key. By default, automatic key rotation is not enabled. AWS KMS supports automatic rotation only for symmetric encryption KMS keys ( ``KeySpec`` = ``SYMMETRIC_DEFAULT`` ). For asymmetric KMS keys, HMAC KMS keys, and KMS keys with Origin ``EXTERNAL`` , omit the ``EnableKeyRotation`` property or set it to ``false`` . To enable automatic key rotation of the key material for a multi-Region KMS key, set ``EnableKeyRotation`` to ``true`` on the primary key (created by using ``AWS::KMS::Key`` ). AWS KMS copies the rotation status to all replica keys. For details, see `Rotating multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-manage.html#multi-region-rotate>`_ in the *AWS Key Management Service Developer Guide* . When you enable automatic rotation, AWS KMS automatically creates new key material for the KMS key one year after the enable date and every year thereafter. AWS KMS retains all key material until you delete the KMS key. For detailed information about automatic key rotation, see `Rotating KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param key_policy: The key policy to attach to the KMS key. If you provide a key policy, it must meet the following criteria: - The key policy must allow the caller to make a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ in the *AWS Key Management Service Developer Guide* . (To omit this condition, set ``BypassPolicyLockoutSafetyCheck`` to true.) - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS KMS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS KMS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . If you do not provide a key policy, AWS KMS attaches a default key policy to the KMS key. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default>`_ in the *AWS Key Management Service Developer Guide* . A key policy document can include only the following characters: - Printable ASCII characters - Printable characters in the Basic Latin and Latin-1 Supplement character set - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
-        :param key_spec: Specifies the type of KMS key to create. The default value, ``SYMMETRIC_DEFAULT`` , creates a KMS key with a 256-bit symmetric key for encryption and decryption. In China Regions, ``SYMMETRIC_DEFAULT`` creates a 128-bit symmetric key that uses SM4 encryption. You can't change the ``KeySpec`` value after the KMS key is created. For help choosing a key spec for your KMS key, see `Choosing a KMS key type <https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose.html>`_ in the *AWS Key Management Service Developer Guide* . The ``KeySpec`` property determines the type of key material in the KMS key and the algorithms that the KMS key supports. To further restrict the algorithms that can be used with the KMS key, use a condition key in its key policy or IAM policy. For more information, see `AWS KMS condition keys <https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you change the value of the ``KeySpec`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. > `AWS services that are integrated with AWS KMS <https://docs.aws.amazon.com/kms/features/#AWS_Service_Integration>`_ use symmetric encryption KMS keys to protect your data. These services do not support encryption with asymmetric KMS keys. For help determining whether a KMS key is asymmetric, see `Identifying asymmetric KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/find-symm-asymm.html>`_ in the *AWS Key Management Service Developer Guide* . AWS KMS supports the following key specs for KMS keys: - Symmetric encryption key (default) - ``SYMMETRIC_DEFAULT`` (AES-256-GCM) - HMAC keys (symmetric) - ``HMAC_224`` - ``HMAC_256`` - ``HMAC_384`` - ``HMAC_512`` - Asymmetric RSA key pairs (encryption and decryption *or* signing and verification) - ``RSA_2048`` - ``RSA_3072`` - ``RSA_4096`` - Asymmetric NIST-recommended elliptic curve key pairs (signing and verification *or* deriving shared secrets) - ``ECC_NIST_P256`` (secp256r1) - ``ECC_NIST_P384`` (secp384r1) - ``ECC_NIST_P521`` (secp521r1) - Other asymmetric elliptic curve key pairs (signing and verification) - ``ECC_SECG_P256K1`` (secp256k1), commonly used for cryptocurrencies. - Asymmetric ML-DSA key pairs (signing and verification) - ``ML_DSA_44`` - ``ML_DSA_65`` - ``ML_DSA_87`` - SM2 key pairs (encryption and decryption *or* signing and verification *or* deriving shared secrets) - ``SM2`` (China Regions only) Default: - "SYMMETRIC_DEFAULT"
+        :param enable_key_rotation: Enables automatic rotation of the key material for the specified KMS key. By default, automatic key rotation is not enabled. AWS supports automatic rotation only for symmetric encryption KMS keys ( ``KeySpec`` = ``SYMMETRIC_DEFAULT`` ). For asymmetric KMS keys, HMAC KMS keys, and KMS keys with Origin ``EXTERNAL`` , omit the ``EnableKeyRotation`` property or set it to ``false`` . To enable automatic key rotation of the key material for a multi-Region KMS key, set ``EnableKeyRotation`` to ``true`` on the primary key (created by using ``AWS::KMS::Key`` ). AWS copies the rotation status to all replica keys. For details, see `Rotating multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-manage.html#multi-region-rotate>`_ in the *AWS Key Management Service Developer Guide* . When you enable automatic rotation, AWS automatically creates new key material for the KMS key one year after the enable date and every year thereafter. AWS retains all key material until you delete the KMS key. For detailed information about automatic key rotation, see `Rotating KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param key_policy: The key policy to attach to the KMS key. If you provide a key policy, it must meet the following criteria: - The key policy must allow the caller to make a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ in the *AWS Key Management Service Developer Guide* . (To omit this condition, set ``BypassPolicyLockoutSafetyCheck`` to true.) - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . If you do not provide a key policy, AWS attaches a default key policy to the KMS key. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default>`_ in the *AWS Key Management Service Developer Guide* . A key policy document can include only the following characters: - Printable ASCII characters - Printable characters in the Basic Latin and Latin-1 Supplement character set - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
+        :param key_spec: Specifies the type of KMS key to create. The default value, ``SYMMETRIC_DEFAULT`` , creates a KMS key with a 256-bit symmetric key for encryption and decryption. In China Regions, ``SYMMETRIC_DEFAULT`` creates a 128-bit symmetric key that uses SM4 encryption. You can't change the ``KeySpec`` value after the KMS key is created. For help choosing a key spec for your KMS key, see `Choosing a KMS key type <https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose.html>`_ in the *AWS Key Management Service Developer Guide* . The ``KeySpec`` property determines the type of key material in the KMS key and the algorithms that the KMS key supports. To further restrict the algorithms that can be used with the KMS key, use a condition key in its key policy or IAM policy. For more information, see `AWS condition keys <https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you change the value of the ``KeySpec`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. > `AWS services that are integrated with AWS <https://docs.aws.amazon.com/kms/features/#AWS_Service_Integration>`_ use symmetric encryption KMS keys to protect your data. These services do not support encryption with asymmetric KMS keys. For help determining whether a KMS key is asymmetric, see `Identifying asymmetric KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/find-symm-asymm.html>`_ in the *AWS Key Management Service Developer Guide* . AWS supports the following key specs for KMS keys: - Symmetric encryption key (default) - ``SYMMETRIC_DEFAULT`` (AES-256-GCM) - HMAC keys (symmetric) - ``HMAC_224`` - ``HMAC_256`` - ``HMAC_384`` - ``HMAC_512`` - Asymmetric RSA key pairs (encryption and decryption *or* signing and verification) - ``RSA_2048`` - ``RSA_3072`` - ``RSA_4096`` - Asymmetric NIST-recommended elliptic curve key pairs (signing and verification *or* deriving shared secrets) - ``ECC_NIST_P256`` (secp256r1) - ``ECC_NIST_P384`` (secp384r1) - ``ECC_NIST_P521`` (secp521r1) - ``ECC_NIST_EDWARDS25519`` (ed25519) - signing and verification only - *Note:* For ECC_NIST_EDWARDS25519 KMS keys, the ED25519_SHA_512 signing algorithm requires ```MessageType:RAW`` <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType>`_ , while ED25519_PH_SHA_512 requires ```MessageType:DIGEST`` <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType>`_ . These message types cannot be used interchangeably. - Other asymmetric elliptic curve key pairs (signing and verification) - ``ECC_SECG_P256K1`` (secp256k1), commonly used for cryptocurrencies. - Asymmetric ML-DSA key pairs (signing and verification) - ``ML_DSA_44`` - ``ML_DSA_65`` - ``ML_DSA_87`` - SM2 key pairs (encryption and decryption *or* signing and verification *or* deriving shared secrets) - ``SM2`` (China Regions only) Default: - "SYMMETRIC_DEFAULT"
         :param key_usage: Determines the `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ for which you can use the KMS key. The default value is ``ENCRYPT_DECRYPT`` . This property is required for asymmetric KMS keys and HMAC KMS keys. You can't change the ``KeyUsage`` value after the KMS key is created. .. epigraph:: If you change the value of the ``KeyUsage`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. Select only one valid value. - For symmetric encryption KMS keys, omit the parameter or specify ``ENCRYPT_DECRYPT`` . - For HMAC KMS keys (symmetric), specify ``GENERATE_VERIFY_MAC`` . - For asymmetric KMS keys with RSA key pairs, specify ``ENCRYPT_DECRYPT`` or ``SIGN_VERIFY`` . - For asymmetric KMS keys with NIST-recommended elliptic curve key pairs, specify ``SIGN_VERIFY`` or ``KEY_AGREEMENT`` . - For asymmetric KMS keys with ``ECC_SECG_P256K1`` key pairs, specify ``SIGN_VERIFY`` . - For asymmetric KMS keys with ML-DSA key pairs, specify ``SIGN_VERIFY`` . - For asymmetric KMS keys with SM2 key pairs (China Regions only), specify ``ENCRYPT_DECRYPT`` , ``SIGN_VERIFY`` , or ``KEY_AGREEMENT`` . Default: - "ENCRYPT_DECRYPT"
-        :param multi_region: Creates a multi-Region primary key that you can replicate in other AWS Regions . You can't change the ``MultiRegion`` value after the KMS key is created. For a list of AWS Regions in which multi-Region keys are supported, see `Multi-Region keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** . .. epigraph:: If you change the value of the ``MultiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. For a multi-Region key, set to this property to ``true`` . For a single-Region key, omit this property or set it to ``false`` . The default value is ``false`` . *Multi-Region keys* are an AWS KMS feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . You can create a symmetric encryption, HMAC, or asymmetric multi-Region KMS key, and you can create a multi-Region key with imported key material. However, you cannot create a multi-Region key in a custom key store. To create a replica of this primary key in a different AWS Region , create an `AWS::KMS::ReplicaKey <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html>`_ resource in a CloudFormation stack in the replica Region. Specify the key ARN of this primary key. Default: - false
-        :param origin: The source of the key material for the KMS key. You cannot change the origin after you create the KMS key. The default is ``AWS_KMS`` , which means that AWS KMS creates the key material. To `create a KMS key with no key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys-create-cmk.html>`_ (for imported key material), set this value to ``EXTERNAL`` . For more information about importing key material into AWS KMS , see `Importing Key Material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . You can ignore ``ENABLED`` when Origin is ``EXTERNAL`` . When a KMS key with Origin ``EXTERNAL`` is created, the key state is ``PENDING_IMPORT`` and ``ENABLED`` is ``false`` . After you import the key material, ``ENABLED`` updated to ``true`` . The KMS key can then be used for Cryptographic Operations. .. epigraph:: - AWS CloudFormation doesn't support creating an ``Origin`` parameter of the ``AWS_CLOUDHSM`` or ``EXTERNAL_KEY_STORE`` values. - ``EXTERNAL`` is not supported for ML-DSA keys. Default: - "AWS_KMS"
-        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS KMS deletes a KMS key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a KMS key from a CloudFormation stack, AWS KMS schedules the KMS key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of KMS key is ``Pending Deletion`` or ``Pending Replica Deletion`` , which prevents the KMS key from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the KMS key. AWS KMS will not delete a `multi-Region primary key <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ that has replica keys. If you remove a multi-Region primary key from a CloudFormation stack, its key state changes to ``PendingReplicaDeletion`` so it cannot be replicated or used in cryptographic operations. This state can persist indefinitely. When the last of its replica keys is deleted, the key state of the primary key changes to ``PendingDeletion`` and the waiting period specified by ``PendingWindowInDays`` begins. When this waiting period expires, AWS KMS deletes the primary key. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . You cannot use a CloudFormation template to cancel deletion of the KMS key after you remove it from the stack, regardless of the waiting period. If you specify a KMS key in your template, even one with the same name, CloudFormation creates a new KMS key. To cancel deletion of a KMS key, use the AWS KMS console or the `CancelKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_CancelKeyDeletion.html>`_ operation. For information about the ``Pending Deletion`` and ``Pending Replica Deletion`` key states, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param rotation_period_in_days: Specifies a custom period of time between each rotation date. If no value is specified, the default value is 365 days. The rotation period defines the number of days after you enable automatic key rotation that AWS KMS will rotate your key material, and the number of days between each automatic rotation thereafter. You can use the ```kms:RotationPeriodInDays`` <https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-rotation-period-in-days>`_ condition key to further constrain the values that principals can specify in the ``RotationPeriodInDays`` parameter. For more information about rotating KMS keys and automatic rotation, see `Rotating keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* . Default: - 365
-        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in AWS KMS , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param multi_region: Creates a multi-Region primary key that you can replicate in other AWS Regions . You can't change the ``MultiRegion`` value after the KMS key is created. For a list of AWS Regions in which multi-Region keys are supported, see `Multi-Region keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** . .. epigraph:: If you change the value of the ``MultiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. For a multi-Region key, set to this property to ``true`` . For a single-Region key, omit this property or set it to ``false`` . The default value is ``false`` . *Multi-Region keys* are an AWS feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . You can create a symmetric encryption, HMAC, or asymmetric multi-Region KMS key, and you can create a multi-Region key with imported key material. However, you cannot create a multi-Region key in a custom key store. To create a replica of this primary key in a different AWS Region , create an `AWS::KMS::ReplicaKey <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html>`_ resource in a CloudFormation stack in the replica Region. Specify the key ARN of this primary key. Default: - false
+        :param origin: The source of the key material for the KMS key. You cannot change the origin after you create the KMS key. The default is ``AWS_KMS`` , which means that AWS creates the key material. To `create a KMS key with no key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys-create-cmk.html>`_ (for imported key material), set this value to ``EXTERNAL`` . For more information about importing key material into AWS , see `Importing Key Material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . You can ignore ``ENABLED`` when Origin is ``EXTERNAL`` . When a KMS key with Origin ``EXTERNAL`` is created, the key state is ``PENDING_IMPORT`` and ``ENABLED`` is ``false`` . After you import the key material, ``ENABLED`` updated to ``true`` . The KMS key can then be used for Cryptographic Operations. .. epigraph:: - CloudFormation doesn't support creating an ``Origin`` parameter of the ``AWS_CLOUDHSM`` or ``EXTERNAL_KEY_STORE`` values. - ``EXTERNAL`` is not supported for ML-DSA keys. Default: - "AWS_KMS"
+        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS deletes a KMS key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a KMS key from a CloudFormation stack, AWS schedules the KMS key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of KMS key is ``Pending Deletion`` or ``Pending Replica Deletion`` , which prevents the KMS key from being used in cryptographic operations. When the waiting period expires, AWS permanently deletes the KMS key. AWS will not delete a `multi-Region primary key <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ that has replica keys. If you remove a multi-Region primary key from a CloudFormation stack, its key state changes to ``PendingReplicaDeletion`` so it cannot be replicated or used in cryptographic operations. This state can persist indefinitely. When the last of its replica keys is deleted, the key state of the primary key changes to ``PendingDeletion`` and the waiting period specified by ``PendingWindowInDays`` begins. When this waiting period expires, AWS deletes the primary key. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . You cannot use a CloudFormation template to cancel deletion of the KMS key after you remove it from the stack, regardless of the waiting period. If you specify a KMS key in your template, even one with the same name, CloudFormation creates a new KMS key. To cancel deletion of a KMS key, use the AWS console or the `CancelKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_CancelKeyDeletion.html>`_ operation. For information about the ``Pending Deletion`` and ``Pending Replica Deletion`` key states, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param rotation_period_in_days: Specifies a custom period of time between each rotation date. If no value is specified, the default value is 365 days. The rotation period defines the number of days after you enable automatic key rotation that AWS will rotate your key material, and the number of days between each automatic rotation thereafter. You can use the ```kms:RotationPeriodInDays`` <https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-rotation-period-in-days>`_ condition key to further constrain the values that principals can specify in the ``RotationPeriodInDays`` parameter. For more information about rotating KMS keys and automatic rotation, see `Rotating keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* . Default: - 365
+        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in AWS , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_kms as kms
@@ -772,7 +1332,7 @@ class CfnKeyProps:
     @builtins.property
     def bypass_policy_lockout_safety_check(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Skips ("bypasses") the key policy lockout safety check. The default value is false.
 
         .. epigraph::
@@ -788,7 +1348,7 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-bypasspolicylockoutsafetycheck
         '''
         result = self._values.get("bypass_policy_lockout_safety_check")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -804,7 +1364,7 @@ class CfnKeyProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies whether the KMS key is enabled. Disabled KMS keys cannot be used in cryptographic operations.
 
         When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` .
@@ -816,26 +1376,26 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def enable_key_rotation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Enables automatic rotation of the key material for the specified KMS key.
 
         By default, automatic key rotation is not enabled.
 
-        AWS KMS supports automatic rotation only for symmetric encryption KMS keys ( ``KeySpec`` = ``SYMMETRIC_DEFAULT`` ). For asymmetric KMS keys, HMAC KMS keys, and KMS keys with Origin ``EXTERNAL`` , omit the ``EnableKeyRotation`` property or set it to ``false`` .
+        AWS  supports automatic rotation only for symmetric encryption KMS keys ( ``KeySpec`` = ``SYMMETRIC_DEFAULT`` ). For asymmetric KMS keys, HMAC KMS keys, and KMS keys with Origin ``EXTERNAL`` , omit the ``EnableKeyRotation`` property or set it to ``false`` .
 
-        To enable automatic key rotation of the key material for a multi-Region KMS key, set ``EnableKeyRotation`` to ``true`` on the primary key (created by using ``AWS::KMS::Key`` ). AWS KMS copies the rotation status to all replica keys. For details, see `Rotating multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-manage.html#multi-region-rotate>`_ in the *AWS Key Management Service Developer Guide* .
+        To enable automatic key rotation of the key material for a multi-Region KMS key, set ``EnableKeyRotation`` to ``true`` on the primary key (created by using ``AWS::KMS::Key`` ). AWS  copies the rotation status to all replica keys. For details, see `Rotating multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-manage.html#multi-region-rotate>`_ in the *AWS Key Management Service Developer Guide* .
 
-        When you enable automatic rotation, AWS KMS automatically creates new key material for the KMS key one year after the enable date and every year thereafter. AWS KMS retains all key material until you delete the KMS key. For detailed information about automatic key rotation, see `Rotating KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        When you enable automatic rotation, AWS  automatically creates new key material for the KMS key one year after the enable date and every year thereafter. AWS  retains all key material until you delete the KMS key. For detailed information about automatic key rotation, see `Rotating KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-enablekeyrotation
         '''
         result = self._values.get("enable_key_rotation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def key_policy(self) -> typing.Any:
@@ -844,9 +1404,9 @@ class CfnKeyProps:
         If you provide a key policy, it must meet the following criteria:
 
         - The key policy must allow the caller to make a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ in the *AWS Key Management Service Developer Guide* . (To omit this condition, set ``BypassPolicyLockoutSafetyCheck`` to true.)
-        - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS KMS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS KMS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* .
+        - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS  . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS  . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* .
 
-        If you do not provide a key policy, AWS KMS attaches a default key policy to the KMS key. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default>`_ in the *AWS Key Management Service Developer Guide* .
+        If you do not provide a key policy, AWS  attaches a default key policy to the KMS key. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default>`_ in the *AWS Key Management Service Developer Guide* .
 
         A key policy document can include only the following characters:
 
@@ -869,12 +1429,12 @@ class CfnKeyProps:
 
         The default value, ``SYMMETRIC_DEFAULT`` , creates a KMS key with a 256-bit symmetric key for encryption and decryption. In China Regions, ``SYMMETRIC_DEFAULT`` creates a 128-bit symmetric key that uses SM4 encryption. You can't change the ``KeySpec`` value after the KMS key is created. For help choosing a key spec for your KMS key, see `Choosing a KMS key type <https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-        The ``KeySpec`` property determines the type of key material in the KMS key and the algorithms that the KMS key supports. To further restrict the algorithms that can be used with the KMS key, use a condition key in its key policy or IAM policy. For more information, see `AWS KMS condition keys <https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms>`_ in the *AWS Key Management Service Developer Guide* .
+        The ``KeySpec`` property determines the type of key material in the KMS key and the algorithms that the KMS key supports. To further restrict the algorithms that can be used with the KMS key, use a condition key in its key policy or IAM policy. For more information, see `AWS  condition keys <https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms>`_ in the *AWS Key Management Service Developer Guide* .
         .. epigraph::
 
-           If you change the value of the ``KeySpec`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. > `AWS services that are integrated with AWS KMS <https://docs.aws.amazon.com/kms/features/#AWS_Service_Integration>`_ use symmetric encryption KMS keys to protect your data. These services do not support encryption with asymmetric KMS keys. For help determining whether a KMS key is asymmetric, see `Identifying asymmetric KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/find-symm-asymm.html>`_ in the *AWS Key Management Service Developer Guide* .
+           If you change the value of the ``KeySpec`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. > `AWS services that are integrated with AWS <https://docs.aws.amazon.com/kms/features/#AWS_Service_Integration>`_ use symmetric encryption KMS keys to protect your data. These services do not support encryption with asymmetric KMS keys. For help determining whether a KMS key is asymmetric, see `Identifying asymmetric KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/find-symm-asymm.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-        AWS KMS supports the following key specs for KMS keys:
+        AWS  supports the following key specs for KMS keys:
 
         - Symmetric encryption key (default)
         - ``SYMMETRIC_DEFAULT`` (AES-256-GCM)
@@ -891,6 +1451,8 @@ class CfnKeyProps:
         - ``ECC_NIST_P256`` (secp256r1)
         - ``ECC_NIST_P384`` (secp384r1)
         - ``ECC_NIST_P521`` (secp521r1)
+        - ``ECC_NIST_EDWARDS25519`` (ed25519) - signing and verification only
+        - *Note:* For ECC_NIST_EDWARDS25519 KMS keys, the ED25519_SHA_512 signing algorithm requires ```MessageType:RAW`` <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType>`_ , while ED25519_PH_SHA_512 requires ```MessageType:DIGEST`` <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType>`_ . These message types cannot be used interchangeably.
         - Other asymmetric elliptic curve key pairs (signing and verification)
         - ``ECC_SECG_P256K1`` (secp256k1), commonly used for cryptocurrencies.
         - Asymmetric ML-DSA key pairs (signing and verification)
@@ -935,19 +1497,19 @@ class CfnKeyProps:
     @builtins.property
     def multi_region(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Creates a multi-Region primary key that you can replicate in other AWS Regions .
 
         You can't change the ``MultiRegion`` value after the KMS key is created.
 
-        For a list of AWS Regions in which multi-Region keys are supported, see `Multi-Region keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** .
+        For a list of AWS Regions in which multi-Region keys are supported, see `Multi-Region keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** .
         .. epigraph::
 
            If you change the value of the ``MultiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value.
 
         For a multi-Region key, set to this property to ``true`` . For a single-Region key, omit this property or set it to ``false`` . The default value is ``false`` .
 
-        *Multi-Region keys* are an AWS KMS feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
+        *Multi-Region keys* are an AWS  feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
 
         You can create a symmetric encryption, HMAC, or asymmetric multi-Region KMS key, and you can create a multi-Region key with imported key material. However, you cannot create a multi-Region key in a custom key store.
 
@@ -958,20 +1520,20 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-multiregion
         '''
         result = self._values.get("multi_region")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def origin(self) -> typing.Optional[builtins.str]:
         '''The source of the key material for the KMS key.
 
-        You cannot change the origin after you create the KMS key. The default is ``AWS_KMS`` , which means that AWS KMS creates the key material.
+        You cannot change the origin after you create the KMS key. The default is ``AWS_KMS`` , which means that AWS  creates the key material.
 
-        To `create a KMS key with no key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys-create-cmk.html>`_ (for imported key material), set this value to ``EXTERNAL`` . For more information about importing key material into AWS KMS , see `Importing Key Material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        To `create a KMS key with no key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys-create-cmk.html>`_ (for imported key material), set this value to ``EXTERNAL`` . For more information about importing key material into AWS  , see `Importing Key Material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
 
         You can ignore ``ENABLED`` when Origin is ``EXTERNAL`` . When a KMS key with Origin ``EXTERNAL`` is created, the key state is ``PENDING_IMPORT`` and ``ENABLED`` is ``false`` . After you import the key material, ``ENABLED`` updated to ``true`` . The KMS key can then be used for Cryptographic Operations.
         .. epigraph::
 
-           - AWS CloudFormation doesn't support creating an ``Origin`` parameter of the ``AWS_CLOUDHSM`` or ``EXTERNAL_KEY_STORE`` values.
+           - CloudFormation doesn't support creating an ``Origin`` parameter of the ``AWS_CLOUDHSM`` or ``EXTERNAL_KEY_STORE`` values.
            - ``EXTERNAL`` is not supported for ML-DSA keys.
 
         :default: - "AWS_KMS"
@@ -983,15 +1545,15 @@ class CfnKeyProps:
 
     @builtins.property
     def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the number of days in the waiting period before AWS KMS deletes a KMS key that has been removed from a CloudFormation stack.
+        '''Specifies the number of days in the waiting period before AWS  deletes a KMS key that has been removed from a CloudFormation stack.
 
         Enter a value between 7 and 30 days. The default value is 30 days.
 
-        When you remove a KMS key from a CloudFormation stack, AWS KMS schedules the KMS key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of KMS key is ``Pending Deletion`` or ``Pending Replica Deletion`` , which prevents the KMS key from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the KMS key.
+        When you remove a KMS key from a CloudFormation stack, AWS  schedules the KMS key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of KMS key is ``Pending Deletion`` or ``Pending Replica Deletion`` , which prevents the KMS key from being used in cryptographic operations. When the waiting period expires, AWS  permanently deletes the KMS key.
 
-        AWS KMS will not delete a `multi-Region primary key <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ that has replica keys. If you remove a multi-Region primary key from a CloudFormation stack, its key state changes to ``PendingReplicaDeletion`` so it cannot be replicated or used in cryptographic operations. This state can persist indefinitely. When the last of its replica keys is deleted, the key state of the primary key changes to ``PendingDeletion`` and the waiting period specified by ``PendingWindowInDays`` begins. When this waiting period expires, AWS KMS deletes the primary key. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* .
+        AWS  will not delete a `multi-Region primary key <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ that has replica keys. If you remove a multi-Region primary key from a CloudFormation stack, its key state changes to ``PendingReplicaDeletion`` so it cannot be replicated or used in cryptographic operations. This state can persist indefinitely. When the last of its replica keys is deleted, the key state of the primary key changes to ``PendingDeletion`` and the waiting period specified by ``PendingWindowInDays`` begins. When this waiting period expires, AWS  deletes the primary key. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-        You cannot use a CloudFormation template to cancel deletion of the KMS key after you remove it from the stack, regardless of the waiting period. If you specify a KMS key in your template, even one with the same name, CloudFormation creates a new KMS key. To cancel deletion of a KMS key, use the AWS KMS console or the `CancelKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_CancelKeyDeletion.html>`_ operation.
+        You cannot use a CloudFormation template to cancel deletion of the KMS key after you remove it from the stack, regardless of the waiting period. If you specify a KMS key in your template, even one with the same name, CloudFormation creates a new KMS key. To cancel deletion of a KMS key, use the AWS  console or the `CancelKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_CancelKeyDeletion.html>`_ operation.
 
         For information about the ``Pending Deletion`` and ``Pending Replica Deletion`` key states, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
 
@@ -1006,7 +1568,7 @@ class CfnKeyProps:
 
         If no value is specified, the default value is 365 days.
 
-        The rotation period defines the number of days after you enable automatic key rotation that AWS KMS will rotate your key material, and the number of days between each automatic rotation thereafter.
+        The rotation period defines the number of days after you enable automatic key rotation that AWS  will rotate your key material, and the number of days between each automatic rotation thereafter.
 
         You can use the ```kms:RotationPeriodInDays`` <https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-rotation-period-in-days>`_ condition key to further constrain the values that principals can specify in the ``RotationPeriodInDays`` parameter.
 
@@ -1020,19 +1582,19 @@ class CfnKeyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Assigns one or more tags to the replica key.
 
         .. epigraph::
 
-           Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* .
+           Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-        For information about tags in AWS KMS , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        For information about tags in AWS  , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1044,6 +1606,273 @@ class CfnKeyProps:
         return "CfnKeyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IReplicaKeyRef_61fa3e10, _ITaggable_36806126)
+class CfnReplicaKey(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kms.CfnReplicaKey",
+):
+    '''The ``AWS::KMS::ReplicaKey`` resource specifies a multi-Region replica key that is based on a multi-Region primary key.
+
+    *Multi-Region keys* are an AWS  feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+    A multi-Region *primary key* is a fully functional symmetric encryption KMS key, HMAC KMS key, or asymmetric KMS key that is also the model for replica keys in other AWS Regions . To create a multi-Region primary key, add an `AWS::KMS::Key <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html>`_ resource to your CloudFormation stack. Set its ``MultiRegion`` property to true.
+
+    A multi-Region *replica key* is a fully functional KMS key that has the same key ID and key material as a multi-Region primary key, but is located in a different AWS Region of the same AWS partition. There can be multiple replicas of a primary key, but each must be in a different AWS Region .
+
+    When you create a replica key in CloudFormation , the replica key is created in the AWS Region represented by the endpoint you use for the request. If you try to replicate a multi-Region key into a Region in which the key type is not supported, the request will fail.
+
+    A primary key and its replicas have the same key ID and key material. They also have the same key spec, key usage, key material origin, and automatic key rotation status. These properties are known as *shared properties* . If they change, AWS  synchronizes the change to all related multi-Region keys. All other properties of a replica key can differ, including its key policy, tags, aliases, and key state. AWS  does not synchronize these properties.
+
+    *Regions*
+
+    AWS  CloudFormation resources are available in all AWS Regions in which AWS  and CloudFormation are supported. You can use the ``AWS::KMS::ReplicaKey`` resource to create replica keys in all Regions that support multi-Region KMS keys. For details, see `Multi-Region keys in AWS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html
+    :cloudformationResource: AWS::KMS::ReplicaKey
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kms as kms
+        
+        # key_policy: Any
+        
+        cfn_replica_key = kms.CfnReplicaKey(self, "MyCfnReplicaKey",
+            key_policy=key_policy,
+            primary_key_arn="primaryKeyArn",
+        
+            # the properties below are optional
+            description="description",
+            enabled=False,
+            pending_window_in_days=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        key_policy: typing.Any,
+        primary_key_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        pending_window_in_days: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::KMS::ReplicaKey``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param key_policy: The key policy that authorizes use of the replica key. The key policy is not a shared property of multi-Region keys. You can specify the same key policy or a different key policy for each key in a set of related multi-Region keys. AWS does not synchronize this property. The key policy must conform to the following rules. - The key policy must give the caller `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ permission on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, refer to the scenario in the `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ section of the **AWS Key Management Service Developer Guide** . - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . A key policy document can include only the following characters: - Printable ASCII characters from the space character ( ``\\u0020`` ) through the end of the ASCII character range. - Printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ). - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
+        :param primary_key_arn: Specifies the multi-Region primary key to replicate. The primary key must be in a different AWS Region of the same AWS partition. You can create only one replica of a given primary key in each AWS Region . .. epigraph:: If you change the ``PrimaryKeyArn`` value of a replica key, the existing replica key is scheduled for deletion and a new replica key is created based on the specified primary key. While it is scheduled for deletion, the existing replica key becomes unusable. You can cancel the scheduled deletion of the key outside of CloudFormation. However, if you inadvertently delete a replica key, you can decrypt ciphertext encrypted by that replica key by using any related multi-Region key. If necessary, you can recreate the replica in the same Region after the previous one is completely deleted. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* Specify the key ARN of an existing multi-Region primary key. For example, ``arn:aws:kms:us-east-2:111122223333:key/mrk-1234abcd12ab34cd56ef1234567890ab`` .
+        :param description: A description of the KMS key. The default value is an empty string (no description). The description is not a shared property of multi-Region keys. You can specify the same description or a different description for each key in a set of related multi-Region keys. AWS Key Management Service does not synchronize this property.
+        :param enabled: Specifies whether the replica key is enabled. Disabled KMS keys cannot be used in cryptographic operations. When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` . The actual key state of the replica might be affected by actions taken outside of CloudFormation, such as running the `EnableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKey.html>`_ , `DisableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DisableKey.html>`_ , or `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operations. Also, while the replica key is being created, its key state is ``Creating`` . When the process is complete, the key state of the replica key changes to ``Enabled`` . For information about the key states of a KMS key, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS deletes a replica key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a replica key from a CloudFormation stack, AWS schedules the replica key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of replica key is ``Pending Deletion`` , which prevents it from being used in cryptographic operations. When the waiting period expires, AWS permanently deletes the replica key. If the KMS key is a multi-Region primary key with replica keys, the waiting period begins when the last of its replica keys is deleted. Otherwise, the waiting period begins immediately. You cannot use a CloudFormation template to cancel deletion of the replica after you remove it from the stack, regardless of the waiting period. However, if you specify a replica key in your template that is based on the same primary key as the original replica key, CloudFormation creates a new replica key with the same key ID, key material, and other shared properties of the original replica key. This new replica key can decrypt ciphertext that was encrypted under the original replica key, or any related multi-Region key. For detailed information about deleting multi-Region keys, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . For information about the ``PendingDeletion`` key state, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS does not synchronize this property. Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS replaces the current tag value with the specified one. When you assign tags to an AWS resource, AWS generates a cost allocation report with usage and costs aggregated by tags. Tags can also be used to control access to a KMS key. For details, see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ead30546b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnReplicaKeyProps(
+            key_policy=key_policy,
+            primary_key_arn=primary_key_arn,
+            description=description,
+            enabled=enabled,
+            pending_window_in_days=pending_window_in_days,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForReplicaKey")
+    @builtins.classmethod
+    def arn_for_replica_key(cls, resource: "_IReplicaKeyRef_61fa3e10") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90ad819d0c1118f8ff47efe0445b43498a14541be2f7a7478db6658fb8d67ed1)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicaKey", [resource]))
+
+    @jsii.member(jsii_name="isCfnReplicaKey")
+    @builtins.classmethod
+    def is_cfn_replica_key(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplicaKey.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7044cd43ac1ad4bf8d0bcb243e6e605c2f4dc8f018e9e982b7ddfdf19831cf2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicaKey", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e24eab003d1d7413d435432417d9c001c3be699c66c07b278b9d5cb7ab69fec)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__506b80402bbe68662639797e0c6aabbb40195789ec9827424d8c8b8a760fa7c3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the replica key, such as ``arn:aws:kms:us-west-2:111122223333:key/mrk-1234abcd12ab34cd56ef1234567890ab`` .
+
+        The key ARNs of related multi-Region keys differ only in the Region value. For information about the key ARNs of multi-Region keys, see `How multi-Region keys work <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html#mrk-how-it-works>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKeyId")
+    def attr_key_id(self) -> builtins.str:
+        '''The key ID of the replica key, such as ``mrk-1234abcd12ab34cd56ef1234567890ab`` .
+
+        Related multi-Region keys have the same key ID. For information about the key IDs of multi-Region keys, see `How multi-Region keys work <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html#mrk-how-it-works>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :cloudformationAttribute: KeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replicaKeyRef")
+    def replica_key_ref(self) -> "_ReplicaKeyReference_21781a17":
+        '''A reference to a ReplicaKey resource.'''
+        return typing.cast("_ReplicaKeyReference_21781a17", jsii.get(self, "replicaKeyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPolicy")
+    def key_policy(self) -> typing.Any:
+        '''The key policy that authorizes use of the replica key.'''
+        return typing.cast(typing.Any, jsii.get(self, "keyPolicy"))
+
+    @key_policy.setter
+    def key_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54fc1b22cb7e48927490c2ff73a5afea9bb5bb4dd8e62a2a6f805d4bb26f967d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="primaryKeyArn")
+    def primary_key_arn(self) -> builtins.str:
+        '''Specifies the multi-Region primary key to replicate.'''
+        return typing.cast(builtins.str, jsii.get(self, "primaryKeyArn"))
+
+    @primary_key_arn.setter
+    def primary_key_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15fbb1b757e713b4a793995a5eb68370a6a6f742705620d66815b734fa8b2547)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "primaryKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the KMS key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__416fb26a5b9f08dd98d1c61865eacaf89a14839e250c7f61ec3485d272103112)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether the replica key is enabled.
+
+        Disabled KMS keys cannot be used in cryptographic operations.
+        '''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb76d39656831fe315be03ed1109d35bd47e49d418dd22bdc531e5665db1e4c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pendingWindowInDays")
+    def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the number of days in the waiting period before AWS  deletes a replica key that has been removed from a CloudFormation stack.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "pendingWindowInDays"))
+
+    @pending_window_in_days.setter
+    def pending_window_in_days(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa84d85621)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Assigns one or more tags to the replica key.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1065,24 +1894,25 @@ class CfnReplicaKeyProps:
         key_policy: typing.Any,
         primary_key_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         pending_window_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReplicaKey``.
 
-        :param key_policy: The key policy that authorizes use of the replica key. The key policy is not a shared property of multi-Region keys. You can specify the same key policy or a different key policy for each key in a set of related multi-Region keys. AWS KMS does not synchronize this property. The key policy must conform to the following rules. - The key policy must give the caller `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ permission on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, refer to the scenario in the `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ section of the **AWS Key Management Service Developer Guide** . - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS KMS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS KMS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . A key policy document can include only the following characters: - Printable ASCII characters from the space character ( ``\\u0020`` ) through the end of the ASCII character range. - Printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ). - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
+        :param key_policy: The key policy that authorizes use of the replica key. The key policy is not a shared property of multi-Region keys. You can specify the same key policy or a different key policy for each key in a set of related multi-Region keys. AWS does not synchronize this property. The key policy must conform to the following rules. - The key policy must give the caller `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ permission on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, refer to the scenario in the `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ section of the **AWS Key Management Service Developer Guide** . - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . A key policy document can include only the following characters: - Printable ASCII characters from the space character ( ``\\u0020`` ) through the end of the ASCII character range. - Printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ). - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
         :param primary_key_arn: Specifies the multi-Region primary key to replicate. The primary key must be in a different AWS Region of the same AWS partition. You can create only one replica of a given primary key in each AWS Region . .. epigraph:: If you change the ``PrimaryKeyArn`` value of a replica key, the existing replica key is scheduled for deletion and a new replica key is created based on the specified primary key. While it is scheduled for deletion, the existing replica key becomes unusable. You can cancel the scheduled deletion of the key outside of CloudFormation. However, if you inadvertently delete a replica key, you can decrypt ciphertext encrypted by that replica key by using any related multi-Region key. If necessary, you can recreate the replica in the same Region after the previous one is completely deleted. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* Specify the key ARN of an existing multi-Region primary key. For example, ``arn:aws:kms:us-east-2:111122223333:key/mrk-1234abcd12ab34cd56ef1234567890ab`` .
         :param description: A description of the KMS key. The default value is an empty string (no description). The description is not a shared property of multi-Region keys. You can specify the same description or a different description for each key in a set of related multi-Region keys. AWS Key Management Service does not synchronize this property.
         :param enabled: Specifies whether the replica key is enabled. Disabled KMS keys cannot be used in cryptographic operations. When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` . The actual key state of the replica might be affected by actions taken outside of CloudFormation, such as running the `EnableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKey.html>`_ , `DisableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DisableKey.html>`_ , or `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operations. Also, while the replica key is being created, its key state is ``Creating`` . When the process is complete, the key state of the replica key changes to ``Enabled`` . For information about the key states of a KMS key, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS KMS deletes a replica key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a replica key from a CloudFormation stack, AWS KMS schedules the replica key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of replica key is ``Pending Deletion`` , which prevents it from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the replica key. If the KMS key is a multi-Region primary key with replica keys, the waiting period begins when the last of its replica keys is deleted. Otherwise, the waiting period begins immediately. You cannot use a CloudFormation template to cancel deletion of the replica after you remove it from the stack, regardless of the waiting period. However, if you specify a replica key in your template that is based on the same primary key as the original replica key, CloudFormation creates a new replica key with the same key ID, key material, and other shared properties of the original replica key. This new replica key can decrypt ciphertext that was encrypted under the original replica key, or any related multi-Region key. For detailed information about deleting multi-Region keys, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . For information about the ``PendingDeletion`` key state, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS KMS does not synchronize this property. Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS KMS replaces the current tag value with the specified one. When you assign tags to an AWS resource, AWS generates a cost allocation report with usage and costs aggregated by tags. Tags can also be used to control access to a KMS key. For details, see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ .
+        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS deletes a replica key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a replica key from a CloudFormation stack, AWS schedules the replica key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of replica key is ``Pending Deletion`` , which prevents it from being used in cryptographic operations. When the waiting period expires, AWS permanently deletes the replica key. If the KMS key is a multi-Region primary key with replica keys, the waiting period begins when the last of its replica keys is deleted. Otherwise, the waiting period begins immediately. You cannot use a CloudFormation template to cancel deletion of the replica after you remove it from the stack, regardless of the waiting period. However, if you specify a replica key in your template that is based on the same primary key as the original replica key, CloudFormation creates a new replica key with the same key ID, key material, and other shared properties of the original replica key. This new replica key can decrypt ciphertext that was encrypted under the original replica key, or any related multi-Region key. For detailed information about deleting multi-Region keys, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . For information about the ``PendingDeletion`` key state, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS does not synchronize this property. Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS replaces the current tag value with the specified one. When you assign tags to an AWS resource, AWS generates a cost allocation report with usage and costs aggregated by tags. Tags can also be used to control access to a KMS key. For details, see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_kms as kms
@@ -1128,12 +1958,12 @@ class CfnReplicaKeyProps:
     def key_policy(self) -> typing.Any:
         '''The key policy that authorizes use of the replica key.
 
-        The key policy is not a shared property of multi-Region keys. You can specify the same key policy or a different key policy for each key in a set of related multi-Region keys. AWS KMS does not synchronize this property.
+        The key policy is not a shared property of multi-Region keys. You can specify the same key policy or a different key policy for each key in a set of related multi-Region keys. AWS  does not synchronize this property.
 
         The key policy must conform to the following rules.
 
         - The key policy must give the caller `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ permission on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, refer to the scenario in the `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ section of the **AWS Key Management Service Developer Guide** .
-        - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS KMS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS KMS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* .
+        - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS  . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS  . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* .
 
         A key policy document can include only the following characters:
 
@@ -1186,7 +2016,7 @@ class CfnReplicaKeyProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies whether the replica key is enabled. Disabled KMS keys cannot be used in cryptographic operations.
 
         When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` .
@@ -1198,15 +2028,15 @@ class CfnReplicaKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html#cfn-kms-replicakey-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the number of days in the waiting period before AWS KMS deletes a replica key that has been removed from a CloudFormation stack.
+        '''Specifies the number of days in the waiting period before AWS  deletes a replica key that has been removed from a CloudFormation stack.
 
         Enter a value between 7 and 30 days. The default value is 30 days.
 
-        When you remove a replica key from a CloudFormation stack, AWS KMS schedules the replica key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of replica key is ``Pending Deletion`` , which prevents it from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the replica key.
+        When you remove a replica key from a CloudFormation stack, AWS  schedules the replica key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of replica key is ``Pending Deletion`` , which prevents it from being used in cryptographic operations. When the waiting period expires, AWS  permanently deletes the replica key.
 
         If the KMS key is a multi-Region primary key with replica keys, the waiting period begins when the last of its replica keys is deleted. Otherwise, the waiting period begins immediately.
 
@@ -1222,23 +2052,23 @@ class CfnReplicaKeyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Assigns one or more tags to the replica key.
 
         .. epigraph::
 
-           Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* .
+           Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* .
 
-        Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS KMS does not synchronize this property.
+        Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS  does not synchronize this property.
 
-        Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS KMS replaces the current tag value with the specified one.
+        Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS  replaces the current tag value with the specified one.
 
         When you assign tags to an AWS resource, AWS generates a cost allocation report with usage and costs aggregated by tags. Tags can also be used to control access to a KMS key. For details, see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html#cfn-kms-replicakey-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1252,124 +2082,724 @@ class CfnReplicaKeyProps:
         )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IAliasRef")
-class IAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Alias.
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IKey")
+class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
+    '''A KMS Key, either managed by this CDK app, or imported.
 
-    :stability: experimental
+    This interface does double duty: it represents an actual KMS keys, but it
+    also represents things that can behave like KMS keys, like a key alias.
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> AliasReference:
-        '''(experimental) A reference to a Alias resource.
+    @jsii.member(jsii_name="keyArn")
+    def key_arn(self) -> builtins.str:
+        '''The ARN of the key.
 
-        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="keyId")
+    def key_id(self) -> builtins.str:
+        '''The ID of the key (the part that looks something like: 1234abcd-12ab-34cd-56ef-1234567890ab).
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="addAlias")
+    def add_alias(self, alias: builtins.str) -> "Alias":
+        '''Defines a new alias for the key.
+
+        :param alias: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_PolicyStatement_0fe33853",
+        allow_no_op: typing.Optional[builtins.bool] = None,
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        '''Adds a statement to the KMS key resource policy.
+
+        :param statement: The policy statement to add.
+        :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the indicated permissions on this key to the given principal.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantDecrypt")
+    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant decryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantEncrypt")
+    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant encryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantEncryptDecrypt")
+    def grant_encrypt_decrypt(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+    ) -> "_Grant_a7ae64f8":
+        '''Grant encryption and decryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantGenerateMac")
+    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to generating MACs to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantSign")
+    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantSignVerify")
+    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign and verify permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantVerify")
+    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant verify permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantVerifyMac")
+    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to verifying MACs to the given principal.
+
+        :param grantee: -
         '''
         ...
 
 
-class _IAliasRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+class _IKeyProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IKeyRef_d4fc6ef3), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Alias.
+    '''A KMS Key, either managed by this CDK app, or imported.
 
-    :stability: experimental
+    This interface does double duty: it represents an actual KMS keys, but it
+    also represents things that can behave like KMS keys, like a key alias.
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kms.IAliasRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kms.IKey"
 
     @builtins.property
-    @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> AliasReference:
-        '''(experimental) A reference to a Alias resource.
+    @jsii.member(jsii_name="keyArn")
+    def key_arn(self) -> builtins.str:
+        '''The ARN of the key.
 
-        :stability: experimental
+        :attribute: true
         '''
-        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
+        return typing.cast(builtins.str, jsii.get(self, "keyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyId")
+    def key_id(self) -> builtins.str:
+        '''The ID of the key (the part that looks something like: 1234abcd-12ab-34cd-56ef-1234567890ab).
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "keyId"))
+
+    @jsii.member(jsii_name="addAlias")
+    def add_alias(self, alias: builtins.str) -> "Alias":
+        '''Defines a new alias for the key.
+
+        :param alias: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2ffddf2bf6b08c78a62cc0dfd610a5f18de25ac8525da51ce3683ae56ea6333)
+            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+        return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias]))
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_PolicyStatement_0fe33853",
+        allow_no_op: typing.Optional[builtins.bool] = None,
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        '''Adds a statement to the KMS key resource policy.
+
+        :param statement: The policy statement to add.
+        :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49ab7698d2a79e6b83d905354157adf61cc66dcdc514e2f6586029179411a56c)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
+        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the indicated permissions on this key to the given principal.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e75995ff61f7b73643112ecb31c0f51795b9a98794730d4be368915f8c2593c2)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantDecrypt")
+    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant decryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39902b1c75983f537dc01c509a72cacad7b1f7eac41eb11b78961dad89057e68)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDecrypt", [grantee]))
+
+    @jsii.member(jsii_name="grantEncrypt")
+    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant encryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19d45c86cc60f7439a524a94d75c39b726b3b12a4723b2d320f194039f842fcd)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncrypt", [grantee]))
+
+    @jsii.member(jsii_name="grantEncryptDecrypt")
+    def grant_encrypt_decrypt(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+    ) -> "_Grant_a7ae64f8":
+        '''Grant encryption and decryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f2582b1d436c32b0e7fbd6af00bad050f74f9e18f1406e20625022b2a13d294)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
+
+    @jsii.member(jsii_name="grantGenerateMac")
+    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to generating MACs to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__678d44f30b3f7854df209779d1ab6c27a0eac432204e7f4ac90a02792d307f03)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantGenerateMac", [grantee]))
+
+    @jsii.member(jsii_name="grantSign")
+    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17bf7cf2a33c9cdda910f2942efab62c58f1c1a7a7dd9458dde25eeca2f4682d)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSign", [grantee]))
+
+    @jsii.member(jsii_name="grantSignVerify")
+    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign and verify permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c990d684da172804daae0cf29edc7427216184b33a70a020885b86aa21a224d2)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSignVerify", [grantee]))
+
+    @jsii.member(jsii_name="grantVerify")
+    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant verify permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f56ca61f2a3a6b4719a05ed3f1c1897c7b914146a2f92ae8dd0313130d7111c)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerify", [grantee]))
+
+    @jsii.member(jsii_name="grantVerifyMac")
+    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to verifying MACs to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e10fb25b1b8146054e097c61432d71d4ae4493eb15e2a482f90f513e686b24ee)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerifyMac", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAliasRef).__jsii_proxy_class__ = lambda : _IAliasRefProxy
+typing.cast(typing.Any, IKey).__jsii_proxy_class__ = lambda : _IKeyProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IKeyRef")
-class IKeyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Key.
+@jsii.implements(IKey)
+class Key(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kms.Key",
+):
+    '''Defines a KMS key.
 
-    :stability: experimental
+    :resource: AWS::KMS::Key
+    :exampleMetadata: infused
+
+    Example::
+
+        # vpc: ec2.Vpc
+        
+        engine = rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3)
+        my_key = kms.Key(self, "MyKey")
+        
+        rds.DatabaseInstance(self, "InstanceWithCustomizedSecret",
+            engine=engine,
+            vpc=vpc,
+            credentials=rds.Credentials.from_generated_secret("postgres",
+                secret_name="my-cool-name",
+                encryption_key=my_key,
+                exclude_characters="!&*^#@()",
+                replica_regions=[secretsmanager.ReplicaRegion(region="eu-west-1"), secretsmanager.ReplicaRegion(region="eu-west-2")]
+            )
+        )
     '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        admins: typing.Optional[typing.Sequence["_IPrincipal_539bb2fd"]] = None,
+        alias: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        enable_key_rotation: typing.Optional[builtins.bool] = None,
+        key_spec: typing.Optional["KeySpec"] = None,
+        key_usage: typing.Optional["KeyUsage"] = None,
+        multi_region: typing.Optional[builtins.bool] = None,
+        pending_window: typing.Optional["_Duration_4839e8c3"] = None,
+        policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        rotation_period: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param admins: A list of principals to add as key administrators to the key policy. Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions to use the key in cryptographic operations (e.g., encrypt, decrypt). These principals will be added to the default key policy (if none specified), or to the specified policy (if provided). Default: []
+        :param alias: Initial alias to add to the key. More aliases can be added later by calling ``addAlias``. Default: - No alias is added for the key.
+        :param description: A description of the key. Use a description that helps your users decide whether the key is appropriate for a particular task. Default: - No description.
+        :param enabled: Indicates whether the key is available for use. Default: - Key is enabled.
+        :param enable_key_rotation: Indicates whether AWS KMS rotates the key. Default: false
+        :param key_spec: The cryptographic configuration of the key. The valid value depends on usage of the key. IMPORTANT: If you change this property of an existing key, the existing key is scheduled for deletion and a new key is created with the specified value. Default: KeySpec.SYMMETRIC_DEFAULT
+        :param key_usage: The cryptographic operations for which the key can be used. IMPORTANT: If you change this property of an existing key, the existing key is scheduled for deletion and a new key is created with the specified value. Default: KeyUsage.ENCRYPT_DECRYPT
+        :param multi_region: Creates a multi-Region primary key that you can replicate in other AWS Regions. You can't change the ``multiRegion`` value after the KMS key is created. IMPORTANT: If you change the value of the ``multiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the UpdateReplacePolicy attribute. This prevents you from accidentally deleting a KMS key by changing an immutable property value. Default: false
+        :param pending_window: Specifies the number of days in the waiting period before AWS KMS deletes a CMK that has been removed from a CloudFormation stack. When you remove a customer master key (CMK) from a CloudFormation stack, AWS KMS schedules the CMK for deletion and starts the mandatory waiting period. The PendingWindowInDays property determines the length of waiting period. During the waiting period, the key state of CMK is Pending Deletion, which prevents the CMK from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the CMK. Enter a value between 7 and 30 days. Default: - 30 days
+        :param policy: Custom policy document to attach to the KMS key. NOTE - If the ``@aws-cdk/aws-kms:defaultKeyPolicies`` feature flag is set (the default for new projects), this policy will *override* the default key policy and become the only key policy for the key. If the feature flag is not set, this policy will be appended to the default key policy. Default: - A policy document with permissions for the account root to administer the key will be created.
+        :param removal_policy: Whether the encryption key should be retained when it is removed from the Stack. This is useful when one wants to retain access to data that was encrypted with a key that is being retired. Default: RemovalPolicy.Retain
+        :param rotation_period: The period between each automatic rotation. Default: - set by CFN to 365 days.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2cde9534bdfe7c19d6e24354f8a0de8ca349632d3f565addcaed7e86a84dac7e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = KeyProps(
+            admins=admins,
+            alias=alias,
+            description=description,
+            enabled=enabled,
+            enable_key_rotation=enable_key_rotation,
+            key_spec=key_spec,
+            key_usage=key_usage,
+            multi_region=multi_region,
+            pending_window=pending_window,
+            policy=policy,
+            removal_policy=removal_policy,
+            rotation_period=rotation_period,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromCfnKey")
+    @builtins.classmethod
+    def from_cfn_key(cls, cfn_key: "CfnKey") -> "IKey":
+        '''Create a mutable ``IKey`` based on a low-level ``CfnKey``.
+
+        This is most useful when combined with the cloudformation-include module.
+        This method is different than ``fromKeyArn()`` because the ``IKey``
+        returned from this method is mutable;
+        meaning, calling any mutating methods on it,
+        like ``IKey.addToResourcePolicy()``,
+        will actually be reflected in the resulting template,
+        as opposed to the object returned from ``fromKeyArn()``,
+        on which calling those methods would have no effect.
+
+        :param cfn_key: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44fb03a49b50ed40c1e4dfe9c0db8eb33dbd35e3ee425ee8f32dde09abc3287c)
+            check_type(argname="argument cfn_key", value=cfn_key, expected_type=type_hints["cfn_key"])
+        return typing.cast("IKey", jsii.sinvoke(cls, "fromCfnKey", [cfn_key]))
+
+    @jsii.member(jsii_name="fromKeyArn")
+    @builtins.classmethod
+    def from_key_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        key_arn: builtins.str,
+    ) -> "IKey":
+        '''Import an externally defined KMS Key using its ARN.
+
+        :param scope: the construct that will "own" the imported key.
+        :param id: the id of the imported key in the construct tree.
+        :param key_arn: the ARN of an existing KMS key.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9222dd19331f8774792b2f22b672882512022a23227af13133314719a32a929e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
+        return typing.cast("IKey", jsii.sinvoke(cls, "fromKeyArn", [scope, id, key_arn]))
+
+    @jsii.member(jsii_name="fromLookup")
+    @builtins.classmethod
+    def from_lookup(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        alias_name: builtins.str,
+        return_dummy_key_on_missing: typing.Optional[builtins.bool] = None,
+    ) -> "IKey":
+        '''Import an existing Key by querying the AWS environment this stack is deployed to.
+
+        This function only needs to be used to use Keys not defined in your CDK
+        application. If you are looking to share a Key between stacks, you can
+        pass the ``Key`` object between stacks and use it as normal. In addition,
+        it's not necessary to use this method if an interface accepts an ``IKey``.
+        In this case, ``Alias.fromAliasName()`` can be used which returns an alias
+        that extends ``IKey``.
+
+        Calling this method will lead to a lookup when the CDK CLI is executed.
+        You can therefore not use any values that will only be available at
+        CloudFormation execution time (i.e., Tokens).
+
+        If you set ``returnDummyKeyOnMissing`` to ``true`` in ``options`` and the key was not found,
+        this method will return a dummy key with a key id '1234abcd-12ab-34cd-56ef-1234567890ab'.
+        The value of the dummy key id can also be referenced using the ``Key.DEFAULT_DUMMY_KEY_ID``
+        variable, and you can check if the key is a dummy key by using the ``Key.isLookupDummy()``
+        method.
+
+        The Key information will be cached in ``cdk.context.json`` and the same Key
+        will be used on future runs. To refresh the lookup, you will have to
+        evict the value from the cache using the ``cdk context`` command. See
+        https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information.
+
+        :param scope: -
+        :param id: -
+        :param alias_name: The alias name of the Key. Must be in the format ``alias/<AliasName>``.
+        :param return_dummy_key_on_missing: Whether to return a dummy key if the key was not found. If it is set to ``true`` and the key was not found, a dummy key with a key id '1234abcd-12ab-34cd-56ef-1234567890ab' will be returned. The value of the dummy key id can also be referenced using the ``Key.DEFAULT_DUMMY_KEY_ID`` variable, and you can check if the key is a dummy key by using the ``Key.isLookupDummy()`` method. Default: false
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54c731fe78f9388d4b31695080a02f67600ec386d3b55f25a7274b86edbd4673)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = KeyLookupOptions(
+            alias_name=alias_name,
+            return_dummy_key_on_missing=return_dummy_key_on_missing,
+        )
+
+        return typing.cast("IKey", jsii.sinvoke(cls, "fromLookup", [scope, id, options]))
+
+    @jsii.member(jsii_name="isLookupDummy")
+    @builtins.classmethod
+    def is_lookup_dummy(cls, key: "_IKeyRef_d4fc6ef3") -> builtins.bool:
+        '''Checks if the key returned by the ``Key.fromLookup()`` method is a dummy key, i.e., a key that was not found.
+
+        This method can only be used if the ``returnDummyKeyOnMissing`` option
+        is set to ``true`` in the ``options`` for the ``Key.fromLookup()`` method.
+
+        :param key: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a60ddf97e7bd93ce51bb72de0630a0a66c03edf9f9e5f71c93ad6e4563a7cb0)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isLookupDummy", [key]))
+
+    @jsii.member(jsii_name="addAlias")
+    def add_alias(self, alias_name: builtins.str) -> "Alias":
+        '''Defines a new alias for the key.
+
+        :param alias_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c455c06c17802eaffea2f6642f95411cde639deb7ec10fa1d1e54bc6d7babe0)
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+        return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias_name]))
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_PolicyStatement_0fe33853",
+        allow_no_op: typing.Optional[builtins.bool] = None,
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        '''Adds a statement to the KMS key resource policy.
+
+        :param statement: The policy statement to add.
+        :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f20e8e11b4cff0f78acc743ad38d02a945f8e93be1f7bfc67153d317f711d06c)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
+        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the indicated permissions on this key to the given principal.
+
+        This modifies both the principal's policy as well as the resource policy,
+        since the default CloudFormation setup for KMS keys is that the policy
+        must not be empty and so default grants won't work.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3078f1361f1b59b619c5946b92259b4d2eefa0ae12e2e3b01160eae5ce37ceed)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant admins permissions using this key to the given principal.
+
+        Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
+        to use the key in cryptographic operations (e.g., encrypt, decrypt).
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__767164803c663312dbd0dc562333e5aa71475360f03804af0d572d5e1e00b889)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantDecrypt")
+    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant decryption permissions using this key to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21f59a965699a16e14a1c50712dea7dfff44afb1561561c2ca8c3dc2d510da1d)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDecrypt", [grantee]))
+
+    @jsii.member(jsii_name="grantEncrypt")
+    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant encryption permissions using this key to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b813a815a19cfcc384a90657fd701837adf5051ac8297faee4ede086e7e8ce8)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncrypt", [grantee]))
+
+    @jsii.member(jsii_name="grantEncryptDecrypt")
+    def grant_encrypt_decrypt(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+    ) -> "_Grant_a7ae64f8":
+        '''Grant encryption and decryption permissions using this key to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14a8599a061fbde74d692dfefcfd2f5f92f1a86fc2beee05e7d53c877d7deb03)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
+
+    @jsii.member(jsii_name="grantGenerateMac")
+    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to generating MACs to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__440bf3733f200027c74618bbc6f89d59b060f4aa9d88bb6dbfb057771091f628)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantGenerateMac", [grantee]))
+
+    @jsii.member(jsii_name="grantSign")
+    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign permissions using this key to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6461815f1d37e6ba54e3cbf1944f9dfd4919e6778f163b7d761b4addf454e443)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSign", [grantee]))
+
+    @jsii.member(jsii_name="grantSignVerify")
+    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign and verify permissions using this key to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9dd17cfd9ba136ab5eb61bfd08f31dab5e9e96d93c1a2e94c0610a4b97524bd)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSignVerify", [grantee]))
+
+    @jsii.member(jsii_name="grantVerify")
+    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant verify permissions using this key to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399ec6d8a6)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerify", [grantee]))
+
+    @jsii.member(jsii_name="grantVerifyMac")
+    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to verifying MACs to the given principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerifyMac", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DEFAULT_DUMMY_KEY_ID")
+    def DEFAULT_DUMMY_KEY_ID(cls) -> builtins.str:
+        '''The default key id of the dummy key.
+
+        This value is used as a dummy key id if the key was not found
+        by the ``Key.fromLookup()`` method.
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_DUMMY_KEY_ID"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyArn")
+    def key_arn(self) -> builtins.str:
+        '''The ARN of the key.'''
+        return typing.cast(builtins.str, jsii.get(self, "keyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyId")
+    def key_id(self) -> builtins.str:
+        '''The ID of the key (the part that looks something like: 1234abcd-12ab-34cd-56ef-1234567890ab).'''
+        return typing.cast(builtins.str, jsii.get(self, "keyId"))
 
     @builtins.property
     @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> "KeyReference":
-        '''(experimental) A reference to a Key resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IKeyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Key.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kms.IKeyRef"
+    def key_ref(self) -> "_KeyReference_751b3d66":
+        '''A reference to a Key resource.'''
+        return typing.cast("_KeyReference_751b3d66", jsii.get(self, "keyRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> "KeyReference":
-        '''(experimental) A reference to a Key resource.
+    @jsii.member(jsii_name="trustAccountIdentities")
+    def _trust_account_identities(self) -> builtins.bool:
+        '''Optional property to control trusting account identities.
 
-        :stability: experimental
+        If specified, grants will default identity policies instead of to both
+        resource and identity policies. This matches the default behavior when creating
+        KMS keys via the API or console.
         '''
-        return typing.cast("KeyReference", jsii.get(self, "keyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IKeyRef).__jsii_proxy_class__ = lambda : _IKeyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IReplicaKeyRef")
-class IReplicaKeyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicaKey.
-
-    :stability: experimental
-    '''
+        return typing.cast(builtins.bool, jsii.get(self, "trustAccountIdentities"))
 
     @builtins.property
-    @jsii.member(jsii_name="replicaKeyRef")
-    def replica_key_ref(self) -> "ReplicaKeyReference":
-        '''(experimental) A reference to a ReplicaKey resource.
+    @jsii.member(jsii_name="policy")
+    def _policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Optional policy document that represents the resource policy of this key.
 
-        :stability: experimental
+        If specified, addToResourcePolicy can be used to edit this policy.
+        Otherwise this method will no-op.
         '''
-        ...
-
-
-class _IReplicaKeyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicaKey.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kms.IReplicaKeyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="replicaKeyRef")
-    def replica_key_ref(self) -> "ReplicaKeyReference":
-        '''(experimental) A reference to a ReplicaKey resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReplicaKeyReference", jsii.get(self, "replicaKeyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReplicaKeyRef).__jsii_proxy_class__ = lambda : _IReplicaKeyRefProxy
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "policy"))
 
 
 @jsii.data_type(
@@ -1475,7 +2905,7 @@ class KeyProps:
     def __init__(
         self,
         *,
-        admins: typing.Optional[typing.Sequence[_IPrincipal_539bb2fd]] = None,
+        admins: typing.Optional[typing.Sequence["_IPrincipal_539bb2fd"]] = None,
         alias: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
@@ -1483,10 +2913,10 @@ class KeyProps:
         key_spec: typing.Optional["KeySpec"] = None,
         key_usage: typing.Optional["KeyUsage"] = None,
         multi_region: typing.Optional[builtins.bool] = None,
-        pending_window: typing.Optional[_Duration_4839e8c3] = None,
-        policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-        rotation_period: typing.Optional[_Duration_4839e8c3] = None,
+        pending_window: typing.Optional["_Duration_4839e8c3"] = None,
+        policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        rotation_period: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Construction properties for a KMS Key object.
 
@@ -1571,7 +3001,7 @@ class KeyProps:
             self._values["rotation_period"] = rotation_period
 
     @builtins.property
-    def admins(self) -> typing.Optional[typing.List[_IPrincipal_539bb2fd]]:
+    def admins(self) -> typing.Optional[typing.List["_IPrincipal_539bb2fd"]]:
         '''A list of principals to add as key administrators to the key policy.
 
         Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
@@ -1582,7 +3012,7 @@ class KeyProps:
         :default: []
         '''
         result = self._values.get("admins")
-        return typing.cast(typing.Optional[typing.List[_IPrincipal_539bb2fd]], result)
+        return typing.cast(typing.Optional[typing.List["_IPrincipal_539bb2fd"]], result)
 
     @builtins.property
     def alias(self) -> typing.Optional[builtins.str]:
@@ -1667,7 +3097,7 @@ class KeyProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def pending_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def pending_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Specifies the number of days in the waiting period before AWS KMS deletes a CMK that has been removed from a CloudFormation stack.
 
         When you remove a customer master key (CMK) from a CloudFormation stack, AWS KMS schedules the CMK for deletion
@@ -1682,10 +3112,10 @@ class KeyProps:
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-pendingwindowindays
         '''
         result = self._values.get("pending_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def policy(self) -> typing.Optional[_PolicyDocument_3ac34393]:
+    def policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
         '''Custom policy document to attach to the KMS key.
 
         NOTE - If the ``@aws-cdk/aws-kms:defaultKeyPolicies`` feature flag is set (the default for new projects),
@@ -1698,10 +3128,10 @@ class KeyProps:
         administer the key will be created.
         '''
         result = self._values.get("policy")
-        return typing.cast(typing.Optional[_PolicyDocument_3ac34393], result)
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
         '''Whether the encryption key should be retained when it is removed from the Stack.
 
         This is useful when one wants to
@@ -1710,16 +3140,16 @@ class KeyProps:
         :default: RemovalPolicy.Retain
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
-    def rotation_period(self) -> typing.Optional[_Duration_4839e8c3]:
+    def rotation_period(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The period between each automatic rotation.
 
         :default: - set by CFN to 365 days.
         '''
         result = self._values.get("rotation_period")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1729,66 +3159,6 @@ class KeyProps:
 
     def __repr__(self) -> str:
         return "KeyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kms.KeyReference",
-    jsii_struct_bases=[],
-    name_mapping={"key_arn": "keyArn", "key_id": "keyId"},
-)
-class KeyReference:
-    def __init__(self, *, key_arn: builtins.str, key_id: builtins.str) -> None:
-        '''A reference to a Key resource.
-
-        :param key_arn: The ARN of the Key resource.
-        :param key_id: The KeyId of the Key resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kms as kms
-            
-            key_reference = kms.KeyReference(
-                key_arn="keyArn",
-                key_id="keyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb217ad7d9d4ecd8698db9c277304e9f6bc11f6b1bc31ae904e9199a7859996e)
-            check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
-            check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "key_arn": key_arn,
-            "key_id": key_id,
-        }
-
-    @builtins.property
-    def key_arn(self) -> builtins.str:
-        '''The ARN of the Key resource.'''
-        result = self._values.get("key_arn")
-        assert result is not None, "Required property 'key_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def key_id(self) -> builtins.str:
-        '''The KeyId of the Key resource.'''
-        result = self._values.get("key_id")
-        assert result is not None, "Required property 'key_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "KeyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1887,6 +3257,11 @@ class KeySpec(enum.Enum):
 
     Valid usage: SIGN_VERIFY
     '''
+    ECC_NIST_EDWARDS25519 = "ECC_NIST_EDWARDS25519"
+    '''NIST-standard Edwards25519 (ed25519) elliptic curve key pair.
+
+    Valid usage: SIGN_VERIFY
+    '''
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_kms.KeyUsage")
@@ -1913,66 +3288,6 @@ class KeyUsage(enum.Enum):
     '''Deriving shared secrets.'''
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kms.ReplicaKeyReference",
-    jsii_struct_bases=[],
-    name_mapping={"key_id": "keyId", "replica_key_arn": "replicaKeyArn"},
-)
-class ReplicaKeyReference:
-    def __init__(self, *, key_id: builtins.str, replica_key_arn: builtins.str) -> None:
-        '''A reference to a ReplicaKey resource.
-
-        :param key_id: The KeyId of the ReplicaKey resource.
-        :param replica_key_arn: The ARN of the ReplicaKey resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kms as kms
-            
-            replica_key_reference = kms.ReplicaKeyReference(
-                key_id="keyId",
-                replica_key_arn="replicaKeyArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45791ea25a2aabe65b6c3c9f84d30fc9688ec61410e3baa8e6ac3a9c651328d2)
-            check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
-            check_type(argname="argument replica_key_arn", value=replica_key_arn, expected_type=type_hints["replica_key_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "key_id": key_id,
-            "replica_key_arn": replica_key_arn,
-        }
-
-    @builtins.property
-    def key_id(self) -> builtins.str:
-        '''The KeyId of the ReplicaKey resource.'''
-        result = self._values.get("key_id")
-        assert result is not None, "Required property 'key_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def replica_key_arn(self) -> builtins.str:
-        '''The ARN of the ReplicaKey resource.'''
-        result = self._values.get("replica_key_arn")
-        assert result is not None, "Required property 'replica_key_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReplicaKeyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 class ViaServicePrincipal(
     _PrincipalBase_b5077813,
     metaclass=jsii.JSIIMeta,
@@ -1997,7 +3312,7 @@ class ViaServicePrincipal(
     def __init__(
         self,
         service_name: builtins.str,
-        base_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
+        base_principal: typing.Optional["_IPrincipal_539bb2fd"] = None,
     ) -> None:
         '''
         :param service_name: -
@@ -2016,1455 +3331,13 @@ class ViaServicePrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> _PrincipalPolicyFragment_6a855d11:
+    def policy_fragment(self) -> "_PrincipalPolicyFragment_6a855d11":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(_PrincipalPolicyFragment_6a855d11, jsii.get(self, "policyFragment"))
-
-
-@jsii.implements(_IInspectable_c2943556, IAliasRef)
-class CfnAlias(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kms.CfnAlias",
-):
-    '''The ``AWS::KMS::Alias`` resource specifies a display name for a `KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys>`_ . You can use an alias to identify a KMS key in the AWS KMS console, in the `DescribeKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>`_ operation, and in `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ , such as `Decrypt <https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html>`_ and `GenerateDataKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_GenerateDataKey.html>`_ .
-
-    .. epigraph::
-
-       Adding, deleting, or updating an alias can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-    Using an alias to refer to a KMS key can help you simplify key management. For example, an alias in your code can be associated with different KMS keys in different AWS Regions . For more information, see `Using aliases <https://docs.aws.amazon.com/kms/latest/developerguide/kms-alias.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-    When specifying an alias, observe the following rules.
-
-    - Each alias is associated with one KMS key, but multiple aliases can be associated with the same KMS key.
-    - The alias and its associated KMS key must be in the same AWS account and Region.
-    - The alias name must be unique in the AWS account and Region. However, you can create aliases with the same name in different AWS Regions . For example, you can have an ``alias/projectKey`` in multiple Regions, each of which is associated with a KMS key in its Region.
-    - Each alias name must begin with ``alias/`` followed by a name, such as ``alias/exampleKey`` . The alias name can contain only alphanumeric characters, forward slashes (/), underscores (_), and dashes (-). Alias names cannot begin with ``alias/aws/`` . That alias name prefix is reserved for `AWS managed keys <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk>`_ .
-
-    *Regions*
-
-    AWS KMS CloudFormation resources are available in all AWS Regions in which AWS KMS and AWS CloudFormation are supported.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-alias.html
-    :cloudformationResource: AWS::KMS::Alias
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kms as kms
-        
-        cfn_alias = kms.CfnAlias(self, "MyCfnAlias",
-            alias_name="aliasName",
-            target_key_id="targetKeyId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        alias_name: builtins.str,
-        target_key_id: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param alias_name: Specifies the alias name. This value must begin with ``alias/`` followed by a name, such as ``alias/ExampleAlias`` . .. epigraph:: If you change the value of the ``AliasName`` property, the existing alias is deleted and a new alias is created for the specified KMS key. This change can disrupt applications that use the alias. It can also allow or deny access to a KMS key affected by attribute-based access control (ABAC). The alias must be string of 1-256 characters. It can contain only alphanumeric characters, forward slashes (/), underscores (_), and dashes (-). The alias name cannot begin with ``alias/aws/`` . The ``alias/aws/`` prefix is reserved for `AWS managed keys <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk>`_ .
-        :param target_key_id: Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region. A valid key ID is required. If you supply a null or empty string value, this operation returns an error. For help finding the key ID and ARN, see `Finding the key ID and ARN <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html#find-cmk-id-arn>`_ in the *AWS Key Management Service Developer Guide* . Specify the key ID or the key ARN of the KMS key. For example: - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` To get the key ID and key ARN for a KMS key, use `ListKeys <https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeys.html>`_ or `DescribeKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ed5a3924f89c3ad638de218f71940a644d4f9331e3a66f708de865cc3551205)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAliasProps(alias_name=alias_name, target_key_id=target_key_id)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91d92bc86df739cdbb4a623f1bec0006f2c4e912b1d6817e7e5fc8fc28d6d61d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1861ad699c79ab6c6405435694534bc0b254bb6fe02fa309564e05b8ab5a6f)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> AliasReference:
-        '''A reference to a Alias resource.'''
-        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="aliasName")
-    def alias_name(self) -> builtins.str:
-        '''Specifies the alias name.
-
-        This value must begin with ``alias/`` followed by a name, such as ``alias/ExampleAlias`` .
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "aliasName"))
-
-    @alias_name.setter
-    def alias_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__293c0aafbebd8a831d41848f3d7035971f2665e6401dfe8705989d1abae2c2c5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetKeyId")
-    def target_key_id(self) -> builtins.str:
-        '''Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region.'''
-        return typing.cast(builtins.str, jsii.get(self, "targetKeyId"))
-
-    @target_key_id.setter
-    def target_key_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa393b6fb2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetKeyId", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IKeyRef, _ITaggable_36806126)
-class CfnKey(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kms.CfnKey",
-):
-    '''The ``AWS::KMS::Key`` resource specifies an `KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys>`_ in AWS Key Management Service . You can use this resource to create symmetric encryption KMS keys, asymmetric KMS keys for encryption or signing, and symmetric HMAC KMS keys. You can use ``AWS::KMS::Key`` to create `multi-Region primary keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html#mrk-primary-key>`_ of all supported types. To replicate a multi-Region key, use the ``AWS::KMS::ReplicaKey`` resource.
-
-    .. epigraph::
-
-       If you change the value of the ``KeySpec`` , ``KeyUsage`` , ``Origin`` , or ``MultiRegion`` properties of an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing any of its immutable property values. > AWS KMS replaced the term *customer master key (CMK)* with *AWS KMS key* and *KMS key* . The concept has not changed. To prevent breaking changes, AWS KMS is keeping some variations of this term.
-
-    You can use symmetric encryption KMS keys to encrypt and decrypt small amounts of data, but they are more commonly used to generate data keys and data key pairs. You can also use a symmetric encryption KMS key to encrypt data stored in AWS services that are `integrated with AWS KMS <https://docs.aws.amazon.com//kms/features/#AWS_Service_Integration>`_ . For more information, see `Symmetric encryption KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#symmetric-cmks>`_ in the *AWS Key Management Service Developer Guide* .
-
-    You can use asymmetric KMS keys to encrypt and decrypt data or sign messages and verify signatures. To create an asymmetric key, you must specify an asymmetric ``KeySpec`` value and a ``KeyUsage`` value. For details, see `Asymmetric keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-    You can use HMAC KMS keys (which are also symmetric keys) to generate and verify hash-based message authentication codes. To create an HMAC key, you must specify an HMAC ``KeySpec`` value and a ``KeyUsage`` value of ``GENERATE_VERIFY_MAC`` . For details, see `HMAC keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/hmac.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-    You can also create symmetric encryption, asymmetric, and HMAC multi-Region primary keys. To create a multi-Region primary key, set the ``MultiRegion`` property to ``true`` . For information about multi-Region keys, see `Multi-Region keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-    You cannot use the ``AWS::KMS::Key`` resource to specify a KMS key with `imported key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ or a KMS key in a `custom key store <https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html>`_ .
-
-    *Regions*
-
-    AWS KMS CloudFormation resources are available in all Regions in which AWS KMS and AWS CloudFormation are supported. You can use the ``AWS::KMS::Key`` resource to create and manage all KMS key types that are supported in a Region.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html
-    :cloudformationResource: AWS::KMS::Key
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_kms as kms
-        
-        
-        kms_key = kms.Key(self, "myKMSKey")
-        my_bucket = s3.Bucket(self, "mySSEKMSEncryptedBucket",
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
-        )
-        cloudfront.Distribution(self, "myDist",
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3BucketOrigin.with_origin_access_control(my_bucket)
-            )
-        )
-        
-        # Add the following to scope down the key policy
-        scoped_down_key_policy = {
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": "arn:aws:iam::111122223333:root"
-                },
-                "Action": "kms:*",
-                "Resource": "*"
-            }, {
-                "Effect": "Allow",
-                "Principal": {
-                    "Service": "cloudfront.amazonaws.com"
-                },
-                "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey*"
-                ],
-                "Resource": "*",
-                "Condition": {
-                    "StringEquals": {
-                        "AWS:SourceArn": "arn:aws:cloudfront::111122223333:distribution/<CloudFront distribution ID>"
-                    }
-                }
-            }
-            ]
-        }
-        cfn_key = (kms_key.node.default_child)
-        cfn_key.key_policy = scoped_down_key_policy
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        key_policy: typing.Any = None,
-        key_spec: typing.Optional[builtins.str] = None,
-        key_usage: typing.Optional[builtins.str] = None,
-        multi_region: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        origin: typing.Optional[builtins.str] = None,
-        pending_window_in_days: typing.Optional[jsii.Number] = None,
-        rotation_period_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param bypass_policy_lockout_safety_check: Skips ("bypasses") the key policy lockout safety check. The default value is false. .. epigraph:: Setting this value to true increases the risk that the KMS key becomes unmanageable. Do not set this value to true indiscriminately. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html#prevent-unmanageable-key>`_ in the *AWS Key Management Service Developer Guide* . Use this parameter only when you intend to prevent the principal that is making the request from making a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. Default: - false
-        :param description: A description of the KMS key. Use a description that helps you to distinguish this KMS key from others in the account, such as its intended use.
-        :param enabled: Specifies whether the KMS key is enabled. Disabled KMS keys cannot be used in cryptographic operations. When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` . The actual key state of the KMS key might be affected by actions taken outside of CloudFormation, such as running the `EnableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKey.html>`_ , `DisableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DisableKey.html>`_ , or `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operations. For information about the key states of a KMS key, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param enable_key_rotation: Enables automatic rotation of the key material for the specified KMS key. By default, automatic key rotation is not enabled. AWS KMS supports automatic rotation only for symmetric encryption KMS keys ( ``KeySpec`` = ``SYMMETRIC_DEFAULT`` ). For asymmetric KMS keys, HMAC KMS keys, and KMS keys with Origin ``EXTERNAL`` , omit the ``EnableKeyRotation`` property or set it to ``false`` . To enable automatic key rotation of the key material for a multi-Region KMS key, set ``EnableKeyRotation`` to ``true`` on the primary key (created by using ``AWS::KMS::Key`` ). AWS KMS copies the rotation status to all replica keys. For details, see `Rotating multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-manage.html#multi-region-rotate>`_ in the *AWS Key Management Service Developer Guide* . When you enable automatic rotation, AWS KMS automatically creates new key material for the KMS key one year after the enable date and every year thereafter. AWS KMS retains all key material until you delete the KMS key. For detailed information about automatic key rotation, see `Rotating KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param key_policy: The key policy to attach to the KMS key. If you provide a key policy, it must meet the following criteria: - The key policy must allow the caller to make a subsequent `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ request on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ in the *AWS Key Management Service Developer Guide* . (To omit this condition, set ``BypassPolicyLockoutSafetyCheck`` to true.) - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS KMS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS KMS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . If you do not provide a key policy, AWS KMS attaches a default key policy to the KMS key. For more information, see `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default>`_ in the *AWS Key Management Service Developer Guide* . A key policy document can include only the following characters: - Printable ASCII characters - Printable characters in the Basic Latin and Latin-1 Supplement character set - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
-        :param key_spec: Specifies the type of KMS key to create. The default value, ``SYMMETRIC_DEFAULT`` , creates a KMS key with a 256-bit symmetric key for encryption and decryption. In China Regions, ``SYMMETRIC_DEFAULT`` creates a 128-bit symmetric key that uses SM4 encryption. You can't change the ``KeySpec`` value after the KMS key is created. For help choosing a key spec for your KMS key, see `Choosing a KMS key type <https://docs.aws.amazon.com/kms/latest/developerguide/symm-asymm-choose.html>`_ in the *AWS Key Management Service Developer Guide* . The ``KeySpec`` property determines the type of key material in the KMS key and the algorithms that the KMS key supports. To further restrict the algorithms that can be used with the KMS key, use a condition key in its key policy or IAM policy. For more information, see `AWS KMS condition keys <https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you change the value of the ``KeySpec`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. > `AWS services that are integrated with AWS KMS <https://docs.aws.amazon.com/kms/features/#AWS_Service_Integration>`_ use symmetric encryption KMS keys to protect your data. These services do not support encryption with asymmetric KMS keys. For help determining whether a KMS key is asymmetric, see `Identifying asymmetric KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/find-symm-asymm.html>`_ in the *AWS Key Management Service Developer Guide* . AWS KMS supports the following key specs for KMS keys: - Symmetric encryption key (default) - ``SYMMETRIC_DEFAULT`` (AES-256-GCM) - HMAC keys (symmetric) - ``HMAC_224`` - ``HMAC_256`` - ``HMAC_384`` - ``HMAC_512`` - Asymmetric RSA key pairs (encryption and decryption *or* signing and verification) - ``RSA_2048`` - ``RSA_3072`` - ``RSA_4096`` - Asymmetric NIST-recommended elliptic curve key pairs (signing and verification *or* deriving shared secrets) - ``ECC_NIST_P256`` (secp256r1) - ``ECC_NIST_P384`` (secp384r1) - ``ECC_NIST_P521`` (secp521r1) - Other asymmetric elliptic curve key pairs (signing and verification) - ``ECC_SECG_P256K1`` (secp256k1), commonly used for cryptocurrencies. - Asymmetric ML-DSA key pairs (signing and verification) - ``ML_DSA_44`` - ``ML_DSA_65`` - ``ML_DSA_87`` - SM2 key pairs (encryption and decryption *or* signing and verification *or* deriving shared secrets) - ``SM2`` (China Regions only) Default: - "SYMMETRIC_DEFAULT"
-        :param key_usage: Determines the `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ for which you can use the KMS key. The default value is ``ENCRYPT_DECRYPT`` . This property is required for asymmetric KMS keys and HMAC KMS keys. You can't change the ``KeyUsage`` value after the KMS key is created. .. epigraph:: If you change the value of the ``KeyUsage`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. Select only one valid value. - For symmetric encryption KMS keys, omit the parameter or specify ``ENCRYPT_DECRYPT`` . - For HMAC KMS keys (symmetric), specify ``GENERATE_VERIFY_MAC`` . - For asymmetric KMS keys with RSA key pairs, specify ``ENCRYPT_DECRYPT`` or ``SIGN_VERIFY`` . - For asymmetric KMS keys with NIST-recommended elliptic curve key pairs, specify ``SIGN_VERIFY`` or ``KEY_AGREEMENT`` . - For asymmetric KMS keys with ``ECC_SECG_P256K1`` key pairs, specify ``SIGN_VERIFY`` . - For asymmetric KMS keys with ML-DSA key pairs, specify ``SIGN_VERIFY`` . - For asymmetric KMS keys with SM2 key pairs (China Regions only), specify ``ENCRYPT_DECRYPT`` , ``SIGN_VERIFY`` , or ``KEY_AGREEMENT`` . Default: - "ENCRYPT_DECRYPT"
-        :param multi_region: Creates a multi-Region primary key that you can replicate in other AWS Regions . You can't change the ``MultiRegion`` value after the KMS key is created. For a list of AWS Regions in which multi-Region keys are supported, see `Multi-Region keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** . .. epigraph:: If you change the value of the ``MultiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the ```UpdateReplacePolicy`` attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html>`_ . This prevents you from accidentally deleting a KMS key by changing an immutable property value. For a multi-Region key, set to this property to ``true`` . For a single-Region key, omit this property or set it to ``false`` . The default value is ``false`` . *Multi-Region keys* are an AWS KMS feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . You can create a symmetric encryption, HMAC, or asymmetric multi-Region KMS key, and you can create a multi-Region key with imported key material. However, you cannot create a multi-Region key in a custom key store. To create a replica of this primary key in a different AWS Region , create an `AWS::KMS::ReplicaKey <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html>`_ resource in a CloudFormation stack in the replica Region. Specify the key ARN of this primary key. Default: - false
-        :param origin: The source of the key material for the KMS key. You cannot change the origin after you create the KMS key. The default is ``AWS_KMS`` , which means that AWS KMS creates the key material. To `create a KMS key with no key material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys-create-cmk.html>`_ (for imported key material), set this value to ``EXTERNAL`` . For more information about importing key material into AWS KMS , see `Importing Key Material <https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . You can ignore ``ENABLED`` when Origin is ``EXTERNAL`` . When a KMS key with Origin ``EXTERNAL`` is created, the key state is ``PENDING_IMPORT`` and ``ENABLED`` is ``false`` . After you import the key material, ``ENABLED`` updated to ``true`` . The KMS key can then be used for Cryptographic Operations. .. epigraph:: - AWS CloudFormation doesn't support creating an ``Origin`` parameter of the ``AWS_CLOUDHSM`` or ``EXTERNAL_KEY_STORE`` values. - ``EXTERNAL`` is not supported for ML-DSA keys. Default: - "AWS_KMS"
-        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS KMS deletes a KMS key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a KMS key from a CloudFormation stack, AWS KMS schedules the KMS key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of KMS key is ``Pending Deletion`` or ``Pending Replica Deletion`` , which prevents the KMS key from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the KMS key. AWS KMS will not delete a `multi-Region primary key <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ that has replica keys. If you remove a multi-Region primary key from a CloudFormation stack, its key state changes to ``PendingReplicaDeletion`` so it cannot be replicated or used in cryptographic operations. This state can persist indefinitely. When the last of its replica keys is deleted, the key state of the primary key changes to ``PendingDeletion`` and the waiting period specified by ``PendingWindowInDays`` begins. When this waiting period expires, AWS KMS deletes the primary key. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . You cannot use a CloudFormation template to cancel deletion of the KMS key after you remove it from the stack, regardless of the waiting period. If you specify a KMS key in your template, even one with the same name, CloudFormation creates a new KMS key. To cancel deletion of a KMS key, use the AWS KMS console or the `CancelKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_CancelKeyDeletion.html>`_ operation. For information about the ``Pending Deletion`` and ``Pending Replica Deletion`` key states, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param rotation_period_in_days: Specifies a custom period of time between each rotation date. If no value is specified, the default value is 365 days. The rotation period defines the number of days after you enable automatic key rotation that AWS KMS will rotate your key material, and the number of days between each automatic rotation thereafter. You can use the ```kms:RotationPeriodInDays`` <https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-rotation-period-in-days>`_ condition key to further constrain the values that principals can specify in the ``RotationPeriodInDays`` parameter. For more information about rotating KMS keys and automatic rotation, see `Rotating keys <https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html>`_ in the *AWS Key Management Service Developer Guide* . Default: - 365
-        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in AWS KMS , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e196d8783c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnKeyProps(
-            bypass_policy_lockout_safety_check=bypass_policy_lockout_safety_check,
-            description=description,
-            enabled=enabled,
-            enable_key_rotation=enable_key_rotation,
-            key_policy=key_policy,
-            key_spec=key_spec,
-            key_usage=key_usage,
-            multi_region=multi_region,
-            origin=origin,
-            pending_window_in_days=pending_window_in_days,
-            rotation_period_in_days=rotation_period_in_days,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6311cde99d8265c1aa77cad19077d4dc11fa11a16a0a5d601158013e78b4de6)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7468635e1eaf46c92748f2c14a3230215aa887e54ed03c370eee59b7ed05117b)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the KMS key, such as ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` .
-
-        For information about the key ARN of a KMS key, see `Key ARN <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrKeyId")
-    def attr_key_id(self) -> builtins.str:
-        '''The key ID of the KMS key, such as ``1234abcd-12ab-34cd-56ef-1234567890ab`` .
-
-        For information about the key ID of a KMS key, see `Key ID <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-id>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :cloudformationAttribute: KeyId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrKeyId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> KeyReference:
-        '''A reference to a Key resource.'''
-        return typing.cast(KeyReference, jsii.get(self, "keyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="bypassPolicyLockoutSafetyCheck")
-    def bypass_policy_lockout_safety_check(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Skips ("bypasses") the key policy lockout safety check.
-
-        The default value is false.
-        '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "bypassPolicyLockoutSafetyCheck"))
-
-    @bypass_policy_lockout_safety_check.setter
-    def bypass_policy_lockout_safety_check(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bypassPolicyLockoutSafetyCheck", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the KMS key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01ec2bc212e875693eedcd62e8c0a2303fbbcbb0c0520e369d7b6372f89ba8ef)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the KMS key is enabled.
-
-        Disabled KMS keys cannot be used in cryptographic operations.
-        '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762a591e56)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enableKeyRotation")
-    def enable_key_rotation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables automatic rotation of the key material for the specified KMS key.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enableKeyRotation"))
-
-    @enable_key_rotation.setter
-    def enable_key_rotation(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableKeyRotation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="keyPolicy")
-    def key_policy(self) -> typing.Any:
-        '''The key policy to attach to the KMS key.'''
-        return typing.cast(typing.Any, jsii.get(self, "keyPolicy"))
-
-    @key_policy.setter
-    def key_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="keySpec")
-    def key_spec(self) -> typing.Optional[builtins.str]:
-        '''Specifies the type of KMS key to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keySpec"))
-
-    @key_spec.setter
-    def key_spec(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00b8e7e0c6c26ba4d81ad2ec83a06ba02111a601de28c48a34e711a20bdb960d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySpec", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="keyUsage")
-    def key_usage(self) -> typing.Optional[builtins.str]:
-        '''Determines the `cryptographic operations <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#cryptographic-operations>`_ for which you can use the KMS key. The default value is ``ENCRYPT_DECRYPT`` . This property is required for asymmetric KMS keys and HMAC KMS keys. You can't change the ``KeyUsage`` value after the KMS key is created.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyUsage"))
-
-    @key_usage.setter
-    def key_usage(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3644201e513b7c747f1fac050f42c4761013ce447fd095d4670a875776c68562)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyUsage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="multiRegion")
-    def multi_region(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Creates a multi-Region primary key that you can replicate in other AWS Regions .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "multiRegion"))
-
-    @multi_region.setter
-    def multi_region(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a81f5a9d29ef2c8fdbd0a5b47659d6f998118db687737549f32e443f43446da)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiRegion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="origin")
-    def origin(self) -> typing.Optional[builtins.str]:
-        '''The source of the key material for the KMS key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "origin"))
-
-    @origin.setter
-    def origin(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e82f572625e8bbed987a6ede9a751d501f7398289c234e243ea2f716f23608b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "origin", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pendingWindowInDays")
-    def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the number of days in the waiting period before AWS KMS deletes a KMS key that has been removed from a CloudFormation stack.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "pendingWindowInDays"))
-
-    @pending_window_in_days.setter
-    def pending_window_in_days(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d3e524eda3827ec1d53e329afc207f3ef954caf7cf407b25faef721f3a2016d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rotationPeriodInDays")
-    def rotation_period_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specifies a custom period of time between each rotation date.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "rotationPeriodInDays"))
-
-    @rotation_period_in_days.setter
-    def rotation_period_in_days(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b766cb0a8ed53bed340510bfb429fb6a5f36d2f63f9c7718fb1f0c92f2fbc59)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotationPeriodInDays", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags to the replica key.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd91c4576)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IReplicaKeyRef, _ITaggable_36806126)
-class CfnReplicaKey(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kms.CfnReplicaKey",
-):
-    '''The ``AWS::KMS::ReplicaKey`` resource specifies a multi-Region replica key that is based on a multi-Region primary key.
-
-    *Multi-Region keys* are an AWS KMS feature that lets you create multiple interoperable KMS keys in different AWS Regions . Because these KMS keys have the same key ID, key material, and other metadata, you can use them to encrypt data in one AWS Region and decrypt it in a different AWS Region without making a cross-Region call or exposing the plaintext data. For more information, see `Multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-    A multi-Region *primary key* is a fully functional symmetric encryption KMS key, HMAC KMS key, or asymmetric KMS key that is also the model for replica keys in other AWS Regions . To create a multi-Region primary key, add an `AWS::KMS::Key <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html>`_ resource to your CloudFormation stack. Set its ``MultiRegion`` property to true.
-
-    A multi-Region *replica key* is a fully functional KMS key that has the same key ID and key material as a multi-Region primary key, but is located in a different AWS Region of the same AWS partition. There can be multiple replicas of a primary key, but each must be in a different AWS Region .
-
-    When you create a replica key in AWS CloudFormation , the replica key is created in the AWS Region represented by the endpoint you use for the request. If you try to replicate a multi-Region key into a Region in which the key type is not supported, the request will fail.
-
-    A primary key and its replicas have the same key ID and key material. They also have the same key spec, key usage, key material origin, and automatic key rotation status. These properties are known as *shared properties* . If they change, AWS KMS synchronizes the change to all related multi-Region keys. All other properties of a replica key can differ, including its key policy, tags, aliases, and key state. AWS KMS does not synchronize these properties.
-
-    *Regions*
-
-    AWS KMS CloudFormation resources are available in all AWS Regions in which AWS KMS and AWS CloudFormation are supported. You can use the ``AWS::KMS::ReplicaKey`` resource to create replica keys in all Regions that support multi-Region KMS keys. For details, see `Multi-Region keys in AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the ** .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html
-    :cloudformationResource: AWS::KMS::ReplicaKey
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kms as kms
-        
-        # key_policy: Any
-        
-        cfn_replica_key = kms.CfnReplicaKey(self, "MyCfnReplicaKey",
-            key_policy=key_policy,
-            primary_key_arn="primaryKeyArn",
-        
-            # the properties below are optional
-            description="description",
-            enabled=False,
-            pending_window_in_days=123,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        key_policy: typing.Any,
-        primary_key_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        pending_window_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param key_policy: The key policy that authorizes use of the replica key. The key policy is not a shared property of multi-Region keys. You can specify the same key policy or a different key policy for each key in a set of related multi-Region keys. AWS KMS does not synchronize this property. The key policy must conform to the following rules. - The key policy must give the caller `PutKeyPolicy <https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html>`_ permission on the KMS key. This reduces the risk that the KMS key becomes unmanageable. For more information, refer to the scenario in the `Default key policy <https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default-allow-root-enable-iam>`_ section of the **AWS Key Management Service Developer Guide** . - Each statement in the key policy must contain one or more principals. The principals in the key policy must exist and be visible to AWS KMS . When you create a new AWS principal (for example, an IAM user or role), you might need to enforce a delay before including the new principal in a key policy because the new principal might not be immediately visible to AWS KMS . For more information, see `Changes that I make are not always immediately visible <https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_eventual-consistency>`_ in the *AWS Identity and Access Management User Guide* . A key policy document can include only the following characters: - Printable ASCII characters from the space character ( ``\\u0020`` ) through the end of the ASCII character range. - Printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ). - The tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` ) special characters *Minimum* : ``1`` *Maximum* : ``32768``
-        :param primary_key_arn: Specifies the multi-Region primary key to replicate. The primary key must be in a different AWS Region of the same AWS partition. You can create only one replica of a given primary key in each AWS Region . .. epigraph:: If you change the ``PrimaryKeyArn`` value of a replica key, the existing replica key is scheduled for deletion and a new replica key is created based on the specified primary key. While it is scheduled for deletion, the existing replica key becomes unusable. You can cancel the scheduled deletion of the key outside of CloudFormation. However, if you inadvertently delete a replica key, you can decrypt ciphertext encrypted by that replica key by using any related multi-Region key. If necessary, you can recreate the replica in the same Region after the previous one is completely deleted. For details, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* Specify the key ARN of an existing multi-Region primary key. For example, ``arn:aws:kms:us-east-2:111122223333:key/mrk-1234abcd12ab34cd56ef1234567890ab`` .
-        :param description: A description of the KMS key. The default value is an empty string (no description). The description is not a shared property of multi-Region keys. You can specify the same description or a different description for each key in a set of related multi-Region keys. AWS Key Management Service does not synchronize this property.
-        :param enabled: Specifies whether the replica key is enabled. Disabled KMS keys cannot be used in cryptographic operations. When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` . The actual key state of the replica might be affected by actions taken outside of CloudFormation, such as running the `EnableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKey.html>`_ , `DisableKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DisableKey.html>`_ , or `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operations. Also, while the replica key is being created, its key state is ``Creating`` . When the process is complete, the key state of the replica key changes to ``Enabled`` . For information about the key states of a KMS key, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param pending_window_in_days: Specifies the number of days in the waiting period before AWS KMS deletes a replica key that has been removed from a CloudFormation stack. Enter a value between 7 and 30 days. The default value is 30 days. When you remove a replica key from a CloudFormation stack, AWS KMS schedules the replica key for deletion and starts the mandatory waiting period. The ``PendingWindowInDays`` property determines the length of waiting period. During the waiting period, the key state of replica key is ``Pending Deletion`` , which prevents it from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the replica key. If the KMS key is a multi-Region primary key with replica keys, the waiting period begins when the last of its replica keys is deleted. Otherwise, the waiting period begins immediately. You cannot use a CloudFormation template to cancel deletion of the replica after you remove it from the stack, regardless of the waiting period. However, if you specify a replica key in your template that is based on the same primary key as the original replica key, CloudFormation creates a new replica key with the same key ID, key material, and other shared properties of the original replica key. This new replica key can decrypt ciphertext that was encrypted under the original replica key, or any related multi-Region key. For detailed information about deleting multi-Region keys, see `Deleting multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-delete.html>`_ in the *AWS Key Management Service Developer Guide* . For information about the ``PendingDeletion`` key state, see `Key state: Effect on your KMS key <https://docs.aws.amazon.com/kms/latest/developerguide/key-state.html>`_ in the *AWS Key Management Service Developer Guide* . For more information about deleting KMS keys, see the `ScheduleKeyDeletion <https://docs.aws.amazon.com/kms/latest/APIReference/API_ScheduleKeyDeletion.html>`_ operation in the *AWS Key Management Service API Reference* and `Deleting KMS keys <https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS KMS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS KMS does not synchronize this property. Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS KMS replaces the current tag value with the specified one. When you assign tags to an AWS resource, AWS generates a cost allocation report with usage and costs aggregated by tags. Tags can also be used to control access to a KMS key. For details, see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ead30546b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnReplicaKeyProps(
-            key_policy=key_policy,
-            primary_key_arn=primary_key_arn,
-            description=description,
-            enabled=enabled,
-            pending_window_in_days=pending_window_in_days,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e24eab003d1d7413d435432417d9c001c3be699c66c07b278b9d5cb7ab69fec)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__506b80402bbe68662639797e0c6aabbb40195789ec9827424d8c8b8a760fa7c3)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the replica key, such as ``arn:aws:kms:us-west-2:111122223333:key/mrk-1234abcd12ab34cd56ef1234567890ab`` .
-
-        The key ARNs of related multi-Region keys differ only in the Region value. For information about the key ARNs of multi-Region keys, see `How multi-Region keys work <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html#mrk-how-it-works>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrKeyId")
-    def attr_key_id(self) -> builtins.str:
-        '''The key ID of the replica key, such as ``mrk-1234abcd12ab34cd56ef1234567890ab`` .
-
-        Related multi-Region keys have the same key ID. For information about the key IDs of multi-Region keys, see `How multi-Region keys work <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html#mrk-how-it-works>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :cloudformationAttribute: KeyId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrKeyId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="replicaKeyRef")
-    def replica_key_ref(self) -> ReplicaKeyReference:
-        '''A reference to a ReplicaKey resource.'''
-        return typing.cast(ReplicaKeyReference, jsii.get(self, "replicaKeyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keyPolicy")
-    def key_policy(self) -> typing.Any:
-        '''The key policy that authorizes use of the replica key.'''
-        return typing.cast(typing.Any, jsii.get(self, "keyPolicy"))
-
-    @key_policy.setter
-    def key_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54fc1b22cb7e48927490c2ff73a5afea9bb5bb4dd8e62a2a6f805d4bb26f967d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="primaryKeyArn")
-    def primary_key_arn(self) -> builtins.str:
-        '''Specifies the multi-Region primary key to replicate.'''
-        return typing.cast(builtins.str, jsii.get(self, "primaryKeyArn"))
-
-    @primary_key_arn.setter
-    def primary_key_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15fbb1b757e713b4a793995a5eb68370a6a6f742705620d66815b734fa8b2547)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "primaryKeyArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the KMS key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__416fb26a5b9f08dd98d1c61865eacaf89a14839e250c7f61ec3485d272103112)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the replica key is enabled.
-
-        Disabled KMS keys cannot be used in cryptographic operations.
-        '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb76d39656831fe315be03ed1109d35bd47e49d418dd22bdc531e5665db1e4c7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pendingWindowInDays")
-    def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the number of days in the waiting period before AWS KMS deletes a replica key that has been removed from a CloudFormation stack.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "pendingWindowInDays"))
-
-    @pending_window_in_days.setter
-    def pending_window_in_days(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa84d85621)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags to the replica key.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IKey")
-class IKey(_IResource_c80c4260, IKeyRef, typing_extensions.Protocol):
-    '''A KMS Key, either managed by this CDK app, or imported.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="keyArn")
-    def key_arn(self) -> builtins.str:
-        '''The ARN of the key.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="keyId")
-    def key_id(self) -> builtins.str:
-        '''The ID of the key (the part that looks something like: 1234abcd-12ab-34cd-56ef-1234567890ab).
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="addAlias")
-    def add_alias(self, alias: builtins.str) -> "Alias":
-        '''Defines a new alias for the key.
-
-        :param alias: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="addToResourcePolicy")
-    def add_to_resource_policy(
-        self,
-        statement: _PolicyStatement_0fe33853,
-        allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> _AddToResourcePolicyResult_1d0a53ad:
-        '''Adds a statement to the KMS key resource policy.
-
-        :param statement: The policy statement to add.
-        :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this key to the given principal.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant decryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantEncryptDecrypt")
-    def grant_encrypt_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption and decryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to generating MACs to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign and verify permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant verify permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to verifying MACs to the given principal.
-
-        :param grantee: -
-        '''
-        ...
-
-
-class _IKeyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(IKeyRef), # type: ignore[misc]
-):
-    '''A KMS Key, either managed by this CDK app, or imported.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kms.IKey"
-
-    @builtins.property
-    @jsii.member(jsii_name="keyArn")
-    def key_arn(self) -> builtins.str:
-        '''The ARN of the key.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "keyArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keyId")
-    def key_id(self) -> builtins.str:
-        '''The ID of the key (the part that looks something like: 1234abcd-12ab-34cd-56ef-1234567890ab).
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "keyId"))
-
-    @jsii.member(jsii_name="addAlias")
-    def add_alias(self, alias: builtins.str) -> "Alias":
-        '''Defines a new alias for the key.
-
-        :param alias: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2ffddf2bf6b08c78a62cc0dfd610a5f18de25ac8525da51ce3683ae56ea6333)
-            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
-        return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias]))
-
-    @jsii.member(jsii_name="addToResourcePolicy")
-    def add_to_resource_policy(
-        self,
-        statement: _PolicyStatement_0fe33853,
-        allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> _AddToResourcePolicyResult_1d0a53ad:
-        '''Adds a statement to the KMS key resource policy.
-
-        :param statement: The policy statement to add.
-        :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49ab7698d2a79e6b83d905354157adf61cc66dcdc514e2f6586029179411a56c)
-            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-            check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
-        return typing.cast(_AddToResourcePolicyResult_1d0a53ad, jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this key to the given principal.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e75995ff61f7b73643112ecb31c0f51795b9a98794730d4be368915f8c2593c2)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-    @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant decryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39902b1c75983f537dc01c509a72cacad7b1f7eac41eb11b78961dad89057e68)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDecrypt", [grantee]))
-
-    @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19d45c86cc60f7439a524a94d75c39b726b3b12a4723b2d320f194039f842fcd)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantEncrypt", [grantee]))
-
-    @jsii.member(jsii_name="grantEncryptDecrypt")
-    def grant_encrypt_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption and decryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f2582b1d436c32b0e7fbd6af00bad050f74f9e18f1406e20625022b2a13d294)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
-
-    @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to generating MACs to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__678d44f30b3f7854df209779d1ab6c27a0eac432204e7f4ac90a02792d307f03)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantGenerateMac", [grantee]))
-
-    @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17bf7cf2a33c9cdda910f2942efab62c58f1c1a7a7dd9458dde25eeca2f4682d)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSign", [grantee]))
-
-    @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign and verify permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c990d684da172804daae0cf29edc7427216184b33a70a020885b86aa21a224d2)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSignVerify", [grantee]))
-
-    @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant verify permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f56ca61f2a3a6b4719a05ed3f1c1897c7b914146a2f92ae8dd0313130d7111c)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantVerify", [grantee]))
-
-    @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to verifying MACs to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e10fb25b1b8146054e097c61432d71d4ae4493eb15e2a482f90f513e686b24ee)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantVerifyMac", [grantee]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IKey).__jsii_proxy_class__ = lambda : _IKeyProxy
-
-
-@jsii.implements(IKey)
-class Key(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kms.Key",
-):
-    '''Defines a KMS key.
-
-    :resource: AWS::KMS::Key
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_kms as kms
-        
-        
-        my_kms_key = kms.Key(self, "myKMSKey")
-        my_bucket = s3.Bucket(self, "mySSEKMSEncryptedBucket",
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=my_kms_key,
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
-        )
-        cloudfront.Distribution(self, "myDist",
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3BucketOrigin.with_origin_access_control(my_bucket)
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        admins: typing.Optional[typing.Sequence[_IPrincipal_539bb2fd]] = None,
-        alias: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        enable_key_rotation: typing.Optional[builtins.bool] = None,
-        key_spec: typing.Optional[KeySpec] = None,
-        key_usage: typing.Optional[KeyUsage] = None,
-        multi_region: typing.Optional[builtins.bool] = None,
-        pending_window: typing.Optional[_Duration_4839e8c3] = None,
-        policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-        rotation_period: typing.Optional[_Duration_4839e8c3] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param admins: A list of principals to add as key administrators to the key policy. Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions to use the key in cryptographic operations (e.g., encrypt, decrypt). These principals will be added to the default key policy (if none specified), or to the specified policy (if provided). Default: []
-        :param alias: Initial alias to add to the key. More aliases can be added later by calling ``addAlias``. Default: - No alias is added for the key.
-        :param description: A description of the key. Use a description that helps your users decide whether the key is appropriate for a particular task. Default: - No description.
-        :param enabled: Indicates whether the key is available for use. Default: - Key is enabled.
-        :param enable_key_rotation: Indicates whether AWS KMS rotates the key. Default: false
-        :param key_spec: The cryptographic configuration of the key. The valid value depends on usage of the key. IMPORTANT: If you change this property of an existing key, the existing key is scheduled for deletion and a new key is created with the specified value. Default: KeySpec.SYMMETRIC_DEFAULT
-        :param key_usage: The cryptographic operations for which the key can be used. IMPORTANT: If you change this property of an existing key, the existing key is scheduled for deletion and a new key is created with the specified value. Default: KeyUsage.ENCRYPT_DECRYPT
-        :param multi_region: Creates a multi-Region primary key that you can replicate in other AWS Regions. You can't change the ``multiRegion`` value after the KMS key is created. IMPORTANT: If you change the value of the ``multiRegion`` property on an existing KMS key, the update request fails, regardless of the value of the UpdateReplacePolicy attribute. This prevents you from accidentally deleting a KMS key by changing an immutable property value. Default: false
-        :param pending_window: Specifies the number of days in the waiting period before AWS KMS deletes a CMK that has been removed from a CloudFormation stack. When you remove a customer master key (CMK) from a CloudFormation stack, AWS KMS schedules the CMK for deletion and starts the mandatory waiting period. The PendingWindowInDays property determines the length of waiting period. During the waiting period, the key state of CMK is Pending Deletion, which prevents the CMK from being used in cryptographic operations. When the waiting period expires, AWS KMS permanently deletes the CMK. Enter a value between 7 and 30 days. Default: - 30 days
-        :param policy: Custom policy document to attach to the KMS key. NOTE - If the ``@aws-cdk/aws-kms:defaultKeyPolicies`` feature flag is set (the default for new projects), this policy will *override* the default key policy and become the only key policy for the key. If the feature flag is not set, this policy will be appended to the default key policy. Default: - A policy document with permissions for the account root to administer the key will be created.
-        :param removal_policy: Whether the encryption key should be retained when it is removed from the Stack. This is useful when one wants to retain access to data that was encrypted with a key that is being retired. Default: RemovalPolicy.Retain
-        :param rotation_period: The period between each automatic rotation. Default: - set by CFN to 365 days.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cde9534bdfe7c19d6e24354f8a0de8ca349632d3f565addcaed7e86a84dac7e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = KeyProps(
-            admins=admins,
-            alias=alias,
-            description=description,
-            enabled=enabled,
-            enable_key_rotation=enable_key_rotation,
-            key_spec=key_spec,
-            key_usage=key_usage,
-            multi_region=multi_region,
-            pending_window=pending_window,
-            policy=policy,
-            removal_policy=removal_policy,
-            rotation_period=rotation_period,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromCfnKey")
-    @builtins.classmethod
-    def from_cfn_key(cls, cfn_key: CfnKey) -> IKey:
-        '''Create a mutable ``IKey`` based on a low-level ``CfnKey``.
-
-        This is most useful when combined with the cloudformation-include module.
-        This method is different than ``fromKeyArn()`` because the ``IKey``
-        returned from this method is mutable;
-        meaning, calling any mutating methods on it,
-        like ``IKey.addToResourcePolicy()``,
-        will actually be reflected in the resulting template,
-        as opposed to the object returned from ``fromKeyArn()``,
-        on which calling those methods would have no effect.
-
-        :param cfn_key: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44fb03a49b50ed40c1e4dfe9c0db8eb33dbd35e3ee425ee8f32dde09abc3287c)
-            check_type(argname="argument cfn_key", value=cfn_key, expected_type=type_hints["cfn_key"])
-        return typing.cast(IKey, jsii.sinvoke(cls, "fromCfnKey", [cfn_key]))
-
-    @jsii.member(jsii_name="fromKeyArn")
-    @builtins.classmethod
-    def from_key_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        key_arn: builtins.str,
-    ) -> IKey:
-        '''Import an externally defined KMS Key using its ARN.
-
-        :param scope: the construct that will "own" the imported key.
-        :param id: the id of the imported key in the construct tree.
-        :param key_arn: the ARN of an existing KMS key.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9222dd19331f8774792b2f22b672882512022a23227af13133314719a32a929e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
-        return typing.cast(IKey, jsii.sinvoke(cls, "fromKeyArn", [scope, id, key_arn]))
-
-    @jsii.member(jsii_name="fromLookup")
-    @builtins.classmethod
-    def from_lookup(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        alias_name: builtins.str,
-        return_dummy_key_on_missing: typing.Optional[builtins.bool] = None,
-    ) -> IKey:
-        '''Import an existing Key by querying the AWS environment this stack is deployed to.
-
-        This function only needs to be used to use Keys not defined in your CDK
-        application. If you are looking to share a Key between stacks, you can
-        pass the ``Key`` object between stacks and use it as normal. In addition,
-        it's not necessary to use this method if an interface accepts an ``IKey``.
-        In this case, ``Alias.fromAliasName()`` can be used which returns an alias
-        that extends ``IKey``.
-
-        Calling this method will lead to a lookup when the CDK CLI is executed.
-        You can therefore not use any values that will only be available at
-        CloudFormation execution time (i.e., Tokens).
-
-        If you set ``returnDummyKeyOnMissing`` to ``true`` in ``options`` and the key was not found,
-        this method will return a dummy key with a key id '1234abcd-12ab-34cd-56ef-1234567890ab'.
-        The value of the dummy key id can also be referenced using the ``Key.DEFAULT_DUMMY_KEY_ID``
-        variable, and you can check if the key is a dummy key by using the ``Key.isLookupDummy()``
-        method.
-
-        The Key information will be cached in ``cdk.context.json`` and the same Key
-        will be used on future runs. To refresh the lookup, you will have to
-        evict the value from the cache using the ``cdk context`` command. See
-        https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information.
-
-        :param scope: -
-        :param id: -
-        :param alias_name: The alias name of the Key. Must be in the format ``alias/<AliasName>``.
-        :param return_dummy_key_on_missing: Whether to return a dummy key if the key was not found. If it is set to ``true`` and the key was not found, a dummy key with a key id '1234abcd-12ab-34cd-56ef-1234567890ab' will be returned. The value of the dummy key id can also be referenced using the ``Key.DEFAULT_DUMMY_KEY_ID`` variable, and you can check if the key is a dummy key by using the ``Key.isLookupDummy()`` method. Default: false
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c731fe78f9388d4b31695080a02f67600ec386d3b55f25a7274b86edbd4673)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = KeyLookupOptions(
-            alias_name=alias_name,
-            return_dummy_key_on_missing=return_dummy_key_on_missing,
-        )
-
-        return typing.cast(IKey, jsii.sinvoke(cls, "fromLookup", [scope, id, options]))
-
-    @jsii.member(jsii_name="isLookupDummy")
-    @builtins.classmethod
-    def is_lookup_dummy(cls, key: IKeyRef) -> builtins.bool:
-        '''Checks if the key returned by the ``Key.fromLookup()`` method is a dummy key, i.e., a key that was not found.
-
-        This method can only be used if the ``returnDummyKeyOnMissing`` option
-        is set to ``true`` in the ``options`` for the ``Key.fromLookup()`` method.
-
-        :param key: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a60ddf97e7bd93ce51bb72de0630a0a66c03edf9f9e5f71c93ad6e4563a7cb0)
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isLookupDummy", [key]))
-
-    @jsii.member(jsii_name="addAlias")
-    def add_alias(self, alias_name: builtins.str) -> "Alias":
-        '''Defines a new alias for the key.
-
-        :param alias_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c455c06c17802eaffea2f6642f95411cde639deb7ec10fa1d1e54bc6d7babe0)
-            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
-        return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias_name]))
-
-    @jsii.member(jsii_name="addToResourcePolicy")
-    def add_to_resource_policy(
-        self,
-        statement: _PolicyStatement_0fe33853,
-        allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> _AddToResourcePolicyResult_1d0a53ad:
-        '''Adds a statement to the KMS key resource policy.
-
-        :param statement: The policy statement to add.
-        :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f20e8e11b4cff0f78acc743ad38d02a945f8e93be1f7bfc67153d317f711d06c)
-            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-            check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
-        return typing.cast(_AddToResourcePolicyResult_1d0a53ad, jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this key to the given principal.
-
-        This modifies both the principal's policy as well as the resource policy,
-        since the default CloudFormation setup for KMS keys is that the policy
-        must not be empty and so default grants won't work.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3078f1361f1b59b619c5946b92259b4d2eefa0ae12e2e3b01160eae5ce37ceed)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-    @jsii.member(jsii_name="grantAdmin")
-    def grant_admin(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant admins permissions using this key to the given principal.
-
-        Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
-        to use the key in cryptographic operations (e.g., encrypt, decrypt).
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__767164803c663312dbd0dc562333e5aa71475360f03804af0d572d5e1e00b889)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantAdmin", [grantee]))
-
-    @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant decryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21f59a965699a16e14a1c50712dea7dfff44afb1561561c2ca8c3dc2d510da1d)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDecrypt", [grantee]))
-
-    @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b813a815a19cfcc384a90657fd701837adf5051ac8297faee4ede086e7e8ce8)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantEncrypt", [grantee]))
-
-    @jsii.member(jsii_name="grantEncryptDecrypt")
-    def grant_encrypt_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption and decryption permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14a8599a061fbde74d692dfefcfd2f5f92f1a86fc2beee05e7d53c877d7deb03)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
-
-    @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to generating MACs to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__440bf3733f200027c74618bbc6f89d59b060f4aa9d88bb6dbfb057771091f628)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantGenerateMac", [grantee]))
-
-    @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6461815f1d37e6ba54e3cbf1944f9dfd4919e6778f163b7d761b4addf454e443)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSign", [grantee]))
-
-    @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign and verify permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9dd17cfd9ba136ab5eb61bfd08f31dab5e9e96d93c1a2e94c0610a4b97524bd)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSignVerify", [grantee]))
-
-    @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant verify permissions using this key to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399ec6d8a6)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantVerify", [grantee]))
-
-    @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to verifying MACs to the given principal.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantVerifyMac", [grantee]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="DEFAULT_DUMMY_KEY_ID")
-    def DEFAULT_DUMMY_KEY_ID(cls) -> builtins.str:
-        '''The default key id of the dummy key.
-
-        This value is used as a dummy key id if the key was not found
-        by the ``Key.fromLookup()`` method.
-        '''
-        return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_DUMMY_KEY_ID"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keyArn")
-    def key_arn(self) -> builtins.str:
-        '''The ARN of the key.'''
-        return typing.cast(builtins.str, jsii.get(self, "keyArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keyId")
-    def key_id(self) -> builtins.str:
-        '''The ID of the key (the part that looks something like: 1234abcd-12ab-34cd-56ef-1234567890ab).'''
-        return typing.cast(builtins.str, jsii.get(self, "keyId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> KeyReference:
-        '''A reference to a Key resource.'''
-        return typing.cast(KeyReference, jsii.get(self, "keyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="trustAccountIdentities")
-    def _trust_account_identities(self) -> builtins.bool:
-        '''Optional property to control trusting account identities.
-
-        If specified, grants will default identity policies instead of to both
-        resource and identity policies. This matches the default behavior when creating
-        KMS keys via the API or console.
-        '''
-        return typing.cast(builtins.bool, jsii.get(self, "trustAccountIdentities"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def _policy(self) -> typing.Optional[_PolicyDocument_3ac34393]:
-        '''Optional policy document that represents the resource policy of this key.
-
-        If specified, addToResourcePolicy can be used to edit this policy.
-        Otherwise this method will no-op.
-        '''
-        return typing.cast(typing.Optional[_PolicyDocument_3ac34393], jsii.get(self, "policy"))
+        return typing.cast("_PrincipalPolicyFragment_6a855d11", jsii.get(self, "policyFragment"))
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IAlias")
-class IAlias(IKey, IAliasRef, typing_extensions.Protocol):
+class IAlias(IKey, _IAliasRef_43fafabd, typing_extensions.Protocol):
     '''A KMS Key alias.
 
     An alias can be used in all places that expect a key.
@@ -3481,7 +3354,7 @@ class IAlias(IKey, IAliasRef, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="aliasTargetKey")
-    def alias_target_key(self) -> IKey:
+    def alias_target_key(self) -> "IKey":
         '''The Key to which the Alias refers.
 
         :attribute: true
@@ -3491,7 +3364,7 @@ class IAlias(IKey, IAliasRef, typing_extensions.Protocol):
 
 class _IAliasProxy(
     jsii.proxy_for(IKey), # type: ignore[misc]
-    jsii.proxy_for(IAliasRef), # type: ignore[misc]
+    jsii.proxy_for(_IAliasRef_43fafabd), # type: ignore[misc]
 ):
     '''A KMS Key alias.
 
@@ -3511,12 +3384,12 @@ class _IAliasProxy(
 
     @builtins.property
     @jsii.member(jsii_name="aliasTargetKey")
-    def alias_target_key(self) -> IKey:
+    def alias_target_key(self) -> "IKey":
         '''The Key to which the Alias refers.
 
         :attribute: true
         '''
-        return typing.cast(IKey, jsii.get(self, "aliasTargetKey"))
+        return typing.cast("IKey", jsii.get(self, "aliasTargetKey"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAlias).__jsii_proxy_class__ = lambda : _IAliasProxy
@@ -3542,6 +3415,7 @@ class Alias(
 
     Example::
 
+        from aws_cdk import Environment
         # Passing an encrypted replication bucket created in a different stack.
         app = App()
         replication_stack = Stack(app, "ReplicationStack",
@@ -3563,12 +3437,12 @@ class Alias(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         alias_name: builtins.str,
-        target_key: IKey,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        target_key: "IKey",
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3591,12 +3465,12 @@ class Alias(
     @builtins.classmethod
     def from_alias_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         alias_name: builtins.str,
-        alias_target_key: IKey,
-    ) -> IAlias:
+        alias_target_key: "IKey",
+    ) -> "IAlias":
         '''Import an existing KMS Alias defined outside the CDK app.
 
         :param scope: The parent creating construct (usually ``this``).
@@ -3612,16 +3486,16 @@ class Alias(
             alias_name=alias_name, alias_target_key=alias_target_key
         )
 
-        return typing.cast(IAlias, jsii.sinvoke(cls, "fromAliasAttributes", [scope, id, attrs]))
+        return typing.cast("IAlias", jsii.sinvoke(cls, "fromAliasAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="fromAliasName")
     @builtins.classmethod
     def from_alias_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         alias_name: builtins.str,
-    ) -> IAlias:
+    ) -> "IAlias":
         '''Import an existing KMS Alias defined outside the CDK app, by the alias name.
 
         This method should be used
@@ -3642,7 +3516,7 @@ class Alias(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
-        return typing.cast(IAlias, jsii.sinvoke(cls, "fromAliasName", [scope, id, alias_name]))
+        return typing.cast("IAlias", jsii.sinvoke(cls, "fromAliasName", [scope, id, alias_name]))
 
     @jsii.member(jsii_name="addAlias")
     def add_alias(self, alias: builtins.str) -> "Alias":
@@ -3658,9 +3532,9 @@ class Alias(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: _PolicyStatement_0fe33853,
+        statement: "_PolicyStatement_0fe33853",
         allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> _AddToResourcePolicyResult_1d0a53ad:
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
         '''Adds a statement to the KMS key resource policy.
 
         :param statement: -
@@ -3670,7 +3544,7 @@ class Alias(
             type_hints = typing.get_type_hints(_typecheckingstub__b22b27f4615124191ddcb7d43f313a681be5bf126396931e72f2a8086f28d15d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
             check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
-        return typing.cast(_AddToResourcePolicyResult_1d0a53ad, jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
+        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
 
     @jsii.member(jsii_name="generatePhysicalName")
     def _generate_physical_name(self) -> builtins.str:
@@ -3679,10 +3553,10 @@ class Alias(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _IGrantable_71c4f5de,
+        grantee: "_IGrantable_71c4f5de",
         *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this key to the given principal.
+    ) -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
@@ -3691,95 +3565,98 @@ class Alias(
             type_hints = typing.get_type_hints(_typecheckingstub__90c67882778cd60cf1af18413a9aaf1ca290ab5a87d50f8929fa64ac66b8923a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant decryption permissions using this key to the given principal.
+    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76283f5eae879bc6cabdbf046c1d68b45cbf7e0222f84edb498c04a69b69ad79)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDecrypt", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption permissions using this key to the given principal.
+    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1eddbd590dc8e102f7834fb50d2514218d6a3b73d838b34d7fa52ce858c2c8a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantEncrypt", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncryptDecrypt")
-    def grant_encrypt_decrypt(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant encryption and decryption permissions using this key to the given principal.
+    def grant_encrypt_decrypt(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+    ) -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__765b50233677797d65a2ccab14fdf25c84306d9da9ab54635a10428ed6a23546)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to generating MACs to the given principal.
+    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a08117fd4a61f5dbdfb60de37f9aafd66666c36ccbd553402d5504cdd79a06f2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantGenerateMac", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantGenerateMac", [grantee]))
 
     @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign permissions using this key to the given principal.
+    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9930639ecbcd35ed216f2d886dc8190db34758bfddca534c0b1a15eec5b03bd4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSign", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSign", [grantee]))
 
     @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant sign and verify permissions using this key to the given principal.
+    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa123781beb7a446099dc1bd3f1e2905a09dd2781b09e4876768625072421ff6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSignVerify", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSignVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant verify permissions using this key to the given principal.
+    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b324b24cb913496e78f2a43c74194efd7b11966ae5d2d3b1a5d17611af6d6fca)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantVerify", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant permissions to verifying MACs to the given principal.
+    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__889887809ebfcb10b086b9443331082b607fe1c8b476e14ebc492583598f19a2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantVerifyMac", [grantee]))
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerifyMac", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3804,15 +3681,15 @@ class Alias(
 
     @builtins.property
     @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> AliasReference:
+    def alias_ref(self) -> "_AliasReference_b94b5fd4":
         '''A reference to a Alias resource.'''
-        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
+        return typing.cast("_AliasReference_b94b5fd4", jsii.get(self, "aliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="aliasTargetKey")
-    def alias_target_key(self) -> IKey:
+    def alias_target_key(self) -> "IKey":
         '''The Key to which the Alias refers.'''
-        return typing.cast(IKey, jsii.get(self, "aliasTargetKey"))
+        return typing.cast("IKey", jsii.get(self, "aliasTargetKey"))
 
     @builtins.property
     @jsii.member(jsii_name="keyArn")
@@ -3834,16 +3711,15 @@ class Alias(
 
     @builtins.property
     @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> KeyReference:
+    def key_ref(self) -> "_KeyReference_751b3d66":
         '''A reference to a Key resource.'''
-        return typing.cast(KeyReference, jsii.get(self, "keyRef"))
+        return typing.cast("_KeyReference_751b3d66", jsii.get(self, "keyRef"))
 
 
 __all__ = [
     "Alias",
     "AliasAttributes",
     "AliasProps",
-    "AliasReference",
     "CfnAlias",
     "CfnAliasProps",
     "CfnKey",
@@ -3851,17 +3727,12 @@ __all__ = [
     "CfnReplicaKey",
     "CfnReplicaKeyProps",
     "IAlias",
-    "IAliasRef",
     "IKey",
-    "IKeyRef",
-    "IReplicaKeyRef",
     "Key",
     "KeyLookupOptions",
     "KeyProps",
-    "KeyReference",
     "KeySpec",
     "KeyUsage",
-    "ReplicaKeyReference",
     "ViaServicePrincipal",
 ]
 
@@ -3884,106 +3755,18 @@ def _typecheckingstub__e903bf066a426ef7752d4c25658bc63605bb655d804e5468ef9fa75e0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__13847423bbb605956825c7efa8e78e08bab451e839e11a6e07beeec45ad8989d(
-    *,
-    alias_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dbfd3a4fafdacbfbfd8d6fce574bc924973ce57499da64b6659e12ea905b460f(
-    *,
-    alias_name: builtins.str,
-    target_key_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__52751771c8b3e52917eaf0c78bad67c065fa3f95795e92f5eab3e92ce5051178(
-    *,
-    bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    key_policy: typing.Any = None,
-    key_spec: typing.Optional[builtins.str] = None,
-    key_usage: typing.Optional[builtins.str] = None,
-    multi_region: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    origin: typing.Optional[builtins.str] = None,
-    pending_window_in_days: typing.Optional[jsii.Number] = None,
-    rotation_period_in_days: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e439eab3a0ecab69adc7fd26c12adbbe28fdefe26f6d89d9b6429b95ea8ffb03(
-    *,
-    key_policy: typing.Any,
-    primary_key_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    pending_window_in_days: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f5a93b8499d8ef4842a85d33ca3d3de5edce426bd92f9899e4dcda2ebfcf7e0(
-    *,
-    alias_name: builtins.str,
-    return_dummy_key_on_missing: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3cbd21baa1113e5b2864ce6b440a0d87704642442943c3a554ab23ae712d828(
-    *,
-    admins: typing.Optional[typing.Sequence[_IPrincipal_539bb2fd]] = None,
-    alias: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    enable_key_rotation: typing.Optional[builtins.bool] = None,
-    key_spec: typing.Optional[KeySpec] = None,
-    key_usage: typing.Optional[KeyUsage] = None,
-    multi_region: typing.Optional[builtins.bool] = None,
-    pending_window: typing.Optional[_Duration_4839e8c3] = None,
-    policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    rotation_period: typing.Optional[_Duration_4839e8c3] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb217ad7d9d4ecd8698db9c277304e9f6bc11f6b1bc31ae904e9199a7859996e(
-    *,
-    key_arn: builtins.str,
-    key_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__45791ea25a2aabe65b6c3c9f84d30fc9688ec61410e3baa8e6ac3a9c651328d2(
-    *,
-    key_id: builtins.str,
-    replica_key_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__590dd135e934b0f55ab30f9bfcb69bed4ccb0a3ef22f6f3ee9850c4658e2e172(
-    service_name: builtins.str,
-    base_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9ed5a3924f89c3ad638de218f71940a644d4f9331e3a66f708de865cc3551205(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     alias_name: builtins.str,
-    target_key_id: builtins.str,
+    target_key_id: typing.Union[builtins.str, _IKeyRef_d4fc6ef3, _IReplicaKeyRef_61fa3e10],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e80558a98b03b885d95d989843060b9b93618c41f5f93432adc0b2fd67e7319(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4012,6 +3795,14 @@ def _typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dbfd3a4fafdacbfbfd8d6fce574bc924973ce57499da64b6659e12ea905b460f(
+    *,
+    alias_name: builtins.str,
+    target_key_id: typing.Union[builtins.str, _IKeyRef_d4fc6ef3, _IReplicaKeyRef_61fa3e10],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e196d8783c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4028,6 +3819,34 @@ def _typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e19
     pending_window_in_days: typing.Optional[jsii.Number] = None,
     rotation_period_in_days: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0e1d5b4f549c0607d9643ccfe53af7d2dd89011c40d52dc462eb598c7b26187(
+    resource: _IKeyRef_d4fc6ef3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__717dcad4d9cbf2639e4a7706f2520822fc3c58d7d28a72e3e2c89cd6ecd9ec77(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__017d6fb56914db7b54b414d0535f40acc821857d39e3de53a3749ea5b44c245a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    key_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89642e771ba2a812f40a717a96d411721a80787ba9dc32888fe3f5c03f286fac(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4116,6 +3935,24 @@ def _typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__52751771c8b3e52917eaf0c78bad67c065fa3f95795e92f5eab3e92ce5051178(
+    *,
+    bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    key_policy: typing.Any = None,
+    key_spec: typing.Optional[builtins.str] = None,
+    key_usage: typing.Optional[builtins.str] = None,
+    multi_region: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    origin: typing.Optional[builtins.str] = None,
+    pending_window_in_days: typing.Optional[jsii.Number] = None,
+    rotation_period_in_days: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ead30546b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4126,6 +3963,18 @@ def _typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ea
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     pending_window_in_days: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90ad819d0c1118f8ff47efe0445b43498a14541be2f7a7478db6658fb8d67ed1(
+    resource: _IReplicaKeyRef_61fa3e10,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7044cd43ac1ad4bf8d0bcb243e6e605c2f4dc8f018e9e982b7ddfdf19831cf2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4174,6 +4023,18 @@ def _typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa8
 
 def _typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e439eab3a0ecab69adc7fd26c12adbbe28fdefe26f6d89d9b6429b95ea8ffb03(
+    *,
+    key_policy: typing.Any,
+    primary_key_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    pending_window_in_days: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4291,7 +4152,7 @@ def _typecheckingstub__54c731fe78f9388d4b31695080a02f67600ec386d3b55f25a7274b86e
     pass
 
 def _typecheckingstub__8a60ddf97e7bd93ce51bb72de0630a0a66c03edf9f9e5f71c93ad6e4563a7cb0(
-    key: IKeyRef,
+    key: _IKeyRef_d4fc6ef3,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4366,6 +4227,39 @@ def _typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399
 
 def _typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538(
     grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f5a93b8499d8ef4842a85d33ca3d3de5edce426bd92f9899e4dcda2ebfcf7e0(
+    *,
+    alias_name: builtins.str,
+    return_dummy_key_on_missing: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3cbd21baa1113e5b2864ce6b440a0d87704642442943c3a554ab23ae712d828(
+    *,
+    admins: typing.Optional[typing.Sequence[_IPrincipal_539bb2fd]] = None,
+    alias: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    enable_key_rotation: typing.Optional[builtins.bool] = None,
+    key_spec: typing.Optional[KeySpec] = None,
+    key_usage: typing.Optional[KeyUsage] = None,
+    multi_region: typing.Optional[builtins.bool] = None,
+    pending_window: typing.Optional[_Duration_4839e8c3] = None,
+    policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    rotation_period: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__590dd135e934b0f55ab30f9bfcb69bed4ccb0a3ef22f6f3ee9850c4658e2e172(
+    service_name: builtins.str,
+    base_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4466,3 +4360,6 @@ def _typecheckingstub__889887809ebfcb10b086b9443331082b607fe1c8b476e14ebc4925835
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAlias, IKey]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

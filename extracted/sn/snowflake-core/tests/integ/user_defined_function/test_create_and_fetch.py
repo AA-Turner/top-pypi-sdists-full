@@ -18,7 +18,7 @@ from snowflake.core.user_defined_function import (
 from tests.utils import random_string
 
 
-pytestmark = [pytest.mark.min_sf_ver("8.38.0"), pytest.mark.usefixtures("anaconda_package_available")]
+pytestmark = [pytest.mark.usefixtures("anaconda_package_available")]
 
 
 def test_create_and_fetch_python(user_defined_functions):
@@ -29,7 +29,7 @@ def test_create_and_fetch_python(user_defined_functions):
             name=user_defined_function_name,
             arguments=[],
             return_type=ReturnDataType(datatype="VARIANT"),
-            language_config=PythonFunction(runtime_version="3.9", packages=[], handler="udf"),
+            language_config=PythonFunction(runtime_version="3.13", packages=[], handler="udf"),
             body="""
 def udf():
     return {"key": "value"}
@@ -41,7 +41,7 @@ def udf():
         user_defined_function_handle = user_defined_function_created.fetch()
         assert user_defined_function_handle.name.upper() == user_defined_function_name.upper()
         assert user_defined_function_handle.return_type.datatype == "VARIANT"
-        assert user_defined_function_handle.language_config.runtime_version == "3.9"
+        assert user_defined_function_handle.language_config.runtime_version == "3.13"
         assert user_defined_function_handle.language_config.packages == []
         assert user_defined_function_handle.language_config.handler == "udf"
         assert (
@@ -286,16 +286,17 @@ def test_create_and_fetch_scala_array_input(user_defined_functions):
         user_defined_function_created.drop()
 
 
+@pytest.mark.min_sf_ver("9.38.0")
 def test_create_and_fetch_sql(user_defined_functions):
     user_defined_function_name = random_string(10, "test_create_user_defined_function_sql_")
 
-    func_body = """3.141592654::FLOAT"""
+    func_body = "SELECT DECFLOAT '3.141592654'"
 
     user_defined_function_created = user_defined_functions.create(
         UserDefinedFunction(
             name=user_defined_function_name,
             arguments=[],
-            return_type=ReturnDataType(datatype="FLOAT"),
+            return_type=ReturnDataType(datatype="DECFLOAT"),
             language_config=SQLFunction(),
             body=func_body,
         )
@@ -304,7 +305,7 @@ def test_create_and_fetch_sql(user_defined_functions):
     try:
         user_defined_function_handle = user_defined_function_created.fetch()
         assert user_defined_function_handle.name.upper() == user_defined_function_name.upper()
-        assert user_defined_function_handle.return_type.datatype == "FLOAT"
+        assert user_defined_function_handle.return_type.datatype == "DECFLOAT"
         assert user_defined_function_handle.body == func_body
 
     finally:

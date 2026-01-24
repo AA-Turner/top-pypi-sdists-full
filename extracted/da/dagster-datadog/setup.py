@@ -25,17 +25,17 @@ setup(
         "https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-datadog"
     ),
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_datadog_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
-    install_requires=["dagster==1.11.11", "datadog"],
+    python_requires=">=3.10,<3.15",
+    install_requires=["dagster==1.12.12", "datadog"],
     zip_safe=False,
 )

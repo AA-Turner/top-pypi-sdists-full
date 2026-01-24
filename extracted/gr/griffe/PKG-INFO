@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: griffe
-Version: 1.14.0
+Version: 1.15.0
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
 Keywords: api,signature,breaking-changes,static-analysis,dynamic-analysis
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -30,8 +29,12 @@ Project-URL: Issues, https://github.com/mkdocstrings/griffe/issues
 Project-URL: Discussions, https://github.com/mkdocstrings/griffe/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/griffe
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: colorama>=0.4
+Provides-Extra: pypi
+Requires-Dist: pip>=24.0; extra == "pypi"
+Requires-Dist: platformdirs>=4.2; extra == "pypi"
+Requires-Dist: wheel>=0.42; extra == "pypi"
 Description-Content-Type: text/markdown
 
 # Griffe
@@ -111,8 +114,7 @@ Parameter kind was changed:
 
 It's also possible to directly **check packages from PyPI.org**
 (or other indexes configured through `PIP_INDEX_URL`).
-This feature is [available to sponsors only](https://mkdocstrings.github.io/griffe/insiders/)
-and requires that you install Griffe with the `pypi` extra:
+This feature requires that you install Griffe with the `pypi` extra:
 
 ```bash
 pip install griffe[pypi]
@@ -149,3 +151,8 @@ for breakage in griffe.find_breaking_changes(previous, current):
 ```
 
 See the [Loading chapter](https://mkdocstrings.github.io/griffe/guide/users/loading/) for more examples.
+
+## Sponsors
+
+<!-- sponsors-start -->
+<!-- sponsors-end -->

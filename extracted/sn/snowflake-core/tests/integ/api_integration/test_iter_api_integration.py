@@ -13,7 +13,6 @@ def setup(api_integrations):
     for _ in range(3):
         names.append(random_string(10, f"test_api_integration_iter_c_{UUID}_"))
     try:
-        print(names)
         for name in names:
             ai_def = ApiIntegration(
                 name=name,
@@ -30,11 +29,23 @@ def setup(api_integrations):
 
 
 def test_iter(api_integrations):
-    assert len(list(api_integrations.iter())) >= 6
+    """Test iterating over API integrations, filtering to only our test integrations."""
+    test_integrations = list(api_integrations.iter(like="test_api_integration_iter_%"))
+    assert len(test_integrations) >= 6
 
 
 def test_iter_like(api_integrations):
-    assert len(list(api_integrations.iter(like=f"test_api_integration_iter_x_{UUID}_%"))) == 0
-    assert len(list(api_integrations.iter(like=f"test_api_integration_iter_a_{UUID}_%"))) == 1
-    assert len(list(api_integrations.iter(like=f"test_api_integration_iter_b_{UUID}_%"))) == 2
-    assert len(list(api_integrations.iter(like=f"test_api_integration_iter_c_{UUID}_%"))) == 3
+    """Test iterating over API integrations with like filters."""
+    # Test non-matching pattern
+    x_results = list(api_integrations.iter(like=f"test_api_integration_iter_x_{UUID}_%"))
+    assert len(x_results) == 0
+
+    # Test patterns that match our created integrations
+    a_results = list(api_integrations.iter(like=f"test_api_integration_iter_a_{UUID}_%"))
+    assert len(a_results) == 1
+
+    b_results = list(api_integrations.iter(like=f"test_api_integration_iter_b_{UUID}_%"))
+    assert len(b_results) == 2
+
+    c_results = list(api_integrations.iter(like=f"test_api_integration_iter_c_{UUID}_%"))
+    assert len(c_results) == 3

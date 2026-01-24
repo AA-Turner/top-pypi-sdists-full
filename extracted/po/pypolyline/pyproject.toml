@@ -2,25 +2,25 @@
 name = "pypolyline"
 dynamic = ["version", "readme"]
 description = "Fast Google Polyline encoding and decoding using Rust FFI"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy >= 2.0.0",
 ]
 authors = [{ name = "Stephan Hügel", email = "urschrei@gmail.com" }]
-license = {file = "LICENSE.md"}
+license = "BlueOak-1.0.0"
+license-files = ["LICENSE.md"]
 keywords = ["Geo", "Polyline"]
 classifiers = [
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
-    "License :: OSI Approved :: Blue Oak Model License (BlueOak-1.0.0)",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: GIS"
@@ -41,7 +41,7 @@ requires = [
     "setuptools >= 45",
     "setuptools-scm[toml] >= 6.2",
     "numpy >= 2.0.0",
-    "cython >= 0.29.0",
+    "cython >= 3.0.0",
     "wheel >= 0.29.0",
 ]
 
@@ -56,4 +56,48 @@ testpaths = [
 
 [tool.setuptools_scm]
 write_to = "src/_version.py"
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "N", "D4", "UP", "PL", "TRY", "PERF", "FURB", "RUF", "S", "DTZ"]
+ignore = ["ANN001", "ANN003", "ANN202", "ANN201", "DOC201", "E501", "PLR0904", "PLR0913", "PLR0917", "SLF001", "FIX002", "D400", "D415"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
 

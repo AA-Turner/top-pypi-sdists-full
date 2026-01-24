@@ -115,7 +115,7 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V3_0,
+    glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
@@ -173,7 +173,7 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V3_0,
+    glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
@@ -228,7 +228,7 @@ glue.PySparkEtlJob(stack, "pySparkEtlJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V3_0,
+    glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
@@ -973,6 +973,7 @@ import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
 import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
 import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
 import constructs as _constructs_77d1e7e8
 
 
@@ -992,10 +993,10 @@ class Action:
         self,
         *,
         arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        crawler: typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnCrawler] = None,
+        crawler: typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnCrawler"] = None,
         job: typing.Optional["IJob"] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Represents a trigger action.
 
@@ -1061,7 +1062,7 @@ class Action:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def crawler(self) -> typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnCrawler]:
+    def crawler(self) -> typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnCrawler"]:
         '''(experimental) The name of the crawler to be used with this action.
 
         :default: - no crawler is used
@@ -1069,7 +1070,7 @@ class Action:
         :stability: experimental
         '''
         result = self._values.get("crawler")
-        return typing.cast(typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnCrawler], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnCrawler"], result)
 
     @builtins.property
     def job(self) -> typing.Optional["IJob"]:
@@ -1094,7 +1095,7 @@ class Action:
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The job run timeout.
 
         This is the maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
@@ -1104,7 +1105,7 @@ class Action:
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1221,7 +1222,7 @@ class CloudWatchEncryption:
         self,
         *,
         mode: "CloudWatchEncryptionMode",
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> None:
         '''(experimental) CloudWatch Logs encryption configuration.
 
@@ -1266,7 +1267,9 @@ class CloudWatchEncryption:
         return typing.cast("CloudWatchEncryptionMode", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key to be used to encrypt the data.
 
         :default: A key will be created if one is not provided.
@@ -1274,7 +1277,7 @@ class CloudWatchEncryption:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1364,14 +1367,14 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        readers: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
-        bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_ceddda9d.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_ceddda9d.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_aws_cdk_ceddda9d.SymlinkFollowMode] = None,
-        ignore_mode: typing.Optional[_aws_cdk_ceddda9d.IgnoreMode] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_ceddda9d.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_ceddda9d.IgnoreMode"] = None,
     ) -> "AssetCode":
         '''(experimental) Job code from a local disk path.
 
@@ -1411,7 +1414,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
     @builtins.classmethod
     def from_bucket(
         cls,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         key: builtins.str,
     ) -> "S3Code":
         '''(experimental) Job code as an S3 object.
@@ -1431,8 +1434,8 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
     @abc.abstractmethod
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        grantable: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        scope: "_constructs_77d1e7e8.Construct",
+        grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "CodeConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
@@ -1448,8 +1451,8 @@ class _CodeProxy(Code):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        grantable: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        scope: "_constructs_77d1e7e8.Construct",
+        grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "CodeConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
@@ -1477,7 +1480,7 @@ class CodeConfig:
     def __init__(
         self,
         *,
-        s3_location: typing.Union[_aws_cdk_aws_s3_ceddda9d.Location, typing.Dict[builtins.str, typing.Any]],
+        s3_location: typing.Union["_aws_cdk_aws_s3_ceddda9d.Location", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Result of binding ``Code`` into a ``Job``.
 
@@ -1488,6 +1491,7 @@ class CodeConfig:
 
         Example::
 
+            from aws_cdk.aws_s3 import Location
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
@@ -1512,14 +1516,14 @@ class CodeConfig:
         }
 
     @builtins.property
-    def s3_location(self) -> _aws_cdk_aws_s3_ceddda9d.Location:
+    def s3_location(self) -> "_aws_cdk_aws_s3_ceddda9d.Location":
         '''(experimental) The location of the code in S3.
 
         :stability: experimental
         '''
         result = self._values.get("s3_location")
         assert result is not None, "Required property 's3_location' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.Location, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.Location", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1879,8 +1883,8 @@ class ConnectionOptions:
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
     ) -> None:
         '''(experimental) Base Connection Options.
 
@@ -1987,7 +1991,7 @@ class ConnectionOptions:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC.
 
         :default: no security group
@@ -1995,10 +1999,10 @@ class ConnectionOptions:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet]:
+    def subnet(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]:
         '''(experimental) The VPC subnet to connect to resources within a VPC.
 
         See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
@@ -2008,7 +2012,7 @@ class ConnectionOptions:
         :stability: experimental
         '''
         result = self._values.get("subnet")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2043,8 +2047,8 @@ class ConnectionProps(ConnectionOptions):
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
         type: "ConnectionType",
     ) -> None:
         '''(experimental) Construction properties for ``Connection``.
@@ -2148,7 +2152,7 @@ class ConnectionProps(ConnectionOptions):
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC.
 
         :default: no security group
@@ -2156,10 +2160,10 @@ class ConnectionProps(ConnectionOptions):
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet]:
+    def subnet(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]:
         '''(experimental) The VPC subnet to connect to resources within a VPC.
 
         See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
@@ -2169,7 +2173,7 @@ class ConnectionProps(ConnectionOptions):
         :stability: experimental
         '''
         result = self._values.get("subnet")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"], result)
 
     @builtins.property
     def type(self) -> "ConnectionType":
@@ -2518,7 +2522,7 @@ class ContinuousLoggingProps:
         *,
         enabled: builtins.bool,
         conversion_pattern: typing.Optional[builtins.str] = None,
-        log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
         log_stream_prefix: typing.Optional[builtins.str] = None,
         quiet: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -2547,7 +2551,7 @@ class ContinuousLoggingProps:
                 description="This is a description",
                 role=role,
                 script=script,
-                glue_version=glue.GlueVersion.V3_0,
+                glue_version=glue.GlueVersion.V5_1,
                 continuous_logging=glue.ContinuousLoggingProps(enabled=False),
                 worker_type=glue.WorkerType.G_2X,
                 max_concurrent_runs=100,
@@ -2606,7 +2610,7 @@ class ContinuousLoggingProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_group(self) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup]:
+    def log_group(self) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"]:
         '''(experimental) Specify a custom CloudWatch log group name.
 
         :default: - a log group is created with name ``/aws-glue/jobs/logs-v2/``.
@@ -2614,7 +2618,7 @@ class ContinuousLoggingProps:
         :stability: experimental
         '''
         result = self._values.get("log_group")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"], result)
 
     @builtins.property
     def log_stream_prefix(self) -> typing.Optional[builtins.str]:
@@ -2725,7 +2729,7 @@ class DataFormat(
         input_format: "InputFormat",
         output_format: "OutputFormat",
         serialization_library: "SerializationLibrary",
-        classification_string: typing.Optional[ClassificationString] = None,
+        classification_string: typing.Optional["ClassificationString"] = None,
     ) -> None:
         '''
         :param input_format: (experimental) ``InputFormat`` for this data format.
@@ -2867,12 +2871,12 @@ class DataFormat(
 
     @builtins.property
     @jsii.member(jsii_name="classificationString")
-    def classification_string(self) -> typing.Optional[ClassificationString]:
+    def classification_string(self) -> typing.Optional["ClassificationString"]:
         '''(experimental) Classification string given to tables with this data format.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[ClassificationString], jsii.get(self, "classificationString"))
+        return typing.cast(typing.Optional["ClassificationString"], jsii.get(self, "classificationString"))
 
 
 @jsii.data_type(
@@ -2892,7 +2896,7 @@ class DataFormatProps:
         input_format: "InputFormat",
         output_format: "OutputFormat",
         serialization_library: "SerializationLibrary",
-        classification_string: typing.Optional[ClassificationString] = None,
+        classification_string: typing.Optional["ClassificationString"] = None,
     ) -> None:
         '''(experimental) Properties of a DataFormat instance.
 
@@ -2969,7 +2973,7 @@ class DataFormatProps:
         return typing.cast("SerializationLibrary", result)
 
     @builtins.property
-    def classification_string(self) -> typing.Optional[ClassificationString]:
+    def classification_string(self) -> typing.Optional["ClassificationString"]:
         '''(experimental) Classification string given to tables with this data format.
 
         :default: - No classification is specified.
@@ -2977,7 +2981,7 @@ class DataFormatProps:
         :stability: experimental
         '''
         result = self._values.get("classification_string")
-        return typing.cast(typing.Optional[ClassificationString], result)
+        return typing.cast(typing.Optional["ClassificationString"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3295,7 +3299,7 @@ class EventBatchingCondition:
         self,
         *,
         batch_size: jsii.Number,
-        batch_window: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        batch_window: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Represents event trigger batch condition.
 
@@ -3340,7 +3344,7 @@ class EventBatchingCondition:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
-    def batch_window(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def batch_window(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Window of time in seconds after which EventBridge event trigger fires.
 
         :default: - 900 seconds
@@ -3348,7 +3352,7 @@ class EventBatchingCondition:
         :stability: experimental
         '''
         result = self._values.get("batch_window")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3403,7 +3407,7 @@ class GlueVersion(enum.Enum):
             description="This is a description",
             role=role,
             script=script,
-            glue_version=glue.GlueVersion.V3_0,
+            glue_version=glue.GlueVersion.V5_1,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_type=glue.WorkerType.G_2X,
             max_concurrent_runs=100,
@@ -3446,7 +3450,12 @@ class GlueVersion(enum.Enum):
     :stability: experimental
     '''
     V5_0 = "V5_0"
-    '''(experimental) Glue version using Spark 3.5.2 and Python 3.11.
+    '''(experimental) Glue version using Spark 3.5.4, Python 3.11, and Scala 2.12.18.
+
+    :stability: experimental
+    '''
+    V5_1 = "V5_1"
+    '''(experimental) Glue version using Spark 3.5.6, Python 3.11, and Scala 2.12.18.
 
     :stability: experimental
     '''
@@ -3712,14 +3721,14 @@ class IJob(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch metric.
 
         :param metric_name: name of the metric typically prefixed with ``glue.driver.``, ``glue.<executorId>.`` or ``glue.ALL.``.
@@ -3751,14 +3760,14 @@ class IJob(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch Metric indicating job failure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3787,14 +3796,14 @@ class IJob(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch Metric indicating job success.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3823,14 +3832,14 @@ class IJob(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch Metric indicating job timeout.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -3855,12 +3864,12 @@ class IJob(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when something happens with this job.
 
         :param id: -
@@ -3880,12 +3889,12 @@ class IJob(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the FAILED state.
 
         :param id: -
@@ -3905,12 +3914,12 @@ class IJob(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the SUCCEEDED state.
 
         :param id: -
@@ -3930,12 +3939,12 @@ class IJob(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the TIMEOUT state.
 
         :param id: -
@@ -3993,14 +4002,14 @@ class _IJobProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch metric.
 
         :param metric_name: name of the metric typically prefixed with ``glue.driver.``, ``glue.<executorId>.`` or ``glue.ALL.``.
@@ -4040,7 +4049,7 @@ class _IJobProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, type, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, type, props]))
 
     @jsii.member(jsii_name="metricFailure")
     def metric_failure(
@@ -4051,14 +4060,14 @@ class _IJobProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch Metric indicating job failure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4091,7 +4100,7 @@ class _IJobProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricFailure", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricFailure", [props]))
 
     @jsii.member(jsii_name="metricSuccess")
     def metric_success(
@@ -4102,14 +4111,14 @@ class _IJobProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch Metric indicating job success.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4142,7 +4151,7 @@ class _IJobProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricSuccess", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricSuccess", [props]))
 
     @jsii.member(jsii_name="metricTimeout")
     def metric_timeout(
@@ -4153,14 +4162,14 @@ class _IJobProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch Metric indicating job timeout.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -4193,19 +4202,19 @@ class _IJobProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricTimeout", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricTimeout", [props]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when something happens with this job.
 
         :param id: -
@@ -4229,19 +4238,19 @@ class _IJobProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onFailure")
     def on_failure(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the FAILED state.
 
         :param id: -
@@ -4265,19 +4274,19 @@ class _IJobProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onFailure", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onFailure", [id, options]))
 
     @jsii.member(jsii_name="onSuccess")
     def on_success(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the SUCCEEDED state.
 
         :param id: -
@@ -4301,19 +4310,19 @@ class _IJobProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onSuccess", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onSuccess", [id, options]))
 
     @jsii.member(jsii_name="onTimeout")
     def on_timeout(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the TIMEOUT state.
 
         :param id: -
@@ -4337,7 +4346,7 @@ class _IJobProxy(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onTimeout", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onTimeout", [id, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IJob).__jsii_proxy_class__ = lambda : _IJobProxy
@@ -4476,10 +4485,10 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         *,
         schedule: "TriggerSchedule",
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an custom-scheduled trigger to the workflow.
 
         :param id: -
@@ -4499,10 +4508,10 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         id: builtins.str,
         *,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an daily-scheduled trigger to the workflow.
 
         :param id: -
@@ -4520,10 +4529,10 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         self,
         id: builtins.str,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an on-demand trigger to the workflow.
 
         :param id: -
@@ -4541,10 +4550,10 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         id: builtins.str,
         *,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an weekly-scheduled trigger to the workflow.
 
         :param id: -
@@ -4596,10 +4605,10 @@ class _IWorkflowProxy(
         *,
         schedule: "TriggerSchedule",
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an custom-scheduled trigger to the workflow.
 
         :param id: -
@@ -4622,7 +4631,7 @@ class _IWorkflowProxy(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addCustomScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addCustomScheduledTrigger", [id, options]))
 
     @jsii.member(jsii_name="addDailyScheduledTrigger")
     def add_daily_scheduled_trigger(
@@ -4630,10 +4639,10 @@ class _IWorkflowProxy(
         id: builtins.str,
         *,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an daily-scheduled trigger to the workflow.
 
         :param id: -
@@ -4654,17 +4663,17 @@ class _IWorkflowProxy(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addDailyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addDailyScheduledTrigger", [id, options]))
 
     @jsii.member(jsii_name="addOnDemandTrigger")
     def add_on_demand_trigger(
         self,
         id: builtins.str,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an on-demand trigger to the workflow.
 
         :param id: -
@@ -4681,7 +4690,7 @@ class _IWorkflowProxy(
             actions=actions, description=description, name=name
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addOnDemandTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addOnDemandTrigger", [id, options]))
 
     @jsii.member(jsii_name="addWeeklyScheduledTrigger")
     def add_weekly_scheduled_trigger(
@@ -4689,10 +4698,10 @@ class _IWorkflowProxy(
         id: builtins.str,
         *,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an weekly-scheduled trigger to the workflow.
 
         :param id: -
@@ -4713,7 +4722,7 @@ class _IWorkflowProxy(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addWeeklyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addWeeklyScheduledTrigger", [id, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IWorkflow).__jsii_proxy_class__ = lambda : _IWorkflowProxy
@@ -4857,7 +4866,7 @@ class JobAttributes:
         self,
         *,
         job_name: builtins.str,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''(experimental) A subset of Job attributes are required for importing an existing job into a CDK project.
 
@@ -4907,7 +4916,7 @@ class JobAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role assumed by Glue to run this job.
 
         :default: - undefined
@@ -4915,7 +4924,7 @@ class JobAttributes:
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4947,7 +4956,7 @@ class JobBase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account: typing.Optional[builtins.str] = None,
@@ -4979,7 +4988,7 @@ class JobBase(
     @jsii.member(jsii_name="buildJobArn")
     def _build_job_arn(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         job_name: builtins.str,
     ) -> builtins.str:
         '''(experimental) Returns the job arn.
@@ -5006,14 +5015,14 @@ class JobBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Create a CloudWatch metric.
 
         :param metric_name: name of the metric typically prefixed with ``glue.driver.``, ``glue.<executorId>.`` or ``glue.ALL.``.
@@ -5053,7 +5062,7 @@ class JobBase(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, type, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, type, props]))
 
     @jsii.member(jsii_name="metricFailure")
     def metric_failure(
@@ -5064,14 +5073,14 @@ class JobBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return a CloudWatch Metric indicating job failure.
 
         This metric is based on the Rule returned by no-args onFailure() call.
@@ -5106,7 +5115,7 @@ class JobBase(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricFailure", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricFailure", [props]))
 
     @jsii.member(jsii_name="metricSuccess")
     def metric_success(
@@ -5117,14 +5126,14 @@ class JobBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return a CloudWatch Metric indicating job success.
 
         This metric is based on the Rule returned by no-args onSuccess() call.
@@ -5159,7 +5168,7 @@ class JobBase(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricSuccess", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricSuccess", [props]))
 
     @jsii.member(jsii_name="metricTimeout")
     def metric_timeout(
@@ -5170,14 +5179,14 @@ class JobBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return a CloudWatch Metric indicating job timeout.
 
         This metric is based on the Rule returned by no-args onTimeout() call.
@@ -5212,19 +5221,19 @@ class JobBase(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricTimeout", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricTimeout", [props]))
 
     @jsii.member(jsii_name="onEvent")
     def on_event(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Create a CloudWatch Event Rule for this Glue Job when it's in a given state.
 
         :param id: construct id.
@@ -5248,19 +5257,19 @@ class JobBase(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onEvent", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onEvent", [id, options]))
 
     @jsii.member(jsii_name="onFailure")
     def on_failure(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Return a CloudWatch Event Rule matching FAILED state.
 
         :param id: construct id.
@@ -5283,7 +5292,7 @@ class JobBase(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onFailure", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onFailure", [id, options]))
 
     @jsii.member(jsii_name="onStateChange")
     def _on_state_change(
@@ -5291,12 +5300,12 @@ class JobBase(
         id: builtins.str,
         job_state: "JobState",
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Create a CloudWatch Event Rule for the transition into the input jobState.
 
         :param id: construct id.
@@ -5321,19 +5330,19 @@ class JobBase(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onStateChange", [id, job_state, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onStateChange", [id, job_state, options]))
 
     @jsii.member(jsii_name="onSuccess")
     def on_success(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Create a CloudWatch Event Rule matching JobState.SUCCEEDED.
 
         :param id: construct id.
@@ -5356,19 +5365,19 @@ class JobBase(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onSuccess", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onSuccess", [id, options]))
 
     @jsii.member(jsii_name="onTimeout")
     def on_timeout(
         self,
         id: builtins.str,
         *,
-        target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
         description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_events_ceddda9d.Rule:
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
         '''(experimental) Return a CloudWatch Event Rule matching TIMEOUT state.
 
         :param id: construct id.
@@ -5391,12 +5400,12 @@ class JobBase(
             rule_name=rule_name,
         )
 
-        return typing.cast(_aws_cdk_aws_events_ceddda9d.Rule, jsii.invoke(self, "onTimeout", [id, options]))
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onTimeout", [id, options]))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
     @abc.abstractmethod
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
@@ -5430,12 +5439,12 @@ class _JobBaseProxy(
 ):
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
@@ -5469,7 +5478,7 @@ class JobBookmarksEncryption:
         self,
         *,
         mode: "JobBookmarksEncryptionMode",
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> None:
         '''(experimental) Job bookmarks encryption configuration.
 
@@ -5514,7 +5523,9 @@ class JobBookmarksEncryption:
         return typing.cast("JobBookmarksEncryptionMode", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key to be used to encrypt the data.
 
         :default: A key will be created if one is not provided.
@@ -5522,7 +5533,7 @@ class JobBookmarksEncryption:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5612,21 +5623,21 @@ class JobProps:
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) JobProps will be used to create new Glue Jobs using this L2 Construct.
@@ -5753,7 +5764,7 @@ class JobProps:
             self._values["worker_type"] = worker_type
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -5761,10 +5772,10 @@ class JobProps:
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -5775,10 +5786,10 @@ class JobProps:
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -5786,10 +5797,10 @@ class JobProps:
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -5798,7 +5809,7 @@ class JobProps:
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -5841,7 +5852,7 @@ class JobProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -5849,7 +5860,7 @@ class JobProps:
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -5899,7 +5910,7 @@ class JobProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -5907,7 +5918,7 @@ class JobProps:
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -5921,7 +5932,7 @@ class JobProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -5931,7 +5942,7 @@ class JobProps:
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def worker_type(self) -> typing.Optional["WorkerType"]:
@@ -6186,13 +6197,13 @@ class OutputFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AVRO")
-    def AVRO(cls) -> InputFormat:
+    def AVRO(cls) -> "InputFormat":
         '''(experimental) OutputFormat for Avro files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/avro/AvroContainerOutputFormat.html
         :stability: experimental
         '''
-        return typing.cast(InputFormat, jsii.sget(cls, "AVRO"))
+        return typing.cast("InputFormat", jsii.sget(cls, "AVRO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HIVE_IGNORE_KEY_TEXT")
@@ -6206,13 +6217,13 @@ class OutputFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORC")
-    def ORC(cls) -> InputFormat:
+    def ORC(cls) -> "InputFormat":
         '''(experimental) OutputFormat for Orc files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/orc/OrcOutputFormat.html
         :stability: experimental
         '''
-        return typing.cast(InputFormat, jsii.sget(cls, "ORC"))
+        return typing.cast("InputFormat", jsii.sget(cls, "ORC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARQUET")
@@ -6317,7 +6328,7 @@ class Predicate:
     def __init__(
         self,
         *,
-        conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
+        conditions: typing.Optional[typing.Sequence[typing.Union["Condition", typing.Dict[builtins.str, typing.Any]]]] = None,
         logical: typing.Optional["PredicateLogical"] = None,
     ) -> None:
         '''(experimental) Represents a trigger predicate.
@@ -6358,7 +6369,7 @@ class Predicate:
             self._values["logical"] = logical
 
     @builtins.property
-    def conditions(self) -> typing.Optional[typing.List[Condition]]:
+    def conditions(self) -> typing.Optional[typing.List["Condition"]]:
         '''(experimental) A list of the conditions that determine when the trigger will fire.
 
         :default: - no conditions are provided
@@ -6366,7 +6377,7 @@ class Predicate:
         :stability: experimental
         '''
         result = self._values.get("conditions")
-        return typing.cast(typing.Optional[typing.List[Condition]], result)
+        return typing.cast(typing.Optional[typing.List["Condition"]], result)
 
     @builtins.property
     def logical(self) -> typing.Optional["PredicateLogical"]:
@@ -6438,24 +6449,24 @@ class PythonShellJobProps(JobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         worker_type: typing.Optional["WorkerType"] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
-        max_capacity: typing.Optional[MaxCapacity] = None,
+        max_capacity: typing.Optional["MaxCapacity"] = None,
         python_version: typing.Optional["PythonVersion"] = None,
     ) -> None:
         '''(experimental) Properties for creating a Python Shell job.
@@ -6556,7 +6567,7 @@ class PythonShellJobProps(JobProps):
             self._values["python_version"] = python_version
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -6564,10 +6575,10 @@ class PythonShellJobProps(JobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -6578,10 +6589,10 @@ class PythonShellJobProps(JobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -6589,10 +6600,10 @@ class PythonShellJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -6601,7 +6612,7 @@ class PythonShellJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -6644,7 +6655,7 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -6652,7 +6663,7 @@ class PythonShellJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -6702,7 +6713,7 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -6710,7 +6721,7 @@ class PythonShellJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -6724,7 +6735,7 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -6734,7 +6745,7 @@ class PythonShellJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def worker_type(self) -> typing.Optional["WorkerType"]:
@@ -6767,7 +6778,7 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_capacity(self) -> typing.Optional[MaxCapacity]:
+    def max_capacity(self) -> typing.Optional["MaxCapacity"]:
         '''(experimental) The total number of DPU to assign to the Python Job.
 
         :default: 0.0625
@@ -6775,7 +6786,7 @@ class PythonShellJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("max_capacity")
-        return typing.cast(typing.Optional[MaxCapacity], result)
+        return typing.cast(typing.Optional["MaxCapacity"], result)
 
     @builtins.property
     def python_version(self) -> typing.Optional["PythonVersion"]:
@@ -6886,21 +6897,21 @@ class RayJobProps(JobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
@@ -7009,7 +7020,7 @@ class RayJobProps(JobProps):
             self._values["runtime"] = runtime
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -7017,10 +7028,10 @@ class RayJobProps(JobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -7031,10 +7042,10 @@ class RayJobProps(JobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -7042,10 +7053,10 @@ class RayJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -7054,7 +7065,7 @@ class RayJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -7097,7 +7108,7 @@ class RayJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -7105,7 +7116,7 @@ class RayJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -7155,7 +7166,7 @@ class RayJobProps(JobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -7163,7 +7174,7 @@ class RayJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -7177,7 +7188,7 @@ class RayJobProps(JobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -7187,7 +7198,7 @@ class RayJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def worker_type(self) -> typing.Optional["WorkerType"]:
@@ -7331,7 +7342,7 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
 
     def __init__(
         self,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         key: builtins.str,
     ) -> None:
         '''
@@ -7349,9 +7360,9 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        grantable: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> CodeConfig:
+        _scope: "_constructs_77d1e7e8.Construct",
+        grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "CodeConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param _scope: -
@@ -7363,7 +7374,7 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
             type_hints = typing.get_type_hints(_typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f20075d71602)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument grantable", value=grantable, expected_type=type_hints["grantable"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [_scope, grantable]))
+        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [_scope, grantable]))
 
 
 @jsii.data_type(
@@ -7376,7 +7387,7 @@ class S3Encryption:
         self,
         *,
         mode: "S3EncryptionMode",
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> None:
         '''(experimental) S3 encryption configuration.
 
@@ -7421,7 +7432,9 @@ class S3Encryption:
         return typing.cast("S3EncryptionMode", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key to be used to encrypt the data.
 
         :default: no kms key if mode = S3_MANAGED. A key will be created if one is not provided and mode = KMS.
@@ -7429,7 +7442,7 @@ class S3Encryption:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7596,7 +7609,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @builtins.classmethod
     def struct(
         cls,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
     ) -> "Type":
         '''(experimental) Creates a nested structure containing individually named and typed columns.
 
@@ -7768,12 +7781,12 @@ class SecurityConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cloud_watch_encryption: typing.Optional[typing.Union[CloudWatchEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
-        job_bookmarks_encryption: typing.Optional[typing.Union[JobBookmarksEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
-        s3_encryption: typing.Optional[typing.Union[S3Encryption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_watch_encryption: typing.Optional[typing.Union["CloudWatchEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        job_bookmarks_encryption: typing.Optional[typing.Union["JobBookmarksEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_encryption: typing.Optional[typing.Union["S3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -7803,10 +7816,10 @@ class SecurityConfiguration(
     @builtins.classmethod
     def from_security_configuration_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         security_configuration_name: builtins.str,
-    ) -> ISecurityConfiguration:
+    ) -> "ISecurityConfiguration":
         '''(experimental) Creates a Connection construct that represents an external security configuration.
 
         :param scope: The scope creating construct (usually ``this``).
@@ -7820,7 +7833,7 @@ class SecurityConfiguration(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument security_configuration_name", value=security_configuration_name, expected_type=type_hints["security_configuration_name"])
-        return typing.cast(ISecurityConfiguration, jsii.sinvoke(cls, "fromSecurityConfigurationName", [scope, id, security_configuration_name]))
+        return typing.cast("ISecurityConfiguration", jsii.sinvoke(cls, "fromSecurityConfigurationName", [scope, id, security_configuration_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -7837,7 +7850,6 @@ class SecurityConfiguration(
         '''(experimental) The name of the security configuration.
 
         :stability: experimental
-        :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "securityConfigurationName"))
 
@@ -7845,32 +7857,34 @@ class SecurityConfiguration(
     @jsii.member(jsii_name="cloudWatchEncryptionKey")
     def cloud_watch_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key used in CloudWatch encryption if it requires a kms key.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], jsii.get(self, "cloudWatchEncryptionKey"))
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "cloudWatchEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="jobBookmarksEncryptionKey")
     def job_bookmarks_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key used in job bookmarks encryption if it requires a kms key.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], jsii.get(self, "jobBookmarksEncryptionKey"))
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "jobBookmarksEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="s3EncryptionKey")
-    def s3_encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def s3_encryption_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key used in S3 encryption if it requires a kms key.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], jsii.get(self, "s3EncryptionKey"))
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "s3EncryptionKey"))
 
 
 @jsii.data_type(
@@ -7887,9 +7901,9 @@ class SecurityConfigurationProps:
     def __init__(
         self,
         *,
-        cloud_watch_encryption: typing.Optional[typing.Union[CloudWatchEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
-        job_bookmarks_encryption: typing.Optional[typing.Union[JobBookmarksEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
-        s3_encryption: typing.Optional[typing.Union[S3Encryption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_watch_encryption: typing.Optional[typing.Union["CloudWatchEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        job_bookmarks_encryption: typing.Optional[typing.Union["JobBookmarksEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_encryption: typing.Optional[typing.Union["S3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Constructions properties of ``SecurityConfiguration``.
@@ -7939,7 +7953,7 @@ class SecurityConfigurationProps:
             self._values["security_configuration_name"] = security_configuration_name
 
     @builtins.property
-    def cloud_watch_encryption(self) -> typing.Optional[CloudWatchEncryption]:
+    def cloud_watch_encryption(self) -> typing.Optional["CloudWatchEncryption"]:
         '''(experimental) The encryption configuration for Amazon CloudWatch Logs.
 
         :default: no cloudwatch logs encryption.
@@ -7947,10 +7961,10 @@ class SecurityConfigurationProps:
         :stability: experimental
         '''
         result = self._values.get("cloud_watch_encryption")
-        return typing.cast(typing.Optional[CloudWatchEncryption], result)
+        return typing.cast(typing.Optional["CloudWatchEncryption"], result)
 
     @builtins.property
-    def job_bookmarks_encryption(self) -> typing.Optional[JobBookmarksEncryption]:
+    def job_bookmarks_encryption(self) -> typing.Optional["JobBookmarksEncryption"]:
         '''(experimental) The encryption configuration for Glue Job Bookmarks.
 
         :default: no job bookmarks encryption.
@@ -7958,10 +7972,10 @@ class SecurityConfigurationProps:
         :stability: experimental
         '''
         result = self._values.get("job_bookmarks_encryption")
-        return typing.cast(typing.Optional[JobBookmarksEncryption], result)
+        return typing.cast(typing.Optional["JobBookmarksEncryption"], result)
 
     @builtins.property
-    def s3_encryption(self) -> typing.Optional[S3Encryption]:
+    def s3_encryption(self) -> typing.Optional["S3Encryption"]:
         '''(experimental) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data.
 
         :default: no s3 encryption.
@@ -7969,7 +7983,7 @@ class SecurityConfigurationProps:
         :stability: experimental
         '''
         result = self._values.get("s3_encryption")
-        return typing.cast(typing.Optional[S3Encryption], result)
+        return typing.cast(typing.Optional["S3Encryption"], result)
 
     @builtins.property
     def security_configuration_name(self) -> typing.Optional[builtins.str]:
@@ -8137,10 +8151,10 @@ class SparkExtraCodeProps:
     def __init__(
         self,
         *,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
     ) -> None:
         '''(experimental) Code props for different {@link Code} assets used by different types of Spark jobs.
 
@@ -8184,7 +8198,7 @@ class SparkExtraCodeProps:
             self._values["extra_python_files"] = extra_python_files
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -8193,10 +8207,10 @@ class SparkExtraCodeProps:
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -8204,7 +8218,7 @@ class SparkExtraCodeProps:
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -8219,7 +8233,7 @@ class SparkExtraCodeProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def extra_python_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
@@ -8227,7 +8241,7 @@ class SparkExtraCodeProps:
         :stability: experimental
         '''
         result = self._values.get("extra_python_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8270,21 +8284,21 @@ class SparkJobProps(JobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
@@ -8436,7 +8450,7 @@ class SparkJobProps(JobProps):
             self._values["spark_ui"] = spark_ui
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -8444,10 +8458,10 @@ class SparkJobProps(JobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -8458,10 +8472,10 @@ class SparkJobProps(JobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -8469,10 +8483,10 @@ class SparkJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -8481,7 +8495,7 @@ class SparkJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -8524,7 +8538,7 @@ class SparkJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -8532,7 +8546,7 @@ class SparkJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -8582,7 +8596,7 @@ class SparkJobProps(JobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -8590,7 +8604,7 @@ class SparkJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -8604,7 +8618,7 @@ class SparkJobProps(JobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -8614,7 +8628,7 @@ class SparkJobProps(JobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def worker_type(self) -> typing.Optional["WorkerType"]:
@@ -8688,7 +8702,7 @@ class SparkUILoggingLocation:
     def __init__(
         self,
         *,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) The Spark UI logging location.
@@ -8727,14 +8741,14 @@ class SparkUILoggingLocation:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         '''(experimental) The bucket where the Glue job stores the logs.
 
         :stability: experimental
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
@@ -8768,7 +8782,7 @@ class SparkUIProps:
     def __init__(
         self,
         *,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Properties for enabling Spark UI monitoring feature for Spark-based Glue jobs.
@@ -8805,7 +8819,7 @@ class SparkUIProps:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         '''(experimental) The bucket where the Glue job stores the logs.
 
         :default: a new bucket will be created.
@@ -8813,7 +8827,7 @@ class SparkUIProps:
         :stability: experimental
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
@@ -8891,7 +8905,7 @@ class StorageParameter(
     @builtins.classmethod
     def column_count_mismatch_handling(
         cls,
-        value: ColumnCountMismatchHandlingAction,
+        value: "ColumnCountMismatchHandlingAction",
     ) -> "StorageParameter":
         '''(experimental) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
 
@@ -8908,7 +8922,7 @@ class StorageParameter(
 
     @jsii.member(jsii_name="compressionType")
     @builtins.classmethod
-    def compression_type(cls, value: CompressionType) -> "StorageParameter":
+    def compression_type(cls, value: "CompressionType") -> "StorageParameter":
         '''(experimental) The type of compression used on the table, when the file name does not contain an extension.
 
         This value overrides the compression type specified through the extension.
@@ -8956,7 +8970,7 @@ class StorageParameter(
     @builtins.classmethod
     def invalid_char_handling(
         cls,
-        value: InvalidCharHandlingAction,
+        value: "InvalidCharHandlingAction",
     ) -> "StorageParameter":
         '''(experimental) Specifies the action to perform when query results contain invalid UTF-8 character values.
 
@@ -8973,7 +8987,7 @@ class StorageParameter(
     @builtins.classmethod
     def numeric_overflow_handling(
         cls,
-        value: NumericOverflowHandlingAction,
+        value: "NumericOverflowHandlingAction",
     ) -> "StorageParameter":
         '''(experimental) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
 
@@ -9004,7 +9018,7 @@ class StorageParameter(
 
     @jsii.member(jsii_name="orcSchemaResolution")
     @builtins.classmethod
-    def orc_schema_resolution(cls, value: OrcColumnMappingType) -> "StorageParameter":
+    def orc_schema_resolution(cls, value: "OrcColumnMappingType") -> "StorageParameter":
         '''(experimental) A property that sets the column mapping type for tables that use ORC data format.
 
         This property is ignored for other data formats. If this property is omitted, columns are mapped by ``OrcColumnMappingType.NAME`` by default.
@@ -9447,19 +9461,19 @@ class TableBase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9506,10 +9520,10 @@ class TableBase(
     @builtins.classmethod
     def from_table_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         table_arn: builtins.str,
-    ) -> ITable:
+    ) -> "ITable":
         '''
         :param scope: -
         :param id: -
@@ -9522,18 +9536,18 @@ class TableBase(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
-        return typing.cast(ITable, jsii.sinvoke(cls, "fromTableArn", [scope, id, table_arn]))
+        return typing.cast("ITable", jsii.sinvoke(cls, "fromTableArn", [scope, id, table_arn]))
 
     @jsii.member(jsii_name="fromTableAttributes")
     @builtins.classmethod
     def from_table_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         table_arn: builtins.str,
         table_name: builtins.str,
-    ) -> ITable:
+    ) -> "ITable":
         '''(experimental) Creates a Table construct that represents an external table.
 
         :param scope: The scope creating construct (usually ``this``).
@@ -9549,7 +9563,7 @@ class TableBase(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TableAttributes(table_arn=table_arn, table_name=table_name)
 
-        return typing.cast(ITable, jsii.sinvoke(cls, "fromTableAttributes", [scope, id, attrs]))
+        return typing.cast("ITable", jsii.sinvoke(cls, "fromTableAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="addPartitionIndex")
     def add_partition_index(
@@ -9577,10 +9591,12 @@ class TableBase(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         actions: typing.Sequence[builtins.str],
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the given identity custom permissions.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         :param actions: -
@@ -9591,14 +9607,14 @@ class TableBase(
             type_hints = typing.get_type_hints(_typecheckingstub__5b9362ce2360a32cd6ed5b3e0b6fb67c0eeb2fadb38c5ce618002656d772e776)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grant", [grantee, actions]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, actions]))
 
     @jsii.member(jsii_name="grantRead")
     @abc.abstractmethod
     def grant_read(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''
         :param grantee: -
 
@@ -9610,8 +9626,8 @@ class TableBase(
     @abc.abstractmethod
     def grant_read_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''
         :param grantee: -
 
@@ -9622,12 +9638,13 @@ class TableBase(
     @jsii.member(jsii_name="grantToUnderlyingResources")
     def grant_to_underlying_resources(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         actions: typing.Sequence[builtins.str],
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the given identity custom permissions to ALL underlying resources of the table.
 
         Permissions will be granted to the catalog, the database, and the table.
+        [disable-awslint:no-grants]
 
         :param grantee: -
         :param actions: -
@@ -9638,14 +9655,14 @@ class TableBase(
             type_hints = typing.get_type_hints(_typecheckingstub__0fefdc4d880c6035cf74f0867c529fd1390e46d666f130f14ef71eeb28507b1c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantToUnderlyingResources", [grantee, actions]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantToUnderlyingResources", [grantee, actions]))
 
     @jsii.member(jsii_name="grantWrite")
     @abc.abstractmethod
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''
         :param grantee: -
 
@@ -9655,12 +9672,12 @@ class TableBase(
 
     @builtins.property
     @jsii.member(jsii_name="columns")
-    def columns(self) -> typing.List[Column]:
+    def columns(self) -> typing.List["Column"]:
         '''(experimental) This table's columns.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[Column], jsii.get(self, "columns"))
+        return typing.cast(typing.List["Column"], jsii.get(self, "columns"))
 
     @builtins.property
     @jsii.member(jsii_name="compressed")
@@ -9673,21 +9690,21 @@ class TableBase(
 
     @builtins.property
     @jsii.member(jsii_name="database")
-    def database(self) -> IDatabase:
+    def database(self) -> "IDatabase":
         '''(experimental) Database this table belongs to.
 
         :stability: experimental
         '''
-        return typing.cast(IDatabase, jsii.get(self, "database"))
+        return typing.cast("IDatabase", jsii.get(self, "database"))
 
     @builtins.property
     @jsii.member(jsii_name="dataFormat")
-    def data_format(self) -> DataFormat:
+    def data_format(self) -> "DataFormat":
         '''(experimental) Format of this table's data files.
 
         :stability: experimental
         '''
-        return typing.cast(DataFormat, jsii.get(self, "dataFormat"))
+        return typing.cast("DataFormat", jsii.get(self, "dataFormat"))
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -9720,7 +9737,7 @@ class TableBase(
     @builtins.property
     @jsii.member(jsii_name="tableResource")
     @abc.abstractmethod
-    def _table_resource(self) -> _aws_cdk_aws_glue_ceddda9d.CfnTable:
+    def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
         :stability: experimental
         '''
@@ -9729,7 +9746,7 @@ class TableBase(
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
     @abc.abstractmethod
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''
         :stability: experimental
         '''
@@ -9737,21 +9754,21 @@ class TableBase(
 
     @builtins.property
     @jsii.member(jsii_name="partitionKeys")
-    def partition_keys(self) -> typing.Optional[typing.List[Column]]:
+    def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
         '''(experimental) This table's partition keys if the table is partitioned.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.List[Column]], jsii.get(self, "partitionKeys"))
+        return typing.cast(typing.Optional[typing.List["Column"]], jsii.get(self, "partitionKeys"))
 
     @builtins.property
     @jsii.member(jsii_name="storageParameters")
-    def storage_parameters(self) -> typing.Optional[typing.List[StorageParameter]]:
+    def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
         '''(experimental) The tables' storage descriptor properties.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.List[StorageParameter]], jsii.get(self, "storageParameters"))
+        return typing.cast(typing.Optional[typing.List["StorageParameter"]], jsii.get(self, "storageParameters"))
 
 
 class _TableBaseProxy(
@@ -9761,8 +9778,8 @@ class _TableBaseProxy(
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''
         :param grantee: -
 
@@ -9771,13 +9788,13 @@ class _TableBaseProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__daad53122858b1d79a2d9a51e22fe701058f7a4a9f5b6d813930d2e34d3f2c63)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="grantReadWrite")
     def grant_read_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''
         :param grantee: -
 
@@ -9786,13 +9803,13 @@ class _TableBaseProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__316a7ca269e4227039ebebd0789404fc7ab5c3f9b3787007562ce4edf5df8225)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantReadWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''
         :param grantee: -
 
@@ -9801,7 +9818,7 @@ class _TableBaseProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb08ef4e43dac45d9dc56da91de5195d72be73db28c81ee45853c2c2ac349abd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="tableArn")
@@ -9821,19 +9838,19 @@ class _TableBaseProxy(
 
     @builtins.property
     @jsii.member(jsii_name="tableResource")
-    def _table_resource(self) -> _aws_cdk_aws_glue_ceddda9d.CfnTable:
+    def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTable, jsii.get(self, "tableResource"))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], jsii.get(self, "partitionIndexes"))
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], jsii.get(self, "partitionIndexes"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, TableBase).__jsii_proxy_class__ = lambda : _TableBaseProxy
@@ -9861,16 +9878,16 @@ class TableBaseProps:
     def __init__(
         self,
         *,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9982,34 +9999,34 @@ class TableBaseProps:
             self._values["table_name"] = table_name
 
     @builtins.property
-    def columns(self) -> typing.List[Column]:
+    def columns(self) -> typing.List["Column"]:
         '''(experimental) Columns of the table.
 
         :stability: experimental
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
-        return typing.cast(typing.List[Column], result)
+        return typing.cast(typing.List["Column"], result)
 
     @builtins.property
-    def database(self) -> IDatabase:
+    def database(self) -> "IDatabase":
         '''(experimental) Database in which to store the table.
 
         :stability: experimental
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
-        return typing.cast(IDatabase, result)
+        return typing.cast("IDatabase", result)
 
     @builtins.property
-    def data_format(self) -> DataFormat:
+    def data_format(self) -> "DataFormat":
         '''(experimental) Storage type of the table's data.
 
         :stability: experimental
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
-        return typing.cast(DataFormat, result)
+        return typing.cast("DataFormat", result)
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
@@ -10060,7 +10077,7 @@ class TableBaseProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''(experimental) Partition indexes on the table.
 
         A maximum of 3 indexes
@@ -10072,10 +10089,10 @@ class TableBaseProps:
         :stability: experimental
         '''
         result = self._values.get("partition_indexes")
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], result)
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
-    def partition_keys(self) -> typing.Optional[typing.List[Column]]:
+    def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
         '''(experimental) Partition columns of the table.
 
         :default: table is not partitioned
@@ -10083,10 +10100,10 @@ class TableBaseProps:
         :stability: experimental
         '''
         result = self._values.get("partition_keys")
-        return typing.cast(typing.Optional[typing.List[Column]], result)
+        return typing.cast(typing.Optional[typing.List["Column"]], result)
 
     @builtins.property
-    def storage_parameters(self) -> typing.Optional[typing.List[StorageParameter]]:
+    def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
         '''(experimental) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
@@ -10122,7 +10139,7 @@ class TableBaseProps:
             )
         '''
         result = self._values.get("storage_parameters")
-        return typing.cast(typing.Optional[typing.List[StorageParameter]], result)
+        return typing.cast(typing.Optional[typing.List["StorageParameter"]], result)
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
@@ -10216,7 +10233,7 @@ class TriggerOptions:
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -10271,14 +10288,14 @@ class TriggerOptions:
             self._values["name"] = name
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -10502,7 +10519,7 @@ class WorkerType(enum.Enum):
             description="This is a description",
             role=role,
             script=script,
-            glue_version=glue.GlueVersion.V3_0,
+            glue_version=glue.GlueVersion.V5_1,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_type=glue.WorkerType.G_2X,
             max_concurrent_runs=100,
@@ -10676,7 +10693,7 @@ class WorkflowBase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account: typing.Optional[builtins.str] = None,
@@ -10709,7 +10726,7 @@ class WorkflowBase(
     @builtins.classmethod
     def extract_name_from_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         workflow_arn: builtins.str,
     ) -> builtins.str:
         '''(experimental) Extract workflowName from arn.
@@ -10730,12 +10747,12 @@ class WorkflowBase(
         self,
         id: builtins.str,
         *,
-        predicate: typing.Union[Predicate, typing.Dict[builtins.str, typing.Any]],
+        predicate: typing.Union["Predicate", typing.Dict[builtins.str, typing.Any]],
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add a Condition (Predicate) based trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -10761,19 +10778,19 @@ class WorkflowBase(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addConditionalTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addConditionalTrigger", [id, options]))
 
     @jsii.member(jsii_name="addCustomScheduledTrigger")
     def add_custom_scheduled_trigger(
         self,
         id: builtins.str,
         *,
-        schedule: TriggerSchedule,
+        schedule: "TriggerSchedule",
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add a custom-scheduled trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -10799,7 +10816,7 @@ class WorkflowBase(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addCustomScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addCustomScheduledTrigger", [id, options]))
 
     @jsii.member(jsii_name="addDailyScheduledTrigger")
     def add_daily_scheduled_trigger(
@@ -10807,10 +10824,10 @@ class WorkflowBase(
         id: builtins.str,
         *,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add a daily-scheduled trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -10834,18 +10851,18 @@ class WorkflowBase(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addDailyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addDailyScheduledTrigger", [id, options]))
 
     @jsii.member(jsii_name="addNotifyEventTrigger")
     def add_notify_event_trigger(
         self,
         id: builtins.str,
         *,
-        event_batching_condition: typing.Optional[typing.Union[EventBatchingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an Event Bridge based trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -10869,17 +10886,17 @@ class WorkflowBase(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addNotifyEventTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addNotifyEventTrigger", [id, options]))
 
     @jsii.member(jsii_name="addOnDemandTrigger")
     def add_on_demand_trigger(
         self,
         id: builtins.str,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add an on-demand trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -10899,7 +10916,7 @@ class WorkflowBase(
             actions=actions, description=description, name=name
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addOnDemandTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addOnDemandTrigger", [id, options]))
 
     @jsii.member(jsii_name="addWeeklyScheduledTrigger")
     def add_weekly_scheduled_trigger(
@@ -10907,10 +10924,10 @@ class WorkflowBase(
         id: builtins.str,
         *,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_glue_ceddda9d.CfnTrigger:
+    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
         '''(experimental) Add a weekly-scheduled trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -10934,12 +10951,12 @@ class WorkflowBase(
             name=name,
         )
 
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTrigger, jsii.invoke(self, "addWeeklyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addWeeklyScheduledTrigger", [id, options]))
 
     @jsii.member(jsii_name="buildWorkflowArn")
     def _build_workflow_arn(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         workflow_name: builtins.str,
     ) -> builtins.str:
         '''
@@ -11158,11 +11175,11 @@ class AssetCode(
         import aws_cdk.aws_glue_alpha as glue_alpha
         import aws_cdk as cdk
         from aws_cdk import aws_iam as iam
-        from aws_cdk import aws_kms as kms
+        from aws_cdk.interfaces import aws_kms as interfaces_kms
         
         # docker_image: cdk.DockerImage
         # grantable: iam.IGrantable
-        # key_ref: kms.IKeyRef
+        # key_ref: interfaces_kms.IKeyRef
         # local_bundling: cdk.ILocalBundling
         
         asset_code = glue_alpha.AssetCode("path",
@@ -11210,14 +11227,14 @@ class AssetCode(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        readers: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
-        bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_ceddda9d.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_ceddda9d.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_aws_cdk_ceddda9d.SymlinkFollowMode] = None,
-        ignore_mode: typing.Optional[_aws_cdk_ceddda9d.IgnoreMode] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_ceddda9d.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_ceddda9d.IgnoreMode"] = None,
     ) -> None:
         '''
         :param path: The path to the Code file.
@@ -11255,9 +11272,9 @@ class AssetCode(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        grantable: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> CodeConfig:
+        scope: "_constructs_77d1e7e8.Construct",
+        grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "CodeConfig":
         '''(experimental) Called when the Job is initialized to allow this object to bind.
 
         :param scope: -
@@ -11269,7 +11286,7 @@ class AssetCode(
             type_hints = typing.get_type_hints(_typecheckingstub__02569161383966e61e7748be2a2760721daf0107762bdf02e3d7b51459e0adda)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument grantable", value=grantable, expected_type=type_hints["grantable"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, grantable]))
+        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, grantable]))
 
 
 @jsii.implements(IConnection)
@@ -11314,16 +11331,16 @@ class Connection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        type: ConnectionType,
+        type: "ConnectionType",
         connection_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -11358,10 +11375,10 @@ class Connection(
     @builtins.classmethod
     def from_connection_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         connection_arn: builtins.str,
-    ) -> IConnection:
+    ) -> "IConnection":
         '''(experimental) Creates a Connection construct that represents an external connection.
 
         :param scope: The scope creating construct (usually ``this``).
@@ -11375,16 +11392,16 @@ class Connection(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
-        return typing.cast(IConnection, jsii.sinvoke(cls, "fromConnectionArn", [scope, id, connection_arn]))
+        return typing.cast("IConnection", jsii.sinvoke(cls, "fromConnectionArn", [scope, id, connection_arn]))
 
     @jsii.member(jsii_name="fromConnectionName")
     @builtins.classmethod
     def from_connection_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         connection_name: builtins.str,
-    ) -> IConnection:
+    ) -> "IConnection":
         '''(experimental) Creates a Connection construct that represents an external connection.
 
         :param scope: The scope creating construct (usually ``this``).
@@ -11398,7 +11415,7 @@ class Connection(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
-        return typing.cast(IConnection, jsii.sinvoke(cls, "fromConnectionName", [scope, id, connection_name]))
+        return typing.cast("IConnection", jsii.sinvoke(cls, "fromConnectionName", [scope, id, connection_name]))
 
     @jsii.member(jsii_name="addProperty")
     def add_property(self, key: builtins.str, value: builtins.str) -> None:
@@ -11457,7 +11474,7 @@ class DailyScheduleTriggerOptions(TriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
@@ -11518,14 +11535,14 @@ class DailyScheduleTriggerOptions(TriggerOptions):
             self._values["start_on_creation"] = start_on_creation
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -11607,11 +11624,11 @@ class DataQualityRuleset(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         ruleset_dqdl: builtins.str,
-        target_table: DataQualityTargetTable,
+        target_table: "DataQualityTargetTable",
         client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         ruleset_name: typing.Optional[builtins.str] = None,
@@ -11648,10 +11665,10 @@ class DataQualityRuleset(
     @builtins.classmethod
     def from_ruleset_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         ruleset_arn: builtins.str,
-    ) -> IDataQualityRuleset:
+    ) -> "IDataQualityRuleset":
         '''
         :param scope: -
         :param id: -
@@ -11664,16 +11681,16 @@ class DataQualityRuleset(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ruleset_arn", value=ruleset_arn, expected_type=type_hints["ruleset_arn"])
-        return typing.cast(IDataQualityRuleset, jsii.sinvoke(cls, "fromRulesetArn", [scope, id, ruleset_arn]))
+        return typing.cast("IDataQualityRuleset", jsii.sinvoke(cls, "fromRulesetArn", [scope, id, ruleset_arn]))
 
     @jsii.member(jsii_name="fromRulesetName")
     @builtins.classmethod
     def from_ruleset_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         ruleset_name: builtins.str,
-    ) -> IDataQualityRuleset:
+    ) -> "IDataQualityRuleset":
         '''
         :param scope: -
         :param id: -
@@ -11686,7 +11703,7 @@ class DataQualityRuleset(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
-        return typing.cast(IDataQualityRuleset, jsii.sinvoke(cls, "fromRulesetName", [scope, id, ruleset_name]))
+        return typing.cast("IDataQualityRuleset", jsii.sinvoke(cls, "fromRulesetName", [scope, id, ruleset_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -11729,6 +11746,7 @@ class Database(
 
     Example::
 
+        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
         from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
@@ -11802,7 +11820,7 @@ class Database(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         database_name: typing.Optional[builtins.str] = None,
@@ -11834,10 +11852,10 @@ class Database(
     @builtins.classmethod
     def from_database_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         database_arn: builtins.str,
-    ) -> IDatabase:
+    ) -> "IDatabase":
         '''
         :param scope: -
         :param id: -
@@ -11850,7 +11868,7 @@ class Database(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
-        return typing.cast(IDatabase, jsii.sinvoke(cls, "fromDatabaseArn", [scope, id, database_arn]))
+        return typing.cast("IDatabase", jsii.sinvoke(cls, "fromDatabaseArn", [scope, id, database_arn]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -11882,7 +11900,7 @@ class Database(
     @builtins.property
     @jsii.member(jsii_name="databaseArn")
     def database_arn(self) -> builtins.str:
-        '''(experimental) ARN of this database.
+        '''(experimental) The ARN of the database.
 
         :stability: experimental
         '''
@@ -11891,7 +11909,7 @@ class Database(
     @builtins.property
     @jsii.member(jsii_name="databaseName")
     def database_name(self) -> builtins.str:
-        '''(experimental) Name of this database.
+        '''(experimental) The name of the database.
 
         :stability: experimental
         '''
@@ -11905,6 +11923,13 @@ class Database(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationUri"))
+
+    @location_uri.setter
+    def location_uri(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90e333b7e65b52ce7350f1362e32d0548570ec42483de3019c80f233c116f3aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "locationUri", value) # pyright: ignore[reportArgumentType]
 
 
 class ExternalTable(
@@ -11938,21 +11963,21 @@ class ExternalTable(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        connection: IConnection,
+        connection: "IConnection",
         external_data_location: builtins.str,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -12002,9 +12027,9 @@ class ExternalTable(
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant read permissions to the table.
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read permissions to the table [disable-awslint:no-grants].
 
         :param grantee: the principal.
 
@@ -12013,14 +12038,14 @@ class ExternalTable(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c617ebeabae95be649f31192a1508ef254d5bb2a8f19540978e253877af7dc16)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="grantReadWrite")
     def grant_read_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant read and write permissions to the table.
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read and write permissions to the table [disable-awslint:no-grants].
 
         :param grantee: the principal.
 
@@ -12029,14 +12054,14 @@ class ExternalTable(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d8e02b4ae2bce8590c80e2ce7a5829b237b1f08f6385cd6a8b926b701f8156b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantReadWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant write permissions to the table.
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant write permissions to the table [disable-awslint:no-grants].
 
         :param grantee: the principal.
 
@@ -12045,7 +12070,7 @@ class ExternalTable(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a161912810e7c25318614d340cf493d532bdbc1c20d5857baaa8e004b812df93)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -12058,12 +12083,12 @@ class ExternalTable(
 
     @builtins.property
     @jsii.member(jsii_name="connection")
-    def connection(self) -> IConnection:
+    def connection(self) -> "IConnection":
         '''(experimental) The connection associated to this table.
 
         :stability: experimental
         '''
-        return typing.cast(IConnection, jsii.get(self, "connection"))
+        return typing.cast("IConnection", jsii.get(self, "connection"))
 
     @builtins.property
     @jsii.member(jsii_name="tableArn")
@@ -12085,20 +12110,20 @@ class ExternalTable(
 
     @builtins.property
     @jsii.member(jsii_name="tableResource")
-    def _table_resource(self) -> _aws_cdk_aws_glue_ceddda9d.CfnTable:
+    def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTable, jsii.get(self, "tableResource"))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''(experimental) This table's partition indexes.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], jsii.get(self, "partitionIndexes"))
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], jsii.get(self, "partitionIndexes"))
 
 
 @jsii.data_type(
@@ -12125,19 +12150,19 @@ class ExternalTableProps(TableBaseProps):
     def __init__(
         self,
         *,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
-        connection: IConnection,
+        connection: "IConnection",
         external_data_location: builtins.str,
     ) -> None:
         '''
@@ -12219,34 +12244,34 @@ class ExternalTableProps(TableBaseProps):
             self._values["table_name"] = table_name
 
     @builtins.property
-    def columns(self) -> typing.List[Column]:
+    def columns(self) -> typing.List["Column"]:
         '''(experimental) Columns of the table.
 
         :stability: experimental
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
-        return typing.cast(typing.List[Column], result)
+        return typing.cast(typing.List["Column"], result)
 
     @builtins.property
-    def database(self) -> IDatabase:
+    def database(self) -> "IDatabase":
         '''(experimental) Database in which to store the table.
 
         :stability: experimental
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
-        return typing.cast(IDatabase, result)
+        return typing.cast("IDatabase", result)
 
     @builtins.property
-    def data_format(self) -> DataFormat:
+    def data_format(self) -> "DataFormat":
         '''(experimental) Storage type of the table's data.
 
         :stability: experimental
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
-        return typing.cast(DataFormat, result)
+        return typing.cast("DataFormat", result)
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
@@ -12297,7 +12322,7 @@ class ExternalTableProps(TableBaseProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''(experimental) Partition indexes on the table.
 
         A maximum of 3 indexes
@@ -12309,10 +12334,10 @@ class ExternalTableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("partition_indexes")
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], result)
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
-    def partition_keys(self) -> typing.Optional[typing.List[Column]]:
+    def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
         '''(experimental) Partition columns of the table.
 
         :default: table is not partitioned
@@ -12320,10 +12345,10 @@ class ExternalTableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("partition_keys")
-        return typing.cast(typing.Optional[typing.List[Column]], result)
+        return typing.cast(typing.Optional[typing.List["Column"]], result)
 
     @builtins.property
-    def storage_parameters(self) -> typing.Optional[typing.List[StorageParameter]]:
+    def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
         '''(experimental) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
@@ -12359,7 +12384,7 @@ class ExternalTableProps(TableBaseProps):
             )
         '''
         result = self._values.get("storage_parameters")
-        return typing.cast(typing.Optional[typing.List[StorageParameter]], result)
+        return typing.cast(typing.Optional[typing.List["StorageParameter"]], result)
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
@@ -12384,7 +12409,7 @@ class ExternalTableProps(TableBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def connection(self) -> IConnection:
+    def connection(self) -> "IConnection":
         '''(experimental) The connection the table will use when performing reads and writes.
 
         :default: - No connection
@@ -12393,7 +12418,7 @@ class ExternalTableProps(TableBaseProps):
         '''
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
-        return typing.cast(IConnection, result)
+        return typing.cast("IConnection", result)
 
     @builtins.property
     def external_data_location(self) -> builtins.str:
@@ -12451,7 +12476,7 @@ class Job(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account: typing.Optional[builtins.str] = None,
@@ -12484,12 +12509,12 @@ class Job(
     @builtins.classmethod
     def from_job_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         job_name: builtins.str,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-    ) -> IJob:
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+    ) -> "IJob":
         '''(experimental) Identifies an existing Glue Job from a subset of attributes that can be referenced from within another Stack or Construct.
 
         :param scope: The scope creating construct (usually ``this``).
@@ -12505,7 +12530,7 @@ class Job(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = JobAttributes(job_name=job_name, role=role)
 
-        return typing.cast(IJob, jsii.sinvoke(cls, "fromJobAttributes", [scope, id, attrs]))
+        return typing.cast("IJob", jsii.sinvoke(cls, "fromJobAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="checkNoReservedArgs")
     def _check_no_reserved_args(
@@ -12525,7 +12550,7 @@ class Job(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.invoke(self, "checkNoReservedArgs", [default_arguments]))
 
     @jsii.member(jsii_name="codeS3ObjectUrl")
-    def _code_s3_object_url(self, code: Code) -> builtins.str:
+    def _code_s3_object_url(self, code: "Code") -> builtins.str:
         '''
         :param code: -
 
@@ -12539,11 +12564,11 @@ class Job(
     @jsii.member(jsii_name="setupContinuousLogging")
     def _setup_continuous_logging(
         self,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         *,
         enabled: builtins.bool,
         conversion_pattern: typing.Optional[builtins.str] = None,
-        log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
         log_stream_prefix: typing.Optional[builtins.str] = None,
         quiet: typing.Optional[builtins.bool] = None,
     ) -> typing.Any:
@@ -12576,7 +12601,7 @@ class Job(
     @builtins.property
     @jsii.member(jsii_name="role")
     @abc.abstractmethod
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role Glue assumes to run this job.
 
         :stability: experimental
@@ -12590,12 +12615,12 @@ class _JobProxy(
 ):
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role Glue assumes to run this job.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, jsii.get(self, "role"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, Job).__jsii_proxy_class__ = lambda : _JobProxy
@@ -12615,10 +12640,10 @@ class NotifyEventTriggerOptions(TriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        event_batching_condition: typing.Optional[typing.Union[EventBatchingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties for configuring an Event Bridge based Glue Trigger.
 
@@ -12683,14 +12708,14 @@ class NotifyEventTriggerOptions(TriggerOptions):
             self._values["event_batching_condition"] = event_batching_condition
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -12715,7 +12740,7 @@ class NotifyEventTriggerOptions(TriggerOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def event_batching_condition(self) -> typing.Optional[EventBatchingCondition]:
+    def event_batching_condition(self) -> typing.Optional["EventBatchingCondition"]:
         '''(experimental) Batch condition for the trigger.
 
         :default: - no batch condition
@@ -12723,7 +12748,7 @@ class NotifyEventTriggerOptions(TriggerOptions):
         :stability: experimental
         '''
         result = self._values.get("event_batching_condition")
-        return typing.cast(typing.Optional[EventBatchingCondition], result)
+        return typing.cast(typing.Optional["EventBatchingCondition"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12746,7 +12771,7 @@ class OnDemandTriggerOptions(TriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -12801,14 +12826,14 @@ class OnDemandTriggerOptions(TriggerOptions):
             self._values["name"] = name
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -12878,29 +12903,29 @@ class PySparkEtlJobProps(SparkJobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Properties for creating a Python Spark ETL job.
@@ -13037,7 +13062,7 @@ class PySparkEtlJobProps(SparkJobProps):
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -13045,10 +13070,10 @@ class PySparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -13059,10 +13084,10 @@ class PySparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -13070,10 +13095,10 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -13082,7 +13107,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -13125,7 +13150,7 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -13133,7 +13158,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -13183,7 +13208,7 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -13191,7 +13216,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -13205,7 +13230,7 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -13215,10 +13240,10 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def worker_type(self) -> typing.Optional[WorkerType]:
+    def worker_type(self) -> typing.Optional["WorkerType"]:
         '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
 
         G_4X, G_8X, Z_2X
@@ -13228,7 +13253,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("worker_type")
-        return typing.cast(typing.Optional[WorkerType], result)
+        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -13257,7 +13282,7 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def spark_ui(self) -> typing.Optional[SparkUIProps]:
+    def spark_ui(self) -> typing.Optional["SparkUIProps"]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
@@ -13266,10 +13291,10 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("spark_ui")
-        return typing.cast(typing.Optional[SparkUIProps], result)
+        return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -13278,10 +13303,10 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -13289,7 +13314,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -13304,7 +13329,7 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def extra_python_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
@@ -13312,7 +13337,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_python_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
@@ -13377,30 +13402,30 @@ class PySparkFlexEtlJobProps(SparkJobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
-        notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Properties for PySparkFlexEtlJob.
 
@@ -13522,7 +13547,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             self._values["notify_delay_after"] = notify_delay_after
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -13530,10 +13555,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -13544,10 +13569,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -13555,10 +13580,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -13567,7 +13592,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -13610,7 +13635,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -13618,7 +13643,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -13668,7 +13693,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -13676,7 +13701,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -13690,7 +13715,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -13700,10 +13725,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def worker_type(self) -> typing.Optional[WorkerType]:
+    def worker_type(self) -> typing.Optional["WorkerType"]:
         '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
 
         G_4X, G_8X, Z_2X
@@ -13713,7 +13738,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("worker_type")
-        return typing.cast(typing.Optional[WorkerType], result)
+        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -13742,7 +13767,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def spark_ui(self) -> typing.Optional[SparkUIProps]:
+    def spark_ui(self) -> typing.Optional["SparkUIProps"]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
@@ -13751,10 +13776,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("spark_ui")
-        return typing.cast(typing.Optional[SparkUIProps], result)
+        return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -13763,10 +13788,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -13774,7 +13799,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -13789,7 +13814,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def extra_python_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
@@ -13797,10 +13822,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_python_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def notify_delay_after(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Specifies configuration properties of a notification (optional).
 
         After a job run starts, the number of minutes to wait before sending a job run delay notification.
@@ -13810,7 +13835,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("notify_delay_after")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13858,29 +13883,29 @@ class PySparkStreamingJobProps(SparkJobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Properties for creating a Python Spark ETL job.
@@ -14003,7 +14028,7 @@ class PySparkStreamingJobProps(SparkJobProps):
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -14011,10 +14036,10 @@ class PySparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -14025,10 +14050,10 @@ class PySparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -14036,10 +14061,10 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -14048,7 +14073,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -14091,7 +14116,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -14099,7 +14124,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -14149,7 +14174,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -14157,7 +14182,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -14171,7 +14196,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -14181,10 +14206,10 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def worker_type(self) -> typing.Optional[WorkerType]:
+    def worker_type(self) -> typing.Optional["WorkerType"]:
         '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
 
         G_4X, G_8X, Z_2X
@@ -14194,7 +14219,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("worker_type")
-        return typing.cast(typing.Optional[WorkerType], result)
+        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -14223,7 +14248,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def spark_ui(self) -> typing.Optional[SparkUIProps]:
+    def spark_ui(self) -> typing.Optional["SparkUIProps"]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
@@ -14232,10 +14257,10 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("spark_ui")
-        return typing.cast(typing.Optional[SparkUIProps], result)
+        return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -14244,10 +14269,10 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -14255,7 +14280,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -14270,7 +14295,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def extra_python_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
@@ -14278,7 +14303,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_python_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
@@ -14336,28 +14361,28 @@ class PythonShellJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
-        max_capacity: typing.Optional[MaxCapacity] = None,
-        python_version: typing.Optional[PythonVersion] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_capacity: typing.Optional["MaxCapacity"] = None,
+        python_version: typing.Optional["PythonVersion"] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PythonShellJob constructor.
 
@@ -14424,12 +14449,12 @@ class PythonShellJob(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
@@ -14451,12 +14476,12 @@ class PythonShellJob(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role Glue assumes to run this job.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, jsii.get(self, "role"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
 
 class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.RayJob"):
@@ -14483,29 +14508,29 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
-        runtime: typing.Optional[Runtime] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        runtime: typing.Optional["Runtime"] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) RayJob constructor.
 
@@ -14574,12 +14599,12 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
@@ -14601,12 +14626,12 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role Glue assumes to run this job.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, jsii.get(self, "role"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
 
 class S3Table(
@@ -14644,23 +14669,23 @@ class S3Table(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        encryption: typing.Optional[TableEncryption] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        encryption: typing.Optional["TableEncryption"] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         s3_prefix: typing.Optional[builtins.str] = None,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -14721,9 +14746,11 @@ class S3Table(
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant read permissions to the table and the underlying data stored in S3 to an IAM principal.
+
+        [disable-awslint:no-grants]
 
         :param grantee: the principal.
 
@@ -14732,14 +14759,16 @@ class S3Table(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3909b8e18b4eb038d1349092a370f0791a90c6e7f8380b7439f83993e01d04f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="grantReadWrite")
     def grant_read_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant read and write permissions to the table and the underlying data stored in S3 to an IAM principal.
+
+        [disable-awslint:no-grants]
 
         :param grantee: the principal.
 
@@ -14748,14 +14777,16 @@ class S3Table(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e7a94485fcfc5ef062186c7655669b475fac2ccac917edd1bd396de160cd227)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantReadWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant write permissions to the table and the underlying data stored in S3 to an IAM principal.
+
+        [disable-awslint:no-grants]
 
         :param grantee: the principal.
 
@@ -14764,7 +14795,7 @@ class S3Table(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea067213729fc1f1f124734239ce0d21ea4e77d3fecd8d14ab5363d59122770b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -14777,21 +14808,21 @@ class S3Table(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         '''(experimental) S3 bucket in which the table's data resides.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, jsii.get(self, "bucket"))
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="encryption")
-    def encryption(self) -> TableEncryption:
+    def encryption(self) -> "TableEncryption":
         '''(experimental) The type of encryption enabled for the table.
 
         :stability: experimental
         '''
-        return typing.cast(TableEncryption, jsii.get(self, "encryption"))
+        return typing.cast("TableEncryption", jsii.get(self, "encryption"))
 
     @builtins.property
     @jsii.member(jsii_name="s3Prefix")
@@ -14822,31 +14853,31 @@ class S3Table(
 
     @builtins.property
     @jsii.member(jsii_name="tableResource")
-    def _table_resource(self) -> _aws_cdk_aws_glue_ceddda9d.CfnTable:
+    def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTable, jsii.get(self, "tableResource"))
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) The KMS key used to secure the data if ``encryption`` is set to ``CSE-KMS`` or ``SSE-KMS``.
 
         Otherwise, ``undefined``.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "encryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''(experimental) This table's partition indexes.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], jsii.get(self, "partitionIndexes"))
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], jsii.get(self, "partitionIndexes"))
 
 
 @jsii.data_type(
@@ -14875,21 +14906,21 @@ class S3TableProps(TableBaseProps):
     def __init__(
         self,
         *,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        encryption: typing.Optional[TableEncryption] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        encryption: typing.Optional["TableEncryption"] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         s3_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -14985,34 +15016,34 @@ class S3TableProps(TableBaseProps):
             self._values["s3_prefix"] = s3_prefix
 
     @builtins.property
-    def columns(self) -> typing.List[Column]:
+    def columns(self) -> typing.List["Column"]:
         '''(experimental) Columns of the table.
 
         :stability: experimental
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
-        return typing.cast(typing.List[Column], result)
+        return typing.cast(typing.List["Column"], result)
 
     @builtins.property
-    def database(self) -> IDatabase:
+    def database(self) -> "IDatabase":
         '''(experimental) Database in which to store the table.
 
         :stability: experimental
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
-        return typing.cast(IDatabase, result)
+        return typing.cast("IDatabase", result)
 
     @builtins.property
-    def data_format(self) -> DataFormat:
+    def data_format(self) -> "DataFormat":
         '''(experimental) Storage type of the table's data.
 
         :stability: experimental
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
-        return typing.cast(DataFormat, result)
+        return typing.cast("DataFormat", result)
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
@@ -15063,7 +15094,7 @@ class S3TableProps(TableBaseProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''(experimental) Partition indexes on the table.
 
         A maximum of 3 indexes
@@ -15075,10 +15106,10 @@ class S3TableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("partition_indexes")
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], result)
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
-    def partition_keys(self) -> typing.Optional[typing.List[Column]]:
+    def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
         '''(experimental) Partition columns of the table.
 
         :default: table is not partitioned
@@ -15086,10 +15117,10 @@ class S3TableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("partition_keys")
-        return typing.cast(typing.Optional[typing.List[Column]], result)
+        return typing.cast(typing.Optional[typing.List["Column"]], result)
 
     @builtins.property
-    def storage_parameters(self) -> typing.Optional[typing.List[StorageParameter]]:
+    def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
         '''(experimental) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
@@ -15125,7 +15156,7 @@ class S3TableProps(TableBaseProps):
             )
         '''
         result = self._values.get("storage_parameters")
-        return typing.cast(typing.Optional[typing.List[StorageParameter]], result)
+        return typing.cast(typing.Optional[typing.List["StorageParameter"]], result)
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
@@ -15150,7 +15181,7 @@ class S3TableProps(TableBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         '''(experimental) S3 bucket in which to store data.
 
         :default: one is created for you
@@ -15158,10 +15189,10 @@ class S3TableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
-    def encryption(self) -> typing.Optional[TableEncryption]:
+    def encryption(self) -> typing.Optional["TableEncryption"]:
         '''(experimental) The kind of encryption to secure the data with.
 
         You can only provide this option if you are not explicitly passing in a bucket.
@@ -15174,10 +15205,10 @@ class S3TableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("encryption")
-        return typing.cast(typing.Optional[TableEncryption], result)
+        return typing.cast(typing.Optional["TableEncryption"], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) External KMS key to use for bucket encryption.
 
         The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``.
@@ -15187,7 +15218,7 @@ class S3TableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
@@ -15246,28 +15277,28 @@ class ScalaSparkEtlJobProps(SparkJobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -15441,7 +15472,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -15449,10 +15480,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -15463,10 +15494,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -15474,10 +15505,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -15486,7 +15517,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -15529,7 +15560,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -15537,7 +15568,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -15587,7 +15618,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -15595,7 +15626,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -15609,7 +15640,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -15619,10 +15650,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def worker_type(self) -> typing.Optional[WorkerType]:
+    def worker_type(self) -> typing.Optional["WorkerType"]:
         '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
 
         G_4X, G_8X, Z_2X
@@ -15632,7 +15663,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("worker_type")
-        return typing.cast(typing.Optional[WorkerType], result)
+        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -15661,7 +15692,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def spark_ui(self) -> typing.Optional[SparkUIProps]:
+    def spark_ui(self) -> typing.Optional["SparkUIProps"]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
@@ -15670,7 +15701,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("spark_ui")
-        return typing.cast(typing.Optional[SparkUIProps], result)
+        return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
@@ -15683,7 +15714,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -15692,10 +15723,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -15703,7 +15734,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -15780,30 +15811,30 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Flex Jobs class.
 
@@ -15984,7 +16015,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
             self._values["notify_delay_after"] = notify_delay_after
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -15992,10 +16023,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -16006,10 +16037,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -16017,10 +16048,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -16029,7 +16060,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -16072,7 +16103,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -16080,7 +16111,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -16130,7 +16161,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -16138,7 +16169,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -16152,7 +16183,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -16162,10 +16193,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def worker_type(self) -> typing.Optional[WorkerType]:
+    def worker_type(self) -> typing.Optional["WorkerType"]:
         '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
 
         G_4X, G_8X, Z_2X
@@ -16175,7 +16206,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("worker_type")
-        return typing.cast(typing.Optional[WorkerType], result)
+        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -16204,7 +16235,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def spark_ui(self) -> typing.Optional[SparkUIProps]:
+    def spark_ui(self) -> typing.Optional["SparkUIProps"]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
@@ -16213,7 +16244,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("spark_ui")
-        return typing.cast(typing.Optional[SparkUIProps], result)
+        return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
@@ -16227,7 +16258,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -16236,10 +16267,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -16247,7 +16278,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -16262,7 +16293,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def notify_delay_after(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Specifies configuration properties of a notification (optional).
 
         After a job run starts, the number of minutes to wait before sending a job run delay notification.
@@ -16272,7 +16303,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("notify_delay_after")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16320,28 +16351,28 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -16515,7 +16546,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
@@ -16523,10 +16554,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def script(self) -> Code:
+    def script(self) -> "Code":
         '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
@@ -16537,10 +16568,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
-    def connections(self) -> typing.Optional[typing.List[IConnection]]:
+    def connections(self) -> typing.Optional[typing.List["IConnection"]]:
         '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
@@ -16548,10 +16579,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("connections")
-        return typing.cast(typing.Optional[typing.List[IConnection]], result)
+        return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
-    def continuous_logging(self) -> typing.Optional[ContinuousLoggingProps]:
+    def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
         '''(experimental) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
@@ -16560,7 +16591,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("continuous_logging")
-        return typing.cast(typing.Optional[ContinuousLoggingProps], result)
+        return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
 
     @builtins.property
     def default_arguments(
@@ -16603,7 +16634,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def glue_version(self) -> typing.Optional[GlueVersion]:
+    def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
         :default: 3.0 for ETL
@@ -16611,7 +16642,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("glue_version")
-        return typing.cast(typing.Optional[GlueVersion], result)
+        return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -16661,7 +16692,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def security_configuration(self) -> typing.Optional[ISecurityConfiguration]:
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
@@ -16669,7 +16700,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[ISecurityConfiguration], result)
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -16683,7 +16714,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
@@ -16693,10 +16724,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def worker_type(self) -> typing.Optional[WorkerType]:
+    def worker_type(self) -> typing.Optional["WorkerType"]:
         '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
 
         G_4X, G_8X, Z_2X
@@ -16706,7 +16737,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("worker_type")
-        return typing.cast(typing.Optional[WorkerType], result)
+        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -16735,7 +16766,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def spark_ui(self) -> typing.Optional[SparkUIProps]:
+    def spark_ui(self) -> typing.Optional["SparkUIProps"]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
@@ -16744,7 +16775,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("spark_ui")
-        return typing.cast(typing.Optional[SparkUIProps], result)
+        return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
@@ -16757,7 +16788,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def extra_files(self) -> typing.Optional[typing.List[Code]]:
+    def extra_files(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
@@ -16766,10 +16797,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_files")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
-    def extra_jars(self) -> typing.Optional[typing.List[Code]]:
+    def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
         '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
@@ -16777,7 +16808,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :stability: experimental
         '''
         result = self._values.get("extra_jars")
-        return typing.cast(typing.Optional[typing.List[Code]], result)
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
@@ -16849,28 +16880,28 @@ class SparkJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -16931,23 +16962,23 @@ class SparkJob(
         *,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> typing.Mapping[builtins.str, builtins.str]:
         '''
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
@@ -17001,10 +17032,10 @@ class SparkJob(
         self,
         args: typing.Mapping[builtins.str, builtins.str],
         *,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
     ) -> None:
         '''(experimental) Set the arguments for extra {@link Code}-related properties.
 
@@ -17030,31 +17061,31 @@ class SparkJob(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role Glue assumes to run this job.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, jsii.get(self, "role"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="sparkUILoggingLocation")
-    def spark_ui_logging_location(self) -> typing.Optional[SparkUILoggingLocation]:
+    def spark_ui_logging_location(self) -> typing.Optional["SparkUILoggingLocation"]:
         '''(experimental) The Spark UI logs location if Spark UI monitoring and debugging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[SparkUILoggingLocation], jsii.get(self, "sparkUILoggingLocation"))
+        return typing.cast(typing.Optional["SparkUILoggingLocation"], jsii.get(self, "sparkUILoggingLocation"))
 
 
 class _SparkJobProxy(
@@ -17103,23 +17134,23 @@ class Table(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        encryption: typing.Optional[TableEncryption] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        encryption: typing.Optional["TableEncryption"] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         s3_prefix: typing.Optional[builtins.str] = None,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -17206,21 +17237,21 @@ class TableProps(S3TableProps):
     def __init__(
         self,
         *,
-        columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-        database: IDatabase,
-        data_format: DataFormat,
+        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
+        database: "IDatabase",
+        data_format: "DataFormat",
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
+        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        encryption: typing.Optional[TableEncryption] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        encryption: typing.Optional["TableEncryption"] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
         s3_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -17355,34 +17386,34 @@ class TableProps(S3TableProps):
             self._values["s3_prefix"] = s3_prefix
 
     @builtins.property
-    def columns(self) -> typing.List[Column]:
+    def columns(self) -> typing.List["Column"]:
         '''(experimental) Columns of the table.
 
         :stability: experimental
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
-        return typing.cast(typing.List[Column], result)
+        return typing.cast(typing.List["Column"], result)
 
     @builtins.property
-    def database(self) -> IDatabase:
+    def database(self) -> "IDatabase":
         '''(experimental) Database in which to store the table.
 
         :stability: experimental
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
-        return typing.cast(IDatabase, result)
+        return typing.cast("IDatabase", result)
 
     @builtins.property
-    def data_format(self) -> DataFormat:
+    def data_format(self) -> "DataFormat":
         '''(experimental) Storage type of the table's data.
 
         :stability: experimental
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
-        return typing.cast(DataFormat, result)
+        return typing.cast("DataFormat", result)
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
@@ -17433,7 +17464,7 @@ class TableProps(S3TableProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def partition_indexes(self) -> typing.Optional[typing.List[PartitionIndex]]:
+    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''(experimental) Partition indexes on the table.
 
         A maximum of 3 indexes
@@ -17445,10 +17476,10 @@ class TableProps(S3TableProps):
         :stability: experimental
         '''
         result = self._values.get("partition_indexes")
-        return typing.cast(typing.Optional[typing.List[PartitionIndex]], result)
+        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
-    def partition_keys(self) -> typing.Optional[typing.List[Column]]:
+    def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
         '''(experimental) Partition columns of the table.
 
         :default: table is not partitioned
@@ -17456,10 +17487,10 @@ class TableProps(S3TableProps):
         :stability: experimental
         '''
         result = self._values.get("partition_keys")
-        return typing.cast(typing.Optional[typing.List[Column]], result)
+        return typing.cast(typing.Optional[typing.List["Column"]], result)
 
     @builtins.property
-    def storage_parameters(self) -> typing.Optional[typing.List[StorageParameter]]:
+    def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
         '''(experimental) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
@@ -17495,7 +17526,7 @@ class TableProps(S3TableProps):
             )
         '''
         result = self._values.get("storage_parameters")
-        return typing.cast(typing.Optional[typing.List[StorageParameter]], result)
+        return typing.cast(typing.Optional[typing.List["StorageParameter"]], result)
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
@@ -17520,7 +17551,7 @@ class TableProps(S3TableProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         '''(experimental) S3 bucket in which to store data.
 
         :default: one is created for you
@@ -17528,10 +17559,10 @@ class TableProps(S3TableProps):
         :stability: experimental
         '''
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
-    def encryption(self) -> typing.Optional[TableEncryption]:
+    def encryption(self) -> typing.Optional["TableEncryption"]:
         '''(experimental) The kind of encryption to secure the data with.
 
         You can only provide this option if you are not explicitly passing in a bucket.
@@ -17544,10 +17575,10 @@ class TableProps(S3TableProps):
         :stability: experimental
         '''
         result = self._values.get("encryption")
-        return typing.cast(typing.Optional[TableEncryption], result)
+        return typing.cast(typing.Optional["TableEncryption"], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) External KMS key to use for bucket encryption.
 
         The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``.
@@ -17557,7 +17588,7 @@ class TableProps(S3TableProps):
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
@@ -17596,7 +17627,7 @@ class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
@@ -17657,14 +17688,14 @@ class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
             self._values["start_on_creation"] = start_on_creation
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -17767,7 +17798,7 @@ class Workflow(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         default_run_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -17802,10 +17833,10 @@ class Workflow(
     @builtins.classmethod
     def from_workflow_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         workflow_arn: builtins.str,
-    ) -> IWorkflow:
+    ) -> "IWorkflow":
         '''(experimental) Import an workflow from it's name.
 
         :param scope: -
@@ -17819,18 +17850,18 @@ class Workflow(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
-        return typing.cast(IWorkflow, jsii.sinvoke(cls, "fromWorkflowArn", [scope, id, workflow_arn]))
+        return typing.cast("IWorkflow", jsii.sinvoke(cls, "fromWorkflowArn", [scope, id, workflow_arn]))
 
     @jsii.member(jsii_name="fromWorkflowAttributes")
     @builtins.classmethod
     def from_workflow_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         workflow_name: builtins.str,
         workflow_arn: typing.Optional[builtins.str] = None,
-    ) -> IWorkflow:
+    ) -> "IWorkflow":
         '''(experimental) Import an existing workflow.
 
         :param scope: -
@@ -17848,16 +17879,16 @@ class Workflow(
             workflow_name=workflow_name, workflow_arn=workflow_arn
         )
 
-        return typing.cast(IWorkflow, jsii.sinvoke(cls, "fromWorkflowAttributes", [scope, id, attrs]))
+        return typing.cast("IWorkflow", jsii.sinvoke(cls, "fromWorkflowAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="fromWorkflowName")
     @builtins.classmethod
     def from_workflow_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         workflow_name: builtins.str,
-    ) -> IWorkflow:
+    ) -> "IWorkflow":
         '''(experimental) Import a workflow from its name.
 
         :param scope: -
@@ -17871,7 +17902,7 @@ class Workflow(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
-        return typing.cast(IWorkflow, jsii.sinvoke(cls, "fromWorkflowName", [scope, id, workflow_name]))
+        return typing.cast("IWorkflow", jsii.sinvoke(cls, "fromWorkflowName", [scope, id, workflow_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -17916,11 +17947,11 @@ class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        predicate: typing.Union[Predicate, typing.Dict[builtins.str, typing.Any]],
+        predicate: typing.Union["Predicate", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Properties for configuring a Condition (Predicate) based Glue Trigger.
 
@@ -17993,14 +18024,14 @@ class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
             self._values["start_on_creation"] = start_on_creation
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -18036,14 +18067,14 @@ class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def predicate(self) -> Predicate:
+    def predicate(self) -> "Predicate":
         '''(experimental) The predicate for the trigger.
 
         :stability: experimental
         '''
         result = self._values.get("predicate")
         assert result is not None, "Required property 'predicate' is missing"
-        return typing.cast(Predicate, result)
+        return typing.cast("Predicate", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18072,11 +18103,11 @@ class CustomScheduledTriggerOptions(WeeklyScheduleTriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
-        schedule: TriggerSchedule,
+        schedule: "TriggerSchedule",
     ) -> None:
         '''(experimental) Properties for configuring a custom-scheduled Glue Trigger.
 
@@ -18139,14 +18170,14 @@ class CustomScheduledTriggerOptions(WeeklyScheduleTriggerOptions):
             self._values["start_on_creation"] = start_on_creation
 
     @builtins.property
-    def actions(self) -> typing.List[Action]:
+    def actions(self) -> typing.List["Action"]:
         '''(experimental) The actions initiated by this trigger.
 
         :stability: experimental
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[Action], result)
+        return typing.cast(typing.List["Action"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -18182,14 +18213,14 @@ class CustomScheduledTriggerOptions(WeeklyScheduleTriggerOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def schedule(self) -> TriggerSchedule:
+    def schedule(self) -> "TriggerSchedule":
         '''(experimental) The custom schedule for the trigger.
 
         :stability: experimental
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(TriggerSchedule, result)
+        return typing.cast("TriggerSchedule", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18249,33 +18280,33 @@ class PySparkEtlJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PySparkEtlJob constructor.
 
@@ -18401,33 +18432,33 @@ class PySparkFlexEtlJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
-        notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PySparkFlexEtlJob constructor.
 
@@ -18553,33 +18584,33 @@ class PySparkStreamingJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PySparkStreamingJob constructor.
 
@@ -18756,33 +18787,33 @@ class ScalaSparkEtlJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         class_name: builtins.str,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) ScalaSparkEtlJob constructor.
 
@@ -18959,33 +18990,33 @@ class ScalaSparkFlexEtlJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         class_name: builtins.str,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
-        notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) ScalaSparkFlexEtlJob constructor.
 
@@ -19162,33 +19193,33 @@ class ScalaSparkStreamingJob(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         class_name: builtins.str,
-        extra_files: typing.Optional[typing.Sequence[Code]] = None,
-        extra_jars: typing.Optional[typing.Sequence[Code]] = None,
+        extra_files: typing.Optional[typing.Sequence["Code"]] = None,
+        extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
-        spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        script: Code,
-        connections: typing.Optional[typing.Sequence[IConnection]] = None,
-        continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        script: "Code",
+        connections: typing.Optional[typing.Sequence["IConnection"]] = None,
+        continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_profiling_metrics: typing.Optional[builtins.bool] = None,
-        glue_version: typing.Optional[GlueVersion] = None,
+        glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         number_of_workers: typing.Optional[jsii.Number] = None,
-        security_configuration: typing.Optional[ISecurityConfiguration] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        worker_type: typing.Optional[WorkerType] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) ScalaSparkStreamingJob constructor.
 
@@ -19420,7 +19451,7 @@ def _typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257
 def _typecheckingstub__ceec14d1d7029d8fb7df76e4abb14bc79250421d85a9584f0271d9e7c4f4ef3f(
     *,
     mode: CloudWatchEncryptionMode,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19431,7 +19462,7 @@ def _typecheckingstub__cd7e88ca82e81ea6700503f28d9e5352c4a86e264d00afb35e761e591
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    source_kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
     bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19800,7 +19831,7 @@ def _typecheckingstub__d7a8d02d32cc082a6ff2a1e0f1652f9b32b59c7e9908524f3e8b2ccbd
 def _typecheckingstub__61a555ea81acfe554401802d7d44d70d3e1a6f96890ffbc28283fadb7ea81f9e(
     *,
     mode: JobBookmarksEncryptionMode,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19917,7 +19948,7 @@ def _typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f2007
 def _typecheckingstub__d972222b3b5c087e70a7ab859853e97f1579eeee2ede763d551c41d4076f740e(
     *,
     mode: S3EncryptionMode,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20383,7 +20414,7 @@ def _typecheckingstub__8659d1457c6b7393d9d7559014d5e5cf2fae91cdf81e1dcc8f010bdd5
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    source_kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
     bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -20494,6 +20525,12 @@ def _typecheckingstub__6b20be4513bbaa9c562fcfb165fa327a8e6c6d38a0b15481eca8493b9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     database_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90e333b7e65b52ce7350f1362e32d0548570ec42483de3019c80f233c116f3aa(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21267,3 +21304,6 @@ def _typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567c
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IConnection, IDataQualityRuleset, IDatabase, IJob, ISecurityConfiguration, ITable, IWorkflow]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

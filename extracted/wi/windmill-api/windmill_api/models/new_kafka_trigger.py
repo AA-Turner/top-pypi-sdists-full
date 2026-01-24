@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.new_kafka_trigger_mode import NewKafkaTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -23,10 +24,10 @@ class NewKafkaTrigger:
         kafka_resource_path (str):
         group_id (str):
         topics (List[str]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, NewKafkaTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, NewKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, NewKafkaTriggerRetry]):
+        retry (Union[Unset, NewKafkaTriggerRetry]): Retry configuration for failed module executions
     """
 
     path: str
@@ -35,7 +36,7 @@ class NewKafkaTrigger:
     kafka_resource_path: str
     group_id: str
     topics: List[str]
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, NewKafkaTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewKafkaTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "NewKafkaTriggerRetry"] = UNSET
@@ -49,7 +50,10 @@ class NewKafkaTrigger:
         group_id = self.group_id
         topics = self.topics
 
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -71,8 +75,8 @@ class NewKafkaTrigger:
                 "topics": topics,
             }
         )
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -100,7 +104,12 @@ class NewKafkaTrigger:
 
         topics = cast(List[str], d.pop("topics"))
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, NewKafkaTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = NewKafkaTriggerMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -125,7 +134,7 @@ class NewKafkaTrigger:
             kafka_resource_path=kafka_resource_path,
             group_id=group_id,
             topics=topics,
-            enabled=enabled,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

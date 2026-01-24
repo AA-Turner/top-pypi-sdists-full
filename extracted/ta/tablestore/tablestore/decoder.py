@@ -15,6 +15,18 @@ import tablestore.protobuf.timeseries_pb2 as timeseries_pb2
 from tablestore.flatbuffer.dataprotocol.SQLResponseColumns import *
 from tablestore.flatbuffer.flat_buffer_decoder import *
 
+import logging
+logger = logging.getLogger(__name__)
+
+# Try to import native parser with improved fallback
+try:
+    from tablestore.native import parse_single_row, parse_multiple_rows, NATIVE_AVAILABLE
+    NATIVE_PARSER_AVAILABLE = NATIVE_AVAILABLE
+    if not NATIVE_AVAILABLE:
+        logger.info("Native PlainBuffer parser not available, using Python implementation")
+except ImportError:
+    NATIVE_PARSER_AVAILABLE = False
+    logger.warning("Native PlainBuffer parser module not found, using Python implementation")
 
 class OTSProtoBufferDecoder(object):
 
@@ -333,10 +345,21 @@ class OTSProtoBufferDecoder(object):
         return_row = None
 
         if len(proto.row) != 0:
-            inputStream = PlainBufferInputStream(proto.row)
-            codedInputStream = PlainBufferCodedInputStream(inputStream)
-            primary_key, attributes = codedInputStream.read_row()
-            return_row = Row(primary_key, attributes)
+            native_decode_error = False
+            if NATIVE_PARSER_AVAILABLE:
+                try:
+                    primary_keys, columns = parse_single_row(proto.row)
+                    return_row = Row(primary_keys, columns)
+
+                except Exception as e:
+                    logger.warning(f"Native parsing failed, falling back to Python: {e}")
+                    native_decode_error = True
+
+            if not NATIVE_PARSER_AVAILABLE or native_decode_error:
+                inputStream = PlainBufferInputStream(proto.row)
+                codedInputStream = PlainBufferCodedInputStream(inputStream)
+                primary_key, attributes = codedInputStream.read_row()
+                return_row = Row(primary_key, attributes)
 
         return (consumed, return_row, next_token), proto
 
@@ -410,15 +433,40 @@ class OTSProtoBufferDecoder(object):
 
         next_start_pk = None
         row_list = []
-        if len(proto.next_start_primary_key) != 0:
-            inputStream = PlainBufferInputStream(proto.next_start_primary_key)
-            codedInputStream = PlainBufferCodedInputStream(inputStream)
-            next_start_pk, att = codedInputStream.read_row()
 
         if len(proto.rows) != 0:
-            inputStream = PlainBufferInputStream(proto.rows)
-            codedInputStream = PlainBufferCodedInputStream(inputStream)
-            row_list = codedInputStream.read_rows()
+            native_decode_error = False
+            if NATIVE_PARSER_AVAILABLE:
+                try:
+                    parsed_rows = parse_multiple_rows(proto.rows)
+                    for row_data in parsed_rows:
+                        primary_keys, columns = row_data
+
+                        # 转换为Row对象
+                        row = Row(primary_keys, columns)
+                        row_list.append(row)
+                except Exception as e:
+                    logger.warning(f"Native parsing failed, falling back to Python: {e}")
+                    native_decode_error = True
+
+            if not NATIVE_PARSER_AVAILABLE or native_decode_error:
+                inputStream = PlainBufferInputStream(proto.rows)
+                codedInputStream = PlainBufferCodedInputStream(inputStream)
+                row_list = codedInputStream.read_rows()
+
+        if len(proto.next_start_primary_key) != 0:
+            native_decode_error = False
+            if NATIVE_PARSER_AVAILABLE:
+                try:
+                    next_start_pk, _ = parse_single_row(proto.next_start_primary_key)
+                except Exception as e:
+                    logger.warning(f"Native parsing of next_start_primary_key failed, falling back to Python: {e}")
+                    native_decode_error = True
+
+            if not NATIVE_PARSER_AVAILABLE or native_decode_error:
+                inputStream = PlainBufferInputStream(proto.next_start_primary_key)
+                codedInputStream = PlainBufferCodedInputStream(inputStream)
+                next_start_pk, att = codedInputStream.read_row()
 
         next_token = proto.next_token
 

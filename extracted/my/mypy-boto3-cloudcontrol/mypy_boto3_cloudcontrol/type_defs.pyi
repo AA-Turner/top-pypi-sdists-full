@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import HandlerErrorCodeType, OperationStatusType, OperationType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -80,7 +75,7 @@ class ProgressEventTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -163,7 +158,7 @@ class DeleteResourceOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListResourceRequestsOutputTypeDef(TypedDict):
-    ResourceRequestStatusSummaries: List[ProgressEventTypeDef]
+    ResourceRequestStatusSummaries: list[ProgressEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -178,7 +173,7 @@ class GetResourceOutputTypeDef(TypedDict):
 
 class ListResourcesOutputTypeDef(TypedDict):
     TypeName: str
-    ResourceDescriptions: List[ResourceDescriptionTypeDef]
+    ResourceDescriptions: list[ResourceDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -188,7 +183,7 @@ class GetResourceRequestStatusInputWaitTypeDef(TypedDict):
 
 class GetResourceRequestStatusOutputTypeDef(TypedDict):
     ProgressEvent: ProgressEventTypeDef
-    HooksProgressEvent: List[HookProgressEventTypeDef]
+    HooksProgressEvent: list[HookProgressEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListResourcesInputPaginateTypeDef(TypedDict):

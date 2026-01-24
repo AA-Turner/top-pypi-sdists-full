@@ -3,7 +3,7 @@
 from setuptools import setup
 setup(
     name='typedload',
-    version='2.38',
+    version='2.39',
     description='Load and dump data from json-like format into typed data structures',
     readme='README.md',
     url='https://ltworf.codeberg.page/typedload/',

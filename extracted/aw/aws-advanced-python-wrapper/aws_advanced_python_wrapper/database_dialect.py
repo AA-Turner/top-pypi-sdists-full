@@ -18,6 +18,8 @@ from typing import (TYPE_CHECKING, Callable, ClassVar, Dict, Optional,
                     Protocol, Tuple, runtime_checkable)
 
 from aws_advanced_python_wrapper.driver_info import DriverInfo
+from aws_advanced_python_wrapper.host_list_provider import (
+    AuroraTopologyUtils, MultiAzTopologyUtils)
 from aws_advanced_python_wrapper.utils.rds_url_type import RdsUrlType
 
 if TYPE_CHECKING:
@@ -26,16 +28,17 @@ if TYPE_CHECKING:
     from .exception_handling import ExceptionHandler
 
 from abc import ABC, abstractmethod
-from concurrent.futures import Executor, ThreadPoolExecutor, TimeoutError
+from concurrent.futures import TimeoutError
 from contextlib import closing
 from enum import Enum, auto
 
 from aws_advanced_python_wrapper.errors import (AwsWrapperError,
                                                 QueryTimeoutError)
 from aws_advanced_python_wrapper.host_list_provider import (
-    ConnectionStringHostListProvider, MultiAzHostListProvider,
-    RdsHostListProvider)
+    ConnectionStringHostListProvider, RdsHostListProvider)
 from aws_advanced_python_wrapper.hostinfo import HostInfo
+from aws_advanced_python_wrapper.thread_pool_container import \
+    ThreadPoolContainer
 from aws_advanced_python_wrapper.utils.decorators import \
     preserve_transaction_status_with_timeout
 from aws_advanced_python_wrapper.utils.log import Logger
@@ -228,11 +231,11 @@ class PgDatabaseDialect(DatabaseDialect):
 
     @property
     def host_alias_query(self) -> str:
-        return "SELECT CONCAT(inet_server_addr(), ':', inet_server_port())"
+        return "SELECT pg_catalog.CONCAT(pg_catalog.inet_server_addr(), ':', pg_catalog.inet_server_port())"
 
     @property
     def server_version_query(self) -> str:
-        return "SELECT 'version', VERSION()"
+        return "SELECT 'version', pg_catalog.VERSION()"
 
     @property
     def dialect_update_candidates(self) -> Optional[Tuple[DialectCode, ...]]:
@@ -249,7 +252,7 @@ class PgDatabaseDialect(DatabaseDialect):
         initial_transaction_status: bool = driver_dialect.is_in_transaction(conn)
         try:
             with closing(conn.cursor()) as cursor:
-                cursor.execute('SELECT 1 FROM pg_proc LIMIT 1')
+                cursor.execute('SELECT 1 FROM pg_catalog.pg_proc LIMIT 1')
                 if cursor.fetchone() is not None:
                     return True
         except Exception:
@@ -329,8 +332,8 @@ class RdsMysqlDialect(MysqlDatabaseDialect, BlueGreenDialect):
 class RdsPgDialect(PgDatabaseDialect, BlueGreenDialect):
     _EXTENSIONS_QUERY = ("SELECT (setting LIKE '%rds_tools%') AS rds_tools, "
                          "(setting LIKE '%aurora_stat_utils%') AS aurora_stat_utils "
-                         "FROM pg_settings "
-                         "WHERE name='rds.extensions'")
+                         "FROM pg_catalog.pg_settings "
+                         "WHERE name OPERATOR(pg_catalog.=) 'rds.extensions'")
     _DIALECT_UPDATE_CANDIDATES = (DialectCode.AURORA_PG, DialectCode.MULTI_AZ_CLUSTER_PG)
 
     _BG_STATUS_QUERY = (f"SELECT version, endpoint, port, role, status "
@@ -408,7 +411,7 @@ class AuroraMysqlDialect(MysqlDatabaseDialect, TopologyAwareDatabaseDialect, Blu
         return False
 
     def get_host_list_provider_supplier(self) -> Callable:
-        return lambda provider_service, props: RdsHostListProvider(provider_service, props)
+        return lambda provider_service, props: RdsHostListProvider(provider_service, props, AuroraTopologyUtils(self, props))
 
     @property
     def blue_green_status_query(self) -> str:
@@ -427,24 +430,25 @@ class AuroraPgDialect(PgDatabaseDialect, TopologyAwareDatabaseDialect, AuroraLim
     _DIALECT_UPDATE_CANDIDATES: Tuple[DialectCode, ...] = (DialectCode.MULTI_AZ_CLUSTER_PG,)
 
     _EXTENSIONS_QUERY = "SELECT (setting LIKE '%aurora_stat_utils%') AS aurora_stat_utils " \
-                        "FROM pg_settings WHERE name='rds.extensions'"
+                        "FROM pg_catalog.pg_settings WHERE name OPERATOR(pg_catalog.=) 'rds.extensions'"
 
-    _HAS_TOPOLOGY_QUERY = "SELECT 1 FROM aurora_replica_status() LIMIT 1"
+    _HAS_TOPOLOGY_QUERY = "SELECT 1 FROM pg_catalog.aurora_replica_status() LIMIT 1"
 
     _TOPOLOGY_QUERY = \
-        ("SELECT SERVER_ID, CASE WHEN SESSION_ID = 'MASTER_SESSION_ID' THEN TRUE ELSE FALSE END, "
+        ("SELECT SERVER_ID, CASE WHEN SESSION_ID OPERATOR(pg_catalog.=) 'MASTER_SESSION_ID' THEN TRUE ELSE FALSE END, "
          "CPU, COALESCE(REPLICA_LAG_IN_MSEC, 0), LAST_UPDATE_TIMESTAMP "
-         "FROM aurora_replica_status() "
-         "WHERE EXTRACT(EPOCH FROM(NOW() - LAST_UPDATE_TIMESTAMP)) <= 300 OR SESSION_ID = 'MASTER_SESSION_ID' "
+         "FROM pg_catalog.aurora_replica_status() "
+         "WHERE EXTRACT(EPOCH FROM(pg_catalog.NOW() OPERATOR(pg_catalog.-) LAST_UPDATE_TIMESTAMP)) OPERATOR(pg_catalog.<=) 300 "
+         "OR SESSION_ID OPERATOR(pg_catalog.=) 'MASTER_SESSION_ID' "
          "OR LAST_UPDATE_TIMESTAMP IS NULL")
 
-    _HOST_ID_QUERY = "SELECT aurora_db_instance_identifier()"
-    _IS_READER_QUERY = "SELECT pg_is_in_recovery()"
-    _LIMITLESS_ROUTER_ENDPOINT_QUERY = "SELECT router_endpoint, load FROM aurora_limitless_router_endpoints()"
+    _HOST_ID_QUERY = "SELECT pg_catalog.aurora_db_instance_identifier()"
+    _IS_READER_QUERY = "SELECT pg_catalog.pg_is_in_recovery()"
+    _LIMITLESS_ROUTER_ENDPOINT_QUERY = "SELECT router_endpoint, load FROM pg_catalog.aurora_limitless_router_endpoints()"
 
     _BG_STATUS_QUERY = (f"SELECT version, endpoint, port, role, status "
-                        f"FROM get_blue_green_fast_switchover_metadata('aws_advanced_python_wrapper-{DriverInfo.DRIVER_VERSION}')")
-    _BG_STATUS_EXISTS_QUERY = "SELECT 'get_blue_green_fast_switchover_metadata'::regproc"
+                        f"FROM pg_catalog.get_blue_green_fast_switchover_metadata('aws_advanced_python_wrapper-{DriverInfo.DRIVER_VERSION}')")
+    _BG_STATUS_EXISTS_QUERY = "SELECT 'pg_catalog.get_blue_green_fast_switchover_metadata'::regproc"
 
     @property
     def dialect_update_candidates(self) -> Optional[Tuple[DialectCode, ...]]:
@@ -480,7 +484,7 @@ class AuroraPgDialect(PgDatabaseDialect, TopologyAwareDatabaseDialect, AuroraLim
         return False
 
     def get_host_list_provider_supplier(self) -> Callable:
-        return lambda provider_service, props: RdsHostListProvider(provider_service, props)
+        return lambda provider_service, props: RdsHostListProvider(provider_service, props, AuroraTopologyUtils(self, props))
 
     @property
     def blue_green_status_query(self) -> str:
@@ -530,14 +534,10 @@ class MultiAzClusterMysqlDialect(MysqlDatabaseDialect, TopologyAwareDatabaseDial
         return False
 
     def get_host_list_provider_supplier(self) -> Callable:
-        return lambda provider_service, props: MultiAzHostListProvider(
+        return lambda provider_service, props: RdsHostListProvider(
             provider_service,
             props,
-            self._TOPOLOGY_QUERY,
-            self._HOST_ID_QUERY,
-            self._IS_READER_QUERY,
-            self._WRITER_HOST_QUERY,
-            self._WRITER_HOST_COLUMN_INDEX)
+            MultiAzTopologyUtils(self, props, self._WRITER_HOST_QUERY, self._WRITER_HOST_COLUMN_INDEX))
 
     def prepare_conn_props(self, props: Properties):
         # These props are added for RDS metrics purposes, they are not required for functional correctness.
@@ -560,7 +560,7 @@ class MultiAzClusterPgDialect(PgDatabaseDialect, TopologyAwareDatabaseDialect):
     _WRITER_HOST_QUERY = \
         "SELECT multi_az_db_cluster_source_dbi_resource_id FROM rds_tools.multi_az_db_cluster_source_dbi_resource_id()"
     _HOST_ID_QUERY = "SELECT dbi_resource_id FROM rds_tools.dbi_resource_id()"
-    _IS_READER_QUERY = "SELECT pg_is_in_recovery()"
+    _IS_READER_QUERY = "SELECT pg_catalog.pg_is_in_recovery()"
     _exception_handler: Optional[ExceptionHandler] = None
 
     @property
@@ -589,13 +589,10 @@ class MultiAzClusterPgDialect(PgDatabaseDialect, TopologyAwareDatabaseDialect):
         return False
 
     def get_host_list_provider_supplier(self) -> Callable:
-        return lambda provider_service, props: MultiAzHostListProvider(
+        return lambda provider_service, props: RdsHostListProvider(
             provider_service,
             props,
-            self._TOPOLOGY_QUERY,
-            self._HOST_ID_QUERY,
-            self._IS_READER_QUERY,
-            self._WRITER_HOST_QUERY)
+            MultiAzTopologyUtils(self, props, self._WRITER_HOST_QUERY))
 
 
 class UnknownDatabaseDialect(DatabaseDialect):
@@ -643,7 +640,7 @@ class DatabaseDialectManager(DatabaseDialectProvider):
     _ENDPOINT_CACHE_EXPIRATION_NS = 30 * 60_000_000_000  # 30 minutes
     _known_endpoint_dialects: CacheMap[str, DialectCode] = CacheMap()
     _custom_dialect: Optional[DatabaseDialect] = None
-    _executor: ClassVar[Executor] = ThreadPoolExecutor(thread_name_prefix="DatabaseDialectManagerExecutor")
+    _executor_name: ClassVar[str] = "DatabaseDialectManagerExecutor"
     _known_dialects_by_code: Dict[DialectCode, DatabaseDialect] = {
         DialectCode.MYSQL: MysqlDatabaseDialect(),
         DialectCode.RDS_MYSQL: RdsMysqlDialect(),
@@ -781,7 +778,7 @@ class DatabaseDialectManager(DatabaseDialectProvider):
                 timeout_sec = WrapperProperties.AUXILIARY_QUERY_TIMEOUT_SEC.get(self._props)
                 try:
                     cursor_execute_func_with_timeout = preserve_transaction_status_with_timeout(
-                        DatabaseDialectManager._executor,
+                        ThreadPoolContainer.get_thread_pool(DatabaseDialectManager._executor_name),
                         timeout_sec,
                         driver_dialect,
                         conn)(dialect_candidate.is_dialect)

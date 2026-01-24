@@ -119,7 +119,7 @@ class SyntheticsTestDetails(ModelNormal):
             Synthetic test.
         :type status: SyntheticsTestPauseStatus, optional
 
-        :param steps: For browser test, the steps of the test.
+        :param steps: The steps of the test if they exist.
         :type steps: [SyntheticsStep], optional
 
         :param subtype: The subtype of the Synthetic API test, ``http`` , ``ssl`` , ``tcp`` ,

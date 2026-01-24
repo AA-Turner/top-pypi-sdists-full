@@ -9,9 +9,11 @@ import pytest
 from brotli_asgi import BrotliMiddleware
 from starlette.applications import Starlette
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 
 from mangum import Mangum
+from mangum.types import Receive, Scope, Send
 
 
 @pytest.mark.parametrize(
@@ -28,7 +30,7 @@ def test_http_response(mock_aws_api_gateway_event) -> None:
                 "body": None,
                 "headers": {
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                    "Accept-Encoding": "gzip, deflate, lzma, sdch, " "br",
+                    "Accept-Encoding": "gzip, deflate, lzma, sdch, br",
                     "Accept-Language": "en-US,en;q=0.8",
                     "CloudFront-Forwarded-Proto": "https",
                     "CloudFront-Is-Desktop-Viewer": "true",
@@ -86,7 +88,7 @@ def test_http_response(mock_aws_api_gateway_event) -> None:
             "headers": [
                 [
                     b"accept",
-                    b"text/html,application/xhtml+xml,application/xml;q=0.9,image/" b"webp,*/*;q=0.8",
+                    b"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
                 ],
                 [b"accept-encoding", b"gzip, deflate, lzma, sdch, br"],
                 [b"accept-language", b"en-US,en;q=0.8"],
@@ -156,23 +158,23 @@ def test_http_exception_mid_response(mock_aws_api_gateway_event) -> None:
 
 
 @pytest.mark.parametrize("mock_aws_api_gateway_event", [["GET", None, None]], indirect=True)
-def test_http_exception_handler(mock_aws_api_gateway_event) -> None:
+def test_http_exception_handler(mock_aws_api_gateway_event: str | None) -> None:
     path = mock_aws_api_gateway_event["path"]
     app = Starlette()
 
     @app.exception_handler(Exception)
-    async def all_exceptions(request, exc):
+    async def all_exceptions(request: Request, exc: Exception):
         return PlainTextResponse(content="Error!", status_code=500)
 
     @app.route(path)
-    def homepage(request):
+    def homepage(request: Request):
         raise Exception()
-        return PlainTextResponse("Hello, world!")
+        return PlainTextResponse("Hello, world!")  # pragma: no cover
 
     handler = Mangum(app)
     response = handler(mock_aws_api_gateway_event, {})
 
-    assert response == {
+    assert response == {  # pragma: no cover
         "body": "Error!",
         "headers": {"content-length": "6", "content-type": "text/plain; charset=utf-8"},
         "multiValueHeaders": {},
@@ -240,7 +242,9 @@ def test_http_binary_gzip_response(mock_aws_api_gateway_event) -> None:
         "content-length": "35",
         "vary": "Accept-Encoding",
     }
-    assert response["body"] == base64.b64encode(gzip.compress(body.encode())).decode()
+    # Decompress and compare content instead of comparing gzip bytes (which include timestamp)
+    decompressed = gzip.decompress(base64.b64decode(response["body"]))
+    assert decompressed == body.encode()
 
 
 @pytest.mark.parametrize(
@@ -583,7 +587,9 @@ def test_http_binary_br_response(mock_aws_api_gateway_event) -> None:
 
 @pytest.mark.parametrize("mock_aws_api_gateway_event", [["GET", b"", None]], indirect=True)
 def test_http_logging(mock_aws_api_gateway_event, caplog: pytest.LogCaptureFixture) -> None:
-    async def app(scope, receive, send):
+    caplog.set_level("INFO")
+
+    async def app(scope: Scope, receive: Receive, send: Send):
         assert scope["type"] == "http"
         await send(
             {

@@ -1,19 +1,19 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 from ibm_watsonx_ai.libs.repo.base_constants import *
+from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 
 lib_checker = LibraryChecker()
-if lib_checker.installed_libs[PYSPARK]:
-    from pyspark import SparkContext, SparkConf
 
 class SparkVersion(object):
     @staticmethod
     def significant():
         lib_checker.check_lib(PYSPARK)
+        from pyspark import SparkConf, SparkContext
+
         conf = SparkConf()
         sc = SparkContext.getOrCreate(conf=conf)
         version_parts = sc.version.split('.')

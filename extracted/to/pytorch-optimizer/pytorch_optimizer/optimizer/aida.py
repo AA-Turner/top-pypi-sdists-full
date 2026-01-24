@@ -4,33 +4,34 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class Aida(BaseOptimizer):
-    r"""A DNN Optimizer that Improves over AdaBelief by Suppression of the Adaptive Stepsize Range.
+    """A DNN Optimizer that Improves over AdaBelief by Suppression of the Adaptive Stepsize Range.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param k: int. number of vector projected per iteration.
-    :param xi: float. term used in vector projections to avoid division by zero.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param rectify: bool. perform the rectified update similar to RAdam.
-    :param n_sma_threshold: number of SMA threshold (recommended is 5).
-    :param degenerated_to_sgd: bool. perform SGD update when variance of gradient is high.
-    :param ams_bound: bool. whether to use the AMSBound variant.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        k (int): Number of vectors projected per iteration.
+        xi (float): Term used in vector projections to avoid division by zero.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
+        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
+        rectify (bool): Perform the rectified update similar to RAdam.
+        n_sma_threshold (int): Number of SMA threshold (recommended is 5).
+        degenerated_to_sgd (bool): Perform SGD update when variance of gradient is high.
+        ams_bound (bool): Whether to use the AMSBound variant.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         k: int = 2,
         xi: float = 1e-20,
         weight_decay: float = 0.0,
@@ -57,7 +58,7 @@ class Aida(BaseOptimizer):
         self.degenerated_to_sgd = degenerated_to_sgd
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -74,7 +75,10 @@ class Aida(BaseOptimizer):
     def __str__(self) -> str:
         return 'Aida'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -99,18 +103,15 @@ class Aida(BaseOptimizer):
                     state['exp_grad_adanorm'] = torch.zeros((1,), dtype=grad.dtype, device=grad.device)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

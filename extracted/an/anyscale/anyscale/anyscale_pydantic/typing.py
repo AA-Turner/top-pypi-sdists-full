@@ -192,7 +192,7 @@ if sys.version_info < (3, 9):
 else:
     from typing import _UnionGenericAlias  # type: ignore
 
-    from typing_extensions import _AnnotatedAlias
+    from typing_extensions import _AnnotatedAlias # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     def convert_generics(tp: Type[Any]) -> Type[Any]:
         """
@@ -256,7 +256,7 @@ StrPath = Union[str, PathLike]
 
 
 if TYPE_CHECKING:
-    from .fields import ModelField
+    from .fields import ModelField # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     TupleGenerator = Generator[Tuple[str, Any], None, None]
     DictStrAny = Dict[str, Any]
@@ -435,7 +435,7 @@ def is_namedtuple(type_: Type[Any]) -> bool:
     Check if a given class is a named tuple.
     It can be either a `typing.NamedTuple` or `collections.namedtuple`
     """
-    from .utils import lenient_issubclass
+    from .utils import lenient_issubclass # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     return lenient_issubclass(type_, tuple) and hasattr(type_, '_fields')
 
@@ -445,7 +445,7 @@ def is_typeddict(type_: Type[Any]) -> bool:
     Check if a given class is a typed dict (from `typing` or `typing_extensions`)
     In 3.10, there will be a public method (https://docs.python.org/3.10/library/typing.html#typing.is_typeddict)
     """
-    from .utils import lenient_issubclass
+    from .utils import lenient_issubclass # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     return lenient_issubclass(type_, dict) and hasattr(type_, '__total__')
 

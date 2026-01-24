@@ -1,0 +1,414 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: region
+                  type: label
+              localIdentifier: region
+            - label:
+                identifier:
+                  id: state
+                  type: label
+              localIdentifier: state
+          filters: []
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: price
+                      type: fact
+                  aggregation: SUM
+                  computeRatio: false
+                  filters: []
+              localIdentifier: price
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: order_amount
+                      type: metric
+                  computeRatio: false
+                  filters: []
+              localIdentifier: order_amount
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - state
+                - region
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '907'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - 3ac3663f-841d-4b5a-bcfb-d7282a913621
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: state
+                      label:
+                        id: state
+                        type: label
+                      labelName: State
+                      attribute:
+                        id: state
+                        type: attribute
+                      attributeName: State
+                      granularity: null
+                      primaryLabel:
+                        id: state
+                        type: label
+                      valueType: TEXT
+                  - attributeHeader:
+                      localIdentifier: region
+                      label:
+                        id: region
+                        type: label
+                      labelName: Region
+                      attribute:
+                        id: region
+                        type: attribute
+                      attributeName: Region
+                      granularity: null
+                      primaryLabel:
+                        id: region
+                        type: label
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: price
+                      - localIdentifier: order_amount
+                        format: $#,##0
+                        name: Order Amount
+                localIdentifier: dim_1
+            links:
+              executionResult: 63c011b100bfecc92df78732030c718c0d2aaf69:178e63b0dfe54792764751ad8d6146516aa1d2932762b21b757459b2db72abe3
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular
+      body:
+        fileName: test_xlsx
+        format: XLSX
+        executionResult: 63c011b100bfecc92df78732030c718c0d2aaf69:178e63b0dfe54792764751ad8d6146516aa1d2932762b21b757459b2db72abe3
+        customOverride:
+          labels:
+            region:
+              title: Custom Title Region
+          metrics:
+            price:
+              format: ''
+              title: Sum Of Price
+            order_amount:
+              format: '#,##0.00'
+              title: Order Amount Metric
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 201
+        message: Created
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '59'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          exportResult: 3cab60df6631ae3c543e3e56cb17386da46dab13
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/3cab60df6631ae3c543e3e56cb17386da46dab13
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '0'
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string: ''
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/3cab60df6631ae3c543e3e56cb17386da46dab13
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Disposition:
+          - attachment; filename="=?UTF-8?Q?test=5Fxlsx.xlsx?="; filename*=UTF-8''test_xlsx.xlsx
+        Content-Length:
+          - '7621'
+        Content-Type:
+          - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string: !!binary |
+          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

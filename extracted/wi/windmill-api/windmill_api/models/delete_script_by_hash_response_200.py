@@ -50,6 +50,11 @@ class DeleteScriptByHashResponse200:
         concurrent_limit (Union[Unset, int]):
         concurrency_time_window_s (Union[Unset, int]):
         concurrency_key (Union[Unset, str]):
+        debounce_key (Union[Unset, str]):
+        debounce_delay_s (Union[Unset, int]):
+        debounce_args_to_accumulate (Union[Unset, List[str]]):
+        max_total_debouncing_time (Union[Unset, int]):
+        max_total_debounces_amount (Union[Unset, int]):
         cache_ttl (Union[Unset, float]):
         dedicated_worker (Union[Unset, bool]):
         ws_error_handler_muted (Union[Unset, bool]):
@@ -90,6 +95,11 @@ class DeleteScriptByHashResponse200:
     concurrent_limit: Union[Unset, int] = UNSET
     concurrency_time_window_s: Union[Unset, int] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
+    debounce_key: Union[Unset, str] = UNSET
+    debounce_delay_s: Union[Unset, int] = UNSET
+    debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
+    max_total_debouncing_time: Union[Unset, int] = UNSET
+    max_total_debounces_amount: Union[Unset, int] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     dedicated_worker: Union[Unset, bool] = UNSET
     ws_error_handler_muted: Union[Unset, bool] = UNSET
@@ -144,6 +154,14 @@ class DeleteScriptByHashResponse200:
         concurrent_limit = self.concurrent_limit
         concurrency_time_window_s = self.concurrency_time_window_s
         concurrency_key = self.concurrency_key
+        debounce_key = self.debounce_key
+        debounce_delay_s = self.debounce_delay_s
+        debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.debounce_args_to_accumulate, Unset):
+            debounce_args_to_accumulate = self.debounce_args_to_accumulate
+
+        max_total_debouncing_time = self.max_total_debouncing_time
+        max_total_debounces_amount = self.max_total_debounces_amount
         cache_ttl = self.cache_ttl
         dedicated_worker = self.dedicated_worker
         ws_error_handler_muted = self.ws_error_handler_muted
@@ -201,6 +219,16 @@ class DeleteScriptByHashResponse200:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
         if concurrency_key is not UNSET:
             field_dict["concurrency_key"] = concurrency_key
+        if debounce_key is not UNSET:
+            field_dict["debounce_key"] = debounce_key
+        if debounce_delay_s is not UNSET:
+            field_dict["debounce_delay_s"] = debounce_delay_s
+        if debounce_args_to_accumulate is not UNSET:
+            field_dict["debounce_args_to_accumulate"] = debounce_args_to_accumulate
+        if max_total_debouncing_time is not UNSET:
+            field_dict["max_total_debouncing_time"] = max_total_debouncing_time
+        if max_total_debounces_amount is not UNSET:
+            field_dict["max_total_debounces_amount"] = max_total_debounces_amount
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
         if dedicated_worker is not UNSET:
@@ -291,6 +319,16 @@ class DeleteScriptByHashResponse200:
 
         concurrency_key = d.pop("concurrency_key", UNSET)
 
+        debounce_key = d.pop("debounce_key", UNSET)
+
+        debounce_delay_s = d.pop("debounce_delay_s", UNSET)
+
+        debounce_args_to_accumulate = cast(List[str], d.pop("debounce_args_to_accumulate", UNSET))
+
+        max_total_debouncing_time = d.pop("max_total_debouncing_time", UNSET)
+
+        max_total_debounces_amount = d.pop("max_total_debounces_amount", UNSET)
+
         cache_ttl = d.pop("cache_ttl", UNSET)
 
         dedicated_worker = d.pop("dedicated_worker", UNSET)
@@ -340,6 +378,11 @@ class DeleteScriptByHashResponse200:
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,
             concurrency_key=concurrency_key,
+            debounce_key=debounce_key,
+            debounce_delay_s=debounce_delay_s,
+            debounce_args_to_accumulate=debounce_args_to_accumulate,
+            max_total_debouncing_time=max_total_debouncing_time,
+            max_total_debounces_amount=max_total_debounces_amount,
             cache_ttl=cache_ttl,
             dedicated_worker=dedicated_worker,
             ws_error_handler_muted=ws_error_handler_muted,

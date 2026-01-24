@@ -21,6 +21,16 @@ __all__ = [
     'ConnectionProfileForwardSshConnectivityArgsDict',
     'ConnectionProfileGcsProfileArgs',
     'ConnectionProfileGcsProfileArgsDict',
+    'ConnectionProfileMongodbProfileArgs',
+    'ConnectionProfileMongodbProfileArgsDict',
+    'ConnectionProfileMongodbProfileHostAddressArgs',
+    'ConnectionProfileMongodbProfileHostAddressArgsDict',
+    'ConnectionProfileMongodbProfileSrvConnectionFormatArgs',
+    'ConnectionProfileMongodbProfileSrvConnectionFormatArgsDict',
+    'ConnectionProfileMongodbProfileSslConfigArgs',
+    'ConnectionProfileMongodbProfileSslConfigArgsDict',
+    'ConnectionProfileMongodbProfileStandardConnectionFormatArgs',
+    'ConnectionProfileMongodbProfileStandardConnectionFormatArgsDict',
     'ConnectionProfileMysqlProfileArgs',
     'ConnectionProfileMysqlProfileArgsDict',
     'ConnectionProfileMysqlProfileSslConfigArgs',
@@ -29,6 +39,12 @@ __all__ = [
     'ConnectionProfileOracleProfileArgsDict',
     'ConnectionProfilePostgresqlProfileArgs',
     'ConnectionProfilePostgresqlProfileArgsDict',
+    'ConnectionProfilePostgresqlProfileSslConfigArgs',
+    'ConnectionProfilePostgresqlProfileSslConfigArgsDict',
+    'ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs',
+    'ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgsDict',
+    'ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs',
+    'ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgsDict',
     'ConnectionProfilePrivateConnectivityArgs',
     'ConnectionProfilePrivateConnectivityArgsDict',
     'ConnectionProfileSalesforceProfileArgs',
@@ -47,6 +63,14 @@ __all__ = [
     'PrivateConnectionVpcPeeringConfigArgsDict',
     'StreamBackfillAllArgs',
     'StreamBackfillAllArgsDict',
+    'StreamBackfillAllMongodbExcludedObjectsArgs',
+    'StreamBackfillAllMongodbExcludedObjectsArgsDict',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseArgs',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseArgsDict',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgsDict',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgsDict',
     'StreamBackfillAllMysqlExcludedObjectsArgs',
     'StreamBackfillAllMysqlExcludedObjectsArgsDict',
     'StreamBackfillAllMysqlExcludedObjectsMysqlDatabaseArgs',
@@ -109,8 +133,56 @@ __all__ = [
     'StreamDestinationConfigGcsDestinationConfigAvroFileFormatArgsDict',
     'StreamDestinationConfigGcsDestinationConfigJsonFileFormatArgs',
     'StreamDestinationConfigGcsDestinationConfigJsonFileFormatArgsDict',
+    'StreamRuleSetArgs',
+    'StreamRuleSetArgsDict',
+    'StreamRuleSetCustomizationRuleArgs',
+    'StreamRuleSetCustomizationRuleArgsDict',
+    'StreamRuleSetCustomizationRuleBigqueryClusteringArgs',
+    'StreamRuleSetCustomizationRuleBigqueryClusteringArgsDict',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningArgs',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningArgsDict',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgsDict',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgsDict',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgsDict',
+    'StreamRuleSetObjectFilterArgs',
+    'StreamRuleSetObjectFilterArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgsDict',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgsDict',
     'StreamSourceConfigArgs',
     'StreamSourceConfigArgsDict',
+    'StreamSourceConfigMongodbSourceConfigArgs',
+    'StreamSourceConfigMongodbSourceConfigArgsDict',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsArgsDict',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgsDict',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgsDict',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgsDict',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsArgsDict',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgsDict',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgsDict',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgsDict',
     'StreamSourceConfigMysqlSourceConfigArgs',
     'StreamSourceConfigMysqlSourceConfigArgsDict',
     'StreamSourceConfigMysqlSourceConfigBinaryLogPositionArgs',
@@ -390,6 +462,492 @@ class ConnectionProfileGcsProfileArgs:
     @root_path.setter
     def root_path(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "root_path", value)
+
+
+if not MYPY:
+    class ConnectionProfileMongodbProfileArgsDict(TypedDict):
+        host_addresses: pulumi.Input[Sequence[pulumi.Input['ConnectionProfileMongodbProfileHostAddressArgsDict']]]
+        """
+        List of host addresses for a MongoDB cluster.
+        Structure is documented below.
+        """
+        username: pulumi.Input[_builtins.str]
+        """
+        Username for the MongoDB connection.
+        """
+        password: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Password for the MongoDB connection. Mutually exclusive with
+        secretManagerStoredPassword.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        replica_set: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Name of the replica set.
+        """
+        secret_manager_stored_password: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A reference to a Secret Manager resource name storing the MongoDB
+        connection password. Mutually exclusive with password.
+        """
+        srv_connection_format: NotRequired[pulumi.Input['ConnectionProfileMongodbProfileSrvConnectionFormatArgsDict']]
+        """
+        Srv connection format. Mutually exclusive with
+        standard_connection_Format.
+        """
+        ssl_config: NotRequired[pulumi.Input['ConnectionProfileMongodbProfileSslConfigArgsDict']]
+        """
+        SSL configuration for the MongoDB connection.
+        Structure is documented below.
+        """
+        standard_connection_format: NotRequired[pulumi.Input['ConnectionProfileMongodbProfileStandardConnectionFormatArgsDict']]
+        """
+        Standard connection format. Mutually exclusive with
+        srv_connection_format.
+        Structure is documented below.
+        """
+elif False:
+    ConnectionProfileMongodbProfileArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfileMongodbProfileArgs:
+    def __init__(__self__, *,
+                 host_addresses: pulumi.Input[Sequence[pulumi.Input['ConnectionProfileMongodbProfileHostAddressArgs']]],
+                 username: pulumi.Input[_builtins.str],
+                 password: Optional[pulumi.Input[_builtins.str]] = None,
+                 replica_set: Optional[pulumi.Input[_builtins.str]] = None,
+                 secret_manager_stored_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 srv_connection_format: Optional[pulumi.Input['ConnectionProfileMongodbProfileSrvConnectionFormatArgs']] = None,
+                 ssl_config: Optional[pulumi.Input['ConnectionProfileMongodbProfileSslConfigArgs']] = None,
+                 standard_connection_format: Optional[pulumi.Input['ConnectionProfileMongodbProfileStandardConnectionFormatArgs']] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['ConnectionProfileMongodbProfileHostAddressArgs']]] host_addresses: List of host addresses for a MongoDB cluster.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] username: Username for the MongoDB connection.
+        :param pulumi.Input[_builtins.str] password: Password for the MongoDB connection. Mutually exclusive with
+               secretManagerStoredPassword.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.str] replica_set: Name of the replica set.
+        :param pulumi.Input[_builtins.str] secret_manager_stored_password: A reference to a Secret Manager resource name storing the MongoDB
+               connection password. Mutually exclusive with password.
+        :param pulumi.Input['ConnectionProfileMongodbProfileSrvConnectionFormatArgs'] srv_connection_format: Srv connection format. Mutually exclusive with
+               standard_connection_Format.
+        :param pulumi.Input['ConnectionProfileMongodbProfileSslConfigArgs'] ssl_config: SSL configuration for the MongoDB connection.
+               Structure is documented below.
+        :param pulumi.Input['ConnectionProfileMongodbProfileStandardConnectionFormatArgs'] standard_connection_format: Standard connection format. Mutually exclusive with
+               srv_connection_format.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "host_addresses", host_addresses)
+        pulumi.set(__self__, "username", username)
+        if password is not None:
+            pulumi.set(__self__, "password", password)
+        if replica_set is not None:
+            pulumi.set(__self__, "replica_set", replica_set)
+        if secret_manager_stored_password is not None:
+            pulumi.set(__self__, "secret_manager_stored_password", secret_manager_stored_password)
+        if srv_connection_format is not None:
+            pulumi.set(__self__, "srv_connection_format", srv_connection_format)
+        if ssl_config is not None:
+            pulumi.set(__self__, "ssl_config", ssl_config)
+        if standard_connection_format is not None:
+            pulumi.set(__self__, "standard_connection_format", standard_connection_format)
+
+    @_builtins.property
+    @pulumi.getter(name="hostAddresses")
+    def host_addresses(self) -> pulumi.Input[Sequence[pulumi.Input['ConnectionProfileMongodbProfileHostAddressArgs']]]:
+        """
+        List of host addresses for a MongoDB cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "host_addresses")
+
+    @host_addresses.setter
+    def host_addresses(self, value: pulumi.Input[Sequence[pulumi.Input['ConnectionProfileMongodbProfileHostAddressArgs']]]):
+        pulumi.set(self, "host_addresses", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def username(self) -> pulumi.Input[_builtins.str]:
+        """
+        Username for the MongoDB connection.
+        """
+        return pulumi.get(self, "username")
+
+    @username.setter
+    def username(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "username", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def password(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Password for the MongoDB connection. Mutually exclusive with
+        secretManagerStoredPassword.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "password")
+
+    @password.setter
+    def password(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "password", value)
+
+    @_builtins.property
+    @pulumi.getter(name="replicaSet")
+    def replica_set(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Name of the replica set.
+        """
+        return pulumi.get(self, "replica_set")
+
+    @replica_set.setter
+    def replica_set(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "replica_set", value)
+
+    @_builtins.property
+    @pulumi.getter(name="secretManagerStoredPassword")
+    def secret_manager_stored_password(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A reference to a Secret Manager resource name storing the MongoDB
+        connection password. Mutually exclusive with password.
+        """
+        return pulumi.get(self, "secret_manager_stored_password")
+
+    @secret_manager_stored_password.setter
+    def secret_manager_stored_password(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "secret_manager_stored_password", value)
+
+    @_builtins.property
+    @pulumi.getter(name="srvConnectionFormat")
+    def srv_connection_format(self) -> Optional[pulumi.Input['ConnectionProfileMongodbProfileSrvConnectionFormatArgs']]:
+        """
+        Srv connection format. Mutually exclusive with
+        standard_connection_Format.
+        """
+        return pulumi.get(self, "srv_connection_format")
+
+    @srv_connection_format.setter
+    def srv_connection_format(self, value: Optional[pulumi.Input['ConnectionProfileMongodbProfileSrvConnectionFormatArgs']]):
+        pulumi.set(self, "srv_connection_format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sslConfig")
+    def ssl_config(self) -> Optional[pulumi.Input['ConnectionProfileMongodbProfileSslConfigArgs']]:
+        """
+        SSL configuration for the MongoDB connection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ssl_config")
+
+    @ssl_config.setter
+    def ssl_config(self, value: Optional[pulumi.Input['ConnectionProfileMongodbProfileSslConfigArgs']]):
+        pulumi.set(self, "ssl_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="standardConnectionFormat")
+    def standard_connection_format(self) -> Optional[pulumi.Input['ConnectionProfileMongodbProfileStandardConnectionFormatArgs']]:
+        """
+        Standard connection format. Mutually exclusive with
+        srv_connection_format.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "standard_connection_format")
+
+    @standard_connection_format.setter
+    def standard_connection_format(self, value: Optional[pulumi.Input['ConnectionProfileMongodbProfileStandardConnectionFormatArgs']]):
+        pulumi.set(self, "standard_connection_format", value)
+
+
+if not MYPY:
+    class ConnectionProfileMongodbProfileHostAddressArgsDict(TypedDict):
+        hostname: pulumi.Input[_builtins.str]
+        """
+        Hostname for the connection.
+        """
+        port: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Port for the connection.
+        """
+elif False:
+    ConnectionProfileMongodbProfileHostAddressArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfileMongodbProfileHostAddressArgs:
+    def __init__(__self__, *,
+                 hostname: pulumi.Input[_builtins.str],
+                 port: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] hostname: Hostname for the connection.
+        :param pulumi.Input[_builtins.int] port: Port for the connection.
+        """
+        pulumi.set(__self__, "hostname", hostname)
+        if port is not None:
+            pulumi.set(__self__, "port", port)
+
+    @_builtins.property
+    @pulumi.getter
+    def hostname(self) -> pulumi.Input[_builtins.str]:
+        """
+        Hostname for the connection.
+        """
+        return pulumi.get(self, "hostname")
+
+    @hostname.setter
+    def hostname(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "hostname", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Port for the connection.
+        """
+        return pulumi.get(self, "port")
+
+    @port.setter
+    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "port", value)
+
+
+if not MYPY:
+    class ConnectionProfileMongodbProfileSrvConnectionFormatArgsDict(TypedDict):
+        pass
+elif False:
+    ConnectionProfileMongodbProfileSrvConnectionFormatArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfileMongodbProfileSrvConnectionFormatArgs:
+    def __init__(__self__):
+        pass
+
+
+if not MYPY:
+    class ConnectionProfileMongodbProfileSslConfigArgsDict(TypedDict):
+        ca_certificate: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        PEM-encoded certificate of the CA that signed the source database
+        server's certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        ca_certificate_set: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        (Output)
+        Indicates whether the clientKey field is set.
+        """
+        client_certificate: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        PEM-encoded certificate that will be used by the replica to
+        authenticate against the source database server. If this field
+        is used then the 'clientKey' and the 'caCertificate' fields are
+        mandatory.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        client_certificate_set: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        (Output)
+        Indicates whether the clientCertificate field is set.
+        """
+        client_key: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        PEM-encoded private key associated with the Client Certificate.
+        If this field is used then the 'client_certificate' and the
+        'ca_certificate' fields are mandatory.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        client_key_set: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        (Output)
+        Indicates whether the clientKey field is set.
+        """
+        secret_manager_stored_client_key: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A reference to a Secret Manager resource name storing the
+        PEM-encoded private key. Mutually exclusive with clientKey.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+elif False:
+    ConnectionProfileMongodbProfileSslConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfileMongodbProfileSslConfigArgs:
+    def __init__(__self__, *,
+                 ca_certificate: Optional[pulumi.Input[_builtins.str]] = None,
+                 ca_certificate_set: Optional[pulumi.Input[_builtins.bool]] = None,
+                 client_certificate: Optional[pulumi.Input[_builtins.str]] = None,
+                 client_certificate_set: Optional[pulumi.Input[_builtins.bool]] = None,
+                 client_key: Optional[pulumi.Input[_builtins.str]] = None,
+                 client_key_set: Optional[pulumi.Input[_builtins.bool]] = None,
+                 secret_manager_stored_client_key: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ca_certificate: PEM-encoded certificate of the CA that signed the source database
+               server's certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.bool] ca_certificate_set: (Output)
+               Indicates whether the clientKey field is set.
+        :param pulumi.Input[_builtins.str] client_certificate: PEM-encoded certificate that will be used by the replica to
+               authenticate against the source database server. If this field
+               is used then the 'clientKey' and the 'caCertificate' fields are
+               mandatory.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.bool] client_certificate_set: (Output)
+               Indicates whether the clientCertificate field is set.
+        :param pulumi.Input[_builtins.str] client_key: PEM-encoded private key associated with the Client Certificate.
+               If this field is used then the 'client_certificate' and the
+               'ca_certificate' fields are mandatory.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.bool] client_key_set: (Output)
+               Indicates whether the clientKey field is set.
+        :param pulumi.Input[_builtins.str] secret_manager_stored_client_key: A reference to a Secret Manager resource name storing the
+               PEM-encoded private key. Mutually exclusive with clientKey.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        if ca_certificate is not None:
+            pulumi.set(__self__, "ca_certificate", ca_certificate)
+        if ca_certificate_set is not None:
+            pulumi.set(__self__, "ca_certificate_set", ca_certificate_set)
+        if client_certificate is not None:
+            pulumi.set(__self__, "client_certificate", client_certificate)
+        if client_certificate_set is not None:
+            pulumi.set(__self__, "client_certificate_set", client_certificate_set)
+        if client_key is not None:
+            pulumi.set(__self__, "client_key", client_key)
+        if client_key_set is not None:
+            pulumi.set(__self__, "client_key_set", client_key_set)
+        if secret_manager_stored_client_key is not None:
+            pulumi.set(__self__, "secret_manager_stored_client_key", secret_manager_stored_client_key)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificate")
+    def ca_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        PEM-encoded certificate of the CA that signed the source database
+        server's certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "ca_certificate")
+
+    @ca_certificate.setter
+    def ca_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "ca_certificate", value)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificateSet")
+    def ca_certificate_set(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Output)
+        Indicates whether the clientKey field is set.
+        """
+        return pulumi.get(self, "ca_certificate_set")
+
+    @ca_certificate_set.setter
+    def ca_certificate_set(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ca_certificate_set", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clientCertificate")
+    def client_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        PEM-encoded certificate that will be used by the replica to
+        authenticate against the source database server. If this field
+        is used then the 'clientKey' and the 'caCertificate' fields are
+        mandatory.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_certificate")
+
+    @client_certificate.setter
+    def client_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "client_certificate", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clientCertificateSet")
+    def client_certificate_set(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Output)
+        Indicates whether the clientCertificate field is set.
+        """
+        return pulumi.get(self, "client_certificate_set")
+
+    @client_certificate_set.setter
+    def client_certificate_set(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "client_certificate_set", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clientKey")
+    def client_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        PEM-encoded private key associated with the Client Certificate.
+        If this field is used then the 'client_certificate' and the
+        'ca_certificate' fields are mandatory.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_key")
+
+    @client_key.setter
+    def client_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "client_key", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clientKeySet")
+    def client_key_set(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Output)
+        Indicates whether the clientKey field is set.
+        """
+        return pulumi.get(self, "client_key_set")
+
+    @client_key_set.setter
+    def client_key_set(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "client_key_set", value)
+
+    @_builtins.property
+    @pulumi.getter(name="secretManagerStoredClientKey")
+    def secret_manager_stored_client_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A reference to a Secret Manager resource name storing the
+        PEM-encoded private key. Mutually exclusive with clientKey.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "secret_manager_stored_client_key")
+
+    @secret_manager_stored_client_key.setter
+    def secret_manager_stored_client_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "secret_manager_stored_client_key", value)
+
+
+if not MYPY:
+    class ConnectionProfileMongodbProfileStandardConnectionFormatArgsDict(TypedDict):
+        direct_connection: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Specifies whether the client connects directly to the
+        host[:port] in the connection URI.
+        """
+elif False:
+    ConnectionProfileMongodbProfileStandardConnectionFormatArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfileMongodbProfileStandardConnectionFormatArgs:
+    def __init__(__self__, *,
+                 direct_connection: Optional[pulumi.Input[_builtins.bool]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] direct_connection: Specifies whether the client connects directly to the
+               host[:port] in the connection URI.
+        """
+        if direct_connection is not None:
+            pulumi.set(__self__, "direct_connection", direct_connection)
+
+    @_builtins.property
+    @pulumi.getter(name="directConnection")
+    def direct_connection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Specifies whether the client connects directly to the
+        host[:port] in the connection URI.
+        """
+        return pulumi.get(self, "direct_connection")
+
+    @direct_connection.setter
+    def direct_connection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "direct_connection", value)
 
 
 if not MYPY:
@@ -875,6 +1433,11 @@ if not MYPY:
         """
         A reference to a Secret Manager resource name storing the user's password.
         """
+        ssl_config: NotRequired[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigArgsDict']]
+        """
+        SSL configuration for the PostgreSQL connection.
+        Structure is documented below.
+        """
 elif False:
     ConnectionProfilePostgresqlProfileArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -886,7 +1449,8 @@ class ConnectionProfilePostgresqlProfileArgs:
                  username: pulumi.Input[_builtins.str],
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  port: Optional[pulumi.Input[_builtins.int]] = None,
-                 secret_manager_stored_password: Optional[pulumi.Input[_builtins.str]] = None):
+                 secret_manager_stored_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 ssl_config: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] database: Database for the PostgreSQL connection.
         :param pulumi.Input[_builtins.str] hostname: Hostname for the PostgreSQL connection.
@@ -895,6 +1459,8 @@ class ConnectionProfilePostgresqlProfileArgs:
                **Note**: This property is sensitive and will not be displayed in the plan.
         :param pulumi.Input[_builtins.int] port: Port for the PostgreSQL connection.
         :param pulumi.Input[_builtins.str] secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password.
+        :param pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigArgs'] ssl_config: SSL configuration for the PostgreSQL connection.
+               Structure is documented below.
         """
         pulumi.set(__self__, "database", database)
         pulumi.set(__self__, "hostname", hostname)
@@ -905,6 +1471,8 @@ class ConnectionProfilePostgresqlProfileArgs:
             pulumi.set(__self__, "port", port)
         if secret_manager_stored_password is not None:
             pulumi.set(__self__, "secret_manager_stored_password", secret_manager_stored_password)
+        if ssl_config is not None:
+            pulumi.set(__self__, "ssl_config", ssl_config)
 
     @_builtins.property
     @pulumi.getter
@@ -978,6 +1546,216 @@ class ConnectionProfilePostgresqlProfileArgs:
     @secret_manager_stored_password.setter
     def secret_manager_stored_password(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "secret_manager_stored_password", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sslConfig")
+    def ssl_config(self) -> Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigArgs']]:
+        """
+        SSL configuration for the PostgreSQL connection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ssl_config")
+
+    @ssl_config.setter
+    def ssl_config(self, value: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigArgs']]):
+        pulumi.set(self, "ssl_config", value)
+
+
+if not MYPY:
+    class ConnectionProfilePostgresqlProfileSslConfigArgsDict(TypedDict):
+        server_and_client_verification: NotRequired[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgsDict']]
+        """
+        If this field is set, the communication will be encrypted with TLS encryption
+        and both the server identity and the client identity will be authenticated.
+        Structure is documented below.
+        """
+        server_verification: NotRequired[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgsDict']]
+        """
+        If this field is set, the communication will be encrypted with TLS encryption
+        and the server identity will be authenticated.
+        Structure is documented below.
+        """
+elif False:
+    ConnectionProfilePostgresqlProfileSslConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfilePostgresqlProfileSslConfigArgs:
+    def __init__(__self__, *,
+                 server_and_client_verification: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs']] = None,
+                 server_verification: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs']] = None):
+        """
+        :param pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs'] server_and_client_verification: If this field is set, the communication will be encrypted with TLS encryption
+               and both the server identity and the client identity will be authenticated.
+               Structure is documented below.
+        :param pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs'] server_verification: If this field is set, the communication will be encrypted with TLS encryption
+               and the server identity will be authenticated.
+               Structure is documented below.
+        """
+        if server_and_client_verification is not None:
+            pulumi.set(__self__, "server_and_client_verification", server_and_client_verification)
+        if server_verification is not None:
+            pulumi.set(__self__, "server_verification", server_verification)
+
+    @_builtins.property
+    @pulumi.getter(name="serverAndClientVerification")
+    def server_and_client_verification(self) -> Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs']]:
+        """
+        If this field is set, the communication will be encrypted with TLS encryption
+        and both the server identity and the client identity will be authenticated.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "server_and_client_verification")
+
+    @server_and_client_verification.setter
+    def server_and_client_verification(self, value: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs']]):
+        pulumi.set(self, "server_and_client_verification", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serverVerification")
+    def server_verification(self) -> Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs']]:
+        """
+        If this field is set, the communication will be encrypted with TLS encryption
+        and the server identity will be authenticated.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "server_verification")
+
+    @server_verification.setter
+    def server_verification(self, value: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs']]):
+        pulumi.set(self, "server_verification", value)
+
+
+if not MYPY:
+    class ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgsDict(TypedDict):
+        ca_certificate: pulumi.Input[_builtins.str]
+        """
+        PEM-encoded server root CA certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        client_certificate: pulumi.Input[_builtins.str]
+        """
+        PEM-encoded certificate used by the source database to authenticate the
+        client identity (i.e., the Datastream's identity). This certificate is
+        signed by either a root certificate trusted by the server or one or more
+        intermediate certificates (which is stored with the leaf certificate) to
+        link to this certificate to the trusted root certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        client_key: pulumi.Input[_builtins.str]
+        """
+        PEM-encoded private key associated with the client certificate.
+        This value will be used during the SSL/TLS handshake, allowing
+        the PostgreSQL server to authenticate the client's identity,
+        i.e. identity of the stream.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+elif False:
+    ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs:
+    def __init__(__self__, *,
+                 ca_certificate: pulumi.Input[_builtins.str],
+                 client_certificate: pulumi.Input[_builtins.str],
+                 client_key: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] ca_certificate: PEM-encoded server root CA certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.str] client_certificate: PEM-encoded certificate used by the source database to authenticate the
+               client identity (i.e., the Datastream's identity). This certificate is
+               signed by either a root certificate trusted by the server or one or more
+               intermediate certificates (which is stored with the leaf certificate) to
+               link to this certificate to the trusted root certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.str] client_key: PEM-encoded private key associated with the client certificate.
+               This value will be used during the SSL/TLS handshake, allowing
+               the PostgreSQL server to authenticate the client's identity,
+               i.e. identity of the stream.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        pulumi.set(__self__, "ca_certificate", ca_certificate)
+        pulumi.set(__self__, "client_certificate", client_certificate)
+        pulumi.set(__self__, "client_key", client_key)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificate")
+    def ca_certificate(self) -> pulumi.Input[_builtins.str]:
+        """
+        PEM-encoded server root CA certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "ca_certificate")
+
+    @ca_certificate.setter
+    def ca_certificate(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ca_certificate", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clientCertificate")
+    def client_certificate(self) -> pulumi.Input[_builtins.str]:
+        """
+        PEM-encoded certificate used by the source database to authenticate the
+        client identity (i.e., the Datastream's identity). This certificate is
+        signed by either a root certificate trusted by the server or one or more
+        intermediate certificates (which is stored with the leaf certificate) to
+        link to this certificate to the trusted root certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_certificate")
+
+    @client_certificate.setter
+    def client_certificate(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "client_certificate", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clientKey")
+    def client_key(self) -> pulumi.Input[_builtins.str]:
+        """
+        PEM-encoded private key associated with the client certificate.
+        This value will be used during the SSL/TLS handshake, allowing
+        the PostgreSQL server to authenticate the client's identity,
+        i.e. identity of the stream.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_key")
+
+    @client_key.setter
+    def client_key(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "client_key", value)
+
+
+if not MYPY:
+    class ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgsDict(TypedDict):
+        ca_certificate: pulumi.Input[_builtins.str]
+        """
+        PEM-encoded server root CA certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+elif False:
+    ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs:
+    def __init__(__self__, *,
+                 ca_certificate: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] ca_certificate: PEM-encoded server root CA certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        pulumi.set(__self__, "ca_certificate", ca_certificate)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificate")
+    def ca_certificate(self) -> pulumi.Input[_builtins.str]:
+        """
+        PEM-encoded server root CA certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "ca_certificate")
+
+    @ca_certificate.setter
+    def ca_certificate(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ca_certificate", value)
 
 
 if not MYPY:
@@ -1563,6 +2341,11 @@ class PrivateConnectionVpcPeeringConfigArgs:
 
 if not MYPY:
     class StreamBackfillAllArgsDict(TypedDict):
+        mongodb_excluded_objects: NotRequired[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsArgsDict']]
+        """
+        MongoDB data source objects to avoid backfilling.
+        Structure is documented below.
+        """
         mysql_excluded_objects: NotRequired[pulumi.Input['StreamBackfillAllMysqlExcludedObjectsArgsDict']]
         """
         MySQL data source objects to avoid backfilling.
@@ -1594,12 +2377,15 @@ elif False:
 @pulumi.input_type
 class StreamBackfillAllArgs:
     def __init__(__self__, *,
+                 mongodb_excluded_objects: Optional[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsArgs']] = None,
                  mysql_excluded_objects: Optional[pulumi.Input['StreamBackfillAllMysqlExcludedObjectsArgs']] = None,
                  oracle_excluded_objects: Optional[pulumi.Input['StreamBackfillAllOracleExcludedObjectsArgs']] = None,
                  postgresql_excluded_objects: Optional[pulumi.Input['StreamBackfillAllPostgresqlExcludedObjectsArgs']] = None,
                  salesforce_excluded_objects: Optional[pulumi.Input['StreamBackfillAllSalesforceExcludedObjectsArgs']] = None,
                  sql_server_excluded_objects: Optional[pulumi.Input['StreamBackfillAllSqlServerExcludedObjectsArgs']] = None):
         """
+        :param pulumi.Input['StreamBackfillAllMongodbExcludedObjectsArgs'] mongodb_excluded_objects: MongoDB data source objects to avoid backfilling.
+               Structure is documented below.
         :param pulumi.Input['StreamBackfillAllMysqlExcludedObjectsArgs'] mysql_excluded_objects: MySQL data source objects to avoid backfilling.
                Structure is documented below.
         :param pulumi.Input['StreamBackfillAllOracleExcludedObjectsArgs'] oracle_excluded_objects: PostgreSQL data source objects to avoid backfilling.
@@ -1611,6 +2397,8 @@ class StreamBackfillAllArgs:
         :param pulumi.Input['StreamBackfillAllSqlServerExcludedObjectsArgs'] sql_server_excluded_objects: SQL Server data source objects to avoid backfilling.
                Structure is documented below.
         """
+        if mongodb_excluded_objects is not None:
+            pulumi.set(__self__, "mongodb_excluded_objects", mongodb_excluded_objects)
         if mysql_excluded_objects is not None:
             pulumi.set(__self__, "mysql_excluded_objects", mysql_excluded_objects)
         if oracle_excluded_objects is not None:
@@ -1621,6 +2409,19 @@ class StreamBackfillAllArgs:
             pulumi.set(__self__, "salesforce_excluded_objects", salesforce_excluded_objects)
         if sql_server_excluded_objects is not None:
             pulumi.set(__self__, "sql_server_excluded_objects", sql_server_excluded_objects)
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbExcludedObjects")
+    def mongodb_excluded_objects(self) -> Optional[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsArgs']]:
+        """
+        MongoDB data source objects to avoid backfilling.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_excluded_objects")
+
+    @mongodb_excluded_objects.setter
+    def mongodb_excluded_objects(self, value: Optional[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsArgs']]):
+        pulumi.set(self, "mongodb_excluded_objects", value)
 
     @_builtins.property
     @pulumi.getter(name="mysqlExcludedObjects")
@@ -1686,6 +2487,180 @@ class StreamBackfillAllArgs:
     @sql_server_excluded_objects.setter
     def sql_server_excluded_objects(self, value: Optional[pulumi.Input['StreamBackfillAllSqlServerExcludedObjectsArgs']]):
         pulumi.set(self, "sql_server_excluded_objects", value)
+
+
+if not MYPY:
+    class StreamBackfillAllMongodbExcludedObjectsArgsDict(TypedDict):
+        databases: pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseArgsDict']]]
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+elif False:
+    StreamBackfillAllMongodbExcludedObjectsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamBackfillAllMongodbExcludedObjectsArgs:
+    def __init__(__self__, *,
+                 databases: pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseArgs']]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseArgs']]] databases: MongoDB databases in the cluster.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "databases", databases)
+
+    @_builtins.property
+    @pulumi.getter
+    def databases(self) -> pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseArgs']]]:
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "databases")
+
+    @databases.setter
+    def databases(self, value: pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseArgs']]]):
+        pulumi.set(self, "databases", value)
+
+
+if not MYPY:
+    class StreamBackfillAllMongodbExcludedObjectsDatabaseArgsDict(TypedDict):
+        database: pulumi.Input[_builtins.str]
+        """
+        Database name.
+        """
+        collections: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgsDict']]]]
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+elif False:
+    StreamBackfillAllMongodbExcludedObjectsDatabaseArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamBackfillAllMongodbExcludedObjectsDatabaseArgs:
+    def __init__(__self__, *,
+                 database: pulumi.Input[_builtins.str],
+                 collections: Optional[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] database: Database name.
+        :param pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs']]] collections: Collections in the database.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "database", database)
+        if collections is not None:
+            pulumi.set(__self__, "collections", collections)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> pulumi.Input[_builtins.str]:
+        """
+        Database name.
+        """
+        return pulumi.get(self, "database")
+
+    @database.setter
+    def database(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "database", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def collections(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs']]]]:
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collections")
+
+    @collections.setter
+    def collections(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs']]]]):
+        pulumi.set(self, "collections", value)
+
+
+if not MYPY:
+    class StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgsDict(TypedDict):
+        collection: pulumi.Input[_builtins.str]
+        """
+        Collection name.
+        """
+        fields: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgsDict']]]]
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+elif False:
+    StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs:
+    def __init__(__self__, *,
+                 collection: pulumi.Input[_builtins.str],
+                 fields: Optional[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] collection: Collection name.
+        :param pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs']]] fields: Fields in the collection.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "collection", collection)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> pulumi.Input[_builtins.str]:
+        """
+        Collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @collection.setter
+    def collection(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "collection", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs']]]]:
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields")
+
+    @fields.setter
+    def fields(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs']]]]):
+        pulumi.set(self, "fields", value)
+
+
+if not MYPY:
+    class StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgsDict(TypedDict):
+        field: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Field name.
+        """
+elif False:
+    StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs:
+    def __init__(__self__, *,
+                 field: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] field: Field name.
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "field")
+
+    @field.setter
+    def field(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "field", value)
 
 
 if not MYPY:
@@ -3552,18 +4527,26 @@ if not MYPY:
         Dataset template used for dynamic dataset creation.
         Structure is documented below.
         """
+        project_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The project id of the BigQuery dataset. If not specified, the project will be inferred from the stream resource.
+        """
 elif False:
     StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsArgs:
     def __init__(__self__, *,
-                 dataset_template: pulumi.Input['StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplateArgs']):
+                 dataset_template: pulumi.Input['StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplateArgs'],
+                 project_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input['StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplateArgs'] dataset_template: Dataset template used for dynamic dataset creation.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] project_id: Optional. The project id of the BigQuery dataset. If not specified, the project will be inferred from the stream resource.
         """
         pulumi.set(__self__, "dataset_template", dataset_template)
+        if project_id is not None:
+            pulumi.set(__self__, "project_id", project_id)
 
     @_builtins.property
     @pulumi.getter(name="datasetTemplate")
@@ -3577,6 +4560,18 @@ class StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsArg
     @dataset_template.setter
     def dataset_template(self, value: pulumi.Input['StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplateArgs']):
         pulumi.set(self, "dataset_template", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The project id of the BigQuery dataset. If not specified, the project will be inferred from the stream resource.
+        """
+        return pulumi.get(self, "project_id")
+
+    @project_id.setter
+    def project_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "project_id", value)
 
 
 if not MYPY:
@@ -3854,10 +4849,904 @@ class StreamDestinationConfigGcsDestinationConfigJsonFileFormatArgs:
 
 
 if not MYPY:
+    class StreamRuleSetArgsDict(TypedDict):
+        customization_rules: pulumi.Input[Sequence[pulumi.Input['StreamRuleSetCustomizationRuleArgsDict']]]
+        """
+        List of customization rules to apply.
+        Structure is documented below.
+        """
+        object_filter: pulumi.Input['StreamRuleSetObjectFilterArgsDict']
+        """
+        Object filter to apply the customization rules to.
+        Structure is documented below.
+        """
+elif False:
+    StreamRuleSetArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetArgs:
+    def __init__(__self__, *,
+                 customization_rules: pulumi.Input[Sequence[pulumi.Input['StreamRuleSetCustomizationRuleArgs']]],
+                 object_filter: pulumi.Input['StreamRuleSetObjectFilterArgs']):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['StreamRuleSetCustomizationRuleArgs']]] customization_rules: List of customization rules to apply.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetObjectFilterArgs'] object_filter: Object filter to apply the customization rules to.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "customization_rules", customization_rules)
+        pulumi.set(__self__, "object_filter", object_filter)
+
+    @_builtins.property
+    @pulumi.getter(name="customizationRules")
+    def customization_rules(self) -> pulumi.Input[Sequence[pulumi.Input['StreamRuleSetCustomizationRuleArgs']]]:
+        """
+        List of customization rules to apply.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "customization_rules")
+
+    @customization_rules.setter
+    def customization_rules(self, value: pulumi.Input[Sequence[pulumi.Input['StreamRuleSetCustomizationRuleArgs']]]):
+        pulumi.set(self, "customization_rules", value)
+
+    @_builtins.property
+    @pulumi.getter(name="objectFilter")
+    def object_filter(self) -> pulumi.Input['StreamRuleSetObjectFilterArgs']:
+        """
+        Object filter to apply the customization rules to.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "object_filter")
+
+    @object_filter.setter
+    def object_filter(self, value: pulumi.Input['StreamRuleSetObjectFilterArgs']):
+        pulumi.set(self, "object_filter", value)
+
+
+if not MYPY:
+    class StreamRuleSetCustomizationRuleArgsDict(TypedDict):
+        bigquery_clustering: NotRequired[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryClusteringArgsDict']]
+        """
+        BigQuery clustering rule.
+        Structure is documented below.
+        """
+        bigquery_partitioning: NotRequired[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningArgsDict']]
+        """
+        BigQuery partitioning rule.
+        Structure is documented below.
+        """
+elif False:
+    StreamRuleSetCustomizationRuleArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetCustomizationRuleArgs:
+    def __init__(__self__, *,
+                 bigquery_clustering: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryClusteringArgs']] = None,
+                 bigquery_partitioning: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningArgs']] = None):
+        """
+        :param pulumi.Input['StreamRuleSetCustomizationRuleBigqueryClusteringArgs'] bigquery_clustering: BigQuery clustering rule.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningArgs'] bigquery_partitioning: BigQuery partitioning rule.
+               Structure is documented below.
+        """
+        if bigquery_clustering is not None:
+            pulumi.set(__self__, "bigquery_clustering", bigquery_clustering)
+        if bigquery_partitioning is not None:
+            pulumi.set(__self__, "bigquery_partitioning", bigquery_partitioning)
+
+    @_builtins.property
+    @pulumi.getter(name="bigqueryClustering")
+    def bigquery_clustering(self) -> Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryClusteringArgs']]:
+        """
+        BigQuery clustering rule.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "bigquery_clustering")
+
+    @bigquery_clustering.setter
+    def bigquery_clustering(self, value: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryClusteringArgs']]):
+        pulumi.set(self, "bigquery_clustering", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bigqueryPartitioning")
+    def bigquery_partitioning(self) -> Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningArgs']]:
+        """
+        BigQuery partitioning rule.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "bigquery_partitioning")
+
+    @bigquery_partitioning.setter
+    def bigquery_partitioning(self, value: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningArgs']]):
+        pulumi.set(self, "bigquery_partitioning", value)
+
+
+if not MYPY:
+    class StreamRuleSetCustomizationRuleBigqueryClusteringArgsDict(TypedDict):
+        columns: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        Column names to set as clustering columns.
+        """
+elif False:
+    StreamRuleSetCustomizationRuleBigqueryClusteringArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetCustomizationRuleBigqueryClusteringArgs:
+    def __init__(__self__, *,
+                 columns: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] columns: Column names to set as clustering columns.
+        """
+        pulumi.set(__self__, "columns", columns)
+
+    @_builtins.property
+    @pulumi.getter
+    def columns(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        Column names to set as clustering columns.
+        """
+        return pulumi.get(self, "columns")
+
+    @columns.setter
+    def columns(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "columns", value)
+
+
+if not MYPY:
+    class StreamRuleSetCustomizationRuleBigqueryPartitioningArgsDict(TypedDict):
+        ingestion_time_partition: NotRequired[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        integer_range_partition: NotRequired[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        require_partition_filter: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If true, queries over the table require a partition filter.
+        """
+        time_unit_partition: NotRequired[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+elif False:
+    StreamRuleSetCustomizationRuleBigqueryPartitioningArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningArgs:
+    def __init__(__self__, *,
+                 ingestion_time_partition: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs']] = None,
+                 integer_range_partition: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs']] = None,
+                 require_partition_filter: Optional[pulumi.Input[_builtins.bool]] = None,
+                 time_unit_partition: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs']] = None):
+        """
+        :param pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs'] ingestion_time_partition: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs'] integer_range_partition: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.bool] require_partition_filter: If true, queries over the table require a partition filter.
+        :param pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs'] time_unit_partition: A nested object resource.
+               Structure is documented below.
+        """
+        if ingestion_time_partition is not None:
+            pulumi.set(__self__, "ingestion_time_partition", ingestion_time_partition)
+        if integer_range_partition is not None:
+            pulumi.set(__self__, "integer_range_partition", integer_range_partition)
+        if require_partition_filter is not None:
+            pulumi.set(__self__, "require_partition_filter", require_partition_filter)
+        if time_unit_partition is not None:
+            pulumi.set(__self__, "time_unit_partition", time_unit_partition)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestionTimePartition")
+    def ingestion_time_partition(self) -> Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ingestion_time_partition")
+
+    @ingestion_time_partition.setter
+    def ingestion_time_partition(self, value: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs']]):
+        pulumi.set(self, "ingestion_time_partition", value)
+
+    @_builtins.property
+    @pulumi.getter(name="integerRangePartition")
+    def integer_range_partition(self) -> Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "integer_range_partition")
+
+    @integer_range_partition.setter
+    def integer_range_partition(self, value: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs']]):
+        pulumi.set(self, "integer_range_partition", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requirePartitionFilter")
+    def require_partition_filter(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If true, queries over the table require a partition filter.
+        """
+        return pulumi.get(self, "require_partition_filter")
+
+    @require_partition_filter.setter
+    def require_partition_filter(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "require_partition_filter", value)
+
+    @_builtins.property
+    @pulumi.getter(name="timeUnitPartition")
+    def time_unit_partition(self) -> Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "time_unit_partition")
+
+    @time_unit_partition.setter
+    def time_unit_partition(self, value: Optional[pulumi.Input['StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs']]):
+        pulumi.set(self, "time_unit_partition", value)
+
+
+if not MYPY:
+    class StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgsDict(TypedDict):
+        partitioning_time_granularity: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Partition granularity.
+        Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+elif False:
+    StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs:
+    def __init__(__self__, *,
+                 partitioning_time_granularity: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] partitioning_time_granularity: Partition granularity.
+               Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        if partitioning_time_granularity is not None:
+            pulumi.set(__self__, "partitioning_time_granularity", partitioning_time_granularity)
+
+    @_builtins.property
+    @pulumi.getter(name="partitioningTimeGranularity")
+    def partitioning_time_granularity(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Partition granularity.
+        Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        return pulumi.get(self, "partitioning_time_granularity")
+
+    @partitioning_time_granularity.setter
+    def partitioning_time_granularity(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "partitioning_time_granularity", value)
+
+
+if not MYPY:
+    class StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgsDict(TypedDict):
+        column: pulumi.Input[_builtins.str]
+        """
+        The partitioning column.
+        """
+        end: pulumi.Input[_builtins.int]
+        """
+        The ending value for range partitioning (exclusive).
+        """
+        interval: pulumi.Input[_builtins.int]
+        """
+        The interval of each range within the partition.
+        """
+        start: pulumi.Input[_builtins.int]
+        """
+        The starting value for range partitioning (inclusive).
+        """
+elif False:
+    StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs:
+    def __init__(__self__, *,
+                 column: pulumi.Input[_builtins.str],
+                 end: pulumi.Input[_builtins.int],
+                 interval: pulumi.Input[_builtins.int],
+                 start: pulumi.Input[_builtins.int]):
+        """
+        :param pulumi.Input[_builtins.str] column: The partitioning column.
+        :param pulumi.Input[_builtins.int] end: The ending value for range partitioning (exclusive).
+        :param pulumi.Input[_builtins.int] interval: The interval of each range within the partition.
+        :param pulumi.Input[_builtins.int] start: The starting value for range partitioning (inclusive).
+        """
+        pulumi.set(__self__, "column", column)
+        pulumi.set(__self__, "end", end)
+        pulumi.set(__self__, "interval", interval)
+        pulumi.set(__self__, "start", start)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> pulumi.Input[_builtins.str]:
+        """
+        The partitioning column.
+        """
+        return pulumi.get(self, "column")
+
+    @column.setter
+    def column(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "column", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def end(self) -> pulumi.Input[_builtins.int]:
+        """
+        The ending value for range partitioning (exclusive).
+        """
+        return pulumi.get(self, "end")
+
+    @end.setter
+    def end(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "end", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def interval(self) -> pulumi.Input[_builtins.int]:
+        """
+        The interval of each range within the partition.
+        """
+        return pulumi.get(self, "interval")
+
+    @interval.setter
+    def interval(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "interval", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def start(self) -> pulumi.Input[_builtins.int]:
+        """
+        The starting value for range partitioning (inclusive).
+        """
+        return pulumi.get(self, "start")
+
+    @start.setter
+    def start(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "start", value)
+
+
+if not MYPY:
+    class StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgsDict(TypedDict):
+        column: pulumi.Input[_builtins.str]
+        """
+        The partitioning column.
+        """
+        partitioning_time_granularity: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Partition granularity.
+        Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+elif False:
+    StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs:
+    def __init__(__self__, *,
+                 column: pulumi.Input[_builtins.str],
+                 partitioning_time_granularity: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] column: The partitioning column.
+        :param pulumi.Input[_builtins.str] partitioning_time_granularity: Partition granularity.
+               Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        pulumi.set(__self__, "column", column)
+        if partitioning_time_granularity is not None:
+            pulumi.set(__self__, "partitioning_time_granularity", partitioning_time_granularity)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> pulumi.Input[_builtins.str]:
+        """
+        The partitioning column.
+        """
+        return pulumi.get(self, "column")
+
+    @column.setter
+    def column(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "column", value)
+
+    @_builtins.property
+    @pulumi.getter(name="partitioningTimeGranularity")
+    def partitioning_time_granularity(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Partition granularity.
+        Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        return pulumi.get(self, "partitioning_time_granularity")
+
+    @partitioning_time_granularity.setter
+    def partitioning_time_granularity(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "partitioning_time_granularity", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterArgsDict(TypedDict):
+        source_object_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierArgsDict']]
+        """
+        Specific source object identifier.
+        Structure is documented below.
+        """
+elif False:
+    StreamRuleSetObjectFilterArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterArgs:
+    def __init__(__self__, *,
+                 source_object_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierArgs']] = None):
+        """
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierArgs'] source_object_identifier: Specific source object identifier.
+               Structure is documented below.
+        """
+        if source_object_identifier is not None:
+            pulumi.set(__self__, "source_object_identifier", source_object_identifier)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceObjectIdentifier")
+    def source_object_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierArgs']]:
+        """
+        Specific source object identifier.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "source_object_identifier")
+
+    @source_object_identifier.setter
+    def source_object_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierArgs']]):
+        pulumi.set(self, "source_object_identifier", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierArgsDict(TypedDict):
+        mongodb_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        mysql_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        oracle_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        postgresql_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        salesforce_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        sql_server_identifier: NotRequired[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgsDict']]
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierArgs:
+    def __init__(__self__, *,
+                 mongodb_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs']] = None,
+                 mysql_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs']] = None,
+                 oracle_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs']] = None,
+                 postgresql_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs']] = None,
+                 salesforce_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs']] = None,
+                 sql_server_identifier: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs']] = None):
+        """
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs'] mongodb_identifier: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs'] mysql_identifier: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs'] oracle_identifier: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs'] postgresql_identifier: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs'] salesforce_identifier: A nested object resource.
+               Structure is documented below.
+        :param pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs'] sql_server_identifier: A nested object resource.
+               Structure is documented below.
+        """
+        if mongodb_identifier is not None:
+            pulumi.set(__self__, "mongodb_identifier", mongodb_identifier)
+        if mysql_identifier is not None:
+            pulumi.set(__self__, "mysql_identifier", mysql_identifier)
+        if oracle_identifier is not None:
+            pulumi.set(__self__, "oracle_identifier", oracle_identifier)
+        if postgresql_identifier is not None:
+            pulumi.set(__self__, "postgresql_identifier", postgresql_identifier)
+        if salesforce_identifier is not None:
+            pulumi.set(__self__, "salesforce_identifier", salesforce_identifier)
+        if sql_server_identifier is not None:
+            pulumi.set(__self__, "sql_server_identifier", sql_server_identifier)
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbIdentifier")
+    def mongodb_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_identifier")
+
+    @mongodb_identifier.setter
+    def mongodb_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs']]):
+        pulumi.set(self, "mongodb_identifier", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mysqlIdentifier")
+    def mysql_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mysql_identifier")
+
+    @mysql_identifier.setter
+    def mysql_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs']]):
+        pulumi.set(self, "mysql_identifier", value)
+
+    @_builtins.property
+    @pulumi.getter(name="oracleIdentifier")
+    def oracle_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "oracle_identifier")
+
+    @oracle_identifier.setter
+    def oracle_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs']]):
+        pulumi.set(self, "oracle_identifier", value)
+
+    @_builtins.property
+    @pulumi.getter(name="postgresqlIdentifier")
+    def postgresql_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "postgresql_identifier")
+
+    @postgresql_identifier.setter
+    def postgresql_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs']]):
+        pulumi.set(self, "postgresql_identifier", value)
+
+    @_builtins.property
+    @pulumi.getter(name="salesforceIdentifier")
+    def salesforce_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "salesforce_identifier")
+
+    @salesforce_identifier.setter
+    def salesforce_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs']]):
+        pulumi.set(self, "salesforce_identifier", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sqlServerIdentifier")
+    def sql_server_identifier(self) -> Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs']]:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "sql_server_identifier")
+
+    @sql_server_identifier.setter
+    def sql_server_identifier(self, value: Optional[pulumi.Input['StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs']]):
+        pulumi.set(self, "sql_server_identifier", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgsDict(TypedDict):
+        collection: pulumi.Input[_builtins.str]
+        """
+        The MongoDB collection name.
+        """
+        database: pulumi.Input[_builtins.str]
+        """
+        The MongoDB database name.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs:
+    def __init__(__self__, *,
+                 collection: pulumi.Input[_builtins.str],
+                 database: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] collection: The MongoDB collection name.
+        :param pulumi.Input[_builtins.str] database: The MongoDB database name.
+        """
+        pulumi.set(__self__, "collection", collection)
+        pulumi.set(__self__, "database", database)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> pulumi.Input[_builtins.str]:
+        """
+        The MongoDB collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @collection.setter
+    def collection(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "collection", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> pulumi.Input[_builtins.str]:
+        """
+        The MongoDB database name.
+        """
+        return pulumi.get(self, "database")
+
+    @database.setter
+    def database(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "database", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgsDict(TypedDict):
+        database: pulumi.Input[_builtins.str]
+        """
+        The database name.
+        """
+        table: pulumi.Input[_builtins.str]
+        """
+        The table name.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs:
+    def __init__(__self__, *,
+                 database: pulumi.Input[_builtins.str],
+                 table: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] database: The database name.
+        :param pulumi.Input[_builtins.str] table: The table name.
+        """
+        pulumi.set(__self__, "database", database)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> pulumi.Input[_builtins.str]:
+        """
+        The database name.
+        """
+        return pulumi.get(self, "database")
+
+    @database.setter
+    def database(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "database", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> pulumi.Input[_builtins.str]:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+    @table.setter
+    def table(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "table", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgsDict(TypedDict):
+        schema: pulumi.Input[_builtins.str]
+        """
+        The schema name.
+        """
+        table: pulumi.Input[_builtins.str]
+        """
+        The table name.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs:
+    def __init__(__self__, *,
+                 schema: pulumi.Input[_builtins.str],
+                 table: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] schema: The schema name.
+        :param pulumi.Input[_builtins.str] table: The table name.
+        """
+        pulumi.set(__self__, "schema", schema)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[_builtins.str]:
+        """
+        The schema name.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> pulumi.Input[_builtins.str]:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+    @table.setter
+    def table(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "table", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgsDict(TypedDict):
+        schema: pulumi.Input[_builtins.str]
+        """
+        The schema name.
+        """
+        table: pulumi.Input[_builtins.str]
+        """
+        The table name.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs:
+    def __init__(__self__, *,
+                 schema: pulumi.Input[_builtins.str],
+                 table: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] schema: The schema name.
+        :param pulumi.Input[_builtins.str] table: The table name.
+        """
+        pulumi.set(__self__, "schema", schema)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[_builtins.str]:
+        """
+        The schema name.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> pulumi.Input[_builtins.str]:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+    @table.setter
+    def table(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "table", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgsDict(TypedDict):
+        object_name: pulumi.Input[_builtins.str]
+        """
+        The Salesforce object name.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs:
+    def __init__(__self__, *,
+                 object_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] object_name: The Salesforce object name.
+        """
+        pulumi.set(__self__, "object_name", object_name)
+
+    @_builtins.property
+    @pulumi.getter(name="objectName")
+    def object_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The Salesforce object name.
+        """
+        return pulumi.get(self, "object_name")
+
+    @object_name.setter
+    def object_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "object_name", value)
+
+
+if not MYPY:
+    class StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgsDict(TypedDict):
+        schema: pulumi.Input[_builtins.str]
+        """
+        The schema name.
+        """
+        table: pulumi.Input[_builtins.str]
+        """
+        The table name.
+        """
+elif False:
+    StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs:
+    def __init__(__self__, *,
+                 schema: pulumi.Input[_builtins.str],
+                 table: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] schema: The schema name.
+        :param pulumi.Input[_builtins.str] table: The table name.
+        """
+        pulumi.set(__self__, "schema", schema)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[_builtins.str]:
+        """
+        The schema name.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> pulumi.Input[_builtins.str]:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+    @table.setter
+    def table(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "table", value)
+
+
+if not MYPY:
     class StreamSourceConfigArgsDict(TypedDict):
         source_connection_profile: pulumi.Input[_builtins.str]
         """
         Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}
+        """
+        mongodb_source_config: NotRequired[pulumi.Input['StreamSourceConfigMongodbSourceConfigArgsDict']]
+        """
+        MongoDB source configuration.
+        Structure is documented below.
         """
         mysql_source_config: NotRequired[pulumi.Input['StreamSourceConfigMysqlSourceConfigArgsDict']]
         """
@@ -3891,6 +5780,7 @@ elif False:
 class StreamSourceConfigArgs:
     def __init__(__self__, *,
                  source_connection_profile: pulumi.Input[_builtins.str],
+                 mongodb_source_config: Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigArgs']] = None,
                  mysql_source_config: Optional[pulumi.Input['StreamSourceConfigMysqlSourceConfigArgs']] = None,
                  oracle_source_config: Optional[pulumi.Input['StreamSourceConfigOracleSourceConfigArgs']] = None,
                  postgresql_source_config: Optional[pulumi.Input['StreamSourceConfigPostgresqlSourceConfigArgs']] = None,
@@ -3898,6 +5788,8 @@ class StreamSourceConfigArgs:
                  sql_server_source_config: Optional[pulumi.Input['StreamSourceConfigSqlServerSourceConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] source_connection_profile: Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}
+        :param pulumi.Input['StreamSourceConfigMongodbSourceConfigArgs'] mongodb_source_config: MongoDB source configuration.
+               Structure is documented below.
         :param pulumi.Input['StreamSourceConfigMysqlSourceConfigArgs'] mysql_source_config: MySQL data source configuration.
                Structure is documented below.
         :param pulumi.Input['StreamSourceConfigOracleSourceConfigArgs'] oracle_source_config: MySQL data source configuration.
@@ -3910,6 +5802,8 @@ class StreamSourceConfigArgs:
                Structure is documented below.
         """
         pulumi.set(__self__, "source_connection_profile", source_connection_profile)
+        if mongodb_source_config is not None:
+            pulumi.set(__self__, "mongodb_source_config", mongodb_source_config)
         if mysql_source_config is not None:
             pulumi.set(__self__, "mysql_source_config", mysql_source_config)
         if oracle_source_config is not None:
@@ -3932,6 +5826,19 @@ class StreamSourceConfigArgs:
     @source_connection_profile.setter
     def source_connection_profile(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "source_connection_profile", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbSourceConfig")
+    def mongodb_source_config(self) -> Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigArgs']]:
+        """
+        MongoDB source configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_source_config")
+
+    @mongodb_source_config.setter
+    def mongodb_source_config(self, value: Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigArgs']]):
+        pulumi.set(self, "mongodb_source_config", value)
 
     @_builtins.property
     @pulumi.getter(name="mysqlSourceConfig")
@@ -3997,6 +5904,444 @@ class StreamSourceConfigArgs:
     @sql_server_source_config.setter
     def sql_server_source_config(self, value: Optional[pulumi.Input['StreamSourceConfigSqlServerSourceConfigArgs']]):
         pulumi.set(self, "sql_server_source_config", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigArgsDict(TypedDict):
+        exclude_objects: NotRequired[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsArgsDict']]
+        """
+        MongoDB collections to include in the stream.
+        Structure is documented below.
+        """
+        include_objects: NotRequired[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsArgsDict']]
+        """
+        MongoDB collections to include in the stream.
+        Structure is documented below.
+        """
+        max_concurrent_backfill_tasks: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Optional. Maximum number of concurrent backfill tasks. The number
+        should be non-negative and less than or equal to 50. If not set
+        (or set to 0), the system''s default value is used
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigArgs:
+    def __init__(__self__, *,
+                 exclude_objects: Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs']] = None,
+                 include_objects: Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs']] = None,
+                 max_concurrent_backfill_tasks: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs'] exclude_objects: MongoDB collections to include in the stream.
+               Structure is documented below.
+        :param pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs'] include_objects: MongoDB collections to include in the stream.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.int] max_concurrent_backfill_tasks: Optional. Maximum number of concurrent backfill tasks. The number
+               should be non-negative and less than or equal to 50. If not set
+               (or set to 0), the system''s default value is used
+        """
+        if exclude_objects is not None:
+            pulumi.set(__self__, "exclude_objects", exclude_objects)
+        if include_objects is not None:
+            pulumi.set(__self__, "include_objects", include_objects)
+        if max_concurrent_backfill_tasks is not None:
+            pulumi.set(__self__, "max_concurrent_backfill_tasks", max_concurrent_backfill_tasks)
+
+    @_builtins.property
+    @pulumi.getter(name="excludeObjects")
+    def exclude_objects(self) -> Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs']]:
+        """
+        MongoDB collections to include in the stream.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "exclude_objects")
+
+    @exclude_objects.setter
+    def exclude_objects(self, value: Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs']]):
+        pulumi.set(self, "exclude_objects", value)
+
+    @_builtins.property
+    @pulumi.getter(name="includeObjects")
+    def include_objects(self) -> Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs']]:
+        """
+        MongoDB collections to include in the stream.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "include_objects")
+
+    @include_objects.setter
+    def include_objects(self, value: Optional[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs']]):
+        pulumi.set(self, "include_objects", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxConcurrentBackfillTasks")
+    def max_concurrent_backfill_tasks(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Optional. Maximum number of concurrent backfill tasks. The number
+        should be non-negative and less than or equal to 50. If not set
+        (or set to 0), the system''s default value is used
+        """
+        return pulumi.get(self, "max_concurrent_backfill_tasks")
+
+    @max_concurrent_backfill_tasks.setter
+    def max_concurrent_backfill_tasks(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_concurrent_backfill_tasks", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigExcludeObjectsArgsDict(TypedDict):
+        databases: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgsDict']]]]
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigExcludeObjectsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs:
+    def __init__(__self__, *,
+                 databases: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs']]] databases: MongoDB databases in the cluster.
+               Structure is documented below.
+        """
+        if databases is not None:
+            pulumi.set(__self__, "databases", databases)
+
+    @_builtins.property
+    @pulumi.getter
+    def databases(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs']]]]:
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "databases")
+
+    @databases.setter
+    def databases(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs']]]]):
+        pulumi.set(self, "databases", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgsDict(TypedDict):
+        collections: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgsDict']]]]
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        database: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Database name.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs:
+    def __init__(__self__, *,
+                 collections: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs']]]] = None,
+                 database: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs']]] collections: Collections in the database.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] database: Database name.
+        """
+        if collections is not None:
+            pulumi.set(__self__, "collections", collections)
+        if database is not None:
+            pulumi.set(__self__, "database", database)
+
+    @_builtins.property
+    @pulumi.getter
+    def collections(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs']]]]:
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collections")
+
+    @collections.setter
+    def collections(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs']]]]):
+        pulumi.set(self, "collections", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Database name.
+        """
+        return pulumi.get(self, "database")
+
+    @database.setter
+    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "database", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgsDict(TypedDict):
+        collection: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Collection name.
+        """
+        fields: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgsDict']]]]
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs:
+    def __init__(__self__, *,
+                 collection: Optional[pulumi.Input[_builtins.str]] = None,
+                 fields: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] collection: Collection name.
+        :param pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs']]] fields: Fields in the collection.
+               Structure is documented below.
+        """
+        if collection is not None:
+            pulumi.set(__self__, "collection", collection)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @collection.setter
+    def collection(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "collection", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs']]]]:
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields")
+
+    @fields.setter
+    def fields(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs']]]]):
+        pulumi.set(self, "fields", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgsDict(TypedDict):
+        field: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Field name.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs:
+    def __init__(__self__, *,
+                 field: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] field: Field name.
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "field")
+
+    @field.setter
+    def field(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "field", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigIncludeObjectsArgsDict(TypedDict):
+        databases: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgsDict']]]]
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigIncludeObjectsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs:
+    def __init__(__self__, *,
+                 databases: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs']]] databases: MongoDB databases in the cluster.
+               Structure is documented below.
+        """
+        if databases is not None:
+            pulumi.set(__self__, "databases", databases)
+
+    @_builtins.property
+    @pulumi.getter
+    def databases(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs']]]]:
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "databases")
+
+    @databases.setter
+    def databases(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs']]]]):
+        pulumi.set(self, "databases", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgsDict(TypedDict):
+        collections: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgsDict']]]]
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        database: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Database name.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs:
+    def __init__(__self__, *,
+                 collections: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs']]]] = None,
+                 database: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs']]] collections: Collections in the database.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] database: Database name.
+        """
+        if collections is not None:
+            pulumi.set(__self__, "collections", collections)
+        if database is not None:
+            pulumi.set(__self__, "database", database)
+
+    @_builtins.property
+    @pulumi.getter
+    def collections(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs']]]]:
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collections")
+
+    @collections.setter
+    def collections(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs']]]]):
+        pulumi.set(self, "collections", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Database name.
+        """
+        return pulumi.get(self, "database")
+
+    @database.setter
+    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "database", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgsDict(TypedDict):
+        collection: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Collection name.
+        """
+        fields: NotRequired[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgsDict']]]]
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs:
+    def __init__(__self__, *,
+                 collection: Optional[pulumi.Input[_builtins.str]] = None,
+                 fields: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] collection: Collection name.
+        :param pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs']]] fields: Fields in the collection.
+               Structure is documented below.
+        """
+        if collection is not None:
+            pulumi.set(__self__, "collection", collection)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @collection.setter
+    def collection(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "collection", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs']]]]:
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields")
+
+    @fields.setter
+    def fields(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs']]]]):
+        pulumi.set(self, "fields", value)
+
+
+if not MYPY:
+    class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgsDict(TypedDict):
+        field: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Field name.
+        """
+elif False:
+    StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs:
+    def __init__(__self__, *,
+                 field: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] field: Field name.
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "field")
+
+    @field.setter
+    def field(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "field", value)
 
 
 if not MYPY:

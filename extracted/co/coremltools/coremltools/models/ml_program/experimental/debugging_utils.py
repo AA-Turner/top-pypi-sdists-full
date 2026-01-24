@@ -147,6 +147,7 @@ class MLModelInspector:
     Examples
     --------
     .. sourcecode:: python
+
         inspector = coremltools_internal.models.debugging_utils.MLModelInspector(model)
         input_data = {"input_1": np.random.rand(1, 3, 224, 224).astype(np.float32)}
         # The intermediate outputs we want to inspect
@@ -196,7 +197,7 @@ class MLModelInspector:
             raise TypeError('The "function_name" parameter must be of type "str"')
 
         if optimization_hints is not None and not isinstance(optimization_hints, Mapping):
-            raise TypeError(f"The 'optimization_hints' must be of mapping type (e.g., dict)")
+            raise TypeError("The 'optimization_hints' must be of mapping type (e.g., dict)")
 
         if device is not None and not isinstance(device, Device):
             raise TypeError('The "device" parameter must be of type "Device"')
@@ -288,6 +289,7 @@ class MLModelInspector:
         Returns a list of all output names in the model.
 
         Returns
+        -------
         List[str]
             A list of output names.
         """
@@ -446,6 +448,7 @@ class MLModelInspector:
     ) -> AsyncIterator[Tuple[str, Optional[np.array]]]:
         """
         Retrieves intermediate outputs from the model for given inputs.
+        
         Parameters
         ----------
         inputs : Dict[str, np.array]
@@ -473,6 +476,7 @@ class MLModelInspector:
         Examples
         --------
         .. sourcecode:: python
+
             inspector = coremltools.models.ml_program.experimental.debugging_utils.MLModelInspector(
                 model
             )
@@ -596,6 +600,7 @@ class MLModelInspector:
          Examples
         --------
         .. sourcecode:: python
+        
             inspector = coremltools.models.ml_program.experimental.debugging_utils.MLModelInspector(
                 model
             )
@@ -806,6 +811,7 @@ class MLModelValidator:
     Examples
     --------
     .. sourcecode:: python
+
         validator = coremltools.models.ml_program.experimental.debugging_utils.MLModelValidator(
             model
         )
@@ -976,6 +982,7 @@ class MLModelValidator:
         Examples
         --------
         .. sourcecode:: python
+
             validator = coremltools.models.ml_program.experimental.debugging_utils.MLModelValidator(
                 model
             )
@@ -1021,7 +1028,8 @@ class MLModelValidator:
                         The operation did not pass validation, but its dependencies did.
                         This suggests that the failure likely comes from this operation.
                         """
-                        result.append(op)
+                        if op not in result:
+                            result.append(op)
 
                     queue.pop(0)
                 else:
@@ -1083,6 +1091,7 @@ class MLModelValidator:
         Examples
         --------
         .. sourcecode:: python
+
             validator = coremltools.models.ml_program.experimental.debugging_utils.MLModelValidator(
                 model
             )
@@ -1138,6 +1147,7 @@ class MLModelValidator:
         Examples
         --------
         .. sourcecode:: python
+
             validator = coremltools.models.ml_program.experimental.debugging_utils.MLModelValidator(
                 model
             )
@@ -1171,21 +1181,25 @@ def compute_snr_and_psnr(
     ----------
     x : np.array
         The processed or noisy signal.
+    
     y : np.array
         The original or reference signal.
 
     Returns
     -------
     Tuple[float, float]
-    A tuple containing two float values:
-        - snr (float): The Signal-to-Noise Ratio in decibels (dB).
-        - psnr (float): The Peak Signal-to-Noise Ratio in decibels (dB).
+        A tuple containing two float values:
+            - snr (float): The Signal-to-Noise Ratio in decibels (dB).
+            - psnr (float): The Peak Signal-to-Noise Ratio in decibels (dB).
 
-    Raises:
+    Raises
+    ------
         AssertionError: If the lengths of x and y are not equal.
 
-
+    Examples
+    --------
     .. sourcecode:: python
+
         original = np.array([1, 2, 3, 4, 5])
         noisy = np.array([1.1, 2.1, 2.9, 4.2, 5.1])
         snr, psnr = compute_snr_and_psnr(noisy, original)
@@ -1265,6 +1279,7 @@ class MLModelComparator:
     Examples
     --------
     .. sourcecode:: python
+        
         # Load the reference and target models
         reference_model = coremltools.models.MLModel(
             "model.mlpackage", compute_unit=coremltools.ComputeUnit.CPU_ONLY
@@ -1476,13 +1491,15 @@ class MLModelComparator:
         - The method uses a breadth-first search strategy to traverse the operation graph.
         - An operation is considered a failure source if it fails comparison while its direct inputs do not.
 
-        Returns:
+        Returns
+        -------
         List[proto.MIL_pb2.Operation]
             A list of operations that failed the comparison.
 
         Examples
         --------
         .. sourcecode:: python
+
             # Load the reference and target models
             reference_model = coremltools.models.MLModel(
                 "model.mlpackage", compute_unit=coremltools.ComputeUnit.CPU_ONLY
@@ -1502,7 +1519,6 @@ class MLModelComparator:
             # Define a custom comparison function
             def compare_outputs(op, reference_output, target_output):
                 return np.allclose(reference_output, target_output, rtol=1e-3, atol=1e-3)
-
 
             # Find failing operations
             failing_ops = await comparator.find_failing_ops(
@@ -1546,7 +1562,8 @@ class MLModelComparator:
                         The operation did not pass comparison check, but its dependencies did.
                         This suggests that the failure likely comes from this operation.
                         """
-                        result.append(op)
+                        if op not in result:
+                            result.append(op)
 
                     queue.pop(0)
                 else:

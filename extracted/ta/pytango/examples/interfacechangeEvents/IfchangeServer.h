@@ -46,16 +46,14 @@
  *
  */
 
-namespace IfchangeServer_ns
-{
+namespace IfchangeServer_ns {
 /*----- PROTECTED REGION ID(IfchangeServer::Additional Class Declarations) ENABLED START -----*/
 
 //	Additional Class Declarations
 
 /*----- PROTECTED REGION END -----*/ //	IfchangeServer::Additional Class Declarations
 
-class IfchangeServer : public TANGO_BASE_CLASS
-{
+class IfchangeServer : public TANGO_BASE_CLASS {
     /*----- PROTECTED REGION ID(IfchangeServer::Data Members) ENABLED START -----*/
 
     //	Add your own data members
@@ -94,8 +92,7 @@ class IfchangeServer : public TANGO_BASE_CLASS
     /**
      * The device object destructor.
      */
-    ~IfchangeServer()
-    {
+    ~IfchangeServer() {
         delete_device();
     }
 

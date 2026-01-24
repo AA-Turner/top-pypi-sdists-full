@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import types
-from functools import partial
 import operator
 from typing import Any, Literal, overload
 
@@ -243,7 +242,7 @@ def full(shape: Any, fill_value: ArrayLike,
   if np.ndim(fill_value) == 0:
     shape = canonicalize_shape(shape)
     return lax.full(shape, fill_value, dtype,
-                    sharding=util.normalize_device_to_sharding(device))
+                    sharding=util.canonicalize_device_to_sharding(device))
   else:
     return api.device_put(
         util._broadcast_to(asarray(fill_value, dtype=dtype), shape), device)
@@ -253,7 +252,8 @@ def full(shape: Any, fill_value: ArrayLike,
 def zeros_like(a: ArrayLike | DuckTypedArray,
                dtype: DTypeLike | None = None,
                shape: Any = None, *,
-               device: xc.Device | Sharding | None = None) -> Array:
+               device: xc.Device | Sharding | None = None,
+               out_sharding: NamedSharding | P | None = None) -> Array:
   """Create an array full of zeros with the same shape and dtype as an array.
 
   JAX implementation of :func:`numpy.zeros_like`.
@@ -292,15 +292,17 @@ def zeros_like(a: ArrayLike | DuckTypedArray,
     dtype = dtypes.check_and_canonicalize_user_dtype(dtype, "zeros_like")
   if shape is not None:
     shape = canonicalize_shape(shape)
-  return lax.full_like(a, 0, dtype, shape,
-                       sharding=util.normalize_device_to_sharding(device))
+  sharding = util.choose_device_or_out_sharding(
+      device, out_sharding, "jnp.zeros_like")
+  return lax.full_like(a, 0, dtype, shape, sharding=sharding)
 
 
 @export
 def ones_like(a: ArrayLike | DuckTypedArray,
               dtype: DTypeLike | None = None,
               shape: Any = None, *,
-              device: xc.Device | Sharding | None = None) -> Array:
+              device: xc.Device | Sharding | None = None,
+              out_sharding: NamedSharding | P | None = None) -> Array:
   """Create an array of ones with the same shape and dtype as an array.
 
   JAX implementation of :func:`numpy.ones_like`.
@@ -339,8 +341,9 @@ def ones_like(a: ArrayLike | DuckTypedArray,
     dtype = dtypes.check_and_canonicalize_user_dtype(dtype, "ones_like")
   if shape is not None:
     shape = canonicalize_shape(shape)
-  return lax.full_like(a, 1, dtype, shape,
-                       sharding=util.normalize_device_to_sharding(device))
+  sharding = util.choose_device_or_out_sharding(
+      device, out_sharding, "jnp.ones_like")
+  return lax.full_like(a, 1, dtype, shape, sharding=sharding)
 
 
 @export
@@ -389,7 +392,7 @@ def empty_like(prototype: ArrayLike | DuckTypedArray,
   if shape is not None:
     shape = canonicalize_shape(shape)
   return lax.full_like(prototype, 0, dtype, shape,
-                       sharding=util.normalize_device_to_sharding(device))
+                       sharding=util.canonicalize_device_to_sharding(device))
 
 
 @export
@@ -445,7 +448,7 @@ def full_like(a: ArrayLike | DuckTypedArray,
     shape = canonicalize_shape(shape)
   if np.ndim(fill_value) == 0:
     return lax.full_like(a, fill_value, dtype, shape,
-                         sharding=util.normalize_device_to_sharding(device))
+                         sharding=util.canonicalize_device_to_sharding(device))
   else:
     shape = np.shape(a) if shape is None else shape  # type: ignore[arg-type]
     dtype = dtypes.result_type(a) if dtype is None else dtype
@@ -544,7 +547,7 @@ def linspace(start: ArrayLike, stop: ArrayLike, num: int = 50,
   axis = core.concrete_or_error(operator.index, axis, "'axis' argument of jnp.linspace")
   return _linspace(start, stop, num, endpoint, retstep, dtype, axis, device=device)
 
-@partial(api.jit, static_argnames=('num', 'endpoint', 'retstep', 'dtype', 'axis', 'device'))
+@api.jit(static_argnames=('num', 'endpoint', 'retstep', 'dtype', 'axis', 'device'))
 def _linspace(start: ArrayLike, stop: ArrayLike, num: int = 50,
               endpoint: bool = True, retstep: bool = False,
               dtype: DTypeLike | None = None,
@@ -670,7 +673,7 @@ def logspace(start: ArrayLike, stop: ArrayLike, num: int = 50,
   axis = core.concrete_or_error(operator.index, axis, "'axis' argument of jnp.logspace")
   return _logspace(start, stop, num, endpoint, base, dtype, axis)
 
-@partial(api.jit, static_argnames=('num', 'endpoint', 'dtype', 'axis'))
+@api.jit(static_argnames=('num', 'endpoint', 'dtype', 'axis'))
 def _logspace(start: ArrayLike, stop: ArrayLike, num: int = 50,
               endpoint: bool = True, base: ArrayLike = 10.0,
               dtype: DTypeLike | None = None, axis: int = 0) -> Array:
@@ -741,7 +744,7 @@ def geomspace(start: ArrayLike, stop: ArrayLike, num: int = 50, endpoint: bool =
   axis = core.concrete_or_error(operator.index, axis, "'axis' argument of jnp.geomspace")
   return _geomspace(start, stop, num, endpoint, dtype, axis)
 
-@partial(api.jit, static_argnames=('num', 'endpoint', 'dtype', 'axis'))
+@api.jit(static_argnames=('num', 'endpoint', 'dtype', 'axis'))
 def _geomspace(start: ArrayLike, stop: ArrayLike, num: int = 50, endpoint: bool = True,
                dtype: DTypeLike | None = None, axis: int = 0) -> Array:
   """Implementation of geomspace differentiable in start and stop args."""

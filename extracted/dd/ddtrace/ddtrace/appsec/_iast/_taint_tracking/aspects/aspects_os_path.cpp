@@ -1,9 +1,6 @@
 #include "aspects_os_path.h"
 #include <string>
 
-#include "helpers.h"
-#include "initializer/initializer.h"
-
 static bool
 starts_with_separator(const py::handle& arg, const std::string& separator)
 {
@@ -18,7 +15,9 @@ api_ospathjoin_aspect(StrType& first_part, const py::args& args)
     auto join = safe_import("os.path", "join");
     auto result_o = join(first_part, *args);
 
-    const auto tx_map = Initializer::get_tainting_map();
+    CHECK_IAST_INITIALIZED_OR_RETURN(result_o);
+
+    const auto tx_map = safe_get_tainted_object_map_from_list_of_pyobjects({ first_part.ptr(), args.ptr() });
     if (not tx_map or tx_map->empty()) {
         return result_o;
     }
@@ -105,7 +104,7 @@ api_ospathbasename_aspect(const StrType& path)
     auto result_o = basename(path);
 
     TRY_CATCH_ASPECT("ospathbasename_aspect", return result_o, , {
-        const auto tx_map = Initializer::get_tainting_map();
+        const auto tx_map = safe_get_tainted_object_map(path.ptr());
         if (not tx_map or tx_map->empty() or py::len(result_o) == 0) {
             return result_o;
         }
@@ -137,7 +136,7 @@ api_ospathdirname_aspect(const StrType& path)
     auto result_o = dirname(path);
 
     TRY_CATCH_ASPECT("ospathdirname_aspect", return result_o, , {
-        const auto tx_map = Initializer::get_tainting_map();
+        const auto tx_map = safe_get_tainted_object_map(path.ptr());
         if (not tx_map or tx_map->empty() or py::len(result_o) == 0) {
             return result_o;
         }
@@ -169,7 +168,7 @@ forward_to_set_ranges_on_splitted(const char* function_name, const StrType& path
     auto result_o = function(path);
 
     TRY_CATCH_ASPECT("forward_to_set_ranges_on_splitted", return result_o, , {
-        const auto tx_map = Initializer::get_tainting_map();
+        const auto tx_map = safe_get_tainted_object_map(path.ptr());
         if (not tx_map or tx_map->empty() or py::len(result_o) == 0) {
             return result_o;
         }
@@ -220,7 +219,7 @@ api_ospathnormcase_aspect(const StrType& path)
     auto result_o = normcase(path);
 
     TRY_CATCH_ASPECT("ospathnormcase_aspect", return result_o, , {
-        const auto tx_map = Initializer::get_tainting_map();
+        const auto tx_map = safe_get_tainted_object_map(path.ptr());
         if (not tx_map or tx_map->empty()) {
             return result_o;
         }

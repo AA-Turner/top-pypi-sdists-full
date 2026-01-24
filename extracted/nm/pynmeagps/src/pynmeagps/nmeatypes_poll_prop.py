@@ -38,6 +38,7 @@ NMEA_PAYLOADS_POLL_PROP = {
     "AIR421": {},
     "AIR433": {},
     "AIR435": {},
+    "AIR491": {},
     "AIR865": {
         "portType": IN,  # 0 = UART
         "portIndex": IN,  # 0 = UART1
@@ -46,6 +47,9 @@ NMEA_PAYLOADS_POLL_PROP = {
         "portType": IN,  # 0 = UART
         "portIndex": IN,  # 0 = UART1
     },
+    "AIR6011": {
+        "type": IN,
+    },
     # ***************************************************************
     # Quectel LG290P Proprietary message types
     # https://quectel.com/content/uploads/2024/09/Quectel_LG290P03_GNSS_Protocol_Specification_V1.0.pdf
@@ -53,11 +57,33 @@ NMEA_PAYLOADS_POLL_PROP = {
     # status attribute must be set to 'R' in all POLL messages
     # ***************************************************************
     "QTMCFGAIC": {"status": QS},
+    "QTMCFGANTDELTA": {"status": QS},
+    "QTMCFGANTINF": {"status": QS},
+    "QTMCFGBLD": {"status": QS},
     "QTMCFGCNST": {"status": QS},
+    "QTMCFGDR": {"status": QS},
+    "QTMCFGELETHD": {"status": QS},
     "QTMCFGFIXRATE": {"status": QS},
     "QTMCFGGEOFENCE": {"status": QS, "geofenceindex": IN},
-    "QTMCFGMSGRATE_NOVER": {"status": QS, "msgname": ST},
+    "QTMCFGGEOSEP": {"status": QS},
+    "QTMCFGIMUINT": {"status": QS},
+    "QTMCFGLA": {"status": QS},
+    "QTMCFGLAM": {"status": QS},
     "QTMCFGMSGRATE": {"status": QS, "msgname": ST, "msgver": IN},
+    "QTMCFGMSGRATE_NOVER": {"status": QS, "msgname": ST},
+    "QTMCFGMSGRATE_INTF": {
+        "status": QS,
+        "porttype": IN,
+        "portid": IN,
+        "msgname": ST,
+        "msgver": IN,
+    },
+    "QTMCFGMSGRATE_INTFNOVER": {
+        "status": QS,
+        "porttype": IN,
+        "portid": IN,
+        "msgname": ST,
+    },
     "QTMCFGNAVMODE": {"status": QS},
     "QTMCFGNMEADP": {"status": QS},
     "QTMCFGNMEATID": {"status": QS},
@@ -68,14 +94,22 @@ NMEA_PAYLOADS_POLL_PROP = {
     "QTMCFGRSID": {"status": QS},
     "QTMCFGRTCM": {"status": QS},
     "QTMCFGRTK": {"status": QS},
+    "QTMCFGRTKSRCTYPE": {"status": QS},
     "QTMCFGSAT": {"status": QS, "systemid": IN, "signalid": ST},
+    "QTMCFGSBAS": {"status": QS},
+    "QTMCFGSIGGRP": {"status": QS},
     "QTMCFGSIGNAL": {"status": QS},
+    "QTMCFGSIGNAL2": {"status": QS},
+    "QTMCFGSTATICHOLD": {"status": QS},
     "QTMCFGSVIN": {"status": QS},
     "QTMCFGUART_CURR": {"status": QS},
     "QTMCFGUART": {"status": QS, "portid": IN},
+    "QTMCFGVEHMOT": {"status": QS},
+    "QTMCFGWN": {"status": QS},
     "QTMGETUTC": {},
     "QTMQVER": {"msgver": IN},
     "QTMSN": {},
     "QTMUNIQID": {},
+    "QTMVEHATT": {},
     "QTMVERNO": {},
 }

@@ -2,26 +2,25 @@
 
 from __future__ import annotations
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class RepoCommitTypedDict(TypedDict):
     repo_id: str
-    user_id: str
     branch_id: NotRequired[str]
     created_at: NotRequired[datetime]
     id: NotRequired[str]
     message: NotRequired[str]
     raw: NotRequired[Dict[str, Any]]
     updated_at: NotRequired[datetime]
+    user_id: NotRequired[str]
 
 
 class RepoCommit(BaseModel):
     repo_id: str
-
-    user_id: str
 
     branch_id: Optional[str] = None
 
@@ -34,3 +33,23 @@ class RepoCommit(BaseModel):
     raw: Optional[Dict[str, Any]] = None
 
     updated_at: Optional[datetime] = None
+
+    user_id: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["branch_id", "created_at", "id", "message", "raw", "updated_at", "user_id"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

@@ -68,6 +68,11 @@ class WindowOp:
     def output_type(self, *input_types: dtypes.ExpressionType) -> dtypes.ExpressionType:
         ...
 
+    @property
+    def can_be_windowized(self):
+        # this is more of an engine property, but will treat feasibility in bigquery sql as source of truth
+        return True
+
 
 @dataclasses.dataclass(frozen=True)
 class NullaryWindowOp(WindowOp):
@@ -183,6 +188,10 @@ class SizeOp(NullaryAggregateOp):
 class SizeUnaryOp(UnaryAggregateOp):
     name: ClassVar[str] = "size"
 
+    @property
+    def skips_nulls(self):
+        return False
+
     def output_type(self, *input_types: dtypes.ExpressionType):
         return dtypes.INT_DTYPE
 
@@ -251,12 +260,11 @@ class ApproxQuartilesOp(UnaryAggregateOp):
     def output_type(self, *input_types: dtypes.ExpressionType) -> dtypes.ExpressionType:
         if not dtypes.is_orderable(input_types[0]):
             raise TypeError(f"Type {input_types[0]} is not orderable")
-        if pd.api.types.is_bool_dtype(input_types[0]) or pd.api.types.is_integer_dtype(
-            input_types[0]
-        ):
-            return dtypes.FLOAT_DTYPE
-        else:
-            return input_types[0]
+        return input_types[0]
+
+    @property
+    def can_be_windowized(self):
+        return False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -274,6 +282,10 @@ class ApproxTopCountOp(UnaryAggregateOp):
             pa.field("count", pa.int64()),
         ]
         return pd.ArrowDtype(pa.list_(pa.struct(fields)))
+
+    @property
+    def can_be_windowized(self):
+        return False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -524,6 +536,8 @@ class RankOp(UnaryWindowOp):
 
 @dataclasses.dataclass(frozen=True)
 class DenseRankOp(UnaryWindowOp):
+    name: ClassVar[str] = "dense_rank"
+
     @property
     def skips_nulls(self):
         return False
@@ -720,9 +734,15 @@ _CALLABLE_TO_AGG_OP: typing.Dict[
     np.all: all_op,
     np.any: any_op,
     np.unique: nunique_op,
-    # TODO(b/443252872): Solve
-    # list: ArrayAggOp(),
     np.size: size_op,
+    # TODO(b/443252872): Solve
+    list: ArrayAggOp(),
+    len: size_op,
+    sum: sum_op,
+    min: min_op,
+    max: max_op,
+    any: any_op,
+    all: all_op,
 }
 
 

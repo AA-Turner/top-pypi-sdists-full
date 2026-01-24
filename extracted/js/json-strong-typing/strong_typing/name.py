@@ -19,6 +19,11 @@ from .inspection import (
     unwrap_union_types,
 )
 
+if sys.version_info >= (3, 11):
+    from typing import Self as Self
+else:
+    from typing_extensions import Self as Self
+
 
 class TypeFormatter:
     """
@@ -85,8 +90,11 @@ class TypeFormatter:
     def plain_type_to_str(self, data_type: TypeLike) -> str:
         "Returns the string representation of a Python type without metadata."
 
-        # return forward references as the annotation string
-        if isinstance(data_type, typing.ForwardRef):
+        if data_type is Self:
+            return "Self"
+        elif isinstance(data_type, typing.ForwardRef):
+            # return forward references as the annotation string
+
             fwd: typing.ForwardRef = data_type
             fwd_arg = fwd.__forward_arg__
 
@@ -124,11 +132,15 @@ class TypeFormatter:
             data_type_args = typing.get_args(data_type)
 
             if origin is dict:  # dict[K, V]
-                origin_name = "Dict"
+                origin_name = "dict"
             elif origin is list:  # list[T]
-                origin_name = "List"
+                origin_name = "list"
             elif origin is set:  # set[T]
-                origin_name = "Set"
+                origin_name = "set"
+            elif origin is frozenset:  # frozenset[T]
+                origin_name = "frozenset"
+            elif origin is tuple:  # tuple[T, ...]
+                origin_name = "tuple"
             elif origin is type:  # type[T]
                 args = ", ".join(self.python_type_to_str(t) for t in data_type_args)
                 return f"type[{args}]"
@@ -249,6 +261,13 @@ def python_type_to_name(data_type: TypeLike, *, force: bool = False) -> str:
                 (set_type,) = data_type_args  # unpack single tuple element
                 item_name = python_type_to_name(set_type)
                 return f"Set__{item_name}"
+            elif origin is frozenset:  # frozenset[T]
+                (set_type,) = data_type_args  # unpack single tuple element
+                item_name = python_type_to_name(set_type)
+                return f"FrozenSet__{item_name}"
+            elif origin is tuple:  # tuple[T]
+                member_names = "__".join(python_type_to_name(member_type) for member_type in data_type_args)
+                return f"Tuple__{member_names}"
             elif origin is type:  # type[T]
                 (type_type,) = data_type_args  # unpack single tuple element
                 item_name = python_type_to_name(type_type)

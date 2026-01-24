@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import override
 
 from inspect_ai._util._async import current_async_backend
-from inspect_ai._util.constants import DEFAULT_MAX_TOKENS
+from inspect_ai._util.constants import DEFAULT_MAX_TOKENS, NO_CONTENT
 from inspect_ai._util.content import (
     Content,
     ContentImage,
@@ -54,6 +54,11 @@ ConverseStopReason = Literal[
     "stop_sequence",
     "guardrail_intervened",
     "content_filtered",
+    "malformed_model_output",
+    "malformed_tool_use",
+    "invalid_query",
+    "max_tool_invocations",
+    "model_context_window_exceeded",
 ]
 ConverseGuardContentQualifier = Literal["grounding_source", "query", "guard_content"]
 ConverseFilterType = Literal[
@@ -332,11 +337,52 @@ class BedrockAPI(ModelAPI):
         return True
 
     @override
+    def canonical_name(self) -> str:
+        """Canonical model name for model info database lookup.
+
+        Bedrock model names use the format: provider.model-name-version:variant
+        e.g., anthropic.claude-3-5-sonnet-20241022-v2:0
+
+        Returns the canonical format: provider/model-name
+        e.g., anthropic/claude-3-5-sonnet-20241022
+        """
+        name = self.model_name
+        provider: str | None = None
+
+        # Extract provider prefix (e.g., "anthropic." or "meta.")
+        if "." in name:
+            provider, name = name.split(".", 1)
+
+        # Strip variant suffix (e.g., ":0")
+        if ":" in name:
+            name = name.split(":")[0]
+
+        # Strip version suffix like -v1, -v2
+        if name.endswith(("-v1", "-v2", "-v3")):
+            name = name[:-3]
+
+        # Return with provider prefix for database lookup
+        return f"{provider}/{name}" if provider else name
+
+    @override
     def emulate_reasoning_history(self) -> bool:
         # claude needs reasoning history emulation because the reasoning signature doesn't
         # make it all the way through the converse api (so when we try to replay it there is
         # an error from claude indicating the signature was missing)
         return self.is_claude()
+
+    @override
+    def is_auth_failure(self, ex: Exception) -> bool:
+        from botocore.exceptions import ClientError
+
+        if isinstance(ex, ClientError):
+            error_code = ex.response.get("Error", {}).get("Code", "")
+            return error_code in [
+                "UnrecognizedClientException",
+                "ExpiredTokenException",
+                "InvalidSignatureException",
+            ]
+        return False
 
     def is_gpt_oss(self) -> bool:
         return "gpt-oss" in self.model_name
@@ -419,8 +465,8 @@ class BedrockAPI(ModelAPI):
             except ClientError as ex:
                 # Look for an explicit validation exception
                 if ex.response["Error"]["Code"] == "ValidationException":
-                    response = ex.response["Error"]["Message"]
-                    if "too many input tokens" in response.lower():
+                    response = ex.response["Error"]["Message"].lower()
+                    if "too many input tokens" in response or "is too long" in response:
                         return ModelOutput.from_content(
                             model=self.model_name,
                             content=response,
@@ -548,6 +594,16 @@ def message_stop_reason(
             return "content_filter"
         case "guardrail_intervened":
             return "content_filter"
+        case "model_context_window_exceeded":
+            return "model_length"
+        # these are basically server errors which we don't have a way to encode right now
+        case (
+            "malformed_model_output"
+            | "malformed_tool_use"
+            | "invalid_query"
+            | "max_tool_invocations"
+        ):
+            return "unknown"
         case _:
             return "unknown"
 
@@ -690,6 +746,12 @@ async def converse_contents(
                 )
             else:
                 raise RuntimeError(f"Unsupported content type {c.type}")
+
+        # if result is empty converse will reject the api call so insert
+        # a dummy 'no content' as required
+        if len(result) == 0:
+            result = [ConverseMessageContent(text=NO_CONTENT)]
+
         return result
 
 

@@ -712,7 +712,7 @@ def get_download_mode():
 
 def get_download_plugin():
     """Fetch a command template from the environment to use a as a substitute for CRDS
-    built-in downloaders.   This can be used to apply "wget" or "curl", etc, to perform
+    built-in downloaders.   This can be used to apply "s3", "wget" or "curl", etc, to perform
     downloads as sub-processes rather than as a direct Python http implementation.
     """
     if "CRDS_DOWNLOAD_MODE" in os.environ and os.environ["CRDS_DOWNLOAD_MODE"].lower() != "plugin":
@@ -1121,12 +1121,24 @@ CRDS_SYM_NAME_RE_STR = (r"(" +
         r")?" +
     r")")
 
+
 CRDS_NAME_RE_STR = CRDS_BASE_NAME_RE_STR + r"(_\d\d\d\d)?\."
 CRDS_NAME_RE = re.compile(CRDS_NAME_RE_STR)   # intentionally not complete. no ^ or $
+
 
 # s7g1700gl_dead.fits
 CDBS_NAME_RE_STR = r"[a-z0-9_]{1,52}\.(fits|r\d[hd])"
 CDBS_NAME_RE = re.compile(complete_re(CDBS_NAME_RE_STR))
+
+# SSC Files require more flexibility
+# to allow extra optelem like "prism" or "grism" in name
+# and either standard numeric serial or ctx0001 in the case of optmodel yaml files
+SSC_NAME_RE_STR = r"^(?P<observatory>[a-z]{1,8})\_" + r"(?P<instrument>[a-z]{1,16})\_" + \
+    r"(?P<optelem>[a-z]{1,32})\_" + r"(?P<filekind>[a-z]{1,32})\_" + \
+        r"(?P<serial>[0-9]{4}|ctx[0-9]{4})" + r"\.(?P<suffix>asdf|yaml|fits)$"
+
+GDPS_SSC_NAME_RE = re.compile(complete_re(SSC_NAME_RE_STR))
+
 
 # -------------------------------------------------------------------------------------
 
@@ -1147,6 +1159,10 @@ def is_valid_reference_name(filename):
     """
     name = os.path.basename(filename)
     return is_reference(name) and (is_crds_name(name) or is_cdbs_name(name))
+
+def is_gdps_name(name):
+    name = os.path.basename(name).lower()
+    return bool(GDPS_SSC_NAME_RE.match(name))
 
 def is_crds_name(name):
     """Return True IFF `name` is a valid CRDS-style name.

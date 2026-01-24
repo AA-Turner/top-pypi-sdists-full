@@ -29,7 +29,7 @@ def get_default_plot_backend() -> str:
         if sys.platform != "darwin":
             return "Agg"
 
-    backends = {"PyQt5": "Qt5Agg"}
+    backends = {"PyQt5": "qtagg", "PyQt6": "qtagg"}
     for pkg in backends:
         if importlib.util.find_spec(pkg) is not None:
             return backends[pkg]
@@ -37,7 +37,7 @@ def get_default_plot_backend() -> str:
 
 
 # default settings with documentation
-# yapf: disable
+# fmt: off
 DEFAULT_SETTINGS_DICT_DOC = {
     "global_logfile_enabled": (
         False,
@@ -74,7 +74,7 @@ DEFAULT_SETTINGS_DICT_DOC = {
     ),
     "plot_backend": (
         get_default_plot_backend(),
-        "matplotlib backend - default is 'Qt5Agg' (if PyQt is installed) or 'TkAgg'."
+        "matplotlib backend - default is 'qtagg' (if PyQt5/PyQt6 is installed) or 'TkAgg'."
     ),
     "plot_pose_correspondences": (
         False,
@@ -214,6 +214,23 @@ DEFAULT_SETTINGS_DICT_DOC = {
         "Style used for the syntax highlighting in evo_config.\n"
         "See here for available styles: https://pygments.org/styles/"
     ),
+    "rerun_spawn": (
+        True,
+        "Spawn a viewer window when logging data to rerun.\n"
+        "If set to False, the viewer must be started manually."
+    ),
+    "ros2_bag_storage_plugin": (
+        "mcap",
+        "ROS 2 bag storage plugin to use when writing files ('mcap' or 'sqlite3')."
+    ),
+    "ros2_bag_format_version": (
+        9,
+        "ROS 2 bag file format version to use when writing files."
+    ),
+    "ros_fallback_frame_id": (
+        "world",
+        "frame_id to use when exporting bags from sources without a frame_id."
+    ),
     "ros_map_alpha_value": (
         1.0,
         "Alpha value for blending ROS map image slices."
@@ -266,7 +283,7 @@ DEFAULT_SETTINGS_DICT_DOC = {
         "TF transform cache time in seconds."
     ),
 }
-# yapf: enable
+# fmt: on
 
 # without documentation
 DEFAULT_SETTINGS_DICT = {k: v[0] for k, v in DEFAULT_SETTINGS_DICT_DOC.items()}

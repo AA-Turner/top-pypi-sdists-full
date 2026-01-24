@@ -31,6 +31,7 @@ from chalk.sql.finalized_query import FinalizedChalkQuery
 from chalk.utils.df_utils import is_list_like, pa_array_to_pl_series
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pl_helpers import str_json_decode_compat
 from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
 from chalk.utils.tracing import safe_incr, safe_set_gauge
 
@@ -398,11 +399,19 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 if pa.types.is_list(expected_type) or pa.types.is_large_list(expected_type):
                     if pa.types.is_string(actual_type) or pa.types.is_large_string(actual_type):
                         series = pa_array_to_pl_series(tbl[col_name])
-                        column = series.str.json_extract(feature.converter.polars_dtype).to_arrow().cast(expected_type)
+                        column = (
+                            str_json_decode_compat(series, feature.converter.polars_dtype)
+                            .to_arrow()
+                            .cast(expected_type)
+                        )
                 if pa.types.is_struct(expected_type):
                     if pa.types.is_string(actual_type):
                         series = pa_array_to_pl_series(tbl[col_name])
-                        column = series.str.json_extract(feature.converter.polars_dtype).to_arrow().cast(expected_type)
+                        column = (
+                            str_json_decode_compat(series, feature.converter.polars_dtype)
+                            .to_arrow()
+                            .cast(expected_type)
+                        )
                 if actual_type != expected_type:
                     column = column.cast(options=pc.CastOptions(target_type=expected_type, allow_time_truncate=True))
                 if isinstance(column, pa.ChunkedArray):
@@ -514,6 +523,9 @@ class SnowflakeSourceImpl(BaseSQLSource):
                             unload_job_identifier=job_id,
                             snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
                         )
+                    if env_var_bool("CHALK_SNOWFLAKE_TIMEZONE_UTC"):
+                        chalk_logger.info(f"Setting Snowflake timezone to UTC")
+                        cursor.execute(f"ALTER SESSION SET TIMEZONE = 'UTC';")
 
                     # add the query to the QueryRegistry so we can clean up on shutdown
                     chalk_logger.info(f"Compiled query: {repr(sql)}")
@@ -683,6 +695,10 @@ class SnowflakeSourceImpl(BaseSQLSource):
                         )
                     )
                 with con.cursor() as cursor:
+                    if env_var_bool("CHALK_SNOWFLAKE_TIMEZONE_UTC"):
+                        chalk_logger.info(f"Setting Snowflake timezone to UTC")
+                        cursor.execute(f"ALTER SESSION SET TIMEZONE = 'UTC';")
+
                     job_id = str(uuid.uuid4())
                     if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
                         sql = _rewrite_query_for_unload(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from http import HTTPStatus
 from random import uniform
-from typing import Protocol
+from typing import Any, Protocol
 
 import requests
 
@@ -25,7 +25,10 @@ from .primary_ips import PrimaryIPsClient
 from .server_types import ServerTypesClient
 from .servers import ServersClient
 from .ssh_keys import SSHKeysClient
+from .storage_box_types import StorageBoxTypesClient
+from .storage_boxes import StorageBoxesClient
 from .volumes import VolumesClient
+from .zones import ZonesClient
 
 
 class BackoffFunction(Protocol):
@@ -69,7 +72,7 @@ def exponential_backoff_function(
     """
 
     def func(retries: int) -> float:
-        interval = base * multiplier**retries  # Exponential backoff
+        interval: float = base * multiplier**retries  # Exponential backoff
         interval = min(cap, interval)  # Cap backoff
         if jitter:
             interval = uniform(base, interval)  # Add jitter
@@ -126,6 +129,7 @@ class Client:
 
         - ``conflict``
         - ``rate_limit_exceeded``
+        - ``timeout``
 
     Changes to the retry policy might occur between releases, and will not be considered
     breaking changes.
@@ -140,11 +144,14 @@ class Client:
         poll_interval: int | float | BackoffFunction = 1.0,
         poll_max_retries: int = 120,
         timeout: float | tuple[float, float] | None = None,
+        *,
+        api_endpoint_hetzner: str = "https://api.hetzner.com/v1",
     ):
         """Create a new Client instance
 
         :param token: Hetzner Cloud API token
         :param api_endpoint: Hetzner Cloud API endpoint
+        :param api_endpoint_hetzner: Hetzner API endpoint.
         :param application_name: Your application name
         :param application_version: Your application _version
         :param poll_interval:
@@ -157,6 +164,15 @@ class Client:
         self._client = ClientBase(
             token=token,
             endpoint=api_endpoint,
+            application_name=application_name,
+            application_version=application_version,
+            poll_interval=poll_interval,
+            poll_max_retries=poll_max_retries,
+            timeout=timeout,
+        )
+        self._client_hetzner = ClientBase(
+            token=token,
+            endpoint=api_endpoint_hetzner,
             application_name=application_name,
             application_version=application_version,
             poll_interval=poll_interval,
@@ -254,12 +270,30 @@ class Client:
         :type: :class:`PlacementGroupsClient <hcloud.placement_groups.client.PlacementGroupsClient>`
         """
 
+        self.zones = ZonesClient(self)
+        """ZonesClient Instance
+
+        :type: :class:`ZonesClient <hcloud.zones.client.ZonesClient>`
+        """
+
+        self.storage_box_types = StorageBoxTypesClient(self)
+        """StorageBoxTypesClient Instance
+
+        :type: :class:`StorageBoxTypesClient <hcloud.storage_box_types.client.StorageBoxTypesClient>`
+        """
+
+        self.storage_boxes = StorageBoxesClient(self)
+        """StorageBoxesClient Instance
+
+        :type: :class:`StorageBoxesClient <hcloud.storage_boxes.client.StorageBoxesClient>`
+        """
+
     def request(  # type: ignore[no-untyped-def]
         self,
         method: str,
         url: str,
         **kwargs,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Perform a request to the Hetzner Cloud API.
 
         :param method: Method to perform the request.
@@ -312,7 +346,7 @@ class ClientBase:
         method: str,
         url: str,
         **kwargs,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Perform a request to the provided URL.
 
         :param method: Method to perform the request.
@@ -348,7 +382,7 @@ class ClientBase:
                     continue
                 raise
 
-    def _read_response(self, response: requests.Response) -> dict:
+    def _read_response(self, response: requests.Response) -> dict[str, Any]:
         correlation_id = response.headers.get("X-Correlation-Id")
         payload = {}
         try:
@@ -371,7 +405,7 @@ class ClientBase:
                     correlation_id=correlation_id,
                 )
 
-            error: dict = payload["error"]
+            error: dict[str, Any] = payload["error"]
             raise APIException(
                 code=error["code"],
                 message=error["message"],
@@ -386,6 +420,7 @@ class ClientBase:
             return exception.code in (
                 "rate_limit_exceeded",
                 "conflict",
+                "timeout",
             )
 
         if isinstance(exception.code, int):

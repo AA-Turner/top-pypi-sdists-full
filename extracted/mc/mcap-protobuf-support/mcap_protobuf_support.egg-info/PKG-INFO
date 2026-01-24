@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mcap-protobuf-support
-Version: 0.5.3
+Version: 0.5.4
 Summary: Protobuf support for the Python MCAP library
 Home-page: https://github.com/foxglove/mcap
 Classifier: Programming Language :: Python :: 3

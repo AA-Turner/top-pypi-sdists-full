@@ -3,7 +3,8 @@ from __future__ import annotations
 import collections.abc
 import dataclasses
 import enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Sequence
+import functools
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Sequence, Sized
 
 from typing_extensions import cast, get_args, get_origin, is_typeddict
 
@@ -14,11 +15,12 @@ from tyro.constructors._primitive_spec import (
 )
 
 from .. import _docstrings, _resolver
+from .. import _fmtlib as fmt
 from .._singleton import (
     EXCLUDE_FROM_CALL,
     MISSING,
-    MISSING_AND_MISSING_NONPROP,
     MISSING_NONPROP,
+    is_missing,
 )
 from .._typing import TypeForm
 from ..conf import _confstruct, _markers
@@ -34,11 +36,11 @@ class UnsupportedStructTypeMessage:
     message: str
 
 
-class InvalidDefaultInstanceError(Exception):
-    """Raised when a default instance is not applicable to an annoated struct type."""
+@dataclasses.dataclass(frozen=True)
+class InvalidDefaultInstanceError:
+    """Return value when a default instance is not applicable to an annotated struct type."""
 
-    def __init__(self, message: str):
-        super().__init__(message)
+    message: tuple[fmt._Text, ...]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -52,7 +54,7 @@ class StructFieldSpec:
     """The type of the field. Can be either a primitive or a nested struct type."""
     default: Any
     """The default value of the field."""
-    helptext: str | None = None
+    helptext: str | Callable[[], str | None] | None = None
     """Helpjext for the field."""
     # TODO: it's theoretically possible to override the argname with `None`.
     _call_argname: Any = None
@@ -95,9 +97,15 @@ class StructTypeInfo:
     function signature, this is ``X`` in ``def main(x=X): ...``. This can be
     useful for populating the default values of the struct."""
     _typevar_context: _resolver.TypeParamAssignmentContext
+    in_union_context: bool
+    """Flag indicating whether this type is being evaluated as part of a union.
+    When True, allows collection types like List[Struct] or Dict[str, Struct]
+    without defaults to be treated as struct types for subcommand creation."""
 
     @staticmethod
-    def make(f: TypeForm | Callable, default: Any) -> StructTypeInfo:
+    def make(
+        f: TypeForm | Callable, default: Any, in_union_context: bool
+    ) -> StructTypeInfo:
         _, parent_markers = _resolver.unwrap_annotated(f, _markers._Marker)
         f, found_subcommand_configs = _resolver.unwrap_annotated(
             f, _confstruct._SubcommandConfig
@@ -122,7 +130,7 @@ class StructTypeInfo:
         # We'll also use StructTypeInfo for default subcommand matching. This
         # won't work if we always overwrite the assigned default with the one
         # in the annotation.
-        if default in MISSING_AND_MISSING_NONPROP and len(found_subcommand_configs) > 0:
+        if is_missing(default) and len(found_subcommand_configs) > 0:
             default = found_subcommand_configs[0].default
 
         # Handle generics.
@@ -132,7 +140,11 @@ class StructTypeInfo:
         f = _resolver.narrow_collection_types(f, default)
 
         return StructTypeInfo(
-            cast(TypeForm, f), parent_markers, default, typevar_context
+            cast(TypeForm, f),
+            parent_markers,
+            default,
+            typevar_context,
+            in_union_context,
         )
 
 
@@ -174,8 +186,7 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
         # Handle TypedDicts.
         field_list = []
         valid_default_instance = (
-            info.default not in MISSING_AND_MISSING_NONPROP
-            and info.default is not EXCLUDE_FROM_CALL
+            not is_missing(info.default) and info.default is not EXCLUDE_FROM_CALL
         )
         assert not valid_default_instance or isinstance(info.default, dict)
         total = getattr(cls, "__total__", True)
@@ -185,6 +196,18 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
             cls, include_extras=True
         ).items():
             typ_origin = get_origin(typ)
+
+            # Unwrap Required[]/NotRequired[] early so we can check the inner type.
+            if is_typing_required(typ_origin) or is_typing_notrequired(typ_origin):
+                args = get_args(typ)
+                assert len(args) == 1, (
+                    "typing.Required[] and typing.NotRequired[T] require a concrete type T."
+                )
+                inner_typ = args[0]
+                del args
+            else:
+                inner_typ = typ
+
             if valid_default_instance and name in cast(dict, info.default):
                 default = cast(dict, info.default)[name]
             elif is_typing_required(typ_origin) and total is False:
@@ -193,7 +216,7 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
             elif total is False:
                 # Support total=False.
                 default = EXCLUDE_FROM_CALL
-                if is_struct_type(typ, MISSING_NONPROP):
+                if is_struct_type(inner_typ, MISSING_NONPROP, in_union_context=False):
                     # total=False behavior is unideal for nested structures.
                     pass
                     # raise _instantiators.UnsupportedTypeAnnotationError(
@@ -205,30 +228,32 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
             else:
                 default = MISSING
 
-            # Nested types need to be populated / can't be excluded from the call.
-            if default is EXCLUDE_FROM_CALL and is_struct_type(typ, MISSING_NONPROP):
+            # Nested struct types need to be populated / can't be excluded from the call.
+            # Note: Union types are NOT converted here - they create subparsers that
+            # can be optional. When a union field has EXCLUDE_FROM_CALL as its default
+            # (from TypedDict total=False or NotRequired[]), no subcommand needs to be
+            # selected, and the field will be excluded from the result.
+            if default is EXCLUDE_FROM_CALL and is_struct_type(
+                inner_typ, MISSING_NONPROP, in_union_context=False
+            ):
                 default = MISSING_NONPROP
-
-            if is_typing_required(typ_origin) or is_typing_notrequired(typ_origin):
-                args = get_args(typ)
-                assert len(args) == 1, (
-                    "typing.Required[] and typing.NotRequired[T] require a concrete type T."
-                )
-                typ = args[0]
-                del args
 
             field_list.append(
                 StructFieldSpec(
                     name=name,
-                    type=typ,
+                    type=inner_typ,
                     default=default,
-                    helptext=_docstrings.get_field_docstring(cls, name, info.markers),
+                    helptext=functools.partial(
+                        _docstrings.get_field_docstring, cls, name, info.markers
+                    ),
                 )
             )
         return StructConstructorSpec(instantiate=info.type, fields=tuple(field_list))
 
     @registry.struct_rule
     def dict_rule(info: StructTypeInfo) -> StructConstructorSpec | None:
+        origin = get_origin(info.type)
+        args = get_args(info.type)
         if is_typeddict(info.type) or (
             info.type
             not in (
@@ -236,7 +261,7 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
                 dict,
                 collections.abc.Mapping,
             )
-            and get_origin(info.type)
+            and origin
             not in (
                 dict,
                 collections.abc.Mapping,
@@ -244,7 +269,38 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
         ):
             return None
 
-        if info.default in MISSING_AND_MISSING_NONPROP or len(info.default) == 0:
+        # Check if we have a dict with struct values but no default.
+        has_default = not is_missing(info.default)
+        has_empty_default = has_default and len(info.default) == 0
+
+        # No default provided or empty default.
+        if not has_default or has_empty_default:
+            # If the value type is not a primitive: we can try to treat as a struct.
+            # This enables subcommands like `dict[str, SomeStruct] | SomeStruct2`.
+            from ._registry import ConstructorRegistry
+
+            if (
+                origin in (dict, collections.abc.Mapping)
+                and len(args) == 2
+                and not ConstructorRegistry._is_primitive_type(
+                    args[1], set(info.markers)
+                )
+            ):
+                # Require a default (even an empty one) outside of union context.
+                if not has_default and not info.in_union_context:
+                    from .. import _fmtlib as fmt
+
+                    raise UnsupportedTypeAnnotationError(
+                        (
+                            fmt.text(
+                                "Type ",
+                                fmt.text["cyan"](str(info.type)),
+                                " with struct-type values requires a default value.",
+                            ),
+                        )
+                    )
+                # Allow empty defaults in union context, or when we have any default.
+                return StructConstructorSpec(instantiate=dict, fields=())
             return None
 
         field_list = []
@@ -277,9 +333,7 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
         for name, typ in type_hints.items():
             default = field_defaults.get(name, MISSING_NONPROP)
 
-            if info.default not in MISSING_AND_MISSING_NONPROP and hasattr(
-                info.default, name
-            ):
+            if not is_missing(info.default) and hasattr(info.default, name):
                 default = getattr(info.default, name)
             elif info.default is MISSING:
                 default = MISSING
@@ -289,8 +343,8 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
                     name=name,
                     type=typ,  # type: ignore
                     default=default,
-                    helptext=_docstrings.get_field_docstring(
-                        info.type, name, info.markers
+                    helptext=functools.partial(
+                        _docstrings.get_field_docstring, info.type, name, info.markers
                     ),
                 )
             )
@@ -301,13 +355,63 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
     def variable_length_sequence_rule(
         info: StructTypeInfo,
     ) -> StructConstructorSpec | None:
-        if get_origin(info.type) not in (
+        origin = get_origin(info.type)
+        if origin not in (
             list,
             set,
             tuple,
             Sequence,
             collections.abc.Sequence,
-        ) or not isinstance(info.default, Iterable):
+        ):
+            return None
+
+        # Check if we have a collection with struct values but no default.
+        has_default = not is_missing(info.default)
+        has_empty_default = (
+            has_default and isinstance(info.default, Sized) and len(info.default) == 0
+        )
+
+        # No default provided or empty default.
+        if not has_default or has_empty_default:
+            # If the contained type is not a primitive, we can try to treat as a struct.
+            # This enables subcommands like `list[SomeStruct] | None`.
+            args = get_args(info.type)
+            if len(args) == 0:
+                return None
+
+            contained_type = cast(type, args[0])
+
+            from ._registry import ConstructorRegistry
+
+            if not ConstructorRegistry._is_primitive_type(
+                contained_type, set(info.markers)
+            ):
+                # Contained type is not a primitive, so treat as struct.
+                # Require a default (even an empty one) outside of union context.
+                if not has_default and not info.in_union_context:
+                    from .. import _fmtlib as fmt
+
+                    raise UnsupportedTypeAnnotationError(
+                        (
+                            fmt.text(
+                                "Type ",
+                                fmt.text["cyan"](str(info.type)),
+                                " with struct-type values requires a default value.",
+                            ),
+                        )
+                    )
+
+                # Allow empty defaults in union context, or when we have any default.
+                if origin is tuple:
+                    return StructConstructorSpec(instantiate=tuple, fields=())
+                elif origin in (list, Sequence, collections.abc.Sequence):
+                    return StructConstructorSpec(instantiate=list, fields=())
+                elif origin is set:
+                    return StructConstructorSpec(instantiate=set, fields=())
+            return None
+
+        # Default is not iterable or not empty - let the rest of the function handle it.
+        if not isinstance(info.default, Iterable):
             return None
 
         # Cast is for mypy.
@@ -368,16 +472,13 @@ def apply_default_struct_rules(registry: ConstructorRegistry) -> None:
 
         # Infer more specific type when tuple annotation isn't subscripted.
         if len(children) == 0:
-            if info.default in MISSING_AND_MISSING_NONPROP:
+            if is_missing(info.default):
                 return None
             else:
                 assert isinstance(info.default, tuple)
                 children = tuple(type(x) for x in info.default)
 
-        if (
-            info.default in MISSING_AND_MISSING_NONPROP
-            or info.default is EXCLUDE_FROM_CALL
-        ):
+        if is_missing(info.default) or info.default is EXCLUDE_FROM_CALL:
             default_instance = (info.default,) * len(children)
         else:
             default_instance = info.default

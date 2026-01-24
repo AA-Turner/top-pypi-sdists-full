@@ -12,6 +12,7 @@ scm:
                 - trigger-build-on-pr-comment:
                     comment: "Ci build!"
                     allow-untrusted-users: false
+                    add-reaction: false
                 - trigger-build-on-pr-review:
                     allow-untrusted-users: false
                 - trigger-build-on-pr-update:

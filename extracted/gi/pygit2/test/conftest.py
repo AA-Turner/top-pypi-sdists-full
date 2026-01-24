@@ -1,4 +1,3 @@
-import platform
 from collections.abc import Generator
 from pathlib import Path
 
@@ -21,10 +20,6 @@ def global_git_config() -> None:
     ]
     for level in levels:
         pygit2.settings.search_path[level] = ''
-
-    # Fix tests running in AppVeyor
-    if platform.system() == 'Windows':
-        pygit2.option(pygit2.enums.Option.SET_OWNER_VALIDATION, False)
 
 
 @pytest.fixture

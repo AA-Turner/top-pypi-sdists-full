@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -6,17 +6,15 @@ from typing import TYPE_CHECKING
 from starlette.authentication import requires
 
 from marimo import _loggers
-from marimo._runtime.requests import (
+from marimo._server.api.utils import dispatch_control_request
+from marimo._server.models.models import (
+    BaseResponse,
+    ListDataSourceConnectionRequest,
+    ListSQLTablesRequest,
     PreviewDatasetColumnRequest,
-    PreviewDataSourceConnectionRequest,
-    PreviewSQLTableListRequest,
     PreviewSQLTableRequest,
 )
-from marimo._server.api.deps import AppState
-from marimo._server.api.utils import parse_request
-from marimo._server.models.models import BaseResponse, SuccessResponse
 from marimo._server.router import APIRouter
-from marimo._types.ids import ConsumerId
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -33,6 +31,12 @@ async def preview_column(
     request: Request,
 ) -> BaseResponse:
     """
+    parameters:
+        - in: header
+          name: Marimo-Session-Id
+          schema:
+            type: string
+          required: true
     requestBody:
         content:
             application/json:
@@ -46,19 +50,19 @@ async def preview_column(
                     schema:
                         $ref: "#/components/schemas/SuccessResponse"
     """
-    app_state = AppState(request)
-    body = await parse_request(request, PreviewDatasetColumnRequest)
-    app_state.require_current_session().put_control_request(
-        body,
-        from_consumer_id=ConsumerId(app_state.require_current_session_id()),
-    )
-    return SuccessResponse()
+    return await dispatch_control_request(request, PreviewDatasetColumnRequest)
 
 
 @router.post("/preview_sql_table")
 @requires("edit")
 async def preview_sql_table(request: Request) -> BaseResponse:
     """
+    parameters:
+        - in: header
+          name: Marimo-Session-Id
+          schema:
+            type: string
+          required: true
     requestBody:
         content:
             application/json:
@@ -72,24 +76,24 @@ async def preview_sql_table(request: Request) -> BaseResponse:
                     schema:
                         $ref: "#/components/schemas/SuccessResponse"
     """
-    app_state = AppState(request)
-    body = await parse_request(request, PreviewSQLTableRequest)
-    app_state.require_current_session().put_control_request(
-        body,
-        from_consumer_id=ConsumerId(app_state.require_current_session_id()),
-    )
-    return SuccessResponse()
+    return await dispatch_control_request(request, PreviewSQLTableRequest)
 
 
 @router.post("/preview_sql_table_list")
 @requires("edit")
 async def preview_sql_table_list(request: Request) -> BaseResponse:
     """
+    parameters:
+        - in: header
+          name: Marimo-Session-Id
+          schema:
+            type: string
+          required: true
     requestBody:
         content:
             application/json:
                 schema:
-                    $ref: "#/components/schemas/PreviewSQLTableListRequest"
+                    $ref: "#/components/schemas/ListSQLTablesRequest"
     responses:
         200:
             description: Preview a list of tables in an SQL schema
@@ -98,24 +102,24 @@ async def preview_sql_table_list(request: Request) -> BaseResponse:
                     schema:
                         $ref: "#/components/schemas/SuccessResponse"
     """
-    app_state = AppState(request)
-    body = await parse_request(request, PreviewSQLTableListRequest)
-    app_state.require_current_session().put_control_request(
-        body,
-        from_consumer_id=ConsumerId(app_state.require_current_session_id()),
-    )
-    return SuccessResponse()
+    return await dispatch_control_request(request, ListSQLTablesRequest)
 
 
 @router.post("/preview_datasource_connection")
 @requires("edit")
 async def preview_datasource_connection(request: Request) -> BaseResponse:
     """
+    parameters:
+        - in: header
+          name: Marimo-Session-Id
+          schema:
+            type: string
+          required: true
     requestBody:
         content:
             application/json:
                 schema:
-                    $ref: "#/components/schemas/PreviewDataSourceConnectionRequest"
+                    $ref: "#/components/schemas/ListDataSourceConnectionRequest"
     responses:
         200:
             description: Broadcasts a datasource connection
@@ -124,10 +128,6 @@ async def preview_datasource_connection(request: Request) -> BaseResponse:
                     schema:
                         $ref: "#/components/schemas/SuccessResponse"
     """
-    app_state = AppState(request)
-    body = await parse_request(request, PreviewDataSourceConnectionRequest)
-    app_state.require_current_session().put_control_request(
-        body,
-        from_consumer_id=ConsumerId(app_state.require_current_session_id()),
+    return await dispatch_control_request(
+        request, ListDataSourceConnectionRequest
     )
-    return SuccessResponse()

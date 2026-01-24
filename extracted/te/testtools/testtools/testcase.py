@@ -3,15 +3,15 @@
 """Test case related stuff."""
 
 __all__ = [
+    "ExpectedException",
+    "TestCase",
     "attr",
     "clone_test_with_new_id",
-    "ExpectedException",
     "gather_details",
     "run_test_with",
     "skip",
     "skipIf",
     "skipUnless",
-    "TestCase",
     "unique_text_generator",
 ]
 
@@ -19,22 +19,21 @@ import copy
 import functools
 import itertools
 import sys
-import types
 import unittest
+from typing import Any, Protocol, TypeVar, cast
 from unittest.case import SkipTest
-import warnings
 
-from testtools.compat import reraise
 from testtools import content
-from testtools.helpers import try_import
+from testtools.compat import reraise
 from testtools.matchers import (
     Annotate,
     Contains,
+    Is,
+    IsInstance,
+    Matcher,
     MatchesAll,
     MatchesException,
     MismatchError,
-    Is,
-    IsInstance,
     Not,
     Raises,
 )
@@ -48,18 +47,6 @@ from testtools.testresult import (
     ExtendedToOriginalDecorator,
     TestResult,
 )
-
-
-class TestSkipped(SkipTest):
-    """Raised within TestCase.run() when a test is skipped."""
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "Use SkipTest from unittest instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args, **kwargs)
 
 
 class _UnexpectedSuccess(Exception):
@@ -170,7 +157,7 @@ def gather_details(source_dict, target_dict):
         new_name = name
         disambiguator = itertools.count(1)
         while new_name in target_dict:
-            new_name = "%s-%d" % (name, next(disambiguator))
+            new_name = f"{name}-{next(disambiguator)}"
         name = new_name
         target_dict[name] = _copy_content(content_object)
 
@@ -178,7 +165,19 @@ def gather_details(source_dict, target_dict):
 # Circular import: fixtures imports gather_details from here, we import
 # fixtures, leading to gather_details not being available and fixtures being
 # unable to import it.
-fixtures = try_import("fixtures")
+try:
+    import fixtures
+except ImportError:
+    fixtures = None  # type: ignore
+
+
+class UseFixtureProtocol(Protocol):
+    def setUp(self) -> Any: ...
+    def cleanUp(self) -> Any: ...
+    def getDetails(self) -> dict: ...
+
+
+UseFixtureT = TypeVar("UseFixtureT", bound=UseFixtureProtocol)
 
 
 def _mods(i, mod):
@@ -281,8 +280,10 @@ class TestCase(unittest.TestCase):
 
     def __eq__(self, other):
         eq = getattr(unittest.TestCase, "__eq__", None)
-        if eq is not None and not unittest.TestCase.__eq__(self, other):
-            return False
+        if eq is not None:
+            eq_ = unittest.TestCase.__eq__(self, other)
+            if eq_ is NotImplemented or not eq_:
+                return False
         return self.__dict__ == getattr(other, "__dict__", None)
 
     # We need to explicitly set this since we're overriding __eq__
@@ -292,17 +293,6 @@ class TestCase(unittest.TestCase):
     def __repr__(self):
         # We add id to the repr because it makes testing testtools easier.
         return f"<{self.id()} id=0x{id(self):0x}>"
-
-    def _deprecate(original_func):
-        def deprecated_func(*args, **kwargs):
-            warnings.warn(
-                "Please use {0} instead.".format(original_func.__name__),
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            return original_func(*args, **kwargs)
-
-        return deprecated_func
 
     def addDetail(self, name, content_object):
         """Add a detail to be reported with this test's outcome.
@@ -355,15 +345,6 @@ class TestCase(unittest.TestCase):
         """
         raise self.skipException(reason)
 
-    def skip(self, reason):
-        """DEPRECATED: Use skipTest instead."""
-        warnings.warn(
-            "Only valid in 1.8.1 and earlier. Use skipTest instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.skipTest(reason)
-
     def _formatTypes(self, classOrIterable):
         """Format a class or a bunch of classes for display in an error."""
         className = getattr(classOrIterable, "__name__", None)
@@ -371,7 +352,7 @@ class TestCase(unittest.TestCase):
             className = ", ".join(klass.__name__ for klass in classOrIterable)
         return className
 
-    def addCleanup(self, function, *arguments, **keywordArguments):
+    def addCleanup(self, function, /, *arguments, **keywordArguments):
         """Add a cleanup function to be called after tearDown.
 
         Functions added with addCleanup will be called in reverse order of
@@ -417,8 +398,6 @@ class TestCase(unittest.TestCase):
         """
         matcher = _FlippedEquals(expected)
         self.assertThat(observed, matcher, message)
-
-    failUnlessEqual = assertEquals = _deprecate(assertEqual)
 
     def assertIn(self, needle, haystack, message=""):
         """Assert that needle is in haystack."""
@@ -469,18 +448,36 @@ class TestCase(unittest.TestCase):
             matcher = IsInstance(klass)
         self.assertThat(obj, matcher, msg)
 
-    def assertRaises(self, excClass, callableObj, *args, **kwargs):
-        """Fail unless an exception of class excClass is thrown
-        by callableObj when invoked with arguments args and keyword
+    def assertRaises(self, expected_exception, callable=None, *args, **kwargs):
+        """Fail unless an exception of class expected_exception is thrown
+        by callable when invoked with arguments args and keyword
         arguments kwargs. If a different type of exception is
         thrown, it will not be caught, and the test case will be
         deemed to have suffered an error, exactly as for an
         unexpected exception.
+
+        If called with the callable omitted, will return a
+        context object used like this::
+
+            with self.assertRaises(SomeException):
+                do_something()
+
+        The context manager keeps a reference to the exception as
+        the 'exception' attribute. This allows you to inspect the
+        exception after the assertion::
+
+            with self.assertRaises(SomeException) as cm:
+                do_something()
+            the_exception = cm.exception
+            self.assertEqual(the_exception.error_code, 3)
         """
+        # If callable is None, we're being used as a context manager
+        if callable is None:
+            return _AssertRaisesContext(expected_exception, self, msg=kwargs.get("msg"))
 
         class ReRaiseOtherTypes:
             def match(self, matchee):
-                if not issubclass(matchee[0], excClass):
+                if not issubclass(matchee[0], expected_exception):
                     reraise(*matchee)
 
         class CaptureMatchee:
@@ -489,13 +486,13 @@ class TestCase(unittest.TestCase):
 
         capture = CaptureMatchee()
         matcher = Raises(
-            MatchesAll(ReRaiseOtherTypes(), MatchesException(excClass), capture)
+            MatchesAll(
+                ReRaiseOtherTypes(), MatchesException(expected_exception), capture
+            )
         )
-        our_callable = Nullary(callableObj, *args, **kwargs)
+        our_callable = Nullary(callable, *args, **kwargs)
         self.assertThat(our_callable, matcher)
         return capture.matchee
-
-    failUnlessRaises = _deprecate(assertRaises)
 
     def assertThat(self, matchee, matcher, message="", verbose=False):
         """Assert that matchee is matched by matcher.
@@ -507,8 +504,6 @@ class TestCase(unittest.TestCase):
         mismatch_error = self._matchHelper(matchee, matcher, message, verbose)
         if mismatch_error is not None:
             raise mismatch_error
-
-    assertItemsEqual = _deprecate(unittest.TestCase.assertCountEqual)
 
     def addDetailUniqueName(self, name, content_object):
         """Add a detail to the test, but ensure it's name is unique.
@@ -527,7 +522,7 @@ class TestCase(unittest.TestCase):
         full_name = name
         suffix = 1
         while full_name in existing_details:
-            full_name = "%s-%d" % (name, suffix)
+            full_name = f"{name}-{suffix}"
             suffix += 1
         self.addDetail(full_name, content_object)
 
@@ -621,7 +616,7 @@ class TestCase(unittest.TestCase):
         """
         if prefix is None:
             prefix = self.id()
-        return "%s-%d" % (prefix, self.getUniqueInteger())
+        return f"{prefix}-{self.getUniqueInteger()}"
 
     def onException(self, exc_info, tb_label="traceback"):
         """Called when an exception propagates from test code.
@@ -663,7 +658,7 @@ class TestCase(unittest.TestCase):
         while True:
             tb_id = next(id_gen)
             if tb_id:
-                tb_label = "%s-%d" % (tb_label, tb_id)
+                tb_label = f"{tb_label}-{tb_id}"
             if tb_label not in self.getDetails():
                 break
         self.addDetail(
@@ -701,14 +696,10 @@ class TestCase(unittest.TestCase):
         ret = self.setUp()
         if not self.__setup_called:
             raise ValueError(
-                "In File: %s\n"
+                f"In File: {sys.modules[self.__class__.__module__].__file__}\n"
                 "TestCase.setUp was not called. Have you upcalled all the "
                 "way up the hierarchy from your setUp? e.g. Call "
-                "super(%s, self).setUp() from your setUp()."
-                % (
-                    sys.modules[self.__class__.__module__].__file__,
-                    self.__class__.__name__,
-                )
+                f"super({self.__class__.__name__}, self).setUp() from your setUp()."
             )
         return ret
 
@@ -722,14 +713,11 @@ class TestCase(unittest.TestCase):
         ret = self.tearDown()
         if not self.__teardown_called:
             raise ValueError(
-                "In File: %s\n"
+                f"In File: {sys.modules[self.__class__.__module__].__file__}\n"
                 "TestCase.tearDown was not called. Have you upcalled all the "
                 "way up the hierarchy from your tearDown? e.g. Call "
-                "super(%s, self).tearDown() from your tearDown()."
-                % (
-                    sys.modules[self.__class__.__module__].__file__,
-                    self.__class__.__name__,
-                )
+                f"super({self.__class__.__name__}, self).tearDown() "
+                "from your tearDown()."
             )
         return ret
 
@@ -742,7 +730,7 @@ class TestCase(unittest.TestCase):
                 # We allow instantiation with no explicit method name
                 # but not an *incorrect* or missing method name.
                 raise ValueError(
-                    "no such test method in %s: %s" % (self.__class__, method_name)
+                    f"no such test method in {self.__class__}: {method_name}"
                 )
         else:
             return m
@@ -755,7 +743,7 @@ class TestCase(unittest.TestCase):
         """
         return self._get_test_method()()
 
-    def useFixture(self, fixture):
+    def useFixture(self, fixture: UseFixtureT) -> UseFixtureT:
         """Use fixture in a test case.
 
         The fixture will be setUp, and self.addCleanup(fixture.cleanUp) called.
@@ -798,10 +786,10 @@ class TestCase(unittest.TestCase):
         super().setUp()
         if self.__setup_called:
             raise ValueError(
-                "In File: %s\n"
+                f"In File: {sys.modules[self.__class__.__module__].__file__}\n"
                 "TestCase.setUp was already called. Do not explicitly call "
                 "setUp from your tests. In your own setUp, use super to call "
-                "the base setUp." % (sys.modules[self.__class__.__module__].__file__,)
+                "the base setUp."
             )
         self.__setup_called = True
 
@@ -809,11 +797,10 @@ class TestCase(unittest.TestCase):
         super().tearDown()
         if self.__teardown_called:
             raise ValueError(
-                "In File: %s\n"
+                f"In File: {sys.modules[self.__class__.__module__].__file__}\n"
                 "TestCase.tearDown was already called. Do not explicitly call "
                 "tearDown from your tests. In your own tearDown, use super to "
                 "call the base tearDown."
-                % (sys.modules[self.__class__.__module__].__file__,)
             )
         self.__teardown_called = True
 
@@ -981,21 +968,20 @@ class WithAttributes:
     testtools.testcase.MyTest/test_bar[foo]
     """
 
-    def id(self):
-        orig = super().id()
+    _get_test_method: Any  # Provided by the class we're mixed with
+
+    def id(self) -> str:
+        orig = cast(str, super().id())  # type: ignore[misc]
         # Depends on testtools.TestCase._get_test_method, be nice to support
         # plain unittest.
         fn = self._get_test_method()
-        attributes = getattr(fn, "__testtools_attrs", None)
+        attributes = cast(str, getattr(fn, "__testtools_attrs", None))
         if not attributes:
             return orig
         return orig + "[" + ",".join(sorted(attributes)) + "]"
 
 
-class_types = [type]
-if getattr(types, "ClassType", None) is not None:
-    class_types.append(types.ClassType)
-class_types = tuple(class_types)
+class_types = (type,)
 
 
 def skip(reason):
@@ -1048,6 +1034,51 @@ def skipUnless(condition, reason):
     return _id
 
 
+class _AssertRaisesContext:
+    """A context manager to handle expected exceptions for assertRaises.
+
+    This provides compatibility with unittest's assertRaises context manager.
+    """
+
+    def __init__(self, expected, test_case, msg=None):
+        """Construct an `_AssertRaisesContext`.
+
+        :param expected: The type of exception to expect.
+        :param test_case: The TestCase instance using this context.
+        :param msg: An optional message explaining the failure.
+        """
+        self.expected = expected
+        self.test_case = test_case
+        self.msg = msg
+        self.exception = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
+            try:
+                if isinstance(self.expected, tuple):
+                    exc_name = "({})".format(
+                        ", ".join(e.__name__ for e in self.expected)
+                    )
+                else:
+                    exc_name = self.expected.__name__
+            except AttributeError:
+                exc_name = str(self.expected)
+            if self.msg:
+                error_msg = f"{exc_name} not raised : {self.msg}"
+            else:
+                error_msg = f"{exc_name} not raised"
+            raise self.test_case.failureException(error_msg)
+        if not issubclass(exc_type, self.expected):
+            # let unexpected exceptions pass through
+            return False
+        # store exception for later retrieval
+        self.exception = exc_value
+        return True
+
+
 class ExpectedException:
     """A context manager to handle expected exceptions.
 
@@ -1078,16 +1109,19 @@ class ExpectedException:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type is None:
-            error_msg = "%s not raised." % self.exc_type.__name__
+            error_msg = f"{self.exc_type.__name__} not raised."
             if self.msg:
                 error_msg = error_msg + " : " + self.msg
             raise AssertionError(error_msg)
         if exc_type != self.exc_type:
             return False
         if self.value_re:
-            matcher = MatchesException(self.exc_type, self.value_re)
+            exception_matcher = MatchesException(self.exc_type, self.value_re)
+            matcher: Matcher | Annotate
             if self.msg:
-                matcher = Annotate(self.msg, matcher)
+                matcher = Annotate(self.msg, exception_matcher)
+            else:
+                matcher = exception_matcher
             mismatch = matcher.match((exc_type, exc_value, traceback))
             if mismatch:
                 raise AssertionError(mismatch.describe())

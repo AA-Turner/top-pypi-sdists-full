@@ -169,7 +169,7 @@ class WebLogout(argparse.Action):
 class StackTeardown(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         session = ApiSession(namespace.non_interactive)
-        session.teardown()
+        session.teardown("--delete")
         parser.exit()
 
 
@@ -249,8 +249,8 @@ cloud_parser.add_argument(
 combined_cloud_parser = configargparse.ArgumentParser(
     parents=[cloud_parser],
     default_config_files=[
-        "~/.cloud.conf",
-        "cloud.conf",
+        "~/.locust.conf",
+        "locust.conf",
     ],
     auto_env_var_prefix="LOCUSTCLOUD_",
     formatter_class=configargparse.RawTextHelpFormatter,
@@ -269,11 +269,15 @@ Parameters specified on command line override env vars, which in turn override c
     add_config_file_help=False,
     add_env_var_help=False,
 )
+# Consume locustfile flag to not be forwarded into load generators
+combined_cloud_parser.add_argument(
+    "-f",
+    "--locustfile",
+)
 combined_cloud_parser.add_argument(
     "-u",
     "--users",
     type=int,
-    default=1,
     help="Number of users to launch. This is the same as the regular Locust argument, but also affects how many workers to launch.",
     env_var="LOCUST_USERS",
 )
@@ -284,6 +288,18 @@ combined_cloud_parser.add_argument(
     help="Set --loglevel DEBUG for extra info.",
     choices=["DEBUG", "INFO", "WARNING", "ERROR"],
     default="INFO",
+    env_var="LOCUST_LOGLEVEL",
+)
+combined_cloud_parser.add_argument(
+    "--config",
+    is_config_file_arg=True,
+    help="File to read additional configuration from. See https://docs.locust.io/en/stable/configuration.html#configuration-file",
+    metavar="<filename>",
+)
+combined_cloud_parser.add_argument(
+    "--otel",
+    action="store_true",
+    env_var="LOCUST_ENABLE_OPENTELEMETRY",
 )
 
 

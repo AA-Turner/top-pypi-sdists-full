@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.edit_mqtt_trigger_client_version import EditMqttTriggerClientVersion
+from ..models.edit_mqtt_trigger_mode import EditMqttTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -26,14 +27,14 @@ class EditMqttTrigger:
         path (str):
         script_path (str):
         is_flow (bool):
-        enabled (bool):
         client_id (Union[Unset, str]):
         v3_config (Union[Unset, EditMqttTriggerV3Config]):
         v5_config (Union[Unset, EditMqttTriggerV5Config]):
         client_version (Union[Unset, EditMqttTriggerClientVersion]):
+        mode (Union[Unset, EditMqttTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, EditMqttTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, EditMqttTriggerRetry]):
+        retry (Union[Unset, EditMqttTriggerRetry]): Retry configuration for failed module executions
     """
 
     mqtt_resource_path: str
@@ -41,11 +42,11 @@ class EditMqttTrigger:
     path: str
     script_path: str
     is_flow: bool
-    enabled: bool
     client_id: Union[Unset, str] = UNSET
     v3_config: Union[Unset, "EditMqttTriggerV3Config"] = UNSET
     v5_config: Union[Unset, "EditMqttTriggerV5Config"] = UNSET
     client_version: Union[Unset, EditMqttTriggerClientVersion] = UNSET
+    mode: Union[Unset, EditMqttTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "EditMqttTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "EditMqttTriggerRetry"] = UNSET
@@ -62,7 +63,6 @@ class EditMqttTrigger:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
-        enabled = self.enabled
         client_id = self.client_id
         v3_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.v3_config, Unset):
@@ -75,6 +75,10 @@ class EditMqttTrigger:
         client_version: Union[Unset, str] = UNSET
         if not isinstance(self.client_version, Unset):
             client_version = self.client_version.value
+
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
 
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -94,7 +98,6 @@ class EditMqttTrigger:
                 "path": path,
                 "script_path": script_path,
                 "is_flow": is_flow,
-                "enabled": enabled,
             }
         )
         if client_id is not UNSET:
@@ -105,6 +108,8 @@ class EditMqttTrigger:
             field_dict["v5_config"] = v5_config
         if client_version is not UNSET:
             field_dict["client_version"] = client_version
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -138,8 +143,6 @@ class EditMqttTrigger:
 
         is_flow = d.pop("is_flow")
 
-        enabled = d.pop("enabled")
-
         client_id = d.pop("client_id", UNSET)
 
         _v3_config = d.pop("v3_config", UNSET)
@@ -163,6 +166,13 @@ class EditMqttTrigger:
         else:
             client_version = EditMqttTriggerClientVersion(_client_version)
 
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, EditMqttTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = EditMqttTriggerMode(_mode)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -185,11 +195,11 @@ class EditMqttTrigger:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
-            enabled=enabled,
             client_id=client_id,
             v3_config=v3_config,
             v5_config=v5_config,
             client_version=client_version,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

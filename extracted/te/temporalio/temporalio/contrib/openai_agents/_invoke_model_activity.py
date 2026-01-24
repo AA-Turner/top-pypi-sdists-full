@@ -36,7 +36,7 @@ from openai.types.responses.tool_param import Mcp
 from pydantic_core import to_json
 from typing_extensions import Required, TypedDict
 
-from temporalio import activity
+from temporalio import activity, workflow
 from temporalio.contrib.openai_agents._heartbeat_decorator import _auto_heartbeater
 from temporalio.exceptions import ApplicationError
 
@@ -89,9 +89,9 @@ ToolInput = Union[
 class AgentOutputSchemaInput(AgentOutputSchemaBase):
     """Data conversion friendly representation of AgentOutputSchema."""
 
-    output_type_name: Optional[str]
+    output_type_name: str | None
     is_wrapped: bool
-    output_schema: Optional[dict[str, Any]]
+    output_schema: dict[str, Any] | None
     strict_json_schema: bool
 
     def is_plain_text(self) -> bool:
@@ -135,17 +135,17 @@ class ModelTracingInput(enum.IntEnum):
 class ActivityModelInput(TypedDict, total=False):
     """Input for the invoke_model_activity activity."""
 
-    model_name: Optional[str]
-    system_instructions: Optional[str]
-    input: Required[Union[str, list[TResponseInputItem]]]
+    model_name: str | None
+    system_instructions: str | None
+    input: Required[str | list[TResponseInputItem]]
     model_settings: Required[ModelSettings]
     tools: list[ToolInput]
-    output_schema: Optional[AgentOutputSchemaInput]
+    output_schema: AgentOutputSchemaInput | None
     handoffs: list[HandoffInput]
     tracing: Required[ModelTracingInput]
-    previous_response_id: Optional[str]
-    conversation_id: Optional[str]
-    prompt: Optional[Any]
+    previous_response_id: str | None
+    conversation_id: str | None
+    prompt: Any | None
 
 
 class ModelActivity:
@@ -153,7 +153,7 @@ class ModelActivity:
     Disabling retries in your model of choice is recommended to allow activity retries to define the retry model.
     """
 
-    def __init__(self, model_provider: Optional[ModelProvider] = None):
+    def __init__(self, model_provider: ModelProvider | None = None):
         """Initialize the activity with a model provider."""
         self._model_provider = model_provider or OpenAIProvider(
             openai_client=AsyncOpenAI(max_retries=0)
@@ -248,15 +248,18 @@ class ModelActivity:
                 ) from e
 
             # Specifically retryable status codes
-            if e.response.status_code in [408, 409, 429, 500]:
+            if (
+                e.response.status_code in [408, 409, 429]
+                or e.response.status_code >= 500
+            ):
                 raise ApplicationError(
-                    "Retryable OpenAI status code",
+                    f"Retryable OpenAI status code: {e.response.status_code}",
                     non_retryable=False,
                     next_retry_delay=retry_after,
                 ) from e
 
             raise ApplicationError(
-                "Non retryable OpenAI status code",
+                f"Non retryable OpenAI status code: {e.response.status_code}",
                 non_retryable=True,
                 next_retry_delay=retry_after,
             ) from e

@@ -8,9 +8,10 @@ T = TypeVar("T", bound="GetFlowByPathResponse200ValuePreprocessorModuleRetryRetr
 
 @_attrs_define
 class GetFlowByPathResponse200ValuePreprocessorModuleRetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

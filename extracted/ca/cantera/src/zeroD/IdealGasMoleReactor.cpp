@@ -17,15 +17,6 @@
 namespace Cantera
 {
 
-void IdealGasMoleReactor::setThermo(ThermoPhase& thermo)
-{
-    if (thermo.type() != "ideal-gas") {
-        throw CanteraError("IdealGasMoleReactor::setThermo",
-                           "Incompatible phase type provided");
-    }
-    MoleReactor::setThermo(thermo);
-}
-
 void IdealGasMoleReactor::getState(double* y)
 {
     if (m_thermo == 0) {
@@ -52,15 +43,17 @@ void IdealGasMoleReactor::getState(double* y)
 
 size_t IdealGasMoleReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + m_sidx;
-    } else if (nm == "temperature") {
+    if (nm == "temperature") {
         return 0;
-    } else if (nm == "volume") {
+    }
+    if (nm == "volume") {
         return 1;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + m_sidx;
+    } catch (const CanteraError&) {
+        throw CanteraError("IdealGasMoleReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -75,8 +68,45 @@ string IdealGasMoleReactor::componentName(size_t k)
 
 void IdealGasMoleReactor::initialize(double t0)
 {
+    if (m_thermo->type() != "ideal-gas") {
+        throw CanteraError("IdealGasMoleReactor::initialize",
+                           "Incompatible phase type '{}' provided", m_thermo->type());
+    }
     MoleReactor::initialize(t0);
     m_uk.resize(m_nsp, 0.0);
+}
+
+double IdealGasMoleReactor::upperBound(size_t k) const {
+    if (k == 0) {
+        //@todo: Revise pending resolution of https://github.com/Cantera/enhancements/issues/229
+        return 1.5 * m_thermo->maxTemp();
+    } else {
+        return MoleReactor::upperBound(k);
+    }
+}
+
+double IdealGasMoleReactor::lowerBound(size_t k) const {
+    if (k == 0) {
+        //@todo: Revise pending resolution of https://github.com/Cantera/enhancements/issues/229
+        return 0.5 * m_thermo->minTemp();
+    } else {
+        return MoleReactor::lowerBound(k);
+    }
+}
+
+vector<size_t> IdealGasMoleReactor::steadyConstraints() const
+{
+    if (nSurfs() != 0) {
+        throw CanteraError("IdealGasMoleReactor::steadyConstraints",
+            "Steady state solver cannot currently be used with IdealGasMoleReactor"
+            " when reactor surfaces are present.\n"
+            "See https://github.com/Cantera/enhancements/issues/234");
+    }
+    if (energyEnabled()) {
+        return {1}; // volume
+    } else {
+        return {0, 1}; // temperature and volume
+    }
 }
 
 void IdealGasMoleReactor::updateState(double* y)

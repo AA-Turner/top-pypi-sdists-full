@@ -17,8 +17,14 @@ from datasets import (
 )
 
 from sae_lens import __version__, logger
-from sae_lens.constants import DTYPE_MAP
+
+# keeping this unused import since some SAELens deps import DTYPE_MAP from config
+from sae_lens.constants import (
+    DTYPE_MAP,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+)
+from sae_lens.registry import get_sae_training_class
 from sae_lens.saes.sae import TrainingSAEConfig
+from sae_lens.util import str_to_dtype
 
 if TYPE_CHECKING:
     pass
@@ -142,6 +148,7 @@ class LanguageModelSAERunnerConfig(Generic[T_TRAINING_SAE_CONFIG]):
         seqpos_slice (tuple[int | None, ...]): Determines slicing of activations when constructing batches during training. The slice should be (start_pos, end_pos, optional[step_size]), e.g. for Othello we sometimes use (5, -5). Note, step_size > 0.
         disable_concat_sequences (bool): Whether to disable concatenating sequences and ignore sequences shorter than the context size. If True, disables concatenating and ignores short sequences.
         sequence_separator_token (int | Literal["bos", "eos", "sep"] | None): If not `None`, this token will be placed between sentences in a batch to act as a separator. By default, this is the `<bos>` token.
+        activations_mixing_fraction (float): Fraction of the activation buffer to keep for mixing with new activations (default 0.5). Higher values mean more temporal shuffling but slower throughput. If 0, activations are served in order without shuffling (no temporal mixing).
         device (str): The device to use. Usually "cuda".
         act_store_device (str): The device to use for the activation store. "cpu" is advised in order to save VRAM. Defaults to "with_model" which uses the same device as the main model.
         seed (int): The seed to use.
@@ -171,6 +178,7 @@ class LanguageModelSAERunnerConfig(Generic[T_TRAINING_SAE_CONFIG]):
         n_checkpoints (int): The number of checkpoints to save during training. 0 means no checkpoints.
         checkpoint_path (str | None): The path to save checkpoints. A unique ID will be appended to this path. Set to None to disable checkpoint saving. (default is "checkpoints")
         save_final_checkpoint (bool): Whether to include an additional final checkpoint when training is finished. (default is False).
+        resume_from_checkpoint (str | None): The path to the checkpoint to resume training from. (default is None).
         output_path (str | None): The path to save outputs. Set to None to disable output saving. (default is "output")
         verbose (bool): Whether to print verbose output. (default is True)
         model_kwargs (dict[str, Any]): Keyword arguments for `model.run_with_cache`
@@ -210,6 +218,7 @@ class LanguageModelSAERunnerConfig(Generic[T_TRAINING_SAE_CONFIG]):
     sequence_separator_token: int | Literal["bos", "eos", "sep"] | None = (
         special_token_field(default="bos")
     )
+    activations_mixing_fraction: float = 0.5
 
     # Misc
     device: str = "cpu"
@@ -261,6 +270,7 @@ class LanguageModelSAERunnerConfig(Generic[T_TRAINING_SAE_CONFIG]):
     checkpoint_path: str | None = "checkpoints"
     save_final_checkpoint: bool = False
     output_path: str | None = "output"
+    resume_from_checkpoint: str | None = None
 
     # Misc
     verbose: bool = True
@@ -385,8 +395,11 @@ class LanguageModelSAERunnerConfig(Generic[T_TRAINING_SAE_CONFIG]):
         return self.sae.to_dict()
 
     def to_dict(self) -> dict[str, Any]:
-        # Make a shallow copy of config's dictionary
-        d = dict(self.__dict__)
+        """
+        Convert the config to a dictionary.
+        """
+
+        d = asdict(self)
 
         d["logger"] = asdict(self.logger)
         d["sae"] = self.sae.to_dict()
@@ -395,6 +408,37 @@ class LanguageModelSAERunnerConfig(Generic[T_TRAINING_SAE_CONFIG]):
         d["device"] = str(self.device)
         d["act_store_device"] = str(self.act_store_device)
         return d
+
+    @classmethod
+    def from_dict(cls, cfg_dict: dict[str, Any]) -> "LanguageModelSAERunnerConfig[Any]":
+        """
+        Load a LanguageModelSAERunnerConfig from a dictionary given by `to_dict`.
+
+        Args:
+            cfg_dict (dict[str, Any]): The dictionary to load the config from.
+
+        Returns:
+            LanguageModelSAERunnerConfig: The loaded config.
+        """
+        if "sae" not in cfg_dict:
+            raise ValueError("sae field is required in the config dictionary")
+        if "architecture" not in cfg_dict["sae"]:
+            raise ValueError("architecture field is required in the sae dictionary")
+        if "logger" not in cfg_dict:
+            raise ValueError("logger field is required in the config dictionary")
+        sae_config_class = get_sae_training_class(cfg_dict["sae"]["architecture"])[1]
+        sae_cfg = sae_config_class.from_dict(cfg_dict["sae"])
+        logger_cfg = LoggingConfig(**cfg_dict["logger"])
+        updated_cfg_dict: dict[str, Any] = {
+            **cfg_dict,
+            "sae": sae_cfg,
+            "logger": logger_cfg,
+        }
+        output = cls(**updated_cfg_dict)
+        # the post_init always appends to checkpoint path, so we need to set it explicitly here.
+        if "checkpoint_path" in cfg_dict:
+            output.checkpoint_path = cfg_dict["checkpoint_path"]
+        return output
 
     def to_sae_trainer_config(self) -> "SAETrainerConfig":
         return SAETrainerConfig(
@@ -526,7 +570,7 @@ class CacheActivationsRunnerConfig:
 
     @property
     def bytes_per_token(self) -> int:
-        return self.d_in * DTYPE_MAP[self.dtype].itemsize
+        return self.d_in * str_to_dtype(self.dtype).itemsize
 
     @property
     def n_tokens_in_buffer(self) -> int:

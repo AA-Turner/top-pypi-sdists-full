@@ -73,7 +73,7 @@ def modify(
 
     Args:
         model (Union[Dict[str, torch.nn.Module], torch.nn.Module]): The model(s) to modify.
-        modifiers (Union[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]): A list of modifier configurations (if `model` is a single model) or a dictionary mapping model names to lists of modifier configurations (if `model` is a dictionary).
+        modifiers (Union[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]): A list of modifier configurations (if ``model`` is a single model) or a dictionary mapping model names to lists of modifier configurations (if ``model`` is a dictionary).
             Each modifier configuration is a dictionary. The dictionary must contain a key "modifier" that specifies the name of the modifier function to apply as a string. All other keys in the dictionary are passed as keyword arguments to the modifier function.
 
     Returns:

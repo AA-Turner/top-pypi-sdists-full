@@ -21,9 +21,13 @@ class WorkflowErrorCode(Enum):
     INTERNAL_ERROR = "INTERNAL_ERROR"
     NODE_EXECUTION = "NODE_EXECUTION"
     PROVIDER_CREDENTIALS_UNAVAILABLE = "PROVIDER_CREDENTIALS_UNAVAILABLE"
+    INTEGRATION_CREDENTIALS_UNAVAILABLE = "INTEGRATION_CREDENTIALS_UNAVAILABLE"
     PROVIDER_ERROR = "PROVIDER_ERROR"
+    PROVIDER_QUOTA_EXCEEDED = "PROVIDER_QUOTA_EXCEEDED"
     USER_DEFINED_ERROR = "USER_DEFINED_ERROR"
     WORKFLOW_CANCELLED = "WORKFLOW_CANCELLED"
+    NODE_CANCELLED = "NODE_CANCELLED"
+    WORKFLOW_TIMEOUT = "WORKFLOW_TIMEOUT"
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,7 @@ class WorkflowError:
     message: str
     code: WorkflowErrorCode
     raw_data: Optional[Dict[str, Any]] = None
+    stacktrace: Optional[str] = None
 
     def __contains__(self, item: Any) -> bool:
         return item in self.message
@@ -41,6 +46,8 @@ _VELLUM_ERROR_CODE_TO_WORKFLOW_ERROR_CODE: Dict[VellumErrorCodeEnum, WorkflowErr
     "INVALID_INPUTS": WorkflowErrorCode.INVALID_INPUTS,
     "PROVIDER_ERROR": WorkflowErrorCode.PROVIDER_ERROR,
     "PROVIDER_CREDENTIALS_UNAVAILABLE": WorkflowErrorCode.PROVIDER_CREDENTIALS_UNAVAILABLE,
+    "PROVIDER_QUOTA_EXCEEDED": WorkflowErrorCode.PROVIDER_QUOTA_EXCEEDED,
+    "INTEGRATION_CREDENTIALS_UNAVAILABLE": WorkflowErrorCode.INTEGRATION_CREDENTIALS_UNAVAILABLE,
     "REQUEST_TIMEOUT": WorkflowErrorCode.PROVIDER_ERROR,
     "INTERNAL_SERVER_ERROR": WorkflowErrorCode.INTERNAL_ERROR,
     "USER_DEFINED_ERROR": WorkflowErrorCode.USER_DEFINED_ERROR,
@@ -79,6 +86,8 @@ def workflow_event_error_to_workflow_error(error: WorkflowEventError) -> Workflo
     return WorkflowError(
         message=error.message,
         code=_WORKFLOW_EVENT_ERROR_CODE_TO_WORKFLOW_ERROR_CODE.get(error.code, WorkflowErrorCode.INTERNAL_ERROR),
+        raw_data=error.raw_data,
+        stacktrace=error.stacktrace,
     )
 
 
@@ -92,8 +101,13 @@ _WORKFLOW_ERROR_CODE_TO_VELLUM_ERROR_CODE: Dict[WorkflowErrorCode, VellumErrorCo
     WorkflowErrorCode.INTERNAL_ERROR: "INTERNAL_SERVER_ERROR",
     WorkflowErrorCode.NODE_EXECUTION: "USER_DEFINED_ERROR",
     WorkflowErrorCode.PROVIDER_ERROR: "PROVIDER_ERROR",
+    WorkflowErrorCode.PROVIDER_CREDENTIALS_UNAVAILABLE: "PROVIDER_CREDENTIALS_UNAVAILABLE",
+    WorkflowErrorCode.PROVIDER_QUOTA_EXCEEDED: "PROVIDER_QUOTA_EXCEEDED",
+    WorkflowErrorCode.INTEGRATION_CREDENTIALS_UNAVAILABLE: "INTEGRATION_CREDENTIALS_UNAVAILABLE",
     WorkflowErrorCode.USER_DEFINED_ERROR: "USER_DEFINED_ERROR",
     WorkflowErrorCode.WORKFLOW_CANCELLED: "REQUEST_TIMEOUT",
+    WorkflowErrorCode.NODE_CANCELLED: "REQUEST_TIMEOUT",
+    WorkflowErrorCode.WORKFLOW_TIMEOUT: "REQUEST_TIMEOUT",
 }
 
 
@@ -101,4 +115,5 @@ def workflow_error_to_vellum_error(error: WorkflowError) -> VellumError:
     return VellumError(
         message=error.message,
         code=_WORKFLOW_ERROR_CODE_TO_VELLUM_ERROR_CODE.get(error.code, "INTERNAL_SERVER_ERROR"),
+        raw_data=error.raw_data,
     )

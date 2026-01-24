@@ -10,7 +10,7 @@ from ladybug_geometry.geometry3d import Vector3D, Point3D, Ray3D, Polyline3D, \
 from honeybee.typing import float_positive, int_in_range, clean_string, \
     clean_and_id_string, valid_string, invalid_dict_error
 from honeybee.boundarycondition import boundary_conditions as bcs
-from honeybee.boundarycondition import Outdoors, Surface
+from honeybee.boundarycondition import Outdoors, Surface, Ground
 from honeybee.facetype import AirBoundary
 from honeybee.facetype import face_types as ftyp
 from honeybee.altnumber import autocalculate
@@ -78,6 +78,7 @@ class Story(_BaseGeometry):
         * floor_area
         * exterior_wall_area
         * exterior_aperture_area
+        * sub_face_area
         * volume
         * is_above_ground
         * min
@@ -164,7 +165,7 @@ class Story(_BaseGeometry):
         s_type = data['story_type'] if 'story_type' in data else 'Standard'
 
         # process the roof specification if it exists
-        roof = RoofSpecification.from_dict(data['roof']) if 'roof' in data \
+        roof = RoofSpecification.from_dict(data['roof'], tolerance) if 'roof' in data \
             and data['roof'] is not None else None
 
         # create the story object
@@ -457,14 +458,8 @@ using-multipliers-zone-and-or-window.html
         """Get a number for the total floor area in the Story.
 
         Note that this property is for one Story and does NOT use the multiplier.
-        However, if this Story is assigned to a parent Building with room_3ds,
-        it will include the floor area of these 3D Rooms (without the room multiplier).
         """
         flr_area = sum([room.floor_area for room in self._room_2ds])
-        if self.has_parent and self.parent.has_room_3ds:
-            for r in self.parent.room_3ds_by_story(self.display_name):
-                if not r.exclude_floor_area:
-                    flr_area += r.floor_area
         return flr_area
 
     @property
@@ -472,13 +467,8 @@ using-multipliers-zone-and-or-window.html
         """Get a number for the total exterior wall area in the Story.
 
         Note that this property is for one story and does NOT use the multiplier.
-        However, if this Story is assigned to a parent Building with room_3ds,
-        it will include the wall area of these 3D Rooms (without the room multiplier).
         """
         ewa = sum([room.exterior_wall_area for room in self._room_2ds])
-        if self.has_parent and self.parent.has_room_3ds:
-            for r in self.parent.room_3ds_by_story(self.display_name):
-                ewa += r.exterior_wall_area
         return ewa
 
     @property
@@ -486,14 +476,17 @@ using-multipliers-zone-and-or-window.html
         """Get a number for the total exterior aperture area in the Story.
 
         Note that this property is for one story and does NOT use the multiplier.
-        However, if this Story is assigned to a parent Building with room_3ds,
-        it will include the exterior wall aperture area of these 3D Rooms (without
-        the room multiplier).
         """
         eaa = sum([room.exterior_aperture_area for room in self._room_2ds])
-        if self.has_parent and self.parent.has_room_3ds:
-            for r in self.parent.room_3ds_by_story(self.display_name):
-                eaa += r.exterior_wall_aperture_area
+        return eaa
+
+    @property
+    def sub_face_area(self):
+        """Get a number for the total sub-face area.
+
+        Note that this property is for one story and does NOT use the multiplier.
+        """
+        eaa = sum([room.sub_face_area for room in self._room_2ds])
         return eaa
 
     @property
@@ -1581,6 +1574,19 @@ using-multipliers-zone-and-or-window.html
                 for i, (bc, wp) in enumerate(zip_obj):
                     if wp is None and isinstance(bc, Outdoors):
                         room.set_boundary_condition(i, bcs.ground)
+
+    def make_aboveground(self):
+        """Make this Story aboveground by setting all Room2D segments to have Outdoor BCs.
+
+        Note that this method only changes the ground contact walls of the Room2Ds
+        to have Outdoor boundary conditions and, if the floors of the story are
+        also exposed, the set_ground_contact method should be used in addition
+        to this method.
+        """
+        for room in self._room_2ds:
+            for i, bc in enumerate(room._boundary_conditions):
+                if isinstance(bc, Ground):
+                    room.set_boundary_condition(i, bcs.outdoors)
 
     def automatically_zone(self, orient_count=None, north_vector=Vector2D(0, 1),
                            attr_name=None):

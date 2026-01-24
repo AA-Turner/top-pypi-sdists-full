@@ -1,6 +1,6 @@
 import base64
 from collections import defaultdict
-import logging
+import json
 import traceback
 from typing_extensions import TypedDict
 
@@ -12,6 +12,10 @@ from google.genai._common import BaseModel
 import pydantic
 from opentelemetry.trace import Span
 from typing import Any, Literal
+
+from lmnr.sdk.log import get_default_logger
+
+logger = get_default_logger(__name__)
 
 
 class ToolCall(pydantic.BaseModel):
@@ -29,15 +33,72 @@ class ImageUrl(pydantic.BaseModel):
     image_url: ImageUrlInner = pydantic.Field(default=ImageUrlInner())
 
 
+class ToolResult(pydantic.BaseModel):
+    name: str | None = pydantic.Field(default=None)
+    # {"output": "result"} or {"error": "error message"}
+    response: dict[str, Any] = pydantic.Field(default={})
+
+
 class ProcessedContentPart(pydantic.BaseModel):
     content: str | None = pydantic.Field(default=None)
     function_call: ToolCall | None = pydantic.Field(default=None)
     image_url: ImageUrl | None = pydantic.Field(default=None)
+    function_response: ToolResult | None = pydantic.Field(default=None)
 
 
 class ProcessChunkResult(TypedDict):
     role: str
     model_version: str | None
+
+
+def merge_text_parts(
+    parts: list[types.PartDict | types.File | types.Part | str],
+) -> list[types.Part]:
+    if not parts:
+        return []
+
+    merged_parts: list[types.Part] = []
+    accumulated_text = ""
+
+    for part in parts:
+        # Handle string input - treat as text
+        if isinstance(part, str):
+            accumulated_text += part
+        # Handle File objects - they are not text, so don't merge
+        elif isinstance(part, types.File):
+            # Flush any accumulated text first
+            if accumulated_text:
+                merged_parts.append(types.Part(text=accumulated_text))
+                accumulated_text = ""
+            # Add the File as-is (wrapped in a Part if needed)
+            # Note: File objects should be passed through as-is in the original part
+            merged_parts.append(part)
+        # Handle Part and PartDict (dicts)
+        else:
+            part_dict = to_dict(part)
+
+            # Check if this is a text part
+            if part_dict.get("text") is not None:
+                accumulated_text += part_dict.get("text")
+            else:
+                # Non-text part (inline_data, function_call, etc.)
+                # Flush any accumulated text first
+                if accumulated_text:
+                    merged_parts.append(types.Part(text=accumulated_text))
+                    accumulated_text = ""
+
+                # Add the non-text part as-is
+                if isinstance(part, types.Part):
+                    merged_parts.append(part)
+                elif isinstance(part, dict):
+                    # Convert dict to Part object
+                    merged_parts.append(types.Part(**part_dict))
+
+    # Don't forget to add any remaining accumulated text
+    if accumulated_text:
+        merged_parts.append(types.Part(text=accumulated_text))
+
+    return merged_parts
 
 
 def set_span_attribute(span: Span, name: str, value: Any):
@@ -54,13 +115,13 @@ def dont_throw(func):
     @return: The wrapper function
     """
     # Obtain a logger specific to the function's module
-    logger = logging.getLogger(func.__module__)
+    func_logger = get_default_logger(func.__module__)
 
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            logger.debug(
+            func_logger.debug(
                 "Laminar failed to trace in %s, error: %s",
                 func.__name__,
                 traceback.format_exc(),
@@ -71,18 +132,22 @@ def dont_throw(func):
     return wrapper
 
 
-def to_dict(obj: BaseModel | pydantic.BaseModel | dict) -> dict[str, Any]:
+def to_dict(
+    obj: BaseModel | pydantic.BaseModel | dict, pydantic_kwargs: dict[str, Any] = {}
+) -> dict[str, Any]:
     try:
         if isinstance(obj, BaseModel):
             return obj.model_dump()
         elif isinstance(obj, pydantic.BaseModel):
-            return obj.model_dump()
+            return obj.model_dump(**pydantic_kwargs)
         elif isinstance(obj, dict):
             return obj
+        elif obj is None:
+            return {}
         else:
             return dict(obj)
     except Exception as e:
-        logging.error(f"Error converting to dict: {obj}, error: {e}")
+        logger.debug(f"Error converting to dict: {obj}, error: {e}")
         return dict(obj)
 
 
@@ -101,6 +166,13 @@ def get_content(
             }
         elif content.image_url:
             return content.image_url.model_dump()
+        elif content.function_response:
+            return {
+                "function_response": {
+                    "name": content.function_response.name,
+                    "response": content.function_response.response,
+                }
+            }
         else:
             return None
     elif isinstance(content, list):
@@ -176,10 +248,25 @@ def _process_part(
                 arguments=function_call_dict.get("args", {}),
             )
         )
+    elif part_dict.get("function_response"):
+        function_response_dict = to_dict(part_dict.get("function_response"))
+        return ProcessedContentPart(
+            function_response=ToolResult(
+                name=function_response_dict.get("name"),
+                response=function_response_dict.get("response", {}),
+            )
+        )
     elif part_dict.get("text") is not None:
         return ProcessedContentPart(content=part_dict.get("text"))
     else:
-        return None
+        try:
+            return ProcessedContentPart(content=json.dumps(part_dict))
+        except Exception:
+            pass
+        try:
+            return ProcessedContentPart(content=json.dumps(part_dict))
+        except Exception:
+            return None
 
 
 def role_from_content_union(
@@ -278,3 +365,19 @@ def process_stream_chunk(
         role=role,
         model_version=model_version,
     )
+
+
+def is_model_valid(obj: Any, model: BaseModel) -> bool:
+    try:
+        model.model_validate(obj)
+        return True
+    except Exception:
+        return False
+
+
+def strip_none_values(obj: dict[str, Any]) -> dict[str, Any]:
+    return {
+        k: strip_none_values(v) if isinstance(v, dict) else v
+        for k, v in obj.items()
+        if v is not None
+    }

@@ -34,9 +34,7 @@ class Cluster(APIObject):
 
     _cluster_names = "projects/{project_id}/models/{model_id}/clusterNames/"
 
-    _converter = t.Dict(
-        {t.Key("name"): String(), t.Key("percent", optional=True): t.Float()}
-    ).ignore_extra("*")
+    _converter = t.Dict({t.Key("name"): String(), t.Key("percent", optional=True): t.Float()}).ignore_extra("*")
 
     def __init__(self, **kwargs: Any) -> None:
         self.name = kwargs.get("name")
@@ -99,17 +97,14 @@ class Cluster(APIObject):
         """
         path = cls._cluster_names.format(project_id=project_id, model_id=model_id)
         mappings = [
-            {"currentName": current_name, "newName": new_name}
-            for current_name, new_name in cluster_name_mappings
+            {"currentName": current_name, "newName": new_name} for current_name, new_name in cluster_name_mappings
         ]
         payload = {"clusterNameMappings": mappings}
         response = cls._client.patch(path, data=payload).json()
         return [cls.from_server_data(item) for item in response["clusters"]]
 
     @classmethod
-    def update_name(
-        cls, project_id: str, model_id: str, current_name: str, new_name: str
-    ) -> List[Cluster]:
+    def update_name(cls, project_id: str, model_id: str, current_name: str, new_name: str) -> List[Cluster]:
         """Change cluster name from current_name to new_name
 
         Parameters

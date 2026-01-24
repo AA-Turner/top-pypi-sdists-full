@@ -96,7 +96,7 @@ def _getargcount(iteratee, maxargs):
         # instance objects are incorrectly reported as accepting varargs when they only accept a
         # single argument.
         if isinstance(iteratee, (operator.itemgetter, operator.attrgetter, operator.methodcaller)):
-            argcount = 1
+            argcount = 1  # pragma: no cover
         else:
             argspec = inspect.getfullargspec(iteratee)
             if argspec and not argspec.varargs:  # pragma: no cover
@@ -133,7 +133,7 @@ def iterator(obj):
     if isinstance(obj, Mapping):
         return obj.items()
     elif hasattr(obj, "iteritems"):
-        return obj.iteritems()  # noqa: B301
+        return obj.iteritems()
     elif hasattr(obj, "items"):
         return iter(obj.items())
     elif isinstance(obj, Iterable):
@@ -215,10 +215,11 @@ def _base_get_object(obj, key, default=UNSET):
     return value
 
 
-def _raise_if_restricted_key(key):
+def _raise_if_restricted_key(*keys):
     # Prevent access to restricted keys for security reasons.
-    if key in RESTRICTED_KEYS:
-        raise KeyError(f"access to restricted key {key!r} is not allowed")
+    for key in keys:
+        if key in RESTRICTED_KEYS:
+            raise KeyError(f"access to restricted key {key!r} is not allowed")
 
 
 def base_set(obj, key, value, allow_override=True):

@@ -67,8 +67,7 @@ static const char *RcsId = "$Id:  $";
 //  busy  |  Tango::DevBoolean	Scalar
 //================================================================
 
-namespace IfchangeServer_ns
-{
+namespace IfchangeServer_ns {
 /*----- PROTECTED REGION ID(IfchangeServer::namespace_starting) ENABLED START -----*/
 
 //	static initializations
@@ -83,8 +82,7 @@ namespace IfchangeServer_ns
  */
 //--------------------------------------------------------
 IfchangeServer::IfchangeServer(Tango::DeviceClass *cl, string &s) :
-    TANGO_BASE_CLASS(cl, s.c_str())
-{
+    TANGO_BASE_CLASS(cl, s.c_str()) {
     /*----- PROTECTED REGION ID(IfchangeServer::constructor_1) ENABLED START -----*/
     init_device();
 
@@ -93,8 +91,7 @@ IfchangeServer::IfchangeServer(Tango::DeviceClass *cl, string &s) :
 
 //--------------------------------------------------------
 IfchangeServer::IfchangeServer(Tango::DeviceClass *cl, const char *s) :
-    TANGO_BASE_CLASS(cl, s)
-{
+    TANGO_BASE_CLASS(cl, s) {
     /*----- PROTECTED REGION ID(IfchangeServer::constructor_2) ENABLED START -----*/
     init_device();
 
@@ -103,8 +100,7 @@ IfchangeServer::IfchangeServer(Tango::DeviceClass *cl, const char *s) :
 
 //--------------------------------------------------------
 IfchangeServer::IfchangeServer(Tango::DeviceClass *cl, const char *s, const char *d) :
-    TANGO_BASE_CLASS(cl, s, d)
-{
+    TANGO_BASE_CLASS(cl, s, d) {
     /*----- PROTECTED REGION ID(IfchangeServer::constructor_3) ENABLED START -----*/
     init_device();
 
@@ -117,8 +113,7 @@ IfchangeServer::IfchangeServer(Tango::DeviceClass *cl, const char *s, const char
  *	Description : will be called at device destruction or at init command
  */
 //--------------------------------------------------------
-void IfchangeServer::delete_device()
-{
+void IfchangeServer::delete_device() {
     DEBUG_STREAM << "IfchangeServer::delete_device() " << device_name << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::delete_device) ENABLED START -----*/
 
@@ -134,8 +129,7 @@ void IfchangeServer::delete_device()
  *	Description : will be called at device initialization.
  */
 //--------------------------------------------------------
-void IfchangeServer::init_device()
-{
+void IfchangeServer::init_device() {
     DEBUG_STREAM << "IfchangeServer::init_device() create device " << device_name << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::init_device_before) ENABLED START -----*/
 
@@ -161,8 +155,7 @@ void IfchangeServer::init_device()
  *	Description : method always executed before any command is executed
  */
 //--------------------------------------------------------
-void IfchangeServer::always_executed_hook()
-{
+void IfchangeServer::always_executed_hook() {
     DEBUG_STREAM << "IfchangeServer::always_executed_hook()  " << device_name << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::always_executed_hook) ENABLED START -----*/
 
@@ -177,8 +170,7 @@ void IfchangeServer::always_executed_hook()
  *	Description : Hardware acquisition for attributes
  */
 //--------------------------------------------------------
-void IfchangeServer::read_attr_hardware(TANGO_UNUSED(vector<long> &attr_list))
-{
+void IfchangeServer::read_attr_hardware(TANGO_UNUSED(vector<long> &attr_list)) {
     DEBUG_STREAM << "IfchangeServer::read_attr_hardware(vector<long> &attr_list) entering... " << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::read_attr_hardware) ENABLED START -----*/
 
@@ -196,8 +188,7 @@ void IfchangeServer::read_attr_hardware(TANGO_UNUSED(vector<long> &attr_list))
  *	Attr type:	Scalar
  */
 //--------------------------------------------------------
-void IfchangeServer::read_busy(Tango::Attribute &attr)
-{
+void IfchangeServer::read_busy(Tango::Attribute &attr) {
     DEBUG_STREAM << "IfchangeServer::read_busy(Tango::Attribute &attr) entering... " << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::read_busy) ENABLED START -----*/
     //	Set the attribute value
@@ -216,8 +207,7 @@ void IfchangeServer::read_busy(Tango::Attribute &attr)
  *	Attr type:	Scalar
  */
 //--------------------------------------------------------
-void IfchangeServer::read_ioattr(Tango::Attribute &attr)
-{
+void IfchangeServer::read_ioattr(Tango::Attribute &attr) {
     DEBUG_STREAM << "IfchangeServer::read_ioattr(Tango::Attribute &attr) entering... " << endl;
     Tango::DevDouble *att_value = get_ioattr_data_ptr(attr.get_name());
     /*----- PROTECTED REGION ID(IfchangeServer::read_ioattr) ENABLED START -----*/
@@ -234,8 +224,7 @@ void IfchangeServer::read_ioattr(Tango::Attribute &attr)
  *                for specified device.
  */
 //--------------------------------------------------------
-void IfchangeServer::add_dynamic_attributes()
-{
+void IfchangeServer::add_dynamic_attributes() {
     //	Example to add dynamic attribute:
     //	Copy inside the following protected area to create instance(s) at startup.
     //	add_ioattr_dynamic_attribute("MyioattrAttribute");
@@ -253,8 +242,7 @@ void IfchangeServer::add_dynamic_attributes()
  *
  */
 //--------------------------------------------------------
-void IfchangeServer::add_dynamic()
-{
+void IfchangeServer::add_dynamic() {
     DEBUG_STREAM << "IfchangeServer::Add_dynamic()  - " << device_name << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::add_dynamic) ENABLED START -----*/
 
@@ -272,8 +260,7 @@ void IfchangeServer::add_dynamic()
  *
  */
 //--------------------------------------------------------
-void IfchangeServer::delete__dynamic()
-{
+void IfchangeServer::delete__dynamic() {
     DEBUG_STREAM << "IfchangeServer::Delete_Dynamic()  - " << device_name << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::delete__dynamic) ENABLED START -----*/
 
@@ -291,8 +278,7 @@ void IfchangeServer::delete__dynamic()
  *
  */
 //--------------------------------------------------------
-void IfchangeServer::iocmd(Tango::Command &command)
-{
+void IfchangeServer::iocmd(Tango::Command &command) {
     DEBUG_STREAM << "IfchangeServer::" << command.get_name() << "  - " << device_name << endl;
     /*----- PROTECTED REGION ID(IfchangeServer::iocmd) ENABLED START -----*/
 
@@ -308,8 +294,7 @@ void IfchangeServer::iocmd(Tango::Command &command)
  *                for specified device.
  */
 //--------------------------------------------------------
-void IfchangeServer::add_dynamic_commands()
-{
+void IfchangeServer::add_dynamic_commands() {
     //	Example to add dynamic command:
     //	Copy inside the folowing protected area to instanciate at startup.
     //	add_iocmd_dynamic_command("MyiocmdCommand", true);

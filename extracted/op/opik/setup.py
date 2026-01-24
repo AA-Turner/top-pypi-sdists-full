@@ -17,7 +17,7 @@ if version is None:
 setup(
     author="Comet ML Inc.",
     author_email="mail@comet.com",
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -25,11 +25,11 @@ setup(
         "Natural Language :: English",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     description="Comet tool for logging and evaluating LLM traces",
     long_description=open(
@@ -41,8 +41,14 @@ setup(
         "click",
         "httpx",  # some older version of openai/litellm are broken with httpx>=0.28.0
         "rapidfuzz>=3.0.0,<4.0.0",
-        # Exclude litellm 1.75.0-1.75.5 (broken callbacks system)
-        "litellm!=1.75.0,!=1.75.1,!=1.75.2,!=1.75.3,!=1.75.4,!=1.75.5",
+        # LiteLLM dependency comments:
+        # - Exclude litellm 1.75.0-1.75.5 (broken callbacks system)
+        # - Exclude versions 1.77.2-1.77.4: introduce C++ compiler dependency (madoka), fixed in 1.77.5
+        #   See: https://github.com/BerriAI/litellm/issues/14762
+        # - Exclude versions 1.77.5-1.79.1: remove trace_id/parent_span_id passthrough, fixed in 1.79.2+
+        #   See: https://github.com/BerriAI/litellm/pull/15529
+        # Please keep this list in sync with the one in sdks/opik_optimizer/pyproject.toml
+        "litellm>=1.79.2,!=1.75.0,!=1.75.1,!=1.75.2,!=1.75.3,!=1.75.4,!=1.75.5,!=1.77.3,!=1.77.4,!=1.77.5,!=1.77.7,!=1.78.0,!=1.78.2,!=1.78.3,!=1.78.4,!=1.78.5,!=1.78.6,!=1.78.7,!=1.79.0,!=1.79.1",
         "openai",
         "pydantic-settings>=2.0.0,<3.0.0,!=2.9.0",
         "pydantic>=2.0.0,<3.0.0",
@@ -50,7 +56,6 @@ setup(
         "rich",
         "sentry_sdk>=2.0.0",
         "tenacity",
-        "tokenizers<0.21.0 ; python_version<'3.9.0'",  # no 3.8 support starting from 0.21.0
         "tqdm",
         "uuid6",
         "jinja2",

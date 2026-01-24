@@ -1,34 +1,41 @@
-import threading
-from typing import Any, Optional
+from __future__ import annotations
 
-from crewai.experimental.evaluation.base_evaluator import (
-    AgentEvaluationResult,
-    AggregationStrategy,
-)
-from crewai.agent import Agent
-from crewai.task import Task
-from crewai.experimental.evaluation.evaluation_display import EvaluationDisplayFormatter
+from collections.abc import Sequence
+import threading
+from typing import TYPE_CHECKING, Any
+
+from crewai.agents.agent_builder.base_agent import BaseAgent
+from crewai.events.event_bus import crewai_event_bus
 from crewai.events.types.agent_events import (
-    AgentEvaluationStartedEvent,
     AgentEvaluationCompletedEvent,
     AgentEvaluationFailedEvent,
+    AgentEvaluationStartedEvent,
+    LiteAgentExecutionCompletedEvent,
 )
-from crewai.experimental.evaluation import BaseEvaluator, create_evaluation_callbacks
-from collections.abc import Sequence
-from crewai.events.event_bus import crewai_event_bus
-from crewai.events.utils.console_formatter import ConsoleFormatter
 from crewai.events.types.task_events import TaskCompletedEvent
-from crewai.events.types.agent_events import LiteAgentExecutionCompletedEvent
+from crewai.events.utils.console_formatter import ConsoleFormatter
 from crewai.experimental.evaluation.base_evaluator import (
     AgentAggregatedEvaluationResult,
+    AgentEvaluationResult,
+    AggregationStrategy,
+    BaseEvaluator,
     EvaluationScore,
     MetricCategory,
 )
+from crewai.experimental.evaluation.evaluation_display import EvaluationDisplayFormatter
+from crewai.experimental.evaluation.evaluation_listener import (
+    create_evaluation_callbacks,
+)
+from crewai.task import Task
+
+
+if TYPE_CHECKING:
+    from crewai.agent import Agent
 
 
 class ExecutionState:
-    current_agent_id: Optional[str] = None
-    current_task_id: Optional[str] = None
+    current_agent_id: str | None = None
+    current_task_id: str | None = None
 
     def __init__(self):
         self.traces = {}
@@ -40,28 +47,23 @@ class ExecutionState:
 class AgentEvaluator:
     def __init__(
         self,
-        agents: list[Agent],
+        agents: list[Agent] | list[BaseAgent],
         evaluators: Sequence[BaseEvaluator] | None = None,
     ):
-        self.agents: list[Agent] = agents
+        self.agents: list[Agent] | list[BaseAgent] = agents
         self.evaluators: Sequence[BaseEvaluator] | None = evaluators
 
         self.callback = create_evaluation_callbacks()
         self.console_formatter = ConsoleFormatter()
         self.display_formatter = EvaluationDisplayFormatter()
 
-        self._thread_local: threading.local = threading.local()
+        self._execution_state = ExecutionState()
+        self._state_lock = threading.Lock()
 
         for agent in self.agents:
             self._execution_state.agent_evaluators[str(agent.id)] = self.evaluators
 
         self._subscribe_to_events()
-
-    @property
-    def _execution_state(self) -> ExecutionState:
-        if not hasattr(self._thread_local, "execution_state"):
-            self._thread_local.execution_state = ExecutionState()
-        return self._thread_local.execution_state
 
     def _subscribe_to_events(self) -> None:
         from typing import cast
@@ -75,7 +77,8 @@ class AgentEvaluator:
         )
 
     def _handle_task_completed(self, source: Any, event: TaskCompletedEvent) -> None:
-        assert event.task is not None
+        if event.task is None:
+            raise ValueError("TaskCompletedEvent must have a task")
         agent = event.task.agent
         if (
             agent
@@ -92,15 +95,14 @@ class AgentEvaluator:
             state.current_agent_id = str(agent.id)
             state.current_task_id = str(event.task.id)
 
-            assert (
-                state.current_agent_id is not None and state.current_task_id is not None
-            )
+            if state.current_agent_id is None or state.current_task_id is None:
+                raise ValueError("Agent ID and Task ID must not be None")
             trace = self.callback.get_trace(
                 state.current_agent_id, state.current_task_id
             )
 
             if not trace:
-                return
+                trace = {}
 
             result = self.evaluate(
                 agent=agent,
@@ -110,21 +112,22 @@ class AgentEvaluator:
                 state=state,
             )
 
-            current_iteration = self._execution_state.iteration
-            if current_iteration not in self._execution_state.iterations_results:
-                self._execution_state.iterations_results[current_iteration] = {}
+            with self._state_lock:
+                current_iteration = self._execution_state.iteration
+                if current_iteration not in self._execution_state.iterations_results:
+                    self._execution_state.iterations_results[current_iteration] = {}
 
-            if (
-                agent.role
-                not in self._execution_state.iterations_results[current_iteration]
-            ):
+                if (
+                    agent.role
+                    not in self._execution_state.iterations_results[current_iteration]
+                ):
+                    self._execution_state.iterations_results[current_iteration][
+                        agent.role
+                    ] = []
+
                 self._execution_state.iterations_results[current_iteration][
                     agent.role
-                ] = []
-
-            self._execution_state.iterations_results[current_iteration][
-                agent.role
-            ].append(result)
+                ].append(result)
 
     def _handle_lite_agent_completed(
         self, source: object, event: LiteAgentExecutionCompletedEvent
@@ -146,15 +149,14 @@ class AgentEvaluator:
             if not target_agent:
                 return
 
-            assert (
-                state.current_agent_id is not None and state.current_task_id is not None
-            )
+            if state.current_agent_id is None or state.current_task_id is None:
+                raise ValueError("Agent ID and Task ID must not be None")
             trace = self.callback.get_trace(
                 state.current_agent_id, state.current_task_id
             )
 
             if not trace:
-                return
+                trace = {}
 
             result = self.evaluate(
                 agent=target_agent,
@@ -163,22 +165,23 @@ class AgentEvaluator:
                 state=state,
             )
 
-            current_iteration = self._execution_state.iteration
-            if current_iteration not in self._execution_state.iterations_results:
-                self._execution_state.iterations_results[current_iteration] = {}
+            with self._state_lock:
+                current_iteration = self._execution_state.iteration
+                if current_iteration not in self._execution_state.iterations_results:
+                    self._execution_state.iterations_results[current_iteration] = {}
 
-            agent_role = target_agent.role
-            if (
-                agent_role
-                not in self._execution_state.iterations_results[current_iteration]
-            ):
+                agent_role = target_agent.role
+                if (
+                    agent_role
+                    not in self._execution_state.iterations_results[current_iteration]
+                ):
+                    self._execution_state.iterations_results[current_iteration][
+                        agent_role
+                    ] = []
+
                 self._execution_state.iterations_results[current_iteration][
                     agent_role
-                ] = []
-
-            self._execution_state.iterations_results[current_iteration][
-                agent_role
-            ].append(result)
+                ].append(result)
 
     def set_iteration(self, iteration: int) -> None:
         self._execution_state.iteration = iteration
@@ -244,7 +247,7 @@ class AgentEvaluator:
 
     def evaluate(
         self,
-        agent: Agent,
+        agent: Agent | BaseAgent,
         execution_trace: dict[str, Any],
         final_output: Any,
         state: ExecutionState,
@@ -255,7 +258,8 @@ class AgentEvaluator:
             task_id=state.current_task_id or (str(task.id) if task else "unknown_task"),
         )
 
-        assert self.evaluators is not None
+        if self.evaluators is None:
+            raise ValueError("Evaluators must be initialized")
         task_id = str(task.id) if task else None
         for evaluator in self.evaluators:
             try:
@@ -276,7 +280,7 @@ class AgentEvaluator:
                     metric_category=evaluator.metric_category,
                     score=score,
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: PERF203
                 self.emit_evaluation_failed_event(
                     agent_role=agent.role,
                     agent_id=str(agent.id),
@@ -284,7 +288,7 @@ class AgentEvaluator:
                     error=str(e),
                 )
                 self.console_formatter.print(
-                    f"Error in {evaluator.metric_category.value} evaluator: {str(e)}"
+                    f"Error in {evaluator.metric_category.value} evaluator: {e!s}"
                 )
 
         return result
@@ -337,14 +341,14 @@ class AgentEvaluator:
         )
 
 
-def create_default_evaluator(agents: list[Agent], llm: None = None):
+def create_default_evaluator(agents: list[Agent] | list[BaseAgent], llm: None = None):
     from crewai.experimental.evaluation import (
         GoalAlignmentEvaluator,
-        SemanticQualityEvaluator,
-        ToolSelectionEvaluator,
         ParameterExtractionEvaluator,
-        ToolInvocationEvaluator,
         ReasoningEfficiencyEvaluator,
+        SemanticQualityEvaluator,
+        ToolInvocationEvaluator,
+        ToolSelectionEvaluator,
     )
 
     evaluators = [

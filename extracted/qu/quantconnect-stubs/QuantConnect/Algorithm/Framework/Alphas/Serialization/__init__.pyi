@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 import warnings
 
@@ -18,7 +18,7 @@ class SerializedInsight(System.Object):
 
     @property
     def id(self) -> str:
-        """See Insight.Id"""
+        """See Insight.id"""
         ...
 
     @id.setter
@@ -27,7 +27,7 @@ class SerializedInsight(System.Object):
 
     @property
     def group_id(self) -> str:
-        """See Insight.GroupId"""
+        """See Insight.group_id"""
         ...
 
     @group_id.setter
@@ -36,7 +36,7 @@ class SerializedInsight(System.Object):
 
     @property
     def source_model(self) -> str:
-        """See Insight.SourceModel"""
+        """See Insight.source_model"""
         ...
 
     @source_model.setter
@@ -46,7 +46,7 @@ class SerializedInsight(System.Object):
     @property
     def generated_time(self) -> float:
         """
-        Pass-through for CreatedTime
+        Pass-through for created_time
         
         Deprecated as of 2020-01-23. Please use the `CreatedTime` property instead.
         """
@@ -58,7 +58,7 @@ class SerializedInsight(System.Object):
 
     @property
     def created_time(self) -> float:
-        """See Insight.GeneratedTimeUtc"""
+        """See Insight.generated_time_utc"""
         ...
 
     @created_time.setter
@@ -67,7 +67,7 @@ class SerializedInsight(System.Object):
 
     @property
     def close_time(self) -> float:
-        """See Insight.CloseTimeUtc"""
+        """See Insight.close_time_utc"""
         ...
 
     @close_time.setter
@@ -77,7 +77,7 @@ class SerializedInsight(System.Object):
     @property
     def symbol(self) -> str:
         """
-        See Insight.Symbol
+        See Insight.symbol
         The symbol's security identifier string
         """
         ...
@@ -89,7 +89,7 @@ class SerializedInsight(System.Object):
     @property
     def ticker(self) -> str:
         """
-        See Insight.Symbol
+        See Insight.symbol
         The symbol's ticker at the generated time
         """
         ...
@@ -100,7 +100,7 @@ class SerializedInsight(System.Object):
 
     @property
     def type(self) -> QuantConnect.Algorithm.Framework.Alphas.InsightType:
-        """See Insight.Type"""
+        """See Insight.type"""
         ...
 
     @type.setter
@@ -109,7 +109,7 @@ class SerializedInsight(System.Object):
 
     @property
     def reference_value(self) -> float:
-        """See Insight.ReferenceValue"""
+        """See Insight.reference_value"""
         ...
 
     @reference_value.setter
@@ -118,7 +118,7 @@ class SerializedInsight(System.Object):
 
     @property
     def reference_value_final(self) -> float:
-        """See Insight.ReferenceValueFinal"""
+        """See Insight.reference_value_final"""
         ...
 
     @reference_value_final.setter
@@ -127,7 +127,7 @@ class SerializedInsight(System.Object):
 
     @property
     def direction(self) -> QuantConnect.Algorithm.Framework.Alphas.InsightDirection:
-        """See Insight.Direction"""
+        """See Insight.direction"""
         ...
 
     @direction.setter
@@ -136,7 +136,7 @@ class SerializedInsight(System.Object):
 
     @property
     def period(self) -> float:
-        """See Insight.Period"""
+        """See Insight.period"""
         ...
 
     @period.setter
@@ -145,7 +145,7 @@ class SerializedInsight(System.Object):
 
     @property
     def magnitude(self) -> typing.Optional[float]:
-        """See Insight.Magnitude"""
+        """See Insight.magnitude"""
         ...
 
     @magnitude.setter
@@ -154,7 +154,7 @@ class SerializedInsight(System.Object):
 
     @property
     def confidence(self) -> typing.Optional[float]:
-        """See Insight.Confidence"""
+        """See Insight.confidence"""
         ...
 
     @confidence.setter
@@ -163,7 +163,7 @@ class SerializedInsight(System.Object):
 
     @property
     def weight(self) -> typing.Optional[float]:
-        """See Insight.Weight"""
+        """See Insight.weight"""
         ...
 
     @weight.setter
@@ -172,7 +172,7 @@ class SerializedInsight(System.Object):
 
     @property
     def score_is_final(self) -> bool:
-        """See InsightScore.IsFinalScore"""
+        """See InsightScore.is_final_score"""
         ...
 
     @score_is_final.setter
@@ -181,7 +181,7 @@ class SerializedInsight(System.Object):
 
     @property
     def score_magnitude(self) -> float:
-        """See InsightScore.Magnitude"""
+        """See InsightScore.magnitude"""
         ...
 
     @score_magnitude.setter
@@ -190,7 +190,7 @@ class SerializedInsight(System.Object):
 
     @property
     def score_direction(self) -> float:
-        """See InsightScore.Direction"""
+        """See InsightScore.direction"""
         ...
 
     @score_direction.setter
@@ -199,7 +199,7 @@ class SerializedInsight(System.Object):
 
     @property
     def estimated_value(self) -> float:
-        """See Insight.EstimatedValue"""
+        """See Insight.estimated_value"""
         ...
 
     @estimated_value.setter
@@ -208,7 +208,7 @@ class SerializedInsight(System.Object):
 
     @property
     def tag(self) -> str:
-        """See Insight.Tag"""
+        """See Insight.tag"""
         ...
 
     @tag.setter
@@ -217,7 +217,7 @@ class SerializedInsight(System.Object):
 
     @property
     def old_created_time(self) -> float:
-        """See Insight.GeneratedTimeUtc"""
+        """See Insight.generated_time_utc"""
         ...
 
     @old_created_time.setter
@@ -226,7 +226,7 @@ class SerializedInsight(System.Object):
 
     @property
     def old_close_time(self) -> float:
-        """See Insight.CloseTimeUtc"""
+        """See Insight.close_time_utc"""
         ...
 
     @old_close_time.setter
@@ -256,7 +256,8 @@ class InsightJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnec
         """
         Convert the input value to a value to be serialized
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param value: The input value to be converted before serialization
         :returns: A new instance of TResult that is to be serialized.
@@ -268,7 +269,8 @@ class InsightJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnec
         """
         Converts the input value to be deserialized
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.

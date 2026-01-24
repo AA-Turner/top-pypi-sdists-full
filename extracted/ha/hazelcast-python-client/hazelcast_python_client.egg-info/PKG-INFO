@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hazelcast-python-client
-Version: 5.5.0
+Version: 5.6.0
 Summary: Hazelcast Python Client
 Home-page: https://github.com/hazelcast/hazelcast-python-client
 Author: Hazelcast Inc. Developers
@@ -15,17 +15,25 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE.txt
 Provides-Extra: stats
 Requires-Dist: psutil; extra == "stats"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 Hazelcast Python Client
 =======================
@@ -78,7 +86,7 @@ images <https://hub.docker.com/r/hazelcast/hazelcast/>`__.
 
 .. code:: bash
 
-   docker run -p 5701:5701 hazelcast/hazelcast:5.3.0
+   docker run -p 5701:5701 hazelcast/hazelcast:latest
 
 You can also use our ZIP or TAR
 `distributions <https://hazelcast.com/open-source-projects/downloads/>`__.
@@ -269,7 +277,7 @@ License
 Copyright
 ---------
 
-Copyright (c) 2008-2023, Hazelcast, Inc. All Rights Reserved.
+Copyright (c) 2008-2026, Hazelcast, Inc. All Rights Reserved.
 
 Visit `hazelcast.com <https://hazelcast.com>`__ for more
 information.

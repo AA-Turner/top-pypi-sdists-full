@@ -2,35 +2,39 @@ use std::borrow::Cow;
 
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::types::{IntoPyDict, PyDict};
+use pyo3::{Bound, Py, PyAny, PyErr, PyResult, Python, sync::PyOnceLock, types::PyModule};
 use pyo3::{intern, prelude::*};
-use pyo3::{sync::GILOnceCell, types::PyModule, Bound, Py, PyAny, PyErr, PyResult, Python};
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
+use crate::config::Config;
+use crate::db::stored_datapoint::StoredDatapoint;
 use crate::endpoints::datasets::Datapoint;
-use crate::inference::types::stored_input::StoredInput;
+use crate::inference::types::stored_input::{StoredInput, StoredInputMessageContent};
 use crate::inference::types::{
-    stored_input::StoredInputMessageContent, ContentBlockChatOutput, ResolvedInputMessageContent,
+    ContentBlockChatOutput, ResolvedContentBlock, ResolvedInputMessageContent, Unknown,
 };
+use crate::optimization::UninitializedOptimizerConfig;
 use crate::optimization::dicl::UninitializedDiclOptimizationConfig;
 use crate::optimization::fireworks_sft::UninitializedFireworksSFTConfig;
+use crate::optimization::gcp_vertex_gemini_sft::UninitializedGCPVertexGeminiSFTConfig;
+use crate::optimization::gepa::UninitializedGEPAConfig;
 use crate::optimization::openai_rft::UninitializedOpenAIRFTConfig;
 use crate::optimization::openai_sft::UninitializedOpenAISFTConfig;
 use crate::optimization::together_sft::UninitializedTogetherSFTConfig;
-use crate::optimization::UninitializedOptimizerConfig;
 use crate::stored_inference::{
-    RenderedSample, SimpleStoredSampleInfo, StoredInference, StoredSample,
+    RenderedSample, SimpleStoredSampleInfo, StoredInference, StoredInferenceDatabase, StoredSample,
 };
 use pyo3::types::PyNone;
 
-use super::ContentBlock;
+pub mod tensorzero_error {
+    pyo3::import_exception!(tensorzero.types, TensorZeroError);
+    pyo3::import_exception!(tensorzero.types, TensorZeroInternalError);
+}
 
-pub static JSON_LOADS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-pub static JSON_DUMPS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-pub static UUID_UUID: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-static TENSORZERO_INTERNAL_ERROR: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-static TENSORZERO_ERROR: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+pub static JSON_LOADS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+pub static JSON_DUMPS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+pub static UUID_UUID: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 pub fn uuid_to_python(py: Python<'_>, uuid: Uuid) -> PyResult<Bound<'_, PyAny>> {
     let uuid_class = UUID_UUID.get_or_try_init::<_, PyErr>(py, || {
@@ -47,7 +51,7 @@ fn import_template_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
     // We may want to consider not doing this so that we don't have these tied together in our interface.
     // However, they are currently nearly identical so this would be duplicated code for now and
     // not intutitive for users
-    static TEMPLATE_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static TEMPLATE_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     TEMPLATE_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("Template")?.unbind())
@@ -59,7 +63,7 @@ fn import_text_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
     // We may want to consider not doing this so that we don't have these tied together in our interface.
     // However, they are currently nearly identical so this would be duplicated code for now and
     // not intutitive for users
-    static TEXT_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static TEXT_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     TEXT_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("Text")?.unbind())
@@ -67,7 +71,7 @@ fn import_text_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 }
 
 fn import_raw_text_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    static RAW_TEXT_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static RAW_TEXT_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     RAW_TEXT_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("RawText")?.unbind())
@@ -75,7 +79,7 @@ fn import_raw_text_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 }
 
 fn import_file_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    static FILE_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static FILE_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     FILE_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("FileBase64")?.unbind())
@@ -83,7 +87,7 @@ fn import_file_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 }
 
 fn import_tool_call_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    static TOOL_CALL_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static TOOL_CALL_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     TOOL_CALL_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("ToolCall")?.unbind())
@@ -91,7 +95,7 @@ fn import_tool_call_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 }
 
 fn import_thought_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    static THOUGHT_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static THOUGHT_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     THOUGHT_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("Thought")?.unbind())
@@ -99,7 +103,7 @@ fn import_thought_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 }
 
 fn import_tool_result_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    static TOOL_RESULT_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static TOOL_RESULT_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     TOOL_RESULT_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("ToolResult")?.unbind())
@@ -107,30 +111,30 @@ fn import_tool_result_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 }
 
 fn import_unknown_content_block(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    static UNKNOWN_CONTENT_BLOCK: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static UNKNOWN_CONTENT_BLOCK: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     UNKNOWN_CONTENT_BLOCK.get_or_try_init::<_, PyErr>(py, || {
         let self_module = PyModule::import(py, "tensorzero.types")?;
         Ok(self_module.getattr("UnknownContentBlock")?.unbind())
     })
 }
 
-pub fn content_block_to_python(
+pub fn resolved_content_block_to_python(
     py: Python<'_>,
-    content_block: &ContentBlock,
+    content_block: &ResolvedContentBlock,
 ) -> PyResult<Py<PyAny>> {
     match content_block {
-        ContentBlock::Text(text) => {
+        ResolvedContentBlock::Text(text) => {
             let text_content_block = import_text_content_block(py)?;
             text_content_block.call1(py, (text.text.clone(),))
         }
-        ContentBlock::File(file) => {
+        ResolvedContentBlock::File(resolved) => {
             let file_content_block = import_file_content_block(py)?;
             file_content_block.call1(
                 py,
-                (file.file.data.clone(), file.file.mime_type.to_string()),
+                (resolved.data.clone(), resolved.file.mime_type.to_string()),
             )
         }
-        ContentBlock::ToolCall(tool_call) => {
+        ResolvedContentBlock::ToolCall(tool_call) => {
             let tool_call_content_block = import_tool_call_content_block(py)?;
             tool_call_content_block.call1(
                 py,
@@ -143,11 +147,11 @@ pub fn content_block_to_python(
                 ),
             )
         }
-        ContentBlock::Thought(thought) => {
+        ResolvedContentBlock::Thought(thought) => {
             let thought_content_block = import_thought_content_block(py)?;
             thought_content_block.call1(py, (thought.text.clone(),))
         }
-        ContentBlock::ToolResult(tool_result) => {
+        ResolvedContentBlock::ToolResult(tool_result) => {
             let tool_result_content_block = import_tool_result_content_block(py)?;
             tool_result_content_block.call1(
                 py,
@@ -158,13 +162,14 @@ pub fn content_block_to_python(
                 ),
             )
         }
-        ContentBlock::Unknown {
+        ResolvedContentBlock::Unknown(Unknown {
             data,
-            model_provider_name,
-        } => {
+            model_name,
+            provider_name,
+        }) => {
             let unknown_content_block = import_unknown_content_block(py)?;
             let serialized_data = serialize_to_dict(py, data)?;
-            unknown_content_block.call1(py, (serialized_data, model_provider_name))
+            unknown_content_block.call1(py, (serialized_data, model_name, provider_name))
         }
     }
 }
@@ -195,13 +200,14 @@ pub fn content_block_chat_output_to_python(
             let thought_content_block = import_thought_content_block(py)?;
             thought_content_block.call1(py, (thought.text,))
         }
-        ContentBlockChatOutput::Unknown {
+        ContentBlockChatOutput::Unknown(Unknown {
             data,
-            model_provider_name,
-        } => {
+            model_name,
+            provider_name,
+        }) => {
             let unknown_content_block = import_unknown_content_block(py)?;
             let serialized_data = serialize_to_dict(py, data)?;
-            unknown_content_block.call1(py, (serialized_data, model_provider_name))
+            unknown_content_block.call1(py, (serialized_data, model_name, provider_name))
         }
     }
 }
@@ -211,19 +217,10 @@ pub fn stored_input_message_content_to_python(
     content: StoredInputMessageContent,
 ) -> PyResult<Py<PyAny>> {
     match content {
-        StoredInputMessageContent::Text { value } => {
+        StoredInputMessageContent::Text(text) => {
             let text_content_block = import_text_content_block(py)?;
-            match value {
-                Value::String(s) => {
-                    let kwargs = [(intern!(py, "text"), s)].into_py_dict(py)?;
-                    text_content_block.call(py, (), Some(&kwargs))
-                }
-                _ => {
-                    let value = serialize_to_dict(py, value)?;
-                    let kwargs = [(intern!(py, "arguments"), value)].into_py_dict(py)?;
-                    text_content_block.call(py, (), Some(&kwargs))
-                }
-            }
+            let kwargs = [(intern!(py, "text"), text.text)].into_py_dict(py)?;
+            text_content_block.call(py, (), Some(&kwargs))
         }
         StoredInputMessageContent::Template(template) => {
             let template_content_block = import_template_content_block(py)?;
@@ -261,21 +258,21 @@ pub fn stored_input_message_content_to_python(
             let thought_content_block = import_thought_content_block(py)?;
             thought_content_block.call1(py, (thought.text,))
         }
-        StoredInputMessageContent::RawText { value } => {
+        StoredInputMessageContent::RawText(raw_text) => {
             let raw_text_content_block = import_raw_text_content_block(py)?;
-            raw_text_content_block.call1(py, (value,))
+            raw_text_content_block.call1(py, (raw_text.value,))
         }
         StoredInputMessageContent::File(file) => {
             let file_content_block = import_file_content_block(py)?;
-            file_content_block.call1(py, (PyNone::get(py), file.file.mime_type.to_string()))
+            file_content_block.call1(py, (PyNone::get(py), file.mime_type.to_string()))
         }
-        StoredInputMessageContent::Unknown {
-            data,
-            model_provider_name,
-        } => {
+        StoredInputMessageContent::Unknown(unknown) => {
             let unknown_content_block = import_unknown_content_block(py)?;
-            let serialized_data = serialize_to_dict(py, data)?;
-            unknown_content_block.call1(py, (serialized_data, model_provider_name))
+            let serialized_data = serialize_to_dict(py, &unknown.data)?;
+            unknown_content_block.call1(
+                py,
+                (serialized_data, &unknown.model_name, &unknown.provider_name),
+            )
         }
     }
 }
@@ -285,9 +282,9 @@ pub fn resolved_input_message_content_to_python(
     content: ResolvedInputMessageContent,
 ) -> PyResult<Py<PyAny>> {
     match content {
-        ResolvedInputMessageContent::Text { text } => {
+        ResolvedInputMessageContent::Text(text) => {
             let text_content_block = import_text_content_block(py)?;
-            let kwargs = [(intern!(py, "text"), text)].into_py_dict(py)?;
+            let kwargs = [(intern!(py, "text"), text.text)].into_py_dict(py)?;
             text_content_block.call(py, (), Some(&kwargs))
         }
         ResolvedInputMessageContent::Template(template) => {
@@ -326,24 +323,24 @@ pub fn resolved_input_message_content_to_python(
             let thought_content_block = import_thought_content_block(py)?;
             thought_content_block.call1(py, (thought.text,))
         }
-        ResolvedInputMessageContent::RawText { value } => {
+        ResolvedInputMessageContent::RawText(raw_text) => {
             let raw_text_content_block = import_raw_text_content_block(py)?;
-            raw_text_content_block.call1(py, (value,))
+            raw_text_content_block.call1(py, (raw_text.value,))
         }
-        ResolvedInputMessageContent::File(file) => {
+        ResolvedInputMessageContent::File(resolved) => {
             let file_content_block = import_file_content_block(py)?;
             file_content_block.call1(
                 py,
-                (file.file.data.clone(), file.file.mime_type.to_string()),
+                (resolved.data.clone(), resolved.file.mime_type.to_string()),
             )
         }
-        ResolvedInputMessageContent::Unknown {
-            data,
-            model_provider_name,
-        } => {
+        ResolvedInputMessageContent::Unknown(unknown) => {
             let unknown_content_block = import_unknown_content_block(py)?;
-            let serialized_data = serialize_to_dict(py, data)?;
-            unknown_content_block.call1(py, (serialized_data, model_provider_name))
+            let serialized_data = serialize_to_dict(py, &unknown.data)?;
+            unknown_content_block.call1(
+                py,
+                (serialized_data, &unknown.model_name, &unknown.provider_name),
+            )
         }
     }
 }
@@ -372,17 +369,80 @@ pub fn serialize_to_dict<T: serde::ser::Serialize>(py: Python<'_>, val: T) -> Py
 /// If it is, we return it directly.
 /// If it is not, we assume it is a Python object that matches the serialization pattern of the
 /// `StoredSample` type and deserialize it (and throw an error if it doesn't match).
+///
+/// NOTE(shuyangli): This doesn't store or fetch any files for the time being. We'll need to rearchitect the optimization
+/// pipeline to support proper file handling.
 pub fn deserialize_from_stored_sample<'a>(
     py: Python<'a>,
     obj: &Bound<'a, PyAny>,
+    config: &Config,
 ) -> PyResult<StoredSampleItem> {
-    if obj.is_instance_of::<StoredInference>() {
-        Ok(StoredSampleItem::StoredInference(obj.extract()?))
-    } else if obj.is_instance_of::<Datapoint>() {
-        Ok(StoredSampleItem::Datapoint(obj.extract()?))
-    } else {
-        deserialize_from_pyobj(py, obj)
+    // Try deserializing into named types first
+    let generated_types_module = py.import("tensorzero.generated_types")?;
+    let stored_inference_type = generated_types_module.getattr("StoredInference")?;
+    // TODO: add the config hash to the StoredSample type
+
+    if obj.is_instance(&stored_inference_type)? {
+        let wire = deserialize_from_pyobj::<StoredInference>(py, obj)?;
+        let storage = match wire.to_storage(config) {
+            Ok(s) => s,
+            Err(e) => {
+                return Err(tensorzero_error::TensorZeroInternalError::new_err(
+                    e.to_string(),
+                ));
+            }
+        };
+        return Ok(StoredSampleItem::StoredInference(storage));
     }
+
+    if obj.is_instance_of::<Datapoint>() {
+        // Extract wire type and convert to storage type
+        let wire: Datapoint = obj.extract()?;
+        return match wire {
+            Datapoint::Chat(chat_wire) => {
+                let function_config = match config.get_function(&chat_wire.function_name) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        return Err(tensorzero_error::TensorZeroInternalError::new_err(
+                            e.to_string(),
+                        ));
+                    }
+                };
+                let datapoint = match chat_wire.into_storage_without_file_handling(
+                    &function_config,
+                    &config.tools,
+                    &config.hash,
+                ) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return Err(tensorzero_error::TensorZeroInternalError::new_err(
+                            e.to_string(),
+                        ));
+                    }
+                };
+                Ok(StoredSampleItem::Datapoint(StoredDatapoint::Chat(
+                    datapoint,
+                )))
+            }
+            Datapoint::Json(json_wire) => {
+                let datapoint =
+                    match json_wire.into_storage_without_file_handling(config.hash.clone()) {
+                        Ok(d) => d,
+                        Err(e) => {
+                            return Err(tensorzero_error::TensorZeroInternalError::new_err(
+                                e.to_string(),
+                            ));
+                        }
+                    };
+                Ok(StoredSampleItem::Datapoint(StoredDatapoint::Json(
+                    datapoint,
+                )))
+            }
+        };
+    }
+
+    // Fall back to generic deserialization
+    deserialize_from_pyobj(py, obj)
 }
 
 /// In the `experimental_launch_optimization` function, we need to be able to accept
@@ -405,7 +465,9 @@ pub fn deserialize_optimization_config(
     if obj.is_instance_of::<UninitializedOpenAISFTConfig>() {
         Ok(UninitializedOptimizerConfig::OpenAISFT(obj.extract()?))
     } else if obj.is_instance_of::<UninitializedOpenAIRFTConfig>() {
-        Ok(UninitializedOptimizerConfig::OpenAIRFT(obj.extract()?))
+        Ok(UninitializedOptimizerConfig::OpenAIRFT(Box::new(
+            obj.extract()?,
+        )))
     } else if obj.is_instance_of::<UninitializedFireworksSFTConfig>() {
         Ok(UninitializedOptimizerConfig::FireworksSFT(obj.extract()?))
     } else if obj.is_instance_of::<UninitializedTogetherSFTConfig>() {
@@ -414,17 +476,26 @@ pub fn deserialize_optimization_config(
         )))
     } else if obj.is_instance_of::<UninitializedDiclOptimizationConfig>() {
         Ok(UninitializedOptimizerConfig::Dicl(obj.extract()?))
-    } else {
-        Err(PyValueError::new_err(
-            "Invalid optimization config. Expected OpenAISFTConfig, OpenAIRFTConfig, FireworksSFTConfig, TogetherSFTConfig, or DiclOptimizationConfig",
+    } else if obj.is_instance_of::<UninitializedGCPVertexGeminiSFTConfig>() {
+        Ok(UninitializedOptimizerConfig::GCPVertexGeminiSFT(
+            obj.extract()?,
         ))
+    } else if obj.is_instance_of::<UninitializedGEPAConfig>() {
+        Ok(UninitializedOptimizerConfig::GEPA(obj.extract()?))
+    } else {
+        // Fall back to deserializing from a dictionary
+        deserialize_from_pyobj(obj.py(), obj).map_err(|e| {
+            PyValueError::new_err(format!(
+                "Invalid optimization config. Expected one of: OpenAISFTConfig, OpenAIRFTConfig, FireworksSFTConfig, TogetherSFTConfig, GCPVertexGeminiSFTConfig, DICLOptimizationConfig, or GEPAConfig (as either a class instance or a dictionary with 'type' field). Error: {e}"
+            ))
+        })
     }
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub enum StoredSampleItem {
-    StoredInference(StoredInference),
-    Datapoint(Datapoint),
+    StoredInference(StoredInferenceDatabase),
+    Datapoint(StoredDatapoint),
 }
 
 impl StoredSample for StoredSampleItem {
@@ -464,8 +535,9 @@ impl StoredSample for StoredSampleItem {
     }
 }
 
-/// Converts a Python dictionary/list to json with `json.dumps`,
-/// then deserializes to a Rust type via serde
+/// Converts a Python dataclass / dictionary / list to json with `json.dumps`,
+/// then deserializes to a Rust type via serde. This handles OMIT values correctly by calling a custom
+/// `TensorZeroTypeEncoder` class from Python.
 pub fn deserialize_from_pyobj<'a, T: serde::de::DeserializeOwned>(
     py: Python<'a>,
     obj: &Bound<'a, PyAny>,
@@ -488,35 +560,10 @@ pub fn deserialize_from_pyobj<'a, T: serde::de::DeserializeOwned>(
     let val: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);
     match val {
         Ok(val) => Ok(val),
-        Err(e) => Err(tensorzero_core_error(
-            py,
-            &format!(
-                "Failed to deserialize JSON to {}: {}",
-                std::any::type_name::<T>(),
-                e
-            ),
-        )?),
+        Err(e) => Err(tensorzero_error::TensorZeroInternalError::new_err(format!(
+            "Failed to deserialize JSON to {}: {}",
+            std::any::type_name::<T>(),
+            e
+        ))),
     }
-}
-
-pub fn tensorzero_error_class(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    TENSORZERO_ERROR.get_or_try_init::<_, PyErr>(py, || {
-        let self_module = PyModule::import(py, "tensorzero.types")?;
-        let err: Bound<'_, PyAny> = self_module.getattr("TensorZeroError")?;
-        Ok(err.unbind())
-    })
-}
-
-pub fn tensorzero_core_error_class(py: Python<'_>) -> PyResult<&Py<PyAny>> {
-    TENSORZERO_INTERNAL_ERROR.get_or_try_init::<_, PyErr>(py, || {
-        let self_module = PyModule::import(py, "tensorzero.types")?;
-        let err: Bound<'_, PyAny> = self_module.getattr("TensorZeroInternalError")?;
-        Ok(err.unbind())
-    })
-}
-
-pub fn tensorzero_core_error(py: Python<'_>, msg: &str) -> PyResult<PyErr> {
-    Ok(PyErr::from_value(
-        tensorzero_core_error_class(py)?.bind(py).call1((msg,))?,
-    ))
 }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Optional
+from typing import Any, Optional
 
 import pydantic.v1 as pydantic
 
@@ -45,7 +45,7 @@ class Source(Box, AbstractSource, ABC):
         return Box(center=self.center, size=self.size)
 
     @cached_property
-    def _injection_axis(self):
+    def _injection_axis(self) -> None:
         """Injection axis of the source."""
         return
 
@@ -65,7 +65,7 @@ class Source(Box, AbstractSource, ABC):
     @pydantic.validator("source_time", always=True)
     def _freqs_lower_bound(cls, val):
         """Raise validation error if central frequency is too low."""
-        _assert_min_freq(val.freq0, msg_start="'source_time.freq0'")
+        _assert_min_freq(val._freq0_sigma_centroid, msg_start="'source_time.freq0'")
         return val
 
     def plot(
@@ -74,7 +74,7 @@ class Source(Box, AbstractSource, ABC):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot this source."""
 

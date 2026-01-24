@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing_extensions import Annotated
 
 
@@ -51,9 +51,10 @@ class EmbedRequest(BaseModel):
 
     __properties = ["model", "text", "provisioned_throughput_id"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -78,7 +79,7 @@ class EmbedRequest(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if provisioned_throughput_id (nullable) is None
         if self.provisioned_throughput_id is None:
@@ -97,9 +98,9 @@ class EmbedRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return EmbedRequest.parse_obj(obj)
+            return EmbedRequest.model_validate(obj)
 
-        _obj = EmbedRequest.parse_obj(
+        _obj = EmbedRequest.model_validate(
             {
                 "model": obj.get("model"),
                 "text": obj.get("text"),

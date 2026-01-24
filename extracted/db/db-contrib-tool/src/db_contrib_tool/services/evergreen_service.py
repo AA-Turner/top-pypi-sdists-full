@@ -6,13 +6,17 @@ from functools import cache, lru_cache
 from typing import Dict, Iterator, List, NamedTuple, Optional
 
 import inject
+import re
 import structlog
-from evergreen import EvergreenApi, Task, Version
+from evergreen import EvergreenApi, Task, Version, Project
 from requests.exceptions import HTTPError
 
 from db_contrib_tool.config import SetupReproEnvConfig, Tasks
 
 MONGO_PROJECT_PREFIX = "mongodb-mongo-"
+NON_VERSION_PROJECTS = {"mongodb-mongo-master", "mongodb-mongo-master-nightly"}
+ANY_VERSION_PROJECT_RE = re.compile(r"mongodb-mongo-v(\d+\.\d+)")
+RELEASE_VERSION_PROJECT_RE = re.compile(r"mongodb-mongo-v(\d+\.\d+)$")
 
 LOGGER = structlog.get_logger(__name__)
 
@@ -191,18 +195,29 @@ class EvergreenService:
             raise err
 
     @cache
-    def get_mongo_projects(self) -> List[str]:
+    def get_mongo_projects_prioritized(self) -> List[str]:
         """
-        Return the list of mongodb/mongo evergreen project identifiers.
+        Return the list of mongodb/mongo evergreen project identifiers,
+        sorted by the priority they should be searched in for a specific
+        commit.
 
         :return: List of project identifiers.
         """
-        evg_projects = [
+
+        def priority(proj: Project) -> int:
+            if proj.identifier in NON_VERSION_PROJECTS:
+                return 0
+            elif RELEASE_VERSION_PROJECT_RE.match(proj.identifier):
+                return 1
+            else:
+                return 2
+
+        mongo_projects = [
             proj
             for proj in self.evg_api.all_projects()
             if proj.enabled and MONGO_PROJECT_PREFIX in proj.identifier
         ]
-        return [proj.identifier for proj in evg_projects]
+        return [proj.identifier for proj in sorted(mongo_projects, key=priority)]
 
     def get_evergreen_version(
         self, evergreen_projects: List[str], evg_ref: str

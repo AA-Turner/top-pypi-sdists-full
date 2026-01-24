@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = """
 module: acme_certificate_order_finalize
 author: Felix Fontein (@felixfontein)
@@ -15,9 +14,8 @@ description:
   - Finalizes an ACME v2 order and obtains the certificate and certificate chains.
     This is the final step of obtaining a new certificate with the
     L(ACME protocol,https://tools.ietf.org/html/rfc8555) from a Certificate
-    Authority such as L(Let's Encrypt,https://letsencrypt.org/) or
-    L(Buypass,https://www.buypass.com/). This module does not support ACME v1, the
-    original version of the ACME protocol before standardization.
+    Authority such as L(Let's Encrypt,https://letsencrypt.org/).
+    This module does not support ACME v1, the original version of the ACME protocol before standardization.
   - This module needs to be used in conjunction with the
     M(community.crypto.acme_certificate_order_create) and.
     M(community.crypto.acme_certificate_order_validate) modules.
@@ -32,10 +30,6 @@ seealso:
     description: Documentation for the Let's Encrypt Certification Authority.
                  Provides useful information for example on rate limits.
     link: https://letsencrypt.org/docs/
-  - name: Buypass Go SSL
-    description: Documentation for the Buypass Certification Authority.
-                 Provides useful information for example on rate limits.
-    link: https://www.buypass.com/ssl/products/acme
   - name: Automatic Certificate Management Environment (ACME)
     description: The specification of the ACME protocol (RFC 8555).
     link: https://tools.ietf.org/html/rfc8555
@@ -330,7 +324,6 @@ from ansible_collections.community.crypto.plugins.module_utils._acme.errors impo
     ModuleFailException,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._acme.certificates import (  # pragma: no cover
         CertificateChain,
@@ -440,9 +433,8 @@ def main() -> t.NoReturn:
                 module.params["deactivate_authzs"] == "always"
                 or (module.params["deactivate_authzs"] == "on_success" and done)
                 or (module.params["deactivate_authzs"] == "on_error" and not done)
-            ):
-                if order:
-                    client.deactivate_authzs(order)
+            ) and order:
+                client.deactivate_authzs(order)
         module.exit_json(
             changed=changed,
             account_uri=client.client.account_uri,

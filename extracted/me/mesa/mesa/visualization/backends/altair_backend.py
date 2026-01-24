@@ -107,9 +107,13 @@ class AltairBackend(AbstractRenderer):
 
             if isinstance(portray_input, dict):
                 warnings.warn(
-                    "Returning a dict from agent_portrayal is deprecated. "
-                    "Please return an AgentPortrayalStyle instance instead.",
-                    PendingDeprecationWarning,
+                    (
+                        "Returning a dict from agent_portrayal is deprecated. "
+                        "Please return an AgentPortrayalStyle instance instead. "
+                        "For more information, refer to the migration guide: "
+                        "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
+                    ),
+                    FutureWarning,
                     stacklevel=2,
                 )
                 dict_data = portray_input.copy()
@@ -272,7 +276,7 @@ class AltairBackend(AbstractRenderer):
         vmin = kwargs.pop("vmin", None)
         vmax = kwargs.pop("vmax", None)
 
-        color_is_numeric = np.issubdtype(df["original_color"].dtype, np.number)
+        color_is_numeric = pd.api.types.is_numeric_dtype(df["original_color"])
         if color_is_numeric:
             color_min = vmin if vmin is not None else df["original_color"].min()
             color_max = vmax if vmax is not None else df["original_color"].max()
@@ -388,7 +392,7 @@ class AltairBackend(AbstractRenderer):
             df = pd.DataFrame(
                 {
                     "x": np.repeat(np.arange(data.shape[0]), data.shape[1]),
-                    "y": np.tile(np.arange(data.shape[1]), data.shape[0]),
+                    "y": np.tile(np.arange(data.shape[1] - 1, -1, -1), data.shape[0]),
                     "value": data.flatten(),
                 }
             )

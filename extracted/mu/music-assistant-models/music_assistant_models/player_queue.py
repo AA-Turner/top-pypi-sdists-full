@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Self
+from typing import Any
 
 from mashumaro import DataClassDictMixin, field_options, pass_through
 
 from .enums import PlaybackState, RepeatMode
-from .media_items import MediaItemType, media_from_dict
+from .media_items import MediaItemType
 from .queue_item import QueueItem
 
 
@@ -84,11 +84,19 @@ class PlayerQueue(DataClassDictMixin):
         metadata=field_options(serialize="omit", deserialize=pass_through),
         repr=False,
     )
+    userid: str | None = field(
+        default=None,
+        compare=False,
+        metadata=field_options(serialize="omit", deserialize=pass_through),
+        repr=False,
+    )
 
     @property
     def corrected_elapsed_time(self) -> float:
         """Return the corrected/realtime elapsed time."""
-        return self.elapsed_time + (time.time() - self.elapsed_time_last_updated)
+        if self.state == PlaybackState.PLAYING:
+            return self.elapsed_time + (time.time() - self.elapsed_time_last_updated)
+        return self.elapsed_time
 
     def to_cache(self) -> dict[str, Any]:
         """Return the dict that is suitable for storing into the cache db."""
@@ -100,11 +108,5 @@ class PlayerQueue(DataClassDictMixin):
         # enqueued_media_items needs to survive a restart
         # otherwise 'dont stop the music' will not work
         d["enqueued_media_items"] = [x.to_dict() for x in self.enqueued_media_items]
+        d["userid"] = self.userid
         return d
-
-    @classmethod
-    def from_cache(cls, d: dict[Any, Any]) -> Self:
-        """Restore a PlayerQueue from a cache dict."""
-        if "enqueued_media_items" in d:
-            d["enqueued_media_items"] = [media_from_dict(x) for x in d["enqueued_media_items"]]
-        return cls.from_dict(d)

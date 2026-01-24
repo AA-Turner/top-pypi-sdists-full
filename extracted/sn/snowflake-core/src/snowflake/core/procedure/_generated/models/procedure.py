@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.procedure._generated.models.argument import Argument, ArgumentModel
@@ -42,30 +42,30 @@ class Procedure(BaseModel):
 
     language_config : FunctionLanguage
 
-    body : str
-        Function/procedure definition
     execute_as : str, optional
         What permissions should the procedure execution be called with
     is_secure : bool, optional
         Specifies whether the function/procedure is secure or not
     comment : str, optional
         Specifies a comment for the function/procedure
+    body : str, optional
+        Function/procedure definition
     created_on : datetime, optional
-        The date and time when the function/procedure was created
+        The date and time when the function/procedure was created — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        The name of the schema in which the function/procedure exists.
+        The name of the schema in which the function/procedure exists — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        The name of the database in which the function/procedure exists.
+        The name of the database in which the function/procedure exists — **Read-only:** *any user-provided value will be ignored.*
     min_num_arguments : int, optional
-        The minimum number of arguments
+        The minimum number of arguments — **Read-only:** *any user-provided value will be ignored.*
     max_num_arguments : int, optional
-        The maximum number of arguments
+        The maximum number of arguments — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the function/procedure
+        Role that owns the function/procedure — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the function/procedure
+        The type of role that owns the function/procedure — **Read-only:** *any user-provided value will be ignored.*
     is_builtin : bool, optional
-        If the function/procedure is built-in or not (user-defined)
+        If the function/procedure is built-in or not (user-defined) — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -82,7 +82,7 @@ class Procedure(BaseModel):
 
     comment: Optional[StrictStr] = None
 
-    body: StrictStr
+    body: Optional[StrictStr] = None
 
     created_on: Optional[datetime] = None
 
@@ -149,9 +149,10 @@ class Procedure(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -187,7 +188,7 @@ class Procedure(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in arguments (list)
         _items = []
@@ -218,9 +219,9 @@ class Procedure(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Procedure.parse_obj(obj)
+            return Procedure.model_validate(obj)
 
-        _obj = Procedure.parse_obj(
+        _obj = Procedure.model_validate(
             {
                 "name": obj.get("name"),
                 "execute_as": obj.get("execute_as"),
@@ -257,11 +258,11 @@ class ProcedureModel:
         arguments: list[Argument],
         return_type: ReturnType,
         language_config: FunctionLanguage,
-        body: str,
         # optional properties
         execute_as: Optional[str] = None,
         is_secure: Optional[bool] = None,
         comment: Optional[str] = None,
+        body: Optional[str] = None,
         created_on: Optional[datetime] = None,
         schema_name: Optional[str] = None,
         database_name: Optional[str] = None,
@@ -285,14 +286,14 @@ class ProcedureModel:
 
         language_config : FunctionLanguage
 
-        body : str
-            Function/procedure definition
         execute_as : str, optional
             What permissions should the procedure execution be called with
         is_secure : bool, optional
             Specifies whether the function/procedure is secure or not
         comment : str, optional
             Specifies a comment for the function/procedure
+        body : str, optional
+            Function/procedure definition
         created_on : datetime, optional
             The date and time when the function/procedure was created
         schema_name : str, optional

@@ -4,6 +4,8 @@ import os
 import sys
 import click
 
+from adam.utils import log_exc
+
 class Log:
     DEBUG = False
 
@@ -28,7 +30,7 @@ class Log:
             print(file=sys.stderr)
 
     def log_to_file(config: dict[any, any]):
-        try:
+        with log_exc():
             base = f"/tmp/logs"
             os.makedirs(base, exist_ok=True)
 
@@ -43,5 +45,3 @@ class Log:
                         f.write(config)
                 else:
                         f.write(config)
-        except:
-            pass

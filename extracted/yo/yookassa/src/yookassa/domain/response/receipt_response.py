@@ -44,11 +44,17 @@ class ReceiptResponse(ResponseObject):
     __items = []
     """Список товаров в чеке: для [Чеков от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/basics) — не более 80 товаров, для [сторонних онлайн-касс](/developers/payment-acceptance/receipts/54fz/other-services/basics) — не более 100 товаров. """  # noqa: E501
 
+    __internet = None
+    """Признак проведения платежа в интернете (тег в 54 ФЗ — 1125) — указывает на оплату через интернет.  Возможные значения: * ~`true` — оплата прошла онлайн, через интернет (например, на вашем сайте или в приложении); * ~`false` — оплата прошла офлайн, при личном взаимодействии (например, в торговой точке или при встрече с курьером). По умолчанию ~`true`. Если вы принимаете платежи офлайн, передайте в запросе значение ~`false`. """  # noqa: E501
+
     __settlements = []
     """Перечень совершенных расчетов."""  # noqa: E501
 
     __on_behalf_of = None
     """Идентификатор магазина, от имени которого нужно отправить чек. Выдается ЮKassa."""  # noqa: E501
+
+    __timezone = None
+    """Номер часовой зоны для адреса, по которому вы принимаете платежи (тег в 54 ФЗ — 1011).  Указывается, только если в чеке есть товары, которые подлежат обязательной маркировке (в `items.mark_code_info` передается параметр `gs_1m`, `short` или `fur`). """  # noqa: E501
 
     __tax_system_code = None
     """Система налогообложения магазина (тег в 54 ФЗ — 1055)."""  # noqa: E501
@@ -303,6 +309,26 @@ class ReceiptResponse(ResponseObject):
             self.__items = []
 
     @property
+    def internet(self):
+        """
+        Возвращает internet модели ReceiptResponse.
+
+        :return: internet модели ReceiptResponse.
+        :rtype: bool
+        """
+        return self.__internet
+
+    @internet.setter
+    def internet(self, value):
+        """
+        Устанавливает internet модели ReceiptResponse.
+
+        :param value: internet модели ReceiptResponse.
+        :type value: bool
+        """
+        self.__internet = bool(value)
+
+    @property
     def settlements(self):
         """
         Возвращает settlements модели ReceiptResponse.
@@ -364,6 +390,26 @@ class ReceiptResponse(ResponseObject):
         :type value: int
         """
         self.__tax_system_code = int(value)
+
+    @property
+    def timezone(self):
+        """
+        Возвращает timezone модели ReceiptResponse.
+
+        :return: timezone модели ReceiptResponse.
+        :rtype: int
+        """
+        return self.__timezone
+
+    @timezone.setter
+    def timezone(self, value):
+        """
+        Устанавливает timezone модели ReceiptResponse.
+
+        :param value: timezone модели ReceiptResponse.
+        :type value: int
+        """
+        self.__timezone = int(value)
 
     @property
     def receipt_industry_details(self):

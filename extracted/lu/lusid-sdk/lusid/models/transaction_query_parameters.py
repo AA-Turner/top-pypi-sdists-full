@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, StrictStr, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class TransactionQueryParameters(BaseModel):
     """
@@ -28,11 +30,13 @@ class TransactionQueryParameters(BaseModel):
     start_date:  StrictStr = Field(...,alias="startDate", description="The lower bound effective datetime or cut label (inclusive) from which to build the transactions.") 
     end_date:  StrictStr = Field(...,alias="endDate", description="The upper bound effective datetime or cut label (inclusive) from which to retrieve transactions.") 
     query_mode:  Optional[StrictStr] = Field(None,alias="queryMode", description="The date to compare against the upper and lower bounds for the effective datetime or cut label. Defaults to 'TradeDate' if not specified. The available values are: TradeDate, SettleDate") 
-    show_cancelled_transactions: Optional[StrictBool] = Field(None, alias="showCancelledTransactions", description="Option to specify whether or not to include cancelled transactions in the output. Defaults to False if not specified.")
+    show_cancelled_transactions: Optional[StrictBool] = Field(default=None, description="Option to specify whether or not to include cancelled transactions in the output. Defaults to False if not specified.", alias="showCancelledTransactions")
     timeline_scope:  Optional[StrictStr] = Field(None,alias="timelineScope", description="Scope of the Timeline for the Portfolio. The Timeline to be used while building transactions") 
-    timeline_code:  Optional[StrictStr] = Field(None,alias="timelineCode", description="Code of the Timeline for the Portfolio. The Timeline to be used while building transactions") 
-    include_economics: Optional[StrictBool] = Field(None, alias="includeEconomics", description="By default is false. When set to true the Economics data would be populated in the response.")
-    __properties = ["startDate", "endDate", "queryMode", "showCancelledTransactions", "timelineScope", "timelineCode", "includeEconomics"]
+    timeline_code:  Optional[StrictStr] = Field(None,alias="timelineCode", description="Code of the Timeline for the Portfolio. The Timeline to be used while building transactions. This can optionally include a colon, followed by the Closed Period Id to use at the head of the timeline, for a timeline with unconfirmed periods.") 
+    include_economics: Optional[StrictBool] = Field(default=None, description="By default is false. When set to true the Economics data would be populated in the response.", alias="includeEconomics")
+    include_settlement_status: Optional[StrictBool] = Field(default=None, description="By default is false. When set to true the Settlement Status data would be populated in the response.", alias="includeSettlementStatus")
+    settlement_status_date:  Optional[StrictStr] = Field(None,alias="settlementStatusDate", description="Optional date used to specify end of an extended window for settlement information. When provided, transactions will be returned between start and end date, but settlement information between start date and this date will be included. When provided, the value must be greater than or equal to end date.") 
+    __properties = ["startDate", "endDate", "queryMode", "showCancelledTransactions", "timelineScope", "timelineCode", "includeEconomics", "includeSettlementStatus", "settlementStatusDate"]
 
     @validator('query_mode')
     def query_mode_validate_enum(cls, value):
@@ -82,7 +86,14 @@ class TransactionQueryParameters(BaseModel):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
@@ -92,7 +103,7 @@ class TransactionQueryParameters(BaseModel):
         if value is None:
             return value
 
-        if value not in ('TradeDate', 'SettleDate'):
+        if value not in ['TradeDate', 'SettleDate']:
             raise ValueError("must be one of enum values ('TradeDate', 'SettleDate')")
         return value
 
@@ -138,6 +149,11 @@ class TransactionQueryParameters(BaseModel):
         if self.timeline_code is None and "timeline_code" in self.__fields_set__:
             _dict['timelineCode'] = None
 
+        # set to None if settlement_status_date (nullable) is None
+        # and __fields_set__ contains the field
+        if self.settlement_status_date is None and "settlement_status_date" in self.__fields_set__:
+            _dict['settlementStatusDate'] = None
+
         return _dict
 
     @classmethod
@@ -156,6 +172,10 @@ class TransactionQueryParameters(BaseModel):
             "show_cancelled_transactions": obj.get("showCancelledTransactions"),
             "timeline_scope": obj.get("timelineScope"),
             "timeline_code": obj.get("timelineCode"),
-            "include_economics": obj.get("includeEconomics")
+            "include_economics": obj.get("includeEconomics"),
+            "include_settlement_status": obj.get("includeSettlementStatus"),
+            "settlement_status_date": obj.get("settlementStatusDate")
         })
         return _obj
+
+TransactionQueryParameters.update_forward_refs()

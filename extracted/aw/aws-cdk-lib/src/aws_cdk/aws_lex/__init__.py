@@ -63,1082 +63,24 @@ from .. import (
     CfnTag as _CfnTag_f6864754,
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
+    TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.BotAliasReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bot_alias_arn": "botAliasArn",
-        "bot_alias_id": "botAliasId",
-        "bot_id": "botId",
-    },
+from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+from ..interfaces.aws_lex import (
+    BotAliasReference as _BotAliasReference_eb7b7ff7,
+    BotReference as _BotReference_9f65244d,
+    BotVersionReference as _BotVersionReference_403e9f25,
+    IBotAliasRef as _IBotAliasRef_8ce881f4,
+    IBotRef as _IBotRef_68a57b40,
+    IBotVersionRef as _IBotVersionRef_ba36d768,
+    IResourcePolicyRef as _IResourcePolicyRef_18182ecb,
+    ResourcePolicyReference as _ResourcePolicyReference_5d84a344,
 )
-class BotAliasReference:
-    def __init__(
-        self,
-        *,
-        bot_alias_arn: builtins.str,
-        bot_alias_id: builtins.str,
-        bot_id: builtins.str,
-    ) -> None:
-        '''A reference to a BotAlias resource.
 
-        :param bot_alias_arn: The ARN of the BotAlias resource.
-        :param bot_alias_id: The BotAliasId of the BotAlias resource.
-        :param bot_id: The BotId of the BotAlias resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            bot_alias_reference = lex.BotAliasReference(
-                bot_alias_arn="botAliasArn",
-                bot_alias_id="botAliasId",
-                bot_id="botId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e46b3ec070c4bda3dd8f2ec92005bdecbf87c1679f74077e9457fff51e8c9530)
-            check_type(argname="argument bot_alias_arn", value=bot_alias_arn, expected_type=type_hints["bot_alias_arn"])
-            check_type(argname="argument bot_alias_id", value=bot_alias_id, expected_type=type_hints["bot_alias_id"])
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_alias_arn": bot_alias_arn,
-            "bot_alias_id": bot_alias_id,
-            "bot_id": bot_id,
-        }
-
-    @builtins.property
-    def bot_alias_arn(self) -> builtins.str:
-        '''The ARN of the BotAlias resource.'''
-        result = self._values.get("bot_alias_arn")
-        assert result is not None, "Required property 'bot_alias_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_alias_id(self) -> builtins.str:
-        '''The BotAliasId of the BotAlias resource.'''
-        result = self._values.get("bot_alias_id")
-        assert result is not None, "Required property 'bot_alias_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The BotId of the BotAlias resource.'''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BotAliasReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.BotReference",
-    jsii_struct_bases=[],
-    name_mapping={"bot_arn": "botArn", "bot_id": "botId"},
-)
-class BotReference:
-    def __init__(self, *, bot_arn: builtins.str, bot_id: builtins.str) -> None:
-        '''A reference to a Bot resource.
-
-        :param bot_arn: The ARN of the Bot resource.
-        :param bot_id: The Id of the Bot resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            bot_reference = lex.BotReference(
-                bot_arn="botArn",
-                bot_id="botId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40d89eab07398bad93ca41a190f8f69d6a440215be24527fd403bbbe65631eeb)
-            check_type(argname="argument bot_arn", value=bot_arn, expected_type=type_hints["bot_arn"])
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_arn": bot_arn,
-            "bot_id": bot_id,
-        }
-
-    @builtins.property
-    def bot_arn(self) -> builtins.str:
-        '''The ARN of the Bot resource.'''
-        result = self._values.get("bot_arn")
-        assert result is not None, "Required property 'bot_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The Id of the Bot resource.'''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BotReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.BotVersionReference",
-    jsii_struct_bases=[],
-    name_mapping={"bot_id": "botId", "bot_version": "botVersion"},
-)
-class BotVersionReference:
-    def __init__(self, *, bot_id: builtins.str, bot_version: builtins.str) -> None:
-        '''A reference to a BotVersion resource.
-
-        :param bot_id: The BotId of the BotVersion resource.
-        :param bot_version: The BotVersion of the BotVersion resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            bot_version_reference = lex.BotVersionReference(
-                bot_id="botId",
-                bot_version="botVersion"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e33eafb5f2d52b7c65a0ccaeeb0cc3208f7a81c44eb621c36de7f25cdee4c28)
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-            check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_id": bot_id,
-            "bot_version": bot_version,
-        }
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The BotId of the BotVersion resource.'''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_version(self) -> builtins.str:
-        '''The BotVersion of the BotVersion resource.'''
-        result = self._values.get("bot_version")
-        assert result is not None, "Required property 'bot_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BotVersionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnBotAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bot_alias_name": "botAliasName",
-        "bot_id": "botId",
-        "bot_alias_locale_settings": "botAliasLocaleSettings",
-        "bot_alias_tags": "botAliasTags",
-        "bot_version": "botVersion",
-        "conversation_log_settings": "conversationLogSettings",
-        "description": "description",
-        "sentiment_analysis_settings": "sentimentAnalysisSettings",
-    },
-)
-class CfnBotAliasProps:
-    def __init__(
-        self,
-        *,
-        bot_alias_name: builtins.str,
-        bot_id: builtins.str,
-        bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_version: typing.Optional[builtins.str] = None,
-        conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        sentiment_analysis_settings: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBotAlias``.
-
-        :param bot_alias_name: The name of the bot alias.
-        :param bot_id: The unique identifier of the bot.
-        :param bot_alias_locale_settings: Specifies settings that are unique to a locale. For example, you can use different Lambda function depending on the bot's locale.
-        :param bot_alias_tags: An array of key-value pairs to apply to this resource. You can only add tags when you specify an alias. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param bot_version: The version of the bot that the bot alias references.
-        :param conversation_log_settings: Specifies whether Amazon Lex logs text and audio for conversations with the bot. When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
-        :param description: The description of the bot alias.
-        :param sentiment_analysis_settings: Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            # sentiment_analysis_settings: Any
-            
-            cfn_bot_alias_props = lex.CfnBotAliasProps(
-                bot_alias_name="botAliasName",
-                bot_id="botId",
-            
-                # the properties below are optional
-                bot_alias_locale_settings=[lex.CfnBotAlias.BotAliasLocaleSettingsItemProperty(
-                    bot_alias_locale_setting=lex.CfnBotAlias.BotAliasLocaleSettingsProperty(
-                        enabled=False,
-            
-                        # the properties below are optional
-                        code_hook_specification=lex.CfnBotAlias.CodeHookSpecificationProperty(
-                            lambda_code_hook=lex.CfnBotAlias.LambdaCodeHookProperty(
-                                code_hook_interface_version="codeHookInterfaceVersion",
-                                lambda_arn="lambdaArn"
-                            )
-                        )
-                    ),
-                    locale_id="localeId"
-                )],
-                bot_alias_tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                bot_version="botVersion",
-                conversation_log_settings=lex.CfnBotAlias.ConversationLogSettingsProperty(
-                    audio_log_settings=[lex.CfnBotAlias.AudioLogSettingProperty(
-                        destination=lex.CfnBotAlias.AudioLogDestinationProperty(
-                            s3_bucket=lex.CfnBotAlias.S3BucketLogDestinationProperty(
-                                log_prefix="logPrefix",
-                                s3_bucket_arn="s3BucketArn",
-            
-                                # the properties below are optional
-                                kms_key_arn="kmsKeyArn"
-                            )
-                        ),
-                        enabled=False
-                    )],
-                    text_log_settings=[lex.CfnBotAlias.TextLogSettingProperty(
-                        destination=lex.CfnBotAlias.TextLogDestinationProperty(
-                            cloud_watch=lex.CfnBotAlias.CloudWatchLogGroupLogDestinationProperty(
-                                cloud_watch_log_group_arn="cloudWatchLogGroupArn",
-                                log_prefix="logPrefix"
-                            )
-                        ),
-                        enabled=False
-                    )]
-                ),
-                description="description",
-                sentiment_analysis_settings=sentiment_analysis_settings
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2)
-            check_type(argname="argument bot_alias_name", value=bot_alias_name, expected_type=type_hints["bot_alias_name"])
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-            check_type(argname="argument bot_alias_locale_settings", value=bot_alias_locale_settings, expected_type=type_hints["bot_alias_locale_settings"])
-            check_type(argname="argument bot_alias_tags", value=bot_alias_tags, expected_type=type_hints["bot_alias_tags"])
-            check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
-            check_type(argname="argument conversation_log_settings", value=conversation_log_settings, expected_type=type_hints["conversation_log_settings"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument sentiment_analysis_settings", value=sentiment_analysis_settings, expected_type=type_hints["sentiment_analysis_settings"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_alias_name": bot_alias_name,
-            "bot_id": bot_id,
-        }
-        if bot_alias_locale_settings is not None:
-            self._values["bot_alias_locale_settings"] = bot_alias_locale_settings
-        if bot_alias_tags is not None:
-            self._values["bot_alias_tags"] = bot_alias_tags
-        if bot_version is not None:
-            self._values["bot_version"] = bot_version
-        if conversation_log_settings is not None:
-            self._values["conversation_log_settings"] = conversation_log_settings
-        if description is not None:
-            self._values["description"] = description
-        if sentiment_analysis_settings is not None:
-            self._values["sentiment_analysis_settings"] = sentiment_analysis_settings
-
-    @builtins.property
-    def bot_alias_name(self) -> builtins.str:
-        '''The name of the bot alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliasname
-        '''
-        result = self._values.get("bot_alias_name")
-        assert result is not None, "Required property 'bot_alias_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The unique identifier of the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botid
-        '''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_alias_locale_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]]:
-        '''Specifies settings that are unique to a locale.
-
-        For example, you can use different Lambda function depending on the bot's locale.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliaslocalesettings
-        '''
-        result = self._values.get("bot_alias_locale_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]], result)
-
-    @builtins.property
-    def bot_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        You can only add tags when you specify an alias.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliastags
-        '''
-        result = self._values.get("bot_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    @builtins.property
-    def bot_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the bot that the bot alias references.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botversion
-        '''
-        result = self._values.get("bot_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def conversation_log_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]]:
-        '''Specifies whether Amazon Lex logs text and audio for conversations with the bot.
-
-        When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-conversationlogsettings
-        '''
-        result = self._values.get("conversation_log_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the bot alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sentiment_analysis_settings(self) -> typing.Any:
-        '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-sentimentanalysissettings
-        '''
-        result = self._values.get("sentiment_analysis_settings")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBotAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnBotProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_privacy": "dataPrivacy",
-        "idle_session_ttl_in_seconds": "idleSessionTtlInSeconds",
-        "name": "name",
-        "role_arn": "roleArn",
-        "auto_build_bot_locales": "autoBuildBotLocales",
-        "bot_file_s3_location": "botFileS3Location",
-        "bot_locales": "botLocales",
-        "bot_tags": "botTags",
-        "description": "description",
-        "error_log_settings": "errorLogSettings",
-        "replication": "replication",
-        "test_bot_alias_settings": "testBotAliasSettings",
-        "test_bot_alias_tags": "testBotAliasTags",
-    },
-)
-class CfnBotProps:
-    def __init__(
-        self,
-        *,
-        data_privacy: typing.Any,
-        idle_session_ttl_in_seconds: jsii.Number,
-        name: builtins.str,
-        role_arn: builtins.str,
-        auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BotLocaleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ErrorLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TestBotAliasSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBot``.
-
-        :param data_privacy: By default, data stored by Amazon Lex is encrypted. The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
-        :param idle_session_ttl_in_seconds: The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot. A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout. You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
-        :param name: The name of the bot locale.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
-        :param auto_build_bot_locales: Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
-        :param bot_file_s3_location: The Amazon S3 location of files used to import a bot. The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
-        :param bot_locales: A list of locales for the bot.
-        :param bot_tags: A list of tags to add to the bot. You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
-        :param description: The description of the version.
-        :param error_log_settings: 
-        :param replication: 
-        :param test_bot_alias_settings: Specifies configuration settings for the alias used to test the bot. If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
-        :param test_bot_alias_tags: A list of tags to add to the test alias for a bot. You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83)
-            check_type(argname="argument data_privacy", value=data_privacy, expected_type=type_hints["data_privacy"])
-            check_type(argname="argument idle_session_ttl_in_seconds", value=idle_session_ttl_in_seconds, expected_type=type_hints["idle_session_ttl_in_seconds"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument auto_build_bot_locales", value=auto_build_bot_locales, expected_type=type_hints["auto_build_bot_locales"])
-            check_type(argname="argument bot_file_s3_location", value=bot_file_s3_location, expected_type=type_hints["bot_file_s3_location"])
-            check_type(argname="argument bot_locales", value=bot_locales, expected_type=type_hints["bot_locales"])
-            check_type(argname="argument bot_tags", value=bot_tags, expected_type=type_hints["bot_tags"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument error_log_settings", value=error_log_settings, expected_type=type_hints["error_log_settings"])
-            check_type(argname="argument replication", value=replication, expected_type=type_hints["replication"])
-            check_type(argname="argument test_bot_alias_settings", value=test_bot_alias_settings, expected_type=type_hints["test_bot_alias_settings"])
-            check_type(argname="argument test_bot_alias_tags", value=test_bot_alias_tags, expected_type=type_hints["test_bot_alias_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_privacy": data_privacy,
-            "idle_session_ttl_in_seconds": idle_session_ttl_in_seconds,
-            "name": name,
-            "role_arn": role_arn,
-        }
-        if auto_build_bot_locales is not None:
-            self._values["auto_build_bot_locales"] = auto_build_bot_locales
-        if bot_file_s3_location is not None:
-            self._values["bot_file_s3_location"] = bot_file_s3_location
-        if bot_locales is not None:
-            self._values["bot_locales"] = bot_locales
-        if bot_tags is not None:
-            self._values["bot_tags"] = bot_tags
-        if description is not None:
-            self._values["description"] = description
-        if error_log_settings is not None:
-            self._values["error_log_settings"] = error_log_settings
-        if replication is not None:
-            self._values["replication"] = replication
-        if test_bot_alias_settings is not None:
-            self._values["test_bot_alias_settings"] = test_bot_alias_settings
-        if test_bot_alias_tags is not None:
-            self._values["test_bot_alias_tags"] = test_bot_alias_tags
-
-    @builtins.property
-    def data_privacy(self) -> typing.Any:
-        '''By default, data stored by Amazon Lex is encrypted.
-
-        The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-dataprivacy
-        '''
-        result = self._values.get("data_privacy")
-        assert result is not None, "Required property 'data_privacy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def idle_session_ttl_in_seconds(self) -> jsii.Number:
-        '''The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot.
-
-        A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout.
-
-        You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-idlesessionttlinseconds
-        '''
-        result = self._values.get("idle_session_ttl_in_seconds")
-        assert result is not None, "Required property 'idle_session_ttl_in_seconds' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the bot locale.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_build_bot_locales(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-autobuildbotlocales
-        '''
-        result = self._values.get("auto_build_bot_locales")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def bot_file_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]]:
-        '''The Amazon S3 location of files used to import a bot.
-
-        The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botfiles3location
-        '''
-        result = self._values.get("bot_file_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]], result)
-
-    @builtins.property
-    def bot_locales(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]]:
-        '''A list of locales for the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botlocales
-        '''
-        result = self._values.get("bot_locales")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]], result)
-
-    @builtins.property
-    def bot_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''A list of tags to add to the bot.
-
-        You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-bottags
-        '''
-        result = self._values.get("bot_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def error_log_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-errorlogsettings
-        '''
-        result = self._values.get("error_log_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]], result)
-
-    @builtins.property
-    def replication(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-replication
-        '''
-        result = self._values.get("replication")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]], result)
-
-    @builtins.property
-    def test_bot_alias_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]]:
-        '''Specifies configuration settings for the alias used to test the bot.
-
-        If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliassettings
-        '''
-        result = self._values.get("test_bot_alias_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]], result)
-
-    @builtins.property
-    def test_bot_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''A list of tags to add to the test alias for a bot.
-
-        You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliastags
-        '''
-        result = self._values.get("test_bot_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBotProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnBotVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bot_id": "botId",
-        "bot_version_locale_specification": "botVersionLocaleSpecification",
-        "description": "description",
-    },
-)
-class CfnBotVersionProps:
-    def __init__(
-        self,
-        *,
-        bot_id: builtins.str,
-        bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotVersion.BotVersionLocaleSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBotVersion``.
-
-        :param bot_id: The unique identifier of the bot.
-        :param bot_version_locale_specification: Specifies the locales that Amazon Lex adds to this version. You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
-        :param description: The description of the version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            cfn_bot_version_props = lex.CfnBotVersionProps(
-                bot_id="botId",
-                bot_version_locale_specification=[lex.CfnBotVersion.BotVersionLocaleSpecificationProperty(
-                    bot_version_locale_details=lex.CfnBotVersion.BotVersionLocaleDetailsProperty(
-                        source_bot_version="sourceBotVersion"
-                    ),
-                    locale_id="localeId"
-                )],
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5)
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-            check_type(argname="argument bot_version_locale_specification", value=bot_version_locale_specification, expected_type=type_hints["bot_version_locale_specification"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_id": bot_id,
-            "bot_version_locale_specification": bot_version_locale_specification,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The unique identifier of the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botid
-        '''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_version_locale_specification(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]]:
-        '''Specifies the locales that Amazon Lex adds to this version.
-
-        You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botversionlocalespecification
-        '''
-        result = self._values.get("bot_version_locale_specification")
-        assert result is not None, "Required property 'bot_version_locale_specification' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBotVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
-)
-class CfnResourcePolicyProps:
-    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param policy: A resource policy to add to the resource. The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
-        :param resource_arn: The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            # policy: Any
-            
-            cfn_resource_policy_props = lex.CfnResourcePolicyProps(
-                policy=policy,
-                resource_arn="resourceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae)
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy": policy,
-            "resource_arn": resource_arn,
-        }
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''A resource policy to add to the resource.
-
-        The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IBotAliasRef")
-class IBotAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a BotAlias.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="botAliasRef")
-    def bot_alias_ref(self) -> BotAliasReference:
-        '''(experimental) A reference to a BotAlias resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBotAliasRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a BotAlias.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IBotAliasRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="botAliasRef")
-    def bot_alias_ref(self) -> BotAliasReference:
-        '''(experimental) A reference to a BotAlias resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(BotAliasReference, jsii.get(self, "botAliasRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBotAliasRef).__jsii_proxy_class__ = lambda : _IBotAliasRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IBotRef")
-class IBotRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Bot.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="botRef")
-    def bot_ref(self) -> BotReference:
-        '''(experimental) A reference to a Bot resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBotRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Bot.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IBotRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="botRef")
-    def bot_ref(self) -> BotReference:
-        '''(experimental) A reference to a Bot resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(BotReference, jsii.get(self, "botRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBotRef).__jsii_proxy_class__ = lambda : _IBotRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IBotVersionRef")
-class IBotVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a BotVersion.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="botVersionRef")
-    def bot_version_ref(self) -> BotVersionReference:
-        '''(experimental) A reference to a BotVersion resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBotVersionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a BotVersion.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IBotVersionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="botVersionRef")
-    def bot_version_ref(self) -> BotVersionReference:
-        '''(experimental) A reference to a BotVersion resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(BotVersionReference, jsii.get(self, "botVersionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBotVersionRef).__jsii_proxy_class__ = lambda : _IBotVersionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IResourcePolicyRef")
-class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "ResourcePolicyReference":
-        '''(experimental) A reference to a ResourcePolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourcePolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IResourcePolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "ResourcePolicyReference":
-        '''(experimental) A reference to a ResourcePolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.ResourcePolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_policy_id": "resourcePolicyId"},
-)
-class ResourcePolicyReference:
-    def __init__(self, *, resource_policy_id: builtins.str) -> None:
-        '''A reference to a ResourcePolicy resource.
-
-        :param resource_policy_id: The Id of the ResourcePolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            resource_policy_reference = lex.ResourcePolicyReference(
-                resource_policy_id="resourcePolicyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6810919282112482d5bb8c323d06d3d6ae38a3de854f0fa3f00e995557262c37)
-            check_type(argname="argument resource_policy_id", value=resource_policy_id, expected_type=type_hints["resource_policy_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_policy_id": resource_policy_id,
-        }
-
-    @builtins.property
-    def resource_policy_id(self) -> builtins.str:
-        '''The Id of the ResourcePolicy resource.'''
-        result = self._values.get("resource_policy_id")
-        assert result is not None, "Required property 'resource_policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourcePolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IBotRef)
+@jsii.implements(_IInspectable_c2943556, _IBotRef_68a57b40, _ITaggableV2_4e6798f8)
 class CfnBot(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1146,7 +88,7 @@ class CfnBot(
 ):
     '''.. epigraph::
 
-   Amazon Lex V2 is the only supported version in AWS CloudFormation .
+   Amazon Lex V2 is the only supported version in CloudFormation .
 
     Specifies an Amazon Lex conversational bot.
 
@@ -1163,24 +105,25 @@ class CfnBot(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         data_privacy: typing.Any,
         idle_session_ttl_in_seconds: jsii.Number,
         name: builtins.str,
-        role_arn: builtins.str,
-        auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BotLocaleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        bot_file_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bot_locales: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BotLocaleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ErrorLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TestBotAliasSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        error_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ErrorLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_bot_alias_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.TestBotAliasSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_bot_alias_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Lex::Bot``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_privacy: By default, data stored by Amazon Lex is encrypted. The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
@@ -1219,8 +162,31 @@ class CfnBot(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForBot")
+    @builtins.classmethod
+    def arn_for_bot(cls, resource: "_IBotRef_68a57b40") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8b227597eac0169aa260ede9cf90fdb836e2125ced96820d150f287db42714e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBot", [resource]))
+
+    @jsii.member(jsii_name="isCfnBot")
+    @builtins.classmethod
+    def is_cfn_bot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1849c7204f2d38dcc92857960497002fae9458de2b8e452bbbd7c524877e1bca)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBot", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1269,9 +235,15 @@ class CfnBot(
 
     @builtins.property
     @jsii.member(jsii_name="botRef")
-    def bot_ref(self) -> BotReference:
+    def bot_ref(self) -> "_BotReference_9f65244d":
         '''A reference to a Bot resource.'''
-        return typing.cast(BotReference, jsii.get(self, "botRef"))
+        return typing.cast("_BotReference_9f65244d", jsii.get(self, "botRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1334,14 +306,14 @@ class CfnBot(
     @jsii.member(jsii_name="autoBuildBotLocales")
     def auto_build_bot_locales(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "autoBuildBotLocales"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoBuildBotLocales"))
 
     @auto_build_bot_locales.setter
     def auto_build_bot_locales(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d59168298bb6c73c8a29b497da006fc40603973cb71aba43e2f0ea0bc3c1c61a)
@@ -1352,14 +324,14 @@ class CfnBot(
     @jsii.member(jsii_name="botFileS3Location")
     def bot_file_s3_location(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.S3LocationProperty"]]:
         '''The Amazon S3 location of files used to import a bot.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]], jsii.get(self, "botFileS3Location"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.S3LocationProperty"]], jsii.get(self, "botFileS3Location"))
 
     @bot_file_s3_location.setter
     def bot_file_s3_location(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.S3LocationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49ad642c7a6232d4347e9dde2e04bc042cd7d8744c9896121505bc4969f28056)
@@ -1370,14 +342,14 @@ class CfnBot(
     @jsii.member(jsii_name="botLocales")
     def bot_locales(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotLocaleProperty"]]]]:
         '''A list of locales for the bot.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]], jsii.get(self, "botLocales"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotLocaleProperty"]]]], jsii.get(self, "botLocales"))
 
     @bot_locales.setter
     def bot_locales(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotLocaleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99af8c5daefa40203f5f0fbdfe98fccbc452c26d2c2bf3b4b00da732bcbfcb5e)
@@ -1386,17 +358,12 @@ class CfnBot(
 
     @builtins.property
     @jsii.member(jsii_name="botTags")
-    def bot_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+    def bot_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags to add to the bot.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], jsii.get(self, "botTags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "botTags"))
 
     @bot_tags.setter
-    def bot_tags(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]],
-    ) -> None:
+    def bot_tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebd0622909df38949fb95f9e4bfc9d82f922d11b6e1fee1b78ed955a197015d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1419,13 +386,13 @@ class CfnBot(
     @jsii.member(jsii_name="errorLogSettings")
     def error_log_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]], jsii.get(self, "errorLogSettings"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ErrorLogSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ErrorLogSettingsProperty"]], jsii.get(self, "errorLogSettings"))
 
     @error_log_settings.setter
     def error_log_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ErrorLogSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__606ffbe82078c04fc48db5544bb87403e15eecb94ab4de4dfef298d8b2e5cbca)
@@ -1436,13 +403,13 @@ class CfnBot(
     @jsii.member(jsii_name="replication")
     def replication(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]], jsii.get(self, "replication"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ReplicationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ReplicationProperty"]], jsii.get(self, "replication"))
 
     @replication.setter
     def replication(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ReplicationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__216cef1fd41900705f9b354338869c1eb4c662dac7d796bbff78b6110634e068)
@@ -1453,14 +420,14 @@ class CfnBot(
     @jsii.member(jsii_name="testBotAliasSettings")
     def test_bot_alias_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TestBotAliasSettingsProperty"]]:
         '''Specifies configuration settings for the alias used to test the bot.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]], jsii.get(self, "testBotAliasSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TestBotAliasSettingsProperty"]], jsii.get(self, "testBotAliasSettings"))
 
     @test_bot_alias_settings.setter
     def test_bot_alias_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TestBotAliasSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8af2b15d1ec9a6dfbd927bbbf7b4b9c006697a2b575338beae8d16e49680244f)
@@ -1471,14 +438,14 @@ class CfnBot(
     @jsii.member(jsii_name="testBotAliasTags")
     def test_bot_alias_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
         '''A list of tags to add to the test alias for a bot.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], jsii.get(self, "testBotAliasTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], jsii.get(self, "testBotAliasTags"))
 
     @test_bot_alias_tags.setter
     def test_bot_alias_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6da956c0f46d2bfe7dd17bc9ad27b754c6943b2b1d68f58963bb394ff73cf731)
@@ -1552,8 +519,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            allow_audio_input: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            allow_dtmf_input: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            allow_audio_input: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            allow_dtmf_input: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Specifies the allowed input types.
 
@@ -1586,26 +553,26 @@ class CfnBot(
         @builtins.property
         def allow_audio_input(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether audio input is allowed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-allowedinputtypes.html#cfn-lex-bot-allowedinputtypes-allowaudioinput
             '''
             result = self._values.get("allow_audio_input")
             assert result is not None, "Required property 'allow_audio_input' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def allow_dtmf_input(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether DTMF input is allowed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-allowedinputtypes.html#cfn-lex-bot-allowedinputtypes-allowdtmfinput
             '''
             result = self._values.get("allow_dtmf_input")
             assert result is not None, "Required property 'allow_dtmf_input' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1632,8 +599,8 @@ class CfnBot(
             self,
             *,
             start_timeout_ms: jsii.Number,
-            audio_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.AudioSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dtmf_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DTMFSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AudioSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dtmf_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DTMFSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the audio and DTMF input specification.
 
@@ -1694,24 +661,24 @@ class CfnBot(
         @builtins.property
         def audio_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.AudioSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioSpecificationProperty"]]:
             '''Specifies the settings on audio input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audioanddtmfinputspecification.html#cfn-lex-bot-audioanddtmfinputspecification-audiospecification
             '''
             result = self._values.get("audio_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.AudioSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioSpecificationProperty"]], result)
 
         @builtins.property
         def dtmf_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DTMFSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DTMFSpecificationProperty"]]:
             '''Specifies the settings on DTMF input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audioanddtmfinputspecification.html#cfn-lex-bot-audioanddtmfinputspecification-dtmfspecification
             '''
             result = self._values.get("dtmf_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DTMFSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DTMFSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1733,7 +700,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            s3_bucket: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.S3BucketLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_bucket: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.S3BucketLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The location of audio log files collected when conversation logging is enabled for a bot.
 
@@ -1768,14 +735,14 @@ class CfnBot(
         @builtins.property
         def s3_bucket(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.S3BucketLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.S3BucketLogDestinationProperty"]:
             '''Specifies the Amazon S3 bucket where the audio files are stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiologdestination.html#cfn-lex-bot-audiologdestination-s3bucket
             '''
             result = self._values.get("s3_bucket")
             assert result is not None, "Required property 's3_bucket' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.S3BucketLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.S3BucketLogDestinationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1797,8 +764,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.AudioLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AudioLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Settings for logging audio of conversations between Amazon Lex and a user.
 
@@ -1841,24 +808,24 @@ class CfnBot(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.AudioLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.AudioLogDestinationProperty"]:
             '''Specifies the location of the audio log files collected when conversation logging is enabled for a bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiologsetting.html#cfn-lex-bot-audiologsetting-destination
             '''
             result = self._values.get("destination")
             assert result is not None, "Required property 'destination' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.AudioLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.AudioLogDestinationProperty"], result)
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether audio logging in enabled for the bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-audiologsetting.html#cfn-lex-bot-audiologsetting-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2080,8 +1047,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            bedrock_agent_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            bedrock_agent_intent_knowledge_base_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockAgentIntentKnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bedrock_agent_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bedrock_agent_intent_knowledge_base_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockAgentIntentKnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param bedrock_agent_configuration: 
@@ -2130,22 +1097,22 @@ class CfnBot(
         @builtins.property
         def bedrock_agent_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockAgentConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockAgentConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-bedrockagentintentconfiguration.html#cfn-lex-bot-bedrockagentintentconfiguration-bedrockagentconfiguration
             '''
             result = self._values.get("bedrock_agent_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockAgentConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockAgentConfigurationProperty"]], result)
 
         @builtins.property
         def bedrock_agent_intent_knowledge_base_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockAgentIntentKnowledgeBaseConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockAgentIntentKnowledgeBaseConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-bedrockagentintentconfiguration.html#cfn-lex-bot-bedrockagentintentconfiguration-bedrockagentintentknowledgebaseconfiguration
             '''
             result = self._values.get("bedrock_agent_intent_knowledge_base_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockAgentIntentKnowledgeBaseConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockAgentIntentKnowledgeBaseConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2171,7 +1138,7 @@ class CfnBot(
             self,
             *,
             bedrock_knowledge_base_arn: builtins.str,
-            bedrock_model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            bedrock_model_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param bedrock_knowledge_base_arn: 
@@ -2222,13 +1189,13 @@ class CfnBot(
         @builtins.property
         def bedrock_model_configuration(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-bedrockagentintentknowledgebaseconfiguration.html#cfn-lex-bot-bedrockagentintentknowledgebaseconfiguration-bedrockmodelconfiguration
             '''
             result = self._values.get("bedrock_model_configuration")
             assert result is not None, "Required property 'bedrock_model_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2326,8 +1293,8 @@ class CfnBot(
             self,
             *,
             bedrock_knowledge_base_arn: typing.Optional[builtins.str] = None,
-            bkb_exact_response_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BKBExactResponseFieldsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            exact_response: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            bkb_exact_response_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BKBExactResponseFieldsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            exact_response: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Contains details about the configuration of a Amazon Bedrock knowledge base.
 
@@ -2377,23 +1344,23 @@ class CfnBot(
         @builtins.property
         def bkb_exact_response_fields(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BKBExactResponseFieldsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BKBExactResponseFieldsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-bedrockknowledgestoreconfiguration.html#cfn-lex-bot-bedrockknowledgestoreconfiguration-bkbexactresponsefields
             '''
             result = self._values.get("bkb_exact_response_fields")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BKBExactResponseFieldsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BKBExactResponseFieldsProperty"]], result)
 
         @builtins.property
         def exact_response(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether to return an exact response, or to return an answer generated by the model, using the fields you specify from the database.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-bedrockknowledgestoreconfiguration.html#cfn-lex-bot-bedrockknowledgestoreconfiguration-exactresponse
             '''
             result = self._values.get("exact_response")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2421,7 +1388,7 @@ class CfnBot(
             self,
             *,
             model_arn: builtins.str,
-            bedrock_guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockGuardrailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bedrock_guardrail_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockGuardrailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             bedrock_model_custom_prompt: typing.Optional[builtins.str] = None,
             bedrock_trace_status: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2482,12 +1449,12 @@ class CfnBot(
         @builtins.property
         def bedrock_guardrail_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockGuardrailConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockGuardrailConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-bedrockmodelspecification.html#cfn-lex-bot-bedrockmodelspecification-bedrockguardrailconfiguration
             '''
             result = self._values.get("bedrock_guardrail_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockGuardrailConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockGuardrailConfigurationProperty"]], result)
 
         @builtins.property
         def bedrock_model_custom_prompt(self) -> typing.Optional[builtins.str]:
@@ -2528,7 +1495,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            bot_alias_locale_setting: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BotAliasLocaleSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+            bot_alias_locale_setting: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BotAliasLocaleSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
             locale_id: builtins.str,
         ) -> None:
             '''Specifies locale settings for a single locale.
@@ -2572,14 +1539,14 @@ class CfnBot(
         @builtins.property
         def bot_alias_locale_setting(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.BotAliasLocaleSettingsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.BotAliasLocaleSettingsProperty"]:
             '''Specifies locale settings for a locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botaliaslocalesettingsitem.html#cfn-lex-bot-botaliaslocalesettingsitem-botaliaslocalesetting
             '''
             result = self._values.get("bot_alias_locale_setting")
             assert result is not None, "Required property 'bot_alias_locale_setting' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.BotAliasLocaleSettingsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.BotAliasLocaleSettingsProperty"], result)
 
         @builtins.property
         def locale_id(self) -> builtins.str:
@@ -2614,8 +1581,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            code_hook_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CodeHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            code_hook_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CodeHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies settings that are unique to a locale.
 
@@ -2656,7 +1623,7 @@ class CfnBot(
                 self._values["code_hook_specification"] = code_hook_specification
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether the locale is enabled for the bot.
 
             If the value is ``false`` , the locale isn't available for use.
@@ -2665,18 +1632,18 @@ class CfnBot(
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def code_hook_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CodeHookSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CodeHookSpecificationProperty"]]:
             '''Specifies the Lambda function that should be used in the locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botaliaslocalesettings.html#cfn-lex-bot-botaliaslocalesettings-codehookspecification
             '''
             result = self._values.get("code_hook_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CodeHookSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CodeHookSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2700,6 +1667,8 @@ class CfnBot(
             "generative_ai_settings": "generativeAiSettings",
             "intents": "intents",
             "slot_types": "slotTypes",
+            "speech_detection_sensitivity": "speechDetectionSensitivity",
+            "unified_speech_settings": "unifiedSpeechSettings",
             "voice_settings": "voiceSettings",
         },
     )
@@ -2709,12 +1678,14 @@ class CfnBot(
             *,
             locale_id: builtins.str,
             nlu_confidence_threshold: jsii.Number,
-            custom_vocabulary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CustomVocabularyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_vocabulary: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CustomVocabularyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
-            generative_ai_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.GenerativeAISettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            intents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.IntentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            slot_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            voice_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.VoiceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            generative_ai_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.GenerativeAISettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            intents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.IntentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slot_types: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            speech_detection_sensitivity: typing.Optional[builtins.str] = None,
+            unified_speech_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.UnifiedSpeechSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            voice_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.VoiceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides configuration information for a locale.
 
@@ -2725,6 +1696,8 @@ class CfnBot(
             :param generative_ai_settings: 
             :param intents: One or more intents defined for the locale.
             :param slot_types: One or more slot types defined for the locale.
+            :param speech_detection_sensitivity: 
+            :param unified_speech_settings: 
             :param voice_settings: Defines settings for using an Amazon Polly voice to communicate with a user. Valid values include: - ``standard`` - ``neural`` - ``long-form`` - ``generative``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html
@@ -2743,6 +1716,8 @@ class CfnBot(
                 check_type(argname="argument generative_ai_settings", value=generative_ai_settings, expected_type=type_hints["generative_ai_settings"])
                 check_type(argname="argument intents", value=intents, expected_type=type_hints["intents"])
                 check_type(argname="argument slot_types", value=slot_types, expected_type=type_hints["slot_types"])
+                check_type(argname="argument speech_detection_sensitivity", value=speech_detection_sensitivity, expected_type=type_hints["speech_detection_sensitivity"])
+                check_type(argname="argument unified_speech_settings", value=unified_speech_settings, expected_type=type_hints["unified_speech_settings"])
                 check_type(argname="argument voice_settings", value=voice_settings, expected_type=type_hints["voice_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "locale_id": locale_id,
@@ -2758,6 +1733,10 @@ class CfnBot(
                 self._values["intents"] = intents
             if slot_types is not None:
                 self._values["slot_types"] = slot_types
+            if speech_detection_sensitivity is not None:
+                self._values["speech_detection_sensitivity"] = speech_detection_sensitivity
+            if unified_speech_settings is not None:
+                self._values["unified_speech_settings"] = unified_speech_settings
             if voice_settings is not None:
                 self._values["voice_settings"] = voice_settings
 
@@ -2786,13 +1765,13 @@ class CfnBot(
         @builtins.property
         def custom_vocabulary(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CustomVocabularyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CustomVocabularyProperty"]]:
             '''Specifies a custom vocabulary to use with a specific locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-customvocabulary
             '''
             result = self._values.get("custom_vocabulary")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CustomVocabularyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CustomVocabularyProperty"]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -2808,39 +1787,57 @@ class CfnBot(
         @builtins.property
         def generative_ai_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GenerativeAISettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.GenerativeAISettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-generativeaisettings
             '''
             result = self._values.get("generative_ai_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GenerativeAISettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.GenerativeAISettingsProperty"]], result)
 
         @builtins.property
         def intents(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentProperty"]]]]:
             '''One or more intents defined for the locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-intents
             '''
             result = self._values.get("intents")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentProperty"]]]], result)
 
         @builtins.property
         def slot_types(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotTypeProperty"]]]]:
             '''One or more slot types defined for the locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-slottypes
             '''
             result = self._values.get("slot_types")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotTypeProperty"]]]], result)
+
+        @builtins.property
+        def speech_detection_sensitivity(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-speechdetectionsensitivity
+            '''
+            result = self._values.get("speech_detection_sensitivity")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def unified_speech_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.UnifiedSpeechSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-unifiedspeechsettings
+            '''
+            result = self._values.get("unified_speech_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.UnifiedSpeechSettingsProperty"]], result)
 
         @builtins.property
         def voice_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.VoiceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.VoiceSettingsProperty"]]:
             '''Defines settings for using an Amazon Polly voice to communicate with a user.
 
             Valid values include:
@@ -2853,7 +1850,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-voicesettings
             '''
             result = self._values.get("voice_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.VoiceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.VoiceSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2878,8 +1875,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            descriptive_bot_builder_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DescriptiveBotBuilderSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sample_utterance_generation_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleUtteranceGenerationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            descriptive_bot_builder_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DescriptiveBotBuilderSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sample_utterance_generation_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SampleUtteranceGenerationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains specifications about the Amazon Lex build time generative AI capabilities from Amazon Bedrock that you can turn on for your bot.
 
@@ -2943,22 +1940,22 @@ class CfnBot(
         @builtins.property
         def descriptive_bot_builder_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DescriptiveBotBuilderSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DescriptiveBotBuilderSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-buildtimesettings.html#cfn-lex-bot-buildtimesettings-descriptivebotbuilderspecification
             '''
             result = self._values.get("descriptive_bot_builder_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DescriptiveBotBuilderSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DescriptiveBotBuilderSpecificationProperty"]], result)
 
         @builtins.property
         def sample_utterance_generation_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceGenerationSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceGenerationSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-buildtimesettings.html#cfn-lex-bot-buildtimesettings-sampleutterancegenerationspecification
             '''
             result = self._values.get("sample_utterance_generation_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceGenerationSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceGenerationSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3126,7 +2123,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            lambda_code_hook: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.LambdaCodeHookProperty", typing.Dict[builtins.str, typing.Any]]],
+            lambda_code_hook: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.LambdaCodeHookProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Contains information about code hooks that Amazon Lex calls during a conversation.
 
@@ -3158,14 +2155,14 @@ class CfnBot(
         @builtins.property
         def lambda_code_hook(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.LambdaCodeHookProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.LambdaCodeHookProperty"]:
             '''Specifies a Lambda function that verifies requests to a bot or fulfills the user's request to a bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-codehookspecification.html#cfn-lex-bot-codehookspecification-lambdacodehook
             '''
             result = self._values.get("lambda_code_hook")
             assert result is not None, "Required property 'lambda_code_hook' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.LambdaCodeHookProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.LambdaCodeHookProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3187,7 +2184,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            sub_slots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SubSlotTypeCompositionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sub_slots: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SubSlotTypeCompositionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A composite slot is a combination of two or more slots that capture multiple pieces of information in a single user input.
 
@@ -3205,7 +2202,10 @@ class CfnBot(
                 composite_slot_type_setting_property = lex.CfnBot.CompositeSlotTypeSettingProperty(
                     sub_slots=[lex.CfnBot.SubSlotTypeCompositionProperty(
                         name="name",
-                        slot_type_id="slotTypeId"
+                
+                        # the properties below are optional
+                        slot_type_id="slotTypeId",
+                        slot_type_name="slotTypeName"
                     )]
                 )
             '''
@@ -3219,13 +2219,13 @@ class CfnBot(
         @builtins.property
         def sub_slots(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SubSlotTypeCompositionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SubSlotTypeCompositionProperty"]]]]:
             '''Subslots in the composite slot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-compositeslottypesetting.html#cfn-lex-bot-compositeslottypesetting-subslots
             '''
             result = self._values.get("sub_slots")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SubSlotTypeCompositionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SubSlotTypeCompositionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3304,10 +2304,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            condition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+            condition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
-            next_step: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]],
-            response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            next_step: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]],
+            response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A set of actions that Amazon Lex should run if the condition is matched.
 
@@ -3434,7 +2434,7 @@ class CfnBot(
         @builtins.property
         def condition(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionProperty"]:
             '''Contains the expression to evaluate.
 
             If the condition is true, the branch's actions are taken.
@@ -3443,7 +2443,7 @@ class CfnBot(
             '''
             result = self._values.get("condition")
             assert result is not None, "Required property 'condition' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -3458,25 +2458,25 @@ class CfnBot(
         @builtins.property
         def next_step(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]:
             '''The next step in the conversation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-conditionalbranch.html#cfn-lex-bot-conditionalbranch-nextstep
             '''
             result = self._values.get("next_step")
             assert result is not None, "Required property 'next_step' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"], result)
 
         @builtins.property
         def response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-conditionalbranch.html#cfn-lex-bot-conditionalbranch-response
             '''
             result = self._values.get("response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3502,9 +2502,9 @@ class CfnBot(
         def __init__(
             self,
             *,
-            conditional_branches: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalBranchProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            default_branch: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DefaultConditionalBranchProperty", typing.Dict[builtins.str, typing.Any]]],
-            is_active: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            conditional_branches: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalBranchProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            default_branch: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DefaultConditionalBranchProperty", typing.Dict[builtins.str, typing.Any]]],
+            is_active: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Provides a list of conditional branches.
 
@@ -3715,7 +2715,7 @@ class CfnBot(
         @builtins.property
         def conditional_branches(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalBranchProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalBranchProperty"]]]:
             '''A list of conditional branches.
 
             A conditional branch is made up of a condition, a response and a next step. The response and next step are executed when the condition is true.
@@ -3724,12 +2724,12 @@ class CfnBot(
             '''
             result = self._values.get("conditional_branches")
             assert result is not None, "Required property 'conditional_branches' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalBranchProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalBranchProperty"]]], result)
 
         @builtins.property
         def default_branch(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.DefaultConditionalBranchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.DefaultConditionalBranchProperty"]:
             '''The conditional branch that should be followed when the conditions for other branches are not satisfied.
 
             A conditional branch is made up of a condition, a response and a next step.
@@ -3738,10 +2738,10 @@ class CfnBot(
             '''
             result = self._values.get("default_branch")
             assert result is not None, "Required property 'default_branch' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.DefaultConditionalBranchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.DefaultConditionalBranchProperty"], result)
 
         @builtins.property
-        def is_active(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def is_active(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether a conditional branch is active.
 
             When ``IsActive`` is false, the conditions are not evaluated.
@@ -3750,7 +2750,7 @@ class CfnBot(
             '''
             result = self._values.get("is_active")
             assert result is not None, "Required property 'is_active' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3775,8 +2775,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            audio_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.AudioLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            text_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TextLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audio_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AudioLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            text_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.TextLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configures conversation logging that saves audio, text, and metadata for the conversations with your users.
 
@@ -3829,24 +2829,24 @@ class CfnBot(
         @builtins.property
         def audio_log_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.AudioLogSettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioLogSettingProperty"]]]]:
             '''The Amazon S3 settings for logging audio to an S3 bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-conversationlogsettings.html#cfn-lex-bot-conversationlogsettings-audiologsettings
             '''
             result = self._values.get("audio_log_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.AudioLogSettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioLogSettingProperty"]]]], result)
 
         @builtins.property
         def text_log_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.TextLogSettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.TextLogSettingProperty"]]]]:
             '''The Amazon CloudWatch Logs settings for logging text and metadata.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-conversationlogsettings.html#cfn-lex-bot-conversationlogsettings-textlogsettings
             '''
             result = self._values.get("text_log_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.TextLogSettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.TextLogSettingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4016,7 +3016,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            custom_vocabulary_items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CustomVocabularyItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            custom_vocabulary_items: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CustomVocabularyItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a custom vocabulary.
 
@@ -4053,14 +3053,14 @@ class CfnBot(
         @builtins.property
         def custom_vocabulary_items(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.CustomVocabularyItemProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.CustomVocabularyItemProperty"]]]:
             '''Specifies a list of words that you expect to be used during a conversation with your bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-customvocabulary.html#cfn-lex-bot-customvocabulary-customvocabularyitems
             '''
             result = self._values.get("custom_vocabulary_items")
             assert result is not None, "Required property 'custom_vocabulary_items' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.CustomVocabularyItemProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.CustomVocabularyItemProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4190,7 +3190,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            child_directed: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            child_directed: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''By default, data stored by Amazon Lex is encrypted.
 
@@ -4219,7 +3219,9 @@ class CfnBot(
             }
 
         @builtins.property
-        def child_directed(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def child_directed(
+            self,
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''For each Amazon Lex bot created with the Amazon Lex Model Building Service, you must specify whether your use of Amazon Lex is related to a website, program, or other application that is directed or targeted, in whole or in part, to children under age 13 and subject to the Children's Online Privacy Protection Act (COPPA) by specifying ``true`` or ``false`` in the ``childDirected`` field.
 
             By specifying ``true`` in the ``childDirected`` field, you confirm that your use of Amazon Lex *is* related to a website, program, or other application that is directed or targeted, in whole or in part, to children under age 13 and subject to COPPA. By specifying ``false`` in the ``childDirected`` field, you confirm that your use of Amazon Lex *is not* related to a website, program, or other application that is directed or targeted, in whole or in part, to children under age 13 and subject to COPPA. You may not specify a default value for the ``childDirected`` field that does not accurately reflect whether your use of Amazon Lex is related to a website, program, or other application that is directed or targeted, in whole or in part, to children under age 13 and subject to COPPA. If your use of Amazon Lex relates to a website, program, or other application that is directed in whole or in part, to children under age 13, you must obtain any required verifiable parental consent under COPPA. For information regarding the use of Amazon Lex in connection with websites, programs, or other applications that are directed or targeted, in whole or in part, to children under age 13, see the `Amazon Lex FAQ <https://docs.aws.amazon.com/lex/faqs#data-security>`_ .
@@ -4228,7 +3230,7 @@ class CfnBot(
             '''
             result = self._values.get("child_directed")
             assert result is not None, "Required property 'child_directed' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4254,9 +3256,9 @@ class CfnBot(
         def __init__(
             self,
             *,
-            bedrock_knowledge_store_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockKnowledgeStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kendra_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.QnAKendraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            opensearch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.OpensearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bedrock_knowledge_store_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockKnowledgeStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kendra_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.QnAKendraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            opensearch_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.OpensearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains details about the configuration of the knowledge store used for the ``AMAZON.QnAIntent`` . You must have already created the knowledge store and indexed the documents within it.
 
@@ -4317,35 +3319,35 @@ class CfnBot(
         @builtins.property
         def bedrock_knowledge_store_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockKnowledgeStoreConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockKnowledgeStoreConfigurationProperty"]]:
             '''Contains details about the configuration of the Amazon Bedrock knowledge base used for the ``AMAZON.QnAIntent`` . To set up a knowledge base, follow the steps at `Building a knowledge base <https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-datasourceconfiguration.html#cfn-lex-bot-datasourceconfiguration-bedrockknowledgestoreconfiguration
             '''
             result = self._values.get("bedrock_knowledge_store_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockKnowledgeStoreConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockKnowledgeStoreConfigurationProperty"]], result)
 
         @builtins.property
         def kendra_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QnAKendraConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QnAKendraConfigurationProperty"]]:
             '''Contains details about the configuration of the Amazon Kendra index used for the ``AMAZON.QnAIntent`` . To create a Amazon Kendra index, follow the steps at `Creating an index <https://docs.aws.amazon.com/kendra/latest/dg/create-index.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-datasourceconfiguration.html#cfn-lex-bot-datasourceconfiguration-kendraconfiguration
             '''
             result = self._values.get("kendra_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QnAKendraConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QnAKendraConfigurationProperty"]], result)
 
         @builtins.property
         def opensearch_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.OpensearchConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.OpensearchConfigurationProperty"]]:
             '''Contains details about the configuration of the Amazon OpenSearch Service database used for the ``AMAZON.QnAIntent`` . To create a domain, follow the steps at `Creating and managing Amazon OpenSearch Service domains <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-datasourceconfiguration.html#cfn-lex-bot-datasourceconfiguration-opensearchconfiguration
             '''
             result = self._values.get("opensearch_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.OpensearchConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.OpensearchConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4367,8 +3369,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A set of actions that Amazon Lex should run if none of the other conditions are met.
 
@@ -4483,24 +3485,24 @@ class CfnBot(
         @builtins.property
         def next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''The next step in the conversation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-defaultconditionalbranch.html#cfn-lex-bot-defaultconditionalbranch-nextstep
             '''
             result = self._values.get("next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-defaultconditionalbranch.html#cfn-lex-bot-defaultconditionalbranch-response
             '''
             result = self._values.get("response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4525,8 +3527,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            bedrock_model_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains specifications for the descriptive bot building feature.
 
@@ -4570,25 +3572,25 @@ class CfnBot(
                 self._values["bedrock_model_specification"] = bedrock_model_specification
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Specifies whether the descriptive bot building feature is activated or not.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-descriptivebotbuilderspecification.html#cfn-lex-bot-descriptivebotbuilderspecification-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def bedrock_model_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]]:
             '''An object containing information about the Amazon Bedrock model used to interpret the prompt used in descriptive bot building.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-descriptivebotbuilderspecification.html#cfn-lex-bot-descriptivebotbuilderspecification-bedrockmodelspecification
             '''
             result = self._values.get("bedrock_model_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4616,7 +3618,7 @@ class CfnBot(
             *,
             type: builtins.str,
             slot_to_elicit: typing.Optional[builtins.str] = None,
-            suppress_next_message: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            suppress_next_message: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Defines the action that the bot executes at runtime when the conversation reaches this step.
 
@@ -4676,13 +3678,13 @@ class CfnBot(
         @builtins.property
         def suppress_next_message(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When true the next message for the intent is not used.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogaction.html#cfn-lex-bot-dialogaction-suppressnextmessage
             '''
             result = self._values.get("suppress_next_message")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4709,9 +3711,9 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enable_code_hook_invocation: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            is_active: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            post_code_hook_specification: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PostDialogCodeHookInvocationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            enable_code_hook_invocation: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            is_active: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            post_code_hook_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PostDialogCodeHookInvocationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
             invocation_label: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Settings that specify the dialog code hook that is called by Amazon Lex at a step of the conversation.
@@ -4745,36 +3747,36 @@ class CfnBot(
         @builtins.property
         def enable_code_hook_invocation(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether a Lambda function should be invoked for the dialog.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogcodehookinvocationsetting.html#cfn-lex-bot-dialogcodehookinvocationsetting-enablecodehookinvocation
             '''
             result = self._values.get("enable_code_hook_invocation")
             assert result is not None, "Required property 'enable_code_hook_invocation' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
-        def is_active(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def is_active(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether a dialog code hook is used when the intent is activated.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogcodehookinvocationsetting.html#cfn-lex-bot-dialogcodehookinvocationsetting-isactive
             '''
             result = self._values.get("is_active")
             assert result is not None, "Required property 'is_active' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def post_code_hook_specification(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.PostDialogCodeHookInvocationSpecificationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.PostDialogCodeHookInvocationSpecificationProperty"]:
             '''Contains the responses and actions that Amazon Lex takes after the Lambda function is complete.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogcodehookinvocationsetting.html#cfn-lex-bot-dialogcodehookinvocationsetting-postcodehookspecification
             '''
             result = self._values.get("post_code_hook_specification")
             assert result is not None, "Required property 'post_code_hook_specification' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.PostDialogCodeHookInvocationSpecificationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.PostDialogCodeHookInvocationSpecificationProperty"], result)
 
         @builtins.property
         def invocation_label(self) -> typing.Optional[builtins.str]:
@@ -4805,7 +3807,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Settings that determine the Lambda function that Amazon Lex uses for processing user responses.
 
@@ -4832,14 +3834,14 @@ class CfnBot(
             }
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Enables the dialog code hook so that it processes user requests.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogcodehooksetting.html#cfn-lex-bot-dialogcodehooksetting-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4865,9 +3867,9 @@ class CfnBot(
         def __init__(
             self,
             *,
-            dialog_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            intent: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.IntentOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            session_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SessionAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dialog_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            intent: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.IntentOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            session_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SessionAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The current state of the conversation with the user.
 
@@ -4931,29 +3933,29 @@ class CfnBot(
         @builtins.property
         def dialog_action(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogActionProperty"]]:
             '''Defines the action that the bot executes at runtime when the conversation reaches this step.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogstate.html#cfn-lex-bot-dialogstate-dialogaction
             '''
             result = self._values.get("dialog_action")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogActionProperty"]], result)
 
         @builtins.property
         def intent(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentOverrideProperty"]]:
             '''Override settings to configure the intent state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogstate.html#cfn-lex-bot-dialogstate-intent
             '''
             result = self._values.get("intent")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentOverrideProperty"]], result)
 
         @builtins.property
         def session_attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SessionAttributeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SessionAttributeProperty"]]]]:
             '''Map of key/value pairs representing session-specific context information.
 
             It contains application information passed between Amazon Lex and a client application.
@@ -4961,7 +3963,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-dialogstate.html#cfn-lex-bot-dialogstate-sessionattributes
             '''
             result = self._values.get("session_attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SessionAttributeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SessionAttributeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4986,7 +3988,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enable_code_hook_invocation: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            enable_code_hook_invocation: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             invocation_label: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Settings that specify the dialog code hook that is called by Amazon Lex between eliciting slot values.
@@ -5023,14 +4025,14 @@ class CfnBot(
         @builtins.property
         def enable_code_hook_invocation(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether a Lambda function should be invoked for the dialog.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-elicitationcodehookinvocationsetting.html#cfn-lex-bot-elicitationcodehookinvocationsetting-enablecodehookinvocation
             '''
             result = self._values.get("enable_code_hook_invocation")
             assert result is not None, "Required property 'enable_code_hook_invocation' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def invocation_label(self) -> typing.Optional[builtins.str]:
@@ -5061,7 +4063,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''
             :param enabled: 
@@ -5087,13 +4089,13 @@ class CfnBot(
             }
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-errorlogsettings.html#cfn-lex-bot-errorlogsettings-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5188,7 +4190,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            grammar_slot_type_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.GrammarSlotTypeSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            grammar_slot_type_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.GrammarSlotTypeSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides information about the external source of the slot type's definition.
 
@@ -5225,13 +4227,13 @@ class CfnBot(
         @builtins.property
         def grammar_slot_type_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GrammarSlotTypeSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.GrammarSlotTypeSettingProperty"]]:
             '''Settings required for a slot type based on a grammar that you provide.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-externalsourcesetting.html#cfn-lex-bot-externalsourcesetting-grammarslottypesetting
             '''
             result = self._values.get("grammar_slot_type_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GrammarSlotTypeSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.GrammarSlotTypeSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5258,10 +4260,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            fulfillment_updates_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.FulfillmentUpdatesSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            post_fulfillment_status_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PostFulfillmentStatusSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            fulfillment_updates_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.FulfillmentUpdatesSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_active: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            post_fulfillment_status_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PostFulfillmentStatusSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Determines if a Lambda function should be invoked for a specific intent.
 
@@ -5294,19 +4296,19 @@ class CfnBot(
                 self._values["post_fulfillment_status_specification"] = post_fulfillment_status_specification
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether a Lambda function should be invoked to fulfill a specific intent.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentcodehooksetting.html#cfn-lex-bot-fulfillmentcodehooksetting-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def fulfillment_updates_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentUpdatesSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentUpdatesSpecificationProperty"]]:
             '''Provides settings for update messages sent to the user for long-running Lambda fulfillment functions.
 
             Fulfillment updates can be used only with streaming conversations.
@@ -5314,12 +4316,12 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentcodehooksetting.html#cfn-lex-bot-fulfillmentcodehooksetting-fulfillmentupdatesspecification
             '''
             result = self._values.get("fulfillment_updates_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentUpdatesSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentUpdatesSpecificationProperty"]], result)
 
         @builtins.property
         def is_active(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Determines whether the fulfillment code hook is used.
 
             When ``active`` is false, the code hook doesn't run.
@@ -5327,12 +4329,12 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentcodehooksetting.html#cfn-lex-bot-fulfillmentcodehooksetting-isactive
             '''
             result = self._values.get("is_active")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def post_fulfillment_status_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PostFulfillmentStatusSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PostFulfillmentStatusSpecificationProperty"]]:
             '''Provides settings for messages sent to the user for after the Lambda fulfillment function completes.
 
             Post-fulfillment messages can be sent for both streaming and non-streaming conversations.
@@ -5340,7 +4342,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentcodehooksetting.html#cfn-lex-bot-fulfillmentcodehooksetting-postfulfillmentstatusspecification
             '''
             result = self._values.get("post_fulfillment_status_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PostFulfillmentStatusSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PostFulfillmentStatusSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5367,8 +4369,8 @@ class CfnBot(
             self,
             *,
             delay_in_seconds: jsii.Number,
-            message_groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            allow_interrupt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            message_groups: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            allow_interrupt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Provides settings for a message that is sent to the user when a fulfillment Lambda function starts running.
 
@@ -5467,7 +4469,7 @@ class CfnBot(
         @builtins.property
         def message_groups(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]]:
             '''1 - 5 message groups that contain start messages.
 
             Amazon Lex chooses one of the messages to play to the user.
@@ -5476,18 +4478,18 @@ class CfnBot(
             '''
             result = self._values.get("message_groups")
             assert result is not None, "Required property 'message_groups' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]], result)
 
         @builtins.property
         def allow_interrupt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Determines whether the user can interrupt the start message while it is playing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentstartresponsespecification.html#cfn-lex-bot-fulfillmentstartresponsespecification-allowinterrupt
             '''
             result = self._values.get("allow_interrupt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5514,8 +4516,8 @@ class CfnBot(
             self,
             *,
             frequency_in_seconds: jsii.Number,
-            message_groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            allow_interrupt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            message_groups: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            allow_interrupt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Provides settings for a message that is sent periodically to the user while a fulfillment Lambda function is running.
 
@@ -5614,7 +4616,7 @@ class CfnBot(
         @builtins.property
         def message_groups(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]]:
             '''1 - 5 message groups that contain update messages.
 
             Amazon Lex chooses one of the messages to play to the user.
@@ -5623,18 +4625,18 @@ class CfnBot(
             '''
             result = self._values.get("message_groups")
             assert result is not None, "Required property 'message_groups' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]], result)
 
         @builtins.property
         def allow_interrupt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Determines whether the user can interrupt an update message while it is playing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentupdateresponsespecification.html#cfn-lex-bot-fulfillmentupdateresponsespecification-allowinterrupt
             '''
             result = self._values.get("allow_interrupt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5661,10 +4663,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            active: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            start_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.FulfillmentStartResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            active: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            start_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.FulfillmentStartResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             timeout_in_seconds: typing.Optional[jsii.Number] = None,
-            update_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.FulfillmentUpdateResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            update_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.FulfillmentUpdateResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides information for updating the user on the progress of fulfilling an intent.
 
@@ -5814,7 +4816,7 @@ class CfnBot(
                 self._values["update_response"] = update_response
 
         @builtins.property
-        def active(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def active(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether fulfillment updates are sent to the user. When this field is true, updates are sent.
 
             If the ``active`` field is set to true, the ``startResponse`` , ``updateResponse`` , and ``timeoutInSeconds`` fields are required.
@@ -5823,18 +4825,18 @@ class CfnBot(
             '''
             result = self._values.get("active")
             assert result is not None, "Required property 'active' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def start_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentStartResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentStartResponseSpecificationProperty"]]:
             '''Provides configuration information for the message sent to users when the fulfillment Lambda functions starts running.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentupdatesspecification.html#cfn-lex-bot-fulfillmentupdatesspecification-startresponse
             '''
             result = self._values.get("start_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentStartResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentStartResponseSpecificationProperty"]], result)
 
         @builtins.property
         def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -5848,13 +4850,13 @@ class CfnBot(
         @builtins.property
         def update_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentUpdateResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentUpdateResponseSpecificationProperty"]]:
             '''Provides configuration information for messages sent periodically to the user while the fulfillment Lambda function is running.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-fulfillmentupdatesspecification.html#cfn-lex-bot-fulfillmentupdatesspecification-updateresponse
             '''
             result = self._values.get("update_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentUpdateResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentUpdateResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5879,8 +4881,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            buildtime_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BuildtimeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            runtime_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.RuntimeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            buildtime_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BuildtimeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            runtime_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.RuntimeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains specifications about the generative AI capabilities from Amazon Bedrock that you can turn on for your bot.
 
@@ -5933,7 +4935,17 @@ class CfnBot(
                     ),
                     runtime_settings=lex.CfnBot.RuntimeSettingsProperty(
                         nlu_improvement_specification=lex.CfnBot.NluImprovementSpecificationProperty(
-                            enabled=False
+                            enabled=False,
+                
+                            # the properties below are optional
+                            assisted_nlu_mode="assistedNluMode",
+                            intent_disambiguation_settings=lex.CfnBot.IntentDisambiguationSettingsProperty(
+                                enabled=False,
+                
+                                # the properties below are optional
+                                custom_disambiguation_message="customDisambiguationMessage",
+                                max_disambiguation_intents=123
+                            )
                         ),
                         slot_resolution_improvement_specification=lex.CfnBot.SlotResolutionImprovementSpecificationProperty(
                             enabled=False,
@@ -5967,22 +4979,22 @@ class CfnBot(
         @builtins.property
         def buildtime_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BuildtimeSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BuildtimeSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-generativeaisettings.html#cfn-lex-bot-generativeaisettings-buildtimesettings
             '''
             result = self._values.get("buildtime_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BuildtimeSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BuildtimeSettingsProperty"]], result)
 
         @builtins.property
         def runtime_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.RuntimeSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.RuntimeSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-generativeaisettings.html#cfn-lex-bot-generativeaisettings-runtimesettings
             '''
             result = self._values.get("runtime_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.RuntimeSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.RuntimeSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6004,7 +5016,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.GrammarSlotTypeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.GrammarSlotTypeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings requried for a slot type based on a grammar that you provide.
 
@@ -6039,13 +5051,13 @@ class CfnBot(
         @builtins.property
         def source(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GrammarSlotTypeSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.GrammarSlotTypeSourceProperty"]]:
             '''The source of the grammar used to create the slot type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-grammarslottypesetting.html#cfn-lex-bot-grammarslottypesetting-source
             '''
             result = self._values.get("source")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GrammarSlotTypeSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.GrammarSlotTypeSourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6079,7 +5091,7 @@ class CfnBot(
 
             :param s3_bucket_name: The name of the Amazon S3 bucket that contains the grammar source.
             :param s3_object_key: The path to the grammar in the Amazon S3 bucket.
-            :param kms_key_arn: The AWS KMS key required to decrypt the contents of the grammar, if any.
+            :param kms_key_arn: The AWS key required to decrypt the contents of the grammar, if any.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-grammarslottypesource.html
             :exampleMetadata: fixture=_generated
@@ -6132,7 +5144,7 @@ class CfnBot(
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The AWS KMS key required to decrypt the contents of the grammar, if any.
+            '''The AWS  key required to decrypt the contents of the grammar, if any.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-grammarslottypesource.html#cfn-lex-bot-grammarslottypesource-kmskeyarn
             '''
@@ -6165,7 +5177,7 @@ class CfnBot(
             self,
             *,
             title: builtins.str,
-            buttons: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ButtonProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            buttons: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ButtonProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             image_url: typing.Optional[builtins.str] = None,
             subtitle: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -6232,7 +5244,7 @@ class CfnBot(
         @builtins.property
         def buttons(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.ButtonProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.ButtonProperty"]]]]:
             '''A list of buttons that should be displayed on the response card.
 
             The arrangement of the buttons is determined by the platform that displays the button.
@@ -6240,7 +5252,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-imageresponsecard.html#cfn-lex-bot-imageresponsecard-buttons
             '''
             result = self._values.get("buttons")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.ButtonProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.ButtonProperty"]]]], result)
 
         @builtins.property
         def image_url(self) -> typing.Optional[builtins.str]:
@@ -6289,10 +5301,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            initial_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            initial_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration setting for a response sent to the user before Amazon Lex starts eliciting slots.
 
@@ -6327,18 +5339,18 @@ class CfnBot(
         @builtins.property
         def code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookInvocationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookInvocationSettingProperty"]]:
             '''Settings that specify the dialog code hook that is called by Amazon Lex at a step of the conversation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-initialresponsesetting.html#cfn-lex-bot-initialresponsesetting-codehook
             '''
             result = self._values.get("code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookInvocationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookInvocationSettingProperty"]], result)
 
         @builtins.property
         def conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''Provides a list of conditional branches.
 
             Branches are evaluated in the order that they are entered in the list. The first branch with a condition that evaluates to true is executed. The last branch in the list is the default branch. The default branch should not have any condition expression. The default branch is executed if no other branch has a matching condition.
@@ -6346,29 +5358,29 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-initialresponsesetting.html#cfn-lex-bot-initialresponsesetting-conditional
             '''
             result = self._values.get("conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def initial_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-initialresponsesetting.html#cfn-lex-bot-initialresponsesetting-initialresponse
             '''
             result = self._values.get("initial_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''The next step in the conversation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-initialresponsesetting.html#cfn-lex-bot-initialresponsesetting-nextstep
             '''
             result = self._values.get("next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6447,10 +5459,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            closing_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            closing_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_active: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides a statement the Amazon Lex conveys to the user when the intent is successfully fulfilled.
 
@@ -6749,18 +5761,18 @@ class CfnBot(
         @builtins.property
         def closing_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''The response that Amazon Lex sends to the user when the intent is complete.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentclosingsetting.html#cfn-lex-bot-intentclosingsetting-closingresponse
             '''
             result = self._values.get("closing_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches associated with the intent's closing response.
 
             These branches are executed when the ``nextStep`` attribute is set to ``EvalutateConditional`` .
@@ -6768,12 +5780,12 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentclosingsetting.html#cfn-lex-bot-intentclosingsetting-conditional
             '''
             result = self._values.get("conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def is_active(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether an intent's closing response is used.
 
             When this field is false, the closing response isn't sent to the user. If the ``IsActive`` field isn't specified, the default is true.
@@ -6781,18 +5793,18 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentclosingsetting.html#cfn-lex-bot-intentclosingsetting-isactive
             '''
             result = self._values.get("is_active")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot executes after playing the intent's closing response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentclosingsetting.html#cfn-lex-bot-intentclosingsetting-nextstep
             '''
             result = self._values.get("next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6828,19 +5840,19 @@ class CfnBot(
         def __init__(
             self,
             *,
-            prompt_specification: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PromptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
-            code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            confirmation_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            confirmation_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            confirmation_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            declination_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            declination_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            declination_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            elicitation_code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ElicitationCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            prompt_specification: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PromptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            confirmation_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            confirmation_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            confirmation_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            declination_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            declination_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            declination_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            elicitation_code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ElicitationCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_active: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Provides a prompt for making sure that the user is ready for the intent to be fulfilled.
 
@@ -6911,7 +5923,7 @@ class CfnBot(
         @builtins.property
         def prompt_specification(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.PromptSpecificationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.PromptSpecificationProperty"]:
             '''Prompts the user to confirm the intent. This question should have a yes or no answer.
 
             Amazon Lex uses this prompt to ensure that the user acknowledges that the intent is ready for fulfillment. For example, with the ``OrderPizza`` intent, you might want to confirm that the order is correct before placing it. For other intents, such as intents that simply respond to user questions, you might not need to ask the user for confirmation before providing the information.
@@ -6920,12 +5932,12 @@ class CfnBot(
             '''
             result = self._values.get("prompt_specification")
             assert result is not None, "Required property 'prompt_specification' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.PromptSpecificationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.PromptSpecificationProperty"], result)
 
         @builtins.property
         def code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookInvocationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookInvocationSettingProperty"]]:
             '''The ``DialogCodeHookInvocationSetting`` object associated with intent's confirmation step.
 
             The dialog code hook is triggered based on these invocation settings when the confirmation next step or declination next step or failure next step is ``InvokeDialogCodeHook`` .
@@ -6933,89 +5945,89 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-codehook
             '''
             result = self._values.get("code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookInvocationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookInvocationSettingProperty"]], result)
 
         @builtins.property
         def confirmation_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the intent is closed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-confirmationconditional
             '''
             result = self._values.get("confirmation_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def confirmation_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot executes when the customer confirms the intent.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-confirmationnextstep
             '''
             result = self._values.get("confirmation_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def confirmation_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-confirmationresponse
             '''
             result = self._values.get("confirmation_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def declination_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the intent is declined.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-declinationconditional
             '''
             result = self._values.get("declination_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def declination_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot executes when the customer declines the intent.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-declinationnextstep
             '''
             result = self._values.get("declination_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def declination_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''When the user answers "no" to the question defined in ``promptSpecification`` , Amazon Lex responds with this response to acknowledge that the intent was canceled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-declinationresponse
             '''
             result = self._values.get("declination_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def elicitation_code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ElicitationCodeHookInvocationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ElicitationCodeHookInvocationSettingProperty"]]:
             '''The ``DialogCodeHookInvocationSetting`` used when the code hook is invoked during confirmation prompt retries.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-elicitationcodehook
             '''
             result = self._values.get("elicitation_code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ElicitationCodeHookInvocationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ElicitationCodeHookInvocationSettingProperty"]], result)
 
         @builtins.property
         def failure_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''Provides a list of conditional branches.
 
             Branches are evaluated in the order that they are entered in the list. The first branch with a condition that evaluates to true is executed. The last branch in the list is the default branch. The default branch should not have any condition expression. The default branch is executed if no other branch has a matching condition.
@@ -7023,34 +6035,34 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-failureconditional
             '''
             result = self._values.get("failure_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def failure_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''The next step to take in the conversation if the confirmation step fails.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-failurenextstep
             '''
             result = self._values.get("failure_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def failure_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input when the intent confirmation fails.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-failureresponse
             '''
             result = self._values.get("failure_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def is_active(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether the intent's confirmation is sent to the user.
 
             When this field is false, confirmation and declination responses aren't sent. If the ``IsActive`` field isn't specified, the default is true.
@@ -7058,7 +6070,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentconfirmationsetting.html#cfn-lex-bot-intentconfirmationsetting-isactive
             '''
             result = self._values.get("is_active")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7072,6 +6084,106 @@ class CfnBot(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.IntentDisambiguationSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "custom_disambiguation_message": "customDisambiguationMessage",
+            "max_disambiguation_intents": "maxDisambiguationIntents",
+        },
+    )
+    class IntentDisambiguationSettingsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            custom_disambiguation_message: typing.Optional[builtins.str] = None,
+            max_disambiguation_intents: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configures the Intent Disambiguation feature that helps resolve ambiguous user inputs when multiple intents could match.
+
+            When enabled, the system presents clarifying questions to users, helping them specify their exact intent for improved conversation accuracy.
+
+            :param enabled: Determines whether the Intent Disambiguation feature is enabled. When set to ``true`` , Amazon Lex will present disambiguation options to users when multiple intents could match their input, with the default being ``false`` .
+            :param custom_disambiguation_message: Provides a custom message that will be displayed before presenting the disambiguation options to users. This message helps set the context for users and can be customized to match your bot's tone and brand. If not specified, a default message will be used.
+            :param max_disambiguation_intents: Specifies the maximum number of intent options (2-5) to present to users when disambiguation is needed. This setting determines how many intent options will be shown to users when the system detects ambiguous input. The default value is 3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentdisambiguationsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                intent_disambiguation_settings_property = lex.CfnBot.IntentDisambiguationSettingsProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    custom_disambiguation_message="customDisambiguationMessage",
+                    max_disambiguation_intents=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__efb49b65ea3778ccf0ce3d5e52641e4f0a53fbc546b4a965bfc8a755d61b5298)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument custom_disambiguation_message", value=custom_disambiguation_message, expected_type=type_hints["custom_disambiguation_message"])
+                check_type(argname="argument max_disambiguation_intents", value=max_disambiguation_intents, expected_type=type_hints["max_disambiguation_intents"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if custom_disambiguation_message is not None:
+                self._values["custom_disambiguation_message"] = custom_disambiguation_message
+            if max_disambiguation_intents is not None:
+                self._values["max_disambiguation_intents"] = max_disambiguation_intents
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Determines whether the Intent Disambiguation feature is enabled.
+
+            When set to ``true`` , Amazon Lex will present disambiguation options to users when multiple intents could match their input, with the default being ``false`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentdisambiguationsettings.html#cfn-lex-bot-intentdisambiguationsettings-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def custom_disambiguation_message(self) -> typing.Optional[builtins.str]:
+            '''Provides a custom message that will be displayed before presenting the disambiguation options to users.
+
+            This message helps set the context for users and can be customized to match your bot's tone and brand. If not specified, a default message will be used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentdisambiguationsettings.html#cfn-lex-bot-intentdisambiguationsettings-customdisambiguationmessage
+            '''
+            result = self._values.get("custom_disambiguation_message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def max_disambiguation_intents(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the maximum number of intent options (2-5) to present to users when disambiguation is needed.
+
+            This setting determines how many intent options will be shown to users when the system detects ambiguous input. The default value is 3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentdisambiguationsettings.html#cfn-lex-bot-intentdisambiguationsettings-maxdisambiguationintents
+            '''
+            result = self._values.get("max_disambiguation_intents")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntentDisambiguationSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.IntentOverrideProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "slots": "slots"},
@@ -7081,7 +6193,7 @@ class CfnBot(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            slots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueOverrideMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slots: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueOverrideMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Override settings to configure the intent state.
 
@@ -7137,7 +6249,7 @@ class CfnBot(
         @builtins.property
         def slots(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueOverrideMapProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueOverrideMapProperty"]]]]:
             '''A map of all of the slot value overrides for the intent.
 
             The name of the slot maps to the value of the slot. Slots that are not included in the map aren't overridden.
@@ -7145,7 +6257,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intentoverride.html#cfn-lex-bot-intentoverride-slots
             '''
             result = self._values.get("slots")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueOverrideMapProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueOverrideMapProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7166,6 +6278,7 @@ class CfnBot(
             "bedrock_agent_intent_configuration": "bedrockAgentIntentConfiguration",
             "description": "description",
             "dialog_code_hook": "dialogCodeHook",
+            "display_name": "displayName",
             "fulfillment_code_hook": "fulfillmentCodeHook",
             "initial_response_setting": "initialResponseSetting",
             "input_contexts": "inputContexts",
@@ -7186,22 +6299,23 @@ class CfnBot(
             self,
             *,
             name: builtins.str,
-            bedrock_agent_intent_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockAgentIntentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bedrock_agent_intent_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockAgentIntentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
-            dialog_code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogCodeHookSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fulfillment_code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.FulfillmentCodeHookSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            initial_response_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.InitialResponseSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            input_contexts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.InputContextProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            intent_closing_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.IntentClosingSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            intent_confirmation_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.IntentConfirmationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            kendra_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.KendraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            output_contexts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.OutputContextProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dialog_code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogCodeHookSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            display_name: typing.Optional[builtins.str] = None,
+            fulfillment_code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.FulfillmentCodeHookSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            initial_response_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.InitialResponseSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_contexts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.InputContextProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            intent_closing_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.IntentClosingSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            intent_confirmation_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.IntentConfirmationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kendra_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.KendraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            output_contexts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.OutputContextProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             parent_intent_signature: typing.Optional[builtins.str] = None,
-            q_in_connect_intent_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.QInConnectIntentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            qn_a_intent_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.QnAIntentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sample_utterances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleUtteranceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            slot_priorities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotPriorityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            slots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            q_in_connect_intent_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.QInConnectIntentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            qn_a_intent_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.QnAIntentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sample_utterances: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SampleUtteranceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slot_priorities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotPriorityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slots: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Represents an action that the user wants to perform.
 
@@ -7209,6 +6323,7 @@ class CfnBot(
             :param bedrock_agent_intent_configuration: 
             :param description: A description of the intent. Use the description to help identify the intent in lists.
             :param dialog_code_hook: Specifies that Amazon Lex invokes the alias Lambda function for each user input. You can invoke this Lambda function to personalize user interaction.
+            :param display_name: 
             :param fulfillment_code_hook: Specifies that Amazon Lex invokes the alias Lambda function when the intent is ready for fulfillment. You can invoke this function to complete the bot's transaction with the user.
             :param initial_response_setting: Configuration setting for a response sent to the user before Amazon Lex starts eliciting slots.
             :param input_contexts: A list of contexts that must be active for this intent to be considered by Amazon Lex .
@@ -7236,6 +6351,7 @@ class CfnBot(
                 check_type(argname="argument bedrock_agent_intent_configuration", value=bedrock_agent_intent_configuration, expected_type=type_hints["bedrock_agent_intent_configuration"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument dialog_code_hook", value=dialog_code_hook, expected_type=type_hints["dialog_code_hook"])
+                check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
                 check_type(argname="argument fulfillment_code_hook", value=fulfillment_code_hook, expected_type=type_hints["fulfillment_code_hook"])
                 check_type(argname="argument initial_response_setting", value=initial_response_setting, expected_type=type_hints["initial_response_setting"])
                 check_type(argname="argument input_contexts", value=input_contexts, expected_type=type_hints["input_contexts"])
@@ -7258,6 +6374,8 @@ class CfnBot(
                 self._values["description"] = description
             if dialog_code_hook is not None:
                 self._values["dialog_code_hook"] = dialog_code_hook
+            if display_name is not None:
+                self._values["display_name"] = display_name
             if fulfillment_code_hook is not None:
                 self._values["fulfillment_code_hook"] = fulfillment_code_hook
             if initial_response_setting is not None:
@@ -7300,12 +6418,12 @@ class CfnBot(
         @builtins.property
         def bedrock_agent_intent_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockAgentIntentConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockAgentIntentConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-bedrockagentintentconfiguration
             '''
             result = self._values.get("bedrock_agent_intent_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockAgentIntentConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockAgentIntentConfigurationProperty"]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -7321,7 +6439,7 @@ class CfnBot(
         @builtins.property
         def dialog_code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookSettingProperty"]]:
             '''Specifies that Amazon Lex invokes the alias Lambda function for each user input.
 
             You can invoke this Lambda function to personalize user interaction.
@@ -7329,12 +6447,20 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-dialogcodehook
             '''
             result = self._values.get("dialog_code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookSettingProperty"]], result)
+
+        @builtins.property
+        def display_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-displayname
+            '''
+            result = self._values.get("display_name")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def fulfillment_code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentCodeHookSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentCodeHookSettingProperty"]]:
             '''Specifies that Amazon Lex invokes the alias Lambda function when the intent is ready for fulfillment.
 
             You can invoke this function to complete the bot's transaction with the user.
@@ -7342,45 +6468,45 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-fulfillmentcodehook
             '''
             result = self._values.get("fulfillment_code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.FulfillmentCodeHookSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.FulfillmentCodeHookSettingProperty"]], result)
 
         @builtins.property
         def initial_response_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.InitialResponseSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.InitialResponseSettingProperty"]]:
             '''Configuration setting for a response sent to the user before Amazon Lex starts eliciting slots.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-initialresponsesetting
             '''
             result = self._values.get("initial_response_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.InitialResponseSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.InitialResponseSettingProperty"]], result)
 
         @builtins.property
         def input_contexts(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.InputContextProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.InputContextProperty"]]]]:
             '''A list of contexts that must be active for this intent to be considered by Amazon Lex .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-inputcontexts
             '''
             result = self._values.get("input_contexts")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.InputContextProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.InputContextProperty"]]]], result)
 
         @builtins.property
         def intent_closing_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentClosingSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentClosingSettingProperty"]]:
             '''Sets the response that Amazon Lex sends to the user when the intent is closed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-intentclosingsetting
             '''
             result = self._values.get("intent_closing_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentClosingSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentClosingSettingProperty"]], result)
 
         @builtins.property
         def intent_confirmation_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentConfirmationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentConfirmationSettingProperty"]]:
             '''Provides prompts that Amazon Lex sends to the user to confirm the completion of an intent.
 
             If the user answers "no," the settings contain a statement that is sent to the user to end the intent.
@@ -7388,29 +6514,29 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-intentconfirmationsetting
             '''
             result = self._values.get("intent_confirmation_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentConfirmationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentConfirmationSettingProperty"]], result)
 
         @builtins.property
         def kendra_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.KendraConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.KendraConfigurationProperty"]]:
             '''Provides configuration information for the ``AMAZON.KendraSearchIntent`` intent. When you use this intent, Amazon Lex searches the specified Amazon Kendra index and returns documents from the index that match the user's utterance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-kendraconfiguration
             '''
             result = self._values.get("kendra_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.KendraConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.KendraConfigurationProperty"]], result)
 
         @builtins.property
         def output_contexts(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.OutputContextProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.OutputContextProperty"]]]]:
             '''A list of contexts that the intent activates when it is fulfilled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-outputcontexts
             '''
             result = self._values.get("output_contexts")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.OutputContextProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.OutputContextProperty"]]]], result)
 
         @builtins.property
         def parent_intent_signature(self) -> typing.Optional[builtins.str]:
@@ -7424,38 +6550,38 @@ class CfnBot(
         @builtins.property
         def q_in_connect_intent_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QInConnectIntentConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QInConnectIntentConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-qinconnectintentconfiguration
             '''
             result = self._values.get("q_in_connect_intent_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QInConnectIntentConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QInConnectIntentConfigurationProperty"]], result)
 
         @builtins.property
         def qn_a_intent_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QnAIntentConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QnAIntentConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-qnaintentconfiguration
             '''
             result = self._values.get("qn_a_intent_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QnAIntentConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QnAIntentConfigurationProperty"]], result)
 
         @builtins.property
         def sample_utterances(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceProperty"]]]]:
             '''A list of utterances that a user might say to signal the intent.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-sampleutterances
             '''
             result = self._values.get("sample_utterances")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceProperty"]]]], result)
 
         @builtins.property
         def slot_priorities(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotPriorityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotPriorityProperty"]]]]:
             '''Indicates the priority for slots.
 
             Amazon Lex prompts the user for slot values in priority order.
@@ -7463,18 +6589,18 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-slotpriorities
             '''
             result = self._values.get("slot_priorities")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotPriorityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotPriorityProperty"]]]], result)
 
         @builtins.property
         def slots(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotProperty"]]]]:
             '''A list of slots that the intent requires for fulfillment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-intent.html#cfn-lex-bot-intent-slots
             '''
             result = self._values.get("slots")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7502,7 +6628,7 @@ class CfnBot(
             *,
             kendra_index: builtins.str,
             query_filter_string: typing.Optional[builtins.str] = None,
-            query_filter_string_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            query_filter_string_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Provides configuration information for the ``AMAZON.KendraSearchIntent`` intent. When you use this intent, Amazon Lex searches the specified Amazon Kendra index and returns documents from the index that match the user's utterance.
 
@@ -7564,13 +6690,13 @@ class CfnBot(
         @builtins.property
         def query_filter_string_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Determines whether the ``AMAZON.KendraSearchIntent`` intent uses a custom query string to query the Amazon Kendra index.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-kendraconfiguration.html#cfn-lex-bot-kendraconfiguration-queryfilterstringenabled
             '''
             result = self._values.get("query_filter_string_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7666,8 +6792,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            message: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageProperty", typing.Dict[builtins.str, typing.Any]]],
-            variations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            message: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageProperty", typing.Dict[builtins.str, typing.Any]]],
+            variations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Provides one or more messages that Amazon Lex should send to the user.
 
@@ -7745,19 +6871,19 @@ class CfnBot(
         @builtins.property
         def message(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.MessageProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.MessageProperty"]:
             '''The primary message that Amazon Lex should send to the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-messagegroup.html#cfn-lex-bot-messagegroup-message
             '''
             result = self._values.get("message")
             assert result is not None, "Required property 'message' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.MessageProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.MessageProperty"], result)
 
         @builtins.property
         def variations(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageProperty"]]]]:
             '''Message variations to send to the user.
 
             When variations are defined, Amazon Lex chooses the primary message or one of the variations to send to the user.
@@ -7765,7 +6891,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-messagegroup.html#cfn-lex-bot-messagegroup-variations
             '''
             result = self._values.get("variations")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7792,10 +6918,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            custom_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CustomPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            image_response_card: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ImageResponseCardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            plain_text_message: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PlainTextMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ssml_message: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SSMLMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CustomPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image_response_card: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ImageResponseCardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            plain_text_message: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PlainTextMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ssml_message: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SSMLMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The object that provides message text and its type.
 
@@ -7855,46 +6981,46 @@ class CfnBot(
         @builtins.property
         def custom_payload(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CustomPayloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CustomPayloadProperty"]]:
             '''A message in a custom format defined by the client application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-message.html#cfn-lex-bot-message-custompayload
             '''
             result = self._values.get("custom_payload")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CustomPayloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CustomPayloadProperty"]], result)
 
         @builtins.property
         def image_response_card(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ImageResponseCardProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ImageResponseCardProperty"]]:
             '''A message that defines a response card that the client application can show to the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-message.html#cfn-lex-bot-message-imageresponsecard
             '''
             result = self._values.get("image_response_card")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ImageResponseCardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ImageResponseCardProperty"]], result)
 
         @builtins.property
         def plain_text_message(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PlainTextMessageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PlainTextMessageProperty"]]:
             '''A message in plain text format.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-message.html#cfn-lex-bot-message-plaintextmessage
             '''
             result = self._values.get("plain_text_message")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PlainTextMessageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PlainTextMessageProperty"]], result)
 
         @builtins.property
         def ssml_message(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SSMLMessageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SSMLMessageProperty"]]:
             '''A message in Speech Synthesis Markup Language (SSML).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-message.html#cfn-lex-bot-message-ssmlmessage
             '''
             result = self._values.get("ssml_message")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SSMLMessageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SSMLMessageProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7916,7 +7042,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            allow_multiple_values: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            allow_multiple_values: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Indicates whether a slot can return multiple values.
 
@@ -7945,7 +7071,7 @@ class CfnBot(
         @builtins.property
         def allow_multiple_values(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates whether a slot can return multiple values.
 
             When ``true`` , the slot may return more than one value in a response. When ``false`` , the slot returns only a single value.
@@ -7957,7 +7083,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-multiplevaluessetting.html#cfn-lex-bot-multiplevaluessetting-allowmultiplevalues
             '''
             result = self._values.get("allow_multiple_values")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7973,19 +7099,27 @@ class CfnBot(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.NluImprovementSpecificationProperty",
         jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
+        name_mapping={
+            "enabled": "enabled",
+            "assisted_nlu_mode": "assistedNluMode",
+            "intent_disambiguation_settings": "intentDisambiguationSettings",
+        },
     )
     class NluImprovementSpecificationProperty:
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            assisted_nlu_mode: typing.Optional[builtins.str] = None,
+            intent_disambiguation_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.IntentDisambiguationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configures the Assisted Natural Language Understanding (NLU) feature for your bot.
 
             This specification determines whether enhanced intent recognition and utterance understanding capabilities are active.
 
             :param enabled: Determines whether the Assisted NLU feature is enabled for the bot. When set to ``true`` , Amazon Lex uses advanced models to improve intent recognition and slot resolution, with the default being ``false`` .
+            :param assisted_nlu_mode: Specifies the mode for Assisted NLU operation. Use ``Primary`` to make Assisted NLU the primary intent recognition method, or ``Fallback`` to use it only when standard NLU confidence is low.
+            :param intent_disambiguation_settings: An object containing specifications for the Intent Disambiguation feature within the Assisted NLU settings. These settings determine how the bot handles ambiguous user inputs that could match multiple intents.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-nluimprovementspecification.html
             :exampleMetadata: fixture=_generated
@@ -7997,18 +7131,34 @@ class CfnBot(
                 from aws_cdk import aws_lex as lex
                 
                 nlu_improvement_specification_property = lex.CfnBot.NluImprovementSpecificationProperty(
-                    enabled=False
+                    enabled=False,
+                
+                    # the properties below are optional
+                    assisted_nlu_mode="assistedNluMode",
+                    intent_disambiguation_settings=lex.CfnBot.IntentDisambiguationSettingsProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        custom_disambiguation_message="customDisambiguationMessage",
+                        max_disambiguation_intents=123
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f80adb05041a59edc5a47ce2b664a9d75275b5e3ff27a1ebb50e164ad1b82019)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument assisted_nlu_mode", value=assisted_nlu_mode, expected_type=type_hints["assisted_nlu_mode"])
+                check_type(argname="argument intent_disambiguation_settings", value=intent_disambiguation_settings, expected_type=type_hints["intent_disambiguation_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "enabled": enabled,
             }
+            if assisted_nlu_mode is not None:
+                self._values["assisted_nlu_mode"] = assisted_nlu_mode
+            if intent_disambiguation_settings is not None:
+                self._values["intent_disambiguation_settings"] = intent_disambiguation_settings
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether the Assisted NLU feature is enabled for the bot.
 
             When set to ``true`` , Amazon Lex uses advanced models to improve intent recognition and slot resolution, with the default being ``false`` .
@@ -8017,7 +7167,31 @@ class CfnBot(
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def assisted_nlu_mode(self) -> typing.Optional[builtins.str]:
+            '''Specifies the mode for Assisted NLU operation.
+
+            Use ``Primary`` to make Assisted NLU the primary intent recognition method, or ``Fallback`` to use it only when standard NLU confidence is low.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-nluimprovementspecification.html#cfn-lex-bot-nluimprovementspecification-assistednlumode
+            '''
+            result = self._values.get("assisted_nlu_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def intent_disambiguation_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentDisambiguationSettingsProperty"]]:
+            '''An object containing specifications for the Intent Disambiguation feature within the Assisted NLU settings.
+
+            These settings determine how the bot handles ambiguous user inputs that could match multiple intents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-nluimprovementspecification.html#cfn-lex-bot-nluimprovementspecification-intentdisambiguationsettings
+            '''
+            result = self._values.get("intent_disambiguation_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.IntentDisambiguationSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8100,8 +7274,8 @@ class CfnBot(
             self,
             *,
             domain_endpoint: typing.Optional[builtins.str] = None,
-            exact_response: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            exact_response_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ExactResponseFieldsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            exact_response: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            exact_response_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ExactResponseFieldsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             include_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
             index_name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -8164,24 +7338,24 @@ class CfnBot(
         @builtins.property
         def exact_response(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether to return an exact response or to return an answer generated by the model using the fields you specify from the database.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-opensearchconfiguration.html#cfn-lex-bot-opensearchconfiguration-exactresponse
             '''
             result = self._values.get("exact_response")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def exact_response_fields(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ExactResponseFieldsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ExactResponseFieldsProperty"]]:
             '''Contains the names of the fields used for an exact response to the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-opensearchconfiguration.html#cfn-lex-bot-opensearchconfiguration-exactresponsefields
             '''
             result = self._values.get("exact_response_fields")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ExactResponseFieldsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ExactResponseFieldsProperty"]], result)
 
         @builtins.property
         def include_fields(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8377,15 +7551,15 @@ class CfnBot(
         def __init__(
             self,
             *,
-            failure_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            success_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            success_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            success_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies next steps to run after the dialog code hook finishes.
 
@@ -8440,101 +7614,101 @@ class CfnBot(
         @builtins.property
         def failure_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the dialog code hook throws an exception or returns with the ``State`` field of the ``Intent`` object set to ``Failed`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-failureconditional
             '''
             result = self._values.get("failure_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def failure_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step the bot runs after the dialog code hook throws an exception or returns with the ``State`` field of the ``Intent`` object set to ``Failed`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-failurenextstep
             '''
             result = self._values.get("failure_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def failure_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input when the code hook fails.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-failureresponse
             '''
             result = self._values.get("failure_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def success_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the dialog code hook finishes successfully.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-successconditional
             '''
             result = self._values.get("success_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def success_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifics the next step the bot runs after the dialog code hook finishes successfully.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-successnextstep
             '''
             result = self._values.get("success_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def success_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond when the code hook succeeds.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-successresponse
             '''
             result = self._values.get("success_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def timeout_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate if the code hook times out.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-timeoutconditional
             '''
             result = self._values.get("timeout_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def timeout_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot runs when the code hook times out.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-timeoutnextstep
             '''
             result = self._values.get("timeout_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def timeout_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond to the user input when the code hook times out.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postdialogcodehookinvocationspecification.html#cfn-lex-bot-postdialogcodehookinvocationspecification-timeoutresponse
             '''
             result = self._values.get("timeout_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8566,15 +7740,15 @@ class CfnBot(
         def __init__(
             self,
             *,
-            failure_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            success_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            success_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            success_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides a setting that determines whether the post-fulfillment response is sent to the user.
 
@@ -8631,101 +7805,101 @@ class CfnBot(
         @builtins.property
         def failure_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the fulfillment code hook throws an exception or returns with the ``State`` field of the ``Intent`` object set to ``Failed`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-failureconditional
             '''
             result = self._values.get("failure_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def failure_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step the bot runs after the fulfillment code hook throws an exception or returns with the ``State`` field of the ``Intent`` object set to ``Failed`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-failurenextstep
             '''
             result = self._values.get("failure_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def failure_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond when fulfillment isn't successful.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-failureresponse
             '''
             result = self._values.get("failure_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def success_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the fulfillment code hook finishes successfully.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-successconditional
             '''
             result = self._values.get("success_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def success_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step in the conversation that Amazon Lex invokes when the fulfillment code hook completes successfully.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-successnextstep
             '''
             result = self._values.get("success_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def success_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond when the fulfillment is successful.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-successresponse
             '''
             result = self._values.get("success_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def timeout_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate if the fulfillment code hook times out.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-timeoutconditional
             '''
             result = self._values.get("timeout_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def timeout_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot runs when the fulfillment code hook times out.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-timeoutnextstep
             '''
             result = self._values.get("timeout_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def timeout_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond when fulfillment isn't completed within the timeout period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-postfulfillmentstatusspecification.html#cfn-lex-bot-postfulfillmentstatusspecification-timeoutresponse
             '''
             result = self._values.get("timeout_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8752,10 +7926,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            allowed_input_types: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.AllowedInputTypesProperty", typing.Dict[builtins.str, typing.Any]]],
-            allow_interrupt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            audio_and_dtmf_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.AudioAndDTMFInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            text_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TextInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            allowed_input_types: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AllowedInputTypesProperty", typing.Dict[builtins.str, typing.Any]]],
+            allow_interrupt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            audio_and_dtmf_input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AudioAndDTMFInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            text_input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.TextInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the settings on a prompt attempt.
 
@@ -8820,47 +7994,47 @@ class CfnBot(
         @builtins.property
         def allowed_input_types(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.AllowedInputTypesProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.AllowedInputTypesProperty"]:
             '''Indicates the allowed input types of the prompt attempt.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-promptattemptspecification.html#cfn-lex-bot-promptattemptspecification-allowedinputtypes
             '''
             result = self._values.get("allowed_input_types")
             assert result is not None, "Required property 'allowed_input_types' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.AllowedInputTypesProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.AllowedInputTypesProperty"], result)
 
         @builtins.property
         def allow_interrupt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates whether the user can interrupt a speech prompt attempt from the bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-promptattemptspecification.html#cfn-lex-bot-promptattemptspecification-allowinterrupt
             '''
             result = self._values.get("allow_interrupt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def audio_and_dtmf_input_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.AudioAndDTMFInputSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioAndDTMFInputSpecificationProperty"]]:
             '''Specifies the settings on audio and DTMF input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-promptattemptspecification.html#cfn-lex-bot-promptattemptspecification-audioanddtmfinputspecification
             '''
             result = self._values.get("audio_and_dtmf_input_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.AudioAndDTMFInputSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AudioAndDTMFInputSpecificationProperty"]], result)
 
         @builtins.property
         def text_input_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TextInputSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TextInputSpecificationProperty"]]:
             '''Specifies the settings on text input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-promptattemptspecification.html#cfn-lex-bot-promptattemptspecification-textinputspecification
             '''
             result = self._values.get("text_input_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TextInputSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TextInputSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8889,10 +8063,10 @@ class CfnBot(
             self,
             *,
             max_retries: jsii.Number,
-            message_groups_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            allow_interrupt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            message_groups_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            allow_interrupt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             message_selection_strategy: typing.Optional[builtins.str] = None,
-            prompt_attempts_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PromptAttemptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            prompt_attempts_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PromptAttemptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies a list of message groups that Amazon Lex sends to a user to elicit a response.
 
@@ -9027,7 +8201,7 @@ class CfnBot(
         @builtins.property
         def message_groups_list(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]]:
             '''A collection of messages that Amazon Lex can send to the user.
 
             Amazon Lex chooses the actual message to send at runtime.
@@ -9036,18 +8210,18 @@ class CfnBot(
             '''
             result = self._values.get("message_groups_list")
             assert result is not None, "Required property 'message_groups_list' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]], result)
 
         @builtins.property
         def allow_interrupt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates whether the user can interrupt a speech prompt from the bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-promptspecification.html#cfn-lex-bot-promptspecification-allowinterrupt
             '''
             result = self._values.get("allow_interrupt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def message_selection_strategy(self) -> typing.Optional[builtins.str]:
@@ -9061,13 +8235,13 @@ class CfnBot(
         @builtins.property
         def prompt_attempts_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnBot.PromptAttemptSpecificationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnBot.PromptAttemptSpecificationProperty"]]]]:
             '''Specifies the advanced settings on each attempt of the prompt.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-promptspecification.html#cfn-lex-bot-promptspecification-promptattemptsspecification
             '''
             result = self._values.get("prompt_attempts_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnBot.PromptAttemptSpecificationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnBot.PromptAttemptSpecificationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9141,7 +8315,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            q_in_connect_assistant_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.QInConnectAssistantConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            q_in_connect_assistant_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.QInConnectAssistantConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param q_in_connect_assistant_configuration: 
@@ -9171,12 +8345,12 @@ class CfnBot(
         @builtins.property
         def q_in_connect_assistant_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QInConnectAssistantConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QInConnectAssistantConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-qinconnectintentconfiguration.html#cfn-lex-bot-qinconnectintentconfiguration-qinconnectassistantconfiguration
             '''
             result = self._values.get("q_in_connect_assistant_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.QInConnectAssistantConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.QInConnectAssistantConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9201,8 +8375,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            bedrock_model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
-            data_source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            bedrock_model_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            data_source_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Details about the the configuration of the built-in ``Amazon.QnAIntent`` .
 
@@ -9271,25 +8445,25 @@ class CfnBot(
         @builtins.property
         def bedrock_model_configuration(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-qnaintentconfiguration.html#cfn-lex-bot-qnaintentconfiguration-bedrockmodelconfiguration
             '''
             result = self._values.get("bedrock_model_configuration")
             assert result is not None, "Required property 'bedrock_model_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"], result)
 
         @builtins.property
         def data_source_configuration(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.DataSourceConfigurationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.DataSourceConfigurationProperty"]:
             '''Contains details about the configuration of the data source used for the ``AMAZON.QnAIntent`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-qnaintentconfiguration.html#cfn-lex-bot-qnaintentconfiguration-datasourceconfiguration
             '''
             result = self._values.get("data_source_configuration")
             assert result is not None, "Required property 'data_source_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.DataSourceConfigurationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.DataSourceConfigurationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9316,9 +8490,9 @@ class CfnBot(
         def __init__(
             self,
             *,
-            exact_response: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            exact_response: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             kendra_index: builtins.str,
-            query_filter_string_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            query_filter_string_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             query_filter_string: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains details about the configuration of the Amazon Kendra index used for the ``AMAZON.QnAIntent`` .
@@ -9361,7 +8535,9 @@ class CfnBot(
                 self._values["query_filter_string"] = query_filter_string
 
         @builtins.property
-        def exact_response(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def exact_response(
+            self,
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Specifies whether to return an exact response from the Amazon Kendra index or to let the Amazon Bedrock model you select generate a response based on the results.
 
             To use this feature, you must first add FAQ questions to your index by following the steps at `Adding frequently asked questions (FAQs) to an index <https://docs.aws.amazon.com/kendra/latest/dg/in-creating-faq.html>`_ .
@@ -9370,7 +8546,7 @@ class CfnBot(
             '''
             result = self._values.get("exact_response")
             assert result is not None, "Required property 'exact_response' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def kendra_index(self) -> builtins.str:
@@ -9385,14 +8561,14 @@ class CfnBot(
         @builtins.property
         def query_filter_string_enabled(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Specifies whether to enable an Amazon Kendra filter string or not.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-qnakendraconfiguration.html#cfn-lex-bot-qnakendraconfiguration-queryfilterstringenabled
             '''
             result = self._values.get("query_filter_string_enabled")
             assert result is not None, "Required property 'query_filter_string_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def query_filter_string(self) -> typing.Optional[builtins.str]:
@@ -9478,8 +8654,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            message_groups_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            allow_interrupt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            message_groups_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            allow_interrupt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input.
 
@@ -9562,7 +8738,7 @@ class CfnBot(
         @builtins.property
         def message_groups_list(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]]:
             '''A collection of responses that Amazon Lex can send to the user.
 
             Amazon Lex chooses the actual response to send at runtime.
@@ -9571,18 +8747,18 @@ class CfnBot(
             '''
             result = self._values.get("message_groups_list")
             assert result is not None, "Required property 'message_groups_list' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]], result)
 
         @builtins.property
         def allow_interrupt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates whether the user can interrupt a speech response from Amazon Lex.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-responsespecification.html#cfn-lex-bot-responsespecification-allowinterrupt
             '''
             result = self._values.get("allow_interrupt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9607,8 +8783,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            nlu_improvement_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.NluImprovementSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            slot_resolution_improvement_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotResolutionImprovementSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nlu_improvement_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.NluImprovementSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slot_resolution_improvement_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotResolutionImprovementSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains specifications about the Amazon Lex runtime generative AI capabilities from Amazon Bedrock that you can turn on for your bot.
 
@@ -9626,7 +8802,17 @@ class CfnBot(
                 
                 runtime_settings_property = lex.CfnBot.RuntimeSettingsProperty(
                     nlu_improvement_specification=lex.CfnBot.NluImprovementSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+                
+                        # the properties below are optional
+                        assisted_nlu_mode="assistedNluMode",
+                        intent_disambiguation_settings=lex.CfnBot.IntentDisambiguationSettingsProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            custom_disambiguation_message="customDisambiguationMessage",
+                            max_disambiguation_intents=123
+                        )
                     ),
                     slot_resolution_improvement_specification=lex.CfnBot.SlotResolutionImprovementSpecificationProperty(
                         enabled=False,
@@ -9659,22 +8845,22 @@ class CfnBot(
         @builtins.property
         def nlu_improvement_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.NluImprovementSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.NluImprovementSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-runtimesettings.html#cfn-lex-bot-runtimesettings-nluimprovementspecification
             '''
             result = self._values.get("nlu_improvement_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.NluImprovementSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.NluImprovementSpecificationProperty"]], result)
 
         @builtins.property
         def slot_resolution_improvement_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotResolutionImprovementSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotResolutionImprovementSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-runtimesettings.html#cfn-lex-bot-runtimesettings-slotresolutionimprovementspecification
             '''
             result = self._values.get("slot_resolution_improvement_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotResolutionImprovementSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotResolutionImprovementSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9935,8 +9121,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            bedrock_model_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains specifications for the sample utterance generation feature.
 
@@ -9980,24 +9166,24 @@ class CfnBot(
                 self._values["bedrock_model_specification"] = bedrock_model_specification
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Specifies whether to enable sample utterance generation or not.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-sampleutterancegenerationspecification.html#cfn-lex-bot-sampleutterancegenerationspecification-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def bedrock_model_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-sampleutterancegenerationspecification.html#cfn-lex-bot-sampleutterancegenerationspecification-bedrockmodelspecification
             '''
             result = self._values.get("bedrock_model_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10123,7 +9309,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            detect_sentiment: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            detect_sentiment: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
 
@@ -10152,14 +9338,14 @@ class CfnBot(
         @builtins.property
         def detect_sentiment(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Sets whether Amazon Lex uses Amazon Comprehend to detect the sentiment of user utterances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-sentimentanalysissettings.html#cfn-lex-bot-sentimentanalysissettings-detectsentiment
             '''
             result = self._values.get("detect_sentiment")
             assert result is not None, "Required property 'detect_sentiment' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10265,14 +9451,14 @@ class CfnBot(
         def __init__(
             self,
             *,
-            capture_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            capture_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            capture_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            elicitation_code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ElicitationCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_conditional: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_next_step: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            failure_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capture_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capture_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            capture_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            elicitation_code_hook: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ElicitationCodeHookInvocationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_conditional: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConditionalSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_next_step: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DialogStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failure_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings used when Amazon Lex successfully captures a slot value from a user.
 
@@ -10323,90 +9509,90 @@ class CfnBot(
         @builtins.property
         def capture_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate after the slot value is captured.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-captureconditional
             '''
             result = self._values.get("capture_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def capture_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot runs when the slot value is captured before the code hook times out.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-capturenextstep
             '''
             result = self._values.get("capture_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def capture_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-captureresponse
             '''
             result = self._values.get("capture_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         @builtins.property
         def code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookInvocationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookInvocationSettingProperty"]]:
             '''Code hook called after Amazon Lex successfully captures a slot value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-codehook
             '''
             result = self._values.get("code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogCodeHookInvocationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogCodeHookInvocationSettingProperty"]], result)
 
         @builtins.property
         def elicitation_code_hook(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ElicitationCodeHookInvocationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ElicitationCodeHookInvocationSettingProperty"]]:
             '''Code hook called when Amazon Lex doesn't capture a slot value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-elicitationcodehook
             '''
             result = self._values.get("elicitation_code_hook")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ElicitationCodeHookInvocationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ElicitationCodeHookInvocationSettingProperty"]], result)
 
         @builtins.property
         def failure_conditional(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]]:
             '''A list of conditional branches to evaluate when the slot value isn't captured.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-failureconditional
             '''
             result = self._values.get("failure_conditional")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConditionalSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConditionalSpecificationProperty"]], result)
 
         @builtins.property
         def failure_next_step(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]]:
             '''Specifies the next step that the bot runs when the slot value code is not recognized.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-failurenextstep
             '''
             result = self._values.get("failure_next_step")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DialogStateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DialogStateProperty"]], result)
 
         @builtins.property
         def failure_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]]:
             '''Specifies a list of message groups that Amazon Lex uses to respond the user input when the slot fails to be captured.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotcapturesetting.html#cfn-lex-bot-slotcapturesetting-failureresponse
             '''
             result = self._values.get("failure_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10480,7 +9666,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            default_value_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotDefaultValueProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            default_value_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotDefaultValueProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''The default value to use when a user doesn't provide a value for a slot.
 
@@ -10511,7 +9697,7 @@ class CfnBot(
         @builtins.property
         def default_value_list(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotDefaultValueProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotDefaultValueProperty"]]]:
             '''A list of default values.
 
             Amazon Lex chooses the default value to use in the order that they are presented in the list.
@@ -10520,7 +9706,7 @@ class CfnBot(
             '''
             result = self._values.get("default_value_list")
             assert result is not None, "Required property 'default_value_list' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotDefaultValueProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotDefaultValueProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10618,11 +9804,11 @@ class CfnBot(
             *,
             name: builtins.str,
             slot_type_name: builtins.str,
-            value_elicitation_setting: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueElicitationSettingProperty", typing.Dict[builtins.str, typing.Any]]],
+            value_elicitation_setting: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueElicitationSettingProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
-            multiple_values_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MultipleValuesSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            obfuscation_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ObfuscationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sub_slot_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SubSlotSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multiple_values_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MultipleValuesSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            obfuscation_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ObfuscationSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sub_slot_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SubSlotSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the definition of a slot.
 
@@ -10691,7 +9877,7 @@ class CfnBot(
         @builtins.property
         def value_elicitation_setting(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueElicitationSettingProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueElicitationSettingProperty"]:
             '''Determines the slot resolution strategy that Amazon Lex uses to return slot type values.
 
             The field can be set to one of the following values:
@@ -10705,7 +9891,7 @@ class CfnBot(
             '''
             result = self._values.get("value_elicitation_setting")
             assert result is not None, "Required property 'value_elicitation_setting' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueElicitationSettingProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueElicitationSettingProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -10719,18 +9905,18 @@ class CfnBot(
         @builtins.property
         def multiple_values_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.MultipleValuesSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.MultipleValuesSettingProperty"]]:
             '''Indicates whether a slot can return multiple values.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slot.html#cfn-lex-bot-slot-multiplevaluessetting
             '''
             result = self._values.get("multiple_values_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.MultipleValuesSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.MultipleValuesSettingProperty"]], result)
 
         @builtins.property
         def obfuscation_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ObfuscationSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ObfuscationSettingProperty"]]:
             '''Determines whether the contents of the slot are obfuscated in Amazon CloudWatch Logs logs.
 
             Use obfuscated slots to protect information such as personally identifiable information (PII) in logs.
@@ -10738,17 +9924,17 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slot.html#cfn-lex-bot-slot-obfuscationsetting
             '''
             result = self._values.get("obfuscation_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ObfuscationSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ObfuscationSettingProperty"]], result)
 
         @builtins.property
         def sub_slot_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SubSlotSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SubSlotSettingProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slot.html#cfn-lex-bot-slot-subslotsetting
             '''
             result = self._values.get("sub_slot_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SubSlotSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SubSlotSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10773,8 +9959,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            bedrock_model_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains specifications for the assisted slot resolution feature.
 
@@ -10818,25 +10004,25 @@ class CfnBot(
                 self._values["bedrock_model_specification"] = bedrock_model_specification
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Specifies whether assisted slot resolution is turned on or off.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotresolutionimprovementspecification.html#cfn-lex-bot-slotresolutionimprovementspecification-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def bedrock_model_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]]:
             '''An object containing information about the Amazon Bedrock model used to assist slot resolution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotresolutionimprovementspecification.html#cfn-lex-bot-slotresolutionimprovementspecification-bedrockmodelspecification
             '''
             result = self._values.get("bedrock_model_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.BedrockModelSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10867,12 +10053,12 @@ class CfnBot(
             self,
             *,
             name: builtins.str,
-            composite_slot_type_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CompositeSlotTypeSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            composite_slot_type_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CompositeSlotTypeSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
-            external_source_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ExternalSourceSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            external_source_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ExternalSourceSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parent_slot_type_signature: typing.Optional[builtins.str] = None,
-            slot_type_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotTypeValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            value_selection_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueSelectionSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slot_type_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotTypeValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            value_selection_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueSelectionSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes a slot type.
 
@@ -10900,7 +10086,10 @@ class CfnBot(
                     composite_slot_type_setting=lex.CfnBot.CompositeSlotTypeSettingProperty(
                         sub_slots=[lex.CfnBot.SubSlotTypeCompositionProperty(
                             name="name",
-                            slot_type_id="slotTypeId"
+                
+                            # the properties below are optional
+                            slot_type_id="slotTypeId",
+                            slot_type_name="slotTypeName"
                         )]
                     ),
                     description="description",
@@ -10979,12 +10168,12 @@ class CfnBot(
         @builtins.property
         def composite_slot_type_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CompositeSlotTypeSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CompositeSlotTypeSettingProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slottype.html#cfn-lex-bot-slottype-compositeslottypesetting
             '''
             result = self._values.get("composite_slot_type_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.CompositeSlotTypeSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.CompositeSlotTypeSettingProperty"]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -11000,13 +10189,13 @@ class CfnBot(
         @builtins.property
         def external_source_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ExternalSourceSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ExternalSourceSettingProperty"]]:
             '''Sets the type of external information used to create the slot type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slottype.html#cfn-lex-bot-slottype-externalsourcesetting
             '''
             result = self._values.get("external_source_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ExternalSourceSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ExternalSourceSettingProperty"]], result)
 
         @builtins.property
         def parent_slot_type_signature(self) -> typing.Optional[builtins.str]:
@@ -11024,7 +10213,7 @@ class CfnBot(
         @builtins.property
         def slot_type_values(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotTypeValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotTypeValueProperty"]]]]:
             '''A list of SlotTypeValue objects that defines the values that the slot type can take.
 
             Each value can have a list of synonyms, additional values that help train the machine learning model about the values that it resolves for the slot.
@@ -11032,12 +10221,12 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slottype.html#cfn-lex-bot-slottype-slottypevalues
             '''
             result = self._values.get("slot_type_values")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotTypeValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotTypeValueProperty"]]]], result)
 
         @builtins.property
         def value_selection_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueSelectionSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueSelectionSettingProperty"]]:
             '''Determines the slot resolution strategy that Amazon Lex uses to return slot type values.
 
             The field can be set to one of the following values:
@@ -11050,7 +10239,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slottype.html#cfn-lex-bot-slottype-valueselectionsetting
             '''
             result = self._values.get("value_selection_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueSelectionSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueSelectionSettingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11072,8 +10261,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            sample_value: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleValueProperty", typing.Dict[builtins.str, typing.Any]]],
-            synonyms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sample_value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SampleValueProperty", typing.Dict[builtins.str, typing.Any]]],
+            synonyms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SampleValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Each slot type can have a set of values.
 
@@ -11115,25 +10304,25 @@ class CfnBot(
         @builtins.property
         def sample_value(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.SampleValueProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.SampleValueProperty"]:
             '''The value of the slot type entry.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slottypevalue.html#cfn-lex-bot-slottypevalue-samplevalue
             '''
             result = self._values.get("sample_value")
             assert result is not None, "Required property 'sample_value' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.SampleValueProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.SampleValueProperty"], result)
 
         @builtins.property
         def synonyms(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleValueProperty"]]]]:
             '''Additional values related to the slot type entry.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slottypevalue.html#cfn-lex-bot-slottypevalue-synonyms
             '''
             result = self._values.get("synonyms")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11163,11 +10352,11 @@ class CfnBot(
             self,
             *,
             slot_constraint: builtins.str,
-            default_value_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotDefaultValueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            prompt_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PromptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sample_utterances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleUtteranceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            slot_capture_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotCaptureSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            wait_and_continue_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.WaitAndContinueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            default_value_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotDefaultValueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prompt_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PromptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sample_utterances: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SampleUtteranceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slot_capture_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotCaptureSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wait_and_continue_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.WaitAndContinueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the elicitation setting details eliciting a slot.
 
@@ -11220,7 +10409,7 @@ class CfnBot(
         @builtins.property
         def default_value_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotDefaultValueSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotDefaultValueSpecificationProperty"]]:
             '''A list of default values for a slot.
 
             Default values are used when Amazon Lex hasn't determined a value for a slot. You can specify default values from context variables, session attributes, and defined values.
@@ -11228,23 +10417,23 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueelicitationsetting.html#cfn-lex-bot-slotvalueelicitationsetting-defaultvaluespecification
             '''
             result = self._values.get("default_value_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotDefaultValueSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotDefaultValueSpecificationProperty"]], result)
 
         @builtins.property
         def prompt_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PromptSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PromptSpecificationProperty"]]:
             '''The prompt that Amazon Lex uses to elicit the slot value from the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueelicitationsetting.html#cfn-lex-bot-slotvalueelicitationsetting-promptspecification
             '''
             result = self._values.get("prompt_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PromptSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PromptSpecificationProperty"]], result)
 
         @builtins.property
         def sample_utterances(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceProperty"]]]]:
             '''If you know a specific pattern that users might respond to an Amazon Lex request for a slot value, you can provide those utterances to improve accuracy.
 
             This is optional. In most cases, Amazon Lex is capable of understanding user utterances.
@@ -11252,29 +10441,29 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueelicitationsetting.html#cfn-lex-bot-slotvalueelicitationsetting-sampleutterances
             '''
             result = self._values.get("sample_utterances")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceProperty"]]]], result)
 
         @builtins.property
         def slot_capture_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotCaptureSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotCaptureSettingProperty"]]:
             '''Specifies the settings that Amazon Lex uses when a slot value is successfully entered by a user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueelicitationsetting.html#cfn-lex-bot-slotvalueelicitationsetting-slotcapturesetting
             '''
             result = self._values.get("slot_capture_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotCaptureSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotCaptureSettingProperty"]], result)
 
         @builtins.property
         def wait_and_continue_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.WaitAndContinueSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.WaitAndContinueSpecificationProperty"]]:
             '''Specifies the prompts that Amazon Lex uses while a bot is waiting for customer input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueelicitationsetting.html#cfn-lex-bot-slotvalueelicitationsetting-waitandcontinuespecification
             '''
             result = self._values.get("wait_and_continue_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.WaitAndContinueSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.WaitAndContinueSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11300,7 +10489,7 @@ class CfnBot(
             self,
             *,
             slot_name: typing.Optional[builtins.str] = None,
-            slot_value_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slot_value_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Maps a slot name to the `SlotValueOverride <https://docs.aws.amazon.com/lexv2/latest/APIReference/API_SlotValueOverride.html>`_ object.
 
@@ -11351,13 +10540,13 @@ class CfnBot(
         @builtins.property
         def slot_value_override(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueOverrideProperty"]]:
             '''The SlotValueOverride object to which the slot name will be mapped.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueoverridemap.html#cfn-lex-bot-slotvalueoverridemap-slotvalueoverride
             '''
             result = self._values.get("slot_value_override")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueOverrideProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11380,8 +10569,8 @@ class CfnBot(
             self,
             *,
             shape: typing.Optional[builtins.str] = None,
-            value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The slot values that Amazon Lex uses when it sets slot values in a dialog step.
 
@@ -11435,18 +10624,18 @@ class CfnBot(
         @builtins.property
         def value(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueProperty"]]:
             '''The current value of the slot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueoverride.html#cfn-lex-bot-slotvalueoverride-value
             '''
             result = self._values.get("value")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueProperty"]], result)
 
         @builtins.property
         def values(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueOverrideProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueOverrideProperty"]]]]:
             '''A list of one or more values that the user provided for the slot.
 
             For example, for a slot that elicits pizza toppings, the values might be "pepperoni" and "pineapple."
@@ -11454,7 +10643,7 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueoverride.html#cfn-lex-bot-slotvalueoverride-values
             '''
             result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueOverrideProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueOverrideProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11603,8 +10792,8 @@ class CfnBot(
             self,
             *,
             resolution_strategy: builtins.str,
-            advanced_recognition_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.AdvancedRecognitionSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            regex_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotValueRegexFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            advanced_recognition_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.AdvancedRecognitionSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regex_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotValueRegexFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains settings used by Amazon Lex to select a slot value.
 
@@ -11666,7 +10855,7 @@ class CfnBot(
         @builtins.property
         def advanced_recognition_setting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.AdvancedRecognitionSettingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AdvancedRecognitionSettingProperty"]]:
             '''Provides settings that enable advanced recognition settings for slot values.
 
             You can use this to enable using slot values as a custom vocabulary for recognizing user utterances.
@@ -11674,18 +10863,18 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueselectionsetting.html#cfn-lex-bot-slotvalueselectionsetting-advancedrecognitionsetting
             '''
             result = self._values.get("advanced_recognition_setting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.AdvancedRecognitionSettingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.AdvancedRecognitionSettingProperty"]], result)
 
         @builtins.property
         def regex_filter(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueRegexFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueRegexFilterProperty"]]:
             '''A regular expression used to validate the value of a slot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotvalueselectionsetting.html#cfn-lex-bot-slotvalueselectionsetting-regexfilter
             '''
             result = self._values.get("regex_filter")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotValueRegexFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotValueRegexFilterProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11702,21 +10891,24 @@ class CfnBot(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.SpecificationsProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "slot_type_id": "slotTypeId",
             "value_elicitation_setting": "valueElicitationSetting",
+            "slot_type_id": "slotTypeId",
+            "slot_type_name": "slotTypeName",
         },
     )
     class SpecificationsProperty:
         def __init__(
             self,
             *,
-            slot_type_id: builtins.str,
-            value_elicitation_setting: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SubSlotValueElicitationSettingProperty", typing.Dict[builtins.str, typing.Any]]],
+            value_elicitation_setting: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SubSlotValueElicitationSettingProperty", typing.Dict[builtins.str, typing.Any]]],
+            slot_type_id: typing.Optional[builtins.str] = None,
+            slot_type_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Subslot specifications.
 
-            :param slot_type_id: The unique identifier assigned to the slot type.
             :param value_elicitation_setting: Specifies the elicitation setting details for constituent sub slots of a composite slot.
+            :param slot_type_id: The unique identifier assigned to the slot type.
+            :param slot_type_name: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-specifications.html
             :exampleMetadata: fixture=_generated
@@ -11728,7 +10920,6 @@ class CfnBot(
                 from aws_cdk import aws_lex as lex
                 
                 specifications_property = lex.CfnBot.SpecificationsProperty(
-                    slot_type_id="slotTypeId",
                     value_elicitation_setting=lex.CfnBot.SubSlotValueElicitationSettingProperty(
                         default_value_specification=lex.CfnBot.SlotDefaultValueSpecificationProperty(
                             default_value_list=[lex.CfnBot.SlotDefaultValueProperty(
@@ -11988,39 +11179,54 @@ class CfnBot(
                                 allow_interrupt=False
                             )
                         )
-                    )
+                    ),
+                
+                    # the properties below are optional
+                    slot_type_id="slotTypeId",
+                    slot_type_name="slotTypeName"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__84831b306cf7254dc35fff23cffebed9b612832f61edaf61cf5455c684e3fe37)
-                check_type(argname="argument slot_type_id", value=slot_type_id, expected_type=type_hints["slot_type_id"])
                 check_type(argname="argument value_elicitation_setting", value=value_elicitation_setting, expected_type=type_hints["value_elicitation_setting"])
+                check_type(argname="argument slot_type_id", value=slot_type_id, expected_type=type_hints["slot_type_id"])
+                check_type(argname="argument slot_type_name", value=slot_type_name, expected_type=type_hints["slot_type_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "slot_type_id": slot_type_id,
                 "value_elicitation_setting": value_elicitation_setting,
             }
-
-        @builtins.property
-        def slot_type_id(self) -> builtins.str:
-            '''The unique identifier assigned to the slot type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-specifications.html#cfn-lex-bot-specifications-slottypeid
-            '''
-            result = self._values.get("slot_type_id")
-            assert result is not None, "Required property 'slot_type_id' is missing"
-            return typing.cast(builtins.str, result)
+            if slot_type_id is not None:
+                self._values["slot_type_id"] = slot_type_id
+            if slot_type_name is not None:
+                self._values["slot_type_name"] = slot_type_name
 
         @builtins.property
         def value_elicitation_setting(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.SubSlotValueElicitationSettingProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.SubSlotValueElicitationSettingProperty"]:
             '''Specifies the elicitation setting details for constituent sub slots of a composite slot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-specifications.html#cfn-lex-bot-specifications-valueelicitationsetting
             '''
             result = self._values.get("value_elicitation_setting")
             assert result is not None, "Required property 'value_elicitation_setting' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.SubSlotValueElicitationSettingProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.SubSlotValueElicitationSettingProperty"], result)
+
+        @builtins.property
+        def slot_type_id(self) -> typing.Optional[builtins.str]:
+            '''The unique identifier assigned to the slot type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-specifications.html#cfn-lex-bot-specifications-slottypeid
+            '''
+            result = self._values.get("slot_type_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def slot_type_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-specifications.html#cfn-lex-bot-specifications-slottypename
+            '''
+            result = self._values.get("slot_type_name")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12030,6 +11236,78 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "SpecificationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.SpeechFoundationModelProperty",
+        jsii_struct_bases=[],
+        name_mapping={"model_arn": "modelArn", "voice_id": "voiceId"},
+    )
+    class SpeechFoundationModelProperty:
+        def __init__(
+            self,
+            *,
+            model_arn: builtins.str,
+            voice_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for a foundation model used for speech synthesis and recognition capabilities.
+
+            :param model_arn: 
+            :param voice_id: The identifier of the voice to use for speech synthesis with the foundation model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechfoundationmodel.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                speech_foundation_model_property = lex.CfnBot.SpeechFoundationModelProperty(
+                    model_arn="modelArn",
+                
+                    # the properties below are optional
+                    voice_id="voiceId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7a5854d9b1e4446804bf41f18570871a0df3820af105ded4f6b65346f5d6f4ab)
+                check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
+                check_type(argname="argument voice_id", value=voice_id, expected_type=type_hints["voice_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_arn": model_arn,
+            }
+            if voice_id is not None:
+                self._values["voice_id"] = voice_id
+
+        @builtins.property
+        def model_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechfoundationmodel.html#cfn-lex-bot-speechfoundationmodel-modelarn
+            '''
+            result = self._values.get("model_arn")
+            assert result is not None, "Required property 'model_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def voice_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the voice to use for speech synthesis with the foundation model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechfoundationmodel.html#cfn-lex-bot-speechfoundationmodel-voiceid
+            '''
+            result = self._values.get("voice_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SpeechFoundationModelProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12048,9 +11326,9 @@ class CfnBot(
             self,
             *,
             frequency_in_seconds: jsii.Number,
-            message_groups_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            message_groups_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.MessageGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
             timeout_in_seconds: jsii.Number,
-            allow_interrupt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            allow_interrupt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Defines the messages that Amazon Lex sends to a user to remind them that the bot is waiting for a response.
 
@@ -12153,14 +11431,14 @@ class CfnBot(
         @builtins.property
         def message_groups_list(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]]:
             '''One or more message groups, each containing one or more messages, that define the prompts that Amazon Lex sends to the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-stillwaitingresponsespecification.html#cfn-lex-bot-stillwaitingresponsespecification-messagegroupslist
             '''
             result = self._values.get("message_groups_list")
             assert result is not None, "Required property 'message_groups_list' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.MessageGroupProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.MessageGroupProperty"]]], result)
 
         @builtins.property
         def timeout_in_seconds(self) -> jsii.Number:
@@ -12175,13 +11453,13 @@ class CfnBot(
         @builtins.property
         def allow_interrupt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates that the user can interrupt the response by speaking while the message is being played.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-stillwaitingresponsespecification.html#cfn-lex-bot-stillwaitingresponsespecification-allowinterrupt
             '''
             result = self._values.get("allow_interrupt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12207,7 +11485,7 @@ class CfnBot(
             self,
             *,
             expression: typing.Optional[builtins.str] = None,
-            slot_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slot_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifications for the constituent sub slots and the expression for the composite slot.
 
@@ -12227,7 +11505,6 @@ class CfnBot(
                     expression="expression",
                     slot_specifications={
                         "slot_specifications_key": lex.CfnBot.SpecificationsProperty(
-                            slot_type_id="slotTypeId",
                             value_elicitation_setting=lex.CfnBot.SubSlotValueElicitationSettingProperty(
                                 default_value_specification=lex.CfnBot.SlotDefaultValueSpecificationProperty(
                                     default_value_list=[lex.CfnBot.SlotDefaultValueProperty(
@@ -12487,7 +11764,11 @@ class CfnBot(
                                         allow_interrupt=False
                                     )
                                 )
-                            )
+                            ),
+                
+                            # the properties below are optional
+                            slot_type_id="slotTypeId",
+                            slot_type_name="slotTypeName"
                         )
                     }
                 )
@@ -12514,13 +11795,13 @@ class CfnBot(
         @builtins.property
         def slot_specifications(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnBot.SpecificationsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnBot.SpecificationsProperty"]]]]:
             '''Specifications for the constituent sub slots of a composite slot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslotsetting.html#cfn-lex-bot-subslotsetting-slotspecifications
             '''
             result = self._values.get("slot_specifications")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnBot.SpecificationsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnBot.SpecificationsProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12536,14 +11817,25 @@ class CfnBot(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.SubSlotTypeCompositionProperty",
         jsii_struct_bases=[],
-        name_mapping={"name": "name", "slot_type_id": "slotTypeId"},
+        name_mapping={
+            "name": "name",
+            "slot_type_id": "slotTypeId",
+            "slot_type_name": "slotTypeName",
+        },
     )
     class SubSlotTypeCompositionProperty:
-        def __init__(self, *, name: builtins.str, slot_type_id: builtins.str) -> None:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            slot_type_id: typing.Optional[builtins.str] = None,
+            slot_type_name: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''Subslot type composition.
 
             :param name: Name of a constituent sub slot inside a composite slot.
             :param slot_type_id: The unique identifier assigned to a slot type. This refers to either a built-in slot type or the unique slotTypeId of a custom slot type.
+            :param slot_type_name: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslottypecomposition.html
             :exampleMetadata: fixture=_generated
@@ -12556,17 +11848,24 @@ class CfnBot(
                 
                 sub_slot_type_composition_property = lex.CfnBot.SubSlotTypeCompositionProperty(
                     name="name",
-                    slot_type_id="slotTypeId"
+                
+                    # the properties below are optional
+                    slot_type_id="slotTypeId",
+                    slot_type_name="slotTypeName"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__6a11ecebf71592606f12daf680d8d8cd568f03843d20fa7af9a041f1daa2d51f)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument slot_type_id", value=slot_type_id, expected_type=type_hints["slot_type_id"])
+                check_type(argname="argument slot_type_name", value=slot_type_name, expected_type=type_hints["slot_type_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
-                "slot_type_id": slot_type_id,
             }
+            if slot_type_id is not None:
+                self._values["slot_type_id"] = slot_type_id
+            if slot_type_name is not None:
+                self._values["slot_type_name"] = slot_type_name
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -12579,7 +11878,7 @@ class CfnBot(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def slot_type_id(self) -> builtins.str:
+        def slot_type_id(self) -> typing.Optional[builtins.str]:
             '''The unique identifier assigned to a slot type.
 
             This refers to either a built-in slot type or the unique slotTypeId of a custom slot type.
@@ -12587,8 +11886,15 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslottypecomposition.html#cfn-lex-bot-subslottypecomposition-slottypeid
             '''
             result = self._values.get("slot_type_id")
-            assert result is not None, "Required property 'slot_type_id' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def slot_type_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslottypecomposition.html#cfn-lex-bot-subslottypecomposition-slottypename
+            '''
+            result = self._values.get("slot_type_name")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12615,10 +11921,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            default_value_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotDefaultValueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            prompt_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.PromptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sample_utterances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleUtteranceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            wait_and_continue_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.WaitAndContinueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            default_value_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotDefaultValueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prompt_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.PromptSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sample_utterances: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SampleUtteranceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            wait_and_continue_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.WaitAndContinueSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Subslot elicitation settings.
 
@@ -12920,27 +12226,27 @@ class CfnBot(
         @builtins.property
         def default_value_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotDefaultValueSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotDefaultValueSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslotvalueelicitationsetting.html#cfn-lex-bot-subslotvalueelicitationsetting-defaultvaluespecification
             '''
             result = self._values.get("default_value_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotDefaultValueSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SlotDefaultValueSpecificationProperty"]], result)
 
         @builtins.property
         def prompt_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PromptSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PromptSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslotvalueelicitationsetting.html#cfn-lex-bot-subslotvalueelicitationsetting-promptspecification
             '''
             result = self._values.get("prompt_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.PromptSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.PromptSpecificationProperty"]], result)
 
         @builtins.property
         def sample_utterances(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceProperty"]]]]:
             '''If you know a specific pattern that users might respond to an Amazon Lex request for a sub slot value, you can provide those utterances to improve accuracy.
 
             This is optional. In most cases Amazon Lex is capable of understanding user utterances. This is similar to ``SampleUtterances`` for slots.
@@ -12948,17 +12254,17 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslotvalueelicitationsetting.html#cfn-lex-bot-subslotvalueelicitationsetting-sampleutterances
             '''
             result = self._values.get("sample_utterances")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.SampleUtteranceProperty"]]]], result)
 
         @builtins.property
         def wait_and_continue_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.WaitAndContinueSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.WaitAndContinueSpecificationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-subslotvalueelicitationsetting.html#cfn-lex-bot-subslotvalueelicitationsetting-waitandcontinuespecification
             '''
             result = self._values.get("wait_and_continue_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.WaitAndContinueSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.WaitAndContinueSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12985,8 +12291,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bot_alias_locale_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            conversation_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
             sentiment_analysis_settings: typing.Any = None,
         ) -> None:
@@ -13071,7 +12377,7 @@ class CfnBot(
         @builtins.property
         def bot_alias_locale_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotAliasLocaleSettingsItemProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotAliasLocaleSettingsItemProperty"]]]]:
             '''Specifies settings that are unique to a locale.
 
             For example, you can use a different Lambda function depending on the bot's locale.
@@ -13079,18 +12385,18 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-testbotaliassettings.html#cfn-lex-bot-testbotaliassettings-botaliaslocalesettings
             '''
             result = self._values.get("bot_alias_locale_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotAliasLocaleSettingsItemProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotAliasLocaleSettingsItemProperty"]]]], result)
 
         @builtins.property
         def conversation_log_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConversationLogSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConversationLogSettingsProperty"]]:
             '''Specifies settings for conversation logs that save audio, text, and metadata information for conversations with your users.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-testbotaliassettings.html#cfn-lex-bot-testbotaliassettings-conversationlogsettings
             '''
             result = self._values.get("conversation_log_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ConversationLogSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ConversationLogSettingsProperty"]], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -13182,7 +12488,7 @@ class CfnBot(
         def __init__(
             self,
             *,
-            cloud_watch: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CloudWatchLogGroupLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            cloud_watch: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.CloudWatchLogGroupLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Defines the Amazon CloudWatch Logs destination log group for conversation text logs.
 
@@ -13214,14 +12520,14 @@ class CfnBot(
         @builtins.property
         def cloud_watch(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.CloudWatchLogGroupLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.CloudWatchLogGroupLogDestinationProperty"]:
             '''Defines the Amazon CloudWatch Logs log group where text and metadata logs are delivered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-textlogdestination.html#cfn-lex-bot-textlogdestination-cloudwatch
             '''
             result = self._values.get("cloud_watch")
             assert result is not None, "Required property 'cloud_watch' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.CloudWatchLogGroupLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.CloudWatchLogGroupLogDestinationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13243,8 +12549,8 @@ class CfnBot(
         def __init__(
             self,
             *,
-            destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TextLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.TextLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Defines settings to enable text conversation logs.
 
@@ -13282,24 +12588,24 @@ class CfnBot(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.TextLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.TextLogDestinationProperty"]:
             '''Specifies the Amazon CloudWatch Logs destination log group for conversation text logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-textlogsetting.html#cfn-lex-bot-textlogsetting-destination
             '''
             result = self._values.get("destination")
             assert result is not None, "Required property 'destination' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.TextLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.TextLogDestinationProperty"], result)
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether conversation logs should be stored for an alias.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-textlogsetting.html#cfn-lex-bot-textlogsetting-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13309,6 +12615,69 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "TextLogSettingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.UnifiedSpeechSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"speech_foundation_model": "speechFoundationModel"},
+    )
+    class UnifiedSpeechSettingsProperty:
+        def __init__(
+            self,
+            *,
+            speech_foundation_model: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SpeechFoundationModelProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Unified configuration settings that combine speech recognition and synthesis capabilities.
+
+            :param speech_foundation_model: The foundation model configuration to use for unified speech processing capabilities.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-unifiedspeechsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                unified_speech_settings_property = lex.CfnBot.UnifiedSpeechSettingsProperty(
+                    speech_foundation_model=lex.CfnBot.SpeechFoundationModelProperty(
+                        model_arn="modelArn",
+                
+                        # the properties below are optional
+                        voice_id="voiceId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7d9db4d5ac80e2688cfc231f8a2b5cb66ee0ed3fdf0437ee8ee774ce7cecdec9)
+                check_type(argname="argument speech_foundation_model", value=speech_foundation_model, expected_type=type_hints["speech_foundation_model"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "speech_foundation_model": speech_foundation_model,
+            }
+
+        @builtins.property
+        def speech_foundation_model(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.SpeechFoundationModelProperty"]:
+            '''The foundation model configuration to use for unified speech processing capabilities.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-unifiedspeechsettings.html#cfn-lex-bot-unifiedspeechsettings-speechfoundationmodel
+            '''
+            result = self._values.get("speech_foundation_model")
+            assert result is not None, "Required property 'speech_foundation_model' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.SpeechFoundationModelProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UnifiedSpeechSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -13410,10 +12779,10 @@ class CfnBot(
         def __init__(
             self,
             *,
-            continue_response: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
-            waiting_response: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
-            is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            still_waiting_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.StillWaitingResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            continue_response: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            waiting_response: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+            is_active: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            still_waiting_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.StillWaitingResponseSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the prompts that Amazon Lex uses while a bot is waiting for customer input.
 
@@ -13616,31 +12985,31 @@ class CfnBot(
         @builtins.property
         def continue_response(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]:
             '''The response that Amazon Lex sends to indicate that the bot is ready to continue the conversation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-waitandcontinuespecification.html#cfn-lex-bot-waitandcontinuespecification-continueresponse
             '''
             result = self._values.get("continue_response")
             assert result is not None, "Required property 'continue_response' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"], result)
 
         @builtins.property
         def waiting_response(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"]:
             '''The response that Amazon Lex sends to indicate that the bot is waiting for the conversation to continue.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-waitandcontinuespecification.html#cfn-lex-bot-waitandcontinuespecification-waitingresponse
             '''
             result = self._values.get("waiting_response")
             assert result is not None, "Required property 'waiting_response' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBot.ResponseSpecificationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBot.ResponseSpecificationProperty"], result)
 
         @builtins.property
         def is_active(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether the bot will wait for a user to respond.
 
             When this field is false, wait and continue responses for a slot aren't used. If the ``IsActive`` field isn't specified, the default is true.
@@ -13648,18 +13017,18 @@ class CfnBot(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-waitandcontinuespecification.html#cfn-lex-bot-waitandcontinuespecification-isactive
             '''
             result = self._values.get("is_active")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def still_waiting_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.StillWaitingResponseSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.StillWaitingResponseSpecificationProperty"]]:
             '''A response that Amazon Lex sends periodically to the user to indicate that the bot is still waiting for input from the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-waitandcontinuespecification.html#cfn-lex-bot-waitandcontinuespecification-stillwaitingresponse
             '''
             result = self._values.get("still_waiting_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.StillWaitingResponseSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.StillWaitingResponseSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13673,7 +13042,7 @@ class CfnBot(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IBotAliasRef)
+@jsii.implements(_IInspectable_c2943556, _IBotAliasRef_8ce881f4, _ITaggableV2_4e6798f8)
 class CfnBotAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13681,7 +13050,7 @@ class CfnBotAlias(
 ):
     '''.. epigraph::
 
-   Amazon Lex V2 is the only supported version in AWS CloudFormation .
+   Amazon Lex V2 is the only supported version in CloudFormation .
 
     Specifies an alias for the specified version of a bot. Use an alias to enable you to change the version of a bot without updating applications that use the bot.
 
@@ -13693,6 +13062,7 @@ class CfnBotAlias(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_lex as lex
@@ -13753,19 +13123,20 @@ class CfnBotAlias(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         bot_alias_name: builtins.str,
         bot_id: builtins.str,
-        bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_alias_locale_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_alias_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         bot_version: typing.Optional[builtins.str] = None,
-        conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        conversation_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         sentiment_analysis_settings: typing.Any = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Lex::BotAlias``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param bot_alias_name: The name of the bot alias.
@@ -13794,8 +13165,31 @@ class CfnBotAlias(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForBotAlias")
+    @builtins.classmethod
+    def arn_for_bot_alias(cls, resource: "_IBotAliasRef_8ce881f4") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9163764d006888d8342c571427d400258a20e02ec3155f6bc79d96809b3c9fc5)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBotAlias", [resource]))
+
+    @jsii.member(jsii_name="isCfnBotAlias")
+    @builtins.classmethod
+    def is_cfn_bot_alias(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBotAlias.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1eb774c0ad026f50e598bf7b21ae3238f34f87d7c2bc7032f22a53d61a70b36d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBotAlias", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -13855,9 +13249,15 @@ class CfnBotAlias(
 
     @builtins.property
     @jsii.member(jsii_name="botAliasRef")
-    def bot_alias_ref(self) -> BotAliasReference:
+    def bot_alias_ref(self) -> "_BotAliasReference_eb7b7ff7":
         '''A reference to a BotAlias resource.'''
-        return typing.cast(BotAliasReference, jsii.get(self, "botAliasRef"))
+        return typing.cast("_BotAliasReference_eb7b7ff7", jsii.get(self, "botAliasRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -13894,14 +13294,14 @@ class CfnBotAlias(
     @jsii.member(jsii_name="botAliasLocaleSettings")
     def bot_alias_locale_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]]:
         '''Specifies settings that are unique to a locale.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]], jsii.get(self, "botAliasLocaleSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]], jsii.get(self, "botAliasLocaleSettings"))
 
     @bot_alias_locale_settings.setter
     def bot_alias_locale_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__917790158810f6fc38fb5d4372a10a9584fb6d4764bb1d87be8244cc727936e5)
@@ -13910,16 +13310,14 @@ class CfnBotAlias(
 
     @builtins.property
     @jsii.member(jsii_name="botAliasTags")
-    def bot_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+    def bot_alias_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], jsii.get(self, "botAliasTags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "botAliasTags"))
 
     @bot_alias_tags.setter
     def bot_alias_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]],
+        value: typing.Optional[typing.List["_CfnTag_f6864754"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71d610b69d60b87626f698f0118b5837b8126b661b02cb75b4961dfeaead9834)
@@ -13943,14 +13341,14 @@ class CfnBotAlias(
     @jsii.member(jsii_name="conversationLogSettings")
     def conversation_log_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.ConversationLogSettingsProperty"]]:
         '''Specifies whether Amazon Lex logs text and audio for conversations with the bot.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]], jsii.get(self, "conversationLogSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.ConversationLogSettingsProperty"]], jsii.get(self, "conversationLogSettings"))
 
     @conversation_log_settings.setter
     def conversation_log_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.ConversationLogSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26855f93261461e56c873baf08145fa32c74a011917251399c4d61392913f877)
@@ -13992,7 +13390,7 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            s3_bucket: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.S3BucketLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_bucket: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.S3BucketLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Specifies the S3 bucket location where audio logs are stored.
 
@@ -14027,14 +13425,14 @@ class CfnBotAlias(
         @builtins.property
         def s3_bucket(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotAlias.S3BucketLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotAlias.S3BucketLogDestinationProperty"]:
             '''The S3 bucket location where audio logs are stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-audiologdestination.html#cfn-lex-botalias-audiologdestination-s3bucket
             '''
             result = self._values.get("s3_bucket")
             assert result is not None, "Required property 's3_bucket' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotAlias.S3BucketLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotAlias.S3BucketLogDestinationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14056,8 +13454,8 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.AudioLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.AudioLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Settings for logging audio of conversations between Amazon Lex and a user.
 
@@ -14100,24 +13498,24 @@ class CfnBotAlias(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotAlias.AudioLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotAlias.AudioLogDestinationProperty"]:
             '''The location of audio log files collected when conversation logging is enabled for a bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-audiologsetting.html#cfn-lex-botalias-audiologsetting-destination
             '''
             result = self._values.get("destination")
             assert result is not None, "Required property 'destination' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotAlias.AudioLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotAlias.AudioLogDestinationProperty"], result)
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether audio logging in enabled for the bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-audiologsetting.html#cfn-lex-botalias-audiologsetting-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14142,7 +13540,7 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            bot_alias_locale_setting: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.BotAliasLocaleSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+            bot_alias_locale_setting: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.BotAliasLocaleSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
             locale_id: builtins.str,
         ) -> None:
             '''Specifies settings that are unique to a locale.
@@ -14188,14 +13586,14 @@ class CfnBotAlias(
         @builtins.property
         def bot_alias_locale_setting(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsProperty"]:
             '''Specifies settings that are unique to a locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-botaliaslocalesettingsitem.html#cfn-lex-botalias-botaliaslocalesettingsitem-botaliaslocalesetting
             '''
             result = self._values.get("bot_alias_locale_setting")
             assert result is not None, "Required property 'bot_alias_locale_setting' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsProperty"], result)
 
         @builtins.property
         def locale_id(self) -> builtins.str:
@@ -14230,8 +13628,8 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            code_hook_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.CodeHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            code_hook_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.CodeHookSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies settings that are unique to a locale.
 
@@ -14272,7 +13670,7 @@ class CfnBotAlias(
                 self._values["code_hook_specification"] = code_hook_specification
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether the locale is enabled for the bot.
 
             If the value is ``false`` , the locale isn't available for use.
@@ -14281,18 +13679,18 @@ class CfnBotAlias(
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def code_hook_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.CodeHookSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.CodeHookSpecificationProperty"]]:
             '''Specifies the Lambda function that should be used in the locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-botaliaslocalesettings.html#cfn-lex-botalias-botaliaslocalesettings-codehookspecification
             '''
             result = self._values.get("code_hook_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.CodeHookSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.CodeHookSpecificationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14390,7 +13788,7 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            lambda_code_hook: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.LambdaCodeHookProperty", typing.Dict[builtins.str, typing.Any]]],
+            lambda_code_hook: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.LambdaCodeHookProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Contains information about code hooks that Amazon Lex calls during a conversation.
 
@@ -14422,14 +13820,14 @@ class CfnBotAlias(
         @builtins.property
         def lambda_code_hook(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotAlias.LambdaCodeHookProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotAlias.LambdaCodeHookProperty"]:
             '''Specifies a Lambda function that verifies requests to a bot or fulfills the user's request to a bot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-codehookspecification.html#cfn-lex-botalias-codehookspecification-lambdacodehook
             '''
             result = self._values.get("lambda_code_hook")
             assert result is not None, "Required property 'lambda_code_hook' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotAlias.LambdaCodeHookProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotAlias.LambdaCodeHookProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14454,8 +13852,8 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            audio_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.AudioLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            text_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.TextLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audio_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.AudioLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            text_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.TextLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configures conversation logging that saves audio, text, and metadata for the conversations with your users.
 
@@ -14508,24 +13906,24 @@ class CfnBotAlias(
         @builtins.property
         def audio_log_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.AudioLogSettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.AudioLogSettingProperty"]]]]:
             '''The Amazon S3 settings for logging audio to an S3 bucket.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-conversationlogsettings.html#cfn-lex-botalias-conversationlogsettings-audiologsettings
             '''
             result = self._values.get("audio_log_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.AudioLogSettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.AudioLogSettingProperty"]]]], result)
 
         @builtins.property
         def text_log_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.TextLogSettingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.TextLogSettingProperty"]]]]:
             '''The Amazon CloudWatch Logs settings for logging text and metadata.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-conversationlogsettings.html#cfn-lex-botalias-conversationlogsettings-textlogsettings
             '''
             result = self._values.get("text_log_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.TextLogSettingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.TextLogSettingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14713,7 +14111,7 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            detect_sentiment: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            detect_sentiment: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
 
@@ -14742,14 +14140,14 @@ class CfnBotAlias(
         @builtins.property
         def detect_sentiment(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Sets whether Amazon Lex uses Amazon Comprehend to detect the sentiment of user utterances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-sentimentanalysissettings.html#cfn-lex-botalias-sentimentanalysissettings-detectsentiment
             '''
             result = self._values.get("detect_sentiment")
             assert result is not None, "Required property 'detect_sentiment' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14771,7 +14169,7 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            cloud_watch: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.CloudWatchLogGroupLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            cloud_watch: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.CloudWatchLogGroupLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Defines the Amazon CloudWatch Logs destination log group for conversation text logs.
 
@@ -14803,14 +14201,14 @@ class CfnBotAlias(
         @builtins.property
         def cloud_watch(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotAlias.CloudWatchLogGroupLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotAlias.CloudWatchLogGroupLogDestinationProperty"]:
             '''Defines the Amazon CloudWatch Logs log group where text and metadata logs are delivered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-textlogdestination.html#cfn-lex-botalias-textlogdestination-cloudwatch
             '''
             result = self._values.get("cloud_watch")
             assert result is not None, "Required property 'cloud_watch' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotAlias.CloudWatchLogGroupLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotAlias.CloudWatchLogGroupLogDestinationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14832,8 +14230,8 @@ class CfnBotAlias(
         def __init__(
             self,
             *,
-            destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.TextLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.TextLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Defines settings to enable text conversation logs.
 
@@ -14871,24 +14269,24 @@ class CfnBotAlias(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotAlias.TextLogDestinationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotAlias.TextLogDestinationProperty"]:
             '''Defines the Amazon CloudWatch Logs destination log group for conversation text logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-textlogsetting.html#cfn-lex-botalias-textlogsetting-destination
             '''
             result = self._values.get("destination")
             assert result is not None, "Required property 'destination' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotAlias.TextLogDestinationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotAlias.TextLogDestinationProperty"], result)
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Determines whether conversation logs should be stored for an alias.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botalias-textlogsetting.html#cfn-lex-botalias-textlogsetting-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14902,7 +14300,492 @@ class CfnBotAlias(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IBotVersionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnBotAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bot_alias_name": "botAliasName",
+        "bot_id": "botId",
+        "bot_alias_locale_settings": "botAliasLocaleSettings",
+        "bot_alias_tags": "botAliasTags",
+        "bot_version": "botVersion",
+        "conversation_log_settings": "conversationLogSettings",
+        "description": "description",
+        "sentiment_analysis_settings": "sentimentAnalysisSettings",
+    },
+)
+class CfnBotAliasProps:
+    def __init__(
+        self,
+        *,
+        bot_alias_name: builtins.str,
+        bot_id: builtins.str,
+        bot_alias_locale_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_alias_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bot_version: typing.Optional[builtins.str] = None,
+        conversation_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotAlias.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        sentiment_analysis_settings: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBotAlias``.
+
+        :param bot_alias_name: The name of the bot alias.
+        :param bot_id: The unique identifier of the bot.
+        :param bot_alias_locale_settings: Specifies settings that are unique to a locale. For example, you can use different Lambda function depending on the bot's locale.
+        :param bot_alias_tags: An array of key-value pairs to apply to this resource. You can only add tags when you specify an alias. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param bot_version: The version of the bot that the bot alias references.
+        :param conversation_log_settings: Specifies whether Amazon Lex logs text and audio for conversations with the bot. When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
+        :param description: The description of the bot alias.
+        :param sentiment_analysis_settings: Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            # sentiment_analysis_settings: Any
+            
+            cfn_bot_alias_props = lex.CfnBotAliasProps(
+                bot_alias_name="botAliasName",
+                bot_id="botId",
+            
+                # the properties below are optional
+                bot_alias_locale_settings=[lex.CfnBotAlias.BotAliasLocaleSettingsItemProperty(
+                    bot_alias_locale_setting=lex.CfnBotAlias.BotAliasLocaleSettingsProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        code_hook_specification=lex.CfnBotAlias.CodeHookSpecificationProperty(
+                            lambda_code_hook=lex.CfnBotAlias.LambdaCodeHookProperty(
+                                code_hook_interface_version="codeHookInterfaceVersion",
+                                lambda_arn="lambdaArn"
+                            )
+                        )
+                    ),
+                    locale_id="localeId"
+                )],
+                bot_alias_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                bot_version="botVersion",
+                conversation_log_settings=lex.CfnBotAlias.ConversationLogSettingsProperty(
+                    audio_log_settings=[lex.CfnBotAlias.AudioLogSettingProperty(
+                        destination=lex.CfnBotAlias.AudioLogDestinationProperty(
+                            s3_bucket=lex.CfnBotAlias.S3BucketLogDestinationProperty(
+                                log_prefix="logPrefix",
+                                s3_bucket_arn="s3BucketArn",
+            
+                                # the properties below are optional
+                                kms_key_arn="kmsKeyArn"
+                            )
+                        ),
+                        enabled=False
+                    )],
+                    text_log_settings=[lex.CfnBotAlias.TextLogSettingProperty(
+                        destination=lex.CfnBotAlias.TextLogDestinationProperty(
+                            cloud_watch=lex.CfnBotAlias.CloudWatchLogGroupLogDestinationProperty(
+                                cloud_watch_log_group_arn="cloudWatchLogGroupArn",
+                                log_prefix="logPrefix"
+                            )
+                        ),
+                        enabled=False
+                    )]
+                ),
+                description="description",
+                sentiment_analysis_settings=sentiment_analysis_settings
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2)
+            check_type(argname="argument bot_alias_name", value=bot_alias_name, expected_type=type_hints["bot_alias_name"])
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+            check_type(argname="argument bot_alias_locale_settings", value=bot_alias_locale_settings, expected_type=type_hints["bot_alias_locale_settings"])
+            check_type(argname="argument bot_alias_tags", value=bot_alias_tags, expected_type=type_hints["bot_alias_tags"])
+            check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
+            check_type(argname="argument conversation_log_settings", value=conversation_log_settings, expected_type=type_hints["conversation_log_settings"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument sentiment_analysis_settings", value=sentiment_analysis_settings, expected_type=type_hints["sentiment_analysis_settings"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_alias_name": bot_alias_name,
+            "bot_id": bot_id,
+        }
+        if bot_alias_locale_settings is not None:
+            self._values["bot_alias_locale_settings"] = bot_alias_locale_settings
+        if bot_alias_tags is not None:
+            self._values["bot_alias_tags"] = bot_alias_tags
+        if bot_version is not None:
+            self._values["bot_version"] = bot_version
+        if conversation_log_settings is not None:
+            self._values["conversation_log_settings"] = conversation_log_settings
+        if description is not None:
+            self._values["description"] = description
+        if sentiment_analysis_settings is not None:
+            self._values["sentiment_analysis_settings"] = sentiment_analysis_settings
+
+    @builtins.property
+    def bot_alias_name(self) -> builtins.str:
+        '''The name of the bot alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliasname
+        '''
+        result = self._values.get("bot_alias_name")
+        assert result is not None, "Required property 'bot_alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_id(self) -> builtins.str:
+        '''The unique identifier of the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botid
+        '''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_alias_locale_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]]:
+        '''Specifies settings that are unique to a locale.
+
+        For example, you can use different Lambda function depending on the bot's locale.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliaslocalesettings
+        '''
+        result = self._values.get("bot_alias_locale_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]], result)
+
+    @builtins.property
+    def bot_alias_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        You can only add tags when you specify an alias.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliastags
+        '''
+        result = self._values.get("bot_alias_tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def bot_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the bot that the bot alias references.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botversion
+        '''
+        result = self._values.get("bot_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def conversation_log_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.ConversationLogSettingsProperty"]]:
+        '''Specifies whether Amazon Lex logs text and audio for conversations with the bot.
+
+        When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-conversationlogsettings
+        '''
+        result = self._values.get("conversation_log_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBotAlias.ConversationLogSettingsProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the bot alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sentiment_analysis_settings(self) -> typing.Any:
+        '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-sentimentanalysissettings
+        '''
+        result = self._values.get("sentiment_analysis_settings")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBotAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnBotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_privacy": "dataPrivacy",
+        "idle_session_ttl_in_seconds": "idleSessionTtlInSeconds",
+        "name": "name",
+        "role_arn": "roleArn",
+        "auto_build_bot_locales": "autoBuildBotLocales",
+        "bot_file_s3_location": "botFileS3Location",
+        "bot_locales": "botLocales",
+        "bot_tags": "botTags",
+        "description": "description",
+        "error_log_settings": "errorLogSettings",
+        "replication": "replication",
+        "test_bot_alias_settings": "testBotAliasSettings",
+        "test_bot_alias_tags": "testBotAliasTags",
+    },
+)
+class CfnBotProps:
+    def __init__(
+        self,
+        *,
+        data_privacy: typing.Any,
+        idle_session_ttl_in_seconds: jsii.Number,
+        name: builtins.str,
+        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        bot_file_s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bot_locales: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.BotLocaleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        error_log_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ErrorLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.ReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_bot_alias_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.TestBotAliasSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_bot_alias_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBot``.
+
+        :param data_privacy: By default, data stored by Amazon Lex is encrypted. The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
+        :param idle_session_ttl_in_seconds: The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot. A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout. You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
+        :param name: The name of the bot locale.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
+        :param auto_build_bot_locales: Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
+        :param bot_file_s3_location: The Amazon S3 location of files used to import a bot. The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
+        :param bot_locales: A list of locales for the bot.
+        :param bot_tags: A list of tags to add to the bot. You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
+        :param description: The description of the version.
+        :param error_log_settings: 
+        :param replication: 
+        :param test_bot_alias_settings: Specifies configuration settings for the alias used to test the bot. If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
+        :param test_bot_alias_tags: A list of tags to add to the test alias for a bot. You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83)
+            check_type(argname="argument data_privacy", value=data_privacy, expected_type=type_hints["data_privacy"])
+            check_type(argname="argument idle_session_ttl_in_seconds", value=idle_session_ttl_in_seconds, expected_type=type_hints["idle_session_ttl_in_seconds"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument auto_build_bot_locales", value=auto_build_bot_locales, expected_type=type_hints["auto_build_bot_locales"])
+            check_type(argname="argument bot_file_s3_location", value=bot_file_s3_location, expected_type=type_hints["bot_file_s3_location"])
+            check_type(argname="argument bot_locales", value=bot_locales, expected_type=type_hints["bot_locales"])
+            check_type(argname="argument bot_tags", value=bot_tags, expected_type=type_hints["bot_tags"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument error_log_settings", value=error_log_settings, expected_type=type_hints["error_log_settings"])
+            check_type(argname="argument replication", value=replication, expected_type=type_hints["replication"])
+            check_type(argname="argument test_bot_alias_settings", value=test_bot_alias_settings, expected_type=type_hints["test_bot_alias_settings"])
+            check_type(argname="argument test_bot_alias_tags", value=test_bot_alias_tags, expected_type=type_hints["test_bot_alias_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_privacy": data_privacy,
+            "idle_session_ttl_in_seconds": idle_session_ttl_in_seconds,
+            "name": name,
+            "role_arn": role_arn,
+        }
+        if auto_build_bot_locales is not None:
+            self._values["auto_build_bot_locales"] = auto_build_bot_locales
+        if bot_file_s3_location is not None:
+            self._values["bot_file_s3_location"] = bot_file_s3_location
+        if bot_locales is not None:
+            self._values["bot_locales"] = bot_locales
+        if bot_tags is not None:
+            self._values["bot_tags"] = bot_tags
+        if description is not None:
+            self._values["description"] = description
+        if error_log_settings is not None:
+            self._values["error_log_settings"] = error_log_settings
+        if replication is not None:
+            self._values["replication"] = replication
+        if test_bot_alias_settings is not None:
+            self._values["test_bot_alias_settings"] = test_bot_alias_settings
+        if test_bot_alias_tags is not None:
+            self._values["test_bot_alias_tags"] = test_bot_alias_tags
+
+    @builtins.property
+    def data_privacy(self) -> typing.Any:
+        '''By default, data stored by Amazon Lex is encrypted.
+
+        The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-dataprivacy
+        '''
+        result = self._values.get("data_privacy")
+        assert result is not None, "Required property 'data_privacy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def idle_session_ttl_in_seconds(self) -> jsii.Number:
+        '''The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot.
+
+        A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout.
+
+        You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-idlesessionttlinseconds
+        '''
+        result = self._values.get("idle_session_ttl_in_seconds")
+        assert result is not None, "Required property 'idle_session_ttl_in_seconds' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the bot locale.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+        '''The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+
+    @builtins.property
+    def auto_build_bot_locales(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-autobuildbotlocales
+        '''
+        result = self._values.get("auto_build_bot_locales")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def bot_file_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.S3LocationProperty"]]:
+        '''The Amazon S3 location of files used to import a bot.
+
+        The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botfiles3location
+        '''
+        result = self._values.get("bot_file_s3_location")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.S3LocationProperty"]], result)
+
+    @builtins.property
+    def bot_locales(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotLocaleProperty"]]]]:
+        '''A list of locales for the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botlocales
+        '''
+        result = self._values.get("bot_locales")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBot.BotLocaleProperty"]]]], result)
+
+    @builtins.property
+    def bot_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to add to the bot.
+
+        You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-bottags
+        '''
+        result = self._values.get("bot_tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def error_log_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ErrorLogSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-errorlogsettings
+        '''
+        result = self._values.get("error_log_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ErrorLogSettingsProperty"]], result)
+
+    @builtins.property
+    def replication(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ReplicationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-replication
+        '''
+        result = self._values.get("replication")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.ReplicationProperty"]], result)
+
+    @builtins.property
+    def test_bot_alias_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TestBotAliasSettingsProperty"]]:
+        '''Specifies configuration settings for the alias used to test the bot.
+
+        If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliassettings
+        '''
+        result = self._values.get("test_bot_alias_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.TestBotAliasSettingsProperty"]], result)
+
+    @builtins.property
+    def test_bot_alias_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
+        '''A list of tags to add to the test alias for a bot.
+
+        You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliastags
+        '''
+        result = self._values.get("test_bot_alias_tags")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IBotVersionRef_ba36d768)
 class CfnBotVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14910,7 +14793,7 @@ class CfnBotVersion(
 ):
     '''.. epigraph::
 
-   Amazon Lex V2 is the only supported version in AWS CloudFormation .
+   Amazon Lex V2 is the only supported version in CloudFormation .
 
     Specifies a new version of the bot based on the ``DRAFT`` version. If the ``DRAFT`` version of this resource hasn't changed since you created the last version, Amazon Lex doesn't create a new version, it returns the last created version.
 
@@ -14942,14 +14825,15 @@ class CfnBotVersion(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bot_id: builtins.str,
-        bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotVersion.BotVersionLocaleSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        bot_id: typing.Union[builtins.str, "_IBotRef_68a57b40"],
+        bot_version_locale_specification: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotVersion.BotVersionLocaleSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         description: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Lex::BotVersion``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param bot_id: The unique identifier of the bot.
@@ -14968,8 +14852,20 @@ class CfnBotVersion(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnBotVersion")
+    @builtins.classmethod
+    def is_cfn_bot_version(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBotVersion.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fdcc737eddb637c30f437aa75dce975de39bb90c286c973b62c96b946045dbe0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBotVersion", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -15009,9 +14905,9 @@ class CfnBotVersion(
 
     @builtins.property
     @jsii.member(jsii_name="botVersionRef")
-    def bot_version_ref(self) -> BotVersionReference:
+    def bot_version_ref(self) -> "_BotVersionReference_403e9f25":
         '''A reference to a BotVersion resource.'''
-        return typing.cast(BotVersionReference, jsii.get(self, "botVersionRef"))
+        return typing.cast("_BotVersionReference_403e9f25", jsii.get(self, "botVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -15035,14 +14931,14 @@ class CfnBotVersion(
     @jsii.member(jsii_name="botVersionLocaleSpecification")
     def bot_version_locale_specification(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]]:
         '''Specifies the locales that Amazon Lex adds to this version.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]], jsii.get(self, "botVersionLocaleSpecification"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]], jsii.get(self, "botVersionLocaleSpecification"))
 
     @bot_version_locale_specification.setter
     def bot_version_locale_specification(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59417360b74b60eeb0ab210b6bdfe82a4a6edef5d905cb893286714abdbbfa99)
@@ -15126,7 +15022,7 @@ class CfnBotVersion(
         def __init__(
             self,
             *,
-            bot_version_locale_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotVersion.BotVersionLocaleDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            bot_version_locale_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotVersion.BotVersionLocaleDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
             locale_id: builtins.str,
         ) -> None:
             '''Specifies the locale that Amazon Lex adds to this version.
@@ -15164,14 +15060,14 @@ class CfnBotVersion(
         @builtins.property
         def bot_version_locale_details(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleDetailsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleDetailsProperty"]:
             '''The version of a bot used for a bot locale.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-botversion-botversionlocalespecification.html#cfn-lex-botversion-botversionlocalespecification-botversionlocaledetails
             '''
             result = self._values.get("bot_version_locale_details")
             assert result is not None, "Required property 'bot_version_locale_details' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleDetailsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleDetailsProperty"], result)
 
         @builtins.property
         def locale_id(self) -> builtins.str:
@@ -15195,7 +15091,109 @@ class CfnBotVersion(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnBotVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bot_id": "botId",
+        "bot_version_locale_specification": "botVersionLocaleSpecification",
+        "description": "description",
+    },
+)
+class CfnBotVersionProps:
+    def __init__(
+        self,
+        *,
+        bot_id: typing.Union[builtins.str, "_IBotRef_68a57b40"],
+        bot_version_locale_specification: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBotVersion.BotVersionLocaleSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBotVersion``.
+
+        :param bot_id: The unique identifier of the bot.
+        :param bot_version_locale_specification: Specifies the locales that Amazon Lex adds to this version. You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
+        :param description: The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            cfn_bot_version_props = lex.CfnBotVersionProps(
+                bot_id="botId",
+                bot_version_locale_specification=[lex.CfnBotVersion.BotVersionLocaleSpecificationProperty(
+                    bot_version_locale_details=lex.CfnBotVersion.BotVersionLocaleDetailsProperty(
+                        source_bot_version="sourceBotVersion"
+                    ),
+                    locale_id="localeId"
+                )],
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5)
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+            check_type(argname="argument bot_version_locale_specification", value=bot_version_locale_specification, expected_type=type_hints["bot_version_locale_specification"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_id": bot_id,
+            "bot_version_locale_specification": bot_version_locale_specification,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def bot_id(self) -> typing.Union[builtins.str, "_IBotRef_68a57b40"]:
+        '''The unique identifier of the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botid
+        '''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IBotRef_68a57b40"], result)
+
+    @builtins.property
+    def bot_version_locale_specification(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]]:
+        '''Specifies the locales that Amazon Lex adds to this version.
+
+        You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botversionlocalespecification
+        '''
+        result = self._values.get("bot_version_locale_specification")
+        assert result is not None, "Required property 'bot_version_locale_specification' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBotVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_18182ecb)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -15203,7 +15201,7 @@ class CfnResourcePolicy(
 ):
     '''.. epigraph::
 
-   Amazon Lex V2 is the only supported version in AWS CloudFormation .
+   Amazon Lex V2 is the only supported version in CloudFormation .
 
     Specifies a new resource policy with the specified policy statements.
 
@@ -15227,13 +15225,14 @@ class CfnResourcePolicy(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         policy: typing.Any,
         resource_arn: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Lex::ResourcePolicy``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param policy: A resource policy to add to the resource. The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
@@ -15247,8 +15246,20 @@ class CfnResourcePolicy(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnResourcePolicy")
+    @builtins.classmethod
+    def is_cfn_resource_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourcePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f98b08511c4e47b9136ca482f36beae332f9941724345b55ee94975adbb7fe4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -15302,9 +15313,9 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> ResourcePolicyReference:
+    def resource_policy_ref(self) -> "_ResourcePolicyReference_5d84a344":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_ResourcePolicyReference_5d84a344", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -15333,10 +15344,78 @@ class CfnResourcePolicy(
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy: A resource policy to add to the resource. The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
+        :param resource_arn: The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            # policy: Any
+            
+            cfn_resource_policy_props = lex.CfnResourcePolicyProps(
+                policy=policy,
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''A resource policy to add to the resource.
+
+        The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "BotAliasReference",
-    "BotReference",
-    "BotVersionReference",
     "CfnBot",
     "CfnBotAlias",
     "CfnBotAliasProps",
@@ -15345,96 +15424,9 @@ __all__ = [
     "CfnBotVersionProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
-    "IBotAliasRef",
-    "IBotRef",
-    "IBotVersionRef",
-    "IResourcePolicyRef",
-    "ResourcePolicyReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__e46b3ec070c4bda3dd8f2ec92005bdecbf87c1679f74077e9457fff51e8c9530(
-    *,
-    bot_alias_arn: builtins.str,
-    bot_alias_id: builtins.str,
-    bot_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__40d89eab07398bad93ca41a190f8f69d6a440215be24527fd403bbbe65631eeb(
-    *,
-    bot_arn: builtins.str,
-    bot_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e33eafb5f2d52b7c65a0ccaeeb0cc3208f7a81c44eb621c36de7f25cdee4c28(
-    *,
-    bot_id: builtins.str,
-    bot_version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2(
-    *,
-    bot_alias_name: builtins.str,
-    bot_id: builtins.str,
-    bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.BotAliasLocaleSettingsItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_version: typing.Optional[builtins.str] = None,
-    conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.ConversationLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    sentiment_analysis_settings: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83(
-    *,
-    data_privacy: typing.Any,
-    idle_session_ttl_in_seconds: jsii.Number,
-    name: builtins.str,
-    role_arn: builtins.str,
-    auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ErrorLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5(
-    *,
-    bot_id: builtins.str,
-    bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotVersion.BotVersionLocaleSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae(
-    *,
-    policy: typing.Any,
-    resource_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6810919282112482d5bb8c323d06d3d6ae38a3de854f0fa3f00e995557262c37(
-    *,
-    resource_policy_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__5c185fb71324df3b939f1cbff6a813b57733510cba6989dac147b9a3a7e6e7b3(
     scope: _constructs_77d1e7e8.Construct,
@@ -15443,16 +15435,28 @@ def _typecheckingstub__5c185fb71324df3b939f1cbff6a813b57733510cba6989dac147b9a3a
     data_privacy: typing.Any,
     idle_session_ttl_in_seconds: jsii.Number,
     name: builtins.str,
-    role_arn: builtins.str,
+    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
     auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ErrorLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8b227597eac0169aa260ede9cf90fdb836e2125ced96820d150f287db42714e(
+    resource: _IBotRef_68a57b40,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1849c7204f2d38dcc92857960497002fae9458de2b8e452bbbd7c524877e1bca(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15512,7 +15516,7 @@ def _typecheckingstub__99af8c5daefa40203f5f0fbdfe98fccbc452c26d2c2bf3b4b00da732b
     pass
 
 def _typecheckingstub__ebd0622909df38949fb95f9e4bfc9d82f922d11b6e1fee1b78ed955a197015d7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]],
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15677,6 +15681,8 @@ def _typecheckingstub__2ad20956b5309c4b6154f09c947ce4023f20ed7a602b3cfa60f2bd3cf
     generative_ai_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.GenerativeAISettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     intents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.IntentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     slot_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SlotTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    speech_detection_sensitivity: typing.Optional[builtins.str] = None,
+    unified_speech_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.UnifiedSpeechSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     voice_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.VoiceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16002,6 +16008,15 @@ def _typecheckingstub__8f96318abd0c4c68e9988644e0bef2c84730aaab41035ffb210f18a93
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__efb49b65ea3778ccf0ce3d5e52641e4f0a53fbc546b4a965bfc8a755d61b5298(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    custom_disambiguation_message: typing.Optional[builtins.str] = None,
+    max_disambiguation_intents: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__493166c423a1b45288ba10b5982fc7d58c8aa28aab6ecb53239e5da527e7fb9d(
     *,
     name: typing.Optional[builtins.str] = None,
@@ -16016,6 +16031,7 @@ def _typecheckingstub__f105b684583292473a5d75a0aba26d4641f8f29746b1658a4a7b40036
     bedrock_agent_intent_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BedrockAgentIntentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     dialog_code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.DialogCodeHookSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    display_name: typing.Optional[builtins.str] = None,
     fulfillment_code_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.FulfillmentCodeHookSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initial_response_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.InitialResponseSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_contexts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.InputContextProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -16078,6 +16094,8 @@ def _typecheckingstub__5d243896aac9e5978582c7a17b393ee26ecc4d0b53d8eeecb47f9b8e6
 def _typecheckingstub__f80adb05041a59edc5a47ce2b664a9d75275b5e3ff27a1ebb50e164ad1b82019(
     *,
     enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    assisted_nlu_mode: typing.Optional[builtins.str] = None,
+    intent_disambiguation_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.IntentDisambiguationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16416,8 +16434,17 @@ def _typecheckingstub__7982c47931169a42f1aa99bdc61da96e42f63e5371b26a267f1cdadef
 
 def _typecheckingstub__84831b306cf7254dc35fff23cffebed9b612832f61edaf61cf5455c684e3fe37(
     *,
-    slot_type_id: builtins.str,
     value_elicitation_setting: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SubSlotValueElicitationSettingProperty, typing.Dict[builtins.str, typing.Any]]],
+    slot_type_id: typing.Optional[builtins.str] = None,
+    slot_type_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a5854d9b1e4446804bf41f18570871a0df3820af105ded4f6b65346f5d6f4ab(
+    *,
+    model_arn: builtins.str,
+    voice_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16443,7 +16470,8 @@ def _typecheckingstub__19d0e1038157e6cad6b2db8680524f4b2b70d95e8f3f45ad9f2377859
 def _typecheckingstub__6a11ecebf71592606f12daf680d8d8cd568f03843d20fa7af9a041f1daa2d51f(
     *,
     name: builtins.str,
-    slot_type_id: builtins.str,
+    slot_type_id: typing.Optional[builtins.str] = None,
+    slot_type_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16490,6 +16518,13 @@ def _typecheckingstub__717dfd593b69b20586c4b1f6c63f5b97efa12a2e8cd727b96b019101a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7d9db4d5ac80e2688cfc231f8a2b5cb66ee0ed3fdf0437ee8ee774ce7cecdec9(
+    *,
+    speech_foundation_model: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SpeechFoundationModelProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__afa285d252c1df4a0956dfe0bb68d0cc1b9d6ee0f0ea8e02d91cd9f1c9c53aab(
     *,
     voice_id: builtins.str,
@@ -16515,11 +16550,23 @@ def _typecheckingstub__57cf179c443f74ff3b1c43c56eef686f369711792e444e53d5668f07a
     bot_alias_name: builtins.str,
     bot_id: builtins.str,
     bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.BotAliasLocaleSettingsItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_alias_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     bot_version: typing.Optional[builtins.str] = None,
     conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.ConversationLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     sentiment_analysis_settings: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9163764d006888d8342c571427d400258a20e02ec3155f6bc79d96809b3c9fc5(
+    resource: _IBotAliasRef_8ce881f4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1eb774c0ad026f50e598bf7b21ae3238f34f87d7c2bc7032f22a53d61a70b36d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16555,7 +16602,7 @@ def _typecheckingstub__917790158810f6fc38fb5d4372a10a9584fb6d4764bb1d87be8244cc7
     pass
 
 def _typecheckingstub__71d610b69d60b87626f698f0118b5837b8126b661b02cb75b4961dfeaead9834(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]],
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16677,13 +16724,52 @@ def _typecheckingstub__36c17e23b7248b4c9083a2060e90ef8caa965339b7f35431c3d9740cb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2(
+    *,
+    bot_alias_name: builtins.str,
+    bot_id: builtins.str,
+    bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.BotAliasLocaleSettingsItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_alias_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bot_version: typing.Optional[builtins.str] = None,
+    conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.ConversationLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    sentiment_analysis_settings: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83(
+    *,
+    data_privacy: typing.Any,
+    idle_session_ttl_in_seconds: jsii.Number,
+    name: builtins.str,
+    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ErrorLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4f9a25d6b442565e4ffb72003af0c316d38fe2ab4bfc804150cdde827b2a9544(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bot_id: builtins.str,
+    bot_id: typing.Union[builtins.str, _IBotRef_68a57b40],
     bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotVersion.BotVersionLocaleSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fdcc737eddb637c30f437aa75dce975de39bb90c286c973b62c96b946045dbe0(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16733,12 +16819,27 @@ def _typecheckingstub__4802f8ce0abbf146138354d6e73113a70e24b8b7c9612564e44de4c4a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5(
+    *,
+    bot_id: typing.Union[builtins.str, _IBotRef_68a57b40],
+    bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotVersion.BotVersionLocaleSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0c4e37a39c1961787db85c32c8fd5d0f194dd3d7ace3f425501ca99f4a6bfaf9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     policy: typing.Any,
     resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f98b08511c4e47b9136ca482f36beae332f9941724345b55ee94975adbb7fe4(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16763,6 +16864,14 @@ def _typecheckingstub__9bedb04f3a7639ce6dd847afa27b9015e9c5a45e10d0185b1e422d001
 
 def _typecheckingstub__c2269eb87c059c5d27aab85364fde6b4ccb6e21ca5bc766b939d038b5294665a(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae(
+    *,
+    policy: typing.Any,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

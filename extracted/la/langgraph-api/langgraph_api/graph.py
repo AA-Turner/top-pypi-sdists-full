@@ -3,17 +3,20 @@ import functools
 import glob
 import importlib.util
 import inspect
+import logging
 import os
 import sys
+import time
 import warnings
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from itertools import filterfalse
-from typing import TYPE_CHECKING, Any, NamedTuple, TypeGuard, cast
+from typing import Any, NamedTuple, TypeGuard, cast
 from uuid import UUID, uuid5
 
 import orjson
 import structlog
+from langchain_core.embeddings import Embeddings  # noqa: TC002
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 from langgraph.graph import StateGraph
@@ -21,15 +24,17 @@ from langgraph.pregel import Pregel
 from langgraph.store.base import BaseStore
 from starlette.exceptions import HTTPException
 
-from langgraph_api import asyncio as lg_asyncio
-from langgraph_api import config
-from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
+from langgraph_api import config as lg_api_config
+from langgraph_api import timing
+from langgraph_api.feature_flags import (
+    IS_POSTGRES_OR_GRPC_BACKEND,
+    USE_RUNTIME_CONTEXT_API,
+)
 from langgraph_api.js.base import BaseRemotePregel, is_js_path
 from langgraph_api.schema import Config
+from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor, var_child_runnable_config
-
-if TYPE_CHECKING:
-    from langchain_core.embeddings import Embeddings
+from langgraph_api.utils.errors import GraphLoadError
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -52,9 +57,12 @@ async def register_graph(
 ) -> None:
     """Register a graph."""
     from langgraph_runtime.database import connect
-    from langgraph_runtime.ops import Assistants
 
-    await logger.ainfo(f"Registering graph with id '{graph_id}'", graph_id=graph_id)
+    if IS_POSTGRES_OR_GRPC_BACKEND:
+        from langgraph_api.grpc.ops import Assistants
+    else:
+        from langgraph_runtime.ops import Assistants
+
     GRAPHS[graph_id] = graph
     if callable(graph):
         FACTORY_ACCEPTS_CONFIG[graph_id] = len(inspect.signature(graph).parameters) > 0
@@ -84,28 +92,74 @@ async def register_graph(
                 description=description,
             )
 
-    await register_graph_db()
+    if not lg_api_config.IS_EXECUTOR_ENTRYPOINT:
+        await register_graph_db()
 
 
-def register_graph_sync(
-    graph_id: str, graph: GraphValue, config: dict | None = None
+def _validate_assistant_id(assistant_id: str) -> None:
+    """Validate an assistant ID is either a graph_id or a valid UUID. Throw an error if not valid."""
+    if assistant_id and assistant_id not in GRAPHS:
+        # Not a graph_id, must be a valid UUID
+        try:
+            UUID(assistant_id)
+        except ValueError:
+            # Invalid format - return 404 to match test expectations
+            raise HTTPException(
+                status_code=404,
+                detail=f"Assistant '{assistant_id}' not found",
+            ) from None
+
+
+def _log_slow_graph_generation(
+    start: float,
+    value_type: str,
+    graph_id: str,
+    warn_threshold_ms: float = 100,
+    error_threshold_ms: float = 250,
 ) -> None:
-    lg_asyncio.run_coroutine_threadsafe(register_graph(graph_id, graph, config))
+    """Log warning/error if graph generation was slow."""
+    elapsed_secs = time.perf_counter() - start
+    elapsed_ms = elapsed_secs * 1000
+    elapsed_ms_rounded = round(elapsed_ms, 2)
+    log_level = None
+    if elapsed_ms > error_threshold_ms:
+        log_level = logging.ERROR
+    elif elapsed_ms > warn_threshold_ms:
+        log_level = logging.WARNING
+    if log_level is not None:
+        logger.log(
+            log_level,
+            f"Slow graph load. Accessing graph '{graph_id}' took {elapsed_ms_rounded}ms."
+            " Move expensive initialization (API clients, DB connections, model loading)"
+            " from graph factory if you are seeing API slowness.",
+            elapsed_ms=elapsed_ms_rounded,
+            value_type=value_type,
+            graph_id=graph_id,
+        )
 
 
 @asynccontextmanager
-async def _generate_graph(value: Any) -> AsyncIterator[Any]:
-    """Yield a graph object regardless of its type."""
+async def _generate_graph(value: Any, graph_id: str) -> AsyncIterator[Any]:
+    """Yield a graph object regardless of its type.
+
+    Logs a warning if graph generation takes >100ms, error if >250ms.
+    """
+    start = time.perf_counter()
+    value_type = type(value).__name__
     if isinstance(value, Pregel | BaseRemotePregel):
         yield value
     elif hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
         async with value as ctx_value:
+            _log_slow_graph_generation(start, value_type, graph_id)
             yield ctx_value
     elif hasattr(value, "__enter__") and hasattr(value, "__exit__"):
         with value as ctx_value:
+            _log_slow_graph_generation(start, value_type, graph_id)
             yield ctx_value
     elif asyncio.iscoroutine(value):
-        yield await value
+        result = await value
+        _log_slow_graph_generation(start, value_type, graph_id)
+        yield result
     else:
         yield value
 
@@ -134,14 +188,18 @@ async def get_graph(
     *,
     checkpointer: BaseCheckpointSaver | None = None,
     store: BaseStore | None = None,
+    is_for_execution: bool = True,
 ) -> AsyncIterator[Pregel]:
     """Return the runnable."""
     from langgraph_api.utils import config as lg_config
+    from langgraph_api.utils import merge_auth
 
     assert_graph_exists(graph_id)
     value = GRAPHS[graph_id]
     if is_factory(value, graph_id):
         config = lg_config.ensure_config(config)
+        config["configurable"]["__is_for_execution__"] = is_for_execution
+        config = merge_auth(config)
 
         if store is not None:
             if USE_RUNTIME_CONTEXT_API:
@@ -154,7 +212,7 @@ async def get_graph(
                 elif isinstance(runtime, dict):
                     patched_runtime = Runtime(**(runtime | {"store": store}))
                 elif runtime.store is None:
-                    patched_runtime = cast(Runtime, runtime).override(store=store)
+                    patched_runtime = cast("Runtime", runtime).override(store=store)
                 else:
                     patched_runtime = runtime
 
@@ -172,7 +230,7 @@ async def get_graph(
         var_child_runnable_config.set(config)
         value = value(config) if factory_accepts_config(value, graph_id) else value()
     try:
-        async with _generate_graph(value) as graph_obj:
+        async with _generate_graph(value, graph_id) as graph_obj:
             if isinstance(graph_obj, StateGraph):
                 graph_obj = graph_obj.compile()
             if not isinstance(graph_obj, Pregel | BaseRemotePregel):
@@ -234,9 +292,9 @@ class GraphSpec(NamedTuple):
     variable: str | None = None
     config: dict | None = None
     """The configuration for the graph.
-    
+
     Contains information such as: tags, recursion_limit and configurable.
-    
+
     Configurable is a dict containing user defined values for the graph.
     """
     description: str | None = None
@@ -361,7 +419,7 @@ async def collect_graphs_from_env(register: bool = False) -> None:
     py_specs = list(filterfalse(is_js_spec, specs))
 
     if js_specs:
-        if config.API_VARIANT == "local_dev":
+        if lg_api_config.API_VARIANT == "local_dev":
             raise NotImplementedError(
                 "LangGraph.JS graphs are not yet supported in local development mode. "
                 "To run your JS graphs, either use the LangGraph Studio application "
@@ -391,15 +449,15 @@ async def collect_graphs_from_env(register: bool = False) -> None:
         )
 
         if (
-            config.HTTP_CONFIG
-            and (js_app := config.HTTP_CONFIG.get("app"))
+            lg_api_config.HTTP_CONFIG
+            and (js_app := lg_api_config.HTTP_CONFIG.get("app"))
             and is_js_path(js_app.split(":")[0])
         ):
             js_bg_tasks.add(
                 asyncio.create_task(
                     run_js_http_process(
                         paths_str,
-                        config.HTTP_CONFIG or {},
+                        lg_api_config.HTTP_CONFIG or {},
                         watch="--reload" in sys.argv[1:],
                     ),
                 )
@@ -418,7 +476,10 @@ async def collect_graphs_from_env(register: bool = False) -> None:
                 )
 
     for spec in py_specs:
-        graph = await run_in_executor(None, _graph_from_spec, spec)
+        try:
+            graph = await run_in_executor(None, _graph_from_spec, spec)
+        except Exception as exc:
+            raise GraphLoadError(spec, exc) from exc
         if register:
             await register_graph(
                 spec.id, graph, spec.config, description=spec.description
@@ -428,7 +489,7 @@ async def collect_graphs_from_env(register: bool = False) -> None:
 def _handle_exception(task: asyncio.Task) -> None:
     try:
         task.result()
-    except asyncio.CancelledError:
+    except (asyncio.CancelledError, SystemExit):
         pass
     except Exception as e:
         logger.exception("Task failed", exc_info=e)
@@ -447,42 +508,59 @@ def verify_graphs() -> None:
     asyncio.run(collect_graphs_from_env())
 
 
+def _metadata_fn(spec: GraphSpec) -> dict[str, Any]:
+    return {"graph_id": spec.id, "module": spec.module, "path": spec.path}
+
+
+@timing.timer(
+    message="Importing graph with id {graph_id}",
+    metadata_fn=_metadata_fn,
+    warn_threshold_secs=3,
+    warn_message=(
+        "Import for graph {graph_id} exceeded the expected startup time. "
+        "Slow initialization (often due to work executed at import time) can delay readiness, "
+        "reduce scale-out capacity, and may cause deployments to be marked unhealthy."
+    ),
+    error_threshold_secs=30,
+)
 def _graph_from_spec(spec: GraphSpec) -> GraphValue:
     """Return a graph from a spec."""
     # import the graph module
-    if spec.module:
-        module = importlib.import_module(spec.module)
-    elif spec.path:
-        try:
-            modname = (
-                spec.path.replace("/", "__")
-                .replace(".py", "")
-                .replace(" ", "_")
-                .lstrip(".")
-            )
-            modspec = importlib.util.spec_from_file_location(modname, spec.path)
-            if modspec is None:
-                raise ValueError(f"Could not find python file for graph: {spec}")
-            module = importlib.util.module_from_spec(modspec)
-            sys.modules[modname] = module
-            modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
-        except ImportError as e:
-            e.add_note(f"Could not import python module for graph:\n{spec}")
-            if config.API_VARIANT == "local_dev":
-                e.add_note(
-                    "This error likely means you haven't installed your project and its dependencies yet. Before running the server, install your project:\n\n"
-                    "If you are using requirements.txt:\n"
-                    "python -m pip install -r requirements.txt\n\n"
-                    "If you are using pyproject.toml or setuptools:\n"
-                    "python -m pip install -e .\n\n"
-                    "Make sure to run this command from your project's root directory (where your setup.py or pyproject.toml is located)"
+    import_path = f"{spec.module or spec.path}:{spec.variable or '<auto>'}"
+    with profiled_import(import_path):
+        if spec.module:
+            module = importlib.import_module(spec.module)
+        elif spec.path:
+            try:
+                modname = (
+                    spec.path.replace("/", "__")
+                    .replace(".py", "")
+                    .replace(" ", "_")
+                    .lstrip(".")
                 )
-            raise
-        except FileNotFoundError as e:
-            e.add_note(f"Could not find python file for graph: {spec}")
-            raise
-    else:
-        raise ValueError("Graph specification must have a path or module")
+                modspec = importlib.util.spec_from_file_location(modname, spec.path)
+                if modspec is None:
+                    raise ValueError(f"Could not find python file for graph: {spec}")
+                module = importlib.util.module_from_spec(modspec)
+                sys.modules[modname] = module
+                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+            except ImportError as e:
+                e.add_note(f"Could not import python module for graph:\n{spec}")
+                if lg_api_config.API_VARIANT == "local_dev":
+                    e.add_note(
+                        "This error likely means you haven't installed your project and its dependencies yet. Before running the server, install your project:\n\n"
+                        "If you are using requirements.txt:\n"
+                        "python -m pip install -r requirements.txt\n\n"
+                        "If you are using pyproject.toml or setuptools:\n"
+                        "python -m pip install -e .\n\n"
+                        "Make sure to run this command from your project's root directory (where your setup.py or pyproject.toml is located)"
+                    )
+                raise
+            except FileNotFoundError as e:
+                e.add_note(f"Could not find python file for graph: {spec}")
+                raise
+        else:
+            raise ValueError("Graph specification must have a path or module")
 
     if spec.variable:
         try:
@@ -528,7 +606,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
         elif isinstance(graph, Pregel):
             # We don't want to fail real deployments, but this will help folks catch unnecessary custom components
             # before they deploy
-            if config.API_VARIANT == "local_dev":
+            if lg_api_config.API_VARIANT == "local_dev":
                 has_checkpointer = isinstance(graph.checkpointer, BaseCheckpointSaver)
                 has_store = isinstance(graph.store, BaseStore)
                 if has_checkpointer or has_store:
@@ -588,6 +666,13 @@ def _get_init_embeddings() -> Callable[[str, ...], "Embeddings"] | None:
         return None
 
 
+@timing.timer(
+    message="Loading embeddings {embeddings_path}",
+    metadata_fn=lambda index_config: {"embeddings_path": index_config.get("embed")},
+    warn_threshold_secs=5,
+    warn_message="Loading embeddings '{embeddings_path}' took longer than expected",
+    error_threshold_secs=10,
+)
 def resolve_embeddings(index_config: dict) -> "Embeddings":
     """Return embeddings from config.
 
@@ -606,26 +691,41 @@ def resolve_embeddings(index_config: dict) -> "Embeddings":
     from langchain_core.embeddings import Embeddings
     from langgraph.store.base import ensure_embeddings
 
-    embed: str = index_config["embed"]
+    embed = index_config["embed"]
+    if isinstance(embed, Embeddings):
+        return embed
+    if callable(embed):
+        return ensure_embeddings(embed)
+    if not isinstance(embed, str):
+        raise ValueError(
+            f"Embeddings config must be a string or callable, got: {type(embed).__name__}"
+        )
     if ".py:" in embed:
         module_name, function = embed.rsplit(":", 1)
         module_name = module_name.rstrip(":")
 
         try:
-            if "/" in module_name:
-                # Load from file path
-                modname = (
-                    module_name.replace("/", "__").replace(".py", "").replace(" ", "_")
-                )
-                modspec = importlib.util.spec_from_file_location(modname, module_name)
-                if modspec is None:
-                    raise ValueError(f"Could not find embeddings file: {module_name}")
-                module = importlib.util.module_from_spec(modspec)
-                sys.modules[modname] = module
-                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
-            else:
-                # Load from Python module
-                module = importlib.import_module(module_name)
+            with profiled_import(embed):
+                if "/" in module_name:
+                    # Load from file path
+                    modname = (
+                        module_name.replace("/", "__")
+                        .replace(".py", "")
+                        .replace(" ", "_")
+                    )
+                    modspec = importlib.util.spec_from_file_location(
+                        modname, module_name
+                    )
+                    if modspec is None:
+                        raise ValueError(
+                            f"Could not find embeddings file: {module_name}"
+                        )
+                    module = importlib.util.module_from_spec(modspec)
+                    sys.modules[modname] = module
+                    modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+                else:
+                    # Load from Python module
+                    module = importlib.import_module(module_name)
 
             embedding_fn = getattr(module, function, None)
             if embedding_fn is None:
@@ -644,7 +744,7 @@ def resolve_embeddings(index_config: dict) -> "Embeddings":
 
         except ImportError as e:
             e.add_note(f"Could not import embeddings module:\n{module_name}\n\n")
-            if config.API_VARIANT == "local_dev":
+            if lg_api_config.API_VARIANT == "local_dev":
                 e.add_note(
                     "If you're in development mode, make sure you've installed your project "
                     "and its dependencies:\n"

@@ -34,12 +34,12 @@ class SlackMarkdownConverter:
             (re.compile(r"^(\s*)(\d+)\. (.+)", re.MULTILINE), r"\1\2. \3"),  # Ordered list
             (re.compile(r"!\[.*?\]\((.+?)\)", re.MULTILINE), r"<\1>"),  # Images to URL
             (re.compile(r"(?<!\*)\*([^*\n]+?)\*(?!\*)", re.MULTILINE), r"_\1_"),  # Italic
-            (re.compile(r"^###### (.+)$", re.MULTILINE), r"*\1*"), # H6 as bold
-            (re.compile(r"^##### (.+)$", re.MULTILINE), r"*\1*"), # H5 as bold
-            (re.compile(r"^#### (.+)$", re.MULTILINE), r"*\1*"), # H4 as bold
-            (re.compile(r"^### (.+)$", re.MULTILINE), r"*\1*"),  # H3 as bold
-            (re.compile(r"^## (.+)$", re.MULTILINE), r"*\1*"),  # H2 as bold
-            (re.compile(r"^# (.+)$", re.MULTILINE), r"*\1*"),  # H1 as bold
+            (re.compile(r"^###### (.+?)\s*$", re.MULTILINE), r"*\1*"), # H6 as bold
+            (re.compile(r"^##### (.+?)\s*$", re.MULTILINE), r"*\1*"), # H5 as bold
+            (re.compile(r"^#### (.+?)\s*$", re.MULTILINE), r"*\1*"), # H4 as bold
+            (re.compile(r"^### (.+?)\s*$", re.MULTILINE), r"*\1*"),  # H3 as bold
+            (re.compile(r"^## (.+?)\s*$", re.MULTILINE), r"*\1*"),  # H2 as bold
+            (re.compile(r"^# (.+?)\s*$", re.MULTILINE), r"*\1*"),  # H1 as bold
             (re.compile(r"(^|\s)~\*\*(.+?)\*\*(\s|$)", re.MULTILINE), r"\1 *\2* \3"),  # Bold with space handling
             (re.compile(r"(?<!\*)\*\*(.+?)\*\*(?!\*)", re.MULTILINE), r"*\1*"),  # Bold
             (re.compile(r"__(.+?)__", re.MULTILINE), r"*\1*"),  # Underline as bold
@@ -125,6 +125,7 @@ class SlackMarkdownConverter:
 
         try:
             markdown = markdown.strip()
+            self.in_code_block = False
 
             self.table_replacements = {}
 
@@ -136,7 +137,7 @@ class SlackMarkdownConverter:
                 if plugin["scope"] == "global":
                     markdown = plugin["func"](markdown)
             
-            lines = markdown.split("\n")
+            lines = markdown.splitlines()
             converted_lines = []
 
             # Get line-scope plugins for before/after timing in ascending priority order
@@ -184,6 +185,7 @@ class SlackMarkdownConverter:
     def _convert_tables(self, markdown: str) -> str:
         """
         Convert Markdown tables to Slack's mrkdwn format.
+        Tables inside code blocks are preserved as-is.
 
         Args:
             markdown (str): The Markdown text containing tables.
@@ -197,6 +199,22 @@ class SlackMarkdownConverter:
 
         def convert_table(match):
             original_table = match.group(0)
+            match_start = match.start()
+            
+            # Check if this table is inside a code block
+            text_before = markdown[:match_start]
+            in_code_block = False
+            lines_before = text_before.split('\n')
+            for line in lines_before:
+                stripped = line.strip()
+                if stripped.startswith('```'):
+                    # Check if it's a code block delimiter (not inline code)
+                    if re.match(r'^```\s*$', stripped) or re.match(r'^```\w+\s*$', stripped):
+                        in_code_block = not in_code_block
+            
+            # If inside code block, return original table unchanged
+            if in_code_block:
+                return original_table
 
             table_lines = original_table.strip().split("\n")
             header_line = table_lines[0]
@@ -235,7 +253,7 @@ class SlackMarkdownConverter:
         if line.startswith("%%TABLE_PLACEHOLDER_") and line.endswith("%%"):
             return line
 
-        code_block_match = re.match(r"^```(\w*)$", line)
+        code_block_match = re.match(r"^```(\w*)\s*$", line)
         if code_block_match:
             language = code_block_match.group(1)
             self.in_code_block = not self.in_code_block

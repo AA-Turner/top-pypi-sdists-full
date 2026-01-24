@@ -5,33 +5,59 @@
  * found in the LICENSE file.
  */
 
-#include <cstdio>
-#include <cstdlib>
-#include <sstream>
-#include <string>
-
+#include "include/codec/SkCodec.h"
+#include "include/codec/SkJpegDecoder.h"
+#include "include/core/SkBitmap.h"
+#include "include/core/SkPicture.h"
+#include "include/encode/SkPngEncoder.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "src/core/SkAutoPixmapStorage.h"
+#include "src/core/SkMemset.h"
 #include "src/core/SkMipmap.h"
-#include "src/core/SkOpts.h"
-#include "tools/flags/CommandLineFlags.h"
-
-#include "tools/fiddle/fiddle_main.h"
-
-static DEFINE_double(duration, 1.0,
-                     "The total duration, in seconds, of the animation we are drawing.");
-static DEFINE_double(frame, 1.0,
-                     "A double value in [0, 1] that specifies the point in animation to draw.");
-
-#include "include/gpu/GrBackendSurface.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrGpu.h"
 #include "src/gpu/ganesh/GrRenderTarget.h"
 #include "src/gpu/ganesh/GrResourceProvider.h"
 #include "src/gpu/ganesh/GrTexture.h"
+
+#include "tools/flags/CommandLineFlags.h"
+#include "tools/ganesh/gl/GLTestContext.h"
 #include "tools/gpu/ManagedBackendTexture.h"
-#include "tools/gpu/gl/GLTestContext.h"
+
+#if defined(SK_CODEC_DECODES_PNG_WITH_LIBPNG)
+#include "include/codec/SkPngDecoder.h"
+#endif
+
+#if defined(SK_SUPPORT_PDF)
+#if !defined(SK_CODEC_DECODES_JPEG) || !defined(SK_CODEC_ENCODES_JPEG)
+#error "Need jpeg for PDF backend"
+#endif
+#include "include/docs/SkPDFDocument.h"
+#include "include/docs/SkPDFJpegHelpers.h"
+#endif
+
+#if defined(SK_FONTMGR_FONTCONFIG_AVAILABLE)
+#include "include/ports/SkFontMgr_fontconfig.h"
+#include "include/ports/SkFontScanner_FreeType.h"
+#endif
+
+#include <cstdio>
+#include <cstdlib>
+#include <sstream>
+#include <string>
+
+// fiddle_main.h (purposefully) pollutes the global namespace with very generic identifiers like
+// "image", "duration", "frame", and "fontMgr". As such it is something of an
+// "implementation header" and should be included last to avoid name shadowing warnings.
+#include "tools/fiddle/fiddle_main.h"
 
 using namespace skia_private;
+
+static DEFINE_double(duration, 1.0,
+                     "The total duration, in seconds, of the animation we are drawing.");
+static DEFINE_double(frame, 1.0,
+                     "A double value in [0, 1] that specifies the point in animation to draw.");
 
 // Globals externed in fiddle_main.h
 GrBackendTexture backEndTexture;
@@ -41,6 +67,7 @@ SkBitmap source;
 sk_sp<SkImage> image;
 double duration; // The total duration of the animation in seconds.
 double frame;    // A value in [0, 1] of where we are in the animation.
+sk_sp<SkFontMgr> fontMgr;
 
 // Global used by the local impl of SkDebugf.
 std::ostringstream gTextOutput;
@@ -111,9 +138,9 @@ static void dump_output(const sk_sp<SkData>& data,
     }
 }
 
-static sk_sp<SkData> encode_snapshot(const sk_sp<SkSurface>& surface) {
+static sk_sp<SkData> encode_snapshot(GrDirectContext* ctx, const sk_sp<SkSurface>& surface) {
     sk_sp<SkImage> img(surface->makeImageSnapshot());
-    return img ? img->encodeToData() : nullptr;
+    return SkPngEncoder::Encode(ctx, img.get(), {});
 }
 
 static SkCanvas* prepare_canvas(SkCanvas * canvas) {
@@ -190,7 +217,7 @@ static bool setup_backend_objects(GrDirectContext* dContext,
                                                 GrRenderable::kYes,
                                                 kSampleCnt,
                                                 skgpu::Budgeted::kNo,
-                                                GrMipmapped::kNo,
+                                                skgpu::Mipmapped::kNo,
                                                 GrProtected::kNo,
                                                 &level0,
                                                 /*label=*/"Fiddle_SetupBackendObjects");
@@ -242,19 +269,39 @@ int main(int argc, char** argv) {
         options.pdf = false;
         options.skp = false;
     }
+#if defined(SK_FONTMGR_FONTCONFIG_AVAILABLE)
+    fontMgr = SkFontMgr_New_FontConfig(nullptr, SkFontScanner_Make_FreeType());
+#else
+    fontMgr = SkFontMgr::RefEmpty();
+#endif
     if (options.source) {
         sk_sp<SkData> data(SkData::MakeFromFileName(options.source));
         if (!data) {
             perror(options.source);
             return 1;
-        } else {
-            image = SkImage::MakeFromEncoded(std::move(data));
-            if (!image) {
-                perror("Unable to decode the source image.");
-                return 1;
-            }
-            SkAssertResult(image->asLegacyBitmap(&source));
         }
+        std::unique_ptr<SkCodec> codec = nullptr;
+#if defined(SK_CODEC_DECODES_PNG_WITH_LIBPNG)
+        if (SkPngDecoder::IsPng(data->data(), data->size())) {
+            codec = SkPngDecoder::Decode(data, nullptr);
+        } else
+#endif
+        if (SkJpegDecoder::IsJpeg(data->data(), data->size())) {
+            codec = SkJpegDecoder::Decode(data, nullptr);
+        } else {
+            perror("Unsupported file format\n");
+            return 1;
+        }
+        if (!codec) {
+            perror("Corrupt source image file\n");
+            return 1;
+        }
+        image = std::get<0>(codec->getImage());
+        if (!image) {
+            perror("Unable to decode the source image.\n");
+            return 1;
+        }
+        SkAssertResult(image->asLegacyBitmap(&source));
     }
     sk_sp<SkData> rasterData, gpuData, pdfData, skpData;
     SkColorType colorType = kN32_SkColorType;
@@ -269,10 +316,10 @@ int main(int argc, char** argv) {
     SkImageInfo info = SkImageInfo::Make(options.size.width(), options.size.height(), colorType,
                                          kPremul_SkAlphaType, colorSpace);
     if (options.raster) {
-        auto rasterSurface = SkSurface::MakeRaster(info);
+        auto rasterSurface = SkSurfaces::Raster(info);
         srand(0);
         draw(prepare_canvas(rasterSurface->getCanvas()));
-        rasterData = encode_snapshot(rasterSurface);
+        rasterData = encode_snapshot(nullptr, rasterSurface);
     }
 #ifdef SK_GL
     if (options.gpu) {
@@ -286,22 +333,22 @@ int main(int argc, char** argv) {
                 exit(1);
             }
 
-            auto surface = SkSurface::MakeRenderTarget(direct.get(), skgpu::Budgeted::kNo, info);
+            auto surface = SkSurfaces::RenderTarget(direct.get(), skgpu::Budgeted::kNo, info);
             if (!surface) {
                 fputs("Unable to get render surface.\n", stderr);
                 exit(1);
             }
             srand(0);
             draw(prepare_canvas(surface->getCanvas()));
-            gpuData = encode_snapshot(surface);
+            gpuData = encode_snapshot(direct.get(), surface);
         }
     }
 #endif
 
-#ifdef SK_SUPPORT_PDF
+#if defined(SK_SUPPORT_PDF)
     if (options.pdf) {
         SkDynamicMemoryWStream pdfStream;
-        auto document = SkPDF::MakeDocument(&pdfStream);
+        auto document = SkPDF::MakeDocument(&pdfStream, SkPDF::JPEG::MetadataWithCallbacks());
         if (document) {
             srand(0);
             draw(prepare_canvas(document->beginPage(options.size.width(), options.size.height())));

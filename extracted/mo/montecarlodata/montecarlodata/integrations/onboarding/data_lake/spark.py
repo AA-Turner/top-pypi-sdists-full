@@ -7,20 +7,17 @@ from montecarlodata.integrations.onboarding.fields import (
 )
 from montecarlodata.queries.onboarding import (
     TEST_SPARK_BINARY_MODE_CRED_MUTATION,
-    TEST_SPARK_DATABRICKS_CRED_MUTATION,
     TEST_SPARK_HTTP_MODE_CRED_MUTATION,
 )
 
 SPARK_BINARY_MODE_CONFIG_TYPE = "binary"
 SPARK_HTTP_MODE_CONFIG_TYPE = "http"
-SPARK_DATABRICKS_CONFIG_TYPE = "databricks"
 
 
 class SparkOnboardingService(BaseOnboardingService):
     _MUTATIONS = {
         SPARK_BINARY_MODE_CONFIG_TYPE: TEST_SPARK_BINARY_MODE_CRED_MUTATION,
         SPARK_HTTP_MODE_CONFIG_TYPE: TEST_SPARK_HTTP_MODE_CRED_MUTATION,
-        SPARK_DATABRICKS_CONFIG_TYPE: TEST_SPARK_DATABRICKS_CRED_MUTATION,
     }
 
     def __init__(self, config: Config, command_name: str, **kwargs):

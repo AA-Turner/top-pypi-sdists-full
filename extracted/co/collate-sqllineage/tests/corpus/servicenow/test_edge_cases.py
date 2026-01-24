@@ -1,0 +1,313 @@
+"""Tests for parser edge cases and known limitations."""
+
+from tests.helpers import assert_table_lineage_equal
+
+
+def test_swap_templates_sqlparse_limitation():
+    """
+    ServiceNow Query ID 4 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+ALTER TABLE IF EXISTS
+RDS.OUTREACH.TEMPLATES
+SWAP WITH
+RDS.OUTREACH.STG_TEMPLATES
+"""
+
+    # Table lineage
+    # SqlParse: Cannot correctly parse SWAP statements - extracts wrong tables
+    assert_table_lineage_equal(
+        sql,
+        {"rds.outreach.stg_templates"},
+        {"rds.outreach.templates"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_swap_templates_sqlparse_limitation0():
+    """
+    ServiceNow Query ID 40 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+MERGE INTO DYNAMICS365.audits TARGET USING ( SELECT * FROM DYNAMICS365.stg_audits WHERE ETL_REFRESH_SCHEDULE = 'placeholder_1') INPUT ON "TARGET"."AUDITID"="INPUT"."AUDITID" WHEN MATCHED THEN UPDATE SET "TARGET"."CHANGEDATA"="INPUT"."CHANGEDATA","TARGET"."OBJECTIDNAME"="INPUT"."OBJECTIDNAME","TARGET"."OPERATION"="INPUT"."OPERATION","TARGET"."AUDITID"="INPUT"."AUDITID","TARGET"."ACTION"="INPUT"."ACTION","TARGET"."REGARDINGOBJECTIDNAME"="INPUT"."REGARDINGOBJECTIDNAME","TARGET"."USERID"="INPUT"."USERID","TARGET"."CALLINGUSERIDNAME"="INPUT"."CALLINGUSERIDNAME","TARGET"."OPERATIONNAME"="INPUT"."OPERATIONNAME","TARGET"."ATTRIBUTEMASK"="INPUT"."ATTRIBUTEMASK","TARGET"."CALLINGUSERID"="INPUT"."CALLINGUSERID","TARGET"."OBJECTTYPECODENAME"="INPUT"."OBJECTTYPECODENAME","TARGET"."USERIDNAME"="INPUT"."USERIDNAME","TARGET"."CREATEDON"="INPUT"."CREATEDON","TARGET"."USERADDITIONALINFO"="INPUT"."USERADDITIONALINFO","TARGET"."TRANSACTIONID"="INPUT"."TRANSACTIONID","TARGET"."OBJECTTYPECODE"="INPUT"."OBJECTTYPECODE","TARGET"."REGARDINGOBJECTID"="INPUT"."REGARDINGOBJECTID","TARGET"."ACTIONNAME"="INPUT"."ACTIONNAME","TARGET"."OBJECTID"="INPUT"."OBJECTID","TARGET"."ETL_UPDATE_DATE"=CURRENT_TIMESTAMP WHEN NOT MATCHED THEN INSERT ("CHANGEDATA","OBJECTIDNAME","OPERATION","AUDITID","ACTION","REGARDINGOBJECTIDNAME","USERID","CALLINGUSERIDNAME","OPERATIONNAME","ATTRIBUTEMASK","CALLINGUSERID","OBJECTTYPECODENAME","USERIDNAME","CREATEDON","USERADDITIONALINFO","TRANSACTIONID","OBJECTTYPECODE","REGARDINGOBJECTID","ACTIONNAME","OBJECTID","ETL_UPDATE_DATE") VALUES ("INPUT"."CHANGEDATA","INPUT"."OBJECTIDNAME","INPUT"."OPERATION","INPUT"."AUDITID","INPUT"."ACTION","INPUT"."REGARDINGOBJECTIDNAME","INPUT"."USERID","INPUT"."CALLINGUSERIDNAME","INPUT"."OPERATIONNAME","INPUT"."ATTRIBUTEMASK","INPUT"."CALLINGUSERID","INPUT"."OBJECTTYPECODENAME","INPUT"."USERIDNAME","INPUT"."CREATEDON","INPUT"."USERADDITIONALINFO","INPUT"."TRANSACTIONID","INPUT"."OBJECTTYPECODE","INPUT"."REGARDINGOBJECTID","INPUT"."ACTIONNAME","INPUT"."OBJECTID",CURRENT_TIMESTAMP)
+"""
+
+    # Table lineage
+    # SqlParse: Cannot extract source tables from complex MERGE statements
+    assert_table_lineage_equal(
+        sql,
+        {"dynamics365.stg_audits"},
+        {"dynamics365.audits"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_swap_users_sqlparse_limitation():
+    """
+    ServiceNow Query ID 51 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+ALTER TABLE IF EXISTS
+RDS.OUTREACH.USERS
+SWAP WITH
+RDS.OUTREACH.STG_USERS
+"""
+
+    # Table lineage
+    # SqlParse: Cannot correctly parse SWAP statements - extracts wrong tables
+    assert_table_lineage_equal(
+        sql,
+        {"rds.outreach.stg_users"},
+        {"rds.outreach.users"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_insert_fabric_capacity_metrics():
+    """
+    ServiceNow Query ID 60 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+insert into RDS.POWERBI.STG_FABRIC_CAPACITY_METRICS
+(select 'placeholder_1','placeholder_2',"Data Value",'placeholder_3'
+from RDS.POWERBI."TEMP_FABRIC_CAPACITY_METRICS_19E57AC7-D5ED-4C2D-A86F-39D130A439F8")
+"""
+
+    # Table lineage
+    # SqlParse: Includes target table as source in INSERT INTO...SELECT
+    assert_table_lineage_equal(
+        sql,
+        {
+            "rds.powerbi.temp_fabric_capacity_metrics_19e57ac7-d5ed-4c2d-a86f-39d130a439f8"
+        },
+        {"rds.powerbi.stg_fabric_capacity_metrics"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_insert_fabric_capacity_metrics_variant():
+    """
+    ServiceNow Query ID 61 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+insert into RDS.POWERBI.STG_FABRIC_CAPACITY_METRICS
+(select 'placeholder_1','placeholder_2',"Data Value",'placeholder_3'
+from RDS.POWERBI."TEMP_FABRIC_CAPACITY_METRICS_3089C02C-28D0-4F13-8612-022168F076C3")
+"""
+
+    # Table lineage
+    # SqlParse: Includes target table as source in INSERT INTO...SELECT
+    assert_table_lineage_equal(
+        sql,
+        {
+            "rds.powerbi.temp_fabric_capacity_metrics_3089c02c-28d0-4f13-8612-022168f076c3"
+        },
+        {"rds.powerbi.stg_fabric_capacity_metrics"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_swap_teams_sqlparse_limitation():
+    """
+    ServiceNow Query ID 68 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+ALTER TABLE IF EXISTS
+RDS.OUTREACH.TEAMS
+SWAP WITH
+RDS.OUTREACH.STG_TEAMS
+"""
+
+    # Table lineage
+    # SqlParse: Cannot correctly parse SWAP statements - extracts wrong tables
+    assert_table_lineage_equal(
+        sql,
+        {"rds.outreach.stg_teams"},
+        {"rds.outreach.teams"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_create_table_catchpoint_report():
+    """
+    ServiceNow Query ID 106 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+create or replace table SELFSERVE.PLATFORM_PERF.MAV_CATCHPOINT_REPORT
+    AS
+    select
+    cp1.test_name as test_name,
+    cp1.step_number as step_number,
+    cp1.step_name as step_name,
+    cp3.step_url as step_url,
+    cp3.step_base_url as step_base_url,
+    cp3.step_name_show as step_name_show,
+    cp1.location as location,
+    cp2.city as city,
+    cp2.country as country,
+    cp2.continent as continent,
+    date(cp1.timestamp) as datetime,
+    round(avg(cp1.webpage_response_ms)/'placeholder_1','placeholder_2') as webpage_response_sec,
+    round(avg(cp1.time_to_interactive)/'placeholder_3','placeholder_4') as time_to_interactive_sec,
+    round(avg(cp1.visually_complete_ms)/'placeholder_5','placeholder_6') as visually_complete_sec,
+    avg(cp1.image_bytes) as image_bytes,
+    round(avg(cp1.image_ms)/'placeholder_7','placeholder_8') as image_sec,
+    round(avg(cp1.test_time_ms)/'placeholder_9','placeholder_10') as test_time_sec
+    from SELFSERVE.PLATFORM_PERF.CATCHPOINT_RAW_HOURLY_PHASE_1 cp1
+    inner join SELFSERVE.PLATFORM_PERF.CATCHPOINT_NODE_LOCATION cp2 on cp1.node_id=cp2.id
+    left join SELFSERVE.PLATFORM_PERF.CATCHPOINT_STEP_URL_MAPPING cp3 on cp1.test_name=cp3.test_name and cp1.step_name=cp3.step_name
+    where cp1.test_name in ('placeholder_11', 'placeholder_12', 'placeholder_13')
+    and lower(cp1.step_name) not like 'placeholder_14'
+    and lower(cp1.step_name) not like 'placeholder_15'
+    group by 'placeholder_16','placeholder_17','placeholder_18','placeholder_19','placeholder_20','placeholder_21','placeholder_22','placeholder_23','placeholder_24','placeholder_25','placeholder_26'
+"""
+
+    # Table lineage
+    # SqlParse: Cannot extract source tables from subqueries/complex queries
+    assert_table_lineage_equal(
+        sql,
+        {
+            "selfserve.platform_perf.catchpoint_node_location",
+            "selfserve.platform_perf.catchpoint_raw_hourly_phase_1",
+            "selfserve.platform_perf.catchpoint_step_url_mapping",
+        },
+        {"selfserve.platform_perf.mav_catchpoint_report"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_create_temp_table_nps_quarter():
+    """
+    ServiceNow Query ID 145 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+CREATE OR REPLACE TEMPORARY TABLE NPSQUARTER   AS
+SELECT "AcctName",
+       "AccountSysID",
+       "AcctNumber",
+       "Metric",
+       'placeholder_1' AS "MobileEnabled",
+       "Value"
+FROM
+  (SELECT DISTINCT base."AcctName",
+                   "AccountSysID",
+                   base."AcctNumber",
+                   'placeholder_2' AS "Metric",
+                   /* null as "MobileEnabled",*/
+"Quarter" AS "Value"/* "LikelytoRecommend"*/
+
+   FROM EDW_LS.CUSTOMER_EM.CUSTOMER_BASE base
+   LEFT JOIN
+     (SELECT *
+      FROM
+        (SELECT DISTINCT "AccountSysID",
+                         "Quarter",
+                         "LikelytoRecommend",
+                         ROW_NUMBER () OVER (PARTITION BY "AccountSysID"
+                                             ORDER BY "Quarter" DESC) rnk
+         FROM
+           (SELECT ACCOUNT_SYS_ID "AccountSysID",
+                   U_NUMBER "AcctNumber",
+                   RIGHT (QUARTER,
+                          'placeholder_3') "Quarter",
+                         COUNT (DISTINCT RESPONDENT) "NumOfRespondent",
+                               AVG (LIKELY_TO_RECOMMEND_SERVICENOW) "LikelytoRecommend",
+                                   AVG (LIKELY_TO_RECOMMEND_RENEWAL) "LikelytoRecRenewal",
+                                       CASE
+                                           WHEN AVG (LIKELY_TO_RECOMMEND_SERVICENOW) >= 'placeholder_4' THEN 'placeholder_5'
+                                           WHEN AVG (LIKELY_TO_RECOMMEND_SERVICENOW) >= 'placeholder_6' THEN 'placeholder_7'
+                                           ELSE 'placeholder_8'
+                                       END "Slabs"
+            FROM ODS_LS."NPS"."VW_NPSSURVEY"
+            GROUP BY ACCOUNT_SYS_ID,
+                     U_NUMBER,
+                     RIGHT (QUARTER,
+                            'placeholder_9')))
+      WHERE rnk = 'placeholder_10')aa ON base."AcctSysID" = aa."AccountSysID"
+      WHERE base."RecordType"='placeholder_11');
+"""
+
+    # Table lineage
+    # SqlParse: Cannot extract source tables from subqueries/complex queries
+    assert_table_lineage_equal(
+        sql,
+        {"edw_ls.customer_em.customer_base", "ods_ls.nps.vw_npssurvey"},
+        {"<default>.npsquarter"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_merge_opportunity_subproducts_sqlparse_limitation():
+    """
+    ServiceNow Query ID 263 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+MERGE INTO DYNAMICS365.sn_opportunitysubproductses TARGET USING ( SELECT * FROM DYNAMICS365.stg_sn_opportunitysubproductses WHERE ETL_REFRESH_SCHEDULE = 'placeholder_1') INPUT ON "TARGET"."SN_OPPORTUNITYSUBPRODUCTSID"="INPUT"."SN_OPPORTUNITYSUBPRODUCTSID" WHEN MATCHED THEN UPDATE SET "TARGET"."CREATEDONBEHALFBY"="INPUT"."CREATEDONBEHALFBY","TARGET"."OWNINGTEAM"="INPUT"."OWNINGTEAM","TARGET"."TRANSACTIONCURRENCYIDNAME"="INPUT"."TRANSACTIONCURRENCYIDNAME","TARGET"."STATUSCODE"="INPUT"."STATUSCODE","TARGET"."IMPORTSEQUENCENUMBER"="INPUT"."IMPORTSEQUENCENUMBER","TARGET"."OWNINGBUSINESSUNITNAME"="INPUT"."OWNINGBUSINESSUNITNAME","TARGET"."VERSIONNUMBER"="INPUT"."VERSIONNUMBER","TARGET"."SN_OPPORTUNITYSUBPRODUCTSID"="INPUT"."SN_OPPORTUNITYSUBPRODUCTSID","TARGET"."MODIFIEDONBEHALFBY"="INPUT"."MODIFIEDONBEHALFBY","TARGET"."CREATEDBYYOMINAME"="INPUT"."CREATEDBYYOMINAME","TARGET"."OWNINGBUSINESSUNIT"="INPUT"."OWNINGBUSINESSUNIT","TARGET"."STATUSCODENAME"="INPUT"."STATUSCODENAME","TARGET"."SN_NAME"="INPUT"."SN_NAME","TARGET"."STATECODE"="INPUT"."STATECODE","TARGET"."SN_AUTOCREATED"="INPUT"."SN_AUTOCREATED","TARGET"."OWNERIDYOMINAME"="INPUT"."OWNERIDYOMINAME","TARGET"."SN_PERCENTAGE"="INPUT"."SN_PERCENTAGE","TARGET"."OWNERID"="INPUT"."OWNERID","TARGET"."CREATEDBY"="INPUT"."CREATEDBY","TARGET"."MODIFIEDONBEHALFBYYOMINAME"="INPUT"."MODIFIEDONBEHALFBYYOMINAME","TARGET"."SN_SUBPRODUCTNAME"="INPUT"."SN_SUBPRODUCTNAME","TARGET"."SN_OPPORTUNITYPRODUCT"="INPUT"."SN_OPPORTUNITYPRODUCT","TARGET"."UTCCONVERSIONTIMEZONECODE"="INPUT"."UTCCONVERSIONTIMEZONECODE","TARGET"."SN_ANNUALRATEAMOUNT_BASE"="INPUT"."SN_ANNUALRATEAMOUNT_BASE","TARGET"."CREATEDONBEHALFBYYOMINAME"="INPUT"."CREATEDONBEHALFBYYOMINAME","TARGET"."SN_AMOUNT"="INPUT"."SN_AMOUNT","TARGET"."CREATEDONBEHALFBYNAME"="INPUT"."CREATEDONBEHALFBYNAME","TARGET"."MODIFIEDON"="INPUT"."MODIFIEDON","TARGET"."STATECODENAME"="INPUT"."STATECODENAME","TARGET"."MODIFIEDBYYOMINAME"="INPUT"."MODIFIEDBYYOMINAME","TARGET"."MODIFIEDBY"="INPUT"."MODIFIEDBY","TARGET"."SN_OPPORTUNITYPRODUCTNAME"="INPUT"."SN_OPPORTUNITYPRODUCTNAME","TARGET"."CREATEDBYNAME"="INPUT"."CREATEDBYNAME","TARGET"."OWNERIDNAME"="INPUT"."OWNERIDNAME","TARGET"."OWNINGUSER"="INPUT"."OWNINGUSER","TARGET"."MODIFIEDONBEHALFBYNAME"="INPUT"."MODIFIEDONBEHALFBYNAME","TARGET"."SN_CURRENCYCODE"="INPUT"."SN_CURRENCYCODE","TARGET"."SN_AMOUNT_BASE"="INPUT"."SN_AMOUNT_BASE","TARGET"."EXCHANGERATE"="INPUT"."EXCHANGERATE","TARGET"."SN_SUBPRODUCT"="INPUT"."SN_SUBPRODUCT","TARGET"."MODIFIEDBYNAME"="INPUT"."MODIFIEDBYNAME","TARGET"."OWNERIDTYPE"="INPUT"."OWNERIDTYPE","TARGET"."CREATEDON"="INPUT"."CREATEDON","TARGET"."TIMEZONERULEVERSIONNUMBER"="INPUT"."TIMEZONERULEVERSIONNUMBER","TARGET"."SN_ANNUALEXCHANGERATE"="INPUT"."SN_ANNUALEXCHANGERATE","TARGET"."OVERRIDDENCREATEDON"="INPUT"."OVERRIDDENCREATEDON","TARGET"."SN_ANNUALRATEAMOUNT"="INPUT"."SN_ANNUALRATEAMOUNT","TARGET"."SN_AUTOCREATEDNAME"="INPUT"."SN_AUTOCREATEDNAME","TARGET"."TRANSACTIONCURRENCYID"="INPUT"."TRANSACTIONCURRENCYID","TARGET"."SN_CUSTOMEXCHANGERATE"="INPUT"."SN_CUSTOMEXCHANGERATE","TARGET"."ETL_UPDATE_DATE"=CURRENT_TIMESTAMP WHEN NOT MATCHED THEN INSERT ("CREATEDONBEHALFBY","OWNINGTEAM","TRANSACTIONCURRENCYIDNAME","STATUSCODE","IMPORTSEQUENCENUMBER","OWNINGBUSINESSUNITNAME","VERSIONNUMBER","SN_OPPORTUNITYSUBPRODUCTSID","MODIFIEDONBEHALFBY","CREATEDBYYOMINAME","OWNINGBUSINESSUNIT","STATUSCODENAME","SN_NAME","STATECODE","SN_AUTOCREATED","OWNERIDYOMINAME","SN_PERCENTAGE","OWNERID","CREATEDBY","MODIFIEDONBEHALFBYYOMINAME","SN_SUBPRODUCTNAME","SN_OPPORTUNITYPRODUCT","UTCCONVERSIONTIMEZONECODE","SN_ANNUALRATEAMOUNT_BASE","CREATEDONBEHALFBYYOMINAME","SN_AMOUNT","CREATEDONBEHALFBYNAME","MODIFIEDON","STATECODENAME","MODIFIEDBYYOMINAME","MODIFIEDBY","SN_OPPORTUNITYPRODUCTNAME","CREATEDBYNAME","OWNERIDNAME","OWNINGUSER","MODIFIEDONBEHALFBYNAME","SN_CURRENCYCODE","SN_AMOUNT_BASE","EXCHANGERATE","SN_SUBPRODUCT","MODIFIEDBYNAME","OWNERIDTYPE","CREATEDON","TIMEZONERULEVERSIONNUMBER","SN_ANNUALEXCHANGERATE","OVERRIDDENCREATEDON","SN_ANNUALRATEAMOUNT","SN_AUTOCREATEDNAME","TRANSACTIONCURRENCYID","SN_CUSTOMEXCHANGERATE","ETL_UPDATE_DATE") VALUES ("INPUT"."CREATEDONBEHALFBY","INPUT"."OWNINGTEAM","INPUT"."TRANSACTIONCURRENCYIDNAME","INPUT"."STATUSCODE","INPUT"."IMPORTSEQUENCENUMBER","INPUT"."OWNINGBUSINESSUNITNAME","INPUT"."VERSIONNUMBER","INPUT"."SN_OPPORTUNITYSUBPRODUCTSID","INPUT"."MODIFIEDONBEHALFBY","INPUT"."CREATEDBYYOMINAME","INPUT"."OWNINGBUSINESSUNIT","INPUT"."STATUSCODENAME","INPUT"."SN_NAME","INPUT"."STATECODE","INPUT"."SN_AUTOCREATED","INPUT"."OWNERIDYOMINAME","INPUT"."SN_PERCENTAGE","INPUT"."OWNERID","INPUT"."CREATEDBY","INPUT"."MODIFIEDONBEHALFBYYOMINAME","INPUT"."SN_SUBPRODUCTNAME","INPUT"."SN_OPPORTUNITYPRODUCT","INPUT"."UTCCONVERSIONTIMEZONECODE","INPUT"."SN_ANNUALRATEAMOUNT_BASE","INPUT"."CREATEDONBEHALFBYYOMINAME","INPUT"."SN_AMOUNT","INPUT"."CREATEDONBEHALFBYNAME","INPUT"."MODIFIEDON","INPUT"."STATECODENAME","INPUT"."MODIFIEDBYYOMINAME","INPUT"."MODIFIEDBY","INPUT"."SN_OPPORTUNITYPRODUCTNAME","INPUT"."CREATEDBYNAME","INPUT"."OWNERIDNAME","INPUT"."OWNINGUSER","INPUT"."MODIFIEDONBEHALFBYNAME","INPUT"."SN_CURRENCYCODE","INPUT"."SN_AMOUNT_BASE","INPUT"."EXCHANGERATE","INPUT"."SN_SUBPRODUCT","INPUT"."MODIFIEDBYNAME","INPUT"."OWNERIDTYPE","INPUT"."CREATEDON","INPUT"."TIMEZONERULEVERSIONNUMBER","INPUT"."SN_ANNUALEXCHANGERATE","INPUT"."OVERRIDDENCREATEDON","INPUT"."SN_ANNUALRATEAMOUNT","INPUT"."SN_AUTOCREATEDNAME","INPUT"."TRANSACTIONCURRENCYID","INPUT"."SN_CUSTOMEXCHANGERATE",CURRENT_TIMESTAMP)
+"""
+
+    # Table lineage
+    # SqlParse: Cannot extract source tables from complex MERGE statements
+    assert_table_lineage_equal(
+        sql,
+        {"dynamics365.stg_sn_opportunitysubproductses"},
+        {"dynamics365.sn_opportunitysubproductses"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )
+
+
+def test_merge_collaboration_teams_sqlparse_limitation():
+    """
+    ServiceNow Query ID 775 - Sqlparse Fails
+
+    Reference parser: sqlglot
+    Suspected incorrect: sqlparse
+    """
+    sql = """\
+MERGE INTO DYNAMICS365.sn_opportunitycollaborationteams TARGET USING ( SELECT * FROM DYNAMICS365.stg_sn_opportunitycollaborationteams WHERE ETL_REFRESH_SCHEDULE = 'placeholder_1') INPUT ON "TARGET"."SN_OPPORTUNITYCOLLABORATIONTEAMID"="INPUT"."SN_OPPORTUNITYCOLLABORATIONTEAMID" WHEN MATCHED THEN UPDATE SET "TARGET"."OWNINGBUSINESSUNIT"="INPUT"."OWNINGBUSINESSUNIT","TARGET"."CREATEDBYNAME"="INPUT"."CREATEDBYNAME","TARGET"."MODIFIEDBY"="INPUT"."MODIFIEDBY","TARGET"."TIMEZONERULEVERSIONNUMBER"="INPUT"."TIMEZONERULEVERSIONNUMBER","TARGET"."SN_OPPORTUNITYHEADERNAME"="INPUT"."SN_OPPORTUNITYHEADERNAME","TARGET"."CREATEDON"="INPUT"."CREATEDON","TARGET"."STATUSCODE"="INPUT"."STATUSCODE","TARGET"."SN_ROLENAME"="INPUT"."SN_ROLENAME","TARGET"."SN_USERNAME"="INPUT"."SN_USERNAME","TARGET"."STATECODE"="INPUT"."STATECODE","TARGET"."SN_ACTIVE"="INPUT"."SN_ACTIVE","TARGET"."SN_SELECTONLYACCOUNTCOLLABORATIONUSERS"="INPUT"."SN_SELECTONLYACCOUNTCOLLABORATIONUSERS","TARGET"."SN_OPPORTUNITY"="INPUT"."SN_OPPORTUNITY","TARGET"."OWNERIDTYPE"="INPUT"."OWNERIDTYPE","TARGET"."CREATEDBYYOMINAME"="INPUT"."CREATEDBYYOMINAME","TARGET"."SN_USER"="INPUT"."SN_USER","TARGET"."SN_NAME"="INPUT"."SN_NAME","TARGET"."MODIFIEDONBEHALFBY"="INPUT"."MODIFIEDONBEHALFBY","TARGET"."OWNERIDYOMINAME"="INPUT"."OWNERIDYOMINAME","TARGET"."OWNERID"="INPUT"."OWNERID","TARGET"."CREATEDONBEHALFBY"="INPUT"."CREATEDONBEHALFBY","TARGET"."STATECODENAME"="INPUT"."STATECODENAME","TARGET"."SN_USERYOMINAME"="INPUT"."SN_USERYOMINAME","TARGET"."SN_SELECTONLYACCOUNTCOLLABORATIONUSERSNAME"="INPUT"."SN_SELECTONLYACCOUNTCOLLABORATIONUSERSNAME","TARGET"."IMPORTSEQUENCENUMBER"="INPUT"."IMPORTSEQUENCENUMBER","TARGET"."OWNERIDNAME"="INPUT"."OWNERIDNAME","TARGET"."MODIFIEDBYYOMINAME"="INPUT"."MODIFIEDBYYOMINAME","TARGET"."SN_ACTIVENAME"="INPUT"."SN_ACTIVENAME","TARGET"."SN_COLLABORATIONROLENAME"="INPUT"."SN_COLLABORATIONROLENAME","TARGET"."OWNINGTEAM"="INPUT"."OWNINGTEAM","TARGET"."SN_OPPORTUNITYCOLLABORATIONTEAMID"="INPUT"."SN_OPPORTUNITYCOLLABORATIONTEAMID","TARGET"."SN_MANUALASSIGNMENT"="INPUT"."SN_MANUALASSIGNMENT","TARGET"."CREATEDBY"="INPUT"."CREATEDBY","TARGET"."OVERRIDDENCREATEDON"="INPUT"."OVERRIDDENCREATEDON","TARGET"."MODIFIEDBYNAME"="INPUT"."MODIFIEDBYNAME","TARGET"."MODIFIEDON"="INPUT"."MODIFIEDON","TARGET"."SN_COLLABORATIONROLE"="INPUT"."SN_COLLABORATIONROLE","TARGET"."SN_ROLE"="INPUT"."SN_ROLE","TARGET"."OWNINGUSER"="INPUT"."OWNINGUSER","TARGET"."MODIFIEDONBEHALFBYYOMINAME"="INPUT"."MODIFIEDONBEHALFBYYOMINAME","TARGET"."SN_OPPORTUNITYHEADER"="INPUT"."SN_OPPORTUNITYHEADER","TARGET"."CREATEDONBEHALFBYYOMINAME"="INPUT"."CREATEDONBEHALFBYYOMINAME","TARGET"."SN_MANUALASSIGNMENTNAME"="INPUT"."SN_MANUALASSIGNMENTNAME","TARGET"."MODIFIEDONBEHALFBYNAME"="INPUT"."MODIFIEDONBEHALFBYNAME","TARGET"."CREATEDONBEHALFBYNAME"="INPUT"."CREATEDONBEHALFBYNAME","TARGET"."STATUSCODENAME"="INPUT"."STATUSCODENAME","TARGET"."VERSIONNUMBER"="INPUT"."VERSIONNUMBER","TARGET"."SN_OPPORTUNITYNAME"="INPUT"."SN_OPPORTUNITYNAME","TARGET"."UTCCONVERSIONTIMEZONECODE"="INPUT"."UTCCONVERSIONTIMEZONECODE","TARGET"."ETL_UPDATE_DATE"=CURRENT_TIMESTAMP,"TARGET"."SN_JOBROLEID"="INPUT"."SN_JOBROLEID","TARGET"."SN_ISPRIMARY"="INPUT"."SN_ISPRIMARY" WHEN NOT MATCHED THEN INSERT ("OWNINGBUSINESSUNIT","CREATEDBYNAME","MODIFIEDBY","TIMEZONERULEVERSIONNUMBER","SN_OPPORTUNITYHEADERNAME","CREATEDON","STATUSCODE","SN_ROLENAME","SN_USERNAME","STATECODE","SN_ACTIVE","SN_SELECTONLYACCOUNTCOLLABORATIONUSERS","SN_OPPORTUNITY","OWNERIDTYPE","CREATEDBYYOMINAME","SN_USER","SN_NAME","MODIFIEDONBEHALFBY","OWNERIDYOMINAME","OWNERID","CREATEDONBEHALFBY","STATECODENAME","SN_USERYOMINAME","SN_SELECTONLYACCOUNTCOLLABORATIONUSERSNAME","IMPORTSEQUENCENUMBER","OWNERIDNAME","MODIFIEDBYYOMINAME","SN_ACTIVENAME","SN_COLLABORATIONROLENAME","OWNINGTEAM","SN_OPPORTUNITYCOLLABORATIONTEAMID","SN_MANUALASSIGNMENT","CREATEDBY","OVERRIDDENCREATEDON","MODIFIEDBYNAME","MODIFIEDON","SN_COLLABORATIONROLE","SN_ROLE","OWNINGUSER","MODIFIEDONBEHALFBYYOMINAME","SN_OPPORTUNITYHEADER","CREATEDONBEHALFBYYOMINAME","SN_MANUALASSIGNMENTNAME","MODIFIEDONBEHALFBYNAME","CREATEDONBEHALFBYNAME","STATUSCODENAME","VERSIONNUMBER","SN_OPPORTUNITYNAME","UTCCONVERSIONTIMEZONECODE","ETL_UPDATE_DATE","SN_JOBROLEID","SN_ISPRIMARY") VALUES ("INPUT"."OWNINGBUSINESSUNIT","INPUT"."CREATEDBYNAME","INPUT"."MODIFIEDBY","INPUT"."TIMEZONERULEVERSIONNUMBER","INPUT"."SN_OPPORTUNITYHEADERNAME","INPUT"."CREATEDON","INPUT"."STATUSCODE","INPUT"."SN_ROLENAME","INPUT"."SN_USERNAME","INPUT"."STATECODE","INPUT"."SN_ACTIVE","INPUT"."SN_SELECTONLYACCOUNTCOLLABORATIONUSERS","INPUT"."SN_OPPORTUNITY","INPUT"."OWNERIDTYPE","INPUT"."CREATEDBYYOMINAME","INPUT"."SN_USER","INPUT"."SN_NAME","INPUT"."MODIFIEDONBEHALFBY","INPUT"."OWNERIDYOMINAME","INPUT"."OWNERID","INPUT"."CREATEDONBEHALFBY","INPUT"."STATECODENAME","INPUT"."SN_USERYOMINAME","INPUT"."SN_SELECTONLYACCOUNTCOLLABORATIONUSERSNAME","INPUT"."IMPORTSEQUENCENUMBER","INPUT"."OWNERIDNAME","INPUT"."MODIFIEDBYYOMINAME","INPUT"."SN_ACTIVENAME","INPUT"."SN_COLLABORATIONROLENAME","INPUT"."OWNINGTEAM","INPUT"."SN_OPPORTUNITYCOLLABORATIONTEAMID","INPUT"."SN_MANUALASSIGNMENT","INPUT"."CREATEDBY","INPUT"."OVERRIDDENCREATEDON","INPUT"."MODIFIEDBYNAME","INPUT"."MODIFIEDON","INPUT"."SN_COLLABORATIONROLE","INPUT"."SN_ROLE","INPUT"."OWNINGUSER","INPUT"."MODIFIEDONBEHALFBYYOMINAME","INPUT"."SN_OPPORTUNITYHEADER","INPUT"."CREATEDONBEHALFBYYOMINAME","INPUT"."SN_MANUALASSIGNMENTNAME","INPUT"."MODIFIEDONBEHALFBYNAME","INPUT"."CREATEDONBEHALFBYNAME","INPUT"."STATUSCODENAME","INPUT"."VERSIONNUMBER","INPUT"."SN_OPPORTUNITYNAME","INPUT"."UTCCONVERSIONTIMEZONECODE",CURRENT_TIMESTAMP,"INPUT"."SN_JOBROLEID","INPUT"."SN_ISPRIMARY")
+"""
+
+    # Table lineage
+    # SqlParse: Cannot extract source tables from complex MERGE statements
+    assert_table_lineage_equal(
+        sql,
+        {"dynamics365.stg_sn_opportunitycollaborationteams"},
+        {"dynamics365.sn_opportunitycollaborationteams"},
+        dialect="snowflake",
+        test_sqlparse=False,  # SqlParse fails on this query
+    )

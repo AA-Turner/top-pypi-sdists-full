@@ -37,6 +37,10 @@ class ICMP(BaseModel, extra=PYDANTIC_EXTRAS):
     type: Literal["icmp"]
 
 
+class ICMPv6(ICMP, extra=PYDANTIC_EXTRAS):
+    type: Literal["icmpv6"]
+
+
 class MPLS(BaseModel, extra=PYDANTIC_EXTRAS):
     stack: list[int]
     type: Literal["mpls"]
@@ -59,10 +63,15 @@ class ESP(BaseModel, extra=PYDANTIC_EXTRAS):
 class IP(BaseModel, extra=PYDANTIC_EXTRAS):
     src: list[str]
     dst: list[str]
-    fragmentOffset: int = Field(alias="fragment offset")
+    fragmentOffset: Optional[int] = Field(None, alias="fragment offset")
     protocol: str
-    ttl: int
+    ttl: Optional[int] = None
     type: Literal["ip"]
+
+
+class IPv6(IP, extra=PYDANTIC_EXTRAS):
+    hopLimit: int
+    type: Literal["ipv6"]
 
 
 class VXLAN(BaseModel, extra=PYDANTIC_EXTRAS):
@@ -90,6 +99,13 @@ class FabricPath(BaseModel, extra=PYDANTIC_EXTRAS):
     ttl: int
 
 
+class VCMP(BaseModel, extra=PYDANTIC_EXTRAS):
+    proto: str
+    vrfName: str
+    type: Literal["vcmp"]
+
+
 PROTOCOLS = Annotated[
-    Union[ICMP, UDP, TCP, Ethernet, IP, MPLS, ESP, VXLAN, CAPWAP, GRE, FabricPath], Field(discriminator="type")
+    Union[ICMP, ICMPv6, UDP, TCP, Ethernet, IP, IPv6, MPLS, ESP, VXLAN, CAPWAP, GRE, FabricPath, VCMP],
+    Field(discriminator="type"),
 ]

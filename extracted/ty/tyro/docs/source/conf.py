@@ -6,6 +6,7 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/stable/config
 
+import datetime
 from typing import Dict, List
 
 # -- Path setup --------------------------------------------------------------
@@ -18,7 +19,7 @@ from typing import Dict, List
 # -- Project information -----------------------------------------------------
 
 project = "tyro"
-copyright = "2024"
+copyright = str(datetime.datetime.now().year)
 author = "brentyi"
 
 # The short X.Y version
@@ -57,7 +58,8 @@ extensions = [
 ]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", (None, "python-inv.txt"))
+    "python": ("https://docs.python.org/3", (None, "python-inv.txt")),
+    "upath": ("https://universal-pathlib.readthedocs.io/en/latest/", None),
 }
 
 programoutput_use_ansi = True
@@ -80,8 +82,7 @@ html_theme_options = {
             "class": "",
         },
     ],
-    "light_logo": "logo-light.svg",
-    "dark_logo": "logo-dark.svg",
+    "sidebar_hide_name": False,
 }
 
 # Pull documentation types from hints
@@ -406,3 +407,4 @@ todo_include_todos = True
 def setup(app):
     # app.connect("autodoc-process-docstring", docstring)
     app.add_css_file("css/compact_table_header.css")
+    app.add_css_file("css/tyro_demo.css")

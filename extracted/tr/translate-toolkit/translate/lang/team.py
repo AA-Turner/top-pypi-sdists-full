@@ -36,7 +36,7 @@ LANG_TEAM_REGEX = (
     ("fedoraproject", "trans-([a-z_A-Z]+)@lists.fedoraproject.org", None),
     ("gnome.org", "gnome-([a-z_A-Z]+)-list@gnome.org", ["latin"]),
 )
-"""Data for regular expression based extraction.  The fieds are: prefilter
+"""Data for regular expression based extraction. The fields are: prefilter
 information, regex with single group that contains the language code,
 postfilter."""
 
@@ -781,4 +781,4 @@ if __name__ == "__main__":
 
     for fname in argv[1:]:
         store = factory.getobject(fname)
-        print(fname, guess_language(store.parseheader().get("Language-Team", "")))  # noqa: T201
+        print(fname, guess_language(store.parseheader().get("Language-Team", "")))  # noqa: T201  # ty:ignore[unresolved-attribute]

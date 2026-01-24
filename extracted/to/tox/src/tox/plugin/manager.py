@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Any
 
 import pluggy
 
@@ -19,6 +19,7 @@ from . import NAME, spec
 from .inline import load_inline
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
     from types import ModuleType
 
@@ -111,8 +112,8 @@ class Plugin:
         self.manager.hook.tox_env_teardown(tox_env=tox_env)
 
     def load_plugins(self, path: Path) -> None:
-        for _plugin in self.manager.get_plugins():  # make sure we start with a clean state, repeated in memory run
-            self.manager.unregister(_plugin)
+        for plugin in self.manager.get_plugins():  # make sure we start with a clean state, repeated in memory run
+            self.manager.unregister(plugin)
         inline = _load_inline(path)
         self._register_plugins(inline)
         REGISTER._register_tox_env_types(self)  # noqa: SLF001

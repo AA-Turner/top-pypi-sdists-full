@@ -3,7 +3,7 @@ Type annotations for glue service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -50,6 +51,7 @@ from .literals import (
     CrawlStateType,
     CsvHeaderOptionType,
     CsvSerdeOptionType,
+    DatabaseAttributesType,
     DataFormatType,
     DataOperationType,
     DataQualityEncryptionModeType,
@@ -72,11 +74,13 @@ from .literals import (
     FilterOperationType,
     FilterOperatorType,
     FilterValueTypeType,
+    FunctionTypeType,
     GlueRecordTypeType,
     HudiTargetCompressionTypeType,
     IcebergNullOrderType,
     IcebergSortDirectionType,
     IcebergTargetCompressionTypeType,
+    IcebergUpdateActionType,
     InclusionAnnotationValueType,
     IntegrationStatusType,
     JDBCConnectionTypeType,
@@ -88,7 +92,10 @@ from .literals import (
     JoinTypeType,
     LanguageType,
     LastCrawlStatusType,
+    LastRefreshTypeType,
     LogicalType,
+    MaterializedViewRefreshStateType,
+    MaterializedViewRefreshTypeType,
     MLUserDataEncryptionModeStringType,
     NodeTypeType,
     OAuth2GrantTypeType,
@@ -143,12 +150,6 @@ from .literals import (
     WorkflowRunStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -453,6 +454,7 @@ __all__ = (
     "DeleteDatabaseRequestTypeDef",
     "DeleteDevEndpointRequestTypeDef",
     "DeleteIntegrationRequestTypeDef",
+    "DeleteIntegrationResourcePropertyRequestTypeDef",
     "DeleteIntegrationResponseTypeDef",
     "DeleteIntegrationTablePropertiesRequestTypeDef",
     "DeleteJobRequestTypeDef",
@@ -658,6 +660,8 @@ __all__ = (
     "GetMLTransformsResponseTypeDef",
     "GetMappingRequestTypeDef",
     "GetMappingResponseTypeDef",
+    "GetMaterializedViewRefreshTaskRunRequestTypeDef",
+    "GetMaterializedViewRefreshTaskRunResponseTypeDef",
     "GetPartitionIndexesRequestPaginateTypeDef",
     "GetPartitionIndexesRequestTypeDef",
     "GetPartitionIndexesResponseTypeDef",
@@ -755,6 +759,7 @@ __all__ = (
     "HudiTargetTypeDef",
     "IcebergCompactionConfigurationTypeDef",
     "IcebergCompactionMetricsTypeDef",
+    "IcebergEncryptedKeyTypeDef",
     "IcebergInputTypeDef",
     "IcebergOptimizationPropertiesOutputTypeDef",
     "IcebergOptimizationPropertiesTypeDef",
@@ -780,6 +785,8 @@ __all__ = (
     "IntegrationErrorTypeDef",
     "IntegrationFilterTypeDef",
     "IntegrationPartitionTypeDef",
+    "IntegrationResourcePropertyFilterTypeDef",
+    "IntegrationResourcePropertyTypeDef",
     "IntegrationTypeDef",
     "JDBCConnectorOptionsOutputTypeDef",
     "JDBCConnectorOptionsTypeDef",
@@ -850,11 +857,16 @@ __all__ = (
     "ListEntitiesRequestPaginateTypeDef",
     "ListEntitiesRequestTypeDef",
     "ListEntitiesResponseTypeDef",
+    "ListIntegrationResourcePropertiesRequestTypeDef",
+    "ListIntegrationResourcePropertiesResponseTypeDef",
     "ListJobsRequestPaginateTypeDef",
     "ListJobsRequestTypeDef",
     "ListJobsResponseTypeDef",
     "ListMLTransformsRequestTypeDef",
     "ListMLTransformsResponseTypeDef",
+    "ListMaterializedViewRefreshTaskRunsRequestPaginateTypeDef",
+    "ListMaterializedViewRefreshTaskRunsRequestTypeDef",
+    "ListMaterializedViewRefreshTaskRunsResponseTypeDef",
     "ListRegistriesInputPaginateTypeDef",
     "ListRegistriesInputTypeDef",
     "ListRegistriesResponseTypeDef",
@@ -889,6 +901,7 @@ __all__ = (
     "MappingPaginatorTypeDef",
     "MappingTypeDef",
     "MappingUnionTypeDef",
+    "MaterializedViewRefreshTaskRunTypeDef",
     "MergeOutputTypeDef",
     "MergeTypeDef",
     "MergeUnionTypeDef",
@@ -1147,6 +1160,8 @@ __all__ = (
     "StartMLEvaluationTaskRunResponseTypeDef",
     "StartMLLabelingSetGenerationTaskRunRequestTypeDef",
     "StartMLLabelingSetGenerationTaskRunResponseTypeDef",
+    "StartMaterializedViewRefreshTaskRunRequestTypeDef",
+    "StartMaterializedViewRefreshTaskRunResponseTypeDef",
     "StartTriggerRequestTypeDef",
     "StartTriggerResponseTypeDef",
     "StartWorkflowRunRequestTypeDef",
@@ -1164,6 +1179,7 @@ __all__ = (
     "StopColumnStatisticsTaskRunScheduleRequestTypeDef",
     "StopCrawlerRequestTypeDef",
     "StopCrawlerScheduleRequestTypeDef",
+    "StopMaterializedViewRefreshTaskRunRequestTypeDef",
     "StopSessionRequestTypeDef",
     "StopSessionResponseTypeDef",
     "StopTriggerRequestTypeDef",
@@ -1293,7 +1309,7 @@ class NotificationPropertyTypeDef(TypedDict):
 
 
 class AggregateOperationOutputTypeDef(TypedDict):
-    Column: List[str]
+    Column: list[str]
     AggFunc: AggFunctionType
 
 
@@ -1326,20 +1342,20 @@ class AnnotationErrorTypeDef(TypedDict):
 
 class MappingOutputTypeDef(TypedDict):
     ToKey: NotRequired[str]
-    FromPath: NotRequired[List[str]]
+    FromPath: NotRequired[list[str]]
     FromType: NotRequired[str]
     ToType: NotRequired[str]
     Dropped: NotRequired[bool]
-    Children: NotRequired[List[Dict[str, Any]]]
+    Children: NotRequired[list[dict[str, Any]]]
 
 
 class MappingPaginatorTypeDef(TypedDict):
     ToKey: NotRequired[str]
-    FromPath: NotRequired[List[str]]
+    FromPath: NotRequired[list[str]]
     FromType: NotRequired[str]
     ToType: NotRequired[str]
     Dropped: NotRequired[bool]
-    Children: NotRequired[List[Dict[str, Any]]]
+    Children: NotRequired[list[dict[str, Any]]]
 
 
 class AuditContextTypeDef(TypedDict):
@@ -1364,15 +1380,15 @@ class AutoDataQualityTypeDef(TypedDict):
 
 
 class PartitionValueListOutputTypeDef(TypedDict):
-    Values: List[str]
+    Values: list[str]
 
 
 class BasicCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Database: str
     Table: str
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
 
 
 class BasicCatalogTargetTypeDef(TypedDict):
@@ -1386,7 +1402,7 @@ class BasicCatalogTargetTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -1432,7 +1448,7 @@ class BatchGetCustomEntityTypesRequestTypeDef(TypedDict):
 class CustomEntityTypeTypeDef(TypedDict):
     Name: str
     RegexString: str
-    ContextWords: NotRequired[List[str]]
+    ContextWords: NotRequired[list[str]]
 
 
 class BatchGetDataQualityResultRequestTypeDef(TypedDict):
@@ -1446,7 +1462,7 @@ class BatchGetDevEndpointsRequestTypeDef(TypedDict):
 class DevEndpointTypeDef(TypedDict):
     EndpointName: NotRequired[str]
     RoleArn: NotRequired[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
     SubnetId: NotRequired[str]
     YarnEndpointAddress: NotRequired[str]
     PrivateAddress: NotRequired[str]
@@ -1466,9 +1482,9 @@ class DevEndpointTypeDef(TypedDict):
     CreatedTimestamp: NotRequired[datetime]
     LastModifiedTimestamp: NotRequired[datetime]
     PublicKey: NotRequired[str]
-    PublicKeys: NotRequired[List[str]]
+    PublicKeys: NotRequired[list[str]]
     SecurityConfiguration: NotRequired[str]
-    Arguments: NotRequired[Dict[str, str]]
+    Arguments: NotRequired[dict[str, str]]
 
 
 class BatchGetJobsRequestTypeDef(TypedDict):
@@ -1572,9 +1588,9 @@ class CancelStatementRequestTypeDef(TypedDict):
 
 
 class CapabilitiesTypeDef(TypedDict):
-    SupportedAuthenticationTypes: List[AuthenticationTypeType]
-    SupportedDataOperations: List[DataOperationType]
-    SupportedComputeEnvironments: List[ComputeEnvironmentType]
+    SupportedAuthenticationTypes: list[AuthenticationTypeType]
+    SupportedDataOperations: list[DataOperationType]
+    SupportedComputeEnvironments: list[ComputeEnvironmentType]
 
 
 class CatalogEntryTypeDef(TypedDict):
@@ -1663,9 +1679,9 @@ class DataLakeAccessPropertiesOutputTypeDef(TypedDict):
 
 class IcebergOptimizationPropertiesOutputTypeDef(TypedDict):
     RoleArn: NotRequired[str]
-    Compaction: NotRequired[Dict[str, str]]
-    Retention: NotRequired[Dict[str, str]]
-    OrphanFileDeletion: NotRequired[Dict[str, str]]
+    Compaction: NotRequired[dict[str, str]]
+    Retention: NotRequired[dict[str, str]]
+    OrphanFileDeletion: NotRequired[dict[str, str]]
     LastUpdatedTime: NotRequired[datetime]
 
 
@@ -1690,7 +1706,7 @@ class CatalogSchemaChangePolicyTypeDef(TypedDict):
 
 class CatalogTargetOutputTypeDef(TypedDict):
     DatabaseName: str
-    Tables: List[str]
+    Tables: list[str]
     ConnectionName: NotRequired[str]
     EventQueueArn: NotRequired[str]
     DlqEventQueueArn: NotRequired[str]
@@ -1717,11 +1733,11 @@ class CsvClassifierTypeDef(TypedDict):
     Delimiter: NotRequired[str]
     QuoteSymbol: NotRequired[str]
     ContainsHeader: NotRequired[CsvHeaderOptionType]
-    Header: NotRequired[List[str]]
+    Header: NotRequired[list[str]]
     DisableValueTrimming: NotRequired[bool]
     AllowSingleColumn: NotRequired[bool]
     CustomDatatypeConfigured: NotRequired[bool]
-    CustomDatatypes: NotRequired[List[str]]
+    CustomDatatypes: NotRequired[list[str]]
     Serde: NotRequired[CsvSerdeOptionType]
 
 
@@ -1760,34 +1776,34 @@ class CloudWatchEncryptionTypeDef(TypedDict):
 class ConnectorDataTargetOutputTypeDef(TypedDict):
     Name: str
     ConnectionType: str
-    Data: Dict[str, str]
-    Inputs: NotRequired[List[str]]
+    Data: dict[str, str]
+    Inputs: NotRequired[list[str]]
 
 
 class DropDuplicatesOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    Columns: NotRequired[List[List[str]]]
+    Inputs: list[str]
+    Columns: NotRequired[list[list[str]]]
 
 
 class DropFieldsOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    Paths: List[List[str]]
+    Inputs: list[str]
+    Paths: list[list[str]]
 
 
 class FillMissingValuesOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     ImputedPath: str
     FilledPath: NotRequired[str]
 
 
 class MergeOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Source: str
-    PrimaryKeys: List[List[str]]
+    PrimaryKeys: list[list[str]]
 
 
 class MicrosoftSQLServerCatalogSourceTypeDef(TypedDict):
@@ -1798,7 +1814,7 @@ class MicrosoftSQLServerCatalogSourceTypeDef(TypedDict):
 
 class MicrosoftSQLServerCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Database: str
     Table: str
 
@@ -1811,7 +1827,7 @@ class MySQLCatalogSourceTypeDef(TypedDict):
 
 class MySQLCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Database: str
     Table: str
 
@@ -1824,16 +1840,16 @@ class OracleSQLCatalogSourceTypeDef(TypedDict):
 
 class OracleSQLCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Database: str
     Table: str
 
 
 class PIIDetectionOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     PiiType: PiiTypeType
-    EntityTypesToDetect: List[str]
+    EntityTypesToDetect: list[str]
     OutputColumnName: NotRequired[str]
     SampleFraction: NotRequired[float]
     ThresholdFraction: NotRequired[float]
@@ -1855,7 +1871,7 @@ class PostgreSQLCatalogSourceTypeDef(TypedDict):
 
 class PostgreSQLCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Database: str
     Table: str
 
@@ -1876,26 +1892,26 @@ class RelationalCatalogSourceTypeDef(TypedDict):
 
 class RenameFieldOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    SourcePath: List[str]
-    TargetPath: List[str]
+    Inputs: list[str]
+    SourcePath: list[str]
+    TargetPath: list[str]
 
 
 class SelectFieldsOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    Paths: List[List[str]]
+    Inputs: list[str]
+    Paths: list[list[str]]
 
 
 class SelectFromCollectionOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Index: int
 
 
 class SpigotOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
     Topk: NotRequired[int]
     Prob: NotRequired[float]
@@ -1903,13 +1919,13 @@ class SpigotOutputTypeDef(TypedDict):
 
 class SplitFieldsOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    Paths: List[List[str]]
+    Inputs: list[str]
+    Paths: list[list[str]]
 
 
 class UnionOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     UnionType: UnionTypeType
 
 
@@ -1936,7 +1952,7 @@ ColumnOutputTypeDef = TypedDict(
         "Name": str,
         "Type": NotRequired[str],
         "Comment": NotRequired[str],
-        "Parameters": NotRequired[Dict[str, str]],
+        "Parameters": NotRequired[dict[str, str]],
     },
 )
 
@@ -1979,7 +1995,7 @@ class ColumnStatisticsTaskRunTypeDef(TypedDict):
     ColumnStatisticsTaskRunId: NotRequired[str]
     DatabaseName: NotRequired[str]
     TableName: NotRequired[str]
-    ColumnNameList: NotRequired[List[str]]
+    ColumnNameList: NotRequired[list[str]]
     CatalogID: NotRequired[str]
     Role: NotRequired[str]
     SampleSize: NotRequired[float]
@@ -2050,7 +2066,7 @@ class ConditionTypeDef(TypedDict):
 
 class ConfigurationObjectOutputTypeDef(TypedDict):
     DefaultValue: NotRequired[str]
-    AllowedValues: NotRequired[List[str]]
+    AllowedValues: NotRequired[list[str]]
     MinValue: NotRequired[str]
     MaxValue: NotRequired[str]
 
@@ -2083,12 +2099,12 @@ class ConnectionTypeVariantTypeDef(TypedDict):
 
 class PhysicalConnectionRequirementsOutputTypeDef(TypedDict):
     SubnetId: NotRequired[str]
-    SecurityGroupIdList: NotRequired[List[str]]
+    SecurityGroupIdList: NotRequired[list[str]]
     AvailabilityZone: NotRequired[str]
 
 
 class ConnectionsListOutputTypeDef(TypedDict):
-    Connections: NotRequired[List[str]]
+    Connections: NotRequired[list[str]]
 
 
 class ConnectionsListTypeDef(TypedDict):
@@ -2136,7 +2152,7 @@ class CrawlerMetricsTypeDef(TypedDict):
 
 
 class DeltaTargetOutputTypeDef(TypedDict):
-    DeltaTables: NotRequired[List[str]]
+    DeltaTables: NotRequired[list[str]]
     ConnectionName: NotRequired[str]
     WriteManifest: NotRequired[bool]
     CreateNativeDeltaTable: NotRequired[bool]
@@ -2149,24 +2165,24 @@ class DynamoDBTargetTypeDef(TypedDict):
 
 
 class HudiTargetOutputTypeDef(TypedDict):
-    Paths: NotRequired[List[str]]
+    Paths: NotRequired[list[str]]
     ConnectionName: NotRequired[str]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     MaximumTraversalDepth: NotRequired[int]
 
 
 class IcebergTargetOutputTypeDef(TypedDict):
-    Paths: NotRequired[List[str]]
+    Paths: NotRequired[list[str]]
     ConnectionName: NotRequired[str]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     MaximumTraversalDepth: NotRequired[int]
 
 
 class JdbcTargetOutputTypeDef(TypedDict):
     ConnectionName: NotRequired[str]
     Path: NotRequired[str]
-    Exclusions: NotRequired[List[str]]
-    EnableAdditionalMetadata: NotRequired[List[JdbcMetadataEntryType]]
+    Exclusions: NotRequired[list[str]]
+    EnableAdditionalMetadata: NotRequired[list[JdbcMetadataEntryType]]
 
 
 class MongoDBTargetTypeDef(TypedDict):
@@ -2177,7 +2193,7 @@ class MongoDBTargetTypeDef(TypedDict):
 
 class S3TargetOutputTypeDef(TypedDict):
     Path: NotRequired[str]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     ConnectionName: NotRequired[str]
     SampleSize: NotRequired[int]
     EventQueueArn: NotRequired[str]
@@ -2338,6 +2354,7 @@ class CreateDevEndpointRequestTypeDef(TypedDict):
 class CreateGlueIdentityCenterConfigurationRequestTypeDef(TypedDict):
     InstanceArn: str
     Scopes: NotRequired[Sequence[str]]
+    UserBackgroundSessionsEnabled: NotRequired[bool]
 
 
 class TagTypeDef(TypedDict):
@@ -2358,7 +2375,7 @@ class TargetProcessingPropertiesTypeDef(TypedDict):
 
 class IntegrationConfigOutputTypeDef(TypedDict):
     RefreshInterval: NotRequired[str]
-    SourceProperties: NotRequired[Dict[str, str]]
+    SourceProperties: NotRequired[dict[str, str]]
     ContinuousSync: NotRequired[bool]
 
 
@@ -2472,7 +2489,7 @@ class DataQualityAnalyzerResultTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     EvaluationMessage: NotRequired[str]
-    EvaluatedMetrics: NotRequired[Dict[str, float]]
+    EvaluatedMetrics: NotRequired[dict[str, float]]
 
 
 class DataQualityEncryptionTypeDef(TypedDict):
@@ -2491,7 +2508,7 @@ class DataQualityGlueTableOutputTypeDef(TypedDict):
     TableName: str
     CatalogId: NotRequired[str]
     ConnectionName: NotRequired[str]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    AdditionalOptions: NotRequired[dict[str, str]]
     PreProcessingQuery: NotRequired[str]
 
 
@@ -2516,9 +2533,10 @@ class DataQualityRuleResultTypeDef(TypedDict):
     Description: NotRequired[str]
     EvaluationMessage: NotRequired[str]
     Result: NotRequired[DataQualityRuleResultStatusType]
-    EvaluatedMetrics: NotRequired[Dict[str, float]]
+    EvaluatedMetrics: NotRequired[dict[str, float]]
     EvaluatedRule: NotRequired[str]
-    RuleMetrics: NotRequired[Dict[str, float]]
+    RuleMetrics: NotRequired[dict[str, float]]
+    Labels: NotRequired[dict[str, str]]
 
 
 class GlueTableOutputTypeDef(TypedDict):
@@ -2526,7 +2544,7 @@ class GlueTableOutputTypeDef(TypedDict):
     TableName: str
     CatalogId: NotRequired[str]
     ConnectionName: NotRequired[str]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    AdditionalOptions: NotRequired[dict[str, str]]
 
 
 class DatabaseIdentifierTypeDef(TypedDict):
@@ -2611,6 +2629,10 @@ class DeleteDevEndpointRequestTypeDef(TypedDict):
 
 class DeleteIntegrationRequestTypeDef(TypedDict):
     IntegrationIdentifier: str
+
+
+class DeleteIntegrationResourcePropertyRequestTypeDef(TypedDict):
+    ResourceArn: str
 
 
 class DeleteIntegrationTablePropertiesRequestTypeDef(TypedDict):
@@ -2735,11 +2757,11 @@ class FieldTypeDef(TypedDict):
     IsUpdateable: NotRequired[bool]
     IsUpsertable: NotRequired[bool]
     IsDefaultOnCreate: NotRequired[bool]
-    SupportedValues: NotRequired[List[str]]
-    SupportedFilterOperators: NotRequired[List[FieldFilterOperatorType]]
+    SupportedValues: NotRequired[list[str]]
+    SupportedFilterOperators: NotRequired[list[FieldFilterOperatorType]]
     ParentField: NotRequired[str]
     NativeDataType: NotRequired[str]
-    CustomProperties: NotRequired[Dict[str, str]]
+    CustomProperties: NotRequired[dict[str, str]]
 
 
 class DescribeInboundIntegrationsRequestTypeDef(TypedDict):
@@ -2791,7 +2813,7 @@ TransformConfigParameterOutputTypeDef = TypedDict(
         "Type": ParamTypeType,
         "ValidationRule": NotRequired[str],
         "ValidationMessage": NotRequired[str],
-        "Value": NotRequired[List[str]],
+        "Value": NotRequired[list[str]],
         "ListType": NotRequired[ParamTypeType],
         "IsOptional": NotRequired[bool],
     },
@@ -2819,7 +2841,7 @@ class EntityTypeDef(TypedDict):
     IsParentEntity: NotRequired[bool]
     Description: NotRequired[str]
     Category: NotRequired[str]
-    CustomProperties: NotRequired[Dict[str, str]]
+    CustomProperties: NotRequired[dict[str, str]]
 
 
 class ErrorDetailsTypeDef(TypedDict):
@@ -2849,7 +2871,7 @@ FilterValueOutputTypeDef = TypedDict(
     "FilterValueOutputTypeDef",
     {
         "Type": FilterValueTypeType,
-        "Value": List[str],
+        "Value": list[str],
     },
 )
 FilterValueTypeDef = TypedDict(
@@ -3028,7 +3050,7 @@ class GetDatabasesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     ResourceShareType: NotRequired[ResourceShareTypeType]
-    AttributesToGet: NotRequired[Sequence[Literal["NAME"]]]
+    AttributesToGet: NotRequired[Sequence[DatabaseAttributesType]]
 
 
 class GetDataflowGraphRequestTypeDef(TypedDict):
@@ -3067,9 +3089,9 @@ class GetIntegrationTablePropertiesRequestTypeDef(TypedDict):
 
 
 class SourceTableConfigOutputTypeDef(TypedDict):
-    Fields: NotRequired[List[str]]
+    Fields: NotRequired[list[str]]
     FilterPredicate: NotRequired[str]
-    PrimaryKey: NotRequired[List[str]]
+    PrimaryKey: NotRequired[list[str]]
     RecordUpdateField: NotRequired[str]
 
 
@@ -3140,6 +3162,29 @@ class MappingEntryTypeDef(TypedDict):
     TargetTable: NotRequired[str]
     TargetPath: NotRequired[str]
     TargetType: NotRequired[str]
+
+
+class GetMaterializedViewRefreshTaskRunRequestTypeDef(TypedDict):
+    CatalogId: str
+    MaterializedViewRefreshTaskRunId: str
+
+
+class MaterializedViewRefreshTaskRunTypeDef(TypedDict):
+    CustomerId: NotRequired[str]
+    MaterializedViewRefreshTaskRunId: NotRequired[str]
+    DatabaseName: NotRequired[str]
+    TableName: NotRequired[str]
+    CatalogId: NotRequired[str]
+    Role: NotRequired[str]
+    Status: NotRequired[MaterializedViewRefreshStateType]
+    CreationTime: NotRequired[datetime]
+    LastUpdated: NotRequired[datetime]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    ErrorMessage: NotRequired[str]
+    DPUSeconds: NotRequired[float]
+    RefreshType: NotRequired[MaterializedViewRefreshTypeType]
+    ProcessedBytes: NotRequired[int]
 
 
 class GetPartitionIndexesRequestTypeDef(TypedDict):
@@ -3263,6 +3308,7 @@ GetUserDefinedFunctionsRequestTypeDef = TypedDict(
         "Pattern": str,
         "CatalogId": NotRequired[str],
         "DatabaseName": NotRequired[str],
+        "FunctionType": NotRequired[FunctionTypeType],
         "NextToken": NotRequired[str],
         "MaxResults": NotRequired[int],
     },
@@ -3315,6 +3361,13 @@ class S3SourceAdditionalOptionsTypeDef(TypedDict):
     BoundedFiles: NotRequired[int]
 
 
+class IcebergEncryptedKeyTypeDef(TypedDict):
+    KeyId: str
+    EncryptedKeyMetadata: str
+    EncryptedById: NotRequired[str]
+    Properties: NotRequired[Mapping[str, str]]
+
+
 class IcebergOrphanFileDeletionConfigurationTypeDef(TypedDict):
     orphanFileRetentionPeriodInDays: NotRequired[int]
     location: NotRequired[str]
@@ -3359,6 +3412,8 @@ IcebergStructFieldTypeDef = TypedDict(
         "Type": Mapping[str, Any],
         "Required": bool,
         "Doc": NotRequired[str],
+        "InitialDefault": NotRequired[Mapping[str, Any]],
+        "WriteDefault": NotRequired[Mapping[str, Any]],
     },
 )
 
@@ -3391,15 +3446,20 @@ class IntegrationPartitionTypeDef(TypedDict):
     ConversionSpec: NotRequired[str]
 
 
+class IntegrationResourcePropertyFilterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[Sequence[str]]
+
+
 class JDBCConnectorOptionsOutputTypeDef(TypedDict):
     FilterPredicate: NotRequired[str]
     PartitionColumn: NotRequired[str]
     LowerBound: NotRequired[int]
     UpperBound: NotRequired[int]
     NumPartitions: NotRequired[int]
-    JobBookmarkKeys: NotRequired[List[str]]
+    JobBookmarkKeys: NotRequired[list[str]]
     JobBookmarkKeysSortOrder: NotRequired[str]
-    DataTypeMapping: NotRequired[Dict[JDBCDataTypeType, GlueRecordTypeType]]
+    DataTypeMapping: NotRequired[dict[JDBCDataTypeType, GlueRecordTypeType]]
 
 
 class JDBCConnectorOptionsTypeDef(TypedDict):
@@ -3420,7 +3480,7 @@ class PredecessorTypeDef(TypedDict):
 
 class JoinColumnOutputTypeDef(TypedDict):
     From: str
-    Keys: List[List[str]]
+    Keys: list[list[str]]
 
 
 class JoinColumnTypeDef(TypedDict):
@@ -3487,6 +3547,14 @@ class ListJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Tags: NotRequired[Mapping[str, str]]
+
+
+class ListMaterializedViewRefreshTaskRunsRequestTypeDef(TypedDict):
+    CatalogId: str
+    DatabaseName: NotRequired[str]
+    TableName: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListRegistriesInputTypeDef(TypedDict):
@@ -3702,7 +3770,7 @@ class PutWorkflowRunPropertiesRequestTypeDef(TypedDict):
 
 class RecipeActionOutputTypeDef(TypedDict):
     Operation: str
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
 
 
 class RecipeActionTypeDef(TypedDict):
@@ -3718,7 +3786,7 @@ class RecipeReferenceTypeDef(TypedDict):
 class UpsertRedshiftTargetOptionsOutputTypeDef(TypedDict):
     TableLocation: NotRequired[str]
     ConnectionName: NotRequired[str]
-    UpsertKeys: NotRequired[List[str]]
+    UpsertKeys: NotRequired[list[str]]
 
 
 class RenameFieldTypeDef(TypedDict):
@@ -3789,7 +3857,7 @@ class SelectFromCollectionTypeDef(TypedDict):
 class SerDeInfoOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     SerializationLibrary: NotRequired[str]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
 
 
 class SerDeInfoTypeDef(TypedDict):
@@ -3799,9 +3867,9 @@ class SerDeInfoTypeDef(TypedDict):
 
 
 class SkewedInfoOutputTypeDef(TypedDict):
-    SkewedColumnNames: NotRequired[List[str]]
-    SkewedColumnValues: NotRequired[List[str]]
-    SkewedColumnValueLocationMaps: NotRequired[Dict[str, str]]
+    SkewedColumnNames: NotRequired[list[str]]
+    SkewedColumnValues: NotRequired[list[str]]
+    SkewedColumnValueLocationMaps: NotRequired[dict[str, str]]
 
 
 class SkewedInfoTypeDef(TypedDict):
@@ -3885,6 +3953,13 @@ class StartMLLabelingSetGenerationTaskRunRequestTypeDef(TypedDict):
     OutputS3Path: str
 
 
+class StartMaterializedViewRefreshTaskRunRequestTypeDef(TypedDict):
+    CatalogId: str
+    DatabaseName: str
+    TableName: str
+    FullRefresh: NotRequired[bool]
+
+
 class StartTriggerRequestTypeDef(TypedDict):
     Name: str
 
@@ -3924,6 +3999,12 @@ class StopCrawlerRequestTypeDef(TypedDict):
 
 class StopCrawlerScheduleRequestTypeDef(TypedDict):
     CrawlerName: str
+
+
+class StopMaterializedViewRefreshTaskRunRequestTypeDef(TypedDict):
+    CatalogId: str
+    DatabaseName: str
+    TableName: str
 
 
 class StopSessionRequestTypeDef(TypedDict):
@@ -4042,6 +4123,7 @@ class UpdateDataQualityRulesetRequestTypeDef(TypedDict):
 
 class UpdateGlueIdentityCenterConfigurationRequestTypeDef(TypedDict):
     Scopes: NotRequired[Sequence[str]]
+    UserBackgroundSessionsEnabled: NotRequired[bool]
 
 
 class UpdateJobFromSourceControlRequestTypeDef(TypedDict):
@@ -4111,7 +4193,7 @@ class WorkflowRunStatisticsTypeDef(TypedDict):
 
 class ActionOutputTypeDef(TypedDict):
     JobName: NotRequired[str]
-    Arguments: NotRequired[Dict[str, str]]
+    Arguments: NotRequired[dict[str, str]]
     Timeout: NotRequired[int]
     SecurityConfiguration: NotRequired[str]
     NotificationProperty: NotRequired[NotificationPropertyTypeDef]
@@ -4145,9 +4227,9 @@ class StartJobRunRequestTypeDef(TypedDict):
 
 class AggregateOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    Groups: List[List[str]]
-    Aggs: List[AggregateOperationOutputTypeDef]
+    Inputs: list[str]
+    Groups: list[list[str]]
+    Aggs: list[AggregateOperationOutputTypeDef]
 
 
 AggregateOperationUnionTypeDef = Union[AggregateOperationTypeDef, AggregateOperationOutputTypeDef]
@@ -4157,10 +4239,10 @@ PropertyTypeDef = TypedDict(
         "Name": str,
         "Description": str,
         "Required": bool,
-        "PropertyTypes": List[PropertyTypeType],
+        "PropertyTypes": list[PropertyTypeType],
         "DefaultValue": NotRequired[str],
-        "AllowedValues": NotRequired[List[AllowedValueTypeDef]],
-        "DataOperationScopes": NotRequired[List[DataOperationType]],
+        "AllowedValues": NotRequired[list[AllowedValueTypeDef]],
+        "DataOperationScopes": NotRequired[list[DataOperationType]],
     },
 )
 
@@ -4177,7 +4259,7 @@ class AmazonRedshiftNodeDataOutputTypeDef(TypedDict):
     CatalogRedshiftTable: NotRequired[str]
     TempDir: NotRequired[str]
     IamRole: NotRequired[OptionTypeDef]
-    AdvancedOptions: NotRequired[List[AmazonRedshiftAdvancedOptionTypeDef]]
+    AdvancedOptions: NotRequired[list[AmazonRedshiftAdvancedOptionTypeDef]]
     SampleQuery: NotRequired[str]
     PreAction: NotRequired[str]
     PostAction: NotRequired[str]
@@ -4189,9 +4271,9 @@ class AmazonRedshiftNodeDataOutputTypeDef(TypedDict):
     MergeWhenNotMatched: NotRequired[str]
     MergeClause: NotRequired[str]
     CrawlerConnection: NotRequired[str]
-    TableSchema: NotRequired[List[OptionTypeDef]]
+    TableSchema: NotRequired[list[OptionTypeDef]]
     StagingTable: NotRequired[str]
-    SelectedColumns: NotRequired[List[OptionTypeDef]]
+    SelectedColumns: NotRequired[list[OptionTypeDef]]
 
 
 class AmazonRedshiftNodeDataTypeDef(TypedDict):
@@ -4231,7 +4313,7 @@ class SnowflakeNodeDataOutputTypeDef(TypedDict):
     Database: NotRequired[str]
     TempDir: NotRequired[str]
     IamRole: NotRequired[OptionTypeDef]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    AdditionalOptions: NotRequired[dict[str, str]]
     SampleQuery: NotRequired[str]
     PreAction: NotRequired[str]
     PostAction: NotRequired[str]
@@ -4242,9 +4324,9 @@ class SnowflakeNodeDataOutputTypeDef(TypedDict):
     MergeWhenNotMatched: NotRequired[str]
     MergeClause: NotRequired[str]
     StagingTable: NotRequired[str]
-    SelectedColumns: NotRequired[List[OptionTypeDef]]
+    SelectedColumns: NotRequired[list[OptionTypeDef]]
     AutoPushdown: NotRequired[bool]
-    TableSchema: NotRequired[List[OptionTypeDef]]
+    TableSchema: NotRequired[list[OptionTypeDef]]
 
 
 class SnowflakeNodeDataTypeDef(TypedDict):
@@ -4275,30 +4357,30 @@ ApplyMappingOutputTypeDef = TypedDict(
     "ApplyMappingOutputTypeDef",
     {
         "Name": str,
-        "Inputs": List[str],
-        "Mapping": List[MappingOutputTypeDef],
+        "Inputs": list[str],
+        "Mapping": list[MappingOutputTypeDef],
     },
 )
 ApplyMappingPaginatorTypeDef = TypedDict(
     "ApplyMappingPaginatorTypeDef",
     {
         "Name": str,
-        "Inputs": List[str],
-        "Mapping": List[MappingPaginatorTypeDef],
+        "Inputs": list[str],
+        "Mapping": list[MappingPaginatorTypeDef],
     },
 )
 
 
 class BackfillErrorTypeDef(TypedDict):
     Code: NotRequired[BackfillErrorCodeType]
-    Partitions: NotRequired[List[PartitionValueListOutputTypeDef]]
+    Partitions: NotRequired[list[PartitionValueListOutputTypeDef]]
 
 
 BasicCatalogTargetUnionTypeDef = Union[BasicCatalogTargetTypeDef, BasicCatalogTargetOutputTypeDef]
 
 
 class BatchPutDataQualityStatisticAnnotationResponseTypeDef(TypedDict):
-    FailedInclusionAnnotations: List[AnnotationErrorTypeDef]
+    FailedInclusionAnnotations: list[AnnotationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4338,7 +4420,7 @@ class CreateDataQualityRulesetResponseTypeDef(TypedDict):
 class CreateDevEndpointResponseTypeDef(TypedDict):
     EndpointName: str
     Status: str
-    SecurityGroupIds: List[str]
+    SecurityGroupIds: list[str]
     SubnetId: str
     RoleArn: str
     YarnEndpointAddress: str
@@ -4354,7 +4436,7 @@ class CreateDevEndpointResponseTypeDef(TypedDict):
     FailureReason: str
     SecurityConfiguration: str
     CreatedTimestamp: datetime
-    Arguments: Dict[str, str]
+    Arguments: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4377,7 +4459,7 @@ class CreateRegistryResponseTypeDef(TypedDict):
     RegistryArn: str
     RegistryName: str
     Description: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4393,7 +4475,7 @@ class CreateSchemaResponseTypeDef(TypedDict):
     LatestSchemaVersion: int
     NextSchemaVersion: int
     SchemaStatus: SchemaStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     SchemaVersionId: str
     SchemaVersionStatus: SchemaVersionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4478,7 +4560,7 @@ class DeleteWorkflowResponseTypeDef(TypedDict):
 class GetCustomEntityTypeResponseTypeDef(TypedDict):
     Name: str
     RegexString: str
-    ContextWords: List[str]
+    ContextWords: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4491,7 +4573,7 @@ class GetDataQualityModelResponseTypeDef(TypedDict):
 
 
 class GetEntityRecordsResponseTypeDef(TypedDict):
-    Records: List[Dict[str, Any]]
+    Records: list[dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4499,7 +4581,8 @@ class GetEntityRecordsResponseTypeDef(TypedDict):
 class GetGlueIdentityCenterConfigurationResponseTypeDef(TypedDict):
     ApplicationArn: str
     InstanceArn: str
-    Scopes: List[str]
+    Scopes: list[str]
+    UserBackgroundSessionsEnabled: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4570,59 +4653,59 @@ class GetSchemaVersionsDiffResponseTypeDef(TypedDict):
 
 
 class GetTagsResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetWorkflowRunPropertiesResponseTypeDef(TypedDict):
-    RunProperties: Dict[str, str]
+    RunProperties: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBlueprintsResponseTypeDef(TypedDict):
-    Blueprints: List[str]
+    Blueprints: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListColumnStatisticsTaskRunsResponseTypeDef(TypedDict):
-    ColumnStatisticsTaskRunIds: List[str]
+    ColumnStatisticsTaskRunIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCrawlersResponseTypeDef(TypedDict):
-    CrawlerNames: List[str]
+    CrawlerNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDevEndpointsResponseTypeDef(TypedDict):
-    DevEndpointNames: List[str]
+    DevEndpointNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListJobsResponseTypeDef(TypedDict):
-    JobNames: List[str]
+    JobNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMLTransformsResponseTypeDef(TypedDict):
-    TransformIds: List[str]
+    TransformIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTriggersResponseTypeDef(TypedDict):
-    TriggerNames: List[str]
+    TriggerNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWorkflowsResponseTypeDef(TypedDict):
-    Workflows: List[str]
+    Workflows: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4665,7 +4748,7 @@ class RemoveSchemaVersionMetadataResponseTypeDef(TypedDict):
 
 class ResumeWorkflowRunResponseTypeDef(TypedDict):
     RunId: str
-    NodeIds: List[str]
+    NodeIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4716,6 +4799,11 @@ class StartMLEvaluationTaskRunResponseTypeDef(TypedDict):
 
 class StartMLLabelingSetGenerationTaskRunResponseTypeDef(TypedDict):
     TaskRunId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartMaterializedViewRefreshTaskRunResponseTypeDef(TypedDict):
+    MaterializedViewRefreshTaskRunId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4795,8 +4883,8 @@ class UpdateWorkflowResponseTypeDef(TypedDict):
 
 
 class BatchDeleteConnectionResponseTypeDef(TypedDict):
-    Succeeded: List[str]
-    Errors: Dict[str, ErrorDetailTypeDef]
+    Succeeded: list[str]
+    Errors: dict[str, ErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4819,7 +4907,7 @@ class BatchStopJobRunErrorTypeDef(TypedDict):
 
 
 class BatchUpdatePartitionFailureEntryTypeDef(TypedDict):
-    PartitionValueList: NotRequired[List[str]]
+    PartitionValueList: NotRequired[list[str]]
     ErrorDetail: NotRequired[ErrorDetailTypeDef]
 
 
@@ -4829,7 +4917,7 @@ class ColumnErrorTypeDef(TypedDict):
 
 
 class PartitionErrorTypeDef(TypedDict):
-    PartitionValues: NotRequired[List[str]]
+    PartitionValues: NotRequired[list[str]]
     ErrorDetail: NotRequired[ErrorDetailTypeDef]
 
 
@@ -4854,20 +4942,20 @@ class ViewValidationTypeDef(TypedDict):
 
 
 class BatchGetCustomEntityTypesResponseTypeDef(TypedDict):
-    CustomEntityTypes: List[CustomEntityTypeTypeDef]
-    CustomEntityTypesNotFound: List[str]
+    CustomEntityTypes: list[CustomEntityTypeTypeDef]
+    CustomEntityTypesNotFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListCustomEntityTypesResponseTypeDef(TypedDict):
-    CustomEntityTypes: List[CustomEntityTypeTypeDef]
+    CustomEntityTypes: list[CustomEntityTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class BatchGetDevEndpointsResponseTypeDef(TypedDict):
-    DevEndpoints: List[DevEndpointTypeDef]
-    DevEndpointsNotFound: List[str]
+    DevEndpoints: list[DevEndpointTypeDef]
+    DevEndpointsNotFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4877,7 +4965,7 @@ class GetDevEndpointResponseTypeDef(TypedDict):
 
 
 class GetDevEndpointsResponseTypeDef(TypedDict):
-    DevEndpoints: List[DevEndpointTypeDef]
+    DevEndpoints: list[DevEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4902,7 +4990,7 @@ class GetBlueprintRunResponseTypeDef(TypedDict):
 
 
 class GetBlueprintRunsResponseTypeDef(TypedDict):
-    BlueprintRuns: List[BlueprintRunTypeDef]
+    BlueprintRuns: list[BlueprintRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4964,7 +5052,7 @@ class DirectKinesisSourceOutputTypeDef(TypedDict):
 class CatalogPropertiesOutputTypeDef(TypedDict):
     DataLakeAccessProperties: NotRequired[DataLakeAccessPropertiesOutputTypeDef]
     IcebergOptimizationProperties: NotRequired[IcebergOptimizationPropertiesOutputTypeDef]
-    CustomProperties: NotRequired[Dict[str, str]]
+    CustomProperties: NotRequired[dict[str, str]]
 
 
 class CatalogPropertiesTypeDef(TypedDict):
@@ -4975,10 +5063,10 @@ class CatalogPropertiesTypeDef(TypedDict):
 
 class GovernedCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Table: str
     Database: str
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     SchemaChangePolicy: NotRequired[CatalogSchemaChangePolicyTypeDef]
 
 
@@ -4993,10 +5081,10 @@ class GovernedCatalogTargetTypeDef(TypedDict):
 
 class S3CatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Table: str
     Database: str
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     SchemaChangePolicy: NotRequired[CatalogSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
 
@@ -5013,11 +5101,11 @@ class S3CatalogTargetTypeDef(TypedDict):
 
 class S3IcebergCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Table: str
     Database: str
-    PartitionKeys: NotRequired[List[List[str]]]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    PartitionKeys: NotRequired[list[list[str]]]
+    AdditionalOptions: NotRequired[dict[str, str]]
     SchemaChangePolicy: NotRequired[CatalogSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
 
@@ -5043,7 +5131,7 @@ class ClassifierTypeDef(TypedDict):
 class CodeGenNodeOutputTypeDef(TypedDict):
     Id: str
     NodeType: str
-    Args: List[CodeGenNodeArgTypeDef]
+    Args: list[CodeGenNodeArgTypeDef]
     LineNumber: NotRequired[int]
 
 
@@ -5066,7 +5154,7 @@ class GetColumnStatisticsTaskRunResponseTypeDef(TypedDict):
 
 
 class GetColumnStatisticsTaskRunsResponseTypeDef(TypedDict):
-    ColumnStatisticsTaskRuns: List[ColumnStatisticsTaskRunTypeDef]
+    ColumnStatisticsTaskRuns: list[ColumnStatisticsTaskRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5075,7 +5163,7 @@ class ColumnStatisticsTaskSettingsTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     TableName: NotRequired[str]
     Schedule: NotRequired[ScheduleTypeDef]
-    ColumnNameList: NotRequired[List[str]]
+    ColumnNameList: NotRequired[list[str]]
     CatalogID: NotRequired[str]
     Role: NotRequired[str]
     SampleSize: NotRequired[float]
@@ -5098,6 +5186,7 @@ class GetTableRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
+    AuditContext: NotRequired[AuditContextTypeDef]
     IncludeStatusDetails: NotRequired[bool]
 
 
@@ -5109,6 +5198,7 @@ class GetTablesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
+    AuditContext: NotRequired[AuditContextTypeDef]
     IncludeStatusDetails: NotRequired[bool]
     AttributesToGet: NotRequired[Sequence[TableAttributesType]]
 
@@ -5193,7 +5283,7 @@ class CompactionMetricsTypeDef(TypedDict):
 
 class PredicateOutputTypeDef(TypedDict):
     Logical: NotRequired[LogicalType]
-    Conditions: NotRequired[List[ConditionTypeDef]]
+    Conditions: NotRequired[list[ConditionTypeDef]]
 
 
 class PredicateTypeDef(TypedDict):
@@ -5202,8 +5292,8 @@ class PredicateTypeDef(TypedDict):
 
 
 class ProfileConfigurationOutputTypeDef(TypedDict):
-    SessionConfiguration: NotRequired[Dict[str, ConfigurationObjectOutputTypeDef]]
-    JobConfiguration: NotRequired[Dict[str, ConfigurationObjectOutputTypeDef]]
+    SessionConfiguration: NotRequired[dict[str, ConfigurationObjectOutputTypeDef]]
+    JobConfiguration: NotRequired[dict[str, ConfigurationObjectOutputTypeDef]]
 
 
 class ProfileConfigurationTypeDef(TypedDict):
@@ -5217,7 +5307,7 @@ class FindMatchesMetricsTypeDef(TypedDict):
     Recall: NotRequired[float]
     F1: NotRequired[float]
     ConfusionMatrix: NotRequired[ConfusionMatrixTypeDef]
-    ColumnImportances: NotRequired[List[ColumnImportanceTypeDef]]
+    ColumnImportances: NotRequired[list[ColumnImportanceTypeDef]]
 
 
 class ConnectionTypeBriefTypeDef(TypedDict):
@@ -5225,10 +5315,10 @@ class ConnectionTypeBriefTypeDef(TypedDict):
     DisplayName: NotRequired[str]
     Vendor: NotRequired[str]
     Description: NotRequired[str]
-    Categories: NotRequired[List[str]]
+    Categories: NotRequired[list[str]]
     Capabilities: NotRequired[CapabilitiesTypeDef]
     LogoUrl: NotRequired[str]
-    ConnectionTypeVariants: NotRequired[List[ConnectionTypeVariantTypeDef]]
+    ConnectionTypeVariants: NotRequired[list[ConnectionTypeVariantTypeDef]]
 
 
 ConnectionsListUnionTypeDef = Union[ConnectionsListTypeDef, ConnectionsListOutputTypeDef]
@@ -5238,30 +5328,30 @@ ConnectorDataTargetUnionTypeDef = Union[
 
 
 class CrawlerNodeDetailsTypeDef(TypedDict):
-    Crawls: NotRequired[List[CrawlTypeDef]]
+    Crawls: NotRequired[list[CrawlTypeDef]]
 
 
 class ListCrawlsResponseTypeDef(TypedDict):
-    Crawls: List[CrawlerHistoryTypeDef]
+    Crawls: list[CrawlerHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetCrawlerMetricsResponseTypeDef(TypedDict):
-    CrawlerMetricsList: List[CrawlerMetricsTypeDef]
+    CrawlerMetricsList: list[CrawlerMetricsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class CrawlerTargetsOutputTypeDef(TypedDict):
-    S3Targets: NotRequired[List[S3TargetOutputTypeDef]]
-    JdbcTargets: NotRequired[List[JdbcTargetOutputTypeDef]]
-    MongoDBTargets: NotRequired[List[MongoDBTargetTypeDef]]
-    DynamoDBTargets: NotRequired[List[DynamoDBTargetTypeDef]]
-    CatalogTargets: NotRequired[List[CatalogTargetOutputTypeDef]]
-    DeltaTargets: NotRequired[List[DeltaTargetOutputTypeDef]]
-    IcebergTargets: NotRequired[List[IcebergTargetOutputTypeDef]]
-    HudiTargets: NotRequired[List[HudiTargetOutputTypeDef]]
+    S3Targets: NotRequired[list[S3TargetOutputTypeDef]]
+    JdbcTargets: NotRequired[list[JdbcTargetOutputTypeDef]]
+    MongoDBTargets: NotRequired[list[MongoDBTargetTypeDef]]
+    DynamoDBTargets: NotRequired[list[DynamoDBTargetTypeDef]]
+    CatalogTargets: NotRequired[list[CatalogTargetOutputTypeDef]]
+    DeltaTargets: NotRequired[list[DeltaTargetOutputTypeDef]]
+    IcebergTargets: NotRequired[list[IcebergTargetOutputTypeDef]]
+    HudiTargets: NotRequired[list[HudiTargetOutputTypeDef]]
 
 
 class CrawlerTargetsTypeDef(TypedDict):
@@ -5335,10 +5425,12 @@ class CreateIntegrationResourcePropertyRequestTypeDef(TypedDict):
     ResourceArn: str
     SourceProcessingProperties: NotRequired[SourceProcessingPropertiesTypeDef]
     TargetProcessingProperties: NotRequired[TargetProcessingPropertiesTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class CreateIntegrationResourcePropertyResponseTypeDef(TypedDict):
     ResourceArn: str
+    ResourcePropertyArn: str
     SourceProcessingProperties: SourceProcessingPropertiesTypeDef
     TargetProcessingProperties: TargetProcessingPropertiesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5346,9 +5438,17 @@ class CreateIntegrationResourcePropertyResponseTypeDef(TypedDict):
 
 class GetIntegrationResourcePropertyResponseTypeDef(TypedDict):
     ResourceArn: str
+    ResourcePropertyArn: str
     SourceProcessingProperties: SourceProcessingPropertiesTypeDef
     TargetProcessingProperties: TargetProcessingPropertiesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class IntegrationResourcePropertyTypeDef(TypedDict):
+    ResourceArn: str
+    ResourcePropertyArn: NotRequired[str]
+    SourceProcessingProperties: NotRequired[SourceProcessingPropertiesTypeDef]
+    TargetProcessingProperties: NotRequired[TargetProcessingPropertiesTypeDef]
 
 
 class UpdateIntegrationResourcePropertyRequestTypeDef(TypedDict):
@@ -5359,6 +5459,7 @@ class UpdateIntegrationResourcePropertyRequestTypeDef(TypedDict):
 
 class UpdateIntegrationResourcePropertyResponseTypeDef(TypedDict):
     ResourceArn: str
+    ResourcePropertyArn: str
     SourceProcessingProperties: SourceProcessingPropertiesTypeDef
     TargetProcessingProperties: TargetProcessingPropertiesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5371,11 +5472,11 @@ class CreateIntegrationResponseTypeDef(TypedDict):
     Description: str
     IntegrationArn: str
     KmsKeyId: str
-    AdditionalEncryptionContext: Dict[str, str]
-    Tags: List[TagTypeDef]
+    AdditionalEncryptionContext: dict[str, str]
+    Tags: list[TagTypeDef]
     Status: IntegrationStatusType
     CreateTime: datetime
-    Errors: List[IntegrationErrorTypeDef]
+    Errors: list[IntegrationErrorTypeDef]
     DataFilter: str
     IntegrationConfig: IntegrationConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5388,11 +5489,11 @@ class DeleteIntegrationResponseTypeDef(TypedDict):
     Description: str
     IntegrationArn: str
     KmsKeyId: str
-    AdditionalEncryptionContext: Dict[str, str]
-    Tags: List[TagTypeDef]
+    AdditionalEncryptionContext: dict[str, str]
+    Tags: list[TagTypeDef]
     Status: IntegrationStatusType
     CreateTime: datetime
-    Errors: List[IntegrationErrorTypeDef]
+    Errors: list[IntegrationErrorTypeDef]
     DataFilter: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5404,7 +5505,7 @@ class InboundIntegrationTypeDef(TypedDict):
     Status: IntegrationStatusType
     CreateTime: datetime
     IntegrationConfig: NotRequired[IntegrationConfigOutputTypeDef]
-    Errors: NotRequired[List[IntegrationErrorTypeDef]]
+    Errors: NotRequired[list[IntegrationErrorTypeDef]]
 
 
 class IntegrationTypeDef(TypedDict):
@@ -5416,10 +5517,10 @@ class IntegrationTypeDef(TypedDict):
     CreateTime: datetime
     Description: NotRequired[str]
     KmsKeyId: NotRequired[str]
-    AdditionalEncryptionContext: NotRequired[Dict[str, str]]
-    Tags: NotRequired[List[TagTypeDef]]
+    AdditionalEncryptionContext: NotRequired[dict[str, str]]
+    Tags: NotRequired[list[TagTypeDef]]
     IntegrationConfig: NotRequired[IntegrationConfigOutputTypeDef]
-    Errors: NotRequired[List[IntegrationErrorTypeDef]]
+    Errors: NotRequired[list[IntegrationErrorTypeDef]]
     DataFilter: NotRequired[str]
 
 
@@ -5430,11 +5531,11 @@ class ModifyIntegrationResponseTypeDef(TypedDict):
     Description: str
     IntegrationArn: str
     KmsKeyId: str
-    AdditionalEncryptionContext: Dict[str, str]
-    Tags: List[TagTypeDef]
+    AdditionalEncryptionContext: dict[str, str]
+    Tags: list[TagTypeDef]
     Status: IntegrationStatusType
     CreateTime: datetime
-    Errors: List[IntegrationErrorTypeDef]
+    Errors: list[IntegrationErrorTypeDef]
     DataFilter: str
     IntegrationConfig: IntegrationConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5484,7 +5585,7 @@ class SessionTypeDef(TypedDict):
     Description: NotRequired[str]
     Role: NotRequired[str]
     Command: NotRequired[SessionCommandTypeDef]
-    DefaultArguments: NotRequired[Dict[str, str]]
+    DefaultArguments: NotRequired[dict[str, str]]
     Connections: NotRequired[ConnectionsListOutputTypeDef]
     Progress: NotRequired[float]
     MaxCapacity: NotRequired[float]
@@ -5509,11 +5610,11 @@ class DynamoDBCatalogSourceTypeDef(TypedDict):
 
 class EvaluateDataQualityMultiFrameOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Ruleset: str
-    AdditionalDataSources: NotRequired[Dict[str, str]]
+    AdditionalDataSources: NotRequired[dict[str, str]]
     PublishingOptions: NotRequired[DQResultsPublishingOptionsTypeDef]
-    AdditionalOptions: NotRequired[Dict[AdditionalOptionKeysType, str]]
+    AdditionalOptions: NotRequired[dict[AdditionalOptionKeysType, str]]
     StopJobOnFailureOptions: NotRequired[DQStopJobOnFailureOptionsTypeDef]
 
 
@@ -5529,7 +5630,7 @@ class EvaluateDataQualityMultiFrameTypeDef(TypedDict):
 
 class EvaluateDataQualityOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Ruleset: str
     Output: NotRequired[DQTransformOutputType]
     PublishingOptions: NotRequired[DQResultsPublishingOptionsTypeDef]
@@ -5552,7 +5653,7 @@ class DataCatalogEncryptionSettingsTypeDef(TypedDict):
 
 class PrincipalPermissionsOutputTypeDef(TypedDict):
     Principal: NotRequired[DataLakePrincipalTypeDef]
-    Permissions: NotRequired[List[PermissionType]]
+    Permissions: NotRequired[list[PermissionType]]
 
 
 class PrincipalPermissionsTypeDef(TypedDict):
@@ -5569,7 +5670,7 @@ class MetricBasedObservationTypeDef(TypedDict):
     MetricName: NotRequired[str]
     StatisticId: NotRequired[str]
     MetricValues: NotRequired[DataQualityMetricValuesTypeDef]
-    NewRules: NotRequired[List[str]]
+    NewRules: NotRequired[list[str]]
 
 
 class DataSourceOutputTypeDef(TypedDict):
@@ -5648,7 +5749,7 @@ class GetCrawlersRequestPaginateTypeDef(TypedDict):
 class GetDatabasesRequestPaginateTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     ResourceShareType: NotRequired[ResourceShareTypeType]
-    AttributesToGet: NotRequired[Sequence[Literal["NAME"]]]
+    AttributesToGet: NotRequired[Sequence[DatabaseAttributesType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -5693,6 +5794,7 @@ class GetTablesRequestPaginateTypeDef(TypedDict):
     Expression: NotRequired[str]
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
+    AuditContext: NotRequired[AuditContextTypeDef]
     IncludeStatusDetails: NotRequired[bool]
     AttributesToGet: NotRequired[Sequence[TableAttributesType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -5709,6 +5811,7 @@ GetUserDefinedFunctionsRequestPaginateTypeDef = TypedDict(
         "Pattern": str,
         "CatalogId": NotRequired[str],
         "DatabaseName": NotRequired[str],
+        "FunctionType": NotRequired[FunctionTypeType],
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
@@ -5739,6 +5842,13 @@ class ListEntitiesRequestPaginateTypeDef(TypedDict):
 
 class ListJobsRequestPaginateTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListMaterializedViewRefreshTaskRunsRequestPaginateTypeDef(TypedDict):
+    CatalogId: str
+    DatabaseName: NotRequired[str]
+    TableName: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -5783,7 +5893,7 @@ class ListWorkflowsRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeEntityResponseTypeDef(TypedDict):
-    Fields: List[FieldTypeDef]
+    Fields: list[FieldTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5808,13 +5918,13 @@ class UpdateDevEndpointRequestTypeDef(TypedDict):
 
 class S3DeltaDirectTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
     Compression: DeltaTargetCompressionTypeType
     Format: TargetFormatType
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     NumberTargetPartitions: NotRequired[str]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    AdditionalOptions: NotRequired[dict[str, str]]
     SchemaChangePolicy: NotRequired[DirectSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
 
@@ -5834,9 +5944,9 @@ class S3DeltaDirectTargetTypeDef(TypedDict):
 
 class S3GlueParquetTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     Compression: NotRequired[ParquetCompressionTypeType]
     NumberTargetPartitions: NotRequired[str]
     SchemaChangePolicy: NotRequired[DirectSchemaChangePolicyTypeDef]
@@ -5856,13 +5966,13 @@ class S3GlueParquetTargetTypeDef(TypedDict):
 
 class S3HudiDirectTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
     Compression: HudiTargetCompressionTypeType
     Format: TargetFormatType
-    AdditionalOptions: Dict[str, str]
+    AdditionalOptions: dict[str, str]
     NumberTargetPartitions: NotRequired[str]
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     SchemaChangePolicy: NotRequired[DirectSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
 
@@ -5885,7 +5995,7 @@ DropFieldsUnionTypeDef = Union[DropFieldsTypeDef, DropFieldsOutputTypeDef]
 
 
 class EncryptionConfigurationOutputTypeDef(TypedDict):
-    S3Encryption: NotRequired[List[S3EncryptionTypeDef]]
+    S3Encryption: NotRequired[list[S3EncryptionTypeDef]]
     CloudWatchEncryption: NotRequired[CloudWatchEncryptionTypeDef]
     JobBookmarksEncryption: NotRequired[JobBookmarksEncryptionTypeDef]
     DataQualityEncryption: NotRequired[DataQualityEncryptionTypeDef]
@@ -5899,7 +6009,7 @@ class EncryptionConfigurationTypeDef(TypedDict):
 
 
 class ListEntitiesResponseTypeDef(TypedDict):
-    Entities: List[EntityTypeDef]
+    Entities: list[EntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5914,7 +6024,7 @@ FillMissingValuesUnionTypeDef = Union[FillMissingValuesTypeDef, FillMissingValue
 
 class FilterExpressionOutputTypeDef(TypedDict):
     Operation: FilterOperationType
-    Values: List[FilterValueOutputTypeDef]
+    Values: list[FilterValueOutputTypeDef]
     Negated: NotRequired[bool]
 
 
@@ -5943,7 +6053,7 @@ class GetConnectionsRequestTypeDef(TypedDict):
 
 class GetDataQualityModelResultResponseTypeDef(TypedDict):
     CompletedOn: datetime
-    Model: List[StatisticModelResultTypeDef]
+    Model: list[StatisticModelResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5972,10 +6082,21 @@ class TransformFilterCriteriaTypeDef(TypedDict):
 GetMappingResponseTypeDef = TypedDict(
     "GetMappingResponseTypeDef",
     {
-        "Mapping": List[MappingEntryTypeDef],
+        "Mapping": list[MappingEntryTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class GetMaterializedViewRefreshTaskRunResponseTypeDef(TypedDict):
+    MaterializedViewRefreshTaskRun: MaterializedViewRefreshTaskRunTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListMaterializedViewRefreshTaskRunsResponseTypeDef(TypedDict):
+    MaterializedViewRefreshTaskRuns: list[MaterializedViewRefreshTaskRunTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class GetPartitionsRequestPaginateTypeDef(TypedDict):
@@ -6004,7 +6125,7 @@ class GetPartitionsRequestTypeDef(TypedDict):
 
 
 class GetResourcePoliciesResponseTypeDef(TypedDict):
-    GetResourcePoliciesResponseList: List[GluePolicyTypeDef]
+    GetResourcePoliciesResponseList: list[GluePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6030,7 +6151,7 @@ class UpdateSchemaInputTypeDef(TypedDict):
 
 
 class GlueSchemaOutputTypeDef(TypedDict):
-    Columns: NotRequired[List[GlueStudioSchemaColumnTypeDef]]
+    Columns: NotRequired[list[GlueStudioSchemaColumnTypeDef]]
 
 
 class GlueSchemaTypeDef(TypedDict):
@@ -6098,7 +6219,7 @@ IntegrationConfigUnionTypeDef = Union[IntegrationConfigTypeDef, IntegrationConfi
 
 class TargetTableConfigOutputTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
-    PartitionSpec: NotRequired[List[IntegrationPartitionTypeDef]]
+    PartitionSpec: NotRequired[list[IntegrationPartitionTypeDef]]
     TargetTableName: NotRequired[str]
 
 
@@ -6106,6 +6227,12 @@ class TargetTableConfigTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
     PartitionSpec: NotRequired[Sequence[IntegrationPartitionTypeDef]]
     TargetTableName: NotRequired[str]
+
+
+class ListIntegrationResourcePropertiesRequestTypeDef(TypedDict):
+    Marker: NotRequired[str]
+    Filters: NotRequired[Sequence[IntegrationResourcePropertyFilterTypeDef]]
+    MaxRecords: NotRequired[int]
 
 
 JDBCConnectorOptionsUnionTypeDef = Union[
@@ -6125,9 +6252,9 @@ class JobRunTypeDef(TypedDict):
     LastModifiedOn: NotRequired[datetime]
     CompletedOn: NotRequired[datetime]
     JobRunState: NotRequired[JobRunStateType]
-    Arguments: NotRequired[Dict[str, str]]
+    Arguments: NotRequired[dict[str, str]]
     ErrorMessage: NotRequired[str]
-    PredecessorRuns: NotRequired[List[PredecessorTypeDef]]
+    PredecessorRuns: NotRequired[list[PredecessorTypeDef]]
     AllocatedCapacity: NotRequired[int]
     ExecutionTime: NotRequired[int]
     Timeout: NotRequired[int]
@@ -6148,9 +6275,9 @@ class JobRunTypeDef(TypedDict):
 
 class JoinOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     JoinType: JoinTypeType
-    Columns: List[JoinColumnOutputTypeDef]
+    Columns: list[JoinColumnOutputTypeDef]
 
 
 JoinColumnUnionTypeDef = Union[JoinColumnTypeDef, JoinColumnOutputTypeDef]
@@ -6167,25 +6294,25 @@ class TaskRunPropertiesTypeDef(TypedDict):
 
 
 class ListRegistriesResponseTypeDef(TypedDict):
-    Registries: List[RegistryListItemTypeDef]
+    Registries: list[RegistryListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchemaVersionsResponseTypeDef(TypedDict):
-    Schemas: List[SchemaVersionListItemTypeDef]
+    Schemas: list[SchemaVersionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchemasResponseTypeDef(TypedDict):
-    Schemas: List[SchemaListItemTypeDef]
+    Schemas: list[SchemaListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListUsageProfilesResponseTypeDef(TypedDict):
-    Profiles: List[UsageProfileDefinitionTypeDef]
+    Profiles: list[UsageProfileDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6202,7 +6329,7 @@ MergeUnionTypeDef = Union[MergeTypeDef, MergeOutputTypeDef]
 class MetadataInfoTypeDef(TypedDict):
     MetadataValue: NotRequired[str]
     CreatedTime: NotRequired[str]
-    OtherMetadataValueList: NotRequired[List[OtherMetadataValueListItemTypeDef]]
+    OtherMetadataValueList: NotRequired[list[OtherMetadataValueListItemTypeDef]]
 
 
 class PutSchemaVersionMetadataInputTypeDef(TypedDict):
@@ -6238,7 +6365,7 @@ class OAuth2PropertiesTypeDef(TypedDict):
     OAuth2GrantType: NotRequired[OAuth2GrantTypeType]
     OAuth2ClientApplication: NotRequired[OAuth2ClientApplicationTypeDef]
     TokenUrl: NotRequired[str]
-    TokenUrlParametersMap: NotRequired[Dict[str, str]]
+    TokenUrlParametersMap: NotRequired[dict[str, str]]
 
 
 class OAuth2PropertiesInputTypeDef(TypedDict):
@@ -6265,7 +6392,7 @@ PostgreSQLCatalogTargetUnionTypeDef = Union[
 
 class RecipeStepOutputTypeDef(TypedDict):
     Action: RecipeActionOutputTypeDef
-    ConditionExpressions: NotRequired[List[ConditionExpressionTypeDef]]
+    ConditionExpressions: NotRequired[list[ConditionExpressionTypeDef]]
 
 
 RecipeActionUnionTypeDef = Union[RecipeActionTypeDef, RecipeActionOutputTypeDef]
@@ -6273,7 +6400,7 @@ RecipeActionUnionTypeDef = Union[RecipeActionTypeDef, RecipeActionOutputTypeDef]
 
 class RedshiftTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Database: str
     Table: str
     RedshiftTmpDir: NotRequired[str]
@@ -6288,6 +6415,7 @@ class UserDefinedFunctionInputTypeDef(TypedDict):
     FunctionName: NotRequired[str]
     ClassName: NotRequired[str]
     OwnerName: NotRequired[str]
+    FunctionType: NotRequired[FunctionTypeType]
     OwnerType: NotRequired[PrincipalTypeType]
     ResourceUris: NotRequired[Sequence[ResourceUriTypeDef]]
 
@@ -6297,9 +6425,10 @@ class UserDefinedFunctionTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     ClassName: NotRequired[str]
     OwnerName: NotRequired[str]
+    FunctionType: NotRequired[FunctionTypeType]
     OwnerType: NotRequired[PrincipalTypeType]
     CreateTime: NotRequired[datetime]
-    ResourceUris: NotRequired[List[ResourceUriTypeDef]]
+    ResourceUris: NotRequired[list[ResourceUriTypeDef]]
     CatalogId: NotRequired[str]
 
 
@@ -6331,7 +6460,7 @@ class StatementOutputTypeDef(TypedDict):
     Status: NotRequired[StatementStateType]
     ErrorName: NotRequired[str]
     ErrorValue: NotRequired[str]
-    Traceback: NotRequired[List[str]]
+    Traceback: NotRequired[list[str]]
 
 
 class StatisticAnnotationTypeDef(TypedDict):
@@ -6348,9 +6477,9 @@ class StatisticSummaryTypeDef(TypedDict):
     StatisticName: NotRequired[str]
     DoubleValue: NotRequired[float]
     EvaluationLevel: NotRequired[StatisticEvaluationLevelType]
-    ColumnsReferenced: NotRequired[List[str]]
-    ReferencedDatasets: NotRequired[List[str]]
-    StatisticProperties: NotRequired[Dict[str, str]]
+    ColumnsReferenced: NotRequired[list[str]]
+    ReferencedDatasets: NotRequired[list[str]]
+    StatisticProperties: NotRequired[dict[str, str]]
     RecordedOn: NotRequired[datetime]
     InclusionAnnotation: NotRequired[TimestampedInclusionAnnotationTypeDef]
 
@@ -6377,14 +6506,24 @@ class ViewDefinitionInputTypeDef(TypedDict):
     IsProtected: NotRequired[bool]
     Definer: NotRequired[str]
     Representations: NotRequired[Sequence[ViewRepresentationInputTypeDef]]
+    ViewVersionId: NotRequired[int]
+    ViewVersionToken: NotRequired[str]
+    RefreshSeconds: NotRequired[int]
+    LastRefreshType: NotRequired[LastRefreshTypeType]
     SubObjects: NotRequired[Sequence[str]]
+    SubObjectVersionIds: NotRequired[Sequence[int]]
 
 
 class ViewDefinitionTypeDef(TypedDict):
     IsProtected: NotRequired[bool]
     Definer: NotRequired[str]
-    SubObjects: NotRequired[List[str]]
-    Representations: NotRequired[List[ViewRepresentationTypeDef]]
+    ViewVersionId: NotRequired[int]
+    ViewVersionToken: NotRequired[str]
+    RefreshSeconds: NotRequired[int]
+    LastRefreshType: NotRequired[LastRefreshTypeType]
+    SubObjects: NotRequired[list[str]]
+    SubObjectVersionIds: NotRequired[list[int]]
+    Representations: NotRequired[list[ViewRepresentationTypeDef]]
 
 
 ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
@@ -6400,20 +6539,20 @@ class AggregateTypeDef(TypedDict):
 class AuthConfigurationTypeDef(TypedDict):
     AuthenticationType: PropertyTypeDef
     SecretArn: NotRequired[PropertyTypeDef]
-    OAuth2Properties: NotRequired[Dict[str, PropertyTypeDef]]
-    BasicAuthenticationProperties: NotRequired[Dict[str, PropertyTypeDef]]
-    CustomAuthenticationProperties: NotRequired[Dict[str, PropertyTypeDef]]
+    OAuth2Properties: NotRequired[dict[str, PropertyTypeDef]]
+    BasicAuthenticationProperties: NotRequired[dict[str, PropertyTypeDef]]
+    CustomAuthenticationProperties: NotRequired[dict[str, PropertyTypeDef]]
 
 
 class ComputeEnvironmentConfigurationTypeDef(TypedDict):
     Name: str
     Description: str
     ComputeEnvironment: ComputeEnvironmentType
-    SupportedAuthenticationTypes: List[AuthenticationTypeType]
-    ConnectionOptions: Dict[str, PropertyTypeDef]
-    ConnectionPropertyNameOverrides: Dict[str, str]
-    ConnectionOptionNameOverrides: Dict[str, str]
-    ConnectionPropertiesRequiredOverrides: List[str]
+    SupportedAuthenticationTypes: list[AuthenticationTypeType]
+    ConnectionOptions: dict[str, PropertyTypeDef]
+    ConnectionPropertyNameOverrides: dict[str, str]
+    ConnectionOptionNameOverrides: dict[str, str]
+    ConnectionPropertiesRequiredOverrides: list[str]
     PhysicalConnectionPropertiesRequired: NotRequired[bool]
 
 
@@ -6425,7 +6564,7 @@ class AmazonRedshiftSourceOutputTypeDef(TypedDict):
 class AmazonRedshiftTargetOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Data: NotRequired[AmazonRedshiftNodeDataOutputTypeDef]
-    Inputs: NotRequired[List[str]]
+    Inputs: NotRequired[list[str]]
 
 
 AmazonRedshiftNodeDataUnionTypeDef = Union[
@@ -6436,7 +6575,7 @@ AmazonRedshiftNodeDataUnionTypeDef = Union[
 class SnowflakeTargetOutputTypeDef(TypedDict):
     Name: str
     Data: SnowflakeNodeDataOutputTypeDef
-    Inputs: NotRequired[List[str]]
+    Inputs: NotRequired[list[str]]
 
 
 SnowflakeNodeDataUnionTypeDef = Union[SnowflakeNodeDataTypeDef, SnowflakeNodeDataOutputTypeDef]
@@ -6444,58 +6583,58 @@ SnowflakeNodeDataUnionTypeDef = Union[SnowflakeNodeDataTypeDef, SnowflakeNodeDat
 
 class PartitionIndexDescriptorTypeDef(TypedDict):
     IndexName: str
-    Keys: List[KeySchemaElementTypeDef]
+    Keys: list[KeySchemaElementTypeDef]
     IndexStatus: PartitionIndexStatusType
-    BackfillErrors: NotRequired[List[BackfillErrorTypeDef]]
+    BackfillErrors: NotRequired[list[BackfillErrorTypeDef]]
 
 
 class BatchStopJobRunResponseTypeDef(TypedDict):
-    SuccessfulSubmissions: List[BatchStopJobRunSuccessfulSubmissionTypeDef]
-    Errors: List[BatchStopJobRunErrorTypeDef]
+    SuccessfulSubmissions: list[BatchStopJobRunSuccessfulSubmissionTypeDef]
+    Errors: list[BatchStopJobRunErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchUpdatePartitionResponseTypeDef(TypedDict):
-    Errors: List[BatchUpdatePartitionFailureEntryTypeDef]
+    Errors: list[BatchUpdatePartitionFailureEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchCreatePartitionResponseTypeDef(TypedDict):
-    Errors: List[PartitionErrorTypeDef]
+    Errors: list[PartitionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeletePartitionResponseTypeDef(TypedDict):
-    Errors: List[PartitionErrorTypeDef]
+    Errors: list[PartitionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeleteTableResponseTypeDef(TypedDict):
-    Errors: List[TableErrorTypeDef]
+    Errors: list[TableErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeleteTableVersionResponseTypeDef(TypedDict):
-    Errors: List[TableVersionErrorTypeDef]
+    Errors: list[TableVersionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StatusDetailsPaginatorTypeDef(TypedDict):
-    RequestedChange: NotRequired[Dict[str, Any]]
-    ViewValidations: NotRequired[List[ViewValidationTypeDef]]
+    RequestedChange: NotRequired[dict[str, Any]]
+    ViewValidations: NotRequired[list[ViewValidationTypeDef]]
 
 
 class StatusDetailsTypeDef(TypedDict):
-    RequestedChange: NotRequired[Dict[str, Any]]
-    ViewValidations: NotRequired[List[ViewValidationTypeDef]]
+    RequestedChange: NotRequired[dict[str, Any]]
+    ViewValidations: NotRequired[list[ViewValidationTypeDef]]
 
 
 DecimalNumberUnionTypeDef = Union[DecimalNumberTypeDef, DecimalNumberOutputTypeDef]
 
 
 class BatchGetBlueprintsResponseTypeDef(TypedDict):
-    Blueprints: List[BlueprintTypeDef]
-    MissingBlueprints: List[str]
+    Blueprints: list[BlueprintTypeDef]
+    MissingBlueprints: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6519,14 +6658,14 @@ class GetClassifierResponseTypeDef(TypedDict):
 
 
 class GetClassifiersResponseTypeDef(TypedDict):
-    Classifiers: List[ClassifierTypeDef]
+    Classifiers: list[ClassifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetDataflowGraphResponseTypeDef(TypedDict):
-    DagNodes: List[CodeGenNodeOutputTypeDef]
-    DagEdges: List[CodeGenEdgeTypeDef]
+    DagNodes: list[CodeGenNodeOutputTypeDef]
+    DagEdges: list[CodeGenEdgeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6641,7 +6780,7 @@ TriggerTypeDef = TypedDict(
         "State": NotRequired[TriggerStateType],
         "Description": NotRequired[str],
         "Schedule": NotRequired[str],
-        "Actions": NotRequired[List[ActionOutputTypeDef]],
+        "Actions": NotRequired[list[ActionOutputTypeDef]],
         "Predicate": NotRequired[PredicateOutputTypeDef],
         "EventBatchingCondition": NotRequired[EventBatchingConditionTypeDef],
     },
@@ -6669,7 +6808,7 @@ class EvaluationMetricsTypeDef(TypedDict):
 
 
 class ListConnectionTypesResponseTypeDef(TypedDict):
-    ConnectionTypes: List[ConnectionTypeBriefTypeDef]
+    ConnectionTypes: list[ConnectionTypeBriefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6698,7 +6837,7 @@ class CrawlerTypeDef(TypedDict):
     Targets: NotRequired[CrawlerTargetsOutputTypeDef]
     DatabaseName: NotRequired[str]
     Description: NotRequired[str]
-    Classifiers: NotRequired[List[str]]
+    Classifiers: NotRequired[list[str]]
     RecrawlPolicy: NotRequired[RecrawlPolicyTypeDef]
     SchemaChangePolicy: NotRequired[SchemaChangePolicyTypeDef]
     LineageConfiguration: NotRequired[LineageConfigurationTypeDef]
@@ -6726,19 +6865,25 @@ class ListDataQualityRulesetsRequestTypeDef(TypedDict):
 
 
 class ListDataQualityRulesetsResponseTypeDef(TypedDict):
-    Rulesets: List[DataQualityRulesetListDetailsTypeDef]
+    Rulesets: list[DataQualityRulesetListDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
+class ListIntegrationResourcePropertiesResponseTypeDef(TypedDict):
+    IntegrationResourcePropertyList: list[IntegrationResourcePropertyTypeDef]
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeInboundIntegrationsResponseTypeDef(TypedDict):
-    InboundIntegrations: List[InboundIntegrationTypeDef]
+    InboundIntegrations: list[InboundIntegrationTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeIntegrationsResponseTypeDef(TypedDict):
-    Integrations: List[IntegrationTypeDef]
+    Integrations: list[IntegrationTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -6754,8 +6899,8 @@ class GetSessionResponseTypeDef(TypedDict):
 
 
 class ListSessionsResponseTypeDef(TypedDict):
-    Ids: List[str]
-    Sessions: List[SessionTypeDef]
+    Ids: list[str]
+    Sessions: list[SessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6783,14 +6928,14 @@ class CatalogTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     ResourceArn: NotRequired[str]
     Description: NotRequired[str]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
     CreateTime: NotRequired[datetime]
     UpdateTime: NotRequired[datetime]
     TargetRedshiftCatalog: NotRequired[TargetRedshiftCatalogTypeDef]
     FederatedCatalog: NotRequired[FederatedCatalogTypeDef]
     CatalogProperties: NotRequired[CatalogPropertiesOutputTypeDef]
-    CreateTableDefaultPermissions: NotRequired[List[PrincipalPermissionsOutputTypeDef]]
-    CreateDatabaseDefaultPermissions: NotRequired[List[PrincipalPermissionsOutputTypeDef]]
+    CreateTableDefaultPermissions: NotRequired[list[PrincipalPermissionsOutputTypeDef]]
+    CreateDatabaseDefaultPermissions: NotRequired[list[PrincipalPermissionsOutputTypeDef]]
     AllowFullTableExternalDataAccess: NotRequired[AllowFullTableExternalDataAccessEnumType]
 
 
@@ -6798,9 +6943,9 @@ class DatabaseTypeDef(TypedDict):
     Name: str
     Description: NotRequired[str]
     LocationUri: NotRequired[str]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
     CreateTime: NotRequired[datetime]
-    CreateTableDefaultPermissions: NotRequired[List[PrincipalPermissionsOutputTypeDef]]
+    CreateTableDefaultPermissions: NotRequired[list[PrincipalPermissionsOutputTypeDef]]
     TargetDatabase: NotRequired[DatabaseIdentifierTypeDef]
     CatalogId: NotRequired[str]
     FederatedDatabase: NotRequired[FederatedDatabaseTypeDef]
@@ -6869,17 +7014,17 @@ class GetDataQualityRulesetEvaluationRunResponseTypeDef(TypedDict):
     LastModifiedOn: datetime
     CompletedOn: datetime
     ExecutionTime: int
-    RulesetNames: List[str]
-    ResultIds: List[str]
-    AdditionalDataSources: Dict[str, DataSourceOutputTypeDef]
+    RulesetNames: list[str]
+    ResultIds: list[str]
+    AdditionalDataSources: dict[str, DataSourceOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DropNullFieldsOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     NullCheckBoxList: NotRequired[NullCheckBoxListTypeDef]
-    NullTextList: NotRequired[List[NullValueFieldTypeDef]]
+    NullTextList: NotRequired[list[NullValueFieldTypeDef]]
 
 
 class DropNullFieldsTypeDef(TypedDict):
@@ -6905,17 +7050,17 @@ ColumnStatisticsDataOutputTypeDef = TypedDict(
 
 
 class StorageDescriptorOutputTypeDef(TypedDict):
-    Columns: NotRequired[List[ColumnOutputTypeDef]]
+    Columns: NotRequired[list[ColumnOutputTypeDef]]
     Location: NotRequired[str]
-    AdditionalLocations: NotRequired[List[str]]
+    AdditionalLocations: NotRequired[list[str]]
     InputFormat: NotRequired[str]
     OutputFormat: NotRequired[str]
     Compressed: NotRequired[bool]
     NumberOfBuckets: NotRequired[int]
     SerdeInfo: NotRequired[SerDeInfoOutputTypeDef]
-    BucketColumns: NotRequired[List[str]]
-    SortColumns: NotRequired[List[OrderTypeDef]]
-    Parameters: NotRequired[Dict[str, str]]
+    BucketColumns: NotRequired[list[str]]
+    SortColumns: NotRequired[list[OrderTypeDef]]
+    Parameters: NotRequired[dict[str, str]]
     SkewedInfo: NotRequired[SkewedInfoOutputTypeDef]
     StoredAsSubDirectories: NotRequired[bool]
     SchemaReference: NotRequired[SchemaReferenceTypeDef]
@@ -6942,20 +7087,20 @@ EncryptionConfigurationUnionTypeDef = Union[
 
 
 class DeleteSchemaVersionsResponseTypeDef(TypedDict):
-    SchemaVersionErrors: List[SchemaVersionErrorItemTypeDef]
+    SchemaVersionErrors: list[SchemaVersionErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class FilterOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     LogicalOperator: FilterLogicalOperatorType
-    Filters: List[FilterExpressionOutputTypeDef]
+    Filters: list[FilterExpressionOutputTypeDef]
 
 
 class GroupFiltersOutputTypeDef(TypedDict):
     GroupName: str
-    Filters: List[FilterExpressionOutputTypeDef]
+    Filters: list[FilterExpressionOutputTypeDef]
     LogicalOperator: FilterLogicalOperatorType
 
 
@@ -7001,31 +7146,31 @@ class AthenaConnectorSourceOutputTypeDef(TypedDict):
     ConnectionType: str
     SchemaName: str
     ConnectionTable: NotRequired[str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class CatalogDeltaSourceOutputTypeDef(TypedDict):
     Name: str
     Database: str
     Table: str
-    AdditionalDeltaOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalDeltaOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class CatalogHudiSourceOutputTypeDef(TypedDict):
     Name: str
     Database: str
     Table: str
-    AdditionalHudiOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalHudiOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class CatalogIcebergSourceOutputTypeDef(TypedDict):
     Name: str
     Database: str
     Table: str
-    AdditionalIcebergOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalIcebergOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class CatalogSourceOutputTypeDef(TypedDict):
@@ -7033,22 +7178,22 @@ class CatalogSourceOutputTypeDef(TypedDict):
     Database: str
     Table: str
     PartitionPredicate: NotRequired[str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class ConnectorDataSourceOutputTypeDef(TypedDict):
     Name: str
     ConnectionType: str
-    Data: Dict[str, str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    Data: dict[str, str]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class CustomCodeOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Code: str
     ClassName: str
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class DirectJDBCSourceOutputTypeDef(TypedDict):
@@ -7058,24 +7203,24 @@ class DirectJDBCSourceOutputTypeDef(TypedDict):
     ConnectionName: str
     ConnectionType: JDBCConnectionTypeType
     RedshiftTmpDir: NotRequired[str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class DynamicTransformOutputTypeDef(TypedDict):
     Name: str
     TransformName: str
-    Inputs: List[str]
+    Inputs: list[str]
     FunctionName: str
     Path: str
-    Parameters: NotRequired[List[TransformConfigParameterOutputTypeDef]]
+    Parameters: NotRequired[list[TransformConfigParameterOutputTypeDef]]
     Version: NotRequired[str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class DynamoDBELTConnectorSourceOutputTypeDef(TypedDict):
     Name: str
     ConnectionOptions: NotRequired[DDBELTConnectionOptionsTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class JDBCConnectorSourceOutputTypeDef(TypedDict):
@@ -7086,51 +7231,51 @@ class JDBCConnectorSourceOutputTypeDef(TypedDict):
     AdditionalOptions: NotRequired[JDBCConnectorOptionsOutputTypeDef]
     ConnectionTable: NotRequired[str]
     Query: NotRequired[str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class JDBCConnectorTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     ConnectionName: str
     ConnectionTable: str
     ConnectorName: str
     ConnectionType: str
-    AdditionalOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3CatalogDeltaSourceOutputTypeDef(TypedDict):
     Name: str
     Database: str
     Table: str
-    AdditionalDeltaOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalDeltaOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3CatalogHudiSourceOutputTypeDef(TypedDict):
     Name: str
     Database: str
     Table: str
-    AdditionalHudiOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalHudiOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3CatalogIcebergSourceOutputTypeDef(TypedDict):
     Name: str
     Database: str
     Table: str
-    AdditionalIcebergOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalIcebergOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3CsvSourceOutputTypeDef(TypedDict):
     Name: str
-    Paths: List[str]
+    Paths: list[str]
     Separator: SeparatorType
     QuoteChar: QuoteCharType
     CompressionType: NotRequired[CompressionTypeType]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     GroupSize: NotRequired[str]
     GroupFiles: NotRequired[str]
     Recurse: NotRequired[bool]
@@ -7143,47 +7288,47 @@ class S3CsvSourceOutputTypeDef(TypedDict):
     WriteHeader: NotRequired[bool]
     SkipFirst: NotRequired[bool]
     OptimizePerformance: NotRequired[bool]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3DeltaCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Table: str
     Database: str
-    PartitionKeys: NotRequired[List[List[str]]]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    PartitionKeys: NotRequired[list[list[str]]]
+    AdditionalOptions: NotRequired[dict[str, str]]
     SchemaChangePolicy: NotRequired[CatalogSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3DeltaSourceOutputTypeDef(TypedDict):
     Name: str
-    Paths: List[str]
-    AdditionalDeltaOptions: NotRequired[Dict[str, str]]
+    Paths: list[str]
+    AdditionalDeltaOptions: NotRequired[dict[str, str]]
     AdditionalOptions: NotRequired[S3DirectSourceAdditionalOptionsTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3DirectTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
     Format: TargetFormatType
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     Compression: NotRequired[str]
     NumberTargetPartitions: NotRequired[str]
     SchemaChangePolicy: NotRequired[DirectSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3ExcelSourceOutputTypeDef(TypedDict):
     Name: str
-    Paths: List[str]
+    Paths: list[str]
     CompressionType: NotRequired[ParquetCompressionTypeType]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     GroupSize: NotRequired[str]
     GroupFiles: NotRequired[str]
     Recurse: NotRequired[bool]
@@ -7192,60 +7337,60 @@ class S3ExcelSourceOutputTypeDef(TypedDict):
     AdditionalOptions: NotRequired[S3DirectSourceAdditionalOptionsTypeDef]
     NumberRows: NotRequired[int]
     SkipFooter: NotRequired[int]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3HudiCatalogTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Table: str
     Database: str
-    AdditionalOptions: Dict[str, str]
-    PartitionKeys: NotRequired[List[List[str]]]
+    AdditionalOptions: dict[str, str]
+    PartitionKeys: NotRequired[list[list[str]]]
     SchemaChangePolicy: NotRequired[CatalogSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3HudiSourceOutputTypeDef(TypedDict):
     Name: str
-    Paths: List[str]
-    AdditionalHudiOptions: NotRequired[Dict[str, str]]
+    Paths: list[str]
+    AdditionalHudiOptions: NotRequired[dict[str, str]]
     AdditionalOptions: NotRequired[S3DirectSourceAdditionalOptionsTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3HyperDirectTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
     Format: NotRequired[TargetFormatType]
-    PartitionKeys: NotRequired[List[List[str]]]
+    PartitionKeys: NotRequired[list[list[str]]]
     Compression: NotRequired[Literal["uncompressed"]]
     SchemaChangePolicy: NotRequired[DirectSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3IcebergDirectTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     Path: str
     Format: TargetFormatType
     Compression: IcebergTargetCompressionTypeType
-    PartitionKeys: NotRequired[List[List[str]]]
-    AdditionalOptions: NotRequired[Dict[str, str]]
+    PartitionKeys: NotRequired[list[list[str]]]
+    AdditionalOptions: NotRequired[dict[str, str]]
     SchemaChangePolicy: NotRequired[DirectSchemaChangePolicyTypeDef]
     AutoDataQuality: NotRequired[AutoDataQualityTypeDef]
     NumberTargetPartitions: NotRequired[str]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3JsonSourceOutputTypeDef(TypedDict):
     Name: str
-    Paths: List[str]
+    Paths: list[str]
     CompressionType: NotRequired[CompressionTypeType]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     GroupSize: NotRequired[str]
     GroupFiles: NotRequired[str]
     Recurse: NotRequired[bool]
@@ -7254,27 +7399,27 @@ class S3JsonSourceOutputTypeDef(TypedDict):
     AdditionalOptions: NotRequired[S3DirectSourceAdditionalOptionsTypeDef]
     JsonPath: NotRequired[str]
     Multiline: NotRequired[bool]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class S3ParquetSourceOutputTypeDef(TypedDict):
     Name: str
-    Paths: List[str]
+    Paths: list[str]
     CompressionType: NotRequired[ParquetCompressionTypeType]
-    Exclusions: NotRequired[List[str]]
+    Exclusions: NotRequired[list[str]]
     GroupSize: NotRequired[str]
     GroupFiles: NotRequired[str]
     Recurse: NotRequired[bool]
     MaxBand: NotRequired[int]
     MaxFilesInBand: NotRequired[int]
     AdditionalOptions: NotRequired[S3DirectSourceAdditionalOptionsTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class SnowflakeSourceOutputTypeDef(TypedDict):
     Name: str
     Data: SnowflakeNodeDataOutputTypeDef
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class SparkConnectorSourceOutputTypeDef(TypedDict):
@@ -7282,26 +7427,26 @@ class SparkConnectorSourceOutputTypeDef(TypedDict):
     ConnectionName: str
     ConnectorName: str
     ConnectionType: str
-    AdditionalOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class SparkConnectorTargetOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     ConnectionName: str
     ConnectorName: str
     ConnectionType: str
-    AdditionalOptions: NotRequired[Dict[str, str]]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    AdditionalOptions: NotRequired[dict[str, str]]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class SparkSQLOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     SqlQuery: str
-    SqlAliases: List[SqlAliasTypeDef]
-    OutputSchemas: NotRequired[List[GlueSchemaOutputTypeDef]]
+    SqlAliases: list[SqlAliasTypeDef]
+    OutputSchemas: NotRequired[list[GlueSchemaOutputTypeDef]]
 
 
 class AthenaConnectorSourceTypeDef(TypedDict):
@@ -7611,6 +7756,9 @@ class IcebergTableUpdateTypeDef(TypedDict):
     PartitionSpec: NotRequired[IcebergPartitionSpecTypeDef]
     SortOrder: NotRequired[IcebergSortOrderTypeDef]
     Properties: NotRequired[Mapping[str, str]]
+    Action: NotRequired[IcebergUpdateActionType]
+    EncryptionKey: NotRequired[IcebergEncryptedKeyTypeDef]
+    KeyId: NotRequired[str]
 
 
 class CreateIntegrationRequestTypeDef(TypedDict):
@@ -7661,13 +7809,13 @@ class GetJobRunResponseTypeDef(TypedDict):
 
 
 class GetJobRunsResponseTypeDef(TypedDict):
-    JobRuns: List[JobRunTypeDef]
+    JobRuns: list[JobRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class JobNodeDetailsTypeDef(TypedDict):
-    JobRuns: NotRequired[List[JobRunTypeDef]]
+    JobRuns: NotRequired[list[JobRunTypeDef]]
 
 
 class JoinTypeDef(TypedDict):
@@ -7731,7 +7879,7 @@ ApplyMappingTypeDef = TypedDict(
 
 
 class QuerySchemaVersionMetadataResponseTypeDef(TypedDict):
-    MetadataInfoMap: Dict[str, MetadataInfoTypeDef]
+    MetadataInfoMap: dict[str, MetadataInfoTypeDef]
     SchemaVersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -7740,6 +7888,7 @@ class QuerySchemaVersionMetadataResponseTypeDef(TypedDict):
 class AuthenticationConfigurationTypeDef(TypedDict):
     AuthenticationType: NotRequired[AuthenticationTypeType]
     SecretArn: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
     OAuth2Properties: NotRequired[OAuth2PropertiesTypeDef]
 
 
@@ -7768,9 +7917,9 @@ class BatchGetPartitionRequestTypeDef(TypedDict):
 
 class RecipeOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
+    Inputs: list[str]
     RecipeReference: NotRequired[RecipeReferenceTypeDef]
-    RecipeSteps: NotRequired[List[RecipeStepOutputTypeDef]]
+    RecipeSteps: NotRequired[list[RecipeStepOutputTypeDef]]
 
 
 class RecipeStepTypeDef(TypedDict):
@@ -7797,7 +7946,7 @@ class GetUserDefinedFunctionResponseTypeDef(TypedDict):
 
 
 class GetUserDefinedFunctionsResponseTypeDef(TypedDict):
-    UserDefinedFunctions: List[UserDefinedFunctionTypeDef]
+    UserDefinedFunctions: list[UserDefinedFunctionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -7830,13 +7979,13 @@ class StatementTypeDef(TypedDict):
 
 
 class ListDataQualityStatisticAnnotationsResponseTypeDef(TypedDict):
-    Annotations: List[StatisticAnnotationTypeDef]
+    Annotations: list[StatisticAnnotationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDataQualityStatisticsResponseTypeDef(TypedDict):
-    Statistics: List[StatisticSummaryTypeDef]
+    Statistics: list[StatisticSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -7869,14 +8018,14 @@ class DescribeConnectionTypeResponseTypeDef(TypedDict):
     ConnectionType: str
     Description: str
     Capabilities: CapabilitiesTypeDef
-    ConnectionProperties: Dict[str, PropertyTypeDef]
-    ConnectionOptions: Dict[str, PropertyTypeDef]
+    ConnectionProperties: dict[str, PropertyTypeDef]
+    ConnectionOptions: dict[str, PropertyTypeDef]
     AuthenticationConfiguration: AuthConfigurationTypeDef
-    ComputeEnvironmentConfigurations: Dict[str, ComputeEnvironmentConfigurationTypeDef]
-    PhysicalConnectionRequirements: Dict[str, PropertyTypeDef]
-    AthenaConnectionProperties: Dict[str, PropertyTypeDef]
-    PythonConnectionProperties: Dict[str, PropertyTypeDef]
-    SparkConnectionProperties: Dict[str, PropertyTypeDef]
+    ComputeEnvironmentConfigurations: dict[str, ComputeEnvironmentConfigurationTypeDef]
+    PhysicalConnectionRequirements: dict[str, PropertyTypeDef]
+    AthenaConnectionProperties: dict[str, PropertyTypeDef]
+    PythonConnectionProperties: dict[str, PropertyTypeDef]
+    SparkConnectionProperties: dict[str, PropertyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7904,7 +8053,7 @@ class SnowflakeTargetTypeDef(TypedDict):
 
 
 class GetPartitionIndexesResponseTypeDef(TypedDict):
-    PartitionIndexDescriptorList: List[PartitionIndexDescriptorTypeDef]
+    PartitionIndexDescriptorList: list[PartitionIndexDescriptorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -7981,8 +8130,8 @@ class DirectKinesisSourceTypeDef(TypedDict):
 
 
 class BatchGetTriggersResponseTypeDef(TypedDict):
-    Triggers: List[TriggerTypeDef]
-    TriggersNotFound: List[str]
+    Triggers: list[TriggerTypeDef]
+    TriggersNotFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7992,7 +8141,7 @@ class GetTriggerResponseTypeDef(TypedDict):
 
 
 class GetTriggersResponseTypeDef(TypedDict):
-    Triggers: List[TriggerTypeDef]
+    Triggers: list[TriggerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8052,11 +8201,11 @@ class GetMLTransformResponseTypeDef(TypedDict):
     Status: TransformStatusTypeType
     CreatedOn: datetime
     LastModifiedOn: datetime
-    InputRecordTables: List[GlueTableOutputTypeDef]
+    InputRecordTables: list[GlueTableOutputTypeDef]
     Parameters: TransformParametersTypeDef
     EvaluationMetrics: EvaluationMetricsTypeDef
     LabelCount: int
-    Schema: List[SchemaColumnTypeDef]
+    Schema: list[SchemaColumnTypeDef]
     Role: str
     GlueVersion: str
     MaxCapacity: float
@@ -8075,11 +8224,11 @@ class MLTransformTypeDef(TypedDict):
     Status: NotRequired[TransformStatusTypeType]
     CreatedOn: NotRequired[datetime]
     LastModifiedOn: NotRequired[datetime]
-    InputRecordTables: NotRequired[List[GlueTableOutputTypeDef]]
+    InputRecordTables: NotRequired[list[GlueTableOutputTypeDef]]
     Parameters: NotRequired[TransformParametersTypeDef]
     EvaluationMetrics: NotRequired[EvaluationMetricsTypeDef]
     LabelCount: NotRequired[int]
-    Schema: NotRequired[List[SchemaColumnTypeDef]]
+    Schema: NotRequired[list[SchemaColumnTypeDef]]
     Role: NotRequired[str]
     GlueVersion: NotRequired[str]
     MaxCapacity: NotRequired[float]
@@ -8091,8 +8240,8 @@ class MLTransformTypeDef(TypedDict):
 
 
 class BatchGetCrawlersResponseTypeDef(TypedDict):
-    Crawlers: List[CrawlerTypeDef]
-    CrawlersNotFound: List[str]
+    Crawlers: list[CrawlerTypeDef]
+    CrawlersNotFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8102,7 +8251,7 @@ class GetCrawlerResponseTypeDef(TypedDict):
 
 
 class GetCrawlersResponseTypeDef(TypedDict):
-    Crawlers: List[CrawlerTypeDef]
+    Crawlers: list[CrawlerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8148,7 +8297,7 @@ class GetCatalogResponseTypeDef(TypedDict):
 
 
 class GetCatalogsResponseTypeDef(TypedDict):
-    CatalogList: List[CatalogTypeDef]
+    CatalogList: list[CatalogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8159,7 +8308,7 @@ class GetDatabaseResponseTypeDef(TypedDict):
 
 
 class GetDatabasesResponseTypeDef(TypedDict):
-    DatabaseList: List[DatabaseTypeDef]
+    DatabaseList: list[DatabaseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8197,9 +8346,9 @@ class DataQualityResultTypeDef(TypedDict):
     JobName: NotRequired[str]
     JobRunId: NotRequired[str]
     RulesetEvaluationRunId: NotRequired[str]
-    RuleResults: NotRequired[List[DataQualityRuleResultTypeDef]]
-    AnalyzerResults: NotRequired[List[DataQualityAnalyzerResultTypeDef]]
-    Observations: NotRequired[List[DataQualityObservationTypeDef]]
+    RuleResults: NotRequired[list[DataQualityRuleResultTypeDef]]
+    AnalyzerResults: NotRequired[list[DataQualityAnalyzerResultTypeDef]]
+    Observations: NotRequired[list[DataQualityObservationTypeDef]]
     AggregatedMetrics: NotRequired[DataQualityAggregatedMetricsTypeDef]
 
 
@@ -8215,27 +8364,27 @@ class GetDataQualityResultResponseTypeDef(TypedDict):
     JobName: str
     JobRunId: str
     RulesetEvaluationRunId: str
-    RuleResults: List[DataQualityRuleResultTypeDef]
-    AnalyzerResults: List[DataQualityAnalyzerResultTypeDef]
-    Observations: List[DataQualityObservationTypeDef]
+    RuleResults: list[DataQualityRuleResultTypeDef]
+    AnalyzerResults: list[DataQualityAnalyzerResultTypeDef]
+    Observations: list[DataQualityObservationTypeDef]
     AggregatedMetrics: DataQualityAggregatedMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDataQualityResultsResponseTypeDef(TypedDict):
-    Results: List[DataQualityResultDescriptionTypeDef]
+    Results: list[DataQualityResultDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDataQualityRuleRecommendationRunsResponseTypeDef(TypedDict):
-    Runs: List[DataQualityRuleRecommendationRunDescriptionTypeDef]
+    Runs: list[DataQualityRuleRecommendationRunDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDataQualityRulesetEvaluationRunsResponseTypeDef(TypedDict):
-    Runs: List[DataQualityRulesetEvaluationRunDescriptionTypeDef]
+    Runs: list[DataQualityRulesetEvaluationRunDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8251,13 +8400,13 @@ class ColumnStatisticsOutputTypeDef(TypedDict):
 
 
 class PartitionTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
     DatabaseName: NotRequired[str]
     TableName: NotRequired[str]
     CreationTime: NotRequired[datetime]
     LastAccessTime: NotRequired[datetime]
     StorageDescriptor: NotRequired[StorageDescriptorOutputTypeDef]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
     LastAnalyzedTime: NotRequired[datetime]
     CatalogId: NotRequired[str]
 
@@ -8268,7 +8417,7 @@ class GetSecurityConfigurationResponseTypeDef(TypedDict):
 
 
 class GetSecurityConfigurationsResponseTypeDef(TypedDict):
-    SecurityConfigurations: List[SecurityConfigurationTypeDef]
+    SecurityConfigurations: list[SecurityConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8280,8 +8429,8 @@ class CreateSecurityConfigurationRequestTypeDef(TypedDict):
 
 class RouteOutputTypeDef(TypedDict):
     Name: str
-    Inputs: List[str]
-    GroupFiltersList: List[GroupFiltersOutputTypeDef]
+    Inputs: list[str]
+    GroupFiltersList: list[GroupFiltersOutputTypeDef]
 
 
 FilterExpressionUnionTypeDef = Union[FilterExpressionTypeDef, FilterExpressionOutputTypeDef]
@@ -8381,7 +8530,7 @@ class ListTableOptimizerRunsResponseTypeDef(TypedDict):
     CatalogId: str
     DatabaseName: str
     TableName: str
-    TableOptimizerRuns: List[TableOptimizerRunTypeDef]
+    TableOptimizerRuns: list[TableOptimizerRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8428,7 +8577,7 @@ JoinUnionTypeDef = Union[JoinTypeDef, JoinOutputTypeDef]
 
 
 class GetMLTaskRunsResponseTypeDef(TypedDict):
-    TaskRuns: List[TaskRunTypeDef]
+    TaskRuns: list[TaskRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8440,11 +8589,11 @@ class ConnectionTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     ConnectionType: NotRequired[ConnectionTypeType]
-    MatchCriteria: NotRequired[List[str]]
-    ConnectionProperties: NotRequired[Dict[ConnectionPropertyKeyType, str]]
-    SparkProperties: NotRequired[Dict[str, str]]
-    AthenaProperties: NotRequired[Dict[str, str]]
-    PythonProperties: NotRequired[Dict[str, str]]
+    MatchCriteria: NotRequired[list[str]]
+    ConnectionProperties: NotRequired[dict[ConnectionPropertyKeyType, str]]
+    SparkProperties: NotRequired[dict[str, str]]
+    AthenaProperties: NotRequired[dict[str, str]]
+    PythonProperties: NotRequired[dict[str, str]]
     PhysicalConnectionRequirements: NotRequired[PhysicalConnectionRequirementsOutputTypeDef]
     CreationTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
@@ -8454,7 +8603,7 @@ class ConnectionTypeDef(TypedDict):
     LastConnectionValidationTime: NotRequired[datetime]
     AuthenticationConfiguration: NotRequired[AuthenticationConfigurationTypeDef]
     ConnectionSchemaVersion: NotRequired[int]
-    CompatibleComputeEnvironments: NotRequired[List[ComputeEnvironmentType]]
+    CompatibleComputeEnvironments: NotRequired[list[ComputeEnvironmentType]]
 
 
 class ConnectionInputTypeDef(TypedDict):
@@ -8488,7 +8637,7 @@ class GetStatementResponseTypeDef(TypedDict):
 
 
 class ListStatementsResponseTypeDef(TypedDict):
-    Statements: List[StatementTypeDef]
+    Statements: list[StatementTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8516,11 +8665,11 @@ class TablePaginatorTypeDef(TypedDict):
     LastAnalyzedTime: NotRequired[datetime]
     Retention: NotRequired[int]
     StorageDescriptor: NotRequired[StorageDescriptorOutputTypeDef]
-    PartitionKeys: NotRequired[List[ColumnOutputTypeDef]]
+    PartitionKeys: NotRequired[list[ColumnOutputTypeDef]]
     ViewOriginalText: NotRequired[str]
     ViewExpandedText: NotRequired[str]
     TableType: NotRequired[str]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
     CreatedBy: NotRequired[str]
     IsRegisteredWithLakeFormation: NotRequired[bool]
     TargetTable: NotRequired[TableIdentifierTypeDef]
@@ -8529,6 +8678,7 @@ class TablePaginatorTypeDef(TypedDict):
     FederatedTable: NotRequired[FederatedTableTypeDef]
     ViewDefinition: NotRequired[ViewDefinitionTypeDef]
     IsMultiDialectView: NotRequired[bool]
+    IsMaterializedView: NotRequired[bool]
     Status: NotRequired[TableStatusPaginatorTypeDef]
 
 
@@ -8543,11 +8693,11 @@ class TableTypeDef(TypedDict):
     LastAnalyzedTime: NotRequired[datetime]
     Retention: NotRequired[int]
     StorageDescriptor: NotRequired[StorageDescriptorOutputTypeDef]
-    PartitionKeys: NotRequired[List[ColumnOutputTypeDef]]
+    PartitionKeys: NotRequired[list[ColumnOutputTypeDef]]
     ViewOriginalText: NotRequired[str]
     ViewExpandedText: NotRequired[str]
     TableType: NotRequired[str]
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
     CreatedBy: NotRequired[str]
     IsRegisteredWithLakeFormation: NotRequired[bool]
     TargetTable: NotRequired[TableIdentifierTypeDef]
@@ -8556,6 +8706,7 @@ class TableTypeDef(TypedDict):
     FederatedTable: NotRequired[FederatedTableTypeDef]
     ViewDefinition: NotRequired[ViewDefinitionTypeDef]
     IsMultiDialectView: NotRequired[bool]
+    IsMaterializedView: NotRequired[bool]
     Status: NotRequired[TableStatusTypeDef]
 
 
@@ -8589,7 +8740,7 @@ class UpdateTriggerRequestTypeDef(TypedDict):
 
 
 class GetMLTransformsResponseTypeDef(TypedDict):
-    Transforms: List[MLTransformTypeDef]
+    Transforms: list[MLTransformTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8618,8 +8769,8 @@ class UpdateDatabaseRequestTypeDef(TypedDict):
 
 
 class BatchGetDataQualityResultResponseTypeDef(TypedDict):
-    Results: List[DataQualityResultTypeDef]
-    ResultsNotFound: List[str]
+    Results: list[DataQualityResultTypeDef]
+    ResultsNotFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8629,20 +8780,20 @@ class ColumnStatisticsErrorTypeDef(TypedDict):
 
 
 class GetColumnStatisticsForPartitionResponseTypeDef(TypedDict):
-    ColumnStatisticsList: List[ColumnStatisticsOutputTypeDef]
-    Errors: List[ColumnErrorTypeDef]
+    ColumnStatisticsList: list[ColumnStatisticsOutputTypeDef]
+    Errors: list[ColumnErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetColumnStatisticsForTableResponseTypeDef(TypedDict):
-    ColumnStatisticsList: List[ColumnStatisticsOutputTypeDef]
-    Errors: List[ColumnErrorTypeDef]
+    ColumnStatisticsList: list[ColumnStatisticsOutputTypeDef]
+    Errors: list[ColumnErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchGetPartitionResponseTypeDef(TypedDict):
-    Partitions: List[PartitionTypeDef]
-    UnprocessedKeys: List[PartitionValueListOutputTypeDef]
+    Partitions: list[PartitionTypeDef]
+    UnprocessedKeys: list[PartitionValueListOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8652,21 +8803,21 @@ class GetPartitionResponseTypeDef(TypedDict):
 
 
 class GetPartitionsResponseTypeDef(TypedDict):
-    Partitions: List[PartitionTypeDef]
+    Partitions: list[PartitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetUnfilteredPartitionMetadataResponseTypeDef(TypedDict):
     Partition: PartitionTypeDef
-    AuthorizedColumns: List[str]
+    AuthorizedColumns: list[str]
     IsRegisteredWithLakeFormation: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UnfilteredPartitionTypeDef(TypedDict):
     Partition: NotRequired[PartitionTypeDef]
-    AuthorizedColumns: NotRequired[List[str]]
+    AuthorizedColumns: NotRequired[list[str]]
     IsRegisteredWithLakeFormation: NotRequired[bool]
 
 
@@ -8935,7 +9086,7 @@ class GetConnectionResponseTypeDef(TypedDict):
 
 
 class GetConnectionsResponseTypeDef(TypedDict):
-    ConnectionList: List[ConnectionTypeDef]
+    ConnectionList: list[ConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8991,7 +9142,7 @@ class TableInputTypeDef(TypedDict):
 
 
 class GetTablesResponsePaginatorTypeDef(TypedDict):
-    TableList: List[TablePaginatorTypeDef]
+    TableList: list[TablePaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9007,27 +9158,28 @@ class GetTableResponseTypeDef(TypedDict):
 
 
 class GetTablesResponseTypeDef(TypedDict):
-    TableList: List[TableTypeDef]
+    TableList: list[TableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetUnfilteredTableMetadataResponseTypeDef(TypedDict):
     Table: TableTypeDef
-    AuthorizedColumns: List[str]
+    AuthorizedColumns: list[str]
     IsRegisteredWithLakeFormation: bool
-    CellFilters: List[ColumnRowFilterTypeDef]
+    CellFilters: list[ColumnRowFilterTypeDef]
     QueryAuthorizationId: str
     IsMultiDialectView: bool
+    IsMaterializedView: bool
     ResourceArn: str
     IsProtected: bool
-    Permissions: List[PermissionType]
+    Permissions: list[PermissionType]
     RowFilter: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchTablesResponseTypeDef(TypedDict):
-    TableList: List[TableTypeDef]
+    TableList: list[TableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9053,22 +9205,22 @@ ColumnStatisticsDataTypeDef = TypedDict(
 
 
 class WorkflowGraphTypeDef(TypedDict):
-    Nodes: NotRequired[List[NodeTypeDef]]
-    Edges: NotRequired[List[EdgeTypeDef]]
+    Nodes: NotRequired[list[NodeTypeDef]]
+    Edges: NotRequired[list[EdgeTypeDef]]
 
 
 class UpdateColumnStatisticsForPartitionResponseTypeDef(TypedDict):
-    Errors: List[ColumnStatisticsErrorTypeDef]
+    Errors: list[ColumnStatisticsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateColumnStatisticsForTableResponseTypeDef(TypedDict):
-    Errors: List[ColumnStatisticsErrorTypeDef]
+    Errors: list[ColumnStatisticsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetUnfilteredPartitionsMetadataResponseTypeDef(TypedDict):
-    UnfilteredPartitions: List[UnfilteredPartitionTypeDef]
+    UnfilteredPartitions: list[UnfilteredPartitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9084,8 +9236,8 @@ class JobTypeDef(TypedDict):
     LastModifiedOn: NotRequired[datetime]
     ExecutionProperty: NotRequired[ExecutionPropertyTypeDef]
     Command: NotRequired[JobCommandTypeDef]
-    DefaultArguments: NotRequired[Dict[str, str]]
-    NonOverridableArguments: NotRequired[Dict[str, str]]
+    DefaultArguments: NotRequired[dict[str, str]]
+    NonOverridableArguments: NotRequired[dict[str, str]]
     Connections: NotRequired[ConnectionsListOutputTypeDef]
     MaxRetries: NotRequired[int]
     AllocatedCapacity: NotRequired[int]
@@ -9096,7 +9248,7 @@ class JobTypeDef(TypedDict):
     SecurityConfiguration: NotRequired[str]
     NotificationProperty: NotRequired[NotificationPropertyTypeDef]
     GlueVersion: NotRequired[str]
-    CodeGenConfigurationNodes: NotRequired[Dict[str, CodeGenConfigurationNodeOutputTypeDef]]
+    CodeGenConfigurationNodes: NotRequired[dict[str, CodeGenConfigurationNodeOutputTypeDef]]
     ExecutionClass: NotRequired[ExecutionClassType]
     SourceControlDetails: NotRequired[SourceControlDetailsTypeDef]
     MaintenanceWindow: NotRequired[str]
@@ -9114,8 +9266,8 @@ class JobPaginatorTypeDef(TypedDict):
     LastModifiedOn: NotRequired[datetime]
     ExecutionProperty: NotRequired[ExecutionPropertyTypeDef]
     Command: NotRequired[JobCommandTypeDef]
-    DefaultArguments: NotRequired[Dict[str, str]]
-    NonOverridableArguments: NotRequired[Dict[str, str]]
+    DefaultArguments: NotRequired[dict[str, str]]
+    NonOverridableArguments: NotRequired[dict[str, str]]
     Connections: NotRequired[ConnectionsListOutputTypeDef]
     MaxRetries: NotRequired[int]
     AllocatedCapacity: NotRequired[int]
@@ -9126,7 +9278,7 @@ class JobPaginatorTypeDef(TypedDict):
     SecurityConfiguration: NotRequired[str]
     NotificationProperty: NotRequired[NotificationPropertyTypeDef]
     GlueVersion: NotRequired[str]
-    CodeGenConfigurationNodes: NotRequired[Dict[str, CodeGenConfigurationNodePaginatorTypeDef]]
+    CodeGenConfigurationNodes: NotRequired[dict[str, CodeGenConfigurationNodePaginatorTypeDef]]
     ExecutionClass: NotRequired[ExecutionClassType]
     SourceControlDetails: NotRequired[SourceControlDetailsTypeDef]
     MaintenanceWindow: NotRequired[str]
@@ -9156,8 +9308,8 @@ class ListDataQualityRulesetEvaluationRunsRequestTypeDef(TypedDict):
 
 
 class BatchGetTableOptimizerResponseTypeDef(TypedDict):
-    TableOptimizers: List[BatchTableOptimizerTypeDef]
-    Failures: List[BatchGetTableOptimizerErrorTypeDef]
+    TableOptimizers: list[BatchTableOptimizerTypeDef]
+    Failures: list[BatchGetTableOptimizerErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -9206,7 +9358,7 @@ class CreateTableRequestTypeDef(TypedDict):
 
 
 class GetTableVersionsResponsePaginatorTypeDef(TypedDict):
-    TableVersions: List[TableVersionPaginatorTypeDef]
+    TableVersions: list[TableVersionPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9217,7 +9369,7 @@ class GetTableVersionResponseTypeDef(TypedDict):
 
 
 class GetTableVersionsResponseTypeDef(TypedDict):
-    TableVersions: List[TableVersionTypeDef]
+    TableVersions: list[TableVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9231,7 +9383,7 @@ class WorkflowRunTypeDef(TypedDict):
     Name: NotRequired[str]
     WorkflowRunId: NotRequired[str]
     PreviousRunId: NotRequired[str]
-    WorkflowRunProperties: NotRequired[Dict[str, str]]
+    WorkflowRunProperties: NotRequired[dict[str, str]]
     StartedOn: NotRequired[datetime]
     CompletedOn: NotRequired[datetime]
     Status: NotRequired[WorkflowRunStatusType]
@@ -9242,8 +9394,8 @@ class WorkflowRunTypeDef(TypedDict):
 
 
 class BatchGetJobsResponseTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
-    JobsNotFound: List[str]
+    Jobs: list[JobTypeDef]
+    JobsNotFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -9253,13 +9405,13 @@ class GetJobResponseTypeDef(TypedDict):
 
 
 class GetJobsResponseTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
+    Jobs: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetJobsResponsePaginatorTypeDef(TypedDict):
-    Jobs: List[JobPaginatorTypeDef]
+    Jobs: list[JobPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9303,7 +9455,7 @@ class GetWorkflowRunResponseTypeDef(TypedDict):
 
 
 class GetWorkflowRunsResponseTypeDef(TypedDict):
-    Runs: List[WorkflowRunTypeDef]
+    Runs: list[WorkflowRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9311,7 +9463,7 @@ class GetWorkflowRunsResponseTypeDef(TypedDict):
 class WorkflowTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
-    DefaultRunProperties: NotRequired[Dict[str, str]]
+    DefaultRunProperties: NotRequired[dict[str, str]]
     CreatedOn: NotRequired[datetime]
     LastModifiedOn: NotRequired[datetime]
     LastRun: NotRequired[WorkflowRunTypeDef]
@@ -9325,8 +9477,8 @@ ColumnStatisticsUnionTypeDef = Union[ColumnStatisticsTypeDef, ColumnStatisticsOu
 
 
 class BatchGetWorkflowsResponseTypeDef(TypedDict):
-    Workflows: List[WorkflowTypeDef]
-    MissingWorkflows: List[str]
+    Workflows: list[WorkflowTypeDef]
+    MissingWorkflows: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

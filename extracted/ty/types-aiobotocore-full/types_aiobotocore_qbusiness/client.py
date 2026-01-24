@@ -3,7 +3,7 @@ Type annotations for qbusiness service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -191,12 +192,6 @@ from .type_defs import (
     UpdateWebExperienceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -207,17 +202,17 @@ __all__ = ("QBusinessClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ExternalResourceException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    LicenseNotFoundException: Type[BotocoreClientError]
-    MediaTooLargeException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ExternalResourceException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    LicenseNotFoundException: type[BotocoreClientError]
+    MediaTooLargeException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class QBusinessClient(AioBaseClient):
@@ -417,7 +412,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#create_subscription)
         """
 
-    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a universally unique identifier (UUID) mapped to a list of local user
         ids within an application.
@@ -438,7 +433,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q Business application.
 
@@ -448,7 +443,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_attachment(
         self, **kwargs: Unpack[DeleteAttachmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an attachment associated with a specific Amazon Q Business conversation.
 
@@ -458,7 +453,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_chat_controls_configuration(
         self, **kwargs: Unpack[DeleteChatControlsConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes chat controls configured for an existing Amazon Q Business application.
 
@@ -468,7 +463,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_chat_response_configuration(
         self, **kwargs: Unpack[DeleteChatResponseConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified chat response configuration from an Amazon Q Business
         application.
@@ -479,7 +474,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_conversation(
         self, **kwargs: Unpack[DeleteConversationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q Business web experience conversation.
 
@@ -489,7 +484,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_data_accessor(
         self, **kwargs: Unpack[DeleteDataAccessorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified data accessor.
 
@@ -499,7 +494,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_data_source(
         self, **kwargs: Unpack[DeleteDataSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q Business data source connector.
 
@@ -507,7 +502,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#delete_data_source)
         """
 
-    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a group so that all users and sub groups that belong to the group can
         no longer access documents only available to that group.
@@ -516,7 +511,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#delete_group)
         """
 
-    async def delete_index(self, **kwargs: Unpack[DeleteIndexRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_index(self, **kwargs: Unpack[DeleteIndexRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Q Business index.
 
@@ -524,7 +519,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#delete_index)
         """
 
-    async def delete_plugin(self, **kwargs: Unpack[DeletePluginRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_plugin(self, **kwargs: Unpack[DeletePluginRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Q Business plugin.
 
@@ -534,7 +529,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_retriever(
         self, **kwargs: Unpack[DeleteRetrieverRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the retriever used by an Amazon Q Business application.
 
@@ -542,7 +537,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#delete_retriever)
         """
 
-    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a user by email id.
 
@@ -552,7 +547,7 @@ class QBusinessClient(AioBaseClient):
 
     async def delete_web_experience(
         self, **kwargs: Unpack[DeleteWebExperienceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q Business web experience.
 
@@ -562,7 +557,7 @@ class QBusinessClient(AioBaseClient):
 
     async def disassociate_permission(
         self, **kwargs: Unpack[DisassociatePermissionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a permission policy from a Amazon Q Business application, revoking the
         cross-account access that was previously granted to an ISV.
@@ -914,7 +909,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#put_feedback)
         """
 
-    async def put_group(self, **kwargs: Unpack[PutGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def put_group(self, **kwargs: Unpack[PutGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Create, or updates, a mapping of users—who have access to a document—to groups.
 
@@ -945,7 +940,7 @@ class QBusinessClient(AioBaseClient):
 
     async def stop_data_source_sync_job(
         self, **kwargs: Unpack[StopDataSourceSyncJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an Amazon Q Business data source connector synchronization job already in
         progress.
@@ -954,7 +949,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#stop_data_source_sync_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tag to the specified Amazon Q Business application or data
         source resource.
@@ -963,7 +958,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from an Amazon Q Business application or a data source.
 
@@ -973,7 +968,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_application(
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing Amazon Q Business application.
 
@@ -983,7 +978,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_chat_controls_configuration(
         self, **kwargs: Unpack[UpdateChatControlsConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a set of chat controls configured for an existing Amazon Q Business
         application.
@@ -994,7 +989,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_chat_response_configuration(
         self, **kwargs: Unpack[UpdateChatResponseConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing chat response configuration in an Amazon Q Business
         application.
@@ -1005,7 +1000,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_data_accessor(
         self, **kwargs: Unpack[UpdateDataAccessorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing data accessor.
 
@@ -1015,7 +1010,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_data_source(
         self, **kwargs: Unpack[UpdateDataSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing Amazon Q Business data source connector.
 
@@ -1023,7 +1018,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#update_data_source)
         """
 
-    async def update_index(self, **kwargs: Unpack[UpdateIndexRequestTypeDef]) -> Dict[str, Any]:
+    async def update_index(self, **kwargs: Unpack[UpdateIndexRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an Amazon Q Business index.
 
@@ -1031,7 +1026,7 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#update_index)
         """
 
-    async def update_plugin(self, **kwargs: Unpack[UpdatePluginRequestTypeDef]) -> Dict[str, Any]:
+    async def update_plugin(self, **kwargs: Unpack[UpdatePluginRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an Amazon Q Business plugin.
 
@@ -1041,7 +1036,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_retriever(
         self, **kwargs: Unpack[UpdateRetrieverRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the retriever used for your Amazon Q Business application.
 
@@ -1071,7 +1066,7 @@ class QBusinessClient(AioBaseClient):
 
     async def update_web_experience(
         self, **kwargs: Unpack[UpdateWebExperienceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an Amazon Q Business web experience.
 
@@ -1307,7 +1302,7 @@ class QBusinessClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

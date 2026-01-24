@@ -30,6 +30,26 @@ impl ShortIdentifier {
         // Not represented as an Identifier, but literally in the source code in the same way
         Self(x.range)
     }
+
+    // Prefer `::new` or `::expr_name` over this, since this could create invalid identifiers.
+    pub fn from_text_range(range: TextRange) -> Self {
+        Self(range)
+    }
+}
+
+impl PartialOrd for ShortIdentifier {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ShortIdentifier {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.0.start().cmp(&other.0.start()) {
+            std::cmp::Ordering::Equal => self.0.end().cmp(&other.0.end()),
+            ord => ord,
+        }
+    }
 }
 
 impl Ranged for ShortIdentifier {
@@ -80,7 +100,7 @@ mod tests {
             ModulePath::filesystem(Path::new("foo.py").to_owned()),
             Arc::new("hello_world = Baz123.attribute".to_owned()),
         );
-        let ast = Ast::parse(module.contents()).0;
+        let ast = Ast::parse(module.contents(), module.source_type()).0;
         let show = |x: &ShortIdentifier| module.display(x).to_string();
 
         let assign = &ast.body[0].as_assign_stmt().unwrap();

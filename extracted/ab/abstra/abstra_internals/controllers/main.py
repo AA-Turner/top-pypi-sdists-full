@@ -1,17 +1,23 @@
 import datetime
+import json
 import pkgutil
+from multiprocessing import Pipe
 from pathlib import Path
 from shutil import move
 from tempfile import mkdtemp, mktemp
 from typing import Any, Dict, List, Literal, Optional, Tuple
+from uuid import uuid4
 
 import flask
 
-from abstra_internals.cloud_api import get_api_key_info, get_project_info
+from abstra_internals.cloud_api import (
+    get_api_key_info,
+    get_feature_flags,
+    get_project_info,
+)
 from abstra_internals.consts.filepaths import TEST_DATA_FILEPATH
 from abstra_internals.controllers.execution.execution import ExecutionController
-from abstra_internals.controllers.execution.execution_client_form import FormClient
-from abstra_internals.controllers.execution.execution_client_hook import HookClient
+from abstra_internals.controllers.execution.execution_client import HeadlessClient
 from abstra_internals.credentials import (
     delete_credentials,
     get_credentials,
@@ -19,14 +25,14 @@ from abstra_internals.credentials import (
     set_credentials,
 )
 from abstra_internals.entities.execution_context import (
-    FormContext,
     HookContext,
     JobContext,
     Request,
     Response,
     ScriptContext,
 )
-from abstra_internals.interface.cli.deploy import deploy
+from abstra_internals.interface.cli.deploy import deploy_without_git
+from abstra_internals.interface.contract import ExecutionStartedMessage
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.email import EmailRepository
 from abstra_internals.repositories.execution import ExecutionFilter, ExecutionRepository
@@ -54,7 +60,6 @@ from abstra_internals.services.fs import FileSystemService
 from abstra_internals.services.requirements import RequirementsRepository
 from abstra_internals.settings import Settings
 from abstra_internals.templates import (
-    ensure_abstraignore,
     ensure_dotenv,
     ensure_gitignore,
     new_form_code,
@@ -62,7 +67,7 @@ from abstra_internals.templates import (
     new_job_code,
     new_script_code,
 )
-from abstra_internals.utils.ai import AiWs
+from abstra_internals.utils.code_check import code_check
 from abstra_internals.utils.diff import compute_updated_code_from_replacements
 from abstra_internals.utils.file import path2module
 from abstra_internals.utils.validate import validate_json
@@ -126,7 +131,6 @@ class MainController:
         repositories.project.initialize_or_migrate()
 
         RequirementsRepository.ensure("abstra")
-        ensure_abstraignore(Settings.root_path)
         ensure_gitignore(Settings.root_path)
         ensure_dotenv(Settings.root_path)
 
@@ -143,7 +147,7 @@ class MainController:
         self.execution_logs_repository = repositories.execution_logs
         self.linter_repository = repositories.linter
 
-    def deploy(self):
+    def deploy_without_git(self):
         self.linter_repository.update_checks()
         issues = self.linter_repository.get_blocking_checks()
 
@@ -152,11 +156,21 @@ class MainController:
                 "Please fix all linter issues before deploying your project."
             )
 
-        deploy()
+        deploy_without_git()
+
+    def reset_execution_repository(self):
+        self.execution_repository.clear()
+
+    def reset_execution_logs_repository(self):
+        self.execution_logs_repository.clear()
+
+    def reset_tasks_repository(self):
+        self.tasks_repository.clear()
 
     def reset_repositories(self):
-        self.execution_repository.clear()
-        self.tasks_repository.clear()
+        self.reset_execution_logs_repository()
+        self.reset_execution_repository()
+        self.reset_tasks_repository()
 
     def get_workspace(self) -> StyleSettingsWithSidebar:
         project = self.repositories.project.load()
@@ -218,45 +232,170 @@ class MainController:
         project = self.repositories.project.load()
         return project.get_stage(id)
 
-    def read_stage_file(self, id: str) -> Optional[str]:
+    def _read_file_lines_with_pagination(
+        self,
+        file_path: Path,
+        start_line: Optional[int],
+        end_line: Optional[int],
+        max_lines: int,
+    ) -> Optional[Dict[str, Any]]:
         """
-        Read the source code of a stage's file.
+        Private helper method to read file lines with pagination support.
+
+        This method contains the common pagination logic used by both
+        read_stage_file_with_pagination and read_file_with_pagination.
+
+        Args:
+            file_path (Path): Absolute path to the file to read.
+            start_line (Optional[int]): 1-indexed line number to start reading from.
+            end_line (Optional[int]): 1-indexed line number to stop reading at (inclusive).
+            max_lines (int): Maximum number of lines to return in a single call.
+
+        Returns:
+            dict | None: Dictionary containing file content and metadata, or None if file cannot be read.
+        """
+        if not file_path.is_file():
+            return None
+
+        # First pass: count total lines without loading into memory
+        try:
+            with file_path.open("r", encoding="utf-8") as f:
+                total_lines = sum(1 for _ in f)
+        except (IOError, OSError) as e:
+            AbstraLogger.error(f"Failed to read file {file_path}: {e}")
+            return None
+        except UnicodeDecodeError as e:
+            AbstraLogger.error(f"Failed to decode file {file_path}: {e}")
+            return None
+
+        # Determine actual range to read
+        actual_start = max(1, start_line or 1)
+        actual_end = min(total_lines, end_line or total_lines)
+
+        # Handle edge case where start_line exceeds total_lines
+        if actual_start > total_lines:
+            return {
+                "content": "",
+                "start_line": actual_start,
+                "end_line": actual_start - 1,
+                "total_lines": total_lines,
+                "has_more": False,
+                "truncated": False,
+            }
+
+        # Apply max_lines limit
+        truncated = False
+        if actual_end - actual_start + 1 > max_lines:
+            actual_end = actual_start + max_lines - 1
+            truncated = True
+
+        # Second pass: read only the required line range using itertools.islice
+        from itertools import islice
+
+        try:
+            with file_path.open("r", encoding="utf-8") as f:
+                # Skip lines before start (0-indexed), then take the range we need
+                start_idx = actual_start - 1
+                num_lines = actual_end - actual_start + 1
+                content_lines = list(islice(f, start_idx, start_idx + num_lines))
+                content = "".join(content_lines)
+        except (IOError, OSError) as e:
+            AbstraLogger.error(f"Failed to read file {file_path}: {e}")
+            return None
+        except UnicodeDecodeError as e:
+            AbstraLogger.error(f"Failed to decode file {file_path}: {e}")
+            return None
+
+        return {
+            "content": content,
+            "start_line": actual_start,
+            "end_line": actual_end,
+            "total_lines": total_lines,
+            "has_more": actual_end < total_lines,
+            "truncated": truncated,
+        }
+
+    def read_stage_file_with_pagination(
+        self,
+        id: str,
+        start_line: Optional[int] = None,
+        end_line: Optional[int] = None,
+        max_lines: int = 500,
+    ):
+        """
+        Read the source code of a stage's file with pagination support.
 
         This method retrieves the content of the file associated with a specific
-        workflow stage by its ID. It returns the file content as a string if the
-        stage exists and has an associated file.
+        workflow stage by its ID. It supports reading specific line ranges to handle
+        large files efficiently without consuming excessive context window space.
 
         Args:
             id (str): Unique identifier of the stage whose file to read.
+            start_line (Optional[int]): 1-indexed line number to start reading from.
+                If None, starts from the beginning. Defaults to None.
+            end_line (Optional[int]): 1-indexed line number to stop reading at (inclusive).
+                If None, reads until max_lines is reached. Defaults to None.
+            max_lines (int): Maximum number of lines to return in a single call.
+                Prevents context overflow for large files. Defaults to 500.
 
         Returns:
-            Optional[str]: The content of the stage's file if it exists, None otherwise.
+            dict | None: Dictionary containing file content and metadata if the stage exists:
+                - content (str): The file content as a string
+                - start_line (int): Actual starting line number (1-indexed)
+                - end_line (int): Actual ending line number (1-indexed)
+                - total_lines (int): Total number of lines in the file
+                - has_more (bool): Whether there are more lines after end_line
+                - truncated (bool): Whether the result was limited by max_lines
+                Returns None if the stage doesn't exist or has no associated file.
 
         Example:
             ```python
             controller = MainController(repositories)
 
-            # Read the source code of a specific stage
-            code = controller.read_stage_file("script-456")
-            if code:
-                print("Stage file content:")
-                print(code)
-            else:
-                print("Stage file not found or has no associated file")
+            # Read entire small stage file
+            result = controller.read_stage_file_with_pagination("script-456")
+            if result:
+                print(result["content"])
+                print(f"File has {result['total_lines']} lines")
+
+            # Read first 200 lines of a large stage file
+            result = controller.read_stage_file_with_pagination("form-123", start_line=1, end_line=200)
+            if result:
+                print(result["content"])
+                if result["has_more"]:
+                    print("Stage file has more content...")
+
+            # Read specific lines 50-250
+            result = controller.read_stage_file_with_pagination("hook-789", start_line=50, end_line=250)
+
+            # Read with automatic pagination
+            result = controller.read_stage_file_with_pagination("job-321", max_lines=500)
+            if result and result["truncated"]:
+                next_result = controller.read_stage_file_with_pagination(
+                    "job-321",
+                    start_line=result["end_line"] + 1,
+                    max_lines=500
+                )
             ```
 
         Note:
             - Returns None if the stage does not exist or has no file
             - The ID is case-sensitive and must match exactly
+            - Line numbers are 1-indexed (first line is 1, not 0)
+            - Automatic truncation at max_lines prevents context overflow
+            - For files with more than max_lines, use pagination to read chunks
 
         Copywritings:
-            Read the source code of a stage's file
-            Reading the source code of a stage's file...
+            Read stage file with pagination
+            Reading stage file with pagination support...
         """
         stage = self.get_stage(id)
-        if isinstance(stage, StageWithFile):
-            return stage.file_path.read_text()
-        return None
+        if not isinstance(stage, StageWithFile):
+            return None
+
+        return self._read_file_lines_with_pagination(
+            stage.file_path, start_line, end_line, max_lines
+        )
 
     def get_async_stage_ids(self):
         project = self.repositories.project.load()
@@ -346,6 +485,88 @@ class MainController:
         if not file_path.is_file():
             return None
         return Settings.root_path.joinpath(file).read_text(encoding="utf-8")
+
+    def read_file_with_pagination(
+        self,
+        file: str,
+        start_line: Optional[int] = None,
+        end_line: Optional[int] = None,
+        max_lines: int = 500,
+    ):
+        """
+        Read the contents of a file from the project workspace with pagination support.
+
+        This method reads and returns the text content of a file within the project
+        directory. It supports reading specific line ranges to handle large files efficiently
+        without consuming excessive context window space.
+
+        Args:
+            file (str): Relative path to the file from the project root directory.
+                Should include the file extension.
+            start_line (Optional[int]): 1-indexed line number to start reading from.
+                If None, starts from the beginning. Defaults to None.
+            end_line (Optional[int]): 1-indexed line number to stop reading at (inclusive).
+                If None, reads until max_lines is reached. Defaults to None.
+            max_lines (int): Maximum number of lines to return in a single call.
+                Prevents context overflow for large files. Defaults to 500.
+
+        Returns:
+            dict | None: Dictionary containing file content and metadata if the file exists:
+                - content (str): The file content as a string
+                - start_line (int): Actual starting line number (1-indexed)
+                - end_line (int): Actual ending line number (1-indexed)
+                - total_lines (int): Total number of lines in the file
+                - has_more (bool): Whether there are more lines after end_line
+                - truncated (bool): Whether the result was limited by max_lines
+                Returns None if the file doesn't exist or is not a regular file.
+
+        Example:
+            ```python
+            controller = MainController(repositories)
+
+            # Read entire small file
+            result = controller.read_file_with_pagination("config.json")
+            if result:
+                print(result["content"])
+                print(f"File has {result['total_lines']} lines")
+
+            # Read first 200 lines of a large file
+            result = controller.read_file_with_pagination("large_log.txt", start_line=1, end_line=200)
+            if result:
+                print(result["content"])
+                if result["has_more"]:
+                    print("File has more content...")
+
+            # Read lines 500-900
+            result = controller.read_file_with_pagination("data.py", start_line=500, end_line=900)
+
+            # Read with automatic pagination (max_lines limit)
+            result = controller.read_file_with_pagination("huge_file.csv", max_lines=500)
+            if result and result["truncated"]:
+                next_result = controller.read_file_with_pagination(
+                    "huge_file.csv",
+                    start_line=result["end_line"] + 1,
+                    max_lines=500
+                )
+            ```
+
+        Note:
+            - Files are read with UTF-8 encoding
+            - Path should be relative to the project root directory
+            - Returns None for directories, non-existent files, or unreadable files
+            - Line numbers are 1-indexed (first line is 1, not 0)
+            - If start_line > total lines, returns empty content with metadata
+            - Automatic truncation at max_lines prevents context overflow
+            - For files with more than max_lines, use pagination to read chunks
+
+        Copywritings:
+            Read file contents with pagination
+            Reading file contents with pagination support...
+        """
+        file_path = Settings.root_path.joinpath(file)
+        return self._read_file_lines_with_pagination(
+            file_path, start_line, end_line, max_lines
+        )
 
     def check_file_exists(self, file_path: str):
         """
@@ -541,7 +762,7 @@ class MainController:
             ```
 
         Note:
-            - Respects .gitignore and .gitignore patterns when use_ignore=True
+            - Respects .gitignore patterns when use_ignore=True
             - Image mode supports: .png, .jpg, .jpeg, .gif, .svg, .webp, .jfif, .pjp, .pjpeg
             - Module mode uses Python's pkgutil.iter_modules for discovery
             - Paths are always relative to the project root directory
@@ -635,6 +856,187 @@ class MainController:
             Settings.root_path, query, glob, use_ignore=True
         )
 
+    def search_file_with_context(
+        self,
+        file: str,
+        pattern: str,
+        context_lines: int = 5,
+        case_sensitive: bool = True,
+        max_matches: int = 50,
+    ):
+        """
+        Search for a pattern in a file and return matches with surrounding context lines.
+
+        This method searches for a regex pattern in a file and returns matching lines
+        along with configurable context lines before and after each match. This is
+        similar to grep with -C option and is ideal for large files where you need
+        to find specific patterns without loading the entire file into context.
+
+        Args:
+            file (str): Relative path to the file from the project root directory.
+            pattern (str): Regular expression pattern to search for.
+            context_lines (int): Number of lines to include before and after each match.
+                Defaults to 5.
+            case_sensitive (bool): Whether the search should be case-sensitive.
+                Defaults to True.
+            max_matches (int): Maximum number of matches to return to prevent
+                context overflow. Defaults to 50.
+
+        Returns:
+            dict | None: Dictionary containing search results if the file exists:
+                - file (str): The file path that was searched
+                - total_lines (int): Total number of lines in the file
+                - total_matches (int): Total number of matches found
+                - matches_returned (int): Number of matches included (limited by max_matches)
+                - truncated (bool): Whether results were limited by max_matches
+                - matches (List[dict]): List of match objects, each containing:
+                    - match_line (int): Line number where pattern was found (1-indexed)
+                    - match_text (str): The actual line containing the match
+                    - start_line (int): First line of context (1-indexed)
+                    - end_line (int): Last line of context (1-indexed)
+                    - context (str): The matched line with surrounding context
+                Returns None if the file doesn't exist or is not readable.
+
+        Example:
+            ```python
+            controller = MainController(repositories)
+
+            # Search for function definitions with context
+            result = controller.search_file_with_context(
+                "utils.py",
+                r"def \\w+\\(",
+                context_lines=3
+            )
+            if result:
+                print(f"Found {result['total_matches']} matches in {result['file']}")
+                for match in result["matches"]:
+                    print(f"\nMatch at line {match['match_line']}:")
+                    print(match["context"])
+                    print("-" * 40)
+
+            # Case-insensitive search for error handling
+            result = controller.search_file_with_context(
+                "app.py",
+                r"error|exception|fail",
+                context_lines=5,
+                case_sensitive=False
+            )
+
+            # Search for specific class with 10 lines of context
+            result = controller.search_file_with_context(
+                "models.py",
+                r"class UserModel",
+                context_lines=10,
+                max_matches=10
+            )
+
+            # Search imports in a large file
+            result = controller.search_file_with_context(
+                "main.py",
+                r"^import |^from .* import",
+                context_lines=0  # Just the matching lines
+            )
+            ```
+
+        Note:
+            - Pattern uses Python regex syntax (re module)
+            - Context windows may overlap for nearby matches
+            - Line numbers are 1-indexed (first line is 1, not 0)
+            - Returns None for non-existent or unreadable files
+            - Ideal for finding specific code patterns in large files
+            - Much more efficient than reading entire file when searching
+            - Use max_matches to control context window usage
+
+        Copywritings:
+            Search file with context lines
+            Searching file for pattern with context...
+        """
+        import re
+
+        file_path = Settings.root_path.joinpath(file)
+        if not file_path.is_file():
+            return None
+
+        # Compile regex pattern
+        flags = 0 if case_sensitive else re.IGNORECASE
+        try:
+            regex = re.compile(pattern, flags)
+        except re.error as e:
+            AbstraLogger.error(f"Invalid regex pattern '{pattern}': {e}")
+            return None
+
+        # First pass: find matching lines and count total without loading all into memory
+        matches = []
+        total_lines = 0
+        try:
+            with file_path.open("r", encoding="utf-8") as f:
+                for line_num, line in enumerate(f, start=1):
+                    total_lines = line_num
+                    if regex.search(line):
+                        matches.append((line_num, line))
+                        # Early exit if we have enough matches for return
+                        if len(matches) > max_matches + 100:  # Keep some buffer
+                            break
+        except (IOError, OSError) as e:
+            AbstraLogger.error(f"Failed to read file {file_path}: {e}")
+            return None
+        except UnicodeDecodeError as e:
+            AbstraLogger.error(f"Failed to decode file {file_path}: {e}")
+            return None
+
+        # If we stopped early, count remaining lines
+        if len(matches) > max_matches + 100:
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    total_lines = sum(1 for _ in f)
+            except (IOError, OSError, UnicodeDecodeError):
+                pass  # Use the line count we have
+
+        total_matches = len(matches)
+        truncated = total_matches > max_matches
+        matches_to_return = matches[:max_matches]
+
+        # Build context for each match (need to re-read relevant sections)
+        from itertools import islice
+
+        result_matches = []
+        for match_line, match_text in matches_to_return:
+            # Calculate context range
+            start_line = max(1, match_line - context_lines)
+            end_line = min(total_lines, match_line + context_lines)
+
+            # Read only the context lines needed
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    start_idx = start_line - 1
+                    num_lines = end_line - start_line + 1
+                    context_lines_list = list(
+                        islice(f, start_idx, start_idx + num_lines)
+                    )
+                    context = "".join(context_lines_list)
+            except (IOError, OSError, UnicodeDecodeError) as e:
+                AbstraLogger.error(f"Failed to read context for {file_path}: {e}")
+                context = match_text
+
+            result_matches.append(
+                {
+                    "match_line": match_line,
+                    "match_text": match_text.rstrip("\n"),
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "context": context,
+                }
+            )
+
+        return {
+            "file": file,
+            "total_lines": total_lines,
+            "total_matches": total_matches,
+            "matches_returned": len(result_matches),
+            "truncated": truncated,
+            "matches": result_matches,
+        }
+
     def replace_code_context(self, file: str, replacements: List[Dict[str, str]]):
         """
         Replace specific code sections using exact context matching (RECOMMENDED).
@@ -658,6 +1060,7 @@ class MainController:
 
         Returns:
             Dict[str, Any]: Operation result with success status and details.
+                If ty type checking fails, returns success=False with observation.
 
         Example:
             ```python
@@ -711,25 +1114,46 @@ class MainController:
             - No cascading effects between replacements
             - Rollback capability if any operation fails
             - Context matching prevents positioning errors
+            - Type checking with ty in strict mode before confirming success
 
         Copywritings:
             Replace code sections using exact context matching
             Performing atomic context-based code replacements...
         """
-        file_path = Settings.root_path.joinpath(file)
-        if not file_path.is_file():
+
+        original_file_path = Settings.root_path.joinpath(file)
+        if not original_file_path.is_file():
             raise Exception(f"File {file} does not exist")
 
-        original_content = file_path.read_text(encoding="utf-8")
+        original_content = original_file_path.read_text(encoding="utf-8")
 
         try:
             modified_content = compute_updated_code_from_replacements(
                 original_content, replacements
             )
 
-            temp_file = Path(mkdtemp()) / file_path.name
+            temp_file = Path(mkdtemp()) / file
+            temp_file.parent.mkdir(parents=True, exist_ok=True)
             temp_file.write_text(modified_content, encoding="utf-8")
-            move(str(temp_file), str(file_path))
+            move(str(temp_file), str(original_file_path))
+
+            type_check_result = code_check(original_file_path)
+
+            if not type_check_result.success:
+                all_errors = ""
+                if type_check_result.stdout:
+                    all_errors += type_check_result.stdout
+                if type_check_result.stderr:
+                    if all_errors:
+                        all_errors += "\n"
+                    all_errors += type_check_result.stderr
+
+                return {
+                    "success": True,
+                    "file": file,
+                    "total_operations": len(replacements),
+                    "warning": f"Type checking failed:\n{all_errors}\n\nPlease review the changes made and double check the correct usage of Abstra SDK functions and classes.",
+                }
 
             return {
                 "success": True,
@@ -738,6 +1162,7 @@ class MainController:
             }
 
         except Exception as e:
+            print(f"[DEBUG] Exception during replacement: {type(e).__name__}: {str(e)}")
             raise Exception(f"Atomic context replacement failed: {str(e)}")
 
     def replace_file_content(self, file: str, content: str):
@@ -802,10 +1227,34 @@ class MainController:
         """
         try:
             temp_file = Path(mkdtemp()) / file
+            temp_file.parent.mkdir(parents=True, exist_ok=True)
+
+            original_file_path = Settings.root_path.joinpath(file)
+            original_file_path.parent.mkdir(parents=True, exist_ok=True)
+
             with temp_file.open("w", encoding="utf-8") as f:
                 f.write(content)
-            move(str(temp_file), Settings.root_path.joinpath(file))
-            return {"success": True}
+            move(str(temp_file), str(original_file_path))
+
+            if temp_file.suffix == ".py":
+                type_check_result = code_check(original_file_path)
+
+                if not type_check_result.success:
+                    all_errors = ""
+                    if type_check_result.stdout:
+                        all_errors += type_check_result.stdout
+                    if type_check_result.stderr:
+                        if all_errors:
+                            all_errors += "\n"
+                        all_errors += type_check_result.stderr
+
+                    return {
+                        "success": True,
+                        "file": file,
+                        "warning": f"Type checking failed:\n{all_errors}\n\nPlease review the changes made and double check the correct usage of Abstra SDK functions and classes.",
+                    }
+
+            return {"success": True, "file": file}
         except Exception as e:
             raise Exception(f"File content replacement failed: {str(e)}")
 
@@ -890,48 +1339,14 @@ class MainController:
 
     def get_scripts(self) -> List[ScriptStage]:
         project = self.repositories.project.load()
-        return project.scripts
+        scripts = project.get_scripts()
+
+        sorted_scripts = sorted(scripts, key=lambda s: s.title.lower())
+        return sorted_scripts
 
     def get_script(self, id: str) -> Optional[ScriptStage]:
         project = self.repositories.project.load()
         return project.get_script(id)
-
-    def delete_tasklet(self, id: str, remove_file: bool = False):
-        """
-        Delete a tasklet stage from the project workflow.
-
-        This method removes a tasklet stage from the project configuration and
-        optionally deletes the associated Python file from the filesystem.
-
-        Args:
-            id (str): Unique identifier of the tasklet stage to delete.
-            remove_file (bool, optional): Whether to also delete the associated
-                Python file from the filesystem. Defaults to False.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Delete tasklet but preserve the file
-            controller.delete_tasklet("data-processor")
-
-            # Delete tasklet and its file completely
-            controller.delete_tasklet("validator-tasklet", remove_file=True)
-            ```
-
-        Warning:
-            - Deleting a tasklet that is referenced by workflow transitions may
-              break the workflow flow
-            - If remove_file=True, the Python file will be permanently deleted
-            - This operation cannot be undone
-
-        Copywritings:
-            Delete a tasklet stage
-            Deleting a tasklet stage...
-        """
-        project = self.repositories.project.load()
-        project.delete_stage(id, remove_file)
-        self.repositories.project.save(project)
 
     def create_form(
         self,
@@ -996,7 +1411,10 @@ class MainController:
 
     def get_forms(self) -> List[FormStage]:
         project = self.repositories.project.load()
-        return project.forms
+        forms = project.get_forms()
+
+        sorted_forms = sorted(forms, key=lambda f: f.title.lower())
+        return sorted_forms
 
     def get_form(self, id: str) -> Optional[FormStage]:
         project = self.repositories.project.load()
@@ -1018,15 +1436,15 @@ class MainController:
             return "{}"
         return test_file.read_text(encoding="utf-8")
 
-    def delete_form(self, id: str, remove_file: bool = False):
+    def delete_stage(self, stage_id: str, remove_file: bool = False):
         """
-        Delete a form stage from the project workflow.
+        Delete a stage from the project workflow.
 
-        This method removes a form stage from the project configuration and
+        This method removes a stage from the project configuration and
         optionally deletes the associated Python file from the filesystem.
 
         Args:
-            id (str): Unique identifier of the form stage to delete.
+            id (str): Unique identifier of the stage to delete.
             remove_file (bool, optional): Whether to also delete the associated
                 Python file from the filesystem. Defaults to False.
 
@@ -1034,25 +1452,24 @@ class MainController:
             ```python
             controller = MainController(repositories)
 
-            # Delete form but keep the file
-            controller.delete_form("form-123")
-
-            # Delete form and its file completely
-            controller.delete_form("form-456", remove_file=True)
+            # Delete stage but keep the file
+            controller.delete_stage("stage-123")
+            # Delete stage and its file completely
+            controller.delete_stage("stage-456", remove_file=True)
             ```
 
         Warning:
-            - Deleting a form that is referenced by workflow transitions may
+            - Deleting a stage that is referenced by workflow transitions may
               break the workflow flow
             - If remove_file=True, the Python file will be permanently deleted
             - This operation cannot be undone
 
         Copywritings:
-            Delete a form stage
-            Deleting a form stage...
+            Delete a stage
+            Deleting a stage...
         """
         project = self.repositories.project.load()
-        project.delete_stage(id, remove_file)
+        project.delete_stage(stage_id, remove_file)
         self.repositories.project.save(project)
 
     def create_hook(
@@ -1124,55 +1541,23 @@ class MainController:
 
     def get_hooks(self) -> List[HookStage]:
         project = self.repositories.project.load()
-        return project.hooks
+        hooks = project.get_hooks()
+
+        sorted_hooks = sorted(hooks, key=lambda h: h.title.lower())
+        return sorted_hooks
 
     def get_hook_by_path(self, path: str) -> Optional[HookStage]:
         project = self.repositories.project.load()
         return project.get_hook_by_path(path)
 
-    def delete_hook(self, id: str, remove_file: bool = False) -> None:
-        """
-        Delete a hook stage from the project workflow.
-
-        This method removes a hook stage from the project configuration and
-        optionally deletes the associated Python file from the filesystem.
-        The hook endpoint will no longer be available after deletion.
-
-        Args:
-            id (str): Unique identifier of the hook stage to delete.
-            remove_file (bool, optional): Whether to also delete the associated
-                Python file from the filesystem. Defaults to False.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Delete hook but preserve the file
-            controller.delete_hook("webhook-123")
-
-            # Delete hook and its file completely
-            controller.delete_hook("api-hook-456", remove_file=True)
-            ```
-
-        Warning:
-            - The hook endpoint will become inaccessible immediately
-            - External systems calling this hook will receive 404 errors
-            - If remove_file=True, the Python file will be permanently deleted
-            - This operation cannot be undone
-
-        Copywritings:
-            Delete a hook stage
-            Deleting a hook stage...
-        """
-        project = self.repositories.project.load()
-        project.delete_stage(id, remove_file)
-        self.repositories.project.save(project)
-
     def get_jobs(self, include_disabled_jobs: bool = False) -> List[JobStage]:
         project = self.repositories.project.load(
             include_disabled_stages=include_disabled_jobs
         )
-        return project.jobs
+        jobs = project.get_jobs()
+
+        sorted_jobs = sorted(jobs, key=lambda j: j.title.lower())
+        return sorted_jobs
 
     def get_job(self, id: str) -> Optional[JobStage]:
         project = self.repositories.project.load()
@@ -1318,6 +1703,10 @@ class MainController:
         project = self.repositories.project.load()
         stage = project.get_stage(id)
 
+        stage_module = project.get_stage_module(id)
+        if stage_module is not None:
+            project = stage_module.get_project()
+
         if not stage:
             raise Exception(f"Stage with id {id} not found")
 
@@ -1335,44 +1724,6 @@ class MainController:
         stage = project.update_stage(stage, changes)
         self.repositories.project.save(project)
         return stage
-
-    def delete_job(self, id: str, remove_file: bool = False):
-        """
-        Delete a job stage from the project workflow.
-
-        This method removes a job stage from the project configuration and
-        optionally deletes the associated Python file from the filesystem.
-        Any scheduled executions of this job will be stopped.
-
-        Args:
-            id (str): Unique identifier of the job stage to delete.
-            remove_file (bool, optional): Whether to also delete the associated
-                Python file from the filesystem. Defaults to False.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Delete job but keep the file for reference
-            controller.delete_job("daily-sync-job")
-
-            # Delete job and its file completely
-            controller.delete_job("cleanup-job", remove_file=True)
-            ```
-
-        Warning:
-            - The job will no longer execute on its schedule after deletion
-            - Any pending job executions will be cancelled
-            - If remove_file=True, the Python file will be permanently deleted
-            - This operation cannot be undone
-
-        Copywritings:
-            Delete a job stage
-            Deleting a job stage...
-        """
-        project = self.repositories.project.load()
-        project.delete_stage(id, remove_file)
-        self.repositories.project.save(project)
 
     def list_all_stages(self) -> List[Stage]:
         """
@@ -1422,6 +1773,11 @@ class MainController:
         project = self.repositories.project.load()
         return project.workflow_stages
 
+    # Modules
+    def get_modules(self) -> List[str]:
+        project = self.repositories.project.load()
+        return [module.name for module in project.get_installed_modules()]
+
     # Login
     def get_credentials(self):
         return get_credentials()
@@ -1431,6 +1787,12 @@ class MainController:
         if not headers:
             return {"logged": False, "reason": "NO_API_TOKEN"}
         return get_api_key_info(headers)
+
+    def get_email(self):
+        login = self.get_login()
+        if login.get("logged"):
+            return login.get("info", {}).get("email")
+        return None
 
     def create_login(self, token):
         set_credentials(token)
@@ -1445,7 +1807,19 @@ class MainController:
         headers = resolve_headers()
         if headers is None:
             flask.abort(401)
-        return get_project_info(headers)
+        try:
+            return get_project_info(headers)
+        except Exception:
+            return {}
+
+    def get_feature_flags(self):
+        headers = resolve_headers()
+        if headers is None:
+            flask.abort(401)
+        try:
+            return get_feature_flags(headers)
+        except Exception:
+            return {}
 
     # access_control
     def list_access_controls(self):
@@ -1465,6 +1839,9 @@ class MainController:
     # logs
     def get_executions(self, filter: ExecutionFilter):
         return self.execution_repository.list(filter)
+
+    def stop_execution(self, execution_id: str):
+        self.execution_repository.stop_execution(execution_id)
 
     def get_execution_logs(self, id: str) -> List[LogEntry]:
         """
@@ -1600,11 +1977,10 @@ class MainController:
         return {"public_url": None}
 
     # Worker lifecycle
-    def fail_worker_executions(self, *, app_id: str, worker_id: str, reason: str):
+    def fail_worker_executions(self, *, worker_id: str, reason: str):
         killed_executions = self.execution_repository.find_by_worker(
             worker_id=worker_id,
             status="running",
-            app_id=app_id,
         )
 
         for execution in killed_executions:
@@ -1622,34 +1998,24 @@ class MainController:
             self.tasks_repository.set_locked_tasks_to_pending(execution.id)
 
         AbstraLogger.capture_message(
-            f"[ABSTRA] Failed {len(killed_executions)} running executions for app `{app_id}` with worker {worker_id} with reason: {reason}"
+            f"[ABSTRA] Failed {len(killed_executions)} running executions for worker {worker_id} with reason: {reason}"
         )
 
-    def fail_app_executions(self, *, app_id: str, reason: str):
-        exited_execs = self.execution_repository.find_by_app(
-            status="running",
-            app_id=app_id,
+    def fail_execution(self, execution_id: str, reason: str):
+        err_log = LogEntry(
+            execution_id=execution_id,
+            stage_id=self.execution_repository.get(execution_id).stage_id,
+            created_at=datetime.datetime.now(),
+            payload={"text": "[ABSTRA] Execution aborted. " + reason},
+            sequence=999999,
+            event="stderr",
         )
+        self.execution_logs_repository.save(err_log)
 
-        for execution in exited_execs:
-            err_log = LogEntry(
-                execution_id=execution.id,
-                stage_id=execution.stage_id,
-                created_at=datetime.datetime.now(),
-                payload={"text": "[ABSTRA] Execution aborted. " + reason},
-                sequence=999999,
-                event="stderr",
-            )
-            self.execution_logs_repository.save(err_log)
+        self.execution_repository.set_failure_by_id(execution_id=execution_id)
+        self.tasks_repository.set_locked_tasks_to_pending(execution_id)
 
-            self.execution_repository.set_failure_by_id(execution_id=execution.id)
-            self.tasks_repository.set_locked_tasks_to_pending(execution.id)
-
-        AbstraLogger.capture_message(
-            f"[ABSTRA] Failed {len(exited_execs)} running executions for app `{app_id}` with reason: {reason}"
-        )
-
-    def debug_run_job(self, id: str):
+    def run_job(self, id: str):
         """
         Run a job stage immediately by its ID.
 
@@ -1666,19 +2032,30 @@ class MainController:
             Run a job for debugging
             Running a job for debugging...
         """
-        job = self.get_job(id)
-        if not job:
+        status = self.get_job_status(id)
+        if status == "not_found":
             raise Exception(f"Job with id {id} not found")
 
-        print(f"Running job {job.id} ({job.title})")
+        if status == "disabled":
+            return {"status": "disabled"}
 
-        return ExecutionController(
-            repositories=self.repositories,
-            stage=job,
-            context=JobContext(),
-        ).run()
+        conn = self.repositories.producer.enqueue(id, context=JobContext())
+        try:
+            start_msg = conn.recv()
 
-    def debug_run_hook(self, id: str, request: Request):
+            if isinstance(start_msg, str):
+                start_msg = json.loads(start_msg)
+
+            start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
+
+            return {
+                "ok": True,
+                "execution_id": start_msg.execution_id,
+            }
+        finally:
+            conn.close()
+
+    def run_hook(self, id: str, request: Request):
         """
         Run a hook stage immediately by its ID.
 
@@ -1702,33 +2079,43 @@ class MainController:
 
         context = HookContext(
             request=request,
-            response=Response(
-                body="",
-                headers={},
-                status=200,
-            ),
+            response=Response(headers={}, status=200, body=""),
         )
 
-        client = HookClient(context=context)
+        connection = self.repositories.producer.enqueue(hook.id, context)
+        start_msg = connection.recv()
 
-        run_data = ExecutionController(
-            repositories=self.repositories,
-            stage=hook,
-            client=client,
-            context=context,
-        ).run()
+        if isinstance(start_msg, str):
+            start_msg = json.loads(start_msg)
 
-        if context.response is None or client.context.response is None:
-            flask.abort(500)
+        start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
+
+        try:
+            response = connection.recv()
+
+            if not response:
+                flask.abort(500)
+
+            if isinstance(response, str):
+                response = json.loads(response)
+
+            if not isinstance(response, Response):
+                response = Response(
+                    headers=response.get("headers", {}),
+                    status=response.get("status", 200),
+                    body=response.get("body", ""),
+                )
+        finally:
+            connection.close()
 
         return {
-            "body": client.context.response.body,
-            "status": context.response.status,
-            "headers": context.response.headers,
-            **run_data,
+            "status": response.status,
+            "body": response.body,
+            "headers": response.headers,
+            "execution_id": start_msg.execution_id,
         }
 
-    def debug_run_tasklet(self, id: str, task_id: str):
+    def run_tasklet(self, id: str, task_id: str):
         """
         Run a tasklet stage immediately by its ID.
 
@@ -1751,49 +2138,21 @@ class MainController:
         if not script:
             raise Exception(f"Tasklet with id {id} not found")
 
-        if not task_id:
-            raise Exception("Task ID is required for tasklet execution")
-
-        return ExecutionController(
-            repositories=self.repositories,
-            stage=script,
-            context=ScriptContext(task_id=task_id),
-        ).run()
-
-    def debug_run_form_with_ai(self, id, prompt: str, url_params: Dict[str, str] = {}):
-        """
-        Run a form stage immediately by its ID.
-
-        This method triggers the execution of a form stage, allowing it to run
-        immediately in response to user input. It is useful for testing or
-        manually triggering forms.
-
-        Args:
-            id (str): Unique identifier of the form stage to run.
-            url_params (dict): URL parameters to pass to the form.
-            prompt (str): Prompt message to instruct the AI to fill the form.
-        """
-
-        ws = AiWs(repos=self.repositories, prompt_text=prompt, url_params=url_params)
-        context = FormContext(
-            request=Request(query_params=url_params, headers={}, method="GET", body=""),
-        )
-        form = self.get_form(id)
-        if not form:
-            raise Exception(f"Form with id {id} not found")
-
-        client = FormClient(
-            ws=ws,  # type: ignore
-            context=context,
-            production_mode=False,
+        conn = self.repositories.producer.enqueue(
+            id, context=ScriptContext(task_id=task_id)
         )
 
-        return ExecutionController(
-            repositories=self.repositories,
-            stage=form,
-            client=client,
-            context=context,
-        ).run()
+        try:
+            start_msg = conn.recv()
+
+            if isinstance(start_msg, str):
+                start_msg = json.loads(start_msg)
+
+            start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
+
+            return {"ok": True, "execution_id": start_msg.execution_id}
+        finally:
+            conn.close()
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """
@@ -1805,14 +2164,84 @@ class MainController:
         tempfile = Path(mktemp(suffix=".py"))
 
         stage = self.create_job(title, str(tempfile), (0, 0))
-        tempfile.write_text(code)
+        tempfile.write_text(code, encoding="utf-8")
+
+        context = JobContext()
+        _, child_conn = Pipe()
+        client = HeadlessClient(context=context, conn=child_conn, production_mode=False)
 
         execution_result = ExecutionController(
             repositories=self.repositories,
             stage=stage,
-            context=JobContext(),
-        ).run()
+            client=client,
+            context=context,
+        ).run(
+            execution_id=uuid4().__str__(),
+            worker_id="debug-snippet-worker",
+        )
 
-        self.delete_job(stage.id, remove_file=True)
+        self.delete_stage(stage.id, remove_file=True)
 
         return execution_result
+
+    def add_and_install_requirement(self, name: str, version: Optional[str] = None):
+        """
+        Add a requirement to requirements.txt and install it automatically.
+
+        This method adds a Python package to the requirements.txt file and
+        immediately installs it using pip, combining both operations in one call.
+
+        Args:
+            name (str): Name of the Python package to add and install.
+            version (str, optional): Specific version to install. If not provided,
+                                   installs the latest version.
+
+        Returns:
+            dict: Result containing the updated requirements list and installation status.
+
+        Copywritings:
+            Add and install Python package
+            Adding and installing Python package...
+        """
+
+        # add to requirements.txt
+        requirements = RequirementsRepository.load()
+        requirements.add(name, version)
+        RequirementsRepository.save(requirements)
+
+        # install the package
+        install_generator = requirements.install()
+        if install_generator is None:
+            return {
+                "status": "error",
+                "message": "Installation not allowed in this environment",
+                "requirements": requirements.to_dict(),
+            }
+
+        # output
+        installation_output = []
+        try:
+            for output_line in install_generator:
+                installation_output.append(output_line)
+                if output_line == "__ABSTRA_STREAM_ERROR__":
+                    return {
+                        "status": "error",
+                        "message": f"Failed to install {name}",
+                        "output": installation_output,
+                        "requirements": requirements.to_dict(),
+                    }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Installation failed: {str(e)}",
+                "output": installation_output,
+                "requirements": requirements.to_dict(),
+            }
+
+        return {
+            "status": "success",
+            "message": f"Successfully added and installed {name}"
+            + (f"=={version}" if version else ""),
+            "output": installation_output,
+            "requirements": requirements.to_dict(),
+        }

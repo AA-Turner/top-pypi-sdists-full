@@ -106,6 +106,7 @@ apprise_url_tests = (
         "xml://user@localhost?method=post",
         {
             "instance": NotifyXML,
+            "force_debug": True,
         },
     ),
     (
@@ -226,7 +227,7 @@ apprise_url_tests = (
         "xml://user:pass@localhost:8082",
         {
             "instance": NotifyXML,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -236,7 +237,7 @@ apprise_url_tests = (
         {
             "instance": NotifyXML,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -375,6 +376,7 @@ def test_plugin_custom_xml_edge_cases(mock_get, mock_post):
     assert mock_get.call_count == 1
 
     details = mock_get.call_args_list[0]
+    assert "NotifyType." not in details[1]["data"]
     assert details[0][0] == "http://localhost:8080/command"
     assert instance.url(privacy=False).startswith(
         "xml://localhost:8080/command?"
@@ -441,6 +443,7 @@ def test_plugin_custom_xml_edge_cases(mock_get, mock_post):
     assert mock_get.call_count == 0
 
     details = mock_post.call_args_list[0]
+    assert "NotifyType." not in details[1]["data"]
     assert details[0][0] == "http://localhost:8081/command"
     assert instance.url(privacy=False).startswith(
         "xml://localhost:8081/command?"
@@ -464,7 +467,8 @@ def test_plugin_custom_xml_edge_cases(mock_get, mock_post):
 
     # Test our data set for our key/value pair
     assert re.search(r"<Version>[1-9]+\.[0-9]+</Version>", details[1]["data"])
-    assert re.search(r"<MessageType>info</MessageType>", details[1]["data"])
+    assert re.search(r"<MessageType>{}</MessageType>".format(
+        NotifyType.INFO.value), details[1]["data"])
     assert re.search(r"<Subject>title</Subject>", details[1]["data"])
     # No over-ride
     assert re.search(r"<Message>body</Message>", details[1]["data"])
@@ -503,6 +507,7 @@ def test_plugin_custom_xml_edge_cases(mock_get, mock_post):
     assert mock_get.call_count == 0
 
     details = mock_post.call_args_list[0]
+    assert "NotifyType." not in details[1]["data"]
     assert details[0][0] == "https://localhost"
     assert instance.url(privacy=False).startswith("xmls://localhost")
 
@@ -516,7 +521,8 @@ def test_plugin_custom_xml_edge_cases(mock_get, mock_post):
     )
 
     # Test our data set for our key/value pair
-    assert re.search(r"<MessageType>info</MessageType>", details[1]["data"])
+    assert re.search(r"<MessageType>{}</MessageType>".format(
+        NotifyType.INFO.value), details[1]["data"])
 
     # Subject is swapped for Title
     assert re.search(r"<Subject>title</Subject>", details[1]["data"]) is None

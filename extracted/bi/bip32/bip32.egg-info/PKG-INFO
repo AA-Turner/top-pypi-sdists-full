@@ -1,19 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bip32
-Version: 4.0
-Summary: Minimalistic implementation of the BIP32 key derivation scheme
-Home-page: http://github.com/darosior/python-bip32
-Author: Antoine Poinsot
-Author-email: darosior@protonmail.com
-License: MIT
-Keywords: bitcoin,bip32,hdwallet
+Version: 5.0.0
+Summary: Minimalistic implementation of BIP32 (Bitcoin HD wallets)
+Author-email: Antoine Poinsot <darosior@protonmail.com>
+Maintainer-email: Antoine Poinsot <darosior@protonmail.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/darosior/python-bip32
+Project-URL: Repository, https://github.com/darosior/python-bip32
+Project-URL: Issues, https://github.com/darosior/python-bip32/issues
+Project-URL: Bug Tracker, https://github.com/darosior/python-bip32/issues
+Project-URL: Changelog, https://github.com/darosior/python-bip32/tree/master/CHANGELOG.md
+Keywords: bitcoin,key derivation,HD wallet
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Security :: Cryptography
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENCE
 Requires-Dist: coincurve<21,>=15.0
+Dynamic: license-file
 
 # python-bip32
 
-A basic implementation of the [bip-0032](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki).
+A minimalistic implementation of [BIP 32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki).
 
 ## Usage
 
@@ -57,7 +66,7 @@ This uses [`coincurve`](https://github.com/ofek/coincurve) as a wrapper for [`li
 # From the root of the repository
 python3 -m venv venv
 . venv/bin/activate
-pip install -r requirements.txt && pip install pytest
+pip install -r tests/requirements.txt && pip install pytest
 PYTHONPATH=$PYTHONPATH:$PWD/bip32 pytest -vvv
 ```
 
@@ -125,18 +134,22 @@ path.
 Note that you don't need to have provided the master private key if the path doesn't
 include an index `>= HARDENED_INDEX`.
 
-#### get_xpriv(path)
+#### get_xpriv()
 
 Equivalent to `get_xpriv_from_path([])`.
 
-#### get_xpriv_bytes(path)
+#### get_xpriv_bytes()
 
-Equivalent to `get_xpriv([])`, but not serialized in base58
+Equivalent to `get_xpriv([])`, but not serialized in base58.
 
-#### get_xpub(path)
+#### get_xpub()
 
 Equivalent to `get_xpub_from_path([])`.
 
-#### get_xpub_bytes(path)
+#### get_xpub_bytes()
 
-Equivalent to `get_xpub([])`, but not serialized in base58
+Equivalent to `get_xpub([])`, but not serialized in base58.
+
+#### get_fingerprint()
+
+Returns `fingerprint (bytes)`, equivalent to `utils._pubkey_to_fingerprint(self.pubkey)`.

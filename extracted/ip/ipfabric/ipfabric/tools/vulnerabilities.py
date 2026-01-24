@@ -2,7 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Optional
 
-from httpx._types import ProxyTypes
+from niquests.typing import ProxyType
 from pydantic import BaseModel
 
 from ipfabric.tools.nist import NIST, CVEs
@@ -18,9 +18,7 @@ class Version(BaseModel):
 
 
 class Vulnerabilities:
-    def __init__(
-        self, ipf, nvd_api_key: str, timeout: int = 60, proxies: Optional[ProxyTypes] = None, retries: int = 2
-    ):
+    def __init__(self, ipf, nvd_api_key: str, timeout: int = 60, proxies: Optional[ProxyType] = None, retries: int = 2):
         """
 
         Args:
@@ -40,7 +38,7 @@ class Vulnerabilities:
             return
 
     def _check_versions(self, versions) -> list[Version]:
-        cves = list()
+        cves = []
         for v in versions:
             cve = self.nist.check_cve(v["vendor"], v["family"], v["version"])
             cves.append(Version(vendor=v["vendor"], family=v["family"], version=v["version"], cves=cve))
@@ -56,7 +54,7 @@ class Vulnerabilities:
             if c.vendor not in cve_dict:
                 cve_dict[c.vendor] = defaultdict(dict)
             cve_dict[c.vendor][c.family].update({c.version: c})
-        cves = list()
+        cves = []
         for d in devices:
             cve = deepcopy(cve_dict[d["vendor"]][d["family"]][d["version"]])
             cve.hostname = d["hostname"]

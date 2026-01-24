@@ -1,0 +1,13 @@
+services:
+  memcached:
+    image: memcached
+    ports:
+      - 31211:11211
+  redis:
+    image: redis
+    ports:
+      - 46379:6379
+  mongodb:
+    image: mongo
+    ports:
+      - '47017:27017'

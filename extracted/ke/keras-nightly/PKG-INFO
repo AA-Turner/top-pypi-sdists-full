@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-nightly
-Version: 3.12.0.dev2025092403
+Version: 3.14.0.dev2026012404
 Summary: Multi-backend Keras
 Author-email: Keras team <keras-users@googlegroups.com>
 License: Apache License 2.0
@@ -8,15 +8,15 @@ Project-URL: Home, https://keras.io/
 Project-URL: Repository, https://github.com/keras-team/keras
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: absl-py
 Requires-Dist: numpy
@@ -56,9 +56,8 @@ pip install keras --upgrade
 
 2. Install backend package(s).
 
-To use `keras`, you should also install the backend of choice: `tensorflow`, `jax`, or `torch`.
-Note that `tensorflow` is required for using certain Keras 3 features: certain preprocessing layers
-as well as `tf.data` pipelines.
+To use `keras`, you should also install the backend of choice: `tensorflow`, `jax`, or `torch`. Additionally,
+The `openvino` backend is available with support for model inference only.
 
 ### Local installation
 
@@ -84,6 +83,17 @@ python pip_build.py --install
 ```
 ./shell/api_gen.sh
 ```
+
+## Backend Compatibility Table
+
+The following table lists the minimum supported versions of each backend for the latest stable release of Keras (v3.x):
+
+| Backend    | Minimum Supported Version |
+|------------|---------------------------|
+| TensorFlow | 2.16.1                    |
+| JAX        | 0.4.20                    |
+| PyTorch    | 2.1.0                     |
+| OpenVINO   | 2025.3.0                  |
 
 #### Adding GPU support
 

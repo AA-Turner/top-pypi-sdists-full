@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Sequence, Set
 
 import numpy as np
@@ -6,8 +5,11 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
+from inspect_ai._util.dateutil import datetime_from_iso_format_safe
+from inspect_ai._util.rich import rich_traceback
 from inspect_ai.log import EvalStats
-from inspect_ai.log._log import EvalScore, rich_traceback
+from inspect_ai.log._log import EvalScore
+from inspect_ai.model._model_output import ModelUsage
 
 from .config import task_config, task_dict
 from .display import (
@@ -64,14 +66,41 @@ def task_results(profile: TaskProfile, success: TaskSuccess) -> RenderableType:
         for row in task_scores(success.results.scores):
             grid.add_row(row)
 
-    # note if some of our samples had errors
+    # note if some of our samples had errors or were stopped early
     if success.samples_completed < profile.samples:
-        sample_errors = profile.samples - success.samples_completed
-        sample_error_pct = int(float(sample_errors) / float(profile.samples) * 100)
-        message = f"\n[{theme.warning}]WARNING: {sample_errors} of {profile.samples} samples ({sample_error_pct}%) had errors and were not scored.[/{theme.warning}]\n"
-        return Group(grid, message)
-    else:
-        return grid
+        # pending message
+        message: list[str] = []
+
+        # early stopped
+        samples_early_stopped = (
+            len(success.results.early_stopping.early_stops)
+            if success.results.early_stopping
+            else 0
+        )
+        if samples_early_stopped > 0:
+            sample_early_stop_pct = int(
+                float(samples_early_stopped) / float(profile.samples) * 100
+            )
+            message.append(
+                f"[{theme.meta}]NOTE: {samples_early_stopped} of {profile.samples} samples ({sample_early_stop_pct}%) were not executed due to early stopping.[/{theme.meta}]"
+            )
+
+        # executed
+        samples_executed = profile.samples - samples_early_stopped
+
+        # errors
+        sample_errors = samples_executed - success.samples_completed
+        if sample_errors > 0:
+            sample_error_pct = int(float(sample_errors) / float(samples_executed) * 100)
+            message.append(
+                f"[{theme.warning}]WARNING: {sample_errors} of {samples_executed} executed samples ({sample_error_pct}%) had errors and were not scored.[/{theme.warning}]"
+            )
+
+        # return special messages if we have them
+        if len(message) > 0:
+            return Group(grid, "\n" + "\n\n".join(message))
+
+    return grid
 
 
 SCORES_PER_ROW = 4
@@ -164,36 +193,42 @@ def task_stats(stats: EvalStats) -> RenderableType:
     table.add_column()
 
     # eval time
-    started = datetime.fromisoformat(stats.started_at)
-    completed = datetime.fromisoformat(stats.completed_at)
+    started = datetime_from_iso_format_safe(stats.started_at)
+    completed = datetime_from_iso_format_safe(stats.completed_at)
     elapsed = completed - started
     table.add_row(Text("total time:", style="bold"), f"  {elapsed}", style=theme.light)
 
     # token usage
     for model, usage in stats.model_usage.items():
-        if (
-            usage.input_tokens_cache_read is not None
-            or usage.input_tokens_cache_write is not None
-        ):
-            input_tokens_cache_read = usage.input_tokens_cache_read or 0
-            input_tokens_cache_write = usage.input_tokens_cache_write or 0
-            input_tokens = f"[bold]I: [/bold]{usage.input_tokens:,}, [bold]CW: [/bold]{input_tokens_cache_write:,}, [bold]CR: [/bold]{input_tokens_cache_read:,}"
-        else:
-            input_tokens = f"[bold]I: [/bold]{usage.input_tokens:,}"
-
-        if usage.reasoning_tokens is not None:
-            reasoning_tokens = f", [bold]R: [/bold]{usage.reasoning_tokens:,}"
-        else:
-            reasoning_tokens = ""
-
         table.add_row(
-            Text(model, style="bold"),
-            f"  {usage.total_tokens:,} tokens [{input_tokens}, [bold]O: [/bold]{usage.output_tokens:,}{reasoning_tokens}]",
+            *model_usage_summary(model, usage),
             style=theme.light,
         )
 
     panel.add_row(table)
     return panel
+
+
+def model_usage_summary(model: str, usage: ModelUsage) -> list[RenderableType]:
+    if (
+        usage.input_tokens_cache_read is not None
+        or usage.input_tokens_cache_write is not None
+    ):
+        input_tokens_cache_read = usage.input_tokens_cache_read or 0
+        input_tokens_cache_write = usage.input_tokens_cache_write or 0
+        input_tokens = f"[bold]I: [/bold]{usage.input_tokens:,}, [bold]CW: [/bold]{input_tokens_cache_write:,}, [bold]CR: [/bold]{input_tokens_cache_read:,}"
+    else:
+        input_tokens = f"[bold]I: [/bold]{usage.input_tokens:,}"
+
+    if usage.reasoning_tokens is not None:
+        reasoning_tokens = f", [bold]R: [/bold]{usage.reasoning_tokens:,}"
+    else:
+        reasoning_tokens = ""
+
+    return [
+        Text(model, style="bold"),
+        f"  {usage.total_tokens:,} tokens [{input_tokens}, [bold]O: [/bold]{usage.output_tokens:,}{reasoning_tokens}]",
+    ]
 
 
 def task_can_retry(profile: TaskProfile) -> bool:

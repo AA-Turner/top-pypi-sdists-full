@@ -137,7 +137,8 @@ class DatabaseRoleCollection(DatabaseObjectCollectionParent["DatabaseRoleResourc
 class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection]):
     """Represents a reference to a Snowflake database role.
 
-    With this database role reference, you can delete roles.
+    With this database role reference, you can delete and clone a database role, as well as
+    perform certain actions on it.
     """
 
     def __init__(self, name: str, collection: DatabaseRoleCollection) -> None:

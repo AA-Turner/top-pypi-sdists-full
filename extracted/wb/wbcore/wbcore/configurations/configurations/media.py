@@ -7,7 +7,7 @@ class Media:
 
 class LocalMedia(Media):
     @property
-    def MEDIA_ROOT(self):
+    def MEDIA_ROOT(self):  # noqa
         return self.BASE_DIR.joinpath("mediafiles")
 
 

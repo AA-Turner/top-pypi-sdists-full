@@ -2,7 +2,7 @@ import logging
 from functools import wraps
 from inspect import iscoroutinefunction
 from logging import Logger
-from typing import Callable, Optional, TypeVar
+from typing import Callable, TypeVar
 from uuid import uuid4
 
 from essentials.diagnostics import StopWatch
@@ -17,8 +17,8 @@ def _default_id_factory() -> str:
 
 
 def log(
-    logger: Optional[Logger] = None,
-    id_factory: Optional[IdFactory] = None,
+    logger: Logger | None = None,
+    id_factory: IdFactory | None = None,
     log_arguments: bool = False,
     log_return_value: bool = False,
     level=logging.INFO,
@@ -67,7 +67,6 @@ def log(
             )
 
     def log_decorator(fn):
-        nonlocal logger
         name = fn.__module__ + "." + fn.__name__
 
         if iscoroutinefunction(fn):

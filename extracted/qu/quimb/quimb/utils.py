@@ -55,6 +55,20 @@ def check_opt(name, value, valid):
         raise ValueError(_CHECK_OPT_MSG.format(name, valid, value))
 
 
+def parse_info_extras(info=None, default=()):
+    if info is None:
+        # compute nothing
+        return {}
+    elif info == {}:
+        # compute all default keys
+        for k in default:
+            info[k] = None
+        return info
+    else:
+        # assume manually specified keys
+        return info
+
+
 def find_library(x):
     """Check if library is installed.
 
@@ -526,6 +540,7 @@ class ExponentialGeometricRollingDiffMean:
     """Track the absolute rolling mean of diffs between values, weighted in a
     exponentially decaying geometric fashion.
     """
+
     def __init__(self, factor=1 / 3, initial=1.0):
         self.y_prev = None
         self.x_prev = None

@@ -100,7 +100,11 @@ class TestIterfind:
         assert result == list(itr)
         del itr
 
-        itr = svg_root.iterfind(f"{prefix}:{tag}", namespaces=MappingProxyType(nsdict))
+        itr = svg_root.iterfind(
+            f"{prefix}:{tag}",
+            # pyrefly: ignore[bad-argument-type]
+            namespaces=MappingProxyType(nsdict),
+        )
         assert result == list(itr)
         del itr
 
@@ -111,11 +115,15 @@ class TestIterfind:
     def test_namespaces_arg_bad_1(
         self, disposable_element: _Element, thing: Any
     ) -> None:
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         if not hasattr(thing, "__iter__"):
             raise_cm = raise_non_iterable
         else:
-            raise_cm = pytest.raises((TypeError, AttributeError))  # type: ignore[arg-type]
+            # pyrefly: ignore[no-matching-overload]
+            raise_cm = pytest.raises((
+                TypeError,
+                AttributeError,
+            ))
         with raise_cm:
             _ = disposable_element.iterfind("foo", namespaces=thing)
 
@@ -169,7 +177,8 @@ class TestFind:
         assert result == svg_root.find(qname, namespaces=None)
         assert result == svg_root.find(f"{prefix}:{tag}", namespaces=nsdict)
         assert result == svg_root.find(
-            f"{prefix}:{tag}", namespaces=MappingProxyType(nsdict)
+            f"{prefix}:{tag}",
+            namespaces=MappingProxyType(nsdict),  # pyrefly: ignore[bad-argument-type]
         )
 
     # range objects can cause indefinite hang
@@ -179,11 +188,15 @@ class TestFind:
     def test_namespaces_arg_bad_1(
         self, disposable_element: _Element, thing: Any
     ) -> None:
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         if not hasattr(thing, "__iter__"):
             raise_cm = raise_non_iterable
         else:
-            raise_cm = pytest.raises((TypeError, AttributeError))  # type: ignore[arg-type]
+            # pyrefly: ignore[no-matching-overload]
+            raise_cm = pytest.raises((
+                TypeError,
+                AttributeError,
+            ))
         with raise_cm:
             _ = disposable_element.find("foo", namespaces=thing)
 
@@ -237,7 +250,8 @@ class TestFindall:
         assert result == svg_root.findall(qname, namespaces=None)
         assert result == svg_root.findall(f"{prefix}:{tag}", namespaces=nsdict)
         assert result == svg_root.findall(
-            f"{prefix}:{tag}", namespaces=MappingProxyType(nsdict)
+            f"{prefix}:{tag}",
+            namespaces=MappingProxyType(nsdict),  # pyrefly: ignore[bad-argument-type]
         )
 
     # range objects can cause indefinite hang
@@ -247,11 +261,15 @@ class TestFindall:
     def test_namespaces_arg_bad_1(
         self, disposable_element: _Element, thing: Any
     ) -> None:
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         if not hasattr(thing, "__iter__"):
             raise_cm = raise_non_iterable
         else:
-            raise_cm = pytest.raises((TypeError, AttributeError))  # type: ignore[arg-type]
+            # pyrefly: ignore[no-matching-overload]
+            raise_cm = pytest.raises((
+                TypeError,
+                AttributeError,
+            ))
         with raise_cm:
             _ = disposable_element.findall("foo", namespaces=thing)
 
@@ -338,11 +356,15 @@ class TestFindtext:
     def test_namespaces_arg_bad_1(
         self, disposable_element: _Element, thing: Any
     ) -> None:
-        assume(thing is NotImplemented or bool(thing))
+        assume(thing is not NotImplemented and bool(thing))
         if not hasattr(thing, "__iter__"):
             raise_cm = raise_non_iterable
         else:
-            raise_cm = pytest.raises((TypeError, AttributeError))  # type: ignore[arg-type]
+            # pyrefly: ignore[no-matching-overload]
+            raise_cm = pytest.raises((
+                TypeError,
+                AttributeError,
+            ))
         with raise_cm:
             _ = disposable_element.findtext("foo", namespaces=thing)
 

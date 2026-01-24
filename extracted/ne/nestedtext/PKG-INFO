@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nestedtext
-Version: 3.7
+Version: 3.8
 Summary: human readable and writable data interchange format
 Keywords: data,serialization,json,yaml
 Author: Ken Kundert, Kale Kundert
@@ -15,21 +15,22 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Topic :: Utilities
+License-File: LICENSE
 Requires-Dist: inform>=1.28
 Project-URL: changelog, https://github.com/KenKundert/nestedtext/blob/master/doc/releases.rst
 Project-URL: documentation, https://nestedtext.org
 Project-URL: homepage, https://nestedtext.org
 Project-URL: repository, https://github.com/kenkundert/nestedtext
 
-NestedText — A Human Friendly Data Format
-=========================================
+NestedText — Structured Data for Humans
+=======================================
 
 |downloads| |build status| |coverage| |rtd status| |pypi version| |anaconda version| |python version|
 
 
 | Authors: Ken & Kale Kundert
-| Version: 3.7
-| Released: 2024-04-27
+| Version: 3.8
+| Released: 2025-12-26
 | Documentation: nestedtext.org_
 | Please post all questions, suggestions, and bug reports to GitHub_.
 |
@@ -87,7 +88,8 @@ Configuration
 Configuration files are an attractive application for *NestedText*.  
 *NestedText* configuration files tend to be simple, clean and unambiguous.  
 Plus, they handle hierarchy much better than alternatives such as Ini_ and 
-TOML_.
+TOML_.  Assimilate_ is an example of an application that uses *NestedText* for 
+configuration.
 
 
 Structured Code
@@ -96,8 +98,8 @@ Structured Code
 One way to build tools to tackle difficult and complex tasks is to provide an 
 application specific language.  That can be a daunting challenge.  However, in 
 certain cases, such as specifying complex configurations, *NestedText* can help 
-make the task much easier.  *NestedText* conveys the structure of data leaving 
-the end application to interpret the data itself.  It can do so with 
+make the task much easier.  *NestedText* conveys the structure of the data 
+leaving the end application to interpret the data itself.  It can do so with 
 a collection of small parsers that are tailored to the specific piece of data to 
 which they are applied.  This generally results in a simpler specification since 
 each piece of data can be given in its natural format, which might otherwise 
@@ -112,14 +114,13 @@ between data and code and its use is growing in popularity.
 An example of structured code is provided by GitHub with its workflow 
 specification files.  They use YAML_.  Unfortunately, the syntax of the code 
 snippets held in the various fields can be confused with *YAML* syntax, which 
-leads to unnecessary errors, confusion, and complexity (see *YAML issues*).  
-JSON_ suffers from similar problems.  *NestedText* excels for these applications 
-as it holds code snippets without any need for quoting or escaping.  
-*NestedText* provides simple unambiguous rules for defining the structure of 
-your data and when these rules are followed there is no way for any syntax or 
-special characters in the values of your data to be confused with *NestedText* 
-syntax.  In fact, it is possible for *NestedText* to hold *NestedText* snippets 
-without conflict.
+leads to unnecessary errors, confusion, and complexity.  JSON_ suffers from 
+similar problems.  *NestedText* excels for these applications as it holds code 
+snippets without any need for quoting or escaping.  *NestedText* provides simple 
+unambiguous rules for defining the structure of your data and when these rules 
+are followed there is no way for any syntax or special characters in the values 
+of your data to be confused with *NestedText* syntax.  In fact, it is possible 
+for *NestedText* to hold *NestedText* snippets without conflict.
 
 Another example of structured code is provided by the files that contain the 
 test cases used by `Parametrize From File`_, a PyTest_ plugin.
@@ -147,8 +148,8 @@ a regular expression that must match the output for the test to pass::
         expected: home: (\d+(\.\d)? (seconds|minutes)) since last backup\.
         expected type: regex
 
-Notice that the regular expressions are given clean, without any quoting or 
-escaping.
+Notice that the regular expressions are given clean, without any additional 
+quoting or escaping.
 
 
 Composable Utilities
@@ -192,6 +193,7 @@ Also, please consider using *NestedText* for any applications you create.
 .. _pytest: https://docs.pytest.org
 .. _github: https://github.com/KenKundert/nestedtext/issues
 .. _nestedtext.org: https://nestedtext.org
+.. _assimilate: https://assimilate.readthedocs.io/en/latest/configuring.html
 
 .. |downloads| image:: https://pepy.tech/badge/nestedtext/month
     :target: https://pepy.tech/project/nestedtext

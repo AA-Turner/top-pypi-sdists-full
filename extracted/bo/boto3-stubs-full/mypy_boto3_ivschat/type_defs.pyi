@@ -3,7 +3,7 @@ Type annotations for ivschat service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivschat/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import ChatTokenCapabilityType, FallbackResultType, LoggingConfigurationStateType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -86,7 +81,7 @@ class CreateChatTokenRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -171,7 +166,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 SendEventResponseTypeDef = TypedDict(
@@ -201,8 +196,8 @@ CreateRoomResponseTypeDef = TypedDict(
         "maximumMessageRatePerSecond": int,
         "maximumMessageLength": int,
         "messageReviewHandler": MessageReviewHandlerTypeDef,
-        "tags": Dict[str, str],
-        "loggingConfigurationIdentifiers": List[str],
+        "tags": dict[str, str],
+        "loggingConfigurationIdentifiers": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -217,8 +212,8 @@ GetRoomResponseTypeDef = TypedDict(
         "maximumMessageRatePerSecond": int,
         "maximumMessageLength": int,
         "messageReviewHandler": MessageReviewHandlerTypeDef,
-        "tags": Dict[str, str],
-        "loggingConfigurationIdentifiers": List[str],
+        "tags": dict[str, str],
+        "loggingConfigurationIdentifiers": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -231,8 +226,8 @@ RoomSummaryTypeDef = TypedDict(
         "messageReviewHandler": NotRequired[MessageReviewHandlerTypeDef],
         "createTime": NotRequired[datetime],
         "updateTime": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
-        "loggingConfigurationIdentifiers": NotRequired[List[str]],
+        "tags": NotRequired[dict[str, str]],
+        "loggingConfigurationIdentifiers": NotRequired[list[str]],
     },
 )
 
@@ -255,8 +250,8 @@ UpdateRoomResponseTypeDef = TypedDict(
         "maximumMessageRatePerSecond": int,
         "maximumMessageLength": int,
         "messageReviewHandler": MessageReviewHandlerTypeDef,
-        "tags": Dict[str, str],
-        "loggingConfigurationIdentifiers": List[str],
+        "tags": dict[str, str],
+        "loggingConfigurationIdentifiers": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -267,7 +262,7 @@ class DestinationConfigurationTypeDef(TypedDict):
     firehose: NotRequired[FirehoseDestinationConfigurationTypeDef]
 
 class ListRoomsResponseTypeDef(TypedDict):
-    rooms: List[RoomSummaryTypeDef]
+    rooms: list[RoomSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -286,7 +281,7 @@ CreateLoggingConfigurationResponseTypeDef = TypedDict(
         "name": str,
         "destinationConfiguration": DestinationConfigurationTypeDef,
         "state": Literal["ACTIVE"],
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -300,7 +295,7 @@ GetLoggingConfigurationResponseTypeDef = TypedDict(
         "name": str,
         "destinationConfiguration": DestinationConfigurationTypeDef,
         "state": LoggingConfigurationStateType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -314,7 +309,7 @@ LoggingConfigurationSummaryTypeDef = TypedDict(
         "name": NotRequired[str],
         "destinationConfiguration": NotRequired[DestinationConfigurationTypeDef],
         "state": NotRequired[LoggingConfigurationStateType],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -333,12 +328,12 @@ UpdateLoggingConfigurationResponseTypeDef = TypedDict(
         "name": str,
         "destinationConfiguration": DestinationConfigurationTypeDef,
         "state": Literal["ACTIVE"],
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 class ListLoggingConfigurationsResponseTypeDef(TypedDict):
-    loggingConfigurations: List[LoggingConfigurationSummaryTypeDef]
+    loggingConfigurations: list[LoggingConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

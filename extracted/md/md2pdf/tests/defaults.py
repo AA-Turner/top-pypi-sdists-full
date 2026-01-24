@@ -1,6 +1,9 @@
-# -*- coding: utf-8 -*-
+"""md2pdf tests defaults."""
+
+from pathlib import Path
 
 # Test files paths
-INPUT_CSS = 'tests/resources/input.css'
-INPUT_MD = 'tests/resources/input.md'
-OUTPUT_PDF = 'tests/resources/output.pdf'
+INPUT_CSS = Path("tests/assets/input.css")
+INPUT_MD = Path("tests/assets/input.md")
+OUTPUT_PDF = Path("tests/assets/output.pdf")
+DEFAULT_OUTPUT_PDF = Path("tests/assets/input.pdf")

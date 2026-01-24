@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def kelvin(im):
+def kelvin(im: Image.Image) -> Image.Image:
     """Applies Kelvin filter.
 
     Arguments:
@@ -26,12 +27,12 @@ def kelvin(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs1 = util.fill(cb.size, [56, 44, 52])
+    cs1 = util.fill(cb.size, (56, 44, 52))
     cs = css.blending.color_dodge(cb, cs1)
 
-    cs2 = util.fill(cb.size, [183, 125, 33])
+    cs2 = util.fill(cb.size, (183, 125, 33))
     cr = css.blending.overlay(cs, cs2)
 
     return cr

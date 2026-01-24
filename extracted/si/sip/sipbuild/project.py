@@ -4,6 +4,7 @@
 
 
 import collections
+import locale
 import os
 import packaging
 import shutil
@@ -70,15 +71,19 @@ class Project(AbstractProject, Configurable):
         # The minor version number of the target Python installation.
         Option('py_minor_version', option_type=int),
 
-        # The name of the directory containing the .sip files.  If the sip
-        # module is shared then each set of bindings is in its own
-        # sub-directory.
-        Option('sip_files_dir', default='.'),
+        # The list of files and directories, specified as glob patterns, that
+        # should be included in the dist-info/sboms directory of a wheel.
+        Option('sbom_files', option_type=list),
 
         # The list of files and directories, specified as glob patterns
         # relative to the project directory, that should be excluded from an
         # sdist.
         Option('sdist_excludes', option_type=list),
+
+        # The name of the directory containing the .sip files.  If the sip
+        # module is shared then each set of bindings is in its own
+        # sub-directory.
+        Option('sip_files_dir', default='.'),
 
         # The list of additional directories to search for .sip files.
         Option('sip_include_dirs', option_type=list),
@@ -103,8 +108,8 @@ class Project(AbstractProject, Configurable):
                 help="enable verbose progress messages"),
         Option('name', help="the name used in sdist and wheel file names",
                 metavar="NAME", tools=['sdist', 'wheel']),
-        Option('abi_version', help="The ABI to generate code for",
-                metavar="M[.N]"),
+        Option('abi_version', help="the ABI to generate code for",
+                metavar="M[.N]", tools=['build', 'install', 'sdist', 'wheel']),
         Option('build_dir', help="the build directory", metavar="DIR"),
         Option('build_tag', help="the build tag to be used in the wheel name",
                 metavar="TAG", tools=['wheel']),
@@ -463,7 +468,11 @@ class Project(AbstractProject, Configurable):
 
         for rd in self.get_requires_dists():
             args.append('--requires-dist')
-            args.append('\\"{}\\"'.format(rd))
+            args.append(f'\\"{rd}\\"')
+
+        for sbom_file in self.sbom_files:
+            args.append('--sbom')
+            args.append(sbom_file)
 
         for metadata, value in self._metadata_overrides.items():
             if value:
@@ -594,7 +603,7 @@ class Project(AbstractProject, Configurable):
         with subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=stderr) as pipe:
             for line in pipe.stdout:
-                yield str(line, encoding=sys.stdout.encoding)
+                yield str(line, encoding=locale.getpreferredencoding(), errors="ignore")
 
         if pipe.returncode != 0 and fatal:
             raise UserException(
@@ -603,10 +612,29 @@ class Project(AbstractProject, Configurable):
     def run_command(self, args, *, fatal=True):
         """ Run a command and display the output if requested. """
 
+        deck = None if self.verbose else collections.deque((), 100)
+
         # Read stdout and stderr until there is no more output.
-        for line in self.read_command_pipe(args, and_stderr=True, fatal=fatal):
-            if self.verbose:
-                sys.stdout.write(line)
+        nr_lines = 0
+
+        try:
+            for line in self.read_command_pipe(args, and_stderr=True, fatal=fatal):
+                nr_lines += 1
+
+                if deck is None:
+                    sys.stdout.write(line)
+                else:
+                    deck.append(line)
+        except UserException:
+            if deck is not None:
+                for line in deck:
+                    sys.stdout.write(line)
+
+                if nr_lines > deck.maxlen:
+                    sys.stdout.write(
+                            "To see the full output use the --verbose option.\n")
+
+            raise
 
     def setup(self, pyproject, tool, tool_description):
         """ Complete the configuration of the project. """

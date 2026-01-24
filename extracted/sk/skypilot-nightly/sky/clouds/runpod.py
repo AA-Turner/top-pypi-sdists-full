@@ -7,6 +7,7 @@ from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from sky import catalog
 from sky import clouds
+from sky.utils import common_utils
 from sky.utils import registry
 from sky.utils import resources_utils
 
@@ -53,7 +54,9 @@ class RunPod(clouds.Cloud):
 
     @classmethod
     def _unsupported_features_for_resources(
-        cls, resources: 'resources_lib.Resources'
+        cls,
+        resources: 'resources_lib.Resources',
+        region: Optional[str] = None,
     ) -> Dict[clouds.CloudImplementationFeatures, str]:
         """The features not supported based on the resources provided.
 
@@ -72,10 +75,15 @@ class RunPod(clouds.Cloud):
         return cls._MAX_CLUSTER_NAME_LEN_LIMIT
 
     @classmethod
-    def regions_with_offering(cls, instance_type: str,
-                              accelerators: Optional[Dict[str, int]],
-                              use_spot: bool, region: Optional[str],
-                              zone: Optional[str]) -> List[clouds.Region]:
+    def regions_with_offering(
+        cls,
+        instance_type: str,
+        accelerators: Optional[Dict[str, int]],
+        use_spot: bool,
+        region: Optional[str],
+        zone: Optional[str],
+        resources: Optional['resources_lib.Resources'] = None,
+    ) -> List[clouds.Region]:
         del accelerators  # unused
         regions = catalog.get_region_zones_for_instance_type(
             instance_type, use_spot, 'runpod')
@@ -193,7 +201,7 @@ class RunPod(clouds.Cloud):
             acc_dict)
 
         if resources.image_id is None:
-            image_id: Optional[str] = 'runpod/base:0.0.2'
+            image_id: Optional[str] = 'runpod/base:1.0.2-ubuntu2204'
         elif resources.extract_docker_image() is not None:
             image_id = resources.extract_docker_image()
         else:
@@ -286,14 +294,16 @@ class RunPod(clouds.Cloud):
     @classmethod
     def _check_credentials(cls) -> Tuple[bool, Optional[str]]:
         """Verify that the user has valid credentials for RunPod. """
-        dependency_error_msg = ('Failed to import runpod. '
-                                'To install, run: pip install skypilot[runpod]')
+        dependency_error_msg = ('Failed to import runpod or TOML parser. '
+                                'Install: pip install "skypilot[runpod]".')
         try:
             runpod_spec = import_lib_util.find_spec('runpod')
             if runpod_spec is None:
                 return False, dependency_error_msg
-            toml_spec = import_lib_util.find_spec('toml')
-            if toml_spec is None:
+            # Prefer stdlib tomllib (Python 3.11+); fallback to tomli
+            tomllib_spec = import_lib_util.find_spec('tomllib')
+            tomli_spec = import_lib_util.find_spec('tomli')
+            if tomllib_spec is None and tomli_spec is None:
                 return False, dependency_error_msg
         except ValueError:
             # docstring of importlib_util.find_spec:
@@ -303,17 +313,47 @@ class RunPod(clouds.Cloud):
             # If that happens to be set to None, then ValueError is raised.
             return False, dependency_error_msg
 
+        hint_msg = (
+            'Credentials can be set up by running: \n'
+            '        $ pip install runpod \n'
+            '        $ runpod config\n'
+            '    For more information, see https://docs.skypilot.co/en/latest/getting-started/installation.html#runpod'  # pylint: disable=line-too-long
+        )
+
         valid, error = cls._check_runpod_credentials()
         if not valid:
-            return False, (
-                f'{error} \n'  # First line is indented by 4 spaces
-                '    Credentials can be set up by running: \n'
-                f'        $ pip install runpod \n'
-                f'        $ runpod config\n'
-                '    For more information, see https://docs.skypilot.co/en/latest/getting-started/installation.html#runpod'  # pylint: disable=line-too-long
-            )
+            return False, (f'{error} \n    {hint_msg}')
+
+        # Validate credentials by making an actual API call
+        valid, error = cls._validate_api_key()
+        if not valid:
+            return False, (f'{error} \n    {hint_msg}')
 
         return True, None
+
+    @classmethod
+    def _validate_api_key(cls) -> Tuple[bool, Optional[str]]:
+        """Validate RunPod API key by making an actual API call."""
+        # Import here to avoid circular imports and ensure runpod is configured
+        # pylint: disable=import-outside-toplevel
+        from sky.provision.runpod import utils as runpod_utils
+        try:
+            # Try to list instances to validate the API key works
+            runpod_utils.list_instances()
+            return True, None
+        except Exception as e:  # pylint: disable=broad-except
+            from sky.adaptors import runpod
+            error_msg = common_utils.format_exception(e, use_bracket=True)
+            if isinstance(e, runpod.runpod.error.QueryError):
+                error_msg_lower = str(e).lower()
+                auth_keywords = ['unauthorized', 'forbidden', '401', '403']
+                if any(keyword in error_msg_lower for keyword in auth_keywords):
+                    return False, (
+                        'RunPod API key is invalid or lacks required '
+                        f'permissions. {error_msg}')
+                return False, (f'Failed to verify RunPod API key. {error_msg}')
+            return False, ('An unexpected error occurred during RunPod API '
+                           f'key validation. {error_msg}')
 
     @classmethod
     def _check_runpod_credentials(cls, profile: str = 'default'):
@@ -322,9 +362,20 @@ class RunPod(clouds.Cloud):
         if not os.path.exists(credential_file):
             return False, '~/.runpod/config.toml does not exist.'
 
-        # we don't need to import toml here if config.toml does not exist,
-        # wait until we know the cred file exists.
-        import tomli as toml  # pylint: disable=import-outside-toplevel
+        # We don't need to import TOML parser if config.toml does not exist.
+        # When needed, prefer stdlib tomllib (py>=3.11); otherwise use tomli.
+        # TODO(andy): remove this fallback after dropping Python 3.10 support.
+        try:
+            try:
+                import tomllib as toml  # pylint: disable=import-outside-toplevel
+            except ModuleNotFoundError:  # py<3.11
+                import tomli as toml  # pylint: disable=import-outside-toplevel
+        except ModuleNotFoundError:
+            # Should never happen. We already installed proper dependencies for
+            # different Python versions in setup_files/dependencies.py.
+            return False, (
+                '~/.runpod/config.toml exists but no TOML parser is available. '
+                'Install tomli for Python < 3.11: pip install tomli.')
 
         # Check for default api_key
         try:

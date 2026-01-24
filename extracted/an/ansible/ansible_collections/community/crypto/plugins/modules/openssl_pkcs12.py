@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: openssl_pkcs12
 author:
@@ -282,6 +281,7 @@ import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLBadPassphraseError,
     OpenSSLObjectError,
@@ -306,7 +306,6 @@ from ansible_collections.community.crypto.plugins.module_utils._io import (
     write_file,
 )
 
-
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
 
 try:
@@ -317,7 +316,7 @@ try:
 except ImportError:
     pass
 
-CRYPTOGRAPHY_COMPATIBILITY2022_ERR = None
+CRYPTOGRAPHY_COMPATIBILITY2022_ERR: str | None
 try:
     import cryptography.x509
     from cryptography.hazmat.primitives import hashes
@@ -328,9 +327,11 @@ try:
         PBES.PBESv1SHA1And3KeyTripleDESCBC
     ).hmac_hash(hashes.SHA1())
 except Exception:
+    # pylint: disable-next=invalid-name
     CRYPTOGRAPHY_COMPATIBILITY2022_ERR = traceback.format_exc()
     CRYPTOGRAPHY_HAS_COMPATIBILITY2022 = False
 else:
+    CRYPTOGRAPHY_COMPATIBILITY2022_ERR = None  # pylint: disable=invalid-name
     CRYPTOGRAPHY_HAS_COMPATIBILITY2022 = True
 
 if t.TYPE_CHECKING:
@@ -339,10 +340,10 @@ if t.TYPE_CHECKING:
     )
 
     PKCS12 = tuple[
-        t.Union[CertificateIssuerPrivateKeyTypes, None],
-        t.Union[cryptography.x509.Certificate, None],
+        t.Union[CertificateIssuerPrivateKeyTypes, None],  # noqa: UP007
+        t.Union[cryptography.x509.Certificate, None],  # noqa: UP007
         list[cryptography.x509.Certificate],
-        t.Union[bytes, None],
+        t.Union[bytes, None],  # noqa: UP007
     ]  # pragma: no cover
 
 
@@ -820,9 +821,9 @@ def main() -> t.NoReturn:
                     changed = True
 
             file_args = module.load_file_common_arguments(module.params)
-            if module.check_file_absent_if_check_mode(file_args["path"]):
-                changed = True
-            elif module.set_fs_attributes_if_different(file_args, changed):
+            if module.check_file_absent_if_check_mode(
+                file_args["path"]
+            ) or module.set_fs_attributes_if_different(file_args, changed):
                 changed = True
         else:
             if module.check_mode:

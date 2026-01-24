@@ -9,24 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing_extensions import TypedDict
 
 
-class ProjectColumnType(TypedDict):
-    """Project Column
+class RepositoryFineGrainedPermissionType(TypedDict):
+    """Repository Fine-Grained Permission
 
-    Project columns contain cards of work.
+    A fine-grained permission that protects repository resources.
     """
 
-    url: str
-    project_url: str
-    cards_url: str
-    id: int
-    node_id: str
     name: str
-    created_at: datetime
-    updated_at: datetime
+    description: str
 
 
-__all__ = ("ProjectColumnType",)
+class RepositoryFineGrainedPermissionTypeForResponse(TypedDict):
+    """Repository Fine-Grained Permission
+
+    A fine-grained permission that protects repository resources.
+    """
+
+    name: str
+    description: str
+
+
+__all__ = (
+    "RepositoryFineGrainedPermissionType",
+    "RepositoryFineGrainedPermissionTypeForResponse",
+)

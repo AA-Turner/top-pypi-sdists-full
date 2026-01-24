@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pip-licenses-lib
-Version: 0.6.0
+Version: 1.0.0
 Summary: Retrieve the software license list of Python packages installed with pip.
 Author: raimon49, stefan6419846 (library version)
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/stefan6419846/pip-licenses-lib
 Project-URL: Documentation, https://pip-licenses-lib.readthedocs.io
 Project-URL: Repository, https://github.com/stefan6419846/pip-licenses-lib
@@ -13,13 +13,12 @@ Keywords: open source,license,package,dependency,licensing
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: <4,>=3.9
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
@@ -28,8 +27,9 @@ Requires-Dist: flake8-bugbear; extra == "dev"
 Requires-Dist: pep8-naming; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: requests; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
 Requires-Dist: pypdf; extra == "dev"
+Requires-Dist: requests; extra == "dev"
 Requires-Dist: codespell; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"

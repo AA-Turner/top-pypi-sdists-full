@@ -1,27 +1,24 @@
-use crate::gcir::feature_gates_processor::get_gate_evaluations;
+use crate::gcir::dynamic_configs_processor::get_dynamic_config_evaluations_init_v2;
+use crate::gcir::feature_gates_processor::{get_gate_evaluations, get_gate_evaluations_init_v2};
+use crate::gcir::layer_configs_processor::get_layer_evaluations_init_v2;
+use ahash::AHashMap;
 
+use crate::initialize_v2_response::InitializeV2Response;
 use crate::interned_string::InternedString;
-use crate::observability::ops_stats::OpsStatsForInstance;
-use crate::observability::ErrorBoundaryEvent;
 use crate::specs_response::spec_types::SessionReplayTrigger;
 use crate::{
     evaluation::evaluator::{Evaluator, SpecType},
     evaluation::evaluator_context::EvaluatorContext,
-    hashing::{HashAlgorithm, HashUtil},
     initialize_evaluations_response::InitializeEvaluationsResponse,
     initialize_response::InitializeResponse,
-    read_lock_or_else,
-    spec_store::{SpecStore, SpecStoreData},
     statsig_metadata::StatsigMetadata,
-    user::StatsigUserInternal,
-    OverrideAdapter, StatsigErr,
+    StatsigErr,
 };
 
-use crate::log_error_to_statsig_and_console;
+use crate::StatsigUser;
 use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use super::dynamic_configs_processor::{
     get_dynamic_config_evaluations, get_dynamic_config_evaluations_v2,
@@ -30,20 +27,12 @@ use super::feature_gates_processor::get_gate_evaluations_v2;
 use super::gcir_options::ClientInitResponseOptions;
 use super::layer_configs_processor::{get_layer_evaluations, get_layer_evaluations_v2};
 use super::param_stores_processor::get_serializeable_param_stores;
-use super::target_app_id_utils::select_app_id;
-
-pub struct GCIRFormatter {
-    spec_store: Arc<SpecStore>,
-    default_options: ClientInitResponseOptions,
-    override_adapter: Option<Arc<dyn OverrideAdapter>>,
-    ops_stats: Arc<OpsStatsForInstance>,
-    use_experimental_ua_parser: bool,
-}
 
 #[derive(Deserialize)]
 pub enum GCIRResponseFormat {
     Initialize,                             // v1
     InitializeWithSecondaryExposureMapping, // v2
+    InitializeV2,                           // v3
 }
 
 impl GCIRResponseFormat {
@@ -52,121 +41,88 @@ impl GCIRResponseFormat {
         match input {
             "v1" => Some(GCIRResponseFormat::Initialize),
             "v2" => Some(GCIRResponseFormat::InitializeWithSecondaryExposureMapping),
+            "init_v2" => Some(GCIRResponseFormat::InitializeV2),
             _ => None,
         }
     }
 }
 
-const TAG: &str = "GCIRFormatter";
+pub struct GCIRFormatter;
 
 impl GCIRFormatter {
-    pub fn new(
-        spec_store: &Arc<SpecStore>,
-        override_adapter: &Option<Arc<dyn OverrideAdapter>>,
-        ops_stats: &Arc<OpsStatsForInstance>,
-        use_experimental_ua_parser: bool,
-    ) -> Self {
-        Self {
-            spec_store: spec_store.clone(),
-            override_adapter: override_adapter.as_ref().map(Arc::clone),
-            ops_stats: ops_stats.clone(),
-            default_options: ClientInitResponseOptions {
-                hash_algorithm: Some(HashAlgorithm::Djb2),
-                client_sdk_key: None,
-                include_local_overrides: Some(false),
-                feature_gate_filter: None,
-                experiment_filter: None,
-                dynamic_config_filter: None,
-                layer_filter: None,
-                param_store_filter: None,
-                response_format: None,
-            },
-            use_experimental_ua_parser,
-        }
-    }
-
-    pub fn get_default_options(&self) -> &ClientInitResponseOptions {
-        &self.default_options
-    }
-
-    pub fn get_as_v1_format(
-        &self,
-        user_internal: StatsigUserInternal,
-        hashing: &HashUtil,
+    pub fn generate_v1_format(
+        context: &mut EvaluatorContext,
         options: &ClientInitResponseOptions,
-    ) -> InitializeResponse {
-        self.get_v1_impl(&user_internal, hashing, options)
-            .unwrap_or_else(|e| {
-                log_error_to_statsig_and_console!(
-                    &self.ops_stats,
-                    TAG,
-                    StatsigErr::GCIRError(e.to_string())
-                );
-                InitializeResponse::blank(user_internal)
-            })
+    ) -> Result<InitializeResponse, StatsigErr> {
+        let mut sec_expo_hash_memo = HashMap::new();
+
+        let gates = get_gate_evaluations(context, options, &mut sec_expo_hash_memo)?;
+        let configs = get_dynamic_config_evaluations(context, options, &mut sec_expo_hash_memo)?;
+        let layers = get_layer_evaluations(context, options, &mut sec_expo_hash_memo)?;
+
+        let param_stores = get_serializeable_param_stores(context, options);
+        let evaluated_keys = get_evaluated_keys(context.user.user_ref);
+        let session_replay_info = get_session_replay_info(context, options);
+
+        Ok(InitializeResponse {
+            feature_gates: gates,
+            dynamic_configs: configs,
+            layer_configs: layers,
+            time: context.specs_data.time,
+            has_updates: true,
+            hash_used: options.get_hash_algorithm().to_string(),
+            user: context.user.to_loggable(),
+            sdk_params: HashMap::new(),
+            evaluated_keys,
+            sdk_info: get_sdk_info(),
+            param_stores,
+            can_record_session: session_replay_info.can_record_session,
+            session_recording_rate: session_replay_info.session_recording_rate,
+            recording_blocked: session_replay_info.recording_blocked,
+            passes_session_recording_targeting: session_replay_info
+                .passes_session_recording_targeting,
+            session_recording_event_triggers: session_replay_info.session_recording_event_triggers,
+            session_recording_exposure_triggers: session_replay_info
+                .session_recording_exposure_triggers,
+            pa_hash: context.user.get_hashed_private_attributes(),
+        })
     }
 
-    pub fn get_as_v2_format(
-        &self,
-        user_internal: StatsigUserInternal,
-        hashing: &HashUtil,
-        options: &ClientInitResponseOptions,
-    ) -> InitializeEvaluationsResponse {
-        self.get_v2_impl(&user_internal, hashing, options)
-            .unwrap_or_else(|e| {
-                log_error_to_statsig_and_console!(
-                    &self.ops_stats,
-                    TAG,
-                    StatsigErr::GCIRError(e.to_string())
-                );
-                InitializeEvaluationsResponse::blank(user_internal)
-            })
-    }
-
-    fn get_v2_impl(
-        &self,
-        user_internal: &StatsigUserInternal,
-        hashing: &HashUtil,
+    pub fn generate_v2_format(
+        context: &mut EvaluatorContext,
         options: &ClientInitResponseOptions,
     ) -> Result<InitializeEvaluationsResponse, StatsigErr> {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            return Err(StatsigErr::LockFailure(
-                "Failed to acquire read lock for spec store data".to_string(),
-            ));
-        });
-
         let mut sec_expo_hash_memo = HashMap::new();
-        let mut context = self.setup_evaluator_context(user_internal, &data, options, hashing);
         let mut exposures = HashMap::new();
 
-        let param_stores = get_serializeable_param_stores(&mut context, options);
-        let evaluated_keys = get_evaluated_keys(user_internal);
-        let session_replay_info = get_session_replay_info(&mut context, options, hashing);
+        let param_stores = get_serializeable_param_stores(context, options);
+        let evaluated_keys = get_evaluated_keys(context.user.user_ref);
+        let session_replay_info = get_session_replay_info(context, options);
 
         Ok(InitializeEvaluationsResponse {
             feature_gates: get_gate_evaluations_v2(
-                &mut context,
+                context,
                 options,
                 &mut sec_expo_hash_memo,
                 &mut exposures,
             )?,
             dynamic_configs: get_dynamic_config_evaluations_v2(
-                &mut context,
+                context,
                 options,
                 &mut sec_expo_hash_memo,
                 &mut exposures,
             )?,
             layer_configs: get_layer_evaluations_v2(
-                &mut context,
+                context,
                 options,
                 &mut sec_expo_hash_memo,
                 &mut exposures,
             )?,
-            time: data.values.time,
+            time: context.specs_data.time,
             has_updates: true,
             hash_used: options.get_hash_algorithm().to_string(),
-            user: user_internal.to_loggable(),
-            pa_hash: user_internal.get_hashed_private_attributes(),
+            user: context.user.to_loggable(),
+            pa_hash: context.user.get_hashed_private_attributes(),
             sdk_params: HashMap::new(),
             evaluated_keys,
             sdk_info: get_sdk_info(),
@@ -183,41 +139,51 @@ impl GCIRFormatter {
         })
     }
 
-    fn get_v1_impl(
-        &self,
-        user_internal: &StatsigUserInternal,
-        hashing: &HashUtil,
+    pub fn generate_init_v2_format(
+        context: &mut EvaluatorContext,
         options: &ClientInitResponseOptions,
-    ) -> Result<InitializeResponse, StatsigErr> {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            return Err(StatsigErr::LockFailure(
-                "Failed to acquire read lock for spec store data".to_string(),
-            ));
-        });
+    ) -> Result<InitializeV2Response, StatsigErr> {
+        let mut values = HashMap::new();
+        let mut val_map = AHashMap::new();
+        let mut exposure_map = AHashMap::new();
+        let mut exposures = HashMap::new();
+        let param_stores = get_serializeable_param_stores(context, options);
+        let evaluated_keys = get_evaluated_keys(context.user.user_ref);
+        let session_replay_info = get_session_replay_info(context, options);
 
-        let mut sec_expo_hash_memo = HashMap::new();
-        let mut context = self.setup_evaluator_context(user_internal, &data, options, hashing);
-
-        let param_stores = get_serializeable_param_stores(&mut context, options);
-        let evaluated_keys = get_evaluated_keys(user_internal);
-        let session_replay_info = get_session_replay_info(&mut context, options, hashing);
-        let gates = get_gate_evaluations(&mut context, options, &mut sec_expo_hash_memo)?;
-        let configs =
-            get_dynamic_config_evaluations(&mut context, options, &mut sec_expo_hash_memo)?;
-        let layers = get_layer_evaluations(&mut context, options, &mut sec_expo_hash_memo)?;
-
-        Ok(InitializeResponse {
-            feature_gates: gates,
-            dynamic_configs: configs,
-            layer_configs: layers,
-            time: data.values.time,
+        Ok(InitializeV2Response {
+            feature_gates: get_gate_evaluations_init_v2(
+                context,
+                options,
+                &mut exposures,
+                &mut exposure_map,
+            )?,
+            dynamic_configs: get_dynamic_config_evaluations_init_v2(
+                context,
+                options,
+                &mut exposures,
+                &mut exposure_map,
+                &mut values,
+                &mut val_map,
+            )?,
+            layer_configs: get_layer_evaluations_init_v2(
+                context,
+                options,
+                &mut exposures,
+                &mut exposure_map,
+                &mut values,
+                &mut val_map,
+            )?,
+            param_stores,
+            time: context.specs_data.time,
             has_updates: true,
             hash_used: options.get_hash_algorithm().to_string(),
-            user: user_internal.to_loggable(),
+            user: context.user.to_loggable(),
+            pa_hash: context.user.get_hashed_private_attributes(),
             sdk_params: HashMap::new(),
             evaluated_keys,
             sdk_info: get_sdk_info(),
-            param_stores,
+            exposures,
             can_record_session: session_replay_info.can_record_session,
             session_recording_rate: session_replay_info.session_recording_rate,
             recording_blocked: session_replay_info.recording_blocked,
@@ -226,41 +192,16 @@ impl GCIRFormatter {
             session_recording_event_triggers: session_replay_info.session_recording_event_triggers,
             session_recording_exposure_triggers: session_replay_info
                 .session_recording_exposure_triggers,
-            pa_hash: user_internal.get_hashed_private_attributes(),
+            values,
+            response_format: "init-v2".to_string(),
         })
-    }
-
-    fn setup_evaluator_context<'a>(
-        &'a self,
-        user_internal: &'a StatsigUserInternal,
-        data: &'a SpecStoreData,
-        options: &'a ClientInitResponseOptions,
-        hashing: &'a HashUtil,
-    ) -> EvaluatorContext<'a> {
-        let app_id = select_app_id(options, &data.values, hashing);
-
-        let override_adapter = match options.include_local_overrides {
-            Some(true) => self.override_adapter.as_ref(),
-            _ => None,
-        };
-
-        EvaluatorContext::new(
-            user_internal,
-            data,
-            hashing,
-            app_id,
-            override_adapter,
-            self.use_experimental_ua_parser,
-        )
     }
 }
 
-fn get_evaluated_keys(
-    user_internal: &StatsigUserInternal,
-) -> HashMap<InternedString, InternedString> {
+fn get_evaluated_keys(user: &StatsigUser) -> HashMap<InternedString, InternedString> {
     let mut evaluated_keys = HashMap::new();
 
-    if let Some(user_id) = user_internal.user_ref.data.user_id.as_ref() {
+    if let Some(user_id) = user.data.user_id.as_ref() {
         evaluated_keys.insert(
             InternedString::from_str_ref("userID"),
             user_id
@@ -271,7 +212,7 @@ fn get_evaluated_keys(
         );
     }
 
-    if let Some(custom_ids) = user_internal.user_ref.data.custom_ids.as_ref() {
+    if let Some(custom_ids) = user.data.custom_ids.as_ref() {
         for (key, value) in custom_ids {
             evaluated_keys.insert(
                 InternedString::from_str_ref(key.as_str()),
@@ -292,6 +233,7 @@ fn get_sdk_info() -> HashMap<String, String> {
     HashMap::from([
         ("sdkType".to_string(), metadata.sdk_type),
         ("sdkVersion".to_string(), metadata.sdk_version),
+        ("sessionId".to_string(), metadata.session_id),
     ])
 }
 
@@ -307,7 +249,6 @@ pub struct GCIRSessionReplayInfo {
 fn get_session_replay_info(
     context: &mut EvaluatorContext,
     options: &ClientInitResponseOptions,
-    hashing: &HashUtil,
 ) -> GCIRSessionReplayInfo {
     let mut session_replay_info = GCIRSessionReplayInfo {
         can_record_session: None,
@@ -318,7 +259,7 @@ fn get_session_replay_info(
         session_recording_exposure_triggers: None,
     };
 
-    let session_replay_data = match &context.spec_store_data.values.session_replay_info {
+    let session_replay_data = match &context.specs_data.session_replay_info {
         Some(data) => data,
         None => return session_replay_info,
     };
@@ -385,7 +326,9 @@ fn get_session_replay_info(
                 new_trigger.passes_sampling = Some(random <= *rate);
             }
             new_exposure_triggers.insert(
-                hashing.hash(key.as_str(), options.get_hash_algorithm()),
+                context
+                    .hashing
+                    .hash(key.as_str(), options.get_hash_algorithm()),
                 new_trigger,
             );
         }

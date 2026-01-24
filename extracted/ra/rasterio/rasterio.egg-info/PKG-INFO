@@ -1,37 +1,62 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rasterio
-Version: 1.4.3
-Summary: Fast and direct raster I/O for use with Numpy and SciPy
-Home-page: https://github.com/rasterio/rasterio
-Author: Sean Gillies
-Author-email: sean@mapbox.com
-License: BSD
-Keywords: raster gdal
-Platform: UNKNOWN
+Version: 1.5.0
+Summary: Fast and direct raster I/O for use with NumPy
+Author-email: Sean Gillies <sean@mapbox.com>
+Maintainer: Rasterio contributors
+License-Expression: BSD-3-Clause
+Project-URL: Documentation, https://rasterio.readthedocs.io/
+Project-URL: Repository, https://github.com/rasterio/rasterio
+Keywords: gis,raster,gdal
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Cython
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
-Provides-Extra: docs
-Provides-Extra: ipython
-Provides-Extra: plot
-Provides-Extra: s3
-Provides-Extra: test
-Provides-Extra: all
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.txt
+Requires-Dist: affine
+Requires-Dist: attrs
+Requires-Dist: certifi
+Requires-Dist: click!=8.2.*,>=4.0
+Requires-Dist: cligj>=0.5
+Requires-Dist: numpy>=2
+Requires-Dist: pyparsing
+Provides-Extra: all
+Requires-Dist: rasterio[docs,ipython,plot,s3,test]; extra == "all"
+Provides-Extra: docs
+Requires-Dist: ghp-import; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-click; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Provides-Extra: ipython
+Requires-Dist: ipython>=2.0; extra == "ipython"
+Provides-Extra: plot
+Requires-Dist: matplotlib; extra == "plot"
+Provides-Extra: s3
+Requires-Dist: boto3>=1.2.4; extra == "s3"
+Provides-Extra: test
+Requires-Dist: aiohttp; extra == "test"
+Requires-Dist: boto3>=1.2.4; extra == "test"
+Requires-Dist: fsspec; extra == "test"
+Requires-Dist: hypothesis; extra == "test"
+Requires-Dist: matplotlib; extra == "test"
+Requires-Dist: packaging; extra == "test"
+Requires-Dist: pytest-cov>=2.2.0; extra == "test"
+Requires-Dist: pytest>=2.8.2; extra == "test"
+Requires-Dist: requests; extra == "test"
+Requires-Dist: shapely; extra == "test"
+Dynamic: license-file
 
 ========
 Rasterio
@@ -55,7 +80,7 @@ Geographic information systems use GeoTIFF and other formats to organize and
 store gridded, or raster, datasets. Rasterio reads and writes these formats and
 provides a Python API based on N-D arrays.
 
-Rasterio 1.4 works with Python >= 3.9, Numpy >= 1.24, and GDAL >= 3.5. Official
+Rasterio 1.5+ works with Python >= 3.12, Numpy >= 2, and GDAL >= 3.8. Official
 binary packages for Linux, macOS, and Windows with most built-in format drivers
 plus HDF5, netCDF, and OpenJPEG2000 are available on PyPI.
 
@@ -245,5 +270,3 @@ Who is Using Rasterio?
 ======================
 
 See `here <https://libraries.io/pypi/rasterio/usage>`__.
-
-

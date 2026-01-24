@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-auth-httplib2
-Version: 0.2.0
+Version: 0.3.0
 Summary: Google Authentication Library: httplib2 transport
 Home-page: https://github.com/GoogleCloudPlatform/google-auth-library-python-httplib2
 Author: Google Cloud Platform
@@ -8,13 +8,14 @@ Author-email: googleapis-packages@google.com
 License: Apache 2.0
 Keywords: google auth oauth client
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -23,13 +24,39 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: google-auth
-Requires-Dist: httplib2>=0.19.0
+Requires-Dist: google-auth<3.0.0,>=1.32.0
+Requires-Dist: httplib2<1.0.0,>=0.19.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ``httplib2`` Transport for Google Auth
 ======================================
 
+.. image:: https://img.shields.io/badge/status-deprecated-red.svg
+    :target: https://github.com/httplib2/httplib2
+
+The library was created to help clients migrate from `oauth2client <https://github.com/googleapis/oauth2client>`_ to `google-auth`_, however this library is no longer maintained. For any new usages please see provided transport layers by `google-auth`_ library.
+
+
+Documentation
+-------------
+
+`httplib2 Transport for Google Auth Documentation`_
+
+
+Introduction
+------------
 |pypi|
 
 This library provides an `httplib2`_ transport for `google-auth`_.
@@ -43,7 +70,9 @@ This library provides an `httplib2`_ transport for `google-auth`_.
    :target: https://pypi.python.org/pypi/google-auth-httplib2
 
 .. _httplib2: https://github.com/httplib2/httplib2
+.. _httplib2 Transport for Google Auth Documentation: https://googleapis.dev/python/google-auth-httplib2/latest
 .. _google-auth: https://github.com/GoogleCloudPlatform/google-auth-library-python/
+
 
 Installing
 ----------

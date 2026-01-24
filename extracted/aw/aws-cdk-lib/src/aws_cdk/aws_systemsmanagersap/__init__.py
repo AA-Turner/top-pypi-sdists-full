@@ -67,302 +67,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_systemsmanagersap.ApplicationReference",
-    jsii_struct_bases=[],
-    name_mapping={"application_arn": "applicationArn"},
+from ..interfaces.aws_systemsmanagersap import (
+    ApplicationReference as _ApplicationReference_fdfd09d0,
+    IApplicationRef as _IApplicationRef_ac19f6b7,
 )
-class ApplicationReference:
-    def __init__(self, *, application_arn: builtins.str) -> None:
-        '''A reference to a Application resource.
-
-        :param application_arn: The Arn of the Application resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_systemsmanagersap as systemsmanagersap
-            
-            application_reference = systemsmanagersap.ApplicationReference(
-                application_arn="applicationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff963104d5d4f0de7296685bb0819f7f879dda6eb2259a2fc6a5f12ea24d789d)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-        }
-
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The Arn of the Application resource.'''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_systemsmanagersap.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "application_type": "applicationType",
-        "components_info": "componentsInfo",
-        "credentials": "credentials",
-        "database_arn": "databaseArn",
-        "instances": "instances",
-        "sap_instance_number": "sapInstanceNumber",
-        "sid": "sid",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        application_type: builtins.str,
-        components_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ComponentInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.CredentialProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        database_arn: typing.Optional[builtins.str] = None,
-        instances: typing.Optional[typing.Sequence[builtins.str]] = None,
-        sap_instance_number: typing.Optional[builtins.str] = None,
-        sid: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param application_id: The ID of the application.
-        :param application_type: The type of the application.
-        :param components_info: This is an optional parameter for component details to which the SAP ABAP application is attached, such as Web Dispatcher.
-        :param credentials: The credentials of the SAP application.
-        :param database_arn: The Amazon Resource Name (ARN) of the database.
-        :param instances: The Amazon EC2 instances on which your SAP application is running.
-        :param sap_instance_number: The SAP instance number of the application.
-        :param sid: The System ID of the application.
-        :param tags: The tags on the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_systemsmanagersap as systemsmanagersap
-            
-            cfn_application_props = systemsmanagersap.CfnApplicationProps(
-                application_id="applicationId",
-                application_type="applicationType",
-            
-                # the properties below are optional
-                components_info=[systemsmanagersap.CfnApplication.ComponentInfoProperty(
-                    component_type="componentType",
-                    ec2_instance_id="ec2InstanceId",
-                    sid="sid"
-                )],
-                credentials=[systemsmanagersap.CfnApplication.CredentialProperty(
-                    credential_type="credentialType",
-                    database_name="databaseName",
-                    secret_id="secretId"
-                )],
-                database_arn="databaseArn",
-                instances=["instances"],
-                sap_instance_number="sapInstanceNumber",
-                sid="sid",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a3a450935d6aacabad9991c3fdce7052d4392d63c713049280ff2a2a2615a38)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument application_type", value=application_type, expected_type=type_hints["application_type"])
-            check_type(argname="argument components_info", value=components_info, expected_type=type_hints["components_info"])
-            check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
-            check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
-            check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
-            check_type(argname="argument sap_instance_number", value=sap_instance_number, expected_type=type_hints["sap_instance_number"])
-            check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "application_type": application_type,
-        }
-        if components_info is not None:
-            self._values["components_info"] = components_info
-        if credentials is not None:
-            self._values["credentials"] = credentials
-        if database_arn is not None:
-            self._values["database_arn"] = database_arn
-        if instances is not None:
-            self._values["instances"] = instances
-        if sap_instance_number is not None:
-            self._values["sap_instance_number"] = sap_instance_number
-        if sid is not None:
-            self._values["sid"] = sid
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The ID of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_type(self) -> builtins.str:
-        '''The type of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-applicationtype
-        '''
-        result = self._values.get("application_type")
-        assert result is not None, "Required property 'application_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def components_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentInfoProperty"]]]]:
-        '''This is an optional parameter for component details to which the SAP ABAP application is attached, such as Web Dispatcher.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-componentsinfo
-        '''
-        result = self._values.get("components_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentInfoProperty"]]]], result)
-
-    @builtins.property
-    def credentials(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CredentialProperty"]]]]:
-        '''The credentials of the SAP application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-credentials
-        '''
-        result = self._values.get("credentials")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CredentialProperty"]]]], result)
-
-    @builtins.property
-    def database_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-databasearn
-        '''
-        result = self._values.get("database_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instances(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon EC2 instances on which your SAP application is running.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-instances
-        '''
-        result = self._values.get("instances")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def sap_instance_number(self) -> typing.Optional[builtins.str]:
-        '''The SAP instance number of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-sapinstancenumber
-        '''
-        result = self._values.get("sap_instance_number")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sid(self) -> typing.Optional[builtins.str]:
-        '''The System ID of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-sid
-        '''
-        result = self._values.get("sid")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags on the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_systemsmanagersap.IApplicationRef")
-class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_systemsmanagersap.IApplicationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IApplicationRef_ac19f6b7, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -376,6 +87,7 @@ class CfnApplication(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_systemsmanagersap as systemsmanagersap
@@ -408,20 +120,21 @@ class CfnApplication(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         application_id: builtins.str,
         application_type: builtins.str,
-        components_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ComponentInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.CredentialProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        components_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ComponentInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CredentialProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         database_arn: typing.Optional[builtins.str] = None,
         instances: typing.Optional[typing.Sequence[builtins.str]] = None,
         sap_instance_number: typing.Optional[builtins.str] = None,
         sid: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SystemsManagerSAP::Application``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_id: The ID of the application.
@@ -452,8 +165,31 @@ class CfnApplication(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForApplication")
+    @builtins.classmethod
+    def arn_for_application(cls, resource: "_IApplicationRef_ac19f6b7") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c75c97c06ddeba7d6abca6fb0cf0cac1cc46b313a9483c59cc0fb69609d949f6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
+
+    @jsii.member(jsii_name="isCfnApplication")
+    @builtins.classmethod
+    def is_cfn_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__faca628a88e6fe64b6a798a1faaef0562e2e3638dc441de4f491366298858c65)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -484,9 +220,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
+    def application_ref(self) -> "_ApplicationReference_fdfd09d0":
         '''A reference to a Application resource.'''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+        return typing.cast("_ApplicationReference_fdfd09d0", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -504,9 +240,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationId")
@@ -538,14 +274,14 @@ class CfnApplication(
     @jsii.member(jsii_name="componentsInfo")
     def components_info(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentInfoProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.ComponentInfoProperty"]]]]:
         '''This is an optional parameter for component details to which the SAP ABAP application is attached, such as Web Dispatcher.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentInfoProperty"]]]], jsii.get(self, "componentsInfo"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.ComponentInfoProperty"]]]], jsii.get(self, "componentsInfo"))
 
     @components_info.setter
     def components_info(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentInfoProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.ComponentInfoProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a90939925dbb220d73328e704914b8b8622262010f7b16d224d782fd843e8a3)
@@ -556,14 +292,14 @@ class CfnApplication(
     @jsii.member(jsii_name="credentials")
     def credentials(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CredentialProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CredentialProperty"]]]]:
         '''The credentials of the SAP application.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CredentialProperty"]]]], jsii.get(self, "credentials"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CredentialProperty"]]]], jsii.get(self, "credentials"))
 
     @credentials.setter
     def credentials(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CredentialProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CredentialProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d7fd4ddc7b1c5dd15b7872fe8002624e595dabcca134f126fb732c23e5149c6)
@@ -624,12 +360,12 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags on the application.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84a8afb3becf838692cd2e040ef53d955aba6f46033283c6fd2d807663f653d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -820,36 +556,217 @@ class CfnApplication(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_systemsmanagersap.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "application_type": "applicationType",
+        "components_info": "componentsInfo",
+        "credentials": "credentials",
+        "database_arn": "databaseArn",
+        "instances": "instances",
+        "sap_instance_number": "sapInstanceNumber",
+        "sid": "sid",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        application_type: builtins.str,
+        components_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ComponentInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.CredentialProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        database_arn: typing.Optional[builtins.str] = None,
+        instances: typing.Optional[typing.Sequence[builtins.str]] = None,
+        sap_instance_number: typing.Optional[builtins.str] = None,
+        sid: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param application_id: The ID of the application.
+        :param application_type: The type of the application.
+        :param components_info: This is an optional parameter for component details to which the SAP ABAP application is attached, such as Web Dispatcher.
+        :param credentials: The credentials of the SAP application.
+        :param database_arn: The Amazon Resource Name (ARN) of the database.
+        :param instances: The Amazon EC2 instances on which your SAP application is running.
+        :param sap_instance_number: The SAP instance number of the application.
+        :param sid: The System ID of the application.
+        :param tags: The tags on the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_systemsmanagersap as systemsmanagersap
+            
+            cfn_application_props = systemsmanagersap.CfnApplicationProps(
+                application_id="applicationId",
+                application_type="applicationType",
+            
+                # the properties below are optional
+                components_info=[systemsmanagersap.CfnApplication.ComponentInfoProperty(
+                    component_type="componentType",
+                    ec2_instance_id="ec2InstanceId",
+                    sid="sid"
+                )],
+                credentials=[systemsmanagersap.CfnApplication.CredentialProperty(
+                    credential_type="credentialType",
+                    database_name="databaseName",
+                    secret_id="secretId"
+                )],
+                database_arn="databaseArn",
+                instances=["instances"],
+                sap_instance_number="sapInstanceNumber",
+                sid="sid",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a3a450935d6aacabad9991c3fdce7052d4392d63c713049280ff2a2a2615a38)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument application_type", value=application_type, expected_type=type_hints["application_type"])
+            check_type(argname="argument components_info", value=components_info, expected_type=type_hints["components_info"])
+            check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
+            check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
+            check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
+            check_type(argname="argument sap_instance_number", value=sap_instance_number, expected_type=type_hints["sap_instance_number"])
+            check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "application_type": application_type,
+        }
+        if components_info is not None:
+            self._values["components_info"] = components_info
+        if credentials is not None:
+            self._values["credentials"] = credentials
+        if database_arn is not None:
+            self._values["database_arn"] = database_arn
+        if instances is not None:
+            self._values["instances"] = instances
+        if sap_instance_number is not None:
+            self._values["sap_instance_number"] = sap_instance_number
+        if sid is not None:
+            self._values["sid"] = sid
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ID of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_type(self) -> builtins.str:
+        '''The type of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-applicationtype
+        '''
+        result = self._values.get("application_type")
+        assert result is not None, "Required property 'application_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def components_info(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.ComponentInfoProperty"]]]]:
+        '''This is an optional parameter for component details to which the SAP ABAP application is attached, such as Web Dispatcher.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-componentsinfo
+        '''
+        result = self._values.get("components_info")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.ComponentInfoProperty"]]]], result)
+
+    @builtins.property
+    def credentials(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CredentialProperty"]]]]:
+        '''The credentials of the SAP application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-credentials
+        '''
+        result = self._values.get("credentials")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnApplication.CredentialProperty"]]]], result)
+
+    @builtins.property
+    def database_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-databasearn
+        '''
+        result = self._values.get("database_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instances(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon EC2 instances on which your SAP application is running.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-instances
+        '''
+        result = self._values.get("instances")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def sap_instance_number(self) -> typing.Optional[builtins.str]:
+        '''The SAP instance number of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-sapinstancenumber
+        '''
+        result = self._values.get("sap_instance_number")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sid(self) -> typing.Optional[builtins.str]:
+        '''The System ID of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-sid
+        '''
+        result = self._values.get("sid")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags on the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-systemsmanagersap-application.html#cfn-systemsmanagersap-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
-    "IApplicationRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__ff963104d5d4f0de7296685bb0819f7f879dda6eb2259a2fc6a5f12ea24d789d(
-    *,
-    application_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a3a450935d6aacabad9991c3fdce7052d4392d63c713049280ff2a2a2615a38(
-    *,
-    application_id: builtins.str,
-    application_type: builtins.str,
-    components_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ComponentInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CredentialProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    database_arn: typing.Optional[builtins.str] = None,
-    instances: typing.Optional[typing.Sequence[builtins.str]] = None,
-    sap_instance_number: typing.Optional[builtins.str] = None,
-    sid: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__d9271c1fe4df837d944d62ed41ed4e1f7b01ee290ee0cedef450b7d3b63dd216(
     scope: _constructs_77d1e7e8.Construct,
@@ -864,6 +781,18 @@ def _typecheckingstub__d9271c1fe4df837d944d62ed41ed4e1f7b01ee290ee0cedef450b7d3b
     sap_instance_number: typing.Optional[builtins.str] = None,
     sid: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c75c97c06ddeba7d6abca6fb0cf0cac1cc46b313a9483c59cc0fb69609d949f6(
+    resource: _IApplicationRef_ac19f6b7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__faca628a88e6fe64b6a798a1faaef0562e2e3638dc441de4f491366298858c65(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -948,6 +877,21 @@ def _typecheckingstub__209aa7feaf1ed6ac2bf183538ccbb7555a21c47880975dd9f9b002d73
     credential_type: typing.Optional[builtins.str] = None,
     database_name: typing.Optional[builtins.str] = None,
     secret_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a3a450935d6aacabad9991c3fdce7052d4392d63c713049280ff2a2a2615a38(
+    *,
+    application_id: builtins.str,
+    application_type: builtins.str,
+    components_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ComponentInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CredentialProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    database_arn: typing.Optional[builtins.str] = None,
+    instances: typing.Optional[typing.Sequence[builtins.str]] = None,
+    sap_instance_number: typing.Optional[builtins.str] = None,
+    sid: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

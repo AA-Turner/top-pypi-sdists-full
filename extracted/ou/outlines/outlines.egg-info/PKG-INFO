@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: outlines
-Version: 1.2.5
+Version: 1.2.9
 Summary: Probabilistic Generative Model Programming
 Author: Outlines Developers
 License: Apache-2.0
@@ -46,6 +46,8 @@ Provides-Extra: ollama
 Requires-Dist: ollama; extra == "ollama"
 Provides-Extra: openai
 Requires-Dist: openai; extra == "openai"
+Provides-Extra: mistral
+Requires-Dist: mistralai; extra == "mistral"
 Provides-Extra: sglang
 Requires-Dist: openai; extra == "sglang"
 Provides-Extra: tgi
@@ -84,6 +86,7 @@ Requires-Dist: openai>=1.0.0; extra == "test"
 Requires-Dist: datasets; extra == "test"
 Requires-Dist: anthropic; extra == "test"
 Requires-Dist: google-genai; extra == "test"
+Requires-Dist: mistralai; extra == "test"
 Requires-Dist: transformers; extra == "test"
 Requires-Dist: pillow; extra == "test"
 Requires-Dist: jax; extra == "test"
@@ -102,9 +105,6 @@ Requires-Dist: xgrammar; extra == "test"
 Requires-Dist: airportsdata; extra == "test"
 Requires-Dist: iso3166; extra == "test"
 Requires-Dist: requests; extra == "test"
-Provides-Extra: test-gpu
-Requires-Dist: outlines[test]; extra == "test-gpu"
-Requires-Dist: vllm; sys_platform == "linux" and extra == "test-gpu"
 Dynamic: license-file
 
 <div align="center" style="margin-bottom: 1em;">
@@ -130,7 +130,13 @@ Made with ❤👷️ by the team at [.txt](https://dottxt.co)
 
 </div>
 
-Need a high-performance commercial solution for structured outputs? Email us at [contact@dottxt.co](mailto:contact@dottxt.co), or [schedule a call](https://cal.com/team/dottxt/sales).
+## 🚀 Building the future of structured generation
+
+We're working with select partners to develop new interfaces to structured generation.
+
+Need XML, FHIR, custom schemas or grammars? Let's talk.
+
+[Become a design partner](mailto:contact@dottxt.ai)
 
 ## Table of Contents
 

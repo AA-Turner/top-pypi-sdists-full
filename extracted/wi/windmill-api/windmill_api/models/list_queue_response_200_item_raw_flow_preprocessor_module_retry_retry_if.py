@@ -8,9 +8,10 @@ T = TypeVar("T", bound="ListQueueResponse200ItemRawFlowPreprocessorModuleRetryRe
 
 @_attrs_define
 class ListQueueResponse200ItemRawFlowPreprocessorModuleRetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

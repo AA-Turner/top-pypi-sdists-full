@@ -323,7 +323,7 @@ examples:
 helps['mysql flexible-server update'] = """
 type: command
 short-summary: Update a flexible server.
-long-summary: >
+long-summary: |
     > [!WARNING]
     > Enabling High-availability may result in a short downtime for the server based on your server configuration.
 examples:
@@ -783,6 +783,14 @@ short-summary: Create a backup for a given server with specified backup name.
 examples:
   - name: Create a backup for 'testsvr' with backup name 'testbackup'.
     text: az mysql flexible-server backup create -g testgroup -n testsvr --backup-name testbackup
+"""
+
+helps['mysql flexible-server backup delete'] = """
+type: command
+short-summary: Delete a backup for a given server with specified backup name.
+examples:
+  - name: Delete a backup for 'testsvr' with backup name 'testbackup'.
+    text: az mysql flexible-server backup delete -g testgroup -n testsvr --backup-name testbackup
 """
 
 helps['mysql flexible-server identity'] = """

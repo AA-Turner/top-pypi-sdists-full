@@ -1,6 +1,6 @@
 import uuid
 
-from django.contrib.postgres.fields import ArrayField
+from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
@@ -311,26 +311,36 @@ class CharfieldTextfieldModel(models.Model):
     history = AuditlogHistoryField(delete_related=True)
 
 
-class PostgresArrayFieldModel(models.Model):
-    """
-    Test auditlog with Postgres's ArrayField
-    """
+# Only define PostgreSQL-specific models when ArrayField is available
+if settings.TEST_DB_BACKEND == "postgresql":
+    from django.contrib.postgres.fields import ArrayField
 
-    RED = "r"
-    YELLOW = "y"
-    GREEN = "g"
+    class PostgresArrayFieldModel(models.Model):
+        """
+        Test auditlog with Postgres's ArrayField
+        """
 
-    STATUS_CHOICES = (
-        (RED, "Red"),
-        (YELLOW, "Yellow"),
-        (GREEN, "Green"),
-    )
+        RED = "r"
+        YELLOW = "y"
+        GREEN = "g"
 
-    arrayfield = ArrayField(
-        models.CharField(max_length=1, choices=STATUS_CHOICES), size=3
-    )
+        STATUS_CHOICES = (
+            (RED, "Red"),
+            (YELLOW, "Yellow"),
+            (GREEN, "Green"),
+        )
 
-    history = AuditlogHistoryField(delete_related=True)
+        arrayfield = ArrayField(
+            models.CharField(max_length=1, choices=STATUS_CHOICES), size=3
+        )
+
+        history = AuditlogHistoryField(delete_related=True)
+
+else:
+
+    class PostgresArrayFieldModel(models.Model):
+        class Meta:
+            managed = False
 
 
 class NoDeleteHistoryModel(models.Model):
@@ -420,6 +430,40 @@ class SwappedManagerModel(models.Model):
 
     objects = SecretManager()
 
+    def __str__(self):
+        return str(self.name)
+
+
+@auditlog.register()
+class SecretRelatedModel(RelatedModelParent):
+    """
+    A RelatedModel, but with a foreign key to an object that could be secret.
+    """
+
+    related = models.ForeignKey(
+        "SwappedManagerModel", related_name="related_models", on_delete=models.CASCADE
+    )
+    one_to_one = models.OneToOneField(
+        to="SwappedManagerModel",
+        on_delete=models.CASCADE,
+        related_name="reverse_one_to_one",
+    )
+
+    history = AuditlogHistoryField(delete_related=True)
+
+    def __str__(self):
+        return f"SecretRelatedModel #{self.pk} -> {self.related.id}"
+
+
+class SecretM2MModel(models.Model):
+    m2m_related = models.ManyToManyField(
+        "SwappedManagerModel", related_name="m2m_related"
+    )
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return str(self.name)
+
 
 class AutoManyRelatedModel(models.Model):
     related = models.ManyToManyField(SimpleModel)
@@ -432,23 +476,34 @@ class CustomMaskModel(models.Model):
     history = AuditlogHistoryField(delete_related=True)
 
 
+class NullableFieldModel(models.Model):
+    time = models.TimeField(null=True, blank=True)
+    optional_text = models.CharField(max_length=100, null=True, blank=True)
+
+    history = AuditlogHistoryField(delete_related=True)
+
+
 auditlog.register(AltPrimaryKeyModel)
 auditlog.register(UUIDPrimaryKeyModel)
 auditlog.register(ModelPrimaryKeyModel)
 auditlog.register(ProxyModel)
+auditlog.register(RelatedModelParent)
 auditlog.register(RelatedModel)
 auditlog.register(ManyRelatedModel)
 auditlog.register(ManyRelatedModel.recursive.through)
 m2m_only_auditlog.register(ManyRelatedModel, m2m_fields={"related"})
 m2m_only_auditlog.register(ModelForReusableThroughModel, m2m_fields={"related"})
 m2m_only_auditlog.register(OtherModelForReusableThroughModel, m2m_fields={"related"})
+m2m_only_auditlog.register(SecretM2MModel, m2m_fields={"m2m_related"})
+m2m_only_auditlog.register(SwappedManagerModel, m2m_fields={"m2m_related"})
 auditlog.register(SimpleExcludeModel, exclude_fields=["text"])
 auditlog.register(SimpleMappingModel, mapping_fields={"sku": "Product No."})
 auditlog.register(AdditionalDataIncludedModel)
 auditlog.register(DateTimeFieldModel)
 auditlog.register(ChoicesFieldModel)
 auditlog.register(CharfieldTextfieldModel)
-auditlog.register(PostgresArrayFieldModel)
+if settings.TEST_DB_BACKEND == "postgresql":
+    auditlog.register(PostgresArrayFieldModel)
 auditlog.register(NoDeleteHistoryModel)
 auditlog.register(JSONModel)
 auditlog.register(NullableJSONModel)
@@ -474,3 +529,4 @@ auditlog.register(
     mask_fields=["credit_card"],
     mask_callable="auditlog_tests.test_app.mask.custom_mask_str",
 )
+auditlog.register(NullableFieldModel)

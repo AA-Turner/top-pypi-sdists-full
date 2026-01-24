@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 from functools import partial
 from typing import List, Optional
@@ -12,7 +14,11 @@ except ImportError:
     class cupy(object):
         ndarray = False
 
-import dask.array as da
+try:
+    import dask.array as da
+except ImportError:
+    da = None
+
 import numba as nb
 import numpy as np
 
@@ -739,9 +745,14 @@ def _run_equal_interval(agg, k, module):
 
     max_data = module.nanmax(data)
     min_data = module.nanmin(data)
+
     if module == cupy:
         min_data = min_data.get()
         max_data = max_data.get()
+
+    if module == da:
+        min_data = min_data.compute()
+        max_data = max_data.compute()
 
     width = (max_data - min_data) * 1.0 / k
     cuts = module.arange(min_data + width, max_data + width, width)

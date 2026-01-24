@@ -25,16 +25,16 @@ __all__ = [
 import datetime
 import email.message
 import math
-from operator import methodcaller
 import sys
 import unittest
-import warnings
+from operator import methodcaller
+from typing import ClassVar
 
 from testtools.compat import _b
 from testtools.content import (
     Content,
-    text_content,
     TracebackContent,
+    text_content,
 )
 from testtools.content_type import ContentType
 from testtools.tags import TagContext
@@ -159,6 +159,14 @@ class TestResult(unittest.TestResult):
         if self.failfast:
             self.stop()
 
+    def addDuration(self, test, duration):
+        """Called to add a test duration.
+
+        :param test: The test that completed.
+        :param duration: The duration of the test as a float in seconds.
+        """
+        self.collectedDurations.append((test, duration))
+
     def wasSuccessful(self):
         """Has this result been successful so far?
 
@@ -213,8 +221,9 @@ class TestResult(unittest.TestResult):
         self.unexpectedSuccesses = []
         self.failfast = failfast
         # -- End:   As per python 2.7 --
-        # -- Python 3.5
         self.tb_locals = tb_locals
+        # -- Python 3.12
+        self.collectedDurations = []
 
     def stopTestRun(self):
         """Called after a test run completes
@@ -228,7 +237,7 @@ class TestResult(unittest.TestResult):
 
     def stopTest(self, test):
         # NOTE: In Python 3.12.1 skipped tests may not call startTest()
-        if self._tags is not None:
+        if self._tags is not None and self._tags.parent is not None:
             self._tags = self._tags.parent
         super().stopTest(test)
 
@@ -436,21 +445,6 @@ class StreamResult:
         """
 
 
-def domap(function, *sequences):
-    """A strict version of 'map' that's guaranteed to run on all inputs.
-
-    DEPRECATED since testtools 1.8.1: Internal code should use _strict_map.
-    External code should look for other solutions for their strict mapping
-    needs.
-    """
-    warnings.warn(
-        "domap deprecated since 1.8.1. Please implement your own strict map.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _strict_map(function, *sequences)
-
-
 def _strict_map(function, *sequences):
     return list(map(function, *sequences))
 
@@ -540,7 +534,7 @@ class StreamResultRouter(StreamResult):
     the behaviour is undefined. Only a single route is chosen for any event.
     """
 
-    _policies = {}
+    _policies: ClassVar[dict] = {}
 
     def __init__(self, fallback=None, do_start_stop_run=True):
         """Construct a StreamResultRouter with optional fallback.
@@ -571,9 +565,20 @@ class StreamResultRouter(StreamResult):
             sink.stopTestRun()
         self._in_run = False
 
-    def status(self, **kwargs):
-        route_code = kwargs.get("route_code", None)
-        test_id = kwargs.get("test_id", None)
+    def status(
+        self,
+        test_id=None,
+        test_status=None,
+        test_tags=None,
+        runnable=True,
+        file_name=None,
+        file_bytes=None,
+        eof=False,
+        mime_type=None,
+        route_code=None,
+        timestamp=None,
+    ):
+        # route_code and test_id are already available as parameters
         if route_code is not None:
             prefix = route_code.split("/")[0]
         else:
@@ -584,12 +589,23 @@ class StreamResultRouter(StreamResult):
                 route_code = route_code[len(prefix) + 1 :]
                 if not route_code:
                     route_code = None
-                kwargs["route_code"] = route_code
+                # Update route_code for forwarding
         elif test_id in self._test_ids:
             target = self._test_ids[test_id]
         else:
             target = self.fallback
-        target.status(**kwargs)
+        target.status(
+            test_id=test_id,
+            test_status=test_status,
+            test_tags=test_tags,
+            runnable=runnable,
+            file_name=file_name,
+            file_bytes=file_bytes,
+            eof=eof,
+            mime_type=mime_type,
+            route_code=route_code,
+            timestamp=timestamp,
+        )
 
     def add_rule(self, sink, policy, do_start_stop_run=False, **policy_args):
         """Add a rule to route events to sink when they match a given policy.
@@ -741,7 +757,7 @@ class _TestRecord:
             case = self
         else:
             content_type = _make_content_type(mime_type)
-            content_bytes = []
+            content_bytes: list[bytes] = []
             case = self.transform(
                 ["details", file_name], Content(content_type, lambda: content_bytes)
             )
@@ -759,6 +775,7 @@ class _TestRecord:
         if PlaceHolder is None:
             from testtools.testcase import PlaceHolder
         outcome = _status_map[self.status]
+        assert PlaceHolder is not None
         return PlaceHolder(
             self.id,
             outcome=outcome,
@@ -794,7 +811,7 @@ def _make_content_type(mime_type=None):
 
     type_parts = full_type.split("/") if "/" in full_type else None
     if not type_parts or len(type_parts) > 2:
-        raise Exception("Can't parse type '%s'" % full_type)
+        raise Exception(f"Can't parse type '{full_type}'")
 
     primary_type, sub_type = type_parts
     primary_type = primary_type.strip()
@@ -1192,12 +1209,21 @@ class MultiTestResult(TestResult):
 class TextTestResult(TestResult):
     """A TestResult which outputs activity to a text stream."""
 
-    def __init__(self, stream, failfast=False, tb_locals=False):
-        """Construct a TextTestResult writing to stream."""
+    def __init__(self, stream, failfast=False, tb_locals=False, verbosity=1):
+        """Construct a TextTestResult writing to stream.
+
+        :param stream: A file-like object to write results to.
+        :param failfast: Stop after the first failure.
+        :param tb_locals: If True include local variables in tracebacks.
+        :param verbosity: Verbosity level. 0 for quiet, 1 for normal (dots, default),
+            2 for verbose (test names).
+        """
         super().__init__(failfast=failfast, tb_locals=tb_locals)
         self.stream = stream
         self.sep1 = "=" * 70 + "\n"
         self.sep2 = "-" * 70 + "\n"
+        self.verbosity = verbosity
+        self._progress_printed = False
 
     def _delta_to_float(self, a_timedelta, precision):
         # This calls ceiling to ensure that the most pessimistic view of time
@@ -1218,16 +1244,86 @@ class TextTestResult(TestResult):
         )
 
     def _show_list(self, label, error_list):
+        if self.stream is None:
+            return
         for test, output in error_list:
             self.stream.write(self.sep1)
             self.stream.write(f"{label}: {test.id()}\n")
             self.stream.write(self.sep2)
             self.stream.write(output)
 
+    def startTest(self, test):
+        super().startTest(test)
+        if self.stream is not None and self.verbosity >= 2:
+            self.stream.write(f"{test.id()} ... ")
+            self.stream.flush()
+
+    def addSuccess(self, test, details=None):
+        super().addSuccess(test, details=details)
+        if self.stream is not None:
+            if self.verbosity == 1:
+                self.stream.write(".")
+                self.stream.flush()
+                self._progress_printed = True
+            elif self.verbosity >= 2:
+                self.stream.write("ok\n")
+                self.stream.flush()
+
+    def addError(self, test, err=None, details=None):
+        super().addError(test, err=err, details=details)
+        if self.stream is not None:
+            if self.verbosity == 1:
+                self.stream.write("E")
+                self.stream.flush()
+            elif self.verbosity >= 2:
+                self.stream.write("ERROR\n")
+                self.stream.flush()
+
+    def addFailure(self, test, err=None, details=None):
+        super().addFailure(test, err=err, details=details)
+        if self.stream is not None:
+            if self.verbosity == 1:
+                self.stream.write("F")
+                self.stream.flush()
+            elif self.verbosity >= 2:
+                self.stream.write("FAIL\n")
+                self.stream.flush()
+
+    def addSkip(self, test, reason=None, details=None):
+        super().addSkip(test, reason=reason, details=details)
+        if self.stream is not None:
+            if self.verbosity == 1:
+                self.stream.write("s")
+                self.stream.flush()
+            elif self.verbosity >= 2:
+                self.stream.write(f"skipped {reason!r}\n")
+                self.stream.flush()
+
+    def addExpectedFailure(self, test, err=None, details=None):
+        super().addExpectedFailure(test, err=err, details=details)
+        if self.stream is not None:
+            if self.verbosity == 1:
+                self.stream.write("x")
+                self.stream.flush()
+            elif self.verbosity >= 2:
+                self.stream.write("expected failure\n")
+                self.stream.flush()
+
+    def addUnexpectedSuccess(self, test, details=None):
+        super().addUnexpectedSuccess(test, details=details)
+        if self.stream is not None:
+            if self.verbosity == 1:
+                self.stream.write("u")
+                self.stream.flush()
+            elif self.verbosity >= 2:
+                self.stream.write("unexpected success\n")
+                self.stream.flush()
+
     def startTestRun(self):
         super().startTestRun()
         self.__start = self._now()
-        self.stream.write("Tests running...\n")
+        if self.stream is not None:
+            self.stream.write("Tests running...\n")
 
     def stopTestRun(self):
         if self.testsRun != 1:
@@ -1237,29 +1333,33 @@ class TextTestResult(TestResult):
         stop = self._now()
         self._show_list("ERROR", self.errors)
         self._show_list("FAIL", self.failures)
-        for test in self.unexpectedSuccesses:
-            self.stream.write(
-                "{}UNEXPECTED SUCCESS: {}\n{}".format(self.sep1, test.id(), self.sep2)
-            )
-        self.stream.write(
-            "\nRan %d test%s in %.3fs\n"
-            % (self.testsRun, plural, self._delta_to_float(stop - self.__start, 3))
-        )
-        if self.wasSuccessful():
-            self.stream.write("OK\n")
-        else:
-            self.stream.write("FAILED (")
-            details = []
-            details.append(
-                "failures=%d"
-                % (
-                    sum(
-                        map(len, (self.failures, self.errors, self.unexpectedSuccesses))
-                    )
+        if self.stream is not None:
+            for test in self.unexpectedSuccesses:
+                self.stream.write(
+                    f"{self.sep1}UNEXPECTED SUCCESS: {test.id()}\n{self.sep2}"
                 )
+            # Add newline(s) before summary
+            # If we printed progress indicators (dots), add extra newline
+            if self._progress_printed:
+                self.stream.write("\n\n")
+            else:
+                self.stream.write("\n")
+            self.stream.write(
+                f"Ran {self.testsRun} test{plural} in "
+                f"{self._delta_to_float(stop - self.__start, 3):.3f}s\n"
             )
-            self.stream.write(", ".join(details))
-            self.stream.write(")\n")
+            if self.wasSuccessful():
+                self.stream.write("OK\n")
+            else:
+                self.stream.write("FAILED (")
+                details = []
+                failure_count = sum(
+                    len(x)
+                    for x in (self.failures, self.errors, self.unexpectedSuccesses)
+                )
+                details.append(f"failures={failure_count}")
+                self.stream.write(", ".join(details))
+                self.stream.write(")\n")
         super().stopTestRun()
 
 
@@ -1299,8 +1399,8 @@ class ThreadsafeForwardingResult(TestResult):
         self.result = ExtendedToOriginalDecorator(target)
         self.semaphore = semaphore
         self._test_start = None
-        self._global_tags = set(), set()
-        self._test_tags = set(), set()
+        self._global_tags: tuple[set, set] = set(), set()
+        self._test_tags: tuple[set, set] = set(), set()
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.result!r}>"
@@ -1517,12 +1617,13 @@ class ExtendedToOriginalDecorator:
                     test.fail("")
                 except test.failureException:
                     return self.addFailure(test, sys.exc_info())
-            if details is not None:
-                try:
-                    return outcome(test, details=details)
-                except TypeError:
-                    pass
-            return outcome(test)
+            else:
+                if details is not None:
+                    try:
+                        return outcome(test, details=details)
+                    except TypeError:
+                        pass
+                return outcome(test)
         finally:
             if self.failfast:
                 self.stop()
@@ -1543,7 +1644,7 @@ class ExtendedToOriginalDecorator:
             param_count += 1
         if param_count != 1:
             raise ValueError(
-                "Must pass only one of err '%s' and details '%s" % (err, details)
+                f"Must pass only one of err '{err}' and details '{details}"
             )
 
     def _details_to_exc_info(self, details):
@@ -1611,7 +1712,7 @@ class ExtendedToOriginalDecorator:
 
     def stopTest(self, test):
         # NOTE: In Python 3.12.1 skipped tests may not call startTest()
-        if self._tags is not None:
+        if self._tags is not None and self._tags.parent is not None:
             self._tags = self._tags.parent
         return self.decorated.stopTest(test)
 
@@ -1653,6 +1754,7 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
         # Deal with mismatched base class constructors.
         TestControl.__init__(self)
         self._started = False
+        self._tags: TagContext | None = None
 
     def _get_failfast(self):
         return len(self.targets) == 2
@@ -1754,7 +1856,7 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
             param_count += 1
         if param_count != 1:
             raise ValueError(
-                "Must pass only one of err '%s' and details '%s" % (err, details)
+                f"Must pass only one of err '{err}' and details '{details}"
             )
 
     def startTestRun(self):
@@ -1767,6 +1869,8 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
     @property
     def current_tags(self):
         """The currently set tags."""
+        if self._tags is None:
+            return set()
         return self._tags.get_current_tags()
 
     def tags(self, new_tags, gone_tags):
@@ -1775,7 +1879,8 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
         :param new_tags: A set of tags to be added to the stream.
         :param gone_tags: A set of tags to be removed from the stream.
         """
-        self._tags.change_tags(new_tags, gone_tags)
+        if self._tags is not None:
+            self._tags.change_tags(new_tags, gone_tags)
 
     def _now(self):
         """Return the current 'test time'.
@@ -1829,14 +1934,13 @@ class ResourcedToStreamDecorator(ExtendedToStreamDecorator):
 
     def _convertResourceLifecycle(self, resource, method, phase):
         """Convert a resource lifecycle report to a stream event."""
-
         # If the resource implements the TestResourceManager.id() API, let's
         # use it, otherwise fallback to the class name.
         if hasattr(resource, "id"):
             resource_id = resource.id()
         else:
-            resource_id = "{}.{}".format(
-                resource.__class__.__module__, resource.__class__.__name__
+            resource_id = (
+                f"{resource.__class__.__module__}.{resource.__class__.__name__}"
             )
 
         test_id = f"{resource_id}.{method}"
@@ -1873,10 +1977,33 @@ class StreamToExtendedDecorator(StreamResult):
         # _StreamToTestRecord buffers and gives us individual tests.
         self.hook = _StreamToTestRecord(self._handle_tests)
 
-    def status(self, test_id=None, test_status=None, *args, **kwargs):
+    def status(
+        self,
+        test_id=None,
+        test_status=None,
+        test_tags=None,
+        runnable=True,
+        file_name=None,
+        file_bytes=None,
+        eof=False,
+        mime_type=None,
+        route_code=None,
+        timestamp=None,
+    ):
         if test_status == "exists":
             return
-        self.hook.status(test_id=test_id, test_status=test_status, *args, **kwargs)
+        self.hook.status(
+            test_id=test_id,
+            test_status=test_status,
+            test_tags=test_tags,
+            runnable=runnable,
+            file_name=file_name,
+            file_bytes=file_bytes,
+            eof=eof,
+            mime_type=mime_type,
+            route_code=route_code,
+            timestamp=timestamp,
+        )
 
     def startTestRun(self):
         self.decorated.startTestRun()
@@ -1889,6 +2016,36 @@ class StreamToExtendedDecorator(StreamResult):
     def _handle_tests(self, test_record):
         case = test_record.to_test_case()
         case.run(self.decorated)
+
+    def wasSuccessful(self):
+        """Return whether this result was successful.
+
+        Delegates to the decorated result object.
+        """
+        return self.decorated.wasSuccessful()
+
+    @property
+    def shouldStop(self):
+        """Return whether the test run should stop.
+
+        Delegates to the decorated result object.
+        """
+        return self.decorated.shouldStop
+
+    def stop(self):
+        """Indicate that the test run should stop.
+
+        Delegates to the decorated result object.
+        """
+        return self.decorated.stop()
+
+    @property
+    def testsRun(self):
+        """Return the number of tests run.
+
+        Delegates to the decorated result object.
+        """
+        return self.decorated.testsRun
 
 
 class StreamToQueue(StreamResult):
@@ -2013,6 +2170,9 @@ class TestResultDecorator:
 
     def addUnexpectedSuccess(self, test, details=None):
         return self.decorated.addUnexpectedSuccess(test, details=details)
+
+    def addDuration(self, test, duration):
+        return self.decorated.addDuration(test, duration)
 
     def progress(self, offset, whence):
         return self.decorated.progress(offset, whence)

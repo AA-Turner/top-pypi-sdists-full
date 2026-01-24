@@ -5,23 +5,21 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray
-from packaging.version import Version
 
 from recursive_diff import cast, recursive_diff
-from recursive_diff.tests import requires_dask
-
-PANDAS_GE_200 = Version(pd.__version__).release >= (2, 0)
+from recursive_diff.tests import PANDAS_GE_200, filter_old_numpy_warnings, requires_dask
 
 
 class Rectangle:
-    """Sample class to test custom comparisons"""
+    """Sample class to test custom comparisons."""
 
     def __init__(self, w, h):
         self.w = w
         self.h = h
 
     def __eq__(self, other):
-        return self.w == other.w and self.h == other.h
+        # Never invoked thanks to @cast.register
+        raise AssertionError("__eq__ should not be called")  # pragma: nocover
 
     def __repr__(self):
         return f"Rectangle({self.w}, {self.h})"
@@ -37,12 +35,13 @@ class Drawing:
         self.h = h
 
     def __eq__(self, other):
-        return self.w == other.w and self.h == other.h
+        # Never invoked thanks to @cast.register
+        raise AssertionError("__eq__ should not be called")  # pragma: nocover
 
 
 @cast.register(Rectangle)
 @cast.register(Drawing)
-def _(obj, brief_dims):
+def _(obj, brief_dims):  # noqa: ARG001
     return {"w": obj.w, "h": obj.h}
 
 
@@ -250,6 +249,7 @@ def test_numpy_types():
     check(np.float64(1), np.float64(1.01), abs_tol=0.1)
 
 
+@filter_old_numpy_warnings
 def test_numpy():
     # test tolerance and comparison of float vs. int
     check(
@@ -306,6 +306,14 @@ def test_numpy():
         [[1, 4, 3], [4, 5, 6]],
         "object type differs: ndarray<int64> != list",
         "[data][0, 1]: 2 != 4 (abs: 2.0e+00, rel: 1.0e+00)",
+    )
+
+    # list vs. numpy
+    check(
+        [[1, 4, 3], [4, 5, 6]],
+        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64),
+        "object type differs: list != ndarray<int64>",
+        "[data][0, 1]: 4 != 2 (abs: -2.0e+00, rel: -5.0e-01)",
     )
 
     # numpy vs. other object
@@ -484,6 +492,14 @@ def test_pandas_rangeindex():
         pd.Index([0, 1, 2]),
         "3 is in LHS only",
         f"object type differs: RangeIndex != {int_index}",
+    )
+
+    # Regular index vs RangeIndex
+    check(
+        pd.Index([0, 1, 2]),
+        pd.RangeIndex(4),
+        "3 is in RHS only",
+        f"object type differs: {int_index} != RangeIndex",
     )
 
 
@@ -856,3 +872,48 @@ def test_dask(chunk_lhs, chunk_rhs):
         rhs = rhs.chunk(chunk_rhs)
 
     check(lhs, rhs, "[data][x=2]: c != d")
+
+
+def test_recursion():
+    lhs = []
+    lhs.append(lhs)
+    rhs = [1]
+    check(lhs, rhs, "[0]: LHS recurses to [0]; RHS is not recursive")
+    check(rhs, lhs, "[0]: LHS is not recursive; RHS recurses to [0]")
+
+    rhs = []
+    rhs.append(rhs)
+    check(lhs, rhs)
+
+
+def test_recursion_different_target_different():
+    lhs = [[1, 2], [3, 4]]
+    lhs.append(lhs[0])
+    rhs = [[1, 2], [3, 4]]
+    rhs.append(rhs[1])
+
+    check(
+        lhs,
+        rhs,
+        "[2][0]: 1 != 3 (abs: 2.0e+00, rel: 2.0e+00)",
+        "[2][1]: 2 != 4 (abs: 2.0e+00, rel: 1.0e+00)",
+    )
+
+
+def test_recursion_different_target_identical():
+    lhs = [[1, 2], [1, 2]]
+    lhs.append(lhs[0])
+    rhs = [[1, 2], [1, 2]]
+    rhs.append(rhs[1])
+    check(lhs, rhs)
+
+
+def test_repetition_is_not_recursion():
+    class C:
+        def __eq__(self, other):
+            return isinstance(other, C)
+
+    c1 = C()
+    lhs = [c1, c1]
+    rhs = [c1, C()]
+    check(lhs, rhs)

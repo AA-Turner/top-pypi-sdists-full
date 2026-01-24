@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -11,8 +11,9 @@ import inspect
 import os
 import pprint
 
-import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai._wrappers.httpx_wrapper import set_verify_for_httpx
 import base64
+import httpx
 import json
 import tarfile, gzip, shutil
 
@@ -30,7 +31,8 @@ def download_content(request_id, dep_id, details_json):
                'Content-Type': 'application/octet-stream-stream',
                'Accept': 'application/octet-stream'}
     try:
-        model_content = requests.get(details_json['href'] + '/content', headers=headers).content
+        decorated_get = set_verify_for_httpx(httpx.get)
+        model_content = decorated_get(details_json['href'] + '/content', headers=headers).content
 
     except Exception as ex:
         import traceback

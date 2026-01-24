@@ -1,0 +1,239 @@
+[project]
+name = "kerykeion"
+version = "5.7.0"
+authors = [
+    { name = "Giacomo Battaglia", email = "kerykeion.astrology@gmail.com" }
+]
+description = "A Python library for astrological calculations, including natal charts, houses, planetary aspects, and SVG chart generation."
+license = { text = "AGPL-3.0" }
+readme = "README.md"
+keywords = [
+    "astrology",
+    "astrology library",
+    "astrology calculations",
+    "astrology calculator",
+    "natal chart",
+    "birth chart",
+    "planetary aspects",
+    "astrology transits",
+    "houses of astrology",
+    "ephemeris",
+    "zodiac",
+    "zodiac signs",
+    "svg charts",
+    "synastry",
+    "astronomical algorithms"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Religion",
+    "Typing :: Typed",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pyswisseph>=2.10.3.1",
+    "pydantic>=2.5",
+    "scour>=0.38.2",
+    "requests-cache>=1.2.1",
+    "requests>=2.32.3",
+    "simple-ascii-tables>=1.0.0",
+    "pytz>=2024.2",
+    "typing-extensions>=4.12.2",
+]
+
+[project.urls]
+Homepage = "https://www.kerykeion.net/"
+Repository = "https://github.com/g-battaglia/kerykeion"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kerykeion"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/kerykeion",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+    "/MANIFEST.in",
+]
+
+# MyPy Static Analysis
+[tool.mypy]
+ignore_missing_imports = true
+mypy_path = "kerykeion"
+files = "kerykeion"
+
+# PyTest Automated Testing
+[tool.pytest.ini_options]
+log_cli_level = 20
+log_cli = true
+testpaths = "tests"
+log_level = 20
+log_date_format = "%Y-%m-%d %H:%M:%S"
+log_format = "%(asctime)s %(levelname)s %(message)s"
+addopts = ""
+
+# Coverage Configuration
+[tool.coverage.run]
+source = ["kerykeion"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/sweph/*",  # Swiss Ephemeris library files
+    "setup.py",
+    "**/draw_planets_legacy.py",  # Legacy code, not used
+    "kerykeion/charts/draw_planets_legacy.py",  # Legacy code, not used
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# Task Runner
+[tool.poe.tasks]
+# Test
+test = "pytest"
+"test:cov" = "pytest --cov=kerykeion --cov-config=pyproject.toml --cov-report=html --cov-report=term --cov-report=xml"
+"test:cov-xml" = "pytest --cov=kerykeion --cov-report=xml"
+"test:nocharts" = "pytest --ignore-glob='*chart*.py'"
+
+# Code Quality
+lint = "ruff check"
+format = "ruff format"
+"format:all" = "ruff format kerykeion tests"
+analyze = "mypy"
+typecheck = "pyright"
+
+[tool.poe.tasks.check]
+sequence = ["lint", "analyze", "typecheck", "test"]
+help = "Run all quality checks (lint, analyze, typecheck, test)"
+
+[tool.poe.tasks.quality]
+script = "scripts.quality_check:main"
+help = "Run quality check script"
+
+# Documentation
+[tool.poe.tasks.docs]
+cmd = "pdoc kerykeion -o ./docs"
+help = "Generate API documentation"
+
+[tool.poe.tasks."docs:check"]
+cmd = "python scripts/check_documentation_coverage.py"
+help = "Audit documentation coverage"
+
+[tool.poe.tasks."docs:snippets"]
+cmd = "python scripts/test_markdown_snippets.py"
+help = "Test Python snippets in markdown files"
+
+# Regenerate Test Fixtures
+[tool.poe.tasks."regenerate:charts"]
+cmd = "python scripts/regenerate_test_charts.py"
+help = "Regenerate test SVG charts"
+
+[tool.poe.tasks."regenerate:aspects"]
+cmd = "python scripts/regenerate_expected_aspects.py"
+help = "Regenerate expected aspects"
+
+[tool.poe.tasks."regenerate:subjects"]
+cmd = "python scripts/regenerate_expected_subjects.py"
+help = "Regenerate expected subjects"
+
+[tool.poe.tasks."regenerate:synastry-aspects"]
+cmd = "python scripts/regenerate_synastry_aspects.py"
+help = "Regenerate synastry aspects"
+
+[tool.poe.tasks."regenerate:synastry"]
+cmd = "python scripts/regenerate_synastry_from_test.py"
+help = "Regenerate synastry from test"
+
+[tool.poe.tasks."regenerate:output"]
+cmd = "python scripts/regenerate_test_output.py"
+help = "Regenerate test output"
+
+[tool.poe.tasks."regenerate:all"]
+sequence = ["regenerate:charts", "regenerate:aspects", "regenerate:subjects", "regenerate:synastry-aspects", "regenerate:synastry", "regenerate:output"]
+help = "Regenerate all test fixtures"
+
+# Utilities
+[tool.poe.tasks.clean]
+cmd = "rm -rf dist build *.egg-info htmlcov .coverage .coverage.* coverage.xml .pytest_cache .mypy_cache .ruff_cache"
+help = "Clean build artifacts and caches"
+
+[tool.ruff]
+line-length = 120
+
+# Pyright Static Type Checking
+[tool.pyright]
+include = ["kerykeion"]
+exclude = [
+    "tests",
+    "examples",
+    "workspace",
+    "scripts",
+    "**/__pycache__",
+    ".venv",
+    "dist",
+    "build",
+    "*.egg-info"
+]
+typeCheckingMode = "basic"
+pythonVersion = "3.9"
+pythonPlatform = "All"
+venvPath = "."
+venv = ".venv"
+reportOptionalMemberAccess = "none"
+reportIncompatibleVariableOverride = "none"
+reportArgumentType = "none"
+reportInvalidTypeForm = "error"
+reportAttributeAccessIssue = "error"
+reportGeneralTypeIssues = "none"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.0",
+    "mypy>=1.17.1",
+    "pdoc>=15.0.4",
+    "poethepoet>=0.36.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.12.9",
+    "types-pytz>=2025.2.0.20250516",
+    "types-requests>=2.32.4.20250611",
+]

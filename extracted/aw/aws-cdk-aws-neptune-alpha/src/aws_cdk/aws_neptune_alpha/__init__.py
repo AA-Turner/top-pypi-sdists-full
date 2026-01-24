@@ -274,8 +274,8 @@ import aws_cdk as _aws_cdk_ceddda9d
 import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
 import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
 import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
 import constructs as _constructs_77d1e7e8
 
 
@@ -423,7 +423,7 @@ class DatabaseClusterAttributes:
         cluster_resource_identifier: builtins.str,
         port: jsii.Number,
         reader_endpoint_address: builtins.str,
-        security_group: _aws_cdk_aws_ec2_ceddda9d.ISecurityGroup,
+        security_group: "_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup",
     ) -> None:
         '''(experimental) Properties that describe an existing cluster instance.
 
@@ -523,14 +523,14 @@ class DatabaseClusterAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def security_group(self) -> _aws_cdk_aws_ec2_ceddda9d.ISecurityGroup:
+    def security_group(self) -> "_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup":
         '''(experimental) The security group of the database cluster.
 
         :stability: experimental
         '''
         result = self._values.get("security_group")
         assert result is not None, "Required property 'security_group' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -582,13 +582,13 @@ class DatabaseClusterProps:
         self,
         *,
         instance_type: "InstanceType",
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        associated_roles: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IRole]] = None,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        associated_roles: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IRole"]] = None,
         auto_minor_version_upgrade: typing.Optional[builtins.bool] = None,
-        backup_retention: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        backup_retention: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         cloudwatch_logs_exports: typing.Optional[typing.Sequence["LogType"]] = None,
-        cloudwatch_logs_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
-        cloudwatch_logs_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        cloudwatch_logs_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        cloudwatch_logs_retention_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         cluster_parameter_group: typing.Optional["IClusterParameterGroup"] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
         db_cluster_name: typing.Optional[builtins.str] = None,
@@ -597,17 +597,17 @@ class DatabaseClusterProps:
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier_base: typing.Optional[builtins.str] = None,
         instances: typing.Optional[jsii.Number] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         parameter_group: typing.Optional["IParameterGroup"] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         serverless_scaling_configuration: typing.Optional[typing.Union["ServerlessScalingConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
         subnet_group: typing.Optional["ISubnetGroup"] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties for a new database cluster.
 
@@ -752,7 +752,7 @@ class DatabaseClusterProps:
         return typing.cast("InstanceType", result)
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) What subnets to run the Neptune instances in.
 
         Must be at least 2 subnets in two different AZs.
@@ -761,12 +761,12 @@ class DatabaseClusterProps:
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def associated_roles(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IRole]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IRole"]]:
         '''(experimental) A list of AWS Identity and Access Management (IAM) role that can be used by the cluster to access other AWS services.
 
         :default: - No role is attached to the cluster.
@@ -774,7 +774,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("associated_roles")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IRole]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IRole"]], result)
 
     @builtins.property
     def auto_minor_version_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -788,7 +788,7 @@ class DatabaseClusterProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def backup_retention(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def backup_retention(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) How many days to retain the backup.
 
         :default: - cdk.Duration.days(1)
@@ -796,7 +796,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("backup_retention")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def cloudwatch_logs_exports(self) -> typing.Optional[typing.List["LogType"]]:
@@ -813,7 +813,7 @@ class DatabaseClusterProps:
     @builtins.property
     def cloudwatch_logs_retention(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
         '''(experimental) The number of days log events are kept in CloudWatch Logs.
 
         When updating
@@ -825,12 +825,12 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("cloudwatch_logs_retention")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
 
     @builtins.property
     def cloudwatch_logs_retention_role(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    ) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role for the Lambda function associated with the custom resource that sets the retention policy.
 
         :default: - a new role is created.
@@ -838,7 +838,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("cloudwatch_logs_retention_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def cluster_parameter_group(self) -> typing.Optional["IClusterParameterGroup"]:
@@ -934,7 +934,9 @@ class DatabaseClusterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
         '''(experimental) The KMS key for storage encryption.
 
         :default: - default master key.
@@ -942,7 +944,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     @builtins.property
     def parameter_group(self) -> typing.Optional["IParameterGroup"]:
@@ -1003,7 +1005,7 @@ class DatabaseClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The removal policy to apply when the cluster and its instances are removed or replaced during a stack update, or when the stack is deleted.
 
         This
@@ -1015,12 +1017,12 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) Security group.
 
         :default: a new security group is created.
@@ -1028,7 +1030,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
     def serverless_scaling_configuration(
@@ -1068,7 +1070,9 @@ class DatabaseClusterProps:
         return typing.cast(typing.Optional["ISubnetGroup"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) Where to place the instances within the VPC.
 
         :default: private subnets
@@ -1076,7 +1080,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1204,7 +1208,7 @@ class DatabaseInstanceProps:
         availability_zone: typing.Optional[builtins.str] = None,
         db_instance_name: typing.Optional[builtins.str] = None,
         parameter_group: typing.Optional["IParameterGroup"] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
     ) -> None:
         '''(experimental) Construction properties for a DatabaseInstanceNew.
 
@@ -1318,7 +1322,7 @@ class DatabaseInstanceProps:
         return typing.cast(typing.Optional["IParameterGroup"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The CloudFormation policy to apply when the instance is removed from the stack or replaced during an update.
 
         :default: RemovalPolicy.Retain
@@ -1326,7 +1330,7 @@ class DatabaseInstanceProps:
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1701,6 +1705,24 @@ class EngineVersion(
         '''
         return typing.cast("EngineVersion", jsii.sget(cls, "V1_4_5_1"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_4_6_0")
+    def V1_4_6_0(cls) -> "EngineVersion":
+        '''(experimental) Neptune engine version 1.4.6.0.
+
+        :stability: experimental
+        '''
+        return typing.cast("EngineVersion", jsii.sget(cls, "V1_4_6_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_4_6_1")
+    def V1_4_6_1(cls) -> "EngineVersion":
+        '''(experimental) Neptune engine version 1.4.6.1.
+
+        :stability: experimental
+        '''
+        return typing.cast("EngineVersion", jsii.sget(cls, "V1_4_6_1"))
+
     @builtins.property
     @jsii.member(jsii_name="version")
     def version(self) -> builtins.str:
@@ -1764,7 +1786,7 @@ class IDatabaseCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
@@ -1783,7 +1805,7 @@ class IDatabaseCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterReadEndpoint")
-    def cluster_read_endpoint(self) -> Endpoint:
+    def cluster_read_endpoint(self) -> "Endpoint":
         '''(experimental) Endpoint to use for load-balanced read-only operations.
 
         :stability: experimental
@@ -1804,9 +1826,9 @@ class IDatabaseCluster(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         *actions: builtins.str,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the given identity the specified actions.
 
         :param grantee: the identity to be granted the actions.
@@ -1820,8 +1842,8 @@ class IDatabaseCluster(
     @jsii.member(jsii_name="grantConnect")
     def grant_connect(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the given identity connection access to the database.
 
         :param grantee: -
@@ -1840,14 +1862,14 @@ class IDatabaseCluster(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return the given named metric associated with this DatabaseCluster instance.
 
         :param metric_name: -
@@ -1883,13 +1905,13 @@ class _IDatabaseClusterProxy(
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
         :attribute: Endpoint,Port
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterIdentifier")
@@ -1902,13 +1924,13 @@ class _IDatabaseClusterProxy(
 
     @builtins.property
     @jsii.member(jsii_name="clusterReadEndpoint")
-    def cluster_read_endpoint(self) -> Endpoint:
+    def cluster_read_endpoint(self) -> "Endpoint":
         '''(experimental) Endpoint to use for load-balanced read-only operations.
 
         :stability: experimental
         :attribute: ReadEndpoint
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterReadEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterReadEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterResourceIdentifier")
@@ -1923,9 +1945,9 @@ class _IDatabaseClusterProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         *actions: builtins.str,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the given identity the specified actions.
 
         :param grantee: the identity to be granted the actions.
@@ -1938,13 +1960,13 @@ class _IDatabaseClusterProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__fdf4b231f85df4c2f0175f2fd90839306b1776c36b0cf29ddc88b72678e94efa)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantConnect")
     def grant_connect(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the given identity connection access to the database.
 
         :param grantee: -
@@ -1954,7 +1976,7 @@ class _IDatabaseClusterProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__510689423e6b1c4b3137c3b14488db736932911c72e41846ea788d0fa5ce5db8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantConnect", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantConnect", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -1966,14 +1988,14 @@ class _IDatabaseClusterProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return the given named metric associated with this DatabaseCluster instance.
 
         :param metric_name: -
@@ -2011,7 +2033,7 @@ class _IDatabaseClusterProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDatabaseCluster).__jsii_proxy_class__ = lambda : _IDatabaseClusterProxy
@@ -2046,7 +2068,7 @@ class IDatabaseInstance(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol)
 
     @builtins.property
     @jsii.member(jsii_name="instanceEndpoint")
-    def instance_endpoint(self) -> Endpoint:
+    def instance_endpoint(self) -> "Endpoint":
         '''(experimental) The instance endpoint.
 
         :stability: experimental
@@ -2072,14 +2094,14 @@ class IDatabaseInstance(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol)
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return the given named metric associated with this database instance.
 
         :param metric_name: -
@@ -2134,12 +2156,12 @@ class _IDatabaseInstanceProxy(
 
     @builtins.property
     @jsii.member(jsii_name="instanceEndpoint")
-    def instance_endpoint(self) -> Endpoint:
+    def instance_endpoint(self) -> "Endpoint":
         '''(experimental) The instance endpoint.
 
         :stability: experimental
         '''
-        return typing.cast(Endpoint, jsii.get(self, "instanceEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "instanceEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceIdentifier")
@@ -2160,14 +2182,14 @@ class _IDatabaseInstanceProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return the given named metric associated with this database instance.
 
         :param metric_name: -
@@ -2205,7 +2227,7 @@ class _IDatabaseInstanceProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDatabaseInstance).__jsii_proxy_class__ = lambda : _IDatabaseInstanceProxy
@@ -2914,7 +2936,7 @@ class ParameterGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         parameters: typing.Mapping[builtins.str, builtins.str],
@@ -2949,10 +2971,10 @@ class ParameterGroup(
     @builtins.classmethod
     def from_parameter_group_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         parameter_group_name: builtins.str,
-    ) -> IParameterGroup:
+    ) -> "IParameterGroup":
         '''(experimental) Imports a parameter group.
 
         :param scope: -
@@ -2966,7 +2988,7 @@ class ParameterGroup(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-        return typing.cast(IParameterGroup, jsii.sinvoke(cls, "fromParameterGroupName", [scope, id, parameter_group_name]))
+        return typing.cast("IParameterGroup", jsii.sinvoke(cls, "fromParameterGroupName", [scope, id, parameter_group_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3079,7 +3101,7 @@ class ParameterGroupProps:
         *,
         parameters: typing.Mapping[builtins.str, builtins.str],
         description: typing.Optional[builtins.str] = None,
-        family: typing.Optional[ParameterGroupFamily] = None,
+        family: typing.Optional["ParameterGroupFamily"] = None,
         parameter_group_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Marker class for cluster parameter group.
@@ -3153,7 +3175,7 @@ class ParameterGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def family(self) -> typing.Optional[ParameterGroupFamily]:
+    def family(self) -> typing.Optional["ParameterGroupFamily"]:
         '''(experimental) Parameter group family.
 
         :default: - NEPTUNE_1
@@ -3161,7 +3183,7 @@ class ParameterGroupProps:
         :stability: experimental
         '''
         result = self._values.get("family")
-        return typing.cast(typing.Optional[ParameterGroupFamily], result)
+        return typing.cast(typing.Optional["ParameterGroupFamily"], result)
 
     @builtins.property
     def parameter_group_name(self) -> typing.Optional[builtins.str]:
@@ -3296,14 +3318,14 @@ class SubnetGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
         description: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         subnet_group_name: typing.Optional[builtins.str] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3334,10 +3356,10 @@ class SubnetGroup(
     @builtins.classmethod
     def from_subnet_group_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         subnet_group_name: builtins.str,
-    ) -> ISubnetGroup:
+    ) -> "ISubnetGroup":
         '''(experimental) Imports an existing subnet group by name.
 
         :param scope: -
@@ -3351,7 +3373,7 @@ class SubnetGroup(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-        return typing.cast(ISubnetGroup, jsii.sinvoke(cls, "fromSubnetGroupName", [scope, id, subnet_group_name]))
+        return typing.cast("ISubnetGroup", jsii.sinvoke(cls, "fromSubnetGroupName", [scope, id, subnet_group_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3387,11 +3409,11 @@ class SubnetGroupProps:
     def __init__(
         self,
         *,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
         description: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         subnet_group_name: typing.Optional[builtins.str] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties for creating a SubnetGroup.
 
@@ -3455,14 +3477,14 @@ class SubnetGroupProps:
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The VPC to place the subnet group in.
 
         :stability: experimental
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3476,7 +3498,7 @@ class SubnetGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) The removal policy to apply when the subnet group are removed from the stack or replaced during an update.
 
         :default: RemovalPolicy.DESTROY
@@ -3484,7 +3506,7 @@ class SubnetGroupProps:
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def subnet_group_name(self) -> typing.Optional[builtins.str]:
@@ -3498,7 +3520,9 @@ class SubnetGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) Which subnets within the VPC to associate with this group.
 
         :default: - private subnets
@@ -3506,7 +3530,7 @@ class SubnetGroupProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3558,13 +3582,13 @@ class ClusterParameterGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         parameters: typing.Mapping[builtins.str, builtins.str],
         cluster_parameter_group_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        family: typing.Optional[ParameterGroupFamily] = None,
+        family: typing.Optional["ParameterGroupFamily"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3593,10 +3617,10 @@ class ClusterParameterGroup(
     @builtins.classmethod
     def from_cluster_parameter_group_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         cluster_parameter_group_name: builtins.str,
-    ) -> IClusterParameterGroup:
+    ) -> "IClusterParameterGroup":
         '''(experimental) Imports a parameter group.
 
         :param scope: -
@@ -3610,7 +3634,7 @@ class ClusterParameterGroup(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_parameter_group_name", value=cluster_parameter_group_name, expected_type=type_hints["cluster_parameter_group_name"])
-        return typing.cast(IClusterParameterGroup, jsii.sinvoke(cls, "fromClusterParameterGroupName", [scope, id, cluster_parameter_group_name]))
+        return typing.cast("IClusterParameterGroup", jsii.sinvoke(cls, "fromClusterParameterGroupName", [scope, id, cluster_parameter_group_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3663,7 +3687,7 @@ class DatabaseClusterBase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account: typing.Optional[builtins.str] = None,
@@ -3696,7 +3720,7 @@ class DatabaseClusterBase(
     @builtins.classmethod
     def from_database_cluster_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         cluster_endpoint_address: builtins.str,
@@ -3704,8 +3728,8 @@ class DatabaseClusterBase(
         cluster_resource_identifier: builtins.str,
         port: jsii.Number,
         reader_endpoint_address: builtins.str,
-        security_group: _aws_cdk_aws_ec2_ceddda9d.ISecurityGroup,
-    ) -> IDatabaseCluster:
+        security_group: "_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup",
+    ) -> "IDatabaseCluster":
         '''(experimental) Import an existing DatabaseCluster from properties.
 
         :param scope: -
@@ -3732,15 +3756,15 @@ class DatabaseClusterBase(
             security_group=security_group,
         )
 
-        return typing.cast(IDatabaseCluster, jsii.sinvoke(cls, "fromDatabaseClusterAttributes", [scope, id, attrs]))
+        return typing.cast("IDatabaseCluster", jsii.sinvoke(cls, "fromDatabaseClusterAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         *actions: builtins.str,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant the given identity the specified actions.
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
@@ -3751,14 +3775,14 @@ class DatabaseClusterBase(
             type_hints = typing.get_type_hints(_typecheckingstub__a3f12d41e89329ba4ed5c9d41d1b8bd22e682eec8b890d1c6bcd5e84515b9918)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantConnect")
     def grant_connect(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant the given identity connection access to the database.
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
 
         :param grantee: -
 
@@ -3767,7 +3791,7 @@ class DatabaseClusterBase(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5509a1395169ab471abffe991e0666327f80fb9d142cb3cffaec1a47abe0de0f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantConnect", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantConnect", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -3779,14 +3803,14 @@ class DatabaseClusterBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return the given named metric associated with this DatabaseCluster instance.
 
         :param metric_name: -
@@ -3823,12 +3847,12 @@ class DatabaseClusterBase(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
     @abc.abstractmethod
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
@@ -3848,7 +3872,7 @@ class DatabaseClusterBase(
     @builtins.property
     @jsii.member(jsii_name="clusterReadEndpoint")
     @abc.abstractmethod
-    def cluster_read_endpoint(self) -> Endpoint:
+    def cluster_read_endpoint(self) -> "Endpoint":
         '''(experimental) Endpoint to use for load-balanced read-only operations.
 
         :stability: experimental
@@ -3868,7 +3892,7 @@ class DatabaseClusterBase(
     @builtins.property
     @jsii.member(jsii_name="connections")
     @abc.abstractmethod
-    def connections(self) -> _aws_cdk_aws_ec2_ceddda9d.Connections:
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
         '''(experimental) The connections object to implement IConnectable.
 
         :stability: experimental
@@ -3896,12 +3920,12 @@ class _DatabaseClusterBaseProxy(
 ):
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterIdentifier")
@@ -3914,12 +3938,12 @@ class _DatabaseClusterBaseProxy(
 
     @builtins.property
     @jsii.member(jsii_name="clusterReadEndpoint")
-    def cluster_read_endpoint(self) -> Endpoint:
+    def cluster_read_endpoint(self) -> "Endpoint":
         '''(experimental) Endpoint to use for load-balanced read-only operations.
 
         :stability: experimental
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterReadEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterReadEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterResourceIdentifier")
@@ -3932,12 +3956,12 @@ class _DatabaseClusterBaseProxy(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> _aws_cdk_aws_ec2_ceddda9d.Connections:
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
         '''(experimental) The connections object to implement IConnectable.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.Connections, jsii.get(self, "connections"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="enableIamAuthentication")
@@ -3984,7 +4008,7 @@ class DatabaseInstanceBase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account: typing.Optional[builtins.str] = None,
@@ -4017,13 +4041,13 @@ class DatabaseInstanceBase(
     @builtins.classmethod
     def from_database_instance_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         instance_endpoint_address: builtins.str,
         instance_identifier: builtins.str,
         port: jsii.Number,
-    ) -> IDatabaseInstance:
+    ) -> "IDatabaseInstance":
         '''(experimental) Import an existing database instance.
 
         :param scope: -
@@ -4044,7 +4068,7 @@ class DatabaseInstanceBase(
             port=port,
         )
 
-        return typing.cast(IDatabaseInstance, jsii.sinvoke(cls, "fromDatabaseInstanceAttributes", [scope, id, attrs]))
+        return typing.cast("IDatabaseInstance", jsii.sinvoke(cls, "fromDatabaseInstanceAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -4056,14 +4080,14 @@ class DatabaseInstanceBase(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return the given named metric associated with this database instance.
 
         :param metric_name: -
@@ -4101,7 +4125,7 @@ class DatabaseInstanceBase(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceEndpointAddress")
@@ -4128,7 +4152,7 @@ class DatabaseInstanceBase(
     @builtins.property
     @jsii.member(jsii_name="instanceEndpoint")
     @abc.abstractmethod
-    def instance_endpoint(self) -> Endpoint:
+    def instance_endpoint(self) -> "Endpoint":
         '''(experimental) The instance endpoint.
 
         :stability: experimental
@@ -4174,13 +4198,13 @@ class _DatabaseInstanceBaseProxy(
 
     @builtins.property
     @jsii.member(jsii_name="instanceEndpoint")
-    def instance_endpoint(self) -> Endpoint:
+    def instance_endpoint(self) -> "Endpoint":
         '''(experimental) The instance endpoint.
 
         :stability: experimental
         :inheritdoc: true
         '''
-        return typing.cast(Endpoint, jsii.get(self, "instanceEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "instanceEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceIdentifier")
@@ -4222,36 +4246,36 @@ class DatabaseCluster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        instance_type: InstanceType,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        associated_roles: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IRole]] = None,
+        instance_type: "InstanceType",
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        associated_roles: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IRole"]] = None,
         auto_minor_version_upgrade: typing.Optional[builtins.bool] = None,
-        backup_retention: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        cloudwatch_logs_exports: typing.Optional[typing.Sequence[LogType]] = None,
-        cloudwatch_logs_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
-        cloudwatch_logs_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        cluster_parameter_group: typing.Optional[IClusterParameterGroup] = None,
+        backup_retention: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        cloudwatch_logs_exports: typing.Optional[typing.Sequence["LogType"]] = None,
+        cloudwatch_logs_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        cloudwatch_logs_retention_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        cluster_parameter_group: typing.Optional["IClusterParameterGroup"] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
         db_cluster_name: typing.Optional[builtins.str] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
-        engine_version: typing.Optional[EngineVersion] = None,
+        engine_version: typing.Optional["EngineVersion"] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier_base: typing.Optional[builtins.str] = None,
         instances: typing.Optional[jsii.Number] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
-        parameter_group: typing.Optional[IParameterGroup] = None,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+        parameter_group: typing.Optional["IParameterGroup"] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        serverless_scaling_configuration: typing.Optional[typing.Union[ServerlessScalingConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        serverless_scaling_configuration: typing.Optional[typing.Union["ServerlessScalingConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
-        subnet_group: typing.Optional[ISubnetGroup] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        subnet_group: typing.Optional["ISubnetGroup"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4342,12 +4366,12 @@ class DatabaseCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterEndpoint")
-    def cluster_endpoint(self) -> Endpoint:
+    def cluster_endpoint(self) -> "Endpoint":
         '''(experimental) The endpoint to use for read/write operations.
 
         :stability: experimental
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterIdentifier")
@@ -4360,12 +4384,12 @@ class DatabaseCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterReadEndpoint")
-    def cluster_read_endpoint(self) -> Endpoint:
+    def cluster_read_endpoint(self) -> "Endpoint":
         '''(experimental) Endpoint to use for load-balanced read-only operations.
 
         :stability: experimental
         '''
-        return typing.cast(Endpoint, jsii.get(self, "clusterReadEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "clusterReadEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterResourceIdentifier")
@@ -4382,21 +4406,21 @@ class DatabaseCluster(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> _aws_cdk_aws_ec2_ceddda9d.Connections:
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
         '''(experimental) The connections object to implement IConnectable.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.Connections, jsii.get(self, "connections"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceEndpoints")
-    def instance_endpoints(self) -> typing.List[Endpoint]:
+    def instance_endpoints(self) -> typing.List["Endpoint"]:
         '''(experimental) Endpoints which address each individual instance.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[Endpoint], jsii.get(self, "instanceEndpoints"))
+        return typing.cast(typing.List["Endpoint"], jsii.get(self, "instanceEndpoints"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceIdentifiers")
@@ -4409,30 +4433,30 @@ class DatabaseCluster(
 
     @builtins.property
     @jsii.member(jsii_name="subnetGroup")
-    def subnet_group(self) -> ISubnetGroup:
+    def subnet_group(self) -> "ISubnetGroup":
         '''(experimental) Subnet group used by the DB.
 
         :stability: experimental
         '''
-        return typing.cast(ISubnetGroup, jsii.get(self, "subnetGroup"))
+        return typing.cast("ISubnetGroup", jsii.get(self, "subnetGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The VPC where the DB subnet group is created.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, jsii.get(self, "vpc"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", jsii.get(self, "vpc"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnets")
-    def vpc_subnets(self) -> _aws_cdk_aws_ec2_ceddda9d.SubnetSelection:
+    def vpc_subnets(self) -> "_aws_cdk_aws_ec2_ceddda9d.SubnetSelection":
         '''(experimental) The subnets used by the DB subnet group.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, jsii.get(self, "vpcSubnets"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", jsii.get(self, "vpcSubnets"))
 
     @builtins.property
     @jsii.member(jsii_name="enableIamAuthentication")
@@ -4472,16 +4496,16 @@ class DatabaseInstance(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cluster: IDatabaseCluster,
-        instance_type: InstanceType,
+        cluster: "IDatabaseCluster",
+        instance_type: "InstanceType",
         auto_minor_version_upgrade: typing.Optional[builtins.bool] = None,
         availability_zone: typing.Optional[builtins.str] = None,
         db_instance_name: typing.Optional[builtins.str] = None,
-        parameter_group: typing.Optional[IParameterGroup] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+        parameter_group: typing.Optional["IParameterGroup"] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4523,12 +4547,12 @@ class DatabaseInstance(
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def cluster(self) -> IDatabaseCluster:
+    def cluster(self) -> "IDatabaseCluster":
         '''(experimental) The instance's database cluster.
 
         :stability: experimental
         '''
-        return typing.cast(IDatabaseCluster, jsii.get(self, "cluster"))
+        return typing.cast("IDatabaseCluster", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceEndpointAddress")
@@ -4552,13 +4576,13 @@ class DatabaseInstance(
 
     @builtins.property
     @jsii.member(jsii_name="instanceEndpoint")
-    def instance_endpoint(self) -> Endpoint:
+    def instance_endpoint(self) -> "Endpoint":
         '''(experimental) The instance endpoint.
 
         :stability: experimental
         :inheritdoc: true
         '''
-        return typing.cast(Endpoint, jsii.get(self, "instanceEndpoint"))
+        return typing.cast("Endpoint", jsii.get(self, "instanceEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceIdentifier")
@@ -4641,7 +4665,7 @@ def _typecheckingstub__63d33cb2d1c6c36d5e1d56bf6c1f72cfb156352d25be7b41fc33242c4
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier_base: typing.Optional[builtins.str] = None,
     instances: typing.Optional[jsii.Number] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     parameter_group: typing.Optional[IParameterGroup] = None,
     port: typing.Optional[jsii.Number] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
@@ -4976,7 +5000,7 @@ def _typecheckingstub__370e47923dd9feae8a77db6ef8837b69539ec23a3bf085a5df3d68068
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier_base: typing.Optional[builtins.str] = None,
     instances: typing.Optional[jsii.Number] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     parameter_group: typing.Optional[IParameterGroup] = None,
     port: typing.Optional[jsii.Number] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
@@ -5011,3 +5035,6 @@ def _typecheckingstub__85201bd2cebd33a2ccab7355bf6fbc5e7813261a12bca851c426cd28c
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IClusterParameterGroup, IDatabaseCluster, IDatabaseInstance, IParameterGroup, ISubnetGroup]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

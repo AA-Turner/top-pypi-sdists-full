@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.16
+Version: 0.1.33
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.11
 License-File: LICENSE
 License-File: LICENSE.txt
-Requires-Dist: Django
+Requires-Dist: Django>=4.2
 Requires-Dist: celery
 Requires-Dist: django-config-models
 Requires-Dist: django-fernet-fields-v2
@@ -38,6 +38,7 @@ Requires-Dist: openedx-atlas
 Requires-Dist: pytz
 Requires-Dist: requests
 Requires-Dist: slumber
+Requires-Dist: snowflake-connector-python<4.0.0,>=3.18.0
 Requires-Dist: unicodecsv
 Dynamic: author
 Dynamic: author-email
@@ -70,6 +71,21 @@ Please see the Open edX documentation for `guidance on Python development`_ in t
 
 .. _guidance on Python development: https://docs.openedx.org/en/latest/developers/how-tos/get-ready-for-python-dev.html
 
+Running tests locally
+*********************
+
+Once inside an LMS Devstack container, you'll want to run unit tests via tox::
+
+  tox
+
+tox will run tests via the ``pytest`` inside a virtual environment. If you want to pass
+arguments to ``pytest``, you can pass them after a ``--`` in the command::
+
+  tox -- tests/test_channel_integrations/test_api/test_base_views.py -v
+
+It's necessary to use ``tox`` both because of its use of a python virtual environment (which helps
+stay isolated from the edxapp python virtual environment), and because it adds the ``mock_apps/``
+directory to the ``PYTHONPATH``.
 
 Getting Help
 ************
@@ -192,7 +208,153 @@ Change Log
 Unreleased
 **********
 
-*
+0.1.33 – 2026-01-20
+*******************
+
+Changed
+=======
+
+* chore: upgrade python requirements
+
+0.1.32 – 2026-01-19
+*******************
+
+Changed
+=======
+
+* chore: Add Django>=4.2 constraint to support both Django 4.2 and 5.x
+* fix: Constrain social-auth-app-django<5.5 for Django 4.2 compatibility
+
+0.1.31 – 2026-01-19
+*******************
+
+Changed
+=======
+
+* chore: Update snowflake-connector-python from 3.7.0 to >=3.18.0,<4.0.0 for compatibility with edx-platform
+
+0.1.30 – 2026-01-19
+*******************
+
+Added
+=====
+
+* feat: Add webhook learning time enrichment from Snowflake with dedicated Celery queue
+* test: Add comprehensive test coverage for webhook task routing and branch conditions
+
+0.1.29 – 2026-01-17
+*******************
+
+Added
+=====
+
+* chore: add logging to track sending course completion xAPI statements
+
+0.1.28 – 2026-01-13
+*******************
+
+Fixed
+=====
+
+* fix: change webhook model id fields to AutoField for edx-platform compatibility
+
+0.1.27 – 2026-01-12
+*******************
+
+Added
+=====
+
+* feat: Region-aware webhook system for enterprise course completion
+* chore: add logging for track sending course completion xAPI statements
+
+Fixed
+=====
+
+* fix: update pip-tools to 7.5.2
+* See issue https://github.com/openedx/public-engineering/issues/440 for details.
+
+[0.1.26] - 2026-01-08
+*********************
+
+Added
+=====
+
+0.1.25 – 2025-11-28
+*******************
+
+Added
+=====
+
+* feat: fetch SAP userid by remote_id_field_name
+
+0.1.24 – 2025-11-24
+*******************
+
+Added
+=====
+
+*  Feat: Update Moodle serialiser to accomodates changes made in edx-enterprise
+
+0.1.23 – 2025-10-30
+*******************
+
+Added
+=====
+
+*  Upgrade Python Requirements
+
+0.1.22 – 2025-10-23
+*******************
+
+Added
+=====
+
+*  feat: Optimize data migration command by implementing bulk inserts for improved performance.
+*  feat: Add management command to truncate non-empty destination tables before data migration.
+
+0.1.21 – 2025-10-22
+*******************
+
+Added
+=====
+
+*  Upgrade Python Requirements
+*  fix: Convert UUIDField columns to uuid type for MariaDB
+
+0.1.20 – 2025-10-19
+*******************
+
+Added
+=====
+
+*  Upgrade Python Requirements
+
+0.1.19 – 2025-10-09
+*******************
+
+Added
+=====
+
+*  Upgrade Python Requirements
+
+
+0.1.18 – 2025-10-03
+*******************
+
+Added
+=====
+
+*  Upgrade Python Requirements
+
+
+0.1.17 – 2025-09-26
+*******************
+
+Added
+=====
+
+*  Upgrade Python Requirements
+
 
 0.1.16 – 2025-09-15
 *******************

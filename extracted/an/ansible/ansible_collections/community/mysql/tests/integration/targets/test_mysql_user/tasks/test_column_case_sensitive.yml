@@ -33,6 +33,7 @@
         password: 'msandbox'
         priv:
           'mysql_user_column_case.t1': 'SELECT(a, B, cC, Dd)'
+        column_case_sensitive: false
 
     - name: Mysql_user Column case sensitive | Assert user privileges are all caps
       community.mysql.mysql_query:

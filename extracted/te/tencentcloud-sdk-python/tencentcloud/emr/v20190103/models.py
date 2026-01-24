@@ -2495,6 +2495,9 @@ class CloudResource(AbstractModel):
         :param _Disks: 所选数据盘信息
 注意：此字段可能返回 null，表示取不到有效值。
         :type Disks: list of Disk
+        :param _Tolerations: 容忍
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Tolerations: list of Toleration
         """
         self._ComponentName = None
         self._PodNumber = None
@@ -2505,6 +2508,7 @@ class CloudResource(AbstractModel):
         self._ExternalAccess = None
         self._Affinity = None
         self._Disks = None
+        self._Tolerations = None
 
     @property
     def ComponentName(self):
@@ -2609,6 +2613,18 @@ class CloudResource(AbstractModel):
     def Disks(self, Disks):
         self._Disks = Disks
 
+    @property
+    def Tolerations(self):
+        r"""容忍
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Toleration
+        """
+        return self._Tolerations
+
+    @Tolerations.setter
+    def Tolerations(self, Tolerations):
+        self._Tolerations = Tolerations
+
 
     def _deserialize(self, params):
         self._ComponentName = params.get("ComponentName")
@@ -2631,6 +2647,12 @@ class CloudResource(AbstractModel):
                 obj = Disk()
                 obj._deserialize(item)
                 self._Disks.append(obj)
+        if params.get("Tolerations") is not None:
+            self._Tolerations = []
+            for item in params.get("Tolerations"):
+                obj = Toleration()
+                obj._deserialize(item)
+                self._Tolerations.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4649,6 +4671,8 @@ MetaDB信息，当MetaType选择EMR_NEW_META时，MetaDataJdbcUrl MetaDataUser M
         :type DefaultMetaVersion: str
         :param _NeedCdbAudit: 是否开通审计
         :type NeedCdbAudit: int
+        :param _SgIP: 安全组来源IP
+        :type SgIP: str
         """
         self._InstanceName = None
         self._ClusterClass = None
@@ -4668,6 +4692,7 @@ MetaDB信息，当MetaType选择EMR_NEW_META时，MetaDataJdbcUrl MetaDataUser M
         self._ZoneId = None
         self._DefaultMetaVersion = None
         self._NeedCdbAudit = None
+        self._SgIP = None
 
     @property
     def InstanceName(self):
@@ -4879,6 +4904,17 @@ MetaDB信息，当MetaType选择EMR_NEW_META时，MetaDataJdbcUrl MetaDataUser M
     def NeedCdbAudit(self, NeedCdbAudit):
         self._NeedCdbAudit = NeedCdbAudit
 
+    @property
+    def SgIP(self):
+        r"""安全组来源IP
+        :rtype: str
+        """
+        return self._SgIP
+
+    @SgIP.setter
+    def SgIP(self, SgIP):
+        self._SgIP = SgIP
+
 
     def _deserialize(self, params):
         self._InstanceName = params.get("InstanceName")
@@ -4920,6 +4956,7 @@ MetaDB信息，当MetaType选择EMR_NEW_META时，MetaDataJdbcUrl MetaDataUser M
         self._ZoneId = params.get("ZoneId")
         self._DefaultMetaVersion = params.get("DefaultMetaVersion")
         self._NeedCdbAudit = params.get("NeedCdbAudit")
+        self._SgIP = params.get("SgIP")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5049,6 +5086,8 @@ class CreateClusterRequest(AbstractModel):
         :type DefaultMetaVersion: str
         :param _NeedCdbAudit: 是否开通数据库审计
         :type NeedCdbAudit: int
+        :param _SgIP: 安全指定来源ip
+        :type SgIP: str
         """
         self._ProductVersion = None
         self._EnableSupportHAFlag = None
@@ -5075,6 +5114,7 @@ class CreateClusterRequest(AbstractModel):
         self._LoadBalancerId = None
         self._DefaultMetaVersion = None
         self._NeedCdbAudit = None
+        self._SgIP = None
 
     @property
     def ProductVersion(self):
@@ -5370,6 +5410,17 @@ class CreateClusterRequest(AbstractModel):
     def NeedCdbAudit(self, NeedCdbAudit):
         self._NeedCdbAudit = NeedCdbAudit
 
+    @property
+    def SgIP(self):
+        r"""安全指定来源ip
+        :rtype: str
+        """
+        return self._SgIP
+
+    @SgIP.setter
+    def SgIP(self, SgIP):
+        self._SgIP = SgIP
+
 
     def _deserialize(self, params):
         self._ProductVersion = params.get("ProductVersion")
@@ -5430,6 +5481,7 @@ class CreateClusterRequest(AbstractModel):
         self._LoadBalancerId = params.get("LoadBalancerId")
         self._DefaultMetaVersion = params.get("DefaultMetaVersion")
         self._NeedCdbAudit = params.get("NeedCdbAudit")
+        self._SgIP = params.get("SgIP")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5707,6 +5759,8 @@ Hadoop-Hbase
         :type DefaultMetaVersion: str
         :param _NeedCdbAudit: 是否开通审计：0:不开通,1:开通
         :type NeedCdbAudit: int
+        :param _SgIP: 安全组指定来源ip
+        :type SgIP: str
         """
         self._ProductId = None
         self._Software = None
@@ -5745,6 +5799,7 @@ Hadoop-Hbase
         self._LoadBalancerId = None
         self._DefaultMetaVersion = None
         self._NeedCdbAudit = None
+        self._SgIP = None
 
     @property
     def ProductId(self):
@@ -6192,6 +6247,17 @@ Hadoop-Hbase
     def NeedCdbAudit(self, NeedCdbAudit):
         self._NeedCdbAudit = NeedCdbAudit
 
+    @property
+    def SgIP(self):
+        r"""安全组指定来源ip
+        :rtype: str
+        """
+        return self._SgIP
+
+    @SgIP.setter
+    def SgIP(self, SgIP):
+        self._SgIP = SgIP
+
 
     def _deserialize(self, params):
         self._ProductId = params.get("ProductId")
@@ -6268,6 +6334,7 @@ Hadoop-Hbase
         self._LoadBalancerId = params.get("LoadBalancerId")
         self._DefaultMetaVersion = params.get("DefaultMetaVersion")
         self._NeedCdbAudit = params.get("NeedCdbAudit")
+        self._SgIP = params.get("SgIP")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9769,6 +9836,328 @@ class DescribeHBaseTableOverviewResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeHBaseTableRequestMetricRequest(AbstractModel):
+    r"""DescribeHBaseTableRequestMetric请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 集群ID
+        :type InstanceId: str
+        :param _TableName: Hbase表名
+        :type TableName: str
+        :param _RegionServer: Hbase的RegionServer服务
+        :type RegionServer: str
+        :param _Downsample: 获取监控的数据粒度
+        :type Downsample: str
+        :param _StartTime: 查询监控数据起始时间戳
+        :type StartTime: int
+        :param _EndTime: 查询监控数据结束时间戳
+        :type EndTime: int
+        """
+        self._InstanceId = None
+        self._TableName = None
+        self._RegionServer = None
+        self._Downsample = None
+        self._StartTime = None
+        self._EndTime = None
+
+    @property
+    def InstanceId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def TableName(self):
+        r"""Hbase表名
+        :rtype: str
+        """
+        return self._TableName
+
+    @TableName.setter
+    def TableName(self, TableName):
+        self._TableName = TableName
+
+    @property
+    def RegionServer(self):
+        r"""Hbase的RegionServer服务
+        :rtype: str
+        """
+        return self._RegionServer
+
+    @RegionServer.setter
+    def RegionServer(self, RegionServer):
+        self._RegionServer = RegionServer
+
+    @property
+    def Downsample(self):
+        r"""获取监控的数据粒度
+        :rtype: str
+        """
+        return self._Downsample
+
+    @Downsample.setter
+    def Downsample(self, Downsample):
+        self._Downsample = Downsample
+
+    @property
+    def StartTime(self):
+        r"""查询监控数据起始时间戳
+        :rtype: int
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""查询监控数据结束时间戳
+        :rtype: int
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._TableName = params.get("TableName")
+        self._RegionServer = params.get("RegionServer")
+        self._Downsample = params.get("Downsample")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeHBaseTableRequestMetricResponse(AbstractModel):
+    r"""DescribeHBaseTableRequestMetric返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MetricDataList: Hbase监控指标返回包装结构
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MetricDataList: list of HBaseMetricData
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._MetricDataList = None
+        self._RequestId = None
+
+    @property
+    def MetricDataList(self):
+        r"""Hbase监控指标返回包装结构
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of HBaseMetricData
+        """
+        return self._MetricDataList
+
+    @MetricDataList.setter
+    def MetricDataList(self, MetricDataList):
+        self._MetricDataList = MetricDataList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("MetricDataList") is not None:
+            self._MetricDataList = []
+            for item in params.get("MetricDataList"):
+                obj = HBaseMetricData()
+                obj._deserialize(item)
+                self._MetricDataList.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeHBaseTableStoreSizeMetricRequest(AbstractModel):
+    r"""DescribeHBaseTableStoreSizeMetric请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 集群ID
+        :type InstanceId: str
+        :param _TableName: Hbase表名
+        :type TableName: str
+        :param _RegionServer: Hbase的RegionServer服务
+        :type RegionServer: str
+        :param _Downsample: 获取监控的数据粒度
+        :type Downsample: str
+        :param _StartTime: 查询监控数据起始时间戳
+        :type StartTime: int
+        :param _EndTime: 查询监控数据结束时间戳
+        :type EndTime: int
+        """
+        self._InstanceId = None
+        self._TableName = None
+        self._RegionServer = None
+        self._Downsample = None
+        self._StartTime = None
+        self._EndTime = None
+
+    @property
+    def InstanceId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def TableName(self):
+        r"""Hbase表名
+        :rtype: str
+        """
+        return self._TableName
+
+    @TableName.setter
+    def TableName(self, TableName):
+        self._TableName = TableName
+
+    @property
+    def RegionServer(self):
+        r"""Hbase的RegionServer服务
+        :rtype: str
+        """
+        return self._RegionServer
+
+    @RegionServer.setter
+    def RegionServer(self, RegionServer):
+        self._RegionServer = RegionServer
+
+    @property
+    def Downsample(self):
+        r"""获取监控的数据粒度
+        :rtype: str
+        """
+        return self._Downsample
+
+    @Downsample.setter
+    def Downsample(self, Downsample):
+        self._Downsample = Downsample
+
+    @property
+    def StartTime(self):
+        r"""查询监控数据起始时间戳
+        :rtype: int
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""查询监控数据结束时间戳
+        :rtype: int
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._TableName = params.get("TableName")
+        self._RegionServer = params.get("RegionServer")
+        self._Downsample = params.get("Downsample")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeHBaseTableStoreSizeMetricResponse(AbstractModel):
+    r"""DescribeHBaseTableStoreSizeMetric返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MetricDataList: Hbase监控指标返回包装结构
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MetricDataList: list of HBaseMetricData
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._MetricDataList = None
+        self._RequestId = None
+
+    @property
+    def MetricDataList(self):
+        r"""Hbase监控指标返回包装结构
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of HBaseMetricData
+        """
+        return self._MetricDataList
+
+    @MetricDataList.setter
+    def MetricDataList(self, MetricDataList):
+        self._MetricDataList = MetricDataList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("MetricDataList") is not None:
+            self._MetricDataList = []
+            for item in params.get("MetricDataList"):
+                obj = HBaseMetricData()
+                obj._deserialize(item)
+                self._MetricDataList.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeHDFSStorageInfoRequest(AbstractModel):
     r"""DescribeHDFSStorageInfo请求参数结构体
 
@@ -10683,6 +11072,245 @@ class DescribeInspectionTaskResultResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeInstanceOplogRequest(AbstractModel):
+    r"""DescribeInstanceOplog请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: EMR实例ID
+        :type InstanceId: str
+        :param _Offset: 偏移量
+        :type Offset: int
+        :param _Limit: 页大小
+        :type Limit: int
+        :param _StartTime: 开头时间时间戳
+        :type StartTime: int
+        :param _EndTime: 结尾时间时间戳
+        :type EndTime: int
+        :param _SearchFields: 搜索项数组
+        :type SearchFields: list of SearchItem
+        :param _Operand: 集群、节点、组件
+        :type Operand: str
+        :param _SecurityLevel: 一般、危险、高危
+        :type SecurityLevel: str
+        """
+        self._InstanceId = None
+        self._Offset = None
+        self._Limit = None
+        self._StartTime = None
+        self._EndTime = None
+        self._SearchFields = None
+        self._Operand = None
+        self._SecurityLevel = None
+
+    @property
+    def InstanceId(self):
+        r"""EMR实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Offset(self):
+        r"""偏移量
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""页大小
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def StartTime(self):
+        r"""开头时间时间戳
+        :rtype: int
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""结尾时间时间戳
+        :rtype: int
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def SearchFields(self):
+        r"""搜索项数组
+        :rtype: list of SearchItem
+        """
+        return self._SearchFields
+
+    @SearchFields.setter
+    def SearchFields(self, SearchFields):
+        self._SearchFields = SearchFields
+
+    @property
+    def Operand(self):
+        r"""集群、节点、组件
+        :rtype: str
+        """
+        return self._Operand
+
+    @Operand.setter
+    def Operand(self, Operand):
+        self._Operand = Operand
+
+    @property
+    def SecurityLevel(self):
+        r"""一般、危险、高危
+        :rtype: str
+        """
+        return self._SecurityLevel
+
+    @SecurityLevel.setter
+    def SecurityLevel(self, SecurityLevel):
+        self._SecurityLevel = SecurityLevel
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        if params.get("SearchFields") is not None:
+            self._SearchFields = []
+            for item in params.get("SearchFields"):
+                obj = SearchItem()
+                obj._deserialize(item)
+                self._SearchFields.append(obj)
+        self._Operand = params.get("Operand")
+        self._SecurityLevel = params.get("SecurityLevel")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeInstanceOplogResponse(AbstractModel):
+    r"""DescribeInstanceOplog返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCnt: 操作日志数量
+        :type TotalCnt: int
+        :param _LogList: 操作日志列表
+        :type LogList: list of OperationLog
+        :param _OperandList: 操作对象筛选项数组
+        :type OperandList: list of str
+        :param _SecurityLevelList: 安全级别筛选数组
+        :type SecurityLevelList: list of str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCnt = None
+        self._LogList = None
+        self._OperandList = None
+        self._SecurityLevelList = None
+        self._RequestId = None
+
+    @property
+    def TotalCnt(self):
+        r"""操作日志数量
+        :rtype: int
+        """
+        return self._TotalCnt
+
+    @TotalCnt.setter
+    def TotalCnt(self, TotalCnt):
+        self._TotalCnt = TotalCnt
+
+    @property
+    def LogList(self):
+        r"""操作日志列表
+        :rtype: list of OperationLog
+        """
+        return self._LogList
+
+    @LogList.setter
+    def LogList(self, LogList):
+        self._LogList = LogList
+
+    @property
+    def OperandList(self):
+        r"""操作对象筛选项数组
+        :rtype: list of str
+        """
+        return self._OperandList
+
+    @OperandList.setter
+    def OperandList(self, OperandList):
+        self._OperandList = OperandList
+
+    @property
+    def SecurityLevelList(self):
+        r"""安全级别筛选数组
+        :rtype: list of str
+        """
+        return self._SecurityLevelList
+
+    @SecurityLevelList.setter
+    def SecurityLevelList(self, SecurityLevelList):
+        self._SecurityLevelList = SecurityLevelList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCnt = params.get("TotalCnt")
+        if params.get("LogList") is not None:
+            self._LogList = []
+            for item in params.get("LogList"):
+                obj = OperationLog()
+                obj._deserialize(item)
+                self._LogList.append(obj)
+        self._OperandList = params.get("OperandList")
+        self._SecurityLevelList = params.get("SecurityLevelList")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeInstanceRenewNodesRequest(AbstractModel):
     r"""DescribeInstanceRenewNodes请求参数结构体
 
@@ -10836,6 +11464,8 @@ class DescribeInstancesListRequest(AbstractModel):
         :type Asc: int
         :param _Filters: 自定义查询过滤器。示例：<li>根据ClusterId过滤实例：[{"Name":"ClusterId","Values":["emr-xxxxxxxx"]}]</li><li>根据clusterName过滤实例：[{"Name": "ClusterName","Values": ["cluster_name"]}]</li><li>根据ClusterStatus过滤实例：[{"Name": "ClusterStatus","Values": ["2"]}]</li>
         :type Filters: list of Filters
+        :param _ClusterType: 默认0为普通集群，2为tke集群
+        :type ClusterType: int
         """
         self._DisplayStrategy = None
         self._Offset = None
@@ -10843,6 +11473,7 @@ class DescribeInstancesListRequest(AbstractModel):
         self._OrderField = None
         self._Asc = None
         self._Filters = None
+        self._ClusterType = None
 
     @property
     def DisplayStrategy(self):
@@ -10911,6 +11542,17 @@ class DescribeInstancesListRequest(AbstractModel):
     def Filters(self, Filters):
         self._Filters = Filters
 
+    @property
+    def ClusterType(self):
+        r"""默认0为普通集群，2为tke集群
+        :rtype: int
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
 
     def _deserialize(self, params):
         self._DisplayStrategy = params.get("DisplayStrategy")
@@ -10924,6 +11566,7 @@ class DescribeInstancesListRequest(AbstractModel):
                 obj = Filters()
                 obj._deserialize(item)
                 self._Filters.append(obj)
+        self._ClusterType = params.get("ClusterType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13303,7 +13946,7 @@ class DescribeServiceNodeInfosRequest(AbstractModel):
 "-3"代表存在隐患
 "-4"代表未探测
         :type HealthStateId: str
-        :param _ServiceName: 服务组件名称，都是大写例如YARN
+        :param _ServiceName: 服务组件名称应采用全大写形式（例如：YARN），api调用时须与 ServiceGroupType 在两者之中任选其一并保证必填。
         :type ServiceName: str
         :param _NodeTypeName: 节点名称master,core,task,common,router
         :type NodeTypeName: str
@@ -13430,7 +14073,7 @@ class DescribeServiceNodeInfosRequest(AbstractModel):
 
     @property
     def ServiceName(self):
-        r"""服务组件名称，都是大写例如YARN
+        r"""服务组件名称应采用全大写形式（例如：YARN），api调用时须与 ServiceGroupType 在两者之中任选其一并保证必填。
         :rtype: str
         """
         return self._ServiceName
@@ -17779,6 +18422,87 @@ class GroupInfos(AbstractModel):
         
 
 
+class HBaseMetricData(AbstractModel):
+    r"""HBase监控数据结构
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MetricName: 指标名称，如 read_request_rate
+        :type MetricName: str
+        :param _MetricDesc: 指标描述，如 read request rate
+        :type MetricDesc: str
+        :param _Timestamps: 时间戳数组
+        :type Timestamps: list of int
+        :param _Values: 数值数组
+        :type Values: list of float
+        """
+        self._MetricName = None
+        self._MetricDesc = None
+        self._Timestamps = None
+        self._Values = None
+
+    @property
+    def MetricName(self):
+        r"""指标名称，如 read_request_rate
+        :rtype: str
+        """
+        return self._MetricName
+
+    @MetricName.setter
+    def MetricName(self, MetricName):
+        self._MetricName = MetricName
+
+    @property
+    def MetricDesc(self):
+        r"""指标描述，如 read request rate
+        :rtype: str
+        """
+        return self._MetricDesc
+
+    @MetricDesc.setter
+    def MetricDesc(self, MetricDesc):
+        self._MetricDesc = MetricDesc
+
+    @property
+    def Timestamps(self):
+        r"""时间戳数组
+        :rtype: list of int
+        """
+        return self._Timestamps
+
+    @Timestamps.setter
+    def Timestamps(self, Timestamps):
+        self._Timestamps = Timestamps
+
+    @property
+    def Values(self):
+        r"""数值数组
+        :rtype: list of float
+        """
+        return self._Values
+
+    @Values.setter
+    def Values(self, Values):
+        self._Values = Values
+
+
+    def _deserialize(self, params):
+        self._MetricName = params.get("MetricName")
+        self._MetricDesc = params.get("MetricDesc")
+        self._Timestamps = params.get("Timestamps")
+        self._Values = params.get("Values")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class HealthStatus(AbstractModel):
     r"""进程健康状态
 
@@ -21329,6 +22053,8 @@ class LoadAutoScaleStrategy(AbstractModel):
         :type GroupId: int
         :param _Soft: soft例如yarn
         :type Soft: str
+        :param _GraceDownProtectTime: 任务保护时间
+        :type GraceDownProtectTime: int
         """
         self._StrategyId = None
         self._StrategyName = None
@@ -21353,6 +22079,7 @@ class LoadAutoScaleStrategy(AbstractModel):
         self._LoadMetricsConditions = None
         self._GroupId = None
         self._Soft = None
+        self._GraceDownProtectTime = None
 
     @property
     def StrategyId(self):
@@ -21616,6 +22343,17 @@ class LoadAutoScaleStrategy(AbstractModel):
     def Soft(self, Soft):
         self._Soft = Soft
 
+    @property
+    def GraceDownProtectTime(self):
+        r"""任务保护时间
+        :rtype: int
+        """
+        return self._GraceDownProtectTime
+
+    @GraceDownProtectTime.setter
+    def GraceDownProtectTime(self, GraceDownProtectTime):
+        self._GraceDownProtectTime = GraceDownProtectTime
+
 
     def _deserialize(self, params):
         self._StrategyId = params.get("StrategyId")
@@ -21648,6 +22386,7 @@ class LoadAutoScaleStrategy(AbstractModel):
             self._LoadMetricsConditions._deserialize(params.get("LoadMetricsConditions"))
         self._GroupId = params.get("GroupId")
         self._Soft = params.get("Soft")
+        self._GraceDownProtectTime = params.get("GraceDownProtectTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -23839,6 +24578,8 @@ class ModifyUserGroupRequest(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _InstanceId: 集群字符串ID
+        :type InstanceId: str
         :param _Users: 用户信息列表
         :type Users: list of str
         :param _UserGroup: 用户主组，cvm集群为必填参数，tke集群选填
@@ -23848,10 +24589,22 @@ class ModifyUserGroupRequest(AbstractModel):
         :param _Remark: 备注
         :type Remark: str
         """
+        self._InstanceId = None
         self._Users = None
         self._UserGroup = None
         self._Groups = None
         self._Remark = None
+
+    @property
+    def InstanceId(self):
+        r"""集群字符串ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
 
     @property
     def Users(self):
@@ -23899,6 +24652,7 @@ class ModifyUserGroupRequest(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
         self._Users = params.get("Users")
         self._UserGroup = params.get("UserGroup")
         self._Groups = params.get("Groups")
@@ -23954,10 +24708,13 @@ class ModifyUserManagerPwdRequest(AbstractModel):
         :type UserName: str
         :param _PassWord: 密码
         :type PassWord: str
+        :param _SyncPwd: 是否同步密码
+        :type SyncPwd: bool
         """
         self._InstanceId = None
         self._UserName = None
         self._PassWord = None
+        self._SyncPwd = None
 
     @property
     def InstanceId(self):
@@ -23992,11 +24749,23 @@ class ModifyUserManagerPwdRequest(AbstractModel):
     def PassWord(self, PassWord):
         self._PassWord = PassWord
 
+    @property
+    def SyncPwd(self):
+        r"""是否同步密码
+        :rtype: bool
+        """
+        return self._SyncPwd
+
+    @SyncPwd.setter
+    def SyncPwd(self, SyncPwd):
+        self._SyncPwd = SyncPwd
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._UserName = params.get("UserName")
         self._PassWord = params.get("PassWord")
+        self._SyncPwd = params.get("SyncPwd")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26589,11 +27358,14 @@ class NodeSpecDisk(AbstractModel):
         :type DiskType: str
         :param _DefaultDiskSize: 指定磁盘大小
         :type DefaultDiskSize: int
+        :param _IsSpecialDisk: 是否为特殊的数据盘，如：单副本盘
+        :type IsSpecialDisk: bool
         """
         self._Count = None
         self._Name = None
         self._DiskType = None
         self._DefaultDiskSize = None
+        self._IsSpecialDisk = None
 
     @property
     def Count(self):
@@ -26639,12 +27411,24 @@ class NodeSpecDisk(AbstractModel):
     def DefaultDiskSize(self, DefaultDiskSize):
         self._DefaultDiskSize = DefaultDiskSize
 
+    @property
+    def IsSpecialDisk(self):
+        r"""是否为特殊的数据盘，如：单副本盘
+        :rtype: bool
+        """
+        return self._IsSpecialDisk
+
+    @IsSpecialDisk.setter
+    def IsSpecialDisk(self, IsSpecialDisk):
+        self._IsSpecialDisk = IsSpecialDisk
+
 
     def _deserialize(self, params):
         self._Count = params.get("Count")
         self._Name = params.get("Name")
         self._DiskType = params.get("DiskType")
         self._DefaultDiskSize = params.get("DefaultDiskSize")
+        self._IsSpecialDisk = params.get("IsSpecialDisk")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -27350,6 +28134,162 @@ class OpScope(AbstractModel):
         
 
 
+class OperationLog(AbstractModel):
+    r"""操作日志描述
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: EMR实例ID
+        :type InstanceId: int
+        :param _Operation: 操作名称
+        :type Operation: str
+        :param _OperationType: 操作类型
+        :type OperationType: int
+        :param _UserType: 用户类型
+        :type UserType: int
+        :param _Operator: 操作者
+        :type Operator: str
+        :param _CreateTime: 操作时间
+        :type CreateTime: str
+        :param _Operand: 操作对象
+        :type Operand: str
+        :param _OperationDesc: 操作详情
+        :type OperationDesc: str
+        :param _SecurityLevel: 安全级别
+        :type SecurityLevel: str
+        """
+        self._InstanceId = None
+        self._Operation = None
+        self._OperationType = None
+        self._UserType = None
+        self._Operator = None
+        self._CreateTime = None
+        self._Operand = None
+        self._OperationDesc = None
+        self._SecurityLevel = None
+
+    @property
+    def InstanceId(self):
+        r"""EMR实例ID
+        :rtype: int
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Operation(self):
+        r"""操作名称
+        :rtype: str
+        """
+        return self._Operation
+
+    @Operation.setter
+    def Operation(self, Operation):
+        self._Operation = Operation
+
+    @property
+    def OperationType(self):
+        r"""操作类型
+        :rtype: int
+        """
+        return self._OperationType
+
+    @OperationType.setter
+    def OperationType(self, OperationType):
+        self._OperationType = OperationType
+
+    @property
+    def UserType(self):
+        r"""用户类型
+        :rtype: int
+        """
+        return self._UserType
+
+    @UserType.setter
+    def UserType(self, UserType):
+        self._UserType = UserType
+
+    @property
+    def Operator(self):
+        r"""操作者
+        :rtype: str
+        """
+        return self._Operator
+
+    @Operator.setter
+    def Operator(self, Operator):
+        self._Operator = Operator
+
+    @property
+    def CreateTime(self):
+        r"""操作时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def Operand(self):
+        r"""操作对象
+        :rtype: str
+        """
+        return self._Operand
+
+    @Operand.setter
+    def Operand(self, Operand):
+        self._Operand = Operand
+
+    @property
+    def OperationDesc(self):
+        r"""操作详情
+        :rtype: str
+        """
+        return self._OperationDesc
+
+    @OperationDesc.setter
+    def OperationDesc(self, OperationDesc):
+        self._OperationDesc = OperationDesc
+
+    @property
+    def SecurityLevel(self):
+        r"""安全级别
+        :rtype: str
+        """
+        return self._SecurityLevel
+
+    @SecurityLevel.setter
+    def SecurityLevel(self, SecurityLevel):
+        self._SecurityLevel = SecurityLevel
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Operation = params.get("Operation")
+        self._OperationType = params.get("OperationType")
+        self._UserType = params.get("UserType")
+        self._Operator = params.get("Operator")
+        self._CreateTime = params.get("CreateTime")
+        self._Operand = params.get("Operand")
+        self._OperationDesc = params.get("OperationDesc")
+        self._SecurityLevel = params.get("SecurityLevel")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class Order(AbstractModel):
     r"""描述排序，用于排序.
 
@@ -27391,6 +28331,61 @@ class Order(AbstractModel):
     def _deserialize(self, params):
         self._Name = params.get("Name")
         self._Direction = params.get("Direction")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OtherAccountInfo(AbstractModel):
+    r"""其他账号信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _OtherUin: 其他账号UIN
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OtherUin: str
+        :param _RoleName: 其他账号授权角色名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoleName: str
+        """
+        self._OtherUin = None
+        self._RoleName = None
+
+    @property
+    def OtherUin(self):
+        r"""其他账号UIN
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._OtherUin
+
+    @OtherUin.setter
+    def OtherUin(self, OtherUin):
+        self._OtherUin = OtherUin
+
+    @property
+    def RoleName(self):
+        r"""其他账号授权角色名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RoleName
+
+    @RoleName.setter
+    def RoleName(self, RoleName):
+        self._RoleName = RoleName
+
+
+    def _deserialize(self, params):
+        self._OtherUin = params.get("OtherUin")
+        self._RoleName = params.get("RoleName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -28428,6 +29423,8 @@ class PodNewSpec(AbstractModel):
         :type SubnetId: str
         :param _PodName: pod name
         :type PodName: str
+        :param _OtherAccountInfo: 其他账号授权信息
+        :type OtherAccountInfo: :class:`tencentcloud.emr.v20190103.models.OtherAccountInfo`
         """
         self._ResourceProviderIdentifier = None
         self._ResourceProviderType = None
@@ -28441,6 +29438,7 @@ class PodNewSpec(AbstractModel):
         self._VpcId = None
         self._SubnetId = None
         self._PodName = None
+        self._OtherAccountInfo = None
 
     @property
     def ResourceProviderIdentifier(self):
@@ -28577,6 +29575,17 @@ class PodNewSpec(AbstractModel):
     def PodName(self, PodName):
         self._PodName = PodName
 
+    @property
+    def OtherAccountInfo(self):
+        r"""其他账号授权信息
+        :rtype: :class:`tencentcloud.emr.v20190103.models.OtherAccountInfo`
+        """
+        return self._OtherAccountInfo
+
+    @OtherAccountInfo.setter
+    def OtherAccountInfo(self, OtherAccountInfo):
+        self._OtherAccountInfo = OtherAccountInfo
+
 
     def _deserialize(self, params):
         self._ResourceProviderIdentifier = params.get("ResourceProviderIdentifier")
@@ -28598,6 +29607,9 @@ class PodNewSpec(AbstractModel):
         self._VpcId = params.get("VpcId")
         self._SubnetId = params.get("SubnetId")
         self._PodName = params.get("PodName")
+        if params.get("OtherAccountInfo") is not None:
+            self._OtherAccountInfo = OtherAccountInfo()
+            self._OtherAccountInfo._deserialize(params.get("OtherAccountInfo"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35671,6 +36683,8 @@ class StarRocksQueryInfo(AbstractModel):
         :type ExecutionStatement: str
         :param _User: 用户
         :type User: str
+        :param _ErrorCode: 错误码
+        :type ErrorCode: str
         """
         self._ClientIP = None
         self._CPUCost = None
@@ -35691,6 +36705,7 @@ class StarRocksQueryInfo(AbstractModel):
         self._ExecutionState = None
         self._ExecutionStatement = None
         self._User = None
+        self._ErrorCode = None
 
     @property
     def ClientIP(self):
@@ -35901,6 +36916,17 @@ class StarRocksQueryInfo(AbstractModel):
     def User(self, User):
         self._User = User
 
+    @property
+    def ErrorCode(self):
+        r"""错误码
+        :rtype: str
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
 
     def _deserialize(self, params):
         self._ClientIP = params.get("ClientIP")
@@ -35922,6 +36948,7 @@ class StarRocksQueryInfo(AbstractModel):
         self._ExecutionState = params.get("ExecutionState")
         self._ExecutionStatement = params.get("ExecutionStatement")
         self._User = params.get("User")
+        self._ErrorCode = params.get("ErrorCode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -37346,6 +38373,8 @@ class TimeAutoScaleStrategy(AbstractModel):
         :type GroupId: int
         :param _GraceDownLabel: 优雅缩容业务pod标签，当node不存在上述pod或超过优雅缩容时间时，缩容节点
         :type GraceDownLabel: list of TkeLabel
+        :param _GraceDownProtectTime: 任务保护时间
+        :type GraceDownProtectTime: int
         """
         self._StrategyName = None
         self._IntervalTime = None
@@ -37369,6 +38398,7 @@ class TimeAutoScaleStrategy(AbstractModel):
         self._CompensateFlag = None
         self._GroupId = None
         self._GraceDownLabel = None
+        self._GraceDownProtectTime = None
 
     @property
     def StrategyName(self):
@@ -37620,6 +38650,17 @@ class TimeAutoScaleStrategy(AbstractModel):
     def GraceDownLabel(self, GraceDownLabel):
         self._GraceDownLabel = GraceDownLabel
 
+    @property
+    def GraceDownProtectTime(self):
+        r"""任务保护时间
+        :rtype: int
+        """
+        return self._GraceDownProtectTime
+
+    @GraceDownProtectTime.setter
+    def GraceDownProtectTime(self, GraceDownProtectTime):
+        self._GraceDownProtectTime = GraceDownProtectTime
+
 
     def _deserialize(self, params):
         self._StrategyName = params.get("StrategyName")
@@ -37656,6 +38697,7 @@ class TimeAutoScaleStrategy(AbstractModel):
                 obj = TkeLabel()
                 obj._deserialize(item)
                 self._GraceDownLabel.append(obj)
+        self._GraceDownProtectTime = params.get("GraceDownProtectTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -37707,6 +38749,102 @@ class TkeLabel(AbstractModel):
     def _deserialize(self, params):
         self._Name = params.get("Name")
         self._Value = params.get("Value")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Toleration(AbstractModel):
+    r"""Tolerations
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Key: 键
+        :type Key: str
+        :param _Value: 值
+        :type Value: str
+        :param _Operator: 操作符
+        :type Operator: str
+        :param _Effect: 污点排斥效果
+        :type Effect: str
+        :param _TolerationSeconds: 驱逐等待时间
+        :type TolerationSeconds: int
+        """
+        self._Key = None
+        self._Value = None
+        self._Operator = None
+        self._Effect = None
+        self._TolerationSeconds = None
+
+    @property
+    def Key(self):
+        r"""键
+        :rtype: str
+        """
+        return self._Key
+
+    @Key.setter
+    def Key(self, Key):
+        self._Key = Key
+
+    @property
+    def Value(self):
+        r"""值
+        :rtype: str
+        """
+        return self._Value
+
+    @Value.setter
+    def Value(self, Value):
+        self._Value = Value
+
+    @property
+    def Operator(self):
+        r"""操作符
+        :rtype: str
+        """
+        return self._Operator
+
+    @Operator.setter
+    def Operator(self, Operator):
+        self._Operator = Operator
+
+    @property
+    def Effect(self):
+        r"""污点排斥效果
+        :rtype: str
+        """
+        return self._Effect
+
+    @Effect.setter
+    def Effect(self, Effect):
+        self._Effect = Effect
+
+    @property
+    def TolerationSeconds(self):
+        r"""驱逐等待时间
+        :rtype: int
+        """
+        return self._TolerationSeconds
+
+    @TolerationSeconds.setter
+    def TolerationSeconds(self, TolerationSeconds):
+        self._TolerationSeconds = TolerationSeconds
+
+
+    def _deserialize(self, params):
+        self._Key = params.get("Key")
+        self._Value = params.get("Value")
+        self._Operator = params.get("Operator")
+        self._Effect = params.get("Effect")
+        self._TolerationSeconds = params.get("TolerationSeconds")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -37908,6 +39046,8 @@ class TrinoQueryInfo(AbstractModel):
         :type User: str
         :param _WrittenBytes: 写入字节数
         :type WrittenBytes: int
+        :param _ErrorMessage: Error日志
+        :type ErrorMessage: str
         """
         self._Catalog = None
         self._ClientIpAddr = None
@@ -37928,6 +39068,7 @@ class TrinoQueryInfo(AbstractModel):
         self._Statement = None
         self._User = None
         self._WrittenBytes = None
+        self._ErrorMessage = None
 
     @property
     def Catalog(self):
@@ -38138,6 +39279,17 @@ class TrinoQueryInfo(AbstractModel):
     def WrittenBytes(self, WrittenBytes):
         self._WrittenBytes = WrittenBytes
 
+    @property
+    def ErrorMessage(self):
+        r"""Error日志
+        :rtype: str
+        """
+        return self._ErrorMessage
+
+    @ErrorMessage.setter
+    def ErrorMessage(self, ErrorMessage):
+        self._ErrorMessage = ErrorMessage
+
 
     def _deserialize(self, params):
         self._Catalog = params.get("Catalog")
@@ -38159,6 +39311,7 @@ class TrinoQueryInfo(AbstractModel):
         self._Statement = params.get("Statement")
         self._User = params.get("User")
         self._WrittenBytes = params.get("WrittenBytes")
+        self._ErrorMessage = params.get("ErrorMessage")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

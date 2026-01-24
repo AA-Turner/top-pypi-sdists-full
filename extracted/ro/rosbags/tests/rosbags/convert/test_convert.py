@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag Converter Tests."""
 
-# pyright: strict, reportAny=false
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -85,6 +83,15 @@ def test_convert_writer_errors(tmp_path: Path) -> None:
         pytest.raises(ConverterError, match='Writing destination bag: exc'),
     ):
         convert([], tmp_path / 'foo.bag', 'sqlite3', 8, None, 'file', None, None, (), (), (), ())
+
+
+def test_convert_reraises_assertions(tmp_path: Path) -> None:
+    """Test convert reraises assertion errors."""
+    with (
+        patch('rosbags.convert.converter.AnyReader', side_effect=AssertionError('exc')),
+        pytest.raises(AssertionError, match='exc'),
+    ):
+        convert([], tmp_path / 'foo', 'sqlite3', 8, None, 'file', None, None, (), (), (), ())
 
 
 def test_convert_forwards_exceptions(tmp_path: Path) -> None:
@@ -198,7 +205,7 @@ def test_convert_applies_transforms(tmp_path: Path) -> None:
         rctx.messages.return_value = [(conn, 1, 2)]
         ccc.return_value = [
             {(42, 'own'): 666},
-            {'bar': lambda x: x * 2},  # pyright: ignore[reportUnknownLambdaType]
+            {'bar': lambda x: x * 2},
         ]
 
         convert([], tmp_path, 'sqlite3', 8, None, 'file', None, None, (), (), (), ())
@@ -592,7 +599,7 @@ def test_message_converter() -> None:
         src_is2=False,
         dst_is2=False,
     )
-    assert conv(b'42') == b'42'
+    assert conv(b'42').tobytes() == b'42'
 
     conv = generate_message_converter(
         srcts,
@@ -603,7 +610,7 @@ def test_message_converter() -> None:
         src_is2=True,
         dst_is2=True,
     )
-    assert conv(b'42') == b'42'
+    assert conv(b'42').tobytes() == b'42'
 
     conv = generate_message_converter(
         srcts,
@@ -614,7 +621,7 @@ def test_message_converter() -> None:
         src_is2=False,
         dst_is2=False,
     )
-    assert conv(b'42') == b'42'
+    assert conv(b'42').tobytes() == b'42'
 
     conv = generate_message_converter(
         srcts,
@@ -625,9 +632,9 @@ def test_message_converter() -> None:
         src_is2=False,
         dst_is2=False,
     )
-    assert conv(b'42') == b'42'
+    assert conv(b'42').tobytes() == b'42'
 
-    with patch.object(dstts, 'ros1_to_cdr', return_value=b'mock') as func:
+    with patch.object(dstts, 'ros1_to_cdr', return_value=memoryview(b'mock')) as func:
         conv = generate_message_converter(
             srcts,
             dstts,
@@ -637,10 +644,10 @@ def test_message_converter() -> None:
             src_is2=False,
             dst_is2=True,
         )
-        assert conv(b'42') == b'mock'
+        assert conv(b'42').tobytes() == b'mock'
         func.assert_called_with(b'42', typename='builtin_interfaces/msg/Time')
 
-    with patch.object(srcts, 'cdr_to_ros1', return_value=b'mock') as func:
+    with patch.object(srcts, 'cdr_to_ros1', return_value=memoryview(b'mock')) as func:
         conv = generate_message_converter(
             srcts,
             dstts,
@@ -650,10 +657,10 @@ def test_message_converter() -> None:
             src_is2=True,
             dst_is2=False,
         )
-        assert conv(b'42') == b'mock'
+        assert conv(b'42').tobytes() == b'mock'
         func.assert_called_with(b'42', typename='builtin_interfaces/msg/Time')
 
-    with patch('rosbags.convert.converter.migrate_bytes', return_value=b'mock') as func:
+    with patch('rosbags.convert.converter.migrate_bytes', return_value=memoryview(b'mock')) as func:
         conv = generate_message_converter(
             srcts,
             dstts,
@@ -663,10 +670,10 @@ def test_message_converter() -> None:
             src_is2=False,
             dst_is2=False,
         )
-        assert conv(b'42') == b'mock'
+        assert conv(b'42').tobytes() == b'mock'
         func.assert_called()
 
-    with patch('rosbags.convert.converter.migrate_bytes', return_value=b'mock') as func:
+    with patch('rosbags.convert.converter.migrate_bytes', return_value=memoryview(b'mock')) as func:
         conv = generate_message_converter(
             srcts,
             dstts,
@@ -676,7 +683,7 @@ def test_message_converter() -> None:
             src_is2=False,
             dst_is2=False,
         )
-        assert conv(b'42') == b'mock'
+        assert conv(b'42').tobytes() == b'mock'
         func.assert_called()
 
 
@@ -695,7 +702,7 @@ def test_migrate_bytes() -> None:
         src_is2=False,
         dst_is2=False,
     )
-    assert res == b'\x01'
+    assert res.tobytes() == b'\x01'
 
     res = migrate_bytes(
         srcts,
@@ -707,7 +714,7 @@ def test_migrate_bytes() -> None:
         src_is2=False,
         dst_is2=True,
     )
-    assert res == b'\x00\x01\x00\x00\x01'
+    assert res.tobytes() == b'\x00\x01\x00\x00\x01'
 
     res = migrate_bytes(
         srcts,
@@ -719,7 +726,7 @@ def test_migrate_bytes() -> None:
         src_is2=True,
         dst_is2=True,
     )
-    assert res == b'\x00\x01\x00\x00\x01'
+    assert res.tobytes() == b'\x00\x01\x00\x00\x01'
 
     res = migrate_bytes(
         srcts,
@@ -731,7 +738,7 @@ def test_migrate_bytes() -> None:
         src_is2=True,
         dst_is2=False,
     )
-    assert res == b'\x01'
+    assert res.tobytes() == b'\x01'
 
 
 def test_migrate_message() -> None:

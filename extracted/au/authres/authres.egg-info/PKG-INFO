@@ -1,0 +1,22 @@
+Metadata-Version: 1.1
+Name: authres
+Version: 1.2.0
+Summary: authres - Authentication Results Header Module
+Home-page: https://launchpad.net/authentication-results-python
+Author: Julian Mehnle, Scott Kitterman
+Author-email: julian@mehnle.net
+License: Apache 2.0
+Description: UNKNOWN
+Keywords: dkim,spf,dmarc,email,authentication,rfc5451,rfc7001,rfc7601,rfc8601
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: No Input/Output (Daemon)
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Communications :: Email :: Mail Transport Agents
+Classifier: Topic :: Communications :: Email :: Filters
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

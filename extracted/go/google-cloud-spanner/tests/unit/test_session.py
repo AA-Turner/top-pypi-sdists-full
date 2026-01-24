@@ -130,6 +130,7 @@ class TestSession(OpenTelemetryBase):
         "gcp.client.service": "spanner",
         "gcp.client.version": LIB_VERSION,
         "gcp.client.repo": "googleapis/python-spanner",
+        "cloud.region": "global",
     }
     enrich_with_otel_scope(BASE_ATTRIBUTES)
 
@@ -222,7 +223,11 @@ class TestSession(OpenTelemetryBase):
 
         self.assertNoSpans()
 
-    def test_create_w_database_role(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_create_w_database_role(self, mock_region):
         session_pb = self._make_session_pb(
             self.SESSION_NAME, database_role=self.DATABASE_ROLE
         )
@@ -263,7 +268,11 @@ class TestSession(OpenTelemetryBase):
             ),
         )
 
-    def test_create_session_span_annotations(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_create_session_span_annotations(self, mock_region):
         session_pb = self._make_session_pb(
             self.SESSION_NAME, database_role=self.DATABASE_ROLE
         )
@@ -301,7 +310,11 @@ class TestSession(OpenTelemetryBase):
             wantEventNames = ["Creating Session"]
             self.assertSpanEvents("TestSessionSpan", wantEventNames, span)
 
-    def test_create_wo_database_role(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_create_wo_database_role(self, mock_region):
         session_pb = self._make_session_pb(self.SESSION_NAME)
         gax_api = self._make_spanner_api()
         gax_api.create_session.return_value = session_pb
@@ -337,7 +350,11 @@ class TestSession(OpenTelemetryBase):
             ),
         )
 
-    def test_create_ok(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_create_ok(self, mock_region):
         session_pb = self._make_session_pb(self.SESSION_NAME)
         gax_api = self._make_spanner_api()
         gax_api.create_session.return_value = session_pb
@@ -373,7 +390,11 @@ class TestSession(OpenTelemetryBase):
             ),
         )
 
-    def test_create_w_labels(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_create_w_labels(self, mock_region):
         labels = {"foo": "bar"}
         session_pb = self._make_session_pb(self.SESSION_NAME, labels=labels)
         gax_api = self._make_spanner_api()
@@ -411,7 +432,11 @@ class TestSession(OpenTelemetryBase):
             ),
         )
 
-    def test_create_error(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_create_error(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.create_session.side_effect = Unknown("error")
         database = self._make_database()
@@ -437,7 +462,11 @@ class TestSession(OpenTelemetryBase):
 
         self.assertNoSpans()
 
-    def test_exists_hit(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_exists_hit(self, mock_region):
         session_pb = self._make_session_pb(self.SESSION_NAME)
         gax_api = self._make_spanner_api()
         gax_api.get_session.return_value = session_pb
@@ -471,35 +500,10 @@ class TestSession(OpenTelemetryBase):
         )
 
     @mock.patch(
-        "google.cloud.spanner_v1._opentelemetry_tracing.HAS_OPENTELEMETRY_INSTALLED",
-        False,
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
     )
-    def test_exists_hit_wo_span(self):
-        session_pb = self._make_session_pb(self.SESSION_NAME)
-        gax_api = self._make_spanner_api()
-        gax_api.get_session.return_value = session_pb
-        database = self._make_database()
-        database.spanner_api = gax_api
-        session = self._make_one(database)
-        session._session_id = self.SESSION_ID
-
-        self.assertTrue(session.exists())
-
-        gax_api.get_session.assert_called_once_with(
-            name=self.SESSION_NAME,
-            metadata=[
-                ("google-cloud-resource-prefix", database.name),
-                ("x-goog-spanner-route-to-leader", "true"),
-                (
-                    "x-goog-spanner-request-id",
-                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1",
-                ),
-            ],
-        )
-
-        self.assertNoSpans()
-
-    def test_exists_miss(self):
+    def test_exists_miss(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.get_session.side_effect = NotFound("testing")
         database = self._make_database()
@@ -532,34 +536,10 @@ class TestSession(OpenTelemetryBase):
         )
 
     @mock.patch(
-        "google.cloud.spanner_v1._opentelemetry_tracing.HAS_OPENTELEMETRY_INSTALLED",
-        False,
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
     )
-    def test_exists_miss_wo_span(self):
-        gax_api = self._make_spanner_api()
-        gax_api.get_session.side_effect = NotFound("testing")
-        database = self._make_database()
-        database.spanner_api = gax_api
-        session = self._make_one(database)
-        session._session_id = self.SESSION_ID
-
-        self.assertFalse(session.exists())
-
-        gax_api.get_session.assert_called_once_with(
-            name=self.SESSION_NAME,
-            metadata=[
-                ("google-cloud-resource-prefix", database.name),
-                ("x-goog-spanner-route-to-leader", "true"),
-                (
-                    "x-goog-spanner-request-id",
-                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1",
-                ),
-            ],
-        )
-
-        self.assertNoSpans()
-
-    def test_exists_error(self):
+    def test_exists_error(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.get_session.side_effect = Unknown("testing")
         database = self._make_database()
@@ -597,7 +577,11 @@ class TestSession(OpenTelemetryBase):
         with self.assertRaises(ValueError):
             session.ping()
 
-    def test_ping_hit(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_ping_hit(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.execute_sql.return_value = "1"
         database = self._make_database()
@@ -612,18 +596,28 @@ class TestSession(OpenTelemetryBase):
             sql="SELECT 1",
         )
 
+        req_id = f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1"
         gax_api.execute_sql.assert_called_once_with(
             request=request,
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 (
                     "x-goog-spanner-request-id",
-                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1",
+                    req_id,
                 ),
             ],
         )
 
-    def test_ping_miss(self):
+        self.assertSpanAttributes(
+            "CloudSpanner.Session.ping",
+            attributes=dict(self.BASE_ATTRIBUTES, x_goog_spanner_request_id=req_id),
+        )
+
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_ping_miss(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.execute_sql.side_effect = NotFound("testing")
         database = self._make_database()
@@ -639,18 +633,29 @@ class TestSession(OpenTelemetryBase):
             sql="SELECT 1",
         )
 
+        req_id = f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1"
         gax_api.execute_sql.assert_called_once_with(
             request=request,
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 (
                     "x-goog-spanner-request-id",
-                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1",
+                    req_id,
                 ),
             ],
         )
 
-    def test_ping_error(self):
+        self.assertSpanAttributes(
+            "CloudSpanner.Session.ping",
+            status=StatusCode.ERROR,
+            attributes=dict(self.BASE_ATTRIBUTES, x_goog_spanner_request_id=req_id),
+        )
+
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_ping_error(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.execute_sql.side_effect = Unknown("testing")
         database = self._make_database()
@@ -666,15 +671,22 @@ class TestSession(OpenTelemetryBase):
             sql="SELECT 1",
         )
 
+        req_id = f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1"
         gax_api.execute_sql.assert_called_once_with(
             request=request,
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 (
                     "x-goog-spanner-request-id",
-                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.1.1",
+                    req_id,
                 ),
             ],
+        )
+
+        self.assertSpanAttributes(
+            "CloudSpanner.Session.ping",
+            status=StatusCode.ERROR,
+            attributes=dict(self.BASE_ATTRIBUTES, x_goog_spanner_request_id=req_id),
         )
 
     def test_delete_wo_session_id(self):
@@ -686,7 +698,11 @@ class TestSession(OpenTelemetryBase):
 
         self.assertNoSpans()
 
-    def test_delete_hit(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_delete_hit(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.delete_session.return_value = None
         database = self._make_database()
@@ -715,7 +731,11 @@ class TestSession(OpenTelemetryBase):
             attributes=dict(attrs, x_goog_spanner_request_id=req_id),
         )
 
-    def test_delete_miss(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_delete_miss(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.delete_session.side_effect = NotFound("testing")
         database = self._make_database()
@@ -751,7 +771,11 @@ class TestSession(OpenTelemetryBase):
             attributes=attrs,
         )
 
-    def test_delete_error(self):
+    @mock.patch(
+        "google.cloud.spanner_v1._opentelemetry_tracing._get_cloud_region",
+        return_value="global",
+    )
+    def test_delete_error(self, mock_region):
         gax_api = self._make_spanner_api()
         gax_api.delete_session.side_effect = Unknown("testing")
         database = self._make_database()
@@ -1702,10 +1726,11 @@ class TestSession(OpenTelemetryBase):
         def _time(_results=[1, 2, 4, 8]):
             return _results.pop(0)
 
-        with mock.patch("time.time", _time):
-            with mock.patch("time.sleep") as sleep_mock:
-                with self.assertRaises(Aborted):
-                    session.run_in_transaction(unit_of_work, timeout_secs=8)
+        with mock.patch("time.time", _time), mock.patch(
+            "google.cloud.spanner_v1._helpers.random.random", return_value=0
+        ), mock.patch("time.sleep") as sleep_mock:
+            with self.assertRaises(Aborted):
+                session.run_in_transaction(unit_of_work, timeout_secs=8)
 
         # unpacking call args into list
         call_args = [call_[0][0] for call_ in sleep_mock.call_args_list]
@@ -1980,9 +2005,12 @@ class TestSession(OpenTelemetryBase):
         self.assertEqual(kw, {"some_arg": "def"})
 
         expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
+        expected_request_options = RequestOptions(transaction_tag=transaction_tag)
         gax_api.begin_transaction.assert_called_once_with(
             request=BeginTransactionRequest(
-                session=self.SESSION_NAME, options=expected_options
+                session=self.SESSION_NAME,
+                options=expected_options,
+                request_options=expected_request_options,
             ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),

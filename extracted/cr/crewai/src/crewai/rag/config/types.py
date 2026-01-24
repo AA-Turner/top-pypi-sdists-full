@@ -1,9 +1,11 @@
 """Type definitions for RAG configuration."""
 
-from typing import Annotated, TypeAlias, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, TypeAlias
+
 from pydantic import Field
 
 from crewai.rag.config.constants import DISCRIMINATOR
+
 
 # Linter freaks out on conditional imports, assigning in the type checking fixes it
 if TYPE_CHECKING:

@@ -46,7 +46,7 @@ from schemathesis.generation.metrics import MetricCollector
 def _get_hypothesis_settings_kwargs_override(settings: hypothesis.settings) -> dict[str, Any]:
     """Get the settings that should be overridden to match the defaults for API state machines."""
     kwargs = {}
-    hypothesis_default = hypothesis.settings()
+    hypothesis_default = hypothesis.settings.get_profile("default")
     if settings.phases == hypothesis_default.phases:
         kwargs["phases"] = DEFAULT_STATE_MACHINE_SETTINGS.phases
     if settings.stateful_step_count == hypothesis_default.stateful_step_count:
@@ -134,17 +134,19 @@ def execute_state_machine_loop(
                 raise
             except Exception as exc:
                 if isinstance(
-                    exc, (requests.ConnectionError, ChunkedEncodingError, requests.Timeout)
+                    exc, requests.ConnectionError | ChunkedEncodingError | requests.Timeout
                 ) and is_unrecoverable_network_error(exc):
                     transport_kwargs = engine.get_transport_kwargs(operation=input.case.operation)
                     if exc.request is not None:
-                        headers = {key: value[0] for key, value in exc.request.headers.items()}
+                        headers = dict(exc.request.headers)
                     else:
                         headers = {**dict(input.case.headers or {}), **transport_kwargs.get("headers", {})}
                     verify = transport_kwargs.get("verify", True)
-                    state.unrecoverable_network_error = UnrecoverableNetworkError(
-                        error=exc,
-                        code_sample=input.case.as_curl_command(headers=headers, verify=verify),
+                    state.store_unrecoverable_network_error(
+                        UnrecoverableNetworkError(
+                            error=exc,
+                            code_sample=input.case.as_curl_command(headers=headers, verify=verify),
+                        )
                     )
 
                 if generation.unique_inputs:
@@ -244,7 +246,7 @@ def execute_state_machine_loop(
         # yet have reproducible results
         seed += 1
         try:
-            with catch_warnings(), ignore_hypothesis_output():  # type: ignore
+            with catch_warnings(), ignore_hypothesis_output():
                 InstrumentedStateMachine.run(settings=hypothesis_settings)
         except KeyboardInterrupt:
             # Raised in the state machine when the stop event is set or it is raised by the user's code
@@ -264,14 +266,14 @@ def execute_state_machine_loop(
             # Here we need to either exit or re-run the state machine with this failure marked as known
             suite_status = Status.FAILURE
             if engine.has_reached_the_failure_limit:
-                break  # type: ignore[unreachable]
+                break
             for failure in exc.exceptions:
                 ctx.mark_as_seen_in_run(failure)
             continue
         except Flaky:
             # Ignore flakiness
             if engine.has_reached_the_failure_limit:
-                break  # type: ignore[unreachable]
+                break
             # Mark all failures in this suite as seen to prevent them being re-discovered
             ctx.mark_current_suite_as_seen_in_run()
             continue

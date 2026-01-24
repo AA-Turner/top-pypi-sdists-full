@@ -4,7 +4,6 @@ import dataclasses
 import inspect
 import sys
 import types
-import urllib.parse
 from base64 import b64encode
 from collections.abc import Callable, Mapping, Sequence
 from functools import lru_cache, partial
@@ -875,7 +874,7 @@ class FileUpload:
             upload_files_context_var_data,
         )
 
-        upload_id = self.upload_id or DEFAULT_UPLOAD_ID
+        upload_id = self.upload_id if self.upload_id is not None else DEFAULT_UPLOAD_ID
         spec_args = [
             (
                 Var(_js_expr="files"),
@@ -1230,6 +1229,7 @@ def download(
     url: str | Var | None = None,
     filename: str | Var | None = None,
     data: str | bytes | Var | None = None,
+    mime_type: str | Var | None = None,
 ) -> EventSpec:
     """Download the file at a given path or with the specified data.
 
@@ -1237,6 +1237,7 @@ def download(
         url: The URL to the file to download.
         filename: The name that the file should be saved as after download.
         data: The data to download.
+        mime_type: The mime type of the data to download.
 
     Raises:
         ValueError: If the URL provided is invalid, both URL and data are provided,
@@ -1265,9 +1266,15 @@ def download(
             raise ValueError(msg)
 
         if isinstance(data, str):
+            if mime_type is None:
+                mime_type = "text/plain"
             # Caller provided a plain text string to download.
-            url = "data:text/plain," + urllib.parse.quote(data)
+            url = f"data:{mime_type};base64," + b64encode(data.encode("utf-8")).decode(
+                "utf-8"
+            )
         elif isinstance(data, Var):
+            if mime_type is None:
+                mime_type = "text/plain"
             # Need to check on the frontend if the Var already looks like a data: URI.
 
             is_data_url = (data.js_type() == "string") & (
@@ -1278,12 +1285,14 @@ def download(
             url = cond(
                 is_data_url,
                 data.to(str),
-                "data:text/plain," + data.to_string(),
+                f"data:{mime_type}," + data.to_string(),
             )
         elif isinstance(data, bytes):
+            if mime_type is None:
+                mime_type = "application/octet-stream"
             # Caller provided bytes, so base64 encode it as a data: URI.
             b64_data = b64encode(data).decode("utf-8")
-            url = "data:application/octet-stream;base64," + b64_data
+            url = f"data:{mime_type};base64," + b64_data
         else:
             msg = f"Invalid data type {type(data)} for download. Use `str` or `bytes`."
             raise ValueError(msg)
@@ -1672,16 +1681,14 @@ def parse_args_spec(arg_spec: ArgsSpec | Sequence[ArgsSpec]):
     spec = inspect.getfullargspec(arg_spec)
 
     return list(
-        arg_spec(
-            *[
-                Var(f"_{l_arg}").to(
-                    unwrap_var_annotation(
-                        resolve_annotation(annotations[0], l_arg, spec=arg_spec)
-                    )
+        arg_spec(*[
+            Var(f"_{l_arg}").to(
+                unwrap_var_annotation(
+                    resolve_annotation(annotations[0], l_arg, spec=arg_spec)
                 )
-                for l_arg in spec.args
-            ]
-        )
+            )
+            for l_arg in spec.args
+        ])
     ), annotations
 
 
@@ -1866,6 +1873,9 @@ def fix_events(
     # Fix the events created by the handler.
     out = []
     for e in events:
+        if callable(e) and getattr(e, "__name__", "") == "<lambda>":
+            # A lambda was returned, assume the user wants to call it with no args.
+            e = e()
         if isinstance(e, Event):
             # If the event is already an event, append it to the list.
             out.append(e)
@@ -2378,9 +2388,13 @@ class EventNamespace:
             Returns:
                 Dict of event actions to apply, or empty dict if none specified.
             """
-            if not any(
-                [stop_propagation, prevent_default, throttle, debounce, temporal]
-            ):
+            if not any([
+                stop_propagation,
+                prevent_default,
+                throttle,
+                debounce,
+                temporal,
+            ]):
                 return {}
 
             event_actions = {}

@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class RefreshIcebergTableRequest(BaseModel):
@@ -36,9 +36,10 @@ class RefreshIcebergTableRequest(BaseModel):
 
     __properties = ["metadata_file_relative_path"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -63,7 +64,7 @@ class RefreshIcebergTableRequest(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -78,9 +79,9 @@ class RefreshIcebergTableRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return RefreshIcebergTableRequest.parse_obj(obj)
+            return RefreshIcebergTableRequest.model_validate(obj)
 
-        _obj = RefreshIcebergTableRequest.parse_obj(
+        _obj = RefreshIcebergTableRequest.model_validate(
             {
                 "metadata_file_relative_path": obj.get("metadata_file_relative_path"),
             }

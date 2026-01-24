@@ -16,6 +16,7 @@ from ...types.bulk_delete_location_custom_attributes_response import BulkDeleteL
 from ...types.bulk_upsert_location_custom_attributes_response import BulkUpsertLocationCustomAttributesResponse
 from ...types.custom_attribute import CustomAttribute
 from ...types.delete_location_custom_attribute_response import DeleteLocationCustomAttributeResponse
+from ...types.list_location_custom_attributes_response import ListLocationCustomAttributesResponse
 from ...types.retrieve_location_custom_attribute_response import RetrieveLocationCustomAttributeResponse
 from ...types.upsert_location_custom_attribute_response import UpsertLocationCustomAttributeResponse
 from ...types.visibility_filter import VisibilityFilter
@@ -158,7 +159,7 @@ class CustomAttributesClient:
         cursor: typing.Optional[str] = None,
         with_definitions: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[CustomAttribute]:
+    ) -> SyncPager[CustomAttribute, ListLocationCustomAttributesResponse]:
         """
         Lists the [custom attributes](entity:CustomAttribute) associated with a location.
         You can use the `with_definitions` query parameter to also retrieve custom attribute definitions
@@ -195,7 +196,7 @@ class CustomAttributesClient:
 
         Returns
         -------
-        SyncPager[CustomAttribute]
+        SyncPager[CustomAttribute, ListLocationCustomAttributesResponse]
             Success
 
         Examples
@@ -207,6 +208,10 @@ class CustomAttributesClient:
         )
         response = client.locations.custom_attributes.list(
             location_id="location_id",
+            visibility_filter="ALL",
+            limit=1,
+            cursor="cursor",
+            with_definitions=True,
         )
         for item in response:
             yield item
@@ -278,6 +283,8 @@ class CustomAttributesClient:
         client.locations.custom_attributes.get(
             location_id="location_id",
             key="key",
+            with_definition=True,
+            version=1,
         )
         """
         _response = self._raw_client.get(
@@ -545,7 +552,7 @@ class AsyncCustomAttributesClient:
         cursor: typing.Optional[str] = None,
         with_definitions: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[CustomAttribute]:
+    ) -> AsyncPager[CustomAttribute, ListLocationCustomAttributesResponse]:
         """
         Lists the [custom attributes](entity:CustomAttribute) associated with a location.
         You can use the `with_definitions` query parameter to also retrieve custom attribute definitions
@@ -582,7 +589,7 @@ class AsyncCustomAttributesClient:
 
         Returns
         -------
-        AsyncPager[CustomAttribute]
+        AsyncPager[CustomAttribute, ListLocationCustomAttributesResponse]
             Success
 
         Examples
@@ -599,6 +606,10 @@ class AsyncCustomAttributesClient:
         async def main() -> None:
             response = await client.locations.custom_attributes.list(
                 location_id="location_id",
+                visibility_filter="ALL",
+                limit=1,
+                cursor="cursor",
+                with_definitions=True,
             )
             async for item in response:
                 yield item
@@ -679,6 +690,8 @@ class AsyncCustomAttributesClient:
             await client.locations.custom_attributes.get(
                 location_id="location_id",
                 key="key",
+                with_definition=True,
+                version=1,
             )
 
 

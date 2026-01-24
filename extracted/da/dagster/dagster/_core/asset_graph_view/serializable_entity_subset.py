@@ -1,7 +1,7 @@
 import operator
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Generic, Optional, Union
+from typing import Any, Generic, Optional, Union
 
 from dagster_shared.serdes.serdes import DataclassSerializer, whitelist_for_serdes
 from typing_extensions import Self
@@ -132,6 +132,10 @@ class SerializableEntitySubset(Generic[T_EntityKey]):
     def is_compatible_with_partitions_def(
         self, partitions_def: Optional[PartitionsDefinition]
     ) -> bool:
+        from dagster._core.definitions.partitions.definition.time_window import (
+            TimeWindowPartitionsDefinition,
+        )
+
         if self.is_partitioned:
             # for some PartitionSubset types, we have access to the underlying partitions
             # definitions, so we can ensure those are identical
@@ -150,6 +154,11 @@ class SerializableEntitySubset(Generic[T_EntityKey]):
                     and partitions_def.has_partition_key(r.end)
                     for r in self.value.key_ranges
                 )
+            elif isinstance(self.value, DefaultPartitionsSubset) and isinstance(
+                partitions_def, TimeWindowPartitionsDefinition
+            ):
+                return all(partitions_def.has_partition_key(k) for k in self.value.subset)
+
             else:
                 return partitions_def is not None
         else:

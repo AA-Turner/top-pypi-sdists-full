@@ -1,19 +1,22 @@
+# ruff: noqa: C408
 from contextlib import contextmanager
 from dataclasses import astuple, dataclass, field, fields
 from functools import lru_cache
-import multiprocessing
 import os
 from pathlib import Path
 import sys
 from typing import Iterable, Optional, Sequence, Tuple, Union
 import yaml
+from gersemi.__version__ import __version__
+from gersemi.cache import default_cache_dir
 from gersemi.enum_with_metadata import EnumWithMetadata, doc
 from gersemi.extension_type import FileExtension, ModuleExtension
 from gersemi.return_codes import FAIL
-from gersemi.__version__ import __version__
 
 
 def max_number_of_workers():
+    import multiprocessing
+
     result = multiprocessing.cpu_count()
     if sys.platform == "win32":
         # https://bugs.python.org/issue26903
@@ -82,6 +85,35 @@ class ListExpansion(EnumWithMetadata):
 
 
 @dataclass
+class LineRange:
+    start: int
+    end: int
+
+    def __hash__(self):
+        return hash(astuple(self))
+
+
+LineRanges = Iterable[LineRange]
+
+
+def line_range(value: str) -> LineRange:
+    try:
+        start, end = map(int, value.split("-"))
+        assert start > 0
+        assert end > 0
+        assert end >= start
+
+        return LineRange(start=start, end=end)
+    except Exception as e:
+        # pylint: disable=broad-exception-raised
+        raise Exception(f"Invalid format of line range: {value}") from e
+
+
+def line_ranges(value: str) -> LineRanges:
+    return tuple(map(line_range, filter(None, value.split(","))))
+
+
+@dataclass
 class OutcomeConfiguration:  # pylint: disable=too-many-instance-attributes
     """
     These arguments control how gersemi formats source code.
@@ -120,7 +152,7 @@ class OutcomeConfiguration:  # pylint: disable=too-many-instance-attributes
     )
 
     definitions: Iterable[Path] = field(
-        default=tuple(),
+        default=(),
         metadata=dict(
             title="Definitions",
             description=doc(
@@ -170,7 +202,7 @@ class OutcomeConfiguration:  # pylint: disable=too-many-instance-attributes
     )
 
     extensions: Iterable[str] = field(
-        default=tuple(),
+        default=(),
         metadata=dict(
             title="Extensions",
             description=doc(
@@ -183,7 +215,7 @@ class OutcomeConfiguration:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class ControlConfiguration:
+class ControlConfiguration:  # pylint: disable=too-many-instance-attributes
     """
     These arguments control how gersemi operates rather than how it formats source code.
     Values for these options are not read from configuration file.
@@ -239,6 +271,19 @@ class ControlConfiguration:
         ),
     )
 
+    cache_dir: Path = field(
+        default=default_cache_dir(),
+        metadata=dict(
+            title="Cache directory",
+            description=doc(
+                """
+    Directory used to store cache file when cache is enabled.
+    When omitted platform specific default cache directory will be used instead.
+                """
+            ),
+        ),
+    )
+
     configuration_file: Optional[Path] = field(
         default=None,
         metadata=dict(
@@ -263,6 +308,42 @@ class ControlConfiguration:
     Treat warnings as errors so that status code becomes {FAIL} when
     at least one warning would be issued. This option is not inhibited
     by --quiet.
+                """
+            ),
+        ),
+    )
+
+    line_ranges: LineRanges = field(
+        default=(),
+        metadata=dict(
+            title="Line ranges to format",
+            description=doc(
+                """
+    Try to format code only in specified line ranges.
+    This option works only with one input file.
+    Range is specified as pairs of integers indicating line numbers (1-based)
+    joined with `-` (dash) and each pair must be separated by comma.
+    Examples of valid values of this option:
+    a) single line range: 13-21
+    b) multiple line ranges: 10-49,51-100,111-123
+    c) single line: 7-7.
+    This option can be specified multiple times and union of ranges will be considered, example:
+    `--line-ranges 10-49 --line-ranges 51-100` is the same as `--line-ranges 10-49,51-100`
+                """
+            ),
+        ),
+    )
+
+    respect_ignore_files: bool = field(
+        default=True,
+        metadata=dict(
+            title="Respect ignore files",
+            description=doc(
+                """
+    When directory is passed as a source argument gersemi will automatically discover
+    relevant CMake files while respecting rules in the following ignore files:
+    .ignore, .gitignore, .git/info/exclude and global gitignore globs.
+    See: https://docs.rs/ignore/latest/ignore/index.html
                 """
             ),
         ),
@@ -305,7 +386,7 @@ SCHEMA = f"# yaml-language-server: $schema=https://raw.githubusercontent.com/Bla
 
 
 def make_configuration_file(configuration_dict, add_schema_link=False):
-    if configuration_dict == dict():
+    if configuration_dict == {}:
         return ""
 
     result = yaml.dump(configuration_dict, Dumper=CustomizedSafeDumper)
@@ -335,7 +416,7 @@ def find_closest_dot_gersemirc(path: Path) -> Optional[Path]:
 
 @contextmanager
 def enter_directory(target_directory):
-    original = Path(".").resolve()
+    original = Path.cwd()
     try:
         os.chdir(target_directory)
         yield
@@ -392,8 +473,8 @@ def sanitize_list_expansion(list_expansion):
 @dataclass
 class NotSupportedKeys:
     path: Optional[Path] = None
-    unknown: Sequence[str] = tuple()
-    command_line_only: Sequence[str] = tuple()
+    unknown: Sequence[str] = ()
+    command_line_only: Sequence[str] = ()
 
 
 def get_not_supported_keys(path, content):
@@ -413,7 +494,7 @@ def load_configuration_from_file(
 
     with enter_directory(configuration_file_path.parent):
         with open(configuration_file_path, "r", encoding="utf-8") as f:
-            configuration_file_content = yaml.safe_load(f.read()) or dict()
+            configuration_file_content = yaml.safe_load(f.read()) or {}
             config = {
                 key: value
                 for key, value in configuration_file_content.items()

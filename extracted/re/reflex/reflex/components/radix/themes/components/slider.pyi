@@ -12,9 +12,8 @@ from reflex.event import EventType, PointerEventInfo, passthrough_event_spec
 from reflex.vars.base import Var
 
 on_value_event_spec = (
-    passthrough_event_spec(list[int | float]),
-    passthrough_event_spec(list[int]),
     passthrough_event_spec(list[float]),
+    passthrough_event_spec(list[int]),
 )
 
 class Slider(RadixThemesComponent):
@@ -120,9 +119,8 @@ class Slider(RadixThemesComponent):
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_change: EventType[()]
-        | EventType[list[int | float]]
+        | EventType[list[float]]
         | (EventType[()] | EventType[list[int]])
-        | (EventType[()] | EventType[list[float]])
         | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -140,9 +138,8 @@ class Slider(RadixThemesComponent):
         on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         on_value_commit: EventType[()]
-        | EventType[list[int | float]]
+        | EventType[list[float]]
         | (EventType[()] | EventType[list[int]])
-        | (EventType[()] | EventType[list[float]])
         | None = None,
         **props,
     ) -> Slider:

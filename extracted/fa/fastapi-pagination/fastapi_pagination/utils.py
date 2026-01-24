@@ -15,42 +15,68 @@ __all__ = [
     "verify_params",
 ]
 
-import asyncio
 import functools
 import inspect
 import warnings
-from collections.abc import Awaitable
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Optional, TypeVar, Union, cast, overload
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast, get_origin, overload
 
-from pydantic import VERSION, BaseModel
-from typing_extensions import Literal, ParamSpec, get_origin
+from typing_extensions import ParamSpec
 
 if TYPE_CHECKING:
     from .bases import AbstractParams, BaseRawParams, CursorRawParams, RawParams
+    from .pydantic import create_pydantic_model
     from .types import ParamsType
 
     TParams = TypeVar("TParams", bound=AbstractParams)
-    TModel = TypeVar("TModel", bound=BaseModel)
 
-IS_PYDANTIC_V2 = VERSION.startswith("2.")
+    from .pydantic import IS_PYDANTIC_V2
+
+
+def __getattr__(name: str) -> Any:
+    if name == "IS_PYDANTIC_V2":  # pragma: no cover
+        from .pydantic import IS_PYDANTIC_V2
+
+        warnings.warn(
+            "Importing 'IS_PYDANTIC_V2' from 'fastapi_pagination.utils' is deprecated. "
+            "Please import it from 'fastapi_pagination.pydantic' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return IS_PYDANTIC_V2
+
+    if name == "create_pydantic_model":  # pragma: no cover
+        from .pydantic import create_pydantic_model
+
+        warnings.warn(
+            "Importing 'create_pydantic_model' from 'fastapi_pagination.utils' is deprecated. "
+            "Please import it from 'fastapi_pagination.pydantic' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return create_pydantic_model
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @overload
-def verify_params(params: Optional[TParams], *params_types: Literal["limit-offset"]) -> tuple[TParams, RawParams]:
+def verify_params(params: TParams | None, *params_types: Literal["limit-offset"]) -> tuple[TParams, RawParams]:
     pass
 
 
 @overload
-def verify_params(params: Optional[TParams], *params_types: Literal["cursor"]) -> tuple[TParams, CursorRawParams]:
+def verify_params(params: TParams | None, *params_types: Literal["cursor"]) -> tuple[TParams, CursorRawParams]:
     pass
 
 
 @overload
-def verify_params(params: Optional[TParams], *params_types: ParamsType) -> tuple[TParams, BaseRawParams]:
+def verify_params(params: TParams | None, *params_types: ParamsType) -> tuple[TParams, BaseRawParams]:
     pass
 
 
-def verify_params(params: Optional[TParams], *params_types: ParamsType) -> tuple[TParams, BaseRawParams]:
+def verify_params(params: TParams | None, *params_types: ParamsType) -> tuple[TParams, BaseRawParams]:
     from .api import resolve_params
 
     params = resolve_params(params)
@@ -67,7 +93,7 @@ def is_async_callable(obj: Any) -> bool:  # pragma: no cover
     while isinstance(obj, functools.partial):
         obj = obj.func
 
-    return asyncio.iscoroutinefunction(obj) or (callable(obj) and asyncio.iscoroutinefunction(obj.__call__))
+    return inspect.iscoroutinefunction(obj) or (callable(obj) and inspect.iscoroutinefunction(obj.__call__))
 
 
 P = ParamSpec("P")
@@ -95,9 +121,9 @@ def is_coro(obj: Any) -> bool:
     return isinstance(obj, Awaitable)
 
 
-async def await_if_coro(coro: Union[Awaitable[R], R], /) -> R:
+async def await_if_coro(coro: Awaitable[R] | R, /) -> R:
     if isinstance(coro, Awaitable):
-        return cast(R, await coro)
+        return await coro
 
     return coro
 
@@ -168,7 +194,7 @@ def check_installed_extensions() -> None:
             break
 
 
-def get_caller(depth: int = 1) -> Optional[str]:
+def get_caller(depth: int = 1) -> str | None:
     frame = inspect.currentframe()
 
     for _ in range(depth + 1):
@@ -177,14 +203,7 @@ def get_caller(depth: int = 1) -> Optional[str]:
 
         frame = frame.f_back
 
-    return cast(Optional[str], frame and frame.f_globals.get("__name__"))
-
-
-def create_pydantic_model(model_cls: type[TModel], /, **kwargs: Any) -> TModel:
-    if IS_PYDANTIC_V2:
-        return model_cls.model_validate(kwargs, from_attributes=True)
-
-    return model_cls(**kwargs)
+    return cast(str | None, frame and frame.f_globals.get("__name__"))
 
 
 def unwrap_annotated(ann: Any) -> Any:

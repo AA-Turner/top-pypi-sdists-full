@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2025 LlamaIndex Inc.
+# Copyright (c) 2026 LlamaIndex Inc.
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any, AsyncGenerator
 
-from .context import Context
 from .errors import WorkflowRuntimeError
-from .events import Event, StopEvent, InternalDispatchEvent
+from .events import Event, InternalDispatchEvent, StopEvent
 from .types import RunResultT
+
+if TYPE_CHECKING:
+    from .context import Context
 
 
 class WorkflowHandler(asyncio.Future[RunResultT]):
@@ -25,10 +27,15 @@ class WorkflowHandler(asyncio.Future[RunResultT]):
         - [StopEvent][workflows.events.StopEvent]
     """
 
+    _ctx: Context
+    _run_task: asyncio.Task[None] | None
+    _all_events_consumed: bool
+    _stop_event: StopEvent | None
+
     def __init__(
         self,
         *args: Any,
-        ctx: Context | None = None,
+        ctx: Context,
         run_id: str | None = None,
         run_task: asyncio.Task[None] | None = None,
         **kwargs: Any,
@@ -40,9 +47,30 @@ class WorkflowHandler(asyncio.Future[RunResultT]):
         self._all_events_consumed = False
 
     @property
-    def ctx(self) -> Context | None:
+    def ctx(self) -> Context:
         """The workflow [Context][workflows.context.context.Context] for this run."""
         return self._ctx
+
+    def get_stop_event(self) -> StopEvent | None:
+        """The stop event for this run. Always defined once the future is done. In a future major release, this will be removed, and the result will be the stop event itself."""
+        return self._stop_event
+
+    async def stop_event_result(self) -> StopEvent:
+        """Get the stop event for this run. Always defined once the future is done. In a future major release, this will be removed, and the result will be the stop event itself."""
+        await self.result()
+        assert self._stop_event is not None, (
+            "Stop event must be defined once the future is done."
+        )
+        return self._stop_event
+
+    def _set_stop_event(self, stop_event: StopEvent) -> None:
+        self._stop_event = stop_event
+        # sad but necessary legacy behavior:
+        # set the result to the stop event result. To be removed in a future major release,
+        # and justuse the stop event directly.
+        self.set_result(
+            stop_event.result if type(stop_event) is StopEvent else stop_event
+        )
 
     def __str__(self) -> str:
         return str(self.result())
@@ -96,17 +124,13 @@ class WorkflowHandler(asyncio.Future[RunResultT]):
             Events can only be streamed once per handler instance. Subsequent
             calls to `stream_events()` will raise a WorkflowRuntimeError.
         """
-        if self.ctx is None:
-            raise ValueError("Context is not set!")
 
         # Check if we already consumed all the streamed events
         if self._all_events_consumed:
             msg = "All the streamed events have already been consumed."
             raise WorkflowRuntimeError(msg)
 
-        while True:
-            ev = await self.ctx.streaming_queue.get()
-
+        async for ev in self.ctx.stream_events():
             if isinstance(ev, InternalDispatchEvent) and not expose_internal:
                 continue
             yield ev
@@ -129,5 +153,9 @@ class WorkflowHandler(asyncio.Future[RunResultT]):
             ```
         """
         if self.ctx:
-            self.ctx._cancel_flag.set()
-            await asyncio.sleep(0)
+            self.ctx._workflow_cancel_run()
+            if self._run_task is not None:
+                try:
+                    await self._run_task
+                except Exception:
+                    pass

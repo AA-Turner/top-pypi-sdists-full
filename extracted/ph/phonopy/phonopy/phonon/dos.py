@@ -451,7 +451,7 @@ def write_total_dos(
         if comment is not None:
             fp.write("# %s\n" % comment)
 
-        for freq, dos in zip(frequency_points, total_dos):
+        for freq, dos in zip(frequency_points, total_dos, strict=True):
             fp.write("%20.10f%20.10f\n" % (freq, dos))
 
 
@@ -466,7 +466,7 @@ def write_projected_dos(
         if comment is not None:
             fp.write("# %s\n" % comment)
 
-        for freq, pdos in zip(frequency_points, projected_dos.T):
+        for freq, pdos in zip(frequency_points, projected_dos.T, strict=True):
             fp.write("%20.10f" % freq)
             fp.write(("%20.10f" * len(pdos)) % tuple(pdos))
             fp.write("\n")
@@ -482,6 +482,11 @@ def plot_total_dos(
     ylabel=None,
     draw_grid=True,
     flip_xy=False,
+    linestyle: str = "solid",
+    color: str = "red",
+    linewidth: float = 1.0,
+    linestyle_Debye: str = "solid",
+    color_Debye: str = "blue",
 ):
     """Plot total DOS."""
     ax.xaxis.set_ticks_position("both")
@@ -495,21 +500,35 @@ def plot_total_dos(
         freqs = np.linspace(0, freq_Debye, num_points + 1)
 
     if flip_xy:
-        ax.plot(total_dos, frequency_points, "r-", linewidth=1)
+        ax.plot(
+            total_dos,
+            frequency_points,
+            linestyle=linestyle,
+            color=color,
+            linewidth=linewidth,
+        )
         if freq_Debye:
             ax.plot(
                 np.append(Debye_fit_coef * freqs**2, 0),
                 np.append(freqs, freq_Debye),
-                "b-",
+                linestyle=linestyle_Debye,
+                color=color_Debye,
                 linewidth=1,
             )
     else:
-        ax.plot(frequency_points, total_dos, "r-", linewidth=1)
+        ax.plot(
+            frequency_points,
+            total_dos,
+            linestyle=linestyle,
+            color=color,
+            linewidth=linewidth,
+        )
         if freq_Debye:
             ax.plot(
                 np.append(freqs, freq_Debye),
                 np.append(Debye_fit_coef * freqs**2, 0),
-                "b-",
+                linestyle=linestyle_Debye,
+                color=color_Debye,
                 linewidth=1,
             )
 
@@ -620,12 +639,12 @@ def get_dos_frequency_range(freqs, dos):
     i_min = 0
     i_max = 1000
 
-    for i, (_, d) in enumerate(zip(freqs, dos)):
+    for i, (_, d) in enumerate(zip(freqs, dos, strict=True)):
         if d > 1e-5:
             i_min = i
             break
 
-    for i, (_, d) in enumerate(zip(freqs[::-1], dos[::-1])):
+    for i, (_, d) in enumerate(zip(freqs[::-1], dos[::-1], strict=True)):
         if d > 1e-5:
             i_max = len(freqs) - 1 - i
             break

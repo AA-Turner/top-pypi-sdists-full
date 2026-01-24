@@ -83,22 +83,32 @@ def get_snowflake_token(user: str = "", role: str = "", integration: str = "") -
     return response.json()["token"]
 
 
-def connect(user: str = "", role: str = "", integration: str = "", **kwargs):
+def get_oauth_connection_params(
+    user: str = "", role: str = "", integration: str = "", **kwargs
+) -> Dict:
     """
-    Connect to snowflake using the token minted by Outerbounds
+    Get OAuth connection parameters for Snowflake authentication using Outerbounds integration.
+
+    This is a helper function that returns connection parameters dict that can be used
+    with both snowflake-connector-python and snowflake-snowpark-python.
+
     user: str
         The user name used to authenticate with snowflake
     role: str
-        The role to request when connect with snowflake
+        The role to request when connecting with snowflake
     integration: str
-        The name of the snowflake integration to use. If not set, an existing integration will be used provided that only one exists in the current perimeter. If integration is not set and more than one exists in the current perimeter, then we raise an exception.
+        The name of the snowflake integration to use. If not set, an existing integration
+        will be used provided that only one exists in the current perimeter.
     kwargs: dict
-        Additional arguments to pass to the python snowflake connector
+        Additional arguments to include in the connection parameters
+
+    Returns:
+        Dict with connection parameters including OAuth token
     """
     # ensure password is not set
     if "password" in kwargs:
         raise OuterboundsSnowflakeConnectorException(
-            "Password should not be set when using Outerbounds snowflake connector."
+            "Password should not be set when using Outerbounds OAuth authentication."
         )
 
     provisioner = SnowflakeIntegrationProvisioner(integration)
@@ -137,11 +147,31 @@ def connect(user: str = "", role: str = "", integration: str = "", **kwargs):
     kwargs["role"] = role
     kwargs["user"] = user
 
+    return kwargs
+
+
+def connect(user: str = "", role: str = "", integration: str = "", **kwargs):
+    """
+    Connect to snowflake using the token minted by Outerbounds
+    user: str
+        The user name used to authenticate with snowflake
+    role: str
+        The role to request when connect with snowflake
+    integration: str
+        The name of the snowflake integration to use. If not set, an existing integration will be used provided that only one exists in the current perimeter. If integration is not set and more than one exists in the current perimeter, then we raise an exception.
+    kwargs: dict
+        Additional arguments to pass to the python snowflake connector
+    """
+    # Get OAuth connection params using the helper
+    connection_params = get_oauth_connection_params(
+        user=user, role=role, integration=integration, **kwargs
+    )
+
     # connect to snowflake
     try:
         from snowflake.connector import connect
 
-        cn = connect(**kwargs)
+        cn = connect(**connection_params)
         return cn
     except ImportError as ie:
         raise OuterboundsSnowflakeConnectorException(

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import Union
 
 from .literals import (
@@ -30,12 +31,6 @@ from .literals import (
     TimeUnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -71,7 +66,7 @@ class DeleteReportDefinitionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -116,7 +111,7 @@ class DescribeReportDefinitionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -130,11 +125,11 @@ class ReportDefinitionOutputTypeDef(TypedDict):
     TimeUnit: TimeUnitType
     Format: ReportFormatType
     Compression: CompressionFormatType
-    AdditionalSchemaElements: List[SchemaElementType]
+    AdditionalSchemaElements: list[SchemaElementType]
     S3Bucket: str
     S3Prefix: str
     S3Region: AWSRegionType
-    AdditionalArtifacts: NotRequired[List[AdditionalArtifactType]]
+    AdditionalArtifacts: NotRequired[list[AdditionalArtifactType]]
     RefreshClosedReports: NotRequired[bool]
     ReportVersioning: NotRequired[ReportVersioningType]
     BillingViewArn: NotRequired[str]
@@ -158,7 +153,7 @@ class ReportDefinitionTypeDef(TypedDict):
 
 
 class DescribeReportDefinitionsResponseTypeDef(TypedDict):
-    ReportDefinitions: List[ReportDefinitionOutputTypeDef]
+    ReportDefinitions: list[ReportDefinitionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

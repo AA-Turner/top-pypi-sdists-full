@@ -4,7 +4,7 @@ import logging
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
 
 import pytest
@@ -19,6 +19,8 @@ from tox.session.env_select import CliEnv
 from tox.util.ci import is_ci
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pytest_mock import MockerFixture
 
     from tox.pytest import CaptureFixture, LogCaptureFixture, MonkeyPatch
@@ -247,3 +249,21 @@ def test_ini_help(exhaustive_ini: Path, capfd: CaptureFixture) -> None:
     res = out.splitlines()[-1]
     msg = f"config file {str(exhaustive_ini)!r} active (changed via env var TOX_USER_CONFIG_FILE)"
     assert res == msg
+
+
+def test_ini_loader_corrupt_default_config_file(
+    mocker: MockerFixture,
+    tmp_path: Path,
+    caplog: LogCaptureFixture,
+) -> None:
+    # Setup: Create a corrupt DEFAULT_CONFIG_FILE and point to it.
+    config_file = tmp_path / "config.ini"
+    config_file.write_text("[tox\n")
+    mocker.patch("tox.config.cli.ini.DEFAULT_CONFIG_FILE", config_file)
+
+    # Act
+    IniConfig()
+
+    # Verify
+    assert "failed to read config file None" not in caplog.messages[0]
+    assert f"failed to read config file {config_file}" in caplog.messages[0]

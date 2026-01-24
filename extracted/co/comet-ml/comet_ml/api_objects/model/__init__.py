@@ -12,3 +12,4 @@
 # *******************************************************
 from .model import Model
 from .remote_model import RemoteModel
+from .status_configuration import ModelStatusConfiguration, StatusConfigurationItem

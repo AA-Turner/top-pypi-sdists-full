@@ -1,35 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-roborock
-Version: 2.47.1
+Version: 4.7.2
 Summary: A package to control Roborock vacuums.
-Home-page: https://github.com/humbertogontijo/python-roborock
-License: GPL-3.0-only
-Keywords: roborock,vacuum,homeassistant
-Author: humbertogontijo
-Author-email: humbertogontijo@users.noreply.github.com
-Requires-Python: >=3.11,<4.0
+Project-URL: Repository, https://github.com/humbertogontijo/python-roborock
+Project-URL: Documentation, https://python-roborock.readthedocs.io/
+Author: Lash-L, allenporter
+Author-email: humbertogontijo <humbertogontijo@users.noreply.github.com>
+License-Expression: GPL-3.0-only
+License-File: LICENSE
+Keywords: homeassistant,roborock,vacuum
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: aiohttp (>=3.8.2,<4.0.0)
-Requires-Dist: aiomqtt (>=2.3.2,<3.0.0)
-Requires-Dist: async-timeout
-Requires-Dist: click (>=8)
-Requires-Dist: click-shell (>=2.1,<3.0)
-Requires-Dist: construct (>=2.10.57,<3.0.0)
-Requires-Dist: paho-mqtt (>=1.6.1,<3.0.0)
-Requires-Dist: pycryptodome (>=3.18,<4.0)
-Requires-Dist: pycryptodomex (>=3.18,<4.0) ; sys_platform == "darwin"
-Requires-Dist: pyrate-limiter (>=3.7.0,<4.0.0)
+Requires-Python: <4,>=3.11
+Requires-Dist: aiohttp<4,>=3.8.2
+Requires-Dist: aiomqtt<3,>=2.5.0
+Requires-Dist: click-shell~=2.1
+Requires-Dist: click>=8
+Requires-Dist: construct<3,>=2.10.57
+Requires-Dist: paho-mqtt<3.0.0,>=1.6.1
+Requires-Dist: pycryptodomex~=3.18; sys_platform == 'darwin'
+Requires-Dist: pycryptodome~=3.18
+Requires-Dist: pyrate-limiter<4,>=3.7.0
 Requires-Dist: vacuum-map-parser-roborock
-Project-URL: Documentation, https://python-roborock.readthedocs.io/
-Project-URL: Repository, https://github.com/humbertogontijo/python-roborock
 Description-Content-Type: text/markdown
 
 # Roborock
@@ -40,7 +35,11 @@ Description-Content-Type: text/markdown
   </a>
   <img src="https://img.shields.io/pypi/pyversions/python-roborock.svg?style=flat-square&logo=python&amp;logoColor=fff" alt="Supported Python versions">
   <img src="https://img.shields.io/pypi/l/python-roborock.svg?style=flat-square" alt="License">
+    <a href="https://codecov.io/github/Python-roborock/python-roborock" >
+  <img src="https://codecov.io/github/Python-roborock/python-roborock/graph/badge.svg?token=KEK4S3FPSZ" alt="Code Coverage"/>
+ </a>
 </p>
+
 
 Roborock library for online and offline control of your vacuums.
 
@@ -50,53 +49,61 @@ Install this via pip (or your favourite package manager):
 
 `pip install python-roborock`
 
-## Functionality
+## Example Usage
 
-You can see all of the commands supported [here](https://python-roborock.readthedocs.io/en/latest/api_commands.html)
+See [examples/example.py](examples/example.py) for a more full featured example,
+or the [API documentation](https://python-roborock.github.io/python-roborock/)
+for more details.
 
-## Sending Commands
+Here is a basic example:
 
-Here is an example that requires no manual intervention and can be done all automatically. You can skip some steps by
-caching values or looking at them and grabbing them manually.
 ```python
 import asyncio
 
-from roborock import HomeDataProduct, DeviceData, RoborockCommand
-from roborock.version_1_apis import RoborockMqttClientV1, RoborockLocalClientV1
 from roborock.web_api import RoborockApiClient
+from roborock.devices.device_manager import create_device_manager, UserParams
+
 
 async def main():
-    web_api = RoborockApiClient(username="youremailhere")
-    # Login via your password
-    user_data = await web_api.pass_login(password="pass_here")
-    # Or login via a code
+    email_address = "youremailhere@example.com"
+    web_api = RoborockApiClient(username=email_address)
+    # Send a login code to the above email address
     await web_api.request_code()
+    # Prompt the user to enter the code
     code = input("What is the code?")
     user_data = await web_api.code_login(code)
 
-    # Get home data
-    home_data = await web_api.get_home_data_v2(user_data)
+    # Create a device manager that can discover devices.
+    user_params = UserParams(username=email_address, user_data=user_data)
+    device_manager = await create_device_manager(user_params)
+    devices = await device_manager.get_devices()
 
-    # Get the device you want
-    device = home_data.devices[0]
+    # Get all vacuum devices. Each device generation has different capabilities
+    # and APIs available so to find vacuums we filter by the v1 PropertiesApi.
+    for device in devices:
+        if not device.v1_properties:
+            continue
 
-    # Get product ids:
-    product_info: dict[str, HomeDataProduct] = {
-            product.id: product for product in home_data.products
-        }
-    # Create the Mqtt(aka cloud required) Client
-    device_data = DeviceData(device, product_info[device.product_id].model)
-    mqtt_client = RoborockMqttClientV1(user_data, device_data)
-    networking = await mqtt_client.get_networking()
-    local_device_data = DeviceData(device, product_info[device.product_id].model, networking.ip)
-    local_client = RoborockLocalClientV1(local_device_data)
-    # You can use the send_command to send any command to the device
-    status = await local_client.send_command(RoborockCommand.GET_STATUS)
-    # Or use existing functions that will give you data classes
-    status = await local_client.get_status()
+        # The PropertiesAPI has traits different device commands such as getting
+        # status, sending clean commands, etc. For this example we send a
+        # command to refresh the current device status.
+        status_trait = device.v1_properties.status
+        await status_trait.refresh()
+        print(status_trait)
 
 asyncio.run(main())
 ```
+
+
+## Functionality
+
+The library interacts with devices through specific API properties based on the device protocol:
+
+*   **Standard Vacuums (V1 Protocol)**: Most robot vacuums use this. Interaction is done through `device.v1_properties`, which contains traits like `status`, `consumables`, and `maps`. Use the `command` trait for actions like starting or stopping cleaning.
+*   **Wet/Dry Vacuums & Washing Machines (A01 Protocol)**: Devices like the Dyad and Zeo use this. Interaction is done through `device.a01_properties` using `query_values()` and `set_value()`.
+
+You can find detailed documentation for [Devices](https://python-roborock.github.io/python-roborock/roborock/devices/device.html) and [Traits](https://python-roborock.github.io/python-roborock/roborock/devices/traits.html).
+
 
 ## Supported devices
 
@@ -105,7 +112,7 @@ You can find what devices are supported
 Please note this may not immediately contain the latest devices.
 
 
-## Credits
+## Acknowledgements
 
-Thanks @rovo89 for https://gist.github.com/rovo89/dff47ed19fca0dfdda77503e66c2b7c7 And thanks @PiotrMachowski for https://github.com/PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor
-
+* Thanks to [@rovo89](https://github.com/rovo89) for [Login APIs gist](https://gist.github.com/rovo89/dff47ed19fca0dfdda77503e66c2b7c7).
+* Thanks to [@PiotrMachowski](https://github.com/PiotrMachowski) for [Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor](https://github.com/PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor).

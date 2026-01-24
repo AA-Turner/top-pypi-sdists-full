@@ -62,7 +62,7 @@ def make_node(
         before_op_output_shape_trans,
     )
     kernel_shape = graph_node.attrs.get('kernel_shape', [])
-    kernel_size = len(kernel_shape)
+    kernel_size = len(kernel_shape) if kernel_shape != [] else len(graph_node.inputs[1].shape) - 2
     try:
         input_weights = get_weights_constant_or_variable(
             const_or_var=graph_node.inputs[1] \
@@ -370,6 +370,20 @@ def make_node(
             )
 
     def depth_conv_bias(input_tensor, input_weights, pad_mode, strides, dilations, input_bias):
+        # tf.nn.depthwise_conv2d uses a different output shape when dilation>1 and stride>1.
+        # Emulate stride>1 by running stride=1 then subsampling to match ONNX.
+        if pad_mode == 'VALID' \
+            and max(dilations) > 1 \
+            and any(s > 1 for s in strides[1:-1]):
+            conv = tf.nn.depthwise_conv2d(
+                input=input_tensor,
+                filter=input_weights,
+                padding=pad_mode,
+                strides=[1, 1, 1, 1],
+                dilations=dilations,
+            )
+            conv = conv[:, ::strides[1], ::strides[2], :]
+            return tf.add(conv, input_bias)
         return \
             tf.add(
                 tf.nn.depthwise_conv2d(
@@ -438,6 +452,19 @@ def make_node(
             )
 
     def depth_conv_nobias(input_tensor, input_weights, pad_mode, strides, dilations):
+        # tf.nn.depthwise_conv2d uses a different output shape when dilation>1 and stride>1.
+        # Emulate stride>1 by running stride=1 then subsampling to match ONNX.
+        if pad_mode == 'VALID' \
+            and max(dilations) > 1 \
+            and any(s > 1 for s in strides[1:-1]):
+            conv = tf.nn.depthwise_conv2d(
+                input=input_tensor,
+                filter=input_weights,
+                padding=pad_mode,
+                strides=[1, 1, 1, 1],
+                dilations=dilations,
+            )
+            return conv[:, ::strides[1], ::strides[2], :]
         return \
             tf.nn.depthwise_conv2d(
                 input=input_tensor,

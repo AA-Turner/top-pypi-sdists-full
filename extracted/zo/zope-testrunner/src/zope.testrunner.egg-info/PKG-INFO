@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: zope.testrunner
-Version: 8.0
+Version: 8.2
 Summary: Zope testrunner script.
 Home-page: https://github.com/zopefoundation/zope.testrunner
 Author: Zope Foundation and Contributors
@@ -14,18 +14,18 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.md
-Requires-Dist: setuptools
 Requires-Dist: zope.exceptions
 Requires-Dist: zope.interface
 Provides-Extra: test
@@ -40,8 +40,10 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -227,6 +229,20 @@ test execution order, and run multiple tests in parallel.
 ===========================
  zope.testrunner Changelog
 ===========================
+
+8.2 (2026-01-23)
+================
+
+- Remove support for Python 3.9.
+
+- Add support for Python 3.14.
+
+
+8.1 (2025-10-02)
+================
+
+- Remove run-time dependency on ``setuptools``.
+
 
 8.0 (2025-09-12)
 ================

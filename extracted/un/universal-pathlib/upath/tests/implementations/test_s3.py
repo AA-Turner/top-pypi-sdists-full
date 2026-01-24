@@ -1,15 +1,19 @@
-"""see upath/tests/conftest.py for fixtures
-"""
+"""see upath/tests/conftest.py for fixtures"""
 
 import sys
+import warnings
 
 import fsspec
-import pytest  # noqa: F401
+import pytest
 
 from upath import UPath
 from upath.implementations.cloud import S3Path
 
 from ..cases import BaseTests
+from ..utils import OverrideMeta
+from ..utils import extends_base
+from ..utils import overrides_base
+from ..utils import posixify
 
 
 def silence_botocore_datetime_deprecation(cls):
@@ -26,7 +30,7 @@ def silence_botocore_datetime_deprecation(cls):
 
 
 @silence_botocore_datetime_deprecation
-class TestUPathS3(BaseTests):
+class TestUPathS3(BaseTests, metaclass=OverrideMeta):
     SUPPORTS_EMPTY_DIRS = False
 
     @pytest.fixture(autouse=True)
@@ -36,13 +40,11 @@ class TestUPathS3(BaseTests):
         self.anon = anon
         self.s3so = s3so
 
-    def test_is_S3Path(self):
+    @overrides_base
+    def test_is_correct_class(self):
         assert isinstance(self.path, S3Path)
 
-    def test_chmod(self):
-        # todo
-        pass
-
+    @extends_base
     def test_rmdir(self):
         dirname = "rmdir_test"
         mock_dir = self.path.joinpath(dirname)
@@ -52,11 +54,13 @@ class TestUPathS3(BaseTests):
         with pytest.raises(NotADirectoryError):
             self.path.joinpath("file1.txt").rmdir()
 
-    def test_relative_to(self):
-        assert "s3://test_bucket/file.txt" == str(
+    @extends_base
+    def test_relative_to_extra(self):
+        assert "file.txt" == str(
             UPath("s3://test_bucket/file.txt").relative_to(UPath("s3://test_bucket"))
         )
 
+    @extends_base
     def test_iterdir_root(self):
         client_kwargs = self.path.storage_options["client_kwargs"]
         bucket_path = UPath("s3://other_test_bucket", client_kwargs=client_kwargs)
@@ -69,6 +73,7 @@ class TestUPathS3(BaseTests):
             assert x.name != ""
             assert x.exists()
 
+    @extends_base
     @pytest.mark.parametrize(
         "joiner", [["bucket", "path", "file"], ["bucket/path/file"]]
     )
@@ -77,10 +82,12 @@ class TestUPathS3(BaseTests):
         path = path.joinpath(*joiner)
         assert str(path) == "s3://bucket/path/file"
 
+    @extends_base
     def test_creating_s3path_with_bucket(self):
         path = UPath("s3://", bucket="bucket", anon=self.anon, **self.s3so)
         assert str(path) == "s3://bucket/"
 
+    @extends_base
     def test_iterdir_with_plus_in_name(self, s3_with_plus_chr_name):
         bucket, anon, s3so = s3_with_plus_chr_name
         p = UPath(
@@ -94,9 +101,25 @@ class TestUPathS3(BaseTests):
         (file,) = files
         assert file == p.joinpath("file.txt")
 
-    @pytest.mark.skip
-    def test_makedirs_exist_ok_false(self):
-        pass
+    @extends_base
+    @pytest.mark.xfail(reason="fsspec/universal_pathlib#144")
+    def test_rglob_with_double_fwd_slash(self, s3_with_double_fwd_slash_files):
+        import boto3
+        import botocore.exceptions
+
+        bucket, anon, s3so = s3_with_double_fwd_slash_files
+
+        conn = boto3.resource("s3", **s3so["client_kwargs"])
+        # ensure there's no s3://bucket/key.txt object
+        with pytest.raises(botocore.exceptions.ClientError, match=".*Not Found.*"):
+            conn.Object(bucket, "key.txt").load()
+        # ensure there's a s3://bucket//key.txt object
+        assert conn.Object(bucket, "/key.txt").get()["Body"].read() == b"hello world"
+
+        p0 = UPath(f"s3://{bucket}//key.txt", **s3so)
+        assert p0.read_bytes() == b"hello world"
+        p1 = UPath(f"s3://{bucket}", **s3so)
+        assert list(p1.rglob("*.txt")) == [p0]
 
 
 @pytest.fixture
@@ -114,7 +137,25 @@ def s3_with_plus_chr_name(s3_server):
         if s3.exists(bucket):
             for dir, _, keys in s3.walk(bucket):
                 for key in keys:
-                    s3.rm(f"{dir}/{key}")
+                    if key.rstrip("/"):
+                        s3.rm(f"{dir}/{key}")
+
+
+@pytest.fixture
+def s3_with_double_fwd_slash_files(s3_server):
+    anon, s3so = s3_server
+    s3 = fsspec.filesystem("s3", anon=False, **s3so)
+    bucket = "double_fwd_slash_bucket"
+    s3.mkdir(bucket + "/")
+    s3.pipe_file(f"{bucket}//key.txt", b"hello world")
+    try:
+        yield bucket, anon, s3so
+    finally:
+        if s3.exists(bucket):
+            for dir, _, keys in s3.walk(bucket):
+                for key in keys:
+                    if key.rstrip("/"):
+                        s3.rm(f"{dir}/{key}")
 
 
 def test_path_with_hash_and_space():
@@ -126,3 +167,49 @@ def test_pathlib_consistent_join():
     b1 = UPath("s3://mybucket/withkey").joinpath("subfolder/myfile.txt")
     assert b0 == b1
     assert "s3://mybucket/withkey/subfolder/myfile.txt" == str(b0) == str(b1)
+
+
+def test_copy__object_key_collides_with_dir_prefix(s3_server, tmp_path):
+    anon, s3so = s3_server
+
+    s3 = fsspec.filesystem("s3", anon=anon, **{**s3so, "use_listings_cache": False})
+    bucket = "copy_into_collision_bucket"
+    s3.mkdir(bucket + "/src" + "/common_prefix/")
+    # object under common prefix as key
+    s3.pipe_file(f"{bucket}/src/common_prefix", b"hello world")
+    # store more objects with same prefix
+    s3.pipe_file(f"{bucket}/src/common_prefix/file1.txt", b"1")
+    s3.pipe_file(f"{bucket}/src/common_prefix/file2.txt", b"2")
+
+    # make sure the sources have a collision
+    assert s3.isdir(f"{bucket}/src/common_prefix")
+    assert s3.isfile(f"{bucket}/src/common_prefix")
+    assert s3.isfile(f"{bucket}/src/common_prefix/file1.txt")
+    assert s3.isfile(f"{bucket}/src/common_prefix/file2.txt")
+    # prepare source and destination
+    src = UPath(f"s3://{bucket}/src", anon=anon, **s3so)
+    dst = UPath(tmp_path)
+
+    def on_collision_rename_file(src, dst):
+        warnings.warn(
+            f"{src!s} collides with prefix. Renaming target file object to {dst!s}",
+            UserWarning,
+            stacklevel=3,
+        )
+        return (
+            dst.with_suffix(dst.suffix + ".COLLISION"),
+            dst,
+        )
+
+    # perform copy
+    src.copy_into(dst, on_name_collision=on_collision_rename_file)
+
+    # check results
+    dst_files = sorted(posixify(x.relative_to(tmp_path)) for x in dst.glob("**/*"))
+    assert dst_files == [
+        "src",
+        "src/common_prefix",
+        "src/common_prefix.COLLISION",
+        "src/common_prefix/file1.txt",
+        "src/common_prefix/file2.txt",
+    ]

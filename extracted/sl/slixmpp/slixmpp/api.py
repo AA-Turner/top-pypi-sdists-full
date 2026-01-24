@@ -160,7 +160,7 @@ class APIRegistry(object):
                 if iscoroutinefunction(handler):
                     return self.xmpp.wrap(handler(jid, node, ifrom, args))
                 else:
-                    future: Future = Future()
+                    future: Future = Future(loop=self.xmpp.loop)
                     result = handler(jid, node, ifrom, args)
                     future.set_result(result)
                     return future
@@ -168,7 +168,7 @@ class APIRegistry(object):
                 # To preserve backward compatibility, drop the ifrom
                 # parameter for existing handlers that don't understand it.
                 return handler(jid, node, args)
-        future = Future()
+        future = Future(loop=self.xmpp.loop)
         future.set_result(None)
         return future
 

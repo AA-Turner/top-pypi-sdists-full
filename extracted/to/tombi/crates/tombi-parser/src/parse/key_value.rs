@@ -1,7 +1,7 @@
 use tombi_syntax::{SyntaxKind::*, T};
 
-use super::{leading_comments, trailing_comment, Parse, TS_LINE_END};
-use crate::{parser::Parser, ErrorKind::*};
+use super::{Parse, TS_LINE_END, leading_comments, trailing_comment};
+use crate::{ErrorKind::*, parser::Parser};
 
 impl Parse for tombi_ast::KeyValue {
     fn parse(p: &mut Parser) {
@@ -33,7 +33,7 @@ impl Parse for tombi_ast::KeyValue {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_parser, ErrorKind::*};
+    use crate::{ErrorKind::*, test_parser};
 
     test_parser! {
         #[test]
@@ -178,5 +178,74 @@ mod test {
         ) -> Err([
             SyntaxError(ExpectedValue, 0:4..0:9),
         ])
+    }
+
+    test_parser! {
+        #[test]
+        fn date_keys(
+            r#"
+            a.2001-02-08 = 7
+            a.2001-02-09.2001-02-10 = 8
+            2001-02-11.a.2001-02-12 = 9
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn minus_number_keys(
+            r#"
+            -01   = true
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn hex_like_bare_keys(
+            r#"
+            0x96f = "hex-like key"
+            0xDEADBEEF = "another hex-like"
+            a.0xABC = "dotted hex"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn octal_like_bare_keys(
+            r#"
+            0o755 = "octal-like key"
+            0o777.permissions = "dotted octal"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn binary_like_bare_keys(
+            r#"
+            0b1010 = "binary-like key"
+            0b11.0b00 = "dotted binary"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn hex_key_with_hex_value(
+            r#"
+            0x96f = 0x96f
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn inline_table_with_hex_key(
+            r#"
+            table = { 0x96f = "value" }
+            "#
+        ) -> Ok(_)
     }
 }

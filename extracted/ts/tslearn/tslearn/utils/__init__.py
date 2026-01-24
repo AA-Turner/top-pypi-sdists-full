@@ -20,9 +20,9 @@ from .utils import (
     ts_size,
     ts_zeros,
     check_dataset,
-    LabelCategorizer,
     _load_txt_uea,
-    _load_arff_uea
+    _load_arff_uea,
+    check_variable_length_input
 )
 
 from .cast import (
@@ -47,7 +47,7 @@ __all__ = [
     "save_time_series_txt", "save_timeseries_txt",
     "load_time_series_txt", "load_timeseries_txt",
     "ts_size", "ts_zeros", "check_dataset",
-    "LabelCategorizer", "_load_txt_uea", "_load_arff_uea",
+    "_load_txt_uea", "_load_arff_uea",
     "to_sklearn_dataset",
     "from_cesium_dataset", "to_cesium_dataset",
     "from_pyflux_dataset", "to_pyflux_dataset",
@@ -55,5 +55,6 @@ __all__ = [
     "from_seglearn_dataset", "to_seglearn_dataset",
     "from_sktime_dataset", "to_sktime_dataset",
     "from_stumpy_dataset", "to_stumpy_dataset",
-    "from_tsfresh_dataset", "to_tsfresh_dataset"
+    "from_tsfresh_dataset", "to_tsfresh_dataset",
+    "check_variable_length_input"
 ]

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: supervisely
-Version: 6.73.445
+Version: 6.73.513
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -21,15 +21,14 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cachetools<=5.5.0,>=4.2.3
-Requires-Dist: numpy<2.0.0,>=1.19
+Requires-Dist: numpy<=2.3.3,>=1.19
 Requires-Dist: opencv-python<5.0.0.0,>=4.6.0.66
 Requires-Dist: PTable<1.0.0,>=0.9.2
-Requires-Dist: pillow<=10.2.0,>=5.4.1
-Requires-Dist: protobuf<=3.20.3,>=3.19.5
-Requires-Dist: python-json-logger<3.0.0,>=0.1.11
+Requires-Dist: pillow<=10.4.0,>=5.4.1
+Requires-Dist: python-json-logger<=3.0.1,>=0.1.11
 Requires-Dist: requests<3.0.0,>=2.27.1
 Requires-Dist: requests-toolbelt>=0.9.1
-Requires-Dist: Shapely<=2.0.2,>=1.7.1
+Requires-Dist: Shapely<=2.1.2,>=1.7.1
 Requires-Dist: bidict<1.0.0,>=0.21.2
 Requires-Dist: varname<1.0.0,>=0.8.1
 Requires-Dist: python-dotenv<=1.0.1,>=0.19.2
@@ -40,17 +39,17 @@ Requires-Dist: stringcase<2.0.0,>=1.2.0
 Requires-Dist: python-magic<1.0.0,>=0.4.25
 Requires-Dist: trimesh<=4.5.0,>=3.11.2
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.18.2
-Requires-Dist: pydantic<=2.11.3,>=1.7.4
-Requires-Dist: anyio<=4.2.0,>=3.7.1
-Requires-Dist: fastapi<=0.109.0,>=0.79.0
+Requires-Dist: starlette<=0.47.3
+Requires-Dist: pydantic<=2.12.3,>=1.7.4
+Requires-Dist: fastapi<=0.119.1,>=0.103.1
 Requires-Dist: websockets<=13.1,>=10.3
 Requires-Dist: jinja2<4.0.0,>=3.0.3
-Requires-Dist: psutil<6.0.0,>=5.9.0
+Requires-Dist: psutil<=7.2.0,>=5.9.0
 Requires-Dist: jsonpatch<2.0,>=1.32
 Requires-Dist: MarkupSafe<3.0.0,>=2.1.1
 Requires-Dist: arel<1.0.0,>=0.2.0
 Requires-Dist: tqdm<5.0.0,>=4.62.3
-Requires-Dist: pandas<=2.1.4,>=1.1.3
+Requires-Dist: pandas<=2.3.3,>=1.1.3
 Requires-Dist: async_asgi_testclient
 Requires-Dist: PyYAML>=5.4.0
 Requires-Dist: distinctipy
@@ -71,6 +70,7 @@ Requires-Dist: zstd
 Requires-Dist: aiofiles
 Requires-Dist: httpx[http2]==0.27.2
 Requires-Dist: debugpy
+Requires-Dist: setuptools<81.0.0
 Provides-Extra: extras
 Requires-Dist: docker<6.0.0,>=5.0.3; extra == "extras"
 Requires-Dist: imagecorruptions<2.0.0,>=1.1.2; extra == "extras"
@@ -78,7 +78,7 @@ Requires-Dist: scikit-image<1.0.0,>=0.17.1; extra == "extras"
 Requires-Dist: matplotlib<4.0.0,>=3.3.2; extra == "extras"
 Requires-Dist: pascal-voc-writer<1.0.0,>=0.1.4; extra == "extras"
 Requires-Dist: scipy<2.0.0,>=1.8.0; extra == "extras"
-Requires-Dist: pandas<1.4.0,>=1.1.3; extra == "extras"
+Requires-Dist: pandas<=2.3.3,>=1.1.3; extra == "extras"
 Requires-Dist: ruamel.yaml==0.17.21; extra == "extras"
 Provides-Extra: apps
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.18.2; extra == "apps"
@@ -90,7 +90,7 @@ Requires-Dist: jsonpatch<2.0,>=1.32; extra == "apps"
 Requires-Dist: MarkupSafe<3.0.0,>=2.1.1; extra == "apps"
 Requires-Dist: arel<1.0.0,>=0.2.0; extra == "apps"
 Requires-Dist: tqdm<5.0.0,>=4.62.3; extra == "apps"
-Requires-Dist: pandas<1.4.0,>=1.1.3; extra == "apps"
+Requires-Dist: pandas<=2.3.3,>=1.1.3; extra == "apps"
 Provides-Extra: docs
 Requires-Dist: sphinx==4.4.0; extra == "docs"
 Requires-Dist: jinja2==3.0.3; extra == "docs"
@@ -143,6 +143,23 @@ Requires-Dist: Werkzeug<3.0.0,>=1.0.1; extra == "sdk-nn-plugins"
 Provides-Extra: aug
 Requires-Dist: imgaug<1.0.0,>=0.4.0; extra == "aug"
 Requires-Dist: imagecorruptions<2.0.0,>=1.1.2; extra == "aug"
+Requires-Dist: numpy<2.0.0,>=1.19; extra == "aug"
+Provides-Extra: agent
+Requires-Dist: protobuf<=3.20.3,>=3.19.5; extra == "agent"
+Provides-Extra: versioning
+Requires-Dist: pyarrow<=22.0.0,>=17.0.0; extra == "versioning"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <h1 align="center">
   <a href="https://supervisely.com"><img alt="Supervisely" title="Supervisely" src="https://i.imgur.com/B276eMS.png"></a>
@@ -264,7 +281,7 @@ More concretely, Supervisely includes the following functionality:
 
 The simplicity of creating Supervisely Apps has already led to the development of [hundreds of applications](https://ecosystem.supervisely.com/), ready to be run within a single click in a web browser and get the job done.
 
-Label your data, perform quality assurance, inspect every aspect of your data, collaborate easily, train and apply state-of-the-art neural networks, integrate custom models, automate routine tasks and more — like in a real AppStore, there should be an app for everything.
+Label your data, perform quality assurance, inspect every aspect of your data, collaborate easily, train and apply state-of-the-art neural networks, integrate custom models, automate routine tasks and more - like in a real AppStore, there should be an app for everything.
 
 ## [Development](https://developer.supervisely.com/) 🧑‍💻
 
@@ -426,7 +443,7 @@ Development for Supervisely builds upon these five principles:
 
 ### Start in a minute
 
-Supervisely's open-source SDK and app framework are straightforward to get started with. It’s just a matter of:
+Supervisely's open-source SDK and app framework are straightforward to get started with. It's just a matter of:
 
 ```
 pip install supervisely

@@ -27,7 +27,7 @@ def user_defined_functions_extended(user_defined_functions, snowflake_version):
                 name=user_defined_function_name,
                 arguments=[],
                 return_type=ReturnDataType(datatype="VARIANT"),
-                language_config=PythonFunction(runtime_version="3.9", packages=[], handler="udf"),
+                language_config=PythonFunction(runtime_version="3.13", packages=[], handler="udf"),
                 body="""
 def udf():
     return {"key": "value"}

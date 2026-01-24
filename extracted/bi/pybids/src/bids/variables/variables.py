@@ -371,7 +371,9 @@ class SparseRunVariable(SimpleVariable):
                             % repr(run_info))
         self.run_info = run_info
         for sc in self._property_columns:
-            setattr(self, sc, data.pop(sc).values)
+            arr = data.pop(sc).values
+            arr.flags['WRITEABLE'] = True
+            setattr(self, sc, arr)
         super(SparseRunVariable, self).__init__(name, data, source, **kwargs)
 
     def get_duration(self):
@@ -411,7 +413,7 @@ class SparseRunVariable(SimpleVariable):
         duration = math.ceil(  # Round up to nearest second
             round(bin_sr * self.get_duration(), 3)  # Cut off at millisecond precision
         )
-        ts = np.zeros(duration, dtype=self.values.dtype)
+        ts = pd.Series(0, index=np.arange(duration), dtype=self.values.dtype)
 
         onsets = np.round(self.onset * bin_sr).astype(int)
         durations = np.round(self.duration * bin_sr).astype(int)
@@ -426,7 +428,8 @@ class SparseRunVariable(SimpleVariable):
             if _onset >= duration:
                 warnings.warn("The onset time of a variable seems to exceed "
                               "the runs duration, hence runs are incremented "
-                              "by one internally.")
+                              "by one internally.",
+                              stacklevel=2)
             ts[_onset:_offset] = val
             last_ind = onsets[i]
 
@@ -442,7 +445,6 @@ class SparseRunVariable(SimpleVariable):
             run_info=run_info,
             source=self.source,
             sampling_rate=sampling_rate)
-
 
         return dense_var
 

@@ -9,8 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -18,27 +16,18 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class DiffEntry(GitHubModel):
-    """Diff Entry
+class ActionsCacheStorageLimitForRepository(GitHubModel):
+    """Actions cache storage limit for a repository
 
-    Diff Entry
+    GitHub Actions cache storage policy for a repository.
     """
 
-    sha: Union[str, None] = Field()
-    filename: str = Field()
-    status: Literal[
-        "added", "removed", "modified", "renamed", "copied", "changed", "unchanged"
-    ] = Field()
-    additions: int = Field()
-    deletions: int = Field()
-    changes: int = Field()
-    blob_url: Union[str, None] = Field()
-    raw_url: Union[str, None] = Field()
-    contents_url: str = Field()
-    patch: Missing[str] = Field(default=UNSET)
-    previous_filename: Missing[str] = Field(default=UNSET)
+    max_cache_size_gb: Missing[int] = Field(
+        default=UNSET,
+        description="The maximum total cache size for this repository, in gigabytes.",
+    )
 
 
-model_rebuild(DiffEntry)
+model_rebuild(ActionsCacheStorageLimitForRepository)
 
-__all__ = ("DiffEntry",)
+__all__ = ("ActionsCacheStorageLimitForRepository",)

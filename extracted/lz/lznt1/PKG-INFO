@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: lznt1
+Version: 0.2
+Summary: Python module for LZNT1 compression/decompression
+Home-page: https://github.com/you0708/lznt1/
+Author: You Nakatsuru
+Author-email: you0708@users.noreply.github.com
+License: Apache License 2.0
+Description-Content-Type: UNKNOWN
+Description: A Python module which provides compress/decompress features uzing LZNT1 algorithm. This doesn't reuqire ntdll.RtlCompressBuffer/RtlDecompressBuffer
+Platform: UNKNOWN

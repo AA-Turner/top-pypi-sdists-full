@@ -19,11 +19,18 @@ from libeasel.sqio cimport ESL_SQFILE
 from libeasel.ssi cimport ESL_SSI, ESL_NEWSSI
 from libeasel cimport ESL_DSQ
 
+from .platform cimport _FileobjReader
+
 
 # --- Alphabet ---------------------------------------------------------------
 
 cdef class Alphabet:
-    cdef ESL_ALPHABET* _abc
+    cdef const ESL_ALPHABET* _abc
+
+    @staticmethod
+    cdef Alphabet from_ptr(const ESL_ALPHABET* _abc)
+    @staticmethod
+    cdef Alphabet from_type(int ty)
 
     cdef int _init_default(self, int ty) except 1 nogil
     cdef inline bint _eq(self, Alphabet other) nogil
@@ -35,6 +42,14 @@ cdef class Alphabet:
     cpdef VectorU8 encode(self, str sequence)
     cpdef str decode(self, const ESL_DSQ[::1] sequence)
 
+cdef class DNA(Alphabet):
+    pass
+
+cdef class RNA(Alphabet):
+    pass
+
+cdef class AA(Alphabet):
+    pass
 
 # --- GeneticCode ------------------------------------------------------------
 
@@ -71,7 +86,7 @@ cdef class Bitfield:
 cdef class KeyHash:
     cdef ESL_KEYHASH* _kh
 
-    cpdef int add(self, bytes key) except -1
+    cpdef int add(self, str key) except -1
     cpdef void clear(self) except *
     cpdef KeyHash copy(self)
 
@@ -87,6 +102,18 @@ cdef class Vector:
     cdef const char* _format(self) noexcept
     cdef int _allocate(self, size_t n) except -1
 
+cdef class VectorD(Vector):
+    cpdef int argmax(self) except -1
+    cpdef int argmin(self) except -1
+    cpdef VectorD copy(self)
+    cpdef double entropy(self) except *
+    cpdef double max(self) except *
+    cpdef double min(self) except *
+    cpdef object normalize(self)
+    cpdef double relative_entropy(self, VectorD other) except *
+    cpdef object reverse(self)
+    cpdef double sum(self)
+
 cdef class VectorF(Vector):
     cpdef int argmax(self) except -1
     cpdef int argmin(self) except -1
@@ -98,6 +125,15 @@ cdef class VectorF(Vector):
     cpdef float relative_entropy(self, VectorF other) except *
     cpdef object reverse(self)
     cpdef float sum(self)
+    
+cdef class VectorI(Vector):
+    cpdef int argmax(self) except -1
+    cpdef int argmin(self) except -1
+    cpdef VectorI copy(self)
+    cpdef int max(self) except *
+    cpdef int min(self) except *
+    cpdef object reverse(self)
+    cpdef int sum(self)
 
 cdef class VectorU8(Vector):
     cpdef int argmax(self) except -1
@@ -118,6 +154,14 @@ cdef class Matrix:
     cdef const char* _format(self) noexcept
     cdef int _allocate(self, size_t m, size_t n) except -1
 
+cdef class MatrixD(Matrix):
+    cpdef tuple argmax(self)
+    cpdef tuple argmin(self)
+    cpdef MatrixD copy(self)
+    cpdef double max(self)
+    cpdef double min(self)
+    cpdef double sum(self)
+
 cdef class MatrixF(Matrix):
     cpdef tuple argmax(self)
     cpdef tuple argmin(self)
@@ -125,6 +169,14 @@ cdef class MatrixF(Matrix):
     cpdef float max(self)
     cpdef float min(self)
     cpdef float sum(self)
+
+cdef class MatrixI(Matrix):
+    cpdef tuple argmax(self)
+    cpdef tuple argmin(self)
+    cpdef MatrixI copy(self)
+    cpdef int max(self)
+    cpdef int min(self)
+    cpdef int sum(self)
 
 cdef class MatrixU8(Matrix):
     cpdef tuple argmax(self)
@@ -141,10 +193,12 @@ cdef class MSA:
     cdef ESL_MSA* _msa
 
     cdef int _rehash(self) except 1 nogil
-    cdef int _set_annotation(self, char** field, char* value) except 1 nogil
+    cdef int _set_annotation(self, char** field, const char* value) except 1 nogil
 
     cpdef uint32_t checksum(self)
+    cpdef Bitfield mark_fragments(self, float threshold)
     cpdef MSA select(self, sequences = ?, columns = ?)
+    cpdef VectorD compute_weights(self, str method = *, float max_identity = *)
     cpdef void write(self, object fh, str format) except *
 
 
@@ -161,6 +215,7 @@ cdef class DigitalMSA(MSA):
     cpdef DigitalMSA copy(self)
     cpdef TextMSA textize(self)
 
+    cpdef DigitalMSA reverse_complement(self, bint inplace=*)
     cpdef DigitalMSA identity_filter(
         self,
         float max_identity=*,
@@ -174,17 +229,33 @@ cdef class DigitalMSA(MSA):
         uint64_t seed=?,
         str preference=*,
     )
+    cpdef VectorD compute_weights(
+        self,
+        str method = *,
+        float max_identity=*,
+        float fragment_threshold=*,
+        float consensus_fraction=*,
+        bint ignore_rf=*,
+        bint sample=*,
+        int sample_threshold=*,
+        int sample_count=*,
+        int max_fragments=*,
+        uint64_t seed=?,
+        str preference=*,
+    )
+
 
 # --- MSA File ---------------------------------------------------------------
 
 cdef class MSAFile:
-    cdef          ESL_MSAFILE* _msaf
+    cdef          ESL_MSAFILE*   _msaf
+    cdef readonly _FileobjReader _reader
     cdef readonly object       _file
     cdef readonly Alphabet     alphabet
     cdef readonly str          name
+    cdef readonly SSIReader    index
 
-    @staticmethod
-    cdef ESL_MSAFILE* _open_fileobj(object fh, int fmt) except NULL
+    cdef int _open_fileobj(self, _FileobjReader reader, int fmt) except 1
 
     cpdef void close(self)
     cpdef Alphabet guess_alphabet(self)
@@ -258,6 +329,8 @@ cdef class SequenceBlock:
     cpdef SequenceBlock copy(self)
     cpdef void clear(self) except *
     cpdef Sequence largest(self)
+    cpdef void write(self, object fh) except *
+    cpdef size_t total_length(self) noexcept
 
 
 cdef class TextSequenceBlock(SequenceBlock):
@@ -288,13 +361,14 @@ cdef class DigitalSequenceBlock(SequenceBlock):
 # --- Sequence File ----------------------------------------------------------
 
 cdef class SequenceFile:
-    cdef          ESL_SQFILE* _sqfp
-    cdef readonly object      _file
-    cdef readonly Alphabet    alphabet
-    cdef readonly str         name
+    cdef          ESL_SQFILE*    _sqfp
+    cdef readonly _FileobjReader _reader
+    cdef readonly object         _file
+    cdef readonly Alphabet       alphabet
+    cdef readonly str            name
+    cdef readonly SSIReader      index
 
-    @staticmethod
-    cdef ESL_SQFILE* _open_fileobj(object fh, int fmt) except NULL
+    cdef int _open_fileobj(self, _FileobjReader reader, int fmt) except 1
 
     cpdef void close(self) except *
     cpdef Alphabet guess_alphabet(self)
@@ -316,11 +390,11 @@ cdef class SSIWriter:
 
     cdef void _on_write(self)
 
-    cpdef void     add_alias(self, bytes alias, bytes key) except *
+    cpdef void     add_alias(self, str alias, str key) except *
     cpdef uint16_t add_file(self, object filename, int format = *) except *
     cpdef void     add_key(
         self,
-        bytes key,
+        str key,
         uint16_t fd,
         off_t record_offset,
         off_t data_offset = *,

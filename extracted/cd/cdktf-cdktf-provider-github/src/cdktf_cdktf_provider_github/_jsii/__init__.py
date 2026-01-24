@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdktf/provider-github",
-    "15.0.0",
+    "15.3.1",
     __name__[0:-6],
-    "provider-github@15.0.0.jsii.tgz",
+    "provider-github@15.3.1.jsii.tgz",
 )
 
 __all__ = [

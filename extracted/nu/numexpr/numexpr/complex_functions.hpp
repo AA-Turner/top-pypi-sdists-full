@@ -11,6 +11,7 @@
 **********************************************************************/
 
 // Replace npy_cdouble with std::complex<double>
+#include <math.h> // NAN
 #include <complex>
 
 /* constants */
@@ -347,6 +348,8 @@ nc_cosh(std::complex<double> *x, std::complex<double> *r)
 
 
 #define M_LOG10_E 0.434294481903251827651128918916605082294397
+#define M_LOG2_E  1.44269504088896340735992468100189213742664
+
 
 static void
 nc_log10(std::complex<double> *x, std::complex<double> *r)
@@ -354,6 +357,15 @@ nc_log10(std::complex<double> *x, std::complex<double> *r)
     nc_log(x, r);
     r->real(r->real() * M_LOG10_E);
     r->imag(r->imag() * M_LOG10_E);
+    return;
+}
+
+static void
+nc_log2(std::complex<double> *x, std::complex<double> *r)
+{
+    nc_log(x, r);
+    r->real(r->real() * M_LOG2_E);
+    r->imag(r->imag() * M_LOG2_E);
     return;
 }
 
@@ -378,42 +390,45 @@ nc_sinh(std::complex<double> *x, std::complex<double> *r)
 static void
 nc_tan(std::complex<double> *x, std::complex<double> *r)
 {
-    double sr,cr,shi,chi;
-    double rs,is,rc,ic;
-    double d;
-    double xr=x->real(), xi=x->imag();
-    sr = sin(xr);
-    cr = cos(xr);
-    shi = sinh(xi);
-    chi = cosh(xi);
-    rs = sr*chi;
-    is = cr*shi;
-    rc = cr*chi;
-    ic = -sr*shi;
-    d = rc*rc + ic*ic;
-    r->real((rs*rc+is*ic)/d);
-    r->imag((is*rc-rs*ic)/d);
+    double xr = x->real();
+    double xi = x->imag();
+    double imag_part;
+
+    double denom = cos(2*xr) + cosh(2*xi);
+    // handle overflows
+    if (xi > 20) {
+        imag_part = 1.0 / (1.0 + exp(-4*xi));
+    } else if (xi < -20) {
+        imag_part = -1.0 / (1.0 + exp(4*xi));
+    } else {
+        imag_part = sinh(2*xi) / denom;
+    }
+    double real_part = sin(2*xr) / denom;
+
+    r->real(real_part);
+    r->imag(imag_part);
     return;
 }
 
 static void
 nc_tanh(std::complex<double> *x, std::complex<double> *r)
 {
-    double si,ci,shr,chr;
-    double rs,is,rc,ic;
-    double d;
-    double xr=x->real(), xi=x->imag();
-    si = sin(xi);
-    ci = cos(xi);
-    shr = sinh(xr);
-    chr = cosh(xr);
-    rs = ci*shr;
-    is = si*chr;
-    rc = ci*chr;
-    ic = si*shr;
-    d = rc*rc + ic*ic;
-    r->real((rs*rc+is*ic)/d);
-    r->imag((is*rc-rs*ic)/d);
+    double xr = x->real();
+    double xi = x->imag();
+    double real_part;
+    double denom = cosh(2*xr) + cos(2*xi);
+    // handle overflows
+    if (xr > 20) {
+        real_part = 1.0 / (1.0 + exp(-4*xr));
+    } else if (xr < -20) {
+        real_part = -1.0 / (1.0 + exp(4*xr));
+    } else {
+        real_part = sinh(2*xr) / denom;
+    }
+    double imag_part = sin(2*xi) / denom;
+
+    r->real(real_part);
+    r->imag(imag_part);
     return;
 }
 
@@ -422,6 +437,13 @@ nc_abs(std::complex<double> *x, std::complex<double> *r)
 {
     r->real(sqrt(x->real()*x->real() + x->imag()*x->imag()));
     r->imag(0);
+}
+
+static void
+nc_rint(std::complex<double> *x, std::complex<double> *r)
+{
+    r->real(rint(x->real()));
+    r->imag(rint(x->imag()));
 }
 
 static bool
@@ -453,4 +475,24 @@ nc_isfinite(std::complex<double> *x)
     br = isfinited(xr);
     return bi && br;
 }
+
+static void
+nc_sign(std::complex<double> *x, std::complex<double> *r)
+{
+    if (nc_isnan(x)){
+        r->real(NAN);
+        r->imag(NAN);
+    }
+    std::complex<double> mag;
+    nc_abs(x, &mag);
+    if (mag.real() == 0){
+        r->real(0);
+        r->imag(0);
+    }
+    else{
+        r->real(x->real()/mag.real());
+        r->imag(x->imag()/mag.real());
+    }
+}
+
 #endif // NUMEXPR_COMPLEX_FUNCTIONS_HPP

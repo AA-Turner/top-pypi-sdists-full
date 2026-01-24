@@ -21,6 +21,7 @@ class Apps:
         "wbcore.contrib.agenda",
         "wbcore.contrib.directory",
         "wbcore.contrib.authentication",
+        "wbcore.contrib.content_type",
         "wbcore.contrib.notifications",
         "wbcore.contrib.io",
         "wbcore.contrib.currency",
@@ -39,13 +40,13 @@ class Apps:
         return getattr(self, "ADDITIONAL_APPS", []) + getattr(self, "WB_ENDPOINTS", [])
 
     @property
-    def INSTALLED_APPS(self):
+    def INSTALLED_APPS(self):  # noqa
         return self._BASE_APPS + self._get_additional_and_wb_apps()
 
 
 class DevApps(Apps):
     @property
-    def INSTALLED_APPS(self):
+    def INSTALLED_APPS(self):  # noqa
         apps = self._BASE_APPS
 
         if self.DEBUG:

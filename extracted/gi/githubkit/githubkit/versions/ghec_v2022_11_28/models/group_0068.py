@@ -9,145 +9,162 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
+from .group_0067 import BypassResponse
 
 
-class SimpleRepository(GitHubModel):
-    """Simple Repository
+class PushRuleBypassRequest(GitHubModel):
+    """Push rule bypass request
 
-    A GitHub repository.
+    A bypass request made by a user asking to be exempted from a push rule in this
+    repository.
     """
 
-    id: int = Field(description="A unique identifier of the repository.")
-    node_id: str = Field(description="The GraphQL identifier of the repository.")
-    name: str = Field(description="The name of the repository.")
-    full_name: str = Field(
-        description="The full, globally unique, name of the repository."
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the bypass request."
     )
-    owner: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    private: bool = Field(description="Whether the repository is private.")
-    html_url: str = Field(description="The URL to view the repository on GitHub.com.")
-    description: Union[str, None] = Field(description="The repository description.")
-    fork: bool = Field(description="Whether the repository is a fork.")
-    url: str = Field(
-        description="The URL to get more information about the repository from the GitHub API."
+    number: Missing[int] = Field(
+        default=UNSET,
+        description="The number uniquely identifying the bypass request within its repository.",
     )
-    archive_url: str = Field(
-        description="A template for the API URL to download the repository as an archive."
+    repository: Missing[PushRuleBypassRequestPropRepository] = Field(
+        default=UNSET, description="The repository the bypass request is for."
     )
-    assignees_url: str = Field(
-        description="A template for the API URL to list the available assignees for issues in the repository."
+    organization: Missing[PushRuleBypassRequestPropOrganization] = Field(
+        default=UNSET,
+        description="The organization associated with the repository the bypass request is for.",
     )
-    blobs_url: str = Field(
-        description="A template for the API URL to create or retrieve a raw Git blob in the repository."
+    requester: Missing[PushRuleBypassRequestPropRequester] = Field(
+        default=UNSET, description="The user who requested the bypass."
     )
-    branches_url: str = Field(
-        description="A template for the API URL to get information about branches in the repository."
+    request_type: Missing[str] = Field(
+        default=UNSET, description="The type of request."
     )
-    collaborators_url: str = Field(
-        description="A template for the API URL to get information about collaborators of the repository."
+    data: Missing[Union[list[PushRuleBypassRequestPropDataItems], None]] = Field(
+        default=UNSET,
+        description="Data describing the push rules that are being requested to be bypassed.",
     )
-    comments_url: str = Field(
-        description="A template for the API URL to get information about comments on the repository."
+    resource_identifier: Missing[str] = Field(
+        default=UNSET,
+        description="The unique identifier for the request type of the bypass request. For example, a commit SHA.",
     )
-    commits_url: str = Field(
-        description="A template for the API URL to get information about commits on the repository."
+    status: Missing[
+        Literal[
+            "pending",
+            "denied",
+            "approved",
+            "cancelled",
+            "completed",
+            "expired",
+            "deleted",
+            "open",
+        ]
+    ] = Field(default=UNSET, description="The status of the bypass request.")
+    requester_comment: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The comment the requester provided when creating the bypass request.",
     )
-    compare_url: str = Field(
-        description="A template for the API URL to compare two commits or refs."
+    expires_at: Missing[_dt.datetime] = Field(
+        default=UNSET, description="The date and time the bypass request will expire."
     )
-    contents_url: str = Field(
-        description="A template for the API URL to get the contents of the repository."
+    created_at: Missing[_dt.datetime] = Field(
+        default=UNSET, description="The date and time the bypass request was created."
     )
-    contributors_url: str = Field(
-        description="A template for the API URL to list the contributors to the repository."
+    responses: Missing[Union[list[BypassResponse], None]] = Field(
+        default=UNSET, description="The responses to the bypass request."
     )
-    deployments_url: str = Field(
-        description="The API URL to list the deployments of the repository."
-    )
-    downloads_url: str = Field(
-        description="The API URL to list the downloads on the repository."
-    )
-    events_url: str = Field(
-        description="The API URL to list the events of the repository."
-    )
-    forks_url: str = Field(
-        description="The API URL to list the forks of the repository."
-    )
-    git_commits_url: str = Field(
-        description="A template for the API URL to get information about Git commits of the repository."
-    )
-    git_refs_url: str = Field(
-        description="A template for the API URL to get information about Git refs of the repository."
-    )
-    git_tags_url: str = Field(
-        description="A template for the API URL to get information about Git tags of the repository."
-    )
-    issue_comment_url: str = Field(
-        description="A template for the API URL to get information about issue comments on the repository."
-    )
-    issue_events_url: str = Field(
-        description="A template for the API URL to get information about issue events on the repository."
-    )
-    issues_url: str = Field(
-        description="A template for the API URL to get information about issues on the repository."
-    )
-    keys_url: str = Field(
-        description="A template for the API URL to get information about deploy keys on the repository."
-    )
-    labels_url: str = Field(
-        description="A template for the API URL to get information about labels of the repository."
-    )
-    languages_url: str = Field(
-        description="The API URL to get information about the languages of the repository."
-    )
-    merges_url: str = Field(
-        description="The API URL to merge branches in the repository."
-    )
-    milestones_url: str = Field(
-        description="A template for the API URL to get information about milestones of the repository."
-    )
-    notifications_url: str = Field(
-        description="A template for the API URL to get information about notifications on the repository."
-    )
-    pulls_url: str = Field(
-        description="A template for the API URL to get information about pull requests on the repository."
-    )
-    releases_url: str = Field(
-        description="A template for the API URL to get information about releases on the repository."
-    )
-    stargazers_url: str = Field(
-        description="The API URL to list the stargazers on the repository."
-    )
-    statuses_url: str = Field(
-        description="A template for the API URL to get information about statuses of a commit."
-    )
-    subscribers_url: str = Field(
-        description="The API URL to list the subscribers on the repository."
-    )
-    subscription_url: str = Field(
-        description="The API URL to subscribe to notifications for this repository."
-    )
-    tags_url: str = Field(
-        description="The API URL to get information about tags on the repository."
-    )
-    teams_url: str = Field(
-        description="The API URL to list the teams on the repository."
-    )
-    trees_url: str = Field(
-        description="A template for the API URL to create or retrieve a raw Git tree of the repository."
-    )
-    hooks_url: str = Field(
-        description="The API URL to list the hooks on the repository."
+    url: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(
+        default=UNSET, description="The URL to view the bypass request in a browser."
     )
 
 
-model_rebuild(SimpleRepository)
+class PushRuleBypassRequestPropRepository(GitHubModel):
+    """PushRuleBypassRequestPropRepository
 
-__all__ = ("SimpleRepository",)
+    The repository the bypass request is for.
+    """
+
+    id: Missing[Union[int, None]] = Field(
+        default=UNSET, description="The ID of the repository the bypass request is for."
+    )
+    name: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The name of the repository the bypass request is for.",
+    )
+    full_name: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The full name of the repository the bypass request is for.",
+    )
+
+
+class PushRuleBypassRequestPropOrganization(GitHubModel):
+    """PushRuleBypassRequestPropOrganization
+
+    The organization associated with the repository the bypass request is for.
+    """
+
+    id: Missing[Union[int, None]] = Field(
+        default=UNSET, description="The ID of the organization."
+    )
+    name: Missing[Union[str, None]] = Field(
+        default=UNSET, description="The name of the organization."
+    )
+
+
+class PushRuleBypassRequestPropRequester(GitHubModel):
+    """PushRuleBypassRequestPropRequester
+
+    The user who requested the bypass.
+    """
+
+    actor_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the GitHub user who requested the bypass."
+    )
+    actor_name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the GitHub user who requested the bypass.",
+    )
+
+
+class PushRuleBypassRequestPropDataItems(GitHubModel):
+    """PushRuleBypassRequestPropDataItems"""
+
+    ruleset_id: Missing[int] = Field(
+        default=UNSET,
+        description="The ID of the ruleset for the rules that were violated.",
+    )
+    ruleset_name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the ruleset for the rules that were violated.",
+    )
+    total_violations: Missing[int] = Field(
+        default=UNSET,
+        description="The number of rule violations generated from the push associated with this request.",
+    )
+    rule_type: Missing[str] = Field(
+        default=UNSET, description="The type of rule that was violated."
+    )
+
+
+model_rebuild(PushRuleBypassRequest)
+model_rebuild(PushRuleBypassRequestPropRepository)
+model_rebuild(PushRuleBypassRequestPropOrganization)
+model_rebuild(PushRuleBypassRequestPropRequester)
+model_rebuild(PushRuleBypassRequestPropDataItems)
+
+__all__ = (
+    "PushRuleBypassRequest",
+    "PushRuleBypassRequestPropDataItems",
+    "PushRuleBypassRequestPropOrganization",
+    "PushRuleBypassRequestPropRepository",
+    "PushRuleBypassRequestPropRequester",
+)

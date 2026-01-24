@@ -18,14 +18,14 @@ def list_():
 	for A in repository.list_extension_metadata():click.echo(json.dumps(A))
 @cli.command('install')
 @click.argument('name',required=True)
-def install(name):
+def install(name:str):
 	try:
 		A=repository.ExtensionsRepository()
 		for B in A.run_install(name):click.echo(json.dumps(B))
 	except Exception as C:click.echo(json.dumps({'event':_B,_A:f"Error while installing extension: {C}",'extra':{_C:traceback.format_exc()}}))
 @cli.command('uninstall')
 @click.argument('name',required=True)
-def uninstall(name):
+def uninstall(name:str):
 	try:
 		A=repository.ExtensionsRepository()
 		for B in A.run_uninstall(name):click.echo(json.dumps(B))

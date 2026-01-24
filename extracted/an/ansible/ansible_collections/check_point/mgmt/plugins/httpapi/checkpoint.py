@@ -87,7 +87,10 @@ class HttpApi(HttpApiBase):
             self.connection._session_uid = response_data["uid"]
 
     def logout(self):
-        if any([not self.connection._auth, (self.connection._auth and "X-chkp-sid" not in self.connection._auth)]):
+        if any([
+            not self.connection._auth,
+            (self.connection._auth and "X-chkp-sid" not in self.connection._auth)
+        ]):
             return
         url = "/web_api/logout"
 

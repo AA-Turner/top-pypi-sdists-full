@@ -14,6 +14,8 @@ from stytch.b2b.models.organizations import SearchQuery
 from stytch.b2b.models.organizations_members import (
     CreateRequestOptions,
     CreateResponse,
+    DeleteExternalIdRequestOptions,
+    DeleteExternalIdResponse,
     DeleteMFAPhoneNumberRequestOptions,
     DeleteMFAPhoneNumberResponse,
     DeletePasswordRequestOptions,
@@ -30,6 +32,7 @@ from stytch.b2b.models.organizations_members import (
     ReactivateResponse,
     SearchRequestOptions,
     SearchResponse,
+    StartEmailUpdateRequestDeliveryMethod,
     StartEmailUpdateRequestLocale,
     StartEmailUpdateRequestOptions,
     StartEmailUpdateResponse,
@@ -517,7 +520,7 @@ class Members:
         method_options: Optional[SearchRequestOptions] = None,
     ) -> SearchResponse:
         """
-        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 100 requests/second.
+        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 100 requests/minute.
 
         Search for Members within specified Organizations. An array with at least one `organization_id` is required. Submitting an empty `query` returns all non-deleted Members within the specified Organizations.
 
@@ -555,7 +558,7 @@ class Members:
         method_options: Optional[SearchRequestOptions] = None,
     ) -> SearchResponse:
         """
-        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 100 requests/second.
+        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 100 requests/minute.
 
         Search for Members within specified Organizations. An array with at least one `organization_id` is required. Submitting an empty `query` returns all non-deleted Members within the specified Organizations.
 
@@ -852,6 +855,9 @@ class Members:
         login_redirect_url: Optional[str] = None,
         locale: Optional[Union[StartEmailUpdateRequestLocale, str]] = None,
         login_template_id: Optional[str] = None,
+        delivery_method: Optional[
+            Union[StartEmailUpdateRequestDeliveryMethod, str]
+        ] = None,
         method_options: Optional[StartEmailUpdateRequestOptions] = None,
     ) -> StartEmailUpdateResponse:
         """Starts a self-serve email update for a Member specified by their `organization_id` and `member_id`.
@@ -862,10 +868,12 @@ class Members:
         - Must not be in use by another member (retired emails count as used until they are [unlinked](https://stytch.com/docs/b2b/api/unlink-retired-member-email))
         - Must not be updating for another member (i.e. two members cannot attempt to update to the same email at once)
 
-        The member will receive an Email Magic Link that expires in 5 minutes. If they do not verify their new email address in that timeframe, the email
+        The member will receive an Email Magic Link (or Email OTP Code, if `EMAIL_OTP` is specified as the delivery method) that expires in 5 minutes. If they do not verify their new email address in that timeframe, the email
         will be freed up for other members to use.
 
-        The Magic Link will redirect to your `login_redirect_url` (or the configured default if one isn't provided), and you should invoke the [Authenticate Magic Link](https://stytch.com/docs/b2b/api/authenticate-magic-link) endpoint as normal to complete the flow.
+        If using Email Magic Links, the magic link will redirect to your `login_redirect_url` (or the configured default if one isn't provided), and you should invoke the [Authenticate Magic Link](https://stytch.com/docs/b2b/api/authenticate-magic-link) endpoint as normal to complete the flow.
+
+        If using Email OTP Codes, you should invoke the [Authenticate Email OTP Code](https://stytch.com/docs/b2b/api/authenticate-email-otp) endpoint as normal to complete the flow. Make sure to pass the new email address to the endpoint.
 
         Fields:
           - organization_id: Globally unique UUID that identifies a specific Organization. The `organization_id` is critical to perform operations on an Organization, so be sure to preserve this value. You may also use the organization_slug or organization_external_id here as a convenience.
@@ -882,6 +890,7 @@ class Members:
 
           - login_template_id: Use a custom template for login emails. By default, it will use your default email template. The template must be from Stytch's
         built-in customizations or a custom HTML email for Magic Links - Login.
+          - delivery_method: The method that should be used to verify a member's new email address. The options are `EMAIL_MAGIC_LINK` or `EMAIL_OTP`. This field is optional, if no value is provided, `EMAIL_MAGIC_LINK` will be used.
         """  # noqa
         headers: Dict[str, str] = {}
         if method_options is not None:
@@ -897,6 +906,8 @@ class Members:
             data["locale"] = locale
         if login_template_id is not None:
             data["login_template_id"] = login_template_id
+        if delivery_method is not None:
+            data["delivery_method"] = delivery_method
 
         url = self.api_base.url_for(
             "/v1/b2b/organizations/{organization_id}/members/{member_id}/start_email_update",
@@ -913,6 +924,7 @@ class Members:
         login_redirect_url: Optional[str] = None,
         locale: Optional[StartEmailUpdateRequestLocale] = None,
         login_template_id: Optional[str] = None,
+        delivery_method: Optional[StartEmailUpdateRequestDeliveryMethod] = None,
         method_options: Optional[StartEmailUpdateRequestOptions] = None,
     ) -> StartEmailUpdateResponse:
         """Starts a self-serve email update for a Member specified by their `organization_id` and `member_id`.
@@ -923,10 +935,12 @@ class Members:
         - Must not be in use by another member (retired emails count as used until they are [unlinked](https://stytch.com/docs/b2b/api/unlink-retired-member-email))
         - Must not be updating for another member (i.e. two members cannot attempt to update to the same email at once)
 
-        The member will receive an Email Magic Link that expires in 5 minutes. If they do not verify their new email address in that timeframe, the email
+        The member will receive an Email Magic Link (or Email OTP Code, if `EMAIL_OTP` is specified as the delivery method) that expires in 5 minutes. If they do not verify their new email address in that timeframe, the email
         will be freed up for other members to use.
 
-        The Magic Link will redirect to your `login_redirect_url` (or the configured default if one isn't provided), and you should invoke the [Authenticate Magic Link](https://stytch.com/docs/b2b/api/authenticate-magic-link) endpoint as normal to complete the flow.
+        If using Email Magic Links, the magic link will redirect to your `login_redirect_url` (or the configured default if one isn't provided), and you should invoke the [Authenticate Magic Link](https://stytch.com/docs/b2b/api/authenticate-magic-link) endpoint as normal to complete the flow.
+
+        If using Email OTP Codes, you should invoke the [Authenticate Email OTP Code](https://stytch.com/docs/b2b/api/authenticate-email-otp) endpoint as normal to complete the flow. Make sure to pass the new email address to the endpoint.
 
         Fields:
           - organization_id: Globally unique UUID that identifies a specific Organization. The `organization_id` is critical to perform operations on an Organization, so be sure to preserve this value. You may also use the organization_slug or organization_external_id here as a convenience.
@@ -943,6 +957,7 @@ class Members:
 
           - login_template_id: Use a custom template for login emails. By default, it will use your default email template. The template must be from Stytch's
         built-in customizations or a custom HTML email for Magic Links - Login.
+          - delivery_method: The method that should be used to verify a member's new email address. The options are `EMAIL_MAGIC_LINK` or `EMAIL_OTP`. This field is optional, if no value is provided, `EMAIL_MAGIC_LINK` will be used.
         """  # noqa
         headers: Dict[str, str] = {}
         if method_options is not None:
@@ -958,6 +973,8 @@ class Members:
             data["locale"] = locale
         if login_template_id is not None:
             data["login_template_id"] = login_template_id
+        if delivery_method is not None:
+            data["delivery_method"] = delivery_method
 
         url = self.api_base.url_for(
             "/v1/b2b/organizations/{organization_id}/members/{member_id}/start_email_update",
@@ -1027,6 +1044,48 @@ class Members:
         )
         res = await self.async_client.get(url, data, headers)
         return GetConnectedAppsResponse.from_json(res.response.status, res.json)
+
+    def delete_external_id(
+        self,
+        organization_id: str,
+        member_id: str,
+        method_options: Optional[DeleteExternalIdRequestOptions] = None,
+    ) -> DeleteExternalIdResponse:
+        headers: Dict[str, str] = {}
+        if method_options is not None:
+            headers = method_options.add_headers(headers)
+        data: Dict[str, Any] = {
+            "organization_id": organization_id,
+            "member_id": member_id,
+        }
+
+        url = self.api_base.url_for(
+            "/v1/b2b/organizations/{organization_id}/members/{member_id}/external_id",
+            data,
+        )
+        res = self.sync_client.delete(url, headers)
+        return DeleteExternalIdResponse.from_json(res.response.status_code, res.json)
+
+    async def delete_external_id_async(
+        self,
+        organization_id: str,
+        member_id: str,
+        method_options: Optional[DeleteExternalIdRequestOptions] = None,
+    ) -> DeleteExternalIdResponse:
+        headers: Dict[str, str] = {}
+        if method_options is not None:
+            headers = method_options.add_headers(headers)
+        data: Dict[str, Any] = {
+            "organization_id": organization_id,
+            "member_id": member_id,
+        }
+
+        url = self.api_base.url_for(
+            "/v1/b2b/organizations/{organization_id}/members/{member_id}/external_id",
+            data,
+        )
+        res = await self.async_client.delete(url, headers)
+        return DeleteExternalIdResponse.from_json(res.response.status, res.json)
 
     def create(
         self,

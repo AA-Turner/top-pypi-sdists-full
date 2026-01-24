@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-testmon
-Version: 2.1.3
+Version: 2.2.0
 Summary: selects tests affected by changed files and methods
 Author-email: Tibor Arpas <tibor@testmon.org>
 License: MIT
@@ -15,11 +15,12 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Classifier: Programming Language :: Python
 Classifier: Framework :: Pytest
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pytest<9,>=5
+Requires-Dist: pytest<10,>=5
 Requires-Dist: coverage<8,>=6
+Dynamic: license-file
 
 <img src=https://user-images.githubusercontent.com/135344/219700265-0a9b152f-7285-4607-bbce-0c9aeddd520b.svg width=300>
 

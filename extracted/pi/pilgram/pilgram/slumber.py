@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def slumber(im):
+def slumber(im: Image.Image) -> Image.Image:
     """Applies Slumber filter.
 
     Arguments:
@@ -26,15 +27,15 @@ def slumber(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs1 = util.fill(cb.size, [69, 41, 12, .4])
+    cs1 = util.fill(cb.size, (69, 41, 12, 0.4))
     cm = css.blending.lighten(cb, cs1)
 
-    cs2 = util.fill(cb.size, [125, 105, 24, .5])
+    cs2 = util.fill(cb.size, (125, 105, 24, 0.5))
     cr = css.blending.soft_light(cm, cs2)
 
-    cr = css.saturate(cr, .66)
+    cr = css.saturate(cr, 0.66)
     cr = css.brightness(cr, 1.05)
 
     return cr

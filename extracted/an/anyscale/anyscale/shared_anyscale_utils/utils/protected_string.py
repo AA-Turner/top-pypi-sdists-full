@@ -53,6 +53,9 @@ class ProtectedString(FastApiMixIn):
             return self._UNSAFE_DO_NOT_USE == other._UNSAFE_DO_NOT_USE  # noqa: SLF001
         return False
 
+    def __hash__(self) -> int:
+        return hash(self._UNSAFE_DO_NOT_USE)
+
     def __str__(self) -> str:
         # This will collide like crazy (~1% chance of collision in 3000 guesses), but since the goal here is human debuggability, that is probably fine.
         m = hashlib.blake2b(self._UNSAFE_DO_NOT_USE.encode("utf-8"), digest_size=4)
@@ -61,7 +64,7 @@ class ProtectedString(FastApiMixIn):
         if FAIL_ON_MISUSE:
             raise RuntimeError(error_msg)
         else:
-            warnings.warn(error_msg)
+            warnings.warn(error_msg, stacklevel=2)
         return f"<{self.__class__.__name__} digest={m.hexdigest()}>"
 
     def __repr__(self) -> str:

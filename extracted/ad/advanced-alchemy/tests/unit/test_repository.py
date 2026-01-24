@@ -6,7 +6,7 @@ import datetime
 import decimal
 from collections.abc import AsyncGenerator, Collection, Generator
 from typing import TYPE_CHECKING, Any, Union, cast
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
 from uuid import uuid4
 
 import pytest
@@ -14,9 +14,10 @@ from msgspec import Struct
 from pydantic import BaseModel
 from pytest_lazy_fixtures import lf
 from sqlalchemy import Integer, String
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InvalidRequestError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, Mapped, Session, mapped_column
+from sqlalchemy.sql.selectable import ForUpdateArg
 from sqlalchemy.types import TypeEngine
 
 from advanced_alchemy import base
@@ -376,6 +377,89 @@ async def test_sqlalchemy_repo_get_member(
     assert instance is mock_instance
     mock_repo.session.expunge.assert_not_called()  # pyright: ignore[reportFunctionMemberAccess]
     mock_repo.session.commit.assert_not_called()  # pyright: ignore[reportFunctionMemberAccess]
+
+
+async def test_sqlalchemy_repo_get_with_for_update(
+    mock_repo: SQLAlchemyAsyncRepository[Any],
+    mocker: MockerFixture,
+) -> None:
+    """Ensure FOR UPDATE options are applied when requested."""
+
+    statement = MagicMock()
+    statement.options.return_value = statement
+    statement.execution_options.return_value = statement
+    statement.with_for_update.return_value = statement
+    mock_repo.statement = statement
+
+    mocker.patch.object(mock_repo, "_get_loader_options", return_value=([], False))
+    mocker.patch.object(mock_repo, "_get_base_stmt", return_value=statement)
+    mocker.patch.object(mock_repo, "_apply_filters", return_value=statement)
+    mocker.patch.object(mock_repo, "_filter_select_by_kwargs", return_value=statement)
+    execute_result = MagicMock()
+    execute_result.scalar_one_or_none.return_value = MagicMock()
+    execute = mocker.patch.object(mock_repo, "_execute", return_value=execute_result)
+
+    instance = await maybe_async(mock_repo.get("instance-id", with_for_update=True))
+
+    assert instance is execute_result.scalar_one_or_none.return_value
+    statement.with_for_update.assert_called_once_with()
+    execute.assert_called_once_with(statement, uniquify=False)
+
+
+async def test_sqlalchemy_repo_get_with_for_update_dict(
+    mock_repo: SQLAlchemyAsyncRepository[Any],
+    mocker: MockerFixture,
+) -> None:
+    statement = MagicMock()
+    statement.options.return_value = statement
+    statement.execution_options.return_value = statement
+    statement.with_for_update.return_value = statement
+    mock_repo.statement = statement
+
+    mocker.patch.object(mock_repo, "_get_loader_options", return_value=([], False))
+    mocker.patch.object(mock_repo, "_get_base_stmt", return_value=statement)
+    mocker.patch.object(mock_repo, "_apply_filters", return_value=statement)
+    mocker.patch.object(mock_repo, "_filter_select_by_kwargs", return_value=statement)
+    execute_result = MagicMock()
+    execute_result.scalar_one_or_none.return_value = MagicMock()
+    mocker.patch.object(mock_repo, "_execute", return_value=execute_result)
+
+    await maybe_async(
+        mock_repo.get(
+            "instance-id",
+            with_for_update={"nowait": True, "read": False},
+        )
+    )
+
+    statement.with_for_update.assert_called_once_with(nowait=True, read=False)
+
+
+async def test_sqlalchemy_repo_get_with_for_update_arg(
+    mock_repo: SQLAlchemyAsyncRepository[Any],
+    mocker: MockerFixture,
+) -> None:
+    statement = MagicMock()
+    statement.options.return_value = statement
+    statement.execution_options.return_value = statement
+    statement.with_for_update.return_value = statement
+    mock_repo.statement = statement
+
+    mocker.patch.object(mock_repo, "_get_loader_options", return_value=([], False))
+    mocker.patch.object(mock_repo, "_get_base_stmt", return_value=statement)
+    mocker.patch.object(mock_repo, "_apply_filters", return_value=statement)
+    mocker.patch.object(mock_repo, "_filter_select_by_kwargs", return_value=statement)
+    execute_result = MagicMock()
+    execute_result.scalar_one_or_none.return_value = MagicMock()
+    mocker.patch.object(mock_repo, "_execute", return_value=execute_result)
+
+    await maybe_async(
+        mock_repo.get(
+            "instance-id",
+            with_for_update=ForUpdateArg(nowait=True, key_share=True),
+        )
+    )
+
+    statement.with_for_update.assert_called_once_with(nowait=True, read=False, skip_locked=False, key_share=True)
 
 
 async def test_sqlalchemy_repo_get_one_member(
@@ -1509,11 +1593,12 @@ async def test_update_skips_raise_lazy_relationships(
     mock_mapper.mapper.columns = []
     mock_mapper.mapper.relationships = [mock_relationship]
 
-    # Mock the data object to have the raise relationship attribute
-    mock_instance.items = MagicMock()
+    # Mock the data object to raise an error when accessing the relationship
+    type(mock_instance).items = PropertyMock(side_effect=InvalidRequestError)
 
     mocker.patch.object(mock_repo, "get_id_attribute_value", return_value=id_)
     mocker.patch.object(mock_repo, "get", return_value=existing_instance)
+    mocker.patch("advanced_alchemy.repository._sync.inspect", return_value=mock_mapper)
     mocker.patch("advanced_alchemy.repository._async.inspect", return_value=mock_mapper)
     mock_repo.session.merge.return_value = existing_instance  # pyright: ignore[reportFunctionMemberAccess]
 
@@ -1647,3 +1732,261 @@ def test_update_many_data_conversion_handles_mixed_types() -> None:
     assert isinstance(data_to_update[1], dict)  # Dict passed through
     assert data_to_update[0]["name"] == "Test Author"
     assert data_to_update[1]["name"] == "Dict Author"
+
+
+def test_compare_values_handles_numpy_arrays() -> None:
+    """Test that compare_values properly handles numpy arrays.
+
+    This is a regression test for the issue where comparing numpy arrays
+    (like pgvector's Vector type) would raise:
+    ValueError: The truth value of an array with more than one element is ambiguous
+    """
+    from advanced_alchemy.repository._util import compare_values
+
+    # Test with regular values (should work as before)
+    assert compare_values("same", "same") is True
+    assert compare_values("different", "other") is False
+    assert compare_values(None, None) is True
+    assert compare_values(None, "value") is False
+    assert compare_values("value", None) is False
+
+    # Test with mock numpy arrays (when numpy is not installed)
+    class MockNumpyArray:
+        """Mock numpy array for testing when numpy is not available."""
+
+        def __init__(self, data: list[float]) -> None:
+            self.data = data
+            self.dtype = "float64"  # Required for is_numpy_array detection
+
+        def __array__(self) -> list[float]:
+            """Required for is_numpy_array detection."""
+            return self.data
+
+        def __eq__(self, other: object) -> list[bool]:  # type: ignore[override]
+            """Simulate numpy's element-wise comparison that causes the issue."""
+            if isinstance(other, MockNumpyArray):
+                return [a == b for a, b in zip(self.data, other.data)]
+            return [False] * len(self.data)
+
+    # Create mock arrays
+    array1 = MockNumpyArray([1.0, 2.0, 3.0])
+    array2 = MockNumpyArray([1.0, 2.0, 3.0])  # Same data
+    array3 = MockNumpyArray([4.0, 5.0, 6.0])  # Different data
+
+    # Test array comparisons (these would previously raise ValueError)
+    result_same = compare_values(array1, array2)
+    result_different = compare_values(array1, array3)
+    result_mixed = compare_values(array1, "not_an_array")
+
+    # The important thing is that no ValueError is raised
+    assert isinstance(result_same, bool)  # Should not raise ValueError
+    assert isinstance(result_different, bool)  # Should not raise ValueError
+    assert isinstance(result_mixed, bool)  # Should not raise ValueError
+
+    # The specific results depend on whether numpy is installed:
+    # - With numpy: MockNumpyArray is not detected as numpy array, falls back to __eq__
+    # - Without numpy: stub functions are used which return False for safety
+    # Either way, no ValueError should be raised
+
+    # Test with values that would cause comparison errors
+    class ProblematicValue:
+        def __eq__(self, other: object) -> None:  # type: ignore[override]
+            raise TypeError("Cannot compare")
+
+    problematic = ProblematicValue()
+    # Should handle comparison errors gracefully
+    assert compare_values(problematic, "other") is False
+    assert compare_values("other", problematic) is False
+
+
+def test_compare_values_with_real_numpy_arrays() -> None:
+    """Test compare_values with actual numpy arrays when numpy is installed.
+
+    This test covers the real numpy code paths that were missing from coverage.
+    """
+    # This test will only run if numpy is actually installed
+    try:
+        import numpy as np
+    except ImportError:
+        pytest.skip("numpy not available")
+
+    from advanced_alchemy.repository._util import compare_values
+
+    # Test equal arrays
+    arr1 = np.array([1.0, 2.0, 3.0])
+    arr2 = np.array([1.0, 2.0, 3.0])
+    assert compare_values(arr1, arr2) is True
+
+    # Test different arrays
+    arr3 = np.array([4.0, 5.0, 6.0])
+    assert compare_values(arr1, arr3) is False
+
+    # Test different shapes
+    arr4 = np.array([[1.0, 2.0], [3.0, 4.0]])
+    assert compare_values(arr1, arr4) is False
+
+    # Test array vs non-array
+    assert compare_values(arr1, [1.0, 2.0, 3.0]) is False
+    assert compare_values(arr1, "not an array") is False
+
+    # Test empty arrays
+    empty1 = np.array([])
+    empty2 = np.array([])
+    assert compare_values(empty1, empty2) is True
+
+    # Test different dtypes but same values
+    int_arr = np.array([1, 2, 3])
+    float_arr = np.array([1.0, 2.0, 3.0])
+    assert compare_values(int_arr, float_arr) is True  # numpy considers these equal
+
+    # Test NaN handling
+    nan_arr1 = np.array([1.0, np.nan, 3.0])
+    nan_arr2 = np.array([1.0, np.nan, 3.0])
+    # numpy considers NaN != NaN, so arrays with NaN won't be equal
+    assert compare_values(nan_arr1, nan_arr2) is False
+
+
+def test_compare_values_covers_all_branches() -> None:
+    """Test compare_values to ensure all code branches are covered."""
+    from advanced_alchemy.repository._util import compare_values
+
+    # Test standard equality that returns non-bool (should not happen with normal types)
+    class WeirdComparison:
+        def __eq__(self, other: object) -> str:  # type: ignore[override]
+            return "weird"
+
+    weird = WeirdComparison()
+    # This tests the bool() conversion in the standard comparison path
+    result = compare_values(weird, weird)
+    assert isinstance(result, bool)  # Should convert "weird" to True
+    assert result is True
+
+
+def test_repository_update_methods_with_numpy_arrays() -> None:
+    """Test that repository update methods work correctly with numpy array fields.
+
+    This integration test covers the actual repository comparison paths
+    that were missing from coverage.
+    """
+    # This test will only run if numpy is actually installed
+    try:
+        import numpy as np
+    except ImportError:
+        pytest.skip("numpy not available")
+
+    from advanced_alchemy.repository._util import compare_values
+
+    # Test data with numpy arrays
+    arr1 = np.array([1.0, 2.0, 3.0])
+    arr2 = np.array([1.0, 2.0, 3.0])  # Same as arr1
+    arr3 = np.array([4.0, 5.0, 6.0])  # Different from arr1
+
+    # These operations would previously fail with ValueError
+    # Now they should work correctly by using our safe comparison
+
+    # Test 1: Arrays with same data should be considered equal
+    assert arr1 is not arr2  # Different objects
+    # But compare_values should see them as equal
+    assert compare_values(arr1, arr2) is True
+
+    # Test 2: Arrays with different data should be considered different
+    assert compare_values(arr1, arr3) is False
+
+    # Test 3: Test with None values (common edge case)
+    assert compare_values(None, None) is True
+    assert compare_values(arr1, None) is False
+    assert compare_values(None, arr1) is False
+
+    # Test 4: Array vs non-array should be False
+    assert compare_values(arr1, [1.0, 2.0, 3.0]) is False
+    assert compare_values(arr1, "not an array") is False
+
+    # Test 5: Test different shapes
+    arr_2d = np.array([[1.0, 2.0], [3.0, 4.0]])
+    assert compare_values(arr1, arr_2d) is False
+
+    # Test 6: Test empty arrays
+    empty1 = np.array([])
+    empty2 = np.array([])
+    assert compare_values(empty1, empty2) is True
+
+    # Test 7: Test with complex numbers (edge case)
+    complex1 = np.array([1 + 2j, 3 + 4j])
+    complex2 = np.array([1 + 2j, 3 + 4j])
+    complex3 = np.array([1 + 2j, 5 + 6j])
+    assert compare_values(complex1, complex2) is True
+    assert compare_values(complex1, complex3) is False
+
+
+def test_was_attribute_set_with_explicitly_set_attributes() -> None:
+    """Test was_attribute_set correctly identifies explicitly set attributes."""
+    from sqlalchemy import inspect
+
+    from advanced_alchemy.repository._util import was_attribute_set
+
+    # Create an instance with explicitly set attributes
+    instance = UUIDModel()
+    instance.id = uuid4()  # Explicitly set id
+
+    # Get the mapper/inspector
+    mapper = inspect(instance)
+
+    # Explicitly set attributes should return True
+    assert was_attribute_set(instance, mapper, "id") is True
+
+
+def test_was_attribute_set_with_uninitialized_attributes() -> None:
+    """Test was_attribute_set correctly identifies uninitialized attributes."""
+    from sqlalchemy import inspect
+
+    from advanced_alchemy.repository._util import was_attribute_set
+
+    # Use the existing UUIDModel which has created_at and updated_at audit fields
+    # Create an instance - created_at and updated_at won't be in instance dict yet
+    instance = UUIDModel()
+
+    # Get the mapper/inspector
+    mapper = inspect(instance)
+
+    # Uninitialized audit attributes should return False
+    # They exist on the model but haven't been explicitly set
+    assert was_attribute_set(instance, mapper, "created_at") is False
+    assert was_attribute_set(instance, mapper, "updated_at") is False
+
+
+def test_was_attribute_set_with_modified_attributes() -> None:
+    """Test was_attribute_set detects attributes with modification history."""
+    from sqlalchemy import inspect
+
+    from advanced_alchemy.repository._util import was_attribute_set
+
+    # Create an instance and explicitly set attributes
+    instance = UUIDModel()
+    instance.id = uuid4()  # Explicitly set id
+
+    # Also test setting a datetime attribute
+    now = datetime.datetime.now(datetime.timezone.utc)
+    instance.created_at = now  # Explicitly modify created_at
+
+    # Get the mapper/inspector
+    mapper = inspect(instance)
+
+    # Modified attributes should return True
+    assert was_attribute_set(instance, mapper, "id") is True
+    assert was_attribute_set(instance, mapper, "created_at") is True
+
+
+def test_was_attribute_set_with_nonexistent_attribute() -> None:
+    """Test was_attribute_set handles nonexistent attributes gracefully."""
+    from sqlalchemy import inspect
+
+    from advanced_alchemy.repository._util import was_attribute_set
+
+    # Create an instance
+    instance = UUIDModel()
+
+    # Get the mapper/inspector
+    mapper = inspect(instance)
+
+    # Nonexistent attribute should return False (attr_state is None)
+    assert was_attribute_set(instance, mapper, "nonexistent_field") is False

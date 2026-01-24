@@ -2,7 +2,6 @@ import asyncio
 import csv
 import json
 import ssl
-import sys
 from logging import warning
 from pathlib import Path
 from uuid import uuid4
@@ -18,7 +17,8 @@ from httpx import AsyncClient as HttpxAsyncClient
 
 from meilisearch_python_sdk import AsyncClient, Client
 from meilisearch_python_sdk._task import async_wait_for_task, wait_for_task
-from meilisearch_python_sdk.json_handler import OrjsonHandler, UjsonHandler
+from meilisearch_python_sdk.errors import MeilisearchApiError
+from meilisearch_python_sdk.json_handler import OrjsonHandler
 from meilisearch_python_sdk.models.settings import (
     Embedders,
     Faceting,
@@ -29,6 +29,7 @@ from meilisearch_python_sdk.models.settings import (
     TypoTolerance,
     UserProvidedEmbedder,
 )
+from meilisearch_python_sdk.models.webhook import WebhookCreate
 
 MASTER_KEY = "masterKey"
 
@@ -53,10 +54,7 @@ def ssl_verify(http2_enabled):
             return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT) if http2_enabled else True
         return True  # recommended default
     else:  # truststore isn't installed
-        if sys.version_info >= (3, 10):  # should be available in 3.10+
-            warning("truststore not installed, your environment may be broken run uv sync")
-        # without truststore we can't verify the ssl (and when http2 is enabled, verification must be disabled)
-        return not http2_enabled
+        warning("truststore not installed, your environment may be broken run uv sync")
 
 
 @pytest.fixture(scope="session")
@@ -74,14 +72,6 @@ async def async_client_orjson_handler(base_url, ssl_verify):
 
 
 @pytest.fixture(scope="session")
-async def async_client_ujson_handler(base_url, ssl_verify):
-    async with AsyncClient(
-        base_url, MASTER_KEY, json_handler=UjsonHandler(), verify=ssl_verify
-    ) as client:
-        yield client
-
-
-@pytest.fixture(scope="session")
 async def async_client_with_plugins(base_url, ssl_verify):
     async with AsyncClient(base_url, MASTER_KEY, verify=ssl_verify) as client:
         yield client
@@ -89,17 +79,13 @@ async def async_client_with_plugins(base_url, ssl_verify):
 
 @pytest.fixture(scope="session")
 def client(base_url, ssl_verify):
-    yield Client(base_url, MASTER_KEY, verify=ssl_verify)
+    with Client(base_url, MASTER_KEY, verify=ssl_verify) as client:
+        yield client
 
 
 @pytest.fixture(scope="session")
 def client_orjson_handler(base_url, ssl_verify):
     yield Client(base_url, MASTER_KEY, json_handler=OrjsonHandler(), verify=ssl_verify)
-
-
-@pytest.fixture(scope="session")
-def client_ujson_handler(base_url, ssl_verify):
-    yield Client(base_url, MASTER_KEY, json_handler=UjsonHandler(), verify=ssl_verify)
 
 
 @pytest.fixture(autouse=True)
@@ -353,3 +339,17 @@ def new_settings_localized():
             LocalizedAttributes(locales=["ita"], attribute_patterns=["*_it"]),
         ],
     )
+
+
+@pytest.fixture
+def webhook(client):
+    webhook_config = WebhookCreate(url="https://example.com/webhook")
+    webhook = client.create_webhook(webhook_config)
+
+    yield webhook
+
+    try:
+        client.delete_webhook(webhook.uuid)
+    except MeilisearchApiError as e:
+        if "webhook_not_found" in str(e):
+            pass

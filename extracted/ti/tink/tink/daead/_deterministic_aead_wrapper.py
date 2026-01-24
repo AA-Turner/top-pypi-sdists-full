@@ -14,8 +14,9 @@
 
 """Deterministic AEAD wrapper."""
 
-from typing import Type
+from typing import Optional, Type
 
+from tink import _monitoring
 from tink import core
 from tink.daead import _deterministic_aead
 
@@ -23,40 +24,78 @@ from tink.daead import _deterministic_aead
 class _WrappedDeterministicAead(_deterministic_aead.DeterministicAead):
   """Implements DeterministicAead for a set of DeterministicAead primitives."""
 
-  def __init__(self, pset: core.PrimitiveSet):
+  def __init__(
+      self,
+      pset: core.PrimitiveSet,
+      encryption_monitor: Optional[_monitoring.KeyUsageMonitor] = None,
+      decryption_monitor: Optional[_monitoring.KeyUsageMonitor] = None,
+  ):
     self._primitive_set = pset
+    self._encryption_monitor = encryption_monitor
+    self._decryption_monitor = decryption_monitor
 
-  def encrypt_deterministically(self, plaintext: bytes,
-                                associated_data: bytes) -> bytes:
+  def encrypt_deterministically(
+      self, plaintext: bytes, associated_data: bytes
+  ) -> bytes:
     primary = self._primitive_set.primary()
-    return primary.identifier + primary.primitive.encrypt_deterministically(
-        plaintext, associated_data)
+    result = primary.identifier + primary.primitive.encrypt_deterministically(
+        plaintext, associated_data
+    )
 
-  def decrypt_deterministically(self, ciphertext: bytes,
-                                associated_data: bytes) -> bytes:
+    if self._encryption_monitor:
+      self._encryption_monitor.log(primary.key_id, len(plaintext))
+
+    return result
+
+  def decrypt_deterministically(
+      self, ciphertext: bytes, associated_data: bytes
+  ) -> bytes:
     if len(ciphertext) > core.crypto_format.NON_RAW_PREFIX_SIZE:
-      prefix = ciphertext[:core.crypto_format.NON_RAW_PREFIX_SIZE]
-      ciphertext_no_prefix = ciphertext[core.crypto_format.NON_RAW_PREFIX_SIZE:]
+      prefix = ciphertext[: core.crypto_format.NON_RAW_PREFIX_SIZE]
+      ciphertext_no_prefix = ciphertext[
+          core.crypto_format.NON_RAW_PREFIX_SIZE :
+      ]
       for entry in self._primitive_set.primitive_from_identifier(prefix):
         try:
-          return entry.primitive.decrypt_deterministically(ciphertext_no_prefix,
-                                                           associated_data)
+          result = entry.primitive.decrypt_deterministically(
+              ciphertext_no_prefix, associated_data
+          )
+
+          if self._decryption_monitor:
+            self._decryption_monitor.log(
+                entry.key_id, len(ciphertext_no_prefix)
+            )
+
+          return result
         except core.TinkError:
           pass
     # Let's try all RAW keys.
     for entry in self._primitive_set.raw_primitives():
       try:
-        return entry.primitive.decrypt_deterministically(ciphertext,
-                                                         associated_data)
+        result = entry.primitive.decrypt_deterministically(
+            ciphertext, associated_data
+        )
+
+        if self._decryption_monitor:
+          self._decryption_monitor.log(entry.key_id, len(ciphertext))
+
+        return result
       except core.TinkError:
         pass
+
     # nothing works.
+    if self._decryption_monitor:
+      self._decryption_monitor.log_failure()
+
     raise core.TinkError('Decryption failed.')
 
 
 class DeterministicAeadWrapper(
-    core.PrimitiveWrapper[_deterministic_aead.DeterministicAead,
-                          _deterministic_aead.DeterministicAead]):
+    core.PrimitiveWrapper[
+        _deterministic_aead.DeterministicAead,
+        _deterministic_aead.DeterministicAead,
+    ]
+):
   """DeterministicAeadWrapper is a PrimitiveWrapper for DeterministicAead.
 
   The created primitive works with a keyset (rather than a single key). To
@@ -68,12 +107,37 @@ class DeterministicAeadWrapper(
   """
 
   def wrap(
-      self, pset: core.PrimitiveSet) -> _deterministic_aead.DeterministicAead:
+      self, pset: core.PrimitiveSet
+  ) -> _deterministic_aead.DeterministicAead:
     return _WrappedDeterministicAead(pset)
 
   def primitive_class(self) -> Type[_deterministic_aead.DeterministicAead]:
     return _deterministic_aead.DeterministicAead
 
   def input_primitive_class(
-      self) -> Type[_deterministic_aead.DeterministicAead]:
+      self,
+  ) -> Type[_deterministic_aead.DeterministicAead]:
     return _deterministic_aead.DeterministicAead
+
+  def _wrap_with_monitoring_info(
+      self,
+      pset: core.PrimitiveSet,
+      monitoring_keyset_info: _monitoring.MonitoringKeySetInfo,
+  ) -> _deterministic_aead.DeterministicAead:
+    encryption_key_usage_monitor = _monitoring.get_key_usage_monitor_or_none(
+        _monitoring.MonitoringContext(
+            primitive='daead',
+            api_function='encrypt',
+            keyset_info=monitoring_keyset_info,
+        )
+    )
+    decryption_key_usage_monitor = _monitoring.get_key_usage_monitor_or_none(
+        _monitoring.MonitoringContext(
+            primitive='daead',
+            api_function='decrypt',
+            keyset_info=monitoring_keyset_info,
+        )
+    )
+    return _WrappedDeterministicAead(
+        pset, encryption_key_usage_monitor, decryption_key_usage_monitor
+    )

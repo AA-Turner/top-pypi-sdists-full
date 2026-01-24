@@ -164,7 +164,6 @@ static sherpa_onnx::OnlineRecognizerConfig GetOnlineRecognizerConfig(
   recognizer_config.rule_fsts = SHERPA_ONNX_OR(config->rule_fsts, "");
   recognizer_config.rule_fars = SHERPA_ONNX_OR(config->rule_fars, "");
 
-  recognizer_config.hr.dict_dir = SHERPA_ONNX_OR(config->hr.dict_dir, "");
   recognizer_config.hr.lexicon = SHERPA_ONNX_OR(config->hr.lexicon, "");
   recognizer_config.hr.rule_fsts = SHERPA_ONNX_OR(config->hr.rule_fsts, "");
 
@@ -509,6 +508,34 @@ static sherpa_onnx::OfflineRecognizerConfig GetOfflineRecognizerConfig(
   recognizer_config.model_config.wenet_ctc.model =
       SHERPA_ONNX_OR(config->model_config.wenet_ctc.model, "");
 
+  recognizer_config.model_config.omnilingual.model =
+      SHERPA_ONNX_OR(config->model_config.omnilingual.model, "");
+
+  recognizer_config.model_config.medasr.model =
+      SHERPA_ONNX_OR(config->model_config.medasr.model, "");
+
+  recognizer_config.model_config.funasr_nano.encoder_adaptor =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.encoder_adaptor, "");
+  recognizer_config.model_config.funasr_nano.llm =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.llm, "");
+  recognizer_config.model_config.funasr_nano.embedding =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.embedding, "");
+  recognizer_config.model_config.funasr_nano.tokenizer =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.tokenizer, "");
+  recognizer_config.model_config.funasr_nano.system_prompt =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.system_prompt,
+                     "You are a helpful assistant.");
+  recognizer_config.model_config.funasr_nano.user_prompt = SHERPA_ONNX_OR(
+      config->model_config.funasr_nano.user_prompt, "语音转写：");
+  recognizer_config.model_config.funasr_nano.max_new_tokens =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.max_new_tokens, 512);
+  recognizer_config.model_config.funasr_nano.temperature =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.temperature, 1e-6f);
+  recognizer_config.model_config.funasr_nano.top_p =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.top_p, 0.8f);
+  recognizer_config.model_config.funasr_nano.seed =
+      SHERPA_ONNX_OR(config->model_config.funasr_nano.seed, 42);
+
   recognizer_config.lm_config.model =
       SHERPA_ONNX_OR(config->lm_config.model, "");
   recognizer_config.lm_config.scale =
@@ -533,7 +560,6 @@ static sherpa_onnx::OfflineRecognizerConfig GetOfflineRecognizerConfig(
   recognizer_config.rule_fsts = SHERPA_ONNX_OR(config->rule_fsts, "");
   recognizer_config.rule_fars = SHERPA_ONNX_OR(config->rule_fars, "");
 
-  recognizer_config.hr.dict_dir = SHERPA_ONNX_OR(config->hr.dict_dir, "");
   recognizer_config.hr.lexicon = SHERPA_ONNX_OR(config->hr.lexicon, "");
   recognizer_config.hr.rule_fsts = SHERPA_ONNX_OR(config->hr.rule_fsts, "");
 
@@ -702,12 +728,22 @@ const SherpaOnnxOfflineRecognizerResult *SherpaOnnxGetOfflineStreamResult(
       r->durations = nullptr;
     }
 
+    if (!result.ys_log_probs.empty() &&
+        result.ys_log_probs.size() == r->count) {
+      r->ys_log_probs = new float[r->count];
+      std::copy(result.ys_log_probs.begin(), result.ys_log_probs.end(),
+                r->ys_log_probs);
+    } else {
+      r->ys_log_probs = nullptr;
+    }
+
     r->tokens = tokens;
   } else {
     r->count = 0;
     r->timestamps = nullptr;
     r->tokens = nullptr;
     r->tokens_arr = nullptr;
+    r->ys_log_probs = nullptr;
   }
 
   return r;
@@ -719,6 +755,7 @@ void SherpaOnnxDestroyOfflineRecognizerResult(
     delete[] r->text;
     delete[] r->timestamps;
     delete[] r->durations;
+    delete[] r->ys_log_probs;
     delete[] r->tokens;
     delete[] r->tokens_arr;
     delete[] r->json;
@@ -1183,8 +1220,6 @@ static sherpa_onnx::OfflineTtsConfig GetOfflineTtsConfig(
       SHERPA_ONNX_OR(config->model.vits.noise_scale_w, 0.8);
   tts_config.model.vits.length_scale =
       SHERPA_ONNX_OR(config->model.vits.length_scale, 1.0);
-  tts_config.model.vits.dict_dir =
-      SHERPA_ONNX_OR(config->model.vits.dict_dir, "");
 
   // matcha
   tts_config.model.matcha.acoustic_model =
@@ -1201,8 +1236,6 @@ static sherpa_onnx::OfflineTtsConfig GetOfflineTtsConfig(
       SHERPA_ONNX_OR(config->model.matcha.noise_scale, 0.667);
   tts_config.model.matcha.length_scale =
       SHERPA_ONNX_OR(config->model.matcha.length_scale, 1.0);
-  tts_config.model.matcha.dict_dir =
-      SHERPA_ONNX_OR(config->model.matcha.dict_dir, "");
 
   // kokoro
   tts_config.model.kokoro.model =
@@ -1215,8 +1248,6 @@ static sherpa_onnx::OfflineTtsConfig GetOfflineTtsConfig(
       SHERPA_ONNX_OR(config->model.kokoro.data_dir, "");
   tts_config.model.kokoro.length_scale =
       SHERPA_ONNX_OR(config->model.kokoro.length_scale, 1.0);
-  tts_config.model.kokoro.dict_dir =
-      SHERPA_ONNX_OR(config->model.kokoro.dict_dir, "");
   tts_config.model.kokoro.lexicon =
       SHERPA_ONNX_OR(config->model.kokoro.lexicon, "");
   tts_config.model.kokoro.lang = SHERPA_ONNX_OR(config->model.kokoro.lang, "");
@@ -1232,6 +1263,28 @@ static sherpa_onnx::OfflineTtsConfig GetOfflineTtsConfig(
       SHERPA_ONNX_OR(config->model.kitten.data_dir, "");
   tts_config.model.kitten.length_scale =
       SHERPA_ONNX_OR(config->model.kitten.length_scale, 1.0);
+
+  // zipvoice
+  tts_config.model.zipvoice.tokens =
+      SHERPA_ONNX_OR(config->model.zipvoice.tokens, "");
+  tts_config.model.zipvoice.encoder =
+      SHERPA_ONNX_OR(config->model.zipvoice.encoder, "");
+  tts_config.model.zipvoice.decoder =
+      SHERPA_ONNX_OR(config->model.zipvoice.decoder, "");
+  tts_config.model.zipvoice.vocoder =
+      SHERPA_ONNX_OR(config->model.zipvoice.vocoder, "");
+  tts_config.model.zipvoice.data_dir =
+      SHERPA_ONNX_OR(config->model.zipvoice.data_dir, "");
+  tts_config.model.zipvoice.lexicon =
+      SHERPA_ONNX_OR(config->model.zipvoice.lexicon, "");
+  tts_config.model.zipvoice.feat_scale =
+      SHERPA_ONNX_OR(config->model.zipvoice.feat_scale, 0.1f);
+  tts_config.model.zipvoice.t_shift =
+      SHERPA_ONNX_OR(config->model.zipvoice.t_shift, 0.5f);
+  tts_config.model.zipvoice.target_rms =
+      SHERPA_ONNX_OR(config->model.zipvoice.target_rms, 0.1f);
+  tts_config.model.zipvoice.guidance_scale =
+      SHERPA_ONNX_OR(config->model.zipvoice.guidance_scale, 1.0f);
 
   tts_config.model.num_threads = SHERPA_ONNX_OR(config->model.num_threads, 1);
   tts_config.model.debug = config->model.debug;
@@ -1355,6 +1408,42 @@ const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithCallbackWithArg(
   return SherpaOnnxOfflineTtsGenerateInternal(tts, text, sid, speed, wrapper);
 }
 
+const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithZipvoice(
+    const SherpaOnnxOfflineTts *tts, const char *text, const char *prompt_text,
+    const float *prompt_samples, int32_t n_prompt, int32_t prompt_sr,
+    float speed, int32_t num_steps) {
+  if (!tts) {
+    return nullptr;
+  }
+
+  std::string text_s = text ? text : "";
+  std::string ptext_s = prompt_text ? prompt_text : "";
+
+  std::vector<float> prompt_vec;
+  if (prompt_samples && n_prompt > 0) {
+    prompt_vec.assign(prompt_samples,
+                      prompt_samples + static_cast<size_t>(n_prompt));
+  }
+
+  auto out = tts->impl->Generate(text_s, ptext_s, prompt_vec, prompt_sr, speed,
+                                 num_steps,
+                                 /*callback=*/nullptr);
+
+  auto *ans = new SherpaOnnxGeneratedAudio;
+  ans->sample_rate = static_cast<int32_t>(out.sample_rate);
+  ans->n = static_cast<int32_t>(out.samples.size());
+
+  if (!out.samples.empty()) {
+    float *buf = new float[out.samples.size()];
+    std::copy(out.samples.begin(), out.samples.end(), buf);
+    ans->samples = buf;
+  } else {
+    ans->samples = nullptr;
+  }
+
+  return ans;
+}
+
 void SherpaOnnxDestroyOfflineTtsGeneratedAudio(
     const SherpaOnnxGeneratedAudio *p) {
   if (p) {
@@ -1417,6 +1506,13 @@ const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithCallbackWithArg(
     const SherpaOnnxOfflineTts *tts, const char *text, int32_t sid, float speed,
     SherpaOnnxGeneratedAudioCallbackWithArg callback, void *arg) {
   SHERPA_ONNX_LOGE("TTS is not enabled. Please rebuild sherpa-onnx");
+  return nullptr;
+}
+
+const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithZipvoice(
+    const SherpaOnnxOfflineTts *tts, const char *text, const char *prompt_text,
+    const float *prompt_samples, int32_t n_prompt, int32_t prompt_sr,
+    float speed, int32_t num_steps) {
   return nullptr;
 }
 

@@ -27,17 +27,15 @@ class GuardModelInfo(APIObject):
     * None  (all others)
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("input_column_name"): t.String(),
-            t.Key("output_column_name"): t.String(),
-            t.Key("target_type"): t.Enum(*[e.value for e in ModerationGuardModelTargetType]),
-            t.Key("replacement_text_column_name", optional=True): t.String(allow_blank=True),
-            t.Key("class_names", optional=True): t.List(t.String()),
-            t.Key("model_id", optional=True): t.String(allow_blank=True),
-            t.Key("model_name", optional=True): t.String(allow_blank=True),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("input_column_name"): t.String(),
+        t.Key("output_column_name"): t.String(),
+        t.Key("target_type"): t.Enum(*[e.value for e in ModerationGuardModelTargetType]),
+        t.Key("replacement_text_column_name", optional=True): t.String(allow_blank=True),
+        t.Key("class_names", optional=True): t.List(t.String()),
+        t.Key("model_id", optional=True): t.String(allow_blank=True),
+        t.Key("model_name", optional=True): t.String(allow_blank=True),
+    }).ignore_extra("*")
 
     schema = _converter
 

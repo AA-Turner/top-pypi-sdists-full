@@ -11,18 +11,32 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-
-class WebhooksWorkflowJobRunType(TypedDict):
-    """WebhooksWorkflowJobRun"""
-
-    conclusion: None
-    created_at: str
-    environment: str
-    html_url: str
-    id: int
-    name: None
-    status: str
-    updated_at: str
+from .group_0513 import TrafficType, TrafficTypeForResponse
 
 
-__all__ = ("WebhooksWorkflowJobRunType",)
+class ViewTrafficType(TypedDict):
+    """View Traffic
+
+    View Traffic
+    """
+
+    count: int
+    uniques: int
+    views: list[TrafficType]
+
+
+class ViewTrafficTypeForResponse(TypedDict):
+    """View Traffic
+
+    View Traffic
+    """
+
+    count: int
+    uniques: int
+    views: list[TrafficTypeForResponse]
+
+
+__all__ = (
+    "ViewTrafficType",
+    "ViewTrafficTypeForResponse",
+)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cashews
-Version: 7.4.1
+Version: 7.4.4
 Summary: cache tools with async power
 Home-page: https://github.com/Krukov/cashews/
 Author: Dmitry Kryukov
@@ -37,12 +37,12 @@ Provides-Extra: lint
 Requires-Dist: mypy>=1.5.0; extra == "lint"
 Requires-Dist: types-redis; extra == "lint"
 Provides-Extra: tests
-Requires-Dist: pytest==8.3.3; extra == "tests"
-Requires-Dist: pytest-asyncio==0.24.0; extra == "tests"
-Requires-Dist: pytest-cov==6.0.0; extra == "tests"
+Requires-Dist: pytest==8.4.2; extra == "tests"
+Requires-Dist: pytest-asyncio==1.1.0; extra == "tests"
+Requires-Dist: pytest-cov==6.2.1; extra == "tests"
 Requires-Dist: pytest-randomly==3.16.0; extra == "tests"
-Requires-Dist: pytest-rerunfailures==15.1; extra == "tests"
-Requires-Dist: hypothesis==6.135.29; extra == "tests"
+Requires-Dist: pytest-rerunfailures==16.0.1; extra == "tests"
+Requires-Dist: hypothesis==6.139.2; extra == "tests"
 Dynamic: license-file
 
 <h1 align="center">🥔 CASHEWS 🥔</h1>
@@ -661,7 +661,7 @@ async def convert_price(item):
 
 ```
 
-Not only function arguments can participate in a key formation. Cashews have a `template_context', use `@:get` in a template to paste variable from a context:
+Not only function arguments can participate in a key formation. Cashews have a `template_context`, use `@:get` in a template to paste variable from a context:
 
 ```python
 from cashews import cache, key_context

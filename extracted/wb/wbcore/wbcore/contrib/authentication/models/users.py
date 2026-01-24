@@ -1,16 +1,21 @@
 # -*- encoding: utf-8 -*-
 import unicodedata
 import uuid
+from contextlib import suppress
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.auth.models import Group as DjangoBaseGroup
 from django.contrib.auth.models import Permission as DjangoBasePermission
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db import models
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
+
+from wbcore.signals import pre_merge
+from wbcore.utils.models import MergeError
 
 
 class UserManager(BaseUserManager):
@@ -166,7 +171,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.profile.last_name
 
     @classmethod
-    def get_endpoint_basename(self):
+    def get_endpoint_basename(cls):
         return "wbcore:authentication:user"
 
     @classmethod
@@ -187,7 +192,7 @@ class Group(DjangoBaseGroup):
         proxy = True
 
     @classmethod
-    def get_endpoint_basename(self):
+    def get_endpoint_basename(cls):
         return "wbcore:authentication:group"
 
     @classmethod
@@ -208,7 +213,7 @@ class Permission(DjangoBasePermission):
         proxy = True
 
     @classmethod
-    def get_endpoint_basename(self):
+    def get_endpoint_basename(cls):
         return "wbcore:authentication:permission"
 
     @classmethod
@@ -222,3 +227,16 @@ class Permission(DjangoBasePermission):
     @classmethod
     def get_representation_label_key(cls):
         return "{{name}}"
+
+
+@receiver(pre_merge, sender="directory.Person")
+def pre_merge_person_user(sender: models.Model, merged_object, main_object, **kwargs):
+    with suppress(User.DoesNotExist):
+        user = User.objects.get(profile=merged_object)
+        if User.objects.filter(profile=main_object).exists():
+            raise MergeError(
+                f"we cannot safely merge person {merged_object} into {main_object}: A user profile already exists for {main_object}"
+            )
+        else:
+            user.profile = main_object
+            user.save()

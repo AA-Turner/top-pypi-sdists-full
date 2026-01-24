@@ -52,6 +52,13 @@ options:
     - A virtual network interface (vip)
     - The network interfaces must have a I(service) value of I(data)
     type: str
+  service:
+    description:
+    - The service utilizing the DNS configuration.
+    - Only aplicable when creating a new DNS configuration.
+    type: str
+    choices: [ management, data ]
+    default: data
 extends_documentation_fragment:
 - purestorage.flashblade.purestorage.fb
 """
@@ -88,7 +95,7 @@ RETURN = r"""
 
 HAS_PURESTORAGE = True
 try:
-    from pypureclient.flashblade import Dns, DnsPatch, DnsPost, ReferenceNoId
+    from pypureclient.flashblade import Dns, DnsPatch, DnsPost, Reference
 except ImportError:
     HAS_PURESTORAGE = False
 
@@ -111,10 +118,7 @@ def remove(duplicate):
 
 def _get_source(module, blade):
     res = blade.get_network_interfaces(names=[module.params["source"]])
-    if res.status_code == 200:
-        return True
-    else:
-        return False
+    return bool(res.status_code == 200)
 
 
 def delete_dns(module, blade):
@@ -169,17 +173,15 @@ def update_multi_dns(module, blade):
     if module.params["domain"] and current_dns.domain != module.params["domain"]:
         new_dns.domain = module.params["domain"]
         changed = True
-    if module.params["service"] and current_dns.services != [module.params["service"]]:
-        module.fail_json(msg="Changing service type is not permitted")
     if module.params["nameservers"] and sorted(current_dns.nameservers) != sorted(
         module.params["nameservers"]
     ):
         new_dns.nameservers = module.params["nameservers"]
         changed = True
     if (module.params["source"] or module.params["source"] == "") and getattr(
-        current_dns.source, "name", ""
+        current_dns.sources[0], "name", ""
     ) != module.params["source"]:
-        new_dns.source.name = module.params["source"]
+        new_dns.sources[0].name = module.params["source"]
         changed = True
     if changed and not module.check_mode:
         res = blade.patch_dns(
@@ -187,12 +189,12 @@ def update_multi_dns(module, blade):
             dns=Dns(
                 domain=new_dns.domain,
                 nameservers=new_dns.nameservers,
-                source=ReferenceNoId(module.params["source"]),
+                sources=[Reference(name=module.params["source"])],
             ),
         )
         if res.status_code != 200:
             module.fail_json(
-                msg="Update to DNS service {0} failed. Error: {1}".format(
+                msg="Update to DNS configuration {0} failed. Error: {1}".format(
                     module.params["name"], res.errors[0].message
                 )
             )
@@ -203,16 +205,7 @@ def delete_multi_dns(module, blade):
     """Delete a DNS configuration"""
     changed = True
     if module.params["name"] == "management":
-        res = blade.patch_dns(
-            names=[module.params["name"]],
-            dns=DnsPatch(domain="", nameservers=[]),
-        )
-        if res.status_code != 200:
-            module.fail_json(
-                msg="Management DNS configuration not deleted. Error: {0}".format(
-                    res.errors[0].message
-                )
-            )
+        module.fail_json(msg="Management DNS configuration cannot be deleted")
     else:
         if not module.check_mode:
             res = blade.delete_dns(names=[module.params["name"]])
@@ -229,7 +222,7 @@ def create_multi_dns(module, blade):
     """Create a DNS configuration"""
     changed = True
     if not module.check_mode:
-        if module.params["service"] == "file":
+        if module.params["service"] == "data":
             if module.params["source"]:
                 res = blade.post_dns(
                     names=[module.params["name"]],
@@ -237,7 +230,7 @@ def create_multi_dns(module, blade):
                         services=[module.params["service"]],
                         domain=module.params["domain"],
                         nameservers=module.params["nameservers"],
-                        source=ReferenceNoId(module.params["source"].lower()),
+                        sources=[Reference(name=module.params["source"].lower())],
                     ),
                 )
             else:
@@ -250,11 +243,13 @@ def create_multi_dns(module, blade):
                     ),
                 )
         else:
-            res = blade.create_dns(
+            res = blade.post_dns(
                 names=[module.params["name"]],
-                services=[module.params["service"]],
-                domain=module.params["domain"],
-                nameservers=module.params["nameservers"],
+                dns=DnsPost(
+                    services=[module.params["service"]],
+                    domain=module.params["domain"],
+                    nameservers=module.params["nameservers"],
+                ),
             )
         if res.status_code != 200:
             module.fail_json(
@@ -276,6 +271,7 @@ def main():
             domain=dict(type="str"),
             source=dict(type="str"),
             nameservers=dict(type="list", elements="str"),
+            service=dict(type="str", choices=["management", "data"], default="data"),
         )
     )
 
@@ -290,12 +286,9 @@ def main():
     if NON_MGMT_DNS in api_version:
         configs = list(blade.get_dns().items)
         exists = False
-        for config in range(0, len(configs)):
+        for config in range(len(configs)):
             if configs[config].name == module.params["name"]:
                 exists = True
-        if module.params["name"] != "management" and not exists:
-            module.warn("Overriding configuration name to management")
-            module.params["name"] = "management"
         if module.params["source"] and not _get_source(module, blade):
             module.fail_json(
                 msg="Specified VIP {0} does not exist.".format(module.params["source"])
@@ -303,6 +296,11 @@ def main():
         if state == "present" and exists:
             update_multi_dns(module, blade)
         elif state == "present" and not exists:
+            if not module.params["nameservers"] and not module.params["domain"]:
+                module.fail_json(
+                    msg="DNS configuration must have at least one domain "
+                    "or nameserver defined."
+                )
             create_multi_dns(module, blade)
         elif exists and state == "absent":
             delete_multi_dns(module, blade)
@@ -314,7 +312,8 @@ def main():
         elif state == "present":
             if not module.params["domain"] or not module.params["nameservers"]:
                 module.fail_json(
-                    msg="`domain` and `nameservers` are required for DNS configuration"
+                    msg="DNS configuration must have at least one domain "
+                    "or nameserver defined."
                 )
             create_dns(module, blade)
         else:

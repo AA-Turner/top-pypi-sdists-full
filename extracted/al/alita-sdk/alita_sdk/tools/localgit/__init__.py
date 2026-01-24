@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, create_model, Field
 
 from .local_git import LocalGit
 from .tool import LocalGitAction
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOL_NAME_META, TOOLKIT_TYPE_META
 
 name = "localgit"
 
@@ -34,7 +35,7 @@ class AlitaLocalGitToolkit(BaseToolkit):
         )
 
     @classmethod
-    def get_toolkit(cls, selected_tools: list[str] | None = None, **kwargs):
+    def get_toolkit(cls, selected_tools: list[str] | None = None, toolkit_name: Optional[str] = None, **kwargs):
         if selected_tools is None:
             selected_tools = []
         local_git_tool = LocalGit(**kwargs)
@@ -45,12 +46,17 @@ class AlitaLocalGitToolkit(BaseToolkit):
             if selected_tools:
                 if tool["name"] not in selected_tools:
                     continue
+            description = tool["description"]
+            if toolkit_name:
+                description = f"Toolkit: {toolkit_name}\n{description}"
+            description = description[:1000]
             tools.append(LocalGitAction(
                 api_wrapper=local_git_tool,
                 name=repo + "_" + tool["name"],
                 mode=tool["mode"],
-                description=tool["description"],
-                args_schema=tool["args_schema"]
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
         return cls(tools=tools)
 

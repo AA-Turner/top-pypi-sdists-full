@@ -4,7 +4,7 @@ import logging
 import time
 
 from pymammotion.data.model import GenerateRouteInformation
-from pymammotion.data.model.hash_list import Plan
+from pymammotion.data.model.hash_list import Plan, SvgMessage
 from pymammotion.data.model.region_data import RegionData
 from pymammotion.mammotion.commands.abstract_message import AbstractMessage
 from pymammotion.proto import (
@@ -25,6 +25,8 @@ from pymammotion.proto import (
     NavUnableTimeSet,
     NavUploadZigZagResultAck,
     SimulationCmdData,
+    SvgMessageAckT,
+    SvgMessageT,
     WorkReportCmdData,
     WorkReportUpdateCmd,
 )
@@ -33,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class MessageNavigation(AbstractMessage, ABC):
-    def send_order_msg_nav(self, build) -> bytes:
+    def send_order_msg_nav(self, build: MctlNav) -> bytes:
         luba_msg = LubaMsg(
             msgtype=MsgCmdType.NAV,
             sender=MsgDevice.DEV_MOBILEAPP,
@@ -206,9 +208,9 @@ class MessageNavigation(AbstractMessage, ABC):
             reserved=plan_bean.reserved,
             weeks=plan_bean.weeks,
             start_date=plan_bean.start_date,
-            trigger_type=plan_bean.job_type,
-            day=plan_bean.interval_days,
-            toward_included_angle=plan_bean.demond_angle,
+            trigger_type=plan_bean.trigger_type,
+            day=plan_bean.day,
+            toward_included_angle=plan_bean.toward_included_angle,
             toward_mode=0,
         )
         logger.debug(f"Send read job plan command planBean={plan_bean}")
@@ -245,6 +247,35 @@ class MessageNavigation(AbstractMessage, ABC):
         logger.debug(f"Send command--Read plan time {sub_cmd}")
         return self.send_order_msg_nav(build2)
 
+    def read_job_not_not_disturb(self) -> bytes:
+        build = NavUnableTimeSet(sub_cmd=2)
+        build2 = MctlNav(todev_unable_time_set=build)
+        logger.debug(f"Send command--Read job dnd {2}")
+        return self.send_order_msg_nav(build2)
+
+    def job_animal_protect_read(self) -> bytes:
+        """Read animal protection settings."""
+        build = NavUnableTimeSet(sub_cmd=2, trigger=99)
+        build2 = MctlNav(todev_unable_time_set=build)
+        logger.debug(f"Send command - Read job do not disturb time subCmd2 {build}")
+        return self.send_order_msg_nav(build2)
+
+    def job_do_not_disturb(self, unable_start_time: str, unable_end_time: str) -> bytes:
+        """Set do not disturb time period."""
+        build = MctlNav(
+            todev_unable_time_set=NavUnableTimeSet(
+                sub_cmd=1, trigger=1, unable_start_time=unable_start_time, unable_end_time=unable_end_time
+            )
+        )
+        logger.debug(f"Send command - Set job do not disturb time: {unable_start_time} - {unable_end_time}")
+        return self.send_order_msg_nav(build)
+
+    def job_do_not_disturb_del(self) -> bytes:
+        """Delete do not disturb settings."""
+        build = MctlNav(todev_unable_time_set=NavUnableTimeSet(sub_cmd=1, trigger=0))
+        logger.debug("Send command - Turn off do not disturb time")
+        return self.send_order_msg_nav(build)
+
     def query_job_history(self) -> bytes:
         return self.send_order_msg_nav(MctlNav(todev_work_report_update_cmd=WorkReportUpdateCmd(sub_cmd=1)))
 
@@ -262,7 +293,7 @@ class MessageNavigation(AbstractMessage, ABC):
             toapp_map_name_msg=NavMapNameMsg(
                 hash=0,
                 result=0,
-                device_id=device_id,  # iotId or ???
+                device_id=device_id,  # iot_id
                 rw=0,
             )
         )
@@ -390,7 +421,7 @@ class MessageNavigation(AbstractMessage, ABC):
         generate_route_information}")
         return self.send_order_msg_nav(MctlNav(bidire_reqconver_path=build))
 
-    def modify_generate_route_information(self, generate_route_information: GenerateRouteInformation) -> bytes:
+    def modify_route_information(self, generate_route_information: GenerateRouteInformation) -> bytes:
         logger.debug(f"Generate route data source: {generate_route_information}")
         build = NavReqCoverPath(
             pver=1,
@@ -432,7 +463,11 @@ class MessageNavigation(AbstractMessage, ABC):
         return self.send_order_msg_nav(build)
 
     def get_line_info_list(self, hash_list: list[int], transaction_id: int) -> bytes:
+        """Get route information (mow path) corresponding to the specified hash list based on time.
+        e.g transaction_id = int(time.time() * 1000)
+        """
         logger.debug(f"Sending==========Get route command: {hash_list}")
+
         build = MctlNav(
             app_request_cover_paths=AppRequestCoverPathsT(
                 pver=1, hash_list=hash_list, transaction_id=transaction_id, sub_cmd=0
@@ -495,4 +530,35 @@ class MessageNavigation(AbstractMessage, ABC):
     def reset_base_station(self) -> bytes:
         build = MctlNav(todev_taskctrl=NavTaskCtrl(type=3, action=1, result=0))
         logger.debug("Send command - Reset charging pile, base station position")
+        return self.send_order_msg_nav(build)
+
+    def send_svg_data(self, svg_message: SvgMessage) -> bytes:
+        """Send SVG data to the device."""
+        build = MctlNav(
+            todev_svg_msg=SvgMessageAckT(
+                pver=1,
+                sub_cmd=svg_message.sub_cmd,
+                total_frame=svg_message.total_frame,
+                current_frame=svg_message.current_frame,
+                data_hash=svg_message.data_hash,
+                paternal_hash_a=svg_message.paternal_hash_a,
+                result=svg_message.result,
+                svg_message=SvgMessageT(
+                    hide_svg=svg_message.svg_message.hide_svg,
+                    svg_file_data=svg_message.svg_message.svg_file_data,
+                    svg_file_name=svg_message.svg_message.svg_file_name,
+                    data_count=svg_message.svg_message.data_count,
+                    name_count=svg_message.svg_message.name_count,
+                    base_height_m=svg_message.svg_message.base_height_m,
+                    base_width_m=svg_message.svg_message.base_width_m,
+                    base_width_pix=svg_message.svg_message.base_width_pix,
+                    base_height_pix=svg_message.svg_message.base_height_pix,
+                    x_move=svg_message.svg_message.x_move,
+                    y_move=svg_message.svg_message.y_move,
+                    scale=svg_message.svg_message.scale,
+                    rotate=svg_message.svg_message.rotate,
+                ),
+            )
+        )
+
         return self.send_order_msg_nav(build)

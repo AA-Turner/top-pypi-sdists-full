@@ -13,21 +13,37 @@ import warnings
 class ThetaFormatterCounterclockwisePhi(GeoAxes.ThetaFormatter):
     """Convert tick labels from rads to degs and shifts labelling from -180|-90|0|90|180 to conterclockwise periodic 180|90|0|270|180"""
 
+    def __init__(self, *args, rot_offset=0.0, **kwargs):
+        super(ThetaFormatterCounterclockwisePhi, self).__init__(*args, **kwargs)
+        self.rot_offset = rot_offset
+
     def __call__(self, x, pos=None):
         if x != 0:
             x *= -1
         if x < 0:
             x += 2 * np.pi
+        # Apply rotation offset
+        x += np.radians(self.rot_offset)
+        # Normalize to [0, 2*pi)
+        x = x % (2 * np.pi)
         return super(ThetaFormatterCounterclockwisePhi, self).__call__(x, pos)
 
 
 class ThetaFormatterClockwisePhi(GeoAxes.ThetaFormatter):
     """Convert tick labels from rads to degs and shifts labelling from -180|-90|0|90|180 to clockwise periodic 180|270|0|90|180"""
 
+    def __init__(self, *args, rot_offset=0.0, **kwargs):
+        super(ThetaFormatterClockwisePhi, self).__init__(*args, **kwargs)
+        self.rot_offset = rot_offset
+
     def __call__(self, x, pos=None):
 
         if x < 0:
             x += 2 * np.pi
+        # Apply rotation offset
+        x += np.radians(self.rot_offset)
+        # Normalize to [0, 2*pi)
+        x = x % (2 * np.pi)
         #   return super(ThetaFormatterShiftPhi, self).__call__(x, pos)
         return super(ThetaFormatterClockwisePhi, self).__call__(x, pos)
 
@@ -35,14 +51,28 @@ class ThetaFormatterClockwisePhi(GeoAxes.ThetaFormatter):
 class ThetaFormatterSymmetricPhi(GeoAxes.ThetaFormatter):
     """Just convert phi ticks from rad to degs and keep the true -180|-90|0|90|180"""
 
+    def __init__(self, *args, rot_offset=0.0, **kwargs):
+        super(ThetaFormatterSymmetricPhi, self).__init__(*args, **kwargs)
+        self.rot_offset = rot_offset
+
     def __call__(self, x, pos=None):
+        # Apply rotation offset
+        x += np.radians(self.rot_offset)
+        # Normalize to [-pi, pi)
+        x = (x + np.pi) % (2 * np.pi) - np.pi
         return super(ThetaFormatterSymmetricPhi, self).__call__(x, pos)
 
 
 class ThetaFormatterTheta(GeoAxes.ThetaFormatter):
     """Convert theta ticks from rads to degs"""
 
+    def __init__(self, *args, rot_offset=0.0, **kwargs):
+        super(ThetaFormatterTheta, self).__init__(*args, **kwargs)
+        self.rot_offset = rot_offset
+
     def __call__(self, x, pos=None):
+        # Apply rotation offset for latitude
+        x += np.radians(self.rot_offset)
         return super(ThetaFormatterTheta, self).__call__(x, pos)
 
 
@@ -115,6 +145,9 @@ def projview(
     remove_dip=False,
     remove_mono=False,
     gal_cut=0,
+    latra=None,
+    lonra=None,
+    dpi=None,
     **kwargs,
 ):
     """Plot a healpix map (given as an array) in the chosen projection.
@@ -128,6 +161,12 @@ def projview(
         of the custom projection code.
         Please report bugs or submit feature requests via Github.
         The interface will change in future releases.
+
+    .. note::
+        When adding a legend after using :func:`newprojplot` on geographic 
+        projections (mollweide, hammer, aitoff, lambert), you must specify an 
+        explicit location with ``plt.legend(loc='upper right')`` to avoid 
+        performance issues. See :func:`newprojplot` documentation for details.
 
     Parameters
     ----------
@@ -275,6 +314,16 @@ def projview(
     gal_cut : float, scalar, optional
       Symmetric galactic cut for the dipole/monopole fit. Removes points in
       latitude range [-gal_cut, +gal_cut]
+    lonra : list
+        longitude range for the map, in degrees. Default is -180 to 180.
+        Only supported for projection_type='cart'.
+    latra : list
+        latitude range for the map, in degrees. Default is -90 to 90.
+        Supported for projection_type='cart' and projection_type='lambert'.
+        For lambert projection, this enables half-sky plotting (e.g., latra=[0, 90]).
+    dpi : float, optional
+        Dots per inch for the figure. If specified, this value is used when creating
+        new figures. Default: None (uses matplotlib default)
     kwargs : dict
         any leftover arguments will be passed to pcolormesh
     """
@@ -285,6 +334,35 @@ def projview(
         min = np.min(cbar_ticks)
     if max is None and cbar_ticks is not None:
         max = np.max(cbar_ticks)
+
+    # The longitude and latitude ranges.
+    # For the full-sky projections this must be the full
+    # range -180 to 180 for longitude and -90 to 90 for latitude.
+    # For the cartesian projection, it can be set to a smaller range.
+    # Lambert projection also supports latra for half-sky plotting.
+    if projection_type not in ["cart", "lambert"]:
+        if lonra is not None or latra is not None:
+            raise ValueError("lonra and latra can only be set for projection_type='cart' or 'lambert'")
+    if projection_type == "lambert" and lonra is not None:
+        raise ValueError("lonra cannot be set for projection_type='lambert', only latra is supported for half-sky plotting")
+    if lonra is None:
+        lon_min = -180.
+        lon_max = 180.
+    else:
+        lon_min = lonra[0]
+        lon_max = lonra[1]
+
+    if latra is None:
+        lat_min = -90.
+        lat_max = 90.
+    else:
+        lat_min = latra[0]
+        lat_max = latra[1]
+
+    phi_min = np.radians(lon_min)
+    phi_max = np.radians(lon_max)
+    theta_min = np.radians(90 - lat_max)
+    theta_max = np.radians(90 - lat_min)
 
     # Update values for symlog normalization if specified
     norm_dict_defaults = {"linthresh": 1, "base": 10, "linscale": 0.1}
@@ -460,7 +538,8 @@ def projview(
                         plot_properties["figure_width"]
                         * plot_properties["figure_size_ratio"]
                     ),
-                )
+                ),
+                dpi=dpi,
             )
             extent = (0.02, 0.05, 0.96, 0.9)
         elif hold:
@@ -482,7 +561,8 @@ def projview(
                             * plot_properties["figure_size_ratio"]
                         )
                         * (nrows / ncols),
-                    )
+                    ),
+                    dpi=dpi,
                 )
             else:
                 fig = plt.gcf()
@@ -525,10 +605,10 @@ def projview(
         left += 0.02
 
     ysize = xsize // 2
-    theta = np.linspace(np.pi, 0, ysize)
-    phi = np.linspace(-np.pi, np.pi, xsize)
+    theta = np.linspace(theta_max, theta_min, ysize)
+    phi = np.linspace(phi_min, phi_max, xsize)
 
-    longitude = np.radians(np.linspace(-180, 180, xsize))
+    longitude = np.radians(np.linspace(lon_min, lon_max, xsize))
     if flip == "astro":
         longitude = longitude[::-1]
     if not return_only_data:
@@ -536,7 +616,7 @@ def projview(
         # set property on ax so it can be used in newprojplot
         ax.healpy_flip = flip
 
-    latitude = np.radians(np.linspace(-90, 90, ysize))
+    latitude = np.radians(np.linspace(lat_min, lat_max, ysize))
     # project the map to a rectangular matrix xsize x ysize
     PHI, THETA = np.meshgrid(phi, theta)
     # coord or rotation
@@ -545,8 +625,9 @@ def projview(
         THETA, PHI = r(THETA.flatten(), PHI.flatten())
         THETA = THETA.reshape(ysize, xsize)
         PHI = PHI.reshape(ysize, xsize)
-    nside = npix2nside(len(m))
+    ret = None
     if m is not None:
+        nside = npix2nside(len(m))
         w = ~(np.isnan(m) | np.isinf(m))
         if m is not None:
             # auto min and max
@@ -560,6 +641,11 @@ def projview(
         )
         grid_pix = ang2pix(nside, THETA, PHI, nest=nest)
         grid_map = m[grid_pix]
+
+        # Flip the grid_map vertically for Lambert projection
+        # matplotlib's Lambert projection interprets Y-axis in reverse order
+        if projection_type == "lambert":
+            grid_map = np.flip(grid_map, axis=0)
 
         # plot
         if return_only_data:  # exit here when dumping the data
@@ -614,15 +700,28 @@ def projview(
 
     # labelling
     if graticule_labels & graticule:
+        # Extract rotation offset for graticule labels
+        lon_offset = 0.0
+        lat_offset = 0.0
+        if rot is not None:
+            if not hasattr(rot, '__len__'):
+                # Scalar value (int, float, etc.)
+                lon_offset = rot
+            elif len(rot) > 0:
+                # Sequence with at least one element
+                lon_offset = rot[0]
+                if len(rot) > 1:
+                    lat_offset = rot[1]
+        
         if phi_convention == "counterclockwise":
-            xtick_formatter = ThetaFormatterCounterclockwisePhi(longitude_grid_spacing)
+            xtick_formatter = ThetaFormatterCounterclockwisePhi(longitude_grid_spacing, rot_offset=lon_offset)
         elif phi_convention == "clockwise":
-            xtick_formatter = ThetaFormatterClockwisePhi(longitude_grid_spacing)
+            xtick_formatter = ThetaFormatterClockwisePhi(longitude_grid_spacing, rot_offset=lon_offset)
         elif phi_convention == "symmetrical":
-            xtick_formatter = ThetaFormatterSymmetricPhi(longitude_grid_spacing)
+            xtick_formatter = ThetaFormatterSymmetricPhi(longitude_grid_spacing, rot_offset=lon_offset)
 
         ax.xaxis.set_major_formatter(xtick_formatter)
-        ax.yaxis.set_major_formatter(ThetaFormatterTheta(latitude_grid_spacing))
+        ax.yaxis.set_major_formatter(ThetaFormatterTheta(latitude_grid_spacing, rot_offset=lat_offset))
 
         if custom_xtick_labels is not None:
             try:
@@ -662,7 +761,7 @@ def projview(
     if projection_type == "cart":
         ax.set_aspect(1)
 
-    if cbar:
+    if cbar and m is not None:
         if cbar_ticks is None:
             cbar_ticks = [min, max]
 
@@ -820,6 +919,16 @@ def newprojplot(theta, phi, fmt=None, lonlat=False, **kwargs):
     Notes
     -----
     Other keywords are passed to :func:`matplotlib.Axes.plot`.
+    
+    When adding a legend to plots created with geographic projections 
+    (e.g., mollweide, hammer, aitoff), you must specify an explicit location 
+    to avoid performance issues. For example::
+    
+       newprojplot(theta, phi, label='my data')
+       plt.legend(loc='upper right')  # Must specify loc explicitly
+       
+    Do not use ``plt.legend()`` without the ``loc`` parameter, as the automatic 
+    positioning algorithm can be extremely slow or hang with geographic projections.
     """
     import matplotlib.pyplot as plt
 

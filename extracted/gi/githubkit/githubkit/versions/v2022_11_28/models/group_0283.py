@@ -12,19 +12,34 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0284 import (
+    ProtectedBranchPropRequiredPullRequestReviewsPropBypassPullRequestAllowances,
+    ProtectedBranchPropRequiredPullRequestReviewsPropDismissalRestrictions,
+)
 
 
-class CodespacesPermissionsCheckForDevcontainer(GitHubModel):
-    """Codespaces Permissions Check
+class ProtectedBranchPropRequiredPullRequestReviews(GitHubModel):
+    """ProtectedBranchPropRequiredPullRequestReviews"""
 
-    Permission check result for a given devcontainer config.
-    """
-
-    accepted: bool = Field(
-        description="Whether the user has accepted the permissions defined by the devcontainer config"
+    url: str = Field()
+    dismiss_stale_reviews: Missing[bool] = Field(default=UNSET)
+    require_code_owner_reviews: Missing[bool] = Field(default=UNSET)
+    required_approving_review_count: Missing[int] = Field(default=UNSET)
+    require_last_push_approval: Missing[bool] = Field(
+        default=UNSET,
+        description="Whether the most recent push must be approved by someone other than the person who pushed it.",
     )
+    dismissal_restrictions: Missing[
+        ProtectedBranchPropRequiredPullRequestReviewsPropDismissalRestrictions
+    ] = Field(default=UNSET)
+    bypass_pull_request_allowances: Missing[
+        ProtectedBranchPropRequiredPullRequestReviewsPropBypassPullRequestAllowances
+    ] = Field(default=UNSET)
 
 
-model_rebuild(CodespacesPermissionsCheckForDevcontainer)
+model_rebuild(ProtectedBranchPropRequiredPullRequestReviews)
 
-__all__ = ("CodespacesPermissionsCheckForDevcontainer",)
+__all__ = ("ProtectedBranchPropRequiredPullRequestReviews",)

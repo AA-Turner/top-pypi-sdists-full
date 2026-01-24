@@ -121,6 +121,14 @@ AWS_CAL_API int aws_der_encoder_write_octet_string(
     struct aws_byte_cursor octet_string);
 
 /**
+ * Writes an object identifier to the stream
+ * @param encoder The encoder to use
+ * @param byes encoded bytes
+ * @return AWS_OP_ERR if an error occurs, otherwise AWS_OP_SUCCESS
+ */
+AWS_CAL_API int aws_der_encoder_write_object_identifier(struct aws_der_encoder *encoder, struct aws_byte_cursor bytes);
+
+/**
  * Begins a SEQUENCE of objects in the DER stream
  * @param encoder The encoder to use
  * @return AWS_OP_ERR if an error occurs, otherwise AWS_OP_SUCCESS
@@ -133,6 +141,27 @@ AWS_CAL_API int aws_der_encoder_begin_sequence(struct aws_der_encoder *encoder);
  * @return AWS_OP_ERR if an error occurs, otherwise AWS_OP_SUCCESS
  */
 AWS_CAL_API int aws_der_encoder_end_sequence(struct aws_der_encoder *encoder);
+
+/**
+ * Begins a Context Aware Tag of objects in the DER stream
+ * The tag behaves similar to sequence with assigned tag value.
+ * is_constructed is used to indicate that tag is wrapping constructed or primitive content.
+ * Note: currently only supports regular sized tag values (i.e. 5 bits) and will error for anything larger.
+ * We can cross that bridge when needed if anyone is really using huge value tags in the wild.
+ * @param encoder The encoder to use
+ * @return AWS_OP_ERR if an error occurs, otherwise AWS_OP_SUCCESS
+ */
+AWS_CAL_API int aws_der_encoder_begin_context_aware_tag(
+    struct aws_der_encoder *encoder,
+    bool is_constructed,
+    uint64_t tag_value);
+
+/**
+ * Finishes a SEQUENCE and applies it to the DER stream buffer
+ * @param encoder The encoder to update
+ * @return AWS_OP_ERR if an error occurs, otherwise AWS_OP_SUCCESS
+ */
+AWS_CAL_API int aws_der_encoder_end_context_aware_tag(struct aws_der_encoder *encoder);
 
 /**
  * Begins a SET of objects in the DER stream
@@ -165,6 +194,14 @@ AWS_CAL_API int aws_der_encoder_get_contents(struct aws_der_encoder *encoder, st
 AWS_CAL_API struct aws_der_decoder *aws_der_decoder_new(struct aws_allocator *allocator, struct aws_byte_cursor input);
 
 /**
+ * Initializes new decoder from string at the current location.
+ * Useful for cases where asn1 structure is nested inside another one, ex. ec pkcs8.
+ * @param decoder Current decoder
+ * @return Initialized decoder, or NULL
+ */
+AWS_CAL_API struct aws_der_decoder *aws_der_decoder_nested_tlv_decoder(struct aws_der_decoder *decoder);
+
+/**
  * Cleans up a DER encoder
  * @param decoder The encoder to clean up
  */
@@ -176,6 +213,12 @@ AWS_CAL_API void aws_der_decoder_destroy(struct aws_der_decoder *decoder);
  * @return true if there is a tlv to read after advancing, false when done
  */
 AWS_CAL_API bool aws_der_decoder_next(struct aws_der_decoder *decoder);
+
+/**
+ * Resets der decoder to the start.
+ * @param decoder The decoder to reset
+ */
+AWS_CAL_API void aws_der_decoder_reset(struct aws_der_decoder *decoder);
 
 /**
  * The type of the current TLV

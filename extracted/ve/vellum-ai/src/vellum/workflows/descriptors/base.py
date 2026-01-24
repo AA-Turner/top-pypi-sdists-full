@@ -1,5 +1,8 @@
 from typing import TYPE_CHECKING, Any, Generic, Optional, Tuple, Type, TypeVar, Union, cast, overload
 
+from pydantic import GetCoreSchemaHandler, ValidationInfo
+from pydantic_core import core_schema
+
 if TYPE_CHECKING:
     from vellum.workflows.expressions.accessor import AccessorExpression
     from vellum.workflows.expressions.add import AddExpression
@@ -47,11 +50,15 @@ class BaseDescriptor(Generic[_T]):
     _name: str
     _types: Tuple[Type[_T], ...]
     _instance: Optional[_T]
+    _is_sensitive: bool = False
 
-    def __init__(self, *, name: str, types: Tuple[Type[_T], ...], instance: Optional[_T] = None) -> None:
+    def __init__(
+        self, *, name: str, types: Tuple[Type[_T], ...], instance: Optional[_T] = None, is_sensitive: bool = False
+    ) -> None:
         self._name = name
         self._types = types
         self._instance = instance
+        self._is_sensitive = is_sensitive
 
     @property
     def name(self) -> str:
@@ -62,11 +69,24 @@ class BaseDescriptor(Generic[_T]):
         return self._types
 
     @property
+    def normalized_type(self) -> Type:
+        all_types = self._types
+        if len(all_types) == 1:
+            return all_types[0]
+        else:
+            # Union should be considered a type, but mypy doesn't agree
+            return Union[all_types]  # type: ignore[return-value]
+
+    @property
     def instance(self) -> Optional[_T]:
         return self._instance
 
     def resolve(self, state: "BaseState") -> _T:
         raise NotImplementedError("Descriptor must implement resolve method")
+
+    @property
+    def is_sensitive(self) -> bool:
+        return self._is_sensitive
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
@@ -135,6 +155,9 @@ class BaseDescriptor(Generic[_T]):
 
         return AccessorExpression(base=self, field=field)
 
+    def __iter__(self) -> None:
+        raise TypeError(f"'{type(self).__name__}' object is not iterable")
+
     @overload
     def equals(self, other: "BaseDescriptor[_O]") -> "EqualsExpression[_T, _O]": ...
 
@@ -169,12 +192,34 @@ class BaseDescriptor(Generic[_T]):
         return LessThanExpression(lhs=self, rhs=other)
 
     @overload
+    def __lt__(self, other: "BaseDescriptor[_O]") -> "LessThanExpression[_T, _O]": ...  # type: ignore[misc]
+
+    @overload
+    def __lt__(self, other: _O) -> "LessThanExpression[_T, _O]": ...
+
+    def __lt__(self, other: "Union[BaseDescriptor[_O], _O]") -> "LessThanExpression[_T, _O]":
+        from vellum.workflows.expressions.less_than import LessThanExpression
+
+        return LessThanExpression(lhs=self, rhs=other)
+
+    @overload
     def greater_than(self, other: "BaseDescriptor[_O]") -> "GreaterThanExpression[_T, _O]": ...
 
     @overload
     def greater_than(self, other: _O) -> "GreaterThanExpression[_T, _O]": ...
 
     def greater_than(self, other: "Union[BaseDescriptor[_O], _O]") -> "GreaterThanExpression[_T, _O]":
+        from vellum.workflows.expressions.greater_than import GreaterThanExpression
+
+        return GreaterThanExpression(lhs=self, rhs=other)
+
+    @overload
+    def __gt__(self, other: "BaseDescriptor[_O]") -> "GreaterThanExpression[_T, _O]": ...  # type: ignore[misc]
+
+    @overload
+    def __gt__(self, other: _O) -> "GreaterThanExpression[_T, _O]": ...
+
+    def __gt__(self, other: "Union[BaseDescriptor[_O], _O]") -> "GreaterThanExpression[_T, _O]":
         from vellum.workflows.expressions.greater_than import GreaterThanExpression
 
         return GreaterThanExpression(lhs=self, rhs=other)
@@ -191,6 +236,17 @@ class BaseDescriptor(Generic[_T]):
         return LessThanOrEqualToExpression(lhs=self, rhs=other)
 
     @overload
+    def __le__(self, other: "BaseDescriptor[_O]") -> "LessThanOrEqualToExpression[_T, _O]": ...  # type: ignore[misc]
+
+    @overload
+    def __le__(self, other: _O) -> "LessThanOrEqualToExpression[_T, _O]": ...
+
+    def __le__(self, other: "Union[BaseDescriptor[_O], _O]") -> "LessThanOrEqualToExpression[_T, _O]":
+        from vellum.workflows.expressions.less_than_or_equal_to import LessThanOrEqualToExpression
+
+        return LessThanOrEqualToExpression(lhs=self, rhs=other)
+
+    @overload
     def greater_than_or_equal_to(self, other: "BaseDescriptor[_O]") -> "GreaterThanOrEqualToExpression[_T, _O]": ...
 
     @overload
@@ -199,6 +255,17 @@ class BaseDescriptor(Generic[_T]):
     def greater_than_or_equal_to(
         self, other: "Union[BaseDescriptor[_O], _O]"
     ) -> "GreaterThanOrEqualToExpression[_T, _O]":
+        from vellum.workflows.expressions.greater_than_or_equal_to import GreaterThanOrEqualToExpression
+
+        return GreaterThanOrEqualToExpression(lhs=self, rhs=other)
+
+    @overload
+    def __ge__(self, other: "BaseDescriptor[_O]") -> "GreaterThanOrEqualToExpression[_T, _O]": ...  # type: ignore[misc]
+
+    @overload
+    def __ge__(self, other: _O) -> "GreaterThanOrEqualToExpression[_T, _O]": ...
+
+    def __ge__(self, other: "Union[BaseDescriptor[_O], _O]") -> "GreaterThanOrEqualToExpression[_T, _O]":
         from vellum.workflows.expressions.greater_than_or_equal_to import GreaterThanOrEqualToExpression
 
         return GreaterThanOrEqualToExpression(lhs=self, rhs=other)
@@ -397,6 +464,17 @@ class BaseDescriptor(Generic[_T]):
         return AddExpression(lhs=self, rhs=other)
 
     @overload
+    def __add__(self, other: "BaseDescriptor[_O]") -> "AddExpression[_T, _O]": ...
+
+    @overload
+    def __add__(self, other: _O) -> "AddExpression[_T, _O]": ...
+
+    def __add__(self, other: "Union[BaseDescriptor[_O], _O]") -> "AddExpression[_T, _O]":
+        from vellum.workflows.expressions.add import AddExpression
+
+        return AddExpression(lhs=self, rhs=other)
+
+    @overload
     def minus(self, other: "BaseDescriptor[_O]") -> "MinusExpression[_T, _O]": ...
 
     @overload
@@ -406,3 +484,44 @@ class BaseDescriptor(Generic[_T]):
         from vellum.workflows.expressions.minus import MinusExpression
 
         return MinusExpression(lhs=self, rhs=other)
+
+    @overload
+    def __sub__(self, other: "BaseDescriptor[_O]") -> "MinusExpression[_T, _O]": ...
+
+    @overload
+    def __sub__(self, other: _O) -> "MinusExpression[_T, _O]": ...
+
+    def __sub__(self, other: "Union[BaseDescriptor[_O], _O]") -> "MinusExpression[_T, _O]":
+        from vellum.workflows.expressions.minus import MinusExpression
+
+        return MinusExpression(lhs=self, rhs=other)
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Type[Any], handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        def validate(value: Any, info: ValidationInfo) -> Any:
+            if isinstance(value, cls):
+                return value
+
+            if not isinstance(value, dict):
+                raise TypeError(f"Value must be an instance of {cls.__name__} or a dict")
+
+            context = info.context
+            if not isinstance(context, dict):
+                raise TypeError(f"Unexpected type for context: {type(context)}")
+
+            validator = context.get("descriptor_validator")
+            if validator and callable(validator):
+                return validator(value)
+
+            from vellum.workflows.references.constant import ConstantValueReference
+
+            return ConstantValueReference(value)
+
+        return core_schema.union_schema(
+            [
+                core_schema.is_instance_schema(cls),
+                core_schema.with_info_after_validator_function(validate, core_schema.dict_schema()),
+            ]
+        )

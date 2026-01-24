@@ -24,24 +24,29 @@ from . import configuration
 
 
 # the global logging.Logger object, initialized by init_logging()
-logger = None
+logger: logging.Logger | None = None
 default_encoding = locale.getpreferredencoding()
 
 
-def init_logging(stream=sys.stderr):
+def init_logging(stream=sys.stderr) -> None:
     """Initialize the global logger. All log messages will be
     sent to the given stream, default is sys.stderr.
     """
-    global logger
+    global logger  # noqa PLW0603
     logger = logging.getLogger(configuration.AppName)
+    # do not propagate log message to higher log level handlers (in our case the root level),
+    # since patoolib handles those messages by printing them on the given stream
+    logger.propagate = False
     handler = logging.StreamHandler(stream=stream)
     format = f"%(levelname)s {configuration.AppName}: %(message)s"
     handler.setFormatter(logging.Formatter(format))
     logger.addHandler(handler)
+    # the log level is set to INFO, and not changed any more since the verbosity parameter handles
+    # log message printing instead (increased verbosity prints more messages).
     logger.setLevel(logging.INFO)
 
 
-def encode_safe(*args, encoding=default_encoding):
+def encode_safe(*args, encoding=default_encoding) -> str:
     """Replacing unknown characters in args for the given encoding.
     @return: a space-separated string that will not have encoding errors
     with the given encoding
@@ -51,34 +56,38 @@ def encode_safe(*args, encoding=default_encoding):
     )
 
 
-def log_error(msg):
+def log_error(msg) -> None:
     """Log error message."""
-    logger.error(encode_safe(msg))
+    if logger is not None:
+        logger.error(encode_safe(msg))
 
 
-def log_warning(msg):
+def log_warning(msg) -> None:
     """Log warning message."""
-    logger.warning(encode_safe(msg))
+    if logger is not None:
+        logger.warning(encode_safe(msg))
 
 
-def log_info(msg):
+def log_info(msg) -> None:
     """Log info message."""
-    logger.info(encode_safe(msg))
+    if logger is not None:
+        logger.info(encode_safe(msg))
 
 
 # environment keys to print for internal error info
 EnvKeys = ("LANGUAGE", "LC_ALL", "LC_CTYPE", "LANG")
 
 
-def log_internal_error():
+def log_internal_error() -> None:
     """Print internal error message."""
     now = time.localtime()
     env = os.linesep.join(
         [f"{key}={os.getenv(key)!r}" for key in EnvKeys if os.getenv(key) is not None]
     )
-    logger.exception(
-        encode_safe(
-            f"""********** Oops, I did it again. *************
+    if logger is not None:
+        logger.exception(
+            encode_safe(
+                f"""********** Oops, I did it again. *************
 
 You have found an internal error in {configuration.AppName}.
 Please write a bug report at
@@ -98,11 +107,11 @@ Environment:
 {env}
 ******** {configuration.AppName} internal error, over and out ********
 """
+            )
         )
-    )
 
 
-def strtime(t):
+def strtime(t: time.struct_time) -> str:
     """Return ISO 8601 formatted time."""
     return time.strftime("%Y-%m-%d %H:%M:%S%z", t)
 

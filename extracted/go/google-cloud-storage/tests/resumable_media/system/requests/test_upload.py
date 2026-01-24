@@ -18,6 +18,7 @@ import http.client
 import io
 import os
 import urllib.parse
+import sys
 
 import pytest  # type: ignore
 from unittest import mock
@@ -26,7 +27,6 @@ from google.cloud.storage import _media
 import google.cloud.storage._media.requests as resumable_requests
 from google.cloud.storage._media import _helpers
 from .. import utils
-from google.cloud.storage._media import _upload
 from google.cloud.storage.exceptions import InvalidResponse
 from google.cloud.storage.exceptions import DataCorruption
 
@@ -73,7 +73,9 @@ def img_stream():
 
 
 def get_md5(data):
-    hash_obj = hashlib.md5(data)
+    hash_obj = hashlib.md5(
+        data, **({"usedforsecurity": False} if sys.version_info >= (3, 9) else {})
+    )
     return base64.b64encode(hash_obj.digest())
 
 
@@ -367,29 +369,6 @@ def test_resumable_upload_with_headers(
 ):
     headers = utils.get_encryption_headers()
     _resumable_upload_helper(authorized_transport, img_stream, cleanup, headers=headers)
-
-
-@pytest.mark.parametrize("checksum", ["md5", "crc32c"])
-def test_resumable_upload_with_bad_checksum(
-    authorized_transport, img_stream, bucket, cleanup, checksum
-):
-    fake_checksum_object = _helpers._get_checksum_object(checksum)
-    fake_checksum_object.update(b"bad data")
-    fake_prepared_checksum_digest = _helpers.prepare_checksum_digest(
-        fake_checksum_object.digest()
-    )
-    with mock.patch.object(
-        _helpers, "prepare_checksum_digest", return_value=fake_prepared_checksum_digest
-    ):
-        with pytest.raises(DataCorruption) as exc_info:
-            _resumable_upload_helper(
-                authorized_transport, img_stream, cleanup, checksum=checksum
-            )
-    expected_checksums = {"md5": "1bsd83IYNug8hd+V1ING3Q==", "crc32c": "YQGPxA=="}
-    expected_message = _upload._UPLOAD_CHECKSUM_MISMATCH_MESSAGE.format(
-        checksum.upper(), fake_prepared_checksum_digest, expected_checksums[checksum]
-    )
-    assert exc_info.value.args[0] == expected_message
 
 
 def test_resumable_upload_bad_chunk_size(authorized_transport, img_stream):

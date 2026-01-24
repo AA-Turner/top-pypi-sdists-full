@@ -3,7 +3,7 @@ Type annotations for athena service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -91,6 +92,10 @@ from .type_defs import (
     GetQueryResultsOutputTypeDef,
     GetQueryRuntimeStatisticsInputTypeDef,
     GetQueryRuntimeStatisticsOutputTypeDef,
+    GetResourceDashboardRequestTypeDef,
+    GetResourceDashboardResponseTypeDef,
+    GetSessionEndpointRequestTypeDef,
+    GetSessionEndpointResponseTypeDef,
     GetSessionRequestTypeDef,
     GetSessionResponseTypeDef,
     GetSessionStatusRequestTypeDef,
@@ -156,12 +161,6 @@ from .type_defs import (
     UpdateWorkGroupInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -172,13 +171,13 @@ __all__ = ("AthenaClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    MetadataException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    SessionAlreadyExistsException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    MetadataException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    SessionAlreadyExistsException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 
 class AthenaClient(AioBaseClient):
@@ -251,7 +250,7 @@ class AthenaClient(AioBaseClient):
 
     async def cancel_capacity_reservation(
         self, **kwargs: Unpack[CancelCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the capacity reservation with the specified name.
 
@@ -261,7 +260,7 @@ class AthenaClient(AioBaseClient):
 
     async def create_capacity_reservation(
         self, **kwargs: Unpack[CreateCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a capacity reservation with the specified name and number of requested
         data processing units.
@@ -303,7 +302,7 @@ class AthenaClient(AioBaseClient):
 
     async def create_prepared_statement(
         self, **kwargs: Unpack[CreatePreparedStatementInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a prepared statement for use with SQL queries in Athena.
 
@@ -323,7 +322,7 @@ class AthenaClient(AioBaseClient):
 
     async def create_work_group(
         self, **kwargs: Unpack[CreateWorkGroupInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a workgroup with the specified name.
 
@@ -333,7 +332,7 @@ class AthenaClient(AioBaseClient):
 
     async def delete_capacity_reservation(
         self, **kwargs: Unpack[DeleteCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a cancelled capacity reservation.
 
@@ -353,7 +352,7 @@ class AthenaClient(AioBaseClient):
 
     async def delete_named_query(
         self, **kwargs: Unpack[DeleteNamedQueryInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the named query if you have access to the workgroup in which the query
         was saved.
@@ -362,7 +361,7 @@ class AthenaClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#delete_named_query)
         """
 
-    async def delete_notebook(self, **kwargs: Unpack[DeleteNotebookInputTypeDef]) -> Dict[str, Any]:
+    async def delete_notebook(self, **kwargs: Unpack[DeleteNotebookInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified notebook.
 
@@ -372,7 +371,7 @@ class AthenaClient(AioBaseClient):
 
     async def delete_prepared_statement(
         self, **kwargs: Unpack[DeletePreparedStatementInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the prepared statement with the specified name from the specified
         workgroup.
@@ -383,7 +382,7 @@ class AthenaClient(AioBaseClient):
 
     async def delete_work_group(
         self, **kwargs: Unpack[DeleteWorkGroupInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the workgroup with the specified name.
 
@@ -537,6 +536,16 @@ class AthenaClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#get_query_runtime_statistics)
         """
 
+    async def get_resource_dashboard(
+        self, **kwargs: Unpack[GetResourceDashboardRequestTypeDef]
+    ) -> GetResourceDashboardResponseTypeDef:
+        """
+        Gets the Live UI/Persistence UI for a session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_resource_dashboard.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#get_resource_dashboard)
+        """
+
     async def get_session(
         self, **kwargs: Unpack[GetSessionRequestTypeDef]
     ) -> GetSessionResponseTypeDef:
@@ -546,6 +555,16 @@ class AthenaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_session.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#get_session)
+        """
+
+    async def get_session_endpoint(
+        self, **kwargs: Unpack[GetSessionEndpointRequestTypeDef]
+    ) -> GetSessionEndpointResponseTypeDef:
+        """
+        Gets a connection endpoint and authentication token for a given session Id.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_session_endpoint.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#get_session_endpoint)
         """
 
     async def get_session_status(
@@ -759,7 +778,7 @@ class AthenaClient(AioBaseClient):
 
     async def put_capacity_assignment_configuration(
         self, **kwargs: Unpack[PutCapacityAssignmentConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Puts a new capacity assignment configuration for a specified capacity
         reservation.
@@ -810,7 +829,7 @@ class AthenaClient(AioBaseClient):
 
     async def stop_query_execution(
         self, **kwargs: Unpack[StopQueryExecutionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a query execution.
 
@@ -818,7 +837,7 @@ class AthenaClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#stop_query_execution)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to an Athena resource.
 
@@ -836,7 +855,7 @@ class AthenaClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#terminate_session)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from an Athena resource.
 
@@ -846,7 +865,7 @@ class AthenaClient(AioBaseClient):
 
     async def update_capacity_reservation(
         self, **kwargs: Unpack[UpdateCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the number of requested data processing units for the capacity
         reservation with the specified name.
@@ -857,7 +876,7 @@ class AthenaClient(AioBaseClient):
 
     async def update_data_catalog(
         self, **kwargs: Unpack[UpdateDataCatalogInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the data catalog that has the specified name.
 
@@ -867,7 +886,7 @@ class AthenaClient(AioBaseClient):
 
     async def update_named_query(
         self, **kwargs: Unpack[UpdateNamedQueryInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a <a>NamedQuery</a> object.
 
@@ -875,7 +894,7 @@ class AthenaClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_athena/client/#update_named_query)
         """
 
-    async def update_notebook(self, **kwargs: Unpack[UpdateNotebookInputTypeDef]) -> Dict[str, Any]:
+    async def update_notebook(self, **kwargs: Unpack[UpdateNotebookInputTypeDef]) -> dict[str, Any]:
         """
         Updates the contents of a Spark notebook.
 
@@ -885,7 +904,7 @@ class AthenaClient(AioBaseClient):
 
     async def update_notebook_metadata(
         self, **kwargs: Unpack[UpdateNotebookMetadataInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the metadata for a notebook.
 
@@ -895,7 +914,7 @@ class AthenaClient(AioBaseClient):
 
     async def update_prepared_statement(
         self, **kwargs: Unpack[UpdatePreparedStatementInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a prepared statement.
 
@@ -905,7 +924,7 @@ class AthenaClient(AioBaseClient):
 
     async def update_work_group(
         self, **kwargs: Unpack[UpdateWorkGroupInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the workgroup with the specified name.
 
@@ -998,7 +1017,7 @@ class AthenaClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

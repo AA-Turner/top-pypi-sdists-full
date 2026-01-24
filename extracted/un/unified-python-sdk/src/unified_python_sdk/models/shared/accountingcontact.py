@@ -21,12 +21,12 @@ from .property_accountingcontact_shipping_address import (
 )
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class TaxExemption(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -50,11 +50,13 @@ class AccountingContactTypedDict(TypedDict):
     created_at: NotRequired[datetime]
     currency: NotRequired[str]
     emails: NotRequired[List[AccountingEmailTypedDict]]
+    first_name: NotRequired[str]
     id: NotRequired[str]
     identification: NotRequired[str]
     is_active: NotRequired[bool]
     is_customer: NotRequired[bool]
     is_supplier: NotRequired[bool]
+    last_name: NotRequired[str]
     name: NotRequired[str]
     payment_methods: NotRequired[List[AccountingContactPaymentMethodTypedDict]]
     portal_url: NotRequired[str]
@@ -79,6 +81,8 @@ class AccountingContact(BaseModel):
 
     emails: Optional[List[AccountingEmail]] = None
 
+    first_name: Optional[str] = None
+
     id: Optional[str] = None
 
     identification: Optional[str] = None
@@ -88,6 +92,8 @@ class AccountingContact(BaseModel):
     is_customer: Optional[bool] = None
 
     is_supplier: Optional[bool] = None
+
+    last_name: Optional[str] = None
 
     name: Optional[str] = None
 
@@ -99,12 +105,60 @@ class AccountingContact(BaseModel):
 
     shipping_address: Optional[PropertyAccountingContactShippingAddress] = None
 
-    tax_exemption: Annotated[
-        Optional[TaxExemption], PlainValidator(validate_open_enum(False))
-    ] = None
+    tax_exemption: Optional[TaxExemption] = None
 
     tax_number: Optional[str] = None
 
     telephones: Optional[List[AccountingTelephone]] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("tax_exemption")
+    def serialize_tax_exemption(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.TaxExemption(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "associated_contacts",
+                "billing_address",
+                "company_name",
+                "created_at",
+                "currency",
+                "emails",
+                "first_name",
+                "id",
+                "identification",
+                "is_active",
+                "is_customer",
+                "is_supplier",
+                "last_name",
+                "name",
+                "payment_methods",
+                "portal_url",
+                "raw",
+                "shipping_address",
+                "tax_exemption",
+                "tax_number",
+                "telephones",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

@@ -1,11 +1,10 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
 import datetime
-import gzip
 import logging
 import xmlrpc.client as client
-# convert decimal to float before marshalling:
 from decimal import Decimal
+from types import MappingProxyType
 
 import defusedxml.xmlrpc
 from werkzeug.exceptions import (
@@ -17,7 +16,7 @@ from trytond.exceptions import (
     ConcurrencyException, LoginException, MissingDependenciesException,
     RateLimitException, TrytonException, UserWarning)
 from trytond.model.fields.dict import ImmutableDict
-from trytond.protocols.wrappers import Request
+from trytond.protocols.wrappers import GzipStream, Request
 from trytond.tools import cached_property
 
 logger = logging.getLogger(__name__)
@@ -86,6 +85,9 @@ def dump_struct(self, value, write, escape=client.escape):
 
 client.Marshaller.dispatch[dict] = dump_struct
 client.Marshaller.dispatch[ImmutableDict] = dump_struct
+client.Marshaller.dispatch[MappingProxyType] = dump_struct
+client.Marshaller.dispatch[set] = client.Marshaller.dump_array
+client.Marshaller.dispatch[frozenset] = client.Marshaller.dump_array
 
 
 class XMLRPCDecoder(object):
@@ -146,11 +148,17 @@ class XMLRequest(Request):
 
     @property
     def rpc_method(self):
-        return self.parsed_data[1]
+        try:
+            return self.parsed_data[1] or ''
+        except Exception as e:
+            raise BadRequest("Unable to get RPC method") from e
 
     @property
     def rpc_params(self):
-        return self.parsed_data[0]
+        try:
+            return self.parsed_data[0] or []
+        except Exception as e:
+            raise BadRequest("Unable to get RPC params") from e
 
 
 class XMLProtocol:
@@ -173,7 +181,7 @@ class XMLProtocol:
             data = client.dumps(
                 data, methodresponse=True, allow_none=True)
             if len(data) >= 1400 and 'gzip' in request.accept_encodings:
-                data = gzip.compress(data.encode('utf-8'), compresslevel=1)
+                data = GzipStream(data, compresslevel=1)
                 headers['Content-Encoding'] = 'gzip'
             return Response(
                 data, content_type='text/xml', headers=headers)

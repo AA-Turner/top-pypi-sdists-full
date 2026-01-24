@@ -4,7 +4,7 @@ with open('README.rst') as f:
     readme = f.read()
 	
 setup(name='business_duration',
-	version='0.67',
+	version='0.68',
 	description='Calculates business duration in days, hours, minutes and seconds by excluding weekends, public holidays and non-business hours',
 	long_description=readme,
 	url='https://github.com/gnaneshwar441/Business_Duration',

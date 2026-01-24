@@ -1,59 +1,71 @@
-import operator
-import sys
 import warnings
-from copy import copy
-from functools import singledispatch
-from textwrap import dedent
+from collections.abc import Callable
+from functools import singledispatch, wraps
+from hashlib import sha256
 
 import numba
-import numba.np.unsafe.ndarray as numba_ndarray
 import numpy as np
-import scipy
-import scipy.special
-from llvmlite import ir
-from numba import types
-from numba.core.errors import NumbaWarning, TypingError
+from numba import NumbaPerformanceWarning, NumbaWarning
+from numba import njit as _njit
 from numba.cpython.unsafe.tuple import tuple_setitem  # noqa: F401
-from numba.extending import box, overload
 
-from pytensor import In, config
-from pytensor.compile import NUMBA
-from pytensor.compile.builders import OpFromGraph
-from pytensor.compile.function.types import add_supervisor_to_fgraph
-from pytensor.compile.ops import DeepCopyOp
-from pytensor.graph.basic import Apply
+from pytensor import config
+from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.type import Type
-from pytensor.ifelse import IfElse
-from pytensor.link.numba.dispatch.sparse import CSCMatrixType, CSRMatrixType
+from pytensor.link.numba.cache import compile_numba_function_src, hash_from_pickle_dump
 from pytensor.link.utils import (
-    compile_function_src,
     fgraph_to_python,
 )
 from pytensor.scalar.basic import ScalarType
 from pytensor.sparse import SparseTensorType
-from pytensor.tensor.basic import Nonzero
-from pytensor.tensor.blas import BatchedDot
-from pytensor.tensor.math import Dot
-from pytensor.tensor.shape import Reshape, Shape, Shape_i, SpecifyShape
-from pytensor.tensor.slinalg import Solve
-from pytensor.tensor.sort import ArgSortOp, SortOp
-from pytensor.tensor.type import TensorType
-from pytensor.tensor.type_other import MakeSlice, NoneConst
+from pytensor.tensor.random.type import RandomGeneratorType
+from pytensor.tensor.type import DenseTensorType
+from pytensor.tensor.utils import hash_from_ndarray
+from pytensor.typed_list import TypedListType
 
 
-def global_numba_func(func):
-    """Use to return global numba functions in numba_funcify_*.
+def _filter_numba_warnings():
+    # Suppress large global arrays cache warning for internal functions
+    # We have to add an ansi escape code for optional bold text by numba
+    # TODO: We could avoid inlining large constants and pass them at runtime
+    warnings.filterwarnings(
+        "ignore",
+        message=(
+            "(\x1b\\[1m)*"  # ansi escape code for bold text
+            'Cannot cache compiled function "numba_funcified_fgraph" as it uses dynamic globals'
+        ),
+        category=NumbaWarning,
+    )
 
-    This allows tests to remove the compilation using mock.
+    # Disable loud / incorrect warnings from Numba
+    # https://github.com/numba/numba/issues/10086
+    # TODO: Would be much better if we could disable only for our functions
+    warnings.filterwarnings(
+        "ignore",
+        message=(
+            "(\x1b\\[1m)*"  # ansi escape code for bold text
+            r"np\.dot\(\) is faster on contiguous arrays"
+        ),
+        category=NumbaPerformanceWarning,
+    )
+
+
+_filter_numba_warnings()
+
+
+def numba_njit(
+    *args, fastmath=None, final_function: bool = False, **kwargs
+) -> Callable:
+    """A thin wrapper around `numba.njit`.
+
+    If `final_function` is `False` (default), the flags `no_cpython_wrapper` and `no_cfunc_wrapper` are set to `True`.
+    This speedups compilation for functions that need not be called directly from Python.
+
+    This function also sets opinionated defaults for the `fastmath` argument based on the
+    `pytensor.config.numba__fastmath` configuration variable.
     """
-    return func
 
-
-def numba_njit(*args, fastmath=None, **kwargs):
-    kwargs.setdefault("cache", config.numba__cache)
-    kwargs.setdefault("no_cpython_wrapper", True)
-    kwargs.setdefault("no_cfunc_wrapper", True)
     if fastmath is None:
         if config.numba__fastmath:
             # Opinionated default on fastmath flags
@@ -68,30 +80,15 @@ def numba_njit(*args, fastmath=None, **kwargs):
         else:
             fastmath = False
 
-    # Suppress cache warning for internal functions
-    # We have to add an ansi escape code for optional bold text by numba
-    warnings.filterwarnings(
-        "ignore",
-        message=(
-            "(\x1b\\[1m)*"  # ansi escape code for bold text
-            "Cannot cache compiled function "
-            '"(numba_funcified_fgraph|store_core_outputs|cholesky|solve|solve_triangular|cho_solve|lu_factor)" '
-            "as it uses dynamic globals"
-        ),
-        category=NumbaWarning,
-    )
+    if not final_function:
+        # These slow down compilation and are not necessary for functions not called directly from Python
+        kwargs.setdefault("no_cpython_wrapper", True)
+        kwargs.setdefault("no_cfunc_wrapper", True)
 
     if len(args) > 0 and callable(args[0]):
-        return numba.njit(*args[1:], fastmath=fastmath, **kwargs)(args[0])
-
-    return numba.njit(*args, fastmath=fastmath, **kwargs)
-
-
-def numba_vectorize(*args, **kwargs):
-    if len(args) > 0 and callable(args[0]):
-        return numba.vectorize(*args[1:], cache=config.numba__cache, **kwargs)(args[0])
-
-    return numba.vectorize(*args, cache=config.numba__cache, **kwargs)
+        return _njit(*args[1:], fastmath=fastmath, **kwargs)(args[0])  # type: ignore
+    else:
+        return _njit(*args, fastmath=fastmath, **kwargs)  # type: ignore
 
 
 def get_numba_type(
@@ -114,7 +111,7 @@ def get_numba_type(
         Return Numba scalars for zero dimensional :class:`TensorType`\s.
     """
 
-    if isinstance(pytensor_type, TensorType):
+    if isinstance(pytensor_type, DenseTensorType):
         dtype = pytensor_type.numpy_dtype
         numba_dtype = numba.from_dtype(dtype)
         if force_scalar or (
@@ -127,16 +124,26 @@ def get_numba_type(
         numba_dtype = numba.from_dtype(dtype)
         return numba_dtype
     elif isinstance(pytensor_type, SparseTensorType):
-        dtype = pytensor_type.numpy_dtype
-        numba_dtype = numba.from_dtype(dtype)
-        if pytensor_type.format == "csr":
-            return CSRMatrixType(numba_dtype)
-        if pytensor_type.format == "csc":
-            return CSCMatrixType(numba_dtype)
+        from pytensor.link.numba.dispatch.sparse.variable import (
+            CSCMatrixType,
+            CSRMatrixType,
+        )
 
-        raise NotImplementedError()
-    else:
-        raise NotImplementedError(f"Numba type not implemented for {pytensor_type}")
+        data_array = numba.types.Array(
+            numba.from_dtype(pytensor_type.numpy_dtype), 1, layout
+        )
+        indices_array = numba.types.Array(numba.from_dtype(np.int32), 1, layout)
+        indptr_array = numba.types.Array(numba.from_dtype(np.int32), 1, layout)
+        if pytensor_type.format == "csr":
+            return CSRMatrixType(data_array, indices_array, indptr_array)
+        if pytensor_type.format == "csc":
+            return CSCMatrixType(data_array, indices_array, indptr_array)
+    elif isinstance(pytensor_type, RandomGeneratorType):
+        return numba.types.NumPyRandomGeneratorType("NumPyRandomGeneratorType")
+    elif isinstance(pytensor_type, TypedListType):
+        return numba.types.List(get_numba_type(pytensor_type.ttype))
+
+    raise NotImplementedError(f"Numba type not implemented for {pytensor_type}")
 
 
 def create_numba_signature(
@@ -145,6 +152,10 @@ def create_numba_signature(
     reduce_to_scalar: bool = False,
 ) -> numba.types.Type:
     """Create a Numba type for the signature of an `Apply` node or `FunctionGraph`."""
+    warnings.warn(
+        "create_numba_signature is deprecated and will be removed in a future release",
+        FutureWarning,
+    )
     input_types = [
         get_numba_type(
             inp.type, force_scalar=force_scalar, reduce_to_scalar=reduce_to_scalar
@@ -167,332 +178,6 @@ def create_numba_signature(
         return numba.types.void(*input_types)
 
 
-def slice_new(self, start, stop, step):
-    fnty = ir.FunctionType(self.pyobj, [self.pyobj, self.pyobj, self.pyobj])
-    fn = self._get_function(fnty, name="PySlice_New")
-    return self.builder.call(fn, [start, stop, step])
-
-
-def enable_slice_boxing():
-    """Enable boxing for Numba's native ``slice``s.
-
-    TODO: this can be removed when https://github.com/numba/numba/pull/6939 is
-    merged and a release is made.
-    """
-
-    @box(types.SliceType)
-    def box_slice(typ, val, c):
-        """Implement boxing for ``slice`` objects in Numba.
-
-        This makes it possible to return an Numba's internal representation of a
-        ``slice`` object as a proper ``slice`` to Python.
-        """
-        start = c.builder.extract_value(val, 0)
-        stop = c.builder.extract_value(val, 1)
-
-        none_val = ir.Constant(ir.IntType(64), sys.maxsize)
-
-        start_is_none = c.builder.icmp_signed("==", start, none_val)
-        start = c.builder.select(
-            start_is_none,
-            c.pyapi.get_null_object(),
-            c.box(types.int64, start),
-        )
-
-        stop_is_none = c.builder.icmp_signed("==", stop, none_val)
-        stop = c.builder.select(
-            stop_is_none,
-            c.pyapi.get_null_object(),
-            c.box(types.int64, stop),
-        )
-
-        if typ.has_step:
-            step = c.builder.extract_value(val, 2)
-            step_is_none = c.builder.icmp_signed("==", step, none_val)
-            step = c.builder.select(
-                step_is_none,
-                c.pyapi.get_null_object(),
-                c.box(types.int64, step),
-            )
-        else:
-            step = c.pyapi.get_null_object()
-
-        slice_val = slice_new(c.pyapi, start, stop, step)
-
-        return slice_val
-
-    @numba.extending.overload(operator.contains)
-    def in_seq_empty_tuple(x, y):
-        if isinstance(x, types.Tuple) and not x.types:
-            return lambda x, y: False
-
-
-enable_slice_boxing()
-
-
-def to_scalar(x):
-    return np.asarray(x).item()
-
-
-@numba.extending.overload(to_scalar)
-def impl_to_scalar(x):
-    if isinstance(x, numba.types.Number | numba.types.Boolean):
-        return lambda x: x
-    elif isinstance(x, numba.types.Array):
-        return lambda x: x.item()
-    else:
-        raise TypingError(f"{x} must be a scalar compatible type.")
-
-
-def create_tuple_creator(f, n):
-    """Construct a compile-time ``tuple``-comprehension-like loop.
-
-    See https://github.com/numba/numba/issues/2771#issuecomment-414358902
-    """
-    assert n > 0
-
-    f = numba_njit(f)
-
-    @numba_njit
-    def creator(args):
-        return (f(0, *args),)
-
-    for i in range(1, n):
-
-        @numba_njit
-        def creator(args, creator=creator, i=i):
-            return (*creator(args), f(i, *args))
-
-    return numba_njit(lambda *args: creator(args))
-
-
-def create_tuple_string(x):
-    args = ", ".join(x + ([""] if len(x) == 1 else []))
-    return f"({args})"
-
-
-def create_arg_string(x):
-    args = ", ".join(x)
-    return args
-
-
-@singledispatch
-def numba_typify(data, dtype=None, **kwargs):
-    return data
-
-
-def generate_fallback_impl(op, node=None, storage_map=None, **kwargs):
-    """Create a Numba compatible function from a Pytensor `Op`."""
-
-    warnings.warn(
-        f"Numba will use object mode to run {op}'s perform method",
-        UserWarning,
-    )
-
-    n_outputs = len(node.outputs)
-
-    if n_outputs > 1:
-        ret_sig = numba.types.Tuple([get_numba_type(o.type) for o in node.outputs])
-    else:
-        ret_sig = get_numba_type(node.outputs[0].type)
-
-    output_types = tuple(out.type for out in node.outputs)
-
-    def py_perform(inputs):
-        outputs = [[None] for i in range(n_outputs)]
-        op.perform(node, inputs, outputs)
-        return outputs
-
-    if n_outputs == 1:
-
-        def py_perform_return(inputs):
-            return output_types[0].filter(py_perform(inputs)[0][0])
-
-    else:
-
-        def py_perform_return(inputs):
-            # zip strict not specified because we are in a hot loop
-            return tuple(
-                out_type.filter(out[0])
-                for out_type, out in zip(output_types, py_perform(inputs))
-            )
-
-    @numba_njit
-    def perform(*inputs):
-        with numba.objmode(ret=ret_sig):
-            ret = py_perform_return(inputs)
-        return ret
-
-    return perform
-
-
-@singledispatch
-def numba_funcify(op, node=None, storage_map=None, **kwargs):
-    """Generate a numba function for a given op and apply node.
-
-    The resulting function will usually use the `no_cpython_wrapper`
-    argument in numba, so it can not be called directly from python,
-    but only from other jit functions.
-    """
-    return generate_fallback_impl(op, node, storage_map, **kwargs)
-
-
-@numba_funcify.register(OpFromGraph)
-def numba_funcify_OpFromGraph(op, node=None, **kwargs):
-    _ = kwargs.pop("storage_map", None)
-
-    # Apply inner rewrites
-    # TODO: Not sure this is the right place to do this, should we have a rewrite that
-    #  explicitly triggers the optimization of the inner graphs of OpFromGraph?
-    #  The C-code defers it to the make_thunk phase
-    fgraph = op.fgraph
-    add_supervisor_to_fgraph(
-        fgraph=fgraph,
-        input_specs=[In(x, borrow=True, mutable=False) for x in fgraph.inputs],
-        accept_inplace=True,
-    )
-    NUMBA.optimizer(fgraph)
-    fgraph_fn = numba_njit(numba_funcify(op.fgraph, **kwargs))
-
-    if len(op.fgraph.outputs) == 1:
-
-        @numba_njit
-        def opfromgraph(*inputs):
-            return fgraph_fn(*inputs)[0]
-
-    else:
-
-        @numba_njit
-        def opfromgraph(*inputs):
-            return fgraph_fn(*inputs)
-
-    return opfromgraph
-
-
-@numba_funcify.register(FunctionGraph)
-def numba_funcify_FunctionGraph(
-    fgraph,
-    node=None,
-    fgraph_name="numba_funcified_fgraph",
-    **kwargs,
-):
-    return fgraph_to_python(
-        fgraph,
-        numba_funcify,
-        type_conversion_fn=numba_typify,
-        fgraph_name=fgraph_name,
-        **kwargs,
-    )
-
-
-def deepcopyop(x):
-    return copy(x)
-
-
-@overload(deepcopyop)
-def dispatch_deepcopyop(x):
-    if isinstance(x, types.Array):
-        return lambda x: np.copy(x)
-
-    return lambda x: x
-
-
-@numba_funcify.register(DeepCopyOp)
-def numba_funcify_DeepCopyOp(op, node, **kwargs):
-    return deepcopyop
-
-
-@numba_funcify.register(MakeSlice)
-def numba_funcify_MakeSlice(op, **kwargs):
-    @numba_njit
-    def makeslice(*x):
-        return slice(*x)
-
-    return makeslice
-
-
-@numba_funcify.register(Shape)
-def numba_funcify_Shape(op, **kwargs):
-    @numba_njit
-    def shape(x):
-        return np.asarray(np.shape(x))
-
-    return shape
-
-
-@numba_funcify.register(Shape_i)
-def numba_funcify_Shape_i(op, **kwargs):
-    i = op.i
-
-    @numba_njit
-    def shape_i(x):
-        return np.asarray(np.shape(x)[i])
-
-    return shape_i
-
-
-@numba_funcify.register(SortOp)
-def numba_funcify_SortOp(op, node, **kwargs):
-    @numba_njit
-    def sort_f(a, axis):
-        axis = axis.item()
-
-        a_swapped = np.swapaxes(a, axis, -1)
-        a_sorted = np.sort(a_swapped)
-        a_sorted_swapped = np.swapaxes(a_sorted, -1, axis)
-
-        return a_sorted_swapped
-
-    if op.kind != "quicksort":
-        warnings.warn(
-            (
-                f'Numba function sort doesn\'t support kind="{op.kind}"'
-                " switching to `quicksort`."
-            ),
-            UserWarning,
-        )
-
-    return sort_f
-
-
-@numba_funcify.register(ArgSortOp)
-def numba_funcify_ArgSortOp(op, node, **kwargs):
-    def argsort_f_kind(kind):
-        @numba_njit
-        def argort_vec(X, axis):
-            axis = axis.item()
-
-            Y = np.swapaxes(X, axis, 0)
-            result = np.empty_like(Y, dtype="int64")
-
-            indices = list(np.ndindex(Y.shape[1:]))
-
-            for idx in indices:
-                result[(slice(None), *idx)] = np.argsort(
-                    Y[(slice(None), *idx)], kind=kind
-                )
-
-            result = np.swapaxes(result, 0, axis)
-
-            return result
-
-        return argort_vec
-
-    kind = op.kind
-
-    if kind not in ["quicksort", "mergesort"]:
-        kind = "quicksort"
-        warnings.warn(
-            (
-                f'Numba function argsort doesn\'t support kind="{op.kind}"'
-                " switching to `quicksort`."
-            ),
-            UserWarning,
-        )
-
-    return argsort_f_kind(kind)
-
-
 @numba.extending.intrinsic
 def direct_cast(typingctx, val, typ):
     if isinstance(typ, numba.types.TypeRef):
@@ -512,230 +197,348 @@ def direct_cast(typingctx, val, typ):
     return sig, codegen
 
 
-@numba_funcify.register(Reshape)
-def numba_funcify_Reshape(op, **kwargs):
-    ndim = op.ndim
-
-    if ndim == 0:
-
-        @numba_njit
-        def reshape(x, shape):
-            return np.asarray(x.item())
-
-    else:
-
-        @numba_njit
-        def reshape(x, shape):
-            # TODO: Use this until https://github.com/numba/numba/issues/7353 is closed.
-            return np.reshape(
-                np.ascontiguousarray(np.asarray(x)),
-                numba_ndarray.to_fixed_tuple(shape, ndim),
-            )
-
-    return reshape
+@singledispatch
+def numba_typify(data, dtype=None, **kwargs):
+    return data
 
 
-@numba_funcify.register(SpecifyShape)
-def numba_funcify_SpecifyShape(op, node, **kwargs):
-    shape_inputs = node.inputs[1:]
-    shape_input_names = ["shape_" + str(i) for i in range(len(shape_inputs))]
+def generate_fallback_impl(op, node, storage_map=None, **kwargs):
+    """Create a Numba compatible function from a Pytensor `Op`.
 
-    func_conditions = [
-        f"assert x.shape[{i}] == {shape_input_names}"
-        for i, (shape_input, shape_input_names) in enumerate(
-            zip(shape_inputs, shape_input_names, strict=True)
-        )
-        if shape_input is not NoneConst
-    ]
+    Note limitations: https://numba.pydata.org/numba-doc/dev/user/withobjmode.html#the-objmode-context-manager
+    """
 
-    func = dedent(
-        f"""
-        def specify_shape(x, {create_arg_string(shape_input_names)}):
-            {"; ".join(func_conditions)}
-            return x
-        """
+    warnings.warn(
+        f"Numba will use object mode to run {op}'s perform method. "
+        f"Set `pytensor.config.compiler_verbose = True` to see more details.",
+        UserWarning,
     )
 
-    specify_shape = compile_function_src(func, "specify_shape", globals())
-    return numba_njit(specify_shape)
+    if config.compiler_verbose:
+        node.dprint(depth=5, print_type=True)
 
+    n_outputs = len(node.outputs)
+    single_out = n_outputs == 1
 
-def int_to_float_fn(inputs, out_dtype):
-    """Create a Numba function that converts integer and boolean ``ndarray``s to floats."""
-
-    if (
-        all(inp.type.dtype == out_dtype for inp in inputs)
-        and np.dtype(out_dtype).kind == "f"
-    ):
-
-        @numba_njit(inline="always")
-        def inputs_cast(x):
-            return x
-
-    elif any(i.type.numpy_dtype.kind in "uib" for i in inputs):
-        args_dtype = np.dtype(f"f{out_dtype.itemsize}")
-
-        @numba_njit(inline="always")
-        def inputs_cast(x):
-            return x.astype(args_dtype)
-
-    else:
-        args_dtype_sz = max(_arg.type.numpy_dtype.itemsize for _arg in inputs)
-        args_dtype = np.dtype(f"f{args_dtype_sz}")
-
-        @numba_njit(inline="always")
-        def inputs_cast(x):
-            return x.astype(args_dtype)
-
-    return inputs_cast
-
-
-@numba_funcify.register(Dot)
-def numba_funcify_Dot(op, node, **kwargs):
-    # Numba's `np.dot` does not support integer dtypes, so we need to cast to float.
-    x, y = node.inputs
-    [out] = node.outputs
-
-    x_dtype = x.type.dtype
-    y_dtype = y.type.dtype
-    dot_dtype = f"float{max((32, out.type.numpy_dtype.itemsize * 8))}"
-    out_dtype = out.type.dtype
-
-    if x_dtype == dot_dtype and y_dtype == dot_dtype:
-
-        @numba_njit
-        def dot(x, y):
-            return np.asarray(np.dot(x, y))
-
-    elif x_dtype == dot_dtype and y_dtype != dot_dtype:
-
-        @numba_njit
-        def dot(x, y):
-            return np.asarray(np.dot(x, y.astype(dot_dtype)))
-
-    elif x_dtype != dot_dtype and y_dtype == dot_dtype:
-
-        @numba_njit
-        def dot(x, y):
-            return np.asarray(np.dot(x.astype(dot_dtype), y))
-
-    else:
-
-        @numba_njit()
-        def dot(x, y):
-            return np.asarray(np.dot(x.astype(dot_dtype), y.astype(dot_dtype)))
-
-    if out_dtype == dot_dtype:
-        return dot
-
-    else:
-
-        @numba_njit
-        def dot_with_cast(x, y):
-            return dot(x, y).astype(out_dtype)
-
-    return dot_with_cast
-
-
-@numba_funcify.register(Solve)
-def numba_funcify_Solve(op, node, **kwargs):
-    assume_a = op.assume_a
-    # check_finite = op.check_finite
-
-    if assume_a != "gen":
-        lower = op.lower
-
-        warnings.warn(
-            (
-                "Numba will use object mode to allow the "
-                "`compute_uv` argument to `numpy.linalg.svd`."
-            ),
-            UserWarning,
-        )
-
+    if single_out:
         ret_sig = get_numba_type(node.outputs[0].type)
+    else:
+        ret_sig = numba.types.Tuple([get_numba_type(o.type) for o in node.outputs])
 
-        @numba_njit
-        def solve(a, b):
-            with numba.objmode(ret=ret_sig):
-                ret = scipy.linalg.solve_triangular(
-                    a,
-                    b,
-                    lower=lower,
-                    # check_finite=check_finite
+    def py_perform(inputs):
+        output_storage = [[None] for _i in range(n_outputs)]
+        op.perform(node, inputs, output_storage)
+        outputs = tuple(o[0] for o in output_storage)
+        return outputs[0] if single_out else outputs
+
+    @numba_njit
+    def perform(*inputs):
+        with numba.objmode(ret=ret_sig):
+            ret = py_perform(inputs)
+        return ret
+
+    return perform
+
+
+@singledispatch
+def numba_funcify(op, node=None, storage_map=None, **kwargs):
+    """Generate a numba function for a given op and apply node.
+
+    The resulting function will usually use the `no_cpython_wrapper`
+    argument in numba, so it can not be called directly from python,
+    but only from other jit functions.
+    """
+    return generate_fallback_impl(op, node, storage_map, **kwargs)
+
+
+@singledispatch
+def numba_funcify_default_op_cache_key(
+    op, node=None, **kwargs
+) -> Callable | tuple[Callable, int]:
+    """Funcify an Op and allow a default cache key to be generated for it.
+
+    Wrapped function can return an integer in addition to the generated numba function.
+
+    See docstrings of `register_funcify_default_op_cache_key` for details.
+    """
+    raise NotImplementedError()
+
+
+def register_funcify_default_op_cache_key(op_type):
+    """Funcify an Op and allow a default cache key to be generated for it.
+
+    This function is a helper that dispatches to both `numba_funcify_default_op_cache_key`
+    and the legacy `numba_funcify`.
+
+    The cache key will ultimately be generated by the base case of `numba_funcify_and_cache_key`
+    when a more specialized dispatch for the Op is not registered. Functions wrapped by this decorator
+    can return an integer in addition to the numba function.
+    This will be added to the default cache key, and can be used to signal changes over versions.
+
+    The default cache key is based on the string representations of: `type(op)` and the
+    bytes of the props serialized by pickle.
+    It does not take into account the input types or any other graph context.
+    Note that numba will use the input array dtypes, rank and layout as part of its own cache key,
+    but not the static shape, broadcastable pattern or constant values.
+
+    If the funcify implementation exploits information that is not unique to either the Op class
+    or it's `_props` as described above, or the information numba uses, then this method should not be used.
+    Instead, use `register_funcify_and_cache_key` to implement a custom cache key generation.
+    """
+
+    def decorator(dispatch_func):
+        numba_funcify_default_op_cache_key.register(op_type)(dispatch_func)
+
+        # Create a wrapper that can be dispatched to the legacy `numba_funcify`
+        @wraps(dispatch_func)
+        def dispatch_func_wrapper(*args, **kwargs):
+            # Discard the potential key salt for the non-cache version
+            func_and_int = dispatch_func(*args, **kwargs)
+            if isinstance(func_and_int, tuple):
+                func, _int = func_and_int
+            else:
+                func = func_and_int
+            return func
+
+        numba_funcify.register(op_type)(dispatch_func_wrapper)
+
+        # Return the original function
+        return dispatch_func
+
+    return decorator
+
+
+def default_hash_key_from_props(op, **extra_fields):
+    props_dict = op._props_dict()
+    if not props_dict:
+        # Simple op, just use the type string as key
+        hash = sha256(
+            f"({type(op)}, {tuple(extra_fields.items())})".encode()
+        ).hexdigest()
+    else:
+        simple_types = (str, bool, int, type(None), float)
+        container_types = (tuple, frozenset)
+        if all(
+            isinstance(v, simple_types)
+            or (
+                isinstance(v, container_types)
+                and all(isinstance(i, simple_types) for i in v)
+            )
+            for v in props_dict.values()
+        ):
+            # Simple props, can use string representation of props as key
+            hash = sha256(
+                f"({type(op)}, {tuple(props_dict.items())}, {tuple(extra_fields.items())})".encode()
+            ).hexdigest()
+        else:
+            # Complex props, use pickle to serialize them
+            hash = hash_from_pickle_dump(
+                (str(type(op)), tuple(props_dict.items()), tuple(extra_fields.items())),
+            )
+    return hash
+
+
+@singledispatch
+def numba_funcify_and_cache_key(op, node=None, **kwargs) -> tuple[Callable, str | None]:
+    """Funcify an Op and return a unique cache key that can be used by numba caching.
+
+    A cache key of `None` can be returned to indicate that a function can't be cached.
+
+    See docstrings of `register_funcify_default_op_cache_key` for details.
+    """
+
+    # The base case of this dispatch (if nothing specialized was registered), is to
+    # 1. Attempt to use `numba_funcify_default_op_cache_key`,
+    #   which indicates a simple cache key based on the Op and its _props can be
+    #   safely used to uniquely identify the returned numba function
+    # 2. If that fails, attempt to use the legacy `numba_funcify`.
+    #   In this case a `None` is returned as the cache_key to indicate the function
+    #   cannot be safely cached.
+
+    try:
+        func_and_int = numba_funcify_default_op_cache_key(op, node=node, **kwargs)
+    except NotImplementedError:
+        # Fallback
+        return numba_funcify(op, node=node, **kwargs), None
+
+    if isinstance(func_and_int, tuple):
+        func, integer = func_and_int
+        if isinstance(integer, int):
+            integer_str = str(integer)
+        else:
+            # Input validation
+            if integer is None:  # type: ignore[unreachable]
+                raise TypeError(
+                    "The function wrapped by `numba_funcify_default_op_cache_key` returned None as its second output, "
+                    "but only integers are allowed.\nIf the function cannot be cached, the wrapper shouldn't be used. "
+                    "You can use `numba_funcify_and_cache_key` to optionally return None",
                 )
-            return ret
-
-    else:
-        out_dtype = node.outputs[0].type.numpy_dtype
-        inputs_cast = int_to_float_fn(node.inputs, out_dtype)
-
-        @numba_njit
-        def solve(a, b):
-            return np.linalg.solve(
-                inputs_cast(a),
-                inputs_cast(b),
-                # assume_a=assume_a,
-                # check_finite=check_finite,
-            ).astype(out_dtype)
-
-    return solve
-
-
-@numba_funcify.register(BatchedDot)
-def numba_funcify_BatchedDot(op, node, **kwargs):
-    dtype = node.outputs[0].type.numpy_dtype
-
-    @numba_njit
-    def batched_dot(x, y):
-        # Numba does not support 3D matmul
-        # https://github.com/numba/numba/issues/3804
-        shape = x.shape[:-1] + y.shape[2:]
-        z0 = np.empty(shape, dtype=dtype)
-        for i in range(z0.shape[0]):
-            z0[i] = np.dot(x[i], y[i])
-
-        return z0
-
-    return batched_dot
-
-
-@numba_funcify.register(IfElse)
-def numba_funcify_IfElse(op, **kwargs):
-    n_outs = op.n_outs
-
-    if n_outs > 1:
-
-        @numba_njit
-        def ifelse(cond, *args):
-            if cond:
-                res = args[:n_outs]
             else:
-                res = args[n_outs:]
-
-            return res
-
+                raise TypeError(
+                    f"The function wrapped by numba_funcify_default_op_cache_key returned {integer} of type {type(integer)} "
+                    "as its second output, but only integers are allowed."
+                )
     else:
+        func, integer_str = func_and_int, "None"
 
-        @numba_njit
-        def ifelse(cond, *args):
-            if cond:
-                res = args[:n_outs]
-            else:
-                res = args[n_outs:]
-
-            return res[0]
-
-    return ifelse
+    if not hasattr(op, "__props__"):
+        raise ValueError(
+            "The function wrapped by `numba_funcify_default_op_cache_key` can only be used with Ops with `_props`, "
+            f"but {op} of type {type(op)} has no _props defined (not even empty)."
+        )
+    hash = default_hash_key_from_props(op, cache_version=integer_str)
+    return func, hash
 
 
-@numba_funcify.register(Nonzero)
-def numba_funcify_Nonzero(op, node, **kwargs):
-    @numba_njit
-    def nonzero(a):
-        result_tuple = np.nonzero(a)
-        if a.ndim == 1:
-            return result_tuple[0]
-        return list(result_tuple)
+def register_funcify_and_cache_key(op_type):
+    """Funcify an Op and return a unique cache key that can be used by numba caching.
 
-    return nonzero
+    This function is a helper that dispatches to both `numba_funcify_and_cache_key`
+    and the legacy `numba_funcify`.
+
+    Note that numba will use the input array dtypes, rank and layout as part of its own cache key,
+    but not the static shape, broadcastable pattern or constant values.
+
+    The cache_key should be unique to identify the function that was generated by the dispatch
+    function among all possible PyTensor Ops and graphs, modulo the information numba already uses.
+
+    A cache key of `None` can be returned to indicate that a function can't be cached.
+
+    For simple cases, it may be possible to use the helper `register_funcify_default_op_cache_key`.
+    Be sure to read the limitations in the respective docstrings!
+    """
+
+    def decorator(dispatch_func):
+        numba_funcify_and_cache_key.register(op_type)(dispatch_func)
+
+        # Create a wrapper for the legacy dispatcher
+        @wraps(dispatch_func)
+        def dispatch_func_wrapper(*args, **kwargs):
+            func, _key = dispatch_func(*args, **kwargs)
+            # Discard the key for the non-cache version
+            return func
+
+        numba_funcify.register(op_type)(dispatch_func_wrapper)
+
+        return dispatch_func
+
+    return decorator
+
+
+def numba_funcify_ensure_cache(op, *args, **kwargs) -> tuple[Callable, str | None]:
+    """Obtain a numba function for an Op and ensure it can be cached by numba.
+
+    If `config.numba__cache` is `True`, and `numba_funcify_and_cache_key` returns a non-None key,
+    the returned function will be wrapped in a python-compiled function that hoists any closures
+    to the global scope. This, together with the NumbaPyTensorCacheLocator ensures numba will use our cache.
+
+    Without this strategy, numba would often consider caches to be invalid. This was always the case for:
+    1. Ops using the custom vectorize intrinsic: Elemwise, Blockwise, RandomVariables
+    2. String generated functions: Alloc, Scan, OpFromGraph, and FunctionGraph itself
+    """
+    if config.numba__cache:
+        jitable_func, cache_key = numba_funcify_and_cache_key(op, *args, **kwargs)
+    else:
+        jitable_func, cache_key = numba_funcify(op, *args, **kwargs), None
+
+    if cache_key is None:
+        if config.numba__cache and config.compiler_verbose:
+            print(f"{op} of type {type(op)} will not be cached by PyTensor.\n")  # noqa: T201
+        return jitable_func, None
+    else:
+        op_name = jitable_func.__name__
+        cached_func = compile_numba_function_src(
+            src=f"def {op_name}(*args): return jitable_func(*args)",
+            function_name=op_name,
+            global_env=globals() | {"jitable_func": jitable_func},
+            cache_key=f"{cache_key}_fastmath{int(config.numba__fastmath)}",
+        )
+        return numba_njit(cached_func, cache=True), cache_key
+
+
+def cache_key_for_constant(data):
+    """Create a cache key for a constant value."""
+    if isinstance(data, np.number):
+        return sha256(data.dtype.str.encode() + data.tobytes()).hexdigest()
+    elif isinstance(data, np.ndarray):
+        return hash_from_ndarray(data)
+    elif data is None:
+        return "None"
+    elif isinstance(data, int | float | bool):
+        # These should all really be np.number, but we keep this branch just in case
+        return str(data)
+    else:
+        # Fallback for arbitrary types
+        return hash_from_pickle_dump(data)
+
+
+@register_funcify_and_cache_key(FunctionGraph)
+def numba_funcify_FunctionGraph(
+    fgraph: FunctionGraph,
+    node=None,
+    fgraph_name="numba_funcified_fgraph",
+    **kwargs,
+):
+    # Collect cache keys of every Op/Constant in the FunctionGraph
+    # so we can create a global cache key for the whole FunctionGraph
+    fgraph_can_be_cached = [True]
+    cache_keys = []
+    toposort = fgraph.toposort()
+    toposort_coords: dict[Variable, tuple[int, int | str]] = {
+        inp: (0, i) for i, inp in enumerate(fgraph.inputs)
+    }
+    toposort_coords |= {
+        out: (i, j)
+        for i, node in enumerate(toposort, start=1)
+        for j, out in enumerate(node.outputs)
+    }
+
+    def op_conversion_and_key_collection(op, *args, node, **kwargs):
+        # Convert an Op to a funcified function and store the cache_key
+
+        # We also Cache each Op so Numba can do less work next time it sees it
+        func, key = numba_funcify_ensure_cache(op, node=node, *args, **kwargs)
+        if key is None:
+            fgraph_can_be_cached[0] = False
+        else:
+            # Add graph coordinate information (input edges and node location)
+            cache_keys.append(
+                (
+                    tuple(toposort_coords[inp] for inp in node.inputs),
+                    key,
+                )
+            )
+        return func
+
+    def type_conversion_and_key_collection(value, variable, **kwargs):
+        # Convert a constant type to a numba compatible one and compute a cache key for it
+
+        # FIXME: It doesn't make sense to call type_conversion on non-constants,
+        #  but that's what fgraph_to_python currently does.
+        #  We appease it, but don't consider for caching
+        if isinstance(variable, Constant):
+            # Store unique key in toposort_coords. It will be included by whichever nodes make use of the constant
+            constant_cache_key = cache_key_for_constant(value)
+            assert constant_cache_key is not None
+            toposort_coords[variable] = (-1, constant_cache_key)
+        return numba_typify(value, variable=variable, **kwargs)
+
+    py_func = fgraph_to_python(
+        fgraph,
+        op_conversion_fn=op_conversion_and_key_collection,
+        type_conversion_fn=type_conversion_and_key_collection,
+        fgraph_name=fgraph_name,
+        **kwargs,
+    )
+    if not fgraph_can_be_cached[0]:
+        # If a single element couldn't be cached, we can't cache the whole FunctionGraph either
+        fgraph_key = None
+    else:
+        # Add graph coordinate information for fgraph outputs
+        fgraph_output_ancestors = tuple(toposort_coords[out] for out in fgraph.outputs)
+
+        # Compose individual cache_keys into a global key for the FunctionGraph
+        fgraph_key = sha256(
+            f"({type(fgraph)}, {tuple(cache_keys)}, {len(fgraph.inputs)}, {fgraph_output_ancestors})".encode()
+        ).hexdigest()
+    return numba_njit(py_func), fgraph_key

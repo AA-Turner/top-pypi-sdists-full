@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -33,6 +34,7 @@ from .paginator import (
     ListEngagementResourceAssociationsPaginator,
     ListEngagementsPaginator,
     ListOpportunitiesPaginator,
+    ListOpportunityFromEngagementTasksPaginator,
     ListResourceSnapshotJobsPaginator,
     ListResourceSnapshotsPaginator,
     ListSolutionsPaginator,
@@ -41,6 +43,8 @@ from .type_defs import (
     AcceptEngagementInvitationRequestTypeDef,
     AssignOpportunityRequestTypeDef,
     AssociateOpportunityRequestTypeDef,
+    CreateEngagementContextRequestTypeDef,
+    CreateEngagementContextResponseTypeDef,
     CreateEngagementInvitationRequestTypeDef,
     CreateEngagementInvitationResponseTypeDef,
     CreateEngagementRequestTypeDef,
@@ -82,6 +86,8 @@ from .type_defs import (
     ListEngagementsResponseTypeDef,
     ListOpportunitiesRequestTypeDef,
     ListOpportunitiesResponseTypeDef,
+    ListOpportunityFromEngagementTasksRequestTypeDef,
+    ListOpportunityFromEngagementTasksResponseTypeDef,
     ListResourceSnapshotJobsRequestTypeDef,
     ListResourceSnapshotJobsResponseTypeDef,
     ListResourceSnapshotsRequestTypeDef,
@@ -97,21 +103,19 @@ from .type_defs import (
     StartEngagementByAcceptingInvitationTaskResponseTypeDef,
     StartEngagementFromOpportunityTaskRequestTypeDef,
     StartEngagementFromOpportunityTaskResponseTypeDef,
+    StartOpportunityFromEngagementTaskRequestTypeDef,
+    StartOpportunityFromEngagementTaskResponseTypeDef,
     StartResourceSnapshotJobRequestTypeDef,
     StopResourceSnapshotJobRequestTypeDef,
     SubmitOpportunityRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateEngagementContextRequestTypeDef,
+    UpdateEngagementContextResponseTypeDef,
     UpdateOpportunityRequestTypeDef,
     UpdateOpportunityResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -122,14 +126,14 @@ __all__ = ("PartnerCentralSellingAPIClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class PartnerCentralSellingAPIClient(BaseClient):
@@ -211,6 +215,16 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/create_engagement.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#create_engagement)
+        """
+
+    def create_engagement_context(
+        self, **kwargs: Unpack[CreateEngagementContextRequestTypeDef]
+    ) -> CreateEngagementContextResponseTypeDef:
+        """
+        Creates a new context within an existing engagement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/create_engagement_context.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#create_engagement_context)
         """
 
     def create_engagement_invitation(
@@ -428,6 +442,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_opportunities)
         """
 
+    def list_opportunity_from_engagement_tasks(
+        self, **kwargs: Unpack[ListOpportunityFromEngagementTasksRequestTypeDef]
+    ) -> ListOpportunityFromEngagementTasksResponseTypeDef:
+        """
+        Lists all in-progress, completed, or failed opportunity creation tasks from
+        engagements that were initiated by the caller's account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_opportunity_from_engagement_tasks.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_opportunity_from_engagement_tasks)
+        """
+
     def list_resource_snapshot_jobs(
         self, **kwargs: Unpack[ListResourceSnapshotJobsRequestTypeDef]
     ) -> ListResourceSnapshotJobsResponseTypeDef:
@@ -512,6 +537,16 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#start_engagement_from_opportunity_task)
         """
 
+    def start_opportunity_from_engagement_task(
+        self, **kwargs: Unpack[StartOpportunityFromEngagementTaskRequestTypeDef]
+    ) -> StartOpportunityFromEngagementTaskResponseTypeDef:
+        """
+        This action creates an opportunity from an existing engagement context.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_opportunity_from_engagement_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#start_opportunity_from_engagement_task)
+        """
+
     def start_resource_snapshot_job(
         self, **kwargs: Unpack[StartResourceSnapshotJobRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -543,7 +578,7 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#submit_opportunity)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified resource.
 
@@ -551,12 +586,23 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or tags from a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/untag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#untag_resource)
+        """
+
+    def update_engagement_context(
+        self, **kwargs: Unpack[UpdateEngagementContextRequestTypeDef]
+    ) -> UpdateEngagementContextResponseTypeDef:
+        """
+        Updates the context information for an existing engagement with new or modified
+        data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/update_engagement_context.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#update_engagement_context)
         """
 
     def update_opportunity(
@@ -640,6 +686,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_opportunities"]
     ) -> ListOpportunitiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_opportunity_from_engagement_tasks"]
+    ) -> ListOpportunityFromEngagementTasksPaginator:
         """
         Create a paginator for an operation.
 

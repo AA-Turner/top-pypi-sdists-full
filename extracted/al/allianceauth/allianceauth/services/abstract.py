@@ -100,7 +100,10 @@ class BaseSetPasswordServiceAccountView(ServicesCRUDMixin, BaseServiceView, Upda
     def post(self, request, *args, **kwargs):
         result = super().post(request, *args, **kwargs)
         if self.get_form().is_valid():
-            messages.success(request, _(f"Successfully set your {self.service_name} password"))
+            messages.success(
+                request,
+                _("Successfully set your {service_name} password").format(service_name=self.service_name)
+            )
         return result
 
 

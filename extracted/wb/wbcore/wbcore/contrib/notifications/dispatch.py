@@ -1,7 +1,7 @@
 from typing import Iterable
 
+from celery import shared_task
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
@@ -9,12 +9,12 @@ from django.utils.module_loading import import_string
 from django.utils.translation import gettext
 from rest_framework.reverse import reverse
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.shares.signals import handle_widget_sharing
 
+from ...workers import Queue
 from .models import Notification, NotificationType, NotificationTypeSetting
 from .tasks import send_notification_task
-
-User = get_user_model()
 
 
 def send_notification(
@@ -58,7 +58,17 @@ def send_notification(
                 endpoint=endpoint,
                 sent=timezone.now(),
             )
-            transaction.on_commit(lambda: send_notification_task.delay(notification.pk))
+            transaction.on_commit(
+                lambda notification_pk=notification.pk: send_notification_task.delay(notification_pk)
+            )
+
+
+@shared_task(queue=Queue.HIGH_PRIORITY.value)
+def send_notification_as_task(code, title, body, user_id, **kwargs):
+    if not isinstance(user_id, list):
+        user_id = [user_id]
+    user = User.objects.filter(id__in=user_id)
+    send_notification(code, title, body, user, **kwargs)
 
 
 @receiver(handle_widget_sharing)

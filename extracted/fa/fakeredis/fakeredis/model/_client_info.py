@@ -1,12 +1,13 @@
 import time
-from typing import Any
+from typing import Any, Dict
 
 
-class ClientInfo(dict[str, Any]):
+class ClientInfo(Dict[str, Any]):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__()
         kwargs.setdefault("-created", int(time.time()))
         kwargs.setdefault("resp", 2)
+        kwargs.setdefault("user", "default")
         for k, v in kwargs.items():
             self[k.replace("-", "_")] = v
 

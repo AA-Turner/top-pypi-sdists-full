@@ -1,4 +1,4 @@
-from typing import Set
+from typing import Generic, Set
 
 from vellum.workflows.nodes.bases import BaseNode
 from vellum.workflows.outputs.base import BaseOutputs
@@ -6,13 +6,18 @@ from vellum.workflows.ports.port import Port
 from vellum.workflows.ports.utils import validate_ports
 from vellum.workflows.state.base import BaseState
 from vellum.workflows.types import MergeBehavior
+from vellum.workflows.types.generics import StateType
 
 
-class ConditionalNode(BaseNode):
+class ConditionalNode(BaseNode[StateType], Generic[StateType]):
     """
     Used to conditionally determine which port to invoke next. This node exists to be backwards compatible with
     Vellum's Conditional Node, and for most cases, you should extend `BaseNode.Ports` directly.
     """
+
+    class Display(BaseNode.Display):
+        icon = "vellum:icon:split"
+        color = "corn"
 
     class Trigger(BaseNode.Trigger):
         merge_behavior = MergeBehavior.AWAIT_ANY

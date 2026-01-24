@@ -1,0 +1,141 @@
+Metadata-Version: 2.4
+Name: restate-sdk
+Version: 0.14.2
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Requires-Dist: google-adk>=1.20.0 ; extra == 'adk'
+Requires-Dist: httpx[http2] ; extra == 'client'
+Requires-Dist: testcontainers ; extra == 'harness'
+Requires-Dist: hypercorn ; extra == 'harness'
+Requires-Dist: httpx ; extra == 'harness'
+Requires-Dist: mypy>=1.11.2 ; extra == 'lint'
+Requires-Dist: pyright>=1.1.390 ; extra == 'lint'
+Requires-Dist: ruff>=0.6.9 ; extra == 'lint'
+Requires-Dist: openai-agents>=0.6.1 ; extra == 'openai'
+Requires-Dist: pydantic-ai-slim>=1.35.0 ; extra == 'pydantic-ai'
+Requires-Dist: dacite ; extra == 'serde'
+Requires-Dist: pydantic ; extra == 'serde'
+Requires-Dist: msgspec ; extra == 'serde'
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: hypercorn ; extra == 'test'
+Requires-Dist: anyio ; extra == 'test'
+Provides-Extra: adk
+Provides-Extra: client
+Provides-Extra: harness
+Provides-Extra: lint
+Provides-Extra: openai
+Provides-Extra: pydantic_ai
+Provides-Extra: serde
+Provides-Extra: test
+License-File: LICENSE
+Summary: A Python SDK for Restate
+Author-email: Restate Developers <dev@restate.dev>
+License-Expression: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Bug Tracker, https://github.com/restatedev/sdk-python/issues
+Project-URL: Documentation, https://docs.restate.dev
+Project-URL: Homepage, https://restate.dev
+Project-URL: Source, https://github.com/restatedev/sdk-python
+
+[![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://docs.restate.dev)
+[![Examples](https://img.shields.io/badge/view-examples-blue)](https://github.com/restatedev/examples)
+[![Discord](https://img.shields.io/discord/1128210118216007792?logo=discord)](https://discord.gg/skW3AZ6uGd)
+[![Twitter](https://img.shields.io/twitter/follow/restatedev.svg?style=social&label=Follow)](https://twitter.com/intent/follow?screen_name=restatedev)
+
+# Restate Python SDK
+
+[Restate](https://restate.dev/) is a system for easily building resilient applications using *distributed durable async/await*. This repository contains the Restate SDK for writing services in **Python**.
+
+## Community
+
+* 🤗️ [Join our online community](https://discord.gg/skW3AZ6uGd) for help, sharing feedback and talking to the community.
+* 📖 [Check out our documentation](https://docs.restate.dev) to get quickly started!
+* 📣 [Follow us on Twitter](https://twitter.com/restatedev) for staying up to date.
+* 🙋 [Create a GitHub issue](https://github.com/restatedev/sdk-typescript/issues) for requesting a new feature or reporting a problem.
+* 🏠 [Visit our GitHub org](https://github.com/restatedev) for exploring other repositories.
+
+## Using the SDK
+
+**Prerequisites**:
+- Python >= v3.10
+
+To use this SDK, add the dependency to your project:
+
+```shell
+pip install restate_sdk
+```
+
+## Versions
+
+The compatibility with Restate is described in the following table:
+
+| Restate Server\sdk-python | < 0.6            | 0.6 - 0.7 | 0.8 - 0.9        | 0.10 - 0.13      |
+|---------------------------|------------------|-----------|------------------|------------------|
+| < 1.3                     | ✅                | ❌         | ❌                | ❌                |
+| 1.3                       | ✅                | ✅         | ✅ <sup>(1)</sup> | ✅ <sup>(2)</sup> |
+| 1.4                       | ✅                | ✅         | ✅                | ✅ <sup>(2)</sup> |
+| 1.5                       | ⚠ <sup>(3)</sup> | ✅         | ✅                | ✅                |
+
+<sup>(1)</sup> **Note** The new Service/Object/Workflow constructor fields and the decorator fields `inactivity_timeout`, `abort_timeout`, `journal_retention`, `idempotency_retention`, `ingress_private`, `workflow_retention` work only from Restate 1.4 onward. Check the in-code documentation for more details.
+
+<sup>(1)</sup> **Note** The new Service/Object/Workflow constructor field and the decorator field `invocation_retry_policy` works only from Restate 1.4 onward. Check the in-code documentation for more details.
+
+<sup>(3)</sup> **Warning** SDK versions < 0.6 are deprecated, and cannot be registered anymore. Check the [Restate 1.5 release notes](https://github.com/restatedev/restate/releases/tag/v1.5.0) for more info.
+
+## Contributing
+
+We’re excited if you join the Restate community and start contributing!
+Whether it is feature requests, bug reports, ideas & feedback or PRs, we appreciate any and all contributions.
+We know that your time is precious and, therefore, deeply value any effort to contribute!
+
+### Local development
+
+* Python 3
+* PyEnv or VirtualEnv
+* [just](https://github.com/casey/just)
+* [Rust toolchain](https://rustup.rs/)
+
+Set up your virtual environment using the tool of your choice, e.g. VirtualEnv:
+
+```shell
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install the build tools:
+
+```shell
+pip install -r requirements.txt
+```
+
+Now build the Rust module and include opt-in additional dev dependencies:
+
+```shell
+maturin dev -E test,lint
+```
+
+You usually need to build the Rust module only once, but you might need to rebuild it on pulls.
+
+For linting and testing:
+
+```shell
+just verify
+```
+
+## Releasing the package
+
+Pull latest main:
+
+```shell
+git checkout main && git pull
+```
+
+**Update module version in `Cargo.toml` and run a local build to update the `Cargo.lock` too**, commit it. Then push tag, e.g.:
+
+```
+git tag -m "Release v0.1.0" v0.1.0
+git push origin v0.1.0
+```
+

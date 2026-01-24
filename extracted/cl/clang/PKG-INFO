@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: clang
-Version: 20.1.5
+Version: 21.1.7
 Summary: libclang python bindings
 Keywords: llvm,clang,libclang
 Author: LLVM team - pypi upload by Loic Jaquemet

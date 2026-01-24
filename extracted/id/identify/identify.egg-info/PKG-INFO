@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: identify
-Version: 2.6.14
+Version: 2.6.16
 Summary: File identification library for Python
 Home-page: https://github.com/pre-commit/identify
 Author: Chris Kuehl
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: license

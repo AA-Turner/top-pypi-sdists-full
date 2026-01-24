@@ -1,4 +1,5 @@
-from typing import Any, Dict, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ase import Atoms
 from ase.units import kB
@@ -34,7 +35,7 @@ class SGCMonteCarlo(Montecarlo):
         atoms: Atoms,
         temp: float,
         symbols: Sequence[str] = (),
-        generator: Optional[TrialMoveGenerator] = None,
+        generator: TrialMoveGenerator | None = None,
         observe_singlets: bool = False,
     ):
         if not isinstance(atoms, Atoms):
@@ -101,7 +102,7 @@ class SGCMonteCarlo(Montecarlo):
         return self._chemical_potential
 
     @chemical_potential.setter
-    def chemical_potential(self, chem_pot: Dict[str, float]):
+    def chemical_potential(self, chem_pot: dict[str, float]):
         eci = self.calc.eci
         if any(key not in eci for key in chem_pot):
             msg = "A chemical potential not being trackted is added. Make "
@@ -117,7 +118,7 @@ class SGCMonteCarlo(Montecarlo):
             self._reset_eci_to_original(self.calc.eci)
         self._include_chemical_potential_in_eci(chem_pot, self.calc.eci)
 
-    def _include_chemical_potential_in_eci(self, chem_pot: Dict[str, float], eci: Dict[str, float]):
+    def _include_chemical_potential_in_eci(self, chem_pot: dict[str, float], eci: dict[str, float]):
         """
         Including the chemical potentials in the ECIs
 
@@ -144,7 +145,7 @@ class SGCMonteCarlo(Montecarlo):
         self.current_energy = calc.calculate(None, None, None)
         return eci
 
-    def _reset_eci_to_original(self, eci_with_chem_pot: Dict[str, float]):
+    def _reset_eci_to_original(self, eci_with_chem_pot: dict[str, float]):
         """
         Resets the ECIs to their original value
 
@@ -167,7 +168,7 @@ class SGCMonteCarlo(Montecarlo):
         self,
         steps: int = 10,
         call_observers: bool = True,
-        chem_pot: Optional[Dict[str, float]] = None,
+        chem_pot: dict[str, float] | None = None,
     ):
         """
         Run Monte Carlo simulation.
@@ -192,7 +193,7 @@ class SGCMonteCarlo(Montecarlo):
 
         super().run(steps=steps, call_observers=call_observers)
 
-    def singlet2composition(self, avg_singlets: Dict[str, float]):
+    def singlet2composition(self, avg_singlets: dict[str, float]):
         """Convert singlets to composition."""
         bf = self.settings.basis_functions
         matrix = np.zeros((len(self.symbols), len(self.symbols)))
@@ -220,7 +221,7 @@ class SGCMonteCarlo(Montecarlo):
         # Also remember to reset the internal SGC averager
         self.averager.reset()
 
-    def get_thermodynamic_quantities(self, reset_eci: bool = False) -> Dict[str, Any]:
+    def get_thermodynamic_quantities(self, reset_eci: bool = False) -> dict[str, Any]:
         """Compute thermodynamic quantities.
 
         Parameters:

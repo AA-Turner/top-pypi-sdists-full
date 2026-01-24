@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: superannotate
-Version: 4.4.38
+Version: 4.5.0
 Summary: Python SDK to SuperAnnotate platform
 Home-page: https://github.com/superannotateai/superannotate-python-sdk
 Author: SuperAnnotate AI
@@ -17,11 +17,10 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pydantic!=2.0.*,>=1.10
+Requires-Dist: pydantic!=2.0.*,<3,>=1.10
 Requires-Dist: aiohttp~=3.8
 Requires-Dist: boto3~=1.26
 Requires-Dist: opencv-python-headless~=4.7
-Requires-Dist: packaging~=24.0
 Requires-Dist: plotly~=5.14
 Requires-Dist: pandas~=2.0
 Requires-Dist: pillow>=9.5,~=10.0

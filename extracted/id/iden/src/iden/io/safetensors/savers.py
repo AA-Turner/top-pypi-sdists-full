@@ -5,7 +5,6 @@ from __future__ import annotations
 __all__ = ["NumpySafetensorsSaver", "TorchSafetensorsSaver"]
 
 from typing import TYPE_CHECKING, Any
-from unittest.mock import Mock
 
 from coola.utils import check_numpy, check_torch, is_numpy_available, is_torch_available
 
@@ -16,19 +15,21 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-if is_safetensors_available() and is_numpy_available():
+if TYPE_CHECKING or (is_safetensors_available() and is_numpy_available()):
     import numpy as np
     from safetensors import numpy as sn
 else:  # pragma: no cover
-    np = Mock()
-    sn = Mock()
+    from coola.utils.fallback.numpy import numpy as np
 
-if is_safetensors_available() and is_torch_available():
+    from iden.utils.fallback.safetensors import numpy as sn
+
+if TYPE_CHECKING or (is_safetensors_available() and is_torch_available()):
     import torch
     from safetensors import torch as st
 else:  # pragma: no cover
-    st = Mock()
-    torch = Mock()
+    from coola.utils.fallback.torch import torch
+
+    from iden.utils.fallback.safetensors import torch as st
 
 
 class NumpySafetensorsSaver(BaseFileSaver[dict[str, np.ndarray]]):
@@ -48,7 +49,7 @@ class NumpySafetensorsSaver(BaseFileSaver[dict[str, np.ndarray]]):
         return f"{self.__class__.__qualname__}()"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
-        return isinstance(other, self.__class__)
+        return type(other) is type(self)
 
     def _save_file(self, to_save: dict[str, np.ndarray], path: Path) -> None:
         sn.save_file(to_save, path)
@@ -71,7 +72,7 @@ class TorchSafetensorsSaver(BaseFileSaver[dict[str, torch.Tensor]]):
         return f"{self.__class__.__qualname__}()"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
-        return isinstance(other, self.__class__)
+        return type(other) is type(self)
 
     def _save_file(self, to_save: dict[str, torch.Tensor], path: Path) -> None:
         st.save_file(to_save, path)

@@ -28,12 +28,16 @@ __all__ = [
     'AuthzPolicyHttpRule',
     'AuthzPolicyHttpRuleFrom',
     'AuthzPolicyHttpRuleFromNotSource',
+    'AuthzPolicyHttpRuleFromNotSourceIpBlock',
     'AuthzPolicyHttpRuleFromNotSourcePrincipal',
+    'AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal',
     'AuthzPolicyHttpRuleFromNotSourceResource',
     'AuthzPolicyHttpRuleFromNotSourceResourceIamServiceAccount',
     'AuthzPolicyHttpRuleFromNotSourceResourceTagValueIdSet',
     'AuthzPolicyHttpRuleFromSource',
+    'AuthzPolicyHttpRuleFromSourceIpBlock',
     'AuthzPolicyHttpRuleFromSourcePrincipal',
+    'AuthzPolicyHttpRuleFromSourcePrincipalPrincipal',
     'AuthzPolicyHttpRuleFromSourceResource',
     'AuthzPolicyHttpRuleFromSourceResourceIamServiceAccount',
     'AuthzPolicyHttpRuleFromSourceResourceTagValueIdSet',
@@ -57,6 +61,7 @@ __all__ = [
     'ClientTlsPolicyServerValidationCa',
     'ClientTlsPolicyServerValidationCaCertificateProviderInstance',
     'ClientTlsPolicyServerValidationCaGrpcEndpoint',
+    'FirewallEndpointEndpointSettings',
     'InterceptDeploymentGroupConnectedEndpointGroup',
     'InterceptDeploymentGroupLocation',
     'InterceptEndpointGroupAssociation',
@@ -71,12 +76,17 @@ __all__ = [
     'MirroringEndpointGroupAssociationLocationsDetail',
     'MirroringEndpointGroupConnectedDeploymentGroup',
     'MirroringEndpointGroupConnectedDeploymentGroupLocation',
+    'SacAttachmentSymantecOptions',
+    'SacRealmPairingKey',
+    'SacRealmSymantecOptions',
     'SecurityProfileCustomInterceptProfile',
     'SecurityProfileCustomMirroringProfile',
     'SecurityProfileThreatPreventionProfile',
     'SecurityProfileThreatPreventionProfileAntivirusOverride',
     'SecurityProfileThreatPreventionProfileSeverityOverride',
     'SecurityProfileThreatPreventionProfileThreatOverride',
+    'SecurityProfileUrlFilteringProfile',
+    'SecurityProfileUrlFilteringProfileUrlFilter',
     'ServerTlsPolicyMtlsPolicy',
     'ServerTlsPolicyMtlsPolicyClientValidationCa',
     'ServerTlsPolicyMtlsPolicyClientValidationCaCertificateProviderInstance',
@@ -529,9 +539,9 @@ class AuthzPolicyHttpRuleFrom(dict):
                  not_sources: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromNotSource']] = None,
                  sources: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromSource']] = None):
         """
-        :param Sequence['AuthzPolicyHttpRuleFromNotSourceArgs'] not_sources: Describes the properties of a request's sources. At least one of sources or notSources must be specified. Limited to 5 sources. A match occurs when ANY source (in sources or notSources) matches the request. Within a single source, the match follows AND semantics across fields and OR semantics within a single field, i.e. a match occurs when ANY principal matches AND ANY ipBlocks match.
+        :param Sequence['AuthzPolicyHttpRuleFromNotSourceArgs'] not_sources: Describes the negated properties of request sources. Matches requests from sources that do not match the criteria specified in this field. At least one of sources or notSources must be specified. Limited to 1 not_source.
                Structure is documented below.
-        :param Sequence['AuthzPolicyHttpRuleFromSourceArgs'] sources: Describes the properties of a request's sources. At least one of sources or notSources must be specified. Limited to 5 sources. A match occurs when ANY source (in sources or notSources) matches the request. Within a single source, the match follows AND semantics across fields and OR semantics within a single field, i.e. a match occurs when ANY principal matches AND ANY ipBlocks match.
+        :param Sequence['AuthzPolicyHttpRuleFromSourceArgs'] sources: Describes the properties of a request's sources. At least one of sources or notSources must be specified. Limited to 1 source. A match occurs when ANY source (in sources or notSources) matches the request. Within a single source, the match follows AND semantics across fields and OR semantics within a single field, i.e. a match occurs when ANY principal matches AND ANY ipBlocks match.
                Structure is documented below.
         """
         if not_sources is not None:
@@ -543,7 +553,7 @@ class AuthzPolicyHttpRuleFrom(dict):
     @pulumi.getter(name="notSources")
     def not_sources(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleFromNotSource']]:
         """
-        Describes the properties of a request's sources. At least one of sources or notSources must be specified. Limited to 5 sources. A match occurs when ANY source (in sources or notSources) matches the request. Within a single source, the match follows AND semantics across fields and OR semantics within a single field, i.e. a match occurs when ANY principal matches AND ANY ipBlocks match.
+        Describes the negated properties of request sources. Matches requests from sources that do not match the criteria specified in this field. At least one of sources or notSources must be specified. Limited to 1 not_source.
         Structure is documented below.
         """
         return pulumi.get(self, "not_sources")
@@ -552,7 +562,7 @@ class AuthzPolicyHttpRuleFrom(dict):
     @pulumi.getter
     def sources(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleFromSource']]:
         """
-        Describes the properties of a request's sources. At least one of sources or notSources must be specified. Limited to 5 sources. A match occurs when ANY source (in sources or notSources) matches the request. Within a single source, the match follows AND semantics across fields and OR semantics within a single field, i.e. a match occurs when ANY principal matches AND ANY ipBlocks match.
+        Describes the properties of a request's sources. At least one of sources or notSources must be specified. Limited to 1 source. A match occurs when ANY source (in sources or notSources) matches the request. Within a single source, the match follows AND semantics across fields and OR semantics within a single field, i.e. a match occurs when ANY principal matches AND ANY ipBlocks match.
         Structure is documented below.
         """
         return pulumi.get(self, "sources")
@@ -560,10 +570,30 @@ class AuthzPolicyHttpRuleFrom(dict):
 
 @pulumi.output_type
 class AuthzPolicyHttpRuleFromNotSource(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipBlocks":
+            suggest = "ip_blocks"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AuthzPolicyHttpRuleFromNotSource. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AuthzPolicyHttpRuleFromNotSource.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AuthzPolicyHttpRuleFromNotSource.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 ip_blocks: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromNotSourceIpBlock']] = None,
                  principals: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromNotSourcePrincipal']] = None,
                  resources: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromNotSourceResource']] = None):
         """
+        :param Sequence['AuthzPolicyHttpRuleFromNotSourceIpBlockArgs'] ip_blocks: A list of IP addresses or IP address ranges to match against the source IP address of the request. Limited to 10 ipBlocks per Authorization Policy
+               Structure is documented below.
         :param Sequence['AuthzPolicyHttpRuleFromNotSourcePrincipalArgs'] principals: A list of identities derived from the client's certificate. This field will not match on a request unless mutual TLS is enabled for the Forwarding rule or Gateway. Each identity is a string whose value is matched against the URI SAN, or DNS SAN or the subject field in the client's certificate. The match can be exact, prefix, suffix or a substring match. One of exact, prefix, suffix or contains must be specified.
                Limited to 5 principals.
                Structure is documented below.
@@ -571,10 +601,21 @@ class AuthzPolicyHttpRuleFromNotSource(dict):
                Limited to 5 resources.
                Structure is documented below.
         """
+        if ip_blocks is not None:
+            pulumi.set(__self__, "ip_blocks", ip_blocks)
         if principals is not None:
             pulumi.set(__self__, "principals", principals)
         if resources is not None:
             pulumi.set(__self__, "resources", resources)
+
+    @_builtins.property
+    @pulumi.getter(name="ipBlocks")
+    def ip_blocks(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleFromNotSourceIpBlock']]:
+        """
+        A list of IP addresses or IP address ranges to match against the source IP address of the request. Limited to 10 ipBlocks per Authorization Policy
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ip_blocks")
 
     @_builtins.property
     @pulumi.getter
@@ -598,12 +639,43 @@ class AuthzPolicyHttpRuleFromNotSource(dict):
 
 
 @pulumi.output_type
+class AuthzPolicyHttpRuleFromNotSourceIpBlock(dict):
+    def __init__(__self__, *,
+                 length: _builtins.int,
+                 prefix: _builtins.str):
+        """
+        :param _builtins.int length: The length of the address range.
+        :param _builtins.str prefix: The address prefix.
+        """
+        pulumi.set(__self__, "length", length)
+        pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter
+    def length(self) -> _builtins.int:
+        """
+        The length of the address range.
+        """
+        return pulumi.get(self, "length")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        """
+        The address prefix.
+        """
+        return pulumi.get(self, "prefix")
+
+
+@pulumi.output_type
 class AuthzPolicyHttpRuleFromNotSourcePrincipal(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
         if key == "ignoreCase":
             suggest = "ignore_case"
+        elif key == "principalSelector":
+            suggest = "principal_selector"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in AuthzPolicyHttpRuleFromNotSourcePrincipal. Access the value via the '{suggest}' property getter instead.")
@@ -614,6 +686,173 @@ class AuthzPolicyHttpRuleFromNotSourcePrincipal(dict):
 
     def get(self, key: str, default = None) -> Any:
         AuthzPolicyHttpRuleFromNotSourcePrincipal.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 contains: Optional[_builtins.str] = None,
+                 exact: Optional[_builtins.str] = None,
+                 ignore_case: Optional[_builtins.bool] = None,
+                 prefix: Optional[_builtins.str] = None,
+                 principal: Optional['outputs.AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal'] = None,
+                 principal_selector: Optional[_builtins.str] = None,
+                 suffix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str contains: (Optional, Deprecated)
+               The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead.
+               Examples:
+               * abc matches the value xyz.abc.def
+               
+               > **Warning:** `principals.contains` is deprecated and will be removed in a future major release. Use `principals.principal.contains` instead.
+        :param _builtins.str exact: (Optional, Deprecated)
+               The input string must match exactly the string specified here.
+               Examples:
+               * abc only matches the value abc.
+               
+               > **Warning:** `principals.exact` is deprecated and will be removed in a future major release. Use `principals.principal.exact` instead.
+        :param _builtins.bool ignore_case: (Optional, Deprecated)
+               If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true.
+               
+               > **Warning:** `principals.ignore_case` is deprecated and will be removed in a future major release. Use `principals.principal.ignore_case` instead.
+        :param _builtins.str prefix: (Optional, Deprecated)
+               The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead.
+               Examples:
+               * abc matches the value abc.xyz
+               
+               > **Warning:** `principals.prefix` is deprecated and will be removed in a future major release. Use `principals.principal.prefix` instead.
+        :param 'AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipalArgs' principal: Required. A non-empty string whose value is matched against the principal value based on the principalSelector.
+               Only exact match can be applied for CLIENT_CERT_URI_SAN, CLIENT_CERT_DNS_NAME_SAN, CLIENT_CERT_COMMON_NAME selectors.
+               Structure is documented below.
+        :param _builtins.str principal_selector: An enum to decide what principal value the principal rule will match against. If not specified, the PrincipalSelector is CLIENT_CERT_URI_SAN.
+               Default value is `CLIENT_CERT_URI_SAN`.
+               Possible values are: `PRINCIPAL_SELECTOR_UNSPECIFIED`, `CLIENT_CERT_URI_SAN`, `CLIENT_CERT_DNS_NAME_SAN`, `CLIENT_CERT_COMMON_NAME`.
+        :param _builtins.str suffix: (Optional, Deprecated)
+               The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead.
+               Examples:
+               * abc matches the value xyz.abc
+               
+               > **Warning:** `principals.suffix` is deprecated and will be removed in a future major release. Use `principals.principal.suffix` instead.
+        """
+        if contains is not None:
+            pulumi.set(__self__, "contains", contains)
+        if exact is not None:
+            pulumi.set(__self__, "exact", exact)
+        if ignore_case is not None:
+            pulumi.set(__self__, "ignore_case", ignore_case)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+        if principal is not None:
+            pulumi.set(__self__, "principal", principal)
+        if principal_selector is not None:
+            pulumi.set(__self__, "principal_selector", principal_selector)
+        if suffix is not None:
+            pulumi.set(__self__, "suffix", suffix)
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.contains` is deprecated and will be removed in a future major release. Use `principals.principal.contains` instead.""")
+    def contains(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead.
+        Examples:
+        * abc matches the value xyz.abc.def
+
+        > **Warning:** `principals.contains` is deprecated and will be removed in a future major release. Use `principals.principal.contains` instead.
+        """
+        return pulumi.get(self, "contains")
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.exact` is deprecated and will be removed in a future major release. Use `principals.principal.exact` instead.""")
+    def exact(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must match exactly the string specified here.
+        Examples:
+        * abc only matches the value abc.
+
+        > **Warning:** `principals.exact` is deprecated and will be removed in a future major release. Use `principals.principal.exact` instead.
+        """
+        return pulumi.get(self, "exact")
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreCase")
+    @_utilities.deprecated("""`principals.ignore_case` is deprecated and will be removed in a future major release. Use `principals.principal.ignore_case` instead.""")
+    def ignore_case(self) -> Optional[_builtins.bool]:
+        """
+        (Optional, Deprecated)
+        If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true.
+
+        > **Warning:** `principals.ignore_case` is deprecated and will be removed in a future major release. Use `principals.principal.ignore_case` instead.
+        """
+        return pulumi.get(self, "ignore_case")
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.prefix` is deprecated and will be removed in a future major release. Use `principals.principal.prefix` instead.""")
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead.
+        Examples:
+        * abc matches the value abc.xyz
+
+        > **Warning:** `principals.prefix` is deprecated and will be removed in a future major release. Use `principals.principal.prefix` instead.
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter
+    def principal(self) -> Optional['outputs.AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal']:
+        """
+        Required. A non-empty string whose value is matched against the principal value based on the principalSelector.
+        Only exact match can be applied for CLIENT_CERT_URI_SAN, CLIENT_CERT_DNS_NAME_SAN, CLIENT_CERT_COMMON_NAME selectors.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "principal")
+
+    @_builtins.property
+    @pulumi.getter(name="principalSelector")
+    def principal_selector(self) -> Optional[_builtins.str]:
+        """
+        An enum to decide what principal value the principal rule will match against. If not specified, the PrincipalSelector is CLIENT_CERT_URI_SAN.
+        Default value is `CLIENT_CERT_URI_SAN`.
+        Possible values are: `PRINCIPAL_SELECTOR_UNSPECIFIED`, `CLIENT_CERT_URI_SAN`, `CLIENT_CERT_DNS_NAME_SAN`, `CLIENT_CERT_COMMON_NAME`.
+        """
+        return pulumi.get(self, "principal_selector")
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.suffix` is deprecated and will be removed in a future major release. Use `principals.principal.suffix` instead.""")
+    def suffix(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead.
+        Examples:
+        * abc matches the value xyz.abc
+
+        > **Warning:** `principals.suffix` is deprecated and will be removed in a future major release. Use `principals.principal.suffix` instead.
+        """
+        return pulumi.get(self, "suffix")
+
+
+@pulumi.output_type
+class AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ignoreCase":
+            suggest = "ignore_case"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AuthzPolicyHttpRuleFromNotSourcePrincipalPrincipal.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -874,10 +1113,30 @@ class AuthzPolicyHttpRuleFromNotSourceResourceTagValueIdSet(dict):
 
 @pulumi.output_type
 class AuthzPolicyHttpRuleFromSource(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipBlocks":
+            suggest = "ip_blocks"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AuthzPolicyHttpRuleFromSource. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AuthzPolicyHttpRuleFromSource.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AuthzPolicyHttpRuleFromSource.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 ip_blocks: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromSourceIpBlock']] = None,
                  principals: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromSourcePrincipal']] = None,
                  resources: Optional[Sequence['outputs.AuthzPolicyHttpRuleFromSourceResource']] = None):
         """
+        :param Sequence['AuthzPolicyHttpRuleFromSourceIpBlockArgs'] ip_blocks: A list of IP addresses or IP address ranges to match against the source IP address of the request. Limited to 10 ipBlocks per Authorization Policy
+               Structure is documented below.
         :param Sequence['AuthzPolicyHttpRuleFromSourcePrincipalArgs'] principals: A list of identities derived from the client's certificate. This field will not match on a request unless mutual TLS is enabled for the Forwarding rule or Gateway. Each identity is a string whose value is matched against the URI SAN, or DNS SAN or the subject field in the client's certificate. The match can be exact, prefix, suffix or a substring match. One of exact, prefix, suffix or contains must be specified.
                Limited to 5 principals.
                Structure is documented below.
@@ -885,10 +1144,21 @@ class AuthzPolicyHttpRuleFromSource(dict):
                Limited to 5 resources.
                Structure is documented below.
         """
+        if ip_blocks is not None:
+            pulumi.set(__self__, "ip_blocks", ip_blocks)
         if principals is not None:
             pulumi.set(__self__, "principals", principals)
         if resources is not None:
             pulumi.set(__self__, "resources", resources)
+
+    @_builtins.property
+    @pulumi.getter(name="ipBlocks")
+    def ip_blocks(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleFromSourceIpBlock']]:
+        """
+        A list of IP addresses or IP address ranges to match against the source IP address of the request. Limited to 10 ipBlocks per Authorization Policy
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ip_blocks")
 
     @_builtins.property
     @pulumi.getter
@@ -912,12 +1182,43 @@ class AuthzPolicyHttpRuleFromSource(dict):
 
 
 @pulumi.output_type
+class AuthzPolicyHttpRuleFromSourceIpBlock(dict):
+    def __init__(__self__, *,
+                 length: _builtins.int,
+                 prefix: _builtins.str):
+        """
+        :param _builtins.int length: The length of the address range.
+        :param _builtins.str prefix: The address prefix.
+        """
+        pulumi.set(__self__, "length", length)
+        pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter
+    def length(self) -> _builtins.int:
+        """
+        The length of the address range.
+        """
+        return pulumi.get(self, "length")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        """
+        The address prefix.
+        """
+        return pulumi.get(self, "prefix")
+
+
+@pulumi.output_type
 class AuthzPolicyHttpRuleFromSourcePrincipal(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
         if key == "ignoreCase":
             suggest = "ignore_case"
+        elif key == "principalSelector":
+            suggest = "principal_selector"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in AuthzPolicyHttpRuleFromSourcePrincipal. Access the value via the '{suggest}' property getter instead.")
@@ -928,6 +1229,173 @@ class AuthzPolicyHttpRuleFromSourcePrincipal(dict):
 
     def get(self, key: str, default = None) -> Any:
         AuthzPolicyHttpRuleFromSourcePrincipal.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 contains: Optional[_builtins.str] = None,
+                 exact: Optional[_builtins.str] = None,
+                 ignore_case: Optional[_builtins.bool] = None,
+                 prefix: Optional[_builtins.str] = None,
+                 principal: Optional['outputs.AuthzPolicyHttpRuleFromSourcePrincipalPrincipal'] = None,
+                 principal_selector: Optional[_builtins.str] = None,
+                 suffix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str contains: (Optional, Deprecated)
+               The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead.
+               Examples:
+               * abc matches the value xyz.abc.def
+               
+               > **Warning:** `principals.contains` is deprecated and will be removed in a future major release. Use `principals.principal.contains` instead.
+        :param _builtins.str exact: (Optional, Deprecated)
+               The input string must match exactly the string specified here.
+               Examples:
+               * abc only matches the value abc.
+               
+               > **Warning:** `principals.exact` is deprecated and will be removed in a future major release. Use `principals.principal.exact` instead.
+        :param _builtins.bool ignore_case: (Optional, Deprecated)
+               If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true.
+               
+               > **Warning:** `principals.ignore_case` is deprecated and will be removed in a future major release. Use `principals.principal.ignore_case` instead.
+        :param _builtins.str prefix: (Optional, Deprecated)
+               The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead.
+               Examples:
+               * abc matches the value abc.xyz
+               
+               > **Warning:** `principals.prefix` is deprecated and will be removed in a future major release. Use `principals.principal.prefix` instead.
+        :param 'AuthzPolicyHttpRuleFromSourcePrincipalPrincipalArgs' principal: Required. A non-empty string whose value is matched against the principal value based on the principalSelector.
+               Only exact match can be applied for CLIENT_CERT_URI_SAN, CLIENT_CERT_DNS_NAME_SAN, CLIENT_CERT_COMMON_NAME selectors.
+               Structure is documented below.
+        :param _builtins.str principal_selector: An enum to decide what principal value the principal rule will match against. If not specified, the PrincipalSelector is CLIENT_CERT_URI_SAN.
+               Default value is `CLIENT_CERT_URI_SAN`.
+               Possible values are: `PRINCIPAL_SELECTOR_UNSPECIFIED`, `CLIENT_CERT_URI_SAN`, `CLIENT_CERT_DNS_NAME_SAN`, `CLIENT_CERT_COMMON_NAME`.
+        :param _builtins.str suffix: (Optional, Deprecated)
+               The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead.
+               Examples:
+               * abc matches the value xyz.abc
+               
+               > **Warning:** `principals.suffix` is deprecated and will be removed in a future major release. Use `principals.principal.suffix` instead.
+        """
+        if contains is not None:
+            pulumi.set(__self__, "contains", contains)
+        if exact is not None:
+            pulumi.set(__self__, "exact", exact)
+        if ignore_case is not None:
+            pulumi.set(__self__, "ignore_case", ignore_case)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+        if principal is not None:
+            pulumi.set(__self__, "principal", principal)
+        if principal_selector is not None:
+            pulumi.set(__self__, "principal_selector", principal_selector)
+        if suffix is not None:
+            pulumi.set(__self__, "suffix", suffix)
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.contains` is deprecated and will be removed in a future major release. Use `principals.principal.contains` instead.""")
+    def contains(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead.
+        Examples:
+        * abc matches the value xyz.abc.def
+
+        > **Warning:** `principals.contains` is deprecated and will be removed in a future major release. Use `principals.principal.contains` instead.
+        """
+        return pulumi.get(self, "contains")
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.exact` is deprecated and will be removed in a future major release. Use `principals.principal.exact` instead.""")
+    def exact(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must match exactly the string specified here.
+        Examples:
+        * abc only matches the value abc.
+
+        > **Warning:** `principals.exact` is deprecated and will be removed in a future major release. Use `principals.principal.exact` instead.
+        """
+        return pulumi.get(self, "exact")
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreCase")
+    @_utilities.deprecated("""`principals.ignore_case` is deprecated and will be removed in a future major release. Use `principals.principal.ignore_case` instead.""")
+    def ignore_case(self) -> Optional[_builtins.bool]:
+        """
+        (Optional, Deprecated)
+        If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true.
+
+        > **Warning:** `principals.ignore_case` is deprecated and will be removed in a future major release. Use `principals.principal.ignore_case` instead.
+        """
+        return pulumi.get(self, "ignore_case")
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.prefix` is deprecated and will be removed in a future major release. Use `principals.principal.prefix` instead.""")
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead.
+        Examples:
+        * abc matches the value abc.xyz
+
+        > **Warning:** `principals.prefix` is deprecated and will be removed in a future major release. Use `principals.principal.prefix` instead.
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter
+    def principal(self) -> Optional['outputs.AuthzPolicyHttpRuleFromSourcePrincipalPrincipal']:
+        """
+        Required. A non-empty string whose value is matched against the principal value based on the principalSelector.
+        Only exact match can be applied for CLIENT_CERT_URI_SAN, CLIENT_CERT_DNS_NAME_SAN, CLIENT_CERT_COMMON_NAME selectors.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "principal")
+
+    @_builtins.property
+    @pulumi.getter(name="principalSelector")
+    def principal_selector(self) -> Optional[_builtins.str]:
+        """
+        An enum to decide what principal value the principal rule will match against. If not specified, the PrincipalSelector is CLIENT_CERT_URI_SAN.
+        Default value is `CLIENT_CERT_URI_SAN`.
+        Possible values are: `PRINCIPAL_SELECTOR_UNSPECIFIED`, `CLIENT_CERT_URI_SAN`, `CLIENT_CERT_DNS_NAME_SAN`, `CLIENT_CERT_COMMON_NAME`.
+        """
+        return pulumi.get(self, "principal_selector")
+
+    @_builtins.property
+    @pulumi.getter
+    @_utilities.deprecated("""`principals.suffix` is deprecated and will be removed in a future major release. Use `principals.principal.suffix` instead.""")
+    def suffix(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Deprecated)
+        The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead.
+        Examples:
+        * abc matches the value xyz.abc
+
+        > **Warning:** `principals.suffix` is deprecated and will be removed in a future major release. Use `principals.principal.suffix` instead.
+        """
+        return pulumi.get(self, "suffix")
+
+
+@pulumi.output_type
+class AuthzPolicyHttpRuleFromSourcePrincipalPrincipal(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ignoreCase":
+            suggest = "ignore_case"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AuthzPolicyHttpRuleFromSourcePrincipalPrincipal. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AuthzPolicyHttpRuleFromSourcePrincipalPrincipal.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AuthzPolicyHttpRuleFromSourcePrincipalPrincipal.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -1209,9 +1677,9 @@ class AuthzPolicyHttpRuleTo(dict):
                  not_operations: Optional[Sequence['outputs.AuthzPolicyHttpRuleToNotOperation']] = None,
                  operations: Optional[Sequence['outputs.AuthzPolicyHttpRuleToOperation']] = None):
         """
-        :param Sequence['AuthzPolicyHttpRuleToNotOperationArgs'] not_operations: Describes the negated properties of the targets of a request. Matches requests for operations that do not match the criteria specified in this field. At least one of operations or notOperations must be specified.
+        :param Sequence['AuthzPolicyHttpRuleToNotOperationArgs'] not_operations: Describes the negated properties of the targets of a request. Matches requests for operations that do not match the criteria specified in this field. At least one of operations or notOperations must be specified. Limited to 1 not_operation.
                Structure is documented below.
-        :param Sequence['AuthzPolicyHttpRuleToOperationArgs'] operations: Describes properties of one or more targets of a request. At least one of operations or notOperations must be specified. Limited to 5 operations. A match occurs when ANY operation (in operations or notOperations) matches. Within an operation, the match follows AND semantics across fields and OR semantics within a field, i.e. a match occurs when ANY path matches AND ANY header matches and ANY method matches.
+        :param Sequence['AuthzPolicyHttpRuleToOperationArgs'] operations: Describes properties of one or more targets of a request. At least one of operations or notOperations must be specified. Limited to 1 operation. A match occurs when ANY operation (in operations or notOperations) matches. Within an operation, the match follows AND semantics across fields and OR semantics within a field, i.e. a match occurs when ANY path matches AND ANY header matches and ANY method matches.
                Structure is documented below.
         """
         if not_operations is not None:
@@ -1223,7 +1691,7 @@ class AuthzPolicyHttpRuleTo(dict):
     @pulumi.getter(name="notOperations")
     def not_operations(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToNotOperation']]:
         """
-        Describes the negated properties of the targets of a request. Matches requests for operations that do not match the criteria specified in this field. At least one of operations or notOperations must be specified.
+        Describes the negated properties of the targets of a request. Matches requests for operations that do not match the criteria specified in this field. At least one of operations or notOperations must be specified. Limited to 1 not_operation.
         Structure is documented below.
         """
         return pulumi.get(self, "not_operations")
@@ -1232,7 +1700,7 @@ class AuthzPolicyHttpRuleTo(dict):
     @pulumi.getter
     def operations(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToOperation']]:
         """
-        Describes properties of one or more targets of a request. At least one of operations or notOperations must be specified. Limited to 5 operations. A match occurs when ANY operation (in operations or notOperations) matches. Within an operation, the match follows AND semantics across fields and OR semantics within a field, i.e. a match occurs when ANY path matches AND ANY header matches and ANY method matches.
+        Describes properties of one or more targets of a request. At least one of operations or notOperations must be specified. Limited to 1 operation. A match occurs when ANY operation (in operations or notOperations) matches. Within an operation, the match follows AND semantics across fields and OR semantics within a field, i.e. a match occurs when ANY path matches AND ANY header matches and ANY method matches.
         Structure is documented below.
         """
         return pulumi.get(self, "operations")
@@ -1266,11 +1734,11 @@ class AuthzPolicyHttpRuleToNotOperation(dict):
         :param 'AuthzPolicyHttpRuleToNotOperationHeaderSetArgs' header_set: A list of headers to match against in http header.
                Structure is documented below.
         :param Sequence['AuthzPolicyHttpRuleToNotOperationHostArgs'] hosts: A list of HTTP Hosts to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-               Limited to 5 matches.
+               Limited to 10 matches.
                Structure is documented below.
         :param Sequence[_builtins.str] methods: A list of HTTP methods to match against. Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive.
         :param Sequence['AuthzPolicyHttpRuleToNotOperationPathArgs'] paths: A list of paths to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-               Limited to 5 matches.
+               Limited to 10 matches.
                Note that this path match includes the query parameters. For gRPC services, this should be a fully-qualified name of the form /package.service/method.
                Structure is documented below.
         """
@@ -1297,7 +1765,7 @@ class AuthzPolicyHttpRuleToNotOperation(dict):
     def hosts(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToNotOperationHost']]:
         """
         A list of HTTP Hosts to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-        Limited to 5 matches.
+        Limited to 10 matches.
         Structure is documented below.
         """
         return pulumi.get(self, "hosts")
@@ -1315,7 +1783,7 @@ class AuthzPolicyHttpRuleToNotOperation(dict):
     def paths(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToNotOperationPath']]:
         """
         A list of paths to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-        Limited to 5 matches.
+        Limited to 10 matches.
         Note that this path match includes the query parameters. For gRPC services, this should be a fully-qualified name of the form /package.service/method.
         Structure is documented below.
         """
@@ -1327,7 +1795,7 @@ class AuthzPolicyHttpRuleToNotOperationHeaderSet(dict):
     def __init__(__self__, *,
                  headers: Optional[Sequence['outputs.AuthzPolicyHttpRuleToNotOperationHeaderSetHeader']] = None):
         """
-        :param Sequence['AuthzPolicyHttpRuleToNotOperationHeaderSetHeaderArgs'] headers: A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 5 matches.
+        :param Sequence['AuthzPolicyHttpRuleToNotOperationHeaderSetHeaderArgs'] headers: A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 10 matches.
                Structure is documented below.
         """
         if headers is not None:
@@ -1337,7 +1805,7 @@ class AuthzPolicyHttpRuleToNotOperationHeaderSet(dict):
     @pulumi.getter
     def headers(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToNotOperationHeaderSetHeader']]:
         """
-        A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 5 matches.
+        A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 10 matches.
         Structure is documented below.
         """
         return pulumi.get(self, "headers")
@@ -1704,11 +2172,11 @@ class AuthzPolicyHttpRuleToOperation(dict):
         :param 'AuthzPolicyHttpRuleToOperationHeaderSetArgs' header_set: A list of headers to match against in http header.
                Structure is documented below.
         :param Sequence['AuthzPolicyHttpRuleToOperationHostArgs'] hosts: A list of HTTP Hosts to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-               Limited to 5 matches.
+               Limited to 10 matches.
                Structure is documented below.
         :param Sequence[_builtins.str] methods: A list of HTTP methods to match against. Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive.
         :param Sequence['AuthzPolicyHttpRuleToOperationPathArgs'] paths: A list of paths to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-               Limited to 5 matches.
+               Limited to 10 matches.
                Note that this path match includes the query parameters. For gRPC services, this should be a fully-qualified name of the form /package.service/method.
                Structure is documented below.
         """
@@ -1735,7 +2203,7 @@ class AuthzPolicyHttpRuleToOperation(dict):
     def hosts(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToOperationHost']]:
         """
         A list of HTTP Hosts to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-        Limited to 5 matches.
+        Limited to 10 matches.
         Structure is documented below.
         """
         return pulumi.get(self, "hosts")
@@ -1753,7 +2221,7 @@ class AuthzPolicyHttpRuleToOperation(dict):
     def paths(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToOperationPath']]:
         """
         A list of paths to match against. The match can be one of exact, prefix, suffix, or contains (substring match). Matches are always case sensitive unless the ignoreCase is set.
-        Limited to 5 matches.
+        Limited to 10 matches.
         Note that this path match includes the query parameters. For gRPC services, this should be a fully-qualified name of the form /package.service/method.
         Structure is documented below.
         """
@@ -1765,7 +2233,7 @@ class AuthzPolicyHttpRuleToOperationHeaderSet(dict):
     def __init__(__self__, *,
                  headers: Optional[Sequence['outputs.AuthzPolicyHttpRuleToOperationHeaderSetHeader']] = None):
         """
-        :param Sequence['AuthzPolicyHttpRuleToOperationHeaderSetHeaderArgs'] headers: A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 5 matches.
+        :param Sequence['AuthzPolicyHttpRuleToOperationHeaderSetHeaderArgs'] headers: A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 10 matches.
                Structure is documented below.
         """
         if headers is not None:
@@ -1775,7 +2243,7 @@ class AuthzPolicyHttpRuleToOperationHeaderSet(dict):
     @pulumi.getter
     def headers(self) -> Optional[Sequence['outputs.AuthzPolicyHttpRuleToOperationHeaderSetHeader']]:
         """
-        A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 5 matches.
+        A list of headers to match against in http header. The match can be one of exact, prefix, suffix, or contains (substring match). The match follows AND semantics which means all the headers must match. Matches are always case sensitive unless the ignoreCase is set. Limited to 10 matches.
         Structure is documented below.
         """
         return pulumi.get(self, "headers")
@@ -2414,6 +2882,42 @@ class ClientTlsPolicyServerValidationCaGrpcEndpoint(dict):
 
 
 @pulumi.output_type
+class FirewallEndpointEndpointSettings(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "jumboFramesEnabled":
+            suggest = "jumbo_frames_enabled"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in FirewallEndpointEndpointSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        FirewallEndpointEndpointSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        FirewallEndpointEndpointSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 jumbo_frames_enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool jumbo_frames_enabled: Indicates whether Jumbo Frames are enabled for the firewall endpoint.
+        """
+        if jumbo_frames_enabled is not None:
+            pulumi.set(__self__, "jumbo_frames_enabled", jumbo_frames_enabled)
+
+    @_builtins.property
+    @pulumi.getter(name="jumboFramesEnabled")
+    def jumbo_frames_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Indicates whether Jumbo Frames are enabled for the firewall endpoint.
+        """
+        return pulumi.get(self, "jumbo_frames_enabled")
+
+
+@pulumi.output_type
 class InterceptDeploymentGroupConnectedEndpointGroup(dict):
     def __init__(__self__, *,
                  name: Optional[_builtins.str] = None):
@@ -3004,6 +3508,178 @@ class MirroringEndpointGroupConnectedDeploymentGroupLocation(dict):
 
 
 @pulumi.output_type
+class SacAttachmentSymantecOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "symantecLocationName":
+            suggest = "symantec_location_name"
+        elif key == "symantecSite":
+            suggest = "symantec_site"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SacAttachmentSymantecOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SacAttachmentSymantecOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SacAttachmentSymantecOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 symantec_location_name: Optional[_builtins.str] = None,
+                 symantec_site: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str symantec_location_name: Name to be used when creating a location on the customer's behalf in Symantec's Location API. Not to be confused with Google Cloud locations.
+        :param _builtins.str symantec_site: Symantec data center identifier that this attachment will connect to.
+        """
+        if symantec_location_name is not None:
+            pulumi.set(__self__, "symantec_location_name", symantec_location_name)
+        if symantec_site is not None:
+            pulumi.set(__self__, "symantec_site", symantec_site)
+
+    @_builtins.property
+    @pulumi.getter(name="symantecLocationName")
+    def symantec_location_name(self) -> Optional[_builtins.str]:
+        """
+        Name to be used when creating a location on the customer's behalf in Symantec's Location API. Not to be confused with Google Cloud locations.
+        """
+        return pulumi.get(self, "symantec_location_name")
+
+    @_builtins.property
+    @pulumi.getter(name="symantecSite")
+    def symantec_site(self) -> Optional[_builtins.str]:
+        """
+        Symantec data center identifier that this attachment will connect to.
+        """
+        return pulumi.get(self, "symantec_site")
+
+
+@pulumi.output_type
+class SacRealmPairingKey(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "expireTime":
+            suggest = "expire_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SacRealmPairingKey. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SacRealmPairingKey.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SacRealmPairingKey.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 expire_time: Optional[_builtins.str] = None,
+                 key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str expire_time: (Output)
+               Timestamp in UTC of when this resource is considered expired. It expires 7 days after creation.
+        :param _builtins.str key: (Output)
+               Key value.
+        """
+        if expire_time is not None:
+            pulumi.set(__self__, "expire_time", expire_time)
+        if key is not None:
+            pulumi.set(__self__, "key", key)
+
+    @_builtins.property
+    @pulumi.getter(name="expireTime")
+    def expire_time(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Timestamp in UTC of when this resource is considered expired. It expires 7 days after creation.
+        """
+        return pulumi.get(self, "expire_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Key value.
+        """
+        return pulumi.get(self, "key")
+
+
+@pulumi.output_type
+class SacRealmSymantecOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "availableSymantecSites":
+            suggest = "available_symantec_sites"
+        elif key == "secretPath":
+            suggest = "secret_path"
+        elif key == "symantecConnectionState":
+            suggest = "symantec_connection_state"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SacRealmSymantecOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SacRealmSymantecOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SacRealmSymantecOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 available_symantec_sites: Optional[Sequence[_builtins.str]] = None,
+                 secret_path: Optional[_builtins.str] = None,
+                 symantec_connection_state: Optional[_builtins.str] = None):
+        """
+        :param Sequence[_builtins.str] available_symantec_sites: (Output)
+               Symantec site IDs which the user can choose to connect to.
+        :param _builtins.str secret_path: API Key used to call Symantec APIs on the user's behalf. Required if using Symantec Cloud SWG. P4SA account needs permissions granted to read this secret.
+               A secret ID, secret name, or secret URI can be specified, but it will be parsed and stored as a secret URI in the form projects/{projectNumber}/secrets/my-secret.
+        :param _builtins.str symantec_connection_state: (Output)
+               Connection status to Symantec API
+        """
+        if available_symantec_sites is not None:
+            pulumi.set(__self__, "available_symantec_sites", available_symantec_sites)
+        if secret_path is not None:
+            pulumi.set(__self__, "secret_path", secret_path)
+        if symantec_connection_state is not None:
+            pulumi.set(__self__, "symantec_connection_state", symantec_connection_state)
+
+    @_builtins.property
+    @pulumi.getter(name="availableSymantecSites")
+    def available_symantec_sites(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (Output)
+        Symantec site IDs which the user can choose to connect to.
+        """
+        return pulumi.get(self, "available_symantec_sites")
+
+    @_builtins.property
+    @pulumi.getter(name="secretPath")
+    def secret_path(self) -> Optional[_builtins.str]:
+        """
+        API Key used to call Symantec APIs on the user's behalf. Required if using Symantec Cloud SWG. P4SA account needs permissions granted to read this secret.
+        A secret ID, secret name, or secret URI can be specified, but it will be parsed and stored as a secret URI in the form projects/{projectNumber}/secrets/my-secret.
+        """
+        return pulumi.get(self, "secret_path")
+
+    @_builtins.property
+    @pulumi.getter(name="symantecConnectionState")
+    def symantec_connection_state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Connection status to Symantec API
+        """
+        return pulumi.get(self, "symantec_connection_state")
+
+
+@pulumi.output_type
 class SecurityProfileCustomInterceptProfile(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -3047,6 +3723,10 @@ class SecurityProfileCustomMirroringProfile(dict):
         suggest = None
         if key == "mirroringEndpointGroup":
             suggest = "mirroring_endpoint_group"
+        elif key == "mirroringDeploymentGroups":
+            suggest = "mirroring_deployment_groups"
+        elif key == "mirroringEndpointGroupType":
+            suggest = "mirroring_endpoint_group_type"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SecurityProfileCustomMirroringProfile. Access the value via the '{suggest}' property getter instead.")
@@ -3060,21 +3740,63 @@ class SecurityProfileCustomMirroringProfile(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 mirroring_endpoint_group: _builtins.str):
+                 mirroring_endpoint_group: _builtins.str,
+                 mirroring_deployment_groups: Optional[Sequence[_builtins.str]] = None,
+                 mirroring_endpoint_group_type: Optional[_builtins.str] = None):
         """
-        :param _builtins.str mirroring_endpoint_group: The Mirroring Endpoint Group to which matching traffic should be mirrored.
+        :param _builtins.str mirroring_endpoint_group: The target Mirroring Endpoint Group.
+               When a mirroring rule with this security profile attached matches a packet,
+               a replica will be mirrored to the location-local target in this group.
                Format: projects/{project_id}/locations/global/mirroringEndpointGroups/{endpoint_group_id}
+        :param Sequence[_builtins.str] mirroring_deployment_groups: The target downstream Mirroring Deployment Groups.
+               This field is used for Packet Broker mirroring endpoint groups to specify
+               the deployment groups that the packet should be mirrored to by the broker.
+               Format: projects/{project_id}/locations/global/mirroringDeploymentGroups/{deployment_group_id}
+        :param _builtins.str mirroring_endpoint_group_type: (Output, Beta)
+               The type of the mirroring endpoint group this profile is attached to.
+               Possible values:
+               DIRECT
+               BROKER
         """
         pulumi.set(__self__, "mirroring_endpoint_group", mirroring_endpoint_group)
+        if mirroring_deployment_groups is not None:
+            pulumi.set(__self__, "mirroring_deployment_groups", mirroring_deployment_groups)
+        if mirroring_endpoint_group_type is not None:
+            pulumi.set(__self__, "mirroring_endpoint_group_type", mirroring_endpoint_group_type)
 
     @_builtins.property
     @pulumi.getter(name="mirroringEndpointGroup")
     def mirroring_endpoint_group(self) -> _builtins.str:
         """
-        The Mirroring Endpoint Group to which matching traffic should be mirrored.
+        The target Mirroring Endpoint Group.
+        When a mirroring rule with this security profile attached matches a packet,
+        a replica will be mirrored to the location-local target in this group.
         Format: projects/{project_id}/locations/global/mirroringEndpointGroups/{endpoint_group_id}
         """
         return pulumi.get(self, "mirroring_endpoint_group")
+
+    @_builtins.property
+    @pulumi.getter(name="mirroringDeploymentGroups")
+    def mirroring_deployment_groups(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        The target downstream Mirroring Deployment Groups.
+        This field is used for Packet Broker mirroring endpoint groups to specify
+        the deployment groups that the packet should be mirrored to by the broker.
+        Format: projects/{project_id}/locations/global/mirroringDeploymentGroups/{deployment_group_id}
+        """
+        return pulumi.get(self, "mirroring_deployment_groups")
+
+    @_builtins.property
+    @pulumi.getter(name="mirroringEndpointGroupType")
+    def mirroring_endpoint_group_type(self) -> Optional[_builtins.str]:
+        """
+        (Output, Beta)
+        The type of the mirroring endpoint group this profile is attached to.
+        Possible values:
+        DIRECT
+        BROKER
+        """
+        return pulumi.get(self, "mirroring_endpoint_group_type")
 
 
 @pulumi.output_type
@@ -3277,6 +3999,114 @@ class SecurityProfileThreatPreventionProfileThreatOverride(dict):
         Type of threat.
         """
         return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class SecurityProfileUrlFilteringProfile(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "urlFilters":
+            suggest = "url_filters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecurityProfileUrlFilteringProfile. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecurityProfileUrlFilteringProfile.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecurityProfileUrlFilteringProfile.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 url_filters: Optional[Sequence['outputs.SecurityProfileUrlFilteringProfileUrlFilter']] = None):
+        """
+        :param Sequence['SecurityProfileUrlFilteringProfileUrlFilterArgs'] url_filters: The configuration for action to take based on domain name match.
+               A domain name would be checked for matching filters through the list in order of highest to lowest priority,
+               and the first filter that a domain name matches with is the one whose actions gets applied.
+               Structure is documented below.
+        """
+        if url_filters is not None:
+            pulumi.set(__self__, "url_filters", url_filters)
+
+    @_builtins.property
+    @pulumi.getter(name="urlFilters")
+    def url_filters(self) -> Optional[Sequence['outputs.SecurityProfileUrlFilteringProfileUrlFilter']]:
+        """
+        The configuration for action to take based on domain name match.
+        A domain name would be checked for matching filters through the list in order of highest to lowest priority,
+        and the first filter that a domain name matches with is the one whose actions gets applied.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "url_filters")
+
+
+@pulumi.output_type
+class SecurityProfileUrlFilteringProfileUrlFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "filteringAction":
+            suggest = "filtering_action"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecurityProfileUrlFilteringProfileUrlFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecurityProfileUrlFilteringProfileUrlFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecurityProfileUrlFilteringProfileUrlFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 filtering_action: _builtins.str,
+                 priority: _builtins.int,
+                 urls: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str filtering_action: The action to take when the filter is applied.
+               Possible values are: `ALLOW`, `DENY`.
+        :param _builtins.int priority: The priority of the filter within the URL filtering profile.
+               Must be an integer from 0 and 2147483647, inclusive. Lower integers indicate higher priorities.
+               The priority of a filter must be unique within a URL filtering profile.
+        :param Sequence[_builtins.str] urls: A list of domain matcher strings that a domain name gets compared with to determine if the filter is applicable.
+               A domain name must match with at least one of the strings in the list for a filter to be applicable.
+        """
+        pulumi.set(__self__, "filtering_action", filtering_action)
+        pulumi.set(__self__, "priority", priority)
+        if urls is not None:
+            pulumi.set(__self__, "urls", urls)
+
+    @_builtins.property
+    @pulumi.getter(name="filteringAction")
+    def filtering_action(self) -> _builtins.str:
+        """
+        The action to take when the filter is applied.
+        Possible values are: `ALLOW`, `DENY`.
+        """
+        return pulumi.get(self, "filtering_action")
+
+    @_builtins.property
+    @pulumi.getter
+    def priority(self) -> _builtins.int:
+        """
+        The priority of the filter within the URL filtering profile.
+        Must be an integer from 0 and 2147483647, inclusive. Lower integers indicate higher priorities.
+        The priority of a filter must be unique within a URL filtering profile.
+        """
+        return pulumi.get(self, "priority")
+
+    @_builtins.property
+    @pulumi.getter
+    def urls(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of domain matcher strings that a domain name gets compared with to determine if the filter is applicable.
+        A domain name must match with at least one of the strings in the list for a filter to be applicable.
+        """
+        return pulumi.get(self, "urls")
 
 
 @pulumi.output_type

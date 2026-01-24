@@ -18,11 +18,6 @@ from __future__ import annotations
 
 import sys
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -47,7 +42,7 @@ class GetIceServerConfigRequestTypeDef(TypedDict):
 
 
 class IceServerTypeDef(TypedDict):
-    Uris: NotRequired[List[str]]
+    Uris: NotRequired[list[str]]
     Username: NotRequired[str]
     Password: NotRequired[str]
     Ttl: NotRequired[int]
@@ -56,7 +51,7 @@ class IceServerTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -68,7 +63,7 @@ class SendAlexaOfferToMasterRequestTypeDef(TypedDict):
 
 
 class GetIceServerConfigResponseTypeDef(TypedDict):
-    IceServerList: List[IceServerTypeDef]
+    IceServerList: list[IceServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

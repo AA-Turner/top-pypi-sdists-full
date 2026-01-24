@@ -1,3 +1,4 @@
+pub mod agg;
 pub mod bound_expr;
 pub mod window;
 
@@ -20,8 +21,8 @@ use common_hashable_float_wrapper::FloatWrapper;
 use common_treenode::{Transformed, TreeNode};
 use daft_core::{
     datatypes::{
-        InferDataType, try_mean_aggregation_supertype, try_skew_aggregation_supertype,
-        try_stddev_aggregation_supertype, try_sum_supertype,
+        InferDataType, try_mean_aggregation_supertype, try_product_supertype,
+        try_skew_aggregation_supertype, try_stddev_aggregation_supertype, try_sum_supertype,
     },
     join::JoinSide,
     lit::Literal,
@@ -38,13 +39,13 @@ use crate::{
     functions::{
         BuiltinScalarFn, FUNCTION_REGISTRY, FunctionArg, FunctionArgs, FunctionEvaluator,
         function_display_without_formatter, function_semantic_id,
-        python::LegacyPythonUDF,
+        python::{LegacyPythonUDF, RuntimePyObject},
         scalar::{ScalarFn, scalar_function_semantic_id},
         sketch::{HashableVecPercentiles, SketchExpr},
         struct_::StructExpr,
     },
     optimization::{get_required_columns, requires_computation},
-    python_udf::{PyScalarFn, RowWisePyFn},
+    python_udf::{BatchPyFn, PyScalarFn, RowWisePyFn},
 };
 
 pub trait SubqueryPlan: std::fmt::Debug + std::fmt::Display + Send + Sync {
@@ -296,6 +297,32 @@ pub enum Expr {
 
     #[display("exists {_0}")]
     Exists(Subquery),
+
+    #[display("vllm({_0})")]
+    VLLM(VLLMExpr),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Experimental expression for running cache-optimized LLM inference using vLLM.
+pub struct VLLMExpr {
+    pub model: String,
+    pub input: ExprRef,
+    pub concurrency: usize,
+    pub gpus_per_actor: usize,
+    pub do_prefix_routing: bool,
+    pub max_buffer_size: usize,
+    pub min_bucket_size: usize,
+    pub prefix_match_threshold: FloatWrapper<f64>,
+    pub load_balance_threshold: usize,
+    pub batch_size: Option<usize>,
+    pub engine_args: RuntimePyObject,
+    pub generate_args: RuntimePyObject,
+}
+
+impl std::fmt::Display for VLLMExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "vllm(model: {}, input: {})", self.model, self.input)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
@@ -303,6 +330,60 @@ pub struct ApproxPercentileParams {
     pub child: ExprRef,
     pub percentiles: Vec<FloatWrapper<f64>>,
     pub force_list_output: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum MapGroupsFn {
+    /// Legacy @daft.udf entry point.
+    Legacy(LegacyPythonUDF),
+    /// New Python scalar UDF (@daft.func / @daft.cls) in batch mode.
+    Python(PyScalarFn),
+}
+
+impl MapGroupsFn {
+    pub fn display(&self, inputs: &[ExprRef]) -> std::result::Result<String, std::fmt::Error> {
+        match self {
+            Self::Legacy(udf) => {
+                let func = FunctionExpr::Python(udf.clone());
+                function_display_without_formatter(&func, inputs)
+            }
+            Self::Python(py_fn) => Ok(py_fn.to_string()),
+        }
+    }
+
+    pub fn semantic_id(&self, inputs: &[ExprRef], schema: &Schema) -> FieldID {
+        match self {
+            Self::Legacy(udf) => {
+                let func = FunctionExpr::Python(udf.clone());
+                function_semantic_id(&func, inputs, schema)
+            }
+            Self::Python(py_fn) => {
+                let inputs = inputs
+                    .iter()
+                    .map(|expr| expr.semantic_id(schema).id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                FieldID::new(format!("PyScalarFn_{}({inputs})", py_fn.id()))
+            }
+        }
+    }
+
+    pub fn to_field(&self, inputs: &[ExprRef], schema: &Schema) -> DaftResult<Field> {
+        match self {
+            Self::Legacy(udf) => {
+                let func = FunctionExpr::Python(udf.clone());
+                func.to_field(inputs, schema, &func)
+            }
+            Self::Python(py_fn) => py_fn.to_field(schema),
+        }
+    }
+
+    pub fn with_new_children(&self, children: Vec<ExprRef>) -> Self {
+        match self {
+            Self::Legacy(udf) => Self::Legacy(udf.clone()),
+            Self::Python(py_fn) => Self::Python(py_fn.with_new_children(children)),
+        }
+    }
 }
 
 #[derive(Display, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -315,6 +396,9 @@ pub enum AggExpr {
 
     #[display("sum({_0})")]
     Sum(ExprRef),
+
+    #[display("product({_0})")]
+    Product(ExprRef),
 
     #[display("approx_percentile({}, percentiles={:?}, force_list_output={})", _0.child, _0.percentiles, _0.force_list_output)]
     ApproxPercentile(ApproxPercentileParams),
@@ -361,9 +445,9 @@ pub enum AggExpr {
     #[display("skew({_0}")]
     Skew(ExprRef),
 
-    #[display("{}", function_display_without_formatter(func, inputs)?)]
+    #[display("{}", func.display(inputs)?)]
     MapGroups {
-        func: FunctionExpr,
+        func: MapGroupsFn,
         inputs: Vec<ExprRef>,
     },
 }
@@ -447,6 +531,7 @@ impl AggExpr {
             Self::Count(_, _) => "Count",
             Self::CountDistinct(_) => "Count Distinct",
             Self::Sum(_) => "Sum",
+            Self::Product(_) => "Product",
             Self::ApproxPercentile(_) => "Approx Percentile",
             Self::ApproxCountDistinct(_) => "Approx Count Distinct",
             Self::ApproxSketch(_, _) => "Approx Sketch",
@@ -471,6 +556,7 @@ impl AggExpr {
             Self::Count(expr, ..)
             | Self::CountDistinct(expr)
             | Self::Sum(expr)
+            | Self::Product(expr)
             | Self::ApproxPercentile(ApproxPercentileParams { child: expr, .. })
             | Self::ApproxCountDistinct(expr)
             | Self::ApproxSketch(expr, _)
@@ -503,6 +589,10 @@ impl AggExpr {
             Self::Sum(expr) => {
                 let child_id = expr.semantic_id(schema);
                 FieldID::new(format!("{child_id}.local_sum()"))
+            }
+            Self::Product(expr) => {
+                let child_id = expr.semantic_id(schema);
+                FieldID::new(format!("{child_id}.local_product()"))
             }
             Self::ApproxPercentile(ApproxPercentileParams {
                 child: expr,
@@ -577,7 +667,7 @@ impl AggExpr {
                 let child_id = expr.semantic_id(schema);
                 FieldID::new(format!("{child_id}.local_skew()"))
             }
-            Self::MapGroups { func, inputs } => function_semantic_id(func, inputs, schema),
+            Self::MapGroups { func, inputs } => func.semantic_id(inputs, schema),
         }
     }
 
@@ -586,6 +676,7 @@ impl AggExpr {
             Self::Count(expr, ..)
             | Self::CountDistinct(expr)
             | Self::Sum(expr)
+            | Self::Product(expr)
             | Self::ApproxPercentile(ApproxPercentileParams { child: expr, .. })
             | Self::ApproxCountDistinct(expr)
             | Self::ApproxSketch(expr, _)
@@ -616,6 +707,7 @@ impl AggExpr {
             &Self::Count(_, count_mode) => Self::Count(first_child(), count_mode),
             Self::CountDistinct(_) => Self::CountDistinct(first_child()),
             Self::Sum(_) => Self::Sum(first_child()),
+            Self::Product(_) => Self::Product(first_child()),
             Self::Mean(_) => Self::Mean(first_child()),
             Self::Stddev(_) => Self::Stddev(first_child()),
             Self::Min(_) => Self::Min(first_child()),
@@ -628,7 +720,7 @@ impl AggExpr {
             Self::Concat(_) => Self::Concat(first_child()),
             Self::Skew(_) => Self::Skew(first_child()),
             Self::MapGroups { func, inputs: _ } => Self::MapGroups {
-                func: func.clone(),
+                func: func.with_new_children(children.clone()),
                 inputs: children,
             },
             Self::ApproxPercentile(ApproxPercentileParams {
@@ -657,6 +749,13 @@ impl AggExpr {
                 Ok(Field::new(
                     field.name.as_str(),
                     try_sum_supertype(&field.dtype)?,
+                ))
+            }
+            Self::Product(expr) => {
+                let field = expr.to_field(schema)?;
+                Ok(Field::new(
+                    field.name.as_str(),
+                    try_product_supertype(&field.dtype)?,
                 ))
             }
 
@@ -702,7 +801,7 @@ impl AggExpr {
                                 field.dtype, field.name,
                             )));
                         }
-                        DataType::from(&*daft_sketch::ARROW2_DDSKETCH_DTYPE)
+                        DataType::try_from(&*daft_sketch::ARROW_DDSKETCH_DTYPE)?
                     }
                     SketchType::HyperLogLog => daft_core::array::ops::HLL_SKETCH_DTYPE,
                 };
@@ -757,10 +856,8 @@ impl AggExpr {
                 match field.dtype {
                     DataType::List(..) => Ok(field),
                     DataType::Utf8 => Ok(field),
-                    #[cfg(feature = "python")]
-                    DataType::Python => Ok(field),
                     _ => Err(DaftError::TypeError(format!(
-                        "We can only perform List Concat Agg on List or Python Types, got dtype {} for column \"{}\"",
+                        "We can only perform Concat Agg on List or Utf8 types, got dtype {} for column \"{}\"",
                         field.dtype, field.name
                     ))),
                 }
@@ -774,7 +871,7 @@ impl AggExpr {
                 ))
             }
 
-            Self::MapGroups { func, inputs } => func.to_field(inputs.as_slice(), schema, func),
+            Self::MapGroups { func, inputs } => func.to_field(inputs.as_slice(), schema),
         }
     }
 }
@@ -952,7 +1049,15 @@ impl Expr {
     }
 
     pub fn alias<S: Into<Arc<str>>>(self: &ExprRef, name: S) -> ExprRef {
-        Self::Alias(self.clone(), name.into()).into()
+        Self::Alias(
+            if let Self::Alias(inner, _) = self.as_ref() {
+                inner.clone()
+            } else {
+                self.clone()
+            },
+            name.into(),
+        )
+        .into()
     }
 
     pub fn if_else(self: ExprRef, if_true: ExprRef, if_false: ExprRef) -> ExprRef {
@@ -978,6 +1083,10 @@ impl Expr {
 
     pub fn sum(self: ExprRef) -> ExprRef {
         Self::Agg(AggExpr::Sum(self)).into()
+    }
+
+    pub fn product(self: ExprRef) -> ExprRef {
+        Self::Agg(AggExpr::Product(self)).into()
     }
 
     pub fn approx_count_distinct(self: ExprRef) -> ExprRef {
@@ -1303,7 +1412,7 @@ impl Expr {
                 FieldID::new(format!("{child_id}.window_function()"))
             }
             Self::ScalarFn(ScalarFn::Python(PyScalarFn::RowWise(RowWisePyFn {
-                function_name: name,
+                func_id: id,
                 args: children,
                 ..
             }))) => {
@@ -1311,8 +1420,35 @@ impl Expr {
                     .iter()
                     .map(|expr| expr.semantic_id(schema).id)
                     .join(",");
-                FieldID::new(format!("ScalarPythonUDF_{name}({children_ids})"))
+                FieldID::new(format!("RowWisePythonUDF_{id}({children_ids})"))
             }
+            Self::ScalarFn(ScalarFn::Python(PyScalarFn::Batch(BatchPyFn {
+                func_id: id,
+                args: children,
+                ..
+            }))) => {
+                let children_ids = children
+                    .iter()
+                    .map(|expr| expr.semantic_id(schema).id)
+                    .join(",");
+                FieldID::new(format!("BatchPythonUDF_{id}({children_ids})"))
+            }
+            Self::VLLM(VLLMExpr {
+                model,
+                input,
+                concurrency,
+                gpus_per_actor,
+                do_prefix_routing,
+                max_buffer_size,
+                min_bucket_size,
+                prefix_match_threshold,
+                load_balance_threshold,
+                batch_size,
+                engine_args,
+                generate_args,
+            }) => FieldID::new(format!(
+                "VLLM({model}, {input}, {concurrency}, {gpus_per_actor}, {do_prefix_routing}, {max_buffer_size}, {min_bucket_size}, {prefix_match_threshold:?}, {load_balance_threshold}, {batch_size:?}, {engine_args:?}, {generate_args:?})"
+            )),
         }
     }
 
@@ -1353,10 +1489,8 @@ impl Expr {
             }
             Self::FillNull(expr, fill_value) => vec![expr.clone(), fill_value.clone()],
             Self::ScalarFn(ScalarFn::Builtin(sf)) => sf.inputs.clone().into_inner(),
-            Self::ScalarFn(ScalarFn::Python(PyScalarFn::RowWise(RowWisePyFn {
-                args: children,
-                ..
-            }))) => children.clone(),
+            Self::ScalarFn(ScalarFn::Python(udf)) => udf.args(),
+            Self::VLLM(VLLMExpr { input, .. }) => vec![input.clone()],
         }
     }
 
@@ -1470,30 +1604,40 @@ impl Expr {
                     .collect();
 
                 Self::ScalarFn(ScalarFn::Builtin(BuiltinScalarFn {
-                    udf: sf.udf.clone(),
+                    func: sf.func.clone(),
                     inputs: FunctionArgs::new_unchecked(new_children),
                 }))
             }
-            Self::ScalarFn(ScalarFn::Python(PyScalarFn::RowWise(RowWisePyFn {
-                function_name: name,
-                inner: func,
-                return_dtype,
-                original_args,
-                args: old_children,
-            }))) => {
-                assert!(
-                    children.len() == old_children.len(),
-                    "Should have same number of children"
-                );
-
-                Self::ScalarFn(ScalarFn::Python(PyScalarFn::RowWise(RowWisePyFn {
-                    function_name: name.clone(),
-                    inner: func.clone(),
-                    return_dtype: return_dtype.clone(),
-                    original_args: original_args.clone(),
-                    args: children,
-                })))
+            Self::ScalarFn(ScalarFn::Python(udf)) => {
+                Self::ScalarFn(ScalarFn::Python(udf.with_new_children(children)))
             }
+            Self::VLLM(VLLMExpr {
+                model,
+                input: _,
+                concurrency,
+                gpus_per_actor,
+                do_prefix_routing,
+                max_buffer_size,
+                min_bucket_size,
+                prefix_match_threshold,
+                load_balance_threshold,
+                batch_size,
+                engine_args,
+                generate_args,
+            }) => Self::VLLM(VLLMExpr {
+                model: model.clone(),
+                input: children.first().expect("Should have 1 child").clone(),
+                concurrency: *concurrency,
+                gpus_per_actor: *gpus_per_actor,
+                do_prefix_routing: *do_prefix_routing,
+                max_buffer_size: *max_buffer_size,
+                min_bucket_size: *min_bucket_size,
+                prefix_match_threshold: prefix_match_threshold.clone(),
+                load_balance_threshold: *load_balance_threshold,
+                batch_size: *batch_size,
+                engine_args: engine_args.clone(),
+                generate_args: generate_args.clone(),
+            }),
         }
     }
 
@@ -1695,6 +1839,7 @@ impl Expr {
             Self::Exists(_) => Ok(Field::new("exists", DataType::Boolean)),
             Self::Over(expr, _) => expr.to_field(schema),
             Self::WindowFunction(expr) => expr.to_field(schema),
+            Self::VLLM(VLLMExpr { input, .. }) => input.to_field(schema),
         }
     }
 
@@ -1745,17 +1890,25 @@ impl Expr {
             Self::Exists(subquery) => subquery.name(),
             Self::Over(expr, ..) => expr.name(),
             Self::WindowFunction(expr) => expr.name(),
-            Self::ScalarFn(ScalarFn::Python(PyScalarFn::RowWise(RowWisePyFn {
-                function_name: name,
-                args: children,
-                ..
-            }))) => {
-                if let Some(first_child) = children.first() {
-                    first_child.name()
-                } else {
-                    name.as_ref()
+            Self::ScalarFn(ScalarFn::Python(udf)) => match udf {
+                PyScalarFn::RowWise(RowWisePyFn {
+                    function_name,
+                    args,
+                    ..
+                })
+                | PyScalarFn::Batch(BatchPyFn {
+                    function_name,
+                    args,
+                    ..
+                }) => {
+                    if let Some(first_child) = args.first() {
+                        first_child.name()
+                    } else {
+                        function_name.as_ref()
+                    }
                 }
-            }
+            },
+            Self::VLLM(VLLMExpr { input, .. }) => input.name(),
         }
     }
 
@@ -1842,7 +1995,8 @@ impl Expr {
                 | Expr::Exists(..)
                 | Expr::Over(..)
                 | Expr::WindowFunction(..)
-                | Expr::Column(_) => Err(io::Error::other(
+                | Expr::Column(_)
+                | Expr::VLLM(..) => Err(io::Error::other(
                     "Unsupported expression for SQL translation",
                 )),
             }
@@ -1897,6 +2051,7 @@ impl Expr {
             } => if_true.has_compute() || if_false.has_compute() || predicate.has_compute(),
             Self::InSubquery(expr, _) => expr.has_compute(),
             Self::List(..) => true,
+            Self::VLLM(..) => true,
         }
     }
 
@@ -1943,7 +2098,7 @@ impl Expr {
         let f = explode_fn.get_function(FunctionArgs::empty(), &Schema::empty())?;
 
         Ok(Self::ScalarFn(ScalarFn::Builtin(BuiltinScalarFn {
-            udf: f,
+            func: f,
             inputs: FunctionArgs::new_unchecked(vec![FunctionArg::Unnamed(self)]),
         }))
         .arced())
@@ -2094,40 +2249,6 @@ pub fn is_udf(expr: &ExprRef) -> bool {
     )
 }
 
-/// Count the number of UDFs anywhere in the expression tree
-pub fn count_udfs(expr: &ExprRef) -> usize {
-    let mut count = 0;
-    expr.apply(|e| {
-        if is_udf(e) {
-            count += 1;
-        }
-
-        Ok(common_treenode::TreeNodeRecursion::Continue)
-    })
-    .unwrap();
-
-    count
-}
-
-pub fn count_actor_pool_udfs(exprs: &[ExprRef]) -> usize {
-    exprs
-        .iter()
-        .map(|expr| {
-            let mut count = 0;
-            expr.apply(|e| {
-                if is_actor_pool_udf(e) {
-                    count += 1;
-                }
-
-                Ok(common_treenode::TreeNodeRecursion::Continue)
-            })
-            .unwrap();
-
-            count
-        })
-        .sum()
-}
-
 pub fn estimated_selectivity(expr: &Expr, schema: &Schema) -> f64 {
     let estimate = match expr {
         // Boolean operations that filter rows
@@ -2188,7 +2309,7 @@ pub fn estimated_selectivity(expr: &Expr, schema: &Schema) -> f64 {
         },
 
         // String contains
-        Expr::ScalarFn(ScalarFn::Builtin(BuiltinScalarFn { udf, .. }))
+        Expr::ScalarFn(ScalarFn::Builtin(BuiltinScalarFn { func: udf, .. }))
             if udf.name() == "contains" =>
         {
             0.1
@@ -2199,7 +2320,8 @@ pub fn estimated_selectivity(expr: &Expr, schema: &Schema) -> f64 {
         | Expr::Function { .. }
         | Expr::Column(_)
         | Expr::IfElse { .. }
-        | Expr::FillNull(_, _) => match expr.to_field(schema) {
+        | Expr::FillNull(_, _)
+        | Expr::VLLM(..) => match expr.to_field(schema) {
             Ok(field) if field.dtype == DataType::Boolean => 0.2,
             _ => 1.0,
         },

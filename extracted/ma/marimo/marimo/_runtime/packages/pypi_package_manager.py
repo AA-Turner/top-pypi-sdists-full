@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import json
@@ -20,14 +20,76 @@ from marimo._runtime.packages.package_manager import (
     PackageDescription,
 )
 from marimo._runtime.packages.utils import split_packages
-from marimo._server.models.packages import DependencyTreeNode
 from marimo._utils.platform import is_pyodide
 from marimo._utils.uv import find_uv_bin
-from marimo._utils.uv_tree import parse_uv_tree
+from marimo._utils.uv_tree import DependencyTreeNode, parse_uv_tree
+from marimo._utils.versions import (
+    extract_extras,
+    has_version_specifier,
+    without_extras,
+    without_version_specifier,
+)
 
 PY_EXE = sys.executable
 
 LOGGER = _loggers.marimo_logger()
+
+
+class VersionMap:
+    """
+    A map of package names to versions, with some extra
+    logic for defensibility when checking if a package is installed.
+    """
+
+    def __init__(self, version_map: dict[str, str]) -> None:
+        self.version_map = version_map
+
+    def get_version(self, package: str) -> str | None:
+        """Get the version of a package."""
+        # Remove extras and version specifier
+        package = without_extras(without_version_specifier(package)).lower()
+        return (
+            self._get(package)
+            # Try replacing _ with - and - with _
+            or self._get(package.replace("_", "-"))
+            or self._get(package.replace("-", "_"))
+        )
+
+    def resolve_with_version(self, package: str) -> str | None:
+        """Resolve a package name to a package name with a version specifier.
+
+        Preserves extras from the original package name in the result.
+        For example: 'requests[security]' -> 'requests[security]==2.28.0'
+        """
+        # Extract and preserve extras
+        extras = extract_extras(without_version_specifier(package))
+
+        # Get the base package name without extras or version specifier
+        base_package = without_extras(
+            without_version_specifier(package)
+        ).lower()
+
+        # Try exact match
+        if base_package in self.version_map:
+            return f"{base_package}{extras}=={self.version_map[base_package]}"
+
+        # Try replacing _ with -
+        normalized_package = base_package.replace("_", "-")
+        if normalized_package in self.version_map:
+            return f"{normalized_package}{extras}=={self.version_map[normalized_package]}"
+
+        # Try replacing - with _
+        normalized_package = base_package.replace("-", "_")
+        if normalized_package in self.version_map:
+            return f"{normalized_package}{extras}=={self.version_map[normalized_package]}"
+
+        return None
+
+    def _get(self, package: str) -> str | None:
+        return self.version_map.get(package)
+
+    def has(self, package: str) -> bool:
+        return self.get_version(package) is not None
 
 
 class PypiPackageManager(CanonicalizingPackageManager):
@@ -39,7 +101,9 @@ class PypiPackageManager(CanonicalizingPackageManager):
     ) -> list[PackageDescription]:
         if not self.is_manager_installed():
             return []
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8"
+        )
         if proc.returncode != 0:
             return []
         try:
@@ -56,23 +120,25 @@ class PipPackageManager(PypiPackageManager):
     name = "pip"
     docs_url = "https://pip.pypa.io/"
 
-    async def _install(
-        self,
-        package: str,
-        *,
-        upgrade: bool,
-        log_callback: Optional[LogCallback] = None,
-    ) -> bool:
-        LOGGER.info(f"Installing {package} with pip")
-        cmd = ["pip", "--python", PY_EXE, "install"]
-        if upgrade:
-            cmd.append("--upgrade")
-        cmd.extend(split_packages(package))
-        return self.run(cmd, log_callback=log_callback)
+    def install_command(
+        self, package: str, *, upgrade: bool, dev: bool
+    ) -> list[str]:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
+        return [
+            "pip",
+            "--python",
+            PY_EXE,
+            "install",
+            *(["--upgrade"] if upgrade else []),
+            *split_packages(package),
+        ]
 
-    async def uninstall(self, package: str) -> bool:
+    async def uninstall(self, package: str, dev: bool) -> bool:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
         LOGGER.info(f"Uninstalling {package} with pip")
-        return self.run(
+        return await self.run(
             [
                 "pip",
                 "--python",
@@ -94,7 +160,9 @@ class MicropipPackageManager(PypiPackageManager):
     docs_url = "https://micropip.pyodide.org/"
 
     def should_auto_install(self) -> bool:
-        return True
+        # We don't auto-install packages with micropip without the user's consent,
+        # since it can install unwanted packages.
+        return False
 
     def is_manager_installed(self) -> bool:
         return is_pyodide()
@@ -104,8 +172,11 @@ class MicropipPackageManager(PypiPackageManager):
         package: str,
         *,
         upgrade: bool,
+        dev: bool,
         log_callback: Optional[LogCallback] = None,
     ) -> bool:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
         assert is_pyodide()
         import micropip  # type: ignore
 
@@ -129,7 +200,9 @@ class MicropipPackageManager(PypiPackageManager):
                 log_callback(f"Failed to install {package}: {e}\n")
             return False
 
-    async def uninstall(self, package: str) -> bool:
+    async def uninstall(self, package: str, dev: bool) -> bool:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
         assert is_pyodide()
         import micropip  # type: ignore
 
@@ -158,27 +231,36 @@ class UvPackageManager(PypiPackageManager):
     name = "uv"
     docs_url = "https://docs.astral.sh/uv/"
 
+    SCRIPT_METADATA_MARKER = "# /// script"
+
     @cached_property
     def _uv_bin(self) -> str:
         return find_uv_bin()
 
+    def _is_cache_write_error(self, output_text: str) -> bool:
+        """Check if the output text indicates a cache write error.
+
+        This is somewhat fragile and could break with new uv output.
+        This was tested with uv ~0.9.7
+        """
+        output_text = output_text.lower()
+        return (
+            "failed to write to the distribution cache" in output_text
+            or "operation not permitted" in output_text
+        )
+
     def is_manager_installed(self) -> bool:
         return self._uv_bin != "uv" or super().is_manager_installed()
 
-    async def _install(
-        self,
-        package: str,
-        *,
-        upgrade: bool,
-        log_callback: Optional[LogCallback] = None,
-    ) -> bool:
+    def install_command(
+        self, package: str, *, upgrade: bool, dev: bool = False
+    ) -> list[str]:
         install_cmd: list[str]
         if self.is_in_uv_project:
-            LOGGER.info(f"Installing in {package} with 'uv add'")
             install_cmd = [self._uv_bin, "add"]
+            if dev:
+                install_cmd.append("--dev")
         else:
-            LOGGER.info(f"Installing in {package} with 'uv pip install'")
-
             install_cmd = [self._uv_bin, "pip", "install"]
 
             # Allow for explicit site directory location if needed
@@ -189,12 +271,84 @@ class UvPackageManager(PypiPackageManager):
         if upgrade:
             install_cmd.append("--upgrade")
 
-        return self.run(
+        return install_cmd + [
             # trade installation time for faster start time
-            install_cmd
-            + ["--compile", *split_packages(package), "-p", PY_EXE],
-            log_callback=log_callback,
+            "--compile",
+            *split_packages(package),
+            "-p",
+            PY_EXE,
+        ]
+
+    async def _install(
+        self,
+        package: str,
+        *,
+        upgrade: bool,
+        dev: bool,
+        log_callback: Optional[LogCallback] = None,
+    ) -> bool:
+        """Installation logic with fallback to --no-cache on cache write errors."""
+        LOGGER.info(
+            f"Installing in {package} with 'uv {'add' if self.is_in_uv_project else 'pip install'}'"
         )
+
+        # For uv projects, use the standard install flow without fallback
+        if self.is_in_uv_project:
+            return await super()._install(
+                package,
+                upgrade=upgrade,
+                dev=dev,
+                log_callback=log_callback,
+            )
+
+        # For uv pip install, try with output capture to enable fallback
+        cmd = self.install_command(package, upgrade=upgrade, dev=dev)
+
+        # Run the command and capture output
+        proc = subprocess.Popen(  # noqa: ASYNC220
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=False,
+            bufsize=0,
+        )
+
+        output_lines: list[str] = []
+        if proc.stdout:
+            for line in iter(proc.stdout.readline, b""):
+                # Send to terminal
+                sys.stdout.buffer.write(line)
+                sys.stdout.buffer.flush()
+                decoded_line = line.decode("utf-8", errors="replace")
+                # Send to callback for streaming
+                if log_callback:
+                    log_callback(decoded_line)
+                # Store for error checking
+                output_lines.append(decoded_line)
+            proc.stdout.close()
+
+        return_code = proc.wait()
+
+        # If successful, we're done
+        if return_code == 0:
+            return True
+
+        # Check if we should retry with --no-cache
+        output_text = "".join(output_lines)
+        if self._is_cache_write_error(output_text):
+            LOGGER.info(
+                f"Retrying installation of {package} with --no-cache due to cache write error"
+            )
+            if log_callback:
+                log_callback(
+                    "\nRetrying with --no-cache due to cache write permission error...\n"
+                )
+
+            # Retry with --no-cache flag
+            cmd_with_no_cache = cmd + ["--no-cache"]
+            return await self.run(cmd_with_no_cache, log_callback=log_callback)
+
+        return False
 
     def update_notebook_script_metadata(
         self,
@@ -235,25 +389,44 @@ class UvPackageManager(PypiPackageManager):
 
         version_map = self._get_version_map()
 
+        def _is_direct_reference(package: str) -> bool:
+            """Check if a package is a direct reference (git, URL, or local path).
+
+            Direct references should bypass the _is_installed check because:
+            - Git URLs (git+https://...) won't appear in version_map with that prefix
+            - Direct URL references (package @ https://...) use @ syntax
+            - Local paths (package @ file://...) use @ syntax
+            - These should be passed directly to uv which handles them correctly
+            """
+            # Git URLs: git+https://, git+ssh://, git://
+            if package.startswith("git+") or package.startswith("git://"):
+                return True
+            # Direct references with @ (PEP 440 direct references)
+            if " @ " in package:
+                return True
+            # URLs (https://, http://, file://)
+            if "://" in package:
+                return True
+            return False
+
         def _is_installed(package: str) -> bool:
-            without_brackets = package.split("[")[0]
-            return without_brackets.lower() in version_map
+            return version_map.has(package)
 
         def _maybe_add_version(package: str) -> str:
             # Skip marimo and marimo[<mod>], but not marimo-<something-else>
             if package == "marimo" or package.startswith("marimo["):
                 return package
-            without_brackets = package.split("[")[0]
-            version = version_map.get(without_brackets.lower())
-            if version:
-                return f"{package}=={version}"
-            return package
+            if has_version_specifier(package):
+                return package
+            return version_map.resolve_with_version(package) or package
 
-        # Filter to packages that are found in "uv pip list"
+        # Filter to packages that are found in "uv pip list" OR are direct references
+        # Direct references (git URLs, direct URLs, local paths) bypass the installed check
+        # because they won't appear in the version map with their full reference syntax
         packages_to_add = [
-            _maybe_add_version(im)
+            _maybe_add_version(im) if not _is_direct_reference(im) else im
             for im in packages_to_add
-            if _is_installed(im)
+            if _is_direct_reference(im) or _is_installed(im)
         ]
 
         if filepath.endswith(".md") or filepath.endswith(".qmd"):
@@ -272,7 +445,7 @@ class UvPackageManager(PypiPackageManager):
         packages_to_remove: list[str],
         upgrade: bool,
     ) -> bool:
-        from marimo._convert.markdown.markdown import extract_frontmatter
+        from marimo._convert.markdown.to_ir import extract_frontmatter
         from marimo._utils import yaml
         from marimo._utils.inline_script_metadata import (
             get_headers_from_frontmatter,
@@ -342,18 +515,18 @@ class UvPackageManager(PypiPackageManager):
             if upgrade:
                 cmd.append("--upgrade")
             cmd.extend(packages_to_add)
-            success &= self.run(cmd, log_callback=None)
+            success &= self._run_sync(cmd, log_callback=None)
         if packages_to_remove:
-            success &= self.run(
+            success &= self._run_sync(
                 [self._uv_bin, "--quiet", "remove", "--script", filepath]
                 + packages_to_remove,
                 log_callback=None,
             )
         return success
 
-    def _get_version_map(self) -> dict[str, str]:
+    def _get_version_map(self) -> VersionMap:
         packages = self.list_packages()
-        return {pkg.name: pkg.version for pkg in packages}
+        return VersionMap({pkg.name: pkg.version for pkg in packages})
 
     # Only needs to run once per session
     @cached_property
@@ -397,16 +570,18 @@ class UvPackageManager(PypiPackageManager):
         pyproject_path = Path(venv_path).parent / "pyproject.toml"
         return uv_lock_path.exists() and pyproject_path.exists()
 
-    async def uninstall(self, package: str) -> bool:
+    async def uninstall(self, package: str, dev: bool = False) -> bool:
         uninstall_cmd: list[str]
         if self.is_in_uv_project:
             LOGGER.info(f"Uninstalling {package} with 'uv remove'")
             uninstall_cmd = [self._uv_bin, "remove"]
+            if dev:
+                uninstall_cmd.append("--dev")
         else:
             LOGGER.info(f"Uninstalling {package} with 'uv pip uninstall'")
             uninstall_cmd = [self._uv_bin, "pip", "uninstall"]
 
-        return self.run(
+        return await self.run(
             uninstall_cmd + [*split_packages(package), "-p", PY_EXE],
             log_callback=None,
         )
@@ -436,10 +611,20 @@ class UvPackageManager(PypiPackageManager):
         cmd = [self._uv_bin, "pip", "list", "--format=json", "-p", PY_EXE]
         return self._list_packages_from_cmd(cmd)
 
+    def _has_script_metadata(self, filename: str) -> bool:
+        """Check if a file contains PEP 723 inline script metadata."""
+        try:
+            file = Path(filename)
+            return self.SCRIPT_METADATA_MARKER in file.read_text(
+                encoding="utf-8"
+            )
+        except (OSError, UnicodeDecodeError):
+            return False
+
     def dependency_tree(
         self, filename: Optional[str] = None
     ) -> Optional[DependencyTreeNode]:
-        """Return the project’s dependency tree using the `uv tree` command."""
+        """Return the project's dependency tree using the `uv tree` command."""
 
         # Skip if not a script and not inside a uv-managed project
         if filename is None and not self.is_in_uv_project:
@@ -454,6 +639,7 @@ class UvPackageManager(PypiPackageManager):
                 tree_cmd,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=True,
             )
             tree = parse_uv_tree(result.stdout)
@@ -466,7 +652,9 @@ class UvPackageManager(PypiPackageManager):
             return tree
 
         except subprocess.CalledProcessError:
-            LOGGER.error(f"Failed to get dependency tree for {filename}")
+            # Only log error if the script has dependency metadata
+            if filename and self._has_script_metadata(filename):
+                LOGGER.error(f"Failed to get dependency tree for {filename}")
             return None
 
 
@@ -474,24 +662,21 @@ class RyePackageManager(PypiPackageManager):
     name = "rye"
     docs_url = "https://rye.astral.sh/"
 
-    async def _install(
-        self,
-        package: str,
-        *,
-        upgrade: bool,
-        log_callback: Optional[LogCallback] = None,
-    ) -> bool:
-        if upgrade:
-            return self.run(
-                ["rye", "sync", "--update", *split_packages(package)],
-                log_callback=log_callback,
-            )
-        return self.run(
-            ["rye", "add", *split_packages(package)], log_callback=log_callback
-        )
+    def install_command(
+        self, package: str, *, upgrade: bool, dev: bool
+    ) -> list[str]:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
+        return [
+            "rye",
+            *(["sync", "--update"] if upgrade else ["add"]),
+            *split_packages(package),
+        ]
 
-    async def uninstall(self, package: str) -> bool:
-        return self.run(
+    async def uninstall(self, package: str, dev: bool) -> bool:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
+        return await self.run(
             ["rye", "remove", *split_packages(package)], log_callback=None
         )
 
@@ -504,31 +689,32 @@ class PoetryPackageManager(PypiPackageManager):
     name = "poetry"
     docs_url = "https://python-poetry.org/docs/"
 
-    async def _install(
-        self,
-        package: str,
-        *,
-        upgrade: bool,
-        log_callback: Optional[LogCallback] = None,
-    ) -> bool:
-        if upgrade:
-            return self.run(
-                [
-                    "poetry",
-                    "update",
-                    "--no-interaction",
-                    *split_packages(package),
-                ],
-                log_callback=log_callback,
-            )
-
-        return self.run(
-            ["poetry", "add", "--no-interaction", *split_packages(package)],
-            log_callback=log_callback,
+    def _get_poetry_version(self) -> int:
+        proc = subprocess.run(
+            ["poetry", "--version"], capture_output=True, text=True
         )
+        if proc.returncode != 0:
+            return -1  # and raise on the impl side
+        version_str = proc.stdout.split()[-1].strip("()")
+        major, *_ = map(int, version_str.split("."))
+        return major
 
-    async def uninstall(self, package: str) -> bool:
-        return self.run(
+    def install_command(
+        self, package: str, *, upgrade: bool, dev: bool
+    ) -> list[str]:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
+        return [
+            "poetry",
+            "update" if upgrade else "add",
+            "--no-interaction",
+            *split_packages(package),
+        ]
+
+    async def uninstall(self, package: str, dev: bool) -> bool:
+        # The `dev` parameter is accepted for interface compatibility, but is ignored.
+        del dev
+        return await self.run(
             ["poetry", "remove", "--no-interaction", *split_packages(package)],
             log_callback=None,
         )
@@ -538,7 +724,10 @@ class PoetryPackageManager(PypiPackageManager):
     ) -> list[PackageDescription]:
         if not self.is_manager_installed():
             return []
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8"
+        )
         if proc.returncode != 0:
             return []
 
@@ -558,6 +747,43 @@ class PoetryPackageManager(PypiPackageManager):
             )
         return packages
 
+    def _generate_list_packages_cmd(self, version: int) -> list[str]:
+        """Poetry 1.x and 2.x handle the "show" command differently
+        In poetry 1.x, "poetry show --no-dev" works perfectly fine but is deprecated. This
+            shouldn't matter if 1.8.x is still installed.
+        In poetry 2.x the preferred command is "poetry show --without dev" but will throw
+            an error if there are no dev packages installed. We will capture that error and
+            adjust the cmd accordingly.
+        """
+        if version == 1:
+            return ["poetry", "show", "--no-dev"]
+
+        elif version != 2:
+            LOGGER.warning(
+                f"Unknown poetry version {version}, attempting fallback"
+            )
+
+        try:
+            cmd = ["poetry", "show", "--without", "dev"]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=False
+            )
+
+            # If Poetry 2.x throws "Group(s) not found"
+            if "Group(s) not found" in result.stderr:
+                return ["poetry", "show"]
+
+            # Otherwise, if the command succeeded
+            if result.returncode == 0:
+                return cmd
+
+        except FileNotFoundError:
+            return []
+
+        # Default fallback
+        return ["poetry", "show"]
+
     def list_packages(self) -> list[PackageDescription]:
-        cmd = ["poetry", "show", "--no-dev"]
+        version = self._get_poetry_version()
+        cmd = self._generate_list_packages_cmd(version)
         return self._list_packages_from_cmd(cmd)

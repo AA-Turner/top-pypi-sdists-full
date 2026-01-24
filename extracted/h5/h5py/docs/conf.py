@@ -12,8 +12,6 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
-import os
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -45,7 +43,7 @@ extlinks = {
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = {'.rst': 'restructuredtext'}
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -62,7 +60,7 @@ copyright = '2014, Andrew Collette and contributors'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = '3.14.0'
+release = '3.15.1'
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 

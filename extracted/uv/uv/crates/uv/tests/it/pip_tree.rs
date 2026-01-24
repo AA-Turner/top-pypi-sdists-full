@@ -1,9 +1,13 @@
 #![cfg(not(windows))]
 
+use assert_cmd::assert::OutputAssertExt;
 use std::process::Command;
 
+use assert_fs::fixture::FileTouch;
 use assert_fs::fixture::FileWriteStr;
 use assert_fs::fixture::PathChild;
+use assert_fs::fixture::PathCreateDir;
+use indoc::indoc;
 
 use uv_static::EnvVars;
 
@@ -14,14 +18,14 @@ use crate::common::{TestContext, uv_snapshot};
 fn no_package() {
     let context = TestContext::new("3.12");
 
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -37,7 +41,7 @@ fn prune_last_in_the_subgroup() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -51,11 +55,11 @@ fn prune_last_in_the_subgroup() {
      + idna==3.6
      + requests==2.31.0
      + urllib3==2.2.1
-    "###
+    "
     );
 
     context.assert_command("import requests").success();
-    uv_snapshot!(context.filters(), context.pip_tree().arg("--prune").arg("certifi"), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree().arg("--prune").arg("certifi"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -65,7 +69,7 @@ fn prune_last_in_the_subgroup() {
     └── urllib3 v2.2.1
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -81,7 +85,7 @@ fn single_package() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -95,12 +99,12 @@ fn single_package() {
      + idna==3.6
      + requests==2.31.0
      + urllib3==2.2.1
-    "###
+    "
     );
 
     context.assert_command("import requests").success();
 
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -111,7 +115,7 @@ fn single_package() {
     └── urllib3 v2.2.1
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -127,7 +131,7 @@ fn nested_dependencies() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -143,10 +147,10 @@ fn nested_dependencies() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -160,7 +164,7 @@ fn nested_dependencies() {
         └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -177,7 +181,7 @@ fn reverse() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -193,10 +197,10 @@ fn reverse() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree().arg("--reverse"), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree().arg("--reverse"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -213,7 +217,7 @@ fn reverse() {
         └── flask v3.0.2
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -229,7 +233,7 @@ fn invert() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -245,10 +249,10 @@ fn invert() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree().arg("--invert"), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree().arg("--invert"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -265,7 +269,7 @@ fn invert() {
         └── flask v3.0.2
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -280,7 +284,7 @@ fn depth() {
     uv_snapshot!(context.pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -296,7 +300,7 @@ fn depth() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), Command::new(get_bin())
@@ -308,14 +312,14 @@ fn depth() {
         .arg("0")
         .env(EnvVars::VIRTUAL_ENV, context.venv.as_os_str())
         .env(EnvVars::UV_NO_WRAP, "1")
-        .current_dir(&context.temp_dir), @r###"
+        .current_dir(&context.temp_dir), @"
     success: true
     exit_code: 0
     ----- stdout -----
     flask v3.0.2
 
     ----- stderr -----
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), Command::new(get_bin())
@@ -327,7 +331,7 @@ fn depth() {
         .arg("1")
         .env(EnvVars::VIRTUAL_ENV, context.venv.as_os_str())
         .env(EnvVars::UV_NO_WRAP, "1")
-        .current_dir(&context.temp_dir), @r###"
+        .current_dir(&context.temp_dir), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -339,7 +343,7 @@ fn depth() {
     └── werkzeug v3.0.1
 
     ----- stderr -----
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), Command::new(get_bin())
@@ -351,7 +355,7 @@ fn depth() {
         .arg("2")
         .env(EnvVars::VIRTUAL_ENV, context.venv.as_os_str())
         .env(EnvVars::UV_NO_WRAP, "1")
-        .current_dir(&context.temp_dir), @r###"
+        .current_dir(&context.temp_dir), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -365,7 +369,7 @@ fn depth() {
         └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -380,7 +384,7 @@ fn prune() {
     uv_snapshot!(context.pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -396,7 +400,7 @@ fn prune() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), Command::new(get_bin())
@@ -408,7 +412,7 @@ fn prune() {
         .arg("werkzeug")
         .env(EnvVars::VIRTUAL_ENV, context.venv.as_os_str())
         .env(EnvVars::UV_NO_WRAP, "1")
-        .current_dir(&context.temp_dir), @r###"
+        .current_dir(&context.temp_dir), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -420,7 +424,7 @@ fn prune() {
         └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), Command::new(get_bin())
@@ -434,7 +438,7 @@ fn prune() {
         .arg("jinja2")
         .env(EnvVars::VIRTUAL_ENV, context.venv.as_os_str())
         .env(EnvVars::UV_NO_WRAP, "1")
-        .current_dir(&context.temp_dir), @r###"
+        .current_dir(&context.temp_dir), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -445,7 +449,7 @@ fn prune() {
     markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), Command::new(get_bin())
@@ -457,7 +461,7 @@ fn prune() {
         .arg("werkzeug")
         .env(EnvVars::VIRTUAL_ENV, context.venv.as_os_str())
         .env(EnvVars::UV_NO_WRAP, "1")
-        .current_dir(&context.temp_dir), @r###"
+        .current_dir(&context.temp_dir), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -469,7 +473,7 @@ fn prune() {
         └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -486,7 +490,7 @@ fn removed_dependency() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -500,12 +504,12 @@ fn removed_dependency() {
      + idna==3.6
      + requests==2.31.0
      + urllib3==2.2.1
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), context
         .pip_uninstall()
-        .arg("requests"), @r###"
+        .arg("requests"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -513,10 +517,10 @@ fn removed_dependency() {
     ----- stderr -----
     Uninstalled 1 package in [TIME]
      - requests==2.31.0
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -526,7 +530,7 @@ fn removed_dependency() {
     urllib3 v2.2.1
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -549,7 +553,7 @@ fn multiple_packages() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -564,11 +568,11 @@ fn multiple_packages() {
      + idna==3.6
      + requests==2.31.0
      + urllib3==2.2.1
-    "###
+    "
     );
 
     context.assert_command("import requests").success();
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -580,7 +584,7 @@ fn multiple_packages() {
     └── urllib3 v2.2.1
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -604,7 +608,7 @@ fn cycle() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -623,10 +627,10 @@ fn cycle() {
      + testtools==2.3.0
      + traceback2==1.4.0
      + unittest2==1.1.0
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -648,7 +652,7 @@ fn cycle() {
     (*) Package tree already displayed
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -672,7 +676,7 @@ fn multiple_packages_shared_descendant() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -686,10 +690,10 @@ fn multiple_packages_shared_descendant() {
      + six==1.16.0
      + time-machine==2.14.1
      + tzdata==2024.1
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree(), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -702,7 +706,7 @@ fn multiple_packages_shared_descendant() {
     (*) Package tree already displayed
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -726,7 +730,7 @@ fn no_dedupe_and_invert() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -740,10 +744,10 @@ fn no_dedupe_and_invert() {
      + six==1.16.0
      + time-machine==2.14.1
      + tzdata==2024.1
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree().arg("--no-dedupe").arg("--invert"), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree().arg("--no-dedupe").arg("--invert"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -756,7 +760,7 @@ fn no_dedupe_and_invert() {
     └── pendulum v3.0.0
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -779,7 +783,7 @@ fn no_dedupe() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -793,11 +797,11 @@ fn no_dedupe() {
      + six==1.16.0
      + time-machine==2.14.1
      + tzdata==2024.1
-    "###
+    "
     );
 
     uv_snapshot!(context.filters(), context.pip_tree()
-        .arg("--no-dedupe"), @r###"
+        .arg("--no-dedupe"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -810,7 +814,7 @@ fn no_dedupe() {
     └── tzdata v2024.1
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -823,7 +827,7 @@ fn with_editable() {
     uv_snapshot!(context.filters(), context
         .pip_install()
         .arg("-e")
-        .arg(context.workspace_root.join("scripts/packages/hatchling_editable")), @r###"
+        .arg(context.workspace_root.join("test/packages/hatchling_editable")), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -832,9 +836,9 @@ fn with_editable() {
     Resolved 2 packages in [TIME]
     Prepared 2 packages in [TIME]
     Installed 2 packages in [TIME]
-     + hatchling-editable==0.1.0 (from file://[WORKSPACE]/scripts/packages/hatchling_editable)
+     + hatchling-editable==0.1.0 (from file://[WORKSPACE]/test/packages/hatchling_editable)
      + iniconfig==2.0.1.dev6+g9cae431 (from git+https://github.com/pytest-dev/iniconfig@9cae43103df70bac6fde7b9f35ad11a9f1be0cb4)
-    "###
+    "
     );
 
     let filters = context
@@ -843,7 +847,7 @@ fn with_editable() {
         .chain(vec![(r"\-\-\-\-\-\-+.*", "[UNDERLINE]"), ("  +", " ")])
         .collect::<Vec<_>>();
 
-    uv_snapshot!(filters, context.pip_tree(), @r###"
+    uv_snapshot!(filters, context.pip_tree(), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -851,7 +855,7 @@ fn with_editable() {
     └── iniconfig v2.0.1.dev6+g9cae431
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -867,7 +871,7 @@ fn package_flag() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -883,7 +887,7 @@ fn package_flag() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
     uv_snapshot!(
@@ -891,7 +895,7 @@ fn package_flag() {
         context.pip_tree()
         .arg("--package")
         .arg("werkzeug"),
-        @r###"
+        @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -899,7 +903,7 @@ fn package_flag() {
     └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 
     uv_snapshot!(
@@ -909,7 +913,7 @@ fn package_flag() {
         .arg("werkzeug")
         .arg("--package")
         .arg("jinja2"),
-        @r###"
+        @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -919,7 +923,7 @@ fn package_flag() {
     └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -935,7 +939,7 @@ fn show_version_specifiers_simple() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -949,10 +953,10 @@ fn show_version_specifiers_simple() {
      + idna==3.6
      + requests==2.31.0
      + urllib3==2.2.1
-    "###
+    "
     );
 
-    uv_snapshot!(context.filters(), context.pip_tree().arg("--show-version-specifiers"), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree().arg("--show-version-specifiers"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -963,7 +967,7 @@ fn show_version_specifiers_simple() {
     └── urllib3 v2.2.1 [required: >=1.21.1, <3]
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -979,7 +983,7 @@ fn show_version_specifiers_with_invert() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -995,14 +999,14 @@ fn show_version_specifiers_with_invert() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
     uv_snapshot!(
         context.filters(),
         context.pip_tree()
         .arg("--show-version-specifiers")
-        .arg("--invert"), @r###"
+        .arg("--invert"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1019,7 +1023,7 @@ fn show_version_specifiers_with_invert() {
         └── flask v3.0.2 [requires: werkzeug >=3.0.0]
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -1035,7 +1039,7 @@ fn show_version_specifiers_with_package() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1051,7 +1055,7 @@ fn show_version_specifiers_with_package() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
     uv_snapshot!(
@@ -1059,7 +1063,7 @@ fn show_version_specifiers_with_package() {
         context.pip_tree()
         .arg("--show-version-specifiers")
         .arg("--package")
-        .arg("werkzeug"), @r###"
+        .arg("werkzeug"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1067,7 +1071,7 @@ fn show_version_specifiers_with_package() {
     └── markupsafe v2.1.5 [required: >=2.1.1]
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -1083,7 +1087,7 @@ fn print_output_even_with_quite_flag() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1097,17 +1101,17 @@ fn print_output_even_with_quite_flag() {
      + idna==3.6
      + requests==2.31.0
      + urllib3==2.2.1
-    "###
+    "
     );
 
     context.assert_command("import requests").success();
-    uv_snapshot!(context.filters(), context.pip_tree().arg("--quiet"), @r###"
+    uv_snapshot!(context.filters(), context.pip_tree().arg("--quiet"), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    "###
+    "
     );
 }
 
@@ -1123,7 +1127,7 @@ fn outdated() {
         .pip_install()
         .arg("-r")
         .arg("requirements.txt")
-        .arg("--strict"), @r###"
+        .arg("--strict"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1138,12 +1142,12 @@ fn outdated() {
      + jinja2==3.1.3
      + markupsafe==2.1.5
      + werkzeug==3.0.1
-    "###
+    "
     );
 
     uv_snapshot!(
         context.filters(),
-        context.pip_tree().arg("--outdated"), @r###"
+        context.pip_tree().arg("--outdated"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1156,6 +1160,128 @@ fn outdated() {
         └── markupsafe v2.1.5
 
     ----- stderr -----
-    "###
+    "
+    );
+}
+
+/// Test that dependencies with multiple marker-specific requirements
+/// are only displayed once in the tree.
+#[test]
+#[cfg(feature = "pypi")]
+fn no_duplicate_dependencies_with_markers() {
+    const PY_PROJECT: &str = indoc! {r#"
+        [project]
+        name = "debug"
+        version = "0.1.0"
+        requires-python = ">=3.12.0"
+        dependencies = [
+          "sniffio>=1.0.0; python_version >= '3.11'",
+          "sniffio>=1.0.1; python_version >= '3.12'",
+          "sniffio>=1.0.2; python_version >= '3.13'",
+        ]
+
+        [build-system]
+        requires = ["uv_build>=0.8.22,<10000"]
+        build-backend = "uv_build"
+    "#};
+
+    let context = TestContext::new_with_versions(&["3.12", "3.13"]).with_filtered_counts();
+
+    let project = context.temp_dir.child("debug");
+
+    project.create_dir_all().unwrap();
+
+    project.child("src/debug").create_dir_all().unwrap();
+
+    project.child("src/debug/__init__.py").touch().unwrap();
+
+    project
+        .child("pyproject.toml")
+        .write_str(PY_PROJECT)
+        .unwrap();
+
+    context.reset_venv();
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg(project.path())
+        .arg("--strict"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved [N] packages in [TIME]
+    Prepared [N] packages in [TIME]
+    Installed [N] packages in [TIME]
+     + debug==0.1.0 (from file://[TEMP_DIR]/debug)
+     + sniffio==1.3.1
+    "
+    );
+
+    // Ensure that the dependency is only listed once, even though `debug` declares multiple
+    // marker-specific requirements for the same dependency.
+    uv_snapshot!(context.filters(), context.pip_tree(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    debug v0.1.0
+    └── sniffio v1.3.1
+
+    ----- stderr -----
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        context.pip_tree().arg("--show-version-specifiers"),
+        @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    debug v0.1.0
+    └── sniffio v1.3.1 [required: >=1.0.1]
+
+    ----- stderr -----
+    "
+    );
+
+    context
+        .venv()
+        .arg("--clear")
+        .arg("--python")
+        .arg("3.13")
+        .assert()
+        .success();
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg(project.path())
+        .arg("--strict"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved [N] packages in [TIME]
+    Prepared [N] packages in [TIME]
+    Installed [N] packages in [TIME]
+     + debug==0.1.0 (from file://[TEMP_DIR]/debug)
+     + sniffio==1.3.1
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        context.pip_tree().arg("--show-version-specifiers"),
+        @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    debug v0.1.0
+    └── sniffio v1.3.1 [required: >=1.0.2]
+
+    ----- stderr -----
+    "
     );
 }

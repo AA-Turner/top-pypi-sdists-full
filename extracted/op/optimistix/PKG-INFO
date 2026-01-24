@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimistix
-Version: 0.0.10
+Version: 0.0.11
 Summary: Nonlinear optimisation in JAX and Equinox.
 Project-URL: repository, https://github.com/patrick-kidger/optimistix
 Author-email: Jason Rader <raderjason@outlook.com>, Patrick Kidger <contact@kidger.site>
@@ -218,12 +218,30 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Requires-Python: ~=3.9
-Requires-Dist: equinox>=0.11.7
-Requires-Dist: jax>=0.4.28
-Requires-Dist: jaxtyping>=0.2.23
+Requires-Python: ~=3.10
+Requires-Dist: equinox>=0.11.11
+Requires-Dist: jax!=0.7.0,!=0.7.1,>=0.4.38
+Requires-Dist: jaxtyping>=0.2.24
 Requires-Dist: lineax>=0.0.6
 Requires-Dist: typing-extensions>=4.5.0
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: griffe==1.7.3; extra == 'docs'
+Requires-Dist: hippogriffe==0.2.2; extra == 'docs'
+Requires-Dist: mkdocs-include-exclude-files==0.1.0; extra == 'docs'
+Requires-Dist: mkdocs-ipynb==0.1.1; extra == 'docs'
+Requires-Dist: mkdocs-material==9.6.7; extra == 'docs'
+Requires-Dist: mkdocs==1.6.1; extra == 'docs'
+Requires-Dist: mkdocstrings-python==1.16.8; extra == 'docs'
+Requires-Dist: mkdocstrings==0.28.3; extra == 'docs'
+Requires-Dist: pymdown-extensions==10.14.3; extra == 'docs'
+Provides-Extra: tests
+Requires-Dist: beartype>=0.20.2; extra == 'tests'
+Requires-Dist: diffrax>=0.7.0; extra == 'tests'
+Requires-Dist: jaxlib; extra == 'tests'
+Requires-Dist: optax>=0.2.4; extra == 'tests'
+Requires-Dist: pytest>=8.3.5; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <h1 align='center'>Optimistix</h1>
@@ -245,7 +263,7 @@ Features include:
 pip install optimistix
 ```
 
-Requires Python 3.9+ and JAX 0.4.14+ and [Equinox](https://github.com/patrick-kidger/equinox) 0.11.0+.
+Requires Python 3.10+ and JAX 0.4.38+ and [Equinox](https://github.com/patrick-kidger/equinox) 0.11.11+.
 
 ## Documentation
 
@@ -294,6 +312,7 @@ If you found this library to be useful in academic work, then please cite: ([arX
 [Optax](https://github.com/deepmind/optax): first-order gradient (SGD, Adam, ...) optimisers.  
 [Orbax](https://github.com/google/orbax): checkpointing (async/multi-host/multi-device).  
 [Levanter](https://github.com/stanford-crfm/levanter): scalable+reliable training of foundation models (e.g. LLMs).  
+[paramax](https://github.com/danielward27/paramax): parameterizations and constraints for PyTrees.  
 
 **Scientific computing**  
 [Diffrax](https://github.com/patrick-kidger/diffrax): numerical differential equation solvers.  

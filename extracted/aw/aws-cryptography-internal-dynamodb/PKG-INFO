@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: aws-cryptography-internal-dynamodb
+Version: 1.11.1
+Summary: 
+Author: AWS Crypto Tools
+Author-email: aws-crypto-tools@amazon.com
+Requires-Python: >=3.11.0,<4.0.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: aws-cryptography-internal-standard-library (==1.11.1)
+Requires-Dist: boto3 (>=1.35.42,<2.0.0)

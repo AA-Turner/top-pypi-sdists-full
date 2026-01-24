@@ -25,8 +25,8 @@ POSSIBLE_UNSAFE_KEYS = (
 
 class OctBinding(NativeKeyBinding):
     @classmethod
-    def convert_raw_key_to_dict(cls, value: bytes, private: bool) -> DictKey:
-        k = urlsafe_b64encode(value).decode("utf-8")
+    def convert_raw_key_to_dict(cls, raw_key: bytes, private: bool) -> DictKey:
+        k = urlsafe_b64encode(raw_key).decode("utf-8")
         return {"k": k}
 
     @classmethod
@@ -37,7 +37,7 @@ class OctBinding(NativeKeyBinding):
     def import_from_bytes(cls, value: bytes, password: Any | None = None) -> bytes:
         # security check
         if value.startswith(POSSIBLE_UNSAFE_KEYS):
-            warnings.warn("This key may not be safe to import", SecurityWarning)
+            warnings.warn("This key should not be used as an oct key", SecurityWarning)
         return value
 
 
@@ -57,7 +57,11 @@ class OctKey(SymmetricKey):
         parameters: KeyParameters | None = None,
         password: Any = None,
     ) -> "OctKey":
-        return super(OctKey, cls).import_key(value, parameters, password)
+        key: OctKey = super(OctKey, cls).import_key(value, parameters, password)
+        if len(key.raw_value) < 14:
+            # https://csrc.nist.gov/publications/detail/sp/800-131a/rev-2/final
+            warnings.warn("Key size should be >= 112 bits", SecurityWarning)
+        return key
 
     @classmethod
     def generate_key(

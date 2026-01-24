@@ -3,7 +3,9 @@ from dataclasses import dataclass
 import openapi_spec_validator as osv
 from flask import make_response
 from flask.views import MethodView
+from packaging.version import Version
 
+from .conftest import APISPEC_VERSION
 from .schemas import Foo
 from .schemas import Query
 from apiflask import Schema
@@ -159,10 +161,16 @@ def test_output_with_dict_schema(app, client):
         ]['$ref']
         == '#/components/schemas/MyName'
     )
-    assert rv.json['components']['schemas']['MyName'] == {
-        'properties': {'name': {'type': 'string'}},
-        'type': 'object',
-    }
+
+    # Check schema fields individually to avoid ordering issues
+    schema = rv.json['components']['schemas']['MyName']
+    assert schema['type'] == 'object'
+    assert schema['properties'] == {'name': {'type': 'string'}}
+    # In apispec >= 6.8.3, additionalProperties should be False (or omitted, treated as False)
+    if APISPEC_VERSION >= Version('6.8.3'):
+        assert schema.get('additionalProperties', False) is False
+    else:
+        assert 'additionalProperties' not in schema
     assert (
         rv.json['paths']['/bar']['get']['responses']['200']['content']['application/json'][
             'schema'
@@ -174,13 +182,13 @@ def test_output_with_dict_schema(app, client):
         rv.json['paths']['/baz']['get']['responses']['200']['content']['application/json'][
             'schema'
         ]['$ref']
-        == '#/components/schemas/Generated'
+        == '#/components/schemas/GeneratedSchema'
     )
     assert (
         rv.json['paths']['/spam']['get']['responses']['200']['content']['application/json'][
             'schema'
         ]['$ref']
-        == '#/components/schemas/Generated1'
+        == '#/components/schemas/GeneratedSchema1'
     )
 
 

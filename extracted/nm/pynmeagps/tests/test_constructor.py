@@ -202,18 +202,41 @@ class FillTest(unittest.TestCase):
     def testFill_PUBX401(
         self,
     ):  # test SET constructor with PUBX message and payload kwarg
-        EXPECTED_RESULT = "<NMEA(PUBX40, msgId=40, id=2, rddc=0, rus1=1, rus2=0, rusb=1, rspi=0, reserved=0)>"
+        EXPECTED_RESULT = "<NMEA(PUBX40, msgId=40, id=GLL, rddc=0, rus1=1, rus2=0, rusb=1, rspi=0, reserved=0)>"
+        EXPECTED_PAYLOAD = b"$PUBX,40,GLL,0,1,0,1,0,0*5C\r\n"
         res = NMEAMessage(
-            "P", "UBX", SET, payload=["40", "02", "0", "1", "0", "1", "0", "0"]
+            "P", "UBX", SET, payload=["40", "GLL", "0", "1", "0", "1", "0", "0"]
         )
         self.assertEqual(str(res), EXPECTED_RESULT)
+        self.assertEqual(res.serialize(), EXPECTED_PAYLOAD)
 
     def testFill_PUBX402(
         self,
     ):  # test SET constructor with PUBX message and individual kwargs
         EXPECTED_RESULT = "<NMEA(PUBX40, msgId=40, id=3, rddc=0, rus1=1, rus2=0, rusb=1, rspi=0, reserved=0)>"
+        EXPECTED_PAYLOAD = b"$PUBX,40,3,0,1,0,1,0,0*28\r\n"
         res = NMEAMessage("P", "UBX", SET, msgId="40", id=3, rus1=1, rusb=1)
         self.assertEqual(str(res), EXPECTED_RESULT)
+        self.assertEqual(res.serialize(), EXPECTED_PAYLOAD)
+
+    def testFill_PUBX412(
+        self,
+    ):  # test SET constructor with PUBX message and individual kwargs
+        EXPECTED_RESULT = "<NMEA(PUBX41, msgId=41, portId=1, inProto=1, outProto=1, baudRate=115200, autobauding=0)>"
+        EXPECTED_PAYLOAD = b"$PUBX,41,1,1,1,115200,0*1C\r\n"
+        res = NMEAMessage(
+            "P",
+            "UBX",
+            SET,
+            msgId="41",
+            portId=1,
+            inProto=1,
+            outProto=1,
+            baudRate=115200,
+            autobauding=0,
+        )
+        self.assertEqual(str(res), EXPECTED_RESULT)
+        self.assertEqual(res.serialize(), EXPECTED_PAYLOAD)
 
     def testFill_PUBX4ERR(self):  # test SET constructor with missing msgId
         EXPECTED_ERROR = (
@@ -251,6 +274,62 @@ class FillTest(unittest.TestCase):
     def testFill_UNKNOWN5(self):  # test GET constructor with unknown msgId
         EXPECTED_ERROR = "Unknown msgID GNXXX, msgmode GET."
         msg = NMEAMessage("GN", "XXX", GET, payload=[0, 0, 0], validate=VALCKSUM)
+
+    def testGSV(self):
+        EXPECTED_RESULT = "<NMEA(GPGSV, numMsg=1, msgNum=1, numSV=16, svid_01=4, elv_01=48, az_01=25, cno_01=45, svid_02=6, elv_02=78, az_02=120, cno_02=39, svid_03=18, elv_03=62, az_03=26, cno_03=52, svid_04=23, elv_04=17, az_04=99, cno_04=47, signalID=0)>"
+        EXPECTED_BIN = (
+            b"$GPGSV,1,1,16,4,48,25,45,6,78,120,39,18,62,26,52,23,17,99,47,0*56\r\n"
+        )
+        msg = NMEAMessage(
+            "GP",
+            "GSV",
+            GET,
+            numMsg=1,
+            msgNum=1,
+            numSV=16,
+            svid_01=4,
+            elv_01=48,
+            az_01=25,
+            cno_01=45,
+            svid_02=6,
+            elv_02=78,
+            az_02=120,
+            cno_02=39,
+            svid_03=18,
+            elv_03=62,
+            az_03=26,
+            cno_03=52,
+            svid_04=23,
+            elv_04=17,
+            az_04=99,
+            cno_04=47,
+        )
+        self.assertEqual(str(msg), EXPECTED_RESULT)
+        self.assertEqual(msg.serialize(), EXPECTED_BIN)
+        self.assertEqual(str(NMEAReader.parse(msg.serialize())), EXPECTED_RESULT)
+
+    def testGSV2(self):
+        EXPECTED_RESULT = "<NMEA(GLGSV, numMsg=1, msgNum=1, numSV=16, svid_01=4, elv_01=48, az_01=25, cno_01=45, svid_02=6, elv_02=78, az_02=120, cno_02=39, signalID=0)>"
+        EXPECTED_BIN = b"$GLGSV,1,1,16,4,48,25,45,6,78,120,39,0*40\r\n"
+        msg = NMEAMessage(
+            "GL",
+            "GSV",
+            GET,
+            numMsg=1,
+            msgNum=1,
+            numSV=16,
+            svid_01=4,
+            elv_01=48,
+            az_01=25,
+            cno_01=45,
+            svid_02=6,
+            elv_02=78,
+            az_02=120,
+            cno_02=39,
+        )
+        self.assertEqual(str(msg), EXPECTED_RESULT)
+        self.assertEqual(msg.serialize(), EXPECTED_BIN)
+        self.assertEqual(str(NMEAReader.parse(msg.serialize())), EXPECTED_RESULT)
 
 
 if __name__ == "__main__":

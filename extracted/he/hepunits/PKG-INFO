@@ -1,35 +1,38 @@
 Metadata-Version: 2.4
 Name: hepunits
-Version: 2.3.6
+Version: 2.4.4
 Summary: Units and constants in the HEP system of units
 Project-URL: Homepage, https://github.com/scikit-hep/hepunits
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>
 Maintainer-email: Scikit-HEP <scikit-hep-admins@googlegroups.com>
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Keywords: Constants,HEP,HEP system of units,Units
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Provides-Extra: all
+Requires-Dist: pint<0.25.1; extra == 'all'
 Requires-Dist: pytest-cov>=2.8.0; extra == 'all'
 Requires-Dist: pytest>=6; extra == 'all'
 Provides-Extra: dev
+Requires-Dist: pint<0.25.1; extra == 'dev'
 Requires-Dist: pytest-cov>=2.8.0; extra == 'dev'
 Requires-Dist: pytest>=6; extra == 'dev'
 Provides-Extra: test
+Requires-Dist: pint<0.25.1; extra == 'test'
 Requires-Dist: pytest-cov>=2.8.0; extra == 'test'
 Requires-Dist: pytest>=6; extra == 'test'
 Description-Content-Type: text/x-rst
@@ -99,7 +102,7 @@ The package is also available on `conda-forge`_, and installable with
 
 .. code-block:: bash
 
-    conda install -c conda-forge hepunits
+    conda install conda-forge::hepunits
 
 .. _conda-forge: https://github.com/conda-forge/hepunits-feedstock
 
@@ -107,7 +110,7 @@ The package is also available on `conda-forge`_, and installable with
 Getting started
 ---------------
 
-The package contains 2 modules, ``constants`` and ``units``,
+The package contains 2 core modules, ``constants`` and ``units``,
 whose names are self-explanatory.
 It may be more readable to import quantities explicitly from each of the modules
 though everything is available from the top-level as ``from hepunits import ...``.
@@ -173,6 +176,30 @@ to ensure an explicit conversion to the desired unit dividing by it (GeV in the 
     0.0005
 
 
+Pint integration
+~~~~~~~~~~~~~~~~
+The package can interoperate with `Pint`_, which provides a more full-featured units
+and quantities system. Pint is an optional dependency of ``hepunits``.
+When Pint is installed, ``hepunits`` units and constants can be used to create Pint
+quantities, and Pint quantities can be converted to ``hepunits`` units, as shown below.
+
+.. code-block:: pycon
+
+    >>> import pint
+    >>> import hepunits
+    >>> from hepunits.pint import to_clhep, from_clhep
+    >>> ureg = pint.UnitRegistry()
+    >>> g = 9.8 * ureg.meter / ureg.second**2
+    >>> g
+    <Quantity(9.8, 'meter / second ** 2')>
+    >>> to_clhep(g)
+    9.800000000000001e-15
+    >>> from_clhep(hepunits.c_light, ureg.meter / ureg.second)
+    <Quantity(299792458.0, 'meter / second')>
+    >>> from_clhep(hepunits.c_light, ureg.fathom / ureg.fortnight)
+    <Quantity(1.98287528e+14, 'fathom / fortnight')>
+
+.. _Pint: https://pint.readthedocs.io/
 
 .. |Scikit-HEP| image:: https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg
    :target: https://scikit-hep.org
@@ -189,5 +216,5 @@ to ensure an explicit conversion to the desired unit dividing by it (GeV in the 
 .. |GitHub Actions Status: CI| image:: https://github.com/scikit-hep/hepunits/workflows/CI/badge.svg
    :target: https://github.com/scikit-hep/hepunits/actions
 
-.. |Code Coverage| image:: https://codecov.io/gh/scikit-hep/hepunits/graph/badge.svg?branch=main
-   :target: https://codecov.io/gh/scikit-hep/hepunits?branch=main
+.. |Code Coverage| image:: https://codecov.io/gh/scikit-hep/hepunits/branch/main/graph/badge.svg
+   :target: https://app.codecov.io/gh/scikit-hep/hepunits/tree/main

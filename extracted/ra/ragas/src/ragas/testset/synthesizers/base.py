@@ -17,6 +17,18 @@ if t.TYPE_CHECKING:
     from langchain_core.callbacks import Callbacks
 
     from ragas.dataset_schema import BaseSample
+    from ragas.llms.base import InstructorBaseRagasLLM
+
+
+def _default_llm_factory() -> t.Union[BaseRagasLLM, "InstructorBaseRagasLLM"]:
+    """Create a default LLM instance with OpenAI gpt-4o-mini.
+
+    Returns InstructorBaseRagasLLM instance which satisfies BaseRagasLLM interface.
+    """
+    from openai import OpenAI
+
+    client = OpenAI()
+    return llm_factory("gpt-4o-mini", client=client)
 
 
 class QueryLength(str, Enum):
@@ -72,7 +84,10 @@ class BaseSynthesizer(ABC, t.Generic[Scenario], PromptMixin):
     """
 
     name: str = ""
-    llm: BaseRagasLLM = field(default_factory=llm_factory)
+    llm: t.Union[BaseRagasLLM, "InstructorBaseRagasLLM"] = field(
+        default_factory=_default_llm_factory
+    )
+    llm_context: t.Optional[str] = None
 
     def __post_init__(self):
         if not self.name:

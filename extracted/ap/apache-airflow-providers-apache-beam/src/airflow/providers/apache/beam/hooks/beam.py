@@ -34,8 +34,8 @@ from typing import TYPE_CHECKING
 
 from packaging.version import Version
 
-from airflow.exceptions import AirflowConfigException, AirflowException
-from airflow.providers.apache.beam.version_compat import BaseHook
+from airflow.exceptions import AirflowConfigException
+from airflow.providers.common.compat.sdk import AirflowException, BaseHook
 from airflow.providers.common.compat.standard.utils import prepare_virtualenv
 
 if TYPE_CHECKING:
@@ -141,8 +141,8 @@ def process_fd(
     fd_to_log = {proc.stderr: log.warning, proc.stdout: log.info}
     func_log = fd_to_log[fd]
 
-    for line in iter(fd.readline, b""):
-        line = line.decode()
+    for line_raw in iter(fd.readline, b""):
+        line = line_raw.decode()
         if process_line_callback:
             process_line_callback(line)
         func_log(line.rstrip("\n"))
@@ -378,7 +378,7 @@ class BeamHook(BaseHook):
         try:
             from airflow.providers.google.go_module_utils import init_module, install_dependencies
         except ImportError:
-            from airflow.exceptions import AirflowOptionalProviderFeatureException
+            from airflow.providers.common.compat.sdk import AirflowOptionalProviderFeatureException
 
             raise AirflowOptionalProviderFeatureException(
                 "Failed to import apache-airflow-google-provider. To start a go pipeline, please install the"

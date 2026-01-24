@@ -49,11 +49,9 @@ static const char *RcsId = "$Id:  $";
 
 DECLARE_CRASH_HANDLER;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     INSTALL_CRASH_HANDLER
-    try
-    {
+    try {
         // Initialise the device server
         //----------------------------------------
         Tango::Util *tg = Tango::Util::init(argc, argv);
@@ -67,14 +65,10 @@ int main(int argc, char *argv[])
         //----------------------------------------
         std::cout << "Ready to accept request" << std::endl;
         tg->server_run();
-    }
-    catch(std::bad_alloc &)
-    {
+    } catch(std::bad_alloc &) {
         std::cout << "Can't allocate memory to store device object !!!" << std::endl;
         std::cout << "Exiting" << std::endl;
-    }
-    catch(CORBA::Exception &e)
-    {
+    } catch(CORBA::Exception &e) {
         Tango::Except::print_exception(e);
 
         std::cout << "Received a CORBA_Exception" << std::endl;

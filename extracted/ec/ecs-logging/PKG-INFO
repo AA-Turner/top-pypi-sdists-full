@@ -1,24 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ecs-logging
-Version: 2.2.0
+Version: 2.3.0
 Summary: Logging formatters for ECS (Elastic Common Schema) in Python
 Home-page: https://github.com/elastic/ecs-logging-python
 Author: Seth Michael Larson
 Author-email: seth.larson@elastic.co
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Logging
 Classifier: License :: OSI Approved :: Apache Software License
+License-File: LICENSE.txt
 Requires-Dist: pytest ; extra == "develop"
 Requires-Dist: pytest-cov ; extra == "develop"
 Requires-Dist: mock ; extra == "develop"

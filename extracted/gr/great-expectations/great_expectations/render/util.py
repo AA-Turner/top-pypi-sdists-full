@@ -6,7 +6,7 @@ import copy
 import decimal
 import locale
 import re
-from typing import Any, Sequence
+from typing import Any, Sequence, TypeVar
 
 import pandas as pd
 
@@ -14,6 +14,10 @@ from great_expectations.data_context.types.resource_identifiers import (
     ValidationResultIdentifier,
 )
 from great_expectations.exceptions import RenderingError
+from great_expectations.expectations.conditions import (
+    PassThroughCondition,
+    deserialize_row_condition,
+)
 
 DEFAULT_PRECISION = 15
 # create a new context for this task
@@ -423,7 +427,7 @@ def _convert_unexpected_indices_to_df(
     elif unexpected_list:
         # if we are using default Pandas unexpected indices
         unexpected_index_df = pd.DataFrame(
-            list(zip(unexpected_list, unexpected_index_list)),
+            list(zip(unexpected_list, unexpected_index_list, strict=False)),
             columns=["Value", "Index"],
             dtype="string",
         )
@@ -434,8 +438,15 @@ def _convert_unexpected_indices_to_df(
         return pd.DataFrame()
 
     # 1. groupby on domain columns, and turn id/pk into list
+    # TypeVar constrained to pandas-compatible types (str, int, float, bool, etc.)
+    # Using object as bound since pandas Series can hold various types
+    T = TypeVar("T", bound=object)
+
+    def _agg_func(y: pd.Series[T]) -> list[T]:  # type: ignore[type-var]  # not yet supported by pandas-stubs
+        return list(y)
+
     all_unexpected_indices: pd.DataFrame = unexpected_index_df.groupby(domain_column_name_list).agg(
-        lambda y: list(y)
+        _agg_func
     )
 
     # 2. add count
@@ -473,3 +484,16 @@ def truncate_list_of_indices(indices: list[int | str], max_index: int = 10) -> s
         indices = indices[:max_index]
         indices.append("...")
     return ", ".join(map(str, indices))
+
+
+def parse_row_condition_string(condition_string: str) -> str:
+    """Parses the row condition string into a string representation of the condition.
+    Args:
+        condition_string: A row condition string.
+    Returns:
+        A string representation of the input condition.
+    """
+    condition = deserialize_row_condition(condition_string)
+    if isinstance(condition, PassThroughCondition):
+        return condition.pass_through_filter
+    return repr(condition)

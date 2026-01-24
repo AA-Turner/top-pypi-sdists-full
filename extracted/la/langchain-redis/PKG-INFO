@@ -1,25 +1,27 @@
 Metadata-Version: 2.1
 Name: langchain-redis
-Version: 0.2.3
+Version: 0.2.5
 Summary: An integration package connecting Redis and LangChain for AI working memory
 Home-page: https://github.com/langchain-ai/langchain-redis
 License: MIT
 Author: Brian Sam-Bodden
 Author-email: bsb@redis.com
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.10,<3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: langcache
 Requires-Dist: anyio (>=4.9.0,<5.0.0)
 Requires-Dist: certifi (>=2025.4.26,<2026.0.0)
+Requires-Dist: hf-xet (<1.2.1)
 Requires-Dist: httpcore (>=1.0.9,<2.0.0)
 Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
-Requires-Dist: langchain-core (>=0.3,<0.4)
+Requires-Dist: langcache (>=0.11.0) ; extra == "langcache"
+Requires-Dist: langchain-core (>=1.0.7)
 Requires-Dist: python-ulid (>=3.0.0)
-Requires-Dist: redisvl (>=0.6.0,<1.0.0)
+Requires-Dist: redisvl (>=0.12.0,<1.0.0)
 Requires-Dist: typing-extensions (>=4.13.2,<5.0.0)
 Requires-Dist: urllib3 (>=2.4.0,<3.0.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-redis
@@ -47,6 +49,79 @@ export REDIS_URL="redis://username:password@localhost:6379"
 ```
 
 Alternatively, you can pass the Redis URL directly when initializing the components or use the `RedisConfig` class for more detailed configuration.
+
+### Redis Connection Options
+
+This package supports various Redis deployment modes through different connection URL schemes:
+
+#### Standard Redis Connection
+```python
+# Standard Redis
+redis_url = "redis://localhost:6379"
+
+# Redis with authentication
+redis_url = "redis://username:password@localhost:6379"
+
+# Redis SSL/TLS
+redis_url = "rediss://localhost:6380"
+```
+
+#### Redis Sentinel Connection
+
+Redis Sentinel provides high availability for Redis. You can connect to a Sentinel-managed Redis deployment using the `redis+sentinel://` URL scheme:
+
+```python
+# Single Sentinel node
+redis_url = "redis+sentinel://sentinel-host:26379/mymaster"
+
+# Multiple Sentinel nodes (recommended for high availability)
+redis_url = "redis+sentinel://sentinel1:26379,sentinel2:26379,sentinel3:26379/mymaster"
+
+# Sentinel with authentication
+redis_url = "redis+sentinel://username:password@sentinel1:26379,sentinel2:26379/mymaster"
+```
+
+The Sentinel URL format is: `redis+sentinel://[username:password@]host1:port1[,host2:port2,...]/service_name`
+
+Where:
+- `host:port` - One or more Sentinel node addresses
+- `service_name` - The name of the Redis master service (e.g., "mymaster")
+
+**Example using Sentinel with RedisVectorStore:**
+```python
+from langchain_redis import RedisVectorStore, RedisConfig
+from langchain_openai import OpenAIEmbeddings
+
+config = RedisConfig(
+    redis_url="redis+sentinel://sentinel1:26379,sentinel2:26379/mymaster",
+    index_name="my_index"
+)
+
+vector_store = RedisVectorStore(
+    embeddings=OpenAIEmbeddings(),
+    config=config
+)
+```
+
+**Example using Sentinel with RedisCache:**
+```python
+from langchain_redis import RedisCache
+
+cache = RedisCache(
+    redis_url="redis+sentinel://sentinel1:26379,sentinel2:26379/mymaster",
+    ttl=3600
+)
+```
+
+**Example using Sentinel with RedisChatMessageHistory:**
+```python
+from langchain_redis import RedisChatMessageHistory
+
+history = RedisChatMessageHistory(
+    session_id="user_123",
+    redis_url="redis+sentinel://sentinel1:26379,sentinel2:26379/mymaster"
+)
+```
 
 ## Features
 
@@ -103,12 +178,12 @@ docs = vector_store.max_marginal_relevance_search(query, k=2, fetch_k=10)
 
 ### 2. Cache
 
-The `RedisCache` and `RedisSemanticCache` classes provide caching mechanisms for LLM calls.
+The `RedisCache`, `RedisSemanticCache`, and `LangCacheSemanticCache` classes provide caching mechanisms for LLM calls.
 
 #### Usage
 
 ```python
-from langchain_redis import RedisCache, RedisSemanticCache
+from langchain_redis import RedisCache, RedisSemanticCache, LangCacheSemanticCache
 from langchain_core.language_models import LLM
 from langchain_core.embeddings import Embeddings
 
@@ -123,8 +198,15 @@ semantic_cache = RedisSemanticCache(
     distance_threshold=0.1
 )
 
+# LangChain cache - manages embeddings for you
+langchain_cache = LangCacheSemanticCache(
+    cache_id="your-cache-id",
+    api_key="your-api-key",
+    distance_threshold=0.1
+)
+
 # Using cache with an LLM
-llm = LLM(cache=cache)  # or LLM(cache=semantic_cache)
+llm = LLM(cache=cache)  # or LLM(cache=semantic_cache) or LLM(cache=langchain_cache)
 
 # Async cache operations
 await cache.aupdate("prompt", "llm_string", [Generation(text="cached_response")])
@@ -136,6 +218,11 @@ cached_result = await cache.alookup("prompt", "llm_string")
 - TTL support for automatic cache expiration
 - Semantic caching for similarity-based retrieval
 - Asynchronous cache operations
+
+#### What is Redis LangCache?
+- LangCache is a fully managed, cloud-based service that provides a semantic cache for LLM applications.
+- It manages embeddings and vector search for you, allowing you to focus on your application logic.
+- See [our docs](https://redis.io/docs/latest/develop/ai/langcache/) to learn more, or [try LangCache on Redis Cloud today](https://redis.io/docs/latest/operate/rc/langcache/#get-started-with-langcache-on-redis-cloud).
 
 ### 3. Chat History
 

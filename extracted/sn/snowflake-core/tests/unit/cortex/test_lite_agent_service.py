@@ -19,7 +19,12 @@ def agent_service(fake_root):
 def test_run(fake_root, agent_service):
     args = (fake_root, "POST", BASE_URL + "/cortex/agent:run")
     kwargs = extra_params(
-        body={"model": "my_model", "messages": [{"role": "", "content": []}], "tool_choice": None},
+        body={
+            "model": "my_model",
+            "messages": [{"role": "", "content": []}],
+            "tool_choice": None,
+            "origin_application": "external",
+        },
         _preload_content=False,
     )
 

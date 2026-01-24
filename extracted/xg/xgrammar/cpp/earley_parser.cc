@@ -39,13 +39,22 @@ void EarleyParser::PopLastStates(int32_t cnt) {
   scanable_state_history_.PopBack(cnt);
 }
 
-void EarleyParser::Complete(const ParserState& state) {
+void EarleyParser::Complete(const ParserState& state, bool debug_print) {
   // Check if a rule is completed.
   if (state.rule_start_pos == ParserState::kNoPrevInputPos) {
     // assert: if a root rule can achieve here, then it must be completed.
+    if (debug_print) {
+      XGRAMMAR_LOG(INFO) << "The root rule is completed.";
+    }
     tmp_accept_stop_token_ = true;
     return;
   }
+  if (debug_print) {
+    XGRAMMAR_LOG(INFO) << "The rule " << state.rule_id << ": "
+                       << grammar_->GetRule(state.rule_id).name
+                       << " is completed, trying to complete its parent states.";
+  }
+
   // Check all the possible parent states.
   const auto& parent_states_map = rule_id_to_completable_states_[state.rule_start_pos];
   for (const auto& [ref_id, parent_state] : parent_states_map) {
@@ -101,12 +110,12 @@ void EarleyParser::Complete(const ParserState& state) {
 }
 
 std::pair</* scanable */ bool, /* completable */ bool> EarleyParser::Predict(
-    const ParserState& state
+    const ParserState& state, bool debug_print
 ) {
   // Check if the rule has a corresponding FSM.
   if (state.rule_id != -1 && grammar_->per_rule_fsms[state.rule_id].has_value()) {
     // Try to expand the fsm.
-    ExpandNextRuleRefElementOnFSM(state);
+    ExpandNextRuleRefElementOnFSM(state, debug_print);
     const auto& fsm = grammar_->per_rule_fsms[state.rule_id].value();
     return std::make_pair(fsm.IsScanableState(state.element_id), fsm.IsEndState(state.element_id));
   }
@@ -122,7 +131,7 @@ std::pair</* scanable */ bool, /* completable */ bool> EarleyParser::Predict(
   const auto& element_expr = grammar_->GetGrammarExpr(grammar_expr[state.element_id]);
   switch (element_expr.type) {
     case GrammarExprType::kRuleRef: {
-      ExpandNextRuleRefElement(state, grammar_expr, &element_expr);
+      ExpandNextRuleRefElement(state, grammar_expr, &element_expr, debug_print);
       return std::make_pair(false, false);
     }
     case GrammarExprType::kCharacterClassStar: {
@@ -139,7 +148,7 @@ std::pair</* scanable */ bool, /* completable */ bool> EarleyParser::Predict(
       // If the current repeat count is less than the max repeat count,
       // we can expand the next rule reference element.
       XGRAMMAR_DCHECK(state.repeat_count <= max_repeat_count);
-      ExpandNextRuleRefElement(state, grammar_expr, &element_expr);
+      ExpandNextRuleRefElement(state, grammar_expr, &element_expr, debug_print);
       if (state.repeat_count >= min_repeat_count) {
         Enqueue(ParserState{
             state.rule_id, state.sequence_id, state.element_id + 1, state.rule_start_pos, 0
@@ -199,7 +208,7 @@ void EarleyParser::Scan(const ParserState& state, const uint8_t ch) {
   \note Thus, when initializing the Earley parser, we need to add the initial state
   to the history_states[0], and perform prediction and completion on the initial state.
 */
-bool EarleyParser::Advance(const uint8_t ch) {
+bool EarleyParser::Advance(const uint8_t ch, bool debug_print) {
   // Initialize the containers.
   XGRAMMAR_DCHECK(tmp_process_state_queue_.empty())
       << "The tmp_process_state_queue_ should be empty before the scan.";
@@ -222,9 +231,9 @@ bool EarleyParser::Advance(const uint8_t ch) {
   while (!tmp_process_state_queue_.empty()) {
     const auto state = std::move(tmp_process_state_queue_.front());
     tmp_process_state_queue_.pop();
-    auto [scanable, completable] = Predict(state);
+    auto [scanable, completable] = Predict(state, debug_print);
     if (completable) {
-      Complete(state);
+      Complete(state, debug_print);
     }
     if (scanable) {
       tmp_states_to_be_added_.push_back(state);
@@ -241,6 +250,10 @@ EarleyParser::EarleyParser(
     const Grammar& grammar, const ParserState& init_state, const bool need_expand
 )
     : grammar_(grammar) {
+  if (!grammar->optimized) {
+    XGRAMMAR_LOG(FATAL) << "The grammar is not optimized. Please optimize the grammar before using "
+                           "the Earley parser.";
+  }
   // Check if the initial state is valid. If invalid, then we choose the root state as default.
   ParserState init = init_state;
   if (init_state.IsInvalid()) {
@@ -336,7 +349,10 @@ bool EarleyParser::ExpandAndEnqueueUnexpandedState(const ParserState& state) {
 }
 
 void EarleyParser::ExpandNextRuleRefElement(
-    const ParserState& state, const GrammarExpr& grammar_expr, const GrammarExpr* sub_grammar_expr
+    const ParserState& state,
+    const GrammarExpr& grammar_expr,
+    const GrammarExpr* sub_grammar_expr,
+    bool debug_print
 ) {
   // Path A. The rule has a corresponding FSM.
   XGRAMMAR_DCHECK(!(state.rule_id != -1 && grammar_->per_rule_fsms[state.rule_id].has_value()));
@@ -346,6 +362,12 @@ void EarleyParser::ExpandNextRuleRefElement(
       sub_grammar_expr->type == GrammarExprType::kRepeat
   );
   auto ref_rule_id = (*sub_grammar_expr)[0];
+
+  if (debug_print) {
+    XGRAMMAR_LOG(INFO) << "The rule " << state.rule_id << ": "
+                       << grammar_->GetRule(state.rule_id).name << " predict the new rule "
+                       << ref_rule_id << ": " << grammar_->GetRule(ref_rule_id).name << ".";
+  }
 
   bool right_recursion_to_root = false;
   if (state.element_id != grammar_expr.size() - 1 ||
@@ -438,7 +460,7 @@ void EarleyParser::ExpandNextRuleRefElement(
   }
 }
 
-void EarleyParser::ExpandNextRuleRefElementOnFSM(const ParserState& state) {
+void EarleyParser::ExpandNextRuleRefElementOnFSM(const ParserState& state, bool debug_print) {
   XGRAMMAR_DCHECK(state.rule_id != -1 && grammar_->per_rule_fsms[state.rule_id].has_value());
   const auto& fsm = grammar_->per_rule_fsms[state.rule_id].value();
 
@@ -454,6 +476,11 @@ void EarleyParser::ExpandNextRuleRefElementOnFSM(const ParserState& state) {
     const int& target = edge.target;
     const int& ref_rule_id = edge.GetRefRuleId();
     bool right_recursion_to_root = false;
+    if (debug_print) {
+      XGRAMMAR_LOG(INFO) << "The rule " << state.rule_id << ": "
+                         << grammar_->GetRule(state.rule_id).name << " predict the new rule "
+                         << ref_rule_id << ": " << grammar_->GetRule(ref_rule_id).name << ".";
+    }
     if ((fsm.GetFsm().GetEdges(target).size() == 0) && fsm.IsEndState(target) &&
         state.rule_start_pos != static_cast<int32_t>(rule_id_to_completable_states_.size() - 1)) {
       // It's a right recursion. We can optimize it.
@@ -569,44 +596,115 @@ void EarleyParser::AdvanceCharacterClass(
   XGRAMMAR_DCHECK(sub_sequence.type == GrammarExprType::kCharacterClass)
       << "The element type is not supported!";
 
-  // The state is matching a UTF8 character.
+  bool is_negative = static_cast<bool>(sub_sequence[0]);
+
+  // The state is matching a UTF8 character (continuation bytes).
   if (state.sub_element_id > 0) {
     if ((ch & 0xC0) == 0x80) {
       auto new_state = state;
       new_state.sub_element_id--;
+      // Accumulate the codepoint from continuation byte
+      new_state.partial_codepoint = (new_state.partial_codepoint << 6) | (ch & 0x3F);
+
       // Check if the UTF8 character is completed.
       if (new_state.sub_element_id == 0) {
-        new_state.element_id++;
-        Enqueue(new_state);
-        // Assert: In a sequence, the CharacterClass can't be skipped. So the state can't be
-        // repeated. the fllowing tmp_process_state_queue_.push(new_state) is for the same reason.
+        if (is_negative) {
+          // For negative classes, accept if codepoint is NOT in any range
+          bool matches_range = false;
+          for (int i = 1; i < sub_sequence.size(); i += 2) {
+            if (new_state.partial_codepoint >= sub_sequence[i] &&
+                new_state.partial_codepoint <= sub_sequence[i + 1]) {
+              matches_range = true;
+              break;
+            }
+          }
+          if (!matches_range) {
+            new_state.element_id++;
+            new_state.partial_codepoint = 0;
+            Enqueue(new_state);
+          }
+        } else {
+          // For positive classes, accept if codepoint IS in a range
+          bool matches_range = false;
+          for (int i = 1; i < sub_sequence.size(); i += 2) {
+            if (new_state.partial_codepoint >= sub_sequence[i] &&
+                new_state.partial_codepoint <= sub_sequence[i + 1]) {
+              matches_range = true;
+              break;
+            }
+          }
+          if (matches_range) {
+            new_state.element_id++;
+            new_state.partial_codepoint = 0;
+            Enqueue(new_state);
+          }
+        }
       } else {
-        tmp_states_to_be_added_.push_back(new_state);
+        // Check if partial codepoint could still potentially match any range
+        int32_t remaining_bytes = new_state.sub_element_id;
+        int32_t min_codepoint = new_state.partial_codepoint << (6 * remaining_bytes);
+        int32_t max_codepoint = min_codepoint | ((1 << (6 * remaining_bytes)) - 1);
+
+        bool could_match = false;
+        for (int i = 1; i < sub_sequence.size(); i += 2) {
+          int32_t lower = sub_sequence[i];
+          int32_t upper = sub_sequence[i + 1];
+          if (max_codepoint >= lower && min_codepoint <= upper) {
+            could_match = true;
+            break;
+          }
+        }
+
+        // For negative classes: always continue (will verify on final byte)
+        // For positive classes: only continue if some range could match
+        bool should_continue = is_negative ? true : could_match;
+        if (should_continue) {
+          tmp_states_to_be_added_.push_back(new_state);
+        }
       }
     }
     return;
   }
-  bool is_negative = static_cast<bool>(sub_sequence[0]);
 
-  // This trick is based on the current structure that character class
-  // can't accept a UTF8 character, unless it has a negation.
+  // Handle non-ASCII first bytes
   if (!isascii(ch)) {
-    if (!is_negative) {
-      return;
-    }
-    auto [accepted, num_bytes, codepoint] = HandleUTF8FirstByte(ch);
+    auto [accepted, num_bytes, partial] = HandleUTF8FirstByte(ch);
     if (!accepted) {
       return;
     }
 
-    // A new UTF8 character is accepted.
     XGRAMMAR_DCHECK(num_bytes > 1);
-    auto new_state = state;
-    new_state.sub_element_id = num_bytes - 1;
-    tmp_states_to_be_added_.push_back(new_state);
+
+    // Compute possible codepoint range for this first byte
+    int32_t min_codepoint = partial << (6 * (num_bytes - 1));
+    int32_t max_codepoint = min_codepoint | ((1 << (6 * (num_bytes - 1))) - 1);
+
+    // Check if any stored range could potentially match
+    bool could_match = false;
+    for (int i = 1; i < sub_sequence.size(); i += 2) {
+      int32_t lower = sub_sequence[i];
+      int32_t upper = sub_sequence[i + 1];
+      // Check for overlap between [min_codepoint, max_codepoint] and [lower, upper]
+      if (max_codepoint >= lower && min_codepoint <= upper) {
+        could_match = true;
+        break;
+      }
+    }
+
+    // For negative classes: accept if no range could match (will verify on final byte)
+    // For positive classes: accept if some range could match (will verify on final byte)
+    bool should_continue = is_negative ? true : could_match;
+
+    if (should_continue) {
+      auto new_state = state;
+      new_state.sub_element_id = num_bytes - 1;
+      new_state.partial_codepoint = partial;
+      tmp_states_to_be_added_.push_back(new_state);
+    }
     return;
   }
 
+  // ASCII handling (unchanged)
   for (int i = 1; i < sub_sequence.size(); i += 2) {
     if (static_cast<uint8_t>(sub_sequence[i]) <= ch &&
         ch <= static_cast<uint8_t>(sub_sequence[i + 1])) {
@@ -633,40 +731,113 @@ void EarleyParser::AdvanceCharacterClassStar(
   XGRAMMAR_DCHECK(sub_sequence.type == GrammarExprType::kCharacterClassStar)
       << "The element type is not supported!";
 
-  // The state is matching a UTF8 character.
+  bool is_negative = static_cast<bool>(sub_sequence[0]);
+
+  // The state is matching a UTF8 character (continuation bytes).
   if (state.sub_element_id > 0) {
     if ((ch & 0xC0) == 0x80) {
       auto new_state = state;
       new_state.sub_element_id--;
+      // Accumulate the codepoint from continuation byte
+      new_state.partial_codepoint = (new_state.partial_codepoint << 6) | (ch & 0x3F);
+
       // Check if the UTF8 character is completed.
       if (new_state.sub_element_id == 0) {
-        Enqueue(new_state);
+        if (is_negative) {
+          // For negative classes, accept if codepoint is NOT in any range
+          bool matches_range = false;
+          for (int i = 1; i < sub_sequence.size(); i += 2) {
+            if (new_state.partial_codepoint >= sub_sequence[i] &&
+                new_state.partial_codepoint <= sub_sequence[i + 1]) {
+              matches_range = true;
+              break;
+            }
+          }
+          if (!matches_range) {
+            new_state.partial_codepoint = 0;
+            Enqueue(new_state);
+          }
+        } else {
+          // For positive classes, accept if codepoint IS in a range
+          bool matches_range = false;
+          for (int i = 1; i < sub_sequence.size(); i += 2) {
+            if (new_state.partial_codepoint >= sub_sequence[i] &&
+                new_state.partial_codepoint <= sub_sequence[i + 1]) {
+              matches_range = true;
+              break;
+            }
+          }
+          if (matches_range) {
+            new_state.partial_codepoint = 0;
+            Enqueue(new_state);
+          }
+        }
       } else {
-        tmp_states_to_be_added_.push_back(new_state);
+        // Check if partial codepoint could still potentially match any range
+        int32_t remaining_bytes = new_state.sub_element_id;
+        int32_t min_codepoint = new_state.partial_codepoint << (6 * remaining_bytes);
+        int32_t max_codepoint = min_codepoint | ((1 << (6 * remaining_bytes)) - 1);
+
+        bool could_match = false;
+        for (int i = 1; i < sub_sequence.size(); i += 2) {
+          int32_t lower = sub_sequence[i];
+          int32_t upper = sub_sequence[i + 1];
+          if (max_codepoint >= lower && min_codepoint <= upper) {
+            could_match = true;
+            break;
+          }
+        }
+
+        // For negative classes: always continue (will verify on final byte)
+        // For positive classes: only continue if some range could match
+        bool should_continue = is_negative ? true : could_match;
+        if (should_continue) {
+          tmp_states_to_be_added_.push_back(new_state);
+        }
       }
     }
     return;
   }
-  bool is_negative = static_cast<bool>(sub_sequence[0]);
 
-  // This trick is based on the current structure that character class
-  // can't accept a UTF8 character, unless it has a negation.
+  // Handle non-ASCII first bytes
   if (!isascii(ch)) {
-    if (!is_negative) {
-      return;
-    }
-    auto [accepted, num_bytes, codepoint] = HandleUTF8FirstByte(ch);
+    auto [accepted, num_bytes, partial] = HandleUTF8FirstByte(ch);
     if (!accepted) {
       return;
     }
-    // A new UTF8 character is accepted.
+
     XGRAMMAR_DCHECK(num_bytes > 1);
-    auto new_state = state;
-    new_state.sub_element_id = num_bytes - 1;
-    tmp_states_to_be_added_.push_back(new_state);
+
+    // Compute possible codepoint range for this first byte
+    int32_t min_codepoint = partial << (6 * (num_bytes - 1));
+    int32_t max_codepoint = min_codepoint | ((1 << (6 * (num_bytes - 1))) - 1);
+
+    // Check if any stored range could potentially match
+    bool could_match = false;
+    for (int i = 1; i < sub_sequence.size(); i += 2) {
+      int32_t lower = sub_sequence[i];
+      int32_t upper = sub_sequence[i + 1];
+      // Check for overlap between [min_codepoint, max_codepoint] and [lower, upper]
+      if (max_codepoint >= lower && min_codepoint <= upper) {
+        could_match = true;
+        break;
+      }
+    }
+
+    // For negative classes: accept if no range could match (will verify on final byte)
+    // For positive classes: accept if some range could match (will verify on final byte)
+    bool should_continue = is_negative ? true : could_match;
+
+    if (should_continue) {
+      auto new_state = state;
+      new_state.sub_element_id = num_bytes - 1;
+      new_state.partial_codepoint = partial;
+      tmp_states_to_be_added_.push_back(new_state);
+    }
     return;
   }
 
+  // ASCII handling (unchanged)
   for (int i = 1; i < sub_sequence.size(); i += 2) {
     if (static_cast<uint8_t>(sub_sequence[i]) <= ch &&
         ch <= static_cast<uint8_t>(sub_sequence[i + 1])) {

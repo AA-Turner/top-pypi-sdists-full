@@ -71,7 +71,7 @@ if tiledbsoma_dir is not None and tiledb_dir is None:
         "If TILEDBSOMA_PATH is set, then TILEDB_PATH must "
         "also be set. TILEDB_PATH must be set to the location of "
         "the TileDB shared object library linked to the "
-        "TileDB-SOMA shared object library"
+        "TileDB-SOMA shared object library",
     )
 
 if tiledbsoma_dir is None:
@@ -99,18 +99,16 @@ def get_libtiledbsoma_library_name():
     if os.name == "posix":
         if sys.platform == "darwin":
             return "libtiledbsoma.dylib"
-        else:
-            return "libtiledbsoma.so"
-    elif os.name == "nt":
+        return "libtiledbsoma.so"
+    if os.name == "nt":
         return "tiledbsoma.dll"
-    else:
-        raise RuntimeError(f"Unsupported OS name {os.name}")
+    raise RuntimeError(f"Unsupported OS name {os.name}")
 
 
 def find_libtiledbsoma_full_path_on_linux(lib_name):
     # https://stackoverflow.com/questions/35682600/get-absolute-path-of-shared-library-in-python
     class LINKMAP(ctypes.Structure):
-        _fields_ = [("l_addr", ctypes.c_void_p), ("l_name", ctypes.c_char_p)]
+        _fields_ = [("l_addr", ctypes.c_void_p), ("l_name", ctypes.c_char_p)]  # noqa: RUF012
 
     libdl = ctypes.CDLL(lib_name)
     dlinfo = libdl.dlinfo
@@ -250,8 +248,8 @@ if platform.machine() == "x86_64":
     CXX_FLAGS.append("-mavx2")
 
 if os.name != "nt":
-    CXX_FLAGS.append(f'-Wl,-rpath,{str(tiledbsoma_dir / "lib")}')
-    CXX_FLAGS.append(f'-Wl,-rpath,{str(tiledb_dir / "lib")}')
+    CXX_FLAGS.append(f"-Wl,-rpath,{tiledbsoma_dir / 'lib'!s}")
+    CXX_FLAGS.append(f"-Wl,-rpath,{tiledb_dir / 'lib'!s}")
 
 if sys.platform == "darwin":
     CXX_FLAGS.append("-mmacosx-version-min=11.0")
@@ -266,10 +264,10 @@ if os.name == "posix" and sys.platform != "darwin":
     LIB_DIRS.append(str(tiledbsoma_dir / "lib64"))
     LIB_DIRS.append(str(tiledb_dir / "lib" / "x86_64-linux-gnu"))
     LIB_DIRS.append(str(tiledb_dir / "lib64"))
-    CXX_FLAGS.append(f'-Wl,-rpath,{str(tiledbsoma_dir / "lib" / "x86_64-linux-gnu")}')
-    CXX_FLAGS.append(f'-Wl,-rpath,{str(tiledbsoma_dir / "lib64")}')
-    CXX_FLAGS.append(f'-Wl,-rpath,{str(tiledb_dir / "lib" / "x86_64-linux-gnu")}')
-    CXX_FLAGS.append(f'-Wl,-rpath,{str(tiledb_dir / "lib64")}')
+    CXX_FLAGS.append(f"-Wl,-rpath,{tiledbsoma_dir / 'lib' / 'x86_64-linux-gnu'!s}")
+    CXX_FLAGS.append(f"-Wl,-rpath,{tiledbsoma_dir / 'lib64'!s}")
+    CXX_FLAGS.append(f"-Wl,-rpath,{tiledb_dir / 'lib' / 'x86_64-linux-gnu'!s}")
+    CXX_FLAGS.append(f"-Wl,-rpath,{tiledb_dir / 'lib64'!s}")
 
 # ----------------------------------------------------------------
 # Don't use `if __name__ == "__main__":` as the `python_requires` must
@@ -279,7 +277,7 @@ if os.name == "posix" and sys.platform != "darwin":
 setuptools.setup(
     name="tiledbsoma",
     description="Python API for efficient storage and retrieval of single-cell data using TileDB",
-    long_description=open("README.md", encoding="utf-8").read(),
+    long_description=open("README.md", encoding="utf-8").read(),  # noqa: SIM115
     long_description_content_type="text/markdown",
     author="TileDB, Inc.",
     author_email="help@tiledb.io",
@@ -326,6 +324,7 @@ setuptools.setup(
                 "src/tiledbsoma/soma_sparse_ndarray.cc",
                 "src/tiledbsoma/soma_group.cc",
                 "src/tiledbsoma/soma_collection.cc",
+                "src/tiledbsoma/coordinate_selection.cc",
                 "src/tiledbsoma/managed_query.cc",
                 "src/tiledbsoma/transformer.cc",
                 "src/tiledbsoma/pytiledbsoma.cc",
@@ -334,10 +333,9 @@ setuptools.setup(
             library_dirs=LIB_DIRS,
             libraries=["tiledbsoma"] + (["tiledb"] if os.name == "nt" else []),
             extra_link_args=CXX_FLAGS,
-            extra_compile_args=["-std=c++20" if os.name != "nt" else "/std:c++20"]
-            + CXX_FLAGS,
+            extra_compile_args=["-std=c++20" if os.name != "nt" else "/std:c++20", *CXX_FLAGS],
             language="c++",
-        )
+        ),
     ],
     zip_safe=False,
     setup_requires=["pybind11"],
@@ -351,14 +349,13 @@ setuptools.setup(
         "scanpy>=1.9.2",
         "scipy",
         # Note: the somacore version is also in .pre-commit-config.yaml
-        "somacore==1.0.28",
-        "typing-extensions",  # Note "-" even though `import typing_extensions`
+        "somacore==1.0.29",
+        "typing-extensions>=4.5.0",  # Note "-" even though `import typing_extensions`
     ],
     extras_require={
-        "dev": open("requirements_dev.txt").read(),
-        "spatial-io": open("requirements_spatial.txt").read(),
-        "all": open("requirements_dev.txt").read()
-        + open("requirements_spatial.txt").read(),
+        "dev": open("requirements_dev.txt").read(),  # noqa: SIM115
+        "spatial-io": open("requirements_spatial.txt").read(),  # noqa: SIM115
+        "all": open("requirements_dev.txt").read() + open("requirements_spatial.txt").read(),  # noqa: SIM115
     },
     python_requires=">=3.9",
     cmdclass={"build_ext": build_ext, "bdist_wheel": bdist_wheel},

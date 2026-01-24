@@ -1,0 +1,195 @@
+[project]
+name = "fitrequest"
+version = "1.5.3"
+description = "Python class that allow to create REST API client with dynamic code generation"
+homepage = "https://skillcorner.com/"
+repository = "https://gitlab.com/public-corner/fitrequest"
+documentation = "https://fitrequest.readthedocs.io/en/latest/"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "defusedxml>=0.7.1",
+    "httpx>=0.28.1",
+    "makefun>=1.15.4",
+    "orjson>=3.9.10",
+    "pydantic-settings>=2.6.1",
+    "pydantic>=2.5.2",
+    "jsonpath-ng>=1.7.0",
+    "aiofiles>=24.1.0",
+    "boto3>=1.34.96",
+    "jinja2>=3.1.4",
+    "tenacity>=9.0.0",
+    "clustershell>=1.9.2",
+    "typer>=0.15.1",
+    "rich>=13.9.4",
+    "strenum>=0.4.15",
+]
+# strenum dependency added for python 3.10 support
+
+[dependency-groups]
+dev = [
+  "coverage>=7.6.1",
+  "ipython>=8.12.3",
+  "moto[secretsmanager, ssm]>=5.0.14",
+  "poethepoet>=0.27.0",
+  "pre-commit>=3.5.0",
+  "pytest>=8.3.2",
+  "respx>=0.22.0",
+  "ruff>=0.6.2",
+  "sphinx>=7.4.7",
+  "sphinx-book-theme>=1.1.3",
+  "pytest-cov>=5.0.0",
+  "rich>=13.9.4",
+  "autodoc-pydantic>=2.2.0",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.6.1",
+  "pytest-asyncio>=0.25.3",
+  "joblib>=1.4.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [".venv", ".uv-cache", "env", "venv"]
+
+[tool.poe.tasks.doc]
+help = "Build docs"
+shell = "sphinx-build -M html ./docs/source/ ./build -W"
+
+[tool.poe.tasks.test]
+env = {base_cmd = "uv run pytest"}
+help = "Simple command to perform tests."
+control.expr = "debug_opt"
+
+  [[tool.poe.tasks.test.args]]
+  name = "tests"
+  options = ["-t", "--tests"]
+  help = "Path to test(s)"
+  default = "tests"
+
+  [[tool.poe.tasks.test.args]]
+  name = "debug_opt"
+  options = ["-d", "--debug"]
+  help = "Enable detailed test output to display all print statements and allow the use of pdb breakpoints for debugging."
+  type = "boolean"
+  default = false
+
+  [[tool.poe.tasks.test.switch]]
+  case = "False"
+  cmd = "$base_cmd $tests"
+
+  [[tool.poe.tasks.test.switch]]
+  case = "True"
+  cmd = "$base_cmd -vv -rA -s --no-cov --pdbcls=IPython.terminal.debugger:Pdb $tests"
+
+[tool.pytest.ini_options]
+addopts = "--cov=fitrequest --cov-branch --cov-report term-missing --cov-report html --cov-report xml --cov-report lcov --junitxml=junit_test.xml"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+select = ["ALL"]
+ignore = [
+  # Below are the rules defined to be ignored according to our company policy.
+  "COM812", "D", "FA100", "FBT002", "INP001", "ISC001",
+
+  "FBT001", # It's similar to FBT002, ignored.
+
+  # Error:
+  #   Checks for first-party, third-party, and standard library module imports that are used exclusively
+  #   for type annotations but not defined within a type-checking block.
+  # Why it is disabled:
+  #   To ensure types are available at runtime and avoid execution errors with Pydantic,
+  #   import them directly without using an if TYPE_CHECKING: block.
+  #   This avoids additional syntax and the need for "noqa" statements for certain types due to our use of Pydantic
+  "TC001", "TC002", "TC003",
+
+  # Error: Checks that *args, **kwargs arguments have type annotations.
+  # Why it is disabled: Cannot determine the types in advance as *args, **kwargs are used for arbitrary arguments.
+  "ANN002", "ANN003",
+
+  # Error: Checks that function arguments are annotated with a more specific type than Any.
+  # Why it is disabled: We sometimes just don't know the types involved.
+  "ANN401",
+
+  # Error: Checks for uses of the open() builtin.
+  # Why it is disabled: 'open' is builtin python method, I don't see why we should avoid it.
+  "PTH123",
+]
+
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = [
+  # Error: Checks for variable definitions that redefine (or "shadow") unused variables.
+  # Why it's disabled: This error is triggered when imported fixtures are used as arguments in test functions,
+  # even though they are intentionally not referenced elsewhere in the code.
+  "F811",
+
+  # Error: Use of `assert` detected.
+  # Why it's disabled: We rely on `assert` for testing purposes.
+  "S101",
+
+  # Error: Checks for unused imports.
+  # Why it's disabled: This error is triggered when imported fixtures are used as arguments in test functions,
+  # even though they are intentionally not referenced elsewhere in the code.
+  "F401",
+
+  # Error: Missing type annotation for function arguments
+  # Why it's disabled: We don't need to worry about type annotations for test methods; they add unnecessary complexity.
+  "ANN001",
+
+  # Error: Missing return type annotation for public function
+  # Why it's disabled: We don't need to worry about type annotations for test methods; they add unnecessary complexity.
+  "ANN201",
+
+  # Error: Mutable class attributes should be annotated with `typing.ClassVar`
+  # Why it is disabled: The goal of this "fitrequest" syntax is to simplify it.
+  # Implementing this rule would unnecessarily complicate the syntax.
+  "RUF012",
+
+  # Error: Found useless attribute access.
+  # Why it is disabled: Sometimes we need to test whether accessing a property will raise an exception.
+  # In these cases, we access the property without actually using its value.
+  "B018",
+
+  # Error: Possible hardcoded password
+  # Why it is disabled: Hardcoded passwords are intended for testing purposes only.
+  "S105",
+
+  # Error: Possible hardcoded password assigned to argument
+  # Why it is disabled: Hardcoded passwords are intended for testing purposes only.
+  "S106",
+
+  # Error: Unused function argument
+  # Why it is disabled: This rule is ignored because we occasionally use fixtures to set environment variables
+  # without directly involving those fixtures in the test.
+  "ARG001",
+
+  # Error: PLR2004 Magic value used in comparison
+  # Why it is disabled: In tests, it is often simpler to directly assert the expected value.
+  # Using a variable can make the syntax more complex and harder to read.
+  "PLR2004",
+
+  # Error: Private member accessed
+  # Why it is disabled: This error is ignored because we frequently need to access private members
+  # in order to mock them, such as the `_request` httpx method.
+  "SLF001",
+
+  # Error: Do not perform function call in argument defaults.
+  # Why it is disabled: we use pydantic `Field` to declare alias and default_factory arguments in generated methods.
+  "B008",
+]

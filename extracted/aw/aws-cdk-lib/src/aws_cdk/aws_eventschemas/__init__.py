@@ -66,6 +66,316 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_events import IEventBusRef as _IEventBusRef_aa86e9b4
+from ..interfaces.aws_eventschemas import (
+    DiscovererReference as _DiscovererReference_52fd091c,
+    IDiscovererRef as _IDiscovererRef_40eee464,
+    IRegistryPolicyRef as _IRegistryPolicyRef_a1fe7d28,
+    IRegistryRef as _IRegistryRef_007bdb40,
+    ISchemaRef as _ISchemaRef_85adc95a,
+    RegistryPolicyReference as _RegistryPolicyReference_788dde78,
+    RegistryReference as _RegistryReference_9f962fb0,
+    SchemaReference as _SchemaReference_3c1ea018,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _IDiscovererRef_40eee464, _ITaggable_36806126)
+class CfnDiscoverer(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_eventschemas.CfnDiscoverer",
+):
+    '''Use the ``AWS::EventSchemas::Discoverer`` resource to specify a *discoverer* that is associated with an event bus.
+
+    A discoverer allows the Amazon EventBridge Schema Registry to automatically generate schemas based on events on an event bus.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-discoverer.html
+    :cloudformationResource: AWS::EventSchemas::Discoverer
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_eventschemas as eventschemas
+        
+        cfn_discoverer = eventschemas.CfnDiscoverer(self, "MyCfnDiscoverer",
+            source_arn="sourceArn",
+        
+            # the properties below are optional
+            cross_account=False,
+            description="description",
+            tags=[eventschemas.CfnDiscoverer.TagsEntryProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        source_arn: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"],
+        cross_account: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnDiscoverer.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::EventSchemas::Discoverer``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param source_arn: The ARN of the event bus.
+        :param cross_account: Allows for the discovery of the event schemas that are sent to the event bus from another account. Default: - true
+        :param description: A description for the discoverer.
+        :param tags: Tags associated with the resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f306367587ea104b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDiscovererProps(
+            source_arn=source_arn,
+            cross_account=cross_account,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDiscoverer")
+    @builtins.classmethod
+    def arn_for_discoverer(cls, resource: "_IDiscovererRef_40eee464") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06f90c61e9a3d12f265f81eab38d425b597d2d7e28fb0546743dcddeb172a812)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDiscoverer", [resource]))
+
+    @jsii.member(jsii_name="isCfnDiscoverer")
+    @builtins.classmethod
+    def is_cfn_discoverer(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDiscoverer.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65e059e19104074507b6be93e2cc6087696dff219c031aee46be3dc84c4a4693)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDiscoverer", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5aed120cd74fca6fbf78a33d62495d891cbe2c2122e7ee9aac1ad880b563510c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e89fa30181b946d0bba0e9220d943a0e33377704225394b1f9d3d14fe912c54b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCrossAccount")
+    def attr_cross_account(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: CrossAccount
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCrossAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDiscovererArn")
+    def attr_discoverer_arn(self) -> builtins.str:
+        '''The ARN of the discoverer.
+
+        :cloudformationAttribute: DiscovererArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDiscovererArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDiscovererId")
+    def attr_discoverer_id(self) -> builtins.str:
+        '''The ID of the discoverer.
+
+        :cloudformationAttribute: DiscovererId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDiscovererId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the discoverer.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="discovererRef")
+    def discoverer_ref(self) -> "_DiscovererReference_52fd091c":
+        '''A reference to a Discoverer resource.'''
+        return typing.cast("_DiscovererReference_52fd091c", jsii.get(self, "discovererRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceArn")
+    def source_arn(self) -> builtins.str:
+        '''The ARN of the event bus.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceArn"))
+
+    @source_arn.setter
+    def source_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5676db42d7839b4e31ffff3ed613305ba8b0b32d7a6e2629d38eee2586e717fa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="crossAccount")
+    def cross_account(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Allows for the discovery of the event schemas that are sent to the event bus from another account.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "crossAccount"))
+
+    @cross_account.setter
+    def cross_account(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecb4a06e541deb6c8dda40cd09befd814af0290af78146808d35ff87851560c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "crossAccount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the discoverer.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7463e2b4b05eced21b83e3338eb22af5c46afefaac9f880d439ba9a57d2eef9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(
+        self,
+    ) -> typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]]:
+        '''Tags associated with the resource.'''
+        return typing.cast(typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca041b8aa73b6324baa5d76e21ca40251767aae80510f933254a18d21bdd512b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventschemas.CfnDiscoverer.TagsEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsEntryProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''Tags to associate with the discoverer.
+
+            :param key: The key of a key-value pair.
+            :param value: The value of a key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-discoverer-tagsentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventschemas as eventschemas
+                
+                tags_entry_property = eventschemas.CfnDiscoverer.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8474d9c87ec86399a0d85d3b5386ddc8baf06ba1964693f15122f050ab2c3ea0)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key of a key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-discoverer-tagsentry.html#cfn-eventschemas-discoverer-tagsentry-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value of a key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-discoverer-tagsentry.html#cfn-eventschemas-discoverer-tagsentry-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -82,8 +392,8 @@ class CfnDiscovererProps:
     def __init__(
         self,
         *,
-        source_arn: builtins.str,
-        cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        source_arn: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"],
+        cross_account: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnDiscoverer.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -132,19 +442,19 @@ class CfnDiscovererProps:
             self._values["tags"] = tags
 
     @builtins.property
-    def source_arn(self) -> builtins.str:
+    def source_arn(self) -> typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]:
         '''The ARN of the event bus.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-discoverer.html#cfn-eventschemas-discoverer-sourcearn
         '''
         result = self._values.get("source_arn")
         assert result is not None, "Required property 'source_arn' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"], result)
 
     @builtins.property
     def cross_account(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Allows for the discovery of the event schemas that are sent to the event bus from another account.
 
         :default: - true
@@ -152,7 +462,7 @@ class CfnDiscovererProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-discoverer.html#cfn-eventschemas-discoverer-crossaccount
         '''
         result = self._values.get("cross_account")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -182,6 +492,418 @@ class CfnDiscovererProps:
         return "CfnDiscovererProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRegistryRef_007bdb40, _ITaggable_36806126)
+class CfnRegistry(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistry",
+):
+    '''Use the ``AWS::EventSchemas::Registry`` to specify a schema registry.
+
+    Schema registries are containers for Schemas. Registries collect and organize schemas so that your schemas are in logical groups.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-registry.html
+    :cloudformationResource: AWS::EventSchemas::Registry
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_eventschemas as eventschemas
+        
+        cfn_registry = eventschemas.CfnRegistry(self, "MyCfnRegistry",
+            description="description",
+            registry_name="registryName",
+            tags=[eventschemas.CfnRegistry.TagsEntryProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        registry_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnRegistry.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::EventSchemas::Registry``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: A description of the registry to be created.
+        :param registry_name: The name of the schema registry.
+        :param tags: Tags to associate with the registry.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6998d811)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRegistryProps(
+            description=description, registry_name=registry_name, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRegistry")
+    @builtins.classmethod
+    def arn_for_registry(cls, resource: "_IRegistryRef_007bdb40") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d7095b99f4de7eada4f34fcee3ae438279272d4bfaa438e9a7de1eb31c1f3de)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRegistry", [resource]))
+
+    @jsii.member(jsii_name="isCfnRegistry")
+    @builtins.classmethod
+    def is_cfn_registry(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRegistry.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__489bfc94f957a8e125dd277706c7c713dff7c1192acdef6ade0934505a7fb24f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistry", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f3a33248bf046934f50b3053f727578e1528e051189d185d58c716421f60590)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7c11136544dd1e24d8b718272168cff2cded43a5d89859a4521b899c77fd6df)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistryArn")
+    def attr_registry_arn(self) -> builtins.str:
+        '''The ARN of the registry.
+
+        :cloudformationAttribute: RegistryArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistryArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistryName")
+    def attr_registry_name(self) -> builtins.str:
+        '''The name of the registry.
+
+        :cloudformationAttribute: RegistryName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistryName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="registryRef")
+    def registry_ref(self) -> "_RegistryReference_9f962fb0":
+        '''A reference to a Registry resource.'''
+        return typing.cast("_RegistryReference_9f962fb0", jsii.get(self, "registryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the registry to be created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bce4f7f7e8c5a687a7fbdf9c4f2b0cd152aed97c129a84f29d1e92c997b8ce99)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="registryName")
+    def registry_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schema registry.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "registryName"))
+
+    @registry_name.setter
+    def registry_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03b858e4024a2d1d4fa69d9add1f3648a6097e703c3b1d88c7273988233bd91b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]]:
+        '''Tags to associate with the registry.'''
+        return typing.cast(typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4a5acf9b60d1d99c19efc9051601a320243d772d72bfe9c99d7bef8fe5e6703)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistry.TagsEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsEntryProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''Tags to associate with the schema registry.
+
+            :param key: The key of a key-value pair.
+            :param value: The value of a key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-registry-tagsentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventschemas as eventschemas
+                
+                tags_entry_property = eventschemas.CfnRegistry.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__434a165e1c5dfe37a102494f5df09787d58fee40ecc8ab422d5fca90ce8040d7)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key of a key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-registry-tagsentry.html#cfn-eventschemas-registry-tagsentry-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value of a key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-registry-tagsentry.html#cfn-eventschemas-registry-tagsentry-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRegistryPolicyRef_a1fe7d28)
+class CfnRegistryPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistryPolicy",
+):
+    '''Use the ``AWS::EventSchemas::RegistryPolicy`` resource to specify resource-based policies for an EventBridge Schema Registry.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-registrypolicy.html
+    :cloudformationResource: AWS::EventSchemas::RegistryPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_eventschemas as eventschemas
+        
+        # policy: Any
+        
+        cfn_registry_policy = eventschemas.CfnRegistryPolicy(self, "MyCfnRegistryPolicy",
+            policy=policy,
+            registry_name="registryName",
+        
+            # the properties below are optional
+            revision_id="revisionId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy: typing.Any,
+        registry_name: builtins.str,
+        revision_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::EventSchemas::RegistryPolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy: A resource-based policy.
+        :param registry_name: The name of the registry.
+        :param revision_id: The revision ID of the policy.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad540eb68722cc10f4390e174c8e5220a2044dd1bc749c9d97dce9d05dc109b0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRegistryPolicyProps(
+            policy=policy, registry_name=registry_name, revision_id=revision_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnRegistryPolicy")
+    @builtins.classmethod
+    def is_cfn_registry_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRegistryPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2ceb26576a92234d2bee1b3289e50cacc531be61555aef1abf9eed2df962cf2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistryPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02a0b235686021baf044f24458acbcb50ff177d86100af36ba8109eb640f4ebc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4a4bec0d7bf3b7fc3674cf3e9fa5ea7ee730f6261b7292bc21c8d3a1e0921ab)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the policy.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="registryPolicyRef")
+    def registry_policy_ref(self) -> "_RegistryPolicyReference_788dde78":
+        '''A reference to a RegistryPolicy resource.'''
+        return typing.cast("_RegistryPolicyReference_788dde78", jsii.get(self, "registryPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''A resource-based policy.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45e4a373a0302fe2e435472748d76b293c581b493372610b3c508f9ba14da520)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="registryName")
+    def registry_name(self) -> builtins.str:
+        '''The name of the registry.'''
+        return typing.cast(builtins.str, jsii.get(self, "registryName"))
+
+    @registry_name.setter
+    def registry_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4e5d3263c610305f4f20d2099d36fbf2bcc864fb0ea06c0e1a9a9bd79d60eba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="revisionId")
+    def revision_id(self) -> typing.Optional[builtins.str]:
+        '''The revision ID of the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "revisionId"))
+
+    @revision_id.setter
+    def revision_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31f144d1732dcb92e464a7650dd5d31b9d139132ce00d366faf674bc51981ce2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "revisionId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -372,1159 +1094,7 @@ class CfnRegistryProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_eventschemas.CfnSchemaProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "content": "content",
-        "registry_name": "registryName",
-        "type": "type",
-        "description": "description",
-        "schema_name": "schemaName",
-        "tags": "tags",
-    },
-)
-class CfnSchemaProps:
-    def __init__(
-        self,
-        *,
-        content: builtins.str,
-        registry_name: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        schema_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnSchema.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSchema``.
-
-        :param content: The source of the schema definition.
-        :param registry_name: The name of the schema registry.
-        :param type: The type of schema. Valid types include ``OpenApi3`` and ``JSONSchemaDraft4`` .
-        :param description: A description of the schema.
-        :param schema_name: The name of the schema.
-        :param tags: Tags associated with the schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_eventschemas as eventschemas
-            
-            cfn_schema_props = eventschemas.CfnSchemaProps(
-                content="content",
-                registry_name="registryName",
-                type="type",
-            
-                # the properties below are optional
-                description="description",
-                schema_name="schemaName",
-                tags=[eventschemas.CfnSchema.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb00ff21937e458a5e190860af6b381fcf6f0ab59d0849bcf094f0fc2c44c2c9)
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument registry_name", value=registry_name, expected_type=type_hints["registry_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "content": content,
-            "registry_name": registry_name,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if schema_name is not None:
-            self._values["schema_name"] = schema_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def content(self) -> builtins.str:
-        '''The source of the schema definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-content
-        '''
-        result = self._values.get("content")
-        assert result is not None, "Required property 'content' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def registry_name(self) -> builtins.str:
-        '''The name of the schema registry.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-registryname
-        '''
-        result = self._values.get("registry_name")
-        assert result is not None, "Required property 'registry_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of schema.
-
-        Valid types include ``OpenApi3`` and ``JSONSchemaDraft4`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schema_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-schemaname
-        '''
-        result = self._values.get("schema_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List["CfnSchema.TagsEntryProperty"]]:
-        '''Tags associated with the schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["CfnSchema.TagsEntryProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSchemaProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_eventschemas.DiscovererReference",
-    jsii_struct_bases=[],
-    name_mapping={"discoverer_arn": "discovererArn"},
-)
-class DiscovererReference:
-    def __init__(self, *, discoverer_arn: builtins.str) -> None:
-        '''A reference to a Discoverer resource.
-
-        :param discoverer_arn: The DiscovererArn of the Discoverer resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_eventschemas as eventschemas
-            
-            discoverer_reference = eventschemas.DiscovererReference(
-                discoverer_arn="discovererArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e234d7df8e50d94c8ab4525428e59d1a8a5cf1ff7ac5468b14b5b62708c80b66)
-            check_type(argname="argument discoverer_arn", value=discoverer_arn, expected_type=type_hints["discoverer_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "discoverer_arn": discoverer_arn,
-        }
-
-    @builtins.property
-    def discoverer_arn(self) -> builtins.str:
-        '''The DiscovererArn of the Discoverer resource.'''
-        result = self._values.get("discoverer_arn")
-        assert result is not None, "Required property 'discoverer_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DiscovererReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_eventschemas.IDiscovererRef")
-class IDiscovererRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Discoverer.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="discovererRef")
-    def discoverer_ref(self) -> DiscovererReference:
-        '''(experimental) A reference to a Discoverer resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDiscovererRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Discoverer.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_eventschemas.IDiscovererRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="discovererRef")
-    def discoverer_ref(self) -> DiscovererReference:
-        '''(experimental) A reference to a Discoverer resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DiscovererReference, jsii.get(self, "discovererRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDiscovererRef).__jsii_proxy_class__ = lambda : _IDiscovererRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_eventschemas.IRegistryPolicyRef")
-class IRegistryPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a RegistryPolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="registryPolicyRef")
-    def registry_policy_ref(self) -> "RegistryPolicyReference":
-        '''(experimental) A reference to a RegistryPolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRegistryPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RegistryPolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_eventschemas.IRegistryPolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="registryPolicyRef")
-    def registry_policy_ref(self) -> "RegistryPolicyReference":
-        '''(experimental) A reference to a RegistryPolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RegistryPolicyReference", jsii.get(self, "registryPolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRegistryPolicyRef).__jsii_proxy_class__ = lambda : _IRegistryPolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_eventschemas.IRegistryRef")
-class IRegistryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Registry.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="registryRef")
-    def registry_ref(self) -> "RegistryReference":
-        '''(experimental) A reference to a Registry resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRegistryRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Registry.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_eventschemas.IRegistryRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="registryRef")
-    def registry_ref(self) -> "RegistryReference":
-        '''(experimental) A reference to a Registry resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RegistryReference", jsii.get(self, "registryRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRegistryRef).__jsii_proxy_class__ = lambda : _IRegistryRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_eventschemas.ISchemaRef")
-class ISchemaRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Schema.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="schemaRef")
-    def schema_ref(self) -> "SchemaReference":
-        '''(experimental) A reference to a Schema resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISchemaRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Schema.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_eventschemas.ISchemaRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="schemaRef")
-    def schema_ref(self) -> "SchemaReference":
-        '''(experimental) A reference to a Schema resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SchemaReference", jsii.get(self, "schemaRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISchemaRef).__jsii_proxy_class__ = lambda : _ISchemaRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_eventschemas.RegistryPolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"registry_policy_id": "registryPolicyId"},
-)
-class RegistryPolicyReference:
-    def __init__(self, *, registry_policy_id: builtins.str) -> None:
-        '''A reference to a RegistryPolicy resource.
-
-        :param registry_policy_id: The Id of the RegistryPolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_eventschemas as eventschemas
-            
-            registry_policy_reference = eventschemas.RegistryPolicyReference(
-                registry_policy_id="registryPolicyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0585113467c1e5becf66a67bafba755bcc6ce1043aed3f1d4e7b1488140243ef)
-            check_type(argname="argument registry_policy_id", value=registry_policy_id, expected_type=type_hints["registry_policy_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "registry_policy_id": registry_policy_id,
-        }
-
-    @builtins.property
-    def registry_policy_id(self) -> builtins.str:
-        '''The Id of the RegistryPolicy resource.'''
-        result = self._values.get("registry_policy_id")
-        assert result is not None, "Required property 'registry_policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RegistryPolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_eventschemas.RegistryReference",
-    jsii_struct_bases=[],
-    name_mapping={"registry_arn": "registryArn"},
-)
-class RegistryReference:
-    def __init__(self, *, registry_arn: builtins.str) -> None:
-        '''A reference to a Registry resource.
-
-        :param registry_arn: The RegistryArn of the Registry resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_eventschemas as eventschemas
-            
-            registry_reference = eventschemas.RegistryReference(
-                registry_arn="registryArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f1df817b6a067558d2ac940259f41dbfaf352b558f1b5608e8e21fba94e8179)
-            check_type(argname="argument registry_arn", value=registry_arn, expected_type=type_hints["registry_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "registry_arn": registry_arn,
-        }
-
-    @builtins.property
-    def registry_arn(self) -> builtins.str:
-        '''The RegistryArn of the Registry resource.'''
-        result = self._values.get("registry_arn")
-        assert result is not None, "Required property 'registry_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RegistryReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_eventschemas.SchemaReference",
-    jsii_struct_bases=[],
-    name_mapping={"schema_arn": "schemaArn"},
-)
-class SchemaReference:
-    def __init__(self, *, schema_arn: builtins.str) -> None:
-        '''A reference to a Schema resource.
-
-        :param schema_arn: The SchemaArn of the Schema resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_eventschemas as eventschemas
-            
-            schema_reference = eventschemas.SchemaReference(
-                schema_arn="schemaArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67faab03ed101396a88436b9dacea9ebb75ca27453c8d879eb4f8748159e79c5)
-            check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "schema_arn": schema_arn,
-        }
-
-    @builtins.property
-    def schema_arn(self) -> builtins.str:
-        '''The SchemaArn of the Schema resource.'''
-        result = self._values.get("schema_arn")
-        assert result is not None, "Required property 'schema_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SchemaReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IDiscovererRef, _ITaggable_36806126)
-class CfnDiscoverer(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_eventschemas.CfnDiscoverer",
-):
-    '''Use the ``AWS::EventSchemas::Discoverer`` resource to specify a *discoverer* that is associated with an event bus.
-
-    A discoverer allows the Amazon EventBridge Schema Registry to automatically generate schemas based on events on an event bus.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-discoverer.html
-    :cloudformationResource: AWS::EventSchemas::Discoverer
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_eventschemas as eventschemas
-        
-        cfn_discoverer = eventschemas.CfnDiscoverer(self, "MyCfnDiscoverer",
-            source_arn="sourceArn",
-        
-            # the properties below are optional
-            cross_account=False,
-            description="description",
-            tags=[eventschemas.CfnDiscoverer.TagsEntryProperty(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        source_arn: builtins.str,
-        cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnDiscoverer.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param source_arn: The ARN of the event bus.
-        :param cross_account: Allows for the discovery of the event schemas that are sent to the event bus from another account. Default: - true
-        :param description: A description for the discoverer.
-        :param tags: Tags associated with the resource.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f306367587ea104b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDiscovererProps(
-            source_arn=source_arn,
-            cross_account=cross_account,
-            description=description,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5aed120cd74fca6fbf78a33d62495d891cbe2c2122e7ee9aac1ad880b563510c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e89fa30181b946d0bba0e9220d943a0e33377704225394b1f9d3d14fe912c54b)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCrossAccount")
-    def attr_cross_account(self) -> _IResolvable_da3f097b:
-        '''
-        :cloudformationAttribute: CrossAccount
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrCrossAccount"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDiscovererArn")
-    def attr_discoverer_arn(self) -> builtins.str:
-        '''The ARN of the discoverer.
-
-        :cloudformationAttribute: DiscovererArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDiscovererArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDiscovererId")
-    def attr_discoverer_id(self) -> builtins.str:
-        '''The ID of the discoverer.
-
-        :cloudformationAttribute: DiscovererId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDiscovererId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrState")
-    def attr_state(self) -> builtins.str:
-        '''The state of the discoverer.
-
-        :cloudformationAttribute: State
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="discovererRef")
-    def discoverer_ref(self) -> DiscovererReference:
-        '''A reference to a Discoverer resource.'''
-        return typing.cast(DiscovererReference, jsii.get(self, "discovererRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceArn")
-    def source_arn(self) -> builtins.str:
-        '''The ARN of the event bus.'''
-        return typing.cast(builtins.str, jsii.get(self, "sourceArn"))
-
-    @source_arn.setter
-    def source_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5676db42d7839b4e31ffff3ed613305ba8b0b32d7a6e2629d38eee2586e717fa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="crossAccount")
-    def cross_account(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Allows for the discovery of the event schemas that are sent to the event bus from another account.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "crossAccount"))
-
-    @cross_account.setter
-    def cross_account(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecb4a06e541deb6c8dda40cd09befd814af0290af78146808d35ff87851560c3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "crossAccount", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the discoverer.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7463e2b4b05eced21b83e3338eb22af5c46afefaac9f880d439ba9a57d2eef9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(
-        self,
-    ) -> typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]]:
-        '''Tags associated with the resource.'''
-        return typing.cast(typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca041b8aa73b6324baa5d76e21ca40251767aae80510f933254a18d21bdd512b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_eventschemas.CfnDiscoverer.TagsEntryProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TagsEntryProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''Tags to associate with the discoverer.
-
-            :param key: The key of a key-value pair.
-            :param value: The value of a key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-discoverer-tagsentry.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_eventschemas as eventschemas
-                
-                tags_entry_property = eventschemas.CfnDiscoverer.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8474d9c87ec86399a0d85d3b5386ddc8baf06ba1964693f15122f050ab2c3ea0)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The key of a key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-discoverer-tagsentry.html#cfn-eventschemas-discoverer-tagsentry-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The value of a key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-discoverer-tagsentry.html#cfn-eventschemas-discoverer-tagsentry-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TagsEntryProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IRegistryRef, _ITaggable_36806126)
-class CfnRegistry(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistry",
-):
-    '''Use the ``AWS::EventSchemas::Registry`` to specify a schema registry.
-
-    Schema registries are containers for Schemas. Registries collect and organize schemas so that your schemas are in logical groups.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-registry.html
-    :cloudformationResource: AWS::EventSchemas::Registry
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_eventschemas as eventschemas
-        
-        cfn_registry = eventschemas.CfnRegistry(self, "MyCfnRegistry",
-            description="description",
-            registry_name="registryName",
-            tags=[eventschemas.CfnRegistry.TagsEntryProperty(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        registry_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnRegistry.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: A description of the registry to be created.
-        :param registry_name: The name of the schema registry.
-        :param tags: Tags to associate with the registry.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6998d811)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRegistryProps(
-            description=description, registry_name=registry_name, tags=tags
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f3a33248bf046934f50b3053f727578e1528e051189d185d58c716421f60590)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c11136544dd1e24d8b718272168cff2cded43a5d89859a4521b899c77fd6df)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRegistryArn")
-    def attr_registry_arn(self) -> builtins.str:
-        '''The ARN of the registry.
-
-        :cloudformationAttribute: RegistryArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRegistryArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRegistryName")
-    def attr_registry_name(self) -> builtins.str:
-        '''The name of the registry.
-
-        :cloudformationAttribute: RegistryName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRegistryName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="registryRef")
-    def registry_ref(self) -> RegistryReference:
-        '''A reference to a Registry resource.'''
-        return typing.cast(RegistryReference, jsii.get(self, "registryRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the registry to be created.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bce4f7f7e8c5a687a7fbdf9c4f2b0cd152aed97c129a84f29d1e92c997b8ce99)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="registryName")
-    def registry_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schema registry.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "registryName"))
-
-    @registry_name.setter
-    def registry_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03b858e4024a2d1d4fa69d9add1f3648a6097e703c3b1d88c7273988233bd91b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]]:
-        '''Tags to associate with the registry.'''
-        return typing.cast(typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4a5acf9b60d1d99c19efc9051601a320243d772d72bfe9c99d7bef8fe5e6703)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistry.TagsEntryProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TagsEntryProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''Tags to associate with the schema registry.
-
-            :param key: The key of a key-value pair.
-            :param value: The value of a key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-registry-tagsentry.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_eventschemas as eventschemas
-                
-                tags_entry_property = eventschemas.CfnRegistry.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__434a165e1c5dfe37a102494f5df09787d58fee40ecc8ab422d5fca90ce8040d7)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The key of a key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-registry-tagsentry.html#cfn-eventschemas-registry-tagsentry-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The value of a key-value pair.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventschemas-registry-tagsentry.html#cfn-eventschemas-registry-tagsentry-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TagsEntryProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IRegistryPolicyRef)
-class CfnRegistryPolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistryPolicy",
-):
-    '''Use the ``AWS::EventSchemas::RegistryPolicy`` resource to specify resource-based policies for an EventBridge Schema Registry.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-registrypolicy.html
-    :cloudformationResource: AWS::EventSchemas::RegistryPolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_eventschemas as eventschemas
-        
-        # policy: Any
-        
-        cfn_registry_policy = eventschemas.CfnRegistryPolicy(self, "MyCfnRegistryPolicy",
-            policy=policy,
-            registry_name="registryName",
-        
-            # the properties below are optional
-            revision_id="revisionId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy: typing.Any,
-        registry_name: builtins.str,
-        revision_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy: A resource-based policy.
-        :param registry_name: The name of the registry.
-        :param revision_id: The revision ID of the policy.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad540eb68722cc10f4390e174c8e5220a2044dd1bc749c9d97dce9d05dc109b0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRegistryPolicyProps(
-            policy=policy, registry_name=registry_name, revision_id=revision_id
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a0b235686021baf044f24458acbcb50ff177d86100af36ba8109eb640f4ebc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4a4bec0d7bf3b7fc3674cf3e9fa5ea7ee730f6261b7292bc21c8d3a1e0921ab)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ID of the policy.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="registryPolicyRef")
-    def registry_policy_ref(self) -> RegistryPolicyReference:
-        '''A reference to a RegistryPolicy resource.'''
-        return typing.cast(RegistryPolicyReference, jsii.get(self, "registryPolicyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''A resource-based policy.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45e4a373a0302fe2e435472748d76b293c581b493372610b3c508f9ba14da520)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="registryName")
-    def registry_name(self) -> builtins.str:
-        '''The name of the registry.'''
-        return typing.cast(builtins.str, jsii.get(self, "registryName"))
-
-    @registry_name.setter
-    def registry_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4e5d3263c610305f4f20d2099d36fbf2bcc864fb0ea06c0e1a9a9bd79d60eba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="revisionId")
-    def revision_id(self) -> typing.Optional[builtins.str]:
-        '''The revision ID of the policy.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "revisionId"))
-
-    @revision_id.setter
-    def revision_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31f144d1732dcb92e464a7650dd5d31b9d139132ce00d366faf674bc51981ce2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "revisionId", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, ISchemaRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _ISchemaRef_85adc95a, _ITaggable_36806126)
 class CfnSchema(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1559,7 +1129,7 @@ class CfnSchema(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         content: builtins.str,
@@ -1569,7 +1139,8 @@ class CfnSchema(
         schema_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnSchema.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EventSchemas::Schema``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param content: The source of the schema definition.
@@ -1594,8 +1165,31 @@ class CfnSchema(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSchema")
+    @builtins.classmethod
+    def arn_for_schema(cls, resource: "_ISchemaRef_85adc95a") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03ff91ebdcd99691b2c94a9fa64d1c257518ad1332a8aefc4e2039634e66daa1)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSchema", [resource]))
+
+    @jsii.member(jsii_name="isCfnSchema")
+    @builtins.classmethod
+    def is_cfn_schema(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSchema.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ef60f631693a1c819114df0232c0d186c7065fcaf4ea76beac673078a1f4c60)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSchema", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1676,15 +1270,15 @@ class CfnSchema(
 
     @builtins.property
     @jsii.member(jsii_name="schemaRef")
-    def schema_ref(self) -> SchemaReference:
+    def schema_ref(self) -> "_SchemaReference_3c1ea018":
         '''A reference to a Schema resource.'''
-        return typing.cast(SchemaReference, jsii.get(self, "schemaRef"))
+        return typing.cast("_SchemaReference_3c1ea018", jsii.get(self, "schemaRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -1834,6 +1428,152 @@ class CfnSchema(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_eventschemas.CfnSchemaProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "registry_name": "registryName",
+        "type": "type",
+        "description": "description",
+        "schema_name": "schemaName",
+        "tags": "tags",
+    },
+)
+class CfnSchemaProps:
+    def __init__(
+        self,
+        *,
+        content: builtins.str,
+        registry_name: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        schema_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnSchema.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSchema``.
+
+        :param content: The source of the schema definition.
+        :param registry_name: The name of the schema registry.
+        :param type: The type of schema. Valid types include ``OpenApi3`` and ``JSONSchemaDraft4`` .
+        :param description: A description of the schema.
+        :param schema_name: The name of the schema.
+        :param tags: Tags associated with the schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_eventschemas as eventschemas
+            
+            cfn_schema_props = eventschemas.CfnSchemaProps(
+                content="content",
+                registry_name="registryName",
+                type="type",
+            
+                # the properties below are optional
+                description="description",
+                schema_name="schemaName",
+                tags=[eventschemas.CfnSchema.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb00ff21937e458a5e190860af6b381fcf6f0ab59d0849bcf094f0fc2c44c2c9)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument registry_name", value=registry_name, expected_type=type_hints["registry_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+            "registry_name": registry_name,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if schema_name is not None:
+            self._values["schema_name"] = schema_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def content(self) -> builtins.str:
+        '''The source of the schema definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def registry_name(self) -> builtins.str:
+        '''The name of the schema registry.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-registryname
+        '''
+        result = self._values.get("registry_name")
+        assert result is not None, "Required property 'registry_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of schema.
+
+        Valid types include ``OpenApi3`` and ``JSONSchemaDraft4`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-schemaname
+        '''
+        result = self._values.get("schema_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnSchema.TagsEntryProperty"]]:
+        '''Tags associated with the schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-schema.html#cfn-eventschemas-schema-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnSchema.TagsEntryProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSchemaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnDiscoverer",
     "CfnDiscovererProps",
@@ -1843,94 +1583,30 @@ __all__ = [
     "CfnRegistryProps",
     "CfnSchema",
     "CfnSchemaProps",
-    "DiscovererReference",
-    "IDiscovererRef",
-    "IRegistryPolicyRef",
-    "IRegistryRef",
-    "ISchemaRef",
-    "RegistryPolicyReference",
-    "RegistryReference",
-    "SchemaReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__add35f90727b55854c3eefb472afcafa74b28a09aa410e1c3aa8a3128fa89a68(
-    *,
-    source_arn: builtins.str,
-    cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnDiscoverer.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4135569dfec488bd5fc791f6abd204e6685e6f0164234565f9892897a9e86712(
-    *,
-    policy: typing.Any,
-    registry_name: builtins.str,
-    revision_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98dc1608c2765effd97dc8e5664e8320916290dab365bc424710db12203fb1d2(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    registry_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb00ff21937e458a5e190860af6b381fcf6f0ab59d0849bcf094f0fc2c44c2c9(
-    *,
-    content: builtins.str,
-    registry_name: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    schema_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnSchema.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e234d7df8e50d94c8ab4525428e59d1a8a5cf1ff7ac5468b14b5b62708c80b66(
-    *,
-    discoverer_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0585113467c1e5becf66a67bafba755bcc6ce1043aed3f1d4e7b1488140243ef(
-    *,
-    registry_policy_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f1df817b6a067558d2ac940259f41dbfaf352b558f1b5608e8e21fba94e8179(
-    *,
-    registry_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__67faab03ed101396a88436b9dacea9ebb75ca27453c8d879eb4f8748159e79c5(
-    *,
-    schema_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f306367587ea104b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    source_arn: builtins.str,
+    source_arn: typing.Union[builtins.str, _IEventBusRef_aa86e9b4],
     cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnDiscoverer.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06f90c61e9a3d12f265f81eab38d425b597d2d7e28fb0546743dcddeb172a812(
+    resource: _IDiscovererRef_40eee464,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65e059e19104074507b6be93e2cc6087696dff219c031aee46be3dc84c4a4693(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1979,6 +1655,16 @@ def _typecheckingstub__8474d9c87ec86399a0d85d3b5386ddc8baf06ba1964693f15122f050a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__add35f90727b55854c3eefb472afcafa74b28a09aa410e1c3aa8a3128fa89a68(
+    *,
+    source_arn: typing.Union[builtins.str, _IEventBusRef_aa86e9b4],
+    cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnDiscoverer.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6998d811(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1986,6 +1672,18 @@ def _typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6
     description: typing.Optional[builtins.str] = None,
     registry_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d7095b99f4de7eada4f34fcee3ae438279272d4bfaa438e9a7de1eb31c1f3de(
+    resource: _IRegistryRef_007bdb40,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__489bfc94f957a8e125dd277706c7c713dff7c1192acdef6ade0934505a7fb24f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2039,6 +1737,12 @@ def _typecheckingstub__ad540eb68722cc10f4390e174c8e5220a2044dd1bc749c9d97dce9d05
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c2ceb26576a92234d2bee1b3289e50cacc531be61555aef1abf9eed2df962cf2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__02a0b235686021baf044f24458acbcb50ff177d86100af36ba8109eb640f4ebc(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -2069,6 +1773,24 @@ def _typecheckingstub__31f144d1732dcb92e464a7650dd5d31b9d139132ce00d366faf674bc5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4135569dfec488bd5fc791f6abd204e6685e6f0164234565f9892897a9e86712(
+    *,
+    policy: typing.Any,
+    registry_name: builtins.str,
+    revision_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98dc1608c2765effd97dc8e5664e8320916290dab365bc424710db12203fb1d2(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    registry_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__932c87e95b88ceabe68e304bed1c0517a1d9d901885f0e20ecd498449a6ceb5f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2079,6 +1801,18 @@ def _typecheckingstub__932c87e95b88ceabe68e304bed1c0517a1d9d901885f0e20ecd498449
     description: typing.Optional[builtins.str] = None,
     schema_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnSchema.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03ff91ebdcd99691b2c94a9fa64d1c257518ad1332a8aefc4e2039634e66daa1(
+    resource: _ISchemaRef_85adc95a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ef60f631693a1c819114df0232c0d186c7065fcaf4ea76beac673078a1f4c60(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2135,6 +1869,18 @@ def _typecheckingstub__3c0c8417e202ecdfe0d59ad69ea4376812f4a41c7f0620db5a4177794
     *,
     key: builtins.str,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb00ff21937e458a5e190860af6b381fcf6f0ab59d0849bcf094f0fc2c44c2c9(
+    *,
+    content: builtins.str,
+    registry_name: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    schema_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnSchema.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

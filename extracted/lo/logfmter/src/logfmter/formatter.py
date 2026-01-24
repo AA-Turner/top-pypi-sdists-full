@@ -1,6 +1,5 @@
 import logging
 import numbers
-import traceback
 from types import TracebackType
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
@@ -36,6 +35,28 @@ RESERVED: Tuple[str, ...] = (
     "threadName",
 )
 
+QUOTE_CHARS = str.maketrans(
+    "", "", " =" + "".join(chr(c) for c in list(range(0x20)) + [0x7F])
+)
+REPLACEMENTS = {chr(c): f"\\u{c:04x}" for c in list(range(0x20)) + [0x7F]}
+REPLACEMENTS.update({"\n": "\\n", "\t": "\\t", "\r": "\\r"})
+
+
+class _DefaultFormatter(logging.Formatter):
+    def format(self, record):
+        exc_info = record.exc_info
+        exc_text = record.exc_text
+        stack_info = record.stack_info
+        record.exc_info = None
+        record.exc_text = None
+        record.stack_info = None
+        try:
+            return super().format(record)
+        finally:
+            record.exc_info = exc_info
+            record.exc_text = exc_text
+            record.stack_info = stack_info
+
 
 class Logfmter(logging.Formatter):
     @classmethod
@@ -44,8 +65,7 @@ class Logfmter(logging.Formatter):
         Process the provided string with any necessary quoting and/or escaping.
         """
         needs_dquote_escaping = '"' in value
-        needs_newline_escaping = "\n" in value
-        needs_quoting = " " in value or "=" in value or needs_dquote_escaping
+        needs_quoting = needs_dquote_escaping or value.translate(QUOTE_CHARS) != value
         needs_backslash_escaping = "\\" in value and needs_quoting
 
         if needs_backslash_escaping:
@@ -54,8 +74,8 @@ class Logfmter(logging.Formatter):
         if needs_dquote_escaping:
             value = value.replace('"', '\\"')
 
-        if needs_newline_escaping:
-            value = value.replace("\n", "\\n")
+        for char, replacement in REPLACEMENTS.items():
+            value = value.replace(char, replacement)
 
         if needs_quoting:
             value = '"{}"'.format(value)
@@ -75,25 +95,6 @@ class Logfmter(logging.Formatter):
             return str(value)
 
         return cls.format_string(str(value))
-
-    @classmethod
-    def format_exc_info(cls, exc_info: ExcInfo) -> str:
-        """
-        Format the provided exc_info into a logfmt formatted string.
-
-        This function should only be used to format exceptions which are
-        currently being handled. Not with those exceptions which are
-        manually passed into the logger. For example:
-
-            try:
-                raise Exception()
-            except Exception:
-                logging.exception()
-        """
-        # Tracebacks have a single trailing newline that we don't need.
-        value = "".join(traceback.format_exception(*exc_info)).rstrip("\n")
-
-        return cls.format_string(value)
 
     @classmethod
     def format_params(cls, params: dict) -> str:
@@ -168,17 +169,25 @@ class Logfmter(logging.Formatter):
         keys: List[str] = ["at"],
         mapping: Dict[str, str] = {"at": "levelname"},
         datefmt: Optional[str] = None,
+        defaults: Optional[Dict[str, str]] = None,
+        ignored_keys: Optional[List[str]] = None,
     ):
+        super().__init__("%(message)s", datefmt)
         self.keys = [self.normalize_key(key) for key in keys]
         self.mapping = {
             self.normalize_key(key): value for key, value in mapping.items()
         }
-        self.datefmt = datefmt
+        self.defaults = {
+            key: _DefaultFormatter(value, style="{")
+            for key, value in (defaults or {}).items()
+        }
+        self.ignored_keys = ignored_keys or []
 
     def format(self, record: logging.LogRecord) -> str:
         # If the 'asctime' attribute will be used, then generate it.
-        if "asctime" in self.keys or "asctime" in self.mapping.values():
-            record.asctime = self.formatTime(record, self.datefmt)
+        if not hasattr(record, "asctime"):
+            if "asctime" in self.keys or "asctime" in self.mapping.values():
+                record.asctime = self.formatTime(record, self.datefmt)
 
         if isinstance(record.msg, dict):
             params = self.flatten_dict(record.msg)
@@ -208,22 +217,43 @@ class Logfmter(logging.Formatter):
             if attribute in params:
                 continue
 
-            # If the attribute doesn't exist on the log record, then skip it.
-            if not hasattr(record, attribute):
+            if hasattr(record, attribute):
+                value = getattr(record, attribute)
+            elif attribute in self.defaults:
+                value = self.defaults[attribute].format(record)
+            else:
                 continue
 
-            value = getattr(record, attribute)
+            if isinstance(value, dict):
+                continue
 
             tokens.append("{}={}".format(key, self.format_value(value)))
 
-        formatted_params = self.format_params(params)
+        formatted_params = self.format_params(
+            {
+                k: v
+                for k, v in params.items()
+                if k not in self.ignored_keys
+                and k.split(".", 1)[0] not in self.ignored_keys
+            }
+        )
         if formatted_params:
             tokens.append(formatted_params)
 
-        if record.exc_info:
+        if (
+            record.exc_info
+            and not record.exc_text
+            and "exc_info" not in self.ignored_keys
+        ):
             # Cast exc_info to its not null variant to make mypy happy.
             exc_info = cast(ExcInfo, record.exc_info)
+            record.exc_text = self.formatException(exc_info)
 
-            tokens.append("exc_info={}".format(self.format_exc_info(exc_info)))
+        if record.exc_text and "exc_info" not in self.ignored_keys:
+            tokens.append(f"exc_info={self.format_string(record.exc_text)}")
+
+        if record.stack_info and "stack_info" not in self.ignored_keys:
+            stack_info = self.formatStack(record.stack_info).rstrip("\n")
+            tokens.append(f"stack_info={self.format_string(stack_info)}")
 
         return " ".join(tokens)

@@ -713,6 +713,11 @@ class ApiField:
     """"""
     NN_UPDATED = "nnUpdated"
     """"""
+    M_GUIDE_ID = (["meta", "guide"], "guide_id")
+    """"""
+    GUIDE_ID = "guideId"
+    """"""
+    SINGLE_SESSION_MODE = "singleSessionMode"
 
 
 def _get_single_item(items):

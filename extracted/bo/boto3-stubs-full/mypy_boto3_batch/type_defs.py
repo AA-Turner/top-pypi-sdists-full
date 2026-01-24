@@ -3,7 +3,7 @@ Type annotations for batch service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -50,12 +51,6 @@ from .literals import (
     UserdataTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -288,7 +283,7 @@ __all__ = (
 
 
 class ArrayPropertiesDetailTypeDef(TypedDict):
-    statusSummary: NotRequired[Dict[str, int]]
+    statusSummary: NotRequired[dict[str, int]]
     size: NotRequired[int]
     index: NotRequired[int]
 
@@ -412,7 +407,7 @@ class ContainerSummaryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -515,7 +510,7 @@ class ServiceJobTimeoutTypeDef(TypedDict):
 class DeviceOutputTypeDef(TypedDict):
     hostPath: str
     containerPath: NotRequired[str]
-    permissions: NotRequired[List[DeviceCgroupPermissionType]]
+    permissions: NotRequired[list[DeviceCgroupPermissionType]]
 
 
 class DeviceTypeDef(TypedDict):
@@ -542,8 +537,8 @@ class EksContainerEnvironmentVariableTypeDef(TypedDict):
 
 
 class EksContainerResourceRequirementsOutputTypeDef(TypedDict):
-    limits: NotRequired[Dict[str, str]]
-    requests: NotRequired[Dict[str, str]]
+    limits: NotRequired[dict[str, str]]
+    requests: NotRequired[dict[str, str]]
 
 
 class EksContainerSecurityContextTypeDef(TypedDict):
@@ -577,8 +572,8 @@ class EksHostPathTypeDef(TypedDict):
 
 
 class EksMetadataOutputTypeDef(TypedDict):
-    labels: NotRequired[Dict[str, str]]
-    annotations: NotRequired[Dict[str, str]]
+    labels: NotRequired[dict[str, str]]
+    annotations: NotRequired[dict[str, str]]
     namespace: NotRequired[str]
 
 
@@ -618,7 +613,7 @@ FirelensConfigurationOutputTypeDef = TypedDict(
     "FirelensConfigurationOutputTypeDef",
     {
         "type": FirelensConfigurationTypeType,
-        "options": NotRequired[Dict[str, str]],
+        "options": NotRequired[dict[str, str]],
     },
 )
 FirelensConfigurationTypeDef = TypedDict(
@@ -681,7 +676,7 @@ class LaunchTemplateSpecificationOverrideOutputTypeDef(TypedDict):
     launchTemplateId: NotRequired[str]
     launchTemplateName: NotRequired[str]
     version: NotRequired[str]
-    targetInstanceTypes: NotRequired[List[str]]
+    targetInstanceTypes: NotRequired[list[str]]
     userdataType: NotRequired[UserdataTypeType]
 
 
@@ -696,7 +691,7 @@ class LaunchTemplateSpecificationOverrideTypeDef(TypedDict):
 class TmpfsOutputTypeDef(TypedDict):
     containerPath: str
     size: int
-    mountOptions: NotRequired[List[str]]
+    mountOptions: NotRequired[list[str]]
 
 
 class TmpfsTypeDef(TypedDict):
@@ -761,7 +756,7 @@ class AttemptContainerDetailTypeDef(TypedDict):
     exitCode: NotRequired[int]
     reason: NotRequired[str]
     logStreamName: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
 
 class AttemptTaskContainerDetailsTypeDef(TypedDict):
@@ -769,7 +764,7 @@ class AttemptTaskContainerDetailsTypeDef(TypedDict):
     name: NotRequired[str]
     reason: NotRequired[str]
     logStreamName: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
 
 class CreateServiceEnvironmentRequestTypeDef(TypedDict):
@@ -784,10 +779,10 @@ class ServiceEnvironmentDetailTypeDef(TypedDict):
     serviceEnvironmentName: str
     serviceEnvironmentArn: str
     serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
-    capacityLimits: List[CapacityLimitTypeDef]
+    capacityLimits: list[CapacityLimitTypeDef]
     state: NotRequired[ServiceEnvironmentStateType]
     status: NotRequired[ServiceEnvironmentStatusType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class UpdateServiceEnvironmentRequestTypeDef(TypedDict):
@@ -797,7 +792,7 @@ class UpdateServiceEnvironmentRequestTypeDef(TypedDict):
 
 
 class ConsumableResourcePropertiesOutputTypeDef(TypedDict):
-    consumableResourceList: NotRequired[List[ConsumableResourceRequirementTypeDef]]
+    consumableResourceList: NotRequired[list[ConsumableResourceRequirementTypeDef]]
 
 
 class ConsumableResourcePropertiesTypeDef(TypedDict):
@@ -822,8 +817,8 @@ class TaskContainerOverridesTypeDef(TypedDict):
 
 class LogConfigurationOutputTypeDef(TypedDict):
     logDriver: LogDriverType
-    options: NotRequired[Dict[str, str]]
-    secretOptions: NotRequired[List[SecretTypeDef]]
+    options: NotRequired[dict[str, str]]
+    secretOptions: NotRequired[list[SecretTypeDef]]
 
 
 class LogConfigurationTypeDef(TypedDict):
@@ -870,18 +865,18 @@ class DescribeConsumableResourceResponseTypeDef(TypedDict):
     availableQuantity: int
     resourceType: str
     createdAt: int
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListConsumableResourcesResponseTypeDef(TypedDict):
-    consumableResources: List[ConsumableResourceSummaryTypeDef]
+    consumableResources: list[ConsumableResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -948,14 +943,14 @@ class JobQueueDetailTypeDef(TypedDict):
     jobQueueArn: str
     state: JQStateType
     priority: int
-    computeEnvironmentOrder: List[ComputeEnvironmentOrderTypeDef]
+    computeEnvironmentOrder: list[ComputeEnvironmentOrderTypeDef]
     schedulingPolicyArn: NotRequired[str]
     status: NotRequired[JQStatusType]
     statusReason: NotRequired[str]
-    serviceEnvironmentOrder: NotRequired[List[ServiceEnvironmentOrderTypeDef]]
+    serviceEnvironmentOrder: NotRequired[list[ServiceEnvironmentOrderTypeDef]]
     jobQueueType: NotRequired[JobQueueTypeType]
-    tags: NotRequired[Dict[str, str]]
-    jobStateTimeLimitActions: NotRequired[List[JobStateTimeLimitActionTypeDef]]
+    tags: NotRequired[dict[str, str]]
+    jobStateTimeLimitActions: NotRequired[list[JobStateTimeLimitActionTypeDef]]
 
 
 class UpdateJobQueueRequestTypeDef(TypedDict):
@@ -1003,8 +998,8 @@ class EFSVolumeConfigurationTypeDef(TypedDict):
 
 
 class EksAttemptDetailTypeDef(TypedDict):
-    containers: NotRequired[List[EksAttemptContainerDetailTypeDef]]
-    initContainers: NotRequired[List[EksAttemptContainerDetailTypeDef]]
+    containers: NotRequired[list[EksAttemptContainerDetailTypeDef]]
+    initContainers: NotRequired[list[EksAttemptContainerDetailTypeDef]]
     eksClusterArn: NotRequired[str]
     podName: NotRequired[str]
     podNamespace: NotRequired[str]
@@ -1018,13 +1013,13 @@ class EksContainerDetailTypeDef(TypedDict):
     name: NotRequired[str]
     image: NotRequired[str]
     imagePullPolicy: NotRequired[str]
-    command: NotRequired[List[str]]
-    args: NotRequired[List[str]]
-    env: NotRequired[List[EksContainerEnvironmentVariableTypeDef]]
+    command: NotRequired[list[str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
     resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
     exitCode: NotRequired[int]
     reason: NotRequired[str]
-    volumeMounts: NotRequired[List[EksContainerVolumeMountTypeDef]]
+    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
     securityContext: NotRequired[EksContainerSecurityContextTypeDef]
 
 
@@ -1032,11 +1027,11 @@ class EksContainerOutputTypeDef(TypedDict):
     image: str
     name: NotRequired[str]
     imagePullPolicy: NotRequired[str]
-    command: NotRequired[List[str]]
-    args: NotRequired[List[str]]
-    env: NotRequired[List[EksContainerEnvironmentVariableTypeDef]]
+    command: NotRequired[list[str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
     resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
-    volumeMounts: NotRequired[List[EksContainerVolumeMountTypeDef]]
+    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
     securityContext: NotRequired[EksContainerSecurityContextTypeDef]
 
 
@@ -1070,7 +1065,7 @@ class EksVolumeTypeDef(TypedDict):
 
 class RetryStrategyOutputTypeDef(TypedDict):
     attempts: NotRequired[int]
-    evaluateOnExit: NotRequired[List[EvaluateOnExitTypeDef]]
+    evaluateOnExit: NotRequired[list[EvaluateOnExitTypeDef]]
 
 
 class RetryStrategyTypeDef(TypedDict):
@@ -1081,7 +1076,7 @@ class RetryStrategyTypeDef(TypedDict):
 class FairsharePolicyOutputTypeDef(TypedDict):
     shareDecaySeconds: NotRequired[int]
     computeReservation: NotRequired[int]
-    shareDistribution: NotRequired[List[ShareAttributesTypeDef]]
+    shareDistribution: NotRequired[list[ShareAttributesTypeDef]]
 
 
 class FairsharePolicyTypeDef(TypedDict):
@@ -1091,7 +1086,7 @@ class FairsharePolicyTypeDef(TypedDict):
 
 
 class FrontOfQueueDetailTypeDef(TypedDict):
-    jobs: NotRequired[List[FrontOfQueueJobSummaryTypeDef]]
+    jobs: NotRequired[list[FrontOfQueueJobSummaryTypeDef]]
     lastUpdatedAt: NotRequired[int]
 
 
@@ -1183,7 +1178,7 @@ class LaunchTemplateSpecificationOutputTypeDef(TypedDict):
     launchTemplateId: NotRequired[str]
     launchTemplateName: NotRequired[str]
     version: NotRequired[str]
-    overrides: NotRequired[List[LaunchTemplateSpecificationOverrideOutputTypeDef]]
+    overrides: NotRequired[list[LaunchTemplateSpecificationOverrideOutputTypeDef]]
     userdataType: NotRequired[UserdataTypeType]
 
 
@@ -1193,10 +1188,10 @@ LaunchTemplateSpecificationOverrideUnionTypeDef = Union[
 
 
 class LinuxParametersOutputTypeDef(TypedDict):
-    devices: NotRequired[List[DeviceOutputTypeDef]]
+    devices: NotRequired[list[DeviceOutputTypeDef]]
     initProcessEnabled: NotRequired[bool]
     sharedMemorySize: NotRequired[int]
-    tmpfs: NotRequired[List[TmpfsOutputTypeDef]]
+    tmpfs: NotRequired[list[TmpfsOutputTypeDef]]
     maxSwap: NotRequired[int]
     swappiness: NotRequired[int]
 
@@ -1211,14 +1206,14 @@ class LinuxParametersTypeDef(TypedDict):
 
 
 class ListSchedulingPoliciesResponseTypeDef(TypedDict):
-    schedulingPolicies: List[SchedulingPolicyListingDetailTypeDef]
+    schedulingPolicies: list[SchedulingPolicyListingDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ServiceJobRetryStrategyOutputTypeDef(TypedDict):
     attempts: int
-    evaluateOnExit: NotRequired[List[ServiceJobEvaluateOnExitTypeDef]]
+    evaluateOnExit: NotRequired[list[ServiceJobEvaluateOnExitTypeDef]]
 
 
 class ServiceJobRetryStrategyTypeDef(TypedDict):
@@ -1229,11 +1224,11 @@ class ServiceJobRetryStrategyTypeDef(TypedDict):
 class AttemptEcsTaskDetailsTypeDef(TypedDict):
     containerInstanceArn: NotRequired[str]
     taskArn: NotRequired[str]
-    containers: NotRequired[List[AttemptTaskContainerDetailsTypeDef]]
+    containers: NotRequired[list[AttemptTaskContainerDetailsTypeDef]]
 
 
 class DescribeServiceEnvironmentsResponseTypeDef(TypedDict):
-    serviceEnvironments: List[ServiceEnvironmentDetailTypeDef]
+    serviceEnvironments: list[ServiceEnvironmentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1262,7 +1257,7 @@ class TaskPropertiesOverrideTypeDef(TypedDict):
 
 
 class DescribeJobQueuesResponseTypeDef(TypedDict):
-    jobQueues: List[JobQueueDetailTypeDef]
+    jobQueues: list[JobQueueDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1286,10 +1281,10 @@ class EksPodPropertiesDetailTypeDef(TypedDict):
     serviceAccountName: NotRequired[str]
     hostNetwork: NotRequired[bool]
     dnsPolicy: NotRequired[str]
-    imagePullSecrets: NotRequired[List[ImagePullSecretTypeDef]]
-    containers: NotRequired[List[EksContainerDetailTypeDef]]
-    initContainers: NotRequired[List[EksContainerDetailTypeDef]]
-    volumes: NotRequired[List[EksVolumeTypeDef]]
+    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
+    containers: NotRequired[list[EksContainerDetailTypeDef]]
+    initContainers: NotRequired[list[EksContainerDetailTypeDef]]
+    volumes: NotRequired[list[EksVolumeTypeDef]]
     podName: NotRequired[str]
     nodeName: NotRequired[str]
     metadata: NotRequired[EksMetadataOutputTypeDef]
@@ -1300,10 +1295,10 @@ class EksPodPropertiesOutputTypeDef(TypedDict):
     serviceAccountName: NotRequired[str]
     hostNetwork: NotRequired[bool]
     dnsPolicy: NotRequired[str]
-    imagePullSecrets: NotRequired[List[ImagePullSecretTypeDef]]
-    containers: NotRequired[List[EksContainerOutputTypeDef]]
-    initContainers: NotRequired[List[EksContainerOutputTypeDef]]
-    volumes: NotRequired[List[EksVolumeTypeDef]]
+    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
+    containers: NotRequired[list[EksContainerOutputTypeDef]]
+    initContainers: NotRequired[list[EksContainerOutputTypeDef]]
+    volumes: NotRequired[list[EksVolumeTypeDef]]
     metadata: NotRequired[EksMetadataOutputTypeDef]
     shareProcessNamespace: NotRequired[bool]
 
@@ -1327,7 +1322,7 @@ class SchedulingPolicyDetailTypeDef(TypedDict):
     name: str
     arn: str
     fairsharePolicy: NotRequired[FairsharePolicyOutputTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 FairsharePolicyUnionTypeDef = Union[FairsharePolicyTypeDef, FairsharePolicyOutputTypeDef]
@@ -1339,7 +1334,7 @@ class GetJobQueueSnapshotResponseTypeDef(TypedDict):
 
 
 class ListJobsResponseTypeDef(TypedDict):
-    jobSummaryList: List[JobSummaryTypeDef]
+    jobSummaryList: list[JobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1363,21 +1358,21 @@ ComputeResourceOutputTypeDef = TypedDict(
     {
         "type": CRTypeType,
         "maxvCpus": int,
-        "subnets": List[str],
+        "subnets": list[str],
         "allocationStrategy": NotRequired[CRAllocationStrategyType],
         "minvCpus": NotRequired[int],
         "desiredvCpus": NotRequired[int],
-        "instanceTypes": NotRequired[List[str]],
+        "instanceTypes": NotRequired[list[str]],
         "imageId": NotRequired[str],
-        "securityGroupIds": NotRequired[List[str]],
+        "securityGroupIds": NotRequired[list[str]],
         "ec2KeyPair": NotRequired[str],
         "instanceRole": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "placementGroup": NotRequired[str],
         "bidPercentage": NotRequired[int],
         "spotIamFleetRole": NotRequired[str],
         "launchTemplate": NotRequired[LaunchTemplateSpecificationOutputTypeDef],
-        "ec2Configuration": NotRequired[List[Ec2ConfigurationTypeDef]],
+        "ec2Configuration": NotRequired[list[Ec2ConfigurationTypeDef]],
     },
 )
 
@@ -1391,46 +1386,46 @@ class LaunchTemplateSpecificationTypeDef(TypedDict):
 
 
 class TaskContainerDetailsTypeDef(TypedDict):
-    command: NotRequired[List[str]]
-    dependsOn: NotRequired[List[TaskContainerDependencyTypeDef]]
-    environment: NotRequired[List[KeyValuePairTypeDef]]
+    command: NotRequired[list[str]]
+    dependsOn: NotRequired[list[TaskContainerDependencyTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
     essential: NotRequired[bool]
     firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
     image: NotRequired[str]
     linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-    mountPoints: NotRequired[List[MountPointTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
     name: NotRequired[str]
     privileged: NotRequired[bool]
     readonlyRootFilesystem: NotRequired[bool]
     repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
-    resourceRequirements: NotRequired[List[ResourceRequirementTypeDef]]
-    secrets: NotRequired[List[SecretTypeDef]]
-    ulimits: NotRequired[List[UlimitTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
     user: NotRequired[str]
     exitCode: NotRequired[int]
     reason: NotRequired[str]
     logStreamName: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
 
 class TaskContainerPropertiesOutputTypeDef(TypedDict):
     image: str
-    command: NotRequired[List[str]]
-    dependsOn: NotRequired[List[TaskContainerDependencyTypeDef]]
-    environment: NotRequired[List[KeyValuePairTypeDef]]
+    command: NotRequired[list[str]]
+    dependsOn: NotRequired[list[TaskContainerDependencyTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
     essential: NotRequired[bool]
     firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
     linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-    mountPoints: NotRequired[List[MountPointTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
     name: NotRequired[str]
     privileged: NotRequired[bool]
     readonlyRootFilesystem: NotRequired[bool]
     repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
-    resourceRequirements: NotRequired[List[ResourceRequirementTypeDef]]
-    secrets: NotRequired[List[SecretTypeDef]]
-    ulimits: NotRequired[List[UlimitTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
     user: NotRequired[str]
 
 
@@ -1455,7 +1450,7 @@ class TaskContainerPropertiesTypeDef(TypedDict):
 
 
 class DescribeServiceJobResponseTypeDef(TypedDict):
-    attempts: List[ServiceJobAttemptDetailTypeDef]
+    attempts: list[ServiceJobAttemptDetailTypeDef]
     createdAt: int
     isTerminated: bool
     jobArn: str
@@ -1472,7 +1467,7 @@ class DescribeServiceJobResponseTypeDef(TypedDict):
     status: ServiceJobStatusType
     statusReason: str
     stoppedAt: int
-    tags: Dict[str, str]
+    tags: dict[str, str]
     timeoutConfig: ServiceJobTimeoutTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1487,11 +1482,11 @@ class AttemptDetailTypeDef(TypedDict):
     startedAt: NotRequired[int]
     stoppedAt: NotRequired[int]
     statusReason: NotRequired[str]
-    taskProperties: NotRequired[List[AttemptEcsTaskDetailsTypeDef]]
+    taskProperties: NotRequired[list[AttemptEcsTaskDetailsTypeDef]]
 
 
 class ListJobsByConsumableResourceResponseTypeDef(TypedDict):
-    jobs: List[ListJobsByConsumableResourceSummaryTypeDef]
+    jobs: list[ListJobsByConsumableResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1504,14 +1499,14 @@ class ContainerDetailTypeDef(TypedDict):
     image: NotRequired[str]
     vcpus: NotRequired[int]
     memory: NotRequired[int]
-    command: NotRequired[List[str]]
+    command: NotRequired[list[str]]
     jobRoleArn: NotRequired[str]
     executionRoleArn: NotRequired[str]
-    volumes: NotRequired[List[VolumeTypeDef]]
-    environment: NotRequired[List[KeyValuePairTypeDef]]
-    mountPoints: NotRequired[List[MountPointTypeDef]]
+    volumes: NotRequired[list[VolumeTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
     readonlyRootFilesystem: NotRequired[bool]
-    ulimits: NotRequired[List[UlimitTypeDef]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
     privileged: NotRequired[bool]
     user: NotRequired[str]
     exitCode: NotRequired[int]
@@ -1520,11 +1515,11 @@ class ContainerDetailTypeDef(TypedDict):
     taskArn: NotRequired[str]
     logStreamName: NotRequired[str]
     instanceType: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
-    resourceRequirements: NotRequired[List[ResourceRequirementTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
     linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-    secrets: NotRequired[List[SecretTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
     networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
     fargatePlatformConfiguration: NotRequired[FargatePlatformConfigurationTypeDef]
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
@@ -1537,21 +1532,21 @@ class ContainerPropertiesOutputTypeDef(TypedDict):
     image: NotRequired[str]
     vcpus: NotRequired[int]
     memory: NotRequired[int]
-    command: NotRequired[List[str]]
+    command: NotRequired[list[str]]
     jobRoleArn: NotRequired[str]
     executionRoleArn: NotRequired[str]
-    volumes: NotRequired[List[VolumeTypeDef]]
-    environment: NotRequired[List[KeyValuePairTypeDef]]
-    mountPoints: NotRequired[List[MountPointTypeDef]]
+    volumes: NotRequired[list[VolumeTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
     readonlyRootFilesystem: NotRequired[bool]
     privileged: NotRequired[bool]
-    ulimits: NotRequired[List[UlimitTypeDef]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
     user: NotRequired[str]
     instanceType: NotRequired[str]
-    resourceRequirements: NotRequired[List[ResourceRequirementTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
     linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-    secrets: NotRequired[List[SecretTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
     networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
     fargatePlatformConfiguration: NotRequired[FargatePlatformConfigurationTypeDef]
     enableExecuteCommand: NotRequired[bool]
@@ -1606,7 +1601,7 @@ class EksPropertiesTypeDef(TypedDict):
 
 
 class DescribeSchedulingPoliciesResponseTypeDef(TypedDict):
-    schedulingPolicies: List[SchedulingPolicyDetailTypeDef]
+    schedulingPolicies: list[SchedulingPolicyDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1622,7 +1617,7 @@ class UpdateSchedulingPolicyRequestTypeDef(TypedDict):
 
 
 class ListServiceJobsResponseTypeDef(TypedDict):
-    jobSummaryList: List[ServiceJobSummaryTypeDef]
+    jobSummaryList: list[ServiceJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1634,7 +1629,7 @@ ComputeEnvironmentDetailTypeDef = TypedDict(
         "computeEnvironmentArn": str,
         "unmanagedvCpus": NotRequired[int],
         "ecsClusterArn": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "type": NotRequired[CETypeType],
         "state": NotRequired[CEStateType],
         "status": NotRequired[CEStatusType],
@@ -1676,7 +1671,7 @@ LaunchTemplateSpecificationUnionTypeDef = Union[
 
 
 class EcsTaskDetailsTypeDef(TypedDict):
-    containers: NotRequired[List[TaskContainerDetailsTypeDef]]
+    containers: NotRequired[list[TaskContainerDetailsTypeDef]]
     containerInstanceArn: NotRequired[str]
     taskArn: NotRequired[str]
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
@@ -1687,12 +1682,12 @@ class EcsTaskDetailsTypeDef(TypedDict):
     pidMode: NotRequired[str]
     networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
     runtimePlatform: NotRequired[RuntimePlatformTypeDef]
-    volumes: NotRequired[List[VolumeTypeDef]]
+    volumes: NotRequired[list[VolumeTypeDef]]
     enableExecuteCommand: NotRequired[bool]
 
 
 class EcsTaskPropertiesOutputTypeDef(TypedDict):
-    containers: List[TaskContainerPropertiesOutputTypeDef]
+    containers: list[TaskContainerPropertiesOutputTypeDef]
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
     executionRoleArn: NotRequired[str]
     platformVersion: NotRequired[str]
@@ -1701,7 +1696,7 @@ class EcsTaskPropertiesOutputTypeDef(TypedDict):
     pidMode: NotRequired[str]
     networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
     runtimePlatform: NotRequired[RuntimePlatformTypeDef]
-    volumes: NotRequired[List[VolumeTypeDef]]
+    volumes: NotRequired[list[VolumeTypeDef]]
     enableExecuteCommand: NotRequired[bool]
 
 
@@ -1745,7 +1740,7 @@ EksPropertiesUnionTypeDef = Union[EksPropertiesTypeDef, EksPropertiesOutputTypeD
 
 
 class DescribeComputeEnvironmentsResponseTypeDef(TypedDict):
-    computeEnvironments: List[ComputeEnvironmentDetailTypeDef]
+    computeEnvironments: list[ComputeEnvironmentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1776,11 +1771,11 @@ ComputeResourceUpdateTypeDef = TypedDict(
 
 
 class EcsPropertiesDetailTypeDef(TypedDict):
-    taskProperties: NotRequired[List[EcsTaskDetailsTypeDef]]
+    taskProperties: NotRequired[list[EcsTaskDetailsTypeDef]]
 
 
 class EcsPropertiesOutputTypeDef(TypedDict):
-    taskProperties: List[EcsTaskPropertiesOutputTypeDef]
+    taskProperties: list[EcsTaskPropertiesOutputTypeDef]
 
 
 class EcsPropertiesTypeDef(TypedDict):
@@ -1825,7 +1820,7 @@ class UpdateComputeEnvironmentRequestTypeDef(TypedDict):
 class NodeRangePropertyOutputTypeDef(TypedDict):
     targetNodes: str
     container: NotRequired[ContainerPropertiesOutputTypeDef]
-    instanceTypes: NotRequired[List[str]]
+    instanceTypes: NotRequired[list[str]]
     ecsProperties: NotRequired[EcsPropertiesOutputTypeDef]
     eksProperties: NotRequired[EksPropertiesOutputTypeDef]
     consumableResourceProperties: NotRequired[ConsumableResourcePropertiesOutputTypeDef]
@@ -1851,7 +1846,7 @@ class NodeOverridesTypeDef(TypedDict):
 class NodePropertiesOutputTypeDef(TypedDict):
     numNodes: int
     mainNode: int
-    nodeRangeProperties: List[NodeRangePropertyOutputTypeDef]
+    nodeRangeProperties: list[NodeRangePropertyOutputTypeDef]
 
 
 class NodePropertiesTypeDef(TypedDict):
@@ -1889,14 +1884,14 @@ JobDefinitionTypeDef = TypedDict(
         "type": str,
         "status": NotRequired[str],
         "schedulingPriority": NotRequired[int],
-        "parameters": NotRequired[Dict[str, str]],
+        "parameters": NotRequired[dict[str, str]],
         "retryStrategy": NotRequired[RetryStrategyOutputTypeDef],
         "containerProperties": NotRequired[ContainerPropertiesOutputTypeDef],
         "timeout": NotRequired[JobTimeoutTypeDef],
         "nodeProperties": NotRequired[NodePropertiesOutputTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "propagateTags": NotRequired[bool],
-        "platformCapabilities": NotRequired[List[PlatformCapabilityType]],
+        "platformCapabilities": NotRequired[list[PlatformCapabilityType]],
         "ecsProperties": NotRequired[EcsPropertiesOutputTypeDef],
         "eksProperties": NotRequired[EksPropertiesOutputTypeDef],
         "containerOrchestrationType": NotRequired[OrchestrationTypeType],
@@ -1915,23 +1910,23 @@ class JobDetailTypeDef(TypedDict):
     jobArn: NotRequired[str]
     shareIdentifier: NotRequired[str]
     schedulingPriority: NotRequired[int]
-    attempts: NotRequired[List[AttemptDetailTypeDef]]
+    attempts: NotRequired[list[AttemptDetailTypeDef]]
     statusReason: NotRequired[str]
     createdAt: NotRequired[int]
     retryStrategy: NotRequired[RetryStrategyOutputTypeDef]
     stoppedAt: NotRequired[int]
-    dependsOn: NotRequired[List[JobDependencyTypeDef]]
-    parameters: NotRequired[Dict[str, str]]
+    dependsOn: NotRequired[list[JobDependencyTypeDef]]
+    parameters: NotRequired[dict[str, str]]
     container: NotRequired[ContainerDetailTypeDef]
     nodeDetails: NotRequired[NodeDetailsTypeDef]
     nodeProperties: NotRequired[NodePropertiesOutputTypeDef]
     arrayProperties: NotRequired[ArrayPropertiesDetailTypeDef]
     timeout: NotRequired[JobTimeoutTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     propagateTags: NotRequired[bool]
-    platformCapabilities: NotRequired[List[PlatformCapabilityType]]
+    platformCapabilities: NotRequired[list[PlatformCapabilityType]]
     eksProperties: NotRequired[EksPropertiesDetailTypeDef]
-    eksAttempts: NotRequired[List[EksAttemptDetailTypeDef]]
+    eksAttempts: NotRequired[list[EksAttemptDetailTypeDef]]
     ecsProperties: NotRequired[EcsPropertiesDetailTypeDef]
     isCancelled: NotRequired[bool]
     isTerminated: NotRequired[bool]
@@ -1942,13 +1937,13 @@ NodePropertiesUnionTypeDef = Union[NodePropertiesTypeDef, NodePropertiesOutputTy
 
 
 class DescribeJobDefinitionsResponseTypeDef(TypedDict):
-    jobDefinitions: List[JobDefinitionTypeDef]
+    jobDefinitions: list[JobDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeJobsResponseTypeDef(TypedDict):
-    jobs: List[JobDetailTypeDef]
+    jobs: list[JobDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -130,13 +130,13 @@ def convert_to_scalar(user_data: Any, dtype: Optional[Type] = None) -> Any:
 
         return user_data
 
-    # First try to convert tensorflow tensor to numpy objects
+    # First, try to convert tensor to numpy objects
     try:
         if hasattr(user_data, "numpy"):
             user_data = user_data.numpy()
     except Exception:
         LOGGER.debug(
-            "Failed to convert tensorflow tensor %r to numpy object",
+            "Failed to convert tensor %r to numpy object",
             user_data,
             exc_info=True,
         )
@@ -1143,3 +1143,24 @@ def prepare_array_to_print(array: "numpy.ndarray") -> Tuple[str, str]:
     shape_str = str(array.shape)
 
     return array_str, shape_str
+
+
+def try_move_to_cpu(tensor: Any) -> Any:
+    """
+    Attempts to move the given Tensor object to the CPU if it has a 'cpu' method. This
+    function checks if the object has the attribute 'cpu', and if so, invokes the
+    method to return the object moved to the CPU. If the 'cpu' attribute is not
+    present, the object is returned unchanged.
+
+    Args:
+        tensor: The Tensor object to attempt to move to CPU.
+
+    Returns:
+        The new Tensor object detached and moved to CPU if a 'cpu' method exists; otherwise, the
+        unchanged object.
+    """
+    if hasattr(tensor, "detach"):
+        tensor = tensor.detach()
+    if hasattr(tensor, "cpu"):
+        return tensor.cpu()
+    return tensor

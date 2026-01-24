@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Optional, cast
+from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import is_given, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -24,12 +26,14 @@ from ..._base_client import make_request_options
 from ...types.devboxes import (
     execution_kill_params,
     execution_retrieve_params,
+    execution_send_std_in_params,
     execution_execute_sync_params,
     execution_execute_async_params,
     execution_stream_stderr_updates_params,
     execution_stream_stdout_updates_params,
 )
 from ...lib.polling_async import async_poll_until
+from ...types.devbox_send_std_in_result import DevboxSendStdInResult
 from ...types.devbox_execution_detail_view import DevboxExecutionDetailView
 from ...types.devboxes.execution_update_chunk import ExecutionUpdateChunk
 from ...types.devbox_async_execution_detail_view import DevboxAsyncExecutionDetailView
@@ -72,20 +76,20 @@ class ExecutionsResource(SyncAPIResource):
         execution_id: str,
         *,
         devbox_id: str,
-        last_n: str | NotGiven = NOT_GIVEN,
+        last_n: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DevboxAsyncExecutionDetailView:
         """
         Get the latest status of a previously launched asynchronous execuction including
         stdout/error and the exit code if complete.
 
         Args:
-          last_n: Last n lines of standard error / standard out to return
+          last_n: Last n lines of standard error / standard out to return (default: 100)
 
           extra_headers: Send extra headers
 
@@ -166,13 +170,14 @@ class ExecutionsResource(SyncAPIResource):
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
@@ -184,6 +189,9 @@ class ExecutionsResource(SyncAPIResource):
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -206,6 +214,7 @@ class ExecutionsResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 execution_execute_async_params.ExecutionExecuteAsyncParams,
@@ -220,29 +229,35 @@ class ExecutionsResource(SyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def execute_sync(
         self,
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxExecutionDetailView:
         """
         Execute a bash command in the Devbox shell, await the command completion and
-        return the output.
+        return the output. Note: attach_stdin parameter is not supported for synchronous
+        execution.
 
         Args:
           command: The command to execute via the Devbox shell. By default, commands are run from
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -267,6 +282,7 @@ class ExecutionsResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 execution_execute_sync_params.ExecutionExecuteSyncParams,
@@ -286,13 +302,13 @@ class ExecutionsResource(SyncAPIResource):
         execution_id: str,
         *,
         devbox_id: str,
-        kill_process_group: Optional[bool] | NotGiven = NOT_GIVEN,
+        kill_process_group: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
@@ -330,24 +346,81 @@ class ExecutionsResource(SyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
-    def stream_stderr_updates(
+    def send_std_in(
         self,
         execution_id: str,
         *,
         devbox_id: str,
-        offset: str | NotGiven = '0',
+        signal: Optional[Literal["EOF", "INTERRUPT"]] | Omit = omit,
+        text: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DevboxSendStdInResult:
+        """
+        Send content to the Std In of a running execution.
+
+        Args:
+          signal: Signal to send to std in of the running execution.
+
+          text: Text to send to std in of the running execution.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not devbox_id:
+            raise ValueError(f"Expected a non-empty value for `devbox_id` but received {devbox_id!r}")
+        if not execution_id:
+            raise ValueError(f"Expected a non-empty value for `execution_id` but received {execution_id!r}")
+        return self._post(
+            f"/v1/devboxes/{devbox_id}/executions/{execution_id}/send_std_in",
+            body=maybe_transform(
+                {
+                    "signal": signal,
+                    "text": text,
+                },
+                execution_send_std_in_params.ExecutionSendStdInParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DevboxSendStdInResult,
+        )
+
+    def stream_stderr_updates(
+        self,
+        execution_id: str,
+        *,
+        devbox_id: str,
+        offset: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[ExecutionUpdateChunk]:
         """
         Tails the stderr logs for the given execution with SSE streaming
 
         Args:
-          offset: The byte offset to start the stream from
+          offset: The byte offset to start the stream from (if unspecified, starts from the
+              beginning of the stream)
 
           extra_headers: Send extra headers
 
@@ -361,10 +434,10 @@ class ExecutionsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `devbox_id` but received {devbox_id!r}")
         if not execution_id:
             raise ValueError(f"Expected a non-empty value for `execution_id` but received {execution_id!r}")
-        
-        default_headers: Headers = {'Accept': 'text/event-stream'}
+
+        default_headers: Headers = {"Accept": "text/event-stream"}
         merged_headers = default_headers if extra_headers is None else {**default_headers, **extra_headers}
-        
+
         if merged_headers and merged_headers.get(RAW_RESPONSE_HEADER):
             return self._get(
                 f"/v1/devboxes/{devbox_id}/executions/{execution_id}/stream_stderr_updates",
@@ -419,19 +492,20 @@ class ExecutionsResource(SyncAPIResource):
         execution_id: str,
         *,
         devbox_id: str,
-        offset: str | NotGiven = '0',
+        offset: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[ExecutionUpdateChunk]:
         """
         Tails the stdout logs for the given execution with SSE streaming
 
         Args:
-          offset: The byte offset to start the stream from
+          offset: The byte offset to start the stream from (if unspecified, starts from the
+              beginning of the stream)
 
           extra_headers: Send extra headers
 
@@ -445,10 +519,10 @@ class ExecutionsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `devbox_id` but received {devbox_id!r}")
         if not execution_id:
             raise ValueError(f"Expected a non-empty value for `execution_id` but received {execution_id!r}")
-        
-        default_headers: Headers = {'Accept': 'text/event-stream'}
+
+        default_headers: Headers = {"Accept": "text/event-stream"}
         merged_headers = default_headers if extra_headers is None else {**default_headers, **extra_headers}
-        
+
         if merged_headers and merged_headers.get(RAW_RESPONSE_HEADER):
             return self._get(
                 f"/v1/devboxes/{devbox_id}/executions/{execution_id}/stream_stdout_updates",
@@ -524,20 +598,20 @@ class AsyncExecutionsResource(AsyncAPIResource):
         execution_id: str,
         *,
         devbox_id: str,
-        last_n: str | NotGiven = NOT_GIVEN,
+        last_n: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DevboxAsyncExecutionDetailView:
         """
         Get the latest status of a previously launched asynchronous execuction including
         stdout/error and the exit code if complete.
 
         Args:
-          last_n: Last n lines of standard error / standard out to return
+          last_n: Last n lines of standard error / standard out to return (default: 100)
 
           extra_headers: Send extra headers
 
@@ -616,13 +690,14 @@ class AsyncExecutionsResource(AsyncAPIResource):
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
@@ -634,6 +709,9 @@ class AsyncExecutionsResource(AsyncAPIResource):
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -656,6 +734,7 @@ class AsyncExecutionsResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 execution_execute_async_params.ExecutionExecuteAsyncParams,
@@ -670,29 +749,35 @@ class AsyncExecutionsResource(AsyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def execute_sync(
         self,
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxExecutionDetailView:
         """
         Execute a bash command in the Devbox shell, await the command completion and
-        return the output.
+        return the output. Note: attach_stdin parameter is not supported for synchronous
+        execution.
 
         Args:
           command: The command to execute via the Devbox shell. By default, commands are run from
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -717,6 +802,7 @@ class AsyncExecutionsResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 execution_execute_sync_params.ExecutionExecuteSyncParams,
@@ -736,13 +822,13 @@ class AsyncExecutionsResource(AsyncAPIResource):
         execution_id: str,
         *,
         devbox_id: str,
-        kill_process_group: Optional[bool] | NotGiven = NOT_GIVEN,
+        kill_process_group: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
@@ -782,24 +868,81 @@ class AsyncExecutionsResource(AsyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
-    async def stream_stderr_updates(
+    async def send_std_in(
         self,
         execution_id: str,
         *,
         devbox_id: str,
-        offset: str | NotGiven = '0',
+        signal: Optional[Literal["EOF", "INTERRUPT"]] | Omit = omit,
+        text: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DevboxSendStdInResult:
+        """
+        Send content to the Std In of a running execution.
+
+        Args:
+          signal: Signal to send to std in of the running execution.
+
+          text: Text to send to std in of the running execution.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not devbox_id:
+            raise ValueError(f"Expected a non-empty value for `devbox_id` but received {devbox_id!r}")
+        if not execution_id:
+            raise ValueError(f"Expected a non-empty value for `execution_id` but received {execution_id!r}")
+        return await self._post(
+            f"/v1/devboxes/{devbox_id}/executions/{execution_id}/send_std_in",
+            body=await async_maybe_transform(
+                {
+                    "signal": signal,
+                    "text": text,
+                },
+                execution_send_std_in_params.ExecutionSendStdInParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DevboxSendStdInResult,
+        )
+
+    async def stream_stderr_updates(
+        self,
+        execution_id: str,
+        *,
+        devbox_id: str,
+        offset: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[ExecutionUpdateChunk]:
         """
         Tails the stderr logs for the given execution with SSE streaming
 
         Args:
-          offset: The byte offset to start the stream from
+          offset: The byte offset to start the stream from (if unspecified, starts from the
+              beginning of the stream)
 
           extra_headers: Send extra headers
 
@@ -813,10 +956,10 @@ class AsyncExecutionsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `devbox_id` but received {devbox_id!r}")
         if not execution_id:
             raise ValueError(f"Expected a non-empty value for `execution_id` but received {execution_id!r}")
-        
-        default_headers: Headers = {'Accept': 'text/event-stream'}
+
+        default_headers: Headers = {"Accept": "text/event-stream"}
         merged_headers = default_headers if extra_headers is None else {**default_headers, **extra_headers}
-        
+
         if merged_headers and merged_headers.get(RAW_RESPONSE_HEADER):
             return await self._get(
                 f"/v1/devboxes/{devbox_id}/executions/{execution_id}/stream_stderr_updates",
@@ -871,19 +1014,20 @@ class AsyncExecutionsResource(AsyncAPIResource):
         execution_id: str,
         *,
         devbox_id: str,
-        offset: str | NotGiven = '0',
+        offset: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[ExecutionUpdateChunk]:
         """
         Tails the stdout logs for the given execution with SSE streaming
 
         Args:
-          offset: The byte offset to start the stream from
+          offset: The byte offset to start the stream from (if unspecified, starts from the
+              beginning of the stream)
 
           extra_headers: Send extra headers
 
@@ -897,11 +1041,10 @@ class AsyncExecutionsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `devbox_id` but received {devbox_id!r}")
         if not execution_id:
             raise ValueError(f"Expected a non-empty value for `execution_id` but received {execution_id!r}")
-        
-        default_headers: Headers = {'Accept': 'text/event-stream'}
+
+        default_headers: Headers = {"Accept": "text/event-stream"}
         merged_headers = default_headers if extra_headers is None else {**default_headers, **extra_headers}
 
-        
         # If caller requested a raw or streaming response wrapper, return the underlying stream as-is
         if merged_headers and merged_headers.get(RAW_RESPONSE_HEADER):
             return await self._get(
@@ -963,11 +1106,16 @@ class ExecutionsResourceWithRawResponse:
         self.execute_async = to_raw_response_wrapper(
             executions.execute_async,
         )
-        self.execute_sync = to_raw_response_wrapper(
-            executions.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                executions.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.kill = to_raw_response_wrapper(
             executions.kill,
+        )
+        self.send_std_in = to_raw_response_wrapper(
+            executions.send_std_in,
         )
         self.stream_stdout_updates = to_raw_response_wrapper(
             executions.stream_stdout_updates,
@@ -987,11 +1135,16 @@ class AsyncExecutionsResourceWithRawResponse:
         self.execute_async = async_to_raw_response_wrapper(
             executions.execute_async,
         )
-        self.execute_sync = async_to_raw_response_wrapper(
-            executions.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                executions.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.kill = async_to_raw_response_wrapper(
             executions.kill,
+        )
+        self.send_std_in = async_to_raw_response_wrapper(
+            executions.send_std_in,
         )
         self.stream_stdout_updates = async_to_raw_response_wrapper(
             executions.stream_stdout_updates,
@@ -1011,11 +1164,16 @@ class ExecutionsResourceWithStreamingResponse:
         self.execute_async = to_streamed_response_wrapper(
             executions.execute_async,
         )
-        self.execute_sync = to_streamed_response_wrapper(
-            executions.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                executions.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.kill = to_streamed_response_wrapper(
             executions.kill,
+        )
+        self.send_std_in = to_streamed_response_wrapper(
+            executions.send_std_in,
         )
         self.stream_stdout_updates = to_streamed_response_wrapper(
             executions.stream_stdout_updates,
@@ -1035,11 +1193,16 @@ class AsyncExecutionsResourceWithStreamingResponse:
         self.execute_async = async_to_streamed_response_wrapper(
             executions.execute_async,
         )
-        self.execute_sync = async_to_streamed_response_wrapper(
-            executions.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                executions.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.kill = async_to_streamed_response_wrapper(
             executions.kill,
+        )
+        self.send_std_in = async_to_streamed_response_wrapper(
+            executions.send_std_in,
         )
         self.stream_stdout_updates = async_to_streamed_response_wrapper(
             executions.stream_stdout_updates,

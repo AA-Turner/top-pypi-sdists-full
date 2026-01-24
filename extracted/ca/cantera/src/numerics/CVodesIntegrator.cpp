@@ -42,29 +42,29 @@ extern "C" {
         return f->evalNoThrow(t, NV_DATA_S(y), NV_DATA_S(ydot));
     }
 
-    //! Function called by CVodes when an error is encountered instead of
-    //! writing to stdout. Here, save the error message provided by CVodes so
-    //! that it can be included in the subsequently raised CanteraError. Used by
-    //! SUNDIALS 6.x and older.
-    static void cvodes_err(int error_code, const char* module,
-                           const char* function, char* msg, void* eh_data)
-    {
-        CVodesIntegrator* integrator = (CVodesIntegrator*) eh_data;
-        integrator->m_error_message = msg;
-        integrator->m_error_message += "\n";
-    }
-
-    //! Function called by CVodes when an error is encountered instead of
-    //! writing to stdout. Here, save the error message provided by CVodes so
-    //! that it can be included in the subsequently raised CanteraError. Used by
-    //! SUNDIALS 7.0 and newer.
     #if SUNDIALS_VERSION_MAJOR >= 7
+        //! Function called by CVodes when an error is encountered instead of
+        //! writing to stdout. Here, save the error message provided by CVodes so
+        //! that it can be included in the subsequently raised CanteraError. Used by
+        //! SUNDIALS 7.0 and newer.
         static void sundials_err(int line, const char *func, const char *file,
                                 const char *msg, SUNErrCode err_code,
                                 void *err_user_data, SUNContext sunctx)
         {
             CVodesIntegrator* integrator = (CVodesIntegrator*) err_user_data;
             integrator->m_error_message = fmt::format("{}: {}\n", func, msg);
+        }
+    #else
+        //! Function called by CVodes when an error is encountered instead of
+        //! writing to stdout. Here, save the error message provided by CVodes so
+        //! that it can be included in the subsequently raised CanteraError. Used by
+        //! SUNDIALS 6.x and older.
+        static void cvodes_err(int error_code, const char* module,
+                            const char* function, char* msg, void* eh_data)
+        {
+            CVodesIntegrator* integrator = (CVodesIntegrator*) eh_data;
+            integrator->m_error_message = msg;
+            integrator->m_error_message += "\n";
         }
     #endif
 
@@ -89,6 +89,21 @@ extern "C" {
     {
         FuncEval* f = (FuncEval*) f_data;
         return f->preconditioner_solve_nothrow(NV_DATA_S(r),NV_DATA_S(z));
+    }
+
+    /**
+     * SUNDIALS callback that forwards root evaluations to the FuncEval.
+     * @param[in] t Current integration time at which roots are requested
+     * @param[in] y Solution vector provided by CVODE (length FuncEval::neq())
+     * @param[out] gout Output array that must be filled with FuncEval::nRootFunctions()
+     *     values
+     * @param[in] user_data Opaque pointer (FuncEval*) supplied during integrator setup
+     * @returns The result of FuncEval::evalRootFunctions (0 on success)
+     */
+    static int cvodes_root(sunrealtype t, N_Vector y, sunrealtype* gout, void* user_data)
+    {
+        auto* f = static_cast<FuncEval*>(user_data);
+        return f->evalRootFunctionsNoThrow(t, NV_DATA_S(y), gout);
     }
 }
 
@@ -216,6 +231,23 @@ void CVodesIntegrator::setMaxErrTestFails(int n)
     }
 }
 
+void CVodesIntegrator::setRootFunctionCount(size_t nroots)
+{
+    // Skip the Sundials call when the requested count matches what CVODE already has
+    if (m_cvode_mem && m_nRootFunctions == nroots) {
+        return;
+    }
+    m_nRootFunctions = nroots;
+    // When initialize() hasn’t created CVODE memory yet, just cache the count
+    if (!m_cvode_mem) {
+        return;
+    }
+    // Register (or remove) the root callback; passing nullptr disables root finding
+    CVRootFn root_cb = nroots ? &cvodes_root : nullptr;
+    int flag = CVodeRootInit(m_cvode_mem, static_cast<int>(nroots), root_cb);
+    checkError(flag, "setRootFunctionCount", "CVodeRootInit");
+}
+
 void CVodesIntegrator::sensInit(double t0, FuncEval& func)
 {
     m_np = func.nparams();
@@ -283,9 +315,7 @@ void CVodesIntegrator::initialize(double t0, FuncEval& func)
     //! Specify the method and the iteration type. Cantera Defaults:
     //!        CV_BDF  - Use BDF methods
     //!        CV_NEWTON - use Newton's method
-    #if SUNDIALS_VERSION_MAJOR < 4
-        m_cvode_mem = CVodeCreate(m_method, CV_NEWTON);
-    #elif SUNDIALS_VERSION_MAJOR < 6
+    #if SUNDIALS_VERSION_MAJOR < 6
         m_cvode_mem = CVodeCreate(m_method);
     #else
         m_cvode_mem = CVodeCreate(m_method, m_sundials_ctx.get());
@@ -325,6 +355,9 @@ void CVodesIntegrator::initialize(double t0, FuncEval& func)
     flag = CVodeSetUserData(m_cvode_mem, &func);
     checkError(flag, "initialize", "CVodeSetUserData");
 
+    m_nRootFunctions = npos;
+    setRootFunctionCount(func.nRootFunctions());
+
     if (func.nparams() > 0) {
         sensInit(t0, func);
         flag = CVodeSetSensParams(m_cvode_mem, func.m_sens_params.data(),
@@ -348,6 +381,8 @@ void CVodesIntegrator::reinitialize(double t0, FuncEval& func)
     }
     int result = CVodeReInit(m_cvode_mem, m_t0, m_y);
     checkError(result, "reinitialize", "CVodeReInit");
+    m_nRootFunctions = npos;
+    setRootFunctionCount(func.nRootFunctions());
     applyOptions();
 }
 
@@ -412,29 +447,17 @@ void CVodesIntegrator::applyOptions()
         #if SUNDIALS_VERSION_MAJOR >= 6
             m_linsol = SUNLinSol_SPGMR(m_y, SUN_PREC_NONE, 0, m_sundials_ctx.get());
             CVodeSetLinearSolver(m_cvode_mem, (SUNLinearSolver) m_linsol, nullptr);
-        #elif SUNDIALS_VERSION_MAJOR >= 4
+        #else
             m_linsol = SUNLinSol_SPGMR(m_y, PREC_NONE, 0);
-            CVSpilsSetLinearSolver(m_cvode_mem, (SUNLinearSolver) m_linsol);
-        # else
-            m_linsol = SUNSPGMR(m_y, PREC_NONE, 0);
             CVSpilsSetLinearSolver(m_cvode_mem, (SUNLinearSolver) m_linsol);
         #endif
         // set preconditioner if used
-        #if SUNDIALS_VERSION_MAJOR >= 4
-            if (m_prec_side != PreconditionerSide::NO_PRECONDITION) {
-                SUNLinSol_SPGMRSetPrecType((SUNLinearSolver) m_linsol,
-                    static_cast<int>(m_prec_side));
-                CVodeSetPreconditioner(m_cvode_mem, cvodes_prec_setup,
-                    cvodes_prec_solve);
-            }
-        #else
-            if (m_prec_side != PreconditionerSide::NO_PRECONDITION) {
-                SUNSPGMRSetPrecType((SUNLinearSolver) m_linsol,
-                    static_cast<int>(m_prec_side));
-                CVSpilsSetPreconditioner(m_cvode_mem, cvodes_prec_setup,
-                    cvodes_prec_solve);
-            }
-        #endif
+        if (m_prec_side != PreconditionerSide::NO_PRECONDITION) {
+            SUNLinSol_SPGMRSetPrecType((SUNLinearSolver) m_linsol,
+                static_cast<int>(m_prec_side));
+            CVodeSetPreconditioner(m_cvode_mem, cvodes_prec_setup,
+                cvodes_prec_solve);
+        }
     } else if (m_type == "BAND") {
         sd_size_t N = static_cast<sd_size_t>(m_neq);
         sd_size_t nu = m_mupper;
@@ -443,10 +466,8 @@ void CVodesIntegrator::applyOptions()
         SUNMatDestroy((SUNMatrix) m_linsol_matrix);
         #if SUNDIALS_VERSION_MAJOR >= 6
             m_linsol_matrix = SUNBandMatrix(N, nu, nl, m_sundials_ctx.get());
-        #elif SUNDIALS_VERSION_MAJOR >= 4
-            m_linsol_matrix = SUNBandMatrix(N, nu, nl);
         #else
-            m_linsol_matrix = SUNBandMatrix(N, nu, nl, nu+nl);
+            m_linsol_matrix = SUNBandMatrix(N, nu, nl);
         #endif
         if (m_linsol_matrix == nullptr) {
             throw CanteraError("CVodesIntegrator::applyOptions",
@@ -518,7 +539,7 @@ void CVodesIntegrator::integrate(double tout)
                 nsteps, tout, m_tInteg, f_errs);
         }
         int flag = CVode(m_cvode_mem, tout, m_y, &m_tInteg, CV_ONE_STEP);
-        if (flag != CV_SUCCESS) {
+        if (flag != CV_SUCCESS && flag != CV_ROOT_RETURN) {
             string f_errs = m_func->getErrors();
             if (!f_errs.empty()) {
                 f_errs = "Exceptions caught during RHS evaluation:\n" + f_errs;
@@ -529,18 +550,28 @@ void CVodesIntegrator::integrate(double tout)
                 "Components with largest weighted error estimates:\n{}",
                 flag, m_error_message, f_errs, getErrorInfo(10));
         }
+        if (flag == CV_ROOT_RETURN) {
+            // Stop early at root (e.g., advance limit reached); align tout to the
+            // root time
+            tout = m_tInteg;
+            break;
+        }
         nsteps++;
     }
-    int flag = CVodeGetDky(m_cvode_mem, tout, 0, m_y);
+
+    // Interpolate the solution to either the user-specified output time or
+    // the time at which a root event occurred.
+    double t_eval = tout;
+    int flag = CVodeGetDky(m_cvode_mem, t_eval, 0, m_y);
     checkError(flag, "integrate", "CVodeGetDky");
-    m_time = tout;
+    m_time = t_eval;
     m_sens_ok = false;
 }
 
 double CVodesIntegrator::step(double tout)
 {
     int flag = CVode(m_cvode_mem, tout, m_y, &m_tInteg, CV_ONE_STEP);
-    if (flag != CV_SUCCESS) {
+    if (flag != CV_SUCCESS && flag != CV_ROOT_RETURN) {
         string f_errs = m_func->getErrors();
         if (!f_errs.empty()) {
             f_errs = "Exceptions caught during RHS evaluation:\n" + f_errs;
@@ -590,26 +621,22 @@ AnyMap CVodesIntegrator::solverStats() const
              nonlinConvFails = 0, orderReductions = 0;
     int lastOrder = 0;
 ;
-    #if SUNDIALS_VERSION_MAJOR >= 4
-        CVodeGetNumSteps(m_cvode_mem, &steps);
-        CVodeGetNumRhsEvals(m_cvode_mem, &rhsEvals);
-        CVodeGetNonlinSolvStats(m_cvode_mem, &nonlinIters, &nonlinConvFails);
-        CVodeGetNumErrTestFails(m_cvode_mem, &errTestFails);
-        CVodeGetLastOrder(m_cvode_mem, &lastOrder);
-        CVodeGetNumStabLimOrderReds(m_cvode_mem, &orderReductions);
-        CVodeGetNumJacEvals(m_cvode_mem, &jacEvals);
-        CVodeGetNumLinRhsEvals(m_cvode_mem, &linRhsEvals);
-        CVodeGetNumLinSolvSetups(m_cvode_mem, &linSetup);
-        CVodeGetNumLinIters(m_cvode_mem, &linIters);
-        CVodeGetNumLinConvFails(m_cvode_mem, &linConvFails);
-        CVodeGetNumPrecEvals(m_cvode_mem, &precEvals);
-        CVodeGetNumPrecSolves(m_cvode_mem, &precSolves);
-        CVodeGetNumJTSetupEvals(m_cvode_mem, &jtSetupEvals);
-        CVodeGetNumJtimesEvals(m_cvode_mem, &jTimesEvals);
-    #else
-        warn_user("CVodesIntegrator::solverStats", "Function not"
-                  "supported with sundials versions less than 4.");
-    #endif
+
+    CVodeGetNumSteps(m_cvode_mem, &steps);
+    CVodeGetNumRhsEvals(m_cvode_mem, &rhsEvals);
+    CVodeGetNonlinSolvStats(m_cvode_mem, &nonlinIters, &nonlinConvFails);
+    CVodeGetNumErrTestFails(m_cvode_mem, &errTestFails);
+    CVodeGetLastOrder(m_cvode_mem, &lastOrder);
+    CVodeGetNumStabLimOrderReds(m_cvode_mem, &orderReductions);
+    CVodeGetNumJacEvals(m_cvode_mem, &jacEvals);
+    CVodeGetNumLinRhsEvals(m_cvode_mem, &linRhsEvals);
+    CVodeGetNumLinSolvSetups(m_cvode_mem, &linSetup);
+    CVodeGetNumLinIters(m_cvode_mem, &linIters);
+    CVodeGetNumLinConvFails(m_cvode_mem, &linConvFails);
+    CVodeGetNumPrecEvals(m_cvode_mem, &precEvals);
+    CVodeGetNumPrecSolves(m_cvode_mem, &precSolves);
+    CVodeGetNumJTSetupEvals(m_cvode_mem, &jtSetupEvals);
+    CVodeGetNumJtimesEvals(m_cvode_mem, &jTimesEvals);
 
     #if SUNDIALS_VERSION_MAJOR >= 7 || (SUNDIALS_VERSION_MAJOR == 6 && SUNDIALS_VERSION_MINOR >= 2)
         long int stepSolveFails = 0;

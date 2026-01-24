@@ -2,12 +2,13 @@ from decimal import ROUND_HALF_UP, Decimal
 import threading
 from typing import Optional
 import aiohttp
-
+import re
+from collections import defaultdict
 import aiohttp
 import requests
 from aiohttp import ClientSession
 from rich.console import Console
-
+from typing import List, Dict, Any
 from worker_automate_hub.api.helpers.api_helpers import handle_api_response
 from worker_automate_hub.config.settings import load_env_config
 from worker_automate_hub.models.dao.rpa_configuracao import RpaConfiguracao
@@ -498,6 +499,89 @@ async def get_valor_remessa_cobranca(date: str):
         logger.info(err_msg)
 
 
+async def get_notas_produtos(codFornecedor: int, codEmpresa: int, itens: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Função única:
+      - Converte itens (aceita chaves codigo/codigoProduto e quantidade/qtd)
+      - Chama /nf-supplier/checker com Authorization: Basic
+      - Normaliza tipos do retorno
+      - Entrega:
+          {
+            "lista": [ {codItem, qtdTotal, notas, valorUnitario}, ... ],
+            "por_codigo": { codItem: {...}, ... }
+          }
+
+    Retorno esperado da API (ex):
+      [
+        {"codItem": 19969, "qtdTotal": 15, "notas": ["1418727","1410744"], "valorUnitario": 5.29},
+        {"codItem": 29272, "qtdTotal": 10, "notas": ["1418727"], "valorUnitario": 7.12}
+      ]
+    """
+    # --- Carrega config
+    env_config, _ = load_env_config()
+    url_base = env_config["API_BASE_URL"].rstrip("/")
+    url = f"{url_base}/nf-supplier/checker"
+
+    # --- Header Basic (aceita token puro ou já "Basic ...")
+    token = (env_config.get("API_AUTHORIZATION") or "").strip()
+    auth_header = token if token.lower().startswith("basic ") else f"Basic {token}"
+
+    # --- Converte itens de entrada
+    itens_convertidos: List[Dict[str, int]] = []
+    for it in itens or []:
+        codigo = re.findall(r"\d+", it.get("descricaoProduto"))[0]
+        quantidade = it.get("quantidade", it.get("qtd"))
+        if codigo is None or quantidade is None:
+            logger.warning(f"Item incompleto: {it}")
+            console.print(f"⚠️ Item incompleto: {it}", style="yellow")
+            continue
+        try:
+            itens_convertidos.append({"codigo": int(codigo), "quantidade": int(quantidade)})
+        except Exception:
+            logger.warning(f"Item inválido (não numérico): {it}")
+            console.print(f"⚠️ Item inválido (não numérico): {it}", style="yellow")
+
+    body = {
+        "codFornecedor": int(codFornecedor),
+        "codEmpresa": int(codEmpresa),
+        "itens": itens_convertidos,
+    }
+    headers = {"Authorization": auth_header, "Content-Type": "application/json"}
+
+    # --- Chamada HTTP
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with session.post(url, json=body, headers=headers) as resp:
+            text = await resp.text()
+            if resp.status != 200:
+                raise RuntimeError(f"HTTP {resp.status} ao chamar {url}: {text}")
+            try:
+                data = await resp.json()
+            except Exception:
+                raise RuntimeError(f"Resposta não-JSON do servidor: {text[:600]}")
+
+    console.print(f"✅ Resposta da API: {data}", style="bold green")
+    logger.info(f"nf-supplier/checker -> {data}")
+
+    if not isinstance(data, list):
+        raise ValueError(f"Formato inesperado da API: {type(data)} -> {data}")
+
+    # --- Normaliza tipos e monta índices
+    lista_norm: List[Dict[str, Any]] = []
+    por_codigo: Dict[int, Dict[str, Any]] = {}
+
+    for row in data:
+        cod = int(row.get("codItem"))
+        item_norm = {
+            "codItem": cod,
+            "qtdTotal": int(row.get("qtdTotal", 0)),
+            "notas": [str(n) for n in (row.get("notas") or [])],
+            "valorUnitario": float(row.get("valorUnitario", 0.0)),
+        }
+        lista_norm.append(item_norm)
+        por_codigo[cod] = item_norm
+
+    return {"lista": lista_norm, "por_codigo": por_codigo}
+
 async def get_status_nf_emsys(chave: int):
     """
     Procura o status de nota fiscal no EMSYS.
@@ -538,23 +622,14 @@ async def get_dados_nf_emsys(
     chave: Optional[int] = None,
     numero_nota: Optional[int] = None,
     serie_nota: Optional[int] = None,
-    filial_nota: Optional[int] = None
+    filial_nota: Optional[int] = None,
+    fornecedor_cnpj: Optional[str] = None
 ):
     """
-    Consulta a NF no EMSYS (ahead-nota) e retorna os campos essenciais:
-    empresaCodigo, numeroDoCfop e cfopProduto dentro de itens.
-
-    Args:
-        chave (int, opcional): Chave de acesso da NF.
-        numero_nota (int, opcional): Número da NF.
-        serie_nota (int, opcional): Série da NF (obrigatória se numero_nota for informado).
-        filial_nota (int, opcional): Filial da NF (obrigatória se numero_nota for informado).
-
-    Returns:
-        list[dict]: Lista de notas no formato esperado.
+    Consulta a NF no EMSYS (ahead-nota) e retorna os campos essenciais.
     """
-    env_config, _ = load_env_config()
 
+    env_config, _ = load_env_config()
     url = f"{env_config['API_BASE_URL']}/ahead-nota/find-by-number-nfe"
 
     params = {}
@@ -563,18 +638,31 @@ async def get_dados_nf_emsys(
     if chave is not None:
         params["chaveNfe"] = chave
 
-    # Caso 2: veio numero_nota → exige serie e filial
+    # Caso 2: veio numero_nota → exige serie, filial e fornecedor
     elif numero_nota is not None:
         if serie_nota is None or filial_nota is None:
-            raise ValueError("Para buscar por número da nota é obrigatório informar também 'serie_nota' e 'filial_nota'.")
+            raise ValueError(
+                "Para buscar por número da nota é obrigatório informar 'serie_nota' e 'filial_nota'."
+            )
+
+        if not fornecedor_cnpj:
+            raise ValueError(
+                "Para buscar por número da nota é obrigatório informar 'fornecedor_cnpj'."
+            )
+
         params["numeroNfe"] = numero_nota
         params["serieNfe"] = serie_nota
         params["empresaCodigo"] = filial_nota
+        params["fornecedorCnpj"] = fornecedor_cnpj  # ✅ AQUI ESTÁ O FIX
 
     else:
-        raise ValueError("É necessário informar 'chave' ou ('numero_nota' + 'serie_nota' + 'filial_nota').")
+        raise ValueError(
+            "É necessário informar 'chave' ou ('numero_nota' + 'serie_nota' + 'filial_nota' + 'fornecedor_cnpj')."
+        )
 
-    headers_basic = {"Authorization": f"Basic {env_config['API_AUTHORIZATION']}"}
+    headers_basic = {
+        "Authorization": f"Basic {env_config['API_AUTHORIZATION']}"
+    }
 
     try:
         async with aiohttp.ClientSession(
@@ -582,14 +670,13 @@ async def get_dados_nf_emsys(
         ) as session:
             async with session.get(url, headers=headers_basic, params=params) as response:
                 if response.status != 200:
-                    raise Exception(
-                        f"Erro ao comunicar com endpoint do Simplifica: {await response.text()}"
-                    )
+                    body = await response.text()
+                    raise Exception(f"({response.status}): {body}")
 
                 data = await response.json()
 
                 if not data:
-                    raise Exception("Não foi possível buscar os dados da nota (ahead_nota).")
+                    raise Exception("Não foi possível buscar os dados da nota (ahead-nota).")
 
                 if isinstance(data, dict):
                     data = [data]
@@ -600,54 +687,20 @@ async def get_dados_nf_emsys(
                         "chaveNfe": nota.get("chaveNfe"),
                         "numeroDoCfop": nota.get("numeroDoCfop"),
                         "naturezaNota": nota.get("naturezaNota"),
-                        "empresa": nota.get("empresa"),
+                        "empresaCodigo": nota.get("empresaCodigo"),
                         "fornecedorCnpj": nota.get("fornecedorCnpj"),
                         "fornecedorNome": nota.get("fornecedorNome"),
                         "numeroNfe": nota.get("numeroNfe"),
                         "valorNfe": nota.get("valorNfe"),
                         "dataEmissao": nota.get("dataEmissao"),
-                        "empresaCodigo": nota.get("empresaCodigo"),
                         "dataVencimento": nota.get("dataVencimento"),
-                        "statusSituacao": nota.get("statusSituacao"),
-                        "statusRebUnidade": nota.get("statusRebUnidade"),
-                        "statusListarNotas": nota.get("statusListarNotas"),
-                        "existeDespesa": nota.get("existeDespesa"),
-                        "observacao": nota.get("observacao"),
-                        "createdAt": nota.get("createdAt"),
-                        "updatedAt": nota.get("updatedAt"),
-                        "infCpl": nota.get("infCpl"),
-                        "recebimentoFisico": nota.get("recebimentoFisico"),
-                        "serieNfe": nota.get("serieNfe"),
                         "statusLancamento": nota.get("statusLancamento"),
-                        "dataEntrada": nota.get("dataEntrada"),
-                        "codPessoaFornecedor": nota.get("codPessoaFornecedor"),
-                        "locked": nota.get("locked"),
                         "itens": [
                             {
-                                "uuidNotaItem": item.get("uuidNotaItem"),
-                                "chaveNfe": item.get("chaveNfe"),
+                                "cfopProduto": item.get("cfopProduto"),
                                 "codigoProduto": item.get("codigoProduto"),
                                 "descricaoProduto": item.get("descricaoProduto"),
-                                "ncmsh": item.get("ncmsh"),
-                                "ocst": item.get("ocst"),
-                                "cfopProduto": item.get("cfopProduto"),
-                                "unidadeMedida": item.get("unidadeMedida"),
-                                "qtd": item.get("qtd"),
-                                "valorUnitario": item.get("valorUnitario"),
                                 "valorTotal": item.get("valorTotal"),
-                                "bCalculoIcms": item.get("bCalculoIcms"),
-                                "valorIcms": item.get("valorIcms"),
-                                "valorIpi": item.get("valorIpi"),
-                                "aliquotaIcms": item.get("aliquotaIcms"),
-                                "aliquotaIpi": item.get("aliquotaIpi"),
-                                "createdAt": item.get("createdAt"),
-                                "updatedAt": item.get("updatedAt"),
-                                "pedidoCompraXped": item.get("pedidoCompraXped"),
-                                "pedidoCompraItemPed": item.get("pedidoCompraItemPed"),
-                                "codItem": item.get("codItem"),
-                                "desItem": item.get("desItem"),
-                                "indBloqueadoCompra": item.get("indBloqueadoCompra"),
-                                "indItemAtivo": item.get("indItemAtivo")
                             }
                             for item in nota.get("itens", [])
                         ]
@@ -656,7 +709,8 @@ async def get_dados_nf_emsys(
                 return resultado
 
     except Exception as e:
-        raise Exception(f"Erro ao comunicar com endpoint do Simplifica: {e}")
+        raise Exception(str(e))
+
 
 
 
@@ -721,55 +775,82 @@ async def send_file(
     Args:
         uuidRelacao (str): UUID da relação associada ao arquivo.
         desArquivo (str): Nome real do arquivo (com extensão).
-        tipo (str): Tipo de arquivo (ex: 'xls').
+        tipo (str): Tipo de arquivo (ex: 'pdf', 'xml').
         file (bytes): Conteúdo binário do arquivo.
-        file_extension (str): Extensão do arquivo (sem o ponto), usada para definir o content-type.
+        file_extension (str): Extensão do arquivo (sem o ponto).
     """
     try:
         # Carrega as configurações de ambiente
         env_config, _ = load_env_config()
 
-        # Define o content-type e o filename baseados na extensão
+        # =========================
+        # CONTENT-TYPE POR EXTENSÃO
+        # =========================
         if file_extension == "txt":
             content_type = "text/plain"
+
         elif file_extension == "pdf":
             content_type = "application/pdf"
+
         elif file_extension == "jpg":
             content_type = "image/jpeg"
+
         elif file_extension == "001":
             content_type = "text/plain"
+
         elif file_extension == "xls":
-            filename = desArquivo
             content_type = "application/vnd.ms-excel"
+
         elif file_extension == "xlsx":
-            filename = desArquivo
             content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+        elif file_extension == "csv":
+            content_type = "text/csv"
+
+        # ✅ AJUSTE ADICIONADO — XML
+        elif file_extension == "xml":
+            content_type = "application/xml"
+
         else:
             raise ValueError(f"Extensão de arquivo não suportada: {file_extension}")
 
-        # Criação do corpo da requisição multipart
+        # =========================
+        # MULTIPART FORM-DATA
+        # =========================
         body = aiohttp.FormData()
         body.add_field("uuidRelacao", uuidRelacao)
         body.add_field("desArquivo", desArquivo)
         body.add_field("tipo", tipo)
-        body.add_field("file", file, filename=desArquivo, content_type=content_type)
+        body.add_field(
+            "file",
+            file,
+            filename=desArquivo,
+            content_type=content_type
+        )
 
         headers_basic = {
             "Authorization": f"Basic {env_config['API_AUTHORIZATION']}"
         }
 
-        # Enviando requisição para a API
-        async with ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+        # =========================
+        # ENVIO PARA API
+        # =========================
+        async with ClientSession(
+            connector=aiohttp.TCPConnector(ssl=False)
+        ) as session:
             async with session.post(
                 f"{env_config['API_BASE_URL']}/arquivo/send-file",
                 data=body,
                 headers=headers_basic,
             ) as response:
+
                 if response.status != 200:
                     content = await response.text()
-                    raise Exception(f"Erro {response.status} - Resposta da API: {content}")
+                    raise Exception(
+                        f"Erro {response.status} - Resposta da API: {content}"
+                    )
 
-                log_msg = f"\n✅ Sucesso ao enviar arquivo: {uuidRelacao}\n"
+                log_msg = f"\n✅ Sucesso ao enviar arquivo: {desArquivo}\n"
                 console.print(log_msg, style="bold green")
                 logger.info(log_msg)
 
@@ -841,3 +922,46 @@ async def download_file_from_historico(uuid: str):
         )
         console.print(f"\n{err_msg}\n", style="bold green")
         logger.info(err_msg)
+
+async def get_mfa_code(key: str):
+    try:
+        env, _ = load_env_config()
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Basic " + env["API_AUTHORIZATION"],
+        }
+        payload = {"key": key}
+
+        response = requests.post(
+            env["API_BASE_URL"] + "/redis/get-redis-code",
+            json=payload,
+            headers=headers,
+        )
+
+        if response.status_code == 200 and response.json() is not None:
+            return {"code": response.json(), "status_code": 200}
+        else:
+            raise Exception(
+                f"Error to get mfa code, message: {response.text}, status_code {response.status_code}"
+            )
+
+    except Exception as e:
+        logger.error(f"Error to get mfa code: {str(e)}")
+        return {"code": None, "status_code": 500}
+
+
+def get_worker_vault_token():
+    try:
+        env, _ = load_env_config()
+        headers = {
+            "Authorization": "Basic " + env["API_AUTHORIZATION"],
+        }
+        response = requests.get(f"{env["API_BASE_URL"]}/get-vault-token-worker", headers=headers)
+        if response.status_code == 200 and response.text is not None:
+            return {"code": response.text, "status_code": 200}
+        else:
+            raise Exception(
+                f"Error to get Vault Token, message: {response.text}, status_code {response.status_code}"
+            )
+    except Exception as e:
+        return {"code": None, "status_code": 500}

@@ -21,7 +21,8 @@ class MermaidJSPrinter(Printer):
     }
     ARROWS: dict[EdgeType, str] = {
         EdgeType.INHERITS: "--|>",
-        EdgeType.ASSOCIATION: "--*",
+        EdgeType.COMPOSITION: "--*",
+        EdgeType.ASSOCIATION: "-->",
         EdgeType.AGGREGATION: "--o",
         EdgeType.USES: "-->",
         EdgeType.TYPE_DEPENDENCY: "..>",
@@ -79,6 +80,9 @@ class MermaidJSPrinter(Printer):
             self.emit(line)
         self._dec_indent()
         self.emit("}")
+        # apply style for colored output
+        if properties.color and properties.color != self.DEFAULT_COLOR:
+            self.emit(f"style {name} fill:{properties.color}")
 
     def emit_edge(
         self,

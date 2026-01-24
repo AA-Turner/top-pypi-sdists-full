@@ -64,17 +64,15 @@ class PayoffMatrix(APIObject):
 
     _base_url = "projects/{}/payoffMatrices/"
     _payoff_matrix_url = _base_url + "{}/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("project_id"): String(),
-            t.Key("name"): String(),
-            t.Key("true_positive_value"): t.Float(),
-            t.Key("true_negative_value"): t.Float(),
-            t.Key("false_positive_value"): t.Float(),
-            t.Key("false_negative_value"): t.Float(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("project_id"): String(),
+        t.Key("name"): String(),
+        t.Key("true_positive_value"): t.Float(),
+        t.Key("true_negative_value"): t.Float(),
+        t.Key("false_positive_value"): t.Float(),
+        t.Key("false_negative_value"): t.Float(),
+    }).ignore_extra("*")
 
     def __init__(
         self,

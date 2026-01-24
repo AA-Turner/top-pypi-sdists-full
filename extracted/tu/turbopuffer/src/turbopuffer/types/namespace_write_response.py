@@ -10,6 +10,8 @@ __all__ = ["NamespaceWriteResponse"]
 
 
 class NamespaceWriteResponse(BaseModel):
+    """The response to a successful write request."""
+
     billing: WriteBilling
     """The billing information for a write request."""
 
@@ -27,6 +29,9 @@ class NamespaceWriteResponse(BaseModel):
 
     rows_patched: Optional[int] = None
     """The number of rows patched by the write request."""
+
+    rows_remaining: Optional[bool] = None
+    """Whether more documents match the filter for partial operations."""
 
     rows_upserted: Optional[int] = None
     """The number of rows upserted by the write request."""

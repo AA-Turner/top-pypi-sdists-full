@@ -73,7 +73,7 @@ class TdaiClient(AbstractClient):
 
 
     def CreateChatCompletion(self, request):
-        r"""用于创建一次回话的SSE接口
+        r"""用于创建一次会话的SSE接口
 
         :param request: Request instance for CreateChatCompletion.
         :type request: :class:`tencentcloud.tdai.v20250717.models.CreateChatCompletionRequest`
@@ -403,6 +403,29 @@ class TdaiClient(AbstractClient):
             body = self.call("RemoveChat", params, headers=headers)
             response = json.loads(body)
             model = models.RemoveChatResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def StartAgentTask(self, request):
+        r"""该接口用于启动一个智能体的任务
+
+        :param request: Request instance for StartAgentTask.
+        :type request: :class:`tencentcloud.tdai.v20250717.models.StartAgentTaskRequest`
+        :rtype: :class:`tencentcloud.tdai.v20250717.models.StartAgentTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("StartAgentTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.StartAgentTaskResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

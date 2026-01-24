@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from os import PathLike
+from pathlib import Path
 from random import Random
 
-import tomli
-
+from schemathesis.config._auth import ApiKeyAuthConfig, HttpBasicAuthConfig, HttpBearerAuthConfig
 from schemathesis.config._checks import (
     CheckConfig,
     ChecksConfig,
@@ -19,9 +20,24 @@ from schemathesis.config._error import ConfigError
 from schemathesis.config._generation import GenerationConfig
 from schemathesis.config._health_check import HealthCheck
 from schemathesis.config._output import OutputConfig, SanitizationConfig, TruncationConfig
-from schemathesis.config._phases import CoveragePhaseConfig, PhaseConfig, PhasesConfig, StatefulPhaseConfig
-from schemathesis.config._projects import ProjectConfig, ProjectsConfig, SchemathesisWarning, get_workers_count
+from schemathesis.config._phases import (
+    CoveragePhaseConfig,
+    ExamplesPhaseConfig,
+    ExtraDataSourcesConfig,
+    FuzzingPhaseConfig,
+    InferenceAlgorithm,
+    OperationOrdering,
+    PhasesConfig,
+    StatefulPhaseConfig,
+)
+from schemathesis.config._projects import ProjectConfig, ProjectsConfig, get_workers_count
 from schemathesis.config._report import DEFAULT_REPORT_DIRECTORY, ReportConfig, ReportFormat, ReportsConfig
+from schemathesis.config._warnings import SchemathesisWarning, WarningsConfig
+
+if sys.version_info < (3, 11):
+    import tomli
+else:
+    import tomllib as tomli
 
 __all__ = [
     "SchemathesisConfig",
@@ -40,14 +56,22 @@ __all__ = [
     "NotAServerErrorConfig",
     "PositiveDataAcceptanceConfig",
     "SimpleCheckConfig",
-    "PhaseConfig",
     "PhasesConfig",
+    "FuzzingPhaseConfig",
     "CoveragePhaseConfig",
+    "ExamplesPhaseConfig",
     "StatefulPhaseConfig",
+    "ExtraDataSourcesConfig",
+    "InferenceAlgorithm",
+    "OperationOrdering",
     "ProjectsConfig",
     "ProjectConfig",
     "get_workers_count",
     "SchemathesisWarning",
+    "WarningsConfig",
+    "ApiKeyAuthConfig",
+    "HttpBasicAuthConfig",
+    "HttpBearerAuthConfig",
 ]
 
 
@@ -56,6 +80,7 @@ class SchemathesisConfig(DiffBase):
     color: bool | None
     suppress_health_check: list[HealthCheck]
     _seed: int | None
+    _config_path: str | None
     wait_for_schema: float | int | None
     max_failures: int | None
     reports: ReportsConfig
@@ -66,6 +91,7 @@ class SchemathesisConfig(DiffBase):
         "color",
         "suppress_health_check",
         "_seed",
+        "_config_path",
         "wait_for_schema",
         "max_failures",
         "reports",
@@ -88,6 +114,7 @@ class SchemathesisConfig(DiffBase):
         self.color = color
         self.suppress_health_check = suppress_health_check or []
         self._seed = seed
+        self._config_path = None
         self.wait_for_schema = wait_for_schema
         self.max_failures = max_failures
         self.reports = reports or ReportsConfig()
@@ -100,6 +127,14 @@ class SchemathesisConfig(DiffBase):
         if self._seed is None:
             self._seed = Random().getrandbits(128)
         return self._seed
+
+    @property
+    def config_path(self) -> str | None:
+        """Filesystem path to the loaded configuration file, if any.
+
+        Returns None if using default configuration.
+        """
+        return self._config_path
 
     @classmethod
     def discover(cls) -> SchemathesisConfig:
@@ -158,7 +193,9 @@ class SchemathesisConfig(DiffBase):
     def from_path(cls, path: PathLike | str) -> SchemathesisConfig:
         """Load configuration from a file path."""
         with open(path, encoding="utf-8") as fd:
-            return cls.from_str(fd.read())
+            config = cls.from_str(fd.read())
+            config._config_path = str(Path(path).resolve())
+            return config
 
     @classmethod
     def from_str(cls, data: str) -> SchemathesisConfig:

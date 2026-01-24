@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -115,6 +115,9 @@ class KeyAlgorithm(StrEnum):
     EC_prime256v1 = "EC_prime256v1"
     EC_secp384r1 = "EC_secp384r1"
     EC_secp521r1 = "EC_secp521r1"
+    ML_DSA_44 = "ML_DSA_44"
+    ML_DSA_65 = "ML_DSA_65"
+    ML_DSA_87 = "ML_DSA_87"
     SM2 = "SM2"
 
 
@@ -157,6 +160,9 @@ class SigningAlgorithm(StrEnum):
     SHA384WITHRSA = "SHA384WITHRSA"
     SHA512WITHRSA = "SHA512WITHRSA"
     SM3WITHSM2 = "SM3WITHSM2"
+    ML_DSA_44 = "ML_DSA_44"
+    ML_DSA_65 = "ML_DSA_65"
+    ML_DSA_87 = "ML_DSA_87"
 
 
 class ValidityPeriodType(StrEnum):
@@ -348,7 +354,7 @@ class CustomAttribute(TypedDict, total=False):
     Value: String1To256
 
 
-CustomAttributeList = List[CustomAttribute]
+CustomAttributeList = list[CustomAttribute]
 
 
 class ASN1Subject(TypedDict, total=False):
@@ -360,21 +366,21 @@ class ASN1Subject(TypedDict, total=False):
     The RDNs are separated by commas in the certificate.
     """
 
-    Country: Optional[CountryCodeString]
-    Organization: Optional[String64]
-    OrganizationalUnit: Optional[String64]
-    DistinguishedNameQualifier: Optional[ASN1PrintableString64]
-    State: Optional[String128]
-    CommonName: Optional[String64]
-    SerialNumber: Optional[ASN1PrintableString64]
-    Locality: Optional[String128]
-    Title: Optional[String64]
-    Surname: Optional[String40]
-    GivenName: Optional[String16]
-    Initials: Optional[String5]
-    Pseudonym: Optional[String128]
-    GenerationQualifier: Optional[String3]
-    CustomAttributes: Optional[CustomAttributeList]
+    Country: CountryCodeString | None
+    Organization: String64 | None
+    OrganizationalUnit: String64 | None
+    DistinguishedNameQualifier: ASN1PrintableString64 | None
+    State: String128 | None
+    CommonName: String64 | None
+    SerialNumber: ASN1PrintableString64 | None
+    Locality: String128 | None
+    Title: String64 | None
+    Surname: String40 | None
+    GivenName: String16 | None
+    Initials: String5 | None
+    Pseudonym: String128 | None
+    GenerationQualifier: String3 | None
+    CustomAttributes: CustomAttributeList | None
 
 
 class EdiPartyName(TypedDict, total=False):
@@ -384,7 +390,7 @@ class EdiPartyName(TypedDict, total=False):
     """
 
     PartyName: String256
-    NameAssigner: Optional[String256]
+    NameAssigner: String256 | None
 
 
 class OtherName(TypedDict, total=False):
@@ -405,14 +411,14 @@ class GeneralName(TypedDict, total=False):
     option results in an ``InvalidArgsException`` error.
     """
 
-    OtherName: Optional[OtherName]
-    Rfc822Name: Optional[String256]
-    DnsName: Optional[String253]
-    DirectoryName: Optional[ASN1Subject]
-    EdiPartyName: Optional[EdiPartyName]
-    UniformResourceIdentifier: Optional[String253]
-    IpAddress: Optional[String39]
-    RegisteredId: Optional[CustomObjectIdentifier]
+    OtherName: OtherName | None
+    Rfc822Name: String256 | None
+    DnsName: String253 | None
+    DirectoryName: ASN1Subject | None
+    EdiPartyName: EdiPartyName | None
+    UniformResourceIdentifier: String253 | None
+    IpAddress: String39 | None
+    RegisteredId: CustomObjectIdentifier | None
 
 
 class AccessMethod(TypedDict, total=False):
@@ -421,8 +427,8 @@ class AccessMethod(TypedDict, total=False):
     Providing both results in ``InvalidArgsException``.
     """
 
-    CustomObjectIdentifier: Optional[CustomObjectIdentifier]
-    AccessMethodType: Optional[AccessMethodType]
+    CustomObjectIdentifier: CustomObjectIdentifier | None
+    AccessMethodType: AccessMethodType | None
 
 
 class AccessDescription(TypedDict, total=False):
@@ -435,8 +441,8 @@ class AccessDescription(TypedDict, total=False):
     AccessLocation: GeneralName
 
 
-AccessDescriptionList = List[AccessDescription]
-ActionList = List[ActionType]
+AccessDescriptionList = list[AccessDescription]
+ActionList = list[ActionType]
 
 
 class CustomExtension(TypedDict, total=False):
@@ -449,11 +455,11 @@ class CustomExtension(TypedDict, total=False):
 
     ObjectIdentifier: CustomObjectIdentifier
     Value: Base64String1To4096
-    Critical: Optional[Boolean]
+    Critical: Boolean | None
 
 
-CustomExtensionList = List[CustomExtension]
-GeneralNameList = List[GeneralName]
+CustomExtensionList = list[CustomExtension]
+GeneralNameList = list[GeneralName]
 
 
 class KeyUsage(TypedDict, total=False):
@@ -461,15 +467,15 @@ class KeyUsage(TypedDict, total=False):
     certificate can be used. Default value for each option is false.
     """
 
-    DigitalSignature: Optional[Boolean]
-    NonRepudiation: Optional[Boolean]
-    KeyEncipherment: Optional[Boolean]
-    DataEncipherment: Optional[Boolean]
-    KeyAgreement: Optional[Boolean]
-    KeyCertSign: Optional[Boolean]
-    CRLSign: Optional[Boolean]
-    EncipherOnly: Optional[Boolean]
-    DecipherOnly: Optional[Boolean]
+    DigitalSignature: Boolean | None
+    NonRepudiation: Boolean | None
+    KeyEncipherment: Boolean | None
+    DataEncipherment: Boolean | None
+    KeyAgreement: Boolean | None
+    KeyCertSign: Boolean | None
+    CRLSign: Boolean | None
+    EncipherOnly: Boolean | None
+    DecipherOnly: Boolean | None
 
 
 class ExtendedKeyUsage(TypedDict, total=False):
@@ -477,11 +483,11 @@ class ExtendedKeyUsage(TypedDict, total=False):
     used other than basic purposes indicated in the ``KeyUsage`` extension.
     """
 
-    ExtendedKeyUsageType: Optional[ExtendedKeyUsageType]
-    ExtendedKeyUsageObjectIdentifier: Optional[CustomObjectIdentifier]
+    ExtendedKeyUsageType: ExtendedKeyUsageType | None
+    ExtendedKeyUsageObjectIdentifier: CustomObjectIdentifier | None
 
 
-ExtendedKeyUsageList = List[ExtendedKeyUsage]
+ExtendedKeyUsageList = list[ExtendedKeyUsage]
 
 
 class Qualifier(TypedDict, total=False):
@@ -504,27 +510,27 @@ class PolicyQualifierInfo(TypedDict, total=False):
     Qualifier: Qualifier
 
 
-PolicyQualifierInfoList = List[PolicyQualifierInfo]
+PolicyQualifierInfoList = list[PolicyQualifierInfo]
 
 
 class PolicyInformation(TypedDict, total=False):
     """Defines the X.509 ``CertificatePolicies`` extension."""
 
     CertPolicyId: CustomObjectIdentifier
-    PolicyQualifiers: Optional[PolicyQualifierInfoList]
+    PolicyQualifiers: PolicyQualifierInfoList | None
 
 
-CertificatePolicyList = List[PolicyInformation]
+CertificatePolicyList = list[PolicyInformation]
 
 
 class Extensions(TypedDict, total=False):
     """Contains X.509 extension information for a certificate."""
 
-    CertificatePolicies: Optional[CertificatePolicyList]
-    ExtendedKeyUsage: Optional[ExtendedKeyUsageList]
-    KeyUsage: Optional[KeyUsage]
-    SubjectAlternativeNames: Optional[GeneralNameList]
-    CustomExtensions: Optional[CustomExtensionList]
+    CertificatePolicies: CertificatePolicyList | None
+    ExtendedKeyUsage: ExtendedKeyUsageList | None
+    KeyUsage: KeyUsage | None
+    SubjectAlternativeNames: GeneralNameList | None
+    CustomExtensions: CustomExtensionList | None
 
 
 class ApiPassthrough(TypedDict, total=False):
@@ -539,8 +545,8 @@ class ApiPassthrough(TypedDict, total=False):
     to determine what information is used.
     """
 
-    Extensions: Optional[Extensions]
-    Subject: Optional[ASN1Subject]
+    Extensions: Extensions | None
+    Subject: ASN1Subject | None
 
 
 TStamp = datetime
@@ -555,7 +561,7 @@ class OcspConfiguration(TypedDict, total=False):
     """
 
     Enabled: Boolean
-    OcspCustomCname: Optional[CnameString]
+    OcspCustomCname: CnameString | None
 
 
 class CrlDistributionPointExtensionConfiguration(TypedDict, total=False):
@@ -652,13 +658,13 @@ class CrlConfiguration(TypedDict, total=False):
     """
 
     Enabled: Boolean
-    ExpirationInDays: Optional[Integer1To5000]
-    CustomCname: Optional[CnameString]
-    S3BucketName: Optional[S3BucketName3To255]
-    S3ObjectAcl: Optional[S3ObjectAcl]
-    CrlDistributionPointExtensionConfiguration: Optional[CrlDistributionPointExtensionConfiguration]
-    CrlType: Optional[CrlType]
-    CustomPath: Optional[CrlPathString]
+    ExpirationInDays: Integer1To5000 | None
+    CustomCname: CnameString | None
+    S3BucketName: S3BucketName3To255 | None
+    S3ObjectAcl: S3ObjectAcl | None
+    CrlDistributionPointExtensionConfiguration: CrlDistributionPointExtensionConfiguration | None
+    CrlType: CrlType | None
+    CustomPath: CrlPathString | None
 
 
 class RevocationConfiguration(TypedDict, total=False):
@@ -677,8 +683,8 @@ class RevocationConfiguration(TypedDict, total=False):
     in the *Amazon Web Services Private Certificate Authority User Guide*.
     """
 
-    CrlConfiguration: Optional[CrlConfiguration]
-    OcspConfiguration: Optional[OcspConfiguration]
+    CrlConfiguration: CrlConfiguration | None
+    OcspConfiguration: OcspConfiguration | None
 
 
 class CsrExtensions(TypedDict, total=False):
@@ -686,8 +692,8 @@ class CsrExtensions(TypedDict, total=False):
     signing request (CSR).
     """
 
-    KeyUsage: Optional[KeyUsage]
-    SubjectInformationAccess: Optional[AccessDescriptionList]
+    KeyUsage: KeyUsage | None
+    SubjectInformationAccess: AccessDescriptionList | None
 
 
 class CertificateAuthorityConfiguration(TypedDict, total=False):
@@ -704,7 +710,7 @@ class CertificateAuthorityConfiguration(TypedDict, total=False):
     KeyAlgorithm: KeyAlgorithm
     SigningAlgorithm: SigningAlgorithm
     Subject: ASN1Subject
-    CsrExtensions: Optional[CsrExtensions]
+    CsrExtensions: CsrExtensions | None
 
 
 class CertificateAuthority(TypedDict, total=False):
@@ -723,24 +729,24 @@ class CertificateAuthority(TypedDict, total=False):
     action to import the signed certificate into Certificate Manager (ACM).
     """
 
-    Arn: Optional[Arn]
-    OwnerAccount: Optional[AccountId]
-    CreatedAt: Optional[TStamp]
-    LastStateChangeAt: Optional[TStamp]
-    Type: Optional[CertificateAuthorityType]
-    Serial: Optional[String]
-    Status: Optional[CertificateAuthorityStatus]
-    NotBefore: Optional[TStamp]
-    NotAfter: Optional[TStamp]
-    FailureReason: Optional[FailureReason]
-    CertificateAuthorityConfiguration: Optional[CertificateAuthorityConfiguration]
-    RevocationConfiguration: Optional[RevocationConfiguration]
-    RestorableUntil: Optional[TStamp]
-    KeyStorageSecurityStandard: Optional[KeyStorageSecurityStandard]
-    UsageMode: Optional[CertificateAuthorityUsageMode]
+    Arn: Arn | None
+    OwnerAccount: AccountId | None
+    CreatedAt: TStamp | None
+    LastStateChangeAt: TStamp | None
+    Type: CertificateAuthorityType | None
+    Serial: String | None
+    Status: CertificateAuthorityStatus | None
+    NotBefore: TStamp | None
+    NotAfter: TStamp | None
+    FailureReason: FailureReason | None
+    CertificateAuthorityConfiguration: CertificateAuthorityConfiguration | None
+    RevocationConfiguration: RevocationConfiguration | None
+    RestorableUntil: TStamp | None
+    KeyStorageSecurityStandard: KeyStorageSecurityStandard | None
+    UsageMode: CertificateAuthorityUsageMode | None
 
 
-CertificateAuthorities = List[CertificateAuthority]
+CertificateAuthorities = list[CertificateAuthority]
 CertificateBodyBlob = bytes
 CertificateChainBlob = bytes
 
@@ -752,8 +758,8 @@ class CreateCertificateAuthorityAuditReportRequest(ServiceRequest):
 
 
 class CreateCertificateAuthorityAuditReportResponse(TypedDict, total=False):
-    AuditReportId: Optional[AuditReportId]
-    S3Key: Optional[S3Key]
+    AuditReportId: AuditReportId | None
+    S3Key: S3Key | None
 
 
 class Tag(TypedDict, total=False):
@@ -768,30 +774,30 @@ class Tag(TypedDict, total=False):
     """
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateCertificateAuthorityRequest(ServiceRequest):
     CertificateAuthorityConfiguration: CertificateAuthorityConfiguration
-    RevocationConfiguration: Optional[RevocationConfiguration]
+    RevocationConfiguration: RevocationConfiguration | None
     CertificateAuthorityType: CertificateAuthorityType
-    IdempotencyToken: Optional[IdempotencyToken]
-    KeyStorageSecurityStandard: Optional[KeyStorageSecurityStandard]
-    Tags: Optional[TagList]
-    UsageMode: Optional[CertificateAuthorityUsageMode]
+    IdempotencyToken: IdempotencyToken | None
+    KeyStorageSecurityStandard: KeyStorageSecurityStandard | None
+    Tags: TagList | None
+    UsageMode: CertificateAuthorityUsageMode | None
 
 
 class CreateCertificateAuthorityResponse(TypedDict, total=False):
-    CertificateAuthorityArn: Optional[Arn]
+    CertificateAuthorityArn: Arn | None
 
 
 class CreatePermissionRequest(ServiceRequest):
     CertificateAuthorityArn: Arn
     Principal: Principal
-    SourceAccount: Optional[AccountId]
+    SourceAccount: AccountId | None
     Actions: ActionList
 
 
@@ -800,13 +806,13 @@ CsrBlob = bytes
 
 class DeleteCertificateAuthorityRequest(ServiceRequest):
     CertificateAuthorityArn: Arn
-    PermanentDeletionTimeInDays: Optional[PermanentDeletionTimeInDays]
+    PermanentDeletionTimeInDays: PermanentDeletionTimeInDays | None
 
 
 class DeletePermissionRequest(ServiceRequest):
     CertificateAuthorityArn: Arn
     Principal: Principal
-    SourceAccount: Optional[AccountId]
+    SourceAccount: AccountId | None
 
 
 class DeletePolicyRequest(ServiceRequest):
@@ -819,10 +825,10 @@ class DescribeCertificateAuthorityAuditReportRequest(ServiceRequest):
 
 
 class DescribeCertificateAuthorityAuditReportResponse(TypedDict, total=False):
-    AuditReportStatus: Optional[AuditReportStatus]
-    S3BucketName: Optional[S3BucketName]
-    S3Key: Optional[S3Key]
-    CreatedAt: Optional[TStamp]
+    AuditReportStatus: AuditReportStatus | None
+    S3BucketName: S3BucketName | None
+    S3Key: S3Key | None
+    CreatedAt: TStamp | None
 
 
 class DescribeCertificateAuthorityRequest(ServiceRequest):
@@ -830,7 +836,7 @@ class DescribeCertificateAuthorityRequest(ServiceRequest):
 
 
 class DescribeCertificateAuthorityResponse(TypedDict, total=False):
-    CertificateAuthority: Optional[CertificateAuthority]
+    CertificateAuthority: CertificateAuthority | None
 
 
 class GetCertificateAuthorityCertificateRequest(ServiceRequest):
@@ -838,8 +844,8 @@ class GetCertificateAuthorityCertificateRequest(ServiceRequest):
 
 
 class GetCertificateAuthorityCertificateResponse(TypedDict, total=False):
-    Certificate: Optional[CertificateBody]
-    CertificateChain: Optional[CertificateChain]
+    Certificate: CertificateBody | None
+    CertificateChain: CertificateChain | None
 
 
 class GetCertificateAuthorityCsrRequest(ServiceRequest):
@@ -847,7 +853,7 @@ class GetCertificateAuthorityCsrRequest(ServiceRequest):
 
 
 class GetCertificateAuthorityCsrResponse(TypedDict, total=False):
-    Csr: Optional[CsrBody]
+    Csr: CsrBody | None
 
 
 class GetCertificateRequest(ServiceRequest):
@@ -856,8 +862,8 @@ class GetCertificateRequest(ServiceRequest):
 
 
 class GetCertificateResponse(TypedDict, total=False):
-    Certificate: Optional[CertificateBody]
-    CertificateChain: Optional[CertificateChain]
+    Certificate: CertificateBody | None
+    CertificateChain: CertificateChain | None
 
 
 class GetPolicyRequest(ServiceRequest):
@@ -865,13 +871,13 @@ class GetPolicyRequest(ServiceRequest):
 
 
 class GetPolicyResponse(TypedDict, total=False):
-    Policy: Optional[AWSPolicy]
+    Policy: AWSPolicy | None
 
 
 class ImportCertificateAuthorityCertificateRequest(ServiceRequest):
     CertificateAuthorityArn: Arn
     Certificate: CertificateBodyBlob
-    CertificateChain: Optional[CertificateChainBlob]
+    CertificateChain: CertificateChainBlob | None
 
 
 PositiveLong = int
@@ -898,34 +904,34 @@ class Validity(TypedDict, total=False):
 
 
 class IssueCertificateRequest(ServiceRequest):
-    ApiPassthrough: Optional[ApiPassthrough]
+    ApiPassthrough: ApiPassthrough | None
     CertificateAuthorityArn: Arn
     Csr: CsrBlob
     SigningAlgorithm: SigningAlgorithm
-    TemplateArn: Optional[Arn]
+    TemplateArn: Arn | None
     Validity: Validity
-    ValidityNotBefore: Optional[Validity]
-    IdempotencyToken: Optional[IdempotencyToken]
+    ValidityNotBefore: Validity | None
+    IdempotencyToken: IdempotencyToken | None
 
 
 class IssueCertificateResponse(TypedDict, total=False):
-    CertificateArn: Optional[Arn]
+    CertificateArn: Arn | None
 
 
 class ListCertificateAuthoritiesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    ResourceOwner: Optional[ResourceOwner]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    ResourceOwner: ResourceOwner | None
 
 
 class ListCertificateAuthoritiesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    CertificateAuthorities: Optional[CertificateAuthorities]
+    NextToken: NextToken | None
+    CertificateAuthorities: CertificateAuthorities | None
 
 
 class ListPermissionsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     CertificateAuthorityArn: Arn
 
 
@@ -943,31 +949,31 @@ class Permission(TypedDict, total=False):
     action.
     """
 
-    CertificateAuthorityArn: Optional[Arn]
-    CreatedAt: Optional[TStamp]
-    Principal: Optional[Principal]
-    SourceAccount: Optional[AccountId]
-    Actions: Optional[ActionList]
-    Policy: Optional[AWSPolicy]
+    CertificateAuthorityArn: Arn | None
+    CreatedAt: TStamp | None
+    Principal: Principal | None
+    SourceAccount: AccountId | None
+    Actions: ActionList | None
+    Policy: AWSPolicy | None
 
 
-PermissionList = List[Permission]
+PermissionList = list[Permission]
 
 
 class ListPermissionsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    Permissions: Optional[PermissionList]
+    NextToken: NextToken | None
+    Permissions: PermissionList | None
 
 
 class ListTagsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     CertificateAuthorityArn: Arn
 
 
 class ListTagsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    Tags: Optional[TagList]
+    NextToken: NextToken | None
+    Tags: TagList | None
 
 
 class PutPolicyRequest(ServiceRequest):
@@ -997,13 +1003,13 @@ class UntagCertificateAuthorityRequest(ServiceRequest):
 
 class UpdateCertificateAuthorityRequest(ServiceRequest):
     CertificateAuthorityArn: Arn
-    RevocationConfiguration: Optional[RevocationConfiguration]
-    Status: Optional[CertificateAuthorityStatus]
+    RevocationConfiguration: RevocationConfiguration | None
+    Status: CertificateAuthorityStatus | None
 
 
 class AcmPcaApi:
-    service = "acm-pca"
-    version = "2017-08-22"
+    service: str = "acm-pca"
+    version: str = "2017-08-22"
 
     @handler("CreateCertificateAuthority")
     def create_certificate_authority(

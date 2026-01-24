@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-import datetime
 import functools
 import itertools
 import typing
@@ -31,9 +30,7 @@ from typing import (
     Tuple,
 )
 
-import google.cloud.bigquery as bq
-
-from bigframes.core import agg_expressions, identifiers, local_data, sequences
+from bigframes.core import agg_expressions, bq_data, identifiers, local_data, sequences
 from bigframes.core.bigframe_node import BigFrameNode, COLUMN_SET
 import bigframes.core.expression as ex
 from bigframes.core.field import Field
@@ -49,6 +46,12 @@ if typing.TYPE_CHECKING:
 
 # A fixed number of variable to assume for overhead on some operations
 OVERHEAD_VARIABLES = 5
+
+
+@dataclasses.dataclass(frozen=True, eq=True)
+class ColumnDef:
+    expression: ex.Expression
+    id: identifiers.ColumnId
 
 
 class AdditiveNode:
@@ -203,13 +206,10 @@ class InNode(BigFrameNode, AdditiveNode):
     left_child: BigFrameNode
     right_child: BigFrameNode
     left_col: ex.DerefOp
-    right_col: ex.DerefOp
     indicator_col: identifiers.ColumnId
 
     def _validate(self):
-        assert not (
-            set(self.left_child.ids) & set(self.right_child.ids)
-        ), "Join ids collide"
+        assert len(self.right_child.fields) == 1
 
     @property
     def row_preserving(self) -> bool:
@@ -262,7 +262,11 @@ class InNode(BigFrameNode, AdditiveNode):
 
     @property
     def referenced_ids(self) -> COLUMN_SET:
-        return frozenset({self.left_col.id, self.right_col.id})
+        return frozenset(
+            {
+                self.left_col.id,
+            }
+        )
 
     @property
     def additive_base(self) -> BigFrameNode:
@@ -271,12 +275,13 @@ class InNode(BigFrameNode, AdditiveNode):
     @property
     def joins_nulls(self) -> bool:
         left_nullable = self.left_child.field_by_id[self.left_col.id].nullable
-        right_nullable = self.right_child.field_by_id[self.right_col.id].nullable
+        # assumption: right side has one column
+        right_nullable = self.right_child.fields[0].nullable
         return left_nullable or right_nullable
 
     @property
     def _node_expressions(self):
-        return (self.left_col, self.right_col)
+        return (self.left_col,)
 
     def replace_additive_base(self, node: BigFrameNode):
         return dataclasses.replace(self, left_child=node)
@@ -303,9 +308,6 @@ class InNode(BigFrameNode, AdditiveNode):
         return dataclasses.replace(
             self,
             left_col=self.left_col.remap_column_refs(
-                mappings, allow_partial_bindings=True
-            ),
-            right_col=self.right_col.remap_column_refs(
                 mappings, allow_partial_bindings=True
             ),
         )  # type: ignore
@@ -599,14 +601,13 @@ class LeafNode(BigFrameNode):
 
 class ScanItem(typing.NamedTuple):
     id: identifiers.ColumnId
-    dtype: bigframes.dtypes.Dtype  # Might be multiple logical types for a given physical source type
     source_id: str  # Flexible enough for both local data and bq data
 
     def with_id(self, id: identifiers.ColumnId) -> ScanItem:
-        return ScanItem(id, self.dtype, self.source_id)
+        return ScanItem(id, self.source_id)
 
     def with_source_id(self, source_id: str) -> ScanItem:
-        return ScanItem(self.id, self.dtype, source_id)
+        return ScanItem(self.id, source_id)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -661,7 +662,7 @@ class ScanList:
     def append(
         self, source_id: str, dtype: bigframes.dtypes.Dtype, id: identifiers.ColumnId
     ) -> ScanList:
-        return ScanList((*self.items, ScanItem(id, dtype, source_id)))
+        return ScanList((*self.items, ScanItem(id, source_id)))
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -677,8 +678,10 @@ class ReadLocalNode(LeafNode):
     @property
     def fields(self) -> Sequence[Field]:
         fields = tuple(
-            Field(col_id, dtype) for col_id, dtype, _ in self.scan_list.items
+            Field(col_id, self.local_data_source.schema.get_type(source_id))
+            for col_id, source_id in self.scan_list.items
         )
+
         if self.offsets_col is not None:
             return tuple(
                 itertools.chain(
@@ -726,7 +729,7 @@ class ReadLocalNode(LeafNode):
     ) -> ReadLocalNode:
         new_scan_list = ScanList(
             tuple(
-                ScanItem(mappings.get(item.id, item.id), item.dtype, item.source_id)
+                ScanItem(mappings.get(item.id, item.id), item.source_id)
                 for item in self.scan_list.items
             )
         )
@@ -745,64 +748,9 @@ class ReadLocalNode(LeafNode):
         return self
 
 
-@dataclasses.dataclass(frozen=True)
-class GbqTable:
-    project_id: str = dataclasses.field()
-    dataset_id: str = dataclasses.field()
-    table_id: str = dataclasses.field()
-    physical_schema: Tuple[bq.SchemaField, ...] = dataclasses.field()
-    is_physically_stored: bool = dataclasses.field()
-    cluster_cols: typing.Optional[Tuple[str, ...]]
-
-    @staticmethod
-    def from_table(table: bq.Table, columns: Sequence[str] = ()) -> GbqTable:
-        # Subsetting fields with columns can reduce cost of row-hash default ordering
-        if columns:
-            schema = tuple(item for item in table.schema if item.name in columns)
-        else:
-            schema = tuple(table.schema)
-        return GbqTable(
-            project_id=table.project,
-            dataset_id=table.dataset_id,
-            table_id=table.table_id,
-            physical_schema=schema,
-            is_physically_stored=(table.table_type in ["TABLE", "MATERIALIZED_VIEW"]),
-            cluster_cols=None
-            if table.clustering_fields is None
-            else tuple(table.clustering_fields),
-        )
-
-    def get_table_ref(self) -> bq.TableReference:
-        return bq.TableReference(
-            bq.DatasetReference(self.project_id, self.dataset_id), self.table_id
-        )
-
-    @property
-    @functools.cache
-    def schema_by_id(self):
-        return {col.name: col for col in self.physical_schema}
-
-
-@dataclasses.dataclass(frozen=True)
-class BigqueryDataSource:
-    """
-    Google BigQuery Data source.
-
-    This should not be modified once defined, as all attributes contribute to the default ordering.
-    """
-
-    table: GbqTable
-    at_time: typing.Optional[datetime.datetime] = None
-    # Added for backwards compatibility, not validated
-    sql_predicate: typing.Optional[str] = None
-    ordering: typing.Optional[orderings.RowOrdering] = None
-    n_rows: Optional[int] = None
-
-
-## Put ordering in here or just add order_by node above?
 @dataclasses.dataclass(frozen=True, eq=False)
 class ReadTableNode(LeafNode):
-    source: BigqueryDataSource
+    source: bq_data.BigqueryDataSource
     # Subset of physical schema column
     # Mapping of table schema ids to bfet id.
     scan_list: ScanList
@@ -826,8 +774,12 @@ class ReadTableNode(LeafNode):
     @property
     def fields(self) -> Sequence[Field]:
         return tuple(
-            Field(col_id, dtype, self.source.table.schema_by_id[source_id].is_nullable)
-            for col_id, dtype, source_id in self.scan_list.items
+            Field(
+                col_id,
+                self.source.schema.get_type(source_id),
+                self.source.table.schema_by_id[source_id].is_nullable,
+            )
+            for col_id, source_id in self.scan_list.items
         )
 
     @property
@@ -886,7 +838,7 @@ class ReadTableNode(LeafNode):
     ) -> ReadTableNode:
         new_scan_list = ScanList(
             tuple(
-                ScanItem(mappings.get(item.id, item.id), item.dtype, item.source_id)
+                ScanItem(mappings.get(item.id, item.id), item.source_id)
                 for item in self.scan_list.items
             )
         )
@@ -907,7 +859,6 @@ class ReadTableNode(LeafNode):
         new_scan_cols = [
             ScanItem(
                 identifiers.ColumnId.unique(),
-                dtype=bigframes.dtypes.convert_schema_field(field)[1],
                 source_id=field.name,
             )
             for field in self.source.table.physical_schema
@@ -1253,6 +1204,7 @@ class ProjectionNode(UnaryNode, AdditiveNode):
         for expression, _ in self.assignments:
             # throws TypeError if invalid
             _ = ex.bind_schema_fields(expression, self.child.field_by_id).output_type
+            assert expression.is_scalar_expr
         # Cannot assign to existing variables - append only!
         assert all(name not in self.child.schema.names for _, name in self.assignments)
 
@@ -1445,19 +1397,25 @@ class AggregateNode(UnaryNode):
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class WindowOpNode(UnaryNode, AdditiveNode):
-    expression: agg_expressions.Aggregation
+    agg_exprs: tuple[ColumnDef, ...]  # must be analytic/aggregation op
     window_spec: window.WindowSpec
-    output_name: identifiers.ColumnId
-    never_skip_nulls: bool = False
-    skip_reproject_unsafe: bool = False
 
     def _validate(self):
         """Validate the local data in the node."""
         # Since inner order and row bounds are coupled, rank ops can't be row bounded
-        assert (
-            not self.window_spec.is_row_bounded
-        ) or self.expression.op.implicitly_inherits_order
-        assert all(ref in self.child.ids for ref in self.expression.column_references)
+        for cdef in self.agg_exprs:
+            assert isinstance(cdef.expression, agg_expressions.Aggregation)
+            if self.window_spec.is_row_bounded:
+                assert cdef.expression.op.implicitly_inherits_order
+            for agg_child in cdef.expression.children:
+                assert agg_child.is_scalar_expr
+            for ref in cdef.expression.column_references:
+                assert ref in self.child.ids
+
+        assert not any(field.dtype is None for field in self.added_fields)
+
+        for window_expr in self.window_spec.expressions:
+            assert window_expr.is_scalar_expr
 
     @property
     def non_local(self) -> bool:
@@ -1465,7 +1423,7 @@ class WindowOpNode(UnaryNode, AdditiveNode):
 
     @property
     def fields(self) -> Sequence[Field]:
-        return sequences.ChainedSequence(self.child.fields, (self.added_field,))
+        return sequences.ChainedSequence(self.child.fields, self.added_fields)
 
     @property
     def variables_introduced(self) -> int:
@@ -1473,49 +1431,54 @@ class WindowOpNode(UnaryNode, AdditiveNode):
 
     @property
     def added_fields(self) -> Tuple[Field, ...]:
-        return (self.added_field,)
+        return tuple(
+            Field(
+                cdef.id,
+                ex.bind_schema_fields(
+                    cdef.expression, self.child.field_by_id
+                ).output_type,
+            )
+            for cdef in self.agg_exprs
+        )
 
     @property
     def relation_ops_created(self) -> int:
-        # Assume that if not reprojecting, that there is a sequence of window operations sharing the same window
-        return 0 if self.skip_reproject_unsafe else 4
+        return 2
 
     @property
     def row_count(self) -> Optional[int]:
         return self.child.row_count
 
-    @functools.cached_property
-    def added_field(self) -> Field:
-        # TODO: Determine if output could be non-null
-        return Field(
-            self.output_name,
-            ex.bind_schema_fields(self.expression, self.child.field_by_id).output_type,
-        )
-
     @property
     def node_defined_ids(self) -> Tuple[identifiers.ColumnId, ...]:
-        return (self.output_name,)
+        return tuple(field.id for field in self.added_fields)
 
     @property
     def consumed_ids(self) -> COLUMN_SET:
-        return frozenset(
-            set(self.ids).difference([self.output_name]).union(self.referenced_ids)
-        )
+        return frozenset(self.ids)
 
     @property
     def referenced_ids(self) -> COLUMN_SET:
+        ids_for_aggs = itertools.chain.from_iterable(
+            cdef.expression.column_references for cdef in self.agg_exprs
+        )
         return (
             frozenset()
-            .union(self.expression.column_references)
+            .union(ids_for_aggs)
             .union(self.window_spec.all_referenced_columns)
         )
 
     @property
     def inherits_order(self) -> bool:
         # does the op both use ordering at all? and if so, can it inherit order?
-        op_inherits_order = (
-            not self.expression.op.order_independent
-        ) and self.expression.op.implicitly_inherits_order
+        aggs = (
+            typing.cast(agg_expressions.Aggregation, cdef.expression)
+            for cdef in self.agg_exprs
+        )
+        op_inherits_order = any(
+            not agg.op.order_independent and agg.op.implicitly_inherits_order
+            for agg in aggs
+        )
         # range-bounded windows do not inherit orders because their ordering are
         # already defined before rewrite time.
         return op_inherits_order or self.window_spec.is_row_bounded
@@ -1526,7 +1489,10 @@ class WindowOpNode(UnaryNode, AdditiveNode):
 
     @property
     def _node_expressions(self):
-        return (self.expression, *self.window_spec.expressions)
+        return (
+            *(cdef.expression for cdef in self.agg_exprs),
+            *self.window_spec.expressions,
+        )
 
     def replace_additive_base(self, node: BigFrameNode) -> WindowOpNode:
         return dataclasses.replace(self, child=node)
@@ -1535,7 +1501,11 @@ class WindowOpNode(UnaryNode, AdditiveNode):
         self, mappings: Mapping[identifiers.ColumnId, identifiers.ColumnId]
     ) -> WindowOpNode:
         return dataclasses.replace(
-            self, output_name=mappings.get(self.output_name, self.output_name)
+            self,
+            agg_exprs=tuple(
+                ColumnDef(cdef.expression, mappings.get(cdef.id, cdef.id))
+                for cdef in self.agg_exprs
+            ),
         )
 
     def remap_refs(
@@ -1543,8 +1513,14 @@ class WindowOpNode(UnaryNode, AdditiveNode):
     ) -> WindowOpNode:
         return dataclasses.replace(
             self,
-            expression=self.expression.remap_column_refs(
-                mappings, allow_partial_bindings=True
+            agg_exprs=tuple(
+                ColumnDef(
+                    cdef.expression.remap_column_refs(
+                        mappings, allow_partial_bindings=True
+                    ),
+                    cdef.id,
+                )
+                for cdef in self.agg_exprs
             ),
             window_spec=self.window_spec.remap_column_refs(
                 mappings, allow_partial_bindings=True
@@ -1681,7 +1657,7 @@ class ResultNode(UnaryNode):
     # TODO: CTE definitions
 
     def _validate(self):
-        for ref, name in self.output_cols:
+        for ref, _ in self.output_cols:
             assert ref.id in self.child.ids
 
     @property

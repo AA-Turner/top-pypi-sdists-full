@@ -1,6 +1,6 @@
 // This contains the support for Python objects and Qt's metatype system.
 //
-// Copyright (c) 2025 Riverbank Computing Limited <info@riverbankcomputing.com>
+// Copyright (c) 2026 Riverbank Computing Limited <info@riverbankcomputing.com>
 // 
 // This file is part of PyQt6.
 // 
@@ -87,6 +87,31 @@ PyQt_PyObject &PyQt_PyObject::operator=(const PyQt_PyObject &other)
     SIP_UNBLOCK_THREADS
 
     return *this;
+}
+
+
+// QString operator cast.
+PyQt_PyObject::operator QString() const
+{
+    QString qs;
+
+    SIP_BLOCK_THREADS
+
+    PyObject *py_s = PyObject_Str(pyobject);
+
+    if (py_s)
+    {
+        qs = qpycore_PyObject_AsQString(py_s);
+        Py_DECREF(py_s);
+    }
+    else
+    {
+        qs = QString("PyQt_PyObject string conversion failed");
+    }
+
+    SIP_UNBLOCK_THREADS
+
+    return qs;
 }
 
 

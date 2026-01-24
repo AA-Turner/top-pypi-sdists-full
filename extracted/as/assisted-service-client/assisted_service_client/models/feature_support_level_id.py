@@ -28,6 +28,7 @@ class FeatureSupportLevelId(object):
     """
     SNO = "SNO"
     TNA = "TNA"
+    TNF = "TNF"
     VIP_AUTO_ALLOC = "VIP_AUTO_ALLOC"
     CUSTOM_MANIFEST = "CUSTOM_MANIFEST"
     SINGLE_NODE_EXPANSION = "SINGLE_NODE_EXPANSION"
@@ -74,6 +75,9 @@ class FeatureSupportLevelId(object):
     NUMA_RESOURCES = "NUMA_RESOURCES"
     OADP = "OADP"
     METALLB = "METALLB"
+    DUAL_STACK_PRIMARY_IPV6 = "DUAL_STACK_PRIMARY_IPV6"
+    LOKI = "LOKI"
+    OPENSHIFT_LOGGING = "OPENSHIFT_LOGGING"
 
     """
     Attributes:

@@ -12,12 +12,12 @@ from .verificationresponsedetail import (
 )
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class ProfileGender(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -81,9 +81,7 @@ class VerificationRequest(BaseModel):
 
     profile_emails: Optional[List[str]] = None
 
-    profile_gender: Annotated[
-        Optional[ProfileGender], PlainValidator(validate_open_enum(False))
-    ] = None
+    profile_gender: Optional[ProfileGender] = None
 
     profile_ip_address: Optional[str] = None
 
@@ -112,10 +110,70 @@ class VerificationRequest(BaseModel):
 
     response_source: Optional[str] = None
 
-    response_status: Annotated[
-        Optional[ResponseStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    response_status: Optional[ResponseStatus] = None
 
     target_url: Optional[str] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("profile_gender")
+    def serialize_profile_gender(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.ProfileGender(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("response_status")
+    def serialize_response_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.ResponseStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "candidate_id",
+                "created_at",
+                "id",
+                "package_id",
+                "parameters",
+                "profile_addresses",
+                "profile_date_of_birth",
+                "profile_emails",
+                "profile_gender",
+                "profile_ip_address",
+                "profile_name",
+                "profile_national_identifier",
+                "profile_telephones",
+                "raw",
+                "response_completed_at",
+                "response_details",
+                "response_download_urls",
+                "response_expires_at",
+                "response_issued_at",
+                "response_redirect_url",
+                "response_score",
+                "response_source",
+                "response_status",
+                "target_url",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

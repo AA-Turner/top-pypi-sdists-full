@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pd
@@ -12,8 +12,12 @@ from tidy3d.components.boundary import BoundarySpec
 from tidy3d.components.geometry.base import Box
 from tidy3d.components.grid.grid import Grid
 from tidy3d.components.grid.grid_spec import GridSpec
-from tidy3d.components.mode_spec import ModeSpec
-from tidy3d.components.monitor import ModeMonitor, ModeSolverMonitor, PermittivityMonitor
+from tidy3d.components.monitor import (
+    MediumMonitor,
+    ModeMonitor,
+    ModeSolverMonitor,
+    PermittivityMonitor,
+)
 from tidy3d.components.simulation import (
     AbstractYeeGridSimulation,
     Simulation,
@@ -21,13 +25,15 @@ from tidy3d.components.simulation import (
 )
 from tidy3d.components.source.field import ModeSource
 from tidy3d.components.types import TYPE_TAG_STR, Ax, Direction, EMField, FreqArray
+from tidy3d.components.types.mode_spec import ModeSpecType
 from tidy3d.constants import C_0
 from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
+from tidy3d.packaging import supports_local_subpixel, tidy3d_extras
 
 from .mode_solver import ModeSolver
 
-ModeSimulationMonitorType = PermittivityMonitor
+ModeSimulationMonitorType = Union[PermittivityMonitor, MediumMonitor]
 
 # dummy run time for conversion to FDTD sim
 # should be very small -- otherwise, generating tmesh will fail or take a long time
@@ -43,6 +49,7 @@ MODE_SIM_MODE_SOLVER_SHARED_ATTRS = [
     "freqs",
     "direction",
     "colocate",
+    "conjugated_dot_product",
     "fields",
 ]
 # attributes shared between ModeSimulation class and AbstractYeeGridSimulation
@@ -112,10 +119,11 @@ class ModeSimulation(AbstractYeeGridSimulation):
         * `Prelude to Integrated Photonics Simulation: Mode Injection <https://www.flexcompute.com/fdtd101/Lecture-4-Prelude-to-Integrated-Photonics-Simulation-Mode-Injection/>`_
     """
 
-    mode_spec: ModeSpec = pd.Field(
+    mode_spec: ModeSpecType = pd.Field(
         ...,
         title="Mode specification",
         description="Container with specifications about the modes to be solved for.",
+        discriminator=TYPE_TAG_STR,
     )
 
     freqs: FreqArray = pd.Field(
@@ -134,6 +142,12 @@ class ModeSimulation(AbstractYeeGridSimulation):
         title="Colocate fields",
         description="Toggle whether fields should be colocated to grid cell boundaries (i.e. "
         "primal grid nodes). Default is ``True``.",
+    )
+
+    conjugated_dot_product: bool = pd.Field(
+        True,
+        title="Conjugated Dot Product",
+        description="Use conjugated or non-conjugated dot product for mode decomposition.",
     )
 
     fields: tuple[EMField, ...] = pd.Field(
@@ -166,6 +180,13 @@ class ModeSimulation(AbstractYeeGridSimulation):
         title="Sources",
         description="Sources in the simulation. Note: sources are not supported in mode "
         "simulations.",
+    )
+
+    internal_absorbers: tuple[()] = pd.Field(
+        (),
+        title="Internal Absorbers",
+        description="Planes with the first order absorbing boundary conditions placed inside the computational domain. "
+        "Note: absorbers are not supported in mode simulations.",
     )
 
     grid_spec: GridSpec = pd.Field(
@@ -230,8 +251,27 @@ class ModeSimulation(AbstractYeeGridSimulation):
         kwargs = {key: getattr(self, key) for key in MODE_SIM_MODE_SOLVER_SHARED_ATTRS}
         return ModeSolver(simulation=self._as_fdtd_sim, **kwargs)
 
+    @supports_local_subpixel
     def run_local(self):
         """Run locally."""
+
+        if tidy3d_extras["use_local_subpixel"]:
+            subpixel_sim = tidy3d_extras["mod"].SubpixelModeSimulation.from_mode_simulation(self)
+            return subpixel_sim.run_local()
+
+        for mnt in self.monitors:
+            if isinstance(mnt, (PermittivityMonitor, MediumMonitor)):
+                raise SetupError(
+                    "The package 'tidy3d-extras' is required "
+                    "for accurate local 'PermittivityMonitor' and 'MediumMonitor' handling. "
+                    "Please install this package using, for example, "
+                    "'pip install tidy3d[extras]', and ensure "
+                    "'config.use_local_subpixel' is not 'False'. "
+                    "Alternatively, 'ModeSimulation.epsilon' may be "
+                    "used to obtain the non-subpixel-averaged "
+                    "permittivity."
+                )
+
         from .data.sim_data import ModeSimulationData
 
         # repeat the calculation every time, in case use_local_subpixel changed
@@ -280,7 +320,7 @@ class ModeSimulation(AbstractYeeGridSimulation):
         cls,
         simulation: AbstractYeeGridSimulation,
         wavelength: Optional[pd.PositiveFloat] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ModeSimulation:
         """Creates :class:`.ModeSimulation` from a :class:`.AbstractYeeGridSimulation`.
 
@@ -373,7 +413,7 @@ class ModeSimulation(AbstractYeeGridSimulation):
         hlim: Optional[tuple[float, float]] = None,
         vlim: Optional[tuple[float, float]] = None,
         fill_structures: bool = True,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot the mode simulation. If any of ``x``, ``y``, or ``z`` is provided, the potentially
         larger FDTD simulation containing the mode plane is plotted at the desired location.
@@ -433,7 +473,7 @@ class ModeSimulation(AbstractYeeGridSimulation):
     def plot_mode_plane(
         self,
         ax: Ax = None,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot the mode plane simulation's components.
 
@@ -534,7 +574,7 @@ class ModeSimulation(AbstractYeeGridSimulation):
     def plot_grid_mode_plane(
         self,
         ax: Ax = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Ax:
         """Plot the mode plane cell boundaries as lines.
 
@@ -572,7 +612,8 @@ class ModeSimulation(AbstractYeeGridSimulation):
         """
         return self._mode_solver.plot_pml(ax=ax)
 
-    def validate_pre_upload(self, source_required: bool = False):
-        self._mode_solver.validate_pre_upload(source_required=source_required)
+    def validate_pre_upload(self) -> None:
+        super().validate_pre_upload()
+        self._mode_solver.validate_pre_upload()
 
     _boundaries_for_zero_dims = validate_boundaries_for_zero_dims(warn_on_change=False)

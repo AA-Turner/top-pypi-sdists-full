@@ -155,8 +155,11 @@ class GitlabCodeClimateReporter(BaseReporter):
                 "severity": self._MSG_SEVERITIES[msg.category],
                 "location": {
                     "path": pathlib.Path(msg.path).as_posix(),
-                    "lines": {
-                        "begin": msg.line,
+                    "positions": {
+                        "begin": {
+                            "line": msg.line,
+                            "column": msg.column + 1,
+                        },
                     },
                 },
                 "fingerprint": fingerprint,

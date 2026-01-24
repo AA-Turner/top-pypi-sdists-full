@@ -1,8 +1,8 @@
+import threading
 from collections import defaultdict
 from unittest.mock import ANY, patch
 
 import pytest
-
 from crewai.agent import Agent
 from crewai.crew import Crew
 from crewai.events.event_bus import crewai_event_bus
@@ -38,24 +38,33 @@ def short_term_memory():
 
 def test_short_term_memory_search_events(short_term_memory):
     events = defaultdict(list)
+    search_started = threading.Event()
+    search_completed = threading.Event()
 
-    with patch("crewai.rag.chromadb.client.ChromaDBClient.search", return_value=[]):
-        with crewai_event_bus.scoped_handlers():
+    with patch.object(short_term_memory.storage, "search", return_value=[]):
 
-            @crewai_event_bus.on(MemoryQueryStartedEvent)
-            def on_search_started(source, event):
-                events["MemoryQueryStartedEvent"].append(event)
+        @crewai_event_bus.on(MemoryQueryStartedEvent)
+        def on_search_started(source, event):
+            events["MemoryQueryStartedEvent"].append(event)
+            search_started.set()
 
-            @crewai_event_bus.on(MemoryQueryCompletedEvent)
-            def on_search_completed(source, event):
-                events["MemoryQueryCompletedEvent"].append(event)
+        @crewai_event_bus.on(MemoryQueryCompletedEvent)
+        def on_search_completed(source, event):
+            events["MemoryQueryCompletedEvent"].append(event)
+            search_completed.set()
 
-            # Call the save method
-            short_term_memory.search(
-                query="test value",
-                limit=3,
-                score_threshold=0.35,
-            )
+        short_term_memory.search(
+            query="test value",
+            limit=3,
+            score_threshold=0.35,
+        )
+
+        assert search_started.wait(timeout=2), (
+            "Timeout waiting for search started event"
+        )
+        assert search_completed.wait(timeout=2), (
+            "Timeout waiting for search completed event"
+        )
 
     assert len(events["MemoryQueryStartedEvent"]) == 1
     assert len(events["MemoryQueryCompletedEvent"]) == 1
@@ -98,21 +107,33 @@ def test_short_term_memory_search_events(short_term_memory):
 
 
 def test_short_term_memory_save_events(short_term_memory):
-    events = defaultdict(list)
-    with crewai_event_bus.scoped_handlers():
+    events: dict[str, list] = defaultdict(list)
+    condition = threading.Condition()
 
-        @crewai_event_bus.on(MemorySaveStartedEvent)
-        def on_save_started(source, event):
+    @crewai_event_bus.on(MemorySaveStartedEvent)
+    def on_save_started(source, event):
+        with condition:
             events["MemorySaveStartedEvent"].append(event)
+            condition.notify()
 
-        @crewai_event_bus.on(MemorySaveCompletedEvent)
-        def on_save_completed(source, event):
+    @crewai_event_bus.on(MemorySaveCompletedEvent)
+    def on_save_completed(source, event):
+        with condition:
             events["MemorySaveCompletedEvent"].append(event)
+            condition.notify()
 
-        short_term_memory.save(
-            value="test value",
-            metadata={"task": "test_task"},
+    short_term_memory.save(
+        value="test value",
+        metadata={"task": "test_task"},
+    )
+
+    with condition:
+        success = condition.wait_for(
+            lambda: len(events["MemorySaveStartedEvent"]) >= 1
+            and len(events["MemorySaveCompletedEvent"]) >= 1,
+            timeout=5,
         )
+    assert success, "Timeout waiting for save events"
 
     assert len(events["MemorySaveStartedEvent"]) == 1
     assert len(events["MemorySaveCompletedEvent"]) == 1

@@ -1,8 +1,6 @@
-from gehomesdk.erd.values import ErdWaterHeaterModeHoursRemaining
-
+from ...values import ErdWaterHeaterModeHoursRemaining
 from ..abstract import ErdReadWriteConverter
 from ..primitives import *
-
 
 class ErdWaterHeaterModeHoursRemainingConverter(
     ErdReadWriteConverter[ErdWaterHeaterModeHoursRemaining]
@@ -11,7 +9,7 @@ class ErdWaterHeaterModeHoursRemainingConverter(
         try:
             return ErdWaterHeaterModeHoursRemaining(hours=int(value, 16))
         except ValueError:
-            return ErdWaterHeaterModeHoursRemaining.OK
+            return ErdWaterHeaterModeHoursRemaining(hours=0)
 
     def erd_encode(self, value: ErdWaterHeaterModeHoursRemaining) -> str:
         return erd_encode_int(value.hours)

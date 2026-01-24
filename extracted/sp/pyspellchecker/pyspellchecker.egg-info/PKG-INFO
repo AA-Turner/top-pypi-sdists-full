@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pyspellchecker
-Version: 0.8.3
+Version: 0.8.4
 Summary: Pure python spell checker based on work by Peter Norvig
 Author-email: Tyler Barrus <barrust@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: homepage, https://github.com/barrust/pyspellchecker
 Project-URL: bug-tracker, https://github.com/barrust/pyspellchecker/issues
 Project-URL: documentation, https://pyspellchecker.readthedocs.io/
@@ -14,8 +14,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Classifier: License :: OSI Approved
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -24,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE

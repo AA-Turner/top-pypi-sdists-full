@@ -1,1 +1,0 @@
-#todo: Create tests for scenemember resource.

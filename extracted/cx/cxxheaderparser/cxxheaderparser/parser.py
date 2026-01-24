@@ -446,6 +446,11 @@ class CxxParser:
 
             while True:
                 names.append(tok.value)
+
+                atok = self.lex.token_if_in_set(self._attribute_start_tokens)
+                if atok:
+                    self._consume_attribute(atok)
+
                 tok = self._next_token_must_be("DBL_COLON", endtok)
                 if tok.type == endtok:
                     break
@@ -803,13 +808,6 @@ class CxxParser:
             ),
         )
 
-    # fmt: off
-    _expr_operators = {
-        "<", ">", "|", "%", "^", "!", "*", "-", "+", "&", "=",
-        "&&", "||", "<<"
-    }
-    # fmt: on
-
     def _parse_requires(
         self,
         tok: LexToken,
@@ -818,38 +816,48 @@ class CxxParser:
 
         rawtoks: typing.List[LexToken] = []
 
-        # The easier case -- requires requires
-        if tok.type == "requires":
-            rawtoks.append(tok)
-            for tt in ("(", "{"):
-                tok = self._next_token_must_be(tt)
+        # The expression in a requires clause must be one of the following:
+        #  1) A primary expression
+        #  2) A sequence of (1) joined with &&
+        #  3) A sequence of (2) joined with ||
+        #
+        # In terms of validity, this is equivalent to a sequence of primary expressions
+        # joined with && and/or ||.
+        #
+        # In general, a primary expression is one of the following:
+        #  1) this
+        #  2) a literal
+        #  3) an identifier expression
+        #  4) a lambda expression
+        #  5) a fold expression
+        #  6) a requires expression
+        #  7) any parenthesized expression
+        #
+        # For simplicity, we only consider the following primary expressions:
+        #  1) parenthesized expressions (which includes fold expressions)
+        #  2) requires expressions
+        #  3) identifer expressions (possibly qualified, possibly templated)
+        while True:
+            if tok.type == "(":
                 rawtoks.extend(self._consume_balanced_tokens(tok))
-            # .. and that's it?
-
-        # this is either a parenthesized expression or a primary clause
-        elif tok.type == "(":
-            rawtoks.extend(self._consume_balanced_tokens(tok))
-        else:
-            while True:
-                if tok.type == "(":
-                    rawtoks.extend(self._consume_balanced_tokens(tok))
-                else:
-                    tok = self._parse_requires_segment(tok, rawtoks)
-
-                # If this is not an operator of some kind, we don't know how
-                # to proceed so let the next parser figure it out
-                if tok.value not in self._expr_operators:
-                    break
-
-                rawtoks.append(tok)
-
-                # check once more for compound operator?
                 tok = self.lex.token()
-                if tok.value in self._expr_operators:
-                    rawtoks.append(tok)
-                    tok = self.lex.token()
+            elif tok.type == "requires":
+                rawtoks.append(tok)
+                for tt in ("(", "{"):
+                    tok = self._next_token_must_be(tt)
+                    rawtoks.extend(self._consume_balanced_tokens(tok))
+                tok = self.lex.token()
+            else:
+                tok = self._parse_requires_segment(tok, rawtoks)
 
-            self.lex.return_token(tok)
+            if tok.value not in ("&&", "||"):
+                break
+
+            rawtoks.append(tok)
+
+            tok = self.lex.token()
+
+        self.lex.return_token(tok)
 
         return self._create_value(rawtoks)
 
@@ -1934,6 +1942,32 @@ class CxxParser:
         mods.validate(var_ok=False, meth_ok=False, msg="parsing trailing return type")
 
         dtype = self._parse_cv_ptr(parsed_type)
+
+        return dtype
+
+    def parse_typename(self) -> DecoratedType:
+        """
+        Parse a single C++ type name from the current token stream.
+        """
+        parsed_type, mods = self._parse_type(None)
+        if parsed_type is None:
+            raise CxxParseError("missing type name")
+
+        mods.validate(var_ok=False, meth_ok=False, msg="parsing type name")
+
+        dtype = self._parse_cv_ptr_or_fn(parsed_type)
+        if isinstance(dtype, FunctionType):
+            raise CxxParseError("function types are not supported")
+
+        tok = self.lex.token_if("[")
+        while tok:
+            dtype = self._parse_array_type(tok, dtype)
+            tok = self.lex.token_if("[")
+
+        self.lex.token_if(";")
+        extra = self.lex.token_eof_ok()
+        if extra is not None:
+            raise self._parse_error(extra)
 
         return dtype
 

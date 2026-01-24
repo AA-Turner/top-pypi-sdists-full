@@ -14,7 +14,7 @@ extern "C" {
 
 /* SCS VERSION NUMBER ----------------------------------------------     */
 /* string literals automatically null-terminated */
-#define SCS_VERSION ("3.2.8")
+#define SCS_VERSION ("3.2.11")
 
 /* verbosity level */
 #ifndef VERBOSITY
@@ -135,24 +135,24 @@ static inline void *scs_calloc(size_t count, size_t size) {
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
-#ifndef ABS
-#define ABS(x) (((x) < 0) ? -(x) : (x))
-#endif
-
-#ifndef POWF
-#ifdef SFLOAT
-#define POWF powf
-#else
-#define POWF pow
-#endif
-#endif
-
-#ifndef SQRTF
 #ifdef SFLOAT
 #define SQRTF sqrtf
+#define EXPF expf
+#define LOGF logf
+#define ABS fabsf
+#define POWF powf
 #else
 #define SQRTF sqrt
+#define EXPF exp
+#define LOGF log
+#define ABS fabs
+#define POWF pow
 #endif
+
+#ifdef DLONG
+#define IABS llabs
+#else
+#define IABS abs
 #endif
 
 /* Force SCS to treat the problem as (non-homogeneous) feasible for this many */

@@ -37,14 +37,6 @@ namespace gsi
 // ---------------------------------------------------------------
 //  db::Library binding
 
-/**
- *  @brief A basic implementation of the library
- */
-static db::Library *new_lib ()
-{
-  return new db::Library ();
-}
-
 static db::Library *library_by_name (const std::string &name, const std::string &for_technology)
 {
   return db::LibraryManager::instance ().lib_ptr_by_name (name, for_technology);
@@ -73,10 +65,20 @@ static std::vector<db::lib_id_type> library_ids ()
   return r;
 }
 
+static void refresh_all ()
+{
+  db::LibraryManager::instance ().refresh_all ();
+}
+
 static void register_lib (db::Library *lib, const std::string &name)
 {
   lib->set_name (name);
   db::LibraryManager::instance ().register_lib (lib);
+}
+
+static void unregister_lib (db::Library *lib)
+{
+  db::LibraryManager::instance ().unregister_lib (lib);
 }
 
 static void delete_lib (db::Library *lib)
@@ -97,7 +99,7 @@ static std::string get_technology (db::Library *lib)
 static void destroy_lib (db::Library *lib)
 {
   if (db::LibraryManager::instance ().lib_ptr_by_name (lib->get_name ()) == lib) {
-    //  Library is registered -> do not delete
+    delete_lib (lib);
   } else {
     delete lib;
   }
@@ -105,31 +107,63 @@ static void destroy_lib (db::Library *lib)
 
 namespace {
 
+template <class Base>
 class LibraryClass
-  : public Class<db::Library>
+  : public gsi::Class<Base>
 {
 public:
   LibraryClass (const char *module, const char *name, const gsi::Methods &methods, const char *description)
-    : Class<db::Library> (module, name, methods, description)
+    : gsi::Class<Base> (module, name, methods, description)
+  { }
+
+  template <class B>
+  LibraryClass (const gsi::Class<B> &base, const char *module, const char *name, const gsi::Methods &methods, const char *description)
+    : gsi::Class<Base> (base, module, name, methods, description)
   { }
 
   virtual void destroy (void *p) const
   {
-    db::Library *lib = reinterpret_cast<db::Library *> (p);
+    Base *lib = reinterpret_cast<Base *> (p);
     destroy_lib (lib);
   }
 };
 
+class LibraryImpl
+  : public db::Library
+{
+public:
+  LibraryImpl () : db::Library ()
+  {
+    //  .. nothing yet ..
+  }
+
+  virtual std::string reload ()
+  {
+    if (cb_reload.can_issue ()) {
+      return cb_reload.issue<db::Library, std::string> (&db::Library::reload);
+    } else {
+      return db::Library::reload ();
+    }
+  }
+
+  gsi::Callback cb_reload;
+};
+
 }
 
-LibraryClass decl_Library ("db", "Library",
-  gsi::constructor ("new", &new_lib,
-    "@brief Creates a new, empty library"
-  ) +
+static LibraryImpl *new_lib ()
+{
+  return new LibraryImpl ();
+}
+
+/**
+ *  @brief A basic implementation of the library
+ */
+
+LibraryClass<db::Library> decl_Library ("db", "LibraryBase",
   gsi::method ("library_by_name", &library_by_name, gsi::arg ("name"), gsi::arg ("for_technology", std::string (), "unspecific"),
     "@brief Gets a library by name\n"
-    "Returns the library object for the given name. If the name is not a valid\n"
-    "library name, nil is returned.\n"
+    "Returns the library object for the given name. If the name is not a valid library name, nil is returned.\n"
     "\n"
     "Different libraries can be registered under the same names for different technologies. When a technology name is given in 'for_technologies', "
     "the first library matching this technology is returned. If no technology is given, the first library is returned.\n"
@@ -155,6 +189,11 @@ LibraryClass decl_Library ("db", "Library",
     "\n"
     "This method has been introduced in version 0.27."
   ) +
+  gsi::method ("refresh_all", &refresh_all,
+    "@brief Calls \\refresh on all libraries.\n"
+    "\n"
+    "This convenience method has been introduced in version 0.30.4."
+  ) +
   gsi::method_ext ("register", &register_lib, gsi::arg ("name"),
     "@brief Registers the library with the given name\n"
     "\n"
@@ -166,6 +205,22 @@ LibraryClass decl_Library ("db", "Library",
     "\n"
     "The technology specific behaviour has been introduced in version 0.27."
   ) +
+  gsi::method_ext ("unregister", &unregister_lib,
+    "@brief Unregisters the library\n"
+    "\n"
+    "Unregisters the library from the system. This will break all references of cells "
+    "using this library and make them 'defunct'.\n"
+    "\n"
+    "This method has been introduced in version 0.30.5."
+  ) +
+  gsi::method ("rename", &db::Library::rename, gsi::arg ("name"),
+    "@brief Renames the library\n"
+    "\n"
+    "Re-registers the library under a new name. Note that this method will also change the references "
+    "to the library.\n"
+    "\n"
+    "This method has been introduced in version 0.30.5."
+  ) +
   gsi::method_ext ("delete", &delete_lib,
     "@brief Deletes the library\n"
     "\n"
@@ -176,7 +231,7 @@ LibraryClass decl_Library ("db", "Library",
   ) +
   gsi::method ("name", &db::Library::get_name,
     "@brief Returns the libraries' name\n"
-    "The name is set when the library is registered and cannot be changed\n"
+    "The name is set when the library is registered. To change it use \\rename.\n"
   ) +
   gsi::method ("id", &db::Library::get_id,
     "@brief Returns the library's ID\n"
@@ -240,8 +295,31 @@ LibraryClass decl_Library ("db", "Library",
     "@brief Updates all layouts using this library.\n"
     "This method will retire cells or update layouts in the attached clients.\n"
     "It will also recompute the PCells inside the library. "
+    "Starting with version 0.30.5, this method will also call 'reload' on all libraries to "
+    "refresh cells located in external files.\n"
     "\n"
     "This method has been introduced in version 0.27.8."
+  ),
+  "@hide"
+);
+
+/**
+ *  @brief The reimplementation stub
+ */
+
+LibraryClass<LibraryImpl> decl_LibraryImpl (decl_Library, "db", "Library",
+  gsi::constructor ("new", &new_lib,
+    "@brief Creates a new, empty library"
+  ) +
+  gsi::callback ("reload", &LibraryImpl::reload, &LibraryImpl::cb_reload,
+    "@brief Reloads resources for the library.\n"
+    "Reimplement this method if you like to reload resources the library was created from - "
+    "for example layout files. Make sure you return the new name of the library from this function. "
+    "If you do not want to change the name of the library, return the current name (i.e. the value of \\name).\n"
+    "\n"
+    "@return The new name of the library or the original name if it did not change.\n"
+    "\n"
+    "This method is called on \\refresh. It was introduced in version 0.30.5.\n"
   ),
   "@brief A Library \n"
   "\n"
@@ -290,6 +368,7 @@ Class<db::PCellDeclaration> decl_PCellDeclaration_Native ("db", "PCellDeclaratio
   gsi::method ("via_types", &db::PCellDeclaration::via_types) +
   gsi::method ("description", &db::PCellDeclaration::get_description) +
   gsi::method ("display_text", &db::PCellDeclaration::get_display_name, gsi::arg ("parameters")) +
+  gsi::method ("cell_name", &db::PCellDeclaration::get_cell_name, gsi::arg ("parameters")) +
   gsi::method ("layout", &db::PCellDeclaration::layout,
     "@brief Gets the Layout object the PCell is registered in or nil if it is not registered yet.\n"
     "This attribute has been added in version 0.27.5."
@@ -581,6 +660,20 @@ public:
     }
   }
 
+  std::string get_cell_name_fb (const db::pcell_parameters_type &parameters) const
+  {
+    return db::PCellDeclaration::get_cell_name (parameters);
+  }
+
+  virtual std::string get_cell_name (const db::pcell_parameters_type &parameters) const
+  {
+    if (cb_get_cell_name.can_issue ()) {
+      return cb_get_cell_name.issue<db::PCellDeclaration, std::string, const db::pcell_parameters_type &> (&db::PCellDeclaration::get_cell_name, parameters);
+    } else {
+      return db::PCellDeclaration::get_cell_name (parameters);
+    }
+  }
+
   gsi::Callback cb_get_layer_declarations;
   gsi::Callback cb_get_parameter_declarations;
   gsi::Callback cb_produce;
@@ -591,6 +684,7 @@ public:
   gsi::Callback cb_coerce_parameters;
   gsi::Callback cb_callback;
   gsi::Callback cb_get_display_name;
+  gsi::Callback cb_get_cell_name;
   gsi::Callback cb_get_description;
   gsi::Callback cb_via_types;
 };
@@ -604,6 +698,7 @@ Class<PCellDeclarationImpl> decl_PCellDeclaration (decl_PCellDeclaration_Native,
   gsi::method ("parameters_from_shape", &PCellDeclarationImpl::parameters_from_shape_fb, "@hide") +
   gsi::method ("transformation_from_shape", &PCellDeclarationImpl::transformation_from_shape_fb, "@hide") +
   gsi::method ("display_text", &PCellDeclarationImpl::get_display_name_fb, "@hide") +
+  gsi::method ("cell_name", &PCellDeclarationImpl::get_cell_name_fb, "@hide") +
   gsi::method ("wants_lazy_evaluation", &PCellDeclarationImpl::wants_lazy_evaluation_fb, "@hide") +
   gsi::method ("description", &PCellDeclarationImpl::get_description_fb, "@hide") +
   gsi::method ("via_types", &PCellDeclarationImpl::via_types_fb, "@hide") +
@@ -731,6 +826,13 @@ Class<PCellDeclarationImpl> decl_PCellDeclaration (decl_PCellDeclaration_Native,
     "@brief Returns the display text for this PCell given a certain parameter set\n"
     "Reimplement this method to create a distinct display text for a PCell variant with \n"
     "the given parameter set. If this method is not implemented, a default text is created. \n"
+  ) +
+  gsi::callback ("cell_name", &PCellDeclarationImpl::get_cell_name, &PCellDeclarationImpl::cb_get_cell_name, gsi::arg ("parameters"),
+    "@brief Returns a cell name used for the PCell variant\n"
+    "Reimplement this method to create a cell name the system uses for the PCell variant. By default that is the PCell name.\n"
+    "This feature allows encoding the PCell parameters into the cell name for easier identification of the PCell variant in a cell tree.\n"
+    "\n"
+    "This feature has been added in version 0.30.5.\n"
   ),
   "@brief A PCell declaration providing the parameters and code to produce the PCell\n"
   "\n"

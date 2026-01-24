@@ -2,37 +2,33 @@
  * Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
- *
+ */
+
+/*
  * Functions specific to Sun OS Solaris platforms.
  *
  * Thanks to Justin Venus who originally wrote a consistent part of
  * this in Cython which I later on translated in C.
- */
-
-/* fix compilation issue on SunOS 5.10, see:
+ *
+ * Fix compilation issue on SunOS 5.10, see:
  * https://github.com/giampaolo/psutil/issues/421
  * https://github.com/giampaolo/psutil/issues/1077
-*/
+ */
 
 #define _STRUCTURED_PROC 1
+#define NEW_MIB_COMPLIANT 1
 
 #include <Python.h>
 
 #if !defined(_LP64) && _FILE_OFFSET_BITS == 64
-#  undef _FILE_OFFSET_BITS
-#  undef _LARGEFILE64_SOURCE
+#undef _FILE_OFFSET_BITS
+#undef _LARGEFILE64_SOURCE
 #endif
 
 #include <inet/tcp.h>
+#include <sys/proc.h>
 
 #include "arch/all/init.h"
-#include "arch/sunos/cpu.h"
-#include "arch/sunos/disk.h"
-#include "arch/sunos/environ.h"
-#include "arch/sunos/mem.h"
-#include "arch/sunos/net.h"
-#include "arch/sunos/proc.h"
-#include "arch/sunos/sys.h"
 
 
 static PyMethodDef mod_methods[] = {
@@ -97,6 +93,10 @@ PyInit__psutil_sunos(void) {
 #endif
 
     if (psutil_setup() != 0)
+        return NULL;
+    if (psutil_posix_add_constants(mod) != 0)
+        return NULL;
+    if (psutil_posix_add_methods(mod) != 0)
         return NULL;
 
     if (PyModule_AddIntConstant(mod, "version", PSUTIL_VERSION))

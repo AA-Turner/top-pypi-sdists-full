@@ -11,3 +11,4 @@ class UsageInfo(TypedDict):
 class BaseResponse(TypedDict):
     success: bool
     _usage: NotRequired[UsageInfo]
+    log_id: str

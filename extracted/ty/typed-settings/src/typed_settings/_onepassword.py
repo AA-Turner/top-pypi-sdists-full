@@ -4,7 +4,7 @@ Helpers for invoking the 1Password CLI.
 
 import json
 import subprocess
-from typing import Any, Optional
+from typing import Any
 
 
 __all__ = [
@@ -42,7 +42,7 @@ def run(*args: str) -> str:
     return result.stdout.strip()
 
 
-def get_item(item: str, vault: Optional[str] = None) -> dict[str, Any]:
+def get_item(item: str, vault: str | None = None) -> dict[str, Any]:
     """
     Get *item* from 1Password.
 

@@ -6,14 +6,7 @@ from typing import Any, Concatenate
 
 from joblib._typeshed import HashType
 
-Pickler = pickle.Pickler
-
-class _ConsistentSet:
-    def __init__(self, set_sequence: Iterable[Hashable]) -> None: ...
-
-class _MyHash:
-    args: tuple[Any]
-    def __init__(self, *args: Any) -> None: ...
+Pickler = pickle._Pickler  # noqa: SLF001
 
 class Hasher(Pickler):
     stream: io.BytesIO

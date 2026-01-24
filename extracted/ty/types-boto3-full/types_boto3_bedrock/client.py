@@ -3,7 +3,7 @@ Type annotations for bedrock service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -32,6 +33,7 @@ from .paginator import (
     ListAutomatedReasoningPolicyTestResultsPaginator,
     ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
+    ListEnforcedGuardrailsConfigurationPaginator,
     ListEvaluationJobsPaginator,
     ListGuardrailsPaginator,
     ListImportedModelsPaginator,
@@ -87,6 +89,7 @@ from .type_defs import (
     DeleteAutomatedReasoningPolicyTestCaseRequestTypeDef,
     DeleteCustomModelDeploymentRequestTypeDef,
     DeleteCustomModelRequestTypeDef,
+    DeleteEnforcedGuardrailConfigurationRequestTypeDef,
     DeleteFoundationModelAgreementRequestTypeDef,
     DeleteGuardrailRequestTypeDef,
     DeleteImportedModelRequestTypeDef,
@@ -155,6 +158,8 @@ from .type_defs import (
     ListCustomModelDeploymentsResponseTypeDef,
     ListCustomModelsRequestTypeDef,
     ListCustomModelsResponseTypeDef,
+    ListEnforcedGuardrailsConfigurationRequestTypeDef,
+    ListEnforcedGuardrailsConfigurationResponseTypeDef,
     ListEvaluationJobsRequestTypeDef,
     ListEvaluationJobsResponseTypeDef,
     ListFoundationModelAgreementOffersRequestTypeDef,
@@ -183,6 +188,8 @@ from .type_defs import (
     ListProvisionedModelThroughputsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutEnforcedGuardrailConfigurationRequestTypeDef,
+    PutEnforcedGuardrailConfigurationResponseTypeDef,
     PutModelInvocationLoggingConfigurationRequestTypeDef,
     PutUseCaseForModelAccessRequestTypeDef,
     RegisterMarketplaceModelEndpointRequestTypeDef,
@@ -202,6 +209,8 @@ from .type_defs import (
     UpdateAutomatedReasoningPolicyResponseTypeDef,
     UpdateAutomatedReasoningPolicyTestCaseRequestTypeDef,
     UpdateAutomatedReasoningPolicyTestCaseResponseTypeDef,
+    UpdateCustomModelDeploymentRequestTypeDef,
+    UpdateCustomModelDeploymentResponseTypeDef,
     UpdateGuardrailRequestTypeDef,
     UpdateGuardrailResponseTypeDef,
     UpdateMarketplaceModelEndpointRequestTypeDef,
@@ -209,12 +218,6 @@ from .type_defs import (
     UpdateProvisionedModelThroughputRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -225,17 +228,17 @@ __all__ = ("BedrockClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class BedrockClient(BaseClient):
@@ -285,7 +288,7 @@ class BedrockClient(BaseClient):
 
     def cancel_automated_reasoning_policy_build_workflow(
         self, **kwargs: Unpack[CancelAutomatedReasoningPolicyBuildWorkflowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels a running Automated Reasoning policy build workflow.
 
@@ -470,7 +473,7 @@ class BedrockClient(BaseClient):
 
     def delete_automated_reasoning_policy(
         self, **kwargs: Unpack[DeleteAutomatedReasoningPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Automated Reasoning policy or policy version.
 
@@ -480,7 +483,7 @@ class BedrockClient(BaseClient):
 
     def delete_automated_reasoning_policy_build_workflow(
         self, **kwargs: Unpack[DeleteAutomatedReasoningPolicyBuildWorkflowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Automated Reasoning policy build workflow and its associated
         artifacts.
@@ -491,7 +494,7 @@ class BedrockClient(BaseClient):
 
     def delete_automated_reasoning_policy_test_case(
         self, **kwargs: Unpack[DeleteAutomatedReasoningPolicyTestCaseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Automated Reasoning policy test.
 
@@ -501,7 +504,7 @@ class BedrockClient(BaseClient):
 
     def delete_custom_model(
         self, **kwargs: Unpack[DeleteCustomModelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom model that you created earlier.
 
@@ -511,7 +514,7 @@ class BedrockClient(BaseClient):
 
     def delete_custom_model_deployment(
         self, **kwargs: Unpack[DeleteCustomModelDeploymentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom model deployment.
 
@@ -519,9 +522,19 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_custom_model_deployment)
         """
 
+    def delete_enforced_guardrail_configuration(
+        self, **kwargs: Unpack[DeleteEnforcedGuardrailConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the account-level enforced guardrail configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_enforced_guardrail_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_enforced_guardrail_configuration)
+        """
+
     def delete_foundation_model_agreement(
         self, **kwargs: Unpack[DeleteFoundationModelAgreementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete the model access agreement for the specified model.
 
@@ -529,7 +542,7 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_foundation_model_agreement)
         """
 
-    def delete_guardrail(self, **kwargs: Unpack[DeleteGuardrailRequestTypeDef]) -> Dict[str, Any]:
+    def delete_guardrail(self, **kwargs: Unpack[DeleteGuardrailRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a guardrail.
 
@@ -539,7 +552,7 @@ class BedrockClient(BaseClient):
 
     def delete_imported_model(
         self, **kwargs: Unpack[DeleteImportedModelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom model that you imported earlier.
 
@@ -549,7 +562,7 @@ class BedrockClient(BaseClient):
 
     def delete_inference_profile(
         self, **kwargs: Unpack[DeleteInferenceProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an application inference profile.
 
@@ -559,7 +572,7 @@ class BedrockClient(BaseClient):
 
     def delete_marketplace_model_endpoint(
         self, **kwargs: Unpack[DeleteMarketplaceModelEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an endpoint for a model from Amazon Bedrock Marketplace.
 
@@ -567,7 +580,7 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_marketplace_model_endpoint)
         """
 
-    def delete_model_invocation_logging_configuration(self) -> Dict[str, Any]:
+    def delete_model_invocation_logging_configuration(self) -> dict[str, Any]:
         """
         Delete the invocation logging.
 
@@ -577,7 +590,7 @@ class BedrockClient(BaseClient):
 
     def delete_prompt_router(
         self, **kwargs: Unpack[DeletePromptRouterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified prompt router.
 
@@ -587,7 +600,7 @@ class BedrockClient(BaseClient):
 
     def delete_provisioned_model_throughput(
         self, **kwargs: Unpack[DeleteProvisionedModelThroughputRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Provisioned Throughput.
 
@@ -597,7 +610,7 @@ class BedrockClient(BaseClient):
 
     def deregister_marketplace_model_endpoint(
         self, **kwargs: Unpack[DeregisterMarketplaceModelEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters an endpoint for a model from Amazon Bedrock Marketplace.
 
@@ -926,6 +939,16 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_custom_models)
         """
 
+    def list_enforced_guardrails_configuration(
+        self, **kwargs: Unpack[ListEnforcedGuardrailsConfigurationRequestTypeDef]
+    ) -> ListEnforcedGuardrailsConfigurationResponseTypeDef:
+        """
+        Lists the account-level enforced guardrail configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_enforced_guardrails_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_enforced_guardrails_configuration)
+        """
+
     def list_evaluation_jobs(
         self, **kwargs: Unpack[ListEvaluationJobsRequestTypeDef]
     ) -> ListEvaluationJobsResponseTypeDef:
@@ -1067,9 +1090,19 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_tags_for_resource)
         """
 
+    def put_enforced_guardrail_configuration(
+        self, **kwargs: Unpack[PutEnforcedGuardrailConfigurationRequestTypeDef]
+    ) -> PutEnforcedGuardrailConfigurationResponseTypeDef:
+        """
+        Sets the account-level enforced guardrail configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_enforced_guardrail_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_enforced_guardrail_configuration)
+        """
+
     def put_model_invocation_logging_configuration(
         self, **kwargs: Unpack[PutModelInvocationLoggingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Set the configuration values for model invocation logging.
 
@@ -1079,7 +1112,7 @@ class BedrockClient(BaseClient):
 
     def put_use_case_for_model_access(
         self, **kwargs: Unpack[PutUseCaseForModelAccessRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Put usecase for model access.
 
@@ -1120,7 +1153,7 @@ class BedrockClient(BaseClient):
 
     def stop_evaluation_job(
         self, **kwargs: Unpack[StopEvaluationJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an evaluation job that is current being created or running.
 
@@ -1130,7 +1163,7 @@ class BedrockClient(BaseClient):
 
     def stop_model_customization_job(
         self, **kwargs: Unpack[StopModelCustomizationJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an active model customization job.
 
@@ -1140,7 +1173,7 @@ class BedrockClient(BaseClient):
 
     def stop_model_invocation_job(
         self, **kwargs: Unpack[StopModelInvocationJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a batch inference job.
 
@@ -1148,7 +1181,7 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#stop_model_invocation_job)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associate tags with a resource.
 
@@ -1156,7 +1189,7 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more tags from a resource.
 
@@ -1195,6 +1228,16 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#update_automated_reasoning_policy_test_case)
         """
 
+    def update_custom_model_deployment(
+        self, **kwargs: Unpack[UpdateCustomModelDeploymentRequestTypeDef]
+    ) -> UpdateCustomModelDeploymentResponseTypeDef:
+        """
+        Updates a custom model deployment with a new custom model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/update_custom_model_deployment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#update_custom_model_deployment)
+        """
+
     def update_guardrail(
         self, **kwargs: Unpack[UpdateGuardrailRequestTypeDef]
     ) -> UpdateGuardrailResponseTypeDef:
@@ -1218,7 +1261,7 @@ class BedrockClient(BaseClient):
 
     def update_provisioned_model_throughput(
         self, **kwargs: Unpack[UpdateProvisionedModelThroughputRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the name or associated model for a Provisioned Throughput.
 
@@ -1285,6 +1328,17 @@ class BedrockClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_custom_models"]
     ) -> ListCustomModelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_enforced_guardrails_configuration"]
+    ) -> ListEnforcedGuardrailsConfigurationPaginator:
         """
         Create a paginator for an operation.
 

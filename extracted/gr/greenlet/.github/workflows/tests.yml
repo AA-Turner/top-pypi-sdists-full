@@ -22,14 +22,32 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.9, "3.10", "3.11", "3.12", "3.13", "3.14.0-rc.1"]
-        # Recall the macOS builds upload built wheels so all supported versions
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "3.14t"
+
+        # Recall the macOS and windows builds upload built wheels so all supported versions
         # need to run on mac.
-        os: [ubuntu-latest, macos-latest]
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+          - windows-11-arm
+        exclude:
+          # 3.10 not available for windows arm
+          - os: windows-11-arm
+            python-version: "3.10"
+          # 3.14t not available for windows arm
+          - os: windows-11-arm
+            python-version: "3.14t"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -42,8 +60,8 @@ jobs:
     - name: Install greenlet (non-Mac)
       if: ${{ ! startsWith(runner.os, 'Mac') }}
       run: |
-        # Stupid setuptools doesn't want you running 'python setup.py' anymore,
-        # but stupid pip hides all the intersting compiler output by default, and the
+        # setuptools doesn't want you running 'python setup.py' anymore,
+        # but pip hides all the intersting compiler output by default, and the
         # only way to get anything useful out is to ask *everything* to be verbose,
         # which is much more junk than we need to wade through, making it hard to
         # see what we want. What's the point of having warnings at all if we can't
@@ -81,13 +99,14 @@ jobs:
         ARCHFLAGS: "-arch x86_64 -arch arm64"
 
     - name: Check greenlet build
+      if: ${{ ! startsWith(runner.os, 'Windows') }}
       run: |
         ls -l dist
         twine check dist/*
     - name: Store greenlet wheel
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
-        name: greenlet-${{ runner.os }}-${{ matrix.python-version }}.whl
+        name: greenlet-${{ matrix.os }}-${{ matrix.python-version }}.whl
         path: dist/*whl
     - name: Test
       run: |
@@ -95,10 +114,24 @@ jobs:
         python -c 'import greenlet._greenlet as G; assert G.GREENLET_USE_STANDARD_THREADING'
         python -m unittest discover -v greenlet.tests
     - name: Doctest
+      env:
+        # XXX: On 3.14t, when the thread-local bytecode cache is
+        # enabled, sphinx crashes on module cleanup: there is a
+        # reference to pdb.set_trace in ``glob``, and when the
+        # shutdown sequence tries to clear that value, it segfaults
+        # dec-reffing it after taking it out of the module dict. The
+        # object appears to be corrupt, but it is utterly unclear how
+        # we could have done this. It is 100% reliable on bath Mac and
+        # Linux. It can be traced down to a very simple doctest
+        # snippet in greenlet_gc.rst, but running that same snippet
+        # standalone in a unit test doesn't produce the error.
+        #
+        # So this is a temporary workaround.
+        PYTHON_TLBC: "0"
       run: |
         sphinx-build -b doctest -d docs/_build/doctrees2 docs docs/_build/doctest2
     - name: Lint
-      if: matrix.python-version == '3.12' && startsWith(runner.os, 'Linux')
+      if: matrix.python-version == '3.14' && startsWith(runner.os, 'Linux')
       # We only need to do this on one version.
       # We do this here rather than a separate job to avoid the compilation overhead.
       run: |
@@ -109,7 +142,7 @@ jobs:
       # We cannot 'uses: pypa/gh-action-pypi-publish@v1.4.1' because
       # that's apparently a container action, and those don't run on
       # the Mac.
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && startsWith(runner.os, 'Mac')
+      if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && (startsWith(runner.os, 'Mac') || startsWith(runner.os, 'Windows')) }}
       env:
         TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
       run: |
@@ -121,9 +154,9 @@ jobs:
       # required for all workflows
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
           cache: 'pip'
@@ -134,7 +167,7 @@ jobs:
           python -m pip install -U setuptools wheel
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: python, cpp
       - name: Install greenlet
@@ -143,16 +176,16 @@ jobs:
       # - name: Autobuild
       #   uses: github/codeql-action/autobuild@v1
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
 
   riscv64:
     runs-on: ubuntu-latest
     name: RiscV 64
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - name: Set up QEMU
@@ -170,22 +203,22 @@ jobs:
     # We use a regular Python matrix entry to share as much code as possible.
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version:
+          - "3.14"
         image:
           - manylinux_2_28_x86_64
-          - manylinux2014_aarch64
-          - manylinux2014_ppc64le
-          - manylinux2014_s390x
-          - manylinux2014_x86_64
-          - musllinux_1_1_x86_64
-          - musllinux_1_1_aarch64
+          - manylinux_2_28_aarch64
+          - manylinux_2_28_ppc64le
+          - manylinux_2_28_s390x
+          - musllinux_1_2_x86_64
+          - musllinux_1_2_aarch64
     name: ${{ matrix.image }}
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Set up QEMU
@@ -197,12 +230,12 @@ jobs:
           DOCKER_IMAGE: quay.io/pypa/${{ matrix.image }}
         run: bash ./make-manylinux
       - name: Store greenlet wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           path: wheelhouse/*whl
           name: ${{ matrix.image }}_wheels.zip
       - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.12.4
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         with:
           user: __token__

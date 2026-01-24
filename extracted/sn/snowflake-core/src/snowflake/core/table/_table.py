@@ -450,8 +450,8 @@ class TableCollection(SchemaObjectCollectionParent["TableResource"]):
 class TableResource(SchemaObjectReferenceMixin[TableCollection]):
     """Represents a reference to a Snowflake table.
 
-    With this table reference, you can create, update, delete and fetch information about tables, as well
-    as perform certain actions on them.
+    With this table reference, you can fetch information about a table, as well as perform certain
+    actions on it.
     """
 
     def __init__(self, name: str, collection: TableCollection) -> None:

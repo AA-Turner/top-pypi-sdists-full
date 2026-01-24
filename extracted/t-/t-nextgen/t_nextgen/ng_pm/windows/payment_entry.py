@@ -1,5 +1,6 @@
 """PaymentEntry module."""
 import contextlib
+import ctypes
 import _ctypes
 from datetime import datetime
 from logging import Logger
@@ -7,11 +8,13 @@ import os
 from pathlib import Path
 import re
 from typing import Optional
-from typing import Any
+from typing import Any, List
 from retry import retry
+from t_ocr.ocr import OCR
 
 from decimal import Decimal
 from t_desktop.config import IS_WINDOWS_OS
+from t_desktop.utils.capture_screenshot import capture_screenshot
 
 if IS_WINDOWS_OS:
     from pywinauto.application import WindowSpecification
@@ -19,12 +22,11 @@ if IS_WINDOWS_OS:
     from pywinauto.findwindows import ElementNotFoundError
     from pywinauto.base_wrapper import ElementNotEnabled
     from pywinauto.keyboard import send_keys
-    from pywinauto.timings import wait_until
+    from pywinauto.timings import wait_until, TimeoutError
 
 from t_desktop.decorators import retry_if_pywin_error
 from t_desktop.decorators import capture_screenshot_if_pywin_error
 from t_ocr import Textract
-from t_ocr.pages import TextractPage
 from PIL import Image, ImageFilter
 
 from t_nextgen.nextgen_window import NextGenWindow
@@ -43,6 +45,8 @@ from t_nextgen.exceptions import (
     DeductFieldNotFoundException,
     FieldNotFoundException,
     StatusNotUpdatedException,
+    ButtonIsStillEnabledException,
+    PayerNotUpdatedException,
 )
 
 
@@ -161,13 +165,19 @@ class PaymentEntryWindow(NextGenWindow):
         os.remove(element_image_path)
         return is_strikethrough_present
 
+    @retry(ButtonIsStillEnabledException, tries=3, delay=1)
     def click_open_button(self) -> None:
         """This method clicks on the open button."""
         self.logger.debug("Clicking on the open button.")
-        open_button = self.window.child_window(title="_cmdAction_1", control_type="Button")
-        if open_button.is_enabled():
-            with contextlib.suppress(_ctypes.COMError):
-                open_button.click_input()
+        try:
+            open_button = self.window.child_window(title="_cmdAction_1", control_type="Button")
+            if open_button.is_enabled():
+                with contextlib.suppress(_ctypes.COMError):
+                    open_button.click_input()
+                    open_button.wait_not("enabled", timeout=3, retry_interval=0.001)
+        except TimeoutError:
+            self.logger.error("Timeout error waiting for open button to be disabled.")
+            raise ButtonIsStillEnabledException()
 
     def get_service_rows(self) -> list[ListItemWrapper]:
         """This method gets the service rows from the current payment entry window.
@@ -204,6 +214,66 @@ class PaymentEntryWindow(NextGenWindow):
                 self.skipping_payer_aarp_pop_up_exist()
                 raise LnItemRsnsNotUpdatedException(f"Error trying to insert {text} in Ln Item Rsns field.")
         return row
+
+    @retry(LnItemRsnsNotUpdatedException, tries=3, delay=1)
+    def add_codes_in_ln_item_rsns(self, text: str, row: ListItemWrapper) -> None:
+        """Add one or more codes to Ln Item Rsns without removing existing ones.
+
+        Args:
+            text (str): Comma-separated codes to add (e.g., "PR2,CO45").
+            row (ListItemWrapper): Row to update.
+        """
+        self.logger.debug(f"Adding codes to Ln Item Rsns: {text}")
+        if self.is_payer_a_patient():
+            self.logger.info("The payer is Patient. Ln Item Rsns field is disabled")
+            return
+
+        existing_codes = self._get_existing_ln_item_rsns_codes(row)
+        new_codes = [c.strip().upper() for c in text.split(",") if c.strip()]
+        combined_codes = existing_codes + [c for c in new_codes if c not in existing_codes]
+
+        if combined_codes == existing_codes:
+            self.logger.debug("Ln Item Rsns already contains requested codes; nothing to do.")
+            return row
+
+        combined_text = ",".join(combined_codes)
+
+        self.remove_selected_items_from_ln_combobox(row)
+        self.set_text_in_specific_row(row, "Ln Item Rsns", combined_text, is_combobox=True)
+
+        row = self._get_row_by_auto_id(row.automation_id())
+        next_gen_codes = (row.descendants(title="Ln Item Rsns", control_type="Edit")[0].get_value() or "").upper()
+
+        for code in combined_codes:
+            if code.strip().upper() not in next_gen_codes:
+                self.skipping_payer_aarp_pop_up_exist()
+                raise LnItemRsnsNotUpdatedException(f"Error trying to add {text} in Ln Item Rsns field.")
+
+        return row
+
+    def _get_existing_ln_item_rsns_codes(self, row: ListItemWrapper) -> list[str]:
+        """Return the list of currently selected Ln Item Rsns codes for the given row.
+
+        The NextGen control renders values like:
+        'CO45  (Charges exceed fee arrangement); PR2  (Coinsurance amount)'.
+        We parse and return only the raw codes: ['CO45', 'PR2'].
+        """
+        row = self.revalidate_service_row(row)
+        value = row.descendants(title="Ln Item Rsns", control_type="Edit")[0].get_value()
+        if value.strip() == "":
+            return []
+
+        parts = re.split(r"[;,]\s*", value)
+        parts = [p.strip() for p in parts if p.strip()]
+
+        codes: list[str] = []
+        for part in parts:
+            code_text = part.split("(")[0].strip()
+            code_token = code_text.split()[0] if code_text else ""
+            if code_token:
+                codes.append(code_token.upper())
+
+        return codes
 
     def remove_selected_items_from_status_combobox(self, row: ListItemWrapper) -> None:
         """Removes the selected items from the Status combobox.
@@ -259,7 +329,7 @@ class PaymentEntryWindow(NextGenWindow):
         self.click_open_button()
         row = self.revalidate_service_row(row)
         status_field = self.get_status_field(row)
-        if status_field.get_value() == status:
+        if status_field.get_value().lower() == status.lower():
             self.logger.debug(f"Status was already set. Value: {status}")
             return
         pane = self.open_status_dropdown_in_service_row(status_field, row)
@@ -267,12 +337,14 @@ class PaymentEntryWindow(NextGenWindow):
             beginning, end = status.split()[0], status.split()[-1]
             status = self.get_status_in_dropdown_that_begin_with_and_end_with(beginning, end, pane)
         self.select_status_in_service_row(pane, status, status_key)
-        send_keys("+{TAB}")
+        row = self.revalidate_service_row(row)
+        status_field = self.get_status_field(row)
         selected_status = status_field.get_value()
-        if selected_status == "":
+        if selected_status == "" or selected_status.lower() != status.lower():
+            capture_screenshot(f"Failed_to_set_status_{status}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
             raise StatusNotUpdatedException(f"Failed to select status {status} in dropdown")
 
-    def get_statuses(self, pane: ListItemWrapper):
+    def get_statuses(self, pane: ListItemWrapper) -> list[str]:
         """This method gets all the statuses in the status dropdown.
 
         Args:
@@ -330,7 +402,6 @@ class PaymentEntryWindow(NextGenWindow):
             )
             with contextlib.suppress(_ctypes.COMError):
                 pane.click_input()
-                send_keys("{TAB}")
                 send_keys("+{TAB}")
 
     @retry(ElementNotFoundError, tries=3, delay=1)
@@ -735,56 +806,113 @@ class PaymentEntryWindow(NextGenWindow):
         custom_control = container.child_window(auto_id="_lblDisplayField_0", control_type="Text")
         return custom_control.capture_as_image()
 
-    def get_pages_data(self, screenshot_destination: Path) -> str:
+    def get_pay_column_header_text(self) -> str:
+        """Get the text of the Pay column header.
+
+        Returns:
+            str: The Pay column header text.
+        """
+        pay_column_header = self.window.child_window(auto_id="[Column Header] Column18", control_type="HeaderItem")
+        pay_column_header_text = pay_column_header.window_text()
+        self.logger.debug(f"Pay column header text: {pay_column_header_text}")
+        return pay_column_header_text
+
+    def get_adj_column_header_text(self) -> str:
+        """Get the text of the Adj column header.
+
+        Returns:
+            str: The Adj column header text.
+        """
+        adj_column_header = self.window.child_window(auto_id="[Column Header] Column19", control_type="HeaderItem")
+        adj_column_header_text = adj_column_header.window_text()
+        self.logger.debug(f"Adj column header text: {adj_column_header_text}")
+        return adj_column_header_text
+
+    def get_pages_data(self, screenshot_destination: Path, text_extraction_service: OCR) -> str:
         """Extract Pages Dataw.
 
         Returns:
             str: the pages data as text
+            text_extraction_service (OCR): Object of OCR class
         """
         image = self._capture_pages_data_as_image_in_window()
-        return self.get_data_from_image(image, screenshot_destination)
+        return self.get_data_from_image(image, screenshot_destination, text_extraction_service)
 
-    def get_data_from_image(self, image: Image.Image, screenshot_destination: Path) -> str:
+    def get_data_from_image(
+        self, image: Image.Image, screenshot_destination: Path, text_extraction_service: OCR
+    ) -> str:
         """Extract text from image after preprocessing it.
 
         Args:
             image (Image.Image): The image from which to extract text.
             parsing_settings (PSM): The parsing settings.
+            text_extraction_service (OCR): Object of OCR class
 
         Returns:
             str: The extracted text.
         """
-        if self.textract is None:
-            raise ValueError("You must provide textract in Core Class initialization.")
         screenshot_name = f'temp_screenshot_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png'
         screenshot_location = screenshot_destination / screenshot_name
         image.save(screenshot_location)
 
         # Perform OCR
-        ocrd_image: TextractPage = self.textract.read_image_page(screenshot_location, cache_data=False)
+        ocrd_image = text_extraction_service.read_image_page(screenshot_location, cache_data=False)
 
         # Clean up the temporary image file
         screenshot_location.unlink()
 
         return ocrd_image.full_text
 
-    def get_transaction_number(self, screenshot_destination: Path) -> Optional[str]:
-        """Extracts and returns the transaction number from the page data using regex.
+    def get_transaction_number(
+        self, screenshot_destination: Path, text_extraction_services: List[OCR]
+    ) -> Optional[str]:
+        """Extracts and returns the transaction number using fallback approach.
+
+        First tries to get the transaction number using handle method,
+        then falls back to OCR if the handle method fails.
 
         Returns:
-            Optional[str]: The transaction number if found, otherwise None.
+            Optional[str]: The transaction number if found, otherwise raises TransactionNumberNotFoundError.
         """
-        self.maximize_window()
-        self.desktop_app.wait_until_element_visible(auto_id="vseContainer", control_type="Text")
-        page_data = self.get_pages_data(screenshot_destination)
-
-        match = re.search(r"(\d+)\s*of\s*\d+", page_data)
+        # First approach: Try to get transaction number using handle method
+        txn_handle = self.get_handle_of_transaction_number_field()
+        txn_value = self.get_text_from_hwnd(txn_handle)
+        match = re.search(r"(\d+)\s*of\s*\d+", txn_value)
         if match:
             txn_value = "00" + match.group(1)
-            self.logger.debug(f"Transaction Number: {txn_value}")
+            self.logger.debug(f"Transaction Number (handle method): {txn_value}")
             return txn_value
 
+        # Second approach: Fallback to OCR method
+        self.logger.debug("Handle method failed, trying OCR approach")
+        self.maximize_window()
+        self.desktop_app.wait_until_element_visible(auto_id="vseContainer", control_type="Text")
+        for service in text_extraction_services:
+            page_data = self.get_pages_data(screenshot_destination, service)
+            match = re.search(r"(\d+)\s*of\s*\d+", page_data)
+            if match:
+                txn_value = "00" + match.group(1)
+                self.logger.debug(f"Transaction Number (OCR method): {txn_value}")
+                return txn_value
+
         raise TransactionNumberNotFoundError("Transaction number not found in the page data.")
+
+    def get_handle_of_transaction_number_field(self) -> int:
+        """This method gets the handle of transaction number field."""
+        element = self.window.child_window(auto_id="_lblDisplayField_0", control_type="Text")
+        return element.handle
+
+    def get_text_from_hwnd(self, hwnd: int) -> str:
+        """Get text from a window/control handle using SendMessage."""
+        # Text size in control
+        length = ctypes.windll.user32.SendMessageW(hwnd, 0x000E, 0, 0)
+        if length == 0:
+            return ""
+        # Create buffer to receive the text
+        buffer = ctypes.create_unicode_buffer(length + 1)
+        # Fill the buffer with text
+        ctypes.windll.user32.SendMessageW(hwnd, 0x000D, length + 1, buffer)
+        return buffer.value
 
     def click_shield_icon(self) -> None:
         """Click shield icon in payment entry window."""
@@ -800,6 +928,7 @@ class PaymentEntryWindow(NextGenWindow):
         with contextlib.suppress(_ctypes.COMError):
             pnl_small_tool.child_window(auto_id="_cmdSmallTool_04", control_type="Button").click_input()
 
+    @retry(PayerNotUpdatedException, tries=3, delay=1)
     def select_payer_in_drop_down(self, payer: str) -> None:
         """This method selects the payer in the drop down.
 
@@ -818,7 +947,12 @@ class PaymentEntryWindow(NextGenWindow):
                 self.desktop_app.set_text(
                     combo_box.child_window(control_type="Edit", top_level_only=True, found_index=0), value
                 )
-                return
+                break
+        nextgen_payer = combo_box.child_window(auto_id="[Editor] Edit Area", control_type="Edit").get_value()
+        if payer.lower() not in nextgen_payer.lower():
+            self.logger.debug(f"Failed to select payer {payer} in dropdown. Retrying...")
+            capture_screenshot(f"Failed_to_set_payer_{payer}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+            raise PayerNotUpdatedException(f"Failed to select payer {payer} in dropdown")
 
     def get_payers_from_dropdown(self) -> list:
         """Get all the Payer element from the dropdown.
@@ -939,7 +1073,7 @@ class PaymentEntryWindow(NextGenWindow):
             self.enter_text_in_tracking_field(payment_trn)
             self.logger.debug("Payment window cleaned and tracking number entered successfully.")
 
-    def select_pay_code_in_drop_down(self, option_to_select: str):
+    def select_pay_code_in_drop_down(self, option_to_select: str) -> None:
         """This method selects the pay code in the drop down.
 
         Args:
@@ -957,7 +1091,7 @@ class PaymentEntryWindow(NextGenWindow):
                 self.desktop_app.set_text(combo_box.child_window(control_type="Edit", found_index=0), value)
                 return
 
-    def select_adj_code_in_drop_down(self, option_to_select: str):
+    def select_adj_code_in_drop_down(self, option_to_select: str) -> None:
         """Select the adjustment code from the dropdown.
 
         Args:
@@ -974,7 +1108,7 @@ class PaymentEntryWindow(NextGenWindow):
                 self.desktop_app.set_text(combo_box.child_window(control_type="Edit", found_index=0), value)
                 return
 
-    def close_payment_entry_window(self):
+    def close_payment_entry_window(self) -> None:
         """Click close payment entry window."""
         title_bar = self.window.child_window(control_type="TitleBar")
         title_bar.child_window(title="Close", control_type="Button").click_input()
@@ -1100,7 +1234,7 @@ class PaymentEntryWindow(NextGenWindow):
         self.logger.debug("Payment Entry is opened for the expected encounter and resub.")
         return True
 
-    def delete_allowed_field(self, row) -> None:
+    def delete_allowed_field(self, row: WindowSpecification) -> None:
         """Delete (set to empty) the Allowed field of the given service line."""
         self.logger.debug("Deleting Allowed field (set to empty).")
         row = self.revalidate_service_row(row)
@@ -1117,7 +1251,7 @@ class PaymentEntryWindow(NextGenWindow):
                 return
         raise FieldNotFoundException("Allowed field not found in the row")
 
-    def delete_adj_field(self, row) -> None:
+    def delete_adj_field(self, row: WindowSpecification) -> None:
         """Delete (set to empty) the Adj field of the given service line."""
         self.logger.debug("Deleting Adj field (set to empty).")
         row = self.revalidate_service_row(row)
@@ -1134,7 +1268,7 @@ class PaymentEntryWindow(NextGenWindow):
                 return
         raise AdjFieldNotFoundException("Adj field not found in the row")
 
-    def delete_pay_field(self, row) -> None:
+    def delete_pay_field(self, row: WindowSpecification) -> None:
         """Delete (set to empty) the Pay field of the given service line."""
         self.logger.debug("Deleting Pay field (set to empty).")
         row = self.revalidate_service_row(row)

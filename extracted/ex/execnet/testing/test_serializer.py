@@ -5,8 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import execnet
 import pytest
+
+import execnet
 
 # We use the execnet folder in order to avoid triggering a missing apipkg.
 pyimportdir = os.fspath(Path(execnet.__file__).parent)
@@ -154,7 +155,7 @@ def test_bool(dump, load) -> None:
 
 def test_none(dump, load) -> None:
     p = dump("None")
-    tp, s = load(p)
+    _tp, s = load(p)
     assert s == "None"
 
 

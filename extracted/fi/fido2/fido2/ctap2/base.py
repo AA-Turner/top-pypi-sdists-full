@@ -32,7 +32,7 @@ import struct
 from dataclasses import Field, dataclass, field, fields
 from enum import IntEnum, unique
 from threading import Event
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -113,24 +113,35 @@ class Info(_CborDataObject):
     pin_complexity_policy: bool | None = None
     pin_complexity_policy_url: bytes | None = None
     max_pin_length: int = 63
+    enc_cred_store_state: bytes | None = None
+    authenticator_config_commands: list[int] | None = None
 
-    def get_identifier(self, pin_token: bytes) -> bytes | None:
-        """Decrypt the device identifier using a persistent PUAT."""
-        if not self.enc_identifier:
+    def _decrypt(
+        self, encrypted: bytes | None, info: bytes, pin_token: bytes
+    ) -> bytes | None:
+        if not encrypted:
             return None
 
-        iv, ct = self.enc_identifier[:16], self.enc_identifier[16:]
+        iv, ct = encrypted[:16], encrypted[16:]
         be = default_backend()
         secret = HKDF(
             algorithm=hashes.SHA256(),
             length=16,
             salt=b"\0" * 32,
-            info=b"encIdentifier",
+            info=info,
             backend=be,
         ).derive(pin_token)
 
         dec = Cipher(algorithms.AES(secret), modes.CBC(iv), be).decryptor()
         return dec.update(ct) + dec.finalize()
+
+    def get_identifier(self, pin_token: bytes) -> bytes | None:
+        """Decrypt the device identifier using a persistent PUAT."""
+        return self._decrypt(self.enc_identifier, b"encIdentifier", pin_token)
+
+    def get_cred_store_state(self, pin_token: bytes) -> bytes | None:
+        """Decrypt the credential store state using a persistent PUAT."""
+        return self._decrypt(self.enc_cred_store_state, b"encCredStoreState", pin_token)
 
 
 @dataclass(eq=False, frozen=True)
@@ -237,7 +248,9 @@ class Ctap2:
             raise ValueError("Device does not support CTAP2.")
         self.device = device
         self._strict_cbor = strict_cbor
+        self._max_msg_size = 1024  # For initial get_info call
         self._info = self.get_info()
+        self._max_msg_size = self._info.max_msg_size
 
     @property
     def info(self) -> Info:
@@ -267,6 +280,8 @@ class Ctap2:
         request = struct.pack(">B", cmd)
         if data is not None:
             request += cbor.encode(data)
+        if len(request) > self._max_msg_size:
+            raise CtapError(CtapError.ERR.REQUEST_TOO_LARGE)
         response = self.device.call(CTAPHID.CBOR, request, event, on_keepalive)
         status = response[0]
         if status != 0x00:
@@ -283,7 +298,7 @@ class Ctap2:
                     f"Got: {enc.hex()}\nExpected: {expected.hex()}"
                 )
         if isinstance(decoded, Mapping):
-            return decoded
+            return cast(Mapping[int, Any], decoded)
         raise TypeError("Decoded value of wrong type")
 
     def get_info(self) -> Info:

@@ -39,6 +39,8 @@ class Poster:
 
         # for year summary
         self.is_summary = False
+        self.tooltip_template = None
+        self.tooltip_by_date = {}
 
     def set_tracks(self, tracks, years, type_list):
         self.type_list.extend(type_list)

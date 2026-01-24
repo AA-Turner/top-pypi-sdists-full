@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use common_daft_config::DaftExecutionConfig;
 use common_display::ascii::AsciiTreeDisplay;
 use common_error::{DaftError, DaftResult};
 use common_treenode::{TreeNode, TreeNodeRecursion};
@@ -12,7 +13,11 @@ use daft_core::join::JoinSide;
 use daft_dsl::{
     Column, Expr, ResolvedColumn, Subquery, SubqueryPlan, optimization::get_required_columns,
 };
-use daft_schema::{field::Field, schema::SchemaRef};
+use daft_schema::{
+    dtype::DataType,
+    field::Field,
+    schema::{Schema, SchemaRef},
+};
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -21,7 +26,8 @@ pub use crate::ops::*;
 use crate::stats::{PlanStats, StatsState};
 
 /// Logical plan for a Daft query.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum LogicalPlan {
     Source(Source),
     Shard(Shard),
@@ -48,11 +54,23 @@ pub enum LogicalPlan {
     SubqueryAlias(SubqueryAlias),
     Window(Window),
     TopN(TopN),
+    VLLMProject(VLLMProject),
+}
+
+#[cfg(not(debug_assertions))]
+impl std::fmt::Debug for LogicalPlan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LogicalPlan")
+            .field("plan_id", &self.plan_id())
+            .field("node_id", &self.node_id())
+            .finish()
+    }
 }
 
 pub type LogicalPlanRef = Arc<LogicalPlan>;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct SubqueryAlias {
     pub plan_id: Option<usize>,
     pub node_id: Option<usize>,
@@ -159,6 +177,7 @@ impl LogicalPlan {
             Self::SubqueryAlias(SubqueryAlias { input, .. }) => input.schema(),
             Self::Window(Window { schema, .. }) => schema.clone(),
             Self::TopN(TopN { input, .. }) => input.schema(),
+            Self::VLLMProject(VLLMProject { output_schema, .. }) => output_schema.clone(),
         }
     }
 
@@ -181,7 +200,7 @@ impl LogicalPlan {
                 RequiredCols::new(res, None)
             }
             Self::UDFProject(UDFProject {
-                project,
+                expr,
                 passthrough_columns,
                 ..
             }) => {
@@ -190,7 +209,7 @@ impl LogicalPlan {
                     .flat_map(get_required_columns)
                     .collect::<IndexSet<_>>();
 
-                res.extend(get_required_columns(project).into_iter());
+                res.extend(get_required_columns(expr).into_iter());
                 RequiredCols::new(res, None)
             }
             Self::Filter(filter) => RequiredCols::new(
@@ -315,6 +334,10 @@ impl LogicalPlan {
                     .collect();
                 RequiredCols::new(res, None)
             }
+            Self::VLLMProject(VLLMProject { expr, .. }) => RequiredCols::new(
+                get_required_columns(&expr.input).into_iter().collect(),
+                None,
+            ),
         }
     }
 
@@ -345,6 +368,7 @@ impl LogicalPlan {
             Self::SubqueryAlias(..) => "Alias",
             Self::Window(..) => "Window",
             Self::TopN(..) => "TopN",
+            Self::VLLMProject(..) => "VLLMProject",
         }
     }
 
@@ -371,7 +395,8 @@ impl LogicalPlan {
             | Self::Sample(Sample { stats_state, .. })
             | Self::MonotonicallyIncreasingId(MonotonicallyIncreasingId { stats_state, .. })
             | Self::Window(Window { stats_state, .. })
-            | Self::TopN(TopN { stats_state, .. }) => stats_state,
+            | Self::TopN(TopN { stats_state, .. })
+            | Self::VLLMProject(VLLMProject { stats_state, .. }) => stats_state,
             Self::Intersect(_) | Self::Union(_) | Self::SubqueryAlias(_) => {
                 panic!(
                     "{} nodes should be optimized away before stats are materialized",
@@ -387,9 +412,9 @@ impl LogicalPlan {
 
     // Materializes stats over logical plans. If stats are already materialized, this function recomputes stats, which might be
     // useful if stats become stale during query planning.
-    pub fn with_materialized_stats(self) -> Self {
+    pub fn with_materialized_stats(self, cfg: &DaftExecutionConfig) -> Self {
         match self {
-            Self::Source(plan) => Self::Source(plan.with_materialized_stats()),
+            Self::Source(plan) => Self::Source(plan.with_materialized_stats(cfg)),
             Self::Shard(plan) => Self::Shard(plan.with_materialized_stats()),
             Self::Project(plan) => Self::Project(plan.with_materialized_stats()),
             Self::UDFProject(plan) => Self::UDFProject(plan.with_materialized_stats()),
@@ -413,6 +438,7 @@ impl LogicalPlan {
             }
             Self::Window(plan) => Self::Window(plan.with_materialized_stats()),
             Self::TopN(plan) => Self::TopN(plan.with_materialized_stats()),
+            Self::VLLMProject(plan) => Self::VLLMProject(plan.with_materialized_stats()),
             Self::Intersect(_) | Self::Union(_) | Self::SubqueryAlias(_) => {
                 panic!(
                     "{} should be optimized away before stats are derived",
@@ -451,6 +477,7 @@ impl LogicalPlan {
             Self::SubqueryAlias(alias) => alias.multiline_display(),
             Self::Window(window) => window.multiline_display(),
             Self::TopN(top_n) => top_n.multiline_display(),
+            Self::VLLMProject(vllm_project) => vllm_project.multiline_display(),
         }
     }
 
@@ -483,6 +510,7 @@ impl LogicalPlan {
             Self::SubqueryAlias(SubqueryAlias { input, .. }) => vec![input],
             Self::Window(Window { input, .. }) => vec![input],
             Self::TopN(TopN { input, .. }) => vec![input],
+            Self::VLLMProject(VLLMProject { input, .. }) => vec![input],
         }
     }
 
@@ -499,16 +527,12 @@ impl LogicalPlan {
                     Self::Project(Project::try_new(input.clone(), projection.clone()).unwrap())
                 }
                 Self::UDFProject(UDFProject {
-                    project,
+                    expr,
                     passthrough_columns,
                     ..
                 }) => Self::UDFProject(
-                    UDFProject::try_new(
-                        input.clone(),
-                        project.clone(),
-                        passthrough_columns.clone(),
-                    )
-                    .unwrap(),
+                    UDFProject::try_new(input.clone(), expr.clone(), passthrough_columns.clone())
+                        .unwrap(),
                 ),
                 Self::Filter(Filter { predicate, .. }) => {
                     Self::Filter(Filter::try_new(input.clone(), predicate.clone()).unwrap())
@@ -525,9 +549,14 @@ impl LogicalPlan {
                 Self::Offset(Offset { offset, .. }) => {
                     Self::Offset(Offset::new(input.clone(), *offset))
                 }
-                Self::Explode(Explode { to_explode, .. }) => {
-                    Self::Explode(Explode::try_new(input.clone(), to_explode.clone()).unwrap())
-                }
+                Self::Explode(Explode {
+                    to_explode,
+                    index_column,
+                    ..
+                }) => Self::Explode(
+                    Explode::try_new(input.clone(), to_explode.clone(), index_column.clone())
+                        .unwrap(),
+                ),
                 Self::Sort(Sort {
                     sort_by,
                     descending,
@@ -605,14 +634,17 @@ impl LogicalPlan {
                     value_name.clone(),
                     output_schema.clone(),
                 )),
+
                 Self::Sample(Sample {
                     fraction,
+                    size,
                     with_replacement,
                     seed,
                     ..
                 }) => Self::Sample(Sample::new(
                     input.clone(),
                     *fraction,
+                    *size,
                     *with_replacement,
                     *seed,
                 )),
@@ -651,6 +683,15 @@ impl LogicalPlan {
                     )
                     .unwrap(),
                 ),
+                Self::VLLMProject(VLLMProject {
+                    expr,
+                    output_column_name,
+                    ..
+                }) => Self::VLLMProject(VLLMProject::new(
+                    input.clone(),
+                    expr.clone(),
+                    output_column_name.clone(),
+                )),
                 Self::Concat(_) | Self::Intersect(_) | Self::Union(_) | Self::Join(_) => panic!(
                     "{} ops should never have only one input, but got one",
                     input.name()
@@ -749,9 +790,12 @@ impl LogicalPlan {
         use common_treenode::TreeNode;
 
         let mut schema = None;
+        let mut found_match = false;
 
         self.apply(|node| {
-            if let Self::SubqueryAlias(SubqueryAlias { name, .. }) = node.as_ref() {
+            if let Self::SubqueryAlias(subquery_alias) = node.as_ref() {
+
+                let SubqueryAlias { name, input, .. } = subquery_alias;
                 if name.as_ref() == alias {
                     if schema.is_some() {
                         return Err(DaftError::ValueError(format!(
@@ -760,12 +804,36 @@ impl LogicalPlan {
                     }
 
                     schema = Some(node.schema());
+                    found_match = true;
+                    return Ok(TreeNodeRecursion::Jump);
                 }
 
-                Ok(TreeNodeRecursion::Jump)
-            } else {
-                Ok(TreeNodeRecursion::Continue)
+                let input_schema = input.schema();
+                let fields = input_schema.get_fields_with_name(alias);
+                for (_, field) in fields {
+                    if let DataType::Struct(struct_fields) = &field.dtype {
+                        if schema.is_some() {
+                            return Err(DaftError::ValueError(format!(
+                                "Plan must not have duplicate aliases in the same scope, found: {alias}"
+                            )));
+                        }
+
+                        let new_fields: Vec<Field> = struct_fields
+                            .iter()
+                            .map(|f| Field::new(f.name.clone(), f.dtype.clone()))
+                            .collect();
+
+                        let new_schema = Schema::new(new_fields);
+                        schema = Some(Arc::new(new_schema));
+                        found_match = true;
+                        return Ok(TreeNodeRecursion::Jump);
+                    }
+                }
+                if !found_match {
+                    return Ok(TreeNodeRecursion::Jump);
+                }
             }
+            Ok(TreeNodeRecursion::Continue)
         })?;
 
         Ok(schema)
@@ -825,7 +893,8 @@ impl LogicalPlan {
             | Self::MonotonicallyIncreasingId(MonotonicallyIncreasingId { plan_id, .. })
             | Self::SubqueryAlias(SubqueryAlias { plan_id, .. })
             | Self::Window(Window { plan_id, .. })
-            | Self::TopN(TopN { plan_id, .. }) => plan_id,
+            | Self::TopN(TopN { plan_id, .. })
+            | Self::VLLMProject(VLLMProject { plan_id, .. }) => plan_id,
         }
     }
 
@@ -855,7 +924,8 @@ impl LogicalPlan {
             | Self::MonotonicallyIncreasingId(MonotonicallyIncreasingId { node_id, .. })
             | Self::SubqueryAlias(SubqueryAlias { node_id, .. })
             | Self::Window(Window { node_id, .. })
-            | Self::TopN(TopN { node_id, .. }) => node_id,
+            | Self::TopN(TopN { node_id, .. })
+            | Self::VLLMProject(VLLMProject { node_id, .. }) => node_id,
         }
     }
 
@@ -891,6 +961,9 @@ impl LogicalPlan {
             Self::SubqueryAlias(alias) => Self::SubqueryAlias(alias.with_plan_id(plan_id)),
             Self::Window(window) => Self::Window(window.with_plan_id(plan_id)),
             Self::TopN(top_n) => Self::TopN(top_n.with_plan_id(plan_id)),
+            Self::VLLMProject(vllm_project) => {
+                Self::VLLMProject(vllm_project.with_plan_id(plan_id))
+            }
         }
     }
 
@@ -926,6 +999,9 @@ impl LogicalPlan {
             Self::SubqueryAlias(alias) => Self::SubqueryAlias(alias.with_node_id(node_id)),
             Self::Window(window) => Self::Window(window.with_node_id(node_id)),
             Self::TopN(top_n) => Self::TopN(top_n.with_node_id(node_id)),
+            Self::VLLMProject(vllm_project) => {
+                Self::VLLMProject(vllm_project.with_node_id(node_id))
+            }
         }
     }
 }

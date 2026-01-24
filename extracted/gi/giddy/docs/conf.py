@@ -96,7 +96,7 @@ language = "en"
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = [
-    "_build",
+    "build",
     "Thumbs.db",
     ".DS_Store",
     "tests/*",
@@ -276,12 +276,12 @@ def setup(app):
 # Configuration for intersphinx
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "numpy": ("https://docs.scipy.org/doc/numpy", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "esda": ("https://pysal.org/esda/", None),
     "libpysal": ("https://pysal.org/libpysal/", None),
     "mapclassify": ("https://pysal.org/mapclassify/", None),
-    "esda": ("https://pysal.org/esda/", None),
-    "matplotlib": ("https://matplotlib.org/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
 }
 
 

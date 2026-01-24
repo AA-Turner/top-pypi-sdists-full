@@ -1,5 +1,5 @@
 import re
-from _typeshed import Incomplete, SupportsRead
+from _typeshed import SupportsRead
 from collections.abc import Callable, Mapping
 from datetime import _TzInfo, datetime
 from io import StringIO
@@ -58,22 +58,21 @@ class parserinfo:
     def convertyear(self, year: int, century_specified: bool = False) -> int: ...
     def validate(self, res: datetime) -> bool: ...
 
-class _ymd(list[Incomplete]):
+class _ymd(list[int]):
     century_specified: bool
     dstridx: int | None
     mstridx: int | None
     ystridx: int | None
-    def __init__(self, *args, **kwargs) -> None: ...
     @property
     def has_year(self) -> bool: ...
     @property
     def has_month(self) -> bool: ...
     @property
     def has_day(self) -> bool: ...
-    def could_be_day(self, value): ...
-    def append(self, val, label=None): ...
-    def _resolve_from_stridxs(self, strids): ...
-    def resolve_ymd(self, yearfirst: bool | None, dayfirst: bool | None): ...
+    def could_be_day(self, value: int) -> bool: ...
+    def append(self, val: str | int, label: str | None = None) -> None: ...
+    def _resolve_from_stridxs(self, strids: dict[str, int]) -> tuple[int, int, int]: ...
+    def resolve_ymd(self, yearfirst: bool | None, dayfirst: bool | None) -> tuple[int, int, int]: ...
 
 class parser:
     info: parserinfo
@@ -108,6 +107,7 @@ def parse(
 
 class _tzparser:
     class _result(_resultbase):
+        __slots__ = ["stdabbr", "stdoffset", "dstabbr", "dstoffset", "start", "end"]
         stdabbr: str | None
         stdoffset: int | None
         dstabbr: str | None
@@ -116,6 +116,7 @@ class _tzparser:
         end: _attr
 
         class _attr(_resultbase):
+            __slots__ = ["month", "week", "weekday", "yday", "jyday", "day", "time"]
             month: int | None
             week: int | None
             weekday: int | None

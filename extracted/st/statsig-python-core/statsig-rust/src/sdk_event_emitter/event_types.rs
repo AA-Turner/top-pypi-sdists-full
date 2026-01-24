@@ -1,7 +1,8 @@
-use crate::statsig_types::{DynamicConfig, Experiment, Layer};
 use serde::Serialize;
-use serde_json::json;
-use std::borrow::Cow;
+
+use crate::{specs_response::spec_types::SpecsResponseFull, SpecsSource};
+
+const TAG: &str = "SdkEvent";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
@@ -12,6 +13,7 @@ pub enum SdkEventCode {
     DynamicConfigEvaluated = 3,
     ExperimentEvaluated = 4,
     LayerEvaluated = 5,
+    SpecsUpdated = 6,
 }
 
 impl SdkEventCode {
@@ -22,6 +24,7 @@ impl SdkEventCode {
             SdkEvent::DYNAMIC_CONFIG_EVALUATED => SdkEventCode::DynamicConfigEvaluated,
             SdkEvent::EXPERIMENT_EVALUATED => SdkEventCode::ExperimentEvaluated,
             SdkEvent::LAYER_EVALUATED => SdkEventCode::LayerEvaluated,
+            SdkEvent::SPECS_UPDATED => SdkEventCode::SpecsUpdated,
             _ => SdkEventCode::Unknown,
         }
     }
@@ -32,21 +35,37 @@ impl SdkEventCode {
 }
 
 #[derive(Serialize, Clone)]
+#[serde(untagged)]
 pub enum SdkEvent<'a> {
+    SpecsUpdated {
+        source: &'a SpecsSource,
+        source_api: &'a Option<String>,
+        values: &'a SpecsResponseFull,
+    },
     GateEvaluated {
-        gate_name: Cow<'a, str>,
-        rule_id: Cow<'a, str>,
+        gate_name: &'a str,
+        rule_id: &'a str,
         value: bool,
-        reason: Cow<'a, str>,
+        reason: &'a str,
     },
     DynamicConfigEvaluated {
-        dynamic_config: Cow<'a, DynamicConfig>,
+        config_name: &'a str,
+        reason: &'a str,
+        rule_id: Option<&'a str>,
+        value: Option<&'a crate::DynamicReturnable>,
     },
     ExperimentEvaluated {
-        experiment: Cow<'a, Experiment>,
+        experiment_name: &'a str,
+        reason: &'a str,
+        rule_id: Option<&'a str>,
+        value: Option<&'a crate::DynamicReturnable>,
+        group_name: Option<&'a str>,
     },
     LayerEvaluated {
-        layer: Cow<'a, Layer>,
+        layer_name: &'a str,
+        reason: &'a str,
+        rule_id: Option<&'a str>,
+        // not giving value as it wouldn't trigger an exposure
     },
 }
 
@@ -56,6 +75,7 @@ impl SdkEvent<'_> {
     pub const DYNAMIC_CONFIG_EVALUATED: &'static str = "dynamic_config_evaluated";
     pub const EXPERIMENT_EVALUATED: &'static str = "experiment_evaluated";
     pub const LAYER_EVALUATED: &'static str = "layer_evaluated";
+    pub const SPECS_UPDATED: &'static str = "specs_updated";
 
     pub fn get_code(&self) -> SdkEventCode {
         match self {
@@ -63,6 +83,7 @@ impl SdkEvent<'_> {
             SdkEvent::DynamicConfigEvaluated { .. } => SdkEventCode::DynamicConfigEvaluated,
             SdkEvent::ExperimentEvaluated { .. } => SdkEventCode::ExperimentEvaluated,
             SdkEvent::LayerEvaluated { .. } => SdkEventCode::LayerEvaluated,
+            SdkEvent::SpecsUpdated { .. } => SdkEventCode::SpecsUpdated,
         }
     }
 
@@ -73,38 +94,29 @@ impl SdkEvent<'_> {
             SdkEventCode::DynamicConfigEvaluated => SdkEvent::DYNAMIC_CONFIG_EVALUATED,
             SdkEventCode::ExperimentEvaluated => SdkEvent::EXPERIMENT_EVALUATED,
             SdkEventCode::LayerEvaluated => SdkEvent::LAYER_EVALUATED,
+            SdkEventCode::SpecsUpdated => SdkEvent::SPECS_UPDATED,
             SdkEventCode::Unknown => "unknown",
         }
     }
 
-    pub fn to_json_map(&self) -> serde_json::Map<String, serde_json::Value> {
-        let name = self.get_name();
-        let mut map = serde_json::Map::new();
-        map.insert("event_name".to_string(), json!(name));
+    pub fn to_raw_json_string(&self) -> Option<String> {
+        let raw = SdkEventRaw {
+            event_name: self.get_name(),
+            data: self,
+        };
 
-        match self {
-            SdkEvent::GateEvaluated {
-                gate_name,
-                rule_id,
-                value,
-                reason,
-            } => {
-                map.insert("gate_name".to_string(), json!(gate_name));
-                map.insert("value".to_string(), json!(value));
-                map.insert("reason".to_string(), json!(reason));
-                map.insert("rule_id".to_string(), json!(rule_id));
-            }
-            SdkEvent::DynamicConfigEvaluated { dynamic_config } => {
-                map.insert("dynamic_config".to_string(), json!(dynamic_config));
-            }
-            SdkEvent::ExperimentEvaluated { experiment } => {
-                map.insert("experiment".to_string(), json!(experiment));
-            }
-            SdkEvent::LayerEvaluated { layer } => {
-                map.insert("layer".to_string(), json!(layer));
+        match serde_json::to_string(&raw) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                crate::log_e!(TAG, "Failed to convert SdkEvent to raw JSON string: {}", e);
+                None
             }
         }
-
-        map
     }
+}
+
+#[derive(Serialize, Clone)]
+pub struct SdkEventRaw<'a> {
+    event_name: &'static str,
+    data: &'a SdkEvent<'a>,
 }

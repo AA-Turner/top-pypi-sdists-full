@@ -8,7 +8,17 @@ import sys
 import pytest
 from jsonschema import ValidationError, validate
 
-from griffe import Attribute, Class, Function, GriffeLoader, Kind, Module, Object, temporary_visited_module
+from griffe import (
+    Attribute,
+    Class,
+    Function,
+    GriffeLoader,
+    Kind,
+    Module,
+    Object,
+    temporary_inspected_package,
+    temporary_visited_module,
+)
 
 
 def test_minimal_data_is_enough() -> None:
@@ -33,6 +43,18 @@ def test_minimal_data_is_enough() -> None:
     # Won't work if the JSON doesn't represent the type requested.
     with pytest.raises(TypeError, match="provided JSON object is not of type"):
         Function.from_json(minimal)
+
+
+def test_namespace_packages() -> None:
+    """Test support for namespace packages.
+
+    Namespace packages are a bit special as they have no `__init__.py` file.
+    """
+    with temporary_inspected_package("namespace_package", init=False) as package:
+        dump_options = {"indent": 2, "sort_keys": True}
+        as_json = package.as_json(full=True, **dump_options)
+        from_json = Object.from_json(as_json)
+        assert from_json.as_json(full=True, **dump_options) == as_json
 
 
 @pytest.mark.parametrize(
@@ -143,7 +165,7 @@ def test_json_schema() -> None:
     module = loader.load("griffe")
     loader.resolve_aliases()
     data = json.loads(module.as_json(full=True))
-    with open("docs/schema.json") as f:  # noqa: PTH123
+    with open("docs/schema.json", encoding="utf8") as f:  # noqa: PTH123
         schema = json.load(f)
     validate(data, schema)
 
@@ -164,7 +186,7 @@ def test_json_schema_for_pep695_generics_without_defaults() -> None:
         """,
     ) as module:
         data = json.loads(module.as_json(full=True))
-        with open("docs/schema.json") as f:  # noqa: PTH123
+        with open("docs/schema.json", encoding="utf8") as f:  # noqa: PTH123
             schema = json.load(f)
         validate(data, schema)
 
@@ -184,6 +206,6 @@ def test_json_schema_for_pep695_generics() -> None:
         """,
     ) as module:
         data = json.loads(module.as_json(full=True))
-        with open("docs/schema.json") as f:  # noqa: PTH123
+        with open("docs/schema.json", encoding="utf8") as f:  # noqa: PTH123
             schema = json.load(f)
         validate(data, schema)

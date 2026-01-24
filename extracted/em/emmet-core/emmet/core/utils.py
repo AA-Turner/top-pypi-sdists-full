@@ -5,15 +5,18 @@ from __future__ import annotations
 import copy
 import datetime
 import hashlib
+import inspect
+import logging
 from enum import Enum
+from importlib import import_module
 from itertools import groupby
 from math import gcd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 import numpy as np
-from monty.io import zopen
-from monty.json import MSONable
-from pydantic import BaseModel
+from monty.json import MontyDecoder, MSONable
+from pydantic import BaseModel, RootModel
+from pydantic._internal._utils import lenient_issubclass
 from pymatgen.analysis.elasticity.strain import Deformation
 from pymatgen.analysis.graphs import MoleculeGraph
 from pymatgen.analysis.local_env import OpenBabelNN, metal_edge_extender
@@ -28,23 +31,84 @@ from pymatgen.transformations.standard_transformations import (
     DeformStructureTransformation,
 )
 from pymatgen.util.graph_hashing import weisfeiler_lehman_graph_hash
+from typing_extensions import TypedDict
 
+from emmet.core import ARROW_COMPATIBLE
 from emmet.core.mpid import MPculeID
 from emmet.core.settings import EmmetSettings
+
+try:
+    import blake3
+except ImportError:
+    blake3 = None  # type: ignore
 
 try:
     import bson
 except ImportError:
     bson = None  # type: ignore
 
+
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Callable, Iterator
     from typing import Any
 
-    from emmet.core.typing import PathLike
+    from emmet.core.types.typing import FSPathType
 
+logger = logging.getLogger(__name__)
 
 SETTINGS = EmmetSettings()
+
+
+def type_override(overrides: dict[str, Any]):
+    """
+    Pydantic model decorator for declaring a field should be serialized
+    as a type that does not match the type hint for the field. Examples:
+    narrow a union type to a single value or hint at a the return type
+    of a field_serializer used during model dumping.
+    """
+
+    def wrapped(cls):
+        cls.type_overrides = {**getattr(cls, "type_overrides", {}), **overrides}
+        return cls
+
+    return wrapped
+
+
+def set_msonable_type_adapter(cls):
+    """
+    Decorator for MSONables defined in emmet with arrow compatible
+    type hints. Shortcut for generating type adapters rather than
+    writing a dedicated stub file.
+    """
+    TypedClsDict = TypedDict(
+        f"Typed{cls.__name__}Dict",
+        {
+            "@module": str,
+            "@class": str,
+            "@version": str,
+            **{
+                key: field.annotation
+                for key, field in inspect.signature(cls).parameters.items()
+            },
+        },
+    )
+
+    class ClsTypeAdapter(RootModel):
+        root: TypedClsDict
+
+    setattr(cls, "__type_adapter__", ClsTypeAdapter)
+
+    return cls
+
+
+def arrow_incompatible(cls):
+    """
+    Simple decorator to mark a Pydantic model as being incompatible with
+    serialization using pyarrow. This should only be applied as a temporary
+    measure, all document models should aim for full type introspection.
+    """
+    cls.arrow_incompatible = True
+    return cls
 
 
 def get_sg(struc, symprec=SETTINGS.SYMPREC) -> int:
@@ -55,7 +119,7 @@ def get_sg(struc, symprec=SETTINGS.SYMPREC) -> int:
         return -1
 
 
-def get_num_formula_units(composition: Mapping[Any, int | float]) -> int:
+def get_num_formula_units(composition: dict[Any, int | float]) -> int:
     """Get the number of formula units in a dict-like composition.
 
     This implementation differs slightly from how some pymatgen/atomate2
@@ -404,91 +468,128 @@ def jsanitize(obj, strict=False, allow_bson=False):
     return jsanitize(obj.as_dict(), strict=strict, allow_bson=allow_bson)
 
 
-class ValueEnum(Enum):
-    """
-    Enum that serializes to string as the value.
-
-    While this method has an `as_dict` method, this
-    returns a `str`. This is to ensure deserialization
-    to a `str` when functions like `monty.json.jsanitize`
-    are called on a ValueEnum with `strict = True` and
-    `enum_values = False` (occurs often in jobflow).
-    """
-
-    def __str__(self):
-        return str(self.value)
-
-    def __eq__(self, obj: object) -> bool:
-        """Special Equals to enable converting strings back to the enum"""
-        if isinstance(obj, str):
-            return super().__eq__(self.__class__(obj))
-        elif isinstance(obj, self.__class__):
-            return super().__eq__(obj)
-        return False
-
-    def __hash__(self):
-        """Get a hash of the enum."""
-        return hash(str(self))
-
-
-class DocEnum(ValueEnum):
-    """
-    Enum with docstrings support
-    from: https://stackoverflow.com/a/50473952
-    """
-
-    def __new__(cls, value, doc=None):
-        """add docstring to the member of Enum if exists
-
-        Args:
-            value: Enum member value
-            doc: Enum member docstring, None if not exists
-        """
-        self = object.__new__(cls)  # calling super().__new__(value) here would fail
-        self._value_ = value
-        if doc is not None:
-            self.__doc__ = doc
-        return self
-
-
-class IgnoreCaseEnum(ValueEnum):
-    """Enum that permits case-insensitve lookup.
-
-    Reference issue:
-    https://github.com/materialsproject/api/issues/869
-    """
-
-    @classmethod
-    def _missing_(cls, value):
-        for member in cls:
-            if member.value.upper() == value.upper():
-                return member
-
-
 def utcnow() -> datetime.datetime:
     """Get UTC time right now."""
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def get_md5_blocked(file_path: PathLike, chunk_size: int = 1_000_000) -> str:
-    """
-    Get the MD5 hash of a file in byte chunks.
+def convert_datetime(
+    v: datetime.datetime | dict[str, str] | str | None,
+) -> datetime.datetime:
+    """Validate datetime-like objects.
 
     Parameters
     -----------
-    file_path : PathLike
-    chunk_size : int = 1,000,000 bytes (default)
-        The byte chunk size to use in iteratively computing the MD5
+    v : datetime, dict[str,str], str or None
 
     Returns
     -----------
-    The MD5 as a str
+    datetime
     """
-    md5 = hashlib.md5()
-    with zopen(str(file_path), "rb") as f:
+    if not v:
+        return utcnow()
+
+    if isinstance(v, dict):
+        if v.get("$date"):
+            dt = datetime.datetime.fromisoformat(v["$date"])
+            if not dt.tzinfo:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt
+
+    if isinstance(v, str):
+        dt = datetime.datetime.fromisoformat(v)
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return dt
+
+    v = MontyDecoder().process_decoded(v)
+    if isinstance(v, datetime.datetime) and not v.tzinfo:
+        v = v.replace(tzinfo=datetime.timezone.utc)
+    return v  # type: ignore[return-value]
+
+
+def get_hash_blocked(
+    file_path: FSPathType, chunk_size: int = 4 * 1024 * 1024, hasher: Any | None = None
+) -> str:
+    """
+    Get the hash of a file in byte chunks.
+
+    Parameters
+    -----------
+    file_path : FSPathType
+    chunk_size : int = 1,000,000 bytes (default)
+        The byte chunk size to use in iteratively computing the hash.
+    hahser : function to compute hashes. Defaults to blake3 if available,
+        and MD5 if not.
+
+    Returns
+    -----------
+    The hash as a str
+    """
+    if hasher is None:
+        if blake3:
+            hasher = blake3.blake3()
+        else:
+            hasher = hashlib.md5()
+
+    with open(str(file_path), "rb") as f:
         while True:
             data = f.read(chunk_size)
             if not data:
                 break
-            md5.update(data)
-        return md5.hexdigest()
+            hasher.update(data)
+        return hasher.hexdigest()
+
+
+def dynamic_import(module_path: str) -> Any:
+    """Import arbitrary module or object."""
+    paths = module_path.split(".")
+    for i in range(len(paths), 0, -1):
+        try:
+            ob = import_module(".".join(paths[:i]))
+            for path in paths[i:]:
+                ob = getattr(ob, path)
+            return ob
+        except Exception:
+            continue
+    raise ValueError(f"Could not import string:\n{module_path}")
+
+
+def get_flat_models_from_model(
+    model: BaseModel, known_models: set[BaseModel] = set()
+) -> set[BaseModel]:
+    """Get all sub-models from a pydantic model.
+
+    Args:
+        model (BaseModel): Pydantic model
+        known_models (set[BaseModel]) : set of identified pydantic sub-models
+
+    Returns:
+        (set[BaseModel]): Set of pydantic models
+    """
+    known_models = set()
+
+    def get_sub_models(model: Any):
+        if lenient_issubclass(model, BaseModel):
+            known_models.add(model)
+            for field_info in model.model_fields.values():
+                get_sub_models(field_info.annotation)
+        else:
+            for type_anno in get_args(model):
+                get_sub_models(type_anno)
+
+    get_sub_models(model)
+    return known_models
+
+
+def requires_arrow(func: Callable) -> Callable:
+    """Decorator for pyarrow-dependent functionality."""
+
+    def wrap(*args, **kwargs):
+        if not ARROW_COMPATIBLE:
+            raise ImportError(
+                "You must `pip install pyarrow` to use this functionality."
+            )
+        return func(*args, **kwargs)
+
+    return wrap

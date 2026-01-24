@@ -27,6 +27,11 @@ class LoadBalancing(BaseModel):
 
     @computed_field
     @property
+    def virtual_servers_path_rules(self) -> Table:
+        return Table(client=self.client, endpoint="tables/load-balancing/virtual-servers/path-rules", sn=self.sn)
+
+    @computed_field
+    @property
     def virtual_servers_pool_members(self) -> Table:
         return Table(client=self.client, endpoint="tables/load-balancing/virtual-servers/pool-members", sn=self.sn)
 

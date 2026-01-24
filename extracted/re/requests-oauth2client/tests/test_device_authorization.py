@@ -1,19 +1,24 @@
+from __future__ import annotations
+
 import secrets
+from typing import TYPE_CHECKING
 
 import pytest
 from furl import Query  # type: ignore[import-untyped]
-from requests_mock import Mocker
 
 from requests_oauth2client import (
     BearerToken,
     ClientSecretBasic,
     DeviceAuthorizationError,
-    DeviceAuthorizationPoolingJob,
+    DeviceAuthorizationPollingJob,
     InvalidDeviceAuthorizationResponse,
     OAuth2Client,
     PublicApp,
 )
-from tests.conftest import FixtureRequest, join_url
+from tests.utils import join_url
+
+if TYPE_CHECKING:
+    from tests.utils import FixtureRequest, RequestsMocker
 
 
 @pytest.fixture(params=["device", "oauth/device"])
@@ -23,7 +28,7 @@ def device_authorization_endpoint(request: FixtureRequest, issuer: str) -> str:
 
 @pytest.mark.slow
 def test_device_authorization(
-    requests_mock: Mocker,
+    requests_mock: RequestsMocker,
     device_authorization_endpoint: str,
     token_endpoint: str,
     client_id: str,
@@ -77,7 +82,7 @@ def test_device_authorization(
         ],
     )
 
-    pool_job = DeviceAuthorizationPoolingJob(
+    polling_job = DeviceAuthorizationPollingJob(
         client,
         device_auth_resp,
         interval=1,
@@ -85,27 +90,27 @@ def test_device_authorization(
     )
 
     # 1st attempt: authorization_pending
-    resp = pool_job()
+    resp = polling_job()
     assert requests_mock.last_request is not None
     params = Query(requests_mock.last_request.text).params
     assert params.get("client_id") == client_id
     assert params.get("client_secret") == client_secret
 
-    assert pool_job.interval == 1
+    assert polling_job.interval == 1
     assert resp is None
 
     # 2nd attempt: slow down
-    resp = pool_job()
+    resp = polling_job()
     assert requests_mock.last_request is not None
     params = Query(requests_mock.last_request.text).params
     assert params.get("client_id") == client_id
     assert params.get("client_secret") == client_secret
 
-    assert pool_job.interval == 3
+    assert polling_job.interval == 3
     assert resp is None
 
     # 3rd attempt: access token delivered
-    resp = pool_job()
+    resp = polling_job()
     assert isinstance(resp, BearerToken)
     assert requests_mock.last_request is not None
     params = Query(requests_mock.last_request.text).params
@@ -141,7 +146,7 @@ def test_auth_handler(
 
 
 def test_invalid_response(
-    requests_mock: Mocker,
+    requests_mock: RequestsMocker,
     token_endpoint: str,
     device_authorization_endpoint: str,
     client_id: str,

@@ -1,5 +1,5 @@
 from functools import update_wrapper
-from typing import Any, Optional
+from typing import Any
 
 from django import forms
 from django.contrib.admin import ModelAdmin as BaseModelAdmin
@@ -23,12 +23,17 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from unfold.checks import UnfoldModelAdminChecks
+from unfold.datasets import BaseDataset
 from unfold.forms import (
     ActionForm,
     PaginationGenericInlineFormSet,
     PaginationInlineFormSet,
 )
-from unfold.mixins import ActionModelAdminMixin, BaseModelAdminMixin
+from unfold.mixins import (
+    ActionModelAdminMixin,
+    BaseModelAdminMixin,
+    DatasetModelAdminMixin,
+)
 from unfold.overrides import FORMFIELD_OVERRIDES_INLINE
 from unfold.typing import FieldsetsType
 from unfold.views import ChangeList
@@ -43,10 +48,14 @@ checkbox = UnfoldBooleanWidget(
 )
 
 
-class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
+class ModelAdmin(
+    BaseModelAdminMixin, ActionModelAdminMixin, DatasetModelAdminMixin, BaseModelAdmin
+):
     action_form = ActionForm
     custom_urls = ()
     add_fieldsets = ()
+    ordering_field = None
+    hide_ordering_field = False
     list_horizontal_scrollbar_top = False
     list_filter_submit = False
     list_filter_sheet = True
@@ -58,6 +67,7 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
     change_form_after_template = None
     change_form_outer_before_template = None
     change_form_outer_after_template = None
+    change_form_datasets = ()
     compressed_fields = False
     readonly_preprocess_fields = {}
     warn_unsaved_form = False
@@ -72,7 +82,7 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
 
         for filter in self.get_list_filter(self.request):
             if (
-                isinstance(filter, (tuple, list))
+                isinstance(filter, tuple | list)
                 and hasattr(filter[1], "form_class")
                 and hasattr(filter[1].form_class, "Media")
             ):
@@ -83,12 +93,28 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
         return media
 
     def changelist_view(
-        self, request: HttpRequest, extra_context: Optional[dict[str, str]] = None
+        self, request: HttpRequest, extra_context: dict[str, str] | None = None
     ) -> TemplateResponse:
         self.request = request
+
+        if self.ordering_field and self.ordering_field not in self.list_editable:
+            list_editable = list(getattr(self, "list_editable", []))
+            list_editable.append(self.ordering_field)
+            self.list_editable = list_editable
+
         return super().changelist_view(request, extra_context)
 
-    def get_fieldsets(self, request: HttpRequest, obj=None) -> FieldsetsType:
+    def get_list_display(self, request: HttpRequest) -> list[str]:
+        list_display = super().get_list_display(request)
+
+        if self.ordering_field and self.ordering_field not in list_display:
+            list_display.append(self.ordering_field)
+
+        return list_display
+
+    def get_fieldsets(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> FieldsetsType:
         if not obj and self.add_fieldsets:
             return self.add_fieldsets
         return super().get_fieldsets(request, obj)
@@ -119,7 +145,7 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
 
         actions_list_urls = [
             path(
-                action.path,
+                f"{action.path.removesuffix('/')}/",
                 wrap(action.method),
                 name=action.action_name,
             )
@@ -128,7 +154,7 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
 
         action_detail_urls = [
             path(
-                f"<path:object_id>/{action.path}",
+                f"<path:object_id>/{action.path.removesuffix('/')}/",
                 wrap(action.method),
                 name=action.action_name,
             )
@@ -137,7 +163,7 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
 
         action_row_urls = [
             path(
-                f"<path:object_id>/{action.path}",
+                f"<path:object_id>/{action.path.removesuffix('/')}/",
                 wrap(action.method),
                 name=action.action_name,
             )
@@ -152,7 +178,7 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
             + urls
         )
 
-    def _path_from_custom_url(self, custom_url) -> URLPattern:
+    def _path_from_custom_url(self, custom_url: tuple[str, str, View]) -> URLPattern:
         return path(
             custom_url[0],
             self.admin_site.admin_view(custom_url[2]),
@@ -161,13 +187,15 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
         )
 
     def get_action_choices(
-        self, request: HttpRequest, default_choices=BLANK_CHOICE_DASH
-    ):
+        self,
+        request: HttpRequest,
+        default_choices: list[tuple[str, str]] = BLANK_CHOICE_DASH,
+    ) -> list[tuple[str, str]]:
         default_choices = [("", _("Select action"))]
         return super().get_action_choices(request, default_choices)
 
     @display(description=mark_safe(checkbox.render("action_toggle_all", 1)))
-    def action_checkbox(self, obj: Model):
+    def action_checkbox(self, obj: Model) -> str:
         return checkbox.render(helpers.ACTION_CHECKBOX_NAME, str(obj.pk))
 
     def response_change(self, request: HttpRequest, obj: Model) -> HttpResponse:
@@ -177,14 +205,14 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
         return res
 
     def response_add(
-        self, request: HttpRequest, obj: Model, post_url_continue: Optional[str] = None
+        self, request: HttpRequest, obj: Model, post_url_continue: str | None = None
     ) -> HttpResponse:
         res = super().response_add(request, obj, post_url_continue)
         if "next" in request.GET:
             return redirect(request.GET["next"])
         return res
 
-    def get_changelist(self, request, **kwargs):
+    def get_changelist(self, request: HttpRequest, **kwargs: Any) -> ChangeList:
         return ChangeList
 
     def get_formset_kwargs(
@@ -197,6 +225,9 @@ class ModelAdmin(BaseModelAdminMixin, ActionModelAdminMixin, BaseModelAdmin):
             formset_kwargs["per_page"] = inline.per_page
 
         return formset_kwargs
+
+    def get_changeform_datasets(self, request: HttpRequest) -> list[type[BaseDataset]]:
+        return self.change_form_datasets
 
 
 class BaseInlineMixin:

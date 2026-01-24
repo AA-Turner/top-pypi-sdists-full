@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorFlow Recommenders Authors.
+# Copyright 2025 The TensorFlow Recommenders Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,11 +80,16 @@ class PartialTPUEmbedding(tf.keras.layers.Layer):
       if table_config not in table_to_keras_emb:
         table_to_keras_emb[table_config] = tf.keras.layers.Embedding(
             input_dim=table_config.vocabulary_size,
-            output_dim=table_config.dim)
+            output_dim=table_config.dim,
+            embeddings_initializer=table_config.initializer or "uniform",
+        )
       self._keras_embedding_layers[name] = table_to_keras_emb[table_config]
 
-    self._tpu_embedding = TPUEmbedding(
-        tpu_feature_config, optimizer) if tpu_feature_config else None
+    self._tpu_embedding = None
+    if tpu_feature_config:
+      self._tpu_embedding = TPUEmbedding(
+          tpu_feature_config, optimizer, pipeline_execution_with_tensor_core
+      )
 
   def call(self, inputs: Dict[str, Tensor]) -> Dict[str, tf.Tensor]:
     """Computes the output of the embedding layer.

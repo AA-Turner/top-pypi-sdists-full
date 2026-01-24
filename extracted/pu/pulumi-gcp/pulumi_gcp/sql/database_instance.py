@@ -32,6 +32,7 @@ class DatabaseInstanceArgs:
                  master_instance_name: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 point_in_time_restore_context: Optional[pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs']] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replica_configuration: Optional[pulumi.Input['DatabaseInstanceReplicaConfigurationArgs']] = None,
@@ -39,6 +40,8 @@ class DatabaseInstanceArgs:
                  replication_cluster: Optional[pulumi.Input['DatabaseInstanceReplicationClusterArgs']] = None,
                  restore_backup_context: Optional[pulumi.Input['DatabaseInstanceRestoreBackupContextArgs']] = None,
                  root_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
                  settings: Optional[pulumi.Input['DatabaseInstanceSettingsArgs']] = None):
         """
         The set of arguments for constructing a DatabaseInstance resource.
@@ -57,6 +60,8 @@ class DatabaseInstanceArgs:
                configuration is detailed below.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+               
+               > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         :param pulumi.Input[_builtins.str] encryption_key_name: The full path to the encryption key used for the CMEK disk encryption.  Setting
                up disk encryption currently requires manual steps outside of this provider.
                The provided key must be in the same region as the SQL instance.  In order
@@ -75,7 +80,8 @@ class DatabaseInstanceArgs:
                blank, the provider will randomly generate one when the instance is first
                created. This is done because after a name is used, it cannot be reused for
                up to [one week](https://cloud.google.com/sql/docs/delete-instance).
-        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool.
+        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
+        :param pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs'] point_in_time_restore_context: Configuration for creating a new instance using point-in-time-restore from backupdr backup.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs. If it
                is not provided, the provider project is used.
         :param pulumi.Input[_builtins.str] region: The region the instance will sit in. If a region is not provided in the resource definition,
@@ -85,12 +91,17 @@ class DatabaseInstanceArgs:
         :param pulumi.Input['DatabaseInstanceReplicaConfigurationArgs'] replica_configuration: The configuration for replication. The
                configuration is detailed below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replica_names: List of replica names. Can be updated.
-        :param pulumi.Input['DatabaseInstanceReplicationClusterArgs'] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        :param pulumi.Input['DatabaseInstanceReplicationClusterArgs'] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         :param pulumi.Input['DatabaseInstanceRestoreBackupContextArgs'] restore_backup_context: The context needed to restore the database to a backup run. This field will
                cause the provider to trigger the database to restore from the backup run indicated. The configuration is detailed below.
                **NOTE:** Restoring from a backup is an imperative action and not recommended via this provider. Adding or modifying this
                block during resource creation/update will trigger the restore action after the resource is created/updated.
         :param pulumi.Input[_builtins.str] root_password: Initial root password. Can be updated. Required for MS SQL Server.
+        :param pulumi.Input[_builtins.str] root_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+               
+               > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        :param pulumi.Input[_builtins.str] root_password_wo_version: Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         :param pulumi.Input['DatabaseInstanceSettingsArgs'] settings: The settings to use for the database. The
                configuration is detailed below. Required if `clone` is not set.
         """
@@ -115,6 +126,8 @@ class DatabaseInstanceArgs:
             pulumi.set(__self__, "name", name)
         if node_count is not None:
             pulumi.set(__self__, "node_count", node_count)
+        if point_in_time_restore_context is not None:
+            pulumi.set(__self__, "point_in_time_restore_context", point_in_time_restore_context)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if region is not None:
@@ -129,6 +142,10 @@ class DatabaseInstanceArgs:
             pulumi.set(__self__, "restore_backup_context", restore_backup_context)
         if root_password is not None:
             pulumi.set(__self__, "root_password", root_password)
+        if root_password_wo is not None:
+            pulumi.set(__self__, "root_password_wo", root_password_wo)
+        if root_password_wo_version is not None:
+            pulumi.set(__self__, "root_password_wo_version", root_password_wo_version)
         if settings is not None:
             pulumi.set(__self__, "settings", settings)
 
@@ -184,6 +201,8 @@ class DatabaseInstanceArgs:
         """
         Whether or not to allow the provider to destroy the instance. Unless this field is set to false
         in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+
+        > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         """
         return pulumi.get(self, "deletion_protection")
 
@@ -279,13 +298,25 @@ class DatabaseInstanceArgs:
     @pulumi.getter(name="nodeCount")
     def node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        For a read pool instance, the number of nodes in the read pool.
+        For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
         """
         return pulumi.get(self, "node_count")
 
     @node_count.setter
     def node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "node_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pointInTimeRestoreContext")
+    def point_in_time_restore_context(self) -> Optional[pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs']]:
+        """
+        Configuration for creating a new instance using point-in-time-restore from backupdr backup.
+        """
+        return pulumi.get(self, "point_in_time_restore_context")
+
+    @point_in_time_restore_context.setter
+    def point_in_time_restore_context(self, value: Optional[pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs']]):
+        pulumi.set(self, "point_in_time_restore_context", value)
 
     @_builtins.property
     @pulumi.getter
@@ -344,7 +375,7 @@ class DatabaseInstanceArgs:
     @pulumi.getter(name="replicationCluster")
     def replication_cluster(self) -> Optional[pulumi.Input['DatabaseInstanceReplicationClusterArgs']]:
         """
-        A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         """
         return pulumi.get(self, "replication_cluster")
 
@@ -380,6 +411,33 @@ class DatabaseInstanceArgs:
         pulumi.set(self, "root_password", value)
 
     @_builtins.property
+    @pulumi.getter(name="rootPasswordWo")
+    def root_password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+
+        > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        """
+        return pulumi.get(self, "root_password_wo")
+
+    @root_password_wo.setter
+    def root_password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "root_password_wo", value)
+
+    @_builtins.property
+    @pulumi.getter(name="rootPasswordWoVersion")
+    def root_password_wo_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+        """
+        return pulumi.get(self, "root_password_wo_version")
+
+    @root_password_wo_version.setter
+    def root_password_wo_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "root_password_wo_version", value)
+
+    @_builtins.property
     @pulumi.getter
     def settings(self) -> Optional[pulumi.Input['DatabaseInstanceSettingsArgs']]:
         """
@@ -413,6 +471,7 @@ class _DatabaseInstanceState:
                  master_instance_name: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 point_in_time_restore_context: Optional[pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs']] = None,
                  private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  psc_service_attachment_link: Optional[pulumi.Input[_builtins.str]] = None,
@@ -423,6 +482,8 @@ class _DatabaseInstanceState:
                  replication_cluster: Optional[pulumi.Input['DatabaseInstanceReplicationClusterArgs']] = None,
                  restore_backup_context: Optional[pulumi.Input['DatabaseInstanceRestoreBackupContextArgs']] = None,
                  root_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
                  self_link: Optional[pulumi.Input[_builtins.str]] = None,
                  server_ca_certs: Optional[pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceServerCaCertArgs']]]] = None,
                  service_account_email_address: Optional[pulumi.Input[_builtins.str]] = None,
@@ -447,6 +508,8 @@ class _DatabaseInstanceState:
                includes an up-to-date reference of supported versions.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+               
+               > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         :param pulumi.Input[_builtins.str] dns_name: The DNS name of the instance. See [Connect to an instance using Private Service Connect](https://cloud.google.com/sql/docs/mysql/configure-private-service-connect#view-summary-information-cloud-sql-instances-psc-enabled) for more details.
         :param pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceDnsNameArgs']]] dns_names: The list of DNS names used by this instance. Different connection types for an instance may have different DNS names. DNS names can apply to an individual instance or a cluster of instances.
         :param pulumi.Input[_builtins.str] encryption_key_name: The full path to the encryption key used for the CMEK disk encryption.  Setting
@@ -468,7 +531,8 @@ class _DatabaseInstanceState:
                blank, the provider will randomly generate one when the instance is first
                created. This is done because after a name is used, it cannot be reused for
                up to [one week](https://cloud.google.com/sql/docs/delete-instance).
-        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool.
+        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
+        :param pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs'] point_in_time_restore_context: Configuration for creating a new instance using point-in-time-restore from backupdr backup.
         :param pulumi.Input[_builtins.str] private_ip_address: The first private (`PRIVATE`) IPv4 address assigned.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs. If it
                is not provided, the provider project is used.
@@ -481,12 +545,17 @@ class _DatabaseInstanceState:
         :param pulumi.Input['DatabaseInstanceReplicaConfigurationArgs'] replica_configuration: The configuration for replication. The
                configuration is detailed below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replica_names: List of replica names. Can be updated.
-        :param pulumi.Input['DatabaseInstanceReplicationClusterArgs'] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        :param pulumi.Input['DatabaseInstanceReplicationClusterArgs'] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         :param pulumi.Input['DatabaseInstanceRestoreBackupContextArgs'] restore_backup_context: The context needed to restore the database to a backup run. This field will
                cause the provider to trigger the database to restore from the backup run indicated. The configuration is detailed below.
                **NOTE:** Restoring from a backup is an imperative action and not recommended via this provider. Adding or modifying this
                block during resource creation/update will trigger the restore action after the resource is created/updated.
         :param pulumi.Input[_builtins.str] root_password: Initial root password. Can be updated. Required for MS SQL Server.
+        :param pulumi.Input[_builtins.str] root_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+               
+               > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        :param pulumi.Input[_builtins.str] root_password_wo_version: Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         :param pulumi.Input[_builtins.str] self_link: The URI of the created resource.
         :param pulumi.Input[_builtins.str] service_account_email_address: The service account email address assigned to the
                instance.
@@ -527,6 +596,8 @@ class _DatabaseInstanceState:
             pulumi.set(__self__, "name", name)
         if node_count is not None:
             pulumi.set(__self__, "node_count", node_count)
+        if point_in_time_restore_context is not None:
+            pulumi.set(__self__, "point_in_time_restore_context", point_in_time_restore_context)
         if private_ip_address is not None:
             pulumi.set(__self__, "private_ip_address", private_ip_address)
         if project is not None:
@@ -547,6 +618,10 @@ class _DatabaseInstanceState:
             pulumi.set(__self__, "restore_backup_context", restore_backup_context)
         if root_password is not None:
             pulumi.set(__self__, "root_password", root_password)
+        if root_password_wo is not None:
+            pulumi.set(__self__, "root_password_wo", root_password_wo)
+        if root_password_wo_version is not None:
+            pulumi.set(__self__, "root_password_wo_version", root_password_wo_version)
         if self_link is not None:
             pulumi.set(__self__, "self_link", self_link)
         if server_ca_certs is not None:
@@ -633,6 +708,8 @@ class _DatabaseInstanceState:
         """
         Whether or not to allow the provider to destroy the instance. Unless this field is set to false
         in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+
+        > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         """
         return pulumi.get(self, "deletion_protection")
 
@@ -773,13 +850,25 @@ class _DatabaseInstanceState:
     @pulumi.getter(name="nodeCount")
     def node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        For a read pool instance, the number of nodes in the read pool.
+        For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
         """
         return pulumi.get(self, "node_count")
 
     @node_count.setter
     def node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "node_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pointInTimeRestoreContext")
+    def point_in_time_restore_context(self) -> Optional[pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs']]:
+        """
+        Configuration for creating a new instance using point-in-time-restore from backupdr backup.
+        """
+        return pulumi.get(self, "point_in_time_restore_context")
+
+    @point_in_time_restore_context.setter
+    def point_in_time_restore_context(self, value: Optional[pulumi.Input['DatabaseInstancePointInTimeRestoreContextArgs']]):
+        pulumi.set(self, "point_in_time_restore_context", value)
 
     @_builtins.property
     @pulumi.getter(name="privateIpAddress")
@@ -874,7 +963,7 @@ class _DatabaseInstanceState:
     @pulumi.getter(name="replicationCluster")
     def replication_cluster(self) -> Optional[pulumi.Input['DatabaseInstanceReplicationClusterArgs']]:
         """
-        A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         """
         return pulumi.get(self, "replication_cluster")
 
@@ -908,6 +997,33 @@ class _DatabaseInstanceState:
     @root_password.setter
     def root_password(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "root_password", value)
+
+    @_builtins.property
+    @pulumi.getter(name="rootPasswordWo")
+    def root_password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+
+        > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        """
+        return pulumi.get(self, "root_password_wo")
+
+    @root_password_wo.setter
+    def root_password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "root_password_wo", value)
+
+    @_builtins.property
+    @pulumi.getter(name="rootPasswordWoVersion")
+    def root_password_wo_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+        """
+        return pulumi.get(self, "root_password_wo_version")
+
+    @root_password_wo_version.setter
+    def root_password_wo_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "root_password_wo_version", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
@@ -974,6 +1090,7 @@ class DatabaseInstance(pulumi.CustomResource):
                  master_instance_name: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 point_in_time_restore_context: Optional[pulumi.Input[Union['DatabaseInstancePointInTimeRestoreContextArgs', 'DatabaseInstancePointInTimeRestoreContextArgsDict']]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replica_configuration: Optional[pulumi.Input[Union['DatabaseInstanceReplicaConfigurationArgs', 'DatabaseInstanceReplicaConfigurationArgsDict']]] = None,
@@ -981,6 +1098,8 @@ class DatabaseInstance(pulumi.CustomResource):
                  replication_cluster: Optional[pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']]] = None,
                  restore_backup_context: Optional[pulumi.Input[Union['DatabaseInstanceRestoreBackupContextArgs', 'DatabaseInstanceRestoreBackupContextArgsDict']]] = None,
                  root_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
                  settings: Optional[pulumi.Input[Union['DatabaseInstanceSettingsArgs', 'DatabaseInstanceSettingsArgsDict']]] = None,
                  __props__=None):
         """
@@ -1013,6 +1132,8 @@ class DatabaseInstance(pulumi.CustomResource):
             })
         ```
 
+        ### Granular restriction of network access
+
         ### Private IP Instance
         > **NOTE:** For private IP instance setup, note that the `sql.DatabaseInstance` does not actually interpolate values from `servicenetworking.Connection`. You must explicitly add a `depends_on`reference as shown below.
 
@@ -1032,9 +1153,9 @@ class DatabaseInstance(pulumi.CustomResource):
             network=private_network.id,
             service="servicenetworking.googleapis.com",
             reserved_peering_ranges=[private_ip_address.name])
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         instance = gcp.sql.DatabaseInstance("instance",
-            name=db_name_suffix.hex.apply(lambda hex: f"private-instance-{hex}"),
+            name=f"private-instance-{db_name_suffix['hex']}",
             region="us-central1",
             database_version="MYSQL_5_7",
             settings={
@@ -1063,6 +1184,28 @@ class DatabaseInstance(pulumi.CustomResource):
                 "data_cache_config": {
                     "data_cache_enabled": True,
                 },
+            })
+        ```
+
+        ### Cloud SQL Instance with Managed Connection Pooling
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="mcp-enabled-main-instance",
+            region="us-central1",
+            database_version="POSTGRES_16",
+            settings={
+                "tier": "db-perf-optimized-N-2",
+                "edition": "ENTERPRISE_PLUS",
+                "connection_pool_configs": [{
+                    "connection_pooling_enabled": True,
+                    "flags": [{
+                        "name": "max_client_connections",
+                        "value": "1980",
+                    }],
+                }],
             })
         ```
 
@@ -1146,6 +1289,50 @@ class DatabaseInstance(pulumi.CustomResource):
                     "binary_log_enabled": True,
                 },
                 "availability_type": "REGIONAL",
+            })
+        ```
+
+        ### Cloud SQL Instance created with backupdr_backup
+        > **NOTE:** For restoring from a backupdr_backup, note that the backup must be in active state. List down the backups using `backupdisasterrecovery_get_backup`. Replace `backupdr_backup_full_path` with the backup name.
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="main-instance",
+            database_version="MYSQL_8_0",
+            settings={
+                "tier": "db-f1-micro",
+                "backup_configuration": {
+                    "enabled": True,
+                    "binary_log_enabled": True,
+                },
+                "backupdr_backup": "backupdr_backup_full_path",
+            })
+        ```
+
+        ### Cloud SQL Instance created using point_in_time_restore
+        > **NOTE:** Replace `backupdr_datasource` with the full datasource path, `time_stamp` should be in the format of `YYYY-MM-DDTHH:MM:SSZ`.
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="main-instance",
+            database_version="MYSQL_8_0",
+            settings={
+                "tier": "db-f1-micro",
+                "backup_configuration": {
+                    "enabled": True,
+                    "binary_log_enabled": True,
+                },
+            },
+            point_in_time_restore_context={
+                "datasource": "backupdr_datasource",
+                "target_instance": "target_instance_name",
+                "point_in_time": "time_stamp",
             })
         ```
 
@@ -1233,6 +1420,8 @@ class DatabaseInstance(pulumi.CustomResource):
                includes an up-to-date reference of supported versions.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+               
+               > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         :param pulumi.Input[_builtins.str] encryption_key_name: The full path to the encryption key used for the CMEK disk encryption.  Setting
                up disk encryption currently requires manual steps outside of this provider.
                The provided key must be in the same region as the SQL instance.  In order
@@ -1251,7 +1440,8 @@ class DatabaseInstance(pulumi.CustomResource):
                blank, the provider will randomly generate one when the instance is first
                created. This is done because after a name is used, it cannot be reused for
                up to [one week](https://cloud.google.com/sql/docs/delete-instance).
-        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool.
+        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
+        :param pulumi.Input[Union['DatabaseInstancePointInTimeRestoreContextArgs', 'DatabaseInstancePointInTimeRestoreContextArgsDict']] point_in_time_restore_context: Configuration for creating a new instance using point-in-time-restore from backupdr backup.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs. If it
                is not provided, the provider project is used.
         :param pulumi.Input[_builtins.str] region: The region the instance will sit in. If a region is not provided in the resource definition,
@@ -1261,12 +1451,17 @@ class DatabaseInstance(pulumi.CustomResource):
         :param pulumi.Input[Union['DatabaseInstanceReplicaConfigurationArgs', 'DatabaseInstanceReplicaConfigurationArgsDict']] replica_configuration: The configuration for replication. The
                configuration is detailed below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replica_names: List of replica names. Can be updated.
-        :param pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        :param pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         :param pulumi.Input[Union['DatabaseInstanceRestoreBackupContextArgs', 'DatabaseInstanceRestoreBackupContextArgsDict']] restore_backup_context: The context needed to restore the database to a backup run. This field will
                cause the provider to trigger the database to restore from the backup run indicated. The configuration is detailed below.
                **NOTE:** Restoring from a backup is an imperative action and not recommended via this provider. Adding or modifying this
                block during resource creation/update will trigger the restore action after the resource is created/updated.
         :param pulumi.Input[_builtins.str] root_password: Initial root password. Can be updated. Required for MS SQL Server.
+        :param pulumi.Input[_builtins.str] root_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+               
+               > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        :param pulumi.Input[_builtins.str] root_password_wo_version: Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         :param pulumi.Input[Union['DatabaseInstanceSettingsArgs', 'DatabaseInstanceSettingsArgsDict']] settings: The settings to use for the database. The
                configuration is detailed below. Required if `clone` is not set.
         """
@@ -1306,6 +1501,8 @@ class DatabaseInstance(pulumi.CustomResource):
             })
         ```
 
+        ### Granular restriction of network access
+
         ### Private IP Instance
         > **NOTE:** For private IP instance setup, note that the `sql.DatabaseInstance` does not actually interpolate values from `servicenetworking.Connection`. You must explicitly add a `depends_on`reference as shown below.
 
@@ -1325,9 +1522,9 @@ class DatabaseInstance(pulumi.CustomResource):
             network=private_network.id,
             service="servicenetworking.googleapis.com",
             reserved_peering_ranges=[private_ip_address.name])
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         instance = gcp.sql.DatabaseInstance("instance",
-            name=db_name_suffix.hex.apply(lambda hex: f"private-instance-{hex}"),
+            name=f"private-instance-{db_name_suffix['hex']}",
             region="us-central1",
             database_version="MYSQL_5_7",
             settings={
@@ -1356,6 +1553,28 @@ class DatabaseInstance(pulumi.CustomResource):
                 "data_cache_config": {
                     "data_cache_enabled": True,
                 },
+            })
+        ```
+
+        ### Cloud SQL Instance with Managed Connection Pooling
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="mcp-enabled-main-instance",
+            region="us-central1",
+            database_version="POSTGRES_16",
+            settings={
+                "tier": "db-perf-optimized-N-2",
+                "edition": "ENTERPRISE_PLUS",
+                "connection_pool_configs": [{
+                    "connection_pooling_enabled": True,
+                    "flags": [{
+                        "name": "max_client_connections",
+                        "value": "1980",
+                    }],
+                }],
             })
         ```
 
@@ -1439,6 +1658,50 @@ class DatabaseInstance(pulumi.CustomResource):
                     "binary_log_enabled": True,
                 },
                 "availability_type": "REGIONAL",
+            })
+        ```
+
+        ### Cloud SQL Instance created with backupdr_backup
+        > **NOTE:** For restoring from a backupdr_backup, note that the backup must be in active state. List down the backups using `backupdisasterrecovery_get_backup`. Replace `backupdr_backup_full_path` with the backup name.
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="main-instance",
+            database_version="MYSQL_8_0",
+            settings={
+                "tier": "db-f1-micro",
+                "backup_configuration": {
+                    "enabled": True,
+                    "binary_log_enabled": True,
+                },
+                "backupdr_backup": "backupdr_backup_full_path",
+            })
+        ```
+
+        ### Cloud SQL Instance created using point_in_time_restore
+        > **NOTE:** Replace `backupdr_datasource` with the full datasource path, `time_stamp` should be in the format of `YYYY-MM-DDTHH:MM:SSZ`.
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="main-instance",
+            database_version="MYSQL_8_0",
+            settings={
+                "tier": "db-f1-micro",
+                "backup_configuration": {
+                    "enabled": True,
+                    "binary_log_enabled": True,
+                },
+            },
+            point_in_time_restore_context={
+                "datasource": "backupdr_datasource",
+                "target_instance": "target_instance_name",
+                "point_in_time": "time_stamp",
             })
         ```
 
@@ -1535,6 +1798,7 @@ class DatabaseInstance(pulumi.CustomResource):
                  master_instance_name: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 point_in_time_restore_context: Optional[pulumi.Input[Union['DatabaseInstancePointInTimeRestoreContextArgs', 'DatabaseInstancePointInTimeRestoreContextArgsDict']]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  replica_configuration: Optional[pulumi.Input[Union['DatabaseInstanceReplicaConfigurationArgs', 'DatabaseInstanceReplicaConfigurationArgsDict']]] = None,
@@ -1542,6 +1806,8 @@ class DatabaseInstance(pulumi.CustomResource):
                  replication_cluster: Optional[pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']]] = None,
                  restore_backup_context: Optional[pulumi.Input[Union['DatabaseInstanceRestoreBackupContextArgs', 'DatabaseInstanceRestoreBackupContextArgsDict']]] = None,
                  root_password: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 root_password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
                  settings: Optional[pulumi.Input[Union['DatabaseInstanceSettingsArgs', 'DatabaseInstanceSettingsArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -1565,6 +1831,7 @@ class DatabaseInstance(pulumi.CustomResource):
             __props__.__dict__["master_instance_name"] = master_instance_name
             __props__.__dict__["name"] = name
             __props__.__dict__["node_count"] = node_count
+            __props__.__dict__["point_in_time_restore_context"] = point_in_time_restore_context
             __props__.__dict__["project"] = project
             __props__.__dict__["region"] = region
             __props__.__dict__["replica_configuration"] = None if replica_configuration is None else pulumi.Output.secret(replica_configuration)
@@ -1572,6 +1839,8 @@ class DatabaseInstance(pulumi.CustomResource):
             __props__.__dict__["replication_cluster"] = replication_cluster
             __props__.__dict__["restore_backup_context"] = restore_backup_context
             __props__.__dict__["root_password"] = None if root_password is None else pulumi.Output.secret(root_password)
+            __props__.__dict__["root_password_wo"] = None if root_password_wo is None else pulumi.Output.secret(root_password_wo)
+            __props__.__dict__["root_password_wo_version"] = root_password_wo_version
             __props__.__dict__["settings"] = settings
             __props__.__dict__["available_maintenance_versions"] = None
             __props__.__dict__["connection_name"] = None
@@ -1585,7 +1854,7 @@ class DatabaseInstance(pulumi.CustomResource):
             __props__.__dict__["self_link"] = None
             __props__.__dict__["server_ca_certs"] = None
             __props__.__dict__["service_account_email_address"] = None
-        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["replicaConfiguration", "rootPassword", "serverCaCerts"])
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["replicaConfiguration", "rootPassword", "rootPasswordWo", "serverCaCerts"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(DatabaseInstance, __self__).__init__(
             'gcp:sql/databaseInstance:DatabaseInstance',
@@ -1614,6 +1883,7 @@ class DatabaseInstance(pulumi.CustomResource):
             master_instance_name: Optional[pulumi.Input[_builtins.str]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             node_count: Optional[pulumi.Input[_builtins.int]] = None,
+            point_in_time_restore_context: Optional[pulumi.Input[Union['DatabaseInstancePointInTimeRestoreContextArgs', 'DatabaseInstancePointInTimeRestoreContextArgsDict']]] = None,
             private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
             project: Optional[pulumi.Input[_builtins.str]] = None,
             psc_service_attachment_link: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1624,6 +1894,8 @@ class DatabaseInstance(pulumi.CustomResource):
             replication_cluster: Optional[pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']]] = None,
             restore_backup_context: Optional[pulumi.Input[Union['DatabaseInstanceRestoreBackupContextArgs', 'DatabaseInstanceRestoreBackupContextArgsDict']]] = None,
             root_password: Optional[pulumi.Input[_builtins.str]] = None,
+            root_password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+            root_password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
             self_link: Optional[pulumi.Input[_builtins.str]] = None,
             server_ca_certs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DatabaseInstanceServerCaCertArgs', 'DatabaseInstanceServerCaCertArgsDict']]]]] = None,
             service_account_email_address: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1653,6 +1925,8 @@ class DatabaseInstance(pulumi.CustomResource):
                includes an up-to-date reference of supported versions.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+               
+               > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         :param pulumi.Input[_builtins.str] dns_name: The DNS name of the instance. See [Connect to an instance using Private Service Connect](https://cloud.google.com/sql/docs/mysql/configure-private-service-connect#view-summary-information-cloud-sql-instances-psc-enabled) for more details.
         :param pulumi.Input[Sequence[pulumi.Input[Union['DatabaseInstanceDnsNameArgs', 'DatabaseInstanceDnsNameArgsDict']]]] dns_names: The list of DNS names used by this instance. Different connection types for an instance may have different DNS names. DNS names can apply to an individual instance or a cluster of instances.
         :param pulumi.Input[_builtins.str] encryption_key_name: The full path to the encryption key used for the CMEK disk encryption.  Setting
@@ -1674,7 +1948,8 @@ class DatabaseInstance(pulumi.CustomResource):
                blank, the provider will randomly generate one when the instance is first
                created. This is done because after a name is used, it cannot be reused for
                up to [one week](https://cloud.google.com/sql/docs/delete-instance).
-        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool.
+        :param pulumi.Input[_builtins.int] node_count: For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
+        :param pulumi.Input[Union['DatabaseInstancePointInTimeRestoreContextArgs', 'DatabaseInstancePointInTimeRestoreContextArgsDict']] point_in_time_restore_context: Configuration for creating a new instance using point-in-time-restore from backupdr backup.
         :param pulumi.Input[_builtins.str] private_ip_address: The first private (`PRIVATE`) IPv4 address assigned.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs. If it
                is not provided, the provider project is used.
@@ -1687,12 +1962,17 @@ class DatabaseInstance(pulumi.CustomResource):
         :param pulumi.Input[Union['DatabaseInstanceReplicaConfigurationArgs', 'DatabaseInstanceReplicaConfigurationArgsDict']] replica_configuration: The configuration for replication. The
                configuration is detailed below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] replica_names: List of replica names. Can be updated.
-        :param pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        :param pulumi.Input[Union['DatabaseInstanceReplicationClusterArgs', 'DatabaseInstanceReplicationClusterArgsDict']] replication_cluster: A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         :param pulumi.Input[Union['DatabaseInstanceRestoreBackupContextArgs', 'DatabaseInstanceRestoreBackupContextArgsDict']] restore_backup_context: The context needed to restore the database to a backup run. This field will
                cause the provider to trigger the database to restore from the backup run indicated. The configuration is detailed below.
                **NOTE:** Restoring from a backup is an imperative action and not recommended via this provider. Adding or modifying this
                block during resource creation/update will trigger the restore action after the resource is created/updated.
         :param pulumi.Input[_builtins.str] root_password: Initial root password. Can be updated. Required for MS SQL Server.
+        :param pulumi.Input[_builtins.str] root_password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+               
+               > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        :param pulumi.Input[_builtins.str] root_password_wo_version: Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         :param pulumi.Input[_builtins.str] self_link: The URI of the created resource.
         :param pulumi.Input[_builtins.str] service_account_email_address: The service account email address assigned to the
                instance.
@@ -1720,6 +2000,7 @@ class DatabaseInstance(pulumi.CustomResource):
         __props__.__dict__["master_instance_name"] = master_instance_name
         __props__.__dict__["name"] = name
         __props__.__dict__["node_count"] = node_count
+        __props__.__dict__["point_in_time_restore_context"] = point_in_time_restore_context
         __props__.__dict__["private_ip_address"] = private_ip_address
         __props__.__dict__["project"] = project
         __props__.__dict__["psc_service_attachment_link"] = psc_service_attachment_link
@@ -1730,6 +2011,8 @@ class DatabaseInstance(pulumi.CustomResource):
         __props__.__dict__["replication_cluster"] = replication_cluster
         __props__.__dict__["restore_backup_context"] = restore_backup_context
         __props__.__dict__["root_password"] = root_password
+        __props__.__dict__["root_password_wo"] = root_password_wo
+        __props__.__dict__["root_password_wo_version"] = root_password_wo_version
         __props__.__dict__["self_link"] = self_link
         __props__.__dict__["server_ca_certs"] = server_ca_certs
         __props__.__dict__["service_account_email_address"] = service_account_email_address
@@ -1793,6 +2076,8 @@ class DatabaseInstance(pulumi.CustomResource):
         """
         Whether or not to allow the provider to destroy the instance. Unless this field is set to false
         in state, a `destroy` or `update` command that deletes the instance will fail. Defaults to `true`.
+
+        > **NOTE:** This flag only protects instances from deletion within Pulumi. To protect your instances from accidental deletion across all surfaces (API, gcloud, Cloud Console and Pulumi), use the API flag `settings.deletion_protection_enabled`.
         """
         return pulumi.get(self, "deletion_protection")
 
@@ -1889,9 +2174,17 @@ class DatabaseInstance(pulumi.CustomResource):
     @pulumi.getter(name="nodeCount")
     def node_count(self) -> pulumi.Output[_builtins.int]:
         """
-        For a read pool instance, the number of nodes in the read pool.
+        For a read pool instance, the number of nodes in the read pool. For read pools with auto scaling enabled, this field is read only.
         """
         return pulumi.get(self, "node_count")
+
+    @_builtins.property
+    @pulumi.getter(name="pointInTimeRestoreContext")
+    def point_in_time_restore_context(self) -> pulumi.Output[Optional['outputs.DatabaseInstancePointInTimeRestoreContext']]:
+        """
+        Configuration for creating a new instance using point-in-time-restore from backupdr backup.
+        """
+        return pulumi.get(self, "point_in_time_restore_context")
 
     @_builtins.property
     @pulumi.getter(name="privateIpAddress")
@@ -1958,7 +2251,7 @@ class DatabaseInstance(pulumi.CustomResource):
     @pulumi.getter(name="replicationCluster")
     def replication_cluster(self) -> pulumi.Output['outputs.DatabaseInstanceReplicationCluster']:
         """
-        A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set only after both the primary and replica are created.
+        A primary instance and disaster recovery replica pair. Applicable to MySQL and PostgreSQL. This field can be set if the primary has psa_write_endpoint set or both the primary and replica are created.
         """
         return pulumi.get(self, "replication_cluster")
 
@@ -1980,6 +2273,25 @@ class DatabaseInstance(pulumi.CustomResource):
         Initial root password. Can be updated. Required for MS SQL Server.
         """
         return pulumi.get(self, "root_password")
+
+    @_builtins.property
+    @pulumi.getter(name="rootPasswordWo")
+    def root_password_wo(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Initial root password. Can be updated. Required for MS SQL Server. **Note**: This property is write-only and will not be read from the API.
+
+        > **Note:** One of `root_password` or `root_password_wo` can only be set.
+        """
+        return pulumi.get(self, "root_password_wo")
+
+    @_builtins.property
+    @pulumi.getter(name="rootPasswordWoVersion")
+    def root_password_wo_version(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        Triggers update of `root_password_wo` write-only. Increment this value when an update to `root_password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+        """
+        return pulumi.get(self, "root_password_wo_version")
 
     @_builtins.property
     @pulumi.getter(name="selfLink")

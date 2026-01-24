@@ -32,9 +32,7 @@ from datarobot.utils.pagination import unpaginate
 from datarobot.utils.waiters import wait_for_async_resolution
 
 
-def get_entity_id(
-    entity: Union[Playground, Chat, ChatPrompt, LLMBlueprint, LLMDefinition, VectorDatabase, str]
-) -> str:
+def get_entity_id(entity: Union[Playground, Chat, ChatPrompt, LLMBlueprint, LLMDefinition, VectorDatabase, str]) -> str:
     """
     Get the entity ID from the entity parameter.
 
@@ -54,95 +52,79 @@ def get_entity_id(
     return entity.id
 
 
-confidence_scores_trafaret = t.Dict(
-    {
-        t.Key("rouge"): t.Float,
-        t.Key("meteor"): t.Float,
-        t.Key("bleu"): t.Float,
-    }
-).ignore_extra("*")
+confidence_scores_trafaret = t.Dict({
+    t.Key("rouge"): t.Float,
+    t.Key("meteor"): t.Float,
+    t.Key("bleu"): t.Float,
+}).ignore_extra("*")
 
 
-metric_metadata_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("value"): t.Any,
-        t.Key("formatted_value", optional=True): t.Or(t.String, t.Null),
-        t.Key("sidecar_model_metric_validation_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_model_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("cost_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_is_deprecated", optional=True): t.Or(t.Bool, t.Null),
-        t.Key("custom_model_guard_id", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+metric_metadata_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("value"): t.Any,
+    t.Key("formatted_value", optional=True): t.Or(t.String, t.Null),
+    t.Key("sidecar_model_metric_validation_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_model_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("cost_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_is_deprecated", optional=True): t.Or(t.Bool, t.Null),
+    t.Key("custom_model_guard_id", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
-feedback_result_trafaret = t.Dict(
-    {
-        t.Key("positive_user_ids"): t.List(t.String),
-        t.Key("negative_user_ids"): t.List(t.String),
-    }
-).ignore_extra("*")
+feedback_result_trafaret = t.Dict({
+    t.Key("positive_user_ids"): t.List(t.String),
+    t.Key("negative_user_ids"): t.List(t.String),
+}).ignore_extra("*")
 
-citation_trafaret = t.Dict(
-    {
-        t.Key("text"): t.String,
-        t.Key("source", optional=True): t.Or(t.String, t.Null),
-        t.Key("similarity_score", optional=True): t.Or(t.Float, t.Null),
-        t.Key("metadata", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-    }
-).ignore_extra("*")
+citation_trafaret = t.Dict({
+    t.Key("text"): t.String,
+    t.Key("source", optional=True): t.Or(t.String, t.Null),
+    t.Key("similarity_score", optional=True): t.Or(t.Float, t.Null),
+    t.Key("metadata", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+}).ignore_extra("*")
 
 
-result_metadata_trafaret = t.Dict(
-    {
-        t.Key("cost", optional=True): t.Or(t.Float, t.Null),
-        t.Key("output_token_count"): t.Int,
-        t.Key("input_token_count"): t.Int,
-        t.Key("total_token_count"): t.Int,
-        t.Key("estimated_docs_token_count"): t.Int,
-        t.Key("latency_milliseconds"): t.Int,
-        t.Key("error_message", optional=True): t.Or(t.String, t.Null),
-        t.Key("feedback_result"): feedback_result_trafaret,
-        t.Key("metrics"): t.List(metric_metadata_trafaret),
-        t.Key("final_prompt", optional=True): t.Or(
-            t.String,
-            t.Dict().allow_extra("*"),
-            t.List(t.Dict().allow_extra("*")),
-            t.Null,
-        ),
-    }
-).ignore_extra("*")
+result_metadata_trafaret = t.Dict({
+    t.Key("cost", optional=True): t.Or(t.Float, t.Null),
+    t.Key("output_token_count"): t.Int,
+    t.Key("input_token_count"): t.Int,
+    t.Key("total_token_count"): t.Int,
+    t.Key("estimated_docs_token_count"): t.Int,
+    t.Key("latency_milliseconds"): t.Int,
+    t.Key("error_message", optional=True): t.Or(t.String, t.Null),
+    t.Key("feedback_result"): feedback_result_trafaret,
+    t.Key("metrics"): t.List(metric_metadata_trafaret),
+    t.Key("final_prompt", optional=True): t.Or(
+        t.String,
+        t.Dict().allow_extra("*"),
+        t.List(t.Dict().allow_extra("*")),
+        t.Null,
+    ),
+}).ignore_extra("*")
 
-feedback_metadata_trafaret = t.Dict(
-    {t.Key("feedback"): t.Enum(*enum_to_list(FeedbackSentiment))}
-).ignore_extra("*")
+feedback_metadata_trafaret = t.Dict({t.Key("feedback"): t.Enum(*enum_to_list(FeedbackSentiment))}).ignore_extra("*")
 
-chat_prompt_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("text"): t.String(allow_blank=True),
-        t.Key("llm_blueprint_id"): t.String,
-        t.Key("llm_id"): t.String,
-        t.Key("llm_settings", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("vector_database_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("vector_database_settings", optional=True): t.Or(
-            vector_database_settings_trafaret, t.Null
-        ),
-        t.Key("result_metadata", optional=True): t.Or(result_metadata_trafaret, t.Null),
-        t.Key("result_text", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-        t.Key("confidence_scores", optional=True): t.Or(confidence_scores_trafaret, t.Null),
-        t.Key("citations"): t.List(citation_trafaret),
-        t.Key("execution_status"): t.String,
-        t.Key("chat_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("chat_context_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("chat_prompt_ids_included_in_history", optional=True): t.Or(t.List(t.String), t.Null),
-        t.Key("metadata_filter", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-    }
-).ignore_extra("*")
+chat_prompt_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("text"): t.String(allow_blank=True),
+    t.Key("llm_blueprint_id"): t.String,
+    t.Key("llm_id"): t.String,
+    t.Key("llm_settings", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("vector_database_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("vector_database_settings", optional=True): t.Or(vector_database_settings_trafaret, t.Null),
+    t.Key("result_metadata", optional=True): t.Or(result_metadata_trafaret, t.Null),
+    t.Key("result_text", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+    t.Key("confidence_scores", optional=True): t.Or(confidence_scores_trafaret, t.Null),
+    t.Key("citations"): t.List(citation_trafaret),
+    t.Key("execution_status"): t.String,
+    t.Key("chat_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("chat_context_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("chat_prompt_ids_included_in_history", optional=True): t.Or(t.List(t.String), t.Null),
+    t.Key("metadata_filter", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+}).ignore_extra("*")
 
 
 class FeedbackMetadataDict(TypedDict):
@@ -213,9 +195,7 @@ class ResultMetadata(APIObject):
         self.error_message = error_message
         self.cost = cost
         self.feedback_result = FeedbackResult.from_server_data(feedback_result)
-        self.metrics = [
-            MetricMetadata.from_server_data(metric_metadata) for metric_metadata in metrics
-        ]
+        self.metrics = [MetricMetadata.from_server_data(metric_metadata) for metric_metadata in metrics]
         self.final_prompt = final_prompt
 
     def __repr__(self) -> str:
@@ -255,10 +235,7 @@ class ConfidenceScores(APIObject):
         self.bleu = bleu
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}(rouge={self.rouge}, "
-            f"meteor={self.meteor}, bleu={self.bleu})"
-        )
+        return f"{self.__class__.__name__}(rouge={self.rouge}, meteor={self.meteor}, bleu={self.bleu})"
 
 
 class FeedbackMetadata(APIObject):
@@ -357,9 +334,7 @@ class MetricMetadata(APIObject):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}(name={self.name}, "
-            f"value={self.value}, "
-            f"formatted_value={self.formatted_value})"
+            f"{self.__class__.__name__}(name={self.name}, value={self.value}, formatted_value={self.formatted_value})"
         )
 
     def to_dict(self) -> MetricMetadataDict:
@@ -521,29 +496,19 @@ class ChatPrompt(APIObject):
         self.execution_status = execution_status
         self.vector_database_id = vector_database_id
         self.vector_database_settings = (
-            VectorDatabaseSettings.from_server_data(vector_database_settings)
-            if vector_database_settings
-            else None
+            VectorDatabaseSettings.from_server_data(vector_database_settings) if vector_database_settings else None
         )
-        self.result_metadata = (
-            ResultMetadata.from_server_data(result_metadata) if result_metadata else None
-        )
+        self.result_metadata = ResultMetadata.from_server_data(result_metadata) if result_metadata else None
         self.result_text = result_text
-        self.confidence_scores = (
-            ConfidenceScores.from_server_data(confidence_scores) if confidence_scores else None
-        )
+        self.confidence_scores = ConfidenceScores.from_server_data(confidence_scores) if confidence_scores else None
         self.chat_id = chat_id
         self.chat_context_id = chat_context_id
         self.chat_prompt_ids_included_in_history = chat_prompt_ids_included_in_history
         self.citations = [Citation.from_server_data(citation) for citation in citations]
         self.vector_database_settings = (
-            VectorDatabaseSettings.from_server_data(vector_database_settings)
-            if vector_database_settings
-            else None
+            VectorDatabaseSettings.from_server_data(vector_database_settings) if vector_database_settings else None
         )
-        self.result_metadata = (
-            ResultMetadata.from_server_data(result_metadata) if result_metadata else None
-        )
+        self.result_metadata = ResultMetadata.from_server_data(result_metadata) if result_metadata else None
         self.metadata_filter = metadata_filter
 
     def __repr__(self) -> str:
@@ -635,9 +600,7 @@ class ChatPrompt(APIObject):
             "llm_id": get_entity_id(llm) if llm else None,
             "llm_settings": llm_settings,
             "vector_database_id": get_entity_id(vector_database) if vector_database else None,
-            "vector_database_settings": (
-                vector_database_settings.to_dict() if vector_database_settings else None
-            ),
+            "vector_database_settings": (vector_database_settings.to_dict() if vector_database_settings else None),
             "metadata_filter": rawdict(metadata_filter) if metadata_filter else None,
         }
 
@@ -669,9 +632,7 @@ class ChatPrompt(APIObject):
             The updated chat prompt.
         """
         payload = {
-            "custom_metrics": (
-                [metadata.to_dict() for metadata in custom_metrics] if custom_metrics else None
-            ),
+            "custom_metrics": ([metadata.to_dict() for metadata in custom_metrics] if custom_metrics else None),
             "feedback_metadata": feedback_metadata.to_dict() if feedback_metadata else None,
         }
         url = f"{self._client.domain}/{self._path}/{self.id}/"

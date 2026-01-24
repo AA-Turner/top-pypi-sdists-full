@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -76,6 +75,8 @@ class TooLongKeywordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FOCUSED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0501",)
+    fix_suggestion = "Split the keyword into smaller, focused keywords."
 
 
 class TooFewCallsInKeywordRule(Rule):
@@ -84,7 +85,7 @@ class TooFewCallsInKeywordRule(Rule):
 
     Consider if the custom keyword is required at all.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Test Cases ***
         Test
@@ -94,7 +95,7 @@ class TooFewCallsInKeywordRule(Rule):
         Thin Wrapper
             Other Keyword    ${arg}
 
-    Correct code example::
+    Correct code example:
 
         *** Test Cases ***
         Test
@@ -114,6 +115,7 @@ class TooFewCallsInKeywordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0502",)
 
 
 class TooManyCallsInKeywordRule(Rule):
@@ -135,6 +137,7 @@ class TooManyCallsInKeywordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FOCUSED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0503",)
 
 
 class TooLongTestCaseRule(Rule):
@@ -160,6 +163,38 @@ class TooLongTestCaseRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0504",)
+
+
+class TooFewCallsInTestCaseRule(Rule):
+    """
+    Too few keyword calls in test cases.
+
+    Test without keywords will fail. Add more keywords or set results using ``Fail``, ``Pass Execution`` or
+    ``Skip`` keywords:
+
+        *** Test Cases ***
+        Test case
+            [Tags]    smoke
+            Skip    Test case draft
+
+    """
+
+    name = "too-few-calls-in-test-case"
+    rule_id = "LEN05"
+    message = "Test case '{test_name}' has too few keywords inside ({keyword_count}/{min_allowed_count})"
+    severity = RuleSeverity.ERROR
+    parameters = [
+        RuleParam(name="min_calls", default=1, converter=int, desc="number of keyword calls required in a test case"),
+        RuleParam(
+            name="ignore_templated", default=False, converter=str2bool, show_type="bool", desc="Ignore templated tests"
+        ),
+    ]
+    added_in_version = "2.4.0"
+    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
+        clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+    )
+    deprecated_names = ("0528",)
 
 
 class TooManyCallsInTestCaseRule(Rule):
@@ -202,6 +237,7 @@ class FileTooLongRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FOCUSED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0506",)
 
 
 class TooManyArgumentsRule(Rule):
@@ -218,17 +254,19 @@ class TooManyArgumentsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FOCUSED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0507",)
 
 
 class LineTooLongRule(Rule):
     r"""
-    Line is too long.
+    The line is too long.
 
-    It is possible to ignore lines that match regex pattern. Configure it using following option::
+    Comments with disabler directives (such as ``# robocop: off``) are ignored. Lines that contain URLs are also
+    ignored.
+
+    It is possible to ignore lines that match the regex pattern. Configure it using the following option:
 
         robocop check --configure line-too-long.ignore_pattern=pattern
-
-    The default pattern is ``https?://\\S+`` that ignores the lines that look like an URL.
 
     """
 
@@ -240,7 +278,7 @@ class LineTooLongRule(Rule):
         RuleParam(name="line_length", default=120, converter=int, desc="number of characters allowed in line"),
         RuleParam(
             name="ignore_pattern",
-            default=re.compile(r"https?://\S+"),
+            default=None,
             converter=pattern_type,
             show_type="regex",
             desc="ignore lines that contain configured pattern",
@@ -252,6 +290,8 @@ class LineTooLongRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0508",)
+    fix_suggestion = "Break long lines using the '...' continuation syntax."
 
 
 class EmptySectionRule(Rule):
@@ -265,6 +305,7 @@ class EmptySectionRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0509",)
 
 
 class NumberOfReturnedValuesRule(Rule):
@@ -284,18 +325,19 @@ class NumberOfReturnedValuesRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.FOCUSED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0510",)
 
 
 class EmptyMetadataRule(Rule):
     """
     Metadata settings does not have any value set.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Settings ***
         Metadata
 
-    Correct code example::
+    Correct code example:
 
         *** Settings ***
         Metadata    Platform    ${PLATFORM}
@@ -310,6 +352,7 @@ class EmptyMetadataRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0511",)
 
 
 class EmptyDocumentationRule(Rule):
@@ -323,6 +366,7 @@ class EmptyDocumentationRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0512",)
 
 
 class EmptyForceTagsRule(Rule):  # TODO: Rename/deprecate and replace with Test Tags
@@ -336,6 +380,7 @@ class EmptyForceTagsRule(Rule):  # TODO: Rename/deprecate and replace with Test 
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0513",)
 
 
 class EmptyDefaultTagsRule(Rule):
@@ -349,6 +394,7 @@ class EmptyDefaultTagsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0514",)
 
 
 class EmptyVariablesImport(Rule):
@@ -362,6 +408,7 @@ class EmptyVariablesImport(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0515",)
 
 
 class EmptyResourceImport(Rule):
@@ -375,6 +422,7 @@ class EmptyResourceImport(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0516",)
 
 
 class EmptyLibraryImport(Rule):
@@ -388,6 +436,7 @@ class EmptyLibraryImport(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0517",)
 
 
 class EmptySetupRule(Rule):
@@ -401,6 +450,7 @@ class EmptySetupRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0518",)
 
 
 class EmptySuiteSetupRule(Rule):
@@ -414,6 +464,7 @@ class EmptySuiteSetupRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0519",)
 
 
 class EmptyTestSetupRule(Rule):
@@ -427,6 +478,7 @@ class EmptyTestSetupRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0520",)
 
 
 class EmptyTeardownRule(Rule):
@@ -440,6 +492,7 @@ class EmptyTeardownRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0521",)
 
 
 class EmptySuiteTeardownRule(Rule):
@@ -453,6 +506,7 @@ class EmptySuiteTeardownRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0522",)
 
 
 class EmptyTestTeardownRule(Rule):
@@ -466,6 +520,7 @@ class EmptyTestTeardownRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0523",)
 
 
 class EmptyTimeoutRule(Rule):
@@ -479,6 +534,7 @@ class EmptyTimeoutRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0524",)
 
 
 class EmptyTestTimeoutRule(Rule):
@@ -492,6 +548,7 @@ class EmptyTestTimeoutRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0525",)
 
 
 class EmptyArgumentsRule(Rule):
@@ -505,6 +562,7 @@ class EmptyArgumentsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0526",)
 
 
 class TooManyTestCasesRule(Rule):
@@ -530,36 +588,7 @@ class TooManyTestCasesRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
-
-
-class TooFewCallsInTestCaseRule(Rule):
-    """
-    Too few keyword calls in test cases.
-
-    Test without keywords will fail. Add more keywords or set results using ``Fail``, ``Pass Execution`` or
-    ``Skip`` keywords::
-
-        *** Test Cases ***
-        Test case
-            [Tags]    smoke
-            Skip    Test case draft
-
-    """
-
-    name = "too-few-calls-in-test-case"
-    rule_id = "LEN05"
-    message = "Test case '{test_name}' has too few keywords inside ({keyword_count}/{min_allowed_count})"
-    severity = RuleSeverity.ERROR
-    parameters = [
-        RuleParam(name="min_calls", default=1, converter=int, desc="number of keyword calls required in a test case"),
-        RuleParam(
-            name="ignore_templated", default=False, converter=str2bool, show_type="bool", desc="Ignore templated tests"
-        ),
-    ]
-    added_in_version = "2.4.0"
-    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
-    )
+    deprecated_names = ("0527",)
 
 
 class EmptyTestTemplateRule(Rule):
@@ -588,8 +617,8 @@ class EmptyTemplateRule(Rule):
     The ``[Template]`` setting overrides the possible template set in the Setting section, and an empty value for
     ``[Template]`` means that the test has no template even when Test Template is used.
 
-    If it is intended behaviour, use more explicit ``NONE`` value to indicate that you want to overwrite suite
-    Test Template::
+    If it is intended behavior, use a more explicit `` NONE `` value to indicate that you want to overwrite suite
+    Test Template:
 
         *** Settings ***
         Test Template    Template Keyword
@@ -611,6 +640,7 @@ class EmptyTemplateRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0530",)
 
 
 class EmptyKeywordTagsRule(Rule):
@@ -625,6 +655,7 @@ class EmptyKeywordTagsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0531",)
 
 
 class TooLongVariableNameRule(Rule):
@@ -981,18 +1012,22 @@ class VariableNameLengthChecker(VisitorChecker):
 
 
 class LineLengthChecker(RawFileChecker):
-    """Checker for maximum length of a line."""
+    """Checker for the maximum length of a line."""
 
     line_too_long: LineTooLongRule
-    # TODO: handle new robocop format disablers
-    # replace `noqa` or `# robocop`, `# robocop: on`, `# robocop: off=optional,rule,names`
-    disabler_pattern = re.compile(r"(# )+(noqa|robocop: ?(?P<disabler>off|on) ?=?(?P<rules>[\w\-,]*))")
 
     def check_line(self, line, lineno) -> None:
+        line = line.rstrip().expandtabs(4)
+        if len(line) <= self.line_too_long.line_length:
+            return
+        # the line is potentially too long, so we need to check if it can be false positive
+        if self.line_is_ignored(line):
+            return
+        if self.url_in_line(line):
+            return
         if self.line_too_long.ignore_pattern and self.line_too_long.ignore_pattern.search(line):
             return
-        line = self.disabler_pattern.sub("", line)
-        line = line.rstrip().expandtabs(4)
+        line = self.strip_disablers(line)
         if len(line) > self.line_too_long.line_length:
             self.report(
                 self.line_too_long,
@@ -1003,6 +1038,22 @@ class LineLengthChecker(RawFileChecker):
                 end_col=len(line) + 1,
                 sev_threshold_value=len(line),
             )
+
+    @staticmethod
+    def strip_disablers(line: str) -> str:
+        """Strip whole comments if it contains disabler."""
+        if "#" not in line:
+            return line
+        if "noqa" in line or "robocop:" in line or "fmt: " in line:
+            return line.split("# ", 1)[0].rstrip()
+        return line
+
+    def url_in_line(self, line: str) -> bool:
+        """Check if a line contains URL starting before the maximum line length."""
+        return 0 < line.find("://") < self.line_too_long.line_length
+
+    def line_is_ignored(self, line: str) -> bool:
+        return self.line_too_long.ignore_pattern and self.line_too_long.ignore_pattern.search(line)
 
 
 class EmptySectionChecker(VisitorChecker):

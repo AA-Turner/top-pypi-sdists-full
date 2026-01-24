@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: truss
-Version: 0.11.5
+Version: 0.12.10
 Summary: A seamless bridge from model development to model delivery
 Project-URL: Repository, https://github.com/basetenlabs/truss
 Project-URL: Homepage, https://truss.baseten.co
@@ -11,7 +11,7 @@ Author-email: Pankaj Gupta <no-reply@baseten.co>, Phil Howes <no-reply@baseten.c
 License-Expression: MIT
 License-File: LICENSE
 Keywords: AI,MLOps,Machine Learning,Model Deployment,Model Serving
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.9
 Requires-Dist: aiofiles<25,>=24.1.0
 Requires-Dist: blake3<2,>=1.0.4
 Requires-Dist: boto3<2,>=1.34.85
@@ -37,7 +37,7 @@ Requires-Dist: rich<14,>=13.4.2
 Requires-Dist: ruff>=0.4.8
 Requires-Dist: tenacity>=8.0.1
 Requires-Dist: tomlkit>=0.13.2
-Requires-Dist: truss-transfer<0.0.35,>=0.0.30
+Requires-Dist: truss-transfer<0.0.40,>=0.0.37
 Requires-Dist: watchfiles<0.20,>=0.19.0
 Description-Content-Type: text/markdown
 

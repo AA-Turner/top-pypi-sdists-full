@@ -21,6 +21,7 @@ from jax._src import api
 from jax._src import config
 from jax._src import core
 from jax._src import dtypes
+from jax._src import literals
 from jax._src import tree_util
 from jax._src import xla_bridge
 from jax._src.lax import lax
@@ -28,6 +29,7 @@ from jax._src.lib import xla_client as xc
 from jax._src.numpy import util
 from jax._src.typing import Array, ArrayLike, DTypeLike
 from jax._src.sharding import Sharding
+from jax._src.sharding_impls import NamedSharding, PartitionSpec as P
 
 
 export = util.set_module('jax.numpy')
@@ -83,7 +85,8 @@ def _make_string_array(
 @export
 def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
           order: str | None = "K", ndmin: int = 0,
-          *, device: xc.Device | Sharding | None = None) -> Array:
+          *, device: xc.Device | Sharding | None = None,
+          out_sharding: NamedSharding | P | None = None) -> Array:
   """Convert an object to a JAX array.
 
   JAX implementation of :func:`numpy.array`.
@@ -91,7 +94,7 @@ def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
   Args:
     object: an object that is convertible to an array. This includes JAX
       arrays, NumPy arrays, Python scalars, Python collections like lists
-      and tuples, objects with an ``__array__`` method, and objects
+      and tuples, objects with a ``__jax_array__`` method, and objects
       supporting the Python buffer protocol.
     dtype: optionally specify the dtype of the output array. If not
       specified it will be inferred from the input.
@@ -101,6 +104,10 @@ def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
       output array.
     device: optional :class:`~jax.Device` or :class:`~jax.sharding.Sharding`
       to which the created array will be committed.
+    out_sharding: (optional) :class:`~jax.sharding.PartitionSpec` or :class:`~jax.NamedSharding`
+      representing the sharding of the created array (see `explicit sharding`_ for more details).
+      This argument exists for consistency with other array creation routines across JAX.
+      Specifying both ``out_sharding`` and ``device`` will result in an error.
 
   Returns:
     A JAX array constructed from the input.
@@ -147,6 +154,8 @@ def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
     >>> pybuffer = array('i', [2, 3, 5, 7])
     >>> jnp.array(pybuffer)
     Array([2, 3, 5, 7], dtype=int32)
+
+  .. _explicit sharding: https://docs.jax.dev/en/latest/notebooks/explicit-sharding.html
   """
   if order is not None and order != "K":
     raise NotImplementedError("Only implemented for order='K'")
@@ -160,16 +169,21 @@ def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
   # whenever x is weak, but avoids introducing weak types with something like
   # array([1, 2, 3])
   weak_type = dtype is None and dtypes.is_weakly_typed(object)
-  if device is None and isinstance(object, core.Tracer):
+
+  if device is None and out_sharding is None and isinstance(object, core.Tracer):
     sharding = object.aval.sharding
     sharding = None if sharding.mesh.empty else sharding
   else:
-    sharding = util.canonicalize_device_to_sharding(device)
+    sharding = util.choose_device_or_out_sharding(device, out_sharding, "jnp.array")
 
   # Use device_put to avoid a copy for ndarray inputs.
   if (not copy and isinstance(object, np.ndarray) and
       (dtype is None or dtype == object.dtype) and (ndmin <= object.ndim) and
       device is None):
+    if dtype is not None:
+      # If there is an explicit dtype, we've already canonicalized things and
+      # device_put should not canonicalize again.
+      object = literals.TypedNdArray(object, weak_type=False)
     # Keep the output uncommitted.
     return api.device_put(object)
 
@@ -212,7 +226,9 @@ def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
       object = xc._xla.cuda_array_interface_to_buffer(
           cai=cai, gpu_backend=backend, device_id=device_id)
 
-  leaves, treedef = tree_util.tree_flatten(object, is_leaf=lambda x: x is None)
+  # To handle nested lists & tuples, flatten the tree and process each leaf.
+  leaves, treedef = tree_util.tree_flatten(
+      object, is_leaf=lambda x: not isinstance(x, (list, tuple)))
   if any(leaf is None for leaf in leaves):
     raise ValueError("None is not a valid value for jnp.array")
   leaves = [
@@ -306,7 +322,8 @@ def _convert_to_array_if_dtype_fails(x: ArrayLike) -> ArrayLike:
 @export
 def asarray(a: Any, dtype: DTypeLike | None = None, order: str | None = None,
             *, copy: bool | None = None,
-            device: xc.Device | Sharding | None = None) -> Array:
+            device: xc.Device | Sharding | None = None,
+            out_sharding: NamedSharding | P | None = None) -> Array:
   """Convert an object to a JAX array.
 
   JAX implementation of :func:`numpy.asarray`.
@@ -314,7 +331,7 @@ def asarray(a: Any, dtype: DTypeLike | None = None, order: str | None = None,
   Args:
     a: an object that is convertible to an array. This includes JAX
       arrays, NumPy arrays, Python scalars, Python collections like lists
-      and tuples, objects with an ``__array__`` method, and objects
+      and tuples, objects with a ``__jax_array__`` method, and objects
       supporting the Python buffer protocol.
     dtype: optionally specify the dtype of the output array. If not
       specified it will be inferred from the input.
@@ -381,4 +398,5 @@ def asarray(a: Any, dtype: DTypeLike | None = None, order: str | None = None,
                      "copy=False. Consider using copy=None or copy=True instead.")
   if dtype is not None:
     dtype = dtypes.check_and_canonicalize_user_dtype(dtype, "asarray")
-  return array(a, dtype=dtype, copy=bool(copy), order=order, device=device)
+  return array(a, dtype=dtype, copy=bool(copy), order=order, device=device,
+               out_sharding=out_sharding)

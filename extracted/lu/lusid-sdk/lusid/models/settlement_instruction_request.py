@@ -17,11 +17,14 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictFloat, StrictInt, StrictStr, constr 
 from lusid.models.perpetual_property import PerpetualProperty
 from lusid.models.resource_id import ResourceId
+from lusid.models.settlement_in_lieu import SettlementInLieu
 
 class SettlementInstructionRequest(BaseModel):
     """
@@ -31,13 +34,16 @@ class SettlementInstructionRequest(BaseModel):
     transaction_id:  StrictStr = Field(...,alias="transactionId") 
     settlement_category:  StrictStr = Field(...,alias="settlementCategory") 
     instruction_type:  Optional[StrictStr] = Field(None,alias="instructionType") 
-    instrument_identifiers: Dict[str, StrictStr] = Field(..., alias="instrumentIdentifiers")
-    contractual_settlement_date: Optional[datetime] = Field(None, alias="contractualSettlementDate")
-    actual_settlement_date: datetime = Field(..., alias="actualSettlementDate")
-    units: Union[StrictFloat, StrictInt] = Field(...)
-    sub_holding_key_overrides: Optional[Dict[str, PerpetualProperty]] = Field(None, alias="subHoldingKeyOverrides")
-    custodian_account_override: Optional[ResourceId] = Field(None, alias="custodianAccountOverride")
-    __properties = ["settlementInstructionId", "transactionId", "settlementCategory", "instructionType", "instrumentIdentifiers", "contractualSettlementDate", "actualSettlementDate", "units", "subHoldingKeyOverrides", "custodianAccountOverride"]
+    instrument_identifiers: Dict[str, Optional[StrictStr]] = Field(alias="instrumentIdentifiers")
+    contractual_settlement_date: Optional[datetime] = Field(default=None, alias="contractualSettlementDate")
+    actual_settlement_date: datetime = Field(alias="actualSettlementDate")
+    units: Union[StrictFloat, StrictInt]
+    sub_holding_key_overrides: Optional[Dict[str, PerpetualProperty]] = Field(default=None, alias="subHoldingKeyOverrides")
+    custodian_account_override: Optional[ResourceId] = Field(default=None, alias="custodianAccountOverride")
+    instruction_to_portfolio_rate: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="instructionToPortfolioRate")
+    settlement_in_lieu: Optional[SettlementInLieu] = Field(default=None, alias="settlementInLieu")
+    properties: Optional[List[PerpetualProperty]] = None
+    __properties = ["settlementInstructionId", "transactionId", "settlementCategory", "instructionType", "instrumentIdentifiers", "contractualSettlementDate", "actualSettlementDate", "units", "subHoldingKeyOverrides", "custodianAccountOverride", "instructionToPortfolioRate", "settlementInLieu", "properties"]
 
     class Config:
         """Pydantic configuration"""
@@ -81,6 +87,16 @@ class SettlementInstructionRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of custodian_account_override
         if self.custodian_account_override:
             _dict['custodianAccountOverride'] = self.custodian_account_override.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of settlement_in_lieu
+        if self.settlement_in_lieu:
+            _dict['settlementInLieu'] = self.settlement_in_lieu.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in properties (list)
+        _items = []
+        if self.properties:
+            for _item in self.properties:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict['properties'] = _items
         # set to None if instruction_type (nullable) is None
         # and __fields_set__ contains the field
         if self.instruction_type is None and "instruction_type" in self.__fields_set__:
@@ -95,6 +111,16 @@ class SettlementInstructionRequest(BaseModel):
         # and __fields_set__ contains the field
         if self.sub_holding_key_overrides is None and "sub_holding_key_overrides" in self.__fields_set__:
             _dict['subHoldingKeyOverrides'] = None
+
+        # set to None if instruction_to_portfolio_rate (nullable) is None
+        # and __fields_set__ contains the field
+        if self.instruction_to_portfolio_rate is None and "instruction_to_portfolio_rate" in self.__fields_set__:
+            _dict['instructionToPortfolioRate'] = None
+
+        # set to None if properties (nullable) is None
+        # and __fields_set__ contains the field
+        if self.properties is None and "properties" in self.__fields_set__:
+            _dict['properties'] = None
 
         return _dict
 
@@ -122,6 +148,11 @@ class SettlementInstructionRequest(BaseModel):
             )
             if obj.get("subHoldingKeyOverrides") is not None
             else None,
-            "custodian_account_override": ResourceId.from_dict(obj.get("custodianAccountOverride")) if obj.get("custodianAccountOverride") is not None else None
+            "custodian_account_override": ResourceId.from_dict(obj.get("custodianAccountOverride")) if obj.get("custodianAccountOverride") is not None else None,
+            "instruction_to_portfolio_rate": obj.get("instructionToPortfolioRate"),
+            "settlement_in_lieu": SettlementInLieu.from_dict(obj.get("settlementInLieu")) if obj.get("settlementInLieu") is not None else None,
+            "properties": [PerpetualProperty.from_dict(_item) for _item in obj.get("properties")] if obj.get("properties") is not None else None
         })
         return _obj
+
+SettlementInstructionRequest.update_forward_refs()

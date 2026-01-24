@@ -1,14 +1,14 @@
 # ruff: noqa: S105
 
 import os
-import pytest
 from unittest.mock import patch
 
+import pytest
 from crewai.context import (
-    set_platform_integration_token,
+    _platform_integration_token,
     get_platform_integration_token,
     platform_context,
-    _platform_integration_token,
+    set_platform_integration_token,
 )
 
 
@@ -187,7 +187,7 @@ class TestPlatformIntegrationToken:
         assert _platform_integration_token.get() is None
         assert get_platform_integration_token() == ""
 
-    @patch('crewai.context.os.getenv')
+    @patch("crewai.context.os.getenv")
     def test_env_var_access_error_handling(self, mock_getenv):
         mock_getenv.side_effect = OSError("Environment access error")
 
@@ -202,7 +202,6 @@ class TestPlatformIntegrationToken:
 
         set_platform_integration_token(test_token)
         assert get_platform_integration_token() == test_token
-
 
     def test_context_manager_return_value(self):
         """Test that platform_context can be used in with statement with return value."""

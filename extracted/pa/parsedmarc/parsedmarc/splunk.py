@@ -1,9 +1,14 @@
-from urllib.parse import urlparse
-import socket
-import json
+# -*- coding: utf-8 -*-
 
-import urllib3
+from __future__ import annotations
+
+import json
+import socket
+from typing import Any, Union
+from urllib.parse import urlparse
+
 import requests
+import urllib3
 
 from parsedmarc.constants import USER_AGENT
 from parsedmarc.log import logger
@@ -23,7 +28,13 @@ class HECClient(object):
     # http://docs.splunk.com/Documentation/Splunk/latest/RESTREF/RESTinput#services.2Fcollector
 
     def __init__(
-        self, url, access_token, index, source="parsedmarc", verify=True, timeout=60
+        self,
+        url: str,
+        access_token: str,
+        index: str,
+        source: str = "parsedmarc",
+        verify=True,
+        timeout=60,
     ):
         """
         Initializes the HECClient
@@ -37,9 +48,9 @@ class HECClient(object):
             timeout (float): Number of seconds to wait for the server to send
                 data before giving up
         """
-        url = urlparse(url)
+        parsed_url = urlparse(url)
         self.url = "{0}://{1}/services/collector/event/1.0".format(
-            url.scheme, url.netloc
+            parsed_url.scheme, parsed_url.netloc
         )
         self.access_token = access_token.lstrip("Splunk ")
         self.index = index
@@ -48,14 +59,19 @@ class HECClient(object):
         self.session = requests.Session()
         self.timeout = timeout
         self.session.verify = verify
-        self._common_data = dict(host=self.host, source=self.source, index=self.index)
+        self._common_data: dict[str, Union[str, int, float, dict]] = dict(
+            host=self.host, source=self.source, index=self.index
+        )
 
         self.session.headers = {
             "User-Agent": USER_AGENT,
             "Authorization": "Splunk {0}".format(self.access_token),
         }
 
-    def save_aggregate_reports_to_splunk(self, aggregate_reports):
+    def save_aggregate_reports_to_splunk(
+        self,
+        aggregate_reports: Union[list[dict[str, Any]], dict[str, Any]],
+    ):
         """
         Saves aggregate DMARC reports to Splunk
 
@@ -75,9 +91,12 @@ class HECClient(object):
         json_str = ""
         for report in aggregate_reports:
             for record in report["records"]:
-                new_report = dict()
+                new_report: dict[str, Union[str, int, float, dict]] = dict()
                 for metadata in report["report_metadata"]:
                     new_report[metadata] = report["report_metadata"][metadata]
+                new_report["interval_begin"] = record["interval_begin"]
+                new_report["interval_end"] = record["interval_end"]
+                new_report["normalized_timespan"] = record["normalized_timespan"]
                 new_report["published_policy"] = report["policy_published"]
                 new_report["source_ip_address"] = record["source"]["ip_address"]
                 new_report["source_country"] = record["source"]["country"]
@@ -98,7 +117,9 @@ class HECClient(object):
                     new_report["spf_results"] = record["auth_results"]["spf"]
 
                 data["sourcetype"] = "dmarc:aggregate"
-                timestamp = human_timestamp_to_unix_timestamp(new_report["begin_date"])
+                timestamp = human_timestamp_to_unix_timestamp(
+                    new_report["interval_begin"]
+                )
                 data["time"] = timestamp
                 data["event"] = new_report.copy()
                 json_str += "{0}\n".format(json.dumps(data))
@@ -113,7 +134,10 @@ class HECClient(object):
         if response["code"] != 0:
             raise SplunkError(response["text"])
 
-    def save_forensic_reports_to_splunk(self, forensic_reports):
+    def save_forensic_reports_to_splunk(
+        self,
+        forensic_reports: Union[list[dict[str, Any]], dict[str, Any]],
+    ):
         """
         Saves forensic DMARC reports to Splunk
 
@@ -147,7 +171,9 @@ class HECClient(object):
         if response["code"] != 0:
             raise SplunkError(response["text"])
 
-    def save_smtp_tls_reports_to_splunk(self, reports):
+    def save_smtp_tls_reports_to_splunk(
+        self, reports: Union[list[dict[str, Any]], dict[str, Any]]
+    ):
         """
         Saves aggregate DMARC reports to Splunk
 

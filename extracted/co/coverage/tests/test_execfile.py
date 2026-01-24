@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.execfile"""
 
@@ -284,7 +284,7 @@ class RunPycFileTest(CoverageTest):
         path = python_reported_file("binary")
         msg = (
             re.escape(f"Couldn't run '{path}' as Python code: ")
-            + r"(ValueError|SyntaxError): source code string cannot contain null bytes"
+            + r"(ValueError|SyntaxError): source code (string )?cannot contain null bytes"
         )
         with pytest.raises(Exception, match=msg):
             run_python_file([bf])

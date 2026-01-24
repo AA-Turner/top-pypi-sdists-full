@@ -1,7 +1,7 @@
 """Built-in checks for PySpark."""
 
-from typing import Any, TypeVar
 from collections.abc import Iterable
+from typing import Any, TypeVar
 
 import pyspark.sql.types as pst
 from pyspark.sql.functions import col
@@ -197,7 +197,10 @@ def in_range(
         if include_max
         else col(data.column_name) < max_value
     )
-    return data.dataframe.filter(~(compare_min & compare_max)).limit(1).count() == 0  # type: ignore
+    return (
+        data.dataframe.filter(~(compare_min & compare_max)).limit(1).count()
+        == 0
+    )  # type: ignore
 
 
 @register_builtin_check(
@@ -319,4 +322,43 @@ def str_endswith(data: PysparkDataframeColumnObject, string: str) -> bool:
     :param string: String all values should end with.
     """
     cond = col(data.column_name).endswith(string)
+    return data.dataframe.filter(~cond).limit(1).count() == 0
+
+
+@register_builtin_check()
+@register_input_datatypes(acceptable_datatypes=convert_to_list(STRING_TYPE))
+def str_length(
+    data: PysparkDataframeColumnObject,
+    min_value: int | None = None,
+    max_value: int | None = None,
+    exact_value: int | None = None,
+) -> bool:
+    """Ensure that the length of strings is within a specified range.
+
+    Remember it can be a compute intensive check on large dataset. So, use it with caution.
+
+    :param data: NamedTuple PysparkDataframeColumnObject contains the dataframe and column name for the check. The key
+        to access the dataframe is "dataframe", and the key to access the column name is "column_name".
+    :param min_value: Minimum length of strings (inclusive). (default: no minimum)
+    :param max_value: Maximum length of strings (inclusive). (default: no maximum)
+    :param exact_value: Exact length of strings. (default: no exact value)
+    """
+    from pyspark.sql.functions import length
+
+    str_len = length(col(data.column_name))
+    if exact_value is not None:
+        cond = str_len == exact_value
+        return data.dataframe.filter(~cond).limit(1).count() == 0
+
+    if min_value is None and max_value is None:
+        raise ValueError(
+            "Must provide at least one of 'min_value' and 'max_value'"
+        )
+    elif min_value is None:
+        cond = str_len <= max_value
+    elif max_value is None:
+        cond = str_len >= min_value
+    else:
+        cond = (str_len >= min_value) & (str_len <= max_value)
+
     return data.dataframe.filter(~cond).limit(1).count() == 0

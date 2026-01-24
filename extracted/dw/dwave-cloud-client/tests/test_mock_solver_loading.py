@@ -211,7 +211,8 @@ class MockSolverLoading(unittest.TestCase):
                 Client,
                 _DEFAULT_SOLVERS_STATIC_PART_MAXAGE=60,
                 _DEFAULT_SOLVERS_DYNAMIC_PART_MAXAGE=10,
-                _DEFAULT_SOLVERS_CACHE_CONFIG=dict(maxage=60, store={})):
+                _DEFAULT_SOLVERS_CACHE_CONFIG=dict(default_maxage=60,
+                                                   store_factory=lambda **kw: {})):
 
             with Client(endpoint=self.endpoint, token=self.token) as client:
 
@@ -346,6 +347,8 @@ class MockSolverLoading(unittest.TestCase):
         self.assertFalse(Solver(None, data).is_vfyc)
         data['properties']['vfyc'] = True
         self.assertTrue(Solver(None, data).is_vfyc)
+        with self.assertWarns(DeprecationWarning):
+            Solver(None, data).is_vfyc
 
         # test .has_flux_biases
         self.assertFalse(Solver(None, data).has_flux_biases)

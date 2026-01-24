@@ -2,17 +2,16 @@ import copy
 import itertools
 import sys
 from pathlib import Path
-from typing import Dict, List
 
 import pytest
 
 from pydoclint.main import _checkFile
 
 THIS_DIR = Path(__file__).parent
-DATA_DIR = THIS_DIR / 'data'
+DATA_DIR = THIS_DIR / 'test_data'
 
 
-def pythonVersionBelow310():
+def pythonVersionBelow310() -> bool:
     return sys.version_info < (3, 10)
 
 
@@ -98,14 +97,14 @@ expectedViolations_False = [
     'docstring: [arg3: list, arg4: tuple, arg5: dict].',
 ]
 
-expectedViolationsLookup: Dict[bool, List[str]] = {
+expectedViolationsLookup: dict[bool, list[str]] = {
     True: expectedViolations_True,
     False: expectedViolations_False,
 }
 
 
 @pytest.mark.parametrize(
-    'style, filename, checkArgOrder',
+    ('style', 'filename', 'checkArgOrder'),
     list(
         itertools.product(
             ['google', 'numpy', 'sphinx'],
@@ -119,7 +118,7 @@ def testArguments(
         filename: str,
         checkArgOrder: bool,
 ) -> None:
-    expectedViolations: List[str] = expectedViolationsLookup[checkArgOrder]
+    expectedViolations: list[str] = expectedViolationsLookup[checkArgOrder]
 
     expectedViolationsCopy = copy.deepcopy(expectedViolations)
     if filename == 'function.py':
@@ -135,7 +134,7 @@ def testArguments(
 
 
 @pytest.mark.parametrize(
-    'style, checkClassAttr',
+    ('style', 'checkClassAttr'),
     list(
         itertools.product(
             ['google', 'numpy', 'sphinx'],
@@ -153,7 +152,7 @@ def testClassAttributes(
         style=style,
     )
 
-    expectedViolations: Dict[bool, List[str]] = {
+    expectedViolations: dict[bool, list[str]] = {
         True: [
             'DOC601: Class `MyClass1`: Class docstring contains fewer class attributes '
             'than actual class attributes.  (Please read '
@@ -290,7 +289,7 @@ def testClassAttributesWithSeparatedDocstrings(style: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'style, filename',
+    ('style', 'filename'),
     list(
         itertools.product(
             ['google', 'numpy', 'sphinx'],
@@ -306,7 +305,7 @@ def testReturns(style: str, filename: str) -> None:
         style=style,
     )
 
-    expectedViolations: List[str] = [
+    expectedViolations: list[str] = [
         'DOC201: Method `MyClass.func1_6` does not have a return section in '
         'docstring',
         'DOC203: Method `MyClass.func1_6` return type(s) in docstring not consistent with '
@@ -352,22 +351,20 @@ def testReturns(style: str, filename: str) -> None:
             "docstring return section types: ['bool']"
         )
 
-    expectedViolations.extend(
-        [
-            'DOC202: Method `MyClass.func101` has a return section in docstring, but '
-            'there are no return statements or annotations',
-            'DOC203: Method `MyClass.func101` return type(s) in docstring not consistent '
-            'with the return annotation. Return annotation has 0 type(s); docstring '
-            'return section has 1 type(s).',
-            'DOC201: Function `inner101` does not have a return section in docstring',
-            'DOC203: Function `inner101` return type(s) in docstring not consistent with '
-            'the return annotation. Return annotation has 1 type(s); docstring return '
-            'section has 0 type(s).',
-            'DOC203: Method `MyClass.zipLists1` return type(s) in docstring not consistent with '
-            "the return annotation. Return annotation types: ['Iterator[Tuple[Any, "
-            "Any]]']; docstring return section types: ['Iterator[Tuple[Any, int]]']",
-        ]
-    )
+    expectedViolations.extend([
+        'DOC202: Method `MyClass.func101` has a return section in docstring, but '
+        'there are no return statements or annotations',
+        'DOC203: Method `MyClass.func101` return type(s) in docstring not consistent '
+        'with the return annotation. Return annotation has 0 type(s); docstring '
+        'return section has 1 type(s).',
+        'DOC201: Function `inner101` does not have a return section in docstring',
+        'DOC203: Function `inner101` return type(s) in docstring not consistent with '
+        'the return annotation. Return annotation has 1 type(s); docstring return '
+        'section has 0 type(s).',
+        'DOC203: Method `MyClass.zipLists1` return type(s) in docstring not consistent with '
+        "the return annotation. Return annotation types: ['Iterator[Tuple[Any, "
+        "Any]]']; docstring return section types: ['Iterator[Tuple[Any, int]]']",
+    ])
 
     expectedViolationsCopy = copy.deepcopy(expectedViolations)
     if filename == 'function.py':
@@ -377,7 +374,7 @@ def testReturns(style: str, filename: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'style, filename',
+    ('style', 'filename'),
     list(
         itertools.product(
             ['google', 'numpy', 'sphinx'],
@@ -397,7 +394,7 @@ def testReturnsPy310plus(style: str, filename: str) -> None:
         style=style,
     )
 
-    expectedViolations: List[str] = [
+    expectedViolations: list[str] = [
         'DOC201: Method `MyClass.func11` does not have a return section in docstring',
         'DOC203: Method `MyClass.func11` return type(s) in docstring not consistent '
         'with the return annotation. Return annotation has 1 type(s); docstring '
@@ -412,7 +409,7 @@ def testReturnsPy310plus(style: str, filename: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'style, require',
+    ('style', 'require'),
     list(
         itertools.product(
             ['google', 'numpy', 'sphinx'],
@@ -441,7 +438,7 @@ def testReturns_returningNone(style: str, require: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    'style, require',
+    ('style', 'require'),
     list(
         itertools.product(
             ['google', 'numpy', 'sphinx'],
@@ -469,7 +466,7 @@ def testReturns_returningNoReturn(style: str, require: bool) -> None:
     assert list(map(str, violations)) == expectedViolationsCopy
 
 
-def _tweakViolationMsgForFunctions(expectedViolationsCopy: List[str]) -> None:
+def _tweakViolationMsgForFunctions(expectedViolationsCopy: list[str]) -> None:
     for i in range(len(expectedViolationsCopy)):
         expectedViolationsCopy[i] = expectedViolationsCopy[i].replace(
             'Method `MyClass.', 'Function `'
@@ -535,7 +532,7 @@ expected_skipCheckingShortDocstrings_False = [
 
 
 @pytest.mark.parametrize(
-    'style, skipCheckingShortDocstrings, expected',
+    ('style', 'skipCheckingShortDocstrings', 'expected'),
     [
         ('numpy', True, expected_skipCheckingShortDocstrings_True),
         ('numpy', False, expected_skipCheckingShortDocstrings_False),
@@ -548,7 +545,7 @@ expected_skipCheckingShortDocstrings_False = [
 def testSkipCheckingShortDocstrings(
         style: str,
         skipCheckingShortDocstrings: bool,
-        expected: List[str],
+        expected: list[str],
 ) -> None:
     violations = _checkFile(
         filename=DATA_DIR / f'{style}/short_docstrings/cases.py',
@@ -791,7 +788,7 @@ def testReturnAndYield(style: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'style, skipRaisesCheck, shouldDeclareAssertErr',
+    ('style', 'skipRaisesCheck', 'shouldDeclareAssertErr'),
     itertools.product(
         ['google', 'numpy', 'sphinx'],
         [False, True],
@@ -877,7 +874,7 @@ def testRaises(
 
 
 @pytest.mark.parametrize(
-    'style, skipRaisesCheck',
+    ('style', 'skipRaisesCheck'),
     itertools.product(
         ['google', 'numpy', 'sphinx'],
         [False, True],
@@ -959,6 +956,24 @@ def testStarsInArgumentList2(style: str) -> None:
     assert list(map(str, violations)) == expected
 
 
+@pytest.mark.parametrize('style', ['google', 'numpy', 'sphinx'])
+def testStarsInArgumentList3(style: str) -> None:
+    violations = _checkFile(
+        filename=DATA_DIR / f'{style}/star_args/cases3.py',
+        style=style,
+        omitStarsWhenDocumentingVarargs=True,
+    )
+    expected = [
+        'DOC103: Function `func9`: Docstring arguments are different from function'
+        ' arguments. (Or could be other formatting issues:'
+        ' https://jsh9.github.io/pydoclint/violation_codes.html#notes-on-doc103 ).'
+        ' Arguments in the function signature but not in the'
+        ' docstring: [*args: int]. Arguments in the docstring but not in the function'
+        ' signature: [**args: int].',
+    ]
+    assert list(map(str, violations)) == expected
+
+
 def testParsingErrors_google() -> None:
     violations = _checkFile(
         filename=DATA_DIR / 'google/parsing_errors/cases.py',
@@ -1024,7 +1039,7 @@ def testParsingErrors_numpy() -> None:
 
 
 @pytest.mark.parametrize(
-    'expectedStyle, expectedViolations',
+    ('expectedStyle', 'expectedViolations'),
     [
         (
             'google',
@@ -1104,7 +1119,50 @@ def testDocstringStyleMismatch(
 
 
 @pytest.mark.parametrize(
-    'style, rrs',
+    'style',
+    ['google', 'numpy', 'sphinx'],
+)
+def testStyleMismatchIgnoresInlineSphinxKeywords(style: str) -> None:
+    violations = _checkFile(
+        filename=DATA_DIR / 'style_mismatch/this_can_be_any_style.py',
+        style=style,
+        checkStyleMismatch=True,
+    )
+    assert list(map(str, violations)) == []
+
+
+@pytest.mark.parametrize(
+    ('style', 'relative_path'),
+    [
+        ('numpy', 'numpy_pure.py'),
+        ('google', 'google_pure.py'),
+        ('sphinx', 'sphinx_pure.py'),
+    ],
+)
+def testStyleMismatchAcceptsPureStyles(
+        style: str,
+        relative_path: str,
+) -> None:
+    violations = _checkFile(
+        filename=DATA_DIR / 'style_mismatch' / relative_path,
+        style=style,
+        checkStyleMismatch=True,
+    )
+    assert not any('DOC003' in str(violation) for violation in violations)
+
+
+@pytest.mark.parametrize('style', ['google', 'numpy', 'sphinx'])
+def testStyleMismatchFlagsMixedStyles(style: str) -> None:
+    violations = _checkFile(
+        filename=DATA_DIR / 'style_mismatch/mixed_styles.py',
+        style=style,
+        checkStyleMismatch=True,
+    )
+    assert any('DOC003' in str(violation) for violation in violations)
+
+
+@pytest.mark.parametrize(
+    ('style', 'rrs'),
     itertools.product(
         ['google', 'numpy', 'sphinx'],
         [False, True],
@@ -1144,7 +1202,7 @@ def testNoReturnSection(
 
 
 @pytest.mark.parametrize(
-    'style, rys',
+    ('style', 'rys'),
     itertools.product(
         ['google', 'numpy', 'sphinx'],
         [False, True],
@@ -1200,7 +1258,7 @@ def testPropertyMethod(style: str) -> None:
 
 
 @pytest.mark.parametrize(
-    'style, checkReturnTypes',
+    ('style', 'checkReturnTypes'),
     itertools.product(
         ['google', 'numpy', 'sphinx'],
         [False, True],
@@ -1241,11 +1299,23 @@ def testNoReturnSectionInPropertyMethod(style: str) -> None:
         skipCheckingShortDocstrings=False,
         checkClassAttributes=False,
     )
-    assert len(violations) == 0
+    expected = [
+        'DOC201: Method `MyOtherClass.method_2` does not have a return section in '
+        'docstring',
+        'DOC203: Method `MyOtherClass.method_2` return type(s) in docstring not '
+        'consistent with the return annotation. Return annotation has 1 type(s); '
+        'docstring return section has 0 type(s).',
+        'DOC201: Method `MyOtherClass.method_3` does not have a return section in '
+        'docstring',
+        'DOC203: Method `MyOtherClass.method_3` return type(s) in docstring not '
+        'consistent with the return annotation. Return annotation has 1 type(s); '
+        'docstring return section has 0 type(s).',
+    ]
+    assert list(map(str, violations)) == expected
 
 
 @pytest.mark.parametrize(
-    'style, argTypeHintsInDocstring, argTypeHintsInSignature',
+    ('style', 'argTypeHintsInDocstring', 'argTypeHintsInSignature'),
     itertools.product(
         ['google', 'numpy', 'sphinx'],
         [False, True],
@@ -1372,7 +1442,7 @@ def testTypeHintChecking(
     }
 
     expected = expected_lookup[
-        (argTypeHintsInDocstring, argTypeHintsInSignature)
+        argTypeHintsInDocstring, argTypeHintsInSignature
     ]
     assert list(map(str, violations)) == expected
 
@@ -1389,7 +1459,7 @@ def testNonAscii() -> None:
 
 
 @pytest.mark.parametrize(
-    'style, checkArgDefaults',
+    ('style', 'checkArgDefaults'),
     list(
         itertools.product(
             ['google', 'numpy'],  # no Sphinx style for now

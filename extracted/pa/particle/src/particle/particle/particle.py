@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2025, Eduardo Rodrigues and Henry Schreiner.
+# Copyright (c) 2018-2026, Eduardo Rodrigues and Henry Schreiner.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/particle for details.
@@ -9,9 +9,10 @@ from __future__ import annotations
 # Python standard library
 import contextlib
 import csv
+from collections.abc import Iterable, Iterator, Sequence
 from copy import copy
 from functools import total_ordering
-from typing import Any, Callable, Iterable, Iterator, Sequence, SupportsInt, TypeVar
+from typing import Any, Callable, SupportsInt, TypeVar
 
 # External dependencies
 import attr
@@ -565,8 +566,8 @@ class Particle:
         assert cls._table_names is not None
 
         if filename is None:
-            with data.basepath.joinpath("particle2024.csv").open() as fa:
-                cls.load_table(fa, append=append, _name="particle2024.csv")
+            with data.basepath.joinpath("particle2025.csv").open() as fa:
+                cls.load_table(fa, append=append, _name="particle2025.csv")
             with data.basepath.joinpath("nuclei2022.csv").open() as fb:
                 cls.load_table(fb, append=True, _name="nuclei2022.csv")
             return

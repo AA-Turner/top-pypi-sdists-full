@@ -1,36 +1,29 @@
 import datetime
-import re
 import logging
+import re
 from typing import ClassVar
 
 from bravado.client import SwaggerClient
+from oauthlib.oauth2.rfc6749.errors import (
+    InvalidClientError, InvalidClientIdError, InvalidGrantError,
+    InvalidTokenError, MissingTokenError,
+)
 from requests.auth import HTTPBasicAuth
 from requests_oauthlib import OAuth2Session
-from oauthlib.oauth2.rfc6749.errors import (
-    InvalidClientError,
-    InvalidClientIdError,
-    InvalidGrantError,
-    InvalidTokenError,
-    MissingTokenError,
-)
 
-from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from . import app_settings
 from .clients import esi_client_factory
-from .managers import TokenManager
 from .errors import (
-    IncompleteResponseError,
-    NotRefreshableTokenError,
-    TokenExpiredError,
-    TokenInvalidError,
-    TokenError
+    IncompleteResponseError, NotRefreshableTokenError, TokenError,
+    TokenExpiredError, TokenInvalidError,
 )
-
+from .managers import TokenManager
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +169,7 @@ class Token(models.Model):
                 ).results()
 
         Returns:
-           Valid access token
+            Valid access token
 
         Raises:
             TokenExpiredError: When token can not be refreshed

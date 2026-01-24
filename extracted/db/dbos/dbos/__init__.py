@@ -7,12 +7,15 @@ from ._context import (
     SetWorkflowID,
     SetWorkflowTimeout,
 )
+from ._core import StepOptions
 from ._dbos import DBOS, DBOSConfiguredInstance, WorkflowHandle, WorkflowHandleAsync
 from ._dbos_config import DBOSConfig
 from ._debouncer import Debouncer, DebouncerClient
 from ._kafka_message import KafkaMessage
 from ._queue import Queue
-from ._sys_db import GetWorkflowsInput, WorkflowStatus, WorkflowStatusString
+from ._serialization import Serializer
+from ._sys_db import StepInfo, WorkflowStatus, WorkflowStatusString
+from .cli.migration import run_dbos_database_migrations
 
 __all__ = [
     "DBOSConfig",
@@ -22,11 +25,12 @@ __all__ = [
     "DBOSContextEnsure",
     "DBOSContextSetAuth",
     "EnqueueOptions",
-    "GetWorkflowsInput",
     "KafkaMessage",
     "SetWorkflowID",
     "SetWorkflowTimeout",
     "SetEnqueueOptions",
+    "StepInfo",
+    "StepOptions",
     "WorkflowHandle",
     "WorkflowHandleAsync",
     "WorkflowStatus",
@@ -35,4 +39,6 @@ __all__ = [
     "Queue",
     "Debouncer",
     "DebouncerClient",
+    "Serializer",
+    "run_dbos_database_migrations",
 ]

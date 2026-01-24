@@ -1,12 +1,10 @@
 import functools
 import sys
+from collections.abc import Awaitable, Coroutine
 from importlib import import_module
 from typing import (
     Any,
-    Awaitable,
     Callable,
-    Coroutine,
-    Dict,
     Generic,
     Optional,
     TypeVar,
@@ -200,7 +198,7 @@ def create_task_group() -> "TaskGroup":
 def runnify(
     async_function: Callable[T_ParamSpec, Coroutine[Any, Any, T_Retval]],
     backend: str = "asyncio",
-    backend_options: Optional[Dict[str, Any]] = None,
+    backend_options: Optional[dict[str, Any]] = None,
 ) -> Callable[T_ParamSpec, T_Retval]:
     """
     Take an async function and create a regular (blocking) function that receives the
@@ -306,6 +304,9 @@ def syncify(
     @functools.wraps(async_function)
     def wrapper(*args: T_ParamSpec.args, **kwargs: T_ParamSpec.kwargs) -> T_Retval:
         current_async_module = (
+            getattr(threadlocals, "current_token", None)
+            or
+            # TODO: remove when deprecating AnyIO 4.10.0
             getattr(threadlocals, "current_async_backend", None)
             or
             # TODO: remove when deprecating AnyIO 3.x

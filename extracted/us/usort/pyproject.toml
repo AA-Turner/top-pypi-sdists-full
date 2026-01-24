@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "usort"
+description = "Safe, minimal import sorting"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file="LICENSE"}
+authors = [
+    {name="Tim Hatch", email="thatch@fb.com"},
+    {name="Amethyst Reese", email="amethyst@fb.com"},
+    {name="Meta"},
+]
+keywords = ["imports", "usort", "isort"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+dependencies = [
+    "attrs >= 21.2.0",
+    "click >= 7.0.0",
+    "LibCST >= 0.3.7",
+    "moreorless >= 0.3.0",
+    "stdlibs >= 2021.4.1",
+    "tomli;python_version<'3.11'",
+    "trailrunner >= 1.0, < 2.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "click==8.1.8",  # pinning until mypy issues blow over
+    "black==25.9.0",
+    "coverage==7.11.0",
+    "flake8==7.3.0",
+    "hatch==1.15.1",
+    "mypy==1.18.2",
+    "pessimist==0.9.3",
+    "ufmt==2.8.0",
+    "volatile==2.1.0",
+]
+docs = [
+    "sphinx==7.4.7",
+    "sphinx-mdinclude==0.6.2",
+]
+
+[project.scripts]
+usort = "usort.__main__:main"
+
+[project.urls]
+Changelog="https://usort.readthedocs.io/en/latest/changelog.html"
+Documentation="https://usort.readthedocs.io"
+Github="https://github.com/facebook/usort"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "usort/version.py"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.coverage.run]
+branch = true
+include = ["usort/*"]
+omit = ["usort/tests/*"]
+
+[tool.coverage.report]
+fail_under = 92
+precision = 0
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+ignore_missing_imports = true
+strict = true

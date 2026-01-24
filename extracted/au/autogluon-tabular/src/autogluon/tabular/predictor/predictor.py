@@ -19,7 +19,10 @@ from packaging import version
 from autogluon.common import FeatureMetadata, TabularDataset
 from autogluon.common.loaders import load_json
 from autogluon.common.savers import save_json
+from autogluon.common.utils.cv_splitter import CVSplitter
+from autogluon.common.utils.decorators import apply_presets
 from autogluon.common.utils.file_utils import get_directory_size, get_directory_size_per_file
+from autogluon.common.utils.resource_utils import ResourceManager, get_resource_manager
 from autogluon.common.utils.hyperparameter_utils import get_hyperparameter_str_deprecation_msg, is_advanced_hyperparameter_format
 from autogluon.common.utils.log_utils import add_log_to_file, set_logger_verbosity, warn_if_mlflow_autologging_is_enabled
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
@@ -45,13 +48,16 @@ from autogluon.core.pseudolabeling.pseudolabeling import filter_ensemble_pseudo,
 from autogluon.core.scheduler.scheduler_factory import scheduler_factory
 from autogluon.core.stacked_overfitting.utils import check_stacked_overfitting_from_leaderboard
 from autogluon.core.utils import get_pred_from_proba_df, plot_performance_vs_trials, plot_summary_of_models, plot_tabular_models
-from autogluon.core.utils.decorators import apply_presets
 from autogluon.core.utils.loaders import load_pkl, load_str
 from autogluon.core.utils.savers import save_pkl, save_str
-from autogluon.core.utils.utils import CVSplitter, default_holdout_frac, generate_train_test_split_combined
+from autogluon.core.utils.utils import generate_train_test_split_combined
 
 from ..configs.feature_generator_presets import get_default_feature_generator
 from ..configs.hyperparameter_configs import get_hyperparameter_config
+from ..configs.pipeline_presets import (
+    USE_BAG_HOLDOUT_AUTO_THRESHOLD,
+    get_validation_and_stacking_method,
+)
 from ..configs.presets_configs import tabular_presets_alias, tabular_presets_dict
 from ..learner import AbstractTabularLearner, DefaultLearner
 from ..trainer.abstract_trainer import AbstractTabularTrainer
@@ -165,6 +171,10 @@ class TabularPredictor:
             trainer_type : AbstractTabularTrainer, default = AutoTrainer
                 A class inheriting from `AbstractTabularTrainer` that controls training/ensembling of many models.
                 If you don't know what this is, keep it as the default.
+        default_base_path : str | Path | None, default = None
+            A default base path to use for the time-stamped folder if `path` is None.
+            If None, defaults to `AutogluonModels`. Only used if `path` is None, and thus
+            only used for local paths, not s3 paths.
     """
 
     Dataset = TabularDataset
@@ -201,7 +211,7 @@ class TabularPredictor:
                 f"We do not recommend specifying weight_evaluation when sample_weight='{self.sample_weight}', instead specify appropriate eval_metric."
             )
         self._validate_init_kwargs(kwargs)
-        path = setup_outputdir(path)
+        path = setup_outputdir(path=path, default_base_path=kwargs.get("default_base_path"))
 
         learner_type = kwargs.get("learner_type", DefaultLearner)
         learner_kwargs = kwargs.get("learner_kwargs", dict())
@@ -413,7 +423,7 @@ class TabularPredictor:
         num_gpus: int | str = "auto",
         fit_strategy: Literal["sequential", "parallel"] = "sequential",
         memory_limit: float | str = "auto",
-        callbacks: list[AbstractCallback] = None,
+        callbacks: list[AbstractCallback | list | tuple] = None,
         **kwargs,
     ) -> "TabularPredictor":
         """
@@ -425,12 +435,17 @@ class TabularPredictor:
             Table of the training data as a pandas DataFrame.
             If str is passed, `train_data` will be loaded using the str value as the file path.
         tuning_data : :class:`pd.DataFrame` or str, optional
-            Another dataset containing validation data reserved for tuning processes such as early stopping and hyperparameter tuning.
+            Another dataset containing validation data reserved for tuning processes such as early stopping, hyperparameter tuning, and ensembling.
             This dataset should be in the same format as `train_data`.
             If str is passed, `tuning_data` will be loaded using the str value as the file path.
-            Note: final model returned may be fit on `tuning_data` as well as `train_data`. Do not provide your evaluation test data here!
-            In particular, when `num_bag_folds` > 0 or `num_stack_levels` > 0, models will be trained on both `tuning_data` and `train_data`.
-            If `tuning_data = None`, `fit()` will automatically hold out some random validation examples from `train_data`.
+            Note: If `refit_full=True` is specified, the final model may be fit on `tuning_data` as well as `train_data`.
+            Note: Because `tuning_data` is used to determine which model is the 'best' model, as well as to determine the ensemble weights,
+                it should not be considered a fully unseen dataset. It is possible that AutoGluon will be overfit to the `tuning_data`.
+                To ensure an unbiased evaluation, use separate unseen test data to evaluate the final model using `predictor.leaderboard(test_data, display=True)`.
+                Do not provide your evaluation test data as `tuning_data`!
+            If bagging is not enabled and `tuning_data = None`: `fit()` will automatically hold out some random validation samples from `train_data`.
+            If bagging is enabled  and `tuning_data = None`: no tuning data will be used. Instead, AutoGluon will perform cross-validation.
+            If bagging is enabled: `use_bag_holdout=True` must be specified in order to provide tuning data. If specified, AutoGluon will still perform cross-validation for model fits, but will use `tuning_data` for optimizing the weighted ensemble weights and model calibration.
         time_limit : int, default = None
             Approximately how long `fit()` should run for (wallclock time in seconds).
             If not specified, `fit()` will run until all models have completed training, but will not repeatedly bag models unless `num_bag_sets` is specified.
@@ -449,15 +464,22 @@ class TabularPredictor:
             It is recommended to only use one `quality` based preset in a given call to `fit()` as they alter many of the same arguments and are not compatible with each-other.
 
             In-depth Preset Info:
-                extreme_quality={"auto_stack": True, "dynamic_stacking": "auto", "_experimental_dynamic_hyperparameters": True, "hyperparameters": None}
-                    Significantly more accurate than `best_quality` on datasets <= 30000 samples. Requires a GPU for best results.
-                    For datasets <= 30000 samples, will use recent tabular foundation models TabPFNv2, TabICL, and Mitra to maximize performance.
-                    For datasets > 30000 samples, will behave identically to `best_quality`.
+                extreme_quality={...}
+                    New in v1.5: The state-of-the-art for tabular machine learning.
+                    Requires `pip install autogluon.tabular[tabarena]` to install TabPFN, TabICL, and TabDPT.
+                    Significantly more accurate than `best_quality` on datasets <= 100000 samples. Requires a GPU.
+                    Will use recent tabular foundation models TabPFNv2, TabICL, TabDPT, and Mitra to maximize performance.
                     Recommended for applications that benefit from the best possible model accuracy.
+
+                best_quality_v150={...}
+                    New in v1.5: Better quality than 'best_quality' and 5x+ faster to train. Give it a try!
 
                 best_quality={'auto_stack': True, 'dynamic_stacking': 'auto', 'hyperparameters': 'zeroshot'}
                     Best predictive accuracy with little consideration to inference time or disk usage. Achieve even better results by specifying a large time_limit value.
                     Recommended for applications that benefit from the best possible model accuracy.
+
+                high_quality_v150={...}
+                    New in v1.5: Better quality than 'high_quality' and 5x+ faster to train. Give it a try!
 
                 high_quality={'auto_stack': True, 'dynamic_stacking': 'auto', 'hyperparameters': 'zeroshot', 'refit_full': True, 'set_best_to_refit_full': True, 'save_bag_folds': False}
                     High predictive accuracy with fast inference. ~8x faster inference and ~8x lower disk usage than `best_quality`.
@@ -512,6 +534,7 @@ class TabularPredictor:
                     'GBM' (LightGBM)
                     'CAT' (CatBoost)
                     'XGB' (XGBoost)
+                    'EBM' (Explainable Boosting Machine)
                     'REALMLP' (RealMLP)
                     'TABM' (TabM)
                     'MITRA' (Mitra)
@@ -1077,7 +1100,8 @@ class TabularPredictor:
             elif verbosity >= 4:
                 logger.log(20, f"Verbosity: {verbosity} (Maximum Logging)")
 
-        include_gpu_count = verbosity >= 3
+        resource_manager: ResourceManager = get_resource_manager()
+        include_gpu_count = resource_manager.get_gpu_count_torch() or verbosity >= 3
         sys_msg = get_ag_system_info(path=self.path, include_gpu_count=include_gpu_count)
         logger.log(20, sys_msg)
 
@@ -1090,11 +1114,13 @@ class TabularPredictor:
                 20,
                 "No presets specified! To achieve strong results with AutoGluon, it is recommended to use the available presets. Defaulting to `'medium'`...\n"
                 "\tRecommended Presets (For more details refer to https://auto.gluon.ai/stable/tutorials/tabular/tabular-essentials.html#presets):\n"
-                "\tpresets='extreme' : New in v1.4: Massively better than 'best' on datasets <30000 samples by using new models meta-learned on https://tabarena.ai: TabPFNv2, TabICL, Mitra, and TabM. Absolute best accuracy. Requires a GPU. Recommended 64 GB CPU memory and 32+ GB GPU memory.\n"
-                "\tpresets='best'    : Maximize accuracy. Recommended for most users. Use in competitions and benchmarks.\n"
-                "\tpresets='high'    : Strong accuracy with fast inference speed.\n"
-                "\tpresets='good'    : Good accuracy with very fast inference speed.\n"
-                "\tpresets='medium'  : Fast training time, ideal for initial prototyping.",
+                "\tpresets='extreme'  : New in v1.5: The state-of-the-art for tabular data. Massively better than 'best' on datasets <100000 samples by using new Tabular Foundation Models (TFMs) meta-learned on https://tabarena.ai: TabPFNv2, TabICL, Mitra, TabDPT, and TabM. Requires a GPU and `pip install autogluon.tabular[tabarena]` to install TabPFN, TabICL, and TabDPT.\n"
+                "\tpresets='best'     : Maximize accuracy. Recommended for most users. Use in competitions and benchmarks.\n"
+                "\tpresets='best_v150': New in v1.5: Better quality than 'best' and 5x+ faster to train. Give it a try!\n"
+                "\tpresets='high'     : Strong accuracy with fast inference speed.\n"
+                "\tpresets='high_v150': New in v1.5: Better quality than 'high' and 5x+ faster to train. Give it a try!\n"
+                "\tpresets='good'     : Good accuracy with very fast inference speed.\n"
+                "\tpresets='medium'   : Fast training time, ideal for initial prototyping.",
             )
 
         kwargs_orig = kwargs.copy()
@@ -1117,10 +1143,6 @@ class TabularPredictor:
         self._validate_calibrate_decision_threshold(calibrate_decision_threshold=calibrate_decision_threshold)
         self._validate_fit_strategy(fit_strategy=fit_strategy)
 
-        holdout_frac = kwargs["holdout_frac"]
-        num_bag_folds = kwargs["num_bag_folds"]
-        num_bag_sets = kwargs["num_bag_sets"]
-        num_stack_levels = kwargs["num_stack_levels"]
         auto_stack = kwargs["auto_stack"]
         feature_generator = kwargs["feature_generator"]
         unlabeled_data = kwargs["unlabeled_data"]
@@ -1152,7 +1174,7 @@ class TabularPredictor:
         # TODO: Temporary for v1.4. Make this more extensible for v1.5 by letting users make their own dynamic hyperparameters.
         dynamic_hyperparameters = kwargs["_experimental_dynamic_hyperparameters"]
         if dynamic_hyperparameters:
-            logger.log(20, f"`extreme` preset uses a dynamic portfolio based on dataset size...")
+            logger.log(20, f"`extreme_v140` preset uses a dynamic portfolio based on dataset size...")
             assert hyperparameters is None, f"hyperparameters must be unspecified when `_experimental_dynamic_hyperparameters=True`."
             n_samples = len(train_data)
             if n_samples > 30000:
@@ -1216,16 +1238,46 @@ class TabularPredictor:
         else:
             ag_args_fit = learning_curves
 
+        use_bag_holdout_was_auto = False
+        dynamic_stacking_was_auto = False
+        if isinstance(use_bag_holdout,str) and use_bag_holdout == "auto":
+            use_bag_holdout = None
+            use_bag_holdout_was_auto = True
+        if isinstance(dynamic_stacking,str) and dynamic_stacking == "auto":
+            dynamic_stacking = None
+            dynamic_stacking_was_auto = True
+
+        (
+            num_bag_folds,
+            num_bag_sets,
+            num_stack_levels,
+            dynamic_stacking,
+            use_bag_holdout,
+            holdout_frac,
+            refit_full,
+        ) = get_validation_and_stacking_method(
+            num_bag_folds=kwargs["num_bag_folds"],
+            num_bag_sets=kwargs["num_bag_sets"],
+            use_bag_holdout=use_bag_holdout,
+            holdout_frac=kwargs["holdout_frac"],
+            auto_stack=auto_stack,
+            num_stack_levels=kwargs["num_stack_levels"],
+            dynamic_stacking=dynamic_stacking,
+            refit_full=kwargs["refit_full"],
+            num_train_rows=len(train_data),
+            problem_type=inferred_problem_type,
+            hpo_enabled=ag_args.get("hyperparameter_tune_kwargs", None) is not None,
+        )
+
         num_bag_folds, num_bag_sets, num_stack_levels, dynamic_stacking, use_bag_holdout = self._sanitize_stack_args(
             num_bag_folds=num_bag_folds,
             num_bag_sets=num_bag_sets,
             num_stack_levels=num_stack_levels,
-            time_limit=time_limit,
-            auto_stack=auto_stack,
             num_train_rows=len(train_data),
-            problem_type=inferred_problem_type,
             dynamic_stacking=dynamic_stacking,
             use_bag_holdout=use_bag_holdout,
+            use_bag_holdout_was_auto=use_bag_holdout_was_auto,
+            dynamic_stacking_was_auto=dynamic_stacking_was_auto,
         )
         if auto_stack:
             logger.log(
@@ -1233,9 +1285,6 @@ class TabularPredictor:
                 f"Stack configuration (auto_stack={auto_stack}): "
                 f"num_stack_levels={num_stack_levels}, num_bag_folds={num_bag_folds}, num_bag_sets={num_bag_sets}",
             )
-
-        if holdout_frac is None:
-            holdout_frac = default_holdout_frac(len(train_data), ag_args.get("hyperparameter_tune_kwargs", None) is not None)
 
         if kwargs["save_bag_folds"] is not None and kwargs["_save_bag_folds"] is not None:
             raise ValueError(
@@ -1324,7 +1373,7 @@ class TabularPredictor:
         )
         ag_post_fit_kwargs = dict(
             keep_only_best=kwargs["keep_only_best"],
-            refit_full=kwargs["refit_full"],
+            refit_full=refit_full,
             set_best_to_refit_full=kwargs["set_best_to_refit_full"],
             save_space=kwargs["save_space"],
             calibrate=kwargs["calibrate"],
@@ -1554,6 +1603,25 @@ class TabularPredictor:
         memory_safe_fits = ds_fit_kwargs.get("memory_safe_fits", True)
         enable_ray_logging = ds_fit_kwargs.get("enable_ray_logging", True)
         normal_fit = False
+        total_resources = ag_fit_kwargs["core_kwargs"]["total_resources"]
+
+        if memory_safe_fits == "auto":
+            num_gpus = total_resources.get("num_gpus", "auto")
+            if num_gpus == "auto":
+                num_gpus = ResourceManager.get_gpu_count_torch()
+                if num_gpus > 0:
+                    logger.log(
+                        30,
+                        f"DyStack: Disabling memory safe fit mode in DyStack "
+                        f"because GPUs were detected and num_gpus='auto' (GPUs cannot be used in memory safe fit mode). "
+                        f"If you want to use memory safe fit mode, manually set `num_gpus=0`."
+                    )
+            if num_gpus > 0:
+                memory_safe_fits = False
+            else:
+                memory_safe_fits = True
+
+
         if memory_safe_fits:
             try:
                 _ds_ray = try_import_ray()
@@ -1593,9 +1661,6 @@ class TabularPredictor:
             if _ds_ray is not None:
                 # Handle resources
                 # FIXME: what about distributed?
-                from autogluon.common.utils.resource_utils import ResourceManager
-
-                total_resources = ag_fit_kwargs["core_kwargs"]["total_resources"]
 
                 num_cpus = total_resources.get("num_cpus", "auto")
 
@@ -5061,6 +5126,7 @@ class TabularPredictor:
             "learner_type",
             "learner_kwargs",
             "quantile_levels",
+            "default_base_path",
         }
         invalid_keys = []
         for key in kwargs:
@@ -5205,11 +5271,11 @@ class TabularPredictor:
             holdout_frac=1 / 9,
             n_folds=2,
             n_repeats=1,
-            memory_safe_fits=True,
+            memory_safe_fits="auto",
             clean_up_fits=True,
             holdout_data=None,
             enable_ray_logging=True,
-            enable_callbacks=False,
+            enable_callbacks=True,
         )
         allowed_kes = set(ds_args.keys())
 
@@ -5224,9 +5290,11 @@ class TabularPredictor:
             (not isinstance(ds_args["validation_procedure"], str)) or (ds_args["validation_procedure"] not in ["holdout", "cv"])
         ):
             raise ValueError("`validation_procedure` in `ds_args` must be str in {'holdout','cv'}. " + f"Got: {ds_args['validation_procedure']}")
-        for arg_name in ["memory_safe_fits", "clean_up_fits", "enable_ray_logging"]:
+        for arg_name in ["clean_up_fits", "enable_ray_logging"]:
             if (arg_name in ds_args) and (not isinstance(ds_args[arg_name], bool)):
                 raise ValueError(f"`{arg_name}` in `ds_args` must be bool.  Got: {type(ds_args[arg_name])}")
+        if "memory_safe_fits" in ds_args and not isinstance(ds_args["memory_safe_fits"], (bool, str)):
+            raise ValueError(f"`memory_safe_fits` in `ds_args` must be bool or 'auto'.  Got: {type(ds_args['memory_safe_fits'])}")
         for arg_name in ["detection_time_frac", "holdout_frac"]:
             if (arg_name in ds_args) and ((not isinstance(ds_args[arg_name], float)) or (ds_args[arg_name] >= 1) or (ds_args[arg_name] <= 0)):
                 raise ValueError(f"`{arg_name}` in `ds_args` must be float in (0,1).  Got: {type(ds_args[arg_name])}, {ds_args[arg_name]}")
@@ -5484,41 +5552,12 @@ class TabularPredictor:
         num_bag_folds: int,
         num_bag_sets: int,
         num_stack_levels: int,
-        time_limit: float | None,
-        auto_stack: bool,
         num_train_rows: int,
-        problem_type: str,
         dynamic_stacking: bool | str,
         use_bag_holdout: bool | str,
+        use_bag_holdout_was_auto: bool,
+        dynamic_stacking_was_auto: bool,
     ):
-        use_bag_holdout_auto_threshold = 1000000
-        use_bag_holdout_was_auto = False
-        dynamic_stacking_was_auto = False
-        if isinstance(use_bag_holdout, str) and use_bag_holdout == "auto":
-            # Leverage use_bag_holdout when data is large to safeguard against stack leakage
-            use_bag_holdout = num_train_rows >= use_bag_holdout_auto_threshold
-            use_bag_holdout_was_auto = True
-        if isinstance(dynamic_stacking, str) and dynamic_stacking == "auto":
-            dynamic_stacking = not use_bag_holdout
-            dynamic_stacking_was_auto = True
-        if auto_stack:
-            # TODO: What about datasets that are 100k+? At a certain point should we not bag?
-            # TODO: What about time_limit? Metalearning can tell us expected runtime of each model, then we can select optimal folds + stack levels to fit time constraint
-            if num_bag_folds is None:
-                num_bag_folds = min(8, max(5, math.floor(num_train_rows / 10)))
-            if num_stack_levels is None:
-                if dynamic_stacking:
-                    num_stack_levels = 1
-                else:
-                    if use_bag_holdout or problem_type != BINARY:
-                        num_stack_levels = min(1, max(0, math.floor(num_train_rows / 750)))
-                    else:
-                        # Disable multi-layer stacking to avoid stack info leakage
-                        num_stack_levels = 0
-        if num_bag_folds is None:
-            num_bag_folds = 0
-        if num_stack_levels is None:
-            num_stack_levels = 0
         if not isinstance(num_bag_folds, int):
             raise ValueError(f"num_bag_folds must be an integer. (num_bag_folds={num_bag_folds})")
         if not isinstance(num_stack_levels, int):
@@ -5527,8 +5566,6 @@ class TabularPredictor:
             raise ValueError(f"num_bag_folds must be equal to 0 or >=2. (num_bag_folds={num_bag_folds})")
         if num_stack_levels != 0 and num_bag_folds == 0:
             raise ValueError(f"num_stack_levels must be 0 if num_bag_folds is 0. (num_stack_levels={num_stack_levels}, num_bag_folds={num_bag_folds})")
-        if num_bag_sets is None:
-            num_bag_sets = 1
         if not isinstance(num_bag_sets, int):
             raise ValueError(f"num_bag_sets must be an integer. (num_bag_sets={num_bag_sets})")
         if not isinstance(dynamic_stacking, bool):
@@ -5538,11 +5575,11 @@ class TabularPredictor:
 
         if use_bag_holdout_was_auto and num_bag_folds != 0:
             if use_bag_holdout:
-                log_extra = f"Reason: num_train_rows >= {use_bag_holdout_auto_threshold}. (num_train_rows={num_train_rows})"
+                log_extra = f"Reason: num_train_rows >= {USE_BAG_HOLDOUT_AUTO_THRESHOLD}. (num_train_rows={num_train_rows})"
             else:
-                log_extra = f"Reason: num_train_rows < {use_bag_holdout_auto_threshold}. (num_train_rows={num_train_rows})"
+                log_extra = f"Reason: num_train_rows < {USE_BAG_HOLDOUT_AUTO_THRESHOLD}. (num_train_rows={num_train_rows})"
             logger.log(20, f"Setting use_bag_holdout from 'auto' to {use_bag_holdout}. {log_extra}")
-        log_extra_ds = None
+
         if dynamic_stacking and num_stack_levels < 1:
             log_extra_ds = f"Reason: Stacking is not enabled. (num_stack_levels={num_stack_levels})"
             if not dynamic_stacking_was_auto:

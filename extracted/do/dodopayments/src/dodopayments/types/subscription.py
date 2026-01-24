@@ -11,10 +11,12 @@ from .subscription_status import SubscriptionStatus
 from .addon_cart_response_item import AddonCartResponseItem
 from .customer_limited_details import CustomerLimitedDetails
 
-__all__ = ["Subscription", "Meter"]
+__all__ = ["Subscription", "Meter", "CustomFieldResponse"]
 
 
 class Meter(BaseModel):
+    """Response struct representing usage-based meter cart details for a subscription"""
+
     currency: Currency
 
     free_threshold: int
@@ -30,7 +32,19 @@ class Meter(BaseModel):
     description: Optional[str] = None
 
 
+class CustomFieldResponse(BaseModel):
+    """Customer's response to a custom field"""
+
+    key: str
+    """Key matching the custom field definition"""
+
+    value: str
+    """Value provided by customer"""
+
+
 class Subscription(BaseModel):
+    """Response struct representing subscription details"""
+
     addons: List[AddonCartResponseItem]
     """Addons associated with this subscription"""
 
@@ -106,6 +120,9 @@ class Subscription(BaseModel):
     cancelled_at: Optional[datetime] = None
     """Cancelled timestamp if the subscription is cancelled"""
 
+    custom_field_responses: Optional[List[CustomFieldResponse]] = None
+    """Customer's responses to custom fields collected during checkout"""
+
     discount_cycles_remaining: Optional[int] = None
     """Number of remaining discount cycles if discount is applied"""
 
@@ -114,3 +131,9 @@ class Subscription(BaseModel):
 
     expires_at: Optional[datetime] = None
     """Timestamp when the subscription will expire"""
+
+    payment_method_id: Optional[str] = None
+    """Saved payment method id used for recurring charges"""
+
+    tax_id: Optional[str] = None
+    """Tax identifier provided for this subscription (if applicable)"""

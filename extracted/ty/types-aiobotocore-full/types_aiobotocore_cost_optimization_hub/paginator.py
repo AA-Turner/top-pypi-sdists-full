@@ -3,7 +3,7 @@ Type annotations for cost-optimization-hub service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cost_optimization_hub/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_cost_optimization_hub.client import CostOptimizationHubClient
     from types_aiobotocore_cost_optimization_hub.paginator import (
+        ListEfficiencyMetricsPaginator,
         ListEnrollmentStatusesPaginator,
         ListRecommendationSummariesPaginator,
         ListRecommendationsPaginator,
@@ -21,6 +22,7 @@ Usage::
     with session.create_client("cost-optimization-hub") as client:
         client: CostOptimizationHubClient
 
+        list_efficiency_metrics_paginator: ListEfficiencyMetricsPaginator = client.get_paginator("list_efficiency_metrics")
         list_enrollment_statuses_paginator: ListEnrollmentStatusesPaginator = client.get_paginator("list_enrollment_statuses")
         list_recommendation_summaries_paginator: ListRecommendationSummariesPaginator = client.get_paginator("list_recommendation_summaries")
         list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator("list_recommendations")
@@ -35,6 +37,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListEfficiencyMetricsRequestPaginateTypeDef,
+    ListEfficiencyMetricsResponseTypeDef,
     ListEnrollmentStatusesRequestPaginateTypeDef,
     ListEnrollmentStatusesResponseTypeDef,
     ListRecommendationsRequestPaginateTypeDef,
@@ -50,10 +54,32 @@ else:
 
 
 __all__ = (
+    "ListEfficiencyMetricsPaginator",
     "ListEnrollmentStatusesPaginator",
     "ListRecommendationSummariesPaginator",
     "ListRecommendationsPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _ListEfficiencyMetricsPaginatorBase = AioPaginator[ListEfficiencyMetricsResponseTypeDef]
+else:
+    _ListEfficiencyMetricsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListEfficiencyMetricsPaginator(_ListEfficiencyMetricsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cost-optimization-hub/paginator/ListEfficiencyMetrics.html#CostOptimizationHub.Paginator.ListEfficiencyMetrics)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cost_optimization_hub/paginators/#listefficiencymetricspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEfficiencyMetricsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListEfficiencyMetricsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cost-optimization-hub/paginator/ListEfficiencyMetrics.html#CostOptimizationHub.Paginator.ListEfficiencyMetrics.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cost_optimization_hub/paginators/#listefficiencymetricspaginator)
+        """
 
 
 if TYPE_CHECKING:

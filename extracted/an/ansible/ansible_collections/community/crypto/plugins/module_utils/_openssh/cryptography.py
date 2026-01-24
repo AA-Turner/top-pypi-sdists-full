@@ -13,7 +13,6 @@ from base64 import b64decode, b64encode
 from getpass import getuser
 from socket import gethostname
 
-
 try:
     from cryptography import __version__ as CRYPTOGRAPHY_VERSION
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -73,19 +72,18 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptogra
     is_potential_certificate_issuer_private_key,
 )
 
-
 if t.TYPE_CHECKING:
     KeyFormat = t.Literal["SSH", "PKCS8", "PKCS1"]  # pragma: no cover
     KeySerializationFormat = t.Literal["PEM", "DER", "SSH"]  # pragma: no cover
     KeyType = t.Literal["rsa", "dsa", "ed25519", "ecdsa"]  # pragma: no cover
 
-    PrivateKeyTypes = t.Union[
+    PrivateKeyTypes = t.Union[  # noqa: UP007
         rsa.RSAPrivateKey,
         dsa.DSAPrivateKey,
         ec.EllipticCurvePrivateKey,
         Ed25519PrivateKey,
     ]  # pragma: no cover
-    PublicKeyTypes = t.Union[
+    PublicKeyTypes = t.Union[  # noqa: UP007
         rsa.RSAPublicKey, dsa.DSAPublicKey, ec.EllipticCurvePublicKey, Ed25519PublicKey
     ]  # pragma: no cover
 
@@ -149,7 +147,7 @@ class AsymmetricKeypair:
 
     @classmethod
     def generate(
-        cls: t.Type[_AsymmetricKeypair],
+        cls: type[_AsymmetricKeypair],
         *,
         keytype: KeyType = "rsa",
         size: int | None = None,
@@ -213,7 +211,7 @@ class AsymmetricKeypair:
 
     @classmethod
     def load(
-        cls: t.Type[_AsymmetricKeypair],
+        cls: type[_AsymmetricKeypair],
         *,
         path: str | os.PathLike,
         passphrase: bytes | None = None,
@@ -412,7 +410,7 @@ class OpensshKeypair:
 
     @classmethod
     def generate(
-        cls: t.Type[_OpensshKeypair],
+        cls: type[_OpensshKeypair],
         *,
         keytype: KeyType = "rsa",
         size: int | None = None,
@@ -451,7 +449,7 @@ class OpensshKeypair:
 
     @classmethod
     def load(
-        cls: t.Type[_OpensshKeypair],
+        cls: type[_OpensshKeypair],
         *,
         path: str | os.PathLike,
         passphrase: bytes | None = None,
@@ -815,27 +813,27 @@ def calculate_fingerprint(openssh_publickey: bytes) -> str:
 
 
 __all__ = (
-    "HAS_OPENSSH_SUPPORT",
     "CRYPTOGRAPHY_VERSION",
-    "OpenSSHError",
+    "HAS_OPENSSH_SUPPORT",
+    "AsymmetricKeypair",
     "InvalidAlgorithmError",
     "InvalidCommentError",
     "InvalidDataError",
-    "InvalidPrivateKeyFileError",
-    "InvalidPublicKeyFileError",
     "InvalidKeyFormatError",
     "InvalidKeySizeError",
     "InvalidKeyTypeError",
     "InvalidPassphraseError",
+    "InvalidPrivateKeyFileError",
+    "InvalidPublicKeyFileError",
     "InvalidSignatureError",
-    "AsymmetricKeypair",
+    "OpenSSHError",
     "OpensshKeypair",
+    "calculate_fingerprint",
+    "compare_encryption_algorithms",
+    "compare_publickeys",
+    "extract_comment",
+    "get_encryption_algorithm",
     "load_privatekey",
     "load_publickey",
-    "compare_publickeys",
-    "compare_encryption_algorithms",
-    "get_encryption_algorithm",
     "validate_comment",
-    "extract_comment",
-    "calculate_fingerprint",
 )

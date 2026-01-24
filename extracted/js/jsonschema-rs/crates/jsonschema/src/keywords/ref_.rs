@@ -1,201 +1,220 @@
-use std::{rc::Rc, sync::Arc};
-
 use crate::{
     compiler,
     error::ErrorIterator,
     keywords::CompilationResult,
-    node::SchemaNode,
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
-    validator::{PartialApplication, Validate},
-    ValidationError, ValidationOptions,
+    validator::{EvaluationResult, Validate, ValidationContext},
+    ValidationError,
 };
-use once_cell::sync::OnceCell;
-use referencing::{Draft, List, Registry, Resource, Uri, VocabularySet};
 use serde_json::{Map, Value};
 
-pub(crate) enum RefValidator {
-    Default { inner: SchemaNode },
-    Lazy(LazyRefValidator),
-}
-
-impl RefValidator {
-    #[inline]
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
-        reference: &str,
-        is_recursive: bool,
-        keyword: &str,
-    ) -> Option<CompilationResult<'a>> {
-        let location = ctx.location().join(keyword);
-        Some(
-            if let Some((base_uri, scopes, resource)) = {
-                match ctx.lookup_maybe_recursive(reference, is_recursive) {
-                    Ok(resolved) => resolved,
-                    Err(error) => return Some(Err(error)),
-                }
-            } {
-                // NOTE: A better approach would be to compare the absolute locations
-                if let Value::Object(contents) = resource.contents() {
-                    if let Some(Some(resolved)) = contents.get(keyword).map(Value::as_str) {
-                        if resolved == reference {
-                            return None;
-                        }
-                    }
-                }
-                Ok(Box::new(RefValidator::Lazy(LazyRefValidator {
-                    resource,
-                    config: Arc::clone(ctx.config()),
-                    registry: Arc::clone(&ctx.registry),
-                    base_uri,
-                    scopes,
-                    location,
-                    vocabularies: ctx.vocabularies().clone(),
-                    draft: ctx.draft(),
-                    inner: OnceCell::default(),
-                })))
-            } else {
-                let (contents, resolver, draft) = match ctx.lookup(reference) {
-                    Ok(resolved) => resolved.into_inner(),
-                    Err(error) => return Some(Err(error.into())),
-                };
-                let vocabularies = ctx.registry.find_vocabularies(draft, contents);
-                let resource_ref = draft.create_resource_ref(contents);
-                let ctx = ctx.with_resolver_and_draft(
-                    resolver,
-                    resource_ref.draft(),
-                    vocabularies,
-                    location,
-                );
-                let inner = match compiler::compile_with(&ctx, resource_ref)
-                    .map_err(ValidationError::to_owned)
-                {
-                    Ok(inner) => inner,
-                    Err(error) => return Some(Err(error)),
-                };
-                Ok(Box::new(RefValidator::Default { inner }))
-            },
-        )
-    }
-}
-
-/// Lazily evaluated validator used for recursive references.
+/// Tracks `$ref` traversals for `tracker` (JSON Schema 2020-12 Core, Section 12.4.2).
 ///
-/// The validator tree nodes can't be arbitrary looked up in the current
-/// implementation to build a cycle, therefore recursive references are validated
-/// by building and caching the next subtree lazily. Though, other memory
-/// representation for the validation tree may allow building cycles easier and
-/// lazy evaluation won't be needed.
-pub(crate) struct LazyRefValidator {
-    resource: Resource,
-    config: Arc<ValidationOptions>,
-    registry: Arc<Registry>,
-    scopes: List<Uri<String>>,
-    base_uri: Arc<Uri<String>>,
-    vocabularies: VocabularySet,
-    location: Location,
-    draft: Draft,
-    inner: OnceCell<SchemaNode>,
-}
-
-impl LazyRefValidator {
-    #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
-        let scopes = ctx.scopes();
-        let resolved = ctx.lookup_recursive_reference()?;
-        let resource = ctx.draft().create_resource(resolved.contents().clone());
-        let resolver = resolved.resolver();
-        let mut base_uri = resolver.base_uri();
-        if let Some(id) = resource.id() {
-            base_uri = resolver.resolve_against(&base_uri.borrow(), id)?;
-        }
-        Ok(Box::new(LazyRefValidator {
-            resource,
-            config: Arc::clone(ctx.config()),
-            registry: Arc::clone(&ctx.registry),
-            base_uri,
-            scopes,
-            vocabularies: ctx.vocabularies().clone(),
-            location: ctx.location().join("$recursiveRef"),
-            draft: ctx.draft(),
-            inner: OnceCell::default(),
-        }))
-    }
-    fn lazy_compile(&self) -> &SchemaNode {
-        self.inner.get_or_init(|| {
-            let resolver = self
-                .registry
-                .resolver_from_raw_parts(self.base_uri.clone(), self.scopes.clone());
-
-            let ctx = compiler::Context::new(
-                Arc::clone(&self.config),
-                Arc::clone(&self.registry),
-                Rc::new(resolver),
-                self.vocabularies.clone(),
-                self.draft,
-                self.location.clone(),
-            );
-            // INVARIANT: This schema was already used during compilation before detecting a
-            // reference cycle that lead to building this validator.
-            compiler::compile(&ctx, self.resource.as_ref()).expect("Invalid schema")
-        })
-    }
-}
-
-impl Validate for LazyRefValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
-        self.lazy_compile().is_valid(instance)
-    }
-    fn validate<'i>(
-        &self,
-        instance: &'i Value,
-        location: &LazyLocation,
-    ) -> Result<(), ValidationError<'i>> {
-        self.lazy_compile().validate(instance, location)
-    }
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
-        self.lazy_compile().iter_errors(instance, location)
-    }
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
-        self.lazy_compile().apply(instance, location)
-    }
+/// Pushes the `$ref` location onto the tracker before delegating to the inner validator.
+struct RefValidator {
+    inner: Box<dyn Validate>,
+    /// Path of this `$ref` keyword relative to its resource base.
+    /// E.g., `/properties/foo/$ref` (not the full canonical path).
+    /// Used for building the `tracker` prefix.
+    ref_suffix: Location,
+    /// The resource base of the `$ref` target.
+    /// E.g., `/$defs/Item` when `$ref` points to `#/$defs/Item`.
+    /// Used for computing validator suffixes at runtime.
+    ref_target_base: Location,
 }
 
 impl Validate for RefValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
-        match self {
-            RefValidator::Default { inner } => inner.is_valid(instance),
-            RefValidator::Lazy(lazy) => lazy.is_valid(instance),
-        }
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
+        self.inner.is_valid(instance, ctx)
     }
+
     fn validate<'i>(
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        match self {
-            RefValidator::Default { inner } => inner.validate(instance, location),
-            RefValidator::Lazy(lazy) => lazy.validate(instance, location),
-        }
+        let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
+        self.inner
+            .validate(instance, location, Some(&child_tracker), ctx)
     }
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
-        match self {
-            RefValidator::Default { inner } => inner.iter_errors(instance, location),
-            RefValidator::Lazy(lazy) => lazy.iter_errors(instance, location),
-        }
+
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
+        let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
+        self.inner
+            .iter_errors(instance, location, Some(&child_tracker), ctx)
     }
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
-        match self {
-            RefValidator::Default { inner } => inner.apply(instance, location),
-            RefValidator::Lazy(lazy) => lazy.apply(instance, location),
-        }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
+        self.inner
+            .evaluate(instance, location, Some(&child_tracker), ctx)
+    }
+
+    /// Returns `ref_target_base` for `schema_path` output.
+    ///
+    /// Per JSON Schema 2020-12 Core Section 12.4.2, `schema_path` "MUST NOT include
+    /// by-reference applicators such as `$ref` or `$dynamicRef`".
+    fn canonical_location(&self) -> Option<&Location> {
+        Some(&self.ref_target_base)
     }
 }
 
-fn invalid_reference<'a>(ctx: &compiler::Context, schema: &'a Value) -> ValidationError<'a> {
+/// Extract `ref_target_base` from a resolved URI fragment.
+///
+/// JSON Pointer fragments (starting with `/`) become the location path.
+/// Anchor fragments (plain names like `#node`) resolve to root.
+fn extract_ref_target_base(alias: &referencing::Uri<String>) -> Location {
+    if let Some(fragment) = alias.fragment() {
+        let fragment = fragment.as_str();
+        if fragment.starts_with('/') {
+            return Location::from_escaped(fragment);
+        }
+    }
+    Location::new()
+}
+
+fn compile_reference_validator<'a>(
+    ctx: &compiler::Context,
+    reference: &str,
+    keyword: &str,
+) -> Option<CompilationResult<'a>> {
+    let current_location = match ctx.absolute_location_uri().map_err(ValidationError::from) {
+        Ok(uri) => uri,
+        Err(error) => return Some(Err(error)),
+    };
+    let alias = match ctx
+        .resolve_reference_uri(reference)
+        .map_err(ValidationError::from)
+    {
+        Ok(uri) => uri,
+        Err(error) => return Some(Err(error)),
+    };
+
+    // Direct self-reference or empty string ref ("" per RFC 3986) - skip to avoid infinite recursion
+    if alias == current_location
+        || (reference.is_empty() && alias.strip_fragment() == current_location.strip_fragment())
+    {
+        return None;
+    }
+
+    let ref_suffix = ctx.suffix().join(keyword);
+    let ref_target_base = extract_ref_target_base(&alias);
+
+    match ctx.lookup_maybe_recursive(reference) {
+        Ok(Some(validator)) => {
+            return Some(Ok(Box::new(RefValidator {
+                inner: validator,
+                ref_suffix,
+                ref_target_base,
+            })));
+        }
+        Ok(None) => {}
+        Err(error) => return Some(Err(error)),
+    }
+
+    if let Err(error) = ctx.mark_seen(reference) {
+        return Some(Err(ValidationError::from(error)));
+    }
+
+    let (contents, resolver, draft) = match ctx.lookup(reference) {
+        Ok(resolved) => resolved.into_inner(),
+        Err(error) => return Some(Err(ValidationError::from(error))),
+    };
+    let vocabularies = ctx.registry.find_vocabularies(draft, contents);
+    let resource_ref = draft.create_resource_ref(contents);
+    let inner_ctx = ctx.with_resolver_and_draft(
+        resolver,
+        resource_ref.draft(),
+        vocabularies,
+        ref_target_base.clone(),
+    );
+    Some(
+        compiler::compile_with_alias(&inner_ctx, resource_ref, alias)
+            .map(|node| {
+                Box::new(RefValidator {
+                    inner: Box::new(node),
+                    ref_suffix,
+                    ref_target_base,
+                }) as Box<dyn Validate>
+            })
+            .map_err(ValidationError::to_owned),
+    )
+}
+
+fn compile_recursive_validator<'a>(
+    ctx: &compiler::Context,
+    reference: &str,
+) -> CompilationResult<'a> {
+    let ref_suffix = ctx.suffix().join("$recursiveRef");
+    let alias = ctx
+        .resolve_reference_uri(reference)
+        .map_err(ValidationError::from)?;
+    let ref_target_base = extract_ref_target_base(&alias);
+
+    match ctx.lookup_maybe_recursive(reference) {
+        Ok(Some(validator)) => {
+            return Ok(Box::new(RefValidator {
+                inner: validator,
+                ref_suffix,
+                ref_target_base,
+            }));
+        }
+        Ok(None) => {}
+        Err(error) => return Err(error),
+    }
+
+    if let Err(error) = ctx.mark_seen(reference) {
+        return Err(ValidationError::from(error));
+    }
+
+    let resolved = ctx
+        .lookup_recursive_reference()
+        .map_err(ValidationError::from)?;
+    let (contents, resolver, draft) = resolved.into_inner();
+    let vocabularies = ctx.registry.find_vocabularies(draft, contents);
+    let resource_ref = draft.create_resource_ref(contents);
+    let inner_ctx = ctx.with_resolver_and_draft(
+        resolver,
+        resource_ref.draft(),
+        vocabularies,
+        ref_target_base.clone(),
+    );
+    compiler::compile_with_alias(&inner_ctx, resource_ref, alias)
+        .map(|node| {
+            Box::new(RefValidator {
+                inner: Box::new(node),
+                ref_suffix,
+                ref_target_base,
+            }) as Box<dyn Validate>
+        })
+        .map_err(ValidationError::to_owned)
+}
+
+fn invalid_reference<'a>(
+    ctx: &compiler::Context,
+    keyword: &str,
+    schema: &'a Value,
+) -> ValidationError<'a> {
+    let location = ctx.location().join(keyword);
     ValidationError::single_type_error(
-        Location::new(),
-        ctx.location().clone(),
+        location.clone(),
+        location.clone(),
+        location,
         schema,
         JsonType::String,
     )
@@ -204,18 +223,14 @@ fn invalid_reference<'a>(ctx: &compiler::Context, schema: &'a Value) -> Validati
 #[inline]
 pub(crate) fn compile_impl<'a>(
     ctx: &compiler::Context,
-    parent: &'a Map<String, Value>,
+    _parent: &'a Map<String, Value>,
     schema: &'a Value,
     keyword: &str,
 ) -> Option<CompilationResult<'a>> {
-    let is_recursive = parent
-        .get("$recursiveAnchor")
-        .and_then(Value::as_bool)
-        .unwrap_or_default();
     if let Some(reference) = schema.as_str() {
-        RefValidator::compile(ctx, reference, is_recursive, keyword)
+        compile_reference_validator(ctx, reference, keyword)
     } else {
-        Some(Err(invalid_reference(ctx, schema)))
+        Some(Err(invalid_reference(ctx, keyword, schema)))
     }
 }
 
@@ -246,8 +261,8 @@ pub(crate) fn compile_recursive_ref<'a>(
     Some(
         schema
             .as_str()
-            .ok_or_else(|| invalid_reference(ctx, schema))
-            .and_then(|_| LazyRefValidator::compile(ctx)),
+            .ok_or_else(|| invalid_reference(ctx, "$recursiveRef", schema))
+            .and_then(|reference| compile_recursive_validator(ctx, reference)),
     )
 }
 
@@ -258,6 +273,109 @@ mod tests {
     use referencing::{Retrieve, Uri};
     use serde_json::{json, Value};
     use test_case::test_case;
+
+    struct MyRetrieve;
+
+    impl Retrieve for MyRetrieve {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            match uri.path().as_str() {
+                "/indirection" => Ok(json!({
+                    "$id": "/indirection",
+                    "baz": {
+                        "$ref": "/types#/foo"
+                    }
+                })),
+                "/types" => Ok(json!({
+                    "$id": "/types",
+                    "foo": {
+                        "$id": "#/foo",
+                        "$ref": "#/bar"
+                    },
+                    "bar": {
+                        "type": "integer"
+                    }
+                })),
+                _ => panic!("Not found"),
+            }
+        }
+    }
+
+    #[test]
+    fn custom_retrieve_can_load_remote() {
+        let retriever = MyRetrieve;
+        let uri = Uri::try_from("https://example.com/types".to_string()).expect("valid uri");
+        let value: Value = retriever
+            .retrieve(&uri)
+            .expect("should load the remote document");
+        let bar = value
+            .get("bar")
+            .and_then(|schema| schema.get("type"))
+            .cloned();
+        assert_eq!(bar, Some(json!("integer")));
+    }
+
+    struct TestRetrieve {
+        storage: HashMap<String, Value>,
+    }
+
+    impl Retrieve for TestRetrieve {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            self.storage
+                .get(uri.path().as_str())
+                .cloned()
+                .ok_or_else(|| "Document not found".into())
+        }
+    }
+
+    struct NestedRetrieve;
+
+    impl Retrieve for NestedRetrieve {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            match uri.as_str() {
+                "foo://schema_2.json" => Ok(json!({
+                    "$id": "foo://schema_2.json",
+                    "type": "string"
+                })),
+                _ => panic!("Unexpected URI: {}", uri.path()),
+            }
+        }
+    }
+
+    struct FragmentRetrieve;
+
+    impl Retrieve for FragmentRetrieve {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            match uri.path().as_str() {
+                "/tmp/schemas/one.json" => Ok(json!({
+                    "$defs": {
+                        "obj": {
+                            "$ref": "other.json#/$defs/obj"
+                        }
+                    }
+                })),
+                "/tmp/schemas/other.json" => Ok(json!({
+                    "$defs": {
+                        "obj": {
+                            "type": "number"
+                        }
+                    }
+                })),
+                _ => panic!("Unexpected URI: {}", uri.path()),
+            }
+        }
+    }
 
     #[test_case(
         &json!({
@@ -272,7 +390,8 @@ mod tests {
         "/properties/foo/$ref/type"
     )]
     fn location(schema: &Value, instance: &Value, expected: &str) {
-        tests_util::assert_schema_location(schema, instance, expected);
+        // For $ref tests, check tracker (includes $ref traversals)
+        tests_util::assert_evaluation_path(schema, instance, expected);
     }
 
     #[test]
@@ -305,18 +424,19 @@ mod tests {
         });
         let validator = crate::validator_for(&schema).expect("Invalid schema");
         let mut iter = validator.iter_errors(&instance);
+        // tracker includes $ref traversals
         let expected = "/properties/things/items/properties/code/$ref/enum";
         assert_eq!(
             iter.next()
                 .expect("Should be present")
-                .schema_path
+                .evaluation_path()
                 .to_string(),
             expected
         );
         assert_eq!(
             iter.next()
                 .expect("Should be present")
-                .schema_path
+                .evaluation_path()
                 .to_string(),
             expected
         );
@@ -342,7 +462,7 @@ mod tests {
     }
 
     #[test_case(
-        json!({
+        &json!({
             "$id": "https://example.com/schema.json",
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
@@ -363,17 +483,19 @@ mod tests {
                 }
             }
         }),
-        json!({
+        &json!({
             "foo": [{"name": "item1", "value": true}]
         }),
         vec![
             ("", "/properties"),
             ("/foo", "/properties/foo/items"),
-            ("/foo/0", "/properties/foo/items/$ref/properties"),
+            // schemaLocation is the canonical location WITHOUT $ref (per JSON Schema spec)
+            // The $ref resolves to $defs/item, so properties keyword is at /$defs/item/properties
+            ("/foo/0", "/$defs/item/properties"),
         ]
     ; "standard $ref")]
     #[test_case(
-        json!({
+        &json!({
             "$id": "https://example.com/schema.json",
             "$schema": "https://json-schema.org/draft/2019-09/schema",
             "$recursiveAnchor": true,
@@ -383,7 +505,7 @@ mod tests {
                 "child": { "$recursiveRef": "#" }
             }
         }),
-        json!({
+        &json!({
             "name": "parent",
             "child": {
                 "name": "child",
@@ -392,56 +514,17 @@ mod tests {
         }),
         vec![
             ("", "/properties"),
-            ("/child", "/properties/child/$recursiveRef/properties"),
-            ("/child/child", "/properties/child/$recursiveRef/properties/child/$recursiveRef/properties"),
+            // schemaLocation is the canonical location WITHOUT $recursiveRef (per JSON Schema spec)
+            // $recursiveRef resolves to root (where $recursiveAnchor is), so properties is at /properties
+            ("/child", "/properties"),
+            // Same for nested - still resolves to root's /properties
+            ("/child/child", "/properties"),
         ]
     ; "$recursiveRef")]
-    #[test_case(
-        json!({
-            "$id": "https://example.com/schema.json",
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$dynamicAnchor": "node",
-            "type": "object",
-            "properties": {
-                "name": { "type": "string" },
-                "child": { "$dynamicRef": "#node" }
-            }
-        }),
-        json!({
-            "name": "parent",
-            "child": {
-                "name": "child",
-                "child": { "name": "grandchild" }
-            }
-        }),
-        vec![
-            ("", "/properties"),
-            ("/child", "/properties/child/$dynamicRef/properties"),
-            ("/child/child", "/properties/child/$dynamicRef/properties/child/$dynamicRef/properties"),
-        ]
-    ; "$dynamicRef")]
-    fn test_reference_types_location(
-        schema: serde_json::Value,
-        instance: serde_json::Value,
-        expected_locations: Vec<(&str, &str)>,
-    ) {
-        let validator = crate::validator_for(&schema).unwrap();
-
-        let crate::BasicOutput::Valid(output) = validator.apply(&instance).basic() else {
-            panic!("Should pass validation");
-        };
-
-        for (idx, (instance_location, keyword_location)) in expected_locations.iter().enumerate() {
-            assert_eq!(
-                output[idx].instance_location().to_string(),
-                *instance_location,
-                "Instance location mismatch at index {idx}"
-            );
-            assert_eq!(
-                output[idx].keyword_location().to_string(),
-                *keyword_location,
-                "Keyword location mismatch at index {idx}",
-            );
+    fn keyword_locations(schema: &Value, instance: &Value, expected: Vec<(&str, &str)>) {
+        let validator = crate::validator_for(schema).expect("Invalid schema");
+        for (pointer, keyword_location) in expected {
+            tests_util::assert_keyword_location(&validator, instance, pointer, keyword_location);
         }
     }
 
@@ -449,63 +532,18 @@ mod tests {
     fn test_resolving_finds_references_in_referenced_resources() {
         let schema = json!({"$ref": "/indirection#/baz"});
 
-        struct MyRetrieve;
-
-        impl Retrieve for MyRetrieve {
-            fn retrieve(
-                &self,
-                uri: &Uri<String>,
-            ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-                match uri.path().as_str() {
-                    "/indirection" => Ok(json!({
-                        "$id": "/indirection",
-                        "baz": {
-                            "$ref": "/types#/foo"
-                        }
-                    })),
-                    "/types" => Ok(json!({
-                        "$id": "/types",
-                        "foo": {
-                            "$id": "#/foo",
-                            "$ref": "#/bar"
-                        },
-                        "bar": {
-                            "type": "integer"
-                        }
-                    })),
-                    _ => panic!("Not found"),
-                }
-            }
-        }
-
-        let validator = match crate::options().with_retriever(MyRetrieve).build(&schema) {
-            Ok(validator) => validator,
-            Err(error) => panic!("{error}"),
-        };
+        let validator = crate::options()
+            .with_retriever(MyRetrieve)
+            .build(&schema)
+            .expect("Failed to build validator");
 
         assert!(validator.is_valid(&json!(2)));
         assert!(!validator.is_valid(&json!("")));
     }
 
-    struct TestRetrieve {
-        storage: HashMap<String, Value>,
-    }
-
-    impl Retrieve for TestRetrieve {
-        fn retrieve(
-            &self,
-            uri: &Uri<String>,
-        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-            self.storage
-                .get(uri.path().as_str())
-                .cloned()
-                .ok_or_else(|| "Document not found".into())
-        }
-    }
-
     #[test_case(
-        json!({"$ref": "/doc#/definitions/foo"}),
-        json!({
+        &json!({"$ref": "/doc#/definitions/foo"}),
+        &json!({
             "$id": "/doc",
             "definitions": {
                 "foo": {"type": "integer"}
@@ -515,8 +553,8 @@ mod tests {
         ; "basic_fragment"
     )]
     #[test_case(
-        json!({"$ref": "/doc1#/definitions/foo"}),
-        json!({
+        &json!({"$ref": "/doc1#/definitions/foo"}),
+        &json!({
             "$id": "/doc1",
             "definitions": {
                 "foo": {"$ref": "#/definitions/bar"},
@@ -527,14 +565,14 @@ mod tests {
         ; "intermediate_reference"
     )]
     #[test_case(
-        json!({"$ref": "/doc2#/refs/first"}),
-        json!({
+        &json!({"$ref": "/doc2#/refs/first"}),
+        &json!({
             "$id": "/doc2",
             "refs": {
                 "first": {"$ref": "/doc3#/refs/second"}
             }
         }),
-        Some(json!({
+        Some(&json!({
             "/doc3": {
                 "$id": "/doc3",
                 "refs": {
@@ -545,8 +583,8 @@ mod tests {
         ; "multiple_documents"
     )]
     #[test_case(
-        json!({"$ref": "/doc4#/defs/foo"}),
-        json!({
+        &json!({"$ref": "/doc4#/defs/foo"}),
+        &json!({
             "$id": "/doc4",
             "defs": {
                 "foo": {
@@ -560,8 +598,8 @@ mod tests {
         ; "id_and_fragment"
     )]
     #[test_case(
-        json!({"$ref": "/doc5#/outer"}),
-        json!({
+        &json!({"$ref": "/doc5#/outer"}),
+        &json!({
             "$id": "/doc5",
             "outer": {
                 "$ref": "#/middle",
@@ -575,7 +613,7 @@ mod tests {
         None
         ; "nested_references"
     )]
-    fn test_fragment_resolution(schema: Value, root: Value, extra: Option<Value>) {
+    fn test_fragment_resolution(schema: &Value, root: &Value, extra: Option<&Value>) {
         let mut storage = HashMap::default();
 
         let doc_path = schema["$ref"]
@@ -583,7 +621,7 @@ mod tests {
             .and_then(|r| r.split('#').next())
             .expect("Invalid $ref");
 
-        storage.insert(doc_path.to_string(), root);
+        storage.insert(doc_path.to_string(), root.clone());
 
         if let Some(extra) = extra {
             for (path, document) in extra.as_object().unwrap() {
@@ -595,7 +633,7 @@ mod tests {
 
         let validator = crate::options()
             .with_retriever(retriever)
-            .build(&schema)
+            .build(schema)
             .expect("Invalid schema");
 
         assert!(validator.is_valid(&json!(42)));
@@ -623,30 +661,10 @@ mod tests {
             }
         });
 
-        struct NestedRetrieve;
-
-        impl Retrieve for NestedRetrieve {
-            fn retrieve(
-                &self,
-                uri: &Uri<String>,
-            ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-                match uri.as_str() {
-                    "foo://schema_2.json" => Ok(json!({
-                        "$id": "foo://schema_2.json",
-                        "type": "string"
-                    })),
-                    _ => panic!("Unexpected URI: {}", uri.path()),
-                }
-            }
-        }
-
-        let validator = match crate::options()
+        let validator = crate::options()
             .with_retriever(NestedRetrieve)
             .build(&schema)
-        {
-            Ok(validator) => validator,
-            Err(error) => panic!("Failed to build validator: {error}"),
-        };
+            .expect("Failed to build validator");
 
         assert!(validator.is_valid(&json!("test")));
         assert!(!validator.is_valid(&json!(42)));
@@ -659,40 +677,10 @@ mod tests {
             "$ref": "one.json#/$defs/obj"
         });
 
-        struct FragmentRetrieve;
-
-        impl Retrieve for FragmentRetrieve {
-            fn retrieve(
-                &self,
-                uri: &Uri<String>,
-            ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-                match uri.path().as_str() {
-                    "/tmp/schemas/one.json" => Ok(json!({
-                        "$defs": {
-                            "obj": {
-                                "$ref": "other.json#/$defs/obj"
-                            }
-                        }
-                    })),
-                    "/tmp/schemas/other.json" => Ok(json!({
-                        "$defs": {
-                            "obj": {
-                                "type": "number"
-                            }
-                        }
-                    })),
-                    _ => panic!("Unexpected URI: {}", uri.path()),
-                }
-            }
-        }
-
-        let validator = match crate::options()
+        let validator = crate::options()
             .with_retriever(FragmentRetrieve)
             .build(&schema)
-        {
-            Ok(validator) => validator,
-            Err(error) => panic!("Failed to build validator: {error}"),
-        };
+            .expect("Failed to build validator");
 
         assert!(validator.is_valid(&json!(42)));
         assert!(!validator.is_valid(&json!("string")));
@@ -702,6 +690,698 @@ mod tests {
     fn test_missing_file() {
         let schema = json!({"$ref": "./virtualNetwork.json"});
         let error = crate::validator_for(&schema).expect_err("Should fail");
-        assert_eq!(error.to_string(), "Resource './virtualNetwork.json' is not present in a registry and retrieving it failed: No base URI is available");
+        assert_eq!(
+            error.to_string(),
+            "Resource './virtualNetwork.json' is not present in a registry and retrieving it failed: No base URI is available"
+        );
+    }
+
+    #[test]
+    fn test_empty_ref_no_stack_overflow() {
+        // Empty string is a same-document reference per RFC 3986, should behave like $ref: "#"
+        let schema = json!({"$ref": ""});
+        let instance = json!(-1);
+
+        // Should compile without error and validate without stack overflow
+        let validator = crate::validator_for(&schema).expect("Should compile");
+        assert!(validator.is_valid(&instance));
+    }
+
+    struct IndirectExternalRetrieve;
+
+    impl Retrieve for IndirectExternalRetrieve {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            match uri.as_str() {
+                "file:///ext.yaml" => Ok(json!({
+                    "components": {
+                        "schemas": {
+                            "c3": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                })),
+                _ => Err(format!("Unexpected URI: {uri}").into()),
+            }
+        }
+    }
+
+    #[test]
+    fn test_indirect_local_refs_to_external_resource() {
+        // GH-892: Chained local $refs where the final ref points to an external resource
+        // should properly discover and retrieve the external resource.
+        //
+        // The chain is:
+        //   root $ref -> #/components/schemas/c1
+        //   c1 $ref   -> #/components/schemas/c2
+        //   c2 $ref   -> ext.yaml#/components/schemas/c3  (EXTERNAL)
+        let schema = json!({
+            "$id": "file:///tmp",
+            "$ref": "#/components/schemas/c1",
+            "components": {
+                "schemas": {
+                    "c1": {
+                        "$ref": "#/components/schemas/c2"
+                    },
+                    "c2": {
+                        "$ref": "ext.yaml#/components/schemas/c3"
+                    }
+                }
+            }
+        });
+
+        let validator = crate::options()
+            .with_retriever(IndirectExternalRetrieve)
+            .build(&schema)
+            .expect("Failed to build validator - external resource was not discovered");
+
+        assert!(validator.is_valid(&json!(42)));
+        assert!(!validator.is_valid(&json!("string")));
+    }
+
+    #[test]
+    fn test_local_ref_with_nested_external_ref_in_properties() {
+        // GH-892 follow-up: Local $ref points to a schema that has an external $ref
+        // nested within properties (not a direct $ref chain).
+        //
+        // The structure is:
+        //   root $ref -> #/components/schemas/c1
+        //   c1 is a full schema with type/properties
+        //   c1.properties.p contains an external $ref
+        let schema = json!({
+            "$id": "file:///tmp",
+            "$ref": "#/components/schemas/c1",
+            "components": {
+                "schemas": {
+                    "c1": {
+                        "type": "object",
+                        "properties": {
+                            "p": {
+                                "$ref": "ext.yaml#/components/schemas/c3"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let validator = crate::options()
+            .with_retriever(IndirectExternalRetrieve)
+            .build(&schema)
+            .expect("Failed to build validator - external resource was not discovered");
+
+        assert!(validator.is_valid(&json!({"p": 42})));
+        assert!(!validator.is_valid(&json!({"p": "string"})));
+    }
+
+    struct CrossFileRetrieve;
+
+    impl Retrieve for CrossFileRetrieve {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            match uri.as_str() {
+                "file:///tmp/json" => Ok(json!({
+                    "components": {
+                        "schemas": {
+                            "c1": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/c2"
+                                }
+                            },
+                            "c2": {
+                                "$ref": "ext.json#/components/schemas/c3"
+                            }
+                        }
+                    }
+                })),
+                "file:///tmp/ext.json" => Ok(json!({
+                    "components": {
+                        "schemas": {
+                            "c3": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                })),
+                _ => Err(format!("Unexpected URI: {uri}").into()),
+            }
+        }
+    }
+
+    #[test]
+    fn test_cross_file_local_ref_resolution() {
+        // GH-892: External ref with fragment pointing to a schema that has local refs.
+        // The local refs within the external file need to resolve against that file's
+        // document root, not the original schema's root.
+        //
+        // Structure:
+        //   root $ref -> file:///tmp/json#/components/schemas/c1
+        //   /tmp/json has:
+        //     c1.items.$ref -> #/components/schemas/c2 (local ref within /tmp/json)
+        //     c2.$ref -> ext.json#/components/schemas/c3 (external ref)
+        let schema = json!({
+            "$ref": "file:///tmp/json#/components/schemas/c1"
+        });
+
+        let validator = crate::options()
+            .with_retriever(CrossFileRetrieve)
+            .build(&schema)
+            .expect("Failed to build validator - external resource was not discovered");
+
+        assert!(validator.is_valid(&json!([1, 2, 3])));
+        assert!(!validator.is_valid(&json!(["a", "b"])));
+    }
+
+    #[test]
+    fn test_circular_local_refs_compile() {
+        let schema = json!({
+            "$defs": {
+                "a": {"$ref": "#/$defs/b"},
+                "b": {"$ref": "#/$defs/a"}
+            },
+            "$ref": "#/$defs/a"
+        });
+        let validator = crate::validator_for(&schema).expect("Should compile");
+
+        // A pure $ref cycle is equivalent to `true` schema
+        for instance in [
+            json!(42),
+            json!("string"),
+            json!(null),
+            json!({"nested": [1, 2, 3]}),
+        ] {
+            assert!(validator.is_valid(&instance));
+            assert!(validator.validate(&instance).is_ok());
+            assert_eq!(validator.iter_errors(&instance).count(), 0);
+            assert!(validator.evaluate(&instance).flag().valid);
+        }
+    }
+
+    #[test]
+    fn test_circular_refs_with_constraints() {
+        let schema = json!({
+            "$defs": {
+                "node": {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "integer"},
+                        "next": {"$ref": "#/$defs/node"}
+                    }
+                }
+            },
+            "$ref": "#/$defs/node"
+        });
+        let validator = crate::validator_for(&schema).expect("Should compile");
+
+        let valid = json!({"value": 1, "next": {"value": 2, "next": {"value": 3}}});
+        assert!(validator.is_valid(&valid));
+        assert!(validator.validate(&valid).is_ok());
+        assert_eq!(validator.iter_errors(&valid).count(), 0);
+
+        let invalid = json!({"value": "not an int"});
+        assert!(!validator.is_valid(&invalid));
+        assert!(validator.validate(&invalid).is_err());
+        assert!(validator.iter_errors(&invalid).count() > 0);
+
+        let invalid_nested = json!({"value": 1, "next": {"value": "bad"}});
+        assert!(!validator.is_valid(&invalid_nested));
+        assert!(validator.validate(&invalid_nested).is_err());
+        assert!(validator.iter_errors(&invalid_nested).count() > 0);
+    }
+
+    #[test]
+    fn test_longer_circular_chain() {
+        let schema = json!({
+            "$defs": {
+                "a": {"$ref": "#/$defs/b"},
+                "b": {"$ref": "#/$defs/c"},
+                "c": {"$ref": "#/$defs/a"}
+            },
+            "$ref": "#/$defs/a"
+        });
+        let validator = crate::validator_for(&schema).expect("Should compile");
+
+        let instance = json!({"any": "value"});
+        assert!(validator.is_valid(&instance));
+        assert!(validator.validate(&instance).is_ok());
+        assert_eq!(validator.iter_errors(&instance).count(), 0);
+        assert!(validator.evaluate(&instance).flag().valid);
+    }
+
+    #[test]
+    fn test_dependencies_with_array_form() {
+        // Tests NodeValidators::Array branch via dependencies with array form
+        let schema = json!({
+            "dependencies": {
+                "foo": ["bar", "baz"]
+            }
+        });
+        let validator = crate::validator_for(&schema).expect("Should compile");
+
+        let valid = json!({"foo": 1, "bar": 2, "baz": 3});
+        assert!(validator.is_valid(&valid));
+        assert!(validator.validate(&valid).is_ok());
+        assert_eq!(validator.iter_errors(&valid).count(), 0);
+        assert!(validator.evaluate(&valid).flag().valid);
+
+        let invalid = json!({"foo": 1});
+        assert!(!validator.is_valid(&invalid));
+        assert!(validator.validate(&invalid).is_err());
+        assert!(validator.iter_errors(&invalid).count() > 0);
+        assert!(!validator.evaluate(&invalid).flag().valid);
+    }
+
+    #[test]
+    fn test_dependent_required_array_form() {
+        // Tests NodeValidators::Array branch via dependentRequired (Draft 2019-09+)
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "dependentRequired": {
+                "foo": ["bar"]
+            }
+        });
+        let validator = crate::validator_for(&schema).expect("Should compile");
+
+        let valid = json!({"foo": 1, "bar": 2});
+        assert!(validator.is_valid(&valid));
+        assert!(validator.validate(&valid).is_ok());
+        assert_eq!(validator.iter_errors(&valid).count(), 0);
+        assert!(validator.evaluate(&valid).flag().valid);
+
+        let invalid = json!({"foo": 1});
+        assert!(!validator.is_valid(&invalid));
+        assert!(validator.validate(&invalid).is_err());
+        assert!(validator.iter_errors(&invalid).count() > 0);
+    }
+
+    #[test]
+    fn evaluation_path_through_ref() {
+        // Test that tracker correctly includes $ref traversals
+        let schema = json!({
+            "properties": {
+                "foo": {"$ref": "#/$defs/item"}
+            },
+            "$defs": {
+                "item": {"type": "string"}
+            }
+        });
+        let instance = json!({"foo": 42});
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        // schema_path is the canonical location (where the keyword actually is)
+        assert_eq!(error.schema_path().as_str(), "/$defs/item/type");
+
+        // tracker includes the $ref traversal
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/properties/foo/$ref/type"
+        );
+    }
+
+    #[test]
+    fn evaluation_path_nested_refs() {
+        // Test nested $ref traversals
+        let schema = json!({
+            "$ref": "#/$defs/wrapper",
+            "$defs": {
+                "wrapper": {
+                    "properties": {
+                        "value": {"$ref": "#/$defs/item"}
+                    }
+                },
+                "item": {"type": "integer"}
+            }
+        });
+        let instance = json!({"value": "not an integer"});
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        // schema_path is canonical
+        assert_eq!(error.schema_path().as_str(), "/$defs/item/type");
+
+        // tracker shows full traversal through both $refs
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/$ref/properties/value/$ref/type"
+        );
+    }
+
+    #[test]
+    fn evaluation_path_recursive_ref() {
+        // $recursiveRef should appear in evaluation path
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$recursiveAnchor": true,
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "child": {"$recursiveRef": "#"}
+            }
+        });
+        let instance = json!({
+            "name": "parent",
+            "child": {
+                "name": 42
+            }
+        });
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        // schema_path is canonical (at root, since $recursiveRef resolves to root)
+        assert_eq!(error.schema_path().as_str(), "/properties/name/type");
+
+        // tracker includes the $recursiveRef traversal
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/properties/child/$recursiveRef/properties/name/type"
+        );
+    }
+
+    #[test]
+    fn evaluation_path_recursive_ref_deep() {
+        // Multiple levels of $recursiveRef
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$recursiveAnchor": true,
+            "type": "object",
+            "properties": {
+                "value": {"type": "integer"},
+                "child": {"$recursiveRef": "#"}
+            }
+        });
+        let instance = json!({
+            "value": 1,
+            "child": {
+                "value": 2,
+                "child": {
+                    "value": "not an int"
+                }
+            }
+        });
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        // schema_path is canonical (at root, since $recursiveRef resolves to root)
+        assert_eq!(error.schema_path().as_str(), "/properties/value/type");
+
+        // tracker shows the full traversal through both $recursiveRef
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/properties/child/$recursiveRef/properties/child/$recursiveRef/properties/value/type"
+        );
+    }
+
+    #[test]
+    fn evaluation_path_dynamic_ref() {
+        // $dynamicRef should appear in evaluation path but NOT in schema_path
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$dynamicAnchor": "node",
+            "type": "object",
+            "properties": {
+                "data": {"type": "string"},
+                "child": {"$dynamicRef": "#node"}
+            }
+        });
+        let instance = json!({
+            "data": "parent",
+            "child": {
+                "data": 123
+            }
+        });
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        // schema_path is the canonical location (at root, since #node anchor is at root)
+        assert_eq!(error.schema_path().as_str(), "/properties/data/type");
+
+        // tracker includes the $dynamicRef traversal
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/properties/child/$dynamicRef/properties/data/type"
+        );
+    }
+
+    #[test]
+    fn evaluation_path_triple_nested_ref() {
+        // Three levels of $ref
+        let schema = json!({
+            "$ref": "#/$defs/level1",
+            "$defs": {
+                "level1": {
+                    "$ref": "#/$defs/level2"
+                },
+                "level2": {
+                    "$ref": "#/$defs/level3"
+                },
+                "level3": {
+                    "type": "boolean"
+                }
+            }
+        });
+        let instance = json!("not a boolean");
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        assert_eq!(error.schema_path().as_str(), "/$defs/level3/type");
+        assert_eq!(error.evaluation_path().as_str(), "/$ref/$ref/$ref/type");
+    }
+
+    #[test]
+    fn evaluation_path_ref_in_allof() {
+        // $ref inside allOf
+        let schema = json!({
+            "allOf": [
+                {"$ref": "#/$defs/stringType"},
+                {"minLength": 5}
+            ],
+            "$defs": {
+                "stringType": {"type": "string"}
+            }
+        });
+        let instance = json!(42);
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        assert_eq!(error.evaluation_path().as_str(), "/allOf/0/$ref/type");
+    }
+
+    #[test]
+    fn evaluation_path_ref_in_anyof() {
+        // $ref inside anyOf - all branches fail
+        let schema = json!({
+            "anyOf": [
+                {"$ref": "#/$defs/intType"},
+                {"$ref": "#/$defs/boolType"}
+            ],
+            "$defs": {
+                "intType": {"type": "integer"},
+                "boolType": {"type": "boolean"}
+            }
+        });
+        let instance = json!("string");
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let errors: Vec<_> = validator.iter_errors(&instance).collect();
+
+        // anyOf produces a single error containing nested errors
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].evaluation_path().as_str(), "/anyOf");
+    }
+
+    #[test_case(
+        "age", "positiveInt",
+        json!({"type": "integer", "minimum": 0}),
+        json!(-5),
+        "minimum"
+        ; "minimum"
+    )]
+    #[test_case(
+        "email", "emailPattern",
+        json!({"type": "string", "pattern": "^.+@.+$"}),
+        json!("not-an-email"),
+        "pattern"
+        ; "pattern"
+    )]
+    #[test_case(
+        "user", "userType",
+        json!({"type": "object", "required": ["name"]}),
+        json!({}),
+        "required"
+        ; "required"
+    )]
+    #[test_case(
+        "status", "statusEnum",
+        json!({"enum": ["active", "inactive"]}),
+        json!("unknown"),
+        "enum"
+        ; "enum_keyword"
+    )]
+    #[test_case(
+        "version", "versionConst",
+        json!({"const": "1.0"}),
+        json!("2.0"),
+        "const"
+        ; "const_keyword"
+    )]
+    #[test_case(
+        "code", "shortString",
+        json!({"type": "string", "maxLength": 3}),
+        json!("toolong"),
+        "maxLength"
+        ; "maxLength"
+    )]
+    #[test_case(
+        "tags", "uniqueArray",
+        json!({"type": "array", "uniqueItems": true}),
+        json!(["a", "b", "a"]),
+        "uniqueItems"
+        ; "uniqueItems"
+    )]
+    #[allow(clippy::needless_pass_by_value)]
+    fn evaluation_path_ref_keyword(
+        prop: &str,
+        def_name: &str,
+        definition: Value,
+        instance_value: Value,
+        expected_keyword: &str,
+    ) {
+        let schema = json!({
+            "properties": {
+                (prop): {"$ref": format!("#/$defs/{def_name}")}
+            },
+            "$defs": {
+                (def_name): definition
+            }
+        });
+        let instance = json!({ (prop): instance_value });
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            format!("/properties/{prop}/$ref/{expected_keyword}")
+        );
+    }
+
+    #[test]
+    fn evaluation_path_multiple_errors_different_refs() {
+        // Multiple errors through different $refs
+        let schema = json!({
+            "properties": {
+                "name": {"$ref": "#/$defs/stringType"},
+                "age": {"$ref": "#/$defs/intType"}
+            },
+            "$defs": {
+                "stringType": {"type": "string"},
+                "intType": {"type": "integer"}
+            }
+        });
+        let instance = json!({"name": 123, "age": "not an int"});
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let errors: Vec<_> = validator.iter_errors(&instance).collect();
+
+        assert_eq!(errors.len(), 2);
+
+        let paths: Vec<_> = errors
+            .iter()
+            .map(|e| e.evaluation_path().to_string())
+            .collect();
+
+        assert!(paths.contains(&"/properties/name/$ref/type".to_string()));
+        assert!(paths.contains(&"/properties/age/$ref/type".to_string()));
+    }
+
+    #[test]
+    fn evaluation_path_ref_with_anchor() {
+        // $ref using $anchor
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+                "data": {"$ref": "#myAnchor"}
+            },
+            "$defs": {
+                "myDef": {
+                    "$anchor": "myAnchor",
+                    "type": "number"
+                }
+            }
+        });
+        let instance = json!({"data": "not a number"});
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/properties/data/$ref/type"
+        );
+    }
+
+    #[test]
+    fn evaluation_path_items_with_ref() {
+        // $ref inside items
+        let schema = json!({
+            "type": "array",
+            "items": {"$ref": "#/$defs/itemType"},
+            "$defs": {
+                "itemType": {"type": "string"}
+            }
+        });
+        let instance = json!([1, 2, 3]);
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let errors: Vec<_> = validator.iter_errors(&instance).collect();
+
+        assert_eq!(errors.len(), 3);
+        for error in &errors {
+            assert_eq!(error.evaluation_path().as_str(), "/items/$ref/type");
+        }
+    }
+
+    #[test]
+    fn evaluation_path_additional_properties_with_ref() {
+        // additionalProperties with $ref
+        let schema = json!({
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/valueType"},
+            "$defs": {
+                "valueType": {"type": "integer"}
+            }
+        });
+        let instance = json!({"a": "not int", "b": "also not int"});
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let errors: Vec<_> = validator.iter_errors(&instance).collect();
+
+        assert_eq!(errors.len(), 2);
+        for error in &errors {
+            assert_eq!(
+                error.evaluation_path().as_str(),
+                "/additionalProperties/$ref/type"
+            );
+        }
+    }
+
+    #[test]
+    fn schema_path_with_json_pointer_escaped_key() {
+        // $defs key contains special chars that need JSON Pointer escaping
+        let schema = json!({
+            "properties": {
+                "data": {"$ref": "#/$defs/type~1name"}
+            },
+            "$defs": {
+                "type/name": {"type": "string"}
+            }
+        });
+        let instance = json!({"data": 42});
+        let validator = crate::validator_for(&schema).expect("Invalid schema");
+        let error = validator.validate(&instance).expect_err("Should fail");
+
+        // schema_path should have the unescaped key (type/name), re-escaped properly
+        assert_eq!(error.schema_path().as_str(), "/$defs/type~1name/type");
     }
 }

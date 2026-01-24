@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import sys
 import time
 from functools import partial
 
@@ -222,7 +223,7 @@ def test_read_write_attribute_async(attribute_proxy):
 
 class EasyEventDevice(Device):
     def init_device(self):
-        self.set_change_event("attr", True, False)
+        self.set_change_event("attr", implemented=True, detect=False)
 
     @attribute
     def attr(self) -> int:
@@ -263,3 +264,35 @@ def test_event(green_mode):
             pytest.fail(f"Cannot receive events in {green_mode}")
         assert_close([evt.attr_value.value for evt in evts[:2]], [1, 2])
         attr_proxy.unsubscribe_event(eid, wait=True)
+
+
+@pytest.fixture
+def uninitialized_attr_proxy():
+    """
+    This could happen if there was an exception in the AttributeProxy __init__ method,
+    and the user is running through pytest.  pytest will have a reference to the frame
+    and try to print out all the objects from the failed test.
+    """
+    proxy_instance = None
+    try:
+        AttributeProxy("not/existing/device/attr")
+    except DevFailed:
+        traceback = sys.exc_info()[2]
+        for v in traceback.tb_next.tb_frame.f_locals.values():
+            if isinstance(v, AttributeProxy):
+                proxy_instance = v
+
+    assert proxy_instance is not None
+    yield proxy_instance
+
+
+def test_pytest_report_on_failed_attribute_proxy_does_not_crash(
+    uninitialized_attr_proxy,
+):
+    safe_repr = repr(uninitialized_attr_proxy)
+    assert "AttributeProxy" in safe_repr
+    assert "Unknown" in safe_repr
+
+    safe_str = str(uninitialized_attr_proxy)
+    assert "AttributeProxy" in safe_str
+    assert "Unknown" in safe_str

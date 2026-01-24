@@ -4,16 +4,16 @@
 # See "LICENSE" for further details.
 
 '''
-Beartype :pep:`593` **type-checking expression snippets** (i.e., triple-quoted
-pure-Python string constants formatted and concatenated together to dynamically
-generate boolean expressions type-checking arbitrary objects against
-:pep:`593`-compliant type hints).
+Project-wide :pep:`593` **type-checking expression snippets** (i.e.,
+triple-quoted pure-Python string constants formatted and concatenated together
+to dynamically generate boolean expressions type-checking arbitrary objects
+against :pep:`593`-compliant type hints).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._data.hint.datahinttyping import CallableStrFormat
+from beartype._data.typing.datatyping import CallableStrFormat
 
 # ....................{ CODE                               }....................
 CODE_PEP593_VALIDATOR_PREFIX = '''('''

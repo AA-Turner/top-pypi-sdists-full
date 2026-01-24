@@ -2,29 +2,30 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class FAdam(BaseOptimizer):
-    r"""Adam is a natural gradient optimizer using diagonal empirical Fisher information.
+    """Adam is a natural gradient optimizer using diagonal empirical Fisher information.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param clip: float. maximum norm of the gradient.
-    :param p: float. momentum factor.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param momentum_dtype: torch.dtype. dtype of momentum.
-    :param fim_dtype: torch.dtype. dtype of fim.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        clip (float): Maximum norm of the gradient.
+        p (float): Momentum factor.
+        eps (float): Term added to the denominator to improve numerical stability.
+        momentum_dtype (torch.dtype): Dtype of momentum.
+        fim_dtype (torch.dtype): Dtype of Fisher information matrix.
+        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         weight_decay: float = 0.1,
         clip: float = 1.0,
         p: float = 0.5,
@@ -45,7 +46,7 @@ class FAdam(BaseOptimizer):
         self.fim_dtype = fim_dtype
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -59,7 +60,10 @@ class FAdam(BaseOptimizer):
     def __str__(self) -> str:
         return 'FAdam'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -78,18 +82,15 @@ class FAdam(BaseOptimizer):
                 state['fim'] = torch.zeros_like(p, dtype=self.fim_dtype)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

@@ -30,6 +30,7 @@ class RFModel(AbstractModel):
     ag_key = "RF"
     ag_name = "RandomForest"
     ag_priority = 80
+    seed_name = "random_state"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -97,7 +98,6 @@ class RFModel(AbstractModel):
             #  This size scales linearly with number of rows.
             "max_leaf_nodes": 15000,
             "n_jobs": -1,
-            "random_state": 0,
             "bootstrap": True,  # Required for OOB estimates, setting to False will raise exception if bagging.
             # TODO: min_samples_leaf=5 is too large on most problems, however on some datasets it helps a lot (airlines likes >40 min_samples_leaf, adult likes 2 much better than 1)
             #  This value would need to be tuned per dataset, likely very worthwhile.
@@ -151,13 +151,13 @@ class RFModel(AbstractModel):
             hyperparameters = {}
         n_estimators_final = hyperparameters.get("n_estimators", 300)
         if isinstance(n_estimators_final, int):
-            n_estimators_minimum = min(40, n_estimators_final)
+            n_estimators = n_estimators_final
         else:  # if search space
-            n_estimators_minimum = 40
+            n_estimators = 40
         num_trees_per_estimator = cls._get_num_trees_per_estimator_static(problem_type=problem_type, num_classes=num_classes)
         bytes_per_estimator = num_trees_per_estimator * len(X) / 60000 * 1e6  # Underestimates by 3x on ExtraTrees
-        expected_min_memory_usage = int(bytes_per_estimator * n_estimators_minimum)
-        return expected_min_memory_usage
+        expected_memory_usage = int(bytes_per_estimator * n_estimators)
+        return expected_memory_usage
 
     def _validate_fit_memory_usage(self, mem_error_threshold: float = 0.5, mem_warning_threshold: float = 0.4, mem_size_threshold: int = 1e7, **kwargs):
         return super()._validate_fit_memory_usage(
@@ -367,6 +367,10 @@ class RFModel(AbstractModel):
                 y_oof_pred_proba[inds] = np.take(col_mean, inds[1])
 
         return self._convert_proba_to_unified_form(y_oof_pred_proba)
+
+    def _get_maximum_resources(self) -> dict[str, int | float]:
+        # no GPU support
+        return {"num_gpus": 0}
 
     def _get_default_auxiliary_params(self) -> dict:
         default_auxiliary_params = super()._get_default_auxiliary_params()

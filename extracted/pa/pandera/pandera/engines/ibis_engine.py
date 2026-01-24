@@ -2,10 +2,11 @@
 
 import dataclasses
 import datetime
+import decimal
 import inspect
 import warnings
-from typing import Any, Literal, Optional, Union
 from collections.abc import Iterable
+from typing import Any, Literal, Optional, Union
 
 import ibis
 import ibis.expr.datatypes as dt
@@ -26,7 +27,7 @@ class DataType(dtypes.DataType):
     type: Any = dataclasses.field(repr=False, init=False)
     """Native Ibis dtype boxed by the data type."""
 
-    def __init__(self, dtype: Optional[Any] = None):
+    def __init__(self, dtype: Any | None = None):
         super().__init__()
         object.__setattr__(self, "type", ibis.dtype(dtype))
         dtype_cls = dtype if inspect.isclass(dtype) else dtype.__class__
@@ -54,7 +55,7 @@ class DataType(dtypes.DataType):
     def check(
         self,
         pandera_dtype: dtypes.DataType,
-        data_container: Optional[ibis.Table] = None,
+        data_container: ibis.Table | None = None,
     ) -> Union[bool, Iterable[bool]]:
         try:
             return self.type == pandera_dtype.type
@@ -99,6 +100,7 @@ class Engine(
         dtypes.Bool(),
         dt.Boolean,
         dt.boolean,
+        dt.Boolean(nullable=False),
     ]
 )
 @immutable
@@ -114,7 +116,14 @@ class Bool(DataType, dtypes.Bool):
 
 
 @Engine.register_dtype(
-    equivalents=[np.int8, dtypes.Int8, dtypes.Int8(), dt.Int8, dt.int8]
+    equivalents=[
+        np.int8,
+        dtypes.Int8,
+        dtypes.Int8(),
+        dt.Int8,
+        dt.int8,
+        dt.Int8(nullable=False),
+    ]
 )
 @immutable
 class Int8(DataType, dtypes.Int8):
@@ -124,7 +133,14 @@ class Int8(DataType, dtypes.Int8):
 
 
 @Engine.register_dtype(
-    equivalents=[np.int16, dtypes.Int16, dtypes.Int16(), dt.Int16, dt.int16]
+    equivalents=[
+        np.int16,
+        dtypes.Int16,
+        dtypes.Int16(),
+        dt.Int16,
+        dt.int16,
+        dt.Int16(nullable=False),
+    ]
 )
 @immutable
 class Int16(DataType, dtypes.Int16):
@@ -134,7 +150,14 @@ class Int16(DataType, dtypes.Int16):
 
 
 @Engine.register_dtype(
-    equivalents=[np.int32, dtypes.Int32, dtypes.Int32(), dt.Int32, dt.int32]
+    equivalents=[
+        np.int32,
+        dtypes.Int32,
+        dtypes.Int32(),
+        dt.Int32,
+        dt.int32,
+        dt.Int32(nullable=False),
+    ]
 )
 @immutable
 class Int32(DataType, dtypes.Int32):
@@ -151,6 +174,7 @@ class Int32(DataType, dtypes.Int32):
         dtypes.Int64(),
         dt.Int64,
         dt.int64,
+        dt.Int64(nullable=False),
     ]
 )
 @immutable
@@ -166,7 +190,14 @@ class Int64(DataType, dtypes.Int64):
 
 
 @Engine.register_dtype(
-    equivalents=[np.uint8, dtypes.UInt8, dtypes.UInt8(), dt.UInt8, dt.uint8]
+    equivalents=[
+        np.uint8,
+        dtypes.UInt8,
+        dtypes.UInt8(),
+        dt.UInt8,
+        dt.uint8,
+        dt.UInt8(nullable=False),
+    ]
 )
 @immutable
 class UInt8(DataType, dtypes.UInt8):
@@ -182,6 +213,7 @@ class UInt8(DataType, dtypes.UInt8):
         dtypes.UInt16(),
         dt.UInt16,
         dt.uint16,
+        dt.UInt16(nullable=False),
     ]
 )
 @immutable
@@ -198,6 +230,7 @@ class UInt16(DataType, dtypes.UInt16):
         dtypes.UInt32(),
         dt.UInt32,
         dt.uint32,
+        dt.UInt32(nullable=False),
     ]
 )
 @immutable
@@ -214,6 +247,7 @@ class UInt32(DataType, dtypes.UInt32):
         dtypes.UInt64(),
         dt.UInt64,
         dt.uint64,
+        dt.UInt64(nullable=False),
     ]
 )
 @immutable
@@ -235,6 +269,7 @@ class UInt64(DataType, dtypes.UInt64):
         dtypes.Float32(),
         dt.Float32,
         dt.float32,
+        dt.Float32(nullable=False),
     ]
 )
 @immutable
@@ -252,6 +287,7 @@ class Float32(DataType, dtypes.Float32):
         dtypes.Float64(),
         dt.Float64,
         dt.float64,
+        dt.Float64(nullable=False),
     ]
 )
 @immutable
@@ -259,6 +295,52 @@ class Float64(DataType, dtypes.Float64):
     """Semantic representation of a :class:`dt.Float64`."""
 
     type = dt.float64
+
+
+###############################################################################
+# decimal
+###############################################################################
+
+
+@Engine.register_dtype(
+    equivalents=[
+        "decimal",
+        decimal.Decimal,
+        dtypes.Decimal,
+        dtypes.Decimal(),
+        dt.Decimal,
+        dt.decimal,
+        dt.Decimal(nullable=False),
+    ]
+)
+@immutable(init=True)
+class Decimal(DataType, dtypes.Decimal):
+    """Semantic representation of a :class:`dt.Decimal`."""
+
+    type: type[dt.Decimal]
+
+    # Ibis Decimal doesn't have a rounding attribute.
+    rounding = None
+
+    def __init__(
+        self, precision: int = dtypes.DEFAULT_PYTHON_PREC, scale: int = 0
+    ):
+        object.__setattr__(
+            self, "type", dt.Decimal(precision=precision, scale=scale)
+        )
+
+    @classmethod
+    def from_parametrized_dtype(cls, ibis_dtype: dt.Decimal):
+        """Convert a :class:`dt.Decimal` to a Pandera
+        :class:`~pandera.engines.ibis_engine.Decimal`."""
+        # Ibis precision and scale may be nullable; Pandera imposes a default.
+        precision = (
+            ibis_dtype.precision
+            if ibis_dtype.precision is not None
+            else dtypes.DEFAULT_PYTHON_PREC
+        )
+        scale = ibis_dtype.scale if ibis_dtype.scale is not None else 0
+        return cls(precision=precision, scale=scale)
 
 
 ###############################################################################
@@ -274,6 +356,7 @@ class Float64(DataType, dtypes.Float64):
         dtypes.String(),
         dt.String,
         dt.string,
+        dt.String(nullable=False),
     ]
 )
 @immutable
@@ -291,6 +374,7 @@ class String(DataType, dtypes.String):
         dtypes.Binary(),
         dt.Binary,
         dt.binary,
+        dt.Binary(nullable=False),
     ]
 )
 @immutable
@@ -313,6 +397,7 @@ class Binary(DataType, dtypes.Binary):
         dtypes.Date(),
         dt.Date,
         dt.date,
+        dt.Date(nullable=False),
     ]
 )
 @immutable
@@ -331,6 +416,7 @@ class Date(DataType, dtypes.Date):
         dtypes.DateTime(),
         dt.Timestamp,
         dt.timestamp,
+        dt.Timestamp(nullable=False),
     ]
 )
 @immutable(init=True)
@@ -341,8 +427,8 @@ class DateTime(DataType, dtypes.DateTime):
 
     def __init__(
         self,
-        timezone: Optional[str] = None,
-        scale: Optional[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]] = None,
+        timezone: str | None = None,
+        scale: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] | None = None,
     ):
         object.__setattr__(
             self, "type", dt.Timestamp(timezone=timezone, scale=scale)
@@ -352,7 +438,10 @@ class DateTime(DataType, dtypes.DateTime):
     def from_parametrized_dtype(cls, ibis_dtype: dt.Timestamp):
         """Convert a :class:`dt.Timestamp` to a Pandera
         :class:`~pandera.engines.ibis_engine.DateTime`."""
-        return cls(timezone=ibis_dtype.timezone, scale=ibis_dtype.scale)
+        return cls(
+            timezone=ibis_dtype.timezone,
+            scale=ibis_dtype.scale,
+        )
 
 
 @Engine.register_dtype(
@@ -361,6 +450,7 @@ class DateTime(DataType, dtypes.DateTime):
         datetime.time,
         dt.Time,
         dt.time,
+        dt.Time(nullable=False),
     ]
 )
 @immutable

@@ -5,6 +5,7 @@ use std::{
 
 use common_daft_config::DaftExecutionConfig;
 use common_error::DaftResult;
+use common_metrics::ops::NodeType;
 use common_runtime::get_compute_pool_num_threads;
 use daft_core::prelude::SchemaRef;
 use daft_dsl::expr::{
@@ -17,9 +18,8 @@ use tracing::{Span, instrument};
 
 use super::blocking_sink::{
     BlockingSink, BlockingSinkFinalizeOutput, BlockingSinkFinalizeResult, BlockingSinkSinkResult,
-    BlockingSinkStatus,
 };
-use crate::{ExecutionTaskSpawner, ops::NodeType, pipeline::NodeName};
+use crate::{ExecutionTaskSpawner, pipeline::NodeName};
 
 #[derive(Clone, Debug)]
 pub(crate) enum AggStrategy {
@@ -191,7 +191,7 @@ impl GroupedAggregateState {
         let groupby = input.eval_expression_list(params.group_by.as_slice())?;
 
         let groupkey_hashes = groupby
-            .get_tables()?
+            .record_batches()
             .iter()
             .map(|t| t.hash_rows())
             .collect::<DaftResult<Vec<_>>>()?;
@@ -252,11 +252,20 @@ impl GroupedAggregateSink {
         cfg: &DaftExecutionConfig,
     ) -> DaftResult<Self> {
         let (partial_agg_exprs, final_agg_exprs, final_projections) =
-            daft_physical_plan::populate_aggregation_stages_bound(
+            daft_local_plan::agg::populate_aggregation_stages_bound(
                 aggregations,
                 input_schema,
                 group_by,
             )?;
+
+        // MapGroups aggregations cannot be decomposed into partial / final stages and
+        // must see the full group in a single pass. Detect this case so that we force
+        // a partition-only strategy and run the original aggregations during the
+        // final aggregation step.
+        let has_map_groups = aggregations
+            .iter()
+            .any(|agg| matches!(agg.as_ref(), daft_dsl::AggExpr::MapGroups { .. }));
+
         let final_group_by = if !partial_agg_exprs.is_empty() {
             group_by
                 .iter()
@@ -269,11 +278,18 @@ impl GroupedAggregateSink {
         } else {
             group_by.to_vec()
         };
-        let strategy = if partial_agg_exprs.is_empty() && !final_agg_exprs.is_empty() {
+
+        let strategy = if has_map_groups {
+            // Always use partition-only for MapGroups so that we only hash-partition
+            // the data by the group keys and then run the original MapGroups
+            // aggregation once per partition in `finalize`.
+            Some(AggStrategy::PartitionOnly)
+        } else if partial_agg_exprs.is_empty() && !final_agg_exprs.is_empty() {
             Some(AggStrategy::PartitionOnly)
         } else {
             None
         };
+
         Ok(Self {
             grouped_aggregate_params: Arc::new(GroupedAggregateParams {
                 original_aggregations: aggregations.to_vec(),
@@ -309,7 +325,7 @@ impl BlockingSink for GroupedAggregateSink {
             .spawn(
                 async move {
                     state.push(input, &params, &strategy_lock)?;
-                    Ok(BlockingSinkStatus::NeedMoreInput(state))
+                    Ok(state)
                 },
                 Span::current(),
             )

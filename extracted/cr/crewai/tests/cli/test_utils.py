@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from crewai.cli import utils
 
 
@@ -348,7 +347,9 @@ def test_get_crews_with_invalid_module(temp_crew_project, capsys):
     assert "Error" in captured.out
 
 
-def test_get_crews_ignores_template_directories(temp_crew_project, monkeypatch, mock_crew):
+def test_get_crews_ignores_template_directories(
+    temp_crew_project, monkeypatch, mock_crew
+):
     template_crew_detected = False
 
     def mock_fetch_crews(module_attr):

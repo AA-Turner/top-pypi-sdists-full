@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field  # noqa: F402
 from typing import Any, ClassVar, Dict, List, Optional, Protocol, Set, Tuple, Type
 
 from kolo.types import JSON

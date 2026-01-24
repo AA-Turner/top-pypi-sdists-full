@@ -383,15 +383,25 @@ class WorkloadSDK(BaseSDK):
                 return (compute_config_id, cloud_id_from_cc)
 
     def get_current_workspace_name(self) -> Optional[str]:
-        """Get the name of the curernt workspace if running inside one."""
+        """Get the name of the current workspace if running inside one.
+
+        Prefer fetching the workspace model by ID to reflect recent renames.
+        Falls back to deriving from the current workspace cluster name.
+        """
         if not self._client.inside_workspace():
             return None
 
-        workspace = self._client.get_current_workspace_cluster()
-        assert workspace is not None
-        name = workspace.name
-        # Defensively default to the workspace cluster name as-is if it doesn't
-        # start with the expected prefix.
+        # First try to fetch the workspace by ID for the latest name.
+        workspace_id = self._client.get_current_workspace_id()
+        if workspace_id:
+            ws = self._client.get_workspace(id=workspace_id)
+            if ws is not None and getattr(ws, "name", None):
+                return ws.name
+
+        # Fallback: derive from the current workspace cluster name.
+        cluster = self._client.get_current_workspace_cluster()
+        assert cluster is not None
+        name = cluster.name
         if name.startswith(WORKSPACE_CLUSTER_NAME_PREFIX):
             name = name[len(WORKSPACE_CLUSTER_NAME_PREFIX) :]
 

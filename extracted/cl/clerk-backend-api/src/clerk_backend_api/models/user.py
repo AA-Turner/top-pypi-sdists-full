@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 from .emailaddress import EmailAddress, EmailAddressTypedDict
+from .enterpriseaccount import EnterpriseAccount, EnterpriseAccountTypedDict
 from .externalaccountwithverification import (
     ExternalAccountWithVerification,
     ExternalAccountWithVerificationTypedDict,
+)
+from .organizationmembership import (
+    OrganizationMembership,
+    OrganizationMembershipTypedDict,
 )
 from .passkey import Passkey, PasskeyTypedDict
 from .phonenumber import PhoneNumber, PhoneNumberTypedDict
@@ -65,6 +70,7 @@ class UserTypedDict(TypedDict):
     """
     external_accounts: List[ExternalAccountWithVerificationTypedDict]
     saml_accounts: List[SAMLAccountTypedDict]
+    enterprise_accounts: List[EnterpriseAccountTypedDict]
     last_sign_in_at: Nullable[int]
     r"""Unix timestamp of last sign-in.
 
@@ -109,14 +115,22 @@ class UserTypedDict(TypedDict):
     r"""Unix timestamp of when the user accepted the legal requirements.
 
     """
+    locale: NotRequired[Nullable[str]]
     profile_image_url: NotRequired[str]
     image_url: NotRequired[str]
     private_metadata: NotRequired[Nullable[Dict[str, Any]]]
     unsafe_metadata: NotRequired[Dict[str, Any]]
+    password_last_updated_at: NotRequired[Nullable[int]]
+    r"""Unix timestamp of when the user's password was last updated.
+
+    """
+    organization_memberships: NotRequired[List[OrganizationMembershipTypedDict]]
     create_organizations_limit: NotRequired[Nullable[int]]
     r"""The maximum number of organizations the user can create. 0 means unlimited.
 
     """
+    bypass_client_trust: NotRequired[bool]
+    r"""When set to `true`, the user will bypass client trust checks during sign-in."""
 
 
 class User(BaseModel):
@@ -177,6 +191,8 @@ class User(BaseModel):
 
     saml_accounts: List[SAMLAccount]
 
+    enterprise_accounts: List[EnterpriseAccount]
+
     last_sign_in_at: Nullable[int]
     r"""Unix timestamp of last sign-in.
 
@@ -232,6 +248,8 @@ class User(BaseModel):
 
     """
 
+    locale: OptionalNullable[str] = UNSET
+
     profile_image_url: Annotated[
         Optional[str],
         pydantic.Field(
@@ -245,19 +263,33 @@ class User(BaseModel):
 
     unsafe_metadata: Optional[Dict[str, Any]] = None
 
+    password_last_updated_at: OptionalNullable[int] = UNSET
+    r"""Unix timestamp of when the user's password was last updated.
+
+    """
+
+    organization_memberships: Optional[List[OrganizationMembership]] = None
+
     create_organizations_limit: OptionalNullable[int] = UNSET
     r"""The maximum number of organizations the user can create. 0 means unlimited.
 
     """
 
+    bypass_client_trust: Optional[bool] = False
+    r"""When set to `true`, the user will bypass client trust checks during sign-in."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = [
+            "locale",
             "profile_image_url",
             "image_url",
             "private_metadata",
             "unsafe_metadata",
+            "password_last_updated_at",
+            "organization_memberships",
             "create_organizations_limit",
+            "bypass_client_trust",
         ]
         nullable_fields = [
             "external_id",
@@ -267,9 +299,11 @@ class User(BaseModel):
             "username",
             "first_name",
             "last_name",
+            "locale",
             "private_metadata",
             "mfa_enabled_at",
             "mfa_disabled_at",
+            "password_last_updated_at",
             "last_sign_in_at",
             "lockout_expires_in_seconds",
             "verification_attempts_remaining",

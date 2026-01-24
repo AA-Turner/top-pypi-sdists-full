@@ -10,6 +10,7 @@ from .credential_inbound import CredentialInbound
 from .anchorsite_override import AnchorsiteOverride
 from .credential_outbound import CredentialOutbound
 from .connection_rtcp_settings import ConnectionRtcpSettings
+from .shared.connection_noise_suppression_details import ConnectionNoiseSuppressionDetails
 
 __all__ = ["CredentialConnection"]
 
@@ -27,6 +28,9 @@ class CredentialConnection(BaseModel):
     round-trip time to the user's connection. Telnyx calculates this time using ICMP
     ping messages. This can be disabled by specifying a site to handle all media.
     """
+
+    call_cost_in_webhooks: Optional[bool] = None
+    """Specifies if call cost webhooks should be sent for this connection."""
 
     connection_name: Optional[str] = None
 
@@ -60,6 +64,23 @@ class CredentialConnection(BaseModel):
     """
 
     inbound: Optional[CredentialInbound] = None
+
+    noise_suppression: Optional[Literal["inbound", "outbound", "both", "disabled"]] = None
+    """Controls when noise suppression is applied to calls.
+
+    When set to 'inbound', noise suppression is applied to incoming audio. When set
+    to 'outbound', it's applied to outgoing audio. When set to 'both', it's applied
+    in both directions. When set to 'disabled', noise suppression is turned off.
+    """
+
+    noise_suppression_details: Optional[ConnectionNoiseSuppressionDetails] = None
+    """Configuration options for noise suppression.
+
+    These settings are stored regardless of the noise_suppression value, but only
+    take effect when noise_suppression is not 'disabled'. If you disable noise
+    suppression and later re-enable it, the previously configured settings will be
+    used.
+    """
 
     onnet_t38_passthrough_enabled: Optional[bool] = None
     """

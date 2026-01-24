@@ -1,0 +1,1726 @@
+Metadata-Version: 2.4
+Name: paymentus-core
+Version: 1.0.3
+Summary: Paymentus Python Core SDK
+Author-email: Paymentus SDK Support <sdksupport@paymentus.com>
+Maintainer-email: Paymentus SDK Support <sdksupport@paymentus.com>
+License-Expression: MIT
+Project-URL: Homepage, https://www.paymentus.com/
+Project-URL: Source, https://developer.paymentus.io/
+Keywords: paymentus,core,client,sdk,api,http,rest
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31.0
+Requires-Dist: urllib3>=2.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: black>=22.0.0; extra == "dev"
+Requires-Dist: flake8>=4.0.0; extra == "dev"
+Requires-Dist: isort>=5.0.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Requires-Dist: build>=0.8.0; extra == "dev"
+
+# Paymentus Server Python SDK
+
+## What is the Paymentus Server SDK?
+The Paymentus Server SDK is a comprehensive Python-based toolkit that simplifies integration with the Paymentus Server-side APIs. Designed for backend services, it enables secure, streamlined access to Paymentus' powerful XOTP platform—including payments, user management, autopay, account inquiries, and more. The SDK abstracts authentication flows, allowing developers to focus on building functionality without managing token lifecycles manually.
+
+## Features
+
+- **Modular Architecture**: Use individual packages or the unified SDK
+- **Type Safety**: Full type hints and validation using Pydantic
+- **Automatic Token Management**: Seamless JWT token handling (via paymentus-sdk-auth)
+- **Error Handling**: Comprehensive error types and messages
+- **Configuration Validation**: Runtime validation of configuration options
+- **Granular Scope Support**: Targeted API access via granular access scopes
+- **XOTP Integration**: Full support for payment API functionality
+
+## Installation
+
+```bash
+pip install paymentus-core
+```
+
+## Basic Usage
+
+### Using the Core SDK
+
+```python
+import asyncio
+from paymentus_core import SDK, CoreConfig, AuthOptions
+
+async def main():
+    # Create AuthConfig first
+    auth_options = AuthOptions(
+        scope=['xotp']
+    )
+
+    # Create SDK configuration with authConfig
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=auth_options
+    )
+
+    # Initialize SDK
+    sdk = SDK(config)
+
+    # Fetch token
+    token = await sdk.auth.fetch_token()
+    print(f"Token: {token}")
+    is_token_expired = sdk.auth.is_token_expired()
+    print(f"Token Expired: {is_token_expired}")
+    current_token = sdk.auth.get_current_token()
+    print(f"Current Token: {current_token}")
+
+asyncio.run(main())
+```
+
+### Auth Examples
+```python
+import asyncio
+from paymentus_core import SDK, CoreConfig, AuthOptions
+
+async def main():
+    # Create AuthConfig first with scope, kid
+    auth_options = AuthOptions(
+        scope=['xotp'],
+        kid="002"
+    )
+
+    # Create SDK configuration with authConfig
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=auth_options
+    )
+
+    # Initialize SDK
+    sdk = SDK(config)
+
+    # Fetch token
+    token = await sdk.auth.fetch_token()
+    print(f"Token: {token}")
+    is_token_expired = sdk.auth.is_token_expired()
+    print(f"Token Expired: {is_token_expired}")
+    current_token = sdk.auth.get_current_token()
+    print(f"Current Token: {current_token}")
+
+asyncio.run(main())
+```
+
+```python
+import asyncio
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_auth.auth import PaymentData, PixelType
+async def main():
+    auth_options = AuthOptions(
+        kid='002',
+        payments_data=[PaymentData(
+            accountNumber='1234567890',
+            convFeeState='OH',
+            convFeeCountry='US'
+        )],
+        user_login='test@paymentus.com',
+        timeout=10000,
+        pixels=[PixelType.TOKENIZATION]
+    )
+
+    # Create SDK configuration with authConfig
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=auth_options
+    )
+
+    # Initialize SDK
+    sdk = SDK(config)
+
+    # Fetch token
+    token = await sdk.auth.fetch_token()
+    print(f"Token: {token}")
+    is_token_expired = sdk.auth.is_token_expired()
+    print(f"Token Expired: {is_token_expired}")
+    current_token = sdk.auth.get_current_token()
+    print(f"Current Token: {current_token}")
+
+asyncio.run(main())
+```
+
+### Payment Examples
+
+```python
+# Example 1: Make Payment
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions, LoggingOptions
+from paymentus_xotp.models import (
+    Address, Customer, MakePayment, MakePaymentItem,
+    PaymentHeader, PaymentMethod, PaymentMethodTypeEnum,
+    CreditCardExpiryDate
+)
+from paymentus_xotp.logging import LogLevel, Logger, MaskingLevel
+
+async def main():
+    # Configure the SDK
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=AuthOptions(
+            scope=['xotp:payment']  # scope needed for payment
+        ),
+        logging=LoggingOptions(
+            logger=Logger, # default logger
+            level=LogLevel.VERBOSE, # maximum logging
+            masking=MaskingLevel.ALL_PII # mask all sensistive data
+        )
+    )
+
+    # Initialize SDK
+    sdk = SDK(config)
+
+    header1 = PaymentHeader(
+        account_number='6759373',
+        payment_amount=13.21,
+        payment_type_code='UTILITY'
+    )
+
+    header2 = PaymentHeader(
+        account_number='6759375',
+        payment_amount=13.21,
+        payment_type_code='WATER'
+    )
+
+    payment_method = PaymentMethod(
+        type=PaymentMethodTypeEnum.VISA,
+        account_number='4111111111111111',
+        card_holder_name='John Doe',
+        credit_card_expiry_date=CreditCardExpiryDate(
+            month="12",
+            year=2035
+        )
+    )
+
+    address = Address(
+        line1='10 Fifth Ave.',
+        state='NY',
+        zip_code='12345',
+        city='New York',
+        country='US'
+    )
+
+    customer = Customer(
+        first_name='John',
+        last_name='Doe',
+        email='john@paymentus.com',
+        day_phone_nr='9051112233',
+        address=address
+    )
+
+    payment_item = MakePaymentItem(
+        header=[header1, header2],
+        payment_method=payment_method,
+        customer=customer
+    )
+
+    payment_payload = MakePayment(
+        payment=payment_item
+    )
+
+    try:
+        result = await sdk.xotp.make_payment(payment_payload)
+        print(result)
+
+        # ----- Sample Output ------
+        #payment_response=PaymentResponseList(response=[PaymentResponseItem(account_number='6759373', convenience_fee=1.5, convenience_fee_country='US', convenience_fee_state='OH', convenience_fee_category_code=None, convenience_fee_percent=None, errors=None, payment_amount=13.21, payment_component=None, payment_date='07192025002237', payment_status=<PaymentStatusTypeEnum.ACCEPTED: 'ACCEPTED'>, payment_status_description='Approved', payment_schedule_status=None, reference_number='734944', status=None, staged_id=None, total_amount=14.71, additional_properties={}), PaymentResponseItem(account_number='6759375', convenience_fee=1.5, convenience_fee_country='US', convenience_fee_state='VA', convenience_fee_category_code=None, convenience_fee_percent=None, errors=None, payment_amount=13.21, payment_component=None, payment_date='07192025002241', payment_status=<PaymentStatusTypeEnum.ACCEPTED: 'ACCEPTED'>, payment_status_description='Approved', payment_schedule_status=None, reference_number='734947', status=None, staged_id=None, total_amount=14.71, additional_properties={})], additional_properties={}) additional_properties={}
+
+    
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+
+```python
+# Example 2: Refund Payment
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    Address, Customer, Payment, PaymentHeader,
+    PaymentMethod, PaymentMethodTypeEnum,
+    CreditCardExpiryDate, PaymentRequest
+)
+
+async def main():
+    try:
+        # Configure the SDK
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            ),
+            logging=LoggingOptions(
+                level=LogLevel.MINIMAL # minimal logging
+            )
+        )
+
+        sdk = SDK(config)
+
+        header = PaymentHeader(
+            account_number='6759370',
+            payment_amount=11.22,
+            payment_type_code='UTILITY'
+        )
+
+        payment_method = PaymentMethod(
+            type=PaymentMethodTypeEnum.VISA_IREFUND,
+            account_number='4111111111111111',
+            card_holder_name='John Doe',
+            credit_card_expiry_date=CreditCardExpiryDate(
+                month="12",
+                year=2035
+            )
+        )
+
+        address = Address(
+            line1='10 Fifth Ave.',
+            state='NY',
+            zip_code='12345',
+            city='New York',
+            country='US'
+        )
+
+        customer = Customer(
+            first_name='John',
+            last_name='Doe',
+            email='john@paymentus.com',
+            day_phone_nr='9051112233',
+            address=address
+        )
+
+        payment = Payment(
+            header=header,
+            payment_method=payment_method,
+            customer=customer
+        )
+
+        refund_payload = PaymentRequest(payment=payment)
+        
+        result = await sdk.xotp.refund_payment(refund_payload)
+        print(result)
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+
+```python
+# Example 3: Payment History
+import asyncio
+import json
+
+from paymentus_core import SDK, CoreConfig, AuthOptions, LoggingOptions
+from paymentus_xotp.models import PaymentSearchRequest
+from paymentus_xotp.logging import LogLevel
+
+
+async def main():
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=AuthOptions(
+            scope=['xotp:payment']
+        ),
+        logging=LoggingOptions(
+            level=LogLevel.SILENT # no logging
+        )
+    )
+
+    sdk = SDK(config)
+
+    search_payload = PaymentSearchRequest(
+        account_number='6759371',  # required
+        date_from = "06182025",
+        date_to = "06192025"
+    )
+    try:
+        result = await sdk.xotp.get_payment_history(search_payload)
+        print(result)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+        print(json.dumps(str(error), indent=2))
+
+asyncio.run(main())
+```
+```python
+# Example 4: Fetch Last Payment
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import PaymentSearchRequest
+
+async def main():
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=AuthOptions(
+            scope=['xotp']
+        )
+    )
+
+    sdk = SDK(config)
+
+    payment_search_request = PaymentSearchRequest(
+        account_number="6759370"
+    )
+    
+    try:
+        result = await sdk.xotp.fetch_last_payment(payment_search_request=payment_search_request)
+        print(result)
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+```python
+# Example 5: Conv Fee Calculation
+import asyncio
+
+from paymentus_core import SDK, AuthOptions, CoreConfig, LoggingOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import (
+    ConvenienceFeeCountryEnum,
+    Payment,
+    PaymentHeader,
+    PaymentMethod,
+    PaymentMethodCategoryEnum,
+    PaymentMethodTypeEnum,
+    PaymentRequest,
+    PaymentFailedResponse
+)
+from paymentus_xotp.logging import LogLevel
+
+async def main():
+    core_config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=AuthOptions(
+            scope=['xotp:payment']
+        ),
+        logging=LoggingOptions(
+            level=LogLevel.SILENT # no logging
+        )
+    )
+
+    sdk = SDK(core_config)
+
+    # Create payment header
+    header = PaymentHeader(
+        payment_amount=22.00,
+        convenience_fee_state="NY",
+        convenience_fee_country=ConvenienceFeeCountryEnum.US
+    )
+
+    # Create payment method
+    method = PaymentMethod(
+        type=PaymentMethodTypeEnum.MC
+    )
+
+    # Create payment
+    payment = Payment(
+        header=header,
+        payment_method=method,
+        payment_method_category=PaymentMethodCategoryEnum.CC
+    )
+
+    # Create payment request
+    fee_payload = PaymentRequest(
+        payment=payment
+    )
+
+    try:
+        # Call the API
+        result = await sdk.xotp.cnv_calculation(fee_payload)
+        print(result)
+    except ApiException as e:
+        # 400 bad request
+        if e.status == 400:
+            error_response = PaymentFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+
+```python
+# Example 6: Stage Payment
+import asyncio
+import json
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    Customer, Payment, PaymentRequest,
+    PaymentHeader
+)
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        header = PaymentHeader(
+            account_number='6759370',
+            payment_amount=13.21,
+            payment_type_code='UTILITY',
+            auth_token1='12345'
+        )
+
+        customer = Customer(
+            first_name='John',
+            last_name='Doe',
+            email='john@paymentus.com',
+            day_phone_nr='9051112233'
+        )
+
+        payment = Payment(
+            header=header,
+            customer=customer
+        )
+
+        stage_payment_payload = PaymentRequest(
+            payment=payment
+        )
+
+        result = await sdk.xotp.stage_payment(stage_payment_payload)
+        print(result)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+        print(json.dumps(str(error), indent=2))
+
+asyncio.run(main())
+```
+
+```python
+# Example 7: Get Payment Ref
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions, LoggingOptions
+from paymentus_xotp import LogLevel
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+   
+    config = CoreConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        tla='ABC',
+        auth=AuthOptions(
+            scope=['xotp']
+        )
+    )
+
+    sdk = SDK(config)
+
+    reference_number = "731369"
+    try: 
+        result = await sdk.xotp.get_payment_ref(reference_number=reference_number)
+        print(result.to_json())
+    except ApiException as e:
+        if e.status == 404:
+            error_response = e.data
+            print(f"Error: {error_response.to_json()}")
+        else:  
+            print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+
+### Autopay Examples
+
+```python
+# Example 1: Create Autopay
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    AutopayRequest, Payment, PaymentHeader,
+    PaymentMethod, Customer, ScheduleTypeCodeEnum, 
+    AutopayFailedResponse
+)
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:autopay']
+            )
+        )
+
+        sdk = SDK(config)
+
+        header = PaymentHeader(
+            account_number='6759375',
+            payment_type_code='UTILITY',
+            schedule_type_code=ScheduleTypeCodeEnum.MONTHLY,
+            schedule_day=26,
+            payment_amount=21.21
+        )
+
+        payment_method = PaymentMethod(
+            token='some-token'
+        )
+
+        customer = Customer(
+            first_name='John',
+            last_name='Doe',
+            email='john@paymentus.com',
+            day_phone_nr='9051112233'
+        )
+
+        payment_schedule = Payment(
+            header=header,
+            payment_method=payment_method,
+            customer=customer
+        )
+
+        autopay_payload = AutopayRequest(
+            payment_schedule=payment_schedule
+        )
+
+        result = await sdk.xotp.create_autopay(autopay_payload)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request
+        if e.status == 400:
+            error_response = AutopayFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 2: Update Autopay
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    AutopayRequest, Payment, PaymentHeader,
+    ScheduleTypeCodeEnum, AutopayFailedResponse
+)
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:autopay']
+            )
+        )
+
+        sdk = SDK(config)
+
+        header = PaymentHeader(
+            schedule_type_code=ScheduleTypeCodeEnum.MONTHLY,
+            schedule_day=13,
+            payment_amount=11.09
+        )
+
+        payment_schedule = Payment(
+            header=header
+        )
+
+        autopay_payload = AutopayRequest(
+            payment_schedule=payment_schedule
+        )
+
+        reference_number = '3420'
+
+        result = await sdk.xotp.update_autopay(reference_number, autopay_payload)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found
+        if e.status == 400 or e.status == 404:
+            error_response = AutopayFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 3: Get Autopay By Reference Number
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import AutopayFailedResponse
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:autopay']
+            )
+        )
+
+        sdk = SDK(config)
+
+        reference_number = '3420'
+
+        result = await sdk.xotp.get_autopay(reference_number)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found
+        if e.status == 400 or e.status == 404:
+            error_response = AutopayFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 4: List Autopay
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import AutopaySearchRequest
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:autopay']
+            )
+        )
+
+        sdk = SDK(config)
+
+        list_payload = AutopaySearchRequest(
+            login_id='user@example.com',
+            account_number='6759370'
+        )
+
+        result = await sdk.xotp.list_auto_pay(list_payload)
+        print(result)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+```python
+# Example 5: Stage Autopay
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    Customer, Payment, PaymentRequest,
+    PaymentHeader, ScheduleTypeCodeEnum
+)
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        header = PaymentHeader(
+            account_number='6759372',
+            payment_amount=13.21,
+            payment_type_code='UTILITY',
+            schedule_type_code=ScheduleTypeCodeEnum.MONTHLY,
+            schedule_start_date="20250909",
+            schedule_day=11,
+            auth_token1='12345'
+        )
+
+        customer = Customer(
+            first_name='John',
+            last_name='Doe',
+            email='john@paymentus.com',
+            day_phone_nr='9051112233'
+        )
+
+        payment = Payment(
+            header=header,
+            customer=customer
+        )
+
+        stage_autopay_payload = PaymentRequest(
+            payment=payment
+        )
+
+        result = await sdk.xotp.stage_autopay(stage_autopay_payload)
+        print(result)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+```python
+# Example 6: Delete Autopay
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import AutopayFailedResponse
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        reference_number = '3420'
+
+        result = await sdk.xotp.delete_autopay(reference_number)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found
+        if e.status == 400 or e.status == 404:
+            error_response = AutopayFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+
+
+
+### Account Examples
+```python
+# Example 1: Account Inquiry
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions, LoggingOptions
+from paymentus_xotp.models import AccountInquiryRequest
+from paymentus_xotp.logging import LogLevel, MaskingLevel
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            ),
+            logging=LoggingOptions(
+                level=LogLevel.VERBOSE, # maximum logging
+                masking=MaskingLevel.NONE # no masking
+            ),
+        )
+
+        sdk = SDK(config)
+
+        payload = AccountInquiryRequest(
+            account_number='6759370',
+            payment_type_code='UTILITY',
+            auth_token1='12345',
+            include_schedules=True,
+            include_last_used_pm=True,
+            detailed_info=True
+        )
+
+        result = await sdk.xotp.account_inquiry(payload)
+        print(result)
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+```python
+# Example 2: Account Info by Account Number
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        account_number = '6759370'
+
+        result = await sdk.xotp.get_account_info_by_account_number(account_number)
+        print(result)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+```python
+# Example 3: Account Info by Email
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        email = 'user@example.com'
+
+        result = await sdk.xotp.get_account_info_by_email(email)
+        print(result)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+
+### User Examples
+```python
+# Example 1: Create User
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    UserRequest,
+    UserProfileInfo,
+    UserInfo,
+    ClientAccountItem,
+    UserRequestItem,
+    UserFailedResponse
+)
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        profile = UserProfileInfo(
+            first_name = "Python",
+            last_name = "User",
+            email = "python-user@example.com" 
+        )
+
+        user_info = UserInfo(
+            login_id = "python-user@example.com",
+            password = "SecretPassword123",
+            force_password_change = True,
+            profile = profile
+        )
+
+        client_account = ClientAccountItem(
+            account_number = "6759370",
+            payment_type_code = "UTILITY",
+            auth_token1 = "12345"
+        )
+
+        user_profile = UserRequestItem(
+            user_info = user_info,
+            client_account = [client_account]
+        )
+
+        user_request = UserRequest(
+            user_profile = user_profile,
+        )
+
+        result = await sdk.xotp.create_user(user_request)
+        print(result)
+    except ApiException as e:
+        # 400 bad request
+        if e.status == 400:
+            error_response = UserFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 2: Update User
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    UserUpdateRequest,
+    UserUpdateRequestItem,
+    UserInfo,
+    UserProfileInfo,
+    UserLoginId,
+    UserFailedResponse
+)
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        profile = UserProfileInfo(
+            day_phone_nr="5559098888",
+            zip_code="28202"
+        )
+
+        user_info = UserInfo(
+            login_id="python-user@example.com",
+            profile=profile
+        )
+
+        user_with_permission = UserLoginId(
+            login_id="admin@example.com"
+        )
+
+        user_profile = UserUpdateRequestItem(
+            user_info=user_info,
+            user=user_with_permission
+        )
+
+        update_request = UserUpdateRequest(
+            user_profile=user_profile
+        )
+
+        result = await sdk.xotp.update_user(update_request)
+        print(result)
+    except ApiException as e:
+        # 400 bad request
+        if e.status == 400:
+            error_response = UserFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 3: Get User
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import UserFailedResponse
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        login_id = "python-user@example.com"
+        
+        include_contact_info = True
+
+        result = await sdk.xotp.get_user(login_id, include_contact_info)        
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found error
+        if e.status == 400 or e.status == 404:
+            error_response = UserFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 4: Delete User
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    UserDeleteRequest,
+    UserDeleteRequestItem,
+    UserLoginId, 
+    UserFailedResponse
+)
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        user_to_delete = UserLoginId(
+            login_id="python-user@example.com"
+        )
+
+        user_with_permission = UserLoginId(
+            login_id="admin@example.com"
+        )
+
+        user = UserDeleteRequestItem(
+            user_info=user_to_delete,
+            user=user_with_permission
+        )
+
+        delete_request = UserDeleteRequest(
+            user_profile=user
+        )
+
+        result = await sdk.xotp.delete_user(delete_request)        
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found error
+        if e.status == 400 or e.status == 404:
+            error_response = UserFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+
+### Profile Examples
+
+```python
+# Example 1: Create Profile
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    ProfileRequest,
+    ProfileRequestItem,
+    ProfileUserInfo,
+    ProfileCustomer,
+    PaymentMethod,
+    CreditCardExpiryDate,
+    ProfileFailedResponse
+)
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:profile']
+            )
+        )
+
+        sdk = SDK(config)
+
+        payment_method = PaymentMethod(
+            type="VISA",
+            account_number="4444444444444448",
+            credit_card_expiry_date=CreditCardExpiryDate(
+                month="12",
+                year=2035
+            ),
+            card_holder_name="Python User"
+        )
+
+        user_info = ProfileUserInfo(
+            login_id="user@example.com"
+        )
+
+        customer = ProfileCustomer(
+            first_name="Python",
+            last_name="User"
+        )
+
+        profile_item = ProfileRequestItem(
+            payment_method=payment_method,
+            customer=customer,
+            user_info=user_info
+        )
+
+        profile_request = ProfileRequest(
+            profile=profile_item
+        )
+
+        result = await sdk.xotp.create_profile(profile_request)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request
+        if e.status == 400 or e.status == 404:
+            error_response = ProfileFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 2: Update Profile
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import ProfileUpdateRequest, ProfileUpdateItem, ProfileFailedResponse
+from paymentus_xotp.exceptions import ApiException
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:profile']
+            )
+        )
+        
+        sdk = SDK(config)
+
+        profile_item = ProfileUpdateItem(
+            profile_description="Main Payment Profile",
+            default_flag=True
+        )
+
+        update_request = ProfileUpdateRequest(
+            profile=profile_item
+        )
+
+        profile_token = "some-token"
+
+        result = await sdk.xotp.update_profile(profile_token, update_request)
+        print(result)
+    except ApiException as e:
+        # 400 bad request or 404 not found error
+        if e.status == 400 or e.status == 404:
+            error_response = ProfileFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 3: Get Profile
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import ProfileFailedResponse
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:profile']
+            )
+        )
+
+        sdk = SDK(config)
+
+        profile_token = "some-token"
+
+        result = await sdk.xotp.get_profile(profile_token)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found error
+        if e.status == 400 or e.status == 404:
+            error_response = ProfileFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 4: List Profile
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import ProfileFailedResponse
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+
+        login_id = "user@example.com"
+
+        result = await sdk.xotp.get_profiles(login_id)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found error
+        if e.status == 400 or e.status == 404:
+            if e.body != '':
+                error_response = ProfileFailedResponse.from_json(e.body)
+                print(f"Error: {error_response}")
+            else:
+                print(f"Error: No profiles found for login ID: {login_id}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 5: Delete Profile
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import ProfileFailedResponse
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp:profile', 'xotp:profile:delete']
+            )
+        )
+
+        sdk = SDK(config)
+
+        profile_token = "some-token"
+
+        result = await sdk.xotp.delete_profile(profile_token)
+        print(result)
+
+    except ApiException as e:
+        # 400 bad request or 404 not found error
+        if e.status == 400 or e.status == 404:
+            error_response = ProfileFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+
+### Other Examples
+```python
+# Example 1: Get Bank Info
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.exceptions import ApiException
+from paymentus_xotp.models import BankInfoFailedResponse
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+        
+        routing_number = "021000128"
+        
+        result = await sdk.xotp.get_bank_info(routing_number)
+        print(result)
+    except ApiException as e:
+        # 404 invalid routing number
+        if e.status == 404:
+            error_response = BankInfoFailedResponse.from_json(e.body)
+            print(f"Error: {error_response}")
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e.status} - {e.reason}")
+            print(f"Response Body: {e.body}")
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+
+asyncio.run(main())
+```
+```python
+# Example 2: Resend Email Confirmation
+import asyncio
+
+from paymentus_core import SDK, CoreConfig, AuthOptions
+from paymentus_xotp.models import (
+    ResendEmailRequest, 
+    ResendEmailRequestItem, 
+    ResendEmailRequestHeader
+)
+
+async def main():
+    try:
+        config = CoreConfig(
+            base_url='https://<environment>.paymentus.com',
+            pre_shared_key='shared-256-bit-secret',
+            tla='ABC',
+            auth=AuthOptions(
+                scope=['xotp']
+            )
+        )
+
+        sdk = SDK(config)
+        
+        header = ResendEmailRequestHeader(
+            account_number="6759370",
+            reference_number="731358"
+        )
+        
+        payment = ResendEmailRequestItem(
+            header=header
+        )
+        
+        resend_request = ResendEmailRequest(
+            payment=payment
+        )
+
+        result = await sdk.xotp.resend_email_confirmation(resend_request)
+        print(result)
+    except Exception as error:
+        print(f"Error occurred: {error}")
+
+asyncio.run(main())
+```
+
+## Custom Logging
+
+You can implement custom logging middleware by creating a class that implements the Logger interface:
+
+```python
+from paymentus_core import CoreConfig, AuthOptions, LoggingOptions, SDK
+from paymentus_xotp.logging import Logger
+from paymentus_xotp.middlewares.logging_middleware import LogLevel, MaskingLevel
+
+class MyCustomLogger(Logger):
+    """Custom logger implementation that formats log messages with custom prefixes."""
+
+    def info(self, message, *args):
+        formatted_message = message % args if args else message
+        print(f"[[INFO]] -- {formatted_message}")
+
+    def error(self, message, *args):
+        formatted_message = message % args if args else message
+        print(f"[[ERROR]] -- {formatted_message}")
+
+    def warn(self, message, *args):
+        formatted_message = message % args if args else message
+        print(f"[[WARN]] -- {formatted_message}")
+
+    def debug(self, message, *args):
+        formatted_message = message % args if args else message
+        print(f"[[DEBUG]] -- {formatted_message}")
+
+config = CoreConfig(
+    base_url='https://<environment>.paymentus.com',
+    pre_shared_key='shared-256-bit-secret',
+    tla='ABC',
+    auth=AuthOptions(
+           scope=['xotp']
+        ),
+    logging=LoggingOptions(
+        logger=MyCustomLogger # Provide custom logger
+    )
+)
+```
+
+### Available Log Levels
+
+The SDK supports the following log levels to control the verbosity of logging output:
+
+#### SILENT
+Suppresses all logging output. Use this in production environments where you want to minimize overhead and don't need operational visibility.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        level=LogLevel.SILENT  # For No logging
+    )
+)
+```
+
+#### MINIMAL
+Logs only essential information such as request initiation and completion status with response codes. Use this for basic operational monitoring with minimal verbosity.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        level=LogLevel.MINIMAL  # For Minimal logging
+    )
+)
+```
+
+#### NORMAL
+The default log level. Logs request/response information including basic request bodies and error details. Suitable for most development and staging environments.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        level=LogLevel.NORMAL  # Default logging mode
+    )
+)
+```
+
+#### VERBOSE
+Maximum logging level that includes all request/response details, headers, and timing information. Ideal for debugging integration issues in development environments.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        level=LogLevel.VERBOSE  # For Maximum logging
+    )
+)
+```
+
+### Available Masking Levels
+
+The SDK also supports data masking to protect sensitive information in logs:
+
+- **NONE**: No data masking is applied. Only use in secure environments where logs are properly protected.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        masking=MaskingLevel.NONE  # No masking in logs
+    )
+)
+```
+
+- **PCI_ONLY**: Masks payment card information (account numbers, CVV) while preserving other data for debugging.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        masking=MaskingLevel.PCI_ONLY  # Default Mode
+    )
+)
+```
+
+- **ALL_PII**: Maximum protection that masks all personally identifiable information including names, addresses, and payment data.
+```python
+config = CoreConfig(
+    # ... other config options
+    logging=LoggingOptions(
+        masking=MaskingLevel.ALL_PII  # Maximum masking while logging
+    )
+)
+```
+
+## Error Handling
+
+The SDK provides comprehensive error handling:
+
+```python
+from paymentus_core.exceptions import (
+    ServerError, 
+    NetworkError
+)
+
+try:
+    result = await sdk.xotp.make_payment(payment_payload)
+except NetworkError as e:
+    print(f"Network Error: {e}")
+    # Handle network issues
+except ServerError as e:
+    print(f"Server Error: {e}")
+    # Handle server issues
+```
+
+## Available Scopes
+
+The SDK supports the following scopes:
+
+- `xotp` - Basic XOTP functionality
+- `xotp:profile` - Profile management
+- `xotp:profile:read` - Read profile data
+- `xotp:profile:create` - Create profiles
+- `xotp:profile:update` - Update profiles
+- `xotp:profile:delete` - Delete profiles
+- `xotp:listProfiles` - List profiles
+- `xotp:payment` - Payment processing
+- `xotp:autopay` - Autopay functionality
+- `xotp:autopay:delete` - Delete autopay settings
+- `xotp:accounts` - Account management
+- `xotp:accounts:listAccounts` - List accounts
+
+## API Reference
+
+### SDK Class
+
+#### Constructor
+
+```python
+SDK(config: CoreConfig)
+```
+
+Creates a new SDK instance with the provided configuration.
+
+## Disclaimer
+
+These SDKs are intended for use with the URLs and keys that are provided to you for your company by Paymentus. If you do not have this information, please reach out to your implementation or account manager. If you are interested in learning more about the solutions that Paymentus provides, you can visit our website at paymentus.com. You can request access to our complete documentation at developer.paymentus.io. If you are currently not a customer or partner and would like to learn more about the solution and how you can get started with Paymentus, please contact us at https://www.paymentus.com/lets-talk/.
+
+## Contact us
+
+If you have any questions or need assistance, please contact us at sdksupport@paymentus.com.
+
+## License
+
+MIT

@@ -3,7 +3,9 @@ use chroma_cache::{AysncPartitionedMutex, Cache, CacheError, Weighted};
 use chroma_config::Configurable;
 use chroma_error::{ChromaError, ErrorCodes};
 use chroma_sysdb::SysDb;
-use chroma_types::{CollectionAndSegments, CollectionUuid, GetCollectionWithSegmentsError};
+use chroma_types::{
+    CollectionAndSegments, CollectionUuid, GetCollectionWithSegmentsError, Schema, SchemaError,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     sync::Arc,
@@ -118,6 +120,8 @@ pub(crate) enum CollectionsWithSegmentsProviderError {
     Cache(#[from] CacheError),
     #[error(transparent)]
     SysDB(#[from] GetCollectionWithSegmentsError),
+    #[error("Failed to reconcile schema: {0}")]
+    InvalidSchema(#[from] SchemaError),
 }
 
 impl ChromaError for CollectionsWithSegmentsProviderError {
@@ -125,6 +129,7 @@ impl ChromaError for CollectionsWithSegmentsProviderError {
         match self {
             CollectionsWithSegmentsProviderError::Cache(e) => e.code(),
             CollectionsWithSegmentsProviderError::SysDB(e) => e.code(),
+            CollectionsWithSegmentsProviderError::InvalidSchema(e) => e.code(),
         }
     }
 }
@@ -152,7 +157,7 @@ impl CollectionsWithSegmentsProvider {
             }
         }
 
-        let collection_and_segments_sysdb = {
+        let mut collection_and_segments_sysdb = {
             // We acquire a lock to prevent the sysdb from experiencing a thundering herd.
             // This can happen when a large number of threads try to get the same collection
             // at the same time.
@@ -177,6 +182,13 @@ impl CollectionsWithSegmentsProvider {
                 .get_collection_with_segments(collection_id)
                 .await?
         };
+
+        if collection_and_segments_sysdb.collection.schema.is_none() {
+            collection_and_segments_sysdb.collection.schema = Some(
+                Schema::try_from(&collection_and_segments_sysdb.collection.config)
+                    .map_err(CollectionsWithSegmentsProviderError::InvalidSchema)?,
+            );
+        }
 
         self.set_collection_with_segments(collection_and_segments_sysdb.clone())
             .await;

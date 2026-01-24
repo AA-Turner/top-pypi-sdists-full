@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -14,6 +14,7 @@ else:
     from typing import NotRequired
 
 from typing import (
+    TYPE_CHECKING,
     Any,
     Literal,
     Optional,
@@ -38,11 +39,13 @@ class CompletionConfig(TypedDict):
 
     - `activate_on_typing`: if `False`, completion won't activate
     until the completion hotkey is entered
+    - `signature_hint_on_typing`: if `False`, signature hint won't be shown when typing
     - `copilot`: one of `"github"`, `"codeium"`, or `"custom"`
     - `codeium_api_key`: the Codeium API key
     """
 
     activate_on_typing: bool
+    signature_hint_on_typing: bool
     copilot: Union[bool, Literal["github", "codeium", "custom"]]
 
     # Codeium
@@ -92,6 +95,26 @@ class KeymapConfig(TypedDict):
 
 OnCellChangeType = Literal["lazy", "autorun"]
 ExecutionType = Literal["relaxed", "strict"]
+
+
+@mddoc
+@dataclass
+class VenvConfig(TypedDict, total=False):
+    """Configuration for external Python environment in home sandbox mode.
+
+    Allows specifying an existing virtualenv to use instead of creating
+    ephemeral sandboxes per notebook. Only applies in home sandbox mode.
+
+    **Keys.**
+
+    - `path`: path to a virtualenv directory (absolute or relative to
+      pyproject.toml)
+    - `writable`: if true, marimo will manage script metadata (inline
+      dependencies). Defaults to false.
+    """
+
+    path: str
+    writable: bool
 
 
 # TODO(akshayka): remove normal, migrate to compact
@@ -144,6 +167,8 @@ class RuntimeConfig(TypedDict):
     - `default_auto_download`: an Optional list of export types to automatically snapshot your notebook as:
        `html`, `markdown`, `ipynb`.
        The default is None.
+    - `default_csv_encoding`: the default encoding for CSV exports.
+        The default is `"utf-8"`.
     """
 
     auto_instantiate: bool
@@ -157,6 +182,7 @@ class RuntimeConfig(TypedDict):
     dotenv: NotRequired[list[str]]
     default_sql_output: SqlOutputType
     default_auto_download: NotRequired[list[ExportType]]
+    default_csv_encoding: NotRequired[str]
 
 
 @mddoc
@@ -212,10 +238,13 @@ class ServerConfig(TypedDict):
         with Python's webbrowser module (eg, `"firefox"` or `"chrome"`)
     - `follow_symlink`: if true, the server will follow symlinks it finds
         inside its static assets directory.
+    - `disable_file_downloads`: if true, the file download button will be
+        hidden in the file explorer.
     """
 
     browser: Union[Literal["default"], str]
     follow_symlink: bool
+    disable_file_downloads: NotRequired[bool]
 
 
 @dataclass
@@ -230,7 +259,7 @@ class PackageManagementConfig(TypedDict):
     manager: Literal["pip", "rye", "uv", "poetry", "pixi"]
 
 
-CopilotMode = Literal["ask", "manual"]
+CopilotMode = Literal["ask", "manual", "agent"]
 
 
 @mddoc
@@ -264,6 +293,7 @@ class AiConfig(TypedDict, total=False):
     - `rules`: custom rules to include in all AI completion prompts
     - `max_tokens`: the maximum number of tokens to use in AI completions
     - `mode`: the mode to use for AI completions. Can be one of: `"ask"` or `"manual"`
+    - `inline_tooltip`: if `True`, enable inline AI tooltip suggestions
     - `models`: the models to use for AI completions
     - `open_ai`: the OpenAI config
     - `anthropic`: the Anthropic config
@@ -272,12 +302,16 @@ class AiConfig(TypedDict, total=False):
     - `azure`: the Azure config
     - `ollama`: the Ollama config
     - `github`: the GitHub config
-    - `open_ai_compatible`: the OpenAI-compatible config
+    - `openrouter`: the OpenRouter config
+    - `wandb`: the Weights & Biases config
+    - `custom_providers`: a dict of custom OpenAI-compatible providers
+    - `open_ai_compatible`: the OpenAI-compatible config (deprecated, use custom_providers)
     """
 
     rules: NotRequired[str]
     max_tokens: NotRequired[int]
     mode: NotRequired[CopilotMode]
+    inline_tooltip: NotRequired[bool]
     models: AiModelConfig
 
     # providers
@@ -288,6 +322,10 @@ class AiConfig(TypedDict, total=False):
     azure: OpenAiConfig
     ollama: OpenAiConfig
     github: GitHubConfig
+    openrouter: OpenAiConfig
+    wandb: OpenAiConfig
+    custom_providers: NotRequired[dict[str, OpenAiConfig]]
+    # @deprecated: use `custom_providers` instead
     open_ai_compatible: OpenAiConfig
 
 
@@ -299,6 +337,7 @@ class OpenAiConfig(TypedDict, total=False):
 
     - `api_key`: the OpenAI API key
     - `base_url`: the base URL for the API
+    - `project`: the project ID for the OpenAI API
     - `ssl_verify` : Boolean argument for httpx passed to open ai client. httpx defaults to true, but some use cases to let users override to False in some testing scenarios
     - `ca_bundle_path`: custom ca bundle to be used for verifying SSL certificates. Used to create custom SSL context for httpx client
     - `client_pem` : custom path of a client .pem cert used for verifying identity of client server
@@ -307,6 +346,7 @@ class OpenAiConfig(TypedDict, total=False):
 
     api_key: str
     base_url: NotRequired[str]
+    project: NotRequired[str]
     ssl_verify: NotRequired[bool]
     ca_bundle_path: NotRequired[str]
     client_pem: NotRequired[str]
@@ -366,10 +406,14 @@ class GitHubConfig(TypedDict, total=False):
 
     - `api_key`: the GitHub API token
     - `base_url`: the base URL for the API
+    - `copilot_settings`: configuration settings for GitHub Copilot LSP.
+        Supports settings like `http` (proxy configuration), `telemetry`,
+        and `github-enterprise` (enterprise URI).
     """
 
     api_key: str
     base_url: NotRequired[str]
+    copilot_settings: NotRequired[dict[str, Any]]
 
 
 @dataclass
@@ -434,9 +478,11 @@ class DiagnosticsConfig(TypedDict, total=False):
     **Keys.**
 
     - `enabled`: if `True`, diagnostics will be shown in the editor
+    - `sql_linter`: if `True`, SQL cells will have linting enabled
     """
 
     enabled: bool
+    sql_linter: bool
 
 
 @dataclass
@@ -502,12 +548,10 @@ class ExperimentalConfig(TypedDict, total=False):
     """
 
     markdown: bool  # Used in playground (community cloud)
-    inline_ai_tooltip: bool
     wasm_layouts: bool  # Used in playground (community cloud)
     rtc_v2: bool
     performant_table_charts: bool
-    mcp_docs: bool
-    sql_linter: bool
+    chat_modes: bool
 
     # Internal features
     cache: CacheConfig
@@ -539,8 +583,8 @@ class MarimoConfig(TypedDict):
     snippets: NotRequired[SnippetsConfig]
     datasources: NotRequired[DatasourcesConfig]
     sharing: NotRequired[SharingConfig]
-    # We don't support configuring MCP servers yet
-    # mcp: NotRequired[MCPConfig]
+    mcp: NotRequired[MCPConfig]
+    venv: NotRequired[VenvConfig]
 
 
 @mddoc
@@ -566,7 +610,12 @@ class MCPServerStreamableHttpConfig(TypedDict):
     disabled: NotRequired[Optional[bool]]
 
 
-MCPServerConfig = Union[MCPServerStdioConfig, MCPServerStreamableHttpConfig]
+if TYPE_CHECKING:
+    MCPServerConfig = Union[
+        MCPServerStdioConfig, MCPServerStreamableHttpConfig
+    ]
+else:
+    MCPServerConfig = dict[str, Any]
 
 
 @mddoc
@@ -580,16 +629,7 @@ class MCPConfig(TypedDict):
     """
 
     mcpServers: dict[str, MCPServerConfig]
-
-
-DEFAULT_MCP_CONFIG: MCPConfig = MCPConfig(
-    mcpServers={
-        "marimo": MCPServerStreamableHttpConfig(
-            url="https://mcp.marimo.app/mcp"
-        ),
-        # TODO(bjoaquinc): add more Marimo MCP servers here after they are implemented
-    }
-)
+    presets: NotRequired[list[Literal["marimo", "context7"]]]
 
 
 @mddoc
@@ -612,24 +652,31 @@ class PartialMarimoConfig(TypedDict, total=False):
     snippets: SnippetsConfig
     datasources: NotRequired[DatasourcesConfig]
     sharing: NotRequired[SharingConfig]
+    venv: NotRequired[VenvConfig]
 
 
 DEFAULT_CONFIG: MarimoConfig = {
-    "completion": {"activate_on_typing": True, "copilot": False},
+    "completion": {
+        "activate_on_typing": True,
+        "signature_hint_on_typing": False,
+        "copilot": False,
+    },
     "display": {
         "theme": "light",
         "code_editor_font_size": 14,
-        "cell_output": "above",
+        "cell_output": "below",
         "default_width": "medium",
         "dataframes": "rich",
         "default_table_page_size": 10,
         "default_table_max_columns": 50,
-        "reference_highlighting": False,
+        "reference_highlighting": True,
     },
     "formatting": {"line_length": 79},
     "keymap": {"preset": "default", "overrides": {}},
+    # dotenv's default value is set at runtime, depending on whether a
+    # pyproject.toml is found.
     "runtime": {
-        "auto_instantiate": True,
+        "auto_instantiate": False,
         "auto_reload": "off",
         "reactive_tests": True,
         "on_cell_change": "autorun",
@@ -641,6 +688,7 @@ DEFAULT_CONFIG: MarimoConfig = {
             os.getenv("MARIMO_STD_STREAM_MAX_BYTES", 1_000_000)
         ),
         "default_sql_output": "auto",
+        "default_csv_encoding": "utf-8",
     },
     "save": {
         "autosave": "after_delay",
@@ -654,7 +702,7 @@ DEFAULT_CONFIG: MarimoConfig = {
     },
     "language_servers": {
         "pylsp": {
-            "enabled": True,
+            "enabled": False,
             "enable_mypy": True,
             "enable_ruff": True,
             "enable_flake8": False,
@@ -667,11 +715,19 @@ DEFAULT_CONFIG: MarimoConfig = {
         "models": {
             "displayed_models": [],
             "custom_models": [],
-        }
+        },
+        "custom_providers": {},
     },
     "snippets": {
         "custom_paths": [],
         "include_default_snippets": True,
+    },
+    "mcp": {
+        "mcpServers": {},
+        "presets": [],
+    },
+    "diagnostics": {
+        "sql_linter": True,
     },
 }
 
@@ -703,10 +759,17 @@ def merge_config(
         config = deep_copy(config)
         config.get("keymap", {}).pop("overrides", {})
 
+    # Fields that should be replaced instead of merged.
+    # These are "record" types where keys can be added/removed,
+    # as opposed to config objects where you only set specific fields.
+    replace_paths = frozenset({"ai.custom_providers"})
+
     merged = cast(
         MarimoConfig,
         deep_merge(
-            cast(dict[Any, Any], config), cast(dict[Any, Any], new_config)
+            cast(dict[Any, Any], config),
+            cast(dict[Any, Any], new_config),
+            replace_paths=replace_paths,
         ),
     )
 
@@ -724,37 +787,5 @@ def merge_config(
             merged["runtime"].get("auto_reload") == "detect"  # type:ignore[comparison-overlap]
         ):
             merged["runtime"]["auto_reload"] = "lazy"
-
-    # If missing ai.models.chat_model or ai.models.edit_model, use ai.open_ai.model
-    openai_model = merged.get("ai", {}).get("open_ai", {}).get("model")
-    chat_model = merged.get("ai", {}).get("models", {}).get("chat_model")
-    edit_model = merged.get("ai", {}).get("models", {}).get("edit_model")
-    if not chat_model and not edit_model and openai_model:
-        merged_ai_config = cast(dict[Any, Any], merged.get("ai", {}))
-        models_config = {
-            "models": {
-                "chat_model": chat_model or openai_model,
-                "edit_model": edit_model or openai_model,
-            }
-        }
-        merged["ai"] = cast(
-            AiConfig, deep_merge(merged_ai_config, models_config)
-        )
-
-    # Migrate completion.model to ai.models.autocomplete_model
-    completion_model = merged.get("completion", {}).get("model")
-    autocomplete_model = (
-        merged.get("ai", {}).get("models", {}).get("autocomplete_model")
-    )
-    if completion_model and not autocomplete_model:
-        merged_ai_config = cast(dict[Any, Any], merged.get("ai", {}))
-        models_config = {
-            "models": {
-                "autocomplete_model": completion_model,
-            }
-        }
-        merged["ai"] = cast(
-            AiConfig, deep_merge(merged_ai_config, models_config)
-        )
 
     return merged

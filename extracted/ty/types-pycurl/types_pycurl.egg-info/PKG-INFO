@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-pycurl
-Version: 7.45.6.20250801
+Version: 7.45.7.20251101
 Summary: Typing stubs for pycurl
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,11 +17,11 @@ Dynamic: license-file
 
 ## Typing stubs for pycurl
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`pycurl`](https://github.com/pycurl/pycurl) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`pycurl`](https://github.com/pycurl/pycurl) package. It can be used by type checkers
 to check code that uses `pycurl`. This version of
 `types-pycurl` aims to provide accurate annotations for
-`pycurl==7.45.6`.
+`pycurl==7.45.7`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -31,7 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
+
 It was generated from typeshed commit
-[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).
+[`be34e9201db75891a67d4d3ce5e5705ee6636f6f`](https://github.com/python/typeshed/commit/be34e9201db75891a67d4d3ce5e5705ee6636f6f).

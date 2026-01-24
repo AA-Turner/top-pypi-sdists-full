@@ -1,7 +1,8 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
+import QuantConnect
 import QuantConnect.Interfaces
 import QuantConnect.Lean.Engine.Storage
 import QuantConnect.Packets
@@ -49,28 +50,53 @@ class FileHandler(System.Object):
         ...
 
 
+class StorageLimitExceededException(System.Exception):
+    """Exception thrown when the object store storage limit has been exceeded"""
+
+    def __init__(self, message: str) -> None:
+        """
+        Creates a new instance of the storage limit exceeded exception
+        
+        :param message: The associated message
+        """
+        ...
+
+
 class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]):
     """A local disk implementation of IObjectStore."""
+
+    @property
+    def max_size(self) -> int:
+        """Gets the maximum storage limit in bytes"""
+        ...
+
+    @property
+    def max_files(self) -> int:
+        """Gets the maximum number of files allowed"""
+        ...
 
     NO_READ_PERMISSIONS_ERROR: str = ...
     """
     No read permissions error message
     
-    This field is protected.
+    
+    This codeEntityType is protected.
     """
 
     NO_WRITE_PERMISSIONS_ERROR: str = ...
     """
     No write permissions error message
     
-    This field is protected.
+    
+    This codeEntityType is protected.
     """
 
     NO_DELETE_PERMISSIONS_ERROR: str = ...
     """
     No delete permissions error message
     
-    This field is protected.
+    
+    This codeEntityType is protected.
     """
 
     @property
@@ -90,7 +116,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         Provides access to the controls governing behavior of this instance, such as the persistence interval
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -99,7 +126,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         The root storage folder for the algorithm
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -108,7 +136,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         The file handler instance to use
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -167,7 +196,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         ...
 
-    def initialize(self, user_id: int, project_id: int, user_token: str, controls: QuantConnect.Packets.Controls) -> None:
+    def initialize(self, user_id: int, project_id: int, user_token: str, controls: QuantConnect.Packets.Controls, algorithm_mode: QuantConnect.AlgorithmMode) -> None:
         """
         Initializes the object store
         
@@ -175,6 +204,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         :param project_id: The project id
         :param user_token: The user token
         :param controls: The job controls instance
+        :param algorithm_mode: The algorithm mode
         """
         ...
 
@@ -182,7 +212,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         Won't trigger persist nor will check storage write permissions, useful on initialization since it allows read only permissions to load the object store
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -190,15 +221,17 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         Validates storage limits are respected on a new save operation
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
     def on_error_raised(self, error: System.Exception) -> None:
         """
-        Event invocator for the ErrorRaised event
+        Event invocator for the error_raised event
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -207,7 +240,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Get's a file path for a given path.
         Internal use only because it does not guarantee the existence of the file.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -215,7 +249,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         Overridable persistence function
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :returns: True if persistence was successful, otherwise false.
         """
@@ -244,19 +279,8 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         Storage root path
         
-        This method is protected.
-        """
-        ...
-
-
-class StorageLimitExceededException(System.Exception):
-    """Exception thrown when the object store storage limit has been exceeded"""
-
-    def __init__(self, message: str) -> None:
-        """
-        Creates a new instance of the storage limit exceeded exception
         
-        :param message: The associated message
+        This codeEntityType is protected.
         """
         ...
 

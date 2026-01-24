@@ -17,7 +17,6 @@ class DrawerComponent(RadixPrimitiveComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -50,7 +49,6 @@ class DrawerComponent(RadixPrimitiveComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -84,7 +82,6 @@ class DrawerRoot(DrawerComponent):
         prevent_scroll_restoration: Var[bool] | bool | None = None,
         should_scale_background: Var[bool] | bool | None = None,
         close_threshold: Var[float] | float | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -133,7 +130,6 @@ class DrawerRoot(DrawerComponent):
             prevent_scroll_restoration: When `True`, it prevents scroll restoration. Defaults to `True`.
             should_scale_background: Enable background scaling, it requires container element with `vaul-drawer-wrapper` attribute to scale its background.
             close_threshold: Number between 0 and 1 that determines when the drawer should be closed.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -202,7 +198,6 @@ class DrawerPortal(DrawerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -235,7 +230,6 @@ class DrawerPortal(DrawerComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -254,7 +248,6 @@ class DrawerContent(DrawerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -296,7 +289,6 @@ class DrawerContent(DrawerComponent):
 
         Args:
             *children: The list of children to use.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -315,7 +307,6 @@ class DrawerOverlay(DrawerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -348,7 +339,6 @@ class DrawerOverlay(DrawerComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -418,7 +408,6 @@ class DrawerTitle(DrawerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -451,7 +440,6 @@ class DrawerTitle(DrawerComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -470,7 +458,6 @@ class DrawerDescription(DrawerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -503,7 +490,6 @@ class DrawerDescription(DrawerComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -521,7 +507,6 @@ class DrawerHandle(DrawerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -554,7 +539,6 @@ class DrawerHandle(DrawerComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -595,7 +579,6 @@ class Drawer(ComponentNamespace):
         prevent_scroll_restoration: Var[bool] | bool | None = None,
         should_scale_background: Var[bool] | bool | None = None,
         close_threshold: Var[float] | float | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -644,7 +627,6 @@ class Drawer(ComponentNamespace):
             prevent_scroll_restoration: When `True`, it prevents scroll restoration. Defaults to `True`.
             should_scale_background: Enable background scaling, it requires container element with `vaul-drawer-wrapper` attribute to scale its background.
             close_threshold: Number between 0 and 1 that determines when the drawer should be closed.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

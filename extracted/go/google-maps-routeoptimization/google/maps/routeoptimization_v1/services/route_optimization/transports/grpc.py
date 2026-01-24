@@ -115,25 +115,24 @@ class RouteOptimizationGrpcTransport(RouteOptimizationTransport):
 
     Validity of certain types of fields:
 
-    -  ``google.protobuf.Timestamp``
+    - ``google.protobuf.Timestamp``
 
-       -  Times are in Unix time: seconds since
-          1970-01-01T00:00:00+00:00.
-       -  seconds must be in [0, 253402300799], i.e. in
-          [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
-       -  nanos must be unset or set to 0.
+      - Times are in Unix time: seconds since 1970-01-01T00:00:00+00:00.
+      - seconds must be in [0, 253402300799], i.e. in
+        [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
+      - nanos must be unset or set to 0.
 
-    -  ``google.protobuf.Duration``
+    - ``google.protobuf.Duration``
 
-       -  seconds must be in [0, 253402300799], i.e. in
-          [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
-       -  nanos must be unset or set to 0.
+      - seconds must be in [0, 253402300799], i.e. in
+        [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
+      - nanos must be unset or set to 0.
 
-    -  ``google.type.LatLng``
+    - ``google.type.LatLng``
 
-       -  latitude must be in [-90.0, 90.0].
-       -  longitude must be in [-180.0, 180.0].
-       -  at least one of latitude and longitude must be non-zero.
+      - latitude must be in [-90.0, 90.0].
+      - longitude must be in [-180.0, 180.0].
+      - at least one of latitude and longitude must be non-zero.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -173,9 +172,10 @@ class RouteOptimizationGrpcTransport(RouteOptimizationTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -309,9 +309,10 @@ class RouteOptimizationGrpcTransport(RouteOptimizationTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -454,6 +455,111 @@ class RouteOptimizationGrpcTransport(RouteOptimizationTransport):
                 response_deserializer=operations_pb2.Operation.FromString,
             )
         return self._stubs["batch_optimize_tours"]
+
+    @property
+    def optimize_tours_long_running(
+        self,
+    ) -> Callable[
+        [route_optimization_service.OptimizeToursRequest], operations_pb2.Operation
+    ]:
+        r"""Return a callable for the optimize tours long running method over gRPC.
+
+        This is a variant of the
+        [OptimizeTours][google.maps.routeoptimization.v1.RouteOptimization.OptimizeTours]
+        method designed for optimizations with large timeout values. It
+        should be preferred over the ``OptimizeTours`` method for
+        optimizations that take longer than a few minutes.
+
+        The returned [long-running
+        operation][google.longrunning.Operation] (LRO) will have a name
+        of the format ``<parent>/operations/<operation_id>`` and can be
+        used to track progress of the computation. The
+        [metadata][google.longrunning.Operation.metadata] field type is
+        [OptimizeToursLongRunningMetadata][google.maps.routeoptimization.v1.OptimizeToursLongRunningMetadata].
+        The [response][google.longrunning.Operation.response] field type
+        is
+        [OptimizeToursResponse][google.maps.routeoptimization.v1.OptimizeToursResponse],
+        if successful.
+
+        Experimental: See
+        https://developers.google.com/maps/tt/route-optimization/experimental/otlr/make-request
+        for more details.
+
+        Returns:
+            Callable[[~.OptimizeToursRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "optimize_tours_long_running" not in self._stubs:
+            self._stubs[
+                "optimize_tours_long_running"
+            ] = self._logged_channel.unary_unary(
+                "/google.maps.routeoptimization.v1.RouteOptimization/OptimizeToursLongRunning",
+                request_serializer=route_optimization_service.OptimizeToursRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["optimize_tours_long_running"]
+
+    @property
+    def optimize_tours_uri(
+        self,
+    ) -> Callable[
+        [route_optimization_service.OptimizeToursUriRequest], operations_pb2.Operation
+    ]:
+        r"""Return a callable for the optimize tours uri method over gRPC.
+
+        This is a variant of the
+        [OptimizeToursLongRunning][google.maps.routeoptimization.v1.RouteOptimization.OptimizeToursLongRunning]
+        method designed for optimizations with large timeout values and
+        large input/output sizes.
+
+        The client specifies the URI of the ``OptimizeToursRequest``
+        stored in Google Cloud Storage and the server writes the
+        ``OptimizeToursResponse`` to a client-specified Google Cloud
+        Storage URI.
+
+        This method should be preferred over the ``OptimizeTours``
+        method for optimizations that take longer than a few minutes and
+        input/output sizes that are larger than 8MB, though it can be
+        used for shorter and smaller optimizations as well.
+
+        The returned [long-running
+        operation][google.longrunning.Operation] (LRO) will have a name
+        of the format ``<parent>/operations/<operation_id>`` and can be
+        used to track progress of the computation. The
+        [metadata][google.longrunning.Operation.metadata] field type is
+        [OptimizeToursLongRunningMetadata][google.maps.routeoptimization.v1.OptimizeToursUriMetadata].
+        The [response][google.longrunning.Operation.response] field type
+        is
+        [OptimizeToursUriResponse][google.maps.routeoptimization.v1.OptimizeToursUriResponse],
+        if successful.
+
+        Experimental: See
+        https://developers.google.com/maps/tt/route-optimization/experimental/otlr/make-request
+        for more details.
+
+        Returns:
+            Callable[[~.OptimizeToursUriRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "optimize_tours_uri" not in self._stubs:
+            self._stubs["optimize_tours_uri"] = self._logged_channel.unary_unary(
+                "/google.maps.routeoptimization.v1.RouteOptimization/OptimizeToursUri",
+                request_serializer=route_optimization_service.OptimizeToursUriRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["optimize_tours_uri"]
 
     def close(self):
         self._logged_channel.close()

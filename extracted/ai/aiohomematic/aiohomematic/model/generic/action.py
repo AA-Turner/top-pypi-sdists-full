@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
-Module for action data points.
+Generic action data points for triggering operations.
+
+Public API of this module is defined by __all__.
 
 Actions are used to send data for write only parameters to backend.
 """
@@ -27,8 +29,12 @@ class DpAction(GenericDataPoint[None, Any]):
     _category = DataPointCategory.ACTION
     _validate_state_change = False
 
-    def _prepare_value_for_sending(self, value: Any, do_validate: bool = True) -> Any:
+    def _prepare_value_for_sending(self, *, value: Any, do_validate: bool = True) -> Any:
         """Prepare value before sending."""
-        if (index := get_index_of_value_from_value_list(value=value, value_list=self._values)) is not None:
-            return index
+        # For string-based ENUMs (HmIP), send the string value directly.
+        # For index-based ENUMs (HM), convert string to index.
+        if self._values is not None and isinstance(value, str) and value in self._values:
+            if self._enum_value_is_index:
+                return get_index_of_value_from_value_list(value=value, value_list=self._values)
+            return value
         return value

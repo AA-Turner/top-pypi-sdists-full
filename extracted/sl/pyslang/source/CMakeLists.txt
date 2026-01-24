@@ -40,6 +40,7 @@ add_custom_command(
          ${CMAKE_CURRENT_BINARY_DIR}/SyntaxClone.cpp
          ${CMAKE_CURRENT_BINARY_DIR}/slang/syntax/SyntaxKind.h
          ${CMAKE_CURRENT_BINARY_DIR}/slang/syntax/SyntaxFwd.h
+         ${CMAKE_CURRENT_BINARY_DIR}/slang/syntax/CSTJsonVisitorGen.h
          ${CMAKE_CURRENT_BINARY_DIR}/slang/parsing/TokenKind.h
          ${CMAKE_CURRENT_BINARY_DIR}/slang/parsing/KnownSystemName.h
          ${CMAKE_CURRENT_BINARY_DIR}/TokenKind.cpp
@@ -69,7 +70,7 @@ add_library(
   analysis/AnalyzedProcedure.cpp
   analysis/CaseDecisionDag.cpp
   analysis/ClockInference.cpp
-  analysis/DataFlowAnalysis.cpp
+  analysis/DFAResults.cpp
   analysis/DriverTracker.cpp
   analysis/ValueDriver.cpp
   diagnostics/DiagnosticClient.cpp
@@ -95,6 +96,7 @@ add_library(
   parsing/Preprocessor_macros.cpp
   parsing/Preprocessor_pragmas.cpp
   parsing/Token.cpp
+  syntax/CSTSerializer.cpp
   syntax/SyntaxFacts.cpp
   syntax/SyntaxNode.cpp
   syntax/SyntaxPrinter.cpp

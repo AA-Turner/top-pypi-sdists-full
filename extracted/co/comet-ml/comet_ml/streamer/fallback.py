@@ -81,13 +81,12 @@ class FallbackStreamer(BaseStreamer):
         online_streamer: OnlineStreamer,
         server_connection_monitor: ServerConnectionMonitor,
         rest_server_connection: RestServerConnection,
-        initial_offset: int,
         terminate_timeout: int = 10,
         offline_directory: Optional[str] = None,
         enable_fallback_to_offline: bool = True,
         keep_offline_zip: bool = False,  # allows to retain offline zip even without connection interruption
     ) -> None:
-        super().__init__(initial_offset=initial_offset, queue_timeout=0.5)
+        super().__init__(queue_timeout=0.5)
 
         self.daemon = True
         self.name = "FallbackStreamer(experiment=%r)" % online_streamer.experiment_key

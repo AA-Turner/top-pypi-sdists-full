@@ -6,9 +6,15 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.bank_account import BankAccount
+from ..types.create_bank_account_response import CreateBankAccountResponse
+from ..types.disable_bank_account_response import DisableBankAccountResponse
 from ..types.get_bank_account_by_v1id_response import GetBankAccountByV1IdResponse
 from ..types.get_bank_account_response import GetBankAccountResponse
+from ..types.list_bank_accounts_response import ListBankAccountsResponse
 from .raw_client import AsyncRawBankAccountsClient, RawBankAccountsClient
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class BankAccountsClient:
@@ -32,8 +38,9 @@ class BankAccountsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         location_id: typing.Optional[str] = None,
+        customer_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[BankAccount]:
+    ) -> SyncPager[BankAccount, ListBankAccountsResponse]:
         """
         Returns a list of [BankAccount](entity:BankAccount) objects linked to a Square account.
 
@@ -55,12 +62,16 @@ class BankAccountsClient:
             Location ID. You can specify this optional filter
             to retrieve only the linked bank accounts belonging to a specific location.
 
+        customer_id : typing.Optional[str]
+            Customer ID. You can specify this optional filter
+            to retrieve only the linked bank accounts belonging to a specific customer.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SyncPager[BankAccount]
+        SyncPager[BankAccount, ListBankAccountsResponse]
             Success
 
         Examples
@@ -70,7 +81,12 @@ class BankAccountsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.bank_accounts.list()
+        response = client.bank_accounts.list(
+            cursor="cursor",
+            limit=1,
+            location_id="location_id",
+            customer_id="customer_id",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -78,8 +94,65 @@ class BankAccountsClient:
             yield page
         """
         return self._raw_client.list(
-            cursor=cursor, limit=limit, location_id=location_id, request_options=request_options
+            cursor=cursor,
+            limit=limit,
+            location_id=location_id,
+            customer_id=customer_id,
+            request_options=request_options,
         )
+
+    def create_bank_account(
+        self,
+        *,
+        idempotency_key: str,
+        source_id: str,
+        customer_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateBankAccountResponse:
+        """
+        Store a bank account on file for a square account
+
+        Parameters
+        ----------
+        idempotency_key : str
+            Unique ID. For more information, see the
+            [Idempotency](https://developer.squareup.com/docs/working-with-apis/idempotency).
+
+        source_id : str
+            The ID of the source that represents the bank account information to be stored. This field
+            accepts the payment token created by WebSDK
+
+        customer_id : typing.Optional[str]
+            The ID of the customer associated with the bank account to be stored.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateBankAccountResponse
+            Success
+
+        Examples
+        --------
+        from square import Square
+
+        client = Square(
+            token="YOUR_TOKEN",
+        )
+        client.bank_accounts.create_bank_account(
+            idempotency_key="4e43559a-f0fd-47d3-9da2-7ea1f97d94be",
+            source_id="bnon:CA4SEHsQwr0rx6DbWLD5BQaqMnoYAQ",
+            customer_id="HM3B2D5JKGZ69359BTEHXM2V8M",
+        )
+        """
+        _response = self._raw_client.create_bank_account(
+            idempotency_key=idempotency_key,
+            source_id=source_id,
+            customer_id=customer_id,
+            request_options=request_options,
+        )
+        return _response.data
 
     def get_by_v1id(
         self, v1bank_account_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -119,8 +192,7 @@ class BankAccountsClient:
         self, bank_account_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetBankAccountResponse:
         """
-        Returns details of a [BankAccount](entity:BankAccount)
-        linked to a Square account.
+        Retrieve details of a [BankAccount](entity:BankAccount) bank account linked to a Square account.
 
         Parameters
         ----------
@@ -149,6 +221,39 @@ class BankAccountsClient:
         _response = self._raw_client.get(bank_account_id, request_options=request_options)
         return _response.data
 
+    def disable_bank_account(
+        self, bank_account_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DisableBankAccountResponse:
+        """
+        Disable a bank account.
+
+        Parameters
+        ----------
+        bank_account_id : str
+            The ID of the bank account to disable.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DisableBankAccountResponse
+            Success
+
+        Examples
+        --------
+        from square import Square
+
+        client = Square(
+            token="YOUR_TOKEN",
+        )
+        client.bank_accounts.disable_bank_account(
+            bank_account_id="bank_account_id",
+        )
+        """
+        _response = self._raw_client.disable_bank_account(bank_account_id, request_options=request_options)
+        return _response.data
+
 
 class AsyncBankAccountsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -171,8 +276,9 @@ class AsyncBankAccountsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         location_id: typing.Optional[str] = None,
+        customer_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[BankAccount]:
+    ) -> AsyncPager[BankAccount, ListBankAccountsResponse]:
         """
         Returns a list of [BankAccount](entity:BankAccount) objects linked to a Square account.
 
@@ -194,12 +300,16 @@ class AsyncBankAccountsClient:
             Location ID. You can specify this optional filter
             to retrieve only the linked bank accounts belonging to a specific location.
 
+        customer_id : typing.Optional[str]
+            Customer ID. You can specify this optional filter
+            to retrieve only the linked bank accounts belonging to a specific customer.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncPager[BankAccount]
+        AsyncPager[BankAccount, ListBankAccountsResponse]
             Success
 
         Examples
@@ -214,7 +324,12 @@ class AsyncBankAccountsClient:
 
 
         async def main() -> None:
-            response = await client.bank_accounts.list()
+            response = await client.bank_accounts.list(
+                cursor="cursor",
+                limit=1,
+                location_id="location_id",
+                customer_id="customer_id",
+            )
             async for item in response:
                 yield item
 
@@ -226,8 +341,73 @@ class AsyncBankAccountsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(
-            cursor=cursor, limit=limit, location_id=location_id, request_options=request_options
+            cursor=cursor,
+            limit=limit,
+            location_id=location_id,
+            customer_id=customer_id,
+            request_options=request_options,
         )
+
+    async def create_bank_account(
+        self,
+        *,
+        idempotency_key: str,
+        source_id: str,
+        customer_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateBankAccountResponse:
+        """
+        Store a bank account on file for a square account
+
+        Parameters
+        ----------
+        idempotency_key : str
+            Unique ID. For more information, see the
+            [Idempotency](https://developer.squareup.com/docs/working-with-apis/idempotency).
+
+        source_id : str
+            The ID of the source that represents the bank account information to be stored. This field
+            accepts the payment token created by WebSDK
+
+        customer_id : typing.Optional[str]
+            The ID of the customer associated with the bank account to be stored.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateBankAccountResponse
+            Success
+
+        Examples
+        --------
+        import asyncio
+
+        from square import AsyncSquare
+
+        client = AsyncSquare(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.bank_accounts.create_bank_account(
+                idempotency_key="4e43559a-f0fd-47d3-9da2-7ea1f97d94be",
+                source_id="bnon:CA4SEHsQwr0rx6DbWLD5BQaqMnoYAQ",
+                customer_id="HM3B2D5JKGZ69359BTEHXM2V8M",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_bank_account(
+            idempotency_key=idempotency_key,
+            source_id=source_id,
+            customer_id=customer_id,
+            request_options=request_options,
+        )
+        return _response.data
 
     async def get_by_v1id(
         self, v1bank_account_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -275,8 +455,7 @@ class AsyncBankAccountsClient:
         self, bank_account_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetBankAccountResponse:
         """
-        Returns details of a [BankAccount](entity:BankAccount)
-        linked to a Square account.
+        Retrieve details of a [BankAccount](entity:BankAccount) bank account linked to a Square account.
 
         Parameters
         ----------
@@ -311,4 +490,45 @@ class AsyncBankAccountsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(bank_account_id, request_options=request_options)
+        return _response.data
+
+    async def disable_bank_account(
+        self, bank_account_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DisableBankAccountResponse:
+        """
+        Disable a bank account.
+
+        Parameters
+        ----------
+        bank_account_id : str
+            The ID of the bank account to disable.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DisableBankAccountResponse
+            Success
+
+        Examples
+        --------
+        import asyncio
+
+        from square import AsyncSquare
+
+        client = AsyncSquare(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.bank_accounts.disable_bank_account(
+                bank_account_id="bank_account_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.disable_bank_account(bank_account_id, request_options=request_options)
         return _response.data

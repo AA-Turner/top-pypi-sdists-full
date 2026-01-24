@@ -3,7 +3,7 @@ Type annotations for workdocs service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workdocs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -113,12 +114,6 @@ from .type_defs import (
     UpdateUserResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -129,32 +124,32 @@ __all__ = ("WorkDocsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictingOperationException: Type[BotocoreClientError]
-    CustomMetadataLimitExceededException: Type[BotocoreClientError]
-    DeactivatingLastSystemUserException: Type[BotocoreClientError]
-    DocumentLockedForCommentsException: Type[BotocoreClientError]
-    DraftUploadOutOfSyncException: Type[BotocoreClientError]
-    EntityAlreadyExistsException: Type[BotocoreClientError]
-    EntityNotExistsException: Type[BotocoreClientError]
-    FailedDependencyException: Type[BotocoreClientError]
-    IllegalUserStateException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidCommentOperationException: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    InvalidPasswordException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ProhibitedStateException: Type[BotocoreClientError]
-    RequestedEntityTooLargeException: Type[BotocoreClientError]
-    ResourceAlreadyCheckedOutException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    StorageLimitExceededException: Type[BotocoreClientError]
-    StorageLimitWillExceedException: Type[BotocoreClientError]
-    TooManyLabelsException: Type[BotocoreClientError]
-    TooManySubscriptionsException: Type[BotocoreClientError]
-    UnauthorizedOperationException: Type[BotocoreClientError]
-    UnauthorizedResourceAccessException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictingOperationException: type[BotocoreClientError]
+    CustomMetadataLimitExceededException: type[BotocoreClientError]
+    DeactivatingLastSystemUserException: type[BotocoreClientError]
+    DocumentLockedForCommentsException: type[BotocoreClientError]
+    DraftUploadOutOfSyncException: type[BotocoreClientError]
+    EntityAlreadyExistsException: type[BotocoreClientError]
+    EntityNotExistsException: type[BotocoreClientError]
+    FailedDependencyException: type[BotocoreClientError]
+    IllegalUserStateException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidCommentOperationException: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    InvalidPasswordException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ProhibitedStateException: type[BotocoreClientError]
+    RequestedEntityTooLargeException: type[BotocoreClientError]
+    ResourceAlreadyCheckedOutException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    StorageLimitExceededException: type[BotocoreClientError]
+    StorageLimitWillExceedException: type[BotocoreClientError]
+    TooManyLabelsException: type[BotocoreClientError]
+    TooManySubscriptionsException: type[BotocoreClientError]
+    UnauthorizedOperationException: type[BotocoreClientError]
+    UnauthorizedResourceAccessException: type[BotocoreClientError]
 
 
 class WorkDocsClient(AioBaseClient):
@@ -235,7 +230,7 @@ class WorkDocsClient(AioBaseClient):
 
     async def create_custom_metadata(
         self, **kwargs: Unpack[CreateCustomMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds one or more custom properties to the specified resource (a folder,
         document, or version).
@@ -254,7 +249,7 @@ class WorkDocsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workdocs/client/#create_folder)
         """
 
-    async def create_labels(self, **kwargs: Unpack[CreateLabelsRequestTypeDef]) -> Dict[str, Any]:
+    async def create_labels(self, **kwargs: Unpack[CreateLabelsRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified list of labels to the given resource (a document or folder).
 
@@ -305,7 +300,7 @@ class WorkDocsClient(AioBaseClient):
 
     async def delete_custom_metadata(
         self, **kwargs: Unpack[DeleteCustomMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes custom metadata from the specified resource.
 
@@ -353,7 +348,7 @@ class WorkDocsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workdocs/client/#delete_folder_contents)
         """
 
-    async def delete_labels(self, **kwargs: Unpack[DeleteLabelsRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_labels(self, **kwargs: Unpack[DeleteLabelsRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified list of labels from a resource.
 
@@ -756,7 +751,7 @@ class WorkDocsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

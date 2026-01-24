@@ -576,7 +576,7 @@ Keyword arguments:
 
 - zIndex (string | number; optional):
     `z-index` CSS property of the root element, `200` by default."""
-    _children_props = ['title', 'overlayProps.children']
+    _children_props: typing.List[str] = ['title', 'overlayProps.children']
     _base_nodes = ['title', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Drawer'

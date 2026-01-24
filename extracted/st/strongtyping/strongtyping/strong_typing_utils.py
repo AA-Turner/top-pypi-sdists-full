@@ -410,6 +410,15 @@ def check_typevar(arg, possible_types, *args, **kwargs):
 supported_typings = vars()
 
 
+def check_annotated_type(argument, type_of) -> bool:
+    result = True  # when no callable is assigned to __metadata__ we return True
+    for func_obj in type_of.__metadata__:
+        if callable(func_obj):
+            result = result and func_obj(argument)
+
+    return result
+
+
 def check_type(argument, type_of, mro=False, **kwargs):
     from strongtyping.types import IterValidator, Validator
 
@@ -526,6 +535,8 @@ def check_type(argument, type_of, mro=False, **kwargs):
         elif origin_name == "readonly":
             sub_type = get_possible_types(type_of, origin_name)
             return check_type(argument, sub_type)
+        elif origin_name == "annotated":
+            return check_annotated_type(argument, type_of)
         elif mro:
             if origin_name == "union":
                 possible_types = get_possible_types(type_of)

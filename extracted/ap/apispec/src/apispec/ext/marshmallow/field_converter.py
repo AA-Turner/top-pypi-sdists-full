@@ -80,6 +80,7 @@ _VALID_PROPERTIES = {
     "xml",
     "externalDocs",
     "example",
+    "examples",
     "nullable",
     "deprecated",
 }

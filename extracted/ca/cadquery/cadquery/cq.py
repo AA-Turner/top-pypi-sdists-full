@@ -664,7 +664,7 @@ class Workplane(object):
         :type obj: a CQ object
         :returns: a CQ object with obj's workplane
         """
-        out = obj.__class__(obj.plane)
+        out = copy(obj)
         out.parent = self
         out.ctx = self.ctx
         return out
@@ -1413,8 +1413,10 @@ class Workplane(object):
             p = obj.endPoint()
         elif isinstance(obj, Vector):
             p = obj
+        elif isinstance(obj, Vertex):
+            p = obj.Center()
         else:
-            raise RuntimeError("Cannot convert object type '%s' to vector " % type(obj))
+            raise ValueError(f"Cannot convert object type {type(obj)} to vector.")
 
         if useLocalCoords:
             return self.plane.toLocalCoords(p)
@@ -2394,6 +2396,7 @@ class Workplane(object):
         r = self.newObject(w)
         r.ctx.pendingWires = w
         r.ctx.pendingEdges = []
+        r.ctx.firstPoint = None
 
         return r
 

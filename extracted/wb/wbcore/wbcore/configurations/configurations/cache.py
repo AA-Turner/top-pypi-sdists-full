@@ -8,7 +8,7 @@ class Cache:
     )  # The default (10 days) timeout in seconds
 
     @property
-    def CACHES(self):
+    def CACHES(self):  # noqa
         if self.CACHE_REDIS_URL:
             return {
                 "default": {

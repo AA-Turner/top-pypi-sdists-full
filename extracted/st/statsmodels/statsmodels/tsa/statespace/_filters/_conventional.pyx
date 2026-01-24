@@ -366,7 +366,7 @@ cdef np.float32_t sloglikelihood_conventional(sKalmanFilter kfilter, sStatespace
         np.float32_t alpha = 1.0
         np.float32_t beta = 0.0
 
-    loglikelihood = -0.5*(model._k_endog*dlog(2*NPY_PI) + determinant)
+    loglikelihood = -0.5*(model._k_endog*dlog(2*M_PI) + determinant)
 
     if not kfilter.filter_method & FILTER_CONCENTRATED:
         loglikelihood = loglikelihood - 0.5*blas.sdot(&model._k_endog, kfilter._forecast_error, &inc, kfilter._tmp2, &inc)
@@ -732,7 +732,7 @@ cdef np.float64_t dloglikelihood_conventional(dKalmanFilter kfilter, dStatespace
         np.float64_t alpha = 1.0
         np.float64_t beta = 0.0
 
-    loglikelihood = -0.5*(model._k_endog*dlog(2*NPY_PI) + determinant)
+    loglikelihood = -0.5*(model._k_endog*dlog(2*M_PI) + determinant)
 
     if not kfilter.filter_method & FILTER_CONCENTRATED:
         loglikelihood = loglikelihood - 0.5*blas.ddot(&model._k_endog, kfilter._forecast_error, &inc, kfilter._tmp2, &inc)
@@ -1098,7 +1098,7 @@ cdef np.complex64_t cloglikelihood_conventional(cKalmanFilter kfilter, cStatespa
         np.complex64_t alpha = 1.0
         np.complex64_t beta = 0.0
 
-    loglikelihood = -0.5*(model._k_endog*zlog(2*NPY_PI) + determinant)
+    loglikelihood = -0.5*(model._k_endog*zlog(2*M_PI) + determinant)
 
     if not kfilter.filter_method & FILTER_CONCENTRATED:
         blas.cgemv("N", &inc, &model._k_endog,
@@ -1472,7 +1472,7 @@ cdef np.complex128_t zloglikelihood_conventional(zKalmanFilter kfilter, zStatesp
         np.complex128_t alpha = 1.0
         np.complex128_t beta = 0.0
 
-    loglikelihood = -0.5*(model._k_endog*zlog(2*NPY_PI) + determinant)
+    loglikelihood = -0.5*(model._k_endog*zlog(2*M_PI) + determinant)
 
     if not kfilter.filter_method & FILTER_CONCENTRATED:
         blas.zgemv("N", &inc, &model._k_endog,

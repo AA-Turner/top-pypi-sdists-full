@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: legacy-cgi
-Version: 2.6.3
+Version: 2.6.4
 Summary: Fork of the standard library cgi and cgitb modules removed in Python 3.13
 Project-URL: repository, https://github.com/jackrosenthal/legacy-cgi
 Author-email: Guido van Rossum <guido@python.org>, Andreas Paepcke <paepcke@haddock.stanford.edu>, Steve Majewski <sdm7g@virginia.edu>, Michael McLay <mclay@eeel.nist.gov>

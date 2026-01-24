@@ -10,10 +10,10 @@ pub fn hash_str(op: *mut PyObject) -> Py_hash_t {
 
 #[inline(always)]
 pub fn unicode_from_str(buf: &str) -> *mut PyObject {
-    unsafe { PyUnicode_FromStringAndSize(buf.as_ptr() as *const i8, buf.len() as isize) }
+    unsafe { PyUnicode_FromStringAndSize(buf.as_ptr().cast::<i8>(), buf.len() as isize) }
 }
 
 #[inline(always)]
-pub fn unicode_to_str(op: *mut PyObject) -> Option<&'static str> {
+pub fn unicode_to_str(op: *mut PyObject) -> Result<&'static str, UnicodeError> {
     unicode_to_str_via_ffi(op)
 }

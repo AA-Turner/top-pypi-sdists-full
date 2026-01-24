@@ -40,6 +40,7 @@ from worker_automate_hub.utils.updater import (
     get_installed_version,
     update_version_in_toml,
 )
+from worker_automate_hub.utils.credentials_manager import CredentialsManager
 from worker_automate_hub.utils.util import check_screen_resolution
 
 console = Console()
@@ -134,6 +135,9 @@ def main_process(stop_event: threading.Event):
     update_version_in_toml(toml_file_path, atual_version)
     worker_config = load_worker_config()
 
+    logger.info("Carregando credenciais...")
+    CredentialsManager()
+    logger.info("Credenciais carregadas.")
     custom_font = "slant"
     ascii_banner = pyfiglet.figlet_format(f"Worker", font=custom_font)
     # os.system("cls") Comentado temporariamente

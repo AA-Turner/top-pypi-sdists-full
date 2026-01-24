@@ -88,6 +88,5 @@ def test_with_compound_statement_union_all():
 """
     assert_table_lineage_equal(
         sql,
-        {"users"},
-        test_sqlparse=False,
+        {"users", "cases"},
     )

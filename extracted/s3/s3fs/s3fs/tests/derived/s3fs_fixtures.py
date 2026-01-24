@@ -38,9 +38,7 @@ class S3fsFixtures(AbstractFixtures):
                         "Effect": "Deny",
                         "Principal": "*",
                         "Action": "s3:PutObject",
-                        "Resource": "arn:aws:s3:::{bucket_name}/*".format(
-                            bucket_name=secure_bucket_name
-                        ),
+                        "Resource": f"arn:aws:s3:::{secure_bucket_name}/*",
                         "Condition": {
                             "StringNotEquals": {
                                 "s3:x-amz-server-side-encryption": "aws:kms"

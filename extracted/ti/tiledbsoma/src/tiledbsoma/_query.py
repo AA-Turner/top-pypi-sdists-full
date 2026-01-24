@@ -7,17 +7,12 @@
 from __future__ import annotations
 
 import enum
+import json
 import warnings
+from collections.abc import Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Literal,
-    Protocol,
-    Sequence,
-    TypeVar,
-)
+from threading import Lock
+from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, TypeVar
 
 import attrs
 import numpy as np
@@ -51,7 +46,7 @@ from somacore.query.query import (
 from somacore.query.types import IndexFactory, IndexLike
 from typing_extensions import Self
 
-from ._constants import SPATIAL_DISCLAIMER
+from ._constants import SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, SPATIAL_DISCLAIMER
 from ._dask.load import SOMADaskConfig, load_daskarray
 from ._exception import SOMAError
 
@@ -61,7 +56,7 @@ if TYPE_CHECKING:
 from ._fastercsx import CompressedMatrix
 from ._measurement import Measurement
 from ._sparse_nd_array import SparseNDArray
-from ._util import _resolve_futures
+from ._util import MISSING, Sentinel, _df_set_index, _resolve_futures
 
 _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
@@ -96,23 +91,27 @@ class AxisIndexer(query.AxisIndexer):
     Lifecycle: maturing
     """
 
-    query: "ExperimentAxisQuery"
+    query: ExperimentAxisQuery
     _index_factory: IndexFactory
     _cached_obs: IndexLike | None = None
     _cached_var: IndexLike | None = None
+    _obs_lock: Lock = attrs.field(factory=Lock)
+    _var_lock: Lock = attrs.field(factory=Lock)
 
     @property
     def _obs_index(self) -> IndexLike:
         """Private. Return an index for the ``obs`` axis."""
-        if self._cached_obs is None:
-            self._cached_obs = self._index_factory(self.query.obs_joinids().to_numpy())
+        with self._obs_lock:
+            if self._cached_obs is None:
+                self._cached_obs = self._index_factory(self.query.obs_joinids().to_numpy())
         return self._cached_obs
 
     @property
     def _var_index(self) -> IndexLike:
         """Private. Return an index for the ``var`` axis."""
-        if self._cached_var is None:
-            self._cached_var = self._index_factory(self.query.var_joinids().to_numpy())
+        with self._var_lock:
+            if self._cached_var is None:
+                self._cached_var = self._index_factory(self.query.var_joinids().to_numpy())
         return self._cached_var
 
     def by_obs(self, coords: Numpyable) -> npt.NDArray[np.intp]:
@@ -159,15 +158,19 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
     def __init__(
         self,
-        experiment: "Experiment",
+        experiment: Experiment,
         measurement_name: str,
         *,
-        obs_query: AxisQuery = AxisQuery(),
-        var_query: AxisQuery = AxisQuery(),
+        obs_query: AxisQuery | None = None,
+        var_query: AxisQuery | None = None,
         index_factory: IndexFactory = pd.Index,
-    ):
+    ) -> None:
         if measurement_name not in experiment.ms:
             raise ValueError("Measurement does not exist in the experiment")
+        if obs_query is None:
+            obs_query = AxisQuery()
+        if var_query is None:
+            var_query = AxisQuery()
 
         # Users often like to pass `foo=None` and we should let them
         obs_query = obs_query or AxisQuery()
@@ -188,7 +191,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         self,
         *,
         column_names: Sequence[str] | None = None,
-        batch_size: BatchSize = BatchSize(),
+        batch_size: BatchSize | None = None,
         partitions: ReadPartitions | None = None,
         result_order: ResultOrderStr = _RO_AUTO,
         platform_config: PlatformConfig | None = None,
@@ -199,6 +202,8 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
         Lifecycle: maturing
         """
+        if batch_size is None:
+            batch_size = BatchSize()
         obs_query = self._matrix_axis_query.obs
         return self._obs_df.read(
             obs_query.coords,
@@ -214,7 +219,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         self,
         *,
         column_names: Sequence[str] | None = None,
-        batch_size: BatchSize = BatchSize(),
+        batch_size: BatchSize | None = None,
         partitions: ReadPartitions | None = None,
         result_order: ResultOrderStr = _RO_AUTO,
         platform_config: PlatformConfig | None = None,
@@ -225,6 +230,8 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
         Lifecycle: maturing
         """
+        if batch_size is None:
+            batch_size = BatchSize()
         var_query = self._matrix_axis_query.var
         return self._var_df.read(
             var_query.coords,
@@ -278,7 +285,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         self,
         layer_name: str,
         *,
-        batch_size: BatchSize = BatchSize(),
+        batch_size: BatchSize | None = None,
         partitions: ReadPartitions | None = None,
         result_order: ResultOrderStr = _RO_AUTO,
         platform_config: PlatformConfig | None = None,
@@ -296,6 +303,8 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
         Lifecycle: maturing
         """
+        if batch_size is None:
+            batch_size = BatchSize()
         try:
             x_layer = self._ms.X[layer_name]
         except KeyError as ke:
@@ -333,18 +342,14 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
         Lifecycle: maturing
         """
-        return self._get_annotation_layer("obsm", layer).read(
-            (self._joinids.obs, slice(None))
-        )
+        return self._get_annotation_layer("obsm", layer).read((self._joinids.obs, slice(None)))
 
     def varm(self, layer: str) -> SparseRead:
         """Returns a ``varm`` layer as a sparse read.
 
         Lifecycle: maturing
         """
-        return self._get_annotation_layer("varm", layer).read(
-            (self._joinids.var, slice(None))
-        )
+        return self._get_annotation_layer("varm", layer).read((self._joinids.var, slice(None)))
 
     def obs_scene_ids(self) -> pa.Array:
         """Returns a pyarrow array with scene ids that contain obs from this query.
@@ -354,14 +359,9 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         try:
             obs_scene = self.experiment.obs_spatial_presence
         except KeyError as ke:
-            raise KeyError(
-                "No obs_spatial_presence dataframe in this experiment."
-            ) from ke
+            raise KeyError("No obs_spatial_presence dataframe in this experiment.") from ke
         if not isinstance(obs_scene, DataFrame):
-            raise TypeError(
-                f"obs_spatial_presence must be a dataframe; got "
-                f"{type(obs_scene).__name__}."
-            )
+            raise TypeError(f"obs_spatial_presence must be a dataframe; got {type(obs_scene).__name__}.")
 
         full_table = obs_scene.read(
             coords=(self._joinids.obs, slice(None)),
@@ -380,15 +380,9 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         try:
             var_scene = self._ms.var_spatial_presence
         except KeyError as ke:
-            raise KeyError(
-                f"No var_spatial_presence dataframe in measurement "
-                f"'{self.measurement_name}'."
-            ) from ke
+            raise KeyError(f"No var_spatial_presence dataframe in measurement '{self.measurement_name}'.") from ke
         if not isinstance(var_scene, DataFrame):
-            raise TypeError(
-                f"var_spatial_presence must be a dataframe; got "
-                f"{type(var_scene).__name__}."
-            )
+            raise TypeError(f"var_spatial_presence must be a dataframe; got {type(var_scene).__name__}.")
 
         full_table = var_scene.read(
             coords=(self._joinids.var, slice(None)),
@@ -400,7 +394,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
     def to_anndata(
         self,
-        X_name: str,
+        X_name: str | Sentinel | None = MISSING,
         *,
         column_names: AxisColumnNames | None = None,
         X_layers: Sequence[str] = (),
@@ -410,12 +404,18 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         varp_layers: Sequence[str] = (),
         drop_levels: bool = False,
         dask: SOMADaskConfig | None = None,
+        obs_id_name: str | None = None,
+        var_id_name: str | None = None,
     ) -> AnnData:
         """Exports the query to an in-memory ``AnnData`` object.
 
         Args:
             X_name:
                 The X layer to read and return in the ``X`` slot.
+                If unspecified (default), and the measurement contains an X layer named
+                ``"data"``, it will be used. If ``None``, the returned AnnData will have
+                ``X=None`` and ``layers`` will be unpopulated. If a string, that layer must
+                exist in the measurement ``X`` collection.
             column_names:
                 The columns in the ``var`` and ``obs`` dataframes to read.
             X_layers:
@@ -434,6 +434,26 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
             dask:
                 If not ``None``, load the X layer as a Dask array. See
                 :class:`DaskConfig` for details.
+            obs_id_name:
+                If specified, set this column as the index in the ``obs`` dataframe.
+                If not specified, the default index column (see Notes below) will be determined,
+                and set as the dataframe index.
+            var_id_name:
+                If specified, set this column as the index in the ``obs`` dataframe.
+                If not specified, the default index column (see Notes below) will be determined,
+                and set as the dataframe index.
+
+        Notes:
+        The default index column for the ``obs`` and ``var`` dataframes is determined with the following
+        algorithm:
+
+        - if the index column name is explicitly specified (e.g., via ``obs_id_name``), it
+          will be used as the index.
+        - if the original index column was written to the DataFrame metadata (e.g., during
+          ingestion from AnnData), this will be used as the index.
+        - if the dataframe contains a column named ``obs_id`` (for obs) or ``var_id`` (for var),
+          this will be used as the index.
+        - otherwise, the default Pandas index will be used.
 
         Lifecycle: experimental
         """
@@ -442,9 +462,29 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
 
         tp = self._threadpool
         x_collection = self._ms.X
-        all_x_names = [X_name] + list(X_layers)
         all_x_arrays: dict[str, SparseNDArray] = {}
-        for _xname in all_x_names:
+        # Enforce identical semantics to io.to_anndata for X handling
+        if X_name is None and X_layers:
+            raise ValueError("If X_name is None, X_layers must not be provided")
+
+        chosen_x: str | None = None
+        if X_name is MISSING:
+            if "data" in x_collection:
+                chosen_x = "data"
+        elif X_name is not None:
+            if not isinstance(X_name, str) or not X_name:
+                raise ValueError("X layer names must be specified as a string.")
+            if X_name not in x_collection:
+                raise ValueError(f"X layer name '{X_name}' not found in measurement")
+            chosen_x = X_name
+
+        # Gather X and any requested extra layers
+        if chosen_x is not None:
+            x_array = x_collection[chosen_x]
+            if not isinstance(x_array, SparseNDArray):
+                raise NotImplementedError("Dense array unsupported")
+            all_x_arrays[chosen_x] = x_array
+        for _xname in list(X_layers):
             if not isinstance(_xname, str) or not _xname:
                 raise ValueError("X layer names must be specified as a string.")
             if _xname not in x_collection:
@@ -454,36 +494,42 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
                 raise NotImplementedError("Dense array unsupported")
             all_x_arrays[_xname] = x_array
 
-        obs_table, var_table = tp.map(
+        obs, var = tp.map(
             self._read_axis_dataframe,
             (AxisName.OBS, AxisName.VAR),
             (self._obs_df, self._var_df),
             (self._matrix_axis_query.obs, self._matrix_axis_query.var),
             (column_names, column_names),
+            (obs_id_name, var_id_name),
+            ("obs_id", "var_id"),
         )
         obs_joinids = self.obs_joinids()
         var_joinids = self.var_joinids()
 
-        x_matrices = {
-            _xname: (
-                tp.submit(
-                    _read_as_csr,
-                    layer,
-                    obs_joinids,
-                    var_joinids,
-                    self._indexer.by_obs,
-                    self._indexer.by_var,
+        x_matrices = (
+            {
+                _xname: (
+                    tp.submit(
+                        _read_as_csr,
+                        layer,
+                        obs_joinids,
+                        var_joinids,
+                        self._indexer.by_obs,
+                        self._indexer.by_var,
+                    )
+                    if not dask
+                    else load_daskarray(
+                        layer=layer,
+                        coords=(obs_joinids, var_joinids),
+                        **dask,
+                    )
                 )
-                if not dask
-                else load_daskarray(
-                    layer=layer,
-                    coords=(obs_joinids, var_joinids),
-                    **dask,
-                )
-            )
-            for _xname, layer in all_x_arrays.items()
-        }
-        x_future = x_matrices.pop(X_name)
+                for _xname, layer in all_x_arrays.items()
+            }
+            if (X_name is not None and X_name is not MISSING) or chosen_x is not None or X_layers
+            else {}
+        )
+        x_future = x_matrices.pop(chosen_x) if chosen_x is not None else None
 
         obsm_future = {
             key: tp.submit(
@@ -526,12 +572,6 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
             for key in varp_layers
         }
 
-        obs = obs_table.to_pandas()
-        obs.index = obs.index.astype(str)
-
-        var = var_table.to_pandas()
-        var.index = var.index.astype(str)
-
         # Drop unused categories on axis dataframes if requested
         if drop_levels:
             for name in obs:
@@ -542,17 +582,17 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
                     var[name] = var[name].cat.remove_unused_categories()
 
         return AnnData(
-            X=x_future.result() if isinstance(x_future, Future) else x_future,
+            X=(x_future.result() if isinstance(x_future, Future) else x_future) if chosen_x is not None else None,
             obs=obs,
             var=var,
             obsm=(_resolve_futures(obsm_future) or None),
             obsp=(_resolve_futures(obsp_future) or None),
             varm=(_resolve_futures(varm_future) or None),
             varp=(_resolve_futures(varp_future) or None),
-            layers=(_resolve_futures(x_matrices) or None),
+            layers=_resolve_futures(x_matrices),
         )
 
-    def to_spatialdata(  # type: ignore[no-untyped-def]
+    def to_spatialdata(  # type: ignore[no-untyped-def]  # noqa: ANN202
         self,
         X_name: str,
         *,
@@ -590,7 +630,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         """
         from .io.spatial._spatialdata_util import _spatial_to_spatialdata
 
-        warnings.warn(SPATIAL_DISCLAIMER)
+        warnings.warn(SPATIAL_DISCLAIMER, stacklevel=2)
 
         # Get a list of scenes to add to SpatialData object.
         if scene_presence_mode == "obs":
@@ -598,10 +638,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         elif scene_presence_mode == "var":
             scene_names = tuple(str(scene_name) for scene_name in self.var_scene_ids())
         else:
-            raise ValueError(
-                f"Invalid scene presence mode '{scene_presence_mode}'. Valid options "
-                f"are 'obs' and 'var'."
-            )
+            raise ValueError(f"Invalid scene presence mode '{scene_presence_mode}'. Valid options are 'obs' and 'var'.")
 
         # Get the anndata table.
         ad = self.to_anndata(
@@ -631,7 +668,7 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, *_: Any) -> None:  # noqa: ANN401
         pass
 
     # Internals
@@ -642,7 +679,9 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         axis_df: DataFrame,
         axis_query: AxisQuery,
         axis_column_names: AxisColumnNames,
-    ) -> pa.Table:
+        default_index_name: str | None = None,
+        fallback_index_name: str | None = None,
+    ) -> pd.DataFrame:
         """Reads the specified axis. Will cache join IDs if not present."""
         column_names = axis_column_names.get(axis.value)
 
@@ -650,15 +689,11 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         joinids_cached = self._joinids._is_cached(axis)
         query_columns = column_names
         added_soma_joinid_to_columns = False
-        if (
-            not joinids_cached
-            and column_names is not None
-            and "soma_joinid" not in column_names
-        ):
+        if not joinids_cached and column_names is not None and "soma_joinid" not in column_names:
             # If we want to fill the join ID cache, ensure that we query the
             # soma_joinid column so that it is included in the results.
             # We'll filter it out later.
-            query_columns = ["soma_joinid"] + list(column_names)
+            query_columns = ["soma_joinid", *list(column_names)]
             added_soma_joinid_to_columns = True
 
         # Do the actual query.
@@ -682,11 +717,22 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         # the joinid cache.
         if added_soma_joinid_to_columns:
             arrow_table = arrow_table.drop(["soma_joinid"])
-        return arrow_table
 
-    def _get_annotation_layer(
-        self, annotation_name: str, layer_name: str
-    ) -> SparseNDArray:
+        # Read and validate the "original index metadata" stored alongside this SOMA DataFrame.
+        original_index_metadata = json.loads(axis_df.metadata.get(SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, "null"))
+        if not (original_index_metadata is None or isinstance(original_index_metadata, str)):
+            raise ValueError(
+                f"{axis_df.uri}: invalid {SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON} metadata: {original_index_metadata}",
+            )
+
+        df: pd.DataFrame = arrow_table.to_pandas()
+
+        default_index_name = default_index_name or original_index_metadata
+        _df_set_index(df, default_index_name, fallback_index_name)
+
+        return df
+
+    def _get_annotation_layer(self, annotation_name: str, layer_name: str) -> SparseNDArray:
         """Helper function to make error messages consistent.
 
         Args:
@@ -698,23 +744,17 @@ class ExperimentAxisQuery(query.ExperimentAxisQuery):
         try:
             coll: Collection[NDArray] = self._ms[annotation_name]  # type: ignore
         except KeyError:
-            raise ValueError(f"Measurement does not contain {annotation_name!r} data.")
+            raise ValueError(f"Measurement does not contain {annotation_name!r} data.") from None
         if not isinstance(coll, Collection):
-            raise TypeError(
-                f"Unexpected SOMA type {type(coll).__name__} for "
-                f"{annotation_name!r}."
-            )
+            raise TypeError(f"Unexpected SOMA type {type(coll).__name__} for {annotation_name!r}.")
 
         try:
             layer = coll[layer_name]
         except KeyError:
-            raise ValueError(
-                f"layer {layer_name!r} is not available in {annotation_name!r}."
-            )
+            raise ValueError(f"layer {layer_name!r} is not available in {annotation_name!r}.") from None
         if not isinstance(layer, SparseNDArray):
             raise TypeError(
-                f"Unexpected SOMA type {type(layer).__name__} stored in "
-                f"{annotation_name!r} layer {layer_name!r}."
+                f"Unexpected SOMA type {type(layer).__name__} stored in {annotation_name!r} layer {layer_name!r}.",
             )
         return layer
 
@@ -772,9 +812,7 @@ class JoinIDCache:
     def obs(self) -> pa.IntegerArray:
         """Join IDs for the obs axis. Will load and cache if not already."""
         if not self._cached_obs:
-            self._cached_obs = load_joinids(
-                self.owner._obs_df, self.owner._matrix_axis_query.obs
-            )
+            self._cached_obs = load_joinids(self.owner._obs_df, self.owner._matrix_axis_query.obs)
         return self._cached_obs
 
     @obs.setter
@@ -785,9 +823,7 @@ class JoinIDCache:
     def var(self) -> pa.IntegerArray:
         """Join IDs for the var axis. Will load and cache if not already."""
         if not self._cached_var:
-            self._cached_var = load_joinids(
-                self.owner._var_df, self.owner._matrix_axis_query.var
-            )
+            self._cached_var = load_joinids(self.owner._var_df, self.owner._matrix_axis_query.var)
         return self._cached_var
 
     @var.setter
@@ -810,12 +846,17 @@ def _read_inner_ndarray(
     indexer: Callable[[Numpyable], npt.NDArray[np.intp]],
 ) -> npt.NDArray[np.float32]:
     table = matrix.read((joinids, slice(None))).tables().concat()
-
-    n_row = len(joinids)
-    n_col = len(table["soma_dim_1"].unique())
+    dtype = matrix.schema.field("soma_data").type.to_pandas_dtype()
 
     idx = indexer(table["soma_dim_0"])
-    z: npt.NDArray[np.float32] = np.zeros(n_row * n_col, dtype=np.float32)
+    n_row = len(joinids)
+
+    # Prior to the shape / current_domain change in release 1.15.0, there
+    # was no way to determine the "max" number of features, aka shape, of
+    # the sparse obsm/varm array. Guess based upon the array contents.
+    n_col = matrix.shape[1] if matrix.tiledbsoma_has_upgraded_shape else pa.compute.max(table["soma_dim_1"]).as_py() + 1
+
+    z: npt.NDArray[np.float32] = np.zeros(n_row * n_col, dtype=dtype)
     np.put(z, idx * n_col + table["soma_dim_1"], table["soma_data"])
     return z.reshape(n_row, n_col)
 
@@ -827,32 +868,25 @@ def _read_as_csr(
     d0_indexer: Callable[[Numpyable], npt.NDArray[np.intp]],
     d1_indexer: Callable[[Numpyable], npt.NDArray[np.intp]],
 ) -> sp.csr_matrix:
-
     d0_joinids = d0_joinids_arr.to_numpy()
     d1_joinids = d1_joinids_arr.to_numpy()
     try:
         # frag_cell_count is >= nnz, as it does not account for deletes and double-counts updates
-        frag_cell_count: int | None = matrix._handle._handle.fragment_cell_count()
+        frag_cell_count: int | None = matrix._handle.fragment_cell_count()
     except SOMAError:
         frag_cell_count = None
 
     # if able, downcast from int64 - reduces working memory
-    index_dtype = (
-        np.int32
-        if max(len(d0_joinids), len(d1_joinids)) < np.iinfo(np.int32).max
-        else np.int64
-    )
+    index_dtype = np.int32 if max(len(d0_joinids), len(d1_joinids)) < np.iinfo(np.int32).max else np.int64
     pa_schema = pa.schema(
         [
             pa.field("soma_dim_0", pa.from_numpy_dtype(index_dtype)),
             pa.field("soma_dim_1", pa.from_numpy_dtype(index_dtype)),
             matrix.schema.field("soma_data"),
-        ]
+        ],
     )
 
-    def _read_and_reindex(
-        X: SparseNDArray, oids: npt.NDArray[np.int64], vids: npt.NDArray[np.int64]
-    ) -> pa.Table:
+    def _read_and_reindex(X: SparseNDArray, oids: npt.NDArray[np.int64], vids: npt.NDArray[np.int64]) -> pa.Table:
         def _reindex(batch: pa.RecordBatch) -> pa.RecordBatch:
             return pa.RecordBatch.from_pydict(
                 {
@@ -864,11 +898,7 @@ def _read_as_csr(
             )
 
         return pa.Table.from_batches(
-            (
-                _reindex(_batch)
-                for _tbl in X.read(coords=(oids, vids)).tables()
-                for _batch in _tbl.to_batches()
-            ),
+            (_reindex(_batch) for _tbl in X.read(coords=(oids, vids)).tables() for _batch in _tbl.to_batches()),
             schema=pa_schema,
         )
 
@@ -882,8 +912,7 @@ def _read_as_csr(
     # compute partition size from array density and target point count, rounding to nearest 1024.
     partition_size = (
         max(
-            1024
-            * round(approx_X_shape[0] * target_point_count / frag_cell_count / 1024),
+            1024 * round(approx_X_shape[0] * target_point_count / frag_cell_count / 1024),
             1024,
         )
         if frag_cell_count is not None and frag_cell_count > 0
@@ -894,7 +923,7 @@ def _read_as_csr(
             partition_size,
             len(d0_joinids) - partition_size + 1,
             partition_size,
-        )
+        ),
     )
     if len(splits) > 1:
         d0_joinids_splits = np.array_split(np.partition(d0_joinids, splits), splits)
@@ -905,12 +934,10 @@ def _read_as_csr(
                 (matrix,) * len(d0_joinids_splits),
                 d0_joinids_splits,
                 (d1_joinids,) * len(d0_joinids_splits),
-            )
+            ),
         )
 
     else:
         tbl = _read_and_reindex(matrix, d0_joinids, d1_joinids)
 
-    return CompressedMatrix.from_soma(
-        tbl, (len(d0_joinids), len(d1_joinids)), "csr", True, matrix.context
-    ).to_scipy()
+    return CompressedMatrix.from_soma(tbl, (len(d0_joinids), len(d1_joinids)), "csr", True, matrix.context).to_scipy()

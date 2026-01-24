@@ -6,32 +6,76 @@
 
 #pragma once
 
-#include <boost/python.hpp>
-#include <tango/tango.h>
 #include <omnithread.h>
+#include <bytesobject.h>
+#include "common_header.h"
+#include "types_structs_macros.h"
 
-#define arg_(a) bopy::arg(a)
+inline py::dict create_dict_from_lists(py::list keys, py::list values) {
+    // Check that both lists have the same length
+    if(keys.size() != values.size()) {
+        throw std::runtime_error("Keys and values must have the same length");
+    }
 
-inline void raise_(PyObject *type, const char *message)
-{
-    PyErr_SetString(type, message);
-    bopy::throw_error_already_set();
+    py::dict dict;
+    for(std::size_t i = 0; i < keys.size(); ++i) {
+        dict[keys[i]] = values[i];
+    }
+
+    return dict;
 }
 
-inline PyObject *EncodeAsLatin1(PyObject *in)
-{
+inline py::dict create_dict_from_list(py::list values) {
+    py::dict dict;
+    for(std::size_t i = 0; i < values.size(); ++i) {
+        dict[py::int_(values[i])] = values[i];
+    }
+
+    return dict;
+}
+
+inline void add_names_values_to_native_enum(py::object enum_class) {
+    py::dict members = enum_class.attr("__members__");
+    py::list keys = members.attr("keys")();
+    py::list values = members.attr("values")();
+    enum_class.attr("values") = create_dict_from_list(values);
+    enum_class.attr("names") = create_dict_from_lists(keys, values);
+
+    enum_class.attr("__str__") = py::cpp_function(
+        [](py::object self) {
+            return self.attr("name");
+        },
+        py::is_method(enum_class) // Tell pybind11 this will be a method
+    );
+}
+
+/// This callback is run to delete Tango::DevVarXArray* objects.
+/// It is called by python. The array was associated with an attribute
+/// value object that is not being used anymore.
+template <int tangoTypeConst>
+void dev_var_attribute_array_deleter(void *ptr) {
+    delete static_cast<typename TANGO_const2arraytype(tangoTypeConst) *>(ptr);
+}
+
+template <typename TangoArrayType>
+void dev_var_command_array_deleter(void *ptr) {
+    delete static_cast<TangoArrayType *>(ptr);
+}
+
+inline void raise_(PyObject *type, const char *message) {
+    PyErr_SetString(type, message);
+    throw py::error_already_set();
+}
+
+inline PyObject *EncodeAsLatin1(PyObject *in) {
     PyObject *bytes_out = PyUnicode_AsLatin1String(in);
-    if(!bytes_out)
-    {
+    if(bytes_out == nullptr) {
         PyObject *bytes_replaced = PyUnicode_AsEncodedString(in, "latin-1", "replace");
         const char *string_replaced = PyBytes_AsString(bytes_replaced);
         std::string err_msg = "Can't encode ";
-        if(!string_replaced)
-        {
+        if(string_replaced == nullptr) {
             err_msg += "unknown Unicode string as Latin-1";
-        }
-        else
-        {
+        } else {
             err_msg += "'";
             err_msg += string_replaced;
             err_msg += "' Unicode string as Latin-1 (bad chars replaced with ?)";
@@ -43,188 +87,89 @@ inline PyObject *EncodeAsLatin1(PyObject *in)
     return bytes_out;
 }
 
-inline PyObject *PyObject_GetAttrString_(PyObject *o, const std::string &attr_name)
-{
+inline PyObject *PyObject_GetAttrString_(PyObject *o, const std::string &attr_name) {
     const char *attr = attr_name.c_str();
     return PyObject_GetAttrString(o, attr);
 }
 
-inline PyObject *PyImport_ImportModule_(const std::string &name)
-{
+inline PyObject *PyImport_ImportModule_(const std::string &name) {
     const char *attr = name.c_str();
     return PyImport_ImportModule(attr);
 }
 
-// Bytes interface
-#include <bytesobject.h>
+py::object from_cpp_str_to_pybind11_str(const std::string &in,
+                                        const char *encoding = nullptr, /* defaults to latin-1 */
+                                        const char *errors = "strict");
 
-PyObject *from_char_to_python_str(const char *in,
-                                  Py_ssize_t size = -1,
-                                  const char *encoding = NULL, /* defaults to latin-1 */
-                                  const char *errors = "strict");
+py::object from_cpp_char_to_pybind11_str(const char *in,
+                                         Py_ssize_t size = -1,
+                                         const char *encoding = nullptr, /* defaults to latin-1 */
+                                         const char *errors = "strict");
 
-PyObject *from_char_to_python_str(const std::string &in,
-                                  const char *encoding = NULL, /* defaults to latin-1 */
-                                  const char *errors = "strict");
+char *from_python_str_to_cpp_char(PyObject *obj_ptr,
+                                  Py_ssize_t *size_out = nullptr,
+                                  bool utf_encoding = false /* defaults to latin-1 */);
 
-bopy::object from_char_to_boost_str(const char *in,
-                                    Py_ssize_t size = -1,
-                                    const char *encoding = NULL, /* defaults to latin-1 */
-                                    const char *errors = "strict");
-
-bopy::object from_char_to_boost_str(const std::string &in,
-                                    const char *encoding = NULL, /* defaults to latin-1 */
-                                    const char *errors = "strict");
+char *from_python_str_to_cpp_char(const py::object &in,
+                                  Py_ssize_t *size_out = nullptr,
+                                  bool utf_encoding = false /* defaults to latin-1 */);
 
 void throw_bad_type(const char *type, const char *source);
 
-char *from_str_to_char(PyObject *in, Py_ssize_t *size_out, const bool utf_encoding = false /* defaults to latin-1 */);
-char *from_str_to_char(const bopy::object &in,
-                       Py_ssize_t *size_out,
-                       const bool utf_encoding = false /* defaults to latin-1 */);
-char *from_str_to_char(PyObject *in);
-char *from_str_to_char(const bopy::object &in);
-
-void view_pybytes_as_char_array(const bopy::object &py_value, Tango::DevVarCharArray &out_array);
-
-/// You should run any I/O intensive operations (like requesting data through
-/// the network) in the context of an object like this.
-class AutoPythonAllowThreads
-{
-    PyThreadState *m_save;
-
-  public:
-    inline void giveup()
-    {
-        if(m_save)
-        {
-            PyEval_RestoreThread(m_save);
-            m_save = 0;
-        }
-    }
-
-    inline AutoPythonAllowThreads()
-    {
-        m_save = PyEval_SaveThread();
-    }
-
-    inline ~AutoPythonAllowThreads()
-    {
-        giveup();
-    }
-};
+void view_pybytes_as_char_array(const py::object &py_value, Tango::DevVarCharArray &out_array);
 
 // Delete a pointer for a CppTango class with Python GIL released.
-// Typically used by boost::shared_ptr constructors as the function
+// Typically used by shared_ptr constructors as the function
 // to call when the object is deleted.
-struct DeleterWithoutGIL
-{
+struct DeleterWithoutGIL {
     template <typename T>
-    void operator()(T *ptr)
-    {
-        AutoPythonAllowThreads guard;
+    void operator()(T *ptr) const {
+        py::gil_scoped_release no_gil;
         delete ptr;
     }
 };
 
-/// The following class ensures usage in a non-omniORB thread will
-/// still get a dummy omniORB thread ID - cppTango requires threads to
-/// be identifiable in this way.  It should only be acquired once for the
-/// lifetime of the thread, and must be released before the thread is
-/// cleaned up.
-/// See https://github.com/tango-controls/pytango/issues/307
-class EnsureOmniThread
-{
-    omni_thread::ensure_self *ensure_self;
-
-  public:
-    inline EnsureOmniThread()
-    {
-        ensure_self = NULL;
-    }
-
-    inline void acquire()
-    {
-        if(ensure_self == NULL)
-        {
-            ensure_self = new omni_thread::ensure_self;
-        }
-    }
-
-    inline void release()
-    {
-        if(ensure_self != NULL)
-        {
-            delete ensure_self;
-            ensure_self = NULL;
-        }
-    }
-
-    inline ~EnsureOmniThread()
-    {
-        release();
-    }
-};
+/**
+ * Determines if the given method name exists and is callable
+ * within the python class
+ *
+ * @param[in] obj object to search for the method
+ * @param[in] method_name the name of the method
+ *
+ * @return returns true is the method exists or false otherwise
+ */
+bool is_method_defined(py::object &obj, const std::string &method_name);
 
 /**
- * Determines if the calling thread is (or looks like) an omniORB thread.
+ * Determines if the given method name exists and is callable
+ * within the python class
  *
- * @return returns true if the calling thread has an omniORB thread ID or false otherwise
+ * @param[in] obj object to search for the method
+ * @param[in] method_name the name of the method
+ * @param[out] exists set to true if the symbol exists or false otherwise
+ * @param[out] is_method set to true if the symbol exists and is a method
+ *             or false otherwise
  */
-inline bool is_omni_thread()
-{
-    omni_thread *thread_id = omni_thread::self();
-    return (thread_id != NULL);
+void is_method_defined(py::object &obj, const std::string &method_name, bool &exists, bool &is_method);
+
+inline py::list pickle_stdstringvector(const StdStringVector &vector) {
+    // Convert extensions to a Python list of strings
+    py::list list;
+    for(const auto &v : vector) {
+        list.append(v);
+    }
+    return list;
 }
 
-/**
- * Determines if the given method name exists and is callable
- * within the python class
- *
- * @param[in] obj object to search for the method
- * @param[in] method_name the name of the method
- *
- * @return returns true is the method exists or false otherwise
- */
-bool is_method_defined(bopy::object &obj, const std::string &method_name);
+inline StdStringVector unpickled_stdstringvector(py::list py_value) {
+    // Convert the Python list back to StdStringVector
+    StdStringVector vector;
+    for(auto item : py_value) {
+        vector.push_back(item.cast<std::string>());
+    }
+    return vector;
+}
 
-/**
- * Determines if the given method name exists and is callable
- * within the python class
- *
- * @param[in] obj object to search for the method
- * @param[in] method_name the name of the method
- *
- * @return returns true is the method exists or false otherwise
- */
-bool is_method_defined(PyObject *obj, const std::string &method_name);
+#define PYTANGO_MOD py::object pytango(py::module_::import("tango"));
 
-/**
- * Determines if the given method name exists and is callable
- * within the python class
- *
- * @param[in] obj object to search for the method
- * @param[in] method_name the name of the method
- * @param[out] exists set to true if the symbol exists or false otherwise
- * @param[out] is_method set to true if the symbol exists and is a method
- *             or false otherwise
- */
-void is_method_defined(PyObject *obj, const std::string &method_name, bool &exists, bool &is_method);
-
-/**
- * Determines if the given method name exists and is callable
- * within the python class
- *
- * @param[in] obj object to search for the method
- * @param[in] method_name the name of the method
- * @param[out] exists set to true if the symbol exists or false otherwise
- * @param[out] is_method set to true if the symbol exists and is a method
- *             or false otherwise
- */
-void is_method_defined(bopy::object &obj, const std::string &method_name, bool &exists, bool &is_method);
-
-#define PYTANGO_MOD bopy::object pytango((bopy::handle<>(bopy::borrowed(PyImport_AddModule("tango")))));
-
-#define CALL_METHOD(retType, self, name, ...) bopy::call_method<retType>(self, name, __VA_ARGS__);
-
-bool hasattr(bopy::object &, const std::string &);
+#define CALL_METHOD(retType, self, name, ...) elf.attr(name)(__VA_ARGS__).cast<retType>();

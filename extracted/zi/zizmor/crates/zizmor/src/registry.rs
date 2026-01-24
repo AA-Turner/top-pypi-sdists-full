@@ -10,7 +10,6 @@ use crate::{
     finding::{Confidence, Finding, Persona, Severity},
     registry::input::{InputKey, InputRegistry},
     state::AuditState,
-    tips,
 };
 
 pub(crate) mod input;
@@ -39,13 +38,7 @@ impl AuditRegistry {
                 match base::new(&audit_state) {
                     Ok(audit) => registry.register_audit(base::ident(), Box::new(audit)),
                     Err(AuditLoadError::Skip(e)) => {
-                        tracing::info!("skipping {audit}: {e}", audit = base::ident())
-                    }
-                    Err(AuditLoadError::Fail(e)) => {
-                        return Err(anyhow::anyhow!(tips(
-                            format!("failed to load audit: {audit}", audit = base::ident()),
-                            &[format!("{e:#}"), format!("see: {url}", url = base::url())]
-                        )));
+                        tracing::debug!("skipping {audit}: {e}", audit = base::ident())
                     }
                 }
             }};
@@ -77,6 +70,12 @@ impl AuditRegistry {
         register_audit!(audit::unpinned_images::UnpinnedImages);
         register_audit!(audit::anonymous_definition::AnonymousDefinition);
         register_audit!(audit::unsound_condition::UnsoundCondition);
+        register_audit!(audit::ref_version_mismatch::RefVersionMismatch);
+        register_audit!(audit::dependabot_execution::DependabotExecution);
+        register_audit!(audit::dependabot_cooldown::DependabotCooldown);
+        register_audit!(audit::concurrency_limits::ConcurrencyLimits);
+        register_audit!(audit::archived_uses::ArchivedUses);
+        register_audit!(audit::misfeature::Misfeature);
 
         Ok(registry)
     }
@@ -95,7 +94,7 @@ impl AuditRegistry {
 
     pub(crate) fn iter_audits(
         &self,
-    ) -> indexmap::map::Iter<'_, &str, Box<dyn Audit + Send + Sync>> {
+    ) -> indexmap::map::Iter<'_, &'static str, Box<dyn Audit + Send + Sync>> {
         self.audits.iter()
     }
 }
@@ -196,6 +195,30 @@ impl<'a> FindingRegistry<'a> {
         })
     }
 
+    /// Checks if all findings have at least one fix matching the given fix mode.
+    ///
+    /// Returns true if every finding has at least one applicable fix based on the mode,
+    /// meaning no manual intervention would be required if all fixes are applied successfully.
+    pub(crate) fn all_findings_have_applicable_fixes(&self, fix_mode: crate::FixMode) -> bool {
+        use crate::finding::FixDisposition;
+
+        if self.findings.is_empty() {
+            return true;
+        }
+
+        self.findings.iter().all(|finding| {
+            finding.fixes.iter().any(|fix| {
+                let disposition_matches = match fix_mode {
+                    crate::FixMode::Safe => matches!(fix.disposition, FixDisposition::Safe),
+                    crate::FixMode::UnsafeOnly => matches!(fix.disposition, FixDisposition::Unsafe),
+                    crate::FixMode::All => true,
+                };
+
+                disposition_matches && matches!(fix.key, InputKey::Local(_))
+            })
+        })
+    }
+
     /// All ignored findings.
     pub(crate) fn ignored(&self) -> &[Finding<'a>] {
         &self.ignored
@@ -211,7 +234,6 @@ impl<'a> FindingRegistry<'a> {
     pub(crate) fn exit_code(&self) -> ExitCode {
         match self.highest_seen_severity {
             Some(sev) => match sev {
-                Severity::Unknown => ExitCode::from(10),
                 Severity::Informational => ExitCode::from(11),
                 Severity::Low => ExitCode::from(12),
                 Severity::Medium => ExitCode::from(13),

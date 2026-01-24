@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+
+# THIS FILE IS PART OF THE CYLC WORKFLOW ENGINE.
+# Copyright (C) NIWA & British Crown (Met Office) & Contributors.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""cylc set [OPTIONS] ARGS
+
+Manually complete task outputs, and satisfy task and xtrigger prerequisites.
+
+By default this command completes required outputs, plus the "submitted",
+"started", and "succeeded" outputs even if they are optional.
+
+Setting prerequisites promotes target tasks to the n=0 active window; setting
+outputs also sets the prerequisites of any tasks that depend on those outputs.
+
+Note: state selectors such as ":failed" determine which tasks to target, not
+the outputs to set - see examples below.
+
+Note: see `cylc trigger` command help if you want rerun a sub-graph of tasks.
+
+Setting Outputs:
+  Completing outputs may affect task state, and it will satisfy prerequisites
+  of any other tasks that depend on those outputs.
+
+  Format:
+    * --out=<output>  # output name (not message) of the target task
+
+  Completing a final output ("succeeded", "failed", or "expired") sets the
+  state of the target task accordingly. Completing "started", "submitted",
+  or custom outputs does not affect state because no job is actually running.
+
+  Implied outputs are completed automatically:
+    - "started" implies "submitted"
+    - "succeeded" and "failed" imply "started"
+    - custom outputs and "expired" do not imply other outputs
+
+  For custom outputs, use the output name, not the associated task message.
+  In [runtime][my-task][outputs]:
+    # <name> = <message>
+    x = "file x completed"
+
+Setting Task Prerequisites:
+  Satisfying a task's prerequisite contributes to its readiness to run.
+
+  Satisfying any prerequisite of an inactive task promotes it to the active
+  window where xtrigger checking commences (if the task has any xtriggers).
+  The --pre=all option promotes even parentless tasks to the active window.
+
+  Format:
+    * --pre=<cycle>/<task-name>[:output]  # satisfy a single prerequisite
+    * --pre=all  # satisfy all task (not xtrigger) prerequisites
+
+Setting Xtrigger Prerequisites:
+  To satisfy an xtrigger prerequisite use --pre with the word "xtrigger" in
+  place of the cycle point, and the xtrigger name in place of the task name.
+
+  Format:
+    * --pre=xtrigger/<xtrigger-name>  # satisfy one xtrigger prerequisite
+    * --pre=xtrigger/all  # satisfy all xtrigger prerequisites
+
+  (The full format is "xtrigger/<xtrigger-name>[:succeeded]" but "succeeded"
+  is the only valid xtrigger output and the default, so it can be omitted.)
+
+Flow numbers of tasks affected by the set command are determined as follows
+  Active tasks (n=0) already have existing flow numbers.
+   * default: merge existing active flow numbers
+   * --flow=INT or "new": merge existing and new flow numbers
+   * --flow="none": ERROR (not valid for already-active tasks)
+  Inactive tasks (n>0) do not have flow numbers assigned:
+   * default: assign all active flow numbers
+   * --flow=INT or "new": assign the given flow numbers
+   * --flow="none": action the command with no flow numbers, which may result
+     in a no-flow task running (activity will not flow on downstream of it).
+
+CLI Completion:
+  Cylc can auto-complete prerequisite and output names for tasks in the n=0
+  window, if you type the task name before attempting TAB-completion.
+
+Examples:
+  # complete all required outputs of 3/bar:
+  $ cylc set my_workflow//3/bar
+  # or:
+  $ cylc set --out=required my_workflow//3/bar
+
+  # complete the succeeded output of 3/bar:
+  $ cylc set --out=succeeded my_workflow//3/bar
+
+  # complete the outputs defined in [runtime][task][skip]
+  $ cylc set --out=skip my_workflow//3/bar
+
+  # satisfy the 3/foo:succeeded prerequisite of 3/bar:
+  $ cylc set --pre=3/foo my_workflow//3/bar  # or,
+  $ cylc set --pre=3/foo:succeeded my_workflow//3/bar
+
+  # satisfy all prerequisites (if any) of 3/bar:
+  $ cylc set --pre=all my_workflow//3/bar
+
+  # satisfy clock trigger prerequisite @clock1 3000/bar:
+  $ cylc set --pre=xtrigger/clock1 my_worklfow//3000/bar
+
+  # satisfy the "3/bar:file1" prerequisite of 3/qux:
+  $ cylc set --pre=3/bar:file1 my_workflow//3/qux
+
+  # complete multiple outputs at once:
+  $ cylc set --out=a --out=b,c my_workflow//3/bar
+
+  # satisfy multiple prerequisites at once:
+  $ cylc set --pre=3/foo:x --pre=3/foo:y,3/foo:z my_workflow//3/bar
+
+  # set required outputs of all failed tasks in the n=0 window at cycle 3:
+  $ cylc set my_workflow//3/*:failed
+
+  # set the succeeded output of all failed tasks in the n=0 window at cycle 3:
+  $ cylc set my_workflow//3/*:failed --output=succeeded
+"""
+
+from functools import partial
+import sys
+from typing import TYPE_CHECKING
+
+from cylc.flow.network.client_factory import get_client
+from cylc.flow.network.multi import call_multi
+from cylc.flow.option_parsers import (
+    FULL_ID_MULTI_ARG_DOC,
+    CylcOptionParser as COP,
+)
+from cylc.flow.terminal import (
+    cli_function,
+    flatten_cli_lists
+)
+from cylc.flow.flow_mgr import add_flow_opts_for_trigger_and_set
+
+
+if TYPE_CHECKING:
+    from optparse import Values
+    from cylc.flow.id import Tokens
+
+
+# For setting xtriggers with --pre:
+XTRIGGER_PREREQ_PREFIX = "xtrigger"
+
+MUTATION = '''
+mutation (
+  $wFlows: [WorkflowID]!,
+  $tasks: [NamespaceIDGlob]!,
+  $prerequisites: [PrerequisiteString],
+  $outputs: [OutputLabel],
+  $flow: [Flow!],
+  $flowWait: Boolean,
+  $flowDescr: String,
+) {
+  set (
+    workflows: $wFlows,
+    tasks: $tasks,
+    prerequisites: $prerequisites,
+    outputs: $outputs,
+    flow: $flow,
+    flowWait: $flowWait,
+    flowDescr: $flowDescr
+  ) {
+    result
+  }
+}
+'''
+
+
+def get_option_parser() -> COP:
+    parser = COP(
+        __doc__,
+        comms=True,
+        multitask=True,
+        multiworkflow=True,
+        argdoc=[FULL_ID_MULTI_ARG_DOC],
+    )
+
+    parser.add_option(
+        "-o", "--out", "--output", metavar="OUTPUT(s)",
+        help=(
+            "Complete task outputs. For multiple outputs re-use the"
+            " option, or give a comma-separated list of outputs."
+            " Use '--out=required' to complete all required outputs."
+            " Use '--out=skip' to complete outputs defined in the task's"
+            " [skip] configuration."
+            " OUTPUT format: trigger names as used in the graph."
+        ),
+        action="append", default=None, dest="outputs"
+    )
+
+    parser.add_option(
+        "-p", "--pre", "--prerequisite", metavar="PREREQUISITE(s)",
+        help=(
+            "Satisfy task prerequisites. For multiple prerequisites"
+            " re-use the option, or give a comma-separated list, or"
+            ' use "--pre=all" to satisfy all prerequisites, if any.'
+            " PREREQUISITE format:"
+            " '<cycle>/<task>[:<OUTPUT>]' or 'all'"
+            " where <OUTPUT> defaults to succeeded; or"
+            " xtrigger/<label>[:succeeded]' or 'xtrigger/all'"
+        ),
+        action="append", default=None, dest="prerequisites"
+    )
+
+    add_flow_opts_for_trigger_and_set(parser)
+    return parser
+
+
+async def run(
+    options: 'Values',
+    workflow_id: str,
+    *tokens_list: 'Tokens'
+):
+    pclient = get_client(workflow_id, timeout=options.comms_timeout)
+
+    mutation_kwargs = {
+        'request_string': MUTATION,
+        'variables': {
+            'wFlows': [workflow_id],
+            'tasks': [
+                tokens.relative_id_with_selectors
+                for tokens in tokens_list
+            ],
+            'outputs': flatten_cli_lists(options.outputs),
+            'prerequisites': flatten_cli_lists(options.prerequisites),
+            'flow': options.flow,
+            'flowWait': options.flow_wait,
+            'flowDescr': options.flow_descr
+        }
+    }
+
+    return await pclient.async_request('graphql', mutation_kwargs)
+
+
+@cli_function(get_option_parser)
+def main(parser: COP, options: 'Values', *ids) -> None:
+    rets = call_multi(partial(run, options), *ids)
+    sys.exit(all(rets.values()) is False)

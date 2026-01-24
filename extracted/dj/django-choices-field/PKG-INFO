@@ -1,34 +1,32 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: django-choices-field
-Version: 3.0.1
+Version: 4.0.0
 Summary: Django field that set/get django's new TextChoices/IntegerChoices enum.
 License: MIT
+License-File: LICENSE
 Keywords: django,enum
 Author: Thiago Bellini Ribeiro
 Author-email: thiago@bellini.dev
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: django (>=3.2)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: django (>=4.2)
 Requires-Dist: typing_extensions (>=4.0.0)
 Project-URL: Documentation, https://django-choices-field.readthedocs.io
 Project-URL: Homepage, https://github.com/bellini666/django-choices-field

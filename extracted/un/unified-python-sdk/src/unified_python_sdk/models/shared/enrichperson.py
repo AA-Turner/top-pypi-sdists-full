@@ -13,12 +13,12 @@ from .property_enrichperson_address import (
 )
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class Gender(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -39,15 +39,16 @@ class EnrichPersonTypedDict(TypedDict):
     emails: NotRequired[List[EnrichEmailTypedDict]]
     r"""An array of email addresses for this person"""
     facebook_url: NotRequired[str]
+    first_name: NotRequired[str]
     gender: NotRequired[Gender]
     github_url: NotRequired[str]
     github_username: NotRequired[str]
     id: NotRequired[str]
     image_url: NotRequired[str]
+    last_name: NotRequired[str]
     linkedin_url: NotRequired[str]
     name: NotRequired[str]
     raw: NotRequired[Dict[str, Any]]
-    r"""The raw data returned by the integration for this person"""
     telephones: NotRequired[List[EnrichTelephoneTypedDict]]
     r"""An array of telephones for this person"""
     timezone: NotRequired[str]
@@ -80,9 +81,9 @@ class EnrichPerson(BaseModel):
 
     facebook_url: Optional[str] = None
 
-    gender: Annotated[Optional[Gender], PlainValidator(validate_open_enum(False))] = (
-        None
-    )
+    first_name: Optional[str] = None
+
+    gender: Optional[Gender] = None
 
     github_url: Optional[str] = None
 
@@ -92,12 +93,13 @@ class EnrichPerson(BaseModel):
 
     image_url: Optional[str] = None
 
+    last_name: Optional[str] = None
+
     linkedin_url: Optional[str] = None
 
     name: Optional[str] = None
 
     raw: Optional[Dict[str, Any]] = None
-    r"""The raw data returned by the integration for this person"""
 
     telephones: Optional[List[EnrichTelephone]] = None
     r"""An array of telephones for this person"""
@@ -115,3 +117,57 @@ class EnrichPerson(BaseModel):
     utc_offset: Optional[float] = None
 
     work_histories: Optional[List[EnrichPersonWorkHistory]] = None
+
+    @field_serializer("gender")
+    def serialize_gender(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Gender(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "address",
+                "bio",
+                "birthdate",
+                "company",
+                "company_domain",
+                "created_at",
+                "emails",
+                "facebook_url",
+                "first_name",
+                "gender",
+                "github_url",
+                "github_username",
+                "id",
+                "image_url",
+                "last_name",
+                "linkedin_url",
+                "name",
+                "raw",
+                "telephones",
+                "timezone",
+                "title",
+                "twitter_handle",
+                "twitter_url",
+                "updated_at",
+                "utc_offset",
+                "work_histories",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

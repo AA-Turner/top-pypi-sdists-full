@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-language-pack
-Version: 0.9.1
+Version: 0.13.0
 Summary: Comprehensive collection of 160+ tree-sitter language parsers
 Author-email: Na'aman Hirschfeld <nhirschfeld@gmail.com>
 License-Expression: MIT OR Apache-2.0
@@ -14,20 +14,20 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: tree-sitter==0.23.2
-Requires-Dist: tree-sitter-c-sharp==0.23.1
-Requires-Dist: tree-sitter-embedded-template==0.23.2
-Requires-Dist: tree-sitter-yaml==0.7.0
+Requires-Dist: tree-sitter>=0.25.2
+Requires-Dist: tree-sitter-c-sharp>=0.23.1
+Requires-Dist: tree-sitter-embedded-template>=0.25.0
+Requires-Dist: tree-sitter-yaml>=0.7.2
 Dynamic: license-file
 
 # Tree Sitter Language Pack
@@ -65,7 +65,8 @@ pip install tree-sitter-language-pack
 - All languages bundled by this package are licensed under permissive open-source licenses (MIT, Apache 2.0 etc.) only -
     no GPL
     licensed languages are included.
-- This package follows the general Python life-cycle. This means it will drop support for Python 3.9 on October 25th 2025, and ONLY after this point in time will tree-sitter 0.24.0+ will be supported (tree-sitter 0.24 dropped support for Python 3.9 early.)
+- This package follows the general Python life-cycle and now requires Python 3.10 or newer. We align with tree-sitter
+    0.25.x and newer, which dropped Python 3.9 support ahead of the upstream EOL.
 
 ## Features
 
@@ -88,6 +89,33 @@ python_parser = get_parser("python")  # this is an instance of tree_sitter.Parse
 
 See the list of available languages below to get the name of the language you want to use.
 
+## Development Setup
+
+To work on the package locally you will need Python 3.10+ and the [uv](https://github.com/astral-sh/uv) toolchain.
+
+```bash
+# Install runtime dependencies
+uv sync --no-install-project
+
+# Install the tree-sitter CLI used for code generation
+npm install -g tree-sitter-cli
+
+# Install prek hooks (Rust-based pre-commit replacement)
+uv tool install prek
+prek install
+prek install --hook-type commit-msg
+
+# Fetch bundled language vendors and build native extensions
+uv run --no-sync scripts/clone_vendors.py
+PROJECT_ROOT=. uv run setup.py build_ext --inplace
+
+# Run the full test suite
+PROJECT_ROOT=. uv run --no-sync pytest tests
+
+# Execute all lint/format checks
+prek run --all-files
+```
+
 ## Available Languages
 
 Each language below is identified by the key used to retrieve it from the `get_language` and `get_parser` functions.
@@ -104,6 +132,7 @@ Each language below is identified by the key used to retrieve it from the `get_l
 - [bibtex](https://github.com/latex-lsp/tree-sitter-bibtex) - MIT License
 - [bicep](https://github.com/tree-sitter-grammars/tree-sitter-bicep) - MIT License
 - [bitbake](https://github.com/tree-sitter-grammars/tree-sitter-bitbake) - MIT License
+- [bsl](https://github.com/alkoleft/tree-sitter-bsl) - MIT License
 - [c](https://github.com/tree-sitter/tree-sitter-c) - MIT License
 - [cairo](https://github.com/tree-sitter-grammars/tree-sitter-cairo) - MIT License
 - [capnp](https://github.com/tree-sitter-grammars/tree-sitter-capnp) - MIT License
@@ -111,6 +140,7 @@ Each language below is identified by the key used to retrieve it from the `get_l
 - [clarity](https://github.com/xlittlerag/tree-sitter-clarity) - MIT License
 - [clojure](https://github.com/sogaiu/tree-sitter-clojure) - CC0 1.0 Universal License
 - [cmake](https://github.com/uyha/tree-sitter-cmake) - MIT License
+- [cobol](https://github.com/nolanlwin/tree-sitter-cobol) - MIT License
 - [comment](https://github.com/stsewd/tree-sitter-comment) - MIT License
 - [commonlisp](https://github.com/tree-sitter-grammars/tree-sitter-commonlisp) - MIT License
 - [cpon](https://github.com/tree-sitter-grammars/tree-sitter-cpon) - MIT License

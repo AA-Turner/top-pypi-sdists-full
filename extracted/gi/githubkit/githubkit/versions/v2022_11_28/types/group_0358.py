@@ -9,36 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
 from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
 
+class PorterLargeFileType(TypedDict):
+    """Porter Large File
 
-class PageBuildType(TypedDict):
-    """Page Build
-
-    Page Build
+    Porter Large File
     """
 
-    url: str
-    status: str
-    error: PageBuildPropErrorType
-    pusher: Union[None, SimpleUserType]
-    commit: str
-    duration: int
-    created_at: datetime
-    updated_at: datetime
+    ref_name: str
+    path: str
+    oid: str
+    size: int
 
 
-class PageBuildPropErrorType(TypedDict):
-    """PageBuildPropError"""
+class PorterLargeFileTypeForResponse(TypedDict):
+    """Porter Large File
 
-    message: Union[str, None]
+    Porter Large File
+    """
+
+    ref_name: str
+    path: str
+    oid: str
+    size: int
 
 
 __all__ = (
-    "PageBuildPropErrorType",
-    "PageBuildType",
+    "PorterLargeFileType",
+    "PorterLargeFileTypeForResponse",
 )

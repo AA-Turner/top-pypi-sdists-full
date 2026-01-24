@@ -64,7 +64,8 @@ class WidgetClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.widget.get(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
+            conversation_signature="conversation_signature",
         )
         """
         _response = self._raw_client.get(
@@ -137,7 +138,8 @@ class AsyncWidgetClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.widget.get(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
+                conversation_signature="conversation_signature",
             )
 
 

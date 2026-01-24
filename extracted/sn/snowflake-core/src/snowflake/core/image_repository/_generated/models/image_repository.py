@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -37,13 +37,13 @@ class ImageRepository(BaseModel):
     schema_name : str, optional
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     created_on : datetime, optional
-        Time the image repository was created.
+        Time the image repository was created — **Read-only:** *any user-provided value will be ignored.*
     repository_url : str, optional
-        Current URL of the image repository.
+        Current URL of the image repository — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Identifier for the current owner of the image repository.
+        Identifier for the current owner of the image repository — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        Role type of the image repository owner.
+        Role type of the image repository owner — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -84,9 +84,10 @@ class ImageRepository(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -118,7 +119,7 @@ class ImageRepository(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -133,9 +134,9 @@ class ImageRepository(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ImageRepository.parse_obj(obj)
+            return ImageRepository.model_validate(obj)
 
-        _obj = ImageRepository.parse_obj(
+        _obj = ImageRepository.model_validate(
             {
                 "name": obj.get("name"),
                 "database_name": obj.get("database_name"),

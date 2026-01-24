@@ -1,13 +1,15 @@
 """
-The Bittensor Compatibility Module is designed to ensure seamless integration and functionality with legacy versions of
-the Bittensor framework, specifically up to and including version 7.3.0. This module addresses changes and deprecated
-features in recent versions, allowing users to maintain compatibility with older systems and projects.
+The Bittensor Compatibility Module serves as a centralized import hub for internal and external classes, functions,
+constants, and utilities that are frequently accessed via the top-level `bittensor` namespace
+(e.g., `from bittensor import Wallet`).
+
+It consolidates these widely used symbols into `bittensor/__init__.py`, enabling a cleaner and more intuitive public API
+for developers and the broader community.
+
+Note:
+    Direct imports from their respective submodules are recommended for improved clarity and long-term maintainability.
 """
 
-import importlib
-import sys
-
-from bittensor_wallet import Keypair
 from bittensor_wallet.errors import KeyFileError
 from bittensor_wallet.keyfile import (
     serialized_keypair_to_keyfile_data,
@@ -25,10 +27,11 @@ from bittensor_wallet.keyfile import (
     decrypt_keyfile_data,
     Keyfile,
 )
-from bittensor_wallet.wallet import display_mnemonic_msg, Wallet
+from bittensor_wallet.keypair import Keypair
+from bittensor_wallet.wallet import Wallet
 
-from bittensor.core import settings, timelock
-from bittensor.core.async_subtensor import AsyncSubtensor
+from bittensor.core import settings, extrinsics
+from bittensor.core.async_subtensor import AsyncSubtensor, get_async_subtensor
 from bittensor.core.axon import Axon
 from bittensor.core.chain_data import (
     AxonInfo,
@@ -43,6 +46,10 @@ from bittensor.core.chain_data import (
     MetagraphInfoPool,
     NeuronInfo,
     NeuronInfoLite,
+    ProxyAnnouncementInfo,
+    ProxyConstants,
+    ProxyInfo,
+    ProxyType,
     PrometheusInfo,
     ProposalCallData,
     ProposalVoteData,
@@ -58,6 +65,8 @@ from bittensor.core.chain_data import (
 from bittensor.core.config import Config
 from bittensor.core.dendrite import Dendrite
 from bittensor.core.errors import (
+    BalanceTypeError,
+    BalanceUnitMismatchError,
     BlacklistedException,
     ChainConnectionError,
     ChainError,
@@ -86,7 +95,7 @@ from bittensor.core.errors import (
     RegistrationNotPermittedOnRootSubnet,
     RunException,
     StakeError,
-    SubNetworkDoesNotExist,
+    SubnetNotExists,
     SynapseDendriteNoneException,
     SynapseParsingError,
     TooManyChildren,
@@ -95,17 +104,18 @@ from bittensor.core.errors import (
     UnknownSynapseError,
     UnstakeError,
 )
+from bittensor.core.extrinsics import pallets
 from bittensor.core.metagraph import Metagraph
 from bittensor.core.settings import BLOCKTIME
 from bittensor.core.stream import StreamingSynapse
 from bittensor.core.subtensor import Subtensor
-from bittensor.core.subtensor_api import SubtensorApi
 from bittensor.core.synapse import TerminalInfo, Synapse
 from bittensor.core.tensor import Tensor
 from bittensor.core.threadpool import PriorityThreadPoolExecutor
+from bittensor.extras import timelock, SubtensorApi
 from bittensor.utils import (
+    mock,
     ss58_to_vec_u8,
-    version_checking,
     strtobool,
     get_explorer_url_for_network,
     ss58_address_to_bytes,
@@ -113,69 +123,11 @@ from bittensor.utils import (
     u64_normalized_float,
     get_hash,
 )
-from bittensor.utils.balance import Balance
-from bittensor.utils.balance import tao, rao
+from bittensor.utils.balance import Balance, tao, rao
 from bittensor.utils.btlogging import logging
+from bittensor.utils.btlogging.levels import trace, debug, warning, info
 from bittensor.utils.mock.subtensor_mock import MockSubtensor
 from bittensor.utils.subnets import SubnetsAPI
-
-
-# Backwards compatibility with previous bittensor versions.
-async_subtensor = AsyncSubtensor
-axon = Axon
-config = Config
-dendrite = Dendrite
-keyfile = Keyfile
-metagraph = Metagraph
-wallet = Wallet
-subtensor = Subtensor
-synapse = Synapse
-
-# Makes the `bittensor.utils.mock` subpackage available as `bittensor.mock` for backwards compatibility.
-mock_subpackage = importlib.import_module("bittensor.utils.mock")
-sys.modules["bittensor.mock"] = mock_subpackage
-
-# Makes the `bittensor.core.extrinsics` subpackage available as `bittensor.extrinsics` for backwards compatibility.
-extrinsics_subpackage = importlib.import_module("bittensor.core.extrinsics")
-sys.modules["bittensor.extrinsics"] = extrinsics_subpackage
-
-
-# Logging helpers.
-def trace(on: bool = True):
-    """
-    Enables or disables trace logging.
-    Args:
-        on (bool): If True, enables trace logging. If False, disables trace logging.
-    """
-    logging.set_trace(on)
-
-
-def debug(on: bool = True):
-    """
-    Enables or disables debug logging.
-    Args:
-        on (bool): If True, enables debug logging. If False, disables debug logging.
-    """
-    logging.set_debug(on)
-
-
-def warning(on: bool = True):
-    """
-    Enables or disables warning logging.
-    Args:
-        on (bool): If True, enables warning logging. If False, disables warning logging and sets default (WARNING) level.
-    """
-    logging.set_warning(on)
-
-
-def info(on: bool = True):
-    """
-    Enables or disables info logging.
-    Args:
-        on (bool): If True, enables info logging. If False, disables info logging and sets default (WARNING) level.
-    """
-    logging.set_info(on)
-
 
 __all__ = [
     "Keypair",
@@ -194,7 +146,6 @@ __all__ = [
     "get_coldkey_password_from_environment",
     "decrypt_keyfile_data",
     "Keyfile",
-    "display_mnemonic_msg",
     "Wallet",
     "settings",
     "timelock",
@@ -225,6 +176,8 @@ __all__ = [
     "WeightCommitInfo",
     "Config",
     "Dendrite",
+    "BalanceTypeError",
+    "BalanceUnitMismatchError",
     "BlacklistedException",
     "ChainConnectionError",
     "ChainError",
@@ -249,11 +202,15 @@ __all__ = [
     "PostProcessException",
     "PriorityException",
     "ProportionOverflow",
+    "ProxyAnnouncementInfo",
+    "ProxyConstants",
+    "ProxyInfo",
+    "ProxyType",
     "RegistrationError",
     "RegistrationNotPermittedOnRootSubnet",
     "RunException",
     "StakeError",
-    "SubNetworkDoesNotExist",
+    "SubnetNotExists",
     "SynapseDendriteNoneException",
     "SynapseParsingError",
     "TooManyChildren",
@@ -271,7 +228,6 @@ __all__ = [
     "Tensor",
     "PriorityThreadPoolExecutor",
     "ss58_to_vec_u8",
-    "version_checking",
     "strtobool",
     "get_explorer_url_for_network",
     "ss58_address_to_bytes",
@@ -282,21 +238,14 @@ __all__ = [
     "tao",
     "rao",
     "logging",
+    "pallets",
     "MockSubtensor",
     "SubnetsAPI",
-    "async_subtensor",
-    "axon",
-    "config",
-    "dendrite",
-    "keyfile",
-    "metagraph",
-    "wallet",
-    "subtensor",
-    "synapse",
     "trace",
     "debug",
     "warning",
     "info",
-    "mock_subpackage",
-    "extrinsics_subpackage",
+    "extrinsics",
+    "mock",
+    "get_async_subtensor",
 ]

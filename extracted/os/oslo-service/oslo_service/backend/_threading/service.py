@@ -90,29 +90,54 @@ class ServiceWrapper(cotyledon.Service):
 
 
 class Launcher:
-    def __init__(self):
-        self._launcher = None
+    """Launch one or more services and wait for them to complete."""
 
-    def launch_service(self, service, workers=None):
+    def __init__(self, conf, restart_method='reload'):
+        self.conf = conf
+        self.services = Services(restart_method=restart_method)
+        self.backdoor_port = None
+        self.restart_method = restart_method
+
+    def launch_service(self, service, workers=1):
+        """Load and start the given service.
+
+        :param service: The service you would like to start, must be an
+                        instance of :class:`oslo_service.service.ServiceBase`
+        :param workers: This param makes this method compatible with
+                        ProcessLauncher.launch_service. It must be None, 1 or
+                        omitted.
+        :returns: None
+        """
+        if workers is not None and workers != 1:
+            raise ValueError(_("Launcher asked to start multiple workers"))
         _check_service_base(service)
-        if workers not in (None, 1):
-            raise NotImplementedError("Multiple workers is not supported.")
-        self._launcher = service
-        service.start()
-        return service
-
-    def wait(self):
-        if self._launcher:
-            self._launcher.wait()
+        self.services.add(service)
 
     def stop(self):
-        if self._launcher:
-            self._launcher.stop()
+        """Stop all services which are currently running.
+
+        :returns: None
+        """
+        self.services.stop()
+
+    def wait(self):
+        """Wait until all services have been stopped, and then return.
+
+        :returns: None
+        """
+        self.services.wait()
 
     def restart(self):
-        if self._launcher:
-            self._launcher.stop()
-            self._launcher.start()
+        """Reload config files and restart service.
+
+        :returns: The return value from reload_config_files or
+            mutate_config_files, according to the restart_method.
+        """
+        if self.restart_method == 'reload':
+            self.conf.reload_config_files()
+        else:  # self.restart_method == 'mutate'
+            self.conf.mutate_config_files()
+        self.services.restart()
 
 
 class ServiceLauncher:
@@ -121,7 +146,8 @@ class ServiceLauncher:
         self.restart_method = restart_method
         self.backdoor_port = None
         self._manager = cotyledon.ServiceManager()
-        oslo_config_glue.setup(self._manager, conf)
+        oslo_config_glue.setup(self._manager, conf,
+                               reload_method=restart_method)
 
     def launch_service(self, service_instance, workers=1):
         _check_service_base(service_instance)
@@ -143,6 +169,9 @@ class ServiceLauncher:
             self.stop()
             LOG.exception("Unhandled exception")
             return 2
+
+    def restart(self):
+        raise NotImplementedError()
 
 
 class Service(ServiceBase):
@@ -239,7 +268,8 @@ class ProcessLauncher:
 
         if self._manager is None:
             self._manager = cotyledon.ServiceManager()
-            oslo_config_glue.setup(self._manager, self.conf)
+            oslo_config_glue.setup(self._manager, self.conf,
+                                   reload_method=self.restart_method)
 
         self._manager.add(ServiceWrapper, workers, args=(service,))
 
@@ -253,10 +283,28 @@ class ProcessLauncher:
         if self._manager:
             self._manager.shutdown()
 
+    def restart(self):
+        raise NotImplementedError()
+
 
 def launch(conf, service, workers=1, restart_method='reload', no_fork=False):
+    """Launch a service with a given number of workers.
+
+    :param conf: an instance of ConfigOpts
+    :param service: a service to launch, must be an instance of
+           :class:`oslo_service.service.ServiceBase`
+    :param workers: a number of processes in which a service will be running,
+        type should be int.
+    :param restart_method: Passed to the constructed launcher. If 'reload', the
+        launcher will call reload_config_files on SIGHUP. If 'mutate', it will
+        call mutate_config_files on SIGHUP. Other values produce a ValueError.
+    :param no_fork: Whether to allow forking or not. If True,
+        :class:`~ProcessLauncher` will always be used.
+    :returns: An instance of a launcher that was used to launch the service
+    """
     if workers is not None and not isinstance(workers, int):
         raise TypeError("Type of workers should be int!")
+
     if workers is not None and workers <= 0:
         raise ValueError("Number of workers should be positive!")
 
@@ -267,4 +315,5 @@ def launch(conf, service, workers=1, restart_method='reload', no_fork=False):
             conf, restart_method=restart_method, no_fork=no_fork)
 
     launcher.launch_service(service, workers=workers)
+
     return launcher

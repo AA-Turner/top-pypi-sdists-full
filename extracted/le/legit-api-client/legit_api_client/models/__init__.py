@@ -12,9 +12,9 @@
     Do not edit the class manually.
 """  # noqa: E501
 
-
 # import models into model package
 from legit_api_client.models.add_issue_comment_dto import AddIssueCommentDto
+from legit_api_client.models.ai_model_reputation_dto import AiModelReputationDto
 from legit_api_client.models.ai_secret_validation_result import AiSecretValidationResult
 from legit_api_client.models.amazon_ecr_key_integration_create_dto import AmazonEcrKeyIntegrationCreateDto
 from legit_api_client.models.amazon_ecr_key_integration_edit_dto import AmazonEcrKeyIntegrationEditDto
@@ -119,6 +119,7 @@ from legit_api_client.models.issue_ignoring_reason_dto import IssueIgnoringReaso
 from legit_api_client.models.issue_opening_reason_dto import IssueOpeningReasonDto
 from legit_api_client.models.issue_origin_dto import IssueOriginDto
 from legit_api_client.models.issue_origin_params import IssueOriginParams
+from legit_api_client.models.issue_reachability import IssueReachability
 from legit_api_client.models.issue_sorting_column import IssueSortingColumn
 from legit_api_client.models.issue_status import IssueStatus
 from legit_api_client.models.issue_tag_dto import IssueTagDto
@@ -135,6 +136,7 @@ from legit_api_client.models.legit_score_requirement_group_type import LegitScor
 from legit_api_client.models.legit_score_requirement_type import LegitScoreRequirementType
 from legit_api_client.models.list_sort_direction import ListSortDirection
 from legit_api_client.models.manual_check_dto import ManualCheckDto
+from legit_api_client.models.model_reputation import ModelReputation
 from legit_api_client.models.origin_type import OriginType
 from legit_api_client.models.package_source import PackageSource
 from legit_api_client.models.package_type import PackageType
@@ -157,10 +159,13 @@ from legit_api_client.models.product_unit_asset_dto import ProductUnitAssetDto
 from legit_api_client.models.product_unit_dto import ProductUnitDto
 from legit_api_client.models.product_unit_dto_custom_fields_value import ProductUnitDtoCustomFieldsValue
 from legit_api_client.models.product_unit_environment import ProductUnitEnvironment
+from legit_api_client.models.product_unit_issue_dto import ProductUnitIssueDto
 from legit_api_client.models.product_unit_name_dto import ProductUnitNameDto
 from legit_api_client.models.product_unit_type import ProductUnitType
 from legit_api_client.models.programming_language import ProgrammingLanguage
 from legit_api_client.models.repositories_to_containers_operation_dto import RepositoriesToContainersOperationDto
+from legit_api_client.models.repository_automatic_business_impact_factor import RepositoryAutomaticBusinessImpactFactor
+from legit_api_client.models.repository_context_field_dto import RepositoryContextFieldDto
 from legit_api_client.models.repository_control_dto import RepositoryControlDto
 from legit_api_client.models.repository_directory import RepositoryDirectory
 from legit_api_client.models.repository_dto import RepositoryDto
@@ -179,6 +184,7 @@ from legit_api_client.models.secret_issue_validity_status import SecretIssueVali
 from legit_api_client.models.secrets_data_dto import SecretsDataDto
 from legit_api_client.models.severity import Severity
 from legit_api_client.models.snoozed_type import SnoozedType
+from legit_api_client.models.source_dto import SourceDto
 from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto
 from legit_api_client.models.tag_source import TagSource
@@ -193,3 +199,4 @@ from legit_api_client.models.workspace_group_tree_node_dto import WorkspaceGroup
 from legit_api_client.models.workspace_hierarchy_dto import WorkspaceHierarchyDto
 from legit_api_client.models.workspace_tree_node_dto import WorkspaceTreeNodeDto
 from legit_api_client.models.workspace_type import WorkspaceType
+

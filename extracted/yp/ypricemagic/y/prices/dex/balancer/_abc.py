@@ -1,13 +1,13 @@
 import abc
-from typing import Generic, Optional, Tuple, Type, TypeVar
+from typing import Generic, TypeVar
 
 import a_sync
 
 import y.ENVIRONMENT_VARIABLES as ENVS
 from y import contracts
-from y.classes._abc import LiquidityPool
 from y._decorators import stuck_coro_debugger
-from y.datatypes import AddressOrContract, AnyAddressType, Block, UsdPrice
+from y.classes._abc import LiquidityPool
+from y.datatypes import AddressOrContract, AnyAddressType, Block, Pool, UsdPrice
 
 
 class BalancerPool(LiquidityPool):
@@ -81,8 +81,9 @@ class BalancerABC(a_sync.ASyncGenericBase, Generic[_B]):
     async def get_pool_price(
         self,
         pool_address: AnyAddressType,
-        block: Optional[Block] = None,
+        block: Block | None = None,
         skip_cache: bool = ENVS.SKIP_CACHE,
+        ignore_pools: tuple[Pool, ...] = (),
     ) -> UsdPrice:
         """
         Get the price of a Balancer pool.
@@ -106,7 +107,7 @@ class BalancerABC(a_sync.ASyncGenericBase, Generic[_B]):
 
     @property
     @abc.abstractmethod
-    def _pool_type(self) -> Type[_B]:
+    def _pool_type(self) -> type[_B]:
         """
         The type of Balancer pool.
 
@@ -119,7 +120,7 @@ class BalancerABC(a_sync.ASyncGenericBase, Generic[_B]):
 
     @property
     @abc.abstractmethod
-    def _check_methods(self) -> Tuple[str]:
+    def _check_methods(self) -> tuple[str]:
         """
         The methods to check for identifying a Balancer pool.
 
@@ -134,9 +135,9 @@ class BalancerABC(a_sync.ASyncGenericBase, Generic[_B]):
     async def get_token_price(
         self,
         token_address: AddressOrContract,
-        block: Optional[Block] = None,
+        block: Block | None = None,
         skip_cache: bool = ENVS.SKIP_CACHE,
-    ) -> Optional[UsdPrice]:
+    ) -> UsdPrice | None:
         """
         Get the price of a token in a Balancer pool.
 

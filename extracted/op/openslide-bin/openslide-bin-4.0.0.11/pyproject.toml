@@ -1,0 +1,45 @@
+[project]
+name = "openslide-bin"
+version = "4.0.0.11"
+maintainers = [
+    {name = "OpenSlide project", email = "openslide-users@lists.andrew.cmu.edu"}
+]
+description = "Binary build of OpenSlide"
+readme = "artifacts/python/README.md"
+license = "LGPL-2.1-only AND blessing AND BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND BSD-3-Clause WITH PCRE2-exception AND BSD-4.3TAHOE AND IJG AND LGPL-2.0-or-later AND (LGPL-2.1-only OR MPL-1.1) AND LGPL-2.1-or-later AND libpng-2.0 AND libtiff AND MIT AND Zlib"
+license-files = ["COPYING.LESSER", "licenses/cairo/COPYING", "licenses/cairo/COPYING-LGPL-2.1", "licenses/cairo/COPYING-MPL-1.1", "licenses/gdk-pixbuf/COPYING", "licenses/glib/COPYING", "licenses/libdicom/LICENSE", "licenses/libffi/LICENSE", "licenses/libjpeg-turbo/LICENSE.md", "licenses/libjpeg-turbo/README.ijg", "licenses/libpng/LICENSE", "licenses/libtiff/LICENSE.md", "licenses/libxml2/Copyright", "licenses/OpenJPEG/LICENSE", "licenses/OpenSlide/COPYING.LESSER", "licenses/PCRE2/LICENCE.md", "licenses/pixman/COPYING", "licenses/proxy-libintl/COPYING", "licenses/SQLite/PUBLIC-DOMAIN.txt", "licenses/uthash/LICENSE", "licenses/zlib-ng/LICENSE.md"]
+keywords = ["OpenSlide", "whole-slide image", "virtual slide", "library"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
+requires-python = ">= 3.9"
+
+[project.urls]
+Homepage = "https://openslide.org/"
+# use GitHub Releases page because it has subproject versions
+"Release notes" = "https://github.com/openslide/openslide-bin/releases"
+Repository = "https://github.com/openslide/openslide-bin"
+
+[build-system]
+# The sole purpose of this build is to fail.  See comment in meson.build.
+build-backend = "mesonpy"
+requires = ["meson-python"]
+
+[tool.meson-python.args]
+setup = ['-Dpep517=true']

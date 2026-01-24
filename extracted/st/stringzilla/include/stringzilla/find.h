@@ -60,6 +60,13 @@ SZ_PUBLIC sz_cptr_t sz_find_byte_serial(sz_cptr_t haystack, sz_size_t h_length, 
 /** @copydoc sz_rfind_byte */
 SZ_PUBLIC sz_cptr_t sz_rfind_byte_serial(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle);
 
+#if SZ_USE_WESTMERE
+/** @copydoc sz_find_byte */
+SZ_PUBLIC sz_cptr_t sz_find_byte_westmere(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle);
+/** @copydoc sz_rfind_byte */
+SZ_PUBLIC sz_cptr_t sz_rfind_byte_westmere(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle);
+#endif
+
 #if SZ_USE_HASWELL
 /** @copydoc sz_find_byte */
 SZ_PUBLIC sz_cptr_t sz_find_byte_haswell(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle);
@@ -109,6 +116,13 @@ SZ_DYNAMIC sz_cptr_t sz_rfind(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t 
 SZ_PUBLIC sz_cptr_t sz_find_serial(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle, sz_size_t n_length);
 /** @copydoc sz_rfind */
 SZ_PUBLIC sz_cptr_t sz_rfind_serial(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle, sz_size_t n_length);
+
+#if SZ_USE_WESTMERE
+/** @copydoc sz_find */
+SZ_PUBLIC sz_cptr_t sz_find_westmere(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle, sz_size_t n_length);
+/** @copydoc sz_rfind */
+SZ_PUBLIC sz_cptr_t sz_rfind_westmere(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t needle, sz_size_t n_length);
+#endif
 
 #if SZ_USE_HASWELL
 /** @copydoc sz_find */
@@ -191,6 +205,41 @@ SZ_PUBLIC sz_cptr_t sz_find_byteset_neon(sz_cptr_t haystack, sz_size_t length, s
 SZ_PUBLIC sz_cptr_t sz_rfind_byteset_neon(sz_cptr_t haystack, sz_size_t length, sz_byteset_t const *set);
 #endif
 
+/**
+ *  @brief  Finds the first occurrence of a UTF-8 whitespace or punctuation character in a string.
+ *
+ *  Delimiters include all of the above, plus common "punctuation" characters, "symbols", and "separators",
+ *  as defined by the "Unicode UAX #29" word segmentation standard and implemented in the ICU.
+ *  - around 30 ASCII characters
+ *  - around 130 2-byte characters
+ *  - around 4.3k 3-byte characters
+ *  - around 4.1k 4-byte characters
+ *
+ *  @param[in] text String to be scanned.
+ *  @param[in] length Number of bytes in the string.
+ *  @param[out] matched_length Number of bytes in the matched newline delimiter.
+ *  @return Pointer to the first matching newline character from @p text.
+ */
+SZ_DYNAMIC sz_cptr_t sz_find_delimiter_utf8(sz_cptr_t text, sz_size_t length, sz_size_t *matched_length);
+
+/** @copydoc sz_find_delimiters_utf8 */
+SZ_PUBLIC sz_cptr_t sz_find_delimiters_utf8_serial(sz_cptr_t text, sz_size_t length, sz_size_t *matched_length);
+
+#if SZ_USE_HASWELL
+/** @copydoc sz_find_delimiters_utf8 */
+SZ_PUBLIC sz_cptr_t sz_find_delimiters_utf8_haswell(sz_cptr_t text, sz_size_t length, sz_size_t *matched_length);
+#endif
+
+#if SZ_USE_ICE
+/** @copydoc sz_find_delimiters_utf8 */
+SZ_PUBLIC sz_cptr_t sz_find_delimiters_utf8_ice(sz_cptr_t text, sz_size_t length, sz_size_t *matched_length);
+#endif
+
+#if SZ_USE_NEON
+/** @copydoc sz_find_delimiters_utf8 */
+SZ_PUBLIC sz_cptr_t sz_find_delimiters_utf8_neon(sz_cptr_t text, sz_size_t length, sz_size_t *matched_length);
+#endif
+
 #pragma endregion // Core API
 
 #pragma region Helper Shortcuts
@@ -236,7 +285,7 @@ SZ_PUBLIC sz_cptr_t sz_rfind_byte_not_from(sz_cptr_t h, sz_size_t h_length, sz_c
  *  Say the needle is "aXaYa", and we are comparing the first, second, and last character.
  *  If we use SIMD and compare many offsets at a time, comparing against "a" in every register is a waste.
  *
- *  Similarly, dealing with UTF8 inputs, we know that the lower bits of each character code carry more information.
+ *  Similarly, dealing with UTF-8 inputs, we know that the lower bits of each character code carry more information.
  *  Cyrillic alphabet, for example, falls into [0x0410, 0x042F] code range for uppercase [А, Я], and
  *  into [0x0430, 0x044F] for lowercase [а, я]. Scanning through a text written in Russian, half of the
  *  bytes will carry absolutely no value and will be equal to 0x04.
@@ -266,7 +315,7 @@ SZ_INTERNAL void sz_locate_needle_anomalies_( //
 
     // TODO: Investigate alternative strategies for long needles.
     // On very long needles we have the luxury to choose!
-    // Often dealing with UTF8, we will likely benefit from shifting the first and second characters
+    // Often dealing with UTF-8, we will likely benefit from shifting the first and second characters
     // further to the right, to achieve not only uniqueness within the needle, but also avoid common
     // rune prefixes of 2-, 3-, and 4-byte codes.
     if (length > 8) {
@@ -281,7 +330,7 @@ SZ_INTERNAL void sz_locate_needle_anomalies_( //
         sz_u8_t const *start_u8 = (sz_u8_t const *)start;
         sz_size_t vibrant_first = *first, vibrant_second = *second, vibrant_third = *third;
 
-        // Let's begin with the seccond character, as the termination criteria there is more obvious
+        // Let's begin with the second character, as the termination criteria there is more obvious
         // and we may end up with more variants to check for the first candidate.
         while ((start_u8[vibrant_second] > 191 || start_u8[vibrant_second] == start_u8[vibrant_third]) &&
                (vibrant_second + 1 < vibrant_third))
@@ -838,6 +887,130 @@ SZ_PUBLIC sz_cptr_t sz_rfind_serial(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n
 
 #pragma endregion // Serial Implementation
 
+/*  SSE implementation of the string search algorithms for Westmere processors and newer.
+ *  Very minimalistic (compared to AVX-512), but still faster than the serial implementation.
+ */
+#pragma region Westmere Implementation
+#if SZ_USE_WESTMERE
+#if defined(__clang__)
+#pragma clang attribute push(__attribute__((target("sse4.2"))), apply_to = function)
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC target("sse4.2")
+#endif
+
+SZ_PUBLIC sz_cptr_t sz_find_byte_westmere(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n) {
+    int mask;
+    sz_u128_vec_t h_vec, n_vec;
+    n_vec.xmm = _mm_set1_epi8(n[0]);
+
+    while (h_length >= 16) {
+        h_vec.xmm = _mm_lddqu_si128((__m128i const *)h);
+        mask = _mm_movemask_epi8(_mm_cmpeq_epi8(h_vec.xmm, n_vec.xmm));
+        if (mask) return h + sz_u32_ctz(mask);
+        h += 16, h_length -= 16;
+    }
+
+    return sz_find_byte_serial(h, h_length, n);
+}
+
+SZ_PUBLIC sz_cptr_t sz_rfind_byte_westmere(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n) {
+    int mask;
+    sz_u128_vec_t h_vec, n_vec;
+    n_vec.xmm = _mm_set1_epi8(n[0]);
+
+    while (h_length >= 16) {
+        h_vec.xmm = _mm_lddqu_si128((__m128i const *)(h + h_length - 16));
+        mask = _mm_movemask_epi8(_mm_cmpeq_epi8(h_vec.xmm, n_vec.xmm));
+        if (mask) return h + h_length - 1 - (sz_u32_clz(mask) - 16);
+        h_length -= 16;
+    }
+
+    return sz_rfind_byte_serial(h, h_length, n);
+}
+
+SZ_PUBLIC sz_cptr_t sz_find_westmere(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, sz_size_t n_length) {
+
+    // This almost never fires, but it's better to be safe than sorry.
+    if (h_length < n_length || !n_length) return SZ_NULL_CHAR;
+    if (n_length == 1) return sz_find_byte_westmere(h, h_length, n);
+
+    // Pick the parts of the needle that are worth comparing.
+    sz_size_t offset_first, offset_mid, offset_last;
+    sz_locate_needle_anomalies_(n, n_length, &offset_first, &offset_mid, &offset_last);
+
+    // Broadcast those characters into XMM registers.
+    sz_u32_vec_t matches_vec;
+    sz_u128_vec_t h_first_vec, h_mid_vec, h_last_vec, n_first_vec, n_mid_vec, n_last_vec;
+    n_first_vec.xmm = _mm_set1_epi8(n[offset_first]);
+    n_mid_vec.xmm = _mm_set1_epi8(n[offset_mid]);
+    n_last_vec.xmm = _mm_set1_epi8(n[offset_last]);
+
+    // Scan through the string.
+    for (; h_length >= n_length + 16; h += 16, h_length -= 16) {
+        h_first_vec.xmm = _mm_lddqu_si128((__m128i const *)(h + offset_first));
+        h_mid_vec.xmm = _mm_lddqu_si128((__m128i const *)(h + offset_mid));
+        h_last_vec.xmm = _mm_lddqu_si128((__m128i const *)(h + offset_last));
+        matches_vec.i32 = //
+            _mm_movemask_epi8(_mm_cmpeq_epi8(h_first_vec.xmm, n_first_vec.xmm)) &
+            _mm_movemask_epi8(_mm_cmpeq_epi8(h_mid_vec.xmm, n_mid_vec.xmm)) &
+            _mm_movemask_epi8(_mm_cmpeq_epi8(h_last_vec.xmm, n_last_vec.xmm));
+        while (matches_vec.u32) {
+            int potential_offset = sz_u32_ctz(matches_vec.u32);
+            if (sz_equal_westmere(h + potential_offset, n, n_length)) return h + potential_offset;
+            matches_vec.u32 &= matches_vec.u32 - 1;
+        }
+    }
+
+    return sz_find_serial(h, h_length, n, n_length);
+}
+
+SZ_PUBLIC sz_cptr_t sz_rfind_westmere(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, sz_size_t n_length) {
+    // This almost never fires, but it's better to be safe than sorry.
+    // if (h_length < n_length || !n_length) return SZ_NULL_CHAR;
+    // if (n_length == 1) return sz_rfind_byte_westmere(h, h_length, n);
+    //
+    // Pick the parts of the needle that are worth comparing.
+    sz_size_t offset_first, offset_mid, offset_last;
+    sz_locate_needle_anomalies_(n, n_length, &offset_first, &offset_mid, &offset_last);
+
+    // Broadcast those characters into XMM registers.
+    sz_u32_vec_t matches_vec;
+    sz_u128_vec_t h_first_vec, h_mid_vec, h_last_vec, n_first_vec, n_mid_vec, n_last_vec;
+    n_first_vec.xmm = _mm_set1_epi8(n[offset_first]);
+    n_mid_vec.xmm = _mm_set1_epi8(n[offset_mid]);
+    n_last_vec.xmm = _mm_set1_epi8(n[offset_last]);
+
+    // Scan through the string.
+    sz_cptr_t h_reversed;
+    for (; h_length >= n_length + 16; h_length -= 16) {
+        h_reversed = h + h_length - n_length - 16 + 1;
+        h_first_vec.xmm = _mm_lddqu_si128((__m128i const *)(h_reversed + offset_first));
+        h_mid_vec.xmm = _mm_lddqu_si128((__m128i const *)(h_reversed + offset_mid));
+        h_last_vec.xmm = _mm_lddqu_si128((__m128i const *)(h_reversed + offset_last));
+        matches_vec.i32 = //
+            _mm_movemask_epi8(_mm_cmpeq_epi8(h_first_vec.xmm, n_first_vec.xmm)) &
+            _mm_movemask_epi8(_mm_cmpeq_epi8(h_mid_vec.xmm, n_mid_vec.xmm)) &
+            _mm_movemask_epi8(_mm_cmpeq_epi8(h_last_vec.xmm, n_last_vec.xmm));
+        while (matches_vec.u32) {
+            int potential_offset = sz_u32_clz(matches_vec.u32) - 16;
+            if (sz_equal_westmere(h + h_length - n_length - potential_offset, n, n_length))
+                return h + h_length - n_length - potential_offset;
+            matches_vec.u32 &= ~(1u << (15 - potential_offset));
+        }
+    }
+
+    return sz_rfind_serial(h, h_length, n, n_length);
+}
+
+#if defined(__clang__)
+#pragma clang attribute pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
+#endif            // SZ_USE_WESTMERE
+#pragma endregion // Westmere Implementation
+
 /*  AVX2 implementation of the string search algorithms for Haswell processors and newer.
  *  Very minimalistic (compared to AVX-512), but still faster than the serial implementation.
  */
@@ -891,7 +1064,7 @@ SZ_PUBLIC sz_cptr_t sz_find_haswell(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n
     sz_locate_needle_anomalies_(n, n_length, &offset_first, &offset_mid, &offset_last);
 
     // Broadcast those characters into YMM registers.
-    int matches;
+    sz_u32_vec_t matches_vec;
     sz_u256_vec_t h_first_vec, h_mid_vec, h_last_vec, n_first_vec, n_mid_vec, n_last_vec;
     n_first_vec.ymm = _mm256_set1_epi8(n[offset_first]);
     n_mid_vec.ymm = _mm256_set1_epi8(n[offset_mid]);
@@ -902,14 +1075,14 @@ SZ_PUBLIC sz_cptr_t sz_find_haswell(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n
         h_first_vec.ymm = _mm256_lddqu_si256((__m256i const *)(h + offset_first));
         h_mid_vec.ymm = _mm256_lddqu_si256((__m256i const *)(h + offset_mid));
         h_last_vec.ymm = _mm256_lddqu_si256((__m256i const *)(h + offset_last));
-        matches = //
+        matches_vec.i32 = //
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(h_first_vec.ymm, n_first_vec.ymm)) &
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(h_mid_vec.ymm, n_mid_vec.ymm)) &
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(h_last_vec.ymm, n_last_vec.ymm));
-        while (matches) {
-            int potential_offset = sz_u32_ctz(matches);
+        while (matches_vec.u32) {
+            int potential_offset = sz_u32_ctz(matches_vec.u32);
             if (sz_equal_haswell(h + potential_offset, n, n_length)) return h + potential_offset;
-            matches &= matches - 1;
+            matches_vec.u32 &= matches_vec.u32 - 1;
         }
     }
 
@@ -927,7 +1100,7 @@ SZ_PUBLIC sz_cptr_t sz_rfind_haswell(sz_cptr_t h, sz_size_t h_length, sz_cptr_t 
     sz_locate_needle_anomalies_(n, n_length, &offset_first, &offset_mid, &offset_last);
 
     // Broadcast those characters into YMM registers.
-    int matches;
+    sz_u32_vec_t matches_vec;
     sz_u256_vec_t h_first_vec, h_mid_vec, h_last_vec, n_first_vec, n_mid_vec, n_last_vec;
     n_first_vec.ymm = _mm256_set1_epi8(n[offset_first]);
     n_mid_vec.ymm = _mm256_set1_epi8(n[offset_mid]);
@@ -940,15 +1113,15 @@ SZ_PUBLIC sz_cptr_t sz_rfind_haswell(sz_cptr_t h, sz_size_t h_length, sz_cptr_t 
         h_first_vec.ymm = _mm256_lddqu_si256((__m256i const *)(h_reversed + offset_first));
         h_mid_vec.ymm = _mm256_lddqu_si256((__m256i const *)(h_reversed + offset_mid));
         h_last_vec.ymm = _mm256_lddqu_si256((__m256i const *)(h_reversed + offset_last));
-        matches = //
+        matches_vec.i32 = //
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(h_first_vec.ymm, n_first_vec.ymm)) &
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(h_mid_vec.ymm, n_mid_vec.ymm)) &
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(h_last_vec.ymm, n_last_vec.ymm));
-        while (matches) {
-            int potential_offset = sz_u32_clz(matches);
+        while (matches_vec.u32) {
+            int potential_offset = sz_u32_clz(matches_vec.u32);
             if (sz_equal_haswell(h + h_length - n_length - potential_offset, n, n_length))
                 return h + h_length - n_length - potential_offset;
-            matches &= ~(1 << (31 - potential_offset));
+            matches_vec.u32 &= ~(1u << (31 - potential_offset));
         }
     }
 
@@ -959,17 +1132,34 @@ SZ_PUBLIC sz_cptr_t sz_find_byteset_haswell(sz_cptr_t text, sz_size_t length, sz
 
     // Let's unzip even and odd elements and replicate them into both lanes of the YMM register.
     // That way when we invoke `_mm256_shuffle_epi8` we can use the same mask for both lanes.
+    // Load the 32-byte filter as two 16-byte halves, separate even/odd bytes, pack, and broadcast to YMM.
+    sz_u128_vec_t byte_mask_vec;
+    sz_u128_vec_t filter_lo_vec, filter_hi_vec;
+    sz_u128_vec_t lo_evens_vec, hi_evens_vec;
+    sz_u128_vec_t lo_odds_vec, hi_odds_vec;
+    sz_u128_vec_t evens_xmm_vec, odds_xmm_vec;
     sz_u256_vec_t filter_even_vec, filter_odd_vec;
-    for (sz_size_t i = 0; i != 16; ++i)
-        filter_even_vec.u8s[i] = filter->_u8s[i * 2], filter_odd_vec.u8s[i] = filter->_u8s[i * 2 + 1];
-    filter_even_vec.xmms[1] = filter_even_vec.xmms[0];
-    filter_odd_vec.xmms[1] = filter_odd_vec.xmms[0];
 
     sz_u256_vec_t text_vec;
     sz_u256_vec_t matches_vec;
     sz_u256_vec_t lower_nibbles_vec, higher_nibbles_vec;
     sz_u256_vec_t bitset_even_vec, bitset_odd_vec;
     sz_u256_vec_t bitmask_vec, bitmask_lookup_vec;
+
+    byte_mask_vec.xmm = _mm_set1_epi16(0x00ff);
+
+    filter_lo_vec.xmm = _mm_lddqu_si128((__m128i const *)(filter));
+    filter_hi_vec.xmm = _mm_lddqu_si128((__m128i const *)(filter) + 1);
+    lo_evens_vec.xmm = _mm_and_si128(filter_lo_vec.xmm, byte_mask_vec.xmm);
+    hi_evens_vec.xmm = _mm_and_si128(filter_hi_vec.xmm, byte_mask_vec.xmm);
+    lo_odds_vec.xmm = _mm_srli_epi16(filter_lo_vec.xmm, 8);
+    hi_odds_vec.xmm = _mm_srli_epi16(filter_hi_vec.xmm, 8);
+
+    evens_xmm_vec.xmm = _mm_packus_epi16(lo_evens_vec.xmm, hi_evens_vec.xmm);
+    odds_xmm_vec.xmm = _mm_packus_epi16(lo_odds_vec.xmm, hi_odds_vec.xmm);
+    filter_even_vec.ymm = _mm256_set_m128i(evens_xmm_vec.xmm, evens_xmm_vec.xmm);
+    filter_odd_vec.ymm = _mm256_set_m128i(odds_xmm_vec.xmm, odds_xmm_vec.xmm);
+
     bitmask_lookup_vec.ymm = _mm256_set_epi8(                       //
         -128, 64, 32, 16, 8, 4, 2, 1, -128, 64, 32, 16, 8, 4, 2, 1, //
         -128, 64, 32, 16, 8, 4, 2, 1, -128, 64, 32, 16, 8, 4, 2, 1);
@@ -1250,9 +1440,8 @@ SZ_PUBLIC sz_cptr_t sz_rfind_skylake(sz_cptr_t h, sz_size_t h_length, sz_cptr_t 
             int potential_offset = sz_u64_clz(matches);
             if (n_length <= 3 || sz_equal_skylake(h + h_length - n_length - potential_offset, n, n_length))
                 return h + h_length - n_length - potential_offset;
-            sz_assert_((matches & ((sz_u64_t)1 << (63 - potential_offset))) != 0 &&
-                       "The bit must be set before we squash it");
-            matches &= ~((sz_u64_t)1 << (63 - potential_offset));
+            sz_assert_((matches & (1ull << (63 - potential_offset))) != 0 && "The bit must be set before we squash it");
+            matches &= ~(1ull << (63 - potential_offset));
         }
     }
 
@@ -1271,9 +1460,8 @@ SZ_PUBLIC sz_cptr_t sz_rfind_skylake(sz_cptr_t h, sz_size_t h_length, sz_cptr_t 
             int potential_offset = sz_u64_clz(matches);
             if (n_length <= 3 || sz_equal_skylake(h + 64 - potential_offset - 1, n, n_length))
                 return h + 64 - potential_offset - 1;
-            sz_assert_((matches & ((sz_u64_t)1 << (63 - potential_offset))) != 0 &&
-                       "The bit must be set before we squash it");
-            matches &= ~((sz_u64_t)1 << (63 - potential_offset));
+            sz_assert_((matches & (1ull << (63 - potential_offset))) != 0 && "The bit must be set before we squash it");
+            matches &= ~(1ull << (63 - potential_offset));
         }
     }
 
@@ -1440,13 +1628,13 @@ SZ_PUBLIC sz_cptr_t sz_rfind_byteset_ice(sz_cptr_t text, sz_size_t length, sz_by
 #pragma region NEON Implementation
 #if SZ_USE_NEON
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+simd"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+simd"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+simd")
+#pragma GCC target("+simd")
 #endif
 
-SZ_INTERNAL sz_u64_t sz_vreinterpretq_u8_u4_(uint8x16_t vec) {
+SZ_INTERNAL sz_u64_t sz_find_vreinterpretq_u8_u4_(uint8x16_t vec) {
     // Use `vshrn` to produce a bitmask, similar to `movemask` in SSE.
     // https://community.arm.com/arm-community-blogs/b/infrastructure-solutions-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
     return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vec), 4)), 0) & 0x8888888888888888ull;
@@ -1463,7 +1651,7 @@ SZ_PUBLIC sz_cptr_t sz_find_byte_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_t
         // In Arm NEON we don't have a `movemask` to combine it with `ctz` and get the offset of the match.
         // But assuming the `vmaxvq` is cheap, we can use it to find the first match, by blending (bitwise selecting)
         // the vector with a relative offsets array.
-        matches = sz_vreinterpretq_u8_u4_(matches_vec.u8x16);
+        matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
         if (matches) return h + sz_u64_ctz(matches) / 4;
 
         h += 16, h_length -= 16;
@@ -1480,7 +1668,7 @@ SZ_PUBLIC sz_cptr_t sz_rfind_byte_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_
     while (h_length >= 16) {
         h_vec.u8x16 = vld1q_u8((sz_u8_t const *)h + h_length - 16);
         matches_vec.u8x16 = vceqq_u8(h_vec.u8x16, n_vec.u8x16);
-        matches = sz_vreinterpretq_u8_u4_(matches_vec.u8x16);
+        matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
         if (matches) return h + h_length - 1 - sz_u64_clz(matches) / 4;
         h_length -= 16;
     }
@@ -1498,14 +1686,14 @@ SZ_PUBLIC sz_u64_t sz_find_byteset_neon_register_( //
     uint8x16_t byte_mask_vec = vshlq_u8(vdupq_n_u8(1), vreinterpretq_s8_u8(vandq_u8(h_vec.u8x16, vdupq_n_u8(7))));
     uint8x16_t matches_top_vec = vqtbl1q_u8(set_top_vec_u8x16, byte_index_vec);
     // The table lookup instruction in NEON replies to out-of-bound requests with zeros.
-    // The values in `byte_index_vec` all fall in [0; 32). So for values under 16, substracting 16 will underflow
+    // The values in `byte_index_vec` all fall in [0; 32). So for values under 16, subtracting 16 will underflow
     // and map into interval [240, 256). Meaning that those will be populated with zeros and we can safely
     // merge `matches_top_vec` and `matches_bottom_vec` with a bitwise OR.
     uint8x16_t matches_bottom_vec = vqtbl1q_u8(set_bottom_vec_u8x16, vsubq_u8(byte_index_vec, vdupq_n_u8(16)));
     uint8x16_t matches_vec = vorrq_u8(matches_top_vec, matches_bottom_vec);
     // Istead of pure `vandq_u8`, we can immediately broadcast a match presence across each 8-bit word.
     matches_vec = vtstq_u8(matches_vec, byte_mask_vec);
-    return sz_vreinterpretq_u8_u4_(matches_vec);
+    return sz_find_vreinterpretq_u8_u4_(matches_vec);
 }
 
 SZ_PUBLIC sz_cptr_t sz_find_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, sz_size_t n_length) {
@@ -1530,7 +1718,7 @@ SZ_PUBLIC sz_cptr_t sz_find_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, s
             h_last_vec.u8x16 = vld1q_u8((sz_u8_t const *)(h + 1));
             matches_vec.u8x16 =
                 vandq_u8(vceqq_u8(h_first_vec.u8x16, n_first_vec.u8x16), vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
-            matches = sz_vreinterpretq_u8_u4_(matches_vec.u8x16);
+            matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
             if (matches) return h + sz_u64_ctz(matches) / 4;
         }
     }
@@ -1552,7 +1740,7 @@ SZ_PUBLIC sz_cptr_t sz_find_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, s
                     vceqq_u8(h_first_vec.u8x16, n_first_vec.u8x16), //
                     vceqq_u8(h_mid_vec.u8x16, n_mid_vec.u8x16)),
                 vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
-            matches = sz_vreinterpretq_u8_u4_(matches_vec.u8x16);
+            matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
             if (matches) return h + sz_u64_ctz(matches) / 4;
         }
     }
@@ -1576,7 +1764,7 @@ SZ_PUBLIC sz_cptr_t sz_find_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, s
                     vceqq_u8(h_first_vec.u8x16, n_first_vec.u8x16), //
                     vceqq_u8(h_mid_vec.u8x16, n_mid_vec.u8x16)),
                 vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
-            matches = sz_vreinterpretq_u8_u4_(matches_vec.u8x16);
+            matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
             while (matches) {
                 int potential_offset = sz_u64_ctz(matches) / 4;
                 if (sz_equal_neon(h + potential_offset, n, n_length)) return h + potential_offset;
@@ -1616,7 +1804,7 @@ SZ_PUBLIC sz_cptr_t sz_rfind_neon(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n, 
                 vceqq_u8(h_first_vec.u8x16, n_first_vec.u8x16), //
                 vceqq_u8(h_mid_vec.u8x16, n_mid_vec.u8x16)),
             vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
-        matches = sz_vreinterpretq_u8_u4_(matches_vec.u8x16);
+        matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
         while (matches) {
             int potential_offset = sz_u64_clz(matches) / 4;
             if (sz_equal_neon(h + h_length - n_length - potential_offset, n, n_length))
@@ -1675,10 +1863,10 @@ SZ_PUBLIC sz_cptr_t sz_rfind_byteset_neon(sz_cptr_t h, sz_size_t h_length, sz_by
 #pragma region SVE Implementation
 #if SZ_USE_SVE
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve")
+#pragma GCC target("+sve")
 #endif
 
 SZ_PUBLIC sz_cptr_t sz_find_byte_sve(sz_cptr_t h, sz_size_t h_length, sz_cptr_t n) {
@@ -1826,7 +2014,9 @@ SZ_DYNAMIC sz_cptr_t sz_find_byte(sz_cptr_t haystack, sz_size_t h_length, sz_cpt
     return sz_find_byte_skylake(haystack, h_length, needle);
 #elif SZ_USE_HASWELL
     return sz_find_byte_haswell(haystack, h_length, needle);
-#elif SZ_USE_SVE
+#elif SZ_USE_WESTMERE
+    return sz_find_byte_westmere(haystack, h_length, needle);
+#elif SZ_USE_SVE // ? actually faster than NEON on most machines
     return sz_find_byte_sve(haystack, h_length, needle);
 #elif SZ_USE_NEON
     return sz_find_byte_neon(haystack, h_length, needle);
@@ -1840,7 +2030,9 @@ SZ_DYNAMIC sz_cptr_t sz_rfind_byte(sz_cptr_t haystack, sz_size_t h_length, sz_cp
     return sz_rfind_byte_skylake(haystack, h_length, needle);
 #elif SZ_USE_HASWELL
     return sz_rfind_byte_haswell(haystack, h_length, needle);
-#elif SZ_USE_SVE
+#elif SZ_USE_WESTMERE
+    return sz_rfind_byte_westmere(haystack, h_length, needle);
+#elif SZ_USE_SVE // ? actually faster than NEON on most machines
     return sz_rfind_byte_sve(haystack, h_length, needle);
 #elif SZ_USE_NEON
     return sz_rfind_byte_neon(haystack, h_length, needle);
@@ -1854,7 +2046,9 @@ SZ_DYNAMIC sz_cptr_t sz_find(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t n
     return sz_find_skylake(haystack, h_length, needle, n_length);
 #elif SZ_USE_HASWELL
     return sz_find_haswell(haystack, h_length, needle, n_length);
-#elif SZ_USE_SVE
+#elif SZ_USE_WESTMERE
+    return sz_find_westmere(haystack, h_length, needle, n_length);
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
     return sz_find_sve(haystack, h_length, needle, n_length);
 #elif SZ_USE_NEON
     return sz_find_neon(haystack, h_length, needle, n_length);
@@ -1868,6 +2062,8 @@ SZ_DYNAMIC sz_cptr_t sz_rfind(sz_cptr_t haystack, sz_size_t h_length, sz_cptr_t 
     return sz_rfind_skylake(haystack, h_length, needle, n_length);
 #elif SZ_USE_HASWELL
     return sz_rfind_haswell(haystack, h_length, needle, n_length);
+#elif SZ_USE_WESTMERE
+    return sz_rfind_westmere(haystack, h_length, needle, n_length);
 #elif SZ_USE_NEON
     return sz_rfind_neon(haystack, h_length, needle, n_length);
 #else

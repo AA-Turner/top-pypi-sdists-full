@@ -1,8 +1,8 @@
 Metadata-Version: 2.3
 Name: scrapegraph_py
-Version: 1.31.0
+Version: 1.45.0
 Summary: ScrapeGraph Python SDK for API
-Author-email: Marco Vinciguerra <mvincig11@gmail.com>, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
+Author-email: Marco Vinciguerra <marco@scrapegraphai.com>, Lorenzo Padoan <lorenzo@scrapegraphai.com>
 License: MIT
 Keywords: ai,api,artificial intelligence,gpt,graph,machine learning,natural language processing,nlp,openai,scraping,sdk,web scraping tool,webscraping
 Classifier: Intended Audience :: Developers
@@ -15,9 +15,16 @@ Requires-Dist: beautifulsoup4>=4.12.3
 Requires-Dist: pydantic>=2.10.2
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: requests>=2.32.3
+Requires-Dist: toonify>=1.0.0
 Provides-Extra: docs
 Requires-Dist: furo==2024.5.6; extra == 'docs'
 Requires-Dist: sphinx==6.0; extra == 'docs'
+Provides-Extra: html
+Requires-Dist: beautifulsoup4>=4.12.3; extra == 'html'
+Provides-Extra: langchain
+Requires-Dist: langchain-community>=0.2.11; extra == 'langchain'
+Requires-Dist: langchain-scrapegraph>=0.1.0; extra == 'langchain'
+Requires-Dist: langchain>=0.3.0; extra == 'langchain'
 Description-Content-Type: text/markdown
 
 # 🌐 ScrapeGraph Python SDK
@@ -36,8 +43,31 @@ Official [Python SDK ](https://scrapegraphai.com) for the ScrapeGraph API - Smar
 
 ## 📦 Installation
 
+### Basic Installation
+
 ```bash
 pip install scrapegraph-py
+```
+
+This installs the core SDK with minimal dependencies. The SDK is fully functional with just the core dependencies.
+
+### Optional Dependencies
+
+For specific use cases, you can install optional extras:
+
+**HTML Validation** (required when using `website_html` parameter):
+```bash
+pip install scrapegraph-py[html]
+```
+
+**Langchain Integration** (for using with Langchain/Langgraph):
+```bash
+pip install scrapegraph-py[langchain]
+```
+
+**All Optional Dependencies**:
+```bash
+pip install scrapegraph-py[html,langchain]
 ```
 
 ## 🚀 Features
@@ -80,6 +110,7 @@ response = client.smartscraper(
 )
 
 # Or using HTML content
+# Note: Using website_html requires the [html] extra: pip install scrapegraph-py[html]
 html_content = """
 <html>
     <body>
@@ -322,13 +353,19 @@ for page in result["result"]["pages"]:
 - **depth** (default: 2): Maximum crawl depth (1-10)
 - **max_pages** (default: 2): Maximum pages to crawl (1-100)
 - **same_domain_only** (default: True): Only crawl pages from the same domain
-- **sitemap** (default: False): Use sitemap for better page discovery
+- **sitemap** (default: False): Use sitemap.xml for better page discovery and more comprehensive crawling
 - **cache_website** (default: True): Cache website content
 - **batch_size** (optional): Batch size for processing pages (1-10)
 
 **Cost Comparison:**
 - AI Extraction Mode: ~10 credits per page
 - Markdown Conversion Mode: ~2 credits per page (80% savings!)
+
+**Sitemap Benefits:**
+- Better page discovery using sitemap.xml
+- More comprehensive website coverage
+- Efficient crawling of structured websites
+- Perfect for e-commerce, news sites, and content-heavy websites
 
 </details>
 

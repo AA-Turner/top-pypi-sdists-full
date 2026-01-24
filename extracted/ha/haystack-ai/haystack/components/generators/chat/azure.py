@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 from openai.lib._pydantic import to_strict_json_schema
 from openai.lib.azure import AsyncAzureADTokenProvider, AsyncAzureOpenAI, AzureADTokenProvider, AzureOpenAI
@@ -13,11 +13,12 @@ from haystack import component, default_from_dict, default_to_dict
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import (
-    Tool,
-    Toolset,
+    ToolsType,
     _check_duplicate_tool_names,
     deserialize_tools_or_toolset_inplace,
+    flatten_tools_or_toolsets,
     serialize_tools_or_toolset,
+    warm_up_tools,
 )
 from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
 from haystack.utils.http_client import init_http_client
@@ -52,7 +53,7 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
     client = AzureOpenAIChatGenerator(
         azure_endpoint="<Your Azure endpoint e.g. `https://your-company.azure.openai.com/>",
         api_key=Secret.from_token("<your-api-key>"),
-        azure_deployment="<this a model name, e.g. gpt-4o-mini>")
+        azure_deployment="<this a model name, e.g. gpt-4.1-mini>")
     response = client.run(messages)
     print(response)
     ```
@@ -63,7 +64,7 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
         "Natural Language Processing (NLP) is a branch of artificial intelligence that focuses on
          enabling computers to understand, interpret, and generate human language in a way that is useful.")],
          _name=None,
-         _meta={'model': 'gpt-4o-mini', 'index': 0, 'finish_reason': 'stop',
+         _meta={'model': 'gpt-4.1-mini', 'index': 0, 'finish_reason': 'stop',
          'usage': {'prompt_tokens': 15, 'completion_tokens': 36, 'total_tokens': 51}})]
     }
     ```
@@ -73,28 +74,28 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
     # ruff: noqa: PLR0913
     def __init__(  # pylint: disable=too-many-positional-arguments
         self,
-        azure_endpoint: Optional[str] = None,
-        api_version: Optional[str] = "2023-05-15",
-        azure_deployment: Optional[str] = "gpt-4o-mini",
-        api_key: Optional[Secret] = Secret.from_env_var("AZURE_OPENAI_API_KEY", strict=False),
-        azure_ad_token: Optional[Secret] = Secret.from_env_var("AZURE_OPENAI_AD_TOKEN", strict=False),
-        organization: Optional[str] = None,
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        timeout: Optional[float] = None,
-        max_retries: Optional[int] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        default_headers: Optional[dict[str, str]] = None,
-        tools: Optional[Union[list[Tool], Toolset]] = None,
+        azure_endpoint: str | None = None,
+        api_version: str | None = "2024-12-01-preview",
+        azure_deployment: str | None = "gpt-4.1-mini",
+        api_key: Secret | None = Secret.from_env_var("AZURE_OPENAI_API_KEY", strict=False),
+        azure_ad_token: Secret | None = Secret.from_env_var("AZURE_OPENAI_AD_TOKEN", strict=False),
+        organization: str | None = None,
+        streaming_callback: StreamingCallbackT | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        default_headers: dict[str, str] | None = None,
+        tools: ToolsType | None = None,
         tools_strict: bool = False,
         *,
-        azure_ad_token_provider: Optional[Union[AzureADTokenProvider, AsyncAzureADTokenProvider]] = None,
-        http_client_kwargs: Optional[dict[str, Any]] = None,
+        azure_ad_token_provider: AzureADTokenProvider | AsyncAzureADTokenProvider | None = None,
+        http_client_kwargs: dict[str, Any] | None = None,
     ):
         """
         Initialize the Azure OpenAI Chat Generator component.
 
         :param azure_endpoint: The endpoint of the deployed model, for example `"https://example-resource.azure.openai.com/"`.
-        :param api_version: The version of the API to use. Defaults to 2023-05-15.
+        :param api_version: The version of the API to use. Defaults to 2024-12-01-preview.
         :param azure_deployment: The deployment of the model, usually the model name.
         :param api_key: The API key to use for authentication.
         :param azure_ad_token: [Azure Active Directory token](https://www.microsoft.com/en-us/security/business/identity-access/microsoft-entra-id).
@@ -110,7 +111,8 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
         :param generation_kwargs: Other parameters to use for the model. These parameters are sent directly to
             the OpenAI endpoint. For details, see [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat).
             Some of the supported parameters:
-            - `max_tokens`: The maximum number of tokens the output text can have.
+            - `max_completion_tokens`: An upper bound for the number of tokens that can be generated for a completion,
+                including visible output tokens and reasoning tokens.
             - `temperature`: The sampling temperature to use. Higher values mean the model takes more risks.
                 Try 0.9 for more creative applications and 0 (argmax sampling) for ones with a well-defined answer.
             - `top_p`: Nucleus sampling is an alternative to sampling with temperature, where the model considers
@@ -137,8 +139,7 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
                   the `response_format` must be a JSON schema and not a Pydantic model.
         :param default_headers: Default headers to use for the AzureOpenAI client.
         :param tools:
-            A list of tools or a Toolset for which the model can prepare calls. This parameter can accept either a
-            list of `Tool` objects or a `Toolset` instance.
+            A list of Tool and/or Toolset objects, or a single Toolset for which the model can prepare calls.
         :param tools_strict:
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
@@ -172,13 +173,13 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
         self.azure_endpoint = azure_endpoint
         self.azure_deployment = azure_deployment
         self.organization = organization
-        self.model = azure_deployment or "gpt-4o-mini"
+        self.model = azure_deployment or "gpt-4.1-mini"
         self.timeout = timeout if timeout is not None else float(os.environ.get("OPENAI_TIMEOUT", "30.0"))
         self.max_retries = max_retries if max_retries is not None else int(os.environ.get("OPENAI_MAX_RETRIES", "5"))
         self.default_headers = default_headers or {}
         self.azure_ad_token_provider = azure_ad_token_provider
         self.http_client_kwargs = http_client_kwargs
-        _check_duplicate_tool_names(list(tools or []))
+        _check_duplicate_tool_names(flatten_tools_or_toolsets(tools))
         self.tools = tools
         self.tools_strict = tools_strict
 
@@ -201,6 +202,18 @@ class AzureOpenAIChatGenerator(OpenAIChatGenerator):
         self.async_client = AsyncAzureOpenAI(
             http_client=init_http_client(self.http_client_kwargs, async_client=True), **client_args
         )
+        self._is_warmed_up = False
+
+    def warm_up(self):
+        """
+        Warm up the Azure OpenAI chat generator.
+
+        This will warm up the tools registered in the chat generator.
+        This method is idempotent and will only warm up the tools once.
+        """
+        if not self._is_warmed_up:
+            warm_up_tools(self.tools)
+            self._is_warmed_up = True
 
     def to_dict(self) -> dict[str, Any]:
         """

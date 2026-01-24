@@ -1,0 +1,227 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "cffi>=1.17.1",
+  "setuptools>=77.0.3",
+  "wheel",
+]
+
+[project]
+name = "moocore"
+version = "0.2.0"
+description = "Core Algorithms for Multi-Objective Optimization"
+readme = "README.md"
+keywords = [
+  "math",
+  "Mathematics",
+  "Multi-criteria Decision-Making",
+  "operations research",
+  "Optimization",
+]
+license = "LGPL-2.1-or-later"
+license-files = [ "COPYRIGHTS" ]
+authors = [
+  { name = "Manuel López-Ibáñez", email = "manuel.lopez-ibanez@manchester.ac.uk" },
+  { name = "Fergus Rooney", email = "fergus.rooney@outlook.com" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "cffi>=1.17.1",
+  "numpy>=1.24",
+  "platformdirs",
+]
+
+optional-dependencies.benchmarks = [
+  "botorch",
+  "desdeo",
+  "fast-pareto",
+  "jmetalpy",
+  "matplotlib",
+  "nevergrad",
+  "numba",
+  "numpy",
+  "optuna",
+  "pandas>=2",
+  "paretoset",
+  "py-cpuinfo",
+  "pymoo",
+  "seqme",
+]
+
+optional-dependencies.coverage = [
+  "coverage[toml]",
+  "gcovr",
+]
+optional-dependencies.dev = [ "pre-commit>=3.3.2", "ruff>=0.11.2", "tox>=4.6.2" ]
+optional-dependencies.docs = [
+  "ipykernel",
+  "ipywidgets",
+  "jupyter",
+  "jupyterlab",
+  "kaleido",
+  "pandas>=2",
+  "plotly",
+  "pydata-sphinx-theme>=0.16",
+  "seaborn",
+  "sphinx>=6",
+  "sphinx-autodoc-typehints",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinx-gallery>=0.19",
+  "sphinxcontrib-bibtex",
+  "sphinxcontrib-napoleon",
+]
+optional-dependencies.test = [
+  "pandas>=2",
+  "pytest>7",
+]
+urls.Documentation = "https://multi-objective.github.io/moocore/python/"
+urls.Homepage = "https://multi-objective.github.io/moocore/python/"
+urls.Source = "https://github.com/multi-objective/moocore/"
+urls.Tracker = "https://github.com/multi-objective/moocore/issues"
+
+[tool.setuptools]
+zip-safe = false
+package-dir = { "" = "src" }
+
+[tool.setuptools.package-data]
+"*" = [ "*.c", "*.h" ]
+"moocore.data" = [ "*.txt", "*.dat", "*.xz", "*.csv", "*.10" ]
+
+[tool.distutils.bdist_wheel]
+py_limited_api = "cp310"
+
+[tool.cibuildwheel]
+skip = [
+  "*_ppc64le",
+  "*_s390x",
+  "*_i686",    # Skip 32-bit builds
+  "cp314t-*",  # Skip free-threaded builds
+]
+build-verbosity = 2
+# Will cause the wheel to be installed with these optional-dependencies
+test-extras = [ "test" ]
+test-command = [
+  "pytest --doctest-modules --doctest-continue-on-failure {package}/tests {package}/src/moocore/_moocore.py",
+]
+#test-skip = "*-*linux_{aarch64,ppc64le,s390x}"
+
+[tool.cibuildwheel.linux]
+archs = [ "native" ]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
+# Use abi3audit to catch issues with Limited API wheels
+before-build = "pip install abi3audit"
+repair-wheel-command = [
+  "auditwheel repair -w {dest_dir} {wheel}",
+  "abi3audit --verbose --strict --report {wheel}",
+]
+
+[tool.cibuildwheel.windows]
+archs = [ "native" ]
+# Use delvewheel on windows
+before-build = "pip install delvewheel abi3audit"
+repair-wheel-command = [
+  "delvewheel repair -w {dest_dir} {wheel}",
+  "abi3audit --verbose --strict --report {wheel}",
+]
+
+[tool.cibuildwheel.macos]
+archs = [ "universal2" ]
+before-build = "pip install abi3audit"
+repair-wheel-command = [
+  "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}",
+  "abi3audit --verbose --strict --report {wheel}",
+]
+
+[tool.ruff]
+line-length = 80
+format.docstring-code-line-length = 80
+format.docstring-code-format = true
+lint.extend-select = [
+  "D",    # pydocstyle
+  "D402", # no-signature
+  "D415", # ends-in-punctuation
+  "D417", # undocumented-param
+  "N",
+  "PD",
+  "PERF",
+  "RUF",
+  "UP",
+]
+lint.ignore = [
+  "D203", # one-blank-line-before-class
+  "D213", # multi-line-summary-second-line
+]
+
+lint.extend-per-file-ignores."*benchmarks*/*.py" = [
+  "D",
+  "N806", # non-lowercase-variable-in-function
+  "N813",
+]
+
+lint.extend-per-file-ignores."*examples*/*.py" = [
+  "D205", # 1 blank line required between summary line and description
+  "D400", # First line should end with a period
+  "D415", #  First line should end with a period, question mark, or exclamation point
+  "E402", # Module level import not at top of file
+]
+
+lint.extend-per-file-ignores."*tests*/*.py" = [
+  "N806", # non-lowercase-variable-in-function
+]
+
+lint.pycodestyle.max-doc-length = 80
+lint.pycodestyle.max-line-length = 80
+lint.pydocstyle.convention = "numpy"
+
+[tool.pytest.ini_options]
+faulthandler_timeout = 10
+doctest_optionflags = "NUMBER"
+addopts = [ "--import-mode=importlib", "--durations=5", "--durations-min=1.0" ]
+
+[tool.coverage.report]
+exclude_also = [
+  '.*(?:#|//)\s+nocov',
+  '.* ASSUME\s?\(.+\);',
+  '.* unreachable\s?\(\);',
+  '.*(?:GCOVR?|LCOV)_EXCL_LINE',
+]
+
+[tool.mypy]
+python_version = "3.11"
+# Strictness (recommended for library code)
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+# Warnings
+warn_unused_ignores = true
+warn_return_any = true
+warn_redundant_casts = true
+warn_unused_configs = true
+# Imports
+ignore_missing_imports = true
+files = [ "src/" ]
+
+[tool.gcovr]
+exclude-lines-by-pattern = [
+  '.*(?:#|//)\s+nocov',
+  '.* ASSUME\s?\(.+\);',
+  '.* unreachable\s?\(\);',
+  '.*(?:GCOVR?|LCOV)_EXCL_LINE',
+]

@@ -13,6 +13,7 @@ import binascii
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (
     cryptography_decode_name,
     cryptography_get_extensions_from_csr,
@@ -29,21 +30,20 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
+        CertificatePublicKeyTypes,
+    )
+
     from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
         AnsibleActionModule,
     )
     from ansible_collections.community.crypto.plugins.plugin_utils._filter_module import (  # pragma: no cover
         FilterModuleMock,
     )
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
-        CertificatePublicKeyTypes,
-        PrivateKeyTypes,
-    )
 
-    GeneralAnsibleModule = t.Union[
+    GeneralAnsibleModule = t.Union[  # noqa: UP007
         AnsibleModule, AnsibleActionModule, FilterModuleMock
     ]  # pragma: no cover
 

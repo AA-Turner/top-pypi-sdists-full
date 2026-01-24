@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vector
-Version: 1.6.3
+Version: 1.7.0
 Summary: Vector classes and utilities
 Project-URL: Bug Tracker, https://github.com/scikit-hep/vector/issues
 Project-URL: Changelog, https://vector.readthedocs.io/en/latest/changelog.html
@@ -9,65 +9,35 @@ Project-URL: Documentation, https://vector.readthedocs.io/
 Project-URL: Homepage, https://github.com/scikit-hep/vector
 Author-email: "Jim Pivarski, Henry Schreiner, Eduardo Rodrigues" <eduardo.rodrigues@cern.ch>
 Maintainer-email: The Scikit-HEP admins <scikit-hep-admins@googlegroups.com>
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Keywords: vector
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
-Requires-Dist: numpy>=1.13.3
-Requires-Dist: packaging>=19
+Requires-Python: >=3.9
+Requires-Dist: numpy>=1.19.3
+Requires-Dist: packaging>=20
 Provides-Extra: awkward
 Requires-Dist: awkward>=2; extra == 'awkward'
-Provides-Extra: dev
-Requires-Dist: awkward>=2; extra == 'dev'
-Requires-Dist: dask-awkward; extra == 'dev'
-Requires-Dist: nox; extra == 'dev'
-Requires-Dist: numba>=0.57; (python_version < '3.14') and extra == 'dev'
-Requires-Dist: papermill>=2.4; extra == 'dev'
-Requires-Dist: pytest-cov>=3; extra == 'dev'
-Requires-Dist: pytest-doctestplus; extra == 'dev'
-Requires-Dist: pytest>=6; extra == 'dev'
-Requires-Dist: sympy; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: awkward>=2; extra == 'docs'
-Requires-Dist: ipykernel; extra == 'docs'
-Requires-Dist: myst-parser>0.13; extra == 'docs'
-Requires-Dist: nbsphinx; extra == 'docs'
-Requires-Dist: sphinx-book-theme>=0.0.42; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-math-dollar; extra == 'docs'
-Requires-Dist: sphinx>=4; extra == 'docs'
-Requires-Dist: sympy; extra == 'docs'
 Provides-Extra: numba
 Requires-Dist: numba>=0.57; (python_version < '3.14') and extra == 'numba'
 Provides-Extra: sympy
 Requires-Dist: sympy; extra == 'sympy'
-Provides-Extra: test
-Requires-Dist: nox; extra == 'test'
-Requires-Dist: papermill>=2.4; extra == 'test'
-Requires-Dist: pytest-cov>=3; extra == 'test'
-Requires-Dist: pytest-doctestplus; extra == 'test'
-Requires-Dist: pytest>=6; extra == 'test'
-Provides-Extra: test-extras
-Requires-Dist: dask-awkward; extra == 'test-extras'
-Requires-Dist: spark-parser; extra == 'test-extras'
-Requires-Dist: uncompyle6; (python_version == '3.8') and extra == 'test-extras'
 Description-Content-Type: text/markdown
 
 <img alt="Vector logo" width="50%" src="https://raw.githubusercontent.com/scikit-hep/vector/main/docs/_images/LogoSrc.svg"/>
@@ -128,6 +98,12 @@ Vectors may be included in any of these data types:
 - In [Numba-compiled functions](https://numba.pydata.org/), with [vector.obj](https://vector.readthedocs.io/en/latest/src/make_object.html) objects or Awkward Arrays
 
 Each of these "backends" provides the same suite of properties and methods, through a common "compute" library.
+
+### Integrations
+
+Optionally, the vector package provides integration with other libraries. Currently, this includes:
+
+- [PyTree integrations](https://vector.readthedocs.io/en/latest/src/pytree.html) using the [optree](https://github.com/metaopt/optree) package.
 
 ### Geometric versus momentum
 
@@ -205,6 +181,10 @@ journal = {Journal of Open Source Software}
 - [Interface for 2D momentum](https://vector.readthedocs.io/en/latest/src/momentum2d.html)
 - [Interface for 3D momentum](https://vector.readthedocs.io/en/latest/src/momentum3d.html)
 - [Interface for 4D momentum](https://vector.readthedocs.io/en/latest/src/momentum4d.html)
+
+### Integrations
+
+- [PyTree integration API](https://vector.readthedocs.io/en/latest/src/pytree_api.html)
 
 ### More ways to learn
 

@@ -1,0 +1,77 @@
+[project]
+name = "bids-validator-deno"
+description = "Typescript implementation of the BIDS validator"
+authors = [
+    { name = "bids-standard developers" },
+]
+dependencies = []
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: JavaScript",
+]
+keywords = [
+    "BIDS",
+    "BIDS validator",
+]
+dynamic = []
+version = "2.2.10"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Documentation = "https://bids-validator.readthedocs.io/"
+"Source code" = "https://github.com/bids-standard/bids-validator"
+Issues = "https://github.com/bids-standard/bids-validator/issues"
+
+[dependency-groups]
+doc = [
+    "sphinx",
+    "myst_parser",
+    "sphinx-book-theme",
+    "sphinx-copybutton",
+    "sphinx-design",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+source-includes = [
+    "src/",
+    "deno.json",
+]
+excludes = [
+    ".*",
+]
+
+[tool.pdm.build.wheel-data]
+scripts = [
+    "scripts/*",
+]
+
+[tool.cibuildwheel]
+build = "cp39-*"
+skip = "*musllinux* *_i686 *-win32"
+build-frontend = "build"
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64:latest"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_28_aarch64:latest"
+before-build = "curl -fsSL https://deno.land/install.sh | sh && deno --version"
+test-command = "bids-validator-deno --version"
+overrides = [
+    { select = "*musllinux*", before-build = "apk add deno" },
+    { select = "*win*", before-build = "npm install -g deno & deno --version" },
+]
+
+[tool.cibuildwheel.environment]
+DENO_INSTALL = "/usr/local"

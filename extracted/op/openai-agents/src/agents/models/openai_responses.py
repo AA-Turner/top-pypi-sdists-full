@@ -4,9 +4,9 @@ import json
 from collections.abc import AsyncIterator
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, Union, cast, overload
 
-from openai import NOT_GIVEN, APIStatusError, AsyncOpenAI, AsyncStream, NotGiven
+from openai import APIStatusError, AsyncOpenAI, AsyncStream, Omit, omit
 from openai.types import ChatModel
 from openai.types.responses import (
     Response,
@@ -21,12 +21,14 @@ from openai.types.responses.response_prompt_param import ResponsePromptParam
 
 from .. import _debug
 from ..agent_output import AgentOutputSchemaBase
+from ..computer import AsyncComputer, Computer
 from ..exceptions import UserError
 from ..handoffs import Handoff
 from ..items import ItemHelpers, ModelResponse, TResponseInputItem
 from ..logger import logger
 from ..model_settings import MCPToolChoice
 from ..tool import (
+    ApplyPatchTool,
     CodeInterpreterTool,
     ComputerTool,
     FileSearchTool,
@@ -34,6 +36,7 @@ from ..tool import (
     HostedMCPTool,
     ImageGenerationTool,
     LocalShellTool,
+    ShellTool,
     Tool,
     WebSearchTool,
 )
@@ -41,6 +44,7 @@ from ..tracing import SpanError, response_span
 from ..usage import Usage
 from ..util._json import _to_dump_compatible
 from ..version import __version__
+from .fake_id import FAKE_RESPONSES_ID
 from .interface import Model, ModelTracing
 
 if TYPE_CHECKING:
@@ -65,12 +69,15 @@ class OpenAIResponsesModel(Model):
         self,
         model: str | ChatModel,
         openai_client: AsyncOpenAI,
+        *,
+        model_is_explicit: bool = True,
     ) -> None:
         self.model = model
+        self._model_is_explicit = model_is_explicit
         self._client = openai_client
 
-    def _non_null_or_not_given(self, value: Any) -> Any:
-        return value if value is not None else NOT_GIVEN
+    def _non_null_or_omit(self, value: Any) -> Any:
+        return value if value is not None else omit
 
     async def get_response(
         self,
@@ -248,19 +255,25 @@ class OpenAIResponsesModel(Model):
     ) -> Response | AsyncStream[ResponseStreamEvent]:
         list_input = ItemHelpers.input_to_new_input_list(input)
         list_input = _to_dump_compatible(list_input)
+        list_input = self._remove_openai_responses_api_incompatible_fields(list_input)
 
-        parallel_tool_calls = (
-            True
-            if model_settings.parallel_tool_calls and tools and len(tools) > 0
-            else False
-            if model_settings.parallel_tool_calls is False
-            else NOT_GIVEN
-        )
+        if model_settings.parallel_tool_calls and tools:
+            parallel_tool_calls: bool | Omit = True
+        elif model_settings.parallel_tool_calls is False:
+            parallel_tool_calls = False
+        else:
+            parallel_tool_calls = omit
 
         tool_choice = Converter.convert_tool_choice(model_settings.tool_choice)
         converted_tools = Converter.convert_tools(tools, handoffs)
         converted_tools_payload = _to_dump_compatible(converted_tools.tools)
         response_format = Converter.get_response_format(output_schema)
+        should_omit_model = prompt is not None and not self._model_is_explicit
+        model_param: str | ChatModel | Omit = self.model if not should_omit_model else omit
+        should_omit_tools = prompt is not None and len(converted_tools_payload) == 0
+        tools_param: list[ToolParam] | Omit = (
+            converted_tools_payload if not should_omit_tools else omit
+        )
 
         include_set: set[str] = set(converted_tools.includes)
         if model_settings.response_include is not None:
@@ -297,36 +310,86 @@ class OpenAIResponsesModel(Model):
         if model_settings.top_logprobs is not None:
             extra_args["top_logprobs"] = model_settings.top_logprobs
         if model_settings.verbosity is not None:
-            if response_format != NOT_GIVEN:
+            if response_format is not omit:
                 response_format["verbosity"] = model_settings.verbosity  # type: ignore [index]
             else:
                 response_format = {"verbosity": model_settings.verbosity}
 
-        return await self._client.responses.create(
-            previous_response_id=self._non_null_or_not_given(previous_response_id),
-            conversation=self._non_null_or_not_given(conversation_id),
-            instructions=self._non_null_or_not_given(system_instructions),
-            model=self.model,
+        stream_param: Literal[True] | Omit = True if stream else omit
+
+        response = await self._client.responses.create(
+            previous_response_id=self._non_null_or_omit(previous_response_id),
+            conversation=self._non_null_or_omit(conversation_id),
+            instructions=self._non_null_or_omit(system_instructions),
+            model=model_param,
             input=list_input,
             include=include,
-            tools=converted_tools_payload,
-            prompt=self._non_null_or_not_given(prompt),
-            temperature=self._non_null_or_not_given(model_settings.temperature),
-            top_p=self._non_null_or_not_given(model_settings.top_p),
-            truncation=self._non_null_or_not_given(model_settings.truncation),
-            max_output_tokens=self._non_null_or_not_given(model_settings.max_tokens),
+            tools=tools_param,
+            prompt=self._non_null_or_omit(prompt),
+            temperature=self._non_null_or_omit(model_settings.temperature),
+            top_p=self._non_null_or_omit(model_settings.top_p),
+            truncation=self._non_null_or_omit(model_settings.truncation),
+            max_output_tokens=self._non_null_or_omit(model_settings.max_tokens),
             tool_choice=tool_choice,
             parallel_tool_calls=parallel_tool_calls,
-            stream=stream,
+            stream=cast(Any, stream_param),
             extra_headers=self._merge_headers(model_settings),
             extra_query=model_settings.extra_query,
             extra_body=model_settings.extra_body,
             text=response_format,
-            store=self._non_null_or_not_given(model_settings.store),
-            reasoning=self._non_null_or_not_given(model_settings.reasoning),
-            metadata=self._non_null_or_not_given(model_settings.metadata),
+            store=self._non_null_or_omit(model_settings.store),
+            prompt_cache_retention=self._non_null_or_omit(model_settings.prompt_cache_retention),
+            reasoning=self._non_null_or_omit(model_settings.reasoning),
+            metadata=self._non_null_or_omit(model_settings.metadata),
             **extra_args,
         )
+        return cast(Union[Response, AsyncStream[ResponseStreamEvent]], response)
+
+    def _remove_openai_responses_api_incompatible_fields(self, list_input: list[Any]) -> list[Any]:
+        """
+        Remove or transform input items that are incompatible with the OpenAI Responses API.
+
+        This data transformation does not always guarantee that items from other provider
+        interactions are accepted by the OpenAI Responses API.
+
+        Only items with truthy provider_data are processed.
+        This function handles the following incompatibilities:
+        - provider_data: Removes fields specific to other providers (e.g., Gemini, Claude).
+        - Fake IDs: Removes temporary IDs (FAKE_RESPONSES_ID) that should not be sent to OpenAI.
+        - Reasoning items: Filters out provider-specific reasoning items entirely.
+        """
+        # Early return optimization: if no item has provider_data, return unchanged.
+        has_provider_data = any(
+            isinstance(item, dict) and item.get("provider_data") for item in list_input
+        )
+        if not has_provider_data:
+            return list_input
+
+        result = []
+        for item in list_input:
+            cleaned = self._clean_item_for_openai(item)
+            if cleaned is not None:
+                result.append(cleaned)
+        return result
+
+    def _clean_item_for_openai(self, item: Any) -> Any | None:
+        # Only process dict items
+        if not isinstance(item, dict):
+            return item
+
+        # Filter out reasoning items with provider_data (provider-specific reasoning).
+        if item.get("type") == "reasoning" and item.get("provider_data"):
+            return None
+
+        # Remove fake response ID.
+        if item.get("id") == FAKE_RESPONSES_ID:
+            del item["id"]
+
+        # Remove provider_data field.
+        if "provider_data" in item:
+            del item["provider_data"]
+
+        return item
 
     def _get_client(self) -> AsyncOpenAI:
         if self._client is None:
@@ -351,9 +414,9 @@ class Converter:
     @classmethod
     def convert_tool_choice(
         cls, tool_choice: Literal["auto", "required", "none"] | str | MCPToolChoice | None
-    ) -> response_create_params.ToolChoice | NotGiven:
+    ) -> response_create_params.ToolChoice | Omit:
         if tool_choice is None:
-            return NOT_GIVEN
+            return omit
         elif isinstance(tool_choice, MCPToolChoice):
             return {
                 "server_label": tool_choice.server_label,
@@ -373,7 +436,7 @@ class Converter:
         elif tool_choice == "web_search":
             return {
                 # TODO: revist the type: ignore comment when ToolChoice is updated in the future
-                "type": "web_search",  # type: ignore [typeddict-item]
+                "type": "web_search",  # type: ignore[misc, return-value]
             }
         elif tool_choice == "web_search_preview":
             return {
@@ -394,7 +457,7 @@ class Converter:
         elif tool_choice == "mcp":
             # Note that this is still here for backwards compatibility,
             # but migrating to MCPToolChoice is recommended.
-            return {"type": "mcp"}  # type: ignore [typeddict-item]
+            return {"type": "mcp"}  # type: ignore[misc, return-value]
         else:
             return {
                 "type": "function",
@@ -404,9 +467,9 @@ class Converter:
     @classmethod
     def get_response_format(
         cls, output_schema: AgentOutputSchemaBase | None
-    ) -> ResponseTextConfigParam | NotGiven:
+    ) -> ResponseTextConfigParam | Omit:
         if output_schema is None or output_schema.is_plain_text():
-            return NOT_GIVEN
+            return omit
         else:
             return {
                 "format": {
@@ -477,15 +540,28 @@ class Converter:
 
             includes = "file_search_call.results" if tool.include_search_results else None
         elif isinstance(tool, ComputerTool):
+            computer = tool.computer
+            if not isinstance(computer, (Computer, AsyncComputer)):
+                raise UserError(
+                    "Computer tool is not initialized for serialization. Call "
+                    "resolve_computer({ tool, run_context }) with a run context first "
+                    "when building payloads manually."
+                )
             converted_tool = {
                 "type": "computer_use_preview",
-                "environment": tool.computer.environment,
-                "display_width": tool.computer.dimensions[0],
-                "display_height": tool.computer.dimensions[1],
+                "environment": computer.environment,
+                "display_width": computer.dimensions[0],
+                "display_height": computer.dimensions[1],
             }
             includes = None
         elif isinstance(tool, HostedMCPTool):
             converted_tool = tool.tool_config
+            includes = None
+        elif isinstance(tool, ApplyPatchTool):
+            converted_tool = cast(ToolParam, {"type": "apply_patch"})
+            includes = None
+        elif isinstance(tool, ShellTool):
+            converted_tool = cast(ToolParam, {"type": "shell"})
             includes = None
         elif isinstance(tool, ImageGenerationTool):
             converted_tool = tool.tool_config

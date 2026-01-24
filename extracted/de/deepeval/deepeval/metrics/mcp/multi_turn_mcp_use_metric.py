@@ -7,15 +7,17 @@ from deepeval.metrics.utils import (
     check_conversational_test_case_params,
     construct_verbose_logs,
     get_unit_interactions,
-    trimAndLoadJson,
     initialize_model,
+    a_generate_with_schema_and_extract,
+    generate_with_schema_and_extract,
 )
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.test_case import ConversationalTestCase, TurnParams
 from deepeval.utils import get_or_create_event_loop, prettify_list
-from deepeval.metrics.mcp.schema import Task, ArgsScore, ToolScore
+from deepeval.metrics.mcp.schema import Task, ArgsScore, ToolScore, Reason
 from deepeval.metrics.mcp.template import MCPTaskCompletionTemplate
 from deepeval.errors import MissingTestCaseParamsError
+from deepeval.metrics.api import metric_data_manager
 
 
 class MultiTurnMCPUseMetric(BaseConversationalMetric):
@@ -46,9 +48,15 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         test_case: ConversationalTestCase,
         _show_indicator: bool = True,
         _in_component: bool = False,
+        _log_metric_to_confident: bool = True,
     ):
         check_conversational_test_case_params(
-            test_case, self._required_test_case_params, self
+            test_case,
+            self._required_test_case_params,
+            self,
+            False,
+            self.model,
+            test_case.multimodal,
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
@@ -62,6 +70,7 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
                         test_case,
                         _show_indicator=False,
                         _in_component=_in_component,
+                        _log_metric_to_confident=_log_metric_to_confident,
                     )
                 )
             else:
@@ -102,6 +111,11 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
                         f"Score: {self.score}",
                     ],
                 )
+                if _log_metric_to_confident:
+                    metric_data_manager.post_metric_if_enabled(
+                        self, test_case=test_case
+                    )
+
             return self.score
 
     async def a_measure(
@@ -109,14 +123,23 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         test_case: ConversationalTestCase,
         _show_indicator: bool = True,
         _in_component: bool = False,
+        _log_metric_to_confident: bool = True,
     ):
         check_conversational_test_case_params(
-            test_case, self._required_test_case_params, self
+            test_case,
+            self._required_test_case_params,
+            self,
+            False,
+            self.model,
+            test_case.multimodal,
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
         with metric_progress_indicator(
-            self, async_mode=True, _show_indicator=_show_indicator
+            self,
+            async_mode=True,
+            _show_indicator=_show_indicator,
+            _in_component=_in_component,
         ):
             if not test_case.mcp_servers:
                 error_str = "'mcp_servers' in a conversational test case cannot be empty for the 'MultiTurnMCPUseMetric' metric."
@@ -161,6 +184,10 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
                     f"Score: {self.score}",
                 ],
             )
+            if _log_metric_to_confident:
+                metric_data_manager.post_metric_if_enabled(
+                    self, test_case=test_case
+                )
         return self.score
 
     def _get_tool_accuracy_score(
@@ -169,18 +196,13 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         prompt = MCPTaskCompletionTemplate.get_tool_correctness_score(
             task, test_case.mcp_servers
         )
-        if self.using_native_model:
-            res, cost = self.model.generate(prompt, schema=ToolScore)
-            self.evaluation_cost += cost
-            return res
-        else:
-            try:
-                res: ToolScore = self.model.generate(prompt, schema=ToolScore)
-                return res
-            except TypeError:
-                res = self.model.generate(prompt)
-                data = trimAndLoadJson(res, self)
-                return ToolScore(**data)
+        return generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=ToolScore,
+            extract_schema=lambda s: s,
+            extract_json=lambda data: ToolScore(**data),
+        )
 
     async def _a_get_tool_accuracy_score(
         self, task: Task, test_case: ConversationalTestCase
@@ -188,20 +210,13 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         prompt = MCPTaskCompletionTemplate.get_tool_correctness_score(
             task, test_case.mcp_servers
         )
-        if self.using_native_model:
-            res, cost = await self.model.a_generate(prompt, schema=ToolScore)
-            self.evaluation_cost += cost
-            return res
-        else:
-            try:
-                res: ToolScore = await self.model.a_generate(
-                    prompt, schema=ToolScore
-                )
-                return res
-            except TypeError:
-                res = await self.model.a_generate(prompt)
-                data = trimAndLoadJson(res, self)
-                return ToolScore(**data)
+        return await a_generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=ToolScore,
+            extract_schema=lambda s: s,
+            extract_json=lambda data: ToolScore(**data),
+        )
 
     def _get_args_score(
         self, task: Task, test_case: ConversationalTestCase
@@ -209,18 +224,13 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         prompt = MCPTaskCompletionTemplate.get_args_correctness_score(
             task, test_case.mcp_servers
         )
-        if self.using_native_model:
-            res, cost = self.model.generate(prompt, schema=ArgsScore)
-            self.evaluation_cost += cost
-            return res
-        else:
-            try:
-                res: ArgsScore = self.model.generate(prompt, schema=ArgsScore)
-                return res
-            except TypeError:
-                res = self.model.generate(prompt)
-                data = trimAndLoadJson(res, self)
-                return ArgsScore(**data)
+        return generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=ArgsScore,
+            extract_schema=lambda s: s,
+            extract_json=lambda data: ArgsScore(**data),
+        )
 
     async def _a_get_args_score(
         self, task: Task, test_case: ConversationalTestCase
@@ -228,20 +238,13 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         prompt = MCPTaskCompletionTemplate.get_args_correctness_score(
             task, test_case.mcp_servers
         )
-        if self.using_native_model:
-            res, cost = await self.model.a_generate(prompt, schema=ArgsScore)
-            self.evaluation_cost += cost
-            return res
-        else:
-            try:
-                res: ArgsScore = await self.model.a_generate(
-                    prompt, schema=ArgsScore
-                )
-                return res
-            except TypeError:
-                res = await self.model.a_generate(prompt)
-                data = trimAndLoadJson(res, self)
-                return ArgsScore(**data)
+        return await a_generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=ArgsScore,
+            extract_schema=lambda s: s,
+            extract_json=lambda data: ArgsScore(**data),
+        )
 
     def _get_tasks(self, unit_interactions: List) -> List[Task]:
         tasks = []
@@ -299,44 +302,82 @@ class MultiTurnMCPUseMetric(BaseConversationalMetric):
         tool_accuracy_score: List[ToolScore],
         args_accuracy_score: List[ArgsScore],
     ) -> float:
-        tool_score = sum(score.score for score in tool_accuracy_score) / len(
-            tool_accuracy_score
+        tool_divisor = (
+            len(tool_accuracy_score) if len(tool_accuracy_score) > 0 else 1
         )
-        args_score = sum(score.score for score in args_accuracy_score) / len(
-            args_accuracy_score
+        args_divisor = (
+            len(args_accuracy_score) if len(args_accuracy_score) > 0 else 1
         )
-        return min(tool_score, args_score)
+        tool_score = (
+            sum(score.score for score in tool_accuracy_score) / tool_divisor
+        )
+        args_score = (
+            sum(score.score for score in args_accuracy_score) / args_divisor
+        )
+        score = min(tool_score, args_score)
+        return 0 if self.strict_mode and score < self.threshold else score
 
     def _generate_reason(
         self,
         tool_accuracy_score: List[ToolScore],
         args_accuracy_score: List[ArgsScore],
-    ) -> str:
-        reason = "["
+    ) -> Optional[str]:
+        if not self.include_reason:
+            return None
+
+        reasons = []
         for task_score in tool_accuracy_score:
-            if task_score.score < self.threshold:
-                reason += "\nPrimitives Used\n"
-                reason += (
-                    f"Score: {task_score.score}\n"
-                    f"Reason: {task_score.reason}\n"
-                )
-        for task_score in args_accuracy_score:
-            if task_score.score < self.threshold:
-                reason += "\nArguments Generated\n"
-                reason += (
-                    f"Score: {task_score.score}\n"
-                    f"Reason: {task_score.reason}\n"
-                )
-        reason += "]"
-        return reason
+            reasons.append(task_score.reason)
+
+        for arg_score in args_accuracy_score:
+            reasons.append(arg_score.reason)
+
+        prompt = MCPTaskCompletionTemplate.generate_final_reason(
+            self.score, self.success, reasons
+        )
+
+        return generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=Reason,
+            extract_schema=lambda s: s.reason,
+            extract_json=lambda data: data["reason"],
+        )
+
+    async def _a_generate_reason(
+        self,
+        tool_accuracy_score: List[ToolScore],
+        args_accuracy_score: List[ArgsScore],
+    ) -> Optional[str]:
+        if not self.include_reason:
+            return None
+
+        reasons = []
+        for task_score in tool_accuracy_score:
+            reasons.append(task_score.reason)
+
+        for arg_score in args_accuracy_score:
+            reasons.append(arg_score.reason)
+
+        prompt = MCPTaskCompletionTemplate.generate_final_reason(
+            self.score, self.success, reasons
+        )
+
+        return await a_generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=Reason,
+            extract_schema=lambda s: s.reason,
+            extract_json=lambda data: data["reason"],
+        )
 
     def is_successful(self) -> bool:
         if self.error is not None:
             self.success = False
         else:
             try:
-                self.score >= self.threshold
-            except:
+                self.success = self.score >= self.threshold
+            except TypeError:
                 self.success = False
         return self.success
 

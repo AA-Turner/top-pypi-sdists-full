@@ -231,15 +231,15 @@ class OpenAIAgentsIntegration(BaseLLMIntegration):
             span._set_ctx_item(INPUT_MESSAGES, messages)
 
         if oai_span.response and oai_span.response.output:
-            messages, tool_call_outputs = oai_span.llmobs_output_messages()
+            messages, tool_call_outputs, _ = oai_span.llmobs_output_messages()
 
             for tool_call_output in tool_call_outputs:
                 core.dispatch(
                     DISPATCH_ON_LLM_TOOL_CHOICE,
                     (
-                        tool_call_output["tool_id"],
-                        tool_call_output["name"],
-                        safe_json(tool_call_output["arguments"]),
+                        tool_call_output.get("tool_id", ""),
+                        tool_call_output.get("name", ""),
+                        safe_json(tool_call_output.get("arguments", {})),
                         {
                             "trace_id": format_trace_id(span.trace_id),
                             "span_id": str(span.span_id),

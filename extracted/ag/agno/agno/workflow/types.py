@@ -1,13 +1,19 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from fastapi import WebSocket
 from pydantic import BaseModel
 
 from agno.media import Audio, File, Image, Video
 from agno.models.metrics import Metrics
-from agno.utils.log import log_warning
+from agno.session.workflow import WorkflowSession
+from agno.utils.media import (
+    reconstruct_audio_list,
+    reconstruct_files,
+    reconstruct_images,
+    reconstruct_videos,
+)
+from agno.utils.timer import Timer
 
 
 @dataclass
@@ -57,6 +63,7 @@ class WorkflowExecutionInput:
             "images": [img.to_dict() for img in self.images] if self.images else None,
             "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
             "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
+            "files": [file.to_dict() for file in self.files] if self.files else None,
         }
 
 
@@ -77,6 +84,8 @@ class StepInput:
     audio: Optional[List[Audio]] = None
     files: Optional[List[File]] = None
 
+    workflow_session: Optional["WorkflowSession"] = None
+
     def get_input_as_string(self) -> Optional[str]:
         """Convert input to string representation"""
         if self.input is None:
@@ -94,10 +103,46 @@ class StepInput:
             return str(self.input)
 
     def get_step_output(self, step_name: str) -> Optional["StepOutput"]:
-        """Get output from a specific previous step by name"""
+        """Get output from a specific previous step by name
+
+        Searches recursively through nested steps (Parallel, Condition, Router, Loop, Steps)
+        to find step outputs at any depth.
+        """
         if not self.previous_step_outputs:
             return None
-        return self.previous_step_outputs.get(step_name)
+
+        # First try direct lookup
+        direct = self.previous_step_outputs.get(step_name)
+        if direct:
+            return direct
+
+        # Search recursively in nested steps
+        return self._search_nested_steps(step_name)
+
+    def _search_nested_steps(self, step_name: str) -> Optional["StepOutput"]:
+        """Recursively search for a step output in nested steps (Parallel, Condition, etc.)"""
+        if not self.previous_step_outputs:
+            return None
+
+        for step_output in self.previous_step_outputs.values():
+            result = self._search_in_step_output(step_output, step_name)
+            if result:
+                return result
+        return None
+
+    def _search_in_step_output(self, step_output: "StepOutput", step_name: str) -> Optional["StepOutput"]:
+        """Helper to recursively search within a single StepOutput"""
+        if not step_output.steps:
+            return None
+
+        for nested_step in step_output.steps:
+            if nested_step.step_name == step_name:
+                return nested_step
+            # Recursively search deeper
+            result = self._search_in_step_output(nested_step, step_name)
+            if result:
+                return result
+        return None
 
     def get_step_content(self, step_name: str) -> Optional[Union[str, Dict[str, str]]]:
         """Get content from a specific previous step by name
@@ -168,13 +213,35 @@ class StepInput:
         # Use the helper method to get the deepest content
         return self._get_deepest_step_content(last_output)  # type: ignore[return-value]
 
+    def get_workflow_history(self, num_runs: Optional[int] = None) -> List[Tuple[str, str]]:
+        """Get workflow conversation history as structured data for custom function steps
+
+        Args:
+            num_runs: Number of recent runs to include. If None, returns all available history.
+        """
+        if not self.workflow_session:
+            return []
+
+        return self.workflow_session.get_workflow_history(num_runs=num_runs)
+
+    def get_workflow_history_context(self, num_runs: Optional[int] = None) -> Optional[str]:
+        """Get formatted workflow conversation history context for custom function steps
+
+        Args:
+            num_runs: Number of recent runs to include. If None, returns all available history.
+        """
+        if not self.workflow_session:
+            return None
+
+        return self.workflow_session.get_workflow_history_context(num_runs=num_runs)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         # Handle the unified message field
         input_dict: Optional[Union[str, Dict[str, Any], List[Any]]] = None
         if self.input is not None:
             if isinstance(self.input, BaseModel):
-                input_dict = self.input.model_dump(exclude_none=True)
+                input_dict = self.input.model_dump(exclude_none=True, mode="json")
             elif isinstance(self.input, (dict, list)):
                 input_dict = self.input
             else:
@@ -246,7 +313,7 @@ class StepOutput:
         content_dict: Optional[Union[str, Dict[str, Any], List[Any]]] = None
         if self.content is not None:
             if isinstance(self.content, BaseModel):
-                content_dict = self.content.model_dump(exclude_none=True)
+                content_dict = self.content.model_dump(exclude_none=True, mode="json")
             elif isinstance(self.content, (dict, list)):
                 content_dict = self.content
             else:
@@ -280,21 +347,10 @@ class StepOutput:
     def from_dict(cls, data: Dict[str, Any]) -> "StepOutput":
         """Create StepOutput from dictionary"""
         # Reconstruct media artifacts
-        images = data.get("images")
-        if images:
-            images = [Image.model_validate(img) for img in images]
-
-        videos = data.get("videos")
-        if videos:
-            videos = [Video.model_validate(vid) for vid in videos]
-
-        audio = data.get("audio")
-        if audio:
-            audio = [Audio.model_validate(aud) for aud in audio]
-
-        files = data.get("files")
-        if files:
-            files = [File.model_validate(file) for file in files]
+        images = reconstruct_images(data.get("images"))
+        videos = reconstruct_videos(data.get("videos"))
+        audio = reconstruct_audio_list(data.get("audio"))
+        files = reconstruct_files(data.get("files"))
 
         metrics_data = data.get("metrics")
         metrics = None
@@ -382,12 +438,18 @@ class WorkflowMetrics:
     """Complete metrics for a workflow execution"""
 
     steps: Dict[str, StepMetrics]
+    # Timer utility for tracking execution time
+    timer: Optional[Timer] = None
+    # Total workflow execution time
+    duration: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
-        return {
+        result: Dict[str, Any] = {
             "steps": {name: step.to_dict() for name, step in self.steps.items()},
+            "duration": self.duration,
         }
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "WorkflowMetrics":
@@ -396,80 +458,19 @@ class WorkflowMetrics:
 
         return cls(
             steps=steps,
+            duration=data.get("duration"),
         )
 
+    def start_timer(self):
+        if self.timer is None:
+            self.timer = Timer()
+        self.timer.start()
 
-@dataclass
-class WebSocketHandler:
-    """Generic WebSocket handler for real-time workflow events"""
-
-    websocket: Optional[WebSocket] = None
-
-    def format_sse_event(self, json_data: str) -> str:
-        """Parse JSON data into SSE-compliant format.
-
-        Args:
-            json_data: JSON string containing the event data
-
-        Returns:
-            SSE-formatted response with event type and data
-        """
-        import json
-
-        try:
-            # Parse the JSON to extract the event type
-            data = json.loads(json_data)
-            event_type = data.get("event", "message")
-
-            # Format as SSE: event: <event_type>\ndata: <json_data>\n\n
-            return f"event: {event_type}\ndata: {json_data}\n\n"
-        except (json.JSONDecodeError, KeyError):
-            # Fallback to generic message event if parsing fails
-            return f"event: message\ndata: {json_data}\n\n"
-
-    async def handle_event(self, event: Any) -> None:
-        """Handle an event object - serializes and sends via WebSocket"""
-        if not self.websocket:
-            return
-
-        try:
-            if hasattr(event, "to_dict"):
-                data = event.to_dict()
-            elif hasattr(event, "__dict__"):
-                data = event.__dict__
-            elif isinstance(event, dict):
-                data = event
-            else:
-                data = {"type": "message", "content": str(event)}
-
-            import json
-
-            await self.websocket.send_text(self.format_sse_event(json.dumps(data)))
-
-        except Exception as e:
-            log_warning(f"Failed to handle WebSocket event: {e}")
-
-    async def handle_text(self, message: str) -> None:
-        """Handle a plain text message"""
-        if not self.websocket:
-            return
-
-        try:
-            await self.websocket.send_text(self.format_sse_event(message))
-        except Exception as e:
-            log_warning(f"Failed to send WebSocket text: {e}")
-
-    async def handle_dict(self, data: Dict[str, Any]) -> None:
-        """Handle a dictionary directly"""
-        if not self.websocket:
-            return
-
-        try:
-            import json
-
-            await self.websocket.send_text(self.format_sse_event(json.dumps(data)))
-        except Exception as e:
-            log_warning(f"Failed to send WebSocket dict: {e}")
+    def stop_timer(self, set_duration: bool = True):
+        if self.timer is not None:
+            self.timer.stop()
+            if set_duration:
+                self.duration = self.timer.elapsed
 
 
 class StepType(str, Enum):

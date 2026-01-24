@@ -6,9 +6,9 @@ import logging
 import re
 import torch
 from torch.utils.data import Dataset
-from .vocab import Vocab
 
 from stanza.models.common.utils import sort_with_indices, unsort
+from stanza.models.tokenization.vocab import Vocab
 
 logger = logging.getLogger('stanza')
 
@@ -46,7 +46,7 @@ class TokenizationDataset:
         # set up text from file or input string
         assert txt_file is not None or input_text is not None
         if input_text is None:
-            with open(txt_file) as f:
+            with open(txt_file, encoding="utf-8") as f:
                 text = ''.join(f.readlines()).rstrip()
         else:
             text = input_text
@@ -55,7 +55,7 @@ class TokenizationDataset:
         text_chunks = [pt.rstrip() for pt in text_chunks]
         text_chunks = [pt for pt in text_chunks if pt]
         if label_file is not None:
-            with open(label_file) as f:
+            with open(label_file, encoding="utf-8") as f:
                 labels = ''.join(f.readlines()).rstrip()
                 labels = NEWLINE_WHITESPACE_RE.split(labels)
                 labels = [pt.rstrip() for pt in labels]
@@ -213,11 +213,58 @@ class TokenizationDataset:
 
         return units, labels, features, raw_units
 
+def build_move_punct_set(data, move_back_prob):
+    move_punct = {',', ':', '!', '.', '?', '"', '(', ')'}
+    for chunk in data:
+        # ignore positions at the start and end of a chunk
+        for idx in range(1, len(chunk)-1):
+            if chunk[idx][0] not in move_punct:
+                continue
+            if chunk[idx][1] == 0:
+                if chunk[idx+1][0].isspace() and not chunk[idx-1][0].isdigit():
+                    # this check removes punct which isn't ending a word...
+                    # honestly that's a rather unusual situation
+                    # VI has |3, 5| as a complete token
+                    # so we also eliminate isdigit()
+                    move_punct.remove(chunk[idx][0])
+                continue
+            # we skip isdigit() because we will intentionally not
+            # create things that look like decimal numbers
+            if not chunk[idx-1][0].isspace() and chunk[idx-1][0] not in move_punct and not chunk[idx-1][0].isdigit():
+                # this check eliminates things like '.' after 'Mr.'
+                move_punct.remove(chunk[idx][0])
+                continue
+    return move_punct
+
+def build_known_mwt(data, mwt_expansions):
+    known_mwts = set()
+    for chunk in data:
+        for idx, unit in enumerate(chunk):
+            if unit[1] != 3:
+                continue
+            # found an MWT
+            prev_idx = idx - 1
+            while prev_idx >= 0 and chunk[prev_idx][1] == 0:
+                prev_idx -= 1
+            prev_idx += 1
+            while chunk[prev_idx][0].isspace():
+                prev_idx += 1
+            if prev_idx == idx:
+                continue
+            mwt = "".join(x[0] for x in chunk[prev_idx:idx+1])
+            if mwt not in mwt_expansions:
+                continue
+            if len(mwt_expansions[mwt]) > 2:
+                # TODO: could split 3 word tokens as well
+                continue
+            known_mwts.add(mwt)
+    return known_mwts
+
 class DataLoader(TokenizationDataset):
     """
     This is the training version of the dataset.
     """
-    def __init__(self, args, input_files={'txt': None, 'label': None}, input_text=None, vocab=None, evaluation=False, dictionary=None):
+    def __init__(self, args, input_files={'txt': None, 'label': None}, input_text=None, vocab=None, evaluation=False, dictionary=None, mwt_expansions=None):
         super().__init__(args, input_files, input_text, vocab, evaluation, dictionary)
 
         self.vocab = vocab if vocab is not None else self.init_vocab()
@@ -230,6 +277,23 @@ class DataLoader(TokenizationDataset):
 
         self.init_sent_ids()
         logger.debug(f"{len(self.sentence_ids)} sentences loaded.")
+
+        punct_move_back_prob = args.get('punct_move_back_prob', 0.0)
+        if punct_move_back_prob > 0.0:
+            self.move_punct = build_move_punct_set(self.data, punct_move_back_prob)
+            if len(self.move_punct) > 0:
+                logger.debug('Based on the training data, will augment space/punct combinations {}'.format(self.move_punct))
+            else:
+                logger.debug('Based on the training data, no punct are eligible to be rearranged with extra whitespace')
+
+        split_mwt_prob = args.get('split_mwt_prob', 0.0)
+        if split_mwt_prob > 0.0 and not evaluation:
+            self.mwt_expansions = mwt_expansions
+            self.known_mwt = build_known_mwt(self.data, mwt_expansions)
+            if len(self.known_mwt) > 0:
+                logger.debug('Based on the training data, there are %d MWT which might be split at training time', len(self.known_mwt))
+            else:
+                logger.debug('Based on the training data, there are NO MWT to split at training time')
 
     def __len__(self):
         return len(self.sentence_ids)
@@ -261,6 +325,81 @@ class DataLoader(TokenizationDataset):
             random.shuffle(para)
         self.init_sent_ids()
 
+    def move_last_char(self, sentence):
+        if len(sentence[3]) > 1 and len(sentence[3]) < self.args['max_seqlen'] and sentence[1][-1] == 2 and sentence[1][-2] != 0:
+            new_units = [(x, int(y)) for x, y in zip(sentence[3][:-1], sentence[1][:-1])]
+            new_units.extend([(' ', 0), (sentence[3][-1], int(sentence[1][-1]))])
+            encoded = self.para_to_sentences(new_units)
+            return encoded
+        return None
+
+    def split_mwt(self, sentence):
+        if len(sentence[3]) <= 1 or len(sentence[3]) >= self.args['max_seqlen']:
+            return None
+
+        # if we find a token in the sentence which ends with label 3,
+        # eg it is an MWT,
+        # with some probability we split it into two tokens
+        # and treat the split tokens as both label 1 instead of 3
+        # in this manner, we teach the tokenizer not to treat the
+        # entire sequence of characters with added spaces as an MWT,
+        # which weirdly can happen in some corner cases
+
+        mwt_ends = [idx for idx, label in enumerate(sentence[1]) if label == 3]
+        if len(mwt_ends) == 0:
+            return None
+        random_end = random.randint(0, len(mwt_ends)-1)
+        mwt_end = mwt_ends[random_end]
+        mwt_start = mwt_end - 1
+        while mwt_start >= 0 and sentence[1][mwt_start] == 0:
+            mwt_start -= 1
+        mwt_start += 1
+        while sentence[3][mwt_start].isspace():
+            mwt_start += 1
+        if mwt_start == mwt_end:
+            return None
+        mwt = "".join(x for x in sentence[3][mwt_start:mwt_end+1])
+        if mwt not in self.mwt_expansions:
+            return None
+
+        all_units = [(x, int(y)) for x, y in zip(sentence[3], sentence[1])]
+        w0_units = [(x, 0) for x in self.mwt_expansions[mwt][0]]
+        w0_units[-1] = (w0_units[-1][0], 1)
+        w1_units = [(x, 0) for x in self.mwt_expansions[mwt][1]]
+        w1_units[-1] = (w1_units[-1][0], 1)
+        split_units = w0_units + [(' ', 0)] + w1_units
+        new_units = all_units[:mwt_start] + split_units + all_units[mwt_end+1:]
+        encoded = self.para_to_sentences(new_units)
+        return encoded
+
+    def move_punct_back(self, sentence):
+        if len(sentence[3]) <= 1 or len(sentence[3]) >= self.args['max_seqlen']:
+            return None
+
+        # check that we are not accidentally creating decimal numbers
+        #   idx == 1 or not sentence[3][idx-2].isdigit()
+        # one disadvantage of checking for sentence[1][idx] == 0
+        #   would be that tokens of all punct, such as '...',
+        #   should move but would not move if this is eliminated
+        commas = [idx for idx, c in enumerate(sentence[3])
+                  if c in self.move_punct and idx > 0 and sentence[3][idx-1].isspace() and (idx == 1 or not sentence[3][idx-2].isdigit())]
+        if len(commas) == 0:
+            return None
+
+        all_units = [(x, int(y)) for x, y in zip(sentence[3], sentence[1])]
+        new_units = []
+
+        span_start = 0
+        for span_end in commas:
+            new_units.extend(all_units[span_start:span_end-1])
+            span_start = span_end
+        if span_end < len(sentence[3]):
+            new_units.extend(all_units[span_end:])
+
+        encoded = self.para_to_sentences(new_units)
+        return encoded
+
+
     def next(self, eval_offsets=None, unit_dropout=0.0, feat_unit_dropout=0.0):
         ''' Get a batch of converted and padded PyTorch data from preprocessed raw text for training/prediction. '''
         feat_size = len(self.sentences[0][0][2][0])
@@ -271,11 +410,14 @@ class DataLoader(TokenizationDataset):
             # At eval time, this combines sentences in paragraph (indexed by id_pair[0]) starting sentence (indexed 
             # by id_pair[1]) into a long string for evaluation. At training time, we just select random sentences
             # from the entire dataset until we reach max_seqlen.
-            pid, sid = id_pair if self.eval else random.choice(self.sentence_ids)
-            sentences = [copy([x[offset:] for x in self.sentences[pid][sid]])]
-
             drop_sents = False if self.eval or (self.args.get('sent_drop_prob', 0) == 0) else (random.random() < self.args.get('sent_drop_prob', 0))
             drop_last_char = False if self.eval or (self.args.get('last_char_drop_prob', 0) == 0) else (random.random() < self.args.get('last_char_drop_prob', 0))
+            move_last_char_prob = 0.0 if self.eval else self.args.get('last_char_move_prob', 0.0)
+            move_punct_back_prob = 0.0 if self.eval else self.args.get('punct_move_back_prob', 0.0)
+            split_mwt_prob = 0.0 if self.eval else self.args.get('split_mwt_prob', 0.0)
+
+            pid, sid = id_pair if self.eval else random.choice(self.sentence_ids)
+            sentences = [copy([x[offset:] for x in self.sentences[pid][sid]])]
             total_len = len(sentences[0][0])
 
             assert self.eval or total_len <= self.args['max_seqlen'], 'The maximum sequence length {} is less than that of the longest sentence length ({}) in the data, consider increasing it! {}'.format(self.args['max_seqlen'], total_len, ' '.join(["{}/{}".format(*x) for x in zip(self.sentences[pid][sid])]))
@@ -294,6 +436,36 @@ class DataLoader(TokenizationDataset):
 
                     if total_len >= self.args['max_seqlen']:
                         break
+
+            if move_last_char_prob > 0.0:
+                for sentence_idx, sentence in enumerate(sentences):
+                    if random.random() < move_last_char_prob:
+                        # the sentence might not be eligible, such as
+                        # already having a space or not having a sentence final punct,
+                        # so we need to do a two step checking process here
+                        new_sentence = self.move_last_char(sentence)
+                        if new_sentence is not None:
+                            sentences[sentence_idx] = new_sentence[0]
+                            total_len += 1
+
+            if move_punct_back_prob > 0.0:
+                for sentence_idx, sentence in enumerate(sentences):
+                    if random.random() < move_punct_back_prob:
+                        # the sentence might not be eligible, such as
+                        # not having a space separated punct,
+                        # so we need to do a two step checking process here
+                        new_sentence = self.move_punct_back(sentence)
+                        if new_sentence is not None:
+                            total_len = total_len + len(new_sentence[0][3]) - len(sentences[sentence_idx][3])
+                            sentences[sentence_idx] = new_sentence[0]
+
+            if split_mwt_prob > 0.0:
+                for sentence_idx, sentence in enumerate(sentences):
+                    if random.random() < split_mwt_prob:
+                        new_sentence = self.split_mwt(sentence)
+                        if new_sentence is not None:
+                            total_len = total_len + len(new_sentence[0][3]) - len(sentences[sentence_idx][3])
+                            sentences[sentence_idx] = new_sentence[0]
 
             if drop_sents and len(sentences) > 1:
                 if total_len > self.args['max_seqlen']:
@@ -397,12 +569,17 @@ class SortedDataset(Dataset):
         super().__init__()
 
         self.dataset = dataset
-        self.data, self.indices = sort_with_indices(self.dataset.data, key=len)
+        self.data, self.indices = sort_with_indices(self.dataset.data, key=len, reverse=True)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
+        # This will return a single sample
+        #   np: index in character map
+        #   np: tokenization label
+        #   np: features
+        #   list: original text as one length strings
         return self.dataset.para_to_sentences(self.data[index])
 
     def unsort(self, arr):
@@ -426,7 +603,7 @@ class SortedDataset(Dataset):
             units[i, :len(u_)] = torch.from_numpy(u_)
             labels[i, :len(l_)] = torch.from_numpy(l_)
             features[i, :len(f_), :] = torch.from_numpy(f_)
-            raw_units.append(r_ + ['<PAD>'] * (pad_len - len(r_)))
+            raw_units.append(r_ + ['<PAD>'])
 
         return units, labels, features, raw_units
 

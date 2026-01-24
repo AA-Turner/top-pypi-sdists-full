@@ -1,0 +1,125 @@
+Metadata-Version: 1.1
+Name: omf
+Version: 1.0.1
+Summary: API Library for Open Mining Format
+Home-page: https://gmggroup.org
+Author: Global Mining Guidelines Group
+Author-email: it@seequent.com
+License: MIT License
+Download-URL: https://github.com/gmggroup/omf
+Description-Content-Type: UNKNOWN
+Description: omf
+        ***
+        
+        .. image:: https://img.shields.io/pypi/v/omf.svg
+            :target: https://pypi.python.org/pypi/omf
+            :alt: Latest PyPI version
+        
+        .. image:: https://readthedocs.org/projects/omf/badge/?version=stable
+            :target: http://omf.readthedocs.io/en/latest/
+            :alt: Documentation
+        
+        .. image:: https://img.shields.io/badge/license-MIT-blue.svg
+            :target: https://github.com/gmggroup/omf/blob/master/LICENSE
+            :alt: MIT license
+        
+        .. image:: https://travis-ci.org/gmggroup/omf.svg?branch=master
+            :target: https://travis-ci.org/gmggroup/omf
+            :alt: Travis tests
+        
+        .. image:: https://codecov.io/gh/gmggroup/omf/branch/master/graph/badge.svg
+            :target: https://codecov.io/gh/gmggroup/omf
+            :alt: Code coverage
+        
+        
+        Version: 1.0.1
+        
+        API library for Open Mining Format, a new standard for mining data backed by
+        the `Global Mining Guidelines Group <https://gmggroup.org>`_.
+        
+        .. warning::
+            **Pre-Release Notice**
+        
+            This is a Beta release of the Open Mining Format (OMF) and the associated
+            Python API. The storage format and libraries might be changed in
+            backward-incompatible ways and are not subject to any SLA or deprecation
+            policy.
+        
+        Why?
+        ----
+        
+        An open-source serialization format and API library to support data interchange
+        across the entire mining community.
+        
+        Scope
+        -----
+        
+        This library provides an abstracted object-based interface to the underlying
+        OMF serialization format, which enables rapid development of the interface while
+        allowing for future changes under the hood.
+        
+        Goals
+        -----
+        
+        - The goal of Open Mining Format is to standardize data formats across the
+          mining community and promote collaboration
+        - The goal of the API library is to provide a well-documented, object-based
+          interface for serializing OMF files
+        
+        Alternatives
+        ------------
+        
+        OMF is intended to supplement the many alternative closed-source file formats
+        used in the mining community.
+        
+        Connections
+        -----------
+        
+        This library makes use of the `properties <https://github.com/seequent/properties>`_
+        open-source project, which is designed and publicly supported by
+        `Seequent <https://www.seequent.com>`_.
+        
+        Installation
+        ------------
+        
+        To install the repository, ensure that you have
+        `pip installed <https://pip.pypa.io/en/stable/installing/>`_ and run:
+        
+        .. code::
+        
+            pip install omf
+        
+        Or from `github <https://github.com/gmggroup/omf>`_:
+        
+        .. code::
+        
+            git clone https://github.com/gmggroup/omf.git
+            cd omf
+            pip install -e .
+            
+        
+        3D Visualization
+        ----------------
+        
+        To easily visualize OMF project files and data objects in a pure Python environment, check out ``omfvtk`` (`OMF-VTK`_) which provides tools for creating interactive renderings of OMF datasets using ``vtki`` (the vtkInterface_).
+        
+        .. _OMF-VTK: https://github.com/OpenGeoVis/omfvtk
+        
+        .. _vtkInterface: https://github.com/akaszynski/vtki
+        
+Keywords: mining data interchange
+Platform: Windows
+Platform: Linux
+Platform: Solaris
+Platform: Mac OS-X
+Platform: Unix
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Classifier: Natural Language :: English

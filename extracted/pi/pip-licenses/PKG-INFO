@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pip-licenses
-Version: 5.0.0
+Version: 5.5.0
 Summary: Dump the software license list of Python packages installed with pip.
 Author-email: raimon <raimon49@hotmail.com>
 License: MIT
@@ -17,14 +17,16 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: System :: System Shells
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: prettytable>=2.3.0
-Requires-Dist: tomli>=2
+Requires-Dist: prettytable>=3.12.0
+Requires-Dist: tomli>=2; python_version < "3.11"
 Provides-Extra: dev
 Requires-Dist: autopep8; extra == "dev"
 Requires-Dist: black; extra == "dev"
@@ -39,6 +41,7 @@ Requires-Dist: pytest-pycodestyle; extra == "dev"
 Requires-Dist: pytest-runner; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: tomli-w; extra == "dev"
+Dynamic: license-file
 
 # pip-licenses
 
@@ -407,7 +410,7 @@ Package names of arguments can be separated by spaces.
 ```bash
 (venv) $ pip-licenses --with-system --ignore-packages django pip pip-licenses
  Name        Version  License
- prettytable 3.5.0    BSD License
+ prettytable 3.16.0   BSD License
  pytz        2017.3   MIT
  setuptools  38.5.0   UNKNOWN
  wcwidth     0.2.5    MIT License
@@ -418,7 +421,7 @@ Packages can also be specified with a version, only ignoring that specific versi
 ```bash
 (venv) $ pip-licenses --with-system --ignore-packages django pytz:2017.3
  Name        Version  License
- prettytable 3.5.0    BSD License
+ prettytable 3.16.0   BSD License
  setuptools  38.5.0   UNKNOWN
  wcwidth     0.2.5    MIT License
 ```
@@ -438,7 +441,7 @@ Package names of arguments can be separated by spaces.
 ```bash
 (venv) $ pip-licenses --with-system --packages prettytable pytz
  Name        Version  License
- prettytable 3.5.0    BSD License
+ prettytable 3.16.0   BSD License
  pytz        2017.3   MIT
 ```
 
@@ -458,7 +461,7 @@ If you want to output all including system package, use the `--with-system` opti
  Django        2.0.2    BSD
  pip           9.0.1    MIT
  pip-licenses  1.0.0    MIT License
- prettytable   3.5.0    BSD License
+ prettytable   3.16.0   BSD License
  pytz          2017.3   MIT
  setuptools    38.5.0   UNKNOWN
  wcwidth       0.2.5    MIT License
@@ -743,6 +746,15 @@ $ pip uninstall pip-licenses prettytable wcwidth
 See [contribution guidelines](https://github.com/raimon49/pip-licenses/blob/master/CONTRIBUTING.md).
 
 ## CHANGELOG
+
+### 5.5.0
+
+* Replace dependency on `tomli` with builtin `tomllib` for Python 3.11
+* Added support for `License-Expression` metadata field, see [PEP 639](https://peps.python.org/pep-0639/)
+* Added `--from=expression` option
+* Breaking change: The `--from=all` output now includes the `License-Expression` value
+* Fixed KeyError with `--partial` and `--allow-only` if a license matches multiple allowed licenses.
+* Declare support for Python 3.13 and 3.14
 
 ### 5.0.0
 

@@ -41,9 +41,9 @@ impl<'a> StructGrowable<'a> {
                     })
                     .collect::<Vec<_>>();
                 let growable_validity =
-                    if use_validity || arrays.iter().any(|arr| arr.validity().is_some()) {
+                    if use_validity || arrays.iter().any(|arr| arr.nulls().is_some()) {
                         Some(ArrowBitmapGrowable::new(
-                            arrays.iter().map(|a| a.validity()).collect(),
+                            arrays.iter().map(|a| a.nulls()).collect(),
                             capacity,
                         ))
                     } else {
@@ -90,7 +90,7 @@ impl Growable for StructGrowable<'_> {
             .iter_mut()
             .map(|cg| cg.build())
             .collect::<DaftResult<Vec<_>>>()?;
-        let built_validity = grown_validity.map(|v| v.build());
+        let built_validity = grown_validity.and_then(|v| v.build());
         Ok(StructArray::new(
             Field::new(self.name.clone(), self.dtype.clone()),
             built_children,

@@ -140,7 +140,7 @@ class EventNotify(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         line_notify_token: typing.Optional[builtins.str] = None,
@@ -307,3 +307,6 @@ def _typecheckingstub__02ebe07fa9d1a749f691d8c3e288afaed85beeefaf28fccccb71a6d2a
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [ISlackEventNotify]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

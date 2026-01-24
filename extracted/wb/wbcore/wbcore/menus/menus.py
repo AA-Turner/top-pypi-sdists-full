@@ -10,19 +10,22 @@ from rest_framework.reverse import reverse
 class ItemPermission:
     permissions: List[str] = field(default_factory=list)
     method: Optional[Callable] = None
+    include_superuser: bool = True
 
     def has_permission(self, request: Request) -> bool:
-        if request.user.is_superuser:
+        if self.include_superuser and request.user.is_superuser:
             return True
 
+        has_permission = False
         for permission in self.permissions:
-            if not request.user.has_perm(permission):
-                return False
+            if request.user.has_perm(permission):
+                has_permission = True
+                break
 
         if self.method:
-            return self.method(request=request)
+            has_permission &= self.method(request=request)
 
-        return True
+        return has_permission
 
 
 @dataclass

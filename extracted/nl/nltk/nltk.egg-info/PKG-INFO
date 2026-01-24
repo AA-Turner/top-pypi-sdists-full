@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nltk
-Version: 3.9.1
+Version: 3.9.2
 Summary: Natural Language Toolkit
 Home-page: https://www.nltk.org/
 Author: NLTK Team
@@ -19,11 +19,11 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces
@@ -33,7 +33,7 @@ Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: General
 Classifier: Topic :: Text Processing :: Indexing
 Classifier: Topic :: Text Processing :: Linguistic
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 License-File: AUTHORS.md
 License-File: README.md
@@ -55,14 +55,29 @@ Requires-Dist: twython; extra == "twitter"
 Provides-Extra: corenlp
 Requires-Dist: requests; extra == "corenlp"
 Provides-Extra: all
+Requires-Dist: twython; extra == "all"
+Requires-Dist: numpy; extra == "all"
 Requires-Dist: python-crfsuite; extra == "all"
+Requires-Dist: scipy; extra == "all"
+Requires-Dist: requests; extra == "all"
+Requires-Dist: pyparsing; extra == "all"
 Requires-Dist: scikit-learn; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
-Requires-Dist: twython; extra == "all"
-Requires-Dist: requests; extra == "all"
-Requires-Dist: numpy; extra == "all"
-Requires-Dist: pyparsing; extra == "all"
-Requires-Dist: scipy; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 The Natural Language Toolkit (NLTK) is a Python package for
-natural language processing.  NLTK requires Python 3.8, 3.9, 3.10, 3.11 or 3.12.
+natural language processing.  NLTK requires Python 3.9, 3.10, 3.11, 3.12, or 3.13.

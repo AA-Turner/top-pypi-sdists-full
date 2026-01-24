@@ -1,39 +1,117 @@
 #!/usr/bin/env python3
 
-import os, sys
+import os
+import sys
 import time
-import requests
 from base64 import b64encode
 
+import requests
 
 try:
     from .api import ApiClient
-
+    from .exceptions.solver import ValidationException, NetworkException, TimeoutException, ApiException, \
+        SolverExceptions
 except ImportError:
     from api import ApiClient
-
-
-class SolverExceptions(Exception):
-    pass
-
-
-class ValidationException(SolverExceptions):
-    pass
-
-
-class NetworkException(SolverExceptions):
-    pass
-
-
-class ApiException(SolverExceptions):
-    pass
-
-
-class TimeoutException(SolverExceptions):
-    pass
+    from twocaptcha.exceptions.solver import ValidationException, NetworkException, TimeoutException, ApiException, \
+        SolverExceptions
 
 
 class TwoCaptcha():
+    """
+    Class for interacting with the 2captcha API.
+
+    This class provides methods for solving various types of CAPTCHAs, such as image CAPTCHAs, audio CAPTCHAs, reCAPTCHAs,
+    hCAPTCHAs, and others. It handles sending CAPTCHAs to the 2captcha service and retrieving the solution.
+
+    Parameters
+    __________
+    API_KEY : str
+        Your personal API key for accessing the 2captcha API.
+    soft_id : int, optional
+        Software ID obtained after publishing in the 2captcha software catalog. Default is 4580.
+    callback : str, optional
+        URL of your server to receive the result of the captcha recognition via callback.
+        It must be registered in your 2captcha account settings. Default is None.
+    default_timeout : int, optional
+        The timeout (in seconds) for polling responses for normal CAPTCHAs, excluding reCAPTCHA. Default is 120.
+    recaptcha_timeout : int, optional
+        The timeout (in seconds) for polling responses specifically for reCAPTCHAs. Default is 600.
+    polling_interval : int, optional
+        The interval (in seconds) between requests to the 2captcha API for retrieving the captcha solution. Default is 10.
+    api_client : ApiClient
+        An instance of the ApiClient class to handle API requests.
+    max_files : int
+        Maximum number of files that can be sent to the API in one request. Default is 9.
+    exceptions : SolverExceptions
+        Custom exceptions for handling API errors.
+    extendedResponse : bool, optional
+        If True, enables extended responses from the 2captcha API, which provides more detailed result data. Default is None.
+
+    Methods
+    _______
+    normal(file, **kwargs)
+        To bypass a normal captcha (distorted text on an image) use the following method. This method can also be used
+        to recognize any text in an image.
+    audio(file, lang, **kwargs)
+        Use the following method to bypass an audio captcha (mp3 formats only).
+    text(text, **kwargs)
+        This method can be used to bypass a captcha that requires answering a question provided in clear text.
+    recaptcha(sitekey, url, version='v2', enterprise=0, **kwargs)
+        Use the following method to solve reCAPTCHA V2 or V3 and obtain a token to bypass the protection.
+    funcaptcha(sitekey, url, **kwargs)
+        FunCaptcha (Arkoselabs) solving method. Returns a token.
+    geetest(gt, challenge, url, **kwargs)
+        Method to solve GeeTest puzzle captcha. Returns a set of tokens as JSON.
+    hcaptcha(sitekey, url, **kwargs)
+        Use this method to solve the hCaptcha challenge. Returns a token to bypass the captcha.
+    keycaptcha(s_s_c_user_id, s_s_c_session_id, s_s_c_web_server_sign, s_s_c_web_server_sign2, url, **kwargs)
+        Token-based method to solve KeyCaptcha.
+    capy(sitekey, url, **kwargs)
+        Token-based method to bypass Capy puzzle captcha.
+    grid(file, **kwargs)
+        The grid method was originally called the Old reCAPTCHA V2 method. The method can be used to bypass any type of
+        captcha where you can apply a grid on an image and click specific grid boxes. Returns numbers of boxes.
+    canvas(file, **kwargs)
+        The canvas method can be used when you need to draw a line around an object on an image. Returns a set of points'
+        coordinates to draw a polygon.
+    coordinates(file, **kwargs)
+        The ClickCaptcha method returns the coordinates of points on the captcha image. It can be used if you need to
+        click on particular points in the image.
+    rotate(files, **kwargs)
+        This method can be used to solve a captcha that asks to rotate an object. It is mostly used to bypass FunCaptcha.
+        Returns the rotation angle.
+    geetest_v4(captcha_id, url, **kwargs)
+        Use this method to solve GeeTest v4. Returns the response in JSON.
+    lemin(captcha_id, div_id, url, **kwargs)
+        Use this method to solve the Lemin captcha. Returns JSON with an answer containing the following values: answer,
+        challenge_id.
+    atb_captcha(app_id, api_server, url, **kwargs)
+        Use this method to solve atbCaptcha challenge. Returns a token to bypass the captcha.
+    turnstile(sitekey, url, **kwargs)
+        Use this method to solve Cloudflare Turnstile. Returns JSON with the token.
+    amazon_waf(sitekey, iv, context, url, **kwargs)
+        Use this method to solve Amazon WAF Captcha also known as AWS WAF Captcha is a part of Intelligent threat
+        mitigation for Amazon AWS. Returns JSON with the token.
+    mtcaptcha(sitekey, url, **kwargs)
+        Use this method to solve MTCaptcha and obtain a token to bypass the protection.
+    friendly_captcha(sitekey, url, **kwargs)
+        Friendly Captcha solving method. Returns a token.
+    tencent(app_id, url, **kwargs)
+        Use this method to solve Cutcaptcha. Returns a token.
+    cutcaptcha(misery_key, apikey, url, **kwargs)
+        Use this method to solve Cutcaptcha. Returns the response in JSON.
+    datadome(captcha_url, pageurl, userAgent, proxy, **kwargs)
+        Use this method to solve DataDome captcha.
+    cybersiara(master_url_id, pageurl, userAgent, **kwargs)
+        Use this method to solve CyberSiARA. Returns a token.
+    solve(timeout=0, polling_interval=0, **kwargs)
+        Sends CAPTCHA data and retrieves the result.
+    balance()
+        Retrieves the balance of your 2captcha account.
+    report(id_, correct)
+        Reports the correctness of a solved CAPTCHA.
+    """
     def __init__(self,
                  apiKey,
                  softId=4580,
@@ -41,16 +119,47 @@ class TwoCaptcha():
                  defaultTimeout=120,
                  recaptchaTimeout=600,
                  pollingInterval=10,
-                 server = '2captcha.com',
+                 server='2captcha.com',
                  extendedResponse=None):
+        """
+        Class constructor for interacting with the 2captcha API.
 
+        Parameters
+        __________
+        apiKey : str
+            Your personal API key in your account settings.
+        softId : int, optional
+            Your software ID obtained after publishing in 2captcha software catalog - https://2captcha.com/software.
+            Default: 4580.
+        callback : str, optional
+            URL of your web server that receives the captcha recognition result.
+            The URL should be first registered in pingback - https://2captcha.com/setting/pingback - settings of your account.
+            Default: None.
+        defaultTimeout : int, optional
+            Polling timeout in seconds for all captcha types except reCAPTCHA.
+            Defines how long the module tries to get the answer from the res.php API endpoint.
+            Default: 120.
+        recaptchaTimeout : int, optional
+            Polling timeout for reCAPTCHA in seconds. Defines how long the module tries to get the answer from the res.php API endpoint.
+            Default: 600.
+        pollingInterval : int, optional
+            Interval in seconds between requests to the res.php API endpoint. Setting values less than 5 seconds is not recommended.
+            Default: 10.
+        server : str, optional
+            API server. You can set it to rucaptcha.com if your account is registered there.
+            Default: 2captcha.com.
+        extendedResponse : bool, optional
+            Set to True to get the response with additional fields or in more practical format (enables JSON response from
+            res.php API endpoint). Suitable for hCaptcha, ClickCaptcha, Canvas.
+            Default: None.
+        """
         self.API_KEY = apiKey
         self.soft_id = softId
         self.callback = callback
         self.default_timeout = defaultTimeout
         self.recaptcha_timeout = recaptchaTimeout
         self.polling_interval = pollingInterval
-        self.api_client = ApiClient(post_url = str(server))
+        self.api_client = ApiClient(post_url=str(server))
         self.max_files = 9
         self.exceptions = SolverExceptions
         self.extendedResponse = extendedResponse
@@ -86,7 +195,7 @@ class TwoCaptcha():
         lang : str, optional
             Language code. See the list of supported languages https://2captcha.com/2captcha-api#language.
         hintText : str, optional
-            Max 140 characters. Endcoding: UTF-8. Text will be shown to worker to help him to solve the captcha correctly.
+            Max 140 characters. Encoding: UTF-8. Text will be shown to worker to help him to solve the captcha correctly.
             For example: type red symbols only.
         hintImg : img, optional
             Max 400x150px, 100 kB. Image with instruction for solving reCAPTCHA. Not required if you're sending
@@ -127,7 +236,7 @@ class TwoCaptcha():
             body = b64encode(response.content).decode('utf-8')
         elif file.endswith(".mp3"):
             with open(file, "rb") as media:
-                body = b64encode(media.read()).decode('utf-8')                
+                body = b64encode(media.read()).decode('utf-8')
         else:
             raise ValidationException('File extension is not .mp3 or it is not a base64 string.')
 
@@ -143,7 +252,7 @@ class TwoCaptcha():
         Parameters
         __________
         text : str
-            Max 140 characters. Endcoding: UTF-8. Text will be shown to worker to help him to solve the captcha correctly.
+            Max 140 characters. Encoding: UTF-8. Text will be shown to worker to help him to solve the captcha correctly.
             For example: type red symbols only.
         lang: str, optional
             Language code. See the list of supported languages https://2captcha.com/2captcha-api#language.
@@ -162,7 +271,7 @@ class TwoCaptcha():
         '''Wrapper for solving recaptcha (v2, v3).
 
         Parameters
-        _______________
+        __________
         sitekey : str
             Value of sitekey parameter you found on page.
         url : str
@@ -224,7 +333,7 @@ class TwoCaptcha():
             Tells us to use your user-agent value.
         data[key] : str, optional
             Custom data to pass to FunCaptcha. For example: data[blob]=stringValue.
-        softId : str, optional
+        softId : int, optional
             ID of software developer. Developers who integrated their software with 2Captcha get reward: 10% of
             spendings of their software users.
         callback : str, optional
@@ -243,7 +352,7 @@ class TwoCaptcha():
     def geetest(self, gt, challenge, url, **kwargs):
         '''Wrapper for solving geetest captcha.
 
-        Parameters:
+        Parameters
         __________
         gt : str
             Value of gt parameter you found on target website.
@@ -383,13 +492,14 @@ class TwoCaptcha():
     def grid(self, file, **kwargs):
         '''Wrapper for solving grid captcha (image).
 
-        Required:
+        Parameters
+        __________
         file : file
             Captcha image file. * required if you submit image as a file (method=post).
         body : str
             Base64-encoded captcha image. * required if you submit image as Base64-encoded string (method=base64).
         hintText : str
-            Max 140 characters. Endcoding: UTF-8. Text with instruction for solving reCAPTCHA. For example: select images
+            Max 140 characters. Encoding: UTF-8. Text with instruction for solving reCAPTCHA. For example: select images
             with trees. Not required if you're sending instruction as an image with imginstructions.
         hintImg : img
             Max 400x150px, 100 kB. Image with instruction for solving reCAPTCHA. Not required if you're sending
@@ -398,6 +508,14 @@ class TwoCaptcha():
             Number of rows in reCAPTCHA grid.
         cols : itn, optional
             Number of columns in reCAPTCHA grid.
+        img_type : str, optional
+            The type of captcha to solve. Supported values:
+            - funcaptcha: FunCaptcha where you need to click the correct square.
+            - funcaptcha_compare: FunCaptcha where you select the square using arrows.
+            - recaptcha: reCAPTCHA.
+            - hcaptcha: hCaptcha.
+            Important: You must also provide the textinstructions parameter with the original instructions in English,
+            and send the original image files, not screenshots.
         previousId : str, optional
             Id of your previous request with the same captcha challenge.
         canSkip : int, optional
@@ -438,7 +556,7 @@ class TwoCaptcha():
         body : str
             Base64-encoded captcha image. * required if you submit image as Base64-encoded string (method=base64).
         hintText : str
-            Max 140 characters. Endcoding: UTF-8. Text with instruction for solving reCAPTCHA. For example: select
+            Max 140 characters. Encoding: UTF-8. Text with instruction for solving reCAPTCHA. For example: select
             images with trees. Not required if you're sending instruction as an image with imginstructions.
         hintImg : img
             Max 400x150px, 100 kB. Image with instruction for solving reCAPTCHA. Not required if you're sending
@@ -485,13 +603,17 @@ class TwoCaptcha():
         body : str
             Base64-encoded captcha image. * required if you submit image as Base64-encoded string (method=base64).
         hintText : str
-            Max 140 characters. Endcoding: UTF-8. Text with instruction for solving the captcha. For example: click on
+            Max 140 characters. Encoding: UTF-8. Text with instruction for solving the captcha. For example: click on
             images with ghosts. Not required if the image already contains the instruction.
         hintImg : img
              Max 400x150px, 100 kB. Image with instruction for solving reCAPTCHA. Not required if you're sending
              instruction as text with textinstructions.
         lang : str, optional
             Language code. See the list of supported languages https://2captcha.com/2captcha-api#language.
+        min_clicks : int, optional
+            The minimum number of clicks that need to be done.
+        max_clicks : int, optional
+            The maximum number of clicks that can be done.
         softId : int, optional
             ID of software developer. Developers who integrated their software with 2Captcha get reward: 10% of
             spendings of their software users.
@@ -553,7 +675,6 @@ class TwoCaptcha():
 
         result = self.solve(files=files, method='rotatecaptcha', **kwargs)
         return result
-    
 
     def geetest_v4(self, captcha_id, url, **kwargs):
         '''Wrapper for solving geetest_v4 captcha.
@@ -579,7 +700,6 @@ class TwoCaptcha():
                             method='geetest_v4',
                             **kwargs)
         return result
-    
 
     def lemin(self, captcha_id, div_id, url, **kwargs):
         '''Wrapper for solving Lemin Cropped Captcha.
@@ -634,7 +754,6 @@ class TwoCaptcha():
                             method='atb_captcha',
                             **kwargs)
         return result
-    
 
     def turnstile(self, sitekey, url, **kwargs):
         '''Wrapper for solving Cloudflare Turnstile.
@@ -670,7 +789,6 @@ class TwoCaptcha():
                             method='turnstile',
                             **kwargs)
         return result
-    
 
     def amazon_waf(self, sitekey, iv, context, url, **kwargs):
         '''Wrapper for solving Amazon WAF.
@@ -700,12 +818,12 @@ class TwoCaptcha():
         '''
 
         result = self.solve(sitekey=sitekey,
-                            iv=iv, 
+                            iv=iv,
                             context=context,
                             url=url,
                             method='amazon_waf',
                             **kwargs)
-        
+
         return result
 
     def mtcaptcha(self, sitekey, url, **kwargs):
@@ -812,6 +930,126 @@ class TwoCaptcha():
                             **kwargs)
         return result
 
+    def vkimage(self, files, steps, **kwargs):
+        '''Wrapper for solving vkimage captcha.
+
+        Parameters
+        __________
+        file : str
+            Captcha image as a file or base64.
+        steps: str
+            Array of steps.
+        proxy : dict, optional
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+
+        if isinstance(files, str):
+
+            payload = self.get_method(files)
+            payload.pop('method', None)
+
+            result = self.solve(method='vkimage', steps=steps, **payload, **kwargs)
+            return result
+
+        elif isinstance(files, dict):
+            files = list(files.values())
+
+        files = self.extract_files(files)
+
+        result = self.solve(method='vkimage',
+                            files=files,
+                            steps=steps,
+                            **kwargs)
+        return result
+
+    def vkcaptcha(self, redirect_uri, userAgent, proxy, **kwargs):
+        '''Wrapper for solving VK captcha using tokens.
+
+        Parameters
+        __________
+        redirect_uri : str
+            The URL that is returned for requests to the captchas API.
+        userAgent : str
+            User-Agent of the browser that will be used by the employee when loading the captcha.
+        proxy : dict
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+
+
+        result = self.solve(method='vkcaptcha',
+                            redirect_uri=redirect_uri,
+                            useragent=userAgent,
+                            proxy=proxy,
+                            **kwargs)
+        return result
+
+    def captchafox(self, sitekey, pageurl, userAgent, proxy, **kwargs):
+        '''Wrapper for solving CaptchaFox using tokens.
+
+        Parameters
+        __________
+        sitekey : str
+            The sitekey parameter value found on the page or in network requests.
+        pageurl : str
+            Full URL of the page with captcha.
+        userAgent : str
+            User-Agent of the browser that will be used by the employee when loading the captcha.
+        proxy : dict
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+
+
+        result = self.solve(method='captchafox',
+                            sitekey=sitekey,
+                            pageurl=pageurl,
+                            useragent=userAgent,
+                            proxy=proxy,
+                            **kwargs)
+        return result
+
+    def prosopo(self, sitekey, pageurl, **kwargs):
+        '''Wrapper for solving Prosopo captcha using tokens.
+
+        Parameters
+        __________
+        sitekey : str
+            The sitekey parameter value found on the page or in network requests.
+        pageurl : str
+            Full URL of the page with captcha.
+        proxy : dict, optional
+            {'type': 'HTTPS', 'uri': 'login:password@IP_address:PORT'}.
+        '''
+
+
+        result = self.solve(method='prosopo',
+                            sitekey=sitekey,
+                            pageurl=pageurl,
+                            **kwargs)
+        return result
+
+    def temu(self, body, part1, part2, part3, **kwargs):
+        '''Wrapper for solving Temu captcha .
+
+        Parameters
+        __________
+        body : str
+            Main captcha image as a base64 string.
+        part1 : str
+            Tile element as a base64 string.
+        part2 : str
+            Tile element as a base64 string.
+        part3 : str
+            Tile element as a base64 string.
+        '''
+
+        result = self.solve(method='temuimage',
+                            body=body,
+                            part1=part1,
+                            part2=part2,
+                            part3=part3,
+                            **kwargs)
+        return result
+
     def datadome(self, captcha_url, pageurl, userAgent, proxy, **kwargs):
         """Wrapper for solving DataDome Captcha.
 
@@ -834,7 +1072,7 @@ class TwoCaptcha():
                             proxy=proxy,
                             **kwargs)
         return result
-      
+
     def cybersiara(self, master_url_id, pageurl, userAgent, **kwargs):
         '''Wrapper for solving CyberSiARA captcha.
 
@@ -960,7 +1198,7 @@ class TwoCaptcha():
         """This method can be used for manual captcha submission
 
         Parameters
-        _________
+        __________
         method : str
             The name of the method must be found in the documentation https://2captcha.com/2captcha-api
         kwargs: dict
@@ -1115,7 +1353,7 @@ class TwoCaptcha():
         if not_exists:
             raise ValidationException(f'File not found: {not_exists}')
 
-        files = {f'file_{e+1}': f for e, f in enumerate(files)}
+        files = {f'file_{e + 1}': f for e, f in enumerate(files)}
         return files
 
     def check_hint_img(self, params):
@@ -1142,6 +1380,5 @@ class TwoCaptcha():
 
 
 if __name__ == '__main__':
-
     key = sys.argv[1]
     sol = TwoCaptcha(key)

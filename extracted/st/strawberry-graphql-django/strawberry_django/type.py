@@ -8,9 +8,8 @@ import types
 from collections.abc import Callable, Collection, Sequence
 from typing import (
     Generic,
-    Optional,
+    Literal,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -28,9 +27,10 @@ from strawberry.types import get_object_definition
 from strawberry.types.base import WithStrawberryObjectDefinition
 from strawberry.types.cast import get_strawberry_type_cast
 from strawberry.types.field import StrawberryField
+from strawberry.types.maybe import _annotation_is_maybe  # noqa: PLC2701
 from strawberry.types.private import is_private
 from strawberry.utils.deprecations import DeprecatedDescriptor
-from typing_extensions import Literal, Self, dataclass_transform
+from typing_extensions import Self, dataclass_transform, get_annotations
 
 from strawberry_django.optimizer import OptimizerStore
 from strawberry_django.relay import (
@@ -46,7 +46,7 @@ from strawberry_django.utils.typing import (
     TypeOrMapping,
     TypeOrSequence,
     WithStrawberryDjangoObjectDefinition,
-    get_annotations,
+    get_strawberry_annotations,
     is_auto,
 )
 
@@ -74,19 +74,19 @@ def _process_type(
     model: type[Model],
     *,
     field_cls: type[StrawberryDjangoField] = StrawberryDjangoField,
-    filters: Optional[type] = None,
-    order: Optional[type] = None,
-    ordering: Optional[type] = None,
+    filters: type | None = None,
+    order: type | None = None,
+    ordering: type | None = None,
     pagination: bool = False,
     partial: bool = False,
-    is_filter: Union[Literal["lookups"], bool] = False,
-    only: Optional[TypeOrSequence[str]] = None,
-    select_related: Optional[TypeOrSequence[str]] = None,
-    prefetch_related: Optional[TypeOrSequence[PrefetchType]] = None,
-    annotate: Optional[TypeOrMapping[AnnotateType]] = None,
+    is_filter: Literal["lookups"] | bool = False,
+    only: TypeOrSequence[str] | None = None,
+    select_related: TypeOrSequence[str] | None = None,
+    prefetch_related: TypeOrSequence[PrefetchType] | None = None,
+    annotate: TypeOrMapping[AnnotateType] | None = None,
     disable_optimization: bool = False,
-    fields: Optional[Union[list[str], Literal["__all__"]]] = None,
-    exclude: Optional[list[str]] = None,
+    fields: list[str] | Literal["__all__"] | None = None,
+    exclude: list[str] | None = None,
     **kwargs,
 ) -> _T:
     is_input = kwargs.get("is_input", False)
@@ -107,8 +107,8 @@ def _process_type(
     if django_settings().get("MAP_AUTO_ID_AS_GLOBAL_ID", False):
         model_fields = [f for f in model_fields if f.name != "id"]
 
-    existing_annotations = get_annotations(cls)
-    cls_annotations = cls.__dict__.get("__annotations__", {})  # noqa: RUF063
+    existing_annotations = get_strawberry_annotations(cls)
+    cls_annotations = get_annotations(cls)
     cls.__annotations__ = cls_annotations
 
     for f in model_fields:
@@ -121,16 +121,16 @@ def _process_type(
             {
                 "AND": existing_annotations.get("AND").annotation  # type: ignore
                 if existing_annotations.get("AND")
-                else Optional[Self],  # type: ignore
+                else Self | None,
                 "OR": existing_annotations.get("OR").annotation  # type: ignore
                 if existing_annotations.get("OR")
-                else Optional[Self],  # type: ignore
+                else Self | None,
                 "NOT": existing_annotations.get("NOT").annotation  # type: ignore
                 if existing_annotations.get("NOT")
-                else Optional[Self],  # type: ignore
+                else Self | None,
                 "DISTINCT": existing_annotations.get("DISTINCT").annotation  # type: ignore
                 if existing_annotations.get("DISTINCT")
-                else Optional[bool],
+                else bool | None,
             },
         )
 
@@ -155,7 +155,7 @@ def _process_type(
     )
 
     auto_fields: set[str] = set()
-    for field_name, field_annotation in get_annotations(cls).items():
+    for field_name, field_annotation in get_strawberry_annotations(cls).items():
         annotation = field_annotation.annotation
         if is_private(annotation):
             continue
@@ -166,18 +166,22 @@ def _process_type(
         # FIXME: For input types it is important to set the default value to UNSET
         # Is there a better way of doing this?
         if is_input:
+            # For Maybe types, the default should be None (matching strawberry's behavior)
+            # For other types, the default should be UNSET
+            is_maybe = _annotation_is_maybe(annotation)
+            default_value = None if is_maybe else UNSET
+
             # First check if the field is defined in the class. If it is,
-            # then we just need to set its default value to UNSET in case
-            # it is MISSING
+            # then we just need to set its default value in case it is MISSING
             if field_name in cls.__dict__:
                 field = cls.__dict__[field_name]
                 if (
                     isinstance(field, dataclasses.Field)
                     and field.default is dataclasses.MISSING
                 ):
-                    field.default = UNSET
+                    field.default = default_value
                     if isinstance(field, StrawberryField):
-                        field.default_value = UNSET
+                        field.default_value = default_value
 
                 continue
 
@@ -186,12 +190,12 @@ def _process_type(
                 if base_field is not None and isinstance(base_field, StrawberryField):
                     new_field = copy.copy(base_field)
                 else:
-                    new_field = _field(default=UNSET)
+                    new_field = _field(default=default_value)
 
                 cls_annotations[field_name] = field_annotation.raw_annotation
-                new_field.default = UNSET
+                new_field.default = default_value
                 if isinstance(base_field, StrawberryField):
-                    new_field.default_value = UNSET
+                    new_field.default_value = default_value
 
                 setattr(cls, field_name, new_field)
 
@@ -245,13 +249,13 @@ def _process_type(
     description_from_doc = settings["FIELD_DESCRIPTION_FROM_HELP_TEXT"]
     new_fields: list[StrawberryField] = []
     for f in type_def.fields:
-        django_name: Optional[str] = (
+        django_name: str | None = (
             getattr(f, "django_name", None) or f.python_name or f.name
         )
         assert django_name is not None
 
-        description: Optional[str] = getattr(f, "description", None)
-        type_annotation: Optional[StrawberryAnnotation] = getattr(
+        description: str | None = getattr(f, "description", None)
+        type_annotation: StrawberryAnnotation | None = getattr(
             f,
             "type_annotation",
             None,
@@ -302,7 +306,7 @@ def _process_type(
                 )
 
                 if type_annotation is None or f_is_auto:
-                    return_type = func.__annotations__.get("return")
+                    return_type = get_annotations(func).get("return")
                     if return_type is None:
                         raise MissingFieldAnnotationError(
                             django_name,
@@ -423,10 +427,10 @@ class StrawberryDjangoDefinition(Generic[_O, _M]):
     store: OptimizerStore
     is_input: bool = False
     is_partial: bool = False
-    is_filter: Union[Literal["lookups"], bool] = False
-    filters: Optional[type] = None
-    order: Optional[type] = None
-    ordering: Optional[type] = None
+    is_filter: Literal["lookups"] | bool = False
+    filters: type | None = None
+    order: type | None = None
+    ordering: type | None = None
     pagination: bool = False
     field_cls: type[StrawberryDjangoField] = StrawberryDjangoField
     disable_optimization: bool = False
@@ -443,25 +447,25 @@ class StrawberryDjangoDefinition(Generic[_O, _M]):
 def type(  # noqa: A001
     model: type[Model],
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     field_cls: type[StrawberryDjangoField] = StrawberryDjangoField,
     is_input: bool = False,
     is_interface: bool = False,
-    is_filter: Union[Literal["lookups"], bool] = False,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    is_filter: Literal["lookups"] | bool = False,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
     extend: bool = False,
-    filters: Optional[type] = None,
-    order: Optional[type] = None,
-    ordering: Optional[type] = None,
+    filters: type | None = None,
+    order: type | None = None,
+    ordering: type | None = None,
     pagination: bool = False,
-    only: Optional[TypeOrSequence[str]] = None,
-    select_related: Optional[TypeOrSequence[str]] = None,
-    prefetch_related: Optional[TypeOrSequence[PrefetchType]] = None,
-    annotate: Optional[TypeOrMapping[AnnotateType]] = None,
+    only: TypeOrSequence[str] | None = None,
+    select_related: TypeOrSequence[str] | None = None,
+    prefetch_related: TypeOrSequence[PrefetchType] | None = None,
+    annotate: TypeOrMapping[AnnotateType] | None = None,
     disable_optimization: bool = False,
-    fields: Optional[Union[list[str], Literal["__all__"]]] = None,
-    exclude: Optional[list[str]] = None,
+    fields: list[str] | Literal["__all__"] | None = None,
+    exclude: list[str] | None = None,
 ) -> Callable[[_T], _T]:
     """Annotates a class as a Django GraphQL type.
 
@@ -515,10 +519,10 @@ def type(  # noqa: A001
 def interface(
     model: builtins.type[Model],
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     field_cls: builtins.type[StrawberryDjangoField] = StrawberryDjangoField,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
     disable_optimization: bool = False,
 ) -> Callable[[_T], _T]:
     """Annotates a class as a Django GraphQL interface.
@@ -560,14 +564,14 @@ def interface(
 def input(  # noqa: A001
     model: builtins.type[Model],
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     field_cls: builtins.type[StrawberryDjangoField] = StrawberryDjangoField,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
-    is_filter: Union[Literal["lookups"], bool] = False,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
+    is_filter: Literal["lookups"] | bool = False,
     partial: bool = False,
-    fields: Optional[Union[list[str], Literal["__all__"]]] = None,
-    exclude: Optional[list[str]] = None,
+    fields: list[str] | Literal["__all__"] | None = None,
+    exclude: list[str] | None = None,
 ) -> Callable[[_T], _T]:
     """Annotates a class as a Django GraphQL input.
 
@@ -611,12 +615,12 @@ def input(  # noqa: A001
 def partial(
     model: builtins.type[Model],
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     field_cls: builtins.type[StrawberryDjangoField] = StrawberryDjangoField,
-    description: Optional[str] = None,
-    directives: Optional[Sequence[object]] = (),
-    fields: Optional[Union[list[str], Literal["__all__"]]] = None,
-    exclude: Optional[list[str]] = None,
+    description: str | None = None,
+    directives: Sequence[object] | None = (),
+    fields: list[str] | Literal["__all__"] | None = None,
+    exclude: list[str] | None = None,
 ) -> Callable[[_T], _T]:
     """Annotates a class as a Django GraphQL partial.
 

@@ -1,173 +1,60 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: langchain-google-vertexai
-Version: 2.1.2
+Version: 3.2.1
 Summary: An integration package connecting Google VertexAI and LangChain
+Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/google
+Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_google_vertexai/
+Project-URL: Source, https://github.com/langchain-ai/langchain-google/tree/master/libs/vertexai
+Project-URL: Changelog, https://github.com/langchain-ai/langchain-google/releases?q=%22vertexai%22
+Project-URL: Twitter, https://x.com/LangChainAI
+Project-URL: Slack, https://www.langchain.com/join-community
+Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
-Project-URL: Source Code, https://github.com/langchain-ai/langchain-google/tree/main/libs/vertexai
-Requires-Python: >=3.9
-Requires-Dist: langchain-core>=0.3.76
-Requires-Dist: google-cloud-aiplatform>=1.97.0
-Requires-Dist: google-cloud-storage<3,>=2.18
-Requires-Dist: httpx<1,>=0.28
-Requires-Dist: httpx-sse<1,>=0.4
-Requires-Dist: pydantic<3,>=2.9
-Requires-Dist: validators<1,>=0.22
-Requires-Dist: bottleneck<2,>=1.4
-Requires-Dist: numexpr<3,>=2.8.6
-Requires-Dist: pyarrow<22,>=19.0.1
+License-File: LICENSE
+Requires-Python: <4.0.0,>=3.10.0
+Requires-Dist: bottleneck<2.0.0,>=1.4.0
+Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.97.0
+Requires-Dist: google-cloud-storage<4.0.0,>=2.18.0
+Requires-Dist: httpx-sse<1.0.0,>=0.4.0
+Requires-Dist: httpx<1.0.0,>=0.28.0
+Requires-Dist: langchain-core<2.0.0,>=1.2.5
+Requires-Dist: numexpr<3.0.0,>=2.8.6
+Requires-Dist: pyarrow<23.0.0,>=19.0.1
+Requires-Dist: pydantic<3.0.0,>=2.9.0
+Requires-Dist: validators<1.0.0,>=0.22.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic<1,>=0.35; extra == "anthropic"
+Requires-Dist: anthropic<1.0.0,>=0.35.0; extra == 'anthropic'
 Provides-Extra: mistral
-Requires-Dist: langchain-mistralai<1,>=0.2.0; extra == "mistral"
+Requires-Dist: langchain-mistralai<2.0.0,>=0.2.0; extra == 'mistral'
 Description-Content-Type: text/markdown
 
 # langchain-google-vertexai
 
-This package contains the LangChain integrations for Google Cloud generative models.
+[![PyPI - Version](https://img.shields.io/pypi/v/langchain-google-vertexai?label=%20)](https://pypi.org/project/langchain-google-vertexai/#history)
+[![PyPI - License](https://img.shields.io/pypi/l/langchain-google-vertexai)](https://opensource.org/licenses/MIT)
+[![PyPI - Downloads](https://img.shields.io/pepy/dt/langchain-google-vertexai)](https://pypistats.org/packages/langchain-google-vertexai)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchainai.svg?style=social&label=Follow%20%40LangChainAI)](https://twitter.com/langchainai)
 
-## Contents
+Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 
-- [langchain-google-vertexai](#langchain-google-vertexai)
-  - [Contents](#contents)
-  - [Installation](#installation)
-  - [Chat Models](#chat-models)
-    - [Multimodal inputs](#multimodal-inputs)
-    - [Multimodal Outputs](#multimodal-outputs)
-  - [Embeddings](#embeddings)
-  - [LLMs](#llms)
-  - [Code Generation](#code-generation)
-    - [Example: Generate a Python function](#example-generate-a-python-function)
-    - [Example: Generate JavaScript code](#example-generate-javascript-code)
-    - [Notes](#notes)
+This package contains the LangChain integrations for Google Cloud generative models via the [Vertex AI Platform](https://cloud.google.com/vertex-ai).
 
-## Installation
+## Quick Install
 
 ```bash
-pip install -U langchain-google-vertexai
+pip install langchain-google-vertexai
 ```
 
-## Chat Models
+## 📖 Documentation
 
-`ChatVertexAI` class exposes models such as `gemini-pro` and other Gemini variants.
+For full documentation, see the [API reference](https://reference.langchain.com/python/integrations/langchain_google_vertexai/). For conceptual guides, tutorials, and examples on using these classes, see the [LangChain Docs](https://docs.langchain.com/oss/python/integrations/providers/google#google-cloud).
 
-To use, you should have a Google Cloud project with APIs enabled, and configured credentials. Initialize the model as:
+## 📕 Releases & Versioning
 
-```python
-from langchain_google_vertexai import ChatVertexAI
+See our [Releases](https://docs.langchain.com/oss/python/release-policy) and [Versioning](https://docs.langchain.com/oss/python/versioning) policies.
 
-llm = ChatVertexAI(model_name="gemini-pro")
-llm.invoke("Sing a ballad of LangChain.")
-```
+## 💁 Contributing
 
-### Multimodal inputs
+As an open-source project in a rapidly developing field, we are extremely open to contributions, whether it be in the form of a new feature, improved infrastructure, or better documentation.
 
-Gemini supports image inputs when providing a single chat message. Example:
-
-```python
-from langchain_core.messages import HumanMessage
-from langchain_google_vertexai import ChatVertexAI
-
-llm = ChatVertexAI(model_name="gemini-2.0-flash-001")
-message = HumanMessage(
-    content=[
-        {
-            "type": "text",
-            "text": "What's in this image?",
-        },
-        {"type": "image_url", "image_url": {"url": "https://picsum.photos/seed/picsum/200/300"}},
-    ]
-)
-llm.invoke([message])
-```
-
-The value of `image_url` can be:
-
-- A public image URL
-- An accessible Google Cloud Storage (GCS) file (e.g., `"gcs://path/to/file.png"`)
-- A base64 encoded image (e.g., `"data:image/png;base64,abcd124"`)
-
-### Multimodal Outputs
-
-Gemini supports image output. Example:
-
-```python
-from langchain_core.messages import HumanMessage
-from langchain_google_vertexai import ChatVertexAI, Modality
-
-llm = ChatVertexAI(model_name="gemini-2.0-flash-preview-image-generation",
-                   response_modalities = [Modality.TEXT, Modality.IMAGE])
-message = HumanMessage(
-    content=[
-        {
-            "type": "text",
-            "text": "Generate an image of a cat.",
-        },
-    ]
-)
-llm.invoke([message])
-```
-
-## Embeddings
-
-Google Cloud embeddings models can be used as:
-
-```python
-from langchain_google_vertexai import VertexAIEmbeddings
-
-embeddings = VertexAIEmbeddings()
-embeddings.embed_query("hello, world!")
-```
-
-## LLMs
-
-Use Google Cloud's generative AI models as LangChain LLMs:
-
-```python
-from langchain_core.prompts import PromptTemplate
-from langchain_google_vertexai import ChatVertexAI
-
-template = """Question: {question}
-
-Answer: Let's think step by step."""
-prompt = PromptTemplate.from_template(template)
-
-llm = ChatVertexAI(model_name="gemini-pro")
-chain = prompt | llm
-
-question = "Who was the president of the USA in 1994?"
-print(chain.invoke({"question": question}))
-```
-
-## Code Generation
-
-You can use Gemini models for code generation tasks to generate code snippets, functions, or scripts in various programming languages.
-
-### Example: Generate a Python function
-
-```python
-from langchain_google_vertexai import ChatVertexAI
-
-llm = ChatVertexAI(model_name="gemini-pro", temperature=0.3, max_output_tokens=1000)
-
-prompt = "Write a Python function that checks if a string is a valid email address."
-
-generated_code = llm.invoke(prompt)
-print(generated_code)
-```
-
-### Example: Generate JavaScript code
-
-```python
-from langchain_google_vertexai import ChatVertexAI
-
-llm = ChatVertexAI(model_name="gemini-pro", temperature=0.3, max_output_tokens=1000)
-prompt_js = "Write a JavaScript function that returns the factorial of a number."
-
-print(llm.invoke(prompt_js))
-```
-
-### Notes
-
-- Adjust `temperature` to control creativity (higher values increase randomness).
-- Use `max_output_tokens` to limit the length of the generated code.
-- Gemini models are well-suited for code generation tasks with advanced understanding of programming concepts.
+For detailed information on how to contribute, see the [Contributing Guide](https://docs.langchain.com/oss/python/contributing/overview).

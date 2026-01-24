@@ -3,7 +3,7 @@ Type annotations for importexport service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_importexport/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -44,11 +45,6 @@ from .type_defs import (
     UpdateJobOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -57,27 +53,27 @@ else:
 __all__ = ("ImportExportClient",)
 
 class Exceptions(BaseClientExceptions):
-    BucketPermissionException: Type[BotocoreClientError]
-    CanceledJobIdException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CreateJobQuotaExceededException: Type[BotocoreClientError]
-    ExpiredJobIdException: Type[BotocoreClientError]
-    InvalidAccessKeyIdException: Type[BotocoreClientError]
-    InvalidAddressException: Type[BotocoreClientError]
-    InvalidCustomsException: Type[BotocoreClientError]
-    InvalidFileSystemException: Type[BotocoreClientError]
-    InvalidJobIdException: Type[BotocoreClientError]
-    InvalidManifestFieldException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidVersionException: Type[BotocoreClientError]
-    MalformedManifestException: Type[BotocoreClientError]
-    MissingCustomsException: Type[BotocoreClientError]
-    MissingManifestFieldException: Type[BotocoreClientError]
-    MissingParameterException: Type[BotocoreClientError]
-    MultipleRegionsException: Type[BotocoreClientError]
-    NoSuchBucketException: Type[BotocoreClientError]
-    UnableToCancelJobIdException: Type[BotocoreClientError]
-    UnableToUpdateJobIdException: Type[BotocoreClientError]
+    BucketPermissionException: type[BotocoreClientError]
+    CanceledJobIdException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CreateJobQuotaExceededException: type[BotocoreClientError]
+    ExpiredJobIdException: type[BotocoreClientError]
+    InvalidAccessKeyIdException: type[BotocoreClientError]
+    InvalidAddressException: type[BotocoreClientError]
+    InvalidCustomsException: type[BotocoreClientError]
+    InvalidFileSystemException: type[BotocoreClientError]
+    InvalidJobIdException: type[BotocoreClientError]
+    InvalidManifestFieldException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidVersionException: type[BotocoreClientError]
+    MalformedManifestException: type[BotocoreClientError]
+    MissingCustomsException: type[BotocoreClientError]
+    MissingManifestFieldException: type[BotocoreClientError]
+    MissingParameterException: type[BotocoreClientError]
+    MultipleRegionsException: type[BotocoreClientError]
+    NoSuchBucketException: type[BotocoreClientError]
+    UnableToCancelJobIdException: type[BotocoreClientError]
+    UnableToUpdateJobIdException: type[BotocoreClientError]
 
 class ImportExportClient(AioBaseClient):
     """
@@ -187,7 +183,7 @@ class ImportExportClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

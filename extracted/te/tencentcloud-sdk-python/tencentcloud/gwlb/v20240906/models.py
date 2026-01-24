@@ -321,43 +321,37 @@ class CreateTargetGroupRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TargetGroupName: 目标组名称，限定60个字符。
+        :param _TargetGroupName: <p>目标组名称，限定60个字符。</p>
         :type TargetGroupName: str
-        :param _VpcId: 网关负载均衡后端目标组所属的网络 ID，如vpc-12345678，可以通过 [DescribeVpcs](https://cloud.tencent.com/document/product/215/15778)  接口获取。 不填此参数则默认为DefaultVPC。
+        :param _VpcId: <p>网关负载均衡后端目标组所属的网络 ID，如vpc-12345678，可以通过 <a href="https://cloud.tencent.com/document/product/215/15778">DescribeVpcs</a>  接口获取。 不填此参数则默认为DefaultVPC。</p>
         :type VpcId: str
-        :param _Port: 目标组的默认端口， 后续添加服务器时可使用该默认端口。Port和TargetGroupInstances.N中的port二者必填其一。仅支持6081。
+        :param _Port: <p>目标组的默认端口， 后续添加服务器时可使用该默认端口。Port和TargetGroupInstances.N中的port二者必填其一。仅支持6081。</p>
         :type Port: int
-        :param _TargetGroupInstances: 目标组绑定的后端服务器
+        :param _TargetGroupInstances: <p>目标组绑定的后端服务器</p>
         :type TargetGroupInstances: list of TargetGroupInstance
-        :param _Protocol: 网关负载均衡目标组协议。
-- TENCENT_GENEVE ：GENEVE 标准协议
-- AWS_GENEVE：GENEVE 兼容协议
+        :param _Protocol: <p>网关负载均衡目标组协议。- TENCENT_GENEVE ：GENEVE 标准协议- AWS_GENEVE：GENEVE 兼容协议</p>
         :type Protocol: str
-        :param _HealthCheck: 健康检查设置。
+        :param _HealthCheck: <p>健康检查设置。</p>
         :type HealthCheck: :class:`tencentcloud.gwlb.v20240906.models.TargetGroupHealthCheck`
-        :param _ScheduleAlgorithm: 均衡算法。
-- IP_HASH_3_ELASTIC：弹性哈希
+        :param _ScheduleAlgorithm: <p>均衡算法。</p><ul><li>IP_HASH_2_CONSISTENT：二元组一致性哈希</li><li>IP_HASH_3_CONSISTENT：三元组一致性哈希</li><li>IP_HASH_5_CONSISTENT：五元组一致性哈希</li></ul>
         :type ScheduleAlgorithm: str
-        :param _AllDeadToAlive: 是否支持全死全活。默认支持。
+        :param _AllDeadToAlive: <p>是否支持全死全活。默认支持。</p>
         :type AllDeadToAlive: bool
-        :param _Tags: 标签。
+        :param _Tags: <p>标签。</p>
         :type Tags: list of TagInfo
-        :param _ForwardingMode: 流量分发方式
-
-- STATELESS：无状态
-- STATEFUL： 有状态
+        :param _ForwardingMode: <p>流量分发方式</p><ul><li>STATELESS：无状态</li><li>STATEFUL： 有状态</li></ul>
         :type ForwardingMode: str
-        :param _TcpIdleConnectTimeout: TCP协议连接空闲超时时间，可配置60s-6000s，默认350s。
+        :param _TcpIdleConnectTimeout: <p>TCP协议连接空闲超时时间，可配置60s-6000s，默认350s。</p>
         :type TcpIdleConnectTimeout: int
-        :param _OthersIdleConnectTimeout: 其他协议连接空闲超时时间，可配置5s-180s，默认120s
+        :param _OthersIdleConnectTimeout: <p>其他协议连接空闲超时时间，可配置5s-180s，默认120s</p>
         :type OthersIdleConnectTimeout: int
-        :param _RescheduleUnbindRs: 重新调度功能内的解绑后端服务开关，开关打开后解绑后端服务会触发重新调度。
+        :param _RescheduleUnbindRs: <p>重新调度功能内的解绑后端服务开关，开关打开后解绑后端服务会触发重新调度。</p>
         :type RescheduleUnbindRs: bool
-        :param _RescheduleUnbindRsStartTime: 解绑RS后开启重调度的时间，可配置0s-3600s，默认0s
+        :param _RescheduleUnbindRsStartTime: <p>解绑RS后开启重调度的时间，可配置0s-3600s，默认0s</p>
         :type RescheduleUnbindRsStartTime: int
-        :param _RescheduleUnhealthy: 重新调度功能内的后端服务健康探测异常开关，开关打开后后端服务健康检查异常会触发重新调度。
+        :param _RescheduleUnhealthy: <p>重新调度功能内的后端服务健康探测异常开关，开关打开后后端服务健康检查异常会触发重新调度。</p>
         :type RescheduleUnhealthy: bool
-        :param _RescheduleUnhealthyStartTime: 后端服务健康探测异常后开启重调度的时间，可配置0s-3600s，默认0s
+        :param _RescheduleUnhealthyStartTime: <p>后端服务健康探测异常后开启重调度的时间，可配置0s-3600s，默认0s</p>
         :type RescheduleUnhealthyStartTime: int
         """
         self._TargetGroupName = None
@@ -379,7 +373,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def TargetGroupName(self):
-        r"""目标组名称，限定60个字符。
+        r"""<p>目标组名称，限定60个字符。</p>
         :rtype: str
         """
         return self._TargetGroupName
@@ -390,7 +384,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def VpcId(self):
-        r"""网关负载均衡后端目标组所属的网络 ID，如vpc-12345678，可以通过 [DescribeVpcs](https://cloud.tencent.com/document/product/215/15778)  接口获取。 不填此参数则默认为DefaultVPC。
+        r"""<p>网关负载均衡后端目标组所属的网络 ID，如vpc-12345678，可以通过 <a href="https://cloud.tencent.com/document/product/215/15778">DescribeVpcs</a>  接口获取。 不填此参数则默认为DefaultVPC。</p>
         :rtype: str
         """
         return self._VpcId
@@ -401,7 +395,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def Port(self):
-        r"""目标组的默认端口， 后续添加服务器时可使用该默认端口。Port和TargetGroupInstances.N中的port二者必填其一。仅支持6081。
+        r"""<p>目标组的默认端口， 后续添加服务器时可使用该默认端口。Port和TargetGroupInstances.N中的port二者必填其一。仅支持6081。</p>
         :rtype: int
         """
         return self._Port
@@ -412,7 +406,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def TargetGroupInstances(self):
-        r"""目标组绑定的后端服务器
+        r"""<p>目标组绑定的后端服务器</p>
         :rtype: list of TargetGroupInstance
         """
         return self._TargetGroupInstances
@@ -423,9 +417,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def Protocol(self):
-        r"""网关负载均衡目标组协议。
-- TENCENT_GENEVE ：GENEVE 标准协议
-- AWS_GENEVE：GENEVE 兼容协议
+        r"""<p>网关负载均衡目标组协议。- TENCENT_GENEVE ：GENEVE 标准协议- AWS_GENEVE：GENEVE 兼容协议</p>
         :rtype: str
         """
         return self._Protocol
@@ -436,7 +428,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def HealthCheck(self):
-        r"""健康检查设置。
+        r"""<p>健康检查设置。</p>
         :rtype: :class:`tencentcloud.gwlb.v20240906.models.TargetGroupHealthCheck`
         """
         return self._HealthCheck
@@ -447,8 +439,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def ScheduleAlgorithm(self):
-        r"""均衡算法。
-- IP_HASH_3_ELASTIC：弹性哈希
+        r"""<p>均衡算法。</p><ul><li>IP_HASH_2_CONSISTENT：二元组一致性哈希</li><li>IP_HASH_3_CONSISTENT：三元组一致性哈希</li><li>IP_HASH_5_CONSISTENT：五元组一致性哈希</li></ul>
         :rtype: str
         """
         return self._ScheduleAlgorithm
@@ -459,7 +450,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def AllDeadToAlive(self):
-        r"""是否支持全死全活。默认支持。
+        r"""<p>是否支持全死全活。默认支持。</p>
         :rtype: bool
         """
         return self._AllDeadToAlive
@@ -470,7 +461,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def Tags(self):
-        r"""标签。
+        r"""<p>标签。</p>
         :rtype: list of TagInfo
         """
         return self._Tags
@@ -481,10 +472,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def ForwardingMode(self):
-        r"""流量分发方式
-
-- STATELESS：无状态
-- STATEFUL： 有状态
+        r"""<p>流量分发方式</p><ul><li>STATELESS：无状态</li><li>STATEFUL： 有状态</li></ul>
         :rtype: str
         """
         return self._ForwardingMode
@@ -495,7 +483,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def TcpIdleConnectTimeout(self):
-        r"""TCP协议连接空闲超时时间，可配置60s-6000s，默认350s。
+        r"""<p>TCP协议连接空闲超时时间，可配置60s-6000s，默认350s。</p>
         :rtype: int
         """
         return self._TcpIdleConnectTimeout
@@ -506,7 +494,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def OthersIdleConnectTimeout(self):
-        r"""其他协议连接空闲超时时间，可配置5s-180s，默认120s
+        r"""<p>其他协议连接空闲超时时间，可配置5s-180s，默认120s</p>
         :rtype: int
         """
         return self._OthersIdleConnectTimeout
@@ -517,7 +505,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def RescheduleUnbindRs(self):
-        r"""重新调度功能内的解绑后端服务开关，开关打开后解绑后端服务会触发重新调度。
+        r"""<p>重新调度功能内的解绑后端服务开关，开关打开后解绑后端服务会触发重新调度。</p>
         :rtype: bool
         """
         return self._RescheduleUnbindRs
@@ -528,7 +516,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def RescheduleUnbindRsStartTime(self):
-        r"""解绑RS后开启重调度的时间，可配置0s-3600s，默认0s
+        r"""<p>解绑RS后开启重调度的时间，可配置0s-3600s，默认0s</p>
         :rtype: int
         """
         return self._RescheduleUnbindRsStartTime
@@ -539,7 +527,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def RescheduleUnhealthy(self):
-        r"""重新调度功能内的后端服务健康探测异常开关，开关打开后后端服务健康检查异常会触发重新调度。
+        r"""<p>重新调度功能内的后端服务健康探测异常开关，开关打开后后端服务健康检查异常会触发重新调度。</p>
         :rtype: bool
         """
         return self._RescheduleUnhealthy
@@ -550,7 +538,7 @@ class CreateTargetGroupRequest(AbstractModel):
 
     @property
     def RescheduleUnhealthyStartTime(self):
-        r"""后端服务健康探测异常后开启重调度的时间，可配置0s-3600s，默认0s
+        r"""<p>后端服务健康探测异常后开启重调度的时间，可配置0s-3600s，默认0s</p>
         :rtype: int
         """
         return self._RescheduleUnhealthyStartTime
@@ -606,7 +594,7 @@ class CreateTargetGroupResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TargetGroupId: 创建目标组后生成的id
+        :param _TargetGroupId: <p>创建目标组后生成的id</p>
         :type TargetGroupId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -616,7 +604,7 @@ class CreateTargetGroupResponse(AbstractModel):
 
     @property
     def TargetGroupId(self):
-        r"""创建目标组后生成的id
+        r"""<p>创建目标组后生成的id</p>
         :rtype: str
         """
         return self._TargetGroupId
@@ -861,20 +849,15 @@ class DescribeGatewayLoadBalancersRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _LoadBalancerIds: 网关负载均衡实例ID。支持批量筛选的实例ID数量上限为20个。
+        :param _LoadBalancerIds: <p>网关负载均衡实例ID。支持批量筛选的实例ID数量上限为20个。</p>
         :type LoadBalancerIds: list of str
-        :param _Limit: 一次批量返回网关负载均衡实例的数量，默认为20，最大值为100。
+        :param _Limit: <p>一次批量返回网关负载均衡实例的数量，默认为20，最大值为100。</p>
         :type Limit: int
-        :param _Offset: 返回网关负载均衡实例列表的起始偏移量，默认0。
+        :param _Offset: <p>返回网关负载均衡实例列表的起始偏移量，默认0。</p>
         :type Offset: int
-        :param _Filters: 查询负载均衡详细信息列表的过滤条件，每次请求的Filters的上限为10，Filter.Values的上限为100。
-Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
-- VpcId - String - 是否必填：否 - （过滤条件）按照网关负载均衡实例所属的私有网络过滤，如“vpc-bhqk****”。
-- Vips - String  - 是否必填：否 - （过滤条件）按照网关负载均衡实例所属的私有网络过滤，如“10.1.1.1”
-- tag:tag-key - String - 是否必填：否 - （过滤条件）按照GWLB标签键值对进行过滤，tag-key使用具体的标签键进行替换。
-
+        :param _Filters: <p>查询负载均衡详细信息列表的过滤条件，每次请求的Filters的上限为10，Filter.Values的上限为100。Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：- VpcId - String - 是否必填：否 - （过滤条件）按照网关负载均衡实例所属的私有网络过滤，如“vpc-bhqk****”。- Vips - String  - 是否必填：否 - （过滤条件）按照网关负载均衡实例的VIP进行过滤，如“10.1.1.1”- tag:tag-key - String - 是否必填：否 - （过滤条件）按照GWLB标签键值对进行过滤，tag-key使用具体的标签键进行替换。</p>
         :type Filters: list of Filter
-        :param _SearchKey: 搜索字段，模糊匹配名称、VIP。
+        :param _SearchKey: <p>搜索字段，模糊匹配名称、VIP。</p>
         :type SearchKey: str
         """
         self._LoadBalancerIds = None
@@ -885,7 +868,7 @@ Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
 
     @property
     def LoadBalancerIds(self):
-        r"""网关负载均衡实例ID。支持批量筛选的实例ID数量上限为20个。
+        r"""<p>网关负载均衡实例ID。支持批量筛选的实例ID数量上限为20个。</p>
         :rtype: list of str
         """
         return self._LoadBalancerIds
@@ -896,7 +879,7 @@ Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
 
     @property
     def Limit(self):
-        r"""一次批量返回网关负载均衡实例的数量，默认为20，最大值为100。
+        r"""<p>一次批量返回网关负载均衡实例的数量，默认为20，最大值为100。</p>
         :rtype: int
         """
         return self._Limit
@@ -907,7 +890,7 @@ Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
 
     @property
     def Offset(self):
-        r"""返回网关负载均衡实例列表的起始偏移量，默认0。
+        r"""<p>返回网关负载均衡实例列表的起始偏移量，默认0。</p>
         :rtype: int
         """
         return self._Offset
@@ -918,12 +901,7 @@ Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
 
     @property
     def Filters(self):
-        r"""查询负载均衡详细信息列表的过滤条件，每次请求的Filters的上限为10，Filter.Values的上限为100。
-Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
-- VpcId - String - 是否必填：否 - （过滤条件）按照网关负载均衡实例所属的私有网络过滤，如“vpc-bhqk****”。
-- Vips - String  - 是否必填：否 - （过滤条件）按照网关负载均衡实例所属的私有网络过滤，如“10.1.1.1”
-- tag:tag-key - String - 是否必填：否 - （过滤条件）按照GWLB标签键值对进行过滤，tag-key使用具体的标签键进行替换。
-
+        r"""<p>查询负载均衡详细信息列表的过滤条件，每次请求的Filters的上限为10，Filter.Values的上限为100。Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：- VpcId - String - 是否必填：否 - （过滤条件）按照网关负载均衡实例所属的私有网络过滤，如“vpc-bhqk****”。- Vips - String  - 是否必填：否 - （过滤条件）按照网关负载均衡实例的VIP进行过滤，如“10.1.1.1”- tag:tag-key - String - 是否必填：否 - （过滤条件）按照GWLB标签键值对进行过滤，tag-key使用具体的标签键进行替换。</p>
         :rtype: list of Filter
         """
         return self._Filters
@@ -934,7 +912,7 @@ Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
 
     @property
     def SearchKey(self):
-        r"""搜索字段，模糊匹配名称、VIP。
+        r"""<p>搜索字段，模糊匹配名称、VIP。</p>
         :rtype: str
         """
         return self._SearchKey
@@ -965,6 +943,120 @@ Filter.Name和Filter.Values皆为必填项。详细的过滤条件如下：
         
 
 
+class DescribeGatewayLoadBalancersResourcesRequest(AbstractModel):
+    r"""DescribeGatewayLoadBalancersResources请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Limit: 返回可用区资源列表数目，默认20，最大值100。
+        :type Limit: int
+        :param _Offset: 返回可用区资源列表起始偏移量，默认0。
+        :type Offset: int
+        """
+        self._Limit = None
+        self._Offset = None
+
+    @property
+    def Limit(self):
+        r"""返回可用区资源列表数目，默认20，最大值100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""返回可用区资源列表起始偏移量，默认0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+
+    def _deserialize(self, params):
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeGatewayLoadBalancersResourcesResponse(AbstractModel):
+    r"""DescribeGatewayLoadBalancersResources返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneResourceSet: 可用区支持的资源列表。
+        :type ZoneResourceSet: list of ZoneResource
+        :param _TotalCount: 可用区资源列表数目。
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ZoneResourceSet = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def ZoneResourceSet(self):
+        r"""可用区支持的资源列表。
+        :rtype: list of ZoneResource
+        """
+        return self._ZoneResourceSet
+
+    @ZoneResourceSet.setter
+    def ZoneResourceSet(self, ZoneResourceSet):
+        self._ZoneResourceSet = ZoneResourceSet
+
+    @property
+    def TotalCount(self):
+        r"""可用区资源列表数目。
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ZoneResourceSet") is not None:
+            self._ZoneResourceSet = []
+            for item in params.get("ZoneResourceSet"):
+                obj = ZoneResource()
+                obj._deserialize(item)
+                self._ZoneResourceSet.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeGatewayLoadBalancersResponse(AbstractModel):
     r"""DescribeGatewayLoadBalancers返回参数结构体
 
@@ -972,9 +1064,9 @@ class DescribeGatewayLoadBalancersResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TotalCount: 满足过滤条件的负载均衡实例总数。此数值与入参中的Limit无关。
+        :param _TotalCount: <p>满足过滤条件的负载均衡实例总数。此数值与入参中的Limit无关。</p>
         :type TotalCount: int
-        :param _LoadBalancerSet: 返回的网关负载均衡实例数组。
+        :param _LoadBalancerSet: <p>返回的网关负载均衡实例数组。</p>
         :type LoadBalancerSet: list of GatewayLoadBalancer
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -985,7 +1077,7 @@ class DescribeGatewayLoadBalancersResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""满足过滤条件的负载均衡实例总数。此数值与入参中的Limit无关。
+        r"""<p>满足过滤条件的负载均衡实例总数。此数值与入参中的Limit无关。</p>
         :rtype: int
         """
         return self._TotalCount
@@ -996,7 +1088,7 @@ class DescribeGatewayLoadBalancersResponse(AbstractModel):
 
     @property
     def LoadBalancerSet(self):
-        r"""返回的网关负载均衡实例数组。
+        r"""<p>返回的网关负载均衡实例数组。</p>
         :rtype: list of GatewayLoadBalancer
         """
         return self._LoadBalancerSet
@@ -3690,6 +3782,42 @@ class TargetGroupInstanceStatus(AbstractModel):
     def _deserialize(self, params):
         self._InstanceIp = params.get("InstanceIp")
         self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ZoneResource(AbstractModel):
+    r"""可用区资源列表
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MasterZone: 主可用区
+        :type MasterZone: str
+        """
+        self._MasterZone = None
+
+    @property
+    def MasterZone(self):
+        r"""主可用区
+        :rtype: str
+        """
+        return self._MasterZone
+
+    @MasterZone.setter
+    def MasterZone(self, MasterZone):
+        self._MasterZone = MasterZone
+
+
+    def _deserialize(self, params):
+        self._MasterZone = params.get("MasterZone")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

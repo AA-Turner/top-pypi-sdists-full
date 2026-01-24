@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gradio_client
-Version: 1.13.2
+Version: 2.0.3
 Summary: Python library for easily interacting with trained machine learning models
 Project-URL: Homepage, https://github.com/gradio-app/gradio
 Author-email: Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Freddy Boulton <gradio-team@huggingface.co>
@@ -21,10 +21,9 @@ Classifier: Topic :: Software Development :: User Interfaces
 Requires-Python: >=3.10
 Requires-Dist: fsspec
 Requires-Dist: httpx>=0.24.1
-Requires-Dist: huggingface-hub>=0.19.3
+Requires-Dist: huggingface-hub<2.0,>=0.19.3
 Requires-Dist: packaging
 Requires-Dist: typing-extensions~=4.0
-Requires-Dist: websockets<16.0,>=13.0
 Description-Content-Type: text/markdown
 
 # `gradio_client`: Use a Gradio app as an API -- in 3 lines of Python

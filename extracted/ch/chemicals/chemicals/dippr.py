@@ -57,29 +57,43 @@ Jacobians (for fitting)
 .. autofunction:: chemicals.dippr.EQ107_fitting_jacobian
 
 """
+from __future__ import annotations
 
+__all__: list[str] = [
+    "EQ100",
+    "EQ101",
+    "EQ102",
+    "EQ104",
+    "EQ105",
+    "EQ106",
+    "EQ106_AB",
+    "EQ106_ABC",
+    "EQ107",
+    "EQ114",
+    "EQ115",
+    "EQ116",
+    "EQ127",
+    "EQ100_reciprocal",
+    "EQ101_fitting_jacobian",
+    "EQ102_fitting_jacobian",
+    "EQ105_fitting_jacobian",
+    "EQ105_reciprocal",
+    "EQ106_fitting_jacobian",
+    "EQ106_reciprocal",
+    "EQ107_fitting_jacobian",
+]
 
-__all__ = ['EQ100', 'EQ101', 'EQ102', 'EQ104', 'EQ105', 'EQ106', 'EQ107',
-           'EQ114', 'EQ115', 'EQ116', 'EQ127',
-           'EQ101_fitting_jacobian', 'EQ102_fitting_jacobian',
-           'EQ106_fitting_jacobian', 'EQ105_fitting_jacobian',
-           'EQ107_fitting_jacobian',
-           'EQ106_AB', 'EQ106_ABC',
-           'EQ100_reciprocal', 'EQ105_reciprocal', 'EQ106_reciprocal']
-
-from cmath import log as clog
-from cmath import sqrt as csqrt
 from math import atan, atanh, cosh, sinh, tanh
 
-from fluids.numerics import exp, hyp2f1, log, sqrt, trunc_exp, trunc_log, cbrt
+from fluids.numerics import cbrt, exp, log, sqrt, trunc_exp, trunc_log
 
-order_not_found_msg = ('Only the actual property calculation, first temperature '
-                       'derivative, first temperature integral, and first '
-                       'temperature integral over temperature are supported '
-                       'with order=  0, 1, -1, or -10 respectively')
+order_not_found_msg = ("Only the actual property calculation, first temperature "
+                       "derivative, first temperature integral, and first "
+                       "temperature integral over temperature are supported "
+                       "with order=  0, 1, -1, or -10 respectively")
 
-order_not_found_pos_only_msg = ('Only the actual property calculation, and'
-                                'temperature derivative(s) are supported')
+order_not_found_pos_only_msg = ("Only the actual property calculation, and"
+                                "temperature derivative(s) are supported")
 
 # Form of an enum
 BASE_CALTULATION = 0
@@ -91,8 +105,8 @@ INTEGRAL_CALCULATION = -1
 INTEGRAL_OVER_T_CALCULATION = -10
 
 
-def EQ100(T, A=0, B=0, C=0, D=0, E=0, F=0, G=0, order=0):
-    r'''DIPPR Equation # 100. Used in calculating the molar heat capacities
+def EQ100(T: float, A: float=0, B: float=0, C: float=0, D: float=0, E: float=0, F: float=0, G: float=0, order: complex=0) -> float:
+    r"""DIPPR Equation # 100. Used in calculating the molar heat capacities
     of liquids and solids, liquid thermal conductivity, and solid density.
     All parameters default to zero. As this is a straightforward polynomial,
     no restrictions on parameters apply. Note that high-order polynomials like
@@ -164,7 +178,7 @@ def EQ100(T, A=0, B=0, C=0, D=0, E=0, F=0, G=0, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         return A + T*(B + T*(C + T*(D + T*(E + T*(F + G*T)))))
     elif order == 1:
@@ -178,7 +192,7 @@ def EQ100(T, A=0, B=0, C=0, D=0, E=0, F=0, G=0, order=0):
 
 
 def EQ101(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
-    r'''DIPPR Equation # 101. Used in calculating vapor pressure, sublimation
+    r"""DIPPR Equation # 101. Used in calculating vapor pressure, sublimation
     pressure, and liquid viscosity.
     All 5 parameters are required. E is often an integer. As the model is
     exponential, a sufficiently high temperature will cause an OverflowError.
@@ -194,7 +208,7 @@ def EQ101(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
         Temperature, [K]
     A : float
         First coefficient [-]
-    B : float  
+    B : float
         Second coefficient [K]
     C : float, optional
         Third coefficient, default=0 [-]
@@ -245,7 +259,7 @@ def EQ101(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     T_inv = 1.0/T
     try:
         T_E = T**E
@@ -269,8 +283,8 @@ def EQ101(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
     else:
         raise ValueError(order_not_found_pos_only_msg)
 
-def EQ102(T, A, B, C=0.0, D=0.0, order=0):
-    r'''DIPPR Equation # 102. Used in calculating vapor viscosity, vapor
+def EQ102(T: float, A: float, B: float, C: float=0.0, D: float=0.0, order: complex=0) -> float:
+    r"""DIPPR Equation # 102. Used in calculating vapor viscosity, vapor
     thermal conductivity, and sometimes solid heat capacity. High values of B
     raise an OverflowError.
     All 4 parameters are required. C and D are often 0.
@@ -323,7 +337,7 @@ def EQ102(T, A, B, C=0.0, D=0.0, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         easy = A/(1. + C/T + D/(T*T))
         if easy == 0.0:
@@ -339,7 +353,7 @@ def EQ102(T, A, B, C=0.0, D=0.0, order=0):
         raise ValueError(order_not_found_msg)
 
 def EQ101_fitting_jacobian(Ts, A, B, C, D, E):
-    r'''Compute and return the Jacobian of the property predicted by
+    r"""Compute and return the Jacobian of the property predicted by
     DIPPR Equation # 101 with respect to all the coefficients. This is used in
     fitting parameters for chemicals.
 
@@ -356,7 +370,7 @@ def EQ101_fitting_jacobian(Ts, A, B, C, D, E):
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
 
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 5)) # numba: uncomment
     out = [[0.0]*5 for _ in range(N)] # numba: delete
@@ -375,7 +389,7 @@ def EQ101_fitting_jacobian(Ts, A, B, C, D, E):
     return out
 
 def EQ102_fitting_jacobian(Ts, A, B, C, D):
-    r'''Compute and return the Jacobian of the property predicted by
+    r"""Compute and return the Jacobian of the property predicted by
     DIPPR Equation # 102 with respect to all the coefficients. This is used in
     fitting parameters for chemicals.
 
@@ -392,7 +406,7 @@ def EQ102_fitting_jacobian(Ts, A, B, C, D):
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
 
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 4)) # numba: uncomment
     out = [[0.0]*4 for _ in range(N)] # numba: delete
@@ -411,7 +425,7 @@ def EQ102_fitting_jacobian(Ts, A, B, C, D):
     return out
 
 def EQ105_fitting_jacobian(Ts, A, B, C, D):
-    r'''Compute and return the Jacobian of the property predicted by
+    r"""Compute and return the Jacobian of the property predicted by
     DIPPR Equation # 105 with respect to all the coefficients. This is used in
     fitting parameters for chemicals.
 
@@ -428,7 +442,7 @@ def EQ105_fitting_jacobian(Ts, A, B, C, D):
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
 
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 4)) # numba: uncomment
     out = [[0.0]*4 for _ in range(N)] # numba: delete
@@ -453,7 +467,7 @@ def EQ105_fitting_jacobian(Ts, A, B, C, D):
     return out
 
 def EQ106_fitting_jacobian(Ts, Tc, A, B, C, D, E):
-    r'''Compute and return the Jacobian of the property predicted by
+    r"""Compute and return the Jacobian of the property predicted by
     DIPPR Equation # 106 with respect to all the coefficients. This is used in
     fitting parameters for chemicals.
 
@@ -472,7 +486,7 @@ def EQ106_fitting_jacobian(Ts, Tc, A, B, C, D, E):
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
 
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 5)) # numba: uncomment
     out = [[0.0]*5 for _ in range(N)] # numba: delete
@@ -491,7 +505,7 @@ def EQ106_fitting_jacobian(Ts, Tc, A, B, C, D, E):
     return out
 
 def EQ107_fitting_jacobian(Ts, A, B, C, D, E):
-    r'''Compute and return the Jacobian of the property predicted by
+    r"""Compute and return the Jacobian of the property predicted by
     DIPPR Equation # 107 with respect to all the coefficients. This is used in
     fitting parameters for chemicals.
 
@@ -508,7 +522,7 @@ def EQ107_fitting_jacobian(Ts, A, B, C, D, E):
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
 
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 5)) # numba: uncomment
     out = [[0.0]*5 for _ in range(N)] # numba: delete
@@ -531,8 +545,8 @@ def EQ107_fitting_jacobian(Ts, A, B, C, D, E):
         r[4] = 2.0*D*E*x7*(-x5*sinh(x5)*x6_inv + 1.0)
     return out
 
-def EQ104(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
-    r'''DIPPR Equation #104. Often used in calculating second virial
+def EQ104(T: float, A: float, B: float, C: float=0.0, D: float=0.0, E: float=0.0, order: complex=0) -> float:
+    r"""DIPPR Equation #104. Often used in calculating second virial
     coefficients of gases. All 5 parameters are required.
     C, D, and E are normally large values.
 
@@ -597,7 +611,7 @@ def EQ104(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         T2 = T*T
         return A + (B + (C + (D + E/T)/(T2*T2*T))/T2)/T
@@ -614,7 +628,7 @@ def EQ104(T, A, B, C=0.0, D=0.0, E=0.0, order=0):
 
 
 def EQ105(T, A, B, C, D, order=0):
-    r'''DIPPR Equation #105. Often used in calculating liquid molar density.
+    r"""DIPPR Equation #105. Often used in calculating liquid molar density.
     All 4 parameters are required. C is sometimes the fluid's critical
     temperature.
 
@@ -680,7 +694,7 @@ def EQ105(T, A, B, C, D, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         problematic = (1. - T/C)
         if D < 1.0 and problematic < 0.0:
@@ -717,7 +731,7 @@ def EQ105(T, A, B, C, D, order=0):
 
 
 def EQ106(T, Tc, A, B, C=0.0, D=0.0, E=0.0, order=0):
-    r'''DIPPR Equation #106. Often used in calculating liquid surface tension,
+    r"""DIPPR Equation #106. Often used in calculating liquid surface tension,
     and heat of vaporization.
     Only parameters A and B parameters are required; many fits include no
     further parameters. Critical temperature is also required.
@@ -817,7 +831,7 @@ def EQ106(T, Tc, A, B, C=0.0, D=0.0, E=0.0, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         Tr = T/Tc
         tau = (1.0 - Tr)
@@ -869,7 +883,7 @@ def EQ106(T, Tc, A, B, C=0.0, D=0.0, E=0.0, order=0):
         raise ValueError(order_not_found_msg)
 
 def EQ106_AB(T, Tc, val, der):
-    r'''Calculate the coefficients `A` and `B` of the DIPPR Equation #106 using
+    r"""Calculate the coefficients `A` and `B` of the DIPPR Equation #106 using
     the value of the function and its derivative at a specific point.
 
     .. math::
@@ -906,7 +920,7 @@ def EQ106_AB(T, Tc, val, der):
     >>> EQ106_AB(300, 647.096, val, der)
     (0.17766, 2.567)
 
-    '''
+    """
     """# Derived with:
     from sympy import *
     T, Tc, A, B, val, der = symbols('T, Tc, A, B, val, der')
@@ -923,7 +937,7 @@ def EQ106_AB(T, Tc, val, der):
     return (A, B)
 
 def EQ106_ABC(T, Tc, val, der, der2):
-    r'''Calculate the coefficients `A`, `B`, and `C` of the DIPPR Equation #106
+    r"""Calculate the coefficients `A`, `B`, and `C` of the DIPPR Equation #106
     using, the value of the function and its first and second derivative at a
     specific point.
 
@@ -986,7 +1000,7 @@ def EQ106_ABC(T, Tc, val, der, der2):
     >>> EQ106_ABC(300, 647.096, val, der, der2)
     (0.17766, 2.567, -0.01)
 
-    '''
+    """
     """# Broken in recent versions of SymPy, SymPy 1.1 is good
     from sympy import *
     T, Tc, A, B, C, val, der, der2 = symbols('T, Tc, A, B, C, val, der, der2')
@@ -1014,8 +1028,8 @@ def EQ106_ABC(T, Tc, val, der, der2):
     return (A, B, C)
 
 
-def EQ107(T, A=0, B=0, C=0, D=0, E=0, order=0):
-    r'''DIPPR Equation #107. Often used in calculating ideal-gas heat capacity.
+def EQ107(T: float, A: float=0, B: float=0, C: float=0, D: float=0, E: float=0, order: complex=0) -> float:
+    r"""DIPPR Equation #107. Often used in calculating ideal-gas heat capacity.
     All 5 parameters are required.
     Also called the Aly-Lee equation.
 
@@ -1091,7 +1105,7 @@ def EQ107(T, A=0, B=0, C=0, D=0, E=0, order=0):
        Calculating the Ideal Gas Heat Capacity, Enthalpy, and Entropy." Fluid
        Phase Equilibria 6, no. 3 (January 1, 1981): 169-79.
        doi:10.1016/0378-3812(81)85002-9.
-    '''
+    """
     if order == 0:
         C_T = C/T
         t0 = 2.0*C_T/(trunc_exp(C_T) - trunc_exp(-C_T))
@@ -1112,8 +1126,8 @@ def EQ107(T, A=0, B=0, C=0, D=0, E=0, order=0):
         raise ValueError(order_not_found_msg)
 
 
-def EQ114(T, Tc, A, B, C, D, order=0):
-    r'''DIPPR Equation #114. Rarely used, normally as an alternate liquid
+def EQ114(T: float, Tc: float, A: float, B: float, C: float, D: float, order: complex=0) -> float:
+    r"""DIPPR Equation #114. Rarely used, normally as an alternate liquid
     heat capacity expression. All 4 parameters are required, as well as
     critical temperature.
 
@@ -1207,7 +1221,7 @@ def EQ114(T, Tc, A, B, C, D, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         t = 1.-T/Tc
         return A*A/t + 1.0*B + t*(-2.0*A*C + t*(-1.0*A*D + t*(-(1.0/3.0)*C*C + t*(-0.5*C*D - 0.2*D*D*t))))
@@ -1228,9 +1242,9 @@ def EQ114(T, Tc, A, B, C, D, order=0):
         T3 = T2*T
         Tc2 = Tc*Tc
         Tc3 = Tc2*Tc
-        return (-A*A*Tc*log(abs(T - Tc)) - D*T2*T3*(C + x1)/(10.0*Tc2*Tc2) + T3*T3*x0/(30.0*Tc2*Tc3) 
-                + T2*T2*(x2 + 6.0*x3 + x4)/(12.0*Tc3) - T3*(2.0*x0 + x2 + 3.0*x3 + x5)/(3.0*Tc2) 
-                + T2*(C*x1 + x0 + x2 + 2.0*x5 + 2.0*x6)/(2.0*Tc) 
+        return (-A*A*Tc*log(abs(T - Tc)) - D*T2*T3*(C + x1)/(10.0*Tc2*Tc2) + T3*T3*x0/(30.0*Tc2*Tc3)
+                + T2*T2*(x2 + 6.0*x3 + x4)/(12.0*Tc3) - T3*(2.0*x0 + x2 + 3.0*x3 + x5)/(3.0*Tc2)
+                + T2*(C*x1 + x0 + x2 + 2.0*x5 + 2.0*x6)/(2.0*Tc)
                 - T*(-30.0*B + 10.0*x2 + 15.0*x3 + x4 + 30.0*x5 + 60.0*x6)*(1.0/30))
     elif order == INTEGRAL_OVER_T_CALCULATION:
         x0 = A*A
@@ -1246,17 +1260,17 @@ def EQ114(T, Tc, A, B, C, D, order=0):
         Tc2 = Tc*Tc
         Tc3 = Tc2*Tc
         return (-D*T2*T2*(C + x2)/(8.0*Tc2*Tc2)
-                 + T2*T3*x1/(25.0*Tc2*Tc3) + T3*(x3 + 6.0*x4 + x5)/(9.0*Tc3) 
-                 - T2*(2.0*x1 + x3 + 3.0*x4 + x6)/(2.0*Tc2) 
-                 + T*(C*x2 + x1 + x3 + 2.0*x6 + 2.0*x7)/Tc 
-                 - x0*log(abs(T - Tc)) 
+                 + T2*T3*x1/(25.0*Tc2*Tc3) + T3*(x3 + 6.0*x4 + x5)/(9.0*Tc3)
+                 - T2*(2.0*x1 + x3 + 3.0*x4 + x6)/(2.0*Tc2)
+                 + T*(C*x2 + x1 + x3 + 2.0*x6 + 2.0*x7)/Tc
+                 - x0*log(abs(T - Tc))
                  - (-30.0*B - 30.0*x0 + 10.0*x3 + 15.0*x4 + x5 + 30.0*x6 + 60.0*x7)*log(T)*(1.0/30.0))
     else:
         raise ValueError(order_not_found_msg)
 
 
 def EQ115(T, A, B, C=0, D=0, E=0, order=0):
-    r'''DIPPR Equation #115. No major uses; has been used as an alternate
+    r"""DIPPR Equation #115. No major uses; has been used as an alternate
     liquid viscosity expression, and as a model for vapor pressure.
     Only parameters A and B are required.
 
@@ -1316,7 +1330,7 @@ def EQ115(T, A, B, C=0, D=0, E=0, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         return trunc_exp(A+B/T+C*log(T)+D*T**2 + E/T**2)
     elif order == 1:
@@ -1346,8 +1360,8 @@ def EQ115(T, A, B, C=0, D=0, E=0, order=0):
         raise ValueError(order_not_found_msg)
 
 
-def EQ116(T, Tc, A, B, C, D, E, order=0):
-    r'''DIPPR Equation #116. Used to describe the molar density of water fairly
+def EQ116(T: float, Tc: float, A: float, B: float, C: float, D: float, E: float, order: complex=0) -> float:
+    r"""DIPPR Equation #116. Used to describe the molar density of water fairly
     precisely; no other uses listed. All 5 parameters are needed, as well as
     the critical temperature.
 
@@ -1418,7 +1432,7 @@ def EQ116(T, Tc, A, B, C, D, E, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if T > Tc:
         T = Tc
     tau = 1.0-T/Tc
@@ -1428,7 +1442,7 @@ def EQ116(T, Tc, A, B, C, D, E, order=0):
     elif order == 1:
         return (-0.35*B/((tau)**(0.65))
                 - (2.0/3.0)*C/(cbrt_tau)
-                - D - (4.0/3.0)*E*cbrt_tau)/Tc 
+                - D - (4.0/3.0)*E*cbrt_tau)/Tc
     elif order == -1:
         cbrt_tau2 = cbrt_tau*cbrt_tau
         cbrt_tau3 = cbrt_tau*cbrt_tau2
@@ -1470,7 +1484,7 @@ def EQ116(T, Tc, A, B, C, D, E, order=0):
         x29 = 2.0*x12
         x30 = sqrt(x29 + 10.0)
         x31 = 1.0/x30
-        x32 = 1.0 - x12 
+        x32 = 1.0 - x12
         x33 = 0.5*B*x22
         x34 = -x2*(T - Tc)
         x35 = 2.0*x34**0.1
@@ -1491,8 +1505,8 @@ def EQ116(T, Tc, A, B, C, D, E, order=0):
         raise ValueError(order_not_found_msg)
 
 
-def EQ127(T, A, B, C, D, E, F, G, order=0):
-    r'''DIPPR Equation #127. Rarely used, and then only in calculating
+def EQ127(T: float, A: float, B: float, C: float, D: float, E: float, F: float, G: float, order: complex=0) -> float:
+    r"""DIPPR Equation #127. Rarely used, and then only in calculating
     ideal-gas heat capacity. All 7 parameters are required.
 
     .. math::
@@ -1583,7 +1597,7 @@ def EQ127(T, A, B, C, D, E, F, G, order=0):
     ----------
     .. [1] Design Institute for Physical Properties, 1996. DIPPR Project 801
        DIPPR/AIChE
-    '''
+    """
     if order == 0:
         T_inv = 1.0/T
         x0 = T_inv*T_inv
@@ -1612,7 +1626,7 @@ def EQ127(T, A, B, C, D, E, F, G, order=0):
         x14 = E*E*E
         x15 = G*G*G
         return (-2.0*B*C*C*x4 - B*x0*x13*x4 + 2.0*B*x0*x13*exp(2.0*x1)*x3*x3*x3 - 2.0*D*E*E*x8
-                 - D*x0*x14*x8 + 2.0*D*x0*x14*exp(2.0*x5)*x7*x7*x7 - 2.0*F*G*G*x12 
+                 - D*x0*x14*x8 + 2.0*D*x0*x14*exp(2.0*x5)*x7*x7*x7 - 2.0*F*G*G*x12
                  - F*x0*x12*x15 + 2.0*F*x0*x15*exp(2.0*x9)*x11*x11*x11)*x0*x0*x0
     elif order == -1:
         T_inv = 1.0/T
@@ -1629,7 +1643,7 @@ def EQ127(T, A, B, C, D, E, F, G, order=0):
 
 
 def EQ100_reciprocal(T, A=0, B=0, C=0, D=0, E=0, F=0, G=0, order=0):
-    r'''DIPPR Equation #100 reciprocal variant for temperature-dependent properties.
+    r"""DIPPR Equation #100 reciprocal variant for temperature-dependent properties.
     All parameters default to zero. As this is a straightforward polynomial,
     no restrictions on parameters apply.
 
@@ -1667,7 +1681,7 @@ def EQ100_reciprocal(T, A=0, B=0, C=0, D=0, E=0, F=0, G=0, order=0):
     --------
     >>> EQ100_reciprocal(300, 1, 2, 3)
     3.6954778e-06
-    '''
+    """
     if order == 0:
         return 1.0/(A + T*(B + T*(C + T*(D + T*(E + T*(F + G*T))))))
     elif order == 1:
@@ -1683,7 +1697,7 @@ def EQ100_reciprocal(T, A=0, B=0, C=0, D=0, E=0, F=0, G=0, order=0):
         raise ValueError("Only orders 0, 1, and 2 are supported")
 
 def EQ105_reciprocal(T, A, B, C, D, order=0):
-    r'''DIPPR Equation #105 reciprocal variant. Often used in calculating liquid
+    r"""DIPPR Equation #105 reciprocal variant. Often used in calculating liquid
     molar volume. All 4 parameters are required. C is sometimes the fluid's
     critical temperature.
 
@@ -1715,7 +1729,7 @@ def EQ105_reciprocal(T, A, B, C, D, order=0):
     --------
     >>> EQ105_reciprocal(300., 0.70824, 0.26411, 507.6, 0.27537)
     0.1316972
-    '''
+    """
     if order == 0:
         problematic = (1. - T/C)
         if D < 1.0 and problematic < 0.0:
@@ -1724,7 +1738,7 @@ def EQ105_reciprocal(T, A, B, C, D, order=0):
         problematic2 = problematic**D
         if abs(problematic2.imag) > 0.0: # This check should be removable - unless D is imaginary
             problematic2 = 0.0
-        ans = B**((1. + problematic2))/A
+        ans = B**(1. + problematic2)/A
         return ans
     elif order == 1:
         x0 = C - T
@@ -1734,12 +1748,12 @@ def EQ105_reciprocal(T, A, B, C, D, order=0):
         x0 = C - T
         x1 = (x0/C)**D
         x2 = D*x1*log(B)
-        return B**(x1 + 1)*x2*(D + x2 - 1)/(A*x0**2)    
+        return B**(x1 + 1)*x2*(D + x2 - 1)/(A*x0**2)
     else:
         raise ValueError("Only orders 0, 1, or 2 are supported for EQ105_reciprocal")
 
 def EQ106_reciprocal(T, Tc, A, B, C=0.0, D=0.0, E=0.0, order=0):
-    r'''DIPPR Equation #106 reciprocal variant. Often used in calculating liquid surface 
+    r"""DIPPR Equation #106 reciprocal variant. Often used in calculating liquid surface
     tension and heat of vaporization. Only parameters A and B are required.
 
     .. math::
@@ -1774,17 +1788,17 @@ def EQ106_reciprocal(T, Tc, A, B, C=0.0, D=0.0, E=0.0, order=0):
     --------
     >>> EQ106_reciprocal(300, 647.096, 0.17766, 2.567, -3.3377, 1.9699)
     13.82839
-    '''
+    """
     if order == 0:
         Tr = T/Tc
         tau = (1.0 - Tr)
         if tau <= 0.0:
-            return float('inf')
+            return float("inf")
         power = (B + Tr*(C + Tr*(D + E*Tr)))
         try:
             return 1.0/(A*tau**power)
         except:
-            return float('inf')
+            return float("inf")
     elif order == 1:
         x0 = Tc**3
         x1 = 1/x0

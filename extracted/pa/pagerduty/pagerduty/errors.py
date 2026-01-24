@@ -1,14 +1,17 @@
-from requests import Response
+from httpx import Response
 
 ##################
 ### EXCEPTIONS ###
 ##################
 
+
 class UrlError(Exception):
     """
     Exception class for unsupported URLs or malformed input.
     """
+
     pass
+
 
 class Error(Exception):
     """
@@ -31,13 +34,14 @@ class Error(Exception):
         self.response = response
         super(Error, self).__init__(message)
 
+
 class HttpError(Error):
     """
     Error class representing errors strictly associated with HTTP responses.
 
     This class was created to make it easier to more cleanly handle errors by
     way of a class that is guaranteed to have its ``response`` be a valid
-    `requests.Response`_ object.
+    `httpx.Response`_ object.
 
     Whereas, the more generic :class:`Error` could also be used
     to denote such things as non-transient network errors wherein no response
@@ -67,13 +71,15 @@ class HttpError(Error):
     def __init__(self, message, response: Response):
         super(HttpError, self).__init__(message, response=response)
 
+
 class ServerHttpError(HttpError):
     """
     Error class representing failed expectations made of the server.
 
-    This is raised in cases where the response schema differs from the expected schema
-    because of an API bug, or because it's an early access endpoint and changes before
-    GA, or in cases of HTTP status 5xx where a successful response is required.
+    This is raised in cases where the response schema differs from the expected
+    schema because of an API bug, or because it's an early access endpoint and
+    changes before GA, or in cases of HTTP status 5xx where a successful
+    response is required.
     """
-    pass
 
+    pass

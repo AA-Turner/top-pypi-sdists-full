@@ -8,14 +8,14 @@
 
 #include "Reactor.h"
 #include "cantera/numerics/FuncEval.h"
-
+#include "cantera/numerics/SteadyStateSystem.h"
 
 namespace Cantera
 {
 
 class Array2D;
 class Integrator;
-class PreconditionerBase;
+class SystemJacobian;
 
 //! A class representing a network of connected reactors.
 /*!
@@ -30,6 +30,12 @@ class ReactorNet : public FuncEval
 {
 public:
     ReactorNet();
+    //! Create reactor network containing single reactor.
+    //! @since New in %Cantera 3.2.
+    ReactorNet(shared_ptr<ReactorBase> reactor);
+    //! Create reactor network from multiple reactors.
+    //! @since New in %Cantera 3.2.
+    ReactorNet(vector<shared_ptr<ReactorBase>>& reactors);
     ~ReactorNet() override;
     ReactorNet(const ReactorNet&) = delete;
     ReactorNet& operator=(const ReactorNet&) = delete;
@@ -44,7 +50,7 @@ public:
 
     //! Set preconditioner used by the linear solver
     //! @param preconditioner preconditioner object used for the linear solver
-    void setPreconditioner(shared_ptr<PreconditionerBase> preconditioner);
+    void setPreconditioner(shared_ptr<SystemJacobian> preconditioner);
 
     //! Set the initial value of the independent variable (typically time).
     //! Default = 0.0 s. Restarts integration from this value using the current mixture
@@ -113,6 +119,8 @@ public:
     //! integrator will take before reaching the next output point
     int maxSteps();
 
+    //! @}
+
     /**
      * Advance the state of all reactors in the independent variable (time or space).
      * Take as many internal steps as necessary to reach *t*.
@@ -135,7 +143,49 @@ public:
     //! (time or space). Returns the new value of the independent variable [s or m].
     double step();
 
+    //! Solve directly for the steady-state solution.
+    //!
+    //! This approach is generally more efficient than time marching to the
+    //! steady-state, but imposes a few limitations:
+    //!
+    //! - The volume of control volume reactor types (such as Reactor and
+    //!   IdealGasMoleReactor) must be constant; no moving walls can be used.
+    //! - The mass of constant pressure reactor types (such as ConstPressureReactor and
+    //!   IdealGasConstPressureReactor) must be constant; if flow devices are used,
+    //!   inlet and outlet flows must be balanced.
+    //! - The solver is currently not compatible with the ConstPressureMoleReactor or
+    //!   IdealGasConstPressureMoleReactor classes.
+    //! - Only ideal gas reactor types can be used for when the energy equation is
+    //!   disabled (fixed temperature simulations).
+    //! - Reacting surfaces are not yet supported.
+    //!
+    //! @param loglevel  Print information about solver progress to aid in understanding
+    //!     cases where the solver fails to converge. Higher levels are more verbose.
+    //!     - 0: No logging.
+    //!     - 1: Basic info about each steady-state attempt and round of time stepping.
+    //!     - 2: Adds details about each time step and steady-state Newton iteration.
+    //!     - 3: Adds details about Newton iterations for each time step.
+    //!     - 4: Adds details about state variables that are limiting steady-state
+    //!       Newton step sizes.
+    //!     - 5: Adds details about state variables that are limiting time-stepping
+    //!       Newton step sizes.
+    //!     - 6: Print current state vector after different solver stages
+    //!     - 7: Print current residual vector after different solver stages
+    //!
+    //! @see SteadyStateSystem, MultiNewton
+    //! @since New in %Cantera 3.2.
+    void solveSteady(int loglevel=0);
+
+    //! Get the Jacobian used by the steady-state solver.
+    //!
+    //! @param rdt  Reciprocal of the pseudo-timestep [1/s]. Default of 0.0 returns the
+    //!     steady-state Jacobian.
+    //! @since New in %Cantera 3.2.
+    Eigen::SparseMatrix<double> steadyJacobian(double rdt=0.0);
+
     //! Add the reactor *r* to this reactor network.
+    //! @deprecated  To be removed after %Cantera 3.2. Replaceable by reactor net
+    //!     instantiation with contents.
     void addReactor(Reactor& r);
 
     //! Return a reference to the *n*-th reactor in this network. The reactor
@@ -241,6 +291,20 @@ public:
     //! component, for example `'reactor1: CH4'`.
     string componentName(size_t i) const;
 
+    //! Get the upper bound on the i-th component of the global state vector.
+    double upperBound(size_t i) const;
+
+    //! Get the lower bound on the i-th component of the global state vector.
+    double lowerBound(size_t i) const;
+
+    //! Reset physically or mathematically problematic values, such as negative species
+    //! concentrations.
+    //!
+    //! This method is used within solveSteady() if certain errors are encountered.
+    //!
+    //! @param[inout] y  current state vector, to be updated; length neq()
+    void resetBadValues(double* y);
+
     //! Used by Reactor and Wall objects to register the addition of
     //! sensitivity parameters so that the ReactorNet can keep track of the
     //! order in which sensitivity parameters are added.
@@ -299,7 +363,22 @@ public:
     //! @param settings the settings map propagated to all reactors and kinetics objects
     virtual void setDerivativeSettings(AnyMap& settings);
 
+    //! Root finding is enabled only while enforcing advance limits
+    size_t nRootFunctions() const override;
+
+    //! Evaluate the advance-limit root function used to stop integration once a limit
+    //! is met.
+    //!
+    //! When limits are active, this sets `gout[0]` to
+    //! `1 - max_i(|y[i]-y_base[i]| / limit[i])` so a zero indicates a component has
+    //! reached its limit; otherwise `gout[0]` is positive.
+    void evalRootFunctions(double t, const double* y, double* gout) override;
+
 protected:
+    //! Add the reactor *r* to this reactor network.
+    //! @since  Changed in %Cantera 3.2. Previous version used a reference.
+    void addReactor(shared_ptr<ReactorBase> reactor);
+
     //! Check that preconditioning is supported by all reactors in the network
     virtual void checkPreconditionerSupported() const;
 
@@ -341,7 +420,7 @@ protected:
     double m_rtolsens = 1.0e-4;
     double m_atols = 1.0e-15;
     double m_atolsens = 1.0e-6;
-    shared_ptr<PreconditionerBase> m_precon;
+    shared_ptr<SystemJacobian> m_precon;
     string m_linearSolverType;
 
     //! Maximum integrator internal timestep. Default of 0.0 means infinity.
@@ -358,11 +437,61 @@ protected:
     vector<double> m_ydot;
     vector<double> m_yest;
     vector<double> m_advancelimits;
+    //! Base state used for evaluating advance limits during a single advance()
+    //! call when root-finding is enabled
+    vector<double> m_ybase;
+    //! Base time corresponding to #m_ybase
+    double m_ybase_time = 0.0;
+    //! Indicates whether the advance-limit root check is active for the
+    //! current call to `advance(t, applylimit=true)`
+    bool m_limit_check_active = false;
     //! m_LHS is a vector representing the coefficients on the
     //! "left hand side" of each governing equation
     vector<double> m_LHS;
     vector<double> m_RHS;
 };
+
+
+//! Adapter class to enable using the SteadyStateSystem solver with ReactorNet.
+//!
+//! @see ReactorNet::solveSteady
+//! @since New in %Cantera 3.2.
+class SteadyReactorSolver : public SteadyStateSystem
+{
+public:
+    SteadyReactorSolver(ReactorNet* net, double* x0);
+    void eval(double* x, double* r, double rdt=-1.0, int count=1) override;
+    void initTimeInteg(double dt, double* x) override;
+    void evalJacobian(double* x0) override;
+    double weightedNorm(const double* step) const override;
+    string componentName(size_t i) const override;
+    double upperBound(size_t i) const override;
+    double lowerBound(size_t i) const override;
+    void resetBadValues(double* x) override;
+    void writeDebugInfo(const string& header_suffix, const string& message,
+                        int loglevel, int attempt_counter) override;
+
+private:
+    ReactorNet* m_net = nullptr;
+
+    //! Initial value of each state variable
+    vector<double> m_initialState;
+
+    //! Indices of variables that are held constant in the time-stepping mode of the
+    //! steady-state solver.
+    vector<size_t> m_algebraic;
+};
+
+
+/**
+ * Create a reactor network containing one or more coupled reactors.
+ * Wall and FlowDevice objects should be installed prior to calling newReactorNet().
+ * @param[in] reactors  A vector of shared pointers to the reactors to be linked
+ *      together.
+ * @since New in %Cantera 3.2.
+ */
+shared_ptr<ReactorNet> newReactorNet(vector<shared_ptr<ReactorBase>>& reactors);
+
 }
 
 #endif

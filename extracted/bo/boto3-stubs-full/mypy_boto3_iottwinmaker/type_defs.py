@@ -3,7 +3,7 @@ Type annotations for iottwinmaker service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iottwinmaker/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -43,12 +44,6 @@ from .literals import (
     UpdateReasonType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -228,13 +223,13 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class BundleInformationTypeDef(TypedDict):
-    bundleNames: List[str]
+    bundleNames: list[str]
     pricingTier: NotRequired[PricingTierType]
 
 
@@ -266,7 +261,7 @@ class ComponentPropertyGroupRequestTypeDef(TypedDict):
 
 class ComponentPropertyGroupResponseTypeDef(TypedDict):
     groupType: Literal["TABULAR"]
-    propertyNames: List[str]
+    propertyNames: list[str]
     isInherited: bool
 
 
@@ -360,7 +355,7 @@ class EntityPropertyReferenceOutputTypeDef(TypedDict):
     propertyName: str
     componentName: NotRequired[str]
     componentPath: NotRequired[str]
-    externalIdProperty: NotRequired[Dict[str, str]]
+    externalIdProperty: NotRequired[dict[str, str]]
     entityId: NotRequired[str]
 
 
@@ -385,7 +380,7 @@ class ExecuteQueryRequestTypeDef(TypedDict):
 
 
 class RowTypeDef(TypedDict):
-    rowData: NotRequired[List[Dict[str, Any]]]
+    rowData: NotRequired[list[dict[str, Any]]]
 
 
 class FilterByAssetModelTypeDef(TypedDict):
@@ -417,7 +412,7 @@ class GetComponentTypeRequestTypeDef(TypedDict):
 
 class PropertyGroupResponseTypeDef(TypedDict):
     groupType: Literal["TABULAR"]
-    propertyNames: List[str]
+    propertyNames: list[str]
     isInherited: bool
 
 
@@ -536,7 +531,7 @@ class WorkspaceSummaryTypeDef(TypedDict):
     creationDateTime: datetime
     updateDateTime: datetime
     description: NotRequired[str]
-    linkedServices: NotRequired[List[str]]
+    linkedServices: NotRequired[list[str]]
 
 
 class OrderByTypeDef(TypedDict):
@@ -642,7 +637,7 @@ class GetWorkspaceResponseTypeDef(TypedDict):
     workspaceId: str
     arn: str
     description: str
-    linkedServices: List[str]
+    linkedServices: list[str]
     s3Location: str
     role: str
     creationDateTime: datetime
@@ -651,7 +646,7 @@ class GetWorkspaceResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -704,8 +699,8 @@ class DataValueOutputTypeDef(TypedDict):
     integerValue: NotRequired[int]
     longValue: NotRequired[int]
     stringValue: NotRequired[str]
-    listValue: NotRequired[List[Dict[str, Any]]]
-    mapValue: NotRequired[Dict[str, Dict[str, Any]]]
+    listValue: NotRequired[list[dict[str, Any]]]
+    mapValue: NotRequired[dict[str, dict[str, Any]]]
     relationshipValue: NotRequired[RelationshipValueTypeDef]
     expression: NotRequired[str]
 
@@ -757,8 +752,8 @@ class SyncResourceStatusTypeDef(TypedDict):
 
 
 class ExecuteQueryResponseTypeDef(TypedDict):
-    columnDescriptions: List[ColumnDescriptionTypeDef]
-    rows: List[RowTypeDef]
+    columnDescriptions: list[ColumnDescriptionTypeDef]
+    rows: list[RowTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -781,9 +776,9 @@ class GetSceneResponseTypeDef(TypedDict):
     creationDateTime: datetime
     updateDateTime: datetime
     description: str
-    capabilities: List[str]
-    sceneMetadata: Dict[str, str]
-    generatedSceneMetadata: Dict[str, str]
+    capabilities: list[str]
+    sceneMetadata: dict[str, str]
+    generatedSceneMetadata: dict[str, str]
     error: SceneErrorTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -811,7 +806,7 @@ class ListMetadataTransferJobsRequestTypeDef(TypedDict):
 
 
 class ListScenesResponseTypeDef(TypedDict):
-    sceneSummaries: List[SceneSummaryTypeDef]
+    sceneSummaries: list[SceneSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -825,7 +820,7 @@ class ListSyncResourcesRequestTypeDef(TypedDict):
 
 
 class ListWorkspacesResponseTypeDef(TypedDict):
-    workspaceSummaries: List[WorkspaceSummaryTypeDef]
+    workspaceSummaries: list[WorkspaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -849,7 +844,7 @@ class FunctionRequestTypeDef(TypedDict):
 
 
 class FunctionResponseTypeDef(TypedDict):
-    requiredProperties: NotRequired[List[str]]
+    requiredProperties: NotRequired[list[str]]
     scope: NotRequired[ScopeType]
     implementedBy: NotRequired[DataConnectorTypeDef]
     isInherited: NotRequired[bool]
@@ -859,8 +854,8 @@ DataTypeOutputTypeDef = TypedDict(
     "DataTypeOutputTypeDef",
     {
         "type": TypeType,
-        "nestedType": NotRequired[Dict[str, Any]],
-        "allowedValues": NotRequired[List[DataValueOutputTypeDef]],
+        "nestedType": NotRequired[dict[str, Any]],
+        "allowedValues": NotRequired[list[DataValueOutputTypeDef]],
         "unitOfMeasure": NotRequired[str],
         "relationship": NotRequired[RelationshipTypeDef],
     },
@@ -913,7 +908,7 @@ class ComponentSummaryTypeDef(TypedDict):
     status: StatusTypeDef
     definedIn: NotRequired[str]
     description: NotRequired[str]
-    propertyGroups: NotRequired[Dict[str, ComponentPropertyGroupResponseTypeDef]]
+    propertyGroups: NotRequired[dict[str, ComponentPropertyGroupResponseTypeDef]]
     syncSource: NotRequired[str]
     componentPath: NotRequired[str]
 
@@ -969,7 +964,7 @@ class SyncResourceSummaryTypeDef(TypedDict):
 
 
 class IotSiteWiseSourceConfigurationOutputTypeDef(TypedDict):
-    filters: NotRequired[List[IotSiteWiseSourceConfigurationFilterTypeDef]]
+    filters: NotRequired[list[IotSiteWiseSourceConfigurationFilterTypeDef]]
 
 
 class IotSiteWiseSourceConfigurationTypeDef(TypedDict):
@@ -978,7 +973,7 @@ class IotSiteWiseSourceConfigurationTypeDef(TypedDict):
 
 class IotTwinMakerSourceConfigurationOutputTypeDef(TypedDict):
     workspace: str
-    filters: NotRequired[List[IotTwinMakerSourceConfigurationFilterTypeDef]]
+    filters: NotRequired[list[IotTwinMakerSourceConfigurationFilterTypeDef]]
 
 
 class IotTwinMakerSourceConfigurationTypeDef(TypedDict):
@@ -996,25 +991,25 @@ class PropertyDefinitionResponseTypeDef(TypedDict):
     isFinal: bool
     isInherited: bool
     defaultValue: NotRequired[DataValueOutputTypeDef]
-    configuration: NotRequired[Dict[str, str]]
+    configuration: NotRequired[dict[str, str]]
     displayName: NotRequired[str]
 
 
 class GetPropertyValueResponseTypeDef(TypedDict):
-    propertyValues: Dict[str, PropertyLatestValueTypeDef]
-    tabularPropertyValues: List[List[Dict[str, DataValueOutputTypeDef]]]
+    propertyValues: dict[str, PropertyLatestValueTypeDef]
+    tabularPropertyValues: list[list[dict[str, DataValueOutputTypeDef]]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class PropertyValueEntryOutputTypeDef(TypedDict):
     entityPropertyReference: EntityPropertyReferenceOutputTypeDef
-    propertyValues: NotRequired[List[PropertyValueOutputTypeDef]]
+    propertyValues: NotRequired[list[PropertyValueOutputTypeDef]]
 
 
 class PropertyValueHistoryTypeDef(TypedDict):
     entityPropertyReference: EntityPropertyReferenceOutputTypeDef
-    values: NotRequired[List[PropertyValueOutputTypeDef]]
+    values: NotRequired[list[PropertyValueOutputTypeDef]]
 
 
 DataTypeTypeDef = TypedDict(
@@ -1044,39 +1039,39 @@ class PropertyValueTypeDef(TypedDict):
 
 
 class ListMetadataTransferJobsResponseTypeDef(TypedDict):
-    metadataTransferJobSummaries: List[MetadataTransferJobSummaryTypeDef]
+    metadataTransferJobSummaries: list[MetadataTransferJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListComponentsResponseTypeDef(TypedDict):
-    componentSummaries: List[ComponentSummaryTypeDef]
+    componentSummaries: list[ComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListComponentTypesResponseTypeDef(TypedDict):
     workspaceId: str
-    componentTypeSummaries: List[ComponentTypeSummaryTypeDef]
+    componentTypeSummaries: list[ComponentTypeSummaryTypeDef]
     maxResults: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListEntitiesResponseTypeDef(TypedDict):
-    entitySummaries: List[EntitySummaryTypeDef]
+    entitySummaries: list[EntitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSyncJobsResponseTypeDef(TypedDict):
-    syncJobSummaries: List[SyncJobSummaryTypeDef]
+    syncJobSummaries: list[SyncJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSyncResourcesResponseTypeDef(TypedDict):
-    syncResources: List[SyncResourceSummaryTypeDef]
+    syncResources: list[SyncResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1103,19 +1098,19 @@ class GetComponentTypeResponseTypeDef(TypedDict):
     isSingleton: bool
     componentTypeId: str
     description: str
-    propertyDefinitions: Dict[str, PropertyDefinitionResponseTypeDef]
-    extendsFrom: List[str]
-    functions: Dict[str, FunctionResponseTypeDef]
+    propertyDefinitions: dict[str, PropertyDefinitionResponseTypeDef]
+    extendsFrom: list[str]
+    functions: dict[str, FunctionResponseTypeDef]
     creationDateTime: datetime
     updateDateTime: datetime
     arn: str
     isAbstract: bool
     isSchemaInitialized: bool
     status: StatusTypeDef
-    propertyGroups: Dict[str, PropertyGroupResponseTypeDef]
+    propertyGroups: dict[str, PropertyGroupResponseTypeDef]
     syncSource: str
     componentTypeName: str
-    compositeComponentTypes: Dict[str, CompositeComponentTypeResponseTypeDef]
+    compositeComponentTypes: dict[str, CompositeComponentTypeResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1139,7 +1134,7 @@ class BatchPutPropertyErrorTypeDef(TypedDict):
 
 
 class GetPropertyValueHistoryResponseTypeDef(TypedDict):
-    propertyValues: List[PropertyValueHistoryTypeDef]
+    propertyValues: list[PropertyValueHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1177,7 +1172,7 @@ class GetMetadataTransferJobResponseTypeDef(TypedDict):
     metadataTransferJobId: str
     arn: str
     description: str
-    sources: List[SourceConfigurationOutputTypeDef]
+    sources: list[SourceConfigurationOutputTypeDef]
     destination: DestinationConfigurationTypeDef
     metadataTransferJobRole: str
     reportUrl: str
@@ -1205,22 +1200,22 @@ class ComponentResponseTypeDef(TypedDict):
     componentTypeId: NotRequired[str]
     status: NotRequired[StatusTypeDef]
     definedIn: NotRequired[str]
-    properties: NotRequired[Dict[str, PropertyResponseTypeDef]]
-    propertyGroups: NotRequired[Dict[str, ComponentPropertyGroupResponseTypeDef]]
+    properties: NotRequired[dict[str, PropertyResponseTypeDef]]
+    propertyGroups: NotRequired[dict[str, ComponentPropertyGroupResponseTypeDef]]
     syncSource: NotRequired[str]
     areAllPropertiesReturned: NotRequired[bool]
-    compositeComponents: NotRequired[Dict[str, ComponentSummaryTypeDef]]
+    compositeComponents: NotRequired[dict[str, ComponentSummaryTypeDef]]
     areAllCompositeComponentsReturned: NotRequired[bool]
 
 
 class ListPropertiesResponseTypeDef(TypedDict):
-    propertySummaries: List[PropertySummaryTypeDef]
+    propertySummaries: list[PropertySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchPutPropertyErrorEntryTypeDef(TypedDict):
-    errors: List[BatchPutPropertyErrorTypeDef]
+    errors: list[BatchPutPropertyErrorTypeDef]
 
 
 class PropertyDefinitionRequestTypeDef(TypedDict):
@@ -1264,7 +1259,7 @@ class GetEntityResponseTypeDef(TypedDict):
     status: StatusTypeDef
     workspaceId: str
     description: str
-    components: Dict[str, ComponentResponseTypeDef]
+    components: dict[str, ComponentResponseTypeDef]
     parentEntityId: str
     hasChildEntities: bool
     creationDateTime: datetime
@@ -1275,7 +1270,7 @@ class GetEntityResponseTypeDef(TypedDict):
 
 
 class BatchPutPropertyValuesResponseTypeDef(TypedDict):
-    errorEntries: List[BatchPutPropertyErrorEntryTypeDef]
+    errorEntries: list[BatchPutPropertyErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

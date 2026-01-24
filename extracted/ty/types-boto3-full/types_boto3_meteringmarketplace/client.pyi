@@ -3,7 +3,7 @@ Type annotations for meteringmarketplace service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_meteringmarketplace/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -36,11 +37,6 @@ from .type_defs import (
     ResolveCustomerResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -49,24 +45,25 @@ else:
 __all__ = ("MarketplaceMeteringClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CustomerNotEntitledException: Type[BotocoreClientError]
-    DisabledApiException: Type[BotocoreClientError]
-    DuplicateRequestException: Type[BotocoreClientError]
-    ExpiredTokenException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidCustomerIdentifierException: Type[BotocoreClientError]
-    InvalidEndpointRegionException: Type[BotocoreClientError]
-    InvalidProductCodeException: Type[BotocoreClientError]
-    InvalidPublicKeyVersionException: Type[BotocoreClientError]
-    InvalidRegionException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    InvalidTokenException: Type[BotocoreClientError]
-    InvalidUsageAllocationsException: Type[BotocoreClientError]
-    InvalidUsageDimensionException: Type[BotocoreClientError]
-    PlatformNotSupportedException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TimestampOutOfBoundsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CustomerNotEntitledException: type[BotocoreClientError]
+    DisabledApiException: type[BotocoreClientError]
+    DuplicateRequestException: type[BotocoreClientError]
+    ExpiredTokenException: type[BotocoreClientError]
+    IdempotencyConflictException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidCustomerIdentifierException: type[BotocoreClientError]
+    InvalidEndpointRegionException: type[BotocoreClientError]
+    InvalidProductCodeException: type[BotocoreClientError]
+    InvalidPublicKeyVersionException: type[BotocoreClientError]
+    InvalidRegionException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    InvalidTokenException: type[BotocoreClientError]
+    InvalidUsageAllocationsException: type[BotocoreClientError]
+    InvalidUsageDimensionException: type[BotocoreClientError]
+    PlatformNotSupportedException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TimestampOutOfBoundsException: type[BotocoreClientError]
 
 class MarketplaceMeteringClient(BaseClient):
     """
@@ -107,7 +104,8 @@ class MarketplaceMeteringClient(BaseClient):
         self, **kwargs: Unpack[BatchMeterUsageRequestTypeDef]
     ) -> BatchMeterUsageResultTypeDef:
         """
-        The <code>CustomerIdentifier</code> parameter is scheduled for deprecation.
+        The <code>CustomerIdentifier</code> and <code>CustomerAWSAccountID</code> are
+        mutually exclusive parameters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/batch_meter_usage.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_meteringmarketplace/client/#batch_meter_usage)
@@ -115,7 +113,9 @@ class MarketplaceMeteringClient(BaseClient):
 
     def meter_usage(self, **kwargs: Unpack[MeterUsageRequestTypeDef]) -> MeterUsageResultTypeDef:
         """
-        API to emit metering records.
+        As a seller, your software hosted in the buyer's Amazon Web Services account
+        uses this API action to emit metering records directly to Amazon Web Services
+        Marketplace.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/meter_usage.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_meteringmarketplace/client/#meter_usage)

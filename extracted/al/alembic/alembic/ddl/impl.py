@@ -43,6 +43,10 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
     from sqlalchemy.engine import Dialect
     from sqlalchemy.engine.cursor import CursorResult
+    from sqlalchemy.engine.interfaces import ReflectedForeignKeyConstraint
+    from sqlalchemy.engine.interfaces import ReflectedIndex
+    from sqlalchemy.engine.interfaces import ReflectedPrimaryKeyConstraint
+    from sqlalchemy.engine.interfaces import ReflectedUniqueConstraint
     from sqlalchemy.engine.reflection import Inspector
     from sqlalchemy.sql import ClauseElement
     from sqlalchemy.sql import Executable
@@ -59,6 +63,12 @@ if TYPE_CHECKING:
     from ..operations.batch import ApplyBatchImpl
     from ..operations.batch import BatchOperationsImpl
 
+    _ReflectedConstraint = (
+        ReflectedForeignKeyConstraint
+        | ReflectedPrimaryKeyConstraint
+        | ReflectedIndex
+        | ReflectedUniqueConstraint
+    )
 log = logging.getLogger(__name__)
 
 
@@ -399,9 +409,12 @@ class DefaultImpl(metaclass=ImplMeta):
             )
         )
 
-    def add_constraint(self, const: Any) -> None:
+    def add_constraint(self, const: Any, **kw: Any) -> None:
         if const._create_rule is None or const._create_rule(self):
-            self._exec(schema.AddConstraint(const))
+            if sqla_compat.sqla_2_1:
+                # this should be the default already
+                kw.setdefault("isolate_from_table", True)
+            self._exec(schema.AddConstraint(const, **kw))
 
     def drop_constraint(self, const: Constraint, **kw: Any) -> None:
         self._exec(schema.DropConstraint(const, **kw))
@@ -839,9 +852,9 @@ class DefaultImpl(metaclass=ImplMeta):
                 metadata_indexes.discard(idx)
 
     def adjust_reflected_dialect_options(
-        self, reflected_object: Dict[str, Any], kind: str
+        self, reflected_object: _ReflectedConstraint, kind: str
     ) -> Dict[str, Any]:
-        return reflected_object.get("dialect_options", {})
+        return reflected_object.get("dialect_options", {})  # type: ignore[return-value]   # noqa: E501
 
 
 class Params(NamedTuple):

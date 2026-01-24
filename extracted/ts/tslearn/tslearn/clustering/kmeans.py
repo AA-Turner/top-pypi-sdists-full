@@ -1,38 +1,14 @@
-import warnings
-
+"""K-means related clustering for time series."""
 import numpy
-import sklearn
+
 from scipy.spatial.distance import cdist
-from sklearn.base import ClusterMixin, TransformerMixin
+
+from sklearn.base import ClusterMixin, TransformerMixin, BaseEstimator
+from sklearn.cluster._kmeans import _kmeans_plusplus
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils import check_random_state
 from sklearn.utils.extmath import stable_cumsum
 from sklearn.utils.validation import _check_sample_weight
-
-try:
-    from sklearn.cluster._kmeans import _kmeans_plusplus
-
-    SKLEARN_VERSION_GREATER_THAN_OR_EQUAL_TO_1_3_0 = sklearn.__version__ >= "1.3.0"
-except:
-    try:
-        from sklearn.cluster._kmeans import _k_init
-
-        warnings.warn(
-            "Scikit-learn <0.24 will be deprecated in a " "future release of tslearn"
-        )
-    except:
-        from sklearn.cluster.k_means_ import _k_init
-
-        warnings.warn(
-            "Scikit-learn <0.24 will be deprecated in a " "future release of tslearn"
-        )
-    # sklearn < 0.24: _k_init only returns centroids, not indices
-    # So we need to add a second (fake) return value to make it match
-    # _kmeans_plusplus' signature
-    def _kmeans_plusplus(*args, **kwargs):
-        return _k_init(*args, **kwargs), None
-
-
 from sklearn.utils.validation import check_is_fitted
 
 from tslearn.barycenters import (
@@ -40,9 +16,15 @@ from tslearn.barycenters import (
     euclidean_barycenter,
     softdtw_barycenter,
 )
-from tslearn.bases import BaseModelPackage, TimeSeriesBaseEstimator
+from tslearn.bases import BaseModelPackage, TimeSeriesMixin
+from tslearn.bases.bases import ALLOW_VARIABLE_LENGTH
 from tslearn.metrics import cdist_dtw, cdist_gak, cdist_soft_dtw, sigma_gak
-from tslearn.utils import check_array, check_dims, to_sklearn_dataset, to_time_series_dataset
+from tslearn.utils import (
+    check_array,
+    check_dims,
+    to_sklearn_dataset,
+    to_time_series_dataset
+)
 
 from .utils import (
     EmptyClusterError,
@@ -141,7 +123,7 @@ def _k_init_metric(X, n_clusters, cdist_metric, random_state, n_local_trials=Non
     return centers
 
 
-class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
+class KernelKMeans(TimeSeriesMixin, ClusterMixin, BaseEstimator, BaseModelPackage):
     """Kernel K-means.
 
     Parameters
@@ -173,18 +155,21 @@ class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
     kernel_params : dict or None (default: None)
         Kernel parameters to be passed to the kernel function.
         None means no kernel parameter is set.
+
         For Global Alignment Kernel, the only parameter of interest is `sigma`.
         If set to 'auto', it is computed based on a sampling of the training
         set
         (cf :ref:`tslearn.metrics.sigma_gak <fun-tslearn.metrics.sigma_gak>`).
         If no specific value is set for `sigma`, its defaults to 1.
+        A `RuntimeError` is raised at fit time when computed or explicit value is
+        close to 0 and therefore not compatible with 'gak' kernel.
 
     n_jobs : int or None, optional (default=None)
         The number of jobs to run in parallel for GAK cross-similarity matrix
         computations.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See scikit-learns'
-        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n-jobs>`_
+        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n_jobs>`_
         for more details.
 
     verbose : int (default: 0)
@@ -231,7 +216,8 @@ class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
     .. [1] Kernel k-means, Spectral Clustering and Normalized Cuts.
            Inderjit S. Dhillon, Yuqiang Guan, Brian Kulis. KDD 2004.
 
-    .. [2] Fast Global Alignment Kernels. Marco Cuturi. ICML 2011.
+    .. [2] Fast Global Alignment Kernels. Marco Cuturi.
+       ICML 2011.
     """
 
     def __init__(
@@ -278,9 +264,16 @@ class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
     def _get_kernel(self, X, Y=None):
         kernel_params = self._get_kernel_params()
         if self.kernel == "gak":
-            return cdist_gak(
-                X, Y, n_jobs=self.n_jobs, verbose=self.verbose, **kernel_params
-            )
+            try:
+                return cdist_gak(
+                    X, Y, n_jobs=self.n_jobs, verbose=self.verbose, **kernel_params
+                )
+            except ZeroDivisionError:
+                raise RuntimeError(
+                    "The{} `sigma` parameter is close to 0 and "
+                    "cannot be used with gak kernel."
+                    .format(" auto computed" if self.kernel_params.get("sigma") == "auto" else ""))
+
         else:
             X_sklearn = to_sklearn_dataset(X)
             if Y is not None:
@@ -387,6 +380,7 @@ class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
             self.labels_ = last_correct_labels
             self.inertia_ = min_inertia
             self._X_fit = X
+            self.n_features_in_ = X.shape[-1]
         return self
 
     def _compute_dist(self, K, dist):
@@ -457,21 +451,30 @@ class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
         return dist.argmin(axis=1)
 
     def _more_tags(self):
-        sample_weight_failure_msg = "Currently not supported due to clusters initialization"
-        return {"allow_nan": True,
-                "allow_variable_length": True,
-                "_xfail_checks": {
-                    "check_sample_weight_equivalence_on_dense_data": sample_weight_failure_msg,
-                    "check_sample_weight_equivalence_on_sparse_data": sample_weight_failure_msg
-                }}
+        tags = super()._more_tags()
+        sample_weight_failure_msg = "Not supported due to clusters initialization"
+        tags.update({
+            "allow_nan": True,
+            ALLOW_VARIABLE_LENGTH: True,
+        })
+        tags["_xfail_checks"].update({
+            "check_sample_weight_equivalence_on_dense_data": sample_weight_failure_msg,
+        })
+        return tags
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = True
+        tags.allow_variable_length = True
+        return tags
 
 
 class TimeSeriesKMeans(
+    TimeSeriesCentroidBasedClusteringMixin,
     TransformerMixin,
     ClusterMixin,
-    TimeSeriesCentroidBasedClusteringMixin,
+    BaseEstimator,
     BaseModelPackage,
-    TimeSeriesBaseEstimator,
 ):
     """K-means clustering for time-series data.
 
@@ -516,7 +519,7 @@ class TimeSeriesKMeans(
         parallelization.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See scikit-learns'
-        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n-jobs>`_
+        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n_jobs>`_
         for more details.
 
     dtw_inertia: bool (default: False)
@@ -535,7 +538,7 @@ class TimeSeriesKMeans(
         Method for initialization:
         'k-means++' : use k-means++ heuristic. See `scikit-learn's k_init_
         <https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/\
-        cluster/k_means_.py>`_ for more.
+        cluster/_kmeans.py>`_ for more.
         'random': choose k observations (rows) at random from data for the
         initial centroids.
         If an ndarray is passed, it should be of shape (n_clusters, ts_size, d)
@@ -639,22 +642,14 @@ class TimeSeriesKMeans(
             self.cluster_centers_ = self.init.copy()
         elif isinstance(self.init, str) and self.init == "k-means++":
             if self.metric == "euclidean":
-                if SKLEARN_VERSION_GREATER_THAN_OR_EQUAL_TO_1_3_0:
-                    sample_weight = _check_sample_weight(None, X, dtype=X.dtype)
-                    self.cluster_centers_ = _kmeans_plusplus(
-                        X.reshape((n_ts, -1)),
-                        self.n_clusters,
-                        x_squared_norms=x_squared_norms,
-                        sample_weight=sample_weight,
-                        random_state=rs,
-                    )[0].reshape((-1, sz, d))
-                else:
-                    self.cluster_centers_ = _kmeans_plusplus(
-                        X.reshape((n_ts, -1)),
-                        self.n_clusters,
-                        x_squared_norms=x_squared_norms,
-                        random_state=rs,
-                    )[0].reshape((-1, sz, d))
+                sample_weight = _check_sample_weight(None, X, dtype=X.dtype)
+                self.cluster_centers_ = _kmeans_plusplus(
+                    X.reshape((n_ts, -1)),
+                    self.n_clusters,
+                    x_squared_norms=x_squared_norms,
+                    sample_weight=sample_weight,
+                    random_state=rs,
+                )[0].reshape((-1, sz, d))
             else:
                 if self.metric == "dtw":
 
@@ -681,7 +676,7 @@ class TimeSeriesKMeans(
                     X, self.n_clusters, cdist_metric=metric_fun, random_state=rs
                 )
         elif self.init == "random":
-            indices = rs.choice(X.shape[0], self.n_clusters)
+            indices = rs.choice(X.shape[0], self.n_clusters, replace=False)
             self.cluster_centers_ = X[indices].copy()
         else:
             raise ValueError("Value %r for parameter 'init'" "is invalid" % self.init)
@@ -778,7 +773,12 @@ class TimeSeriesKMeans(
             Ignored
         """
 
-        X = check_array(X, allow_nd=True, force_all_finite="allow-nan")
+        X = check_array(
+            X,
+            allow_nd=True,
+            # For variable length time series with dedicated metric
+            force_all_finite="allow-nan" if self.metric != "euclidean" else True
+        )
 
         if hasattr(self.init, "__array__"):
             X = check_dims(
@@ -871,7 +871,11 @@ class TimeSeriesKMeans(
         labels : array of shape=(n_ts, )
             Index of the cluster each sample belongs to.
         """
-        X = check_array(X, allow_nd=True, force_all_finite="allow-nan")
+        X = check_array(
+            X,
+            allow_nd=True,
+            force_all_finite="allow-nan" if self.metric != "euclidean" else True
+        )
         check_is_fitted(self, "cluster_centers_")
         X = check_dims(
             X,
@@ -897,7 +901,11 @@ class TimeSeriesKMeans(
         distances : array of shape=(n_ts, n_clusters)
             Distances to cluster centers
         """
-        X = check_array(X, allow_nd=True, force_all_finite="allow-nan")
+        X = check_array(
+            X,
+            allow_nd=True,
+            force_all_finite="allow-nan" if self.metric != "euclidean" else True
+        )
         check_is_fitted(self, "cluster_centers_")
         X = check_dims(
             X,
@@ -908,4 +916,15 @@ class TimeSeriesKMeans(
         return self._transform(X)
 
     def _more_tags(self):
-        return {"allow_nan": True, "allow_variable_length": True}
+        tags = super()._more_tags()
+        tags.update({
+            "allow_nan": self.metric != "euclidean",
+            ALLOW_VARIABLE_LENGTH: self.metric != "euclidean"}
+        )
+        return tags
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = self.metric != "euclidean"
+        tags.allow_variable_length = self.metric != "euclidean"
+        return tags

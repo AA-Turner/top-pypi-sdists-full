@@ -5,7 +5,7 @@
 import json
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Sequence
 
 from haystack import logging
 from haystack.dataclasses.image_content import ImageContent
@@ -54,17 +54,20 @@ class ToolCall:
     :param id: The ID of the Tool call.
     :param tool_name: The name of the Tool to call.
     :param arguments: The arguments to call the Tool with.
+    :param extra: Dictionary of extra information about the Tool call. Use to store provider-specific
+        information. To avoid serialization issues, values should be JSON serializable.
     """
 
     tool_name: str
     arguments: dict[str, Any]
-    id: Optional[str] = None  # noqa: A003
+    id: str | None = None  # noqa: A003
+    extra: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
         Convert ToolCall into a dictionary.
 
-        :returns: A dictionary with keys 'tool_name', 'arguments', and 'id'.
+        :returns: A dictionary with keys 'tool_name', 'arguments', 'id', and 'extra'.
         """
         return asdict(self)
 
@@ -179,7 +182,7 @@ class ReasoningContent:
         return ReasoningContent(**data)
 
 
-ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult, ImageContent, ReasoningContent]
+ChatMessageContentT = TextContent | ToolCall | ToolCallResult | ImageContent | ReasoningContent
 
 _CONTENT_PART_CLASSES_TO_SERIALIZATION_KEYS: dict[type[ChatMessageContentT], str] = {
     TextContent: "text",
@@ -254,7 +257,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
 
     _role: ChatRole
     _content: Sequence[ChatMessageContentT]
-    _name: Optional[str] = None
+    _name: str | None = None
     _meta: dict[str, Any] = field(default_factory=dict, hash=False)
 
     def __new__(cls, *args, **kwargs):
@@ -309,7 +312,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return self._meta
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """
         Returns the name associated with the message.
         """
@@ -323,7 +326,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return [content.text for content in self._content if isinstance(content, TextContent)]
 
     @property
-    def text(self) -> Optional[str]:
+    def text(self) -> str | None:
         """
         Returns the first text contained in the message.
         """
@@ -339,7 +342,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return [content for content in self._content if isinstance(content, ToolCall)]
 
     @property
-    def tool_call(self) -> Optional[ToolCall]:
+    def tool_call(self) -> ToolCall | None:
         """
         Returns the first Tool call contained in the message.
         """
@@ -355,7 +358,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return [content for content in self._content if isinstance(content, ToolCallResult)]
 
     @property
-    def tool_call_result(self) -> Optional[ToolCallResult]:
+    def tool_call_result(self) -> ToolCallResult | None:
         """
         Returns the first Tool call result contained in the message.
         """
@@ -371,7 +374,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return [content for content in self._content if isinstance(content, ImageContent)]
 
     @property
-    def image(self) -> Optional[ImageContent]:
+    def image(self) -> ImageContent | None:
         """
         Returns the first image contained in the message.
         """
@@ -387,7 +390,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return [content for content in self._content if isinstance(content, ReasoningContent)]
 
     @property
-    def reasoning(self) -> Optional[ReasoningContent]:
+    def reasoning(self) -> ReasoningContent | None:
         """
         Returns the first reasoning content contained in the message.
         """
@@ -395,7 +398,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
             return reasonings[0]
         return None
 
-    def is_from(self, role: Union[ChatRole, str]) -> bool:
+    def is_from(self, role: ChatRole | str) -> bool:
         """
         Check if the message is from a specific role.
 
@@ -409,11 +412,11 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
     @classmethod
     def from_user(
         cls,
-        text: Optional[str] = None,
-        meta: Optional[dict[str, Any]] = None,
-        name: Optional[str] = None,
+        text: str | None = None,
+        meta: dict[str, Any] | None = None,
+        name: str | None = None,
         *,
-        content_parts: Optional[Sequence[Union[TextContent, str, ImageContent]]] = None,
+        content_parts: Sequence[TextContent | str | ImageContent] | None = None,
     ) -> "ChatMessage":
         """
         Create a message from the user.
@@ -429,7 +432,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         if text is not None and content_parts is not None:
             raise ValueError("Only one of text or content_parts can be provided.")
 
-        content: list[Union[TextContent, ImageContent]] = []
+        content: list[TextContent | ImageContent] = []
 
         if text is not None:
             content = [TextContent(text=text)]
@@ -449,7 +452,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
 
     @classmethod
-    def from_system(cls, text: str, meta: Optional[dict[str, Any]] = None, name: Optional[str] = None) -> "ChatMessage":
+    def from_system(cls, text: str, meta: dict[str, Any] | None = None, name: str | None = None) -> "ChatMessage":
         """
         Create a message from the system.
 
@@ -463,12 +466,12 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
     @classmethod
     def from_assistant(
         cls,
-        text: Optional[str] = None,
-        meta: Optional[dict[str, Any]] = None,
-        name: Optional[str] = None,
-        tool_calls: Optional[list[ToolCall]] = None,
+        text: str | None = None,
+        meta: dict[str, Any] | None = None,
+        name: str | None = None,
+        tool_calls: list[ToolCall] | None = None,
         *,
-        reasoning: Optional[Union[str, ReasoningContent]] = None,
+        reasoning: str | ReasoningContent | None = None,
     ) -> "ChatMessage":
         """
         Create a message from the assistant.
@@ -497,7 +500,7 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
 
     @classmethod
     def from_tool(
-        cls, tool_result: str, origin: ToolCall, error: bool = False, meta: Optional[dict[str, Any]] = None
+        cls, tool_result: str, origin: ToolCall, error: bool = False, meta: dict[str, Any] | None = None
     ) -> "ChatMessage":
         """
         Create a message from a Tool.
@@ -528,6 +531,31 @@ class ChatMessage:  # pylint: disable=too-many-public-methods # it's OK since we
         serialized["name"] = self._name
 
         serialized["content"] = [_serialize_content_part(part) for part in self._content]
+        return serialized
+
+    def _to_trace_dict(self) -> dict[str, Any]:
+        """
+        Convert the ChatMessage to a dictionary representation for tracing.
+
+        For Image Content objects, the base64_image is replaced with a placeholder string to avoid sending large
+        payloads to the tracing backend.
+
+        :returns:
+            Serialized version of the object only for tracing purposes.
+        """
+
+        serialized: dict[str, Any] = {}
+        serialized["role"] = self._role.value
+        serialized["meta"] = self._meta
+        serialized["name"] = self._name
+
+        serialized["content"] = []
+        for part in self._content:
+            serialized_part = _serialize_content_part(part)
+            if isinstance(part, ImageContent):
+                serialized_part["image"]["base64_image"] = f"Base64 string ({len(part.base64_image)} characters)"
+            serialized["content"].append(serialized_part)
+
         return serialized
 
     @classmethod

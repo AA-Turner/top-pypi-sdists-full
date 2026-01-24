@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.task._generated.models.task_schedule import TaskSchedule
 
@@ -42,9 +42,10 @@ class CronSchedule(TaskSchedule):
 
     __properties = ["schedule_type"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -69,7 +70,7 @@ class CronSchedule(TaskSchedule):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["schedule_type"] = TaskSchedule.get_child_model_discriminator_value("CronSchedule")
 
@@ -86,9 +87,9 @@ class CronSchedule(TaskSchedule):
             return None
 
         if type(obj) is not dict:
-            return CronSchedule.parse_obj(obj)
+            return CronSchedule.model_validate(obj)
 
-        _obj = CronSchedule.parse_obj(
+        _obj = CronSchedule.model_validate(
             {
                 "cron_expr": obj.get("cron_expr"),
                 "timezone": obj.get("timezone"),

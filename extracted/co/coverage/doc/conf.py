@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Sphinx configuration."""
 
@@ -39,6 +39,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinxcontrib.restbuilder",
     "sphinx.ext.napoleon",
+    "sphinxext.rediraffe",
     "sphinx_code_tabs",
     "sphinx_rtd_theme",
 ]
@@ -67,11 +68,11 @@ project = "Coverage.py"
 # @@@ editable
 copyright = "2009–2025, Ned Batchelder"  # pylint: disable=redefined-builtin
 # The short X.Y.Z version.
-version = "7.10.7"
+version = "7.13.1"
 # The full version, including alpha/beta/rc tags.
-release = "7.10.7"
+release = "7.13.1"
 # The date of release, in "monthname day, year" format.
-release_date = "September 21, 2025"
+release_date = "December 28, 2025"
 # @@@ end
 
 rst_epilog = f"""
@@ -123,6 +124,11 @@ pygments_style = "sphinx"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+}
+
+rediraffe_branch = "origin/main"
+rediraffe_redirects = {
+    "cmd.rst": "commands/index.rst",
 }
 
 nitpick_ignore = [
@@ -230,7 +236,7 @@ if any("spell" in arg for arg in sys.argv):
 linkcheck_ignore = [
     # We have lots of links to GitHub, and they start refusing to serve them to linkcheck,
     # so don't bother checking them.
-    r"https://github.com/nedbat/coveragepy/(issues|pull)/\d+",
+    r"https://github.com/coveragepy/coveragepy/(issues|pull)/\d+",
     # When publishing a new version, the docs will refer to the version before
     # the docs have been published.  So don't check those links.
     rf"https://coverage.readthedocs.io/en/{release}$",

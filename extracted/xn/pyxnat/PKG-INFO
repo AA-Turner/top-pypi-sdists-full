@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyxnat
-Version: 1.6.3
+Version: 1.6.4
 Summary: XNAT in Python
 Home-page: https://github.com/pyxnat/pyxnat
 Author: Yannick Schwartz
@@ -17,8 +17,8 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Utilities
 Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: lxml>=4.3
@@ -31,6 +31,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: requires-dist
 Dynamic: summary

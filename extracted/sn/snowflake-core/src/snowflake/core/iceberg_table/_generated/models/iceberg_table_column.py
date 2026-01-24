@@ -18,7 +18,7 @@ import re
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -59,9 +59,10 @@ class IcebergTableColumn(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -86,7 +87,7 @@ class IcebergTableColumn(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -101,9 +102,9 @@ class IcebergTableColumn(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return IcebergTableColumn.parse_obj(obj)
+            return IcebergTableColumn.model_validate(obj)
 
-        _obj = IcebergTableColumn.parse_obj(
+        _obj = IcebergTableColumn.model_validate(
             {
                 "name": obj.get("name"),
                 "datatype": obj.get("datatype"),

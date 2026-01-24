@@ -3,6 +3,7 @@ INDIVIDUAL_TESTCASE_TIMEOUT = 15
 MAX_FUNCTION_TEST_SECONDS = 60
 N_CANDIDATES = 5
 MIN_IMPROVEMENT_THRESHOLD = 0.05
+MIN_THROUGHPUT_IMPROVEMENT_THRESHOLD = 0.10  # 10% minimum improvement for async throughput
 MAX_TEST_FUNCTION_RUNS = 50
 MAX_CUMULATIVE_TEST_RUNTIME_NANOSECONDS = 100e6  # 100ms
 N_TESTS_TO_GENERATE = 2
@@ -13,11 +14,37 @@ REPEAT_OPTIMIZATION_PROBABILITY = 0.1
 DEFAULT_IMPORTANCE_THRESHOLD = 0.001
 N_CANDIDATES_LP = 6
 
+# pytest loop stability
+# For now, we use strict thresholds (large windows and low tolerances), since this is still experimental.
+STABILITY_WINDOW_SIZE = 0.35  # 35% of total window
+STABILITY_CENTER_TOLERANCE = 0.0025  # ±0.25% around median
+STABILITY_SPREAD_TOLERANCE = 0.0025  # 0.25% window spread
+
+# Refinement
+REFINE_ALL_THRESHOLD = 2  # when valid optimizations count is 2 or less, refine all optimizations
+REFINED_CANDIDATE_RANKING_WEIGHTS = (2, 1)  # (runtime, diff), runtime is more important than diff by a factor of 2
+TOP_N_REFINEMENTS = 0.45  # top 45% of valid optimizations (based on the weighted score) are refined
+
 # LSP-specific
 N_CANDIDATES_LSP = 3
 N_TESTS_TO_GENERATE_LSP = 2
 TOTAL_LOOPING_TIME_LSP = 10.0  # Kept same timing for LSP mode to avoid in increase in performance reporting
 N_CANDIDATES_LP_LSP = 3
+
+# setting this value to 1 will disable repair if there is at least one correct candidate
+MIN_CORRECT_CANDIDATES = 2
+
+# Code repair
+REPAIR_UNMATCHED_PERCENTAGE_LIMIT = 0.4  # if the percentage of unmatched tests is greater than this, we won't fix it (lowering this value makes the repair more stricted)
+MAX_REPAIRS_PER_TRACE = 4  # maximum number of repairs we will do for each function
+
+# Adaptive optimization
+# TODO (ali): make this configurable with effort arg once the PR is merged
+ADAPTIVE_OPTIMIZATION_THRESHOLD = 2  # Max adaptive optimizations per single candidate tree (for example : optimize -> refine -> adaptive -> another adaptive).
+# MAX_ADAPTIVE_OPTIMIZATIONS_PER_TRACE = 4  # maximum number of adaptive optimizations we will do for each function (this can be 2 adaptive optimizations for 2 candidates for example)
+MAX_ADAPTIVE_OPTIMIZATIONS_PER_TRACE = (
+    0  # disable adaptive optimizations until we have this value controlled by the effort arg
+)
 
 MAX_N_CANDIDATES = 5
 MAX_N_CANDIDATES_LP = 6
@@ -33,3 +60,5 @@ N_CANDIDATES_EFFECTIVE = min(N_CANDIDATES_LSP if _IS_LSP_ENABLED else N_CANDIDAT
 N_CANDIDATES_LP_EFFECTIVE = min(N_CANDIDATES_LP_LSP if _IS_LSP_ENABLED else N_CANDIDATES_LP, MAX_N_CANDIDATES_LP)
 N_TESTS_TO_GENERATE_EFFECTIVE = N_TESTS_TO_GENERATE_LSP if _IS_LSP_ENABLED else N_TESTS_TO_GENERATE
 TOTAL_LOOPING_TIME_EFFECTIVE = TOTAL_LOOPING_TIME_LSP if _IS_LSP_ENABLED else TOTAL_LOOPING_TIME
+
+MAX_CONTEXT_LEN_REVIEW = 1000

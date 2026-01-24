@@ -278,7 +278,7 @@ Keyword arguments:
 - withCloseButton (boolean; optional):
     Determines whether close button should be visible, `True` by
     default."""
-    _children_props = ['icon', 'title', 'message']
+    _children_props: typing.List[str] = ['icon', 'title', 'message']
     _base_nodes = ['icon', 'title', 'message', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Notification'

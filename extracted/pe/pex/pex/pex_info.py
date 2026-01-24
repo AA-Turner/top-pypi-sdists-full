@@ -13,6 +13,7 @@ from pex.common import open_zip
 from pex.compatibility import PY2
 from pex.compatibility import string as compatibility_string
 from pex.inherit_path import InheritPath
+from pex.interpreter_selection_strategy import InterpreterSelectionStrategy
 from pex.orderedset import OrderedSet
 from pex.os import WINDOWS
 from pex.typing import TYPE_CHECKING, cast
@@ -65,6 +66,7 @@ class PexInfo(object):
 
     @classmethod
     def make_build_properties(cls):
+        # type: () -> Dict[str, Any]
         return {
             "pex_version": pex_version,
         }
@@ -164,6 +166,7 @@ class PexInfo(object):
 
     @property
     def build_properties(self):
+        # type: () -> Dict[str, Any]
         """Information about the system on which this PEX was generated.
 
         :returns: A dictionary containing metadata about the environment used to build this PEX.
@@ -172,10 +175,11 @@ class PexInfo(object):
 
     @build_properties.setter
     def build_properties(self, value):
-        if not isinstance(value, dict):
-            raise TypeError("build_properties must be a dictionary!")
-        self._pex_info["build_properties"] = self.make_build_properties()
-        self._pex_info["build_properties"].update(value)
+        # type: (Mapping[str, Any]) -> None
+
+        build_properties = dict(value)
+        build_properties.update(self.make_build_properties())
+        self._pex_info["build_properties"] = build_properties
 
     @property
     def inject_python_args(self):
@@ -186,6 +190,16 @@ class PexInfo(object):
     def inject_python_args(self, value):
         # type: (Iterable[str]) -> None
         self._pex_info["inject_python_args"] = tuple(value)
+
+    @property
+    def bind_resource_paths(self):
+        # type: () -> Dict[str, str]
+        return dict(self._pex_info.get("bind_resource_paths", {}))
+
+    @bind_resource_paths.setter
+    def bind_resource_paths(self, value):
+        # type: (Mapping[str, str]) -> None
+        self._pex_info["bind_resource_paths"] = dict(value)
 
     @property
     def inject_env(self):
@@ -419,6 +433,21 @@ class PexInfo(object):
         self._interpreter_constraints = value
 
     @property
+    def interpreter_selection_strategy(self):
+        # type: () -> InterpreterSelectionStrategy.Value
+        strategy = self._pex_info.get("interpreter_selection_strategy")
+        return (
+            InterpreterSelectionStrategy.for_value(strategy)
+            if strategy
+            else InterpreterSelectionStrategy.OLDEST
+        )
+
+    @interpreter_selection_strategy.setter
+    def interpreter_selection_strategy(self, value):
+        # type: (InterpreterSelectionStrategy.Value) -> None
+        self._pex_info["interpreter_selection_strategy"] = value.value
+
+    @property
     def ignore_errors(self):
         return self._pex_info.get("ignore_errors", False)
 
@@ -601,12 +630,18 @@ class PexInfo(object):
         data["excluded"] = sorted(self._excluded)
         data["overridden"] = sorted(self._overridden)
         data["interpreter_constraints"] = sorted(str(ic) for ic in self.interpreter_constraints)
+        data["interpreter_selection_strategy"] = self.interpreter_selection_strategy.value
         data["distributions"] = self._distributions.copy()
         return data
 
-    def dump(self, **extra_json_dumps_kwargs):
-        # type: (**Any) -> str
-        return json.dumps(self.as_json_dict(), sort_keys=True, **extra_json_dumps_kwargs)
+    def dump(self, indent=None):
+        # type: (Optional[int]) -> str
+        return json.dumps(
+            self.as_json_dict(),
+            sort_keys=True,
+            indent=indent,
+            separators=None if indent else (",", ":"),
+        )
 
     def copy(self):
         # type: () -> PexInfo

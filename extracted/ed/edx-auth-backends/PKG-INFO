@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-auth-backends
-Version: 4.6.0
+Version: 4.6.2
 Summary: Custom edX authentication backends and pipeline steps
 Home-page: https://github.com/openedx/auth-backends
 Author: edX

@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def willow(im):
+def willow(im: Image.Image) -> Image.Image:
     """Applies Willow filter.
 
     Arguments:
@@ -26,19 +27,16 @@ def willow(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs1 = util.radial_gradient(
-            cb.size,
-            [(212, 169, 175), (0, 0, 0)],
-            [.55, 1.5])
+    cs1 = util.radial_gradient(cb.size, [(212, 169, 175), (0, 0, 0)], [0.55, 1.5])
     cm1 = css.blending.overlay(cb, cs1)
 
-    cs2 = util.fill(cb.size, [216, 205, 203])
+    cs2 = util.fill(cb.size, (216, 205, 203))
     cr = css.blending.color(cm1, cs2)
 
-    cr = css.grayscale(cr, .5)
-    cr = css.contrast(cr, .95)
-    cr = css.brightness(cr, .9)
+    cr = css.grayscale(cr, 0.5)
+    cr = css.contrast(cr, 0.95)
+    cr = css.brightness(cr, 0.9)
 
     return cr

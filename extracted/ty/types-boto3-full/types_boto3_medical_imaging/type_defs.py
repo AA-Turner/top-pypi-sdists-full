@@ -3,7 +3,7 @@ Type annotations for medical-imaging service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_medical_imaging/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -27,17 +28,13 @@ from .literals import (
     ImageSetStateType,
     ImageSetWorkflowStatusType,
     JobStatusType,
+    LosslessStorageFormatType,
     OperatorType,
     SortFieldType,
     SortOrderType,
+    StorageTierType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -142,7 +139,7 @@ class CopySourceImageSetPropertiesTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -157,6 +154,7 @@ class CreateDatastoreRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     kmsKeyArn: NotRequired[str]
     lambdaAuthorizerArn: NotRequired[str]
+    losslessStorageFormat: NotRequired[LosslessStorageFormatType]
 
 
 class DICOMImportJobPropertiesTypeDef(TypedDict):
@@ -213,6 +211,7 @@ class DatastorePropertiesTypeDef(TypedDict):
     datastoreStatus: DatastoreStatusType
     kmsKeyArn: NotRequired[str]
     lambdaAuthorizerArn: NotRequired[str]
+    losslessStorageFormat: NotRequired[LosslessStorageFormatType]
     datastoreArn: NotRequired[str]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
@@ -369,7 +368,7 @@ class GetImageSetMetadataResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -404,7 +403,7 @@ class GetDICOMImportJobResponseTypeDef(TypedDict):
 
 
 class ListDICOMImportJobsResponseTypeDef(TypedDict):
-    jobSummaries: List[DICOMImportJobSummaryTypeDef]
+    jobSummaries: list[DICOMImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -414,6 +413,8 @@ class ImageSetsMetadataSummaryTypeDef(TypedDict):
     version: NotRequired[int]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+    lastAccessedAt: NotRequired[datetime]
+    storageTier: NotRequired[StorageTierType]
     DICOMTags: NotRequired[DICOMTagsTypeDef]
     isPrimary: NotRequired[bool]
 
@@ -424,7 +425,7 @@ class GetDatastoreResponseTypeDef(TypedDict):
 
 
 class ListDatastoresResponseTypeDef(TypedDict):
-    datastoreSummaries: List[DatastoreSummaryTypeDef]
+    datastoreSummaries: list[DatastoreSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -448,6 +449,8 @@ class GetImageSetResponseTypeDef(TypedDict):
     imageSetArn: str
     overrides: OverridesTypeDef
     isPrimary: bool
+    lastAccessedAt: datetime
+    storageTier: StorageTierType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -504,14 +507,14 @@ class CopyImageSetInformationTypeDef(TypedDict):
 
 
 class SearchImageSetsResponseTypeDef(TypedDict):
-    imageSetsMetadataSummaries: List[ImageSetsMetadataSummaryTypeDef]
+    imageSetsMetadataSummaries: list[ImageSetsMetadataSummaryTypeDef]
     sort: SortTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListImageSetVersionsResponseTypeDef(TypedDict):
-    imageSetPropertiesList: List[ImageSetPropertiesTypeDef]
+    imageSetPropertiesList: list[ImageSetPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=40.1.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vlmrun"
+description = "Official Python SDK for VLM Run"
+authors = [{name = "VLM Support", email = "support@vlm.com"}]
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research","Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+license = {text = "Apache-2.0"}
+dynamic = ["version", "dependencies"]
+
+[project.optional-dependencies]
+test = ["pytest", "openai", "pre-commit"]
+build = ["twine", "build"]
+openai = ["openai>=1.0.0"]
+video = [
+    "numpy>=1.24.0",
+]
+doc = [
+    "pypdfium2>=4.30.0"
+]
+cli = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "openai>=1.0.0",
+]
+all = [
+    "numpy>=1.24.0",
+    "pypdfium2>=4.30.0",
+    "openai>=1.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "vlmrun.version.__version__"}
+dependencies = {file = ["requirements/requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["vlmrun*"]
+namespaces = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --tb=short"
+
+[project.scripts]
+vlmrun = "vlmrun.cli.cli:app"

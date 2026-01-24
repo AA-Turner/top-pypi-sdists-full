@@ -276,10 +276,8 @@ class TestMultiProcess(unittest.TestCase):
             Sample('g', add_label('pid', '1'), 1.0),
         ])
 
-        metrics['h'].samples.sort(
-            key=lambda x: (x[0], float(x[1].get('le', 0)))
-        )
         expected_histogram = [
+            Sample('h_sum', labels, 6.0),
             Sample('h_bucket', add_label('le', '0.005'), 0.0),
             Sample('h_bucket', add_label('le', '0.01'), 0.0),
             Sample('h_bucket', add_label('le', '0.025'), 0.0),
@@ -296,7 +294,66 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', add_label('le', '10.0'), 2.0),
             Sample('h_bucket', add_label('le', '+Inf'), 2.0),
             Sample('h_count', labels, 2.0),
-            Sample('h_sum', labels, 6.0),
+        ]
+
+        self.assertEqual(metrics['h'].samples, expected_histogram)
+
+    def test_collect_histogram_ordering(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        labels = {i: i for i in 'abcd'}
+
+        def add_label(key, value):
+            l = labels.copy()
+            l[key] = value
+            return l
+
+        h = Histogram('h', 'help', labelnames=['view'], registry=None)
+
+        h.labels(view='view1').observe(1)
+
+        pid = 1
+
+        h.labels(view='view1').observe(5)
+        h.labels(view='view2').observe(1)
+
+        metrics = {m.name: m for m in self.collector.collect()}
+
+        expected_histogram = [
+            Sample('h_sum', {'view': 'view1'}, 6.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.005'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.01'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.025'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.05'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.075'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.1'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.25'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.5'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.75'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '1.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '2.5'}, 1.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '5.0'}, 2.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '7.5'}, 2.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '10.0'}, 2.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '+Inf'}, 2.0),
+            Sample('h_count', {'view': 'view1'}, 2.0),
+            Sample('h_sum', {'view': 'view2'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.005'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.01'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.025'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.05'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.075'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.1'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.25'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.5'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.75'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '1.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '2.5'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '5.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '7.5'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '10.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '+Inf'}, 1.0),
+            Sample('h_count', {'view': 'view2'}, 1.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
@@ -347,10 +404,8 @@ class TestMultiProcess(unittest.TestCase):
             m.name: m for m in self.collector.merge(files, accumulate=False)
         }
 
-        metrics['h'].samples.sort(
-            key=lambda x: (x[0], float(x[1].get('le', 0)))
-        )
         expected_histogram = [
+            Sample('h_sum', labels, 6.0),
             Sample('h_bucket', add_label('le', '0.005'), 0.0),
             Sample('h_bucket', add_label('le', '0.01'), 0.0),
             Sample('h_bucket', add_label('le', '0.025'), 0.0),
@@ -366,7 +421,6 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', add_label('le', '7.5'), 0.0),
             Sample('h_bucket', add_label('le', '10.0'), 0.0),
             Sample('h_bucket', add_label('le', '+Inf'), 0.0),
-            Sample('h_sum', labels, 6.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
@@ -396,6 +450,116 @@ class TestMultiProcess(unittest.TestCase):
             assert "Removal of labels has not been implemented" in str(w[0].message)
             assert issubclass(w[-1].category, UserWarning)
             assert "Clearing labels has not been implemented" in str(w[-1].message)
+    
+    def test_child_name_is_built_once_with_namespace_subsystem_unit(self):
+        """
+        Repro for #1035:
+        In multiprocess mode, child metrics must NOT rebuild the full name
+        (namespace/subsystem/unit) a second time. The exported family name should
+        be built once, and Counter samples should use "<family>_total".
+        """
+        from prometheus_client import Counter
+
+        class CustomCounter(Counter):
+            def __init__(
+                self, 
+                name, 
+                documentation, 
+                labelnames=(),
+                namespace="mydefaultnamespace", 
+                subsystem="mydefaultsubsystem",
+                unit="", 
+                registry=None, 
+                _labelvalues=None
+            ):
+                # Intentionally provide non-empty defaults to trigger the bug path.
+                super().__init__(
+                    name=name, 
+                    documentation=documentation,
+                    labelnames=labelnames, 
+                    namespace=namespace,
+                    subsystem=subsystem, 
+                    unit=unit, 
+                    registry=registry,
+                    _labelvalues=_labelvalues)
+
+        # Create a Counter with explicit namespace/subsystem/unit
+        c = CustomCounter(
+            name='m',
+            documentation='help',
+            labelnames=('status', 'method'),
+            namespace='ns',
+            subsystem='ss',
+            unit='seconds',   # avoid '_total_total' confusion
+            registry=None,    # not registered in local registry in multiprocess mode
+        )
+
+        # Create two labeled children
+        c.labels(status='200', method='GET').inc()
+        c.labels(status='404', method='POST').inc()
+
+        # Collect from the multiprocess collector initialized in setUp()
+        metrics = {m.name: m for m in self.collector.collect()}
+
+        # Family name should be built once (no '_total' in family name)
+        expected_family = 'ns_ss_m_seconds'
+        self.assertIn(expected_family, metrics, f"missing family {expected_family}")
+
+        # Counter samples must use '<family>_total'
+        mf = metrics[expected_family]
+        sample_names = {s.name for s in mf.samples}
+        self.assertTrue(
+            all(name == expected_family + '_total' for name in sample_names),
+            f"unexpected sample names: {sample_names}"
+        )
+
+        # Ensure no double-built prefix sneaks in (the original bug)
+        bad_prefix = 'mydefaultnamespace_mydefaultsubsystem_'
+        all_names = {mf.name, *sample_names}
+        self.assertTrue(
+            all(not n.startswith(bad_prefix) for n in all_names),
+            f"found double-built name(s): {[n for n in all_names if n.startswith(bad_prefix)]}"
+        )
+
+    def test_child_preserves_parent_context_for_subclasses(self):
+        """
+        Ensure child metrics preserve parent's namespace/subsystem/unit information
+        so that subclasses can correctly use these parameters in their logic.
+        """
+        class ContextAwareCounter(Counter):
+            def __init__(self,
+                         name,
+                         documentation,
+                         labelnames=(),
+                         namespace="",
+                         subsystem="",
+                         unit="",
+                         **kwargs):
+                self.context = {
+                    'namespace': namespace,
+                    'subsystem': subsystem,
+                    'unit': unit
+                }
+                super().__init__(name, documentation,
+                                 labelnames=labelnames,
+                                 namespace=namespace,
+                                 subsystem=subsystem,
+                                 unit=unit,
+                                 **kwargs)
+
+        parent = ContextAwareCounter('m', 'help',
+                                     labelnames=['status'],
+                                     namespace='prod',
+                                     subsystem='api',
+                                     unit='seconds',
+                                     registry=None)
+
+        child = parent.labels(status='200')
+
+        # Verify that child retains parent's context
+        self.assertEqual(child.context['namespace'], 'prod')
+        self.assertEqual(child.context['subsystem'], 'api')
+        self.assertEqual(child.context['unit'], 'seconds')
 
 
 class TestMmapedDict(unittest.TestCase):

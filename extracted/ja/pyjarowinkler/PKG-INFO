@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyjarowinkler
-Version: 2.1.1
+Version: 3.0.0
 Summary: Finds the Jaro Winkler Distance indicating a distance or similarity score between two strings.
 Keywords: delta,diff,distance,similarity,jaro,score,string,winkler
 Author: Jean-Bernard Ratte
@@ -213,11 +213,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing
 Requires-Dist: mypy ; extra == 'dev'
 Requires-Dist: ruff ; extra == 'dev'
@@ -225,7 +225,7 @@ Requires-Dist: coverage ; extra == 'dev'
 Requires-Dist: coverage[toml] ; extra == 'dev'
 Maintainer: Jean-Bernard Ratte
 Maintainer-email: Jean-Bernard Ratte <jean.bernard.ratte@unary.ca>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Documentation, https://github.com/nap/jaro-winkler-distance#readme
 Project-URL: Homepage, https://pypi.org/project/pyjarowinkler/
 Project-URL: Issues, https://github.com/nap/jaro-winkler-distance/issues
@@ -247,19 +247,20 @@ Description-Content-Type: text/markdown
 
 Finds a non-euclidean distance or similarity between two strings.
 
-Jaro and [Jaro-Winkler](https://www.census.gov/content/dam/Census/library/working-papers/1991/adrm/rr91-9.pdf) equations provides a score between two short strings where errors are more prone at the end of the string. Jaro's equation measure is the weighted sum of the percentage of matching and transposed characters from each string. Winkler's factor adds weight in Jaro's formula to increase the calculated measure when there is a sequence of characters (a prefix) in both strings.
+Jaro and [Jaro-Winkler](https://www.census.gov/content/dam/Census/library/working-papers/1991/adrm/rr91-9.pdf) equations provide a score between two short strings where errors are more prone at the end of the string. Jaro's equation measure is the weighted sum of the percentage of matching and transposed characters from each string. Winkler's factor adds weight in Jaro's formula to increase the calculated measure when there is a sequence of characters (a prefix) in both strings.
 
-This version is based on the [original C implementation of strcmp95](https://web.archive.org/web/20100227020019/http://www.census.gov/geo/msb/stand/strcmp.c) implementation but does not attempt to normalize characters that are similar to the eyes (e.g.: `O` vs `0`).
+This version is based on the [original C implementation of strcmp95](https://web.archive.org/web/20100227020019/http://www.census.gov/geo/msb/stand/strcmp.c) implementation but does not attempt to normalize homoglyph (e.g.: `O` vs. `0`).
 
  * Impact of the prefix is limited to 4 characters, as originally defined by Winkler.
  * Input strings are not modified beyond whitespace trimming.
  * In-word whitespace and characters case will **optionally** impact score.
+ * Supports optional UTF-8 normalization and homoglyph sanitization.
  * Returns a floating point number rounded to the desired decimals (defaults to `2`) using Python's [`round`](https://docs.python.org/3/library/functions.html#round).
  * Consider usual [floating point arithmetic](https://docs.python.org/3/tutorial/floatingpoint.html#tut-fp-issues) characteristics when working with this module.
 
 ## Implementation
 
-The complexity of this algoritme resides in finding the `matching` and `transposed` characters. That is because of the interpretation of what are the `matching` conditions and the definition of `transposed`. Definitions of those two will make the score vary between implementations of this algorithme.
+The complexity of this algorithm resides in finding the `matching` and `transposed` characters. That is because of the interpretation of what are the `matching` conditions and the definition of `transposed`. Definitions of those two will make the score vary between implementations of this algorithm.
 
 Here is how `matching` and `transposed` are defined in this module:
 
@@ -268,8 +269,6 @@ Here is how `matching` and `transposed` are defined in this module:
 * Characters in the first string are matched only once against characters of the second string.
 * Two characters are `transposed` if they previously matched and aren't at the same position in the matching character subset.
 * Decimals are rounded according to the scientific method.
-
-**TODO**: Implementation should be refactored to use Python's [Decimal](https://docs.python.org/3.13/library/decimal.html) module from the standard library. This module was introduced in Python 3.9.
 
 ### Example
 
@@ -342,6 +341,17 @@ $$
 
 We found that the $\lceil sim_{w} \rceil$ is $0.9$.
 
+## Benchmark
+
+| Function | Minimum Time (1k runs of 10 pairs) |
+| :--- | :--- |
+| `get_jaro_distance(s1, s2)` | 0.0149s |
+| `get_jaro_similarity(s1, s2)` | 0.0148s |
+| `get_jaro_winkler_distance(s1, s2)` | 0.0176s |
+| `get_jaro_winkler_similarity(s1, s2)` | 0.0172s |
+
+Benchmarking ran on a 2024 Macbook Pro with an M4 Pro chip running macOS 26.2.
+
 ## Usage
 
 ```python
@@ -355,10 +365,14 @@ distance.get_jaro_distance("hello", "haloa", decimals=4)
 # 0.2667
 distance.get_jaro_similarity("hello", "haloa", decimals=2)
 # 0.73
-distance.get_jaro_winkler_distance("hello", "Haloa", scaling=0.1, ignore_case=False)
+distance.get_jaro_winkler_distance("hello", "Haloa", scaling=0.1, norm_case=False)
 # 0.4
-distance.get_jaro_winkler_distance("hello", "HaLoA", scaling=0.1, ignore_case=True)
+distance.get_jaro_winkler_distance("hello", "HaLoA", scaling=0.1, norm_case=True)
 # 0.24
+distance.get_jaro_winkler_similarity("café", "cafe\u0301", norm_utf8=True)
+# 1.0
+distance.get_jaro_winkler_similarity("pаypal", "paypal", norm_ambiguous=True)
+# 1.0
 distance.get_jaro_winkler_similarity("hello", "haloa", decimals=2)
 # 0.76
 ```

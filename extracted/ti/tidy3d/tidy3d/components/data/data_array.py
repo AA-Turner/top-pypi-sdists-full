@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pathlib
 from abc import ABC
 from collections.abc import Mapping
+from os import PathLike
 from typing import Any, Optional, Union
 
 import autograd.numpy as anp
@@ -23,11 +25,14 @@ from tidy3d.components.autograd import TidyArrayBox, get_static, interpn, is_tid
 from tidy3d.components.geometry.bound_ops import bounds_contains
 from tidy3d.components.types import Axis, Bound
 from tidy3d.constants import (
+    AMP,
     HERTZ,
     MICROMETER,
+    OHM,
     PICOSECOND_PER_NANOMETER_PER_KILOMETER,
     RADIAN,
     SECOND,
+    VOLT,
     WATT,
 )
 from tidy3d.exceptions import DataError, FileError
@@ -72,17 +77,14 @@ class DataArray(xr.DataArray):
     # stores a dictionary of attributes corresponding to the data values
     _data_attrs: dict[str, str] = {}
 
-    def __init__(self, data, *args, **kwargs):
+    def __init__(self, data, *args: Any, **kwargs: Any) -> None:
         # if data is a vanilla autograd box, convert to our box
         if isbox(data) and not is_tidy_box(data):
             data = TidyArrayBox.from_arraybox(data)
         # do the same for xr.Variable or xr.DataArray type
-        elif (
-            isinstance(data, (xr.Variable, xr.DataArray))
-            and isbox(data.data)
-            and not is_tidy_box(data.data)
-        ):
-            data.data = TidyArrayBox.from_arraybox(data.data)
+        elif isinstance(data, (xr.Variable, xr.DataArray)):
+            if isbox(data.data) and not is_tidy_box(data.data):
+                data.data = TidyArrayBox.from_arraybox(data.data)
         super().__init__(data, *args, **kwargs)
 
     @classmethod
@@ -150,7 +152,7 @@ class DataArray(xr.DataArray):
         return val
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
+    def __modify_schema__(cls, field_schema) -> None:
         """Sets the schema of DataArray object."""
 
         schema = {
@@ -196,6 +198,10 @@ class DataArray(xr.DataArray):
         """
         return self.data if isbox(self.data) else super().values
 
+    def to_numpy(self) -> np.ndarray:
+        """Return `.data` when traced to avoid `dtype=object` NumPy conversion."""
+        return self.data if isbox(self.data) else super().to_numpy()
+
     @values.setter
     def values(self, value: Any) -> None:
         self.variable.values = value
@@ -206,17 +212,25 @@ class DataArray(xr.DataArray):
         return abs(self)
 
     @property
+    def angle(self):
+        """Angle or phase value of data array."""
+        values = np.angle(self.values)
+        return type(self)(values, coords=self.coords)
+
+    @property
     def is_uniform(self):
         """Whether each element is of equal value in the data array"""
         raw_data = self.data.ravel()
         return np.allclose(raw_data, raw_data[0])
 
-    def to_hdf5(self, fname: Union[str, h5py.File], group_path: str) -> None:
+    def to_hdf5(self, fname: Union[PathLike, h5py.File], group_path: str) -> None:
         """Save an xr.DataArray to the hdf5 file or file handle with a given path to the group."""
 
         # file name passed
-        if isinstance(fname, str):
-            with h5py.File(fname, "w") as f_handle:
+        if isinstance(fname, (str, pathlib.Path)):
+            path = pathlib.Path(fname)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with h5py.File(path, "w") as f_handle:
                 self.to_hdf5_handle(f_handle=f_handle, group_path=group_path)
 
         # file handle passed
@@ -235,9 +249,10 @@ class DataArray(xr.DataArray):
                 sub_group[key] = val
 
     @classmethod
-    def from_hdf5(cls, fname: str, group_path: str) -> Self:
+    def from_hdf5(cls, fname: PathLike, group_path: str) -> Self:
         """Load an DataArray from an hdf5 file with a given path to the group."""
-        with h5py.File(fname, "r") as f:
+        path = pathlib.Path(fname)
+        with h5py.File(path, "r") as f:
             sub_group = f[group_path]
             values = np.array(sub_group[DATA_ARRAY_VALUE_NAME])
             coords = {dim: np.array(sub_group[dim]) for dim in cls._dims if dim in sub_group}
@@ -247,13 +262,14 @@ class DataArray(xr.DataArray):
             return cls(values, coords=coords, dims=cls._dims)
 
     @classmethod
-    def from_file(cls, fname: str, group_path: str) -> Self:
+    def from_file(cls, fname: PathLike, group_path: str) -> Self:
         """Load an DataArray from an hdf5 file with a given path to the group."""
-        if ".hdf5" not in fname:
+        path = pathlib.Path(fname)
+        if not any(suffix.lower() == ".hdf5" for suffix in path.suffixes):
             raise FileError(
-                f"'DataArray' objects must be written to '.hdf5' format. Given filename of {fname}."
+                f"'DataArray' objects must be written to '.hdf5' format. Given filename of {path}."
             )
-        return cls.from_hdf5(fname=fname, group_path=group_path)
+        return cls.from_hdf5(fname=path, group_path=group_path)
 
     def __hash__(self) -> int:
         """Generate hash value for a :class:`.DataArray` instance, needed for custom components."""
@@ -420,7 +436,7 @@ class DataArray(xr.DataArray):
         return self._from_temp_dataset(ds)
 
     @staticmethod
-    def _ag_interp_func(var, indexes_coords, method, **kwargs):
+    def _ag_interp_func(var, indexes_coords, method, **kwargs: Any):
         """
         Interpolate the variable `var` along the coordinates specified in `indexes_coords` using the given `method`.
 
@@ -467,12 +483,7 @@ class DataArray(xr.DataArray):
             data = anp.transpose(var.data, combined_permutation)
             xi = anp.stack([anp.ravel(new_xi.data) for new_xi in new_x], axis=-1)
 
-            result = interpn(
-                [xn.data for xn in x],
-                data,
-                xi,
-                method=method,
-            )
+            result = interpn([xn.data for xn in x], data, xi, method=method, **kwargs)
 
             result = anp.moveaxis(result, 0, -1)
             result = anp.reshape(result, result.shape[:-1] + new_x[0].shape)
@@ -489,6 +500,40 @@ class DataArray(xr.DataArray):
                 result = result.transpose(*out_dims)
         return result
 
+    def _with_updated_data(self, data: np.ndarray, coords: dict[str, Any]) -> DataArray:
+        """Make copy of ``DataArray`` with ``data`` at specified ``coords``, autograd compatible
+
+        Constraints / Edge cases:
+            - `coords` must map to a specific value eg {x: '1'}, does not broadcast to arrays
+            - `data` will be reshaped to try to match `self.shape` except where `coords` present
+        """
+
+        # make mask
+        mask = xr.zeros_like(self, dtype=bool)
+        mask.loc[coords] = True
+
+        # reshape `data` to line up with `self.dims`, with shape of 1 along the selected axis
+        old_data = self.data
+        new_shape = list(old_data.shape)
+        for i, dim in enumerate(self.dims):
+            if dim in coords:
+                new_shape[i] = 1
+        try:
+            new_data = data.reshape(new_shape)
+        except ValueError as e:
+            raise ValueError(
+                "Couldn't reshape the supplied 'data' to update 'DataArray'. The provided data was "
+                f"of shape {data.shape} and tried to reshape to {new_shape}. If you encounter this "
+                "error please raise an issue on the tidy3d github repository with the context."
+            ) from e
+
+        # broadcast data to repeat data along the selected dimensions to match mask
+        new_data = new_data + np.zeros_like(old_data)
+
+        new_data = np.where(mask, new_data, old_data)
+
+        return self.copy(deep=True, data=new_data)
+
 
 class FreqDataArray(DataArray):
     """Frequency-domain array.
@@ -501,6 +546,24 @@ class FreqDataArray(DataArray):
 
     __slots__ = ()
     _dims = ("f",)
+
+
+class FreqVoltageDataArray(DataArray):
+    """Frequency-domain array.
+
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> v = [0.1, 0.2, 0.3]
+    >>> coords = dict(f=f, v=v)
+    >>> fd = FreqVoltageDataArray((1+1j) * np.random.random((2, 3)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = (
+        "f",
+        "v",
+    )
 
 
 class FreqModeDataArray(DataArray):
@@ -1126,6 +1189,31 @@ class EMESMatrixDataArray(DataArray):
     _data_attrs = {"long_name": "scattering matrix element"}
 
 
+class EMEInterfaceSMatrixDataArray(DataArray):
+    """Scattering matrix elements at a single cell interface for a fixed pair of ports,
+    possibly with an extra sweep index.
+    Example
+    -------
+    >>> mode_index_in = [0, 1]
+    >>> mode_index_out = [0, 1, 2]
+    >>> eme_cell_index = [2, 4]
+    >>> f = [2e14]
+    >>> sweep_index = np.arange(10)
+    >>> coords = dict(
+    ...     f=f,
+    ...     sweep_index=sweep_index,
+    ...     eme_cell_index=eme_cell_index,
+    ...     mode_index_out=mode_index_out,
+    ...     mode_index_in=mode_index_in,
+    ... )
+    >>> fd = EMEInterfaceSMatrixDataArray((1 + 1j) * np.random.random((1, 10, 2, 3, 2)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "sweep_index", "eme_cell_index", "mode_index_out", "mode_index_in")
+    _data_attrs = {"long_name": "scattering matrix element"}
+
+
 class EMEModeIndexDataArray(DataArray):
     """Complex-valued effective propagation index of an EME mode,
     also indexed by EME cell.
@@ -1142,6 +1230,24 @@ class EMEModeIndexDataArray(DataArray):
     __slots__ = ()
     _dims = ("f", "sweep_index", "eme_cell_index", "mode_index")
     _data_attrs = {"long_name": "Propagation index"}
+
+
+class EMEFluxDataArray(DataArray):
+    """Power flux of an EME mode, also indexed by EME cell.
+
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> sweep_index = np.arange(2)
+    >>> eme_cell_index = np.arange(5)
+    >>> mode_index = np.arange(4)
+    >>> coords = dict(f=f, sweep_index=sweep_index, eme_cell_index=eme_cell_index, mode_index=mode_index)
+    >>> data = EMEFluxDataArray(np.random.random((2,2,5,4)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "sweep_index", "eme_cell_index", "mode_index")
+    _data_attrs = {"units": WATT, "long_name": "flux"}
 
 
 class ChargeDataArray(DataArray):
@@ -1309,6 +1415,205 @@ class PerturbationCoefficientDataArray(DataArray):
     _dims = ("wvl", "coeff")
 
 
+class VoltageArray(DataArray):
+    # Always set __slots__ = () to avoid xarray warnings
+    __slots__ = ()
+    _data_attrs = {"units": VOLT, "long_name": "voltage"}
+
+
+class CurrentArray(DataArray):
+    # Always set __slots__ = () to avoid xarray warnings
+    __slots__ = ()
+    _data_attrs = {"units": AMP, "long_name": "current"}
+
+
+class ImpedanceArray(DataArray):
+    # Always set __slots__ = () to avoid xarray warnings
+    __slots__ = ()
+    _data_attrs = {"units": OHM, "long_name": "impedance"}
+
+
+# Voltage arrays
+class VoltageFreqDataArray(VoltageArray, FreqDataArray):
+    """Voltage data array in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9, 4e9]
+    >>> coords = dict(f=f)
+    >>> data = np.random.random(3) + 1j * np.random.random(3)
+    >>> vfd = VoltageFreqDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class VoltageTimeDataArray(VoltageArray, TimeDataArray):
+    """Voltage data array in time domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> t = [0, 1e-9, 2e-9, 3e-9]
+    >>> coords = dict(t=t)
+    >>> data = np.sin(2 * np.pi * 1e9 * np.array(t))
+    >>> vtd = VoltageTimeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class VoltageFreqModeDataArray(VoltageArray, FreqModeDataArray):
+    """Voltage data array in frequency-mode domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> mode_index = [0, 1]
+    >>> coords = dict(f=f, mode_index=mode_index)
+    >>> data = np.random.random((2, 2)) + 1j * np.random.random((2, 2))
+    >>> vfmd = VoltageFreqModeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+# Current arrays
+class CurrentFreqDataArray(CurrentArray, FreqDataArray):
+    """Current data array in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9, 4e9]
+    >>> coords = dict(f=f)
+    >>> data = np.random.random(3) + 1j * np.random.random(3)
+    >>> cfd = CurrentFreqDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class CurrentTimeDataArray(CurrentArray, TimeDataArray):
+    """Current data array in time domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> t = [0, 1e-9, 2e-9, 3e-9]
+    >>> coords = dict(t=t)
+    >>> data = np.cos(2 * np.pi * 1e9 * np.array(t))
+    >>> ctd = CurrentTimeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class CurrentFreqModeDataArray(CurrentArray, FreqModeDataArray):
+    """Current data array in frequency-mode domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> mode_index = [0, 1]
+    >>> coords = dict(f=f, mode_index=mode_index)
+    >>> data = np.random.random((2, 2)) + 1j * np.random.random((2, 2))
+    >>> cfmd = CurrentFreqModeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+# Impedance arrays
+class ImpedanceFreqDataArray(ImpedanceArray, FreqDataArray):
+    """Impedance data array in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9, 4e9]
+    >>> coords = dict(f=f)
+    >>> data = 50.0 + 1j * np.random.random(3)
+    >>> zfd = ImpedanceFreqDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class ImpedanceTimeDataArray(ImpedanceArray, TimeDataArray):
+    """Impedance data array in time domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> t = [0, 1e-9, 2e-9, 3e-9]
+    >>> coords = dict(t=t)
+    >>> data = 50.0 * np.ones_like(t)
+    >>> ztd = ImpedanceTimeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class ImpedanceFreqModeDataArray(ImpedanceArray, FreqModeDataArray):
+    """Impedance data array in frequency-mode domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> mode_index = [0, 1]
+    >>> coords = dict(f=f, mode_index=mode_index)
+    >>> data = 50.0 + 10.0 * np.random.random((2, 2))
+    >>> zfmd = ImpedanceFreqModeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+def _make_base_result_data_array(result: DataArray) -> IntegralResultType:
+    """Helper for creating the proper base result type."""
+    cls = FreqDataArray
+    if "t" in result.coords:
+        cls = TimeDataArray
+    if "f" in result.coords and "mode_index" in result.coords:
+        cls = FreqModeDataArray
+    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+
+
+def _make_voltage_data_array(result: DataArray) -> VoltageIntegralResultType:
+    """Helper for creating the proper voltage array type."""
+    cls = VoltageFreqDataArray
+    if "t" in result.coords:
+        cls = VoltageTimeDataArray
+    if "f" in result.coords and "mode_index" in result.coords:
+        cls = VoltageFreqModeDataArray
+    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+
+
+def _make_current_data_array(result: DataArray) -> CurrentIntegralResultType:
+    """Helper for creating the proper current array type."""
+    cls = CurrentFreqDataArray
+    if "t" in result.coords:
+        cls = CurrentTimeDataArray
+    if "f" in result.coords and "mode_index" in result.coords:
+        cls = CurrentFreqModeDataArray
+    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+
+
+def _make_impedance_data_array(result: DataArray) -> ImpedanceResultType:
+    """Helper for creating the proper impedance array type."""
+    cls = ImpedanceFreqDataArray
+    if "t" in result.coords:
+        cls = ImpedanceTimeDataArray
+    if "f" in result.coords and "mode_index" in result.coords:
+        cls = ImpedanceFreqModeDataArray
+    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+
+
 DATA_ARRAY_TYPES = [
     SpatialDataArray,
     ScalarFieldDataArray,
@@ -1328,13 +1633,16 @@ DATA_ARRAY_TYPES = [
     FreqDataArray,
     TimeDataArray,
     FreqModeDataArray,
+    FreqVoltageDataArray,
     TriangleMeshDataArray,
     HeatDataArray,
     EMEScalarFieldDataArray,
     EMEScalarModeFieldDataArray,
     EMESMatrixDataArray,
+    EMEInterfaceSMatrixDataArray,
     EMECoefficientDataArray,
     EMEModeIndexDataArray,
+    EMEFluxDataArray,
     EMEFreqModeDataArray,
     ChargeDataArray,
     SteadyVoltageDataArray,
@@ -1346,6 +1654,15 @@ DATA_ARRAY_TYPES = [
     SpatialVoltageDataArray,
     PerturbationCoefficientDataArray,
     IndexedTimeDataArray,
+    VoltageFreqDataArray,
+    VoltageTimeDataArray,
+    VoltageFreqModeDataArray,
+    CurrentFreqDataArray,
+    CurrentTimeDataArray,
+    CurrentFreqModeDataArray,
+    ImpedanceFreqDataArray,
+    ImpedanceTimeDataArray,
+    ImpedanceFreqModeDataArray,
 ]
 DATA_ARRAY_MAP = {data_array.__name__: data_array for data_array in DATA_ARRAY_TYPES}
 
@@ -1355,4 +1672,15 @@ IndexedDataArrayTypes = Union[
     IndexedTimeDataArray,
     IndexedFieldVoltageDataArray,
     PointDataArray,
+]
+
+IntegralResultType = Union[FreqDataArray, FreqModeDataArray, TimeDataArray]
+VoltageIntegralResultType = Union[
+    VoltageFreqDataArray, VoltageFreqModeDataArray, VoltageTimeDataArray
+]
+CurrentIntegralResultType = Union[
+    CurrentFreqDataArray, CurrentFreqModeDataArray, CurrentTimeDataArray
+]
+ImpedanceResultType = Union[
+    ImpedanceFreqDataArray, ImpedanceFreqModeDataArray, ImpedanceTimeDataArray
 ]

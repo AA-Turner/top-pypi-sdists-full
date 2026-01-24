@@ -15,7 +15,7 @@
 
 import functools
 
-import eventlet
+import futurist
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
@@ -44,6 +44,10 @@ LOG = logging.getLogger(__name__)
 DEFAULT_WAIT_FOR_PORT_TIMEOUT = 60
 
 
+# Note: this lock is local only to the ovs-agent, but not for
+# the RPC calls to the neutron-server! This can mean that the agent
+# is still working on trunk wiring but in the server the trunk is already
+# deleted.
 def lock_on_bridge_name(required_parameter):
     def func_decor(f):
         try:
@@ -133,21 +137,24 @@ class OVSDBHandler:
     def process_trunk_port_events(
             self, resource, event, trigger, payload):
         """Process added and removed port events coming from OVSDB monitor."""
-        ovsdb_events = payload.latest_state
-        for port_event in ovsdb_events['added']:
-            port_name = port_event['name']
-            if is_trunk_bridge(port_name):
-                LOG.debug("Processing trunk bridge %s", port_name)
-                # As there is active waiting for port to appear, it's handled
-                # in a separate greenthread.
-                # NOTE: port_name is equal to bridge_name at this point.
-                eventlet.spawn_n(self.handle_trunk_add, port_name)
 
-        for port_event in ovsdb_events['removed']:
-            bridge_name = port_event['external_ids'].get('bridge_name')
-            if bridge_name and is_trunk_bridge(bridge_name):
-                eventlet.spawn_n(
-                    self.handle_trunk_remove, bridge_name, port_event)
+        with futurist.ThreadPoolExecutor() as executor:
+
+            ovsdb_events = payload.latest_state
+            for port_event in ovsdb_events['added']:
+                port_name = port_event['name']
+                if is_trunk_bridge(port_name):
+                    LOG.debug("Processing trunk bridge %s", port_name)
+                    # As there is active waiting for port to appear,
+                    # it'shandled in a separate greenthread.  NOTE:
+                    # port_name is equal to bridge_name at this point.
+                    executor.submit(self.handle_trunk_add, port_name)
+
+            for port_event in ovsdb_events['removed']:
+                bridge_name = port_event['external_ids'].get('bridge_name')
+                if bridge_name and is_trunk_bridge(bridge_name):
+                    executor.submit(
+                        self.handle_trunk_remove, bridge_name, port_event)
 
     @lock_on_bridge_name(required_parameter='bridge_name')
     def handle_trunk_add(self, bridge_name):
@@ -275,6 +282,13 @@ class OVSDBHandler:
             else:
                 subport_ids.append(subport.port_id)
 
+        # Note: update_trunk_metadata tries to add the following fields
+        # to external_ids: bridge_name, trunk_id and subport_ids.
+        # It can happen that this metadata is not filled in time and
+        # the cleanup fails.
+        # As os-vif is responsible for creating these ports and at the time
+        # of creation the metadata is partially available, os-vif can add
+        # at least bridge_name to external_ids.
         try:
             self._update_trunk_metadata(
                 trunk_bridge, parent_port, trunk_id, subport_ids)

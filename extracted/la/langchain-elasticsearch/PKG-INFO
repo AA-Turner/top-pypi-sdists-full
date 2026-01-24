@@ -1,18 +1,17 @@
 Metadata-Version: 2.1
 Name: langchain-elasticsearch
-Version: 0.3.2
+Version: 1.0.0
 Summary: An integration package connecting Elasticsearch and LangChain
 Home-page: https://github.com/langchain-ai/langchain-elastic
 License: MIT
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: elasticsearch[vectorstore-mmr] (>=8.13.1,<9.0.0)
-Requires-Dist: langchain-core (>=0.3.0,<0.4.0)
+Requires-Dist: elasticsearch[vectorstore-mmr] (>=8.19.0,<9.0.0)
+Requires-Dist: langchain-core (>=1.0.0,<2.0.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-elastic
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-elastic/tree/main/libs/elasticsearch
 Description-Content-Type: text/markdown
@@ -88,7 +87,7 @@ def fuzzy_query(search_query: str) -> Dict:
     }
 
 
-fuzzy_retriever = ElasticsearchRetriever.from_es_params(
+fuzzy_retriever = ElasticsearchRetriever(
     es_cloud_id="your-cloud-id",
     es_api_key="your-api-key",
     index_name="your-index-name",
@@ -96,7 +95,7 @@ fuzzy_retriever = ElasticsearchRetriever.from_es_params(
     content_field=text_field,
 )
 
-fuzzy_retriever.get_relevant_documents("fooo")
+fuzzy_retriever.invoke("fooo")
 ```
 
 ### ElasticsearchEmbeddings

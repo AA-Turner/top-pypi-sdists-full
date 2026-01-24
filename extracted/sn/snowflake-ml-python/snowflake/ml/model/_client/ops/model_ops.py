@@ -1,5 +1,6 @@
 import enum
 import json
+import logging
 import os
 import pathlib
 import tempfile
@@ -7,11 +8,12 @@ import warnings
 from typing import Any, Literal, Optional, TypedDict, Union, cast, overload
 
 import yaml
+from typing_extensions import NotRequired
 
 from snowflake.ml._internal.exceptions import error_codes, exceptions
-from snowflake.ml._internal.utils import formatting, identifier, sql_identifier
+from snowflake.ml._internal.utils import formatting, identifier, sql_identifier, url
 from snowflake.ml.model import model_signature, type_hints
-from snowflake.ml.model._client.ops import metadata_ops
+from snowflake.ml.model._client.ops import deployment_step, metadata_ops, param_utils
 from snowflake.ml.model._client.sql import (
     model as model_sql,
     model_version as model_version_sql,
@@ -31,6 +33,8 @@ from snowflake.ml.model._signatures import snowpark_handler
 from snowflake.snowpark import dataframe, row, session
 from snowflake.snowpark._internal import utils as snowpark_utils
 
+logger = logging.getLogger(__name__)
+
 
 # An enum class to represent Create Or Alter Model SQL command.
 class ModelAction(enum.Enum):
@@ -42,6 +46,8 @@ class ServiceInfo(TypedDict):
     name: str
     status: str
     inference_endpoint: Optional[str]
+    internal_endpoint: Optional[str]
+    autocapture_enabled: NotRequired[bool]
 
 
 class ModelOperator:
@@ -515,10 +521,17 @@ class ModelOperator:
             statement_params=statement_params,
         )
         for r in res:
-            if alias_name in r[self._model_client.MODEL_VERSION_ALIASES_COL_NAME]:
-                return sql_identifier.SqlIdentifier(
-                    r[self._model_client.MODEL_VERSION_NAME_COL_NAME], case_sensitive=True
-                )
+            aliases_data = r[self._model_client.MODEL_VERSION_ALIASES_COL_NAME]
+            if aliases_data:
+                aliases_list = json.loads(aliases_data)
+
+                # Compare using Snowflake identifier semantics for exact match
+                for alias in aliases_list:
+                    if sql_identifier.SqlIdentifier(alias) == alias_name:
+                        return sql_identifier.SqlIdentifier(
+                            r[self._model_client.MODEL_VERSION_NAME_COL_NAME], case_sensitive=True
+                        )
+
         return None
 
     def get_tag_value(
@@ -644,6 +657,13 @@ class ModelOperator:
         url_str = str(url_value)
         return url_str if ModelOperator.PRIVATELINK_INGRESS_ENDPOINT_URL_SUBSTRING in url_str else None
 
+    def _extract_and_validate_port(self, res_row: "row.Row") -> Optional[int]:
+        """Extract and validate port from endpoint row."""
+        port_value = res_row[self._service_client.MODEL_INFERENCE_SERVICE_ENDPOINT_PORT_COL_NAME]
+        if port_value is None:
+            return None
+        return int(port_value)
+
     def show_services(
         self,
         *,
@@ -679,6 +699,7 @@ class ModelOperator:
         is_privatelink_connection = self._is_privatelink_connection()
 
         for fully_qualified_service_name in fully_qualified_service_names:
+            port: Optional[int] = None
             inference_endpoint: Optional[str] = None
             db, schema, service_name = sql_identifier.parse_fully_qualified_name(fully_qualified_service_name)
             statuses = self._service_client.get_service_container_statuses(
@@ -688,6 +709,11 @@ class ModelOperator:
                 return result
 
             service_status = statuses[0].service_status
+            service_description = self._service_client.describe_service(
+                database_name=db, schema_name=schema, service_name=service_name, statement_params=statement_params
+            )
+            internal_dns = str(service_description[self._service_client.DESC_SERVICE_INTERNAL_DNS_COL_NAME])
+
             for res_row in self._service_client.show_endpoints(
                 database_name=db, schema_name=schema, service_name=service_name, statement_params=statement_params
             ):
@@ -699,19 +725,23 @@ class ModelOperator:
 
                 ingress_url = self._extract_and_validate_ingress_url(res_row)
                 privatelink_ingress_url = self._extract_and_validate_privatelink_url(res_row)
+                port = self._extract_and_validate_port(res_row)
 
                 if is_privatelink_connection and privatelink_ingress_url is not None:
                     inference_endpoint = privatelink_ingress_url
                 else:
                     inference_endpoint = ingress_url
 
-            result.append(
-                ServiceInfo(
-                    name=fully_qualified_service_name,
-                    status=service_status.value,
-                    inference_endpoint=inference_endpoint,
-                )
+            service_info = ServiceInfo(
+                name=fully_qualified_service_name,
+                status=service_status.value,
+                inference_endpoint=inference_endpoint,
+                internal_endpoint=f"http://{internal_dns}:{port}" if port is not None else None,
             )
+            autocapture_enabled = self._service_client.is_autocapture_enabled(service_description)
+            service_info["autocapture_enabled"] = autocapture_enabled
+
+            result.append(service_info)
 
         return result
 
@@ -952,6 +982,8 @@ class ModelOperator:
         partition_column: Optional[sql_identifier.SqlIdentifier] = None,
         statement_params: Optional[dict[str, str]] = None,
         is_partitioned: Optional[bool] = None,
+        explain_case_sensitive: bool = False,
+        params: Optional[dict[str, Any]] = None,
     ) -> Union[type_hints.SupportedDataType, dataframe.DataFrame]:
         ...
 
@@ -967,6 +999,8 @@ class ModelOperator:
         service_name: sql_identifier.SqlIdentifier,
         strict_input_validation: bool = False,
         statement_params: Optional[dict[str, str]] = None,
+        explain_case_sensitive: bool = False,
+        params: Optional[dict[str, Any]] = None,
     ) -> Union[type_hints.SupportedDataType, dataframe.DataFrame]:
         ...
 
@@ -986,6 +1020,8 @@ class ModelOperator:
         partition_column: Optional[sql_identifier.SqlIdentifier] = None,
         statement_params: Optional[dict[str, str]] = None,
         is_partitioned: Optional[bool] = None,
+        explain_case_sensitive: bool = False,
+        params: Optional[dict[str, Any]] = None,
     ) -> Union[type_hints.SupportedDataType, dataframe.DataFrame]:
         identifier_rule = model_signature.SnowparkIdentifierRule.INFERRED
 
@@ -1021,6 +1057,8 @@ class ModelOperator:
                 col_name = sql_identifier.SqlIdentifier(input_feature.name.upper(), case_sensitive=True)
             input_args.append(col_name)
 
+        method_parameters = param_utils.validate_and_resolve_params(params, signature.params)
+
         returns = []
         for output_feature in signature.outputs:
             output_name = identifier_rule.get_sql_identifier_from_feature(output_feature.name)
@@ -1039,6 +1077,7 @@ class ModelOperator:
                 schema_name=schema_name,
                 service_name=service_name,
                 statement_params=statement_params,
+                params=method_parameters,
             )
         else:
             assert model_name is not None
@@ -1054,6 +1093,7 @@ class ModelOperator:
                     model_name=model_name,
                     version_name=version_name,
                     statement_params=statement_params,
+                    params=method_parameters,
                 )
             elif method_function_type == model_manifest_schema.ModelMethodFunctionTypes.TABLE_FUNCTION.value:
                 df_res = self._model_version_client.invoke_table_function_method(
@@ -1068,6 +1108,8 @@ class ModelOperator:
                     version_name=version_name,
                     statement_params=statement_params,
                     is_partitioned=is_partitioned or False,
+                    explain_case_sensitive=explain_case_sensitive,
+                    params=method_parameters,
                 )
 
         if keep_order:
@@ -1201,3 +1243,35 @@ class ModelOperator:
                     target_path=local_file_dir,
                     statement_params=statement_params,
                 )
+
+    def run_import_model_query(
+        self,
+        *,
+        database_name: str,
+        schema_name: str,
+        yaml_content: str,
+        statement_params: Optional[dict[str, Any]] = None,
+    ) -> None:
+        yaml_content_escaped = snowpark_utils.escape_single_quotes(yaml_content)  # type: ignore[no-untyped-call]
+
+        async_job = self._session.sql(
+            f"SELECT SYSTEM$IMPORT_MODEL('{yaml_content_escaped}')",
+        ).collect(block=False, statement_params=statement_params)
+        query_id = async_job.query_id  # type: ignore[attr-defined]
+
+        logger.info(f"Remotely importing model, with the query id: {query_id}")
+        model_logger_service_name = sql_identifier.SqlIdentifier(
+            deployment_step.get_service_id_from_deployment_step(
+                query_id,
+                deployment_step.DeploymentStep.MODEL_LOGGING,
+            )
+        )
+
+        logger_name = model_logger_service_name.identifier()
+        job_url = f"{url.JOB_URL_PREFIX}/{database_name}/{schema_name}/{logger_name}"
+        snowflake_url = url.get_snowflake_url(session=self._session, url_path=job_url)
+        logger.info(
+            f"To monitor the progress of the model logging job, head to the job monitoring page {snowflake_url}"
+        )
+
+        async_job.result()  # type: ignore[attr-defined]

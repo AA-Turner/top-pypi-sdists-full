@@ -1,6 +1,6 @@
 [project]
 name = "Flask-Pydantic"
-version = "0.13.2"
+version = "0.14.0"
 description = "Flask extension for integration with Pydantic library."
 readme = "README.md"
 license = { file = "LICENSE.txt" }
@@ -36,8 +36,8 @@ build-backend = "flit_core.buildapi"
 name = "flask_pydantic"
 
 [tool.pytest]
-testpaths = "tests"
-addopts = "-vv --ruff --ruff-format --cov --cov-config=pyproject.toml -s"
+testpaths = ["tests"]
+addopts = ["-vv", "--ruff", "--ruff-format", "--cov", "--cov-config=pyproject.toml", "-s"]
 
 [tool.ruff]
 src = ["flask_pydantic"]

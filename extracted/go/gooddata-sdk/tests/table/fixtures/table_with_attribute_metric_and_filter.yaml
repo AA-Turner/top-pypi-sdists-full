@@ -1,0 +1,181 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: region
+                  type: label
+              localIdentifier: attr1
+          filters:
+            - positiveAttributeFilter:
+                in:
+                  values:
+                    - Unknown
+                    - Northeast
+                label:
+                  localIdentifier: attr1
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: order_amount
+                      type: metric
+                  computeRatio: false
+                  filters: []
+              localIdentifier: metric1
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - attr1
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '614'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - b80c3433-0c3f-4078-ac60-ed401e06418b
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: attr1
+                      label:
+                        id: region
+                        type: label
+                      labelName: Region
+                      attribute:
+                        id: region
+                        type: attribute
+                      attributeName: Region
+                      granularity: null
+                      primaryLabel:
+                        id: region
+                        type: label
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: metric1
+                        format: $#,##0
+                        name: Order Amount
+                localIdentifier: dim_1
+            links:
+              executionResult: 9ee98ceef271b50eac379e71da73672df2d2c0a6:5ef843121aaea28722011de35fc79a8cb8d5a7a655be58ca1cdcc374cbc6acca
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/9ee98ceef271b50eac379e71da73672df2d2c0a6%3A5ef843121aaea28722011de35fc79a8cb8d5a7a655be58ca1cdcc374cbc6acca?offset=0%2C0&limit=512%2C256
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '414'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data:
+            - - 56710.83
+            - - 18.7
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - attributeHeader:
+                        labelValue: Northeast
+                        primaryLabelValue: Northeast
+                    - attributeHeader:
+                        labelValue: Unknown
+                        primaryLabelValue: Unknown
+            - headerGroups:
+                - headers:
+                    - measureHeader:
+                        measureIndex: 0
+          grandTotals: []
+          paging:
+            count:
+              - 2
+              - 1
+            offset:
+              - 0
+              - 0
+            total:
+              - 2
+              - 1
+          metadata:
+            dataSourceMessages: []

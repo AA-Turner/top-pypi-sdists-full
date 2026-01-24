@@ -3,24 +3,30 @@ from typing import List, cast
 
 import httpx
 
+from anthropic.types.beta import BetaDirectCaller, BetaToolUseBlock, BetaInputJSONDelta, BetaRawContentBlockDeltaEvent
 from anthropic.types.tool_use_block import ToolUseBlock
 from anthropic.types.beta.beta_usage import BetaUsage
-from anthropic.types.beta.beta_message import BetaMessage
 from anthropic.lib.streaming._beta_messages import accumulate_event
-from anthropic.types.beta.beta_tool_use_block import BetaToolUseBlock
-from anthropic.types.beta.beta_input_json_delta import BetaInputJSONDelta
-from anthropic.types.beta.beta_raw_content_block_delta_event import BetaRawContentBlockDeltaEvent
+from anthropic.types.beta.parsed_beta_message import ParsedBetaMessage
 
 
 class TestPartialJson:
     def test_trailing_strings_mode_header(self) -> None:
         """Test behavior differences with and without the beta header for JSON parsing."""
-        message = BetaMessage(
+        message = ParsedBetaMessage(
             id="msg_123",
             type="message",
             role="assistant",
-            content=[BetaToolUseBlock(type="tool_use", input={}, id="tool_123", name="test_tool")],
-            model="claude-3-7-sonnet-20250219",
+            content=[
+                BetaToolUseBlock(
+                    type="tool_use",
+                    input={},
+                    id="tool_123",
+                    name="test_tool",
+                    caller=BetaDirectCaller(type="direct"),
+                )
+            ],
+            model="claude-sonnet-4-5",
             stop_reason=None,
             stop_sequence=None,
             usage=BetaUsage(input_tokens=10, output_tokens=10),
@@ -101,12 +107,20 @@ class TestPartialJson:
     # test that with invalid JSON we throw the correct error
     def test_partial_json_with_invalid_json(self) -> None:
         """Test that invalid JSON raises an error."""
-        message = BetaMessage(
+        message = ParsedBetaMessage(
             id="msg_123",
             type="message",
             role="assistant",
-            content=[BetaToolUseBlock(type="tool_use", input={}, id="tool_123", name="test_tool")],
-            model="claude-3-7-sonnet-20250219",
+            content=[
+                BetaToolUseBlock(
+                    type="tool_use",
+                    input={},
+                    id="tool_123",
+                    name="test_tool",
+                    caller=BetaDirectCaller(type="direct"),
+                )
+            ],
+            model="claude-sonnet-4-5",
             stop_reason=None,
             stop_sequence=None,
             usage=BetaUsage(input_tokens=10, output_tokens=10),

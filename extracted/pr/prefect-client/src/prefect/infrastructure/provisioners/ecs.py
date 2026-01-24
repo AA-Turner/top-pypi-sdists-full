@@ -22,7 +22,6 @@ from rich.prompt import Confirm
 from rich.syntax import Syntax
 
 from prefect._internal.installation import ainstall_packages
-from prefect.cli._prompts import prompt
 from prefect.client.schemas.actions import BlockDocumentCreate
 from prefect.client.utilities import inject_client
 from prefect.exceptions import ObjectNotFound
@@ -1179,6 +1178,8 @@ class ElasticContainerServicePushProvisioner:
         Returns:
             dict: An updated copy base job template.
         """
+        from prefect.cli._prompts import prompt
+
         if not self.is_boto3_installed():
             if self.console.is_interactive and Confirm.ask(
                 "boto3 is required to configure your AWS account. Would you like to"
@@ -1197,6 +1198,7 @@ class ElasticContainerServicePushProvisioner:
                 " infrastructure? This includes an IAM user, IAM policy, ECS cluster,"
                 " VPC, ECS security group, and ECR repository."
             ):
+                # AWS Resources
                 user_name = prompt(
                     "Enter a name for the IAM user (manages ECS tasks)",
                     default="prefect-ecs-user",
@@ -1211,13 +1213,6 @@ class ElasticContainerServicePushProvisioner:
                 cluster_name = prompt(
                     "Enter a name for the ECS cluster (hosts ECS tasks)",
                     default="prefect-ecs-cluster",
-                )
-                credentials_name = prompt(
-                    (
-                        "Enter a name for the AWS credentials block (stores AWS"
-                        " credentials for managing ECS tasks)"
-                    ),
-                    default=f"{work_pool_name}-aws-credentials",
                 )
                 vpc_name = prompt(
                     (
@@ -1241,19 +1236,31 @@ class ElasticContainerServicePushProvisioner:
                     default="prefect-flows",
                 )
 
+                # Prefect Resources
+                credentials_name = prompt(
+                    (
+                        "Enter a name for the Prefect AWS credentials block (stores"
+                        " AWS credentials in Prefect for managing ECS tasks)"
+                    ),
+                    default=f"{work_pool_name}-aws-credentials",
+                )
+
                 provision_preview = Panel(
                     dedent(
                         f"""\
                             Custom names for infrastructure resources for
                             [blue]{work_pool_name}[/]:
 
+                            [bold]AWS Resources:[/]
                             - IAM user: [blue]{user_name}[/]
                             - IAM policy: [blue]{policy_name}[/]
                             - ECS cluster: [blue]{cluster_name}[/]
-                            - AWS credentials block: [blue]{credentials_name}[/]
                             - VPC: [blue]{vpc_name}[/]
                             - ECS security group: [blue]{ecs_security_group_name}[/]
                             - ECR repository: [blue]{repository_name}[/]
+
+                            [bold]Prefect Resources:[/]
+                            - AWS credentials block: [blue]{credentials_name}[/]
                             """
                     ),
                     expand=False,

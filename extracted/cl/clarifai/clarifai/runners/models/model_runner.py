@@ -132,8 +132,8 @@ class ModelRunner(BaseRunner):
         start_time = time.time()
         req_id = get_req_id_from_context()
         status_str = STATUS_UNKNOWN
-        # Endpoint is always POST /v2/.../outputs for this runner
-        endpoint = "POST /v2/.../outputs         "
+        # Operation name for logging purposes
+        endpoint = "model_predict"
 
         # if method_name == '_GET_SIGNATURES' then the request is for getting signatures and we don't want to log it.
         # This is a workaround to avoid logging the _GET_SIGNATURES method call.
@@ -204,7 +204,7 @@ class ModelRunner(BaseRunner):
         start_time = time.time()
         req_id = get_req_id_from_context()
         status_str = STATUS_UNKNOWN
-        endpoint = "POST /v2/.../outputs/generate"
+        endpoint = "model_generate"
 
         # Use req_secrets_context to temporarily set request-type secrets as environment variables
         with req_secrets_context(request):
@@ -260,7 +260,7 @@ class ModelRunner(BaseRunner):
         start_time = time.time()
         req_id = get_req_id_from_context()
         status_str = STATUS_UNKNOWN
-        endpoint = "POST /v2/.../outputs/stream  "
+        endpoint = "model_stream"
 
         # Get the first request to establish secrets context
         first_request = None
@@ -270,7 +270,9 @@ class ModelRunner(BaseRunner):
 
         # Use req_secrets_context based on the first request (secrets should be consistent across stream)
         with req_secrets_context(first_request):
-            for resp in self.model.stream_wrapper(pmo_iterator(iter(runner_items))):
+            for resp in self.model.stream_wrapper(
+                pmo_iterator(iter(runner_items), auth_helper=self._auth_helper)
+            ):
                 # if we have any non-successful code already it's an error we can return.
                 if (
                     resp.status.code != status_code_pb2.SUCCESS
@@ -304,8 +306,8 @@ class ModelRunner(BaseRunner):
                     status_str = STATUS_MIXED
                 else:
                     status = status_pb2.Status(
-                        code=status_code_pb2.FAILURE,
-                        description="Failed",
+                        code=status_code_pb2.RUNNER_PROCESSING_FAILED,
+                        description="Runner Processing Failed",
                     )
                     status_str = STATUS_FAIL
                 resp.status.CopyFrom(status)

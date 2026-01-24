@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-energon
-Version: 7.2.1
+Version: 7.3.0
 Summary: Megatron's multi-modal data loader
 Project-URL: Homepage, https://github.com/NVIDIA/Megatron-Energon
 Author-email: Lukas Vögtle <lvoegtle@nvidia.com>, Philipp Fischer <pfischer@nvidia.com>
@@ -14,13 +14,12 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Requires-Dist: braceexpand
 Requires-Dist: click
-Requires-Dist: dataslots; python_version < '3.10'
 Requires-Dist: mfusepy
-Requires-Dist: multi-storage-client>=0.18.0
+Requires-Dist: multi-storage-client>=0.33.0
 Requires-Dist: numpy
 Requires-Dist: pillow>=10.0.1
 Requires-Dist: pyyaml
-Requires-Dist: rapidyaml==0.9.0
+Requires-Dist: rapidyaml>=0.10.0
 Requires-Dist: s3fs
 Requires-Dist: torch
 Requires-Dist: tqdm
@@ -47,10 +46,14 @@ Provides-Extra: google-cloud-storage
 Requires-Dist: multi-storage-client[google-cloud-storage]; extra == 'google-cloud-storage'
 Provides-Extra: guess-content
 Requires-Dist: filetype>=1.0.0; extra == 'guess-content'
+Provides-Extra: huggingface
+Requires-Dist: multi-storage-client[huggingface]; extra == 'huggingface'
 Provides-Extra: oci
 Requires-Dist: multi-storage-client[oci]; extra == 'oci'
 Provides-Extra: s3
 Requires-Dist: multi-storage-client[boto3]; extra == 's3'
+Provides-Extra: tar-patcher
+Requires-Dist: numba; extra == 'tar-patcher'
 Provides-Extra: transforms
 Requires-Dist: torchvision; extra == 'transforms'
 Description-Content-Type: text/markdown

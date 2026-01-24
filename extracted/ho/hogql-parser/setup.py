@@ -1,5 +1,6 @@
-from setuptools import setup, Extension
 import platform
+
+from setuptools import Extension, setup
 
 system = platform.system()
 if system not in ("Darwin", "Linux"):
@@ -17,14 +18,17 @@ module = Extension(
         "HogQLParserVisitor.cpp",
         "error.cpp",
         "string.cpp",
-        "parser.cpp",
+        "json.cpp",
+        "parser_python.cpp",
     ],
-    include_dirs=[
-        f"{homebrew_location}/include/",
-        f"{homebrew_location}/include/antlr4-runtime/",
-    ]
-    if is_macos
-    else ["/usr/include/", "/usr/include/antlr4-runtime/"],
+    include_dirs=(
+        [
+            f"{homebrew_location}/include/",
+            f"{homebrew_location}/include/antlr4-runtime/",
+        ]
+        if is_macos
+        else ["/usr/include/", "/usr/include/antlr4-runtime/"]
+    ),
     library_dirs=[f"{homebrew_location}/lib/"] if is_macos else ["/usr/lib/", "/usr/lib64/"],
     libraries=["antlr4-runtime"],
     extra_compile_args=["-std=c++20"],
@@ -32,7 +36,7 @@ module = Extension(
 
 setup(
     name="hogql_parser",
-    version="1.2.0",
+    version="1.3.5",
     url="https://github.com/PostHog/posthog/tree/master/common/hogql_parser",
     description="HogQL parser for internal PostHog use",
     author="PostHog Inc.",
@@ -45,9 +49,9 @@ setup(
     include_package_data=True,
     ext_modules=[module],
     python_requires=">=3.10",
+    license="MIT",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: MacOS",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python",

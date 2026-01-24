@@ -26,4 +26,9 @@ default.extend-ignore-identifiers-re = [
     "lightyear",
     "PNGs",
     "setp",
+    "Precess",
+    "precess",
+    "precessed",
+    "ASO",
+    "aso",
 ]

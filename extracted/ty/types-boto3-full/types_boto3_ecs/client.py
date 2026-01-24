@@ -3,7 +3,7 @@ Type annotations for ecs service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -41,6 +42,8 @@ from .type_defs import (
     CreateCapacityProviderResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
+    CreateExpressGatewayServiceRequestTypeDef,
+    CreateExpressGatewayServiceResponseTypeDef,
     CreateServiceRequestTypeDef,
     CreateServiceResponseTypeDef,
     CreateTaskSetRequestTypeDef,
@@ -53,6 +56,8 @@ from .type_defs import (
     DeleteCapacityProviderResponseTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
+    DeleteExpressGatewayServiceRequestTypeDef,
+    DeleteExpressGatewayServiceResponseTypeDef,
     DeleteServiceRequestTypeDef,
     DeleteServiceResponseTypeDef,
     DeleteTaskDefinitionsRequestTypeDef,
@@ -69,6 +74,8 @@ from .type_defs import (
     DescribeClustersResponseTypeDef,
     DescribeContainerInstancesRequestTypeDef,
     DescribeContainerInstancesResponseTypeDef,
+    DescribeExpressGatewayServiceRequestTypeDef,
+    DescribeExpressGatewayServiceResponseTypeDef,
     DescribeServiceDeploymentsRequestTypeDef,
     DescribeServiceDeploymentsResponseTypeDef,
     DescribeServiceRevisionsRequestTypeDef,
@@ -147,6 +154,8 @@ from .type_defs import (
     UpdateContainerAgentResponseTypeDef,
     UpdateContainerInstancesStateRequestTypeDef,
     UpdateContainerInstancesStateResponseTypeDef,
+    UpdateExpressGatewayServiceRequestTypeDef,
+    UpdateExpressGatewayServiceResponseTypeDef,
     UpdateServicePrimaryTaskSetRequestTypeDef,
     UpdateServicePrimaryTaskSetResponseTypeDef,
     UpdateServiceRequestTypeDef,
@@ -163,12 +172,6 @@ from .waiter import (
     TasksStoppedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -179,34 +182,35 @@ __all__ = ("ECSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AttributeLimitExceededException: Type[BotocoreClientError]
-    BlockedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientException: Type[BotocoreClientError]
-    ClusterContainsContainerInstancesException: Type[BotocoreClientError]
-    ClusterContainsServicesException: Type[BotocoreClientError]
-    ClusterContainsTasksException: Type[BotocoreClientError]
-    ClusterNotFoundException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MissingVersionException: Type[BotocoreClientError]
-    NamespaceNotFoundException: Type[BotocoreClientError]
-    NoUpdateAvailableException: Type[BotocoreClientError]
-    PlatformTaskDefinitionIncompatibilityException: Type[BotocoreClientError]
-    PlatformUnknownException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServerException: Type[BotocoreClientError]
-    ServiceDeploymentNotFoundException: Type[BotocoreClientError]
-    ServiceNotActiveException: Type[BotocoreClientError]
-    ServiceNotFoundException: Type[BotocoreClientError]
-    TargetNotConnectedException: Type[BotocoreClientError]
-    TargetNotFoundException: Type[BotocoreClientError]
-    TaskSetNotFoundException: Type[BotocoreClientError]
-    UnsupportedFeatureException: Type[BotocoreClientError]
-    UpdateInProgressException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AttributeLimitExceededException: type[BotocoreClientError]
+    BlockedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientException: type[BotocoreClientError]
+    ClusterContainsCapacityProviderException: type[BotocoreClientError]
+    ClusterContainsContainerInstancesException: type[BotocoreClientError]
+    ClusterContainsServicesException: type[BotocoreClientError]
+    ClusterContainsTasksException: type[BotocoreClientError]
+    ClusterNotFoundException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MissingVersionException: type[BotocoreClientError]
+    NamespaceNotFoundException: type[BotocoreClientError]
+    NoUpdateAvailableException: type[BotocoreClientError]
+    PlatformTaskDefinitionIncompatibilityException: type[BotocoreClientError]
+    PlatformUnknownException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServerException: type[BotocoreClientError]
+    ServiceDeploymentNotFoundException: type[BotocoreClientError]
+    ServiceNotActiveException: type[BotocoreClientError]
+    ServiceNotFoundException: type[BotocoreClientError]
+    TargetNotConnectedException: type[BotocoreClientError]
+    TargetNotFoundException: type[BotocoreClientError]
+    TaskSetNotFoundException: type[BotocoreClientError]
+    UnsupportedFeatureException: type[BotocoreClientError]
+    UpdateInProgressException: type[BotocoreClientError]
 
 
 class ECSClient(BaseClient):
@@ -248,7 +252,7 @@ class ECSClient(BaseClient):
         self, **kwargs: Unpack[CreateCapacityProviderRequestTypeDef]
     ) -> CreateCapacityProviderResponseTypeDef:
         """
-        Creates a new capacity provider.
+        Creates a capacity provider.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/create_capacity_provider.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#create_capacity_provider)
@@ -262,6 +266,17 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/create_cluster.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#create_cluster)
+        """
+
+    def create_express_gateway_service(
+        self, **kwargs: Unpack[CreateExpressGatewayServiceRequestTypeDef]
+    ) -> CreateExpressGatewayServiceResponseTypeDef:
+        """
+        Creates an Express service that simplifies deploying containerized web
+        applications on Amazon ECS with managed Amazon Web Services infrastructure.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/create_express_gateway_service.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#create_express_gateway_service)
         """
 
     def create_service(
@@ -324,6 +339,17 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_cluster.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#delete_cluster)
+        """
+
+    def delete_express_gateway_service(
+        self, **kwargs: Unpack[DeleteExpressGatewayServiceRequestTypeDef]
+    ) -> DeleteExpressGatewayServiceResponseTypeDef:
+        """
+        Deletes an Express service and removes all associated Amazon Web Services
+        resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_express_gateway_service.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#delete_express_gateway_service)
         """
 
     def delete_service(
@@ -404,6 +430,17 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_container_instances.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_container_instances)
+        """
+
+    def describe_express_gateway_service(
+        self, **kwargs: Unpack[DescribeExpressGatewayServiceRequestTypeDef]
+    ) -> DescribeExpressGatewayServiceResponseTypeDef:
+        """
+        Retrieves detailed information about an Express service, including current
+        status, configuration, managed infrastructure, and service revisions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_express_gateway_service.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_express_gateway_service)
         """
 
     def describe_service_deployments(
@@ -740,7 +777,7 @@ class ECSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#submit_task_state_change)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified
         <code>resourceArn</code>.
@@ -749,7 +786,7 @@ class ECSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from a resource.
 
@@ -805,6 +842,16 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/update_container_instances_state.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#update_container_instances_state)
+        """
+
+    def update_express_gateway_service(
+        self, **kwargs: Unpack[UpdateExpressGatewayServiceRequestTypeDef]
+    ) -> UpdateExpressGatewayServiceResponseTypeDef:
+        """
+        Updates an existing Express service configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/update_express_gateway_service.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#update_express_gateway_service)
         """
 
     def update_service(

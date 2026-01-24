@@ -7,17 +7,13 @@ import pathlib
 import sys
 import tempfile
 from enum import Enum, auto
-from typing import TYPE_CHECKING
 
 from kfactory.conf import Settings, config, get_affinity
 from rich.console import Console
 from rich.table import Table
 
-if TYPE_CHECKING:
-    pass
-
-__version__ = "9.16.3"
-__next_major_version__ = "9.16.3"
+__version__ = "9.32.0"
+__next_major_version__ = "9.32.0"
 
 PathType = str | pathlib.Path
 
@@ -108,7 +104,7 @@ class Config(Settings):
     difftest_ignore_cell_name_differences: bool
     bend_radius_error_type: ErrorType
     layer_error_path: tuple[int, int]
-    pdk: str
+    pdk: str | None
     layer_label: tuple[int, int]
     port_types: list[str]
     port_types_grating_couplers: list[str]
@@ -124,7 +120,7 @@ CONF.layer_error_path = (1000, 0)
 CONF.connect_use_mirror = False
 CONF.max_cellname_length = 64
 CONF.cell_layout_cache = True
-CONF.pdk = "generic"
+CONF.pdk = None
 CONF.layer_label = (100, 0)
 CONF.port_types = [
     "optical",  # optical ports
@@ -147,12 +143,16 @@ class Paths:
     module = module_path
     repo = repo_path
     results_tidy3d = home / ".tidy3d"
+
     generic_tech = module / "generic_tech"
     klayout = generic_tech / "klayout"
     klayout_tech = klayout
     klayout_lyp = klayout_tech / "layers.lyp"
     klayout_lyt = klayout_tech / "tech.lyt"
-    klayout_yaml = generic_tech / "layer_views.yaml"
+
+    gpdk = module / "gpdk"
+    klayout_yaml = gpdk / "layer_views.yaml"
+
     schema_netlist = repo_path / "tests" / "schemas" / "netlist.json"
     netlists = module_path / "samples" / "netlists"
     gdsdir = repo_path / "tests" / "gds"

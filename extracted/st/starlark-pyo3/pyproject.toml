@@ -4,8 +4,9 @@ build-backend = "maturin"
 
 [project]
 name = "starlark-pyo3"
-version = "2025.2"
+version = "2025.2.5"
 description = "Wraps starlark-rust into Python"
+readme = "README.rst"
 requires-python = ">=3.9"
 license = {file = "LICENSE"}
 authors = [
@@ -21,7 +22,8 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/inducer/starlark-pyo3"
+repository = "https://github.com/inducer/starlark-pyo3"
+documentation = "https://documen.tician.de/starlark-pyo3/"
 
 [tool.ruff]
 preview = true
@@ -75,3 +77,9 @@ exclude = [
 reportImportCycles = "none"
 pythonVersion = "3.9"
 pythonPlatform = "All"
+
+[tool.typos.default]
+extend-ignore-re = [
+  "(?Rm)^.*(#|//)\\s*spellchecker:\\s*disable-line$"
+]
+

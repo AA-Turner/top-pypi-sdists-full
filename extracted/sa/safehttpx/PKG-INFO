@@ -1,10 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: safehttpx
-Version: 0.1.6
+Version: 0.1.7
 Summary: A small Python library created to help developers protect their applications from Server Side Request Forgery (SSRF) attacks.
 Project-URL: homepage, https://github.com/gradio-app/safehttpx
 Project-URL: repository, https://github.com/gradio-app/safehttpx
 Author-email: Abubakar Abid <abubakar@hf.co>
+License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3

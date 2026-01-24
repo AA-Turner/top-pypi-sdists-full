@@ -1,17 +1,20 @@
+use async_trait::async_trait;
+use futures::future::try_join_all;
 use futures::{Stream, StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
-use reqwest::multipart::{Form, Part};
 use reqwest::StatusCode;
+use reqwest::multipart::{Form, Part};
 use reqwest_eventsource::Event;
+use responses::stream_openai_responses;
 use secrecy::{ExposeSecret, SecretString};
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{json, Value};
-use std::borrow::Cow;
+use serde_json::{Value, json};
+use std::borrow::{Cow, ToOwned};
 use std::io::Write;
 use std::pin::Pin;
-use std::sync::OnceLock;
 use std::time::Duration;
+use tensorzero_derive::TensorZeroDeserialize;
 use tokio::time::Instant;
 use tracing::instrument;
 use url::Url;
@@ -24,38 +27,56 @@ use crate::embeddings::{
     EmbeddingProviderResponse, EmbeddingRequest,
 };
 use crate::endpoints::inference::InferenceCredentials;
-use crate::error::{warn_discarded_thought_block, DisplayOrDebugGateway, Error, ErrorDetails};
+use crate::error::{
+    DelayedError, DisplayOrDebugGateway, Error, ErrorDetails, warn_discarded_thought_block,
+};
 use crate::http::TensorzeroHttpClient;
+use crate::inference::InferenceProvider;
+use crate::inference::types::ObjectStorageFile;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::batch::{
     ProviderBatchInferenceOutput, ProviderBatchInferenceResponse,
 };
+use crate::inference::types::chat_completion_inference_params::{
+    ChatCompletionInferenceParamsV2, ServiceTier, warn_inference_parameter_not_supported,
+};
 use crate::inference::types::extra_body::FullExtraBodyConfig;
-use crate::inference::types::file::{mime_type_to_ext, require_image};
-use crate::inference::types::resolved_input::FileWithPath;
+use crate::inference::types::file::{Detail, mime_type_to_audio_format, mime_type_to_ext};
+use crate::inference::types::resolved_input::{FileUrl, LazyFile};
+use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
-    batch::{BatchStatus, StartBatchProviderInferenceResponse},
+    ApiType, FinishReason, ProviderInferenceResponseArgs, ProviderInferenceResponseStreamInner,
+    ThoughtChunk,
+};
+use crate::inference::types::{
     ContentBlock, ContentBlockChunk, ContentBlockOutput, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
     ProviderInferenceResponse, ProviderInferenceResponseChunk, RequestMessage, Role, Text,
-    TextChunk, Usage,
+    TextChunk, Thought, Unknown, Usage,
+    batch::{BatchStatus, StartBatchProviderInferenceResponse},
 };
-use crate::inference::types::{
-    FinishReason, ProviderInferenceResponseArgs, ProviderInferenceResponseStreamInner, ThoughtChunk,
-};
-use crate::inference::InferenceProvider;
-use crate::model::{build_creds_caching_default, Credential, CredentialLocation, ModelProvider};
-use crate::tool::{Tool, ToolCall, ToolCallChunk, ToolChoice, ToolConfig};
-
+use crate::model::{Credential, ModelProvider};
 use crate::providers::helpers::{
-    inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
+    InjectedResponse, convert_stream_error, inject_extra_request_data_and_send,
+    inject_extra_request_data_and_send_eventsource_with_headers,
+    inject_extra_request_data_and_send_with_headers,
+};
+use crate::providers::openai::responses::{
+    OpenAIResponsesInput, OpenAIResponsesInputInner, OpenAIResponsesInputMessage,
+    OpenAIResponsesInputMessageContent, OpenAIResponsesRequest, OpenAIResponsesResponse,
+    get_responses_url,
+};
+use crate::tool::{
+    FunctionTool, FunctionToolConfig, OpenAICustomTool, ToolCall, ToolCallChunk, ToolCallConfig,
+    ToolChoice, ToolConfigRef,
 };
 
-use super::helpers::{parse_jsonl_batch_file, JsonlBatchFileInfo};
+use super::helpers::{JsonlBatchFileInfo, parse_jsonl_batch_file};
 use crate::inference::TensorZeroEventError;
 use crate::inference::WrappedProvider;
 
-pub mod optimization;
+pub mod grader;
+mod responses;
 
 lazy_static! {
     pub static ref OPENAI_DEFAULT_BASE_URL: Url = {
@@ -64,52 +85,81 @@ lazy_static! {
     };
 }
 
-pub fn default_api_key_location() -> CredentialLocation {
-    CredentialLocation::Env("OPENAI_API_KEY".to_string())
-}
-
 const PROVIDER_NAME: &str = "OpenAI";
 pub const PROVIDER_TYPE: &str = "openai";
 
+type PreparedOpenAIToolsResult<'a> = (
+    Option<Vec<OpenAITool<'a>>>,
+    Option<OpenAIToolChoice<'a>>,
+    Option<bool>,
+);
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
+pub enum OpenAIAPIType {
+    #[default]
+    ChatCompletions,
+    Responses,
+}
+
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct OpenAIProvider {
     model_name: String,
     api_base: Option<Url>,
     #[serde(skip)]
     credentials: OpenAICredentials,
+    include_encrypted_reasoning: bool,
+    api_type: OpenAIAPIType,
+    provider_tools: Vec<Value>,
 }
-
-pub static DEFAULT_CREDENTIALS: OnceLock<OpenAICredentials> = OnceLock::new();
 
 impl OpenAIProvider {
     pub fn new(
         model_name: String,
         api_base: Option<Url>,
-        api_key_location: Option<CredentialLocation>,
+        credentials: OpenAICredentials,
+        api_type: OpenAIAPIType,
+        include_encrypted_reasoning: bool,
+        provider_tools: Vec<Value>,
     ) -> Result<Self, Error> {
-        let credentials = build_creds_caching_default(
-            api_key_location,
-            default_api_key_location(),
-            PROVIDER_TYPE,
-            &DEFAULT_CREDENTIALS,
-        )?;
-
+        if !matches!(api_type, OpenAIAPIType::Responses) && include_encrypted_reasoning {
+            return Err(Error::new(ErrorDetails::Config {
+                message:
+                    "include_encrypted_reasoning is only supported when api_type = \"responses\""
+                        .to_string(),
+            }));
+        }
         // Check if the api_base has the `/chat/completions` suffix and warn if it does
         if let Some(api_base) = &api_base {
             check_api_base_suffix(api_base);
+        }
+
+        if !provider_tools.is_empty() && !matches!(api_type, OpenAIAPIType::Responses) {
+            return Err(ErrorDetails::Config{message: "`provider_tools` are provided for an OpenAI provider but Responses API is not enabled. These will be ignored.".to_string()}.into());
         }
 
         Ok(OpenAIProvider {
             model_name,
             api_base,
             credentials,
+
+            include_encrypted_reasoning,
+            api_type,
+
+            provider_tools,
         })
     }
 
     pub fn model_name(&self) -> &str {
         &self.model_name
+    }
+
+    pub fn api_type(&self) -> OpenAIAPIType {
+        self.api_type
     }
 }
 
@@ -137,6 +187,10 @@ pub enum OpenAICredentials {
     Static(SecretString),
     Dynamic(String),
     None,
+    WithFallback {
+        default: Box<OpenAICredentials>,
+        fallback: Box<OpenAICredentials>,
+    },
 }
 
 impl TryFrom<Credential> for OpenAICredentials {
@@ -148,6 +202,10 @@ impl TryFrom<Credential> for OpenAICredentials {
             Credential::Dynamic(key_name) => Ok(OpenAICredentials::Dynamic(key_name)),
             Credential::None => Ok(OpenAICredentials::None),
             Credential::Missing => Ok(OpenAICredentials::None),
+            Credential::WithFallback { default, fallback } => Ok(OpenAICredentials::WithFallback {
+                default: Box::new((*default).try_into()?),
+                fallback: Box::new((*fallback).try_into()?),
+            }),
             _ => Err(Error::new(ErrorDetails::Config {
                 message: "Invalid api_key_location for OpenAI provider".to_string(),
             })),
@@ -159,38 +217,64 @@ impl OpenAICredentials {
     pub fn get_api_key<'a>(
         &'a self,
         dynamic_api_keys: &'a InferenceCredentials,
-    ) -> Result<Option<&'a SecretString>, Error> {
+    ) -> Result<Option<&'a SecretString>, DelayedError> {
         match self {
             OpenAICredentials::Static(api_key) => Ok(Some(api_key)),
             OpenAICredentials::Dynamic(key_name) => {
                 Some(dynamic_api_keys.get(key_name).ok_or_else(|| {
-                    ErrorDetails::ApiKeyMissing {
+                    DelayedError::new(ErrorDetails::ApiKeyMissing {
                         provider_name: PROVIDER_NAME.to_string(),
                         message: format!("Dynamic api key `{key_name}` is missing"),
-                    }
-                    .into()
+                    })
                 }))
                 .transpose()
+            }
+            OpenAICredentials::WithFallback { default, fallback } => {
+                // Try default first, fall back to fallback if it fails
+                match default.get_api_key(dynamic_api_keys) {
+                    Ok(key) => Ok(key),
+                    Err(e) => {
+                        e.log_at_level(
+                            "Using fallback credential, as default credential is unavailable: ",
+                            tracing::Level::WARN,
+                        );
+                        fallback.get_api_key(dynamic_api_keys)
+                    }
+                }
             }
             OpenAICredentials::None => Ok(None),
         }
     }
 }
 
+#[async_trait]
 impl WrappedProvider for OpenAIProvider {
     fn thought_block_provider_type_suffix(&self) -> Cow<'static, str> {
         Cow::Borrowed("openai")
     }
 
-    fn make_body<'a>(
+    async fn make_body<'a>(
         &'a self,
         ModelProviderRequest {
             request,
-            provider_name: _,
-            model_name: _,
+            provider_name,
+            model_name,
+            otlp_config: _,
+            model_inference_id: _,
         }: ModelProviderRequest<'a>,
     ) -> Result<serde_json::Value, Error> {
-        let request_body = serde_json::to_value(OpenAIRequest::new(&self.model_name, request)?)
+        match self.api_type {
+            OpenAIAPIType::Responses => Ok(serde_json::to_value(
+                OpenAIResponsesRequest::new(
+                    &self.model_name,
+                    request,
+                    self.include_encrypted_reasoning,
+                    &self.provider_tools,
+                    model_name,
+                    provider_name,
+                )
+                .await?,
+            )
             .map_err(|e| {
                 Error::new(ErrorDetails::Serialization {
                     message: format!(
@@ -198,36 +282,81 @@ impl WrappedProvider for OpenAIProvider {
                         DisplayOrDebugGateway::new(e)
                     ),
                 })
-            })?;
-        Ok(request_body)
+            })?),
+            OpenAIAPIType::ChatCompletions => Ok(serde_json::to_value(
+                OpenAIRequest::new(&self.model_name, request).await?,
+            )
+            .map_err(|e| {
+                Error::new(ErrorDetails::Serialization {
+                    message: format!(
+                        "Error serializing OpenAI request: {}",
+                        DisplayOrDebugGateway::new(e)
+                    ),
+                })
+            })?),
+        }
     }
+
     fn parse_response(
         &self,
         request: &ModelInferenceRequest,
         raw_request: String,
         raw_response: String,
         latency: Latency,
+        model_name: &str,
+        provider_name: &str,
+        model_inference_id: Uuid,
     ) -> Result<ProviderInferenceResponse, Error> {
-        let response = serde_json::from_str(&raw_response).map_err(|e| {
-            Error::new(ErrorDetails::InferenceServer {
-                message: format!(
-                    "Error parsing JSON response: {}",
-                    DisplayOrDebugGateway::new(e)
-                ),
-                raw_request: Some(raw_request.clone()),
-                raw_response: Some(raw_response.clone()),
-                provider_type: PROVIDER_TYPE.to_string(),
-            })
-        })?;
+        match self.api_type {
+            OpenAIAPIType::Responses => {
+                // TODO - include 'responses' somewhere in the error message
+                let response: OpenAIResponsesResponse = serde_json::from_str(&raw_response)
+                    .map_err(|e| {
+                        Error::new(ErrorDetails::InferenceServer {
+                            message: format!(
+                                "Error parsing JSON response: {}",
+                                DisplayOrDebugGateway::new(e)
+                            ),
+                            raw_request: Some(raw_request.clone()),
+                            raw_response: Some(raw_response.clone()),
+                            provider_type: PROVIDER_TYPE.to_string(),
+                        })
+                    })?;
 
-        OpenAIResponseWithMetadata {
-            response,
-            raw_response,
-            latency,
-            raw_request,
-            generic_request: request,
+                response.into_provider_response(
+                    latency,
+                    raw_request,
+                    raw_response.clone(),
+                    request,
+                    model_name,
+                    provider_name,
+                    model_inference_id,
+                )
+            }
+            OpenAIAPIType::ChatCompletions => {
+                let response = serde_json::from_str(&raw_response).map_err(|e| {
+                    Error::new(ErrorDetails::InferenceServer {
+                        message: format!(
+                            "Error parsing JSON response: {}",
+                            DisplayOrDebugGateway::new(e)
+                        ),
+                        raw_request: Some(raw_request.clone()),
+                        raw_response: Some(raw_response.clone()),
+                        provider_type: PROVIDER_TYPE.to_string(),
+                    })
+                })?;
+
+                OpenAIResponseWithMetadata {
+                    response,
+                    raw_response,
+                    latency,
+                    raw_request,
+                    generic_request: request,
+                    model_inference_id,
+                }
+                .try_into()
+            }
         }
-        .try_into()
     }
 
     fn stream_events(
@@ -236,8 +365,17 @@ impl WrappedProvider for OpenAIProvider {
             Box<dyn Stream<Item = Result<Event, TensorZeroEventError>> + Send + 'static>,
         >,
         start_time: Instant,
+        raw_request: &str,
+        model_inference_id: Uuid,
     ) -> ProviderInferenceResponseStreamInner {
-        stream_openai(PROVIDER_TYPE.to_string(), event_source, start_time)
+        stream_openai(
+            PROVIDER_TYPE.to_string(),
+            model_inference_id,
+            event_source,
+            start_time,
+            None,
+            raw_request,
+        )
     }
 }
 
@@ -249,17 +387,31 @@ impl InferenceProvider for OpenAIProvider {
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<ProviderInferenceResponse, Error> {
-        let request_url = get_chat_url(self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL))?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let request_url = match self.api_type {
+            OpenAIAPIType::Responses => {
+                get_responses_url(self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL))?
+            }
+            OpenAIAPIType::ChatCompletions => {
+                get_chat_url(self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL))?
+            }
+        };
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
-        let request_body = self.make_body(request)?;
+        let request_body = self.make_body(request).await?;
         let mut request_builder = http_client.post(request_url);
 
         if let Some(api_key) = api_key {
             request_builder = request_builder.bearer_auth(api_key.expose_secret());
         }
 
-        let (res, raw_request) = inject_extra_request_data_and_send(
+        let InjectedResponse {
+            response: res,
+            raw_request,
+            headers,
+        } = inject_extra_request_data_and_send_with_headers(
             PROVIDER_TYPE,
             &request.request.extra_body,
             &request.request.extra_headers,
@@ -268,9 +420,16 @@ impl InferenceProvider for OpenAIProvider {
             request_body,
             request_builder,
         )
-        .await?;
+        .await
+        .map_err(|(e, headers)| {
+            let request_id = headers.as_ref().and_then(extract_request_id);
+            with_request_id(e, request_id.as_deref())
+        })?;
 
-        if res.status().is_success() {
+        let status = res.status();
+        let request_id = extract_request_id(&headers);
+
+        if status.is_success() {
             let raw_response = res.text().await.map_err(|e| {
                 Error::new(ErrorDetails::InferenceServer {
                     message: format!(
@@ -283,45 +442,87 @@ impl InferenceProvider for OpenAIProvider {
                 })
             })?;
 
-            let response = serde_json::from_str(&raw_response).map_err(|e| {
+            match self.api_type {
+                OpenAIAPIType::Responses => {
+                    let response: OpenAIResponsesResponse = serde_json::from_str(&raw_response)
+                        .map_err(|e| {
+                            Error::new(ErrorDetails::InferenceServer {
+                                message: format!(
+                                    "Error parsing JSON response: {}",
+                                    DisplayOrDebugGateway::new(e)
+                                ),
+                                raw_request: Some(raw_request.clone()),
+                                raw_response: Some(raw_response.clone()),
+                                provider_type: PROVIDER_TYPE.to_string(),
+                            })
+                        })?;
+                    let latency = Latency::NonStreaming {
+                        response_time: start_time.elapsed(),
+                    };
+                    response.into_provider_response(
+                        latency,
+                        raw_request,
+                        raw_response.clone(),
+                        request.request,
+                        request.model_name,
+                        request.provider_name,
+                        request.model_inference_id,
+                    )
+                }
+                OpenAIAPIType::ChatCompletions => {
+                    let response = serde_json::from_str(&raw_response).map_err(|e| {
+                        Error::new(ErrorDetails::InferenceServer {
+                            message: format!(
+                                "Error parsing JSON response: {}",
+                                DisplayOrDebugGateway::new(e)
+                            ),
+                            raw_request: Some(raw_request.clone()),
+                            raw_response: Some(raw_response.clone()),
+                            provider_type: PROVIDER_TYPE.to_string(),
+                        })
+                    })?;
+
+                    let latency = Latency::NonStreaming {
+                        response_time: start_time.elapsed(),
+                    };
+                    Ok(OpenAIResponseWithMetadata {
+                        response,
+                        raw_response,
+                        latency,
+                        raw_request: raw_request.clone(),
+                        generic_request: request.request,
+                        model_inference_id: request.model_inference_id,
+                    }
+                    .try_into()?)
+                }
+            }
+            .inspect(|response: &ProviderInferenceResponse| {
+                if response.output.is_empty() {
+                    tracing::warn!(
+                        provider = %PROVIDER_TYPE,
+                        request_id = request_id.as_deref(),
+                        "OpenAI non-streaming response returned no content blocks"
+                    );
+                }
+            })
+        } else {
+            let raw_response = res.text().await.map_err(|e| {
                 Error::new(ErrorDetails::InferenceServer {
                     message: format!(
-                        "Error parsing JSON response: {}",
+                        "Error parsing error response: {}",
                         DisplayOrDebugGateway::new(e)
                     ),
                     raw_request: Some(raw_request.clone()),
-                    raw_response: Some(raw_response.clone()),
+                    raw_response: None,
                     provider_type: PROVIDER_TYPE.to_string(),
                 })
             })?;
-
-            let latency = Latency::NonStreaming {
-                response_time: start_time.elapsed(),
-            };
-            Ok(OpenAIResponseWithMetadata {
-                response,
-                raw_response,
-                latency,
-                raw_request: raw_request.clone(),
-                generic_request: request.request,
-            }
-            .try_into()?)
-        } else {
             Err(handle_openai_error(
-                &raw_request.clone(),
-                res.status(),
-                &res.text().await.map_err(|e| {
-                    Error::new(ErrorDetails::InferenceServer {
-                        message: format!(
-                            "Error parsing error response: {}",
-                            DisplayOrDebugGateway::new(e)
-                        ),
-                        raw_request: Some(raw_request),
-                        raw_response: None,
-                        provider_type: PROVIDER_TYPE.to_string(),
-                    })
-                })?,
+                &raw_request,
+                status,
+                &raw_response,
                 PROVIDER_TYPE,
+                request_id.as_deref(),
             ))
         }
     }
@@ -330,51 +531,141 @@ impl InferenceProvider for OpenAIProvider {
         &'a self,
         ModelProviderRequest {
             request,
-            provider_name: _,
+            provider_name,
             model_name,
+            otlp_config: _,
+            model_inference_id,
         }: ModelProviderRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
-        let request_body = serde_json::to_value(OpenAIRequest::new(&self.model_name, request)?)
-            .map_err(|e| {
-                Error::new(ErrorDetails::Serialization {
-                    message: format!(
-                        "Error serializing OpenAI request: {}",
-                        DisplayOrDebugGateway::new(e)
-                    ),
-                })
-            })?;
-        let request_url = get_chat_url(self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL))?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
-        let mut request_builder = http_client.post(request_url);
-        if let Some(api_key) = api_key {
-            request_builder = request_builder.bearer_auth(api_key.expose_secret());
-        }
-        let (event_source, raw_request) = inject_extra_request_data_and_send_eventsource(
-            PROVIDER_TYPE,
-            &request.extra_body,
-            &request.extra_headers,
-            model_provider,
-            model_name,
-            request_body,
-            request_builder,
-        )
-        .await?;
 
-        let stream = stream_openai(
-            PROVIDER_TYPE.to_string(),
-            event_source.map_err(TensorZeroEventError::EventSource),
-            start_time,
-        )
-        .peekable();
-        Ok((stream, raw_request))
+        match self.api_type {
+            OpenAIAPIType::Responses => {
+                let request_url =
+                    get_responses_url(self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL))?;
+
+                // TODO - support encrypted reasoning in streaming
+                let request_body = serde_json::to_value(
+                    OpenAIResponsesRequest::new(
+                        &self.model_name,
+                        request,
+                        false,
+                        &self.provider_tools,
+                        model_name,
+                        provider_name,
+                    )
+                    .await?,
+                )
+                .map_err(|e| {
+                    Error::new(ErrorDetails::Serialization {
+                        message: format!(
+                            "Error serializing OpenAI Responses request: {}",
+                            DisplayOrDebugGateway::new(e)
+                        ),
+                    })
+                })?;
+
+                let mut request_builder = http_client.post(request_url);
+                if let Some(api_key) = api_key {
+                    request_builder = request_builder.bearer_auth(api_key.expose_secret());
+                }
+
+                let InjectedResponse {
+                    response: event_source,
+                    raw_request,
+                    headers,
+                } = inject_extra_request_data_and_send_eventsource_with_headers(
+                    PROVIDER_TYPE,
+                    &request.extra_body,
+                    &request.extra_headers,
+                    model_provider,
+                    model_name,
+                    request_body,
+                    request_builder,
+                )
+                .await
+                .map_err(|(e, headers)| {
+                    let request_id = headers.as_ref().and_then(extract_request_id);
+                    with_request_id(e, request_id.as_deref())
+                })?;
+
+                let request_id = extract_request_id(&headers);
+                let stream = stream_openai_responses(
+                    PROVIDER_TYPE.to_string(),
+                    model_inference_id,
+                    event_source.map_err(TensorZeroEventError::EventSource),
+                    start_time,
+                    model_provider.discard_unknown_chunks,
+                    model_name,
+                    provider_name,
+                    request_id,
+                    &raw_request,
+                )
+                .peekable();
+                Ok((stream, raw_request))
+            }
+            OpenAIAPIType::ChatCompletions => {
+                // Use Chat Completions API for streaming
+                let request_url =
+                    get_chat_url(self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL))?;
+
+                let request_body =
+                    serde_json::to_value(OpenAIRequest::new(&self.model_name, request).await?)
+                        .map_err(|e| {
+                            Error::new(ErrorDetails::Serialization {
+                                message: format!(
+                                    "Error serializing OpenAI request: {}",
+                                    DisplayOrDebugGateway::new(e)
+                                ),
+                            })
+                        })?;
+
+                let mut request_builder = http_client.post(request_url);
+                if let Some(api_key) = api_key {
+                    request_builder = request_builder.bearer_auth(api_key.expose_secret());
+                }
+
+                let InjectedResponse {
+                    response: event_source,
+                    raw_request,
+                    headers,
+                } = inject_extra_request_data_and_send_eventsource_with_headers(
+                    PROVIDER_TYPE,
+                    &request.extra_body,
+                    &request.extra_headers,
+                    model_provider,
+                    model_name,
+                    request_body,
+                    request_builder,
+                )
+                .await
+                .map_err(|(e, headers)| {
+                    let request_id = headers.as_ref().and_then(extract_request_id);
+                    with_request_id(e, request_id.as_deref())
+                })?;
+
+                let request_id = extract_request_id(&headers);
+                let stream = stream_openai(
+                    PROVIDER_TYPE.to_string(),
+                    model_inference_id,
+                    event_source.map_err(TensorZeroEventError::EventSource),
+                    start_time,
+                    request_id,
+                    &raw_request,
+                )
+                .peekable();
+                Ok((stream, raw_request))
+            }
+        }
     }
 
-    // Get a single chunk from the stream and make sure it is OK then send to client.
-    // We want to do this here so that we can tell that the request is working.
     /// 1. Upload the requests to OpenAI as a File
     /// 2. Start the batch inference
     ///    We do them in sequence here.
@@ -384,7 +675,10 @@ impl InferenceProvider for OpenAIProvider {
         client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
     ) -> Result<StartBatchProviderInferenceResponse, Error> {
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let mut batch_requests = Vec::with_capacity(requests.len());
         for request in requests {
             batch_requests.push(
@@ -510,7 +804,10 @@ impl InferenceProvider for OpenAIProvider {
                 })
             })?
             .push(&batch_params.batch_id);
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let raw_request = request_url.to_string();
         let mut request_builder = http_client.get(request_url);
         if let Some(api_key) = api_key {
@@ -584,6 +881,38 @@ impl InferenceProvider for OpenAIProvider {
     }
 }
 
+fn apply_inference_params(
+    request: &mut OpenAIRequest,
+    inference_params: &ChatCompletionInferenceParamsV2,
+) {
+    let ChatCompletionInferenceParamsV2 {
+        reasoning_effort,
+        service_tier,
+        thinking_budget_tokens,
+        verbosity,
+    } = inference_params;
+
+    if reasoning_effort.is_some() {
+        request.reasoning_effort.clone_from(reasoning_effort);
+    }
+
+    if service_tier.is_some() {
+        request.service_tier.clone_from(service_tier);
+    }
+
+    if thinking_budget_tokens.is_some() {
+        warn_inference_parameter_not_supported(
+            PROVIDER_NAME,
+            "thinking_budget_tokens",
+            Some("Tip: You might want to use `reasoning_effort` for this provider."),
+        );
+    }
+
+    if verbosity.is_some() {
+        request.verbosity.clone_from(verbosity);
+    }
+}
+
 impl EmbeddingProvider for OpenAIProvider {
     async fn embed(
         &self,
@@ -592,7 +921,10 @@ impl EmbeddingProvider for OpenAIProvider {
         dynamic_api_keys: &InferenceCredentials,
         model_provider_data: &EmbeddingProviderRequestInfo,
     ) -> Result<EmbeddingProviderResponse, Error> {
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let request_body = OpenAIEmbeddingRequest::new(
             &self.model_name,
             &request.input,
@@ -678,43 +1010,43 @@ impl EmbeddingProvider for OpenAIProvider {
                     })
                 })?,
                 PROVIDER_TYPE,
+                None,
             ))
         }
     }
 }
 
-pub async fn convert_stream_error(provider_type: String, e: reqwest_eventsource::Error) -> Error {
-    let message = e.to_string();
-    let mut raw_response = None;
-    if let reqwest_eventsource::Error::InvalidStatusCode(_, resp) = e {
-        raw_response = resp.text().await.ok();
-    }
-    ErrorDetails::InferenceServer {
-        message,
-        raw_request: None,
-        raw_response,
-        provider_type,
-    }
-    .into()
-}
-
 pub fn stream_openai(
     provider_type: String,
+    model_inference_id: Uuid,
     event_source: impl Stream<Item = Result<Event, TensorZeroEventError>> + Send + 'static,
     start_time: Instant,
+    request_id: Option<String>,
+    raw_request: &str,
 ) -> ProviderInferenceResponseStreamInner {
+    let raw_request = raw_request.to_string();
+    let mut saw_content_block = false;
+    let mut encountered_error = false;
     let mut tool_call_ids = Vec::new();
     Box::pin(async_stream::stream! {
         futures::pin_mut!(event_source);
         while let Some(ev) = event_source.next().await {
             match ev {
                 Err(e) => {
+                    let request_id_for_error = match &e {
+                        TensorZeroEventError::TensorZero(_) => request_id.clone(),
+                        TensorZeroEventError::EventSource(inner) => {
+                            request_id.clone().or_else(|| request_id_from_event_source_error(inner))
+                        }
+                    };
                     match e {
                         TensorZeroEventError::TensorZero(e) => {
-                            yield Err(e);
+                            encountered_error = true;
+                            yield Err(with_request_id(e, request_id_for_error.as_deref()));
                         }
                         TensorZeroEventError::EventSource(e) => {
-                            yield Err(convert_stream_error(provider_type.clone(), e).await);
+                            encountered_error = true;
+                            yield Err(convert_stream_error(raw_request.clone(), provider_type.clone(), *e, request_id_for_error.as_deref()).await);
                         }
                     }
                 }
@@ -725,23 +1057,44 @@ pub fn stream_openai(
                             break;
                         }
                         let data: Result<OpenAIChatChunk, Error> =
-                            serde_json::from_str(&message.data).map_err(|e| Error::new(ErrorDetails::InferenceServer {
-                                message: format!(
-                                    "Error parsing chunk. Error: {e}",
-                                ),
-                                raw_request: None,
-                                raw_response: Some(message.data.clone()),
-                                provider_type: provider_type.clone(),
-                            }));
+                            serde_json::from_str(&message.data).map_err(|e| {
+                                let error_message = match &request_id {
+                                    Some(id) => format!("Error parsing chunk. Error: {e} [request_id: {id}]"),
+                                    None => format!("Error parsing chunk. Error: {e}"),
+                                };
+                                Error::new(ErrorDetails::InferenceServer {
+                                    message: error_message,
+                                    raw_request: Some(raw_request.clone()),
+                                    raw_response: Some(message.data.clone()),
+                                    provider_type: provider_type.clone(),
+                                })
+                            });
 
                         let latency = start_time.elapsed();
                         let stream_message = data.and_then(|d| {
-                            openai_to_tensorzero_chunk(message.data, d, latency, &mut tool_call_ids)
+                            openai_to_tensorzero_chunk(
+                                message.data,
+                                d,
+                                latency,
+                                &mut tool_call_ids,
+                                model_inference_id,
+                                &provider_type,
+                            )
                         });
+                        if stream_message.as_ref().is_ok_and(|chunk| !chunk.content.is_empty()) {
+                            saw_content_block = true;
+                        }
                         yield stream_message;
                     }
                 },
             }
+        }
+        if !saw_content_block && !encountered_error {
+            tracing::warn!(
+                provider = %provider_type,
+                request_id = request_id.as_deref(),
+                "OpenAI streaming response returned no content blocks"
+            );
         }
     })
 }
@@ -761,7 +1114,10 @@ impl OpenAIProvider {
             self.api_base.as_ref().unwrap_or(&OPENAI_DEFAULT_BASE_URL),
             Some(file_id),
         )?;
-        let api_key = self.credentials.get_api_key(credentials)?;
+        let api_key = self
+            .credentials
+            .get_api_key(credentials)
+            .map_err(|e| e.log())?;
         let mut request_builder = client.get(file_url);
         if let Some(api_key) = api_key {
             request_builder = request_builder.bearer_auth(api_key.expose_secret());
@@ -793,6 +1149,7 @@ impl OpenAIProvider {
                     })
                 })?,
                 PROVIDER_TYPE,
+                None,
             ));
         }
 
@@ -863,26 +1220,97 @@ fn get_embedding_url(base_url: &Url) -> Result<Url, Error> {
     })
 }
 
+fn extract_request_id(headers: &reqwest::header::HeaderMap) -> Option<String> {
+    headers
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .map(ToOwned::to_owned)
+}
+
+pub(super) fn request_id_from_event_source_error(
+    error: &reqwest_eventsource::Error,
+) -> Option<String> {
+    match error {
+        reqwest_eventsource::Error::InvalidStatusCode(_, resp)
+        | reqwest_eventsource::Error::InvalidContentType(_, resp) => {
+            extract_request_id(resp.headers())
+        }
+        _ => None,
+    }
+}
+
+/// Append a request_id to an error's message.
+/// Handles FatalStreamError, InferenceClient, and InferenceServer errors.
+/// Other error types are returned unchanged.
+pub(super) fn with_request_id(error: Error, request_id: Option<&str>) -> Error {
+    let Some(request_id) = request_id else {
+        return error;
+    };
+    match error.get_details() {
+        ErrorDetails::FatalStreamError {
+            message,
+            provider_type,
+            raw_request,
+            raw_response,
+        } => Error::new(ErrorDetails::FatalStreamError {
+            message: format!("{message} [request_id: {request_id}]"),
+            provider_type: provider_type.clone(),
+            raw_request: raw_request.clone(),
+            raw_response: raw_response.clone(),
+        }),
+        ErrorDetails::InferenceClient {
+            status_code,
+            message,
+            raw_request,
+            raw_response,
+            provider_type,
+        } => Error::new(ErrorDetails::InferenceClient {
+            status_code: *status_code,
+            message: format!("{message} [request_id: {request_id}]"),
+            raw_request: raw_request.clone(),
+            raw_response: raw_response.clone(),
+            provider_type: provider_type.clone(),
+        }),
+        ErrorDetails::InferenceServer {
+            message,
+            raw_request,
+            raw_response,
+            provider_type,
+        } => Error::new(ErrorDetails::InferenceServer {
+            message: format!("{message} [request_id: {request_id}]"),
+            raw_request: raw_request.clone(),
+            raw_response: raw_response.clone(),
+            provider_type: provider_type.clone(),
+        }),
+        _ => error,
+    }
+}
+
 pub(super) fn handle_openai_error(
     raw_request: &str,
     response_code: StatusCode,
     response_body: &str,
     provider_type: &str,
+    request_id: Option<&str>,
 ) -> Error {
+    let message = match request_id {
+        Some(id) => format!("{response_body} [request_id: {id}]"),
+        None => response_body.to_string(),
+    };
     match response_code {
         StatusCode::BAD_REQUEST
         | StatusCode::UNAUTHORIZED
         | StatusCode::FORBIDDEN
         | StatusCode::TOO_MANY_REQUESTS => ErrorDetails::InferenceClient {
             status_code: Some(response_code),
-            message: response_body.to_string(),
+            message,
             raw_request: Some(raw_request.to_string()),
             raw_response: Some(response_body.to_string()),
             provider_type: provider_type.to_string(),
         }
         .into(),
         _ => ErrorDetails::InferenceServer {
-            message: response_body.to_string(),
+            message,
             raw_request: Some(raw_request.to_string()),
             raw_response: Some(response_body.to_string()),
             provider_type: provider_type.to_string(),
@@ -993,6 +1421,8 @@ where
     }
 }
 
+// Signature dictated by Serde
+#[expect(clippy::ref_option)]
 fn serialize_optional_text_content_vec<S>(
     content: &Option<Vec<OpenAIContentBlock<'_>>>,
     serializer: S,
@@ -1006,10 +1436,18 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Deserialize, Debug, PartialEq, Serialize)]
 pub struct OpenAIFile<'a> {
-    file_data: Cow<'a, str>,
-    filename: Cow<'a, str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_data: Option<Cow<'a, str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    filename: Option<Cow<'a, str>>,
+}
+
+#[derive(Clone, Deserialize, Debug, PartialEq, Serialize)]
+pub struct OpenAIInputAudio<'a> {
+    data: Cow<'a, str>,
+    format: Cow<'a, str>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1017,6 +1455,7 @@ pub enum OpenAIContentBlock<'a> {
     Text { text: Cow<'a, str> },
     ImageUrl { image_url: OpenAIImageUrl },
     File { file: OpenAIFile<'a> },
+    InputAudio { input_audio: OpenAIInputAudio<'a> },
     Unknown { data: Cow<'a, Value> },
 }
 
@@ -1028,9 +1467,18 @@ impl Serialize for OpenAIContentBlock<'_> {
         #[derive(Serialize)]
         #[serde(tag = "type", rename_all = "snake_case")]
         enum Helper<'a> {
-            Text { text: &'a str },
-            ImageUrl { image_url: &'a OpenAIImageUrl },
-            File { file: &'a OpenAIFile<'a> },
+            Text {
+                text: &'a str,
+            },
+            ImageUrl {
+                image_url: &'a OpenAIImageUrl,
+            },
+            File {
+                file: &'a OpenAIFile<'a>,
+            },
+            InputAudio {
+                input_audio: &'a OpenAIInputAudio<'a>,
+            },
         }
         match self {
             OpenAIContentBlock::Text { text } => Helper::Text { text }.serialize(serializer),
@@ -1038,6 +1486,9 @@ impl Serialize for OpenAIContentBlock<'_> {
                 Helper::ImageUrl { image_url }.serialize(serializer)
             }
             OpenAIContentBlock::File { file } => Helper::File { file }.serialize(serializer),
+            OpenAIContentBlock::InputAudio { input_audio } => {
+                Helper::InputAudio { input_audio }.serialize(serializer)
+            }
             OpenAIContentBlock::Unknown { data } => data.serialize(serializer),
         }
     }
@@ -1047,6 +1498,8 @@ impl Serialize for OpenAIContentBlock<'_> {
 #[serde(rename_all = "snake_case")]
 pub struct OpenAIImageUrl {
     pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Detail>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -1135,7 +1588,9 @@ impl OpenAIRequestMessage<'_> {
             OpenAIRequestMessage::Developer(msg) => msg.content.to_lowercase().contains(value),
             OpenAIRequestMessage::User(msg) => msg.content.iter().any(|c| match c {
                 OpenAIContentBlock::Text { text } => text.to_lowercase().contains(value),
-                OpenAIContentBlock::ImageUrl { .. } | OpenAIContentBlock::File { .. } => false,
+                OpenAIContentBlock::ImageUrl { .. }
+                | OpenAIContentBlock::File { .. }
+                | OpenAIContentBlock::InputAudio { .. } => false,
                 // Don't inspect the contents of 'unknown' blocks
                 OpenAIContentBlock::Unknown { data: _ } => false,
             }),
@@ -1143,9 +1598,9 @@ impl OpenAIRequestMessage<'_> {
                 if let Some(content) = &msg.content {
                     content.iter().any(|c| match c {
                         OpenAIContentBlock::Text { text } => text.to_lowercase().contains(value),
-                        OpenAIContentBlock::ImageUrl { .. } | OpenAIContentBlock::File { .. } => {
-                            false
-                        }
+                        OpenAIContentBlock::ImageUrl { .. }
+                        | OpenAIContentBlock::File { .. }
+                        | OpenAIContentBlock::InputAudio { .. } => false,
                         // Don't inspect the contents of 'unknown' blocks
                         OpenAIContentBlock::Unknown { data: _ } => false,
                     })
@@ -1158,24 +1613,64 @@ impl OpenAIRequestMessage<'_> {
     }
 }
 
-pub enum SystemOrDeveloper<'a> {
-    System(&'a str),
-    Developer(&'a str),
+impl<'a> SystemOrDeveloper<'a> {
+    pub fn into_openai_request_message(self) -> OpenAIRequestMessage<'a> {
+        match self {
+            SystemOrDeveloper::System(msg) => {
+                OpenAIRequestMessage::System(OpenAISystemRequestMessage { content: msg })
+            }
+            SystemOrDeveloper::Developer(msg) => {
+                OpenAIRequestMessage::Developer(OpenAISystemRequestMessage { content: msg })
+            }
+        }
+    }
+    pub fn into_openai_responses_input(self) -> OpenAIResponsesInput<'a> {
+        let role = match self {
+            SystemOrDeveloper::System(_) => "system",
+            SystemOrDeveloper::Developer(_) => "developer",
+        };
+        let text = match self {
+            SystemOrDeveloper::System(msg) => msg,
+            SystemOrDeveloper::Developer(msg) => msg,
+        };
+        OpenAIResponsesInput::Known(OpenAIResponsesInputInner::Message(
+            OpenAIResponsesInputMessage {
+                role,
+                id: None,
+                content: vec![OpenAIResponsesInputMessageContent::InputText { text }],
+            },
+        ))
+    }
 }
 
-pub fn prepare_openai_messages<'a>(
+#[derive(Copy, Clone, Debug)]
+pub struct OpenAIMessagesConfig<'a> {
+    pub json_mode: Option<&'a ModelInferenceRequestJsonMode>,
+    pub provider_type: &'a str,
+    pub fetch_and_encode_input_files_before_inference: bool,
+}
+
+fn supports_detail_parameter(provider_type: &str) -> bool {
+    matches!(provider_type, "openai" | "azure" | "xai")
+}
+
+pub async fn prepare_openai_messages<'a>(
     system_or_developer: Option<SystemOrDeveloper<'a>>,
     messages: &'a [RequestMessage],
-    json_mode: Option<&'a ModelInferenceRequestJsonMode>,
-    provider_type: &'a str,
+    config: OpenAIMessagesConfig<'a>,
 ) -> Result<Vec<OpenAIRequestMessage<'a>>, Error> {
-    let mut openai_messages = Vec::with_capacity(messages.len());
-    for message in messages {
-        openai_messages.extend(tensorzero_to_openai_messages(message, provider_type)?);
-    }
+    let mut openai_messages: Vec<_> = try_join_all(
+        messages
+            .iter()
+            .map(|msg| tensorzero_to_openai_messages(msg, config)),
+    )
+    .await?
+    .into_iter()
+    .flatten()
+    .collect();
 
     if let Some(system_msg) =
-        prepare_system_or_developer_message(system_or_developer, json_mode, &openai_messages)
+        prepare_system_or_developer_message(system_or_developer, config.json_mode, &openai_messages)
     {
         openai_messages.insert(0, system_msg);
     }
@@ -1183,27 +1678,95 @@ pub fn prepare_openai_messages<'a>(
     Ok(openai_messages)
 }
 
+/// Helper function to prepare allowed_tools constraint when dynamic allowed_tools are set.
+/// This returns the AllowedToolsChoice struct with the appropriate mode and tool references.
+///
+/// This is shared logic across OpenAI-compatible providers (OpenAI, Groq, OpenRouter).
+pub(crate) fn prepare_allowed_tools_constraint<'a>(
+    tool_config: &'a ToolCallConfig,
+) -> Option<AllowedToolsChoice<'a>> {
+    // OpenAI-compatible providers don't allow both tool-choice "none" and tool-choice "allowed_tools",
+    // since they're both set via the top-level "tool_choice" field.
+    // We make `ToolChoice::None` take priority - that is, we allow "none" of the allowed tools.
+    if tool_config.tool_choice == ToolChoice::None {
+        return None;
+    }
+    let allowed_tools_list = tool_config.allowed_tools.as_dynamic_allowed_tools()?;
+
+    // Construct the OpenAI spec-compliant allowed_tools structure
+    let mode = match &tool_config.tool_choice {
+        ToolChoice::Required => AllowedToolsMode::Required,
+        _ => AllowedToolsMode::Auto,
+    };
+
+    // For each allowed tool name, determine if it's a function or custom tool
+    let tool_refs: Vec<ToolReference> = allowed_tools_list
+        .iter()
+        .map(|name| {
+            // Check if this tool name belongs to a custom tool
+            let is_custom = tool_config
+                .openai_custom_tools
+                .iter()
+                .any(|custom_tool| custom_tool.name == *name);
+
+            if is_custom {
+                ToolReference::Custom {
+                    custom: SpecificToolCustom { name },
+                }
+            } else {
+                ToolReference::Function {
+                    function: SpecificToolFunction { name },
+                }
+            }
+        })
+        .collect();
+
+    Some(AllowedToolsChoice {
+        r#type: "allowed_tools",
+        allowed_tools: AllowedToolsConstraint {
+            mode,
+            tools: tool_refs,
+        },
+    })
+}
+
 /// If there are no tools passed or the tools are empty, return None for both tools and tool_choice
 /// Otherwise convert the tool choice and tools to OpenAI format
-pub(super) fn prepare_openai_tools<'a>(
-    request: &'a ModelInferenceRequest,
-) -> (
-    Option<Vec<OpenAITool<'a>>>,
-    Option<OpenAIToolChoice<'a>>,
-    Option<bool>,
-) {
+fn prepare_openai_tools<'a>(request: &'a ModelInferenceRequest) -> PreparedOpenAIToolsResult<'a> {
     match &request.tool_config {
         None => (None, None, None),
         Some(tool_config) => {
-            if tool_config.tools_available.is_empty() {
+            if !tool_config.any_tools_available() && tool_config.openai_custom_tools.is_empty() {
                 return (None, None, None);
             }
-            let tools = Some(tool_config.tools_available.iter().map(Into::into).collect());
-            let tool_choice = Some((&tool_config.tool_choice).into());
+            // This is the only place where we add OpenAI custom tools
+            let tools = Some(
+                tool_config
+                    .tools_available_with_openai_custom()
+                    .map(|tool_ref| match tool_ref {
+                        ToolConfigRef::Function(func) => func.into(),
+                        ToolConfigRef::OpenAICustom(custom) => OpenAITool::Custom { custom },
+                    })
+                    .collect(),
+            );
             let parallel_tool_calls = tool_config.parallel_tool_calls;
+
+            let tool_choice =
+                if let Some(allowed_tools_choice) = prepare_allowed_tools_constraint(tool_config) {
+                    Some(OpenAIToolChoice::AllowedTools(allowed_tools_choice))
+                } else {
+                    // No allowed_tools constraint, use regular tool_choice
+                    Some((&tool_config.tool_choice).into())
+                };
+
             (tools, tool_choice, parallel_tool_calls)
         }
     }
+}
+
+pub enum SystemOrDeveloper<'a> {
+    System(Cow<'a, str>),
+    Developer(Cow<'a, str>),
 }
 
 /// Prepares a system or developer message for OpenAI APIs with JSON mode handling.
@@ -1228,7 +1791,7 @@ pub(super) fn prepare_openai_tools<'a>(
 /// # Example
 /// ```rust,ignore
 /// let system_msg = prepare_system_or_developer_message(
-///     Some(SystemOrDeveloper::System("You are a helpful assistant")),
+///     Some(SystemOrDeveloper::System("You are a helpful assistant".into())),
 ///     Some(&ModelInferenceRequestJsonMode::On),
 ///     &messages
 /// );
@@ -1239,6 +1802,17 @@ pub(super) fn prepare_system_or_developer_message<'a>(
     json_mode: Option<&'_ ModelInferenceRequestJsonMode>,
     messages: &[OpenAIRequestMessage<'a>],
 ) -> Option<OpenAIRequestMessage<'a>> {
+    prepare_system_or_developer_message_helper(system_or_developer, json_mode, |content| {
+        should_add_json_instruction_chat_completion(content, messages)
+    })
+    .map(SystemOrDeveloper::into_openai_request_message)
+}
+
+pub(super) fn prepare_system_or_developer_message_helper<'a>(
+    system_or_developer: Option<SystemOrDeveloper<'a>>,
+    json_mode: Option<&'_ ModelInferenceRequestJsonMode>,
+    contains_content: impl FnOnce(&str) -> bool,
+) -> Option<SystemOrDeveloper<'a>> {
     let (content, is_system) = match system_or_developer {
         Some(SystemOrDeveloper::System(content)) => (Some(content), true),
         Some(SystemOrDeveloper::Developer(content)) => (Some(content), false),
@@ -1259,46 +1833,46 @@ pub(super) fn prepare_system_or_developer_message<'a>(
 
         // Has content and JSON mode is on - conditionally add JSON instruction
         (Some(content), Some(ModelInferenceRequestJsonMode::On)) => {
-            if should_add_json_instruction(content, messages) {
+            if contains_content(&content) {
                 Cow::Owned(format!("Respond using JSON.\n\n{content}"))
             } else {
-                Cow::Borrowed(content)
+                content
             }
         }
 
         // Has content, no JSON mode or JSON mode off/strict - use as-is
-        (Some(content), _) => Cow::Borrowed(content),
-    };
-
-    let system_msg = OpenAISystemRequestMessage {
-        content: final_content,
+        (Some(content), _) => content,
     };
 
     Some(if is_system {
-        OpenAIRequestMessage::System(system_msg)
+        SystemOrDeveloper::System(final_content)
     } else {
-        OpenAIRequestMessage::Developer(system_msg)
+        SystemOrDeveloper::Developer(final_content)
     })
 }
 
-fn should_add_json_instruction(content: &str, messages: &[OpenAIRequestMessage<'_>]) -> bool {
+fn should_add_json_instruction_chat_completion(
+    content: &str,
+    messages: &[OpenAIRequestMessage<'_>],
+) -> bool {
     !content.to_lowercase().contains("json")
         && !messages
             .iter()
             .any(|msg| msg.content_contains_case_insensitive("json"))
 }
 
-pub(super) fn tensorzero_to_openai_messages<'a>(
+pub(super) async fn tensorzero_to_openai_messages<'a>(
     message: &'a RequestMessage,
-    provider_type: &str,
+    messages_config: OpenAIMessagesConfig<'a>,
 ) -> Result<Vec<OpenAIRequestMessage<'a>>, Error> {
     match message.role {
-        Role::User => tensorzero_to_openai_user_messages(&message.content, provider_type),
+        Role::User => tensorzero_to_openai_user_messages(&message.content, messages_config).await,
         Role::Assistant => {
             let message = tensorzero_to_openai_assistant_message(
                 Cow::Borrowed(&message.content),
-                provider_type,
-            )?;
+                messages_config,
+            )
+            .await?;
             if message.no_content() {
                 Ok(vec![])
             } else {
@@ -1308,9 +1882,115 @@ pub(super) fn tensorzero_to_openai_messages<'a>(
     }
 }
 
-fn tensorzero_to_openai_user_messages<'a>(
+pub(super) async fn prepare_file_message(
+    file: &LazyFile,
+    messages_config: OpenAIMessagesConfig<'_>,
+) -> Result<OpenAIContentBlock<'static>, Error> {
+    match file {
+        // If we have all of the following:
+        // * The user passed in an image URL (not base64-encoded file data)
+        // * The user explicitly specified an image mime type
+        // * The `fetch_and_encode_input_files_before_inference` config setting is off (so we're allowed to forward image urls)
+        //
+        // Then, we can forward the image url directly to OpenAI. Unfortunately, we need to know the mime type for this to work,
+        // since we need to map images to "image_url" content blocks.
+        // Without downloading the file, we cannot guarantee that we guess the mime type correctly, so we don't try.
+        //
+        // OpenAI doesn't support passing in urls for 'file' content blocks, so we can only forward image urls.
+        LazyFile::Url {
+            file_url:
+                FileUrl {
+                    mime_type,
+                    url,
+                    detail,
+                    filename: _,
+                },
+            future: _,
+        } if !messages_config.fetch_and_encode_input_files_before_inference
+        // If the mime type was provided by the caller we know we should only forward image URLs and fetch the rest
+        && matches!(mime_type.as_ref().map(mime::MediaType::type_), Some(mime::IMAGE) | None) =>
+        {
+            let detail_to_use = if detail.is_some()
+                && !supports_detail_parameter(messages_config.provider_type)
+            {
+                tracing::warn!(
+                    "The image detail setting is not supported by `{}`. The `detail` field will be ignored.",
+                    messages_config.provider_type
+                );
+                None
+            } else {
+                detail.clone()
+            };
+            Ok(OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: url.to_string(),
+                    detail: detail_to_use,
+                },
+            })
+        }
+        _ => {
+            let resolved_file = file.resolve().await?;
+            let ObjectStorageFile { file, data } = &*resolved_file;
+            let base64_url = format!("data:{};base64,{}", file.mime_type, data);
+            if file.mime_type.type_() == mime::IMAGE {
+                let detail_to_use = if file.detail.is_some()
+                    && !supports_detail_parameter(messages_config.provider_type)
+                {
+                    tracing::warn!(
+                        "The image detail setting is not supported by `{}`. The `detail` field will be ignored.",
+                        messages_config.provider_type
+                    );
+                    None
+                } else {
+                    file.detail.clone()
+                };
+                Ok(OpenAIContentBlock::ImageUrl {
+                    image_url: OpenAIImageUrl {
+                        // This will only produce an error if we pass in a bad
+                        // `Base64File` (with missing file data)
+                        url: base64_url,
+                        detail: detail_to_use,
+                    },
+                })
+            } else if file.mime_type.type_() == mime::AUDIO {
+                // Audio files use the input_audio format with unprefixed base64 and format field
+                let format = mime_type_to_audio_format(&file.mime_type)?;
+                Ok(OpenAIContentBlock::InputAudio {
+                    input_audio: OpenAIInputAudio {
+                        data: Cow::Owned(data.clone()),
+                        format: Cow::Owned(format.to_string()),
+                    },
+                })
+            } else {
+                // OpenAI doesn't document how they determine the content type of the base64 blob
+                // - let's try to pick a good suffix for the filename, in case they don't sniff
+                // the mime type from the actual file content.
+                let filename = if let Some(ref user_filename) = file.filename {
+                    // Use the user-provided filename if available
+                    Cow::Owned(user_filename.clone())
+                } else {
+                    // Otherwise, generate a filename with the appropriate extension
+                    let suffix = mime_type_to_ext(&file.mime_type)?.ok_or_else(|| {
+                        Error::new(ErrorDetails::InvalidMessage {
+                            message: format!("Mime type {} has no filetype suffix", file.mime_type),
+                        })
+                    })?;
+                    Cow::Owned(format!("input.{suffix}"))
+                };
+                Ok(OpenAIContentBlock::File {
+                    file: OpenAIFile {
+                        file_data: Some(Cow::Owned(base64_url)),
+                        filename: Some(filename),
+                    },
+                })
+            }
+        }
+    }
+}
+
+async fn tensorzero_to_openai_user_messages<'a>(
     content_blocks: &'a [ContentBlock],
-    provider_type: &str,
+    messages_config: OpenAIMessagesConfig<'a>,
 ) -> Result<Vec<OpenAIRequestMessage<'a>>, Error> {
     // We need to separate the tool result messages from the user content blocks.
 
@@ -1336,44 +2016,12 @@ fn tensorzero_to_openai_user_messages<'a>(
                 }));
             }
             ContentBlock::File(file) => {
-                let FileWithPath {
-                    file,
-                    storage_path: _,
-                } = &**file;
-                let data = format!("data:{};base64,{}", file.mime_type, file.data()?);
-                if file.mime_type.type_() == mime::IMAGE {
-                    user_content_blocks.push(OpenAIContentBlock::ImageUrl {
-                        image_url: OpenAIImageUrl {
-                            // This will only produce an error if we pass in a bad
-                            // `Base64File` (with missing file data)
-                            url: data,
-                        },
-                    });
-                } else {
-                    // OpenAI doesn't document how they determine the content type of the base64 blob
-                    // - let's try to pick a good suffix for the filename, in case they don't sniff
-                    // the mime type from the actual file content.
-                    let suffix = mime_type_to_ext(&file.mime_type)?.ok_or_else(|| {
-                        Error::new(ErrorDetails::InvalidMessage {
-                            message: format!("Mime type {} has no filetype suffix", file.mime_type),
-                        })
-                    })?;
-                    user_content_blocks.push(OpenAIContentBlock::File {
-                        file: OpenAIFile {
-                            file_data: Cow::Owned(data),
-                            // TODO - should we allow the user to specify the file name?
-                            filename: Cow::Owned(format!("input.{suffix}")),
-                        },
-                    });
-                }
+                user_content_blocks.push(prepare_file_message(file, messages_config).await?);
             }
             ContentBlock::Thought(thought) => {
-                warn_discarded_thought_block(provider_type, thought);
+                warn_discarded_thought_block(messages_config.provider_type, thought);
             }
-            ContentBlock::Unknown {
-                data,
-                model_provider_name: _,
-            } => {
+            ContentBlock::Unknown(Unknown { data, .. }) => {
                 user_content_blocks.push(OpenAIContentBlock::Unknown {
                     data: Cow::Borrowed(data),
                 });
@@ -1391,9 +2039,9 @@ fn tensorzero_to_openai_user_messages<'a>(
     Ok(messages)
 }
 
-pub fn tensorzero_to_openai_assistant_message<'a>(
+pub async fn tensorzero_to_openai_assistant_message<'a>(
     content_blocks: Cow<'a, [ContentBlock]>,
-    provider_type: &str,
+    messages_config: OpenAIMessagesConfig<'a>,
 ) -> Result<OpenAIRequestMessage<'a>, Error> {
     let content_block_cows: Vec<Cow<'_, ContentBlock>> = match content_blocks {
         Cow::Borrowed(content_blocks) => content_blocks.iter().map(Cow::Borrowed).collect(),
@@ -1446,37 +2094,24 @@ pub fn tensorzero_to_openai_assistant_message<'a>(
                     message: "Tool results are not supported in assistant messages".to_string(),
                 }));
             }
-            Cow::Borrowed(ContentBlock::File(ref file))
-            | Cow::Owned(ContentBlock::File(ref file)) => {
-                let FileWithPath {
-                    file,
-                    storage_path: _,
-                } = &**file;
-                require_image(&file.mime_type, PROVIDER_TYPE)?;
-                assistant_content_blocks.push(OpenAIContentBlock::ImageUrl {
-                    image_url: OpenAIImageUrl {
-                        // This will only produce an error if we pass in a bad
-                        // `Base64File` (with missing file data)
-                        url: format!("data:{};base64,{}", file.mime_type, file.data()?),
-                    },
-                });
+            Cow::Borrowed(ContentBlock::File(file)) => {
+                assistant_content_blocks.push(prepare_file_message(file, messages_config).await?);
             }
-            Cow::Borrowed(ContentBlock::Thought(ref thought))
-            | Cow::Owned(ContentBlock::Thought(ref thought)) => {
-                warn_discarded_thought_block(provider_type, thought);
+            Cow::Owned(ContentBlock::File(ref file)) => {
+                assistant_content_blocks.push(prepare_file_message(file, messages_config).await?);
             }
-            Cow::Borrowed(ContentBlock::Unknown {
-                data,
-                model_provider_name: _,
-            }) => {
+            Cow::Borrowed(ContentBlock::Thought(thought)) => {
+                warn_discarded_thought_block(messages_config.provider_type, thought);
+            }
+            Cow::Owned(ContentBlock::Thought(ref thought)) => {
+                warn_discarded_thought_block(messages_config.provider_type, thought);
+            }
+            Cow::Borrowed(ContentBlock::Unknown(Unknown { data, .. })) => {
                 assistant_content_blocks.push(OpenAIContentBlock::Unknown {
                     data: Cow::Borrowed(data),
                 });
             }
-            Cow::Owned(ContentBlock::Unknown {
-                data,
-                model_provider_name: _,
-            }) => {
+            Cow::Owned(ContentBlock::Unknown(Unknown { data, .. })) => {
                 assistant_content_blocks.push(OpenAIContentBlock::Unknown {
                     data: Cow::Owned(data),
                 });
@@ -1554,16 +2189,20 @@ pub struct OpenAIFunction<'a> {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-pub struct OpenAITool<'a> {
-    pub r#type: OpenAIToolType,
-    pub function: OpenAIFunction<'a>,
-    pub strict: bool,
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum OpenAITool<'a> {
+    Function {
+        function: OpenAIFunction<'a>,
+        strict: bool,
+    },
+    Custom {
+        custom: &'a OpenAICustomTool,
+    },
 }
 
-impl<'a> From<&'a ToolConfig> for OpenAITool<'a> {
-    fn from(tool: &'a ToolConfig) -> Self {
-        OpenAITool {
-            r#type: OpenAIToolType::Function,
+impl<'a> From<&'a FunctionToolConfig> for OpenAITool<'a> {
+    fn from(tool: &'a FunctionToolConfig) -> Self {
+        OpenAITool::Function {
             function: OpenAIFunction {
                 name: tool.name(),
                 description: Some(tool.description()),
@@ -1580,8 +2219,8 @@ pub struct OpenAISFTTool<'a> {
     pub function: OpenAIFunction<'a>,
 }
 
-impl<'a> From<&'a Tool> for OpenAISFTTool<'a> {
-    fn from(tool: &'a Tool) -> Self {
+impl<'a> From<&'a FunctionTool> for OpenAISFTTool<'a> {
+    fn from(tool: &'a FunctionTool) -> Self {
         OpenAISFTTool {
             r#type: OpenAIToolType::Function,
             function: OpenAIFunction {
@@ -1593,10 +2232,9 @@ impl<'a> From<&'a Tool> for OpenAISFTTool<'a> {
     }
 }
 
-impl<'a> From<&'a Tool> for OpenAITool<'a> {
-    fn from(tool: &'a Tool) -> Self {
-        OpenAITool {
-            r#type: OpenAIToolType::Function,
+impl<'a> From<&'a FunctionTool> for OpenAITool<'a> {
+    fn from(tool: &'a FunctionTool) -> Self {
+        OpenAITool::Function {
             function: OpenAIFunction {
                 name: &tool.name,
                 description: Some(&tool.description),
@@ -1654,6 +2292,7 @@ impl<'a> OpenAIBatchParams<'a> {
 pub(super) enum OpenAIToolChoice<'a> {
     String(OpenAIToolChoiceString),
     Specific(SpecificToolChoice<'a>),
+    AllowedTools(AllowedToolsChoice<'a>),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -1671,8 +2310,56 @@ pub(super) struct SpecificToolChoice<'a> {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub(super) struct SpecificToolFunction<'a> {
-    pub(super) name: &'a str,
+pub struct SpecificToolFunction<'a> {
+    pub name: &'a str,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SpecificToolCustom<'a> {
+    pub name: &'a str,
+}
+
+/// Represents the OpenAI API's allowed_tools constraint for tool_choice.
+/// This matches the OpenAI spec structure:
+/// {
+///   "type": "allowed_tools",
+///   "allowed_tools": {
+///     "mode": "auto" | "required",
+///     "tools": [
+///       {"type": "function", "function": {"name": "..."}},
+///       {"type": "custom", "custom": {"name": "..."}}
+///     ]
+///   }
+/// }
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AllowedToolsChoice<'a> {
+    pub r#type: &'static str, // Always "allowed_tools"
+    pub allowed_tools: AllowedToolsConstraint<'a>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AllowedToolsConstraint<'a> {
+    pub mode: AllowedToolsMode,
+    pub tools: Vec<ToolReference<'a>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AllowedToolsMode {
+    Auto,
+    Required,
+}
+
+/// A reference to a tool by name, used in allowed_tools constraint.
+/// Can reference either a function tool or a custom tool.
+/// Serializes as:
+///   - Function: {"type": "function", "function": {"name": "tool_name"}}
+///   - Custom: {"type": "custom", "custom": {"name": "tool_name"}}
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ToolReference<'a> {
+    Function { function: SpecificToolFunction<'a> },
+    Custom { custom: SpecificToolCustom<'a> },
 }
 
 impl Default for OpenAIToolChoice<'_> {
@@ -1706,7 +2393,7 @@ pub(super) struct StreamOptions {
 /// We are not handling logprobs, top_logprobs, n,
 /// presence_penalty, seed, service_tier, stop, user,
 /// or the deprecated function_call and functions arguments.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 struct OpenAIRequest<'a> {
     messages: Vec<OpenAIRequestMessage<'a>>,
     model: &'a str,
@@ -1735,10 +2422,16 @@ struct OpenAIRequest<'a> {
     parallel_tool_calls: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<Cow<'a, [String]>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    service_tier: Option<ServiceTier>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verbosity: Option<String>,
 }
 
 impl<'a> OpenAIRequest<'a> {
-    pub fn new(
+    pub async fn new(
         model: &'a str,
         request: &'a ModelInferenceRequest<'_>,
     ) -> Result<OpenAIRequest<'a>, Error> {
@@ -1752,31 +2445,38 @@ impl<'a> OpenAIRequest<'a> {
             None
         };
         let mut messages = prepare_openai_messages(
-            request.system.as_deref().map(SystemOrDeveloper::System),
+            request
+                .system
+                .as_deref()
+                .map(|m| SystemOrDeveloper::System(Cow::Borrowed(m))),
             &request.messages,
-            Some(&request.json_mode),
-            PROVIDER_TYPE,
-        )?;
+            OpenAIMessagesConfig {
+                json_mode: Some(&request.json_mode),
+                provider_type: PROVIDER_TYPE,
+                fetch_and_encode_input_files_before_inference: request
+                    .fetch_and_encode_input_files_before_inference,
+            },
+        )
+        .await?;
 
         let (tools, tool_choice, mut parallel_tool_calls) = prepare_openai_tools(request);
         if model.to_lowercase().starts_with("o1") && parallel_tool_calls == Some(false) {
             parallel_tool_calls = None;
         }
 
-        if model.to_lowercase().starts_with("o1-mini") {
-            if let Some(OpenAIRequestMessage::System(_)) = messages.first() {
-                if let OpenAIRequestMessage::System(system_msg) = messages.remove(0) {
-                    let user_msg = OpenAIRequestMessage::User(OpenAIUserRequestMessage {
-                        content: vec![OpenAIContentBlock::Text {
-                            text: system_msg.content,
-                        }],
-                    });
-                    messages.insert(0, user_msg);
-                }
-            }
+        if model.to_lowercase().starts_with("o1-mini")
+            && let Some(OpenAIRequestMessage::System(_)) = messages.first()
+            && let OpenAIRequestMessage::System(system_msg) = messages.remove(0)
+        {
+            let user_msg = OpenAIRequestMessage::User(OpenAIUserRequestMessage {
+                content: vec![OpenAIContentBlock::Text {
+                    text: system_msg.content,
+                }],
+            });
+            messages.insert(0, user_msg);
         }
 
-        Ok(OpenAIRequest {
+        let mut openai_request = OpenAIRequest {
             messages,
             model,
             temperature: request.temperature,
@@ -1791,8 +2491,16 @@ impl<'a> OpenAIRequest<'a> {
             tools,
             tool_choice,
             parallel_tool_calls,
+            // allowed_tools is now part of tool_choice (AllowedToolsChoice variant)
             stop: request.borrow_stop_sequences(),
-        })
+            reasoning_effort: None, // handled below
+            service_tier: None,     // handled below
+            verbosity: None,        // handled below
+        };
+
+        apply_inference_params(&mut openai_request, &request.inference_params_v2);
+
+        Ok(openai_request)
     }
 }
 
@@ -1810,7 +2518,7 @@ impl<'a> OpenAIBatchFileInput<'a> {
         model: &'a str,
         request: &'a ModelInferenceRequest<'_>,
     ) -> Result<Self, Error> {
-        let body = OpenAIRequest::new(model, request)?;
+        let body = OpenAIRequest::new(model, request).await?;
         Ok(Self {
             custom_id: inference_id.to_string(),
             method: "POST".to_string(),
@@ -1838,13 +2546,10 @@ impl<'a> OpenAIBatchRequest<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub(super) struct OpenAIUsage {
-    #[serde(default)]
-    pub prompt_tokens: u32,
-    #[serde(default)]
-    pub completion_tokens: u32,
-    pub total_tokens: u32,
+    pub prompt_tokens: Option<u32>,
+    pub completion_tokens: Option<u32>,
 }
 
 impl From<OpenAIUsage> for Usage {
@@ -1856,25 +2561,59 @@ impl From<OpenAIUsage> for Usage {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub(super) struct OpenAIEmbeddingUsage {
+    pub prompt_tokens: Option<u32>,
+}
+
+impl From<OpenAIEmbeddingUsage> for Usage {
+    fn from(usage: OpenAIEmbeddingUsage) -> Self {
+        Usage {
+            input_tokens: usage.prompt_tokens,
+            output_tokens: Some(0), // this is always zero for embeddings
+        }
+    }
+}
+
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-struct OpenAIResponseFunctionCall {
+pub(super) struct OpenAIResponseFunctionCall {
     name: String,
     arguments: String,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-pub(super) struct OpenAIResponseToolCall {
-    id: String,
-    r#type: OpenAIToolType,
-    function: OpenAIResponseFunctionCall,
+pub(super) struct OpenAIResponseCustomCall {
+    name: String,
+    input: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub(super) enum OpenAIResponseToolCall {
+    Function {
+        id: String,
+        function: OpenAIResponseFunctionCall,
+    },
+    Custom {
+        id: String,
+        custom: OpenAIResponseCustomCall,
+    },
 }
 
 impl From<OpenAIResponseToolCall> for ToolCall {
     fn from(openai_tool_call: OpenAIResponseToolCall) -> Self {
-        ToolCall {
-            id: openai_tool_call.id,
-            name: openai_tool_call.function.name,
-            arguments: openai_tool_call.function.arguments,
+        match openai_tool_call {
+            OpenAIResponseToolCall::Function { id, function } => ToolCall {
+                id,
+                name: function.name,
+                arguments: function.arguments,
+            },
+            OpenAIResponseToolCall::Custom { id, custom } => ToolCall {
+                id,
+                name: custom.name,
+                arguments: custom.input,
+            },
         }
     }
 }
@@ -1937,6 +2676,7 @@ struct OpenAIResponseWithMetadata<'a> {
     raw_request: String,
     generic_request: &'a ModelInferenceRequest<'a>,
     raw_response: String,
+    model_inference_id: Uuid,
 }
 
 impl<'a> TryFrom<OpenAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
@@ -1948,6 +2688,7 @@ impl<'a> TryFrom<OpenAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
             raw_request,
             raw_response,
             generic_request,
+            model_inference_id,
         } = value;
         if response.choices.len() != 1 {
             return Err(ErrorDetails::InferenceServer {
@@ -1975,6 +2716,15 @@ impl<'a> TryFrom<OpenAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 provider_type: PROVIDER_TYPE.to_string(),
             }))?;
         let mut content: Vec<ContentBlockOutput> = Vec::new();
+        if let Some(reasoning) = message.reasoning_content {
+            content.push(ContentBlockOutput::Thought(Thought {
+                text: Some(reasoning),
+                signature: None,
+                summary: None,
+                provider_type: Some(PROVIDER_TYPE.to_string()),
+                extra_data: None,
+            }));
+        }
         if let Some(text) = message.content {
             content.push(text.into());
         }
@@ -1983,6 +2733,14 @@ impl<'a> TryFrom<OpenAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 content.push(ContentBlockOutput::ToolCall(tool_call.into()));
             }
         };
+        let raw_usage = openai_usage_from_raw_response(&raw_response).map(|usage| {
+            raw_usage_entries_from_value(
+                model_inference_id,
+                PROVIDER_TYPE,
+                ApiType::ChatCompletions,
+                usage,
+            )
+        });
         let usage = response.usage.into();
         let system = generic_request.system.clone();
         let messages = generic_request.messages.clone();
@@ -1993,9 +2751,12 @@ impl<'a> TryFrom<OpenAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 input_messages: messages,
                 raw_request,
                 raw_response: raw_response.clone(),
+                raw_usage,
+                relay_raw_response: None,
                 usage,
-                latency,
+                provider_latency: latency,
                 finish_reason: Some(finish_reason.into()),
+                id: model_inference_id,
             },
         ))
     }
@@ -2075,6 +2836,8 @@ fn openai_to_tensorzero_chunk(
     mut chunk: OpenAIChatChunk,
     latency: Duration,
     tool_call_ids: &mut Vec<String>,
+    model_inference_id: Uuid,
+    provider_type: &str,
 ) -> Result<ProviderInferenceResponseChunk, Error> {
     if chunk.choices.len() > 1 {
         return Err(ErrorDetails::InferenceServer {
@@ -2085,6 +2848,14 @@ fn openai_to_tensorzero_chunk(
         }
         .into());
     }
+    let raw_usage = openai_usage_from_raw_response(&raw_message).map(|usage| {
+        raw_usage_entries_from_value(
+            model_inference_id,
+            provider_type,
+            ApiType::ChatCompletions,
+            usage,
+        )
+    });
     let usage = chunk.usage.map(Into::into);
     let mut content = vec![];
     let mut finish_reason = None;
@@ -2100,6 +2871,9 @@ fn openai_to_tensorzero_chunk(
                 signature: None,
                 provider_type: Some(PROVIDER_TYPE.to_string()),
                 id: "1".to_string(),
+                summary_id: None,
+                summary_text: None,
+                extra_data: None,
             }));
         }
         if let Some(text) = choice.delta.content {
@@ -2138,13 +2912,25 @@ fn openai_to_tensorzero_chunk(
         }
     }
 
-    Ok(ProviderInferenceResponseChunk::new(
-        content,
-        usage,
-        raw_message,
-        latency,
-        finish_reason,
-    ))
+    Ok(match raw_usage {
+        Some(entries) => ProviderInferenceResponseChunk::new_with_raw_usage(
+            content,
+            usage,
+            raw_message,
+            latency,
+            finish_reason,
+            Some(entries),
+        ),
+        None => {
+            ProviderInferenceResponseChunk::new(content, usage, raw_message, latency, finish_reason)
+        }
+    })
+}
+
+fn openai_usage_from_raw_response(raw_response: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(raw_response)
+        .ok()
+        .and_then(|value| value.get("usage").filter(|v| !v.is_null()).cloned())
 }
 
 #[derive(Debug, Serialize)]
@@ -2174,7 +2960,7 @@ impl<'a> OpenAIEmbeddingRequest<'a> {
 #[derive(Debug, Deserialize, Serialize)]
 struct OpenAIEmbeddingResponse {
     data: Vec<OpenAIEmbeddingData>,
-    usage: OpenAIUsage,
+    usage: Option<OpenAIEmbeddingUsage>,
 }
 
 struct OpenAIEmbeddingResponseWithMetadata<'a> {
@@ -2215,15 +3001,27 @@ impl<'a> TryFrom<OpenAIEmbeddingResponseWithMetadata<'a>> for EmbeddingProviderR
             .into_iter()
             .map(|embedding| embedding.embedding)
             .collect();
-
-        Ok(EmbeddingProviderResponse::new(
+        let provider_usage = response.usage;
+        let usage = provider_usage.clone().map(Into::into).unwrap_or_default();
+        let raw_usage_value = openai_usage_from_raw_response(&raw_response);
+        let mut embedding_response = EmbeddingProviderResponse::new(
             embeddings,
             request.input.clone(),
             raw_request,
             raw_response,
-            response.usage.into(),
+            usage,
             latency,
-        ))
+            None,
+        );
+        embedding_response.raw_usage = raw_usage_value.map(|usage| {
+            raw_usage_entries_from_value(
+                embedding_response.id,
+                PROVIDER_TYPE,
+                ApiType::Embeddings,
+                usage,
+            )
+        });
+        Ok(embedding_response)
     }
 }
 
@@ -2361,13 +3159,6 @@ struct OpenAIBatchError {
 }
 
 #[derive(Debug, Deserialize)]
-struct OpenAIBatchRequestCounts {
-    // total: u32,
-    // completed: u32,
-    // failed: u32,
-}
-
-#[derive(Debug, Deserialize)]
 struct OpenAIBatchFileRow {
     #[serde(rename = "custom_id")]
     inference_id: Uuid,
@@ -2383,17 +3174,27 @@ struct OpenAIBatchFileResponse {
 
 #[cfg(test)]
 mod tests {
+    use base64::Engine;
+    use base64::prelude::*;
+    use futures::FutureExt;
     use serde_json::json;
     use std::borrow::Cow;
-    use tracing_test::traced_test;
 
-    use crate::inference::types::{FunctionType, RequestMessage};
+    use crate::inference::types::file::Detail;
+    use crate::inference::types::storage::{StorageKind, StoragePath};
+    use crate::inference::types::{
+        FunctionType, ObjectStorageFile, ObjectStoragePointer, PendingObjectStoreFile,
+        RequestMessage,
+    };
     use crate::providers::test_helpers::{
         MULTI_TOOL_CONFIG, QUERY_TOOL, WEATHER_TOOL, WEATHER_TOOL_CONFIG,
     };
     use crate::tool::ToolCallConfig;
+    use crate::utils::testing::capture_logs;
 
     use super::*;
+
+    static FERRIS_PNG: &[u8] = include_bytes!("../../../tests/e2e/providers/ferris.png");
 
     #[test]
     fn test_get_chat_url() {
@@ -2425,12 +3226,13 @@ mod tests {
     fn test_handle_openai_error() {
         use reqwest::StatusCode;
 
-        // Test unauthorized error
+        // Test unauthorized error without request_id
         let unauthorized = handle_openai_error(
             "Request Body",
             StatusCode::UNAUTHORIZED,
             "Unauthorized access",
             PROVIDER_TYPE,
+            None,
         );
         let details = unauthorized.get_details();
         assert!(matches!(details, ErrorDetails::InferenceClient { .. }));
@@ -2449,12 +3251,26 @@ mod tests {
             assert_eq!(*raw_response, Some("Unauthorized access".to_string()));
         }
 
+        // Test unauthorized error with request_id
+        let unauthorized_with_id = handle_openai_error(
+            "Request Body",
+            StatusCode::UNAUTHORIZED,
+            "Unauthorized access",
+            PROVIDER_TYPE,
+            Some("req_abc123"),
+        );
+        let details = unauthorized_with_id.get_details();
+        if let ErrorDetails::InferenceClient { message, .. } = details {
+            assert_eq!(message, "Unauthorized access [request_id: req_abc123]");
+        }
+
         // Test forbidden error
         let forbidden = handle_openai_error(
             "Request Body",
             StatusCode::FORBIDDEN,
             "Forbidden access",
             PROVIDER_TYPE,
+            None,
         );
         let details = forbidden.get_details();
         assert!(matches!(details, ErrorDetails::InferenceClient { .. }));
@@ -2479,6 +3295,7 @@ mod tests {
             StatusCode::TOO_MANY_REQUESTS,
             "Rate limit exceeded",
             PROVIDER_TYPE,
+            None,
         );
         let details = rate_limit.get_details();
         assert!(matches!(details, ErrorDetails::InferenceClient { .. }));
@@ -2503,6 +3320,7 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR,
             "Server error",
             PROVIDER_TYPE,
+            None,
         );
         let details = server_error.get_details();
         assert!(matches!(details, ErrorDetails::InferenceServer { .. }));
@@ -2520,8 +3338,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_openai_request_new() {
+    #[tokio::test]
+    async fn test_openai_request_new() {
         // Test basic request
         let basic_request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
@@ -2551,9 +3369,11 @@ mod tests {
             ..Default::default()
         };
 
-        let openai_request = OpenAIRequest::new("gpt-3.5-turbo", &basic_request).unwrap();
+        let openai_request = OpenAIRequest::new("gpt-4.1-mini", &basic_request)
+            .await
+            .unwrap();
 
-        assert_eq!(openai_request.model, "gpt-3.5-turbo");
+        assert_eq!(openai_request.model, "gpt-4.1-mini");
         assert_eq!(openai_request.messages.len(), 2);
         assert_eq!(openai_request.temperature, Some(0.7));
         assert_eq!(openai_request.max_completion_tokens, Some(100));
@@ -2590,7 +3410,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openai_request = OpenAIRequest::new("gpt-4", &request_with_tools).unwrap();
+        let openai_request = OpenAIRequest::new("gpt-4", &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(openai_request.model, "gpt-4");
         assert_eq!(openai_request.messages.len(), 2); // We'll add a system message containing Json to fit OpenAI requirements
@@ -2607,8 +3429,13 @@ mod tests {
         );
         assert!(openai_request.tools.is_some());
         let tools = openai_request.tools.as_ref().unwrap();
-        assert_eq!(tools[0].function.name, WEATHER_TOOL.name());
-        assert_eq!(tools[0].function.parameters, WEATHER_TOOL.parameters());
+        match &tools[0] {
+            OpenAITool::Function { function, .. } => {
+                assert_eq!(function.name, WEATHER_TOOL.name());
+                assert_eq!(function.parameters, WEATHER_TOOL.parameters());
+            }
+            OpenAITool::Custom { .. } => panic!("Expected Function tool"),
+        }
         assert_eq!(
             openai_request.tool_choice,
             Some(OpenAIToolChoice::Specific(SpecificToolChoice {
@@ -2642,7 +3469,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openai_request = OpenAIRequest::new("gpt-4", &request_with_tools).unwrap();
+        let openai_request = OpenAIRequest::new("gpt-4", &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(openai_request.model, "gpt-4");
         assert_eq!(openai_request.messages.len(), 1);
@@ -2683,7 +3512,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openai_request = OpenAIRequest::new("gpt-4", &request_with_tools).unwrap();
+        let openai_request = OpenAIRequest::new("gpt-4", &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(openai_request.model, "gpt-4");
         assert_eq!(openai_request.messages.len(), 1);
@@ -2703,8 +3534,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_openai_new_request_o1() {
+    #[tokio::test]
+    async fn test_openai_new_request_o1() {
         let request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -2727,7 +3558,7 @@ mod tests {
             ..Default::default()
         };
 
-        let openai_request = OpenAIRequest::new("o1-preview", &request).unwrap();
+        let openai_request = OpenAIRequest::new("o1-preview", &request).await.unwrap();
 
         assert_eq!(openai_request.model, "o1-preview");
         assert_eq!(openai_request.messages.len(), 1);
@@ -2764,8 +3595,9 @@ mod tests {
             ..Default::default()
         };
 
-        let openai_request_with_system =
-            OpenAIRequest::new("o1-mini", &request_with_system).unwrap();
+        let openai_request_with_system = OpenAIRequest::new("o1-mini", &request_with_system)
+            .await
+            .unwrap();
 
         // Check that the system message was converted to a user message
         assert_eq!(openai_request_with_system.messages.len(), 2);
@@ -2804,9 +3636,8 @@ mod tests {
                 finish_reason: OpenAIFinishReason::Stop,
             }],
             usage: OpenAIUsage {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
+                prompt_tokens: Some(10),
+                completion_tokens: Some(20),
             },
         };
         let generic_request = ModelInferenceRequest {
@@ -2833,20 +3664,15 @@ mod tests {
 
         let request_body = OpenAIRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.5),
             presence_penalty: Some(0.5),
             frequency_penalty: Some(0.5),
             max_completion_tokens: Some(100),
             seed: Some(69),
-            stream: false,
             response_format: Some(OpenAIResponseFormat::Text),
-            stream_options: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-            stop: None,
+            ..Default::default()
         };
         let raw_request = serde_json::to_string(&request_body).unwrap();
         let raw_response = "test_response".to_string();
@@ -2858,6 +3684,7 @@ mod tests {
             raw_request: raw_request.clone(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_ok());
         let inference_response = result.unwrap();
@@ -2865,11 +3692,11 @@ mod tests {
             inference_response.output,
             vec!["Hello, world!".to_string().into()]
         );
-        assert_eq!(inference_response.usage.input_tokens, 10);
-        assert_eq!(inference_response.usage.output_tokens, 20);
+        assert_eq!(inference_response.usage.input_tokens, Some(10));
+        assert_eq!(inference_response.usage.output_tokens, Some(20));
         assert_eq!(inference_response.finish_reason, Some(FinishReason::Stop));
         assert_eq!(
-            inference_response.latency,
+            inference_response.provider_latency,
             Latency::NonStreaming {
                 response_time: Duration::from_millis(100)
             }
@@ -2892,9 +3719,8 @@ mod tests {
                 message: OpenAIResponseMessage {
                     content: None,
                     reasoning_content: None,
-                    tool_calls: Some(vec![OpenAIResponseToolCall {
+                    tool_calls: Some(vec![OpenAIResponseToolCall::Function {
                         id: "call1".to_string(),
-                        r#type: OpenAIToolType::Function,
                         function: OpenAIResponseFunctionCall {
                             name: "test_function".to_string(),
                             arguments: "{}".to_string(),
@@ -2903,9 +3729,8 @@ mod tests {
                 },
             }],
             usage: OpenAIUsage {
-                prompt_tokens: 15,
-                completion_tokens: 25,
-                total_tokens: 40,
+                prompt_tokens: Some(15),
+                completion_tokens: Some(25),
             },
         };
         let generic_request = ModelInferenceRequest {
@@ -2932,20 +3757,15 @@ mod tests {
 
         let request_body = OpenAIRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.5),
             presence_penalty: Some(0.5),
             frequency_penalty: Some(0.5),
             max_completion_tokens: Some(100),
             seed: Some(69),
-            stream: false,
             response_format: Some(OpenAIResponseFormat::Text),
-            stream_options: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-            stop: None,
+            ..Default::default()
         };
         let raw_request = serde_json::to_string(&request_body).unwrap();
         let result = ProviderInferenceResponse::try_from(OpenAIResponseWithMetadata {
@@ -2956,6 +3776,7 @@ mod tests {
             raw_request: raw_request.clone(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_ok());
         let inference_response = result.unwrap();
@@ -2967,14 +3788,14 @@ mod tests {
                 arguments: "{}".to_string(),
             })]
         );
-        assert_eq!(inference_response.usage.input_tokens, 15);
-        assert_eq!(inference_response.usage.output_tokens, 25);
+        assert_eq!(inference_response.usage.input_tokens, Some(15));
+        assert_eq!(inference_response.usage.output_tokens, Some(25));
         assert_eq!(
             inference_response.finish_reason,
             Some(FinishReason::ToolCall)
         );
         assert_eq!(
-            inference_response.latency,
+            inference_response.provider_latency,
             Latency::NonStreaming {
                 response_time: Duration::from_millis(110)
             }
@@ -2993,27 +3814,21 @@ mod tests {
         let invalid_response_no_choices = OpenAIResponse {
             choices: vec![],
             usage: OpenAIUsage {
-                prompt_tokens: 5,
-                completion_tokens: 0,
-                total_tokens: 5,
+                prompt_tokens: Some(5),
+                completion_tokens: Some(0),
             },
         };
         let request_body = OpenAIRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.9),
             presence_penalty: Some(0.1),
             frequency_penalty: Some(0.2),
             max_completion_tokens: Some(100),
             seed: Some(69),
-            stream: false,
             response_format: Some(OpenAIResponseFormat::Text),
-            stream_options: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-            stop: None,
+            ..Default::default()
         };
         let result = ProviderInferenceResponse::try_from(OpenAIResponseWithMetadata {
             response: invalid_response_no_choices,
@@ -3023,6 +3838,7 @@ mod tests {
             raw_request: serde_json::to_string(&request_body).unwrap(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -3052,28 +3868,22 @@ mod tests {
                 },
             ],
             usage: OpenAIUsage {
-                prompt_tokens: 10,
-                completion_tokens: 10,
-                total_tokens: 20,
+                prompt_tokens: Some(10),
+                completion_tokens: Some(10),
             },
         };
 
         let request_body = OpenAIRequest {
             messages: vec![],
-            model: "gpt-3.5-turbo",
+            model: "gpt-4.1-mini",
             temperature: Some(0.5),
             top_p: Some(0.9),
             presence_penalty: Some(0.1),
             frequency_penalty: Some(0.2),
             max_completion_tokens: Some(100),
             seed: Some(69),
-            stream: false,
             response_format: Some(OpenAIResponseFormat::Text),
-            stream_options: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-            stop: None,
+            ..Default::default()
         };
         let result = ProviderInferenceResponse::try_from(OpenAIResponseWithMetadata {
             response: invalid_response_multiple_choices,
@@ -3083,6 +3893,7 @@ mod tests {
             raw_request: serde_json::to_string(&request_body).unwrap(),
             generic_request: &generic_request,
             raw_response: raw_response.clone(),
+            model_inference_id: Uuid::now_v7(),
         });
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -3116,10 +3927,20 @@ mod tests {
         let (tools, tool_choice, parallel_tool_calls) = prepare_openai_tools(&request_with_tools);
         let tools = tools.unwrap();
         assert_eq!(tools.len(), 2);
-        assert_eq!(tools[0].function.name, WEATHER_TOOL.name());
-        assert_eq!(tools[0].function.parameters, WEATHER_TOOL.parameters());
-        assert_eq!(tools[1].function.name, QUERY_TOOL.name());
-        assert_eq!(tools[1].function.parameters, QUERY_TOOL.parameters());
+        match &tools[0] {
+            OpenAITool::Function { function, .. } => {
+                assert_eq!(function.name, WEATHER_TOOL.name());
+                assert_eq!(function.parameters, WEATHER_TOOL.parameters());
+            }
+            OpenAITool::Custom { .. } => panic!("Expected Function tool"),
+        }
+        match &tools[1] {
+            OpenAITool::Function { function, .. } => {
+                assert_eq!(function.name, QUERY_TOOL.name());
+                assert_eq!(function.parameters, QUERY_TOOL.parameters());
+            }
+            OpenAITool::Custom { .. } => panic!("Expected Function tool"),
+        }
         let tool_choice = tool_choice.unwrap();
         assert_eq!(
             tool_choice,
@@ -3128,9 +3949,9 @@ mod tests {
         let parallel_tool_calls = parallel_tool_calls.unwrap();
         assert!(parallel_tool_calls);
         let tool_config = ToolCallConfig {
-            tools_available: vec![],
             tool_choice: ToolChoice::Required,
             parallel_tool_calls: Some(true),
+            ..Default::default()
         };
 
         // Test no tools but a tool choice and make sure tool choice output is None
@@ -3162,11 +3983,19 @@ mod tests {
         assert!(parallel_tool_calls.is_none());
     }
 
-    #[test]
-    fn test_tensorzero_to_openai_messages() {
+    #[tokio::test]
+    async fn test_tensorzero_to_openai_messages() {
         let content_blocks = vec!["Hello".to_string().into()];
-        let openai_messages =
-            tensorzero_to_openai_user_messages(&content_blocks, PROVIDER_TYPE).unwrap();
+        let openai_messages = tensorzero_to_openai_user_messages(
+            &content_blocks,
+            OpenAIMessagesConfig {
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+                fetch_and_encode_input_files_before_inference: false,
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(openai_messages.len(), 1);
         match &openai_messages[0] {
             OpenAIRequestMessage::User(content) => {
@@ -3185,8 +4014,16 @@ mod tests {
             "Hello".to_string().into(),
             "How are you?".to_string().into(),
         ];
-        let openai_messages =
-            tensorzero_to_openai_user_messages(&content_blocks, PROVIDER_TYPE).unwrap();
+        let openai_messages = tensorzero_to_openai_user_messages(
+            &content_blocks,
+            OpenAIMessagesConfig {
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+                fetch_and_encode_input_files_before_inference: false,
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(openai_messages.len(), 1);
         match &openai_messages[0] {
             OpenAIRequestMessage::User(content) => {
@@ -3214,9 +4051,16 @@ mod tests {
             arguments: "{}".to_string(),
         });
         let content_blocks = vec!["Hello".to_string().into(), tool_block];
-        let openai_message =
-            tensorzero_to_openai_assistant_message(Cow::Borrowed(&content_blocks), PROVIDER_TYPE)
-                .unwrap();
+        let openai_message = tensorzero_to_openai_assistant_message(
+            Cow::Borrowed(&content_blocks),
+            OpenAIMessagesConfig {
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+                fetch_and_encode_input_files_before_inference: false,
+            },
+        )
+        .await
+        .unwrap();
         match &openai_message {
             OpenAIRequestMessage::Assistant(content) => {
                 assert_eq!(
@@ -3254,6 +4098,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap();
         assert_eq!(
@@ -3288,6 +4134,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap();
         assert_eq!(
@@ -3323,6 +4171,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap_err();
         let details = error.get_details();
@@ -3359,6 +4209,8 @@ mod tests {
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            Uuid::now_v7(),
+            PROVIDER_TYPE,
         )
         .unwrap();
         assert_eq!(
@@ -3375,28 +4227,66 @@ mod tests {
 
         // Check a chunk with no choices and only usage
         // Test a correct new tool chunk
+        let usage = OpenAIUsage {
+            prompt_tokens: Some(10),
+            completion_tokens: Some(20),
+        };
         let chunk = OpenAIChatChunk {
             choices: vec![],
-            usage: Some(OpenAIUsage {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
-            }),
+            usage: Some(usage.clone()),
         };
+        let model_inference_id = Uuid::now_v7();
+        let raw_message = serde_json::json!({
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30,
+                "prompt_tokens_details": {
+                    "cached_tokens": 2
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 1
+                }
+            }
+        })
+        .to_string();
         let message = openai_to_tensorzero_chunk(
-            "my_raw_chunk".to_string(),
+            raw_message,
             chunk.clone(),
             Duration::from_millis(50),
             &mut tool_call_ids,
+            model_inference_id,
+            PROVIDER_TYPE,
         )
         .unwrap();
+        let expected_raw_usage = Some(raw_usage_entries_from_value(
+            model_inference_id,
+            PROVIDER_TYPE,
+            ApiType::ChatCompletions,
+            serde_json::json!({
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30,
+                "prompt_tokens_details": {
+                    "cached_tokens": 2
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 1
+                }
+            }),
+        ));
         assert_eq!(message.content, vec![]);
         assert_eq!(
             message.usage,
             Some(Usage {
-                input_tokens: 10,
-                output_tokens: 20,
-            })
+                input_tokens: Some(10),
+                output_tokens: Some(20),
+            }),
+            "expected usage to include provider raw_usage entries"
+        );
+        assert_eq!(
+            message.raw_usage, expected_raw_usage,
+            "expected raw_usage to include provider raw_usage entries"
         );
     }
 
@@ -3437,7 +4327,7 @@ mod tests {
             _ => panic!("Expected JsonSchema format"),
         }
 
-        // Test JSON mode Strict with schema but gpt-3.5
+        // Test JSON mode Strict with schema but gpt-3.5-turbo (does not support strict mode)
         let json_mode = ModelInferenceRequestJsonMode::Strict;
         let schema = serde_json::json!({
             "type": "object",
@@ -3469,7 +4359,7 @@ mod tests {
         assert_eq!(result, None);
 
         // Test Case 2: system is Some, json_mode is On, messages contain "json"
-        let system_or_developer = Some(SystemOrDeveloper::System("System instructions"));
+        let system_or_developer = Some(SystemOrDeveloper::System("System instructions".into()));
         let json_mode = ModelInferenceRequestJsonMode::On;
         let messages = vec![
             OpenAIRequestMessage::User(OpenAIUserRequestMessage {
@@ -3492,7 +4382,7 @@ mod tests {
         assert_eq!(result, expected);
 
         // Test Case 3: system is Some, json_mode is On, messages do not contain "json"
-        let system_or_developer = Some(SystemOrDeveloper::System("System instructions"));
+        let system_or_developer = Some(SystemOrDeveloper::System("System instructions".into()));
         let json_mode = ModelInferenceRequestJsonMode::On;
         let messages = vec![
             OpenAIRequestMessage::User(OpenAIUserRequestMessage {
@@ -3516,7 +4406,9 @@ mod tests {
         assert_eq!(result, expected);
 
         // Test Case 4: developer is Some, json_mode is Off
-        let system_or_developer = Some(SystemOrDeveloper::Developer("Developer instructions"));
+        let system_or_developer = Some(SystemOrDeveloper::Developer(
+            "Developer instructions".into(),
+        ));
         let json_mode = ModelInferenceRequestJsonMode::Off;
         let messages = vec![
             OpenAIRequestMessage::User(OpenAIUserRequestMessage {
@@ -3541,7 +4433,9 @@ mod tests {
         assert_eq!(result, expected);
 
         // Test Case 5: developer is Some, json_mode is On, messages do not contain "json"
-        let system_or_developer = Some(SystemOrDeveloper::Developer("Developer instructions"));
+        let system_or_developer = Some(SystemOrDeveloper::Developer(
+            "Developer instructions".into(),
+        ));
         let json_mode = ModelInferenceRequestJsonMode::On;
         let messages = vec![OpenAIRequestMessage::User(OpenAIUserRequestMessage {
             content: vec![OpenAIContentBlock::Text {
@@ -3711,9 +4605,423 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_prepare_resolved_file_message() {
+        let dummy_storage_path = StoragePath {
+            kind: StorageKind::Disabled,
+            path: object_store::path::Path::parse("dummy-path").unwrap(),
+        };
+        let file = LazyFile::Base64(PendingObjectStoreFile(ObjectStorageFile {
+            file: ObjectStoragePointer {
+                source_url: None,
+                mime_type: mime::TEXT_PLAIN,
+                storage_path: dummy_storage_path.clone(),
+                detail: None,
+                filename: None,
+            },
+            data: BASE64_STANDARD.encode(b"Hello, world!"),
+        }));
+        let first_res = prepare_file_message(
+            &file,
+            OpenAIMessagesConfig {
+                fetch_and_encode_input_files_before_inference: true,
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            first_res,
+            OpenAIContentBlock::File {
+                file: OpenAIFile {
+                    file_data: Some(Cow::Owned(format!(
+                        "data:text/plain;base64,{}",
+                        BASE64_STANDARD.encode("Hello, world!")
+                    ))),
+                    filename: Some(Cow::Owned("input.txt".to_string())),
+                },
+            }
+        );
+
+        let second_res = prepare_file_message(
+            &file,
+            OpenAIMessagesConfig {
+                fetch_and_encode_input_files_before_inference: false,
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+            },
+        )
+        .await
+        .unwrap();
+
+        // Since the file is already resolved, 'fetch_and_encode_input_files_before_inference' should have no effect
+        assert_eq!(second_res, first_res);
+    }
+
+    #[tokio::test]
+    async fn test_prepare_resolved_file_message_with_detail() {
+        let dummy_storage_path = StoragePath {
+            kind: StorageKind::Disabled,
+            path: object_store::path::Path::parse("dummy-path").unwrap(),
+        };
+        let file = LazyFile::Base64(PendingObjectStoreFile(ObjectStorageFile {
+            file: ObjectStoragePointer {
+                source_url: None,
+                mime_type: mime::IMAGE_PNG,
+                storage_path: dummy_storage_path.clone(),
+                detail: Some(Detail::High),
+                filename: None,
+            },
+            data: BASE64_STANDARD.encode(b"fake image data"),
+        }));
+        let res = prepare_file_message(
+            &file,
+            OpenAIMessagesConfig {
+                fetch_and_encode_input_files_before_inference: true,
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: format!(
+                        "data:image/png;base64,{}",
+                        BASE64_STANDARD.encode(b"fake image data")
+                    ),
+                    detail: Some(Detail::High),
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_file_url_no_mime_type_fetch_and_encode() {
+        let logs_contain = capture_logs();
+        let fetch_and_encode = OpenAIMessagesConfig {
+            fetch_and_encode_input_files_before_inference: true,
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+        };
+        let dummy_storage_path = StoragePath {
+            kind: StorageKind::Disabled,
+            path: object_store::path::Path::parse("dummy-path").unwrap(),
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    mime_type: None,
+                    detail: None,
+                    filename: None,
+                },
+                future: async move {
+                    Ok(ObjectStorageFile {
+                        file: ObjectStoragePointer {
+                            source_url: None,
+                            // Deliberately use a different mime type to make sure we adjust the input filename
+                            mime_type: mime::IMAGE_JPEG,
+                            storage_path: dummy_storage_path.clone(),
+                            detail: None,
+                            filename: None,
+                        },
+                        data: BASE64_STANDARD.encode(FERRIS_PNG),
+                    })
+                }
+                .boxed()
+                .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: format!(
+                        "data:image/jpeg;base64,{}",
+                        BASE64_STANDARD.encode(FERRIS_PNG)
+                    ),
+                    detail: None,
+                },
+            }
+        );
+
+        // We're encoding the file, so don't produce a warning about the user not providing an explicit mime_type
+        assert!(!logs_contain("mime_type"));
+    }
+
+    #[tokio::test]
+    async fn test_file_url_warn_mime_type() {
+        let fetch_and_encode = OpenAIMessagesConfig {
+            fetch_and_encode_input_files_before_inference: false,
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+        };
+        let dummy_storage_path = StoragePath {
+            kind: StorageKind::Disabled,
+            path: object_store::path::Path::parse("dummy-path").unwrap(),
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    mime_type: None,
+                    detail: None,
+                    filename: None,
+                },
+                future: async move {
+                    Ok(ObjectStorageFile {
+                        file: ObjectStoragePointer {
+                            source_url: None,
+                            // Deliberately use a different mime type to make sure we adjust the input filename
+                            mime_type: mime::IMAGE_JPEG,
+                            storage_path: dummy_storage_path.clone(),
+                            detail: None,
+                            filename: None,
+                        },
+                        data: BASE64_STANDARD.encode(FERRIS_PNG),
+                    })
+                }
+                .boxed()
+                .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        // We didn't provide an input mime_type, so we'll go ahead and forward it
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: url.to_string(),
+                    detail: None,
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_forward_image_url() {
+        let logs_contain = capture_logs();
+        let fetch_and_encode = OpenAIMessagesConfig {
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+            fetch_and_encode_input_files_before_inference: false,
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    mime_type: Some(mime::IMAGE_JPEG),
+                    detail: None,
+                    filename: None,
+                },
+                future: async { panic!("File future should not be resolved") }
+                    .boxed()
+                    .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        // We provided an input mime_type, so we should forward the image url
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: url.to_string(),
+                    detail: None,
+                },
+            }
+        );
+
+        assert!(!logs_contain("mime_type"));
+    }
+
+    #[tokio::test]
+    async fn test_forward_image_url_with_detail_low() {
+        let fetch_and_encode = OpenAIMessagesConfig {
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+            fetch_and_encode_input_files_before_inference: false,
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    mime_type: Some(mime::IMAGE_JPEG),
+                    detail: Some(Detail::Low),
+                    filename: None,
+                },
+                future: async { panic!("File future should not be resolved") }
+                    .boxed()
+                    .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: url.to_string(),
+                    detail: Some(Detail::Low),
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_forward_image_url_with_detail_high() {
+        let fetch_and_encode = OpenAIMessagesConfig {
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+            fetch_and_encode_input_files_before_inference: false,
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    mime_type: Some(mime::IMAGE_JPEG),
+                    detail: Some(Detail::High),
+                    filename: None,
+                },
+                future: async { panic!("File future should not be resolved") }
+                    .boxed()
+                    .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: url.to_string(),
+                    detail: Some(Detail::High),
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_forward_image_url_with_detail_auto() {
+        let fetch_and_encode = OpenAIMessagesConfig {
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+            fetch_and_encode_input_files_before_inference: false,
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    mime_type: Some(mime::IMAGE_JPEG),
+                    detail: Some(Detail::Auto),
+                    filename: None,
+                },
+                future: async { panic!("File future should not be resolved") }
+                    .boxed()
+                    .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::ImageUrl {
+                image_url: OpenAIImageUrl {
+                    url: url.to_string(),
+                    detail: Some(Detail::Auto),
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_cannot_forward_file_url() {
+        let logs_contain = capture_logs();
+        let fetch_and_encode = OpenAIMessagesConfig {
+            json_mode: None,
+            provider_type: PROVIDER_TYPE,
+            fetch_and_encode_input_files_before_inference: false,
+        };
+        let url = Url::parse("https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png").unwrap();
+        let res = prepare_file_message(
+            &LazyFile::Url {
+                file_url: FileUrl {
+                    url: url.clone(),
+                    // By specifying a non-image mime type, we should end up using a 'file' content block
+                    mime_type: Some(mime::APPLICATION_PDF),
+                    detail: None,
+                    filename: None,
+                },
+                future: async {
+                    Ok(ObjectStorageFile {
+                        file: ObjectStoragePointer {
+                            source_url: None,
+                            mime_type: mime::APPLICATION_PDF,
+                            storage_path: StoragePath {
+                                kind: StorageKind::Disabled,
+                                path: object_store::path::Path::parse("dummy-path").unwrap(),
+                            },
+                            detail: None,
+                            filename: None,
+                        },
+                        data: BASE64_STANDARD.encode(FERRIS_PNG),
+                    })
+                }
+                .boxed()
+                .shared(),
+            },
+            fetch_and_encode,
+        )
+        .await
+        .unwrap();
+
+        // We provided an input mime_type, so we should forward the image url
+        assert_eq!(
+            res,
+            OpenAIContentBlock::File {
+                file: OpenAIFile {
+                    file_data: Some(Cow::Owned(format!(
+                        "data:application/pdf;base64,{}",
+                        BASE64_STANDARD.encode(FERRIS_PNG)
+                    ))),
+                    filename: Some(Cow::Owned("input.pdf".to_string())),
+                },
+            }
+        );
+
+        assert!(!logs_contain("mime_type"));
+    }
+
     #[test]
-    #[traced_test]
     fn test_check_api_base_suffix() {
+        let logs_contain = capture_logs();
         // Valid cases (should not warn)
         check_api_base_suffix(&Url::parse("http://localhost:1234/").unwrap());
         check_api_base_suffix(&Url::parse("http://localhost:1234/openai/").unwrap());
@@ -3746,34 +5054,39 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn test_openai_provider_new_api_base_check() {
+        let logs_contain = capture_logs();
         let model_name = "test-model".to_string();
-        let api_key_location = Some(CredentialLocation::None);
 
         // Valid cases (should not warn)
         let _ = OpenAIProvider::new(
             model_name.clone(),
             Some(Url::parse("http://localhost:1234/v1/").unwrap()),
-            api_key_location.clone(),
-        )
-        .unwrap();
+            OpenAICredentials::None,
+            OpenAIAPIType::ChatCompletions,
+            false,
+            Vec::new(),
+        );
 
         let _ = OpenAIProvider::new(
             model_name.clone(),
             Some(Url::parse("http://localhost:1234/v1").unwrap()),
-            api_key_location.clone(),
-        )
-        .unwrap();
+            OpenAICredentials::None,
+            OpenAIAPIType::ChatCompletions,
+            false,
+            Vec::new(),
+        );
 
         // Invalid cases (should warn)
         let invalid_url_1 = Url::parse("http://localhost:1234/chat/completions").unwrap();
         let _ = OpenAIProvider::new(
             model_name.clone(),
             Some(invalid_url_1.clone()),
-            api_key_location.clone(),
-        )
-        .unwrap();
+            OpenAICredentials::None,
+            OpenAIAPIType::ChatCompletions,
+            false,
+            Vec::new(),
+        );
         assert!(logs_contain("automatically appends `/chat/completions`"));
         assert!(logs_contain(invalid_url_1.as_ref()));
 
@@ -3781,10 +5094,616 @@ mod tests {
         let _ = OpenAIProvider::new(
             model_name.clone(),
             Some(invalid_url_2.clone()),
-            api_key_location.clone(),
-        )
-        .unwrap();
+            OpenAICredentials::None,
+            OpenAIAPIType::ChatCompletions,
+            false,
+            Vec::new(),
+        );
         assert!(logs_contain("automatically appends `/chat/completions`"));
         assert!(logs_contain(invalid_url_2.as_ref()));
+    }
+
+    #[tokio::test]
+    async fn test_openai_apply_inference_params_called() {
+        let logs_contain = capture_logs();
+        let request = ModelInferenceRequest {
+            inference_id: Uuid::now_v7(),
+            messages: vec![RequestMessage {
+                role: Role::User,
+                content: vec!["Test".to_string().into()],
+            }],
+            system: None,
+            temperature: None,
+            top_p: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            max_tokens: None,
+            seed: None,
+            stream: false,
+            json_mode: ModelInferenceRequestJsonMode::Off,
+            tool_config: None,
+            function_type: FunctionType::Chat,
+            output_schema: None,
+            inference_params_v2: ChatCompletionInferenceParamsV2 {
+                reasoning_effort: Some("high".to_string()),
+                service_tier: None,
+                thinking_budget_tokens: Some(1024),
+                verbosity: Some("low".to_string()),
+            },
+            extra_body: Default::default(),
+            ..Default::default()
+        };
+
+        let openai_request = OpenAIRequest::new("gpt-4o", &request)
+            .await
+            .expect("Failed to create OpenAI request");
+
+        // Test that reasoning_effort is applied correctly
+        assert_eq!(openai_request.reasoning_effort, Some("high".to_string()));
+
+        // Test that thinking_budget_tokens warns with tip about reasoning_effort
+        assert!(logs_contain(
+            "OpenAI does not support the inference parameter `thinking_budget_tokens`, so it will be ignored. Tip: You might want to use `reasoning_effort` for this provider."
+        ));
+
+        // Test that verbosity is applied correctly
+        assert_eq!(openai_request.verbosity, Some("low".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_prepare_file_message_with_custom_filename() {
+        // Test that custom filename is preserved and used instead of fallback
+        let dummy_storage_path = StoragePath {
+            kind: StorageKind::Disabled,
+            path: object_store::path::Path::parse("dummy-path").unwrap(),
+        };
+        let file = LazyFile::Base64(PendingObjectStoreFile(ObjectStorageFile {
+            file: ObjectStoragePointer {
+                source_url: None,
+                mime_type: mime::TEXT_PLAIN,
+                storage_path: dummy_storage_path.clone(),
+                detail: None,
+                filename: Some("my_document.txt".to_string()),
+            },
+            data: BASE64_STANDARD.encode(b"Hello, world!"),
+        }));
+
+        let res = prepare_file_message(
+            &file,
+            OpenAIMessagesConfig {
+                fetch_and_encode_input_files_before_inference: true,
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::File {
+                file: OpenAIFile {
+                    file_data: Some(Cow::Owned(format!(
+                        "data:text/plain;base64,{}",
+                        BASE64_STANDARD.encode("Hello, world!")
+                    ))),
+                    filename: Some(Cow::Owned("my_document.txt".to_string())),
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_prepare_file_message_with_custom_pdf_filename() {
+        // Test custom filename with PDF file
+        let dummy_storage_path = StoragePath {
+            kind: StorageKind::Disabled,
+            path: object_store::path::Path::parse("dummy-path").unwrap(),
+        };
+        let file = LazyFile::Base64(PendingObjectStoreFile(ObjectStorageFile {
+            file: ObjectStoragePointer {
+                source_url: None,
+                mime_type: mime::APPLICATION_PDF,
+                storage_path: dummy_storage_path.clone(),
+                detail: None,
+                filename: Some("report_2024.pdf".to_string()),
+            },
+            data: BASE64_STANDARD.encode(b"%PDF-1.4"),
+        }));
+
+        let res = prepare_file_message(
+            &file,
+            OpenAIMessagesConfig {
+                fetch_and_encode_input_files_before_inference: true,
+                json_mode: None,
+                provider_type: PROVIDER_TYPE,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            res,
+            OpenAIContentBlock::File {
+                file: OpenAIFile {
+                    file_data: Some(Cow::Owned(format!(
+                        "data:application/pdf;base64,{}",
+                        BASE64_STANDARD.encode(b"%PDF-1.4")
+                    ))),
+                    filename: Some(Cow::Owned("report_2024.pdf".to_string())),
+                },
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_prepare_file_message_fallback_various_mime_types() {
+        // Test that None filename falls back to "input.{ext}" for various MIME types
+        let test_cases = vec![
+            (mime::APPLICATION_PDF, "pdf"),
+            (mime::IMAGE_JPEG, "jpg"),
+            (mime::IMAGE_PNG, "png"),
+        ];
+
+        for (mime_type, expected_ext) in test_cases {
+            let dummy_storage_path = StoragePath {
+                kind: StorageKind::Disabled,
+                path: object_store::path::Path::parse("dummy-path").unwrap(),
+            };
+            let file = LazyFile::Base64(PendingObjectStoreFile(ObjectStorageFile {
+                file: ObjectStoragePointer {
+                    source_url: None,
+                    mime_type: mime_type.clone(),
+                    storage_path: dummy_storage_path.clone(),
+                    detail: None,
+                    filename: None,
+                },
+                data: BASE64_STANDARD.encode(b"test data"),
+            }));
+
+            let res = prepare_file_message(
+                &file,
+                OpenAIMessagesConfig {
+                    fetch_and_encode_input_files_before_inference: true,
+                    json_mode: None,
+                    provider_type: PROVIDER_TYPE,
+                },
+            )
+            .await
+            .unwrap();
+
+            let expected_filename = format!("input.{expected_ext}");
+            match res {
+                OpenAIContentBlock::File { file } => {
+                    assert_eq!(
+                        file.filename,
+                        Some(Cow::Owned(expected_filename)),
+                        "Failed for MIME type: {mime_type}"
+                    );
+                }
+                OpenAIContentBlock::ImageUrl { .. } => {
+                    // Images use data URLs without filename field, which is fine
+                    continue;
+                }
+                _ => panic!("Unexpected content block type for MIME type: {mime_type}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_openai_chunk_missing_usage_block() {
+        // Test that an OpenAI streaming chunk with no usage field is handled correctly
+        let chunk_json = json!({
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "role": "assistant",
+                    "content": "Hello, world!"
+                },
+                "finish_reason": null
+            }]
+        });
+
+        // Parse as OpenAIChatChunk
+        let chunk: OpenAIChatChunk = serde_json::from_value(chunk_json).unwrap();
+
+        // Verify the chunk was parsed successfully
+        assert_eq!(chunk.choices.len(), 1);
+
+        // Verify usage is None when the field is missing
+        assert!(chunk.usage.is_none());
+    }
+
+    #[test]
+    fn test_openai_chunk_null_token_values() {
+        // Test that an OpenAI chunk with null prompt_tokens and/or completion_tokens is handled correctly
+
+        // Test with both tokens null
+        let chunk_both_null = json!({
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": null,
+                "completion_tokens": null
+            }
+        });
+
+        let chunk: OpenAIChatChunk = serde_json::from_value(chunk_both_null).unwrap();
+        assert!(chunk.usage.is_some());
+        let usage = chunk.usage.unwrap();
+        assert_eq!(usage.prompt_tokens, None);
+        assert_eq!(usage.completion_tokens, None);
+
+        // Test with only prompt_tokens null
+        let chunk_input_null = json!({
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": null,
+                "completion_tokens": 20
+            }
+        });
+
+        let chunk2: OpenAIChatChunk = serde_json::from_value(chunk_input_null).unwrap();
+        let usage2 = chunk2.usage.unwrap();
+        assert_eq!(usage2.prompt_tokens, None);
+        assert_eq!(usage2.completion_tokens, Some(20));
+
+        // Test with only completion_tokens null
+        let chunk_output_null = json!({
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": null
+            }
+        });
+
+        let chunk3: OpenAIChatChunk = serde_json::from_value(chunk_output_null).unwrap();
+        let usage3 = chunk3.usage.unwrap();
+        assert_eq!(usage3.prompt_tokens, Some(10));
+        assert_eq!(usage3.completion_tokens, None);
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_with_no_tools() {
+        // Test when no tool_config is provided
+        let request = ModelInferenceRequest {
+            tool_config: None,
+            ..Default::default()
+        };
+
+        let (tools, tool_choice, parallel_tool_calls) = prepare_openai_tools(&request);
+
+        assert_eq!(tools, None);
+        assert_eq!(tool_choice, None);
+        assert_eq!(parallel_tool_calls, None);
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_with_allowed_tools_auto() {
+        use crate::tool::{AllowedTools, AllowedToolsChoice};
+        use std::borrow::Cow;
+
+        // Create a tool config with explicit allowed_tools and auto tool choice
+        let mut tool_config = MULTI_TOOL_CONFIG.clone();
+        tool_config.tool_choice = ToolChoice::Auto;
+        tool_config.allowed_tools = AllowedTools {
+            tools: vec!["get_temperature".to_string()],
+            choice: AllowedToolsChoice::Explicit,
+        };
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (tools, tool_choice, parallel_tool_calls) = prepare_openai_tools(&request);
+
+        // Verify tools are present
+        assert!(tools.is_some());
+        let tools = tools.unwrap();
+        assert_eq!(tools.len(), 2); // get_temperature and query_articles
+
+        // Verify tool_choice is AllowedTools variant with Auto mode
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        match tool_choice {
+            OpenAIToolChoice::AllowedTools(allowed_tools_choice) => {
+                assert_eq!(allowed_tools_choice.r#type, "allowed_tools");
+                assert_eq!(
+                    allowed_tools_choice.allowed_tools.mode,
+                    AllowedToolsMode::Auto
+                );
+                assert_eq!(allowed_tools_choice.allowed_tools.tools.len(), 1);
+                match &allowed_tools_choice.allowed_tools.tools[0] {
+                    ToolReference::Function { function } => {
+                        assert_eq!(function.name, "get_temperature");
+                    }
+                    ToolReference::Custom { .. } => panic!("Expected Function variant"),
+                }
+            }
+            _ => panic!("Expected AllowedTools variant"),
+        }
+
+        assert_eq!(parallel_tool_calls, Some(true));
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_with_allowed_tools_required() {
+        use crate::tool::{AllowedTools, AllowedToolsChoice};
+        use std::borrow::Cow;
+
+        // Create a tool config with explicit allowed_tools and required tool choice
+        let mut tool_config = MULTI_TOOL_CONFIG.clone();
+        tool_config.tool_choice = ToolChoice::Required;
+        tool_config.allowed_tools = AllowedTools {
+            tools: vec!["query_articles".to_string(), "get_temperature".to_string()],
+            choice: AllowedToolsChoice::Explicit,
+        };
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (tools, tool_choice, _parallel_tool_calls) = prepare_openai_tools(&request);
+
+        // Verify tools are present
+        assert!(tools.is_some());
+
+        // Verify tool_choice is AllowedTools variant with Required mode
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        match tool_choice {
+            OpenAIToolChoice::AllowedTools(allowed_tools_choice) => {
+                assert_eq!(allowed_tools_choice.r#type, "allowed_tools");
+                assert_eq!(
+                    allowed_tools_choice.allowed_tools.mode,
+                    AllowedToolsMode::Required
+                );
+                assert_eq!(allowed_tools_choice.allowed_tools.tools.len(), 2);
+                // Verify both tools are in the list
+                let tool_names: Vec<&str> = allowed_tools_choice
+                    .allowed_tools
+                    .tools
+                    .iter()
+                    .map(|t| match t {
+                        ToolReference::Function { function } => function.name,
+                        ToolReference::Custom { .. } => panic!("Expected Function variant"),
+                    })
+                    .collect();
+                assert!(tool_names.contains(&"query_articles"));
+                assert!(tool_names.contains(&"get_temperature"));
+            }
+            _ => panic!("Expected AllowedTools variant"),
+        }
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_with_allowed_tools_none_tool_choice() {
+        use crate::tool::{AllowedTools, AllowedToolsChoice};
+        use std::borrow::Cow;
+
+        // Test that when tool_choice is None but allowed_tools is set,
+        // we still use AllowedTools variant with Auto mode
+        let mut tool_config = MULTI_TOOL_CONFIG.clone();
+        tool_config.tool_choice = ToolChoice::None;
+        tool_config.allowed_tools = AllowedTools {
+            tools: vec!["get_temperature".to_string()],
+            choice: AllowedToolsChoice::Explicit,
+        };
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (_tools, tool_choice, _parallel_tool_calls) = prepare_openai_tools(&request);
+
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        // ToolChoice::None with allowed_tools should map to None mode
+        assert_eq!(
+            tool_choice,
+            OpenAIToolChoice::String(OpenAIToolChoiceString::None)
+        );
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_with_allowed_tools_specific_tool_choice() {
+        use crate::tool::{AllowedTools, AllowedToolsChoice};
+        use std::borrow::Cow;
+
+        // Test that Specific tool choice with allowed_tools uses Auto mode
+        let mut tool_config = MULTI_TOOL_CONFIG.clone();
+        tool_config.tool_choice = ToolChoice::Specific("get_temperature".to_string());
+        tool_config.allowed_tools = AllowedTools {
+            tools: vec!["get_temperature".to_string()],
+            choice: AllowedToolsChoice::Explicit,
+        };
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (_tools, tool_choice, _parallel_tool_calls) = prepare_openai_tools(&request);
+
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        match tool_choice {
+            OpenAIToolChoice::AllowedTools(allowed_tools_choice) => {
+                // ToolChoice::Specific with allowed_tools should map to Auto mode
+                assert_eq!(
+                    allowed_tools_choice.allowed_tools.mode,
+                    AllowedToolsMode::Auto
+                );
+            }
+            _ => panic!("Expected AllowedTools variant"),
+        }
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_without_allowed_tools() {
+        use std::borrow::Cow;
+
+        // Test that when allowed_tools is not set (FunctionDefault),
+        // we use the regular tool_choice conversion
+        let tool_config = MULTI_TOOL_CONFIG.clone();
+        // MULTI_TOOL_CONFIG has ToolChoice::Required but no explicit allowed_tools
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (_tools, tool_choice, _parallel_tool_calls) = prepare_openai_tools(&request);
+
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        // Without allowed_tools, should use regular String variant
+        match tool_choice {
+            OpenAIToolChoice::String(OpenAIToolChoiceString::Required) => {
+                // This is expected
+            }
+            _ => panic!("Expected String(Required) variant, got {tool_choice:?}"),
+        }
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_with_specific_tool_without_allowed_tools() {
+        use std::borrow::Cow;
+
+        // Test regular specific tool choice without allowed_tools
+        let tool_config = WEATHER_TOOL_CONFIG.clone();
+        // This has ToolChoice::Specific and no explicit allowed_tools
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (_tools, tool_choice, _parallel_tool_calls) = prepare_openai_tools(&request);
+
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        // Without allowed_tools, Specific should convert to Specific variant
+        match tool_choice {
+            OpenAIToolChoice::Specific(specific) => {
+                assert_eq!(specific.function.name, "get_temperature");
+                assert_eq!(specific.r#type, OpenAIToolType::Function);
+            }
+            _ => panic!("Expected Specific variant, got {tool_choice:?}"),
+        }
+    }
+
+    #[test]
+    fn test_prepare_openai_tools_empty_allowed_tools_list() {
+        use crate::tool::{AllowedTools, AllowedToolsChoice};
+        use std::borrow::Cow;
+
+        // Test edge case: explicit allowed_tools but empty list
+        let mut tool_config = MULTI_TOOL_CONFIG.clone();
+        tool_config.allowed_tools = AllowedTools {
+            tools: vec![],
+            choice: AllowedToolsChoice::Explicit,
+        };
+
+        let request = ModelInferenceRequest {
+            tool_config: Some(Cow::Owned(tool_config)),
+            ..Default::default()
+        };
+
+        let (_tools, tool_choice, _parallel_tool_calls) = prepare_openai_tools(&request);
+
+        assert!(tool_choice.is_some());
+        let tool_choice = tool_choice.unwrap();
+        match tool_choice {
+            OpenAIToolChoice::AllowedTools(allowed_tools_choice) => {
+                assert_eq!(allowed_tools_choice.allowed_tools.tools.len(), 0);
+            }
+            _ => panic!("Expected AllowedTools variant with empty list"),
+        }
+    }
+
+    #[test]
+    fn test_with_request_id() {
+        // Test with FatalStreamError
+        let error = Error::new(ErrorDetails::FatalStreamError {
+            message: "Stream error".to_string(),
+            provider_type: PROVIDER_TYPE.to_string(),
+            raw_request: Some("request".to_string()),
+            raw_response: Some("response".to_string()),
+        });
+        let error_with_id = with_request_id(error, Some("req_123"));
+        if let ErrorDetails::FatalStreamError { message, .. } = error_with_id.get_details() {
+            assert_eq!(message, "Stream error [request_id: req_123]");
+        } else {
+            panic!("Expected FatalStreamError");
+        }
+
+        // Test with InferenceClient
+        let error = Error::new(ErrorDetails::InferenceClient {
+            status_code: Some(reqwest::StatusCode::BAD_REQUEST),
+            message: "Bad request".to_string(),
+            provider_type: PROVIDER_TYPE.to_string(),
+            raw_request: Some("request".to_string()),
+            raw_response: Some("response".to_string()),
+        });
+        let error_with_id = with_request_id(error, Some("req_456"));
+        if let ErrorDetails::InferenceClient { message, .. } = error_with_id.get_details() {
+            assert_eq!(message, "Bad request [request_id: req_456]");
+        } else {
+            panic!("Expected InferenceClient");
+        }
+
+        // Test with InferenceServer
+        let error = Error::new(ErrorDetails::InferenceServer {
+            message: "Server error".to_string(),
+            provider_type: PROVIDER_TYPE.to_string(),
+            raw_request: Some("request".to_string()),
+            raw_response: Some("response".to_string()),
+        });
+        let error_with_id = with_request_id(error, Some("req_789"));
+        if let ErrorDetails::InferenceServer { message, .. } = error_with_id.get_details() {
+            assert_eq!(message, "Server error [request_id: req_789]");
+        } else {
+            panic!("Expected InferenceServer");
+        }
+
+        // Test with None request_id - should return error unchanged
+        let error = Error::new(ErrorDetails::InferenceServer {
+            message: "Server error".to_string(),
+            provider_type: PROVIDER_TYPE.to_string(),
+            raw_request: Some("request".to_string()),
+            raw_response: Some("response".to_string()),
+        });
+        let error_unchanged = with_request_id(error, None);
+        if let ErrorDetails::InferenceServer { message, .. } = error_unchanged.get_details() {
+            assert_eq!(message, "Server error");
+        } else {
+            panic!("Expected InferenceServer");
+        }
+
+        // Test with unsupported error type - should return unchanged
+        let error = Error::new(ErrorDetails::InvalidRequest {
+            message: "Invalid".to_string(),
+        });
+        let error_unchanged = with_request_id(error, Some("req_abc"));
+        if let ErrorDetails::InvalidRequest { message, .. } = error_unchanged.get_details() {
+            assert_eq!(message, "Invalid"); // unchanged
+        } else {
+            panic!("Expected InvalidRequest");
+        }
     }
 }

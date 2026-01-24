@@ -3,14 +3,14 @@ Type annotations for sagemaker service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_aiobotocore_sagemaker.literals import ActionStatusType
+    from types_aiobotocore_sagemaker.literals import AccountDefaultStatusType
 
-    data: ActionStatusType = "Completed"
+    data: AccountDefaultStatusType = "DISABLED"
     ```
 """
 
@@ -22,8 +22,10 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AccountDefaultStatusType",
     "ActionStatusType",
     "ActivationStateType",
+    "ActiveClusterOperationNameType",
     "AdditionalS3DataSourceDataTypeType",
     "AggregationTransformationValueType",
     "AlgorithmSortByType",
@@ -60,6 +62,8 @@ __all__ = (
     "AwsManagedHumanLoopRequestSourceType",
     "BatchAddClusterNodesErrorCodeType",
     "BatchDeleteClusterNodesErrorCodeType",
+    "BatchRebootClusterNodesErrorCodeType",
+    "BatchReplaceClusterNodesErrorCodeType",
     "BatchStrategyType",
     "BooleanOperatorType",
     "CandidateSortByType",
@@ -73,9 +77,15 @@ __all__ = (
     "ClarifyFeatureTypeType",
     "ClarifyTextGranularityType",
     "ClarifyTextLanguageType",
+    "ClusterAutoScalerTypeType",
+    "ClusterAutoScalingModeType",
+    "ClusterAutoScalingStatusType",
+    "ClusterCapacityTypeType",
+    "ClusterConfigModeType",
     "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
+    "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
     "ClusterSortByType",
@@ -91,6 +101,7 @@ __all__ = (
     "ContentClassifierType",
     "CreateHubContentPresignedUrlsPaginatorName",
     "CrossAccountFilterOptionType",
+    "CustomizationTechniqueType",
     "DataDistributionTypeType",
     "DataSourceNameType",
     "DeepHealthCheckTypeType",
@@ -110,6 +121,7 @@ __all__ = (
     "EndpointInServiceWaiterName",
     "EndpointSortKeyType",
     "EndpointStatusType",
+    "EvaluationTypeType",
     "EventSortByType",
     "ExecutionRoleIdentityConfigType",
     "ExecutionStatusType",
@@ -140,6 +152,7 @@ __all__ = (
     "HyperParameterTuningJobStatusType",
     "HyperParameterTuningJobStrategyTypeType",
     "HyperParameterTuningJobWarmStartTypeType",
+    "IPAddressTypeType",
     "ImageCreatedWaiterName",
     "ImageDeletedWaiterName",
     "ImageSortByType",
@@ -213,6 +226,7 @@ __all__ = (
     "ListLabelingJobsForWorkteamSortByOptionsType",
     "ListLabelingJobsPaginatorName",
     "ListLineageGroupsPaginatorName",
+    "ListMlflowAppsPaginatorName",
     "ListMlflowTrackingServersPaginatorName",
     "ListModelBiasJobDefinitionsPaginatorName",
     "ListModelCardExportJobsPaginatorName",
@@ -257,9 +271,12 @@ __all__ = (
     "ListWorkforcesSortByOptionsType",
     "ListWorkteamsPaginatorName",
     "ListWorkteamsSortByOptionsType",
+    "MIGProfileTypeType",
+    "MaintenanceStatusType",
     "ManagedInstanceScalingStatusType",
     "MetricSetSourceType",
     "MlToolsType",
+    "MlflowAppStatusType",
     "ModelApprovalStatusType",
     "ModelCacheSettingType",
     "ModelCardExportJobSortByType",
@@ -275,10 +292,14 @@ __all__ = (
     "ModelMetadataFilterTypeType",
     "ModelPackageGroupSortByType",
     "ModelPackageGroupStatusType",
+    "ModelPackageRegistrationTypeType",
     "ModelPackageSortByType",
     "ModelPackageStatusType",
     "ModelPackageTypeType",
+    "ModelRegistrationModeType",
     "ModelSortKeyType",
+    "ModelSpeculativeDecodingS3DataTypeType",
+    "ModelSpeculativeDecodingTechniqueType",
     "ModelVariantActionType",
     "ModelVariantStatusType",
     "MonitoringAlertHistorySortKeyType",
@@ -311,6 +332,7 @@ __all__ = (
     "PartnerAppAuthTypeType",
     "PartnerAppStatusType",
     "PartnerAppTypeType",
+    "PeftType",
     "PipelineExecutionStatusType",
     "PipelineStatusType",
     "PreemptTeamTasksType",
@@ -368,9 +390,11 @@ __all__ = (
     "SearchPaginatorName",
     "SearchSortOrderType",
     "SecondaryStatusType",
+    "ServerlessJobTypeType",
     "ServiceName",
     "SharingTypeType",
     "SkipModelValidationType",
+    "SoftwareUpdateStatusType",
     "SortActionsByType",
     "SortArtifactsByType",
     "SortAssociationsByType",
@@ -380,6 +404,7 @@ __all__ = (
     "SortExperimentsByType",
     "SortInferenceExperimentsByType",
     "SortLineageGroupsByType",
+    "SortMlflowAppByType",
     "SortOrderType",
     "SortPipelineExecutionsByType",
     "SortPipelinesByType",
@@ -438,8 +463,10 @@ __all__ = (
     "WorkforceStatusType",
 )
 
+AccountDefaultStatusType = Literal["DISABLED", "ENABLED"]
 ActionStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping", "Unknown"]
 ActivationStateType = Literal["Disabled", "Enabled"]
+ActiveClusterOperationNameType = Literal["Scaling"]
 AdditionalS3DataSourceDataTypeType = Literal["S3Object", "S3Prefix"]
 AggregationTransformationValueType = Literal["avg", "first", "max", "min", "sum"]
 AlgorithmSortByType = Literal["CreationTime", "Name"]
@@ -563,6 +590,7 @@ AppInstanceTypeType = Literal[
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
     "ml.p5en.48xlarge",
+    "ml.p6-b200.48xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
     "ml.r5.24xlarge",
@@ -740,6 +768,12 @@ AwsManagedHumanLoopRequestSourceType = Literal[
 ]
 BatchAddClusterNodesErrorCodeType = Literal["InstanceGroupNotFound", "InvalidInstanceGroupStatus"]
 BatchDeleteClusterNodesErrorCodeType = Literal["InvalidNodeStatus", "NodeIdInUse", "NodeIdNotFound"]
+BatchRebootClusterNodesErrorCodeType = Literal[
+    "InstanceIdInUse", "InstanceIdNotFound", "InternalServerError", "InvalidInstanceStatus"
+]
+BatchReplaceClusterNodesErrorCodeType = Literal[
+    "InstanceIdInUse", "InstanceIdNotFound", "InternalServerError", "InvalidInstanceStatus"
+]
 BatchStrategyType = Literal["MultiRecord", "SingleRecord"]
 BooleanOperatorType = Literal["And", "Or"]
 CandidateSortByType = Literal["CreationTime", "FinalObjectiveMetricValue", "Status"]
@@ -816,6 +850,11 @@ ClarifyTextLanguageType = Literal[
     "yo",
     "zh",
 ]
+ClusterAutoScalerTypeType = Literal["Karpenter"]
+ClusterAutoScalingModeType = Literal["Disable", "Enable"]
+ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
+ClusterCapacityTypeType = Literal["OnDemand", "Spot"]
+ClusterConfigModeType = Literal["Disable", "Enable"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",
@@ -911,9 +950,11 @@ ClusterInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6-b300.48xlarge",
     "ml.p6e-gb200.36xlarge",
     "ml.r6i.12xlarge",
     "ml.r6i.16xlarge",
@@ -939,8 +980,10 @@ ClusterInstanceTypeType = Literal[
     "ml.t3.xlarge",
     "ml.trn1.32xlarge",
     "ml.trn1n.32xlarge",
+    "ml.trn2.3xlarge",
     "ml.trn2.48xlarge",
 ]
+ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]
@@ -960,6 +1003,7 @@ ContainerModeType = Literal["MultiModel", "SingleModel"]
 ContentClassifierType = Literal["FreeOfAdultContent", "FreeOfPersonallyIdentifiableInformation"]
 CreateHubContentPresignedUrlsPaginatorName = Literal["create_hub_content_presigned_urls"]
 CrossAccountFilterOptionType = Literal["CrossAccount", "SameAccount"]
+CustomizationTechniqueType = Literal["DPO", "RLAIF", "RLVR", "SFT"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
 DeepHealthCheckTypeType = Literal["InstanceConnectivity", "InstanceStress"]
@@ -995,6 +1039,7 @@ EndpointStatusType = Literal[
     "UpdateRollbackFailed",
     "Updating",
 ]
+EvaluationTypeType = Literal["BenchmarkEvaluation", "CustomScorerEvaluation", "LLMAJEvaluation"]
 EventSortByType = Literal["EventTime"]
 ExecutionRoleIdentityConfigType = Literal["DISABLED", "USER_PROFILE_NAME"]
 ExecutionStatusType = Literal[
@@ -1025,9 +1070,17 @@ FrameworkType = Literal[
     "DARKNET", "KERAS", "MXNET", "ONNX", "PYTORCH", "SKLEARN", "TENSORFLOW", "TFLITE", "XGBOOST"
 ]
 HubContentSortByType = Literal["CreationTime", "HubContentName", "HubContentStatus"]
-HubContentStatusType = Literal["Available", "DeleteFailed", "Deleting", "ImportFailed", "Importing"]
+HubContentStatusType = Literal[
+    "Available",
+    "DeleteFailed",
+    "Deleting",
+    "ImportFailed",
+    "Importing",
+    "PendingDelete",
+    "PendingImport",
+]
 HubContentSupportStatusType = Literal["Deprecated", "Restricted", "Supported"]
-HubContentTypeType = Literal["Model", "ModelReference", "Notebook"]
+HubContentTypeType = Literal["DataSet", "JsonDoc", "Model", "ModelReference", "Notebook"]
 HubSortByType = Literal["AccountIdOwner", "CreationTime", "HubName", "HubStatus"]
 HubStatusType = Literal[
     "CreateFailed", "Creating", "DeleteFailed", "Deleting", "InService", "UpdateFailed", "Updating"
@@ -1042,6 +1095,7 @@ HyperParameterTuningJobStatusType = Literal[
 ]
 HyperParameterTuningJobStrategyTypeType = Literal["Bayesian", "Grid", "Hyperband", "Random"]
 HyperParameterTuningJobWarmStartTypeType = Literal["IdenticalDataAndAlgorithm", "TransferLearning"]
+IPAddressTypeType = Literal["dualstack", "ipv4"]
 ImageCreatedWaiterName = Literal["image_created"]
 ImageDeletedWaiterName = Literal["image_deleted"]
 ImageSortByType = Literal["CREATION_TIME", "IMAGE_NAME", "LAST_MODIFIED_TIME"]
@@ -1305,6 +1359,7 @@ ListLabelingJobsForWorkteamPaginatorName = Literal["list_labeling_jobs_for_workt
 ListLabelingJobsForWorkteamSortByOptionsType = Literal["CreationTime"]
 ListLabelingJobsPaginatorName = Literal["list_labeling_jobs"]
 ListLineageGroupsPaginatorName = Literal["list_lineage_groups"]
+ListMlflowAppsPaginatorName = Literal["list_mlflow_apps"]
 ListMlflowTrackingServersPaginatorName = Literal["list_mlflow_tracking_servers"]
 ListModelBiasJobDefinitionsPaginatorName = Literal["list_model_bias_job_definitions"]
 ListModelCardExportJobsPaginatorName = Literal["list_model_card_export_jobs"]
@@ -1355,15 +1410,48 @@ ListWorkforcesPaginatorName = Literal["list_workforces"]
 ListWorkforcesSortByOptionsType = Literal["CreateDate", "Name"]
 ListWorkteamsPaginatorName = Literal["list_workteams"]
 ListWorkteamsSortByOptionsType = Literal["CreateDate", "Name"]
+MIGProfileTypeType = Literal[
+    "mig-1g.10gb",
+    "mig-1g.18gb",
+    "mig-1g.20gb",
+    "mig-1g.23gb",
+    "mig-1g.35gb",
+    "mig-1g.45gb",
+    "mig-1g.47gb",
+    "mig-1g.5gb",
+    "mig-2g.10gb",
+    "mig-2g.20gb",
+    "mig-2g.35gb",
+    "mig-2g.45gb",
+    "mig-2g.47gb",
+    "mig-3g.20gb",
+    "mig-3g.40gb",
+    "mig-3g.71gb",
+    "mig-3g.90gb",
+    "mig-3g.93gb",
+    "mig-4g.20gb",
+    "mig-4g.40gb",
+    "mig-4g.71gb",
+    "mig-4g.90gb",
+    "mig-4g.93gb",
+    "mig-7g.141gb",
+    "mig-7g.180gb",
+    "mig-7g.186gb",
+    "mig-7g.40gb",
+    "mig-7g.80gb",
+]
+MaintenanceStatusType = Literal["MaintenanceComplete", "MaintenanceFailed", "MaintenanceInProgress"]
 ManagedInstanceScalingStatusType = Literal["DISABLED", "ENABLED"]
 MetricSetSourceType = Literal["Test", "Train", "Validation"]
 MlToolsType = Literal[
     "AutoMl",
     "Comet",
     "DataWrangler",
+    "Datasets",
     "DeepchecksLLMEvaluation",
     "EmrClusters",
     "Endpoints",
+    "Evaluators",
     "Experiments",
     "FeatureStore",
     "Fiddler",
@@ -1377,7 +1465,19 @@ MlToolsType = Literal[
     "PerformanceEvaluation",
     "Pipelines",
     "Projects",
+    "RunningInstances",
     "Training",
+]
+MlflowAppStatusType = Literal[
+    "CreateFailed",
+    "Created",
+    "Creating",
+    "DeleteFailed",
+    "Deleted",
+    "Deleting",
+    "UpdateFailed",
+    "Updated",
+    "Updating",
 ]
 ModelApprovalStatusType = Literal["Approved", "PendingManualApproval", "Rejected"]
 ModelCacheSettingType = Literal["Disabled", "Enabled"]
@@ -1403,10 +1503,14 @@ ModelPackageGroupSortByType = Literal["CreationTime", "Name"]
 ModelPackageGroupStatusType = Literal[
     "Completed", "DeleteFailed", "Deleting", "Failed", "InProgress", "Pending"
 ]
+ModelPackageRegistrationTypeType = Literal["Logged", "Registered"]
 ModelPackageSortByType = Literal["CreationTime", "Name"]
 ModelPackageStatusType = Literal["Completed", "Deleting", "Failed", "InProgress", "Pending"]
 ModelPackageTypeType = Literal["Both", "Unversioned", "Versioned"]
+ModelRegistrationModeType = Literal["AutoModelRegistrationDisabled", "AutoModelRegistrationEnabled"]
 ModelSortKeyType = Literal["CreationTime", "Name"]
+ModelSpeculativeDecodingS3DataTypeType = Literal["ManifestFile", "S3Prefix"]
+ModelSpeculativeDecodingTechniqueType = Literal["EAGLE"]
 ModelVariantActionType = Literal["Promote", "Remove", "Retain"]
 ModelVariantStatusType = Literal["Creating", "Deleted", "Deleting", "InService", "Updating"]
 MonitoringAlertHistorySortKeyType = Literal["CreationTime", "Status"]
@@ -1484,6 +1588,8 @@ OptimizationJobDeploymentInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5e.48xlarge",
+    "ml.p5en.48xlarge",
     "ml.trn1.2xlarge",
     "ml.trn1.32xlarge",
     "ml.trn1n.32xlarge",
@@ -1499,6 +1605,7 @@ PartnerAppStatusType = Literal[
     "Available", "Creating", "Deleted", "Deleting", "Failed", "UpdateFailed", "Updating"
 ]
 PartnerAppTypeType = Literal["comet", "deepchecks-llm-evaluation", "fiddler", "lakera-guard"]
+PeftType = Literal["LORA"]
 PipelineExecutionStatusType = Literal["Executing", "Failed", "Stopped", "Stopping", "Succeeded"]
 PipelineStatusType = Literal["Active", "Deleting"]
 PreemptTeamTasksType = Literal["LowerPriority", "Never"]
@@ -1838,6 +1945,7 @@ ProductionVariantInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
@@ -1950,6 +2058,7 @@ ReservedCapacityInstanceTypeType = Literal[
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6-b300.48xlarge",
     "ml.p6e-gb200.36xlarge",
     "ml.trn1.32xlarge",
     "ml.trn2.48xlarge",
@@ -1989,7 +2098,7 @@ S3DataDistributionType = Literal["FullyReplicated", "ShardedByS3Key"]
 S3DataTypeType = Literal["AugmentedManifestFile", "Converse", "ManifestFile", "S3Prefix"]
 S3ModelDataTypeType = Literal["S3Object", "S3Prefix"]
 SageMakerImageNameType = Literal["sagemaker_distribution"]
-SageMakerResourceNameType = Literal["hyperpod-cluster", "training-job"]
+SageMakerResourceNameType = Literal["endpoint", "hyperpod-cluster", "training-job"]
 SagemakerServicecatalogStatusType = Literal["Disabled", "Enabled"]
 ScheduleStatusType = Literal["Failed", "Pending", "Scheduled", "Stopped"]
 SchedulerResourceStatusType = Literal[
@@ -2027,8 +2136,12 @@ SecondaryStatusType = Literal[
     "Updating",
     "Uploading",
 ]
+ServerlessJobTypeType = Literal["Evaluation", "FineTuning"]
 SharingTypeType = Literal["Private", "Shared"]
 SkipModelValidationType = Literal["All", "None"]
+SoftwareUpdateStatusType = Literal[
+    "Failed", "InProgress", "Pending", "RollbackComplete", "RollbackInProgress", "Succeeded"
+]
 SortActionsByType = Literal["CreationTime", "Name"]
 SortArtifactsByType = Literal["CreationTime"]
 SortAssociationsByType = Literal[
@@ -2040,6 +2153,7 @@ SortContextsByType = Literal["CreationTime", "Name"]
 SortExperimentsByType = Literal["CreationTime", "Name"]
 SortInferenceExperimentsByType = Literal["CreationTime", "Name", "Status"]
 SortLineageGroupsByType = Literal["CreationTime", "Name"]
+SortMlflowAppByType = Literal["CreationTime", "Name", "Status"]
 SortOrderType = Literal["Ascending", "Descending"]
 SortPipelineExecutionsByType = Literal["CreationTime", "PipelineExecutionArn"]
 SortPipelinesByType = Literal["CreationTime", "Name"]
@@ -2246,6 +2360,7 @@ TrainingInstanceTypeType = Literal[
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6-b300.48xlarge",
     "ml.p6e-gb200.36xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
@@ -2286,7 +2401,9 @@ TrainingJobEarlyStoppingTypeType = Literal["Auto", "Off"]
 TrainingJobSortByOptionsType = Literal[
     "CreationTime", "FinalObjectiveMetricValue", "Name", "Status"
 ]
-TrainingJobStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping"]
+TrainingJobStatusType = Literal[
+    "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
+]
 TrainingPlanFilterNameType = Literal["Status"]
 TrainingPlanSortByType = Literal["StartTime", "Status", "TrainingPlanName"]
 TrainingPlanSortOrderType = Literal["Ascending", "Descending"]
@@ -2334,6 +2451,14 @@ TransformInstanceTypeType = Literal[
     "ml.g5.4xlarge",
     "ml.g5.8xlarge",
     "ml.g5.xlarge",
+    "ml.g6.12xlarge",
+    "ml.g6.16xlarge",
+    "ml.g6.24xlarge",
+    "ml.g6.2xlarge",
+    "ml.g6.48xlarge",
+    "ml.g6.4xlarge",
+    "ml.g6.8xlarge",
+    "ml.g6.xlarge",
     "ml.inf2.24xlarge",
     "ml.inf2.48xlarge",
     "ml.inf2.8xlarge",
@@ -2439,7 +2564,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -2509,6 +2633,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -2554,7 +2679,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -2607,7 +2731,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -2646,8 +2769,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -2682,6 +2803,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -2691,18 +2813,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -2724,8 +2848,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -2740,15 +2862,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -2779,8 +2902,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -2820,6 +2943,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -2831,16 +2955,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "create_hub_content_presigned_urls",
@@ -2883,6 +2998,7 @@ PaginatorName = Literal[
     "list_labeling_jobs",
     "list_labeling_jobs_for_workteam",
     "list_lineage_groups",
+    "list_mlflow_apps",
     "list_mlflow_tracking_servers",
     "list_model_bias_job_definitions",
     "list_model_card_export_jobs",
@@ -2955,6 +3071,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

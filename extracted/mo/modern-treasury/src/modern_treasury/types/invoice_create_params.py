@@ -60,13 +60,6 @@ class InvoiceCreateParams(TypedDict, total=False):
     automatic payment fails. One of `manual` or `ui`.
     """
 
-    ingest_ledger_entries: Optional[bool]
-    """Whether to ingest the ledger_entries to populate the invoice line items.
-
-    If this is false, then a line item must be provided. If this is true, line_items
-    must be empty. Ignored if ledger_account_settlement_id is empty.
-    """
-
     invoice_line_items: Optional[Iterable[InvoiceLineItem]]
     """An array of invoice line items.
 
@@ -76,9 +69,6 @@ class InvoiceCreateParams(TypedDict, total=False):
 
     invoicer_address: Optional[InvoicerAddress]
     """The invoice issuer's business address."""
-
-    ledger_account_settlement_id: Optional[str]
-    """The ID of the virtual account the invoice should be paid to."""
 
     metadata: Optional[Dict[str, str]]
     """Additional data represented as key-value pairs.
@@ -150,6 +140,8 @@ class InvoiceCreateParams(TypedDict, total=False):
 
 
 class CounterpartyBillingAddress(TypedDict, total=False):
+    """The counterparty's billing address."""
+
     country: Required[str]
     """Country code conforms to [ISO 3166-1 alpha-2]"""
 
@@ -168,6 +160,8 @@ class CounterpartyBillingAddress(TypedDict, total=False):
 
 
 class CounterpartyShippingAddress(TypedDict, total=False):
+    """The counterparty's shipping address where physical goods should be delivered."""
+
     country: Required[str]
     """Country code conforms to [ISO 3166-1 alpha-2]"""
 
@@ -233,6 +227,8 @@ Please use InvoiceLineItem instead.
 
 
 class InvoicerAddress(TypedDict, total=False):
+    """The invoice issuer's business address."""
+
     country: Required[str]
     """Country code conforms to [ISO 3166-1 alpha-2]"""
 

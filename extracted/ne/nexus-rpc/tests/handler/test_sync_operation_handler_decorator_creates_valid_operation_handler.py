@@ -17,7 +17,7 @@ class MyServiceHandler:
         self.mutable_container = []
 
     @sync_operation
-    def my_def_op(self, ctx: StartOperationContext, input: int) -> int:
+    def my_def_op(self, _ctx: StartOperationContext, input: int) -> int:
         """
         This is the docstring for the `my_def_op` sync operation.
         """
@@ -25,7 +25,7 @@ class MyServiceHandler:
         return input + 1
 
     @sync_operation(name="foo")
-    async def my_async_def_op(self, ctx: StartOperationContext, input: int) -> int:
+    async def my_async_def_op(self, _ctx: StartOperationContext, input: int) -> int:
         """
         This is the docstring for the `my_async_def_op` sync operation.
         """
@@ -35,7 +35,7 @@ class MyServiceHandler:
 
 def test_def_sync_handler():
     user_instance = MyServiceHandler()
-    op_handler_factory, _ = get_operation_factory(user_instance.my_def_op)
+    op_handler_factory = get_operation_factory(user_instance.my_def_op)
     assert op_handler_factory
     op_handler = op_handler_factory(user_instance)
     assert not is_async_callable(op_handler.start)
@@ -54,7 +54,7 @@ def test_def_sync_handler():
 @pytest.mark.asyncio
 async def test_async_def_sync_handler():
     user_instance = MyServiceHandler()
-    op_handler_factory, _ = get_operation_factory(user_instance.my_async_def_op)
+    op_handler_factory = get_operation_factory(user_instance.my_async_def_op)
     assert op_handler_factory
     op_handler = op_handler_factory(user_instance)
     assert is_async_callable(op_handler.start)

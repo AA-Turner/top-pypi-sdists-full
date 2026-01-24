@@ -1,10 +1,11 @@
 use crate::{
     compiler,
     error::{no_error, ErrorIterator},
+    evaluation::Annotations,
     keywords::CompilationResult,
     node::SchemaNode,
-    paths::LazyLocation,
-    validator::{PartialApplication, Validate},
+    paths::{LazyLocation, RefTracker},
+    validator::{EvaluationResult, Validate, ValidationContext},
     ValidationError,
 };
 use serde_json::{Map, Value};
@@ -29,27 +30,14 @@ impl ItemsArrayValidator {
     }
 }
 impl Validate for ItemsArrayValidator {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
-            let errors: Vec<_> = items
-                .iter()
-                .zip(self.items.iter())
-                .enumerate()
-                .flat_map(move |(idx, (item, node))| node.iter_errors(item, &location.push(idx)))
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Array(items) = instance {
-            items
-                .iter()
-                .zip(self.items.iter())
-                .all(move |(item, node)| node.is_valid(item))
+            for (item, node) in items.iter().zip(self.items.iter()) {
+                if !node.is_valid(item, ctx) {
+                    return false;
+                }
+            }
+            true
         } else {
             true
         }
@@ -59,13 +47,51 @@ impl Validate for ItemsArrayValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Array(items) = instance {
             for (idx, (item, node)) in items.iter().zip(self.items.iter()).enumerate() {
-                node.validate(item, &location.push(idx))?;
+                node.validate(item, &location.push(idx), tracker, ctx)?;
             }
         }
         Ok(())
+    }
+
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
+        if let Value::Array(items) = instance {
+            let mut errors = Vec::new();
+            for (idx, (item, node)) in items.iter().zip(self.items.iter()).enumerate() {
+                errors.extend(node.iter_errors(item, &location.push(idx), tracker, ctx));
+            }
+            ErrorIterator::from_iterator(errors.into_iter())
+        } else {
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        if let Value::Array(items) = instance {
+            let mut children = Vec::with_capacity(self.items.len().min(items.len()));
+            for (idx, (item, node)) in items.iter().zip(self.items.iter()).enumerate() {
+                children.push(node.evaluate_instance(item, &location.push(idx), tracker, ctx));
+            }
+            EvaluationResult::from_children(children)
+        } else {
+            EvaluationResult::valid_empty()
+        }
     }
 }
 
@@ -82,23 +108,9 @@ impl ItemsObjectValidator {
     }
 }
 impl Validate for ItemsObjectValidator {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
-            let errors: Vec<_> = items
-                .iter()
-                .enumerate()
-                .flat_map(move |(idx, item)| self.node.iter_errors(item, &location.push(idx)))
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Array(items) = instance {
-            items.iter().all(|i| self.node.is_valid(i))
+            items.iter().all(|i| self.node.is_valid(i, ctx))
         } else {
             true
         }
@@ -108,33 +120,60 @@ impl Validate for ItemsObjectValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Array(items) = instance {
             for (idx, item) in items.iter().enumerate() {
-                self.node.validate(item, &location.push(idx))?;
+                self.node
+                    .validate(item, &location.push(idx), tracker, ctx)?;
             }
         }
         Ok(())
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
         if let Value::Array(items) = instance {
-            let mut results = Vec::with_capacity(items.len());
+            let mut errors = Vec::new();
             for (idx, item) in items.iter().enumerate() {
-                let path = location.push(idx);
-                results.push(self.node.apply_rooted(item, &path));
+                errors.extend(
+                    self.node
+                        .iter_errors(item, &location.push(idx), tracker, ctx),
+                );
             }
-            let mut output: PartialApplication = results.into_iter().collect();
-            // Per draft 2020-12 section https://json-schema.org/draft/2020-12/json-schema-core.html#rfc.section.10.3.1.2
-            // we must produce an annotation with a boolean value indicating whether the subschema
-            // was applied to any positions in the underlying array. Since the struct
-            // `ItemsObjectValidator` is not used when prefixItems is defined, this is true if
-            // there are any items in the instance.
-            let schema_was_applied = !items.is_empty();
-            output.annotate(serde_json::json!(schema_was_applied).into());
-            output
+            ErrorIterator::from_iterator(errors.into_iter())
         } else {
-            PartialApplication::valid_empty()
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        if let Value::Array(items) = instance {
+            let mut children = Vec::with_capacity(items.len());
+            for (idx, item) in items.iter().enumerate() {
+                children.push(
+                    self.node
+                        .evaluate_instance(item, &location.push(idx), tracker, ctx),
+                );
+            }
+            let schema_was_applied = !items.is_empty();
+            let mut result = EvaluationResult::from_children(children);
+            result.annotate(Annotations::new(serde_json::json!(schema_was_applied)));
+            result
+        } else {
+            EvaluationResult::valid_empty()
         }
     }
 }
@@ -161,30 +200,12 @@ impl ItemsObjectSkipPrefixValidator {
 }
 
 impl Validate for ItemsObjectSkipPrefixValidator {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
-        if let Value::Array(items) = instance {
-            let errors: Vec<_> = items
-                .iter()
-                .skip(self.skip_prefix)
-                .enumerate()
-                .flat_map(move |(idx, item)| {
-                    self.node
-                        .iter_errors(item, &location.push(idx + self.skip_prefix))
-                })
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
             items
                 .iter()
                 .skip(self.skip_prefix)
-                .all(|i| self.node.is_valid(i))
+                .all(|i| self.node.is_valid(i, ctx))
         } else {
             true
         }
@@ -194,32 +215,62 @@ impl Validate for ItemsObjectSkipPrefixValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Array(items) = instance {
             for (idx, item) in items.iter().skip(self.skip_prefix).enumerate() {
                 self.node
-                    .validate(item, &location.push(idx + self.skip_prefix))?;
+                    .validate(item, &location.push(idx + self.skip_prefix), tracker, ctx)?;
             }
         }
         Ok(())
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
         if let Value::Array(items) = instance {
-            let mut results = Vec::with_capacity(items.len().saturating_sub(self.skip_prefix));
-            for (idx, item) in items.iter().enumerate().skip(self.skip_prefix) {
-                let path = location.push(idx);
-                results.push(self.node.apply_rooted(item, &path));
+            let mut errors = Vec::new();
+            for (idx, item) in items.iter().skip(self.skip_prefix).enumerate() {
+                errors.extend(self.node.iter_errors(
+                    item,
+                    &location.push(idx + self.skip_prefix),
+                    tracker,
+                    ctx,
+                ));
             }
-            let mut output: PartialApplication = results.into_iter().collect();
-            // Per draft 2020-12 section https://json-schema.org/draft/2020-12/json-schema-core.html#rfc.section.10.3.1.2
-            // we must produce an annotation with a boolean value indicating whether the subschema
-            // was applied to any positions in the underlying array.
-            let schema_was_applied = items.len() > self.skip_prefix;
-            output.annotate(serde_json::json!(schema_was_applied).into());
-            output
+            ErrorIterator::from_iterator(errors.into_iter())
         } else {
-            PartialApplication::valid_empty()
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        if let Value::Array(items) = instance {
+            let mut children = Vec::with_capacity(items.len().saturating_sub(self.skip_prefix));
+            for (idx, item) in items.iter().enumerate().skip(self.skip_prefix) {
+                children.push(
+                    self.node
+                        .evaluate_instance(item, &location.push(idx), tracker, ctx),
+                );
+            }
+            let schema_was_applied = items.len() > self.skip_prefix;
+            let mut result = EvaluationResult::from_children(children);
+            result.annotate(Annotations::new(serde_json::json!(schema_was_applied)));
+            result
+        } else {
+            EvaluationResult::valid_empty()
         }
     }
 }

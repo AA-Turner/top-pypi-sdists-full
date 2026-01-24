@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Union, cast
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 from ._config import ClientConfig
 from ._types import BaseResponse
@@ -25,9 +25,9 @@ class PredictionParams(TypedDict):
     """
     The dataset to make predictions on. This is an array of object with keys date and value. See example below for more information.
     """
-    steps: int
+    steps: NotRequired[int]
     """
-    The number of predictions to make. The default is 5.
+    The number of predictions to make. Min: 1, Max: 500. Default: 5.
     """
 
 

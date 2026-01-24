@@ -106,10 +106,10 @@ from pyatlan.model.enums import (
     AtlanConnectorType,
     AtlanDeleteType,
     CertificateStatus,
+    DataQualityScheduleType,
     EntityStatus,
     SaveSemantic,
     SortOrder,
-    alpha_DQScheduleType,
 )
 from pyatlan.model.fields.atlan_fields import AtlanField
 from pyatlan.model.lineage import LineageListRequest
@@ -447,8 +447,8 @@ class AssetClient:
             replace_custom_metadata=replace_custom_metadata,
             overwrite_custom_metadata=overwrite_custom_metadata,
             append_atlan_tags=append_atlan_tags,
+            client=self._client,  # type: ignore[arg-type]
         )
-        Save.validate_and_flush_entities(request.entities, self._client)
         raw_json = self._client._call_api(BULK_UPDATE, query_params, request)
         response = Save.process_response(raw_json)
         if connections_created := response.assets_created(Connection):
@@ -564,7 +564,7 @@ class AssetClient:
         query_params, request = Save.prepare_request_replacing_cm(
             entity=entity,
             replace_atlan_tags=replace_atlan_tags,
-            client=self._client,
+            client=self._client,  # type: ignore[arg-type]
         )
         raw_json = self._client._call_api(BULK_UPDATE, query_params, request)
         return Save.process_response_replacing_cm(raw_json)
@@ -1776,9 +1776,9 @@ class AssetClient:
         updated_asset = asset_type.updater(
             qualified_name=asset_qualified_name, name=asset_name
         )
-        updated_asset.alpha_asset_d_q_schedule_time_zone = schedule_time_zone
-        updated_asset.alpha_asset_d_q_schedule_crontab = schedule_crontab
-        updated_asset.alpha_asset_d_q_schedule_type = alpha_DQScheduleType.CRON
+        updated_asset.asset_d_q_schedule_time_zone = schedule_time_zone
+        updated_asset.asset_d_q_schedule_crontab = schedule_crontab
+        updated_asset.asset_d_q_schedule_type = DataQualityScheduleType.CRON
         response = self.save(updated_asset)
         return response
 
@@ -1803,7 +1803,7 @@ class AssetClient:
         updated_asset = asset_type.updater(
             qualified_name=asset_qualified_name, name=asset_name
         )
-        updated_asset.alpha_asset_d_q_row_scope_filter_column_qualified_name = (
+        updated_asset.asset_d_q_row_scope_filter_column_qualified_name = (
             row_scope_filter_column_qualified_name
         )
         response = self.save(updated_asset)

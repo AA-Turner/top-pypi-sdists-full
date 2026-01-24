@@ -9,25 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0208 import RepositoryRuleTagNamePatternPropParameters
 
 
-class PackagesBillingUsage(GitHubModel):
-    """PackagesBillingUsage"""
+class RepositoryRuleTagNamePattern(GitHubModel):
+    """tag_name_pattern
 
-    total_gigabytes_bandwidth_used: int = Field(
-        description="Sum of the free and paid storage space (GB) for GitHuub Packages."
+    Parameters to be used for the tag_name_pattern rule
+    """
+
+    type: Literal["tag_name_pattern"] = Field()
+    parameters: Missing[RepositoryRuleTagNamePatternPropParameters] = Field(
+        default=UNSET
     )
-    total_paid_gigabytes_bandwidth_used: int = Field(
-        description="Total paid storage space (GB) for GitHuub Packages."
-    )
-    included_gigabytes_bandwidth: int = Field(
-        description="Free storage space (GB) for GitHub Packages."
-    )
 
 
-model_rebuild(PackagesBillingUsage)
+model_rebuild(RepositoryRuleTagNamePattern)
 
-__all__ = ("PackagesBillingUsage",)
+__all__ = ("RepositoryRuleTagNamePattern",)

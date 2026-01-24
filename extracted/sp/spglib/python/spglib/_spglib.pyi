@@ -2,10 +2,7 @@ import typing
 
 import numpy as np
 
-from ._compat.typing import TypeAlias
 from ._compat.warnings import deprecated
-
-_data_list: TypeAlias = list[typing.Any]
 
 # Note: Many of these interfaces do not match the _spglib.c quite correctly.
 #   This will resolve itself when using pybind and C++ interface
@@ -24,14 +21,14 @@ def dataset(
     hall_number: int,
     symprec: float,
     angle_tolerance: float,
-) -> _data_list | None: ...
-def layerdataset(
+) -> dict[str, typing.Any] | None: ...
+def layer_dataset(
     lattice: np.ndarray,
     positions: np.ndarray,
     atom_types: np.ndarray,
     aperiodic_dir: int,
     symprec: float,
-) -> _data_list | None: ...
+) -> dict[str, typing.Any] | None: ...
 def magnetic_dataset(
     lattice: np.ndarray,
     positions: np.ndarray,
@@ -42,23 +39,23 @@ def magnetic_dataset(
     symprec: float,
     angle_tolerance: float,
     mag_symprec: float,
-) -> _data_list | None: ...
-def spacegroup_type(hall_number: int) -> _data_list | None: ...
+) -> dict[str, typing.Any] | None: ...
+def spacegroup_type(hall_number: int) -> dict[str, typing.Any] | None: ...
 def spacegroup_type_from_symmetry(
     rotations: np.ndarray, translations: np.ndarray, lattice: np.ndarray, symprec: float
-) -> _data_list | None: ...
-def magnetic_spacegroup_type(uni_number: int) -> _data_list | None: ...
+) -> dict[str, typing.Any] | None: ...
+def magnetic_spacegroup_type(uni_number: int) -> dict[str, typing.Any] | None: ...
 def magnetic_spacegroup_type_from_symmetry(
     rotations: np.ndarray,
     translations: np.ndarray,
     time_reversals: np.ndarray,
     lattice: np.ndarray,
     symprec: float,
-) -> _data_list | None: ...
+) -> dict[str, typing.Any] | None: ...
 def symmetry_from_database(
     rotations: np.ndarray,
     translations: np.ndarray,
-    hall_number: float,
+    hall_number: int,
 ) -> int | None: ...
 def magnetic_symmetry_from_database(
     rotations: np.ndarray,
@@ -95,12 +92,14 @@ def symmetry(
     symprec: float,
     angle_tolerance: float,
 ) -> int | None: ...
+@deprecated("Not used")
 def symmetry_with_collinear_spin(
     rotations: np.ndarray,
     translations: np.ndarray,
     equiv_atoms: np.ndarray,
     lattice: np.ndarray,
     positions: np.ndarray,
+    atom_types: np.ndarray,
     magmoms: np.ndarray,
     symprec: float,
     angle_tolerance: float,

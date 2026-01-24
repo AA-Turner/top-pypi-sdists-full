@@ -1,17 +1,18 @@
 import logging
+import re
 import time
 from abc import ABC, abstractmethod
 from random import randint
 from typing import Callable, Optional, Tuple
+from urllib.parse import urlparse, ParseResult
 
 import grpc
-from qwak.exceptions import QwakException
-from qwak.inner.di_configuration.account import UserAccountConfiguration
-from qwak.inner.tool.auth import Auth0ClientBase
 
-from .grpc_auth import Auth0Client, FrogMLGrpcClient
+from qwak.exceptions import QwakException, QwakGrpcAddressException
+from .grpc_auth import Auth0Client
 
 logger = logging.getLogger()
+HOSTNAME_REGEX: str = r"^(?!-)(?:[A-Za-z0-9-]{1,63}\.)*[A-Za-z0-9-]{1,63}(?<!-)$"
 
 
 def create_grpc_channel(
@@ -21,7 +22,7 @@ def create_grpc_channel(
     auth_metadata_plugin: grpc.AuthMetadataPlugin = None,
     timeout: int = 100,
     options=None,
-    backoff_options={},
+    backoff_options=None,
     max_attempts=4,
     status_for_retry=(grpc.StatusCode.UNAVAILABLE,),
     attempt=0,
@@ -42,6 +43,9 @@ def create_grpc_channel(
         status_for_retry: grpc statuses to retry upon
     Returns: Returns a grpc.Channel
     """
+    if backoff_options is None:
+        backoff_options = {}
+
     if not url:
         raise QwakException("Unable to create gRPC channel. URL has not been defined.")
 
@@ -49,11 +53,7 @@ def create_grpc_channel(
         credentials = grpc.ssl_channel_credentials()
         if enable_auth:
             if auth_metadata_plugin is None:
-                user_config = UserAccountConfiguration()
-                if issubclass(user_config._auth_client, Auth0ClientBase):
-                    auth_metadata_plugin = Auth0Client()
-                else:
-                    auth_metadata_plugin = FrogMLGrpcClient()
+                auth_metadata_plugin = Auth0Client()
             credentials = grpc.composite_channel_credentials(
                 credentials, grpc.metadata_call_credentials(auth_metadata_plugin)
             )
@@ -107,11 +107,14 @@ def create_grpc_channel_or_none(
     auth_metadata_plugin: grpc.AuthMetadataPlugin = None,
     timeout: int = 30,
     options=None,
-    backoff_options={},
+    backoff_options=None,
     max_attempts=2,
     status_for_retry=(grpc.StatusCode.UNAVAILABLE,),
     attempt=0,
 ) -> Callable[[Optional[str], Optional[bool]], Optional[grpc.Channel]]:
+    if backoff_options is None:
+        backoff_options = {}
+
     def deferred_channel(
         url_overwrite: Optional[str] = None, ssl_overwrite: Optional[bool] = None
     ):
@@ -133,6 +136,117 @@ def create_grpc_channel_or_none(
             return None
 
     return deferred_channel
+
+
+def validate_grpc_address(
+    grpc_address: str,
+    is_port_specification_allowed: bool = False,
+    is_url_scheme_allowed: bool = False,
+):
+    """
+    Validate gRPC address format
+    Args:
+        grpc_address (str): gRPC address to validate
+        is_port_specification_allowed (bool): Whether to allow port specification in the address
+        is_url_scheme_allowed (bool): Whether to allow URL scheme in the address
+    Raises:
+        QwakGrpcAddressException: If the gRPC address is invalid
+    """
+    parsed_grpc_address: ParseResult = parse_address(grpc_address)
+    hostname: str = get_hostname_from_address(parsed_grpc_address)
+    validate_paths_are_not_included_in_address(parsed_grpc_address)
+
+    if not is_url_scheme_allowed:
+        __validate_url_scheme_not_included_in_address(parsed_grpc_address)
+
+    if not is_port_specification_allowed:
+        __validate_port_not_included_in_address(parsed_grpc_address)
+
+    if not is_valid_hostname(hostname):
+        raise QwakGrpcAddressException(
+            "gRPC address must be a simple hostname or fully qualified domain name.",
+            parsed_grpc_address,
+        )
+
+
+def validate_paths_are_not_included_in_address(
+    parsed_grpc_address: ParseResult,
+) -> None:
+    has_invalid_path: bool = (
+        parsed_grpc_address.path not in {"", "/"}
+        or parsed_grpc_address.query
+        or parsed_grpc_address.fragment
+    )
+
+    if has_invalid_path:
+        raise QwakGrpcAddressException(
+            "gRPC address must not contain paths, queries, or fragments.",
+            parsed_grpc_address,
+        )
+
+
+def get_hostname_from_address(parsed_grpc_address: ParseResult) -> str:
+    hostname: Optional[str] = parsed_grpc_address.hostname
+    if not hostname:
+        raise QwakGrpcAddressException(
+            "gRPC address must contain a valid hostname.", parsed_grpc_address
+        )
+
+    return hostname
+
+
+def __validate_url_scheme_not_included_in_address(
+    parsed_grpc_address: ParseResult,
+) -> None:
+    if parsed_grpc_address.scheme:
+        raise QwakGrpcAddressException(
+            "URL scheme is not allowed in the gRPC address.", parsed_grpc_address
+        )
+
+
+def __validate_port_not_included_in_address(parsed_grpc_address: ParseResult):
+    try:
+        port: Optional[int] = parsed_grpc_address.port
+    except ValueError as exc:
+        raise QwakGrpcAddressException(
+            "Invalid port specification in the gRPC address.", parsed_grpc_address
+        ) from exc
+
+    if port:
+        raise QwakGrpcAddressException(
+            "Port specification is not allowed in the gRPC address.",
+            parsed_grpc_address,
+        )
+
+
+def parse_address(grpc_address: str) -> ParseResult:
+    if not grpc_address or not grpc_address.strip():
+        raise QwakGrpcAddressException(
+            "gRPC address must not be empty or whitespace.", grpc_address
+        )
+
+    trimmed_address: str = grpc_address.strip()
+    parsed_address: ParseResult = urlparse(
+        trimmed_address if "://" in trimmed_address else f"//{trimmed_address}"
+    )
+
+    return parsed_address
+
+
+def is_valid_hostname(hostname: str) -> bool:
+    """
+    Validate that the supplied hostname conforms to RFC-style label rules:
+    anchored pattern enforces full-string validation, negative lookahead/lookbehind block
+    leading or trailing hyphens per label, and each dot-separated label must be 1-63
+    alphanumeric/hyphen characters.
+
+    Args:
+        hostname (str): The hostname to validate.
+    Returns:
+        bool: True if the hostname is valid, False otherwise.
+    """
+    hostname_pattern: re.Pattern = re.compile(HOSTNAME_REGEX)
+    return bool(hostname_pattern.fullmatch(hostname))
 
 
 class SleepingPolicy(ABC):

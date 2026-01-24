@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import functools
@@ -6,7 +6,7 @@ import io
 from functools import cached_property
 from typing import Any, Optional, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 
 from marimo import _loggers
 from marimo._data.models import (
@@ -38,7 +38,7 @@ class PolarsTableManagerFactory(TableManagerFactory):
         import polars as pl
 
         class PolarsTableManager(
-            NarwhalsTableManager[Union[pl.DataFrame, pl.LazyFrame]]
+            NarwhalsTableManager[pl.DataFrame, pl.LazyFrame]
         ):
             type = "polars"
 
@@ -108,8 +108,28 @@ class PolarsTableManagerFactory(TableManagerFactory):
                     return result.write_csv()
 
             def to_json_str(
-                self, format_mapping: Optional[FormatMapping] = None
+                self,
+                format_mapping: Optional[FormatMapping] = None,
+                strict_json: bool = False,
+                ensure_ascii: bool = True,
             ) -> str:
+                def to_json(
+                    result: pl.DataFrame,
+                ) -> list[dict[str, Any]] | str:
+                    """
+                    to_dicts preserves nans, infs and is more accurate than write_json.
+                    By default, we use to_dicts unless strict_json is True
+                    """
+                    if strict_json:
+                        try:
+                            return result.write_json()
+                        except Exception as e:
+                            LOGGER.warning(
+                                "Error serializing to JSON. Falling back to to_dicts. Error: %s",
+                                e,
+                            )
+                    return result.to_dicts()
+
                 result = self.apply_formatting(format_mapping).collect()
                 try:
                     for column in result.get_columns():
@@ -118,7 +138,18 @@ class PolarsTableManagerFactory(TableManagerFactory):
                             result = self._convert_time_to_string(
                                 result, column
                             )
-                    return sanitize_json_bigint(result.write_json())
+                        # https://github.com/marimo-team/marimo/issues/7032
+                        # Polars issue with ordering and write_json for enums, so we convert to strings
+                        elif isinstance(dtype, pl.List) and isinstance(
+                            dtype.inner, (pl.Enum, pl.Categorical)
+                        ):
+                            # Convert each element in the list to a string
+                            result = result.with_columns(
+                                pl.col(column.name).cast(pl.List(pl.String))
+                            )
+                    return sanitize_json_bigint(
+                        to_json(result), ensure_ascii=ensure_ascii
+                    )
                 except (
                     BaseException
                 ):  # Sometimes, polars throws a generic exception
@@ -154,14 +185,15 @@ class PolarsTableManagerFactory(TableManagerFactory):
                                 result, column
                             )
                             converted_columns.append(column.name)
-
                     if converted_columns:
                         LOGGER.info(
                             "Converted columns %s to safe values.",
                             ", ".join(f"'{col}'" for col in converted_columns),
                         )
 
-                    return sanitize_json_bigint(result.write_json())
+                    return sanitize_json_bigint(
+                        to_json(result), ensure_ascii=ensure_ascii
+                    )
 
             def _convert_time_to_string(
                 self, result: pl.DataFrame, column: pl.Series
@@ -181,7 +213,7 @@ class PolarsTableManagerFactory(TableManagerFactory):
                         # As of writing this, cast(pl.String) doesn't work
                         # for pl.Object types, so we use map_elements
                         column.map_elements(
-                            lambda v: str(self._sanitize_table_value(v)),
+                            lambda v: str(v),
                             return_dtype=pl.String,
                         )
                     )

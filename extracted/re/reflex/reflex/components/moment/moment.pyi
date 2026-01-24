@@ -5,7 +5,6 @@
 # ------------------------------------------------------
 import dataclasses
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from reflex.components.component import NoSSRComponent
@@ -32,33 +31,6 @@ class Moment(NoSSRComponent):
     def create(
         cls,
         *children,
-        interval: Var[int] | int | None = None,
-        format: Var[str] | str | None = None,
-        trim: Var[bool] | bool | None = None,
-        parse: Var[str] | str | None = None,
-        add: MomentDelta | Var[MomentDelta] | None = None,
-        subtract: MomentDelta | Var[MomentDelta] | None = None,
-        from_now: Var[bool] | bool | None = None,
-        from_now_during: Var[int] | int | None = None,
-        to_now: Var[bool] | bool | None = None,
-        with_title: Var[bool] | bool | None = None,
-        title_format: Var[str] | str | None = None,
-        diff: Var[str] | str | None = None,
-        decimal: Var[bool] | bool | None = None,
-        unit: Var[str] | str | None = None,
-        duration: Var[str] | str | None = None,
-        date: Var[date | datetime | str | time | timedelta]
-        | date
-        | datetime
-        | str
-        | time
-        | timedelta
-        | None = None,
-        duration_from_now: Var[bool] | bool | None = None,
-        unix: Var[bool] | bool | None = None,
-        local: Var[bool] | bool | None = None,
-        tz: Var[str] | str | None = None,
-        locale: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -92,27 +64,6 @@ class Moment(NoSSRComponent):
 
         Args:
             *children: The children of the component.
-            interval: How often the date update (how often time update / 0 to disable).
-            format: Formats the date according to the given format string.
-            trim: When formatting duration time, the largest-magnitude tokens are automatically trimmed when they have no value.
-            parse:  Use the parse attribute to tell moment how to parse the given date when non-standard.
-            add: Add a delta to the base date (keys are "years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds")
-            subtract: Subtract a delta to the base date (keys are "years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds")
-            from_now: Displays the date as the time from now, e.g. "5 minutes ago".
-            from_now_during: Setting fromNowDuring will display the relative time as with fromNow but just during its value in milliseconds, after that format will be used instead.
-            to_now: Similar to fromNow, but gives the opposite interval.
-            with_title: Adds a title attribute to the element with the complete date.
-            title_format: How the title date is formatted when using the withTitle attribute.
-            diff: Show the different between this date and the rendered child.
-            decimal: Display the diff as decimal.
-            unit: Display the diff in given unit.
-            duration: Shows the duration (elapsed time) between two dates. duration property should be behind date property time-wise.
-            date: The date to display (also work if passed as children).
-            duration_from_now: Shows the duration (elapsed time) between now and the provided datetime.
-            unix: Tells Moment to parse the given date value as a unix timestamp.
-            local: Outputs the result in local time.
-            tz: Display the date in the given timezone.
-            locale: The locale to use when rendering.
             on_change: Fires when the date changes.
             style: The style of the component.
             key: A unique key for the component.

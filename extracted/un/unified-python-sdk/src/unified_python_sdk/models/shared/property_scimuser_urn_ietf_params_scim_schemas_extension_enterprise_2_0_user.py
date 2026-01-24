@@ -9,12 +9,12 @@ from .scimmanager import ScimManager, ScimManagerTypedDict
 from datetime import datetime
 from enum import Enum
 import pydantic
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import List, Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class PropertyScimUserUrnIetfParamsScimSchemasExtensionEnterprise20UserGender(
@@ -70,11 +70,8 @@ class PropertyScimUserUrnIetfParamsScimSchemasExtensionEnterprise20User(BaseMode
 
     end_date: Annotated[Optional[datetime], pydantic.Field(alias="endDate")] = None
 
-    gender: Annotated[
-        Optional[
-            PropertyScimUserUrnIetfParamsScimSchemasExtensionEnterprise20UserGender
-        ],
-        PlainValidator(validate_open_enum(False)),
+    gender: Optional[
+        PropertyScimUserUrnIetfParamsScimSchemasExtensionEnterprise20UserGender
     ] = None
 
     level: Optional[str] = None
@@ -89,3 +86,46 @@ class PropertyScimUserUrnIetfParamsScimSchemasExtensionEnterprise20User(BaseMode
     organization: Optional[str] = None
 
     start_date: Annotated[Optional[datetime], pydantic.Field(alias="startDate")] = None
+
+    @field_serializer("gender")
+    def serialize_gender(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.PropertyScimUserUrnIetfParamsScimSchemasExtensionEnterprise20UserGender(
+                    value
+                )
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "additionalManagers",
+                "birthday",
+                "costCenter",
+                "department",
+                "division",
+                "employeeNumber",
+                "endDate",
+                "gender",
+                "level",
+                "location",
+                "manager",
+                "organization",
+                "startDate",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

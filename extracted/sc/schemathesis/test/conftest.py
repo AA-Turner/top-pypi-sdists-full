@@ -21,6 +21,7 @@ import pytest
 import requests
 import tomli_w
 import yaml
+from _pytest.main import ExitCode
 from click.testing import CliRunner, Result
 from hypothesis import settings
 from syrupy.extensions.single_file import SingleFileSnapshotExtension, WriteMode
@@ -33,10 +34,14 @@ import schemathesis.cli
 from schemathesis import auths, hooks
 from schemathesis.cli.commands.run.executor import CUSTOM_HANDLERS
 from schemathesis.cli.commands.run.handlers import output
+from schemathesis.core import deserialization
 from schemathesis.core.hooks import HOOKS_MODULE_ENV_VAR
 from schemathesis.core.transport import Response
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.specs.openapi import media_types
+from schemathesis.transport.asgi import ASGI_TRANSPORT
+from schemathesis.transport.requests import REQUESTS_TRANSPORT
+from schemathesis.transport.wsgi import WSGI_TRANSPORT
 
 from .apps import _graphql as graphql
 from .apps import openapi
@@ -66,15 +71,27 @@ output.SCHEMATHESIS_VERSION = "dev"
 
 @pytest.fixture(autouse=True)
 def reset_hooks():
+    # Store built-in deserializers to restore after test
+    builtin_deserializers = deserialization.deserializers().copy()
+
     CUSTOM_HANDLERS.clear()
     hooks.unregister_all()
     auths.unregister()
+    for transport in (ASGI_TRANSPORT, WSGI_TRANSPORT, REQUESTS_TRANSPORT):
+        transport.unregister_serializer(*media_types.MEDIA_TYPES.keys())
     media_types.unregister_all()
     yield
     CUSTOM_HANDLERS.clear()
     hooks.unregister_all()
     auths.unregister()
+    for transport in (ASGI_TRANSPORT, WSGI_TRANSPORT, REQUESTS_TRANSPORT):
+        transport.unregister_serializer(*media_types.MEDIA_TYPES.keys())
     media_types.unregister_all()
+    # Restore built-in deserializers
+    current = list(deserialization.deserializers().keys())
+    deserialization.unregister_deserializer(*current)
+    for media_type, func in builtin_deserializers.items():
+        deserialization.register_deserializer(func, media_type)
 
 
 @pytest.fixture(scope="session")
@@ -301,7 +318,9 @@ class CliSnapshotConfig:
     replace_reproduce_with: bool = False
     replace_test_cases: bool = True
     replace_phase_statistic: bool = False
+    replace_stateful_statistic: bool = True
     remove_last_line: bool = False
+    replace: bool = True
 
     @classmethod
     def from_request(cls, request: FixtureRequest) -> CliSnapshotConfig:
@@ -315,6 +334,8 @@ class CliSnapshotConfig:
         return self.request.getfixturevalue("testdir")
 
     def serialize(self, data: str) -> str:
+        if not self.replace:
+            return data
         if self.replace_test_cases:
             data = re.sub(r"Test cases:\n  (\d+) generated, \1 skipped", "Test cases:\n  N generated, N skipped", data)
             # Cases with failures and skips
@@ -353,6 +374,17 @@ class CliSnapshotConfig:
             with keep_cwd():
                 data = data.replace(str(self.testdir.tmpdir) + os.path.sep, "/tmp/")
                 data = data.replace(str(Path(self.testdir.tmpdir).parent) + os.path.sep, "/tmp/")
+        if "Configuration:" in data:
+            lines = []
+            for line in data.splitlines():
+                normalized = click.unstyle(line)
+                stripped = normalized.lstrip()
+                if stripped.startswith("Configuration:"):
+                    indent = " " * (len(normalized) - len(stripped))
+                    lines.append(f"{indent}Configuration:    /tmp/config.toml")
+                else:
+                    lines.append(line)
+            data = "\n".join(lines)
         package_root = "/package-root"
         site_packages = "/site-packages/"
         data = data.replace(str(PACKAGE_ROOT), package_root)
@@ -371,7 +403,8 @@ class CliSnapshotConfig:
         if self.replace_phase_statistic:
             data = re.sub("🚫 [0-9]+ errors", "🚫 1 error", data)
         if "Stateful" in data:
-            data = re.sub(r"API Links:.*\d+ covered", r"API Links:    N covered", data)
+            if self.replace_stateful_statistic:
+                data = re.sub(r"API Links:.*\d+ covered", r"API Links:    N covered", data)
             before, after = data.split("Stateful", 1)
             after = re.sub(r"\d+ passed", "N passed", after)
             data = before + "Stateful" + after
@@ -414,7 +447,7 @@ class CliSnapshotConfig:
             lines = data.splitlines()
             for idx, line in enumerate(lines):
                 if re.match(r".*\d+\. Test Case ID", line):
-                    sequential_id = lines[idx].split(".")[0]
+                    sequential_id = line.split(".")[0]
                     lines[idx] = f"{sequential_id}. Test Case ID: <PLACEHOLDER>"
             data = "\n".join(lines) + "\n"
         if self.replace_uuid:
@@ -609,6 +642,12 @@ def cli(tmp_path):
                 raise result.exception
             return result
 
+        @staticmethod
+        def run_and_assert(*args, exit_code: ExitCode = ExitCode.OK, **kwargs):
+            result = Runner.run(*args, **kwargs)
+            assert result.exit_code == exit_code, result.stdout
+            return result
+
     return Runner()
 
 
@@ -727,9 +766,7 @@ def openapi_3_schema_with_xml(ctx):
 
     # No `xml` attributes are used. The default behavior
     no_xml_object = make_object()
-    #
     renamed_property_xml_object = make_object(id_extra={"xml": {"name": "renamed-id"}})
-    #
     property_as_attribute = make_object(id_extra={"xml": {"attribute": True}})
 
     simple_array = make_array(items=id_schema)
@@ -967,6 +1004,13 @@ def swagger_20(simple_schema):
 @pytest.fixture
 def openapi_30():
     raw = make_schema("simple_openapi.yaml")
+    return schemathesis.openapi.from_dict(raw)
+
+
+@pytest.fixture
+def openapi_31():
+    raw = make_schema("simple_openapi.yaml")
+    raw["openapi"] = "3.1.0"
     return schemathesis.openapi.from_dict(raw)
 
 

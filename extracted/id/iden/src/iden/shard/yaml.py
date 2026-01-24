@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["YamlShard", "create_yaml_shard"]
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
@@ -17,42 +17,44 @@ from iden.shard.file import FileShard
 if TYPE_CHECKING:
     from pathlib import Path
 
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class YamlShard(FileShard[Any]):
-    r"""Implement a YAML shard.
+class YamlShard(FileShard[T]):
+    r"""Implement a YAML shard for human-readable configuration storage.
 
-    The data are stored in a YAML file.
+    This shard stores data in YAML (YAML Ain't Markup Language) format,
+    which provides a readable text-based serialization commonly used for
+    configuration files. The data are stored in a YAML file.
 
     Args:
         uri: The shard's URI.
         path: The path to the YAML file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import YamlShard
+        >>> from iden.io import save_yaml
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     file = Path(tmpdir).joinpath("data.yaml")
+        ...     save_yaml([1, 2, 3], file)
+        ...     shard = YamlShard(uri="file:///data/1234456789", path=file)
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import YamlShard
-    >>> from iden.io import save_yaml
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     file = Path(tmpdir).joinpath("data.yaml")
-    ...     save_yaml([1, 2, 3], file)
-    ...     shard = YamlShard(uri="file:///data/1234456789", path=file)
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
 
     def __init__(self, uri: str, path: Path | str) -> None:
         super().__init__(uri, path, loader=YamlLoader())
 
     @classmethod
-    def generate_uri_config(cls, path: Path) -> dict:
+    def generate_uri_config(cls, path: Path) -> dict[str, Any]:
         r"""Generate the minimal config that is used to load the shard
         from its URI.
 
@@ -64,21 +66,20 @@ class YamlShard(FileShard[Any]):
         Returns:
             The minimal config to load the shard from its URI.
 
-        Example usage:
+        Example:
+            ```pycon
 
-        ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import YamlShard
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     file = Path(tmpdir).joinpath("data.yaml")
+            ...     YamlShard.generate_uri_config(file)
+            ...
+            {'kwargs': {'path': '.../data.yaml'},
+             'loader': {'_target_': 'iden.shard.loader.YamlShardLoader'}}
 
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import YamlShard
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     file = Path(tmpdir).joinpath("data.yaml")
-        ...     YamlShard.generate_uri_config(file)
-        ...
-        {'kwargs': {'path': '.../data.yaml'},
-         'loader': {'_target_': 'iden.shard.loader.YamlShardLoader'}}
-
-        ```
+            ```
         """
         return {
             KWARGS: {"path": sanitize_path(path).as_posix()},
@@ -86,7 +87,7 @@ class YamlShard(FileShard[Any]):
         }
 
 
-def create_yaml_shard(data: Any, uri: str, path: Path | None = None) -> YamlShard:
+def create_yaml_shard(data: T, uri: str, path: Path | None = None) -> YamlShard[T]:
     r"""Create a ``YamlShard`` from data.
 
     Note:
@@ -103,20 +104,18 @@ def create_yaml_shard(data: Any, uri: str, path: Path | None = None) -> YamlShar
     Returns:
         The ``YamlShard`` object.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import create_yaml_shard
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     shard = create_yaml_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import create_yaml_shard
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     shard = create_yaml_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
     if path is None:
         path = sanitize_path(uri + ".yaml")

@@ -12,17 +12,90 @@ from __future__ import annotations
 from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
-
-class ApiInsightsSubjectStatsItemsType(TypedDict):
-    """ApiInsightsSubjectStatsItems"""
-
-    subject_type: NotRequired[str]
-    subject_name: NotRequired[str]
-    subject_id: NotRequired[int]
-    total_request_count: NotRequired[int]
-    rate_limited_request_count: NotRequired[int]
-    last_rate_limited_timestamp: NotRequired[Union[str, None]]
-    last_request_timestamp: NotRequired[str]
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-__all__ = ("ApiInsightsSubjectStatsItemsType",)
+class PullRequestReviewEventPropReviewType(TypedDict):
+    """PullRequestReviewEventPropReview"""
+
+    id: NotRequired[int]
+    node_id: NotRequired[str]
+    user: NotRequired[Union[None, SimpleUserType]]
+    body: NotRequired[str]
+    commit_id: NotRequired[str]
+    submitted_at: NotRequired[Union[str, None]]
+    state: NotRequired[str]
+    html_url: NotRequired[str]
+    pull_request_url: NotRequired[str]
+    links: NotRequired[PullRequestReviewEventPropReviewPropLinksType]
+    updated_at: NotRequired[str]
+
+
+class PullRequestReviewEventPropReviewTypeForResponse(TypedDict):
+    """PullRequestReviewEventPropReview"""
+
+    id: NotRequired[int]
+    node_id: NotRequired[str]
+    user: NotRequired[Union[None, SimpleUserTypeForResponse]]
+    body: NotRequired[str]
+    commit_id: NotRequired[str]
+    submitted_at: NotRequired[Union[str, None]]
+    state: NotRequired[str]
+    html_url: NotRequired[str]
+    pull_request_url: NotRequired[str]
+    links: NotRequired[PullRequestReviewEventPropReviewPropLinksTypeForResponse]
+    updated_at: NotRequired[str]
+
+
+class PullRequestReviewEventPropReviewPropLinksType(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinks"""
+
+    html: PullRequestReviewEventPropReviewPropLinksPropHtmlType
+    pull_request: PullRequestReviewEventPropReviewPropLinksPropPullRequestType
+
+
+class PullRequestReviewEventPropReviewPropLinksTypeForResponse(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinks"""
+
+    html: PullRequestReviewEventPropReviewPropLinksPropHtmlTypeForResponse
+    pull_request: (
+        PullRequestReviewEventPropReviewPropLinksPropPullRequestTypeForResponse
+    )
+
+
+class PullRequestReviewEventPropReviewPropLinksPropHtmlType(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinksPropHtml"""
+
+    href: str
+
+
+class PullRequestReviewEventPropReviewPropLinksPropHtmlTypeForResponse(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinksPropHtml"""
+
+    href: str
+
+
+class PullRequestReviewEventPropReviewPropLinksPropPullRequestType(TypedDict):
+    """PullRequestReviewEventPropReviewPropLinksPropPullRequest"""
+
+    href: str
+
+
+class PullRequestReviewEventPropReviewPropLinksPropPullRequestTypeForResponse(
+    TypedDict
+):
+    """PullRequestReviewEventPropReviewPropLinksPropPullRequest"""
+
+    href: str
+
+
+__all__ = (
+    "PullRequestReviewEventPropReviewPropLinksPropHtmlType",
+    "PullRequestReviewEventPropReviewPropLinksPropHtmlTypeForResponse",
+    "PullRequestReviewEventPropReviewPropLinksPropPullRequestType",
+    "PullRequestReviewEventPropReviewPropLinksPropPullRequestTypeForResponse",
+    "PullRequestReviewEventPropReviewPropLinksType",
+    "PullRequestReviewEventPropReviewPropLinksTypeForResponse",
+    "PullRequestReviewEventPropReviewType",
+    "PullRequestReviewEventPropReviewTypeForResponse",
+)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation
-Version: 0.58b0
+Version: 0.60b1
 Summary: Instrumentation Tools & Auto Instrumentation for OpenTelemetry Python
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/opentelemetry-instrumentation
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Requires-Dist: opentelemetry-api~=1.4
-Requires-Dist: opentelemetry-semantic-conventions==0.58b0
+Requires-Dist: opentelemetry-semantic-conventions==0.60b1
 Requires-Dist: packaging>=18.0
 Requires-Dist: wrapt<2.0.0,>=1.0.0
 Description-Content-Type: text/x-rst
@@ -131,6 +131,8 @@ check `here <https://opentelemetry-python.readthedocs.io/en/stable/index.html#in
 
 If set by the user, opentelemetry-instrument will read this environment variable to disable specific instrumentations.
 e.g OTEL_PYTHON_DISABLED_INSTRUMENTATIONS="requests,django"
+
+If the variables contains ``*`` as member no instrumentation will be enabled.
 
 * ``OTEL_PYTHON_AUTO_INSTRUMENTATION_EXPERIMENTAL_GEVENT_PATCH``
 

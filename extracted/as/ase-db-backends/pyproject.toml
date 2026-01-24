@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ase_db_backends"
 description = "ASE-DB backends"
-version = "0.10.0"
+version = "0.11.0"
 readme = "README.rst"
 authors = [{ name="Jens Jørgen Mortensen", email="jjmo@dtu.dk" }]
 dependencies = ["ase", "numpy", "psycopg2-binary", "pymysql", "cryptography", "lmdb"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = ["Programming Language :: Python :: 3"]
 
 [project.optional-dependencies]

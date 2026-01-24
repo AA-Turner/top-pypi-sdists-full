@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ibm-db
-Version: 3.2.7
+Version: 3.2.8
 Summary: Python DBI driver for DB2 (LUW, zOS, i5)
 Home-page: http://pypi.python.org/pypi/ibm_db/
 Download-URL: http://code.google.com/p/ibm-db/downloads/list
@@ -29,13 +29,12 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database :: Front-Ends
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -64,7 +63,7 @@ https://github.com/ibmdb/python-ibmdb/wiki/APIs
 
 ## Pre-requisites
 
-Install Python 3.7 <= 3.13. The minimum python version supported by driver is python 3.7 and the latest version supported is python 3.13.
+Install Python 3.9 <= 3.14. The minimum python version supported by driver is python 3.9 and the latest version supported is python 3.14.
 MacOS arm64 is supported Python 3.9 onwards.
 
 ### To install ibm_db on z/OS system

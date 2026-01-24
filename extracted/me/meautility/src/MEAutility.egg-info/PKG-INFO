@@ -1,0 +1,48 @@
+Metadata-Version: 2.4
+Name: MEAutility
+Version: 1.5.3
+Summary: Python package for multi-electrode array (MEA) handling and stimulation.
+Author-email: Alessio Buccino <alessiop.buccino@gmail.com>
+Project-URL: homepage, https://github.com/alejoe91/MEAutility
+Project-URL: repository, https://github.com/alejoe91/MEAutility
+Project-URL: documentation, https://meautility.readthedocs.io/en/latest/ 
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: pyyaml
+Requires-Dist: matplotlib
+Dynamic: license-file
+
+[![Build Status](https://github.com/alejoe91/MEAutility/actions/workflows/python-package.yml/badge.svg)](https://github.com/alejoe91/MEAutility/actions/workflows/python-package.yml/badge.svg) [![PyPI version](https://badge.fury.io/py/MEAutility.svg)](https://badge.fury.io/py/MEAutility)
+
+# MEAutility
+
+Python package for multi-electrode array (MEA) handling and stimulation.
+
+## Installation
+
+To install run:
+`pip install MEAutility`
+
+If you want to install from sources and be updated with the latest development you can install with:
+```
+git clone https://github.com/alejoe91/MEAutility
+cd MEAutility
+pip install -e .
+```
+
+The package can then imported in Python with:
+
+`import MEAutility as MEA`
+
+## Documentation
+
+Please refer to https://meautility.readthedocs.io/en/latest/ 
+
+## Contact
+
+For any questions or comments, please contact Alessio Buccino: alessiop.buccino@gmail.com

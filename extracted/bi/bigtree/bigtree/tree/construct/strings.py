@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, TypeVar
+from typing import Any, Iterable, Mapping, TypeVar
 
 from bigtree.node import node
 from bigtree.tree import search
@@ -22,7 +22,7 @@ def add_path_to_tree(
     path: str,
     sep: str = "/",
     duplicate_name_allowed: bool = True,
-    node_attrs: Optional[Mapping[str, Any]] = None,
+    node_attrs: Mapping[str, Any] | None = None,
 ) -> T:
     """Add nodes and attributes to existing tree *in-place*, return node of path added. Adds to existing tree from list
     of path strings.
@@ -105,12 +105,12 @@ def add_path_to_tree(
 def str_to_tree(
     tree_string: str,
     tree_prefix_list: Iterable[str] = (),
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     r"""Construct tree from tree string.
 
     Examples:
-        >>> from bigtree import str_to_tree
+        >>> from bigtree import Tree
         >>> tree_str = (
         ...     'a\n'
         ...     '├── b\n'
@@ -121,8 +121,8 @@ def str_to_tree(
         ...     '└── c\n'
         ...     '    └── f'
         ... )
-        >>> root = str_to_tree(tree_str)
-        >>> root.show()
+        >>> tree = Tree.from_str(tree_str)
+        >>> tree.show()
         a
         ├── b
         │   ├── d
@@ -183,7 +183,7 @@ def newick_to_tree(
     tree_string: str,
     length_attr: str = "length",
     attr_prefix: str = "&&NHX:",
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from Newick notation, return root of tree.
 
@@ -201,28 +201,28 @@ def newick_to_tree(
     - If there are no node names, it will be auto-filled with convention `nodeN` with N representing a number
 
     Examples:
-        >>> from bigtree import newick_to_tree
-        >>> root = newick_to_tree("((d,e)b,c)a")
-        >>> root.show()
+        >>> from bigtree import Tree
+        >>> tree = Tree.from_newick("((d,e)b,c)a")
+        >>> tree.show()
         a
         ├── b
         │   ├── d
         │   └── e
         └── c
 
-        >>> root = newick_to_tree("((d:40,e:35)b:65,c:60)a", length_attr="age")
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_newick("((d:40,e:35)b:65,c:60)a", length_attr="age")
+        >>> tree.show(attr_list=["age"])
         a
         ├── b [age=65]
         │   ├── d [age=40]
         │   └── e [age=35]
         └── c [age=60]
 
-        >>> root = newick_to_tree(
+        >>> tree = Tree.from_newick(
         ...     "((d:40[&&NHX:species=human],e:35[&&NHX:species=human])b:65[&&NHX:species=human],c:60[&&NHX:species=human])a[&&NHX:species=human]",
         ...     length_attr="age",
         ... )
-        >>> root.show(all_attrs=True)
+        >>> tree.show(all_attrs=True)
         a [species=human]
         ├── b [age=65, species=human]
         │   ├── d [age=40, species=human]
@@ -241,24 +241,24 @@ def newick_to_tree(
     assertions.assert_length_not_empty(tree_string, "Tree string", "tree_string")
 
     # Store results (for tracking)
-    depth_nodes: Dict[int, List[T]] = defaultdict(list)
+    depth_nodes: dict[int, list[T]] = defaultdict(list)
     unlabelled_node_counter: int = 0
     current_depth: int = 1
     tree_string_idx: int = 0
 
     # Store states (for assertions and checks)
     current_state: constants.NewickState = constants.NewickState.PARSE_STRING
-    current_node: Optional[T] = None
+    current_node: T | None = None
     cumulative_string: str = ""
     cumulative_string_value: str = ""
 
     def _create_node(
-        _new_node: Optional[T],
+        _new_node: T | None,
         _cumulative_string: str,
         _unlabelled_node_counter: int,
-        _depth_nodes: Dict[int, List[T]],
+        _depth_nodes: dict[int, list[T]],
         _current_depth: int,
-    ) -> Tuple[T, int]:
+    ) -> tuple[T, int]:
         """Create node at checkpoint.
 
         Args:

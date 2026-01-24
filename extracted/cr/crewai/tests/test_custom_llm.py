@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
 import pytest
-
 from crewai import Agent, Crew, Process, Task
 from crewai.llms.base_llm import BaseLLM
 from crewai.utilities.llm_utils import create_llm
@@ -32,6 +31,7 @@ class CustomLLM(BaseLLM):
         available_functions=None,
         from_task=None,
         from_agent=None,
+        response_model=None,
     ):
         """
         Mock LLM call that returns a predefined response.
@@ -77,8 +77,11 @@ class CustomLLM(BaseLLM):
         """
         return 4096
 
+    async def acall(self, messages, tools=None, callbacks=None, available_functions=None, from_task=None, from_agent=None, response_model=None):
+        raise NotImplementedError
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+
+@pytest.mark.vcr()
 def test_custom_llm_implementation():
     """Test that a custom LLM implementation works with create_llm."""
     custom_llm = CustomLLM(response="The answer is 42")
@@ -97,7 +100,7 @@ def test_custom_llm_implementation():
     assert "42" in response
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_custom_llm_within_crew():
     """Test that a custom LLM implementation works with create_llm."""
     custom_llm = CustomLLM(response="Hello! Nice to meet you!", model="test-model")
@@ -163,6 +166,9 @@ class JWTAuthLLM(BaseLLM):
         tools: Optional[List[dict]] = None,
         callbacks: Optional[List[Any]] = None,
         available_functions: Optional[Dict[str, Any]] = None,
+        from_task=None,
+        from_agent=None,
+        response_model=None,
     ) -> Union[str, Any]:
         """Record the call and return a predefined response."""
         self.calls.append(
@@ -188,6 +194,9 @@ class JWTAuthLLM(BaseLLM):
     def get_context_window_size(self) -> int:
         """Return a default context window size."""
         return 8192
+
+    async def acall(self, messages, tools=None, callbacks=None, available_functions=None, from_task=None, from_agent=None, response_model=None):
+        raise NotImplementedError
 
 
 def test_custom_llm_with_jwt_auth():
@@ -242,6 +251,9 @@ class TimeoutHandlingLLM(BaseLLM):
         tools: Optional[List[dict]] = None,
         callbacks: Optional[List[Any]] = None,
         available_functions: Optional[Dict[str, Any]] = None,
+        from_task=None,
+        from_agent=None,
+        response_model=None,
     ) -> Union[str, Any]:
         """Simulate API calls with timeout handling and retry logic.
 
@@ -282,35 +294,32 @@ class TimeoutHandlingLLM(BaseLLM):
                         )
                     # Otherwise, continue to the next attempt (simulating backoff)
                     continue
-                else:
-                    # Success on first attempt
-                    return "First attempt response"
-            else:
-                # This is a retry attempt (attempt > 0)
-                # Always record retry attempts
-                self.calls.append(
-                    {
-                        "retry_attempt": attempt,
-                        "messages": messages,
-                        "tools": tools,
-                        "callbacks": callbacks,
-                        "available_functions": available_functions,
-                    }
-                )
+                # Success on first attempt
+                return "First attempt response"
+            # This is a retry attempt (attempt > 0)
+            # Always record retry attempts
+            self.calls.append(
+                {
+                    "retry_attempt": attempt,
+                    "messages": messages,
+                    "tools": tools,
+                    "callbacks": callbacks,
+                    "available_functions": available_functions,
+                }
+            )
 
-                # Simulate a failure if fail_count > 0
-                if self.fail_count > 0:
-                    self.fail_count -= 1
-                    # If we've used all retries, raise an error
-                    if attempt == self.max_retries - 1:
-                        raise TimeoutError(
-                            f"LLM request failed after {self.max_retries} attempts"
-                        )
-                    # Otherwise, continue to the next attempt (simulating backoff)
-                    continue
-                else:
-                    # Success on retry
-                    return "Response after retry"
+            # Simulate a failure if fail_count > 0
+            if self.fail_count > 0:
+                self.fail_count -= 1
+                # If we've used all retries, raise an error
+                if attempt == self.max_retries - 1:
+                    raise TimeoutError(
+                        f"LLM request failed after {self.max_retries} attempts"
+                    )
+                # Otherwise, continue to the next attempt (simulating backoff)
+                continue
+            # Success on retry
+            return "Response after retry"
 
     def supports_function_calling(self) -> bool:
         """Return True to indicate that function calling is supported.
@@ -335,6 +344,9 @@ class TimeoutHandlingLLM(BaseLLM):
             8192, a typical context window size for modern LLMs.
         """
         return 8192
+
+    async def acall(self, messages, tools=None, callbacks=None, available_functions=None, from_task=None, from_agent=None, response_model=None):
+        raise NotImplementedError
 
 
 def test_timeout_handling_llm():

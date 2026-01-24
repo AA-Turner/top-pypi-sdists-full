@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 1.14.2
+Version: 2.3.0
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
 Classifier: Programming Language :: Python :: 3.11
@@ -12,9 +12,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aenum<4,>=3.1.15
 Requires-Dist: cachetools>=5.2.0
-Requires-Dist: klayout<0.31.0,>=0.30
+Requires-Dist: klayout<0.31.0,>=0.30.5
 Requires-Dist: loguru<0.8,>=0.7.3
-Requires-Dist: pydantic<2.12,>=2.11
+Requires-Dist: pydantic<2.13,>=2.12
 Requires-Dist: pydantic-extra-types>=2.10.5
 Requires-Dist: pydantic-settings<3,>=2.0.1
 Requires-Dist: pygit2<2,>=1.18.2
@@ -24,15 +24,16 @@ Requires-Dist: requests<3,>=2.23.3
 Requires-Dist: ruamel.yaml.string<0.2,>=0.1.1
 Requires-Dist: scipy<2,>=1.14.1
 Requires-Dist: toolz<2,>=1
-Requires-Dist: typer<0.18,>=0.15.2
+Requires-Dist: typer<0.22,>=0.21
+Requires-Dist: semver<4,>=3.0.4
 Provides-Extra: dev
 Requires-Dist: kfactory[ci]; extra == "dev"
 Requires-Dist: mypy>=1.15.0; extra == "dev"
 Requires-Dist: pre-commit>=4.2.0; extra == "dev"
 Requires-Dist: pylsp-mypy>=0.7.0; extra == "dev"
-Requires-Dist: pytest>=8.3.5; extra == "dev"
 Requires-Dist: python-lsp-server[all]>=1.13.1; extra == "dev"
 Requires-Dist: ruff>=0.9.2; extra == "dev"
+Requires-Dist: rust-just>=1.42.4; extra == "dev"
 Requires-Dist: tbump>=6.11.0; extra == "dev"
 Requires-Dist: ty>=0.0.1a17; extra == "dev"
 Requires-Dist: types-cachetools>=5.5.0.20240820; extra == "dev"
@@ -43,6 +44,7 @@ Requires-Dist: types-setuptools>=76.0.0.20250328; extra == "dev"
 Requires-Dist: scipy-stubs; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: kfactory[ipy]; extra == "docs"
+Requires-Dist: erdantic>=1.1.1; extra == "docs"
 Requires-Dist: markdown-exec>=1.10.3; extra == "docs"
 Requires-Dist: mkdocs>=1.6.1; extra == "docs"
 Requires-Dist: mkdocs-gen-files>=0.5.0; extra == "docs"
@@ -56,12 +58,15 @@ Requires-Dist: pymdown-extensions>=10.14.3; extra == "docs"
 Requires-Dist: griffe-pydantic>=1.1.4; extra == "docs"
 Requires-Dist: griffe-inherited-docstrings>=1.1.1; extra == "docs"
 Requires-Dist: griffe-warnings-deprecated>=1.1.0; extra == "docs"
+Requires-Dist: ruff>=0.9.2; extra == "docs"
 Provides-Extra: ci
 Requires-Dist: pytest>=8.3.5; extra == "ci"
 Requires-Dist: pytest-cov>=6.0.0; extra == "ci"
 Requires-Dist: pytest-randomly>=3.16.0; extra == "ci"
 Requires-Dist: pytest-regressions>=2.7.0; extra == "ci"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "ci"
+Requires-Dist: pytest-regressions>=2.8.3; extra == "ci"
+Requires-Dist: pytest-datadir>=1.8.0; extra == "ci"
 Requires-Dist: types-cachetools>=5.5.0.20240820; extra == "ci"
 Requires-Dist: types-requests>=2.32.0.20250328; extra == "ci"
 Provides-Extra: ipy
@@ -71,14 +76,14 @@ Requires-Dist: ipytree>=0.2.2; extra == "ipy"
 Requires-Dist: ipywidgets>=8.1.5; extra == "ipy"
 Dynamic: license-file
 
-# KFactory 1.14.2
+# KFactory 2.3.0
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 
 Kfactory is the backend for [gdsfactory](https://github.com/gdsfactory/gdsfactory). It is built upon [KLayout](https://klayout.de).
 It offers basic operations like gdsfactory, so it can be used on its own as as layout tool as well.
 
-It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==1.14.2` for example.
+It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==2.3.0` for example.
 
 Features similar to gdsfactory:
 

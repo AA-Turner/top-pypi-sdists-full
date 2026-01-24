@@ -1,7 +1,7 @@
 r'''
 # `aws_athena_workgroup`
 
-Refer to the Terraform Registry for docs: [`aws_athena_workgroup`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup).
+Refer to the Terraform Registry for docs: [`aws_athena_workgroup`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AthenaWorkgroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.athenaWorkgroup.AthenaWorkgroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup aws_athena_workgroup}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup aws_athena_workgroup}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class AthenaWorkgroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup aws_athena_workgroup} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup aws_athena_workgroup} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#name AthenaWorkgroup#name}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#configuration AthenaWorkgroup#configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#description AthenaWorkgroup#description}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#force_destroy AthenaWorkgroup#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#id AthenaWorkgroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#region AthenaWorkgroup#region}
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#state AthenaWorkgroup#state}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#tags AthenaWorkgroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#tags_all AthenaWorkgroup#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#name AthenaWorkgroup#name}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#configuration AthenaWorkgroup#configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#description AthenaWorkgroup#description}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#force_destroy AthenaWorkgroup#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#id AthenaWorkgroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#region AthenaWorkgroup#region}
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#state AthenaWorkgroup#state}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#tags AthenaWorkgroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#tags_all AthenaWorkgroup#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class AthenaWorkgroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AthenaWorkgroup to import.
-        :param import_from_id: The id of the existing AthenaWorkgroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AthenaWorkgroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AthenaWorkgroup to import is found.
         '''
         if __debug__:
@@ -147,19 +147,21 @@ class AthenaWorkgroup(
         engine_version: typing.Optional[typing.Union["AthenaWorkgroupConfigurationEngineVersion", typing.Dict[builtins.str, typing.Any]]] = None,
         execution_role: typing.Optional[builtins.str] = None,
         identity_center_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationIdentityCenterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        managed_query_results_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationManagedQueryResultsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_cloudwatch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         requester_pays_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         result_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationResultConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bytes_scanned_cutoff_per_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#bytes_scanned_cutoff_per_query AthenaWorkgroup#bytes_scanned_cutoff_per_query}.
-        :param enforce_workgroup_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#enforce_workgroup_configuration AthenaWorkgroup#enforce_workgroup_configuration}.
-        :param engine_version: engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#engine_version AthenaWorkgroup#engine_version}
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#execution_role AthenaWorkgroup#execution_role}.
-        :param identity_center_configuration: identity_center_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#identity_center_configuration AthenaWorkgroup#identity_center_configuration}
-        :param publish_cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#publish_cloudwatch_metrics_enabled AthenaWorkgroup#publish_cloudwatch_metrics_enabled}.
-        :param requester_pays_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#requester_pays_enabled AthenaWorkgroup#requester_pays_enabled}.
-        :param result_configuration: result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#result_configuration AthenaWorkgroup#result_configuration}
+        :param bytes_scanned_cutoff_per_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#bytes_scanned_cutoff_per_query AthenaWorkgroup#bytes_scanned_cutoff_per_query}.
+        :param enforce_workgroup_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enforce_workgroup_configuration AthenaWorkgroup#enforce_workgroup_configuration}.
+        :param engine_version: engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#engine_version AthenaWorkgroup#engine_version}
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#execution_role AthenaWorkgroup#execution_role}.
+        :param identity_center_configuration: identity_center_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#identity_center_configuration AthenaWorkgroup#identity_center_configuration}
+        :param managed_query_results_configuration: managed_query_results_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#managed_query_results_configuration AthenaWorkgroup#managed_query_results_configuration}
+        :param publish_cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#publish_cloudwatch_metrics_enabled AthenaWorkgroup#publish_cloudwatch_metrics_enabled}.
+        :param requester_pays_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#requester_pays_enabled AthenaWorkgroup#requester_pays_enabled}.
+        :param result_configuration: result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#result_configuration AthenaWorkgroup#result_configuration}
         '''
         value = AthenaWorkgroupConfiguration(
             bytes_scanned_cutoff_per_query=bytes_scanned_cutoff_per_query,
@@ -167,6 +169,7 @@ class AthenaWorkgroup(
             engine_version=engine_version,
             execution_role=execution_role,
             identity_center_configuration=identity_center_configuration,
+            managed_query_results_configuration=managed_query_results_configuration,
             publish_cloudwatch_metrics_enabled=publish_cloudwatch_metrics_enabled,
             requester_pays_enabled=requester_pays_enabled,
             result_configuration=result_configuration,
@@ -429,15 +432,15 @@ class AthenaWorkgroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#name AthenaWorkgroup#name}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#configuration AthenaWorkgroup#configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#description AthenaWorkgroup#description}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#force_destroy AthenaWorkgroup#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#id AthenaWorkgroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#region AthenaWorkgroup#region}
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#state AthenaWorkgroup#state}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#tags AthenaWorkgroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#tags_all AthenaWorkgroup#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#name AthenaWorkgroup#name}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#configuration AthenaWorkgroup#configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#description AthenaWorkgroup#description}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#force_destroy AthenaWorkgroup#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#id AthenaWorkgroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#region AthenaWorkgroup#region}
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#state AthenaWorkgroup#state}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#tags AthenaWorkgroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#tags_all AthenaWorkgroup#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -561,7 +564,7 @@ class AthenaWorkgroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#name AthenaWorkgroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#name AthenaWorkgroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -570,14 +573,14 @@ class AthenaWorkgroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["AthenaWorkgroupConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#configuration AthenaWorkgroup#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#configuration AthenaWorkgroup#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["AthenaWorkgroupConfiguration"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#description AthenaWorkgroup#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#description AthenaWorkgroup#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -585,13 +588,13 @@ class AthenaWorkgroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#force_destroy AthenaWorkgroup#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#force_destroy AthenaWorkgroup#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#id AthenaWorkgroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#id AthenaWorkgroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -603,26 +606,26 @@ class AthenaWorkgroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#region AthenaWorkgroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#region AthenaWorkgroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#state AthenaWorkgroup#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#state AthenaWorkgroup#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#tags AthenaWorkgroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#tags AthenaWorkgroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#tags_all AthenaWorkgroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#tags_all AthenaWorkgroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -647,6 +650,7 @@ class AthenaWorkgroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "engine_version": "engineVersion",
         "execution_role": "executionRole",
         "identity_center_configuration": "identityCenterConfiguration",
+        "managed_query_results_configuration": "managedQueryResultsConfiguration",
         "publish_cloudwatch_metrics_enabled": "publishCloudwatchMetricsEnabled",
         "requester_pays_enabled": "requesterPaysEnabled",
         "result_configuration": "resultConfiguration",
@@ -661,24 +665,28 @@ class AthenaWorkgroupConfiguration:
         engine_version: typing.Optional[typing.Union["AthenaWorkgroupConfigurationEngineVersion", typing.Dict[builtins.str, typing.Any]]] = None,
         execution_role: typing.Optional[builtins.str] = None,
         identity_center_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationIdentityCenterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        managed_query_results_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationManagedQueryResultsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         publish_cloudwatch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         requester_pays_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         result_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationResultConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bytes_scanned_cutoff_per_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#bytes_scanned_cutoff_per_query AthenaWorkgroup#bytes_scanned_cutoff_per_query}.
-        :param enforce_workgroup_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#enforce_workgroup_configuration AthenaWorkgroup#enforce_workgroup_configuration}.
-        :param engine_version: engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#engine_version AthenaWorkgroup#engine_version}
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#execution_role AthenaWorkgroup#execution_role}.
-        :param identity_center_configuration: identity_center_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#identity_center_configuration AthenaWorkgroup#identity_center_configuration}
-        :param publish_cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#publish_cloudwatch_metrics_enabled AthenaWorkgroup#publish_cloudwatch_metrics_enabled}.
-        :param requester_pays_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#requester_pays_enabled AthenaWorkgroup#requester_pays_enabled}.
-        :param result_configuration: result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#result_configuration AthenaWorkgroup#result_configuration}
+        :param bytes_scanned_cutoff_per_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#bytes_scanned_cutoff_per_query AthenaWorkgroup#bytes_scanned_cutoff_per_query}.
+        :param enforce_workgroup_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enforce_workgroup_configuration AthenaWorkgroup#enforce_workgroup_configuration}.
+        :param engine_version: engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#engine_version AthenaWorkgroup#engine_version}
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#execution_role AthenaWorkgroup#execution_role}.
+        :param identity_center_configuration: identity_center_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#identity_center_configuration AthenaWorkgroup#identity_center_configuration}
+        :param managed_query_results_configuration: managed_query_results_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#managed_query_results_configuration AthenaWorkgroup#managed_query_results_configuration}
+        :param publish_cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#publish_cloudwatch_metrics_enabled AthenaWorkgroup#publish_cloudwatch_metrics_enabled}.
+        :param requester_pays_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#requester_pays_enabled AthenaWorkgroup#requester_pays_enabled}.
+        :param result_configuration: result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#result_configuration AthenaWorkgroup#result_configuration}
         '''
         if isinstance(engine_version, dict):
             engine_version = AthenaWorkgroupConfigurationEngineVersion(**engine_version)
         if isinstance(identity_center_configuration, dict):
             identity_center_configuration = AthenaWorkgroupConfigurationIdentityCenterConfiguration(**identity_center_configuration)
+        if isinstance(managed_query_results_configuration, dict):
+            managed_query_results_configuration = AthenaWorkgroupConfigurationManagedQueryResultsConfiguration(**managed_query_results_configuration)
         if isinstance(result_configuration, dict):
             result_configuration = AthenaWorkgroupConfigurationResultConfiguration(**result_configuration)
         if __debug__:
@@ -688,6 +696,7 @@ class AthenaWorkgroupConfiguration:
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
             check_type(argname="argument identity_center_configuration", value=identity_center_configuration, expected_type=type_hints["identity_center_configuration"])
+            check_type(argname="argument managed_query_results_configuration", value=managed_query_results_configuration, expected_type=type_hints["managed_query_results_configuration"])
             check_type(argname="argument publish_cloudwatch_metrics_enabled", value=publish_cloudwatch_metrics_enabled, expected_type=type_hints["publish_cloudwatch_metrics_enabled"])
             check_type(argname="argument requester_pays_enabled", value=requester_pays_enabled, expected_type=type_hints["requester_pays_enabled"])
             check_type(argname="argument result_configuration", value=result_configuration, expected_type=type_hints["result_configuration"])
@@ -702,6 +711,8 @@ class AthenaWorkgroupConfiguration:
             self._values["execution_role"] = execution_role
         if identity_center_configuration is not None:
             self._values["identity_center_configuration"] = identity_center_configuration
+        if managed_query_results_configuration is not None:
+            self._values["managed_query_results_configuration"] = managed_query_results_configuration
         if publish_cloudwatch_metrics_enabled is not None:
             self._values["publish_cloudwatch_metrics_enabled"] = publish_cloudwatch_metrics_enabled
         if requester_pays_enabled is not None:
@@ -711,7 +722,7 @@ class AthenaWorkgroupConfiguration:
 
     @builtins.property
     def bytes_scanned_cutoff_per_query(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#bytes_scanned_cutoff_per_query AthenaWorkgroup#bytes_scanned_cutoff_per_query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#bytes_scanned_cutoff_per_query AthenaWorkgroup#bytes_scanned_cutoff_per_query}.'''
         result = self._values.get("bytes_scanned_cutoff_per_query")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -719,7 +730,7 @@ class AthenaWorkgroupConfiguration:
     def enforce_workgroup_configuration(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#enforce_workgroup_configuration AthenaWorkgroup#enforce_workgroup_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enforce_workgroup_configuration AthenaWorkgroup#enforce_workgroup_configuration}.'''
         result = self._values.get("enforce_workgroup_configuration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -729,14 +740,14 @@ class AthenaWorkgroupConfiguration:
     ) -> typing.Optional["AthenaWorkgroupConfigurationEngineVersion"]:
         '''engine_version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#engine_version AthenaWorkgroup#engine_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#engine_version AthenaWorkgroup#engine_version}
         '''
         result = self._values.get("engine_version")
         return typing.cast(typing.Optional["AthenaWorkgroupConfigurationEngineVersion"], result)
 
     @builtins.property
     def execution_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#execution_role AthenaWorkgroup#execution_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#execution_role AthenaWorkgroup#execution_role}.'''
         result = self._values.get("execution_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -746,16 +757,27 @@ class AthenaWorkgroupConfiguration:
     ) -> typing.Optional["AthenaWorkgroupConfigurationIdentityCenterConfiguration"]:
         '''identity_center_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#identity_center_configuration AthenaWorkgroup#identity_center_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#identity_center_configuration AthenaWorkgroup#identity_center_configuration}
         '''
         result = self._values.get("identity_center_configuration")
         return typing.cast(typing.Optional["AthenaWorkgroupConfigurationIdentityCenterConfiguration"], result)
 
     @builtins.property
+    def managed_query_results_configuration(
+        self,
+    ) -> typing.Optional["AthenaWorkgroupConfigurationManagedQueryResultsConfiguration"]:
+        '''managed_query_results_configuration block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#managed_query_results_configuration AthenaWorkgroup#managed_query_results_configuration}
+        '''
+        result = self._values.get("managed_query_results_configuration")
+        return typing.cast(typing.Optional["AthenaWorkgroupConfigurationManagedQueryResultsConfiguration"], result)
+
+    @builtins.property
     def publish_cloudwatch_metrics_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#publish_cloudwatch_metrics_enabled AthenaWorkgroup#publish_cloudwatch_metrics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#publish_cloudwatch_metrics_enabled AthenaWorkgroup#publish_cloudwatch_metrics_enabled}.'''
         result = self._values.get("publish_cloudwatch_metrics_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -763,7 +785,7 @@ class AthenaWorkgroupConfiguration:
     def requester_pays_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#requester_pays_enabled AthenaWorkgroup#requester_pays_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#requester_pays_enabled AthenaWorkgroup#requester_pays_enabled}.'''
         result = self._values.get("requester_pays_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -773,7 +795,7 @@ class AthenaWorkgroupConfiguration:
     ) -> typing.Optional["AthenaWorkgroupConfigurationResultConfiguration"]:
         '''result_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#result_configuration AthenaWorkgroup#result_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#result_configuration AthenaWorkgroup#result_configuration}
         '''
         result = self._values.get("result_configuration")
         return typing.cast(typing.Optional["AthenaWorkgroupConfigurationResultConfiguration"], result)
@@ -802,7 +824,7 @@ class AthenaWorkgroupConfigurationEngineVersion:
         selected_engine_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param selected_engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#selected_engine_version AthenaWorkgroup#selected_engine_version}.
+        :param selected_engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#selected_engine_version AthenaWorkgroup#selected_engine_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb139dcd6db9b3e25f567806d943cd6c493defecd1d5c959a93b5256ccab5968)
@@ -813,7 +835,7 @@ class AthenaWorkgroupConfigurationEngineVersion:
 
     @builtins.property
     def selected_engine_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#selected_engine_version AthenaWorkgroup#selected_engine_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#selected_engine_version AthenaWorkgroup#selected_engine_version}.'''
         result = self._values.get("selected_engine_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -909,8 +931,8 @@ class AthenaWorkgroupConfigurationIdentityCenterConfiguration:
         identity_center_instance_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_identity_center: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#enable_identity_center AthenaWorkgroup#enable_identity_center}.
-        :param identity_center_instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#identity_center_instance_arn AthenaWorkgroup#identity_center_instance_arn}.
+        :param enable_identity_center: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enable_identity_center AthenaWorkgroup#enable_identity_center}.
+        :param identity_center_instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#identity_center_instance_arn AthenaWorkgroup#identity_center_instance_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa30c68e6e727a3670c121fabb43fd526f235b204ead9ba75a83f0986728b1ef)
@@ -926,13 +948,13 @@ class AthenaWorkgroupConfigurationIdentityCenterConfiguration:
     def enable_identity_center(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#enable_identity_center AthenaWorkgroup#enable_identity_center}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enable_identity_center AthenaWorkgroup#enable_identity_center}.'''
         result = self._values.get("enable_identity_center")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#identity_center_instance_arn AthenaWorkgroup#identity_center_instance_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#identity_center_instance_arn AthenaWorkgroup#identity_center_instance_arn}.'''
         result = self._values.get("identity_center_instance_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1035,6 +1057,259 @@ class AthenaWorkgroupConfigurationIdentityCenterConfigurationOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.athenaWorkgroup.AthenaWorkgroupConfigurationManagedQueryResultsConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "enabled": "enabled",
+        "encryption_configuration": "encryptionConfiguration",
+    },
+)
+class AthenaWorkgroupConfigurationManagedQueryResultsConfiguration:
+    def __init__(
+        self,
+        *,
+        enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        encryption_configuration: typing.Optional[typing.Union["AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enabled AthenaWorkgroup#enabled}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
+        '''
+        if isinstance(encryption_configuration, dict):
+            encryption_configuration = AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration(**encryption_configuration)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfffac8488669c24e05012821326e1d71f02e47f129a12f5abb89539024af04c)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enabled AthenaWorkgroup#enabled}.'''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional["AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration"]:
+        '''encryption_configuration block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional["AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AthenaWorkgroupConfigurationManagedQueryResultsConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.athenaWorkgroup.AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"kms_key": "kmsKey"},
+)
+class AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration:
+    def __init__(self, *, kms_key: typing.Optional[builtins.str] = None) -> None:
+        '''
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#kms_key AthenaWorkgroup#kms_key}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12eb918ac6aef57ae0bb6eab570eafe2611ac044d3eaf70d5e650e8c7ab7cdf8)
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#kms_key AthenaWorkgroup#kms_key}.'''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfigurationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.athenaWorkgroup.AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfigurationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2fd0fb05716d62e387a277141df8196f2ab9361248cb153d559aa0bc55e4c8c)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetKmsKey")
+    def reset_kms_key(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKmsKey", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyInput")
+    def kms_key_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "kmsKey"))
+
+    @kms_key.setter
+    def kms_key(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94a4803c483dd9b502aede2167bf0b3205abf780d05ee03d4a3d8f87f87a7226)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration]:
+        return typing.cast(typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f67b63710cb01148934bd30ddd6edc94f27c7f64f6f84d278de1fb4c9e81c7d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class AthenaWorkgroupConfigurationManagedQueryResultsConfigurationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.athenaWorkgroup.AthenaWorkgroupConfigurationManagedQueryResultsConfigurationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04fc2f77ab8ee6121cef2736ab3337fd829e6d0165c99a9b411290641027e08d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putEncryptionConfiguration")
+    def put_encryption_configuration(
+        self,
+        *,
+        kms_key: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#kms_key AthenaWorkgroup#kms_key}.
+        '''
+        value = AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration(
+            kms_key=kms_key
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putEncryptionConfiguration", [value]))
+
+    @jsii.member(jsii_name="resetEnabled")
+    def reset_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEnabled", []))
+
+    @jsii.member(jsii_name="resetEncryptionConfiguration")
+    def reset_encryption_configuration(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEncryptionConfiguration", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfigurationOutputReference:
+        return typing.cast(AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfigurationOutputReference, jsii.get(self, "encryptionConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enabledInput")
+    def enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfigurationInput")
+    def encryption_configuration_input(
+        self,
+    ) -> typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration]:
+        return typing.cast(typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration], jsii.get(self, "encryptionConfigurationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1675f91a7f6bf4fba3cd59589fd27be872a5586cd1e40efb876011e9c4c13a7d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration]:
+        return typing.cast(typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e050dd99f4e4c91517249f574dea2301c81a857579dcdf6ed5b4cbe5cacf79a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class AthenaWorkgroupConfigurationOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -1062,7 +1337,7 @@ class AthenaWorkgroupConfigurationOutputReference(
         selected_engine_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param selected_engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#selected_engine_version AthenaWorkgroup#selected_engine_version}.
+        :param selected_engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#selected_engine_version AthenaWorkgroup#selected_engine_version}.
         '''
         value = AthenaWorkgroupConfigurationEngineVersion(
             selected_engine_version=selected_engine_version
@@ -1078,8 +1353,8 @@ class AthenaWorkgroupConfigurationOutputReference(
         identity_center_instance_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_identity_center: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#enable_identity_center AthenaWorkgroup#enable_identity_center}.
-        :param identity_center_instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#identity_center_instance_arn AthenaWorkgroup#identity_center_instance_arn}.
+        :param enable_identity_center: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enable_identity_center AthenaWorkgroup#enable_identity_center}.
+        :param identity_center_instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#identity_center_instance_arn AthenaWorkgroup#identity_center_instance_arn}.
         '''
         value = AthenaWorkgroupConfigurationIdentityCenterConfiguration(
             enable_identity_center=enable_identity_center,
@@ -1087,6 +1362,23 @@ class AthenaWorkgroupConfigurationOutputReference(
         )
 
         return typing.cast(None, jsii.invoke(self, "putIdentityCenterConfiguration", [value]))
+
+    @jsii.member(jsii_name="putManagedQueryResultsConfiguration")
+    def put_managed_query_results_configuration(
+        self,
+        *,
+        enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        encryption_configuration: typing.Optional[typing.Union[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#enabled AthenaWorkgroup#enabled}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
+        '''
+        value = AthenaWorkgroupConfigurationManagedQueryResultsConfiguration(
+            enabled=enabled, encryption_configuration=encryption_configuration
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putManagedQueryResultsConfiguration", [value]))
 
     @jsii.member(jsii_name="putResultConfiguration")
     def put_result_configuration(
@@ -1098,10 +1390,10 @@ class AthenaWorkgroupConfigurationOutputReference(
         output_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#acl_configuration AthenaWorkgroup#acl_configuration}
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
-        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#expected_bucket_owner AthenaWorkgroup#expected_bucket_owner}.
-        :param output_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#output_location AthenaWorkgroup#output_location}.
+        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#acl_configuration AthenaWorkgroup#acl_configuration}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
+        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#expected_bucket_owner AthenaWorkgroup#expected_bucket_owner}.
+        :param output_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#output_location AthenaWorkgroup#output_location}.
         '''
         value = AthenaWorkgroupConfigurationResultConfiguration(
             acl_configuration=acl_configuration,
@@ -1132,6 +1424,10 @@ class AthenaWorkgroupConfigurationOutputReference(
     def reset_identity_center_configuration(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIdentityCenterConfiguration", []))
 
+    @jsii.member(jsii_name="resetManagedQueryResultsConfiguration")
+    def reset_managed_query_results_configuration(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetManagedQueryResultsConfiguration", []))
+
     @jsii.member(jsii_name="resetPublishCloudwatchMetricsEnabled")
     def reset_publish_cloudwatch_metrics_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPublishCloudwatchMetricsEnabled", []))
@@ -1157,6 +1453,13 @@ class AthenaWorkgroupConfigurationOutputReference(
         self,
     ) -> AthenaWorkgroupConfigurationIdentityCenterConfigurationOutputReference:
         return typing.cast(AthenaWorkgroupConfigurationIdentityCenterConfigurationOutputReference, jsii.get(self, "identityCenterConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedQueryResultsConfiguration")
+    def managed_query_results_configuration(
+        self,
+    ) -> AthenaWorkgroupConfigurationManagedQueryResultsConfigurationOutputReference:
+        return typing.cast(AthenaWorkgroupConfigurationManagedQueryResultsConfigurationOutputReference, jsii.get(self, "managedQueryResultsConfiguration"))
 
     @builtins.property
     @jsii.member(jsii_name="resultConfiguration")
@@ -1195,6 +1498,13 @@ class AthenaWorkgroupConfigurationOutputReference(
         self,
     ) -> typing.Optional[AthenaWorkgroupConfigurationIdentityCenterConfiguration]:
         return typing.cast(typing.Optional[AthenaWorkgroupConfigurationIdentityCenterConfiguration], jsii.get(self, "identityCenterConfigurationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedQueryResultsConfigurationInput")
+    def managed_query_results_configuration_input(
+        self,
+    ) -> typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration]:
+        return typing.cast(typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration], jsii.get(self, "managedQueryResultsConfigurationInput"))
 
     @builtins.property
     @jsii.member(jsii_name="publishCloudwatchMetricsEnabledInput")
@@ -1328,10 +1638,10 @@ class AthenaWorkgroupConfigurationResultConfiguration:
         output_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#acl_configuration AthenaWorkgroup#acl_configuration}
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
-        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#expected_bucket_owner AthenaWorkgroup#expected_bucket_owner}.
-        :param output_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#output_location AthenaWorkgroup#output_location}.
+        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#acl_configuration AthenaWorkgroup#acl_configuration}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
+        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#expected_bucket_owner AthenaWorkgroup#expected_bucket_owner}.
+        :param output_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#output_location AthenaWorkgroup#output_location}.
         '''
         if isinstance(acl_configuration, dict):
             acl_configuration = AthenaWorkgroupConfigurationResultConfigurationAclConfiguration(**acl_configuration)
@@ -1359,7 +1669,7 @@ class AthenaWorkgroupConfigurationResultConfiguration:
     ) -> typing.Optional["AthenaWorkgroupConfigurationResultConfigurationAclConfiguration"]:
         '''acl_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#acl_configuration AthenaWorkgroup#acl_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#acl_configuration AthenaWorkgroup#acl_configuration}
         '''
         result = self._values.get("acl_configuration")
         return typing.cast(typing.Optional["AthenaWorkgroupConfigurationResultConfigurationAclConfiguration"], result)
@@ -1370,20 +1680,20 @@ class AthenaWorkgroupConfigurationResultConfiguration:
     ) -> typing.Optional["AthenaWorkgroupConfigurationResultConfigurationEncryptionConfiguration"]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_configuration AthenaWorkgroup#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional["AthenaWorkgroupConfigurationResultConfigurationEncryptionConfiguration"], result)
 
     @builtins.property
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#expected_bucket_owner AthenaWorkgroup#expected_bucket_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#expected_bucket_owner AthenaWorkgroup#expected_bucket_owner}.'''
         result = self._values.get("expected_bucket_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def output_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#output_location AthenaWorkgroup#output_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#output_location AthenaWorkgroup#output_location}.'''
         result = self._values.get("output_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1407,7 +1717,7 @@ class AthenaWorkgroupConfigurationResultConfiguration:
 class AthenaWorkgroupConfigurationResultConfigurationAclConfiguration:
     def __init__(self, *, s3_acl_option: builtins.str) -> None:
         '''
-        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#s3_acl_option AthenaWorkgroup#s3_acl_option}.
+        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#s3_acl_option AthenaWorkgroup#s3_acl_option}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55d451c675f62fe271c54bf5d3b986c5e5be1a0fd8083820fac0df761a428aa4)
@@ -1418,7 +1728,7 @@ class AthenaWorkgroupConfigurationResultConfigurationAclConfiguration:
 
     @builtins.property
     def s3_acl_option(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#s3_acl_option AthenaWorkgroup#s3_acl_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#s3_acl_option AthenaWorkgroup#s3_acl_option}.'''
         result = self._values.get("s3_acl_option")
         assert result is not None, "Required property 's3_acl_option' is missing"
         return typing.cast(builtins.str, result)
@@ -1503,8 +1813,8 @@ class AthenaWorkgroupConfigurationResultConfigurationEncryptionConfiguration:
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#encryption_option AthenaWorkgroup#encryption_option}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#kms_key_arn AthenaWorkgroup#kms_key_arn}.
+        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_option AthenaWorkgroup#encryption_option}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#kms_key_arn AthenaWorkgroup#kms_key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f82a37a0560081a80172117234496a385e1d6161e70088d44383a43a44d42ed4)
@@ -1518,13 +1828,13 @@ class AthenaWorkgroupConfigurationResultConfigurationEncryptionConfiguration:
 
     @builtins.property
     def encryption_option(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#encryption_option AthenaWorkgroup#encryption_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_option AthenaWorkgroup#encryption_option}.'''
         result = self._values.get("encryption_option")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#kms_key_arn AthenaWorkgroup#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#kms_key_arn AthenaWorkgroup#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1643,7 +1953,7 @@ class AthenaWorkgroupConfigurationResultConfigurationOutputReference(
     @jsii.member(jsii_name="putAclConfiguration")
     def put_acl_configuration(self, *, s3_acl_option: builtins.str) -> None:
         '''
-        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#s3_acl_option AthenaWorkgroup#s3_acl_option}.
+        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#s3_acl_option AthenaWorkgroup#s3_acl_option}.
         '''
         value = AthenaWorkgroupConfigurationResultConfigurationAclConfiguration(
             s3_acl_option=s3_acl_option
@@ -1659,8 +1969,8 @@ class AthenaWorkgroupConfigurationResultConfigurationOutputReference(
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#encryption_option AthenaWorkgroup#encryption_option}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/athena_workgroup#kms_key_arn AthenaWorkgroup#kms_key_arn}.
+        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#encryption_option AthenaWorkgroup#encryption_option}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/athena_workgroup#kms_key_arn AthenaWorkgroup#kms_key_arn}.
         '''
         value = AthenaWorkgroupConfigurationResultConfigurationEncryptionConfiguration(
             encryption_option=encryption_option, kms_key_arn=kms_key_arn
@@ -1772,6 +2082,10 @@ __all__ = [
     "AthenaWorkgroupConfigurationEngineVersionOutputReference",
     "AthenaWorkgroupConfigurationIdentityCenterConfiguration",
     "AthenaWorkgroupConfigurationIdentityCenterConfigurationOutputReference",
+    "AthenaWorkgroupConfigurationManagedQueryResultsConfiguration",
+    "AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration",
+    "AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfigurationOutputReference",
+    "AthenaWorkgroupConfigurationManagedQueryResultsConfigurationOutputReference",
     "AthenaWorkgroupConfigurationOutputReference",
     "AthenaWorkgroupConfigurationResultConfiguration",
     "AthenaWorkgroupConfigurationResultConfigurationAclConfiguration",
@@ -1893,6 +2207,7 @@ def _typecheckingstub__06d41cbc2c098ee966b90a54c20faf59dd4f4121261838275584a1691
     engine_version: typing.Optional[typing.Union[AthenaWorkgroupConfigurationEngineVersion, typing.Dict[builtins.str, typing.Any]]] = None,
     execution_role: typing.Optional[builtins.str] = None,
     identity_center_configuration: typing.Optional[typing.Union[AthenaWorkgroupConfigurationIdentityCenterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    managed_query_results_configuration: typing.Optional[typing.Union[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     publish_cloudwatch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     requester_pays_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     result_configuration: typing.Optional[typing.Union[AthenaWorkgroupConfigurationResultConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1955,6 +2270,59 @@ def _typecheckingstub__85c2443758cd29c601f54fb7c036b1a50306ce8e97d865b0064d51508
 
 def _typecheckingstub__76c535633d511fa664dff0621426c7530f5d5a438d71253d7dcc076120b1f85c(
     value: typing.Optional[AthenaWorkgroupConfigurationIdentityCenterConfiguration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfffac8488669c24e05012821326e1d71f02e47f129a12f5abb89539024af04c(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    encryption_configuration: typing.Optional[typing.Union[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12eb918ac6aef57ae0bb6eab570eafe2611ac044d3eaf70d5e650e8c7ab7cdf8(
+    *,
+    kms_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2fd0fb05716d62e387a277141df8196f2ab9361248cb153d559aa0bc55e4c8c(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94a4803c483dd9b502aede2167bf0b3205abf780d05ee03d4a3d8f87f87a7226(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f67b63710cb01148934bd30ddd6edc94f27c7f64f6f84d278de1fb4c9e81c7d(
+    value: typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfigurationEncryptionConfiguration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04fc2f77ab8ee6121cef2736ab3337fd829e6d0165c99a9b411290641027e08d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1675f91a7f6bf4fba3cd59589fd27be872a5586cd1e40efb876011e9c4c13a7d(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e050dd99f4e4c91517249f574dea2301c81a857579dcdf6ed5b4cbe5cacf79a(
+    value: typing.Optional[AthenaWorkgroupConfigurationManagedQueryResultsConfiguration],
 ) -> None:
     """Type checking stubs"""
     pass

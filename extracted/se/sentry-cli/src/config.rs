@@ -19,12 +19,13 @@ use sentry::types::Dsn;
 
 use crate::constants::CONFIG_INI_FILE_PATH;
 use crate::constants::DEFAULT_MAX_DIF_ITEM_SIZE;
-use crate::constants::DEFAULT_MAX_DIF_UPLOAD_SIZE;
 use crate::constants::{CONFIG_RC_FILE_NAME, DEFAULT_RETRIES, DEFAULT_URL};
+use crate::utils::args;
 use crate::utils::auth_token::AuthToken;
 use crate::utils::auth_token::AuthTokenPayload;
 use crate::utils::http::is_absolute_url;
 
+use crate::utils::non_empty::NonEmptyVec;
 #[cfg(target_os = "macos")]
 use crate::utils::xcode;
 
@@ -34,7 +35,6 @@ const MAX_RETRIES_INI_KEY: &str = "max_retries";
 /// Represents the auth information
 #[derive(Debug, Clone)]
 pub enum Auth {
-    Key(String),
     Token(AuthToken),
 }
 
@@ -141,6 +141,7 @@ impl Config {
         set_max_level(self.get_log_level());
 
         #[cfg(not(windows))]
+        #[expect(deprecated)]
         {
             openssl_probe::init_ssl_cert_env_vars();
         }
@@ -177,7 +178,6 @@ impl Config {
     pub fn set_auth(&mut self, auth: Auth) {
         self.cached_auth = Some(auth);
 
-        self.ini.delete_from(Some("auth"), "api_key");
         self.ini.delete_from(Some("auth"), "token");
         match self.cached_auth {
             Some(Auth::Token(ref val)) => {
@@ -193,9 +193,6 @@ impl Config {
                     val.raw().expose_secret().clone(),
                 );
             }
-            Some(Auth::Key(ref val)) => {
-                self.ini.set_to(Some("auth"), "api_key".into(), val.clone());
-            }
             None => {}
         }
     }
@@ -204,10 +201,10 @@ impl Config {
     pub fn get_base_url(&self) -> Result<&str> {
         let base = self.cached_base_url.trim_end_matches('/');
         if !is_absolute_url(base) {
-            bail!("bad sentry url: unknown scheme ({})", base);
+            bail!("bad sentry url: unknown scheme ({base})");
         }
         if base.matches('/').count() != 2 {
-            bail!("bad sentry url: not on URL root ({})", base);
+            bail!("bad sentry url: not on URL root ({base})");
         }
         Ok(base)
     }
@@ -313,15 +310,6 @@ impl Config {
         }
     }
 
-    /// Indicates whether uploads may use gzip transfer encoding.
-    pub fn allow_transfer_encoding(&self) -> bool {
-        let val = self.ini.get_from(Some("http"), "transfer_encoding");
-        match val {
-            None => true,
-            Some(val) => val == "true",
-        }
-    }
-
     /// Controls the SSL revocation check on windows.  This can be used as a
     /// workaround for misconfigured local SSL proxies.
     pub fn disable_ssl_revocation_check(&self) -> bool {
@@ -370,11 +358,21 @@ impl Config {
             .get_one::<String>("release")
             .cloned()
             .or_else(|| {
-                env::var("SENTRY_RELEASE")
-                    .ok()
-                    .filter(|v| !v.is_empty())
+                env::var("SENTRY_RELEASE").ok().filter(|v| {
+                    !v.is_empty()
+                        && args::validate_release(v)
+                            .inspect_err(|e| {
+                                warn!("Ignoring invalid SENTRY_RELEASE environment variable: {e}")
+                            })
+                            .is_ok()
+                })
             })
-            .ok_or_else(|| format_err!("A release slug is required (provide with --release or by setting the SENTRY_RELEASE environment variable)"))
+            .ok_or_else(|| {
+                format_err!(
+                    "A release slug is required (provide with --release or by \
+                    setting the SENTRY_RELEASE environment variable)"
+                )
+            })
     }
 
     // Backward compatibility with `releases files <VERSION>` commands.
@@ -392,12 +390,15 @@ impl Config {
     }
 
     /// Given a match object from clap, this returns the projects from it.
-    pub fn get_projects(&self, matches: &ArgMatches) -> Result<Vec<String>> {
-        if let Some(projects) = matches.get_many::<String>("project") {
-            Ok(projects.cloned().collect())
-        } else {
-            Ok(vec![self.get_project_default()?])
-        }
+    pub fn get_projects(&self, matches: &ArgMatches) -> Result<NonEmptyVec<String>> {
+        Ok(match matches.get_many::<String>("project") {
+            Some(projects) => projects
+                .cloned()
+                .collect::<Vec<_>>()
+                .try_into()
+                .expect("if matches.get_many() is Some, the returned iterator is non-empty"),
+            None => [self.get_project_default()?].into(),
+        })
     }
 
     /// Given a match object from clap, this returns a tuple in the
@@ -444,17 +445,6 @@ impl Config {
                     .map(str::to_owned)
             }),
         )
-    }
-
-    /// Returns the maximum DIF upload size
-    pub fn get_max_dif_archive_size(&self) -> u64 {
-        let key = "max_upload_size";
-
-        self.ini
-            .get_from(Some("dif"), key)
-            .or_else(|| self.ini.get_from(Some("dsym"), key))
-            .and_then(|x| x.parse().ok())
-            .unwrap_or(DEFAULT_MAX_DIF_UPLOAD_SIZE)
     }
 
     /// Returns the maximum file size of a single file inside DIF bundle
@@ -529,10 +519,7 @@ fn get_max_retries(ini: &Ini) -> u32 {
         Ok(Some(val)) => return val,
         Ok(None) => (),
         Err(e) => {
-            warn!(
-                "Ignoring invalid {MAX_RETRIES_ENV_VAR} environment variable: {}",
-                e
-            );
+            warn!("Ignoring invalid {MAX_RETRIES_ENV_VAR} environment variable: {e}");
         }
     };
 
@@ -540,7 +527,7 @@ fn get_max_retries(ini: &Ini) -> u32 {
         Ok(Some(val)) => return val,
         Ok(None) => (),
         Err(e) => {
-            warn!("Ignoring invalid {MAX_RETRIES_INI_KEY} ini key: {}", e);
+            warn!("Ignoring invalid {MAX_RETRIES_INI_KEY} ini key: {e}");
         }
     };
 
@@ -668,7 +655,7 @@ fn load_cli_config() -> Result<(PathBuf, Ini)> {
                 let props = match java_properties::read(f) {
                     Ok(props) => props,
                     Err(err) => {
-                        bail!("Could not load java style properties file: {}", err);
+                        bail!("Could not load java style properties file: {err}");
                     }
                 };
                 info!(
@@ -681,7 +668,7 @@ fn load_cli_config() -> Result<(PathBuf, Ini)> {
                         let section = iter.next();
                         rv.set_to(section, key.to_owned(), value);
                     } else {
-                        debug!("Incorrect properties file key: {}", key);
+                        debug!("Incorrect properties file key: {key}");
                     }
                 }
             }
@@ -721,18 +708,12 @@ impl Clone for Config {
     }
 }
 
-#[expect(clippy::manual_map)]
 fn get_default_auth(ini: &Ini) -> Option<Auth> {
     if let Ok(val) = env::var("SENTRY_AUTH_TOKEN") {
         Some(Auth::Token(val.into()))
-    } else if let Ok(val) = env::var("SENTRY_API_KEY") {
-        Some(Auth::Key(val))
-    } else if let Some(val) = ini.get_from(Some("auth"), "token") {
-        Some(Auth::Token(val.into()))
-    } else if let Some(val) = ini.get_from(Some("auth"), "api_key") {
-        Some(Auth::Key(val.to_owned()))
     } else {
-        None
+        ini.get_from(Some("auth"), "token")
+            .map(|val| Auth::Token(val.into()))
     }
 }
 

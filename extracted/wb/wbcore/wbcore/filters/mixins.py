@@ -30,6 +30,10 @@ class WBCoreFilterMixin:
             "label_format",
             getattr(self, "default_label_format", "{{field_label}} {{operation_icon}}  {{value_label}}"),
         )
+        self.allow_exclude = kwargs.pop(
+            "allow_exclude", kwargs.get("method") is None
+        )  # if False, we will not automatically add a similar filter "opposite" filter
+        self.excluded_filter = kwargs.pop("excluded_filter", False)
         self.lookup_icon = kwargs.pop("lookup_icon", None)
         self.lookup_label = kwargs.pop("lookup_label", None)
         self.depends_on = kwargs.pop("depends_on", [])
@@ -86,11 +90,12 @@ class WBCoreFilterMixin:
             "help_text": self.get_help_text(),
         }
         lookup_expr = {
-            "label": get_lookup_label(self.lookup_expr) if self.lookup_label is None else self.lookup_label,
             "icon": get_lookup_icon(self.lookup_expr) if self.lookup_icon is None else self.lookup_icon,
-            "key": name,
             "hidden": self.hidden,
+            "allow_exclude": self.allow_exclude,
             "input_properties": {
+                "label": get_lookup_label(self.lookup_expr) if self.lookup_label is None else self.lookup_label,
+                "key": name,
                 "type": self.filter_type,
             },
         }
@@ -101,7 +106,6 @@ class WBCoreFilterMixin:
         if initial is not None or self.allow_empty_initial:
             lookup_expr["input_properties"]["initial"] = initial
 
-        if self.required:
-            lookup_expr["input_properties"]["required"] = True
+        lookup_expr["input_properties"]["required"] = self.required
         representation["depends_on"] = self.depends_on
         return representation, lookup_expr

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clerk-backend-api
-Version: 3.3.1
+Version: 4.2.0
 Summary: Python Client SDK for clerk.dev
 License-File: LICENSE
 Author: Clerk
@@ -164,8 +164,6 @@ with Clerk(
 
     res = clerk.email_addresses.get(email_address_id="email_address_id_example")
 
-    assert res is not None
-
     # Handle response
     print(res)
 ```
@@ -173,6 +171,7 @@ with Clerk(
 </br>
 
 The same SDK client can also be used to make asynchronous requests by importing asyncio.
+
 ```python
 # Asynchronous Example
 import asyncio
@@ -185,8 +184,6 @@ async def main():
     ) as clerk:
 
         res = await clerk.email_addresses.get_async(email_address_id="email_address_id_example")
-
-        assert res is not None
 
         # Handle response
         print(res)
@@ -274,78 +271,81 @@ def verify_machine_token(request: httpx.Request):
 <details open>
 <summary>Available methods</summary>
 
-### [actor_tokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/actortokens/README.md)
+### [ActorTokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/actortokens/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/actortokens/README.md#create) - Create actor token
 * [revoke](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/actortokens/README.md#revoke) - Revoke actor token
 
-### [allowlist_identifiers](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/allowlistidentifiers/README.md)
+### [AllowlistIdentifiers](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/allowlistidentifiers/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/allowlistidentifiers/README.md#list) - List all identifiers on the allow-list
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/allowlistidentifiers/README.md#create) - Add identifier to the allow-list
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/allowlistidentifiers/README.md#delete) - Delete identifier from allow-list
 
-### [aws_credentials](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/awscredentials/README.md)
+### [APIKeys](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md)
 
-* [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/awscredentials/README.md#delete) - Delete an AWS Credential
-* [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/awscredentials/README.md#update) - Update an AWS Credential
+* [create_api_key](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#create_api_key) - Create an API Key
+* [get_api_keys](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#get_api_keys) - Get API Keys
+* [get_api_key](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#get_api_key) - Get an API Key by ID
+* [update_api_key](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#update_api_key) - Update an API Key
+* [delete_api_key](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#delete_api_key) - Delete an API Key
+* [get_api_key_secret](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#get_api_key_secret) - Get an API Key Secret
+* [revoke_api_key](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#revoke_api_key) - Revoke an API Key
+* [verify_api_key](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/apikeys/README.md#verify_api_key) - Verify an API Key
 
-### [beta_features](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/betafeatures/README.md)
+### [BetaFeatures](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/betafeatures/README.md)
 
 * [update_instance_settings](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/betafeatures/README.md#update_instance_settings) - Update instance settings
 * [~~update_production_instance_domain~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/betafeatures/README.md#update_production_instance_domain) - Update production instance domain :warning: **Deprecated**
 
-### [blocklist_identifiers](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/blocklistidentifierssdk/README.md)
+### [Billing](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md)
+
+* [list_plans](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#list_plans) - List all billing plans
+* [list_subscription_items](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#list_subscription_items) - List all subscription items
+* [cancel_subscription_item](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#cancel_subscription_item) - Cancel a subscription item
+* [extend_subscription_item_free_trial](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#extend_subscription_item_free_trial) - Extend free trial for a subscription item
+* [list_statements](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#list_statements) - List all billing statements
+* [get_statement](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#get_statement) - Retrieve a billing statement
+* [get_statement_payment_attempts](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/billing/README.md#get_statement_payment_attempts) - List payment attempts for a billing statement
+
+### [BlocklistIdentifiers](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/blocklistidentifierssdk/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/blocklistidentifierssdk/README.md#list) - List all identifiers on the block-list
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/blocklistidentifierssdk/README.md#create) - Add identifier to the block-list
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/blocklistidentifierssdk/README.md#delete) - Delete identifier from block-list
 
-
-### [clients](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/clients/README.md)
+### [Clients](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/clients/README.md)
 
 * [~~list~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/clients/README.md#list) - List all clients :warning: **Deprecated**
 * [verify](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/clients/README.md#verify) - Verify a client
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/clients/README.md#get) - Get a client
 
-### [commerce](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/commerce/README.md)
-
-* [list_plans](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/commerce/README.md#list_plans) - List all commerce plans
-* [list_subscription_items](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/commerce/README.md#list_subscription_items) - List all subscription items
-* [cancel_subscription_item](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/commerce/README.md#cancel_subscription_item) - Cancel a subscription item
-* [extend_subscription_item_free_trial](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/commerce/README.md#extend_subscription_item_free_trial) - Extend free trial for a subscription item
-
-### [domains](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/domainssdk/README.md)
+### [Domains](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/domainssdk/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/domainssdk/README.md#list) - List all instance domains
 * [add](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/domainssdk/README.md#add) - Add a domain
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/domainssdk/README.md#delete) - Delete a satellite domain
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/domainssdk/README.md#update) - Update a domain
 
-### [email_addresses](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailaddresses/README.md)
+### [EmailAddresses](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailaddresses/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailaddresses/README.md#create) - Create an email address
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailaddresses/README.md#get) - Retrieve an email address
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailaddresses/README.md#delete) - Delete an email address
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailaddresses/README.md#update) - Update an email address
 
-### [~~email_and_sms_templates~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailandsmstemplates/README.md)
+### [~~EmailAndSmsTemplates~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailandsmstemplates/README.md)
 
 * [~~upsert~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailandsmstemplates/README.md#upsert) - Update a template for a given type and slug :warning: **Deprecated**
 
-### [~~email_sms_templates~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailsmstemplates/README.md)
+### [~~EmailSMSTemplates~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailsmstemplates/README.md)
 
 * [~~list~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailsmstemplates/README.md#list) - List all templates :warning: **Deprecated**
 * [~~get~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailsmstemplates/README.md#get) - Retrieve a template :warning: **Deprecated**
 * [~~revert~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailsmstemplates/README.md#revert) - Revert a template :warning: **Deprecated**
 * [~~toggle_template_delivery~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/emailsmstemplates/README.md#toggle_template_delivery) - Toggle the delivery by Clerk for a template of a given type and slug :warning: **Deprecated**
 
-### [experimental_accountless_applications](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/experimentalaccountlessapplications/README.md)
-
-* [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/experimentalaccountlessapplications/README.md#create) - Create an accountless application [EXPERIMENTAL]
-* [complete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/experimentalaccountlessapplications/README.md#complete) - Complete an accountless application [EXPERIMENTAL]
-
-### [instance_settings](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/instancesettingssdk/README.md)
+### [InstanceSettings](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/instancesettingssdk/README.md)
 
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/instancesettingssdk/README.md#get) - Fetch the current instance
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/instancesettingssdk/README.md#update) - Update instance settings
@@ -353,18 +353,18 @@ def verify_machine_token(request: httpx.Request):
 * [change_domain](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/instancesettingssdk/README.md#change_domain) - Update production instance domain
 * [update_organization_settings](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/instancesettingssdk/README.md#update_organization_settings) - Update instance organization settings
 
-### [invitations](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/invitations/README.md)
+### [Invitations](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/invitations/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/invitations/README.md#create) - Create an invitation
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/invitations/README.md#list) - List all invitations
 * [bulk_create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/invitations/README.md#bulk_create) - Create multiple invitations
 * [revoke](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/invitations/README.md#revoke) - Revokes an invitation
 
-### [jwks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwkssdk/README.md)
+### [Jwks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwkssdk/README.md)
 
 * [get_jwks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwkssdk/README.md#get_jwks) - Retrieve the JSON Web Key Set of the instance
 
-### [jwt_templates](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwttemplates/README.md)
+### [JwtTemplates](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwttemplates/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwttemplates/README.md#list) - List all templates
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwttemplates/README.md#create) - Create a JWT template
@@ -372,14 +372,14 @@ def verify_machine_token(request: httpx.Request):
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwttemplates/README.md#update) - Update a JWT template
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/jwttemplates/README.md#delete) - Delete a Template
 
-### [m2m](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/m2m/README.md)
+### [M2m](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/m2m/README.md)
 
 * [create_token](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/m2m/README.md#create_token) - Create a M2M Token
 * [list_tokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/m2m/README.md#list_tokens) - Get M2M Tokens
 * [revoke_token](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/m2m/README.md#revoke_token) - Revoke a M2M Token
 * [verify_token](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/m2m/README.md#verify_token) - Verify a M2M Token
 
-### [machines](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/machines/README.md)
+### [Machines](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/machines/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/machines/README.md#list) - Get a list of machines for an instance
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/machines/README.md#create) - Create a machine
@@ -391,15 +391,15 @@ def verify_machine_token(request: httpx.Request):
 * [create_scope](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/machines/README.md#create_scope) - Create a machine scope
 * [delete_scope](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/machines/README.md#delete_scope) - Delete a machine scope
 
-### [miscellaneous](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/miscellaneous/README.md)
+### [Miscellaneous](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/miscellaneous/README.md)
 
 * [get_public_interstitial](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/miscellaneous/README.md#get_public_interstitial) - Returns the markup for the interstitial page
 
-### [oauth_access_tokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthaccesstokens/README.md)
+### [OauthAccessTokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthaccesstokens/README.md)
 
 * [verify](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthaccesstokens/README.md#verify) - Verify an OAuth Access Token
 
-### [oauth_applications](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthapplicationssdk/README.md)
+### [OauthApplications](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthapplicationssdk/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthapplicationssdk/README.md#list) - Get a list of OAuth applications for an instance
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthapplicationssdk/README.md#create) - Create an OAuth application
@@ -408,7 +408,7 @@ def verify_machine_token(request: httpx.Request):
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthapplicationssdk/README.md#delete) - Delete an OAuth application
 * [rotate_secret](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/oauthapplicationssdk/README.md#rotate_secret) - Rotate the client secret of the given OAuth application
 
-### [organization_domains](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationdomainssdk/README.md)
+### [OrganizationDomains](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationdomainssdk/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationdomainssdk/README.md#create) - Create a new organization domain.
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationdomainssdk/README.md#list) - Get a list of all domains of an organization.
@@ -416,7 +416,7 @@ def verify_machine_token(request: httpx.Request):
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationdomainssdk/README.md#delete) - Remove a domain from an organization.
 * [list_all](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationdomainssdk/README.md#list_all) - List all organization domains
 
-### [organization_invitations](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationinvitationssdk/README.md)
+### [OrganizationInvitations](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationinvitationssdk/README.md)
 
 * [get_all](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationinvitationssdk/README.md#get_all) - Get a list of organization invitations for the current instance
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationinvitationssdk/README.md#create) - Create and send an organization invitation
@@ -426,7 +426,7 @@ def verify_machine_token(request: httpx.Request):
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationinvitationssdk/README.md#get) - Retrieve an organization invitation by ID
 * [revoke](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationinvitationssdk/README.md#revoke) - Revoke a pending organization invitation
 
-### [organization_memberships](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationmembershipssdk/README.md)
+### [OrganizationMemberships](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationmembershipssdk/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationmembershipssdk/README.md#create) - Create a new organization membership
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationmembershipssdk/README.md#list) - Get a list of all members of an organization
@@ -434,7 +434,25 @@ def verify_machine_token(request: httpx.Request):
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationmembershipssdk/README.md#delete) - Remove a member from an organization
 * [update_metadata](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationmembershipssdk/README.md#update_metadata) - Merge and update organization membership metadata
 
-### [organizations](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationssdk/README.md)
+### [OrganizationPermissions](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationpermissions/README.md)
+
+* [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationpermissions/README.md#list) - Get a list of all organization permissions
+* [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationpermissions/README.md#create) - Create a new organization permission
+* [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationpermissions/README.md#get) - Get an organization permission
+* [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationpermissions/README.md#update) - Update an organization permission
+* [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationpermissions/README.md#delete) - Delete an organization permission
+
+### [OrganizationRoles](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md)
+
+* [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#list) - Get a list of organization roles
+* [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#create) - Create an organization role
+* [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#get) - Retrieve an organization role
+* [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#update) - Update an organization role
+* [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#delete) - Delete an organization role
+* [assign_permission](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#assign_permission) - Assign a permission to an organization role
+* [remove_permission](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationroles/README.md#remove_permission) - Remove a permission from an organization role
+
+### [Organizations](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationssdk/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationssdk/README.md#list) - Get a list of organizations for an instance
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationssdk/README.md#create) - Create an organization
@@ -446,25 +464,25 @@ def verify_machine_token(request: httpx.Request):
 * [delete_logo](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationssdk/README.md#delete_logo) - Delete the organization's logo.
 * [get_billing_subscription](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/organizationssdk/README.md#get_billing_subscription) - Retrieve an organization's billing subscription
 
-### [phone_numbers](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/phonenumbers/README.md)
+### [PhoneNumbers](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/phonenumbers/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/phonenumbers/README.md#create) - Create a phone number
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/phonenumbers/README.md#get) - Retrieve a phone number
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/phonenumbers/README.md#delete) - Delete a phone number
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/phonenumbers/README.md#update) - Update a phone number
 
-### [proxy_checks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/proxychecks/README.md)
+### [ProxyChecks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/proxychecks/README.md)
 
 * [verify](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/proxychecks/README.md#verify) - Verify the proxy configuration for your domain
 
-### [redirect_urls](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/redirecturls/README.md)
+### [RedirectUrls](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/redirecturls/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/redirecturls/README.md#list) - List all redirect URLs
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/redirecturls/README.md#create) - Create a redirect URL
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/redirecturls/README.md#get) - Retrieve a redirect URL
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/redirecturls/README.md#delete) - Delete a redirect URL
 
-### [saml_connections](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/samlconnectionssdk/README.md)
+### [SamlConnections](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/samlconnectionssdk/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/samlconnectionssdk/README.md#list) - Get a list of SAML Connections for an instance
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/samlconnectionssdk/README.md#create) - Create a SAML Connection
@@ -472,7 +490,7 @@ def verify_machine_token(request: httpx.Request):
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/samlconnectionssdk/README.md#update) - Update a SAML Connection
 * [delete](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/samlconnectionssdk/README.md#delete) - Delete a SAML Connection
 
-### [sessions](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md)
+### [Sessions](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#list) - List all sessions
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#create) - Create a new active session
@@ -480,27 +498,27 @@ def verify_machine_token(request: httpx.Request):
 * [refresh](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#refresh) - Refresh a session
 * [revoke](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#revoke) - Revoke a session
 * [create_token](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#create_token) - Create a session token
-* [create_token_from_template](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#create_token_from_template) - Create a session token from a jwt template
+* [create_token_from_template](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/sessions/README.md#create_token_from_template) - Create a session token from a JWT template
 
-### [sign_in_tokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signintokens/README.md)
+### [SignInTokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signintokens/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signintokens/README.md#create) - Create sign-in token
 * [revoke](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signintokens/README.md#revoke) - Revoke the given sign-in token
 
-### [sign_ups](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signups/README.md)
+### [SignUps](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signups/README.md)
 
 * [get](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signups/README.md#get) - Retrieve a sign-up by ID
 * [update](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/signups/README.md#update) - Update a sign-up
 
-### [~~templates~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/templates/README.md)
+### [~~Templates~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/templates/README.md)
 
 * [~~preview~~](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/templates/README.md#preview) - Preview changes to a template :warning: **Deprecated**
 
-### [testing_tokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/testingtokens/README.md)
+### [TestingTokens](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/testingtokens/README.md)
 
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/testingtokens/README.md#create) - Retrieve a new testing token
 
-### [users](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/users/README.md)
+### [Users](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/users/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/users/README.md#list) - List all users
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/users/README.md#create) - Create a new user
@@ -531,7 +549,7 @@ def verify_machine_token(request: httpx.Request):
 * [delete_external_account](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/users/README.md#delete_external_account) - Delete External Account
 * [get_instance_organization_memberships](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/users/README.md#get_instance_organization_memberships) - Get a list of all organization memberships within an instance.
 
-### [waitlist_entries](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/waitlistentriessdk/README.md)
+### [WaitlistEntries](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/waitlistentriessdk/README.md)
 
 * [list](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/waitlistentriessdk/README.md#list) - List all waitlist entries
 * [create](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/waitlistentriessdk/README.md#create) - Create a waitlist entry
@@ -539,7 +557,7 @@ def verify_machine_token(request: httpx.Request):
 * [invite](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/waitlistentriessdk/README.md#invite) - Invite a waitlist entry
 * [reject](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/waitlistentriessdk/README.md#reject) - Reject a waitlist entry
 
-### [webhooks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/webhooks/README.md)
+### [Webhooks](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/webhooks/README.md)
 
 * [create_svix_app](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/webhooks/README.md#create_svix_app) - Create a Svix app
 * [delete_svix_app](https://github.com/clerk/clerk-sdk-python/blob/master/docs/sdks/webhooks/README.md#delete_svix_app) - Delete a Svix app
@@ -570,8 +588,6 @@ with Clerk(
         "file_name": "example.file",
         "content": open("example.file", "rb"),
     })
-
-    assert res is not None
 
     # Handle response
     print(res)
@@ -642,9 +658,9 @@ with Clerk(
     res = None
     try:
 
-        res = clerk.aws_credentials.delete(id="<id>")
-
-        assert res is not None
+        res = clerk.clients.verify(request={
+            "token": "jwt_token_example",
+        })
 
         # Handle response
         print(res)
@@ -669,7 +685,7 @@ with Clerk(
 * [`ClerkBaseError`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/clerkbaseerror.py): The base class for HTTP error responses.
   * [`ClerkErrors`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/clerkerrors.py): Request was not successful. *
 
-<details><summary>Less common errors (16)</summary>
+<details><summary>Less common errors (32)</summary>
 
 <br />
 
@@ -680,17 +696,33 @@ with Clerk(
 
 
 **Inherit from [`ClerkBaseError`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/clerkbaseerror.py)**:
-* [`CreateM2MTokenM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/createm2mtokenm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 159 methods.*
-* [`GetM2MTokensM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getm2mtokensm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 159 methods.*
-* [`RevokeM2MTokenM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/revokem2mtokenm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 159 methods.*
-* [`VerifyM2MTokenM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifym2mtokenm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 159 methods.*
-* [`VerifyOAuthAccessTokenOauthAccessTokensResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifyoauthaccesstokenoauthaccesstokensresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 159 methods.*
-* [`GetM2MTokensM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getm2mtokensm2mresponseresponsebody.py): 403 Forbidden. Status code `403`. Applicable to 1 of 159 methods.*
-* [`GetM2MTokensM2mResponse404ResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getm2mtokensm2mresponse404responsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 159 methods.*
-* [`RevokeM2MTokenM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/revokem2mtokenm2mresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 159 methods.*
-* [`VerifyM2MTokenM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifym2mtokenm2mresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 159 methods.*
-* [`VerifyOAuthAccessTokenOauthAccessTokensResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifyoauthaccesstokenoauthaccesstokensresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 159 methods.*
-* [`CreateM2MTokenM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/createm2mtokenm2mresponseresponsebody.py): 409 Conflict. Status code `409`. Applicable to 1 of 159 methods.*
+* [`CreateAPIKeyAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/createapikeyapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`GetAPIKeysAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getapikeysapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`GetAPIKeyAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getapikeyapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`UpdateAPIKeyAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/updateapikeyapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`DeleteAPIKeyAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/deleteapikeyapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`GetAPIKeySecretAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getapikeysecretapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`RevokeAPIKeyAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/revokeapikeyapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`VerifyAPIKeyAPIKeysResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifyapikeyapikeysresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`CreateM2MTokenM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/createm2mtokenm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`GetM2MTokensM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getm2mtokensm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`RevokeM2MTokenM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/revokem2mtokenm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`VerifyM2MTokenM2mResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifym2mtokenm2mresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`VerifyOAuthAccessTokenOauthAccessTokensResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifyoauthaccesstokenoauthaccesstokensresponsebody.py): 400 Bad Request. Status code `400`. Applicable to 1 of 178 methods.*
+* [`GetM2MTokensM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getm2mtokensm2mresponseresponsebody.py): 403 Forbidden. Status code `403`. Applicable to 1 of 178 methods.*
+* [`GetAPIKeysAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getapikeysapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`GetAPIKeyAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getapikeyapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`UpdateAPIKeyAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/updateapikeyapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`DeleteAPIKeyAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/deleteapikeyapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`GetAPIKeySecretAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getapikeysecretapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`RevokeAPIKeyAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/revokeapikeyapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`VerifyAPIKeyAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifyapikeyapikeysresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`GetM2MTokensM2mResponse404ResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/getm2mtokensm2mresponse404responsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`RevokeM2MTokenM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/revokem2mtokenm2mresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`VerifyM2MTokenM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifym2mtokenm2mresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`VerifyOAuthAccessTokenOauthAccessTokensResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/verifyoauthaccesstokenoauthaccesstokensresponseresponsebody.py): 404 Not Found. Status code `404`. Applicable to 1 of 178 methods.*
+* [`CreateAPIKeyAPIKeysResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/createapikeyapikeysresponseresponsebody.py): 409 Conflict. Status code `409`. Applicable to 1 of 178 methods.*
+* [`CreateM2MTokenM2mResponseResponseBody`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/createm2mtokenm2mresponseresponsebody.py): 409 Conflict. Status code `409`. Applicable to 1 of 178 methods.*
 * [`ResponseValidationError`](https://github.com/clerk/clerk-sdk-python/blob/master/./src/clerk_backend_api/models/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

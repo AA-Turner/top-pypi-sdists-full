@@ -11,6 +11,7 @@ use clap::Parser;
 use dupe::Dupe;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_config::finder::ConfigFinder;
+use pyrefly_types::types::Union;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::includes::Includes;
@@ -21,12 +22,12 @@ use tracing::error;
 use crate::commands::check;
 use crate::commands::check::Handles;
 use crate::commands::files::FilesArgs;
+use crate::commands::files::get_project_config_for_current_dir;
 use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::ErrorKind;
-use crate::lsp::module_helpers::handle_from_module_path;
+use crate::lsp::wasm::inlay_hints::ParameterAnnotation;
 use crate::state::ide::insert_import_edit_with_forced_import_format;
 use crate::state::lsp::AnnotationKind;
-use crate::state::lsp::ParameterAnnotation;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::types::class::Class;
@@ -40,16 +41,36 @@ use crate::types::types::Type;
 pub struct InferFlags {
     // Default should be false for all of them and then we can override to easily customize
     /// Whether to add type annotations to container types like lists and dictionaries
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub containers: Option<bool>,
     /// Whether to add return type annotations to functions
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub return_types: Option<bool>,
     /// Whether to add type annotations to function parameters
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub parameter_types: Option<bool>,
     /// Whether to automatically add imports for types used in annotations
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub imports: Option<bool>,
 }
 
@@ -174,10 +195,12 @@ fn hint_to_string(
     stdlib: &Stdlib,
     enum_members: &dyn Fn(&Class) -> Option<usize>,
 ) -> String {
-    let hint = hint.promote_literals(stdlib);
+    let hint = hint.promote_implicit_literals(stdlib);
     let hint = hint.explicit_any().clean_var();
     let hint = match hint {
-        Type::Union(types) => unions_with_literals(types, stdlib, enum_members),
+        Type::Union(box Union { members: types, .. }) => {
+            unions_with_literals(types, stdlib, enum_members)
+        }
         _ => hint,
     };
     hint.to_string()
@@ -186,7 +209,7 @@ fn hint_to_string(
 impl InferArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         self.config_override.validate()?;
-        let (files_to_check, config_finder) = self.files.resolve(&self.config_override)?;
+        let (files_to_check, config_finder) = self.files.resolve(self.config_override)?;
         Self::run_inner(files_to_check, config_finder, self.flags)
     }
 
@@ -207,7 +230,14 @@ impl InferArgs {
         let mut cancellable_transaction = holder.as_ref().cancellable_transaction();
         let transaction = forgetter.as_mut();
 
-        for handle in handles.all(holder.as_ref().config_finder()) {
+        let (handles, _, sourcedb_errors) = handles.all(holder.as_ref().config_finder());
+        if !sourcedb_errors.is_empty() {
+            for error in sourcedb_errors {
+                error.print();
+            }
+            return Err(anyhow::anyhow!("Failed to query sourcedb."));
+        }
+        for handle in handles {
             transaction.run(&[handle.dupe()], Require::Everything);
             let stdlib = transaction.get_stdlib(&handle);
             let inferred_types: Option<Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>> =
@@ -243,7 +273,9 @@ impl InferArgs {
         }
         // Add imports, if needed
         let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
-        let (_, config_finder) = FilesArgs::get(Vec::new(), None, &check_args.config_override)?;
+        let current_dir_config =
+            get_project_config_for_current_dir(ConfigOverrideArgs::default())?.0;
+        let config_finder = ConfigFinder::new_constant(current_dir_config);
         let state = holder.as_ref();
         match check_args.run_once(files_to_check, config_finder) {
             Ok((_, errors)) => {
@@ -251,14 +283,21 @@ impl InferArgs {
                     match error.error_kind() {
                         ErrorKind::UnknownName => {
                             let module_info = error.module();
-                            let handle = handle_from_module_path(state, module_info.path().clone());
+                            let module_path = module_info.path().clone();
+                            let config = state.config_finder().python_file(
+                                pyrefly_python::module_name::ModuleNameWithKind::guaranteed(
+                                    pyrefly_python::module_name::ModuleName::unknown(),
+                                ),
+                                &module_path,
+                            );
+                            let handle = config.handle_from_module_path(module_path);
                             if let Some(ast) = transaction.get_ast(&handle) {
                                 let error_range = error.range();
                                 let unknown_name = module_info.code_at(error_range);
-                                let imports: Vec<(TextSize, String)> = transaction
+                                let imports: Vec<(TextSize, String, String)> = transaction
                                     .search_exports_exact(unknown_name)
                                     .into_iter()
-                                    .map(|handle_to_import_from| {
+                                    .map(|(handle_to_import_from, _)| {
                                         insert_import_edit_with_forced_import_format(
                                             &ast,
                                             handle.dupe(),
@@ -302,11 +341,11 @@ impl InferArgs {
 
     fn add_imports_to_file(
         file_path: &Path,
-        imports: Vec<(TextSize, String)>,
+        imports: Vec<(TextSize, String, String)>,
     ) -> anyhow::Result<()> {
         let file_content = fs_anyhow::read_to_string(file_path)?;
         let mut result = file_content;
-        for (position, import) in imports {
+        for (position, import, _) in imports {
             let offset = (position).into();
             if !result.contains(&import) {
                 result.insert_str(offset, &import);
@@ -358,8 +397,9 @@ mod test {
             "file_one.py",
             "file_two.py",
         ]
+        project_excludes = []
         "#;
-        let tdir = tempfile::tempdir().unwrap();
+        let tdir = tempfile::TempDir::with_prefix("pyrefly_infer_test").unwrap();
         let file_one_path = tdir.path().join("file_one.py");
         fs_anyhow::write(&file_one_path, file_one).unwrap();
         let file_two_path = tdir.path().join("file_two.py");
@@ -370,7 +410,7 @@ mod test {
         t.add(&file_one_path.display().to_string(), file_one);
         t.add(&file_two_path.display().to_string(), file_two);
         t.add(&config_path.display().to_string(), configuration);
-        let args = InferArgs::parse_from(["infer", &tdir.path().display().to_string()]);
+        let args = InferArgs::parse_from(["infer", "--config", &config_path.display().to_string()]);
         let result = args.run();
         assert!(result.is_ok(), "infer command failed: {:?}", result.err());
 
@@ -574,12 +614,12 @@ def foo() -> str:
         assert_annotations(
             r#"
     def foo() -> None:
-        x = [] 
+        x = []
         x.append(1)
     "#,
             r#"
     def foo() -> None:
-        x: list[int] = [] 
+        x: list[int] = []
         x.append(1)
     "#,
             Some(flags),
@@ -698,7 +738,7 @@ def foo():
         "#;
         let file_two = r#"
         class ExampleA:
-            pass 
+            pass
         def get_a():
             return ExampleA()
         "#;
@@ -722,7 +762,7 @@ from file_two import get_a
         "#;
         let file_two = r#"
         class ExampleA:
-            pass 
+            pass
         class ExampleB:
             pass
         def get_a():

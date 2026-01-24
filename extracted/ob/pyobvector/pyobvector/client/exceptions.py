@@ -85,13 +85,13 @@ class ExceptionsMessage:
         "Range expression is necessary when partition type is Range"
     )
     PartitionRangeColNameListMissing = (
-        "Column name list is necessary when parititon type is RangeColumns"
+        "Column name list is necessary when partition type is RangeColumns"
     )
     PartitionListExprMissing = (
         "List expression is necessary when partition type is List"
     )
     PartitionListColNameListMissing = (
-        "Column name list is necessary when parititon type is ListColumns"
+        "Column name list is necessary when partition type is ListColumns"
     )
     PartitionHashNameListAndPartCntMissing = (
         "One of hash_part_name_list and part_count must be set when partition type is Hash"
@@ -101,9 +101,9 @@ class ExceptionsMessage:
     )
     PrimaryFieldType = "Param primary_field must be int or str type."
     VectorFieldMissingDimParam = "Param 'dim' must be set for vector field."
-    VarcharFieldMissinglengthParam = "Param 'max_length' must be set for varchar field."
-    ArrayFiledMissingElementType = "Param 'element_type' must be set for array field."
-    ArrayFiledInvalidElementType = (
+    VarcharFieldMissingLengthParam = "Param 'max_length' must be set for varchar field."
+    ArrayFieldMissingElementType = "Param 'element_type' must be set for array field."
+    ArrayFieldInvalidElementType = (
         "Param 'element_type' can not be array/vector/varchar."
     )
     CollectionNotExists = "Collection does not exist."
@@ -111,5 +111,5 @@ class ExceptionsMessage:
     MetricTypeValueInvalid = "MetricType should be 'l2'/'ip'/'neg_ip'/'cosine' in ann search."
     UsingInIDsWhenMultiPrimaryKey = "Using 'ids' when table has multi primary key."
     ClusterVersionIsLow = (
-        "OceanBase Vector Store is not supported because cluster version is below 4.3.3.0."
+        "OceanBase %s feature is not supported because cluster version is below %s."
     )

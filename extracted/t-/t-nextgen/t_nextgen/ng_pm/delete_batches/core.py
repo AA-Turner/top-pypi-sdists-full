@@ -30,7 +30,7 @@ class BatchDeleterCore:
         pane = self.next_gen.desktop_app.dialog.child_window(title="lstListing", control_type="Pane")
         return pane.descendants(control_type="DataItem")
 
-    def mark_batch_for_deletion(self, data_item: WindowSpecification, description: str):
+    def mark_batch_for_deletion(self, data_item: WindowSpecification, description: str) -> None:
         """Mark the batch for deletion.
 
         Args:
@@ -41,14 +41,14 @@ class BatchDeleterCore:
         check_box = data_item.descendants(control_type="CheckBox")[0]
         self.next_gen.desktop_app.toggle_checkbox(check_box)
 
-    def click_delete_option(self):
+    def click_delete_option(self) -> None:
         """Click the delete option in the batch posting window."""
         self.next_gen.batch_posting_window.click_menu_icon("d")
         time.sleep(2)
         with contextlib.suppress(_ctypes.COMError):
             self.next_gen.desktop_app.dialog.child_window(title="OK", control_type="Button").click()
 
-    def check_if_all_batches_were_selected_correctly(self):
+    def check_if_all_batches_were_selected_correctly(self) -> None:
         """Check if all batches were selected correctly."""
         batch_rows = self.get_batch_rows()
         batch_selected = 0

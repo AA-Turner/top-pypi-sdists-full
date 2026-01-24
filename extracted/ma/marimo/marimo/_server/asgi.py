@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import abc
@@ -16,12 +16,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    import sys
-
-    if sys.version_info < (3, 10):
-        from typing_extensions import TypeAlias
-    else:
-        from typing import TypeAlias
+    from typing import TypeAlias
 
     from starlette.requests import Request
     from starlette.responses import Response
@@ -298,6 +293,8 @@ def create_asgi_app(
     token: Optional[str] = None,
     skew_protection: bool = False,
     session_ttl: Optional[int] = None,
+    asset_url: Optional[str] = None,
+    redirect_console_to_browser: bool = False,
 ) -> ASGIAppBuilder:
     """Public API to create an ASGI app that can serve multiple notebooks.
     This only works for application that are in Run mode.
@@ -310,6 +307,10 @@ def create_asgi_app(
         skew_protection (bool, optional): Enable skew protection middleware to prevent version mismatch issues.
             e.g. if the server is updated, the client will be prompted to reload.
         session_ttl (int, optional): Time-to-live in seconds for sessions. If not provided, uses default TTL (2 minutes).
+        asset_url (str, optional): Custom asset URL for loading static resources. Can include {version} placeholder.
+            e.g. https://cdn.jsdelivr.net/npm/@marimo-team/frontend@{version}/dist
+        redirect_console_to_browser (bool, optional): Whether to redirect console output (stdout/stderr) to the browser.
+            When True, console output will be displayed in the browser. Defaults to False.
 
     Returns:
         ASGIAppBuilder: A builder object to create multiple ASGI apps
@@ -390,16 +391,17 @@ def create_asgi_app(
     from marimo._server.file_router import AppFileRouter
     from marimo._server.lsp import NoopLspServer
     from marimo._server.main import create_starlette_app
-    from marimo._server.model import SessionMode
     from marimo._server.registry import LIFESPAN_REGISTRY
-    from marimo._server.sessions import SessionManager
+    from marimo._server.session_manager import SessionManager
     from marimo._server.tokens import AuthToken
     from marimo._server.utils import initialize_asyncio
+    from marimo._session.model import SessionMode
     from marimo._utils.lifespans import Lifespans
     from marimo._utils.marimo_path import MarimoPath
 
     config_reader = get_default_config_manager(current_path=None)
     base_app = Starlette()
+    base_app.state.asset_url = asset_url
 
     # Default to an empty token
     # If a user is using the create_asgi_app API,
@@ -454,7 +456,6 @@ def create_asgi_app(
             session_manager = SessionManager(
                 file_router=AppFileRouter.from_filename(MarimoPath(file_path)),
                 mode=SessionMode.RUN,
-                development_mode=False,
                 quiet=quiet,
                 include_code=include_code,
                 # Currently we only support run mode,
@@ -467,7 +468,7 @@ def create_asgi_app(
                 cli_args={},
                 argv=None,
                 auth_token=auth_token,
-                redirect_console_to_browser=False,
+                redirect_console_to_browser=redirect_console_to_browser,
                 ttl_seconds=session_ttl,
             )
             enable_auth = not AuthToken.is_empty(auth_token)
@@ -487,6 +488,7 @@ def create_asgi_app(
             )
             app.state.session_manager = session_manager
             app.state.base_url = base_url
+            app.state.asset_url = asset_url
             app.state.config_manager = config_reader
             app.state.enable_auth = enable_auth
             return app

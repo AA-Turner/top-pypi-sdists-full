@@ -19,13 +19,14 @@ from .exceptions import (
     WaybackRuntimeError,
 )
 
-DEFAULT_USER_AGENT = "savepagenow (https://github.com/pastpages/savepagenow)"
+DEFAULT_USER_AGENT = "savepagenow (https://github.com/palewire/savepagenow)"
 
 
 def capture(
     target_url: str,
     user_agent: str = DEFAULT_USER_AGENT,
     accept_cache: bool = False,
+    timeout: int = 120,
     authenticate: bool = False,
 ):
     """
@@ -70,7 +71,7 @@ def capture(
         }
 
     # Make the request
-    response = requests.get(request_url, headers=headers)
+    response = requests.get(request_url, headers=headers, timeout=timeout)
 
     # If it has an error header, raise that.
     has_error_header = "X-Archive-Wayback-Runtime-Error" in response.headers
@@ -99,16 +100,25 @@ def capture(
         content_location = response.headers["Content-Location"]
         archive_url = domain + content_location
     except KeyError:
-        # If there's not, we  will try to parse out a Link header, which is another style they use.
-        try:
-            # Parse the Link tag in the header, which points to memento URLs in Wayback
-            header_links = parse_header_links(response.headers["Link"])
-            archive_obj = [h for h in header_links if h["rel"] == "memento"][0]
-            archive_url = archive_obj["url"]
-        except Exception:
+        # If there's not, try to parse out a Link header with a prioritized fallback.
+        header_links = parse_header_links(response.headers.get("Link", ""))
+
+        # Prefer memento, then timegate links.
+        archive_url = None
+        for rel in ("memento", "timegate"):
+            match = next((h for h in header_links if h.get("rel") == rel), None)
+            if match and match.get("url"):
+                archive_url = match["url"]
+                break
+
+        if not archive_url:
             # If neither of those things works throw this error.
             raise WaybackRuntimeError(
-                dict(status_code=response.status_code, headers=response.headers)
+                dict(
+                    status_code=response.status_code,
+                    headers=response.headers,
+                    content=response.content,
+                )
             )
 
     # Determine if the response was cached
@@ -131,6 +141,7 @@ def capture(
 def capture_or_cache(
     target_url: str,
     user_agent: str = DEFAULT_USER_AGENT,
+    timeout: int = 120,
     authenticate: bool = False,
 ):
     """
@@ -149,6 +160,7 @@ def capture_or_cache(
                 target_url,
                 user_agent=user_agent,
                 accept_cache=False,
+                timeout=timeout,
                 authenticate=authenticate,
             ),
             True,
@@ -159,6 +171,7 @@ def capture_or_cache(
                 target_url,
                 user_agent=user_agent,
                 accept_cache=True,
+                timeout=timeout,
                 authenticate=authenticate,
             ),
             False,
@@ -169,6 +182,7 @@ def capture_or_cache(
 @click.argument("url")
 @click.option("-ua", "--user-agent", help="User-Agent header for the web request")
 @click.option("-c", "--accept-cache", help="Accept and return cached URL", is_flag=True)
+@click.option("-t", "--timeout", help="How long to wait for a request", default="120")
 @click.option(
     "-a",
     "--authenticate",
@@ -179,6 +193,7 @@ def cli(
     url: str,
     user_agent: str | None = None,
     accept_cache: bool = False,
+    timeout: str = "120",
     authenticate: bool = False,
 ):
     """
@@ -194,6 +209,7 @@ def cli(
         kwargs["accept_cache"] = accept_cache
     if authenticate:
         kwargs["authenticate"] = authenticate
+    kwargs["timeout"] = int(timeout)
     archive_url = capture(url, **kwargs)
     click.echo(archive_url)
 

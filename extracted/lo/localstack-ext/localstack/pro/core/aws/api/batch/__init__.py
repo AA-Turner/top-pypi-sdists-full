@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -230,28 +230,28 @@ class ServerException(ServiceException):
     status_code: int = 500
 
 
-ArrayJobStatusSummary = Dict[String, Integer]
+ArrayJobStatusSummary = dict[String, Integer]
 
 
 class ArrayProperties(TypedDict, total=False):
     """An object that represents an Batch array job."""
 
-    size: Optional[Integer]
+    size: Integer | None
 
 
 class ArrayPropertiesDetail(TypedDict, total=False):
     """An object that represents the array properties of a job."""
 
-    statusSummary: Optional[ArrayJobStatusSummary]
-    size: Optional[Integer]
-    index: Optional[Integer]
+    statusSummary: ArrayJobStatusSummary | None
+    size: Integer | None
+    index: Integer | None
 
 
 class ArrayPropertiesSummary(TypedDict, total=False):
     """An object that represents the array properties of a job."""
 
-    size: Optional[Integer]
-    index: Optional[Integer]
+    size: Integer | None
+    index: Integer | None
 
 
 class NetworkInterface(TypedDict, total=False):
@@ -259,12 +259,12 @@ class NetworkInterface(TypedDict, total=False):
     parallel job node.
     """
 
-    attachmentId: Optional[String]
-    ipv6Address: Optional[String]
-    privateIpv4Address: Optional[String]
+    attachmentId: String | None
+    ipv6Address: String | None
+    privateIpv4Address: String | None
 
 
-NetworkInterfaceList = List[NetworkInterface]
+NetworkInterfaceList = list[NetworkInterface]
 
 
 class AttemptContainerDetail(TypedDict, total=False):
@@ -272,12 +272,12 @@ class AttemptContainerDetail(TypedDict, total=False):
     job attempt.
     """
 
-    containerInstanceArn: Optional[String]
-    taskArn: Optional[String]
-    exitCode: Optional[Integer]
-    reason: Optional[String]
-    logStreamName: Optional[String]
-    networkInterfaces: Optional[NetworkInterfaceList]
+    containerInstanceArn: String | None
+    taskArn: String | None
+    exitCode: Integer | None
+    reason: String | None
+    logStreamName: String | None
+    networkInterfaces: NetworkInterfaceList | None
 
 
 class AttemptTaskContainerDetails(TypedDict, total=False):
@@ -285,39 +285,39 @@ class AttemptTaskContainerDetails(TypedDict, total=False):
     job attempt.
     """
 
-    exitCode: Optional[Integer]
-    name: Optional[String]
-    reason: Optional[String]
-    logStreamName: Optional[String]
-    networkInterfaces: Optional[NetworkInterfaceList]
+    exitCode: Integer | None
+    name: String | None
+    reason: String | None
+    logStreamName: String | None
+    networkInterfaces: NetworkInterfaceList | None
 
 
-ListAttemptTaskContainerDetails = List[AttemptTaskContainerDetails]
+ListAttemptTaskContainerDetails = list[AttemptTaskContainerDetails]
 
 
 class AttemptEcsTaskDetails(TypedDict, total=False):
     """An object that represents the details of a task."""
 
-    containerInstanceArn: Optional[String]
-    taskArn: Optional[String]
-    containers: Optional[ListAttemptTaskContainerDetails]
+    containerInstanceArn: String | None
+    taskArn: String | None
+    containers: ListAttemptTaskContainerDetails | None
 
 
-ListAttemptEcsTaskDetails = List[AttemptEcsTaskDetails]
+ListAttemptEcsTaskDetails = list[AttemptEcsTaskDetails]
 Long = int
 
 
 class AttemptDetail(TypedDict, total=False):
     """An object that represents a job attempt."""
 
-    container: Optional[AttemptContainerDetail]
-    startedAt: Optional[Long]
-    stoppedAt: Optional[Long]
-    statusReason: Optional[String]
-    taskProperties: Optional[ListAttemptEcsTaskDetails]
+    container: AttemptContainerDetail | None
+    startedAt: Long | None
+    stoppedAt: Long | None
+    statusReason: String | None
+    taskProperties: ListAttemptEcsTaskDetails | None
 
 
-AttemptDetails = List[AttemptDetail]
+AttemptDetails = list[AttemptDetail]
 
 
 class CancelJobRequest(ServiceRequest):
@@ -337,11 +337,11 @@ class CapacityLimit(TypedDict, total=False):
     jobs in the environment.
     """
 
-    maxCapacity: Optional[Integer]
-    capacityUnit: Optional[String]
+    maxCapacity: Integer | None
+    capacityUnit: String | None
 
 
-CapacityLimits = List[CapacityLimit]
+CapacityLimits = list[CapacityLimit]
 
 
 class EksConfiguration(TypedDict, total=False):
@@ -365,8 +365,8 @@ class UpdatePolicy(TypedDict, total=False):
     in the *Batch User Guide*.
     """
 
-    terminateJobsOnUpdate: Optional[Boolean]
-    jobExecutionTimeoutMinutes: Optional[JobExecutionTimeoutMinutes]
+    terminateJobsOnUpdate: Boolean | None
+    jobExecutionTimeoutMinutes: JobExecutionTimeoutMinutes | None
 
 
 class Ec2Configuration(TypedDict, total=False):
@@ -380,12 +380,12 @@ class Ec2Configuration(TypedDict, total=False):
     """
 
     imageType: ImageType
-    imageIdOverride: Optional[ImageIdOverride]
-    imageKubernetesVersion: Optional[KubernetesVersion]
+    imageIdOverride: ImageIdOverride | None
+    imageKubernetesVersion: KubernetesVersion | None
 
 
-Ec2ConfigurationList = List[Ec2Configuration]
-StringList = List[String]
+Ec2ConfigurationList = list[Ec2Configuration]
+StringList = list[String]
 
 
 class LaunchTemplateSpecificationOverride(TypedDict, total=False):
@@ -410,14 +410,14 @@ class LaunchTemplateSpecificationOverride(TypedDict, total=False):
     the ``UpdateComputeEnvironment`` API operation.
     """
 
-    launchTemplateId: Optional[String]
-    launchTemplateName: Optional[String]
-    version: Optional[String]
-    targetInstanceTypes: Optional[StringList]
-    userdataType: Optional[UserdataType]
+    launchTemplateId: String | None
+    launchTemplateName: String | None
+    version: String | None
+    targetInstanceTypes: StringList | None
+    userdataType: UserdataType | None
 
 
-LaunchTemplateSpecificationOverrideList = List[LaunchTemplateSpecificationOverride]
+LaunchTemplateSpecificationOverrideList = list[LaunchTemplateSpecificationOverride]
 
 
 class LaunchTemplateSpecification(TypedDict, total=False):
@@ -434,59 +434,59 @@ class LaunchTemplateSpecification(TypedDict, total=False):
     resources.
     """
 
-    launchTemplateId: Optional[String]
-    launchTemplateName: Optional[String]
-    version: Optional[String]
-    overrides: Optional[LaunchTemplateSpecificationOverrideList]
-    userdataType: Optional[UserdataType]
+    launchTemplateId: String | None
+    launchTemplateName: String | None
+    version: String | None
+    overrides: LaunchTemplateSpecificationOverrideList | None
+    userdataType: UserdataType | None
 
 
-TagsMap = Dict[String, String]
+TagsMap = dict[String, String]
 
 
 class ComputeResource(TypedDict, total=False):
     type: CRType
-    allocationStrategy: Optional[CRAllocationStrategy]
-    minvCpus: Optional[Integer]
+    allocationStrategy: CRAllocationStrategy | None
+    minvCpus: Integer | None
     maxvCpus: Integer
-    desiredvCpus: Optional[Integer]
-    instanceTypes: Optional[StringList]
-    imageId: Optional[String]
+    desiredvCpus: Integer | None
+    instanceTypes: StringList | None
+    imageId: String | None
     subnets: StringList
-    securityGroupIds: Optional[StringList]
-    ec2KeyPair: Optional[String]
-    instanceRole: Optional[String]
-    tags: Optional[TagsMap]
-    placementGroup: Optional[String]
-    bidPercentage: Optional[Integer]
-    spotIamFleetRole: Optional[String]
-    launchTemplate: Optional[LaunchTemplateSpecification]
-    ec2Configuration: Optional[Ec2ConfigurationList]
+    securityGroupIds: StringList | None
+    ec2KeyPair: String | None
+    instanceRole: String | None
+    tags: TagsMap | None
+    placementGroup: String | None
+    bidPercentage: Integer | None
+    spotIamFleetRole: String | None
+    launchTemplate: LaunchTemplateSpecification | None
+    ec2Configuration: Ec2ConfigurationList | None
 
 
-TagrisTagsMap = Dict[TagKey, TagValue]
+TagrisTagsMap = dict[TagKey, TagValue]
 
 
 class ComputeEnvironmentDetail(TypedDict, total=False):
     computeEnvironmentName: String
     computeEnvironmentArn: String
-    unmanagedvCpus: Optional[Integer]
-    ecsClusterArn: Optional[String]
-    tags: Optional[TagrisTagsMap]
-    type: Optional[CEType]
-    state: Optional[CEState]
-    status: Optional[CEStatus]
-    statusReason: Optional[String]
-    computeResources: Optional[ComputeResource]
-    serviceRole: Optional[String]
-    updatePolicy: Optional[UpdatePolicy]
-    eksConfiguration: Optional[EksConfiguration]
-    containerOrchestrationType: Optional[OrchestrationType]
-    uuid: Optional[String]
-    context: Optional[String]
+    unmanagedvCpus: Integer | None
+    ecsClusterArn: String | None
+    tags: TagrisTagsMap | None
+    type: CEType | None
+    state: CEState | None
+    status: CEStatus | None
+    statusReason: String | None
+    computeResources: ComputeResource | None
+    serviceRole: String | None
+    updatePolicy: UpdatePolicy | None
+    eksConfiguration: EksConfiguration | None
+    containerOrchestrationType: OrchestrationType | None
+    uuid: String | None
+    context: String | None
 
 
-ComputeEnvironmentDetailList = List[ComputeEnvironmentDetail]
+ComputeEnvironmentDetailList = list[ComputeEnvironmentDetail]
 
 
 class ComputeEnvironmentOrder(TypedDict, total=False):
@@ -509,43 +509,43 @@ class ComputeEnvironmentOrder(TypedDict, total=False):
     computeEnvironment: String
 
 
-ComputeEnvironmentOrders = List[ComputeEnvironmentOrder]
+ComputeEnvironmentOrders = list[ComputeEnvironmentOrder]
 
 
 class ComputeResourceUpdate(TypedDict, total=False):
-    minvCpus: Optional[Integer]
-    maxvCpus: Optional[Integer]
-    desiredvCpus: Optional[Integer]
-    subnets: Optional[StringList]
-    securityGroupIds: Optional[StringList]
-    allocationStrategy: Optional[CRUpdateAllocationStrategy]
-    instanceTypes: Optional[StringList]
-    ec2KeyPair: Optional[String]
-    instanceRole: Optional[String]
-    tags: Optional[TagsMap]
-    placementGroup: Optional[String]
-    bidPercentage: Optional[Integer]
-    launchTemplate: Optional[LaunchTemplateSpecification]
-    ec2Configuration: Optional[Ec2ConfigurationList]
-    updateToLatestImageVersion: Optional[Boolean]
-    type: Optional[CRType]
-    imageId: Optional[String]
+    minvCpus: Integer | None
+    maxvCpus: Integer | None
+    desiredvCpus: Integer | None
+    subnets: StringList | None
+    securityGroupIds: StringList | None
+    allocationStrategy: CRUpdateAllocationStrategy | None
+    instanceTypes: StringList | None
+    ec2KeyPair: String | None
+    instanceRole: String | None
+    tags: TagsMap | None
+    placementGroup: String | None
+    bidPercentage: Integer | None
+    launchTemplate: LaunchTemplateSpecification | None
+    ec2Configuration: Ec2ConfigurationList | None
+    updateToLatestImageVersion: Boolean | None
+    type: CRType | None
+    imageId: String | None
 
 
 class ConsumableResourceRequirement(TypedDict, total=False):
     """Information about a consumable resource required to run a job."""
 
-    consumableResource: Optional[String]
-    quantity: Optional[Long]
+    consumableResource: String | None
+    quantity: Long | None
 
 
-ConsumableResourceList = List[ConsumableResourceRequirement]
+ConsumableResourceList = list[ConsumableResourceRequirement]
 
 
 class ConsumableResourceProperties(TypedDict, total=False):
     """Contains a list of consumable resources required by a job."""
 
-    consumableResourceList: Optional[ConsumableResourceList]
+    consumableResourceList: ConsumableResourceList | None
 
 
 class ConsumableResourceSummary(TypedDict, total=False):
@@ -553,12 +553,12 @@ class ConsumableResourceSummary(TypedDict, total=False):
 
     consumableResourceArn: String
     consumableResourceName: String
-    totalQuantity: Optional[Long]
-    inUseQuantity: Optional[Long]
-    resourceType: Optional[String]
+    totalQuantity: Long | None
+    inUseQuantity: Long | None
+    resourceType: String | None
 
 
-ConsumableResourceSummaryList = List[ConsumableResourceSummary]
+ConsumableResourceSummaryList = list[ConsumableResourceSummary]
 
 
 class RepositoryCredentials(TypedDict, total=False):
@@ -572,8 +572,8 @@ class RuntimePlatform(TypedDict, total=False):
     jobs on Fargate.
     """
 
-    operatingSystemFamily: Optional[String]
-    cpuArchitecture: Optional[String]
+    operatingSystemFamily: String | None
+    cpuArchitecture: String | None
 
 
 class EphemeralStorage(TypedDict, total=False):
@@ -591,7 +591,7 @@ class FargatePlatformConfiguration(TypedDict, total=False):
     parameter.
     """
 
-    platformVersion: Optional[String]
+    platformVersion: String | None
 
 
 class NetworkConfiguration(TypedDict, total=False):
@@ -600,7 +600,7 @@ class NetworkConfiguration(TypedDict, total=False):
     specify this parameter.
     """
 
-    assignPublicIp: Optional[AssignPublicIp]
+    assignPublicIp: AssignPublicIp | None
 
 
 class Secret(TypedDict, total=False):
@@ -622,8 +622,8 @@ class Secret(TypedDict, total=False):
     valueFrom: String
 
 
-SecretList = List[Secret]
-LogConfigurationOptionsMap = Dict[String, String]
+SecretList = list[Secret]
+LogConfigurationOptionsMap = dict[String, String]
 
 
 class LogConfiguration(TypedDict, total=False):
@@ -632,8 +632,8 @@ class LogConfiguration(TypedDict, total=False):
     """
 
     logDriver: LogDriver
-    options: Optional[LogConfigurationOptionsMap]
-    secretOptions: Optional[SecretList]
+    options: LogConfigurationOptionsMap | None
+    secretOptions: SecretList | None
 
 
 class Tmpfs(TypedDict, total=False):
@@ -645,11 +645,11 @@ class Tmpfs(TypedDict, total=False):
 
     containerPath: String
     size: Integer
-    mountOptions: Optional[StringList]
+    mountOptions: StringList | None
 
 
-TmpfsList = List[Tmpfs]
-DeviceCgroupPermissions = List[DeviceCgroupPermission]
+TmpfsList = list[Tmpfs]
+DeviceCgroupPermissions = list[DeviceCgroupPermission]
 
 
 class Device(TypedDict, total=False):
@@ -660,11 +660,11 @@ class Device(TypedDict, total=False):
     """
 
     hostPath: String
-    containerPath: Optional[String]
-    permissions: Optional[DeviceCgroupPermissions]
+    containerPath: String | None
+    permissions: DeviceCgroupPermissions | None
 
 
-DevicesList = List[Device]
+DevicesList = list[Device]
 
 
 class LinuxParameters(TypedDict, total=False):
@@ -672,12 +672,12 @@ class LinuxParameters(TypedDict, total=False):
     details for device mappings.
     """
 
-    devices: Optional[DevicesList]
-    initProcessEnabled: Optional[Boolean]
-    sharedMemorySize: Optional[Integer]
-    tmpfs: Optional[TmpfsList]
-    maxSwap: Optional[Integer]
-    swappiness: Optional[Integer]
+    devices: DevicesList | None
+    initProcessEnabled: Boolean | None
+    sharedMemorySize: Integer | None
+    tmpfs: TmpfsList | None
+    maxSwap: Integer | None
+    swappiness: Integer | None
 
 
 class ResourceRequirement(TypedDict, total=False):
@@ -685,7 +685,7 @@ class ResourceRequirement(TypedDict, total=False):
     type: ResourceType
 
 
-ResourceRequirements = List[ResourceRequirement]
+ResourceRequirements = list[ResourceRequirement]
 
 
 class Ulimit(TypedDict, total=False):
@@ -702,7 +702,7 @@ class Ulimit(TypedDict, total=False):
     softLimit: Integer
 
 
-Ulimits = List[Ulimit]
+Ulimits = list[Ulimit]
 
 
 class MountPoint(TypedDict, total=False):
@@ -713,29 +713,29 @@ class MountPoint(TypedDict, total=False):
     run.
     """
 
-    containerPath: Optional[String]
-    readOnly: Optional[Boolean]
-    sourceVolume: Optional[String]
+    containerPath: String | None
+    readOnly: Boolean | None
+    sourceVolume: String | None
 
 
-MountPoints = List[MountPoint]
+MountPoints = list[MountPoint]
 
 
 class KeyValuePair(TypedDict, total=False):
     """A key-value pair object."""
 
-    name: Optional[String]
-    value: Optional[String]
+    name: String | None
+    value: String | None
 
 
-EnvironmentVariables = List[KeyValuePair]
+EnvironmentVariables = list[KeyValuePair]
 
 
 class EFSAuthorizationConfig(TypedDict, total=False):
     """The authorization configuration details for the Amazon EFS file system."""
 
-    accessPointId: Optional[String]
-    iam: Optional[EFSAuthorizationConfigIAM]
+    accessPointId: String | None
+    iam: EFSAuthorizationConfigIAM | None
 
 
 class EFSVolumeConfiguration(TypedDict, total=False):
@@ -746,10 +746,10 @@ class EFSVolumeConfiguration(TypedDict, total=False):
     """
 
     fileSystemId: String
-    rootDirectory: Optional[String]
-    transitEncryption: Optional[EFSTransitEncryption]
-    transitEncryptionPort: Optional[Integer]
-    authorizationConfig: Optional[EFSAuthorizationConfig]
+    rootDirectory: String | None
+    transitEncryption: EFSTransitEncryption | None
+    transitEncryptionPort: Integer | None
+    authorizationConfig: EFSAuthorizationConfig | None
 
 
 class Host(TypedDict, total=False):
@@ -760,18 +760,18 @@ class Host(TypedDict, total=False):
     associated with it stop running.
     """
 
-    sourcePath: Optional[String]
+    sourcePath: String | None
 
 
 class Volume(TypedDict, total=False):
     """A data volume that's used in a job's container properties."""
 
-    host: Optional[Host]
-    name: Optional[String]
-    efsVolumeConfiguration: Optional[EFSVolumeConfiguration]
+    host: Host | None
+    name: String | None
+    efsVolumeConfiguration: EFSVolumeConfiguration | None
 
 
-Volumes = List[Volume]
+Volumes = list[Volume]
 
 
 class ContainerDetail(TypedDict, total=False):
@@ -779,36 +779,36 @@ class ContainerDetail(TypedDict, total=False):
     job.
     """
 
-    image: Optional[String]
-    vcpus: Optional[Integer]
-    memory: Optional[Integer]
-    command: Optional[StringList]
-    jobRoleArn: Optional[String]
-    executionRoleArn: Optional[String]
-    volumes: Optional[Volumes]
-    environment: Optional[EnvironmentVariables]
-    mountPoints: Optional[MountPoints]
-    readonlyRootFilesystem: Optional[Boolean]
-    ulimits: Optional[Ulimits]
-    privileged: Optional[Boolean]
-    user: Optional[String]
-    exitCode: Optional[Integer]
-    reason: Optional[String]
-    containerInstanceArn: Optional[String]
-    taskArn: Optional[String]
-    logStreamName: Optional[String]
-    instanceType: Optional[String]
-    networkInterfaces: Optional[NetworkInterfaceList]
-    resourceRequirements: Optional[ResourceRequirements]
-    linuxParameters: Optional[LinuxParameters]
-    logConfiguration: Optional[LogConfiguration]
-    secrets: Optional[SecretList]
-    networkConfiguration: Optional[NetworkConfiguration]
-    fargatePlatformConfiguration: Optional[FargatePlatformConfiguration]
-    ephemeralStorage: Optional[EphemeralStorage]
-    runtimePlatform: Optional[RuntimePlatform]
-    repositoryCredentials: Optional[RepositoryCredentials]
-    enableExecuteCommand: Optional[Boolean]
+    image: String | None
+    vcpus: Integer | None
+    memory: Integer | None
+    command: StringList | None
+    jobRoleArn: String | None
+    executionRoleArn: String | None
+    volumes: Volumes | None
+    environment: EnvironmentVariables | None
+    mountPoints: MountPoints | None
+    readonlyRootFilesystem: Boolean | None
+    ulimits: Ulimits | None
+    privileged: Boolean | None
+    user: String | None
+    exitCode: Integer | None
+    reason: String | None
+    containerInstanceArn: String | None
+    taskArn: String | None
+    logStreamName: String | None
+    instanceType: String | None
+    networkInterfaces: NetworkInterfaceList | None
+    resourceRequirements: ResourceRequirements | None
+    linuxParameters: LinuxParameters | None
+    logConfiguration: LogConfiguration | None
+    secrets: SecretList | None
+    networkConfiguration: NetworkConfiguration | None
+    fargatePlatformConfiguration: FargatePlatformConfiguration | None
+    ephemeralStorage: EphemeralStorage | None
+    runtimePlatform: RuntimePlatform | None
+    repositoryCredentials: RepositoryCredentials | None
+    enableExecuteCommand: Boolean | None
 
 
 class ContainerOverrides(TypedDict, total=False):
@@ -819,12 +819,12 @@ class ContainerOverrides(TypedDict, total=False):
     `BatchContainerOverrides <https://docs.aws.amazon.com/eventbridge/latest/pipes-reference/API_BatchContainerOverrides.html>`__.
     """
 
-    vcpus: Optional[Integer]
-    memory: Optional[Integer]
-    command: Optional[StringList]
-    instanceType: Optional[String]
-    environment: Optional[EnvironmentVariables]
-    resourceRequirements: Optional[ResourceRequirements]
+    vcpus: Integer | None
+    memory: Integer | None
+    command: StringList | None
+    instanceType: String | None
+    environment: EnvironmentVariables | None
+    resourceRequirements: ResourceRequirements | None
 
 
 class ContainerProperties(TypedDict, total=False):
@@ -833,61 +833,61 @@ class ContainerProperties(TypedDict, total=False):
     job.
     """
 
-    image: Optional[String]
-    vcpus: Optional[Integer]
-    memory: Optional[Integer]
-    command: Optional[StringList]
-    jobRoleArn: Optional[String]
-    executionRoleArn: Optional[String]
-    volumes: Optional[Volumes]
-    environment: Optional[EnvironmentVariables]
-    mountPoints: Optional[MountPoints]
-    readonlyRootFilesystem: Optional[Boolean]
-    privileged: Optional[Boolean]
-    ulimits: Optional[Ulimits]
-    user: Optional[String]
-    instanceType: Optional[String]
-    resourceRequirements: Optional[ResourceRequirements]
-    linuxParameters: Optional[LinuxParameters]
-    logConfiguration: Optional[LogConfiguration]
-    secrets: Optional[SecretList]
-    networkConfiguration: Optional[NetworkConfiguration]
-    fargatePlatformConfiguration: Optional[FargatePlatformConfiguration]
-    enableExecuteCommand: Optional[Boolean]
-    ephemeralStorage: Optional[EphemeralStorage]
-    runtimePlatform: Optional[RuntimePlatform]
-    repositoryCredentials: Optional[RepositoryCredentials]
+    image: String | None
+    vcpus: Integer | None
+    memory: Integer | None
+    command: StringList | None
+    jobRoleArn: String | None
+    executionRoleArn: String | None
+    volumes: Volumes | None
+    environment: EnvironmentVariables | None
+    mountPoints: MountPoints | None
+    readonlyRootFilesystem: Boolean | None
+    privileged: Boolean | None
+    ulimits: Ulimits | None
+    user: String | None
+    instanceType: String | None
+    resourceRequirements: ResourceRequirements | None
+    linuxParameters: LinuxParameters | None
+    logConfiguration: LogConfiguration | None
+    secrets: SecretList | None
+    networkConfiguration: NetworkConfiguration | None
+    fargatePlatformConfiguration: FargatePlatformConfiguration | None
+    enableExecuteCommand: Boolean | None
+    ephemeralStorage: EphemeralStorage | None
+    runtimePlatform: RuntimePlatform | None
+    repositoryCredentials: RepositoryCredentials | None
 
 
 class ContainerSummary(TypedDict, total=False):
     """An object that represents summary details of a container within a job."""
 
-    exitCode: Optional[Integer]
-    reason: Optional[String]
+    exitCode: Integer | None
+    reason: String | None
 
 
 class CreateComputeEnvironmentRequest(TypedDict, total=False):
     computeEnvironmentName: String
     type: CEType
-    state: Optional[CEState]
-    unmanagedvCpus: Optional[Integer]
-    computeResources: Optional[ComputeResource]
-    serviceRole: Optional[String]
-    tags: Optional[TagrisTagsMap]
-    eksConfiguration: Optional[EksConfiguration]
-    context: Optional[String]
+    state: CEState | None
+    unmanagedvCpus: Integer | None
+    computeResources: ComputeResource | None
+    serviceRole: String | None
+    tags: TagrisTagsMap | None
+    eksConfiguration: EksConfiguration | None
+    context: String | None
 
 
 class CreateComputeEnvironmentResponse(TypedDict, total=False):
-    computeEnvironmentName: Optional[String]
-    computeEnvironmentArn: Optional[String]
+    computeEnvironmentName: String | None
+    computeEnvironmentArn: String | None
 
 
 class CreateConsumableResourceRequest(ServiceRequest):
     consumableResourceName: String
-    totalQuantity: Optional[Long]
-    resourceType: Optional[String]
-    tags: Optional[TagrisTagsMap]
+    totalQuantity: Long | None
+    resourceType: String | None
+    tags: TagrisTagsMap | None
 
 
 class CreateConsumableResourceResponse(TypedDict, total=False):
@@ -907,7 +907,7 @@ class JobStateTimeLimitAction(TypedDict, total=False):
     action: JobStateTimeLimitActionsAction
 
 
-JobStateTimeLimitActions = List[JobStateTimeLimitAction]
+JobStateTimeLimitActions = list[JobStateTimeLimitAction]
 
 
 class ServiceEnvironmentOrder(TypedDict, total=False):
@@ -920,21 +920,21 @@ class ServiceEnvironmentOrder(TypedDict, total=False):
     serviceEnvironment: String
 
 
-ServiceEnvironmentOrders = List[ServiceEnvironmentOrder]
+ServiceEnvironmentOrders = list[ServiceEnvironmentOrder]
 
 
 class CreateJobQueueRequest(ServiceRequest):
     """Contains the parameters for ``CreateJobQueue``."""
 
     jobQueueName: String
-    state: Optional[JQState]
-    schedulingPolicyArn: Optional[String]
+    state: JQState | None
+    schedulingPolicyArn: String | None
     priority: Integer
-    computeEnvironmentOrder: Optional[ComputeEnvironmentOrders]
-    serviceEnvironmentOrder: Optional[ServiceEnvironmentOrders]
-    jobQueueType: Optional[JobQueueType]
-    tags: Optional[TagrisTagsMap]
-    jobStateTimeLimitActions: Optional[JobStateTimeLimitActions]
+    computeEnvironmentOrder: ComputeEnvironmentOrders | None
+    serviceEnvironmentOrder: ServiceEnvironmentOrders | None
+    jobQueueType: JobQueueType | None
+    tags: TagrisTagsMap | None
+    jobStateTimeLimitActions: JobStateTimeLimitActions | None
 
 
 class CreateJobQueueResponse(TypedDict, total=False):
@@ -949,26 +949,26 @@ class ShareAttributes(TypedDict, total=False):
     """
 
     shareIdentifier: String
-    weightFactor: Optional[Float]
+    weightFactor: Float | None
 
 
-ShareAttributesList = List[ShareAttributes]
+ShareAttributesList = list[ShareAttributes]
 
 
 class FairsharePolicy(TypedDict, total=False):
     """The fair-share scheduling policy details."""
 
-    shareDecaySeconds: Optional[Integer]
-    computeReservation: Optional[Integer]
-    shareDistribution: Optional[ShareAttributesList]
+    shareDecaySeconds: Integer | None
+    computeReservation: Integer | None
+    shareDistribution: ShareAttributesList | None
 
 
 class CreateSchedulingPolicyRequest(ServiceRequest):
     """Contains the parameters for ``CreateSchedulingPolicy``."""
 
     name: String
-    fairsharePolicy: Optional[FairsharePolicy]
-    tags: Optional[TagrisTagsMap]
+    fairsharePolicy: FairsharePolicy | None
+    tags: TagrisTagsMap | None
 
 
 class CreateSchedulingPolicyResponse(TypedDict, total=False):
@@ -979,9 +979,9 @@ class CreateSchedulingPolicyResponse(TypedDict, total=False):
 class CreateServiceEnvironmentRequest(ServiceRequest):
     serviceEnvironmentName: String
     serviceEnvironmentType: ServiceEnvironmentType
-    state: Optional[ServiceEnvironmentState]
+    state: ServiceEnvironmentState | None
     capacityLimits: CapacityLimits
-    tags: Optional[TagrisTagsMap]
+    tags: TagrisTagsMap | None
 
 
 class CreateServiceEnvironmentResponse(TypedDict, total=False):
@@ -1046,14 +1046,14 @@ class DeregisterJobDefinitionResponse(TypedDict, total=False):
 class DescribeComputeEnvironmentsRequest(ServiceRequest):
     """Contains the parameters for ``DescribeComputeEnvironments``."""
 
-    computeEnvironments: Optional[StringList]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
+    computeEnvironments: StringList | None
+    maxResults: Integer | None
+    nextToken: String | None
 
 
 class DescribeComputeEnvironmentsResponse(TypedDict, total=False):
-    computeEnvironments: Optional[ComputeEnvironmentDetailList]
-    nextToken: Optional[String]
+    computeEnvironments: ComputeEnvironmentDetailList | None
+    nextToken: String | None
 
 
 class DescribeConsumableResourceRequest(ServiceRequest):
@@ -1063,26 +1063,26 @@ class DescribeConsumableResourceRequest(ServiceRequest):
 class DescribeConsumableResourceResponse(TypedDict, total=False):
     consumableResourceName: String
     consumableResourceArn: String
-    totalQuantity: Optional[Long]
-    inUseQuantity: Optional[Long]
-    availableQuantity: Optional[Long]
-    resourceType: Optional[String]
-    createdAt: Optional[Long]
-    tags: Optional[TagrisTagsMap]
+    totalQuantity: Long | None
+    inUseQuantity: Long | None
+    availableQuantity: Long | None
+    resourceType: String | None
+    createdAt: Long | None
+    tags: TagrisTagsMap | None
 
 
 class DescribeJobDefinitionsRequest(ServiceRequest):
     """Contains the parameters for ``DescribeJobDefinitions``."""
 
-    jobDefinitions: Optional[StringList]
-    maxResults: Optional[Integer]
-    jobDefinitionName: Optional[String]
-    status: Optional[String]
-    nextToken: Optional[String]
+    jobDefinitions: StringList | None
+    maxResults: Integer | None
+    jobDefinitionName: String | None
+    status: String | None
+    nextToken: String | None
 
 
-EksAnnotationsMap = Dict[String, String]
-EksLabelsMap = Dict[String, String]
+EksAnnotationsMap = dict[String, String]
+EksLabelsMap = dict[String, String]
 
 
 class EksMetadata(TypedDict, total=False):
@@ -1093,9 +1093,9 @@ class EksMetadata(TypedDict, total=False):
     in the *Kubernetes documentation*.
     """
 
-    labels: Optional[EksLabelsMap]
-    annotations: Optional[EksAnnotationsMap]
-    namespace: Optional[String]
+    labels: EksLabelsMap | None
+    annotations: EksAnnotationsMap | None
+    namespace: String | None
 
 
 class EksPersistentVolumeClaim(TypedDict, total=False):
@@ -1109,7 +1109,7 @@ class EksPersistentVolumeClaim(TypedDict, total=False):
     """
 
     claimName: String
-    readOnly: Optional[Boolean]
+    readOnly: Boolean | None
 
 
 class EksSecret(TypedDict, total=False):
@@ -1120,7 +1120,7 @@ class EksSecret(TypedDict, total=False):
     """
 
     secretName: String
-    optional: Optional[Boolean]
+    optional: Boolean | None
 
 
 class EksEmptyDir(TypedDict, total=False):
@@ -1136,8 +1136,8 @@ class EksEmptyDir(TypedDict, total=False):
     in the *Kubernetes documentation*.
     """
 
-    medium: Optional[String]
-    sizeLimit: Optional[Quantity]
+    medium: String | None
+    sizeLimit: Quantity | None
 
 
 class EksHostPath(TypedDict, total=False):
@@ -1148,20 +1148,20 @@ class EksHostPath(TypedDict, total=False):
     in the *Kubernetes documentation*.
     """
 
-    path: Optional[String]
+    path: String | None
 
 
 class EksVolume(TypedDict, total=False):
     """Specifies an Amazon EKS volume for a job definition."""
 
     name: String
-    hostPath: Optional[EksHostPath]
-    emptyDir: Optional[EksEmptyDir]
-    secret: Optional[EksSecret]
-    persistentVolumeClaim: Optional[EksPersistentVolumeClaim]
+    hostPath: EksHostPath | None
+    emptyDir: EksEmptyDir | None
+    secret: EksSecret | None
+    persistentVolumeClaim: EksPersistentVolumeClaim | None
 
 
-EksVolumes = List[EksVolume]
+EksVolumes = list[EksVolume]
 
 
 class EksContainerSecurityContext(TypedDict, total=False):
@@ -1171,12 +1171,12 @@ class EksContainerSecurityContext(TypedDict, total=False):
     in the *Kubernetes documentation*.
     """
 
-    runAsUser: Optional[Long]
-    runAsGroup: Optional[Long]
-    privileged: Optional[Boolean]
-    allowPrivilegeEscalation: Optional[Boolean]
-    readOnlyRootFilesystem: Optional[Boolean]
-    runAsNonRoot: Optional[Boolean]
+    runAsUser: Long | None
+    runAsGroup: Long | None
+    privileged: Boolean | None
+    allowPrivilegeEscalation: Boolean | None
+    readOnlyRootFilesystem: Boolean | None
+    runAsNonRoot: Boolean | None
 
 
 class EksContainerVolumeMount(TypedDict, total=False):
@@ -1186,15 +1186,15 @@ class EksContainerVolumeMount(TypedDict, total=False):
     the *Kubernetes documentation*.
     """
 
-    name: Optional[String]
-    mountPath: Optional[String]
-    subPath: Optional[String]
-    readOnly: Optional[Boolean]
+    name: String | None
+    mountPath: String | None
+    subPath: String | None
+    readOnly: Boolean | None
 
 
-EksContainerVolumeMounts = List[EksContainerVolumeMount]
-EksRequests = Dict[String, Quantity]
-EksLimits = Dict[String, Quantity]
+EksContainerVolumeMounts = list[EksContainerVolumeMount]
+EksRequests = dict[String, Quantity]
+EksLimits = dict[String, Quantity]
 
 
 class EksContainerResourceRequirements(TypedDict, total=False):
@@ -1205,18 +1205,18 @@ class EksContainerResourceRequirements(TypedDict, total=False):
     in the *Kubernetes documentation*.
     """
 
-    limits: Optional[EksLimits]
-    requests: Optional[EksRequests]
+    limits: EksLimits | None
+    requests: EksRequests | None
 
 
 class EksContainerEnvironmentVariable(TypedDict, total=False):
     """An environment variable."""
 
     name: String
-    value: Optional[String]
+    value: String | None
 
 
-EksContainerEnvironmentVariables = List[EksContainerEnvironmentVariable]
+EksContainerEnvironmentVariables = list[EksContainerEnvironmentVariable]
 
 
 class EksContainer(TypedDict, total=False):
@@ -1226,18 +1226,18 @@ class EksContainer(TypedDict, total=False):
     Amazon ECS based job definitions.
     """
 
-    name: Optional[String]
+    name: String | None
     image: String
-    imagePullPolicy: Optional[String]
-    command: Optional[StringList]
-    args: Optional[StringList]
-    env: Optional[EksContainerEnvironmentVariables]
-    resources: Optional[EksContainerResourceRequirements]
-    volumeMounts: Optional[EksContainerVolumeMounts]
-    securityContext: Optional[EksContainerSecurityContext]
+    imagePullPolicy: String | None
+    command: StringList | None
+    args: StringList | None
+    env: EksContainerEnvironmentVariables | None
+    resources: EksContainerResourceRequirements | None
+    volumeMounts: EksContainerVolumeMounts | None
+    securityContext: EksContainerSecurityContext | None
 
 
-EksContainers = List[EksContainer]
+EksContainers = list[EksContainer]
 
 
 class ImagePullSecret(TypedDict, total=False):
@@ -1250,21 +1250,21 @@ class ImagePullSecret(TypedDict, total=False):
     name: String
 
 
-ImagePullSecrets = List[ImagePullSecret]
+ImagePullSecrets = list[ImagePullSecret]
 
 
 class EksPodProperties(TypedDict, total=False):
     """The properties for the pod."""
 
-    serviceAccountName: Optional[String]
-    hostNetwork: Optional[Boolean]
-    dnsPolicy: Optional[String]
-    imagePullSecrets: Optional[ImagePullSecrets]
-    containers: Optional[EksContainers]
-    initContainers: Optional[EksContainers]
-    volumes: Optional[EksVolumes]
-    metadata: Optional[EksMetadata]
-    shareProcessNamespace: Optional[Boolean]
+    serviceAccountName: String | None
+    hostNetwork: Boolean | None
+    dnsPolicy: String | None
+    imagePullSecrets: ImagePullSecrets | None
+    containers: EksContainers | None
+    initContainers: EksContainers | None
+    volumes: EksVolumes | None
+    metadata: EksMetadata | None
+    shareProcessNamespace: Boolean | None
 
 
 class EksProperties(TypedDict, total=False):
@@ -1272,25 +1272,25 @@ class EksProperties(TypedDict, total=False):
     job.
     """
 
-    podProperties: Optional[EksPodProperties]
+    podProperties: EksPodProperties | None
 
 
-FirelensConfigurationOptionsMap = Dict[String, String]
+FirelensConfigurationOptionsMap = dict[String, String]
 
 
 class FirelensConfiguration(TypedDict, total=False):
     type: FirelensConfigurationType
-    options: Optional[FirelensConfigurationOptionsMap]
+    options: FirelensConfigurationOptionsMap | None
 
 
 class TaskContainerDependency(TypedDict, total=False):
     """A list of containers that this task depends on."""
 
-    containerName: Optional[String]
-    condition: Optional[String]
+    containerName: String | None
+    condition: String | None
 
 
-TaskContainerDependencyList = List[TaskContainerDependency]
+TaskContainerDependencyList = list[TaskContainerDependency]
 
 
 class TaskContainerProperties(TypedDict, total=False):
@@ -1299,26 +1299,26 @@ class TaskContainerProperties(TypedDict, total=False):
     job.
     """
 
-    command: Optional[StringList]
-    dependsOn: Optional[TaskContainerDependencyList]
-    environment: Optional[EnvironmentVariables]
-    essential: Optional[Boolean]
-    firelensConfiguration: Optional[FirelensConfiguration]
+    command: StringList | None
+    dependsOn: TaskContainerDependencyList | None
+    environment: EnvironmentVariables | None
+    essential: Boolean | None
+    firelensConfiguration: FirelensConfiguration | None
     image: String
-    linuxParameters: Optional[LinuxParameters]
-    logConfiguration: Optional[LogConfiguration]
-    mountPoints: Optional[MountPoints]
-    name: Optional[String]
-    privileged: Optional[Boolean]
-    readonlyRootFilesystem: Optional[Boolean]
-    repositoryCredentials: Optional[RepositoryCredentials]
-    resourceRequirements: Optional[ResourceRequirements]
-    secrets: Optional[SecretList]
-    ulimits: Optional[Ulimits]
-    user: Optional[String]
+    linuxParameters: LinuxParameters | None
+    logConfiguration: LogConfiguration | None
+    mountPoints: MountPoints | None
+    name: String | None
+    privileged: Boolean | None
+    readonlyRootFilesystem: Boolean | None
+    repositoryCredentials: RepositoryCredentials | None
+    resourceRequirements: ResourceRequirements | None
+    secrets: SecretList | None
+    ulimits: Ulimits | None
+    user: String | None
 
 
-ListTaskContainerProperties = List[TaskContainerProperties]
+ListTaskContainerProperties = list[TaskContainerProperties]
 
 
 class EcsTaskProperties(TypedDict, total=False):
@@ -1329,19 +1329,19 @@ class EcsTaskProperties(TypedDict, total=False):
     """
 
     containers: ListTaskContainerProperties
-    ephemeralStorage: Optional[EphemeralStorage]
-    executionRoleArn: Optional[String]
-    platformVersion: Optional[String]
-    ipcMode: Optional[String]
-    taskRoleArn: Optional[String]
-    pidMode: Optional[String]
-    networkConfiguration: Optional[NetworkConfiguration]
-    runtimePlatform: Optional[RuntimePlatform]
-    volumes: Optional[Volumes]
-    enableExecuteCommand: Optional[Boolean]
+    ephemeralStorage: EphemeralStorage | None
+    executionRoleArn: String | None
+    platformVersion: String | None
+    ipcMode: String | None
+    taskRoleArn: String | None
+    pidMode: String | None
+    networkConfiguration: NetworkConfiguration | None
+    runtimePlatform: RuntimePlatform | None
+    volumes: Volumes | None
+    enableExecuteCommand: Boolean | None
 
 
-ListEcsTaskProperties = List[EcsTaskProperties]
+ListEcsTaskProperties = list[EcsTaskProperties]
 
 
 class EcsProperties(TypedDict, total=False):
@@ -1352,7 +1352,7 @@ class EcsProperties(TypedDict, total=False):
     taskProperties: ListEcsTaskProperties
 
 
-PlatformCapabilityList = List[PlatformCapability]
+PlatformCapabilityList = list[PlatformCapability]
 
 
 class NodeRangeProperty(TypedDict, total=False):
@@ -1361,14 +1361,14 @@ class NodeRangeProperty(TypedDict, total=False):
     """
 
     targetNodes: String
-    container: Optional[ContainerProperties]
-    instanceTypes: Optional[StringList]
-    ecsProperties: Optional[EcsProperties]
-    eksProperties: Optional[EksProperties]
-    consumableResourceProperties: Optional[ConsumableResourceProperties]
+    container: ContainerProperties | None
+    instanceTypes: StringList | None
+    ecsProperties: EcsProperties | None
+    eksProperties: EksProperties | None
+    consumableResourceProperties: ConsumableResourceProperties | None
 
 
-NodeRangeProperties = List[NodeRangeProperty]
+NodeRangeProperties = list[NodeRangeProperty]
 
 
 class NodeProperties(TypedDict, total=False):
@@ -1386,7 +1386,7 @@ class NodeProperties(TypedDict, total=False):
 class JobTimeout(TypedDict, total=False):
     """An object that represents a job timeout configuration."""
 
-    attemptDurationSeconds: Optional[Integer]
+    attemptDurationSeconds: Integer | None
 
 
 class EvaluateOnExit(TypedDict, total=False):
@@ -1396,13 +1396,13 @@ class EvaluateOnExit(TypedDict, total=False):
     is retried.
     """
 
-    onStatusReason: Optional[String]
-    onReason: Optional[String]
-    onExitCode: Optional[String]
+    onStatusReason: String | None
+    onReason: String | None
+    onExitCode: String | None
     action: RetryAction
 
 
-EvaluateOnExitList = List[EvaluateOnExit]
+EvaluateOnExitList = list[EvaluateOnExit]
 
 
 class RetryStrategy(TypedDict, total=False):
@@ -1412,48 +1412,48 @@ class RetryStrategy(TypedDict, total=False):
     in the *Batch User Guide*.
     """
 
-    attempts: Optional[Integer]
-    evaluateOnExit: Optional[EvaluateOnExitList]
+    attempts: Integer | None
+    evaluateOnExit: EvaluateOnExitList | None
 
 
-ParametersMap = Dict[String, String]
+ParametersMap = dict[String, String]
 
 
 class JobDefinition(TypedDict, total=False):
     jobDefinitionName: String
     jobDefinitionArn: String
     revision: Integer
-    status: Optional[String]
+    status: String | None
     type: String
-    schedulingPriority: Optional[Integer]
-    parameters: Optional[ParametersMap]
-    retryStrategy: Optional[RetryStrategy]
-    containerProperties: Optional[ContainerProperties]
-    timeout: Optional[JobTimeout]
-    nodeProperties: Optional[NodeProperties]
-    tags: Optional[TagrisTagsMap]
-    propagateTags: Optional[Boolean]
-    platformCapabilities: Optional[PlatformCapabilityList]
-    ecsProperties: Optional[EcsProperties]
-    eksProperties: Optional[EksProperties]
-    containerOrchestrationType: Optional[OrchestrationType]
-    consumableResourceProperties: Optional[ConsumableResourceProperties]
+    schedulingPriority: Integer | None
+    parameters: ParametersMap | None
+    retryStrategy: RetryStrategy | None
+    containerProperties: ContainerProperties | None
+    timeout: JobTimeout | None
+    nodeProperties: NodeProperties | None
+    tags: TagrisTagsMap | None
+    propagateTags: Boolean | None
+    platformCapabilities: PlatformCapabilityList | None
+    ecsProperties: EcsProperties | None
+    eksProperties: EksProperties | None
+    containerOrchestrationType: OrchestrationType | None
+    consumableResourceProperties: ConsumableResourceProperties | None
 
 
-JobDefinitionList = List[JobDefinition]
+JobDefinitionList = list[JobDefinition]
 
 
 class DescribeJobDefinitionsResponse(TypedDict, total=False):
-    jobDefinitions: Optional[JobDefinitionList]
-    nextToken: Optional[String]
+    jobDefinitions: JobDefinitionList | None
+    nextToken: String | None
 
 
 class DescribeJobQueuesRequest(ServiceRequest):
     """Contains the parameters for ``DescribeJobQueues``."""
 
-    jobQueues: Optional[StringList]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
+    jobQueues: StringList | None
+    maxResults: Integer | None
+    nextToken: String | None
 
 
 class JobQueueDetail(TypedDict, total=False):
@@ -1462,23 +1462,23 @@ class JobQueueDetail(TypedDict, total=False):
     jobQueueName: String
     jobQueueArn: String
     state: JQState
-    schedulingPolicyArn: Optional[String]
-    status: Optional[JQStatus]
-    statusReason: Optional[String]
+    schedulingPolicyArn: String | None
+    status: JQStatus | None
+    statusReason: String | None
     priority: Integer
     computeEnvironmentOrder: ComputeEnvironmentOrders
-    serviceEnvironmentOrder: Optional[ServiceEnvironmentOrders]
-    jobQueueType: Optional[JobQueueType]
-    tags: Optional[TagrisTagsMap]
-    jobStateTimeLimitActions: Optional[JobStateTimeLimitActions]
+    serviceEnvironmentOrder: ServiceEnvironmentOrders | None
+    jobQueueType: JobQueueType | None
+    tags: TagrisTagsMap | None
+    jobStateTimeLimitActions: JobStateTimeLimitActions | None
 
 
-JobQueueDetailList = List[JobQueueDetail]
+JobQueueDetailList = list[JobQueueDetail]
 
 
 class DescribeJobQueuesResponse(TypedDict, total=False):
-    jobQueues: Optional[JobQueueDetailList]
-    nextToken: Optional[String]
+    jobQueues: JobQueueDetailList | None
+    nextToken: String | None
 
 
 class DescribeJobsRequest(ServiceRequest):
@@ -1490,30 +1490,30 @@ class DescribeJobsRequest(ServiceRequest):
 class TaskContainerDetails(TypedDict, total=False):
     """The details for the container in this task attempt."""
 
-    command: Optional[StringList]
-    dependsOn: Optional[TaskContainerDependencyList]
-    environment: Optional[EnvironmentVariables]
-    essential: Optional[Boolean]
-    firelensConfiguration: Optional[FirelensConfiguration]
-    image: Optional[String]
-    linuxParameters: Optional[LinuxParameters]
-    logConfiguration: Optional[LogConfiguration]
-    mountPoints: Optional[MountPoints]
-    name: Optional[String]
-    privileged: Optional[Boolean]
-    readonlyRootFilesystem: Optional[Boolean]
-    repositoryCredentials: Optional[RepositoryCredentials]
-    resourceRequirements: Optional[ResourceRequirements]
-    secrets: Optional[SecretList]
-    ulimits: Optional[Ulimits]
-    user: Optional[String]
-    exitCode: Optional[Integer]
-    reason: Optional[String]
-    logStreamName: Optional[String]
-    networkInterfaces: Optional[NetworkInterfaceList]
+    command: StringList | None
+    dependsOn: TaskContainerDependencyList | None
+    environment: EnvironmentVariables | None
+    essential: Boolean | None
+    firelensConfiguration: FirelensConfiguration | None
+    image: String | None
+    linuxParameters: LinuxParameters | None
+    logConfiguration: LogConfiguration | None
+    mountPoints: MountPoints | None
+    name: String | None
+    privileged: Boolean | None
+    readonlyRootFilesystem: Boolean | None
+    repositoryCredentials: RepositoryCredentials | None
+    resourceRequirements: ResourceRequirements | None
+    secrets: SecretList | None
+    ulimits: Ulimits | None
+    user: String | None
+    exitCode: Integer | None
+    reason: String | None
+    logStreamName: String | None
+    networkInterfaces: NetworkInterfaceList | None
 
 
-ListTaskContainerDetails = List[TaskContainerDetails]
+ListTaskContainerDetails = list[TaskContainerDetails]
 
 
 class EcsTaskDetails(TypedDict, total=False):
@@ -1521,22 +1521,22 @@ class EcsTaskDetails(TypedDict, total=False):
     definitions of an Amazon ECS task.
     """
 
-    containers: Optional[ListTaskContainerDetails]
-    containerInstanceArn: Optional[String]
-    taskArn: Optional[String]
-    ephemeralStorage: Optional[EphemeralStorage]
-    executionRoleArn: Optional[String]
-    platformVersion: Optional[String]
-    ipcMode: Optional[String]
-    taskRoleArn: Optional[String]
-    pidMode: Optional[String]
-    networkConfiguration: Optional[NetworkConfiguration]
-    runtimePlatform: Optional[RuntimePlatform]
-    volumes: Optional[Volumes]
-    enableExecuteCommand: Optional[Boolean]
+    containers: ListTaskContainerDetails | None
+    containerInstanceArn: String | None
+    taskArn: String | None
+    ephemeralStorage: EphemeralStorage | None
+    executionRoleArn: String | None
+    platformVersion: String | None
+    ipcMode: String | None
+    taskRoleArn: String | None
+    pidMode: String | None
+    networkConfiguration: NetworkConfiguration | None
+    runtimePlatform: RuntimePlatform | None
+    volumes: Volumes | None
+    enableExecuteCommand: Boolean | None
 
 
-ListEcsTaskDetails = List[EcsTaskDetails]
+ListEcsTaskDetails = list[EcsTaskDetails]
 
 
 class EcsPropertiesDetail(TypedDict, total=False):
@@ -1544,7 +1544,7 @@ class EcsPropertiesDetail(TypedDict, total=False):
     job.
     """
 
-    taskProperties: Optional[ListEcsTaskDetails]
+    taskProperties: ListEcsTaskDetails | None
 
 
 class EksAttemptContainerDetail(TypedDict, total=False):
@@ -1552,13 +1552,13 @@ class EksAttemptContainerDetail(TypedDict, total=False):
     that an Amazon EKS container runs.
     """
 
-    name: Optional[String]
-    containerID: Optional[String]
-    exitCode: Optional[Integer]
-    reason: Optional[String]
+    name: String | None
+    containerID: String | None
+    exitCode: Integer | None
+    reason: String | None
 
 
-EksAttemptContainerDetails = List[EksAttemptContainerDetail]
+EksAttemptContainerDetails = list[EksAttemptContainerDetail]
 
 
 class EksAttemptDetail(TypedDict, total=False):
@@ -1566,18 +1566,18 @@ class EksAttemptDetail(TypedDict, total=False):
     by an Amazon EKS container.
     """
 
-    containers: Optional[EksAttemptContainerDetails]
-    initContainers: Optional[EksAttemptContainerDetails]
-    eksClusterArn: Optional[String]
-    podName: Optional[String]
-    podNamespace: Optional[String]
-    nodeName: Optional[String]
-    startedAt: Optional[Long]
-    stoppedAt: Optional[Long]
-    statusReason: Optional[String]
+    containers: EksAttemptContainerDetails | None
+    initContainers: EksAttemptContainerDetails | None
+    eksClusterArn: String | None
+    podName: String | None
+    podNamespace: String | None
+    nodeName: String | None
+    startedAt: Long | None
+    stoppedAt: Long | None
+    statusReason: String | None
 
 
-EksAttemptDetails = List[EksAttemptDetail]
+EksAttemptDetails = list[EksAttemptDetail]
 
 
 class EksContainerDetail(TypedDict, total=False):
@@ -1585,36 +1585,36 @@ class EksContainerDetail(TypedDict, total=False):
     ``DescribeJobs`` for jobs that use Amazon EKS.
     """
 
-    name: Optional[String]
-    image: Optional[String]
-    imagePullPolicy: Optional[String]
-    command: Optional[StringList]
-    args: Optional[StringList]
-    env: Optional[EksContainerEnvironmentVariables]
-    resources: Optional[EksContainerResourceRequirements]
-    exitCode: Optional[Integer]
-    reason: Optional[String]
-    volumeMounts: Optional[EksContainerVolumeMounts]
-    securityContext: Optional[EksContainerSecurityContext]
+    name: String | None
+    image: String | None
+    imagePullPolicy: String | None
+    command: StringList | None
+    args: StringList | None
+    env: EksContainerEnvironmentVariables | None
+    resources: EksContainerResourceRequirements | None
+    exitCode: Integer | None
+    reason: String | None
+    volumeMounts: EksContainerVolumeMounts | None
+    securityContext: EksContainerSecurityContext | None
 
 
-EksContainerDetails = List[EksContainerDetail]
+EksContainerDetails = list[EksContainerDetail]
 
 
 class EksPodPropertiesDetail(TypedDict, total=False):
     """The details for the pod."""
 
-    serviceAccountName: Optional[String]
-    hostNetwork: Optional[Boolean]
-    dnsPolicy: Optional[String]
-    imagePullSecrets: Optional[ImagePullSecrets]
-    containers: Optional[EksContainerDetails]
-    initContainers: Optional[EksContainerDetails]
-    volumes: Optional[EksVolumes]
-    podName: Optional[String]
-    nodeName: Optional[String]
-    metadata: Optional[EksMetadata]
-    shareProcessNamespace: Optional[Boolean]
+    serviceAccountName: String | None
+    hostNetwork: Boolean | None
+    dnsPolicy: String | None
+    imagePullSecrets: ImagePullSecrets | None
+    containers: EksContainerDetails | None
+    initContainers: EksContainerDetails | None
+    volumes: EksVolumes | None
+    podName: String | None
+    nodeName: String | None
+    metadata: EksMetadata | None
+    shareProcessNamespace: Boolean | None
 
 
 class EksPropertiesDetail(TypedDict, total=False):
@@ -1622,64 +1622,64 @@ class EksPropertiesDetail(TypedDict, total=False):
     job.
     """
 
-    podProperties: Optional[EksPodPropertiesDetail]
+    podProperties: EksPodPropertiesDetail | None
 
 
 class NodeDetails(TypedDict, total=False):
     """An object that represents the details of a multi-node parallel job node."""
 
-    nodeIndex: Optional[Integer]
-    isMainNode: Optional[Boolean]
+    nodeIndex: Integer | None
+    isMainNode: Boolean | None
 
 
 class JobDependency(TypedDict, total=False):
-    jobId: Optional[String]
-    type: Optional[ArrayJobDependency]
+    jobId: String | None
+    type: ArrayJobDependency | None
 
 
-JobDependencyList = List[JobDependency]
+JobDependencyList = list[JobDependency]
 
 
 class JobDetail(TypedDict, total=False):
     """An object that represents an Batch job."""
 
-    jobArn: Optional[String]
+    jobArn: String | None
     jobName: String
     jobId: String
     jobQueue: String
     status: JobStatus
-    shareIdentifier: Optional[String]
-    schedulingPriority: Optional[Integer]
-    attempts: Optional[AttemptDetails]
-    statusReason: Optional[String]
-    createdAt: Optional[Long]
-    retryStrategy: Optional[RetryStrategy]
+    shareIdentifier: String | None
+    schedulingPriority: Integer | None
+    attempts: AttemptDetails | None
+    statusReason: String | None
+    createdAt: Long | None
+    retryStrategy: RetryStrategy | None
     startedAt: Long
-    stoppedAt: Optional[Long]
-    dependsOn: Optional[JobDependencyList]
+    stoppedAt: Long | None
+    dependsOn: JobDependencyList | None
     jobDefinition: String
-    parameters: Optional[ParametersMap]
-    container: Optional[ContainerDetail]
-    nodeDetails: Optional[NodeDetails]
-    nodeProperties: Optional[NodeProperties]
-    arrayProperties: Optional[ArrayPropertiesDetail]
-    timeout: Optional[JobTimeout]
-    tags: Optional[TagrisTagsMap]
-    propagateTags: Optional[Boolean]
-    platformCapabilities: Optional[PlatformCapabilityList]
-    eksProperties: Optional[EksPropertiesDetail]
-    eksAttempts: Optional[EksAttemptDetails]
-    ecsProperties: Optional[EcsPropertiesDetail]
-    isCancelled: Optional[Boolean]
-    isTerminated: Optional[Boolean]
-    consumableResourceProperties: Optional[ConsumableResourceProperties]
+    parameters: ParametersMap | None
+    container: ContainerDetail | None
+    nodeDetails: NodeDetails | None
+    nodeProperties: NodeProperties | None
+    arrayProperties: ArrayPropertiesDetail | None
+    timeout: JobTimeout | None
+    tags: TagrisTagsMap | None
+    propagateTags: Boolean | None
+    platformCapabilities: PlatformCapabilityList | None
+    eksProperties: EksPropertiesDetail | None
+    eksAttempts: EksAttemptDetails | None
+    ecsProperties: EcsPropertiesDetail | None
+    isCancelled: Boolean | None
+    isTerminated: Boolean | None
+    consumableResourceProperties: ConsumableResourceProperties | None
 
 
-JobDetailList = List[JobDetail]
+JobDetailList = list[JobDetail]
 
 
 class DescribeJobsResponse(TypedDict, total=False):
-    jobs: Optional[JobDetailList]
+    jobs: JobDetailList | None
 
 
 class DescribeSchedulingPoliciesRequest(ServiceRequest):
@@ -1693,21 +1693,21 @@ class SchedulingPolicyDetail(TypedDict, total=False):
 
     name: String
     arn: String
-    fairsharePolicy: Optional[FairsharePolicy]
-    tags: Optional[TagrisTagsMap]
+    fairsharePolicy: FairsharePolicy | None
+    tags: TagrisTagsMap | None
 
 
-SchedulingPolicyDetailList = List[SchedulingPolicyDetail]
+SchedulingPolicyDetailList = list[SchedulingPolicyDetail]
 
 
 class DescribeSchedulingPoliciesResponse(TypedDict, total=False):
-    schedulingPolicies: Optional[SchedulingPolicyDetailList]
+    schedulingPolicies: SchedulingPolicyDetailList | None
 
 
 class DescribeServiceEnvironmentsRequest(ServiceRequest):
-    serviceEnvironments: Optional[StringList]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
+    serviceEnvironments: StringList | None
+    maxResults: Integer | None
+    nextToken: String | None
 
 
 class ServiceEnvironmentDetail(TypedDict, total=False):
@@ -1718,18 +1718,18 @@ class ServiceEnvironmentDetail(TypedDict, total=False):
     serviceEnvironmentName: String
     serviceEnvironmentArn: String
     serviceEnvironmentType: ServiceEnvironmentType
-    state: Optional[ServiceEnvironmentState]
-    status: Optional[ServiceEnvironmentStatus]
+    state: ServiceEnvironmentState | None
+    status: ServiceEnvironmentStatus | None
     capacityLimits: CapacityLimits
-    tags: Optional[TagrisTagsMap]
+    tags: TagrisTagsMap | None
 
 
-ServiceEnvironmentDetailList = List[ServiceEnvironmentDetail]
+ServiceEnvironmentDetailList = list[ServiceEnvironmentDetail]
 
 
 class DescribeServiceEnvironmentsResponse(TypedDict, total=False):
-    serviceEnvironments: Optional[ServiceEnvironmentDetailList]
-    nextToken: Optional[String]
+    serviceEnvironments: ServiceEnvironmentDetailList | None
+    nextToken: String | None
 
 
 class DescribeServiceJobRequest(ServiceRequest):
@@ -1739,7 +1739,7 @@ class DescribeServiceJobRequest(ServiceRequest):
 class ServiceJobTimeout(TypedDict, total=False):
     """The timeout configuration for service jobs."""
 
-    attemptDurationSeconds: Optional[Integer]
+    attemptDurationSeconds: Integer | None
 
 
 class ServiceJobEvaluateOnExit(TypedDict, total=False):
@@ -1747,11 +1747,11 @@ class ServiceJobEvaluateOnExit(TypedDict, total=False):
     the exit status or status reason.
     """
 
-    action: Optional[ServiceJobRetryAction]
-    onStatusReason: Optional[String]
+    action: ServiceJobRetryAction | None
+    onStatusReason: String | None
 
 
-ServiceJobEvaluateOnExitList = List[ServiceJobEvaluateOnExit]
+ServiceJobEvaluateOnExitList = list[ServiceJobEvaluateOnExit]
 
 
 class ServiceJobRetryStrategy(TypedDict, total=False):
@@ -1763,7 +1763,7 @@ class ServiceJobRetryStrategy(TypedDict, total=False):
     """
 
     attempts: Integer
-    evaluateOnExit: Optional[ServiceJobEvaluateOnExitList]
+    evaluateOnExit: ServiceJobEvaluateOnExitList | None
 
 
 class ServiceResourceId(TypedDict, total=False):
@@ -1779,41 +1779,41 @@ class LatestServiceJobAttempt(TypedDict, total=False):
     encounter capacity constraints.
     """
 
-    serviceResourceId: Optional[ServiceResourceId]
+    serviceResourceId: ServiceResourceId | None
 
 
 class ServiceJobAttemptDetail(TypedDict, total=False):
     """Detailed information about an attempt to run a service job."""
 
-    serviceResourceId: Optional[ServiceResourceId]
-    startedAt: Optional[Long]
-    stoppedAt: Optional[Long]
-    statusReason: Optional[String]
+    serviceResourceId: ServiceResourceId | None
+    startedAt: Long | None
+    stoppedAt: Long | None
+    statusReason: String | None
 
 
-ServiceJobAttemptDetails = List[ServiceJobAttemptDetail]
+ServiceJobAttemptDetails = list[ServiceJobAttemptDetail]
 
 
 class DescribeServiceJobResponse(TypedDict, total=False):
-    attempts: Optional[ServiceJobAttemptDetails]
-    createdAt: Optional[Long]
-    isTerminated: Optional[Boolean]
-    jobArn: Optional[String]
+    attempts: ServiceJobAttemptDetails | None
+    createdAt: Long | None
+    isTerminated: Boolean | None
+    jobArn: String | None
     jobId: String
     jobName: String
     jobQueue: String
-    latestAttempt: Optional[LatestServiceJobAttempt]
-    retryStrategy: Optional[ServiceJobRetryStrategy]
-    schedulingPriority: Optional[Integer]
-    serviceRequestPayload: Optional[String]
+    latestAttempt: LatestServiceJobAttempt | None
+    retryStrategy: ServiceJobRetryStrategy | None
+    schedulingPriority: Integer | None
+    serviceRequestPayload: String | None
     serviceJobType: ServiceJobType
-    shareIdentifier: Optional[String]
+    shareIdentifier: String | None
     startedAt: Long
     status: ServiceJobStatus
-    statusReason: Optional[String]
-    stoppedAt: Optional[Long]
-    tags: Optional[TagrisTagsMap]
-    timeoutConfig: Optional[ServiceJobTimeout]
+    statusReason: String | None
+    stoppedAt: Long | None
+    tags: TagrisTagsMap | None
+    timeoutConfig: ServiceJobTimeout | None
 
 
 class TaskContainerOverrides(TypedDict, total=False):
@@ -1824,22 +1824,22 @@ class TaskContainerOverrides(TypedDict, total=False):
     `BatchContainerOverrides <https://docs.aws.amazon.com/eventbridge/latest/pipes-reference/API_BatchContainerOverrides.html>`__.
     """
 
-    command: Optional[StringList]
-    environment: Optional[EnvironmentVariables]
-    name: Optional[String]
-    resourceRequirements: Optional[ResourceRequirements]
+    command: StringList | None
+    environment: EnvironmentVariables | None
+    name: String | None
+    resourceRequirements: ResourceRequirements | None
 
 
-ListTaskContainerOverrides = List[TaskContainerOverrides]
+ListTaskContainerOverrides = list[TaskContainerOverrides]
 
 
 class TaskPropertiesOverride(TypedDict, total=False):
     """An object that contains overrides for the task definition of a job."""
 
-    containers: Optional[ListTaskContainerOverrides]
+    containers: ListTaskContainerOverrides | None
 
 
-ListTaskPropertiesOverride = List[TaskPropertiesOverride]
+ListTaskPropertiesOverride = list[TaskPropertiesOverride]
 
 
 class EcsPropertiesOverride(TypedDict, total=False):
@@ -1847,7 +1847,7 @@ class EcsPropertiesOverride(TypedDict, total=False):
     a job.
     """
 
-    taskProperties: Optional[ListTaskPropertiesOverride]
+    taskProperties: ListTaskPropertiesOverride | None
 
 
 class EksContainerOverride(TypedDict, total=False):
@@ -1857,15 +1857,15 @@ class EksContainerOverride(TypedDict, total=False):
     API operation.
     """
 
-    name: Optional[String]
-    image: Optional[String]
-    command: Optional[StringList]
-    args: Optional[StringList]
-    env: Optional[EksContainerEnvironmentVariables]
-    resources: Optional[EksContainerResourceRequirements]
+    name: String | None
+    image: String | None
+    command: StringList | None
+    args: StringList | None
+    env: EksContainerEnvironmentVariables | None
+    resources: EksContainerResourceRequirements | None
 
 
-EksContainerOverrideList = List[EksContainerOverride]
+EksContainerOverrideList = list[EksContainerOverride]
 
 
 class EksPodPropertiesOverride(TypedDict, total=False):
@@ -1873,15 +1873,15 @@ class EksPodPropertiesOverride(TypedDict, total=False):
     job.
     """
 
-    containers: Optional[EksContainerOverrideList]
-    initContainers: Optional[EksContainerOverrideList]
-    metadata: Optional[EksMetadata]
+    containers: EksContainerOverrideList | None
+    initContainers: EksContainerOverrideList | None
+    metadata: EksMetadata | None
 
 
 class EksPropertiesOverride(TypedDict, total=False):
     """An object that contains overrides for the Kubernetes resources of a job."""
 
-    podProperties: Optional[EksPodPropertiesOverride]
+    podProperties: EksPodPropertiesOverride | None
 
 
 class FrontOfQueueJobSummary(TypedDict, total=False):
@@ -1889,11 +1889,11 @@ class FrontOfQueueJobSummary(TypedDict, total=False):
     jobs in a job queue.
     """
 
-    jobArn: Optional[String]
-    earliestTimeAtPosition: Optional[Long]
+    jobArn: String | None
+    earliestTimeAtPosition: Long | None
 
 
-FrontOfQueueJobSummaryList = List[FrontOfQueueJobSummary]
+FrontOfQueueJobSummaryList = list[FrontOfQueueJobSummary]
 
 
 class FrontOfQueueDetail(TypedDict, total=False):
@@ -1901,8 +1901,8 @@ class FrontOfQueueDetail(TypedDict, total=False):
     single job queue.
     """
 
-    jobs: Optional[FrontOfQueueJobSummaryList]
-    lastUpdatedAt: Optional[Long]
+    jobs: FrontOfQueueJobSummaryList | None
+    lastUpdatedAt: Long | None
 
 
 class GetJobQueueSnapshotRequest(ServiceRequest):
@@ -1910,7 +1910,7 @@ class GetJobQueueSnapshotRequest(ServiceRequest):
 
 
 class GetJobQueueSnapshotResponse(TypedDict, total=False):
-    frontOfQueue: Optional[FrontOfQueueDetail]
+    frontOfQueue: FrontOfQueueDetail | None
 
 
 class NodePropertiesSummary(TypedDict, total=False):
@@ -1918,29 +1918,29 @@ class NodePropertiesSummary(TypedDict, total=False):
     with a multi-node parallel job.
     """
 
-    isMainNode: Optional[Boolean]
-    numNodes: Optional[Integer]
-    nodeIndex: Optional[Integer]
+    isMainNode: Boolean | None
+    numNodes: Integer | None
+    nodeIndex: Integer | None
 
 
 class JobSummary(TypedDict, total=False):
     """An object that represents summary details of a job."""
 
-    jobArn: Optional[String]
+    jobArn: String | None
     jobId: String
     jobName: String
-    createdAt: Optional[Long]
-    status: Optional[JobStatus]
-    statusReason: Optional[String]
-    startedAt: Optional[Long]
-    stoppedAt: Optional[Long]
-    container: Optional[ContainerSummary]
-    arrayProperties: Optional[ArrayPropertiesSummary]
-    nodeProperties: Optional[NodePropertiesSummary]
-    jobDefinition: Optional[String]
+    createdAt: Long | None
+    status: JobStatus | None
+    statusReason: String | None
+    startedAt: Long | None
+    stoppedAt: Long | None
+    container: ContainerSummary | None
+    arrayProperties: ArrayPropertiesSummary | None
+    nodeProperties: NodePropertiesSummary | None
+    jobDefinition: String | None
 
 
-JobSummaryList = List[JobSummary]
+JobSummaryList = list[JobSummary]
 
 
 class KeyValuesPair(TypedDict, total=False):
@@ -1949,32 +1949,32 @@ class KeyValuesPair(TypedDict, total=False):
     operation.
     """
 
-    name: Optional[String]
-    values: Optional[StringList]
+    name: String | None
+    values: StringList | None
 
 
-ListConsumableResourcesFilterList = List[KeyValuesPair]
+ListConsumableResourcesFilterList = list[KeyValuesPair]
 
 
 class ListConsumableResourcesRequest(ServiceRequest):
-    filters: Optional[ListConsumableResourcesFilterList]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
+    filters: ListConsumableResourcesFilterList | None
+    maxResults: Integer | None
+    nextToken: String | None
 
 
 class ListConsumableResourcesResponse(TypedDict, total=False):
     consumableResources: ConsumableResourceSummaryList
-    nextToken: Optional[String]
+    nextToken: String | None
 
 
-ListJobsByConsumableResourceFilterList = List[KeyValuesPair]
+ListJobsByConsumableResourceFilterList = list[KeyValuesPair]
 
 
 class ListJobsByConsumableResourceRequest(ServiceRequest):
     consumableResource: String
-    filters: Optional[ListJobsByConsumableResourceFilterList]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
+    filters: ListJobsByConsumableResourceFilterList | None
+    maxResults: Integer | None
+    nextToken: String | None
 
 
 class ListJobsByConsumableResourceSummary(TypedDict, total=False):
@@ -1983,49 +1983,49 @@ class ListJobsByConsumableResourceSummary(TypedDict, total=False):
     jobArn: String
     jobQueueArn: String
     jobName: String
-    jobDefinitionArn: Optional[String]
-    shareIdentifier: Optional[String]
+    jobDefinitionArn: String | None
+    shareIdentifier: String | None
     jobStatus: String
     quantity: Long
-    statusReason: Optional[String]
-    startedAt: Optional[Long]
+    statusReason: String | None
+    startedAt: Long | None
     createdAt: Long
     consumableResourceProperties: ConsumableResourceProperties
 
 
-ListJobsByConsumableResourceSummaryList = List[ListJobsByConsumableResourceSummary]
+ListJobsByConsumableResourceSummaryList = list[ListJobsByConsumableResourceSummary]
 
 
 class ListJobsByConsumableResourceResponse(TypedDict, total=False):
     jobs: ListJobsByConsumableResourceSummaryList
-    nextToken: Optional[String]
+    nextToken: String | None
 
 
-ListJobsFilterList = List[KeyValuesPair]
+ListJobsFilterList = list[KeyValuesPair]
 
 
 class ListJobsRequest(ServiceRequest):
     """Contains the parameters for ``ListJobs``."""
 
-    jobQueue: Optional[String]
-    arrayJobId: Optional[String]
-    multiNodeJobId: Optional[String]
-    jobStatus: Optional[JobStatus]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
-    filters: Optional[ListJobsFilterList]
+    jobQueue: String | None
+    arrayJobId: String | None
+    multiNodeJobId: String | None
+    jobStatus: JobStatus | None
+    maxResults: Integer | None
+    nextToken: String | None
+    filters: ListJobsFilterList | None
 
 
 class ListJobsResponse(TypedDict, total=False):
     jobSummaryList: JobSummaryList
-    nextToken: Optional[String]
+    nextToken: String | None
 
 
 class ListSchedulingPoliciesRequest(ServiceRequest):
     """Contains the parameters for ``ListSchedulingPolicies``."""
 
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
+    maxResults: Integer | None
+    nextToken: String | None
 
 
 class SchedulingPolicyListingDetail(TypedDict, total=False):
@@ -2036,44 +2036,44 @@ class SchedulingPolicyListingDetail(TypedDict, total=False):
     arn: String
 
 
-SchedulingPolicyListingDetailList = List[SchedulingPolicyListingDetail]
+SchedulingPolicyListingDetailList = list[SchedulingPolicyListingDetail]
 
 
 class ListSchedulingPoliciesResponse(TypedDict, total=False):
-    schedulingPolicies: Optional[SchedulingPolicyListingDetailList]
-    nextToken: Optional[String]
+    schedulingPolicies: SchedulingPolicyListingDetailList | None
+    nextToken: String | None
 
 
 class ListServiceJobsRequest(ServiceRequest):
-    jobQueue: Optional[String]
-    jobStatus: Optional[ServiceJobStatus]
-    maxResults: Optional[Integer]
-    nextToken: Optional[String]
-    filters: Optional[ListJobsFilterList]
+    jobQueue: String | None
+    jobStatus: ServiceJobStatus | None
+    maxResults: Integer | None
+    nextToken: String | None
+    filters: ListJobsFilterList | None
 
 
 class ServiceJobSummary(TypedDict, total=False):
     """Summary information about a service job."""
 
-    latestAttempt: Optional[LatestServiceJobAttempt]
-    createdAt: Optional[Long]
-    jobArn: Optional[String]
+    latestAttempt: LatestServiceJobAttempt | None
+    createdAt: Long | None
+    jobArn: String | None
     jobId: String
     jobName: String
     serviceJobType: ServiceJobType
-    shareIdentifier: Optional[String]
-    status: Optional[ServiceJobStatus]
-    statusReason: Optional[String]
-    startedAt: Optional[Long]
-    stoppedAt: Optional[Long]
+    shareIdentifier: String | None
+    status: ServiceJobStatus | None
+    statusReason: String | None
+    startedAt: Long | None
+    stoppedAt: Long | None
 
 
-ServiceJobSummaryList = List[ServiceJobSummary]
+ServiceJobSummaryList = list[ServiceJobSummary]
 
 
 class ListServiceJobsResponse(TypedDict, total=False):
     jobSummaryList: ServiceJobSummaryList
-    nextToken: Optional[String]
+    nextToken: String | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -2083,7 +2083,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagrisTagsMap]
+    tags: TagrisTagsMap | None
 
 
 class NodePropertyOverride(TypedDict, total=False):
@@ -2094,14 +2094,14 @@ class NodePropertyOverride(TypedDict, total=False):
     """
 
     targetNodes: String
-    containerOverrides: Optional[ContainerOverrides]
-    ecsPropertiesOverride: Optional[EcsPropertiesOverride]
-    instanceTypes: Optional[StringList]
-    eksPropertiesOverride: Optional[EksPropertiesOverride]
-    consumableResourcePropertiesOverride: Optional[ConsumableResourceProperties]
+    containerOverrides: ContainerOverrides | None
+    ecsPropertiesOverride: EcsPropertiesOverride | None
+    instanceTypes: StringList | None
+    eksPropertiesOverride: EksPropertiesOverride | None
+    consumableResourcePropertiesOverride: ConsumableResourceProperties | None
 
 
-NodePropertyOverrides = List[NodePropertyOverride]
+NodePropertyOverrides = list[NodePropertyOverride]
 
 
 class NodeOverrides(TypedDict, total=False):
@@ -2115,25 +2115,25 @@ class NodeOverrides(TypedDict, total=False):
     ``containerOverrides`` instead.
     """
 
-    numNodes: Optional[Integer]
-    nodePropertyOverrides: Optional[NodePropertyOverrides]
+    numNodes: Integer | None
+    nodePropertyOverrides: NodePropertyOverrides | None
 
 
 class RegisterJobDefinitionRequest(TypedDict, total=False):
     jobDefinitionName: String
     type: JobDefinitionType
-    parameters: Optional[ParametersMap]
-    schedulingPriority: Optional[Integer]
-    containerProperties: Optional[ContainerProperties]
-    nodeProperties: Optional[NodeProperties]
-    retryStrategy: Optional[RetryStrategy]
-    propagateTags: Optional[Boolean]
-    timeout: Optional[JobTimeout]
-    tags: Optional[TagrisTagsMap]
-    platformCapabilities: Optional[PlatformCapabilityList]
-    eksProperties: Optional[EksProperties]
-    ecsProperties: Optional[EcsProperties]
-    consumableResourceProperties: Optional[ConsumableResourceProperties]
+    parameters: ParametersMap | None
+    schedulingPriority: Integer | None
+    containerProperties: ContainerProperties | None
+    nodeProperties: NodeProperties | None
+    retryStrategy: RetryStrategy | None
+    propagateTags: Boolean | None
+    timeout: JobTimeout | None
+    tags: TagrisTagsMap | None
+    platformCapabilities: PlatformCapabilityList | None
+    eksProperties: EksProperties | None
+    ecsProperties: EcsProperties | None
+    consumableResourceProperties: ConsumableResourceProperties | None
 
 
 class RegisterJobDefinitionResponse(TypedDict, total=False):
@@ -2147,25 +2147,25 @@ class SubmitJobRequest(ServiceRequest):
 
     jobName: String
     jobQueue: String
-    shareIdentifier: Optional[String]
-    schedulingPriorityOverride: Optional[Integer]
-    arrayProperties: Optional[ArrayProperties]
-    dependsOn: Optional[JobDependencyList]
+    shareIdentifier: String | None
+    schedulingPriorityOverride: Integer | None
+    arrayProperties: ArrayProperties | None
+    dependsOn: JobDependencyList | None
     jobDefinition: String
-    parameters: Optional[ParametersMap]
-    containerOverrides: Optional[ContainerOverrides]
-    nodeOverrides: Optional[NodeOverrides]
-    retryStrategy: Optional[RetryStrategy]
-    propagateTags: Optional[Boolean]
-    timeout: Optional[JobTimeout]
-    tags: Optional[TagrisTagsMap]
-    eksPropertiesOverride: Optional[EksPropertiesOverride]
-    ecsPropertiesOverride: Optional[EcsPropertiesOverride]
-    consumableResourcePropertiesOverride: Optional[ConsumableResourceProperties]
+    parameters: ParametersMap | None
+    containerOverrides: ContainerOverrides | None
+    nodeOverrides: NodeOverrides | None
+    retryStrategy: RetryStrategy | None
+    propagateTags: Boolean | None
+    timeout: JobTimeout | None
+    tags: TagrisTagsMap | None
+    eksPropertiesOverride: EksPropertiesOverride | None
+    ecsPropertiesOverride: EcsPropertiesOverride | None
+    consumableResourcePropertiesOverride: ConsumableResourceProperties | None
 
 
 class SubmitJobResponse(TypedDict, total=False):
-    jobArn: Optional[String]
+    jobArn: String | None
     jobName: String
     jobId: String
 
@@ -2173,23 +2173,23 @@ class SubmitJobResponse(TypedDict, total=False):
 class SubmitServiceJobRequest(ServiceRequest):
     jobName: String
     jobQueue: String
-    retryStrategy: Optional[ServiceJobRetryStrategy]
-    schedulingPriority: Optional[Integer]
+    retryStrategy: ServiceJobRetryStrategy | None
+    schedulingPriority: Integer | None
     serviceRequestPayload: String
     serviceJobType: ServiceJobType
-    shareIdentifier: Optional[String]
-    timeoutConfig: Optional[ServiceJobTimeout]
-    tags: Optional[TagrisTagsMap]
-    clientToken: Optional[ClientRequestToken]
+    shareIdentifier: String | None
+    timeoutConfig: ServiceJobTimeout | None
+    tags: TagrisTagsMap | None
+    clientToken: ClientRequestToken | None
 
 
 class SubmitServiceJobResponse(TypedDict, total=False):
-    jobArn: Optional[String]
+    jobArn: String | None
     jobName: String
     jobId: String
 
 
-TagKeysList = List[TagKey]
+TagKeysList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -2238,54 +2238,54 @@ class UpdateComputeEnvironmentRequest(ServiceRequest):
     """Contains the parameters for ``UpdateComputeEnvironment``."""
 
     computeEnvironment: String
-    state: Optional[CEState]
-    unmanagedvCpus: Optional[Integer]
-    computeResources: Optional[ComputeResourceUpdate]
-    serviceRole: Optional[String]
-    updatePolicy: Optional[UpdatePolicy]
-    context: Optional[String]
+    state: CEState | None
+    unmanagedvCpus: Integer | None
+    computeResources: ComputeResourceUpdate | None
+    serviceRole: String | None
+    updatePolicy: UpdatePolicy | None
+    context: String | None
 
 
 class UpdateComputeEnvironmentResponse(TypedDict, total=False):
-    computeEnvironmentName: Optional[String]
-    computeEnvironmentArn: Optional[String]
+    computeEnvironmentName: String | None
+    computeEnvironmentArn: String | None
 
 
 class UpdateConsumableResourceRequest(ServiceRequest):
     consumableResource: String
-    operation: Optional[String]
-    quantity: Optional[Long]
-    clientToken: Optional[ClientRequestToken]
+    operation: String | None
+    quantity: Long | None
+    clientToken: ClientRequestToken | None
 
 
 class UpdateConsumableResourceResponse(TypedDict, total=False):
     consumableResourceName: String
     consumableResourceArn: String
-    totalQuantity: Optional[Long]
+    totalQuantity: Long | None
 
 
 class UpdateJobQueueRequest(ServiceRequest):
     """Contains the parameters for ``UpdateJobQueue``."""
 
     jobQueue: String
-    state: Optional[JQState]
-    schedulingPolicyArn: Optional[String]
-    priority: Optional[Integer]
-    computeEnvironmentOrder: Optional[ComputeEnvironmentOrders]
-    serviceEnvironmentOrder: Optional[ServiceEnvironmentOrders]
-    jobStateTimeLimitActions: Optional[JobStateTimeLimitActions]
+    state: JQState | None
+    schedulingPolicyArn: String | None
+    priority: Integer | None
+    computeEnvironmentOrder: ComputeEnvironmentOrders | None
+    serviceEnvironmentOrder: ServiceEnvironmentOrders | None
+    jobStateTimeLimitActions: JobStateTimeLimitActions | None
 
 
 class UpdateJobQueueResponse(TypedDict, total=False):
-    jobQueueName: Optional[String]
-    jobQueueArn: Optional[String]
+    jobQueueName: String | None
+    jobQueueArn: String | None
 
 
 class UpdateSchedulingPolicyRequest(ServiceRequest):
     """Contains the parameters for ``UpdateSchedulingPolicy``."""
 
     arn: String
-    fairsharePolicy: Optional[FairsharePolicy]
+    fairsharePolicy: FairsharePolicy | None
 
 
 class UpdateSchedulingPolicyResponse(TypedDict, total=False):
@@ -2294,8 +2294,8 @@ class UpdateSchedulingPolicyResponse(TypedDict, total=False):
 
 class UpdateServiceEnvironmentRequest(ServiceRequest):
     serviceEnvironment: String
-    state: Optional[ServiceEnvironmentState]
-    capacityLimits: Optional[CapacityLimits]
+    state: ServiceEnvironmentState | None
+    capacityLimits: CapacityLimits | None
 
 
 class UpdateServiceEnvironmentResponse(TypedDict, total=False):
@@ -2304,8 +2304,8 @@ class UpdateServiceEnvironmentResponse(TypedDict, total=False):
 
 
 class BatchApi:
-    service = "batch"
-    version = "2016-08-10"
+    service: str = "batch"
+    version: str = "2016-08-10"
 
     @handler("CancelJob")
     def cancel_job(
@@ -2357,8 +2357,6 @@ class BatchApi:
         Instances only launch when the Spot Instance price is less than a
         specified percentage of the On-Demand price.
 
-        Multi-node parallel jobs aren't supported on Spot Instances.
-
         In an unmanaged compute environment, you can manage your own EC2 compute
         resources and have flexibility with how you configure your compute
         resources. For example, you can use custom AMIs. However, you must
@@ -2374,69 +2372,11 @@ class BatchApi:
         instance <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_container_instance.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        To create a compute environment that uses EKS resources, the caller must
-        have permissions to call ``eks:DescribeCluster``.
-
         Batch doesn't automatically upgrade the AMIs in a compute environment
-        after it's created. For example, it also doesn't update the AMIs in your
-        compute environment when a newer version of the Amazon ECS optimized AMI
-        is available. You're responsible for the management of the guest
-        operating system. This includes any updates and security patches. You're
-        also responsible for any additional application software or utilities
-        that you install on the compute resources. There are two ways to use a
-        new AMI for your Batch jobs. The original method is to complete these
-        steps:
-
-        #. Create a new compute environment with the new AMI.
-
-        #. Add the compute environment to an existing job queue.
-
-        #. Remove the earlier compute environment from your job queue.
-
-        #. Delete the earlier compute environment.
-
-        In April 2022, Batch added enhanced support for updating compute
-        environments. For more information, see `Updating compute
-        environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`__.
-        To use the enhanced updating of compute environments to update AMIs,
-        follow these rules:
-
-        -  Either don't set the service role (``serviceRole``) parameter or set
-           it to the **AWSBatchServiceRole** service-linked role.
-
-        -  Set the allocation strategy (``allocationStrategy``) parameter to
-           ``BEST_FIT_PROGRESSIVE``, ``SPOT_CAPACITY_OPTIMIZED``, or
-           ``SPOT_PRICE_CAPACITY_OPTIMIZED``.
-
-        -  Set the update to latest image version
-           (``updateToLatestImageVersion``) parameter to ``true``. The
-           ``updateToLatestImageVersion`` parameter is used when you update a
-           compute environment. This parameter is ignored when you create a
-           compute environment.
-
-        -  Don't specify an AMI ID in ``imageId``, ``imageIdOverride`` (in
-           ```ec2Configuration`` <https://docs.aws.amazon.com/batch/latest/APIReference/API_Ec2Configuration.html>`__
-           ), or in the launch template (``launchTemplate``). In that case,
-           Batch selects the latest Amazon ECS optimized AMI that's supported by
-           Batch at the time the infrastructure update is initiated.
-           Alternatively, you can specify the AMI ID in the ``imageId`` or
-           ``imageIdOverride`` parameters, or the launch template identified by
-           the ``LaunchTemplate`` properties. Changing any of these properties
-           starts an infrastructure update. If the AMI ID is specified in the
-           launch template, it can't be replaced by specifying an AMI ID in
-           either the ``imageId`` or ``imageIdOverride`` parameters. It can only
-           be replaced by specifying a different launch template, or if the
-           launch template version is set to ``$Default`` or ``$Latest``, by
-           setting either a new default version for the launch template (if
-           ``$Default``) or by adding a new version to the launch template (if
-           ``$Latest``).
-
-        If these rules are followed, any update that starts an infrastructure
-        update causes the AMI ID to be re-selected. If the ``version`` setting
-        in the launch template (``launchTemplate``) is set to ``$Latest`` or
-        ``$Default``, the latest or default version of the launch template is
-        evaluated up at the time of the infrastructure update, even if the
-        ``launchTemplate`` wasn't updated.
+        after it's created. For more information on how to update a compute
+        environment's AMI, see `Updating compute
+        environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`__
+        in the *Batch User Guide*.
 
         :param compute_environment_name: The name for your compute environment.
         :param type: The type of the compute environment: ``MANAGED`` or ``UNMANAGED``.

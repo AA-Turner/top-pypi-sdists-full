@@ -1,7 +1,7 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _12_src : packoffset(c0);
-    float4 _12_dst : packoffset(c1);
+    float4 _13_src : packoffset(c0);
+    float4 _13_dst : packoffset(c1);
 };
 
 
@@ -12,42 +12,42 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float blend_overlay_component_Qhh2h2(float2 _18, float2 _19)
+float blend_overlay_component_Qhh2h2(float2 _19, float2 _20)
 {
-    float _28 = 0.0f;
-    if ((2.0f * _19.x) <= _19.y)
+    float _30 = 0.0f;
+    if ((2.0f * _20.x) <= _20.y)
     {
-        _28 = (2.0f * _18.x) * _19.x;
+        _30 = (2.0f * _19.x) * _20.x;
     }
     else
     {
-        _28 = (_18.y * _19.y) - ((2.0f * (_19.y - _19.x)) * (_18.y - _18.x));
+        _30 = (_19.y * _20.y) - ((2.0f * (_20.y - _20.x)) * (_19.y - _19.x));
     }
-    return _28;
+    return _30;
 }
 
-float4 blend_overlay_h4h4h4(float4 _60, float4 _61)
+float4 blend_overlay_h4h4h4(float4 _62, float4 _63)
 {
-    float2 _66 = _60.xw;
-    float2 _69 = _61.xw;
-    float2 _73 = _60.yw;
-    float2 _76 = _61.yw;
-    float2 _80 = _60.zw;
-    float2 _83 = _61.zw;
-    float4 result = float4(blend_overlay_component_Qhh2h2(_66, _69), blend_overlay_component_Qhh2h2(_73, _76), blend_overlay_component_Qhh2h2(_80, _83), _60.w + ((1.0f - _60.w) * _61.w));
-    float4 _96 = result;
-    float3 _112 = _96.xyz + ((_61.xyz * (1.0f - _60.w)) + (_60.xyz * (1.0f - _61.w)));
-    float4 _113 = result;
-    float4 _114 = float4(_112.x, _112.y, _112.z, _113.w);
-    result = _114;
-    return _114;
+    float2 _68 = _62.xw;
+    float2 _71 = _63.xw;
+    float2 _75 = _62.yw;
+    float2 _78 = _63.yw;
+    float2 _82 = _62.zw;
+    float2 _85 = _63.zw;
+    float4 result = float4(blend_overlay_component_Qhh2h2(_68, _71), blend_overlay_component_Qhh2h2(_75, _78), blend_overlay_component_Qhh2h2(_82, _85), _62.w + ((1.0f - _62.w) * _63.w));
+    float4 _98 = result;
+    float3 _114 = _98.xyz + ((_63.xyz * (1.0f - _62.w)) + (_62.xyz * (1.0f - _63.w)));
+    float4 _115 = result;
+    float4 _116 = float4(_114.x, _114.y, _114.z, _115.w);
+    result = _116;
+    return _116;
 }
 
 void frag_main()
 {
-    float4 _123 = _12_dst;
-    float4 _127 = _12_src;
-    sk_FragColor = blend_overlay_h4h4h4(_123, _127);
+    float4 _124 = _13_dst;
+    float4 _128 = _13_src;
+    sk_FragColor = blend_overlay_h4h4h4(_124, _128);
 }
 
 SPIRV_Cross_Output main()

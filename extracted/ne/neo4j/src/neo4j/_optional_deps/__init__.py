@@ -14,8 +14,11 @@
 # limitations under the License.
 
 
-import typing as t
+from __future__ import annotations
+
 from contextlib import suppress
+
+from .. import _typing as t  # noqa: TC001
 
 
 np: t.Any = None
@@ -28,8 +31,14 @@ pd: t.Any = None
 with suppress(ImportError):
     import pandas as pd  # type: ignore[no-redef]
 
+pa: t.Any = None
+
+with suppress(ImportError):
+    import pyarrow as pa  # type: ignore[no-redef]
+
 
 __all__ = [
     "np",
+    "pa",
     "pd",
 ]

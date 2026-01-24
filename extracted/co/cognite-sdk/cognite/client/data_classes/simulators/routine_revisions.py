@@ -602,7 +602,7 @@ class SimulatorRoutineRevision(SimulatorRoutineRevisionCore):
         id (int): The unique identifier of the simulator routine revision.
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
         simulator_external_id (str): The external ID of the simulator.
-        simulator_integration_external_id (str): The external ID of the simulator integration.
+        simulator_integration_external_id (str | None): The external ID of the simulator integration.
         routine_external_id (str): The external ID of the simulator routine.
         model_external_id (str): The external ID of the simulator model.
         version_number (int): The version number of the simulator routine revision. Unique for each simulator routine.
@@ -611,6 +611,7 @@ class SimulatorRoutineRevision(SimulatorRoutineRevisionCore):
         created_by_user_id (str): The ID of the user who created the simulator routine revision.
         configuration (SimulatorRoutineConfiguration | None): The configuration of the simulator routine revision.
         script (SimulatorRoutineStageList | Sequence[SimulatorRoutineStage] | None): The script of the simulator routine revision.
+        kind (Literal['long'] | None): The kind of simulator routine. Routines with kind 'long' may have more inputs/outputs, steps, and longer runtime.
     """
 
     def __init__(
@@ -618,7 +619,7 @@ class SimulatorRoutineRevision(SimulatorRoutineRevisionCore):
         id: int,
         external_id: str,
         simulator_external_id: str,
-        simulator_integration_external_id: str,
+        simulator_integration_external_id: str | None,
         routine_external_id: str,
         model_external_id: str,
         version_number: int,
@@ -627,6 +628,7 @@ class SimulatorRoutineRevision(SimulatorRoutineRevisionCore):
         created_by_user_id: str,
         configuration: SimulatorRoutineConfiguration | None = None,
         script: SimulatorRoutineStageList | Sequence[SimulatorRoutineStage] | None = None,
+        kind: Literal["long"] | None = None,
     ) -> None:
         super().__init__(external_id, routine_external_id, configuration, script)
 
@@ -636,6 +638,7 @@ class SimulatorRoutineRevision(SimulatorRoutineRevisionCore):
         self.simulator_integration_external_id = simulator_integration_external_id
         self.model_external_id = model_external_id
         self.data_set_id = data_set_id
+        self.kind = kind
         self.created_by_user_id = created_by_user_id
         self.created_time = created_time
         self.version_number = version_number
@@ -656,12 +659,13 @@ class SimulatorRoutineRevision(SimulatorRoutineRevisionCore):
             external_id=resource["externalId"],
             simulator_external_id=resource["simulatorExternalId"],
             routine_external_id=resource["routineExternalId"],
-            simulator_integration_external_id=resource["simulatorIntegrationExternalId"],
+            simulator_integration_external_id=resource.get("simulatorIntegrationExternalId"),
             model_external_id=resource["modelExternalId"],
             data_set_id=resource["dataSetId"],
             created_by_user_id=resource["createdByUserId"],
             configuration=configuration,
             script=script,
+            kind=resource.get("kind"),
             created_time=resource["createdTime"],
             version_number=resource["versionNumber"],
         )

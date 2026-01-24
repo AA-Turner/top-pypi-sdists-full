@@ -1,26 +1,85 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from .api import ConfluenceContentProperty, ConfluenceLabel, ConfluenceSession, ConfluenceStatus
-from .converter import ConfluenceDocument, attachment_name, get_volatile_attributes, get_volatile_elements
+from .attachment import attachment_name
+from .compatibility import override, path_relative_to
+from .converter import ConfluenceDocument, get_volatile_attributes, get_volatile_elements
 from .csf import AC_ATTR, elements_from_string
-from .domain import ConfluenceDocumentOptions, ConfluencePageID
 from .environment import PageError
-from .extra import override, path_relative_to
 from .metadata import ConfluencePageMetadata
+from .options import ConfluencePageID, DocumentOptions
 from .processor import Converter, DocumentNode, Processor, ProcessorFactory
 from .xml import is_xml_equal, unwrap_substitute
 
 LOGGER = logging.getLogger(__name__)
+
+
+class _MissingType:
+    pass
+
+
+_MissingDefault = _MissingType()
+
+
+class ParentCatalog:
+    "Maintains a catalog of child-parent relationships."
+
+    _api: ConfluenceSession
+    _child_to_parent: dict[str, str | None]
+    _known: set[str]
+
+    def __init__(self, api: ConfluenceSession) -> None:
+        self._api = api
+        self._child_to_parent = {}
+        self._known = set()
+
+    def add_known(self, page_id: str) -> None:
+        """
+        Adds a new well-known page such as the root page or a page paired with a Markdown file using an explicit page ID.
+        """
+
+        self._known.add(page_id)
+
+    def add_parent(self, *, page_id: str, parent_id: str | None) -> None:
+        """
+        Adds a new child-parent relationship.
+
+        This method is useful to persist information acquired by a previous API call.
+        """
+
+        self._child_to_parent[page_id] = parent_id
+
+    def is_traceable(self, page_id: str) -> bool:
+        """
+        Verifies if a page traces back to a well-known root page.
+
+        :param page_id: The page to check.
+        """
+
+        if page_id in self._known:
+            return True
+
+        known_parent_id = self._child_to_parent.get(page_id, _MissingDefault)
+        if not isinstance(known_parent_id, _MissingType):
+            parent_id = known_parent_id
+        else:
+            page = self._api.get_page_properties(page_id)
+            parent_id = page.parentId
+            self._child_to_parent[page_id] = parent_id
+
+        if parent_id is None:
+            return False
+
+        return self.is_traceable(parent_id)
 
 
 class SynchronizingProcessor(Processor):
@@ -30,7 +89,7 @@ class SynchronizingProcessor(Processor):
 
     api: ConfluenceSession
 
-    def __init__(self, api: ConfluenceSession, options: ConfluenceDocumentOptions, root_dir: Path) -> None:
+    def __init__(self, api: ConfluenceSession, options: DocumentOptions, root_dir: Path) -> None:
         """
         Initializes a new processor instance.
 
@@ -43,7 +102,7 @@ class SynchronizingProcessor(Processor):
         self.api = api
 
     @override
-    def _synchronize_tree(self, root: DocumentNode, root_id: Optional[ConfluencePageID]) -> None:
+    def _synchronize_tree(self, tree: DocumentNode, root_id: ConfluencePageID | None) -> None:
         """
         Creates the cross-reference index and synchronizes the directory tree structure with the Confluence page hierarchy.
 
@@ -52,26 +111,25 @@ class SynchronizingProcessor(Processor):
         Updates the original Markdown document to add tags to associate the document with its corresponding Confluence page.
         """
 
-        if root.page_id is None and root_id is None:
-            raise PageError(f"expected: root page ID in options, or explicit page ID in {root.absolute_path}")
-        elif root.page_id is not None and root_id is not None:
-            if root.page_id != root_id.page_id:
-                raise PageError(f"mismatched inferred page ID of {root_id.page_id} and explicit page ID in {root.absolute_path}")
-
-            real_id = root_id
+        if tree.page_id is None and root_id is None:
+            raise PageError(f"expected: root page ID in options, or explicit page ID in {tree.absolute_path}")
+        elif tree.page_id is not None:
+            real_id = ConfluencePageID(tree.page_id)  # explicit page ID takes precedence
         elif root_id is not None:
             real_id = root_id
-        elif root.page_id is not None:
-            real_id = ConfluencePageID(root.page_id)
         else:
-            raise NotImplementedError("condition not exhaustive")
+            raise NotImplementedError("condition not exhaustive for synchronizing tree")
 
-        self._synchronize_subtree(root, real_id)
+        catalog = ParentCatalog(self.api)
+        catalog.add_known(real_id.page_id)
+        self._synchronize_subtree(tree, real_id, catalog)
 
-    def _synchronize_subtree(self, node: DocumentNode, parent_id: ConfluencePageID) -> None:
+    def _synchronize_subtree(self, node: DocumentNode, parent_id: ConfluencePageID, catalog: ParentCatalog) -> None:
         if node.page_id is not None:
             # verify if page exists
             page = self.api.get_page_properties(node.page_id)
+            catalog.add_known(page.id)
+            catalog.add_parent(page_id=page.id, parent_id=page.parentId)
             update = False
         else:
             if node.title is not None:
@@ -82,17 +140,26 @@ class SynchronizingProcessor(Processor):
                 digest = self._generate_hash(node.absolute_path)
                 title = f"{node.absolute_path.stem} [{digest}]"
 
+            title = self._get_extended_title(title)
+
             # look up page by (possibly auto-generated) title
             page = self.api.get_or_create_page(title, parent_id.page_id)
+            catalog.add_parent(page_id=page.id, parent_id=page.parentId)
 
             if page.status is ConfluenceStatus.ARCHIVED:
-                # user has archived a page with this (auto-generated) title
-                raise PageError(f"unable to update archived page with ID {page.id}")
+                # user has archived a page with this (possibly auto-generated) title
+                raise PageError(f"unable to update archived page with ID {page.id} when synchronizing {node.absolute_path}")
+
+            if not catalog.is_traceable(page.id):
+                raise PageError(
+                    f"expected: page with ID {page.id} to be a descendant of the root page or one of the pages paired with a Markdown file using an explicit "
+                    f"page ID when synchronizing {node.absolute_path}"
+                )
 
             update = True
 
         space_key = self.api.space_id_to_key(page.spaceId)
-        if update:
+        if update and not self.options.skip_update:
             self._update_markdown(
                 node.absolute_path,
                 page_id=page.id,
@@ -108,7 +175,7 @@ class SynchronizingProcessor(Processor):
         self.page_metadata.add(node.absolute_path, data)
 
         for child_node in node.children():
-            self._synchronize_subtree(child_node, ConfluencePageID(page.id))
+            self._synchronize_subtree(child_node, ConfluencePageID(page.id), catalog)
 
     @override
     def _update_page(self, page_id: ConfluencePageID, document: ConfluenceDocument, path: Path) -> None:
@@ -138,19 +205,7 @@ class SynchronizingProcessor(Processor):
         content = document.xhtml()
         LOGGER.debug("Generated Confluence Storage Format document:\n%s", content)
 
-        title = None
-        if document.title is not None:
-            meta = self.page_metadata.get(path)
-            if meta is not None and meta.title != document.title:
-                conflicting_page_id = self.api.page_exists(document.title, space_id=self.api.space_key_to_id(meta.space_key))
-                if conflicting_page_id is None:
-                    title = document.title
-                else:
-                    LOGGER.info(
-                        "Document title of %s conflicts with Confluence page title of %s",
-                        path,
-                        conflicting_page_id,
-                    )
+        title = self._get_unique_title(document, path)
 
         # fetch existing page
         page = self.api.get_page(page_id.page_id)
@@ -181,6 +236,41 @@ class SynchronizingProcessor(Processor):
         if document.properties is not None:
             self.api.update_content_properties_for_page(page_id.page_id, [ConfluenceContentProperty(key, value) for key, value in document.properties.items()])
 
+    def _get_extended_title(self, title: str) -> str:
+        """
+        Returns a title with the title prefix applied (if any).
+        """
+
+        if self.options.title_prefix is not None:
+            return f"{self.options.title_prefix} {title}"
+        else:
+            return title
+
+    def _get_unique_title(self, document: ConfluenceDocument, path: Path) -> str | None:
+        """
+        Determines the (new) document title to assign to the Confluence page.
+
+        Ensures that the title is unique across the Confluence space.
+        """
+
+        # document has no title (neither in front-matter nor as unique top-level heading)
+        if document.title is None:
+            return None
+
+        # add configured title prefix
+        title = self._get_extended_title(document.title)
+
+        # compare current document title with title discovered during directory traversal
+        meta = self.page_metadata.get(path)
+        if meta is not None and meta.title != title:
+            # title has changed, check if new title is available
+            page_id = self.api.page_exists(title, space_id=self.api.space_key_to_id(meta.space_key))
+            if page_id is not None:
+                LOGGER.info("Unrelated Confluence page with ID %s has the same inferred title as the Markdown file: %s", page_id, path)
+                return None
+
+        return title
+
     def _update_markdown(self, path: Path, *, page_id: str, space_key: str) -> None:
         """
         Writes the Confluence page ID and space key at the beginning of the Markdown file.
@@ -210,7 +300,7 @@ class SynchronizingProcessor(Processor):
 class SynchronizingProcessorFactory(ProcessorFactory):
     api: ConfluenceSession
 
-    def __init__(self, api: ConfluenceSession, options: ConfluenceDocumentOptions) -> None:
+    def __init__(self, api: ConfluenceSession, options: DocumentOptions) -> None:
         super().__init__(options, api.site)
         self.api = api
 
@@ -225,5 +315,5 @@ class Publisher(Converter):
     This is the class instantiated by the command-line application.
     """
 
-    def __init__(self, api: ConfluenceSession, options: ConfluenceDocumentOptions) -> None:
+    def __init__(self, api: ConfluenceSession, options: DocumentOptions) -> None:
         super().__init__(SynchronizingProcessorFactory(api, options))

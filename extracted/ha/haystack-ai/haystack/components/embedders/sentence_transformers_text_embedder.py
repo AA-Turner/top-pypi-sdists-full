@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from haystack import component, default_from_dict, default_to_dict
 from haystack.components.embedders.backends.sentence_transformers_backend import (
@@ -38,8 +38,8 @@ class SentenceTransformersTextEmbedder:
     def __init__(  # noqa: PLR0913 # pylint: disable=too-many-positional-arguments
         self,
         model: str = "sentence-transformers/all-mpnet-base-v2",
-        device: Optional[ComponentDevice] = None,
-        token: Optional[Secret] = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
+        device: ComponentDevice | None = None,
+        token: Secret | None = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
         prefix: str = "",
         suffix: str = "",
         batch_size: int = 32,
@@ -47,13 +47,14 @@ class SentenceTransformersTextEmbedder:
         normalize_embeddings: bool = False,
         trust_remote_code: bool = False,
         local_files_only: bool = False,
-        truncate_dim: Optional[int] = None,
-        model_kwargs: Optional[dict[str, Any]] = None,
-        tokenizer_kwargs: Optional[dict[str, Any]] = None,
-        config_kwargs: Optional[dict[str, Any]] = None,
+        truncate_dim: int | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tokenizer_kwargs: dict[str, Any] | None = None,
+        config_kwargs: dict[str, Any] | None = None,
         precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
-        encode_kwargs: Optional[dict[str, Any]] = None,
+        encode_kwargs: dict[str, Any] | None = None,
         backend: Literal["torch", "onnx", "openvino"] = "torch",
+        revision: str | None = None,
     ):
         """
         Create a SentenceTransformersTextEmbedder component.
@@ -108,6 +109,9 @@ class SentenceTransformersTextEmbedder:
             The backend to use for the Sentence Transformers model. Choose from "torch", "onnx", or "openvino".
             Refer to the [Sentence Transformers documentation](https://sbert.net/docs/sentence_transformer/usage/efficiency.html)
             for more information on acceleration and quantization options.
+        :param revision:
+            The specific model version to use. It can be a branch name, a tag name, or a commit id,
+            for a stored model on Hugging Face.
         """
 
         self.model = model
@@ -119,13 +123,14 @@ class SentenceTransformersTextEmbedder:
         self.progress_bar = progress_bar
         self.normalize_embeddings = normalize_embeddings
         self.trust_remote_code = trust_remote_code
+        self.revision = revision
         self.local_files_only = local_files_only
         self.truncate_dim = truncate_dim
         self.model_kwargs = model_kwargs
         self.tokenizer_kwargs = tokenizer_kwargs
         self.config_kwargs = config_kwargs
         self.encode_kwargs = encode_kwargs
-        self.embedding_backend: Optional[_SentenceTransformersEmbeddingBackend] = None
+        self.embedding_backend: _SentenceTransformersEmbeddingBackend | None = None
         self.precision = precision
         self.backend = backend
 
@@ -153,6 +158,7 @@ class SentenceTransformersTextEmbedder:
             progress_bar=self.progress_bar,
             normalize_embeddings=self.normalize_embeddings,
             trust_remote_code=self.trust_remote_code,
+            revision=self.revision,
             local_files_only=self.local_files_only,
             truncate_dim=self.truncate_dim,
             model_kwargs=self.model_kwargs,
@@ -194,6 +200,7 @@ class SentenceTransformersTextEmbedder:
                 device=self.device.to_torch_str(),
                 auth_token=self.token,
                 trust_remote_code=self.trust_remote_code,
+                revision=self.revision,
                 local_files_only=self.local_files_only,
                 truncate_dim=self.truncate_dim,
                 model_kwargs=self.model_kwargs,
@@ -222,10 +229,12 @@ class SentenceTransformersTextEmbedder:
                 "In case you want to embed a list of Documents, please use the SentenceTransformersDocumentEmbedder."
             )
         if self.embedding_backend is None:
-            raise RuntimeError("The embedding model has not been loaded. Please call warm_up() before running.")
+            self.warm_up()
 
         text_to_embed = self.prefix + text + self.suffix
-        embedding = self.embedding_backend.embed(
+
+        # mypy doesn't know this is set in warm_up
+        embedding = self.embedding_backend.embed(  # type: ignore[union-attr]
             [text_to_embed],
             batch_size=self.batch_size,
             show_progress_bar=self.progress_bar,

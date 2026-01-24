@@ -1,14 +1,15 @@
 """Backend implementation for pandas schema components."""
 
 import traceback
-from copy import deepcopy
-from typing import Any, List, Optional, Set, Tuple, Union
 from collections.abc import Iterable
+from copy import deepcopy
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from pandera.api.base.error_handler import ErrorHandler
+from pandera.api.base.error_handler import ErrorHandler, get_error_category
+from pandera.api.pandas.components import Column
 from pandera.api.pandas.types import (
     is_field,
     is_index,
@@ -16,8 +17,12 @@ from pandera.api.pandas.types import (
     is_table,
 )
 from pandera.backends.base import CoreCheckResult
-from pandera.backends.pandas.array import ArraySchemaBackend
+from pandera.backends.pandas.array import (
+    ArraySchemaBackend,
+    SeriesSchemaBackend,
+)
 from pandera.backends.pandas.base import PandasSchemaBackend
+from pandera.backends.pandas.error_formatters import reshape_failure_cases
 from pandera.errors import (
     SchemaDefinitionError,
     SchemaError,
@@ -29,7 +34,6 @@ from pandera.validation_depth import (
     validate_scope,
     validation_type,
 )
-from pandera.backends.pandas.error_formatters import reshape_failure_cases
 
 
 class ColumnBackend(ArraySchemaBackend):
@@ -40,10 +44,10 @@ class ColumnBackend(ArraySchemaBackend):
         check_obj: pd.DataFrame,
         schema,
         *,
-        head: Optional[int] = None,
-        tail: Optional[int] = None,
-        sample: Optional[int] = None,
-        random_state: Optional[int] = None,
+        head: int | None = None,
+        tail: int | None = None,
+        sample: int | None = None,
+        random_state: int | None = None,
         lazy: bool = False,
         inplace: bool = False,
     ) -> pd.DataFrame:
@@ -70,7 +74,6 @@ class ColumnBackend(ArraySchemaBackend):
 
         def validate_column(check_obj, column_name, return_check_obj=False):
             try:
-
                 # make sure the schema component mutations are reverted after
                 # validation
                 _orig_name = schema.name
@@ -94,12 +97,14 @@ class ColumnBackend(ArraySchemaBackend):
                 for err in errs.schema_errors:
                     err.column_name = column_name
                     error_handler.collect_error(
-                        validation_type(err.reason_code), err.reason_code, err
+                        get_error_category(err.reason_code),
+                        err.reason_code,
+                        err,
                     )
             except SchemaError as err:
                 err.column_name = column_name
                 error_handler.collect_error(
-                    validation_type(err.reason_code), err.reason_code, err
+                    get_error_category(err.reason_code), err.reason_code, err
                 )
 
         column_keys_to_check = (
@@ -256,7 +261,7 @@ class ColumnBackend(ArraySchemaBackend):
             except Exception as err:
                 # catch other exceptions that may occur when executing the Check
                 err_msg = f'"{err.args[0]}"' if err.args else ""
-                err_str = f"{err.__class__.__name__}({ err_msg})"
+                err_str = f"{err.__class__.__name__}({err_msg})"
                 msg = (
                     f"Error while executing check function: {err_str}\n"
                     + traceback.format_exc()
@@ -283,10 +288,10 @@ class IndexBackend(ArraySchemaBackend):
         check_obj: Union[pd.DataFrame, pd.Series],
         schema,
         *,
-        head: Optional[int] = None,
-        tail: Optional[int] = None,
-        sample: Optional[int] = None,
-        random_state: Optional[int] = None,
+        head: int | None = None,
+        tail: int | None = None,
+        sample: int | None = None,
+        random_state: int | None = None,
         lazy: bool = False,
         inplace: bool = False,
     ) -> Union[pd.DataFrame, pd.Series]:
@@ -305,7 +310,7 @@ class IndexBackend(ArraySchemaBackend):
                 check_obj.index = schema.coerce_dtype(check_obj.index)
             except SchemaError as exc:
                 error_handler.collect_error(
-                    validation_type(exc.reason_code),
+                    get_error_category(exc.reason_code),
                     exc.reason_code,
                     exc,
                 )
@@ -324,7 +329,7 @@ class IndexBackend(ArraySchemaBackend):
             assert is_field(_validated_obj)
         except SchemaError as exc:
             error_handler.collect_error(
-                validation_type(exc.reason_code),
+                get_error_category(exc.reason_code),
                 exc.reason_code,
                 exc,
             )
@@ -381,7 +386,7 @@ class MultiIndexBackend(PandasSchemaBackend):
                         index_array = _index.coerce_dtype(index_array)
                     except SchemaError as err:
                         error_handler.collect_error(
-                            validation_type(
+                            get_error_category(
                                 SchemaErrorReason.DATATYPE_COERCION
                             ),
                             SchemaErrorReason.DATATYPE_COERCION,
@@ -399,7 +404,6 @@ class MultiIndexBackend(PandasSchemaBackend):
         multiindex_cls = pd.MultiIndex
         # NOTE: this is a hack to support pyspark.pandas
         if type(check_obj).__module__.startswith("pyspark.pandas"):
-
             import pyspark.pandas as ps
 
             multiindex_cls = ps.MultiIndex
@@ -431,10 +435,10 @@ class MultiIndexBackend(PandasSchemaBackend):
         check_obj: Union[pd.DataFrame, pd.Series],
         schema,
         *,
-        head: Optional[int] = None,
-        tail: Optional[int] = None,
-        sample: Optional[int] = None,
-        random_state: Optional[int] = None,
+        head: int | None = None,
+        tail: int | None = None,
+        sample: int | None = None,
+        random_state: int | None = None,
         lazy: bool = False,
         inplace: bool = False,
     ) -> Union[pd.DataFrame, pd.Series]:
@@ -459,6 +463,8 @@ class MultiIndexBackend(PandasSchemaBackend):
         # Make a copy if we're not modifying inplace
         if not inplace:
             check_obj = check_obj.copy()
+
+        validate_full_df = not (head or tail or sample)
 
         # Ensure the object has a MultiIndex
         if not is_multiindex(check_obj.index):
@@ -529,26 +535,44 @@ class MultiIndexBackend(PandasSchemaBackend):
         # Iterate over the expected index levels and validate each level with its
         # corresponding ``Index`` schema component.
         for level_pos, index_schema in level_mapping:
-            stub_df = pd.DataFrame(
-                index=check_obj.index.get_level_values(level_pos)
-            )
             # We've already taken care of coercion, so we can disable it now.
             index_schema = deepcopy(index_schema)
             index_schema.coerce = False
 
+            # Check if we can optimize validation for this level. We skip optimization
+            # if we're validating only a subset of the data because subsetting the data
+            # doesn't commute with taking unique values, which can lead to inconsistent
+            # results. For instance, the check may fail on the first n unique values but
+            # pass on the first n values.
+            can_optimize = validate_full_df and self._can_optimize_level(
+                index_schema
+            )
+
             try:
-                # Validate using the schema for this level
-                index_schema.validate(
-                    stub_df,
-                    head=head,
-                    tail=tail,
-                    sample=sample,
-                    random_state=random_state,
-                    lazy=lazy,
-                    inplace=True,
-                )
+                if can_optimize:
+                    # Use optimized validation with unique values only
+                    self._validate_level_optimized(
+                        check_obj.index,
+                        level_pos,
+                        index_schema,
+                        lazy=lazy,
+                    )
+                else:
+                    # Fall back to validating all of the values.
+                    self._validate_level_with_full_materialization(
+                        check_obj.index,
+                        level_pos,
+                        index_schema,
+                        head=head,
+                        tail=tail,
+                        sample=sample,
+                        random_state=random_state,
+                        lazy=lazy,
+                    )
             except (SchemaError, SchemaErrors) as exc:
-                self._collect_or_raise(error_handler, exc, schema)
+                self._collect_or_raise(
+                    error_handler, exc, schema, index_schema=index_schema
+                )
 
         # Validate multiindex_unique: ensure no duplicate index combinations
         if schema.unique:
@@ -563,6 +587,258 @@ class MultiIndexBackend(PandasSchemaBackend):
             )
 
         return check_obj
+
+    def _can_optimize_level(self, index_schema) -> bool:
+        """Check if we can optimize validation for this level.
+
+        :param index_schema: The schema for this level
+        :returns: True if optimization can be applied to this level
+        """
+        # Check whether all checks are determined by unique values
+        # Note that if there are no checks all([]) returns True
+        return all(
+            self._check_determined_by_unique(check)
+            for check in index_schema.checks
+        )
+
+    def _check_determined_by_unique(self, check) -> bool:
+        """Determine if a check is determined by unique values only.
+
+        :param check: The check to analyze
+        :returns: True if the check result is determined by unique values
+        """
+        # Check if the check result is determined by unique values
+        # All built-in checks that are determined by unique values have this property set
+        return getattr(check, "determined_by_unique", False)
+
+    def _validate_level_optimized(
+        self,
+        multiindex: pd.MultiIndex,
+        level_pos: int,
+        index_schema,
+        lazy: bool = False,
+    ) -> None:
+        """Validate a level using unique values optimization,
+        expanding failure_cases to the full index if validation fails.
+
+        :param multiindex: The MultiIndex being validated
+        :param level_pos: Position of this level in the MultiIndex
+        :param index_schema: The schema for this level
+        :param lazy: if True, collect errors instead of raising immediately
+        """
+        # Use unique values. Use the MultiIndex.unique method rather than
+        # multiindex.levels[level_pos] which can have extra values that
+        # don't appear in the full data. Additionally, multiindex.unique
+        # will include nan if present, whereas multiindex.levels[level_pos]
+        # will not.
+        unique_values = multiindex.unique(level=level_pos)
+
+        # Create a Series with unique values as data, similar to full materialization.
+        # This ensures error reporting is consistent between optimized and full paths.
+        unique_series = pd.Series(
+            unique_values.values,
+            name=index_schema.name,
+            dtype=multiindex.levels[level_pos].dtype,
+        )
+
+        # Create a Column schema from the Index schema, similar to full materialization
+        column_schema = Column(
+            dtype=index_schema.dtype,
+            checks=index_schema.checks,
+            parsers=index_schema.parsers,
+            nullable=index_schema.nullable,
+            unique=index_schema.unique,
+            report_duplicates=index_schema.report_duplicates,
+            coerce=index_schema.coerce,
+            name=index_schema.name,
+            title=index_schema.title,
+            description=index_schema.description,
+            default=index_schema.default,
+            metadata=index_schema.metadata,
+            drop_invalid_rows=index_schema.drop_invalid_rows,
+        )
+
+        try:
+            # Use the SeriesSchemaBackend directly, similar to full materialization
+            backend = SeriesSchemaBackend()
+            backend.validate(
+                check_obj=unique_series,
+                schema=column_schema,
+                lazy=lazy,
+            )
+        except SchemaErrors as exc:
+            # Expand failure_cases from unique values to the full index.
+            transformed_errors = [
+                self._expand_error_to_full_multiindex(
+                    err, multiindex, level_pos
+                )
+                for err in exc.schema_errors
+            ]
+            raise SchemaErrors(
+                schema=exc.schema,
+                schema_errors=transformed_errors,
+                data=exc.data,
+            )
+        except SchemaError as exc:
+            # Expand the single error
+            transformed_error = self._expand_error_to_full_multiindex(
+                exc, multiindex, level_pos
+            )
+            raise transformed_error
+
+    def _expand_error_to_full_multiindex(
+        self,
+        error: SchemaError,
+        multiindex: pd.MultiIndex,
+        level_pos: int,
+    ) -> SchemaError:
+        """Expand error from unique values to the full MultiIndex.
+
+        Takes failure_cases from validation on unique values and expands them
+        to include all positions where those values occur, with full tuple
+        representation in the 'index' column.
+
+        :param error: SchemaError from unique value validation
+        :param multiindex: The full MultiIndex
+        :param level_pos: Position of the level being validated
+        :returns: SchemaError with expanded failure_cases
+        """
+        failure_cases = error.failure_cases
+
+        if (
+            not isinstance(failure_cases, pd.DataFrame)
+            or "failure_case" not in failure_cases.columns
+        ):
+            return error
+
+        # Get unique failing values
+        dtype = failure_cases["failure_case"].dtype
+        failing_values = failure_cases["failure_case"].values
+        failing_null_mask = pd.isna(failing_values)
+
+        # Find all positions where these values appear in the MultiIndex
+        level_values = multiindex.levels[level_pos]
+        codes = np.asarray(multiindex.codes[level_pos])
+        failing_codes = level_values.get_indexer(
+            failing_values[~failing_null_mask]
+        )
+
+        mask = np.isin(codes, failing_codes)
+
+        # Create mapping of failing values to their indices in the MultiIndex
+        lookup_df = pd.DataFrame(
+            {
+                "level_value": pd.Series(
+                    level_values[codes[mask]], dtype=dtype
+                ),
+                "index": multiindex[mask].map(str),
+            }
+        )
+
+        # Handle null values as a special case since they won't be in level_values
+        # and will be represented by -1 in codes which cannot be indexed into level_values
+        if failing_null_mask.any():
+            null_indices = multiindex[codes == -1]
+            null_values = pd.Series(
+                [failing_values[failing_null_mask][0]] * len(null_indices),
+                index=null_indices,
+                dtype=dtype,
+            ).values
+            lookup_df = pd.concat(
+                [
+                    lookup_df,
+                    pd.DataFrame(
+                        {
+                            "level_value": null_values,
+                            "index": null_indices.map(str),
+                        }
+                    ),
+                ],
+                ignore_index=True,
+            )
+
+        # Merge to expand failure cases
+        expanded = failure_cases.merge(
+            lookup_df,
+            left_on="failure_case",
+            right_on="level_value",
+            how="inner",
+            suffixes=("_unique", ""),
+        )
+
+        # Keep only the original columns
+        expanded = expanded[failure_cases.columns]
+
+        return SchemaError(
+            schema=error.schema,
+            data=error.data,
+            message=error.args[0] if error.args else str(error),
+            failure_cases=expanded,
+            check=error.check,
+            check_index=error.check_index,
+            check_output=error.check_output,
+            parser=error.parser,
+            parser_index=error.parser_index,
+            parser_output=error.parser_output,
+            reason_code=error.reason_code,
+            column_name=error.column_name,
+        )
+
+    def _validate_level_with_full_materialization(
+        self,
+        multiindex: pd.MultiIndex,
+        level_pos: int,
+        index_schema,
+        head: int | None = None,
+        tail: int | None = None,
+        sample: int | None = None,
+        random_state: int | None = None,
+        lazy: bool = False,
+    ) -> None:
+        """Validate a level using full materialization, for cases where we can't validate
+        based on unique values.
+
+        This validates a Series indexed by the full MultiIndex to ensure failure_cases
+        contains the correct MultiIndex tuples.
+        """
+        # Materialize the full level values
+        full_values = multiindex.get_level_values(level_pos)
+
+        # Create a Series with level values as data, indexed by the full MultiIndex
+        level_series = pd.Series(
+            full_values.values, index=multiindex, name=index_schema.name
+        )
+
+        # Validate as a column (Series), rather than as an index
+        # to ensure that failure_cases will have all levels in the 'index' column
+        column_schema = Column(
+            dtype=index_schema.dtype,
+            checks=index_schema.checks,
+            parsers=index_schema.parsers,
+            nullable=index_schema.nullable,
+            unique=index_schema.unique,
+            report_duplicates=index_schema.report_duplicates,
+            coerce=index_schema.coerce,
+            name=index_schema.name,
+            title=index_schema.title,
+            description=index_schema.description,
+            default=index_schema.default,
+            metadata=index_schema.metadata,
+            drop_invalid_rows=index_schema.drop_invalid_rows,
+        )
+
+        # Use the SeriesSchemaBackend directly instead of column_schema.validate()
+        # because Column.validate() expects a DataFrame.
+        backend = SeriesSchemaBackend()
+        backend.validate(
+            check_obj=level_series,
+            schema=column_schema,
+            head=head,
+            tail=tail,
+            sample=sample,
+            random_state=random_state,
+            lazy=lazy,
+        )
 
     def _check_strict(
         self,
@@ -703,7 +979,7 @@ class MultiIndexBackend(PandasSchemaBackend):
                     failure_cases_df = pd.DataFrame(duplicate_level_values)
                     failure_cases = reshape_failure_cases(failure_cases_df)
 
-                    message = f"levels '{*valid_level_names,}' not unique:\n{failure_cases_df}"
+                    message = f"levels '{(*valid_level_names,)}' not unique:\n{failure_cases_df}"
 
                     self._collect_or_raise(
                         error_handler,
@@ -721,16 +997,16 @@ class MultiIndexBackend(PandasSchemaBackend):
 
     @staticmethod
     def _nonconsecutive_duplicates(
-        names: list[Optional[Any]],
-    ) -> list[Optional[Any]]:
+        names: list[Any | None],
+    ) -> list[Any | None]:
         """Check whether the names have any non-consecutive duplicates.
 
         If any non-consecutive duplicates are found, return the names that
         are duplicated non-consecutively.
         """
-        seen: set[Optional[Any]] = set()
-        last_name: Optional[Any] = None
-        nonconsecutive_duplicates: set[Optional[Any]] = set()
+        seen: set[Any | None] = set()
+        last_name: Any | None = None
+        nonconsecutive_duplicates: set[Any | None] = set()
         for name in names:
             if name == last_name:
                 # Consecutive duplicate – allowed.
@@ -744,9 +1020,10 @@ class MultiIndexBackend(PandasSchemaBackend):
 
     @staticmethod
     def _collect_or_raise(
-        error_handler: Optional[ErrorHandler],
+        error_handler: ErrorHandler | None,
         err: Union[SchemaError, SchemaErrors],
-        schema,
+        multiindex_schema,
+        index_schema=None,
     ) -> None:
         """Collect errors (respecting lazy), adjusting schema context and
         failure cases appropriately.
@@ -764,18 +1041,16 @@ class MultiIndexBackend(PandasSchemaBackend):
             # that downstream error reporting groups these failures under the
             # "MultiIndex" key.
             try:
-                schema_error.schema = schema
+                schema_error.schema = multiindex_schema
             except Exception:
                 # In case the attribute is frozen / read-only, skip.
                 pass
 
-            if is_table(failure_cases):
-                # Attach the originating component name so that it can be
+            if is_table(failure_cases) and index_schema is not None:
+                # Attach the originating level name so that it can be
                 # displayed alongside the failure row.
-                component_name = getattr(schema, "name", None)
-                # if component_name is not None and "column" not in failure_cases.columns:
                 schema_error.failure_cases = failure_cases.assign(
-                    column=component_name
+                    column=index_schema.name
                 )
 
         # First, update failure_cases in the incoming error(s) with the component name
@@ -793,7 +1068,7 @@ class MultiIndexBackend(PandasSchemaBackend):
 
             if error_handler is not None and error_handler.lazy:
                 error_handler.collect_error(
-                    validation_type(err.reason_code), err.reason_code, err
+                    get_error_category(err.reason_code), err.reason_code, err
                 )
             else:
                 raise err
@@ -803,7 +1078,7 @@ class MultiIndexBackend(PandasSchemaBackend):
         mi: pd.MultiIndex,
         schema,
         level_mapping: list[tuple[int, Any]],
-        error_handler: Optional[ErrorHandler] = None,
+        error_handler: ErrorHandler | None = None,
     ) -> None:
         """Perform high-level validation of index names/order requirements.
 
@@ -906,7 +1181,7 @@ class MultiIndexBackend(PandasSchemaBackend):
         self,
         mi: pd.MultiIndex,
         schema,
-        error_handler: Optional[ErrorHandler] = None,
+        error_handler: ErrorHandler | None = None,
     ) -> list[tuple[int, Any]]:
         """
         Return a list of ``(level_position, index_schema)`` mappings for an
@@ -929,10 +1204,10 @@ class MultiIndexBackend(PandasSchemaBackend):
         mi_names = list(mi.names)
         n_levels = mi.nlevels
         current_level_pos: int = 0
-        last_mapped_name: Optional[str] = None
+        last_mapped_name: str | None = None
 
         for idx_schema in schema.indexes:
-            idx_name: Optional[str] = idx_schema.name
+            idx_name: str | None = idx_schema.name
 
             if idx_name is None:
                 # Unnamed schema index – accept next dataframe level as-is
@@ -1000,7 +1275,7 @@ class MultiIndexBackend(PandasSchemaBackend):
         self,
         mi: pd.MultiIndex,
         schema,
-        error_handler: Optional[ErrorHandler] = None,
+        error_handler: ErrorHandler | None = None,
     ):
         """Map schema index definitions to concrete level positions.
 

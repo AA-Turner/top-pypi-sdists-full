@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scylla-driver
-Version: 3.29.4
+Version: 3.29.7
 Summary: Scylla Driver for Apache Cassandra
 Author: ScyllaDB
 License-Expression: Apache-2.0
@@ -14,11 +14,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -28,7 +29,7 @@ License-File: LICENSE
 Requires-Dist: geomet>=1.1
 Requires-Dist: pyyaml>5.0
 Provides-Extra: graph
-Requires-Dist: gremlinpython==3.4.6; extra == "graph"
+Requires-Dist: gremlinpython==3.7.4; extra == "graph"
 Provides-Extra: cle
 Requires-Dist: cryptography>=35.0; extra == "cle"
 Provides-Extra: compress-lz4
@@ -59,7 +60,7 @@ Scylla Enterprise (2018.1.x+) using exclusively Cassandra's binary protocol and 
 .. image:: https://github.com/scylladb/python-driver/actions/workflows/integration-tests.yml/badge.svg?branch=master
    :target: https://github.com/scylladb/python-driver/actions/workflows/integration-tests.yml?query=event%3Apush+branch%3Amaster
 
-The driver supports Python versions 3.9-3.13.
+The driver supports Python versions 3.10-3.14.
 
 .. **Note:** This driver does not support big-endian systems.
 

@@ -35,6 +35,7 @@ from IPython.core.magic import (
     register_line_magic,
 )
 from IPython.core.magics import code, execution, logging, osm, script
+from IPython.core.history import HistoryOutput
 from IPython.testing import decorators as dec
 from IPython.testing import tools as tt
 from IPython.utils.io import capture_output
@@ -197,13 +198,14 @@ def test_magic_parse_long_options():
 def doctest_hist_f():
     """Test %hist -f with temporary filename.
 
-    In [9]: import tempfile
+    In [9]: import tempfile, os
 
-    In [10]: tfile = tempfile.mktemp('.py','tmp-ipython-')
+    In [10]: fd, tfile = tempfile.mkstemp('.py','tmp-ipython-')
+    In [11]: os.close(fd)
 
-    In [11]: %hist -nl -f $tfile 3
+    In [12]: %history -nl -y -f $tfile 3
 
-    In [13]: import os; os.unlink(tfile)
+    In [14]: import os; os.unlink(tfile)
     """
 
 
@@ -436,6 +438,11 @@ def test_time():
     with tt.AssertPrints("Wall time: "):
         with tt.AssertPrints("hihi", suppress=False):
             ip.run_cell("f('hi')")
+
+    with tt.AssertPrints("a space"):
+        with tt.AssertPrints("Wall time: ", suppress=False):
+            with tt.AssertPrints("CPU times: ", suppress=False):
+                ip.run_cell('%time print("a space")')
 
 
 # ';' at the end of %time prevents instruction value to be printed.
@@ -1000,8 +1007,11 @@ def test_extension():
 
 def test_notebook_export_json():
     pytest.importorskip("nbformat")
+    from nbformat import read, sign
+
     _ip = get_ipython()
     _ip.history_manager.reset()  # Clear any existing history.
+    _ip.run_line_magic("config", "NotebookNotary.algorithm = 'sha384'")
     cmds = ["a=1", "def b():\n  return a**2", "print('noël, été', b())"]
     for i, cmd in enumerate(cmds, start=1):
         _ip.history_manager.store_inputs(i, cmd)
@@ -1010,6 +1020,7 @@ def test_notebook_export_json():
         _ip.run_line_magic("notebook", "%s" % outfile)
         with open(outfile) as f:
             exported = json.load(f)
+        nb = read(outfile, as_version=4)
 
     # check metadata
     language_info = exported["metadata"]["language_info"]
@@ -1019,6 +1030,11 @@ def test_notebook_export_json():
 
     kernelspec = exported["metadata"]["kernelspec"]
     assert kernelspec["language"] == "python"
+
+    # Check if notebook is trusted
+    notary = sign.NotebookNotary(algorithm="sha384")
+    is_trusted = notary.check_signature(nb)
+    assert is_trusted, "Exported notebook should be trusted"
 
 
 def test_notebook_export_json_with_output():
@@ -1083,6 +1099,53 @@ def test_notebook_export_json_with_output():
             ), f"Outputs do not match for cell {i+1} with source {command!r}"
     finally:
         _ip.colors = "nocolor"
+
+
+def test_notebook_export_single_display():
+    """Test that multiple MIME types create a single display_data output, not multiple."""
+    pytest.importorskip("nbformat")
+
+    _ip = get_ipython()
+    orig_outputs = _ip.history_manager.outputs.copy()
+    orig_execution_count = _ip.execution_count
+    _ip.history_manager.reset()
+
+    try:
+        execution_count = _ip.execution_count = 1
+        _ip.run_cell("'test'", store_history=True, silent=False)
+
+        # Mock display output with multiple MIME types
+        test_display_history = HistoryOutput(
+            output_type="display_data",
+            bundle={"text/plain": "test", "text/html": "<div>test</div>"},
+        )
+        _ip.history_manager.outputs[execution_count] = [test_display_history]
+
+        with TemporaryDirectory() as td:
+            outfile = f"{td}/test.ipynb"
+            _ip.run_cell(f"%notebook {outfile}", store_history=True, silent=False)
+
+            # Verify single display_data output with both MIME types
+            with open(outfile, "r") as f:
+                nb = json.load(f)
+
+        cell = nb["cells"][0]
+        display_outputs = [
+            out for out in cell["outputs"] if out["output_type"] == "display_data"
+        ]
+
+        assert (
+            len(display_outputs) == 1
+        ), f"Expected 1 display_data output, got {len(display_outputs)}"
+
+        output_data = display_outputs[0]["data"]
+        assert set(output_data.keys()) == {"text/plain", "text/html"}
+        assert output_data["text/plain"] == ["test"]
+        assert output_data["text/html"] == ["<div>test</div>"]
+
+    finally:
+        _ip.history_manager.outputs = orig_outputs
+        _ip.execution_count = orig_execution_count
 
 
 class TestEnv(TestCase):

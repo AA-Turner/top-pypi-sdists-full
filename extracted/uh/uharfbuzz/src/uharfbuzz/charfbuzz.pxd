@@ -155,6 +155,21 @@ cdef extern from "hb.h":
 
         HB_BUFFER_FLAG_DEFINED
 
+    ctypedef enum hb_buffer_serialize_format_t:
+        HB_BUFFER_SERIALIZE_FORMAT_TEXT
+        HB_BUFFER_SERIALIZE_FORMAT_JSON
+        HB_BUFFER_SERIALIZE_FORMAT_INVALID
+
+    ctypedef enum hb_buffer_serialize_flags_t:
+        HB_BUFFER_SERIALIZE_FLAG_DEFAULT
+        HB_BUFFER_SERIALIZE_FLAG_NO_CLUSTERS
+        HB_BUFFER_SERIALIZE_FLAG_NO_POSITIONS
+        HB_BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES
+        HB_BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS
+        HB_BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS
+        HB_BUFFER_SERIALIZE_FLAG_NO_ADVANCES
+        HB_BUFFER_SERIALIZE_FLAG_DEFINED
+
     hb_buffer_t* hb_buffer_create()
     hb_bool_t hb_buffer_allocation_successful(hb_buffer_t* buffer)
     void hb_buffer_reset(hb_buffer_t *buffer)
@@ -215,6 +230,15 @@ cdef extern from "hb.h":
     hb_codepoint_t hb_buffer_get_invisible_glyph(const hb_buffer_t *buffer)
     void hb_buffer_set_not_found_glyph(hb_buffer_t *buffer, hb_codepoint_t  not_found)
     hb_codepoint_t hb_buffer_get_not_found_glyph(const hb_buffer_t *buffer)
+    unsigned int hb_buffer_serialize(hb_buffer_t *buffer,
+        unsigned int start,
+        unsigned int end,
+        char *buf,
+        unsigned int buf_size,
+        unsigned int *buf_consumed,
+        hb_font_t *font,
+        hb_buffer_serialize_format_t format,
+        hb_buffer_serialize_flags_t flags)
 
 
     # hb-face.h
@@ -1356,8 +1380,24 @@ cdef extern from "hb-subset.h":
     hb_set_t* hb_subset_input_set(hb_subset_input_t* input, hb_subset_sets_t set_type)
     hb_subset_flags_t hb_subset_input_get_flags(hb_subset_input_t* input)
     void hb_subset_input_set_flags(hb_subset_input_t* input, unsigned value)
+    hb_bool_t hb_subset_input_pin_all_axes_to_default(
+        hb_subset_input_t *input,
+        hb_face_t *face)
     hb_bool_t hb_subset_input_pin_axis_to_default(hb_subset_input_t* input, hb_face_t* face, hb_tag_t axis_tag)
     hb_bool_t hb_subset_input_pin_axis_location(hb_subset_input_t* input, hb_face_t* face, hb_tag_t axis_tag, float axis_value)
+    hb_bool_t hb_subset_input_get_axis_range(
+        hb_subset_input_t *input,
+        hb_tag_t axis_tag,
+        float *axis_min_value,
+        float *axis_max_value,
+        float *axis_def_value)
+    hb_bool_t hb_subset_input_set_axis_range(
+        hb_subset_input_t *input,
+        hb_face_t *face,
+        hb_tag_t axis_tag,
+        float axis_min_value,
+        float axis_max_value,
+        float axis_def_value)
     hb_face_t* hb_subset_preprocess(hb_face_t* source)
     hb_face_t* hb_subset_or_fail(hb_face_t* source, const hb_subset_input_t* input)
     hb_face_t* hb_subset_plan_execute_or_fail(hb_subset_plan_t* plan)

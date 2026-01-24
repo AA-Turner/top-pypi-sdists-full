@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -10,6 +10,7 @@ from langchain_milvus.function import BM25BuiltInFunction
 from langchain_milvus.utils.sparse import BaseSparseEmbedding
 
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
+from ibm_watsonx_ai.utils.utils import ensure_submodule_available, is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 __all__ = ["MilvusBM25BuiltinFunction", "MilvusSpladeEmbeddingFunction"]
@@ -97,10 +98,12 @@ class MilvusSpladeEmbeddingFunction(BaseSparseEmbedding, BaseEmbeddings):
     def __init__(
         self, model_name: str = "naver/splade-cocondenser-ensembledistil", **kwargs: Any
     ) -> None:
-        try:
-            from pymilvus import model
-        except ImportError:
-            raise MissingExtension("pymilvus[model]")
+        if not is_lib_installed(ext := "pymilvus"):
+            raise MissingExtension(f"{ext}[model]")
+
+        ensure_submodule_available("pymilvus", "model", extra_hint="model")
+
+        from pymilvus import model
 
         self._splade_ef = model.sparse.SpladeEmbeddingFunction(
             model_name=model_name, **kwargs

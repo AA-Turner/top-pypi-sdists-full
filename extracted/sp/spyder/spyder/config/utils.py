@@ -13,7 +13,7 @@ import os.path as osp
 import platform
 import sys
 
-from spyder.config.base import _
+from spyder.api.translations import _
 
 from spyder_kernels.utils import iofuncs
 
@@ -169,9 +169,11 @@ def get_edit_extensions():
 
 EDIT_EXTENSIONS = get_edit_extensions()
 
+
 #==============================================================================
 # Detection of OS specific versions
 #==============================================================================
+
 def is_ubuntu():
     """Detect if we are running in an Ubuntu-based distribution"""
     if sys.platform.startswith('linux') and osp.isfile('/etc/lsb-release'):
@@ -213,16 +215,6 @@ def is_kde_desktop():
             return False
     else:
         return False
-
-
-def is_anaconda():
-    """
-    Detect if we are running under Anaconda.
-
-    Taken from https://stackoverflow.com/a/47610844/438386
-    """
-    is_conda = osp.exists(osp.join(sys.prefix, 'conda-meta'))
-    return is_conda
 
 
 def is_wsl():

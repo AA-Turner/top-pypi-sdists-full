@@ -16,7 +16,6 @@ short_description: Free style filters.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.2.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -146,8 +145,8 @@ EXAMPLES = '''
     - name: Free style filters.
       fortinet.fortimanager.fmgr_devprof_log_syslogd_filter_freestyle:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -216,19 +215,19 @@ def main():
         'devprof': {'required': True, 'type': 'str'},
         'devprof_log_syslogd_filter_freestyle': {
             'type': 'dict',
-            'v_range': [['7.0.4', '7.0.13'], ['7.2.1', '']],
+            'v_range': [['7.0.4', '7.0.15'], ['7.2.1', '']],
             'options': {
                 'category': {
-                    'v_range': [['7.0.4', '7.0.13'], ['7.2.1', '']],
+                    'v_range': [['7.0.4', '7.0.15'], ['7.2.1', '']],
                     'choices': [
                         'traffic', 'event', 'virus', 'webfilter', 'attack', 'spam', 'voip', 'dlp', 'app-ctrl', 'anomaly', 'waf', 'gtp', 'dns', 'ssh',
                         'ssl', 'file-filter', 'icap', 'ztna', 'virtual-patch', 'debug'
                     ],
                     'type': 'str'
                 },
-                'filter': {'v_range': [['7.0.4', '7.0.13'], ['7.2.1', '']], 'type': 'str'},
-                'filter-type': {'v_range': [['7.0.4', '7.0.13'], ['7.2.1', '']], 'choices': ['include', 'exclude'], 'type': 'str'},
-                'id': {'v_range': [['7.0.4', '7.0.13'], ['7.2.1', '']], 'required': True, 'type': 'int'}
+                'filter': {'v_range': [['7.0.4', '7.0.15'], ['7.2.1', '']], 'type': 'str'},
+                'filter-type': {'v_range': [['7.0.4', '7.0.15'], ['7.2.1', '']], 'choices': ['include', 'exclude'], 'type': 'str'},
+                'id': {'v_range': [['7.0.4', '7.0.15'], ['7.2.1', '']], 'required': True, 'type': 'int'}
             }
         }
     }

@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-mediaconnect
-Version: 1.40.0
-Summary: Type annotations for boto3 MediaConnect 1.40.0 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 1.42.3
+Summary: Type annotations for boto3 MediaConnect 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: boto3 mediaconnect boto3-stubs type-annotations mypy typeshed autocomplete
+Keywords: boto3,mediaconnect,boto3-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="mypy-boto3-mediaconnect"></a>
 
@@ -57,7 +43,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 MediaConnect 1.40.0](https://pypi.org/project/boto3/) compatible with
+[boto3 MediaConnect 1.42.3](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -66,7 +52,7 @@ Type annotations for
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -120,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `MediaConnect` service.
 4. Use provided commands to install generated packages.
@@ -362,6 +348,9 @@ from mypy_boto3_mediaconnect.paginator import (
     ListGatewaysPaginator,
     ListOfferingsPaginator,
     ListReservationsPaginator,
+    ListRouterInputsPaginator,
+    ListRouterNetworkInterfacesPaginator,
+    ListRouterOutputsPaginator,
 )
 
 client: MediaConnectClient = Session().client("mediaconnect")
@@ -377,6 +366,13 @@ list_gateway_instances_paginator: ListGatewayInstancesPaginator = client.get_pag
 list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
 list_offerings_paginator: ListOfferingsPaginator = client.get_paginator("list_offerings")
 list_reservations_paginator: ListReservationsPaginator = client.get_paginator("list_reservations")
+list_router_inputs_paginator: ListRouterInputsPaginator = client.get_paginator("list_router_inputs")
+list_router_network_interfaces_paginator: ListRouterNetworkInterfacesPaginator = (
+    client.get_paginator("list_router_network_interfaces")
+)
+list_router_outputs_paginator: ListRouterOutputsPaginator = client.get_paginator(
+    "list_router_outputs"
+)
 ```
 
 <a id="waiters-annotations"></a>
@@ -390,7 +386,18 @@ waiters.
 from boto3.session import Session
 
 from mypy_boto3_mediaconnect import MediaConnectClient
-from mypy_boto3_mediaconnect.waiter import FlowActiveWaiter, FlowDeletedWaiter, FlowStandbyWaiter
+from mypy_boto3_mediaconnect.waiter import (
+    FlowActiveWaiter,
+    FlowDeletedWaiter,
+    FlowStandbyWaiter,
+    InputActiveWaiter,
+    InputDeletedWaiter,
+    InputStandbyWaiter,
+    OutputActiveWaiter,
+    OutputDeletedWaiter,
+    OutputRoutedWaiter,
+    OutputStandbyWaiter,
+)
 
 client: MediaConnectClient = Session().client("mediaconnect")
 
@@ -399,6 +406,13 @@ client: MediaConnectClient = Session().client("mediaconnect")
 flow_active_waiter: FlowActiveWaiter = client.get_waiter("flow_active")
 flow_deleted_waiter: FlowDeletedWaiter = client.get_waiter("flow_deleted")
 flow_standby_waiter: FlowStandbyWaiter = client.get_waiter("flow_standby")
+input_active_waiter: InputActiveWaiter = client.get_waiter("input_active")
+input_deleted_waiter: InputDeletedWaiter = client.get_waiter("input_deleted")
+input_standby_waiter: InputStandbyWaiter = client.get_waiter("input_standby")
+output_active_waiter: OutputActiveWaiter = client.get_waiter("output_active")
+output_deleted_waiter: OutputDeletedWaiter = client.get_waiter("output_deleted")
+output_routed_waiter: OutputRoutedWaiter = client.get_waiter("output_routed")
+output_standby_waiter: OutputStandbyWaiter = client.get_waiter("output_standby")
 ```
 
 <a id="literals"></a>

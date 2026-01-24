@@ -14,6 +14,7 @@ import (
 	"github.com/wandb/wandb/core/internal/monitor"
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/runfiles"
+	"github.com/wandb/wandb/core/internal/runhandle"
 	"github.com/wandb/wandb/core/internal/sentry_ext"
 	"github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/sharedmode"
@@ -39,20 +40,22 @@ var streamProviders = wire.NewSet(
 	NewStream,
 	wire.Bind(new(api.Peeker), new(*observability.Peeker)),
 	wire.Struct(new(observability.Peeker)),
+	BaseURLFromSettings,
+	CredentialsFromSettings,
 	featurechecker.NewServerFeaturesCache,
 	filestream.FileStreamProviders,
 	filetransfer.NewFileTransferStats,
+	flowControlProviders,
 	handlerProviders,
 	mailbox.New,
 	monitor.SystemMonitorProviders,
-	NewBackend,
 	NewFileTransferManager,
 	NewGraphQLClient,
-	NewStreamRun,
 	observability.NewPrinter,
 	provideFileWatcher,
 	RecordParserProviders,
 	runfiles.UploaderProviders,
+	runhandle.New,
 	SenderProviders,
 	sharedmode.RandomClientID,
 	streamLoggerProviders,

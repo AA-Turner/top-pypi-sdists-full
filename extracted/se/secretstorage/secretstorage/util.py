@@ -1,6 +1,6 @@
 # SecretStorage module for Python
 # Access passwords using the SecretService DBus API
-# Author: Dmitry Shachnev, 2013-2018
+# Author: Dmitry Shachnev, 2013-2025
 # License: 3-clause BSD, see LICENSE file
 
 """This module provides some utility functions, but these shouldn't
@@ -35,7 +35,7 @@ from secretstorage.defines import (
     SS_PATH,
     SS_PREFIX,
 )
-from secretstorage.dhcrypto import Session, int_to_bytes
+from secretstorage.dhcrypto import Session
 from secretstorage.exceptions import (
     ItemNotFoundException,
     SecretServiceNotAvailableException,
@@ -102,7 +102,7 @@ def open_session(connection: DBusConnection) -> Session:
         output, result = service.call(
             'OpenSession', 'sv',
             ALGORITHM_DH,
-            ('ay', int_to_bytes(session.my_public_key)))
+            ('ay', session.my_public_key.to_bytes(128, 'big')))
     except DBusErrorResponse as resp:
         if resp.name != DBUS_NOT_SUPPORTED:
             raise
@@ -147,13 +147,25 @@ def format_secret(session: Session, secret: bytes,
     )
 
 
-def exec_prompt(connection: DBusConnection,
-                prompt_path: str) -> tuple[bool, list[str]]:
+def exec_prompt(
+    connection: DBusConnection,
+    prompt_path: str,
+    *,
+    timeout: float | None = None,
+) -> tuple[bool, tuple[str, Any]]:
     """Executes the prompt in a blocking mode.
 
-    :returns: a tuple; the first element is a boolean value showing
-              whether the operation was dismissed, the second element
-              is a list of unlocked object paths
+    :returns: a two-element tuple:
+
+       - The first element is a boolean value indicating whether the operation was
+         dismissed.
+       - The second element is a (signature, result) tuple. For creating items and
+         collections, ``signature`` is ``'o'`` and ``result`` is a single object
+         path. For unlocking, ``signature`` is ``'ao'`` and ``result`` is a list of
+         object paths.
+
+    .. versionchanged:: 3.5
+       Added ``timeout`` keyword argument.
     """
     prompt = DBusAddressWrapper(prompt_path, PROMPT_IFACE, connection)
     rule = MatchRule(
@@ -164,21 +176,35 @@ def exec_prompt(connection: DBusConnection,
     )
     with connection.filter(rule) as signals:
         prompt.call('Prompt', 's', '')
-        dismissed, result = connection.recv_until_filtered(signals).body
+        message = connection.recv_until_filtered(signals, timeout=timeout)
+        dismissed, result = message.body
     assert dismissed is not None
     assert result is not None
     return dismissed, result
 
 
-def unlock_objects(connection: DBusConnection, paths: list[str]) -> bool:
+def unlock_objects(
+    connection: DBusConnection,
+    paths: list[str],
+    *,
+    timeout: float | None = None,
+) -> bool:
     """Requests unlocking objects specified in `paths`.
     Returns a boolean representing whether the operation was dismissed.
 
-    .. versionadded:: 2.1.2"""
+    .. versionadded:: 2.1.2
+
+    .. versionchanged:: 3.5
+       Added ``timeout`` keyword argument.
+    """
     service = DBusAddressWrapper(SS_PATH, SERVICE_IFACE, connection)
     unlocked_paths, prompt = service.call('Unlock', 'ao', paths)
     if len(prompt) > 1:
-        dismissed, (signature, unlocked) = exec_prompt(connection, prompt)
+        dismissed, (signature, unlocked) = exec_prompt(
+            connection,
+            prompt,
+            timeout=timeout,
+        )
         assert signature == 'ao'
         return dismissed
     return False

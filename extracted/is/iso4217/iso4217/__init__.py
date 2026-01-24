@@ -32,7 +32,7 @@ def parse_published(pblshd):
 
 raw_xml = etree.fromstring(files(__name__).joinpath('table.xml').read_bytes())
 __published__ = parse_published(raw_xml.attrib['Pblshd'])
-__version_prefix__ = (1, 14)
+__version_prefix__ = (1, 15)
 __version_info__ = (__version_prefix__ +
                     (int(__published__.strftime('%Y%m%d')),))
 __version__ = '.'.join(map(str, __version_info__))
@@ -112,6 +112,38 @@ class Currency(enum.Enum):
     """
 
     update_enum_dict(locals(), raw_table)
+
+    @classmethod
+    def _validate(cls, value):
+        """Validate and convert a value to a Currency instance."""
+        if isinstance(value, cls):
+            return value
+        # Try the value as-is first, then uppercase for convenience
+        try:
+            return cls(value)
+        except ValueError:
+            if isinstance(value, str):
+                return cls(value.upper())
+            raise
+
+    # Pydantic v1 support
+    @classmethod
+    def __get_validators__(cls):
+        """Yield validators for Pydantic v1."""
+        yield cls._validate
+
+    # Pydantic v2 support
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        """Return Pydantic v2 core schema for validation and serialization."""
+        from pydantic_core import core_schema
+        return core_schema.no_info_plain_validator_function(
+            cls._validate,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: x.value,
+                info_arg=False,
+            ),
+        )
 
     @property
     def code(self):

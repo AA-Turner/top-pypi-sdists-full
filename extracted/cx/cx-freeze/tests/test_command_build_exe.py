@@ -7,7 +7,7 @@ import os
 import pytest
 from setuptools import Distribution
 
-from cx_Freeze._compat import BUILD_EXE_DIR, IS_WINDOWS
+from cx_Freeze._compat import BUILD_EXE_DIR, IS_UCRT
 from cx_Freeze.command.build_exe import build_exe
 from cx_Freeze.exception import SetupError
 
@@ -62,8 +62,23 @@ DIST_ATTRS = {
         ),
         pytest.param(
             {"include_msvcr": True},
-            {"include_msvcr": IS_WINDOWS},
+            {"include_msvcr": IS_UCRT},
             id="include-msvcr=true",
+        ),
+        pytest.param(
+            {"include_msvcr_version": "15"},
+            {"include_msvcr": IS_UCRT, "include_msvcr_version": "15"},
+            id="include-msvcr-version=15",
+        ),
+        pytest.param(
+            {"include_msvcr_version": "16"},
+            {"include_msvcr": IS_UCRT, "include_msvcr_version": "16"},
+            id="include-msvcr-version=16",
+        ),
+        pytest.param(
+            {"include_msvcr_version": "17"},
+            {"include_msvcr": IS_UCRT, "include_msvcr_version": "17"},
+            id="include-msvcr-version=17",
         ),
         pytest.param(
             {"replace_paths": [("*", "")]},
@@ -343,8 +358,23 @@ def test_build_exe_finalize_options_raises(
         ),
         pytest.param(
             ["--include-msvcr"],
-            {"include_msvcr": IS_WINDOWS},
+            {"include_msvcr": IS_UCRT},
             id="--include-msvcr",
+        ),
+        pytest.param(
+            ["--include-msvcr-version=15"],
+            {"include_msvcr": IS_UCRT, "include_msvcr_version": "15"},
+            id="--include-msvcr-version=15",
+        ),
+        pytest.param(
+            ["--include-msvcr-version=16"],
+            {"include_msvcr": IS_UCRT, "include_msvcr_version": "16"},
+            id="--include-msvcr-version=16",
+        ),
+        pytest.param(
+            ["--include-msvcr-version=17"],
+            {"include_msvcr": IS_UCRT, "include_msvcr_version": "17"},
+            id="--include-msvcr-version=17",
         ),
     ],
 )

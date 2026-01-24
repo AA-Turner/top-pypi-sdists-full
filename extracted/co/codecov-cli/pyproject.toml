@@ -1,6 +1,6 @@
 [project]
 name = "codecov-cli"
-version = "11.2.3"
+version = "11.2.6"
 description = "Codecov Command Line Interface"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -17,7 +17,7 @@ dependencies = [
     "PyYAML==6.*",
     "responses==0.21.*",
     "sentry-sdk==2.*",
-    "test-results-parser==0.5.4",
+    "test-results-parser==0.6.1",
 ]
 
 [dependency-groups]
@@ -25,7 +25,6 @@ dev = [
     "pre-commit==3.*",
     "pyinstaller==6.*",
     "pytest==7.*",
-    "pytest-asyncio==0.21.1",
     "pytest-cov==4.*",
     "pytest-env==1.*",
     "pytest-mock==3.*",
@@ -35,6 +34,13 @@ dev = [
 codecov = "codecov_cli.main:run"
 codecovcli = "codecov_cli.main:run"
 codecov-cli = "codecov_cli.main:run"
+
+[project.urls]
+Homepage = "https://about.codecov.io"
+"CI: GitHub" = "https://github.com/getsentry/prevent-cli/actions/workflows/ci.yml"
+"Docs" = "https://docs.codecov.com"
+"GitHub: issues" = "https://github.com/getsentry/prevent-cli/issues"
+"GitHub: repo" = "https://github.com/getsentry/prevent-cli"
 
 [build-system]
 requires = ["setuptools"]

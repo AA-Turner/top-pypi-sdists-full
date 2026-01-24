@@ -114,6 +114,10 @@ def _rule_from_pattern(pattern: str, base_path: Optional[Path] = None, source: O
     regex = _fnmatch_pathname_to_regex(pattern, directory_only)
     if anchored:
         regex = f"^{regex}"
+    else:
+        # For non-anchored patterns, match at path component boundaries
+        # (start of string or after a path separator)
+        regex = f"(^|/){regex}"
     regex = f"(?ms){regex}"
     return IgnoreRule(
         pattern=orig_pattern,
@@ -215,6 +219,6 @@ def _fnmatch_pathname_to_regex(pattern: str, directory_only: bool):
     if directory_only:
         res.append(r"/.*$")
     else:
-        res.append("(/.*|[^/]*)$")
+        res.append("(/.*)?$")
 
     return "".join(res)

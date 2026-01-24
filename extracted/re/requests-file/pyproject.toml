@@ -15,15 +15,17 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
 ]
-urls = {Homepage = "https://github.com/dashea/requests-file"}
+urls = {Homepage = "https://codeberg.org/dashea/requests-file"}
 dependencies = ["requests>=1.0.0"]
 dynamic = ["version"]
 
 [tool.distutils.bdist_wheel]
 universal = 1
 
-[tool.setuptools]
-py-modules = ["requests_file"]
-include-package-data = false
+[tool.setuptools.packages.find]
+include = ["requests_file"]
+
+[tool.setuptools.package-data]
+"requests_files" = ["py.typed"]
 
 [tool.setuptools_scm]

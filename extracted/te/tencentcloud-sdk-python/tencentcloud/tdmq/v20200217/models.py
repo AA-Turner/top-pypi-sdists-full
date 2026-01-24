@@ -962,9 +962,13 @@ class Cluster(AbstractModel):
         :param _PublicEndPoint: 公网访问接入点
 注意：此字段可能返回 null，表示取不到有效值。
         :type PublicEndPoint: str
+        :param _OldPublicEndPoint: 旧的公网访问接入点
+        :type OldPublicEndPoint: str
         :param _VpcEndPoint: VPC访问接入点
 注意：此字段可能返回 null，表示取不到有效值。
         :type VpcEndPoint: str
+        :param _OldVpcEndPoint: 旧的VPC访问接入点
+        :type OldVpcEndPoint: str
         :param _NamespaceNum: 命名空间数量
 注意：此字段可能返回 null，表示取不到有效值。
         :type NamespaceNum: int
@@ -995,6 +999,10 @@ class Cluster(AbstractModel):
         :param _Tags: 标签
 注意：此字段可能返回 null，表示取不到有效值。
         :type Tags: list of Tag
+        :param _OldInternalPulsarEndPoint: 旧的支撑网 Pulsar 接入点
+        :type OldInternalPulsarEndPoint: str
+        :param _OldInternalHttpEndPoint: 旧的支撑网 HTTP 接入点
+        :type OldInternalHttpEndPoint: str
         :param _PayMode: 计费模式：
 0: 按量计费
 1: 包年包月
@@ -1024,7 +1032,9 @@ class Cluster(AbstractModel):
         self._MaxStorageCapacity = None
         self._Version = None
         self._PublicEndPoint = None
+        self._OldPublicEndPoint = None
         self._VpcEndPoint = None
+        self._OldVpcEndPoint = None
         self._NamespaceNum = None
         self._UsedStorageBudget = None
         self._MaxPublishRateInMessages = None
@@ -1035,6 +1045,8 @@ class Cluster(AbstractModel):
         self._MaxMessageDelayInSeconds = None
         self._PublicAccessEnabled = None
         self._Tags = None
+        self._OldInternalPulsarEndPoint = None
+        self._OldInternalHttpEndPoint = None
         self._PayMode = None
         self._ProjectId = None
         self._ProjectName = None
@@ -1209,6 +1221,17 @@ class Cluster(AbstractModel):
         self._PublicEndPoint = PublicEndPoint
 
     @property
+    def OldPublicEndPoint(self):
+        r"""旧的公网访问接入点
+        :rtype: str
+        """
+        return self._OldPublicEndPoint
+
+    @OldPublicEndPoint.setter
+    def OldPublicEndPoint(self, OldPublicEndPoint):
+        self._OldPublicEndPoint = OldPublicEndPoint
+
+    @property
     def VpcEndPoint(self):
         r"""VPC访问接入点
 注意：此字段可能返回 null，表示取不到有效值。
@@ -1219,6 +1242,17 @@ class Cluster(AbstractModel):
     @VpcEndPoint.setter
     def VpcEndPoint(self, VpcEndPoint):
         self._VpcEndPoint = VpcEndPoint
+
+    @property
+    def OldVpcEndPoint(self):
+        r"""旧的VPC访问接入点
+        :rtype: str
+        """
+        return self._OldVpcEndPoint
+
+    @OldVpcEndPoint.setter
+    def OldVpcEndPoint(self, OldVpcEndPoint):
+        self._OldVpcEndPoint = OldVpcEndPoint
 
     @property
     def NamespaceNum(self):
@@ -1341,6 +1375,28 @@ class Cluster(AbstractModel):
         self._Tags = Tags
 
     @property
+    def OldInternalPulsarEndPoint(self):
+        r"""旧的支撑网 Pulsar 接入点
+        :rtype: str
+        """
+        return self._OldInternalPulsarEndPoint
+
+    @OldInternalPulsarEndPoint.setter
+    def OldInternalPulsarEndPoint(self, OldInternalPulsarEndPoint):
+        self._OldInternalPulsarEndPoint = OldInternalPulsarEndPoint
+
+    @property
+    def OldInternalHttpEndPoint(self):
+        r"""旧的支撑网 HTTP 接入点
+        :rtype: str
+        """
+        return self._OldInternalHttpEndPoint
+
+    @OldInternalHttpEndPoint.setter
+    def OldInternalHttpEndPoint(self, OldInternalHttpEndPoint):
+        self._OldInternalHttpEndPoint = OldInternalHttpEndPoint
+
+    @property
     def PayMode(self):
         r"""计费模式：
 0: 按量计费
@@ -1406,7 +1462,9 @@ class Cluster(AbstractModel):
         self._MaxStorageCapacity = params.get("MaxStorageCapacity")
         self._Version = params.get("Version")
         self._PublicEndPoint = params.get("PublicEndPoint")
+        self._OldPublicEndPoint = params.get("OldPublicEndPoint")
         self._VpcEndPoint = params.get("VpcEndPoint")
+        self._OldVpcEndPoint = params.get("OldVpcEndPoint")
         self._NamespaceNum = params.get("NamespaceNum")
         self._UsedStorageBudget = params.get("UsedStorageBudget")
         self._MaxPublishRateInMessages = params.get("MaxPublishRateInMessages")
@@ -1422,6 +1480,8 @@ class Cluster(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        self._OldInternalPulsarEndPoint = params.get("OldInternalPulsarEndPoint")
+        self._OldInternalHttpEndPoint = params.get("OldInternalHttpEndPoint")
         self._PayMode = params.get("PayMode")
         self._ProjectId = params.get("ProjectId")
         self._ProjectName = params.get("ProjectName")
@@ -3379,7 +3439,7 @@ class CreateCmqQueueRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _QueueName: 队列名字，在单个地域同一账号下唯一。队列名称是一个不超过 64 个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线(-)。
+        :param _QueueName: 队列名字，在单个地域同一账号下唯一。队列名称以字母起始，只能包含字母、数字、“-”及“_”，最大64字符，不区分大小写。
         :type QueueName: str
         :param _MaxMsgHeapNum: 最大堆积消息数。取值范围在公测期间为 1,000,000 - 10,000,000，正式上线后范围可达到 1000,000-1000,000,000。默认取值在公测期间为 10,000,000，正式上线后为 100,000,000。
         :type MaxMsgHeapNum: int
@@ -3434,7 +3494,7 @@ class CreateCmqQueueRequest(AbstractModel):
 
     @property
     def QueueName(self):
-        r"""队列名字，在单个地域同一账号下唯一。队列名称是一个不超过 64 个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线(-)。
+        r"""队列名字，在单个地域同一账号下唯一。队列名称以字母起始，只能包含字母、数字、“-”及“_”，最大64字符，不区分大小写。
         :rtype: str
         """
         return self._QueueName
@@ -3705,7 +3765,7 @@ class CreateCmqSubscribeRequest(AbstractModel):
         r"""
         :param _TopicName: 主题名字，在单个地域同一账号下唯一。主题名称是一个不超过64个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线（-）。
         :type TopicName: str
-        :param _SubscriptionName: 订阅名字，在单个地域同一账号的同一主题下唯一。订阅名称是一个不超过64个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线(-)。
+        :param _SubscriptionName: 订阅名字，在单个地域同一账号的同一主题下唯一。订阅名称以字母起始，只能包含字母、数字、“-”及“_”，最大64字符，创建后不能修改。
         :type SubscriptionName: str
         :param _Protocol: 订阅的协议，目前支持两种协议：http、queue。使用http协议，用户需自己搭建接受消息的web server。使用queue，消息会自动推送到CMQ queue，用户可以并发地拉取消息。
         :type Protocol: str
@@ -3742,7 +3802,7 @@ class CreateCmqSubscribeRequest(AbstractModel):
 
     @property
     def SubscriptionName(self):
-        r"""订阅名字，在单个地域同一账号的同一主题下唯一。订阅名称是一个不超过64个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线(-)。
+        r"""订阅名字，在单个地域同一账号的同一主题下唯一。订阅名称以字母起始，只能包含字母、数字、“-”及“_”，最大64字符，创建后不能修改。
         :rtype: str
         """
         return self._SubscriptionName
@@ -3887,7 +3947,7 @@ class CreateCmqTopicRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TopicName: 主题名字，在单个地域同一账号下唯一。主题名称是一个不超过64个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线（-）。
+        :param _TopicName: 主题名字，在单个地域同一账号下唯一。主题名称只能包含字母、数字、“-”及“_”，最大64字符，创建后不能修改，不区分大小写。
         :type TopicName: str
         :param _MaxMsgSize: 消息最大长度。取值范围 1024-65536 Byte（即1-64K），默认值 65536。
         :type MaxMsgSize: int
@@ -3909,7 +3969,7 @@ class CreateCmqTopicRequest(AbstractModel):
 
     @property
     def TopicName(self):
-        r"""主题名字，在单个地域同一账号下唯一。主题名称是一个不超过64个字符的字符串，必须以字母为首字符，剩余部分可以包含字母、数字和横划线（-）。
+        r"""主题名字，在单个地域同一账号下唯一。主题名称只能包含字母、数字、“-”及“_”，最大64字符，创建后不能修改，不区分大小写。
         :rtype: str
         """
         return self._TopicName
@@ -4058,6 +4118,10 @@ class CreateEnvironmentRequest(AbstractModel):
         :type RetentionPolicy: :class:`tencentcloud.tdmq.v20200217.models.RetentionPolicy`
         :param _AutoSubscriptionCreation: 是否开启自动创建订阅
         :type AutoSubscriptionCreation: bool
+        :param _SubscriptionExpirationTime: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTime: int
+        :param _SubscriptionExpirationTimeEnable: 离线订阅过期自动清理时间开关
+        :type SubscriptionExpirationTimeEnable: bool
         """
         self._EnvironmentId = None
         self._MsgTTL = None
@@ -4065,6 +4129,8 @@ class CreateEnvironmentRequest(AbstractModel):
         self._Remark = None
         self._RetentionPolicy = None
         self._AutoSubscriptionCreation = None
+        self._SubscriptionExpirationTime = None
+        self._SubscriptionExpirationTimeEnable = None
 
     @property
     def EnvironmentId(self):
@@ -4132,6 +4198,28 @@ class CreateEnvironmentRequest(AbstractModel):
     def AutoSubscriptionCreation(self, AutoSubscriptionCreation):
         self._AutoSubscriptionCreation = AutoSubscriptionCreation
 
+    @property
+    def SubscriptionExpirationTime(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: int
+        """
+        return self._SubscriptionExpirationTime
+
+    @SubscriptionExpirationTime.setter
+    def SubscriptionExpirationTime(self, SubscriptionExpirationTime):
+        self._SubscriptionExpirationTime = SubscriptionExpirationTime
+
+    @property
+    def SubscriptionExpirationTimeEnable(self):
+        r"""离线订阅过期自动清理时间开关
+        :rtype: bool
+        """
+        return self._SubscriptionExpirationTimeEnable
+
+    @SubscriptionExpirationTimeEnable.setter
+    def SubscriptionExpirationTimeEnable(self, SubscriptionExpirationTimeEnable):
+        self._SubscriptionExpirationTimeEnable = SubscriptionExpirationTimeEnable
+
 
     def _deserialize(self, params):
         self._EnvironmentId = params.get("EnvironmentId")
@@ -4142,6 +4230,8 @@ class CreateEnvironmentRequest(AbstractModel):
             self._RetentionPolicy = RetentionPolicy()
             self._RetentionPolicy._deserialize(params.get("RetentionPolicy"))
         self._AutoSubscriptionCreation = params.get("AutoSubscriptionCreation")
+        self._SubscriptionExpirationTime = params.get("SubscriptionExpirationTime")
+        self._SubscriptionExpirationTimeEnable = params.get("SubscriptionExpirationTimeEnable")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4168,6 +4258,10 @@ class CreateEnvironmentResponse(AbstractModel):
         :type Remark: str
         :param _NamespaceId: 命名空间ID
         :type NamespaceId: str
+        :param _SubscriptionExpirationTime: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTime: int
+        :param _SubscriptionExpirationTimeEnable: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTimeEnable: bool
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -4175,6 +4269,8 @@ class CreateEnvironmentResponse(AbstractModel):
         self._MsgTTL = None
         self._Remark = None
         self._NamespaceId = None
+        self._SubscriptionExpirationTime = None
+        self._SubscriptionExpirationTimeEnable = None
         self._RequestId = None
 
     @property
@@ -4223,6 +4319,28 @@ class CreateEnvironmentResponse(AbstractModel):
         self._NamespaceId = NamespaceId
 
     @property
+    def SubscriptionExpirationTime(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: int
+        """
+        return self._SubscriptionExpirationTime
+
+    @SubscriptionExpirationTime.setter
+    def SubscriptionExpirationTime(self, SubscriptionExpirationTime):
+        self._SubscriptionExpirationTime = SubscriptionExpirationTime
+
+    @property
+    def SubscriptionExpirationTimeEnable(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: bool
+        """
+        return self._SubscriptionExpirationTimeEnable
+
+    @SubscriptionExpirationTimeEnable.setter
+    def SubscriptionExpirationTimeEnable(self, SubscriptionExpirationTimeEnable):
+        self._SubscriptionExpirationTimeEnable = SubscriptionExpirationTimeEnable
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -4239,6 +4357,8 @@ class CreateEnvironmentResponse(AbstractModel):
         self._MsgTTL = params.get("MsgTTL")
         self._Remark = params.get("Remark")
         self._NamespaceId = params.get("NamespaceId")
+        self._SubscriptionExpirationTime = params.get("SubscriptionExpirationTime")
+        self._SubscriptionExpirationTimeEnable = params.get("SubscriptionExpirationTimeEnable")
         self._RequestId = params.get("RequestId")
 
 
@@ -4365,9 +4485,6 @@ class CreateProClusterRequest(AbstractModel):
         :param _ProductName: 集群规格代号
 参考 [专业集群规格](https://cloud.tencent.com/document/product/1179/83705)
         :type ProductName: str
-        :param _StorageSize: 存储规格
-参考 [专业集群规格](https://cloud.tencent.com/document/product/1179/83705)
-        :type StorageSize: int
         :param _AutoRenewFlag: 1: true，开启自动按月续费
 
 0: false，关闭自动按月续费
@@ -4378,6 +4495,9 @@ class CreateProClusterRequest(AbstractModel):
         :type ClusterName: str
         :param _AutoVoucher: 是否自动选择代金券 1是 0否 默认为0
         :type AutoVoucher: int
+        :param _StorageSize: 存储规格
+参考 [专业集群规格](https://cloud.tencent.com/document/product/1179/83705)
+        :type StorageSize: int
         :param _Vpc: vpc网络标签
         :type Vpc: :class:`tencentcloud.tdmq.v20200217.models.VpcInfo`
         :param _Tags: 集群的标签列表(已废弃)
@@ -4385,11 +4505,11 @@ class CreateProClusterRequest(AbstractModel):
         """
         self._ZoneIds = None
         self._ProductName = None
-        self._StorageSize = None
         self._AutoRenewFlag = None
         self._TimeSpan = None
         self._ClusterName = None
         self._AutoVoucher = None
+        self._StorageSize = None
         self._Vpc = None
         self._Tags = None
 
@@ -4417,18 +4537,6 @@ class CreateProClusterRequest(AbstractModel):
     @ProductName.setter
     def ProductName(self, ProductName):
         self._ProductName = ProductName
-
-    @property
-    def StorageSize(self):
-        r"""存储规格
-参考 [专业集群规格](https://cloud.tencent.com/document/product/1179/83705)
-        :rtype: int
-        """
-        return self._StorageSize
-
-    @StorageSize.setter
-    def StorageSize(self, StorageSize):
-        self._StorageSize = StorageSize
 
     @property
     def AutoRenewFlag(self):
@@ -4477,6 +4585,18 @@ class CreateProClusterRequest(AbstractModel):
         self._AutoVoucher = AutoVoucher
 
     @property
+    def StorageSize(self):
+        r"""存储规格
+参考 [专业集群规格](https://cloud.tencent.com/document/product/1179/83705)
+        :rtype: int
+        """
+        return self._StorageSize
+
+    @StorageSize.setter
+    def StorageSize(self, StorageSize):
+        self._StorageSize = StorageSize
+
+    @property
     def Vpc(self):
         r"""vpc网络标签
         :rtype: :class:`tencentcloud.tdmq.v20200217.models.VpcInfo`
@@ -4502,11 +4622,11 @@ class CreateProClusterRequest(AbstractModel):
     def _deserialize(self, params):
         self._ZoneIds = params.get("ZoneIds")
         self._ProductName = params.get("ProductName")
-        self._StorageSize = params.get("StorageSize")
         self._AutoRenewFlag = params.get("AutoRenewFlag")
         self._TimeSpan = params.get("TimeSpan")
         self._ClusterName = params.get("ClusterName")
         self._AutoVoucher = params.get("AutoVoucher")
+        self._StorageSize = params.get("StorageSize")
         if params.get("Vpc") is not None:
             self._Vpc = VpcInfo()
             self._Vpc._deserialize(params.get("Vpc"))
@@ -4985,11 +5105,11 @@ class CreateRabbitMQVipInstanceRequest(AbstractModel):
         :param _ClusterName: 集群名称
         :type ClusterName: str
         :param _NodeSpec: 集群的节点规格，需要输入对应的规格标识：
-2C8G：rabbit-vip-basic-2c8g
-4C16G：rabbit-vip-basic-4c16g
-8C32G：rabbit-vip-basic-8c32g
+2C8G：rabbit-vip-profession-2c8g
+4C16G：rabbit-vip-profession-4c16g
+8C32G：rabbit-vip-profession-8c32g
 16C32G：rabbit-vip-basic-4
-16C64G：rabbit-vip-basic-16c64g
+16C64G：rabbit-vip-profession-16c64g
 2C4G：rabbit-vip-basic-5
 4C8G：rabbit-vip-basic-1
 8C16G（已售罄）：rabbit-vip-basic-2
@@ -5007,7 +5127,7 @@ class CreateRabbitMQVipInstanceRequest(AbstractModel):
         :type TimeSpan: int
         :param _PayMode: 付费方式，0 为后付费，即按量计费；1 为预付费，即包年包月。默认包年包月
         :type PayMode: int
-        :param _ClusterVersion: 集群版本，不传默认为 3.8.30，可选值为 3.8.30 和 3.11.8
+        :param _ClusterVersion: 集群版本，不传默认为 3.8.30，可选值为 3.8.30、3.11.8和3.13.7
         :type ClusterVersion: str
         :param _IsIntl: 是否国际站请求，默认 false
         :type IsIntl: bool
@@ -5085,11 +5205,11 @@ class CreateRabbitMQVipInstanceRequest(AbstractModel):
     @property
     def NodeSpec(self):
         r"""集群的节点规格，需要输入对应的规格标识：
-2C8G：rabbit-vip-basic-2c8g
-4C16G：rabbit-vip-basic-4c16g
-8C32G：rabbit-vip-basic-8c32g
+2C8G：rabbit-vip-profession-2c8g
+4C16G：rabbit-vip-profession-4c16g
+8C32G：rabbit-vip-profession-8c32g
 16C32G：rabbit-vip-basic-4
-16C64G：rabbit-vip-basic-16c64g
+16C64G：rabbit-vip-profession-16c64g
 2C4G：rabbit-vip-basic-5
 4C8G：rabbit-vip-basic-1
 8C16G（已售罄）：rabbit-vip-basic-2
@@ -5170,7 +5290,7 @@ class CreateRabbitMQVipInstanceRequest(AbstractModel):
 
     @property
     def ClusterVersion(self):
-        r"""集群版本，不传默认为 3.8.30，可选值为 3.8.30 和 3.11.8
+        r"""集群版本，不传默认为 3.8.30，可选值为 3.8.30、3.11.8和3.13.7
         :rtype: str
         """
         return self._ClusterVersion
@@ -5586,7 +5706,7 @@ class CreateRocketMQEnvironmentRoleRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _EnvironmentId: 命名空间
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type EnvironmentId: str
         :param _RoleName: 角色名称。
         :type RoleName: str
@@ -5605,7 +5725,7 @@ class CreateRocketMQEnvironmentRoleRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""命名空间
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._EnvironmentId
@@ -5717,7 +5837,7 @@ class CreateRocketMQGroupRequest(AbstractModel):
         r"""
         :param _GroupId: Group名称，8~64个字符
         :type GroupId: str
-        :param _Namespaces: 命名空间，目前只支持单个命名空间
+        :param _Namespaces: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type Namespaces: list of str
         :param _ReadEnable: 是否开启消费
         :type ReadEnable: bool
@@ -5754,7 +5874,7 @@ class CreateRocketMQGroupRequest(AbstractModel):
 
     @property
     def Namespaces(self):
-        r"""命名空间，目前只支持单个命名空间
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: list of str
         """
         return self._Namespaces
@@ -6166,7 +6286,7 @@ class CreateRocketMQTopicRequest(AbstractModel):
         r"""
         :param _Topic: 主题名称，3-64个字符，只能包含字母、数字、“-”及“_”
         :type Topic: str
-        :param _Namespaces: 主题所在的命名空间，目前支持在单个命名空间下创建主题
+        :param _Namespaces: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type Namespaces: list of str
         :param _Type: 主题类型，可选值为Normal, GlobalOrder, PartitionedOrder, Transaction, DelayScheduled。Transaction仅在专享版支持。
         :type Type: str
@@ -6197,7 +6317,7 @@ class CreateRocketMQTopicRequest(AbstractModel):
 
     @property
     def Namespaces(self):
-        r"""主题所在的命名空间，目前支持在单个命名空间下创建主题
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: list of str
         """
         return self._Namespaces
@@ -6296,6 +6416,165 @@ class CreateRocketMQTopicResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateRocketMQTopicV2Request(AbstractModel):
+    r"""CreateRocketMQTopicV2请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Topic: 主题名称
+        :type Topic: str
+        :param _Type: 主题类型，可选值为Normal, GlobalOrder, PartitionedOrder, Transaction, DelayScheduled。Transaction仅在专享版支持。
+        :type Type: str
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _Namespace: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
+        :type Namespace: str
+        :param _Remark: 备注
+        :type Remark: str
+        :param _PartitionNum: 分区数，全局顺序无效
+        :type PartitionNum: int
+        :param _TagList: 标签列表
+        :type TagList: list of Tag
+        """
+        self._Topic = None
+        self._Type = None
+        self._ClusterId = None
+        self._Namespace = None
+        self._Remark = None
+        self._PartitionNum = None
+        self._TagList = None
+
+    @property
+    def Topic(self):
+        r"""主题名称
+        :rtype: str
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+    @property
+    def Type(self):
+        r"""主题类型，可选值为Normal, GlobalOrder, PartitionedOrder, Transaction, DelayScheduled。Transaction仅在专享版支持。
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def Namespace(self):
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
+        :rtype: str
+        """
+        return self._Namespace
+
+    @Namespace.setter
+    def Namespace(self, Namespace):
+        self._Namespace = Namespace
+
+    @property
+    def Remark(self):
+        r"""备注
+        :rtype: str
+        """
+        return self._Remark
+
+    @Remark.setter
+    def Remark(self, Remark):
+        self._Remark = Remark
+
+    @property
+    def PartitionNum(self):
+        r"""分区数，全局顺序无效
+        :rtype: int
+        """
+        return self._PartitionNum
+
+    @PartitionNum.setter
+    def PartitionNum(self, PartitionNum):
+        self._PartitionNum = PartitionNum
+
+    @property
+    def TagList(self):
+        r"""标签列表
+        :rtype: list of Tag
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
+
+
+    def _deserialize(self, params):
+        self._Topic = params.get("Topic")
+        self._Type = params.get("Type")
+        self._ClusterId = params.get("ClusterId")
+        self._Namespace = params.get("Namespace")
+        self._Remark = params.get("Remark")
+        self._PartitionNum = params.get("PartitionNum")
+        if params.get("TagList") is not None:
+            self._TagList = []
+            for item in params.get("TagList"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagList.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRocketMQTopicV2Response(AbstractModel):
+    r"""CreateRocketMQTopicV2返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class CreateRocketMQVipInstanceRequest(AbstractModel):
     r"""CreateRocketMQVipInstance请求参数结构体
 
@@ -6307,8 +6586,6 @@ class CreateRocketMQVipInstanceRequest(AbstractModel):
         :type Name: str
         :param _Spec: 集群规格，支持规格有 1.通用型:rocket-vip-basic-0; 2.基础型:rocket-vip-basic-1; 3.标准型:rocket-vip-basic-2; 4.高阶Ⅰ型:rocket-vip-basic-3; 5.高阶Ⅱ型:rocket-vip-basic-4
         :type Spec: str
-        :param _NodeCount: 节点数量，最小2，最大20
-        :type NodeCount: int
         :param _StorageSize: 单节点存储空间，GB为单位，最低200GB
         :type StorageSize: int
         :param _ZoneIds: 节点部署的区域ID列表，如广州一区，则是100001，具体可查询腾讯云官网
@@ -6317,6 +6594,10 @@ class CreateRocketMQVipInstanceRequest(AbstractModel):
         :type VpcInfo: :class:`tencentcloud.tdmq.v20200217.models.VpcInfo`
         :param _TimeSpan: 购买时长，月为单位
         :type TimeSpan: int
+        :param _NodeCount: 节点数量，创建专享集群时必填
+        :type NodeCount: int
+        :param _GeneralSkuCode: 通用集群规格标识，新购通用集群时必填，从 [DescribeRocketMQGeneralSKUs](https://cloud.tencent.com/document/api/1179/127066) 接口返回的 [GeneralSKU](https://cloud.tencent.com/document/api/1179/46089#GeneralSKU) 字段获取。
+        :type GeneralSkuCode: str
         :param _SupportsMigrateToCloud: 是否用于迁移上云，默认为false
         :type SupportsMigrateToCloud: bool
         :param _EnablePublic: 是否开启公网
@@ -6330,11 +6611,12 @@ class CreateRocketMQVipInstanceRequest(AbstractModel):
         """
         self._Name = None
         self._Spec = None
-        self._NodeCount = None
         self._StorageSize = None
         self._ZoneIds = None
         self._VpcInfo = None
         self._TimeSpan = None
+        self._NodeCount = None
+        self._GeneralSkuCode = None
         self._SupportsMigrateToCloud = None
         self._EnablePublic = None
         self._Bandwidth = None
@@ -6362,17 +6644,6 @@ class CreateRocketMQVipInstanceRequest(AbstractModel):
     @Spec.setter
     def Spec(self, Spec):
         self._Spec = Spec
-
-    @property
-    def NodeCount(self):
-        r"""节点数量，最小2，最大20
-        :rtype: int
-        """
-        return self._NodeCount
-
-    @NodeCount.setter
-    def NodeCount(self, NodeCount):
-        self._NodeCount = NodeCount
 
     @property
     def StorageSize(self):
@@ -6417,6 +6688,28 @@ class CreateRocketMQVipInstanceRequest(AbstractModel):
     @TimeSpan.setter
     def TimeSpan(self, TimeSpan):
         self._TimeSpan = TimeSpan
+
+    @property
+    def NodeCount(self):
+        r"""节点数量，创建专享集群时必填
+        :rtype: int
+        """
+        return self._NodeCount
+
+    @NodeCount.setter
+    def NodeCount(self, NodeCount):
+        self._NodeCount = NodeCount
+
+    @property
+    def GeneralSkuCode(self):
+        r"""通用集群规格标识，新购通用集群时必填，从 [DescribeRocketMQGeneralSKUs](https://cloud.tencent.com/document/api/1179/127066) 接口返回的 [GeneralSKU](https://cloud.tencent.com/document/api/1179/46089#GeneralSKU) 字段获取。
+        :rtype: str
+        """
+        return self._GeneralSkuCode
+
+    @GeneralSkuCode.setter
+    def GeneralSkuCode(self, GeneralSkuCode):
+        self._GeneralSkuCode = GeneralSkuCode
 
     @property
     def SupportsMigrateToCloud(self):
@@ -6477,13 +6770,14 @@ class CreateRocketMQVipInstanceRequest(AbstractModel):
     def _deserialize(self, params):
         self._Name = params.get("Name")
         self._Spec = params.get("Spec")
-        self._NodeCount = params.get("NodeCount")
         self._StorageSize = params.get("StorageSize")
         self._ZoneIds = params.get("ZoneIds")
         if params.get("VpcInfo") is not None:
             self._VpcInfo = VpcInfo()
             self._VpcInfo._deserialize(params.get("VpcInfo"))
         self._TimeSpan = params.get("TimeSpan")
+        self._NodeCount = params.get("NodeCount")
+        self._GeneralSkuCode = params.get("GeneralSkuCode")
         self._SupportsMigrateToCloud = params.get("SupportsMigrateToCloud")
         self._EnablePublic = params.get("EnablePublic")
         self._Bandwidth = params.get("Bandwidth")
@@ -6937,6 +7231,8 @@ class CreateTopicRequest(AbstractModel):
         :type IsolateConsumerEnable: bool
         :param _AckTimeOut: 消费者 Ack 超时时间，单位：秒，范围60-（3600*24）
         :type AckTimeOut: int
+        :param _PulsarTopicMessageType: Pulsar主题消息类型0: 混合消息1:普通消息2:延迟消息
+        :type PulsarTopicMessageType: int
         """
         self._EnvironmentId = None
         self._TopicName = None
@@ -6949,6 +7245,7 @@ class CreateTopicRequest(AbstractModel):
         self._UnackPolicy = None
         self._IsolateConsumerEnable = None
         self._AckTimeOut = None
+        self._PulsarTopicMessageType = None
 
     @property
     def EnvironmentId(self):
@@ -7080,6 +7377,17 @@ class CreateTopicRequest(AbstractModel):
     def AckTimeOut(self, AckTimeOut):
         self._AckTimeOut = AckTimeOut
 
+    @property
+    def PulsarTopicMessageType(self):
+        r"""Pulsar主题消息类型0: 混合消息1:普通消息2:延迟消息
+        :rtype: int
+        """
+        return self._PulsarTopicMessageType
+
+    @PulsarTopicMessageType.setter
+    def PulsarTopicMessageType(self, PulsarTopicMessageType):
+        self._PulsarTopicMessageType = PulsarTopicMessageType
+
 
     def _deserialize(self, params):
         self._EnvironmentId = params.get("EnvironmentId")
@@ -7093,6 +7401,7 @@ class CreateTopicRequest(AbstractModel):
         self._UnackPolicy = params.get("UnackPolicy")
         self._IsolateConsumerEnable = params.get("IsolateConsumerEnable")
         self._AckTimeOut = params.get("AckTimeOut")
+        self._PulsarTopicMessageType = params.get("PulsarTopicMessageType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8338,7 +8647,7 @@ class DeleteRocketMQEnvironmentRolesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _EnvironmentId: 环境（命名空间）名称。
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type EnvironmentId: str
         :param _RoleNames: 角色名称数组。
         :type RoleNames: list of str
@@ -8351,7 +8660,7 @@ class DeleteRocketMQEnvironmentRolesRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""环境（命名空间）名称。
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._EnvironmentId
@@ -8434,7 +8743,7 @@ class DeleteRocketMQGroupRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupId: 消费组名称
         :type GroupId: str
@@ -8456,7 +8765,7 @@ class DeleteRocketMQGroupRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -8701,7 +9010,7 @@ class DeleteRocketMQTopicRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _Topic: 主题名称
         :type Topic: str
@@ -8723,7 +9032,7 @@ class DeleteRocketMQTopicRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -10825,6 +11134,10 @@ class DescribeEnvironmentAttributesResponse(AbstractModel):
         :type Replicas: int
         :param _Remark: 备注。
         :type Remark: str
+        :param _SubscriptionExpirationTime: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTime: int
+        :param _SubscriptionExpirationTimeEnable: 离线订阅过期自动清理时间开关
+        :type SubscriptionExpirationTimeEnable: bool
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -10836,6 +11149,8 @@ class DescribeEnvironmentAttributesResponse(AbstractModel):
         self._EnvironmentId = None
         self._Replicas = None
         self._Remark = None
+        self._SubscriptionExpirationTime = None
+        self._SubscriptionExpirationTimeEnable = None
         self._RequestId = None
 
     @property
@@ -10927,6 +11242,28 @@ class DescribeEnvironmentAttributesResponse(AbstractModel):
         self._Remark = Remark
 
     @property
+    def SubscriptionExpirationTime(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: int
+        """
+        return self._SubscriptionExpirationTime
+
+    @SubscriptionExpirationTime.setter
+    def SubscriptionExpirationTime(self, SubscriptionExpirationTime):
+        self._SubscriptionExpirationTime = SubscriptionExpirationTime
+
+    @property
+    def SubscriptionExpirationTimeEnable(self):
+        r"""离线订阅过期自动清理时间开关
+        :rtype: bool
+        """
+        return self._SubscriptionExpirationTimeEnable
+
+    @SubscriptionExpirationTimeEnable.setter
+    def SubscriptionExpirationTimeEnable(self, SubscriptionExpirationTimeEnable):
+        self._SubscriptionExpirationTimeEnable = SubscriptionExpirationTimeEnable
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -10947,6 +11284,8 @@ class DescribeEnvironmentAttributesResponse(AbstractModel):
         self._EnvironmentId = params.get("EnvironmentId")
         self._Replicas = params.get("Replicas")
         self._Remark = params.get("Remark")
+        self._SubscriptionExpirationTime = params.get("SubscriptionExpirationTime")
+        self._SubscriptionExpirationTimeEnable = params.get("SubscriptionExpirationTimeEnable")
         self._RequestId = params.get("RequestId")
 
 
@@ -11624,6 +11963,12 @@ class DescribeMsgResponse(AbstractModel):
         :type MsgId: str
         :param _ProducerName: 生产者名称。
         :type ProducerName: str
+        :param _Key: 消息 key
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Key: str
+        :param _Metadata: 消息的元数据信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Metadata: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -11633,6 +11978,8 @@ class DescribeMsgResponse(AbstractModel):
         self._ProduceTime = None
         self._MsgId = None
         self._ProducerName = None
+        self._Key = None
+        self._Metadata = None
         self._RequestId = None
 
     @property
@@ -11702,6 +12049,30 @@ class DescribeMsgResponse(AbstractModel):
         self._ProducerName = ProducerName
 
     @property
+    def Key(self):
+        r"""消息 key
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Key
+
+    @Key.setter
+    def Key(self, Key):
+        self._Key = Key
+
+    @property
+    def Metadata(self):
+        r"""消息的元数据信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Metadata
+
+    @Metadata.setter
+    def Metadata(self, Metadata):
+        self._Metadata = Metadata
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -11720,6 +12091,8 @@ class DescribeMsgResponse(AbstractModel):
         self._ProduceTime = params.get("ProduceTime")
         self._MsgId = params.get("MsgId")
         self._ProducerName = params.get("ProducerName")
+        self._Key = params.get("Key")
+        self._Metadata = params.get("Metadata")
         self._RequestId = params.get("RequestId")
 
 
@@ -11744,6 +12117,8 @@ class DescribeMsgTraceRequest(AbstractModel):
         :type SubscriptionName: str
         :param _ClusterId: Pulsar 集群的ID
         :type ClusterId: str
+        :param _TopicName: topic 名字
+        :type TopicName: str
         """
         self._EnvironmentId = None
         self._MsgId = None
@@ -11752,6 +12127,7 @@ class DescribeMsgTraceRequest(AbstractModel):
         self._Limit = None
         self._SubscriptionName = None
         self._ClusterId = None
+        self._TopicName = None
 
     @property
     def EnvironmentId(self):
@@ -11830,6 +12206,17 @@ class DescribeMsgTraceRequest(AbstractModel):
     def ClusterId(self, ClusterId):
         self._ClusterId = ClusterId
 
+    @property
+    def TopicName(self):
+        r"""topic 名字
+        :rtype: str
+        """
+        return self._TopicName
+
+    @TopicName.setter
+    def TopicName(self, TopicName):
+        self._TopicName = TopicName
+
 
     def _deserialize(self, params):
         self._EnvironmentId = params.get("EnvironmentId")
@@ -11839,6 +12226,7 @@ class DescribeMsgTraceRequest(AbstractModel):
         self._Limit = params.get("Limit")
         self._SubscriptionName = params.get("SubscriptionName")
         self._ClusterId = params.get("ClusterId")
+        self._TopicName = params.get("TopicName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12594,14 +12982,14 @@ class DescribePulsarProInstanceDetailRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群id
         :type ClusterId: str
         """
         self._ClusterId = None
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群id
         :rtype: str
         """
         return self._ClusterId
@@ -12638,12 +13026,15 @@ class DescribePulsarProInstanceDetailResponse(AbstractModel):
         :param _ClusterSpecInfo: 集群规格信息
 注意：此字段可能返回 null，表示取不到有效值。
         :type ClusterSpecInfo: :class:`tencentcloud.tdmq.v20200217.models.PulsarProClusterSpecInfo`
+        :param _CertificateList: 集群的证书列表
+        :type CertificateList: list of CertificateInfo
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._ClusterInfo = None
         self._NetworkAccessPointInfos = None
         self._ClusterSpecInfo = None
+        self._CertificateList = None
         self._RequestId = None
 
     @property
@@ -12682,6 +13073,17 @@ class DescribePulsarProInstanceDetailResponse(AbstractModel):
         self._ClusterSpecInfo = ClusterSpecInfo
 
     @property
+    def CertificateList(self):
+        r"""集群的证书列表
+        :rtype: list of CertificateInfo
+        """
+        return self._CertificateList
+
+    @CertificateList.setter
+    def CertificateList(self, CertificateList):
+        self._CertificateList = CertificateList
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -12706,6 +13108,12 @@ class DescribePulsarProInstanceDetailResponse(AbstractModel):
         if params.get("ClusterSpecInfo") is not None:
             self._ClusterSpecInfo = PulsarProClusterSpecInfo()
             self._ClusterSpecInfo._deserialize(params.get("ClusterSpecInfo"))
+        if params.get("CertificateList") is not None:
+            self._CertificateList = []
+            for item in params.get("CertificateList"):
+                obj = CertificateInfo()
+                obj._deserialize(item)
+                self._CertificateList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -15525,7 +15933,7 @@ class DescribeRocketMQConsumeStatsRequest(AbstractModel):
         r"""
         :param _ClusterId: 实例ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _ConsumerGroup: 消费组
         :type ConsumerGroup: str
@@ -15547,7 +15955,7 @@ class DescribeRocketMQConsumeStatsRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -15639,7 +16047,7 @@ class DescribeRocketMQConsumerConnectionDetailRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupId: 消费组名称
         :type GroupId: str
@@ -15673,7 +16081,7 @@ class DescribeRocketMQConsumerConnectionDetailRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -15828,7 +16236,7 @@ class DescribeRocketMQConsumerConnectionsRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupId: 消费组ID
         :type GroupId: str
@@ -15862,7 +16270,7 @@ class DescribeRocketMQConsumerConnectionsRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -16036,7 +16444,8 @@ class DescribeRocketMQEnvironmentRolesRequest(AbstractModel):
         r"""
         :param _ClusterId: 必填字段，RocketMQ集群的ID
         :type ClusterId: str
-        :param _EnvironmentId: 命名空间
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
+
         :type EnvironmentId: str
         :param _Offset: 起始下标，不填默认为0。
         :type Offset: int
@@ -16067,7 +16476,8 @@ class DescribeRocketMQEnvironmentRolesRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""命名空间
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
+
         :rtype: str
         """
         return self._EnvironmentId
@@ -16150,9 +16560,9 @@ class DescribeRocketMQEnvironmentRolesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TotalCount: 记录数。
+        :param _TotalCount: 总数
         :type TotalCount: int
-        :param _EnvironmentRoleSets: 命名空间角色集合。
+        :param _EnvironmentRoleSets: 角色授权列表
         :type EnvironmentRoleSets: list of EnvironmentRole
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -16163,7 +16573,7 @@ class DescribeRocketMQEnvironmentRolesResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""记录数。
+        r"""总数
         :rtype: int
         """
         return self._TotalCount
@@ -16174,7 +16584,7 @@ class DescribeRocketMQEnvironmentRolesResponse(AbstractModel):
 
     @property
     def EnvironmentRoleSets(self):
-        r"""命名空间角色集合。
+        r"""角色授权列表
         :rtype: list of EnvironmentRole
         """
         return self._EnvironmentRoleSets
@@ -16206,6 +16616,60 @@ class DescribeRocketMQEnvironmentRolesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeRocketMQGeneralSKUsRequest(AbstractModel):
+    r"""DescribeRocketMQGeneralSKUs请求参数结构体
+
+    """
+
+
+class DescribeRocketMQGeneralSKUsResponse(AbstractModel):
+    r"""DescribeRocketMQGeneralSKUs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Skus: 商品配置信息
+        :type Skus: list of GeneralSKU
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Skus = None
+        self._RequestId = None
+
+    @property
+    def Skus(self):
+        r"""商品配置信息
+        :rtype: list of GeneralSKU
+        """
+        return self._Skus
+
+    @Skus.setter
+    def Skus(self, Skus):
+        self._Skus = Skus
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Skus") is not None:
+            self._Skus = []
+            for item in params.get("Skus"):
+                obj = GeneralSKU()
+                obj._deserialize(item)
+                self._Skus.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeRocketMQGroupsRequest(AbstractModel):
     r"""DescribeRocketMQGroups请求参数结构体
 
@@ -16215,11 +16679,11 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _Offset: 偏移量
         :type Offset: int
-        :param _Limit: 限制条数
+        :param _Limit: 单次查询最大条数。取值范围：[0~100]，默认值为20
         :type Limit: int
         :param _FilterTopic: 主题名称，输入此参数可查询该主题下所有的订阅组
         :type FilterTopic: str
@@ -16233,6 +16697,8 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
         :type FilterOneGroup: str
         :param _Types: group类型
         :type Types: list of str
+        :param _TagFilters: 标签过滤器
+        :type TagFilters: list of TagFilter
         """
         self._ClusterId = None
         self._NamespaceId = None
@@ -16244,6 +16710,7 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
         self._SortOrder = None
         self._FilterOneGroup = None
         self._Types = None
+        self._TagFilters = None
 
     @property
     def ClusterId(self):
@@ -16258,7 +16725,7 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -16280,7 +16747,7 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""限制条数
+        r"""单次查询最大条数。取值范围：[0~100]，默认值为20
         :rtype: int
         """
         return self._Limit
@@ -16355,6 +16822,17 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
     def Types(self, Types):
         self._Types = Types
 
+    @property
+    def TagFilters(self):
+        r"""标签过滤器
+        :rtype: list of TagFilter
+        """
+        return self._TagFilters
+
+    @TagFilters.setter
+    def TagFilters(self, TagFilters):
+        self._TagFilters = TagFilters
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -16367,6 +16845,12 @@ class DescribeRocketMQGroupsRequest(AbstractModel):
         self._SortOrder = params.get("SortOrder")
         self._FilterOneGroup = params.get("FilterOneGroup")
         self._Types = params.get("Types")
+        if params.get("TagFilters") is not None:
+            self._TagFilters = []
+            for item in params.get("TagFilters"):
+                obj = TagFilter()
+                obj._deserialize(item)
+                self._TagFilters.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16598,7 +17082,7 @@ class DescribeRocketMQMsgRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群id
         :type ClusterId: str
-        :param _EnvironmentId: 命名空间
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type EnvironmentId: str
         :param _TopicName: 主题，查询死信时传groupId
         :type TopicName: str
@@ -16641,7 +17125,7 @@ class DescribeRocketMQMsgRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""命名空间
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._EnvironmentId
@@ -16930,7 +17414,7 @@ class DescribeRocketMQMsgTraceRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群id
         :type ClusterId: str
-        :param _EnvironmentId: 命名空间
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type EnvironmentId: str
         :param _TopicName: 主题，rocketmq查询死信时值为groupId
         :type TopicName: str
@@ -16964,7 +17448,7 @@ class DescribeRocketMQMsgTraceRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""命名空间
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._EnvironmentId
@@ -17267,7 +17751,7 @@ class DescribeRocketMQProducersRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间
+        :param _NamespaceId: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _Topic: 主题名
         :type Topic: str
@@ -17301,7 +17785,7 @@ class DescribeRocketMQProducersRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -17450,9 +17934,12 @@ class DescribeRocketMQPublicAccessMonitorDataRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 专享集群ID
+        :param _InstanceId: 集群 ID
         :type InstanceId: str
-        :param _MetricName: 指标名称，仅支持单指标拉取。目前仅支持：ClientIntraffic; ClientOuttraffic
+        :param _MetricName: 指标名称，仅支持单指标拉取。指标枚举如下：
+
+- ClientIntraffic：入流量
+- ClientOuttraffic：出流量
         :type MetricName: str
         :param _StartTime: 起始时间
         :type StartTime: str
@@ -17469,7 +17956,7 @@ class DescribeRocketMQPublicAccessMonitorDataRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""专享集群ID
+        r"""集群 ID
         :rtype: str
         """
         return self._InstanceId
@@ -17480,7 +17967,10 @@ class DescribeRocketMQPublicAccessMonitorDataRequest(AbstractModel):
 
     @property
     def MetricName(self):
-        r"""指标名称，仅支持单指标拉取。目前仅支持：ClientIntraffic; ClientOuttraffic
+        r"""指标名称，仅支持单指标拉取。指标枚举如下：
+
+- ClientIntraffic：入流量
+- ClientOuttraffic：出流量
         :rtype: str
         """
         return self._MetricName
@@ -17982,9 +18472,9 @@ class DescribeRocketMQRolesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TotalCount: 记录数。
+        :param _TotalCount: 总数
         :type TotalCount: int
-        :param _RoleSets: 角色数组。
+        :param _RoleSets: 角色列表
         :type RoleSets: list of Role
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -17995,7 +18485,7 @@ class DescribeRocketMQRolesResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""记录数。
+        r"""总数
         :rtype: int
         """
         return self._TotalCount
@@ -18006,7 +18496,7 @@ class DescribeRocketMQRolesResponse(AbstractModel):
 
     @property
     def RoleSets(self):
-        r"""角色数组。
+        r"""角色列表
         :rtype: list of Role
         """
         return self._RoleSets
@@ -18035,150 +18525,6 @@ class DescribeRocketMQRolesResponse(AbstractModel):
                 obj = Role()
                 obj._deserialize(item)
                 self._RoleSets.append(obj)
-        self._RequestId = params.get("RequestId")
-
-
-class DescribeRocketMQSmoothMigrationTaskListRequest(AbstractModel):
-    r"""DescribeRocketMQSmoothMigrationTaskList请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Offset: 查询起始偏移量
-        :type Offset: int
-        :param _Limit: 查询最大数量
-        :type Limit: int
-        :param _Filters: 查询过滤器，
-支持的字段如下
-TaskStatus, 支持多选
-ConnectionType，支持多选
-ClusterId，精确搜索
-TaskName，支持模糊搜索
-        :type Filters: list of Filter
-        """
-        self._Offset = None
-        self._Limit = None
-        self._Filters = None
-
-    @property
-    def Offset(self):
-        r"""查询起始偏移量
-        :rtype: int
-        """
-        return self._Offset
-
-    @Offset.setter
-    def Offset(self, Offset):
-        self._Offset = Offset
-
-    @property
-    def Limit(self):
-        r"""查询最大数量
-        :rtype: int
-        """
-        return self._Limit
-
-    @Limit.setter
-    def Limit(self, Limit):
-        self._Limit = Limit
-
-    @property
-    def Filters(self):
-        r"""查询过滤器，
-支持的字段如下
-TaskStatus, 支持多选
-ConnectionType，支持多选
-ClusterId，精确搜索
-TaskName，支持模糊搜索
-        :rtype: list of Filter
-        """
-        return self._Filters
-
-    @Filters.setter
-    def Filters(self, Filters):
-        self._Filters = Filters
-
-
-    def _deserialize(self, params):
-        self._Offset = params.get("Offset")
-        self._Limit = params.get("Limit")
-        if params.get("Filters") is not None:
-            self._Filters = []
-            for item in params.get("Filters"):
-                obj = Filter()
-                obj._deserialize(item)
-                self._Filters.append(obj)
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DescribeRocketMQSmoothMigrationTaskListResponse(AbstractModel):
-    r"""DescribeRocketMQSmoothMigrationTaskList返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _TotalCount: 任务总数
-        :type TotalCount: int
-        :param _Data: 任务列表
-        :type Data: list of RocketMQSmoothMigrationTaskItem
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._TotalCount = None
-        self._Data = None
-        self._RequestId = None
-
-    @property
-    def TotalCount(self):
-        r"""任务总数
-        :rtype: int
-        """
-        return self._TotalCount
-
-    @TotalCount.setter
-    def TotalCount(self, TotalCount):
-        self._TotalCount = TotalCount
-
-    @property
-    def Data(self):
-        r"""任务列表
-        :rtype: list of RocketMQSmoothMigrationTaskItem
-        """
-        return self._Data
-
-    @Data.setter
-    def Data(self, Data):
-        self._Data = Data
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._TotalCount = params.get("TotalCount")
-        if params.get("Data") is not None:
-            self._Data = []
-            for item in params.get("Data"):
-                obj = RocketMQSmoothMigrationTaskItem()
-                obj._deserialize(item)
-                self._Data.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -18533,308 +18879,6 @@ Cancelled 已取消
         self._RequestId = params.get("RequestId")
 
 
-class DescribeRocketMQSourceClusterGroupListRequest(AbstractModel):
-    r"""DescribeRocketMQSourceClusterGroupList请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Limit: 页大小
-        :type Limit: int
-        :param _Offset: 偏移量
-        :type Offset: int
-        :param _TaskId: 迁移任务名称
-        :type TaskId: str
-        :param _Filters: 查询过滤器，支持字段groupName，imported
-        :type Filters: list of Filter
-        """
-        self._Limit = None
-        self._Offset = None
-        self._TaskId = None
-        self._Filters = None
-
-    @property
-    def Limit(self):
-        r"""页大小
-        :rtype: int
-        """
-        return self._Limit
-
-    @Limit.setter
-    def Limit(self, Limit):
-        self._Limit = Limit
-
-    @property
-    def Offset(self):
-        r"""偏移量
-        :rtype: int
-        """
-        return self._Offset
-
-    @Offset.setter
-    def Offset(self, Offset):
-        self._Offset = Offset
-
-    @property
-    def TaskId(self):
-        r"""迁移任务名称
-        :rtype: str
-        """
-        return self._TaskId
-
-    @TaskId.setter
-    def TaskId(self, TaskId):
-        self._TaskId = TaskId
-
-    @property
-    def Filters(self):
-        r"""查询过滤器，支持字段groupName，imported
-        :rtype: list of Filter
-        """
-        return self._Filters
-
-    @Filters.setter
-    def Filters(self, Filters):
-        self._Filters = Filters
-
-
-    def _deserialize(self, params):
-        self._Limit = params.get("Limit")
-        self._Offset = params.get("Offset")
-        self._TaskId = params.get("TaskId")
-        if params.get("Filters") is not None:
-            self._Filters = []
-            for item in params.get("Filters"):
-                obj = Filter()
-                obj._deserialize(item)
-                self._Filters.append(obj)
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DescribeRocketMQSourceClusterGroupListResponse(AbstractModel):
-    r"""DescribeRocketMQSourceClusterGroupList返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Groups: group列表
-        :type Groups: list of RocketMQGroupConfigOutput
-        :param _TotalCount: 总条数
-        :type TotalCount: int
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._Groups = None
-        self._TotalCount = None
-        self._RequestId = None
-
-    @property
-    def Groups(self):
-        r"""group列表
-        :rtype: list of RocketMQGroupConfigOutput
-        """
-        return self._Groups
-
-    @Groups.setter
-    def Groups(self, Groups):
-        self._Groups = Groups
-
-    @property
-    def TotalCount(self):
-        r"""总条数
-        :rtype: int
-        """
-        return self._TotalCount
-
-    @TotalCount.setter
-    def TotalCount(self, TotalCount):
-        self._TotalCount = TotalCount
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("Groups") is not None:
-            self._Groups = []
-            for item in params.get("Groups"):
-                obj = RocketMQGroupConfigOutput()
-                obj._deserialize(item)
-                self._Groups.append(obj)
-        self._TotalCount = params.get("TotalCount")
-        self._RequestId = params.get("RequestId")
-
-
-class DescribeRocketMQSourceClusterTopicListRequest(AbstractModel):
-    r"""DescribeRocketMQSourceClusterTopicList请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Limit: 分页大小
-        :type Limit: int
-        :param _Offset: 偏移量
-        :type Offset: int
-        :param _TaskId: 迁移任务名
-        :type TaskId: str
-        :param _Filters: 查询过滤器，支持字段如下
-TopicName,
-Type，Imported
-        :type Filters: list of Filter
-        """
-        self._Limit = None
-        self._Offset = None
-        self._TaskId = None
-        self._Filters = None
-
-    @property
-    def Limit(self):
-        r"""分页大小
-        :rtype: int
-        """
-        return self._Limit
-
-    @Limit.setter
-    def Limit(self, Limit):
-        self._Limit = Limit
-
-    @property
-    def Offset(self):
-        r"""偏移量
-        :rtype: int
-        """
-        return self._Offset
-
-    @Offset.setter
-    def Offset(self, Offset):
-        self._Offset = Offset
-
-    @property
-    def TaskId(self):
-        r"""迁移任务名
-        :rtype: str
-        """
-        return self._TaskId
-
-    @TaskId.setter
-    def TaskId(self, TaskId):
-        self._TaskId = TaskId
-
-    @property
-    def Filters(self):
-        r"""查询过滤器，支持字段如下
-TopicName,
-Type，Imported
-        :rtype: list of Filter
-        """
-        return self._Filters
-
-    @Filters.setter
-    def Filters(self, Filters):
-        self._Filters = Filters
-
-
-    def _deserialize(self, params):
-        self._Limit = params.get("Limit")
-        self._Offset = params.get("Offset")
-        self._TaskId = params.get("TaskId")
-        if params.get("Filters") is not None:
-            self._Filters = []
-            for item in params.get("Filters"):
-                obj = Filter()
-                obj._deserialize(item)
-                self._Filters.append(obj)
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DescribeRocketMQSourceClusterTopicListResponse(AbstractModel):
-    r"""DescribeRocketMQSourceClusterTopicList返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Topics: topic层列表
-        :type Topics: list of RocketMQTopicConfigOutput
-        :param _TotalCount: 总条数
-        :type TotalCount: int
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._Topics = None
-        self._TotalCount = None
-        self._RequestId = None
-
-    @property
-    def Topics(self):
-        r"""topic层列表
-        :rtype: list of RocketMQTopicConfigOutput
-        """
-        return self._Topics
-
-    @Topics.setter
-    def Topics(self, Topics):
-        self._Topics = Topics
-
-    @property
-    def TotalCount(self):
-        r"""总条数
-        :rtype: int
-        """
-        return self._TotalCount
-
-    @TotalCount.setter
-    def TotalCount(self, TotalCount):
-        self._TotalCount = TotalCount
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("Topics") is not None:
-            self._Topics = []
-            for item in params.get("Topics"):
-                obj = RocketMQTopicConfigOutput()
-                obj._deserialize(item)
-                self._Topics.append(obj)
-        self._TotalCount = params.get("TotalCount")
-        self._RequestId = params.get("RequestId")
-
-
 class DescribeRocketMQSubscriptionsRequest(AbstractModel):
     r"""DescribeRocketMQSubscriptions请求参数结构体
 
@@ -18844,7 +18888,7 @@ class DescribeRocketMQSubscriptionsRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _Namespace: 命名空间名称
+        :param _Namespace: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type Namespace: str
         :param _Group: 消费组名称
         :type Group: str
@@ -18872,7 +18916,7 @@ class DescribeRocketMQSubscriptionsRequest(AbstractModel):
 
     @property
     def Namespace(self):
-        r"""命名空间名称
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._Namespace
@@ -19148,7 +19192,7 @@ class DescribeRocketMQTopicMsgsRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群 ID
         :type ClusterId: str
-        :param _EnvironmentId: 命名空间
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type EnvironmentId: str
         :param _TopicName: 主题名称，查询死信时为groupId
         :type TopicName: str
@@ -19203,7 +19247,7 @@ class DescribeRocketMQTopicMsgsRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""命名空间
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._EnvironmentId
@@ -19454,6 +19498,162 @@ class DescribeRocketMQTopicMsgsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeRocketMQTopicRequest(AbstractModel):
+    r"""DescribeRocketMQTopic请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _NamespaceId: 命名空间
+        :type NamespaceId: str
+        :param _TopicName: 主题名称
+        :type TopicName: str
+        :param _ConsumerGroup: 消费组名称
+        :type ConsumerGroup: str
+        :param _Offset: 订阅列表分页参数Offset
+        :type Offset: int
+        :param _Limit: 订阅列表分页参数Limit
+        :type Limit: int
+        """
+        self._ClusterId = None
+        self._NamespaceId = None
+        self._TopicName = None
+        self._ConsumerGroup = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def NamespaceId(self):
+        r"""命名空间
+        :rtype: str
+        """
+        return self._NamespaceId
+
+    @NamespaceId.setter
+    def NamespaceId(self, NamespaceId):
+        self._NamespaceId = NamespaceId
+
+    @property
+    def TopicName(self):
+        r"""主题名称
+        :rtype: str
+        """
+        return self._TopicName
+
+    @TopicName.setter
+    def TopicName(self, TopicName):
+        self._TopicName = TopicName
+
+    @property
+    def ConsumerGroup(self):
+        r"""消费组名称
+        :rtype: str
+        """
+        return self._ConsumerGroup
+
+    @ConsumerGroup.setter
+    def ConsumerGroup(self, ConsumerGroup):
+        self._ConsumerGroup = ConsumerGroup
+
+    @property
+    def Offset(self):
+        r"""订阅列表分页参数Offset
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""订阅列表分页参数Limit
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._NamespaceId = params.get("NamespaceId")
+        self._TopicName = params.get("TopicName")
+        self._ConsumerGroup = params.get("ConsumerGroup")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRocketMQTopicResponse(AbstractModel):
+    r"""DescribeRocketMQTopic返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Topic: Topic详情
+        :type Topic: :class:`tencentcloud.tdmq.v20200217.models.RocketMQTopic`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Topic = None
+        self._RequestId = None
+
+    @property
+    def Topic(self):
+        r"""Topic详情
+        :rtype: :class:`tencentcloud.tdmq.v20200217.models.RocketMQTopic`
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Topic") is not None:
+            self._Topic = RocketMQTopic()
+            self._Topic._deserialize(params.get("Topic"))
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeRocketMQTopicStatsRequest(AbstractModel):
     r"""DescribeRocketMQTopicStats请求参数结构体
 
@@ -19463,7 +19663,7 @@ class DescribeRocketMQTopicStatsRequest(AbstractModel):
         r"""
         :param _ClusterId: 实例ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间
+        :param _NamespaceId: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _TopicName: 主题名
         :type TopicName: str
@@ -19485,7 +19685,7 @@ class DescribeRocketMQTopicStatsRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -19577,7 +19777,7 @@ class DescribeRocketMQTopicsByGroupRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupId: 消费组名称
         :type GroupId: str
@@ -19605,7 +19805,7 @@ class DescribeRocketMQTopicsByGroupRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -19735,7 +19935,7 @@ class DescribeRocketMQTopicsRequest(AbstractModel):
         :type Limit: int
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间
+        :param _NamespaceId: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _FilterType: 按主题类型过滤查询结果，可选择Normal, GlobalOrder, PartitionedOrder, Transaction
         :type FilterType: list of str
@@ -19743,6 +19943,8 @@ class DescribeRocketMQTopicsRequest(AbstractModel):
         :type FilterName: str
         :param _FilterGroup: 按订阅消费组名称过滤
         :type FilterGroup: str
+        :param _TagFilters: 标签过滤器
+        :type TagFilters: list of TagFilter
         """
         self._Offset = None
         self._Limit = None
@@ -19751,6 +19953,7 @@ class DescribeRocketMQTopicsRequest(AbstractModel):
         self._FilterType = None
         self._FilterName = None
         self._FilterGroup = None
+        self._TagFilters = None
 
     @property
     def Offset(self):
@@ -19787,7 +19990,7 @@ class DescribeRocketMQTopicsRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -19829,6 +20032,17 @@ class DescribeRocketMQTopicsRequest(AbstractModel):
     def FilterGroup(self, FilterGroup):
         self._FilterGroup = FilterGroup
 
+    @property
+    def TagFilters(self):
+        r"""标签过滤器
+        :rtype: list of TagFilter
+        """
+        return self._TagFilters
+
+    @TagFilters.setter
+    def TagFilters(self, TagFilters):
+        self._TagFilters = TagFilters
+
 
     def _deserialize(self, params):
         self._Offset = params.get("Offset")
@@ -19838,6 +20052,12 @@ class DescribeRocketMQTopicsRequest(AbstractModel):
         self._FilterType = params.get("FilterType")
         self._FilterName = params.get("FilterName")
         self._FilterGroup = params.get("FilterGroup")
+        if params.get("TagFilters") is not None:
+            self._TagFilters = []
+            for item in params.get("TagFilters"):
+                obj = TagFilter()
+                obj._deserialize(item)
+                self._TagFilters.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20957,7 +21177,10 @@ class DetailedRolePerm(AbstractModel):
         :type PermWrite: bool
         :param _PermRead: 是否开启消费权限
         :type PermRead: bool
-        :param _ResourceType: 授权资源类型（Topic:主题; Group:消费组）
+        :param _ResourceType: 授权资源类型，枚举值如下：
+- Topic：主题维度
+- Group：消费组维度
+- Cluster：集群维度（默认值）
         :type ResourceType: str
         :param _Remark: 资源备注
         :type Remark: str
@@ -21003,7 +21226,10 @@ class DetailedRolePerm(AbstractModel):
 
     @property
     def ResourceType(self):
-        r"""授权资源类型（Topic:主题; Group:消费组）
+        r"""授权资源类型，枚举值如下：
+- Topic：主题维度
+- Group：消费组维度
+- Cluster：集群维度（默认值）
         :rtype: str
         """
         return self._ResourceType
@@ -21168,6 +21394,10 @@ class Environment(AbstractModel):
         :param _AutoSubscriptionCreation: 是否自动创建订阅
 注意：此字段可能返回 null，表示取不到有效值。
         :type AutoSubscriptionCreation: bool
+        :param _SubscriptionExpirationTime: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTime: int
+        :param _SubscriptionExpirationTimeEnable: 离线订阅过期自动清理时间开关
+        :type SubscriptionExpirationTimeEnable: bool
         """
         self._EnvironmentId = None
         self._Remark = None
@@ -21179,6 +21409,8 @@ class Environment(AbstractModel):
         self._TopicNum = None
         self._RetentionPolicy = None
         self._AutoSubscriptionCreation = None
+        self._SubscriptionExpirationTime = None
+        self._SubscriptionExpirationTimeEnable = None
 
     @property
     def EnvironmentId(self):
@@ -21293,6 +21525,28 @@ class Environment(AbstractModel):
     def AutoSubscriptionCreation(self, AutoSubscriptionCreation):
         self._AutoSubscriptionCreation = AutoSubscriptionCreation
 
+    @property
+    def SubscriptionExpirationTime(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: int
+        """
+        return self._SubscriptionExpirationTime
+
+    @SubscriptionExpirationTime.setter
+    def SubscriptionExpirationTime(self, SubscriptionExpirationTime):
+        self._SubscriptionExpirationTime = SubscriptionExpirationTime
+
+    @property
+    def SubscriptionExpirationTimeEnable(self):
+        r"""离线订阅过期自动清理时间开关
+        :rtype: bool
+        """
+        return self._SubscriptionExpirationTimeEnable
+
+    @SubscriptionExpirationTimeEnable.setter
+    def SubscriptionExpirationTimeEnable(self, SubscriptionExpirationTimeEnable):
+        self._SubscriptionExpirationTimeEnable = SubscriptionExpirationTimeEnable
+
 
     def _deserialize(self, params):
         self._EnvironmentId = params.get("EnvironmentId")
@@ -21307,6 +21561,8 @@ class Environment(AbstractModel):
             self._RetentionPolicy = RetentionPolicy()
             self._RetentionPolicy._deserialize(params.get("RetentionPolicy"))
         self._AutoSubscriptionCreation = params.get("AutoSubscriptionCreation")
+        self._SubscriptionExpirationTime = params.get("SubscriptionExpirationTime")
+        self._SubscriptionExpirationTimeEnable = params.get("SubscriptionExpirationTimeEnable")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -22028,6 +22284,137 @@ class FilterSubscription(AbstractModel):
         
 
 
+class GeneralSKU(AbstractModel):
+    r"""通用集群售卖信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SkuCode: 规格标识
+        :type SkuCode: str
+        :param _OnSale: 是否可售卖
+        :type OnSale: bool
+        :param _TpsLimit: TPS上限
+        :type TpsLimit: int
+        :param _TopicNumLimit: 主题数免费额度
+        :type TopicNumLimit: int
+        :param _TopicNumUpperLimit: 主题数上限
+        :type TopicNumUpperLimit: int
+        :param _PriceTags: 计费项信息
+        :type PriceTags: list of PriceTag
+        :param _NodeCount: 存储节点个数
+        :type NodeCount: int
+        """
+        self._SkuCode = None
+        self._OnSale = None
+        self._TpsLimit = None
+        self._TopicNumLimit = None
+        self._TopicNumUpperLimit = None
+        self._PriceTags = None
+        self._NodeCount = None
+
+    @property
+    def SkuCode(self):
+        r"""规格标识
+        :rtype: str
+        """
+        return self._SkuCode
+
+    @SkuCode.setter
+    def SkuCode(self, SkuCode):
+        self._SkuCode = SkuCode
+
+    @property
+    def OnSale(self):
+        r"""是否可售卖
+        :rtype: bool
+        """
+        return self._OnSale
+
+    @OnSale.setter
+    def OnSale(self, OnSale):
+        self._OnSale = OnSale
+
+    @property
+    def TpsLimit(self):
+        r"""TPS上限
+        :rtype: int
+        """
+        return self._TpsLimit
+
+    @TpsLimit.setter
+    def TpsLimit(self, TpsLimit):
+        self._TpsLimit = TpsLimit
+
+    @property
+    def TopicNumLimit(self):
+        r"""主题数免费额度
+        :rtype: int
+        """
+        return self._TopicNumLimit
+
+    @TopicNumLimit.setter
+    def TopicNumLimit(self, TopicNumLimit):
+        self._TopicNumLimit = TopicNumLimit
+
+    @property
+    def TopicNumUpperLimit(self):
+        r"""主题数上限
+        :rtype: int
+        """
+        return self._TopicNumUpperLimit
+
+    @TopicNumUpperLimit.setter
+    def TopicNumUpperLimit(self, TopicNumUpperLimit):
+        self._TopicNumUpperLimit = TopicNumUpperLimit
+
+    @property
+    def PriceTags(self):
+        r"""计费项信息
+        :rtype: list of PriceTag
+        """
+        return self._PriceTags
+
+    @PriceTags.setter
+    def PriceTags(self, PriceTags):
+        self._PriceTags = PriceTags
+
+    @property
+    def NodeCount(self):
+        r"""存储节点个数
+        :rtype: int
+        """
+        return self._NodeCount
+
+    @NodeCount.setter
+    def NodeCount(self, NodeCount):
+        self._NodeCount = NodeCount
+
+
+    def _deserialize(self, params):
+        self._SkuCode = params.get("SkuCode")
+        self._OnSale = params.get("OnSale")
+        self._TpsLimit = params.get("TpsLimit")
+        self._TopicNumLimit = params.get("TopicNumLimit")
+        self._TopicNumUpperLimit = params.get("TopicNumUpperLimit")
+        if params.get("PriceTags") is not None:
+            self._PriceTags = []
+            for item in params.get("PriceTags"):
+                obj = PriceTag()
+                obj._deserialize(item)
+                self._PriceTags.append(obj)
+        self._NodeCount = params.get("NodeCount")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class GetTopicListRequest(AbstractModel):
     r"""GetTopicList请求参数结构体
 
@@ -22493,6 +22880,10 @@ class InternalTenant(AbstractModel):
         :param _PublicAccessEnabled: public Access Enabled
 注意：此字段可能返回 null，表示取不到有效值。
         :type PublicAccessEnabled: bool
+        :param _TagList: 实例标签列表
+        :type TagList: list of str
+        :param _TenantSpec: 实例规格
+        :type TenantSpec: str
         """
         self._TenantId = None
         self._TenantName = None
@@ -22516,6 +22907,8 @@ class InternalTenant(AbstractModel):
         self._MaxPublishRateInBytes = None
         self._MaxRetentionSizeInMB = None
         self._PublicAccessEnabled = None
+        self._TagList = None
+        self._TenantSpec = None
 
     @property
     def TenantId(self):
@@ -22763,6 +23156,28 @@ class InternalTenant(AbstractModel):
     def PublicAccessEnabled(self, PublicAccessEnabled):
         self._PublicAccessEnabled = PublicAccessEnabled
 
+    @property
+    def TagList(self):
+        r"""实例标签列表
+        :rtype: list of str
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
+
+    @property
+    def TenantSpec(self):
+        r"""实例规格
+        :rtype: str
+        """
+        return self._TenantSpec
+
+    @TenantSpec.setter
+    def TenantSpec(self, TenantSpec):
+        self._TenantSpec = TenantSpec
+
 
     def _deserialize(self, params):
         self._TenantId = params.get("TenantId")
@@ -22787,6 +23202,8 @@ class InternalTenant(AbstractModel):
         self._MaxPublishRateInBytes = params.get("MaxPublishRateInBytes")
         self._MaxRetentionSizeInMB = params.get("MaxRetentionSizeInMB")
         self._PublicAccessEnabled = params.get("PublicAccessEnabled")
+        self._TagList = params.get("TagList")
+        self._TenantSpec = params.get("TenantSpec")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -23621,6 +24038,10 @@ class ModifyEnvironmentAttributesRequest(AbstractModel):
         :type RetentionPolicy: :class:`tencentcloud.tdmq.v20200217.models.RetentionPolicy`
         :param _AutoSubscriptionCreation: 是否开启自动创建订阅
         :type AutoSubscriptionCreation: bool
+        :param _SubscriptionExpirationTime: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTime: int
+        :param _SubscriptionExpirationTimeEnable: 离线订阅过期自动清理时间开关
+        :type SubscriptionExpirationTimeEnable: bool
         """
         self._EnvironmentId = None
         self._MsgTTL = None
@@ -23628,6 +24049,8 @@ class ModifyEnvironmentAttributesRequest(AbstractModel):
         self._Remark = None
         self._RetentionPolicy = None
         self._AutoSubscriptionCreation = None
+        self._SubscriptionExpirationTime = None
+        self._SubscriptionExpirationTimeEnable = None
 
     @property
     def EnvironmentId(self):
@@ -23695,6 +24118,28 @@ class ModifyEnvironmentAttributesRequest(AbstractModel):
     def AutoSubscriptionCreation(self, AutoSubscriptionCreation):
         self._AutoSubscriptionCreation = AutoSubscriptionCreation
 
+    @property
+    def SubscriptionExpirationTime(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: int
+        """
+        return self._SubscriptionExpirationTime
+
+    @SubscriptionExpirationTime.setter
+    def SubscriptionExpirationTime(self, SubscriptionExpirationTime):
+        self._SubscriptionExpirationTime = SubscriptionExpirationTime
+
+    @property
+    def SubscriptionExpirationTimeEnable(self):
+        r"""离线订阅过期自动清理时间开关
+        :rtype: bool
+        """
+        return self._SubscriptionExpirationTimeEnable
+
+    @SubscriptionExpirationTimeEnable.setter
+    def SubscriptionExpirationTimeEnable(self, SubscriptionExpirationTimeEnable):
+        self._SubscriptionExpirationTimeEnable = SubscriptionExpirationTimeEnable
+
 
     def _deserialize(self, params):
         self._EnvironmentId = params.get("EnvironmentId")
@@ -23705,6 +24150,8 @@ class ModifyEnvironmentAttributesRequest(AbstractModel):
             self._RetentionPolicy = RetentionPolicy()
             self._RetentionPolicy._deserialize(params.get("RetentionPolicy"))
         self._AutoSubscriptionCreation = params.get("AutoSubscriptionCreation")
+        self._SubscriptionExpirationTime = params.get("SubscriptionExpirationTime")
+        self._SubscriptionExpirationTimeEnable = params.get("SubscriptionExpirationTimeEnable")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -23732,6 +24179,10 @@ class ModifyEnvironmentAttributesResponse(AbstractModel):
         :param _NamespaceId: 命名空间ID
 注意：此字段可能返回 null，表示取不到有效值。
         :type NamespaceId: str
+        :param _SubscriptionExpirationTime: 离线订阅过期自动清理时间
+        :type SubscriptionExpirationTime: int
+        :param _SubscriptionExpirationTimeEnable: 离线订阅过期自动清理时间开关
+        :type SubscriptionExpirationTimeEnable: bool
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -23739,6 +24190,8 @@ class ModifyEnvironmentAttributesResponse(AbstractModel):
         self._MsgTTL = None
         self._Remark = None
         self._NamespaceId = None
+        self._SubscriptionExpirationTime = None
+        self._SubscriptionExpirationTimeEnable = None
         self._RequestId = None
 
     @property
@@ -23788,6 +24241,28 @@ class ModifyEnvironmentAttributesResponse(AbstractModel):
         self._NamespaceId = NamespaceId
 
     @property
+    def SubscriptionExpirationTime(self):
+        r"""离线订阅过期自动清理时间
+        :rtype: int
+        """
+        return self._SubscriptionExpirationTime
+
+    @SubscriptionExpirationTime.setter
+    def SubscriptionExpirationTime(self, SubscriptionExpirationTime):
+        self._SubscriptionExpirationTime = SubscriptionExpirationTime
+
+    @property
+    def SubscriptionExpirationTimeEnable(self):
+        r"""离线订阅过期自动清理时间开关
+        :rtype: bool
+        """
+        return self._SubscriptionExpirationTimeEnable
+
+    @SubscriptionExpirationTimeEnable.setter
+    def SubscriptionExpirationTimeEnable(self, SubscriptionExpirationTimeEnable):
+        self._SubscriptionExpirationTimeEnable = SubscriptionExpirationTimeEnable
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -23804,6 +24279,8 @@ class ModifyEnvironmentAttributesResponse(AbstractModel):
         self._MsgTTL = params.get("MsgTTL")
         self._Remark = params.get("Remark")
         self._NamespaceId = params.get("NamespaceId")
+        self._SubscriptionExpirationTime = params.get("SubscriptionExpirationTime")
+        self._SubscriptionExpirationTimeEnable = params.get("SubscriptionExpirationTimeEnable")
         self._RequestId = params.get("RequestId")
 
 
@@ -24178,7 +24655,7 @@ class ModifyRabbitMQUserRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID，形如 amqp-xxxxxxxx。有效的 InstanceId 可通过登录 [TDMQ RabbitMQ 控制台](https://console.cloud.tencent.com/trabbitmq/cluster?rid=1)查询。
         :type InstanceId: str
-        :param _User: 用户名，形如 admin。有效的 User 名称可通过登录 [TDMQ RabbitMQ 控制台](https://console.cloud.tencent.com/trabbitmq/cluster?rid=1)查询，点击集群列表中的集群，进入集群详情，并在用户与权限页签中找到用户列表，从而找到用户名称。
+        :param _User: 用户名，形如rabbitmq。有效的 User 名称可通过登录 [TDMQ RabbitMQ 控制台](https://console.cloud.tencent.com/trabbitmq/cluster?rid=1)查询，点击集群列表中的集群，进入集群详情，并在用户与权限页签中找到用户列表，从而找到用户名称。当前不支持修改admin的密码。
         :type User: str
         :param _Password: 密码，登录时使用。规范：不能为空，8-64个字符，至少要包含小写字母、大写字母、数字、特殊字符【()`~!@#$%^&*_=|{}[]:;',.?/】中的两项
         :type Password: str
@@ -24213,7 +24690,7 @@ management：普通控制台用户，monitoring：管理型控制台用户，其
 
     @property
     def User(self):
-        r"""用户名，形如 admin。有效的 User 名称可通过登录 [TDMQ RabbitMQ 控制台](https://console.cloud.tencent.com/trabbitmq/cluster?rid=1)查询，点击集群列表中的集群，进入集群详情，并在用户与权限页签中找到用户列表，从而找到用户名称。
+        r"""用户名，形如rabbitmq。有效的 User 名称可通过登录 [TDMQ RabbitMQ 控制台](https://console.cloud.tencent.com/trabbitmq/cluster?rid=1)查询，点击集群列表中的集群，进入集群详情，并在用户与权限页签中找到用户列表，从而找到用户名称。当前不支持修改admin的密码。
         :rtype: str
         """
         return self._User
@@ -24340,11 +24817,20 @@ class ModifyRabbitMQVipInstanceRequest(AbstractModel):
         :type Remark: str
         :param _EnableDeletionProtection: 是否开启删除保护，不填则不修改
         :type EnableDeletionProtection: bool
+        :param _RemoveAllTags: 是否删除所有标签，默认为false
+        :type RemoveAllTags: bool
+        :param _Tags: 修改实例的标签信息，全量标签信息，非增量
+        :type Tags: list of Tag
+        :param _EnableRiskWarning: 是否开启集群风险提示
+        :type EnableRiskWarning: bool
         """
         self._InstanceId = None
         self._ClusterName = None
         self._Remark = None
         self._EnableDeletionProtection = None
+        self._RemoveAllTags = None
+        self._Tags = None
+        self._EnableRiskWarning = None
 
     @property
     def InstanceId(self):
@@ -24390,12 +24876,53 @@ class ModifyRabbitMQVipInstanceRequest(AbstractModel):
     def EnableDeletionProtection(self, EnableDeletionProtection):
         self._EnableDeletionProtection = EnableDeletionProtection
 
+    @property
+    def RemoveAllTags(self):
+        r"""是否删除所有标签，默认为false
+        :rtype: bool
+        """
+        return self._RemoveAllTags
+
+    @RemoveAllTags.setter
+    def RemoveAllTags(self, RemoveAllTags):
+        self._RemoveAllTags = RemoveAllTags
+
+    @property
+    def Tags(self):
+        r"""修改实例的标签信息，全量标签信息，非增量
+        :rtype: list of Tag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def EnableRiskWarning(self):
+        r"""是否开启集群风险提示
+        :rtype: bool
+        """
+        return self._EnableRiskWarning
+
+    @EnableRiskWarning.setter
+    def EnableRiskWarning(self, EnableRiskWarning):
+        self._EnableRiskWarning = EnableRiskWarning
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._ClusterName = params.get("ClusterName")
         self._Remark = params.get("Remark")
         self._EnableDeletionProtection = params.get("EnableDeletionProtection")
+        self._RemoveAllTags = params.get("RemoveAllTags")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._EnableRiskWarning = params.get("EnableRiskWarning")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -24674,7 +25201,7 @@ class ModifyRocketMQEnvironmentRoleRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _EnvironmentId: 环境（命名空间）名称。
+        :param _EnvironmentId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type EnvironmentId: str
         :param _RoleName: 角色名称。
         :type RoleName: str
@@ -24693,7 +25220,7 @@ class ModifyRocketMQEnvironmentRoleRequest(AbstractModel):
 
     @property
     def EnvironmentId(self):
-        r"""环境（命名空间）名称。
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._EnvironmentId
@@ -24805,7 +25332,7 @@ class ModifyRocketMQGroupRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间
+        :param _NamespaceId: 消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupId: 消费组名称
         :type GroupId: str
@@ -24839,7 +25366,7 @@ class ModifyRocketMQGroupRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间
+        r"""消费组所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -24967,12 +25494,15 @@ class ModifyRocketMQInstanceRequest(AbstractModel):
         :type MessageRetention: int
         :param _EnableDeletionProtection: 是否开启删除保护
         :type EnableDeletionProtection: bool
+        :param _SendReceiveRatio: 控制生产和消费消息的 TPS 占比，取值范围0～1，默认值为0.5
+        :type SendReceiveRatio: float
         """
         self._InstanceId = None
         self._Name = None
         self._Remark = None
         self._MessageRetention = None
         self._EnableDeletionProtection = None
+        self._SendReceiveRatio = None
 
     @property
     def InstanceId(self):
@@ -25029,6 +25559,17 @@ class ModifyRocketMQInstanceRequest(AbstractModel):
     def EnableDeletionProtection(self, EnableDeletionProtection):
         self._EnableDeletionProtection = EnableDeletionProtection
 
+    @property
+    def SendReceiveRatio(self):
+        r"""控制生产和消费消息的 TPS 占比，取值范围0～1，默认值为0.5
+        :rtype: float
+        """
+        return self._SendReceiveRatio
+
+    @SendReceiveRatio.setter
+    def SendReceiveRatio(self, SendReceiveRatio):
+        self._SendReceiveRatio = SendReceiveRatio
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -25036,6 +25577,7 @@ class ModifyRocketMQInstanceRequest(AbstractModel):
         self._Remark = params.get("Remark")
         self._MessageRetention = params.get("MessageRetention")
         self._EnableDeletionProtection = params.get("EnableDeletionProtection")
+        self._SendReceiveRatio = params.get("SendReceiveRatio")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25493,7 +26035,7 @@ class ModifyRocketMQTopicRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _Topic: 主题名称
         :type Topic: str
@@ -25521,7 +26063,7 @@ class ModifyRocketMQTopicRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""主题所在的命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -26306,6 +26848,93 @@ class PartitionsTopic(AbstractModel):
         
 
 
+class PriceTag(AbstractModel):
+    r"""价格标签信息，一个完整的价格标签包含计价类别和计费项标签。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 计价名称。枚举值如下：
+
+- tps：TPS基础价
+- stepTps：TPS步长
+        :type Name: str
+        :param _Category: 计价类别
+        :type Category: str
+        :param _Code: 计费项标签
+        :type Code: str
+        :param _Step: 计费项对应的步长数
+        :type Step: int
+        """
+        self._Name = None
+        self._Category = None
+        self._Code = None
+        self._Step = None
+
+    @property
+    def Name(self):
+        r"""计价名称。枚举值如下：
+
+- tps：TPS基础价
+- stepTps：TPS步长
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Category(self):
+        r"""计价类别
+        :rtype: str
+        """
+        return self._Category
+
+    @Category.setter
+    def Category(self, Category):
+        self._Category = Category
+
+    @property
+    def Code(self):
+        r"""计费项标签
+        :rtype: str
+        """
+        return self._Code
+
+    @Code.setter
+    def Code(self, Code):
+        self._Code = Code
+
+    @property
+    def Step(self):
+        r"""计费项对应的步长数
+        :rtype: int
+        """
+        return self._Step
+
+    @Step.setter
+    def Step(self, Step):
+        self._Step = Step
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._Category = params.get("Category")
+        self._Code = params.get("Code")
+        self._Step = params.get("Step")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ProducerInfo(AbstractModel):
     r"""生产者客户端详情
 
@@ -27052,6 +27681,8 @@ class PulsarNetworkAccessPointInfo(AbstractModel):
         :type Tls: bool
         :param _CustomUrl: 接入点自定义域名
         :type CustomUrl: str
+        :param _SecurityGroupIds: 接入点绑定的安全组id列表，仅限vpc接入点有效
+        :type SecurityGroupIds: list of str
         """
         self._VpcId = None
         self._SubnetId = None
@@ -27066,6 +27697,7 @@ class PulsarNetworkAccessPointInfo(AbstractModel):
         self._ZoneName = None
         self._Tls = None
         self._CustomUrl = None
+        self._SecurityGroupIds = None
 
     @property
     def VpcId(self):
@@ -27225,6 +27857,17 @@ class PulsarNetworkAccessPointInfo(AbstractModel):
     def CustomUrl(self, CustomUrl):
         self._CustomUrl = CustomUrl
 
+    @property
+    def SecurityGroupIds(self):
+        r"""接入点绑定的安全组id列表，仅限vpc接入点有效
+        :rtype: list of str
+        """
+        return self._SecurityGroupIds
+
+    @SecurityGroupIds.setter
+    def SecurityGroupIds(self, SecurityGroupIds):
+        self._SecurityGroupIds = SecurityGroupIds
+
 
     def _deserialize(self, params):
         self._VpcId = params.get("VpcId")
@@ -27245,6 +27888,7 @@ class PulsarNetworkAccessPointInfo(AbstractModel):
         self._ZoneName = params.get("ZoneName")
         self._Tls = params.get("Tls")
         self._CustomUrl = params.get("CustomUrl")
+        self._SecurityGroupIds = params.get("SecurityGroupIds")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -28305,6 +28949,14 @@ OFF/ON/CREATING/DELETING
         :type ControlPlaneEndpointInfo: :class:`tencentcloud.tdmq.v20200217.models.VpcEndpointInfo`
         :param _PublicTlsAccessEndpoint: TLS加密的数据流公网接入点
         :type PublicTlsAccessEndpoint: str
+        :param _PublicIpReused: 公网IP是否复用
+        :type PublicIpReused: bool
+        :param _PublicWebConsoleErrorMessage: 公网控制台接入点操作的错误信息
+        :type PublicWebConsoleErrorMessage: str
+        :param _VpcWebConsoleErrorMessage: 内网控制台接入点操作的错误信息
+        :type VpcWebConsoleErrorMessage: str
+        :param _PublicDataStreamErrorMessage: 公网接入点操作的错误信息
+        :type PublicDataStreamErrorMessage: str
         """
         self._PublicAccessEndpoint = None
         self._WebConsoleEndpoint = None
@@ -28321,6 +28973,10 @@ OFF/ON/CREATING/DELETING
         self._WebConsoleDomainEndpoint = None
         self._ControlPlaneEndpointInfo = None
         self._PublicTlsAccessEndpoint = None
+        self._PublicIpReused = None
+        self._PublicWebConsoleErrorMessage = None
+        self._VpcWebConsoleErrorMessage = None
+        self._PublicDataStreamErrorMessage = None
 
     @property
     def PublicAccessEndpoint(self):
@@ -28489,6 +29145,50 @@ OFF/ON/CREATING/DELETING
     def PublicTlsAccessEndpoint(self, PublicTlsAccessEndpoint):
         self._PublicTlsAccessEndpoint = PublicTlsAccessEndpoint
 
+    @property
+    def PublicIpReused(self):
+        r"""公网IP是否复用
+        :rtype: bool
+        """
+        return self._PublicIpReused
+
+    @PublicIpReused.setter
+    def PublicIpReused(self, PublicIpReused):
+        self._PublicIpReused = PublicIpReused
+
+    @property
+    def PublicWebConsoleErrorMessage(self):
+        r"""公网控制台接入点操作的错误信息
+        :rtype: str
+        """
+        return self._PublicWebConsoleErrorMessage
+
+    @PublicWebConsoleErrorMessage.setter
+    def PublicWebConsoleErrorMessage(self, PublicWebConsoleErrorMessage):
+        self._PublicWebConsoleErrorMessage = PublicWebConsoleErrorMessage
+
+    @property
+    def VpcWebConsoleErrorMessage(self):
+        r"""内网控制台接入点操作的错误信息
+        :rtype: str
+        """
+        return self._VpcWebConsoleErrorMessage
+
+    @VpcWebConsoleErrorMessage.setter
+    def VpcWebConsoleErrorMessage(self, VpcWebConsoleErrorMessage):
+        self._VpcWebConsoleErrorMessage = VpcWebConsoleErrorMessage
+
+    @property
+    def PublicDataStreamErrorMessage(self):
+        r"""公网接入点操作的错误信息
+        :rtype: str
+        """
+        return self._PublicDataStreamErrorMessage
+
+    @PublicDataStreamErrorMessage.setter
+    def PublicDataStreamErrorMessage(self, PublicDataStreamErrorMessage):
+        self._PublicDataStreamErrorMessage = PublicDataStreamErrorMessage
+
 
     def _deserialize(self, params):
         self._PublicAccessEndpoint = params.get("PublicAccessEndpoint")
@@ -28510,6 +29210,10 @@ OFF/ON/CREATING/DELETING
             self._ControlPlaneEndpointInfo = VpcEndpointInfo()
             self._ControlPlaneEndpointInfo._deserialize(params.get("ControlPlaneEndpointInfo"))
         self._PublicTlsAccessEndpoint = params.get("PublicTlsAccessEndpoint")
+        self._PublicIpReused = params.get("PublicIpReused")
+        self._PublicWebConsoleErrorMessage = params.get("PublicWebConsoleErrorMessage")
+        self._VpcWebConsoleErrorMessage = params.get("VpcWebConsoleErrorMessage")
+        self._PublicDataStreamErrorMessage = params.get("PublicDataStreamErrorMessage")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -28584,6 +29288,14 @@ class RabbitMQClusterInfo(AbstractModel):
         :type Tags: list of Tag
         :param _EnableDeletionProtection: 是否已开启删除保护
         :type EnableDeletionProtection: bool
+        :param _MirroredQueueRisk: 是否有vhost未开启镜像队列风险
+        :type MirroredQueueRisk: bool
+        :param _EnableRiskWarning: 是否提示风险
+        :type EnableRiskWarning: bool
+        :param _ConsumeTimeout: 消费超时时间
+        :type ConsumeTimeout: int
+        :param _ChannelMax: 最大Channel数
+        :type ChannelMax: int
         """
         self._ClusterId = None
         self._ClusterName = None
@@ -28613,6 +29325,10 @@ class RabbitMQClusterInfo(AbstractModel):
         self._Container = None
         self._Tags = None
         self._EnableDeletionProtection = None
+        self._MirroredQueueRisk = None
+        self._EnableRiskWarning = None
+        self._ConsumeTimeout = None
+        self._ChannelMax = None
 
     @property
     def ClusterId(self):
@@ -28923,6 +29639,50 @@ class RabbitMQClusterInfo(AbstractModel):
     def EnableDeletionProtection(self, EnableDeletionProtection):
         self._EnableDeletionProtection = EnableDeletionProtection
 
+    @property
+    def MirroredQueueRisk(self):
+        r"""是否有vhost未开启镜像队列风险
+        :rtype: bool
+        """
+        return self._MirroredQueueRisk
+
+    @MirroredQueueRisk.setter
+    def MirroredQueueRisk(self, MirroredQueueRisk):
+        self._MirroredQueueRisk = MirroredQueueRisk
+
+    @property
+    def EnableRiskWarning(self):
+        r"""是否提示风险
+        :rtype: bool
+        """
+        return self._EnableRiskWarning
+
+    @EnableRiskWarning.setter
+    def EnableRiskWarning(self, EnableRiskWarning):
+        self._EnableRiskWarning = EnableRiskWarning
+
+    @property
+    def ConsumeTimeout(self):
+        r"""消费超时时间
+        :rtype: int
+        """
+        return self._ConsumeTimeout
+
+    @ConsumeTimeout.setter
+    def ConsumeTimeout(self, ConsumeTimeout):
+        self._ConsumeTimeout = ConsumeTimeout
+
+    @property
+    def ChannelMax(self):
+        r"""最大Channel数
+        :rtype: int
+        """
+        return self._ChannelMax
+
+    @ChannelMax.setter
+    def ChannelMax(self, ChannelMax):
+        self._ChannelMax = ChannelMax
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -28963,6 +29723,10 @@ class RabbitMQClusterInfo(AbstractModel):
                 obj._deserialize(item)
                 self._Tags.append(obj)
         self._EnableDeletionProtection = params.get("EnableDeletionProtection")
+        self._MirroredQueueRisk = params.get("MirroredQueueRisk")
+        self._EnableRiskWarning = params.get("EnableRiskWarning")
+        self._ConsumeTimeout = params.get("ConsumeTimeout")
+        self._ChannelMax = params.get("ChannelMax")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -30424,16 +31188,16 @@ class RabbitMQVipInstance(AbstractModel):
         :type PayMode: int
         :param _Remark: 备注信息
         :type Remark: str
-        :param _SpecName: 集群的节点规格，需要输入对应的规格标识：
-2C8G：rabbit-vip-basic-2c8g
-4C16G：rabbit-vip-basic-4c16g
-8C32G：rabbit-vip-basic-8c32g
+        :param _SpecName: 集群的节点规格，对应的规格标识：
+2C8G：rabbit-vip-profession-2c8g
+4C16G：rabbit-vip-profession-4c16g
+8C32G：rabbit-vip-profession-8c32g
 16C32G：rabbit-vip-basic-4
-16C64G：rabbit-vip-basic-16c64g
+16C64G：rabbit-vip-profession-16c64g
 2C4G：rabbit-vip-basic-5
 4C8G：rabbit-vip-basic-1
 8C16G（已售罄）：rabbit-vip-basic-2
-不传默认为4C8G：rabbit-vip-basic-1
+不传默认为 4C8G：rabbit-vip-basic-1
         :type SpecName: str
         :param _ExceptionInformation: 集群异常信息
 注意：此字段可能返回 null，表示取不到有效值。
@@ -30626,16 +31390,16 @@ class RabbitMQVipInstance(AbstractModel):
 
     @property
     def SpecName(self):
-        r"""集群的节点规格，需要输入对应的规格标识：
-2C8G：rabbit-vip-basic-2c8g
-4C16G：rabbit-vip-basic-4c16g
-8C32G：rabbit-vip-basic-8c32g
+        r"""集群的节点规格，对应的规格标识：
+2C8G：rabbit-vip-profession-2c8g
+4C16G：rabbit-vip-profession-4c16g
+8C32G：rabbit-vip-profession-8c32g
 16C32G：rabbit-vip-basic-4
-16C64G：rabbit-vip-basic-16c64g
+16C64G：rabbit-vip-profession-16c64g
 2C4G：rabbit-vip-basic-5
 4C8G：rabbit-vip-basic-1
 8C16G（已售罄）：rabbit-vip-basic-2
-不传默认为4C8G：rabbit-vip-basic-1
+不传默认为 4C8G：rabbit-vip-basic-1
         :rtype: str
         """
         return self._SpecName
@@ -31544,7 +32308,7 @@ class ResetRocketMQConsumerOffSetRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupId: 消费组名称
         :type GroupId: str
@@ -31552,7 +32316,7 @@ class ResetRocketMQConsumerOffSetRequest(AbstractModel):
         :type Type: int
         :param _Topic: 主题名称
         :type Topic: str
-        :param _ResetTimestamp: 重置指定的时间戳，仅在 Type 为1是生效，以毫秒为单位
+        :param _ResetTimestamp: 重置指定的时间戳，仅在 Type 为1时生效，以毫秒为单位
         :type ResetTimestamp: int
         :param _RetryFlag: 重置的是否是retry topic
         :type RetryFlag: bool
@@ -31578,7 +32342,7 @@ class ResetRocketMQConsumerOffSetRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -31622,7 +32386,7 @@ class ResetRocketMQConsumerOffSetRequest(AbstractModel):
 
     @property
     def ResetTimestamp(self):
-        r"""重置指定的时间戳，仅在 Type 为1是生效，以毫秒为单位
+        r"""重置指定的时间戳，仅在 Type 为1时生效，以毫秒为单位
         :rtype: int
         """
         return self._ResetTimestamp
@@ -31749,7 +32513,7 @@ class RetryRocketMQDlqMessageRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群id
         :type ClusterId: str
-        :param _NamespaceId: 命名空间名称
+        :param _NamespaceId: 命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :type NamespaceId: str
         :param _GroupName: group名称
         :type GroupName: str
@@ -31774,7 +32538,7 @@ class RetryRocketMQDlqMessageRequest(AbstractModel):
 
     @property
     def NamespaceId(self):
-        r"""命名空间名称
+        r"""命名空间，4.x 通用集群命名空间固定为: tdmq_default
         :rtype: str
         """
         return self._NamespaceId
@@ -33157,6 +33921,8 @@ class RocketMQGroup(AbstractModel):
         :type Namespace: str
         :param _SubscribeTopicNum: 订阅的主题个数
         :type SubscribeTopicNum: int
+        :param _TagList: 绑定的标签列表
+        :type TagList: list of Tag
         """
         self._Name = None
         self._ConsumerNum = None
@@ -33176,6 +33942,7 @@ class RocketMQGroup(AbstractModel):
         self._InstanceId = None
         self._Namespace = None
         self._SubscribeTopicNum = None
+        self._TagList = None
 
     @property
     def Name(self):
@@ -33390,6 +34157,17 @@ class RocketMQGroup(AbstractModel):
     def SubscribeTopicNum(self, SubscribeTopicNum):
         self._SubscribeTopicNum = SubscribeTopicNum
 
+    @property
+    def TagList(self):
+        r"""绑定的标签列表
+        :rtype: list of Tag
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -33410,6 +34188,12 @@ class RocketMQGroup(AbstractModel):
         self._InstanceId = params.get("InstanceId")
         self._Namespace = params.get("Namespace")
         self._SubscribeTopicNum = params.get("SubscribeTopicNum")
+        if params.get("TagList") is not None:
+            self._TagList = []
+            for item in params.get("TagList"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagList.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33535,95 +34319,6 @@ HTTP;
         
 
 
-class RocketMQGroupConfigOutput(AbstractModel):
-    r"""RocketMQ消费组配置信息
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Namespace: 命名空间
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Namespace: str
-        :param _GroupName: 消费组名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :type GroupName: str
-        :param _Imported: 是否已导入
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Imported: bool
-        :param _Remark: remark
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Remark: str
-        """
-        self._Namespace = None
-        self._GroupName = None
-        self._Imported = None
-        self._Remark = None
-
-    @property
-    def Namespace(self):
-        r"""命名空间
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Namespace
-
-    @Namespace.setter
-    def Namespace(self, Namespace):
-        self._Namespace = Namespace
-
-    @property
-    def GroupName(self):
-        r"""消费组名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._GroupName
-
-    @GroupName.setter
-    def GroupName(self, GroupName):
-        self._GroupName = GroupName
-
-    @property
-    def Imported(self):
-        r"""是否已导入
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: bool
-        """
-        return self._Imported
-
-    @Imported.setter
-    def Imported(self, Imported):
-        self._Imported = Imported
-
-    @property
-    def Remark(self):
-        r"""remark
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Remark
-
-    @Remark.setter
-    def Remark(self, Remark):
-        self._Remark = Remark
-
-
-    def _deserialize(self, params):
-        self._Namespace = params.get("Namespace")
-        self._GroupName = params.get("GroupName")
-        self._Imported = params.get("Imported")
-        self._Remark = params.get("Remark")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
 class RocketMQInstanceConfig(AbstractModel):
     r"""RocketMQ专享集群实例配置
 
@@ -33671,6 +34366,13 @@ class RocketMQInstanceConfig(AbstractModel):
         :param _TopicNumUpperLimit: Topic个数最大配额，默认为集群规格单节点最大配额*节点个数
 注意：此字段可能返回 null，表示取不到有效值。
         :type TopicNumUpperLimit: int
+        :param _SendReceiveRatio: 控制生产和消费消息的 TPS 占比，取值范围0～1，默认值为0.5
+        :type SendReceiveRatio: float
+        :param _TpsLimit: 收发 TPS 峰值上限
+        :type TpsLimit: int
+        :param _GeneralSkuCode: 通用集群规格
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GeneralSkuCode: str
         """
         self._MaxTpsPerNamespace = None
         self._MaxNamespaceNum = None
@@ -33689,6 +34391,9 @@ class RocketMQInstanceConfig(AbstractModel):
         self._Retention = None
         self._TopicNumLowerLimit = None
         self._TopicNumUpperLimit = None
+        self._SendReceiveRatio = None
+        self._TpsLimit = None
+        self._GeneralSkuCode = None
 
     @property
     def MaxTpsPerNamespace(self):
@@ -33883,6 +34588,40 @@ class RocketMQInstanceConfig(AbstractModel):
     def TopicNumUpperLimit(self, TopicNumUpperLimit):
         self._TopicNumUpperLimit = TopicNumUpperLimit
 
+    @property
+    def SendReceiveRatio(self):
+        r"""控制生产和消费消息的 TPS 占比，取值范围0～1，默认值为0.5
+        :rtype: float
+        """
+        return self._SendReceiveRatio
+
+    @SendReceiveRatio.setter
+    def SendReceiveRatio(self, SendReceiveRatio):
+        self._SendReceiveRatio = SendReceiveRatio
+
+    @property
+    def TpsLimit(self):
+        r"""收发 TPS 峰值上限
+        :rtype: int
+        """
+        return self._TpsLimit
+
+    @TpsLimit.setter
+    def TpsLimit(self, TpsLimit):
+        self._TpsLimit = TpsLimit
+
+    @property
+    def GeneralSkuCode(self):
+        r"""通用集群规格
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._GeneralSkuCode
+
+    @GeneralSkuCode.setter
+    def GeneralSkuCode(self, GeneralSkuCode):
+        self._GeneralSkuCode = GeneralSkuCode
+
 
     def _deserialize(self, params):
         self._MaxTpsPerNamespace = params.get("MaxTpsPerNamespace")
@@ -33912,6 +34651,9 @@ class RocketMQInstanceConfig(AbstractModel):
         self._Retention = params.get("Retention")
         self._TopicNumLowerLimit = params.get("TopicNumLowerLimit")
         self._TopicNumUpperLimit = params.get("TopicNumUpperLimit")
+        self._SendReceiveRatio = params.get("SendReceiveRatio")
+        self._TpsLimit = params.get("TpsLimit")
+        self._GeneralSkuCode = params.get("GeneralSkuCode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33944,11 +34686,17 @@ UNKNOWN: 查询不到消费状态
         :param _ExceptionDesc: 异常信息
 注意：此字段可能返回 null，表示取不到有效值。
         :type ExceptionDesc: str
+        :param _ConsumeStatusSource: 消费状态来源，枚举值如下：
+
+- DIFF_OFFSET：通过服务端offset计算
+- TRACE_REPORT：通过上报的轨迹判断
+        :type ConsumeStatusSource: str
         """
         self._Group = None
         self._ConsumeStatus = None
         self._TrackType = None
         self._ExceptionDesc = None
+        self._ConsumeStatusSource = None
 
     @property
     def Group(self):
@@ -34001,12 +34749,27 @@ UNKNOWN: 查询不到消费状态
     def ExceptionDesc(self, ExceptionDesc):
         self._ExceptionDesc = ExceptionDesc
 
+    @property
+    def ConsumeStatusSource(self):
+        r"""消费状态来源，枚举值如下：
+
+- DIFF_OFFSET：通过服务端offset计算
+- TRACE_REPORT：通过上报的轨迹判断
+        :rtype: str
+        """
+        return self._ConsumeStatusSource
+
+    @ConsumeStatusSource.setter
+    def ConsumeStatusSource(self, ConsumeStatusSource):
+        self._ConsumeStatusSource = ConsumeStatusSource
+
 
     def _deserialize(self, params):
         self._Group = params.get("Group")
         self._ConsumeStatus = params.get("ConsumeStatus")
         self._TrackType = params.get("TrackType")
         self._ExceptionDesc = params.get("ExceptionDesc")
+        self._ConsumeStatusSource = params.get("ConsumeStatusSource")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -34345,166 +35108,6 @@ class RocketMQNamespace(AbstractModel):
         self._PublicEndpoint = params.get("PublicEndpoint")
         self._VpcEndpoint = params.get("VpcEndpoint")
         self._InternalEndpoint = params.get("InternalEndpoint")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class RocketMQSmoothMigrationTaskItem(AbstractModel):
-    r"""RocketMQ平滑迁移任务
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _TaskId: 任务ID
-注意：此字段可能返回 null，表示取不到有效值。
-        :type TaskId: str
-        :param _TaskName: 任务名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :type TaskName: str
-        :param _SourceClusterName: 源集群名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :type SourceClusterName: str
-        :param _ClusterId: 目标集群ID
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ClusterId: str
-        :param _ConnectionType: 网络连接类型，
-PUBLIC 公网
-VPC 私有网络
-OTHER 其他
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ConnectionType: str
-        :param _SourceNameServer: 源集群NameServer地址
-注意：此字段可能返回 null，表示取不到有效值。
-        :type SourceNameServer: str
-        :param _TaskStatus: 任务状态
-Configuration 迁移配置
-SourceConnecting 连接源集群中
-MetaDataImport 元数据导入
-EndpointSetup 切换接入点
-ServiceMigration 切流中
-Completed 已完成
-Cancelled 已取消
-注意：此字段可能返回 null，表示取不到有效值。
-        :type TaskStatus: str
-        """
-        self._TaskId = None
-        self._TaskName = None
-        self._SourceClusterName = None
-        self._ClusterId = None
-        self._ConnectionType = None
-        self._SourceNameServer = None
-        self._TaskStatus = None
-
-    @property
-    def TaskId(self):
-        r"""任务ID
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._TaskId
-
-    @TaskId.setter
-    def TaskId(self, TaskId):
-        self._TaskId = TaskId
-
-    @property
-    def TaskName(self):
-        r"""任务名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._TaskName
-
-    @TaskName.setter
-    def TaskName(self, TaskName):
-        self._TaskName = TaskName
-
-    @property
-    def SourceClusterName(self):
-        r"""源集群名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._SourceClusterName
-
-    @SourceClusterName.setter
-    def SourceClusterName(self, SourceClusterName):
-        self._SourceClusterName = SourceClusterName
-
-    @property
-    def ClusterId(self):
-        r"""目标集群ID
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._ClusterId
-
-    @ClusterId.setter
-    def ClusterId(self, ClusterId):
-        self._ClusterId = ClusterId
-
-    @property
-    def ConnectionType(self):
-        r"""网络连接类型，
-PUBLIC 公网
-VPC 私有网络
-OTHER 其他
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._ConnectionType
-
-    @ConnectionType.setter
-    def ConnectionType(self, ConnectionType):
-        self._ConnectionType = ConnectionType
-
-    @property
-    def SourceNameServer(self):
-        r"""源集群NameServer地址
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._SourceNameServer
-
-    @SourceNameServer.setter
-    def SourceNameServer(self, SourceNameServer):
-        self._SourceNameServer = SourceNameServer
-
-    @property
-    def TaskStatus(self):
-        r"""任务状态
-Configuration 迁移配置
-SourceConnecting 连接源集群中
-MetaDataImport 元数据导入
-EndpointSetup 切换接入点
-ServiceMigration 切流中
-Completed 已完成
-Cancelled 已取消
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._TaskStatus
-
-    @TaskStatus.setter
-    def TaskStatus(self, TaskStatus):
-        self._TaskStatus = TaskStatus
-
-
-    def _deserialize(self, params):
-        self._TaskId = params.get("TaskId")
-        self._TaskName = params.get("TaskName")
-        self._SourceClusterName = params.get("SourceClusterName")
-        self._ClusterId = params.get("ClusterId")
-        self._ConnectionType = params.get("ConnectionType")
-        self._SourceNameServer = params.get("SourceNameServer")
-        self._TaskStatus = params.get("TaskStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -34872,6 +35475,8 @@ class RocketMQTopic(AbstractModel):
         :param _SubscriptionData: 订阅关系列表
 注意：此字段可能返回 null，表示取不到有效值。
         :type SubscriptionData: list of RocketMQSubscription
+        :param _TagList: 绑定的标签列表
+        :type TagList: list of Tag
         """
         self._Name = None
         self._Type = None
@@ -34885,6 +35490,7 @@ class RocketMQTopic(AbstractModel):
         self._LastUpdateTime = None
         self._SubscriptionCount = None
         self._SubscriptionData = None
+        self._TagList = None
 
     @property
     def Name(self):
@@ -35024,6 +35630,17 @@ class RocketMQTopic(AbstractModel):
     def SubscriptionData(self, SubscriptionData):
         self._SubscriptionData = SubscriptionData
 
+    @property
+    def TagList(self):
+        r"""绑定的标签列表
+        :rtype: list of Tag
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -35043,6 +35660,12 @@ class RocketMQTopic(AbstractModel):
                 obj = RocketMQSubscription()
                 obj._deserialize(item)
                 self._SubscriptionData.append(obj)
+        if params.get("TagList") is not None:
+            self._TagList = []
+            for item in params.get("TagList"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagList.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35147,139 +35770,6 @@ DelayScheduled，延迟/定时消息
         self._Type = params.get("Type")
         self._Partitions = params.get("Partitions")
         self._Remark = params.get("Remark")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class RocketMQTopicConfigOutput(AbstractModel):
-    r"""RocketMQ主题配置信息
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Namespace: 命名空间
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Namespace: str
-        :param _TopicName: 主题名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :type TopicName: str
-        :param _Type: 主题类型：
-Normal，普通
-GlobalOrder， 全局顺序
-PartitionedOrder, 分区顺序
-Transaction，事务消息
-DelayScheduled，延迟/定时消息
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Type: str
-        :param _Partitions: 分区个数
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Partitions: int
-        :param _Remark: 备注信息
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Remark: str
-        :param _Imported: 是否导入
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Imported: bool
-        """
-        self._Namespace = None
-        self._TopicName = None
-        self._Type = None
-        self._Partitions = None
-        self._Remark = None
-        self._Imported = None
-
-    @property
-    def Namespace(self):
-        r"""命名空间
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Namespace
-
-    @Namespace.setter
-    def Namespace(self, Namespace):
-        self._Namespace = Namespace
-
-    @property
-    def TopicName(self):
-        r"""主题名称
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._TopicName
-
-    @TopicName.setter
-    def TopicName(self, TopicName):
-        self._TopicName = TopicName
-
-    @property
-    def Type(self):
-        r"""主题类型：
-Normal，普通
-GlobalOrder， 全局顺序
-PartitionedOrder, 分区顺序
-Transaction，事务消息
-DelayScheduled，延迟/定时消息
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Type
-
-    @Type.setter
-    def Type(self, Type):
-        self._Type = Type
-
-    @property
-    def Partitions(self):
-        r"""分区个数
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: int
-        """
-        return self._Partitions
-
-    @Partitions.setter
-    def Partitions(self, Partitions):
-        self._Partitions = Partitions
-
-    @property
-    def Remark(self):
-        r"""备注信息
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Remark
-
-    @Remark.setter
-    def Remark(self, Remark):
-        self._Remark = Remark
-
-    @property
-    def Imported(self):
-        r"""是否导入
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: bool
-        """
-        return self._Imported
-
-    @Imported.setter
-    def Imported(self, Imported):
-        self._Imported = Imported
-
-
-    def _deserialize(self, params):
-        self._Namespace = params.get("Namespace")
-        self._TopicName = params.get("TopicName")
-        self._Type = params.get("Type")
-        self._Partitions = params.get("Partitions")
-        self._Remark = params.get("Remark")
-        self._Imported = params.get("Imported")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -37359,6 +37849,57 @@ class Tag(AbstractModel):
         
 
 
+class TagFilter(AbstractModel):
+    r"""标签过滤器
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TagKey: 标签键名称
+        :type TagKey: str
+        :param _TagValues: 标签值列表
+        :type TagValues: list of str
+        """
+        self._TagKey = None
+        self._TagValues = None
+
+    @property
+    def TagKey(self):
+        r"""标签键名称
+        :rtype: str
+        """
+        return self._TagKey
+
+    @TagKey.setter
+    def TagKey(self, TagKey):
+        self._TagKey = TagKey
+
+    @property
+    def TagValues(self):
+        r"""标签值列表
+        :rtype: list of str
+        """
+        return self._TagValues
+
+    @TagValues.setter
+    def TagValues(self, TagValues):
+        self._TagValues = TagValues
+
+
+    def _deserialize(self, params):
+        self._TagKey = params.get("TagKey")
+        self._TagValues = params.get("TagValues")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class Topic(AbstractModel):
     r"""主题实例
 
@@ -37454,6 +37995,8 @@ class Topic(AbstractModel):
         :type IsolateConsumerEnable: bool
         :param _AckTimeOut: 消费者 Ack 超时时间，单位：秒
         :type AckTimeOut: int
+        :param _PulsarTopicMessageType: Pulsar主题消息类型0: 混合消息1:普通消息2:延迟消息
+        :type PulsarTopicMessageType: int
         """
         self._AverageMsgSize = None
         self._ConsumerCount = None
@@ -37482,6 +38025,7 @@ class Topic(AbstractModel):
         self._Tenant = None
         self._IsolateConsumerEnable = None
         self._AckTimeOut = None
+        self._PulsarTopicMessageType = None
 
     @property
     def AverageMsgSize(self):
@@ -37814,6 +38358,17 @@ class Topic(AbstractModel):
     def AckTimeOut(self, AckTimeOut):
         self._AckTimeOut = AckTimeOut
 
+    @property
+    def PulsarTopicMessageType(self):
+        r"""Pulsar主题消息类型0: 混合消息1:普通消息2:延迟消息
+        :rtype: int
+        """
+        return self._PulsarTopicMessageType
+
+    @PulsarTopicMessageType.setter
+    def PulsarTopicMessageType(self, PulsarTopicMessageType):
+        self._PulsarTopicMessageType = PulsarTopicMessageType
+
 
     def _deserialize(self, params):
         self._AverageMsgSize = params.get("AverageMsgSize")
@@ -37848,6 +38403,7 @@ class Topic(AbstractModel):
         self._Tenant = params.get("Tenant")
         self._IsolateConsumerEnable = params.get("IsolateConsumerEnable")
         self._AckTimeOut = params.get("AckTimeOut")
+        self._PulsarTopicMessageType = params.get("PulsarTopicMessageType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -38624,12 +39180,15 @@ class VpcEndpointInfo(AbstractModel):
         :type VpcDataStreamEndpointStatus: str
         :param _VpcTlsEndpoint: TLS加密的数据流接入点
         :type VpcTlsEndpoint: str
+        :param _VpcErrorMessage: VPC 接入点操作失败的错误信息
+        :type VpcErrorMessage: str
         """
         self._VpcId = None
         self._SubnetId = None
         self._VpcEndpoint = None
         self._VpcDataStreamEndpointStatus = None
         self._VpcTlsEndpoint = None
+        self._VpcErrorMessage = None
 
     @property
     def VpcId(self):
@@ -38686,6 +39245,17 @@ class VpcEndpointInfo(AbstractModel):
     def VpcTlsEndpoint(self, VpcTlsEndpoint):
         self._VpcTlsEndpoint = VpcTlsEndpoint
 
+    @property
+    def VpcErrorMessage(self):
+        r"""VPC 接入点操作失败的错误信息
+        :rtype: str
+        """
+        return self._VpcErrorMessage
+
+    @VpcErrorMessage.setter
+    def VpcErrorMessage(self, VpcErrorMessage):
+        self._VpcErrorMessage = VpcErrorMessage
+
 
     def _deserialize(self, params):
         self._VpcId = params.get("VpcId")
@@ -38693,6 +39263,7 @@ class VpcEndpointInfo(AbstractModel):
         self._VpcEndpoint = params.get("VpcEndpoint")
         self._VpcDataStreamEndpointStatus = params.get("VpcDataStreamEndpointStatus")
         self._VpcTlsEndpoint = params.get("VpcTlsEndpoint")
+        self._VpcErrorMessage = params.get("VpcErrorMessage")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

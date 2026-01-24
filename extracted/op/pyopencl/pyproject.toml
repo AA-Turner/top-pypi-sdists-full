@@ -11,7 +11,7 @@ requires = [
 
 [project]
 name = "pyopencl"
-version = "2025.2.6"
+version = "2026.1.2"
 description = "Python wrapper for OpenCL"
 readme = "README.rst"
 license = "MIT"
@@ -100,6 +100,9 @@ extend-ignore = [
     "C90",  # McCabe complexity
     "UP031", # use f-strings instead of %
     "UP032", # use f-strings instead of .format
+
+    # FIXME: This is a longer discussion...
+    "RUF067", # __init__ should only contain reexports
 ]
 exclude = [
     "examples/gl_interop_demo.py",
@@ -148,6 +151,9 @@ environment-pass = [
 test-skip = [
     "*-macosx_arm64",
 ]
+skip = [
+    "cp31?t-*",
+]
 
 [tool.cibuildwheel.linux]
 skip = [
@@ -172,9 +178,6 @@ before-all = [
 repair-wheel-command = "auditwheel repair -w {dest_dir} --lib-sdir=/.libs {wheel}"
 
 [tool.cibuildwheel.macos]
-skip = [
-    "pp*",
-]
 before-all = "bash {package}/scripts/build-ocl-macos.sh"
 test-command = "pytest {project}/test/test_array.py" # same limitation as conda-forge
 
@@ -187,7 +190,6 @@ MACOSX_DEPLOYMENT_TARGET = "10.14"
 [tool.cibuildwheel.windows]
 skip = [
     "*-win32",
-    "pp*",
 ]
 test-command = ""
 before-all = "bash {package}/scripts/build-ocl-windows.sh"

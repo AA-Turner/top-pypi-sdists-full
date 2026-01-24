@@ -1,8 +1,9 @@
 import multiprocessing
 import socket
 import sys
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 from .._futures import _future_watcher_wrapper, _new_cbscheduler
 from .._granian import ASGIWorker, ProcInfoCollector, RSGIWorker, SocketHolder, WSGIWorker
@@ -32,6 +33,14 @@ multiprocessing.allow_connection_pickling()
 
 class WorkerProcess(AbstractWorker):
     _idl = 'PID'
+
+    def __init__(self, parent, idx, target, args):
+        # NOTE: Python 3.14 defaults mp spawn method to 'forkserver' on Linux,
+        #       which doesn't really play well with shared sockets.
+        self._spawn_method = multiprocessing.get_start_method()
+        if self._spawn_method not in {'fork', 'spawn'}:
+            self._spawn_method = 'spawn'
+        super().__init__(parent, idx, target, args)
 
     @staticmethod
     def wrap_target(target):
@@ -68,7 +77,9 @@ class WorkerProcess(AbstractWorker):
         return wrapped
 
     def _spawn(self, target, args):
-        self.inner = multiprocessing.get_context().Process(name='granian-worker', target=target, args=args)
+        self.inner = multiprocessing.get_context(self._spawn_method).Process(
+            name='granian-worker', target=target, args=args
+        )
 
     def _id(self):
         return self.inner.pid
@@ -92,19 +103,19 @@ class MPServer(AbstractServer[WorkerProcess]):
         loop: Any,
         runtime_mode: RuntimeModes,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, Optional[str]]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str | None] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         from granian._signals import set_loop_signals
 
@@ -139,19 +150,19 @@ class MPServer(AbstractServer[WorkerProcess]):
         loop: Any,
         runtime_mode: RuntimeModes,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, Optional[str]]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str | None] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         from granian._signals import set_loop_signals
 
@@ -195,19 +206,19 @@ class MPServer(AbstractServer[WorkerProcess]):
         loop: Any,
         runtime_mode: RuntimeModes,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, Optional[str]]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str | None] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         from granian._signals import set_loop_signals
 
@@ -245,19 +256,19 @@ class MPServer(AbstractServer[WorkerProcess]):
         loop: Any,
         runtime_mode: RuntimeModes,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, Optional[str]]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str | None] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         from granian._signals import set_sync_signals
 
@@ -304,12 +315,21 @@ class MPServer(AbstractServer[WorkerProcess]):
             logger.warning('Unable to collect resource usage for workers')
             return
         logger.debug(f'Collected resource usages for workers: {rss_data}')
+        cycle_samples = {}
         to_restart = []
         for wpid, wmem in rss_data.items():
             if wmem >= self.workers_rss:
-                wrk = wpids[wpid]
-                logger.info(f'worker-{wrk.idx + 1} RSS over threshold, gracefully respawning..')
-                to_restart.append(wrk.idx)
+                samples = self._rss_wrk_samples.get(wpid, 0) + 1
+                if samples >= self.rss_samples:
+                    wrk = wpids[wpid]
+                    logger.info(f'worker-{wrk.idx + 1} RSS over threshold, gracefully respawning..')
+                    to_restart.append(wrk.idx)
+                else:
+                    cycle_samples[wpid] = samples
+            else:
+                cycle_samples[wpid] = 0
+        self._rss_wrk_samples.clear()
+        self._rss_wrk_samples.update(cycle_samples)
         if to_restart:
             self._respawn_workers(to_restart, spawn_target, target_loader, delay=self.respawn_interval)
 
@@ -348,8 +368,8 @@ class MPServer(AbstractServer[WorkerProcess]):
 
     def serve(
         self,
-        spawn_target: Optional[Callable[..., None]] = None,
-        target_loader: Optional[Callable[..., Callable[..., Any]]] = None,
+        spawn_target: Callable[..., None] | None = None,
+        target_loader: Callable[..., Callable[..., Any]] | None = None,
         wrap_loader: bool = True,
     ):
         if self.interface == Interfaces.WSGI:

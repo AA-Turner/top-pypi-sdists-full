@@ -779,7 +779,7 @@ def rule():
                         "Language for notification on an "
                         "AWS Batch job completion"
                     ),
-                    "StartAt": "Submit Batch Job",
+                    "StartAt": "Submit Batch Job 1",
                     "TimeoutSeconds": 3600,
                     "States": {
                         "Submit Batch Job 1": {
@@ -1087,7 +1087,7 @@ def rule():
                         "Language for notification on an "
                         "AWS Batch job completion"
                     ),
-                    "StartAt": "Submit Batch Job",
+                    "StartAt": "Submit Batch Job 1",
                     "TimeoutSeconds": 3600,
                     "QueryLanguage": "JSONata",
                     "States": {
@@ -1350,6 +1350,194 @@ def rule():
                     ),
                     path=deque(
                         ["Definition", "States", "Notify Failure", "Parameters"]
+                    ),
+                ),
+            ],
+        ),
+        (
+            "Missing StartAt target",
+            {
+                "Definition": {
+                    "StartAt": "FAIL",
+                    "States": {
+                        "Pass": {
+                            "Type": "Pass",
+                            "Next": "Success",
+                        },
+                        "Success": {
+                            "Type": "Succeed",
+                        },
+                    },
+                }
+            },
+            [
+                ValidationError(
+                    "Missing 'Next' target 'FAIL' at /StartAt",
+                    rule=StateMachineDefinition(),
+                    path=deque(["Definition", "StartAt"]),
+                ),
+            ],
+        ),
+        (
+            "Parallel state with missing StartAt target",
+            {
+                "Definition": {
+                    "StartAt": "ParallelState",
+                    "States": {
+                        "ParallelState": {
+                            "Type": "Parallel",
+                            "Branches": [
+                                {
+                                    "StartAt": "FAIL",
+                                    "States": {
+                                        "BranchState": {
+                                            "Type": "Pass",
+                                            "End": True,
+                                        },
+                                    },
+                                }
+                            ],
+                            "End": True,
+                        },
+                    },
+                }
+            },
+            [
+                ValidationError(
+                    "Missing 'Next' target 'FAIL' at /States/ParallelState/Branches/0/StartAt",
+                    rule=StateMachineDefinition(),
+                    path=deque(
+                        [
+                            "Definition",
+                            "States",
+                            "ParallelState",
+                            "Branches",
+                            0,
+                            "StartAt",
+                        ]
+                    ),
+                ),
+            ],
+        ),
+        (
+            "Parallel state with Map/ItemProcessor missing StartAt target",
+            {
+                "Definition": {
+                    "StartAt": "ParallelExecution",
+                    "States": {
+                        "ParallelExecution": {
+                            "Type": "Parallel",
+                            "Branches": [
+                                {
+                                    "StartAt": "Pass1",
+                                    "States": {"Pass1": {"Type": "Pass", "End": True}},
+                                },
+                                {
+                                    "StartAt": "TestMap",
+                                    "States": {
+                                        "TestMap": {
+                                            "Type": "Map",
+                                            "ItemsPath": "$",
+                                            "ItemProcessor": {
+                                                "ProcessorConfig": {"Mode": "INLINE"},
+                                                "StartAt": "FAIL",
+                                                "States": {
+                                                    "Pass2": {
+                                                        "Type": "Pass",
+                                                        "End": True,
+                                                    }
+                                                },
+                                            },
+                                            "End": True,
+                                        }
+                                    },
+                                },
+                            ],
+                            "End": True,
+                        }
+                    },
+                }
+            },
+            [
+                ValidationError(
+                    "Missing 'Next' target 'FAIL' at /States/ParallelExecution/Branches/1/States/TestMap/ItemProcessor/StartAt",
+                    rule=StateMachineDefinition(),
+                    path=deque(
+                        [
+                            "Definition",
+                            "States",
+                            "ParallelExecution",
+                            "Branches",
+                            1,
+                            "States",
+                            "TestMap",
+                            "ItemProcessor",
+                            "StartAt",
+                        ]
+                    ),
+                ),
+            ],
+        ),
+        (
+            "Map state with missing StartAt target in ItemProcessor",
+            {
+                "Definition": {
+                    "StartAt": "MapState",
+                    "States": {
+                        "MapState": {
+                            "Type": "Map",
+                            "ItemProcessor": {
+                                "StartAt": "FAIL",
+                                "States": {
+                                    "ProcessItem": {
+                                        "Type": "Pass",
+                                        "End": True,
+                                    },
+                                },
+                            },
+                            "End": True,
+                        },
+                    },
+                }
+            },
+            [
+                ValidationError(
+                    "Missing 'Next' target 'FAIL' at /States/MapState/ItemProcessor/StartAt",
+                    rule=StateMachineDefinition(),
+                    path=deque(
+                        ["Definition", "States", "MapState", "ItemProcessor", "StartAt"]
+                    ),
+                ),
+            ],
+        ),
+        (
+            "Map state with missing StartAt target in Iterator",
+            {
+                "Definition": {
+                    "StartAt": "MapState",
+                    "States": {
+                        "MapState": {
+                            "Type": "Map",
+                            "Iterator": {
+                                "StartAt": "FAIL",
+                                "States": {
+                                    "ProcessItem": {
+                                        "Type": "Pass",
+                                        "End": True,
+                                    },
+                                },
+                            },
+                            "End": True,
+                        },
+                    },
+                }
+            },
+            [
+                ValidationError(
+                    "Missing 'Next' target 'FAIL' at /States/MapState/Iterator/StartAt",
+                    rule=StateMachineDefinition(),
+                    path=deque(
+                        ["Definition", "States", "MapState", "Iterator", "StartAt"]
                     ),
                 ),
             ],

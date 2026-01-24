@@ -4,14 +4,16 @@ psycopg connection pool base class and functionalities.
 
 # Copyright (C) 2021 The Psycopg Team
 
+from __future__ import annotations
+
 from time import monotonic
 from random import random
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from collections import Counter, deque
 
 from psycopg import errors as e
 
 from .errors import PoolClosed
-from ._compat import Counter, Deque
 
 if TYPE_CHECKING:
     from psycopg._connection_base import BaseConnection
@@ -38,16 +40,15 @@ class BasePool:
     _CONNECTIONS_ERRORS = "connections_errors"
     _CONNECTIONS_LOST = "connections_lost"
 
-    _pool: Deque["Any"]
+    _pool: deque[Any]
 
     def __init__(
         self,
-        conninfo: str = "",
         *,
-        kwargs: Optional[Dict[str, Any]],
         min_size: int,
-        max_size: Optional[int],
-        name: Optional[str],
+        max_size: int | None,
+        name: str | None,
+        close_returns: bool,
         timeout: float,
         max_waiting: int,
         max_lifetime: float,
@@ -64,9 +65,8 @@ class BasePool:
         if num_workers < 1:
             raise ValueError("num_workers must be at least 1")
 
-        self.conninfo = conninfo
-        self.kwargs: Dict[str, Any] = kwargs or {}
         self.name = name
+        self.close_returns = close_returns
         self._min_size = min_size
         self._max_size = max_size
         self.timeout = timeout
@@ -77,8 +77,9 @@ class BasePool:
         self.num_workers = num_workers
 
         self._nconns = min_size  # currently in the pool, out, being prepared
-        self._pool = Deque()
+        self._pool = deque()
         self._stats = Counter[str]()
+        self._drained_at = 0.0
 
         # Min number of connections in the pool in a max_idle unit of time.
         # It is reset periodically by the ShrinkPool scheduled task.
@@ -116,7 +117,7 @@ class BasePool:
         """`!True` if the pool is closed."""
         return self._closed
 
-    def _check_size(self, min_size: int, max_size: Optional[int]) -> Tuple[int, int]:
+    def _check_size(self, min_size: int, max_size: int | None) -> tuple[int, int]:
         if max_size is None:
             max_size = min_size
 
@@ -142,9 +143,8 @@ class BasePool:
             else:
                 raise PoolClosed(f"the pool {self.name!r} is not open yet")
 
-    def _check_pool_putconn(self, conn: "BaseConnection[Any]") -> None:
-        pool = getattr(conn, "_pool", None)
-        if pool is self:
+    def _check_pool_putconn(self, conn: BaseConnection[Any]) -> None:
+        if (pool := getattr(conn, "_pool", None)) is self:
             return
 
         if pool:
@@ -155,7 +155,7 @@ class BasePool:
             f"can't return connection to pool {self.name!r}, {msg}: {conn}"
         )
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """
         Return current stats about the pool usage.
         """
@@ -163,7 +163,7 @@ class BasePool:
         rv.update(self._get_measures())
         return rv
 
-    def pop_stats(self) -> Dict[str, int]:
+    def pop_stats(self) -> dict[str, int]:
         """
         Return current stats about the pool usage.
 
@@ -174,7 +174,7 @@ class BasePool:
         rv.update(self._get_measures())
         return rv
 
-    def _get_measures(self) -> Dict[str, int]:
+    def _get_measures(self) -> dict[str, int]:
         """
         Return immediate measures of the pool (not counters).
         """
@@ -192,12 +192,13 @@ class BasePool:
         """
         return value * (1.0 + ((max_pc - min_pc) * random()) + min_pc)
 
-    def _set_connection_expiry_date(self, conn: "BaseConnection[Any]") -> None:
+    def _set_connection_expiry_date(self, conn: BaseConnection[Any]) -> None:
         """Set an expiry date on a connection.
 
         Add some randomness to avoid mass reconnection.
         """
-        conn._expire_at = monotonic() + self._jitter(self.max_lifetime, -0.05, 0.0)
+        conn._created_at = t = monotonic()
+        conn._expire_at = t + self._jitter(self.max_lifetime, -0.05, 0.0)
 
 
 class AttemptWithBackoff:

@@ -6,14 +6,30 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 import datetime as dt
 from logging import Logger
+import random
 import ssl
-from typing import Any, TypeVar
+from typing import Any, TypedDict, TypeVar
 
 import ciso8601
+from icmplib import Host, ICMPLibError, async_multiping
 import jwt
+
+from .exceptions import NabuCasaBaseError
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable)  # pylint: disable=invalid-name
 UTC = dt.UTC
+
+
+class CheckLatencyError(NabuCasaBaseError):
+    """Error to indicate a ping failure."""
+
+
+class CheckLatencyHostResult(TypedDict):
+    """Result of a latency check for a single host."""
+
+    address: str
+    is_alive: bool
+    avg_rtt: float
 
 
 def utcnow() -> dt.datetime:
@@ -32,6 +48,24 @@ def parse_date(dt_str: str) -> dt.date | None:
         return ciso8601.parse_datetime(dt_str).date()
     except ValueError:  # If dt_str did not match our format
         return None
+
+
+def seconds_as_dhms(seconds: float) -> str:
+    """Convert seconds to a DDd:HHh:MMm:SSs string."""
+    days, seconds = divmod(int(seconds), 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0 or (parts and (minutes > 0 or seconds > 0)):
+        parts.append(f"{hours}h")
+    if minutes > 0 or (parts and seconds > 0):
+        parts.append(f"{minutes}m")
+    if seconds > 0 or not parts:
+        parts.append(f"{seconds}s")
+    return ":".join(parts)
 
 
 def expiration_from_token(token: str | None) -> int | None:
@@ -89,6 +123,60 @@ def next_midnight() -> float:
         microsecond=0,
     ) + dt.timedelta(days=1)
     return (midnight - dt.datetime.now()).total_seconds()
+
+
+async def async_check_latency(
+    addresses: list[str],
+    *,
+    count: int = 1,
+    ping_timeout: int = 5,
+    privileged: bool = False,
+) -> list[CheckLatencyHostResult]:
+    """Check latency to a list of IP addresses and return them sorted by avg_rtt.
+
+    Args:
+        addresses: List of IP addresses to ping.
+        count: Number of ping packets to send to each address.
+        ping_timeout: Timeout in seconds for each ping.
+        privileged: Whether to use privileged (raw socket) mode.
+
+    Returns:
+        List of CheckLatencyHostResult dicts sorted by avg_rtt (fastest first).
+
+    """
+    if not addresses:
+        raise CheckLatencyError("No addresses provided")
+
+    hosts: list[Host]
+    try:
+        hosts = await async_multiping(
+            addresses=addresses,
+            count=count,
+            timeout=ping_timeout,
+            privileged=privileged,
+        )
+    except ICMPLibError:
+        raise CheckLatencyError("ICMP ping failed") from None
+
+    # Filter to only alive hosts and sort by latency
+    sorted_hosts = sorted([h for h in hosts if h.is_alive], key=lambda h: h.avg_rtt)
+
+    if not sorted_hosts:
+        raise CheckLatencyError("All hosts are unreachable")
+
+    return [
+        CheckLatencyHostResult(
+            address=host.address,
+            is_alive=host.is_alive,
+            avg_rtt=host.avg_rtt,
+        )
+        for host in sorted_hosts
+    ]
+
+
+def jitter(minimum: float, maximum: float) -> float:
+    """Return a random float between minimum and maximum for backoff jitter."""
+    return random.uniform(minimum, maximum)
 
 
 async def gather_callbacks(

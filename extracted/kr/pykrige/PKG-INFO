@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyKrige
-Version: 1.7.2
+Version: 1.7.3
 Summary: Kriging Toolkit for Python.
 Author-email: "Benjamin S. Murphy, Sebastian Müller" <info@geostat-framework.org>
 Maintainer-email: "Sebastian Müller, Roman Yurchak" <info@geostat-framework.org>
-License: BSD-3-Clause
+License-Expression: BSD-3-Clause
 Project-URL: Changelog, https://github.com/GeoStat-Framework/PyKrige/blob/main/CHANGELOG.md
 Project-URL: Conda-Forge, https://anaconda.org/conda-forge/pykrige
 Project-URL: Documentation, https://pykrige.readthedocs.io
@@ -15,7 +15,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: Unix
 Classifier: Operating System :: Microsoft
@@ -23,21 +22,22 @@ Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.20.0
-Requires-Dist: scipy<2,>=1.1.0
+Requires-Dist: scipy<2,>=1.5.4
 Provides-Extra: doc
 Requires-Dist: gstools<2,>=1.4; extra == "doc"
 Requires-Dist: pillow; extra == "doc"
@@ -61,6 +61,7 @@ Requires-Dist: black<24,>=23; extra == "lint"
 Requires-Dist: pylint; extra == "lint"
 Requires-Dist: isort[colors]; extra == "lint"
 Requires-Dist: cython-lint; extra == "lint"
+Dynamic: license-file
 
 # PyKrige
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GitPython
-Version: 3.1.45
+Version: 3.1.46
 Summary: GitPython is a Python library used to interact with Git repositories
 Home-page: https://github.com/gitpython-developers/GitPython
 Author: Sebastian Thiel, Michael Trier
@@ -32,7 +32,7 @@ Provides-Extra: test
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: ddt!=1.4.3,>=1.1.1; extra == "test"
 Requires-Dist: mock; python_version < "3.8" and extra == "test"
-Requires-Dist: mypy; extra == "test"
+Requires-Dist: mypy==1.18.2; python_version >= "3.9" and extra == "test"
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: pytest>=7.3.1; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

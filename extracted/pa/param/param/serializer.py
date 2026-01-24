@@ -13,7 +13,7 @@ class UnsafeserializableException(Exception):
     pass
 
 def JSONNullable(json_type):
-    """Express a JSON schema type as nullable to easily support Parameters that allow_None"""
+    """Express a JSON schema type as nullable to easily support Parameters that allow_None."""
     return {'anyOf': [ json_type, {'type': 'null'}] }
 
 
@@ -112,7 +112,7 @@ class JSONSerialization(Serialization):
 
     @classmethod
     def _get_method(cls, ptype, suffix):
-        """Returns specialized method if available, otherwise None"""
+        """Return specialized method if available, otherwise None."""
         method_name = ptype.lower()+'_' + suffix
         return getattr(cls, method_name, None)
 
@@ -194,7 +194,7 @@ class JSONSerialization(Serialization):
 
     @classmethod
     def declare_numeric_bounds(cls, schema, bounds, inclusive_bounds):
-        """Given an applicable numeric schema, augment with bounds information"""
+        """Given an applicable numeric schema, augment with bounds information."""
         if bounds is not None:
             (low, high) = bounds
             if low is not None:
@@ -234,7 +234,7 @@ class JSONSerialization(Serialization):
             msg = ('List without a class specified cannot be guaranteed '
                    'to be safe for serialization')
             raise UnsafeserializableException(msg)
-        if p.class_ is not None:
+        if p.item_type is not None:
             schema['items'] = cls.class__schema(p.item_type, safe=safe)
         return schema
 

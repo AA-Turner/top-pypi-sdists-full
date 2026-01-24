@@ -10,13 +10,14 @@
 
 """Functional tests for the "Injector" dependency injection framework."""
 
-from contextlib import contextmanager
-from typing import Any, NewType, Optional, Union
 import abc
 import sys
 import threading
 import traceback
 import warnings
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Any, Literal, NewType, Optional, Union
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -28,31 +29,32 @@ from typing import Dict, List, NewType
 import pytest
 
 from injector import (
+    AssistedBuilder,
     Binder,
     CallError,
+    CircularDependency,
+    ClassAssistedBuilder,
+    ClassProvider,
+    Error,
     Inject,
     Injector,
-    NoInject,
-    Scope,
     InstanceProvider,
-    ClassProvider,
+    InvalidInterface,
+    Module,
+    NoInject,
+    ProviderOf,
+    Scope,
+    ScopeDecorator,
+    SingletonScope,
+    UnknownArgument,
+    UnsatisfiedRequirement,
     get_bindings,
     inject,
     multiprovider,
     noninjectable,
+    provider,
     singleton,
     threadlocal,
-    UnsatisfiedRequirement,
-    CircularDependency,
-    Module,
-    SingletonScope,
-    ScopeDecorator,
-    AssistedBuilder,
-    provider,
-    ProviderOf,
-    ClassAssistedBuilder,
-    Error,
-    UnknownArgument,
 )
 
 
@@ -65,6 +67,10 @@ class DependsOnEmptyClass:
     def __init__(self, b: EmptyClass):
         """Construct a new DependsOnEmptyClass."""
         self.b = b
+
+
+City = NewType('City', str)
+Animal = Annotated[str, 'Animal']
 
 
 def prepare_nested_injectors():
@@ -576,6 +582,27 @@ def test_module_provider():
     assert injector.get(str) == 'Bob'
 
 
+def test_module_provider_keeps_annotated_types_and_new_types_separate() -> None:
+    class MyModule(Module):
+        @provider
+        def provide_name(self) -> str:
+            return 'Bob'
+
+        @provider
+        def provide_city(self) -> City:
+            return City('Stockholm')
+
+        @provider
+        def provide_animal(self) -> Animal:
+            return 'Dog'
+
+    module = MyModule()
+    injector = Injector(module)
+    assert injector.get(str) == 'Bob'
+    assert injector.get(City) == City('Stockholm')
+    assert injector.get(Animal) == 'Dog'
+
+
 def test_module_class_gets_instantiated():
     name = 'Meg'
 
@@ -607,7 +634,10 @@ def test_inject_and_provide_coexist_happily():
 
 
 Names = NewType('Names', List[str])
-Passwords = NewType('Ages', Dict[str, str])
+Passwords = NewType('Passwords', Dict[str, str])
+
+Animals = Annotated[List[str], 'Animals']
+AnimalFoods = Annotated[Dict[str, str], 'AnimalFoods']
 
 
 def test_multibind():
@@ -621,6 +651,12 @@ def test_multibind():
         # To see that NewTypes are treated distinctly
         binder.multibind(Names, to=['Bob'])
         binder.multibind(Passwords, to={'Bob': 'password1'})
+        # To see that Annotated collections are treated distinctly
+        binder.multibind(Animals, to=['Dog'])
+        binder.multibind(AnimalFoods, to={'Dog': 'meat'})
+        # To see that collections of Annotated types are treated distinctly
+        binder.multibind(List[City], to=[City('Stockholm')])
+        binder.multibind(Dict[str, City], to={'Sweden': City('Stockholm')})
 
     # Then @multiprovider-decorated Module methods
     class CustomModule(Module):
@@ -642,11 +678,27 @@ def test_multibind():
 
         @multiprovider
         def provide_names(self) -> Names:
-            return ['Alice', 'Clarice']
+            return Names(['Alice', 'Clarice'])
 
         @multiprovider
         def provide_passwords(self) -> Passwords:
-            return {'Alice': 'aojrioeg3', 'Clarice': 'clarice30'}
+            return Passwords({'Alice': 'aojrioeg3', 'Clarice': 'clarice30'})
+
+        @multiprovider
+        def provide_animals(self) -> Animals:
+            return ['Cat', 'Fish']
+
+        @multiprovider
+        def provide_animal_foods(self) -> AnimalFoods:
+            return {'Cat': 'milk', 'Fish': 'flakes'}
+
+        @multiprovider
+        def provide_cities(self) -> List[City]:
+            return [City('New York'), City('Tokyo')]
+
+        @multiprovider
+        def provide_city_mapping(self) -> Dict[str, City]:
+            return {'USA': City('New York'), 'Japan': City('Tokyo')}
 
     injector = Injector([configure, CustomModule])
     assert injector.get(List[str]) == ['not a name', 'not a name either']
@@ -655,6 +707,224 @@ def test_multibind():
     assert injector.get(Dict[str, int]) == {'weight': 12, 'height': 33}
     assert injector.get(Names) == ['Bob', 'Alice', 'Clarice']
     assert injector.get(Passwords) == {'Bob': 'password1', 'Alice': 'aojrioeg3', 'Clarice': 'clarice30'}
+    assert injector.get(Animals) == ['Dog', 'Cat', 'Fish']
+    assert injector.get(AnimalFoods) == {'Dog': 'meat', 'Cat': 'milk', 'Fish': 'flakes'}
+    assert injector.get(List[City]) == ['Stockholm', 'New York', 'Tokyo']
+    assert injector.get(Dict[str, City]) == {'Sweden': 'Stockholm', 'USA': 'New York', 'Japan': 'Tokyo'}
+
+
+class Plugin(abc.ABC):
+    pass
+
+
+class PluginA(Plugin):
+    pass
+
+
+class PluginB(Plugin):
+    pass
+
+
+class PluginC(Plugin):
+    pass
+
+
+class PluginD(Plugin):
+    pass
+
+
+class PluginE(Plugin):
+    pass
+
+
+def test_multibind_list_of_plugins():
+    def configure(binder: Binder):
+        binder.multibind(List[Plugin], to=PluginA)
+        binder.multibind(List[Plugin], to=[PluginB, PluginC()])
+        binder.multibind(List[Plugin], to=lambda: [PluginD()])
+        binder.multibind(List[Plugin], to=(PluginE,))
+
+    injector = Injector([configure])
+    plugins = injector.get(List[Plugin])
+    assert len(plugins) == 5
+    assert isinstance(plugins[0], PluginA)
+    assert isinstance(plugins[1], PluginB)
+    assert isinstance(plugins[2], PluginC)
+    assert isinstance(plugins[3], PluginD)
+    assert isinstance(plugins[4], PluginE)
+
+
+def test_multibind_dict_of_plugins():
+    def configure(binder: Binder):
+        binder.multibind(Dict[str, Plugin], to={'a': PluginA})
+        binder.multibind(Dict[str, Plugin], to={'b': PluginB, 'c': PluginC()})
+        binder.multibind(Dict[str, Plugin], to=lambda: {'d': PluginD()})
+
+    injector = Injector([configure])
+    plugins = injector.get(Dict[str, Plugin])
+    assert len(plugins) == 4
+    assert isinstance(plugins['a'], PluginA)
+    assert isinstance(plugins['b'], PluginB)
+    assert isinstance(plugins['c'], PluginC)
+    assert isinstance(plugins['d'], PluginD)
+
+
+def test_multibinding_to_non_generic_type_raises_error():
+    def configure_list(binder: Binder):
+        binder.multibind(List, to=[1])
+
+    def configure_dict(binder: Binder):
+        binder.multibind(Dict, to={'a': 2})
+
+    with pytest.raises(InvalidInterface):
+        Injector([configure_list])
+
+    with pytest.raises(InvalidInterface):
+        Injector([configure_dict])
+
+
+def test_multibind_types_are_not_affected_by_the_bound_type_scope() -> None:
+    def configure(binder: Binder) -> None:
+        binder.bind(PluginA, to=PluginA, scope=singleton)
+        binder.multibind(List[Plugin], to=PluginA)
+
+    injector = Injector([configure])
+    first_list = injector.get(List[Plugin])
+    second_list = injector.get(List[Plugin])
+
+    assert injector.get(PluginA) is injector.get(PluginA)
+    assert first_list[0] is not injector.get(PluginA)
+    assert first_list[0] is not second_list[0]
+
+
+def test_multibind_types_are_not_affected_by_the_bound_type_provider() -> None:
+    def configure(binder: Binder) -> None:
+        binder.bind(PluginA, to=InstanceProvider(PluginA()))
+        binder.multibind(List[Plugin], to=PluginA)
+
+    injector = Injector([configure])
+    first_list = injector.get(List[Plugin])
+    second_list = injector.get(List[Plugin])
+
+    assert injector.get(PluginA) is injector.get(PluginA)
+    assert first_list[0] is not injector.get(PluginA)
+    assert first_list[0] is not second_list[0]
+
+
+def test_multibind_dict_types_use_their_own_bound_providers_and_scopes() -> None:
+    def configure(binder: Binder) -> None:
+        binder.bind(PluginA, to=InstanceProvider(PluginA()))
+        binder.bind(PluginB, to=PluginB, scope=singleton)
+        binder.multibind(Dict[str, Plugin], to={'a': PluginA, 'b': PluginB})
+
+    injector = Injector([configure])
+
+    dictionary = injector.get(Dict[str, Plugin])
+
+    assert dictionary['a'] is not injector.get(PluginA)
+    assert dictionary['b'] is not injector.get(PluginB)
+
+
+def test_multibind_list_scopes_apply_to_the_bound_items() -> None:
+    def configure(binder: Binder) -> None:
+        binder.multibind(List[Plugin], to=PluginA, scope=singleton)
+        binder.multibind(List[Plugin], to=PluginB)
+        binder.multibind(List[Plugin], to=[PluginC], scope=singleton)
+
+    injector = Injector([configure])
+    first_list = injector.get(List[Plugin])
+    second_list = injector.get(List[Plugin])
+
+    assert first_list is not second_list
+    assert first_list[0] is second_list[0]
+    assert first_list[1] is not second_list[1]
+    assert first_list[2] is second_list[2]
+
+
+def test_multibind_list_scopes_apply_to_the_bound_items_not_types() -> None:
+    def configure(binder: Binder) -> None:
+        binder.multibind(List[Plugin], to=PluginA)
+        binder.multibind(List[Plugin], to=[PluginA, PluginB], scope=singleton)
+        binder.multibind(List[Plugin], to=PluginA)
+        binder.multibind(List[Plugin], to=PluginA, scope=singleton)
+
+    injector = Injector([configure])
+    first_list = injector.get(List[Plugin])
+    second_list = injector.get(List[Plugin])
+
+    assert first_list is not second_list
+    assert first_list[0] is not second_list[0]
+    assert first_list[1] is second_list[1]
+    assert first_list[2] is second_list[2]
+    assert first_list[3] is not second_list[3]
+    assert first_list[4] is second_list[4]
+
+
+def test_multibind_dict_scopes_apply_to_the_bound_items_in_the_multibound_dict() -> None:
+    SingletonPlugins = Annotated[Plugin, "singleton"]
+    OtherPlugins = Annotated[Plugin, "other"]
+
+    def configure(binder: Binder) -> None:
+        binder.multibind(Dict[str, SingletonPlugins], to={'a': PluginA}, scope=singleton)
+        binder.multibind(Dict[str, OtherPlugins], to={'a': PluginA})
+
+    injector = Injector([configure])
+    singletons_1 = injector.get(Dict[str, SingletonPlugins])
+    singletons_2 = injector.get(Dict[str, SingletonPlugins])
+    others_1 = injector.get(Dict[str, OtherPlugins])
+    others_2 = injector.get(Dict[str, OtherPlugins])
+
+    assert singletons_1['a'] is singletons_2['a']
+    assert singletons_1['a'] is not others_1['a']
+    assert others_1['a'] is not others_2['a']
+
+
+def test_multibind_list_scopes_apply_to_the_bound_items_in_the_multibound_list() -> None:
+    SingletonPlugins = Annotated[Plugin, "singleton"]
+    OtherPlugins = Annotated[Plugin, "other"]
+
+    def configure(binder: Binder) -> None:
+        binder.multibind(List[SingletonPlugins], to=PluginA, scope=singleton)
+        binder.multibind(List[OtherPlugins], to=PluginA)
+
+    injector = Injector([configure])
+    singletons_1 = injector.get(List[SingletonPlugins])
+    singletons_2 = injector.get(List[SingletonPlugins])
+    others_1 = injector.get(List[OtherPlugins])
+    others_2 = injector.get(List[OtherPlugins])
+
+    assert singletons_1[0] is singletons_2[0]
+    assert singletons_1[0] is not others_1[0]
+    assert others_1[0] is not others_2[0]
+
+
+def test_multibind_dict_scopes_apply_to_the_bound_items() -> None:
+    def configure(binder: Binder) -> None:
+        binder.multibind(Dict[str, Plugin], to={'a': PluginA}, scope=singleton)
+        binder.multibind(Dict[str, Plugin], to={'b': PluginB})
+        binder.multibind(Dict[str, Plugin], to={'c': PluginC}, scope=singleton)
+
+    injector = Injector([configure])
+    first_dict = injector.get(Dict[str, Plugin])
+    second_dict = injector.get(Dict[str, Plugin])
+
+    assert first_dict is not second_dict
+    assert first_dict['a'] is second_dict['a']
+    assert first_dict['b'] is not second_dict['b']
+    assert first_dict['c'] is second_dict['c']
+
+
+def test_multibind_scopes_does_not_apply_to_the_type_globally() -> None:
+    def configure(binder: Binder) -> None:
+        binder.multibind(List[Plugin], to=PluginA, scope=singleton)
+        binder.multibind(Dict[str, Plugin], to={'a': PluginA}, scope=singleton)
+
+    injector = Injector([configure])
+    plugins = injector.get(List[Plugin])
+
+    assert plugins[0] is not injector.get(PluginA)
+    assert plugins[0] is not injector.get(Plugin)
+    assert injector.get(PluginA) is not injector.get(PluginA)
 
 
 def test_regular_bind_and_provider_dont_work_with_multibind():
@@ -1588,89 +1858,176 @@ def test_binder_has_implicit_binding_for_implicitly_bound_type():
     assert not injector.binder.has_explicit_binding_for(int)
 
 
-def test_get_bindings():
-    def function1(a: int) -> None:
+def test_gets_no_bindings_without_injection() -> None:
+    def function(a: int) -> None:
         pass
 
-    assert get_bindings(function1) == {}
+    assert get_bindings(function) == {}
 
+
+def test_gets_bindings_with_inject_decorator() -> None:
     @inject
-    def function2(a: int) -> None:
+    def function(a: int) -> None:
         pass
 
-    assert get_bindings(function2) == {'a': int}
+    assert get_bindings(function) == {'a': int}
 
+
+def test_gets_multiple_bindings_with_inject_decorator() -> None:
+    @inject
+    def function(a: int, b: str) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': int, 'b': str}
+
+
+def test_only_gets_injectable_bindings_without_noninjectable_decorator() -> None:
     @inject
     @noninjectable('b')
-    def function3(a: int, b: str) -> None:
+    def function1(a: int, b: str) -> None:
         pass
-
-    assert get_bindings(function3) == {'a': int}
 
     # Let's verify that the inject/noninjectable ordering doesn't matter
     @noninjectable('b')
     @inject
-    def function3b(a: int, b: str) -> None:
+    def function2(a: int, b: str) -> None:
         pass
 
-    assert get_bindings(function3b) == {'a': int}
+    assert get_bindings(function1) == {'a': int} == get_bindings(function2)
 
-    # The simple case of no @inject but injection requested with Inject[...]
-    def function4(a: Inject[int], b: str) -> None:
+
+def test_gets_bindings_with_inject_annotation() -> None:
+    def function(a: Inject[int], b: str) -> None:
         pass
 
-    assert get_bindings(function4) == {'a': int}
+    assert get_bindings(function) == {'a': int}
 
-    # Using @inject with Inject is redundant but it should not break anything
+
+def test_gets_multiple_bindings_with_inject_annotation() -> None:
+    def function(a: Inject[int], b: Inject[str]) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': int, 'b': str}
+
+
+def test_gets_bindings_inject_with_redundant_inject_annotation() -> None:
     @inject
-    def function5(a: Inject[int], b: str) -> None:
+    def function(a: Inject[int], b: str) -> None:
         pass
 
-    assert get_bindings(function5) == {'a': int, 'b': str}
+    assert get_bindings(function) == {'a': int, 'b': str}
 
-    # We need to be able to exclude a parameter from injection with NoInject
+
+def test_only_gets_bindings_without_noinject_annotation() -> None:
     @inject
-    def function6(a: int, b: NoInject[str]) -> None:
+    def function(a: int, b: NoInject[str]) -> None:
         pass
 
-    assert get_bindings(function6) == {'a': int}
+    assert get_bindings(function) == {'a': int}
 
-    # The presence of NoInject should not trigger anything on its own
-    def function7(a: int, b: NoInject[str]) -> None:
+
+def test_gets_no_bindings_for_noinject_annotation_only() -> None:
+    def function(a: int, b: NoInject[str]) -> None:
         pass
 
-    assert get_bindings(function7) == {}
+    assert get_bindings(function) == {}
 
+
+def test_gets_no_bindings_for_multiple_noinject_annotations() -> None:
     # There was a bug where in case of multiple NoInject-decorated parameters only the first one was
     # actually made noninjectable and we tried to inject something we couldn't possibly provide
     # into the second one.
     @inject
-    def function8(a: NoInject[int], b: NoInject[int]) -> None:
+    def function(a: NoInject[int], b: NoInject[int]) -> None:
         pass
 
-    assert get_bindings(function8) == {}
+    assert get_bindings(function) == {}
 
-    # Default arguments to NoInject annotations should behave the same as noninjectable decorator w.r.t 'None'
+
+def test_get_bindings_noinject_with_default_should_behave_identically() -> None:
     @inject
     @noninjectable('b')
-    def function9(self, a: int, b: Optional[str] = None):
+    def function1(self, a: int, b: Optional[str] = None) -> None:
         pass
 
     @inject
-    def function10(self, a: int, b: NoInject[Optional[str]] = None):
-        # b:s type is Union[NoInject[Union[str, None]], None]
+    def function2(self, a: int, b: NoInject[Optional[str]] = None) -> None:
+        # b's type is Union[NoInject[Union[str, None]], None]
         pass
 
-    assert get_bindings(function9) == {'a': int} == get_bindings(function10)
+    assert get_bindings(function1) == {'a': int} == get_bindings(function2)
 
+
+def test_get_bindings_with_an_invalid_forward_reference_return_type() -> None:
     # If there's a return type annottion that contains an a forward reference that can't be
     # resolved (for whatever reason) we don't want that to break things for us – return types
     # don't matter for the purpose of dependency injection.
     @inject
-    def function11(a: int) -> 'InvalidForwardReference':
+    def function(a: int) -> 'InvalidForwardReference':
         pass
 
-    assert get_bindings(function11) == {'a': int}
+    assert get_bindings(function) == {'a': int}
+
+
+def test_gets_bindings_for_annotated_type_with_inject_decorator() -> None:
+    UserID = Annotated[int, 'user_id']
+
+    @inject
+    def function(a: UserID, b: str) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': UserID, 'b': str}
+
+
+def test_gets_bindings_of_annotated_type_with_inject_annotation() -> None:
+    UserID = Annotated[int, 'user_id']
+
+    def function(a: Inject[UserID], b: Inject[str]) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': UserID, 'b': str}
+
+
+def test_gets_bindings_of_new_type_with_inject_annotation() -> None:
+    Name = NewType('Name', str)
+
+    @inject
+    def function(a: Name, b: str) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': Name, 'b': str}
+
+
+def test_gets_bindings_of_inject_annotation_with_new_type() -> None:
+    def function(a: Inject[Name], b: str) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': Name}
+
+
+def test_get_bindings_of_nested_noinject_inject_annotation() -> None:
+    # This is not how this is intended to be used
+    def function(a: Inject[NoInject[int]], b: NoInject[Inject[str]]) -> None:
+        pass
+
+    assert get_bindings(function) == {}
+
+
+def test_get_bindings_of_nested_noinject_inject_annotation_and_inject_decorator() -> None:
+    # This is not how this is intended to be used
+    @inject
+    def function(a: Inject[NoInject[int]], b: NoInject[Inject[str]]) -> None:
+        pass
+
+    assert get_bindings(function) == {}
+
+
+def test_get_bindings_of_nested_inject_annotations() -> None:
+    # This is not how this is intended to be used
+    def function(a: Inject[Inject[int]]) -> None:
+        pass
+
+    assert get_bindings(function) == {'a': int}
 
 
 # Tests https://github.com/alecthomas/injector/issues/202
@@ -1754,3 +2111,155 @@ def test_annotated_non_comparable_types():
     injector = Injector([configure])
     assert injector.get(foo) == 123
     assert injector.get(bar) == 456
+
+
+def test_annotated_integration_with_annotated():
+    UserID = Annotated[int, 'user_id']
+    UserAge = Annotated[int, 'user_age']
+
+    @inject
+    class TestClass:
+        def __init__(self, user_id: UserID, user_age: UserAge):
+            self.user_id = user_id
+            self.user_age = user_age
+
+    def configure(binder):
+        binder.bind(UserID, to=123)
+        binder.bind(UserAge, to=32)
+
+    injector = Injector([configure])
+
+    test_class = injector.get(TestClass)
+    assert test_class.user_id == 123
+    assert test_class.user_age == 32
+
+
+def test_inject_annotation_with_annotated_type():
+    UserID = Annotated[int, 'user_id']
+    UserAge = Annotated[int, 'user_age']
+
+    class TestClass:
+        def __init__(self, user_id: Inject[UserID], user_age: Inject[UserAge]):
+            self.user_id = user_id
+            self.user_age = user_age
+
+    def configure(binder):
+        binder.bind(UserID, to=123)
+        binder.bind(UserAge, to=32)
+        binder.bind(int, to=456)
+
+    injector = Injector([configure])
+
+    test_class = injector.get(TestClass)
+    assert test_class.user_id == 123
+    assert test_class.user_age == 32
+
+
+def test_inject_annotation_with_nested_annotated_type():
+    UserID = Annotated[int, 'user_id']
+    SpecialUserID = Annotated[UserID, 'special_user_id']
+
+    class TestClass:
+        def __init__(self, user_id: Inject[SpecialUserID]):
+            self.user_id = user_id
+
+    def configure(binder):
+        binder.bind(SpecialUserID, to=123)
+
+    injector = Injector([configure])
+
+    test_class = injector.get(TestClass)
+    assert test_class.user_id == 123
+
+
+def test_noinject_annotation_with_annotated_type():
+    UserID = Annotated[int, 'user_id']
+
+    @inject
+    class TestClass:
+        def __init__(self, user_id: NoInject[UserID] = None):
+            self.user_id = user_id
+
+    def configure(binder):
+        binder.bind(UserID, to=123)
+
+    injector = Injector([configure])
+
+    test_class = injector.get(TestClass)
+    assert test_class.user_id is None
+
+
+def test_newtype_integration_with_annotated():
+    UserID = NewType('UserID', int)
+
+    @inject
+    class TestClass:
+        def __init__(self, user_id: UserID):
+            self.user_id = user_id
+
+    def configure(binder):
+        binder.bind(UserID, to=123)
+
+    injector = Injector([configure])
+
+    test_class = injector.get(TestClass)
+    assert test_class.user_id == 123
+
+
+def test_newtype_with_injection_annotation():
+    UserID = NewType('UserID', int)
+
+    class TestClass:
+        def __init__(self, user_id: Inject[UserID]):
+            self.user_id = user_id
+
+    def configure(binder):
+        binder.bind(UserID, to=123)
+
+    injector = Injector([configure])
+
+    test_class = injector.get(TestClass)
+    assert test_class.user_id == 123
+
+
+def test_dataclass_annotated_parameter():
+    Foo = Annotated[int, object()]
+
+    def configure(binder):
+        binder.bind(Foo, to=123)
+
+    @inject
+    @dataclass
+    class MyClass:
+        foo: Foo
+
+    injector = Injector([configure])
+    instance = injector.get(MyClass)
+    assert instance.foo == 123
+
+
+def test_module_provider_with_annotated():
+    class MyModule(Module):
+        @provider
+        def provide_first(self) -> Annotated[str, 'first']:
+            return 'Bob'
+
+        @provider
+        def provide_second(self) -> Annotated[str, 'second']:
+            return 'Iger'
+
+    module = MyModule()
+    injector = Injector(module)
+    assert injector.get(Annotated[str, 'first']) == 'Bob'
+    assert injector.get(Annotated[str, 'second']) == 'Iger'
+
+
+# Test for https://github.com/alecthomas/injector/issues/303
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
+def test_can_inject_dataclass_with_literal_value():
+    @dataclass(slots=True)
+    class ServiceConfig:
+        environment: Literal["prod", "test"] = "test"
+
+    injector = Injector()
+    assert injector.get(ServiceConfig).environment == "test"

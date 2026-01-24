@@ -1,13 +1,15 @@
-import requests
-
+from adam.commands import validate_args
 from adam.commands.command import Command
-from .reaper_session import ReaperSession
+from adam.commands.reaper.utils_reaper import Reapers, reaper
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
+
+import nest_asyncio
+nest_asyncio.apply()
+
+import asyncio
 
 class ReaperScheduleActivate(Command):
     COMMAND = 'reaper activate schedule'
-    reaper_login = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -28,37 +30,16 @@ class ReaperScheduleActivate(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
-            return state
+        with self.validate(args, state) as (args, state):
+            with validate_args(args, state, name='schedule') as schedule_id:
+                with reaper(state) as http:
+                    http.put(f'repair_schedule/{schedule_id}?state=ACTIVE')
+                    Reapers.show_schedule(state, schedule_id)
 
-        if not args:
-            log2('Specify schedule to activate.')
-
-            return state
-
-        schedule_id = args[0]
-        if not(reaper := ReaperSession.create(state)):
-            return state
-
-        self.activate_schedule(state, reaper, schedule_id)
-
-        return schedule_id
-
-    def activate_schedule(self, state: ReplState, reaper: ReaperSession, schedule_id: str):
-        def body(uri: str, headers: dict[str, str]):
-            return requests.put(uri, headers=headers)
-
-        reaper.port_forwarded(state, f'repair_schedule/{schedule_id}?state=ACTIVE', body, method='PUT')
-        reaper.show_schedule(state, schedule_id)
+                return schedule_id
 
     def completion(self, state: ReplState):
-        if state.sts:
-            leaf = {id: None for id in ReaperSession.cached_schedule_ids(state)}
+        return super().completion(state, lambda: {id: None for id in Reapers.cached_schedule_ids(state)}, auto_key='reaper.schedules')
 
-            return super().completion(state, leaf)
-
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{ReaperScheduleActivate.COMMAND} <schedule-id>\t resume reaper schedule'
+    def help(self, state: ReplState):
+        return super().help(state, 'resume reaper schedule', args='<schedule-id>')

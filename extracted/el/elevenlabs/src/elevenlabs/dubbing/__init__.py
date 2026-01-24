@@ -7,20 +7,26 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        DubbingCreateRequestMode,
         DubbingListRequestDubbingStatus,
         DubbingListRequestFilterByCreator,
         DubbingListRequestOrderDirection,
     )
-    from . import audio, resource, transcript
-    from .transcript import TranscriptGetTranscriptForDubRequestFormatType
+    from . import audio, resource, transcript, transcripts
+    from .transcript import TranscriptGetTranscriptForDubRequestFormatType, TranscriptGetTranscriptForDubResponse
+    from .transcripts import TranscriptsGetRequestFormatType
 _dynamic_imports: typing.Dict[str, str] = {
+    "DubbingCreateRequestMode": ".types",
     "DubbingListRequestDubbingStatus": ".types",
     "DubbingListRequestFilterByCreator": ".types",
     "DubbingListRequestOrderDirection": ".types",
     "TranscriptGetTranscriptForDubRequestFormatType": ".transcript",
-    "audio": ".",
-    "resource": ".",
-    "transcript": ".",
+    "TranscriptGetTranscriptForDubResponse": ".transcript",
+    "TranscriptsGetRequestFormatType": ".transcripts",
+    "audio": ".audio",
+    "resource": ".resource",
+    "transcript": ".transcript",
+    "transcripts": ".transcripts",
 }
 
 
@@ -30,8 +36,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -44,11 +52,15 @@ def __dir__():
 
 
 __all__ = [
+    "DubbingCreateRequestMode",
     "DubbingListRequestDubbingStatus",
     "DubbingListRequestFilterByCreator",
     "DubbingListRequestOrderDirection",
     "TranscriptGetTranscriptForDubRequestFormatType",
+    "TranscriptGetTranscriptForDubResponse",
+    "TranscriptsGetRequestFormatType",
     "audio",
     "resource",
     "transcript",
+    "transcripts",
 ]

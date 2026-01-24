@@ -1,0 +1,51 @@
+Metadata-Version: 2.4
+Name: vastdb
+Version: 2.0.7
+Summary: VAST Data SDK
+Home-page: https://github.com/vast-data/vastdb_sdk
+Author: VAST DATA
+Author-email: hello@vastdata.com
+License: Copyright (C) VAST Data Ltd.
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Front-Ends
+Requires-Python: >=3.10.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-requests-auth
+Requires-Dist: ibis-framework~=10.1
+Requires-Dist: pyarrow~=18.0
+Requires-Dist: pyarrow-hotfix==0.7
+Requires-Dist: flatbuffers
+Requires-Dist: packaging
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: requests
+Requires-Dist: xmltodict
+Requires-Dist: backoff==2.2.1
+Requires-Dist: adbc_driver_manager
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+
+`vastdb` is a Python-based SDK designed for interacting
+with [VAST Database](https://vastdata.com/database)
+and [VAST Catalog](https://vastdata.com/blog/vast-catalog-treat-your-file-system-like-a-database),
+enabling schema and table management, efficient ingest, query and modification of columnar data.
+
+For more details, see [our whitepaper](https://vastdata.com/whitepaper/#TheVASTDataBase).

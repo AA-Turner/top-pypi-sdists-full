@@ -7,21 +7,22 @@ import sys
 import time
 import traceback
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Union
 from urllib.parse import urlparse
 
+from modal._partial_function import _PartialFunctionFlags
 from modal.cls import _Cls
 from modal.dict import _Dict
 from modal_proto import api_pb2
 
+from .._server import validate_http_server_config
 from .._tunnel import _forward as _forward_tunnel
 from .._utils.async_utils import synchronize_api, synchronizer
-from .._utils.grpc_utils import retry_transient_errors
 from ..client import _Client
 from ..config import logger
 from ..exception import InvalidError
 
-MAX_FAILURES = 3
+_MAX_FAILURES = 10
 
 
 class _FlashManager:
@@ -29,34 +30,47 @@ class _FlashManager:
         self,
         client: _Client,
         port: int,
-        process: Optional[subprocess.Popen] = None,
+        process: Optional[subprocess.Popen] = None,  # to be deprecated
         health_check_url: Optional[str] = None,
+        startup_timeout: int = 30,
+        exit_grace_period: int = 0,
+        h2_enabled: bool = False,
     ):
         self.client = client
         self.port = port
+        self.process = process
         # Health check is not currently being used
         self.health_check_url = health_check_url
-        self.process = process
-        self.tunnel_manager = _forward_tunnel(port, client=client)
+        self.startup_timeout = startup_timeout
+        self.exit_grace_period = exit_grace_period
+        self.tunnel_manager = _forward_tunnel(port, h2_enabled=h2_enabled, client=client)
         self.stopped = False
         self.num_failures = 0
         self.task_id = os.environ["MODAL_TASK_ID"]
 
-    async def check_port_connection(self, process: Optional[subprocess.Popen], timeout: int = 10):
+    async def is_port_connection_healthy(
+        self, process: Optional[subprocess.Popen], timeout: float = 0.5
+    ) -> tuple[bool, Optional[Exception]]:
         import socket
 
         start_time = time.monotonic()
 
+        def check_process_is_running() -> Optional[Exception]:
+            if process is not None and process.poll() is not None:
+                return Exception(f"Process {process.pid} exited with code {process.returncode}")
+            return None
+
         while time.monotonic() - start_time < timeout:
             try:
-                if process is not None and process.poll() is not None:
-                    return Exception(f"Process {process.pid} exited with code {process.returncode}")
-                with socket.create_connection(("localhost", self.port), timeout=1):
-                    return
+                if error := check_process_is_running():
+                    return False, error
+                # TODO(claudia): use asyncio socket create connection
+                with socket.create_connection(("localhost", self.port), timeout=0.5):
+                    return True, None
             except (ConnectionRefusedError, OSError):
                 await asyncio.sleep(0.1)
 
-        return Exception(f"Waited too long for port {self.port} to start accepting connections")
+        return False, Exception(f"Waited too long for port {self.port} to start accepting connections")
 
     async def _start(self):
         self.tunnel = await self.tunnel_manager.__aenter__()
@@ -74,7 +88,7 @@ class _FlashManager:
         while True:
             try:
                 # Check if the container should be drained (e.g., too many failures)
-                if self.num_failures > MAX_FAILURES:
+                if self.num_failures > _MAX_FAILURES:
                     logger.warning(
                         f"[Modal Flash] Draining task {self.task_id} on {self.tunnel.url} due to too many failures."
                     )
@@ -99,37 +113,42 @@ class _FlashManager:
 
     async def _run_heartbeat(self, host: str, port: int):
         first_registration = True
+        start_time = time.monotonic()
         while True:
             try:
-                await self.check_port_connection(process=self.process)
-                resp = await self.client.stub.FlashContainerRegister(
-                    api_pb2.FlashContainerRegisterRequest(
-                        priority=10,
-                        weight=5,
-                        host=host,
-                        port=port,
-                    ),
-                    timeout=10,
-                )
-                self.num_failures = 0
-                if first_registration:
-                    logger.warning(
-                        f"[Modal Flash] Listening at {resp.url} over {self.tunnel.url} for task_id {self.task_id}"
+                port_check_resp, port_check_error = await self.is_port_connection_healthy(process=self.process)
+                if port_check_resp:
+                    resp = await self.client.stub.FlashContainerRegister(
+                        api_pb2.FlashContainerRegisterRequest(
+                            priority=10,
+                            weight=5,
+                            host=host,
+                            port=port,
+                        ),
+                        timeout=10,
+                        retry=None,
                     )
-                    first_registration = False
+                    self.num_failures = 0
+                    if first_registration:
+                        logger.warning(
+                            f"[Modal Flash] Listening at {resp.url} over {self.tunnel.url} for task_id {self.task_id}"
+                        )
+                        first_registration = False
+                else:
+                    if first_registration and (time.monotonic() - start_time < self.startup_timeout):
+                        continue
+                    else:
+                        logger.error(
+                            f"[Modal Flash] Deregistering container {self.task_id} on {self.tunnel.url} "
+                            f"due to error: {port_check_error}, num_failures: {self.num_failures}"
+                        )
+                        self.num_failures += 1
+                        await self.client.stub.FlashContainerDeregister(api_pb2.FlashContainerDeregisterRequest())
             except asyncio.CancelledError:
                 logger.warning("[Modal Flash] Shutting down...")
                 break
             except Exception as e:
                 logger.error(f"[Modal Flash] Heartbeat failed: {e}")
-                self.num_failures += 1
-                logger.error(
-                    f"[Modal Flash] Deregistering container {self.tunnel.url}, num_failures: {self.num_failures}"
-                )
-                await retry_transient_errors(
-                    self.client.stub.FlashContainerDeregister,
-                    api_pb2.FlashContainerDeregisterRequest(),
-                )
 
             try:
                 await asyncio.sleep(1)
@@ -142,12 +161,12 @@ class _FlashManager:
         return self.tunnel.url
 
     async def stop(self):
-        self.heartbeat_task.cancel()
-        await retry_transient_errors(
-            self.client.stub.FlashContainerDeregister,
-            api_pb2.FlashContainerDeregisterRequest(),
-        )
+        try:
+            self.heartbeat_task.cancel()
+        except Exception as e:
+            logger.error(f"[Modal Flash] Error stopping: {e}")
 
+        await self.client.stub.FlashContainerDeregister(api_pb2.FlashContainerDeregisterRequest())
         self.stopped = True
         logger.warning(f"[Modal Flash] No longer accepting new requests on {self.tunnel.url}.")
 
@@ -158,16 +177,23 @@ class _FlashManager:
         if not self.stopped:
             await self.stop()
 
+        await asyncio.sleep(self.exit_grace_period)
+
         logger.warning(f"[Modal Flash] Closing tunnel on {self.tunnel.url}.")
         await self.tunnel_manager.__aexit__(*sys.exc_info())
 
 
-FlashManager = synchronize_api(_FlashManager)
+FlashManager = synchronize_api(_FlashManager, target_module=__name__)
 
 
 @synchronizer.create_blocking
 async def flash_forward(
-    port: int, process: Optional[subprocess.Popen] = None, health_check_url: Optional[str] = None
+    port: int,
+    process: Optional[subprocess.Popen] = None,  # to be deprecated
+    health_check_url: Optional[str] = None,
+    startup_timeout: int = 30,
+    exit_grace_period: int = 0,
+    h2_enabled: bool = False,
 ) -> _FlashManager:
     """
     Forward a port to the Modal Flash service, exposing that port as a stable web endpoint.
@@ -176,7 +202,15 @@ async def flash_forward(
     """
     client = await _Client.from_env()
 
-    manager = _FlashManager(client, port, process=process, health_check_url=health_check_url)
+    manager = _FlashManager(
+        client,
+        port,
+        process=process,
+        health_check_url=health_check_url,
+        startup_timeout=startup_timeout,
+        exit_grace_period=exit_grace_period,
+        h2_enabled=h2_enabled,
+    )
     await manager._start()
     return manager
 
@@ -194,6 +228,7 @@ class _FlashPrometheusAutoscaler:
         target_metric_value: float,
         min_containers: Optional[int],
         max_containers: Optional[int],
+        buffer_containers: Optional[int],
         scale_up_tolerance: float,
         scale_down_tolerance: float,
         scale_up_stabilization_window_seconds: int,
@@ -221,6 +256,7 @@ class _FlashPrometheusAutoscaler:
         self.target_metric_value = target_metric_value
         self.min_containers = min_containers
         self.max_containers = max_containers
+        self.buffer_containers = buffer_containers
         self.scale_up_tolerance = scale_up_tolerance
         self.scale_down_tolerance = scale_down_tolerance
         self.scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds
@@ -273,10 +309,7 @@ class _FlashPrometheusAutoscaler:
                     if timestamp >= autoscaling_time - self._max_window_seconds
                 ]
 
-                if self.metrics_endpoint == "internal":
-                    current_target_containers = await self._compute_target_containers_internal(current_replicas)
-                else:
-                    current_target_containers = await self._compute_target_containers_prometheus(current_replicas)
+                current_target_containers = await self._compute_target_containers(current_replicas=current_replicas)
                 autoscaling_decisions.append((autoscaling_time, current_target_containers))
 
                 actual_target_containers = self._make_scaling_decision(
@@ -286,6 +319,7 @@ class _FlashPrometheusAutoscaler:
                     scale_down_stabilization_window_seconds=self.scale_down_stabilization_window_seconds,
                     min_containers=self.min_containers,
                     max_containers=self.max_containers,
+                    buffer_containers=self.buffer_containers,
                 )
 
                 logger.warning(
@@ -299,7 +333,7 @@ class _FlashPrometheusAutoscaler:
                 )
                 await self.autoscaling_decisions_dict.put("current_replicas", actual_target_containers)
 
-                await self.cls.update_autoscaler(min_containers=actual_target_containers)
+                await self._set_target_slots(actual_target_containers)
 
                 if time.time() - autoscaling_time < self.autoscaling_interval_seconds:
                     await asyncio.sleep(self.autoscaling_interval_seconds - (time.time() - autoscaling_time))
@@ -312,9 +346,9 @@ class _FlashPrometheusAutoscaler:
                 logger.error(traceback.format_exc())
                 await asyncio.sleep(self.autoscaling_interval_seconds)
 
-    async def _compute_target_containers_internal(self, current_replicas: int) -> int:
+    async def _compute_target_containers(self, current_replicas: int) -> int:
         """
-        Gets internal metrics from container to autoscale up or down.
+        Gets metrics from container to autoscale up or down.
         """
         containers = await self._get_all_containers()
         if len(containers) > current_replicas:
@@ -327,110 +361,100 @@ class _FlashPrometheusAutoscaler:
         if current_replicas == 0:
             return 1
 
-        internal_metrics_list = []
-        for container in containers:
-            internal_metric = await self._get_container_metrics(container.task_id)
-            if internal_metric is None:
-                continue
-            internal_metrics_list.append(getattr(internal_metric.metrics, self.target_metric))
+        # Get metrics based on autoscaler type
+        sum_metric, n_containers_with_metrics = await self._get_scaling_info(containers)
 
-        if not internal_metrics_list:
-            return current_replicas
-
-        avg_internal_metric = sum(internal_metrics_list) / len(internal_metrics_list)
-
-        scale_factor = avg_internal_metric / self.target_metric_value
-
-        desired_replicas = current_replicas
-        if scale_factor > 1 + self.scale_up_tolerance:
-            desired_replicas = math.ceil(current_replicas * scale_factor)
-        elif scale_factor < 1 - self.scale_down_tolerance:
-            desired_replicas = math.ceil(current_replicas * scale_factor)
-
-        logger.warning(
-            f"[Modal Flash] Current replicas: {current_replicas}, "
-            f"avg internal metric `{self.target_metric}`: {avg_internal_metric}, "
-            f"target internal metric value: {self.target_metric_value}, "
-            f"scale factor: {scale_factor}, "
-            f"desired replicas: {desired_replicas}"
+        desired_replicas = self._calculate_desired_replicas(
+            n_current_replicas=current_replicas,
+            sum_metric=sum_metric,
+            n_containers_with_metrics=n_containers_with_metrics,
+            n_total_containers=len(containers),
+            target_metric_value=self.target_metric_value,
         )
 
-        desired_replicas = max(1, min(desired_replicas, self.max_containers or 1000))
-        return desired_replicas
+        return max(1, desired_replicas)
 
-    async def _compute_target_containers_prometheus(self, current_replicas: int) -> int:
-        # current_replicas is the number of live containers + cold starting containers (not yet live)
-        # containers is the number of live containers that are registered in flash dns
-        containers = await self._get_all_containers()
-        if len(containers) > current_replicas:
-            logger.info(
-                f"[Modal Flash] Current replicas {current_replicas} is less than the number of containers "
-                f"{len(containers)}. Setting current_replicas = num_containers."
-            )
-            current_replicas = len(containers)
+    def _calculate_desired_replicas(
+        self,
+        n_current_replicas: int,
+        sum_metric: float,
+        n_containers_with_metrics: int,
+        n_total_containers: int,
+        target_metric_value: float,
+    ) -> int:
+        """
+        Calculate the desired number of replicas to autoscale to.
+        """
+        buffer_containers = self.buffer_containers or 0
 
-        if current_replicas == 0:
-            return 1
+        # n_containers_missing = number of unhealthy containers + number of containers not registered in flash dns
+        n_containers_missing_metric = n_current_replicas - n_containers_with_metrics
+        # n_containers_unhealthy = number of dns registered containers that are not emitting metrics
+        n_containers_unhealthy = n_total_containers - n_containers_with_metrics
 
-        target_metric = self.target_metric
-        target_metric_value = float(self.target_metric_value)
+        # Max is used to handle case when buffer_containers are first initialized.
+        num_provisioned_containers = max(n_current_replicas - buffer_containers, 1)
 
-        # Gets metrics from prometheus
-        sum_metric = 0
-        containers_with_metrics = 0
-        container_metrics_list = await asyncio.gather(
-            *[
-                self._get_metrics(f"https://{container.host}:{container.port}/{self.metrics_endpoint}")
-                for container in containers
-            ]
-        )
-        for container_metrics in container_metrics_list:
-            if (
-                container_metrics is None
-                or target_metric not in container_metrics
-                or len(container_metrics[target_metric]) == 0
-            ):
-                continue
-            sum_metric += container_metrics[target_metric][0].value
-            containers_with_metrics += 1
-
-        # n_containers_missing_metric is the number of unhealthy containers + number of cold starting containers
-        n_containers_missing_metric = current_replicas - containers_with_metrics
-        # n_containers_unhealthy is the number of live containers that are not emitting metrics i.e. unhealthy
-        n_containers_unhealthy = len(containers) - containers_with_metrics
-
-        # Scale up assuming that every unhealthy container is at 2x the target metric value.
-        scale_up_target_metric_value = (sum_metric + n_containers_unhealthy * target_metric_value) / (
-            (containers_with_metrics + n_containers_unhealthy) or 1
-        )
+        # Scale up assuming that every unhealthy container is at 1.5 x (1 + scale_up_tolerance) the target metric value.
+        # This way if all containers are unhealthy, we will increase our number of containers.
+        scale_up_target_metric_value = (
+            sum_metric + 1.5 * (1 + self.scale_up_tolerance) * n_containers_unhealthy * target_metric_value
+        ) / (num_provisioned_containers)
 
         # Scale down assuming that every container (including cold starting containers) are at the target metric value.
-        scale_down_target_metric_value = (
-            sum_metric + n_containers_missing_metric * target_metric_value
-        ) / current_replicas
+        # The denominator is just num_provisioned_containers because we don't want to account for the buffer containers.
+        scale_down_target_metric_value = (sum_metric + n_containers_missing_metric * target_metric_value) / (
+            num_provisioned_containers
+        )
 
         scale_up_ratio = scale_up_target_metric_value / target_metric_value
         scale_down_ratio = scale_down_target_metric_value / target_metric_value
 
-        desired_replicas = current_replicas
+        desired_replicas = num_provisioned_containers
         if scale_up_ratio > 1 + self.scale_up_tolerance:
-            desired_replicas = math.ceil(current_replicas * scale_up_ratio)
+            desired_replicas = math.ceil(desired_replicas * scale_up_ratio)
         elif scale_down_ratio < 1 - self.scale_down_tolerance:
-            desired_replicas = math.ceil(current_replicas * scale_down_ratio)
+            desired_replicas = math.ceil(desired_replicas * scale_down_ratio)
 
         logger.warning(
-            f"[Modal Flash] Current replicas: {current_replicas}, "
+            f"[Modal Flash] Current replicas: {n_current_replicas}, "
+            f"target metric: {self.target_metric}"
             f"target metric value: {target_metric_value}, "
             f"current sum of metric values: {sum_metric}, "
-            f"number of containers with metrics: {containers_with_metrics}, "
+            f"number of containers with metrics: {n_containers_with_metrics}, "
             f"number of containers unhealthy: {n_containers_unhealthy}, "
             f"number of containers missing metric (includes unhealthy): {n_containers_missing_metric}, "
+            f"number of provisioned containers: {num_provisioned_containers}, "
             f"scale up ratio: {scale_up_ratio}, "
             f"scale down ratio: {scale_down_ratio}, "
             f"desired replicas: {desired_replicas}"
         )
 
         return desired_replicas
+
+    async def _get_scaling_info(self, containers) -> tuple[float, int]:
+        """Get metrics using container exposed metrics endpoints."""
+        sum_metric = 0
+        n_containers_with_metrics = 0
+
+        container_metrics_list = await asyncio.gather(
+            *[
+                self._get_metrics(f"https://{container.host}:{container.port}/{self.metrics_endpoint}")
+                for container in containers
+            ]
+        )
+
+        for container_metrics in container_metrics_list:
+            if (
+                container_metrics is None
+                or self.target_metric not in container_metrics
+                or len(container_metrics[self.target_metric]) == 0
+            ):
+                continue
+            sum_metric += container_metrics[self.target_metric][0].value
+            n_containers_with_metrics += 1
+
+        return sum_metric, n_containers_with_metrics
 
     async def _get_metrics(self, url: str) -> Optional[dict[str, list[Any]]]:  # technically any should be Sample
         from prometheus_client.parser import Sample, text_string_to_metric_families
@@ -464,19 +488,15 @@ class _FlashPrometheusAutoscaler:
 
         return metrics
 
-    async def _get_container_metrics(self, container_id: str) -> Optional[api_pb2.TaskGetAutoscalingMetricsResponse]:
-        req = api_pb2.TaskGetAutoscalingMetricsRequest(task_id=container_id)
-        try:
-            resp = await retry_transient_errors(self.client.stub.TaskGetAutoscalingMetrics, req)
-            return resp
-        except Exception as e:
-            logger.warning(f"[Modal Flash] Error getting metrics for container {container_id}: {e}")
-            return None
-
     async def _get_all_containers(self):
         req = api_pb2.FlashContainerListRequest(function_id=self.fn.object_id)
-        resp = await retry_transient_errors(self.client.stub.FlashContainerList, req)
+        resp = await self.client.stub.FlashContainerList(req)
         return resp.containers
+
+    async def _set_target_slots(self, target_slots: int):
+        req = api_pb2.FlashSetTargetSlotsMetricsRequest(function_id=self.fn.object_id, target_slots=target_slots)
+        await self.client.stub.FlashSetTargetSlotsMetrics(req)
+        return
 
     def _make_scaling_decision(
         self,
@@ -486,6 +506,7 @@ class _FlashPrometheusAutoscaler:
         scale_down_stabilization_window_seconds: int = 60 * 5,
         min_containers: Optional[int] = None,
         max_containers: Optional[int] = None,
+        buffer_containers: Optional[int] = None,
     ) -> int:
         """
         Return the target number of containers following (simplified) Kubernetes HPA
@@ -504,6 +525,7 @@ class _FlashPrometheusAutoscaler:
         Returns:
             The target number of containers.
         """
+
         if not autoscaling_decisions:
             # Without data we can’t make a new decision – stay where we are.
             return current_replicas
@@ -536,6 +558,10 @@ class _FlashPrometheusAutoscaler:
             new_replicas = max(min_containers, new_replicas)
         if max_containers is not None:
             new_replicas = min(max_containers, new_replicas)
+
+        if buffer_containers is not None:
+            new_replicas += buffer_containers
+
         return new_replicas
 
     async def stop(self):
@@ -551,14 +577,10 @@ async def flash_prometheus_autoscaler(
     app_name: str,
     cls_name: str,
     # Endpoint to fetch metrics from. Must be in Prometheus format. Example: "/metrics"
-    # If metrics_endpoint is "internal", we will use containers' internal metrics to autoscale instead.
     metrics_endpoint: str,
     # Target metric to autoscale on. Example: "vllm:num_requests_running"
-    # If metrics_endpoint is "internal", target_metrics options are: [cpu_usage_percent, memory_usage_percent]
     target_metric: str,
     # Target metric value. Example: 25
-    # If metrics_endpoint is "internal", target_metric_value is a percentage value between 0.1 and 1.0 (inclusive),
-    # indicating container's usage of that metric.
     target_metric_value: float,
     min_containers: Optional[int] = None,
     max_containers: Optional[int] = None,
@@ -573,6 +595,8 @@ async def flash_prometheus_autoscaler(
     # How often to make autoscaling decisions.
     # Corresponds to --horizontal-pod-autoscaler-sync-period in Kubernetes.
     autoscaling_interval_seconds: int = 15,
+    # Whether to include overprovisioned containers in the scale up calculation.
+    buffer_containers: Optional[int] = None,
 ) -> _FlashPrometheusAutoscaler:
     """
     Autoscale a Flash service based on containers' Prometheus metrics.
@@ -590,19 +614,20 @@ async def flash_prometheus_autoscaler(
 
     client = await _Client.from_env()
     autoscaler = _FlashPrometheusAutoscaler(
-        client,
-        app_name,
-        cls_name,
-        metrics_endpoint,
-        target_metric,
-        target_metric_value,
-        min_containers,
-        max_containers,
-        scale_up_tolerance,
-        scale_down_tolerance,
-        scale_up_stabilization_window_seconds,
-        scale_down_stabilization_window_seconds,
-        autoscaling_interval_seconds,
+        client=client,
+        app_name=app_name,
+        cls_name=cls_name,
+        metrics_endpoint=metrics_endpoint,
+        target_metric=target_metric,
+        target_metric_value=target_metric_value,
+        min_containers=min_containers,
+        max_containers=max_containers,
+        buffer_containers=buffer_containers,
+        scale_up_tolerance=scale_up_tolerance,
+        scale_down_tolerance=scale_down_tolerance,
+        scale_up_stabilization_window_seconds=scale_up_stabilization_window_seconds,
+        scale_down_stabilization_window_seconds=scale_down_stabilization_window_seconds,
+        autoscaling_interval_seconds=autoscaling_interval_seconds,
     )
     await autoscaler.start()
     return autoscaler
@@ -621,5 +646,87 @@ async def flash_get_containers(app_name: str, cls_name: str) -> list[dict[str, A
     assert fn is not None
     await fn.hydrate(client=client)
     req = api_pb2.FlashContainerListRequest(function_id=fn.object_id)
-    resp = await retry_transient_errors(client.stub.FlashContainerList, req)
+    resp = await client.stub.FlashContainerList(req)
     return resp.containers
+
+
+def _http_server(
+    port: Optional[int] = None,
+    *,
+    proxy_regions: list[str] = [],  # The regions to proxy the HTTP server to.
+    startup_timeout: int = 30,  # Maximum number of seconds to wait for the HTTP server to start.
+    exit_grace_period: Optional[int] = None,  # The time to wait for the HTTP server to exit gracefully.
+    h2_enabled: bool = False,  # Whether to enable HTTP/2 support.
+):
+    """Decorator for Flash-enabled HTTP servers on Modal classes.
+
+    Args:
+        port: The local port to forward to the HTTP server.
+        proxy_regions: The regions to proxy the HTTP server to.
+        startup_timeout: The maximum time to wait for the HTTP server to start.
+        exit_grace_period: The time to wait for the HTTP server to exit gracefully.
+
+    """
+    if port is None:
+        raise InvalidError(
+            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.http_server()`."
+        )
+    validate_http_server_config(port, proxy_regions, startup_timeout, exit_grace_period)
+
+    from modal._partial_function import _PartialFunction, _PartialFunctionParams
+
+    params = _PartialFunctionParams(
+        http_config=api_pb2.HTTPConfig(
+            port=port,
+            proxy_regions=proxy_regions,
+            startup_timeout=startup_timeout or 0,
+            exit_grace_period=exit_grace_period or 0,
+            h2_enabled=h2_enabled,
+        )
+    )
+
+    def wrapper(obj: Union[Callable[..., Any], _PartialFunction]) -> _PartialFunction:
+        flags = _PartialFunctionFlags.HTTP_WEB_INTERFACE
+
+        if isinstance(obj, _PartialFunction):
+            pf = obj.stack(flags, params)
+        else:
+            pf = _PartialFunction(obj, flags, params)
+        pf.validate_obj_compatibility("`http_server`")
+        return pf
+
+    return wrapper
+
+
+http_server = synchronize_api(_http_server, target_module=__name__)
+
+
+class _FlashContainerEntry:
+    """
+    A class that manages the lifecycle of Flash manager for Flash containers.
+
+    It is intentional that stop() runs before exit handlers and close().
+    This ensures the container is deregistered first, preventing new requests from being routed to it
+    while exit handlers execute and the exit grace period elapses, before finally closing the tunnel.
+    """
+
+    def __init__(self, http_config: api_pb2.HTTPConfig):
+        self.http_config: api_pb2.HTTPConfig = http_config
+        self.flash_manager: Optional[FlashManager] = None  # type: ignore
+
+    def enter(self):
+        if self.http_config != api_pb2.HTTPConfig():
+            self.flash_manager = flash_forward(
+                self.http_config.port,
+                startup_timeout=self.http_config.startup_timeout,
+                exit_grace_period=self.http_config.exit_grace_period,
+                h2_enabled=self.http_config.h2_enabled,
+            )
+
+    def stop(self):
+        if self.flash_manager:
+            self.flash_manager.stop()
+
+    def close(self):
+        if self.flash_manager:
+            self.flash_manager.close()

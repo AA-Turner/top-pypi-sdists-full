@@ -15,6 +15,7 @@ import yandex.cloud.trino.v1.access_control_pb2
 import yandex.cloud.trino.v1.catalog_pb2
 import yandex.cloud.trino.v1.cluster_pb2
 import yandex.cloud.trino.v1.maintenance_pb2
+import yandex.cloud.trino.v1.resource_management_pb2
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
@@ -189,6 +190,8 @@ class TrinoConfigSpec(google.protobuf.message.Message):
     RETRY_POLICY_FIELD_NUMBER: builtins.int
     VERSION_FIELD_NUMBER: builtins.int
     ACCESS_CONTROL_FIELD_NUMBER: builtins.int
+    RESOURCE_MANAGEMENT_FIELD_NUMBER: builtins.int
+    TLS_FIELD_NUMBER: builtins.int
     version: builtins.str
     """Trino version.
     Format: "Number".
@@ -215,6 +218,14 @@ class TrinoConfigSpec(google.protobuf.message.Message):
     def access_control(self) -> yandex.cloud.trino.v1.access_control_pb2.AccessControlConfig:
         """Configuration for access control, specifying the fine-grained access rules."""
 
+    @property
+    def resource_management(self) -> yandex.cloud.trino.v1.resource_management_pb2.ResourceManagementConfig:
+        """Configuration for cluster resource management, specifying the resource groups."""
+
+    @property
+    def tls(self) -> yandex.cloud.trino.v1.cluster_pb2.TLSConfig:
+        """Configuration for TLS."""
+
     def __init__(
         self,
         *,
@@ -224,9 +235,11 @@ class TrinoConfigSpec(google.protobuf.message.Message):
         retry_policy: yandex.cloud.trino.v1.cluster_pb2.RetryPolicyConfig | None = ...,
         version: builtins.str = ...,
         access_control: yandex.cloud.trino.v1.access_control_pb2.AccessControlConfig | None = ...,
+        resource_management: yandex.cloud.trino.v1.resource_management_pb2.ResourceManagementConfig | None = ...,
+        tls: yandex.cloud.trino.v1.cluster_pb2.TLSConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["access_control", b"access_control", "coordinator_config", b"coordinator_config", "retry_policy", b"retry_policy", "worker_config", b"worker_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["access_control", b"access_control", "catalogs", b"catalogs", "coordinator_config", b"coordinator_config", "retry_policy", b"retry_policy", "version", b"version", "worker_config", b"worker_config"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["access_control", b"access_control", "coordinator_config", b"coordinator_config", "resource_management", b"resource_management", "retry_policy", b"retry_policy", "tls", b"tls", "worker_config", b"worker_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["access_control", b"access_control", "catalogs", b"catalogs", "coordinator_config", b"coordinator_config", "resource_management", b"resource_management", "retry_policy", b"retry_policy", "tls", b"tls", "version", b"version", "worker_config", b"worker_config"]) -> None: ...
 
 global___TrinoConfigSpec = TrinoConfigSpec
 
@@ -326,6 +339,8 @@ class UpdateTrinoConfigSpec(google.protobuf.message.Message):
     VERSION_FIELD_NUMBER: builtins.int
     RETRY_POLICY_FIELD_NUMBER: builtins.int
     ACCESS_CONTROL_FIELD_NUMBER: builtins.int
+    RESOURCE_MANAGEMENT_FIELD_NUMBER: builtins.int
+    TLS_FIELD_NUMBER: builtins.int
     version: builtins.str
     """Trino version.
     Format: "Number".
@@ -346,6 +361,14 @@ class UpdateTrinoConfigSpec(google.protobuf.message.Message):
     def access_control(self) -> yandex.cloud.trino.v1.access_control_pb2.AccessControlConfig:
         """Configuration for access control, specifying the fine-grained access rules."""
 
+    @property
+    def resource_management(self) -> yandex.cloud.trino.v1.resource_management_pb2.ResourceManagementConfig:
+        """Configuration for cluster resource management, specifying the resource groups."""
+
+    @property
+    def tls(self) -> yandex.cloud.trino.v1.cluster_pb2.TLSConfig:
+        """Configuration for TLS."""
+
     def __init__(
         self,
         *,
@@ -354,9 +377,11 @@ class UpdateTrinoConfigSpec(google.protobuf.message.Message):
         version: builtins.str = ...,
         retry_policy: yandex.cloud.trino.v1.cluster_pb2.RetryPolicyConfig | None = ...,
         access_control: yandex.cloud.trino.v1.access_control_pb2.AccessControlConfig | None = ...,
+        resource_management: yandex.cloud.trino.v1.resource_management_pb2.ResourceManagementConfig | None = ...,
+        tls: yandex.cloud.trino.v1.cluster_pb2.TLSConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["access_control", b"access_control", "coordinator_config", b"coordinator_config", "retry_policy", b"retry_policy", "worker_config", b"worker_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["access_control", b"access_control", "coordinator_config", b"coordinator_config", "retry_policy", b"retry_policy", "version", b"version", "worker_config", b"worker_config"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["access_control", b"access_control", "coordinator_config", b"coordinator_config", "resource_management", b"resource_management", "retry_policy", b"retry_policy", "tls", b"tls", "worker_config", b"worker_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["access_control", b"access_control", "coordinator_config", b"coordinator_config", "resource_management", b"resource_management", "retry_policy", b"retry_policy", "tls", b"tls", "version", b"version", "worker_config", b"worker_config"]) -> None: ...
 
 global___UpdateTrinoConfigSpec = UpdateTrinoConfigSpec
 
@@ -365,16 +390,23 @@ class UpdateNetworkConfigSpec(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SECURITY_GROUP_IDS_FIELD_NUMBER: builtins.int
+    PRIVATE_ACCESS_FIELD_NUMBER: builtins.int
     @property
     def security_group_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """User security groups."""
+
+    @property
+    def private_access(self) -> yandex.cloud.trino.v1.cluster_pb2.PrivateAccessConfig:
+        """Private access configuration for secure connectivity to the cluster."""
 
     def __init__(
         self,
         *,
         security_group_ids: collections.abc.Iterable[builtins.str] | None = ...,
+        private_access: yandex.cloud.trino.v1.cluster_pb2.PrivateAccessConfig | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["security_group_ids", b"security_group_ids"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["private_access", b"private_access"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["private_access", b"private_access", "security_group_ids", b"security_group_ids"]) -> None: ...
 
 global___UpdateNetworkConfigSpec = UpdateNetworkConfigSpec
 
@@ -420,7 +452,9 @@ class UpdateClusterRequest(google.protobuf.message.Message):
     service_account_id: builtins.str
     """Service account used to access Cloud resources."""
     @property
-    def update_mask(self) -> google.protobuf.field_mask_pb2.FieldMask: ...
+    def update_mask(self) -> google.protobuf.field_mask_pb2.FieldMask:
+        """Field mask that specifies which fields of the Trino cluster should be updated."""
+
     @property
     def labels(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
         """Custom labels for the Trino cluster as `` key:value `` pairs.

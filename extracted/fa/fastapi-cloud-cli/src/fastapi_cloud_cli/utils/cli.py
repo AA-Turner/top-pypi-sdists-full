@@ -1,6 +1,7 @@
 import contextlib
 import logging
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from collections.abc import Generator
+from typing import Any, Optional
 
 import typer
 from httpx import HTTPError, HTTPStatusError, ReadTimeout
@@ -8,6 +9,8 @@ from rich.segment import Segment
 from rich_toolkit import RichToolkit, RichToolkitTheme
 from rich_toolkit.progress import Progress
 from rich_toolkit.styles import MinimalStyle, TaggedStyle
+
+from .auth import Identity
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +21,10 @@ class FastAPIStyle(TaggedStyle):
 
     def _get_tag_segments(
         self,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         is_animated: bool = False,
         done: bool = False,
-    ) -> Tuple[List[Segment], int]:
+    ) -> tuple[list[Segment], int]:
         if not is_animated:
             return super()._get_tag_segments(metadata, is_animated, done)
 
@@ -88,7 +91,14 @@ def handle_http_errors(
             logger.debug(e.response.json())  # pragma: no cover
 
         if isinstance(e, HTTPStatusError) and e.response.status_code in (401, 403):
-            message = "The specified token is not valid. Use `fastapi login` to generate a new token."
+            message = "The specified token is not valid. "
+
+            identity = Identity()
+
+            if identity.auth_mode == "user":
+                message += "Use `fastapi login` to generate a new token."
+            else:
+                message += "Make sure to use a valid token."
 
         else:
             message = (

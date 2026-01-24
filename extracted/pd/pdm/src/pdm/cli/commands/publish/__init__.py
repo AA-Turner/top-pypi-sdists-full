@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 from pdm.cli.commands import build
 from pdm.cli.commands.base import BaseCommand
 from pdm.cli.commands.publish.package import PackageFile
-from pdm.cli.commands.publish.repository import Repository
 from pdm.cli.hooks import HookManager
 from pdm.cli.options import project_option, skip_option, verbose_option
 from pdm.exceptions import PdmUsageError, PublishError
@@ -16,6 +15,7 @@ from pdm.termui import logger
 if TYPE_CHECKING:
     from httpx import Response
 
+    from pdm.cli.commands.publish.repository import Repository
     from pdm.project import Project
 
 
@@ -106,7 +106,10 @@ class Command(BaseCommand):
             # PyPI / TestPyPI / GCP Artifact Registry
             or (status == 400 and any("already exist" in x for x in [reason, text]))
             # Nexus Repository OSS (https://www.sonatype.com/nexus-repository-oss)
-            or (status == 400 and any("updating asset" in x for x in [reason, text]))
+            or (
+                status == 400
+                and any(token in x for x in [reason, text] for token in ["updating asset", "cannot be updated"])
+            )
             # Artifactory (https://jfrog.com/artifactory/)
             or (status == 403 and "overwrite artifact" in text)
             # Gitlab Enterprise Edition (https://about.gitlab.com)
@@ -138,6 +141,8 @@ class Command(BaseCommand):
 
     @staticmethod
     def get_repository(project: Project, options: argparse.Namespace) -> Repository:
+        from pdm.cli.commands.publish.repository import Repository
+
         repository = options.repository or os.getenv("PDM_PUBLISH_REPO", "pypi")
         username = options.username or os.getenv("PDM_PUBLISH_USERNAME")
         password = options.password or os.getenv("PDM_PUBLISH_PASSWORD")

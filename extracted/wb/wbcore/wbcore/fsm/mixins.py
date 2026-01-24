@@ -23,15 +23,15 @@ def get_method(transition, fsm_field_name):
 class FSMViewSetMixinMetaclass(type):
     """Metaclass for dynamically creating all FSM Routes"""
 
-    def __new__(cls, name, bases, dct):
-        _class = super().__new__(cls, name, bases, dct)
+    def __new__(cls, *args, **kwargs):
+        _class = super().__new__(cls, *args, **kwargs)
 
         # The class needs the field FSM_MODELFIELDS to know which transitions it needs to add
         if hasattr(_class, "get_model"):
             model = _class.get_model()
 
             if model:
-                setattr(_class, "FSM_BUTTONS", getattr(_class, "FSM_BUTTONS", set()))
+                _class.FSM_BUTTONS = getattr(_class, "FSM_BUTTONS", set())
                 # The model potentially has multiple FSMFields, which needs to be iterated over
                 for field in filter(lambda f: isinstance(f, FSMField), model._meta.fields):
                     # Get all transitions, by calling the partialmethod defined by django-fsm
@@ -112,7 +112,10 @@ class FSMViewSetMixin(metaclass=FSMViewSetMixinMetaclass):
                         post_action_method(by=request.user)
                     # we extend the framework to allow action to successfully return but notify any possible warning. We use the message framework to communicate these warnings to the user
                     if warnings:
-                        html = "<ul>" + "".join(f"<li>{e}</li>" for e in warnings) + "</ul>"
+                        if isinstance(warnings, list):
+                            html = "<ul>" + "".join(f"<li>{e}</li>" for e in warnings) + "</ul>"
+                        else:
+                            html = "<p>" + warnings + "</p>"
                         warning(request, html, extra_tags="auto_close=0")
 
             serializer = serializer_class(instance=obj, context=serializer_context)

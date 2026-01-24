@@ -38,6 +38,7 @@ class FieldException(FalServerlessException):
     message: str
     status_code: int = 422
     type: str = "value_error"
+    billable_units: int | float | str | None = 0
 
     def to_pydantic_format(self) -> dict[str, list[dict]]:
         return dict(
@@ -56,3 +57,18 @@ class RequestCancelledException(FalServerlessException):
     """Exception raised when the request is cancelled by the client."""
 
     message: str = "Request cancelled by the client."
+
+
+@dataclass
+class FileTooLargeError(FalServerlessException):
+    """Exception raised when the file is too large."""
+
+    message: str = "File is too large."
+
+
+@dataclass
+class AppFileUploadException(FalServerlessException):
+    """Raised when file upload fails"""
+
+    message: str
+    relative_path: str

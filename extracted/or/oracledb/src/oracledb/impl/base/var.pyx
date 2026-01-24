@@ -252,43 +252,10 @@ cdef class BaseVarImpl:
         Creates an Arrow array based on the type information selected by the
         user.
         """
-        cdef:
-            ArrowTimeUnit time_unit = NANOARROW_TIME_UNIT_SECOND
-            ArrowType child_arrow_type = NANOARROW_TYPE_NA
-
-        self.metadata._set_arrow_type()
-        if self.metadata._arrow_type == NANOARROW_TYPE_TIMESTAMP:
-            if self.metadata.scale > 0 and self.metadata.scale <= 3:
-                time_unit = NANOARROW_TIME_UNIT_MILLI
-            elif self.metadata.scale > 3 and self.metadata.scale <= 6:
-                time_unit = NANOARROW_TIME_UNIT_MICRO
-            elif self.metadata.scale > 6 and self.metadata.scale <= 9:
-                time_unit = NANOARROW_TIME_UNIT_NANO
-
-        if self.metadata._arrow_type in (
-            NANOARROW_TYPE_LIST,
-            NANOARROW_TYPE_STRUCT
-        ):
-            if self.metadata.vector_format == VECTOR_FORMAT_FLOAT32:
-                child_arrow_type = NANOARROW_TYPE_FLOAT
-            elif self.metadata.vector_format == VECTOR_FORMAT_FLOAT64:
-                child_arrow_type = NANOARROW_TYPE_DOUBLE
-            elif self.metadata.vector_format == VECTOR_FORMAT_INT8:
-                child_arrow_type = NANOARROW_TYPE_INT8
-            elif self.metadata.vector_format == VECTOR_FORMAT_BINARY:
-                child_arrow_type = NANOARROW_TYPE_UINT8
-            else:
-                errors._raise_err(errors.ERR_ARROW_UNSUPPORTED_VECTOR_FORMAT)
-
+        if self.metadata._schema_impl is None:
+            self.metadata._create_arrow_schema()
         self._arrow_array = ArrowArrayImpl.__new__(ArrowArrayImpl)
-        self._arrow_array.populate_from_metadata(
-            arrow_type=self.metadata._arrow_type,
-            name=self.metadata.name,
-            precision=self.metadata.precision,
-            scale=self.metadata.scale,
-            time_unit=time_unit,
-            child_arrow_type=child_arrow_type,
-        )
+        self._arrow_array.populate_from_schema(self.metadata._schema_impl)
 
     cdef int _finalize_init(self) except -1:
         """
@@ -342,7 +309,8 @@ cdef class BaseVarImpl:
         """
         raise NotImplementedError()
 
-    cdef int _on_reset_bind(self, uint32_t num_rows) except -1:
+    cdef int _on_reset_bind(self, uint64_t array_offset,
+                            uint32_t num_rows) except -1:
         """
         Called when the bind variable is being reset, just prior to performing
         a bind operation.
@@ -358,13 +326,6 @@ cdef class BaseVarImpl:
         self.metadata.max_size = new_size
         self.metadata.buffer_size = 0
         self.metadata._finalize_init()
-
-    cdef int _set_metadata_from_arrow_array(self,
-                                            ArrowArrayImpl array) except -1:
-        """
-        Sets the type and size of the variable given an Arrow Array.
-        """
-        self.metadata = OracleMetadata.from_arrow_array(array)
 
     cdef int _set_metadata_from_type(self, object typ) except -1:
         """

@@ -1,4 +1,4 @@
-from mlflow.mistral.autolog import patched_class_call
+from mlflow.mistral.autolog import async_patched_class_call, patched_class_call
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -31,6 +31,13 @@ def autolog(
         Chat,
         "complete",
         patched_class_call,
+    )
+
+    safe_patch(
+        FLAVOR_NAME,
+        Chat,
+        "complete_async",
+        async_patched_class_call,
     )
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

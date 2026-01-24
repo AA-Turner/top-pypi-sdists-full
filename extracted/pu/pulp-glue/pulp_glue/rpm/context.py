@@ -1,3 +1,4 @@
+import os
 import typing as t
 
 from pulp_glue.common.context import (
@@ -66,9 +67,7 @@ class PulpRpmCompsXmlContext(PulpEntityContext):
     UPLOAD_COMPS_ID: t.ClassVar[str] = "rpm_comps_upload"
     NEEDS_PLUGINS = [PluginRequirement("rpm", specifier=">=3.17.0")]
 
-    def upload_comps(
-        self, file: t.IO[bytes], repo_href: t.Optional[str], replace: t.Optional[bool]
-    ) -> t.Any:
+    def upload_comps(self, file: t.IO[bytes], repo_href: str | None, replace: bool | None) -> t.Any:
         self.pulp_ctx.echo(_("Uploading file {filename}").format(filename=file.name), err=True)
         file.seek(0)
         return self.call(
@@ -128,10 +127,10 @@ class PulpRpmPackageContext(PulpContentContext):
 
     def list_iterator(
         self,
-        parameters: t.Optional[t.Dict[str, t.Any]] = None,
+        parameters: dict[str, t.Any] | None = None,
         offset: int = 0,
         batch_size: int = BATCH_SIZE,
-        stats: t.Optional[t.Dict[str, t.Any]] = None,
+        stats: dict[str, t.Any] | None = None,
     ) -> t.Iterator[t.Any]:
         contains_startswith = [
             "name__contains",
@@ -153,6 +152,60 @@ class PulpRpmPackageContext(PulpContentContext):
             batch_size=batch_size,
             stats=stats,
         )
+
+    def upload(
+        self,
+        file: t.IO[bytes],
+        chunk_size: int,
+        repository: PulpRepositoryContext | None,
+        **kwargs: t.Any,
+    ) -> t.Any:
+        """
+        Create an RPM package by uploading a file.
+
+        This function is deprecated. The create call can handle the upload logic transparently.
+
+        Parameters:
+            file: A file like object that supports `os.path.getsize`.
+            chunk_size: Size of the chunks to upload independently.
+            repository: Repository context to add the newly created content to.
+            kwargs: Extra args specific to the content type, passed to the create call.
+
+        Returns:
+            The result of the create task.
+        """
+        self.needs_capability("upload")
+        size = os.path.getsize(file.name)
+        body: dict[str, t.Any] = {**kwargs}
+
+        if not self.pulp_ctx.fake_mode:
+            if chunk_size > size:
+                # Small file: direct upload
+                body["file"] = file
+            else:
+                # Large file: chunked upload
+                if self.pulp_ctx.has_plugin(PluginRequirement("core", specifier=">=3.20.0")):
+                    from pulp_glue.core.context import PulpUploadContext
+
+                    upload_href = PulpUploadContext(self.pulp_ctx).upload_file(file, chunk_size)
+                    body["upload"] = upload_href
+                else:
+                    from pulp_glue.core.context import PulpArtifactContext
+
+                    artifact_href = PulpArtifactContext(self.pulp_ctx).upload(file, chunk_size)
+                    body["artifact"] = artifact_href
+
+        # For rpm plugin >= 3.32.5, use synchronous upload endpoint when no repository is provided
+        # For older versions, always use the create endpoint (backward compatibility)
+        if repository is None and self.pulp_ctx.has_plugin(
+            PluginRequirement("rpm", specifier=">=3.32.5")
+        ):
+            return self.call("upload", body=body)
+
+        # Repository is specified or older rpm version: use create endpoint (async path)
+        if repository is not None:
+            body["repository"] = repository
+        return self.create(body=body)
 
 
 class PulpRpmAdvisoryContext(PulpContentContext):
@@ -431,7 +484,7 @@ class PulpRpmRepositoryContext(PulpRepositoryContext):
 
         return body
 
-    def sync(self, body: t.Optional[EntityDefinition] = None) -> t.Any:
+    def sync(self, body: EntityDefinition | None = None) -> t.Any:
         if body:
             if body.get("optimize") is not None:
                 self.pulp_ctx.needs_plugin(PluginRequirement("rpm", specifier=">=3.3.0"))
@@ -451,11 +504,11 @@ class PulpRpmPruneContext(PulpViewSetContext):
 
     def prune_packages(
         self,
-        repo_hrefs: t.List[t.Union[str, PulpRpmRepositoryContext]],
-        keep_days: t.Optional[int],
-        dry_run: t.Optional[bool],
+        repo_hrefs: list[str | PulpRpmRepositoryContext],
+        keep_days: int | None,
+        dry_run: bool | None,
     ) -> t.Any:
-        body: t.Dict[str, t.Any] = {
+        body: dict[str, t.Any] = {
             "repo_hrefs": repo_hrefs,
             "keep_days": keep_days,
             "dry_run": dry_run,
@@ -469,10 +522,10 @@ class PulpRpmCopyContext(PulpViewSetContext):
 
     def copy(
         self,
-        config: t.List[t.Dict[str, t.Any]],
-        dependency_solving: t.Optional[bool] = False,
+        config: list[dict[str, t.Any]],
+        dependency_solving: bool | None = False,
     ) -> t.Any:
-        body: t.Dict[str, t.Any] = {
+        body: dict[str, t.Any] = {
             "config": config,
             "dependency_solving": dependency_solving,
         }

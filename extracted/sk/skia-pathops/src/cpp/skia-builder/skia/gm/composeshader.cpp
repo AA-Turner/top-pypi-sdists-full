@@ -10,7 +10,6 @@
 #include "include/core/SkBlendMode.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
-#include "include/core/SkColorPriv.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkMatrix.h"
@@ -27,6 +26,8 @@
 #include "include/effects/SkGradientShader.h"
 #include "include/private/base/SkTDArray.h"
 #include "src/base/SkTLazy.h"
+#include "src/core/SkColorPriv.h"
+#include "tools/GpuToolUtils.h"
 #include "tools/ToolUtils.h"
 
 #include <utility>
@@ -56,13 +57,9 @@ protected:
         fShader = make_shader(SkBlendMode::kDstIn);
     }
 
-    SkString onShortName() override {
-        return SkString("composeshader");
-    }
+    SkString getName() const override { return SkString("composeshader"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(120, 120);
-    }
+    SkISize getISize() override { return SkISize::Make(120, 120); }
 
     void onDraw(SkCanvas* canvas) override {
         SkPaint paint;
@@ -85,13 +82,9 @@ public:
     ComposeShaderAlphaGM() {}
 
 protected:
-    SkString onShortName() override {
-        return SkString("composeshader_alpha");
-    }
+    SkString getName() const override { return SkString("composeshader_alpha"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(750, 220);
-    }
+    SkISize getISize() override { return SkISize::Make(750, 220); }
 
     void onDraw(SkCanvas* canvas) override {
         sk_sp<SkShader> shaders[] = {
@@ -170,25 +163,25 @@ public:
     ComposeShaderBitmapGM(bool use_lm) : fUseLocalMatrix(use_lm) {}
 
 protected:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkStringPrintf("composeshader_bitmap%s", fUseLocalMatrix ? "_lm" : "");
     }
 
-    SkISize onISize() override {
+    SkISize getISize() override {
         return SkISize::Make(7 * (squareLength + 5), 2 * (squareLength + 5));
     }
 
     void onDraw(SkCanvas* canvas) override {
         if (!fInitialized) {
             draw_color_bm(&fColorBitmap, squareLength);
-            sk_sp<SkImage> img = SkImage::MakeFromBitmap(fColorBitmap);
+            sk_sp<SkImage> img = SkImages::RasterFromBitmap(fColorBitmap);
             img = ToolUtils::MakeTextureImage(canvas, std::move(img));
             if (img) {
                 fColorBitmapShader = img->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat,
                                                      SkSamplingOptions(), SkMatrix::I());
             }
             draw_alpha8_bm(&fAlpha8Bitmap, squareLength);
-            img = SkImage::MakeFromBitmap(fAlpha8Bitmap);
+            img = SkImages::RasterFromBitmap(fAlpha8Bitmap);
             img = ToolUtils::MakeTextureImage(canvas, std::move(img));
             if (img) {
                 fAlpha8BitmapShader = fAlpha8Bitmap.makeShader(SkTileMode::kRepeat,

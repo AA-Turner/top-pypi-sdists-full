@@ -1,6 +1,6 @@
 [tool.cibuildwheel]
 build = "cp3*"
-skip = ["cp36-*", "cp37-*", "cp38-*", "*-musllinux*"]
+skip = ["cp38-*", "*-musllinux*"]
 manylinux-aarch64-image = "manylinux_2_28"
 manylinux-x86_64-image = "manylinux_2_28"
 build-frontend = "build"
@@ -9,7 +9,7 @@ test-command = "pytest -v -ra {project}/tests"
 
 [tool.cibuildwheel.linux]
 before-all = [
-    "dnf install -y git zip perl-IPC-Cmd",
+    "dnf install -y git zip perl-IPC-Cmd perl-Time-Piece",
     "dnf copr enable -y swt2c/vcpkg-epel8",
     "dnf install -y vcpkg",
     "export VCPKG_ROOT=$HOME/.local/share/vcpkg",
@@ -62,7 +62,7 @@ environment.VCPKG_TRIPLET = "x64-osx-dynamic"
 [[tool.cibuildwheel.overrides]]
 select = "cp*-macosx_arm64"
 inherit.environment = "prepend"
-environment.VCPKG_ROOT = "$HOME/vcpkg"
+environment.VCPKG_ROOT = "/usr/local/share/vcpkg"
 environment.VCPKG_TRIPLET = "arm64-osx-dynamic"
 
 [tool.cibuildwheel.windows]

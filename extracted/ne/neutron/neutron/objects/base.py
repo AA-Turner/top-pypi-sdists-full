@@ -18,7 +18,6 @@ import functools
 import itertools
 import sys
 import traceback
-import typing
 
 from neutron_lib.db import api as db_api
 from neutron_lib.db import model_base
@@ -231,7 +230,7 @@ class NeutronObject(obj_base.VersionedObject,
     def is_object_field(cls, field):
         return isinstance(
                    cls.fields[field],
-                   (obj_fields.ListOfObjectsField, obj_fields.ObjectField))
+                   obj_fields.ListOfObjectsField | obj_fields.ObjectField)
 
     @classmethod
     def obj_class_from_name(cls, objname, objver):
@@ -438,10 +437,10 @@ class DeclarativeObject(abc.ABCMeta):
 class NeutronDbObject(NeutronObject, metaclass=DeclarativeObject):
 
     # should be set for all persistent objects
-    db_model: typing.Optional[model_base.BASEV2] = None
+    db_model: model_base.BASEV2 | None = None
 
     # should be set for all rbac aware objects
-    rbac_db_cls: typing.Optional[model_base.BASEV2] = None
+    rbac_db_cls: model_base.BASEV2 | None = None
 
     primary_keys = ['id']
 

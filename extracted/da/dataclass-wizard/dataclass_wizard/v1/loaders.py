@@ -17,7 +17,11 @@ from .decorators import (process_patterned_date_time,
                          setup_recursive_safe_function,
                          setup_recursive_safe_function_for_generic)
 from .enums import KeyAction, KeyCase
-from .models import Extras, PatternBase, TypeInfo
+from .models import Extras, PatternBase, TypeInfo, LEAF_TYPES, UTC
+from .type_conv import (
+    as_datetime_v1, as_date_v1, as_int_v1,
+    as_time_v1, as_timedelta, TRUTHY_VALUES,
+)
 from ..abstractions import AbstractLoaderGenerator
 from ..bases import AbstractMeta, BaseLoadHook, META
 from ..class_helper import (create_meta,
@@ -27,9 +31,10 @@ from ..class_helper import (create_meta,
                             dataclass_init_field_names,
                             get_meta,
                             is_subclass_safe,
-                            v1_dataclass_field_to_alias,
+                            v1_dataclass_field_to_alias_for_load,
                             CLASS_TO_LOAD_FUNC,
-                            DATACLASS_FIELD_TO_ALIAS_PATH_FOR_LOAD)
+                            DATACLASS_FIELD_TO_ALIAS_PATH_FOR_LOAD,
+                            dataclass_kw_only_init_field_names)
 from ..constants import CATCH_ALL, TAG, PY311_OR_ABOVE, PACKAGE_NAME
 from ..errors import (JSONWizardError,
                       MissingData,
@@ -44,10 +49,6 @@ from ..utils.dataclass_compat import _set_new_attribute
 from ..utils.function_builder import FunctionBuilder
 from ..utils.object_path import v1_safe_get
 from ..utils.string_conv import possible_json_keys
-from ..utils.type_conv import (
-    as_datetime_v1, as_date_v1, as_int_v1,
-    as_time_v1, as_timedelta, TRUTHY_VALUES,
-)
 from ..utils.typing_compat import (eval_forward_ref_if_needed,
                                    get_args,
                                    get_keys_for_typed_dict,
@@ -56,31 +57,6 @@ from ..utils.typing_compat import (eval_forward_ref_if_needed,
                                    is_typed_dict,
                                    is_typed_dict_type_qualifier,
                                    is_union)
-
-
-# Atomic immutable types which don't require any recursive handling and for which deepcopy
-# returns the same object. We can provide a fast-path for these types in asdict and astuple.
-_SIMPLE_TYPES = (
-    # Common JSON Serializable types
-    NoneType,
-    bool,
-    int,
-    float,
-    str,
-    # Other common types
-    complex,
-    bytes,
-    # TODO support
-    # Other types that are also unaffected by deepcopy
-    # types.EllipsisType,
-    # types.NotImplementedType,
-    # types.CodeType,
-    # types.BuiltinFunctionType,
-    # types.FunctionType,
-    # type,
-    # range,
-    # property,
-)
 
 
 class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
@@ -104,21 +80,26 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
     transform_json_field = None
 
     @staticmethod
-    def default_load_to(tp: TypeInfo, extras: Extras):
+    def load_fallback(tp: TypeInfo, extras: Extras):
         # identity: o
         return tp.v()
 
     @staticmethod
-    def load_to_str(tp: TypeInfo, extras: Extras):
+    def is_none(tp: TypeInfo, extras: Extras) -> str:
+        return f'{tp.v()} is None'
+
+    @classmethod
+    def load_to_str(cls, tp: TypeInfo, extras: Extras):
         tn = tp.type_name(extras)
         o = tp.v()
 
-        if tp.in_optional:  # str(v)
+        # str(v)
+        if not extras['config'].v1_coerce_none_to_empty_str or tp.in_optional:
             return f'{tn}({o})'
 
         # '' if v is None else str(v)
         default = "''" if tp.origin is str else f'{tn}()'
-        return f'{default} if {o} is None else {tn}({o})'
+        return f'{default} if {cls.is_none(tp, extras)} else {tn}({o})'
 
     @staticmethod
     def load_to_int(tp: TypeInfo, extras: Extras):
@@ -140,11 +121,13 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         o = tp.v()
         tp.ensure_in_locals(extras, as_int=as_int_v1)
 
-        return (f"{o} if (tp := {o}.__class__) is {tn} "
-                f"else {tn}("
-                f"f if '.' in {o} and (f := float({o})).is_integer() else {o}"
-                ") if tp is str "
-                f"else as_int({o},tp,{tn})")
+        return (
+            f'{o} '
+            f'if (t := {o}.__class__) is {tn} '
+            f"else {tn}(f if '.' in {o} and (f := float({o})).is_integer() else {o}) "
+            'if t is str '
+            f'else as_int({o}, t, {tn})'
+        )
 
         # TODO when `in_union`, we already know `o.__class__`
         #  is not `tn`, and we already have a variable `tp`.
@@ -166,10 +149,15 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
     @staticmethod
     def load_to_bytes(tp: TypeInfo, extras: Extras):
         tp.ensure_in_locals(extras, b64decode)
-        return f'b64decode({tp.v()})'
+        o = tp.v()
+        return (f'{o} if (t := {o}.__class__) is bytes '
+                f'else bytes({o}) if t is bytearray '
+                f'else b64decode({o})')
 
     @classmethod
     def load_to_bytearray(cls, tp: TypeInfo, extras: Extras):
+        # micro-optimization: avoid copying when already a bytearray
+        # return f'{o} if (t := {o}.__class__) is bytearray else bytearray({o} if t is bytes else b64decode({o}))'
         as_bytes = cls.load_to_bytes(tp, extras)
         return tp.wrap_builtin(bytearray, as_bytes, extras)
 
@@ -198,12 +186,15 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         except:
             elem_type = Any
 
-        string = cls.get_string_for_annotation(
-            tp.replace(origin=elem_type, i=i_next, index=None), extras)
+        string = cls.load_dispatcher_for_annotation(
+            tp.replace(origin=elem_type, i=i_next, index=None, val_name=None), extras)
 
-        if issubclass(gorg, (set, frozenset)):
+        if issubclass(gorg, set):
             start_char = '{'
             end_char = '}'
+        elif issubclass(gorg, frozenset):
+            start_char = 'frozenset(('
+            end_char = '))'
         else:
             start_char = '['
             end_char = ']'
@@ -240,8 +231,8 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
             v, v_next, i_next = tp.v_and_next()
 
             # Given `Tuple[T, ...]`, we only need the generated string for `T`
-            string = cls.get_string_for_annotation(
-                tp.replace(origin=args[0], i=i_next, index=None), extras)
+            string = cls.load_dispatcher_for_annotation(
+                tp.replace(origin=args[0], i=i_next, index=None, val_name=None), extras)
 
             result = f'[{string} for {v_next} in {v}]'
 
@@ -249,9 +240,9 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
             force_wrap = True
         else:
             string = ', '.join([
-                cls.get_string_for_annotation(
-                    tp.replace(origin=arg, index=k),
-                    extras)
+                str(cls.load_dispatcher_for_annotation(
+                    tp.replace(origin=arg, index=k, val_name=None),
+                    extras))
                 for k, arg in enumerate(args)])
 
             result = f'({string}, )'
@@ -261,67 +252,132 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         return tp.wrap(result, extras, force=force_wrap)
 
     @classmethod
-    @setup_recursive_safe_function
     def load_to_named_tuple(cls, tp: TypeInfo, extras: Extras):
-        fn_gen = extras['fn_gen']
         nt_tp = cast(NamedTuple, tp.origin)
+        if nt_tp._field_defaults:  # has optionals
+            return cls._load_to_named_tuple_fn(tp, extras)
 
+        fields_in_order = nt_tp._fields  # field names in order
+        ann = nt_tp.__annotations__
+
+        if extras['config'].v1_namedtuple_as_dict:
+            values_in_order = tuple(
+                str(
+                    cls.load_dispatcher_for_annotation(
+                        tp.replace(origin=ann.get(name, Any), index=repr(name)),
+                        extras,
+                    )
+                )
+                for name in fields_in_order
+            )
+        else:
+            values_in_order = tuple(
+                str(
+                    cls.load_dispatcher_for_annotation(
+                        tp.replace(origin=ann.get(name, Any), index=i),
+                        extras,
+                    )
+                )
+                for i, name in enumerate(fields_in_order)
+            )
+
+        params = ', '.join(values_in_order)
+        return tp.wrap(params, extras)
+
+    @classmethod
+    @setup_recursive_safe_function(per_class_cache=True)
+    def _load_to_named_tuple_fn(cls, tp: TypeInfo, extras: Extras):
+        fn_gen = extras['fn_gen']
         _locals = extras['locals']
-        _locals['cls'] = nt_tp
-        _locals['msg'] = "`dict` input is not supported for NamedTuple, use a dataclass instead."
 
-        req_field_to_assign = {}
-        field_assigns = []
-        # noinspection PyProtectedMember
-        optional_fields = set(nt_tp._field_defaults)
-        has_optionals = True if optional_fields else False
-        only_optionals = has_optionals and len(optional_fields) == len(nt_tp.__annotations__)
-        num_fields = 0
+        nt_tp = _locals['cls'] = cast(NamedTuple, tp.origin)
+        fields_in_order = nt_tp._fields  # field names in order
+        field_to_default = nt_tp._field_defaults
+        ann = nt_tp.__annotations__
 
-        for field, field_tp in nt_tp.__annotations__.items():
-            string = cls.get_string_for_annotation(
-                tp.replace(origin=field_tp, index=num_fields), extras)
+        req_field_to_value = {}
+        opt_field_to_value = {}
 
-            if has_optionals and field in optional_fields:
-                field_assigns.append(string)
+        all_optionals = len(field_to_default) == len(fields_in_order)
+        v = tp.v_for_def()
+
+        if extras['config'].v1_namedtuple_as_dict:
+            i_next = tp.i + 1
+            v_next = f'{tp.prefix}{i_next}'
+
+            for name in fields_in_order:
+                field_tp = ann.get(name, Any)
+                if name in field_to_default:
+                    _locals[f'_dflt_{name}'] = field_to_default[name]
+                    new_tp = tp.replace(origin=field_tp, i=i_next,
+                                        index=None, val_name=None)
+                    value = cls.load_dispatcher_for_annotation(new_tp, extras)
+                    opt_field_to_value[name] = value
+                else:
+                    new_tp = tp.replace(origin=field_tp, index=repr(name))
+                    value = cls.load_dispatcher_for_annotation(new_tp, extras)
+                    req_field_to_value[f'__{name}'] = value
+
+            req_args = ', '.join(req_field_to_value)
+            opt_args = ', '.join(f'__{f}' for f in opt_field_to_value)
+
+            if all_optionals:  # NamedTuple has no required fields
+                ret_value_with_input = f'return cls({opt_args})'
             else:
-                req_field_to_assign[f'__{field}'] = string
+                ret_value_with_input = f'return cls({req_args}, {opt_args})'
+                for name, value in req_field_to_value.items():
+                    fn_gen.add_line(f'{name} = {value}')
 
-            num_fields += 1
+            # it's guaranteed the NamedTuple has at least one default field
+            with fn_gen.if_(f'not {v}'):
+                fn_gen.add_line('return cls()')
 
-        params = ', '.join(req_field_to_assign)
+            for name, value in opt_field_to_value.items():
+                with fn_gen.if_(f'({v_next} := {v}.get({name!r}, MISSING)) is MISSING'):
+                    fn_gen.add_line(f'__{name} = _dflt_{name}')
+                with fn_gen.else_():
+                    fn_gen.add_line(f'__{name} = {value}')
 
-        with fn_gen.try_():
+            fn_gen.add_line(ret_value_with_input)
 
-            for field, string in req_field_to_assign.items():
-                fn_gen.add_line(f'{field} = {string}')
+        else:  # list mode
+            for i, name in enumerate(fields_in_order):
+                field_tp = ann.get(name, Any)
+                value = cls.load_dispatcher_for_annotation(
+                    tp.replace(origin=field_tp, index=i), extras)
 
-            if has_optionals:
-                opt_start = len(req_field_to_assign)
-                fn_gen.add_line(f'L = len(v1); has_opt = L > {opt_start}')
-                with fn_gen.if_(f'has_opt'):
-                    fn_gen.add_line(f'fields = [{field_assigns.pop(0)}]')
-                    for i, string in enumerate(field_assigns, start=opt_start + 1):
-                        fn_gen.add_line(f'if L > {i}: fields.append({string})')
+                if name in field_to_default:
+                    opt_field_to_value[name] = value
+                else:
+                    req_field_to_value[f'__{name}'] = value
 
-                    if only_optionals:
-                        fn_gen.add_line(f'return cls(*fields)')
-                    else:
-                        fn_gen.add_line(f'return cls({params}, *fields)')
+            req_args = ', '.join(req_field_to_value)
+            opt_fields_start_i = len(req_field_to_value)
 
-            fn_gen.add_line(f'return cls({params})')
+            if all_optionals:  # NamedTuple has no required fields
+                len_condition = 'n'
+                ret_value_with_input = f'return cls(*args)'
+            else:
+                len_condition = f'n > {opt_fields_start_i}'
+                ret_value_with_input = f'return cls({req_args}, *args)'
 
-        with fn_gen.except_(Exception, 'e'):
-            with fn_gen.if_('(e_cls := e.__class__) is IndexError'):
-                # raise `MissingFields`, as required NamedTuple fields
-                # are not present in the input object `o`.
-                fn_gen.add_line("raise_missing_fields(locals(), v1, cls, None)")
-            with fn_gen.if_('e_cls is KeyError and type(v1) is dict'):
-                # Input object is a `dict`
-                # TODO should we support dict for namedtuple?
-                fn_gen.add_line('raise TypeError(msg) from None')
-            # re-raise
-            fn_gen.add_line('raise e from None')
+                for name, value in req_field_to_value.items():
+                    fn_gen.add_line(f'{name} = {value}')
+
+            # it's guaranteed the NamedTuple has at least one default field
+            fn_gen.add_line(f'n = len({v})')
+
+            with fn_gen.if_(len_condition):
+                opt_values = list(opt_field_to_value.values())
+                fn_gen.add_line(f'args = [{opt_values.pop(0)}]')
+
+                for i, value in enumerate(opt_values, start=opt_fields_start_i + 1):
+                    with fn_gen.if_(f'n > {i}'):
+                        fn_gen.add_line(f'args.append({value})')
+
+                fn_gen.add_line(ret_value_with_input)
+
+            fn_gen.add_line(f'return cls({req_args})')
 
     @classmethod
     def load_to_named_tuple_untyped(cls, tp: TypeInfo, extras: Extras):
@@ -330,17 +386,29 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         # Assuming `Point` is a `namedtuple`, this performs
         # the equivalent logic as:
         #   Point(**x) if isinstance(x, dict) else Point(*x)
+        #
+        # star, dbl_star = tp.multi_wrap(extras, 'nt_', f'*{v}', f'**{v}')
+
         v = tp.v()
-        star, dbl_star = tp.multi_wrap(extras, 'nt_', f'*{v}', f'**{v}')
-        return f'{dbl_star} if isinstance({v}, dict) else {star}'
+
+        if extras['config'].v1_namedtuple_as_dict:
+            return tp.wrap(f'**{v}', extras, prefix='nt_')
+
+        def raise_():
+            raise TypeError('Expected list/tuple for NamedTuple field') from None
+
+        tp.ensure_in_locals(extras, raise_=raise_)
+
+        star = tp.wrap(f'*{v}', extras, prefix='nt_')
+        return f'{star} if (t := type({v})) is list or t is tuple else raise_()'
 
     @classmethod
     def _build_dict_comp(cls, tp, v, i_next, k_next, v_next, kt, vt, extras):
-        tp_k_next = tp.replace(origin=kt, i=i_next, prefix='k', index=None)
-        string_k = cls.get_string_for_annotation(tp_k_next, extras)
+        tp_k_next = tp.replace(origin=kt, i=i_next, prefix='k', index=None, val_name=None)
+        string_k = cls.load_dispatcher_for_annotation(tp_k_next, extras)
 
-        tp_v_next = tp.replace(origin=vt, i=i_next, prefix='v', index=None)
-        string_v = cls.get_string_for_annotation(tp_v_next, extras)
+        tp_v_next = tp.replace(origin=vt, i=i_next, prefix='v', index=None, val_name=None)
+        string_v = cls.load_dispatcher_for_annotation(tp_v_next, extras)
 
         return f'{{{string_k}: {string_v} for {k_next}, {v_next} in {v}.items()}}'
 
@@ -380,13 +448,35 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         return tp.wrap_dd(default_factory, result, extras)
 
     @classmethod
-    @setup_recursive_safe_function
     def load_to_typed_dict(cls, tp: TypeInfo, extras: Extras):
+        req_keys, opt_keys = get_keys_for_typed_dict(tp.origin)
+        if opt_keys:  # has optionals
+            return cls._load_to_typed_dict_fn(tp, extras)
+
+        ann = tp.origin.__annotations__
+
+        dict_body = ', '.join(
+            f"""{name!r}: {
+                cls.load_dispatcher_for_annotation(
+                    tp.replace(origin=ann.get(name, Any), index=repr(name)),
+                    extras,
+                )
+            }"""
+            for name in req_keys
+        )
+
+        return f'{{{dict_body}}}'
+
+    @classmethod
+    @setup_recursive_safe_function
+    def _load_to_typed_dict_fn(cls, tp: TypeInfo, extras: Extras):
         fn_gen = extras['fn_gen']
 
         req_keys, opt_keys = get_keys_for_typed_dict(tp.origin)
 
         result_list = []
+
+        v = tp.v_for_def()
         # TODO set __annotations__?
         td_annotations = tp.origin.__annotations__
 
@@ -394,9 +484,10 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         for k in req_keys:
             field_tp = td_annotations[k]
             field_name = repr(k)
-            string = cls.get_string_for_annotation(
+            string = cls.load_dispatcher_for_annotation(
                 tp.replace(origin=field_tp,
-                           index=field_name), extras)
+                           index=field_name,
+                           val_name=None), extras)
 
             result_list.append(f'{field_name}: {string}')
 
@@ -406,24 +497,28 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
                              '}')
 
             # Set optional keys for the `TypedDict` (if they exist)
+            next_i = tp.i + 1
+            new_tp = tp.replace(i=next_i, index=None, val_name=None)
+            v_next = new_tp.v()
+
             for k in opt_keys:
                 field_tp = td_annotations[k]
                 field_name = repr(k)
-                string = cls.get_string_for_annotation(
-                    tp.replace(origin=field_tp, i=2, index=None), extras)
-                with fn_gen.if_(f'(v2 := v1.get({field_name}, MISSING)) is not MISSING'):
+                string = cls.load_dispatcher_for_annotation(
+                    new_tp.replace(origin=field_tp), extras)
+                with fn_gen.if_(f'({v_next} := {v}.get({field_name}, MISSING)) is not MISSING'):
                     fn_gen.add_line(f'result[{field_name}] = {string}')
             fn_gen.add_line('return result')
 
         with fn_gen.except_(Exception, 'e'):
             with fn_gen.if_('type(e) is KeyError'):
                 fn_gen.add_line('name = e.args[0]; e = KeyError(f"Missing required key: {name!r}")')
-            with fn_gen.elif_('not isinstance(v1, dict)'):
+            with fn_gen.elif_(f'not isinstance({v}, dict)'):
                 fn_gen.add_line('e = TypeError("Incorrect type for object")')
-            fn_gen.add_line('raise ParseError(e, v1, {}) from None')
+            fn_gen.add_line(f"raise ParseError(e, {v}, {{}}, 'load') from None")
 
     @classmethod
-    @setup_recursive_safe_function_for_generic
+    @setup_recursive_safe_function_for_generic(per_class_cache=True)
     def load_to_union(cls, tp: TypeInfo, extras: Extras):
         fn_gen = extras['fn_gen']
         config = extras['config']
@@ -431,18 +526,39 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
 
         tag_key = config.tag_key or TAG
         auto_assign_tags = config.auto_assign_tags
-
-        i = tp.field_i
-        fields = f'fields_{i}'
+        leaf_handling_as_subclass = config.v1_leaf_handling == 'issubclass'
 
         args = tp.args
         in_optional = NoneType in args
 
         _locals = extras['locals']
-        _locals[fields] = args
+        _locals['fields'] = args
         _locals['tag_key'] = tag_key
 
         dataclass_tag_to_lines: dict[str, list] = {}
+        has_dataclass = any(is_dataclass(a) for a in args)
+
+        i = tp.i
+        v = tp.v_for_def()
+
+        # TODO:
+        #   Union handling here assumes `i == 1` (EnvWizard). If
+        #   reused for multiple Union fields, cache/function-name
+        #   collisions are possible.
+        # noinspection PyUnboundLocalVariable
+        if (has_dataclass
+                and (pre_decoder := config.v1_pre_decoder) is not None
+                and (new_v := pre_decoder(cls, dict, tp, extras).v()) != v):
+            current_v = v
+            tp = tp.replace(i=i+1)
+
+            i = tp.i
+            v = tp.v_for_def()
+
+            with fn_gen.try_():
+                fn_gen.add_line(f'{v} = {new_v}')
+            with fn_gen.except_(Exception):
+                fn_gen.add_line(f'{v} = {current_v}')
 
         type_checks = []
         try_parse_at_end = []
@@ -451,15 +567,15 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
 
             possible_tp = eval_forward_ref_if_needed(possible_tp, actual_cls)
 
-            tp_new = TypeInfo(possible_tp, field_i=i)
+            tp_new = TypeInfo(possible_tp, i=i)
             tp_new.in_optional = in_optional
 
             if possible_tp is NoneType:
-                with fn_gen.if_('v1 is None'):
+                with fn_gen.if_(cls.is_none(tp, extras)):
                     fn_gen.add_line('return None')
                 continue
 
-            if is_dataclass(possible_tp):
+            if has_dataclass and is_dataclass(possible_tp):
                 # we see a dataclass in `Union` declaration
                 meta = get_meta(possible_tp)
                 tag = meta.tag
@@ -475,7 +591,7 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
                         meta.tag = cls_name
 
                 if tag:
-                    string = cls.get_string_for_annotation(tp_new, extras)
+                    string = cls.load_dispatcher_for_annotation(tp_new, extras)
 
                     dataclass_tag_to_lines[tag] = [
                         f'if tag == {tag!r}:',
@@ -493,10 +609,10 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
                                    '  * `v1_unsafe_parse_dataclass_in_union = True`\n'
                                    f'    - Set on class `{extras["cls_name"]}`\n\n'
                                    'For more information, refer to:\n'
-                                   '  https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/dataclasses_in_union_types.html')
+                                   '  https://dcw.ritviknag.com/en/latest/common_use_cases/dataclasses_in_union_types.html')
                     raise e from None
 
-            string = cls.get_string_for_annotation(tp_new, extras)
+            string = cls.load_dispatcher_for_annotation(tp_new, extras)
 
             try_parse_lines = [
                 'try:',
@@ -505,16 +621,18 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
                 '  pass',
             ]
 
-            # TODO disable for dataclasses
+            if (possible_tp in LEAF_TYPES or (
+                    leaf_handling_as_subclass
+                    and is_subclass_safe(
+                        get_origin_v2(possible_tp), LEAF_TYPES)
+                    )):
 
-            if (possible_tp in _SIMPLE_TYPES
-                or is_subclass_safe(
-                    get_origin_v2(possible_tp), _SIMPLE_TYPES)):
+                # TODO disable for dataclasses
 
                 tn = tp_new.type_name(extras)
                 type_checks.extend([
                     f'if tp is {tn}:',
-                    '  return v1'
+                    f'  return {v}'
                 ])
                 list_to_add = try_parse_at_end
             else:
@@ -525,7 +643,7 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         if dataclass_tag_to_lines:
 
             with fn_gen.try_():
-                fn_gen.add_line(f'tag = v1[tag_key]')
+                fn_gen.add_line(f'tag = {v}[tag_key]')
 
             with fn_gen.except_(Exception):
                 fn_gen.add_line('pass')
@@ -534,17 +652,16 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
 
                 for lines in dataclass_tag_to_lines.values():
                     fn_gen.add_lines(*lines)
-
                 fn_gen.add_line(
                     "raise ParseError("
                     "TypeError('Object with tag was not in any of Union types'),"
-                    f"v1,{fields},"
+                    f"{v},fields,'load',"
                     "input_tag=tag,"
                     "tag_key=tag_key,"
                     f"valid_tags={list(dataclass_tag_to_lines)})"
                 )
 
-        fn_gen.add_line('tp = type(v1)')
+        fn_gen.add_line(f'tp = type({v})')
 
         if type_checks:
             fn_gen.add_lines(*type_checks)
@@ -555,7 +672,7 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         # Invalid type for Union
         fn_gen.add_line("raise ParseError("
                         "TypeError('Object was not in any of Union types'),"
-                        f"v1,{fields},"
+                        f"{v},fields,'load',"
                         "tag_key=tag_key"
                         ")")
 
@@ -564,18 +681,18 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
     def load_to_literal(tp: TypeInfo, extras: Extras):
         fn_gen = extras['fn_gen']
 
-        fields = f'fields_{tp.field_i}'
+        v = tp.v_for_def()
 
         _locals = extras['locals']
-        _locals[fields] = frozenset(tp.args)
+        _locals['fields'] = frozenset(tp.args)
 
-        with fn_gen.if_(f'{tp.v()} in {fields}', comment=repr(tp.args)):
-            fn_gen.add_line('return v1')
+        with fn_gen.if_(f'{v} in fields', comment=repr(tp.args)):
+            fn_gen.add_line(f'return {v}')
 
         # No such Literal with the value of `o`
         fn_gen.add_line("e = ValueError('Value not in expected Literal values')")
-        fn_gen.add_line(f'raise ParseError(e, v1, {fields}, '
-                        f'allowed_values=list({fields}))')
+        fn_gen.add_line(f"raise ParseError(e, {v}, fields, 'load', "
+                        f'allowed_values=list(fields))')
 
         # TODO Checks for Literal equivalence, as mentioned here:
         #   https://www.python.org/dev/peps/pep-0586/#equivalence-of-two-literals
@@ -661,29 +778,37 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         tp_date_or_datetime = cast('type[date]', tp.origin)
 
         _fromisoformat = f'__{tn}_fromisoformat'
-        _fromtimestamp = f'__{tn}_fromtimestamp'
 
         name_to_func = {
             _fromisoformat: tp_date_or_datetime.fromisoformat,
-            _fromtimestamp: tp_date_or_datetime.fromtimestamp,
         }
 
-        if cls is datetime:
+        if cls is datetime:  # datetime or a subclass
+            _fromtimestamp = f'__{tn}_fromtimestamp'
+            name_to_func[_fromtimestamp] = tp_date_or_datetime.fromtimestamp
             _as_func = '__as_datetime'
             name_to_func[_as_func] = as_datetime_v1
-        else:
+            _date_part = _opt_cls = ''
+
+        else:  # date or a subclass
+            _fromtimestamp = f'__datetime_fromtimestamp'
+            name_to_func[_fromtimestamp] = datetime.fromtimestamp
             _as_func = '__as_date'
             name_to_func[_as_func] = as_date_v1
+            _date_part = '.date()'
+            _opt_cls = f', {tn}'
 
-        tp.ensure_in_locals(extras, **name_to_func)
+        tp.ensure_in_locals(extras, UTC=UTC, **name_to_func)
 
         if PY311_OR_ABOVE:
             _parse_iso_string = f'{_fromisoformat}({o})'
         else:  # pragma: no cover
             _parse_iso_string = f"{_fromisoformat}({o}.replace('Z', '+00:00', 1))"
 
-        return (f'{_parse_iso_string} if {o}.__class__ is str '
-                f'else {_as_func}({o}, {_fromtimestamp})')
+
+        return (f'({_fromtimestamp}(int({o}), UTC){_date_part} if {o}.isdigit() '
+                f'else {_parse_iso_string}) if {o}.__class__ is str '
+                f'else {_as_func}({o}, {_fromtimestamp}, UTC{_opt_cls})')
 
     @staticmethod
     def load_to_timedelta(tp: TypeInfo, extras: Extras):
@@ -700,11 +825,15 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         load_func_for_dataclass(tp.origin, extras)
 
     @classmethod
-    def get_string_for_annotation(cls,
-                                  tp,
-                                  extras):
+    def load_dispatcher_for_annotation(cls,
+                                       tp,
+                                       extras):
 
         hooks = cls.__LOAD_HOOKS__
+        config = extras['config']
+        pre_decoder = config.v1_pre_decoder
+        type_hooks = config.v1_type_to_load_hook
+        leaf_handling_as_subclass = config.v1_leaf_handling == 'issubclass'
 
         # type_ann = tp.origin
         type_ann = eval_forward_ref_if_needed(tp.origin, extras['cls'])
@@ -713,11 +842,15 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         name = getattr(origin, '__name__', origin)
         args = None
 
+        container_tp = None
+
         if is_annotated(type_ann):
             # Given `Annotated[T, ...]`, we only need `T`
             type_ann, *field_extras = get_args(type_ann)
+            type_ann = eval_forward_ref_if_needed(type_ann, extras['cls'])
             origin = get_origin_v2(type_ann)
             name = getattr(origin, '__name__', origin)
+
             # Check for Custom Patterns for date / time / datetime
             for extra in field_extras:
                 if isinstance(extra, PatternBase):
@@ -746,8 +879,23 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
 
         # -> Atomic, immutable types which don't require
         #    any iterative / recursive handling.
-        elif origin in _SIMPLE_TYPES or is_subclass_safe(origin, _SIMPLE_TYPES):
+        elif origin in LEAF_TYPES or (
+                leaf_handling_as_subclass
+                and is_subclass_safe(origin, LEAF_TYPES)):
             load_hook = hooks.get(origin)
+
+        elif (type_hooks is not None
+              and (hook_info := type_hooks.get(origin)) is not None):
+            mode, load_hook = hook_info
+
+            if mode == 'runtime':
+                fn_name, = tp.ensure_in_locals(extras, load_hook)
+                return f'{fn_name}({tp.v()})'
+
+            try:
+                args = get_args(type_ann)
+            except ValueError:
+                args = Any,
 
         elif (load_hook := hooks.get(origin)) is not None:
             try:
@@ -762,12 +910,12 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
 
             # Special case for Optional[x], which is actually Union[x, None]
             if len(args) == 2 and NoneType in args:
-                new_tp = tp.replace(origin=args[0], args=None, name=None)
+                new_tp = tp.replace(origin=args[0], args=None, name=None, val_name=None)
                 new_tp.in_optional = True
 
-                string = cls.get_string_for_annotation(new_tp, extras)
+                string = cls.load_dispatcher_for_annotation(new_tp, extras)
 
-                return f'None if {tp.v()} is None else {string}'
+                return f'None if {cls.is_none(tp, extras)} else {string}'
 
         # -> Literal[X, Y, ...]
         elif origin is Literal:
@@ -776,10 +924,10 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
 
         # https://stackoverflow.com/questions/76520264/dataclasswizard-after-upgrading-to-python3-11-is-not-working-as-expected
         elif origin is Any:
-            load_hook = cls.default_load_to
+            load_hook = cls.load_fallback
 
         elif is_subclass_safe(origin, tuple) and hasattr(origin, '_fields'):
-
+            container_tp = dict if config.v1_namedtuple_as_dict else tuple
             if getattr(origin, '__annotations__', None):
                 # Annotated as a `typing.NamedTuple` subtype
                 load_hook = cls.load_to_named_tuple
@@ -788,9 +936,11 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
                 load_hook = cls.load_to_named_tuple_untyped
 
         elif is_typed_dict(origin):
+            container_tp = dict
             load_hook = cls.load_to_typed_dict
 
         elif is_dataclass(origin):
+            container_tp = dict
             # return a dynamically generated `fromdict`
             # for the `cls` (base_type)
             load_hook = cls.load_to_dataclass
@@ -835,13 +985,22 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         if load_hook is None:
             # TODO END
             for t in hooks:
-                if issubclass(origin, (t,)):
+                if (not leaf_handling_as_subclass) and (t in LEAF_TYPES):
+                    continue
+                if issubclass(origin, t):
+                    container_tp = t
                     load_hook = hooks[t]
                     break
 
         tp.origin = origin
         tp.args = args
         tp.name = name
+
+        if container_tp is None:
+            container_tp = origin
+
+        if pre_decoder is not None:
+            tp = pre_decoder(cls, container_tp, tp, extras)
 
         if load_hook is not None:
             result = load_hook(tp, extras)
@@ -852,8 +1011,9 @@ class LoadMixin(AbstractLoaderGenerator, BaseLoadHook):
         #  an error but perform a default action?
         err = TypeError('Provided type is not currently supported.')
         pe = ParseError(
-            err, origin, type_ann,
-            resolution='Consider decorating the class with `@dataclass`',
+            err, origin, type_ann, 'load',
+            resolution=f'Register a load hook for {ParseError.name(origin)} '
+                       f'(v1: `register_type` / `Meta.v1_type_to_load_hook`).',
             unsupported_type=origin
         )
         raise pe from None
@@ -896,23 +1056,25 @@ def setup_default_loader(cls=LoadMixin):
 
 def check_and_raise_missing_fields(
         _locals, o, cls,
-        fields: tuple[Field, ...] | None):
+        fields: tuple[Field, ...] | None,
+        **kwargs,
+):
 
-    if fields is None:  # named tuple
+    if fields is None:  # `typing.NamedTuple` or `collections.namedtuple`
         nt_tp = cast(NamedTuple, cls)
-        # noinspection PyProtectedMember
         field_to_default = nt_tp._field_defaults
+        field_names = nt_tp._fields
 
         fields = tuple([
             dataclasses.field(
                 default=field_to_default.get(field, MISSING),
             )
-            for field in cls.__annotations__])
+            for field in field_names])
 
-        for field, name in zip(fields, cls.__annotations__):
+        for field, name in zip(fields, field_names):
             field.name = name
 
-        missing_fields = [f for f in cls.__annotations__
+        missing_fields = [f for f in field_names
                           if f'__{f}' not in _locals
                           and f not in field_to_default]
 
@@ -925,12 +1087,12 @@ def check_and_raise_missing_fields(
                           and (f.default is MISSING
                                and f.default_factory is MISSING)]
 
-        missing_keys = [v1_dataclass_field_to_alias(cls).get(field, [field])[0]
+        missing_keys = [v1_dataclass_field_to_alias_for_load(cls).get(field, [field])[0]
                         for field in missing_fields]
 
     raise MissingFields(
         None, o, cls, fields, None, missing_fields,
-        missing_keys
+        missing_keys, **kwargs,
     ) from None
 
 
@@ -946,6 +1108,7 @@ def load_func_for_dataclass(
 
     cls_init_fields = dataclass_init_fields(cls, True)
     cls_init_field_names = dataclass_init_field_names(cls)
+    cls_init_kw_only_field_names = dataclass_kw_only_init_field_names(cls)
 
     field_to_default = dataclass_field_to_default(cls)
 
@@ -1017,10 +1180,13 @@ def load_func_for_dataclass(
         extras['cls'] = cls
         extras['cls_name'] = cls_name
 
+        # Added for a `v1.EnvWizard` main class, which doesn't set this in globals
+        fn_gen.globals.setdefault('raise_missing_fields', check_and_raise_missing_fields)
+
     key_case: KeyCase | None = cls_loader.transform_json_field
     auto_key_case = key_case is KeyCase.AUTO
 
-    field_to_aliases = v1_dataclass_field_to_alias(cls)
+    field_to_aliases = v1_dataclass_field_to_alias_for_load(cls)
     check_aliases = True if field_to_aliases else False
 
     field_to_paths = DATACLASS_FIELD_TO_ALIAS_PATH_FOR_LOAD[cls]
@@ -1093,7 +1259,8 @@ def load_func_for_dataclass(
         if pre_assign:
             fn_gen.add_line('i = 0')
 
-        vars_for_fields = []
+        args = []
+        kwargs = []
 
         if cls_init_fields:
 
@@ -1214,9 +1381,10 @@ def load_func_for_dataclass(
                             fn_gen.add_line(f'{pre_assign}init_kwargs[field] = {string}')
 
                     else:
-                        # TODO confirm this is ok
-                        # vars_for_fields.append(f'{name}={var}')
-                        vars_for_fields.append(var)
+                        if name in cls_init_kw_only_field_names:
+                            kwargs.append(f'{name}={var}')
+                        else:
+                            args.append(var)
 
                         with fn_gen.if_(val_is_found):
                             fn_gen.add_line(f'{pre_assign}{var} = {string}')
@@ -1235,7 +1403,11 @@ def load_func_for_dataclass(
             else:
                 var = f'__{catch_all_field_stripped}'
                 fn_gen.add_line(f'{var} = {{}} if len(o) == i else {catch_all_def}')
-                vars_for_fields.insert(catch_all_idx, var)
+
+                if catch_all_field_stripped in cls_init_kw_only_field_names:
+                    kwargs.append(f'{catch_all_field_stripped}={var}')
+                else:
+                    args.insert(catch_all_idx, var)
 
         elif set_aliases:  # warn / raise on unknown key
             line = 'extra_keys = set(o) - aliases'
@@ -1259,10 +1431,11 @@ def load_func_for_dataclass(
         # we raise them here.
 
         if has_defaults:
-            vars_for_fields.append('**init_kwargs')
-        init_parts = ', '.join(vars_for_fields)
+            args.append('**init_kwargs')
+        if kwargs:
+            args.extend(kwargs)
         with fn_gen.try_():
-            fn_gen.add_line(f"return cls({init_parts})")
+            fn_gen.add_line(f'return cls({", ".join(args)})')
         with fn_gen.except_(UnboundLocalError):
             # raise `MissingFields`, as required dataclass fields
             # are not present in the input object `o`.
@@ -1280,9 +1453,11 @@ def load_func_for_dataclass(
         # a class method bound to `fromdict`.
         if ((from_dict := getattr(cls, 'from_dict', None)) is not None
                 and getattr(from_dict, '__func__', None) is fromdict):
-
             LOG.debug("setattr(%s, 'from_dict', %s)", cls_name, fn_name)
-            _set_new_attribute(cls, 'from_dict', cls_fromdict)
+            # Marker reserved for future detection/debugging of specialized loaders.
+            # setattr(cls_fromdict, _SPECIALIZED_FROM_DICT, True)
+            # safe to specialize only when user didn't define it on cls
+            _set_new_attribute(cls, 'from_dict', cls_fromdict, force=True)
 
         _set_new_attribute(
             cls, f'__{PACKAGE_NAME}_from_dict__', cls_fromdict)
@@ -1299,14 +1474,15 @@ def load_func_for_dataclass(
 def generate_field_code(cls_loader: LoadMixin,
                         extras: Extras,
                         field: Field,
-                        field_i: int) -> 'str | TypeInfo':
+                        field_i: int,
+                        var_name=None) -> 'str | TypeInfo':
 
     cls = extras['cls']
     field_type = field.type = eval_forward_ref_if_needed(field.type, cls)
 
     try:
-        return cls_loader.get_string_for_annotation(
-            TypeInfo(field_type, field_i=field_i), extras
+        return cls_loader.load_dispatcher_for_annotation(
+            TypeInfo(field_type, field_i=field_i, val_name=var_name), extras
         )
 
     # except Exception as e:
@@ -1328,7 +1504,7 @@ def re_raise(e, cls, o, fields, field, value):
     # for example, we could be passed in a `list` type instead.
     if not isinstance(o, dict):
         base_err = TypeError('Incorrect type for `from_dict()`')
-        e = ParseError(base_err, o, dict, cls, desired_type=dict)
+        e = ParseError(base_err, o, dict, 'load', cls, desired_type=dict)
 
     add_fields = True
     if type(e) is not ParseError:
@@ -1336,7 +1512,7 @@ def re_raise(e, cls, o, fields, field, value):
             add_fields = False
         else:
             tp = getattr(next((f for f in fields if f.name == field), None), 'type', Any)
-            e = ParseError(e, value, tp)
+            e = ParseError(e, value, tp, 'load')
 
     # We run into a parsing error while loading the field value;
     # Add additional info on the Exception object before re-raising it.
@@ -1349,5 +1525,60 @@ def re_raise(e, cls, o, fields, field, value):
         e.class_name, e.fields, e.field_name, e.json_object = cls, fields, field, o
     else:
         e.class_name, e.field_name, e.json_object = cls, field, o
+
+    # noinspection PyUnboundLocalVariable
+    if (isinstance(e, ParseError)
+            # `typing.NamedTuple` or `collections.namedtuple`
+            and (origin := e.ann_type) is not None
+            and is_subclass_safe(origin, tuple)
+            and (_fields := getattr(origin, '_fields', None))):
+
+        meta = get_meta(cls)
+        nt_tp = cast(NamedTuple, origin)
+        field_to_default = nt_tp._field_defaults
+        num_req_fields = len(_fields) - len(field_to_default)
+
+        e_cls = getattr(e.base_error, '__class__', None)
+
+        if e_cls in (IndexError, KeyError, TypeError):
+            # raise `MissingFields`, as required NamedTuple fields
+            # are not present in the input object `o`.
+            if isinstance(value, (list, tuple)):
+                # noinspection PyUnboundLocalVariable
+                _locals = {f'__{f}' for f in _fields[:len(value)]}
+                num_req_fields_provided = min(len(value), num_req_fields)
+            elif isinstance(value, dict):
+                _locals = {f'__{f}' for f in _fields if f in value}
+                num_req_fields_provided = len(
+                    [f for f in _fields
+                     if f in value and f not in field_to_default]
+                )
+            else:
+                _locals = _fields
+                num_req_fields_provided = num_req_fields
+
+            if num_req_fields_provided < num_req_fields:
+                check_and_raise_missing_fields(
+                    _locals, value, origin, None,
+                    **(
+                        {'field': f'{ParseError.name(cls)}.{field}'}
+                        if cls and field
+                        else {}
+                    ))
+
+        if meta.v1_namedtuple_as_dict:
+            if e_cls is TypeError and type(value) is not dict:
+                e.kwargs['resolution'] = (
+                    'List/tuple input is not supported for NamedTuple fields in dict mode. '
+                    'Pass a dict, or set Meta.v1_namedtuple_as_dict = False.'
+                )
+                e.kwargs['unsupported_type'] = type(value)
+        else:
+            if e_cls is KeyError and type(value) is dict:
+                e.kwargs['resolution'] = (
+                    'Dict input is not supported for NamedTuple fields in list mode. '
+                    'Pass a list/tuple, or set Meta.v1_namedtuple_as_dict = True.'
+                )
+                e.kwargs['unsupported_type'] = dict
 
     raise e from None

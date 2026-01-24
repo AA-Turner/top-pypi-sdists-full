@@ -219,7 +219,7 @@ def get_version():
             open("../PyFunceble/storage.py", encoding="utf-8").read()
         )[0]
 
-    return extracted[: extracted.rfind(".")]
+    return extracted[: extracted.rfind(".")] if ".dev" in extracted else extracted
 
 
 def get_long_description():  # pragma: no cover
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     setuptools.setup(
         name="PyFunceble-dev",
         version=get_version(),
-        python_requires=">=3.9, <4",
+        python_requires=">=3.10, <4",
         install_requires=get_requirements(mode="standard"),
         extras_require={
             "docs": get_requirements(mode="docs"),
@@ -315,7 +315,6 @@ if __name__ == "__main__":
             "Intended Audience :: Developers",
             "Programming Language :: Python",
             "Programming Language :: Python :: 3",
-            "License :: OSI Approved",
         ],
         entry_points={"console_scripts": get_console_scripts()},
     )

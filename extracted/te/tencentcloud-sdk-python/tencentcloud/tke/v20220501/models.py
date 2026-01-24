@@ -222,6 +222,192 @@ class AutoscalingAdded(AbstractModel):
         
 
 
+class Cluster(AbstractModel):
+    r"""集群信息结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _ClusterName: 集群名称
+        :type ClusterName: str
+        :param _ClusterDescription: 集群描述
+        :type ClusterDescription: str
+        :param _ClusterVersion: 集群版本（默认值为1.10.5）
+        :type ClusterVersion: str
+        :param _ClusterType: 集群类型，托管集群：MANAGED_CLUSTER，独立集群：INDEPENDENT_CLUSTER。
+        :type ClusterType: str
+        :param _TagSpecification: 标签描述列表。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TagSpecification: list of TagSpecification
+        :param _ClusterStatus: 集群状态 (Trading 集群开通中,Creating 创建中,Running 运行中,Deleting 删除中,Idling 闲置中,Recovering 唤醒中,Upgrading 升级中,NodeUpgrading 节点升级中,RuntimeUpgrading 节点运行时升级中,MasterScaling Master扩缩容中,ClusterLevelUpgrading 调整规格中,ResourceIsolate 欠费隔离中,ResourceIsolated 欠费已隔离,ResourceReverse 冲正恢复中,Abnormal 异常)
+        :type ClusterStatus: str
+        :param _CreatedTime: 创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreatedTime: str
+        :param _ClusterLevel: 集群等级，针对托管集群生效
+注意：此字段可能返回 null，表示取不到有效值。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ClusterLevel: str
+        :param _VpcId: 集群所在vpc的id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VpcId: str
+        """
+        self._ClusterId = None
+        self._ClusterName = None
+        self._ClusterDescription = None
+        self._ClusterVersion = None
+        self._ClusterType = None
+        self._TagSpecification = None
+        self._ClusterStatus = None
+        self._CreatedTime = None
+        self._ClusterLevel = None
+        self._VpcId = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def ClusterName(self):
+        r"""集群名称
+        :rtype: str
+        """
+        return self._ClusterName
+
+    @ClusterName.setter
+    def ClusterName(self, ClusterName):
+        self._ClusterName = ClusterName
+
+    @property
+    def ClusterDescription(self):
+        r"""集群描述
+        :rtype: str
+        """
+        return self._ClusterDescription
+
+    @ClusterDescription.setter
+    def ClusterDescription(self, ClusterDescription):
+        self._ClusterDescription = ClusterDescription
+
+    @property
+    def ClusterVersion(self):
+        r"""集群版本（默认值为1.10.5）
+        :rtype: str
+        """
+        return self._ClusterVersion
+
+    @ClusterVersion.setter
+    def ClusterVersion(self, ClusterVersion):
+        self._ClusterVersion = ClusterVersion
+
+    @property
+    def ClusterType(self):
+        r"""集群类型，托管集群：MANAGED_CLUSTER，独立集群：INDEPENDENT_CLUSTER。
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+    @property
+    def TagSpecification(self):
+        r"""标签描述列表。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of TagSpecification
+        """
+        return self._TagSpecification
+
+    @TagSpecification.setter
+    def TagSpecification(self, TagSpecification):
+        self._TagSpecification = TagSpecification
+
+    @property
+    def ClusterStatus(self):
+        r"""集群状态 (Trading 集群开通中,Creating 创建中,Running 运行中,Deleting 删除中,Idling 闲置中,Recovering 唤醒中,Upgrading 升级中,NodeUpgrading 节点升级中,RuntimeUpgrading 节点运行时升级中,MasterScaling Master扩缩容中,ClusterLevelUpgrading 调整规格中,ResourceIsolate 欠费隔离中,ResourceIsolated 欠费已隔离,ResourceReverse 冲正恢复中,Abnormal 异常)
+        :rtype: str
+        """
+        return self._ClusterStatus
+
+    @ClusterStatus.setter
+    def ClusterStatus(self, ClusterStatus):
+        self._ClusterStatus = ClusterStatus
+
+    @property
+    def CreatedTime(self):
+        r"""创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CreatedTime
+
+    @CreatedTime.setter
+    def CreatedTime(self, CreatedTime):
+        self._CreatedTime = CreatedTime
+
+    @property
+    def ClusterLevel(self):
+        r"""集群等级，针对托管集群生效
+注意：此字段可能返回 null，表示取不到有效值。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ClusterLevel
+
+    @ClusterLevel.setter
+    def ClusterLevel(self, ClusterLevel):
+        self._ClusterLevel = ClusterLevel
+
+    @property
+    def VpcId(self):
+        r"""集群所在vpc的id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._VpcId
+
+    @VpcId.setter
+    def VpcId(self, VpcId):
+        self._VpcId = VpcId
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._ClusterName = params.get("ClusterName")
+        self._ClusterDescription = params.get("ClusterDescription")
+        self._ClusterVersion = params.get("ClusterVersion")
+        self._ClusterType = params.get("ClusterType")
+        if params.get("TagSpecification") is not None:
+            self._TagSpecification = []
+            for item in params.get("TagSpecification"):
+                obj = TagSpecification()
+                obj._deserialize(item)
+                self._TagSpecification.append(obj)
+        self._ClusterStatus = params.get("ClusterStatus")
+        self._CreatedTime = params.get("CreatedTime")
+        self._ClusterLevel = params.get("ClusterLevel")
+        self._VpcId = params.get("VpcId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class CreateHealthCheckPolicyRequest(AbstractModel):
     r"""CreateHealthCheckPolicy请求参数结构体
 
@@ -371,6 +557,8 @@ class CreateNativeNodePoolParam(AbstractModel):
         :type MachineType: str
         :param _AutomationService: 原生节点池安装节点自动化助手开关
         :type AutomationService: bool
+        :param _Password: 原生节点池密码
+        :type Password: str
         """
         self._Scaling = None
         self._SubnetIds = None
@@ -395,6 +583,7 @@ class CreateNativeNodePoolParam(AbstractModel):
         self._KeyIds = None
         self._MachineType = None
         self._AutomationService = None
+        self._Password = None
 
     @property
     def Scaling(self):
@@ -649,6 +838,17 @@ class CreateNativeNodePoolParam(AbstractModel):
     def AutomationService(self, AutomationService):
         self._AutomationService = AutomationService
 
+    @property
+    def Password(self):
+        r"""原生节点池密码
+        :rtype: str
+        """
+        return self._Password
+
+    @Password.setter
+    def Password(self, Password):
+        self._Password = Password
+
 
     def _deserialize(self, params):
         if params.get("Scaling") is not None:
@@ -693,6 +893,7 @@ class CreateNativeNodePoolParam(AbstractModel):
         self._KeyIds = params.get("KeyIds")
         self._MachineType = params.get("MachineType")
         self._AutomationService = params.get("AutomationService")
+        self._Password = params.get("Password")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1576,6 +1777,452 @@ class DescribeClusterInstancesResponse(AbstractModel):
                 obj = Instance()
                 obj._deserialize(item)
                 self._InstanceSet.append(obj)
+        self._Errors = params.get("Errors")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeClusterMachinesRequest(AbstractModel):
+    r"""DescribeClusterMachines请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群 ID
+        :type ClusterId: str
+        :param _Filters: 节点过滤条件，支持以下过滤条件：
+·  NodePoolsName
+    按照【节点池名】进行过滤。
+    类型：String
+    必选：否
+
+·  NodePoolsId
+    按照【节点池id】进行过滤。
+    类型：String
+    必选：否
+
+·  tags
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+
+·  tag:tag-key
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+        :type Filters: list of Filter
+        :param _Limit: 偏移量，默认0
+        :type Limit: int
+        :param _Offset: 最大输出条数，默认20，最大为100
+        :type Offset: int
+        """
+        self._ClusterId = None
+        self._Filters = None
+        self._Limit = None
+        self._Offset = None
+
+    @property
+    def ClusterId(self):
+        r"""集群 ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def Filters(self):
+        r"""节点过滤条件，支持以下过滤条件：
+·  NodePoolsName
+    按照【节点池名】进行过滤。
+    类型：String
+    必选：否
+
+·  NodePoolsId
+    按照【节点池id】进行过滤。
+    类型：String
+    必选：否
+
+·  tags
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+
+·  tag:tag-key
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def Limit(self):
+        r"""偏移量，默认0
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""最大输出条数，默认20，最大为100
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeClusterMachinesResponse(AbstractModel):
+    r"""DescribeClusterMachines返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Machines: 节点池节点列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Machines: list of Machine
+        :param _TotalCount: 资源总数
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Machines = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def Machines(self):
+        r"""节点池节点列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Machine
+        """
+        return self._Machines
+
+    @Machines.setter
+    def Machines(self, Machines):
+        self._Machines = Machines
+
+    @property
+    def TotalCount(self):
+        r"""资源总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Machines") is not None:
+            self._Machines = []
+            for item in params.get("Machines"):
+                obj = Machine()
+                obj._deserialize(item)
+                self._Machines.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeClustersRequest(AbstractModel):
+    r"""DescribeClusters请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterIds: 集群ID列表(为空时，
+表示获取账号下所有集群)
+        :type ClusterIds: list of str
+        :param _Offset: 偏移量,默认0
+        :type Offset: int
+        :param _Limit: 最大输出条数，默认20，最大为100
+        :type Limit: int
+        :param _Filters: ·  ClusterName
+    按照【集群名】进行过滤。
+    类型：String
+    必选：否
+
+·  ClusterType
+    按照【集群类型】进行过滤。
+    类型：String
+    必选：否
+
+·  ClusterStatus
+    按照【集群状态】进行过滤。
+    类型：String
+    必选：否
+
+·  Tags
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+
+·  vpc-id
+    按照【VPC】进行过滤。
+    类型：String
+    必选：否
+
+·  tag-key
+    按照【标签键】进行过滤。
+    类型：String
+    必选：否
+
+·  tag-value
+    按照【标签值】进行过滤。
+    类型：String
+    必选：否
+
+·  tag:tag-key
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+        :type Filters: list of Filter
+        :param _ClusterType: 集群类型，例如：MANAGED_CLUSTER
+        :type ClusterType: str
+        """
+        self._ClusterIds = None
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+        self._ClusterType = None
+
+    @property
+    def ClusterIds(self):
+        r"""集群ID列表(为空时，
+表示获取账号下所有集群)
+        :rtype: list of str
+        """
+        return self._ClusterIds
+
+    @ClusterIds.setter
+    def ClusterIds(self, ClusterIds):
+        self._ClusterIds = ClusterIds
+
+    @property
+    def Offset(self):
+        r"""偏移量,默认0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条数，默认20，最大为100
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""·  ClusterName
+    按照【集群名】进行过滤。
+    类型：String
+    必选：否
+
+·  ClusterType
+    按照【集群类型】进行过滤。
+    类型：String
+    必选：否
+
+·  ClusterStatus
+    按照【集群状态】进行过滤。
+    类型：String
+    必选：否
+
+·  Tags
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+
+·  vpc-id
+    按照【VPC】进行过滤。
+    类型：String
+    必选：否
+
+·  tag-key
+    按照【标签键】进行过滤。
+    类型：String
+    必选：否
+
+·  tag-value
+    按照【标签值】进行过滤。
+    类型：String
+    必选：否
+
+·  tag:tag-key
+    按照【标签键值对】进行过滤。
+    类型：String
+    必选：否
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def ClusterType(self):
+        r"""集群类型，例如：MANAGED_CLUSTER
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+
+    def _deserialize(self, params):
+        self._ClusterIds = params.get("ClusterIds")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._ClusterType = params.get("ClusterType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeClustersResponse(AbstractModel):
+    r"""DescribeClusters返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 集群总个数
+        :type TotalCount: int
+        :param _Clusters: 集群信息列表
+        :type Clusters: list of Cluster
+        :param _Errors: 错误信息集合
+        :type Errors: list of str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._Clusters = None
+        self._Errors = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""集群总个数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Clusters(self):
+        r"""集群信息列表
+        :rtype: list of Cluster
+        """
+        return self._Clusters
+
+    @Clusters.setter
+    def Clusters(self, Clusters):
+        self._Clusters = Clusters
+
+    @property
+    def Errors(self):
+        r"""错误信息集合
+        :rtype: list of str
+        """
+        return self._Errors
+
+    @Errors.setter
+    def Errors(self, Errors):
+        self._Errors = Errors
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Clusters") is not None:
+            self._Clusters = []
+            for item in params.get("Clusters"):
+                obj = Cluster()
+                obj._deserialize(item)
+                self._Clusters.append(obj)
         self._Errors = params.get("Errors")
         self._RequestId = params.get("RequestId")
 
@@ -3337,11 +3984,11 @@ class InstanceChargePrepaid(AbstractModel):
     def __init__(self):
         r"""
         :param _Period: 后付费计费周期，单位（月）：
-1，2，3，4，5，，6，7， 8，9，10，11，12，24，36，48，60
+1，2，3，4，5，6，7， 8，9，10，11，12，24，36，48，60
         :type Period: int
         :param _RenewFlag: 预付费续费方式：
-- NOTIFY_AND_AUTO_RENEW：通知用户过期，且自动续费 (默认）
-- NOTIFY_AND_MANUAL_RENEW：通知用户过期，但不自动续费
+- NOTIFY_AND_AUTO_RENEW：通知用户过期，且自动续费 
+- NOTIFY_AND_MANUAL_RENEW：通知用户过期，但不自动续费(默认)
 - DISABLE_NOTIFY_AND_MANUAL_RENEW：不通知用户过期，也不自动续费
 
         :type RenewFlag: str
@@ -3352,7 +3999,7 @@ class InstanceChargePrepaid(AbstractModel):
     @property
     def Period(self):
         r"""后付费计费周期，单位（月）：
-1，2，3，4，5，，6，7， 8，9，10，11，12，24，36，48，60
+1，2，3，4，5，6，7， 8，9，10，11，12，24，36，48，60
         :rtype: int
         """
         return self._Period
@@ -3364,8 +4011,8 @@ class InstanceChargePrepaid(AbstractModel):
     @property
     def RenewFlag(self):
         r"""预付费续费方式：
-- NOTIFY_AND_AUTO_RENEW：通知用户过期，且自动续费 (默认）
-- NOTIFY_AND_MANUAL_RENEW：通知用户过期，但不自动续费
+- NOTIFY_AND_AUTO_RENEW：通知用户过期，且自动续费 
+- NOTIFY_AND_MANUAL_RENEW：通知用户过期，但不自动续费(默认)
 - DISABLE_NOTIFY_AND_MANUAL_RENEW：不通知用户过期，也不自动续费
 
         :rtype: str
@@ -3662,6 +4309,326 @@ class LifecycleConfig(AbstractModel):
     def _deserialize(self, params):
         self._PreInit = params.get("PreInit")
         self._PostInit = params.get("PostInit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Machine(AbstractModel):
+    r"""节点信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MachineName: 节点名称
+        :type MachineName: str
+        :param _MachineState: Machine 状态
+        :type MachineState: str
+        :param _Zone: Machine 所在可用区
+        :type Zone: str
+        :param _InstanceChargeType: 节点计费类型。PREPAID：包年包月；POSTPAID_BY_HOUR：按量计费（默认）；
+        :type InstanceChargeType: str
+        :param _CreatedAt: 创建时间
+        :type CreatedAt: str
+        :param _LoginStatus: Machine 登录状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LoginStatus: str
+        :param _IsProtectedFromScaleIn: 是否开启缩容保护
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsProtectedFromScaleIn: bool
+        :param _DisplayName: Machine 名字
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DisplayName: str
+        :param _CPU: CPU核数，单位：核
+        :type CPU: int
+        :param _GPU: GPU核数，单位：核
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GPU: int
+        :param _RenewFlag: 自动续费标识
+        :type RenewFlag: str
+        :param _PayMode: 节点计费模式（已弃用）
+        :type PayMode: str
+        :param _Memory: 节点内存容量，单位：`GB`
+        :type Memory: int
+        :param _SystemDisk: 节点系统盘配置信息
+        :type SystemDisk: :class:`tencentcloud.tke.v20220501.models.Disk`
+        :param _InternetAccessible: 公网带宽相关信息设置
+        :type InternetAccessible: :class:`tencentcloud.tke.v20220501.models.InternetAccessible`
+        :param _InstanceFamily: 机型所属机型族
+        :type InstanceFamily: str
+        :param _LanIP: 节点内网 IP
+        :type LanIP: str
+        :param _InstanceType: 机型
+        :type InstanceType: str
+        :param _ExpiredTime: 包年包月节点计费过期时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ExpiredTime: str
+        """
+        self._MachineName = None
+        self._MachineState = None
+        self._Zone = None
+        self._InstanceChargeType = None
+        self._CreatedAt = None
+        self._LoginStatus = None
+        self._IsProtectedFromScaleIn = None
+        self._DisplayName = None
+        self._CPU = None
+        self._GPU = None
+        self._RenewFlag = None
+        self._PayMode = None
+        self._Memory = None
+        self._SystemDisk = None
+        self._InternetAccessible = None
+        self._InstanceFamily = None
+        self._LanIP = None
+        self._InstanceType = None
+        self._ExpiredTime = None
+
+    @property
+    def MachineName(self):
+        r"""节点名称
+        :rtype: str
+        """
+        return self._MachineName
+
+    @MachineName.setter
+    def MachineName(self, MachineName):
+        self._MachineName = MachineName
+
+    @property
+    def MachineState(self):
+        r"""Machine 状态
+        :rtype: str
+        """
+        return self._MachineState
+
+    @MachineState.setter
+    def MachineState(self, MachineState):
+        self._MachineState = MachineState
+
+    @property
+    def Zone(self):
+        r"""Machine 所在可用区
+        :rtype: str
+        """
+        return self._Zone
+
+    @Zone.setter
+    def Zone(self, Zone):
+        self._Zone = Zone
+
+    @property
+    def InstanceChargeType(self):
+        r"""节点计费类型。PREPAID：包年包月；POSTPAID_BY_HOUR：按量计费（默认）；
+        :rtype: str
+        """
+        return self._InstanceChargeType
+
+    @InstanceChargeType.setter
+    def InstanceChargeType(self, InstanceChargeType):
+        self._InstanceChargeType = InstanceChargeType
+
+    @property
+    def CreatedAt(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreatedAt
+
+    @CreatedAt.setter
+    def CreatedAt(self, CreatedAt):
+        self._CreatedAt = CreatedAt
+
+    @property
+    def LoginStatus(self):
+        r"""Machine 登录状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LoginStatus
+
+    @LoginStatus.setter
+    def LoginStatus(self, LoginStatus):
+        self._LoginStatus = LoginStatus
+
+    @property
+    def IsProtectedFromScaleIn(self):
+        r"""是否开启缩容保护
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._IsProtectedFromScaleIn
+
+    @IsProtectedFromScaleIn.setter
+    def IsProtectedFromScaleIn(self, IsProtectedFromScaleIn):
+        self._IsProtectedFromScaleIn = IsProtectedFromScaleIn
+
+    @property
+    def DisplayName(self):
+        r"""Machine 名字
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._DisplayName
+
+    @DisplayName.setter
+    def DisplayName(self, DisplayName):
+        self._DisplayName = DisplayName
+
+    @property
+    def CPU(self):
+        r"""CPU核数，单位：核
+        :rtype: int
+        """
+        return self._CPU
+
+    @CPU.setter
+    def CPU(self, CPU):
+        self._CPU = CPU
+
+    @property
+    def GPU(self):
+        r"""GPU核数，单位：核
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._GPU
+
+    @GPU.setter
+    def GPU(self, GPU):
+        self._GPU = GPU
+
+    @property
+    def RenewFlag(self):
+        r"""自动续费标识
+        :rtype: str
+        """
+        return self._RenewFlag
+
+    @RenewFlag.setter
+    def RenewFlag(self, RenewFlag):
+        self._RenewFlag = RenewFlag
+
+    @property
+    def PayMode(self):
+        r"""节点计费模式（已弃用）
+        :rtype: str
+        """
+        return self._PayMode
+
+    @PayMode.setter
+    def PayMode(self, PayMode):
+        self._PayMode = PayMode
+
+    @property
+    def Memory(self):
+        r"""节点内存容量，单位：`GB`
+        :rtype: int
+        """
+        return self._Memory
+
+    @Memory.setter
+    def Memory(self, Memory):
+        self._Memory = Memory
+
+    @property
+    def SystemDisk(self):
+        r"""节点系统盘配置信息
+        :rtype: :class:`tencentcloud.tke.v20220501.models.Disk`
+        """
+        return self._SystemDisk
+
+    @SystemDisk.setter
+    def SystemDisk(self, SystemDisk):
+        self._SystemDisk = SystemDisk
+
+    @property
+    def InternetAccessible(self):
+        r"""公网带宽相关信息设置
+        :rtype: :class:`tencentcloud.tke.v20220501.models.InternetAccessible`
+        """
+        return self._InternetAccessible
+
+    @InternetAccessible.setter
+    def InternetAccessible(self, InternetAccessible):
+        self._InternetAccessible = InternetAccessible
+
+    @property
+    def InstanceFamily(self):
+        r"""机型所属机型族
+        :rtype: str
+        """
+        return self._InstanceFamily
+
+    @InstanceFamily.setter
+    def InstanceFamily(self, InstanceFamily):
+        self._InstanceFamily = InstanceFamily
+
+    @property
+    def LanIP(self):
+        r"""节点内网 IP
+        :rtype: str
+        """
+        return self._LanIP
+
+    @LanIP.setter
+    def LanIP(self, LanIP):
+        self._LanIP = LanIP
+
+    @property
+    def InstanceType(self):
+        r"""机型
+        :rtype: str
+        """
+        return self._InstanceType
+
+    @InstanceType.setter
+    def InstanceType(self, InstanceType):
+        self._InstanceType = InstanceType
+
+    @property
+    def ExpiredTime(self):
+        r"""包年包月节点计费过期时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ExpiredTime
+
+    @ExpiredTime.setter
+    def ExpiredTime(self, ExpiredTime):
+        self._ExpiredTime = ExpiredTime
+
+
+    def _deserialize(self, params):
+        self._MachineName = params.get("MachineName")
+        self._MachineState = params.get("MachineState")
+        self._Zone = params.get("Zone")
+        self._InstanceChargeType = params.get("InstanceChargeType")
+        self._CreatedAt = params.get("CreatedAt")
+        self._LoginStatus = params.get("LoginStatus")
+        self._IsProtectedFromScaleIn = params.get("IsProtectedFromScaleIn")
+        self._DisplayName = params.get("DisplayName")
+        self._CPU = params.get("CPU")
+        self._GPU = params.get("GPU")
+        self._RenewFlag = params.get("RenewFlag")
+        self._PayMode = params.get("PayMode")
+        self._Memory = params.get("Memory")
+        if params.get("SystemDisk") is not None:
+            self._SystemDisk = Disk()
+            self._SystemDisk._deserialize(params.get("SystemDisk"))
+        if params.get("InternetAccessible") is not None:
+            self._InternetAccessible = InternetAccessible()
+            self._InternetAccessible._deserialize(params.get("InternetAccessible"))
+        self._InstanceFamily = params.get("InstanceFamily")
+        self._LanIP = params.get("LanIP")
+        self._InstanceType = params.get("InstanceType")
+        self._ExpiredTime = params.get("ExpiredTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3978,6 +4945,134 @@ class ManuallyAdded(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class ModifyClusterMachineRequest(AbstractModel):
+    r"""ModifyClusterMachine请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群 ID
+        :type ClusterId: str
+        :param _MachineNames: 节点名列表
+        :type MachineNames: list of str
+        :param _DisplayName: machine的display name
+        :type DisplayName: str
+        :param _SystemDisk: 系统盘的信息
+        :type SystemDisk: :class:`tencentcloud.tke.v20220501.models.Disk`
+        :param _InstanceChargePrepaid: 节点预付费信息
+        :type InstanceChargePrepaid: :class:`tencentcloud.tke.v20220501.models.InstanceChargePrepaid`
+        """
+        self._ClusterId = None
+        self._MachineNames = None
+        self._DisplayName = None
+        self._SystemDisk = None
+        self._InstanceChargePrepaid = None
+
+    @property
+    def ClusterId(self):
+        r"""集群 ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def MachineNames(self):
+        r"""节点名列表
+        :rtype: list of str
+        """
+        return self._MachineNames
+
+    @MachineNames.setter
+    def MachineNames(self, MachineNames):
+        self._MachineNames = MachineNames
+
+    @property
+    def DisplayName(self):
+        r"""machine的display name
+        :rtype: str
+        """
+        return self._DisplayName
+
+    @DisplayName.setter
+    def DisplayName(self, DisplayName):
+        self._DisplayName = DisplayName
+
+    @property
+    def SystemDisk(self):
+        r"""系统盘的信息
+        :rtype: :class:`tencentcloud.tke.v20220501.models.Disk`
+        """
+        return self._SystemDisk
+
+    @SystemDisk.setter
+    def SystemDisk(self, SystemDisk):
+        self._SystemDisk = SystemDisk
+
+    @property
+    def InstanceChargePrepaid(self):
+        r"""节点预付费信息
+        :rtype: :class:`tencentcloud.tke.v20220501.models.InstanceChargePrepaid`
+        """
+        return self._InstanceChargePrepaid
+
+    @InstanceChargePrepaid.setter
+    def InstanceChargePrepaid(self, InstanceChargePrepaid):
+        self._InstanceChargePrepaid = InstanceChargePrepaid
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._MachineNames = params.get("MachineNames")
+        self._DisplayName = params.get("DisplayName")
+        if params.get("SystemDisk") is not None:
+            self._SystemDisk = Disk()
+            self._SystemDisk._deserialize(params.get("SystemDisk"))
+        if params.get("InstanceChargePrepaid") is not None:
+            self._InstanceChargePrepaid = InstanceChargePrepaid()
+            self._InstanceChargePrepaid._deserialize(params.get("InstanceChargePrepaid"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterMachineResponse(AbstractModel):
+    r"""ModifyClusterMachine返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class ModifyHealthCheckPolicyRequest(AbstractModel):
@@ -6801,12 +7896,20 @@ class UpdateNativeNodePoolParam(AbstractModel):
         :type InstanceTypes: list of str
         :param _Replicas: 期望节点数
         :type Replicas: int
+        :param _UpdateExistedNode: 是否更新存量节点
+        :type UpdateExistedNode: bool
         :param _DataDisks: 数据盘列表
         :type DataDisks: list of DataDisk
         :param _KeyIds: ssh公钥id数组
         :type KeyIds: list of str
+        :param _DeletePolicy: 节点移出策略，有Random（随机）、Newest（优先移出最新实例）、Oldest（优先移出最旧实例）三种可选，默认是Newest
+        :type DeletePolicy: str
         :param _GPUConfigs: 节点池 GPU 配置
         :type GPUConfigs: list of GPUConfig
+        :param _AutomationService: 原生节点池安装自动化助手开关状态
+        :type AutomationService: bool
+        :param _Password: 原生节点池密码
+        :type Password: str
         """
         self._Scaling = None
         self._SubnetIds = None
@@ -6825,9 +7928,13 @@ class UpdateNativeNodePoolParam(AbstractModel):
         self._EnableAutoscaling = None
         self._InstanceTypes = None
         self._Replicas = None
+        self._UpdateExistedNode = None
         self._DataDisks = None
         self._KeyIds = None
+        self._DeletePolicy = None
         self._GPUConfigs = None
+        self._AutomationService = None
+        self._Password = None
 
     @property
     def Scaling(self):
@@ -7020,6 +8127,17 @@ class UpdateNativeNodePoolParam(AbstractModel):
         self._Replicas = Replicas
 
     @property
+    def UpdateExistedNode(self):
+        r"""是否更新存量节点
+        :rtype: bool
+        """
+        return self._UpdateExistedNode
+
+    @UpdateExistedNode.setter
+    def UpdateExistedNode(self, UpdateExistedNode):
+        self._UpdateExistedNode = UpdateExistedNode
+
+    @property
     def DataDisks(self):
         r"""数据盘列表
         :rtype: list of DataDisk
@@ -7042,6 +8160,17 @@ class UpdateNativeNodePoolParam(AbstractModel):
         self._KeyIds = KeyIds
 
     @property
+    def DeletePolicy(self):
+        r"""节点移出策略，有Random（随机）、Newest（优先移出最新实例）、Oldest（优先移出最旧实例）三种可选，默认是Newest
+        :rtype: str
+        """
+        return self._DeletePolicy
+
+    @DeletePolicy.setter
+    def DeletePolicy(self, DeletePolicy):
+        self._DeletePolicy = DeletePolicy
+
+    @property
     def GPUConfigs(self):
         r"""节点池 GPU 配置
         :rtype: list of GPUConfig
@@ -7051,6 +8180,28 @@ class UpdateNativeNodePoolParam(AbstractModel):
     @GPUConfigs.setter
     def GPUConfigs(self, GPUConfigs):
         self._GPUConfigs = GPUConfigs
+
+    @property
+    def AutomationService(self):
+        r"""原生节点池安装自动化助手开关状态
+        :rtype: bool
+        """
+        return self._AutomationService
+
+    @AutomationService.setter
+    def AutomationService(self, AutomationService):
+        self._AutomationService = AutomationService
+
+    @property
+    def Password(self):
+        r"""原生节点池密码
+        :rtype: str
+        """
+        return self._Password
+
+    @Password.setter
+    def Password(self, Password):
+        self._Password = Password
 
 
     def _deserialize(self, params):
@@ -7083,6 +8234,7 @@ class UpdateNativeNodePoolParam(AbstractModel):
         self._EnableAutoscaling = params.get("EnableAutoscaling")
         self._InstanceTypes = params.get("InstanceTypes")
         self._Replicas = params.get("Replicas")
+        self._UpdateExistedNode = params.get("UpdateExistedNode")
         if params.get("DataDisks") is not None:
             self._DataDisks = []
             for item in params.get("DataDisks"):
@@ -7090,12 +8242,15 @@ class UpdateNativeNodePoolParam(AbstractModel):
                 obj._deserialize(item)
                 self._DataDisks.append(obj)
         self._KeyIds = params.get("KeyIds")
+        self._DeletePolicy = params.get("DeletePolicy")
         if params.get("GPUConfigs") is not None:
             self._GPUConfigs = []
             for item in params.get("GPUConfigs"):
                 obj = GPUConfig()
                 obj._deserialize(item)
                 self._GPUConfigs.append(obj)
+        self._AutomationService = params.get("AutomationService")
+        self._Password = params.get("Password")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

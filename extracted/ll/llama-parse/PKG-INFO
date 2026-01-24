@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: llama-parse
-Version: 0.6.69
+Version: 0.6.91
 Summary: Parse files into RAG-Optimized formats.
 Author-email: Logan Markewich <logan@llamaindex.ai>
 License-Expression: MIT
 Requires-Python: <4.0,>=3.9
-Requires-Dist: llama-cloud-services>=0.6.69
+Requires-Dist: llama-cloud-services>=0.6.91
 Description-Content-Type: text/markdown
 
 # LlamaParse
@@ -156,9 +156,9 @@ Full documentation for `SimpleDirectoryReader` can be found on the [LlamaIndex D
 
 Several end-to-end indexing examples can be found in the examples folder
 
-- [Getting Started](/docs/examples-py/parse/demo_basic.ipynb)
-- [Advanced RAG Example](/docs/examples-py/parse/demo_advanced.ipynb)
-- [Raw API Usage](/docs/examples-py/parse/demo_api.ipynb)
+- [Getting Started](../../examples/parse/demo_basic.ipynb)
+- [Advanced RAG Example](../../examples/parse/demo_advanced.ipynb)
+- [Raw API Usage](../../examples/parse/demo_api.ipynb)
 
 ## Documentation
 

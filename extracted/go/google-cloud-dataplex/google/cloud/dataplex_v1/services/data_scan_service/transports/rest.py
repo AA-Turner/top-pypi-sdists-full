@@ -781,9 +781,10 @@ class DataScanServiceRestTransport(_BaseDataScanServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1424,6 +1425,11 @@ class DataScanServiceRestTransport(_BaseDataScanServiceRestTransport):
                   extract and then catalog metadata. For more
                   information, see `Discover and catalog Cloud Storage
                   data <https://cloud.google.com/bigquery/docs/automatic-discovery>`__.
+                - Data documentation: analyzes the table details and
+                  generates insights including descriptions and sample
+                  SQL queries for the table. For more information, see
+                  `Generate data insights in
+                  BigQuery <https://cloud.google.com/bigquery/docs/data-insights>`__.
 
             """
 

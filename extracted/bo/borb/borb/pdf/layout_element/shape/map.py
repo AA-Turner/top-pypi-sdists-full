@@ -46,13 +46,13 @@ class Map(Shape):
         geo_json: typing.Dict,
         background_color: typing.Optional[Color] = None,
         border_color: typing.Optional[Color] = None,
-        border_dash_pattern: typing.List[int] = [],
+        border_dash_pattern: typing.Optional[typing.List[int]] = None,
         border_dash_phase: int = 0,
         border_width_bottom: int = 0,
         border_width_left: int = 0,
         border_width_right: int = 0,
         border_width_top: int = 0,
-        dash_pattern: typing.List[int] = [],
+        dash_pattern: typing.Optional[typing.List[int]] = None,
         dash_phase: int = 0,
         fill_color: typing.Optional[Color] = None,
         horizontal_alignment: LayoutElement.HorizontalAlignment = LayoutElement.HorizontalAlignment.LEFT,
@@ -253,7 +253,7 @@ class Map(Shape):
 
         This function renders the layout element within the given available space on the specified page.
 
-        :param available_space: A tuple representing the available space (left, top, right, bottom).
+        :param available_space: A tuple representing the available space (x, y, width, height).
         :param page:            The Page object on which to render the LayoutElement.
         :return:                None.
         """
@@ -301,17 +301,19 @@ class Map(Shape):
         Map._append_newline_to_content_stream(page)
 
         # store graphics state
-        page["Contents"]["DecodedBytes"] += b"q\n"
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string="q\n")
 
         # set width
-        page["Contents"]["DecodedBytes"] += f"{self._Shape__line_width} w\n".encode("latin1")  # type: ignore[attr-defined]
+        LayoutElement._append_to_content_stream(
+            page=page, bytes_or_string=f"{self._Shape__line_width} w\n"  # type: ignore[attr-defined]
+        )
 
         # set Line Cap Style
-        page["Contents"]["DecodedBytes"] += f"1 J\n".encode("latin1")
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string=f"1 J\n")
 
         # set dash pattern
         # fmt: off
-        page["Contents"]["DecodedBytes"] += f"{self._Shape__dash_pattern} {self._Shape__dash_phase} d\n".encode('latin1')  # type: ignore[attr-defined]
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string=f"{self._Shape__dash_pattern} {self._Shape__dash_phase} d\n")    # type: ignore[attr-defined]
         # fmt: on
 
         # draw each shape
@@ -322,11 +324,11 @@ class Map(Shape):
             fill_color: typing.Optional[Color] = self.__name_to_fill_color.get(name, self._Shape__fill_color) # type: ignore[attr-defined]
             if fill_color is not None:
                 rgb_fill_color: RGBColor = fill_color.to_rgb_color()
-                page["Contents"]["DecodedBytes"] += (
+                LayoutElement._append_to_content_stream(page=page, bytes_or_string=
                     f"{round(rgb_fill_color.get_red() / 255, 7)} "
                     f"{round(rgb_fill_color.get_green() / 255, 7)} "
                     f"{round(rgb_fill_color.get_blue() / 255, 7)} rg\n"
-                ).encode('latin1')
+                )
             # fmt: on
 
             # set stroke color
@@ -334,29 +336,38 @@ class Map(Shape):
             stroke_color: typing.Optional[Color] = self.__name_to_stroke_color.get(name, self._Shape__stroke_color) # type: ignore[attr-defined]
             if stroke_color is not None:
                 rgb_stroke_color: RGBColor = stroke_color.to_rgb_color()
-                page["Contents"]["DecodedBytes"] += (
+                LayoutElement._append_to_content_stream(page=page, bytes_or_string=
                     f"{round(rgb_stroke_color.get_red() / 255, 7)} "
                     f"{round(rgb_stroke_color.get_green() / 255, 7)} "
                     f"{round(rgb_stroke_color.get_blue() / 255, 7)} RG\n"
-                ).encode('latin1')
+                )
             # fmt: on
 
             # stroke shape
             for polygon in polygons:
-                page["Contents"]["DecodedBytes"] += f"{polygon[0][0] + x_delta} {polygon[0][1] + y_delta} m\n".encode("latin1")  # type: ignore[index]
+                LayoutElement._append_to_content_stream(
+                    page=page,
+                    bytes_or_string=f"{polygon[0][0] + x_delta} {polygon[0][1] + y_delta} m\n",
+                )
                 for x, y in polygon[1:]:  # type: ignore[misc]
                     # fmt: off
-                    page["Contents"]["DecodedBytes"] += f"{x + x_delta} {y + y_delta} l\n".encode('latin1')
+                    LayoutElement._append_to_content_stream(page=page, bytes_or_string=f"{x + x_delta} {y + y_delta} l\n")
                     # fmt: on
                 if fill_color is not None and stroke_color is not None:
-                    page["Contents"]["DecodedBytes"] += b"B\n"
+                    LayoutElement._append_to_content_stream(
+                        page=page, bytes_or_string="B\n"
+                    )
                 elif fill_color is not None:
-                    page["Contents"]["DecodedBytes"] += b"f\n"
+                    LayoutElement._append_to_content_stream(
+                        page=page, bytes_or_string="f\n"
+                    )
                 elif stroke_color is not None:
-                    page["Contents"]["DecodedBytes"] += b"S\n"
+                    LayoutElement._append_to_content_stream(
+                        page=page, bytes_or_string="S\n"
+                    )
 
         # restore graphics state
-        page["Contents"]["DecodedBytes"] += b"Q\n"
+        LayoutElement._append_to_content_stream(page=page, bytes_or_string="Q\n")
 
     def rotate(self, angle_in_degrees: float) -> "Map":
         """

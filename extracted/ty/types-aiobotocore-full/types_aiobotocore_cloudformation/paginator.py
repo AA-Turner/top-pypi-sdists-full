@@ -3,7 +3,7 @@ Type annotations for cloudformation service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,6 +14,7 @@ Usage::
     from types_aiobotocore_cloudformation.paginator import (
         DescribeAccountLimitsPaginator,
         DescribeChangeSetPaginator,
+        DescribeEventsPaginator,
         DescribeStackEventsPaginator,
         DescribeStacksPaginator,
         ListChangeSetsPaginator,
@@ -40,6 +41,7 @@ Usage::
 
         describe_account_limits_paginator: DescribeAccountLimitsPaginator = client.get_paginator("describe_account_limits")
         describe_change_set_paginator: DescribeChangeSetPaginator = client.get_paginator("describe_change_set")
+        describe_events_paginator: DescribeEventsPaginator = client.get_paginator("describe_events")
         describe_stack_events_paginator: DescribeStackEventsPaginator = client.get_paginator("describe_stack_events")
         describe_stacks_paginator: DescribeStacksPaginator = client.get_paginator("describe_stacks")
         list_change_sets_paginator: ListChangeSetsPaginator = client.get_paginator("list_change_sets")
@@ -73,6 +75,8 @@ from .type_defs import (
     DescribeAccountLimitsOutputTypeDef,
     DescribeChangeSetInputPaginateTypeDef,
     DescribeChangeSetOutputTypeDef,
+    DescribeEventsInputPaginateTypeDef,
+    DescribeEventsOutputTypeDef,
     DescribeStackEventsInputPaginateTypeDef,
     DescribeStackEventsOutputTypeDef,
     DescribeStacksInputPaginateTypeDef,
@@ -120,6 +124,7 @@ else:
 __all__ = (
     "DescribeAccountLimitsPaginator",
     "DescribeChangeSetPaginator",
+    "DescribeEventsPaginator",
     "DescribeStackEventsPaginator",
     "DescribeStacksPaginator",
     "ListChangeSetsPaginator",
@@ -180,6 +185,27 @@ class DescribeChangeSetPaginator(_DescribeChangeSetPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/paginator/DescribeChangeSet.html#CloudFormation.Paginator.DescribeChangeSet.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/paginators/#describechangesetpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeEventsPaginatorBase = AioPaginator[DescribeEventsOutputTypeDef]
+else:
+    _DescribeEventsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeEventsPaginator(_DescribeEventsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/paginator/DescribeEvents.html#CloudFormation.Paginator.DescribeEvents)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/paginators/#describeeventspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeEventsInputPaginateTypeDef]
+    ) -> AioPageIterator[DescribeEventsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/paginator/DescribeEvents.html#CloudFormation.Paginator.DescribeEvents.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/paginators/#describeeventspaginator)
         """
 
 

@@ -64,18 +64,24 @@ class _SCANDispatcher(
             targets = HMMPressedFile(self.targets.name)
         else:
             targets = self.targets  # type: ignore
-        params = [
-            targets,
-            query_queue,
-            query_count,
-            kill_switch,
-            self.callback,
-            self.options,
-        ]
         if self.backend == "threading":
-            return _SCANThread(*params)
+            return _SCANThread(
+                targets=targets,
+                query_queue=query_queue,
+                query_count=query_count,
+                kill_switch=kill_switch,
+                callback=self.callback,
+                options=self.options,
+            )
         elif self.backend == "multiprocessing":
-            return _SCANProcess(*params)
+            return _SCANProcess(
+                targets=targets,
+                query_queue=query_queue,
+                query_count=query_count,
+                kill_switch=kill_switch,
+                callback=self.callback,
+                options=self.options,
+            )
         else:
             raise ValueError(f"Invalid backend for `hmmsearch`: {self.backend!r}")
 
@@ -153,7 +159,7 @@ def hmmscan(
 
             >>> with HMMFile("tests/data/hmms/db/PF02826.hmm") as hmm_file:
             ...     targets = hmm_file.optimized_profiles()
-            ...     all_hits = list(hmmscan(proteins, targets, E=1e-10))
+            ...     all_hits = list(hmmscan(proteins, targets, E=1e-10, cpus=1))
             >>> sum(len(hits) for hits in all_hits)
             6
 

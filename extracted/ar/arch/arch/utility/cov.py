@@ -1,13 +1,11 @@
-from typing import Union
-
 from numpy import asarray, squeeze
 
-from arch.typing import Float64Array
+from arch._typing import Float64Array
 
 
 def cov_nw(
     y: Float64Array, lags: int = 0, demean: bool = True, axis: int = 0, ddof: int = 0
-) -> Union[Float64Array, float]:
+) -> Float64Array | float:
     """
     Computes Newey-West covariance for 1-d and 2-d arrays
 

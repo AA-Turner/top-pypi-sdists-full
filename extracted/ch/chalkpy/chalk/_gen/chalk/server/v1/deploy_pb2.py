@@ -20,10 +20,11 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v
 from chalk._gen.chalk.graph.v1 import graph_pb2 as chalk_dot_graph_dot_v1_dot_graph__pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as chalk_dot_server_dot_v1_dot_deployment__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1c\x63halk/server/v1/deploy.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1a\x63halk/graph/v1/graph.proto\x1a chalk/server/v1/deployment.proto\x1a\x1bgoogle/protobuf/empty.proto"\x97\x01\n\x13\x44\x65ployBranchRequest\x12\x1f\n\x0b\x62ranch_name\x18\x01 \x01(\tR\nbranchName\x12!\n\x0creset_branch\x18\x02 \x01(\x08R\x0bresetBranch\x12\x18\n\x07\x61rchive\x18\x03 \x01(\x0cR\x07\x61rchive\x12"\n\ris_hot_deploy\x18\x04 \x01(\x08R\x0bisHotDeploy"\x89\x02\n\x14\x44\x65ployBranchResponse\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x34\n\x05graph\x18\x02 \x01(\x0b\x32\x15.chalk.graph.v1.GraphB\x02\x18\x01H\x00R\x05graph\x88\x01\x01\x12H\n\x11\x64\x65ployment_errors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x10\x64\x65ploymentErrors\x12\x37\n\x06\x65xport\x18\x04 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportH\x01R\x06\x65xport\x88\x01\x01\x42\x08\n\x06_graphB\t\n\x07_export"\x92\x02\n\'CreateBranchFromSourceDeploymentRequest\x12\x1f\n\x0b\x62ranch_name\x18\x01 \x01(\tR\nbranchName\x12.\n\x12source_branch_name\x18\x02 \x01(\tH\x00R\x10sourceBranchName\x12\x32\n\x14source_deployment_id\x18\x03 \x01(\tH\x00R\x12sourceDeploymentId\x12X\n\x1b\x63urrent_mainline_deployment\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00R\x19\x63urrentMainlineDeploymentB\x08\n\x06source"\x91\x02\n(CreateBranchFromSourceDeploymentResponse\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12H\n\x11\x64\x65ployment_errors\x18\x02 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x10\x64\x65ploymentErrors\x12\x37\n\x06\x65xport\x18\x03 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportH\x00R\x06\x65xport\x88\x01\x01\x12\x32\n\x15\x62ranch_already_exists\x18\x04 \x01(\x08R\x13\x62ranchAlreadyExistsB\t\n\x07_export";\n\x14GetDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"T\n\x15GetDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment"\xda\x01\n\x16ListDeploymentsRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12*\n\x0einclude_branch\x18\x03 \x01(\x08H\x02R\rincludeBranch\x88\x01\x01\x12$\n\x0b\x62ranch_name\x18\x04 \x01(\tH\x03R\nbranchName\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limitB\x11\n\x0f_include_branchB\x0e\n\x0c_branch_name"\x80\x01\n\x17ListDeploymentsResponse\x12=\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.DeploymentR\x0b\x64\x65ployments\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x42\t\n\x07_cursor"?\n\x18SuspendDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"X\n\x19SuspendDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment"v\n\x16ScaleDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x37\n\x06sizing\x18\x02 \x01(\x0b\x32\x1f.chalk.server.v1.InstanceSizingR\x06sizing"V\n\x17ScaleDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment"\x89\x01\n\x14TagDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x10\n\x03tag\x18\x02 \x01(\tR\x03tag\x12(\n\rmirror_weight\x18\x03 \x01(\x05H\x00R\x0cmirrorWeight\x88\x01\x01\x42\x10\n\x0e_mirror_weight"\xaa\x01\n\x15TagDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment\x12\x39\n\x16untagged_deployment_id\x18\x02 \x01(\tH\x00R\x14untaggedDeploymentId\x88\x01\x01\x42\x19\n\x17_untagged_deployment_id"\x1d\n\x1bGetActiveDeploymentsRequest"]\n\x1cGetActiveDeploymentsResponse\x12=\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.DeploymentR\x0b\x64\x65ployments2\xad\x07\n\rDeployService\x12`\n\x0c\x44\x65ployBranch\x12$.chalk.server.v1.DeployBranchRequest\x1a%.chalk.server.v1.DeployBranchResponse"\x03\x80}\r\x12\x9c\x01\n CreateBranchFromSourceDeployment\x12\x38.chalk.server.v1.CreateBranchFromSourceDeploymentRequest\x1a\x39.chalk.server.v1.CreateBranchFromSourceDeploymentResponse"\x03\x80}\r\x12\x63\n\rGetDeployment\x12%.chalk.server.v1.GetDeploymentRequest\x1a&.chalk.server.v1.GetDeploymentResponse"\x03\x80}\x0b\x12i\n\x0fListDeployments\x12\'.chalk.server.v1.ListDeploymentsRequest\x1a(.chalk.server.v1.ListDeploymentsResponse"\x03\x80}\x0b\x12x\n\x14GetActiveDeployments\x12,.chalk.server.v1.GetActiveDeploymentsRequest\x1a-.chalk.server.v1.GetActiveDeploymentsResponse"\x03\x80}\x02\x12u\n\x11SuspendDeployment\x12).chalk.server.v1.SuspendDeploymentRequest\x1a*.chalk.server.v1.SuspendDeploymentResponse"\t\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12o\n\x0fScaleDeployment\x12\'.chalk.server.v1.ScaleDeploymentRequest\x1a(.chalk.server.v1.ScaleDeploymentResponse"\t\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12i\n\rTagDeployment\x12%.chalk.server.v1.TagDeploymentRequest\x1a&.chalk.server.v1.TagDeploymentResponse"\t\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x42\x94\x01\n\x13\x63om.chalk.server.v1B\x0b\x44\x65ployProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1c\x63halk/server/v1/deploy.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1a\x63halk/graph/v1/graph.proto\x1a chalk/server/v1/deployment.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto"\x97\x01\n\x13\x44\x65ployBranchRequest\x12\x1f\n\x0b\x62ranch_name\x18\x01 \x01(\tR\nbranchName\x12!\n\x0creset_branch\x18\x02 \x01(\x08R\x0bresetBranch\x12\x18\n\x07\x61rchive\x18\x03 \x01(\x0cR\x07\x61rchive\x12"\n\ris_hot_deploy\x18\x04 \x01(\x08R\x0bisHotDeploy"\x89\x02\n\x14\x44\x65ployBranchResponse\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x34\n\x05graph\x18\x02 \x01(\x0b\x32\x15.chalk.graph.v1.GraphB\x02\x18\x01H\x00R\x05graph\x88\x01\x01\x12H\n\x11\x64\x65ployment_errors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x10\x64\x65ploymentErrors\x12\x37\n\x06\x65xport\x18\x04 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportH\x01R\x06\x65xport\x88\x01\x01\x42\x08\n\x06_graphB\t\n\x07_export"\xe8\x02\n\'CreateBranchFromSourceDeploymentRequest\x12\x1f\n\x0b\x62ranch_name\x18\x01 \x01(\tR\nbranchName\x12.\n\x12source_branch_name\x18\x02 \x01(\tH\x00R\x10sourceBranchName\x12\x32\n\x14source_deployment_id\x18\x03 \x01(\tH\x00R\x12sourceDeploymentId\x12X\n\x1b\x63urrent_mainline_deployment\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00R\x19\x63urrentMainlineDeployment\x12\x41\n\x0eoverride_graph\x18\x05 \x01(\x0b\x32\x15.chalk.graph.v1.GraphH\x01R\roverrideGraph\x88\x01\x01\x42\x08\n\x06sourceB\x11\n\x0f_override_graph"\x91\x02\n(CreateBranchFromSourceDeploymentResponse\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12H\n\x11\x64\x65ployment_errors\x18\x02 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x10\x64\x65ploymentErrors\x12\x37\n\x06\x65xport\x18\x03 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportH\x00R\x06\x65xport\x88\x01\x01\x12\x32\n\x15\x62ranch_already_exists\x18\x04 \x01(\x08R\x13\x62ranchAlreadyExistsB\t\n\x07_export"t\n\x14GetDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x37\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\x08readMask"\x98\x01\n\x15GetDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment\x12\x37\n\x06\x65xport\x18\x02 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportH\x00R\x06\x65xport\x88\x01\x01\x42\t\n\x07_export"\xda\x01\n\x16ListDeploymentsRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12*\n\x0einclude_branch\x18\x03 \x01(\x08H\x02R\rincludeBranch\x88\x01\x01\x12$\n\x0b\x62ranch_name\x18\x04 \x01(\tH\x03R\nbranchName\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limitB\x11\n\x0f_include_branchB\x0e\n\x0c_branch_name"\x80\x01\n\x17ListDeploymentsResponse\x12=\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.DeploymentR\x0b\x64\x65ployments\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x42\t\n\x07_cursor"?\n\x18SuspendDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"X\n\x19SuspendDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment"v\n\x16ScaleDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x37\n\x06sizing\x18\x02 \x01(\x0b\x32\x1f.chalk.server.v1.InstanceSizingR\x06sizing"V\n\x17ScaleDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment"\x89\x01\n\x14TagDeploymentRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x10\n\x03tag\x18\x02 \x01(\tR\x03tag\x12(\n\rmirror_weight\x18\x03 \x01(\x05H\x00R\x0cmirrorWeight\x88\x01\x01\x42\x10\n\x0e_mirror_weight"\xaa\x01\n\x15TagDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment\x12\x39\n\x16untagged_deployment_id\x18\x02 \x01(\tH\x00R\x14untaggedDeploymentId\x88\x01\x01\x42\x19\n\x17_untagged_deployment_id"\x1d\n\x1bGetActiveDeploymentsRequest"]\n\x1cGetActiveDeploymentsResponse\x12=\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.DeploymentR\x0b\x64\x65ployments"A\n\x1aGetDeploymentSourceRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"<\n\x1bGetDeploymentSourceResponse\x12\x1d\n\nsigned_url\x18\x01 \x01(\tR\tsignedUrl2\xa4\x08\n\rDeployService\x12`\n\x0c\x44\x65ployBranch\x12$.chalk.server.v1.DeployBranchRequest\x1a%.chalk.server.v1.DeployBranchResponse"\x03\x80}\r\x12\x9c\x01\n CreateBranchFromSourceDeployment\x12\x38.chalk.server.v1.CreateBranchFromSourceDeploymentRequest\x1a\x39.chalk.server.v1.CreateBranchFromSourceDeploymentResponse"\x03\x80}\r\x12\x63\n\rGetDeployment\x12%.chalk.server.v1.GetDeploymentRequest\x1a&.chalk.server.v1.GetDeploymentResponse"\x03\x80}\x0b\x12i\n\x0fListDeployments\x12\'.chalk.server.v1.ListDeploymentsRequest\x1a(.chalk.server.v1.ListDeploymentsResponse"\x03\x80}\x0b\x12x\n\x14GetActiveDeployments\x12,.chalk.server.v1.GetActiveDeploymentsRequest\x1a-.chalk.server.v1.GetActiveDeploymentsResponse"\x03\x80}\x02\x12u\n\x11SuspendDeployment\x12).chalk.server.v1.SuspendDeploymentRequest\x1a*.chalk.server.v1.SuspendDeploymentResponse"\t\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12o\n\x0fScaleDeployment\x12\'.chalk.server.v1.ScaleDeploymentRequest\x1a(.chalk.server.v1.ScaleDeploymentResponse"\t\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12i\n\rTagDeployment\x12%.chalk.server.v1.TagDeploymentRequest\x1a&.chalk.server.v1.TagDeploymentResponse"\t\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12u\n\x13GetDeploymentSource\x12+.chalk.server.v1.GetDeploymentSourceRequest\x1a,.chalk.server.v1.GetDeploymentSourceResponse"\x03\x80}\x0b\x42\x94\x01\n\x13\x63om.chalk.server.v1B\x0b\x44\x65ployProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -58,38 +59,44 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_DEPLOYSERVICE"].methods_by_name[
         "TagDeployment"
     ]._serialized_options = b"\200}\014\212\323\016\002\010\002"
-    _globals["_DEPLOYBRANCHREQUEST"]._serialized_start = 269
-    _globals["_DEPLOYBRANCHREQUEST"]._serialized_end = 420
-    _globals["_DEPLOYBRANCHRESPONSE"]._serialized_start = 423
-    _globals["_DEPLOYBRANCHRESPONSE"]._serialized_end = 688
-    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTREQUEST"]._serialized_start = 691
-    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTREQUEST"]._serialized_end = 965
-    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTRESPONSE"]._serialized_start = 968
-    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTRESPONSE"]._serialized_end = 1241
-    _globals["_GETDEPLOYMENTREQUEST"]._serialized_start = 1243
-    _globals["_GETDEPLOYMENTREQUEST"]._serialized_end = 1302
-    _globals["_GETDEPLOYMENTRESPONSE"]._serialized_start = 1304
-    _globals["_GETDEPLOYMENTRESPONSE"]._serialized_end = 1388
-    _globals["_LISTDEPLOYMENTSREQUEST"]._serialized_start = 1391
-    _globals["_LISTDEPLOYMENTSREQUEST"]._serialized_end = 1609
-    _globals["_LISTDEPLOYMENTSRESPONSE"]._serialized_start = 1612
-    _globals["_LISTDEPLOYMENTSRESPONSE"]._serialized_end = 1740
-    _globals["_SUSPENDDEPLOYMENTREQUEST"]._serialized_start = 1742
-    _globals["_SUSPENDDEPLOYMENTREQUEST"]._serialized_end = 1805
-    _globals["_SUSPENDDEPLOYMENTRESPONSE"]._serialized_start = 1807
-    _globals["_SUSPENDDEPLOYMENTRESPONSE"]._serialized_end = 1895
-    _globals["_SCALEDEPLOYMENTREQUEST"]._serialized_start = 1897
-    _globals["_SCALEDEPLOYMENTREQUEST"]._serialized_end = 2015
-    _globals["_SCALEDEPLOYMENTRESPONSE"]._serialized_start = 2017
-    _globals["_SCALEDEPLOYMENTRESPONSE"]._serialized_end = 2103
-    _globals["_TAGDEPLOYMENTREQUEST"]._serialized_start = 2106
-    _globals["_TAGDEPLOYMENTREQUEST"]._serialized_end = 2243
-    _globals["_TAGDEPLOYMENTRESPONSE"]._serialized_start = 2246
-    _globals["_TAGDEPLOYMENTRESPONSE"]._serialized_end = 2416
-    _globals["_GETACTIVEDEPLOYMENTSREQUEST"]._serialized_start = 2418
-    _globals["_GETACTIVEDEPLOYMENTSREQUEST"]._serialized_end = 2447
-    _globals["_GETACTIVEDEPLOYMENTSRESPONSE"]._serialized_start = 2449
-    _globals["_GETACTIVEDEPLOYMENTSRESPONSE"]._serialized_end = 2542
-    _globals["_DEPLOYSERVICE"]._serialized_start = 2545
-    _globals["_DEPLOYSERVICE"]._serialized_end = 3486
+    _globals["_DEPLOYSERVICE"].methods_by_name["GetDeploymentSource"]._options = None
+    _globals["_DEPLOYSERVICE"].methods_by_name["GetDeploymentSource"]._serialized_options = b"\200}\013"
+    _globals["_DEPLOYBRANCHREQUEST"]._serialized_start = 303
+    _globals["_DEPLOYBRANCHREQUEST"]._serialized_end = 454
+    _globals["_DEPLOYBRANCHRESPONSE"]._serialized_start = 457
+    _globals["_DEPLOYBRANCHRESPONSE"]._serialized_end = 722
+    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTREQUEST"]._serialized_start = 725
+    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTREQUEST"]._serialized_end = 1085
+    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTRESPONSE"]._serialized_start = 1088
+    _globals["_CREATEBRANCHFROMSOURCEDEPLOYMENTRESPONSE"]._serialized_end = 1361
+    _globals["_GETDEPLOYMENTREQUEST"]._serialized_start = 1363
+    _globals["_GETDEPLOYMENTREQUEST"]._serialized_end = 1479
+    _globals["_GETDEPLOYMENTRESPONSE"]._serialized_start = 1482
+    _globals["_GETDEPLOYMENTRESPONSE"]._serialized_end = 1634
+    _globals["_LISTDEPLOYMENTSREQUEST"]._serialized_start = 1637
+    _globals["_LISTDEPLOYMENTSREQUEST"]._serialized_end = 1855
+    _globals["_LISTDEPLOYMENTSRESPONSE"]._serialized_start = 1858
+    _globals["_LISTDEPLOYMENTSRESPONSE"]._serialized_end = 1986
+    _globals["_SUSPENDDEPLOYMENTREQUEST"]._serialized_start = 1988
+    _globals["_SUSPENDDEPLOYMENTREQUEST"]._serialized_end = 2051
+    _globals["_SUSPENDDEPLOYMENTRESPONSE"]._serialized_start = 2053
+    _globals["_SUSPENDDEPLOYMENTRESPONSE"]._serialized_end = 2141
+    _globals["_SCALEDEPLOYMENTREQUEST"]._serialized_start = 2143
+    _globals["_SCALEDEPLOYMENTREQUEST"]._serialized_end = 2261
+    _globals["_SCALEDEPLOYMENTRESPONSE"]._serialized_start = 2263
+    _globals["_SCALEDEPLOYMENTRESPONSE"]._serialized_end = 2349
+    _globals["_TAGDEPLOYMENTREQUEST"]._serialized_start = 2352
+    _globals["_TAGDEPLOYMENTREQUEST"]._serialized_end = 2489
+    _globals["_TAGDEPLOYMENTRESPONSE"]._serialized_start = 2492
+    _globals["_TAGDEPLOYMENTRESPONSE"]._serialized_end = 2662
+    _globals["_GETACTIVEDEPLOYMENTSREQUEST"]._serialized_start = 2664
+    _globals["_GETACTIVEDEPLOYMENTSREQUEST"]._serialized_end = 2693
+    _globals["_GETACTIVEDEPLOYMENTSRESPONSE"]._serialized_start = 2695
+    _globals["_GETACTIVEDEPLOYMENTSRESPONSE"]._serialized_end = 2788
+    _globals["_GETDEPLOYMENTSOURCEREQUEST"]._serialized_start = 2790
+    _globals["_GETDEPLOYMENTSOURCEREQUEST"]._serialized_end = 2855
+    _globals["_GETDEPLOYMENTSOURCERESPONSE"]._serialized_start = 2857
+    _globals["_GETDEPLOYMENTSOURCERESPONSE"]._serialized_end = 2917
+    _globals["_DEPLOYSERVICE"]._serialized_start = 2920
+    _globals["_DEPLOYSERVICE"]._serialized_end = 3980
 # @@protoc_insertion_point(module_scope)

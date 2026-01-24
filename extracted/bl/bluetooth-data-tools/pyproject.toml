@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "bluetooth-data-tools"
-version = "1.28.2"
+version = "1.28.4"
 license = "Apache-2.0"
 description = "Tools for converting bluetooth data and packets"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
@@ -53,9 +53,9 @@ docs = [
 pytest-benchmark = ">=4,<6"
 
 [tool.poetry.group.dev.dependencies]
-pytest-codspeed = "^3.1.2"
+pytest-codspeed = "^4.2.0"
 pytest = "^8.4"
-pytest-cov = "^6.2"
+pytest-cov = "^7.0"
 
 [tool.poetry.group.docs]
 optional = true

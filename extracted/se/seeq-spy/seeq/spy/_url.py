@@ -140,7 +140,7 @@ class SeeqURL:
     ROUTES = {
         Route.WORKBOOK_EDIT: (re.compile(rf'^(?:/(?P<folder_id>{_common.GUID_REGEX}))?'
                                          rf'/workbook/(?P<workbook_id>{_common.GUID_REGEX})'
-                                         rf'/worksheet/(?P<worksheet_id>{_common.GUID_REGEX})', re.IGNORECASE),
+                                         rf'/(?:worksheet/(?P<worksheet_id>{_common.GUID_REGEX}))?', re.IGNORECASE),
                               dict()),
         Route.WORKBOOK_VIEW: (re.compile(rf'^/view/(?P<worksheet_id>{_common.GUID_REGEX})', re.IGNORECASE),
                               {'workstepId': 'workstep_id'}),

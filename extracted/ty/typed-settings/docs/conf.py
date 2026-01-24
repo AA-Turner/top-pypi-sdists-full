@@ -79,6 +79,7 @@ intersphinx_mapping = {
         "https://click-option-group.readthedocs.io/en/latest/",
         None,
     ),
+    "python-dotenv": ("https://saurabh-kumar.com/python-dotenv", None),
     "jinja": ("https://jinja.palletsprojects.com/en/latest/", None),
 }
 

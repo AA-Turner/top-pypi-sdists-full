@@ -3,7 +3,7 @@ Type annotations for rds-data service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds_data/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -43,11 +44,6 @@ from .type_defs import (
     RollbackTransactionResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -56,24 +52,24 @@ else:
 __all__ = ("RDSDataServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DatabaseErrorException: Type[BotocoreClientError]
-    DatabaseNotFoundException: Type[BotocoreClientError]
-    DatabaseResumingException: Type[BotocoreClientError]
-    DatabaseUnavailableException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    HttpEndpointNotEnabledException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    InvalidResourceStateException: Type[BotocoreClientError]
-    InvalidSecretException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    SecretsErrorException: Type[BotocoreClientError]
-    ServiceUnavailableError: Type[BotocoreClientError]
-    StatementTimeoutException: Type[BotocoreClientError]
-    TransactionNotFoundException: Type[BotocoreClientError]
-    UnsupportedResultException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DatabaseErrorException: type[BotocoreClientError]
+    DatabaseNotFoundException: type[BotocoreClientError]
+    DatabaseResumingException: type[BotocoreClientError]
+    DatabaseUnavailableException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    HttpEndpointNotEnabledException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    InvalidResourceStateException: type[BotocoreClientError]
+    InvalidSecretException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    SecretsErrorException: type[BotocoreClientError]
+    ServiceUnavailableError: type[BotocoreClientError]
+    StatementTimeoutException: type[BotocoreClientError]
+    TransactionNotFoundException: type[BotocoreClientError]
+    UnsupportedResultException: type[BotocoreClientError]
 
 class RDSDataServiceClient(AioBaseClient):
     """
@@ -179,7 +175,7 @@ class RDSDataServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

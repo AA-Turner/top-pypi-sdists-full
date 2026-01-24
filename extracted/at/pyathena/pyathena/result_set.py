@@ -31,6 +31,36 @@ _logger = logging.getLogger(__name__)  # type: ignore
 
 
 class AthenaResultSet(CursorIterator):
+    """Result set for Athena query execution using the GetQueryResults API.
+
+    This class provides a DB API 2.0 compliant result set implementation that
+    fetches query results from Amazon Athena. It uses the GetQueryResults API
+    to retrieve data in paginated chunks, converting each value according to
+    its Athena data type.
+
+    The result set exposes query execution metadata (timing, data scanned,
+    state, etc.) through read-only properties, allowing inspection of query
+    performance and status.
+
+    This is the base result set implementation used by the standard Cursor.
+    Specialized implementations exist for different output formats:
+        - :class:`~pyathena.arrow.result_set.AthenaArrowResultSet`: Apache Arrow format
+        - :class:`~pyathena.pandas.result_set.AthenaPandasResultSet`: Pandas DataFrame
+        - :class:`~pyathena.s3fs.result_set.AthenaS3FSResultSet`: S3 file-based access
+
+    Example:
+        >>> cursor.execute("SELECT * FROM my_table")
+        >>> result_set = cursor.result_set
+        >>> print(f"Query ID: {result_set.query_id}")
+        >>> print(f"Data scanned: {result_set.data_scanned_in_bytes} bytes")
+        >>> for row in result_set:
+        ...     print(row)
+
+    See Also:
+        AWS Athena GetQueryResults API:
+        https://docs.aws.amazon.com/athena/latest/APIReference/API_GetQueryResults.html
+    """
+
     def __init__(
         self,
         connection: "Connection[Any]",
@@ -211,6 +241,19 @@ class AthenaResultSet(CursorIterator):
         if not self._query_execution:
             return None
         return self._query_execution.reused_previous_result
+
+    @property
+    def is_unload(self) -> bool:
+        """Check if the query is an UNLOAD statement.
+
+        Returns:
+            True if the query is an UNLOAD statement, False otherwise.
+        """
+        return bool(
+            getattr(self, "_unload", False)
+            and self.query
+            and self.query.strip().upper().startswith("UNLOAD")
+        )
 
     @property
     def encryption_option(self) -> Optional[str]:
@@ -396,7 +439,7 @@ class AthenaResultSet(CursorIterator):
             tuple(
                 [
                     self._converter.convert(meta.get("Type"), row.get("VarCharValue"))
-                    for meta, row in zip(metadata, rows[i].get("Data", []))
+                    for meta, row in zip(metadata, rows[i].get("Data", []), strict=False)
                 ]
             )
             for i in range(offset, len(rows))
@@ -420,7 +463,7 @@ class AthenaResultSet(CursorIterator):
     def _is_first_row_column_labels(self, rows: List[Dict[str, Any]]) -> bool:
         first_row_data = rows[0].get("Data", [])
         metadata = cast(Tuple[Any, Any], self._metadata)
-        for meta, data in zip(metadata, first_row_data):
+        for meta, data in zip(metadata, first_row_data, strict=False):
             if meta.get("Name") != data.get("VarCharValue"):
                 return False
         return True
@@ -496,7 +539,7 @@ class AthenaDictResultSet(AthenaResultSet):
                         meta.get("Name"),
                         self._converter.convert(meta.get("Type"), row.get("VarCharValue")),
                     )
-                    for meta, row in zip(metadata, rows[i].get("Data", []))
+                    for meta, row in zip(metadata, rows[i].get("Data", []), strict=False)
                 ]
             )
             for i in range(offset, len(rows))
@@ -736,3 +779,16 @@ class WithResultSet:
         if not self.result_set:
             return None
         return self.result_set.result_reuse_minutes
+
+    @property
+    def rowcount(self) -> int:
+        """Get the number of rows affected by the last operation.
+
+        For SELECT statements, this returns -1 as per DB API 2.0 specification.
+        For DML operations (INSERT, UPDATE, DELETE) and CTAS, this returns
+        the number of affected rows.
+
+        Returns:
+            The number of rows, or -1 if not applicable or unknown.
+        """
+        return self.result_set.rowcount if self.result_set else -1

@@ -1,7 +1,17 @@
 # SPDX-FileCopyrightText: 2023 James R. Barlow
 # SPDX-License-Identifier: MPL-2.0
 
-"""Module for generating PDF content streams."""
+"""Low-level module for generating PDF content streams.
+
+Most users should use another library such as reportlab for a more intuitive
+interface. In particular, it does not have a text layout engine and only has
+rudimentary font management.
+
+This module is useful if you need full manual control over how
+content streams are generated. OCRmyPDF, for example, uses this module to
+to generate OCR text with precise text positioning on the page in a way that
+isn't possible (or desirable) with reportlab or other libraries.
+"""
 
 from __future__ import annotations
 
@@ -697,7 +707,7 @@ class ContentStreamBuilder:
         """Set dashes."""
         if array is None:
             array = []
-        if isinstance(array, (int, float)):
+        if isinstance(array, int | float):
             array = (array, phase)
             phase = 0
         inst = ContentStreamInstruction([array, phase], Operator("d"))
@@ -777,7 +787,7 @@ class _CanvasAccessor:
     def draw_image(self, image: Path | str | Image.Image, x, y, width, height):
         """Draw image at (x,y) with width w and height h."""
         with self.save_state(cm=Matrix(width, 0, 0, height, x, y)):
-            if isinstance(image, (Path, str)):
+            if isinstance(image, Path | str):
                 image = Image.open(image)
             image.load()
             if image.mode == "P":

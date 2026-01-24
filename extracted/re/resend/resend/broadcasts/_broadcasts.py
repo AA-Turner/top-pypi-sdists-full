@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 from typing_extensions import NotRequired, TypedDict
 
 from resend import request
+from resend.pagination_helper import PaginationHelper
 
 from ._broadcast import Broadcast
 
@@ -31,17 +32,27 @@ class Broadcasts:
 
         Attributes:
             from (str): The sender email address
-            audience_id (str): The ID of the audience you want to send to.
+            segment_id (NotRequired[str]): The ID of the segment you want to send to.
+            audience_id (NotRequired[str]): The ID of the audience you want to send to. (deprecated: use segment_id)
             subject (str): Email subject.
             reply_to (NotRequired[Union[List[str], str]]): Reply-to email address(es).
             html (NotRequired[str]): The HTML version of the message.
             text (NotRequired[str]): The text version of the message.
             name (NotRequired[str]): The friendly name of the broadcast. Only used for internal reference.
+            send (NotRequired[bool]): When true, the broadcast will be sent immediately after creation.
+            scheduled_at (NotRequired[str]): Schedule the broadcast to be sent later. Only valid when send is true.
         """
 
-        audience_id: str
+        segment_id: NotRequired[str]
+        """
+        The ID of the segment you want to send to.
+        """
+        audience_id: NotRequired[str]
         """
         The ID of the audience you want to send to.
+
+        .. deprecated::
+            Use segment_id instead.
         """
         subject: str
         """
@@ -63,14 +74,26 @@ class Broadcasts:
         """
         The friendly name of the broadcast. Only used for internal reference.
         """
+        send: NotRequired[bool]
+        """
+        When set to true, the broadcast will be sent immediately after creation.
+        If false or not provided, the broadcast will be created as a draft.
+        """
+        scheduled_at: NotRequired[str]
+        """
+        Schedule the broadcast to be sent later.
+        Only valid when send is set to true.
+        The date should be in natural language (e.g.: in 1 min) or ISO 8601 format (e.g: 2024-08-05T11:52:01.858Z).
+        """
 
     class UpdateParams(_UpdateParamsFrom):
         """UpdateParams is the class that wraps the parameters for the update method.
 
         Attributes:
             broadcast_id (str): The ID of the broadcast you want to update.
-            audience_id (str): The ID of the audience you want to send to.
-            from (str): The sender email address
+            segment_id (NotRequired[str]): The ID of the segment you want to send to.
+            audience_id (NotRequired[str]): The ID of the audience you want to send to. (deprecated: use segment_id)
+            from (NotRequired[str]): The sender email address
             subject (NotRequired[str]): Email subject.
             reply_to (NotRequired[Union[List[str], str]]): Reply-to email address(es).
             html (NotRequired[str]): The HTML version of the message.
@@ -82,9 +105,16 @@ class Broadcasts:
         """
         The ID of the broadcast you want to update.
         """
+        segment_id: NotRequired[str]
+        """
+        The ID of the segment you want to send to.
+        """
         audience_id: NotRequired[str]
         """
         The ID of the audience you want to send to.
+
+        .. deprecated::
+            Use segment_id instead.
         """
         subject: NotRequired[str]
         """
@@ -160,22 +190,45 @@ class Broadcasts:
             id (str): id of the created broadcast
         """
 
+    class ListParams(TypedDict):
+        limit: NotRequired[int]
+        """
+        Number of broadcasts to retrieve. Maximum is 100, and minimum is 1.
+        """
+        after: NotRequired[str]
+        """
+        The ID after which we'll retrieve more broadcasts (for pagination).
+        This ID will not be included in the returned list.
+        Cannot be used with the before parameter.
+        """
+        before: NotRequired[str]
+        """
+        The ID before which we'll retrieve more broadcasts (for pagination).
+        This ID will not be included in the returned list.
+        Cannot be used with the after parameter.
+        """
+
     class ListResponse(TypedDict):
         """
-        ListResponse is the class that wraps the response of the list method.
+        ListResponse is the class that wraps the response of the list method with pagination metadata.
 
         Attributes:
-            object (str): object type: "list"
+            object (str): object type, always "list"
             data (List[Broadcast]): A list of broadcast objects
+            has_more (bool): Whether there are more results available
         """
 
         object: str
         """
-        object type: "list"
+        object type, always "list"
         """
         data: List[Broadcast]
         """
         A list of broadcast objects
+        """
+        has_more: bool
+        """
+        Whether there are more results available for pagination
         """
 
     class RemoveResponse(TypedDict):
@@ -259,15 +312,24 @@ class Broadcasts:
         return resp
 
     @classmethod
-    def list(cls) -> ListResponse:
+    def list(cls, params: Optional[ListParams] = None) -> ListResponse:
         """
         Retrieve a list of broadcasts.
         see more: https://resend.com/docs/api-reference/broadcasts/list-broadcasts
 
+        Args:
+            params (Optional[ListParams]): Optional pagination parameters
+                - limit: Number of broadcasts to retrieve (max 100, min 1).
+                  If not provided, all broadcasts will be returned without pagination.
+                - after: ID after which to retrieve more broadcasts
+                - before: ID before which to retrieve more broadcasts
+
         Returns:
             ListResponse: A list of broadcast objects
         """
-        path = "/broadcasts/"
+        base_path = "/broadcasts"
+        query_params = cast(Dict[Any, Any], params) if params else None
+        path = PaginationHelper.build_paginated_path(base_path, query_params)
         resp = request.Request[Broadcasts.ListResponse](
             path=path, params={}, verb="get"
         ).perform_with_content()

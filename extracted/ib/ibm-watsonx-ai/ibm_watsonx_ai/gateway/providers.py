@@ -1,7 +1,9 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+
+from typing import Any
 
 import pandas as pd
 
@@ -17,7 +19,11 @@ class Providers(WMLResource):
         WMLResource.__init__(self, __name__, api_client)
 
     def create(
-        self, provider: str, name: str | None = None, data: dict | None = None
+        self,
+        provider: str,
+        name: str,
+        data: dict | None = None,
+        secret_crn_id: str | None = None,
     ) -> dict:
         """Create provider in Model Gateway.
 
@@ -25,22 +31,25 @@ class Providers(WMLResource):
         :type provider: str
 
         :param name: name of provider for display
-        :type name: str, optional
+        :type name: str
 
         :param data: data required to connect to provider api
         :type data: dict, optional
+
+        :param secret_crn_id: crn of secret for given provider in the Secrets Manager
+        :type secret_crn_id: str, optional
 
         :returns: provider details
         :rtype: dict
         """
 
-        request_json = {}
-
-        if name:
-            request_json["name"] = name
+        request_json: dict[str, Any] = {"name": name}
 
         if data is not None:
             request_json["data"] = data
+
+        if secret_crn_id is not None:
+            request_json["data_reference"] = {"resource": secret_crn_id}
 
         response = self._client.httpx_client.post(
             self._client._href_definitions.get_gateway_provider_href(provider),

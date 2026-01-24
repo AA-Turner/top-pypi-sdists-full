@@ -25,9 +25,9 @@ class CountingClientSession(aiohttp.ClientSession):
         super().__init__(*args, **kwargs)
         self.request_count = 0
 
-    async def _request(self, method, url, **kwargs):
+    async def _request(self, method, str_or_url, **kwargs):
         self.request_count += 1
-        return await super()._request(method, url, **kwargs)
+        return await super()._request(method, str_or_url, **kwargs)
 
 
 async def on_request_start(session, context, params: aiohttp.TraceRequestStartParams):
@@ -73,7 +73,7 @@ async def on_raise_for_status(response: ClientResponse):
     """
     Add the response text to the exception message of a 400 response
     """
-    if response.status == 400:
+    if 500 > response.status >= 400:
         text = await response.text()
         try:
             response.raise_for_status()

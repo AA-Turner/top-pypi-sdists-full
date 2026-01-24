@@ -1,15 +1,28 @@
+from __future__ import annotations
+
+import atexit
 import concurrent.futures
 import sys
 import threading
 import time
 import traceback
 
+
+try:
+    import termios
+
+    TERMIOS_AVAILABLE = True
+except ImportError:
+    TERMIOS_AVAILABLE = False
+    termios = None  # type: ignore
+
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
 from asyncio import iscoroutine, new_event_loop
 from code import InteractiveConsole
 from collections.abc import Sequence
+from contextlib import suppress
 from types import FunctionType
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 import sanic
 
@@ -46,8 +59,8 @@ except ImportError:
         file=sys.stderr,
     )
 
-repl_app: Optional[Sanic] = None
-repl_response: Optional[HTTPResponse] = None
+repl_app: Sanic | None = None
+repl_response: HTTPResponse | None = None
 
 
 class REPLProtocol(TransportProtocol):
@@ -71,9 +84,9 @@ class Result(NamedTuple):
 
 def make_request(
     url: str = "/",
-    headers: Optional[Union[dict[str, Any], Sequence[tuple[str, str]]]] = None,
+    headers: dict[str, Any] | Sequence[tuple[str, str]] | None = None,
     method: str = "GET",
-    body: Optional[str] = None,
+    body: str | None = None,
 ):
     assert repl_app, "No Sanic app has been registered."
     headers = headers or {}
@@ -102,9 +115,9 @@ async def respond(request) -> HTTPResponse:
 
 async def do(
     url: str = "/",
-    headers: Optional[Union[dict[str, Any], Sequence[tuple[str, str]]]] = None,
+    headers: dict[str, Any] | Sequence[tuple[str, str]] | None = None,
     method: str = "GET",
-    body: Optional[str] = None,
+    body: str | None = None,
 ) -> Result:
     request = make_request(url, headers, method, body)
     response = await respond(request)
@@ -119,7 +132,7 @@ def _variable_description(name: str, desc: str, type_desc: str) -> str:
 
 
 class SanicREPL(InteractiveConsole):
-    def __init__(self, app: Sanic, start: Optional[Default] = None):
+    def __init__(self, app: Sanic, start: Default | None = None):
         global repl_app
         repl_app = app
         locals_available = {
@@ -254,8 +267,19 @@ class SanicREPL(InteractiveConsole):
         self.interact(banner=self.banner_message, exitmsg=self.exit_message)
         self._shutdown()
 
+    def _setup_terminal(self):
+        assert termios is not None
+        with suppress(termios.error, AttributeError):
+            fd = sys.stdin.fileno()
+            old_attrs = termios.tcgetattr(fd)
+            atexit.register(
+                termios.tcsetattr, fd, termios.TCSADRAIN, old_attrs
+            )
+
     def _monitor(self):
         if isinstance(self._start, Default):
+            if TERMIOS_AVAILABLE and sys.stdin.isatty():
+                self._setup_terminal()
             enter = f"{Colors.BOLD + Colors.SANIC}ENTER{Colors.END}"
             start = input(f"\nPress {enter} at anytime to start the REPL.\n\n")
             if start:

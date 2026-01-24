@@ -17,6 +17,7 @@ import codecs
 import os.path
 import re
 import sys
+from pprint import pprint
 
 from setuptools import setup
 from setuptools.command.test import test as TestCommand
@@ -83,8 +84,10 @@ packages = [
 install_requires = read_requirements("requirements.txt")
 tests_require = read_requirements('requirements-dev.txt')
 
+print("Version: " + find_version("amazondax", "__init__.py"))
+
 setup_params = dict(
-    name='amazon-dax-client',
+    name='amazon_dax_client',
     version=find_version("amazondax", "__init__.py"),
     author='Amazon Web Services',
     packages=packages,
@@ -109,4 +112,6 @@ setup_params = dict(
     ),
 )
 
+print("setup_params:")
+pprint(setup_params)
 setup(**setup_params)

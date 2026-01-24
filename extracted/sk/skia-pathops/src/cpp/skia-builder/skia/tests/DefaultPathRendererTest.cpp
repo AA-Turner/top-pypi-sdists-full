@@ -11,15 +11,16 @@
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkMatrix.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPathTypes.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkStrokeRec.h"
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrFragmentProcessor.h"
@@ -28,6 +29,7 @@
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
+#include "tools/gpu/ContextType.h"
 
 #include <memory>
 #include <utility>
@@ -51,12 +53,10 @@ static SkBitmap read_back(GrDirectContext* dContext,
 }
 
 static SkPath make_path(const SkRect& outer, int inset, SkPathFillType fill) {
-    SkPath p;
-
-    p.addRect(outer, SkPathDirection::kCW);
-    p.addRect(outer.makeInset(inset, inset), SkPathDirection::kCCW);
-    p.setFillType(fill);
-    return p;
+    return SkPathBuilder(fill)
+           .addRect(outer, SkPathDirection::kCW)
+           .addRect(outer.makeInset(inset, inset), SkPathDirection::kCCW)
+           .detach();
 }
 
 
@@ -136,7 +136,7 @@ static void run_test(GrDirectContext* dContext, skiatest::Reporter* reporter) {
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(DefaultPathRendererTest,
-                             sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              only_allow_default,

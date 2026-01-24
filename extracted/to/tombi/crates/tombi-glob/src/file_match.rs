@@ -15,14 +15,12 @@ pub fn matches_file_patterns(
     config_path: Option<&Path>,
     config: &Config,
 ) -> MatchResult {
-    let Some(files) = config.files.as_ref() else {
-        return MatchResult::Matched;
-    };
-
     let text_document_absolute_path = match text_document_path.canonicalize() {
         Ok(path) => path,
         Err(_) => text_document_path.to_path_buf(),
     };
+
+    let files = config.files.clone().unwrap_or_default();
 
     // Determine the path to use for pattern matching
     let path_for_patterns = relative_document_text_path(&text_document_absolute_path, config_path);
@@ -65,12 +63,12 @@ fn relative_document_text_path<'a>(
             Err(_) => config_path.to_path_buf(),
         };
 
-        if let Some(config_dir) = config_pathbuf.parent() {
-            if text_document_absolute_path.starts_with(config_dir) {
-                // Use relative path from config directory
-                if let Ok(rel_path) = text_document_absolute_path.strip_prefix(config_dir) {
-                    return rel_path.to_string_lossy();
-                }
+        if let Some(config_dir) = config_pathbuf.parent()
+            && text_document_absolute_path.starts_with(config_dir)
+        {
+            // Use relative path from config directory
+            if let Ok(rel_path) = text_document_absolute_path.strip_prefix(config_dir) {
+                return rel_path.to_string_lossy();
             }
         }
     }

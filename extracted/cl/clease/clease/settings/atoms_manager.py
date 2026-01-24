@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
 
 from ase import Atoms
 
@@ -16,7 +16,7 @@ class AtomsManager:
     :param atoms: ASE Atoms object
     """
 
-    def __init__(self, atoms: Optional[Atoms] = None) -> None:
+    def __init__(self, atoms: Atoms | None = None) -> None:
         self.atoms = atoms
 
     @property
@@ -24,13 +24,10 @@ class AtomsManager:
         return self._atoms
 
     @atoms.setter
-    def atoms(self, other: Optional[Atoms]) -> None:
+    def atoms(self, other: Atoms | None) -> None:
         if other is not None and not isinstance(other, Atoms):
             raise TypeError(
-                (
-                    "Trying to set atoms with a non-atoms object. "
-                    f"Expected atoms, got {type(other)}"
-                )
+                f"Trying to set atoms with a non-atoms object. Expected atoms, got {type(other)}"
             )
         self._atoms = other
 
@@ -40,7 +37,7 @@ class AtomsManager:
 
         return self.atoms == other.atoms
 
-    def index_by_tag(self) -> List[List[int]]:
+    def index_by_tag(self) -> list[list[int]]:
         """Return atomic indices that are grouped by their tags.
 
         This method assumes that all atoms are tagged and the tags are in a
@@ -54,7 +51,7 @@ class AtomsManager:
             ind_by_tag[tag].append(index)
         return ind_by_tag
 
-    def index_by_symbol(self, symbols: List) -> List[List[int]]:
+    def index_by_symbol(self, symbols: list) -> list[list[int]]:
         """Group atomic indices by its atomic symbols.
 
         Example:
@@ -84,7 +81,7 @@ class AtomsManager:
             ind_by_symbol[group_map[symbol]].append(index)
         return ind_by_symbol
 
-    def unique_elements(self, ignore: Sequence[str] = ()) -> List[str]:
+    def unique_elements(self, ignore: Sequence[str] = ()) -> list[str]:
         """Return a list of symbols of unique elements.
 
         :param ignore: List of symbols to ignore in finding unique elements.
@@ -92,7 +89,7 @@ class AtomsManager:
         all_unique = set(self.atoms.symbols)
         return list(all_unique - set(ignore))
 
-    def single_element_sites(self, allowed_elements: List[List[str]]) -> List[int]:
+    def single_element_sites(self, allowed_elements: list[list[str]]) -> list[int]:
         """
         Return a list of sites that can only be occupied by a single element
         according to allowed_elements.

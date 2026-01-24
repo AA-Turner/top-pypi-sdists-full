@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.db.models import QuerySet
 
-from .models import Token, Scope, CallbackRedirect
+from .models import CallbackRedirect, Scope, Token
 
 admin.site.register(CallbackRedirect)
 
@@ -13,14 +14,14 @@ class ScopeAdmin(admin.ModelAdmin):
 
 @admin.register(Token)
 class TokenAdmin(admin.ModelAdmin):
-    def get_queryset(self, request):
+    def get_queryset(self, request) -> QuerySet["Token"]:
         qs = super().get_queryset(request)
         return qs.select_related('user').prefetch_related('scopes')
 
     @admin.display(
         description='Scopes'
     )
-    def get_scopes(self, obj):
+    def get_scopes(self, obj) -> str:
         return ", ".join([x.name for x in obj.scopes.all()])
 
     User = get_user_model()

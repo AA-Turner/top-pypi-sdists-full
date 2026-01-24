@@ -1,11 +1,15 @@
 Metadata-Version: 2.4
 Name: langgraph-checkpoint-postgres
-Version: 2.0.23
+Version: 3.0.3
 Summary: Library with a Postgres implementation of LangGraph checkpoint saver.
-Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
+Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-postgres
+Project-URL: Twitter, https://x.com/LangChainAI
+Project-URL: Slack, https://www.langchain.com/join-community
+Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License-Expression: MIT
-Requires-Python: >=3.9
-Requires-Dist: langgraph-checkpoint<3.0.0,>=2.0.21
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: langgraph-checkpoint<5.0.0,>=2.1.2
 Requires-Dist: orjson>=3.10.1
 Requires-Dist: psycopg-pool>=3.2.0
 Requires-Dist: psycopg>=3.2.0

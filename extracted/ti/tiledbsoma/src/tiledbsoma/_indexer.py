@@ -10,7 +10,6 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import pyarrow as pa
-from somacore.query.types import IndexLike
 
 from tiledbsoma import pytiledbsoma as clib
 
@@ -28,25 +27,6 @@ IndexerDataType = Union[
 ]
 
 
-def tiledbsoma_build_index(
-    data: IndexerDataType, *, context: SOMATileDBContext | None = None
-) -> IndexLike:
-    """Initialize re-indexer for provided indices (deprecated).
-
-    Provides the same functionality as the``IntIndexer`` class.
-
-    Args:
-       data:
-           Integer keys used to build the index (hash) table.
-       context:
-           ``SOMATileDBContext`` object containing concurrency level.
-
-    Lifecycle:
-        Deprecated.
-    """
-    return IntIndexer(data, context=context)
-
-
 class IntIndexer:
     """A re-indexer for unique integer indices.
 
@@ -54,9 +34,7 @@ class IntIndexer:
         Maturing.
     """
 
-    def __init__(
-        self, data: IndexerDataType, *, context: SOMATileDBContext | None = None
-    ):
+    def __init__(self, data: IndexerDataType, *, context: SOMATileDBContext | None = None) -> None:
         """Initialize re-indexer for provided indices.
 
         Args:
@@ -69,11 +47,7 @@ class IntIndexer:
             Maturing.
         """
         self._context = context
-        self._reindexer = (
-            clib.IntIndexer()
-            if self._context is None
-            else clib.IntIndexer(self._context.native_context)
-        )
+        self._reindexer = clib.IntIndexer() if self._context is None else clib.IntIndexer(self._context.native_context)
 
         # TODO: the map_locations interface does not accept chunked arrays. It would
         # save a copy (reduce memory usage) if they were natively supported.

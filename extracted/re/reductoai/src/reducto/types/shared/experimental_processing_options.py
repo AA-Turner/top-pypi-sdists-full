@@ -6,26 +6,18 @@ from typing_extensions import Literal
 from pydantic import Field as FieldInfo
 
 from ..._models import BaseModel
+from .enrich_config import EnrichConfig
 
-__all__ = ["ExperimentalProcessingOptions", "Enrich"]
-
-
-class Enrich(BaseModel):
-    enabled: Optional[bool] = None
-    """
-    If enabled, a large language/vision model will be used to postprocess the
-    extracted content. Note: enabling enrich requires tables be outputted in
-    markdown format. Defaults to False.
-    """
-
-    mode: Optional[Literal["standard", "page", "table"]] = None
-    """The mode to use for enrichment. Defaults to standard"""
-
-    prompt: Optional[str] = None
-    """Add information to the prompt for enrichment."""
+__all__ = ["ExperimentalProcessingOptions"]
 
 
 class ExperimentalProcessingOptions(BaseModel):
+    chunk_table_blocks: Optional[bool] = None
+    """
+    If True, split table blocks into smaller chunks based on the specified chunk
+    size in the chunking option. Defaults to False.
+    """
+
     danger_filter_wide_boxes: Optional[bool] = None
     """You probably shouldn't use this.
 
@@ -60,8 +52,20 @@ class ExperimentalProcessingOptions(BaseModel):
     False
     """
 
-    enrich: Optional[Enrich] = None
+    enrich: Optional[EnrichConfig] = None
     """The configuration options for enrichment."""
+
+    latency_sensitive: Optional[bool] = None
+    """If True, the job will be processed with lower latency and higher priority.
+
+    Uses 2x the cost of a regular job. Defaults to False.
+    """
+
+    layout_enrichment: Optional[bool] = None
+    """
+    Layout enrichment is a beta feature that improves our layout and reading order
+    performance at the cost of increased latency. Defaults to False.
+    """
 
     layout_model: Optional[Literal["default", "beta"]] = None
     """The layout model to use for the document.
@@ -73,12 +77,6 @@ class ExperimentalProcessingOptions(BaseModel):
     """
     Instead of using LibreOffice, when enabled, this flag uses a Windows VM to
     convert files. This is slower but more accurate.
-    """
-
-    numerical_parse_confidence: Optional[bool] = None
-    """
-    If True, enable numeric parse confidence scores in granular_confidence
-    dictionary. Defaults to False.
     """
 
     return_figure_images: Optional[bool] = None
@@ -99,9 +97,14 @@ class ExperimentalProcessingOptions(BaseModel):
     user_specified_timeout_seconds: Optional[float] = None
     """A user specified timeout, defaults to None"""
 
-    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
         # `getattr(obj, '$type')`
         def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

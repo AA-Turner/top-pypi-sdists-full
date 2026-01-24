@@ -3,7 +3,7 @@ Type annotations for service-quotas service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -37,8 +38,11 @@ from .type_defs import (
     CreateSupportCaseRequestTypeDef,
     DeleteServiceQuotaIncreaseRequestFromTemplateRequestTypeDef,
     GetAssociationForServiceQuotaTemplateResponseTypeDef,
+    GetAutoManagementConfigurationResponseTypeDef,
     GetAWSDefaultServiceQuotaRequestTypeDef,
     GetAWSDefaultServiceQuotaResponseTypeDef,
+    GetQuotaUtilizationReportRequestTypeDef,
+    GetQuotaUtilizationReportResponseTypeDef,
     GetRequestedServiceQuotaChangeRequestTypeDef,
     GetRequestedServiceQuotaChangeResponseTypeDef,
     GetServiceQuotaIncreaseRequestFromTemplateRequestTypeDef,
@@ -63,16 +67,13 @@ from .type_defs import (
     PutServiceQuotaIncreaseRequestIntoTemplateResponseTypeDef,
     RequestServiceQuotaIncreaseRequestTypeDef,
     RequestServiceQuotaIncreaseResponseTypeDef,
+    StartAutoManagementRequestTypeDef,
+    StartQuotaUtilizationReportResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAutoManagementRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -81,24 +82,24 @@ else:
 __all__ = ("ServiceQuotasClient",)
 
 class Exceptions(BaseClientExceptions):
-    AWSServiceAccessNotEnabledException: Type[BotocoreClientError]
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DependencyAccessDeniedException: Type[BotocoreClientError]
-    IllegalArgumentException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    InvalidResourceStateException: Type[BotocoreClientError]
-    NoAvailableOrganizationException: Type[BotocoreClientError]
-    NoSuchResourceException: Type[BotocoreClientError]
-    OrganizationNotInAllFeaturesModeException: Type[BotocoreClientError]
-    QuotaExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    ServiceQuotaTemplateNotInUseException: Type[BotocoreClientError]
-    TagPolicyViolationException: Type[BotocoreClientError]
-    TemplatesNotAvailableInRegionException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    AWSServiceAccessNotEnabledException: type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DependencyAccessDeniedException: type[BotocoreClientError]
+    IllegalArgumentException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    InvalidResourceStateException: type[BotocoreClientError]
+    NoAvailableOrganizationException: type[BotocoreClientError]
+    NoSuchResourceException: type[BotocoreClientError]
+    OrganizationNotInAllFeaturesModeException: type[BotocoreClientError]
+    QuotaExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    ServiceQuotaTemplateNotInUseException: type[BotocoreClientError]
+    TagPolicyViolationException: type[BotocoreClientError]
+    TemplatesNotAvailableInRegionException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 class ServiceQuotasClient(BaseClient):
     """
@@ -135,7 +136,7 @@ class ServiceQuotasClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#generate_presigned_url)
         """
 
-    def associate_service_quota_template(self) -> Dict[str, Any]:
+    def associate_service_quota_template(self) -> dict[str, Any]:
         """
         Associates your quota request template with your organization.
 
@@ -145,7 +146,7 @@ class ServiceQuotasClient(BaseClient):
 
     def create_support_case(
         self, **kwargs: Unpack[CreateSupportCaseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a Support case for an existing quota increase request.
 
@@ -155,7 +156,7 @@ class ServiceQuotasClient(BaseClient):
 
     def delete_service_quota_increase_request_from_template(
         self, **kwargs: Unpack[DeleteServiceQuotaIncreaseRequestFromTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the quota increase request for the specified quota from your quota
         request template.
@@ -164,7 +165,7 @@ class ServiceQuotasClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#delete_service_quota_increase_request_from_template)
         """
 
-    def disassociate_service_quota_template(self) -> Dict[str, Any]:
+    def disassociate_service_quota_template(self) -> dict[str, Any]:
         """
         Disables your quota request template.
 
@@ -190,6 +191,26 @@ class ServiceQuotasClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/get_association_for_service_quota_template.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#get_association_for_service_quota_template)
+        """
+
+    def get_auto_management_configuration(self) -> GetAutoManagementConfigurationResponseTypeDef:
+        """
+        Retrieves information about your <a
+        href="https://docs.aws.amazon.com/servicequotas/latest/userguide/automatic-management.html">Service
+        Quotas Automatic Management</a> configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/get_auto_management_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#get_auto_management_configuration)
+        """
+
+    def get_quota_utilization_report(
+        self, **kwargs: Unpack[GetQuotaUtilizationReportRequestTypeDef]
+    ) -> GetQuotaUtilizationReportResponseTypeDef:
+        """
+        Retrieves the quota utilization report for your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/get_quota_utilization_report.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#get_quota_utilization_report)
         """
 
     def get_requested_service_quota_change(
@@ -318,7 +339,40 @@ class ServiceQuotasClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#request_service_quota_increase)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def start_auto_management(
+        self, **kwargs: Unpack[StartAutoManagementRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Starts <a
+        href="https://docs.aws.amazon.com/servicequotas/latest/userguide/automatic-management.html">Service
+        Quotas Automatic Management</a> for an Amazon Web Services account, including
+        notification preferences and excluded quotas configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/start_auto_management.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#start_auto_management)
+        """
+
+    def start_quota_utilization_report(self) -> StartQuotaUtilizationReportResponseTypeDef:
+        """
+        Initiates the generation of a quota utilization report for your Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/start_quota_utilization_report.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#start_quota_utilization_report)
+        """
+
+    def stop_auto_management(self) -> dict[str, Any]:
+        """
+        Stops <a
+        href="https://docs.aws.amazon.com/servicequotas/latest/userguide/automatic-management.html">Service
+        Quotas Automatic Management</a> for an Amazon Web Services account and removes
+        all associated configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/stop_auto_management.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#stop_auto_management)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to the specified applied quota.
 
@@ -326,12 +380,25 @@ class ServiceQuotasClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified applied quota.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#untag_resource)
+        """
+
+    def update_auto_management(
+        self, **kwargs: Unpack[UpdateAutoManagementRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates your <a
+        href="https://docs.aws.amazon.com/servicequotas/latest/userguide/automatic-management.html">Service
+        Quotas Automatic Management</a> configuration, including notification
+        preferences and excluded quotas.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/service-quotas/client/update_auto_management.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_service_quotas/client/#update_auto_management)
         """
 
     @overload  # type: ignore[override]

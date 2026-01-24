@@ -10,10 +10,10 @@ use chia_protocol::{Bytes, Bytes32, Coin};
 
 use clvmr::cost::Cost;
 
+use pyo3::PyResult;
 use pyo3::buffer::PyBuffer;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
-use pyo3::PyResult;
 
 pub fn py_to_slice<'a>(buf: PyBuffer<u8>) -> &'a [u8] {
     assert!(buf.is_c_contiguous(), "buffer must be contiguous");
@@ -46,7 +46,7 @@ pub fn run_block_generator<'a>(
         .collect::<Vec<&'a [u8]>>();
     let program = py_to_slice::<'a>(program);
 
-    py.allow_threads(|| {
+    py.detach(|| {
         match native_run_block_generator(
             &mut allocator,
             program,
@@ -99,7 +99,7 @@ pub fn run_block_generator2<'a>(
 
     let program = py_to_slice::<'a>(program);
 
-    py.allow_threads(|| {
+    py.detach(|| {
         match native_run_block_generator2(
             &mut allocator,
             program,
@@ -146,7 +146,7 @@ pub fn additions_and_removals<'a>(
 
     let program = py_to_slice::<'a>(program);
 
-    py.allow_threads(|| {
+    py.detach(|| {
         native_additions_and_removals(program, refs, flags, constants).map_err(|e| {
             // a validation error occurred
             pyo3::exceptions::PyValueError::new_err(format!(

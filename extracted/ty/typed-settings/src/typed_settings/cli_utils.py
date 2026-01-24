@@ -3,25 +3,18 @@ Framework agnostic utilities for generating CLI options from Typed Settings
 options.
 """
 
+from __future__ import annotations
+
 from collections.abc import (
+    Collection,
     Mapping,
     MutableMapping,
     MutableSequence,
     MutableSet,
     Sequence,
 )
-from typing import Protocol, Union, get_args, get_origin
-
-from ._compat import PY_310
-
-
-if PY_310:
-    from types import UnionType
-else:
-    from typing import Union as UnionType  # type: ignore
-
-from collections.abc import Collection
-from typing import Any, Optional
+from types import UnionType
+from typing import Any, Literal, Protocol, Union, get_args, get_origin
 
 from . import _core, converters, types
 
@@ -47,7 +40,7 @@ class NoDefaultType:
 
     _singleton = None
 
-    def __new__(cls) -> "NoDefaultType":
+    def __new__(cls) -> NoDefaultType:
         if NoDefaultType._singleton is None:
             NoDefaultType._singleton = super().__new__(cls)
         return NoDefaultType._singleton
@@ -70,7 +63,7 @@ class DefaultFactorySentinel:
         return None
 
 
-Default = Union[Any, None, NoDefaultType]
+Default = Any | None | NoDefaultType
 NoneType = type(None)
 StrDict = dict[str, Any]
 
@@ -81,12 +74,12 @@ class TypeHandlerFunc(Protocol):
     for a specific type.
     """
 
-    def __call__(self, type: type, default: Default, is_optional: bool) -> StrDict:
+    def __call__(self, typ: type, default: Default, is_optional: bool) -> StrDict:
         """
         Return keyword arguments for creating an option for *type*.
 
         Args:
-            type: The type to create the option for.
+            typ: The type to create the option for.
             default: The default value for the option.  May be ``None`` or
                 :data:`NO_DEFAULT`.
             is_optional: Whether the original type was an
@@ -113,7 +106,7 @@ class TypeHandler(Protocol):
         .. code-block:: python
 
             def handle_mytype(
-                type: type,
+                typ: type,
                 default: Default,
                 is_optional: bool,
             ) -> Dict[str, Any]:
@@ -132,14 +125,34 @@ class TypeHandler(Protocol):
         ...
 
     def handle_scalar(
-        self, type: Optional[type], default: Default, is_optional: bool
+        self, typ: type | None, default: Default, is_optional: bool
     ) -> StrDict:
         """
         Handle all scalars for which :func:`get_scalar_handlers()` does not
         provide a specific handler.
 
         Args:
-            type: The type to create an option for.  Can be none if the option
+            typ: The type to create an option for.  Can be none if the option
+                is untyped.
+            default: The default value for the option. My be ``None`` or
+                :data:`NO_DEFAULT`.
+            is_optional: Whether or not the option type was marked as option
+                or not.
+
+        Return:
+            A dictionary with keyword arguments for creating an option for the
+            given type.
+        """
+        ...
+
+    def handle_literal(
+        self, typ: type | None, default: Default, is_optional: bool
+    ) -> StrDict:
+        """
+        Handle :class:`typing.Literal` values..
+
+        Args:
+            typ: The type to create an option for.  Can be none if the option
                 is untyped.
             default: The default value for the option. My be ``None`` or
                 :data:`NO_DEFAULT`.
@@ -154,9 +167,9 @@ class TypeHandler(Protocol):
 
     def handle_tuple(
         self,
-        type_args_maker: "TypeArgsMaker",
+        type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
-        default: Optional[tuple],
+        default: tuple | None,
         is_optional: bool,
     ) -> StrDict:
         """
@@ -178,9 +191,9 @@ class TypeHandler(Protocol):
 
     def handle_collection(
         self,
-        type_args_maker: "TypeArgsMaker",
+        type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
-        default: Optional[list[Any]],
+        default: list[Any] | None,
         is_optional: bool,
     ) -> StrDict:
         """
@@ -203,7 +216,7 @@ class TypeHandler(Protocol):
 
     def handle_mapping(
         self,
-        type_args_maker: "TypeArgsMaker",
+        type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
         default: Default,
         is_optional: bool,
@@ -306,39 +319,39 @@ class TypeArgsMaker:
             otype, default, origin, args
         )
 
+        # Handle "None"
         if otype is None:
-            return self._handle_scalar(otype, default, is_optional)
+            return self.type_handler.handle_scalar(otype, default, is_optional)
+        if origin is Literal:
+            return self.type_handler.handle_literal(otype, default, is_optional)
 
-        elif origin is None:
-            scalar_handlers = self.type_handler.get_scalar_handlers()
-            for target_type, get_kwargs in scalar_handlers.items():
-                if types.is_new_type(otype):
-                    otype = otype.__supertype__
-                if issubclass(otype, target_type):
-                    return get_kwargs(otype, default, is_optional)
+        # Check if (user defined) scalar handlers can be applied
+        scalar_handlers = self.type_handler.get_scalar_handlers()
+        for target_type, get_kwargs in scalar_handlers.items():
+            if origin is None and types.is_new_type(otype):
+                otype = otype.__supertype__
 
-            return self._handle_scalar(otype, default, is_optional)
+            if (
+                otype is target_type
+                or origin is target_type
+                or (isinstance(otype, type) and issubclass(otype, target_type))
+                or (isinstance(origin, type) and issubclass(origin, target_type))
+            ):
+                return get_kwargs(otype, default, is_optional)
 
-        else:
-            if origin in self.list_types:
-                return self._handle_collection(otype, args, default, is_optional)
-            elif origin in self.tuple_types:
-                return self._handle_tuple(otype, args, default, is_optional)
-            elif origin in self.mapping_types:
-                return self._handle_mapping(otype, args, default, is_optional)
+        # Handle default scalar
+        if origin is None:
+            return self.type_handler.handle_scalar(otype, default, is_optional)
 
-            raise TypeError(f"Cannot create CLI option for: {otype}")
+        # Handle generic / composite types
+        if origin in self.list_types:
+            return self._handle_collection(otype, args, default, is_optional)
+        elif origin in self.tuple_types:
+            return self._handle_tuple(otype, args, default, is_optional)
+        elif origin in self.mapping_types:
+            return self._handle_mapping(otype, args, default, is_optional)
 
-    def _handle_scalar(
-        self,
-        type: Optional[type],
-        default: Default,
-        is_optional: bool,
-    ) -> StrDict:
-        """
-        Get kwargs for scalar types.
-        """
-        return self.type_handler.handle_scalar(type, default, is_optional)
+        raise TypeError(f"Cannot create CLI option for: {otype}")
 
     def _handle_tuple(
         self,
@@ -358,16 +371,15 @@ class TypeArgsMaker:
 
         # "struct" variant of tuple
 
-        default_val: Optional[tuple]
+        default_val: tuple | None
         if isinstance(default, tuple):
             if not len(default) == len(args):
                 raise TypeError(
                     f"Default value must be of len {len(args)}: {len(default)}"
                 )
-            kwargs = {"strict": True} if PY_310 else {}
             default_val = tuple(
                 self.get_kwargs(a, d)["default"]
-                for a, d in zip(args, default, **kwargs)
+                for a, d in zip(args, default, strict=True)
             )
         else:
             default_val = None
@@ -434,7 +446,13 @@ def get_default(
     if option_info.path in settings:
         value, meta = settings[option_info.path]
         try:
-            default = _core.convert_value(option_info, value, meta, converter)
+            default = _core.convert_value(
+                option_info,
+                value,
+                meta,
+                converter,
+                converters.get_path_converter_from(converter),
+            )
         except Exception as e:
             raise ValueError(
                 f"Invalid default {value!r} for option {option_info.path!r} with "
@@ -456,11 +474,11 @@ def get_default(
 
 
 def check_if_optional(
-    otype: Optional[type],
+    otype: type | None,
     default: Default,
     origin: Any,
     args: tuple[Any, ...],
-) -> tuple[Optional[type], Any, Any, tuple[Any, ...], bool]:
+) -> tuple[type | None, Any, Any, tuple[Any, ...], bool]:
     """
     Check if *otype* is an optional (``Optional[...]`` or ``Union[None, ...]``) and
     return the actual type for it and a flag indicating the optionality.

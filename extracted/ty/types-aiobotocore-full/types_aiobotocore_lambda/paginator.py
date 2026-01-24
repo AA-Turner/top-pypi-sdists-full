@@ -3,7 +3,7 @@ Type annotations for lambda service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,11 +12,16 @@ Usage::
 
     from types_aiobotocore_lambda.client import LambdaClient
     from types_aiobotocore_lambda.paginator import (
+        GetDurableExecutionHistoryPaginator,
+        GetDurableExecutionStatePaginator,
         ListAliasesPaginator,
+        ListCapacityProvidersPaginator,
         ListCodeSigningConfigsPaginator,
+        ListDurableExecutionsByFunctionPaginator,
         ListEventSourceMappingsPaginator,
         ListFunctionEventInvokeConfigsPaginator,
         ListFunctionUrlConfigsPaginator,
+        ListFunctionVersionsByCapacityProviderPaginator,
         ListFunctionsByCodeSigningConfigPaginator,
         ListFunctionsPaginator,
         ListLayerVersionsPaginator,
@@ -29,11 +34,16 @@ Usage::
     with session.create_client("lambda") as client:
         client: LambdaClient
 
+        get_durable_execution_history_paginator: GetDurableExecutionHistoryPaginator = client.get_paginator("get_durable_execution_history")
+        get_durable_execution_state_paginator: GetDurableExecutionStatePaginator = client.get_paginator("get_durable_execution_state")
         list_aliases_paginator: ListAliasesPaginator = client.get_paginator("list_aliases")
+        list_capacity_providers_paginator: ListCapacityProvidersPaginator = client.get_paginator("list_capacity_providers")
         list_code_signing_configs_paginator: ListCodeSigningConfigsPaginator = client.get_paginator("list_code_signing_configs")
+        list_durable_executions_by_function_paginator: ListDurableExecutionsByFunctionPaginator = client.get_paginator("list_durable_executions_by_function")
         list_event_source_mappings_paginator: ListEventSourceMappingsPaginator = client.get_paginator("list_event_source_mappings")
         list_function_event_invoke_configs_paginator: ListFunctionEventInvokeConfigsPaginator = client.get_paginator("list_function_event_invoke_configs")
         list_function_url_configs_paginator: ListFunctionUrlConfigsPaginator = client.get_paginator("list_function_url_configs")
+        list_function_versions_by_capacity_provider_paginator: ListFunctionVersionsByCapacityProviderPaginator = client.get_paginator("list_function_versions_by_capacity_provider")
         list_functions_by_code_signing_config_paginator: ListFunctionsByCodeSigningConfigPaginator = client.get_paginator("list_functions_by_code_signing_config")
         list_functions_paginator: ListFunctionsPaginator = client.get_paginator("list_functions")
         list_layer_versions_paginator: ListLayerVersionsPaginator = client.get_paginator("list_layer_versions")
@@ -51,10 +61,18 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    GetDurableExecutionHistoryRequestPaginateTypeDef,
+    GetDurableExecutionHistoryResponseTypeDef,
+    GetDurableExecutionStateRequestPaginateTypeDef,
+    GetDurableExecutionStateResponseTypeDef,
     ListAliasesRequestPaginateTypeDef,
     ListAliasesResponseTypeDef,
+    ListCapacityProvidersRequestPaginateTypeDef,
+    ListCapacityProvidersResponseTypeDef,
     ListCodeSigningConfigsRequestPaginateTypeDef,
     ListCodeSigningConfigsResponseTypeDef,
+    ListDurableExecutionsByFunctionRequestPaginateTypeDef,
+    ListDurableExecutionsByFunctionResponseTypeDef,
     ListEventSourceMappingsRequestPaginateTypeDef,
     ListEventSourceMappingsResponseTypeDef,
     ListFunctionEventInvokeConfigsRequestPaginateTypeDef,
@@ -65,6 +83,8 @@ from .type_defs import (
     ListFunctionsResponseTypeDef,
     ListFunctionUrlConfigsRequestPaginateTypeDef,
     ListFunctionUrlConfigsResponseTypeDef,
+    ListFunctionVersionsByCapacityProviderRequestPaginateTypeDef,
+    ListFunctionVersionsByCapacityProviderResponseTypeDef,
     ListLayersRequestPaginateTypeDef,
     ListLayersResponseTypeDef,
     ListLayerVersionsRequestPaginateTypeDef,
@@ -82,11 +102,16 @@ else:
 
 
 __all__ = (
+    "GetDurableExecutionHistoryPaginator",
+    "GetDurableExecutionStatePaginator",
     "ListAliasesPaginator",
+    "ListCapacityProvidersPaginator",
     "ListCodeSigningConfigsPaginator",
+    "ListDurableExecutionsByFunctionPaginator",
     "ListEventSourceMappingsPaginator",
     "ListFunctionEventInvokeConfigsPaginator",
     "ListFunctionUrlConfigsPaginator",
+    "ListFunctionVersionsByCapacityProviderPaginator",
     "ListFunctionsByCodeSigningConfigPaginator",
     "ListFunctionsPaginator",
     "ListLayerVersionsPaginator",
@@ -94,6 +119,50 @@ __all__ = (
     "ListProvisionedConcurrencyConfigsPaginator",
     "ListVersionsByFunctionPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _GetDurableExecutionHistoryPaginatorBase = AioPaginator[
+        GetDurableExecutionHistoryResponseTypeDef
+    ]
+else:
+    _GetDurableExecutionHistoryPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class GetDurableExecutionHistoryPaginator(_GetDurableExecutionHistoryPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/GetDurableExecutionHistory.html#Lambda.Paginator.GetDurableExecutionHistory)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#getdurableexecutionhistorypaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetDurableExecutionHistoryRequestPaginateTypeDef]
+    ) -> AioPageIterator[GetDurableExecutionHistoryResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/GetDurableExecutionHistory.html#Lambda.Paginator.GetDurableExecutionHistory.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#getdurableexecutionhistorypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetDurableExecutionStatePaginatorBase = AioPaginator[GetDurableExecutionStateResponseTypeDef]
+else:
+    _GetDurableExecutionStatePaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class GetDurableExecutionStatePaginator(_GetDurableExecutionStatePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/GetDurableExecutionState.html#Lambda.Paginator.GetDurableExecutionState)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#getdurableexecutionstatepaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetDurableExecutionStateRequestPaginateTypeDef]
+    ) -> AioPageIterator[GetDurableExecutionStateResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/GetDurableExecutionState.html#Lambda.Paginator.GetDurableExecutionState.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#getdurableexecutionstatepaginator)
+        """
 
 
 if TYPE_CHECKING:
@@ -118,6 +187,27 @@ class ListAliasesPaginator(_ListAliasesPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListCapacityProvidersPaginatorBase = AioPaginator[ListCapacityProvidersResponseTypeDef]
+else:
+    _ListCapacityProvidersPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListCapacityProvidersPaginator(_ListCapacityProvidersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListCapacityProviders.html#Lambda.Paginator.ListCapacityProviders)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listcapacityproviderspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCapacityProvidersRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCapacityProvidersResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListCapacityProviders.html#Lambda.Paginator.ListCapacityProviders.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listcapacityproviderspaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListCodeSigningConfigsPaginatorBase = AioPaginator[ListCodeSigningConfigsResponseTypeDef]
 else:
     _ListCodeSigningConfigsPaginatorBase = AioPaginator  # type: ignore[assignment]
@@ -135,6 +225,29 @@ class ListCodeSigningConfigsPaginator(_ListCodeSigningConfigsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListCodeSigningConfigs.html#Lambda.Paginator.ListCodeSigningConfigs.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listcodesigningconfigspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListDurableExecutionsByFunctionPaginatorBase = AioPaginator[
+        ListDurableExecutionsByFunctionResponseTypeDef
+    ]
+else:
+    _ListDurableExecutionsByFunctionPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListDurableExecutionsByFunctionPaginator(_ListDurableExecutionsByFunctionPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListDurableExecutionsByFunction.html#Lambda.Paginator.ListDurableExecutionsByFunction)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listdurableexecutionsbyfunctionpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDurableExecutionsByFunctionRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListDurableExecutionsByFunctionResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListDurableExecutionsByFunction.html#Lambda.Paginator.ListDurableExecutionsByFunction.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listdurableexecutionsbyfunctionpaginator)
         """
 
 
@@ -200,6 +313,31 @@ class ListFunctionUrlConfigsPaginator(_ListFunctionUrlConfigsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListFunctionUrlConfigs.html#Lambda.Paginator.ListFunctionUrlConfigs.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listfunctionurlconfigspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFunctionVersionsByCapacityProviderPaginatorBase = AioPaginator[
+        ListFunctionVersionsByCapacityProviderResponseTypeDef
+    ]
+else:
+    _ListFunctionVersionsByCapacityProviderPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListFunctionVersionsByCapacityProviderPaginator(
+    _ListFunctionVersionsByCapacityProviderPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListFunctionVersionsByCapacityProvider.html#Lambda.Paginator.ListFunctionVersionsByCapacityProvider)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listfunctionversionsbycapacityproviderpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFunctionVersionsByCapacityProviderRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListFunctionVersionsByCapacityProviderResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/paginator/ListFunctionVersionsByCapacityProvider.html#Lambda.Paginator.ListFunctionVersionsByCapacityProvider.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/paginators/#listfunctionversionsbycapacityproviderpaginator)
         """
 
 

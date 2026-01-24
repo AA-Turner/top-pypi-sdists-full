@@ -1,5 +1,11 @@
+use std::collections::HashMap;
+
 use super::dynamic_returnable::DynamicReturnable;
-use crate::{event_logging::exposable_string::ExposableString, interned_string::InternedString};
+use crate::{
+    evaluation::secondary_exposure_key::SecondaryExposureKey, interned_string::InternedString,
+    specs_response::explicit_params::ExplicitParameters,
+};
+
 use serde::{Deserialize, Serialize};
 
 pub fn is_false(v: &bool) -> bool {
@@ -12,7 +18,7 @@ pub struct SecondaryExposure {
     pub gate: InternedString,
     pub gate_value: InternedString,
     #[serde(rename = "ruleID")]
-    pub rule_id: ExposableString,
+    pub rule_id: InternedString,
 }
 
 impl SecondaryExposure {
@@ -27,19 +33,29 @@ impl SecondaryExposure {
     }
 }
 
+impl From<&SecondaryExposure> for SecondaryExposureKey {
+    fn from(val: &SecondaryExposure) -> Self {
+        SecondaryExposureKey {
+            gate_name_hash: val.gate.hash,
+            rule_id_hash: val.rule_id.hash,
+            gate_value_hash: val.gate_value.hash,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ExtraExposureInfo {
     pub sampling_rate: Option<u64>,
     pub forward_all_exposures: Option<bool>,
     pub has_seen_analytical_gates: Option<bool>,
-    pub override_config_name: Option<String>,
+    pub override_config_name: Option<InternedString>,
     pub version: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BaseEvaluation {
-    pub name: ExposableString,
-    pub rule_id: ExposableString,
+    pub name: InternedString,
+    pub rule_id: InternedString,
     pub secondary_exposures: Vec<SecondaryExposure>,
 
     #[serde(skip_serializing)]
@@ -100,7 +116,8 @@ pub struct GateEvaluation {
     #[serde(flatten)]
     pub base: BaseEvaluation,
 
-    pub id_type: InternedString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_type: Option<InternedString>,
     pub value: bool,
 }
 
@@ -109,11 +126,10 @@ pub struct DynamicConfigEvaluation {
     #[serde(flatten)]
     pub base: BaseEvaluation,
 
-    pub id_type: InternedString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_type: Option<InternedString>,
     pub value: DynamicReturnable,
 
-    // The 'group' field is identical to 'rule_id'. See group_name instead.
-    pub group: ExposableString,
     pub is_device_based: bool,
 
     pub passed: bool,
@@ -124,18 +140,17 @@ pub struct ExperimentEvaluation {
     #[serde(flatten)]
     pub base: BaseEvaluation,
 
-    pub id_type: InternedString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_type: Option<InternedString>,
     pub value: DynamicReturnable,
 
-    // The 'group' field is identical to 'rule_id'. See group_name instead.
-    pub group: ExposableString,
     pub is_device_based: bool,
 
     #[serde(skip_serializing_if = "is_false")]
     pub is_in_layer: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub explicit_parameters: Option<Vec<InternedString>>,
+    pub explicit_parameters: Option<ExplicitParameters>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group_name: Option<InternedString>,
@@ -163,10 +178,9 @@ pub struct LayerEvaluation {
 
     pub value: DynamicReturnable,
 
-    pub id_type: InternedString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_type: Option<InternedString>,
 
-    // The 'group' field is identical to 'rule_id'. See group_name instead.
-    pub group: InternedString,
     pub is_device_based: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -180,7 +194,10 @@ pub struct LayerEvaluation {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allocated_experiment_name: Option<InternedString>,
-    pub explicit_parameters: Vec<InternedString>,
+    pub explicit_parameters: ExplicitParameters,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub undelegated_secondary_exposures: Option<Vec<SecondaryExposure>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
 }

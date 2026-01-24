@@ -1,4 +1,3 @@
-from contextlib import suppress
 from typing import Any, List, Optional
 
 from celery import shared_task
@@ -12,6 +11,7 @@ from igraph import Graph
 
 from wbcore.signals.models import get_dependant_dynamic_fields_instances
 
+from ..workers import Queue
 from .fields import DynamicDecimalField, DynamicFloatField
 
 
@@ -136,7 +136,7 @@ class DynamicModel(models.Model, metaclass=DynamicMetaClass):
         abstract = True
 
 
-@shared_task
+@shared_task(queue=Queue.DEFAULT.value)
 def set_dynamic_field_as_task(content_type_id, object_id, **kwargs):
     content_type = ContentType.objects.get(id=content_type_id)
     instance = content_type.model_class().objects.get(id=object_id)
@@ -171,13 +171,3 @@ class WBModel(models.Model):
         errors = super().check(**kwargs)
         errors.extend(cls._check_model_methods())
         return errors
-
-
-@shared_task
-def merge_as_task(content_type_id: int, main_object_id: int, merged_object_id: int):
-    content_type = ContentType.objects.get(id=content_type_id)
-    with suppress(content_type.model_class().DoesNotExist):
-        main_object = content_type.get_object_for_this_type(id=main_object_id)
-        merged_object = content_type.get_object_for_this_type(id=merged_object_id)
-        if hasattr(main_object, "merge") and callable(main_object.merge):
-            main_object.merge(merged_object)

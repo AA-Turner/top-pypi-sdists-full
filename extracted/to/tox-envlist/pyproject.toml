@@ -1,0 +1,69 @@
+[build-system]
+requires = [ "whey",]
+build-backend = "whey"
+
+[project]
+name = "tox-envlist"
+version = "0.3.0"
+description = "Allows selection of a different tox envlist."
+readme = "README.rst"
+keywords = [ "tox", "tox-plugin",]
+dynamic = []
+dependencies = [ "braceexpand>=0.1.6", "domdf-python-tools>=2.8.1", "pluggy>=0.13.1", "tox>=3.18.0",]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: tox",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Unit",
+    "Typing :: Typed",
+]
+requires-python = ">=3.7"
+
+[[project.authors]]
+email = "dominic@davis-foster.co.uk"
+name = "Dominic Davis-Foster"
+
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Homepage = "https://github.com/python-coincidence/tox-envlist"
+"Issue Tracker" = "https://github.com/python-coincidence/tox-envlist/issues"
+"Source Code" = "https://github.com/python-coincidence/tox-envlist"
+
+[tool.importcheck]
+always = [ "tox_envlist",]
+
+[tool.whey]
+base-classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: tox",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Unit",
+    "Typing :: Typed",
+]
+python-versions = [ "3.7", "3.8", "3.9",]
+python-implementations = [ "CPython",]
+platforms = [ "Windows", "macOS", "Linux",]
+license-key = "MIT"
+package = "tox_envlist"
+
+[tool.mkrecipe]
+conda-channels = [ "python-coincidence",]
+extras = "all"
+
+[project.entry-points.tox]
+envlist = "tox_envlist"

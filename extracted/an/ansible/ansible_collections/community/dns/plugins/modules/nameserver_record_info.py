@@ -34,6 +34,7 @@ options:
   type:
     description:
       - The record type to retrieve.
+      - Support for V(HTTPS) and V(SVCB) has been added in community.dns 3.4.0.
     required: true
     type: str
     choices:
@@ -45,6 +46,7 @@ options:
       - DNSKEY
       - DS
       - HINFO
+      - HTTPS
       - LOC
       - MX
       - NAPTR
@@ -59,6 +61,7 @@ options:
       - SPF
       - SRV
       - SSHFP
+      - SVCB
       - TLSA
       - TXT
   query_retry:
@@ -135,10 +138,10 @@ results:
       elements: dict
       sample:
         - nameserver: ns1.example.com
-          values:
+          entries:
             - X
         - nameserver: ns2.example.com
-          values:
+          entries:
             - X
       contains:
         nameserver:
@@ -151,7 +154,19 @@ results:
           description:
             - The records of type O(type).
             - Depending on O(type), different fields are returned.
-            - For O(type=TXT) and O(type=SPF), also the concatenated value is returned as RV(results[].result[].values[].value).
+            - For O(type=TXT) and O(type=SPF), also the concatenated value is returned as RV(results[].result[].entries[].value).
+            - B(The field has been renamed) to RV(results[].result[].entries) in community.dns 3.4.0.
+              While the old name will be around for a longer time, prefer using the new one.
+          returned: success
+          type: list
+          elements: dict
+        entries:
+          description:
+            - The records of type O(type).
+            - Depending on O(type), different fields are returned.
+            - For O(type=TXT) and O(type=SPF), also the concatenated value is returned as RV(results[].result[].entries[].value).
+            - This field has been called RV(results[].result[].values) before.
+          version_added: 3.4.0
           returned: success
           type: list
           elements: dict
@@ -307,6 +322,48 @@ results:
                 - The operating system.
               type: str
               returned: if O(type=HINFO)
+            params:
+              description:
+                - The parameters. See L(RFC 9460, https://datatracker.ietf.org/doc/rfc9460/?include_text=1) for details.
+              type: dict
+              returned: if O(type=HTTPS) or O(type=SVCB)
+              contains:
+                mandatory:
+                  description:
+                    - Keys of parameters that are considered mandatory.
+                  type: list
+                  elements: str
+                alpn:
+                  description:
+                    - List of Base64-encoded ALPN IDs.
+                  type: list
+                  elements: str
+                no-default-alpn:
+                  description:
+                    - The value will always be V(null) if this key is present.
+                  type: raw
+                port:
+                  description:
+                    - A port.
+                  type: int
+                ipv4hint:
+                  description:
+                    - A list of IPv4 addresses.
+                  type: list
+                  elements: str
+                ech:
+                  description:
+                    - A Base64-encoded ECH (Encrypted Client Hello) key.
+                  type: raw
+                ipv6hint:
+                  description:
+                    - A list of IPv6 addresses.
+                  type: list
+                  elements: str
+                ohttp:
+                  description:
+                    - The value will always be V(null) if this key is present.
+                  type: raw
             port:
               description:
                 - The port.
@@ -321,7 +378,7 @@ results:
               description:
                 - The priority value for this record.
               type: int
-              returned: if O(type=SRV)
+              returned: if O(type=HTTPS), O(type=SRV), or O(type=SVCB)
             protocol:
               description:
                 - The protocol.
@@ -392,7 +449,7 @@ results:
             strings:
               description:
                 - List of strings for this record.
-                - See RV(results[].result[].values[].value) for the concatenated result.
+                - See RV(results[].result[].entries[].value) for the concatenated result.
               type: list
               elements: str
               returned: if O(type=SPF) or O(type=TXT)
@@ -405,7 +462,7 @@ results:
               description:
                 - The target.
               type: str
-              returned: if O(type=CNAME) or O(type=DNAME) or O(type=NS) or O(type=PTR) or O(type=SRV)
+              returned: if O(type=CNAME), O(type=DNAME), O(type=HTTPS), O(type=NS), O(type=PTR), O(type=SRV), or O(type=SVCB)
             txt:
               description:
                 - The TXT value.
@@ -424,7 +481,7 @@ results:
             value:
               description:
                 - The value.
-                - For O(type=SPF) or O(type=TXT), this is the concatenation of RV(results[].result[].values[].strings).
+                - For O(type=SPF) or O(type=TXT), this is the concatenation of RV(results[].result[].entries[].strings).
               type: str
               returned: if O(type=CAA) or O(type=SPF) or O(type=TXT)
             vertical_precision:
@@ -468,6 +525,7 @@ results:
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
     NAME_TO_RDTYPE,
+    NAME_TO_REQUIRED_VERSION,
     convert_rdata_to_dict,
 )
 from ansible_collections.community.dns.plugins.module_utils.resolver import (
@@ -493,6 +551,7 @@ def main():
                     'DNSKEY',
                     'DS',
                     'HINFO',
+                    'HTTPS',
                     'LOC',
                     'MX',
                     'NAPTR',
@@ -507,6 +566,7 @@ def main():
                     'SPF',
                     'SRV',
                     'SSHFP',
+                    'SVCB',
                     'TLSA',
                     'TXT',
                 ],
@@ -537,6 +597,14 @@ def main():
             'name': name,
         }
 
+    if record_type not in NAME_TO_RDTYPE:
+        min_version = NAME_TO_REQUIRED_VERSION[record_type]
+        module.fail_json(
+            "Your dnspython version does not support {record_type} records. You need version {min_version} or newer.".format(
+                record_type=record_type,
+                min_version=min_version,
+            )
+        )
     rdtype = NAME_TO_RDTYPE[record_type]
 
     def f():
@@ -554,6 +622,7 @@ def main():
                     for data in records:
                         values.append(convert_rdata_to_dict(data))
                 ns_result['values'] = values
+                ns_result['entries'] = values
             result.sort(key=lambda v: v['nameserver'])
 
     guarded_run(f, module, generate_additional_results=lambda: {'results': results})

@@ -331,7 +331,7 @@ try:
     from pypsrp.host import PSHost, PSHostUserInterface
     from pypsrp.powershell import PowerShell, RunspacePool
     from pypsrp.wsman import WSMan
-    from requests.exceptions import ConnectionError, ConnectTimeout
+    from requests.exceptions import ConnectionError, ConnectTimeout, ReadTimeout
 except ImportError as err:
     HAS_PYPSRP = False
     PYPSRP_IMP_ERR = err
@@ -479,17 +479,21 @@ class Connection(ConnectionBase):
             pwsh_in_data = in_data
             display.vvv(u"PSRP: EXEC %s" % script, host=self._psrp_host)
 
-        rc, stdout, stderr = self._exec_psrp_script(
-            script=script,
-            input_data=pwsh_in_data.splitlines() if pwsh_in_data else None,
-            arguments=script_args,
-        )
+        try:
+            rc, stdout, stderr = self._exec_psrp_script(
+                script=script,
+                input_data=pwsh_in_data.splitlines() if pwsh_in_data else None,
+                arguments=script_args,
+            )
+        except ReadTimeout as e:
+            raise AnsibleConnectionFailure(
+                "HTTP read timeout during PSRP script execution"
+            ) from e
         return rc, stdout, stderr
 
     def put_file(self, in_path: str, out_path: str) -> None:
         super(Connection, self).put_file(in_path, out_path)
 
-        out_path = self._shell._unquote(out_path)
         display.vvv("PUT %s TO %s" % (in_path, out_path), host=self._psrp_host)
 
         script, in_data = _bootstrap_powershell_script('psrp_put_file.ps1', {
@@ -549,7 +553,6 @@ class Connection(ConnectionBase):
         display.vvv("FETCH %s TO %s" % (in_path, out_path),
                     host=self._psrp_host)
 
-        in_path = self._shell._unquote(in_path)
         out_path = out_path.replace('\\', '/')
         b_out_path = to_bytes(out_path, errors='surrogate_or_strict')
 

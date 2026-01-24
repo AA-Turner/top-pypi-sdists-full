@@ -17,10 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from pydantic import Field, StrictStr
-from typing import Optional
+from typing import Any, List, Optional
 from typing_extensions import Annotated
 from airflow_client.client.models.dag_warning_collection_response import DAGWarningCollectionResponse
-from airflow_client.client.models.dag_warning_type import DagWarningType
 
 from airflow_client.client.api_client import ApiClient, RequestSerialized
 from airflow_client.client.api_response import ApiResponse
@@ -44,10 +43,10 @@ class DagWarningApi:
     def list_dag_warnings(
         self,
         dag_id: Optional[StrictStr] = None,
-        warning_type: Optional[DagWarningType] = None,
+        warning_type: Optional[Any] = None,
         limit: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
-        order_by: Optional[StrictStr] = None,
+        order_by: Annotated[Optional[List[StrictStr]], Field(description="Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `dag_id, warning_type, message, timestamp`")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -73,8 +72,8 @@ class DagWarningApi:
         :type limit: int
         :param offset:
         :type offset: int
-        :param order_by:
-        :type order_by: str
+        :param order_by: Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `dag_id, warning_type, message, timestamp`
+        :type order_by: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -130,10 +129,10 @@ class DagWarningApi:
     def list_dag_warnings_with_http_info(
         self,
         dag_id: Optional[StrictStr] = None,
-        warning_type: Optional[DagWarningType] = None,
+        warning_type: Optional[Any] = None,
         limit: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
-        order_by: Optional[StrictStr] = None,
+        order_by: Annotated[Optional[List[StrictStr]], Field(description="Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `dag_id, warning_type, message, timestamp`")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -159,8 +158,8 @@ class DagWarningApi:
         :type limit: int
         :param offset:
         :type offset: int
-        :param order_by:
-        :type order_by: str
+        :param order_by: Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `dag_id, warning_type, message, timestamp`
+        :type order_by: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -216,10 +215,10 @@ class DagWarningApi:
     def list_dag_warnings_without_preload_content(
         self,
         dag_id: Optional[StrictStr] = None,
-        warning_type: Optional[DagWarningType] = None,
+        warning_type: Optional[Any] = None,
         limit: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
-        order_by: Optional[StrictStr] = None,
+        order_by: Annotated[Optional[List[StrictStr]], Field(description="Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `dag_id, warning_type, message, timestamp`")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -245,8 +244,8 @@ class DagWarningApi:
         :type limit: int
         :param offset:
         :type offset: int
-        :param order_by:
-        :type order_by: str
+        :param order_by: Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `dag_id, warning_type, message, timestamp`
+        :type order_by: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -310,6 +309,7 @@ class DagWarningApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'order_by': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -359,7 +359,8 @@ class DagWarningApi:
 
         # authentication setting
         _auth_settings: List[str] = [
-            'OAuth2PasswordBearer'
+            'OAuth2PasswordBearer', 
+            'HTTPBearer'
         ]
 
         return self.api_client.param_serialize(

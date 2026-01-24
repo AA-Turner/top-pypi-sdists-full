@@ -19,7 +19,12 @@ else:
 
 def validate_dtype(dtype: Any, target: DtypeType) -> bool:
     """
-    Validate a dtype against the target dtype
+    Validate a dtype against the target dtype.
+
+    If `dtype` or `target` are `Any`, validation passes trivially.
+    The `dtype` may be `Any` when the dtype can't be determined,
+    but failure to determine dtype shouldn't be fatal
+    (e.g. BaseModel dtypes for empty arrays).
 
     Args:
         dtype: The dtype to validate
@@ -28,7 +33,7 @@ def validate_dtype(dtype: Any, target: DtypeType) -> bool:
     Returns:
         bool: ``True`` if valid, ``False`` otherwise
     """
-    if target is Any:
+    if target is Any or dtype is Any:
         return True
 
     if isinstance(target, tuple):

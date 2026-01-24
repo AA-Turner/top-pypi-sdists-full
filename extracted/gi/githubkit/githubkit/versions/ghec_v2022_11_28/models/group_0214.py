@@ -12,18 +12,32 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0003 import SimpleUser
+from .group_0195 import Label
+from .group_0204 import PullRequestMinimal
 
 
-class RepositoryFineGrainedPermission(GitHubModel):
-    """Repository Fine-Grained Permission
+class PullRequestEvent(GitHubModel):
+    """PullRequestEvent"""
 
-    A fine-grained permission that protects repository resources.
-    """
+    action: str = Field()
+    number: int = Field()
+    pull_request: PullRequestMinimal = Field(title="Pull Request Minimal")
+    assignee: Missing[SimpleUser] = Field(
+        default=UNSET, title="Simple User", description="A GitHub user."
+    )
+    assignees: Missing[list[SimpleUser]] = Field(default=UNSET)
+    label: Missing[Label] = Field(
+        default=UNSET,
+        title="Label",
+        description="Color-coded labels help you categorize and filter your issues (just like labels in Gmail).",
+    )
+    labels: Missing[list[Label]] = Field(default=UNSET)
 
-    name: str = Field()
-    description: str = Field()
 
+model_rebuild(PullRequestEvent)
 
-model_rebuild(RepositoryFineGrainedPermission)
-
-__all__ = ("RepositoryFineGrainedPermission",)
+__all__ = ("PullRequestEvent",)

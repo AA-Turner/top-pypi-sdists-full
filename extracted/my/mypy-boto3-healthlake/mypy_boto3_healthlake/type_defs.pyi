@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -29,12 +30,6 @@ from .literals import (
     ValidationLevelType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -104,7 +99,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -179,7 +174,7 @@ class DeleteFHIRDatastoreResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartFHIRExportJobResponseTypeDef(TypedDict):
@@ -315,7 +310,7 @@ class DescribeFHIRDatastoreResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListFHIRDatastoresResponseTypeDef(TypedDict):
-    DatastorePropertiesList: List[DatastorePropertiesTypeDef]
+    DatastorePropertiesList: list[DatastorePropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -324,7 +319,7 @@ class DescribeFHIRExportJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListFHIRExportJobsResponseTypeDef(TypedDict):
-    ExportJobPropertiesList: List[ExportJobPropertiesTypeDef]
+    ExportJobPropertiesList: list[ExportJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -333,6 +328,6 @@ class DescribeFHIRImportJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListFHIRImportJobsResponseTypeDef(TypedDict):
-    ImportJobPropertiesList: List[ImportJobPropertiesTypeDef]
+    ImportJobPropertiesList: list[ImportJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

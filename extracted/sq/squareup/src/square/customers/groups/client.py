@@ -11,6 +11,7 @@ from ...types.create_customer_group_response import CreateCustomerGroupResponse
 from ...types.customer_group import CustomerGroup
 from ...types.delete_customer_group_response import DeleteCustomerGroupResponse
 from ...types.get_customer_group_response import GetCustomerGroupResponse
+from ...types.list_customer_groups_response import ListCustomerGroupsResponse
 from ...types.remove_group_from_customer_response import RemoveGroupFromCustomerResponse
 from ...types.update_customer_group_response import UpdateCustomerGroupResponse
 from .raw_client import AsyncRawGroupsClient, RawGroupsClient
@@ -40,7 +41,7 @@ class GroupsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[CustomerGroup]:
+    ) -> SyncPager[CustomerGroup, ListCustomerGroupsResponse]:
         """
         Retrieves the list of customer groups of a business.
 
@@ -63,7 +64,7 @@ class GroupsClient:
 
         Returns
         -------
-        SyncPager[CustomerGroup]
+        SyncPager[CustomerGroup, ListCustomerGroupsResponse]
             Success
 
         Examples
@@ -73,7 +74,10 @@ class GroupsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.customers.groups.list()
+        response = client.customers.groups.list(
+            cursor="cursor",
+            limit=1,
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -331,7 +335,7 @@ class AsyncGroupsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[CustomerGroup]:
+    ) -> AsyncPager[CustomerGroup, ListCustomerGroupsResponse]:
         """
         Retrieves the list of customer groups of a business.
 
@@ -354,7 +358,7 @@ class AsyncGroupsClient:
 
         Returns
         -------
-        AsyncPager[CustomerGroup]
+        AsyncPager[CustomerGroup, ListCustomerGroupsResponse]
             Success
 
         Examples
@@ -369,7 +373,10 @@ class AsyncGroupsClient:
 
 
         async def main() -> None:
-            response = await client.customers.groups.list()
+            response = await client.customers.groups.list(
+                cursor="cursor",
+                limit=1,
+            )
             async for item in response:
                 yield item
 

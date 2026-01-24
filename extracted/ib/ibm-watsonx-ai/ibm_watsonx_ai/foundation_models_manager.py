@@ -1,22 +1,24 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 from enum import Enum
-from functools import cached_property
-from typing import TYPE_CHECKING, Any, Generator, Literal, overload
+from functools import cached_property, partial
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, overload
 from warnings import warn
 
 from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.utils.utils import StrEnum
+from ibm_watsonx_ai.utils.utils import StrEnum, get_from_json
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
+
+    LoRAType = Literal["lora", "qlora"]
 
 
 class FoundationModelsManager(WMLResource):
@@ -25,33 +27,34 @@ class FoundationModelsManager(WMLResource):
         self._client = client
 
     @cached_property
-    def TextModels(self):
+    def TextModels(self) -> StrEnum:
         return StrEnum("TextModels", self._get_model_dict("text_generation"))
 
     @cached_property
-    def ChatModels(self):
+    def ChatModels(self) -> StrEnum:
         return StrEnum("ChatModels", self._get_model_dict("text_chat"))
 
     @cached_property
-    def EmbeddingModels(self):
+    def EmbeddingModels(self) -> StrEnum:
         return StrEnum("EmbeddingModels", self._get_model_dict("embedding"))
 
     @cached_property
-    def PromptTunableModels(self):
+    def PromptTunableModels(self) -> StrEnum:
         return StrEnum("PromptTunableModels", self._get_model_dict("prompt_tuning"))
 
     @cached_property
-    def RerankModels(self):
+    def RerankModels(self) -> StrEnum:
         return StrEnum("RerankModels", self._get_model_dict("rerank"))
 
     @cached_property
-    def TimeSeriesModels(self):
+    def TimeSeriesModels(self) -> StrEnum:
         return StrEnum("TimeSeriesModels", self._get_model_dict("time_series_forecast"))
 
     @cached_property
-    def AudioTranscriptionsModels(self):
+    def AudioTranscriptionsModels(self) -> StrEnum:
         return StrEnum(
-            "AudioTranscriptionsModels", self._get_model_dict("audio_transcriptions")
+            "AudioTranscriptionsModels",
+            self._get_model_dict("audio_transcriptions"),
         )
 
     def _get_spec(
@@ -65,6 +68,7 @@ class FoundationModelsManager(WMLResource):
         asynchronous: bool = False,
         get_all: bool = False,
         tech_preview: bool = False,
+        filter_func: Callable | None = None,
     ) -> dict | Generator | None:
         params = self._client._params(skip_userfs=True, skip_space_project_chk=True)
         if filters:
@@ -83,6 +87,7 @@ class FoundationModelsManager(WMLResource):
                     _all=True,
                     _async=False,
                     skip_space_project_chk=True,
+                    _filter_func=filter_func,
                 )
 
                 if isinstance(model_id, Enum):
@@ -105,6 +110,7 @@ class FoundationModelsManager(WMLResource):
                     _async=asynchronous,
                     _all=get_all,
                     skip_space_project_chk=True,
+                    _filter_func=filter_func,
                 )
         except WMLClientError as e:
             raise WMLClientError(
@@ -112,8 +118,30 @@ class FoundationModelsManager(WMLResource):
                     self._client.credentials.url,
                     message_id=error_msg_id,
                 ),
-                e,
+                str(e),
             )
+
+    @overload
+    def get_model_specs(
+        self,
+        model_id: str | None = ...,
+        limit: int | None = ...,
+        asynchronous: Literal[False] = ...,
+        get_all: bool = ...,
+        filters: str | None = ...,
+        **kwargs: Any,
+    ) -> dict | None: ...
+
+    @overload
+    def get_model_specs(
+        self,
+        model_id: str | None = ...,
+        limit: int | None = ...,
+        asynchronous: Literal[True] = ...,
+        get_all: bool = ...,
+        filters: str | None = ...,
+        **kwargs: Any,
+    ) -> Generator | None: ...
 
     def get_model_specs(
         self,
@@ -121,7 +149,7 @@ class FoundationModelsManager(WMLResource):
         limit: int | None = None,
         asynchronous: bool = False,
         get_all: bool = False,
-        filters: str | None = "function_text_generation,!lifecycle_withdrawn:and",
+        filters: str | None = "!lifecycle_withdrawn",
         **kwargs: Any,
     ) -> dict | Generator | None:
         """
@@ -200,10 +228,14 @@ class FoundationModelsManager(WMLResource):
             client.foundation_models.get_model_specs(model_id="google/flan-ul2")
 
             # GET MODEL SPECS WITH ONE FILTER
-            client.foundation_models.get_model_specs(filters="function_text_generation")
+            client.foundation_models.get_model_specs(
+                filters="function_text_generation"
+            )
 
             # GET MODEL SPECS WITH MULTIPLE FILTERS
-            client.foundation_models.get_model_specs(filters="function_text_generation,function_text_chat,!lifecycle_withdrawn:and")
+            client.foundation_models.get_model_specs(
+                filters="function_text_generation,function_text_chat,!lifecycle_withdrawn:and"
+            )
         """
         WMLResource._validate_type(filters, "filters", str, mandatory=False)
 
@@ -211,7 +243,7 @@ class FoundationModelsManager(WMLResource):
             url=self._client._href_definitions.get_fm_specifications_href(),
             operation_name="Get available foundation models",
             error_msg_id="fm_prompt_tuning_no_model_specs",
-            filters=(None if self._client.CPD_version < 5.0 else filters),
+            filters=filters,
             model_id=model_id,
             limit=limit,
             asynchronous=asynchronous,
@@ -252,7 +284,9 @@ class FoundationModelsManager(WMLResource):
             client.foundation_models.get_chat_model_specs()
 
             # GET CHAT MODEL SPECS BY MODEL_ID
-            client.foundation_models.get_chat_model_specs(model_id="ibm/granite-13b-chat-v2")
+            client.foundation_models.get_chat_model_specs(
+                model_id="ibm/granite-13b-chat-v2"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -298,7 +332,9 @@ class FoundationModelsManager(WMLResource):
             client.foundation_models.get_chat_function_calling_model_specs()
 
             # GET CHAT FUNCTION CALLING MODEL SPECS BY MODEL_ID
-            client.foundation_models.get_chat_function_calling_model_specs(model_id="meta-llama/llama-3-1-70b-instruct")
+            client.foundation_models.get_chat_function_calling_model_specs(
+                model_id="meta-llama/llama-3-1-70b-instruct"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -344,7 +380,9 @@ class FoundationModelsManager(WMLResource):
             client.foundation_models.get_audio_chat_model_specs()
 
             # GET AUDIO CHAT MODEL SPECS BY MODEL_ID
-            client.foundation_models.get_audio_chat_model_specs(model_id="ibm/granite-speech-3-3-8b")
+            client.foundation_models.get_audio_chat_model_specs(
+                model_id="ibm/granite-speech-3-3-8b"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -390,17 +428,15 @@ class FoundationModelsManager(WMLResource):
             client.foundation_models.get_text_generation_model_specs()
 
             # GET TEXT GENERATION MODEL SPECS BY MODEL_ID
-            client.foundation_models.get_text_generation_model_specs(model_id="google/flan-ul2")
+            client.foundation_models.get_text_generation_model_specs(
+                model_id="google/flan-ul2"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
             operation_name="Get available text generation foundation models",
             error_msg_id="fm_prompt_tuning_no_model_specs",
-            filters=(
-                None
-                if self._client.CPD_version < 5.0
-                else "function_text_generation,!lifecycle_withdrawn:and"
-            ),
+            filters="function_text_generation,!lifecycle_withdrawn:and",
             model_id=model_id,
             limit=limit,
             asynchronous=asynchronous,
@@ -438,10 +474,14 @@ class FoundationModelsManager(WMLResource):
 
             client.foundation_models.get_custom_models_spec()
             client.foundation_models.get_custom_models_spec()
-            client.foundation_models.get_custom_models_spec(model_id='mistralai/Mistral-7B-Instruct-v0.2')
+            client.foundation_models.get_custom_models_spec(
+                model_id="mistralai/Mistral-7B-Instruct-v0.2"
+            )
             client.foundation_models.get_custom_models_spec(limit=20)
             client.foundation_models.get_custom_models_spec(limit=20, get_all=True)
-            for spec in client.foundation_models.get_custom_model_specs(limit=20, asynchronous=True, get_all=True):
+            for spec in client.foundation_models.get_custom_model_specs(
+                limit=20, asynchronous=True, get_all=True
+            ):
                 print(spec, end="")
 
         """
@@ -496,7 +536,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_embeddings_model_specs()
-            client.foundation_models.get_embeddings_model_specs('ibm/slate-125m-english-rtrvr')
+            client.foundation_models.get_embeddings_model_specs(
+                "ibm/slate-125m-english-rtrvr"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -539,7 +581,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_time_series_model_specs()
-            client.foundation_models.get_time_series_model_specs('ibm/granite-ttm-1536-96-r2')
+            client.foundation_models.get_time_series_model_specs(
+                "ibm/granite-ttm-1536-96-r2"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -582,7 +626,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_rerank_model_specs()
-            client.foundation_models.get_rerank_model_specs('ibm/slate-125m-english-rtrvr-v2')
+            client.foundation_models.get_rerank_model_specs(
+                "ibm/slate-125m-english-rtrvr-v2"
+            )
 
         """
         return self._get_spec(
@@ -626,7 +672,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_audio_transcriptions_model_specs()
-            client.foundation_models.get_audio_transcriptions_model_specs('openai/whisper-tiny')
+            client.foundation_models.get_audio_transcriptions_model_specs(
+                "openai/whisper-tiny"
+            )
 
         """
         return self._get_spec(
@@ -670,7 +718,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_base_foundation_model_deployable_specs()
-            client.foundation_models.get_base_foundation_model_deployable_specs('meta-llama/llama-3-1-8b')
+            client.foundation_models.get_base_foundation_model_deployable_specs(
+                "meta-llama/llama-3-1-8b"
+            )
 
         """
         return self._get_spec(
@@ -732,7 +782,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_model_specs_with_prompt_tuning_support()
-            client.foundation_models.get_model_specs_with_prompt_tuning_support('google/flan-t5-xl')
+            client.foundation_models.get_model_specs_with_prompt_tuning_support(
+                "google/flan-t5-xl"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -758,13 +810,13 @@ class FoundationModelsManager(WMLResource):
         :param model_id: id of the model, defaults to None (all models specs are returned)
         :type model_id: str, optional
 
-        :param limit:  limit number of fetched records
+        :param limit: limit number of fetched records
         :type limit: int, optional
 
-        :param asynchronous:  if True, it will work as a generator
+        :param asynchronous: if True, it will work as a generator
         :type asynchronous: bool, optional
 
-        :param get_all:  if True, it will get all entries in 'limited' chunks
+        :param get_all: if True, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
         :return: list of deployed foundation model specs with fine-tuning support
@@ -775,7 +827,9 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_model_specs_with_fine_tuning_support()
-            client.foundation_models.get_model_specs_with_fine_tuning_support('bigscience/bloom')
+            client.foundation_models.get_model_specs_with_fine_tuning_support(
+                "bigscience/bloom"
+            )
         """
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
@@ -788,6 +842,40 @@ class FoundationModelsManager(WMLResource):
             get_all=get_all,
         )
 
+    def _get_lora_models_by_type(
+        self,
+        lora_type: LoRAType,
+        model_id: str | None,
+        limit: int | None,
+        asynchronous: bool,
+        get_all: bool,
+    ) -> dict | Generator | None:
+        def lora_model_filter(resources: list[dict]) -> list[dict]:
+            get_lora_types = partial(
+                get_from_json,
+                key_chain=[
+                    "lora_fine_tuning_parameters",
+                    "peft_parameters",
+                    "type",
+                    "supported",
+                ],
+                default=[],
+            )
+
+            return list(filter(lambda x: lora_type in get_lora_types(x), resources))
+
+        return self._get_spec(
+            url=self._client._href_definitions.get_fm_specifications_href(),
+            operation_name=f"Get available foundation models with {lora_type} fine tuning support",
+            error_msg_id="fm_fine_tuning_no_model_specs",
+            model_id=model_id,
+            filters="function_lora_fine_tune_trainable,!lifecycle_withdrawn:and",
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            filter_func=lora_model_filter,
+        )
+
     def get_model_specs_with_lora_fine_tuning_support(
         self,
         model_id: str | None = None,
@@ -796,21 +884,21 @@ class FoundationModelsManager(WMLResource):
         get_all: bool = False,
     ) -> dict | Generator | None:
         """
-        Operations to query the details of the deployed foundation models with lora fine-tuning support.
+        Operations to query the details of the deployed foundation models with LoRA fine-tuning support.
 
         :param model_id: id of the model, defaults to None (all models specs are returned)
         :type model_id: str, optional
 
-        :param limit:  limit number of fetched records
+        :param limit: limit number of fetched records
         :type limit: int, optional
 
-        :param asynchronous:  if True, it will work as a generator
+        :param asynchronous: if True, it will work as a generator
         :type asynchronous: bool, optional
 
-        :param get_all:  if True, it will get all entries in 'limited' chunks
+        :param get_all: if True, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
-        :return: list of deployed foundation model specs with lora fine-tuning support
+        :return: list of deployed foundation model specs with LoRA fine-tuning support
         :rtype: dict or generator
 
         **Example**
@@ -818,15 +906,57 @@ class FoundationModelsManager(WMLResource):
         .. code-block:: python
 
             client.foundation_models.get_model_specs_with_lora_fine_tuning_support()
-            client.foundation_models.get_model_specs_with_lora_fine_tuning_support('bigscience/bloom')
+            client.foundation_models.get_model_specs_with_lora_fine_tuning_support(
+                "bigscience/bloom"
+            )
         """
 
-        return self._get_spec(
-            url=self._client._href_definitions.get_fm_specifications_href(),
-            operation_name="Get available foundation models with lora fine tuning support",
-            error_msg_id="fm_fine_tuning_no_model_specs",
+        return self._get_lora_models_by_type(
+            lora_type="lora",
             model_id=model_id,
-            filters="function_lora_fine_tune_trainable,!lifecycle_withdrawn:and",
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+        )
+
+    def get_model_specs_with_qlora_fine_tuning_support(
+        self,
+        model_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+    ) -> dict | Generator | None:
+        """
+        Operations to query the details of the deployed foundation models with QLoRA fine-tuning support.
+
+        :param model_id: id of the model, defaults to None (all models specs are returned)
+        :type model_id: str, optional
+
+        :param limit: limit number of fetched records
+        :type limit: int, optional
+
+        :param asynchronous: if True, it will work as a generator
+        :type asynchronous: bool, optional
+
+        :param get_all: if True, it will get all entries in 'limited' chunks
+        :type get_all: bool, optional
+
+        :return: list of deployed foundation model specs with QLoRA fine-tuning support
+        :rtype: dict or generator
+
+        **Example**
+
+        .. code-block:: python
+
+            client.foundation_models.get_model_specs_with_qlora_fine_tuning_support()
+            client.foundation_models.get_model_specs_with_qlora_fine_tuning_support(
+                "bigscience/bloom"
+            )
+        """
+
+        return self._get_lora_models_by_type(
+            lora_type="qlora",
+            model_id=model_id,
             limit=limit,
             asynchronous=asynchronous,
             get_all=get_all,
@@ -848,7 +978,7 @@ class FoundationModelsManager(WMLResource):
 
             client.foundation_models.get_model_lifecycle(
                 model_id="ibm/granite-13b-instruct-v2"
-                )
+            )
         """
         model_spec = self.get_model_specs(
             model_id, tech_preview=kwargs.get("tech_preview", False)
@@ -877,7 +1007,7 @@ class FoundationModelsManager(WMLResource):
         :return: dictionary of models to Enum
         :rtype: dict
         """
-        function_dict = {
+        function_dict: dict[str, Callable[..., Any]] = {
             "base": self.get_model_specs,
             "embedding": self.get_embeddings_model_specs,
             "prompt_tuning": self.get_model_specs_with_prompt_tuning_support,
@@ -887,8 +1017,11 @@ class FoundationModelsManager(WMLResource):
             "audio_transcriptions": self.get_audio_transcriptions_model_specs,
             "text_generation": self.get_text_generation_model_specs,
         }
-        model_specs_dict = {}
-        for model_spec in function_dict[model_type]()["resources"]:
+        model_specs_dict: dict[str, Any] = {}
+
+        specs = function_dict[model_type]()
+
+        for model_spec in specs["resources"]:
             if "model_id" in model_spec:
                 model_specs_dict[
                     model_spec["model_id"].split("/")[-1].replace("-", "_").upper()

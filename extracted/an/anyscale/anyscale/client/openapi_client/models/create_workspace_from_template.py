@@ -34,6 +34,7 @@ class CreateWorkspaceFromTemplate(object):
     """
     openapi_types = {
         'template_id': 'str',
+        'template_version_id': 'str',
         'cloud_id': 'str',
         'project_id': 'str',
         'skip_start': 'bool',
@@ -43,6 +44,7 @@ class CreateWorkspaceFromTemplate(object):
 
     attribute_map = {
         'template_id': 'template_id',
+        'template_version_id': 'template_version_id',
         'cloud_id': 'cloud_id',
         'project_id': 'project_id',
         'skip_start': 'skip_start',
@@ -50,13 +52,14 @@ class CreateWorkspaceFromTemplate(object):
         'maximum_uptime_minutes': 'maximum_uptime_minutes'
     }
 
-    def __init__(self, template_id=None, cloud_id=None, project_id=None, skip_start=None, name=None, maximum_uptime_minutes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, template_id=None, template_version_id=None, cloud_id=None, project_id=None, skip_start=None, name=None, maximum_uptime_minutes=None, local_vars_configuration=None):  # noqa: E501
         """CreateWorkspaceFromTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._template_id = None
+        self._template_version_id = None
         self._cloud_id = None
         self._project_id = None
         self._skip_start = None
@@ -65,6 +68,8 @@ class CreateWorkspaceFromTemplate(object):
         self.discriminator = None
 
         self.template_id = template_id
+        if template_version_id is not None:
+            self.template_version_id = template_version_id
         self.cloud_id = cloud_id
         if project_id is not None:
             self.project_id = project_id
@@ -99,6 +104,29 @@ class CreateWorkspaceFromTemplate(object):
             raise ValueError("Invalid value for `template_id`, must not be `None`")  # noqa: E501
 
         self._template_id = template_id
+
+    @property
+    def template_version_id(self):
+        """Gets the template_version_id of this CreateWorkspaceFromTemplate.  # noqa: E501
+
+        The Id of the template version to use.  # noqa: E501
+
+        :return: The template_version_id of this CreateWorkspaceFromTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._template_version_id
+
+    @template_version_id.setter
+    def template_version_id(self, template_version_id):
+        """Sets the template_version_id of this CreateWorkspaceFromTemplate.
+
+        The Id of the template version to use.  # noqa: E501
+
+        :param template_version_id: The template_version_id of this CreateWorkspaceFromTemplate.  # noqa: E501
+        :type: str
+        """
+
+        self._template_version_id = template_version_id
 
     @property
     def cloud_id(self):

@@ -1,7 +1,7 @@
 from pyscipopt import Model, quicksum
 
 
-def get_infeasible_constraints(orig_model: Model, verbose=False):
+def get_infeasible_constraints(orig_model: Model, verbose: bool = False):
     """
     Given a model, adds slack variables to all the constraints and minimizes a binary variable that indicates if they're positive.
     Positive slack variables correspond to infeasible constraints.
@@ -36,7 +36,7 @@ def get_infeasible_constraints(orig_model: Model, verbose=False):
 
     n_infeasibilities_detected = 0
     for c in binary:
-        if model.isGT(model.getVal(binary[c]), 0):
+        if model.isInfinity(model.getVal(binary[c])) or model.isGT(model.getVal(binary[c]), 0):
             n_infeasibilities_detected += 1
             print("Constraint %s is causing an infeasibility." % c)
 

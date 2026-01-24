@@ -38,7 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
  *    this function will not copy them.
  */
 PyObject* _Nullable PyObjC_MakeStructType(const char* name, const char* _Nullable doc,
-                                          Py_ssize_t numFields,
+                                          Py_ssize_t  numFields,
                                           const char* _Nonnull* _Nonnull fieldnames,
                                           const char* typestr, Py_ssize_t pack);
 
@@ -127,6 +127,8 @@ extern PyTypeObject StructBase_Type;
 #define PyObjCStruct_Check(obj) PyObject_TypeCheck(obj, &StructBase_Type)
 
 extern int PyObjCStruct_Init(PyObject* module);
+
+extern int PyObjC_DropRegisteredStruct(PyObject* key);
 
 NS_ASSUME_NONNULL_END
 

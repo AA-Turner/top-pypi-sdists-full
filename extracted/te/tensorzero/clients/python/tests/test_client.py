@@ -26,6 +26,7 @@ import tempfile
 import threading
 import time
 import typing as t
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 from os import path
@@ -37,6 +38,8 @@ from clickhouse_connect import get_client  # type: ignore
 from openai import AsyncOpenAI, OpenAI
 from pytest import CaptureFixture
 from tensorzero import (
+    AlwaysExtraBody,
+    AlwaysExtraBodyDelete,
     AsyncTensorZeroGateway,
     ChatInferenceResponse,
     DynamicEvaluationRunResponse,
@@ -48,6 +51,8 @@ from tensorzero import (
     ImageUrl,
     InferenceChunk,
     JsonInferenceResponse,
+    ModelProviderExtraBody,
+    ModelProviderExtraBodyDelete,
     RawText,
     TensorZeroError,
     TensorZeroGateway,
@@ -57,28 +62,26 @@ from tensorzero import (
     ThoughtChunk,
     ToolCall,
     ToolResult,
+    VariantExtraBody,
+    VariantExtraBodyDelete,
 )
 from tensorzero.types import (
     ChatChunk,
     JsonChunk,
-    ProviderExtraBody,
     Template,
     Thought,
     ToolCallChunk,
-    VariantExtraBody,
 )
 from uuid_utils import uuid7
 
 TEST_CONFIG_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "../../../tensorzero-core/tests/e2e/tensorzero.toml",
+    "../../../tensorzero-core/tests/e2e/config/tensorzero.*.toml",
 )
 
 # Test image with File block
 basepath = path.dirname(__file__)
-with open(
-    f"{basepath}/../../../tensorzero-core/tests/e2e/providers/ferris.png", "rb"
-) as f:
+with open(f"{basepath}/../../../tensorzero-core/tests/e2e/providers/ferris.png", "rb") as f:
     ferris_png = base64.b64encode(f.read()).decode("ascii")
 
 
@@ -240,9 +243,7 @@ async def test_async_client_build_http_sync():
     async with client_ as client:
         input = {
             "system": {"assistant_name": "Alfred Pennyworth"},
-            "messages": [
-                {"role": "user", "content": [Text(type="text", text="Hello")]}
-            ],
+            "messages": [{"role": "user", "content": [Text(type="text", text="Hello")]}],
         }
         input_copy = deepcopy(input)
         result = await client.inference(
@@ -273,16 +274,14 @@ async def test_async_client_build_http_sync():
 async def test_async_client_build_embedded_sync():
     client_ = AsyncTensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
         async_setup=False,
     )
     assert isinstance(client_, AsyncTensorZeroGateway)
     async with client_ as client:
         input = {
             "system": {"assistant_name": "Alfred Pennyworth"},
-            "messages": [
-                {"role": "user", "content": [Text(type="text", text="Hello")]}
-            ],
+            "messages": [{"role": "user", "content": [Text(type="text", text="Hello")]}],
         }
         input_copy = deepcopy(input)
         result = await client.inference(
@@ -326,12 +325,12 @@ async def test_async_thought_input(async_client: AsyncTensorZeroGateway):
                         Thought(
                             text="my_second_thought",
                             signature="my_second_signature",
-                            _internal_provider_type="dummy",
+                            provider_type="dummy",
                         ),
                         Thought(
                             text="my_discarded_thought",
                             signature="my_discarded_signature",
-                            _internal_provider_type="wrong_provider_type",
+                            provider_type="wrong_provider_type",
                         ),
                     ],
                 }
@@ -342,15 +341,17 @@ async def test_async_thought_input(async_client: AsyncTensorZeroGateway):
     assert isinstance(result, ChatInferenceResponse)
     assert len(result.content) == 1
     assert isinstance(result.content[0], Text)
-    # The last thought should be discarded, since '_internal_provider_type' does not match
+    # The last thought should be discarded, since 'provider_type' does not match
     assert (
         result.content[0].text
-        == '{"system":null,"messages":[{"role":"user","content":[{"type":"thought","text":"my_first_thought","signature":"my_first_signature"},{"type":"thought","text":"my_second_thought","signature":"my_second_signature","_internal_provider_type":"dummy"}]}]}'
+        == '{"system":null,"messages":[{"role":"user","content":[{"type":"thought","text":"my_first_thought","signature":"my_first_signature"},{"type":"thought","text":"my_second_thought","signature":"my_second_signature","provider_type":"dummy"}]}]}'
     )
 
 
 @pytest.mark.asyncio
-async def test_async_thought_signature_only_input(async_client: AsyncTensorZeroGateway):
+async def test_async_thought_signature_only_input(
+    async_client: AsyncTensorZeroGateway,
+):
     result = await async_client.inference(
         model_name="dummy::echo_request_messages",
         input={
@@ -380,34 +381,25 @@ async def test_async_thought_signature_only_input(async_client: AsyncTensorZeroG
 
 def test_display_thought():
     t1 = Thought(signature="my_signature")
-    assert (
-        str(t1)
-        == "Thought(text=None, type='thought', signature='my_signature', _internal_provider_type=None)"
-    )
-    assert (
-        repr(t1)
-        == "Thought(text=None, type='thought', signature='my_signature', _internal_provider_type=None)"
-    )
+    print("str t1")
+    print(str(t1))
+    print("repr t1")
+    print(repr(t1))
+    assert str(t1) == "Thought(text=None, type='thought', signature='my_signature', summary=None, provider_type=None)"
+    assert repr(t1) == "Thought(text=None, type='thought', signature='my_signature', summary=None, provider_type=None)"
 
     t2 = Thought(text="my_text", signature="my_signature")
     assert (
-        str(t2)
-        == "Thought(text='my_text', type='thought', signature='my_signature', _internal_provider_type=None)"
+        str(t2) == "Thought(text='my_text', type='thought', signature='my_signature', summary=None, provider_type=None)"
     )
     assert (
         repr(t2)
-        == "Thought(text='my_text', type='thought', signature='my_signature', _internal_provider_type=None)"
+        == "Thought(text='my_text', type='thought', signature='my_signature', summary=None, provider_type=None)"
     )
 
     t3 = Thought(text="my_text")
-    assert (
-        str(t3)
-        == "Thought(text='my_text', type='thought', signature=None, _internal_provider_type=None)"
-    )
-    assert (
-        repr(t3)
-        == "Thought(text='my_text', type='thought', signature=None, _internal_provider_type=None)"
-    )
+    assert str(t3) == "Thought(text='my_text', type='thought', signature=None, summary=None, provider_type=None)"
+    assert repr(t3) == "Thought(text='my_text', type='thought', signature=None, summary=None, provider_type=None)"
 
 
 @pytest.mark.asyncio
@@ -440,7 +432,9 @@ async def test_async_reasoning_inference(async_client: AsyncTensorZeroGateway):
 
 
 @pytest.mark.asyncio
-async def test_async_default_function_inference(async_client: AsyncTensorZeroGateway):
+async def test_async_default_function_inference(
+    async_client: AsyncTensorZeroGateway,
+):
     input = {
         "system": "You are a helpful assistant named Alfred Pennyworth.",
         "messages": [{"role": "user", "content": [RawText(value="Hello")]}],
@@ -477,7 +471,10 @@ async def test_async_default_function_inference_plain_dict(
     input = {
         "system": "You are a helpful assistant named Alfred Pennyworth.",
         "messages": [
-            {"role": "user", "content": [{"type": "raw_text", "value": "Hello"}]}
+            {
+                "role": "user",
+                "content": [{"type": "raw_text", "value": "Hello"}],
+            }
         ],
     }
     input_copy = deepcopy(input)
@@ -878,7 +875,9 @@ async def test_async_json_streaming(async_client: AsyncTensorZeroGateway):
 
 
 @pytest.mark.asyncio
-async def test_async_json_streaming_reasoning(async_client: AsyncTensorZeroGateway):
+async def test_async_json_streaming_reasoning(
+    async_client: AsyncTensorZeroGateway,
+):
     stream = await async_client.inference(
         function_name="json_success",
         variant_name="json_reasoner",
@@ -936,7 +935,10 @@ async def test_async_json_success(async_client: AsyncTensorZeroGateway):
                 }
             ],
         },
-        output_schema={"type": "object", "properties": {"answer": {"type": "string"}}},
+        output_schema={
+            "type": "object",
+            "properties": {"answer": {"type": "string"}},
+        },
         stream=False,
     )
     assert isinstance(result, JsonInferenceResponse)
@@ -1006,15 +1008,11 @@ async def test_async_feedback(async_client: AsyncTensorZeroGateway):
     inference_id = result.inference_id
     episode_id = result.episode_id
 
-    result = await async_client.feedback(
-        metric_name="user_rating", value=5, episode_id=episode_id
-    )
+    result = await async_client.feedback(metric_name="user_rating", value=5, episode_id=episode_id)
     assert isinstance(result, FeedbackResponse)
     assert isinstance(result.feedback_id, UUID)
 
-    result = await async_client.feedback(
-        metric_name="task_success", value=True, inference_id=inference_id
-    )
+    result = await async_client.feedback(metric_name="task_success", value=True, inference_id=inference_id)
     assert isinstance(result, FeedbackResponse)
 
     result = await async_client.feedback(
@@ -1027,7 +1025,9 @@ async def test_async_feedback(async_client: AsyncTensorZeroGateway):
 
 
 @pytest.mark.asyncio
-async def test_async_feedback_invalid_input(async_client: AsyncTensorZeroGateway):
+async def test_async_feedback_invalid_input(
+    async_client: AsyncTensorZeroGateway,
+):
     with pytest.raises(TensorZeroError):
         await async_client.feedback(metric_name="test_metric", value=5)
 
@@ -1049,9 +1049,7 @@ async def test_async_tensorzero_error_http():
     )
     assert isinstance(async_client, AsyncTensorZeroGateway)
     with pytest.raises(TensorZeroError) as excinfo:
-        await async_client.inference(
-            function_name="not_a_function", input={"messages": []}
-        )
+        await async_client.inference(function_name="not_a_function", input={"messages": []})
 
     assert (
         str(excinfo.value)
@@ -1063,19 +1061,14 @@ async def test_async_tensorzero_error_http():
 async def test_async_tensorzero_error_embedded():
     async_client = AsyncTensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
         async_setup=False,
     )
     assert isinstance(async_client, AsyncTensorZeroGateway)
     with pytest.raises(TensorZeroError) as excinfo:
-        await async_client.inference(
-            function_name="not_a_function", input={"messages": []}
-        )
+        await async_client.inference(function_name="not_a_function", input={"messages": []})
 
-    assert (
-        str(excinfo.value)
-        == 'TensorZeroError (status code 404): {"error":"Unknown function: not_a_function"}'
-    )
+    assert str(excinfo.value) == 'TensorZeroError (status code 404): {"error":"Unknown function: not_a_function"}'
 
 
 @pytest.mark.asyncio
@@ -1115,9 +1108,7 @@ def test_sync_error():
 @pytest.mark.asyncio
 async def test_async_error():
     with pytest.raises(Exception) as exc_info:
-        client_fut = AsyncTensorZeroGateway.build_http(
-            gateway_url="http://localhost:3000"
-        )
+        client_fut = AsyncTensorZeroGateway.build_http(gateway_url="http://localhost:3000")
         assert isinstance(client_fut, t.Awaitable)
         async with await client_fut:
             raise Exception("My error")
@@ -1318,13 +1309,91 @@ def test_image_inference_base64(sync_client: TensorZeroGateway):
     json_content = json.loads(content[0].text)
     assert json_content == [
         {
-            "file": {"url": None, "mime_type": "image/png", "data": ferris_png},
-            "storage_path": {
-                "kind": {"type": "disabled"},
-                "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
-            },
+            "Base64": {
+                "source_url": None,
+                "mime_type": "image/png",
+                "data": ferris_png,
+                "storage_path": {
+                    "kind": {"type": "disabled"},
+                    "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
+                },
+            }
         }
     ]
+
+
+def test_file_inference_base64_infer_mime_type(sync_client: TensorZeroGateway):
+    input = {
+        "system": "You are a helpful assistant named Alfred Pennyworth.",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    FileBase64(
+                        data=ferris_png,
+                        mime_type=None,
+                    )
+                ],
+            }
+        ],
+    }
+    input_copy = deepcopy(input)
+    result = sync_client.inference(
+        model_name="dummy::extract_images",
+        input=input,
+        episode_id=uuid7(),  # This would not typically be done but this partially verifies that uuid7 is using a correct implementation
+        # because the gateway validates some of the properties needed
+    )
+    assert isinstance(result, ChatInferenceResponse)
+    assert input == input_copy, "Input should not be modified by the client"
+    assert result.variant_name == "dummy::extract_images"
+    content = result.content
+    assert len(content) == 1
+    assert content[0].type == "text"
+    assert isinstance(content[0], Text)
+    assert content[0].text is not None
+    json_content = json.loads(content[0].text)
+    assert json_content == [
+        {
+            "Base64": {
+                "source_url": None,
+                "mime_type": "image/png",
+                "data": ferris_png,
+                "storage_path": {
+                    "kind": {"type": "disabled"},
+                    "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
+                },
+            }
+        }
+    ]
+
+
+def test_file_inference_base64_bad_content_no_mime_type(sync_client: TensorZeroGateway):
+    input = {
+        "system": "You are a helpful assistant named Alfred Pennyworth.",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    FileBase64(
+                        data=base64.b64encode(b"Hello, world!").decode("ascii"),
+                        mime_type=None,
+                    )
+                ],
+            }
+        ],
+    }
+    with pytest.raises(TensorZeroInternalError) as exc_info:
+        sync_client.inference(
+            model_name="dummy::extract_images",
+            input=input,
+            episode_id=uuid7(),  # This would not typically be done but this partially verifies that uuid7 is using a correct implementation
+            # because the gateway validates some of the properties needed
+        )
+    assert (
+        str(exc_info.value)
+        == "Failed to deserialize JSON to tensorzero_types::message::Input: messages[0].content[0]: Invalid mime type: No mime type provided and unable to infer from data at line 1 column 177"
+    )
 
 
 def test_file_inference_base64(sync_client: TensorZeroGateway):
@@ -1360,11 +1429,15 @@ def test_file_inference_base64(sync_client: TensorZeroGateway):
     json_content = json.loads(content[0].text)
     assert json_content == [
         {
-            "file": {"url": None, "mime_type": "image/png", "data": ferris_png},
-            "storage_path": {
-                "kind": {"type": "disabled"},
-                "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
-            },
+            "Base64": {
+                "source_url": None,
+                "mime_type": "image/png",
+                "data": ferris_png,
+                "storage_path": {
+                    "kind": {"type": "disabled"},
+                    "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
+                },
+            }
         }
     ]
     # Test pdf with File block
@@ -1407,15 +1480,15 @@ def test_file_inference_base64(sync_client: TensorZeroGateway):
     json_content = json.loads(content[0].text)
     assert json_content == [
         {
-            "file": {
-                "url": None,
+            "Base64": {
+                "source_url": None,
                 "mime_type": "application/pdf",
                 "data": deepseek_paper_pdf,
-            },
-            "storage_path": {
-                "kind": {"type": "disabled"},
-                "path": "observability/files/3e127d9a726f6be0fd81d73ccea97d96ec99419f59650e01d49183cd3be999ef.pdf",
-            },
+                "storage_path": {
+                    "kind": {"type": "disabled"},
+                    "path": "observability/files/3e127d9a726f6be0fd81d73ccea97d96ec99419f59650e01d49183cd3be999ef.pdf",
+                },
+            }
         }
     ]
 
@@ -1454,15 +1527,13 @@ def test_image_inference_url_wrong_mime_type(sync_client: TensorZeroGateway):
     json_content = json.loads(content[0].text)
     assert json_content == [
         {
-            "file": {
-                "url": "https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png",
-                "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "data": ferris_png,
-            },
-            "storage_path": {
-                "kind": {"type": "disabled"},
-                "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.docx",
-            },
+            "Url": {
+                "file_url": {
+                    "url": "https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png",
+                    "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "filename": None,
+                }
+            }
         }
     ]
 
@@ -1500,14 +1571,12 @@ def test_image_inference_url(sync_client: TensorZeroGateway):
     json_content = json.loads(content[0].text)
     assert json_content == [
         {
-            "file": {
-                "url": "https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png",
-                "mime_type": "image/png",
-                "data": ferris_png,
-            },
-            "storage_path": {
-                "kind": {"type": "disabled"},
-                "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
+            "Url": {
+                "file_url": {
+                    "url": "https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png",
+                    "mime_type": None,
+                    "filename": None,
+                }
             },
         }
     ]
@@ -1546,15 +1615,13 @@ def test_file_inference_url(sync_client: TensorZeroGateway):
     print(json_content)
     assert json_content == [
         {
-            "file": {
-                "url": "https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png",
-                "mime_type": "image/png",
-                "data": ferris_png,
-            },
-            "storage_path": {
-                "kind": {"type": "disabled"},
-                "path": "observability/files/08bfa764c6dc25e658bab2b8039ddb494546c3bc5523296804efc4cab604df5d.png",
-            },
+            "Url": {
+                "file_url": {
+                    "url": "https://raw.githubusercontent.com/tensorzero/tensorzero/ff3e17bbd3e32f483b027cf81b54404788c90dc1/tensorzero-internal/tests/e2e/providers/ferris.png",
+                    "mime_type": None,
+                    "filename": None,
+                }
+            }
         }
     ]
 
@@ -1636,7 +1703,9 @@ def test_sync_inference_streaming(sync_client: TensorZeroGateway):
             assert chunk.usage.output_tokens == 16
 
 
-def test_sync_inference_streaming_nonexistent_function(sync_client: TensorZeroGateway):
+def test_sync_inference_streaming_nonexistent_function(
+    sync_client: TensorZeroGateway,
+):
     with pytest.raises(TensorZeroError) as exc_info:
         stream = sync_client.inference(
             function_name="does_not_exist",
@@ -1655,7 +1724,9 @@ def test_sync_inference_streaming_nonexistent_function(sync_client: TensorZeroGa
     assert exc_info.value.status_code == 404
 
 
-def test_sync_inference_streaming_malformed_input(sync_client: TensorZeroGateway):
+def test_sync_inference_streaming_malformed_input(
+    sync_client: TensorZeroGateway,
+):
     with pytest.raises(TensorZeroError) as exc_info:
         stream = sync_client.inference(
             function_name="basic_test",
@@ -2004,7 +2075,10 @@ def test_sync_json_success(sync_client: TensorZeroGateway):
                 }
             ],
         },
-        output_schema={"type": "object", "properties": {"answer": {"type": "string"}}},
+        output_schema={
+            "type": "object",
+            "properties": {"answer": {"type": "string"}},
+        },
         stream=False,
     )
     assert isinstance(result, JsonInferenceResponse)
@@ -2070,14 +2144,10 @@ def test_sync_feedback(sync_client: TensorZeroGateway):
     inference_id = result.inference_id
     episode_id = result.episode_id
 
-    result = sync_client.feedback(
-        metric_name="user_rating", value=5, episode_id=episode_id
-    )
+    result = sync_client.feedback(metric_name="user_rating", value=5, episode_id=episode_id)
     assert isinstance(result, FeedbackResponse)
 
-    result = sync_client.feedback(
-        metric_name="task_success", value=True, inference_id=inference_id
-    )
+    result = sync_client.feedback(metric_name="task_success", value=True, inference_id=inference_id)
     assert isinstance(result, FeedbackResponse)
     assert isinstance(result.feedback_id, UUID)
 
@@ -2120,18 +2190,17 @@ def test_sync_tensorzero_error_http():
 def test_sync_tensorzero_error_embedded():
     sync_client = TensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
     )
     with pytest.raises(TensorZeroError) as excinfo:
         sync_client.inference(function_name="not_a_function", input={"messages": []})
 
-    assert (
-        str(excinfo.value)
-        == 'TensorZeroError (status code 404): {"error":"Unknown function: not_a_function"}'
-    )
+    assert str(excinfo.value) == 'TensorZeroError (status code 404): {"error":"Unknown function: not_a_function"}'
 
 
-def test_sync_basic_inference_with_content_block(sync_client: TensorZeroGateway):
+def test_sync_basic_inference_with_content_block(
+    sync_client: TensorZeroGateway,
+):
     result = sync_client.inference(
         function_name="basic_test",
         input={
@@ -2228,9 +2297,7 @@ def test_prepare_inference_request(sync_client: TensorZeroGateway):
             "messages": [{"role": "user", "content": "Hello"}],
         },
     )
-    assert request["input"]["messages"][0]["content"] == [
-        {"type": "text", "text": "Hello"}
-    ]
+    assert request["input"]["messages"][0]["content"] == [{"type": "text", "text": "Hello"}]
     assert request["input"]["system"] == {"assistant_name": "Alfred Pennyworth"}
     assert request["function_name"] == "basic_test"
 
@@ -2276,13 +2343,20 @@ def test_prepare_inference_request(sync_client: TensorZeroGateway):
         stream=True,
         dryrun=False,
         episode_id=episode_id,
-        output_schema={"type": "object", "properties": {"answer": {"type": "string"}}},
+        output_schema={
+            "type": "object",
+            "properties": {"answer": {"type": "string"}},
+        },
         variant_name="baz",
         params={"chat_completion": {"temperature": 0.1}},
         tool_choice="auto",
         parallel_tool_calls=True,
         additional_tools=[
-            {"name": "drill", "parameters": '{"foo": "bar"}', "description": "drills"}
+            {
+                "name": "drill",
+                "parameters": '{"foo": "bar"}',
+                "description": "drills",
+            }
         ],
     )
 
@@ -2290,9 +2364,7 @@ def test_prepare_inference_request(sync_client: TensorZeroGateway):
         "type": "tool_call",
         "id": "1",
         "name": "test_tool",
-        "arguments": {"arg": "value"},
-        "raw_name": "test_tool",
-        "raw_arguments": '{"arg": "value"}',
+        "arguments": '{"arg":"value"}',
     }
     assert request["input"]["messages"][1]["content"][0] == {
         "type": "tool_result",
@@ -2301,7 +2373,8 @@ def test_prepare_inference_request(sync_client: TensorZeroGateway):
         "id": "1",
     }
     assert request["input"]["messages"][2]["content"][0] == {
-        "type": "text",
+        "type": "template",
+        "name": "user",
         "arguments": {"foo": "bar"},
     }
     assert request["input"]["messages"][2]["content"][1] == {
@@ -2321,6 +2394,7 @@ def test_prepare_inference_request(sync_client: TensorZeroGateway):
     assert request["params"]["chat_completion"]["temperature"] == 0.1
     assert request["tool_choice"] == "auto"
     assert request["additional_tools"][0] == {
+        "type": "function",
         "name": "drill",
         "parameters": '{"foo": "bar"}',
         "description": "drills",
@@ -2334,12 +2408,13 @@ def test_prepare_inference_request(sync_client: TensorZeroGateway):
 
 def test_extra_headers_raw(sync_client: TensorZeroGateway):
     with pytest.raises(TensorZeroError) as exc_info:
+        id = uuid7()
         sync_client.inference(
             function_name="basic_test",
             variant_name="openai",
             input={
                 "system": {"assistant_name": "Alfred Pennyworth"},
-                "messages": [{"role": "user", "content": "Write me a haiku"}],
+                "messages": [{"role": "user", "content": f"Write me a haiku {id}"}],
             },
             extra_headers=[
                 {
@@ -2352,6 +2427,30 @@ def test_extra_headers_raw(sync_client: TensorZeroGateway):
     assert "You didn't provide an API key" in str(exc_info.value)
 
 
+def test_otlp_traces_extra_headers(sync_client: TensorZeroGateway):
+    """Test that otlp_traces_extra_headers parameter is accepted and doesn't break inference."""
+    result = sync_client.inference(
+        function_name="basic_test",
+        variant_name="openai",
+        input={
+            "system": {"assistant_name": "Alfred Pennyworth"},
+            "messages": [{"role": "user", "content": "Write me a haiku"}],
+        },
+        otlp_traces_extra_headers={
+            "My-Custom-Header": "My-Custom-Value",
+            "Another-Header": "Another-Value",
+        },
+    )
+    # Verify the inference completed successfully
+    assert isinstance(result, ChatInferenceResponse)
+    assert result.variant_name == "openai"
+    content = result.content
+    assert len(content) >= 1
+    assert content[0].type == "text"
+    assert isinstance(content[0], Text)
+    assert content[0].text is not None
+
+
 def test_extra_body_raw(sync_client: TensorZeroGateway):
     result = sync_client.inference(
         function_name="basic_test",
@@ -2361,7 +2460,11 @@ def test_extra_body_raw(sync_client: TensorZeroGateway):
             "messages": [{"role": "user", "content": "Write me a haiku"}],
         },
         extra_body=[
-            {"variant_name": "openai", "pointer": "/max_completion_tokens", "value": 2}
+            {
+                "variant_name": "openai",
+                "pointer": "/max_completion_tokens",
+                "value": 2,
+            }
         ],
     )
     assert isinstance(result, ChatInferenceResponse)
@@ -2395,30 +2498,31 @@ def test_extra_body_types(sync_client: TensorZeroGateway):
                 pointer="/response_format",
                 value={"type": "json_object"},
             ),
-            ProviderExtraBody(
-                model_provider_name="tensorzero::model_name::gpt-4o-mini-2024-07-18::provider_name::openai",
+            ModelProviderExtraBody(
+                model_name="gpt-4o-mini-2024-07-18",
+                provider_name="openai",
                 pointer="/stop",
                 value="Potato",
             ),
-            ProviderExtraBody(
-                model_provider_name="tensorzero::model_name::gpt-4o-mini-2024-07-18::provider_name::openai",
+            ModelProviderExtraBody(
+                model_name="gpt-4o-mini-2024-07-18",
+                provider_name="openai",
                 pointer="/should_be_deleted_provider",
                 value=2,
             ),
-            ProviderExtraBody(
-                model_provider_name="tensorzero::model_name::gpt-4o-mini-2024-07-18::provider_name::openai",
+            ModelProviderExtraBodyDelete(
+                model_name="gpt-4o-mini-2024-07-18",
+                provider_name="openai",
                 pointer="/should_be_deleted_provider",
-                delete=True,
             ),
             VariantExtraBody(
                 variant_name="openai",
                 pointer="/should_be_deleted_variant",
                 value=2,
             ),
-            VariantExtraBody(
+            VariantExtraBodyDelete(
                 variant_name="openai",
                 pointer="/should_be_deleted_variant",
-                delete=True,
             ),
         ],
     )
@@ -2431,6 +2535,68 @@ def test_extra_body_types(sync_client: TensorZeroGateway):
     assert content[0].text is not None
     assert '"haiku"' in content[0].text
     assert "Potato" not in content[0].text
+
+
+def test_all_extra_body(sync_client: TensorZeroGateway):
+    """Test that AlwaysExtraBody applies to all variants."""
+    result = sync_client.inference(
+        function_name="basic_test",
+        variant_name="openai",
+        input={
+            "system": {"assistant_name": "Alfred Pennyworth"},
+            "messages": [{"role": "user", "content": "Write me a haiku"}],
+        },
+        extra_body=[
+            AlwaysExtraBody(
+                pointer="/max_completion_tokens",
+                value=2,
+            )
+        ],
+    )
+    assert isinstance(result, ChatInferenceResponse)
+    assert result.variant_name == "openai"
+    content = result.content
+    assert len(content) == 1
+    assert content[0].type == "text"
+    assert isinstance(content[0], Text)
+    assert content[0].text is not None
+    assert len(content[0].text.split(" ")) <= 2
+    usage = result.usage
+    assert usage.output_tokens == 2
+
+
+def test_all_extra_body_with_delete(sync_client: TensorZeroGateway):
+    """Test that AlwaysExtraBody can delete fields across all variants."""
+    result = sync_client.inference(
+        function_name="basic_test",
+        variant_name="openai",
+        input={
+            "system": {"assistant_name": "Alfred Pennyworth"},
+            "messages": [{"role": "user", "content": "Write me a haiku"}],
+        },
+        extra_body=[
+            AlwaysExtraBody(
+                pointer="/should_be_deleted_all",
+                value=2,
+            ),
+            AlwaysExtraBodyDelete(
+                pointer="/should_be_deleted_all",
+            ),
+            AlwaysExtraBody(
+                pointer="/max_completion_tokens",
+                value=10,
+            ),
+        ],
+    )
+    assert isinstance(result, ChatInferenceResponse)
+    assert result.variant_name == "openai"
+    content = result.content
+    assert len(content) == 1
+    assert content[0].type == "text"
+    assert isinstance(content[0], Text)
+    assert content[0].text is not None
+    usage = result.usage
+    assert usage.output_tokens <= 10
 
 
 def test_sync_dynamic_credentials(sync_client: TensorZeroGateway):
@@ -2531,7 +2697,7 @@ async def test_async_timeout_int_http():
 async def test_async_timeout_int_embedded():
     client_fut = AsyncTensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
         timeout=1,
     )
     assert inspect.isawaitable(client_fut)
@@ -2572,7 +2738,7 @@ async def test_async_timeout_float_http():
 async def test_async_timeout_float_embedded():
     client_fut = AsyncTensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
         timeout=0.1,
     )
     assert inspect.isawaitable(client_fut)
@@ -2592,72 +2758,85 @@ async def test_async_timeout_float_embedded():
 def test_sync_timeout_invalid():
     with pytest.raises(ValueError) as exc_info:
         TensorZeroGateway.build_http(gateway_url="http://localhost:3000", timeout=-1)
-    assert (
-        "Invalid timeout: cannot convert float seconds to Duration: value is negative"
-        == str(exc_info.value)
-    )
+    assert "Invalid timeout: cannot convert float seconds to Duration: value is negative" == str(exc_info.value)
+
+
+# If TENSORZERO_E2E_PROXY is set, then we'll make requests using the proxy, which results in different error messages
+# if the target URL is unreachable.
+@contextmanager
+def without_env_tensorzero_e2e_proxy():
+    old_value = os.environ.pop("TENSORZERO_E2E_PROXY", None)
+    try:
+        yield
+    finally:
+        if old_value is not None:
+            os.environ["TENSORZERO_E2E_PROXY"] = old_value
 
 
 @pytest.mark.asyncio
 async def test_async_non_verbose_errors():
-    client_fut = AsyncTensorZeroGateway.build_http(
-        gateway_url="http://tensorzero.invalid:3000", verbose_errors=False
-    )
-    assert inspect.isawaitable(client_fut)
-    async with await client_fut as async_client:
-        with pytest.raises(TensorZeroInternalError) as exc_info:
-            await async_client.inference(
-                function_name="basic_test",
-                variant_name="slow",
-                input={"messages": [{"role": "user", "content": "Hello"}]},
-            )
+    with without_env_tensorzero_e2e_proxy():
+        client_fut = AsyncTensorZeroGateway.build_http(
+            gateway_url="http://tensorzero.invalid:3000", verbose_errors=False
+        )
+        assert inspect.isawaitable(client_fut)
+        async with await client_fut as async_client:
+            with pytest.raises(TensorZeroInternalError) as exc_info:
+                await async_client.inference(
+                    function_name="basic_test",
+                    variant_name="slow",
+                    input={"messages": [{"role": "user", "content": "Hello"}]},
+                )
 
-        assert "dns error" not in str(exc_info.value)
+            assert "dns error" not in str(exc_info.value)
 
 
 @pytest.mark.asyncio
 async def test_async_verbose_errors():
-    client_fut = AsyncTensorZeroGateway.build_http(
-        gateway_url="http://tensorzero.invalid:3000", verbose_errors=True
-    )
-    assert inspect.isawaitable(client_fut)
-    async with await client_fut as async_client:
-        with pytest.raises(TensorZeroInternalError) as exc_info:
-            await async_client.inference(
-                function_name="basic_test",
-                variant_name="slow",
-                input={"messages": [{"role": "user", "content": "Hello"}]},
-            )
+    with without_env_tensorzero_e2e_proxy():
+        client_fut = AsyncTensorZeroGateway.build_http(
+            gateway_url="http://tensorzero.invalid:3000", verbose_errors=True
+        )
+        assert inspect.isawaitable(client_fut)
+        async with await client_fut as async_client:
+            with pytest.raises(TensorZeroInternalError) as exc_info:
+                await async_client.inference(
+                    function_name="basic_test",
+                    variant_name="slow",
+                    input={"messages": [{"role": "user", "content": "Hello"}]},
+                )
 
-        assert "dns error" in str(exc_info.value)
+            assert "dns error" in str(exc_info.value)
 
 
 def test_sync_non_verbose_errors():
-    with TensorZeroGateway.build_http(
-        gateway_url="http://tensorzero.invalid:3000", verbose_errors=False
-    ) as async_client:
-        with pytest.raises(TensorZeroInternalError) as exc_info:
-            async_client.inference(
-                function_name="basic_test",
-                variant_name="slow",
-                input={"messages": [{"role": "user", "content": "Hello"}]},
-            )
+    with without_env_tensorzero_e2e_proxy():
+        with TensorZeroGateway.build_http(
+            gateway_url="http://tensorzero.invalid:3000", verbose_errors=False
+        ) as async_client:
+            with pytest.raises(TensorZeroInternalError) as exc_info:
+                async_client.inference(
+                    function_name="basic_test",
+                    variant_name="slow",
+                    input={"messages": [{"role": "user", "content": "Hello"}]},
+                )
 
-        assert "dns error" not in str(exc_info.value)
+            assert "dns error" not in str(exc_info.value)
 
 
 def test_sync_verbose_errors():
-    with TensorZeroGateway.build_http(
-        gateway_url="http://tensorzero.invalid:3000", verbose_errors=True
-    ) as async_client:
-        with pytest.raises(TensorZeroInternalError) as exc_info:
-            async_client.inference(
-                function_name="basic_test",
-                variant_name="slow",
-                input={"messages": [{"role": "user", "content": "Hello"}]},
-            )
+    with without_env_tensorzero_e2e_proxy():
+        with TensorZeroGateway.build_http(
+            gateway_url="http://tensorzero.invalid:3000", verbose_errors=True
+        ) as async_client:
+            with pytest.raises(TensorZeroInternalError) as exc_info:
+                async_client.inference(
+                    function_name="basic_test",
+                    variant_name="slow",
+                    input={"messages": [{"role": "user", "content": "Hello"}]},
+                )
 
-        assert "dns error" in str(exc_info.value)
+            assert "dns error" in str(exc_info.value)
 
 
 def test_uuid7_import():
@@ -2679,7 +2858,7 @@ def test_patch_sync_openai_client_sync_setup():
         messages=[
             {
                 "role": "user",
-                "content": "Write a haiku about artificial intelligence.",
+                "content": "Write a haiku about TensorZero.",
             }
         ],
     )
@@ -2701,7 +2880,7 @@ async def test_patch_sync_openai_client_async_setup():
         messages=[
             {
                 "role": "user",
-                "content": "Write a haiku about artificial intelligence.",
+                "content": "Write a haiku about TensorZero.",
             }
         ],
     )
@@ -2717,7 +2896,7 @@ def test_patch_openai_client_no_config():
         messages=[
             {
                 "role": "user",
-                "content": "Write a haiku about artificial intelligence.",
+                "content": "Write a haiku about TensorZero.",
             }
         ],
     )
@@ -2728,7 +2907,7 @@ def test_patch_openai_client_with_config():
     client = OpenAI()
     tensorzero.patch_openai_client(
         client,
-        config_file="../../tensorzero-core/tests/e2e/tensorzero.toml",
+        config_file="../../tensorzero-core/tests/e2e/config/tensorzero.*.toml",
         async_setup=False,
     )
     response = client.chat.completions.create(
@@ -2739,16 +2918,17 @@ def test_patch_openai_client_with_config():
                 "content": [
                     {
                         "type": "text",
-                        "tensorzero::arguments": {
-                            "assistant_name": "Alfred Pennyworth"
-                        },
+                        "tensorzero::arguments": {"assistant_name": "Alfred Pennyworth"},
                     }
                 ],
             },
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
+                    {
+                        "type": "text",
+                        "tensorzero::arguments": {"country": "Japan"},
+                    }
                 ],
             },
         ],
@@ -2770,7 +2950,7 @@ async def test_patch_async_openai_client_sync_setup():
         messages=[
             {
                 "role": "user",
-                "content": "Write a haiku about artificial intelligence.",
+                "content": "Write a haiku about TensorZero.",
             }
         ],
     )
@@ -2792,7 +2972,7 @@ async def test_patch_async_openai_client_async_setup():
         messages=[
             {
                 "role": "user",
-                "content": "Write a haiku about artificial intelligence.",
+                "content": "Write a haiku about TensorZero.",
             }
         ],
     )
@@ -2815,7 +2995,7 @@ async def test_patch_openai_missing_await():
             messages=[
                 {
                     "role": "user",
-                    "content": "Write a haiku about artificial intelligence.",
+                    "content": "Write a haiku about TensorZero.",
                 }
             ],
         )
@@ -2843,7 +3023,7 @@ async def test_patch_async_openai_missing_await():
             messages=[
                 {
                     "role": "user",
-                    "content": "Write a haiku about artificial intelligence.",
+                    "content": "Write a haiku about TensorZero.",
                 }
             ],
         )
@@ -2869,10 +3049,7 @@ def test_repeated_patch_openai_client_sync_setup():
             config_file="../../examples/quickstart/config/tensorzero.toml",
             async_setup=False,
         )
-    assert (
-        str(exc_info.value)
-        == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
-    )
+    assert str(exc_info.value) == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
 
     async_client = AsyncOpenAI()
     tensorzero.patch_openai_client(
@@ -2886,10 +3063,7 @@ def test_repeated_patch_openai_client_sync_setup():
             config_file="../../examples/quickstart/config/tensorzero.toml",
             async_setup=False,
         )
-    assert (
-        str(exc_info.value)
-        == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
-    )
+    assert str(exc_info.value) == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
 
 
 @pytest.mark.asyncio
@@ -2905,14 +3079,12 @@ async def test_repeated_patch_openai_client_async_setup():
 
     with pytest.raises(RuntimeError) as exc_info:
         new_patch_fut = tensorzero.patch_openai_client(
-            sync_client, config_file="../../examples/quickstart/config/tensorzero.toml"
+            sync_client,
+            config_file="../../examples/quickstart/config/tensorzero.toml",
         )
         assert isinstance(new_patch_fut, t.Awaitable)
         await new_patch_fut
-    assert (
-        str(exc_info.value)
-        == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
-    )
+    assert str(exc_info.value) == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
 
     async_client = AsyncOpenAI()
     async_patch_fut = tensorzero.patch_openai_client(
@@ -2924,14 +3096,12 @@ async def test_repeated_patch_openai_client_async_setup():
     await async_patch_fut
     with pytest.raises(RuntimeError) as exc_info:
         new_async_patch_fut = tensorzero.patch_openai_client(
-            async_client, config_file="../../examples/quickstart/config/tensorzero.toml"
+            async_client,
+            config_file="../../examples/quickstart/config/tensorzero.toml",
         )
         assert isinstance(new_async_patch_fut, t.Awaitable)
         await new_async_patch_fut
-    assert (
-        str(exc_info.value)
-        == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
-    )
+    assert str(exc_info.value) == "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
 
 
 @pytest.mark.asyncio
@@ -2948,7 +3118,9 @@ async def test_close_patch_openai_client():
 
 
 @pytest.mark.asyncio
-async def test_async_multi_turn_parallel_tool_use(async_client: AsyncTensorZeroGateway):
+async def test_async_multi_turn_parallel_tool_use(
+    async_client: AsyncTensorZeroGateway,
+):
     episode_id = str(uuid7())
 
     system = {"assistant_name": "Dr. Mehta"}
@@ -3043,7 +3215,9 @@ async def test_async_multi_turn_parallel_tool_use(async_client: AsyncTensorZeroG
     assert "30" in assistant_message
 
 
-def test_text_arguments_deprecation_1170_warning(sync_client: TensorZeroGateway):
+def test_text_arguments_deprecation_1170_warning(
+    sync_client: TensorZeroGateway,
+):
     """Test that using Text with dictionary for text parameter works but emits DeprecationWarning for #1170."""
 
     with pytest.warns(
@@ -3058,7 +3232,9 @@ def test_text_arguments_deprecation_1170_warning(sync_client: TensorZeroGateway)
                     {
                         "role": "user",
                         # Intentionally ignore the type error to check the deprecation warning
-                        "content": [Text(type="text", text={"country": "Japan"})],  # type: ignore
+                        "content": [
+                            Text(type="text", text={"country": "Japan"}),  # type: ignore
+                        ],
                     }
                 ],
             },
@@ -3077,15 +3253,11 @@ def test_content_block_text_init_validation():
     """Test Text initialization validation for text and arguments parameters."""
 
     # Test providing neither `text` nor `arguments` fails
-    with pytest.raises(
-        ValueError, match=r"Either `text` or `arguments` must be provided."
-    ):
+    with pytest.raises(ValueError, match=r"Either `text` or `arguments` must be provided."):
         Text(type="text")
 
     # Test providing both `text` and `arguments` fails
-    with pytest.raises(
-        ValueError, match=r"Only one of `text` or `arguments` must be provided."
-    ):
+    with pytest.raises(ValueError, match=r"Only one of `text` or `arguments` must be provided."):
         Text(type="text", text="Hello", arguments={"foo": "bar"})
 
     # Test with valid `text` parameter
@@ -3133,7 +3305,9 @@ def test_sync_dynamic_evaluation_run(sync_client: TensorZeroGateway):
 
 
 @pytest.mark.asyncio
-async def test_async_dynamic_evaluation_run(async_client: AsyncTensorZeroGateway):
+async def test_async_dynamic_evaluation_run(
+    async_client: AsyncTensorZeroGateway,
+):
     response = await async_client.dynamic_evaluation_run(
         variants={"basic_test": "test2"},
         tags={"foo": "bar"},
@@ -3213,7 +3387,7 @@ def test_sync_invalid_input(sync_client: TensorZeroGateway):
 
     assert (
         str(exc_info.value)
-        == 'Failed to deserialize JSON to tensorzero::client_input::ClientInput: messages[0].content[0]: invalid type: string "Invalid", expected object at line 1 column 54'
+        == 'Failed to deserialize JSON to tensorzero_types::message::Input: messages[0].content[0]: invalid type: string "Invalid", expected object at line 1 column 54'
     )
 
 
@@ -3255,7 +3429,7 @@ def test_sync_include_original_response_json(sync_client: TensorZeroGateway):
             "messages": [
                 {
                     "role": "user",
-                    "content": [{"type": "text", "arguments": {"country": "US"}}],
+                    "content": [{"type": "template", "name": "user", "arguments": {"country": "US"}}],
                 }
             ],
         },
@@ -3270,9 +3444,7 @@ def test_sync_clickhouse_batch_writes():
     with tempfile.NamedTemporaryFile() as temp_file:
         temp_file.write(b"gateway.observability.enabled = true\n")
         temp_file.write(b"gateway.observability.batch_writes.enabled = true\n")
-        temp_file.write(
-            b"gateway.observability.batch_writes.__force_allow_embedded_batch_writes = true\n"
-        )
+        temp_file.write(b"gateway.observability.batch_writes.__force_allow_embedded_batch_writes = true\n")
         temp_file.flush()
         clickhouse_url = "http://chuser:chpassword@127.0.0.1:8123/tensorzero_e2e_tests"
         client = TensorZeroGateway.build_embedded(
@@ -3316,9 +3488,7 @@ async def test_async_clickhouse_batch_writes():
     with tempfile.NamedTemporaryFile() as temp_file:
         temp_file.write(b"gateway.observability.enabled = true\n")
         temp_file.write(b"gateway.observability.batch_writes.enabled = true\n")
-        temp_file.write(
-            b"gateway.observability.batch_writes.__force_allow_embedded_batch_writes = true\n"
-        )
+        temp_file.write(b"gateway.observability.batch_writes.__force_allow_embedded_batch_writes = true\n")
         temp_file.flush()
         clickhouse_url = "http://chuser:chpassword@127.0.0.1:8123/tensorzero_e2e_tests"
         client_fut = AsyncTensorZeroGateway.build_embedded(
@@ -3373,7 +3543,7 @@ def test_sync_cannot_enable_batch_writes():
             )
         assert (
             str(exc_info.value)
-            == """Failed to construct TensorZero client: Clickhouse(Other { source: TensorZeroInternalError(Error(Config { message: "[gateway.observability.batch_writes] is not yet supported in embedded gateway mode" })) })"""
+            == """Failed to construct TensorZero client: Clickhouse(Other { source: TensorZeroInternalError(Error(Config { message: "`[gateway.observability.batch_writes]` is not yet supported in embedded gateway mode" })) })"""
         )
 
 
@@ -3394,7 +3564,7 @@ async def test_async_cannot_enable_batch_writes():
             await client_fut
         assert (
             str(exc_info.value)
-            == """Failed to construct TensorZero client: Clickhouse(Other { source: TensorZeroInternalError(Error(Config { message: "[gateway.observability.batch_writes] is not yet supported in embedded gateway mode" })) })"""
+            == """Failed to construct TensorZero client: Clickhouse(Other { source: TensorZeroInternalError(Error(Config { message: "`[gateway.observability.batch_writes]` is not yet supported in embedded gateway mode" })) })"""
         )
 
 
@@ -3446,8 +3616,14 @@ def test_http_client_no_spurious_log(capfd: CaptureFixture[str]):
     )
     assert client is not None
     captured = capfd.readouterr()
+    if os.environ.get("TENSORZERO_E2E_PROXY") is not None:
+        # We'll get some logs lines in CI due to TENSORZERO_E2E_PROXY being set
+        for line in captured.out.splitlines():
+            assert "Using proxy URL from TENSORZERO_E2E_PROXY" in line, f"Unexpected log line: {line}"
+    else:
+        assert captured.out == ""
+
     assert captured.err == ""
-    assert captured.out == ""
 
 
 @pytest.mark.asyncio
@@ -3460,33 +3636,77 @@ async def test_async_http_client_no_spurious_log(capfd: CaptureFixture[str]):
     client = await client_fut
     assert client is not None
     captured = capfd.readouterr()
+    if os.environ.get("TENSORZERO_E2E_PROXY") is not None:
+        # We'll get some logs lines in CI due to TENSORZERO_E2E_PROXY being set
+        for line in captured.out.splitlines():
+            assert "Using proxy URL from TENSORZERO_E2E_PROXY" in line, f"Unexpected log line: {line}"
+    else:
+        assert captured.out == ""
     assert captured.err == ""
-    assert captured.out == ""
 
 
 def test_embedded_client_no_spurious_log(capfd: CaptureFixture[str]):
     client = TensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
     )
     assert client is not None
     captured = capfd.readouterr()
     assert captured.err == ""
-    assert captured.out == ""
+    if os.environ.get("TENSORZERO_E2E_PROXY") is not None:
+        # We'll get some logs lines in CI due to TENSORZERO_E2E_PROXY being set
+        for line in captured.out.splitlines():
+            assert "Using proxy URL from TENSORZERO_E2E_PROXY" in line, f"Unexpected log line: {line}"
+    else:
+        assert captured.out == ""
 
 
 @pytest.mark.asyncio
-async def test_async_embedded_client_no_spurious_log(capfd: CaptureFixture[str]):
+async def test_async_embedded_client_no_spurious_log(
+    capfd: CaptureFixture[str],
+):
     client_fut = AsyncTensorZeroGateway.build_embedded(
         config_file=TEST_CONFIG_FILE,
-        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero-python-e2e",
+        clickhouse_url="http://chuser:chpassword@localhost:8123/tensorzero_e2e_tests",
     )
     assert inspect.isawaitable(client_fut)
     client = await client_fut
     assert client is not None
     captured = capfd.readouterr()
     assert captured.err == ""
-    assert captured.out == ""
+    if os.environ.get("TENSORZERO_E2E_PROXY") is not None:
+        # We'll get some logs lines in CI due to TENSORZERO_E2E_PROXY being set, b
+        for line in captured.out.splitlines():
+            assert "Using proxy URL from TENSORZERO_E2E_PROXY" in line, f"Unexpected log line: {line}"
+    else:
+        assert captured.out == ""
+
+
+@pytest.mark.asyncio
+async def test_async_otlp_traces_extra_headers(
+    async_client: AsyncTensorZeroGateway,
+):
+    """Test that otlp_traces_extra_headers parameter is accepted in async inference."""
+    result = await async_client.inference(
+        function_name="basic_test",
+        variant_name="openai",
+        input={
+            "system": {"assistant_name": "Alfred Pennyworth"},
+            "messages": [{"role": "user", "content": "Write me a haiku"}],
+        },
+        otlp_traces_extra_headers={
+            "My-Async-Header": "My-Async-Value",
+            "Test-Header": "Test-Value",
+        },
+    )
+    # Verify the inference completed successfully
+    assert isinstance(result, ChatInferenceResponse)
+    assert result.variant_name == "openai"
+    content = result.content
+    assert len(content) >= 1
+    assert content[0].type == "text"
+    assert isinstance(content[0], Text)
+    assert content[0].text is not None
 
 
 def test_capfd_captured_warnings(capfd: CaptureFixture[str]):

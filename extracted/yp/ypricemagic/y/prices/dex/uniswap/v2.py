@@ -1,8 +1,9 @@
 from asyncio import sleep
+from collections.abc import AsyncIterator
 from contextlib import suppress
 from decimal import Decimal
 from logging import DEBUG, getLogger
-from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 import a_sync
 import a_sync.exceptions
@@ -14,6 +15,7 @@ from brownie.network.event import _EventItem
 from dank_mids.exceptions import Revert
 from eth_typing import HexAddress
 from eth_utils.toolz import concat
+from faster_eth_abi.exceptions import DecodingError
 from multicall import Call
 from typing_extensions import Self
 from web3.exceptions import ContractLogicError
@@ -32,14 +34,7 @@ from y.constants import (
     weth,
 )
 from y.contracts import Contract, contract_creation_block_async
-from y.datatypes import (
-    Address,
-    AddressOrContract,
-    AnyAddressType,
-    Block,
-    Pool,
-    UsdPrice,
-)
+from y.datatypes import Address, AddressOrContract, AnyAddressType, Block, Pool, UsdPrice
 from y.exceptions import (
     CantFindSwapPath,
     ContractNotVerified,
@@ -53,18 +48,14 @@ from y.exceptions import (
 from y.interfaces.uniswap.factoryv2 import UNIV2_FACTORY_ABI
 from y.networks import Network
 from y.prices import magic
-from y.prices.dex.uniswap.v2_forks import (
-    ROUTER_TO_FACTORY,
-    ROUTER_TO_PROTOCOL,
-    special_paths,
-)
+from y.prices.dex.uniswap.v2_forks import ROUTER_TO_FACTORY, ROUTER_TO_PROTOCOL, special_paths
 from y.utils.events import ProcessedEvents
 from y.utils.raw_calls import raw_call
 
 logger = getLogger(__name__)
 
-Path = List[AddressOrContract]
-Reserves = Tuple[int, int, int]
+Path = list[AddressOrContract]
+Reserves = tuple[int, int, int]
 
 factory_helper_address = {
     # put special case addresses here
@@ -104,9 +95,9 @@ class UniswapV2Pool(ERC20):
     def __init__(
         self,
         address: AnyAddressType,
-        token0: Optional[Address] = None,
-        token1: Optional[Address] = None,
-        deploy_block: Optional[int] = None,
+        token0: Address | None = None,
+        token1: Address | None = None,
+        deploy_block: int | None = None,
         asynchronous: bool = False,
     ):
         super().__init__(address, asynchronous=asynchronous)
@@ -144,10 +135,10 @@ class UniswapV2Pool(ERC20):
     __factory__: HiddenMethodDescriptor[Self, Address]
 
     @a_sync.aka.cached_property
-    async def tokens(self) -> Tuple[ERC20, ERC20]:
-        return await cgather(self.__token0__, self.__token1__)
+    async def tokens(self) -> tuple[ERC20, ERC20]:
+        return await self.__token0__, await self.__token1__
 
-    __tokens__: HiddenMethodDescriptor[Self, Tuple[ERC20, ERC20]]
+    __tokens__: HiddenMethodDescriptor[Self, tuple[ERC20, ERC20]]
 
     @a_sync.aka.cached_property
     async def token0(self) -> ERC20:
@@ -174,8 +165,8 @@ class UniswapV2Pool(ERC20):
     @a_sync.a_sync(ram_cache_ttl=ENVS.CACHE_TTL)
     @stuck_coro_debugger
     async def get_price(
-        self, block: Optional[Block] = None, skip_cache: bool = ENVS.SKIP_CACHE
-    ) -> Optional[UsdPrice]:
+        self, block: Block | None = None, skip_cache: bool = ENVS.SKIP_CACHE
+    ) -> UsdPrice | None:
         """
         Calculate the price of the pool's liquidity token in USD.
 
@@ -213,11 +204,11 @@ class UniswapV2Pool(ERC20):
         raise TokenNotFound(token_in, [token0, token1]) from None
 
     @stuck_coro_debugger
-    async def reserves(
-        self, *, block: Optional[Block] = None
-    ) -> Optional[Tuple[WeiBalance, WeiBalance]]:
+    async def reserves(self, *, block: Block | None = None) -> tuple[WeiBalance, WeiBalance] | None:
         try:
             reserves = await self.get_reserves(block_id=block)
+        except DecodingError:
+            reserves = None
         except Exception as e:
             if not call_reverted(e):
                 raise
@@ -233,13 +224,17 @@ class UniswapV2Pool(ERC20):
         if reserves is None and self._verified:
             # This shouldn't really run anymore, maybe delete
             contract = await Contract.coroutine(self.address)
+            getReserves = contract.getReserves
             try:
-                reserves = await contract.getReserves.coroutine(block_identifier=block)
-                types = ",".join(output["type"] for output in contract.getReserves.abi["outputs"])
-                logger.warning(f"abi for getReserves for {contract} is {types}")
+                reserves = await getReserves.coroutine(block_identifier=block)
+            except DecodingError as e:
+                logger.warning("%s for getReserves for %s: %s", type(e), contract, e)
             except Exception as e:
                 if not call_reverted(e):
                     raise
+            else:
+                types = ",".join(output["type"] for output in getReserves.abi["outputs"])
+                logger.warning("abi for getReserves for %s is %s", contract, types)
 
         if reserves is None:
             return None
@@ -251,8 +246,8 @@ class UniswapV2Pool(ERC20):
 
     @stuck_coro_debugger
     async def tvl(
-        self, block: Optional[Block] = None, skip_cache: bool = ENVS.SKIP_CACHE
-    ) -> Optional[Decimal]:
+        self, block: Block | None = None, skip_cache: bool = ENVS.SKIP_CACHE
+    ) -> Decimal | None:
         """
         Calculate the total value locked (TVL) in the pool in USD.
 
@@ -281,7 +276,7 @@ class UniswapV2Pool(ERC20):
             skip_cache=skip_cache,
         )
 
-        reserves: Tuple[WeiBalance, WeiBalance]
+        reserves: tuple[WeiBalance, WeiBalance]
         if (reserves := await self.reserves(block=block, sync=False)) is None:
             await price_tasks.close()
             return None
@@ -304,9 +299,7 @@ class UniswapV2Pool(ERC20):
                 raise Exception("how did we get here?") from None
 
     @stuck_coro_debugger
-    @a_sync.a_sync(
-        ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60, semaphore=10_000
-    )  # lets try a semaphore here
+    @a_sync.a_sync(ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60)
     async def check_liquidity(self, token: Address, block: Block) -> int:
         """
         Check the liquidity of a specific token in the pool at a given block.
@@ -351,7 +344,7 @@ class UniswapV2Pool(ERC20):
         return 0
 
     @stuck_coro_debugger
-    async def is_uniswap_pool(self, block: Optional[Block] = None) -> bool:
+    async def is_uniswap_pool(self, block: Block | None = None) -> bool:
         """
         Check if this contract is a valid liquidity pool for Uniswap V2 or one of its forks.
 
@@ -404,7 +397,7 @@ class PoolsFromEvents(ProcessedEvents[UniswapV2Pool]):
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} label={self.label}>"
 
-    def pools(self, to_block: Optional[int] = None) -> AsyncIterator[UniswapV2Pool]:
+    def pools(self, to_block: int | None = None) -> AsyncIterator[UniswapV2Pool]:
         return self._objects_thru(block=to_block)
 
     def _get_block_for_obj(self, obj: UniswapV2Pool) -> int:
@@ -447,9 +440,6 @@ def _log_factory_helper_failure(e: Exception, token_address, block, _ignore_pool
     )
 
 
-_all_pools_semaphore = a_sync.Semaphore(10, name=f"{__name__}.UniswapRouterV2.all_pools_for")
-
-
 class UniswapRouterV2(ContractBase):
     def __init__(self, router_address: AnyAddressType, *, asynchronous: bool = False) -> None:
         super().__init__(router_address, asynchronous=asynchronous)
@@ -458,7 +448,7 @@ class UniswapRouterV2(ContractBase):
         self.factory = ROUTER_TO_FACTORY[self.address]
         self.special_paths = special_paths(self.address)
         self.get_amounts_out = Call(self.address, "getAmountsOut(uint,address[])(uint[])").coroutine
-        self._skip_factory_helper: Set[Address] = set()
+        self._skip_factory_helper: set[Address] = set()
 
         # we need the factory contract object cached in brownie so we can decode logs properly
         if not ContractBase(self.factory, asynchronous=self.asynchronous)._is_cached:
@@ -487,12 +477,12 @@ class UniswapRouterV2(ContractBase):
     async def get_price(
         self,
         token_in: Address,
-        block: Optional[Block] = None,
+        block: Block | None = None,
         token_out: Address = usdc.address,
         paired_against: Address = WRAPPED_GAS_COIN,
         skip_cache: bool = ENVS.SKIP_CACHE,
-        ignore_pools: Tuple[Pool, ...] = (),
-    ) -> Optional[UsdPrice]:
+        ignore_pools: tuple[Pool, ...] = (),
+    ) -> UsdPrice | None:
         """
         Calculate a price based on Uniswap Router quote for selling one `token_in`.
         Always uses intermediate WETH pair if `[token_in,weth,token_out]` swap path available.
@@ -535,13 +525,11 @@ class UniswapRouterV2(ContractBase):
                 log_debug("deepest pool: %s", deepest_pool)
             paired_with = await deepest_pool.get_token_out(token_in, sync=False)
             path = [token_in, paired_with]
-            quote, out_scale = await cgather(
-                self.get_quote(amount_in, path, block=block, sync=False),
-                ERC20._get_scale_for(path[-1]),
-            )
+            quote = await self.get_quote(amount_in, path, block=block, sync=False)
             if debug_logs:
                 log_debug("quote: %s", quote)
             if quote is not None:
+                out_scale = await ERC20._get_scale_for(path[-1])
                 amount_out = Decimal(quote[-1]) / out_scale
                 fees = Decimal(0.997) ** (len(path) - 1)
                 amount_out /= fees
@@ -566,19 +554,17 @@ class UniswapRouterV2(ContractBase):
         fees = 0.997 ** (len(path) - 1)
         if debug_logs:
             log_debug("router: %s     path: %s", self.label, path)
-        quote, out_scale = await cgather(
-            self.get_quote(amount_in, path, block=block, sync=False),
-            ERC20._get_scale_for(path[-1]),
-        )
+        quote = await self.get_quote(amount_in, path, block=block, sync=False)
         if quote is not None:
+            out_scale = await ERC20._get_scale_for(path[-1])
             amount_out = quote[-1] / out_scale
             return UsdPrice(amount_out / fees)
 
     @continue_on_revert
     @stuck_coro_debugger
     async def get_quote(
-        self, amount_in: int, path: Path, block: Optional[Block] = None
-    ) -> Tuple[int, int]:
+        self, amount_in: int, path: Path, block: Block | None = None
+    ) -> tuple[int, int]:
         if not self._is_cached:
             return await self.get_amounts_out((amount_in, path), block_id=block)
         try:
@@ -588,18 +574,24 @@ class UniswapRouterV2(ContractBase):
         # TODO figure out how to best handle uni forks with slight modifications.
         # Sometimes the below "else" code will not work with modified methods. Brownie works for now.
         except Exception as e:
-            strings = [
-                "INSUFFICIENT_INPUT_AMOUNT",
-                "INSUFFICIENT_LIQUIDITY",
-                "INSUFFICIENT_OUT_LIQUIDITY",
-                "Sequence has incorrect length",
-            ]
-            if not call_reverted(e) and all(s not in str(e) for s in strings):
-                raise
+            if call_reverted(e) or isinstance(e, DecodingError):
+                return None
+            exc = str(e)
+            if any(
+                s in exc
+                for s in (
+                    "INSUFFICIENT_INPUT_AMOUNT",
+                    "INSUFFICIENT_LIQUIDITY",
+                    "INSUFFICIENT_OUT_LIQUIDITY",
+                    "Sequence has incorrect length",
+                )
+            ):
+                return None
+            raise
 
     @a_sync.aka.cached_property
     @stuck_coro_debugger
-    async def pools(self) -> List[UniswapV2Pool]:
+    async def pools(self) -> list[UniswapV2Pool]:
         logger.info(
             "Fetching pools for %s on %s. If this is your first time using ypricemagic, this can take a while. Please wait patiently...",
             self.label,
@@ -635,11 +627,11 @@ class UniswapRouterV2(ContractBase):
         )
         return pools
 
-    __pools__: HiddenMethodDescriptor[Self, List[UniswapV2Pool]]
+    __pools__: HiddenMethodDescriptor[Self, list[UniswapV2Pool]]
 
     @stuck_coro_debugger
-    @a_sync.a_sync(ram_cache_maxsize=None, semaphore=_all_pools_semaphore)
-    async def all_pools_for(self, token_in: Address) -> Dict[UniswapV2Pool, Address]:
+    @a_sync.a_sync(ram_cache_maxsize=None)
+    async def all_pools_for(self, token_in: Address) -> dict[UniswapV2Pool, Address]:
         pool_to_token_out = {}
         for i, pool in enumerate(await self.__pools__):
             # this will return immediately since the pools are already loaded by this point
@@ -654,12 +646,12 @@ class UniswapRouterV2(ContractBase):
 
     @stuck_coro_debugger
     async def get_pools_for(
-        self, token_in: Address, block: Optional[Block] = None
-    ) -> Dict[UniswapV2Pool, Address]:
+        self, token_in: Address, block: Block | None = None
+    ) -> dict[UniswapV2Pool, Address]:
         if self._supports_factory_helper is False or token_in in self._skip_factory_helper:
             return await self.all_pools_for(token_in, sync=False)
         try:
-            pools: List[HexAddress] = await FACTORY_HELPER.getPairsFor.coroutine(
+            pools: list[HexAddress] = await FACTORY_HELPER.getPairsFor.coroutine(
                 self.factory, token_in, block_identifier=block
             )
         except Exception as e:
@@ -689,10 +681,10 @@ class UniswapRouterV2(ContractBase):
     async def pools_for_token(
         self,
         token_address: Address,
-        block: Optional[Block] = None,
-        _ignore_pools: Tuple[UniswapV2Pool, ...] = (),
+        block: Block | None = None,
+        _ignore_pools: tuple[UniswapV2Pool, ...] = (),
     ) -> AsyncIterator[UniswapV2Pool]:
-        pools: Dict[UniswapV2Pool, Address]
+        pools: dict[UniswapV2Pool, Address]
 
         if (
             CONNECTED_TO_MAINNET
@@ -747,9 +739,9 @@ class UniswapRouterV2(ContractBase):
     async def deepest_pool(
         self,
         token_address: AnyAddressType,
-        block: Optional[Block] = None,
-        _ignore_pools: Tuple[UniswapV2Pool, ...] = (),
-    ) -> Optional[UniswapV2Pool]:
+        block: Block | None = None,
+        _ignore_pools: tuple[UniswapV2Pool, ...] = (),
+    ) -> UniswapV2Pool | None:
         """returns the deepest pool for `token_address` at `block`, excluding pools in `_ignore_pools`"""
         token_address = await convert.to_address_async(token_address)
         if token_address == WRAPPED_GAS_COIN or token_address in STABLECOINS:
@@ -794,9 +786,9 @@ class UniswapRouterV2(ContractBase):
     async def deepest_stable_pool(
         self,
         token_address: AnyAddressType,
-        block: Optional[Block] = None,
-        _ignore_pools: Tuple[UniswapV2Pool, ...] = (),
-    ) -> Optional[UniswapV2Pool]:
+        block: Block | None = None,
+        _ignore_pools: tuple[UniswapV2Pool, ...] = (),
+    ) -> UniswapV2Pool | None:
         """returns the deepest pool for `token_address` at `block` which has `token_address` paired with a stablecoin, excluding pools in `_ignore_pools`"""
         token_out_tasks: a_sync.TaskMapping[UniswapV2Pool, ERC20]
         deepest_stable_pool: UniswapV2Pool
@@ -841,9 +833,9 @@ class UniswapRouterV2(ContractBase):
     async def get_path_to_stables(
         self,
         token: AnyAddressType,
-        block: Optional[Block] = None,
+        block: Block | None = None,
         _loop_count: int = 0,
-        _ignore_pools: Tuple[UniswapV2Pool, ...] = (),
+        _ignore_pools: tuple[UniswapV2Pool, ...] = (),
     ) -> Path:
         if _loop_count > 10:
             raise CantFindSwapPath
@@ -928,7 +920,7 @@ class UniswapRouterV2(ContractBase):
     @stuck_coro_debugger
     async def deepest_pool_for(
         self, token: Address, block: Block = None, *, ignore_pools=[]
-    ) -> Tuple[Address, int]:
+    ) -> tuple[Address, int]:
         # sourcery skip: default-mutable-arg
         with reraise_excs_with_extra_context(self, token, block, ignore_pools):
             deepest = await FACTORY_HELPER.deepestPoolFor.coroutine(

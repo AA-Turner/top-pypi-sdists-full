@@ -3,7 +3,7 @@ Type annotations for codestar-notifications service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codestar_notifications/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -28,12 +29,6 @@ from .literals import (
     TargetStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -84,7 +79,7 @@ class TargetTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -181,7 +176,7 @@ class DeleteNotificationRuleResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SubscribeResultTypeDef(TypedDict):
@@ -189,7 +184,7 @@ class SubscribeResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceResultTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UnsubscribeResultTypeDef(TypedDict):
@@ -197,26 +192,26 @@ class UnsubscribeResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEventTypesResultTypeDef(TypedDict):
-    EventTypes: List[EventTypeSummaryTypeDef]
+    EventTypes: list[EventTypeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeNotificationRuleResultTypeDef(TypedDict):
     Arn: str
     Name: str
-    EventTypes: List[EventTypeSummaryTypeDef]
+    EventTypes: list[EventTypeSummaryTypeDef]
     Resource: str
-    Targets: List[TargetSummaryTypeDef]
+    Targets: list[TargetSummaryTypeDef]
     DetailType: DetailTypeType
     CreatedBy: str
     Status: NotificationRuleStatusType
     CreatedTimestamp: datetime
     LastModifiedTimestamp: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTargetsResultTypeDef(TypedDict):
-    Targets: List[TargetSummaryTypeDef]
+    Targets: list[TargetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -239,7 +234,7 @@ class ListNotificationRulesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 class ListNotificationRulesResultTypeDef(TypedDict):
-    NotificationRules: List[NotificationRuleSummaryTypeDef]
+    NotificationRules: list[NotificationRuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

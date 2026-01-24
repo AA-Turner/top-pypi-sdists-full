@@ -22,7 +22,7 @@ from gs_quant.api.gs.backtests import GsBacktestApi
 from gs_quant.api.gs.backtests_xasset.apis import GsBacktestXassetApi
 from gs_quant.api.gs.backtests_xasset.request import BasicBacktestRequest
 from gs_quant.api.gs.backtests_xasset.response_datatypes.backtest_datatypes import DateConfig, Trade, Configuration, \
-    RollDateMode, TransactionCostConfig
+    RollDateMode, TransactionCostConfig, StrategyHedge
 from gs_quant.backtests.core import Backtest, TradeInMethod
 from gs_quant.base import get_enum_value, Base
 from gs_quant.common import Currency
@@ -70,7 +70,7 @@ class StrategySystematic:
                  cash_accrual: bool = True,
                  combine_roll_signal_entries: bool = False,
                  transaction_cost_config: TransactionCostConfig = None,
-                 use_xasset_backtesting_service: bool = False):
+                 use_xasset_backtesting_service: bool = True):
         self.__cost_netting = cost_netting
         self.__currency = get_enum_value(Currency, currency)
         self.__name = name
@@ -128,7 +128,16 @@ class StrategySystematic:
             None
         self.__trades = (Trade(tuple(trade_instruments), roll_frequency, trade_buy_dates, roll_frequency,
                                trade_exit_dates, quantity, quantity_type),)
-        self.__delta_hedge_frequency = '1b' if delta_hedge else None
+
+        if delta_hedge:
+            self.__hedge_params = StrategyHedge()
+            if delta_hedge.frequency:
+                self.__hedge_params.frequency = '1b' if delta_hedge.frequency == 'Daily' else delta_hedge.frequency
+            if delta_hedge.notional:
+                self.__hedge_params.risk_percentage = delta_hedge.notional
+        else:
+            self.__hedge_params = None
+
         self.__transaction_cost_config = transaction_cost_config
         self.__xasset_bt_service_config = Configuration(roll_date_mode=RollDateMode(roll_date_mode) if
                                                         roll_date_mode is not None else None,
@@ -158,14 +167,26 @@ class StrategySystematic:
         date_cfg = DateConfig(start, end)
         if not measures:
             measures = (FlowVolBacktestMeasure.PNL,)
-        basic_bt_request = BasicBacktestRequest(date_cfg, self.__trades, measures, self.__delta_hedge_frequency,
-                                                self.__transaction_cost_config, self.__xasset_bt_service_config)
+        basic_bt_request = BasicBacktestRequest(dates=date_cfg, trades=self.__trades, measures=measures,
+                                                transaction_costs=self.__transaction_cost_config,
+                                                configuration=self.__xasset_bt_service_config,
+                                                hedge=self.__hedge_params)
         basic_bt_response = GsBacktestXassetApi.calculate_basic_backtest(basic_bt_request, decode_instruments=False)
         risks = tuple(
             BacktestRisk(name=k.value,
                          timeseries=tuple(FieldValueMap(date=d, value=r.result) for d, r in v.items()))
             for k, v in basic_bt_response.measures.items()
         )
+        events = []
+        if basic_bt_response.additional_results is not None:
+            if basic_bt_response.additional_results.trade_events is not None:
+                events.append(BacktestRisk(name="trade_events",
+                                           timeseries=tuple(FieldValueMap(date=d, value=e) for d, e in
+                                                            basic_bt_response.additional_results.trade_events.items())))
+            if basic_bt_response.additional_results.hedge_events is not None:
+                events.append(BacktestRisk(name="hedge_events",
+                                           timeseries=tuple(FieldValueMap(date=d, value=e) for d, e in
+                                                            basic_bt_response.additional_results.hedge_events.items())))
         portfolio = []
         for d in sorted(set().union(basic_bt_response.portfolio.keys(), basic_bt_response.transactions.keys())):
             if d in basic_bt_response.portfolio:
@@ -182,7 +203,7 @@ class StrategySystematic:
                               for i in t.portfolio] if t.portfolio is not None else []
                     transactions.append({'type': t.direction.value, 'trades': trades, 'cost': t.cost})
             portfolio.append({'date': d, 'positions': positions, 'transactions': transactions})
-        return BacktestResult(risks=risks, portfolio=portfolio)
+        return BacktestResult(risks=risks, events=tuple(events), portfolio=portfolio)
 
     def __position_quantity(self, instrument: dict) -> float:
         if instrument['assetClass'] == AssetClass.Equity.value:

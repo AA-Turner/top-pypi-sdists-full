@@ -3,7 +3,7 @@ Type annotations for workmail service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -182,12 +183,6 @@ from .type_defs import (
     UpdateUserRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -196,29 +191,29 @@ else:
 __all__ = ("WorkMailClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DirectoryInUseException: Type[BotocoreClientError]
-    DirectoryServiceAuthenticationFailedException: Type[BotocoreClientError]
-    DirectoryUnavailableException: Type[BotocoreClientError]
-    EmailAddressInUseException: Type[BotocoreClientError]
-    EntityAlreadyRegisteredException: Type[BotocoreClientError]
-    EntityNotFoundException: Type[BotocoreClientError]
-    EntityStateException: Type[BotocoreClientError]
-    InvalidConfigurationException: Type[BotocoreClientError]
-    InvalidCustomSesConfigurationException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidPasswordException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MailDomainInUseException: Type[BotocoreClientError]
-    MailDomainNotFoundException: Type[BotocoreClientError]
-    MailDomainStateException: Type[BotocoreClientError]
-    NameAvailabilityException: Type[BotocoreClientError]
-    OrganizationNotFoundException: Type[BotocoreClientError]
-    OrganizationStateException: Type[BotocoreClientError]
-    ReservedNameException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DirectoryInUseException: type[BotocoreClientError]
+    DirectoryServiceAuthenticationFailedException: type[BotocoreClientError]
+    DirectoryUnavailableException: type[BotocoreClientError]
+    EmailAddressInUseException: type[BotocoreClientError]
+    EntityAlreadyRegisteredException: type[BotocoreClientError]
+    EntityNotFoundException: type[BotocoreClientError]
+    EntityStateException: type[BotocoreClientError]
+    InvalidConfigurationException: type[BotocoreClientError]
+    InvalidCustomSesConfigurationException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidPasswordException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MailDomainInUseException: type[BotocoreClientError]
+    MailDomainNotFoundException: type[BotocoreClientError]
+    MailDomainStateException: type[BotocoreClientError]
+    NameAvailabilityException: type[BotocoreClientError]
+    OrganizationNotFoundException: type[BotocoreClientError]
+    OrganizationStateException: type[BotocoreClientError]
+    ReservedNameException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 class WorkMailClient(AioBaseClient):
     """
@@ -257,7 +252,7 @@ class WorkMailClient(AioBaseClient):
 
     async def associate_delegate_to_resource(
         self, **kwargs: Unpack[AssociateDelegateToResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a member (user or group) to the resource's set of delegates.
 
@@ -267,7 +262,7 @@ class WorkMailClient(AioBaseClient):
 
     async def associate_member_to_group(
         self, **kwargs: Unpack[AssociateMemberToGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a member (user or group) to the group's set.
 
@@ -287,7 +282,7 @@ class WorkMailClient(AioBaseClient):
 
     async def cancel_mailbox_export_job(
         self, **kwargs: Unpack[CancelMailboxExportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels a mailbox export job.
 
@@ -295,7 +290,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#cancel_mailbox_export_job)
         """
 
-    async def create_alias(self, **kwargs: Unpack[CreateAliasRequestTypeDef]) -> Dict[str, Any]:
+    async def create_alias(self, **kwargs: Unpack[CreateAliasRequestTypeDef]) -> dict[str, Any]:
         """
         Adds an alias to the set of a given member (user or group) of WorkMail.
 
@@ -305,7 +300,7 @@ class WorkMailClient(AioBaseClient):
 
     async def create_availability_configuration(
         self, **kwargs: Unpack[CreateAvailabilityConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an <code>AvailabilityConfiguration</code> for the given WorkMail
         organization and domain.
@@ -389,7 +384,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_access_control_rule(
         self, **kwargs: Unpack[DeleteAccessControlRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access control rule for the specified WorkMail organization.
 
@@ -397,7 +392,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#delete_access_control_rule)
         """
 
-    async def delete_alias(self, **kwargs: Unpack[DeleteAliasRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_alias(self, **kwargs: Unpack[DeleteAliasRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more specified aliases from a set of aliases for a given user.
 
@@ -407,7 +402,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_availability_configuration(
         self, **kwargs: Unpack[DeleteAvailabilityConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the <code>AvailabilityConfiguration</code> for the given WorkMail
         organization and domain.
@@ -418,7 +413,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_email_monitoring_configuration(
         self, **kwargs: Unpack[DeleteEmailMonitoringConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the email monitoring configuration for a specified organization.
 
@@ -426,7 +421,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#delete_email_monitoring_configuration)
         """
 
-    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a group from WorkMail.
 
@@ -436,7 +431,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_identity_center_application(
         self, **kwargs: Unpack[DeleteIdentityCenterApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the IAM Identity Center application from WorkMail.
 
@@ -446,7 +441,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_identity_provider_configuration(
         self, **kwargs: Unpack[DeleteIdentityProviderConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables the integration between IdC and WorkMail.
 
@@ -456,7 +451,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_impersonation_role(
         self, **kwargs: Unpack[DeleteImpersonationRoleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an impersonation role for the given WorkMail organization.
 
@@ -466,7 +461,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_mailbox_permissions(
         self, **kwargs: Unpack[DeleteMailboxPermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes permissions granted to a member (user or group).
 
@@ -476,7 +471,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_mobile_device_access_override(
         self, **kwargs: Unpack[DeleteMobileDeviceAccessOverrideRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the mobile device access override for the given WorkMail organization,
         user, and device.
@@ -487,7 +482,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_mobile_device_access_rule(
         self, **kwargs: Unpack[DeleteMobileDeviceAccessRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a mobile device access rule for the specified WorkMail organization.
 
@@ -508,7 +503,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_personal_access_token(
         self, **kwargs: Unpack[DeletePersonalAccessTokenRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the Personal Access Token from the provided WorkMail Organization.
 
@@ -518,7 +513,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_resource(
         self, **kwargs: Unpack[DeleteResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified resource.
 
@@ -528,7 +523,7 @@ class WorkMailClient(AioBaseClient):
 
     async def delete_retention_policy(
         self, **kwargs: Unpack[DeleteRetentionPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified retention policy from the specified organization.
 
@@ -536,7 +531,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#delete_retention_policy)
         """
 
-    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a user from WorkMail and all subsequent systems.
 
@@ -546,7 +541,7 @@ class WorkMailClient(AioBaseClient):
 
     async def deregister_from_work_mail(
         self, **kwargs: Unpack[DeregisterFromWorkMailRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Mark a user, group, or resource as no longer used in WorkMail.
 
@@ -556,7 +551,7 @@ class WorkMailClient(AioBaseClient):
 
     async def deregister_mail_domain(
         self, **kwargs: Unpack[DeregisterMailDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a domain from WorkMail, stops email routing to WorkMail, and removes
         the authorization allowing WorkMail use.
@@ -660,7 +655,7 @@ class WorkMailClient(AioBaseClient):
 
     async def disassociate_delegate_from_resource(
         self, **kwargs: Unpack[DisassociateDelegateFromResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a member from the resource's set of delegates.
 
@@ -670,7 +665,7 @@ class WorkMailClient(AioBaseClient):
 
     async def disassociate_member_from_group(
         self, **kwargs: Unpack[DisassociateMemberFromGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a member from a group.
 
@@ -960,7 +955,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_access_control_rule(
         self, **kwargs: Unpack[PutAccessControlRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a new access control rule for the specified organization.
 
@@ -970,7 +965,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_email_monitoring_configuration(
         self, **kwargs: Unpack[PutEmailMonitoringConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates the email monitoring configuration for a specified
         organization.
@@ -981,7 +976,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_identity_provider_configuration(
         self, **kwargs: Unpack[PutIdentityProviderConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables integration between IAM Identity Center (IdC) and WorkMail to proxy
         authentication requests for mailbox users.
@@ -992,7 +987,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_inbound_dmarc_settings(
         self, **kwargs: Unpack[PutInboundDmarcSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables a DMARC policy for a given organization.
 
@@ -1002,7 +997,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_mailbox_permissions(
         self, **kwargs: Unpack[PutMailboxPermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets permissions for a user, group, or resource.
 
@@ -1012,7 +1007,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_mobile_device_access_override(
         self, **kwargs: Unpack[PutMobileDeviceAccessOverrideRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates a mobile device access override for the given WorkMail
         organization, user, and device.
@@ -1023,7 +1018,7 @@ class WorkMailClient(AioBaseClient):
 
     async def put_retention_policy(
         self, **kwargs: Unpack[PutRetentionPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Puts a retention policy to the specified organization.
 
@@ -1033,7 +1028,7 @@ class WorkMailClient(AioBaseClient):
 
     async def register_mail_domain(
         self, **kwargs: Unpack[RegisterMailDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers a new domain in WorkMail and SES, and configures it for use by
         WorkMail.
@@ -1044,7 +1039,7 @@ class WorkMailClient(AioBaseClient):
 
     async def register_to_work_mail(
         self, **kwargs: Unpack[RegisterToWorkMailRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers an existing and disabled user, group, or resource for WorkMail use by
         associating a mailbox and calendaring capabilities.
@@ -1053,7 +1048,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#register_to_work_mail)
         """
 
-    async def reset_password(self, **kwargs: Unpack[ResetPasswordRequestTypeDef]) -> Dict[str, Any]:
+    async def reset_password(self, **kwargs: Unpack[ResetPasswordRequestTypeDef]) -> dict[str, Any]:
         """
         Allows the administrator to reset the password for a user.
 
@@ -1073,7 +1068,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#start_mailbox_export_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies the specified tags to the specified WorkMailorganization resource.
 
@@ -1091,7 +1086,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#test_availability_configuration)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untags the specified tags from the specified WorkMail organization resource.
 
@@ -1101,7 +1096,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_availability_configuration(
         self, **kwargs: Unpack[UpdateAvailabilityConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing <code>AvailabilityConfiguration</code> for the given
         WorkMail organization and domain.
@@ -1112,7 +1107,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_default_mail_domain(
         self, **kwargs: Unpack[UpdateDefaultMailDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the default mail domain for an organization.
 
@@ -1120,7 +1115,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#update_default_mail_domain)
         """
 
-    async def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Updates attributes in a group.
 
@@ -1130,7 +1125,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_impersonation_role(
         self, **kwargs: Unpack[UpdateImpersonationRoleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an impersonation role for the given WorkMail organization.
 
@@ -1140,7 +1135,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_mailbox_quota(
         self, **kwargs: Unpack[UpdateMailboxQuotaRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a user's current mailbox quota for a specified organization and user.
 
@@ -1150,7 +1145,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_mobile_device_access_rule(
         self, **kwargs: Unpack[UpdateMobileDeviceAccessRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a mobile device access rule for the specified WorkMail organization.
 
@@ -1160,7 +1155,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_primary_email_address(
         self, **kwargs: Unpack[UpdatePrimaryEmailAddressRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the primary email for a user, group, or resource.
 
@@ -1170,7 +1165,7 @@ class WorkMailClient(AioBaseClient):
 
     async def update_resource(
         self, **kwargs: Unpack[UpdateResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates data for the resource.
 
@@ -1178,7 +1173,7 @@ class WorkMailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workmail/client/#update_resource)
         """
 
-    async def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Updates data for the user.
 
@@ -1304,7 +1299,7 @@ class WorkMailClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

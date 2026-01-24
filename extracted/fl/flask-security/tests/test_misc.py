@@ -35,6 +35,7 @@ from tests.test_utils import (
     populate_data,
     reset_fresh,
     get_form_input,
+    is_authenticated,
 )
 from tests.test_webauthn import HackWebauthnUtil, reg_2_keys
 
@@ -176,11 +177,9 @@ def test_basic_custom_forms(app, sqlalchemy_datastore):
 
 @pytest.mark.registerable()
 @pytest.mark.confirmable()
+@pytest.mark.settings(use_register_v2=False)
 @pytest.mark.filterwarnings("ignore:.*The ConfirmRegisterForm.*:DeprecationWarning")
 def test_confirmable_custom_form(app, sqlalchemy_datastore):
-    app.config["SECURITY_REGISTERABLE"] = True
-    app.config["SECURITY_CONFIRMABLE"] = True
-
     class MyRegisterForm(ConfirmRegisterForm):
         email = EmailField("My Register Email Address Field")
 
@@ -537,7 +536,7 @@ def test_without_babel(app, client):
     assert response.status_code == 200
 
 
-def test_no_email_sender(app, sqlalchemy_datastore):
+def test_no_email_sender(app, sqlalchemy_datastore, outbox):
     """Verify that if SECURITY_EMAIL_SENDER is default
     (which is a local proxy) that send_mail picks up MAIL_DEFAULT_SENDER.
     """
@@ -553,12 +552,11 @@ def test_no_email_sender(app, sqlalchemy_datastore):
     with app.app_context():
         user = TestUser("matt@lp.com")
         send_mail("Test Default Sender", user.email, "welcome", user=user)
-        outbox = app.mail.outbox
         assert 1 == len(outbox)
-        assert "test@testme.com" == outbox[0].from_email
+        assert "test@testme.com" == outbox[0].sender
 
 
-def test_sender_tuple(app, sqlalchemy_datastore):
+def test_sender_tuple(app, sqlalchemy_datastore, outbox):
     """Verify that if sender is a (name, address) tuple,
     in the received email sender is properly formatted as "name <address>"
     Flask-Mail takes tuples - Flask-Mailman takes them - however the
@@ -576,12 +574,11 @@ def test_sender_tuple(app, sqlalchemy_datastore):
     with app.app_context():
         user = TestUser("matt@lp.com")
         send_mail("Test Tuple Sender", user.email, "welcome", user=user)
-        outbox = app.mail.outbox
         assert 1 == len(outbox)
-        assert outbox[0].from_email == "Test User <test@testme.com>"
+        assert outbox[0].sender == "Test User <test@testme.com>"
 
 
-def test_send_mail_context(app, sqlalchemy_datastore):
+def test_send_mail_context(app, sqlalchemy_datastore, outbox):
     """Test full context sent to MailUtil/send_mail"""
     app.config["MAIL_DEFAULT_SENDER"] = "test@testme.com"
     app.security = Security()
@@ -598,9 +595,8 @@ def test_send_mail_context(app, sqlalchemy_datastore):
     with app.app_context():
         user = TestUser("matt@lp.com")
         send_mail("Test Default Sender", user.email, "welcome", user=user)
-        outbox = app.mail.outbox
         assert 1 == len(outbox)
-        assert "test@testme.com" == outbox[0].from_email
+        assert "test@testme.com" == outbox[0].sender
         matcher = re.match(
             r".*ExtraContext:(\S+).*", outbox[0].body, re.IGNORECASE | re.DOTALL
         )
@@ -933,9 +929,6 @@ def test_method_view(app, client):
 
 def test_phone_util_override(app, sqlalchemy_datastore):
     from flask_security import phone_util
-    import warnings
-
-    warnings.simplefilter("error")
 
     class MyPhoneUtil(phone_util.PhoneUtil):
         def validate_phone_number(self, input_data):
@@ -946,15 +939,6 @@ def test_phone_util_override(app, sqlalchemy_datastore):
 
     app.security = Security(phone_util_cls=MyPhoneUtil)
     app.security.init_app(app, sqlalchemy_datastore)
-
-    with app.app_context():
-        assert uia_phone_mapper("55") == "very-canonical"
-
-    # try init_app kwargs
-    app.config["SECURITY_BLUEPRINT_NAME"] = "security2"
-    app.security2 = Security()
-    with pytest.raises(DeprecationWarning):
-        app.security2.init_app(app, sqlalchemy_datastore, phone_util_cls=MyPhoneUtil)
 
     with app.app_context():
         assert uia_phone_mapper("55") == "very-canonical"
@@ -1604,3 +1588,13 @@ def test_password_required_setting(app, sqlalchemy_datastore):
     with pytest.raises(ValueError) as vex:
         Security(app=app, datastore=sqlalchemy_datastore)
     assert "SECURITY_PASSWORD_REQUIRED can only be" in str(vex.value)
+
+
+def test_null_user_id(app, client, get_message):
+    # if DB not configured correctly - make sure we catch null fs_uniquifier
+    json_authenticate(client)
+    assert is_authenticated(client, get_message)
+    with client.session_transaction() as sess:
+        sess["_user_id"] = ""
+        sess["user_id"] = ""
+    assert not is_authenticated(client, get_message)

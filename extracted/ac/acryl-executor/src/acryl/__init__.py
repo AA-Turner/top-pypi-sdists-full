@@ -14,7 +14,7 @@
 
 # To be published at https://pypi.org/project/acryl-datahub/.
 __package_name__ = "acryl-executor"
-__version__ = "0.2.9"
+__version__ = "0.3.4"
 
 
 def is_dev_mode() -> bool:

@@ -12,19 +12,22 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
-Requires-Dist: urllib3[socks]>=2.5.0,<3.0
-Requires-Dist: trio~=0.30.0
-Requires-Dist: trio-websocket~=0.12.2
-Requires-Dist: certifi>=2025.6.15
-Requires-Dist: typing_extensions~=4.14.0
-Requires-Dist: websocket-client~=1.8.0
-Version: 4.35.0
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: certifi>=2026.1.4
+Requires-Dist: trio>=0.31.0,<1.0
+Requires-Dist: trio-websocket>=0.12.2,<1.0
+Requires-Dist: trio-typing>=0.10.0
+Requires-Dist: types-certifi>=2021.10.8.3
+Requires-Dist: types-urllib3>=1.26.25.14
+Requires-Dist: typing_extensions>=4.15.0,<5.0
+Requires-Dist: urllib3[socks]>=2.6.3,<3.0
+Requires-Dist: websocket-client>=1.8.0,<2.0
+Version: 4.40.0
 
 ======================
 Selenium Client Driver
@@ -37,19 +40,19 @@ Python language bindings for Selenium WebDriver.
 
 The `selenium` package is used to automate web browser interaction from Python.
 
-+-------------------+------------------------------------------------+
-| **Home**:         | https://selenium.dev                           |
-+-------------------+------------------------------------------------+
-| **GitHub**:       | https://github.com/SeleniumHQ/Selenium         |
-+-------------------+------------------------------------------------+
-| **PyPI**:         | https://pypi.org/project/selenium              |
-+-------------------+------------------------------------------------+
-| **IRC/Slack**:    | https://www.selenium.dev/support/#ChatRoom     |
-+-------------------+------------------------------------------------+
-| **Docs**:         | https://www.selenium.dev/selenium/docs/api/py  |
-+-------------------+------------------------------------------------+
-| **API Docs**:     | `api.html <api.html>`_                         |
-+-------------------+------------------------------------------------+
++-------------------+--------------------------------------------------------+
+| **Home**:         | https://selenium.dev                                   |
++-------------------+--------------------------------------------------------+
+| **GitHub**:       | https://github.com/SeleniumHQ/Selenium                 |
++-------------------+--------------------------------------------------------+
+| **PyPI**:         | https://pypi.org/project/selenium                      |
++-------------------+--------------------------------------------------------+
+| **IRC/Slack**:    | https://www.selenium.dev/support/#ChatRoom             |
++-------------------+--------------------------------------------------------+
+| **Docs**:         | https://www.selenium.dev/selenium/docs/api/py          |
++-------------------+--------------------------------------------------------+
+| **API Reference**:| https://www.selenium.dev/selenium/docs/api/py/api.html |
++-------------------+--------------------------------------------------------+
 
 Updated documentation published with each commit is available at: `readthedocs.io <https://selenium-python-api-docs.readthedocs.io/en/latest>`_
 
@@ -58,7 +61,7 @@ Updated documentation published with each commit is available at: `readthedocs.i
 Supported Python Versions
 =========================
 
-* Python 3.9+
+* Python 3.10+
 
 Supported Browsers
 ==================

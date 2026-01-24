@@ -51,6 +51,8 @@ from .schema import (
     CollectionSchema,
     FieldSchema,
     Function,
+    FunctionScore,
+    Highlighter,
     check_insert_schema,
     check_schema,
     check_upsert_schema,
@@ -672,7 +674,8 @@ class Collection:
         output_fields: Optional[List[str]] = None,
         timeout: Optional[float] = None,
         round_decimal: int = -1,
-        ranker: Optional[Function] = None,
+        ranker: Optional[Union[Function, FunctionScore]] = None,
+        highlighter: Optional[Highlighter] = None,
         **kwargs,
     ):
         """Conducts a vector similarity search with an optional boolean expression as filter.
@@ -714,7 +717,7 @@ class Collection:
             timeout (``float``, optional): A duration of time in seconds to allow for the RPC.
                 If timeout is set to None, the client keeps waiting until the server
                 responds or an error occurs.
-            ranker (``Function``, optional): The ranker to use for the search.
+            ranker (``Function``, ``FunctionScore``, optional): The ranker to use for the search.
             **kwargs (``dict``): Optional search params
 
                 *  *_async* (``bool``, optional)
@@ -807,18 +810,19 @@ class Collection:
 
         conn = self._get_connection()
         resp = conn.search(
-            self._name,
-            data,
-            anns_field,
-            param,
-            limit,
-            expr,
-            partition_names,
-            output_fields,
-            round_decimal,
+            collection_name=self._name,
+            anns_field=anns_field,
+            param=param,
+            limit=limit,
+            data=data,
+            expression=expr,
+            partition_names=partition_names,
+            output_fields=output_fields,
+            round_decimal=round_decimal,
             timeout=timeout,
             schema=self._schema_dict,
             ranker=ranker,
+            highlighter=highlighter,
             **kwargs,
         )
 

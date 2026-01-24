@@ -15,6 +15,7 @@ from stytch.consumer.models.users import (
     DeleteBiometricRegistrationResponse,
     DeleteCryptoWalletResponse,
     DeleteEmailResponse,
+    DeleteExternalIdResponse,
     DeleteOAuthRegistrationResponse,
     DeletePasswordResponse,
     DeletePhoneNumberResponse,
@@ -198,7 +199,7 @@ class Users:
         query: Optional[Union[SearchUsersQuery, Dict[str, Any]]] = None,
     ) -> SearchResponse:
         """
-        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 150 requests/second.
+        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 150 requests/minute.
 
         Search for Users within your Stytch Project.
 
@@ -235,7 +236,7 @@ class Users:
         query: Optional[SearchUsersQuery] = None,
     ) -> SearchResponse:
         """
-        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 150 requests/second.
+        **Warning**: This endpoint is not recommended for use in login flows. Scaling issues may occur, as search performance may vary from ~150 milliseconds to 9 seconds depending on query complexity and rate limits are set to 150 requests/minute.
 
         Search for Users within your Stytch Project.
 
@@ -770,6 +771,32 @@ class Users:
         )
         res = await self.async_client.delete(url, headers)
         return DeleteOAuthRegistrationResponse.from_json(res.response.status, res.json)
+
+    def delete_external_id(
+        self,
+        user_id: str,
+    ) -> DeleteExternalIdResponse:
+        headers: Dict[str, str] = {}
+        data: Dict[str, Any] = {
+            "user_id": user_id,
+        }
+
+        url = self.api_base.url_for("/v1/users/{user_id}/external_id", data)
+        res = self.sync_client.delete(url, headers)
+        return DeleteExternalIdResponse.from_json(res.response.status_code, res.json)
+
+    async def delete_external_id_async(
+        self,
+        user_id: str,
+    ) -> DeleteExternalIdResponse:
+        headers: Dict[str, str] = {}
+        data: Dict[str, Any] = {
+            "user_id": user_id,
+        }
+
+        url = self.api_base.url_for("/v1/users/{user_id}/external_id", data)
+        res = await self.async_client.delete(url, headers)
+        return DeleteExternalIdResponse.from_json(res.response.status, res.json)
 
     def connected_apps(
         self,

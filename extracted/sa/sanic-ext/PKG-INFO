@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sanic-ext
-Version: 24.12.0
+Version: 25.12.0
 Summary: Extend your Sanic installation with some core functionality.
 Home-page: http://github.com/sanic-org/sanic-ext/
 Author: Sanic Community
@@ -9,32 +9,36 @@ Platform: any
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: pyyaml>=3.0.0
+Requires-Dist: sanic>=25.12.0
 Provides-Extra: test
-Requires-Dist: sanic_testing>=22.9.0; extra == "test"
+Requires-Dist: sanic_testing>=24.6.0; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: tox; extra == "test"
 Requires-Dist: Jinja2; extra == "test"
 Provides-Extra: dev
-Requires-Dist: sanic_testing>=22.9.0; extra == "dev"
+Requires-Dist: sanic_testing>=24.6.0; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: Jinja2; extra == "dev"
 Requires-Dist: black>=21.4b2; extra == "dev"
 Requires-Dist: flake8>=3.7.7; extra == "dev"
 Requires-Dist: isort>=5.0.0; extra == "dev"
+Dynamic: license-file
 
 .. image:: https://raw.githubusercontent.com/sanic-org/sanic-assets/master/png/sanic-framework-logo-400x97.png
     :alt: Sanic | Build fast. Run fast.

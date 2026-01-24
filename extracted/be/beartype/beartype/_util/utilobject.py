@@ -143,18 +143,18 @@ def get_object_name(obj: Any) -> str:
     # is declared by a module *OR* "None" otherwise, specifically defined as:
     # * If this object is either a callable or class, the fully-qualified name
     #   of the module declaring this object.
-    # * Else, the fully-qualified name of the module declaring the class of
-    #   this object.
+    # * Else, the fully-qualified name of the module declaring the class of this
+    #   object.
     object_module_name = (
         get_object_module_name_or_none(obj)
-        if isinstance(object, CallableOrClassTypes) else
+        if isinstance(obj, CallableOrClassTypes) else
         get_object_type_module_name_or_none(obj)
     )
 
     # Return either...
     return (
-        # If this module name exists, "."-delimited concatenation of this
-        # module and object name;
+        # If this module name exists, "."-delimited concatenation of this module
+        # and object name;
         f'{object_module_name}.{object_scopes_name}'
         if object_module_name is not None else
         # Else, this object name as is.

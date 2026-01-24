@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: flake8_simplify
-Version: 0.22.0
+Version: 0.30.0
 Summary: flake8 plugin which checks for code that can be simplified
 Keywords: flake8
 Author-email: Martin Thoma <info@martin-thoma.de>
 Maintainer-email: Martin Thoma <info@martin-thoma.de>
-Requires-Python: >=3.6.1
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
@@ -15,16 +15,15 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Framework :: Flake8
 License-File: LICENSE
-Requires-Dist: astor>=0.1
 Requires-Dist: flake8>=3.7
-Requires-Dist: importlib-metadata>=0.9; python_version < "3.8"
 Project-URL: Homepage, https://github.com/MartinThoma/flake8-simplify
 
 [![PyPI version](https://badge.fury.io/py/flake8-simplify.svg)](https://badge.fury.io/py/flake8-simplify)
@@ -44,7 +43,7 @@ Install with `pip`:
 pip install flake8-simplify
 ```
 
-Python 3.8 to 3.11 are supported.
+Python 3.9 to 3.13 are supported.
 
 
 ## Usage
@@ -377,13 +376,11 @@ Thank you for pointing this one out, [Aaron Gokaslan](https://github.com/Skylion
 
 ```python
 # Bad
-class FooBar(object):
-    ...
+class FooBar(object): ...
 
 
 # Good
-class FooBar:
-    ...
+class FooBar: ...
 ```
 
 Both notations are equivalent in Python 3, but the second one is shorter.

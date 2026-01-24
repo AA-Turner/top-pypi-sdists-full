@@ -50,14 +50,14 @@ from domdf_python_tools.compat import importlib_metadata
 # this package
 from consolekit import _readline, commands, input, terminal_colours, tracebacks, utils  # noqa: F401
 from consolekit.commands import SuggestionGroup
-from consolekit.options import _Option
+from consolekit.options import PromptOption
 
 # pylint: enable=redefined-builtin
 
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2020 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "1.9.0"
+__version__: str = "1.12.0"
 __email__: str = "dominic@davis-foster.co.uk"
 
 __all__ = (
@@ -132,7 +132,7 @@ def option(
 	:param \*\*attrs: Additional keyword arguments passed to :func:`click.command`.
 	"""
 
-	attrs.setdefault("cls", _Option)
+	attrs.setdefault("cls", PromptOption)
 	return cast(Callable[[_C], _C], click.option(*param_decls, **attrs))
 
 

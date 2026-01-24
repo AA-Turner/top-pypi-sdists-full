@@ -14,6 +14,7 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.typing import (
     ForwardRef,
     Generic,
+    Union,
 
     # The non-standard "beartype.typing.Protocol" superclass subclasses the
     # standard "typing.Protocol" superclass. Since "typing.Protocol" is the
@@ -28,10 +29,11 @@ from beartype._cave._cavefast import (
     ClassType,
     EnumMemberType,
     FunctionType,
+    HintPep695TypeAlias,
     MethodDecoratorBuiltinTypes,
     NoneType,
 )
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     DictStrToType,
     FrozenSetTypes,
     TupleTypes,
@@ -106,18 +108,26 @@ decorated by the :func:`beartype.beartype` decorator).
 # Defined below by the _init() function.
 TYPE_BUILTIN_NAME_TO_TYPE: DictStrToType = None  # type: ignore[assignment]
 '''
-Dictionary mapping from the name of each **builtin type** (i.e., globally
-accessible C-based type implicitly accessible from all scopes and thus
+Dictionary mapping from the name of each **non-fake builtin type** (i.e.,
+globally accessible C-based type implicitly accessible from all scopes and thus
 requiring *no* explicit importation) to that type.
+
+This dictionary intentionally ignores **fake builtin types** (i.e., types that
+are *not* builtin but nonetheless erroneously masquerade as being builtin,
+including the type of the :data:`None` singleton).
 '''
 
 
 # Defined below by the _init() function.
 TYPES_BUILTIN: FrozenSetTypes = None  # type: ignore[assignment]
 '''
-Frozen set of all **builtin types** (i.e., globally accessible C-based types
-implicitly accessible from all scopes and thus requiring *no* explicit
+Frozen set of all **non-fake builtin types** (i.e., globally accessible C-based
+types implicitly accessible from all scopes and thus requiring *no* explicit
 importation).
+
+This set intentionally ignores **fake builtin types** (i.e., types that are
+*not* builtin but nonetheless erroneously masquerade as being builtin, including
+the type of the :data:`None` singleton).
 '''
 
 
@@ -166,7 +176,47 @@ exceptions raised when a **namespace** (e.g., global or local scope, class or
 object dictionary) fails to define a given attribute or name).
 '''
 
-# ....................{ PEP ~ 484                          }....................
+# ....................{ TYPES ~ non-pep                    }....................
+TYPES_NONPEP_TYPEARGS_PACKED = frozenset((
+    # ....................{ PEP (484|604)                  }....................
+    # The PEP 484- and 604-compliant unsubscripted "typing.Union" hint
+    # semantically equivalent to the subscripted "typing.Union[typing.Any]" hint
+    # is a valid C-based type whose whose "__parameters__" dunder attribute is a
+    # C-based slotted class attribute of some obscure type under Python >= 3.14:
+    #     >>> from typing import Union
+    #     >>> Union.__parameters__
+    #     <attribute '__parameters__' of 'typing.Union' objects>
+    Union,
+
+    # ....................{ PEP 695                        }....................
+    # The PEP 695-compliant "typing.TypeAliasType" type of all PEP 695-compliant
+    # type aliases of the syntactic form "type = {alias}" is a valid C-based
+    # type whose whose "__parameters__" dunder attribute is a C-based slotted
+    # class attribute of some obscure type under Python >= 3.12:
+    #     >>> from typing import TypeAliasType
+    #     >>> TypeAliasType.__parameters__
+    #     <attribute '__parameters__' of 'typing.TypeAliasType' objects>
+    HintPep695TypeAlias,
+))
+'''
+Frozen set of all **PEP-noncompliant packed type parameters types** (i.e.,
+standard types well-known to violate PEP standards by defining the
+``__parameters__`` dunder attribute to *not* be a tuple of :pep:`484`-,
+:pep:`612`-, and :pep:`646`-compliant packed type parameters).
+
+These types are typically C-based unsubscripted type hint factories defined by
+the private standard :class:`_typing` C extension. For unknown (and presumably
+uninteresting) reasons, these factories define the ``__parameters__`` dunder
+attribute to be a C-based slotted class attribute of some obscure type rather
+than a tuple -- fundamentally violating :pep:`484`, :pep:`612`, and :pep:`646`.
+
+When passed any of these types, the
+:func:`beartype._util.hint.pep.utilpepget.get_hint_pep_typeargs_packed` getter
+ignores erroneous ``__parameters__`` dunder attributes defined on these types by
+returning the empty tuple (rather than raising obscure exceptions).
+'''
+
+# ....................{ TYPES ~ pep : 484                  }....................
 TYPES_PEP484_GENERIC_IO = frozenset((BinaryIO, IO, TextIO,))
 '''
 Frozen set of all :pep:`484`-compliant **I/O generics** (i.e., public
@@ -178,7 +228,7 @@ Note that these generics are *not* :pep:`544`-compliant protocols. These
 generics are thus mostly useless for most real-world purposes.
 '''
 
-# ....................{ PEP ~ (484|585)                    }....................
+# ....................{ TYPES ~ pep : (484|585)            }....................
 TYPES_PEP484585_REF = (str, ForwardRef)
 '''
 Tuple union of all :pep:`484`- or :pep:`585`-compliant **forward reference
@@ -200,7 +250,7 @@ approach is the demonstrably wrong approach, because encapsulating strings only
 harms space and time complexity at runtime with *no* concomitant benefits.
 '''
 
-# ....................{ PEP ~ 544                          }....................
+# ....................{ TYPES ~ pep : 544                  }....................
 #FIXME: *YIKES.* This omits "typing_extensions.Protocol", which is a distinct
 #type from "typing.Protocol". *sigh*
 
@@ -224,10 +274,10 @@ Frozen set of all **generic superclasses** (i.e., types defined by the standard
 :pep:`484`-compliant generics and/or :pep:`544`-compliant protocols).
 '''
 
-# ....................{ PEP ~ 586                          }....................
+# ....................{ TYPES ~ pep : 586                  }....................
 TYPES_PEP586_ARG = (bool, bytes, int, str, EnumMemberType, NoneType)
 '''
-Tuple of all types of objects permissible as arguments subscripting the
+Tuple of the types of all objects permissible as arguments subscripting the
 :pep:`586`-compliant :attr:`typing.Literal` singleton.
 
 These types are explicitly listed by :pep:`586` as follows:
@@ -242,15 +292,30 @@ def _init() -> None:
     Initialize this submodule.
     '''
 
+    # ....................{ IMPORTS                        }....................
     # Function-specific imports.
     from builtins import __dict__ as BUILTIN_NAME_TO_TYPE  # type: ignore[attr-defined]
 
+    # ....................{ LOCALS                         }....................
+    # Frozen set of all fake builtin types (i.e., types that erroneously
+    # masquerade as being builtin). This includes:
+    # * The type of the "None" singleton. For unknown reasons:
+    #   * The CPython implementation of the standard "builtin" module correctly
+    #     omits this type.
+    #   * The PyPy implementation of the standard "builtin" module *INCORRECTLY*
+    #     includes this type. Technically, this type should *ONLY* be included
+    #     under PyPy. Pragmatically, unconditionally including this type under
+    #     *ALL* Python implementations does no harm. This type is *ALWAYS*
+    #     guaranteed to be fake wherever it appears.
+    _FAKE_BUILTIN_TYPES = frozenset((NoneType,))
+
+    # ....................{ GLOBALs                        }....................
     # Global variables redefined below.
     global TYPE_BUILTIN_NAME_TO_TYPE, TYPES_BUILTIN
 
-    # Dictionary mapping from,...
+    # Dictionary mapping from...
     TYPE_BUILTIN_NAME_TO_TYPE = {
-        # The name of each builtin type to that type
+        # The name of each builtin type to that type...
         builtin_name: builtin_value
         # For each attribute defined by the standard "builtins" module...
         for builtin_name, builtin_value in BUILTIN_NAME_TO_TYPE.items()
@@ -258,7 +323,10 @@ def _init() -> None:
         if (
             # This attribute is a type *AND*...
             isinstance(builtin_value, type) and
-            # This is *NOT* a dunder attribute.
+            # This is not a fake builtin type *AND*...
+            builtin_value not in _FAKE_BUILTIN_TYPES and
+            # This is not a dunder attribute (i.e., attribute whose name is both
+            # prefixed and suffixed by double underscores)...
             not (
                 builtin_name.startswith('__') and
                 builtin_name.endswith  ('__')

@@ -1,18 +1,16 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ibm_watsonx_ai.foundation_models.schema import (
-    BaseSchema,
-    TSForecastParameters,
-)
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema, TSForecastParameters
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -45,7 +43,7 @@ class TSModelInference(WMLResource):
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     :param api_client: initialized APIClient object with a set project ID or space ID. If passed, ``credentials`` and ``project_id``/``space_id`` are not required.
     :type api_client: APIClient, optional
@@ -60,17 +58,15 @@ class TSModelInference(WMLResource):
         from ibm_watsonx_ai import Credentials
         from ibm_watsonx_ai.foundation_models import TSModelInference
 
-        forecasting_params = {
-            "prediction_length": 10
-        }
+        forecasting_params = {"prediction_length": 10}
 
         ts_model = TSModelInference(
             model_id="<TIME SERIES MODEL>",
             params=forecasting_params,
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id=project_id
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id=project_id,
         )
 
     .. code-block:: python
@@ -78,16 +74,14 @@ class TSModelInference(WMLResource):
         from ibm_watsonx_ai import Credentials
         from ibm_watsonx_ai.foundation_models import TSModelInference
 
-        forecasting_params = {
-            "prediction_length": 10
-        }
+        forecasting_params = {"prediction_length": 10}
 
         ts_model = TSModelInference(
             deployment_id="<ID of deployed model>",
             params=forecasting_params,
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
         )
 
     """
@@ -99,7 +93,7 @@ class TSModelInference(WMLResource):
         credentials: Credentials | None = None,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: bool | str | None = None,
+        verify: bool | str | Path | None = None,
         api_client: APIClient | None = None,
         deployment_id: str | None = None,
     ) -> None:
@@ -122,6 +116,9 @@ class TSModelInference(WMLResource):
         TSModelInference._validate_type(
             params, "params", [dict, TSForecastParameters], False, True
         )
+
+        if isinstance(verify, str):
+            verify = Path(verify)
 
         if credentials:
             from ibm_watsonx_ai import APIClient

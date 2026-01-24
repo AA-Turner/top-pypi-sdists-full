@@ -6,7 +6,6 @@ This module ensures that agent knowledge is properly included during task planni
 from unittest.mock import patch
 
 import pytest
-
 from crewai.agent import Agent
 from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
 from crewai.task import Task

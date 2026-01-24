@@ -1,5 +1,5 @@
 /**
- * Copyright 2014-2024, XGBoost Contributors
+ * Copyright 2014-2025, XGBoost Contributors
  * \file sparse_page_dmatrix.cc
  *
  * \brief The external memory version of Page Iterator.
@@ -13,9 +13,11 @@
 #include <utility>    // for move
 #include <variant>    // for visit
 
-#include "batch_utils.h"         // for RegenGHist
-#include "gradient_index.h"      // for GHistIndexMatrix
-#include "sparse_page_source.h"  // for MakeCachePrefix
+#include "../common/error_msg.h"  // for InconsistentCategories, CacheHostRatio
+#include "batch_utils.h"          // for RegenGHist
+#include "cat_container.h"        // for CatContainer
+#include "gradient_index.h"       // for GHistIndexMatrix
+#include "sparse_page_source.h"   // for MakeCachePrefix
 
 namespace xgboost::data {
 MetaInfo &SparsePageDMatrix::Info() { return info_; }
@@ -32,7 +34,9 @@ SparsePageDMatrix::SparsePageDMatrix(DataIterHandle iter_handle, DMatrixHandle p
       missing_{config.missing},
       cache_prefix_{config.cache},
       on_host_{config.on_host},
+      cache_host_ratio_{config.cache_host_ratio},
       min_cache_page_bytes_{config.min_cache_page_bytes} {
+  CHECK(detail::HostRatioIsAuto(config.cache_host_ratio)) << error::CacheHostRatioNotImpl();
   Context ctx;
   ctx.Init(Args{{"nthread", std::to_string(config.n_threads)}});
   cache_prefix_ = MakeCachePrefix(cache_prefix_);
@@ -40,6 +44,20 @@ SparsePageDMatrix::SparsePageDMatrix(DataIterHandle iter_handle, DMatrixHandle p
   DMatrixProxy *proxy = MakeProxy(proxy_);
   auto iter = DataIterProxy<DataIterResetCallback, XGDMatrixCallbackNext>{
       iter_, reset_, next_};
+
+  auto get_cats = [](DMatrixProxy const *proxy) {
+    if (proxy->Ctx()->IsCPU()) {
+      return std::make_shared<CatContainer>(cpu_impl::BatchCats(proxy), BatchCatsIsRef(proxy));
+    } else {
+#if defined(XGBOOST_USE_CUDA)
+      return std::make_shared<CatContainer>(proxy->Ctx(), cuda_impl::BatchCats(proxy),
+                                            BatchCatsIsRef(proxy));
+#else
+      common::AssertGPUSupport();
+      return std::make_shared<CatContainer>();
+#endif
+    }
+  };
 
   // The proxy is iterated together with the sparse page source so we can obtain all
   // information in 1 pass.
@@ -52,15 +70,22 @@ SparsePageDMatrix::SparsePageDMatrix(DataIterHandle iter_handle, DMatrixHandle p
     ext_info_.n_batches++;
     ext_info_.base_rowids.push_back(page.Size());
     ext_info_.batch_nnz.push_back(page.data.Size());
+    if (!ext_info_.cats) {
+      ext_info_.cats = get_cats(proxy);
+    } else {
+      CHECK_EQ(ext_info_.cats->NumCatsTotal(), get_cats(proxy)->NumCatsTotal())
+          << error::InconsistentCategories();
+    }
   }
   std::partial_sum(ext_info_.base_rowids.cbegin(), ext_info_.base_rowids.cend(),
                    ext_info_.base_rowids.begin());
 
   iter.Reset();
 
-  ext_info_.SetInfo(&ctx, &this->info_);
-
+  ext_info_.SetInfo(&ctx, true, &this->info_);
   fmat_ctx_ = ctx;
+
+  SyncCategories(&ctx, info_.Cats(), info_.num_row_ == 0);
 }
 
 SparsePageDMatrix::~SparsePageDMatrix() {
@@ -90,8 +115,8 @@ void SparsePageDMatrix::InitializeSparsePage(Context const *ctx) {
   // During initialization, the n_batches is 0.
   CHECK_EQ(this->ext_info_.n_batches, static_cast<decltype(this->ext_info_.n_batches)>(0));
   sparse_page_source_ = std::make_shared<SparsePageSource>(
-      iter, proxy, this->missing_, ctx->Threads(), this->info_.num_col_, this->ext_info_.n_batches,
-      cache_info_.at(id));
+      std::move(iter), proxy, this->missing_, ctx->Threads(), this->info_.num_col_,
+      this->ext_info_.n_batches, cache_info_.at(id));
 }
 
 BatchSet<SparsePage> SparsePageDMatrix::GetRowBatchesImpl(Context const *ctx) {

@@ -26,6 +26,75 @@ f8: Callable[[int], int] = lambda x: x + "foo" # E: Argument `Literal['foo']` is
 );
 
 testcase!(
+    test_callable_variable_typevar_annotation,
+    r#"
+from typing import Callable, TypeVar, reveal_type
+T = TypeVar("T")
+f: Callable[[T], T] = lambda x: x
+reveal_type(f)  # E: revealed type: [T](T) -> T
+reveal_type(f(1))  # E: revealed type: int
+"#,
+);
+
+testcase!(
+    test_callable_variable_multiple_typevars,
+    r#"
+from typing import Callable, TypeVar, reveal_type
+T = TypeVar("T")
+U = TypeVar("U")
+f: Callable[[T, U], T] = lambda x, y: x
+reveal_type(f)  # E: revealed type: [T, U](T, U) -> T
+reveal_type(f(1, "a"))  # E: revealed type: int
+"#,
+);
+
+testcase!(
+    test_callable_variable_bounded_typevar,
+    r#"
+from typing import Callable, TypeVar, reveal_type
+T = TypeVar("T", bound=int)
+f: Callable[[T], T] = lambda x: x
+reveal_type(f)  # E: revealed type: [T](T) -> T
+reveal_type(f(1))  # E: revealed type: int
+f("hello")  # E: `str` is not assignable to upper bound `int` of type variable `T`
+"#,
+);
+
+testcase!(
+    test_list_of_callables_variable_typevar_annotation,
+    r#"
+from typing import Callable, TypeVar, assert_type, reveal_type
+T = TypeVar("T")
+f: list[Callable[[T], T]] = [lambda x: x]
+reveal_type(f)  # E: revealed type: list[[T](T) -> T]
+assert_type(f[0](1), int)
+"#,
+);
+
+testcase!(
+    test_callable_of_list_variable_typevar_annotation,
+    r#"
+from typing import Callable, TypeVar, assert_type, reveal_type
+T = TypeVar("T")
+f: Callable[[list[T]], list[T]] = lambda x: x
+reveal_type(f)  # E: revealed type: [T](list[T]) -> list[T]
+assert_type(f([1]), list[int])
+f(1)  # E: not assignable
+"#,
+);
+
+testcase!(
+    test_callable_returns_callable_variable_typevar_annotation,
+    r#"
+from typing import Callable, TypeVar, assert_type, reveal_type
+T = TypeVar("T")
+f: Callable[[], Callable[[T], T]] = lambda: lambda x: x
+reveal_type(f)  # E: revealed type: () -> [T](T) -> T
+assert_type(f()(1), int)
+"#,
+);
+
+testcase!(
     test_callable_ellipsis_upper_bound,
     r#"
 from typing import Callable
@@ -675,9 +744,9 @@ class P2(Protocol):
     def __call__(self, *, v1: int) -> None: ...
 class P3(Protocol):
     def __call__(self, *, v1: int, v2: str, v4: str) -> None: ...
-x: P1 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P1`
-y: P2 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P2`
-z: P3 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P3`
+x: P1 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P1`
+y: P2 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P2`
+z: P3 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P3`
 "#,
 );
 
@@ -1009,5 +1078,173 @@ def g[T](x: T) -> T:
     return x
 h = g(f)
 reveal_type(h)  # E: revealed type: (x: Literal[1]) -> Literal[1]
+    "#,
+);
+
+testcase!(
+    test_boundmethod_union,
+    r#"
+from typing import assert_type
+def _(flag: bool):
+    class C:
+        if flag:
+            def __getitem__(self, key: int) -> str:
+                return str(key)
+        else:
+            def __getitem__(self, key: int) -> bytes:
+                return bytes()
+    c = C()
+    assert_type(c[0], bytes | str)
+    "#,
+);
+
+testcase!(
+    test_unknown_varargs_kwargs,
+    r#"
+from typing import Any, assert_type
+def f(*args, **kwargs):
+    assert_type(args, tuple[Any, ...])
+    assert_type(kwargs, dict[str, Any])
+    "#,
+);
+
+testcase!(
+    test_bad_varargs_kwargs,
+    r#"
+from typing import Annotated, Any, assert_type
+def f(*args: Annotated, **kwargs: Annotated): # E: # E:
+    assert_type(args, tuple[Any, ...])
+    assert_type(kwargs, dict[str, Any])
+    "#,
+);
+
+testcase!(
+    test_isinstance_narrow,
+    r#"
+from typing import assert_type, reveal_type, Any, Callable
+def f(x: object):
+    if isinstance(x, Callable):
+        assert_type(x, Callable[..., Any])
+def g(x: int):
+    if isinstance(x, Callable):
+        reveal_type(x)  # E: ((...) -> Unknown) & int
+def h(x: Callable[[int], int]):
+    if isinstance(x, Callable):
+        assert_type(x, Callable[[int], int])
+    "#,
+);
+
+testcase!(
+    test_isinstance_error,
+    r#"
+from typing import Any, Callable
+def f(x: object):
+    isinstance(x, Callable[..., Any])  # E: Expected class object, got `type[(...) -> Any]`
+    "#,
+);
+
+testcase!(
+    test_builtins_callable_narrow,
+    r#"
+from typing import Any, Callable, assert_type
+def f(
+  x1: Callable[[int], int],
+  x2: Callable[..., int],
+  x3: Callable[[int], Any],
+  x4: Callable[..., int | Any],
+  x5: Callable,
+):
+    if callable(x1):
+        assert_type(x1, Callable[[int], int])
+    if callable(x2):
+        assert_type(x2, Callable[..., int])
+    if callable(x3):
+        assert_type(x3, Callable[[int], Any])
+    if callable(x4):
+        assert_type(x4, Callable[..., int | Any])
+    if callable(x5):
+        assert_type(x5, Callable[..., Any])
+    "#,
+);
+
+testcase!(
+    test_narrow_union,
+    r#"
+from typing import Any, Callable, assert_type
+def f(x: type[int] | Callable[[int], Any]):
+    if callable(x):
+        assert_type(x, type[int] | Callable[[int], Any])
+    "#,
+);
+
+testcase!(
+    test_narrow_function,
+    r#"
+from typing import Any, Callable, assert_type
+def f() -> Any:
+    pass
+if callable(f):
+    assert_type(f, Callable[[], Any])
+    "#,
+);
+
+testcase!(
+    test_unbound_name_ok_in_lambda,
+    r#"
+x: int
+f1 = lambda: x
+f2 = lambda: [x for _ in range(10)]
+    "#,
+);
+
+testcase!(
+    test_unknown_name_error_in_lambda,
+    r#"
+f = lambda: x  # E: Could not find name `x`
+    "#,
+);
+
+testcase!(
+    test_unbound_module_name_ok_in_def,
+    r#"
+from typing import assert_type
+x: int
+def f():
+    assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_unbound_local_name_error_in_def,
+    r#"
+def f():
+    x: int
+    print(x)  # E: `x` is uninitialized
+    "#,
+);
+
+testcase!(
+    test_anywhere_name_in_lambda,
+    r#"
+from typing import assert_type
+f = lambda: A.x
+class A:
+    x: int = 0
+assert_type(f(), int)
+    "#,
+);
+
+testcase!(
+    test_preserve_param_default,
+    r#"
+from typing import reveal_type
+
+def f(x: bool = True) -> bool:
+    return x
+
+def g[T](f: T) -> T:
+    return f
+
+reveal_type(g(f))  # E: (x: bool = True) -> bool
     "#,
 );

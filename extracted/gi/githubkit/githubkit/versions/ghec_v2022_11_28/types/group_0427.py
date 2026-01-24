@@ -9,17 +9,40 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class RepositoryRuleDetailedOneof2Type(TypedDict):
-    """RepositoryRuleDetailedOneof2"""
+class PorterAuthorType(TypedDict):
+    """Porter Author
 
-    type: Literal["deletion"]
-    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
-    ruleset_source: NotRequired[str]
-    ruleset_id: NotRequired[int]
+    Porter Author
+    """
+
+    id: int
+    remote_id: str
+    remote_name: str
+    email: str
+    name: str
+    url: str
+    import_url: str
 
 
-__all__ = ("RepositoryRuleDetailedOneof2Type",)
+class PorterAuthorTypeForResponse(TypedDict):
+    """Porter Author
+
+    Porter Author
+    """
+
+    id: int
+    remote_id: str
+    remote_name: str
+    email: str
+    name: str
+    url: str
+    import_url: str
+
+
+__all__ = (
+    "PorterAuthorType",
+    "PorterAuthorTypeForResponse",
+)

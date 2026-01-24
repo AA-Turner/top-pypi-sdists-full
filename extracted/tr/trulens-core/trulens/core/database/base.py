@@ -67,7 +67,14 @@ class BaseAppsExtractor:
         "perf_json",
         "ts",
     ]
-    extra_cols = ["latency", "total_tokens", "total_cost", "num_events"]
+    extra_cols = [
+        "latency",
+        "total_tokens",
+        "total_cost",
+        "eval_cost",
+        "eval_cost_snowflake",
+        "num_events",
+    ]
     all_cols = app_cols + rec_cols + extra_cols
 
 
@@ -379,26 +386,37 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
         app_name: Optional[types_schema.AppName] = None,
         app_version: Optional[types_schema.AppVersion] = None,
         app_versions: Optional[List[types_schema.AppVersion]] = None,
+        run_name: Optional[types_schema.RunName] = None,
         record_ids: Optional[List[types_schema.RecordID]] = None,
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> Tuple[pd.DataFrame, Sequence[str]]:
-        """Get records from the database.
+        """Get records, their feedback results, and feedback names.
 
         Args:
-            app_ids: If given, retrieve only the records for the given apps.
-                Otherwise all apps are retrieved.
-            app_name: If given, retrieve only the records for the given app name.
-            app_version: If given, retrieve only the records for the given app version.
-            app_versions: If given, retrieve only the records for the given app versions.
-            record_ids: Optional list of record IDs to filter by. Defaults to None.
-            offset: Database row offset.
-            limit: Limit on rows (records) returned.
+            app_ids:
+                A list of app ids to filter records by. If empty or not given,
+                all apps' records will be returned.
+            app_name:
+                A name of the app to filter records by. If given, only records
+                for this app will be returned.
+            app_version:
+                A version of the app to filter records by. If given, only
+                records for this app version will be returned.
+            run_name:
+                A run name to filter records by. If given, only records for
+                this run will be returned.
+            app_versions:
+                A list of app versions to filter records by. If given, only
+                records for these app versions will be returned.
+            record_ids: An optional list of record ids to filter records by.
+            offset: Record row offset.
+            limit: Limit on the number of records to return.
 
         Returns:
-            A DataFrame with the records.
-
-            A list of column names that contain feedback results.
+            Tuple of:
+            - DataFrame of records with their feedback results.
+            - List of feedback names that are columns in the DataFrame.
         """
         raise NotImplementedError()
 
@@ -576,6 +594,8 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
                     "latency": 0.0,  # Initialize to 0.0, filled below
                     "total_tokens": 0,  # Initialize to 0, calculated below
                     "total_cost": 0.0,  # Initialize to 0.0, calculated below
+                    "eval_cost": 0.0,  # Initialize to 0.0, calculated below (USD or non-Snowflake)
+                    "eval_cost_snowflake": 0.0,  # Initialize to 0.0, calculated below (Snowflake credits)
                     "cost_currency": "USD",  # Initialize to "USD", calculated below
                     "feedback_results": {},  # Initialize to empty map, calculated below
                 }
@@ -603,12 +623,29 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
                     event.timestamp - event.start_timestamp
                 ).total_seconds()
 
-            # Check if the span has cost info (tokens, cost, currency), and update record events
-            self._update_cost_info_otel(
-                record_events[record_id],
-                record_attributes,
-                include_tokens=True,
-            )
+            # Check if the span has cost info (tokens, cost, currency)
+            # For EVAL/EVAL_ROOT spans, track the cost separately as eval_cost.
+            span_type = record_attributes.get(SpanAttributes.SPAN_TYPE)
+            if span_type in [
+                SpanAttributes.SpanType.EVAL.value,
+                SpanAttributes.SpanType.EVAL_ROOT.value,
+            ]:
+                currency = record_attributes.get(
+                    SpanAttributes.COST.CURRENCY, "USD"
+                )
+                amount = record_attributes.get(SpanAttributes.COST.COST, 0.0)
+                if currency == "Snowflake credits":
+                    record_events[record_id]["eval_cost_snowflake"] += amount
+                else:
+                    record_events[record_id]["eval_cost"] += amount
+                # Do not add EVAL costs to total_cost to avoid lumping
+            else:
+                # For non-eval spans, update total_cost and tokens
+                self._update_cost_info_otel(
+                    record_events[record_id],
+                    record_attributes,
+                    include_tokens=True,
+                )
 
         # Process feedback results
         feedback_col_names = []
@@ -788,6 +825,8 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
                 "total_tokens": record_data["total_tokens"],
                 # TODO: convert to map (see comment: https://github.com/truera/trulens/pull/1939#discussion_r2054802093)
                 "total_cost": record_data["total_cost"],
+                "eval_cost": record_data["eval_cost"],
+                "eval_cost_snowflake": record_data["eval_cost_snowflake"],
                 "cost_currency": record_data["cost_currency"],
                 "num_events": len(record_data["events"]),
             }
@@ -821,6 +860,25 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
                 df[col] = None
 
         return df, feedback_col_names
+
+    def _extract_namespaced_attributes(
+        self, record_attributes: Dict[str, Any], namespace_prefix: str
+    ) -> Dict[str, Any]:
+        """Extract attributes that are namespaced under a given prefix.
+
+        Args:
+            record_attributes: Dictionary of all span attributes
+            namespace_prefix: The namespace prefix to look for (e.g., "ai.observability.call.kwargs")
+
+        Returns:
+            Dictionary with namespace-stripped keys and their values
+        """
+        prefix_with_dot = namespace_prefix + "."
+        return {
+            key[len(prefix_with_dot) :]: value
+            for key, value in record_attributes.items()
+            if key.startswith(prefix_with_dot)
+        }
 
     def _get_event_record_attributes_otel(self, event: Event) -> Dict[str, Any]:
         """Get the record attributes from the event.
@@ -932,10 +990,13 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
             f"snow.{BASE_SCOPE}.object.name",
             ResourceAttributes.APP_NAME,
         ])
-        app_version = get_value([
-            f"snow.{BASE_SCOPE}.object.version.name",
-            ResourceAttributes.APP_VERSION,
-        ])
+        app_version = (
+            get_value([
+                f"snow.{BASE_SCOPE}.object.version.name",
+                ResourceAttributes.APP_VERSION,
+            ])
+            or "base"
+        )
         app_id = get_value([ResourceAttributes.APP_ID])
         if app_id is None:
             app_id = app_schema.AppDefinition._compute_app_id(
@@ -945,4 +1006,4 @@ class DB(serial_utils.SerialModel, abc.ABC, text_utils.WithIdentString):
             f"snow.{BASE_SCOPE}.run.name",
             SpanAttributes.RUN_NAME,
         ])
-        return app_name, app_version, app_id, run_name
+        return app_name, str(app_version), app_id, run_name

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import json
+import gzip
+import orjson
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import requests  # type: ignore[import-untyped]
+from monty.io import zopen
 from monty.json import MontyDecoder
 from pydantic import Field, ImportString, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
     from typing import Any
     from typing_extensions import Self
 
-DEFAULT_CONFIG_FILE_PATH = str(Path.home().joinpath(".emmet.json"))
+DEFAULT_CONFIG_FILE_PATH = str(Path("~/.emmet.json").expanduser())
 
 
 class EmmetSettings(BaseSettings):
@@ -170,6 +172,16 @@ class EmmetSettings(BaseSettings):
         True,
         description="Use static calculations for structure and energy along with structure optimizations",
     )
+
+    USE_EMMET_MODELS: bool = Field(
+        False,
+        description=(
+            "Whether to use emmet (True) or pymatgen (False, default) models "
+            "for materials simulation outputs in certain document models "
+            "which are used only in workflows and not in build pipelines."
+        ),
+    )
+
     model_config = SettingsConfigDict(env_prefix="emmet_", extra="ignore")
 
     @model_validator(mode="before")
@@ -183,11 +195,16 @@ class EmmetSettings(BaseSettings):
 
         new_values = {}
 
+        # TODO: do we want to support gzipped config files?
         if config_file_path.startswith("http"):
-            new_values = requests.get(config_file_path).json()
+            response = requests.get(config_file_path)
+            if response.content.startswith(b"\x1f\x8b"):
+                new_values = orjson.loads(gzip.decompress(response.content))
+            else:
+                new_values = orjson.loads(response.content)
         elif Path(config_file_path).exists():
-            with open(config_file_path) as f:
-                new_values = json.load(f)
+            with zopen(config_file_path, "rb") as f:
+                new_values = orjson.loads(f.read())
 
         new_values.update(values)
 

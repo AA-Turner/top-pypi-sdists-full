@@ -331,59 +331,61 @@ class AccelerationDomain(AbstractModel):
 <li>process：部署中；</li>
 <li>offline：已停用；</li>
 <li>forbidden：已封禁；</li>
-<li>init：未生效，待激活站点；</li>
+<li>init：未生效，待激活站点。</li>
         :type DomainStatus: str
-        :param _OriginDetail: 源站信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type OriginDetail: :class:`tencentcloud.teo.v20220901.models.OriginDetail`
-        :param _OriginProtocol: 回源协议，取值有：
-<li>FOLLOW: 协议跟随；</li>
-<li>HTTP: HTTP协议回源；</li>
-<li>HTTPS: HTTPS协议回源。</li>
-注意：此字段可能返回 null，表示取不到有效值。
-        :type OriginProtocol: str
-        :param _Certificate: 域名证书信息
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Certificate: :class:`tencentcloud.teo.v20220901.models.AccelerationDomainCertificate`
-        :param _HttpOriginPort: HTTP回源端口。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type HttpOriginPort: int
-        :param _HttpsOriginPort: HTTPS回源端口。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type HttpsOriginPort: int
-        :param _IPv6Status: IPv6状态，取值有：
+        :param _Cname: CNAME 地址。
+        :type Cname: str
+        :param _IPv6Status: IPv6 状态，取值有：
 <li>follow：遵循站点IPv6配置；</li>
 <li>on：开启状态；</li>
 <li>off：关闭状态。</li>
 注意：此字段可能返回 null，表示取不到有效值。
         :type IPv6Status: str
-        :param _Cname: CNAME 地址。
-        :type Cname: str
-        :param _IdentificationStatus: 加速域名归属权验证状态，取值有： <li>pending：待验证；</li> <li>finished：已完成验证。</li>	
+        :param _IdentificationStatus: 加速域名归属权验证状态，取值有： 
+<li>pending：待验证；</li>
+<li>finished：已完成验证。</li>	
 注意：此字段可能返回 null，表示取不到有效值。
         :type IdentificationStatus: str
+        :param _OwnershipVerification: 加速域名需进行归属权验证才能继续提供服务时，该对象会携带对应验证方式所需要的信息。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OwnershipVerification: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        :param _OriginDetail: 源站信息。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OriginDetail: :class:`tencentcloud.teo.v20220901.models.OriginDetail`
+        :param _OriginProtocol: 回源协议，取值有：
+<li>FOLLOW：协议跟随；</li>
+<li>HTTP：HTTP协议回源；</li>
+<li>HTTPS：HTTPS协议回源。</li>
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OriginProtocol: str
+        :param _HttpOriginPort: HTTP 回源端口。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type HttpOriginPort: int
+        :param _HttpsOriginPort: HTTPS 回源端口。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type HttpsOriginPort: int
+        :param _Certificate: 加速域名证书信息。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Certificate: :class:`tencentcloud.teo.v20220901.models.AccelerationDomainCertificate`
         :param _CreatedOn: 创建时间。
         :type CreatedOn: str
         :param _ModifiedOn: 修改时间。
         :type ModifiedOn: str
-        :param _OwnershipVerification: 当域名需要进行归属权验证才能继续提供服务时，该对象会携带对应验证方式所需要的信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type OwnershipVerification: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
         """
         self._ZoneId = None
         self._DomainName = None
         self._DomainStatus = None
+        self._Cname = None
+        self._IPv6Status = None
+        self._IdentificationStatus = None
+        self._OwnershipVerification = None
         self._OriginDetail = None
         self._OriginProtocol = None
-        self._Certificate = None
         self._HttpOriginPort = None
         self._HttpsOriginPort = None
-        self._IPv6Status = None
-        self._Cname = None
-        self._IdentificationStatus = None
+        self._Certificate = None
         self._CreatedOn = None
         self._ModifiedOn = None
-        self._OwnershipVerification = None
 
     @property
     def ZoneId(self):
@@ -414,7 +416,7 @@ class AccelerationDomain(AbstractModel):
 <li>process：部署中；</li>
 <li>offline：已停用；</li>
 <li>forbidden：已封禁；</li>
-<li>init：未生效，待激活站点；</li>
+<li>init：未生效，待激活站点。</li>
         :rtype: str
         """
         return self._DomainStatus
@@ -422,6 +424,58 @@ class AccelerationDomain(AbstractModel):
     @DomainStatus.setter
     def DomainStatus(self, DomainStatus):
         self._DomainStatus = DomainStatus
+
+    @property
+    def Cname(self):
+        r"""CNAME 地址。
+        :rtype: str
+        """
+        return self._Cname
+
+    @Cname.setter
+    def Cname(self, Cname):
+        self._Cname = Cname
+
+    @property
+    def IPv6Status(self):
+        r"""IPv6 状态，取值有：
+<li>follow：遵循站点IPv6配置；</li>
+<li>on：开启状态；</li>
+<li>off：关闭状态。</li>
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._IPv6Status
+
+    @IPv6Status.setter
+    def IPv6Status(self, IPv6Status):
+        self._IPv6Status = IPv6Status
+
+    @property
+    def IdentificationStatus(self):
+        r"""加速域名归属权验证状态，取值有： 
+<li>pending：待验证；</li>
+<li>finished：已完成验证。</li>	
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._IdentificationStatus
+
+    @IdentificationStatus.setter
+    def IdentificationStatus(self, IdentificationStatus):
+        self._IdentificationStatus = IdentificationStatus
+
+    @property
+    def OwnershipVerification(self):
+        r"""加速域名需进行归属权验证才能继续提供服务时，该对象会携带对应验证方式所需要的信息。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        """
+        return self._OwnershipVerification
+
+    @OwnershipVerification.setter
+    def OwnershipVerification(self, OwnershipVerification):
+        self._OwnershipVerification = OwnershipVerification
 
     @property
     def OriginDetail(self):
@@ -438,9 +492,9 @@ class AccelerationDomain(AbstractModel):
     @property
     def OriginProtocol(self):
         r"""回源协议，取值有：
-<li>FOLLOW: 协议跟随；</li>
-<li>HTTP: HTTP协议回源；</li>
-<li>HTTPS: HTTPS协议回源。</li>
+<li>FOLLOW：协议跟随；</li>
+<li>HTTP：HTTP协议回源；</li>
+<li>HTTPS：HTTPS协议回源。</li>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -451,20 +505,8 @@ class AccelerationDomain(AbstractModel):
         self._OriginProtocol = OriginProtocol
 
     @property
-    def Certificate(self):
-        r"""域名证书信息
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: :class:`tencentcloud.teo.v20220901.models.AccelerationDomainCertificate`
-        """
-        return self._Certificate
-
-    @Certificate.setter
-    def Certificate(self, Certificate):
-        self._Certificate = Certificate
-
-    @property
     def HttpOriginPort(self):
-        r"""HTTP回源端口。
+        r"""HTTP 回源端口。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -476,7 +518,7 @@ class AccelerationDomain(AbstractModel):
 
     @property
     def HttpsOriginPort(self):
-        r"""HTTPS回源端口。
+        r"""HTTPS 回源端口。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -487,42 +529,16 @@ class AccelerationDomain(AbstractModel):
         self._HttpsOriginPort = HttpsOriginPort
 
     @property
-    def IPv6Status(self):
-        r"""IPv6状态，取值有：
-<li>follow：遵循站点IPv6配置；</li>
-<li>on：开启状态；</li>
-<li>off：关闭状态。</li>
+    def Certificate(self):
+        r"""加速域名证书信息。
 注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
+        :rtype: :class:`tencentcloud.teo.v20220901.models.AccelerationDomainCertificate`
         """
-        return self._IPv6Status
+        return self._Certificate
 
-    @IPv6Status.setter
-    def IPv6Status(self, IPv6Status):
-        self._IPv6Status = IPv6Status
-
-    @property
-    def Cname(self):
-        r"""CNAME 地址。
-        :rtype: str
-        """
-        return self._Cname
-
-    @Cname.setter
-    def Cname(self, Cname):
-        self._Cname = Cname
-
-    @property
-    def IdentificationStatus(self):
-        r"""加速域名归属权验证状态，取值有： <li>pending：待验证；</li> <li>finished：已完成验证。</li>	
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._IdentificationStatus
-
-    @IdentificationStatus.setter
-    def IdentificationStatus(self, IdentificationStatus):
-        self._IdentificationStatus = IdentificationStatus
+    @Certificate.setter
+    def Certificate(self, Certificate):
+        self._Certificate = Certificate
 
     @property
     def CreatedOn(self):
@@ -546,40 +562,28 @@ class AccelerationDomain(AbstractModel):
     def ModifiedOn(self, ModifiedOn):
         self._ModifiedOn = ModifiedOn
 
-    @property
-    def OwnershipVerification(self):
-        r"""当域名需要进行归属权验证才能继续提供服务时，该对象会携带对应验证方式所需要的信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
-        """
-        return self._OwnershipVerification
-
-    @OwnershipVerification.setter
-    def OwnershipVerification(self, OwnershipVerification):
-        self._OwnershipVerification = OwnershipVerification
-
 
     def _deserialize(self, params):
         self._ZoneId = params.get("ZoneId")
         self._DomainName = params.get("DomainName")
         self._DomainStatus = params.get("DomainStatus")
+        self._Cname = params.get("Cname")
+        self._IPv6Status = params.get("IPv6Status")
+        self._IdentificationStatus = params.get("IdentificationStatus")
+        if params.get("OwnershipVerification") is not None:
+            self._OwnershipVerification = OwnershipVerification()
+            self._OwnershipVerification._deserialize(params.get("OwnershipVerification"))
         if params.get("OriginDetail") is not None:
             self._OriginDetail = OriginDetail()
             self._OriginDetail._deserialize(params.get("OriginDetail"))
         self._OriginProtocol = params.get("OriginProtocol")
+        self._HttpOriginPort = params.get("HttpOriginPort")
+        self._HttpsOriginPort = params.get("HttpsOriginPort")
         if params.get("Certificate") is not None:
             self._Certificate = AccelerationDomainCertificate()
             self._Certificate._deserialize(params.get("Certificate"))
-        self._HttpOriginPort = params.get("HttpOriginPort")
-        self._HttpsOriginPort = params.get("HttpsOriginPort")
-        self._IPv6Status = params.get("IPv6Status")
-        self._Cname = params.get("Cname")
-        self._IdentificationStatus = params.get("IdentificationStatus")
         self._CreatedOn = params.get("CreatedOn")
         self._ModifiedOn = params.get("ModifiedOn")
-        if params.get("OwnershipVerification") is not None:
-            self._OwnershipVerification = OwnershipVerification()
-            self._OwnershipVerification._deserialize(params.get("OwnershipVerification"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -597,14 +601,14 @@ class AccelerationDomainCertificate(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Mode: 配置证书的模式，取值有： <li>disable：不配置证书；</li> <li>eofreecert：配置 EdgeOne 免费证书；</li> <li>sslcert：配置 SSL 证书。</li>
+        :param _Mode: 配置服务端证书的模式，取值有： <ul><li>disable：不配置服务端证书；</li> <li>eofreecert：通过自动验证申请免费证书并部署。验证方式详见：[申请免费证书支持的验证方式](https://cloud.tencent.com/document/product/1552/90437) - 在 NS 或者 DNSPod 托管接入模式下，仅支持自动验证的方式申请免费证书。 - 当免费证书申请失败时会导致证书部署失败，您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口获取申请失败原因。</li><li>eofreecert_manual：部署 DNS 委派验证或者文件验证申请的免费证书。在部署免费证书前，您需要触发<a href = 'https://cloud.tencent.com/document/product/1552/124807'>申请免费证书</a>接口申请免费证书。在免费证书申请成功后，你可以通过该枚举值对免费证书进行部署；</li> <ul><li>注意：在对免费证书部署时，需要保证当前已存在申请成功的免费证书。您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口检查当前是否已存在申请成功的免费证书。</li> </ul> <li>sslcert：配置 SSL 托管服务端证书。</li></ul>
         :type Mode: str
         :param _List: 服务端证书列表，相关证书部署在 EO 的入口侧。
 注意：此字段可能返回 null，表示取不到有效值。
         :type List: list of CertificateInfo
         :param _ClientCertInfo: 在边缘双向认证场景下，该字段为客户端的 CA 证书，部署在 EO 节点内，用于 EO 节点认证客户端证书。
         :type ClientCertInfo: :class:`tencentcloud.teo.v20220901.models.MutualTLS`
-        :param _UpstreamCertInfo: 用于 EO 节点回源时携带的证书，源站启用双向认证握手时使用，用于源站认证客户端证书是否有效，确保请求来源于受信任的 EO 节点。
+        :param _UpstreamCertInfo: 用于分别开启/关闭回源双向认证和源站证书校验。回源双向认证的证书用于 EO 回源时携带，源站可选择校验该证书用于确保请求来源于受信任的 EO 节点。源站证书校验开启时，证书配置用于 EO 节点校验源站证书是否可信。
         :type UpstreamCertInfo: :class:`tencentcloud.teo.v20220901.models.UpstreamCertInfo`
         """
         self._Mode = None
@@ -614,7 +618,7 @@ class AccelerationDomainCertificate(AbstractModel):
 
     @property
     def Mode(self):
-        r"""配置证书的模式，取值有： <li>disable：不配置证书；</li> <li>eofreecert：配置 EdgeOne 免费证书；</li> <li>sslcert：配置 SSL 证书。</li>
+        r"""配置服务端证书的模式，取值有： <ul><li>disable：不配置服务端证书；</li> <li>eofreecert：通过自动验证申请免费证书并部署。验证方式详见：[申请免费证书支持的验证方式](https://cloud.tencent.com/document/product/1552/90437) - 在 NS 或者 DNSPod 托管接入模式下，仅支持自动验证的方式申请免费证书。 - 当免费证书申请失败时会导致证书部署失败，您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口获取申请失败原因。</li><li>eofreecert_manual：部署 DNS 委派验证或者文件验证申请的免费证书。在部署免费证书前，您需要触发<a href = 'https://cloud.tencent.com/document/product/1552/124807'>申请免费证书</a>接口申请免费证书。在免费证书申请成功后，你可以通过该枚举值对免费证书进行部署；</li> <ul><li>注意：在对免费证书部署时，需要保证当前已存在申请成功的免费证书。您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口检查当前是否已存在申请成功的免费证书。</li> </ul> <li>sslcert：配置 SSL 托管服务端证书。</li></ul>
         :rtype: str
         """
         return self._Mode
@@ -648,7 +652,7 @@ class AccelerationDomainCertificate(AbstractModel):
 
     @property
     def UpstreamCertInfo(self):
-        r"""用于 EO 节点回源时携带的证书，源站启用双向认证握手时使用，用于源站认证客户端证书是否有效，确保请求来源于受信任的 EO 节点。
+        r"""用于分别开启/关闭回源双向认证和源站证书校验。回源双向认证的证书用于 EO 回源时携带，源站可选择校验该证书用于确保请求来源于受信任的 EO 节点。源站证书校验开启时，证书配置用于 EO 节点校验源站证书是否可信。
         :rtype: :class:`tencentcloud.teo.v20220901.models.UpstreamCertInfo`
         """
         return self._UpstreamCertInfo
@@ -2948,6 +2952,140 @@ class ApplicationProxyRule(AbstractModel):
         
 
 
+class ApplyFreeCertificateRequest(AbstractModel):
+    r"""ApplyFreeCertificate请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点ID。
+        :type ZoneId: str
+        :param _Domain: 申请免费证书的目标域名。
+        :type Domain: str
+        :param _VerificationMethod: 申请免费证书的验证方式，详细验证方式说明参考[免费证书申请方式说明文档](https://cloud.tencent.com/document/product/1552/90437) ，相关取值有：
+<li>http_challenge：HTTP 访问文件验证方式，通过 HTTP 访问域名指定 URL 获取文件信息以完成免费证书申请验证；</li>
+<li>dns_challenge：DNS 委派验证方式，通过添加指定的主机记录解析指向 EdgeOne 以完成免费证书申请验证。</li>
+注意：在触发本接口后，你需要根据返回的验证信息，完成验证内容配置。配置完成后，还需要通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口进行验证，验证通过后，即可申请成功。在免费证书申请成功后，你可以调用<a href = 'https://cloud.tencent.com/document/product/1552/80764'>配置域名证书</a>接口为当前域名部署免费证书。
+        :type VerificationMethod: str
+        """
+        self._ZoneId = None
+        self._Domain = None
+        self._VerificationMethod = None
+
+    @property
+    def ZoneId(self):
+        r"""站点ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Domain(self):
+        r"""申请免费证书的目标域名。
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def VerificationMethod(self):
+        r"""申请免费证书的验证方式，详细验证方式说明参考[免费证书申请方式说明文档](https://cloud.tencent.com/document/product/1552/90437) ，相关取值有：
+<li>http_challenge：HTTP 访问文件验证方式，通过 HTTP 访问域名指定 URL 获取文件信息以完成免费证书申请验证；</li>
+<li>dns_challenge：DNS 委派验证方式，通过添加指定的主机记录解析指向 EdgeOne 以完成免费证书申请验证。</li>
+注意：在触发本接口后，你需要根据返回的验证信息，完成验证内容配置。配置完成后，还需要通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口进行验证，验证通过后，即可申请成功。在免费证书申请成功后，你可以调用<a href = 'https://cloud.tencent.com/document/product/1552/80764'>配置域名证书</a>接口为当前域名部署免费证书。
+        :rtype: str
+        """
+        return self._VerificationMethod
+
+    @VerificationMethod.setter
+    def VerificationMethod(self, VerificationMethod):
+        self._VerificationMethod = VerificationMethod
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Domain = params.get("Domain")
+        self._VerificationMethod = params.get("VerificationMethod")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApplyFreeCertificateResponse(AbstractModel):
+    r"""ApplyFreeCertificate返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DnsVerification: 当 VerificationMethod 为 dns_challenge 时，域名申请免费证书的相关验证信息。
+        :type DnsVerification: :class:`tencentcloud.teo.v20220901.models.DnsVerification`
+        :param _FileVerification: 当 VerificationMethod 为 http_challenge 时，域名申请免费证书的相关验证信息。
+        :type FileVerification: :class:`tencentcloud.teo.v20220901.models.FileVerification`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._DnsVerification = None
+        self._FileVerification = None
+        self._RequestId = None
+
+    @property
+    def DnsVerification(self):
+        r"""当 VerificationMethod 为 dns_challenge 时，域名申请免费证书的相关验证信息。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.DnsVerification`
+        """
+        return self._DnsVerification
+
+    @DnsVerification.setter
+    def DnsVerification(self, DnsVerification):
+        self._DnsVerification = DnsVerification
+
+    @property
+    def FileVerification(self):
+        r"""当 VerificationMethod 为 http_challenge 时，域名申请免费证书的相关验证信息。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.FileVerification`
+        """
+        return self._FileVerification
+
+    @FileVerification.setter
+    def FileVerification(self, FileVerification):
+        self._FileVerification = FileVerification
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("DnsVerification") is not None:
+            self._DnsVerification = DnsVerification()
+            self._DnsVerification._deserialize(params.get("DnsVerification"))
+        if params.get("FileVerification") is not None:
+            self._FileVerification = FileVerification()
+            self._FileVerification._deserialize(params.get("FileVerification"))
+        self._RequestId = params.get("RequestId")
+
+
 class AscriptionInfo(AbstractModel):
     r"""站点归属信息
 
@@ -3256,6 +3394,112 @@ class BandwidthAbuseDefense(AbstractModel):
         if params.get("Action") is not None:
             self._Action = SecurityAction()
             self._Action._deserialize(params.get("Action"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BasicBotSettings(AbstractModel):
+    r"""Bot 管理的基础配置，对策略关联的所有域名生效。可以通过 CustomRules 进行精细化定制。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SourceIDC: 客户端 IP 的来源 IDC 配置，用于处置来自 IDC（数据中心） 的客户端 IP 的访问请求。此类来源请求不是由移动端或浏览器端直接访问。
+        :type SourceIDC: :class:`tencentcloud.teo.v20220901.models.SourceIDC`
+        :param _SearchEngineBots: 搜索引擎爬虫配置，用于处置来自搜索引擎爬虫的请求。此类请求的 IP、User-Agent 或 rDNS 结果匹配已知搜索引擎爬虫。
+        :type SearchEngineBots: :class:`tencentcloud.teo.v20220901.models.SearchEngineBots`
+        :param _KnownBotCategories: 商业或开源工具 UA 特征配置（原 UA 特征规则），用于处置来自已知商业工具或开源工具的访问请求。此类请求的 User-Agent 头部符合已知商业或开源工具特征。
+        :type KnownBotCategories: :class:`tencentcloud.teo.v20220901.models.KnownBotCategories`
+        :param _IPReputation: IP 威胁情报库（原客户端画像分析）配置，用于处置近期访问行为具有特定风险特征的客户端 IP。
+        :type IPReputation: :class:`tencentcloud.teo.v20220901.models.IPReputation`
+        :param _BotIntelligence: Bot 智能分析的具体配置。
+        :type BotIntelligence: :class:`tencentcloud.teo.v20220901.models.BotIntelligence`
+        """
+        self._SourceIDC = None
+        self._SearchEngineBots = None
+        self._KnownBotCategories = None
+        self._IPReputation = None
+        self._BotIntelligence = None
+
+    @property
+    def SourceIDC(self):
+        r"""客户端 IP 的来源 IDC 配置，用于处置来自 IDC（数据中心） 的客户端 IP 的访问请求。此类来源请求不是由移动端或浏览器端直接访问。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SourceIDC`
+        """
+        return self._SourceIDC
+
+    @SourceIDC.setter
+    def SourceIDC(self, SourceIDC):
+        self._SourceIDC = SourceIDC
+
+    @property
+    def SearchEngineBots(self):
+        r"""搜索引擎爬虫配置，用于处置来自搜索引擎爬虫的请求。此类请求的 IP、User-Agent 或 rDNS 结果匹配已知搜索引擎爬虫。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SearchEngineBots`
+        """
+        return self._SearchEngineBots
+
+    @SearchEngineBots.setter
+    def SearchEngineBots(self, SearchEngineBots):
+        self._SearchEngineBots = SearchEngineBots
+
+    @property
+    def KnownBotCategories(self):
+        r"""商业或开源工具 UA 特征配置（原 UA 特征规则），用于处置来自已知商业工具或开源工具的访问请求。此类请求的 User-Agent 头部符合已知商业或开源工具特征。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.KnownBotCategories`
+        """
+        return self._KnownBotCategories
+
+    @KnownBotCategories.setter
+    def KnownBotCategories(self, KnownBotCategories):
+        self._KnownBotCategories = KnownBotCategories
+
+    @property
+    def IPReputation(self):
+        r"""IP 威胁情报库（原客户端画像分析）配置，用于处置近期访问行为具有特定风险特征的客户端 IP。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.IPReputation`
+        """
+        return self._IPReputation
+
+    @IPReputation.setter
+    def IPReputation(self, IPReputation):
+        self._IPReputation = IPReputation
+
+    @property
+    def BotIntelligence(self):
+        r"""Bot 智能分析的具体配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BotIntelligence`
+        """
+        return self._BotIntelligence
+
+    @BotIntelligence.setter
+    def BotIntelligence(self, BotIntelligence):
+        self._BotIntelligence = BotIntelligence
+
+
+    def _deserialize(self, params):
+        if params.get("SourceIDC") is not None:
+            self._SourceIDC = SourceIDC()
+            self._SourceIDC._deserialize(params.get("SourceIDC"))
+        if params.get("SearchEngineBots") is not None:
+            self._SearchEngineBots = SearchEngineBots()
+            self._SearchEngineBots._deserialize(params.get("SearchEngineBots"))
+        if params.get("KnownBotCategories") is not None:
+            self._KnownBotCategories = KnownBotCategories()
+            self._KnownBotCategories._deserialize(params.get("KnownBotCategories"))
+        if params.get("IPReputation") is not None:
+            self._IPReputation = IPReputation()
+            self._IPReputation._deserialize(params.get("IPReputation"))
+        if params.get("BotIntelligence") is not None:
+            self._BotIntelligence = BotIntelligence()
+            self._BotIntelligence._deserialize(params.get("BotIntelligence"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4123,6 +4367,65 @@ class BotExtendAction(AbstractModel):
         
 
 
+class BotIntelligence(AbstractModel):
+    r"""Bot 智能分析的具体配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BotRatings: 基于客户端和请求特征，将请求来源分为人类来源请求、合法 Bot 请求、疑似 Bot 请求和高风险 Bot 请求，并提供请求处置选项。
+        :type BotRatings: :class:`tencentcloud.teo.v20220901.models.BotRatings`
+        :param _Enabled: Bot 智能分析的具体配置开关。取值有：
+
+on：开启；
+off：关闭。
+        :type Enabled: str
+        """
+        self._BotRatings = None
+        self._Enabled = None
+
+    @property
+    def BotRatings(self):
+        r"""基于客户端和请求特征，将请求来源分为人类来源请求、合法 Bot 请求、疑似 Bot 请求和高风险 Bot 请求，并提供请求处置选项。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BotRatings`
+        """
+        return self._BotRatings
+
+    @BotRatings.setter
+    def BotRatings(self, BotRatings):
+        self._BotRatings = BotRatings
+
+    @property
+    def Enabled(self):
+        r"""Bot 智能分析的具体配置开关。取值有：
+
+on：开启；
+off：关闭。
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+
+    def _deserialize(self, params):
+        if params.get("BotRatings") is not None:
+            self._BotRatings = BotRatings()
+            self._BotRatings._deserialize(params.get("BotRatings"))
+        self._Enabled = params.get("Enabled")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class BotManagedRule(AbstractModel):
     r"""Bot 规则，下列规则ID可参考接口 DescribeBotManagedRules返回的ID信息
 
@@ -4264,14 +4567,59 @@ class BotManagement(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClientAttestationRules: 客户端认证规则的定义列表。该功能内测中，如需使用，请提工单或联系智能客服。
+        :param _Enabled: Bot 管理是否开启。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :type Enabled: str
+        :param _CustomRules: Bot 管理的自定义规则，组合各类爬虫和请求行为特征，精准定义 Bot 并配置定制化处置方式。
+        :type CustomRules: :class:`tencentcloud.teo.v20220901.models.BotManagementCustomRules`
+        :param _BasicBotSettings: Bot 管理的基础配置，对策略关联的所有域名生效。可以通过 CustomRules 进行精细化定制。
+        :type BasicBotSettings: :class:`tencentcloud.teo.v20220901.models.BasicBotSettings`
+        :param _ClientAttestationRules: 客户端认证规则的定义列表。该功能内测中，如需使用，请提工单。
         :type ClientAttestationRules: :class:`tencentcloud.teo.v20220901.models.ClientAttestationRules`
+        :param _BrowserImpersonationDetection: 配置浏览器伪造识别规则（原主动特征识别规则）。设置注入 JavaScript 的响应页面范围，浏览器校验选项，以及对非浏览器客户端的处置方式。
+        :type BrowserImpersonationDetection: :class:`tencentcloud.teo.v20220901.models.BrowserImpersonationDetection`
         """
+        self._Enabled = None
+        self._CustomRules = None
+        self._BasicBotSettings = None
         self._ClientAttestationRules = None
+        self._BrowserImpersonationDetection = None
+
+    @property
+    def Enabled(self):
+        r"""Bot 管理是否开启。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def CustomRules(self):
+        r"""Bot 管理的自定义规则，组合各类爬虫和请求行为特征，精准定义 Bot 并配置定制化处置方式。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BotManagementCustomRules`
+        """
+        return self._CustomRules
+
+    @CustomRules.setter
+    def CustomRules(self, CustomRules):
+        self._CustomRules = CustomRules
+
+    @property
+    def BasicBotSettings(self):
+        r"""Bot 管理的基础配置，对策略关联的所有域名生效。可以通过 CustomRules 进行精细化定制。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BasicBotSettings`
+        """
+        return self._BasicBotSettings
+
+    @BasicBotSettings.setter
+    def BasicBotSettings(self, BasicBotSettings):
+        self._BasicBotSettings = BasicBotSettings
 
     @property
     def ClientAttestationRules(self):
-        r"""客户端认证规则的定义列表。该功能内测中，如需使用，请提工单或联系智能客服。
+        r"""客户端认证规则的定义列表。该功能内测中，如需使用，请提工单。
         :rtype: :class:`tencentcloud.teo.v20220901.models.ClientAttestationRules`
         """
         return self._ClientAttestationRules
@@ -4280,11 +4628,244 @@ class BotManagement(AbstractModel):
     def ClientAttestationRules(self, ClientAttestationRules):
         self._ClientAttestationRules = ClientAttestationRules
 
+    @property
+    def BrowserImpersonationDetection(self):
+        r"""配置浏览器伪造识别规则（原主动特征识别规则）。设置注入 JavaScript 的响应页面范围，浏览器校验选项，以及对非浏览器客户端的处置方式。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BrowserImpersonationDetection`
+        """
+        return self._BrowserImpersonationDetection
+
+    @BrowserImpersonationDetection.setter
+    def BrowserImpersonationDetection(self, BrowserImpersonationDetection):
+        self._BrowserImpersonationDetection = BrowserImpersonationDetection
+
 
     def _deserialize(self, params):
+        self._Enabled = params.get("Enabled")
+        if params.get("CustomRules") is not None:
+            self._CustomRules = BotManagementCustomRules()
+            self._CustomRules._deserialize(params.get("CustomRules"))
+        if params.get("BasicBotSettings") is not None:
+            self._BasicBotSettings = BasicBotSettings()
+            self._BasicBotSettings._deserialize(params.get("BasicBotSettings"))
         if params.get("ClientAttestationRules") is not None:
             self._ClientAttestationRules = ClientAttestationRules()
             self._ClientAttestationRules._deserialize(params.get("ClientAttestationRules"))
+        if params.get("BrowserImpersonationDetection") is not None:
+            self._BrowserImpersonationDetection = BrowserImpersonationDetection()
+            self._BrowserImpersonationDetection._deserialize(params.get("BrowserImpersonationDetection"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BotManagementActionOverrides(AbstractModel):
+    r"""Bot 规则项的具体配置，用于覆盖上层的默认配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: Bot 规则组下的具体项，用于改写此单条规则项配置的内容，Ids 所对应的具体信息请参考 DescribeBotManagedRules 接口返回的信息。
+        :type Ids: list of str
+        :param _Action: Ids 中指定 Bot 规则项的处置动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（仅限Bot基础特征管理）。</li>
+
+        :type Action: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        self._Ids = None
+        self._Action = None
+
+    @property
+    def Ids(self):
+        r"""Bot 规则组下的具体项，用于改写此单条规则项配置的内容，Ids 所对应的具体信息请参考 DescribeBotManagedRules 接口返回的信息。
+        :rtype: list of str
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def Action(self):
+        r"""Ids 中指定 Bot 规则项的处置动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（仅限Bot基础特征管理）。</li>
+
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._Action
+
+    @Action.setter
+    def Action(self, Action):
+        self._Action = Action
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        if params.get("Action") is not None:
+            self._Action = SecurityAction()
+            self._Action._deserialize(params.get("Action"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BotManagementCustomRule(AbstractModel):
+    r"""Web 安全的 Bot 自定义规则。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Bot 自定义规则的 ID。<br>通过规则 ID 可支持不同的规则配置操作：<br> <li> <b>增加</b>新规则：ID 为空或不指定 ID 参数；</li><li><b>修改</b>已有规则：指定需要更新/修改的规则 ID；</li><li><b>删除</b>已有规则：BotManagementCustomRules 参数中，Rules 列表中未包含的已有规则将被删除。</li>
+        :type Id: str
+        :param _Name: Bot 自定义规则的名称。
+        :type Name: str
+        :param _Enabled: Bot 自定义规则是否开启。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :type Enabled: str
+        :param _Priority: Bot 自定义规则的优先级，范围是 1 ~ 100，默认为 50。
+        :type Priority: int
+        :param _Condition: Bot 自定义规则的具体内容，需符合表达式语法，详细规范参见产品文档。
+        :type Condition: str
+        :param _Action: Bot 自定义规则的处置方式。取值有：<li>Monitor：观察；</li><li>Deny：拦截，其中 DenyActionParameters.Name 支持 Deny 和 ReturnCustomPage；</li><li>Challenge：挑战，其中 ChallengeActionParameters.Name 支持 JSChallenge 和 ManagedChallenge；</li><li>Redirect：重定向至 URL。</li>
+        :type Action: list of SecurityWeightedAction
+        """
+        self._Id = None
+        self._Name = None
+        self._Enabled = None
+        self._Priority = None
+        self._Condition = None
+        self._Action = None
+
+    @property
+    def Id(self):
+        r"""Bot 自定义规则的 ID。<br>通过规则 ID 可支持不同的规则配置操作：<br> <li> <b>增加</b>新规则：ID 为空或不指定 ID 参数；</li><li><b>修改</b>已有规则：指定需要更新/修改的规则 ID；</li><li><b>删除</b>已有规则：BotManagementCustomRules 参数中，Rules 列表中未包含的已有规则将被删除。</li>
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Name(self):
+        r"""Bot 自定义规则的名称。
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Enabled(self):
+        r"""Bot 自定义规则是否开启。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def Priority(self):
+        r"""Bot 自定义规则的优先级，范围是 1 ~ 100，默认为 50。
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+    @property
+    def Condition(self):
+        r"""Bot 自定义规则的具体内容，需符合表达式语法，详细规范参见产品文档。
+        :rtype: str
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+    @property
+    def Action(self):
+        r"""Bot 自定义规则的处置方式。取值有：<li>Monitor：观察；</li><li>Deny：拦截，其中 DenyActionParameters.Name 支持 Deny 和 ReturnCustomPage；</li><li>Challenge：挑战，其中 ChallengeActionParameters.Name 支持 JSChallenge 和 ManagedChallenge；</li><li>Redirect：重定向至 URL。</li>
+        :rtype: list of SecurityWeightedAction
+        """
+        return self._Action
+
+    @Action.setter
+    def Action(self, Action):
+        self._Action = Action
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Name = params.get("Name")
+        self._Enabled = params.get("Enabled")
+        self._Priority = params.get("Priority")
+        self._Condition = params.get("Condition")
+        if params.get("Action") is not None:
+            self._Action = []
+            for item in params.get("Action"):
+                obj = SecurityWeightedAction()
+                obj._deserialize(item)
+                self._Action.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BotManagementCustomRules(AbstractModel):
+    r"""Bot 自定义规则的配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Rules: Bot 自定义规则的列表。使用 ModifySecurityPolicy 修改 Web 防护配置时： <br> <li>  若未指定 SecurityPolicy.BotManagement.CustomRules 中的 Rules 参数，或 Rules 参数长度为零：清空所有 Bot 自定义规则配置。</li> <li> 若 SecurityPolicy.BotManagement 参数中，未指定 CustomRules 参数值：保持已有 Bot 自定义规则配置，不做修改。</li>
+        :type Rules: list of BotManagementCustomRule
+        """
+        self._Rules = None
+
+    @property
+    def Rules(self):
+        r"""Bot 自定义规则的列表。使用 ModifySecurityPolicy 修改 Web 防护配置时： <br> <li>  若未指定 SecurityPolicy.BotManagement.CustomRules 中的 Rules 参数，或 Rules 参数长度为零：清空所有 Bot 自定义规则配置。</li> <li> 若 SecurityPolicy.BotManagement 参数中，未指定 CustomRules 参数值：保持已有 Bot 自定义规则配置，不做修改。</li>
+        :rtype: list of BotManagementCustomRule
+        """
+        return self._Rules
+
+    @Rules.setter
+    def Rules(self, Rules):
+        self._Rules = Rules
+
+
+    def _deserialize(self, params):
+        if params.get("Rules") is not None:
+            self._Rules = []
+            for item in params.get("Rules"):
+                obj = BotManagementCustomRule()
+                obj._deserialize(item)
+                self._Rules.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4400,6 +4981,199 @@ class BotPortraitRule(AbstractModel):
         self._CapManagedIds = params.get("CapManagedIds")
         self._MonManagedIds = params.get("MonManagedIds")
         self._DropManagedIds = params.get("DropManagedIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BotRatings(AbstractModel):
+    r"""基于客户端和请求特征，将请求来源分为人类来源请求、合法 Bot 请求、疑似 Bot 请求和高风险 Bot 请求，并提供请求处置选项。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _HighRiskBotRequestsAction: 恶意 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Allow：放行；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :type HighRiskBotRequestsAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _LikelyBotRequestsAction: 疑似 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Allow：放行；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :type LikelyBotRequestsAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _VerifiedBotRequestsAction: 友好 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Allow：放行；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :type VerifiedBotRequestsAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _HumanRequestsAction: 正常 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Allow：放行。</li>
+        :type HumanRequestsAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        self._HighRiskBotRequestsAction = None
+        self._LikelyBotRequestsAction = None
+        self._VerifiedBotRequestsAction = None
+        self._HumanRequestsAction = None
+
+    @property
+    def HighRiskBotRequestsAction(self):
+        r"""恶意 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Allow：放行；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._HighRiskBotRequestsAction
+
+    @HighRiskBotRequestsAction.setter
+    def HighRiskBotRequestsAction(self, HighRiskBotRequestsAction):
+        self._HighRiskBotRequestsAction = HighRiskBotRequestsAction
+
+    @property
+    def LikelyBotRequestsAction(self):
+        r"""疑似 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Allow：放行；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._LikelyBotRequestsAction
+
+    @LikelyBotRequestsAction.setter
+    def LikelyBotRequestsAction(self, LikelyBotRequestsAction):
+        self._LikelyBotRequestsAction = LikelyBotRequestsAction
+
+    @property
+    def VerifiedBotRequestsAction(self):
+        r"""友好 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Allow：放行；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._VerifiedBotRequestsAction
+
+    @VerifiedBotRequestsAction.setter
+    def VerifiedBotRequestsAction(self, VerifiedBotRequestsAction):
+        self._VerifiedBotRequestsAction = VerifiedBotRequestsAction
+
+    @property
+    def HumanRequestsAction(self):
+        r"""正常 Bot 请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Allow：放行。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._HumanRequestsAction
+
+    @HumanRequestsAction.setter
+    def HumanRequestsAction(self, HumanRequestsAction):
+        self._HumanRequestsAction = HumanRequestsAction
+
+
+    def _deserialize(self, params):
+        if params.get("HighRiskBotRequestsAction") is not None:
+            self._HighRiskBotRequestsAction = SecurityAction()
+            self._HighRiskBotRequestsAction._deserialize(params.get("HighRiskBotRequestsAction"))
+        if params.get("LikelyBotRequestsAction") is not None:
+            self._LikelyBotRequestsAction = SecurityAction()
+            self._LikelyBotRequestsAction._deserialize(params.get("LikelyBotRequestsAction"))
+        if params.get("VerifiedBotRequestsAction") is not None:
+            self._VerifiedBotRequestsAction = SecurityAction()
+            self._VerifiedBotRequestsAction._deserialize(params.get("VerifiedBotRequestsAction"))
+        if params.get("HumanRequestsAction") is not None:
+            self._HumanRequestsAction = SecurityAction()
+            self._HumanRequestsAction._deserialize(params.get("HumanRequestsAction"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BotSessionValidation(AbstractModel):
+    r"""Cookie 校验和会话跟踪行为具体配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IssueNewBotSessionCookie: 是否更新 Cookie 并校验。取值有：<li>on：更新 Cookie 并校验；</li><li>off：仅校验。</li>
+        :type IssueNewBotSessionCookie: str
+        :param _MaxNewSessionTriggerConfig: 更新 Cookie 并校验时的触发阈值，仅当 IssueNewBotSessionCookie 为 on 时有效。
+        :type MaxNewSessionTriggerConfig: :class:`tencentcloud.teo.v20220901.models.MaxNewSessionTriggerConfig`
+        :param _SessionExpiredAction: 未携带 Cookie 或 Cookie 已过期的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type SessionExpiredAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _SessionInvalidAction: 不合法 Cookie 的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type SessionInvalidAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _SessionRateControl: 会话速率和周期特征校验的具体配置。
+        :type SessionRateControl: :class:`tencentcloud.teo.v20220901.models.SessionRateControl`
+        """
+        self._IssueNewBotSessionCookie = None
+        self._MaxNewSessionTriggerConfig = None
+        self._SessionExpiredAction = None
+        self._SessionInvalidAction = None
+        self._SessionRateControl = None
+
+    @property
+    def IssueNewBotSessionCookie(self):
+        r"""是否更新 Cookie 并校验。取值有：<li>on：更新 Cookie 并校验；</li><li>off：仅校验。</li>
+        :rtype: str
+        """
+        return self._IssueNewBotSessionCookie
+
+    @IssueNewBotSessionCookie.setter
+    def IssueNewBotSessionCookie(self, IssueNewBotSessionCookie):
+        self._IssueNewBotSessionCookie = IssueNewBotSessionCookie
+
+    @property
+    def MaxNewSessionTriggerConfig(self):
+        r"""更新 Cookie 并校验时的触发阈值，仅当 IssueNewBotSessionCookie 为 on 时有效。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MaxNewSessionTriggerConfig`
+        """
+        return self._MaxNewSessionTriggerConfig
+
+    @MaxNewSessionTriggerConfig.setter
+    def MaxNewSessionTriggerConfig(self, MaxNewSessionTriggerConfig):
+        self._MaxNewSessionTriggerConfig = MaxNewSessionTriggerConfig
+
+    @property
+    def SessionExpiredAction(self):
+        r"""未携带 Cookie 或 Cookie 已过期的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._SessionExpiredAction
+
+    @SessionExpiredAction.setter
+    def SessionExpiredAction(self, SessionExpiredAction):
+        self._SessionExpiredAction = SessionExpiredAction
+
+    @property
+    def SessionInvalidAction(self):
+        r"""不合法 Cookie 的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._SessionInvalidAction
+
+    @SessionInvalidAction.setter
+    def SessionInvalidAction(self, SessionInvalidAction):
+        self._SessionInvalidAction = SessionInvalidAction
+
+    @property
+    def SessionRateControl(self):
+        r"""会话速率和周期特征校验的具体配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SessionRateControl`
+        """
+        return self._SessionRateControl
+
+    @SessionRateControl.setter
+    def SessionRateControl(self, SessionRateControl):
+        self._SessionRateControl = SessionRateControl
+
+
+    def _deserialize(self, params):
+        self._IssueNewBotSessionCookie = params.get("IssueNewBotSessionCookie")
+        if params.get("MaxNewSessionTriggerConfig") is not None:
+            self._MaxNewSessionTriggerConfig = MaxNewSessionTriggerConfig()
+            self._MaxNewSessionTriggerConfig._deserialize(params.get("MaxNewSessionTriggerConfig"))
+        if params.get("SessionExpiredAction") is not None:
+            self._SessionExpiredAction = SecurityAction()
+            self._SessionExpiredAction._deserialize(params.get("SessionExpiredAction"))
+        if params.get("SessionInvalidAction") is not None:
+            self._SessionInvalidAction = SecurityAction()
+            self._SessionInvalidAction._deserialize(params.get("SessionInvalidAction"))
+        if params.get("SessionRateControl") is not None:
+            self._SessionRateControl = SessionRateControl()
+            self._SessionRateControl._deserialize(params.get("SessionRateControl"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4687,6 +5461,200 @@ class BotUserRule(AbstractModel):
         
 
 
+class BrowserImpersonationDetection(AbstractModel):
+    r"""浏览器伪造识别规则（原主动特征识别规则）的配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Rules: 浏览器伪造识别规则的列表。使用 ModifySecurityPolicy 修改 Web 防护配置时： <br> <li>  若未指定 SecurityPolicy.BotManagement.BrowserImpersonationDetection 中的 Rules 参数，或 Rules 参数长度为零： 清空所有浏览器伪造识别规则配置。</li> <li> 若 SecurityPolicy.BotManagement 参数中，未指定 BrowserImpersonationDetection 参数值： 保持已有浏览器伪造识别规则配置，不做修改。</li>
+        :type Rules: list of BrowserImpersonationDetectionRule
+        """
+        self._Rules = None
+
+    @property
+    def Rules(self):
+        r"""浏览器伪造识别规则的列表。使用 ModifySecurityPolicy 修改 Web 防护配置时： <br> <li>  若未指定 SecurityPolicy.BotManagement.BrowserImpersonationDetection 中的 Rules 参数，或 Rules 参数长度为零： 清空所有浏览器伪造识别规则配置。</li> <li> 若 SecurityPolicy.BotManagement 参数中，未指定 BrowserImpersonationDetection 参数值： 保持已有浏览器伪造识别规则配置，不做修改。</li>
+        :rtype: list of BrowserImpersonationDetectionRule
+        """
+        return self._Rules
+
+    @Rules.setter
+    def Rules(self, Rules):
+        self._Rules = Rules
+
+
+    def _deserialize(self, params):
+        if params.get("Rules") is not None:
+            self._Rules = []
+            for item in params.get("Rules"):
+                obj = BrowserImpersonationDetectionRule()
+                obj._deserialize(item)
+                self._Rules.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BrowserImpersonationDetectionAction(AbstractModel):
+    r"""Bot 浏览器校验规则（原主动特征识别规则）的 Action。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BotSessionValidation: Cookie 校验和会话跟踪配置。
+        :type BotSessionValidation: :class:`tencentcloud.teo.v20220901.models.BotSessionValidation`
+        :param _ClientBehaviorDetection: 客户端行为校验配置。
+        :type ClientBehaviorDetection: :class:`tencentcloud.teo.v20220901.models.ClientBehaviorDetection`
+        """
+        self._BotSessionValidation = None
+        self._ClientBehaviorDetection = None
+
+    @property
+    def BotSessionValidation(self):
+        r"""Cookie 校验和会话跟踪配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BotSessionValidation`
+        """
+        return self._BotSessionValidation
+
+    @BotSessionValidation.setter
+    def BotSessionValidation(self, BotSessionValidation):
+        self._BotSessionValidation = BotSessionValidation
+
+    @property
+    def ClientBehaviorDetection(self):
+        r"""客户端行为校验配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.ClientBehaviorDetection`
+        """
+        return self._ClientBehaviorDetection
+
+    @ClientBehaviorDetection.setter
+    def ClientBehaviorDetection(self, ClientBehaviorDetection):
+        self._ClientBehaviorDetection = ClientBehaviorDetection
+
+
+    def _deserialize(self, params):
+        if params.get("BotSessionValidation") is not None:
+            self._BotSessionValidation = BotSessionValidation()
+            self._BotSessionValidation._deserialize(params.get("BotSessionValidation"))
+        if params.get("ClientBehaviorDetection") is not None:
+            self._ClientBehaviorDetection = ClientBehaviorDetection()
+            self._ClientBehaviorDetection._deserialize(params.get("ClientBehaviorDetection"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BrowserImpersonationDetectionRule(AbstractModel):
+    r"""浏览器伪造识别规则（原主动特征识别规则）。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 浏览器伪造识别规则的 ID。<br>通过规则 ID 可支持不同的规则配置操作：<br> <li> <b>增加</b>新规则：ID 为空或不指定 ID 参数；</li><li><b>修改</b>已有规则：指定需要更新/修改的规则 ID；</li><li><b>删除</b>已有规则：BrowserImpersonationDetection 参数中，Rules 列表中未包含的已有规则将被删除。</li>
+        :type Id: str
+        :param _Name: 浏览器伪造识别规则的名称。
+        :type Name: str
+        :param _Enabled: 浏览器伪造识别规则是否开启。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :type Enabled: str
+        :param _Condition: 浏览器伪造识别规则的具体内容，其中仅支持请求方式（Method）、请求路径（Path）和请求 URL 的配置，需符合表达式语法，详细规范参见产品文档。
+        :type Condition: str
+        :param _Action: 浏览器伪造识别规则的处置方式，包括 Cookie 校验和会话跟踪配置以及客户端行为校验配置。
+        :type Action: :class:`tencentcloud.teo.v20220901.models.BrowserImpersonationDetectionAction`
+        """
+        self._Id = None
+        self._Name = None
+        self._Enabled = None
+        self._Condition = None
+        self._Action = None
+
+    @property
+    def Id(self):
+        r"""浏览器伪造识别规则的 ID。<br>通过规则 ID 可支持不同的规则配置操作：<br> <li> <b>增加</b>新规则：ID 为空或不指定 ID 参数；</li><li><b>修改</b>已有规则：指定需要更新/修改的规则 ID；</li><li><b>删除</b>已有规则：BrowserImpersonationDetection 参数中，Rules 列表中未包含的已有规则将被删除。</li>
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Name(self):
+        r"""浏览器伪造识别规则的名称。
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Enabled(self):
+        r"""浏览器伪造识别规则是否开启。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def Condition(self):
+        r"""浏览器伪造识别规则的具体内容，其中仅支持请求方式（Method）、请求路径（Path）和请求 URL 的配置，需符合表达式语法，详细规范参见产品文档。
+        :rtype: str
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+    @property
+    def Action(self):
+        r"""浏览器伪造识别规则的处置方式，包括 Cookie 校验和会话跟踪配置以及客户端行为校验配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.BrowserImpersonationDetectionAction`
+        """
+        return self._Action
+
+    @Action.setter
+    def Action(self, Action):
+        self._Action = Action
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Name = params.get("Name")
+        self._Enabled = params.get("Enabled")
+        self._Condition = params.get("Condition")
+        if params.get("Action") is not None:
+            self._Action = BrowserImpersonationDetectionAction()
+            self._Action._deserialize(params.get("Action"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class CC(AbstractModel):
     r"""cc配置项。
 
@@ -4798,6 +5766,65 @@ class CLSTopic(AbstractModel):
         self._LogSetId = params.get("LogSetId")
         self._TopicId = params.get("TopicId")
         self._LogSetRegion = params.get("LogSetRegion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CNAMEDetail(AbstractModel):
+    r"""CNAME 接入类型站点参数详情。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IsFake: 是否伪站点，取值有：
+<li> 0：非伪站点；</li>
+<li> 1：伪站点。</li>
+
+        :type IsFake: int
+        :param _OwnershipVerification: 归属权验证信息。详情请参考 [站点/域名归属权验证](https://cloud.tencent.com/document/product/1552/70789) 。
+        :type OwnershipVerification: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        """
+        self._IsFake = None
+        self._OwnershipVerification = None
+
+    @property
+    def IsFake(self):
+        r"""是否伪站点，取值有：
+<li> 0：非伪站点；</li>
+<li> 1：伪站点。</li>
+
+        :rtype: int
+        """
+        return self._IsFake
+
+    @IsFake.setter
+    def IsFake(self, IsFake):
+        self._IsFake = IsFake
+
+    @property
+    def OwnershipVerification(self):
+        r"""归属权验证信息。详情请参考 [站点/域名归属权验证](https://cloud.tencent.com/document/product/1552/70789) 。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        """
+        return self._OwnershipVerification
+
+    @OwnershipVerification.setter
+    def OwnershipVerification(self, OwnershipVerification):
+        self._OwnershipVerification = OwnershipVerification
+
+
+    def _deserialize(self, params):
+        self._IsFake = params.get("IsFake")
+        if params.get("OwnershipVerification") is not None:
+            self._OwnershipVerification = OwnershipVerification()
+            self._OwnershipVerification._deserialize(params.get("OwnershipVerification"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6182,6 +7209,132 @@ class CheckCnameStatusResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CheckFreeCertificateVerificationRequest(AbstractModel):
+    r"""CheckFreeCertificateVerification请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点 ID。
+        :type ZoneId: str
+        :param _Domain: 加速域名，该域名为[申请免费证书](https://cloud.tencent.com/document/product/1552/124807)时使用的域名。
+        :type Domain: str
+        """
+        self._ZoneId = None
+        self._Domain = None
+
+    @property
+    def ZoneId(self):
+        r"""站点 ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Domain(self):
+        r"""加速域名，该域名为[申请免费证书](https://cloud.tencent.com/document/product/1552/124807)时使用的域名。
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Domain = params.get("Domain")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CheckFreeCertificateVerificationResponse(AbstractModel):
+    r"""CheckFreeCertificateVerification返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CommonName: 免费证书申请成功时，该证书颁发给的域名。
+注意：一个域名只允许申请一本免费证书， 如果已经有泛域名申请了免费证书的情况下，其子域名会匹配使用该泛域名证书。
+        :type CommonName: str
+        :param _SignatureAlgorithm: 免费证书申请成功时，该证书使用的签名算法，当前仅支持 RSA 2048。
+        :type SignatureAlgorithm: str
+        :param _ExpireTime: 免费证书申请成功时，该证书的过期时间。时间为世界标准时间（UTC）， 遵循 ISO 8601 标准的日期和时间格式。
+        :type ExpireTime: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._CommonName = None
+        self._SignatureAlgorithm = None
+        self._ExpireTime = None
+        self._RequestId = None
+
+    @property
+    def CommonName(self):
+        r"""免费证书申请成功时，该证书颁发给的域名。
+注意：一个域名只允许申请一本免费证书， 如果已经有泛域名申请了免费证书的情况下，其子域名会匹配使用该泛域名证书。
+        :rtype: str
+        """
+        return self._CommonName
+
+    @CommonName.setter
+    def CommonName(self, CommonName):
+        self._CommonName = CommonName
+
+    @property
+    def SignatureAlgorithm(self):
+        r"""免费证书申请成功时，该证书使用的签名算法，当前仅支持 RSA 2048。
+        :rtype: str
+        """
+        return self._SignatureAlgorithm
+
+    @SignatureAlgorithm.setter
+    def SignatureAlgorithm(self, SignatureAlgorithm):
+        self._SignatureAlgorithm = SignatureAlgorithm
+
+    @property
+    def ExpireTime(self):
+        r"""免费证书申请成功时，该证书的过期时间。时间为世界标准时间（UTC）， 遵循 ISO 8601 标准的日期和时间格式。
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._CommonName = params.get("CommonName")
+        self._SignatureAlgorithm = params.get("SignatureAlgorithm")
+        self._ExpireTime = params.get("ExpireTime")
+        self._RequestId = params.get("RequestId")
+
+
 class CheckRegionHealthStatus(AbstractModel):
     r"""各个健康检查区域下源站的健康状态。
 
@@ -6586,6 +7739,138 @@ class ClientAttester(AbstractModel):
         if params.get("TCCaptchaOption") is not None:
             self._TCCaptchaOption = TCCaptchaOption()
             self._TCCaptchaOption._deserialize(params.get("TCCaptchaOption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ClientBehaviorDetection(AbstractModel):
+    r"""客户端行为校验
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CryptoChallengeIntensity: 工作量证明校验强度。取值有：<li>low：低；</li><li>medium：中；</li><li>high：高。</li>
+        :type CryptoChallengeIntensity: str
+        :param _CryptoChallengeDelayBefore: 客户端行为校验的执行方式。取值有：<li>0ms：立即执行；</li><li>100ms：延迟 100ms 执行；</li><li>200ms：延迟 200ms 执行；</li><li>300ms：延迟 300ms 执行；</li><li>400ms：延迟 400ms 执行；</li><li>500ms：延迟 500ms 执行；</li><li>600ms：延迟 600ms 执行；</li><li>700ms：延迟 700ms 执行；</li><li>800ms：延迟 800ms 执行；</li><li>900ms：延迟 900ms 执行；</li><li>1000ms：延迟 1000ms 执行。</li> 
+        :type CryptoChallengeDelayBefore: str
+        :param _MaxChallengeCountInterval: 触发阈值统计的时间窗口，取值有：<li>5s：5 秒内；</li><li>10s：10 秒内；</li><li>15s：15 秒内；</li><li>30s：30 秒内；</li><li>60s：60 秒内；</li><li>5m：5 分钟内；</li><li>10m：10 分钟内；</li><li>30m：30 分钟内；</li><li>60m：60 分钟内。</li> 
+        :type MaxChallengeCountInterval: str
+        :param _MaxChallengeCountThreshold: 触发阈值统计的累计次数，取值范围 1 ~ 100000000。
+        :type MaxChallengeCountThreshold: int
+        :param _ChallengeNotFinishedAction: 客户端未启用 JS（未完成检测）时的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type ChallengeNotFinishedAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _ChallengeTimeoutAction: 客户端检测超时的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type ChallengeTimeoutAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _BotClientAction: Bot 客户端的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type BotClientAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        self._CryptoChallengeIntensity = None
+        self._CryptoChallengeDelayBefore = None
+        self._MaxChallengeCountInterval = None
+        self._MaxChallengeCountThreshold = None
+        self._ChallengeNotFinishedAction = None
+        self._ChallengeTimeoutAction = None
+        self._BotClientAction = None
+
+    @property
+    def CryptoChallengeIntensity(self):
+        r"""工作量证明校验强度。取值有：<li>low：低；</li><li>medium：中；</li><li>high：高。</li>
+        :rtype: str
+        """
+        return self._CryptoChallengeIntensity
+
+    @CryptoChallengeIntensity.setter
+    def CryptoChallengeIntensity(self, CryptoChallengeIntensity):
+        self._CryptoChallengeIntensity = CryptoChallengeIntensity
+
+    @property
+    def CryptoChallengeDelayBefore(self):
+        r"""客户端行为校验的执行方式。取值有：<li>0ms：立即执行；</li><li>100ms：延迟 100ms 执行；</li><li>200ms：延迟 200ms 执行；</li><li>300ms：延迟 300ms 执行；</li><li>400ms：延迟 400ms 执行；</li><li>500ms：延迟 500ms 执行；</li><li>600ms：延迟 600ms 执行；</li><li>700ms：延迟 700ms 执行；</li><li>800ms：延迟 800ms 执行；</li><li>900ms：延迟 900ms 执行；</li><li>1000ms：延迟 1000ms 执行。</li> 
+        :rtype: str
+        """
+        return self._CryptoChallengeDelayBefore
+
+    @CryptoChallengeDelayBefore.setter
+    def CryptoChallengeDelayBefore(self, CryptoChallengeDelayBefore):
+        self._CryptoChallengeDelayBefore = CryptoChallengeDelayBefore
+
+    @property
+    def MaxChallengeCountInterval(self):
+        r"""触发阈值统计的时间窗口，取值有：<li>5s：5 秒内；</li><li>10s：10 秒内；</li><li>15s：15 秒内；</li><li>30s：30 秒内；</li><li>60s：60 秒内；</li><li>5m：5 分钟内；</li><li>10m：10 分钟内；</li><li>30m：30 分钟内；</li><li>60m：60 分钟内。</li> 
+        :rtype: str
+        """
+        return self._MaxChallengeCountInterval
+
+    @MaxChallengeCountInterval.setter
+    def MaxChallengeCountInterval(self, MaxChallengeCountInterval):
+        self._MaxChallengeCountInterval = MaxChallengeCountInterval
+
+    @property
+    def MaxChallengeCountThreshold(self):
+        r"""触发阈值统计的累计次数，取值范围 1 ~ 100000000。
+        :rtype: int
+        """
+        return self._MaxChallengeCountThreshold
+
+    @MaxChallengeCountThreshold.setter
+    def MaxChallengeCountThreshold(self, MaxChallengeCountThreshold):
+        self._MaxChallengeCountThreshold = MaxChallengeCountThreshold
+
+    @property
+    def ChallengeNotFinishedAction(self):
+        r"""客户端未启用 JS（未完成检测）时的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._ChallengeNotFinishedAction
+
+    @ChallengeNotFinishedAction.setter
+    def ChallengeNotFinishedAction(self, ChallengeNotFinishedAction):
+        self._ChallengeNotFinishedAction = ChallengeNotFinishedAction
+
+    @property
+    def ChallengeTimeoutAction(self):
+        r"""客户端检测超时的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._ChallengeTimeoutAction
+
+    @ChallengeTimeoutAction.setter
+    def ChallengeTimeoutAction(self, ChallengeTimeoutAction):
+        self._ChallengeTimeoutAction = ChallengeTimeoutAction
+
+    @property
+    def BotClientAction(self):
+        r"""Bot 客户端的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._BotClientAction
+
+    @BotClientAction.setter
+    def BotClientAction(self, BotClientAction):
+        self._BotClientAction = BotClientAction
+
+
+    def _deserialize(self, params):
+        self._CryptoChallengeIntensity = params.get("CryptoChallengeIntensity")
+        self._CryptoChallengeDelayBefore = params.get("CryptoChallengeDelayBefore")
+        self._MaxChallengeCountInterval = params.get("MaxChallengeCountInterval")
+        self._MaxChallengeCountThreshold = params.get("MaxChallengeCountThreshold")
+        if params.get("ChallengeNotFinishedAction") is not None:
+            self._ChallengeNotFinishedAction = SecurityAction()
+            self._ChallengeNotFinishedAction._deserialize(params.get("ChallengeNotFinishedAction"))
+        if params.get("ChallengeTimeoutAction") is not None:
+            self._ChallengeTimeoutAction = SecurityAction()
+            self._ChallengeTimeoutAction._deserialize(params.get("ChallengeTimeoutAction"))
+        if params.get("BotClientAction") is not None:
+            self._BotClientAction = SecurityAction()
+            self._BotClientAction._deserialize(params.get("BotClientAction"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7253,6 +8538,100 @@ class ConfigGroupVersionInfo(AbstractModel):
         
 
 
+class ConfirmMultiPathGatewayOriginACLRequest(AbstractModel):
+    r"""ConfirmMultiPathGatewayOriginACL请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点 ID。
+        :type ZoneId: str
+        :param _GatewayId: 网关 ID。
+        :type GatewayId: str
+        :param _OriginACLVersion: 回源 IP 版本号。
+        :type OriginACLVersion: int
+        """
+        self._ZoneId = None
+        self._GatewayId = None
+        self._OriginACLVersion = None
+
+    @property
+    def ZoneId(self):
+        r"""站点 ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def GatewayId(self):
+        r"""网关 ID。
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def OriginACLVersion(self):
+        r"""回源 IP 版本号。
+        :rtype: int
+        """
+        return self._OriginACLVersion
+
+    @OriginACLVersion.setter
+    def OriginACLVersion(self, OriginACLVersion):
+        self._OriginACLVersion = OriginACLVersion
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._GatewayId = params.get("GatewayId")
+        self._OriginACLVersion = params.get("OriginACLVersion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ConfirmMultiPathGatewayOriginACLResponse(AbstractModel):
+    r"""ConfirmMultiPathGatewayOriginACL返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ConfirmOriginACLUpdateRequest(AbstractModel):
     r"""ConfirmOriginACLUpdate请求参数结构体
 
@@ -7315,6 +8694,48 @@ class ConfirmOriginACLUpdateResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
+
+
+class ContentCompressionParameters(AbstractModel):
+    r"""内容压缩配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: 内容压缩配置开关，取值有：
+<li>on：开启；</li>
+<li>off：关闭。</li>
+当 Switch 为 on 时，将同时支持 brotli 和 gzip 压缩算法。
+        :type Switch: str
+        """
+        self._Switch = None
+
+    @property
+    def Switch(self):
+        r"""内容压缩配置开关，取值有：
+<li>on：开启；</li>
+<li>off：关闭。</li>
+当 Switch 为 on 时，将同时支持 brotli 和 gzip 压缩算法。
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class ContentIdentifier(AbstractModel):
@@ -9094,14 +10515,27 @@ class CreateFunctionRuleRequest(AbstractModel):
         :type ZoneId: str
         :param _FunctionRuleConditions: 规则条件列表，相同触发规则的不同条件匹配项之间为或关系。
         :type FunctionRuleConditions: list of FunctionRuleCondition
-        :param _FunctionId: 函数 ID，命中触发规则条件后执行的函数。
+        :param _TriggerType: 函数选择配置类型：
+<li> direct：直接指定执行函数；</li>
+<li> weight：基于权重比选择函数；</li>
+<li> region：基于客户端 IP 的国家/地区选择函数。</li>
+不填时默认为 direct 。
+        :type TriggerType: str
+        :param _FunctionId: 指定执行的函数 ID。当 TriggerType 为 direct 或 TriggerType 不填时生效。
         :type FunctionId: str
+        :param _RegionMappingSelections: 基于客户端 IP 国家/地区的函数选择配置，当 TriggerType 为 region 时生效且 RegionMappingSelections 必填。RegionMappingSelections 中至少包含一项 Regions 为 Default 的配置。
+        :type RegionMappingSelections: list of FunctionRegionSelection
+        :param _WeightedSelections: 基于权重的函数选择配置，当 TriggerType 为 weight 时生效且 WeightedSelections 必填。WeightedSelections 中的所有权重之和需要为100。
+        :type WeightedSelections: list of FunctionWeightedSelection
         :param _Remark: 规则描述，最大支持 60 个字符。
         :type Remark: str
         """
         self._ZoneId = None
         self._FunctionRuleConditions = None
+        self._TriggerType = None
         self._FunctionId = None
+        self._RegionMappingSelections = None
+        self._WeightedSelections = None
         self._Remark = None
 
     @property
@@ -9127,8 +10561,23 @@ class CreateFunctionRuleRequest(AbstractModel):
         self._FunctionRuleConditions = FunctionRuleConditions
 
     @property
+    def TriggerType(self):
+        r"""函数选择配置类型：
+<li> direct：直接指定执行函数；</li>
+<li> weight：基于权重比选择函数；</li>
+<li> region：基于客户端 IP 的国家/地区选择函数。</li>
+不填时默认为 direct 。
+        :rtype: str
+        """
+        return self._TriggerType
+
+    @TriggerType.setter
+    def TriggerType(self, TriggerType):
+        self._TriggerType = TriggerType
+
+    @property
     def FunctionId(self):
-        r"""函数 ID，命中触发规则条件后执行的函数。
+        r"""指定执行的函数 ID。当 TriggerType 为 direct 或 TriggerType 不填时生效。
         :rtype: str
         """
         return self._FunctionId
@@ -9136,6 +10585,28 @@ class CreateFunctionRuleRequest(AbstractModel):
     @FunctionId.setter
     def FunctionId(self, FunctionId):
         self._FunctionId = FunctionId
+
+    @property
+    def RegionMappingSelections(self):
+        r"""基于客户端 IP 国家/地区的函数选择配置，当 TriggerType 为 region 时生效且 RegionMappingSelections 必填。RegionMappingSelections 中至少包含一项 Regions 为 Default 的配置。
+        :rtype: list of FunctionRegionSelection
+        """
+        return self._RegionMappingSelections
+
+    @RegionMappingSelections.setter
+    def RegionMappingSelections(self, RegionMappingSelections):
+        self._RegionMappingSelections = RegionMappingSelections
+
+    @property
+    def WeightedSelections(self):
+        r"""基于权重的函数选择配置，当 TriggerType 为 weight 时生效且 WeightedSelections 必填。WeightedSelections 中的所有权重之和需要为100。
+        :rtype: list of FunctionWeightedSelection
+        """
+        return self._WeightedSelections
+
+    @WeightedSelections.setter
+    def WeightedSelections(self, WeightedSelections):
+        self._WeightedSelections = WeightedSelections
 
     @property
     def Remark(self):
@@ -9157,7 +10628,20 @@ class CreateFunctionRuleRequest(AbstractModel):
                 obj = FunctionRuleCondition()
                 obj._deserialize(item)
                 self._FunctionRuleConditions.append(obj)
+        self._TriggerType = params.get("TriggerType")
         self._FunctionId = params.get("FunctionId")
+        if params.get("RegionMappingSelections") is not None:
+            self._RegionMappingSelections = []
+            for item in params.get("RegionMappingSelections"):
+                obj = FunctionRegionSelection()
+                obj._deserialize(item)
+                self._RegionMappingSelections.append(obj)
+        if params.get("WeightedSelections") is not None:
+            self._WeightedSelections = []
+            for item in params.get("WeightedSelections"):
+                obj = FunctionWeightedSelection()
+                obj._deserialize(item)
+                self._WeightedSelections.append(obj)
         self._Remark = params.get("Remark")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -9413,20 +10897,17 @@ class CreateL4ProxyRequest(AbstractModel):
         :param _Ipv6: 是否开启 IPv6 访问，不填写时默认为 off。该配置仅在部分加速区域和安全防护配置下支持开启，详情请参考 [新建四层代理实例](https://cloud.tencent.com/document/product/1552/90025) 。取值为：
 <li>on：开启；</li>
 <li>off：关闭。</li>
-
-
         :type Ipv6: str
         :param _StaticIp: 是否开启固定 IP，不填写时默认为 off。该配置仅在部分加速区域和安全防护配置下支持开启，详情请参考 [新建四层代理实例](https://cloud.tencent.com/document/product/1552/90025) 。取值为：
 <li>on：开启；</li>
 <li>off：关闭。</li>
-
         :type StaticIp: str
         :param _AccelerateMainland: 是否开启中国大陆网络优化，不填写时默认为 off。该配置仅在部分加速区域和安全防护配置下支持开启，详情请参考 [新建四层代理实例](https://cloud.tencent.com/document/product/1552/90025) 。取值为：
 <li>on：开启；</li>
 <li>off：关闭。</li>
-
         :type AccelerateMainland: str
         :param _DDosProtectionConfig: L3/L4 DDoS 防护配置，不填写时默认使用平台默认防护选项。详情参考 [独立 DDoS 防护](https://cloud.tencent.com/document/product/1552/95994)。
+本字段已废弃，请使用 DDosProtectionId 字段指定关联的DDoS防护配置。
         :type DDosProtectionConfig: :class:`tencentcloud.teo.v20220901.models.DDosProtectionConfig`
         """
         self._ZoneId = None
@@ -9479,8 +10960,6 @@ class CreateL4ProxyRequest(AbstractModel):
         r"""是否开启 IPv6 访问，不填写时默认为 off。该配置仅在部分加速区域和安全防护配置下支持开启，详情请参考 [新建四层代理实例](https://cloud.tencent.com/document/product/1552/90025) 。取值为：
 <li>on：开启；</li>
 <li>off：关闭。</li>
-
-
         :rtype: str
         """
         return self._Ipv6
@@ -9494,7 +10973,6 @@ class CreateL4ProxyRequest(AbstractModel):
         r"""是否开启固定 IP，不填写时默认为 off。该配置仅在部分加速区域和安全防护配置下支持开启，详情请参考 [新建四层代理实例](https://cloud.tencent.com/document/product/1552/90025) 。取值为：
 <li>on：开启；</li>
 <li>off：关闭。</li>
-
         :rtype: str
         """
         return self._StaticIp
@@ -9508,7 +10986,6 @@ class CreateL4ProxyRequest(AbstractModel):
         r"""是否开启中国大陆网络优化，不填写时默认为 off。该配置仅在部分加速区域和安全防护配置下支持开启，详情请参考 [新建四层代理实例](https://cloud.tencent.com/document/product/1552/90025) 。取值为：
 <li>on：开启；</li>
 <li>off：关闭。</li>
-
         :rtype: str
         """
         return self._AccelerateMainland
@@ -9519,13 +10996,18 @@ class CreateL4ProxyRequest(AbstractModel):
 
     @property
     def DDosProtectionConfig(self):
+        warnings.warn("parameter `DDosProtectionConfig` is deprecated", DeprecationWarning) 
+
         r"""L3/L4 DDoS 防护配置，不填写时默认使用平台默认防护选项。详情参考 [独立 DDoS 防护](https://cloud.tencent.com/document/product/1552/95994)。
+本字段已废弃，请使用 DDosProtectionId 字段指定关联的DDoS防护配置。
         :rtype: :class:`tencentcloud.teo.v20220901.models.DDosProtectionConfig`
         """
         return self._DDosProtectionConfig
 
     @DDosProtectionConfig.setter
     def DDosProtectionConfig(self, DDosProtectionConfig):
+        warnings.warn("parameter `DDosProtectionConfig` is deprecated", DeprecationWarning) 
+
         self._DDosProtectionConfig = DDosProtectionConfig
 
 
@@ -10815,29 +12297,38 @@ class CreatePrefetchTaskRequest(AbstractModel):
         :param _ZoneId: 站点 ID。
 若您希望快速提交不同站点下的 Targets Url，可以将其填写为 *，但前提是调用该 API 的账号必须具备主账号下全部站点资源的权限。
         :type ZoneId: str
-        :param _Targets: 要预热的资源列表，每个元素格式类似如下:
-http://www.example.com/example.txt。参数值当前必填。
+        :param _Targets: 要预热的资源列表，必填。每个元素格式类似如下:
+http://www.example.com/example.txt。
 注意：提交任务数受计费套餐配额限制，请查看 [EO计费套餐](https://cloud.tencent.com/document/product/1552/77380)。
         :type Targets: list of str
+        :param _Mode: 预热模式，取值有：
+<li>default：默认模式，即预热到中间层；</li>
+<li>edge：边缘预热模式，即预热到边缘和中间层。</li>不填写时，默认值为 default。
+注意事项：
+1.预热至边缘产生的边缘层流量，会计入计费流量；
+2.边缘预热默认分配单独的预热额度 1000 条/天，不消费常规预热额度。
+说明：
+该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
+        :type Mode: str
         :param _EncodeUrl: 是否对url进行encode，若内容含有非 ASCII 字符集的字符，请开启此开关进行编码转换（编码规则遵循 RFC3986）。
         :type EncodeUrl: bool
-        :param _Headers: 附带的http头部信息。
+        :param _Headers: 若需要携带 HTTP 头部信息预热，可入参该参数，否则放空即可。
         :type Headers: list of Header
         :param _PrefetchMediaSegments: 媒体分片预热控制，取值有：
 <li>on：开启分片预热，预热描述文件，并递归解析描述文件分片进行预热；</li>
 <li>off：仅预热提交的描述文件；</li>不填写时，默认值为 off。
-
 注意事项：
 1. 支持的描述文件为 M3U8，对应分片为 TS；
 2. 要求描述文件能正常请求，并按行业标准描述分片路径；
 3. 递归解析深度不超过 3 层；
 4. 解析获取的分片会正常累加每日预热用量，当用量超出配额时，会静默处理，不再执行预热。
-
+说明：
 该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
         :type PrefetchMediaSegments: str
         """
         self._ZoneId = None
         self._Targets = None
+        self._Mode = None
         self._EncodeUrl = None
         self._Headers = None
         self._PrefetchMediaSegments = None
@@ -10856,8 +12347,8 @@ http://www.example.com/example.txt。参数值当前必填。
 
     @property
     def Targets(self):
-        r"""要预热的资源列表，每个元素格式类似如下:
-http://www.example.com/example.txt。参数值当前必填。
+        r"""要预热的资源列表，必填。每个元素格式类似如下:
+http://www.example.com/example.txt。
 注意：提交任务数受计费套餐配额限制，请查看 [EO计费套餐](https://cloud.tencent.com/document/product/1552/77380)。
         :rtype: list of str
         """
@@ -10866,6 +12357,24 @@ http://www.example.com/example.txt。参数值当前必填。
     @Targets.setter
     def Targets(self, Targets):
         self._Targets = Targets
+
+    @property
+    def Mode(self):
+        r"""预热模式，取值有：
+<li>default：默认模式，即预热到中间层；</li>
+<li>edge：边缘预热模式，即预热到边缘和中间层。</li>不填写时，默认值为 default。
+注意事项：
+1.预热至边缘产生的边缘层流量，会计入计费流量；
+2.边缘预热默认分配单独的预热额度 1000 条/天，不消费常规预热额度。
+说明：
+该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
+        :rtype: str
+        """
+        return self._Mode
+
+    @Mode.setter
+    def Mode(self, Mode):
+        self._Mode = Mode
 
     @property
     def EncodeUrl(self):
@@ -10884,7 +12393,7 @@ http://www.example.com/example.txt。参数值当前必填。
 
     @property
     def Headers(self):
-        r"""附带的http头部信息。
+        r"""若需要携带 HTTP 头部信息预热，可入参该参数，否则放空即可。
         :rtype: list of Header
         """
         return self._Headers
@@ -10898,13 +12407,12 @@ http://www.example.com/example.txt。参数值当前必填。
         r"""媒体分片预热控制，取值有：
 <li>on：开启分片预热，预热描述文件，并递归解析描述文件分片进行预热；</li>
 <li>off：仅预热提交的描述文件；</li>不填写时，默认值为 off。
-
 注意事项：
 1. 支持的描述文件为 M3U8，对应分片为 TS；
 2. 要求描述文件能正常请求，并按行业标准描述分片路径；
 3. 递归解析深度不超过 3 层；
 4. 解析获取的分片会正常累加每日预热用量，当用量超出配额时，会静默处理，不再执行预热。
-
+说明：
 该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
         :rtype: str
         """
@@ -10918,6 +12426,7 @@ http://www.example.com/example.txt。参数值当前必填。
     def _deserialize(self, params):
         self._ZoneId = params.get("ZoneId")
         self._Targets = params.get("Targets")
+        self._Mode = params.get("Mode")
         self._EncodeUrl = params.get("EncodeUrl")
         if params.get("Headers") is not None:
             self._Headers = []
@@ -11212,6 +12721,7 @@ class CreateRealtimeLogDeliveryTaskRequest(AbstractModel):
 <li>cls: 推送到腾讯云 CLS；</li>
 <li>custom_endpoint：推送到自定义 HTTP(S) 地址；</li>
 <li>s3：推送到 AWS S3 兼容存储桶地址；</li>
+<li>log_analysis：推送到 EdgeOne 日志分析，该任务类型仅支持“站点加速日志”这一数据投递类型。</li>
         :type TaskType: str
         :param _EntityList: 实时日志投递任务对应的实体列表。取值示例如下：
 <li>七层域名：domain.example.com</li>
@@ -11244,7 +12754,7 @@ class CreateRealtimeLogDeliveryTaskRequest(AbstractModel):
         :type Sample: int
         :param _LogFormat: 日志投递的输出格式。不填表示为默认格式，默认格式逻辑如下：
 <li>当 TaskType 取值为 custom_endpoint 时，默认格式为多个 JSON 对象组成的数组，每个 JSON 对象为一条日志；</li>
-<li>当 TaskType 取值为 s3 时，默认格式为 JSON Lines；</li>特别地，当 TaskType 取值为 cls 时，LogFormat.FormatType 的值只能为 json，且 LogFormat 中其他参数将被忽略，建议不传 LogFormat。
+<li>当 TaskType 取值为 s3 时，默认格式为 JSON Lines；</li>特别地，当 TaskType 取值为 cls 或 log_analysis 时，LogFormat.FormatType 的值只能为 json，且 LogFormat 中其他参数将被忽略，建议不传 LogFormat。
         :type LogFormat: :class:`tencentcloud.teo.v20220901.models.LogFormat`
         :param _CLS: CLS 的配置信息。当 TaskType 取值为 cls 时，该参数必填。
         :type CLS: :class:`tencentcloud.teo.v20220901.models.CLSTopic`
@@ -11296,6 +12806,7 @@ class CreateRealtimeLogDeliveryTaskRequest(AbstractModel):
 <li>cls: 推送到腾讯云 CLS；</li>
 <li>custom_endpoint：推送到自定义 HTTP(S) 地址；</li>
 <li>s3：推送到 AWS S3 兼容存储桶地址；</li>
+<li>log_analysis：推送到 EdgeOne 日志分析，该任务类型仅支持“站点加速日志”这一数据投递类型。</li>
         :rtype: str
         """
         return self._TaskType
@@ -11400,7 +12911,7 @@ class CreateRealtimeLogDeliveryTaskRequest(AbstractModel):
     def LogFormat(self):
         r"""日志投递的输出格式。不填表示为默认格式，默认格式逻辑如下：
 <li>当 TaskType 取值为 custom_endpoint 时，默认格式为多个 JSON 对象组成的数组，每个 JSON 对象为一条日志；</li>
-<li>当 TaskType 取值为 s3 时，默认格式为 JSON Lines；</li>特别地，当 TaskType 取值为 cls 时，LogFormat.FormatType 的值只能为 json，且 LogFormat 中其他参数将被忽略，建议不传 LogFormat。
+<li>当 TaskType 取值为 s3 时，默认格式为 JSON Lines；</li>特别地，当 TaskType 取值为 cls 或 log_analysis 时，LogFormat.FormatType 的值只能为 json，且 LogFormat 中其他参数将被忽略，建议不传 LogFormat。
         :rtype: :class:`tencentcloud.teo.v20220901.models.LogFormat`
         """
         return self._LogFormat
@@ -13836,6 +15347,48 @@ class DDosProtectionConfig(AbstractModel):
         self._LevelMainland = params.get("LevelMainland")
         self._MaxBandwidthMainland = params.get("MaxBandwidthMainland")
         self._LevelOverseas = params.get("LevelOverseas")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DNSPodDetail(AbstractModel):
+    r"""DNSPod 托管类型站点参数详情。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IsFake: 是否伪站点，取值有：
+<li> 0：非伪站点；</li>
+<li> 1：伪站点。</li>
+
+        :type IsFake: int
+        """
+        self._IsFake = None
+
+    @property
+    def IsFake(self):
+        r"""是否伪站点，取值有：
+<li> 0：非伪站点；</li>
+<li> 1：伪站点。</li>
+
+        :rtype: int
+        """
+        return self._IsFake
+
+    @IsFake.setter
+    def IsFake(self, IsFake):
+        self._IsFake = IsFake
+
+
+    def _deserialize(self, params):
+        self._IsFake = params.get("IsFake")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18101,7 +19654,7 @@ class DescribeDDoSAttackDataRequest(AbstractModel):
 <li>ddos_attackBandwidth：攻击带宽曲线；</li>
 <li>ddos_attackPackageRate：攻击包速率曲线。</li>
         :type MetricNames: list of str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :param _ZoneIds: 站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :type ZoneIds: list of str
         :param _PolicyIds: DDoS策略组ID列表，不填默认选择全部策略ID。
         :type PolicyIds: list of int
@@ -18164,7 +19717,7 @@ class DescribeDDoSAttackDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        r"""站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -18310,7 +19863,7 @@ class DescribeDDoSAttackEventRequest(AbstractModel):
         :type EndTime: str
         :param _PolicyIds: ddos策略组集合，不填默认选择全部策略。
         :type PolicyIds: list of int
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :param _ZoneIds: 站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :type ZoneIds: list of str
         :param _Limit: 分页查询的限制数目，默认值为20，最大查询条目为1000。
         :type Limit: int
@@ -18378,7 +19931,7 @@ class DescribeDDoSAttackEventRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        r"""站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -18566,7 +20119,7 @@ class DescribeDDoSAttackTopDataRequest(AbstractModel):
 <li>ddos_attackFlux_sip：按攻击源IP的攻击数量排行；</li>
 <li>ddos_attackFlux_sregion：按攻击源地区的攻击数量排行。</li>
         :type MetricName: str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :param _ZoneIds: 站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :type ZoneIds: list of str
         :param _PolicyIds: DDoS策略组ID集合，不填默认选择全部策略ID。
         :type PolicyIds: list of int
@@ -18641,7 +20194,7 @@ class DescribeDDoSAttackTopDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        r"""站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -20229,7 +21782,7 @@ class DescribeJustInTimeTranscodeTemplatesRequest(AbstractModel):
         r"""
         :param _ZoneId: 站点ID。
         :type ZoneId: str
-        :param _Filters: 过滤条件，Filters 的上限为 20，Filters.Values 的上限为 20。该参数不填写时，默认返回当前 ZoneId 下有权限的即时转码模板。详细的过滤条件如下：<li>template-name：按照模版名批量进行过滤。例如：mytemplate；</li><li>template-type：按照模板类型批量进行过滤。例如：preset 或 custom。</li><li>template-id：按照模板 ID 批量进行过滤。例如：C1LZ7982VgTpYhJ7M。</li>默认为空。
+        :param _Filters: 过滤条件，Filters 的上限为 20，Filters.Values 的上限为 20。该参数不填写时，默认返回当前 ZoneId 下有权限的即时转码模板。详细的过滤条件如下：<li>template-name：按照模板名批量进行过滤。例如：mytemplate；</li><li>template-type：按照模板类型批量进行过滤。例如：preset 或 custom。</li><li>template-id：按照模板 ID 批量进行过滤。例如：C1LZ7982VgTpYhJ7M。</li>默认为空。
         :type Filters: list of Filter
         :param _SortBy: 排序字段，取值有：<li>createTime：模板创建时间。</li>默认值为：createTime。
         :type SortBy: str
@@ -20260,7 +21813,7 @@ class DescribeJustInTimeTranscodeTemplatesRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""过滤条件，Filters 的上限为 20，Filters.Values 的上限为 20。该参数不填写时，默认返回当前 ZoneId 下有权限的即时转码模板。详细的过滤条件如下：<li>template-name：按照模版名批量进行过滤。例如：mytemplate；</li><li>template-type：按照模板类型批量进行过滤。例如：preset 或 custom。</li><li>template-id：按照模板 ID 批量进行过滤。例如：C1LZ7982VgTpYhJ7M。</li>默认为空。
+        r"""过滤条件，Filters 的上限为 20，Filters.Values 的上限为 20。该参数不填写时，默认返回当前 ZoneId 下有权限的即时转码模板。详细的过滤条件如下：<li>template-name：按照模板名批量进行过滤。例如：mytemplate；</li><li>template-type：按照模板类型批量进行过滤。例如：preset 或 custom。</li><li>template-id：按照模板 ID 批量进行过滤。例如：C1LZ7982VgTpYhJ7M。</li>默认为空。
         :rtype: list of Filter
         """
         return self._Filters
@@ -21219,6 +22772,102 @@ class DescribeMultiPathGatewayLineResponse(AbstractModel):
         if params.get("Line") is not None:
             self._Line = MultiPathGatewayLine()
             self._Line._deserialize(params.get("Line"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeMultiPathGatewayOriginACLRequest(AbstractModel):
+    r"""DescribeMultiPathGatewayOriginACL请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点 ID。
+        :type ZoneId: str
+        :param _GatewayId: 网关 ID。
+        :type GatewayId: str
+        """
+        self._ZoneId = None
+        self._GatewayId = None
+
+    @property
+    def ZoneId(self):
+        r"""站点 ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def GatewayId(self):
+        r"""网关 ID。
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._GatewayId = params.get("GatewayId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeMultiPathGatewayOriginACLResponse(AbstractModel):
+    r"""DescribeMultiPathGatewayOriginACL返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MultiPathGatewayOriginACLInfo: 多通道网关实例与回源 IP 网段的绑定关系详情。
+        :type MultiPathGatewayOriginACLInfo: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayOriginACLInfo`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._MultiPathGatewayOriginACLInfo = None
+        self._RequestId = None
+
+    @property
+    def MultiPathGatewayOriginACLInfo(self):
+        r"""多通道网关实例与回源 IP 网段的绑定关系详情。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayOriginACLInfo`
+        """
+        return self._MultiPathGatewayOriginACLInfo
+
+    @MultiPathGatewayOriginACLInfo.setter
+    def MultiPathGatewayOriginACLInfo(self, MultiPathGatewayOriginACLInfo):
+        self._MultiPathGatewayOriginACLInfo = MultiPathGatewayOriginACLInfo
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("MultiPathGatewayOriginACLInfo") is not None:
+            self._MultiPathGatewayOriginACLInfo = MultiPathGatewayOriginACLInfo()
+            self._MultiPathGatewayOriginACLInfo._deserialize(params.get("MultiPathGatewayOriginACLInfo"))
         self._RequestId = params.get("RequestId")
 
 
@@ -22564,6 +24213,159 @@ class DescribePlansResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribePrefetchOriginLimitRequest(AbstractModel):
+    r"""DescribePrefetchOriginLimit请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点ID。
+        :type ZoneId: str
+        :param _Offset: 分页查询偏移量，默认为 0。
+        :type Offset: int
+        :param _Limit: 分页查询限制数目，默认值：20，上限：100。
+        :type Limit: int
+        :param _Filters: 过滤条件，Filters.Values 的上限为 20。详细的过滤条件如下：
+<li>domain-name：按照域名过滤。domain-name 形如：www.qq.com，不支持模糊查询；</li>
+<li>area：按照限制加速区域过滤，不支持模糊查询。可选项：<br> Overseas：全球可用区（不含中国大陆）；<br> MainlandChina：中国大陆可用区。</li>
+        :type Filters: list of Filter
+        """
+        self._ZoneId = None
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def ZoneId(self):
+        r"""站点ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Offset(self):
+        r"""分页查询偏移量，默认为 0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""分页查询限制数目，默认值：20，上限：100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""过滤条件，Filters.Values 的上限为 20。详细的过滤条件如下：
+<li>domain-name：按照域名过滤。domain-name 形如：www.qq.com，不支持模糊查询；</li>
+<li>area：按照限制加速区域过滤，不支持模糊查询。可选项：<br> Overseas：全球可用区（不含中国大陆）；<br> MainlandChina：中国大陆可用区。</li>
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribePrefetchOriginLimitResponse(AbstractModel):
+    r"""DescribePrefetchOriginLimit返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 回源限速限制总数。
+        :type TotalCount: int
+        :param _Limits: 回源限速限制详情List。
+        :type Limits: list of PrefetchOriginLimit
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._Limits = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""回源限速限制总数。
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Limits(self):
+        r"""回源限速限制详情List。
+        :rtype: list of PrefetchOriginLimit
+        """
+        return self._Limits
+
+    @Limits.setter
+    def Limits(self, Limits):
+        self._Limits = Limits
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Limits") is not None:
+            self._Limits = []
+            for item in params.get("Limits"):
+                obj = PrefetchOriginLimit()
+                obj._deserialize(item)
+                self._Limits.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribePrefetchTasksRequest(AbstractModel):
     r"""DescribePrefetchTasks请求参数结构体
 
@@ -22571,7 +24373,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ZoneId: 站点ID。该参数必填。
+        :param _ZoneId: 站点ID。此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :type ZoneId: str
         :param _StartTime: 查询起始时间，时间与 job-id 必填一个。
         :type StartTime: str
@@ -22581,7 +24383,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
         :type Offset: int
         :param _Limit: 分页查询限制数目，默认值：20，上限：1000。
         :type Limit: int
-        :param _Filters: 过滤条件，Filters.Values 的上限为 20。详细的过滤条件如下：<li>job-id：按照任务 ID 进行过滤。job-id 形如：1379afjk91u32h，暂不支持多值，不支持模糊查询；</li><li>target：按照目标资源信息进行过滤。target 形如：http://www.qq.com/1.txt，暂不支持多值，不支持模糊查询；</li><li>domains：按照域名行过滤。domains 形如：www.qq.com，不支持模糊查询；</li><li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时<br>   invalid：无效。即源站响应非 2xx 状态码，请检查源站服务。</li>
+        :param _Filters: 过滤条件，Filters.Values 的上限为 20。详细的过滤条件如下：<li>job-id：按照任务 ID 进行过滤。job-id 形如：1379afjk91u32h，暂不支持多值，不支持模糊查询；</li><li>target：按照目标资源信息进行过滤。target 形如：http://www.qq.com/1.txt，暂不支持多值，不支持模糊查询；</li><li>domains：按照域名行过滤。domains 形如：www.qq.com，不支持模糊查询；</li><li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时<br>   canceled：已取消<br>   invalid：无效。即源站响应非 2xx 状态码，请检查源站服务。</li>
         :type Filters: list of AdvancedFilter
         """
         self._ZoneId = None
@@ -22593,7 +24395,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
 
     @property
     def ZoneId(self):
-        r"""站点ID。该参数必填。
+        r"""站点ID。此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :rtype: str
         """
         return self._ZoneId
@@ -22648,7 +24450,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""过滤条件，Filters.Values 的上限为 20。详细的过滤条件如下：<li>job-id：按照任务 ID 进行过滤。job-id 形如：1379afjk91u32h，暂不支持多值，不支持模糊查询；</li><li>target：按照目标资源信息进行过滤。target 形如：http://www.qq.com/1.txt，暂不支持多值，不支持模糊查询；</li><li>domains：按照域名行过滤。domains 形如：www.qq.com，不支持模糊查询；</li><li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时<br>   invalid：无效。即源站响应非 2xx 状态码，请检查源站服务。</li>
+        r"""过滤条件，Filters.Values 的上限为 20。详细的过滤条件如下：<li>job-id：按照任务 ID 进行过滤。job-id 形如：1379afjk91u32h，暂不支持多值，不支持模糊查询；</li><li>target：按照目标资源信息进行过滤。target 形如：http://www.qq.com/1.txt，暂不支持多值，不支持模糊查询；</li><li>domains：按照域名行过滤。domains 形如：www.qq.com，不支持模糊查询；</li><li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时<br>   canceled：已取消<br>   invalid：无效。即源站响应非 2xx 状态码，请检查源站服务。</li>
         :rtype: list of AdvancedFilter
         """
         return self._Filters
@@ -22750,7 +24552,7 @@ class DescribePurgeTasksRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ZoneId: 站点 ID。该参数必填。
+        :param _ZoneId: 站点 ID。此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :type ZoneId: str
         :param _StartTime: 查询起始时间，时间与 job-id 必填一个。
         :type StartTime: str
@@ -22764,7 +24566,7 @@ class DescribePurgeTasksRequest(AbstractModel):
 <li>job-id：按照任务 ID 进行过滤。job-id 形如：1379afjk91u32h，暂不支持多值，不支持模糊查询；</li>
 <li>target：按照目标资源信息进行过滤，target 形如：http://www.qq.com/1.txt 或者 tag1，暂不支持多值，支持模糊查询；</li>
 <li>domains：按照域名进行过滤，形如：www.qq.com，不支持模糊查询；</li>
-<li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时</li>
+<li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时<br>   canceled：已取消</li>
 <li>type：按照清除缓存类型进行过滤，暂不支持多值，不支持模糊查询。可选项：<br>   purge_url：URL<br>   purge_prefix：前缀<br>   purge_all：全部缓存内容<br>   purge_host：Hostname<br>   purge_cache_tag：CacheTag</li>
         :type Filters: list of AdvancedFilter
         """
@@ -22777,7 +24579,7 @@ class DescribePurgeTasksRequest(AbstractModel):
 
     @property
     def ZoneId(self):
-        r"""站点 ID。该参数必填。
+        r"""站点 ID。此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :rtype: str
         """
         return self._ZoneId
@@ -22836,7 +24638,7 @@ class DescribePurgeTasksRequest(AbstractModel):
 <li>job-id：按照任务 ID 进行过滤。job-id 形如：1379afjk91u32h，暂不支持多值，不支持模糊查询；</li>
 <li>target：按照目标资源信息进行过滤，target 形如：http://www.qq.com/1.txt 或者 tag1，暂不支持多值，支持模糊查询；</li>
 <li>domains：按照域名进行过滤，形如：www.qq.com，不支持模糊查询；</li>
-<li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时</li>
+<li>statuses：按照任务状态进行过滤，不支持模糊查询。可选项：<br>   processing：处理中<br>   success：成功<br>   failed：失败<br>   timeout：超时<br>   canceled：已取消</li>
 <li>type：按照清除缓存类型进行过滤，暂不支持多值，不支持模糊查询。可选项：<br>   purge_url：URL<br>   purge_prefix：前缀<br>   purge_all：全部缓存内容<br>   purge_host：Hostname<br>   purge_cache_tag：CacheTag</li>
         :rtype: list of AdvancedFilter
         """
@@ -22949,7 +24751,7 @@ class DescribeRealtimeLogDeliveryTasksRequest(AbstractModel):
 <li>task-id：按照实时日志投递任务 ID进行过滤。不支持模糊查询。</li>
 <li>task-name：按照实时日志投递任务名称进行过滤。支持模糊查询，使用模糊查询时，仅支持填写一个实时日志投递任务名称。</li>
 <li>entity-list：按照实时日志投递任务对应的实体进行过滤。不支持模糊查询。示例值：domain.example.com 或者 sid-2s69eb5wcms7。</li>
-<li>task-type：按照实时日志投递任务类型进行过滤。不支持模糊查询。可选项如下：<br>   cls: 推送到腾讯云 CLS；<br>   custom_endpoint：推送到自定义 HTTP(S) 地址；<br>   s3：推送到 AWS S3 兼容存储桶地址。</li>
+<li>task-type：按照实时日志投递任务类型进行过滤。不支持模糊查询。可选项如下：<br>   cls: 推送到腾讯云 CLS；<br>   custom_endpoint：推送到自定义 HTTP(S) 地址；<br>   s3：推送到 AWS S3 兼容存储桶地址；<br>   log_analysis：推送到 EdgeOne 日志分析。</li>
         :type Filters: list of AdvancedFilter
         """
         self._ZoneId = None
@@ -22996,7 +24798,7 @@ class DescribeRealtimeLogDeliveryTasksRequest(AbstractModel):
 <li>task-id：按照实时日志投递任务 ID进行过滤。不支持模糊查询。</li>
 <li>task-name：按照实时日志投递任务名称进行过滤。支持模糊查询，使用模糊查询时，仅支持填写一个实时日志投递任务名称。</li>
 <li>entity-list：按照实时日志投递任务对应的实体进行过滤。不支持模糊查询。示例值：domain.example.com 或者 sid-2s69eb5wcms7。</li>
-<li>task-type：按照实时日志投递任务类型进行过滤。不支持模糊查询。可选项如下：<br>   cls: 推送到腾讯云 CLS；<br>   custom_endpoint：推送到自定义 HTTP(S) 地址；<br>   s3：推送到 AWS S3 兼容存储桶地址。</li>
+<li>task-type：按照实时日志投递任务类型进行过滤。不支持模糊查询。可选项如下：<br>   cls: 推送到腾讯云 CLS；<br>   custom_endpoint：推送到自定义 HTTP(S) 地址；<br>   s3：推送到 AWS S3 兼容存储桶地址；<br>   log_analysis：推送到 EdgeOne 日志分析。</li>
         :rtype: list of AdvancedFilter
         """
         return self._Filters
@@ -24405,7 +26207,8 @@ class DescribeTimingL4DataRequest(AbstractModel):
 <li>l4Flow_inBandwidth: 访问入向带宽峰值；</li>
 <li>l4Flow_outBandwidth: 访问出向带宽峰值。</li>
         :type MetricNames: list of str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :param _ZoneIds: 站点ID，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
+最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :type ZoneIds: list of str
         :param _ProxyIds: 四层实例列表, 不填表示选择全部实例。
         :type ProxyIds: list of str
@@ -24472,7 +26275,8 @@ class DescribeTimingL4DataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        r"""站点ID，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
+最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -24643,7 +26447,7 @@ class DescribeTimingL7AnalysisDataRequest(AbstractModel):
 <li> l7Flow_avgResponseTime: L7 访问平均响应耗时，单位：ms；</li>
 <li> l7Flow_avgFirstByteResponseTime: L7 访问平均首字节响应耗时，单位：ms。</li>
         :type MetricNames: list of str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :param _ZoneIds: 站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :type ZoneIds: list of str
         :param _Interval: 查询时间粒度，取值有：
 <li>min: 1分钟；</li>
@@ -24709,7 +26513,7 @@ class DescribeTimingL7AnalysisDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        r"""站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -25082,36 +26886,64 @@ class DescribeTimingL7OriginPullDataRequest(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :type ZoneIds: list of str
+        :param _MetricNames: 指标列表，取值有:
+<ul><li>l7Flow_outFlux_hy: EdgeOne 节点至源站方向的请求流量，单位：Byte；</li>
+<li>l7Flow_outBandwidth_hy: EdgeOne 节点至源站方向的请求带宽，单位：bps；</li>
+<li>l7Flow_request_hy: EdgeOne 节点至源站方向的请求数，单位：次。</li>
+<li>l7Flow_inFlux_hy: 源站至 EdgeOne 节点方向的响应流量，单位：Byte；</li>
+<li>l7Flow_inBandwidth_hy: 源站至 EdgeOne 节点方向的响应带宽，单位：bps。</li></ul>
+        :type MetricNames: list of str
         :param _StartTime: 开始时间。
         :type StartTime: str
         :param _EndTime: 结束时间。查询时间范围（`EndTime` - `StartTime`）需小于等于 31 天。
         :type EndTime: str
-        :param _MetricNames: 指标列表，取值有:
-<li>l7Flow_outFlux_hy: EdgeOne 节点至源站方向的请求流量，单位：Byte；</li>
+        :param _Interval: 查询时间粒度，取值有：
+<ul><li>min: 1分钟；</li><li>5min: 5分钟；</li><li>hour: 1小时；</li><li>day: 1天。</li></ul>不填将根据开始时间跟结束时间的间距自动推算粒度，具体为：2 小时范围内以 min 粒度查询，2 天范围内以 5min 粒度查询，7 天范围内以 hour 粒度查询，超过 7 天以 day 粒度查询。
+        :type Interval: str
+        :param _Filters: 过滤条件，详细的过滤条件如下：
+<ul><li><strong>domain</strong>：客户端请求的域名。若按泛域名接入 EdgeOne，则数据中记录为泛域名，而不是具体域名。</li><li><strong>originStatusCode</strong>：回源状态码，仅当 <code>MetricNames = ["l7Flow_request_hy"]</code> 时支持本过滤项。<br>对应的 Value 可选项如下：<ul><li><code>1xx</code>：1xx 类型的状态码；</li><li><code>2xx</code>：2xx 类型的状态码；</li><li><code>3xx</code>：3xx 类型的状态码；</li><li><code>4xx</code>：4xx 类型的状态码；</li><li><code>5xx</code>：5xx 类型的状态码；</li><li>在 <code>[0, 600)</code> 范围内的整数（不包括 600）。</li></ul></li></ul>
+**注意**：当 <code>DimensionName</code>  不为空时，仅支持 <code>equals</code> 运算符。
+        :type Filters: list of QueryCondition
+        :param _DimensionName: <p>查询维度名称，取值有：</p><ul><li><strong>domain</strong>：客户端请求的域名。若按泛域名接入 EdgeOne，则数据中记录为泛域名。<br>使用 domain 维度时必须在 <code>Filters</code> 中包含 <code>domain</code> 过滤项，指定总数不超过 100 个需要查询的域名列表；</li><li><strong>origin-status-code</strong>：回源状态码，如 200、404，<br>仅当 <code>MetricNames = ["l7Flow_request_hy"]</code> 时支持本维度；</li><li><strong>origin-status-code-category</strong>：回源状态码类别，如 2xx、4xx，<br>仅当 <code>MetricNames =["l7Flow_request_hy"]</code> 时支持本维度。</li></ul><p>若 <code>DimensionName</code> 入参为空，默认按 <code>AppId</code> 维度汇总，只返回一组数据。</p><p>若 <code>DimensionName</code> 入参不为空，则按照传入的查询维度分组返回对应的时序数据。例如：</p><ul>当 <code>DimensionName = origin-status-code</code> 时：<ul><li>返回数据中 <code>TimingDataRecords.TypeKey</code> 为具体回源状态码，例如 200。</li><li>返回数据中 <code>TimingDataRecords.TypeValue</code> 是该状态码对应的时序数据。</li></ul></ul>
+<strong>注意</strong>：当指定 DimensionName 查询时，禁止并发调用。若超出查询频率限制，会返回错误 <code><strong>InvalidParameter.ActionInProgress</strong></code> 。
+        :type DimensionName: str
+        """
+        self._ZoneIds = None
+        self._MetricNames = None
+        self._StartTime = None
+        self._EndTime = None
+        self._Interval = None
+        self._Filters = None
+        self._DimensionName = None
+
+    @property
+    def ZoneIds(self):
+        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :rtype: list of str
+        """
+        return self._ZoneIds
+
+    @ZoneIds.setter
+    def ZoneIds(self, ZoneIds):
+        self._ZoneIds = ZoneIds
+
+    @property
+    def MetricNames(self):
+        r"""指标列表，取值有:
+<ul><li>l7Flow_outFlux_hy: EdgeOne 节点至源站方向的请求流量，单位：Byte；</li>
 <li>l7Flow_outBandwidth_hy: EdgeOne 节点至源站方向的请求带宽，单位：bps；</li>
 <li>l7Flow_request_hy: EdgeOne 节点至源站方向的请求数，单位：次。</li>
 <li>l7Flow_inFlux_hy: 源站至 EdgeOne 节点方向的响应流量，单位：Byte；</li>
-<li>l7Flow_inBandwidth_hy: 源站至 EdgeOne 节点方向的响应带宽，单位：bps；</li>
-
-        :type MetricNames: list of str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
-        :type ZoneIds: list of str
-        :param _Interval: 查询时间粒度，取值有：
-<li>min: 1分钟；</li>
-<li>5min: 5分钟；</li>
-<li>hour: 1小时；</li>
-<li>day: 1天。</li>不填将根据开始时间跟结束时间的间距自动推算粒度，具体为：2 小时范围内以 min 粒度查询，2 天范围内以 5min 粒度查询，7 天范围内以 hour 粒度查询，超过 7 天以 day 粒度查询。
-        :type Interval: str
-        :param _Filters: 过滤条件，详细的过滤条件如下：
-<li>domain：客户端请求的域名。若按泛域名接入 EdgeOne，则数据中记录为泛域名，而不是具体域名。</li>
-        :type Filters: list of QueryCondition
+<li>l7Flow_inBandwidth_hy: 源站至 EdgeOne 节点方向的响应带宽，单位：bps。</li></ul>
+        :rtype: list of str
         """
-        self._StartTime = None
-        self._EndTime = None
-        self._MetricNames = None
-        self._ZoneIds = None
-        self._Interval = None
-        self._Filters = None
+        return self._MetricNames
+
+    @MetricNames.setter
+    def MetricNames(self, MetricNames):
+        self._MetricNames = MetricNames
 
     @property
     def StartTime(self):
@@ -25136,40 +26968,9 @@ class DescribeTimingL7OriginPullDataRequest(AbstractModel):
         self._EndTime = EndTime
 
     @property
-    def MetricNames(self):
-        r"""指标列表，取值有:
-<li>l7Flow_outFlux_hy: EdgeOne 节点至源站方向的请求流量，单位：Byte；</li>
-<li>l7Flow_outBandwidth_hy: EdgeOne 节点至源站方向的请求带宽，单位：bps；</li>
-<li>l7Flow_request_hy: EdgeOne 节点至源站方向的请求数，单位：次。</li>
-<li>l7Flow_inFlux_hy: 源站至 EdgeOne 节点方向的响应流量，单位：Byte；</li>
-<li>l7Flow_inBandwidth_hy: 源站至 EdgeOne 节点方向的响应带宽，单位：bps；</li>
-
-        :rtype: list of str
-        """
-        return self._MetricNames
-
-    @MetricNames.setter
-    def MetricNames(self, MetricNames):
-        self._MetricNames = MetricNames
-
-    @property
-    def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
-        :rtype: list of str
-        """
-        return self._ZoneIds
-
-    @ZoneIds.setter
-    def ZoneIds(self, ZoneIds):
-        self._ZoneIds = ZoneIds
-
-    @property
     def Interval(self):
         r"""查询时间粒度，取值有：
-<li>min: 1分钟；</li>
-<li>5min: 5分钟；</li>
-<li>hour: 1小时；</li>
-<li>day: 1天。</li>不填将根据开始时间跟结束时间的间距自动推算粒度，具体为：2 小时范围内以 min 粒度查询，2 天范围内以 5min 粒度查询，7 天范围内以 hour 粒度查询，超过 7 天以 day 粒度查询。
+<ul><li>min: 1分钟；</li><li>5min: 5分钟；</li><li>hour: 1小时；</li><li>day: 1天。</li></ul>不填将根据开始时间跟结束时间的间距自动推算粒度，具体为：2 小时范围内以 min 粒度查询，2 天范围内以 5min 粒度查询，7 天范围内以 hour 粒度查询，超过 7 天以 day 粒度查询。
         :rtype: str
         """
         return self._Interval
@@ -25181,7 +26982,8 @@ class DescribeTimingL7OriginPullDataRequest(AbstractModel):
     @property
     def Filters(self):
         r"""过滤条件，详细的过滤条件如下：
-<li>domain：客户端请求的域名。若按泛域名接入 EdgeOne，则数据中记录为泛域名，而不是具体域名。</li>
+<ul><li><strong>domain</strong>：客户端请求的域名。若按泛域名接入 EdgeOne，则数据中记录为泛域名，而不是具体域名。</li><li><strong>originStatusCode</strong>：回源状态码，仅当 <code>MetricNames = ["l7Flow_request_hy"]</code> 时支持本过滤项。<br>对应的 Value 可选项如下：<ul><li><code>1xx</code>：1xx 类型的状态码；</li><li><code>2xx</code>：2xx 类型的状态码；</li><li><code>3xx</code>：3xx 类型的状态码；</li><li><code>4xx</code>：4xx 类型的状态码；</li><li><code>5xx</code>：5xx 类型的状态码；</li><li>在 <code>[0, 600)</code> 范围内的整数（不包括 600）。</li></ul></li></ul>
+**注意**：当 <code>DimensionName</code>  不为空时，仅支持 <code>equals</code> 运算符。
         :rtype: list of QueryCondition
         """
         return self._Filters
@@ -25190,12 +26992,24 @@ class DescribeTimingL7OriginPullDataRequest(AbstractModel):
     def Filters(self, Filters):
         self._Filters = Filters
 
+    @property
+    def DimensionName(self):
+        r"""<p>查询维度名称，取值有：</p><ul><li><strong>domain</strong>：客户端请求的域名。若按泛域名接入 EdgeOne，则数据中记录为泛域名。<br>使用 domain 维度时必须在 <code>Filters</code> 中包含 <code>domain</code> 过滤项，指定总数不超过 100 个需要查询的域名列表；</li><li><strong>origin-status-code</strong>：回源状态码，如 200、404，<br>仅当 <code>MetricNames = ["l7Flow_request_hy"]</code> 时支持本维度；</li><li><strong>origin-status-code-category</strong>：回源状态码类别，如 2xx、4xx，<br>仅当 <code>MetricNames =["l7Flow_request_hy"]</code> 时支持本维度。</li></ul><p>若 <code>DimensionName</code> 入参为空，默认按 <code>AppId</code> 维度汇总，只返回一组数据。</p><p>若 <code>DimensionName</code> 入参不为空，则按照传入的查询维度分组返回对应的时序数据。例如：</p><ul>当 <code>DimensionName = origin-status-code</code> 时：<ul><li>返回数据中 <code>TimingDataRecords.TypeKey</code> 为具体回源状态码，例如 200。</li><li>返回数据中 <code>TimingDataRecords.TypeValue</code> 是该状态码对应的时序数据。</li></ul></ul>
+<strong>注意</strong>：当指定 DimensionName 查询时，禁止并发调用。若超出查询频率限制，会返回错误 <code><strong>InvalidParameter.ActionInProgress</strong></code> 。
+        :rtype: str
+        """
+        return self._DimensionName
+
+    @DimensionName.setter
+    def DimensionName(self, DimensionName):
+        self._DimensionName = DimensionName
+
 
     def _deserialize(self, params):
+        self._ZoneIds = params.get("ZoneIds")
+        self._MetricNames = params.get("MetricNames")
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
-        self._MetricNames = params.get("MetricNames")
-        self._ZoneIds = params.get("ZoneIds")
         self._Interval = params.get("Interval")
         if params.get("Filters") is not None:
             self._Filters = []
@@ -25203,6 +27017,7 @@ class DescribeTimingL7OriginPullDataRequest(AbstractModel):
                 obj = QueryCondition()
                 obj._deserialize(item)
                 self._Filters.append(obj)
+        self._DimensionName = params.get("DimensionName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25307,13 +27122,13 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 <li> l7Flow_request_url：按 URL Path 维度统计 L7 访问请求数指标; </li>
 <li> l7Flow_request_resourceType：按资源类型维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_sip：按客户端 IP 维度统计 L7 访问请求数指标；</li>
-<li> l7Flow_request_referer：按 Referer 维度统计 L7 访问请求数指标；</li>
+<li> l7Flow_request_referers：按 Referer 维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_ua_device：按设备类型维度统计 L7 访问请求数指标; </li>
 <li> l7Flow_request_ua_browser：按浏览器类型维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_ua_os：按操作系统类型维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_ua：按 User-Agent 维度统计 L7 访问请求数指标。</li>
         :type MetricName: str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        :param _ZoneIds: 站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :type ZoneIds: list of str
         :param _Limit: 查询前多少个 top 数据，最大值为1000。不填默认为10，表示查询 top10 的数据。
         :type Limit: int
@@ -25378,7 +27193,7 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 <li> l7Flow_request_url：按 URL Path 维度统计 L7 访问请求数指标; </li>
 <li> l7Flow_request_resourceType：按资源类型维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_sip：按客户端 IP 维度统计 L7 访问请求数指标；</li>
-<li> l7Flow_request_referer：按 Referer 维度统计 L7 访问请求数指标；</li>
+<li> l7Flow_request_referers：按 Referer 维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_ua_device：按设备类型维度统计 L7 访问请求数指标; </li>
 <li> l7Flow_request_ua_browser：按浏览器类型维度统计 L7 访问请求数指标；</li>
 <li> l7Flow_request_ua_os：按操作系统类型维度统计 L7 访问请求数指标；</li>
@@ -25393,7 +27208,7 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
+        r"""站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。最多传入 100 个站点 ID。若需查询腾讯云主账号下所有站点数据，请用 `*` 代替，查询账号级别数据需具备本接口全部站点资源权限。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -26228,7 +28043,7 @@ class DescribeZonesRequest(AbstractModel):
         :param _Limit: 分页查询限制数目。默认值：20，最大值：100。
         :type Limit: int
         :param _Filters: 过滤条件，Filters.Values 的上限为 20。该参数不填写时，返回当前 appid 下有权限的所有站点信息。详细的过滤条件如下：
-<li>zone-name：按照站点名称进行过滤；</li><li>zone-id：按照站点 ID进行过滤。站点 ID 形如：zone-2noz78a8ev6k；</li><li>status：按照站点状态进行过滤；</li><li>tag-key：按照标签键进行过滤；</li><li>tag-value： 按照标签值进行过滤。</li><li>alias-zone-name： 按照同名站点标识进行过滤。</li>模糊查询时支持过滤字段名为 zone-name 或 alias-zone-name。
+<li>zone-name：按照站点名称进行过滤；</li><li>zone-type：按照站点类型进行过滤。可选项：<br>   full：NS 接入类型；<br>   partial：CNAME 接入类型；<br>   partialComposite：无域名接入类型；<br>   dnsPodAccess：DNSPod 托管接入类型；<br>   pages：Pages 类型。</li><li>zone-id：按照站点 ID 进行过滤，站点 ID 形如：zone-2noz78a8ev6k；</li><li>status：按照站点状态进行过滤。可选项：<br>   active：NS 已切换；<br>   pending：NS 待切换；<br>   deleted：已删除。</li><li>tag-key：按照标签键进行过滤；</li><li>tag-value： 按照标签值进行过滤；</li><li>alias-zone-name： 按照同名站点标识进行过滤。</li>模糊查询时支持过滤字段名为 zone-name 或 alias-zone-name。
         :type Filters: list of AdvancedFilter
         :param _Order: 可根据该字段对返回结果进行排序，取值有：
 <li> type：接入类型；</li>
@@ -26274,7 +28089,7 @@ class DescribeZonesRequest(AbstractModel):
     @property
     def Filters(self):
         r"""过滤条件，Filters.Values 的上限为 20。该参数不填写时，返回当前 appid 下有权限的所有站点信息。详细的过滤条件如下：
-<li>zone-name：按照站点名称进行过滤；</li><li>zone-id：按照站点 ID进行过滤。站点 ID 形如：zone-2noz78a8ev6k；</li><li>status：按照站点状态进行过滤；</li><li>tag-key：按照标签键进行过滤；</li><li>tag-value： 按照标签值进行过滤。</li><li>alias-zone-name： 按照同名站点标识进行过滤。</li>模糊查询时支持过滤字段名为 zone-name 或 alias-zone-name。
+<li>zone-name：按照站点名称进行过滤；</li><li>zone-type：按照站点类型进行过滤。可选项：<br>   full：NS 接入类型；<br>   partial：CNAME 接入类型；<br>   partialComposite：无域名接入类型；<br>   dnsPodAccess：DNSPod 托管接入类型；<br>   pages：Pages 类型。</li><li>zone-id：按照站点 ID 进行过滤，站点 ID 形如：zone-2noz78a8ev6k；</li><li>status：按照站点状态进行过滤。可选项：<br>   active：NS 已切换；<br>   pending：NS 待切换；<br>   deleted：已删除。</li><li>tag-key：按照标签键进行过滤；</li><li>tag-value： 按照标签值进行过滤；</li><li>alias-zone-name： 按照同名站点标识进行过滤。</li>模糊查询时支持过滤字段名为 zone-name 或 alias-zone-name。
         :rtype: list of AdvancedFilter
         """
         return self._Filters
@@ -26344,7 +28159,7 @@ class DescribeZonesResponse(AbstractModel):
         r"""
         :param _TotalCount: 符合条件的站点个数。
         :type TotalCount: int
-        :param _Zones: 站点详细信息。
+        :param _Zones: 站点列表详情。
         :type Zones: list of Zone
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -26366,7 +28181,7 @@ class DescribeZonesResponse(AbstractModel):
 
     @property
     def Zones(self):
-        r"""站点详细信息。
+        r"""站点列表详情。
         :rtype: list of Zone
         """
         return self._Zones
@@ -27570,7 +29385,7 @@ class DnsRecord(AbstractModel):
 
 
 class DnsVerification(AbstractModel):
-    r"""CNAME 接入，使用 DNS 解析验证时所需的信息。
+    r"""站点 CNAME 模式接入验证归属权或域名申请免费证书时，使用 DNS 解析验证时所需的信息。
 
     """
 
@@ -27701,7 +29516,7 @@ class DownloadL4LogsRequest(AbstractModel):
         :type StartTime: str
         :param _EndTime: 结束时间。
         :type EndTime: str
-        :param _ZoneIds: 站点 ID 集合，此参数必填。
+        :param _ZoneIds: 站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :type ZoneIds: list of str
         :param _ProxyIds: 四层实例 ID 集合。
         :type ProxyIds: list of str
@@ -27741,7 +29556,7 @@ class DownloadL4LogsRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点 ID 集合，此参数必填。
+        r"""站点 ID 集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -27875,7 +29690,7 @@ class DownloadL7LogsRequest(AbstractModel):
         :type StartTime: str
         :param _EndTime: 结束时间。
         :type EndTime: str
-        :param _ZoneIds: 站点ID集合，此参数必填。
+        :param _ZoneIds: 站点ID集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :type ZoneIds: list of str
         :param _Domains: 子域名集合，不填默认选择全部子域名。
         :type Domains: list of str
@@ -27915,7 +29730,7 @@ class DownloadL7LogsRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""站点ID集合，此参数必填。
+        r"""站点ID集合，此参数将于2024年05月30日后由可选改为必填，详见公告：[【腾讯云 EdgeOne】云 API 变更通知](https://cloud.tencent.com/document/product/1552/104902)。
         :rtype: list of str
         """
         return self._ZoneIds
@@ -29559,13 +31374,13 @@ class FileAscriptionInfo(AbstractModel):
 
 
 class FileVerification(AbstractModel):
-    r"""CNAME 接入，使用文件验证时所需的信息。
+    r"""站点 CNAME 模式接入验证归属权或域名申请免费证书时，使用 HTTP 访问验证文件时所需的信息。
 
     """
 
     def __init__(self):
         r"""
-        :param _Path: EdgeOne 后台服务器将通过 Scheme + Host + URL Path 的格式（例如 https://www.example.com/.well-known/teo-verification/z12h416twn.txt）获取文件验证信息。该字段为您需要创建的 URL Path 部分。
+        :param _Path: EdgeOne 后台服务器将通过 http://{Host}{URL Path} 的格式（例如 http://www.example.com/.well-known/teo-verification/z12h416twn.txt）获取文件验证信息。其中，本字段为您需要创建的 URL Path 部分，Host 为当前加速域名。
         :type Path: str
         :param _Content: 验证文件的内容。该字段的内容需要您填写至 Path 字段返回的 txt 文件中。
         :type Content: str
@@ -29575,7 +31390,7 @@ class FileVerification(AbstractModel):
 
     @property
     def Path(self):
-        r"""EdgeOne 后台服务器将通过 Scheme + Host + URL Path 的格式（例如 https://www.example.com/.well-known/teo-verification/z12h416twn.txt）获取文件验证信息。该字段为您需要创建的 URL Path 部分。
+        r"""EdgeOne 后台服务器将通过 http://{Host}{URL Path} 的格式（例如 http://www.example.com/.well-known/teo-verification/z12h416twn.txt）获取文件验证信息。其中，本字段为您需要创建的 URL Path 部分，Host 为当前加速域名。
         :rtype: str
         """
         return self._Path
@@ -30252,6 +32067,57 @@ class FunctionEnvironmentVariable(AbstractModel):
         
 
 
+class FunctionRegionSelection(AbstractModel):
+    r"""地区策略配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FunctionId: 函数 ID 。
+        :type FunctionId: str
+        :param _Regions: 国家/地区列表。示例值：CN：中国，CN.GD：中国广东。取值请参考：[国家/地区及对应代码枚举](https://cloud.tencent.com/document/product/1552/112542)。
+        :type Regions: list of str
+        """
+        self._FunctionId = None
+        self._Regions = None
+
+    @property
+    def FunctionId(self):
+        r"""函数 ID 。
+        :rtype: str
+        """
+        return self._FunctionId
+
+    @FunctionId.setter
+    def FunctionId(self, FunctionId):
+        self._FunctionId = FunctionId
+
+    @property
+    def Regions(self):
+        r"""国家/地区列表。示例值：CN：中国，CN.GD：中国广东。取值请参考：[国家/地区及对应代码枚举](https://cloud.tencent.com/document/product/1552/112542)。
+        :rtype: list of str
+        """
+        return self._Regions
+
+    @Regions.setter
+    def Regions(self, Regions):
+        self._Regions = Regions
+
+
+    def _deserialize(self, params):
+        self._FunctionId = params.get("FunctionId")
+        self._Regions = params.get("Regions")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class FunctionRule(AbstractModel):
     r"""边缘函数触发规则。
 
@@ -30263,14 +32129,24 @@ class FunctionRule(AbstractModel):
         :type RuleId: str
         :param _FunctionRuleConditions: 规则条件列表，列表项之间为或关系。
         :type FunctionRuleConditions: list of FunctionRuleCondition
-        :param _FunctionId: 函数 ID，命中触发规则条件后执行的函数。
+        :param _TriggerType: 函数选择配置类型：
+<li> direct：直接指定执行函数；</li>
+<li> weight：基于权重比选择函数；</li>
+<li> region：基于客户端 IP 的国家/地区选择函数。</li>
+
+        :type TriggerType: str
+        :param _FunctionId: 指定执行的函数 ID。当 TriggerType 为 direct 时有效。
         :type FunctionId: str
-        :param _Remark: 规则描述。
-        :type Remark: str
-        :param _FunctionName: 函数名称。
+        :param _FunctionName: 指定执行的函数名称。
         :type FunctionName: str
+        :param _RegionMappingSelections: 基于客户端 IP 国家/地区的函数选择配置。
+        :type RegionMappingSelections: list of FunctionRegionSelection
+        :param _WeightedSelections: 基于权重的函数选择配置。
+        :type WeightedSelections: list of FunctionWeightedSelection
         :param _Priority: 函数触发规则优先级，数值越大，优先级越高。
         :type Priority: int
+        :param _Remark: 规则描述。
+        :type Remark: str
         :param _CreateTime: 创建时间。时间为世界标准时间（UTC）， 遵循 ISO 8601 标准的日期和时间格式。
         :type CreateTime: str
         :param _UpdateTime: 更新时间。时间为世界标准时间（UTC）， 遵循 ISO 8601 标准的日期和时间格式。
@@ -30278,10 +32154,13 @@ class FunctionRule(AbstractModel):
         """
         self._RuleId = None
         self._FunctionRuleConditions = None
+        self._TriggerType = None
         self._FunctionId = None
-        self._Remark = None
         self._FunctionName = None
+        self._RegionMappingSelections = None
+        self._WeightedSelections = None
         self._Priority = None
+        self._Remark = None
         self._CreateTime = None
         self._UpdateTime = None
 
@@ -30308,8 +32187,23 @@ class FunctionRule(AbstractModel):
         self._FunctionRuleConditions = FunctionRuleConditions
 
     @property
+    def TriggerType(self):
+        r"""函数选择配置类型：
+<li> direct：直接指定执行函数；</li>
+<li> weight：基于权重比选择函数；</li>
+<li> region：基于客户端 IP 的国家/地区选择函数。</li>
+
+        :rtype: str
+        """
+        return self._TriggerType
+
+    @TriggerType.setter
+    def TriggerType(self, TriggerType):
+        self._TriggerType = TriggerType
+
+    @property
     def FunctionId(self):
-        r"""函数 ID，命中触发规则条件后执行的函数。
+        r"""指定执行的函数 ID。当 TriggerType 为 direct 时有效。
         :rtype: str
         """
         return self._FunctionId
@@ -30319,19 +32213,8 @@ class FunctionRule(AbstractModel):
         self._FunctionId = FunctionId
 
     @property
-    def Remark(self):
-        r"""规则描述。
-        :rtype: str
-        """
-        return self._Remark
-
-    @Remark.setter
-    def Remark(self, Remark):
-        self._Remark = Remark
-
-    @property
     def FunctionName(self):
-        r"""函数名称。
+        r"""指定执行的函数名称。
         :rtype: str
         """
         return self._FunctionName
@@ -30339,6 +32222,28 @@ class FunctionRule(AbstractModel):
     @FunctionName.setter
     def FunctionName(self, FunctionName):
         self._FunctionName = FunctionName
+
+    @property
+    def RegionMappingSelections(self):
+        r"""基于客户端 IP 国家/地区的函数选择配置。
+        :rtype: list of FunctionRegionSelection
+        """
+        return self._RegionMappingSelections
+
+    @RegionMappingSelections.setter
+    def RegionMappingSelections(self, RegionMappingSelections):
+        self._RegionMappingSelections = RegionMappingSelections
+
+    @property
+    def WeightedSelections(self):
+        r"""基于权重的函数选择配置。
+        :rtype: list of FunctionWeightedSelection
+        """
+        return self._WeightedSelections
+
+    @WeightedSelections.setter
+    def WeightedSelections(self, WeightedSelections):
+        self._WeightedSelections = WeightedSelections
 
     @property
     def Priority(self):
@@ -30350,6 +32255,17 @@ class FunctionRule(AbstractModel):
     @Priority.setter
     def Priority(self, Priority):
         self._Priority = Priority
+
+    @property
+    def Remark(self):
+        r"""规则描述。
+        :rtype: str
+        """
+        return self._Remark
+
+    @Remark.setter
+    def Remark(self, Remark):
+        self._Remark = Remark
 
     @property
     def CreateTime(self):
@@ -30382,10 +32298,23 @@ class FunctionRule(AbstractModel):
                 obj = FunctionRuleCondition()
                 obj._deserialize(item)
                 self._FunctionRuleConditions.append(obj)
+        self._TriggerType = params.get("TriggerType")
         self._FunctionId = params.get("FunctionId")
-        self._Remark = params.get("Remark")
         self._FunctionName = params.get("FunctionName")
+        if params.get("RegionMappingSelections") is not None:
+            self._RegionMappingSelections = []
+            for item in params.get("RegionMappingSelections"):
+                obj = FunctionRegionSelection()
+                obj._deserialize(item)
+                self._RegionMappingSelections.append(obj)
+        if params.get("WeightedSelections") is not None:
+            self._WeightedSelections = []
+            for item in params.get("WeightedSelections"):
+                obj = FunctionWeightedSelection()
+                obj._deserialize(item)
+                self._WeightedSelections.append(obj)
         self._Priority = params.get("Priority")
+        self._Remark = params.get("Remark")
         self._CreateTime = params.get("CreateTime")
         self._UpdateTime = params.get("UpdateTime")
         memeber_set = set(params.keys())
@@ -30429,6 +32358,61 @@ class FunctionRuleCondition(AbstractModel):
                 obj = RuleCondition()
                 obj._deserialize(item)
                 self._RuleConditions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class FunctionWeightedSelection(AbstractModel):
+    r"""权重策略配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FunctionId: 函数 ID 。
+        :type FunctionId: str
+        :param _Weight: 选中权重。取值范围0-100，所有的权重之和需要为100。
+选中概率计算方式为：
+weight/100。例如设置了两个函数 A 和 B ，其中 A 的权重为30，那么 B 的权重必须为70，最终选中 A 的概率为30%，选中 B 的概率为70%。
+        :type Weight: int
+        """
+        self._FunctionId = None
+        self._Weight = None
+
+    @property
+    def FunctionId(self):
+        r"""函数 ID 。
+        :rtype: str
+        """
+        return self._FunctionId
+
+    @FunctionId.setter
+    def FunctionId(self, FunctionId):
+        self._FunctionId = FunctionId
+
+    @property
+    def Weight(self):
+        r"""选中权重。取值范围0-100，所有的权重之和需要为100。
+选中概率计算方式为：
+weight/100。例如设置了两个函数 A 和 B ，其中 A 的权重为30，那么 B 的权重必须为70，最终选中 A 的概率为30%，选中 B 的概率为70%。
+        :rtype: int
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+
+    def _deserialize(self, params):
+        self._FunctionId = params.get("FunctionId")
+        self._Weight = params.get("Weight")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -31600,8 +33584,8 @@ class Https(AbstractModel):
         :type OcspStapling: str
         :param _TlsVersion: Tls 版本设置，取值有：
 <li>TLSv1：TLSv1版本；</li>
-<li>TLSV1.1：TLSv1.1版本；</li>
-<li>TLSV1.2：TLSv1.2版本；</li>
+<li>TLSv1.1：TLSv1.1版本；</li>
+<li>TLSv1.2：TLSv1.2版本；</li>
 <li>TLSv1.3：TLSv1.3版本。</li>修改时必须开启连续的版本。
         :type TlsVersion: list of str
         :param _Hsts: HSTS 配置。
@@ -31658,8 +33642,8 @@ class Https(AbstractModel):
     def TlsVersion(self):
         r"""Tls 版本设置，取值有：
 <li>TLSv1：TLSv1版本；</li>
-<li>TLSV1.1：TLSv1.1版本；</li>
-<li>TLSV1.2：TLSv1.2版本；</li>
+<li>TLSv1.1：TLSv1.1版本；</li>
+<li>TLSv1.2：TLSv1.2版本；</li>
 <li>TLSv1.3：TLSv1.3版本。</li>修改时必须开启连续的版本。
         :rtype: list of str
         """
@@ -31951,6 +33935,117 @@ class IPRegionInfo(AbstractModel):
     def _deserialize(self, params):
         self._IP = params.get("IP")
         self._IsEdgeOneIP = params.get("IsEdgeOneIP")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IPReputation(AbstractModel):
+    r"""IP 情报库（原客户端画像分析）配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Enabled: IP 情报库（原客户端画像分析）。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :type Enabled: str
+        :param _IPReputationGroup: IP 情报库（原客户端画像分析）的具体配置内容。
+        :type IPReputationGroup: :class:`tencentcloud.teo.v20220901.models.IPReputationGroup`
+        """
+        self._Enabled = None
+        self._IPReputationGroup = None
+
+    @property
+    def Enabled(self):
+        r"""IP 情报库（原客户端画像分析）。取值有：<li>on：开启；</li><li>off：关闭。</li>
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def IPReputationGroup(self):
+        r"""IP 情报库（原客户端画像分析）的具体配置内容。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.IPReputationGroup`
+        """
+        return self._IPReputationGroup
+
+    @IPReputationGroup.setter
+    def IPReputationGroup(self, IPReputationGroup):
+        self._IPReputationGroup = IPReputationGroup
+
+
+    def _deserialize(self, params):
+        self._Enabled = params.get("Enabled")
+        if params.get("IPReputationGroup") is not None:
+            self._IPReputationGroup = IPReputationGroup()
+            self._IPReputationGroup._deserialize(params.get("IPReputationGroup"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IPReputationGroup(AbstractModel):
+    r"""IP 情报库（原客户端画像分析）的具体配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BaseAction: IP 情报库（原客户端画像分析）的执行动作。SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :type BaseAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _BotManagementActionOverrides: IP 情报库（原客户端画像分析）的具体配置，用于覆盖 BaseAction 中的默认配置。其中 BotManagementActionOverrides 的 Ids 中可以填写：<li>IPREP_WEB_AND_DDOS_ATTACKERS_LOW：网络攻击 - 一般置信度；</li><li>IPREP_WEB_AND_DDOS_ATTACKERS_MID：网络攻击 - 中等置信度；</li><li>IPREP_WEB_AND_DDOS_ATTACKERS_HIGH：网络攻击 - 高置信度；</li><li>IPREP_PROXIES_AND_ANONYMIZERS_LOW：网络代理 - 一般置信度；</li><li>IPREP_PROXIES_AND_ANONYMIZERS_MID：网络代理 - 中等置信度；</li><li>IPREP_PROXIES_AND_ANONYMIZERS_HIGH：网络代理 - 高置信度；</li><li>IPREP_SCANNING_TOOLS_LOW：扫描器 - 一般置信度；</li><li>IPREP_SCANNING_TOOLS_MID：扫描器 - 中等置信度；</li><li>IPREP_SCANNING_TOOLS_HIGH：扫描器 - 高置信度；</li><li>IPREP_ATO_ATTACKERS_LOW：账号接管攻击 - 一般置信度；</li><li>IPREP_ATO_ATTACKERS_MID：账号接管攻击 - 中等置信度；</li><li>IPREP_ATO_ATTACKERS_HIGH：账号接管攻击 - 高置信度；</li><li>IPREP_WEB_SCRAPERS_AND_TRAFFIC_BOTS_LOW：恶意 BOT - 一般置信度；</li><li>IPREP_WEB_SCRAPERS_AND_TRAFFIC_BOTS_MID：恶意 BOT - 中等置信度；</li><li>IPREP_WEB_SCRAPERS_AND_TRAFFIC_BOTS_HIGH：恶意 BOT - 高置信度。</li>
+        :type BotManagementActionOverrides: list of BotManagementActionOverrides
+        """
+        self._BaseAction = None
+        self._BotManagementActionOverrides = None
+
+    @property
+    def BaseAction(self):
+        r"""IP 情报库（原客户端画像分析）的执行动作。SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._BaseAction
+
+    @BaseAction.setter
+    def BaseAction(self, BaseAction):
+        self._BaseAction = BaseAction
+
+    @property
+    def BotManagementActionOverrides(self):
+        r"""IP 情报库（原客户端画像分析）的具体配置，用于覆盖 BaseAction 中的默认配置。其中 BotManagementActionOverrides 的 Ids 中可以填写：<li>IPREP_WEB_AND_DDOS_ATTACKERS_LOW：网络攻击 - 一般置信度；</li><li>IPREP_WEB_AND_DDOS_ATTACKERS_MID：网络攻击 - 中等置信度；</li><li>IPREP_WEB_AND_DDOS_ATTACKERS_HIGH：网络攻击 - 高置信度；</li><li>IPREP_PROXIES_AND_ANONYMIZERS_LOW：网络代理 - 一般置信度；</li><li>IPREP_PROXIES_AND_ANONYMIZERS_MID：网络代理 - 中等置信度；</li><li>IPREP_PROXIES_AND_ANONYMIZERS_HIGH：网络代理 - 高置信度；</li><li>IPREP_SCANNING_TOOLS_LOW：扫描器 - 一般置信度；</li><li>IPREP_SCANNING_TOOLS_MID：扫描器 - 中等置信度；</li><li>IPREP_SCANNING_TOOLS_HIGH：扫描器 - 高置信度；</li><li>IPREP_ATO_ATTACKERS_LOW：账号接管攻击 - 一般置信度；</li><li>IPREP_ATO_ATTACKERS_MID：账号接管攻击 - 中等置信度；</li><li>IPREP_ATO_ATTACKERS_HIGH：账号接管攻击 - 高置信度；</li><li>IPREP_WEB_SCRAPERS_AND_TRAFFIC_BOTS_LOW：恶意 BOT - 一般置信度；</li><li>IPREP_WEB_SCRAPERS_AND_TRAFFIC_BOTS_MID：恶意 BOT - 中等置信度；</li><li>IPREP_WEB_SCRAPERS_AND_TRAFFIC_BOTS_HIGH：恶意 BOT - 高置信度。</li>
+        :rtype: list of BotManagementActionOverrides
+        """
+        return self._BotManagementActionOverrides
+
+    @BotManagementActionOverrides.setter
+    def BotManagementActionOverrides(self, BotManagementActionOverrides):
+        self._BotManagementActionOverrides = BotManagementActionOverrides
+
+
+    def _deserialize(self, params):
+        if params.get("BaseAction") is not None:
+            self._BaseAction = SecurityAction()
+            self._BaseAction._deserialize(params.get("BaseAction"))
+        if params.get("BotManagementActionOverrides") is not None:
+            self._BotManagementActionOverrides = []
+            for item in params.get("BotManagementActionOverrides"):
+                obj = BotManagementActionOverrides()
+                obj._deserialize(item)
+                self._BotManagementActionOverrides.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33270,6 +35365,64 @@ class JustInTimeTranscodeTemplate(AbstractModel):
         
 
 
+class KnownBotCategories(AbstractModel):
+    r"""商业或开源工具 UA 特征配置（原 UA 特征规则）。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BaseAction: 来自已知商业工具或开源工具的访问请求的处置方式。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（待废弃）。</li> 
+        :type BaseAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _BotManagementActionOverrides: 指定已知商业工具或开源工具的访问请求的处置方式。
+        :type BotManagementActionOverrides: list of BotManagementActionOverrides
+        """
+        self._BaseAction = None
+        self._BotManagementActionOverrides = None
+
+    @property
+    def BaseAction(self):
+        r"""来自已知商业工具或开源工具的访问请求的处置方式。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（待废弃）。</li> 
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._BaseAction
+
+    @BaseAction.setter
+    def BaseAction(self, BaseAction):
+        self._BaseAction = BaseAction
+
+    @property
+    def BotManagementActionOverrides(self):
+        r"""指定已知商业工具或开源工具的访问请求的处置方式。
+        :rtype: list of BotManagementActionOverrides
+        """
+        return self._BotManagementActionOverrides
+
+    @BotManagementActionOverrides.setter
+    def BotManagementActionOverrides(self, BotManagementActionOverrides):
+        self._BotManagementActionOverrides = BotManagementActionOverrides
+
+
+    def _deserialize(self, params):
+        if params.get("BaseAction") is not None:
+            self._BaseAction = SecurityAction()
+            self._BaseAction._deserialize(params.get("BaseAction"))
+        if params.get("BotManagementActionOverrides") is not None:
+            self._BotManagementActionOverrides = []
+            for item in params.get("BotManagementActionOverrides"):
+                obj = BotManagementActionOverrides()
+                obj._deserialize(item)
+                self._BotManagementActionOverrides.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class L4OfflineLog(AbstractModel):
     r"""离线日志详细信息
 
@@ -33456,6 +35609,7 @@ class L4Proxy(AbstractModel):
  <li>on：开启</li> <li>off：关闭</li>
         :type AccelerateMainland: str
         :param _DDosProtectionConfig: 安全防护配置。
+本字段已废弃。
 注意：此字段可能返回 null，表示取不到有效值。
         :type DDosProtectionConfig: :class:`tencentcloud.teo.v20220901.models.DDosProtectionConfig`
         :param _L4ProxyRuleCount: 四层代理实例下的转发规则数量。
@@ -33602,7 +35756,10 @@ class L4Proxy(AbstractModel):
 
     @property
     def DDosProtectionConfig(self):
+        warnings.warn("parameter `DDosProtectionConfig` is deprecated", DeprecationWarning) 
+
         r"""安全防护配置。
+本字段已废弃。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.teo.v20220901.models.DDosProtectionConfig`
         """
@@ -33610,6 +35767,8 @@ class L4Proxy(AbstractModel):
 
     @DDosProtectionConfig.setter
     def DDosProtectionConfig(self, DDosProtectionConfig):
+        warnings.warn("parameter `DDosProtectionConfig` is deprecated", DeprecationWarning) 
+
         self._DDosProtectionConfig = DDosProtectionConfig
 
     @property
@@ -34211,6 +36370,8 @@ class LoadBalancer(AbstractModel):
         :type L4UsedList: list of str
         :param _L7UsedList: 该负载均衡实例绑定的七层域名列表。
         :type L7UsedList: list of str
+        :param _References: 负载均衡被引用实例的列表。
+        :type References: list of OriginGroupReference
         """
         self._InstanceId = None
         self._Name = None
@@ -34222,6 +36383,7 @@ class LoadBalancer(AbstractModel):
         self._Status = None
         self._L4UsedList = None
         self._L7UsedList = None
+        self._References = None
 
     @property
     def InstanceId(self):
@@ -34341,6 +36503,17 @@ class LoadBalancer(AbstractModel):
     def L7UsedList(self, L7UsedList):
         self._L7UsedList = L7UsedList
 
+    @property
+    def References(self):
+        r"""负载均衡被引用实例的列表。
+        :rtype: list of OriginGroupReference
+        """
+        return self._References
+
+    @References.setter
+    def References(self, References):
+        self._References = References
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -34360,6 +36533,12 @@ class LoadBalancer(AbstractModel):
         self._Status = params.get("Status")
         self._L4UsedList = params.get("L4UsedList")
         self._L7UsedList = params.get("L7UsedList")
+        if params.get("References") is not None:
+            self._References = []
+            for item in params.get("References"):
+                obj = OriginGroupReference()
+                obj._deserialize(item)
+                self._References.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35019,7 +37198,7 @@ class MaxAge(AbstractModel):
 <li>on：遵循源站，忽略MaxAge 时间设置；</li>
 <li>off：不遵循源站，使用MaxAge 时间设置。</li>
         :type FollowOrigin: str
-        :param _MaxAgeTime: MaxAge 时间设置，单位秒，最大365天。
+        :param _MaxAgeTime: MaxAge 时间设置，单位为秒，取值：0～315360000。
 注意：时间为0，即不缓存。
         :type MaxAgeTime: int
         """
@@ -35041,7 +37220,7 @@ class MaxAge(AbstractModel):
 
     @property
     def MaxAgeTime(self):
-        r"""MaxAge 时间设置，单位秒，最大365天。
+        r"""MaxAge 时间设置，单位为秒，取值：0～315360000。
 注意：时间为0，即不缓存。
         :rtype: int
         """
@@ -35110,6 +37289,57 @@ class MaxAgeParameters(AbstractModel):
     def _deserialize(self, params):
         self._FollowOrigin = params.get("FollowOrigin")
         self._CacheTime = params.get("CacheTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MaxNewSessionTriggerConfig(AbstractModel):
+    r"""Bot 管理中校验的触发阈值。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MaxNewSessionCountInterval: 触发阈值统计的时间窗口，取值有：<li>5s：5 秒内；</li><li>10s：10 秒内；</li><li>15s：15 秒内；</li><li>30s：30 秒内；</li><li>60s：60 秒内；</li><li>5m：5 分钟内；</li><li>10m：10 分钟内；</li><li>30m：30 分钟内；</li><li>60m：60 分钟内。</li> 
+        :type MaxNewSessionCountInterval: str
+        :param _MaxNewSessionCountThreshold: 触发阈值统计的累计次数，取值范围 1 ~ 100000000。
+        :type MaxNewSessionCountThreshold: int
+        """
+        self._MaxNewSessionCountInterval = None
+        self._MaxNewSessionCountThreshold = None
+
+    @property
+    def MaxNewSessionCountInterval(self):
+        r"""触发阈值统计的时间窗口，取值有：<li>5s：5 秒内；</li><li>10s：10 秒内；</li><li>15s：15 秒内；</li><li>30s：30 秒内；</li><li>60s：60 秒内；</li><li>5m：5 分钟内；</li><li>10m：10 分钟内；</li><li>30m：30 分钟内；</li><li>60m：60 分钟内。</li> 
+        :rtype: str
+        """
+        return self._MaxNewSessionCountInterval
+
+    @MaxNewSessionCountInterval.setter
+    def MaxNewSessionCountInterval(self, MaxNewSessionCountInterval):
+        self._MaxNewSessionCountInterval = MaxNewSessionCountInterval
+
+    @property
+    def MaxNewSessionCountThreshold(self):
+        r"""触发阈值统计的累计次数，取值范围 1 ~ 100000000。
+        :rtype: int
+        """
+        return self._MaxNewSessionCountThreshold
+
+    @MaxNewSessionCountThreshold.setter
+    def MaxNewSessionCountThreshold(self, MaxNewSessionCountThreshold):
+        self._MaxNewSessionCountThreshold = MaxNewSessionCountThreshold
+
+
+    def _deserialize(self, params):
+        self._MaxNewSessionCountInterval = params.get("MaxNewSessionCountInterval")
+        self._MaxNewSessionCountThreshold = params.get("MaxNewSessionCountThreshold")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -37017,19 +39247,32 @@ class ModifyFunctionRuleRequest(AbstractModel):
         r"""
         :param _ZoneId: 站点 ID。
         :type ZoneId: str
-        :param _RuleId: 规则 ID。
+        :param _RuleId: 规则 ID。您可以先通过 DescribeFunctionRules 接口来获取需要修改的规则的 RuleId，然后传入修改后的规则内容，原规则内容会被覆盖式更新。
         :type RuleId: str
         :param _FunctionRuleConditions: 规则条件列表，相同触发规则的不同条件匹配项之间为或关系，不填写保持原有配置。
         :type FunctionRuleConditions: list of FunctionRuleCondition
-        :param _FunctionId: 函数 ID，命中触发规则条件后执行的函数，不填写保持原有配置。
+        :param _TriggerType: 函数选择配置类型：
+<li> direct：直接指定执行函数；</li>
+<li> weight：基于权重比选择函数；</li>
+<li> region：基于客户端 IP 的国家/地区选择函数。</li>
+不填时默认为 direct 。
+        :type TriggerType: str
+        :param _FunctionId: 指定执行的函数 ID。当 TriggerType 为 direct 或 TriggerType 不填时生效。
         :type FunctionId: str
+        :param _RegionMappingSelections: 基于客户端 IP 国家/地区的函数选择配置，当 TriggerType 为 region 时生效且 RegionMappingSelections 必填。RegionMappingSelections 中至少包含一项 Regions 为 Default 的配置。
+        :type RegionMappingSelections: list of FunctionRegionSelection
+        :param _WeightedSelections: 基于权重的函数选择配置，当 TriggerType 为 weight 时生效且 WeightedSelections 必填。WeightedSelections 中的所有权重之和需要为100。
+        :type WeightedSelections: list of FunctionWeightedSelection
         :param _Remark: 规则描述，最大支持 60 个字符，不填写保持原有配置。
         :type Remark: str
         """
         self._ZoneId = None
         self._RuleId = None
         self._FunctionRuleConditions = None
+        self._TriggerType = None
         self._FunctionId = None
+        self._RegionMappingSelections = None
+        self._WeightedSelections = None
         self._Remark = None
 
     @property
@@ -37045,7 +39288,7 @@ class ModifyFunctionRuleRequest(AbstractModel):
 
     @property
     def RuleId(self):
-        r"""规则 ID。
+        r"""规则 ID。您可以先通过 DescribeFunctionRules 接口来获取需要修改的规则的 RuleId，然后传入修改后的规则内容，原规则内容会被覆盖式更新。
         :rtype: str
         """
         return self._RuleId
@@ -37066,8 +39309,23 @@ class ModifyFunctionRuleRequest(AbstractModel):
         self._FunctionRuleConditions = FunctionRuleConditions
 
     @property
+    def TriggerType(self):
+        r"""函数选择配置类型：
+<li> direct：直接指定执行函数；</li>
+<li> weight：基于权重比选择函数；</li>
+<li> region：基于客户端 IP 的国家/地区选择函数。</li>
+不填时默认为 direct 。
+        :rtype: str
+        """
+        return self._TriggerType
+
+    @TriggerType.setter
+    def TriggerType(self, TriggerType):
+        self._TriggerType = TriggerType
+
+    @property
     def FunctionId(self):
-        r"""函数 ID，命中触发规则条件后执行的函数，不填写保持原有配置。
+        r"""指定执行的函数 ID。当 TriggerType 为 direct 或 TriggerType 不填时生效。
         :rtype: str
         """
         return self._FunctionId
@@ -37075,6 +39333,28 @@ class ModifyFunctionRuleRequest(AbstractModel):
     @FunctionId.setter
     def FunctionId(self, FunctionId):
         self._FunctionId = FunctionId
+
+    @property
+    def RegionMappingSelections(self):
+        r"""基于客户端 IP 国家/地区的函数选择配置，当 TriggerType 为 region 时生效且 RegionMappingSelections 必填。RegionMappingSelections 中至少包含一项 Regions 为 Default 的配置。
+        :rtype: list of FunctionRegionSelection
+        """
+        return self._RegionMappingSelections
+
+    @RegionMappingSelections.setter
+    def RegionMappingSelections(self, RegionMappingSelections):
+        self._RegionMappingSelections = RegionMappingSelections
+
+    @property
+    def WeightedSelections(self):
+        r"""基于权重的函数选择配置，当 TriggerType 为 weight 时生效且 WeightedSelections 必填。WeightedSelections 中的所有权重之和需要为100。
+        :rtype: list of FunctionWeightedSelection
+        """
+        return self._WeightedSelections
+
+    @WeightedSelections.setter
+    def WeightedSelections(self, WeightedSelections):
+        self._WeightedSelections = WeightedSelections
 
     @property
     def Remark(self):
@@ -37097,7 +39377,20 @@ class ModifyFunctionRuleRequest(AbstractModel):
                 obj = FunctionRuleCondition()
                 obj._deserialize(item)
                 self._FunctionRuleConditions.append(obj)
+        self._TriggerType = params.get("TriggerType")
         self._FunctionId = params.get("FunctionId")
+        if params.get("RegionMappingSelections") is not None:
+            self._RegionMappingSelections = []
+            for item in params.get("RegionMappingSelections"):
+                obj = FunctionRegionSelection()
+                obj._deserialize(item)
+                self._RegionMappingSelections.append(obj)
+        if params.get("WeightedSelections") is not None:
+            self._WeightedSelections = []
+            for item in params.get("WeightedSelections"):
+                obj = FunctionWeightedSelection()
+                obj._deserialize(item)
+                self._WeightedSelections.append(obj)
         self._Remark = params.get("Remark")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -37149,10 +39442,14 @@ class ModifyHostsCertificateRequest(AbstractModel):
         :param _Hosts: 需要修改证书配置的加速域名。
         :type Hosts: list of str
         :param _Mode: 配置服务端证书的模式，取值有：
-<li>disable：不配置服务端证书；</li>
-<li>eofreecert：配置 EdgeOne 免费服务端证书；</li>
-<li>sslcert：配置 SSL 托管服务端证书；</li>
-不填写表示服务端证书保持原有配置。
+<ul><li>disable：不配置服务端证书；</li>
+<li>eofreecert：通过自动验证申请免费证书并部署。验证方式详见：[申请免费证书支持的验证方式](https://cloud.tencent.com/document/product/1552/90437)
+
+- 在 NS 或者 DNSPod 托管接入模式下，仅支持自动验证的方式申请免费证书。
+- 当免费证书申请失败时会导致证书部署失败，您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口获取申请失败原因。</li>
+</ul><li>eofreecert_manual：部署 DNS 委派验证或者文件验证申请的免费证书。在部署免费证书前，您需要触发<a href = 'https://cloud.tencent.com/document/product/1552/124807'>申请免费证书</a>接口申请免费证书。在免费证书申请成功后，你可以通过该枚举值对免费证书进行部署；</li>
+<ul><li>注意：在对免费证书部署时，需要保证当前已存在申请成功的免费证书。您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口检查当前是否已存在申请成功的免费证书。</li>
+</ul><li>sslcert：配置 SSL 托管服务端证书。</li>
         :type Mode: str
         :param _ServerCertInfo: SSL 证书配置，本参数仅在 mode 为 sslcert 时生效，传入对应证书的 CertId 即可。您可以前往 [SSL 证书列表](https://console.cloud.tencent.com/ssl) 查看 CertId。
         :type ServerCertInfo: list of ServerCertInfo
@@ -37163,7 +39460,7 @@ class ModifyHostsCertificateRequest(AbstractModel):
         :type ApplyType: str
         :param _ClientCertInfo: 在边缘双向认证场景下，该字段为客户端的 CA 证书，部署在 EO 节点内，用于客户端对 EO 节点进行认证。默认关闭，不填写表示保持原有配置。
         :type ClientCertInfo: :class:`tencentcloud.teo.v20220901.models.MutualTLS`
-        :param _UpstreamCertInfo: 用于配置 EO 节点回源时携带的证书，用于回源双向认证握手，默认关闭，不填写表示保持原有配置。该配置当前为白名单内测中，如需使用，请[联系我们](https://cloud.tencent.com/online-service)。
+        :param _UpstreamCertInfo: 用于分别开启/关闭回源双向认证和源站证书校验。默认关闭，不填写表示保持原有配置。回源双向认证配置当前为白名单内侧中，如需使用，请[联系我们](https://cloud.tencent.com/online-service)。
         :type UpstreamCertInfo: :class:`tencentcloud.teo.v20220901.models.UpstreamCertInfo`
         """
         self._ZoneId = None
@@ -37199,10 +39496,14 @@ class ModifyHostsCertificateRequest(AbstractModel):
     @property
     def Mode(self):
         r"""配置服务端证书的模式，取值有：
-<li>disable：不配置服务端证书；</li>
-<li>eofreecert：配置 EdgeOne 免费服务端证书；</li>
-<li>sslcert：配置 SSL 托管服务端证书；</li>
-不填写表示服务端证书保持原有配置。
+<ul><li>disable：不配置服务端证书；</li>
+<li>eofreecert：通过自动验证申请免费证书并部署。验证方式详见：[申请免费证书支持的验证方式](https://cloud.tencent.com/document/product/1552/90437)
+
+- 在 NS 或者 DNSPod 托管接入模式下，仅支持自动验证的方式申请免费证书。
+- 当免费证书申请失败时会导致证书部署失败，您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口获取申请失败原因。</li>
+</ul><li>eofreecert_manual：部署 DNS 委派验证或者文件验证申请的免费证书。在部署免费证书前，您需要触发<a href = 'https://cloud.tencent.com/document/product/1552/124807'>申请免费证书</a>接口申请免费证书。在免费证书申请成功后，你可以通过该枚举值对免费证书进行部署；</li>
+<ul><li>注意：在对免费证书部署时，需要保证当前已存在申请成功的免费证书。您可以通过<a href = 'https://cloud.tencent.com/document/product/1552/124806'>检查免费证书申请结果</a>接口检查当前是否已存在申请成功的免费证书。</li>
+</ul><li>sslcert：配置 SSL 托管服务端证书。</li>
         :rtype: str
         """
         return self._Mode
@@ -37253,7 +39554,7 @@ class ModifyHostsCertificateRequest(AbstractModel):
 
     @property
     def UpstreamCertInfo(self):
-        r"""用于配置 EO 节点回源时携带的证书，用于回源双向认证握手，默认关闭，不填写表示保持原有配置。该配置当前为白名单内测中，如需使用，请[联系我们](https://cloud.tencent.com/online-service)。
+        r"""用于分别开启/关闭回源双向认证和源站证书校验。默认关闭，不填写表示保持原有配置。回源双向认证配置当前为白名单内侧中，如需使用，请[联系我们](https://cloud.tencent.com/online-service)。
         :rtype: :class:`tencentcloud.teo.v20220901.models.UpstreamCertInfo`
         """
         return self._UpstreamCertInfo
@@ -38526,6 +40827,100 @@ class ModifyMultiPathGatewaySecretKeyResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyMultiPathGatewayStatusRequest(AbstractModel):
+    r"""ModifyMultiPathGatewayStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GatewayId: 网关 ID。
+        :type GatewayId: str
+        :param _ZoneId: 站点 ID。
+        :type ZoneId: str
+        :param _GatewayStatus: 修改网关的启用停用状态，取值有：<li> offline：停用；</li><li> online：启用。</li>
+        :type GatewayStatus: str
+        """
+        self._GatewayId = None
+        self._ZoneId = None
+        self._GatewayStatus = None
+
+    @property
+    def GatewayId(self):
+        r"""网关 ID。
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def ZoneId(self):
+        r"""站点 ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def GatewayStatus(self):
+        r"""修改网关的启用停用状态，取值有：<li> offline：停用；</li><li> online：启用。</li>
+        :rtype: str
+        """
+        return self._GatewayStatus
+
+    @GatewayStatus.setter
+    def GatewayStatus(self, GatewayStatus):
+        self._GatewayStatus = GatewayStatus
+
+
+    def _deserialize(self, params):
+        self._GatewayId = params.get("GatewayId")
+        self._ZoneId = params.get("ZoneId")
+        self._GatewayStatus = params.get("GatewayStatus")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyMultiPathGatewayStatusResponse(AbstractModel):
+    r"""ModifyMultiPathGatewayStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyOriginACLRequest(AbstractModel):
     r"""ModifyOriginACL请求参数结构体
 
@@ -38973,6 +41368,144 @@ class ModifyPlanRequest(AbstractModel):
 
 class ModifyPlanResponse(AbstractModel):
     r"""ModifyPlan返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyPrefetchOriginLimitRequest(AbstractModel):
+    r"""ModifyPrefetchOriginLimit请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点 ID。
+        :type ZoneId: str
+        :param _DomainName: 加速域名。
+        :type DomainName: str
+        :param _Area: 回源限速限制的加速区域。
+预热时，该加速区域将会受到配置的Bandwidth值限制。取值有：
+<li>Overseas：全球可用区（不含中国大陆）；</li>
+<li>MainlandChina：中国大陆可用区。</li>
+        :type Area: str
+        :param _Bandwidth: 回源限速带宽。
+预热时回到源站的带宽上限值，取值范围 100 - 100,000，单位 Mbps。
+        :type Bandwidth: int
+        :param _Enabled: 回源限速限制控制开关。
+用于启用/删除本条回源限速限制，取值有：
+<li>on：启用限制；</li>
+<li>off：删除限制。</li>
+        :type Enabled: str
+        """
+        self._ZoneId = None
+        self._DomainName = None
+        self._Area = None
+        self._Bandwidth = None
+        self._Enabled = None
+
+    @property
+    def ZoneId(self):
+        r"""站点 ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def DomainName(self):
+        r"""加速域名。
+        :rtype: str
+        """
+        return self._DomainName
+
+    @DomainName.setter
+    def DomainName(self, DomainName):
+        self._DomainName = DomainName
+
+    @property
+    def Area(self):
+        r"""回源限速限制的加速区域。
+预热时，该加速区域将会受到配置的Bandwidth值限制。取值有：
+<li>Overseas：全球可用区（不含中国大陆）；</li>
+<li>MainlandChina：中国大陆可用区。</li>
+        :rtype: str
+        """
+        return self._Area
+
+    @Area.setter
+    def Area(self, Area):
+        self._Area = Area
+
+    @property
+    def Bandwidth(self):
+        r"""回源限速带宽。
+预热时回到源站的带宽上限值，取值范围 100 - 100,000，单位 Mbps。
+        :rtype: int
+        """
+        return self._Bandwidth
+
+    @Bandwidth.setter
+    def Bandwidth(self, Bandwidth):
+        self._Bandwidth = Bandwidth
+
+    @property
+    def Enabled(self):
+        r"""回源限速限制控制开关。
+用于启用/删除本条回源限速限制，取值有：
+<li>on：启用限制；</li>
+<li>off：删除限制。</li>
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._DomainName = params.get("DomainName")
+        self._Area = params.get("Area")
+        self._Bandwidth = params.get("Bandwidth")
+        self._Enabled = params.get("Enabled")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyPrefetchOriginLimitResponse(AbstractModel):
+    r"""ModifyPrefetchOriginLimit返回参数结构体
 
     """
 
@@ -39944,9 +42477,9 @@ class ModifySecurityPolicyRequest(AbstractModel):
         r"""
         :param _ZoneId: 站点 ID。
         :type ZoneId: str
-        :param _SecurityConfig: 安全策略配置。<li>当 SecurityPolicy 参数中的 ExceptionRules 被设置时，SecurityConfig 参数中的 ExceptConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 CustomRules 被设置时，SecurityConfig 参数中的 AclConfig、 IpTableConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 HttpDDoSProtection 和 RateLimitingRules 被设置时，SecurityConfig 参数中的 RateLimitConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 ManagedRule 被设置时，SecurityConfig 参数中的 WafConfig 将被忽略；</li><li>对于例外规则、自定义规则、速率限制以及托管规则策略配置建议使用 SecurityPolicy 参数进行设置。</li>
+        :param _SecurityConfig: 安全策略配置。<li>当 SecurityPolicy 参数中的 ExceptionRules 被设置时，SecurityConfig 参数中的 ExceptConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 CustomRules 被设置时，SecurityConfig 参数中的 AclConfig、 IpTableConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 HttpDDoSProtection 和 RateLimitingRules 被设置时，SecurityConfig 参数中的 RateLimitConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 ManagedRule 被设置时，SecurityConfig 参数中的 WafConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 BotManagement 被设置时，SecurityConfig 参数中的 BotConfig 将被忽略；</li><li>对于例外规则、自定义规则、速率限制、托管规则以及 Bot 管理策略配置建议使用 SecurityPolicy 参数进行设置。</li>
         :type SecurityConfig: :class:`tencentcloud.teo.v20220901.models.SecurityConfig`
-        :param _SecurityPolicy: 安全策略配置。对 Web 例外规则、防护自定义策略、速率规则和托管规则配置建议使用，支持表达式语法对安全策略进行配置。
+        :param _SecurityPolicy: 安全策略配置。对 Web 例外规则、防护自定义策略、速率规则、托管规则和 Bot 管理配置建议使用，支持表达式语法对安全策略进行配置。
         :type SecurityPolicy: :class:`tencentcloud.teo.v20220901.models.SecurityPolicy`
         :param _Entity: 安全策略类型，可使用以下参数值： <li>ZoneDefaultPolicy：用于指定站点级策略；</li><li>Template：用于指定策略模板，需要同时指定 TemplateId 参数；</li><li>Host：用于指定域名级策略（注意：当使用域名来指定域名服务策略时，仅支持已经应用了域名级策略的域名服务或者策略模板）。</li>
         :type Entity: str
@@ -39975,7 +42508,7 @@ class ModifySecurityPolicyRequest(AbstractModel):
 
     @property
     def SecurityConfig(self):
-        r"""安全策略配置。<li>当 SecurityPolicy 参数中的 ExceptionRules 被设置时，SecurityConfig 参数中的 ExceptConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 CustomRules 被设置时，SecurityConfig 参数中的 AclConfig、 IpTableConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 HttpDDoSProtection 和 RateLimitingRules 被设置时，SecurityConfig 参数中的 RateLimitConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 ManagedRule 被设置时，SecurityConfig 参数中的 WafConfig 将被忽略；</li><li>对于例外规则、自定义规则、速率限制以及托管规则策略配置建议使用 SecurityPolicy 参数进行设置。</li>
+        r"""安全策略配置。<li>当 SecurityPolicy 参数中的 ExceptionRules 被设置时，SecurityConfig 参数中的 ExceptConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 CustomRules 被设置时，SecurityConfig 参数中的 AclConfig、 IpTableConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 HttpDDoSProtection 和 RateLimitingRules 被设置时，SecurityConfig 参数中的 RateLimitConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 ManagedRule 被设置时，SecurityConfig 参数中的 WafConfig 将被忽略；</li><li>当 SecurityPolicy 参数中的 BotManagement 被设置时，SecurityConfig 参数中的 BotConfig 将被忽略；</li><li>对于例外规则、自定义规则、速率限制、托管规则以及 Bot 管理策略配置建议使用 SecurityPolicy 参数进行设置。</li>
         :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityConfig`
         """
         return self._SecurityConfig
@@ -39986,7 +42519,7 @@ class ModifySecurityPolicyRequest(AbstractModel):
 
     @property
     def SecurityPolicy(self):
-        r"""安全策略配置。对 Web 例外规则、防护自定义策略、速率规则和托管规则配置建议使用，支持表达式语法对安全策略进行配置。
+        r"""安全策略配置。对 Web 例外规则、防护自定义策略、速率规则、托管规则和 Bot 管理配置建议使用，支持表达式语法对安全策略进行配置。
         :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityPolicy`
         """
         return self._SecurityPolicy
@@ -40407,6 +42940,8 @@ class ModifyZoneSettingRequest(AbstractModel):
         :param _Grpc: Grpc 协议支持配置。
 不填写表示保持原有配置。
         :type Grpc: :class:`tencentcloud.teo.v20220901.models.Grpc`
+        :param _NetworkErrorLogging: 网络错误日志记录配置。不填写表示保持原有配置。
+        :type NetworkErrorLogging: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
         :param _ImageOptimize: 图片优化配置。
 不填写表示关闭。
         :type ImageOptimize: :class:`tencentcloud.teo.v20220901.models.ImageOptimize`
@@ -40434,6 +42969,7 @@ class ModifyZoneSettingRequest(AbstractModel):
         self._Ipv6 = None
         self._ClientIpCountry = None
         self._Grpc = None
+        self._NetworkErrorLogging = None
         self._ImageOptimize = None
         self._StandardDebug = None
         self._JITVideoProcess = None
@@ -40666,6 +43202,17 @@ class ModifyZoneSettingRequest(AbstractModel):
         self._Grpc = Grpc
 
     @property
+    def NetworkErrorLogging(self):
+        r"""网络错误日志记录配置。不填写表示保持原有配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
+        """
+        return self._NetworkErrorLogging
+
+    @NetworkErrorLogging.setter
+    def NetworkErrorLogging(self, NetworkErrorLogging):
+        self._NetworkErrorLogging = NetworkErrorLogging
+
+    @property
     def ImageOptimize(self):
         r"""图片优化配置。
 不填写表示关闭。
@@ -40756,6 +43303,9 @@ class ModifyZoneSettingRequest(AbstractModel):
         if params.get("Grpc") is not None:
             self._Grpc = Grpc()
             self._Grpc._deserialize(params.get("Grpc"))
+        if params.get("NetworkErrorLogging") is not None:
+            self._NetworkErrorLogging = NetworkErrorLogging()
+            self._NetworkErrorLogging._deserialize(params.get("NetworkErrorLogging"))
         if params.get("ImageOptimize") is not None:
             self._ImageOptimize = ImageOptimize()
             self._ImageOptimize._deserialize(params.get("ImageOptimize"))
@@ -40915,6 +43465,8 @@ class MultiPathGateway(AbstractModel):
         :type RegionId: str
         :param _Lines: 线路信息，当查询网关信息详情 DescribeMultiPathGateway 的时候会返回，当查询网关列表 DescribeMultiPathGateways 的时候不会返回。
         :type Lines: list of MultiPathGatewayLine
+        :param _NeedConfirm: 网关回源 IP 列表发生了变化是否需要重新确认，取值有：<li>true：回源 IP 列表发生了变化，需要确认；</li><li>false：回源 IP 列表未发生变化，无需确认。</li>
+        :type NeedConfirm: str
         """
         self._GatewayId = None
         self._GatewayName = None
@@ -40924,6 +43476,7 @@ class MultiPathGateway(AbstractModel):
         self._GatewayIP = None
         self._RegionId = None
         self._Lines = None
+        self._NeedConfirm = None
 
     @property
     def GatewayId(self):
@@ -41019,6 +43572,17 @@ class MultiPathGateway(AbstractModel):
     def Lines(self, Lines):
         self._Lines = Lines
 
+    @property
+    def NeedConfirm(self):
+        r"""网关回源 IP 列表发生了变化是否需要重新确认，取值有：<li>true：回源 IP 列表发生了变化，需要确认；</li><li>false：回源 IP 列表未发生变化，无需确认。</li>
+        :rtype: str
+        """
+        return self._NeedConfirm
+
+    @NeedConfirm.setter
+    def NeedConfirm(self, NeedConfirm):
+        self._NeedConfirm = NeedConfirm
+
 
     def _deserialize(self, params):
         self._GatewayId = params.get("GatewayId")
@@ -41034,6 +43598,81 @@ class MultiPathGateway(AbstractModel):
                 obj = MultiPathGatewayLine()
                 obj._deserialize(item)
                 self._Lines.append(obj)
+        self._NeedConfirm = params.get("NeedConfirm")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MultiPathGatewayCurrentOriginACL(AbstractModel):
+    r"""当前生效的回源 IP 网段。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EntireAddresses: 回源 IP 网段详情。
+        :type EntireAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _Version: 版本号。
+        :type Version: int
+        :param _IsPlaned: 本参数用于记录当前版本生效前是否完成「我已更新至最新回源 IP 网段」的确认。取值有：
+<li>true：已完成更新至最新回源 IP 的确认；</li>
+<li>false：未完成更新至最新回源 IP 的确认；</li>
+注意：本参数返回 false 时，请及时确认您的源站防火墙配置是否已更新至最新的回源 IP 网段，以避免出现回源失败。
+        :type IsPlaned: str
+        """
+        self._EntireAddresses = None
+        self._Version = None
+        self._IsPlaned = None
+
+    @property
+    def EntireAddresses(self):
+        r"""回源 IP 网段详情。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._EntireAddresses
+
+    @EntireAddresses.setter
+    def EntireAddresses(self, EntireAddresses):
+        self._EntireAddresses = EntireAddresses
+
+    @property
+    def Version(self):
+        r"""版本号。
+        :rtype: int
+        """
+        return self._Version
+
+    @Version.setter
+    def Version(self, Version):
+        self._Version = Version
+
+    @property
+    def IsPlaned(self):
+        r"""本参数用于记录当前版本生效前是否完成「我已更新至最新回源 IP 网段」的确认。取值有：
+<li>true：已完成更新至最新回源 IP 的确认；</li>
+<li>false：未完成更新至最新回源 IP 的确认；</li>
+注意：本参数返回 false 时，请及时确认您的源站防火墙配置是否已更新至最新的回源 IP 网段，以避免出现回源失败。
+        :rtype: str
+        """
+        return self._IsPlaned
+
+    @IsPlaned.setter
+    def IsPlaned(self, IsPlaned):
+        self._IsPlaned = IsPlaned
+
+
+    def _deserialize(self, params):
+        if params.get("EntireAddresses") is not None:
+            self._EntireAddresses = Addresses()
+            self._EntireAddresses._deserialize(params.get("EntireAddresses"))
+        self._Version = params.get("Version")
+        self._IsPlaned = params.get("IsPlaned")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -41152,6 +43791,165 @@ class MultiPathGatewayLine(AbstractModel):
         
 
 
+class MultiPathGatewayNextOriginACL(AbstractModel):
+    r"""当回源 IP 网段发生更新时，该字段会返回下一个版本将要生效的回源 IP 网段，包含与当前生效的回源 IP 网段的对比。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Version: 版本号。
+        :type Version: int
+        :param _EntireAddresses: 回源 IP 网段详情。
+        :type EntireAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _AddedAddresses: 最新回源 IP 网段相较于 MultiPathGatewayCurrentOrginACL 中回源 IP 网段新增的部分。
+        :type AddedAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _RemovedAddresses: 最新回源 IP 网段相较于 MultiPathGatewayCurrentOrginACL 中回源 IP 网段删减的部分。
+        :type RemovedAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _NoChangeAddresses: 最新回源 IP 网段相较于 MultiPathGatewayCurrentOrginACL 中回源 IP 网段无变化的部分。
+        :type NoChangeAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        self._Version = None
+        self._EntireAddresses = None
+        self._AddedAddresses = None
+        self._RemovedAddresses = None
+        self._NoChangeAddresses = None
+
+    @property
+    def Version(self):
+        r"""版本号。
+        :rtype: int
+        """
+        return self._Version
+
+    @Version.setter
+    def Version(self, Version):
+        self._Version = Version
+
+    @property
+    def EntireAddresses(self):
+        r"""回源 IP 网段详情。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._EntireAddresses
+
+    @EntireAddresses.setter
+    def EntireAddresses(self, EntireAddresses):
+        self._EntireAddresses = EntireAddresses
+
+    @property
+    def AddedAddresses(self):
+        r"""最新回源 IP 网段相较于 MultiPathGatewayCurrentOrginACL 中回源 IP 网段新增的部分。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._AddedAddresses
+
+    @AddedAddresses.setter
+    def AddedAddresses(self, AddedAddresses):
+        self._AddedAddresses = AddedAddresses
+
+    @property
+    def RemovedAddresses(self):
+        r"""最新回源 IP 网段相较于 MultiPathGatewayCurrentOrginACL 中回源 IP 网段删减的部分。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._RemovedAddresses
+
+    @RemovedAddresses.setter
+    def RemovedAddresses(self, RemovedAddresses):
+        self._RemovedAddresses = RemovedAddresses
+
+    @property
+    def NoChangeAddresses(self):
+        r"""最新回源 IP 网段相较于 MultiPathGatewayCurrentOrginACL 中回源 IP 网段无变化的部分。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._NoChangeAddresses
+
+    @NoChangeAddresses.setter
+    def NoChangeAddresses(self, NoChangeAddresses):
+        self._NoChangeAddresses = NoChangeAddresses
+
+
+    def _deserialize(self, params):
+        self._Version = params.get("Version")
+        if params.get("EntireAddresses") is not None:
+            self._EntireAddresses = Addresses()
+            self._EntireAddresses._deserialize(params.get("EntireAddresses"))
+        if params.get("AddedAddresses") is not None:
+            self._AddedAddresses = Addresses()
+            self._AddedAddresses._deserialize(params.get("AddedAddresses"))
+        if params.get("RemovedAddresses") is not None:
+            self._RemovedAddresses = Addresses()
+            self._RemovedAddresses._deserialize(params.get("RemovedAddresses"))
+        if params.get("NoChangeAddresses") is not None:
+            self._NoChangeAddresses = Addresses()
+            self._NoChangeAddresses._deserialize(params.get("NoChangeAddresses"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MultiPathGatewayOriginACLInfo(AbstractModel):
+    r"""多通道网关示例实例与回源 IP 网段的绑定关系，以及回源 IP 网段详情。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MultiPathGatewayCurrentOriginACL: 当前生效的回源 IP 网段。
+        :type MultiPathGatewayCurrentOriginACL: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayCurrentOriginACL`
+        :param _MultiPathGatewayNextOriginACL: 当回源 IP 网段发生更新时，该字段会返回下一个版本将要生效的回源 IP 网段，包含与当前回源 IP 网段的对比。无更新时该字段为空。
+        :type MultiPathGatewayNextOriginACL: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayNextOriginACL`
+        """
+        self._MultiPathGatewayCurrentOriginACL = None
+        self._MultiPathGatewayNextOriginACL = None
+
+    @property
+    def MultiPathGatewayCurrentOriginACL(self):
+        r"""当前生效的回源 IP 网段。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayCurrentOriginACL`
+        """
+        return self._MultiPathGatewayCurrentOriginACL
+
+    @MultiPathGatewayCurrentOriginACL.setter
+    def MultiPathGatewayCurrentOriginACL(self, MultiPathGatewayCurrentOriginACL):
+        self._MultiPathGatewayCurrentOriginACL = MultiPathGatewayCurrentOriginACL
+
+    @property
+    def MultiPathGatewayNextOriginACL(self):
+        r"""当回源 IP 网段发生更新时，该字段会返回下一个版本将要生效的回源 IP 网段，包含与当前回源 IP 网段的对比。无更新时该字段为空。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayNextOriginACL`
+        """
+        return self._MultiPathGatewayNextOriginACL
+
+    @MultiPathGatewayNextOriginACL.setter
+    def MultiPathGatewayNextOriginACL(self, MultiPathGatewayNextOriginACL):
+        self._MultiPathGatewayNextOriginACL = MultiPathGatewayNextOriginACL
+
+
+    def _deserialize(self, params):
+        if params.get("MultiPathGatewayCurrentOriginACL") is not None:
+            self._MultiPathGatewayCurrentOriginACL = MultiPathGatewayCurrentOriginACL()
+            self._MultiPathGatewayCurrentOriginACL._deserialize(params.get("MultiPathGatewayCurrentOriginACL"))
+        if params.get("MultiPathGatewayNextOriginACL") is not None:
+            self._MultiPathGatewayNextOriginACL = MultiPathGatewayNextOriginACL()
+            self._MultiPathGatewayNextOriginACL._deserialize(params.get("MultiPathGatewayNextOriginACL"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class MutualTLS(AbstractModel):
     r"""HTTPS 双向认证。
 
@@ -41204,6 +44002,229 @@ class MutualTLS(AbstractModel):
                 obj = CertificateInfo()
                 obj._deserialize(item)
                 self._CertInfos.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NSDetail(AbstractModel):
+    r"""NS 接入类型站点参数详情。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CnameSpeedUp: 是否开启 CNAME 加速，取值有：
+<li> enabled：开启；</li>
+<li> disabled：关闭。</li>
+        :type CnameSpeedUp: str
+        :param _IsFake: 是否存在同名站点，取值有：
+<li> 0：不存在同名站点；</li>
+<li> 1：已存在同名站点。</li>
+        :type IsFake: int
+        :param _OwnershipVerification: 归属权验证信息。针对 NS 接入类型的站点，将当前的 NS 服务器切换至腾讯云 EdgeOne 指定的 NS 服务器，即视为通过归属权验证。详情请参考 [站点/域名归属权验证](https://cloud.tencent.com/document/product/1552/70789) 。
+        :type OwnershipVerification: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        :param _OriginalNameServers: 由 EdgeOne 检测到的站点当前正在使用的 NS 服务器列表。
+        :type OriginalNameServers: list of str
+        :param _NameServers: 腾讯云 EdgeOne 分配的 NS 服务器列表。需要将当前站点 NS 服务器指向该地址，站点才能生效。
+        :type NameServers: list of str
+        :param _VanityNameServers: 用户自定义 NS 服务器域名信息。如果启用了自定义 NS 服务，需要在域名注册厂商内将 NS 指向该地址。
+        :type VanityNameServers: :class:`tencentcloud.teo.v20220901.models.VanityNameServers`
+        :param _VanityNameServersIps: 用户自定义 NS 服务器对应的 IP 地址信息。
+        :type VanityNameServersIps: list of VanityNameServersIps
+        """
+        self._CnameSpeedUp = None
+        self._IsFake = None
+        self._OwnershipVerification = None
+        self._OriginalNameServers = None
+        self._NameServers = None
+        self._VanityNameServers = None
+        self._VanityNameServersIps = None
+
+    @property
+    def CnameSpeedUp(self):
+        r"""是否开启 CNAME 加速，取值有：
+<li> enabled：开启；</li>
+<li> disabled：关闭。</li>
+        :rtype: str
+        """
+        return self._CnameSpeedUp
+
+    @CnameSpeedUp.setter
+    def CnameSpeedUp(self, CnameSpeedUp):
+        self._CnameSpeedUp = CnameSpeedUp
+
+    @property
+    def IsFake(self):
+        r"""是否存在同名站点，取值有：
+<li> 0：不存在同名站点；</li>
+<li> 1：已存在同名站点。</li>
+        :rtype: int
+        """
+        return self._IsFake
+
+    @IsFake.setter
+    def IsFake(self, IsFake):
+        self._IsFake = IsFake
+
+    @property
+    def OwnershipVerification(self):
+        r"""归属权验证信息。针对 NS 接入类型的站点，将当前的 NS 服务器切换至腾讯云 EdgeOne 指定的 NS 服务器，即视为通过归属权验证。详情请参考 [站点/域名归属权验证](https://cloud.tencent.com/document/product/1552/70789) 。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        """
+        return self._OwnershipVerification
+
+    @OwnershipVerification.setter
+    def OwnershipVerification(self, OwnershipVerification):
+        self._OwnershipVerification = OwnershipVerification
+
+    @property
+    def OriginalNameServers(self):
+        r"""由 EdgeOne 检测到的站点当前正在使用的 NS 服务器列表。
+        :rtype: list of str
+        """
+        return self._OriginalNameServers
+
+    @OriginalNameServers.setter
+    def OriginalNameServers(self, OriginalNameServers):
+        self._OriginalNameServers = OriginalNameServers
+
+    @property
+    def NameServers(self):
+        r"""腾讯云 EdgeOne 分配的 NS 服务器列表。需要将当前站点 NS 服务器指向该地址，站点才能生效。
+        :rtype: list of str
+        """
+        return self._NameServers
+
+    @NameServers.setter
+    def NameServers(self, NameServers):
+        self._NameServers = NameServers
+
+    @property
+    def VanityNameServers(self):
+        r"""用户自定义 NS 服务器域名信息。如果启用了自定义 NS 服务，需要在域名注册厂商内将 NS 指向该地址。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.VanityNameServers`
+        """
+        return self._VanityNameServers
+
+    @VanityNameServers.setter
+    def VanityNameServers(self, VanityNameServers):
+        self._VanityNameServers = VanityNameServers
+
+    @property
+    def VanityNameServersIps(self):
+        r"""用户自定义 NS 服务器对应的 IP 地址信息。
+        :rtype: list of VanityNameServersIps
+        """
+        return self._VanityNameServersIps
+
+    @VanityNameServersIps.setter
+    def VanityNameServersIps(self, VanityNameServersIps):
+        self._VanityNameServersIps = VanityNameServersIps
+
+
+    def _deserialize(self, params):
+        self._CnameSpeedUp = params.get("CnameSpeedUp")
+        self._IsFake = params.get("IsFake")
+        if params.get("OwnershipVerification") is not None:
+            self._OwnershipVerification = OwnershipVerification()
+            self._OwnershipVerification._deserialize(params.get("OwnershipVerification"))
+        self._OriginalNameServers = params.get("OriginalNameServers")
+        self._NameServers = params.get("NameServers")
+        if params.get("VanityNameServers") is not None:
+            self._VanityNameServers = VanityNameServers()
+            self._VanityNameServers._deserialize(params.get("VanityNameServers"))
+        if params.get("VanityNameServersIps") is not None:
+            self._VanityNameServersIps = []
+            for item in params.get("VanityNameServersIps"):
+                obj = VanityNameServersIps()
+                obj._deserialize(item)
+                self._VanityNameServersIps.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NetworkErrorLogging(AbstractModel):
+    r"""网络错误日志记录配置项
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: 是否开启网络错误日志记录配置，取值有：
+<li>on：开启；</li>
+<li>off：关闭。</li>
+        :type Switch: str
+        """
+        self._Switch = None
+
+    @property
+    def Switch(self):
+        r"""是否开启网络错误日志记录配置，取值有：
+<li>on：开启；</li>
+<li>off：关闭。</li>
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NetworkErrorLoggingParameters(AbstractModel):
+    r"""网络错误日志记录配置项。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: 网络错误日志记录配置开关，取值有：
+<li>on：开启；</li>
+<li>off：关闭。</li>
+        :type Switch: str
+        """
+        self._Switch = None
+
+    @property
+    def Switch(self):
+        r"""网络错误日志记录配置开关，取值有：
+<li>on：开启；</li>
+<li>off：关闭。</li>
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -41854,6 +44875,173 @@ class OriginACLInfo(AbstractModel):
             self._NextOriginACL = NextOriginACL()
             self._NextOriginACL._deserialize(params.get("NextOriginACL"))
         self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OriginAuthenticationParameters(AbstractModel):
+    r"""回源鉴权参数。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestProperties: 回源鉴权请求属性。
+        :type RequestProperties: list of OriginAuthenticationRequestProperties
+        """
+        self._RequestProperties = None
+
+    @property
+    def RequestProperties(self):
+        r"""回源鉴权请求属性。
+        :rtype: list of OriginAuthenticationRequestProperties
+        """
+        return self._RequestProperties
+
+    @RequestProperties.setter
+    def RequestProperties(self, RequestProperties):
+        self._RequestProperties = RequestProperties
+
+
+    def _deserialize(self, params):
+        if params.get("RequestProperties") is not None:
+            self._RequestProperties = []
+            for item in params.get("RequestProperties"):
+                obj = OriginAuthenticationRequestProperties()
+                obj._deserialize(item)
+                self._RequestProperties.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OriginAuthenticationRequestProperties(AbstractModel):
+    r"""回源鉴权请求属性。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: 设置回源鉴权参数类型，取值有：<li>QueryString：表示设置回源鉴权参数类型为查询字符串；</li><li>Header：表示设置回源鉴权参数类型为请求头。</li>
+        :type Type: str
+        :param _Name: 设置回源鉴权类型对应的参数名称。
+        :type Name: str
+        :param _Value: 设置回源鉴权类型对应的参数值。
+        :type Value: str
+        """
+        self._Type = None
+        self._Name = None
+        self._Value = None
+
+    @property
+    def Type(self):
+        r"""设置回源鉴权参数类型，取值有：<li>QueryString：表示设置回源鉴权参数类型为查询字符串；</li><li>Header：表示设置回源鉴权参数类型为请求头。</li>
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Name(self):
+        r"""设置回源鉴权类型对应的参数名称。
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Value(self):
+        r"""设置回源鉴权类型对应的参数值。
+        :rtype: str
+        """
+        return self._Value
+
+    @Value.setter
+    def Value(self, Value):
+        self._Value = Value
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._Name = params.get("Name")
+        self._Value = params.get("Value")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OriginCertificateVerify(AbstractModel):
+    r"""HTTPS 源站证书校验的模式。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VerificationMode: 源站证书校验模式。取值有：<li>disable:禁用源站证书校验。</li><li>custom_ca:使用指定受信任 CA 证书校验。</li>
+        :type VerificationMode: str
+        :param _CustomCACerts: 指定受信任的 CA 证书列表，源站证书需要由该 CA 签发才能校验通过。 注意：仅当 VerificationMode 为 custom_ca 时，需要传入该参数，指定受信任的CA证书信息。
+OriginCertificateVerify 在 ModifyHostsCertificate 作为入参使用时，该参数传入对应证书的 CertId 即可。您可以前往 [SSL 证书列表](https://console.cloud.tencent.com/ssl) 查看 CertId。	
+
+        :type CustomCACerts: list of CertificateInfo
+        """
+        self._VerificationMode = None
+        self._CustomCACerts = None
+
+    @property
+    def VerificationMode(self):
+        r"""源站证书校验模式。取值有：<li>disable:禁用源站证书校验。</li><li>custom_ca:使用指定受信任 CA 证书校验。</li>
+        :rtype: str
+        """
+        return self._VerificationMode
+
+    @VerificationMode.setter
+    def VerificationMode(self, VerificationMode):
+        self._VerificationMode = VerificationMode
+
+    @property
+    def CustomCACerts(self):
+        r"""指定受信任的 CA 证书列表，源站证书需要由该 CA 签发才能校验通过。 注意：仅当 VerificationMode 为 custom_ca 时，需要传入该参数，指定受信任的CA证书信息。
+OriginCertificateVerify 在 ModifyHostsCertificate 作为入参使用时，该参数传入对应证书的 CertId 即可。您可以前往 [SSL 证书列表](https://console.cloud.tencent.com/ssl) 查看 CertId。	
+
+        :rtype: list of CertificateInfo
+        """
+        return self._CustomCACerts
+
+    @CustomCACerts.setter
+    def CustomCACerts(self, CustomCACerts):
+        self._CustomCACerts = CustomCACerts
+
+
+    def _deserialize(self, params):
+        self._VerificationMode = params.get("VerificationMode")
+        if params.get("CustomCACerts") is not None:
+            self._CustomCACerts = []
+            for item in params.get("CustomCACerts"):
+                obj = CertificateInfo()
+                obj._deserialize(item)
+                self._CustomCACerts.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -42532,27 +45720,36 @@ class OriginGroupReference(AbstractModel):
     def __init__(self):
         r"""
         :param _InstanceType: 引用服务类型，取值有：
-<li>AccelerationDomain: 加速域名；</li>
-<li>RuleEngine: 规则引擎；</li>
-<li>Loadbalance: 负载均衡；</li>
-<li>ApplicationProxy: 四层代理。</li>
+<li>acceleration-domain: 加速域名；</li>
+<li>rule-engine: 规则引擎；</li>
+<li>load-balancer: 负载均衡；</li>
+<li>application-proxy: 四层代理。</li>
         :type InstanceType: str
         :param _InstanceId: 引用类型的实例ID。
         :type InstanceId: str
-        :param _InstanceName: 应用类型的实例名称。
+        :param _InstanceName: 引用类型的实例名称。
         :type InstanceName: str
+        :param _ZoneId: 引用站点ID。
+        :type ZoneId: str
+        :param _ZoneName: 引用站点名称。
+        :type ZoneName: str
+        :param _AliasZoneName: 引用站点别名。
+        :type AliasZoneName: str
         """
         self._InstanceType = None
         self._InstanceId = None
         self._InstanceName = None
+        self._ZoneId = None
+        self._ZoneName = None
+        self._AliasZoneName = None
 
     @property
     def InstanceType(self):
         r"""引用服务类型，取值有：
-<li>AccelerationDomain: 加速域名；</li>
-<li>RuleEngine: 规则引擎；</li>
-<li>Loadbalance: 负载均衡；</li>
-<li>ApplicationProxy: 四层代理。</li>
+<li>acceleration-domain: 加速域名；</li>
+<li>rule-engine: 规则引擎；</li>
+<li>load-balancer: 负载均衡；</li>
+<li>application-proxy: 四层代理。</li>
         :rtype: str
         """
         return self._InstanceType
@@ -42574,7 +45771,7 @@ class OriginGroupReference(AbstractModel):
 
     @property
     def InstanceName(self):
-        r"""应用类型的实例名称。
+        r"""引用类型的实例名称。
         :rtype: str
         """
         return self._InstanceName
@@ -42583,11 +45780,47 @@ class OriginGroupReference(AbstractModel):
     def InstanceName(self, InstanceName):
         self._InstanceName = InstanceName
 
+    @property
+    def ZoneId(self):
+        r"""引用站点ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def ZoneName(self):
+        r"""引用站点名称。
+        :rtype: str
+        """
+        return self._ZoneName
+
+    @ZoneName.setter
+    def ZoneName(self, ZoneName):
+        self._ZoneName = ZoneName
+
+    @property
+    def AliasZoneName(self):
+        r"""引用站点别名。
+        :rtype: str
+        """
+        return self._AliasZoneName
+
+    @AliasZoneName.setter
+    def AliasZoneName(self, AliasZoneName):
+        self._AliasZoneName = AliasZoneName
+
 
     def _deserialize(self, params):
         self._InstanceType = params.get("InstanceType")
         self._InstanceId = params.get("InstanceId")
         self._InstanceName = params.get("InstanceName")
+        self._ZoneId = params.get("ZoneId")
+        self._ZoneName = params.get("ZoneName")
+        self._AliasZoneName = params.get("AliasZoneName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -43144,6 +46377,48 @@ class OriginProtectionInfo(AbstractModel):
         if params.get("DiffIPWhitelist") is not None:
             self._DiffIPWhitelist = DiffIPWhitelist()
             self._DiffIPWhitelist._deserialize(params.get("DiffIPWhitelist"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OriginPullProtocolParameters(AbstractModel):
+    r"""回源 HTTPS 配置参数。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Protocol: 回源协议配置，取值有：
+<li>http：使用 HTTP 协议回源；</li>
+<li>https：使用 HTTPS 协议回源；</li>
+<li>follow：协议跟随。</li>
+        :type Protocol: str
+        """
+        self._Protocol = None
+
+    @property
+    def Protocol(self):
+        r"""回源协议配置，取值有：
+<li>http：使用 HTTP 协议回源；</li>
+<li>https：使用 HTTPS 协议回源；</li>
+<li>follow：协议跟随。</li>
+        :rtype: str
+        """
+        return self._Protocol
+
+    @Protocol.setter
+    def Protocol(self, Protocol):
+        self._Protocol = Protocol
+
+
+    def _deserialize(self, params):
+        self._Protocol = params.get("Protocol")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -43987,7 +47262,7 @@ class PostMaxSize(AbstractModel):
 <li>on：开启限制；</li>
 <li>off：关闭限制。</li>
         :type Switch: str
-        :param _MaxSize: 最大限制，取值在1MB和500MB之间。单位字节。
+        :param _MaxSize: 最大限制，该字段仅在 Switch 为 on 时生效，取值在 1MB 和 800MB 之间，单位字节。
         :type MaxSize: int
         """
         self._Switch = None
@@ -44008,7 +47283,7 @@ class PostMaxSize(AbstractModel):
 
     @property
     def MaxSize(self):
-        r"""最大限制，取值在1MB和500MB之间。单位字节。
+        r"""最大限制，该字段仅在 Switch 为 on 时生效，取值在 1MB 和 800MB 之间，单位字节。
         :rtype: int
         """
         return self._MaxSize
@@ -44040,7 +47315,7 @@ class PostMaxSizeParameters(AbstractModel):
         r"""
         :param _Switch: 是否开启 POST 请求上传文件限制，单位为 Byte，平台默认为限制为 32 * 2<sup>20</sup> Byte，取值有：<li>on：开启限制；</li><li>off：关闭限制。</li>
         :type Switch: str
-        :param _MaxSize: POST 请求上传文件流式传输最大限制，单位为 Byte，取值：1 * 2<sup>20</sup> Byte～500 * 2<sup>20</sup> Byte。
+        :param _MaxSize: POST 请求上传文件流式传输最大限制，该字段仅在 Switch 为 on 时生效，取值在 1MB 和 800MB 之间，单位字节。
         :type MaxSize: int
         """
         self._Switch = None
@@ -44059,7 +47334,7 @@ class PostMaxSizeParameters(AbstractModel):
 
     @property
     def MaxSize(self):
-        r"""POST 请求上传文件流式传输最大限制，单位为 Byte，取值：1 * 2<sup>20</sup> Byte～500 * 2<sup>20</sup> Byte。
+        r"""POST 请求上传文件流式传输最大限制，该字段仅在 Switch 为 on 时生效，取值在 1MB 和 800MB 之间，单位字节。
         :rtype: int
         """
         return self._MaxSize
@@ -44072,6 +47347,125 @@ class PostMaxSizeParameters(AbstractModel):
     def _deserialize(self, params):
         self._Switch = params.get("Switch")
         self._MaxSize = params.get("MaxSize")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PrefetchOriginLimit(AbstractModel):
+    r"""回源限速限制详情。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 站点 ID。
+        :type ZoneId: str
+        :param _DomainName: 加速域名。
+        :type DomainName: str
+        :param _Area: 回源限速限制的加速区域。
+预热时，该加速区域将会受到配置的Bandwidth值限制。取值有：
+<li>Overseas：全球可用区（不含中国大陆）；</li>
+<li>MainlandChina：中国大陆可用区。</li>
+        :type Area: str
+        :param _Bandwidth: 回源限速带宽。
+预热时回到源站的带宽上限值，取值范围 100 - 100,000，单位 Mbps。
+        :type Bandwidth: int
+        :param _CreateTime: 回源限速限制创建的时间。
+        :type CreateTime: str
+        :param _UpdateTime: 回源限速限制更新的时间。
+        :type UpdateTime: str
+        """
+        self._ZoneId = None
+        self._DomainName = None
+        self._Area = None
+        self._Bandwidth = None
+        self._CreateTime = None
+        self._UpdateTime = None
+
+    @property
+    def ZoneId(self):
+        r"""站点 ID。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def DomainName(self):
+        r"""加速域名。
+        :rtype: str
+        """
+        return self._DomainName
+
+    @DomainName.setter
+    def DomainName(self, DomainName):
+        self._DomainName = DomainName
+
+    @property
+    def Area(self):
+        r"""回源限速限制的加速区域。
+预热时，该加速区域将会受到配置的Bandwidth值限制。取值有：
+<li>Overseas：全球可用区（不含中国大陆）；</li>
+<li>MainlandChina：中国大陆可用区。</li>
+        :rtype: str
+        """
+        return self._Area
+
+    @Area.setter
+    def Area(self, Area):
+        self._Area = Area
+
+    @property
+    def Bandwidth(self):
+        r"""回源限速带宽。
+预热时回到源站的带宽上限值，取值范围 100 - 100,000，单位 Mbps。
+        :rtype: int
+        """
+        return self._Bandwidth
+
+    @Bandwidth.setter
+    def Bandwidth(self, Bandwidth):
+        self._Bandwidth = Bandwidth
+
+    @property
+    def CreateTime(self):
+        r"""回源限速限制创建的时间。
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def UpdateTime(self):
+        r"""回源限速限制更新的时间。
+        :rtype: str
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._DomainName = params.get("DomainName")
+        self._Area = params.get("Area")
+        self._Bandwidth = params.get("Bandwidth")
+        self._CreateTime = params.get("CreateTime")
+        self._UpdateTime = params.get("UpdateTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -45496,7 +48890,7 @@ class RealtimeLogDeliveryTask(AbstractModel):
         :type TaskName: str
         :param _DeliveryStatus: 实时日志投递任务的状态，取值有： <li>enabled: 已启用；</li> <li>disabled: 已停用；</li><li>deleted: 异常删除状态，请检查目的地腾讯云 CLS 日志集/日志主题是否已被删除。</li>
         :type DeliveryStatus: str
-        :param _TaskType: 实时日志投递任务类型，取值有： <li>cls: 推送到腾讯云 CLS；</li> <li>custom_endpoint：推送到自定义 HTTP(S) 地址；</li> <li>s3：推送到 AWS S3 兼容存储桶地址。</li>
+        :param _TaskType: 实时日志投递任务类型，取值有： <li>cls: 推送到腾讯云 CLS；</li> <li>custom_endpoint：推送到自定义 HTTP(S) 地址；</li> <li>s3：推送到 AWS S3 兼容存储桶地址；</li><li>log_analysis：推送到 EdgeOne 日志分析。</li>
         :type TaskType: str
         :param _EntityList: 实时日志投递任务对应的实体（七层域名或者四层代理实例）列表。取值示例如下： <li>七层域名：domain.example.com；</li> <li>四层代理实例：sid-2s69eb5wcms7。</li>	
         :type EntityList: list of str
@@ -45584,7 +48978,7 @@ class RealtimeLogDeliveryTask(AbstractModel):
 
     @property
     def TaskType(self):
-        r"""实时日志投递任务类型，取值有： <li>cls: 推送到腾讯云 CLS；</li> <li>custom_endpoint：推送到自定义 HTTP(S) 地址；</li> <li>s3：推送到 AWS S3 兼容存储桶地址。</li>
+        r"""实时日志投递任务类型，取值有： <li>cls: 推送到腾讯云 CLS；</li> <li>custom_endpoint：推送到自定义 HTTP(S) 地址；</li> <li>s3：推送到 AWS S3 兼容存储桶地址；</li><li>log_analysis：推送到 EdgeOne 日志分析。</li>
         :rtype: str
         """
         return self._TaskType
@@ -47265,7 +50659,9 @@ class RuleEngineAction(AbstractModel):
 <li>ModifyRequestHeader：修改 HTTP 节点请求头；</li>
 <li>ResponseSpeedLimit：单连接下载限速；</li>
 <li>SetContentIdentifier：设置内容标识符；</li>
-<li>Vary：Vary 特性配置。</li>
+<li>Vary：Vary 特性配置；</li>
+<li>ContentCompression：内容压缩配置；</li>
+<li>OriginAuthentication：回源鉴权配置。</li>
         :type Name: str
         :param _CacheParameters: 节点缓存 TTL 配置参数，当 Name 取值为 Cache 时，该参数必填。
 注意：此字段可能返回 null，表示取不到有效值。
@@ -47315,6 +50711,9 @@ class RuleEngineAction(AbstractModel):
         :param _ForceRedirectHTTPSParameters: 访问协议强制 HTTPS 跳转配置，当 Name 取值为 ForceRedirectHTTPS 时，该参数必填。
 注意：此字段可能返回 null，表示取不到有效值。
         :type ForceRedirectHTTPSParameters: :class:`tencentcloud.teo.v20220901.models.ForceRedirectHTTPSParameters`
+        :param _OriginPullProtocolParameters: 回源 HTTPS 配置参数，当 Name 取值为 OriginPullProtocol 时，该参数必填。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OriginPullProtocolParameters: :class:`tencentcloud.teo.v20220901.models.OriginPullProtocolParameters`
         :param _CompressionParameters: 智能压缩配置，当 Name 取值为 Compression 时，该参数必填。
 注意：此字段可能返回 null，表示取不到有效值。
         :type CompressionParameters: :class:`tencentcloud.teo.v20220901.models.CompressionParameters`
@@ -47372,6 +50771,10 @@ class RuleEngineAction(AbstractModel):
         :type SetContentIdentifierParameters: :class:`tencentcloud.teo.v20220901.models.SetContentIdentifierParameters`
         :param _VaryParameters: Vary 特性配置参数，当 Name 取值为 Vary 时，该参数必填。
         :type VaryParameters: :class:`tencentcloud.teo.v20220901.models.VaryParameters`
+        :param _ContentCompressionParameters: 内容压缩配置参数，当 Name 取值为 ContentCompression 时，该参数必填。该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
+        :type ContentCompressionParameters: :class:`tencentcloud.teo.v20220901.models.ContentCompressionParameters`
+        :param _OriginAuthenticationParameters: 回源鉴权配置参数，当 Name 取值为 OriginAuthentication 时，该参数必填。该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
+        :type OriginAuthenticationParameters: :class:`tencentcloud.teo.v20220901.models.OriginAuthenticationParameters`
         """
         self._Name = None
         self._CacheParameters = None
@@ -47390,6 +50793,7 @@ class RuleEngineAction(AbstractModel):
         self._UpstreamHTTP2Parameters = None
         self._HostHeaderParameters = None
         self._ForceRedirectHTTPSParameters = None
+        self._OriginPullProtocolParameters = None
         self._CompressionParameters = None
         self._HSTSParameters = None
         self._ClientIPHeaderParameters = None
@@ -47409,6 +50813,8 @@ class RuleEngineAction(AbstractModel):
         self._ResponseSpeedLimitParameters = None
         self._SetContentIdentifierParameters = None
         self._VaryParameters = None
+        self._ContentCompressionParameters = None
+        self._OriginAuthenticationParameters = None
 
     @property
     def Name(self):
@@ -47448,7 +50854,9 @@ class RuleEngineAction(AbstractModel):
 <li>ModifyRequestHeader：修改 HTTP 节点请求头；</li>
 <li>ResponseSpeedLimit：单连接下载限速；</li>
 <li>SetContentIdentifier：设置内容标识符；</li>
-<li>Vary：Vary 特性配置。</li>
+<li>Vary：Vary 特性配置；</li>
+<li>ContentCompression：内容压缩配置；</li>
+<li>OriginAuthentication：回源鉴权配置。</li>
         :rtype: str
         """
         return self._Name
@@ -47648,6 +51056,18 @@ class RuleEngineAction(AbstractModel):
     @ForceRedirectHTTPSParameters.setter
     def ForceRedirectHTTPSParameters(self, ForceRedirectHTTPSParameters):
         self._ForceRedirectHTTPSParameters = ForceRedirectHTTPSParameters
+
+    @property
+    def OriginPullProtocolParameters(self):
+        r"""回源 HTTPS 配置参数，当 Name 取值为 OriginPullProtocol 时，该参数必填。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OriginPullProtocolParameters`
+        """
+        return self._OriginPullProtocolParameters
+
+    @OriginPullProtocolParameters.setter
+    def OriginPullProtocolParameters(self, OriginPullProtocolParameters):
+        self._OriginPullProtocolParameters = OriginPullProtocolParameters
 
     @property
     def CompressionParameters(self):
@@ -47877,6 +51297,28 @@ class RuleEngineAction(AbstractModel):
     def VaryParameters(self, VaryParameters):
         self._VaryParameters = VaryParameters
 
+    @property
+    def ContentCompressionParameters(self):
+        r"""内容压缩配置参数，当 Name 取值为 ContentCompression 时，该参数必填。该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.ContentCompressionParameters`
+        """
+        return self._ContentCompressionParameters
+
+    @ContentCompressionParameters.setter
+    def ContentCompressionParameters(self, ContentCompressionParameters):
+        self._ContentCompressionParameters = ContentCompressionParameters
+
+    @property
+    def OriginAuthenticationParameters(self):
+        r"""回源鉴权配置参数，当 Name 取值为 OriginAuthentication 时，该参数必填。该参数为白名单功能，如有需要，请联系腾讯云工程师处理。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OriginAuthenticationParameters`
+        """
+        return self._OriginAuthenticationParameters
+
+    @OriginAuthenticationParameters.setter
+    def OriginAuthenticationParameters(self, OriginAuthenticationParameters):
+        self._OriginAuthenticationParameters = OriginAuthenticationParameters
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -47928,6 +51370,9 @@ class RuleEngineAction(AbstractModel):
         if params.get("ForceRedirectHTTPSParameters") is not None:
             self._ForceRedirectHTTPSParameters = ForceRedirectHTTPSParameters()
             self._ForceRedirectHTTPSParameters._deserialize(params.get("ForceRedirectHTTPSParameters"))
+        if params.get("OriginPullProtocolParameters") is not None:
+            self._OriginPullProtocolParameters = OriginPullProtocolParameters()
+            self._OriginPullProtocolParameters._deserialize(params.get("OriginPullProtocolParameters"))
         if params.get("CompressionParameters") is not None:
             self._CompressionParameters = CompressionParameters()
             self._CompressionParameters._deserialize(params.get("CompressionParameters"))
@@ -47985,6 +51430,12 @@ class RuleEngineAction(AbstractModel):
         if params.get("VaryParameters") is not None:
             self._VaryParameters = VaryParameters()
             self._VaryParameters._deserialize(params.get("VaryParameters"))
+        if params.get("ContentCompressionParameters") is not None:
+            self._ContentCompressionParameters = ContentCompressionParameters()
+            self._ContentCompressionParameters._deserialize(params.get("ContentCompressionParameters"))
+        if params.get("OriginAuthenticationParameters") is not None:
+            self._OriginAuthenticationParameters = OriginAuthenticationParameters()
+            self._OriginAuthenticationParameters._deserialize(params.get("OriginAuthenticationParameters"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -48892,6 +52343,64 @@ class S3(AbstractModel):
         
 
 
+class SearchEngineBots(AbstractModel):
+    r"""搜索引擎规则配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BaseAction: 来自搜索引擎爬虫的请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（待废弃）。</li> 
+        :type BaseAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _BotManagementActionOverrides: 指定搜索引擎爬虫请求的处置方式。
+        :type BotManagementActionOverrides: list of BotManagementActionOverrides
+        """
+        self._BaseAction = None
+        self._BotManagementActionOverrides = None
+
+    @property
+    def BaseAction(self):
+        r"""来自搜索引擎爬虫的请求的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（待废弃）。</li> 
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._BaseAction
+
+    @BaseAction.setter
+    def BaseAction(self, BaseAction):
+        self._BaseAction = BaseAction
+
+    @property
+    def BotManagementActionOverrides(self):
+        r"""指定搜索引擎爬虫请求的处置方式。
+        :rtype: list of BotManagementActionOverrides
+        """
+        return self._BotManagementActionOverrides
+
+    @BotManagementActionOverrides.setter
+    def BotManagementActionOverrides(self, BotManagementActionOverrides):
+        self._BotManagementActionOverrides = BotManagementActionOverrides
+
+
+    def _deserialize(self, params):
+        if params.get("BaseAction") is not None:
+            self._BaseAction = SecurityAction()
+            self._BaseAction._deserialize(params.get("BaseAction"))
+        if params.get("BotManagementActionOverrides") is not None:
+            self._BotManagementActionOverrides = []
+            for item in params.get("BotManagementActionOverrides"):
+                obj = BotManagementActionOverrides()
+                obj._deserialize(item)
+                self._BotManagementActionOverrides.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class SecEntry(AbstractModel):
     r"""安全数据Entry返回值
 
@@ -49063,6 +52572,7 @@ class SecurityAction(AbstractModel):
 <li>Disabled：未启用，不启用指定规则；</li>
 <li>Allow：允许访问，但延迟处理请求；</li>
 <li>Challenge：挑战，响应挑战内容；</li>
+<li>Trans：放行，允许请求直接访问站点资源；</li>
 <li>BlockIP：待废弃，IP 封禁；</li>
 <li>ReturnCustomPage：待废弃，使用指定页面拦截；</li>
 <li>JSChallenge：待废弃，JavaScript 挑战；</li>
@@ -49098,6 +52608,7 @@ class SecurityAction(AbstractModel):
 <li>Disabled：未启用，不启用指定规则；</li>
 <li>Allow：允许访问，但延迟处理请求；</li>
 <li>Challenge：挑战，响应挑战内容；</li>
+<li>Trans：放行，允许请求直接访问站点资源；</li>
 <li>BlockIP：待废弃，IP 封禁；</li>
 <li>ReturnCustomPage：待废弃，使用指定页面拦截；</li>
 <li>JSChallenge：待废弃，JavaScript 挑战；</li>
@@ -49720,6 +53231,59 @@ class SecurityType(AbstractModel):
         
 
 
+class SecurityWeightedAction(AbstractModel):
+    r"""按权重分配的 SecurityAction。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SecurityAction: Bot 自定义规则的处置方式。取值有：<li>Allow：放行，其中 AllowActionParameters 支持 MinDelayTime 和 MaxDelayTime 配置；</li><li>Deny：拦截，其中 DenyActionParameters 中支持 BlockIp、ReturnCustomPage 和 Stall 配置；</li><li>Monitor：观察；</li><li>Challenge：挑战，其中 ChallengeActionParameters.ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Redirect：重定向至URL。</li>
+        :type SecurityAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _Weight: 当前 SecurityAction 的权重，仅支持 10 ~ 100 且必须为 10 的倍数，其中 Weight 参数全部相加须等于 100。
+        :type Weight: int
+        """
+        self._SecurityAction = None
+        self._Weight = None
+
+    @property
+    def SecurityAction(self):
+        r"""Bot 自定义规则的处置方式。取值有：<li>Allow：放行，其中 AllowActionParameters 支持 MinDelayTime 和 MaxDelayTime 配置；</li><li>Deny：拦截，其中 DenyActionParameters 中支持 BlockIp、ReturnCustomPage 和 Stall 配置；</li><li>Monitor：观察；</li><li>Challenge：挑战，其中 ChallengeActionParameters.ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Redirect：重定向至URL。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._SecurityAction
+
+    @SecurityAction.setter
+    def SecurityAction(self, SecurityAction):
+        self._SecurityAction = SecurityAction
+
+    @property
+    def Weight(self):
+        r"""当前 SecurityAction 的权重，仅支持 10 ~ 100 且必须为 10 的倍数，其中 Weight 参数全部相加须等于 100。
+        :rtype: int
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+
+    def _deserialize(self, params):
+        if params.get("SecurityAction") is not None:
+            self._SecurityAction = SecurityAction()
+            self._SecurityAction._deserialize(params.get("SecurityAction"))
+        self._Weight = params.get("Weight")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ServerCertInfo(AbstractModel):
     r"""https 服务端证书配置
 
@@ -49844,6 +53408,93 @@ class ServerCertInfo(AbstractModel):
         self._DeployTime = params.get("DeployTime")
         self._SignAlgo = params.get("SignAlgo")
         self._CommonName = params.get("CommonName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SessionRateControl(AbstractModel):
+    r"""会话速率和周期特征校验配置。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Enabled: 会话速率和周期特征校验配置是否开启。取值有：<li>on：启用</li><li>off：关闭</li>
+        :type Enabled: str
+        :param _HighRateSessionAction: 会话速率和周期特征校验高风险的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type HighRateSessionAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _MidRateSessionAction: 会话速率和周期特征校验中风险的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type MidRateSessionAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _LowRateSessionAction: 会话速率和周期特征校验低风险的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :type LowRateSessionAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        self._Enabled = None
+        self._HighRateSessionAction = None
+        self._MidRateSessionAction = None
+        self._LowRateSessionAction = None
+
+    @property
+    def Enabled(self):
+        r"""会话速率和周期特征校验配置是否开启。取值有：<li>on：启用</li><li>off：关闭</li>
+        :rtype: str
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def HighRateSessionAction(self):
+        r"""会话速率和周期特征校验高风险的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._HighRateSessionAction
+
+    @HighRateSessionAction.setter
+    def HighRateSessionAction(self, HighRateSessionAction):
+        self._HighRateSessionAction = HighRateSessionAction
+
+    @property
+    def MidRateSessionAction(self):
+        r"""会话速率和周期特征校验中风险的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._MidRateSessionAction
+
+    @MidRateSessionAction.setter
+    def MidRateSessionAction(self, MidRateSessionAction):
+        self._MidRateSessionAction = MidRateSessionAction
+
+    @property
+    def LowRateSessionAction(self):
+        r"""会话速率和周期特征校验低风险的执行动作。 SecurityAction 的 Name 取值支持：<li>Deny：拦截，其中 DenyActionParameters 中支持 Stall 配置；</li><li>Monitor：观察；</li><li>Allow：等待后响应，其中 AllowActionParameters 需要 MinDelayTime 和 MaxDelayTime 配置。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._LowRateSessionAction
+
+    @LowRateSessionAction.setter
+    def LowRateSessionAction(self, LowRateSessionAction):
+        self._LowRateSessionAction = LowRateSessionAction
+
+
+    def _deserialize(self, params):
+        self._Enabled = params.get("Enabled")
+        if params.get("HighRateSessionAction") is not None:
+            self._HighRateSessionAction = SecurityAction()
+            self._HighRateSessionAction._deserialize(params.get("HighRateSessionAction"))
+        if params.get("MidRateSessionAction") is not None:
+            self._MidRateSessionAction = SecurityAction()
+            self._MidRateSessionAction._deserialize(params.get("MidRateSessionAction"))
+        if params.get("LowRateSessionAction") is not None:
+            self._LowRateSessionAction = SecurityAction()
+            self._LowRateSessionAction._deserialize(params.get("LowRateSessionAction"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -50370,6 +54021,64 @@ class SmartRoutingParameters(AbstractModel):
 
     def _deserialize(self, params):
         self._Switch = params.get("Switch")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SourceIDC(AbstractModel):
+    r"""IDC 规则配置的具体内容。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BaseAction: 来自指定 IDC 请求的处置方式。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（待废弃）。</li>
+        :type BaseAction: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        :param _BotManagementActionOverrides: 指定 IDC 请求的处置方式。
+        :type BotManagementActionOverrides: list of BotManagementActionOverrides
+        """
+        self._BaseAction = None
+        self._BotManagementActionOverrides = None
+
+    @property
+    def BaseAction(self):
+        r"""来自指定 IDC 请求的处置方式。 SecurityAction 的 Name 取值支持：<li>Deny：拦截；</li><li>Monitor：观察；</li><li>Disabled：未启用，不启用指定规则；</li><li>Challenge：挑战，其中 ChallengeActionParameters 中的 ChallengeOption 支持 JSChallenge 和 ManagedChallenge；</li><li>Allow：放行（待废弃）。</li>
+        :rtype: :class:`tencentcloud.teo.v20220901.models.SecurityAction`
+        """
+        return self._BaseAction
+
+    @BaseAction.setter
+    def BaseAction(self, BaseAction):
+        self._BaseAction = BaseAction
+
+    @property
+    def BotManagementActionOverrides(self):
+        r"""指定 IDC 请求的处置方式。
+        :rtype: list of BotManagementActionOverrides
+        """
+        return self._BotManagementActionOverrides
+
+    @BotManagementActionOverrides.setter
+    def BotManagementActionOverrides(self, BotManagementActionOverrides):
+        self._BotManagementActionOverrides = BotManagementActionOverrides
+
+
+    def _deserialize(self, params):
+        if params.get("BaseAction") is not None:
+            self._BaseAction = SecurityAction()
+            self._BaseAction._deserialize(params.get("BaseAction"))
+        if params.get("BotManagementActionOverrides") is not None:
+            self._BotManagementActionOverrides = []
+            for item in params.get("BotManagementActionOverrides"):
+                obj = BotManagementActionOverrides()
+                obj._deserialize(item)
+                self._BotManagementActionOverrides.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -51975,7 +55684,7 @@ class UpgradePlanResponse(AbstractModel):
 
 
 class UpstreamCertInfo(AbstractModel):
-    r"""用于 EO 节点回源时携带的证书，源站启用双向认证握手时使用，用于源站认证客户端证书是否有效，确保请求来源于受信任的 EO 节点。
+    r"""用于分别开启/关闭回源双向认证和源站证书校验。回源双向认证的证书用于 EO 回源时携带，源站可选择校验该证书用于确保请求来源于受信任的 EO 节点。源站证书校验开启时，证书配置用于 EO 节点校验源站证书是否可信。
 
     """
 
@@ -51983,8 +55692,11 @@ class UpstreamCertInfo(AbstractModel):
         r"""
         :param _UpstreamMutualTLS: 在回源双向认证场景下，该字段为 EO 节点回源时携带的证书（包含公钥、私钥即可），部署在 EO 节点，用于源站对 EO 节点进行认证。在作为入参使用时，不填写表示保持原有配置。
         :type UpstreamMutualTLS: :class:`tencentcloud.teo.v20220901.models.MutualTLS`
+        :param _UpstreamCertificateVerify: 在源站证书校验场景下，该字段为 EO 节点回源时用于验证的 CA 证书，部署在 EO 节点，用于 EO 节点对服务端证书进行认证。在作为入参使用时，不填写表示保持原有配置。
+        :type UpstreamCertificateVerify: :class:`tencentcloud.teo.v20220901.models.OriginCertificateVerify`
         """
         self._UpstreamMutualTLS = None
+        self._UpstreamCertificateVerify = None
 
     @property
     def UpstreamMutualTLS(self):
@@ -51997,11 +55709,25 @@ class UpstreamCertInfo(AbstractModel):
     def UpstreamMutualTLS(self, UpstreamMutualTLS):
         self._UpstreamMutualTLS = UpstreamMutualTLS
 
+    @property
+    def UpstreamCertificateVerify(self):
+        r"""在源站证书校验场景下，该字段为 EO 节点回源时用于验证的 CA 证书，部署在 EO 节点，用于 EO 节点对服务端证书进行认证。在作为入参使用时，不填写表示保持原有配置。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OriginCertificateVerify`
+        """
+        return self._UpstreamCertificateVerify
+
+    @UpstreamCertificateVerify.setter
+    def UpstreamCertificateVerify(self, UpstreamCertificateVerify):
+        self._UpstreamCertificateVerify = UpstreamCertificateVerify
+
 
     def _deserialize(self, params):
         if params.get("UpstreamMutualTLS") is not None:
             self._UpstreamMutualTLS = MutualTLS()
             self._UpstreamMutualTLS._deserialize(params.get("UpstreamMutualTLS"))
+        if params.get("UpstreamCertificateVerify") is not None:
+            self._UpstreamCertificateVerify = OriginCertificateVerify()
+            self._UpstreamCertificateVerify._deserialize(params.get("UpstreamCertificateVerify"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -53193,7 +56919,7 @@ class WebSocketParameters(AbstractModel):
 
 
 class Zone(AbstractModel):
-    r"""站点信息
+    r"""站点详情。
 
     """
 
@@ -53203,10 +56929,34 @@ class Zone(AbstractModel):
         :type ZoneId: str
         :param _ZoneName: 站点名称。
         :type ZoneName: str
-        :param _OriginalNameServers: 站点当前使用的 NS 列表。
-        :type OriginalNameServers: list of str
-        :param _NameServers: 腾讯云分配的 NS 列表。
-        :type NameServers: list of str
+        :param _AliasZoneName: 同名站点标识。允许输入数字、英文、"." 、"-" 和 "_" 组合，长度 200 个字符以内。
+        :type AliasZoneName: str
+        :param _Area: 站点加速区域，取值有：
+<li> global：全球可用区；</li>
+<li> mainland：中国大陆可用区；</li>
+<li> overseas：全球可用区（不含中国大陆）。</li>
+        :type Area: str
+        :param _Type: 站点接入类型，取值有：
+<li> full：NS 接入类型；</li>
+<li> partial：CNAME 接入类型；</li>
+<li> noDomainAccess：无域名接入类型；</li>
+<li>dnsPodAccess：DNSPod 托管类型，该类型要求您的域名已托管在腾讯云 DNSPod；</li>
+<li> pages：Pages 类型。</li>
+        :type Type: str
+        :param _Tags: 站点关联的标签。
+        :type Tags: list of Tag
+        :param _Resources: 计费资源列表。
+        :type Resources: list of Resource
+        :param _NSDetail: NS 类型站点详情。仅当 Type = full 时返回值。
+        :type NSDetail: :class:`tencentcloud.teo.v20220901.models.NSDetail`
+        :param _CNAMEDetail: CNAME 类型站点详情。仅当 Type = partial 时返回值。
+        :type CNAMEDetail: :class:`tencentcloud.teo.v20220901.models.CNAMEDetail`
+        :param _DNSPodDetail: DNSPod 托管类型站点详情。仅当 Type = dnsPodAccess 时返回值。
+        :type DNSPodDetail: :class:`tencentcloud.teo.v20220901.models.DNSPodDetail`
+        :param _CreatedOn: 站点创建时间。
+        :type CreatedOn: str
+        :param _ModifiedOn: 站点修改时间。
+        :type ModifiedOn: str
         :param _Status: 站点状态，取值有：
 <li> active：NS 已切换； </li>
 <li> pending：NS 未切换；</li>
@@ -53214,78 +56964,66 @@ class Zone(AbstractModel):
 <li> deactivated：被封禁。 </li>
 <li> initializing：待绑定套餐。 </li>
         :type Status: str
-        :param _Type: 站点接入方式，取值有：
-<li> full：NS 接入；</li>
-<li> partial：CNAME 接入；</li>
-<li> noDomainAccess：无域名接入；</li>
-        :type Type: str
-        :param _Paused: 站点是否关闭。
-        :type Paused: bool
-        :param _CnameSpeedUp: 是否开启 CNAME 加速，取值有：
-<li> enabled：开启；</li>
-<li> disabled：关闭。</li>
-        :type CnameSpeedUp: str
         :param _CnameStatus: CNAME 接入状态，取值有：
 <li> finished：站点已验证；</li>
 <li> pending：站点验证中。</li>
         :type CnameStatus: str
-        :param _Tags: 资源标签列表。
-        :type Tags: list of Tag
-        :param _Resources: 计费资源列表。
-        :type Resources: list of Resource
-        :param _CreatedOn: 站点创建时间。
-        :type CreatedOn: str
-        :param _ModifiedOn: 站点修改时间。
-        :type ModifiedOn: str
-        :param _Area: 站点接入地域，取值有：
-<li> global：全球；</li>
-<li> mainland：中国大陆；</li>
-<li> overseas：境外区域。</li>
-        :type Area: str
-        :param _VanityNameServers: 用户自定义 NS 信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type VanityNameServers: :class:`tencentcloud.teo.v20220901.models.VanityNameServers`
-        :param _VanityNameServersIps: 用户自定义 NS IP 信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type VanityNameServersIps: list of VanityNameServersIps
         :param _ActiveStatus: 展示状态，取值有：
 <li> active：已启用；</li>
 <li> inactive：未生效；</li>
 <li> paused：已停用。</li>
         :type ActiveStatus: str
-        :param _AliasZoneName: 站点别名。数字、英文、-和_组合，限制20个字符。
-        :type AliasZoneName: str
-        :param _IsFake: 是否伪站点，取值有：
-<li> 0：非伪站点；</li>
-<li> 1：伪站点。</li>
-        :type IsFake: int
         :param _LockStatus: 锁定状态，取值有：<li> enable：正常，允许进行修改操作；</li><li> disable：锁定中，不允许进行修改操作；</li><li> plan_migrate：套餐迁移中，不允许进行修改操作。</li>
         :type LockStatus: str
-        :param _OwnershipVerification: 归属权验证信息。
+        :param _Paused: 站点是否关闭。
+        :type Paused: bool
+        :param _IsFake: 是否伪站点（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段），取值有：
+<li> 0：非伪站点；</li>
+<li> 1：伪站点。</li>
+
+        :type IsFake: int
+        :param _CnameSpeedUp: 是否开启 CNAME 加速（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段），取值有：
+<li> enabled：开启；</li>
+<li> disabled：关闭。</li>
+        :type CnameSpeedUp: str
+        :param _OwnershipVerification: 归属权验证信息。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
 注意：此字段可能返回 null，表示取不到有效值。
         :type OwnershipVerification: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
+        :param _OriginalNameServers: 站点当前使用的 NS 列表。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+        :type OriginalNameServers: list of str
+        :param _NameServers: 腾讯云分配的 NS 列表。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+        :type NameServers: list of str
+        :param _VanityNameServers: 用户自定义 NS 信息。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VanityNameServers: :class:`tencentcloud.teo.v20220901.models.VanityNameServers`
+        :param _VanityNameServersIps: 用户自定义 NS IP 信息。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VanityNameServersIps: list of VanityNameServersIps
         """
         self._ZoneId = None
         self._ZoneName = None
-        self._OriginalNameServers = None
-        self._NameServers = None
-        self._Status = None
+        self._AliasZoneName = None
+        self._Area = None
         self._Type = None
-        self._Paused = None
-        self._CnameSpeedUp = None
-        self._CnameStatus = None
         self._Tags = None
         self._Resources = None
+        self._NSDetail = None
+        self._CNAMEDetail = None
+        self._DNSPodDetail = None
         self._CreatedOn = None
         self._ModifiedOn = None
-        self._Area = None
+        self._Status = None
+        self._CnameStatus = None
+        self._ActiveStatus = None
+        self._LockStatus = None
+        self._Paused = None
+        self._IsFake = None
+        self._CnameSpeedUp = None
+        self._OwnershipVerification = None
+        self._OriginalNameServers = None
+        self._NameServers = None
         self._VanityNameServers = None
         self._VanityNameServersIps = None
-        self._ActiveStatus = None
-        self._AliasZoneName = None
-        self._IsFake = None
-        self._LockStatus = None
-        self._OwnershipVerification = None
 
     @property
     def ZoneId(self):
@@ -53310,49 +57048,38 @@ class Zone(AbstractModel):
         self._ZoneName = ZoneName
 
     @property
-    def OriginalNameServers(self):
-        r"""站点当前使用的 NS 列表。
-        :rtype: list of str
-        """
-        return self._OriginalNameServers
-
-    @OriginalNameServers.setter
-    def OriginalNameServers(self, OriginalNameServers):
-        self._OriginalNameServers = OriginalNameServers
-
-    @property
-    def NameServers(self):
-        r"""腾讯云分配的 NS 列表。
-        :rtype: list of str
-        """
-        return self._NameServers
-
-    @NameServers.setter
-    def NameServers(self, NameServers):
-        self._NameServers = NameServers
-
-    @property
-    def Status(self):
-        r"""站点状态，取值有：
-<li> active：NS 已切换； </li>
-<li> pending：NS 未切换；</li>
-<li> moved：NS 已切走；</li>
-<li> deactivated：被封禁。 </li>
-<li> initializing：待绑定套餐。 </li>
+    def AliasZoneName(self):
+        r"""同名站点标识。允许输入数字、英文、"." 、"-" 和 "_" 组合，长度 200 个字符以内。
         :rtype: str
         """
-        return self._Status
+        return self._AliasZoneName
 
-    @Status.setter
-    def Status(self, Status):
-        self._Status = Status
+    @AliasZoneName.setter
+    def AliasZoneName(self, AliasZoneName):
+        self._AliasZoneName = AliasZoneName
+
+    @property
+    def Area(self):
+        r"""站点加速区域，取值有：
+<li> global：全球可用区；</li>
+<li> mainland：中国大陆可用区；</li>
+<li> overseas：全球可用区（不含中国大陆）。</li>
+        :rtype: str
+        """
+        return self._Area
+
+    @Area.setter
+    def Area(self, Area):
+        self._Area = Area
 
     @property
     def Type(self):
-        r"""站点接入方式，取值有：
-<li> full：NS 接入；</li>
-<li> partial：CNAME 接入；</li>
-<li> noDomainAccess：无域名接入；</li>
+        r"""站点接入类型，取值有：
+<li> full：NS 接入类型；</li>
+<li> partial：CNAME 接入类型；</li>
+<li> noDomainAccess：无域名接入类型；</li>
+<li>dnsPodAccess：DNSPod 托管类型，该类型要求您的域名已托管在腾讯云 DNSPod；</li>
+<li> pages：Pages 类型。</li>
         :rtype: str
         """
         return self._Type
@@ -53362,45 +57089,8 @@ class Zone(AbstractModel):
         self._Type = Type
 
     @property
-    def Paused(self):
-        r"""站点是否关闭。
-        :rtype: bool
-        """
-        return self._Paused
-
-    @Paused.setter
-    def Paused(self, Paused):
-        self._Paused = Paused
-
-    @property
-    def CnameSpeedUp(self):
-        r"""是否开启 CNAME 加速，取值有：
-<li> enabled：开启；</li>
-<li> disabled：关闭。</li>
-        :rtype: str
-        """
-        return self._CnameSpeedUp
-
-    @CnameSpeedUp.setter
-    def CnameSpeedUp(self, CnameSpeedUp):
-        self._CnameSpeedUp = CnameSpeedUp
-
-    @property
-    def CnameStatus(self):
-        r"""CNAME 接入状态，取值有：
-<li> finished：站点已验证；</li>
-<li> pending：站点验证中。</li>
-        :rtype: str
-        """
-        return self._CnameStatus
-
-    @CnameStatus.setter
-    def CnameStatus(self, CnameStatus):
-        self._CnameStatus = CnameStatus
-
-    @property
     def Tags(self):
-        r"""资源标签列表。
+        r"""站点关联的标签。
         :rtype: list of Tag
         """
         return self._Tags
@@ -53419,6 +57109,39 @@ class Zone(AbstractModel):
     @Resources.setter
     def Resources(self, Resources):
         self._Resources = Resources
+
+    @property
+    def NSDetail(self):
+        r"""NS 类型站点详情。仅当 Type = full 时返回值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NSDetail`
+        """
+        return self._NSDetail
+
+    @NSDetail.setter
+    def NSDetail(self, NSDetail):
+        self._NSDetail = NSDetail
+
+    @property
+    def CNAMEDetail(self):
+        r"""CNAME 类型站点详情。仅当 Type = partial 时返回值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.CNAMEDetail`
+        """
+        return self._CNAMEDetail
+
+    @CNAMEDetail.setter
+    def CNAMEDetail(self, CNAMEDetail):
+        self._CNAMEDetail = CNAMEDetail
+
+    @property
+    def DNSPodDetail(self):
+        r"""DNSPod 托管类型站点详情。仅当 Type = dnsPodAccess 时返回值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.DNSPodDetail`
+        """
+        return self._DNSPodDetail
+
+    @DNSPodDetail.setter
+    def DNSPodDetail(self, DNSPodDetail):
+        self._DNSPodDetail = DNSPodDetail
 
     @property
     def CreatedOn(self):
@@ -53443,42 +57166,33 @@ class Zone(AbstractModel):
         self._ModifiedOn = ModifiedOn
 
     @property
-    def Area(self):
-        r"""站点接入地域，取值有：
-<li> global：全球；</li>
-<li> mainland：中国大陆；</li>
-<li> overseas：境外区域。</li>
+    def Status(self):
+        r"""站点状态，取值有：
+<li> active：NS 已切换； </li>
+<li> pending：NS 未切换；</li>
+<li> moved：NS 已切走；</li>
+<li> deactivated：被封禁。 </li>
+<li> initializing：待绑定套餐。 </li>
         :rtype: str
         """
-        return self._Area
+        return self._Status
 
-    @Area.setter
-    def Area(self, Area):
-        self._Area = Area
-
-    @property
-    def VanityNameServers(self):
-        r"""用户自定义 NS 信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: :class:`tencentcloud.teo.v20220901.models.VanityNameServers`
-        """
-        return self._VanityNameServers
-
-    @VanityNameServers.setter
-    def VanityNameServers(self, VanityNameServers):
-        self._VanityNameServers = VanityNameServers
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
 
     @property
-    def VanityNameServersIps(self):
-        r"""用户自定义 NS IP 信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: list of VanityNameServersIps
+    def CnameStatus(self):
+        r"""CNAME 接入状态，取值有：
+<li> finished：站点已验证；</li>
+<li> pending：站点验证中。</li>
+        :rtype: str
         """
-        return self._VanityNameServersIps
+        return self._CnameStatus
 
-    @VanityNameServersIps.setter
-    def VanityNameServersIps(self, VanityNameServersIps):
-        self._VanityNameServersIps = VanityNameServersIps
+    @CnameStatus.setter
+    def CnameStatus(self, CnameStatus):
+        self._CnameStatus = CnameStatus
 
     @property
     def ActiveStatus(self):
@@ -53495,30 +57209,6 @@ class Zone(AbstractModel):
         self._ActiveStatus = ActiveStatus
 
     @property
-    def AliasZoneName(self):
-        r"""站点别名。数字、英文、-和_组合，限制20个字符。
-        :rtype: str
-        """
-        return self._AliasZoneName
-
-    @AliasZoneName.setter
-    def AliasZoneName(self, AliasZoneName):
-        self._AliasZoneName = AliasZoneName
-
-    @property
-    def IsFake(self):
-        r"""是否伪站点，取值有：
-<li> 0：非伪站点；</li>
-<li> 1：伪站点。</li>
-        :rtype: int
-        """
-        return self._IsFake
-
-    @IsFake.setter
-    def IsFake(self, IsFake):
-        self._IsFake = IsFake
-
-    @property
     def LockStatus(self):
         r"""锁定状态，取值有：<li> enable：正常，允许进行修改操作；</li><li> disable：锁定中，不允许进行修改操作；</li><li> plan_migrate：套餐迁移中，不允许进行修改操作。</li>
         :rtype: str
@@ -53530,8 +57220,46 @@ class Zone(AbstractModel):
         self._LockStatus = LockStatus
 
     @property
+    def Paused(self):
+        r"""站点是否关闭。
+        :rtype: bool
+        """
+        return self._Paused
+
+    @Paused.setter
+    def Paused(self, Paused):
+        self._Paused = Paused
+
+    @property
+    def IsFake(self):
+        r"""是否伪站点（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段），取值有：
+<li> 0：非伪站点；</li>
+<li> 1：伪站点。</li>
+
+        :rtype: int
+        """
+        return self._IsFake
+
+    @IsFake.setter
+    def IsFake(self, IsFake):
+        self._IsFake = IsFake
+
+    @property
+    def CnameSpeedUp(self):
+        r"""是否开启 CNAME 加速（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段），取值有：
+<li> enabled：开启；</li>
+<li> disabled：关闭。</li>
+        :rtype: str
+        """
+        return self._CnameSpeedUp
+
+    @CnameSpeedUp.setter
+    def CnameSpeedUp(self, CnameSpeedUp):
+        self._CnameSpeedUp = CnameSpeedUp
+
+    @property
     def OwnershipVerification(self):
-        r"""归属权验证信息。
+        r"""归属权验证信息。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.teo.v20220901.models.OwnershipVerification`
         """
@@ -53541,17 +57269,59 @@ class Zone(AbstractModel):
     def OwnershipVerification(self, OwnershipVerification):
         self._OwnershipVerification = OwnershipVerification
 
+    @property
+    def OriginalNameServers(self):
+        r"""站点当前使用的 NS 列表。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+        :rtype: list of str
+        """
+        return self._OriginalNameServers
+
+    @OriginalNameServers.setter
+    def OriginalNameServers(self, OriginalNameServers):
+        self._OriginalNameServers = OriginalNameServers
+
+    @property
+    def NameServers(self):
+        r"""腾讯云分配的 NS 列表。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+        :rtype: list of str
+        """
+        return self._NameServers
+
+    @NameServers.setter
+    def NameServers(self, NameServers):
+        self._NameServers = NameServers
+
+    @property
+    def VanityNameServers(self):
+        r"""用户自定义 NS 信息。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.VanityNameServers`
+        """
+        return self._VanityNameServers
+
+    @VanityNameServers.setter
+    def VanityNameServers(self, VanityNameServers):
+        self._VanityNameServers = VanityNameServers
+
+    @property
+    def VanityNameServersIps(self):
+        r"""用户自定义 NS IP 信息。（该字段为历史保留字段，已不再维护，请根据站点类型参考对应字段）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of VanityNameServersIps
+        """
+        return self._VanityNameServersIps
+
+    @VanityNameServersIps.setter
+    def VanityNameServersIps(self, VanityNameServersIps):
+        self._VanityNameServersIps = VanityNameServersIps
+
 
     def _deserialize(self, params):
         self._ZoneId = params.get("ZoneId")
         self._ZoneName = params.get("ZoneName")
-        self._OriginalNameServers = params.get("OriginalNameServers")
-        self._NameServers = params.get("NameServers")
-        self._Status = params.get("Status")
+        self._AliasZoneName = params.get("AliasZoneName")
+        self._Area = params.get("Area")
         self._Type = params.get("Type")
-        self._Paused = params.get("Paused")
-        self._CnameSpeedUp = params.get("CnameSpeedUp")
-        self._CnameStatus = params.get("CnameStatus")
         if params.get("Tags") is not None:
             self._Tags = []
             for item in params.get("Tags"):
@@ -53564,9 +57334,29 @@ class Zone(AbstractModel):
                 obj = Resource()
                 obj._deserialize(item)
                 self._Resources.append(obj)
+        if params.get("NSDetail") is not None:
+            self._NSDetail = NSDetail()
+            self._NSDetail._deserialize(params.get("NSDetail"))
+        if params.get("CNAMEDetail") is not None:
+            self._CNAMEDetail = CNAMEDetail()
+            self._CNAMEDetail._deserialize(params.get("CNAMEDetail"))
+        if params.get("DNSPodDetail") is not None:
+            self._DNSPodDetail = DNSPodDetail()
+            self._DNSPodDetail._deserialize(params.get("DNSPodDetail"))
         self._CreatedOn = params.get("CreatedOn")
         self._ModifiedOn = params.get("ModifiedOn")
-        self._Area = params.get("Area")
+        self._Status = params.get("Status")
+        self._CnameStatus = params.get("CnameStatus")
+        self._ActiveStatus = params.get("ActiveStatus")
+        self._LockStatus = params.get("LockStatus")
+        self._Paused = params.get("Paused")
+        self._IsFake = params.get("IsFake")
+        self._CnameSpeedUp = params.get("CnameSpeedUp")
+        if params.get("OwnershipVerification") is not None:
+            self._OwnershipVerification = OwnershipVerification()
+            self._OwnershipVerification._deserialize(params.get("OwnershipVerification"))
+        self._OriginalNameServers = params.get("OriginalNameServers")
+        self._NameServers = params.get("NameServers")
         if params.get("VanityNameServers") is not None:
             self._VanityNameServers = VanityNameServers()
             self._VanityNameServers._deserialize(params.get("VanityNameServers"))
@@ -53576,13 +57366,6 @@ class Zone(AbstractModel):
                 obj = VanityNameServersIps()
                 obj._deserialize(item)
                 self._VanityNameServersIps.append(obj)
-        self._ActiveStatus = params.get("ActiveStatus")
-        self._AliasZoneName = params.get("AliasZoneName")
-        self._IsFake = params.get("IsFake")
-        self._LockStatus = params.get("LockStatus")
-        if params.get("OwnershipVerification") is not None:
-            self._OwnershipVerification = OwnershipVerification()
-            self._OwnershipVerification._deserialize(params.get("OwnershipVerification"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -53660,6 +57443,9 @@ class ZoneConfig(AbstractModel):
         :param _Grpc: gRPC 协议支持配置。
 注意：此字段可能返回 null，表示取不到有效值。
         :type Grpc: :class:`tencentcloud.teo.v20220901.models.GrpcParameters`
+        :param _NetworkErrorLogging: 网络错误日志记录配置。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type NetworkErrorLogging: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLoggingParameters`
         :param _AccelerateMainland: 中国大陆加速优化配置。
 注意：此字段可能返回 null，表示取不到有效值。
         :type AccelerateMainland: :class:`tencentcloud.teo.v20220901.models.AccelerateMainlandParameters`
@@ -53687,6 +57473,7 @@ class ZoneConfig(AbstractModel):
         self._ClientIPHeader = None
         self._ClientIPCountry = None
         self._Grpc = None
+        self._NetworkErrorLogging = None
         self._AccelerateMainland = None
         self._StandardDebug = None
 
@@ -53931,6 +57718,18 @@ class ZoneConfig(AbstractModel):
         self._Grpc = Grpc
 
     @property
+    def NetworkErrorLogging(self):
+        r"""网络错误日志记录配置。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLoggingParameters`
+        """
+        return self._NetworkErrorLogging
+
+    @NetworkErrorLogging.setter
+    def NetworkErrorLogging(self, NetworkErrorLogging):
+        self._NetworkErrorLogging = NetworkErrorLogging
+
+    @property
     def AccelerateMainland(self):
         r"""中国大陆加速优化配置。
 注意：此字段可能返回 null，表示取不到有效值。
@@ -54016,6 +57815,9 @@ class ZoneConfig(AbstractModel):
         if params.get("Grpc") is not None:
             self._Grpc = GrpcParameters()
             self._Grpc._deserialize(params.get("Grpc"))
+        if params.get("NetworkErrorLogging") is not None:
+            self._NetworkErrorLogging = NetworkErrorLoggingParameters()
+            self._NetworkErrorLogging._deserialize(params.get("NetworkErrorLogging"))
         if params.get("AccelerateMainland") is not None:
             self._AccelerateMainland = AccelerateMainlandParameters()
             self._AccelerateMainland._deserialize(params.get("AccelerateMainland"))
@@ -54222,6 +58024,9 @@ class ZoneSetting(AbstractModel):
         :param _Grpc: Grpc协议支持配置。
 注意：此字段可能返回 null，表示取不到有效值。
         :type Grpc: :class:`tencentcloud.teo.v20220901.models.Grpc`
+        :param _NetworkErrorLogging: 网络错误日志记录配置。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type NetworkErrorLogging: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
         :param _ImageOptimize: 图片优化相关配置。
 注意：此字段可能返回 null，表示取不到有效值。
         :type ImageOptimize: :class:`tencentcloud.teo.v20220901.models.ImageOptimize`
@@ -54255,6 +58060,7 @@ class ZoneSetting(AbstractModel):
         self._Https = None
         self._ClientIpCountry = None
         self._Grpc = None
+        self._NetworkErrorLogging = None
         self._ImageOptimize = None
         self._AccelerateMainland = None
         self._StandardDebug = None
@@ -54501,6 +58307,18 @@ class ZoneSetting(AbstractModel):
         self._Grpc = Grpc
 
     @property
+    def NetworkErrorLogging(self):
+        r"""网络错误日志记录配置。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
+        """
+        return self._NetworkErrorLogging
+
+    @NetworkErrorLogging.setter
+    def NetworkErrorLogging(self, NetworkErrorLogging):
+        self._NetworkErrorLogging = NetworkErrorLogging
+
+    @property
     def ImageOptimize(self):
         r"""图片优化相关配置。
 注意：此字段可能返回 null，表示取不到有效值。
@@ -54606,6 +58424,9 @@ class ZoneSetting(AbstractModel):
         if params.get("Grpc") is not None:
             self._Grpc = Grpc()
             self._Grpc._deserialize(params.get("Grpc"))
+        if params.get("NetworkErrorLogging") is not None:
+            self._NetworkErrorLogging = NetworkErrorLogging()
+            self._NetworkErrorLogging._deserialize(params.get("NetworkErrorLogging"))
         if params.get("ImageOptimize") is not None:
             self._ImageOptimize = ImageOptimize()
             self._ImageOptimize._deserialize(params.get("ImageOptimize"))

@@ -42,7 +42,7 @@ class EventSeries:
         - event_time: timestamp of event. Will use current time if not specified.
         """
         if not event_time:
-            event_time = dt.datetime.utcnow()
+            event_time = dt.datetime.now(dt.timezone.utc)
         my_id = self._redis.incr(self._key_counter)
         self._redis.zadd(self._key_sorted_set, {my_id: event_time.timestamp()})
 

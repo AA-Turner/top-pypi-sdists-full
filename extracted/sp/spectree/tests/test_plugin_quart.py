@@ -16,6 +16,8 @@ from .common import (
     Order,
     Query,
     Resp,
+    RespFromAttrs,
+    RespObject,
     RootResp,
     StrDict,
     UserXmlData,
@@ -174,7 +176,7 @@ async def list_json():
 def return_list():
     pre_serialize = bool(int(request.args.get("pre_serialize", default=0)))
     data = [JSON(name="user1", limit=1), JSON(name="user2", limit=2)]
-    return [entry.dict() if pre_serialize else entry for entry in data]
+    return [entry.model_dump() if pre_serialize else entry for entry in data]
 
 
 @app.route("/api/return_root", methods=["GET"])
@@ -205,6 +207,12 @@ def return_string_status():
 @api.validate(resp=Response(HTTP_200=CustomError))
 def custom_error(json: CustomError):
     return jsonify(foo="bar")
+
+
+@app.route("/api/force_serialize", methods=["GET"])
+@api.validate(resp=Response(HTTP_200=RespFromAttrs), force_resp_serialize=True)
+def force_serialize():
+    return RespObject(name="flask", score=[1, 2, 3], comment="hello")
 
 
 # INFO: ensures that spec is calculated and cached _after_ registering

@@ -6,6 +6,7 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.batch_call_detailed_response import BatchCallDetailedResponse
 from ...types.batch_call_response import BatchCallResponse
+from ...types.batch_call_whats_app_params import BatchCallWhatsAppParams
 from ...types.outbound_call_recipient import OutboundCallRecipient
 from ...types.workspace_batch_calls_response import WorkspaceBatchCallsResponse
 from .raw_client import AsyncRawBatchCallsClient, RawBatchCallsClient
@@ -34,9 +35,11 @@ class BatchCallsClient:
         *,
         call_name: str,
         agent_id: str,
-        agent_phone_number_id: str,
         recipients: typing.Sequence[OutboundCallRecipient],
         scheduled_time_unix: typing.Optional[int] = OMIT,
+        agent_phone_number_id: typing.Optional[str] = OMIT,
+        whatsapp_params: typing.Optional[BatchCallWhatsAppParams] = OMIT,
+        timezone: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BatchCallResponse:
         """
@@ -48,11 +51,15 @@ class BatchCallsClient:
 
         agent_id : str
 
-        agent_phone_number_id : str
-
         recipients : typing.Sequence[OutboundCallRecipient]
 
         scheduled_time_unix : typing.Optional[int]
+
+        agent_phone_number_id : typing.Optional[str]
+
+        whatsapp_params : typing.Optional[BatchCallWhatsAppParams]
+
+        timezone : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -72,20 +79,17 @@ class BatchCallsClient:
         client.conversational_ai.batch_calls.create(
             call_name="call_name",
             agent_id="agent_id",
-            agent_phone_number_id="agent_phone_number_id",
-            recipients=[
-                OutboundCallRecipient(
-                    phone_number="phone_number",
-                )
-            ],
+            recipients=[OutboundCallRecipient()],
         )
         """
         _response = self._raw_client.create(
             call_name=call_name,
             agent_id=agent_id,
-            agent_phone_number_id=agent_phone_number_id,
             recipients=recipients,
             scheduled_time_unix=scheduled_time_unix,
+            agent_phone_number_id=agent_phone_number_id,
+            whatsapp_params=whatsapp_params,
+            timezone=timezone,
             request_options=request_options,
         )
         return _response.data
@@ -121,7 +125,10 @@ class BatchCallsClient:
         client = ElevenLabs(
             api_key="YOUR_API_KEY",
         )
-        client.conversational_ai.batch_calls.list()
+        client.conversational_ai.batch_calls.list(
+            limit=1,
+            last_doc="last_doc",
+        )
         """
         _response = self._raw_client.list(limit=limit, last_doc=last_doc, request_options=request_options)
         return _response.data
@@ -156,6 +163,35 @@ class BatchCallsClient:
         )
         """
         _response = self._raw_client.get(batch_id, request_options=request_options)
+        return _response.data
+
+    def delete(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Permanently delete a batch call and all recipient records. Conversations remain in history.
+
+        Parameters
+        ----------
+        batch_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from elevenlabs import ElevenLabs
+
+        client = ElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+        client.conversational_ai.batch_calls.delete(
+            batch_id="batch_id",
+        )
+        """
+        _response = self._raw_client.delete(batch_id, request_options=request_options)
         return _response.data
 
     def cancel(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> BatchCallResponse:
@@ -239,9 +275,11 @@ class AsyncBatchCallsClient:
         *,
         call_name: str,
         agent_id: str,
-        agent_phone_number_id: str,
         recipients: typing.Sequence[OutboundCallRecipient],
         scheduled_time_unix: typing.Optional[int] = OMIT,
+        agent_phone_number_id: typing.Optional[str] = OMIT,
+        whatsapp_params: typing.Optional[BatchCallWhatsAppParams] = OMIT,
+        timezone: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BatchCallResponse:
         """
@@ -253,11 +291,15 @@ class AsyncBatchCallsClient:
 
         agent_id : str
 
-        agent_phone_number_id : str
-
         recipients : typing.Sequence[OutboundCallRecipient]
 
         scheduled_time_unix : typing.Optional[int]
+
+        agent_phone_number_id : typing.Optional[str]
+
+        whatsapp_params : typing.Optional[BatchCallWhatsAppParams]
+
+        timezone : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -282,12 +324,7 @@ class AsyncBatchCallsClient:
             await client.conversational_ai.batch_calls.create(
                 call_name="call_name",
                 agent_id="agent_id",
-                agent_phone_number_id="agent_phone_number_id",
-                recipients=[
-                    OutboundCallRecipient(
-                        phone_number="phone_number",
-                    )
-                ],
+                recipients=[OutboundCallRecipient()],
             )
 
 
@@ -296,9 +333,11 @@ class AsyncBatchCallsClient:
         _response = await self._raw_client.create(
             call_name=call_name,
             agent_id=agent_id,
-            agent_phone_number_id=agent_phone_number_id,
             recipients=recipients,
             scheduled_time_unix=scheduled_time_unix,
+            agent_phone_number_id=agent_phone_number_id,
+            whatsapp_params=whatsapp_params,
+            timezone=timezone,
             request_options=request_options,
         )
         return _response.data
@@ -339,7 +378,10 @@ class AsyncBatchCallsClient:
 
 
         async def main() -> None:
-            await client.conversational_ai.batch_calls.list()
+            await client.conversational_ai.batch_calls.list(
+                limit=1,
+                last_doc="last_doc",
+            )
 
 
         asyncio.run(main())
@@ -385,6 +427,43 @@ class AsyncBatchCallsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(batch_id, request_options=request_options)
+        return _response.data
+
+    async def delete(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Permanently delete a batch call and all recipient records. Conversations remain in history.
+
+        Parameters
+        ----------
+        batch_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
+        from elevenlabs import AsyncElevenLabs
+
+        client = AsyncElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.conversational_ai.batch_calls.delete(
+                batch_id="batch_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(batch_id, request_options=request_options)
         return _response.data
 
     async def cancel(

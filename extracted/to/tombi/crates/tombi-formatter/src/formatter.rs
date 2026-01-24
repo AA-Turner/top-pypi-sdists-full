@@ -2,22 +2,24 @@ pub mod definitions;
 
 use std::fmt::Write;
 
-use itertools::Either;
+use itertools::{Either, Itertools};
 use tombi_comment_directive::TOMBI_COMMENT_DIRECTIVE_TOML_VERSION;
-use tombi_config::{DateTimeDelimiter, IndentStyle, TomlVersion};
+use tombi_config::{IndentStyle, TomlVersion};
 use tombi_diagnostic::{Diagnostic, SetDiagnostics};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::Format;
+use crate::{
+    Format,
+    types::{AlignmentWidth, WithAlignmentHint},
+};
 
 pub struct Formatter<'a> {
     toml_version: TomlVersion,
     indent_depth: u8,
     skip_indent: bool,
+    skip_comment: bool,
     single_line_mode: bool,
-    definitions: &'a crate::FormatDefinitions,
-    #[allow(dead_code)]
-    options: &'a crate::FormatOptions,
+    definitions: crate::FormatDefinitions,
     source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
     schema_store: &'a tombi_schema_store::SchemaStore,
     buf: String,
@@ -27,7 +29,6 @@ impl<'a> Formatter<'a> {
     #[inline]
     pub fn new(
         toml_version: TomlVersion,
-        definitions: &'a crate::FormatDefinitions,
         options: &'a crate::FormatOptions,
         source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
         schema_store: &'a tombi_schema_store::SchemaStore,
@@ -36,9 +37,9 @@ impl<'a> Formatter<'a> {
             toml_version,
             indent_depth: 0,
             skip_indent: false,
+            skip_comment: false,
             single_line_mode: false,
-            definitions,
-            options,
+            definitions: crate::FormatDefinitions::new(options),
             source_uri_or_path,
             schema_store,
             buf: String::new(),
@@ -64,25 +65,24 @@ impl<'a> Formatter<'a> {
             (None, None)
         };
 
-        if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive {
-            if let Some(format) = &tombi_document_comment_directive.format {
-                if format.disabled() == Some(true) {
-                    match self.source_uri_or_path.map(|path| match path {
-                        Either::Left(url) => url.to_string(),
-                        Either::Right(path) => path.to_string_lossy().to_string(),
-                    }) {
-                        Some(source_url_or_path) => {
-                            tracing::info!(
-                                "Skip formatting for \"{source_url_or_path}\" due to `format.disable`"
-                            );
-                        }
-                        None => {
-                            tracing::info!("Skip formatting for stdin due to `format.disable`");
-                        }
-                    }
-                    return Ok(source.to_string());
+        if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive
+            && let Some(format) = &tombi_document_comment_directive.format
+            && format.disabled.unwrap_or(false)
+        {
+            match self.source_uri_or_path.map(|path| match path {
+                Either::Left(url) => url.to_string(),
+                Either::Right(path) => path.to_string_lossy().to_string(),
+            }) {
+                Some(source_url_or_path) => {
+                    tracing::info!(
+                        "Skip formatting for \"{source_url_or_path}\" due to `format.disable`"
+                    );
+                }
+                None => {
+                    tracing::info!("Skip formatting for stdin due to `format.disable`");
                 }
             }
+            return Ok(source.to_string());
         }
 
         self.toml_version = tombi_document_comment_directive
@@ -100,16 +100,26 @@ impl<'a> Formatter<'a> {
                     .unwrap_or(self.toml_version)
             });
 
-        let root = tombi_parser::parse(source, self.toml_version)
-            .try_into_root()
-            .map_err(|errors| {
-                let mut diagnostics = vec![];
-                for error in errors {
-                    error.set_diagnostics(&mut diagnostics);
-                }
+        let (root, errors) = tombi_parser::parse(source, self.toml_version).into_root_and_errors();
+        let errors = errors
+            .into_iter()
+            .filter(|error| {
+                !matches!(
+                    error.kind(),
+                    tombi_parser::ErrorKind::InlineTableMustSingleLine
+                        | tombi_parser::ErrorKind::ForbiddenInlineTableLastComma
+                )
+            })
+            .collect_vec();
 
-                diagnostics
-            })?;
+        if !errors.is_empty() {
+            let mut diagnostics = vec![];
+            for error in errors {
+                error.set_diagnostics(&mut diagnostics);
+            }
+
+            return Err(diagnostics);
+        }
 
         let source_path = self.source_uri_or_path.and_then(|path| match path {
             Either::Left(url) => url.to_file_path().ok(),
@@ -145,7 +155,11 @@ impl<'a> Formatter<'a> {
             self.line_ending()
         };
 
-        Ok(self.buf + line_ending)
+        Ok(if self.buf.is_empty() {
+            self.buf
+        } else {
+            self.buf + line_ending
+        })
     }
 
     /// Format a node and return the result as a string
@@ -167,6 +181,16 @@ impl<'a> Formatter<'a> {
         Ok(result)
     }
 
+    pub(crate) fn format_to_string_without_comment<T: Format>(
+        &mut self,
+        node: &T,
+    ) -> Result<String, std::fmt::Error> {
+        self.skip_comment = true;
+        let result = self.format_to_string(node)?;
+        self.skip_comment = false;
+        Ok(result)
+    }
+
     pub(crate) fn format_tombi_comment_directive_content(
         &mut self,
         content: &str,
@@ -183,18 +207,13 @@ impl<'a> Formatter<'a> {
     }
 
     #[inline]
-    pub(crate) fn toml_version(&self) -> TomlVersion {
+    pub(crate) const fn toml_version(&self) -> TomlVersion {
         self.toml_version
     }
 
     #[inline]
-    pub(crate) fn line_width(&self) -> u8 {
-        self.definitions.line_width.unwrap_or_default().value()
-    }
-
-    #[inline]
-    pub fn line_ending(&self) -> &'static str {
-        self.definitions.line_ending.unwrap_or_default().into()
+    pub(crate) fn skip_comment(&self) -> bool {
+        self.skip_comment
     }
 
     #[inline]
@@ -203,51 +222,124 @@ impl<'a> Formatter<'a> {
     }
 
     #[inline]
-    pub(crate) fn date_time_delimiter(&self) -> Option<&'static str> {
-        match self.definitions.date_time_delimiter.unwrap_or_default() {
-            DateTimeDelimiter::T => Some("T"),
-            DateTimeDelimiter::Space => Some(" "),
-            DateTimeDelimiter::Preserve => None,
+    pub(crate) const fn line_width(&self) -> u8 {
+        self.definitions.line_width
+    }
+
+    #[inline]
+    pub const fn line_ending(&self) -> &'static str {
+        self.definitions.line_ending
+    }
+
+    #[inline]
+    pub(crate) const fn indent_sub_tables(&self) -> bool {
+        self.definitions.indent_sub_tables
+    }
+
+    #[inline]
+    pub(crate) const fn indent_table_key_values(&self) -> bool {
+        self.definitions.indent_table_key_values
+    }
+
+    #[inline]
+    pub(crate) fn key_value_equal_space(&self) -> &'static str {
+        // SAFETY: The lifetime of `key_value_equal_space` is `'static`.
+        //         It is guaranteed by the `FormatDefinitions` struct.
+        unsafe {
+            std::mem::transmute::<&str, &'static str>(&self.definitions.key_value_equal_space)
+        }
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn trailing_comment_alignment_width<'b, T: Format + Sized + 'b>(
+        &mut self,
+        values: impl Iterator<Item = &'b T>,
+        equal_alignment_width: Option<AlignmentWidth>,
+    ) -> Result<Option<AlignmentWidth>, std::fmt::Error>
+    where
+        WithAlignmentHint<'b, T>: Format,
+    {
+        if self.definitions.trailing_comment_alignment {
+            let mut widths = vec![];
+            for value in values {
+                let formatted = self.format_to_string_without_comment(
+                    &WithAlignmentHint::new_with_equal_alignment_width(
+                        value,
+                        equal_alignment_width,
+                    ),
+                )?;
+                widths.push(AlignmentWidth::new(&formatted));
+            }
+            Ok(widths.into_iter().max())
+        } else {
+            Ok(None)
         }
     }
 
     #[inline]
-    pub(crate) fn quote_style(&self) -> tombi_config::QuoteStyle {
-        self.definitions.quote_style.unwrap_or_default()
+    pub(crate) fn trailing_comment_space(&self) -> &'static str {
+        // SAFETY: The lifetime of `trailing_comment_space` is `'static`.
+        //         It is guaranteed by the `FormatDefinitions` struct.
+        unsafe {
+            std::mem::transmute::<&str, &'static str>(&self.definitions.trailing_comment_space)
+        }
     }
 
     #[inline]
-    pub(crate) const fn trailing_comment_space(&self) -> &'static str {
-        self.definitions.trailing_comment_space()
+    pub(crate) fn string_quote_style(&self) -> tombi_config::StringQuoteStyle {
+        self.definitions.string_quote_style
     }
 
     #[inline]
-    pub(crate) const fn singleline_array_bracket_inner_space(&self) -> &'static str {
-        self.definitions.singleline_array_bracket_inner_space()
+    pub(crate) fn date_time_delimiter(&self) -> Option<&str> {
+        self.definitions.date_time_delimiter
     }
 
     #[inline]
-    pub(crate) const fn singleline_array_space_after_comma(&self) -> &'static str {
-        self.definitions.singleline_array_space_after_comma()
+    pub(crate) fn array_bracket_space(&self) -> &'static str {
+        // SAFETY: The lifetime of `array_bracket_space` is `'static`.
+        //         It is guaranteed by the `FormatDefinitions` struct.
+        unsafe { std::mem::transmute::<&str, &'static str>(&self.definitions.array_bracket_space) }
     }
 
     #[inline]
-    pub(crate) const fn singleline_inline_table_brace_inner_space(&self) -> &'static str {
-        self.definitions.singleline_inline_table_brace_inner_space()
+    pub(crate) fn array_comma_space(&self) -> &'static str {
+        // SAFETY: The lifetime of `array_comma_space` is `'static`.
+        //         It is guaranteed by the `FormatDefinitions` struct.
+        unsafe { std::mem::transmute::<&str, &'static str>(&self.definitions.array_comma_space) }
     }
 
     #[inline]
-    pub(crate) const fn singleline_inline_table_space_after_comma(&self) -> &'static str {
-        self.definitions.singleline_inline_table_space_after_comma()
+    pub(crate) fn inline_table_brace_space(&self) -> &'static str {
+        // SAFETY: The lifetime of `inline_table_brace_space` is `'static`.
+        //         It is guaranteed by the `FormatDefinitions` struct.
+        unsafe {
+            std::mem::transmute::<&str, &'static str>(&self.definitions.inline_table_brace_space)
+        }
     }
 
     #[inline]
-    pub(crate) fn ident(&self, depth: u8) -> String {
-        match self.definitions.indent_style.unwrap_or_default() {
-            IndentStyle::Space => " ".repeat(
-                (self.definitions.indent_width.unwrap_or_default().value() * depth) as usize,
-            ),
-            IndentStyle::Tab => "\t".repeat(depth as usize),
+    pub(crate) fn inline_table_comma_space(&self) -> &'static str {
+        // SAFETY: The lifetime of `inline_table_comma_space` is `'static`.
+        //         It is guaranteed by the `FormatDefinitions` struct.
+        unsafe {
+            std::mem::transmute::<&str, &'static str>(&self.definitions.inline_table_comma_space)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn key_value_equal_alignment_width(
+        &self,
+        key_values: impl Iterator<Item = &'a tombi_ast::KeyValue>,
+    ) -> Option<AlignmentWidth> {
+        if self.definitions.key_value_equal_alignment {
+            key_values
+                .filter_map(|key_value| key_value.keys())
+                .map(|keys| AlignmentWidth::new(&keys.to_string()))
+                .max()
+        } else {
+            None
         }
     }
 
@@ -257,13 +349,21 @@ impl<'a> Formatter<'a> {
     }
 
     #[inline]
+    fn indent(&self, depth: u8) -> String {
+        match self.definitions.indent_style {
+            IndentStyle::Space => " ".repeat((self.definitions.indent_width * depth) as usize),
+            IndentStyle::Tab => "\t".repeat(depth as usize),
+        }
+    }
+
+    #[inline]
     pub(crate) fn write_indent(&mut self) -> Result<(), std::fmt::Error> {
         if self.skip_indent {
             self.skip_indent = false;
 
             Ok(())
         } else {
-            write!(self, "{}", self.ident(self.indent_depth))
+            write!(self, "{}", self.indent(self.indent_depth))
         }
     }
 

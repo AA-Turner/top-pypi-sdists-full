@@ -3,7 +3,7 @@ Type annotations for controlcatalog service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_controlcatalog/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,17 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
-from .literals import ControlBehaviorType, ControlScopeType, ControlSeverityType, MappingTypeType
+from .literals import (
+    ControlBehaviorType,
+    ControlRelationTypeType,
+    ControlScopeType,
+    ControlSeverityType,
+    MappingTypeType,
+)
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -72,6 +73,7 @@ __all__ = (
     "ObjectiveSummaryTypeDef",
     "PaginatorConfigTypeDef",
     "RegionConfigurationTypeDef",
+    "RelatedControlMappingDetailsTypeDef",
     "ResponseMetadataTypeDef",
 )
 
@@ -136,12 +138,12 @@ ImplementationDetailsTypeDef = TypedDict(
 
 class RegionConfigurationTypeDef(TypedDict):
     Scope: ControlScopeType
-    DeployableRegions: NotRequired[List[str]]
+    DeployableRegions: NotRequired[list[str]]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -153,6 +155,10 @@ class PaginatorConfigTypeDef(TypedDict):
 class ListDomainsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class RelatedControlMappingDetailsTypeDef(TypedDict):
+    RelationType: ControlRelationTypeType
+    ControlArn: NotRequired[str]
 
 class ObjectiveSummaryTypeDef(TypedDict):
     Arn: str
@@ -186,36 +192,32 @@ class ControlSummaryTypeDef(TypedDict):
     Arn: str
     Name: str
     Description: str
-    Aliases: NotRequired[List[str]]
+    Aliases: NotRequired[list[str]]
     Behavior: NotRequired[ControlBehaviorType]
     Severity: NotRequired[ControlSeverityType]
     Implementation: NotRequired[ImplementationSummaryTypeDef]
     CreateTime: NotRequired[datetime]
-    GovernedResources: NotRequired[List[str]]
+    GovernedResources: NotRequired[list[str]]
 
 class ObjectiveFilterTypeDef(TypedDict):
     Domains: NotRequired[Sequence[DomainResourceFilterTypeDef]]
 
-class MappingTypeDef(TypedDict):
-    Framework: NotRequired[FrameworkMappingDetailsTypeDef]
-    CommonControl: NotRequired[CommonControlMappingDetailsTypeDef]
-
 class GetControlResponseTypeDef(TypedDict):
     Arn: str
-    Aliases: List[str]
+    Aliases: list[str]
     Name: str
     Description: str
     Behavior: ControlBehaviorType
     Severity: ControlSeverityType
     RegionConfiguration: RegionConfigurationTypeDef
     Implementation: ImplementationDetailsTypeDef
-    Parameters: List[ControlParameterTypeDef]
+    Parameters: list[ControlParameterTypeDef]
     CreateTime: datetime
-    GovernedResources: List[str]
+    GovernedResources: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainsResponseTypeDef(TypedDict):
-    Domains: List[DomainSummaryTypeDef]
+    Domains: list[DomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -226,13 +228,18 @@ class ListControlMappingsRequestPaginateTypeDef(TypedDict):
 class ListDomainsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class MappingTypeDef(TypedDict):
+    Framework: NotRequired[FrameworkMappingDetailsTypeDef]
+    CommonControl: NotRequired[CommonControlMappingDetailsTypeDef]
+    RelatedControl: NotRequired[RelatedControlMappingDetailsTypeDef]
+
 class ListObjectivesResponseTypeDef(TypedDict):
-    Objectives: List[ObjectiveSummaryTypeDef]
+    Objectives: list[ObjectiveSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCommonControlsResponseTypeDef(TypedDict):
-    CommonControls: List[CommonControlSummaryTypeDef]
+    CommonControls: list[CommonControlSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -255,7 +262,7 @@ class ListControlsRequestTypeDef(TypedDict):
     Filter: NotRequired[ControlFilterTypeDef]
 
 class ListControlsResponseTypeDef(TypedDict):
-    Controls: List[ControlSummaryTypeDef]
+    Controls: list[ControlSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -278,6 +285,6 @@ ControlMappingTypeDef = TypedDict(
 )
 
 class ListControlMappingsResponseTypeDef(TypedDict):
-    ControlMappings: List[ControlMappingTypeDef]
+    ControlMappings: list[ControlMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

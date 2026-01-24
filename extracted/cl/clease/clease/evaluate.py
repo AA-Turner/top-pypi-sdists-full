@@ -1,11 +1,12 @@
 """Module that fits ECIs to energy data."""
+
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 import json
 import logging as lg
 import multiprocessing as mp
 import os
 import sys
-from typing import Dict, List, Optional, Sequence
 
 from ase.db import connect
 from deprecated import deprecated
@@ -103,7 +104,7 @@ class Evaluate:
         min_weight=1.0,
         nsplits=10,
         num_repetitions=1,
-        normalization_symbols: Optional[Sequence[str]] = None,
+        normalization_symbols: Sequence[str] | None = None,
     ):
         """Initialize the Evaluate class."""
         if not isinstance(settings, ClusterExpansionSettings):
@@ -174,7 +175,7 @@ class Evaluate:
 
         self.set_normalization(normalization_symbols)
 
-    def set_normalization(self, normalization_symbols: Optional[Sequence[str]] = None) -> None:
+    def set_normalization(self, normalization_symbols: Sequence[str] | None = None) -> None:
         """Set the energy normalization factor, e.g. to normalize the final energy reports
         in energy per metal atom, rather than energy per atom (i.e. every atom).
 
@@ -339,7 +340,7 @@ class Evaluate:
 
         return self.eci
 
-    def get_eci_dict(self, cutoff_tol: float = 1e-14) -> Dict[str, float]:
+    def get_eci_dict(self, cutoff_tol: float = 1e-14) -> dict[str, float]:
         """Determine cluster names and their corresponding ECI value and return
         them in a dictionary format.
 
@@ -348,7 +349,7 @@ class Evaluate:
                 value is considered to be 0. Defaults to 1e-14.
 
         Returns:
-            Dict[str, float]: Dictionary with the CF names and the corresponding
+            dict[str, float]: Dictionary with the CF names and the corresponding
                 ECI value.
         """
         eci = self.get_eci()
@@ -361,7 +362,7 @@ class Evaluate:
         # Only keep the all non-zero values.
         return {cf: val for cf, val, nonzero in zip(self.cf_names, eci, all_nonzero) if nonzero}
 
-    def load_eci_dict(self, eci_dict: Dict[str, float]) -> None:
+    def load_eci_dict(self, eci_dict: dict[str, float]) -> None:
         """Load the ECI's from a dictionary. Any ECI's which are missing
         from the internal cf_names list are assumed to be 0.
 
@@ -383,7 +384,7 @@ class Evaluate:
         with the current fitting scheme.
         """
         full_fname = add_file_extension(fname, ".json")
-        with open(full_fname, "r") as fd:
+        with open(full_fname) as fd:
             self.load_eci_dict(json.load(fd))
 
     def save_eci(self, fname="eci.json", **kwargs):
@@ -475,7 +476,7 @@ class Evaluate:
         ax.text(
             0.95,
             0.01,
-            cv_name + f" = {cv:.3f} meV/atom \n" f"RMSE = {self.rmse() * 1000.0:.3f} meV/atom",
+            cv_name + f" = {cv:.3f} meV/atom \nRMSE = {self.rmse() * 1000.0:.3f} meV/atom",
             verticalalignment="bottom",
             horizontalalignment="right",
             transform=ax.transAxes,
@@ -658,11 +659,11 @@ class Evaluate:
         for scheme in fitting_schemes:
             if not isinstance(scheme, LinearRegression):
                 raise TypeError(
-                    "Each entry in fitting_schemes should be an " "instance of LinearRegression"
+                    "Each entry in fitting_schemes should be an instance of LinearRegression"
                 )
             elif not scheme.is_scalar():
                 raise TypeError(
-                    "plot_CV only supports the fitting schemes " "with a scalar paramater."
+                    "plot_CV only supports the fitting schemes with a scalar paramater."
                 )
 
         # if the file exists, read the alpha values that are already evaluated.
@@ -672,11 +673,11 @@ class Evaluate:
         for scheme in fitting_schemes:
             if not isinstance(scheme, LinearRegression):
                 raise TypeError(
-                    "Each entry in fitting_schemes should be an " "instance of LinearRegression"
+                    "Each entry in fitting_schemes should be an instance of LinearRegression"
                 )
             elif not scheme.is_scalar():
                 raise TypeError(
-                    "plot_CV only supports the fitting schemes " "with a scalar paramater."
+                    "plot_CV only supports the fitting schemes with a scalar paramater."
                 )
 
         # if the file exists, read the alpha values that are already evaluated.
@@ -715,7 +716,7 @@ class Evaluate:
 
         return alphas, cv
 
-    def cv_for_alpha(self, alphas: List[float]) -> None:
+    def cv_for_alpha(self, alphas: list[float]) -> None:
         """
         Calculate the CV scores for alphas using the fitting scheme
         specified in the Evaluate object.
@@ -826,9 +827,7 @@ class Evaluate:
         ax.text(
             0.65,
             0.01,
-            f"min. CV score:\n"
-            f"alpha = {min_alpha:.10f} \n"
-            f"CV = {min_cv * 1000.0:.3f} meV/atom",
+            f"min. CV score:\nalpha = {min_alpha:.10f} \nCV = {min_cv * 1000.0:.3f} meV/atom",
             verticalalignment="bottom",
             horizontalalignment="left",
             transform=ax.transAxes,
@@ -1109,8 +1108,9 @@ class Evaluate:
             size = get_size_from_cf_name(name)
             if size > max_size_expected:
                 raise ValueError(
-                    "Inconsistent length of max_dia, size: {}, expected at most: {}".format(
-                        size, max_size_expected
+                    (
+                        f"Inconsistent length of max_dia, size: {size}, ",
+                        f"expected at most: {max_size_expected}",
                     )
                 )
             elif size in [0, 1]:
@@ -1127,7 +1127,7 @@ class Evaluate:
                 filtered_names.append(name)
         return filtered_names
 
-    def generalization_error(self, validation_id: List[int]):
+    def generalization_error(self, validation_id: list[int]):
         """
         Estimate the generalization error to new datapoints
 
@@ -1206,7 +1206,7 @@ class Evaluate:
             return self.e_dft * self.normalization
         return self.e_dft
 
-    def get_eci_by_size(self) -> Dict[str, Dict[str, list]]:
+    def get_eci_by_size(self) -> dict[str, dict[str, list]]:
         """
         Classify distance, eci and cf_name according to cluster body size
 

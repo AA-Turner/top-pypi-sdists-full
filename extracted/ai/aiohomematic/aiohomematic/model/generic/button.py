@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
-"""Module for data points implemented using the button category."""
+# Copyright (c) 2021-2026
+"""
+Generic button data points for momentary press actions.
+
+Public API of this module is defined by __all__.
+"""
 
 from __future__ import annotations
 

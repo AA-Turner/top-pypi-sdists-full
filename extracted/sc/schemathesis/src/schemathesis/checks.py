@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Optional
+from collections.abc import Callable, Iterable, Iterator
+from typing import TYPE_CHECKING, Any
 
 from schemathesis.config import ChecksConfig
 from schemathesis.core.failures import (
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.generation.case import Case
 
-CheckFunction = Callable[["CheckContext", "Response", "Case"], Optional[bool]]
+CheckFunction = Callable[["CheckContext", "Response", "Case"], bool | None]
 
 
 class CheckContext:
@@ -81,7 +82,7 @@ class CheckContext:
 
     def _record_case(self, *, parent_id: str, case: Case) -> None:
         if self._recorder is not None:
-            self._recorder.record_case(parent_id=parent_id, transition=None, case=case)
+            self._recorder.record_case(parent_id=parent_id, case=case, transition=None, is_transition_applied=False)
 
     def _record_response(self, *, case_id: str, response: Response) -> None:
         if self._recorder is not None:
@@ -93,7 +94,7 @@ CHECKS = Registry[CheckFunction]()
 
 def load_all_checks() -> None:
     # NOTE: Trigger registering all Open API checks
-    from schemathesis.specs.openapi.checks import status_code_conformance  # noqa: F401, F403
+    from schemathesis.specs.openapi.checks import status_code_conformance  # noqa: F401
 
 
 def check(func: CheckFunction) -> CheckFunction:
@@ -187,3 +188,14 @@ def run_checks(
                 on_failure(name, collected, sub_failure)
 
     return collected
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        return CHECKS.get_one(name)
+    except KeyError:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
+
+
+def __dir__() -> list[str]:
+    return sorted(list(globals().keys()) + CHECKS.get_all_names())

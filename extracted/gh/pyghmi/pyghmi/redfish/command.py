@@ -188,43 +188,12 @@ class Command(object):
         self._varsensormap = {}
         self.powerurl = None
         self.sysurl = None
-        if 'Managers' in overview:
-            bmcoll = systems = overview['Managers']['@odata.id']
-            res = self.wc.grab_json_response_with_status(bmcoll)
-            if res[1] == 401:
-                raise exc.PyghmiException('Access Denied')
-            elif res[1] < 200 or res[1] >= 300:
-                raise exc.PyghmiException(repr(res[0]))
-            bmcs = res[0]['Members']
-            if len(bmcs) == 1:
-                self._varbmcurl = bmcs[0]['@odata.id']
+        self._initsysurl = sysurl
+        tmpoem = oem.get_oem_handler({}, sysurl, self.wc, self._urlcache, self,
+                                    rootinfo=overview)
+        self._varbmcurl = tmpoem.get_default_mgrurl()
         if 'Systems' in overview:
-            systems = overview['Systems']['@odata.id']
-            res = self.wc.grab_json_response_with_status(systems)
-            if res[1] == 401:
-                raise exc.PyghmiException('Access Denied')
-            elif res[1] < 200 or res[1] >= 300:
-                raise exc.PyghmiException(repr(res[0]))
-            members = res[0]
-            systems = members['Members']
-            if sysurl:
-                for system in systems:
-                    if system['@odata.id'] == sysurl or system['@odata.id'].split('/')[-1] == sysurl:
-                        self.sysurl = system['@odata.id']
-                        break
-                else:
-                    raise exc.PyghmiException(
-                        'Specified sysurl not found: {0}'.format(sysurl))
-            else:
-                if len(systems) > 1:
-                    systems = [x for x in systems if 'DPU' not in x['@odata.id']]
-                if len(systems) > 1:
-                    raise exc.PyghmiException(
-                        'Multi system manager, sysurl is required parameter')
-                if len(systems):
-                    self.sysurl = systems[0]['@odata.id']
-                else:
-                    self.sysurl = None
+            self.sysurl = tmpoem.get_default_sysurl()
             self.powerurl = self.sysinfo.get('Actions', {}).get(
                 '#ComputerSystem.Reset', {}).get('target', None)
 
@@ -271,6 +240,24 @@ class Command(object):
             okroles.add('ReadOnly')
         return okroles
 
+    def get_trusted_cas(self):
+        for ca in self.oem.get_trusted_cas():
+            yield ca
+    
+    def get_bmc_csr(self, keytype=None, keylength=None, cn=None, city=None,
+                    state=None, country=None, org=None, orgunit=None):
+        return self.oem.get_bmc_csr(
+            keytype=keytype, keylength=keylength, cn=cn)
+
+    def install_bmc_certificate(self, certdata):
+        return self.oem.install_bmc_certificate(certdata)
+
+    def add_trusted_ca(self, pemdata):
+        return self.oem.add_trusted_ca(pemdata)
+    
+    def del_trusted_ca(self, certid):
+        return self.oem.del_trusted_ca(certid)
+            
     def get_users(self):
         """get list of users and channel access information (helper)
 
@@ -1026,13 +1013,13 @@ class Command(object):
             self._do_web_request(nicurl, patch, 'PATCH')
 
     def set_net_configuration(self, ipv4_address=None, ipv4_configuration=None,
-                              ipv4_gateway=None, name=None):
+                              ipv4_gateway=None, vlan_id=None, name=None):
         patch = {}
         ipinfo = {}
         dodhcp = None
         netmask = None
         if (ipv4_address is None and ipv4_configuration is None
-                and ipv4_gateway is None):
+                and ipv4_gateway is None and vlan_id is None):
             return
         if ipv4_address:
             if '/' in ipv4_address:
@@ -1054,6 +1041,10 @@ class Command(object):
               or 'IPv4StaticAddresses' in patch):
             dodhcp = False
             patch['DHCPv4'] = {'DHCPEnabled': False}
+        if vlan_id in ('off', 0, '0'):
+            patch['VLAN'] = {'VLANEnable': False}
+        elif vlan_id:
+            patch['VLAN'] = {'VLANEnable': True, 'VLANId': int(vlan_id)}
         if patch:
             nicurl = self._get_bmc_nic_url(name)
             try:
@@ -1079,6 +1070,11 @@ class Command(object):
         if gws:
             for gw in gws:
                 retdata['static_gateway'] = gw['Address']
+        tagged = netcfg.get('VLAN', {}).get('VLANEnabled', False)
+        if tagged:
+            retdata['vlan_id'] = netcfg.get('VLAN', {}).get('VLANId', None)
+        else:
+            retdata['vlan_id'] = 'off'
         return retdata
 
     def get_net_configuration(self, name=None):
@@ -1101,6 +1097,11 @@ class Command(object):
         hasgateway = _mask_to_cidr(currip['Gateway'])
         retval['ipv4_gateway'] = currip['Gateway'] if hasgateway else None
         retval['ipv4_configuration'] = currip['AddressOrigin']
+        tagged = netcfg.get('VLAN', {}).get('VLANEnable', False)
+        if tagged:
+            retval['vlan_id'] = netcfg.get('VLAN', {}).get('VLANId', None)
+        else:
+            retval['vlan_id'] = 'off'
         return retval
 
     def get_hostname(self):
@@ -1111,10 +1112,10 @@ class Command(object):
         self._do_web_request(self._bmcnicurl,
                              {'HostName': hostname}, 'PATCH')
 
-    def get_firmware(self, components=()):
+    def get_firmware(self, components=(), category=None):
         self._fwnamemap = {}
         try:
-            for firminfo in self.oem.get_firmware_inventory(components, self):
+            for firminfo in self.oem.get_firmware_inventory(components, self, category):
                 yield firminfo
         except exc.BypassGenericBehavior:
             return
@@ -1228,7 +1229,7 @@ class Command(object):
             elif self._varbmcurl:
                 self._do_web_request(self._varbmcurl, cache=False)  # This is to trigger token validation and renewel
             self._oem = oem.get_oem_handler(
-                self.sysinfo, self.sysurl, self.wc, self._urlcache, self)
+                self.sysinfo, self._initsysurl, self.wc, self._urlcache, self)
             self._oem.set_credentials(self.username, self.password)
         return self._oem
 

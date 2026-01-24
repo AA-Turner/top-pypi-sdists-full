@@ -141,7 +141,7 @@ class CollapseDirective(SphinxDirective):
 		return [collapse_node]
 
 
-class CollapseNode(nodes.Body, nodes.Element):
+class CollapseNode(nodes.Body, nodes.Element):  # noqa: PRM002
 	"""
 	Node that represents a collapsible section.
 
@@ -202,7 +202,8 @@ def setup(app: Sphinx) -> SphinxExtMetadata:
 	app.add_node(
 			CollapseNode,
 			html=(visit_collapse_node, depart_collapse_node),
-			latex=(lambda *args, **kwargs: None, lambda *args, **kwargs: None)
+			latex=(lambda *args, **kwargs: None, lambda *args, **kwargs: None),
+			man=(lambda *args, **kwargs: None, lambda *args, **kwargs: None),
 			)
 
 	return {

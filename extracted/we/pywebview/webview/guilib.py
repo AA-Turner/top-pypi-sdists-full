@@ -5,13 +5,14 @@ import os
 import platform
 import sys
 from types import ModuleType
-from typing import Any, Callable, cast
+from typing import Any, Callable, cast, get_args
 
 from typing_extensions import Literal, TypeAlias
 
 from webview import WebViewException
 
-GUIType: TypeAlias = Literal['qt', 'gtk', 'cef', 'mshtml', 'edgechromium', 'android']
+GUIType: TypeAlias = Literal['qt', 'gtk', 'cef', 'mshtml', 'edgechromium', 'android', 'cocoa']
+GUI_TYPES = list(get_args(GUIType))
 
 logger = logging.getLogger('pywebview')
 guilib: ModuleType | None = None
@@ -24,6 +25,7 @@ def initialize(forced_gui: GUIType | None = None):
 
         try:
             import webview.platforms.android as guilib
+
             logger.debug('Using Kivy')
             return True
         except (ImportError, ValueError):
@@ -92,9 +94,7 @@ def initialize(forced_gui: GUIType | None = None):
         forced_gui = cast(
             GUIType,
             os.environ['PYWEBVIEW_GUI'].lower()
-            if 'PYWEBVIEW_GUI' in os.environ
-            and os.environ['PYWEBVIEW_GUI'].lower()
-            in ['qt', 'gtk', 'cef', 'mshtml', 'edgechromium']
+            if 'PYWEBVIEW_GUI' in os.environ and os.environ['PYWEBVIEW_GUI'].lower() in GUI_TYPES
             else forced_gui,
         )
 

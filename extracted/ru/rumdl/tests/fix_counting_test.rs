@@ -4,6 +4,7 @@
 use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::Rule;
 use rumdl_lib::rules::{MD009TrailingSpaces, MD013LineLength};
+use rumdl_lib::types::LineLength;
 
 #[test]
 fn test_md013_fix_counting_with_tables() {
@@ -25,19 +26,21 @@ Another very very very very very very very very very very very very very very ve
     // Note: We create with tables=false to ensure table warnings are detected
     // Then we'll create one with reflow for testing the fix
     use rumdl_lib::rules::md013_line_length::md013_config::MD013Config;
+    use rumdl_lib::types::LineLength;
 
     let config = MD013Config {
-        line_length: 80,
+        line_length: LineLength::from_const(80),
         code_blocks: true,
         tables: true, // Check tables for line length
         headings: true,
+        paragraphs: true,
         strict: false,
         reflow: true, // Enable reflow
         ..Default::default()
     };
 
     let rule = MD013LineLength::from_config_struct(config);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Check for warnings
     let warnings = rule.check(&ctx).unwrap();
@@ -49,7 +52,7 @@ Another very very very very very very very very very very very very very very ve
     let fixed_content = rule.fix(&ctx).unwrap();
 
     // Check the fixed content for remaining warnings
-    let ctx_fixed = LintContext::new(&fixed_content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_fixed = LintContext::new(&fixed_content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let remaining_warnings = rule.check(&ctx_fixed).unwrap();
 
     // The table row should still have a warning because it can't be reflowed
@@ -91,10 +94,11 @@ fn test_mixed_rules_fix_counting() {
     use rumdl_lib::rules::md013_line_length::md013_config::MD013Config;
 
     let md013_config = MD013Config {
-        line_length: 80,
+        line_length: LineLength::from_const(80),
         code_blocks: true,
         tables: true, // Check tables for line length
         headings: true,
+        paragraphs: true,
         strict: false,
         reflow: true,
         ..Default::default()
@@ -103,7 +107,7 @@ fn test_mixed_rules_fix_counting() {
     let md013 = MD013LineLength::from_config_struct(md013_config);
     let md009 = MD009TrailingSpaces::default();
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Check MD013 warnings
     let md013_warnings = md013.check(&ctx).unwrap();
@@ -115,13 +119,13 @@ fn test_mixed_rules_fix_counting() {
 
     // Fix MD009 (trailing spaces)
     let fixed_by_md009 = md009.fix(&ctx).unwrap();
-    let ctx_after_md009 = LintContext::new(&fixed_by_md009, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_after_md009 = LintContext::new(&fixed_by_md009, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let md009_remaining = md009.check(&ctx_after_md009).unwrap();
     assert_eq!(md009_remaining.len(), 0, "All trailing spaces should be fixed");
 
     // Fix MD013 (line length)
     let fixed_by_md013 = md013.fix(&ctx_after_md009).unwrap();
-    let ctx_after_md013 = LintContext::new(&fixed_by_md013, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_after_md013 = LintContext::new(&fixed_by_md013, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let md013_remaining = md013.check(&ctx_after_md013).unwrap();
     assert_eq!(md013_remaining.len(), 1, "Table header should still be too long");
 

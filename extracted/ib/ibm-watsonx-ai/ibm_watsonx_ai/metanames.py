@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -7,14 +7,12 @@ from __future__ import annotations
 
 import copy
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from tabulate import tabulate
 
-from ibm_watsonx_ai.href_definitions import (
-    API_VERSION,
-    SPACES,
-)
+from ibm_watsonx_ai.href_definitions import API_VERSION, SPACES
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -36,7 +34,7 @@ class MetaProp:
         hidden: bool = False,
         default_value: Any = "",
         schema: Any = "",
-        path: str | None = None,
+        path: str | Path | None = None,
         transform: Any = lambda x, client: x,
     ):
         self.key = key
@@ -48,6 +46,8 @@ class MetaProp:
         self.hidden = hidden
         self.schema = schema
         self.default_value = default_value
+        if isinstance(path, Path):
+            path = str(path)
         self.path = path if path is not None else "/" + key
         self.transform = transform
 
@@ -409,7 +409,6 @@ class TrainingConfigurationMetaNames(MetaNamesBase):
     PROMPT_TUNING = "prompt_tuning"
     FINE_TUNING = "fine_tuning"
     AUTO_UPDATE_MODEL = "auto_update_model"
-    FEDERATED_LEARNING = "federated_learning"
     NAME = "name"
     DESCRIPTION = "description"
     SPACE_UID = "space_uid"
@@ -417,6 +416,7 @@ class TrainingConfigurationMetaNames(MetaNamesBase):
     TEST_DATA_REFERENCES = "test_data_references"
     TEST_OUTPUT_DATA = "test_output_data"
     TRAINING_RESULTS_REFERENCE = "results_reference"
+    CUSTOM = "custom"
     _COMPUTE_CONFIGURATION_DEFAULT = "k80"
     _meta_props_definitions = [
         MetaProp(
@@ -640,14 +640,6 @@ class TrainingConfigurationMetaNames(MetaNamesBase):
         ),
         MetaProp(
             "AUTO_UPDATE_MODEL", AUTO_UPDATE_MODEL, bool, False, example_value=False
-        ),
-        MetaProp(
-            "FEDERATED_LEARNING",
-            FEDERATED_LEARNING,
-            dict,
-            False,
-            example_value="3c1ce536-20dc-426e-aac7-7284cf3befc6",
-            path="/federated_learning",
         ),
         MetaProp(
             "SPACE_UID",
@@ -1343,8 +1335,7 @@ class ModelMetaNames(MetaNamesBase):
             FOUNDATION_MODEL,
             dict,
             False,
-            example_value={"model_id": "mistralai/Mistral-7B-Instruct-v0.2"},
-            hidden=True,
+            example_value={"functions": ["text_generation", "text_chat", "audio_chat"]},
         ),
         MetaProp(
             "MODEL_LOCATION",
@@ -2504,98 +2495,6 @@ class DeploymentMetaNames(MetaNamesBase):
         MetaNamesBase.__init__(self, self._meta_props_definitions)
 
 
-class RemoteTrainingSystemMetaNames(MetaNamesBase):
-    TAGS = "tags"
-    # SPACE_ID = "space_id"
-    # PROJECT_ID = "project_id"
-    NAME = "name"
-    DESCRIPTION = "description"
-    CUSTOM = "custom"
-    ORGANIZATION = "organization"
-    ALLOWED_IDENTITIES = "allowed_identities"
-    REMOTE_ADMIN = "remote_admin"
-    DATA_HANDLER = "data_handler"
-    LOCAL_TRAINING = "local_training"
-    HYPERPARAMS = "hyperparams"
-    MODEL = "model"
-
-    _meta_props_definitions = [
-        MetaProp("TAGS", TAGS, list, False, ["string1", "string2"], schema=["string"]),
-        # MetaProp('SPACE_ID', SPACE_ID, str, False, '3fc54cf1-252f-424b-b52d-5cdd9814987f', schema=u'string'),
-        # MetaProp('PROJECT_ID', PROJECT_ID, str, False, '4fc54cf1-252f-424b-b52d-5cdd9814987f', schema=u'string'),
-        MetaProp("NAME", NAME, str, False, "my-resource"),
-        MetaProp(
-            "DESCRIPTION", DESCRIPTION, str, False, "my-resource", schema="string"
-        ),
-        MetaProp(
-            "CUSTOM", CUSTOM, dict, False, example_value={"custom_data": "custome_data"}
-        ),
-        MetaProp(
-            "ORGANIZATION",
-            ORGANIZATION,
-            dict,
-            False,
-            example_value={"name": "name", "region": "EU"},
-        ),
-        MetaProp(
-            "ALLOWED_IDENTITIES",
-            ALLOWED_IDENTITIES,
-            list,
-            False,
-            example_value=[{"id": "43689024", "type": "user"}],
-        ),
-        MetaProp(
-            "REMOTE_ADMIN",
-            REMOTE_ADMIN,
-            dict,
-            False,
-            example_value={"id": "id", "type": "user"},
-        ),
-        MetaProp(
-            "DATA_HANDLER",
-            DATA_HANDLER,
-            dict,
-            False,
-            example_value={
-                "info": {"npz_file": "./data_party0.npz"},
-                "name": "MnistTFDataHandler",
-                "path": "mnist_keras_data_handler",
-            },
-        ),
-        MetaProp(
-            "LOCAL_TRAINING",
-            LOCAL_TRAINING,
-            dict,
-            False,
-            example_value={
-                "name": "LocalTrainingHandler",
-                "path": "ibmfl.party.training.local_training_handler",
-            },
-        ),
-        MetaProp(
-            "HYPERPARAMS",
-            HYPERPARAMS,
-            dict,
-            False,
-            example_value={"epochs": 3, "batch_size": 128},
-        ),
-        MetaProp(
-            "MODEL",
-            MODEL,
-            dict,
-            False,
-            example_value={"info": {"gpu": {"selection": "auto"}}},
-        ),
-    ]
-
-    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
-        "Remote Training System"
-    )
-
-    def __init__(self) -> None:
-        MetaNamesBase.__init__(self, self._meta_props_definitions)
-
-
 class ExportMetaNames(MetaNamesBase):
     NAME = "name"
     DESCRIPTION = "description"
@@ -2717,6 +2616,11 @@ class GenChatParamsMetaNames(MetaNamesBase):
     GUIDED_REGEX = "guided_regex"
     GUIDED_GRAMMAR = "guided_grammar"
     GUIDED_JSON = "guided_json"
+    CHAT_TEMPLATE_KWARGS = "chat_template_kwargs"
+    REASONING_EFFORT = "reasoning_effort"
+    INCLUDE_REASONING = "include_reasoning"
+    REPETITION_PENALTY = "repetition_penalty"
+    LENGTH_PENALTY = "length_penalty"
 
     _meta_props_definitions = [
         MetaProp("FREQUENCY_PENALTY", FREQUENCY_PENALTY, float, False, 1),
@@ -2754,6 +2658,17 @@ class GenChatParamsMetaNames(MetaNamesBase):
                 "properties": {"sentiment": {"type": "string"}},
             },
         ),
+        MetaProp(
+            "CHAT_TEMPLATE_KWARGS",
+            CHAT_TEMPLATE_KWARGS,
+            dict,
+            False,
+            {"thinking": True},
+        ),
+        MetaProp("REASONING_EFFORT", REASONING_EFFORT, str, False, "high"),
+        MetaProp("INCLUDE_REASONING", INCLUDE_REASONING, bool, False, True),
+        MetaProp("REPETITION_PENALTY", REPETITION_PENALTY, float, False, 1.5),
+        MetaProp("LENGTH_PENALTY", LENGTH_PENALTY, float, False, 1.0),
     ]
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
@@ -2845,7 +2760,7 @@ class EmbedTextParamsMetaNames(MetaNamesBase):
         "Foundation Model Embeddings Parameters"
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         MetaNamesBase.__init__(self, self._meta_props_definitions)
 
 
@@ -2947,6 +2862,7 @@ class TextExtractionsV2ParametersMetaNames(MetaNamesBase):
     CREATE_EMBEDDED_IMAGES = "create_embedded_images"
     OUTPUT_DPI = "output_dpi"
     KVP_MODE = "kvp_mode"
+    OUTPUT_TOKENS = "output_tokens"
     OUTPUT_TOKENS_AND_BBOX = "output_tokens_and_bbox"
     SEMANTIC_CONFIG = "semantic_config"
 
@@ -2966,7 +2882,10 @@ class TextExtractionsV2ParametersMetaNames(MetaNamesBase):
         ),
         MetaProp("OUTPUT_DPI", OUTPUT_DPI, int, False, 72),
         MetaProp("KVP_MODE", KVP_MODE, str, False, "invoice"),
-        MetaProp("OUTPUT_TOKENS_AND_BBOX", OUTPUT_TOKENS_AND_BBOX, bool, False, True),
+        MetaProp(
+            "OUTPUT_TOKENS_AND_BBOX", OUTPUT_TOKENS_AND_BBOX, bool, False, True, True
+        ),
+        MetaProp("OUTPUT_TOKENS", OUTPUT_TOKENS, bool, False, True),
         MetaProp(
             "SEMANTIC_CONFIG",
             SEMANTIC_CONFIG,
@@ -3034,6 +2953,7 @@ class AIServiceMetaNames(MetaNamesBase):
     DOCUMENTATION_REQUEST = "documentation_request"
     DOCUMENTATION_RESPONSE = "documentation_response"
     DOCUMENTATION_INIT = "documentation_init"
+    INIT = "init"
     DOCUMENTATION_FUNCTIONS = "documentation_functions"
     TAGS = "tags"
     SOFTWARE_SPEC_ID = "software_spec_id"
@@ -3161,6 +3081,30 @@ class AIServiceMetaNames(MetaNamesBase):
                 "type": "object",
             },
             path="/documentation/init",
+            hidden=True,
+        ),
+        MetaProp(
+            "INIT",
+            INIT,
+            dict,
+            False,
+            {
+                "properties": {
+                    "vector_index_name": {
+                        "title": "Vector Index Name",
+                        "type": "string",
+                    },
+                    "url": {
+                        "default": "https://us-south.ml.cloud.ibm.com/",
+                        "type": "string",
+                    },
+                    "model_id": {"default": "meta-llama/llama-3-2-11b-vision-instruct"},
+                    "temperature": {"default": {"temperature": 1}},
+                },
+                "required": ["vector_index_name"],
+                "type": "object",
+            },
+            path="/init",
         ),
         MetaProp(
             "DOCUMENTATION_FUNCTIONS",
@@ -3189,6 +3133,7 @@ class RAGOptimizerConfigurationMetaNames(MetaNamesBase):
     DESCRIPTION = "description"
     INPUT_DATA_REFERENCES = "input_data_references"
     TEST_DATA_REFERENCES = "test_data_references"
+    KNOWLEDGE_BASE_REFERENCES = "knowledge_base_references"
     RESULTS_REFERENCE = "results_reference"
     VECTOR_STORE_REFERENCES = "vector_store_references"
     HARDWARE_SPEC = "hardware_spec"
@@ -3226,6 +3171,34 @@ class RAGOptimizerConfigurationMetaNames(MetaNamesBase):
                     "connection": {},
                     "location": {
                         "href": "/v2/assets/cbc89dee-a087-420c-9b62-a19931fe3950?project_id=h67df788-73f2-46d0-a787-7453085782ht"
+                    },
+                }
+            ],
+        ),
+        MetaProp(
+            "KNOWLEDGE_BASE_REFERENCES",
+            KNOWLEDGE_BASE_REFERENCES,
+            list,
+            False,
+            [
+                {
+                    "name": "2025_financial_documentation",
+                    "description": "This knowledge base contains ABC financial documents for 2025 year.",
+                    "type": "vector_store",
+                    "reference": {
+                        "type": "connection_asset",
+                        "connection": {"id": "2d07a6b4-8fa9-43ab-91c8-befcd9dab8d2"},
+                    },
+                    "settings": {
+                        "index_name": "autoai_rag_id_pipeline_id_index",
+                        "fields_mapping": [
+                            {
+                                "role": "dense_vector_embeddings",
+                                "field_name": "vector_embeddings",
+                            }
+                        ],
+                        "embeddings": {"model_id": "ibm/slate-125m-english-rtrvr"},
+                        "hybrid_ranker": {"sparse_vectors": {"model_id": "BM25"}},
                     },
                 }
             ],

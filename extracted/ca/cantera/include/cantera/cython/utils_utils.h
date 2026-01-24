@@ -35,7 +35,7 @@ inline std::string get_cantera_version_py()
 // Git commit for Python module compilation
 inline std::string get_cantera_git_commit_py()
 {
-    return "6e00275";
+    return "4a8358e";
 }
 
 // Wrappers for preprocessor defines

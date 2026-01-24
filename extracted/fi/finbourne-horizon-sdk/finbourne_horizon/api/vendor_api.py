@@ -19,10 +19,8 @@ import warnings
 from pydantic.v1 import validate_arguments, ValidationError
 from typing import overload, Optional, Union, Awaitable
 
-from pydantic.v1 import constr
-
+from pydantic.v1 import StrictStr
 from typing import Dict, List, Optional
-
 from finbourne_horizon.models.lusid_field import LusidField
 from finbourne_horizon.models.lusid_property_definition_overrides import LusidPropertyDefinitionOverrides
 from finbourne_horizon.models.lusid_property_definition_overrides_response import LusidPropertyDefinitionOverridesResponse

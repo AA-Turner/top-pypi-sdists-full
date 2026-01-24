@@ -9,29 +9,52 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
 from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0010 import IntegrationType
 
+class GitRefType(TypedDict):
+    """Git Reference
 
-class TimelineAssignedIssueEventType(TypedDict):
-    """Timeline Assigned Issue Event
-
-    Timeline Assigned Issue Event
+    Git references within a repository
     """
 
-    id: int
+    ref: str
     node_id: str
     url: str
-    actor: SimpleUserType
-    event: Literal["assigned"]
-    commit_id: Union[str, None]
-    commit_url: Union[str, None]
-    created_at: str
-    performed_via_github_app: Union[None, IntegrationType, None]
-    assignee: SimpleUserType
+    object_: GitRefPropObjectType
 
 
-__all__ = ("TimelineAssignedIssueEventType",)
+class GitRefTypeForResponse(TypedDict):
+    """Git Reference
+
+    Git references within a repository
+    """
+
+    ref: str
+    node_id: str
+    url: str
+    object_: GitRefPropObjectTypeForResponse
+
+
+class GitRefPropObjectType(TypedDict):
+    """GitRefPropObject"""
+
+    type: str
+    sha: str
+    url: str
+
+
+class GitRefPropObjectTypeForResponse(TypedDict):
+    """GitRefPropObject"""
+
+    type: str
+    sha: str
+    url: str
+
+
+__all__ = (
+    "GitRefPropObjectType",
+    "GitRefPropObjectTypeForResponse",
+    "GitRefType",
+    "GitRefTypeForResponse",
+)

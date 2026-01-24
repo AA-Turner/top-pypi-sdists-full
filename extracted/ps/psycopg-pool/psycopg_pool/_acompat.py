@@ -15,12 +15,15 @@ import queue
 import asyncio
 import logging
 import threading
-from typing import Any, Callable, Coroutine, TYPE_CHECKING
+from typing import Any, Awaitable, ParamSpec, TypeAlias, overload
+from inspect import isawaitable
+from collections.abc import Callable, Coroutine
 
-from ._compat import TypeAlias, TypeVar
+from ._compat import TypeVar
 
 logger = logging.getLogger("psycopg.pool")
 T = TypeVar("T")
+P = ParamSpec("P")
 
 # Re-exports
 Event = threading.Event
@@ -30,25 +33,7 @@ ALock = asyncio.Lock
 sleep = time.sleep
 
 Worker: TypeAlias = threading.Thread
-AWorker: TypeAlias = "asyncio.Task[None]"
-
-# Hack required on Python 3.8 because subclassing Queue[T] fails at runtime.
-# https://stackoverflow.com/questions/45414066/mypy-how-to-define-a-generic-subclass
-if TYPE_CHECKING:
-    _GQueue: TypeAlias = queue.Queue
-    _AGQueue: TypeAlias = asyncio.Queue
-
-else:
-
-    class FakeGenericMeta(type):
-        def __getitem__(self, item):
-            return self
-
-    class _GQueue(queue.Queue, metaclass=FakeGenericMeta):
-        pass
-
-    class _AGQueue(asyncio.Queue, metaclass=FakeGenericMeta):
-        pass
+AWorker: TypeAlias = asyncio.Task[None]
 
 
 def current_thread_name() -> str:
@@ -60,7 +45,7 @@ def current_task_name() -> str:
     return t.get_name() if t else "<no task>"
 
 
-class Queue(_GQueue[T]):
+class Queue(queue.Queue[T]):
     """
     A Queue subclass with an interruptible get() method.
     """
@@ -102,7 +87,7 @@ class ACondition(asyncio.Condition):
             return False
 
 
-class AQueue(_AGQueue[T]):
+class AQueue(asyncio.Queue[T]):
     pass
 
 
@@ -177,3 +162,24 @@ def asleep(seconds: float) -> Coroutine[Any, Any, None]:
     Equivalent to asyncio.sleep(), converted to time.sleep() by async_to_sync.
     """
     return asyncio.sleep(seconds)
+
+
+@overload
+async def ensure_async(
+    f: Callable[P, Awaitable[T]], *args: P.args, **kwargs: P.kwargs
+) -> T: ...
+
+
+@overload
+async def ensure_async(f: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T: ...
+
+
+async def ensure_async(
+    f: Callable[P, T] | Callable[P, Coroutine[Any, Any, T]],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> T:
+    rv = f(*args, **kwargs)
+    if isawaitable(rv):
+        rv = await rv
+    return rv

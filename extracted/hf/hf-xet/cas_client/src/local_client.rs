@@ -1,4 +1,4 @@
-use std::fs::{metadata, File};
+use std::fs::{File, metadata};
 use std::io::{BufReader, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -21,9 +21,9 @@ use tempfile::TempDir;
 use tokio::runtime::Handle;
 use tracing::{debug, error, info, warn};
 
+use crate::Client;
 use crate::error::{CasClientError, Result};
 use crate::output_provider::OutputProvider;
-use crate::Client;
 
 pub struct LocalClient {
     tmp_dir: Option<TempDir>, // To hold directory to use for local testing
@@ -208,6 +208,28 @@ impl LocalClient {
             Err(_) => Err(CasClientError::XORBNotFound(*hash)),
         }
     }
+
+    async fn exists(&self, _prefix: &str, hash: &MerkleHash) -> Result<bool> {
+        let file_path = self.get_path_for_entry(hash);
+
+        let Ok(md) = metadata(&file_path) else {
+            return Ok(false);
+        };
+
+        if !md.is_file() {
+            return Err(CasClientError::internal(format!(
+                "Attempting to write to {file_path:?}, but it is not a file"
+            )));
+        }
+
+        let Ok(file) = File::open(file_path) else {
+            return Err(CasClientError::XORBNotFound(*hash));
+        };
+
+        let mut reader = BufReader::new(file);
+        CasObject::deserialize(&mut reader)?;
+        Ok(true)
+    }
 }
 
 /// LocalClient is responsible for writing/reading Xorbs on local disk.
@@ -356,28 +378,6 @@ impl Client for LocalClient {
         Ok(bytes_written as u64)
     }
 
-    async fn exists(&self, _prefix: &str, hash: &MerkleHash) -> Result<bool> {
-        let file_path = self.get_path_for_entry(hash);
-
-        let Ok(md) = metadata(&file_path) else {
-            return Ok(false);
-        };
-
-        if !md.is_file() {
-            return Err(CasClientError::internal(format!(
-                "Attempting to write to {file_path:?}, but it is not a file"
-            )));
-        }
-
-        let Ok(file) = File::open(file_path) else {
-            return Err(CasClientError::XORBNotFound(*hash));
-        };
-
-        let mut reader = BufReader::new(file);
-        CasObject::deserialize(&mut reader)?;
-        Ok(true)
-    }
-
     fn use_xorb_footer(&self) -> bool {
         true
     }
@@ -395,8 +395,8 @@ fn map_heed_db_error(e: heed::Error) -> CasClientError {
 
 #[cfg(test)]
 mod tests {
-    use cas_object::test_utils::*;
     use cas_object::CompressionScheme::LZ4;
+    use cas_object::test_utils::*;
     use deduplication::test_utils::raw_xorb_to_vec;
     use mdb_shard::utils::parse_shard_filename;
 

@@ -887,9 +887,10 @@ class ParticipantsRestTransport(_BaseParticipantsRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1082,6 +1083,25 @@ class ParticipantsRestTransport(_BaseParticipantsRestTransport):
                     },
                 )
             return resp
+
+    class _BidiStreamingAnalyzeContent(
+        _BaseParticipantsRestTransport._BaseBidiStreamingAnalyzeContent,
+        ParticipantsRestStub,
+    ):
+        def __hash__(self):
+            return hash("ParticipantsRestTransport.BidiStreamingAnalyzeContent")
+
+        def __call__(
+            self,
+            request: participant.BidiStreamingAnalyzeContentRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> rest_streaming.ResponseIterator:
+            raise NotImplementedError(
+                "Method BidiStreamingAnalyzeContent is not available over REST transport"
+            )
 
     class _CompileSuggestion(
         _BaseParticipantsRestTransport._BaseCompileSuggestion, ParticipantsRestStub
@@ -2655,6 +2675,17 @@ class ParticipantsRestTransport(_BaseParticipantsRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._AnalyzeContent(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def bidi_streaming_analyze_content(
+        self,
+    ) -> Callable[
+        [participant.BidiStreamingAnalyzeContentRequest],
+        participant.BidiStreamingAnalyzeContentResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._BidiStreamingAnalyzeContent(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def compile_suggestion(

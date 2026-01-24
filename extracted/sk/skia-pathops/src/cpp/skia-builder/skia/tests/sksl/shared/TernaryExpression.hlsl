@@ -1,7 +1,7 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_colorGreen : packoffset(c0);
-    float4 _10_colorRed : packoffset(c1);
+    float4 _11_colorGreen : packoffset(c0);
+    float4 _11_colorRed : packoffset(c1);
 };
 
 
@@ -12,33 +12,33 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float4 main(float2 _24)
+float4 main(float2 _25)
 {
     int check = 0;
-    int _38 = 0 + ((_10_colorGreen.y == 1.0f) ? 0 : 1);
-    check = _38;
-    int _44 = _38 + int(_10_colorGreen.x == 1.0f);
-    check = _44;
-    int _55 = _44 + (all(bool2(_10_colorGreen.yx.x == _10_colorRed.xy.x, _10_colorGreen.yx.y == _10_colorRed.xy.y)) ? 0 : 1);
-    check = _55;
-    int _65 = _55 + int(any(bool2(_10_colorGreen.yx.x != _10_colorRed.xy.x, _10_colorGreen.yx.y != _10_colorRed.xy.y)));
-    check = _65;
-    float4 _67 = 0.0f.xxxx;
-    if (_65 == 0)
+    int _39 = 0 + ((_11_colorGreen.y == 1.0f) ? 0 : 1);
+    check = _39;
+    int _45 = _39 + int(_11_colorGreen.x == 1.0f);
+    check = _45;
+    int _56 = _45 + (all(bool2(_11_colorGreen.yx.x == _11_colorRed.xy.x, _11_colorGreen.yx.y == _11_colorRed.xy.y)) ? 0 : 1);
+    check = _56;
+    int _66 = _56 + int(any(bool2(_11_colorGreen.yx.x != _11_colorRed.xy.x, _11_colorGreen.yx.y != _11_colorRed.xy.y)));
+    check = _66;
+    float4 _68 = 0.0f.xxxx;
+    if (_66 == 0)
     {
-        _67 = _10_colorGreen;
+        _68 = _11_colorGreen;
     }
     else
     {
-        _67 = _10_colorRed;
+        _68 = _11_colorRed;
     }
-    return _67;
+    return _68;
 }
 
 void frag_main()
 {
-    float2 _20 = 0.0f.xx;
-    sk_FragColor = main(_20);
+    float2 _21 = 0.0f.xx;
+    sk_FragColor = main(_21);
 }
 
 SPIRV_Cross_Output main()

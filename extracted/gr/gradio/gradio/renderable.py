@@ -41,7 +41,7 @@ class Renderable:
         self.inputs = inputs
         self.triggers: list[EventListenerMethod] = []
         self.page = Context.root_block.current_page
-        self.key_to_id_map: dict[int | str | tuple[int | str], int] = {}
+        self.key_to_id_map: dict[int | str | tuple[str | int, ...], int] = {}
         self.render_iteration = 0
 
         self.triggers = [EventListenerMethod(*t) for t in triggers]
@@ -50,7 +50,7 @@ class Renderable:
             self.apply,
             self.inputs,
             self.container,
-            show_api=False,
+            api_visibility="undocumented",
             concurrency_limit=concurrency_limit,
             concurrency_id=concurrency_id,
             renderable=self,

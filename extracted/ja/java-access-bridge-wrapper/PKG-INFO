@@ -1,23 +1,23 @@
 Metadata-Version: 2.1
 Name: java-access-bridge-wrapper
-Version: 1.2.0
+Version: 2.0.0
 Summary: Python wrapper for the Windows Java Access Bridge
 Home-page: https://github.com/robocorp/java-access-bridge-wrapper.git
 License: Apache-2.0
 Author: Robocorp
 Author-email: support@robocorp.com
-Requires-Python: >=3.8.1,<4.0.0
+Requires-Python: >=3.9.1,<4.0.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.8
-Requires-Dist: pywin32 (>=300,<307) ; python_full_version != "3.8.1" and sys_platform == "win32"
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: pywin32 (>=300,<=311) ; sys_platform == "win32"
 Project-URL: Repository, https://github.com/robocorp/java-access-bridge-wrapper.git
 Description-Content-Type: text/markdown
 
@@ -33,7 +33,7 @@ Python wrapper around the Java Access Bridge / Windows Access Bridge.
 * 64-bit Windows
 * Java >= 8 (https://docs.aws.amazon.com/corretto/latest/corretto-8-ug/downloads-list.html)
   * If you are doing development install JDK, otherwise JRE is enough
-* Python >= 3.8 (https://www.python.org/downloads/release/python-375/)
+* Python >= 3.9 (https://www.python.org/downloads/release/python-390/)
 
 Enable the Java Access Bridge in windows
 

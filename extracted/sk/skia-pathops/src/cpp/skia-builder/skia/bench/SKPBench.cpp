@@ -5,11 +5,20 @@
  * found in the LICENSE file.
  */
 
+#include "bench/GpuTools.h"
 #include "bench/SKPBench.h"
 #include "include/core/SkSurface.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
+#include "src/gpu/ganesh/GrGpu.h"
 #include "tools/flags/CommandLineFlags.h"
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/Context.h"
+#include "include/gpu/graphite/Recorder.h"
+#include "src/gpu/graphite/RecorderPriv.h"
+#endif
 
 using namespace skia_private;
 
@@ -64,7 +73,7 @@ void SKPBench::onPerCanvasPreDraw(SkCanvas* canvas) {
     int xTiles = SkScalarCeilToInt(bounds.width()  / SkIntToScalar(tileW));
     int yTiles = SkScalarCeilToInt(bounds.height() / SkIntToScalar(tileH));
 
-    fSurfaces.reserve_back(xTiles * yTiles);
+    fSurfaces.reserve_exact(fSurfaces.size() + (xTiles * yTiles));
     fTileRects.reserve(xTiles * yTiles);
 
     SkImageInfo ii = canvas->imageInfo().makeWH(tileW, tileH);
@@ -101,26 +110,19 @@ void SKPBench::onPerCanvasPostDraw(SkCanvas* canvas) {
 }
 
 bool SKPBench::isSuitableFor(Backend backend) {
-    return backend != kNonRendering_Backend;
+    return backend != Backend::kNonRendering;
 }
 
-SkIPoint SKPBench::onGetSize() {
-    return SkIPoint::Make(fClip.width(), fClip.height());
+SkISize SKPBench::onGetSize() {
+    return SkISize::Make(fClip.width(), fClip.height());
 }
 
-void SKPBench::onDraw(int loops, SkCanvas* canvas) {
+void SKPBench::onDrawFrame(int loops, SkCanvas* canvas, std::function<void()> submitFrame) {
     SkASSERT(fDoLooping || 1 == loops);
-    while (1) {
+    for (int i = 0; i < loops; ++i) {
         this->drawPicture();
-        if (0 == --loops) {
-            break;
-        }
-
-        auto direct = canvas->recordingContext() ? canvas->recordingContext()->asDirectContext()
-                                                 : nullptr;
-        // Ensure the GrContext doesn't combine ops across draw loops.
-        if (direct) {
-            direct->flushAndSubmit();
+        if (submitFrame) {
+            submitFrame();
         }
     }
 }
@@ -137,11 +139,10 @@ void SKPBench::drawPicture() {
     }
 
     for (int j = 0; j < fTileRects.size(); ++j) {
-        fSurfaces[j]->flush();
+        skgpu::Flush(fSurfaces[j].get());
     }
 }
 
-#include "src/gpu/ganesh/GrGpu.h"
 static void draw_pic_for_stats(SkCanvas* canvas,
                                GrDirectContext* dContext,
                                const SkPicture* picture,

@@ -26,6 +26,7 @@ class AaSequence:
     _annotations: Union[Unset, List[AaAnnotation]] = UNSET
     _api_url: Union[Unset, str] = UNSET
     _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
+    _authors: Union[Unset, List[UserSummary]] = UNSET
     _created_at: Union[Unset, datetime.datetime] = UNSET
     _creator: Union[Unset, UserSummary] = UNSET
     _custom_fields: Union[Unset, CustomFields] = UNSET
@@ -39,6 +40,7 @@ class AaSequence:
     _registration_origin: Union[Unset, None, RegistrationOrigin] = UNSET
     _registry_id: Union[Unset, None, str] = UNSET
     _schema: Union[Unset, None, SchemaSummary] = UNSET
+    _url: Union[Unset, str] = UNSET
     _web_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -49,6 +51,7 @@ class AaSequence:
         fields.append("annotations={}".format(repr(self._annotations)))
         fields.append("api_url={}".format(repr(self._api_url)))
         fields.append("archive_record={}".format(repr(self._archive_record)))
+        fields.append("authors={}".format(repr(self._authors)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("creator={}".format(repr(self._creator)))
         fields.append("custom_fields={}".format(repr(self._custom_fields)))
@@ -62,6 +65,7 @@ class AaSequence:
         fields.append("registration_origin={}".format(repr(self._registration_origin)))
         fields.append("registry_id={}".format(repr(self._registry_id)))
         fields.append("schema={}".format(repr(self._schema)))
+        fields.append("url={}".format(repr(self._url)))
         fields.append("web_url={}".format(repr(self._web_url)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "AaSequence({})".format(", ".join(fields))
@@ -84,6 +88,14 @@ class AaSequence:
         archive_record: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self._archive_record, Unset):
             archive_record = self._archive_record.to_dict() if self._archive_record else None
+
+        authors: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._authors, Unset):
+            authors = []
+            for authors_item_data in self._authors:
+                authors_item = authors_item_data.to_dict()
+
+                authors.append(authors_item)
 
         created_at: Union[Unset, str] = UNSET
         if not isinstance(self._created_at, Unset):
@@ -119,6 +131,7 @@ class AaSequence:
         if not isinstance(self._schema, Unset):
             schema = self._schema.to_dict() if self._schema else None
 
+        url = self._url
         web_url = self._web_url
 
         field_dict: Dict[str, Any] = {}
@@ -134,6 +147,8 @@ class AaSequence:
             field_dict["apiURL"] = api_url
         if archive_record is not UNSET:
             field_dict["archiveRecord"] = archive_record
+        if authors is not UNSET:
+            field_dict["authors"] = authors
         if created_at is not UNSET:
             field_dict["createdAt"] = created_at
         if creator is not UNSET:
@@ -160,6 +175,8 @@ class AaSequence:
             field_dict["registryId"] = registry_id
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if url is not UNSET:
+            field_dict["url"] = url
         if web_url is not UNSET:
             field_dict["webURL"] = web_url
 
@@ -235,6 +252,23 @@ class AaSequence:
             if strict:
                 raise
             archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
+
+        def get_authors() -> Union[Unset, List[UserSummary]]:
+            authors = []
+            _authors = d.pop("authors")
+            for authors_item_data in _authors or []:
+                authors_item = UserSummary.from_dict(authors_item_data, strict=False)
+
+                authors.append(authors_item)
+
+            return authors
+
+        try:
+            authors = get_authors()
+        except KeyError:
+            if strict:
+                raise
+            authors = cast(Union[Unset, List[UserSummary]], UNSET)
 
         def get_created_at() -> Union[Unset, datetime.datetime]:
             created_at: Union[Unset, datetime.datetime] = UNSET
@@ -412,6 +446,17 @@ class AaSequence:
                 raise
             schema = cast(Union[Unset, None, SchemaSummary], UNSET)
 
+        def get_url() -> Union[Unset, str]:
+            url = d.pop("url")
+            return url
+
+        try:
+            url = get_url()
+        except KeyError:
+            if strict:
+                raise
+            url = cast(Union[Unset, str], UNSET)
+
         def get_web_url() -> Union[Unset, str]:
             web_url = d.pop("webURL")
             return web_url
@@ -429,6 +474,7 @@ class AaSequence:
             annotations=annotations,
             api_url=api_url,
             archive_record=archive_record,
+            authors=authors,
             created_at=created_at,
             creator=creator,
             custom_fields=custom_fields,
@@ -442,6 +488,7 @@ class AaSequence:
             registration_origin=registration_origin,
             registry_id=registry_id,
             schema=schema,
+            url=url,
             web_url=web_url,
         )
 
@@ -540,6 +587,20 @@ class AaSequence:
     @archive_record.deleter
     def archive_record(self) -> None:
         self._archive_record = UNSET
+
+    @property
+    def authors(self) -> List[UserSummary]:
+        if isinstance(self._authors, Unset):
+            raise NotPresentError(self, "authors")
+        return self._authors
+
+    @authors.setter
+    def authors(self, value: List[UserSummary]) -> None:
+        self._authors = value
+
+    @authors.deleter
+    def authors(self) -> None:
+        self._authors = UNSET
 
     @property
     def created_at(self) -> datetime.datetime:
@@ -732,8 +793,23 @@ class AaSequence:
         self._schema = UNSET
 
     @property
+    def url(self) -> str:
+        """ The path of the web URL, omitting the tenant domain """
+        if isinstance(self._url, Unset):
+            raise NotPresentError(self, "url")
+        return self._url
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self._url = value
+
+    @url.deleter
+    def url(self) -> None:
+        self._url = UNSET
+
+    @property
     def web_url(self) -> str:
-        """ URL of the protein. """
+        """ URL of the AA sequence. """
         if isinstance(self._web_url, Unset):
             raise NotPresentError(self, "web_url")
         return self._web_url

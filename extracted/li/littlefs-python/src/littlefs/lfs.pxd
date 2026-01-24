@@ -11,6 +11,9 @@ from libc.stdint cimport uint8_t, int32_t, uint32_t
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 
+cdef extern from "limits.h":
+    pass
+
 
 cdef extern from "lfs.h":
 
@@ -117,6 +120,7 @@ cdef extern from "lfs.h":
         lfs_size_t file_max
         lfs_size_t attr_max
         lfs_size_t metadata_max
+        lfs_size_t inline_max
         uint32_t disk_version
 
     int lfs_mount(lfs_t *lfs, const lfs_config *config)

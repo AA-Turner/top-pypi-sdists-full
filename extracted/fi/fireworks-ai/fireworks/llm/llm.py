@@ -2,6 +2,7 @@ from datetime import timedelta
 import inspect
 import os
 import time
+from uuid import uuid4
 
 from fireworks._const import FIREWORKS_API_BASE_URL
 from fireworks.evaluator.evaluator import Evaluator
@@ -1599,7 +1600,9 @@ class LLM:
                 project=wandb_config["project"],
                 entity=wandb_config["entity"],
             )
+        unique_name = f"{display_name}-{str(uuid4())[:5].lower()}"
         proto = SyncSupervisedFineTuningJob(
+            name=f"accounts/{self._gateway.account_id()}/supervisedFineTuningJobs/{unique_name}",
             display_name=display_name,
             epochs=epochs,
             learning_rate=learning_rate,

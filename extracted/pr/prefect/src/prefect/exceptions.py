@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
 
 def _trim_traceback(
-    tb: Optional[TracebackType], remove_modules: Iterable[ModuleType]
-) -> Optional[TracebackType]:
+    tb: TracebackType | None, remove_modules: Iterable[ModuleType]
+) -> TracebackType | None:
     """
     Utility to remove frames from specific modules from a traceback.
 
@@ -444,6 +444,17 @@ class ConfigurationError(PrefectException):
     """
     Raised when a configuration is invalid.
     """
+
+
+class EventTooLarge(PrefectException):
+    """
+    Raised when an event exceeds the configured maximum size.
+    """
+
+    def __init__(self, size: int, maximum: int):
+        super().__init__(f"Event is too large to emit ({size} > {maximum} bytes)")
+        self.size = size
+        self.maximum = maximum
 
 
 class ProfileSettingsValidationError(PrefectException):

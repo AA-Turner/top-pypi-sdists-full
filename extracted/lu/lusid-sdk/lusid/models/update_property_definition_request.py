@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class UpdatePropertyDefinitionRequest(BaseModel):
     """
@@ -27,8 +29,9 @@ class UpdatePropertyDefinitionRequest(BaseModel):
     """
     display_name:  StrictStr = Field(...,alias="displayName", description="The display name of the property.") 
     property_description:  Optional[StrictStr] = Field(None,alias="propertyDescription", description="Describes the property") 
-    custom_entity_types: Optional[conlist(StrictStr)] = Field(None, alias="customEntityTypes", description="The custom entity types that properties relating to this property definition can be applied to.")
-    __properties = ["displayName", "propertyDescription", "customEntityTypes"]
+    custom_entity_types: Optional[List[StrictStr]] = Field(default=None, description="The custom entity types that properties relating to this property definition can be applied to.", alias="customEntityTypes")
+    value_format:  Optional[StrictStr] = Field(None,alias="valueFormat", description="The format in which values for this property definition should be represented.") 
+    __properties = ["displayName", "propertyDescription", "customEntityTypes", "valueFormat"]
 
     class Config:
         """Pydantic configuration"""
@@ -72,6 +75,11 @@ class UpdatePropertyDefinitionRequest(BaseModel):
         if self.custom_entity_types is None and "custom_entity_types" in self.__fields_set__:
             _dict['customEntityTypes'] = None
 
+        # set to None if value_format (nullable) is None
+        # and __fields_set__ contains the field
+        if self.value_format is None and "value_format" in self.__fields_set__:
+            _dict['valueFormat'] = None
+
         return _dict
 
     @classmethod
@@ -86,6 +94,9 @@ class UpdatePropertyDefinitionRequest(BaseModel):
         _obj = UpdatePropertyDefinitionRequest.parse_obj({
             "display_name": obj.get("displayName"),
             "property_description": obj.get("propertyDescription"),
-            "custom_entity_types": obj.get("customEntityTypes")
+            "custom_entity_types": obj.get("customEntityTypes"),
+            "value_format": obj.get("valueFormat")
         })
         return _obj
+
+UpdatePropertyDefinitionRequest.update_forward_refs()

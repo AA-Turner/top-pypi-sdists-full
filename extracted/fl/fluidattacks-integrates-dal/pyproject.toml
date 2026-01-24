@@ -1,0 +1,36 @@
+[project]
+name = "fluidattacks_integrates_dal"
+authors = [
+    {name = "Engineering Team", email = "development@fluidattacks.com"},
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "boto3 >=1.40.53, <2.0.0",
+    "click >=8.1.7, <9.0.0",
+    "fa-purity >=2.5.2, <3.0.0",
+    "fluidattacks-utils-logger >=3.0.0, <4.0.0",
+]
+description = "ASM Synchronous Data Access Layer"
+dynamic = ["version"]
+
+[project.scripts]
+integrates-dal = "fluidattacks_integrates_dal._cli:main"
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[dependency-groups]
+dev = [
+    "arch-lint >=5.0.0, <6.0.0",
+    "mypy >=1.18.2, <2.0.0",
+    "pytest >=8.4.2, <9.0.0",
+    "pytest-cov >=7.0.0, <8.0.0",
+    "ruff >=0.14.1, <1.0.0",
+    "botocore-stubs >=1.40.53, <2.0.0",
+    "boto3-stubs >=1.40.53, <2.0.0",
+    "mypy-boto3-dynamodb >=1.40.40, <2.0.0",
+]

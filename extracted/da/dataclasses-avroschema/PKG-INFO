@@ -1,19 +1,20 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dataclasses-avroschema
-Version: 0.65.14
+Version: 0.66.2
 Summary: Generate Avro Schemas from Python classes. Serialize/Deserialize python instances with avro schemas
 License: MIT
+License-File: LICENSE
 Author: Marcos Schroh
 Author-email: schrohm@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development
 Provides-Extra: cli
@@ -23,7 +24,7 @@ Provides-Extra: pydantic
 Requires-Dist: casefy (>=0.1.7,<1.1.0)
 Requires-Dist: dacite (>=1.8.0,<2.0.0)
 Requires-Dist: dc-avro (>=0.6.4) ; extra == "cli"
-Requires-Dist: faker (>=26.0.0,<37.0.0) ; extra == "faker"
+Requires-Dist: faker (>=26.0.0,<38.0.0) ; extra == "faker"
 Requires-Dist: fastavro (>=1.7.3,<2.0.0)
 Requires-Dist: faust-streaming (>=0.10.11,<0.12.0) ; extra == "faust"
 Requires-Dist: inflection (>=0.5.1,<0.6.0)
@@ -39,11 +40,11 @@ Generate [avro schemas](https://avro.apache.org/docs/1.8.2/spec.html) from pytho
 [![Tests](https://github.com/marcosschroh/dataclasses-avroschema/actions/workflows/tests.yaml/badge.svg)](https://github.com/marcosschroh/dataclasses-avroschema/actions/workflows/tests.yaml)
 [![GitHub license](https://img.shields.io/github/license/marcosschroh/dataclasses-avroschema.svg)](https://github.com/marcosschroh/dataclasses-avroschema/blob/master/LICENSE)
 [![codecov](https://codecov.io/gh/marcosschroh/dataclasses-avroschema/branch/master/graph/badge.svg)](https://codecov.io/gh/marcosschroh/dataclasses-avroschema)
-![python version](https://img.shields.io/badge/python-3.9%2B-yellowgreen)
+![python version](https://img.shields.io/badge/python-3.10%2B-yellowgreen)
 
 ## Requirements
 
-`python 3.9+`
+`python 3.10+`
 
 ## Installation
 

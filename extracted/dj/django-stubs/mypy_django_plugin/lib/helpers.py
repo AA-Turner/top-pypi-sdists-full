@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Iterator
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypedDict, cast
 
 from django.db.models.base import Model
-from django.db.models.fields import Field
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from mypy import checker
@@ -43,6 +42,7 @@ from mypy.typeanal import make_optional_type
 from mypy.types import (
     AnyType,
     CallableType,
+    ExtraAttrs,
     Instance,
     LiteralType,
     NoneTyp,
@@ -54,11 +54,13 @@ from mypy.types import (
     get_proper_type,
 )
 from mypy.types import Type as MypyType
-from typing_extensions import TypedDict
+from typing_extensions import Self
 
 from mypy_django_plugin.lib import fullnames
 
 if TYPE_CHECKING:
+    from django.db.models.fields import Field
+
     from mypy_django_plugin.django.context import DjangoContext
 
 
@@ -74,11 +76,11 @@ class DjangoTypeMetadata(TypedDict, total=False):
 
 
 def get_django_metadata(model_info: TypeInfo) -> DjangoTypeMetadata:
-    return cast(DjangoTypeMetadata, model_info.metadata.setdefault("django", {}))
+    return cast("DjangoTypeMetadata", model_info.metadata.setdefault("django", {}))
 
 
 def get_django_metadata_bases(model_info: TypeInfo, key: Literal["baseform_bases"]) -> dict[str, int]:
-    return get_django_metadata(model_info).setdefault(key, cast(dict[str, int], {}))
+    return get_django_metadata(model_info).setdefault(key, cast("dict[str, int]", {}))
 
 
 def get_reverse_manager_info(
@@ -179,8 +181,7 @@ def lookup_class_typeinfo(api: TypeChecker, klass: type | None) -> TypeInfo | No
         return None
 
     fullname = get_class_fullname(klass)
-    field_info = lookup_fully_qualified_typeinfo(api, fullname)
-    return field_info
+    return lookup_fully_qualified_typeinfo(api, fullname)
 
 
 def get_class_fullname(klass: type) -> str:
@@ -208,6 +209,21 @@ class DjangoModel(NamedTuple):
     @property
     def info(self) -> TypeInfo:
         return self.typ.type
+
+    @classmethod
+    def from_model_type(cls, model_type: Instance, django_context: "DjangoContext") -> Self | None:
+        model_info = model_type.type
+        is_annotated = is_annotated_model(model_info)
+
+        model_cls = (
+            django_context.get_model_class_by_fullname(model_info.bases[0].type.fullname)
+            if is_annotated
+            else django_context.get_model_class_by_fullname(model_info.fullname)
+        )
+        if model_cls is None:
+            return None
+
+        return cls(cls=model_cls, typ=model_type, is_annotated=is_annotated)
 
 
 def extract_model_type_from_queryset(queryset_type: Instance, api: TypeChecker) -> Instance | None:
@@ -242,18 +258,7 @@ def get_model_info_from_qs_ctx(
     if not (isinstance(ctx.type, Instance) and (model_type := extract_model_type_from_queryset(ctx.type, api))):
         return None
 
-    model_info = model_type.type
-    is_annotated = is_annotated_model(model_info)
-
-    model_cls = (
-        django_context.get_model_class_by_fullname(model_info.bases[0].type.fullname)
-        if is_annotated
-        else django_context.get_model_class_by_fullname(model_info.fullname)
-    )
-    if model_cls is None:
-        return None
-
-    return DjangoModel(cls=model_cls, typ=model_type, is_annotated=is_annotated)
+    return DjangoModel.from_model_type(model_type, django_context)
 
 
 def _get_class_init_type(call: CallExpr) -> CallableType | None:
@@ -488,7 +493,7 @@ def make_oneoff_named_tuple(
     if extra_bases is None:
         extra_bases = []
     namedtuple_info = add_new_class_for_module(
-        current_module, name, bases=[api.named_generic_type("typing.NamedTuple", [])] + extra_bases, fields=fields
+        current_module, name, bases=[api.named_generic_type("typing.NamedTuple", []), *extra_bases], fields=fields
     )
     return TupleType(list(fields.values()), fallback=Instance(namedtuple_info, []))
 
@@ -532,18 +537,20 @@ def make_typeddict(
         fallback_type = api.named_generic_type("typing._TypedDict", [])
     else:
         fallback_type = api.named_type("typing._TypedDict", [])
-    typed_dict_type = TypedDictType(
+    return TypedDictType(
         fields,
         required_keys=required_keys,
         readonly_keys=readonly_keys,
         fallback=fallback_type,
     )
-    return typed_dict_type
 
 
 def resolve_string_attribute_value(attr_expr: Expression, django_context: "DjangoContext") -> str | None:
     if isinstance(attr_expr, StrExpr):
         return attr_expr.value
+
+    if isinstance(attr_expr, NameExpr) and isinstance(attr_expr.node, Var) and attr_expr.node.type is not None:
+        return get_literal_str_type(attr_expr.node.type)
 
     # support extracting from settings, in general case it's unresolvable yet
     if isinstance(attr_expr, MemberExpr):
@@ -640,7 +647,7 @@ def resolve_lazy_reference(
         model_info = lookup_fully_qualified_typeinfo(api, fullname)
         if model_info is not None:
             return model_info
-        elif isinstance(api, SemanticAnalyzer) and not api.final_iteration:
+        if isinstance(api, SemanticAnalyzer) and not api.final_iteration:
             # Getting this far, where Django matched the reference but we still can't
             # find it, we want to defer
             api.defer()
@@ -690,3 +697,31 @@ def get_model_from_expression(
 
 def fill_manager(manager: TypeInfo, typ: MypyType) -> Instance:
     return Instance(manager, [typ] if manager.is_generic() else [])
+
+
+def merge_extra_attrs(
+    base_extra_attrs: ExtraAttrs | None,
+    *,
+    new_attrs: dict[str, MypyType] | None = None,
+    new_immutable: set[str] | None = None,
+) -> ExtraAttrs:
+    """
+    Create a new `ExtraAttrs` by merging new attributes/immutable fields into a base.
+
+    If base_extra_attrs is None, creates a fresh ExtraAttrs with only the new values.
+    """
+    if base_extra_attrs:
+        return ExtraAttrs(
+            attrs={**base_extra_attrs.attrs, **new_attrs} if new_attrs is not None else base_extra_attrs.attrs.copy(),
+            immutable=(
+                base_extra_attrs.immutable | new_immutable
+                if new_immutable is not None
+                else base_extra_attrs.immutable.copy()
+            ),
+            mod_name=None,
+        )
+    return ExtraAttrs(
+        attrs=new_attrs or {},
+        immutable=new_immutable,
+        mod_name=None,
+    )

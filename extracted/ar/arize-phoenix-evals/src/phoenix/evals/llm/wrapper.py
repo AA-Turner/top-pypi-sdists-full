@@ -11,6 +11,7 @@ from phoenix.evals.rate_limiters import RateLimiter
 from phoenix.evals.tracing import trace
 
 from .adapters import register_adapters
+from .prompts import PromptLike
 from .registries import PROVIDER_REGISTRY, adapter_availability_table
 
 register_adapters()
@@ -31,13 +32,43 @@ def _get_llm_model_name(bound: BoundArguments) -> str:
 def _get_prompt(bound: BoundArguments) -> str:
     """Extract prompt text from bound function arguments.
 
+    Converts PromptLike (str, List[Message], or List[Dict]) to a string representation
+    suitable for tracing. Message lists are converted to JSON format.
+
     Args:
         bound (BoundArguments): Bound arguments from function call inspection.
 
     Returns:
-        str: Prompt text from arguments, or empty string if not found.
+        str: Prompt text from arguments as a string, or empty string if not found.
     """
-    return bound.arguments.get("prompt", "") or ""
+    prompt = bound.arguments.get("prompt", "")
+
+    # Handle empty/falsy values
+    if not prompt:
+        return ""
+
+    # If it's already a string, return as-is
+    if isinstance(prompt, str):
+        return prompt
+
+    # If it's a list (List[Message] or List[Dict]), convert to JSON string
+    if isinstance(prompt, list):
+        # Convert Message objects to serializable format
+        serializable_prompt = []
+        for msg in prompt:
+            if isinstance(msg, dict):
+                # Handle Message TypedDict or plain dict
+                serializable_msg = dict(msg)
+                # Convert MessageRole enum to string if present
+                if "role" in serializable_msg and hasattr(serializable_msg["role"], "value"):
+                    serializable_msg["role"] = serializable_msg["role"].value
+                serializable_prompt.append(serializable_msg)
+            else:
+                serializable_prompt.append(msg)
+        return json.dumps(serializable_prompt, indent=2)
+
+    # Fallback: convert to string representation
+    return str(prompt)
 
 
 def _get_output(result: Any) -> Any:
@@ -98,6 +129,9 @@ class LLM:
         model: Optional[str] = None,
         client: Optional[str] = None,
         initial_per_second_request_rate: Optional[float] = None,
+        sync_client_kwargs: Optional[Dict[str, Any]] = None,
+        async_client_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ):
         """Initialize the LLM wrapper.
 
@@ -108,6 +142,42 @@ class LLM:
                 first available client for the provider will be used.
             initial_per_second_request_rate (Optional[float]): Optionally, the initial per-second
                 request rate. If not specified, the default rate limit will be used.
+            sync_client_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments forwarded
+                exclusively to the synchronous SDK client constructor. For providers that create
+                separate sync and async SDK clients (e.g., OpenAI, Anthropic), these kwargs are
+                passed only when constructing the sync client. This allows configuring sync-specific
+                options such as different timeouts or HTTP clients. Values here override any
+                matching keys in **kwargs for the sync client only.
+            async_client_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments forwarded
+                exclusively to the asynchronous SDK client constructor. For providers that create
+                separate sync and async SDK clients (e.g., OpenAI, Anthropic), these kwargs are
+                passed only when constructing the async client. This allows configuring
+                async-specific options such as different timeouts or HTTP clients. Values here
+                override any matching keys in **kwargs for the async client only.
+            **kwargs (Any): Additional keyword arguments forwarded to both sync and async SDK
+                client constructors. Use this to pass shared provider/client-specific options such
+                as API keys, base URLs, etc. These are merged with sync_client_kwargs or
+                async_client_kwargs, with the specific kwargs taking precedence.
+
+        Example::
+
+            from phoenix.evals import LLM
+            llm = LLM(
+                provider="azure",
+                model="gpt-5o",
+                api_key="your-api-key",
+                api_version="api-version",
+                base_url="base-url",
+            )
+
+            # Using sync_client_kwargs and async_client_kwargs for different timeouts
+            llm = LLM(
+                provider="openai",
+                model="gpt-4o",
+                api_key="your-api-key",
+                sync_client_kwargs={"timeout": 60.0},
+                async_client_kwargs={"timeout": 120.0},
+            )
         """
         self.provider = provider
         self.model = model
@@ -140,8 +210,12 @@ class LLM:
                 registration = provider_registrations[0]
 
             try:
-                sync_client = registration.client_factory(model=model, is_async=False)
-                async_client = registration.client_factory(model=model, is_async=True)
+                sync_client = registration.client_factory(
+                    model=model, is_async=False, **kwargs, **(sync_client_kwargs or {})
+                )
+                async_client = registration.client_factory(
+                    model=model, is_async=True, **kwargs, **(async_client_kwargs or {})
+                )
                 rate_limit_errors = (
                     registration.get_rate_limit_errors()
                     if registration.get_rate_limit_errors
@@ -155,10 +229,11 @@ class LLM:
             # This should never happen due to the initial validation
             raise ValueError("Internal error: cannot initialize LLM wrapper.")
 
+        assert model is not None, "The model needs to be specified along with the provider."
         self._sync_client = sync_client
         self._async_client = async_client
-        self._sync_adapter = adapter_class(sync_client)
-        self._async_adapter = adapter_class(async_client)
+        self._sync_adapter = adapter_class(sync_client, model=model)
+        self._async_adapter = adapter_class(async_client, model=model)
         self._rate_limit_errors = rate_limit_errors
         rate_limit_args: Dict[str, Any] = {}
         if initial_per_second_request_rate is not None:
@@ -180,12 +255,15 @@ class LLM:
         process_output={SpanAttributes.OUTPUT_VALUE: _get_output},
     )
     def generate_text(
-        self, prompt: Union[str, MultimodalPrompt], tracer: Optional[Tracer] = None, **kwargs: Any
+        self,
+        prompt: Union[PromptLike, MultimodalPrompt],
+        tracer: Optional[Tracer] = None,
+        **kwargs: Any,
     ) -> str:
         """Generate text given a prompt.
 
         Args:
-            prompt (Union[str, MultimodalPrompt]): The prompt to generate text from.
+            prompt (Union[str, List[Dict[str, Any]]]): The prompt to generate text from.
             tracer (Optional[Tracer]): Optional tracer for tracing operations.
             **kwargs: Additional keyword arguments to pass to the LLM SDK.
 
@@ -208,7 +286,7 @@ class LLM:
     )
     def generate_object(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         tracer: Optional[Tracer] = None,
         **kwargs: Any,
@@ -216,7 +294,7 @@ class LLM:
         """Generate an object given a prompt and a schema.
 
         Args:
-            prompt (Union[str, MultimodalPrompt]): The prompt to generate the object from.
+            prompt (Union[str, List[Dict[str, Any]]]): The prompt to generate the object from.
             schema (Dict[str, Any]): A JSON schema that describes the generated object.
             tracer (Optional[Tracer]): Optional tracer for tracing operations.
             **kwargs: Additional keyword arguments to pass to the LLM SDK.
@@ -232,7 +310,7 @@ class LLM:
 
     def generate_classification(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         labels: Union[List[str], Dict[str, str]],
         include_explanation: bool = True,
         description: Optional[str] = None,
@@ -241,7 +319,7 @@ class LLM:
         """Generate a classification given a prompt and a set of labels.
 
         Args:
-            prompt (Union[str, MultimodalPrompt]): The prompt template to go with the tool call.
+            prompt (Union[str, List[Dict[str, Any]]]): The prompt template to go with the tool call.
             labels (Union[List[str], Dict[str, str]]): Either:
                 - A list of strings, where each string is a label
                 - A dictionary where keys are labels and values are descriptions
@@ -254,7 +332,7 @@ class LLM:
 
         Examples::
 
-            from phoenix.evals.llm import LLM
+            from phoenix.evals import LLM
             llm = LLM(provider="openai", model="gpt-4o", client="openai")
             llm.generate_classification(
                 prompt="Hello, world!",
@@ -283,14 +361,14 @@ class LLM:
     )
     async def async_generate_text(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         tracer: Optional[Tracer] = None,
         **kwargs: Any,
     ) -> str:
         """Asynchronously generate text given a prompt.
 
         Args:
-            prompt (Union[str, MultimodalPrompt]): The prompt to generate text from.
+            prompt (Union[str, List[Dict[str, Any]]]): The prompt to generate text from.
             tracer (Optional[Tracer]): The tracer to use for tracing.
             **kwargs: Additional keyword arguments to pass to the LLM SDK.
 
@@ -313,7 +391,7 @@ class LLM:
     )
     async def async_generate_object(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         tracer: Optional[Tracer] = None,
         **kwargs: Any,
@@ -321,7 +399,7 @@ class LLM:
         """Asynchronously generate an object given a prompt and a schema.
 
         Args:
-            prompt (Union[str, MultimodalPrompt]): The prompt to generate the object from.
+            prompt (Union[str, List[Dict[str, Any]]]): The prompt to generate the object from.
             schema (Dict[str, Any]): A JSON schema that describes the generated object.
             **kwargs: Additional keyword arguments to pass to the LLM SDK.
 
@@ -336,7 +414,7 @@ class LLM:
 
     async def async_generate_classification(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         labels: Union[List[str], Dict[str, str]],
         include_explanation: bool = True,
         description: Optional[str] = None,
@@ -345,7 +423,7 @@ class LLM:
         """Asynchronously generate a classification given a prompt and a set of labels.
 
         Args:
-            prompt (Union[str, MultimodalPrompt]): The prompt template to go with the tool call.
+            prompt (Union[str, List[Dict[str, Any]]]): The prompt template to go with the tool call.
             labels (Union[List[str], Dict[str, str]]): Either:
                 - A list of strings, where each string is a label
                 - A dictionary where keys are labels and values are descriptions

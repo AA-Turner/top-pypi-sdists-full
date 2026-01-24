@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, StrictStr, constr, validator 
 
 class MarketDataKeyRule(BaseModel):
     """
@@ -31,11 +33,11 @@ class MarketDataKeyRule(BaseModel):
     quote_type:  StrictStr = Field(...,alias="quoteType", description="The available values are: Price, Spread, Rate, LogNormalVol, NormalVol, ParSpread, IsdaSpread, Upfront, Index, Ratio, Delta, PoolFactor, InflationAssumption, DirtyPrice, PrincipalWriteOff, InterestDeferred, InterestShortfall, ConstituentWeightFactor") 
     field:  Optional[StrictStr] = Field(None,alias="field", description="The conceptual qualification for the field, typically 'bid', 'mid' (default), or 'ask', but can also be 'open', 'close', etc.  When resolving quotes from LUSID's database, only quotes whose Field is identical to the Field specified here  will be accepted as market data.  When resolving data from an external supplier, the Field must be one of a defined set for the given supplier.                Note: Applies to the retrieval of quotes only. Has no impact on the resolution of complex market data.") 
     quote_interval:  Optional[StrictStr] = Field(None,alias="quoteInterval", description="Shorthand for the time interval used to select market data. This must be a dot-separated string              nominating a start and end date, for example '5D.0D' to look back 5 days from today (0 days ago). The syntax              is <i>int</i><i>char</i>.<i>int</i><i>char</i>, where <i>char</i> is one of              D(ay), Bd(business day), W(eek), M(onth) or Y(ear).              Business days are calculated using the calendars specified on the Valuation Request.              If no calendar is provided in the request, then it will default to only skipping weekends.              For example, if the valuation date is a Monday, then a quote interval of \"1Bd\" would behave as \"3D\",              looking back to the Friday. Data with effectiveAt on the weekend will still be found in that window.") 
-    as_at: Optional[datetime] = Field(None, alias="asAt", description="Deprecated field which no longer has any effect on market data resolution.")
+    as_at: Optional[datetime] = Field(default=None, description="Deprecated field which no longer has any effect on market data resolution.", alias="asAt")
     price_source:  Optional[StrictStr] = Field(None,alias="priceSource", description="The source of the quote. For a given provider/supplier of market data there may be an additional qualifier, e.g. the exchange or bank that provided the quote") 
     mask:  Optional[StrictStr] = Field(None,alias="mask", description="Allows for partial or complete override of the market asset resolved for a dependency  Either a named override or a dot separated string (A.B.C.D.*).  e.g. for Rates curve 'EUR.*' will replace the resolve MarketAsset 'GBP/12M', 'GBP/3M' with the EUR equivalent, if there  are no wildcards in the mask, the mask is taken as the MarketAsset for any dependency matching the rule.") 
     source_system:  Optional[StrictStr] = Field(None,alias="sourceSystem", description="If set, this parameter will seek an external source of market data.  Optional and, if omitted, will default to \"Lusid\".  This means that data will be retrieved from the LUSID Quote Store and LUSID Complex Market Data Store.                This can be set to \"MarketDataOverrides\" if Supplier is set to \"Client\".") 
-    fall_through_on_access_denied: Optional[StrictBool] = Field(None, alias="fallThroughOnAccessDenied", description="When a user attempts to use a rule to access data to which they are not entitled,  the rule will fail to resolve any market data.  By default, such an access denied failure will stop any further attempts to resolve market data.  This is so that differently entitled users always receive the same market data from market data resolution,  if they have sufficient entitlements to retrieve the required data.  If set to true, then an access denied failure will not stop further market data resolution,  and resolution will continue with the next specified MarketDataKeyRule.  Optional, and defaults to false.")
+    fall_through_on_access_denied: Optional[StrictBool] = Field(default=None, description="When a user attempts to use a rule to access data to which they are not entitled,  the rule will fail to resolve any market data.  By default, such an access denied failure will stop any further attempts to resolve market data.  This is so that differently entitled users always receive the same market data from market data resolution,  if they have sufficient entitlements to retrieve the required data.  If set to true, then an access denied failure will not stop further market data resolution,  and resolution will continue with the next specified MarketDataKeyRule.  Optional, and defaults to false.", alias="fallThroughOnAccessDenied")
     __properties = ["key", "supplier", "dataScope", "quoteType", "field", "quoteInterval", "asAt", "priceSource", "mask", "sourceSystem", "fallThroughOnAccessDenied"]
 
     @validator('quote_type')
@@ -86,14 +88,21 @@ class MarketDataKeyRule(BaseModel):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
         if "quote_type" != "type":
             return value
 
-        if value not in ('Price', 'Spread', 'Rate', 'LogNormalVol', 'NormalVol', 'ParSpread', 'IsdaSpread', 'Upfront', 'Index', 'Ratio', 'Delta', 'PoolFactor', 'InflationAssumption', 'DirtyPrice', 'PrincipalWriteOff', 'InterestDeferred', 'InterestShortfall', 'ConstituentWeightFactor'):
+        if value not in ['Price', 'Spread', 'Rate', 'LogNormalVol', 'NormalVol', 'ParSpread', 'IsdaSpread', 'Upfront', 'Index', 'Ratio', 'Delta', 'PoolFactor', 'InflationAssumption', 'DirtyPrice', 'PrincipalWriteOff', 'InterestDeferred', 'InterestShortfall', 'ConstituentWeightFactor']:
             raise ValueError("must be one of enum values ('Price', 'Spread', 'Rate', 'LogNormalVol', 'NormalVol', 'ParSpread', 'IsdaSpread', 'Upfront', 'Index', 'Ratio', 'Delta', 'PoolFactor', 'InflationAssumption', 'DirtyPrice', 'PrincipalWriteOff', 'InterestDeferred', 'InterestShortfall', 'ConstituentWeightFactor')")
         return value
 
@@ -184,3 +193,5 @@ class MarketDataKeyRule(BaseModel):
             "fall_through_on_access_denied": obj.get("fallThroughOnAccessDenied")
         })
         return _obj
+
+MarketDataKeyRule.update_forward_refs()

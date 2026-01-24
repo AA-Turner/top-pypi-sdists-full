@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastai
-Version: 2.8.4
+Version: 2.8.6
 Summary: fastai simplifies training fast and accurate neural nets using modern best practices
 Home-page: https://github.com/fastai/fastai
 Author: Jeremy Howard, Sylvain Gugger, and contributors
@@ -21,7 +21,7 @@ License-File: LICENSE
 Requires-Dist: pip
 Requires-Dist: packaging
 Requires-Dist: fastdownload<2,>=0.0.5
-Requires-Dist: fastcore<1.9,>=1.8.0
+Requires-Dist: fastcore>=1.8.0
 Requires-Dist: fasttransform>=0.0.2
 Requires-Dist: torchvision>=0.11
 Requires-Dist: matplotlib
@@ -36,8 +36,9 @@ Requires-Dist: spacy<4
 Requires-Dist: packaging
 Requires-Dist: plum-dispatch
 Requires-Dist: cloudpickle
-Requires-Dist: torch<2.9,>=1.10
+Requires-Dist: torch<2.10,>=1.10
 Provides-Extra: dev
+Requires-Dist: nbdev; extra == "dev"
 Requires-Dist: ipywidgets; extra == "dev"
 Requires-Dist: lightning; extra == "dev"
 Requires-Dist: pytorch-ignite; extra == "dev"

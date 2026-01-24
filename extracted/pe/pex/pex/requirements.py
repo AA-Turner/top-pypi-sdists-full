@@ -174,6 +174,7 @@ class PyPIRequirement(_ParsedItem):
 
     @property
     def project_name(self):
+        # type: () -> ProjectName
         return self.requirement.project_name
 
     @property
@@ -196,6 +197,7 @@ class URLRequirement(_ParsedItem):
 
     @property
     def project_name(self):
+        # type: () -> ProjectName
         return self.requirement.project_name
 
     @property
@@ -227,9 +229,11 @@ class VCSRequirement(_ParsedItem):
     vcs = attr.ib()  # type: VCS.Value
     url = attr.ib()  # type: Text
     requirement = attr.ib()  # type: Requirement
+    commit = attr.ib(default=None)  # type: Optional[str]
 
     @property
     def project_name(self):
+        # type: () -> ProjectName
         return self.requirement.project_name
 
     @property
@@ -565,7 +569,10 @@ def _parse_requirement_line(
         parsed_scheme = parsed_url.scheme
         if isinstance(parsed_scheme, VCSScheme):
             url = parsed_url_info._replace(scheme=parsed_scheme.scheme).geturl()
-            return VCSRequirement(line, parsed_scheme.vcs, url, requirement)
+            _, sep, commit = parsed_url_info.path.rpartition("@")
+            return VCSRequirement(
+                line, parsed_scheme.vcs, url, requirement, commit=commit if sep else None
+            )
         return URLRequirement(line, url=ArtifactURL.parse(url), requirement=requirement)
 
     # Handle local archives and project directories via path or file URL (Pip proprietary).

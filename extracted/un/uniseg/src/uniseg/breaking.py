@@ -8,7 +8,7 @@ from typing import Any, Generic, Literal, Optional, TypeVar, Union
 __all__ = [
     'Breakable',
     'Breakables',
-    'TailorBreakables',
+    'TailorFunction',
     'Run',
     'boundaries',
     'break_units',
@@ -25,28 +25,31 @@ class Breakable(Enum):
 
 # type aliases for annotation
 Breakables = Iterable[Literal[0, 1]]
-TailorBreakables = Callable[[str, Breakables], Breakables]
 SkipTable = Sequence[Literal[0, 1]]
 
+TailorFunction = Callable[[str, Breakables], Breakables]
+"""A function which returns tailored breakable talbes from a string and its
+original braekable table."""
 
-T = TypeVar('T')
+
+_T = TypeVar('_T')
 
 
-class Run(Generic[T]):
+class Run(Generic[_T]):
     """A utitlity class which helps treating break determination for a string."""
     __slots__ = [
         '_text', '_chars', '_attributes', '_skip_table', '_breakables',
         '_position', '_condition'
     ]
 
-    def __init__(self, text: str, func: Callable[[str], T] = lambda x: x, /):
+    def __init__(self, text: str, func: Callable[[str], _T] = lambda x: x, /):
         """Utitlity class which helps treating break determination for a string.
 
         `text`
             string to determine breakable information.
         `func`
             property function to get a specific value for each character
-            (code page) of the string.
+            (code point) of the string.
         """
         self._text = text
         self._chars = list(text)
@@ -102,7 +105,7 @@ class Run(Generic[T]):
         return self._chars
 
     @property
-    def curr(self) -> Optional[T]:
+    def curr(self) -> Optional[_T]:
         """Attribute value for the current position, or None if it is invalid.
 
         `run.curr` is equivalent for `run.value()`.
@@ -116,7 +119,7 @@ class Run(Generic[T]):
         return self.attr()
 
     @property
-    def prev(self) -> Optional[T]:
+    def prev(self) -> Optional[_T]:
         """Attribute value for the previous position, or None if it is invalid.
 
         `run.prev` is equivalent for `run.value(-1)`.
@@ -129,7 +132,7 @@ class Run(Generic[T]):
         return self.attr(-1)
 
     @property
-    def next(self) -> Optional[T]:
+    def next(self) -> Optional[_T]:
         """Attribute value for the next position, or None if it is not valid.
 
         `run.next` is equivalent for `run.value(1)`.
@@ -193,7 +196,7 @@ class Run(Generic[T]):
     def set_char(self, ch: str, /) -> None:
         self._chars[self._position] = ch
 
-    def set_attr(self, attr: T, /) -> None:
+    def set_attr(self, attr: _T, /) -> None:
         self._attributes[self._position] = attr
 
     def _calc_position(self, offset: int, /, noskip: bool = False) -> int:
@@ -225,7 +228,7 @@ class Run(Generic[T]):
                 i += vec
         return i
 
-    def attr(self, offset: int = 0, /, noskip: bool = False) -> Optional[T]:
+    def attr(self, offset: int = 0, /, noskip: bool = False) -> Optional[_T]:
         """Return attrubute value at current position + offset.
 
         >>> run = Run('abc', lambda x: x.upper())
@@ -250,7 +253,7 @@ class Run(Generic[T]):
         else:
             return None
 
-    def attributes(self) -> list[T]:
+    def attributes(self) -> list[_T]:
         """Return a copy of the list of its properties.
 
         >>> run = Run('abc', lambda x: x.upper())
@@ -312,12 +315,12 @@ class Run(Generic[T]):
 
     def is_continuing(
         self,
-        attrinfo: Union[T, tuple[T, ...]],
+        attrinfo: Union[_T, tuple[_T, ...]],
         /,
         greedy: bool = False,
         backward: bool = False,
         noskip: bool = False,
-    ) -> 'Run[T]':
+    ) -> 'Run[_T]':
         """Test if values appears before / after the current position.
 
         Return shallow copy of the instance which position is at the result of
@@ -379,20 +382,20 @@ class Run(Generic[T]):
 
     def is_following(
         self,
-        attrs: Union[T, tuple[T, ...]],
+        attrs: Union[_T, tuple[_T, ...]],
         /,
         greedy: bool = False,
         noskip: bool = False,
-    ) -> 'Run[T]':
+    ) -> 'Run[_T]':
         return self.is_continuing(attrs, greedy=greedy, backward=True, noskip=noskip)
 
     def is_leading(
         self,
-        attrs: Union[T, tuple[T, ...]],
+        attrs: Union[_T, tuple[_T, ...]],
         /,
         greedy: bool = False,
         noskip: bool = False,
-    ) -> 'Run[T]':
+    ) -> 'Run[_T]':
         return self.is_continuing(attrs, greedy=greedy, noskip=noskip)
 
     def break_here(self) -> None:
@@ -412,7 +415,7 @@ class Run(Generic[T]):
         ]
 
     def literal_breakables(
-            self, default: Breakable = Breakable.Break
+        self, default: Breakable = Breakable.Break
     ) -> Iterable[Literal[0, 1]]:
         return (default.value if x is None else x.value for x in self._breakables)
 
@@ -463,10 +466,6 @@ def break_units(s: str, breakables: Breakables, /) -> Iterator[str]:
             i = j
     if s:
         yield s[i:]
-
-
-def tailor_none(s: str, breakables: Breakables, /) -> Breakables:
-    return breakables
 
 
 if __name__ == '__main__':

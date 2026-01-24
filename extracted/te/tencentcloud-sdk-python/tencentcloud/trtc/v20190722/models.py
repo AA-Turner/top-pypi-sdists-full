@@ -749,14 +749,39 @@ class AudioFormat(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Format: 生成的音频格式，默认pcm，目前支持的格式列表：[pcm]。
+        :param _Format: 生成的音频格式
+
+- TextToSpeechSSE 流式接口
+
+ 支持 pcm, 默认: pcm
+
+- TextToSpeech 非流式接口
+
+ 支持 pcm,wav,mp3,  默认: pcm
         :type Format: str
+        :param _SampleRate: 生成的音频采样率，默认24000
+可选
+- 16000
+- 24000 
+        :type SampleRate: int
+        :param _Bitrate:  MP3 比特率 (kbps)，仅对 MP3 格式生效, 可以选： `64`, `128`, `192`, `256` ,  默认： `128` 
+        :type Bitrate: int
         """
         self._Format = None
+        self._SampleRate = None
+        self._Bitrate = None
 
     @property
     def Format(self):
-        r"""生成的音频格式，默认pcm，目前支持的格式列表：[pcm]。
+        r"""生成的音频格式
+
+- TextToSpeechSSE 流式接口
+
+ 支持 pcm, 默认: pcm
+
+- TextToSpeech 非流式接口
+
+ 支持 pcm,wav,mp3,  默认: pcm
         :rtype: str
         """
         return self._Format
@@ -765,9 +790,36 @@ class AudioFormat(AbstractModel):
     def Format(self, Format):
         self._Format = Format
 
+    @property
+    def SampleRate(self):
+        r"""生成的音频采样率，默认24000
+可选
+- 16000
+- 24000 
+        :rtype: int
+        """
+        return self._SampleRate
+
+    @SampleRate.setter
+    def SampleRate(self, SampleRate):
+        self._SampleRate = SampleRate
+
+    @property
+    def Bitrate(self):
+        r""" MP3 比特率 (kbps)，仅对 MP3 格式生效, 可以选： `64`, `128`, `192`, `256` ,  默认： `128` 
+        :rtype: int
+        """
+        return self._Bitrate
+
+    @Bitrate.setter
+    def Bitrate(self, Bitrate):
+        self._Bitrate = Bitrate
+
 
     def _deserialize(self, params):
         self._Format = params.get("Format")
+        self._SampleRate = params.get("SampleRate")
+        self._Bitrate = params.get("Bitrate")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1731,11 +1783,11 @@ class CreateCloudModerationRequest(AbstractModel):
         :type RoomId: str
         :param _UserId: 机器人的UserId，用于进房发起审核任务。【*注意】这个UserId不能与当前房间内的主播观众UserId重复。如果一个房间发起多个切片任务时，机器人的userid也不能相互重复，否则会中断前一个切片任务。建议可以把房间ID作为UserId的标识的一部分，即机器人UserId在房间内唯一。
         :type UserId: str
-        :param _UserSig: 机器人UserId对应的校验签名，即UserId和UserSig相当于机器人进房的登录密码，具体计算方法请参考TRTC计算UserSig的方案。
-        :type UserSig: str
         :param _ModerationParams: 云端审核控制参数。
         :type ModerationParams: :class:`tencentcloud.trtc.v20190722.models.ModerationParams`
-        :param _ModerationStorageParams: 云端审核文件上传到云存储的参数
+        :param _UserSig: 机器人UserId对应的校验签名，即UserId和UserSig相当于机器人进房的登录密码，具体计算方法请参考TRTC计算UserSig的方案。
+        :type UserSig: str
+        :param _ModerationStorageParams: 云端审核文件上传到云存储的参数。
         :type ModerationStorageParams: :class:`tencentcloud.trtc.v20190722.models.ModerationStorageParams`
         :param _RoomIdType: TRTC房间号的类型。 【*注意】必须和录制的房间所对应的RoomId类型相同: 0: 字符串类型的RoomId 1: 32位整型的RoomId（默认） 示例值：1
         :type RoomIdType: int
@@ -1745,8 +1797,8 @@ class CreateCloudModerationRequest(AbstractModel):
         self._SdkAppId = None
         self._RoomId = None
         self._UserId = None
-        self._UserSig = None
         self._ModerationParams = None
+        self._UserSig = None
         self._ModerationStorageParams = None
         self._RoomIdType = None
         self._ResourceExpiredHour = None
@@ -1785,17 +1837,6 @@ class CreateCloudModerationRequest(AbstractModel):
         self._UserId = UserId
 
     @property
-    def UserSig(self):
-        r"""机器人UserId对应的校验签名，即UserId和UserSig相当于机器人进房的登录密码，具体计算方法请参考TRTC计算UserSig的方案。
-        :rtype: str
-        """
-        return self._UserSig
-
-    @UserSig.setter
-    def UserSig(self, UserSig):
-        self._UserSig = UserSig
-
-    @property
     def ModerationParams(self):
         r"""云端审核控制参数。
         :rtype: :class:`tencentcloud.trtc.v20190722.models.ModerationParams`
@@ -1807,8 +1848,19 @@ class CreateCloudModerationRequest(AbstractModel):
         self._ModerationParams = ModerationParams
 
     @property
+    def UserSig(self):
+        r"""机器人UserId对应的校验签名，即UserId和UserSig相当于机器人进房的登录密码，具体计算方法请参考TRTC计算UserSig的方案。
+        :rtype: str
+        """
+        return self._UserSig
+
+    @UserSig.setter
+    def UserSig(self, UserSig):
+        self._UserSig = UserSig
+
+    @property
     def ModerationStorageParams(self):
-        r"""云端审核文件上传到云存储的参数
+        r"""云端审核文件上传到云存储的参数。
         :rtype: :class:`tencentcloud.trtc.v20190722.models.ModerationStorageParams`
         """
         return self._ModerationStorageParams
@@ -1844,10 +1896,10 @@ class CreateCloudModerationRequest(AbstractModel):
         self._SdkAppId = params.get("SdkAppId")
         self._RoomId = params.get("RoomId")
         self._UserId = params.get("UserId")
-        self._UserSig = params.get("UserSig")
         if params.get("ModerationParams") is not None:
             self._ModerationParams = ModerationParams()
             self._ModerationParams._deserialize(params.get("ModerationParams"))
+        self._UserSig = params.get("UserSig")
         if params.get("ModerationStorageParams") is not None:
             self._ModerationStorageParams = ModerationStorageParams()
             self._ModerationStorageParams._deserialize(params.get("ModerationStorageParams"))
@@ -5138,11 +5190,14 @@ class DescribeTRTCMarketQualityDataRequest(AbstractModel):
 d：按天。此时返回查询时间范围内 UTC 时间为零点的数据。
 h：按小时。此时返回查询时间范围内 UTC 时间为整小时的数据。
         :type Period: str
+        :param _IsFloat: 返回数据是否为小数
+        :type IsFloat: bool
         """
         self._SdkAppId = None
         self._StartTime = None
         self._EndTime = None
         self._Period = None
+        self._IsFloat = None
 
     @property
     def SdkAppId(self):
@@ -5190,12 +5245,24 @@ h：按小时。此时返回查询时间范围内 UTC 时间为整小时的数�
     def Period(self, Period):
         self._Period = Period
 
+    @property
+    def IsFloat(self):
+        r"""返回数据是否为小数
+        :rtype: bool
+        """
+        return self._IsFloat
+
+    @IsFloat.setter
+    def IsFloat(self, IsFloat):
+        self._IsFloat = IsFloat
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
         self._Period = params.get("Period")
+        self._IsFloat = params.get("IsFloat")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8566,15 +8633,19 @@ class McuLayout(AbstractModel):
 白色：0xFFFFFF。
 灰色：0x999999。
         :type BackGroundColor: str
-        :param _BackgroundImageUrl: 子画面的背景图url，填写该参数，当用户关闭摄像头或未进入TRTC房间时，会在布局位置填充为指定图片。若指定图片与布局位置尺寸比例不一致，则会对图片进行拉伸处理，优先级高于BackGroundColor。支持png、jpg、jpeg、bmp、gif、webm格式。图片大小限制不超过5MB。
-注：您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，子画面的背景图将不会生效。
+        :param _BackgroundImageUrl: 子画面的占位图片url，填写该参数，当用户关闭摄像头或未进入TRTC房间时，会在布局位置填充为指定图片。若指定图片与布局位置尺寸比例不一致，则会对图片进行拉伸处理，优先级高于BackGroundColor。支持png、jpg、jpeg、bmp、gif、webm格式。图片大小限制不超过5MB。
+注：
+1，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，占位图片将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，占位图片将不会生效。
         :type BackgroundImageUrl: str
         :param _CustomCrop: 客户自定义裁剪，针对原始输入流裁剪
         :type CustomCrop: :class:`tencentcloud.trtc.v20190722.models.McuCustomCrop`
         :param _BackgroundRenderMode: 子背景图在输出时的显示模式：0为裁剪，1为缩放并显示背景，2为缩放并显示黑底，3为变比例伸缩，4为自定义渲染。不填默认为3。
         :type BackgroundRenderMode: int
         :param _TransparentUrl: 子画面的透明模版url，指向一张包含透明通道的模板图片。填写该参数，后台混流时会提取该模板图片的透明通道，将其缩放作为目标画面的透明通道，再和其他画面进行混合。您可以通过透明模版实现目标画面的半透明效果和任意形状裁剪（如圆角、星形、心形等）。 支持png格式。图片大小限制不超过5MB。
-注：1，模板图片宽高比应接近目标画面宽高比，以避免缩放适配目标画面时出现模板效果变形；2，透明模版只有RenderMode为0（裁剪）时才生效；3，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，透明模版将不会生效。
+注：
+1，模板图片宽高比应接近目标画面宽高比，以避免缩放适配目标画面时出现模板效果变形；2，透明模版只有RenderMode为0（裁剪）时才生效；3，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，透明模版将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，透明模版将不会生效。
         :type TransparentUrl: str
         :param _BackgroundCustomRender: 子背景图的自定义渲染参数，当BackgroundRenderMode为4时必须配置。
         :type BackgroundCustomRender: :class:`tencentcloud.trtc.v20190722.models.McuBackgroundCustomRender`
@@ -8701,8 +8772,10 @@ bit1:上行流缩放是否生效。
 
     @property
     def BackgroundImageUrl(self):
-        r"""子画面的背景图url，填写该参数，当用户关闭摄像头或未进入TRTC房间时，会在布局位置填充为指定图片。若指定图片与布局位置尺寸比例不一致，则会对图片进行拉伸处理，优先级高于BackGroundColor。支持png、jpg、jpeg、bmp、gif、webm格式。图片大小限制不超过5MB。
-注：您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，子画面的背景图将不会生效。
+        r"""子画面的占位图片url，填写该参数，当用户关闭摄像头或未进入TRTC房间时，会在布局位置填充为指定图片。若指定图片与布局位置尺寸比例不一致，则会对图片进行拉伸处理，优先级高于BackGroundColor。支持png、jpg、jpeg、bmp、gif、webm格式。图片大小限制不超过5MB。
+注：
+1，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，占位图片将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，占位图片将不会生效。
         :rtype: str
         """
         return self._BackgroundImageUrl
@@ -8736,7 +8809,9 @@ bit1:上行流缩放是否生效。
     @property
     def TransparentUrl(self):
         r"""子画面的透明模版url，指向一张包含透明通道的模板图片。填写该参数，后台混流时会提取该模板图片的透明通道，将其缩放作为目标画面的透明通道，再和其他画面进行混合。您可以通过透明模版实现目标画面的半透明效果和任意形状裁剪（如圆角、星形、心形等）。 支持png格式。图片大小限制不超过5MB。
-注：1，模板图片宽高比应接近目标画面宽高比，以避免缩放适配目标画面时出现模板效果变形；2，透明模版只有RenderMode为0（裁剪）时才生效；3，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，透明模版将不会生效。
+注：
+1，模板图片宽高比应接近目标画面宽高比，以避免缩放适配目标画面时出现模板效果变形；2，透明模版只有RenderMode为0（裁剪）时才生效；3，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，透明模版将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，透明模版将不会生效。
         :rtype: str
         """
         return self._TransparentUrl
@@ -9623,8 +9698,10 @@ class McuVideoParams(AbstractModel):
 白色：0xFFFFFF。
 灰色：0x999999。
         :type BackGroundColor: str
-        :param _BackgroundImageUrl: 整个画布的背景图url，优先级高于BackGroundColor。支持png、jpg、jpeg格式。图片大小限制不超过5MB。
-注：您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，背景图将不会生效。
+        :param _BackgroundImageUrl: 整个画布的背景图片url，优先级高于BackGroundColor。支持png、jpg、jpeg格式。图片大小限制不超过5MB。
+注：
+1，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，背景图片将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，背景图片将不会生效。
         :type BackgroundImageUrl: str
         :param _WaterMarkList: 混流布局的水印参数。
         :type WaterMarkList: list of McuWaterMarkParams
@@ -9680,8 +9757,10 @@ class McuVideoParams(AbstractModel):
 
     @property
     def BackgroundImageUrl(self):
-        r"""整个画布的背景图url，优先级高于BackGroundColor。支持png、jpg、jpeg格式。图片大小限制不超过5MB。
-注：您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，背景图将不会生效。
+        r"""整个画布的背景图片url，优先级高于BackGroundColor。支持png、jpg、jpeg格式。图片大小限制不超过5MB。
+注：
+1，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，背景图片将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，背景图片将不会生效。
         :rtype: str
         """
         return self._BackgroundImageUrl
@@ -9747,7 +9826,9 @@ class McuWaterMarkImage(AbstractModel):
     def __init__(self):
         r"""
         :param _WaterMarkUrl: 水印图片URL地址，支持png、jpg、jpeg格式。图片大小限制不超过5MB。
-注：您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，水印图片将不会生效。
+注：
+1，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，水印图片将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，水印图片将不会生效。
         :type WaterMarkUrl: str
         :param _WaterMarkWidth: 水印在输出时的宽。单位为像素值。
         :type WaterMarkWidth: int
@@ -9773,7 +9854,9 @@ class McuWaterMarkImage(AbstractModel):
     @property
     def WaterMarkUrl(self):
         r"""水印图片URL地址，支持png、jpg、jpeg格式。图片大小限制不超过5MB。
-注：您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，水印图片将不会生效。
+注：
+1，您需要确保图片链接的可访问性，后台单次下载超时时间为10秒，最多重试3次，若最终图片下载失败，水印图片将不会生效。
+2，url可支持字符集：【'0-9','a-z','A-Z','-', '.', '_', '~', ':', '/', '?', '#', '[', ']','@', '!', '&', '(', ')', '*', '+', ',', '%', '=', ';', '|'】，您需要确保url字符在可支持字符集内，若存在可支持字符集外的字符，水印图片将不会生效。
         :rtype: str
         """
         return self._WaterMarkUrl
@@ -10156,7 +10239,7 @@ class MixLayout(AbstractModel):
         :type MediaId: int
         :param _ImageLayer: 该画布的图层顺序, 这个值越小表示图层越靠后。默认值为0。
         :type ImageLayer: int
-        :param _SubBackgroundImage: 图片的url地址， 只支持jpg, png, jpeg，大小限制不超过5M。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
+        :param _SubBackgroundImage: 图片的url地址， 只支持jpg, png, jpeg，图片分辨率限制不超过2K，图片大小限制不超过5MB。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
         :type SubBackgroundImage: str
         """
         self._Top = None
@@ -10279,7 +10362,7 @@ class MixLayout(AbstractModel):
 
     @property
     def SubBackgroundImage(self):
-        r"""图片的url地址， 只支持jpg, png, jpeg，大小限制不超过5M。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
+        r"""图片的url地址， 只支持jpg, png, jpeg，图片分辨率限制不超过2K，图片大小限制不超过5MB。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
         :rtype: str
         """
         return self._SubBackgroundImage
@@ -10342,13 +10425,13 @@ class MixLayoutParams(AbstractModel):
 1：辅流（屏幕分享）；
 这个位置的MediaId代表的是对应MaxResolutionUserId的主辅路，MixLayoutList内代表的是自定义用户的主辅路。
         :type MediaId: int
-        :param _BackgroundImageUrl: 图片的url地址，只支持jpg, png, jpeg，大小限制不超过5M。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
+        :param _BackgroundImageUrl: 图片的url地址，只支持jpg, png, jpeg，图片分辨率限制不超过2K，图片大小限制不超过5MB。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
         :type BackgroundImageUrl: str
         :param _PlaceHolderMode: 设置为1时代表启用占位图功能，0时代表不启用占位图功能，默认为0。启用占位图功能时，在预设位置的用户没有上行音视频时可显示对应的占位图。
         :type PlaceHolderMode: int
         :param _BackgroundImageRenderMode: 背景画面宽高比不一致的时候处理方案，与MixLayoutList定义的RenderMode一致。
         :type BackgroundImageRenderMode: int
-        :param _DefaultSubBackgroundImage: 子画面占位图url地址，只支持jpg, png, jpeg，大小限制不超过5M。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
+        :param _DefaultSubBackgroundImage: 子画面占位图url地址，只支持jpg, png, jpeg，图片分辨率限制不超过2K，图片大小限制不超过5MB。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
         :type DefaultSubBackgroundImage: str
         :param _WaterMarkList: 水印布局参数， 最多支持25个。
         :type WaterMarkList: list of WaterMark
@@ -10356,6 +10439,8 @@ class MixLayoutParams(AbstractModel):
         :type RenderMode: int
         :param _MaxResolutionUserAlign: 屏幕分享模板有效。设置为1时代表大画面居右，小画面居左布局。默认为0。
         :type MaxResolutionUserAlign: int
+        :param _PureAudioDisableLayout: 控制房间内纯音频用户是否占据混流布局，只在混流录制，模板布局生效。true: 代表纯音频用户不占位，false: 代表纯音频用户占位（默认为false）。
+        :type PureAudioDisableLayout: bool
         """
         self._MixLayoutMode = None
         self._MixLayoutList = None
@@ -10369,6 +10454,7 @@ class MixLayoutParams(AbstractModel):
         self._WaterMarkList = None
         self._RenderMode = None
         self._MaxResolutionUserAlign = None
+        self._PureAudioDisableLayout = None
 
     @property
     def MixLayoutMode(self):
@@ -10442,7 +10528,7 @@ class MixLayoutParams(AbstractModel):
 
     @property
     def BackgroundImageUrl(self):
-        r"""图片的url地址，只支持jpg, png, jpeg，大小限制不超过5M。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
+        r"""图片的url地址，只支持jpg, png, jpeg，图片分辨率限制不超过2K，图片大小限制不超过5MB。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
         :rtype: str
         """
         return self._BackgroundImageUrl
@@ -10475,7 +10561,7 @@ class MixLayoutParams(AbstractModel):
 
     @property
     def DefaultSubBackgroundImage(self):
-        r"""子画面占位图url地址，只支持jpg, png, jpeg，大小限制不超过5M。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
+        r"""子画面占位图url地址，只支持jpg, png, jpeg，图片分辨率限制不超过2K，图片大小限制不超过5MB。注意，url必须携带格式后缀，url内只支持特定的字符串, 范围是a-z A-Z 0-9 '-', '.', '_', '~', ':', '/', '?', '#', '[', ']' '@', '!', '&', '(', ')', '*', '+', ',', '%', '='
         :rtype: str
         """
         return self._DefaultSubBackgroundImage
@@ -10517,6 +10603,17 @@ class MixLayoutParams(AbstractModel):
     def MaxResolutionUserAlign(self, MaxResolutionUserAlign):
         self._MaxResolutionUserAlign = MaxResolutionUserAlign
 
+    @property
+    def PureAudioDisableLayout(self):
+        r"""控制房间内纯音频用户是否占据混流布局，只在混流录制，模板布局生效。true: 代表纯音频用户不占位，false: 代表纯音频用户占位（默认为false）。
+        :rtype: bool
+        """
+        return self._PureAudioDisableLayout
+
+    @PureAudioDisableLayout.setter
+    def PureAudioDisableLayout(self, PureAudioDisableLayout):
+        self._PureAudioDisableLayout = PureAudioDisableLayout
+
 
     def _deserialize(self, params):
         self._MixLayoutMode = params.get("MixLayoutMode")
@@ -10541,6 +10638,7 @@ class MixLayoutParams(AbstractModel):
                 self._WaterMarkList.append(obj)
         self._RenderMode = params.get("RenderMode")
         self._MaxResolutionUserAlign = params.get("MaxResolutionUserAlign")
+        self._PureAudioDisableLayout = params.get("PureAudioDisableLayout")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12050,21 +12148,15 @@ class RecognizeConfig(AbstractModel):
 
 语音转文本不同套餐版本支持的语言如下：
 
-**基础版**：
+**基础语言引擎**：
 - "zh": 中文（简体）
-- "zh-TW": 中文（繁体）
-- "en": 英语
-- "16k_zh_edu"：中文教育
-- "16k_zh_medical"：中文医疗
-- "16k_zh_court"：中文法庭
 
-**标准版：**
+**标准语言引擎：**
 - "8k_zh_large": 普方大模型引擎. 当前模型同时支持中文等语言的识别，模型参数量极大，语言模型性能增强，针对电话音频中各类场景、各类中文方言的识别准确率极大提升.
 - "16k_zh_large": 普方英大模型引擎. 当前模型同时支持中文、英文、多种中文方言等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
-- "16k_multi_lang": 多语种大模型引擎. 当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别).
-- "16k_zh_en": 中英大模型引擎. 当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
+- "16k_zh_en": ：中英大模型引擎.当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升。
 
-**高级版：**
+**高级语言引擎：**
 - "zh-dialect": 中国方言
 - "zh-yue": 中国粤语
 - "vi": 越南语
@@ -12142,21 +12234,15 @@ class RecognizeConfig(AbstractModel):
 
 语音转文本不同套餐版本支持的语言如下：
 
-**基础版**：
+**基础语言引擎**：
 - "zh": 中文（简体）
-- "zh-TW": 中文（繁体）
-- "en": 英语
-- "16k_zh_edu"：中文教育
-- "16k_zh_medical"：中文医疗
-- "16k_zh_court"：中文法庭
 
-**标准版：**
+**标准语言引擎：**
 - "8k_zh_large": 普方大模型引擎. 当前模型同时支持中文等语言的识别，模型参数量极大，语言模型性能增强，针对电话音频中各类场景、各类中文方言的识别准确率极大提升.
 - "16k_zh_large": 普方英大模型引擎. 当前模型同时支持中文、英文、多种中文方言等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
-- "16k_multi_lang": 多语种大模型引擎. 当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别).
-- "16k_zh_en": 中英大模型引擎. 当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
+- "16k_zh_en": ：中英大模型引擎.当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升。
 
-**高级版：**
+**高级语言引擎：**
 - "zh-dialect": 中国方言
 - "zh-yue": 中国粤语
 - "vi": 越南语
@@ -12337,6 +12423,8 @@ Hls 格式录制此参数不生效。
         :type MediaId: int
         :param _FillType: 上行视频停止时，录制的补帧类型，0：补最后一帧 1：补黑帧
         :type FillType: int
+        :param _SubscribeAbility: 控制录制任务是否订阅混流回推机器人，1是订阅，0是不订阅，默认是0。如果是混流录制任务，建议用订阅白名单控制订阅用户，防止同时订阅混流回推机器人和上行主播，以避免混音效果。
+        :type SubscribeAbility: int
         """
         self._RecordMode = None
         self._MaxIdleTime = None
@@ -12347,6 +12435,7 @@ Hls 格式录制此参数不生效。
         self._MaxMediaFileDuration = None
         self._MediaId = None
         self._FillType = None
+        self._SubscribeAbility = None
 
     @property
     def RecordMode(self):
@@ -12455,6 +12544,17 @@ Hls 格式录制此参数不生效。
     def FillType(self, FillType):
         self._FillType = FillType
 
+    @property
+    def SubscribeAbility(self):
+        r"""控制录制任务是否订阅混流回推机器人，1是订阅，0是不订阅，默认是0。如果是混流录制任务，建议用订阅白名单控制订阅用户，防止同时订阅混流回推机器人和上行主播，以避免混音效果。
+        :rtype: int
+        """
+        return self._SubscribeAbility
+
+    @SubscribeAbility.setter
+    def SubscribeAbility(self, SubscribeAbility):
+        self._SubscribeAbility = SubscribeAbility
+
 
     def _deserialize(self, params):
         self._RecordMode = params.get("RecordMode")
@@ -12468,6 +12568,7 @@ Hls 格式录制此参数不生效。
         self._MaxMediaFileDuration = params.get("MaxMediaFileDuration")
         self._MediaId = params.get("MediaId")
         self._FillType = params.get("FillType")
+        self._SubscribeAbility = params.get("SubscribeAbility")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13022,8 +13123,11 @@ class RowValues(AbstractModel):
         :param _RowValue: 数据值
 注意：此字段可能返回 null，表示取不到有效值。
         :type RowValue: list of int
+        :param _RowValueFloat: 数据值
+        :type RowValueFloat: list of float
         """
         self._RowValue = None
+        self._RowValueFloat = None
 
     @property
     def RowValue(self):
@@ -13037,9 +13141,21 @@ class RowValues(AbstractModel):
     def RowValue(self, RowValue):
         self._RowValue = RowValue
 
+    @property
+    def RowValueFloat(self):
+        r"""数据值
+        :rtype: list of float
+        """
+        return self._RowValueFloat
+
+    @RowValueFloat.setter
+    def RowValueFloat(self, RowValueFloat):
+        self._RowValueFloat = RowValueFloat
+
 
     def _deserialize(self, params):
         self._RowValue = params.get("RowValue")
+        self._RowValueFloat = params.get("RowValueFloat")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13064,7 +13180,7 @@ class STTConfig(AbstractModel):
 
 语音转文本不同套餐版本支持的语言如下：
 
-**基础版**：
+**基础语言引擎**：
 - "zh": 中文（简体）
 - "zh-TW": 中文（繁体）
 - "en": 英语
@@ -13072,13 +13188,13 @@ class STTConfig(AbstractModel):
 - "16k_zh_medical"：中文医疗
 - "16k_zh_court"：中文法庭
 
-**标准版：**
+**标准语言引擎：**
 - "8k_zh_large": 普方大模型引擎. 当前模型同时支持中文等语言的识别，模型参数量极大，语言模型性能增强，针对电话音频中各类场景、各类中文方言的识别准确率极大提升.
 - "16k_zh_large": 普方英大模型引擎. 当前模型同时支持中文、英文、多种中文方言等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
 - "16k_multi_lang": 多语种大模型引擎. 当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别).
 - "16k_zh_en": 中英大模型引擎. 当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
 
-**高级版：**
+**高级语言引擎：**
 - "zh-dialect": 中国方言
 - "zh-yue": 中国粤语
 - "vi": 越南语
@@ -13134,7 +13250,7 @@ class STTConfig(AbstractModel):
 
 语音转文本不同套餐版本支持的语言如下：
 
-**基础版**：
+**基础语言引擎**：
 - "zh": 中文（简体）
 - "zh-TW": 中文（繁体）
 - "en": 英语
@@ -13142,13 +13258,13 @@ class STTConfig(AbstractModel):
 - "16k_zh_medical"：中文医疗
 - "16k_zh_court"：中文法庭
 
-**标准版：**
+**标准语言引擎：**
 - "8k_zh_large": 普方大模型引擎. 当前模型同时支持中文等语言的识别，模型参数量极大，语言模型性能增强，针对电话音频中各类场景、各类中文方言的识别准确率极大提升.
 - "16k_zh_large": 普方英大模型引擎. 当前模型同时支持中文、英文、多种中文方言等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
 - "16k_multi_lang": 多语种大模型引擎. 当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别).
 - "16k_zh_en": 中英大模型引擎. 当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
 
-**高级版：**
+**高级语言引擎：**
 - "zh-dialect": 中国方言
 - "zh-yue": 中国粤语
 - "vi": 越南语
@@ -13653,6 +13769,8 @@ class ServerPushText(AbstractModel):
         :type Priority: int
         :param _AddHistory: 是否将文本加入到llm历史上下文中
         :type AddHistory: bool
+        :param _MetaInfo: 如果填写，会和字幕绑定发送到端上，注意确保内容为json字符串
+        :type MetaInfo: str
         """
         self._Text = None
         self._Interrupt = None
@@ -13661,6 +13779,7 @@ class ServerPushText(AbstractModel):
         self._DropMode = None
         self._Priority = None
         self._AddHistory = None
+        self._MetaInfo = None
 
     @property
     def Text(self):
@@ -13750,6 +13869,17 @@ class ServerPushText(AbstractModel):
     def AddHistory(self, AddHistory):
         self._AddHistory = AddHistory
 
+    @property
+    def MetaInfo(self):
+        r"""如果填写，会和字幕绑定发送到端上，注意确保内容为json字符串
+        :rtype: str
+        """
+        return self._MetaInfo
+
+    @MetaInfo.setter
+    def MetaInfo(self, MetaInfo):
+        self._MetaInfo = MetaInfo
+
 
     def _deserialize(self, params):
         self._Text = params.get("Text")
@@ -13759,6 +13889,7 @@ class ServerPushText(AbstractModel):
         self._DropMode = params.get("DropMode")
         self._Priority = params.get("Priority")
         self._AddHistory = params.get("AddHistory")
+        self._MetaInfo = params.get("MetaInfo")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14100,11 +14231,21 @@ class StartAIConversationRequest(AbstractModel):
         :type RoomIdType: int
         :param _STTConfig: 语音识别配置。
         :type STTConfig: :class:`tencentcloud.trtc.v20190722.models.STTConfig`
-        :param _LLMConfig: LLM配置。需符合openai规范，为JSON字符串，示例如下：
-<pre> { <br> &emsp;  "LLMType": "大模型类型",  // String 必填，如："openai" <br> &emsp;  "Model": "您的模型名称", // String 必填，指定使用的模型<br>    "APIKey": "您的LLM API密钥", // String 必填 <br> &emsp;  "APIUrl": "https://api.xxx.com/chat/completions", // String 必填，LLM API访问的URL<br> &emsp;  "History": 10, // Integer 选填，设置 LLM 的上下文轮次，默认值为0，最大值50<br> &emsp;  "HistoryMode": 1, // Integer 选填，1表示LLM上下文中的内容会和播放音频做同步，没有播放的音频对应的文本不会出现在上下文中。0表示不会做同步，默认值为0<br> &emsp;  "Streaming": true // Boolean 非必填，指定是否使用流式传输<br> &emsp;} </pre>
-
+        :param _LLMConfig: 必填参数，LLM配置。需符合openai规范，为JSON字符串，示例如下：<pre> { <br> &emsp;  "LLMType": "大模型类型",  // String 必填，如："openai" <br> &emsp;  "Model": "您的模型名称", // String 必填，指定使用的模型<br>    "APIKey": "您的LLM API密钥", // String 必填 <br> &emsp;  "APIUrl": "https://api.xxx.com/chat/completions", // String 必填，LLM API访问的URL<br> &emsp;  "History": 10, // Integer 选填，设置 LLM 的上下文轮次，默认值为0，最大值50<br> &emsp;  "HistoryMode": 1, // Integer 选填，1表示LLM上下文中的内容会和播放音频做同步，没有播放的音频对应的文本不会出现在上下文中。0表示不会做同步，默认值为0<br> &emsp;  "Streaming": true // Boolean 非必填，指定是否使用流式传输<br> &emsp;} </pre>
         :type LLMConfig: str
-        :param _TTSConfig: TTS配置，为JSON字符串，腾讯云TTS示例如下： <pre>{ <br> &emsp; "AppId": 您的应用ID, // Integer 必填<br> &emsp; "TTSType": "TTS类型", // String TTS类型, 固定为"tencent"<br> &emsp; "SecretId": "您的密钥ID", // String 必填<br> &emsp; "SecretKey":  "您的密钥Key", // String 必填<br> &emsp; "VoiceType": 101001, // Integer  必填，音色 ID，包括标准音色与精品音色，精品音色拟真度更高，价格不同于标准音色，请参见<a href="https://cloud.tencent.com/document/product/1073/34112">语音合成计费概述</a>。完整的音色 ID 列表请参见<a href="https://cloud.tencent.com/document/product/1073/92668#55924b56-1a73-4663-a7a1-a8dd82d6e823">语音合成音色列表</a>。<br> &emsp; "Speed": 1.25, // Integer 非必填，语速，范围：[-2，6]，分别对应不同语速： -2: 代表0.6倍 -1: 代表0.8倍 0: 代表1.0倍（默认） 1: 代表1.2倍 2: 代表1.5倍  6: 代表2.5倍  如果需要更细化的语速，可以保留小数点后 2 位，例如0.5/1.25/2.81等。 参数值与实际语速转换，可参考 <a href="https://sdk-1300466766.cos.ap-shanghai.myqcloud.com/sample/speed_sample.tar.gz">语速转换</a><br> &emsp; "Volume": 5, // Integer 非必填，音量大小，范围：[0，10]，分别对应11个等级的音量，默认值为0，代表正常音量。<br> &emsp; "EmotionCategory":  "angry", // String 非必填 控制合成音频的情感，仅支持多情感音色使用。取值: neutral(中性)、sad(悲伤)、happy(高兴)、angry(生气)、fear(恐惧)、news(新闻)、story(故事)、radio(广播)、poetry(诗歌)、call(客服)、sajiao(撒娇)、disgusted(厌恶)、amaze(震惊)、peaceful(平静)、exciting(兴奋)、aojiao(傲娇)、jieshuo(解说)。<br> &emsp; "EmotionIntensity":  150 // Integer 非必填 控制合成音频情感程度，取值范围为 [50,200]，默认为 100；只有 EmotionCategory 不为空时生效。<br> &emsp; }</pre>
+        :param _TTSConfig: 必填参数，TTS配置，详见 [TTS配置说明](https://cloud.tencent.com/document/product/647/115414 )， 为JSON字符串: TRTC TTS的配置如下：  
+
+```
+{  
+   "TTSType": "flow",  // 【必填】固定为此值 
+   "VoiceId": "v-female-R2s4N9qJ", // 【必填】精品音色 ID /克隆音色 ID, 可选择  不同音色, ID 库参考下方音色列表  
+   "Model": "flow_01_turbo", // 【必填】当前默认的 TTS 模型版本（对应 Flash 版本） 
+   "Speed": 1.0,    //【可选】调节语速 范围 [0.5-2.0],默认 1.0; 取值越大，语速越快
+   "Volume": 1.0,   // 【可选】调节音量 [0, 10] 默认值 1.0; 取值越大，音量越高  
+   "Pitch": 0,   // 【可选】调节语调 [-12,12],默认值为 0,其中 0 为原音色输出。
+   "Language": "zh" //【可选】建议填写，目前支持填写中文：zh 英文：en 粤语方言：yue; 参数参考：(ISO 639-1)
+}
+```
         :type TTSConfig: str
         :param _AvatarConfig: 数字人配置，为JSON字符串。**数字人配置需要提工单加白后才能使用**
         :type AvatarConfig: str
@@ -14190,9 +14331,7 @@ class StartAIConversationRequest(AbstractModel):
 
     @property
     def LLMConfig(self):
-        r"""LLM配置。需符合openai规范，为JSON字符串，示例如下：
-<pre> { <br> &emsp;  "LLMType": "大模型类型",  // String 必填，如："openai" <br> &emsp;  "Model": "您的模型名称", // String 必填，指定使用的模型<br>    "APIKey": "您的LLM API密钥", // String 必填 <br> &emsp;  "APIUrl": "https://api.xxx.com/chat/completions", // String 必填，LLM API访问的URL<br> &emsp;  "History": 10, // Integer 选填，设置 LLM 的上下文轮次，默认值为0，最大值50<br> &emsp;  "HistoryMode": 1, // Integer 选填，1表示LLM上下文中的内容会和播放音频做同步，没有播放的音频对应的文本不会出现在上下文中。0表示不会做同步，默认值为0<br> &emsp;  "Streaming": true // Boolean 非必填，指定是否使用流式传输<br> &emsp;} </pre>
-
+        r"""必填参数，LLM配置。需符合openai规范，为JSON字符串，示例如下：<pre> { <br> &emsp;  "LLMType": "大模型类型",  // String 必填，如："openai" <br> &emsp;  "Model": "您的模型名称", // String 必填，指定使用的模型<br>    "APIKey": "您的LLM API密钥", // String 必填 <br> &emsp;  "APIUrl": "https://api.xxx.com/chat/completions", // String 必填，LLM API访问的URL<br> &emsp;  "History": 10, // Integer 选填，设置 LLM 的上下文轮次，默认值为0，最大值50<br> &emsp;  "HistoryMode": 1, // Integer 选填，1表示LLM上下文中的内容会和播放音频做同步，没有播放的音频对应的文本不会出现在上下文中。0表示不会做同步，默认值为0<br> &emsp;  "Streaming": true // Boolean 非必填，指定是否使用流式传输<br> &emsp;} </pre>
         :rtype: str
         """
         return self._LLMConfig
@@ -14203,7 +14342,19 @@ class StartAIConversationRequest(AbstractModel):
 
     @property
     def TTSConfig(self):
-        r"""TTS配置，为JSON字符串，腾讯云TTS示例如下： <pre>{ <br> &emsp; "AppId": 您的应用ID, // Integer 必填<br> &emsp; "TTSType": "TTS类型", // String TTS类型, 固定为"tencent"<br> &emsp; "SecretId": "您的密钥ID", // String 必填<br> &emsp; "SecretKey":  "您的密钥Key", // String 必填<br> &emsp; "VoiceType": 101001, // Integer  必填，音色 ID，包括标准音色与精品音色，精品音色拟真度更高，价格不同于标准音色，请参见<a href="https://cloud.tencent.com/document/product/1073/34112">语音合成计费概述</a>。完整的音色 ID 列表请参见<a href="https://cloud.tencent.com/document/product/1073/92668#55924b56-1a73-4663-a7a1-a8dd82d6e823">语音合成音色列表</a>。<br> &emsp; "Speed": 1.25, // Integer 非必填，语速，范围：[-2，6]，分别对应不同语速： -2: 代表0.6倍 -1: 代表0.8倍 0: 代表1.0倍（默认） 1: 代表1.2倍 2: 代表1.5倍  6: 代表2.5倍  如果需要更细化的语速，可以保留小数点后 2 位，例如0.5/1.25/2.81等。 参数值与实际语速转换，可参考 <a href="https://sdk-1300466766.cos.ap-shanghai.myqcloud.com/sample/speed_sample.tar.gz">语速转换</a><br> &emsp; "Volume": 5, // Integer 非必填，音量大小，范围：[0，10]，分别对应11个等级的音量，默认值为0，代表正常音量。<br> &emsp; "EmotionCategory":  "angry", // String 非必填 控制合成音频的情感，仅支持多情感音色使用。取值: neutral(中性)、sad(悲伤)、happy(高兴)、angry(生气)、fear(恐惧)、news(新闻)、story(故事)、radio(广播)、poetry(诗歌)、call(客服)、sajiao(撒娇)、disgusted(厌恶)、amaze(震惊)、peaceful(平静)、exciting(兴奋)、aojiao(傲娇)、jieshuo(解说)。<br> &emsp; "EmotionIntensity":  150 // Integer 非必填 控制合成音频情感程度，取值范围为 [50,200]，默认为 100；只有 EmotionCategory 不为空时生效。<br> &emsp; }</pre>
+        r"""必填参数，TTS配置，详见 [TTS配置说明](https://cloud.tencent.com/document/product/647/115414 )， 为JSON字符串: TRTC TTS的配置如下：  
+
+```
+{  
+   "TTSType": "flow",  // 【必填】固定为此值 
+   "VoiceId": "v-female-R2s4N9qJ", // 【必填】精品音色 ID /克隆音色 ID, 可选择  不同音色, ID 库参考下方音色列表  
+   "Model": "flow_01_turbo", // 【必填】当前默认的 TTS 模型版本（对应 Flash 版本） 
+   "Speed": 1.0,    //【可选】调节语速 范围 [0.5-2.0],默认 1.0; 取值越大，语速越快
+   "Volume": 1.0,   // 【可选】调节音量 [0, 10] 默认值 1.0; 取值越大，音量越高  
+   "Pitch": 0,   // 【可选】调节语调 [-12,12],默认值为 0,其中 0 为原音色输出。
+   "Language": "zh" //【可选】建议填写，目前支持填写中文：zh 英文：en 粤语方言：yue; 参数参考：(ISO 639-1)
+}
+```
         :rtype: str
         """
         return self._TTSConfig
@@ -15087,6 +15238,10 @@ class StartStreamIngestRequest(AbstractModel):
         :type MaxDuration: int
         :param _Volume: 音量，取值范围[0, 100]，默认100，表示原音量。
         :type Volume: int
+        :param _EnableProgress: 开启播放进度回调, 默认false，当开启后，播放进度会通过trtc custom data 回调给播放端
+        :type EnableProgress: bool
+        :param _Tempo: 播放倍速，默认1.0，可取[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+        :type Tempo: float
         """
         self._SdkAppId = None
         self._RoomId = None
@@ -15103,6 +15258,8 @@ class StartStreamIngestRequest(AbstractModel):
         self._RepeatNum = None
         self._MaxDuration = None
         self._Volume = None
+        self._EnableProgress = None
+        self._Tempo = None
 
     @property
     def SdkAppId(self):
@@ -15287,6 +15444,28 @@ class StartStreamIngestRequest(AbstractModel):
     def Volume(self, Volume):
         self._Volume = Volume
 
+    @property
+    def EnableProgress(self):
+        r"""开启播放进度回调, 默认false，当开启后，播放进度会通过trtc custom data 回调给播放端
+        :rtype: bool
+        """
+        return self._EnableProgress
+
+    @EnableProgress.setter
+    def EnableProgress(self, EnableProgress):
+        self._EnableProgress = EnableProgress
+
+    @property
+    def Tempo(self):
+        r"""播放倍速，默认1.0，可取[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+        :rtype: float
+        """
+        return self._Tempo
+
+    @Tempo.setter
+    def Tempo(self, Tempo):
+        self._Tempo = Tempo
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -15308,6 +15487,8 @@ class StartStreamIngestRequest(AbstractModel):
         self._RepeatNum = params.get("RepeatNum")
         self._MaxDuration = params.get("MaxDuration")
         self._Volume = params.get("Volume")
+        self._EnableProgress = params.get("EnableProgress")
+        self._Tempo = params.get("Tempo")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -15368,18 +15549,16 @@ class StartWebRecordRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RecordUrl: 需要录制的网页URL
-
+        :param _RecordUrl: 【必填】需要录制的网页URL
         :type RecordUrl: str
-        :param _MaxDurationLimit: 录制最大时长限制， 单位 s, 合法取值范围[1800, 36000], 默认 36000s(10 小时)
-
-        :type MaxDurationLimit: int
         :param _StorageParams: 【必填】云存储相关的参数，目前支持腾讯云对象存储以及腾讯云云点播VOD，不支持第三方云存储；输出文件的存储格式仅支持hls或mp4
         :type StorageParams: :class:`tencentcloud.trtc.v20190722.models.StorageParams`
-        :param _WebRecordVideoParams: 页面录制视频参数
-        :type WebRecordVideoParams: :class:`tencentcloud.trtc.v20190722.models.WebRecordVideoParams`
         :param _SdkAppId: 【必填】TRTC的SdkAppId
         :type SdkAppId: int
+        :param _MaxDurationLimit: 录制最大时长限制， 单位 s, 合法取值范围[1800, 86400], 默认 86400s(24 小时)
+        :type MaxDurationLimit: int
+        :param _WebRecordVideoParams: 页面录制视频参数
+        :type WebRecordVideoParams: :class:`tencentcloud.trtc.v20190722.models.WebRecordVideoParams`
         :param _RecordId: 当对重复任务敏感时，请关注此值： 为了避免任务在短时间内重复发起，导致任务重复
 传入录制RecordId来标识此次任务， 小于32字节，若携带RecordId发起两次以上的开始录制请求，任务只会启动一个，第二个报错FailedOperation.TaskExist。注意StartWebRecord调用失败时而非FailedOperation.TaskExist错误，请更换RecordId重新发起。
         :type RecordId: str
@@ -15391,10 +15570,10 @@ class StartWebRecordRequest(AbstractModel):
         :type EmulateMobileParams: :class:`tencentcloud.trtc.v20190722.models.EmulateMobileParams`
         """
         self._RecordUrl = None
-        self._MaxDurationLimit = None
         self._StorageParams = None
-        self._WebRecordVideoParams = None
         self._SdkAppId = None
+        self._MaxDurationLimit = None
+        self._WebRecordVideoParams = None
         self._RecordId = None
         self._PublishCdnParams = None
         self._ReadyTimeout = None
@@ -15402,8 +15581,7 @@ class StartWebRecordRequest(AbstractModel):
 
     @property
     def RecordUrl(self):
-        r"""需要录制的网页URL
-
+        r"""【必填】需要录制的网页URL
         :rtype: str
         """
         return self._RecordUrl
@@ -15411,18 +15589,6 @@ class StartWebRecordRequest(AbstractModel):
     @RecordUrl.setter
     def RecordUrl(self, RecordUrl):
         self._RecordUrl = RecordUrl
-
-    @property
-    def MaxDurationLimit(self):
-        r"""录制最大时长限制， 单位 s, 合法取值范围[1800, 36000], 默认 36000s(10 小时)
-
-        :rtype: int
-        """
-        return self._MaxDurationLimit
-
-    @MaxDurationLimit.setter
-    def MaxDurationLimit(self, MaxDurationLimit):
-        self._MaxDurationLimit = MaxDurationLimit
 
     @property
     def StorageParams(self):
@@ -15436,17 +15602,6 @@ class StartWebRecordRequest(AbstractModel):
         self._StorageParams = StorageParams
 
     @property
-    def WebRecordVideoParams(self):
-        r"""页面录制视频参数
-        :rtype: :class:`tencentcloud.trtc.v20190722.models.WebRecordVideoParams`
-        """
-        return self._WebRecordVideoParams
-
-    @WebRecordVideoParams.setter
-    def WebRecordVideoParams(self, WebRecordVideoParams):
-        self._WebRecordVideoParams = WebRecordVideoParams
-
-    @property
     def SdkAppId(self):
         r"""【必填】TRTC的SdkAppId
         :rtype: int
@@ -15456,6 +15611,28 @@ class StartWebRecordRequest(AbstractModel):
     @SdkAppId.setter
     def SdkAppId(self, SdkAppId):
         self._SdkAppId = SdkAppId
+
+    @property
+    def MaxDurationLimit(self):
+        r"""录制最大时长限制， 单位 s, 合法取值范围[1800, 86400], 默认 86400s(24 小时)
+        :rtype: int
+        """
+        return self._MaxDurationLimit
+
+    @MaxDurationLimit.setter
+    def MaxDurationLimit(self, MaxDurationLimit):
+        self._MaxDurationLimit = MaxDurationLimit
+
+    @property
+    def WebRecordVideoParams(self):
+        r"""页面录制视频参数
+        :rtype: :class:`tencentcloud.trtc.v20190722.models.WebRecordVideoParams`
+        """
+        return self._WebRecordVideoParams
+
+    @WebRecordVideoParams.setter
+    def WebRecordVideoParams(self, WebRecordVideoParams):
+        self._WebRecordVideoParams = WebRecordVideoParams
 
     @property
     def RecordId(self):
@@ -15505,14 +15682,14 @@ class StartWebRecordRequest(AbstractModel):
 
     def _deserialize(self, params):
         self._RecordUrl = params.get("RecordUrl")
-        self._MaxDurationLimit = params.get("MaxDurationLimit")
         if params.get("StorageParams") is not None:
             self._StorageParams = StorageParams()
             self._StorageParams._deserialize(params.get("StorageParams"))
+        self._SdkAppId = params.get("SdkAppId")
+        self._MaxDurationLimit = params.get("MaxDurationLimit")
         if params.get("WebRecordVideoParams") is not None:
             self._WebRecordVideoParams = WebRecordVideoParams()
             self._WebRecordVideoParams._deserialize(params.get("WebRecordVideoParams"))
-        self._SdkAppId = params.get("SdkAppId")
         self._RecordId = params.get("RecordId")
         if params.get("PublishCdnParams") is not None:
             self._PublishCdnParams = []
@@ -16598,8 +16775,17 @@ class TTSConfig(AbstractModel):
         r"""
         :param _VoiceId: 音色ID
         :type VoiceId: str
+        :param _Model: TTS 的模型，默认是：flow_01_turbo, 可选: [ flow_01_turbo, flow_01_ex]
+        :type Model: str
+        :param _Speed: 语速，范围 0.5-2.0，默认 1.0
+        :type Speed: float
+        :param _Volume: (0, 10] 默认值1.0
+        :type Volume: float
         """
         self._VoiceId = None
+        self._Model = None
+        self._Speed = None
+        self._Volume = None
 
     @property
     def VoiceId(self):
@@ -16612,9 +16798,45 @@ class TTSConfig(AbstractModel):
     def VoiceId(self, VoiceId):
         self._VoiceId = VoiceId
 
+    @property
+    def Model(self):
+        r"""TTS 的模型，默认是：flow_01_turbo, 可选: [ flow_01_turbo, flow_01_ex]
+        :rtype: str
+        """
+        return self._Model
+
+    @Model.setter
+    def Model(self, Model):
+        self._Model = Model
+
+    @property
+    def Speed(self):
+        r"""语速，范围 0.5-2.0，默认 1.0
+        :rtype: float
+        """
+        return self._Speed
+
+    @Speed.setter
+    def Speed(self, Speed):
+        self._Speed = Speed
+
+    @property
+    def Volume(self):
+        r"""(0, 10] 默认值1.0
+        :rtype: float
+        """
+        return self._Volume
+
+    @Volume.setter
+    def Volume(self, Volume):
+        self._Volume = Volume
+
 
     def _deserialize(self, params):
         self._VoiceId = params.get("VoiceId")
+        self._Model = params.get("Model")
+        self._Speed = params.get("Speed")
+        self._Volume = params.get("Volume")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16641,7 +16863,7 @@ class TencentVod(AbstractModel):
         :param _ClassId: 分类ID，用于对媒体进行分类管理，可通过 创建分类 接口，创建分类，获得分类 ID。
 默认值：0，表示其他分类。
         :type ClassId: int
-        :param _SubAppId: 点播 子应用 ID。如果要访问子应用中的资源，则将该字段填写为子应用 ID；否则无需填写该字段。
+        :param _SubAppId: 点播子应用 ID。如果要访问子应用中的资源，则将该字段填写为子应用 ID；否则无需填写该字段。注意：不建议填写“托管类型”的点播子应用ID，只能填写“标准类型”的点播子应用ID，否则会导致无法通过点播域名正常播放视频。
         :type SubAppId: int
         :param _SessionContext: 任务流上下文，任务完成回调时透传。
         :type SessionContext: str
@@ -16710,7 +16932,7 @@ class TencentVod(AbstractModel):
 
     @property
     def SubAppId(self):
-        r"""点播 子应用 ID。如果要访问子应用中的资源，则将该字段填写为子应用 ID；否则无需填写该字段。
+        r"""点播子应用 ID。如果要访问子应用中的资源，则将该字段填写为子应用 ID；否则无需填写该字段。注意：不建议填写“托管类型”的点播子应用ID，只能填写“标准类型”的点播子应用ID，否则会导致无法通过点播域名正常播放视频。
         :rtype: int
         """
         return self._SubAppId
@@ -16785,6 +17007,57 @@ class TencentVod(AbstractModel):
         
 
 
+class Terminology(AbstractModel):
+    r"""翻译术语
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Source: 源术语
+        :type Source: str
+        :param _Target: 目标术语翻译结果
+        :type Target: str
+        """
+        self._Source = None
+        self._Target = None
+
+    @property
+    def Source(self):
+        r"""源术语
+        :rtype: str
+        """
+        return self._Source
+
+    @Source.setter
+    def Source(self, Source):
+        self._Source = Source
+
+    @property
+    def Target(self):
+        r"""目标术语翻译结果
+        :rtype: str
+        """
+        return self._Target
+
+    @Target.setter
+    def Target(self, Target):
+        self._Target = Target
+
+
+    def _deserialize(self, params):
+        self._Source = params.get("Source")
+        self._Target = params.get("Target")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class TextToSpeechRequest(AbstractModel):
     r"""TextToSpeech请求参数结构体
 
@@ -16802,12 +17075,18 @@ class TextToSpeechRequest(AbstractModel):
         :type AudioFormat: :class:`tencentcloud.trtc.v20190722.models.AudioFormat`
         :param _APIKey: TTS的API密钥
         :type APIKey: str
+        :param _Model: TTS的模型，当前固定为：flow_01_turbo
+        :type Model: str
+        :param _Language:  需要合成的语言（ISO 639-1），支持 zh（中文）、en（英文）、yue（粤语）、ja（日语）、ko（韩语），默认自动识别
+        :type Language: str
         """
         self._Text = None
         self._Voice = None
         self._SdkAppId = None
         self._AudioFormat = None
         self._APIKey = None
+        self._Model = None
+        self._Language = None
 
     @property
     def Text(self):
@@ -16855,6 +17134,8 @@ class TextToSpeechRequest(AbstractModel):
 
     @property
     def APIKey(self):
+        warnings.warn("parameter `APIKey` is deprecated", DeprecationWarning) 
+
         r"""TTS的API密钥
         :rtype: str
         """
@@ -16862,7 +17143,31 @@ class TextToSpeechRequest(AbstractModel):
 
     @APIKey.setter
     def APIKey(self, APIKey):
+        warnings.warn("parameter `APIKey` is deprecated", DeprecationWarning) 
+
         self._APIKey = APIKey
+
+    @property
+    def Model(self):
+        r"""TTS的模型，当前固定为：flow_01_turbo
+        :rtype: str
+        """
+        return self._Model
+
+    @Model.setter
+    def Model(self, Model):
+        self._Model = Model
+
+    @property
+    def Language(self):
+        r""" 需要合成的语言（ISO 639-1），支持 zh（中文）、en（英文）、yue（粤语）、ja（日语）、ko（韩语），默认自动识别
+        :rtype: str
+        """
+        return self._Language
+
+    @Language.setter
+    def Language(self, Language):
+        self._Language = Language
 
 
     def _deserialize(self, params):
@@ -16875,6 +17180,8 @@ class TextToSpeechRequest(AbstractModel):
             self._AudioFormat = AudioFormat()
             self._AudioFormat._deserialize(params.get("AudioFormat"))
         self._APIKey = params.get("APIKey")
+        self._Model = params.get("Model")
+        self._Language = params.get("Language")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16945,12 +17252,18 @@ class TextToSpeechSSERequest(AbstractModel):
         :type AudioFormat: :class:`tencentcloud.trtc.v20190722.models.AudioFormat`
         :param _APIKey: TTS的API密钥
         :type APIKey: str
+        :param _Model: TTS的模型，当前固定为：flow_01_turbo
+        :type Model: str
+        :param _Language:  需要合成的语言（ISO 639-1），支持 zh（中文）、en（英文）、yue（粤语）、ja（日语）、ko（韩语），默认自动识别
+        :type Language: str
         """
         self._Text = None
         self._Voice = None
         self._SdkAppId = None
         self._AudioFormat = None
         self._APIKey = None
+        self._Model = None
+        self._Language = None
 
     @property
     def Text(self):
@@ -16998,6 +17311,8 @@ class TextToSpeechSSERequest(AbstractModel):
 
     @property
     def APIKey(self):
+        warnings.warn("parameter `APIKey` is deprecated", DeprecationWarning) 
+
         r"""TTS的API密钥
         :rtype: str
         """
@@ -17005,7 +17320,31 @@ class TextToSpeechSSERequest(AbstractModel):
 
     @APIKey.setter
     def APIKey(self, APIKey):
+        warnings.warn("parameter `APIKey` is deprecated", DeprecationWarning) 
+
         self._APIKey = APIKey
+
+    @property
+    def Model(self):
+        r"""TTS的模型，当前固定为：flow_01_turbo
+        :rtype: str
+        """
+        return self._Model
+
+    @Model.setter
+    def Model(self, Model):
+        self._Model = Model
+
+    @property
+    def Language(self):
+        r""" 需要合成的语言（ISO 639-1），支持 zh（中文）、en（英文）、yue（粤语）、ja（日语）、ko（韩语），默认自动识别
+        :rtype: str
+        """
+        return self._Language
+
+    @Language.setter
+    def Language(self, Language):
+        self._Language = Language
 
 
     def _deserialize(self, params):
@@ -17018,6 +17357,8 @@ class TextToSpeechSSERequest(AbstractModel):
             self._AudioFormat = AudioFormat()
             self._AudioFormat._deserialize(params.get("AudioFormat"))
         self._APIKey = params.get("APIKey")
+        self._Model = params.get("Model")
+        self._Language = params.get("Language")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17309,10 +17650,13 @@ class TranslationConfig(AbstractModel):
         :type Mode: int
         :param _TTSConfig: 语音同传配置，开启同传时，需要传递
         :type TTSConfig: :class:`tencentcloud.trtc.v20190722.models.TTSConfig`
+        :param _Terminology: 翻译术语集合
+        :type Terminology: list of Terminology
         """
         self._TargetLanguages = None
         self._Mode = None
         self._TTSConfig = None
+        self._Terminology = None
 
     @property
     def TargetLanguages(self):
@@ -17349,6 +17693,17 @@ class TranslationConfig(AbstractModel):
     def TTSConfig(self, TTSConfig):
         self._TTSConfig = TTSConfig
 
+    @property
+    def Terminology(self):
+        r"""翻译术语集合
+        :rtype: list of Terminology
+        """
+        return self._Terminology
+
+    @Terminology.setter
+    def Terminology(self, Terminology):
+        self._Terminology = Terminology
+
 
     def _deserialize(self, params):
         self._TargetLanguages = params.get("TargetLanguages")
@@ -17356,6 +17711,12 @@ class TranslationConfig(AbstractModel):
         if params.get("TTSConfig") is not None:
             self._TTSConfig = TTSConfig()
             self._TTSConfig._deserialize(params.get("TTSConfig"))
+        if params.get("Terminology") is not None:
+            self._Terminology = []
+            for item in params.get("Terminology"):
+                obj = Terminology()
+                obj._deserialize(item)
+                self._Terminology.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17892,12 +18253,18 @@ class UpdateStreamIngestRequest(AbstractModel):
         :type Volume: int
         :param _IsPause: 是否暂停，默认false表示不暂停。暂停期间任务仍在进行中仍会计费，暂停超过12小时会自动销毁任务, 建议主动调用停止任务接口。
         :type IsPause: bool
+        :param _EnableProgress: 是否开启播放进度回调, 默认false，当开启后，播放进度会通过trtc custom data 回调给播放端
+        :type EnableProgress: bool
+        :param _Tempo: 播放倍速，默认1.0，可取[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+        :type Tempo: float
         """
         self._SdkAppId = None
         self._TaskId = None
         self._StreamUrl = None
         self._Volume = None
         self._IsPause = None
+        self._EnableProgress = None
+        self._Tempo = None
 
     @property
     def SdkAppId(self):
@@ -17954,6 +18321,28 @@ class UpdateStreamIngestRequest(AbstractModel):
     def IsPause(self, IsPause):
         self._IsPause = IsPause
 
+    @property
+    def EnableProgress(self):
+        r"""是否开启播放进度回调, 默认false，当开启后，播放进度会通过trtc custom data 回调给播放端
+        :rtype: bool
+        """
+        return self._EnableProgress
+
+    @EnableProgress.setter
+    def EnableProgress(self, EnableProgress):
+        self._EnableProgress = EnableProgress
+
+    @property
+    def Tempo(self):
+        r"""播放倍速，默认1.0，可取[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+        :rtype: float
+        """
+        return self._Tempo
+
+    @Tempo.setter
+    def Tempo(self, Tempo):
+        self._Tempo = Tempo
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -17961,6 +18350,8 @@ class UpdateStreamIngestRequest(AbstractModel):
         self._StreamUrl = params.get("StreamUrl")
         self._Volume = params.get("Volume")
         self._IsPause = params.get("IsPause")
+        self._EnableProgress = params.get("EnableProgress")
+        self._Tempo = params.get("Tempo")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18621,20 +19012,29 @@ class VideoParams(AbstractModel):
 
 
 class Voice(AbstractModel):
-    r"""TTS的声音参数
+    r"""TTS的声音参数配置
 
     """
 
     def __init__(self):
         r"""
-        :param _VoiceId: TTS的声音的ID
+        :param _VoiceId:  音色 ID，可从音色列表获取，或使用声音克隆生成的自定义音色 ID
         :type VoiceId: str
+        :param _Speed: 语速调节，0.5 为半速慢放，2.0 为两倍速快放，1.0 为正常语速，区间：[0.5, 2.0]，默认1.0
+        :type Speed: float
+        :param _Volume:  音量调节，0 为静音，10 为最大音量，建议保持默认值 1.0，区间：[0, 10]，默认1.0
+        :type Volume: float
+        :param _Pitch:  音高调节，负值声音更低沉，正值声音更尖锐，0 为原始音高，区间 [-12, 12],  默认0
+        :type Pitch: int
         """
         self._VoiceId = None
+        self._Speed = None
+        self._Volume = None
+        self._Pitch = None
 
     @property
     def VoiceId(self):
-        r"""TTS的声音的ID
+        r""" 音色 ID，可从音色列表获取，或使用声音克隆生成的自定义音色 ID
         :rtype: str
         """
         return self._VoiceId
@@ -18643,9 +19043,45 @@ class Voice(AbstractModel):
     def VoiceId(self, VoiceId):
         self._VoiceId = VoiceId
 
+    @property
+    def Speed(self):
+        r"""语速调节，0.5 为半速慢放，2.0 为两倍速快放，1.0 为正常语速，区间：[0.5, 2.0]，默认1.0
+        :rtype: float
+        """
+        return self._Speed
+
+    @Speed.setter
+    def Speed(self, Speed):
+        self._Speed = Speed
+
+    @property
+    def Volume(self):
+        r""" 音量调节，0 为静音，10 为最大音量，建议保持默认值 1.0，区间：[0, 10]，默认1.0
+        :rtype: float
+        """
+        return self._Volume
+
+    @Volume.setter
+    def Volume(self, Volume):
+        self._Volume = Volume
+
+    @property
+    def Pitch(self):
+        r""" 音高调节，负值声音更低沉，正值声音更尖锐，0 为原始音高，区间 [-12, 12],  默认0
+        :rtype: int
+        """
+        return self._Pitch
+
+    @Pitch.setter
+    def Pitch(self, Pitch):
+        self._Pitch = Pitch
+
 
     def _deserialize(self, params):
         self._VoiceId = params.get("VoiceId")
+        self._Speed = params.get("Speed")
+        self._Volume = params.get("Volume")
+        self._Pitch = params.get("Pitch")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18665,20 +19101,26 @@ class VoiceCloneRequest(AbstractModel):
         r"""
         :param _SdkAppId: TRTC的SdkAppId
         :type SdkAppId: int
-        :param _APIKey: TTS的API密钥
-        :type APIKey: str
         :param _VoiceName: 声音克隆的名称, 只允许使用数字、字母、下划线，不能超过36位
         :type VoiceName: str
-        :param _PromptAudio: 声音克隆的参考音频，必须为16k单声道的wav的base64字符串， 长度在5秒～12秒之间
+        :param _PromptAudio: 声音克隆的参考音频，必须为16k单声道的wav的base64字符串， 长度在10秒～180秒之间
         :type PromptAudio: str
+        :param _APIKey: TTS的API密钥
+        :type APIKey: str
         :param _PromptText: 声音克隆的参考文本，为参考音频对应的文字。
         :type PromptText: str
+        :param _Model: TTS的模型：flow_01_turbo，flow_01_ex
+        :type Model: str
+        :param _Language: 语言参数，默认为空， 参考： (ISO 639-1) 
+        :type Language: str
         """
         self._SdkAppId = None
-        self._APIKey = None
         self._VoiceName = None
         self._PromptAudio = None
+        self._APIKey = None
         self._PromptText = None
+        self._Model = None
+        self._Language = None
 
     @property
     def SdkAppId(self):
@@ -18690,17 +19132,6 @@ class VoiceCloneRequest(AbstractModel):
     @SdkAppId.setter
     def SdkAppId(self, SdkAppId):
         self._SdkAppId = SdkAppId
-
-    @property
-    def APIKey(self):
-        r"""TTS的API密钥
-        :rtype: str
-        """
-        return self._APIKey
-
-    @APIKey.setter
-    def APIKey(self, APIKey):
-        self._APIKey = APIKey
 
     @property
     def VoiceName(self):
@@ -18715,7 +19146,7 @@ class VoiceCloneRequest(AbstractModel):
 
     @property
     def PromptAudio(self):
-        r"""声音克隆的参考音频，必须为16k单声道的wav的base64字符串， 长度在5秒～12秒之间
+        r"""声音克隆的参考音频，必须为16k单声道的wav的base64字符串， 长度在10秒～180秒之间
         :rtype: str
         """
         return self._PromptAudio
@@ -18723,6 +19154,17 @@ class VoiceCloneRequest(AbstractModel):
     @PromptAudio.setter
     def PromptAudio(self, PromptAudio):
         self._PromptAudio = PromptAudio
+
+    @property
+    def APIKey(self):
+        r"""TTS的API密钥
+        :rtype: str
+        """
+        return self._APIKey
+
+    @APIKey.setter
+    def APIKey(self, APIKey):
+        self._APIKey = APIKey
 
     @property
     def PromptText(self):
@@ -18735,13 +19177,37 @@ class VoiceCloneRequest(AbstractModel):
     def PromptText(self, PromptText):
         self._PromptText = PromptText
 
+    @property
+    def Model(self):
+        r"""TTS的模型：flow_01_turbo，flow_01_ex
+        :rtype: str
+        """
+        return self._Model
+
+    @Model.setter
+    def Model(self, Model):
+        self._Model = Model
+
+    @property
+    def Language(self):
+        r"""语言参数，默认为空， 参考： (ISO 639-1) 
+        :rtype: str
+        """
+        return self._Language
+
+    @Language.setter
+    def Language(self, Language):
+        self._Language = Language
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
-        self._APIKey = params.get("APIKey")
         self._VoiceName = params.get("VoiceName")
         self._PromptAudio = params.get("PromptAudio")
+        self._APIKey = params.get("APIKey")
         self._PromptText = params.get("PromptText")
+        self._Model = params.get("Model")
+        self._Language = params.get("Language")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

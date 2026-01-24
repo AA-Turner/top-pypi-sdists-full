@@ -17,14 +17,14 @@ from qtpy.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
 
 # Local imports
 from spyder import __version__
+from spyder.api.translations import _
 from spyder.api.widgets.dialogs import SpyderDialogButtonBox
-from spyder.config.base import _
 from spyder.config.gui import is_dark_interface
 from spyder.dependencies import OPTIONAL, PLUGIN
 from spyder.utils.icon_manager import ima
 from spyder.utils.palette import SpyderPalette
 from spyder.utils.stylesheet import AppStyle, MAC, WIN
-from spyder.widgets.helperwidgets import PaneEmptyWidget
+from spyder.widgets.emptymessage import EmptyMessageWidget
 
 
 class DependenciesTreeWidget(QTreeWidget):
@@ -141,7 +141,7 @@ class DependenciesDialog(QDialog):
         self.stacked_widget = QStackedWidget()
 
         # Create a loading message
-        self.loading_pane = PaneEmptyWidget(
+        self.loading_pane = EmptyMessageWidget(
             self,
             "dependencies",
             _("Dependency information will be retrieved shortly. "

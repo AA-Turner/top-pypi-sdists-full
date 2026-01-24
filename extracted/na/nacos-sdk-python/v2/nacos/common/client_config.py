@@ -34,12 +34,16 @@ class GRPCConfig:
                  max_keep_alive_ms=Constants.GRPC_KEEPALIVE_TIME_MILLS,
                  initial_window_size=Constants.GRPC_INITIAL_WINDOW_SIZE,
                  initial_conn_window_size=Constants.GRPC_INITIAL_CONN_WINDOW_SIZE,
-                 grpc_timeout=Constants.DEFAULT_GRPC_TIMEOUT_MILLS):
+                 grpc_timeout=Constants.DEFAULT_GRPC_TIMEOUT_MILLS,
+                 port_offset=Constants.GRPC_PORT_OFFSET,
+                 capability_negotiation_timeout=Constants.GRPC_CAPABILITY_NEGOTIATION_TIMEOUT):
         self.max_receive_message_length = max_receive_message_length
         self.max_keep_alive_ms = max_keep_alive_ms
         self.initial_window_size = initial_window_size
         self.initial_conn_window_size = initial_conn_window_size
         self.grpc_timeout = grpc_timeout
+        self.port_offset = port_offset  # gRPC port offset, default 1000
+        self.capability_negotiation_timeout = capability_negotiation_timeout
 
 
 class ClientConfig:
@@ -77,6 +81,8 @@ class ClientConfig:
         self.load_cache_at_start = True
         self.update_cache_when_empty = False
         self.app_conn_labels = app_conn_labels
+        self.async_update_service = False
+        self.update_thread_num = 5
 
     def set_log_level(self, log_level):
         self.log_level = log_level
@@ -124,4 +130,12 @@ class ClientConfig:
 
     def set_app_conn_labels(self, app_conn_labels: dict):
         self.app_conn_labels = app_conn_labels
+        return self
+
+    def set_async_update_service(self, async_update_service: bool):
+        self.async_update_service = async_update_service
+        return self
+
+    def set_update_thread_num(self, update_thread_num: int):
+        self.update_thread_num = update_thread_num
         return self

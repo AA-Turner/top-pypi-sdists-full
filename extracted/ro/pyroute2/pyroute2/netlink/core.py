@@ -378,6 +378,8 @@ class AsyncCoreSocket:
     # 8<--------------------------------------------------------------
     #
     def setup_event_loop(self):
+        if self.use_event_loop:
+            return self.use_event_loop
         try:
             event_loop = asyncio.get_running_loop()
             self.status['event_loop'] = 'auto'
@@ -523,7 +525,12 @@ class AsyncCoreSocket:
         return self.msg_queue.put_nowait(0, data)
 
     async def get(
-        self, msg_seq=0, terminate=None, callback=None, noraise=False
+        self,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
+        exception_factory=None,
     ):
         '''Get a conversation answer from the socket.'''
         await self.setup_endpoint()
@@ -563,6 +570,8 @@ class AsyncCoreSocket:
             ):
                 enough = True
         if not noraise and error:
+            if exception_factory is not None:
+                raise exception_factory(error, msg)
             raise error
 
     async def __aenter__(self):

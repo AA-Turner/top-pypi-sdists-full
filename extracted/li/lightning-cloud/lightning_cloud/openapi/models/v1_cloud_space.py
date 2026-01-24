@@ -41,6 +41,8 @@ class V1CloudSpace(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'auto_switch_machine': 'bool',
+        'cache_data_connection_id': 'str',
         'can_download_source_code': 'bool',
         'cluster_id': 'str',
         'code_config': 'V1CloudSpaceInstanceConfig',
@@ -49,9 +51,12 @@ class V1CloudSpace(object):
         'created_at': 'datetime',
         'data_connection_mounts': 'list[V1DataConnectionMount]',
         'description': 'str',
+        'disable_secrets': 'bool',
         'display_name': 'str',
         'engagement_counts': 'dict(str, str)',
         'env': 'list[V1EnvVar]',
+        'environment_config': 'V1CloudSpaceEnvironmentConfig',
+        'environment_template_id': 'str',
         'featured': 'bool',
         'hide_files': 'bool',
         'id': 'str',
@@ -62,6 +67,9 @@ class V1CloudSpace(object):
         'is_published': 'bool',
         'license': 'str',
         'license_url': 'str',
+        'lock_out': 'bool',
+        'machine_image_version': 'str',
+        'max_run_duration': 'str',
         'message': 'str',
         'multi_user_edit': 'bool',
         'name': 'str',
@@ -71,24 +79,32 @@ class V1CloudSpace(object):
         'paper_org': 'str',
         'paper_org_avatar_url': 'str',
         'paper_url': 'str',
+        'persistent_disk_id': 'str',
         'project_id': 'str',
         'publications': 'list[V1CloudSpaceVersionPublication]',
         'published_at': 'datetime',
         'published_to_org_at': 'datetime',
+        'sandbox': 'bool',
         'state': 'V1CloudSpaceState',
+        'switch_to_default_machine_on_idle': 'bool',
         'sync_duration': 'str',
         'sync_percentage': 'str',
-        'tags': 'list[V1CloudSpaceTag]',
+        'tags': 'list[V1ResourceTag]',
         'thumbnail_file_type': 'str',
+        'thumbnail_updated_at': 'datetime',
         'thumbnail_url': 'str',
         'total_size_bytes': 'str',
+        'transfer_metadata': 'V1CloudSpaceTransferMetadata',
         'updated_at': 'datetime',
         'user_id': 'str',
         'user_metadata': 'str',
+        'visibility': 'V1ResourceVisibility',
         'web_path': 'str'
     }
 
     attribute_map = {
+        'auto_switch_machine': 'autoSwitchMachine',
+        'cache_data_connection_id': 'cacheDataConnectionId',
         'can_download_source_code': 'canDownloadSourceCode',
         'cluster_id': 'clusterId',
         'code_config': 'codeConfig',
@@ -97,9 +113,12 @@ class V1CloudSpace(object):
         'created_at': 'createdAt',
         'data_connection_mounts': 'dataConnectionMounts',
         'description': 'description',
+        'disable_secrets': 'disableSecrets',
         'display_name': 'displayName',
         'engagement_counts': 'engagementCounts',
         'env': 'env',
+        'environment_config': 'environmentConfig',
+        'environment_template_id': 'environmentTemplateId',
         'featured': 'featured',
         'hide_files': 'hideFiles',
         'id': 'id',
@@ -110,6 +129,9 @@ class V1CloudSpace(object):
         'is_published': 'isPublished',
         'license': 'license',
         'license_url': 'licenseUrl',
+        'lock_out': 'lockOut',
+        'machine_image_version': 'machineImageVersion',
+        'max_run_duration': 'maxRunDuration',
         'message': 'message',
         'multi_user_edit': 'multiUserEdit',
         'name': 'name',
@@ -119,25 +141,33 @@ class V1CloudSpace(object):
         'paper_org': 'paperOrg',
         'paper_org_avatar_url': 'paperOrgAvatarUrl',
         'paper_url': 'paperUrl',
+        'persistent_disk_id': 'persistentDiskId',
         'project_id': 'projectId',
         'publications': 'publications',
         'published_at': 'publishedAt',
         'published_to_org_at': 'publishedToOrgAt',
+        'sandbox': 'sandbox',
         'state': 'state',
+        'switch_to_default_machine_on_idle': 'switchToDefaultMachineOnIdle',
         'sync_duration': 'syncDuration',
         'sync_percentage': 'syncPercentage',
         'tags': 'tags',
         'thumbnail_file_type': 'thumbnailFileType',
+        'thumbnail_updated_at': 'thumbnailUpdatedAt',
         'thumbnail_url': 'thumbnailUrl',
         'total_size_bytes': 'totalSizeBytes',
+        'transfer_metadata': 'transferMetadata',
         'updated_at': 'updatedAt',
         'user_id': 'userId',
         'user_metadata': 'userMetadata',
+        'visibility': 'visibility',
         'web_path': 'webPath'
     }
 
-    def __init__(self, can_download_source_code: 'bool' =None, cluster_id: 'str' =None, code_config: 'V1CloudSpaceInstanceConfig' =None, code_status: 'V1GetCloudSpaceInstanceStatusResponse' =None, code_url: 'str' =None, created_at: 'datetime' =None, data_connection_mounts: 'list[V1DataConnectionMount]' =None, description: 'str' =None, display_name: 'str' =None, engagement_counts: 'dict(str, str)' =None, env: 'list[V1EnvVar]' =None, featured: 'bool' =None, hide_files: 'bool' =None, id: 'str' =None, image_status: 'V1ImageState' =None, is_cloudspace_private: 'bool' =None, is_code_private: 'bool' =None, is_favorite: 'bool' =None, is_published: 'bool' =None, license: 'str' =None, license_url: 'str' =None, message: 'str' =None, multi_user_edit: 'bool' =None, name: 'str' =None, number_of_files: 'str' =None, operating_cost: 'str' =None, paper_authors: 'str' =None, paper_org: 'str' =None, paper_org_avatar_url: 'str' =None, paper_url: 'str' =None, project_id: 'str' =None, publications: 'list[V1CloudSpaceVersionPublication]' =None, published_at: 'datetime' =None, published_to_org_at: 'datetime' =None, state: 'V1CloudSpaceState' =None, sync_duration: 'str' =None, sync_percentage: 'str' =None, tags: 'list[V1CloudSpaceTag]' =None, thumbnail_file_type: 'str' =None, thumbnail_url: 'str' =None, total_size_bytes: 'str' =None, updated_at: 'datetime' =None, user_id: 'str' =None, user_metadata: 'str' =None, web_path: 'str' =None):  # noqa: E501
+    def __init__(self, auto_switch_machine: 'bool' =None, cache_data_connection_id: 'str' =None, can_download_source_code: 'bool' =None, cluster_id: 'str' =None, code_config: 'V1CloudSpaceInstanceConfig' =None, code_status: 'V1GetCloudSpaceInstanceStatusResponse' =None, code_url: 'str' =None, created_at: 'datetime' =None, data_connection_mounts: 'list[V1DataConnectionMount]' =None, description: 'str' =None, disable_secrets: 'bool' =None, display_name: 'str' =None, engagement_counts: 'dict(str, str)' =None, env: 'list[V1EnvVar]' =None, environment_config: 'V1CloudSpaceEnvironmentConfig' =None, environment_template_id: 'str' =None, featured: 'bool' =None, hide_files: 'bool' =None, id: 'str' =None, image_status: 'V1ImageState' =None, is_cloudspace_private: 'bool' =None, is_code_private: 'bool' =None, is_favorite: 'bool' =None, is_published: 'bool' =None, license: 'str' =None, license_url: 'str' =None, lock_out: 'bool' =None, machine_image_version: 'str' =None, max_run_duration: 'str' =None, message: 'str' =None, multi_user_edit: 'bool' =None, name: 'str' =None, number_of_files: 'str' =None, operating_cost: 'str' =None, paper_authors: 'str' =None, paper_org: 'str' =None, paper_org_avatar_url: 'str' =None, paper_url: 'str' =None, persistent_disk_id: 'str' =None, project_id: 'str' =None, publications: 'list[V1CloudSpaceVersionPublication]' =None, published_at: 'datetime' =None, published_to_org_at: 'datetime' =None, sandbox: 'bool' =None, state: 'V1CloudSpaceState' =None, switch_to_default_machine_on_idle: 'bool' =None, sync_duration: 'str' =None, sync_percentage: 'str' =None, tags: 'list[V1ResourceTag]' =None, thumbnail_file_type: 'str' =None, thumbnail_updated_at: 'datetime' =None, thumbnail_url: 'str' =None, total_size_bytes: 'str' =None, transfer_metadata: 'V1CloudSpaceTransferMetadata' =None, updated_at: 'datetime' =None, user_id: 'str' =None, user_metadata: 'str' =None, visibility: 'V1ResourceVisibility' =None, web_path: 'str' =None):  # noqa: E501
         """V1CloudSpace - a model defined in Swagger"""  # noqa: E501
+        self._auto_switch_machine = None
+        self._cache_data_connection_id = None
         self._can_download_source_code = None
         self._cluster_id = None
         self._code_config = None
@@ -146,9 +176,12 @@ class V1CloudSpace(object):
         self._created_at = None
         self._data_connection_mounts = None
         self._description = None
+        self._disable_secrets = None
         self._display_name = None
         self._engagement_counts = None
         self._env = None
+        self._environment_config = None
+        self._environment_template_id = None
         self._featured = None
         self._hide_files = None
         self._id = None
@@ -159,6 +192,9 @@ class V1CloudSpace(object):
         self._is_published = None
         self._license = None
         self._license_url = None
+        self._lock_out = None
+        self._machine_image_version = None
+        self._max_run_duration = None
         self._message = None
         self._multi_user_edit = None
         self._name = None
@@ -168,22 +204,32 @@ class V1CloudSpace(object):
         self._paper_org = None
         self._paper_org_avatar_url = None
         self._paper_url = None
+        self._persistent_disk_id = None
         self._project_id = None
         self._publications = None
         self._published_at = None
         self._published_to_org_at = None
+        self._sandbox = None
         self._state = None
+        self._switch_to_default_machine_on_idle = None
         self._sync_duration = None
         self._sync_percentage = None
         self._tags = None
         self._thumbnail_file_type = None
+        self._thumbnail_updated_at = None
         self._thumbnail_url = None
         self._total_size_bytes = None
+        self._transfer_metadata = None
         self._updated_at = None
         self._user_id = None
         self._user_metadata = None
+        self._visibility = None
         self._web_path = None
         self.discriminator = None
+        if auto_switch_machine is not None:
+            self.auto_switch_machine = auto_switch_machine
+        if cache_data_connection_id is not None:
+            self.cache_data_connection_id = cache_data_connection_id
         if can_download_source_code is not None:
             self.can_download_source_code = can_download_source_code
         if cluster_id is not None:
@@ -200,12 +246,18 @@ class V1CloudSpace(object):
             self.data_connection_mounts = data_connection_mounts
         if description is not None:
             self.description = description
+        if disable_secrets is not None:
+            self.disable_secrets = disable_secrets
         if display_name is not None:
             self.display_name = display_name
         if engagement_counts is not None:
             self.engagement_counts = engagement_counts
         if env is not None:
             self.env = env
+        if environment_config is not None:
+            self.environment_config = environment_config
+        if environment_template_id is not None:
+            self.environment_template_id = environment_template_id
         if featured is not None:
             self.featured = featured
         if hide_files is not None:
@@ -226,6 +278,12 @@ class V1CloudSpace(object):
             self.license = license
         if license_url is not None:
             self.license_url = license_url
+        if lock_out is not None:
+            self.lock_out = lock_out
+        if machine_image_version is not None:
+            self.machine_image_version = machine_image_version
+        if max_run_duration is not None:
+            self.max_run_duration = max_run_duration
         if message is not None:
             self.message = message
         if multi_user_edit is not None:
@@ -244,6 +302,8 @@ class V1CloudSpace(object):
             self.paper_org_avatar_url = paper_org_avatar_url
         if paper_url is not None:
             self.paper_url = paper_url
+        if persistent_disk_id is not None:
+            self.persistent_disk_id = persistent_disk_id
         if project_id is not None:
             self.project_id = project_id
         if publications is not None:
@@ -252,8 +312,12 @@ class V1CloudSpace(object):
             self.published_at = published_at
         if published_to_org_at is not None:
             self.published_to_org_at = published_to_org_at
+        if sandbox is not None:
+            self.sandbox = sandbox
         if state is not None:
             self.state = state
+        if switch_to_default_machine_on_idle is not None:
+            self.switch_to_default_machine_on_idle = switch_to_default_machine_on_idle
         if sync_duration is not None:
             self.sync_duration = sync_duration
         if sync_percentage is not None:
@@ -262,18 +326,66 @@ class V1CloudSpace(object):
             self.tags = tags
         if thumbnail_file_type is not None:
             self.thumbnail_file_type = thumbnail_file_type
+        if thumbnail_updated_at is not None:
+            self.thumbnail_updated_at = thumbnail_updated_at
         if thumbnail_url is not None:
             self.thumbnail_url = thumbnail_url
         if total_size_bytes is not None:
             self.total_size_bytes = total_size_bytes
+        if transfer_metadata is not None:
+            self.transfer_metadata = transfer_metadata
         if updated_at is not None:
             self.updated_at = updated_at
         if user_id is not None:
             self.user_id = user_id
         if user_metadata is not None:
             self.user_metadata = user_metadata
+        if visibility is not None:
+            self.visibility = visibility
         if web_path is not None:
             self.web_path = web_path
+
+    @property
+    def auto_switch_machine(self) -> 'bool':
+        """Gets the auto_switch_machine of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The auto_switch_machine of this V1CloudSpace.  # noqa: E501
+        :rtype: bool
+        """
+        return self._auto_switch_machine
+
+    @auto_switch_machine.setter
+    def auto_switch_machine(self, auto_switch_machine: 'bool'):
+        """Sets the auto_switch_machine of this V1CloudSpace.
+
+
+        :param auto_switch_machine: The auto_switch_machine of this V1CloudSpace.  # noqa: E501
+        :type: bool
+        """
+
+        self._auto_switch_machine = auto_switch_machine
+
+    @property
+    def cache_data_connection_id(self) -> 'str':
+        """Gets the cache_data_connection_id of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The cache_data_connection_id of this V1CloudSpace.  # noqa: E501
+        :rtype: str
+        """
+        return self._cache_data_connection_id
+
+    @cache_data_connection_id.setter
+    def cache_data_connection_id(self, cache_data_connection_id: 'str'):
+        """Sets the cache_data_connection_id of this V1CloudSpace.
+
+
+        :param cache_data_connection_id: The cache_data_connection_id of this V1CloudSpace.  # noqa: E501
+        :type: str
+        """
+
+        self._cache_data_connection_id = cache_data_connection_id
 
     @property
     def can_download_source_code(self) -> 'bool':
@@ -444,6 +556,27 @@ class V1CloudSpace(object):
         self._description = description
 
     @property
+    def disable_secrets(self) -> 'bool':
+        """Gets the disable_secrets of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The disable_secrets of this V1CloudSpace.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_secrets
+
+    @disable_secrets.setter
+    def disable_secrets(self, disable_secrets: 'bool'):
+        """Sets the disable_secrets of this V1CloudSpace.
+
+
+        :param disable_secrets: The disable_secrets of this V1CloudSpace.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_secrets = disable_secrets
+
+    @property
     def display_name(self) -> 'str':
         """Gets the display_name of this V1CloudSpace.  # noqa: E501
 
@@ -505,6 +638,48 @@ class V1CloudSpace(object):
         """
 
         self._env = env
+
+    @property
+    def environment_config(self) -> 'V1CloudSpaceEnvironmentConfig':
+        """Gets the environment_config of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The environment_config of this V1CloudSpace.  # noqa: E501
+        :rtype: V1CloudSpaceEnvironmentConfig
+        """
+        return self._environment_config
+
+    @environment_config.setter
+    def environment_config(self, environment_config: 'V1CloudSpaceEnvironmentConfig'):
+        """Sets the environment_config of this V1CloudSpace.
+
+
+        :param environment_config: The environment_config of this V1CloudSpace.  # noqa: E501
+        :type: V1CloudSpaceEnvironmentConfig
+        """
+
+        self._environment_config = environment_config
+
+    @property
+    def environment_template_id(self) -> 'str':
+        """Gets the environment_template_id of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The environment_template_id of this V1CloudSpace.  # noqa: E501
+        :rtype: str
+        """
+        return self._environment_template_id
+
+    @environment_template_id.setter
+    def environment_template_id(self, environment_template_id: 'str'):
+        """Sets the environment_template_id of this V1CloudSpace.
+
+
+        :param environment_template_id: The environment_template_id of this V1CloudSpace.  # noqa: E501
+        :type: str
+        """
+
+        self._environment_template_id = environment_template_id
 
     @property
     def featured(self) -> 'bool':
@@ -717,6 +892,69 @@ class V1CloudSpace(object):
         self._license_url = license_url
 
     @property
+    def lock_out(self) -> 'bool':
+        """Gets the lock_out of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The lock_out of this V1CloudSpace.  # noqa: E501
+        :rtype: bool
+        """
+        return self._lock_out
+
+    @lock_out.setter
+    def lock_out(self, lock_out: 'bool'):
+        """Sets the lock_out of this V1CloudSpace.
+
+
+        :param lock_out: The lock_out of this V1CloudSpace.  # noqa: E501
+        :type: bool
+        """
+
+        self._lock_out = lock_out
+
+    @property
+    def machine_image_version(self) -> 'str':
+        """Gets the machine_image_version of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The machine_image_version of this V1CloudSpace.  # noqa: E501
+        :rtype: str
+        """
+        return self._machine_image_version
+
+    @machine_image_version.setter
+    def machine_image_version(self, machine_image_version: 'str'):
+        """Sets the machine_image_version of this V1CloudSpace.
+
+
+        :param machine_image_version: The machine_image_version of this V1CloudSpace.  # noqa: E501
+        :type: str
+        """
+
+        self._machine_image_version = machine_image_version
+
+    @property
+    def max_run_duration(self) -> 'str':
+        """Gets the max_run_duration of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The max_run_duration of this V1CloudSpace.  # noqa: E501
+        :rtype: str
+        """
+        return self._max_run_duration
+
+    @max_run_duration.setter
+    def max_run_duration(self, max_run_duration: 'str'):
+        """Sets the max_run_duration of this V1CloudSpace.
+
+
+        :param max_run_duration: The max_run_duration of this V1CloudSpace.  # noqa: E501
+        :type: str
+        """
+
+        self._max_run_duration = max_run_duration
+
+    @property
     def message(self) -> 'str':
         """Gets the message of this V1CloudSpace.  # noqa: E501
 
@@ -906,6 +1144,27 @@ class V1CloudSpace(object):
         self._paper_url = paper_url
 
     @property
+    def persistent_disk_id(self) -> 'str':
+        """Gets the persistent_disk_id of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The persistent_disk_id of this V1CloudSpace.  # noqa: E501
+        :rtype: str
+        """
+        return self._persistent_disk_id
+
+    @persistent_disk_id.setter
+    def persistent_disk_id(self, persistent_disk_id: 'str'):
+        """Sets the persistent_disk_id of this V1CloudSpace.
+
+
+        :param persistent_disk_id: The persistent_disk_id of this V1CloudSpace.  # noqa: E501
+        :type: str
+        """
+
+        self._persistent_disk_id = persistent_disk_id
+
+    @property
     def project_id(self) -> 'str':
         """Gets the project_id of this V1CloudSpace.  # noqa: E501
 
@@ -990,6 +1249,27 @@ class V1CloudSpace(object):
         self._published_to_org_at = published_to_org_at
 
     @property
+    def sandbox(self) -> 'bool':
+        """Gets the sandbox of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The sandbox of this V1CloudSpace.  # noqa: E501
+        :rtype: bool
+        """
+        return self._sandbox
+
+    @sandbox.setter
+    def sandbox(self, sandbox: 'bool'):
+        """Sets the sandbox of this V1CloudSpace.
+
+
+        :param sandbox: The sandbox of this V1CloudSpace.  # noqa: E501
+        :type: bool
+        """
+
+        self._sandbox = sandbox
+
+    @property
     def state(self) -> 'V1CloudSpaceState':
         """Gets the state of this V1CloudSpace.  # noqa: E501
 
@@ -1009,6 +1289,27 @@ class V1CloudSpace(object):
         """
 
         self._state = state
+
+    @property
+    def switch_to_default_machine_on_idle(self) -> 'bool':
+        """Gets the switch_to_default_machine_on_idle of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The switch_to_default_machine_on_idle of this V1CloudSpace.  # noqa: E501
+        :rtype: bool
+        """
+        return self._switch_to_default_machine_on_idle
+
+    @switch_to_default_machine_on_idle.setter
+    def switch_to_default_machine_on_idle(self, switch_to_default_machine_on_idle: 'bool'):
+        """Sets the switch_to_default_machine_on_idle of this V1CloudSpace.
+
+
+        :param switch_to_default_machine_on_idle: The switch_to_default_machine_on_idle of this V1CloudSpace.  # noqa: E501
+        :type: bool
+        """
+
+        self._switch_to_default_machine_on_idle = switch_to_default_machine_on_idle
 
     @property
     def sync_duration(self) -> 'str':
@@ -1053,22 +1354,22 @@ class V1CloudSpace(object):
         self._sync_percentage = sync_percentage
 
     @property
-    def tags(self) -> 'list[V1CloudSpaceTag]':
+    def tags(self) -> 'list[V1ResourceTag]':
         """Gets the tags of this V1CloudSpace.  # noqa: E501
 
 
         :return: The tags of this V1CloudSpace.  # noqa: E501
-        :rtype: list[V1CloudSpaceTag]
+        :rtype: list[V1ResourceTag]
         """
         return self._tags
 
     @tags.setter
-    def tags(self, tags: 'list[V1CloudSpaceTag]'):
+    def tags(self, tags: 'list[V1ResourceTag]'):
         """Sets the tags of this V1CloudSpace.
 
 
         :param tags: The tags of this V1CloudSpace.  # noqa: E501
-        :type: list[V1CloudSpaceTag]
+        :type: list[V1ResourceTag]
         """
 
         self._tags = tags
@@ -1093,6 +1394,27 @@ class V1CloudSpace(object):
         """
 
         self._thumbnail_file_type = thumbnail_file_type
+
+    @property
+    def thumbnail_updated_at(self) -> 'datetime':
+        """Gets the thumbnail_updated_at of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The thumbnail_updated_at of this V1CloudSpace.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._thumbnail_updated_at
+
+    @thumbnail_updated_at.setter
+    def thumbnail_updated_at(self, thumbnail_updated_at: 'datetime'):
+        """Sets the thumbnail_updated_at of this V1CloudSpace.
+
+
+        :param thumbnail_updated_at: The thumbnail_updated_at of this V1CloudSpace.  # noqa: E501
+        :type: datetime
+        """
+
+        self._thumbnail_updated_at = thumbnail_updated_at
 
     @property
     def thumbnail_url(self) -> 'str':
@@ -1135,6 +1457,27 @@ class V1CloudSpace(object):
         """
 
         self._total_size_bytes = total_size_bytes
+
+    @property
+    def transfer_metadata(self) -> 'V1CloudSpaceTransferMetadata':
+        """Gets the transfer_metadata of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The transfer_metadata of this V1CloudSpace.  # noqa: E501
+        :rtype: V1CloudSpaceTransferMetadata
+        """
+        return self._transfer_metadata
+
+    @transfer_metadata.setter
+    def transfer_metadata(self, transfer_metadata: 'V1CloudSpaceTransferMetadata'):
+        """Sets the transfer_metadata of this V1CloudSpace.
+
+
+        :param transfer_metadata: The transfer_metadata of this V1CloudSpace.  # noqa: E501
+        :type: V1CloudSpaceTransferMetadata
+        """
+
+        self._transfer_metadata = transfer_metadata
 
     @property
     def updated_at(self) -> 'datetime':
@@ -1198,6 +1541,27 @@ class V1CloudSpace(object):
         """
 
         self._user_metadata = user_metadata
+
+    @property
+    def visibility(self) -> 'V1ResourceVisibility':
+        """Gets the visibility of this V1CloudSpace.  # noqa: E501
+
+
+        :return: The visibility of this V1CloudSpace.  # noqa: E501
+        :rtype: V1ResourceVisibility
+        """
+        return self._visibility
+
+    @visibility.setter
+    def visibility(self, visibility: 'V1ResourceVisibility'):
+        """Sets the visibility of this V1CloudSpace.
+
+
+        :param visibility: The visibility of this V1CloudSpace.  # noqa: E501
+        :type: V1ResourceVisibility
+        """
+
+        self._visibility = visibility
 
     @property
     def web_path(self) -> 'str':

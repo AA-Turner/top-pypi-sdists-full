@@ -8,19 +8,62 @@
 #ifndef skgpu_ganesh_AtlasTextOp_DEFINED
 #define skgpu_ganesh_AtlasTextOp_DEFINED
 
+#include "include/core/SkColor.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkString.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/AtlasTypes.h"
+#include "src/gpu/ganesh/GrAppliedClip.h"
+#include "src/gpu/ganesh/GrBuffer.h"
+#include "src/gpu/ganesh/GrCaps.h"
+#include "src/gpu/ganesh/GrColorInfo.h"
+#include "src/gpu/ganesh/GrColorSpaceXform.h"
+#include "src/gpu/ganesh/GrProcessorSet.h"
 #include "src/gpu/ganesh/effects/GrDistanceFieldGeoProc.h"
 #include "src/gpu/ganesh/ops/GrMeshDrawOp.h"
-#include "src/text/gpu/TextBlob.h"
+#include "src/gpu/ganesh/ops/GrOp.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <tuple>
+#include <utility>
+
+class GrClip;
+class GrDstProxyView;
+class GrGeometryProcessor;
+class GrMeshDrawTarget;
+class GrOpFlushState;
+class GrPaint;
 class GrProgramInfo;
 class GrRecordingContext;
+class GrSurfaceProxy;
+class GrSurfaceProxyView;
+class SkArenaAlloc;
+class SkPaint;
+enum class GrXferBarrierFlags;
+struct GrShaderCaps;
+
+namespace skgpu { namespace ganesh { class SurfaceDrawContext; } }
+namespace sktext { namespace gpu { class AtlasSubRun; } }
 
 namespace skgpu::ganesh {
 
 class AtlasTextOp final : public GrMeshDrawOp {
 public:
     DEFINE_OP_CLASS_ID
+
+    static std::tuple<const GrClip*, GrOp::Owner> Make(SurfaceDrawContext*,
+                                                       const sktext::gpu::AtlasSubRun*,
+                                                       const GrClip*,
+                                                       const SkMatrix& viewMatrix,
+                                                       SkPoint drawOrigin,
+                                                       const SkPaint&,
+                                                       sk_sp<SkRefCnt>&& subRunStorage);
 
     ~AtlasTextOp() override {
         for (const Geometry* g = fHead; g != nullptr;) {
@@ -95,24 +138,13 @@ public:
         kAliasedDistanceField,
         kGrayscaleDistanceField,
         kLCDDistanceField,
-        kLCDBGRDistanceField,
 
-        kLast = kLCDBGRDistanceField
+        kLast = kLCDDistanceField
 #else
         kLast = kColorBitmap
 #endif
     };
     inline static constexpr int kMaskTypeCount = static_cast<int>(MaskType::kLast) + 1;
-
-#if GR_TEST_UTILS
-    static GrOp::Owner CreateOpTestingOnly(skgpu::ganesh::SurfaceDrawContext*,
-                                           const SkPaint&,
-                                           const SkFont&,
-                                           const SkMatrixProvider&,
-                                           const char* text,
-                                           int x,
-                                           int y);
-#endif
 
 private:
     friend class GrOp; // for ctor
@@ -127,13 +159,16 @@ private:
         int fNumDraws = 0;
     };
 
+    // DirectMask and TransformedMask constructor
     AtlasTextOp(MaskType maskType,
                 bool needsTransform,
                 int glyphCount,
                 SkRect deviceRect,
                 Geometry* geo,
+                const GrColorInfo& dstColorInfo,
                 GrPaint&& paint);
 
+    // SDF constructor
     AtlasTextOp(MaskType maskType,
                 bool needsTransform,
                 int glyphCount,
@@ -182,7 +217,7 @@ private:
     void onPrepareDraws(GrMeshDrawTarget*) override;
     void onExecute(GrOpFlushState*, const SkRect& chainBounds) override;
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     SkString onDumpInfo() const override;
 #endif
 
@@ -197,7 +232,6 @@ private:
             case MaskType::kAliasedDistanceField:
             case MaskType::kGrayscaleDistanceField:
             case MaskType::kLCDDistanceField:
-            case MaskType::kLCDBGRDistanceField:
 #endif
                 return skgpu::MaskFormat::kA8;
         }
@@ -209,14 +243,12 @@ private:
     bool usesDistanceFields() const {
         return MaskType::kAliasedDistanceField == this->maskType() ||
                MaskType::kGrayscaleDistanceField == this->maskType() ||
-               MaskType::kLCDDistanceField == this->maskType() ||
-               MaskType::kLCDBGRDistanceField == this->maskType();
+               MaskType::kLCDDistanceField == this->maskType();
     }
 
     bool isLCD() const {
         return MaskType::kLCDCoverage == this->maskType() ||
-               MaskType::kLCDDistanceField == this->maskType() ||
-               MaskType::kLCDBGRDistanceField == this->maskType();
+               MaskType::kLCDDistanceField == this->maskType();
     }
 #else
     bool isLCD() const {
@@ -253,6 +285,9 @@ private:
 #if !defined(SK_DISABLE_SDF_TEXT)
     static_assert(kInvalid_DistanceFieldEffectFlag <= (1 << 9), "DFGP Flags do not fit in 10 bits");
 #endif
+
+    // Only needed for color emoji
+    sk_sp<GrColorSpaceXform> fColorSpaceXform;
 
     // Only used for distance fields; per-channel luminance for LCD, or gamma-corrected luminance
     // for single-channel distance fields.

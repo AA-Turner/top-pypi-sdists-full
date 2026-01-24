@@ -3,7 +3,7 @@ Type annotations for iot service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -325,6 +326,7 @@ from .type_defs import (
     GetTopicRuleDestinationResponseTypeDef,
     GetTopicRuleRequestTypeDef,
     GetTopicRuleResponseTypeDef,
+    GetV2LoggingOptionsRequestTypeDef,
     GetV2LoggingOptionsResponseTypeDef,
     ListActiveViolationsRequestTypeDef,
     ListActiveViolationsResponseTypeDef,
@@ -543,12 +545,6 @@ from .type_defs import (
     ValidateSecurityProfileBehaviorsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -557,40 +553,40 @@ else:
 __all__ = ("IoTClient",)
 
 class Exceptions(BaseClientExceptions):
-    CertificateConflictException: Type[BotocoreClientError]
-    CertificateStateException: Type[BotocoreClientError]
-    CertificateValidationException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ConflictingResourceUpdateException: Type[BotocoreClientError]
-    DeleteConflictException: Type[BotocoreClientError]
-    IndexNotReadyException: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidAggregationException: Type[BotocoreClientError]
-    InvalidQueryException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidResponseException: Type[BotocoreClientError]
-    InvalidStateTransitionException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MalformedPolicyException: Type[BotocoreClientError]
-    NotConfiguredException: Type[BotocoreClientError]
-    RegistrationCodeValidationException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceRegistrationFailureException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    SqlParseException: Type[BotocoreClientError]
-    TaskAlreadyExistsException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TransferAlreadyCompletedException: Type[BotocoreClientError]
-    TransferConflictException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
-    VersionConflictException: Type[BotocoreClientError]
-    VersionsLimitExceededException: Type[BotocoreClientError]
+    CertificateConflictException: type[BotocoreClientError]
+    CertificateStateException: type[BotocoreClientError]
+    CertificateValidationException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ConflictingResourceUpdateException: type[BotocoreClientError]
+    DeleteConflictException: type[BotocoreClientError]
+    IndexNotReadyException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidAggregationException: type[BotocoreClientError]
+    InvalidQueryException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidResponseException: type[BotocoreClientError]
+    InvalidStateTransitionException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MalformedPolicyException: type[BotocoreClientError]
+    NotConfiguredException: type[BotocoreClientError]
+    RegistrationCodeValidationException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceRegistrationFailureException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    SqlParseException: type[BotocoreClientError]
+    TaskAlreadyExistsException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TransferAlreadyCompletedException: type[BotocoreClientError]
+    TransferConflictException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+    VersionConflictException: type[BotocoreClientError]
+    VersionsLimitExceededException: type[BotocoreClientError]
 
 class IoTClient(AioBaseClient):
     """
@@ -639,7 +635,7 @@ class IoTClient(AioBaseClient):
 
     async def add_thing_to_billing_group(
         self, **kwargs: Unpack[AddThingToBillingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a thing to a billing group.
 
@@ -649,7 +645,7 @@ class IoTClient(AioBaseClient):
 
     async def add_thing_to_thing_group(
         self, **kwargs: Unpack[AddThingToThingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a thing to a thing group.
 
@@ -702,7 +698,7 @@ class IoTClient(AioBaseClient):
 
     async def attach_security_profile(
         self, **kwargs: Unpack[AttachSecurityProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a Device Defender security profile with a thing group or this
         account.
@@ -713,7 +709,7 @@ class IoTClient(AioBaseClient):
 
     async def attach_thing_principal(
         self, **kwargs: Unpack[AttachThingPrincipalRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches the specified principal to the specified thing.
 
@@ -723,7 +719,7 @@ class IoTClient(AioBaseClient):
 
     async def cancel_audit_mitigation_actions_task(
         self, **kwargs: Unpack[CancelAuditMitigationActionsTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels a mitigation action task that is in progress.
 
@@ -733,7 +729,7 @@ class IoTClient(AioBaseClient):
 
     async def cancel_audit_task(
         self, **kwargs: Unpack[CancelAuditTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an audit that is in progress.
 
@@ -753,7 +749,7 @@ class IoTClient(AioBaseClient):
 
     async def cancel_detect_mitigation_actions_task(
         self, **kwargs: Unpack[CancelDetectMitigationActionsTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels a Device Defender ML Detect mitigation action.
 
@@ -781,7 +777,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#cancel_job_execution)
         """
 
-    async def clear_default_authorizer(self) -> Dict[str, Any]:
+    async def clear_default_authorizer(self) -> dict[str, Any]:
         """
         Clears the default authorizer.
 
@@ -791,7 +787,7 @@ class IoTClient(AioBaseClient):
 
     async def confirm_topic_rule_destination(
         self, **kwargs: Unpack[ConfirmTopicRuleDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Confirms a topic rule destination.
 
@@ -801,7 +797,7 @@ class IoTClient(AioBaseClient):
 
     async def create_audit_suppression(
         self, **kwargs: Unpack[CreateAuditSuppressionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a Device Defender audit suppression.
 
@@ -1125,7 +1121,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_account_audit_configuration(
         self, **kwargs: Unpack[DeleteAccountAuditConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Restores the default settings for Device Defender audits for this account.
 
@@ -1135,7 +1131,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_audit_suppression(
         self, **kwargs: Unpack[DeleteAuditSuppressionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Device Defender audit suppression.
 
@@ -1145,7 +1141,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_authorizer(
         self, **kwargs: Unpack[DeleteAuthorizerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an authorizer.
 
@@ -1155,7 +1151,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_billing_group(
         self, **kwargs: Unpack[DeleteBillingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the billing group.
 
@@ -1165,7 +1161,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_ca_certificate(
         self, **kwargs: Unpack[DeleteCACertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a registered CA certificate.
 
@@ -1185,7 +1181,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_certificate_provider(
         self, **kwargs: Unpack[DeleteCertificateProviderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a certificate provider.
 
@@ -1205,7 +1201,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_command_execution(
         self, **kwargs: Unpack[DeleteCommandExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a command execution.
 
@@ -1215,7 +1211,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_custom_metric(
         self, **kwargs: Unpack[DeleteCustomMetricRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Device Defender detect custom metric.
 
@@ -1225,7 +1221,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_dimension(
         self, **kwargs: Unpack[DeleteDimensionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified dimension from your Amazon Web Services accounts.
 
@@ -1235,7 +1231,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_domain_configuration(
         self, **kwargs: Unpack[DeleteDomainConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified domain configuration.
 
@@ -1245,7 +1241,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_dynamic_thing_group(
         self, **kwargs: Unpack[DeleteDynamicThingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a dynamic thing group.
 
@@ -1295,7 +1291,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_mitigation_action(
         self, **kwargs: Unpack[DeleteMitigationActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a defined mitigation action from your Amazon Web Services accounts.
 
@@ -1305,7 +1301,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_ota_update(
         self, **kwargs: Unpack[DeleteOTAUpdateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an OTA update.
 
@@ -1313,7 +1309,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_ota_update)
         """
 
-    async def delete_package(self, **kwargs: Unpack[DeletePackageRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_package(self, **kwargs: Unpack[DeletePackageRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a specific version from a software package.
 
@@ -1323,7 +1319,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_package_version(
         self, **kwargs: Unpack[DeletePackageVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specific version from a software package.
 
@@ -1353,7 +1349,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_provisioning_template(
         self, **kwargs: Unpack[DeleteProvisioningTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a provisioning template.
 
@@ -1363,7 +1359,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_provisioning_template_version(
         self, **kwargs: Unpack[DeleteProvisioningTemplateVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a provisioning template version.
 
@@ -1371,7 +1367,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_provisioning_template_version)
         """
 
-    async def delete_registration_code(self) -> Dict[str, Any]:
+    async def delete_registration_code(self) -> dict[str, Any]:
         """
         Deletes a CA certificate registration code.
 
@@ -1381,7 +1377,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_role_alias(
         self, **kwargs: Unpack[DeleteRoleAliasRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a role alias.
 
@@ -1391,7 +1387,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_scheduled_audit(
         self, **kwargs: Unpack[DeleteScheduledAuditRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a scheduled audit.
 
@@ -1401,7 +1397,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_security_profile(
         self, **kwargs: Unpack[DeleteSecurityProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Device Defender security profile.
 
@@ -1409,7 +1405,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_security_profile)
         """
 
-    async def delete_stream(self, **kwargs: Unpack[DeleteStreamRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_stream(self, **kwargs: Unpack[DeleteStreamRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a stream.
 
@@ -1417,7 +1413,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_stream)
         """
 
-    async def delete_thing(self, **kwargs: Unpack[DeleteThingRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_thing(self, **kwargs: Unpack[DeleteThingRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified thing.
 
@@ -1427,7 +1423,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_thing_group(
         self, **kwargs: Unpack[DeleteThingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a thing group.
 
@@ -1437,7 +1433,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_thing_type(
         self, **kwargs: Unpack[DeleteThingTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified thing type.
 
@@ -1457,7 +1453,7 @@ class IoTClient(AioBaseClient):
 
     async def delete_topic_rule_destination(
         self, **kwargs: Unpack[DeleteTopicRuleDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a topic rule destination.
 
@@ -1477,7 +1473,7 @@ class IoTClient(AioBaseClient):
 
     async def deprecate_thing_type(
         self, **kwargs: Unpack[DeprecateThingTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deprecates a thing type.
 
@@ -1857,7 +1853,7 @@ class IoTClient(AioBaseClient):
 
     async def detach_security_profile(
         self, **kwargs: Unpack[DetachSecurityProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a Device Defender security profile from a thing group or from
         this account.
@@ -1868,7 +1864,7 @@ class IoTClient(AioBaseClient):
 
     async def detach_thing_principal(
         self, **kwargs: Unpack[DetachThingPrincipalRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detaches the specified principal from the specified thing.
 
@@ -1888,7 +1884,7 @@ class IoTClient(AioBaseClient):
 
     async def disassociate_sbom_from_package_version(
         self, **kwargs: Unpack[DisassociateSbomFromPackageVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the selected software bill of materials (SBOM) from a specific
         software package version.
@@ -2112,7 +2108,9 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#get_topic_rule_destination)
         """
 
-    async def get_v2_logging_options(self) -> GetV2LoggingOptionsResponseTypeDef:
+    async def get_v2_logging_options(
+        self, **kwargs: Unpack[GetV2LoggingOptionsRequestTypeDef]
+    ) -> GetV2LoggingOptionsResponseTypeDef:
         """
         Gets the fine grained logging options.
 
@@ -2779,7 +2777,7 @@ class IoTClient(AioBaseClient):
 
     async def put_verification_state_on_violation(
         self, **kwargs: Unpack[PutVerificationStateOnViolationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Set a verification state and provide a description of that verification state
         on a violation (detect alarm).
@@ -2842,7 +2840,7 @@ class IoTClient(AioBaseClient):
 
     async def remove_thing_from_billing_group(
         self, **kwargs: Unpack[RemoveThingFromBillingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the given thing from the billing group.
 
@@ -2852,7 +2850,7 @@ class IoTClient(AioBaseClient):
 
     async def remove_thing_from_thing_group(
         self, **kwargs: Unpack[RemoveThingFromThingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove the specified thing from the specified group.
 
@@ -2973,7 +2971,7 @@ class IoTClient(AioBaseClient):
 
     async def stop_thing_registration_task(
         self, **kwargs: Unpack[StopThingRegistrationTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels a bulk thing provisioning task.
 
@@ -2981,7 +2979,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#stop_thing_registration_task)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds to or modifies the tags of the given resource.
 
@@ -3021,7 +3019,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#transfer_certificate)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the given tags (metadata) from the resource.
 
@@ -3031,7 +3029,7 @@ class IoTClient(AioBaseClient):
 
     async def update_account_audit_configuration(
         self, **kwargs: Unpack[UpdateAccountAuditConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configures or reconfigures the Device Defender audit settings for this account.
 
@@ -3041,7 +3039,7 @@ class IoTClient(AioBaseClient):
 
     async def update_audit_suppression(
         self, **kwargs: Unpack[UpdateAuditSuppressionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a Device Defender audit suppression.
 
@@ -3151,7 +3149,7 @@ class IoTClient(AioBaseClient):
 
     async def update_encryption_configuration(
         self, **kwargs: Unpack[UpdateEncryptionConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the encryption configuration.
 
@@ -3161,7 +3159,7 @@ class IoTClient(AioBaseClient):
 
     async def update_event_configurations(
         self, **kwargs: Unpack[UpdateEventConfigurationsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the event configurations.
 
@@ -3181,7 +3179,7 @@ class IoTClient(AioBaseClient):
 
     async def update_indexing_configuration(
         self, **kwargs: Unpack[UpdateIndexingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the search configuration.
 
@@ -3209,7 +3207,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#update_mitigation_action)
         """
 
-    async def update_package(self, **kwargs: Unpack[UpdatePackageRequestTypeDef]) -> Dict[str, Any]:
+    async def update_package(self, **kwargs: Unpack[UpdatePackageRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the supported fields for a specific software package.
 
@@ -3219,7 +3217,7 @@ class IoTClient(AioBaseClient):
 
     async def update_package_configuration(
         self, **kwargs: Unpack[UpdatePackageConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the software package configuration.
 
@@ -3229,7 +3227,7 @@ class IoTClient(AioBaseClient):
 
     async def update_package_version(
         self, **kwargs: Unpack[UpdatePackageVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the supported fields for a specific package version.
 
@@ -3239,7 +3237,7 @@ class IoTClient(AioBaseClient):
 
     async def update_provisioning_template(
         self, **kwargs: Unpack[UpdateProvisioningTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a provisioning template.
 
@@ -3288,7 +3286,7 @@ class IoTClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#update_stream)
         """
 
-    async def update_thing(self, **kwargs: Unpack[UpdateThingRequestTypeDef]) -> Dict[str, Any]:
+    async def update_thing(self, **kwargs: Unpack[UpdateThingRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the data for a thing.
 
@@ -3308,7 +3306,7 @@ class IoTClient(AioBaseClient):
 
     async def update_thing_groups_for_thing(
         self, **kwargs: Unpack[UpdateThingGroupsForThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the groups to which the thing belongs.
 
@@ -3318,7 +3316,7 @@ class IoTClient(AioBaseClient):
 
     async def update_thing_type(
         self, **kwargs: Unpack[UpdateThingTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a thing type.
 
@@ -3328,7 +3326,7 @@ class IoTClient(AioBaseClient):
 
     async def update_topic_rule_destination(
         self, **kwargs: Unpack[UpdateTopicRuleDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a topic rule destination.
 
@@ -4058,7 +4056,7 @@ class IoTClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

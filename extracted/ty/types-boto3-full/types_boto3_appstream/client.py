@@ -3,7 +3,7 @@ Type annotations for appstream service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -44,6 +45,7 @@ from .type_defs import (
     AssociateApplicationFleetResultTypeDef,
     AssociateApplicationToEntitlementRequestTypeDef,
     AssociateFleetRequestTypeDef,
+    AssociateSoftwareToImageBuilderRequestTypeDef,
     BatchAssociateUserStackRequestTypeDef,
     BatchAssociateUserStackResultTypeDef,
     BatchDisassociateUserStackRequestTypeDef,
@@ -62,12 +64,16 @@ from .type_defs import (
     CreateDirectoryConfigResultTypeDef,
     CreateEntitlementRequestTypeDef,
     CreateEntitlementResultTypeDef,
+    CreateExportImageTaskRequestTypeDef,
+    CreateExportImageTaskResultTypeDef,
     CreateFleetRequestTypeDef,
     CreateFleetResultTypeDef,
     CreateImageBuilderRequestTypeDef,
     CreateImageBuilderResultTypeDef,
     CreateImageBuilderStreamingURLRequestTypeDef,
     CreateImageBuilderStreamingURLResultTypeDef,
+    CreateImportedImageRequestTypeDef,
+    CreateImportedImageResultTypeDef,
     CreateStackRequestTypeDef,
     CreateStackResultTypeDef,
     CreateStreamingURLRequestTypeDef,
@@ -102,6 +108,8 @@ from .type_defs import (
     DescribeApplicationFleetAssociationsResultTypeDef,
     DescribeApplicationsRequestTypeDef,
     DescribeApplicationsResultTypeDef,
+    DescribeAppLicenseUsageRequestTypeDef,
+    DescribeAppLicenseUsageResultTypeDef,
     DescribeDirectoryConfigsRequestTypeDef,
     DescribeDirectoryConfigsResultTypeDef,
     DescribeEntitlementsRequestTypeDef,
@@ -116,6 +124,8 @@ from .type_defs import (
     DescribeImagesResultTypeDef,
     DescribeSessionsRequestTypeDef,
     DescribeSessionsResultTypeDef,
+    DescribeSoftwareAssociationsRequestTypeDef,
+    DescribeSoftwareAssociationsResultTypeDef,
     DescribeStacksRequestTypeDef,
     DescribeStacksResultTypeDef,
     DescribeThemeForStackRequestTypeDef,
@@ -131,14 +141,19 @@ from .type_defs import (
     DisassociateApplicationFleetRequestTypeDef,
     DisassociateApplicationFromEntitlementRequestTypeDef,
     DisassociateFleetRequestTypeDef,
+    DisassociateSoftwareFromImageBuilderRequestTypeDef,
     EnableUserRequestTypeDef,
     ExpireSessionRequestTypeDef,
+    GetExportImageTaskRequestTypeDef,
+    GetExportImageTaskResultTypeDef,
     ListAssociatedFleetsRequestTypeDef,
     ListAssociatedFleetsResultTypeDef,
     ListAssociatedStacksRequestTypeDef,
     ListAssociatedStacksResultTypeDef,
     ListEntitledApplicationsRequestTypeDef,
     ListEntitledApplicationsResultTypeDef,
+    ListExportImageTasksRequestTypeDef,
+    ListExportImageTasksResultTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     StartAppBlockBuilderRequestTypeDef,
@@ -146,6 +161,7 @@ from .type_defs import (
     StartFleetRequestTypeDef,
     StartImageBuilderRequestTypeDef,
     StartImageBuilderResultTypeDef,
+    StartSoftwareDeploymentToImageBuilderRequestTypeDef,
     StopAppBlockBuilderRequestTypeDef,
     StopAppBlockBuilderResultTypeDef,
     StopFleetRequestTypeDef,
@@ -171,12 +187,6 @@ from .type_defs import (
 )
 from .waiter import FleetStartedWaiter, FleetStoppedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -187,21 +197,22 @@ __all__ = ("AppStreamClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    EntitlementAlreadyExistsException: Type[BotocoreClientError]
-    EntitlementNotFoundException: Type[BotocoreClientError]
-    IncompatibleImageException: Type[BotocoreClientError]
-    InvalidAccountStatusException: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidRoleException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    RequestLimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotAvailableException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
+    EntitlementAlreadyExistsException: type[BotocoreClientError]
+    EntitlementNotFoundException: type[BotocoreClientError]
+    IncompatibleImageException: type[BotocoreClientError]
+    InvalidAccountStatusException: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidRoleException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    RequestLimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotAvailableException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 
 class AppStreamClient(BaseClient):
@@ -261,7 +272,7 @@ class AppStreamClient(BaseClient):
 
     def associate_application_to_entitlement(
         self, **kwargs: Unpack[AssociateApplicationToEntitlementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an application to entitle.
 
@@ -269,12 +280,23 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#associate_application_to_entitlement)
         """
 
-    def associate_fleet(self, **kwargs: Unpack[AssociateFleetRequestTypeDef]) -> Dict[str, Any]:
+    def associate_fleet(self, **kwargs: Unpack[AssociateFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified fleet with the specified stack.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/associate_fleet.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#associate_fleet)
+        """
+
+    def associate_software_to_image_builder(
+        self, **kwargs: Unpack[AssociateSoftwareToImageBuilderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates license included application(s) with an existing image builder
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/associate_software_to_image_builder.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#associate_software_to_image_builder)
         """
 
     def batch_associate_user_stack(
@@ -350,7 +372,7 @@ class AppStreamClient(BaseClient):
         self, **kwargs: Unpack[CreateDirectoryConfigRequestTypeDef]
     ) -> CreateDirectoryConfigResultTypeDef:
         """
-        Creates a Directory Config object in AppStream 2.0.
+        Creates a Directory Config object in WorkSpaces Applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_directory_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_directory_config)
@@ -364,6 +386,16 @@ class AppStreamClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_entitlement.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_entitlement)
+        """
+
+    def create_export_image_task(
+        self, **kwargs: Unpack[CreateExportImageTaskRequestTypeDef]
+    ) -> CreateExportImageTaskResultTypeDef:
+        """
+        Creates a task to export a WorkSpaces Applications image to an EC2 AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_export_image_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_export_image_task)
         """
 
     def create_fleet(self, **kwargs: Unpack[CreateFleetRequestTypeDef]) -> CreateFleetResultTypeDef:
@@ -394,6 +426,16 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_image_builder_streaming_url)
         """
 
+    def create_imported_image(
+        self, **kwargs: Unpack[CreateImportedImageRequestTypeDef]
+    ) -> CreateImportedImageResultTypeDef:
+        """
+        Creates a custom WorkSpaces Applications image by importing an EC2 AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_imported_image.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_imported_image)
+        """
+
     def create_stack(self, **kwargs: Unpack[CreateStackRequestTypeDef]) -> CreateStackResultTypeDef:
         """
         Creates a stack to start streaming applications to users.
@@ -406,8 +448,8 @@ class AppStreamClient(BaseClient):
         self, **kwargs: Unpack[CreateStreamingURLRequestTypeDef]
     ) -> CreateStreamingURLResultTypeDef:
         """
-        Creates a temporary URL to start an AppStream 2.0 streaming session for the
-        specified user.
+        Creates a temporary URL to start an WorkSpaces Applications streaming session
+        for the specified user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_streaming_url.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_streaming_url)
@@ -429,7 +471,7 @@ class AppStreamClient(BaseClient):
     ) -> CreateUpdatedImageResultTypeDef:
         """
         Creates a new image with the latest Windows operating system updates, driver
-        updates, and AppStream 2.0 agent software.
+        updates, and WorkSpaces Applications agent software.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/create_updated_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_updated_image)
@@ -443,7 +485,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_usage_report_subscription)
         """
 
-    def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> Dict[str, Any]:
+    def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a new user in the user pool.
 
@@ -451,7 +493,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#create_user)
         """
 
-    def delete_app_block(self, **kwargs: Unpack[DeleteAppBlockRequestTypeDef]) -> Dict[str, Any]:
+    def delete_app_block(self, **kwargs: Unpack[DeleteAppBlockRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an app block.
 
@@ -461,7 +503,7 @@ class AppStreamClient(BaseClient):
 
     def delete_app_block_builder(
         self, **kwargs: Unpack[DeleteAppBlockBuilderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an app block builder.
 
@@ -471,7 +513,7 @@ class AppStreamClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an application.
 
@@ -481,9 +523,9 @@ class AppStreamClient(BaseClient):
 
     def delete_directory_config(
         self, **kwargs: Unpack[DeleteDirectoryConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes the specified Directory Config object from AppStream 2.0.
+        Deletes the specified Directory Config object from WorkSpaces Applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/delete_directory_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#delete_directory_config)
@@ -491,7 +533,7 @@ class AppStreamClient(BaseClient):
 
     def delete_entitlement(
         self, **kwargs: Unpack[DeleteEntitlementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified entitlement.
 
@@ -499,7 +541,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#delete_entitlement)
         """
 
-    def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified fleet.
 
@@ -527,7 +569,7 @@ class AppStreamClient(BaseClient):
 
     def delete_image_permissions(
         self, **kwargs: Unpack[DeleteImagePermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes permissions for the specified private image.
 
@@ -535,7 +577,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#delete_image_permissions)
         """
 
-    def delete_stack(self, **kwargs: Unpack[DeleteStackRequestTypeDef]) -> Dict[str, Any]:
+    def delete_stack(self, **kwargs: Unpack[DeleteStackRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified stack.
 
@@ -545,7 +587,7 @@ class AppStreamClient(BaseClient):
 
     def delete_theme_for_stack(
         self, **kwargs: Unpack[DeleteThemeForStackRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes custom branding that customizes the appearance of the streaming
         application catalog page.
@@ -554,7 +596,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#delete_theme_for_stack)
         """
 
-    def delete_usage_report_subscription(self) -> Dict[str, Any]:
+    def delete_usage_report_subscription(self) -> dict[str, Any]:
         """
         Disables usage report generation.
 
@@ -562,7 +604,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#delete_usage_report_subscription)
         """
 
-    def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a user from the user pool.
 
@@ -600,6 +642,16 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#describe_app_blocks)
         """
 
+    def describe_app_license_usage(
+        self, **kwargs: Unpack[DescribeAppLicenseUsageRequestTypeDef]
+    ) -> DescribeAppLicenseUsageResultTypeDef:
+        """
+        Retrieves license included application usage information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/describe_app_license_usage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#describe_app_license_usage)
+        """
+
     def describe_application_fleet_associations(
         self, **kwargs: Unpack[DescribeApplicationFleetAssociationsRequestTypeDef]
     ) -> DescribeApplicationFleetAssociationsResultTypeDef:
@@ -625,7 +677,7 @@ class AppStreamClient(BaseClient):
     ) -> DescribeDirectoryConfigsResultTypeDef:
         """
         Retrieves a list that describes one or more specified Directory Config objects
-        for AppStream 2.0, if the names for these objects are provided.
+        for WorkSpaces Applications, if the names for these objects are provided.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/describe_directory_configs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#describe_directory_configs)
@@ -696,6 +748,16 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#describe_sessions)
         """
 
+    def describe_software_associations(
+        self, **kwargs: Unpack[DescribeSoftwareAssociationsRequestTypeDef]
+    ) -> DescribeSoftwareAssociationsResultTypeDef:
+        """
+        Retrieves license included application associations for a specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/describe_software_associations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#describe_software_associations)
+        """
+
     def describe_stacks(
         self, **kwargs: Unpack[DescribeStacksRequestTypeDef]
     ) -> DescribeStacksResultTypeDef:
@@ -747,7 +809,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#describe_users)
         """
 
-    def disable_user(self, **kwargs: Unpack[DisableUserRequestTypeDef]) -> Dict[str, Any]:
+    def disable_user(self, **kwargs: Unpack[DisableUserRequestTypeDef]) -> dict[str, Any]:
         """
         Disables the specified user in the user pool.
 
@@ -757,7 +819,7 @@ class AppStreamClient(BaseClient):
 
     def disassociate_app_block_builder_app_block(
         self, **kwargs: Unpack[DisassociateAppBlockBuilderAppBlockRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a specified app block builder from a specified app block.
 
@@ -767,7 +829,7 @@ class AppStreamClient(BaseClient):
 
     def disassociate_application_fleet(
         self, **kwargs: Unpack[DisassociateApplicationFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified application from the fleet.
 
@@ -777,7 +839,7 @@ class AppStreamClient(BaseClient):
 
     def disassociate_application_from_entitlement(
         self, **kwargs: Unpack[DisassociateApplicationFromEntitlementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified application from the specified entitlement.
 
@@ -787,7 +849,7 @@ class AppStreamClient(BaseClient):
 
     def disassociate_fleet(
         self, **kwargs: Unpack[DisassociateFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified fleet from the specified stack.
 
@@ -795,7 +857,18 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#disassociate_fleet)
         """
 
-    def enable_user(self, **kwargs: Unpack[EnableUserRequestTypeDef]) -> Dict[str, Any]:
+    def disassociate_software_from_image_builder(
+        self, **kwargs: Unpack[DisassociateSoftwareFromImageBuilderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes license included application(s) association(s) from an image builder
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/disassociate_software_from_image_builder.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#disassociate_software_from_image_builder)
+        """
+
+    def enable_user(self, **kwargs: Unpack[EnableUserRequestTypeDef]) -> dict[str, Any]:
         """
         Enables a user in the user pool.
 
@@ -803,12 +876,23 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#enable_user)
         """
 
-    def expire_session(self, **kwargs: Unpack[ExpireSessionRequestTypeDef]) -> Dict[str, Any]:
+    def expire_session(self, **kwargs: Unpack[ExpireSessionRequestTypeDef]) -> dict[str, Any]:
         """
         Immediately stops the specified streaming session.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/expire_session.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#expire_session)
+        """
+
+    def get_export_image_task(
+        self, **kwargs: Unpack[GetExportImageTaskRequestTypeDef]
+    ) -> GetExportImageTaskResultTypeDef:
+        """
+        Retrieves information about an export image task, including its current state,
+        progress, and any error details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/get_export_image_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#get_export_image_task)
         """
 
     def list_associated_fleets(
@@ -841,11 +925,21 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#list_entitled_applications)
         """
 
+    def list_export_image_tasks(
+        self, **kwargs: Unpack[ListExportImageTasksRequestTypeDef]
+    ) -> ListExportImageTasksResultTypeDef:
+        """
+        Lists export image tasks, with optional filtering and pagination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/list_export_image_tasks.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#list_export_image_tasks)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Retrieves a list of all tags for the specified AppStream 2.0 resource.
+        Retrieves a list of all tags for the specified WorkSpaces Applications resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#list_tags_for_resource)
@@ -861,7 +955,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#start_app_block_builder)
         """
 
-    def start_fleet(self, **kwargs: Unpack[StartFleetRequestTypeDef]) -> Dict[str, Any]:
+    def start_fleet(self, **kwargs: Unpack[StartFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Starts the specified fleet.
 
@@ -879,6 +973,16 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#start_image_builder)
         """
 
+    def start_software_deployment_to_image_builder(
+        self, **kwargs: Unpack[StartSoftwareDeploymentToImageBuilderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Initiates license included applications deployment to an image builder instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/start_software_deployment_to_image_builder.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#start_software_deployment_to_image_builder)
+        """
+
     def stop_app_block_builder(
         self, **kwargs: Unpack[StopAppBlockBuilderRequestTypeDef]
     ) -> StopAppBlockBuilderResultTypeDef:
@@ -889,7 +993,7 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#stop_app_block_builder)
         """
 
-    def stop_fleet(self, **kwargs: Unpack[StopFleetRequestTypeDef]) -> Dict[str, Any]:
+    def stop_fleet(self, **kwargs: Unpack[StopFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Stops the specified fleet.
 
@@ -907,18 +1011,19 @@ class AppStreamClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#stop_image_builder)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Adds or overwrites one or more tags for the specified AppStream 2.0 resource.
+        Adds or overwrites one or more tags for the specified WorkSpaces Applications
+        resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/tag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Disassociates one or more specified tags from the specified AppStream 2.0
-        resource.
+        Disassociates one or more specified tags from the specified WorkSpaces
+        Applications resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#untag_resource)
@@ -948,7 +1053,7 @@ class AppStreamClient(BaseClient):
         self, **kwargs: Unpack[UpdateDirectoryConfigRequestTypeDef]
     ) -> UpdateDirectoryConfigResultTypeDef:
         """
-        Updates the specified Directory Config object in AppStream 2.0.
+        Updates the specified Directory Config object in WorkSpaces Applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/update_directory_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_appstream/client/#update_directory_config)
@@ -974,7 +1079,7 @@ class AppStreamClient(BaseClient):
 
     def update_image_permissions(
         self, **kwargs: Unpack[UpdateImagePermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or updates permissions for the specified private image.
 

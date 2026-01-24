@@ -18,7 +18,7 @@ import collections.abc
 #
 import json
 from collections import defaultdict, namedtuple
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Union
 
 from aws_cdk import aws_cloudformation as cfn
@@ -53,10 +53,9 @@ from pcluster.config.cluster_config import (
     SharedEbs,
     SharedEfs,
     SharedFsxLustre,
-    SharedStorageType,
     SlurmClusterConfig,
 )
-from pcluster.config.common import DefaultUserHomeType
+from pcluster.config.common import DefaultUserHomeType, SharedStorageType
 from pcluster.constants import (
     ALL_PORTS_RANGE,
     CW_ALARM_DATAPOINTS_TO_ALARM_DEFAULT,
@@ -72,8 +71,10 @@ from pcluster.constants import (
     NFS_PORT,
     NODE_BOOTSTRAP_TIMEOUT,
     OS_MAPPING,
+    P6E_GB200,
     PCLUSTER_DYNAMODB_PREFIX,
     PCLUSTER_S3_ARTIFACTS_DICT,
+    SLURM,
     SLURM_PORTS_RANGE,
 )
 from pcluster.models.s3_bucket import S3Bucket
@@ -99,6 +100,7 @@ from pcluster.templates.cdk_builder_utils import (
     get_slurm_specific_dna_json_for_head_node,
     get_source_ingress_rule,
     get_user_data_content,
+    process_ultraserver_capacity_block_sizes,
     to_comma_separated_string,
 )
 from pcluster.templates.compute_fleet_stack import ComputeFleetConstruct
@@ -128,7 +130,7 @@ class ClusterCdkStack:
         self._launch_template_builder = CdkLaunchTemplateBuilder()
         self.config = cluster_config
         self.bucket = bucket
-        self.timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        self.timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         if self.config.is_cw_logging_enabled:
             if log_group_name:
                 # pcluster update keep the log group,
@@ -136,7 +138,7 @@ class ClusterCdkStack:
                 self.log_group_name = log_group_name
             else:
                 # pcluster create create a log group with timestamp suffix
-                timestamp = f"{datetime.utcnow().strftime('%Y%m%d%H%M')}"
+                timestamp = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
                 self.log_group_name = f"{CW_LOG_GROUP_NAME_PREFIX}{self.stack.stack_name}-{timestamp}"
 
         self.shared_storage_infos = {storage_type: [] for storage_type in SharedStorageType}
@@ -264,12 +266,9 @@ class ClusterCdkStack:
         # Add the internal use shared storage to the stack
         # This FS will be mounted, the shared dirs will be added,
         # then it will be unmounted and the shared dirs will be
-        # mounted.  We need to create the additional mount points first.
+        # mounted. We need to create the additional mount points first.
         if self.config.head_node.shared_storage_type.lower() == SharedStorageType.EFS.value:
-            internal_efs_storage_shared = SharedEfs(
-                mount_dir="/opt/parallelcluster/init_shared", name="internal_pcluster_shared", throughput_mode="elastic"
-            )
-            self._add_shared_storage(internal_efs_storage_shared)
+            self._add_internal_efs_shared_storage()
 
         # Add user configured shared storage
         if self.config.shared_storage:
@@ -334,6 +333,19 @@ class ClusterCdkStack:
                 cw_log_group=self.log_group,
                 head_node_alarms=self.head_node_alarms,
             )
+
+    def _add_internal_efs_shared_storage(self):
+        if self.config.head_node.shared_storage_efs_settings:
+            encrypted = self.config.head_node.shared_storage_efs_settings.encrypted
+        else:
+            encrypted = None
+        internal_efs_storage_shared = SharedEfs(
+            mount_dir="/opt/parallelcluster/init_shared",
+            name="internal_pcluster_shared",
+            throughput_mode="elastic",
+            encrypted=encrypted,
+        )
+        self._add_shared_storage(internal_efs_storage_shared)
 
     def _cw_metric_head_node(
         self, namespace, metric_name, statistic="Maximum", period_seconds=CW_ALARM_PERIOD_DEFAULT, extra_dimensions=None
@@ -1256,6 +1268,16 @@ class ClusterCdkStack:
         head_node_launch_template.add_metadata("Comment", "AWS ParallelCluster Head Node")
         # CloudFormation::Init metadata
 
+        # Process ultraserver capacity block information for DNA JSON
+        # This section collects capacity block sizes for ultraserver instances (e.g., p6e-gb200)
+        # and validates that they conform to allowed size configurations for Slurm topology
+        cluster_ultraserver_capacity_block_sizes_dict = {}
+        if self.config.scheduling.scheduler == SLURM:
+            cluster_ultraserver_capacity_block_dict = self.config.ultraserver_capacity_block_dict
+            cluster_ultraserver_capacity_block_sizes_dict = process_ultraserver_capacity_block_sizes(
+                cluster_ultraserver_capacity_block_dict
+            )
+
         dna_json = json.dumps(
             {
                 "cluster": {
@@ -1349,6 +1371,12 @@ class ClusterCdkStack:
                         else "false"
                     ),
                     "launch_template_id": launch_template_id,
+                    **(
+                        {"p6egb200_block_sizes": cluster_ultraserver_capacity_block_sizes_dict[P6E_GB200]}
+                        if P6E_GB200 in cluster_ultraserver_capacity_block_sizes_dict
+                        and cluster_ultraserver_capacity_block_sizes_dict[P6E_GB200]
+                        else {}
+                    ),
                     **(
                         get_slurm_specific_dna_json_for_head_node(self.config, self.scheduler_resources)
                         if self._condition_is_slurm()
@@ -1468,6 +1496,12 @@ class ClusterCdkStack:
             "chefUpdate": {
                 "commands": {
                     "chef": {
+                        # This command runs the update recipe and signals CloudFormation with the result.
+                        # The trailing "|| exit 0" ensures cfn-hup always updates its local metadata cache
+                        # (metadata_db.json) regardless of whether cfn-signal succeeds or fails.
+                        # Without this, if cfn-signal fails (e.g., due to an expired wait condition handle
+                        # after a rollback to a state older than 24h), cfn-hup would not update its cache
+                        # and would enter an endless loop, re-triggering the update recipe every minute.
                         "command": (
                             ". /etc/parallelcluster/pcluster_cookbook_environment.sh; "
                             "cinc-client --local-mode --config /etc/chef/client.rb --log_level info"
@@ -1481,6 +1515,7 @@ class ClusterCdkStack:
                             f" $CFN_BOOTSTRAP_VIRTUALENV_PATH/cfn-signal --exit-code=1 --reason='Update failed'"
                             f" --region {self.stack.region} --url {cloudformation_url}"
                             f" '{self.wait_condition_handle.ref}'"
+                            " || exit 0"
                         ),
                         "cwd": "/etc/chef",
                     }

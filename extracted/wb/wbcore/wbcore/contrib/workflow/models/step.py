@@ -22,6 +22,7 @@ from wbcore.contrib.workflow.utils import get_model_serializer_class_for_instanc
 from wbcore.models import WBModel
 from wbcore.utils.html import convert_html2text
 from wbcore.utils.string_loader import StringSourceLoader
+from wbcore.workers import Queue
 
 
 class Step(WBModel):
@@ -351,7 +352,7 @@ class UserStep(Step):
         verbose_name_plural = _("User Steps")
         constraints = [
             models.CheckConstraint(
-                check=~Q(assignee__isnull=False, group__isnull=False),
+                condition=~Q(assignee__isnull=False, group__isnull=False),
                 name="check_not_both_assignee_group",
             ),
         ]
@@ -661,7 +662,7 @@ class FinishStep(Step):
         verbose_name_plural = _("Finish Steps")
 
 
-@shared_task()
+@shared_task(queue=Queue.DEFAULT.value)
 def activate_step(step_id: int, process_id: UUID):
     step = Step.objects.get(pk=step_id).get_casted_step()
     process = Process.objects.get(pk=process_id)
@@ -739,7 +740,7 @@ def _check_previous_steps_failed(step: Step, process: Process, check_all: bool =
                     _check_previous_steps_failed(step, process)
 
 
-@shared_task()
+@shared_task(queue=Queue.DEFAULT.value)
 def process_can_finish(process_id: UUID):
     """Checks if all critical steps for a process can still be reached. Fails the process if this is not the case.
 

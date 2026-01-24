@@ -3,6 +3,7 @@ import datetime
 import json
 
 import pytest
+import requests
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
@@ -179,6 +180,12 @@ class TestOAuth2Validator(TransactionTestCase):
         self.request.headers = {"HTTP_AUTHORIZATION": "Basic test"}
         self.assertFalse(self.validator._authenticate_basic_auth(self.request))
 
+    def test_authenticate_basic_auth_public_app_with_device_code(self):
+        self.request.grant_type = "urn:ietf:params:oauth:grant-type:device_code"
+        self.request.headers = get_basic_auth_header("client_id", CLEARTEXT_SECRET)
+        self.application.client_type = Application.CLIENT_PUBLIC
+        self.assertTrue(self.validator._authenticate_basic_auth(self.request))
+
     def test_authenticate_check_secret(self):
         hashed = make_password(CLEARTEXT_SECRET)
         self.assertTrue(self.validator._check_secret(CLEARTEXT_SECRET, CLEARTEXT_SECRET))
@@ -209,8 +216,52 @@ class TestOAuth2Validator(TransactionTestCase):
         self.request.client = ""
         self.assertTrue(self.validator.client_authentication_required(self.request))
 
-    def test_load_application_fails_when_request_has_no_client(self):
-        self.assertRaises(AssertionError, self.validator.authenticate_client_id, "client_id", {})
+    def test_load_application_loads_client_id_when_request_has_no_client(self):
+        self.request.client = None
+        application = self.validator._load_application("client_id", self.request)
+        self.assertEqual(application, self.application)
+
+    def test_load_application_uses_cached_when_request_has_valid_client_matching_client_id(self):
+        self.request.client = self.application
+        application = self.validator._load_application("client_id", self.request)
+        self.assertIs(application, self.application)
+        self.assertIs(self.request.client, self.application)
+
+    def test_load_application_succeeds_when_request_has_invalid_client_valid_client_id(self):
+        self.request.client = 'invalid_client'
+        application = self.validator._load_application("client_id", self.request)
+        self.assertEqual(application, self.application)
+        self.assertEqual(self.request.client, self.application)
+
+    def test_load_application_overwrites_client_on_client_id_mismatch(self):
+        another_application = Application.objects.create(
+            client_id="another_client_id",
+            client_secret=CLEARTEXT_SECRET,
+            user=self.user,
+            client_type=Application.CLIENT_PUBLIC,
+            authorization_grant_type=Application.GRANT_PASSWORD,
+        )
+        self.request.client = another_application
+        application = self.validator._load_application("client_id", self.request)
+        self.assertEqual(application, self.application)
+        self.assertEqual(self.request.client, self.application)
+        another_application.delete()
+
+    @mock.patch.object(Application, "is_usable")
+    def test_load_application_returns_none_when_client_not_usable_cached(self, mock_is_usable):
+        mock_is_usable.return_value = False
+        self.request.client = self.application
+        application = self.validator._load_application("client_id", self.request)
+        self.assertIsNone(application)
+        self.assertIsNone(self.request.client)
+
+    @mock.patch.object(Application, "is_usable")
+    def test_load_application_returns_none_when_client_not_usable_db_lookup(self, mock_is_usable):
+        mock_is_usable.return_value = False
+        self.request.client = None
+        application = self.validator._load_application("client_id", self.request)
+        self.assertIsNone(application)
+        self.assertIsNone(self.request.client)
 
     def test_rotate_refresh_token__is_true(self):
         self.assertTrue(self.validator.rotate_refresh_token(mock.MagicMock()))
@@ -501,18 +552,26 @@ class TestOAuth2ValidatorErrorResourceToken(TestCase):
         cls.introspection_token = "test_introspection_token"
         cls.validator = OAuth2Validator()
 
-    def test_response_when_auth_server_response_return_404(self):
-        with self.assertLogs(logger="oauth2_provider") as mock_log:
-            self.validator._get_token_from_authentication_server(
-                self.token, self.introspection_url, self.introspection_token, None
-            )
-            self.assertIn(
-                "ERROR:oauth2_provider:Introspection: Failed to "
-                "get a valid response from authentication server. "
-                "Status code: 404, Reason: "
-                "Not Found.\nNoneType: None",
-                mock_log.output,
-            )
+    def test_response_when_auth_server_response_not_200(self):
+        """
+        Ensure we log the error when the authentication server returns a non-200 response.
+        """
+        mock_response = requests.Response()
+        mock_response.status_code = 404
+        mock_response.reason = "Not Found"
+        with mock.patch("requests.post") as mock_post:
+            mock_post.return_value = mock_response
+            with self.assertLogs(logger="oauth2_provider") as mock_log:
+                self.validator._get_token_from_authentication_server(
+                    self.token, self.introspection_url, self.introspection_token, None
+                )
+                self.assertIn(
+                    "ERROR:oauth2_provider:Introspection: Failed to "
+                    "get a valid response from authentication server. "
+                    "Status code: 404, Reason: "
+                    "Not Found.\nNoneType: None",
+                    mock_log.output,
+                )
 
 
 @pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import abc
 from collections.abc import Iterator
 from dataclasses import MISSING, fields, is_dataclass
 from types import MappingProxyType
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from xsdata.exceptions import XmlContextError
 from xsdata.formats.dataclass.models.generics import AnyElement, DerivedElement
@@ -14,7 +16,7 @@ class FieldInfo(Protocol):
 
     name: str
     init: bool
-    metadata: "MappingProxyType[Any, Any]"
+    metadata: MappingProxyType[Any, Any]
     default: Any
     default_factory: Any
 
@@ -64,7 +66,7 @@ class ClassType(abc.ABC):
         """Return the models fields in the correct mro ordering."""
 
     @abc.abstractmethod
-    def default_value(self, field: FieldInfo, default: Optional[Any] = None) -> Any:
+    def default_value(self, field: FieldInfo, default: Any | None = None) -> Any:
         """Return the default value or factory of the given model field."""
 
     @abc.abstractmethod
@@ -178,7 +180,7 @@ class Dataclasses(ClassType):
         """Return a dataclass fields iterator."""
         yield from fields(obj)
 
-    def default_value(self, field: FieldInfo, default: Optional[Any] = None) -> Any:
+    def default_value(self, field: FieldInfo, default: Any | None = None) -> Any:
         """Return the default value or factory of the given model field."""
         if field.default_factory is not MISSING:
             return field.default_factory

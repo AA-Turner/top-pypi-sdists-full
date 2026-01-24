@@ -1,11 +1,11 @@
 from http import HTTPStatus
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.list_available_teams_ids_response_200_item import ListAvailableTeamsIdsResponse200Item
+from ...models.list_available_teams_ids_response_200 import ListAvailableTeamsIdsResponse200
 from ...types import UNSET, Response, Unset
 
 
@@ -13,11 +13,14 @@ def _get_kwargs(
     workspace: str,
     *,
     search: Union[Unset, None, str] = UNSET,
+    next_link: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["search"] = search
+
+    params["next_link"] = next_link
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -32,14 +35,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[List["ListAvailableTeamsIdsResponse200Item"]]:
+) -> Optional[ListAvailableTeamsIdsResponse200]:
     if response.status_code == HTTPStatus.OK:
-        response_200 = []
-        _response_200 = response.json()
-        for response_200_item_data in _response_200:
-            response_200_item = ListAvailableTeamsIdsResponse200Item.from_dict(response_200_item_data)
-
-            response_200.append(response_200_item)
+        response_200 = ListAvailableTeamsIdsResponse200.from_dict(response.json())
 
         return response_200
     if client.raise_on_unexpected_status:
@@ -50,7 +48,7 @@ def _parse_response(
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[List["ListAvailableTeamsIdsResponse200Item"]]:
+) -> Response[ListAvailableTeamsIdsResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -64,24 +62,27 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     search: Union[Unset, None, str] = UNSET,
-) -> Response[List["ListAvailableTeamsIdsResponse200Item"]]:
+    next_link: Union[Unset, None, str] = UNSET,
+) -> Response[ListAvailableTeamsIdsResponse200]:
     """list available teams ids
 
     Args:
         workspace (str):
         search (Union[Unset, None, str]):
+        next_link (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[List['ListAvailableTeamsIdsResponse200Item']]
+        Response[ListAvailableTeamsIdsResponse200]
     """
 
     kwargs = _get_kwargs(
         workspace=workspace,
         search=search,
+        next_link=next_link,
     )
 
     response = client.get_httpx_client().request(
@@ -96,25 +97,28 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     search: Union[Unset, None, str] = UNSET,
-) -> Optional[List["ListAvailableTeamsIdsResponse200Item"]]:
+    next_link: Union[Unset, None, str] = UNSET,
+) -> Optional[ListAvailableTeamsIdsResponse200]:
     """list available teams ids
 
     Args:
         workspace (str):
         search (Union[Unset, None, str]):
+        next_link (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        List['ListAvailableTeamsIdsResponse200Item']
+        ListAvailableTeamsIdsResponse200
     """
 
     return sync_detailed(
         workspace=workspace,
         client=client,
         search=search,
+        next_link=next_link,
     ).parsed
 
 
@@ -123,24 +127,27 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     search: Union[Unset, None, str] = UNSET,
-) -> Response[List["ListAvailableTeamsIdsResponse200Item"]]:
+    next_link: Union[Unset, None, str] = UNSET,
+) -> Response[ListAvailableTeamsIdsResponse200]:
     """list available teams ids
 
     Args:
         workspace (str):
         search (Union[Unset, None, str]):
+        next_link (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[List['ListAvailableTeamsIdsResponse200Item']]
+        Response[ListAvailableTeamsIdsResponse200]
     """
 
     kwargs = _get_kwargs(
         workspace=workspace,
         search=search,
+        next_link=next_link,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -153,19 +160,21 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     search: Union[Unset, None, str] = UNSET,
-) -> Optional[List["ListAvailableTeamsIdsResponse200Item"]]:
+    next_link: Union[Unset, None, str] = UNSET,
+) -> Optional[ListAvailableTeamsIdsResponse200]:
     """list available teams ids
 
     Args:
         workspace (str):
         search (Union[Unset, None, str]):
+        next_link (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        List['ListAvailableTeamsIdsResponse200Item']
+        ListAvailableTeamsIdsResponse200
     """
 
     return (
@@ -173,5 +182,6 @@ async def asyncio(
             workspace=workspace,
             client=client,
             search=search,
+            next_link=next_link,
         )
     ).parsed

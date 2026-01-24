@@ -3855,3 +3855,6 @@ def _typecheckingstub__f577db5190cdaeb93ff236ffafd330a89711b9c51988f175fad1d2d49
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IField, IIntermediateType, ISourceApiAssociationMergeOperationProvider]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

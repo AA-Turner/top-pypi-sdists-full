@@ -25,7 +25,7 @@ name from its description if a description was given.
 
 -----
 
-"""  # noqa: D400
+"""  # noqa: D400,RST299
 #
 #  Copyright © 2020 Dominic Davis-Foster <dominic@davis-foster.co.uk>
 #
@@ -111,7 +111,7 @@ def make_field(
 						addnodes.literal_strong,
 						env=env,
 						**kwargs,  # To support Sphinx 4.1 and later
-						)
+						),
 				)
 
 		if fieldarg in types:
@@ -124,7 +124,7 @@ def make_field(
 			if len(fieldtype) == 1 and isinstance(fieldtype[0], nodes.Text):
 				typename = fieldtype[0].astext()
 				par.extend(
-						self.make_xrefs(self.typerolename, domain, typename, addnodes.literal_emphasis, env=env)
+						self.make_xrefs(self.typerolename, domain, typename, addnodes.literal_emphasis, env=env),
 						)
 			else:
 				par += fieldtype

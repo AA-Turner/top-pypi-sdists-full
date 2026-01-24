@@ -50,12 +50,12 @@ class ActorCollectionClient(ResourceCollectionClient):
         description: str | None = None,
         seo_title: str | None = None,
         seo_description: str | None = None,
-        versions: list[dict] | None = None,  # type: ignore[valid-type]
+        versions: list[dict] | None = None,  # ty: ignore[invalid-type-form]
         restart_on_error: bool | None = None,
         is_public: bool | None = None,
         is_deprecated: bool | None = None,
         is_anonymously_runnable: bool | None = None,
-        categories: list[str] | None = None,  # type: ignore[valid-type]
+        categories: list[str] | None = None,  # ty: ignore[invalid-type-form]
         default_run_build: str | None = None,
         default_run_max_items: int | None = None,
         default_run_memory_mbytes: int | None = None,
@@ -80,7 +80,7 @@ class ActorCollectionClient(ResourceCollectionClient):
             seo_title: The title of the Actor optimized for search engines.
             seo_description: The description of the Actor optimized for search engines.
             versions: The list of Actor versions.
-            restart_on_error: If true, the main Actor run process will be restarted whenever it exits with
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             is_public: Whether the Actor is public.
             is_deprecated: Whether the Actor is deprecated.
@@ -175,12 +175,12 @@ class ActorCollectionClientAsync(ResourceCollectionClientAsync):
         description: str | None = None,
         seo_title: str | None = None,
         seo_description: str | None = None,
-        versions: list[dict] | None = None,  # type: ignore[valid-type]
+        versions: list[dict] | None = None,  # ty: ignore[invalid-type-form]
         restart_on_error: bool | None = None,
         is_public: bool | None = None,
         is_deprecated: bool | None = None,
         is_anonymously_runnable: bool | None = None,
-        categories: list[str] | None = None,  # type: ignore[valid-type]
+        categories: list[str] | None = None,  # ty: ignore[invalid-type-form]
         default_run_build: str | None = None,
         default_run_max_items: int | None = None,
         default_run_memory_mbytes: int | None = None,
@@ -205,7 +205,7 @@ class ActorCollectionClientAsync(ResourceCollectionClientAsync):
             seo_title: The title of the Actor optimized for search engines.
             seo_description: The description of the Actor optimized for search engines.
             versions: The list of Actor versions.
-            restart_on_error: If true, the main Actor run process will be restarted whenever it exits with
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             is_public: Whether the Actor is public.
             is_deprecated: Whether the Actor is deprecated.

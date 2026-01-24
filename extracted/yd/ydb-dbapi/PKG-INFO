@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ydb-dbapi
-Version: 0.1.14
+Version: 0.1.18
 Summary: YDB Python DBAPI which complies with PEP 249
+License-File: LICENSE
 Author: Yandex LLC
 Author-email: ydb@yandex-team.ru
 Requires-Python: >=3.8,<4.0
@@ -12,7 +13,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: ydb (>=3.21.6,<4.0.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: ydb (>=3.24.0,<4.0.0)
 Project-URL: Repository, https://github.com/ydb-platform/ydb-python-dbapi/
 Description-Content-Type: text/markdown
 

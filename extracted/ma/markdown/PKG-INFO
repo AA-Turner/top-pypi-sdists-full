@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Markdown
-Version: 3.9
+Version: 3.10.1
 Summary: Python implementation of John Gruber's Markdown.
 Author: Manfred Stienstra, Yuri Takhteyev
 Author-email: Waylan limberg <python.markdown@gmail.com>
@@ -17,11 +17,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -33,10 +33,9 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup :: Markdown
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: importlib-metadata>=4.4; python_version < "3.10"
 Provides-Extra: testing
 Requires-Dist: coverage; extra == "testing"
 Requires-Dist: pyyaml; extra == "testing"
@@ -44,7 +43,7 @@ Provides-Extra: docs
 Requires-Dist: mkdocs>=1.6; extra == "docs"
 Requires-Dist: mkdocs-nature>=0.6; extra == "docs"
 Requires-Dist: mdx_gh_links>=0.2; extra == "docs"
-Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: mkdocstrings[python]>=0.28.3; extra == "docs"
 Requires-Dist: mkdocs-gen-files; extra == "docs"
 Requires-Dist: mkdocs-section-index; extra == "docs"
 Requires-Dist: mkdocs-literate-nav; extra == "docs"

@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bertopic"
-version = "0.17.3"
+version = "0.17.4"
 description = "BERTopic performs topic Modeling with state-of-the-art transformer models."
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Maarten P. Grootendorst", email = "maartengrootendorst@gmail.com" },
 ]
@@ -28,7 +28,6 @@ classifiers = [
     "Operating System :: POSIX",
     "Operating System :: Unix",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -79,7 +78,7 @@ spacy = [
 test = [
     "pytest>=5.4.3",
     "pytest-cov>=2.6.1",
-    "ruff~=0.4.7",
+    "ruff~=0.14.0",
 ]
 use = [
     "tensorflow",
@@ -106,11 +105,12 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-  "E4",  # Ruff Defaults
+  "E4",
   "E7",
   "E9",
-  "F",   # End Ruff Defaults,
-  "D"
+  "F",   # pyflakes
+  "D",   # pydocstyle
+  "RUF", # ruff
 ]
 
 ignore = [

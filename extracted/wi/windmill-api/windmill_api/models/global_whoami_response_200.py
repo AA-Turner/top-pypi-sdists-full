@@ -17,6 +17,7 @@ class GlobalWhoamiResponse200:
         login_type (GlobalWhoamiResponse200LoginType):
         super_admin (bool):
         verified (bool):
+        first_time_user (bool):
         devops (Union[Unset, bool]):
         name (Union[Unset, str]):
         company (Union[Unset, str]):
@@ -28,6 +29,7 @@ class GlobalWhoamiResponse200:
     login_type: GlobalWhoamiResponse200LoginType
     super_admin: bool
     verified: bool
+    first_time_user: bool
     devops: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     company: Union[Unset, str] = UNSET
@@ -41,6 +43,7 @@ class GlobalWhoamiResponse200:
 
         super_admin = self.super_admin
         verified = self.verified
+        first_time_user = self.first_time_user
         devops = self.devops
         name = self.name
         company = self.company
@@ -55,6 +58,7 @@ class GlobalWhoamiResponse200:
                 "login_type": login_type,
                 "super_admin": super_admin,
                 "verified": verified,
+                "first_time_user": first_time_user,
             }
         )
         if devops is not UNSET:
@@ -81,6 +85,8 @@ class GlobalWhoamiResponse200:
 
         verified = d.pop("verified")
 
+        first_time_user = d.pop("first_time_user")
+
         devops = d.pop("devops", UNSET)
 
         name = d.pop("name", UNSET)
@@ -96,6 +102,7 @@ class GlobalWhoamiResponse200:
             login_type=login_type,
             super_admin=super_admin,
             verified=verified,
+            first_time_user=first_time_user,
             devops=devops,
             name=name,
             company=company,

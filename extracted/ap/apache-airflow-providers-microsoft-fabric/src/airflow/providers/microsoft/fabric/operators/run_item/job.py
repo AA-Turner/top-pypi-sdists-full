@@ -13,7 +13,26 @@ if TYPE_CHECKING:
     from airflow.utils.context import Context
 
 class MSFabricRunJobOperator(BaseFabricRunItemOperator):
-    """Run a Fabric job via the Job Scheduler."""
+    """Run a Fabric job via the Job Scheduler.
+    
+    Supported job types:
+    - "RunNotebook": Execute a Fabric notebook
+    - "RunPipeline" or "Pipeline": Execute a Fabric data pipeline
+    - "RunSparkJob" or "SparkJob": Execute a Spark job definition
+    """
+
+    @staticmethod
+    def _map_job_type_for_api(job_type: str) -> str:
+        """Map user-friendly job type names to API-compatible names."""
+        """Updates this mapping should be reflected in hook generate_deep_link method."""
+        """List all suported names for clarity"""
+        if job_type == "RunPipeline" or job_type == "Pipeline":
+            return "Pipeline"
+        elif job_type == "RunNotebook" or job_type == "Notebook":
+            return "RunNotebook" # as defined in job api
+        elif job_type == "RunSparkJob" or job_type == "SparkJob":
+            return "sparkjob"
+        return job_type
 
     # Keep template-able primitives as top-level attributes
     template_fields: Sequence[str] = (
@@ -27,8 +46,9 @@ class MSFabricRunJobOperator(BaseFabricRunItemOperator):
         "job_params",
         "api_host",
         "scope",
+        "link_base_url",
     )
-    template_fields_renderers = {"job_params": "json"}  # optional
+    template_fields_renderers = {"job_params": "json"}
 
     operator_extra_links = (MSFabricItemLink(),)
 
@@ -42,9 +62,10 @@ class MSFabricRunJobOperator(BaseFabricRunItemOperator):
         timeout: int = 60 * 60,   # 1 hour
         check_interval: int = 30,
         deferrable: bool = True,
-        job_params: dict | None = None,
+        job_params: str = "",
         api_host: str = "https://api.fabric.microsoft.com",
         scope: str = "https://api.fabric.microsoft.com/.default",
+        link_base_url: str = "https://app.fabric.microsoft.com",
         wait_for_termination = True,
         **kwargs,
     ) -> None:
@@ -56,17 +77,24 @@ class MSFabricRunJobOperator(BaseFabricRunItemOperator):
         self.timeout = timeout
         self.check_interval = check_interval
         self.deferrable = deferrable
-        self.job_params = job_params or {}
+        self.job_params = job_params or ""
         self.api_host = api_host
         self.scope = scope
+        self.link_base_url = link_base_url
         self.wait_for_termination = wait_for_termination # do not document this, available for backwards compatibility only
 
-        # deal with bad config in UI template
-        if job_type == "RunPipeline":
-            self.job_type = "Pipeline"
-            
+        # Build initial item definition with API-compatible job type
+        item = ItemDefinition(
+            workspace_id=self.workspace_id,
+            item_type=self._map_job_type_for_api(job_type),
+            item_id=self.item_id,
+        )
 
-        # Build initial dataclasses from the *current* values
+        # Pass required args to the base class (no hook needed anymore)
+        super().__init__(item=item, **kwargs)
+
+    def create_hook(self) -> MSFabricRunJobHook:
+        """Create and return the hook instance."""
         config = JobSchedulerConfig(
             fabric_conn_id=self.fabric_conn_id,
             timeout_seconds=self.timeout,
@@ -75,27 +103,22 @@ class MSFabricRunJobOperator(BaseFabricRunItemOperator):
             api_scope=self.scope,
             job_params=self.job_params,
         )
-        item = ItemDefinition(
-            workspace_id=self.workspace_id,
-            item_type=self.job_type,
-            item_id=self.item_id,
-        )
-
-        # If your hook needs more than conn_id, add it here
-        hook = MSFabricRunJobHook(config=config)
-
-        # Pass required args to the base class (fixes the missing kwargs error)
-        super().__init__(hook=hook, item=item, **kwargs)
-
-        # Keep the config around if you want to pass it to triggers, etc.
-        self.config = config
+        return MSFabricRunJobHook(config=config)
 
     # Optional but recommended: ensure post-templating objects are rebuilt
     def render_template_fields(self, context, jinja_env=None):
         super().render_template_fields(context, jinja_env=jinja_env)
 
-        # Rebuild objects with the *rendered* values so they’re up to date
-        self.config = JobSchedulerConfig(
+        # Rebuild item with the *rendered* values and API-compatible job type
+        self.item = ItemDefinition(
+            workspace_id=self.workspace_id,
+            item_type=self._map_job_type_for_api(self.job_type),
+            item_id=self.item_id,
+        )
+
+    def create_trigger(self, tracker: RunItemTracker) -> MSFabricRunJobTrigger:
+        """Create and return the trigger."""
+        config = JobSchedulerConfig(
             fabric_conn_id=self.fabric_conn_id,
             timeout_seconds=self.timeout,
             poll_interval_seconds=self.check_interval,
@@ -103,17 +126,8 @@ class MSFabricRunJobOperator(BaseFabricRunItemOperator):
             api_scope=self.scope,
             job_params=self.job_params,
         )
-        self.item = ItemDefinition(
-            workspace_id=self.workspace_id,
-            item_type=self.job_type,
-            item_id=self.item_id,
-        )
-        self.hook = MSFabricRunJobHook(self.config)
-
-    def create_trigger(self, tracker: RunItemTracker) -> MSFabricRunJobTrigger:
-        """Create and return the FabricHook (cached)."""
         return MSFabricRunJobTrigger(
-            config=self.config.to_dict(),
+            config=config.to_dict(),
             tracker=tracker.to_dict())
 
     def execute(self, context: Context) -> None:
@@ -121,4 +135,6 @@ class MSFabricRunJobOperator(BaseFabricRunItemOperator):
         self.log.info("Starting Fabric item run - workspace_id: %s, job_type: %s, item_id: %s",
                       self.item.workspace_id, self.item.item_type, self.item.item_id)
 
-        asyncio.run(self._execute_core(context, self.deferrable, self.wait_for_termination))
+        # Create hook at execution time
+        hook = self.create_hook()
+        asyncio.run(self._execute_core(context, self.deferrable, hook, self.wait_for_termination))

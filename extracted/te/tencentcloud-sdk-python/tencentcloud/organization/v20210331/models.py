@@ -1026,13 +1026,13 @@ class AttachPolicyRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TargetId: 绑定策略目标ID。成员Uin或部门ID
+        :param _TargetId: <p>绑定策略目标ID。成员Uin或部门ID</p>
         :type TargetId: int
-        :param _TargetType: 目标类型。取值范围：NODE-部门、MEMBER-成员
+        :param _TargetType: <p>目标类型。取值范围：NODE-部门、MEMBER-成员</p>
         :type TargetType: str
-        :param _PolicyId: 策略ID。
+        :param _PolicyId: <p>策略Id。可以调用<a href="https://cloud.tencent.com/document/product/850/105311">ListPolicies</a>获取</p>
         :type PolicyId: int
-        :param _Type: 策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略
+        :param _Type: <p>策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略</p>
         :type Type: str
         """
         self._TargetId = None
@@ -1042,7 +1042,7 @@ class AttachPolicyRequest(AbstractModel):
 
     @property
     def TargetId(self):
-        r"""绑定策略目标ID。成员Uin或部门ID
+        r"""<p>绑定策略目标ID。成员Uin或部门ID</p>
         :rtype: int
         """
         return self._TargetId
@@ -1053,7 +1053,7 @@ class AttachPolicyRequest(AbstractModel):
 
     @property
     def TargetType(self):
-        r"""目标类型。取值范围：NODE-部门、MEMBER-成员
+        r"""<p>目标类型。取值范围：NODE-部门、MEMBER-成员</p>
         :rtype: str
         """
         return self._TargetType
@@ -1064,7 +1064,7 @@ class AttachPolicyRequest(AbstractModel):
 
     @property
     def PolicyId(self):
-        r"""策略ID。
+        r"""<p>策略Id。可以调用<a href="https://cloud.tencent.com/document/product/850/105311">ListPolicies</a>获取</p>
         :rtype: int
         """
         return self._PolicyId
@@ -1075,7 +1075,7 @@ class AttachPolicyRequest(AbstractModel):
 
     @property
     def Type(self):
-        r"""策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略
+        r"""<p>策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略</p>
         :rtype: str
         """
         return self._Type
@@ -3337,6 +3337,8 @@ class CreateUserRequest(AbstractModel):
         :type UserStatus: str
         :param _UserType: 用户类型  Manual：手动创建，Synchronized：外部导入
         :type UserType: str
+        :param _NeedResetPassword: 是否需要重置密码： true: 需要重置  false: 不需要重置密码。 默认false
+        :type NeedResetPassword: bool
         """
         self._ZoneId = None
         self._UserName = None
@@ -3347,6 +3349,7 @@ class CreateUserRequest(AbstractModel):
         self._Email = None
         self._UserStatus = None
         self._UserType = None
+        self._NeedResetPassword = None
 
     @property
     def ZoneId(self):
@@ -3447,6 +3450,17 @@ class CreateUserRequest(AbstractModel):
     def UserType(self, UserType):
         self._UserType = UserType
 
+    @property
+    def NeedResetPassword(self):
+        r"""是否需要重置密码： true: 需要重置  false: 不需要重置密码。 默认false
+        :rtype: bool
+        """
+        return self._NeedResetPassword
+
+    @NeedResetPassword.setter
+    def NeedResetPassword(self, NeedResetPassword):
+        self._NeedResetPassword = NeedResetPassword
+
 
     def _deserialize(self, params):
         self._ZoneId = params.get("ZoneId")
@@ -3458,6 +3472,7 @@ class CreateUserRequest(AbstractModel):
         self._Email = params.get("Email")
         self._UserStatus = params.get("UserStatus")
         self._UserType = params.get("UserType")
+        self._NeedResetPassword = params.get("NeedResetPassword")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8441,13 +8456,13 @@ class DetachPolicyRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TargetId: 解绑策略目标ID。成员Uin或部门ID
+        :param _TargetId: <p>解绑策略目标ID。成员Uin或部门ID</p>
         :type TargetId: int
-        :param _TargetType: 目标类型。取值范围：NODE-部门、MEMBER-成员
+        :param _TargetType: <p>目标类型。取值范围：NODE-部门、MEMBER-成员</p>
         :type TargetType: str
-        :param _PolicyId: 策略ID。
+        :param _PolicyId: <p>策略Id。可以调用<a href="https://cloud.tencent.com/document/product/850/105311">ListPolicies</a>获取</p>
         :type PolicyId: int
-        :param _Type: 策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略
+        :param _Type: <p>策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略</p>
         :type Type: str
         """
         self._TargetId = None
@@ -8457,7 +8472,7 @@ class DetachPolicyRequest(AbstractModel):
 
     @property
     def TargetId(self):
-        r"""解绑策略目标ID。成员Uin或部门ID
+        r"""<p>解绑策略目标ID。成员Uin或部门ID</p>
         :rtype: int
         """
         return self._TargetId
@@ -8468,7 +8483,7 @@ class DetachPolicyRequest(AbstractModel):
 
     @property
     def TargetType(self):
-        r"""目标类型。取值范围：NODE-部门、MEMBER-成员
+        r"""<p>目标类型。取值范围：NODE-部门、MEMBER-成员</p>
         :rtype: str
         """
         return self._TargetType
@@ -8479,7 +8494,7 @@ class DetachPolicyRequest(AbstractModel):
 
     @property
     def PolicyId(self):
-        r"""策略ID。
+        r"""<p>策略Id。可以调用<a href="https://cloud.tencent.com/document/product/850/105311">ListPolicies</a>获取</p>
         :rtype: int
         """
         return self._PolicyId
@@ -8490,7 +8505,7 @@ class DetachPolicyRequest(AbstractModel):
 
     @property
     def Type(self):
-        r"""策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略
+        r"""<p>策略类型。默认值SERVICE_CONTROL_POLICY，取值范围：SERVICE_CONTROL_POLICY-服务控制策略、TAG_POLICY-标签策略</p>
         :rtype: str
         """
         return self._Type
@@ -19249,10 +19264,24 @@ class SetExternalSAMLIdentityProviderResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _CertificateIds: 证书ID。
+        :type CertificateIds: list of str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._CertificateIds = None
         self._RequestId = None
+
+    @property
+    def CertificateIds(self):
+        r"""证书ID。
+        :rtype: list of str
+        """
+        return self._CertificateIds
+
+    @CertificateIds.setter
+    def CertificateIds(self, CertificateIds):
+        self._CertificateIds = CertificateIds
 
     @property
     def RequestId(self):
@@ -19267,6 +19296,7 @@ class SetExternalSAMLIdentityProviderResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._CertificateIds = params.get("CertificateIds")
         self._RequestId = params.get("RequestId")
 
 
@@ -21562,6 +21592,8 @@ class UpdateUserRequest(AbstractModel):
         :type NewDescription: str
         :param _NewEmail: 用户的电子邮箱。
         :type NewEmail: str
+        :param _NeedResetPassword: 是否需要重置密码
+        :type NeedResetPassword: bool
         """
         self._ZoneId = None
         self._UserId = None
@@ -21570,6 +21602,7 @@ class UpdateUserRequest(AbstractModel):
         self._NewDisplayName = None
         self._NewDescription = None
         self._NewEmail = None
+        self._NeedResetPassword = None
 
     @property
     def ZoneId(self):
@@ -21648,6 +21681,17 @@ class UpdateUserRequest(AbstractModel):
     def NewEmail(self, NewEmail):
         self._NewEmail = NewEmail
 
+    @property
+    def NeedResetPassword(self):
+        r"""是否需要重置密码
+        :rtype: bool
+        """
+        return self._NeedResetPassword
+
+    @NeedResetPassword.setter
+    def NeedResetPassword(self, NeedResetPassword):
+        self._NeedResetPassword = NeedResetPassword
+
 
     def _deserialize(self, params):
         self._ZoneId = params.get("ZoneId")
@@ -21657,6 +21701,7 @@ class UpdateUserRequest(AbstractModel):
         self._NewDisplayName = params.get("NewDisplayName")
         self._NewDescription = params.get("NewDescription")
         self._NewEmail = params.get("NewEmail")
+        self._NeedResetPassword = params.get("NeedResetPassword")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -22042,6 +22087,8 @@ class UserInfo(AbstractModel):
         :type IsSelected: bool
         :param _Password: 用户密码
         :type Password: str
+        :param _NeedResetPassword: 下次登录是否需要重置密码， true: 需要重置密码， false：不需要重置密码
+        :type NeedResetPassword: bool
         """
         self._UserName = None
         self._FirstName = None
@@ -22056,6 +22103,7 @@ class UserInfo(AbstractModel):
         self._UpdateTime = None
         self._IsSelected = None
         self._Password = None
+        self._NeedResetPassword = None
 
     @property
     def UserName(self):
@@ -22200,6 +22248,17 @@ class UserInfo(AbstractModel):
     def Password(self, Password):
         self._Password = Password
 
+    @property
+    def NeedResetPassword(self):
+        r"""下次登录是否需要重置密码， true: 需要重置密码， false：不需要重置密码
+        :rtype: bool
+        """
+        return self._NeedResetPassword
+
+    @NeedResetPassword.setter
+    def NeedResetPassword(self, NeedResetPassword):
+        self._NeedResetPassword = NeedResetPassword
+
 
     def _deserialize(self, params):
         self._UserName = params.get("UserName")
@@ -22215,6 +22274,7 @@ class UserInfo(AbstractModel):
         self._UpdateTime = params.get("UpdateTime")
         self._IsSelected = params.get("IsSelected")
         self._Password = params.get("Password")
+        self._NeedResetPassword = params.get("NeedResetPassword")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: netflix-spectator-py
-Version: 1.1.1
+Version: 1.1.2
 Summary: Library for reporting metrics from Python applications to SpectatorD and the Netflix Atlas Timeseries Database.
 Home-page: https://github.com/Netflix/spectator-py
 Author: Netflix Telemetry Engineering
 Author-email: netflix-atlas@googlegroups.com
 License: Apache 2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: check-manifest; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest; extra == "dev"

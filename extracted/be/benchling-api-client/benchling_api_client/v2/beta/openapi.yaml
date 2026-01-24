@@ -2512,6 +2512,46 @@ paths:
       summary: Append worklist item
       tags:
       - Worklists
+  /worksheets/{worksheet_id}/review-changes:
+    get:
+      description: Get a worksheet's review changes given a worksheet ID
+      operationId: getWorksheetReviewChanges
+      parameters:
+      - description: ID of the worksheet
+        in: path
+        name: worksheet_id
+        required: true
+        schema:
+          type: string
+      - description: 'Comma-separated list of fields to return. Modifies the output
+          shape. To return all keys at a given level, enumerate them or use the wildcard,
+          ''*''. For more information, [click here](https://docs.benchling.com/docs/getting-started-1#returning-query-parameter).
+
+          '
+        in: query
+        name: returning
+        schema:
+          example: id, name, modifiedAt
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorksheetReviewChangesById'
+          description: 'Returns a single worksheet''s basic metadata along with its
+            review changes, including any snapshot information if present.
+
+            '
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+          description: Not Found
+      summary: Get a worksheet's review changes given a worksheet ID
+      tags:
+      - Worksheets
 components:
   parameters:
     archiveReasonFilter:
@@ -2742,6 +2782,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/ArchiveRecord'
           nullable: true
+        authors:
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          type: array
         createdAt:
           description: DateTime the AA sequence was created.
           format: date-time
@@ -2791,8 +2835,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/SchemaSummary'
           nullable: true
+        url:
+          description: The path of the web URL, omitting the tenant domain
+          type: string
         webURL:
-          description: URL of the protein.
+          description: URL of the AA sequence.
           example: https://benchling.com/benchling/f/lib_55UxcIps-registry/prtn_7nMBOMm0-kedchain11/edit"
           format: uri
           readOnly: true
@@ -2878,6 +2925,16 @@ components:
         type:
           deprecated: true
           type: string
+      type: object
+    AaSequenceWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/AaSequence'
+      - properties:
+          entityType:
+            enum:
+            - aa_sequence
+            type: string
+        type: object
       type: object
     AccessPoliciesPaginatedList:
       additionalProperties: false
@@ -2974,6 +3031,7 @@ components:
       - custom_entity_link
       - entity_link
       - mixture_link
+      - molecule_link
       - dropdown
       - part_link
       - translation_link
@@ -3752,6 +3810,9 @@ components:
             id: ts_EM122lfJ
             name: Strain
           nullable: true
+        url:
+          description: The path of the web URL, omitting the tenant domain
+          type: string
         webURL:
           example: https://benchling.com/benchling/f/R8KcsjhW-academic-registry/bfi-xCUXNVyG-sbn000/edit
           readOnly: true
@@ -3821,6 +3882,16 @@ components:
       allOf:
       - $ref: '#/components/schemas/EntityUpsertBaseRequest'
       - $ref: '#/components/schemas/CustomEntityBaseRequestForCreate'
+    CustomEntityWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/CustomEntity'
+      - properties:
+          entityType:
+            enum:
+            - custom_entity
+            type: string
+        type: object
+      type: object
     CustomField:
       properties:
         value:
@@ -4357,6 +4428,16 @@ components:
               chemical modifications
             example: RNA1{d(A)p.d(C)[Ssp].d(T)p.d(T)p.d(T)p.d(T)p.d(T)p}$$$$V2.0
             type: string
+    DnaOligoWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/DnaOligo'
+      - properties:
+          entityType:
+            enum:
+            - dna_oligo
+            type: string
+        type: object
+      type: object
     DnaSequence:
       properties:
         aliases:
@@ -4377,6 +4458,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/ArchiveRecord'
           nullable: true
+        authors:
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          type: array
         bases:
           type: string
         createdAt:
@@ -4387,6 +4472,11 @@ components:
           $ref: '#/components/schemas/UserSummary'
         customFields:
           $ref: '#/components/schemas/CustomFields'
+        dnaAlignmentIds:
+          description: API IDs of Nucleotide Alignments involving the RNA sequence
+          items:
+            type: string
+          type: array
         entityRegistryId:
           nullable: true
           type: string
@@ -4435,6 +4525,9 @@ components:
           items:
             $ref: '#/components/schemas/Translation'
           type: array
+        url:
+          description: The path of the web URL, omitting the tenant domain
+          type: string
         webURL:
           readOnly: true
           type: string
@@ -4574,6 +4667,16 @@ components:
           minimum: -1
           type: integer
       type: object
+    DnaSequenceWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/DnaSequence'
+      - properties:
+          entityType:
+            enum:
+            - dna_sequence
+            type: string
+        type: object
+      type: object
     DropdownDependency:
       additionalProperties: false
       allOf:
@@ -4622,13 +4725,26 @@ components:
           type: array
       type: object
     Entity:
+      discriminator:
+        mapping:
+          aa_sequence: '#/components/schemas/AaSequenceWithEntityType'
+          custom_entity: '#/components/schemas/CustomEntityWithEntityType'
+          dna_oligo: '#/components/schemas/DnaOligoWithEntityType'
+          dna_sequence: '#/components/schemas/DnaSequenceWithEntityType'
+          mixture: '#/components/schemas/MixtureWithEntityType'
+          molecule: '#/components/schemas/MoleculeWithEntityType'
+          rna_oligo: '#/components/schemas/RnaOligoWithEntityType'
+          rna_sequence: '#/components/schemas/RnaSequenceWithEntityType'
+        propertyName: entityType
       oneOf:
-      - $ref: '#/components/schemas/DnaSequence'
-      - $ref: '#/components/schemas/AaSequence'
-      - $ref: '#/components/schemas/Mixture'
-      - $ref: '#/components/schemas/DnaOligo'
-      - $ref: '#/components/schemas/RnaOligo'
-      - $ref: '#/components/schemas/CustomEntity'
+      - $ref: '#/components/schemas/DnaSequenceWithEntityType'
+      - $ref: '#/components/schemas/RnaSequenceWithEntityType'
+      - $ref: '#/components/schemas/AaSequenceWithEntityType'
+      - $ref: '#/components/schemas/MixtureWithEntityType'
+      - $ref: '#/components/schemas/DnaOligoWithEntityType'
+      - $ref: '#/components/schemas/RnaOligoWithEntityType'
+      - $ref: '#/components/schemas/MoleculeWithEntityType'
+      - $ref: '#/components/schemas/CustomEntityWithEntityType'
       type: object
     EntityBulkUpsertBaseRequest:
       allOf:
@@ -5361,6 +5477,7 @@ components:
       - custom_entity_link
       - entity_link
       - mixture_link
+      - molecule_link
       - dropdown
       - part_link
       - translation_link
@@ -5621,7 +5738,7 @@ components:
           - $ref: '#/components/schemas/ArchiveRecord'
           nullable: true
         authors:
-          description: 'Array of UserSummary Resources of the authors of the entry.
+          description: 'Array of UserSummary Resources of the authors of the entity.
             This defaults to the creator but can be manually changed.
 
             '
@@ -6070,6 +6187,20 @@ components:
       - v2.workflowTaskGroup.created
       - v2.workflowTaskGroup.mappingCompleted
       - v2.workflowTaskGroup.updated.watchers
+      - v3.customEntity.created
+      - v3.customEntity.updated
+      - v3.dnaOligo.created
+      - v3.dnaOligo.updated
+      - v3.dnaSequence.created
+      - v3.dnaSequence.updated
+      - v3.entry.created
+      - v3.project.created
+      - v3.project.updated
+      - v3.rnaOligo.created
+      - v3.rnaOligo.updated
+      - v3.rnaSequence.created
+      - v3.rnaSequence.updated
+      - v3.run.created
       type: string
     Mixture:
       properties:
@@ -6190,6 +6321,16 @@ components:
             - mixture_prep_table
             type: string
         type: object
+    MixtureWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/Mixture'
+      - properties:
+          entityType:
+            enum:
+            - mixture
+            type: string
+        type: object
+      type: object
     Molecule:
       additionalProperties: false
       properties:
@@ -6207,6 +6348,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/ArchiveRecord'
           nullable: true
+        authors:
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          type: array
         canonicalizedSmiles:
           description: The canonicalized chemical structure in SMILES format.
           example: Nc1nc(=O)n([H])cc1C1CC1
@@ -6355,6 +6500,16 @@ components:
       allOf:
       - $ref: '#/components/schemas/EntityUpsertBaseRequest'
       - $ref: '#/components/schemas/MoleculeBaseRequestForCreate'
+    MoleculeWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/Molecule'
+      - properties:
+          entityType:
+            enum:
+            - molecule
+            type: string
+        type: object
+      type: object
     NotFoundError:
       properties:
         error:
@@ -6402,6 +6557,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/ArchiveRecord'
           nullable: true
+        authors:
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          type: array
         bases:
           description: Base pairs of the Oligo.
           example: ACTTTTT
@@ -6521,7 +6680,6 @@ components:
       allOf:
       - $ref: '#/components/schemas/OligoBaseRequest'
       - required:
-        - bases
         - name
     OligoBulkUpsertRequest:
       allOf:
@@ -6888,6 +7046,143 @@ components:
           nucleotideType:
             example: RNA
             type: string
+    RnaOligoWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/RnaOligo'
+      - properties:
+          entityType:
+            enum:
+            - rna_oligo
+            type: string
+        type: object
+      type: object
+    RnaSequence:
+      properties:
+        aliases:
+          items:
+            type: string
+          type: array
+        alignmentIds:
+          description: API IDs of Nucleotide Alignments involving the RNA sequence
+          items:
+            type: string
+          type: array
+        annotations:
+          items:
+            $ref: '#/components/schemas/RnaAnnotation'
+          type: array
+        apiURL:
+          description: The canonical url of the RNA Sequence in the API.
+          example: https://benchling.com/api/v2/rna-sequences/seq_asZya4lk
+          format: uri
+          readOnly: true
+          type: string
+        archiveRecord:
+          allOf:
+          - $ref: '#/components/schemas/ArchiveRecord'
+          nullable: true
+        authors:
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          type: array
+        bases:
+          type: string
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        creator:
+          $ref: '#/components/schemas/UserSummary'
+        customFields:
+          $ref: '#/components/schemas/CustomFields'
+        customNotation:
+          description: Representation of the RNA Sequence in the custom notation specified
+            in the request. Null if no notation was specified.
+          nullable: true
+          type: string
+        customNotationName:
+          description: Name of the custom notation specified in the request. Null
+            if no notation was specified.
+          nullable: true
+          type: string
+        entityRegistryId:
+          nullable: true
+          type: string
+        fields:
+          $ref: '#/components/schemas/Fields'
+        folderId:
+          nullable: true
+          type: string
+        helm:
+          description: Representation of the RNA Sequence in HELM syntax, including
+            any chemical modifications.
+          example: RNA1{r(A)p.r(C)[Ssp].r(U)p.r(U)p.r(U)p.r(U)p.r(U)p}$$$$V2.0
+          nullable: true
+          type: string
+        id:
+          type: string
+        isCircular:
+          example: false
+          type: boolean
+        length:
+          type: integer
+        modifiedAt:
+          format: date-time
+          readOnly: true
+          type: string
+        name:
+          type: string
+        parts:
+          items:
+            $ref: '#/components/schemas/RnaSequencePart'
+          type: array
+        primers:
+          items:
+            $ref: '#/components/schemas/Primer'
+          type: array
+        registrationOrigin:
+          allOf:
+          - $ref: '#/components/schemas/RegistrationOrigin'
+          nullable: true
+          readOnly: true
+        registryId:
+          nullable: true
+          type: string
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/SchemaSummary'
+          nullable: true
+        translations:
+          items:
+            $ref: '#/components/schemas/Translation'
+          type: array
+        url:
+          description: The path of the web URL, omitting the tenant domain
+          type: string
+        webURL:
+          readOnly: true
+          type: string
+      type: object
+    RnaSequencePart:
+      allOf:
+      - $ref: '#/components/schemas/NucleotideSequencePart'
+      - properties:
+          strand:
+            example: 1
+            maximum: 1
+            minimum: 1
+            type: integer
+        type: object
+    RnaSequenceWithEntityType:
+      allOf:
+      - $ref: '#/components/schemas/RnaSequence'
+      - properties:
+          entityType:
+            enum:
+            - rna_sequence
+            type: string
+        type: object
+      type: object
     SampleRestrictionStatus:
       enum:
       - RESTRICTED
@@ -7466,6 +7761,77 @@ components:
             $ref: '#/components/schemas/Worklist'
           type: array
       type: object
+    WorksheetReviewChanges:
+      description: 'Contents include basic worksheet metadata along with its review
+        changes, including any snapshot information if present.
+
+        '
+      properties:
+        apiURL:
+          description: The canonical url of the Worksheet in the API.
+          example: https://benchling.com/api/v2-beta/worksheets/wks_0ma1gawd/review-changes
+          format: uri
+          nullable: true
+          readOnly: true
+          type: string
+        createdAt:
+          description: DateTime the worksheet was created at
+          format: date-time
+          readOnly: true
+          type: string
+        creator:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          description: UserSummary Resource of the user who created the worksheet
+          readOnly: true
+        folderId:
+          description: ID of the folder that contains the worksheet
+          type: string
+        id:
+          description: ID of the worksheet
+          example: wks_0ma1gawd
+          type: string
+        modifiedAt:
+          description: DateTime the worksheet was last modified
+          type: string
+        name:
+          description: Title of the worksheet
+          type: string
+        reviewRecord:
+          description: Review record if set
+          nullable: true
+          properties:
+            comment:
+              description: Reviewer's Comments
+              type: string
+            reviewChanges:
+              description: A list of the Review Changes that have been made to this
+                worksheet
+              items:
+                $ref: '#/components/schemas/ReviewChange'
+              type: array
+            status:
+              description: Review Status of the worksheet
+              enum:
+              - ACCEPTED
+              - NEEDS_REVIEW
+              - REJECTED
+              - RETRACTED
+              - ACCEPTANCE_SNAPSHOT_IN_PROGRESS
+              - REVIEW_SNAPSHOT_IN_PROGRESS
+              - IN_PROGRESS
+              - ACTION_REQUIRED
+              type: string
+          type: object
+        webURL:
+          description: URL of the worksheet
+          type: string
+      type: object
+    WorksheetReviewChangesById:
+      properties:
+        worksheet:
+          $ref: '#/components/schemas/WorksheetReviewChanges'
+      type: object
   securitySchemes:
     basicApiKeyAuth:
       description: Use issued API key for standard access to the API
@@ -7528,8 +7894,8 @@ tags:
     assigned to access an item.
   name: Collaborations
 - description: 'Benchling supports custom entities for biological entities that are
-    neither sequences or proteins. Custom entities must have an entity schema set
-    and can have both schema fields and custom fields.
+    neither DNA, RNA, nor AA sequences. Custom entities must have an entity schema
+    set and can have both schema fields and custom fields.
 
     '
   name: Custom Entities
@@ -7587,3 +7953,6 @@ tags:
 - description: Worklists are a convenient way to organize items for bulk actions,
     and are complementary to folders and projects
   name: Worklists
+- description: Worksheets are structured documents that help you plan and describe
+    your experiment operations in a consistent way
+  name: Worksheets

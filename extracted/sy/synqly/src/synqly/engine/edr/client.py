@@ -70,13 +70,10 @@ class EdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -458,13 +455,10 @@ class EdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -868,13 +862,10 @@ class EdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -1085,13 +1076,10 @@ class EdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -1302,13 +1290,10 @@ class EdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -1942,13 +1927,10 @@ class EdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -2027,6 +2009,9 @@ class EdrClient:
         self,
         *,
         meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        passthrough_param: typing.Optional[
+            typing.Union[str, typing.Sequence[str]]
+        ] = None,
         filter: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         include_raw_data: typing.Optional[bool] = None,
         limit: typing.Optional[int] = None,
@@ -2041,6 +2026,9 @@ class EdrClient:
         ----------
         meta : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
+
+        passthrough_param : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Provider-specific query to pass through to the EDR. This is useful for advanced queries that require additional filtering.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter events. Multiple filters can be provided.
@@ -2075,6 +2063,7 @@ class EdrClient:
         )
         client.edr.query_edr_events(
             meta="string",
+            passthrough_param="string",
             filter="string",
             include_raw_data=True,
             limit=1,
@@ -2087,6 +2076,7 @@ class EdrClient:
             method="GET",
             params={
                 "meta": meta,
+                "passthrough-param": passthrough_param,
                 "filter": filter,
                 "include_raw_data": include_raw_data,
                 "limit": limit,
@@ -2269,13 +2259,10 @@ class AsyncEdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2673,13 +2660,10 @@ class AsyncEdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3099,13 +3083,10 @@ class AsyncEdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -3324,13 +3305,10 @@ class AsyncEdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -3549,13 +3527,10 @@ class AsyncEdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -4212,13 +4187,10 @@ class AsyncEdrClient:
             Start search from cursor position.
 
         order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order. The ordering defaults to `asc` if not specified.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         include_raw_data : typing.Optional[bool]
             Include the raw data from the EDR in the response. Defaults to `false`.
@@ -4305,6 +4277,9 @@ class AsyncEdrClient:
         self,
         *,
         meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        passthrough_param: typing.Optional[
+            typing.Union[str, typing.Sequence[str]]
+        ] = None,
         filter: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         include_raw_data: typing.Optional[bool] = None,
         limit: typing.Optional[int] = None,
@@ -4319,6 +4294,9 @@ class AsyncEdrClient:
         ----------
         meta : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
+
+        passthrough_param : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Provider-specific query to pass through to the EDR. This is useful for advanced queries that require additional filtering.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter events. Multiple filters can be provided.
@@ -4358,6 +4336,7 @@ class AsyncEdrClient:
         async def main() -> None:
             await client.edr.query_edr_events(
                 meta="string",
+                passthrough_param="string",
                 filter="string",
                 include_raw_data=True,
                 limit=1,
@@ -4373,6 +4352,7 @@ class AsyncEdrClient:
             method="GET",
             params={
                 "meta": meta,
+                "passthrough-param": passthrough_param,
                 "filter": filter,
                 "include_raw_data": include_raw_data,
                 "limit": limit,

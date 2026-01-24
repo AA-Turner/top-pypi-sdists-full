@@ -175,7 +175,6 @@ def _process_era(caches, sess, era_id, date, year_start):
 
     mop_contract = era.mop_contract
     mop_contract_name = mop_contract.name
-    mop_account = era.mop_account
     latest_mop_bill_date = (
         sess.query(Bill.finish_date)
         .join(Batch)
@@ -193,7 +192,6 @@ def _process_era(caches, sess, era_id, date, year_start):
 
     dc_contract = era.dc_contract
     dc_contract_name = dc_contract.name
-    dc_account = era.dc_account
     latest_dc_bill_date = (
         sess.query(Bill.finish_date)
         .join(Batch)
@@ -232,8 +230,7 @@ def _process_era(caches, sess, era_id, date, year_start):
         month_mds = tuple(
             md[0] * 2
             for md in sess.execute(
-                text(
-                    """
+                text("""
 
 select max(hh_datum.value) as md
 from hh_datum join channel on (hh_datum.channel_id = channel.id)
@@ -246,8 +243,7 @@ group by extract(month from (hh_datum.start_date at time zone 'utc'))
 order by md desc
 limit 3
 
-"""
-                ),
+"""),
                 params=params,
             )
         )
@@ -363,9 +359,7 @@ limit 3
             era.energisation_status.code,
             num_registers,
             mop_contract_name,
-            mop_account,
             dc_contract_name,
-            dc_account,
             era.msn,
             meter_installation_date,
             latest_normal_read_date,
@@ -435,9 +429,7 @@ def _process(sess, f, date, supply_id, mpan_cores):
         "Energisation Status",
         "Number Of Registers",
         "MOP Contract",
-        "Mop Account",
         "DC Contract",
-        "DC Account",
         "Meter Serial Number",
         "Meter Installation Date",
         "Latest Normal Meter Read Date",

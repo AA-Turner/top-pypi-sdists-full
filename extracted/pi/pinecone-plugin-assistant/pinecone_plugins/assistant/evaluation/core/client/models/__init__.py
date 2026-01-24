@@ -12,7 +12,6 @@
 from pinecone_plugins.assistant.evaluation.core.client.model.alignment_request import AlignmentRequest
 from pinecone_plugins.assistant.evaluation.core.client.model.alignment_response import AlignmentResponse
 from pinecone_plugins.assistant.evaluation.core.client.model.basic_error_response import BasicErrorResponse
-from pinecone_plugins.assistant.evaluation.core.client.model.entailment import Entailment
 from pinecone_plugins.assistant.evaluation.core.client.model.evaluated_fact import EvaluatedFact
 from pinecone_plugins.assistant.evaluation.core.client.model.fact import Fact
 from pinecone_plugins.assistant.evaluation.core.client.model.metrics import Metrics

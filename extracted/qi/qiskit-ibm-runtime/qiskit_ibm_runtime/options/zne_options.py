@@ -12,7 +12,8 @@
 
 """Zero noise extrapolation mitigation options.."""
 
-from typing import Union, Sequence, Literal
+from typing import Literal
+from collections.abc import Sequence
 
 from pydantic import field_validator, model_validator
 
@@ -57,8 +58,9 @@ class ZneOptions:
         2. ``pub_result.data.evs_noise_factors``, ``pub_result.data.stds_noise_factors``, and
            ``ensemble_stds_noise_factors`` all have shape ``(*shape, num_noise_factors)`` where
            ``num_noise_factors`` is the length of ``options.resilience.zne.noise_factors``. These
-           values provide evaluations of the best-fit model at each of the noise amplifications.
-           In the case of no twirling, both ``*stds*`` arrays will be equal, otherwise,
+           values provide raw expectation values, averaged over twirling if applicable,
+           at each of the noise amplifications; you can base your own fitting routines off of these
+           values. In the case of no twirling, both ``*stds*`` arrays will be equal, otherwise,
            ``stds_noise_factors`` is derived from the spread over twirling samples, whereas
            ``ensemble_stds_noise_factors`` assumes only shot noise and no drift.
 
@@ -77,9 +79,9 @@ class ZneOptions:
            `npj Quantum Inf 7, 80 (2021) <https://www.nature.com/articles/s41534-021-00404-3>`_
     """
 
-    amplifier: Union[
-        UnsetType, Literal["gate_folding", "gate_folding_front", "gate_folding_back", "pea"]
-    ] = Unset
+    amplifier: (
+        UnsetType | Literal["gate_folding", "gate_folding_front", "gate_folding_back", "pea"]
+    ) = Unset
     r"""Which technique to use for amplifying noise. 
     
         One of:
@@ -103,34 +105,34 @@ class ZneOptions:
                 your circuits is amplified by probabilistically injecting single-qubit noise
                 proportional to the corresponding learned noise model.
     """
-    noise_factors: Union[UnsetType, Sequence[float]] = Unset
+    noise_factors: UnsetType | Sequence[float] = Unset
     r""" noise_factors: Noise factors to use for noise amplification. 
          
     Default: ``(1, 1.5, 2)`` for PEA, and ``(1, 3, 5)`` otherwise.
     """
-    extrapolator: Union[UnsetType, ExtrapolatorType, Sequence[ExtrapolatorType]] = Unset
+    extrapolator: UnsetType | ExtrapolatorType | Sequence[ExtrapolatorType] = Unset
     r"""Extrapolator(s) to try (in order) for extrapolating to zero noise.
 
         The available options are:
 
-            * ``"exponential"``, which fits the data using an exponential decaying function defined
-                as :math:`f(x; A, \\tau) = A e^{-x/\\tau}`, where :math:`A = f(0; A, \\tau)` is the
-                value at zero noise (:math:`x=0`) and :math:`\\tau>0` is a positive rate.
+            * ``"exponential"``, which fits the data using an exponential decaying function 
+              defined as :math:`f(x; A, \tau) = A e^{-x/\tau}`, where :math:`A = f(0; A, \tau)` is the
+              value at zero noise (:math:`x=0`) and :math:`\tau>0` is a positive rate.
             * ``"double_exponential"``, which uses a sum of two exponential as in Ref. 1.
             * ``"polynomial_degree_(1 <= k <= 7)"``, which uses a polynomial function defined as
-                :math:`f(x; c_0, c_1, \\ldots, c_k) = \\sum_{i=0, k} c_i x^i`.
+              :math:`f(x; c_0, c_1, \ldots, c_k) = \sum_{i=0, k} c_i x^i`.
             * ``"linear"``, which is equivalent to ``"polynomial_degree_1"``.
             * ``"fallback"``, which simply returns the raw data corresponding to the lowest noise
-                factor (typically ``1``) without performing any sort of extrapolation.
+              factor (typically ``1``) without performing any sort of extrapolation.
 
-        If more than one extrapolator is specified, the ``evs`` and ``stds`` reported in the
-        result's data refer to the first one, while the extrapolated values
-        (``evs_extrapolated`` and ``stds_extrapolated``) are sorted according to the order of
-        the extrapolators provided.
+        The extrapolated values (``evs_extrapolated`` and ``stds_extrapolated``) are sorted according to
+        the order of the provided extrapolators. If more than one extrapolator is specified, the ``evs``
+        and ``stds`` reported in the result's data refer to the first successful extrapolator, where an
+        extrapolator success is determined heuristically.
 
         Default: ``("exponential", "linear")``.
     """
-    extrapolated_noise_factors: Union[UnsetType, Sequence[float]] = Unset
+    extrapolated_noise_factors: UnsetType | Sequence[float] = Unset
     r"""Noise factors to evaluate the fit extrapolation models at.
 
         If unset, this will default to ``[0, *noise_factors]``. This

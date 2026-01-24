@@ -8,10 +8,12 @@ import typing
 # Export this package's modules as members:
 from .addons_config import *
 from .api import *
+from .api_deployment import *
 from .api_product import *
 from .app_group import *
 from .control_plane_access import *
 from .developer import *
+from .developer_app import *
 from .dns_zone import *
 from .endpoint_attachment import *
 from .env_group import *
@@ -20,6 +22,7 @@ from .env_keystore import *
 from .env_references import *
 from .environment import *
 from .environment_addons_config import *
+from .environment_api_revision_deployment import *
 from .environment_iam_binding import *
 from .environment_iam_member import *
 from .environment_iam_policy import *
@@ -35,6 +38,7 @@ from .keystores_aliases_self_signed_cert import *
 from .nat_address import *
 from .organization import *
 from .security_action import *
+from .security_feedback import *
 from .security_monitoring_condition import *
 from .security_profile_v2 import *
 from .sharedflow import *

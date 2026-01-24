@@ -56,6 +56,7 @@ __all__ = [
     'KubernetesClusterApiServerAccessProfile',
     'KubernetesClusterAutoScalerProfile',
     'KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl',
+    'KubernetesClusterBootstrapProfile',
     'KubernetesClusterConfidentialComputing',
     'KubernetesClusterDefaultNodePool',
     'KubernetesClusterDefaultNodePoolKubeletConfig',
@@ -88,6 +89,7 @@ __all__ = [
     'KubernetesClusterMicrosoftDefender',
     'KubernetesClusterMonitorMetrics',
     'KubernetesClusterNetworkProfile',
+    'KubernetesClusterNetworkProfileAdvancedNetworking',
     'KubernetesClusterNetworkProfileLoadBalancerProfile',
     'KubernetesClusterNetworkProfileNatGatewayProfile',
     'KubernetesClusterNodePoolKubeletConfig',
@@ -97,6 +99,7 @@ __all__ = [
     'KubernetesClusterNodePoolNodeNetworkProfileAllowedHostPort',
     'KubernetesClusterNodePoolUpgradeSettings',
     'KubernetesClusterNodePoolWindowsProfile',
+    'KubernetesClusterNodeProvisioningProfile',
     'KubernetesClusterOmsAgent',
     'KubernetesClusterOmsAgentOmsAgentIdentity',
     'KubernetesClusterServiceMeshProfile',
@@ -3016,6 +3019,10 @@ class KubernetesClusterApiServerAccessProfile(dict):
         suggest = None
         if key == "authorizedIpRanges":
             suggest = "authorized_ip_ranges"
+        elif key == "subnetId":
+            suggest = "subnet_id"
+        elif key == "virtualNetworkIntegrationEnabled":
+            suggest = "virtual_network_integration_enabled"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in KubernetesClusterApiServerAccessProfile. Access the value via the '{suggest}' property getter instead.")
@@ -3029,12 +3036,20 @@ class KubernetesClusterApiServerAccessProfile(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 authorized_ip_ranges: Optional[Sequence[_builtins.str]] = None):
+                 authorized_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 subnet_id: Optional[_builtins.str] = None,
+                 virtual_network_integration_enabled: Optional[_builtins.bool] = None):
         """
         :param Sequence[_builtins.str] authorized_ip_ranges: Set of authorized IP ranges to allow access to API server, e.g. ["198.51.100.0/24"].
+        :param _builtins.str subnet_id: The ID of the Subnet where the API server endpoint is delegated to.
+        :param _builtins.bool virtual_network_integration_enabled: Whether to enable virtual network integration for the API Server. Defaults to `false`.
         """
         if authorized_ip_ranges is not None:
             pulumi.set(__self__, "authorized_ip_ranges", authorized_ip_ranges)
+        if subnet_id is not None:
+            pulumi.set(__self__, "subnet_id", subnet_id)
+        if virtual_network_integration_enabled is not None:
+            pulumi.set(__self__, "virtual_network_integration_enabled", virtual_network_integration_enabled)
 
     @_builtins.property
     @pulumi.getter(name="authorizedIpRanges")
@@ -3043,6 +3058,22 @@ class KubernetesClusterApiServerAccessProfile(dict):
         Set of authorized IP ranges to allow access to API server, e.g. ["198.51.100.0/24"].
         """
         return pulumi.get(self, "authorized_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetId")
+    def subnet_id(self) -> Optional[_builtins.str]:
+        """
+        The ID of the Subnet where the API server endpoint is delegated to.
+        """
+        return pulumi.get(self, "subnet_id")
+
+    @_builtins.property
+    @pulumi.getter(name="virtualNetworkIntegrationEnabled")
+    def virtual_network_integration_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to enable virtual network integration for the API Server. Defaults to `false`.
+        """
+        return pulumi.get(self, "virtual_network_integration_enabled")
 
 
 @pulumi.output_type
@@ -3140,8 +3171,7 @@ class KubernetesClusterAutoScalerProfile(dict):
         :param _builtins.str scale_down_unready: How long an unready node should be unneeded before it is eligible for scale down. Defaults to `20m`.
         :param _builtins.str scale_down_utilization_threshold: Node utilization level, defined as sum of requested resources divided by capacity, below which a node can be considered for scale down. Defaults to `0.5`.
         :param _builtins.str scan_interval: How often the AKS Cluster should be re-evaluated for scale up/down. Defaults to `10s`.
-        :param _builtins.bool skip_nodes_with_local_storage: If `true` cluster autoscaler will never delete nodes with pods with local storage, for example, EmptyDir or HostPath. Defaults to `true`.
-        :param _builtins.bool skip_nodes_with_system_pods: If `true` cluster autoscaler will never delete nodes with pods from kube-system (except for DaemonSet or mirror pods). Defaults to `false`. <!-- defaults to `false` in code, not in Schema -->
+        :param _builtins.bool skip_nodes_with_system_pods: If `true` cluster autoscaler will never delete nodes with pods from kube-system (except for DaemonSet or mirror pods). Defaults to `true`.
         """
         if balance_similar_node_groups is not None:
             pulumi.set(__self__, "balance_similar_node_groups", balance_similar_node_groups)
@@ -3331,16 +3361,13 @@ class KubernetesClusterAutoScalerProfile(dict):
     @_builtins.property
     @pulumi.getter(name="skipNodesWithLocalStorage")
     def skip_nodes_with_local_storage(self) -> Optional[_builtins.bool]:
-        """
-        If `true` cluster autoscaler will never delete nodes with pods with local storage, for example, EmptyDir or HostPath. Defaults to `true`.
-        """
         return pulumi.get(self, "skip_nodes_with_local_storage")
 
     @_builtins.property
     @pulumi.getter(name="skipNodesWithSystemPods")
     def skip_nodes_with_system_pods(self) -> Optional[_builtins.bool]:
         """
-        If `true` cluster autoscaler will never delete nodes with pods from kube-system (except for DaemonSet or mirror pods). Defaults to `false`. <!-- defaults to `false` in code, not in Schema -->
+        If `true` cluster autoscaler will never delete nodes with pods from kube-system (except for DaemonSet or mirror pods). Defaults to `true`.
         """
         return pulumi.get(self, "skip_nodes_with_system_pods")
 
@@ -3410,6 +3437,64 @@ class KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl(dict):
 
 
 @pulumi.output_type
+class KubernetesClusterBootstrapProfile(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "artifactSource":
+            suggest = "artifact_source"
+        elif key == "containerRegistryId":
+            suggest = "container_registry_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in KubernetesClusterBootstrapProfile. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        KubernetesClusterBootstrapProfile.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        KubernetesClusterBootstrapProfile.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 artifact_source: Optional[_builtins.str] = None,
+                 container_registry_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str artifact_source: The artifact source. The source where the artifacts are downloaded from. Possible values are `Cache` and `Direct`. Defaults to `Direct`.
+               
+               > **Note:** If the `artifact_source` is set to `Cache` and the `outbound_type` has been specified, the managed ACR and related resources will **not** be automatically deleted and must be removed manually. Please see the product [documentation](https://learn.microsoft.com/azure/aks/concepts-network-isolated#how-a-network-isolated-cluster-works) for more information.
+        :param _builtins.str container_registry_id: The resource Id of Azure Container Registry.
+               
+               > **Note:** The `container_registry_id` requires an ACR with a private link to the cluster. You must manage permissions, cache rules, the associated private link and the private endpoint. Please see the product [documentation](https://learn.microsoft.com/azure/container-registry/container-registry-private-link) for more information on configuring an ACR with a private endpoint.
+        """
+        if artifact_source is not None:
+            pulumi.set(__self__, "artifact_source", artifact_source)
+        if container_registry_id is not None:
+            pulumi.set(__self__, "container_registry_id", container_registry_id)
+
+    @_builtins.property
+    @pulumi.getter(name="artifactSource")
+    def artifact_source(self) -> Optional[_builtins.str]:
+        """
+        The artifact source. The source where the artifacts are downloaded from. Possible values are `Cache` and `Direct`. Defaults to `Direct`.
+
+        > **Note:** If the `artifact_source` is set to `Cache` and the `outbound_type` has been specified, the managed ACR and related resources will **not** be automatically deleted and must be removed manually. Please see the product [documentation](https://learn.microsoft.com/azure/aks/concepts-network-isolated#how-a-network-isolated-cluster-works) for more information.
+        """
+        return pulumi.get(self, "artifact_source")
+
+    @_builtins.property
+    @pulumi.getter(name="containerRegistryId")
+    def container_registry_id(self) -> Optional[_builtins.str]:
+        """
+        The resource Id of Azure Container Registry.
+
+        > **Note:** The `container_registry_id` requires an ACR with a private link to the cluster. You must manage permissions, cache rules, the associated private link and the private endpoint. Please see the product [documentation](https://learn.microsoft.com/azure/container-registry/container-registry-private-link) for more information on configuring an ACR with a private endpoint.
+        """
+        return pulumi.get(self, "container_registry_id")
+
+
+@pulumi.output_type
 class KubernetesClusterConfidentialComputing(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -3455,6 +3540,8 @@ class KubernetesClusterDefaultNodePool(dict):
             suggest = "capacity_reservation_group_id"
         elif key == "fipsEnabled":
             suggest = "fips_enabled"
+        elif key == "gpuDriver":
+            suggest = "gpu_driver"
         elif key == "gpuInstance":
             suggest = "gpu_instance"
         elif key == "hostEncryptionEnabled":
@@ -3530,6 +3617,7 @@ class KubernetesClusterDefaultNodePool(dict):
                  auto_scaling_enabled: Optional[_builtins.bool] = None,
                  capacity_reservation_group_id: Optional[_builtins.str] = None,
                  fips_enabled: Optional[_builtins.bool] = None,
+                 gpu_driver: Optional[_builtins.str] = None,
                  gpu_instance: Optional[_builtins.str] = None,
                  host_encryption_enabled: Optional[_builtins.bool] = None,
                  host_group_id: Optional[_builtins.str] = None,
@@ -3571,10 +3659,11 @@ class KubernetesClusterDefaultNodePool(dict):
                > **Note:** If you're using AutoScaling, you may wish to use [`ignoreChanges` functionality](https://www.pulumi.com/docs/intro/concepts/programming-model/#ignorechanges) to ignore changes to the `node_count` field.
         :param _builtins.str capacity_reservation_group_id: Specifies the ID of the Capacity Reservation Group within which this AKS Cluster should be created. Changing this forces a new resource to be created.
         :param _builtins.bool fips_enabled: Should the nodes in this Node Pool have Federal Information Processing Standard enabled? `temporary_name_for_rotation` must be specified when changing this block.
+        :param _builtins.str gpu_driver: Specifies the driver type for GPU nodes. Possible values are `Install` and `None`. Changing this forces a new resource to be created.
         :param _builtins.str gpu_instance: Specifies the GPU MIG instance profile for supported GPU VM SKU. The allowed values are `MIG1g`, `MIG2g`, `MIG3g`, `MIG4g` and `MIG7g`. Changing this forces a new resource to be created.
         :param _builtins.bool host_encryption_enabled: Should the nodes in the Default Node Pool have host encryption enabled? `temporary_name_for_rotation` must be specified when changing this property.
                
-               > **Note:** This requires that the  Feature `Microsoft.ContainerService/EnableEncryptionAtHost` is enabled and the Resource Provider is registered.
+               > **Note:** This requires that the Feature `Microsoft.Compute/EncryptionAtHost` is enabled and the Resource Provider is registered.
         :param _builtins.str host_group_id: Specifies the ID of the Host Group within which this AKS Cluster should be created. Changing this forces a new resource to be created.
         :param 'KubernetesClusterDefaultNodePoolKubeletConfigArgs' kubelet_config: A `kubelet_config` block as defined below. `temporary_name_for_rotation` must be specified when changing this block.
         :param _builtins.str kubelet_disk_type: The type of disk used by kubelet. Possible values are `OS` and `Temporary`. `temporary_name_for_rotation` must be specified when changing this block.
@@ -3590,7 +3679,7 @@ class KubernetesClusterDefaultNodePool(dict):
                > **Note:** This version must be supported by the Kubernetes Cluster - as such the version of Kubernetes used on the Cluster/Control Plane may need to be upgraded first.
         :param _builtins.int os_disk_size_gb: The size of the OS Disk which should be used for each agent in the Node Pool. `temporary_name_for_rotation` must be specified when attempting a change.
         :param _builtins.str os_disk_type: The type of disk which should be used for the Operating System. Possible values are `Ephemeral` and `Managed`. Defaults to `Managed`. `temporary_name_for_rotation` must be specified when attempting a change.
-        :param _builtins.str os_sku: Specifies the OS SKU used by the agent pool. Possible values are `AzureLinux`, `Ubuntu`, `Windows2019` and `Windows2022`. If not specified, the default is `Ubuntu` if OSType=Linux or `Windows2019` if OSType=Windows. And the default Windows OSSKU will be changed to `Windows2022` after Windows2019 is deprecated. Changing this from `AzureLinux` or `Ubuntu` to `AzureLinux` or `Ubuntu` will not replace the resource, otherwise `temporary_name_for_rotation` must be specified when attempting a change.
+        :param _builtins.str os_sku: Specifies the OS SKU used by the agent pool. Possible values are `AzureLinux`, `AzureLinux3`, `Ubuntu`, `Ubuntu2204`, `Windows2019` and `Windows2022`. If not specified, the default is `Ubuntu` if OSType=Linux or `Windows2019` if OSType=Windows. And the default Windows OSSKU will be changed to `Windows2022` after Windows2019 is deprecated. Changing this from `AzureLinux` or `Ubuntu` to `AzureLinux` or `Ubuntu` will not replace the resource, otherwise `temporary_name_for_rotation` must be specified when attempting a change.
         :param _builtins.str pod_subnet_id: The ID of the Subnet where the pods in the default Node Pool should exist.
         :param _builtins.str proximity_placement_group_id: The ID of the Proximity Placement Group. Changing this forces a new resource to be created.
         :param _builtins.str scale_down_mode: Specifies the autoscaling behaviour of the Kubernetes Cluster. Allowed values are `Delete` and `Deallocate`. Defaults to `Delete`.
@@ -3620,6 +3709,8 @@ class KubernetesClusterDefaultNodePool(dict):
             pulumi.set(__self__, "capacity_reservation_group_id", capacity_reservation_group_id)
         if fips_enabled is not None:
             pulumi.set(__self__, "fips_enabled", fips_enabled)
+        if gpu_driver is not None:
+            pulumi.set(__self__, "gpu_driver", gpu_driver)
         if gpu_instance is not None:
             pulumi.set(__self__, "gpu_instance", gpu_instance)
         if host_encryption_enabled is not None:
@@ -3722,6 +3813,14 @@ class KubernetesClusterDefaultNodePool(dict):
         return pulumi.get(self, "fips_enabled")
 
     @_builtins.property
+    @pulumi.getter(name="gpuDriver")
+    def gpu_driver(self) -> Optional[_builtins.str]:
+        """
+        Specifies the driver type for GPU nodes. Possible values are `Install` and `None`. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "gpu_driver")
+
+    @_builtins.property
     @pulumi.getter(name="gpuInstance")
     def gpu_instance(self) -> Optional[_builtins.str]:
         """
@@ -3735,7 +3834,7 @@ class KubernetesClusterDefaultNodePool(dict):
         """
         Should the nodes in the Default Node Pool have host encryption enabled? `temporary_name_for_rotation` must be specified when changing this property.
 
-        > **Note:** This requires that the  Feature `Microsoft.ContainerService/EnableEncryptionAtHost` is enabled and the Resource Provider is registered.
+        > **Note:** This requires that the Feature `Microsoft.Compute/EncryptionAtHost` is enabled and the Resource Provider is registered.
         """
         return pulumi.get(self, "host_encryption_enabled")
 
@@ -3864,7 +3963,7 @@ class KubernetesClusterDefaultNodePool(dict):
     @pulumi.getter(name="osSku")
     def os_sku(self) -> Optional[_builtins.str]:
         """
-        Specifies the OS SKU used by the agent pool. Possible values are `AzureLinux`, `Ubuntu`, `Windows2019` and `Windows2022`. If not specified, the default is `Ubuntu` if OSType=Linux or `Windows2019` if OSType=Windows. And the default Windows OSSKU will be changed to `Windows2022` after Windows2019 is deprecated. Changing this from `AzureLinux` or `Ubuntu` to `AzureLinux` or `Ubuntu` will not replace the resource, otherwise `temporary_name_for_rotation` must be specified when attempting a change.
+        Specifies the OS SKU used by the agent pool. Possible values are `AzureLinux`, `AzureLinux3`, `Ubuntu`, `Ubuntu2204`, `Windows2019` and `Windows2022`. If not specified, the default is `Ubuntu` if OSType=Linux or `Windows2019` if OSType=Windows. And the default Windows OSSKU will be changed to `Windows2022` after Windows2019 is deprecated. Changing this from `AzureLinux` or `Ubuntu` to `AzureLinux` or `Ubuntu` will not replace the resource, otherwise `temporary_name_for_rotation` must be specified when attempting a change.
         """
         return pulumi.get(self, "os_sku")
 
@@ -4797,6 +4896,8 @@ class KubernetesClusterDefaultNodePoolUpgradeSettings(dict):
             suggest = "drain_timeout_in_minutes"
         elif key == "nodeSoakDurationInMinutes":
             suggest = "node_soak_duration_in_minutes"
+        elif key == "undrainableNodeBehavior":
+            suggest = "undrainable_node_behavior"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in KubernetesClusterDefaultNodePoolUpgradeSettings. Access the value via the '{suggest}' property getter instead.")
@@ -4812,19 +4913,25 @@ class KubernetesClusterDefaultNodePoolUpgradeSettings(dict):
     def __init__(__self__, *,
                  max_surge: _builtins.str,
                  drain_timeout_in_minutes: Optional[_builtins.int] = None,
-                 node_soak_duration_in_minutes: Optional[_builtins.int] = None):
+                 node_soak_duration_in_minutes: Optional[_builtins.int] = None,
+                 undrainable_node_behavior: Optional[_builtins.str] = None):
         """
         :param _builtins.str max_surge: The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade.
                
                > **Note:** If a percentage is provided, the number of surge nodes is calculated from the `node_count` value on the current cluster. Node surge can allow a cluster to have more nodes than `max_count` during an upgrade. Ensure that your cluster has enough [IP space](https://docs.microsoft.com/azure/aks/upgrade-cluster#customize-node-surge-upgrade) during an upgrade.
         :param _builtins.int drain_timeout_in_minutes: The amount of time in minutes to wait on eviction of pods and graceful termination per node. This eviction wait time honors pod disruption budgets for upgrades. If this time is exceeded, the upgrade fails. Unsetting this after configuring it will force a new resource to be created.
-        :param _builtins.int node_soak_duration_in_minutes: The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node. Defaults to `0`. <!-- The 0 default happens in code, not in Schema -->
+        :param _builtins.int node_soak_duration_in_minutes: The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node.
+               
+               > **Note:** The default value for `node_soak_duration_in_minutes` is `0`. <!-- The 0 default happens in code, not in Schema -->.
+        :param _builtins.str undrainable_node_behavior: Specifies the action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`. Unsetting this after configuring it will force a new resource to be created.
         """
         pulumi.set(__self__, "max_surge", max_surge)
         if drain_timeout_in_minutes is not None:
             pulumi.set(__self__, "drain_timeout_in_minutes", drain_timeout_in_minutes)
         if node_soak_duration_in_minutes is not None:
             pulumi.set(__self__, "node_soak_duration_in_minutes", node_soak_duration_in_minutes)
+        if undrainable_node_behavior is not None:
+            pulumi.set(__self__, "undrainable_node_behavior", undrainable_node_behavior)
 
     @_builtins.property
     @pulumi.getter(name="maxSurge")
@@ -4848,9 +4955,19 @@ class KubernetesClusterDefaultNodePoolUpgradeSettings(dict):
     @pulumi.getter(name="nodeSoakDurationInMinutes")
     def node_soak_duration_in_minutes(self) -> Optional[_builtins.int]:
         """
-        The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node. Defaults to `0`. <!-- The 0 default happens in code, not in Schema -->
+        The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node.
+
+        > **Note:** The default value for `node_soak_duration_in_minutes` is `0`. <!-- The 0 default happens in code, not in Schema -->.
         """
         return pulumi.get(self, "node_soak_duration_in_minutes")
+
+    @_builtins.property
+    @pulumi.getter(name="undrainableNodeBehavior")
+    def undrainable_node_behavior(self) -> Optional[_builtins.str]:
+        """
+        Specifies the action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`. Unsetting this after configuring it will force a new resource to be created.
+        """
+        return pulumi.get(self, "undrainable_node_behavior")
 
 
 @pulumi.output_type
@@ -6427,6 +6544,8 @@ class KubernetesClusterNetworkProfile(dict):
         suggest = None
         if key == "networkPlugin":
             suggest = "network_plugin"
+        elif key == "advancedNetworking":
+            suggest = "advanced_networking"
         elif key == "dnsServiceIp":
             suggest = "dns_service_ip"
         elif key == "ipVersions":
@@ -6469,6 +6588,7 @@ class KubernetesClusterNetworkProfile(dict):
 
     def __init__(__self__, *,
                  network_plugin: _builtins.str,
+                 advanced_networking: Optional['outputs.KubernetesClusterNetworkProfileAdvancedNetworking'] = None,
                  dns_service_ip: Optional[_builtins.str] = None,
                  ip_versions: Optional[Sequence[_builtins.str]] = None,
                  load_balancer_profile: Optional['outputs.KubernetesClusterNetworkProfileLoadBalancerProfile'] = None,
@@ -6487,6 +6607,7 @@ class KubernetesClusterNetworkProfile(dict):
         :param _builtins.str network_plugin: Network plugin to use for networking. Currently supported values are `azure`, `kubenet` and `none`. Changing this forces a new resource to be created.
                
                > **Note:** When `network_plugin` is set to `azure` - the `pod_cidr` field must not be set, unless specifying `network_plugin_mode` to `overlay`.
+        :param 'KubernetesClusterNetworkProfileAdvancedNetworkingArgs' advanced_networking: An `advanced_networking` block as defined below. This can only be specified when `network_plugin` is set to `azure` and `network_data_plane` is set to `cilium`.
         :param _builtins.str dns_service_ip: IP address within the Kubernetes service address range that will be used by cluster service discovery (kube-dns). Changing this forces a new resource to be created.
         :param Sequence[_builtins.str] ip_versions: Specifies a list of IP versions the Kubernetes Cluster will use to assign IP addresses to its nodes and pods. Possible values are `IPv4` and/or `IPv6`. `IPv4` must always be specified. Changing this forces a new resource to be created.
                
@@ -6514,7 +6635,9 @@ class KubernetesClusterNetworkProfile(dict):
                > **Note:** When `network_policy` is set to `azure`, the `network_plugin` field can only be set to `azure`.
                
                > **Note:** When `network_policy` is set to `cilium`, the `network_data_plane` field must be set to `cilium`.
-        :param _builtins.str outbound_type: The outbound (egress) routing method which should be used for this Kubernetes Cluster. Possible values are `loadBalancer`, `userDefinedRouting`, `managedNATGateway` and `userAssignedNATGateway`. Defaults to `loadBalancer`. More information on supported migration paths for `outbound_type` can be found in [this documentation](https://learn.microsoft.com/azure/aks/egress-outboundtype#updating-outboundtype-after-cluster-creation).
+        :param _builtins.str outbound_type: The outbound (egress) routing method which should be used for this Kubernetes Cluster. Possible values are `loadBalancer`, `userDefinedRouting`, `managedNATGateway`, `userAssignedNATGateway` and `none`. Defaults to `loadBalancer`.
+               
+               > **Note:** For more information on supported `outbound_type` migration paths please see the product [documentation](https://learn.microsoft.com/azure/aks/egress-outboundtype#updating-outboundtype-after-cluster-creation).
         :param _builtins.str pod_cidr: The CIDR to use for pod IP addresses. This field can only be set when `network_plugin` is set to `kubenet` or `network_plugin_mode` is set to `overlay`. Changing this forces a new resource to be created.
         :param Sequence[_builtins.str] pod_cidrs: A list of CIDRs to use for pod IP addresses. For single-stack networking a single IPv4 CIDR is expected. For dual-stack networking an IPv4 and IPv6 CIDR are expected. Changing this forces a new resource to be created.
         :param _builtins.str service_cidr: The Network Range used by the Kubernetes service. Changing this forces a new resource to be created.
@@ -6523,6 +6646,8 @@ class KubernetesClusterNetworkProfile(dict):
                > **Note:** This range should not be used by any network element on or connected to this VNet. Service address CIDR must be smaller than /12. `docker_bridge_cidr`, `dns_service_ip` and `service_cidr` should all be empty or all should be set.
         """
         pulumi.set(__self__, "network_plugin", network_plugin)
+        if advanced_networking is not None:
+            pulumi.set(__self__, "advanced_networking", advanced_networking)
         if dns_service_ip is not None:
             pulumi.set(__self__, "dns_service_ip", dns_service_ip)
         if ip_versions is not None:
@@ -6561,6 +6686,14 @@ class KubernetesClusterNetworkProfile(dict):
         > **Note:** When `network_plugin` is set to `azure` - the `pod_cidr` field must not be set, unless specifying `network_plugin_mode` to `overlay`.
         """
         return pulumi.get(self, "network_plugin")
+
+    @_builtins.property
+    @pulumi.getter(name="advancedNetworking")
+    def advanced_networking(self) -> Optional['outputs.KubernetesClusterNetworkProfileAdvancedNetworking']:
+        """
+        An `advanced_networking` block as defined below. This can only be specified when `network_plugin` is set to `azure` and `network_data_plane` is set to `cilium`.
+        """
+        return pulumi.get(self, "advanced_networking")
 
     @_builtins.property
     @pulumi.getter(name="dnsServiceIp")
@@ -6656,7 +6789,9 @@ class KubernetesClusterNetworkProfile(dict):
     @pulumi.getter(name="outboundType")
     def outbound_type(self) -> Optional[_builtins.str]:
         """
-        The outbound (egress) routing method which should be used for this Kubernetes Cluster. Possible values are `loadBalancer`, `userDefinedRouting`, `managedNATGateway` and `userAssignedNATGateway`. Defaults to `loadBalancer`. More information on supported migration paths for `outbound_type` can be found in [this documentation](https://learn.microsoft.com/azure/aks/egress-outboundtype#updating-outboundtype-after-cluster-creation).
+        The outbound (egress) routing method which should be used for this Kubernetes Cluster. Possible values are `loadBalancer`, `userDefinedRouting`, `managedNATGateway`, `userAssignedNATGateway` and `none`. Defaults to `loadBalancer`.
+
+        > **Note:** For more information on supported `outbound_type` migration paths please see the product [documentation](https://learn.microsoft.com/azure/aks/egress-outboundtype#updating-outboundtype-after-cluster-creation).
         """
         return pulumi.get(self, "outbound_type")
 
@@ -6693,6 +6828,56 @@ class KubernetesClusterNetworkProfile(dict):
         > **Note:** This range should not be used by any network element on or connected to this VNet. Service address CIDR must be smaller than /12. `docker_bridge_cidr`, `dns_service_ip` and `service_cidr` should all be empty or all should be set.
         """
         return pulumi.get(self, "service_cidrs")
+
+
+@pulumi.output_type
+class KubernetesClusterNetworkProfileAdvancedNetworking(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "observabilityEnabled":
+            suggest = "observability_enabled"
+        elif key == "securityEnabled":
+            suggest = "security_enabled"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in KubernetesClusterNetworkProfileAdvancedNetworking. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        KubernetesClusterNetworkProfileAdvancedNetworking.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        KubernetesClusterNetworkProfileAdvancedNetworking.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 observability_enabled: Optional[_builtins.bool] = None,
+                 security_enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool observability_enabled: Is observability enabled? Defaults to `false`.
+        :param _builtins.bool security_enabled: Is security enabled? Defaults to `false`.
+        """
+        if observability_enabled is not None:
+            pulumi.set(__self__, "observability_enabled", observability_enabled)
+        if security_enabled is not None:
+            pulumi.set(__self__, "security_enabled", security_enabled)
+
+    @_builtins.property
+    @pulumi.getter(name="observabilityEnabled")
+    def observability_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Is observability enabled? Defaults to `false`.
+        """
+        return pulumi.get(self, "observability_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="securityEnabled")
+    def security_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Is security enabled? Defaults to `false`.
+        """
+        return pulumi.get(self, "security_enabled")
 
 
 @pulumi.output_type
@@ -7719,12 +7904,16 @@ class KubernetesClusterNodePoolUpgradeSettings(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "maxSurge":
-            suggest = "max_surge"
-        elif key == "drainTimeoutInMinutes":
+        if key == "drainTimeoutInMinutes":
             suggest = "drain_timeout_in_minutes"
+        elif key == "maxSurge":
+            suggest = "max_surge"
+        elif key == "maxUnavailable":
+            suggest = "max_unavailable"
         elif key == "nodeSoakDurationInMinutes":
             suggest = "node_soak_duration_in_minutes"
+        elif key == "undrainableNodeBehavior":
+            suggest = "undrainable_node_behavior"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in KubernetesClusterNodePoolUpgradeSettings. Access the value via the '{suggest}' property getter instead.")
@@ -7738,27 +7927,30 @@ class KubernetesClusterNodePoolUpgradeSettings(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 max_surge: _builtins.str,
                  drain_timeout_in_minutes: Optional[_builtins.int] = None,
-                 node_soak_duration_in_minutes: Optional[_builtins.int] = None):
+                 max_surge: Optional[_builtins.str] = None,
+                 max_unavailable: Optional[_builtins.str] = None,
+                 node_soak_duration_in_minutes: Optional[_builtins.int] = None,
+                 undrainable_node_behavior: Optional[_builtins.str] = None):
         """
-        :param _builtins.str max_surge: The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade.
         :param _builtins.int drain_timeout_in_minutes: The amount of time in minutes to wait on eviction of pods and graceful termination per node. This eviction wait time honors waiting on pod disruption budgets. If this time is exceeded, the upgrade fails. Unsetting this after configuring it will force a new resource to be created.
+        :param _builtins.str max_surge: The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade.
+        :param _builtins.str max_unavailable: The maximum number or percentage of nodes which can be unavailable during the upgrade.
+               
+               > **Note:** Exactly one of `max_surge` or `max_unavailable` must be specified.
         :param _builtins.int node_soak_duration_in_minutes: The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node.
+        :param _builtins.str undrainable_node_behavior: Specifies the action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`. Unsetting this after configuring it will force a new resource to be created.
         """
-        pulumi.set(__self__, "max_surge", max_surge)
         if drain_timeout_in_minutes is not None:
             pulumi.set(__self__, "drain_timeout_in_minutes", drain_timeout_in_minutes)
+        if max_surge is not None:
+            pulumi.set(__self__, "max_surge", max_surge)
+        if max_unavailable is not None:
+            pulumi.set(__self__, "max_unavailable", max_unavailable)
         if node_soak_duration_in_minutes is not None:
             pulumi.set(__self__, "node_soak_duration_in_minutes", node_soak_duration_in_minutes)
-
-    @_builtins.property
-    @pulumi.getter(name="maxSurge")
-    def max_surge(self) -> _builtins.str:
-        """
-        The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade.
-        """
-        return pulumi.get(self, "max_surge")
+        if undrainable_node_behavior is not None:
+            pulumi.set(__self__, "undrainable_node_behavior", undrainable_node_behavior)
 
     @_builtins.property
     @pulumi.getter(name="drainTimeoutInMinutes")
@@ -7769,12 +7961,38 @@ class KubernetesClusterNodePoolUpgradeSettings(dict):
         return pulumi.get(self, "drain_timeout_in_minutes")
 
     @_builtins.property
+    @pulumi.getter(name="maxSurge")
+    def max_surge(self) -> Optional[_builtins.str]:
+        """
+        The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade.
+        """
+        return pulumi.get(self, "max_surge")
+
+    @_builtins.property
+    @pulumi.getter(name="maxUnavailable")
+    def max_unavailable(self) -> Optional[_builtins.str]:
+        """
+        The maximum number or percentage of nodes which can be unavailable during the upgrade.
+
+        > **Note:** Exactly one of `max_surge` or `max_unavailable` must be specified.
+        """
+        return pulumi.get(self, "max_unavailable")
+
+    @_builtins.property
     @pulumi.getter(name="nodeSoakDurationInMinutes")
     def node_soak_duration_in_minutes(self) -> Optional[_builtins.int]:
         """
         The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node.
         """
         return pulumi.get(self, "node_soak_duration_in_minutes")
+
+    @_builtins.property
+    @pulumi.getter(name="undrainableNodeBehavior")
+    def undrainable_node_behavior(self) -> Optional[_builtins.str]:
+        """
+        Specifies the action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`. Unsetting this after configuring it will force a new resource to be created.
+        """
+        return pulumi.get(self, "undrainable_node_behavior")
 
 
 @pulumi.output_type
@@ -7815,6 +8033,50 @@ class KubernetesClusterNodePoolWindowsProfile(dict):
         > **Note:** If a percentage is provided, the number of surge nodes is calculated from the current node count on the cluster. Node surge can allow a cluster to have more nodes than `max_count` during an upgrade. Ensure that your cluster has enough [IP space](https://docs.microsoft.com/azure/aks/upgrade-cluster#customize-node-surge-upgrade) during an upgrade.
         """
         return pulumi.get(self, "outbound_nat_enabled")
+
+
+@pulumi.output_type
+class KubernetesClusterNodeProvisioningProfile(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "defaultNodePools":
+            suggest = "default_node_pools"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in KubernetesClusterNodeProvisioningProfile. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        KubernetesClusterNodeProvisioningProfile.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        KubernetesClusterNodeProvisioningProfile.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 default_node_pools: Optional[_builtins.str] = None,
+                 mode: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str default_node_pools: Specifies whether default node pools should be provisioned automatically. Possible values are `Auto` and `None`. Defaults to `Auto`. At least one of `mode` or `default_node_pools` must be specified.
+        """
+        if default_node_pools is not None:
+            pulumi.set(__self__, "default_node_pools", default_node_pools)
+        if mode is not None:
+            pulumi.set(__self__, "mode", mode)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultNodePools")
+    def default_node_pools(self) -> Optional[_builtins.str]:
+        """
+        Specifies whether default node pools should be provisioned automatically. Possible values are `Auto` and `None`. Defaults to `Auto`. At least one of `mode` or `default_node_pools` must be specified.
+        """
+        return pulumi.get(self, "default_node_pools")
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "mode")
 
 
 @pulumi.output_type
@@ -7975,7 +8237,7 @@ class KubernetesClusterServiceMeshProfile(dict):
                  internal_ingress_gateway_enabled: Optional[_builtins.bool] = None):
         """
         :param _builtins.str mode: The mode of the service mesh. Possible value is `Istio`.
-        :param Sequence[_builtins.str] revisions: Specify 1 or 2 Istio control plane revisions for managing minor upgrades using the canary upgrade process. For example, create the resource with `revisions` set to `["asm-1-20"]`, or leave it empty (the `revisions` will only be known after apply). To start the canary upgrade, change `revisions` to `["asm-1-20", "asm-1-21"]`. To roll back the canary upgrade, revert to `["asm-1-20"]`. To confirm the upgrade, change to `["asm-1-21"]`.
+        :param Sequence[_builtins.str] revisions: Specify 1 or 2 Istio control plane revisions for managing minor upgrades using the canary upgrade process. For example, create the resource with `revisions` set to `["asm-1-25"]`, or leave it empty (the `revisions` will only be known after apply). To start the canary upgrade, change `revisions` to `["asm-1-25", "asm-1-26"]`. To roll back the canary upgrade, revert to `["asm-1-25"]`. To confirm the upgrade, change to `["asm-1-26"]`.
                
                > **NOTE:** Upgrading to a new (canary) revision does not affect existing sidecar proxies. You need to apply the canary revision label to selected namespaces and restart pods with kubectl to inject the new sidecar proxy. [Learn more](https://istio.io/latest/docs/setup/upgrade/canary/#data-plane).
         :param 'KubernetesClusterServiceMeshProfileCertificateAuthorityArgs' certificate_authority: A `certificate_authority` block as defined below. When this property is specified, `key_vault_secrets_provider` is also required to be set. This configuration allows you to bring your own root certificate and keys for Istio CA in the Istio-based service mesh add-on for Azure Kubernetes Service.
@@ -8005,7 +8267,7 @@ class KubernetesClusterServiceMeshProfile(dict):
     @pulumi.getter
     def revisions(self) -> Sequence[_builtins.str]:
         """
-        Specify 1 or 2 Istio control plane revisions for managing minor upgrades using the canary upgrade process. For example, create the resource with `revisions` set to `["asm-1-20"]`, or leave it empty (the `revisions` will only be known after apply). To start the canary upgrade, change `revisions` to `["asm-1-20", "asm-1-21"]`. To roll back the canary upgrade, revert to `["asm-1-20"]`. To confirm the upgrade, change to `["asm-1-21"]`.
+        Specify 1 or 2 Istio control plane revisions for managing minor upgrades using the canary upgrade process. For example, create the resource with `revisions` set to `["asm-1-25"]`, or leave it empty (the `revisions` will only be known after apply). To start the canary upgrade, change `revisions` to `["asm-1-25", "asm-1-26"]`. To roll back the canary upgrade, revert to `["asm-1-25"]`. To confirm the upgrade, change to `["asm-1-26"]`.
 
         > **NOTE:** Upgrading to a new (canary) revision does not affect existing sidecar proxies. You need to apply the canary revision label to selected namespaces and restart pods with kubectl to inject the new sidecar proxy. [Learn more](https://istio.io/latest/docs/setup/upgrade/canary/#data-plane).
         """
@@ -8341,7 +8603,7 @@ class KubernetesClusterWebAppRouting(dict):
                  web_app_routing_identities: Optional[Sequence['outputs.KubernetesClusterWebAppRoutingWebAppRoutingIdentity']] = None):
         """
         :param Sequence[_builtins.str] dns_zone_ids: Specifies the list of the DNS Zone IDs in which DNS entries are created for applications deployed to the cluster when Web App Routing is enabled. If not using Bring-Your-Own DNS zones this property should be set to an empty list.
-        :param _builtins.str default_nginx_controller: Specifies the ingress type for the default `NginxIngressController` custom resource. The allowed values are `None`, `Internal`, `External` and `AnnotationControlled`. It defaults to `AnnotationControlled`.
+        :param _builtins.str default_nginx_controller: Specifies the ingress type for the default `NginxIngressController` custom resource. The allowed values are `None`, `Internal`, `External` and `AnnotationControlled`. Defaults to `AnnotationControlled`.
         :param Sequence['KubernetesClusterWebAppRoutingWebAppRoutingIdentityArgs'] web_app_routing_identities: A `web_app_routing_identity` block is exported. The exported attributes are defined below.
         """
         pulumi.set(__self__, "dns_zone_ids", dns_zone_ids)
@@ -8362,7 +8624,7 @@ class KubernetesClusterWebAppRouting(dict):
     @pulumi.getter(name="defaultNginxController")
     def default_nginx_controller(self) -> Optional[_builtins.str]:
         """
-        Specifies the ingress type for the default `NginxIngressController` custom resource. The allowed values are `None`, `Internal`, `External` and `AnnotationControlled`. It defaults to `AnnotationControlled`.
+        Specifies the ingress type for the default `NginxIngressController` custom resource. The allowed values are `None`, `Internal`, `External` and `AnnotationControlled`. Defaults to `AnnotationControlled`.
         """
         return pulumi.get(self, "default_nginx_controller")
 
@@ -10088,15 +10350,21 @@ class GetClusterNodePoolUpgradeSettingResult(dict):
     def __init__(__self__, *,
                  drain_timeout_in_minutes: _builtins.int,
                  max_surge: _builtins.str,
-                 node_soak_duration_in_minutes: _builtins.int):
+                 max_unavailable: _builtins.str,
+                 node_soak_duration_in_minutes: _builtins.int,
+                 undrainable_node_behavior: _builtins.str):
         """
         :param _builtins.int drain_timeout_in_minutes: The amount of time in minutes to wait on eviction of pods and graceful termination per node. This eviction wait time honors waiting on pod disruption budgets. If this time is exceeded, the upgrade fails.
         :param _builtins.str max_surge: The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade.
+        :param _builtins.str max_unavailable: The maximum number or percentage of nodes which can be unavailable during the upgrade.
         :param _builtins.int node_soak_duration_in_minutes: The amount of time in minutes to wait after draining a node and before reimaging it and moving on to next node.
+        :param _builtins.str undrainable_node_behavior: The action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`.
         """
         pulumi.set(__self__, "drain_timeout_in_minutes", drain_timeout_in_minutes)
         pulumi.set(__self__, "max_surge", max_surge)
+        pulumi.set(__self__, "max_unavailable", max_unavailable)
         pulumi.set(__self__, "node_soak_duration_in_minutes", node_soak_duration_in_minutes)
+        pulumi.set(__self__, "undrainable_node_behavior", undrainable_node_behavior)
 
     @_builtins.property
     @pulumi.getter(name="drainTimeoutInMinutes")
@@ -10115,12 +10383,28 @@ class GetClusterNodePoolUpgradeSettingResult(dict):
         return pulumi.get(self, "max_surge")
 
     @_builtins.property
+    @pulumi.getter(name="maxUnavailable")
+    def max_unavailable(self) -> _builtins.str:
+        """
+        The maximum number or percentage of nodes which can be unavailable during the upgrade.
+        """
+        return pulumi.get(self, "max_unavailable")
+
+    @_builtins.property
     @pulumi.getter(name="nodeSoakDurationInMinutes")
     def node_soak_duration_in_minutes(self) -> _builtins.int:
         """
         The amount of time in minutes to wait after draining a node and before reimaging it and moving on to next node.
         """
         return pulumi.get(self, "node_soak_duration_in_minutes")
+
+    @_builtins.property
+    @pulumi.getter(name="undrainableNodeBehavior")
+    def undrainable_node_behavior(self) -> _builtins.str:
+        """
+        The action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`.
+        """
+        return pulumi.get(self, "undrainable_node_behavior")
 
 
 @pulumi.output_type
@@ -10405,15 +10689,20 @@ class GetKubernetesClusterAgentPoolProfileUpgradeSettingResult(dict):
     def __init__(__self__, *,
                  drain_timeout_in_minutes: _builtins.int,
                  max_surge: _builtins.str,
-                 node_soak_duration_in_minutes: _builtins.int):
+                 max_unavailable: _builtins.str,
+                 node_soak_duration_in_minutes: _builtins.int,
+                 undrainable_node_behavior: _builtins.str):
         """
         :param _builtins.int drain_timeout_in_minutes: The amount of time in minutes to wait on eviction of pods and graceful termination per node. This eviction wait time honors waiting on pod disruption budgets. If this time is exceeded, the upgrade fails.
         :param _builtins.str max_surge: The maximum number or percentage of nodes that will be added to the Node Pool size during an upgrade.
         :param _builtins.int node_soak_duration_in_minutes: The amount of time in minutes to wait after draining a node and before reimaging it and moving on to next node.
+        :param _builtins.str undrainable_node_behavior: The action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`.
         """
         pulumi.set(__self__, "drain_timeout_in_minutes", drain_timeout_in_minutes)
         pulumi.set(__self__, "max_surge", max_surge)
+        pulumi.set(__self__, "max_unavailable", max_unavailable)
         pulumi.set(__self__, "node_soak_duration_in_minutes", node_soak_duration_in_minutes)
+        pulumi.set(__self__, "undrainable_node_behavior", undrainable_node_behavior)
 
     @_builtins.property
     @pulumi.getter(name="drainTimeoutInMinutes")
@@ -10432,12 +10721,25 @@ class GetKubernetesClusterAgentPoolProfileUpgradeSettingResult(dict):
         return pulumi.get(self, "max_surge")
 
     @_builtins.property
+    @pulumi.getter(name="maxUnavailable")
+    def max_unavailable(self) -> _builtins.str:
+        return pulumi.get(self, "max_unavailable")
+
+    @_builtins.property
     @pulumi.getter(name="nodeSoakDurationInMinutes")
     def node_soak_duration_in_minutes(self) -> _builtins.int:
         """
         The amount of time in minutes to wait after draining a node and before reimaging it and moving on to next node.
         """
         return pulumi.get(self, "node_soak_duration_in_minutes")
+
+    @_builtins.property
+    @pulumi.getter(name="undrainableNodeBehavior")
+    def undrainable_node_behavior(self) -> _builtins.str:
+        """
+        The action when a node is undrainable during upgrade. Possible values are `Cordon` and `Schedule`.
+        """
+        return pulumi.get(self, "undrainable_node_behavior")
 
 
 @pulumi.output_type

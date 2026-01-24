@@ -1,13 +1,16 @@
 import sys
-from typing import (
-    Any,
+from collections.abc import (
     Callable,
     Iterable,
     Iterator,
+)
+from typing import (
+    Any,
     TypeVar,
     final,
     overload,
 )
+from typing_extensions import disjoint_base
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -64,6 +67,7 @@ class _ClassNamespaceRegistry:
     @overload  # plain @ns
     def __call__(self, obj: _Public_ET, /) -> _Public_ET: ...
 
+@disjoint_base
 class ElementNamespaceClassLookup(FallbackElementClassLookup):
     """Element class lookup scheme that searches the Element class in the
     Namespace registry

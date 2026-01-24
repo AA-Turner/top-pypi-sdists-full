@@ -1,13 +1,20 @@
 from typing import Sequence, cast
 
 from inspect_ai.agent._bridge.types import AgentBridge
-from inspect_ai.model._chat_message import ChatMessage
+from inspect_ai.model._chat_message import ChatMessage, ChatMessageUser
 from inspect_ai.model._generate_config import GenerateConfig, active_generate_config
-from inspect_ai.model._model import Model, active_model, get_model, model_roles
+from inspect_ai.model._model import (
+    GenerateInput,
+    Model,
+    active_model,
+    get_model,
+    model_roles,
+)
 from inspect_ai.model._model_output import ModelOutput
 from inspect_ai.tool._tool import Tool
 from inspect_ai.tool._tool_choice import ToolChoice
 from inspect_ai.tool._tool_info import ToolInfo, parse_tool_info
+from inspect_ai.tool._tools._code_execution import CodeExecutionProviders
 from inspect_ai.tool._tools._web_search._web_search import (
     WebSearchProviders,
     _normalize_config,
@@ -21,36 +28,71 @@ async def bridge_generate(
     tools: Sequence[ToolInfo | Tool],
     tool_choice: ToolChoice | None,
     config: GenerateConfig,
-) -> ModelOutput:
-    output: ModelOutput | None = None
-    if bridge.filter:
-        tool_info = [
-            parse_tool_info(tool) if not isinstance(tool, ToolInfo) else tool
-            for tool in tools
-        ]
-        output = await bridge.filter(model.name, input, tool_info, tool_choice, config)
+) -> tuple[ModelOutput, ChatMessageUser | None]:
+    """Generate model output through the agent bridge.
 
-    # if the filter didn't take it then run normal inference
-    if output is None:
-        refusals = 0
-        while True:
+    If a filter is configured, it will be called on each attempt (including retries).
+    The filter can either return a ModelOutput directly or modify the generation inputs.
+    Refusals (stop_reason="content_filter") from either the filter or model will trigger
+    retries up to bridge.retry_refusals times, with inputs reset to original values for
+    each retry to ensure clean state.
+    """
+    # get compaction function and run compaction once before retry loop
+    compact = bridge.compaction(tools, model)
+    if compact is not None:
+        input_messages, c_message = await compact(input)
+    else:
+        input_messages = input
+        c_message = None
+
+    # Store original inputs for potential retries (using compacted input)
+    original_input = input_messages
+    original_tools = tools
+    original_tool_choice = tool_choice
+    original_config = config
+
+    refusals = 0
+    while True:
+        # Reset to original inputs for each retry
+        input_messages = original_input
+        tools = original_tools
+        tool_choice = original_tool_choice
+        config = original_config
+
+        # Apply filter if we have it (can either return output or alternate inputs)
+        output: ModelOutput | None = None
+        if bridge.filter:
+            tool_info = [
+                parse_tool_info(tool) if not isinstance(tool, ToolInfo) else tool
+                for tool in tools
+            ]
+            result = await bridge.filter(
+                model.name, input_messages, tool_info, tool_choice, config
+            )
+            if isinstance(result, ModelOutput):
+                output = result
+            elif isinstance(result, GenerateInput):
+                # Update the inputs that will be used for generation
+                input_messages, tools, tool_choice, config = result
+
+        # Run the generation if the filter didn't
+        if output is None:
             output = await model.generate(
-                input=input,
+                input=input_messages,
                 tool_choice=tool_choice,
                 tools=tools,
                 config=config,
             )
-            if (
-                output.stop_reason == "content_filter"
-                and bridge.retry_refusals is not None
-                and refusals < bridge.retry_refusals
-            ):
-                refusals += 1
-            else:
-                break
 
-    # return output
-    return output
+        # Check for refusal and retry if needed
+        if (
+            output.stop_reason == "content_filter"
+            and bridge.retry_refusals is not None
+            and refusals < bridge.retry_refusals
+        ):
+            refusals += 1
+        else:
+            return output, c_message
 
 
 def resolve_generate_config(
@@ -91,6 +133,12 @@ def resolve_web_search_providers(
 def internal_web_search_providers() -> WebSearchProviders:
     return WebSearchProviders(
         openai=True, anthropic=True, grok=True, gemini=True, perplexity=True
+    )
+
+
+def default_code_execution_providers() -> CodeExecutionProviders:
+    return CodeExecutionProviders(
+        openai={}, anthropic=True, google=True, grok=True, python={}
     )
 
 

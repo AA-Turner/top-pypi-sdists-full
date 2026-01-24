@@ -59,7 +59,7 @@ class MSFabricRestConnection(BaseHook):
         self._initialize_authentication(conn_id)
 
     def _get_and_validate_connection(self, conn_id: str) -> Connection:
-        """Get and validate connection exists."""
+        """Get and validate connection exists and has correct type."""
         if not conn_id or not conn_id.strip():
             self.log.error("Connection ID is empty or None")
             raise AirflowException("Connection ID cannot be empty or None")
@@ -69,6 +69,19 @@ class MSFabricRestConnection(BaseHook):
             if not conn:
                 self.log.error("Connection '%s' returned None from get_connection", conn_id)
                 raise AirflowException(f"Connection '{conn_id}' not found")
+            
+            # Validate connection type
+            if conn.conn_type != self.conn_type:
+                self.log.error(
+                    "Connection '%s' has incorrect type '%s', expected '%s'", 
+                    conn_id, conn.conn_type, self.conn_type
+                )
+                raise AirflowException(
+                    f"Connection '{conn_id}' has incorrect type '{conn.conn_type}'. "
+                    f"Expected type '{self.conn_type}' for Microsoft Fabric connections."
+                )
+            
+            self.log.debug("Connection '%s' validated successfully with type '%s'", conn_id, conn.conn_type)
             return conn
         except AirflowNotFoundException as e:
             self.log.error("Connection '%s' not found in Airflow: %s", conn_id, str(e))
@@ -145,24 +158,26 @@ class MSFabricRestConnection(BaseHook):
 
         :param method: HTTP method (GET, POST, etc.)
         :param url: Request URL
-        :param kwargs: Additional arguments for the request (currently unused)
+        :param kwargs: Additional arguments for the request (e.g. headers, json, data)
         :return: Parsed response data from HttpClient
-        """       
+        """
         if self.http_client is None:
             raise AirflowException("HTTP client has been closed. Cannot make request.")
-        
-        # Get authentication headers
-        headers = self.get_headers(token_scope)
-                
-        # Delegate to HttpClient
+
+        # Base auth headers from token
+        auth_headers = self.get_headers(token_scope)
+
+        # Merge with user-provided headers (if any)
+        user_headers = kwargs.pop("headers", {}) or {}
+        merged_headers = {**auth_headers, **user_headers}
+
         response_data = await self.http_client.make_request_json(
             method=method,
             url=url,
-            headers=headers,
+            headers=merged_headers,
             tenacity_retry=self.tenacity_retry,
             **kwargs
         )
-        
         return response_data
 
     async def close(self):

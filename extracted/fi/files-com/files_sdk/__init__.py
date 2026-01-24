@@ -3,6 +3,7 @@ import files_sdk.models.account_line_item as account_line_item
 import files_sdk.models.action as action
 import files_sdk.models.action_notification_export as action_notification_export
 import files_sdk.models.action_notification_export_result as action_notification_export_result
+import files_sdk.models.agent_push_update as agent_push_update
 import files_sdk.models.api_key as api_key
 import files_sdk.models.api_request_log as api_request_log
 import files_sdk.models.app as app
@@ -50,12 +51,14 @@ import files_sdk.models.history_export as history_export
 import files_sdk.models.history_export_result as history_export_result
 import files_sdk.models.holiday_region as holiday_region
 import files_sdk.models.image as image
+import files_sdk.models.inbound_s3_log as inbound_s3_log
 import files_sdk.models.inbox_recipient as inbox_recipient
 import files_sdk.models.inbox_registration as inbox_registration
 import files_sdk.models.inbox_upload as inbox_upload
 import files_sdk.models.invoice as invoice
 import files_sdk.models.invoice_line_item as invoice_line_item
 import files_sdk.models.ip_address as ip_address
+import files_sdk.models.key_lifecycle_rule as key_lifecycle_rule
 import files_sdk.models.lock as lock
 import files_sdk.models.message as message
 import files_sdk.models.message_comment as message_comment
@@ -63,6 +66,9 @@ import files_sdk.models.message_comment_reaction as message_comment_reaction
 import files_sdk.models.message_reaction as message_reaction
 import files_sdk.models.notification as notification
 import files_sdk.models.outbound_connection_log as outbound_connection_log
+import files_sdk.models.partner as partner
+import files_sdk.models.partner_site as partner_site
+import files_sdk.models.partner_site_request as partner_site_request
 import files_sdk.models.payment as payment
 import files_sdk.models.payment_line_item as payment_line_item
 import files_sdk.models.permission as permission
@@ -76,8 +82,10 @@ import files_sdk.models.remote_bandwidth_snapshot as remote_bandwidth_snapshot
 import files_sdk.models.remote_mount_backend as remote_mount_backend
 import files_sdk.models.remote_server as remote_server
 import files_sdk.models.remote_server_configuration_file as remote_server_configuration_file
+import files_sdk.models.remote_server_credential as remote_server_credential
 import files_sdk.models.request as request
 import files_sdk.models.restore as restore
+import files_sdk.models.scim_log as scim_log
 import files_sdk.models.session as session
 import files_sdk.models.settings_change as settings_change
 import files_sdk.models.sftp_action_log as sftp_action_log
@@ -103,6 +111,7 @@ import files_sdk.models.user_request as user_request
 import files_sdk.models.user_sftp_client_use as user_sftp_client_use
 import files_sdk.models.web_dav_action_log as web_dav_action_log
 import files_sdk.models.webhook_test as webhook_test
+import files_sdk.models.workspace as workspace
 
 from files_sdk.models.account_line_item import AccountLineItem
 from files_sdk.models.action import Action
@@ -112,6 +121,7 @@ from files_sdk.models.action_notification_export import (
 from files_sdk.models.action_notification_export_result import (
     ActionNotificationExportResult,
 )
+from files_sdk.models.agent_push_update import AgentPushUpdate
 from files_sdk.models.api_key import ApiKey
 from files_sdk.models.api_request_log import ApiRequestLog
 from files_sdk.models.app import App
@@ -161,12 +171,14 @@ from files_sdk.models.history_export import HistoryExport
 from files_sdk.models.history_export_result import HistoryExportResult
 from files_sdk.models.holiday_region import HolidayRegion
 from files_sdk.models.image import Image
+from files_sdk.models.inbound_s3_log import InboundS3Log
 from files_sdk.models.inbox_recipient import InboxRecipient
 from files_sdk.models.inbox_registration import InboxRegistration
 from files_sdk.models.inbox_upload import InboxUpload
 from files_sdk.models.invoice import Invoice
 from files_sdk.models.invoice_line_item import InvoiceLineItem
 from files_sdk.models.ip_address import IpAddress
+from files_sdk.models.key_lifecycle_rule import KeyLifecycleRule
 from files_sdk.models.lock import Lock
 from files_sdk.models.message import Message
 from files_sdk.models.message_comment import MessageComment
@@ -174,6 +186,9 @@ from files_sdk.models.message_comment_reaction import MessageCommentReaction
 from files_sdk.models.message_reaction import MessageReaction
 from files_sdk.models.notification import Notification
 from files_sdk.models.outbound_connection_log import OutboundConnectionLog
+from files_sdk.models.partner import Partner
+from files_sdk.models.partner_site import PartnerSite
+from files_sdk.models.partner_site_request import PartnerSiteRequest
 from files_sdk.models.payment import Payment
 from files_sdk.models.payment_line_item import PaymentLineItem
 from files_sdk.models.permission import Permission
@@ -189,8 +204,10 @@ from files_sdk.models.remote_server import RemoteServer
 from files_sdk.models.remote_server_configuration_file import (
     RemoteServerConfigurationFile,
 )
+from files_sdk.models.remote_server_credential import RemoteServerCredential
 from files_sdk.models.request import Request
 from files_sdk.models.restore import Restore
+from files_sdk.models.scim_log import ScimLog
 from files_sdk.models.session import Session
 from files_sdk.models.settings_change import SettingsChange
 from files_sdk.models.sftp_action_log import SftpActionLog
@@ -216,6 +233,7 @@ from files_sdk.models.user_request import UserRequest
 from files_sdk.models.user_sftp_client_use import UserSftpClientUse
 from files_sdk.models.web_dav_action_log import WebDavActionLog
 from files_sdk.models.webhook_test import WebhookTest
+from files_sdk.models.workspace import Workspace
 
 import files_sdk.path_util
 import socket
@@ -227,7 +245,7 @@ session_id = None
 source_ip = None
 base_url = "https://app.files.com"
 base_path = "api/rest/v1"
-version = "1.6.67"
+version = "1.6.266"
 
 __version__ = version
 

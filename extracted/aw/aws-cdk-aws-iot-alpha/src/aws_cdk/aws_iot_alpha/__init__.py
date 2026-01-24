@@ -245,7 +245,7 @@ class AccountAuditConfigurationProps:
         self,
         *,
         check_configuration: typing.Optional[typing.Union["CheckConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
-        target_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
+        target_topic: typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"] = None,
     ) -> None:
         '''(experimental) Properties for defining AWS IoT Audit Configuration.
 
@@ -293,7 +293,7 @@ class AccountAuditConfigurationProps:
         return typing.cast(typing.Optional["CheckConfiguration"], result)
 
     @builtins.property
-    def target_topic(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic]:
+    def target_topic(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"]:
         '''(experimental) The target SNS topic to which audit notifications are sent.
 
         :default: - no notifications are sent
@@ -301,7 +301,7 @@ class AccountAuditConfigurationProps:
         :stability: experimental
         '''
         result = self._values.get("target_topic")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -324,7 +324,7 @@ class ActionConfig:
     def __init__(
         self,
         *,
-        configuration: typing.Union[_aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty, typing.Dict[builtins.str, typing.Any]],
+        configuration: typing.Union["_aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Properties for an topic rule action.
 
@@ -335,6 +335,44 @@ class ActionConfig:
 
         Example::
 
+            from aws_cdk.aws_iot.ActionProperty import ActionProperty
+            from aws_cdk.aws_iot.CloudwatchAlarmActionProperty import CloudwatchAlarmActionProperty
+            from aws_cdk.aws_iot.CloudwatchLogsActionProperty import CloudwatchLogsActionProperty
+            from aws_cdk.aws_iot.CloudwatchMetricActionProperty import CloudwatchMetricActionProperty
+            from aws_cdk.aws_iot.DynamoDBActionProperty import DynamoDBActionProperty
+            from aws_cdk.aws_iot.DynamoDBv2ActionProperty import DynamoDBv2ActionProperty
+            from aws_cdk.aws_iot.PutItemInputProperty import PutItemInputProperty
+            from aws_cdk.aws_iot.ElasticsearchActionProperty import ElasticsearchActionProperty
+            from aws_cdk.aws_iot.FirehoseActionProperty import FirehoseActionProperty
+            from aws_cdk.aws_iot.HttpActionProperty import HttpActionProperty
+            from aws_cdk.aws_iot.HttpAuthorizationProperty import HttpAuthorizationProperty
+            from aws_cdk.aws_iot.SigV4AuthorizationProperty import SigV4AuthorizationProperty
+            from aws_cdk.aws_iot.BatchConfigProperty import BatchConfigProperty
+            from aws_cdk.aws_iot.HttpActionHeaderProperty import HttpActionHeaderProperty
+            from aws_cdk.aws_iot.IotAnalyticsActionProperty import IotAnalyticsActionProperty
+            from aws_cdk.aws_iot.IotEventsActionProperty import IotEventsActionProperty
+            from aws_cdk.aws_iot.IotSiteWiseActionProperty import IotSiteWiseActionProperty
+            from aws_cdk.aws_iot.PutAssetPropertyValueEntryProperty import PutAssetPropertyValueEntryProperty
+            from aws_cdk.aws_iot.AssetPropertyValueProperty import AssetPropertyValueProperty
+            from aws_cdk.aws_iot.AssetPropertyTimestampProperty import AssetPropertyTimestampProperty
+            from aws_cdk.aws_iot.AssetPropertyVariantProperty import AssetPropertyVariantProperty
+            from aws_cdk.aws_iot.KafkaActionProperty import KafkaActionProperty
+            from aws_cdk.aws_iot.KafkaActionHeaderProperty import KafkaActionHeaderProperty
+            from aws_cdk.aws_iot.KinesisActionProperty import KinesisActionProperty
+            from aws_cdk.aws_iot.LambdaActionProperty import LambdaActionProperty
+            from aws_cdk.aws_iot.LocationActionProperty import LocationActionProperty
+            from aws_cdk.aws_iot.TimestampProperty import TimestampProperty
+            from aws_cdk.aws_iot.OpenSearchActionProperty import OpenSearchActionProperty
+            from aws_cdk.aws_iot.RepublishActionProperty import RepublishActionProperty
+            from aws_cdk.aws_iot.RepublishActionHeadersProperty import RepublishActionHeadersProperty
+            from aws_cdk.aws_iot.UserPropertyProperty import UserPropertyProperty
+            from aws_cdk.aws_iot.S3ActionProperty import S3ActionProperty
+            from aws_cdk.aws_iot.SnsActionProperty import SnsActionProperty
+            from aws_cdk.aws_iot.SqsActionProperty import SqsActionProperty
+            from aws_cdk.aws_iot.StepFunctionsActionProperty import StepFunctionsActionProperty
+            from aws_cdk.aws_iot.TimestreamActionProperty import TimestreamActionProperty
+            from aws_cdk.aws_iot.TimestreamDimensionProperty import TimestreamDimensionProperty
+            from aws_cdk.aws_iot.TimestreamTimestampProperty import TimestreamTimestampProperty
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_iot_alpha as iot_alpha
@@ -409,7 +447,13 @@ class ActionConfig:
                                 signing_region="signingRegion"
                             )
                         ),
+                        batch_config=BatchConfigProperty(
+                            max_batch_open_ms=123,
+                            max_batch_size=123,
+                            max_batch_size_bytes=123
+                        ),
                         confirmation_url="confirmationUrl",
+                        enable_batching=False,
                         headers=[HttpActionHeaderProperty(
                             key="key",
                             value="value"
@@ -580,14 +624,14 @@ class ActionConfig:
         }
 
     @builtins.property
-    def configuration(self) -> _aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty:
+    def configuration(self) -> "_aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty":
         '''(experimental) The configuration for this action.
 
         :stability: experimental
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(_aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty, result)
+        return typing.cast("_aws_cdk_aws_iot_ceddda9d.CfnTopicRule.ActionProperty", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -760,7 +804,7 @@ class CheckConfiguration:
         ca_certificate_key_quality_check: typing.Optional[builtins.bool] = None,
         conflicting_client_ids_check: typing.Optional[builtins.bool] = None,
         device_certificate_age_check: typing.Optional[builtins.bool] = None,
-        device_certificate_age_check_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        device_certificate_age_check_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         device_certificate_expiring_check: typing.Optional[builtins.bool] = None,
         device_certificate_key_quality_check: typing.Optional[builtins.bool] = None,
         device_certificate_shared_check: typing.Optional[builtins.bool] = None,
@@ -953,7 +997,7 @@ class CheckConfiguration:
     @builtins.property
     def device_certificate_age_check_duration(
         self,
-    ) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    ) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The duration used to check if a device certificate has been active for a number of days greater than or equal to the number you specify.
 
         Valid values range from 30 days (minimum) to 3650 days (10 years, maximum).
@@ -965,7 +1009,7 @@ class CheckConfiguration:
         :stability: experimental
         '''
         result = self._values.get("device_certificate_age_check_duration")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def device_certificate_expiring_check(self) -> typing.Optional[builtins.bool]:
@@ -1667,7 +1711,7 @@ class IotSql(
 
     @jsii.member(jsii_name="bind")
     @abc.abstractmethod
-    def bind(self, scope: _constructs_77d1e7e8.Construct) -> "IotSqlConfig":
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "IotSqlConfig":
         '''(experimental) Returns the IoT SQL configuration.
 
         :param scope: -
@@ -1679,7 +1723,7 @@ class IotSql(
 
 class _IotSqlProxy(IotSql):
     @jsii.member(jsii_name="bind")
-    def bind(self, scope: _constructs_77d1e7e8.Construct) -> "IotSqlConfig":
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "IotSqlConfig":
         '''(experimental) Returns the IoT SQL configuration.
 
         :param scope: -
@@ -1831,10 +1875,10 @@ class Logging(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        log_level: typing.Optional[LogLevel] = None,
+        log_level: typing.Optional["LogLevel"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1855,10 +1899,10 @@ class Logging(
     @builtins.classmethod
     def from_log_id(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         log_id: builtins.str,
-    ) -> ILogging:
+    ) -> "ILogging":
         '''(experimental) Import an existing AWS IoT Logging.
 
         :param scope: The parent creating construct (usually ``this``).
@@ -1872,7 +1916,7 @@ class Logging(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument log_id", value=log_id, expected_type=type_hints["log_id"])
-        return typing.cast(ILogging, jsii.sinvoke(cls, "fromLogId", [scope, id, log_id]))
+        return typing.cast("ILogging", jsii.sinvoke(cls, "fromLogId", [scope, id, log_id]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -1900,7 +1944,7 @@ class Logging(
     name_mapping={"log_level": "logLevel"},
 )
 class LoggingProps:
-    def __init__(self, *, log_level: typing.Optional[LogLevel] = None) -> None:
+    def __init__(self, *, log_level: typing.Optional["LogLevel"] = None) -> None:
         '''(experimental) Properties for defining AWS IoT Logging.
 
         :param log_level: (experimental) The log level for the AWS IoT Logging. Default: LogLevel.ERROR
@@ -1922,7 +1966,7 @@ class LoggingProps:
             self._values["log_level"] = log_level
 
     @builtins.property
-    def log_level(self) -> typing.Optional[LogLevel]:
+    def log_level(self) -> typing.Optional["LogLevel"]:
         '''(experimental) The log level for the AWS IoT Logging.
 
         :default: LogLevel.ERROR
@@ -1930,7 +1974,7 @@ class LoggingProps:
         :stability: experimental
         '''
         result = self._values.get("log_level")
-        return typing.cast(typing.Optional[LogLevel], result)
+        return typing.cast(typing.Optional["LogLevel"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1989,14 +2033,14 @@ class ScheduledAudit(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        account_audit_configuration: IAccountAuditConfiguration,
-        audit_checks: typing.Sequence[AuditCheck],
-        frequency: Frequency,
-        day_of_month: typing.Optional[DayOfMonth] = None,
-        day_of_week: typing.Optional[DayOfWeek] = None,
+        account_audit_configuration: "IAccountAuditConfiguration",
+        audit_checks: typing.Sequence["AuditCheck"],
+        frequency: "Frequency",
+        day_of_month: typing.Optional["DayOfMonth"] = None,
+        day_of_week: typing.Optional["DayOfWeek"] = None,
         scheduled_audit_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -2030,10 +2074,10 @@ class ScheduledAudit(
     @builtins.classmethod
     def from_scheduled_audit_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         scheduled_audit_arn: builtins.str,
-    ) -> IScheduledAudit:
+    ) -> "IScheduledAudit":
         '''(experimental) Import an existing AWS IoT Scheduled Audit from its ARN.
 
         :param scope: The parent creating construct (usually ``this``).
@@ -2047,18 +2091,18 @@ class ScheduledAudit(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument scheduled_audit_arn", value=scheduled_audit_arn, expected_type=type_hints["scheduled_audit_arn"])
-        return typing.cast(IScheduledAudit, jsii.sinvoke(cls, "fromScheduledAuditArn", [scope, id, scheduled_audit_arn]))
+        return typing.cast("IScheduledAudit", jsii.sinvoke(cls, "fromScheduledAuditArn", [scope, id, scheduled_audit_arn]))
 
     @jsii.member(jsii_name="fromScheduledAuditAttributes")
     @builtins.classmethod
     def from_scheduled_audit_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         scheduled_audit_arn: builtins.str,
         scheduled_audit_name: builtins.str,
-    ) -> IScheduledAudit:
+    ) -> "IScheduledAudit":
         '''(experimental) Import an existing AWS IoT Scheduled Audit from its attributes.
 
         :param scope: The parent creating construct (usually ``this``).
@@ -2077,7 +2121,7 @@ class ScheduledAudit(
             scheduled_audit_name=scheduled_audit_name,
         )
 
-        return typing.cast(IScheduledAudit, jsii.sinvoke(cls, "fromScheduledAuditAttributes", [scope, id, attrs]))
+        return typing.cast("IScheduledAudit", jsii.sinvoke(cls, "fromScheduledAuditAttributes", [scope, id, attrs]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2200,11 +2244,11 @@ class ScheduledAuditProps:
     def __init__(
         self,
         *,
-        account_audit_configuration: IAccountAuditConfiguration,
-        audit_checks: typing.Sequence[AuditCheck],
-        frequency: Frequency,
-        day_of_month: typing.Optional[DayOfMonth] = None,
-        day_of_week: typing.Optional[DayOfWeek] = None,
+        account_audit_configuration: "IAccountAuditConfiguration",
+        audit_checks: typing.Sequence["AuditCheck"],
+        frequency: "Frequency",
+        day_of_month: typing.Optional["DayOfMonth"] = None,
+        day_of_week: typing.Optional["DayOfWeek"] = None,
         scheduled_audit_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Properties for defining AWS IoT Scheduled Audit.
@@ -2271,7 +2315,7 @@ class ScheduledAuditProps:
             self._values["scheduled_audit_name"] = scheduled_audit_name
 
     @builtins.property
-    def account_audit_configuration(self) -> IAccountAuditConfiguration:
+    def account_audit_configuration(self) -> "IAccountAuditConfiguration":
         '''(experimental) Account audit configuration.
 
         The audit checks specified in ``auditChecks`` must be enabled in this configuration.
@@ -2280,10 +2324,10 @@ class ScheduledAuditProps:
         '''
         result = self._values.get("account_audit_configuration")
         assert result is not None, "Required property 'account_audit_configuration' is missing"
-        return typing.cast(IAccountAuditConfiguration, result)
+        return typing.cast("IAccountAuditConfiguration", result)
 
     @builtins.property
-    def audit_checks(self) -> typing.List[AuditCheck]:
+    def audit_checks(self) -> typing.List["AuditCheck"]:
         '''(experimental) Which checks are performed during the scheduled audit.
 
         Checks must be enabled for your account.
@@ -2292,20 +2336,20 @@ class ScheduledAuditProps:
         '''
         result = self._values.get("audit_checks")
         assert result is not None, "Required property 'audit_checks' is missing"
-        return typing.cast(typing.List[AuditCheck], result)
+        return typing.cast(typing.List["AuditCheck"], result)
 
     @builtins.property
-    def frequency(self) -> Frequency:
+    def frequency(self) -> "Frequency":
         '''(experimental) How often the scheduled audit occurs.
 
         :stability: experimental
         '''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
-        return typing.cast(Frequency, result)
+        return typing.cast("Frequency", result)
 
     @builtins.property
-    def day_of_month(self) -> typing.Optional[DayOfMonth]:
+    def day_of_month(self) -> typing.Optional["DayOfMonth"]:
         '''(experimental) The day of the month on which the scheduled audit is run (if the frequency is "MONTHLY").
 
         If days 29-31 are specified, and the month does not have that many days, the audit takes place on the "LAST" day of the month.
@@ -2315,10 +2359,10 @@ class ScheduledAuditProps:
         :stability: experimental
         '''
         result = self._values.get("day_of_month")
-        return typing.cast(typing.Optional[DayOfMonth], result)
+        return typing.cast(typing.Optional["DayOfMonth"], result)
 
     @builtins.property
-    def day_of_week(self) -> typing.Optional[DayOfWeek]:
+    def day_of_week(self) -> typing.Optional["DayOfWeek"]:
         '''(experimental) The day of the week on which the scheduled audit is run (if the frequency is "WEEKLY" or "BIWEEKLY").
 
         :default: - required if frequency is "WEEKLY" or "BIWEEKLY", not allowed otherwise
@@ -2326,7 +2370,7 @@ class ScheduledAuditProps:
         :stability: experimental
         '''
         result = self._values.get("day_of_week")
-        return typing.cast(typing.Optional[DayOfWeek], result)
+        return typing.cast(typing.Optional["DayOfWeek"], result)
 
     @builtins.property
     def scheduled_audit_name(self) -> typing.Optional[builtins.str]:
@@ -2381,14 +2425,14 @@ class TopicRule(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        sql: IotSql,
-        actions: typing.Optional[typing.Sequence[IAction]] = None,
+        sql: "IotSql",
+        actions: typing.Optional[typing.Sequence["IAction"]] = None,
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        error_action: typing.Optional[IAction] = None,
+        error_action: typing.Optional["IAction"] = None,
         topic_rule_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -2422,10 +2466,10 @@ class TopicRule(
     @builtins.classmethod
     def from_topic_rule_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         topic_rule_arn: builtins.str,
-    ) -> ITopicRule:
+    ) -> "ITopicRule":
         '''(experimental) Import an existing AWS IoT Rule provided an ARN.
 
         :param scope: The parent creating construct (usually ``this``).
@@ -2439,10 +2483,10 @@ class TopicRule(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument topic_rule_arn", value=topic_rule_arn, expected_type=type_hints["topic_rule_arn"])
-        return typing.cast(ITopicRule, jsii.sinvoke(cls, "fromTopicRuleArn", [scope, id, topic_rule_arn]))
+        return typing.cast("ITopicRule", jsii.sinvoke(cls, "fromTopicRuleArn", [scope, id, topic_rule_arn]))
 
     @jsii.member(jsii_name="addAction")
-    def add_action(self, action: IAction) -> None:
+    def add_action(self, action: "IAction") -> None:
         '''(experimental) Add a action to the topic rule.
 
         :param action: the action to associate with the topic rule.
@@ -2500,11 +2544,11 @@ class TopicRuleProps:
     def __init__(
         self,
         *,
-        sql: IotSql,
-        actions: typing.Optional[typing.Sequence[IAction]] = None,
+        sql: "IotSql",
+        actions: typing.Optional[typing.Sequence["IAction"]] = None,
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        error_action: typing.Optional[IAction] = None,
+        error_action: typing.Optional["IAction"] = None,
         topic_rule_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Properties for defining an AWS IoT Rule.
@@ -2558,7 +2602,7 @@ class TopicRuleProps:
             self._values["topic_rule_name"] = topic_rule_name
 
     @builtins.property
-    def sql(self) -> IotSql:
+    def sql(self) -> "IotSql":
         '''(experimental) A simplified SQL syntax to filter messages received on an MQTT topic and push the data elsewhere.
 
         :see: https://docs.aws.amazon.com/iot/latest/developerguide/iot-sql-reference.html
@@ -2566,10 +2610,10 @@ class TopicRuleProps:
         '''
         result = self._values.get("sql")
         assert result is not None, "Required property 'sql' is missing"
-        return typing.cast(IotSql, result)
+        return typing.cast("IotSql", result)
 
     @builtins.property
-    def actions(self) -> typing.Optional[typing.List[IAction]]:
+    def actions(self) -> typing.Optional[typing.List["IAction"]]:
         '''(experimental) The actions associated with the topic rule.
 
         :default: No actions will be perform
@@ -2577,7 +2621,7 @@ class TopicRuleProps:
         :stability: experimental
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.List[IAction]], result)
+        return typing.cast(typing.Optional[typing.List["IAction"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -2602,7 +2646,7 @@ class TopicRuleProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def error_action(self) -> typing.Optional[IAction]:
+    def error_action(self) -> typing.Optional["IAction"]:
         '''(experimental) The action AWS IoT performs when it is unable to perform a rule's action.
 
         :default: - no action will be performed
@@ -2610,7 +2654,7 @@ class TopicRuleProps:
         :stability: experimental
         '''
         result = self._values.get("error_action")
-        return typing.cast(typing.Optional[IAction], result)
+        return typing.cast(typing.Optional["IAction"], result)
 
     @builtins.property
     def topic_rule_name(self) -> typing.Optional[builtins.str]:
@@ -2663,11 +2707,11 @@ class AccountAuditConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        check_configuration: typing.Optional[typing.Union[CheckConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        target_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
+        check_configuration: typing.Optional[typing.Union["CheckConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        target_topic: typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -2691,10 +2735,10 @@ class AccountAuditConfiguration(
     @builtins.classmethod
     def from_account_id(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         account_id: builtins.str,
-    ) -> IAccountAuditConfiguration:
+    ) -> "IAccountAuditConfiguration":
         '''(experimental) Import an existing AWS IoT Audit Configuration.
 
         :param scope: The parent creating construct (usually ``this``).
@@ -2708,7 +2752,7 @@ class AccountAuditConfiguration(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-        return typing.cast(IAccountAuditConfiguration, jsii.sinvoke(cls, "fromAccountId", [scope, id, account_id]))
+        return typing.cast("IAccountAuditConfiguration", jsii.sinvoke(cls, "fromAccountId", [scope, id, account_id]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2968,3 +3012,6 @@ def _typecheckingstub__3712cb14c2a0307906b9375e5b0b298caf9a979068b6e55717fe108f0
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAccountAuditConfiguration, IAction, ILogging, IScheduledAudit, ITopicRule]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

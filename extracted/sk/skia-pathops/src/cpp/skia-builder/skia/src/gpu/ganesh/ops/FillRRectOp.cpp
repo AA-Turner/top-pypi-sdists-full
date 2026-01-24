@@ -7,29 +7,100 @@
 
 #include "src/gpu/ganesh/ops/FillRRectOp.h"
 
-#include "include/gpu/GrRecordingContext.h"
+#include "include/core/SkClipOp.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRRect.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkString.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/private/base/SkAlignedStorage.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkMacros.h"
+#include "include/private/base/SkOnce.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/base/SkTArray.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/base/SkArenaAlloc.h"
+#include "src/base/SkUtils.h"
 #include "src/base/SkVx.h"
+#include "src/core/SkColorData.h"
 #include "src/core/SkRRectPriv.h"
+#include "src/core/SkSLTypeShared.h"
 #include "src/gpu/BufferWriter.h"
 #include "src/gpu/KeyBuilder.h"
+#include "src/gpu/ResourceKey.h"
+#include "src/gpu/ganesh/GrAppliedClip.h"
+#include "src/gpu/ganesh/GrBuffer.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrGeometryProcessor.h"
-#include "src/gpu/ganesh/GrMemoryPool.h"
+#include "src/gpu/ganesh/GrMeshDrawTarget.h"
 #include "src/gpu/ganesh/GrOpFlushState.h"
-#include "src/gpu/ganesh/GrOpsRenderPass.h"
+#include "src/gpu/ganesh/GrPaint.h"
+#include "src/gpu/ganesh/GrProcessorAnalysis.h"
+#include "src/gpu/ganesh/GrProcessorSet.h"
 #include "src/gpu/ganesh/GrProgramInfo.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
 #include "src/gpu/ganesh/GrResourceProvider.h"
+#include "src/gpu/ganesh/GrShaderCaps.h"
+#include "src/gpu/ganesh/GrShaderVar.h"
 #include "src/gpu/ganesh/geometry/GrShape.h"
 #include "src/gpu/ganesh/glsl/GrGLSLFragmentShaderBuilder.h"
 #include "src/gpu/ganesh/glsl/GrGLSLVarying.h"
 #include "src/gpu/ganesh/glsl/GrGLSLVertexGeoBuilder.h"
+#include "src/gpu/ganesh/ops/GrDrawOp.h"
 #include "src/gpu/ganesh/ops/GrMeshDrawOp.h"
 #include "src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.h"
+
+#if defined(GPU_TEST_UTILS)
+#include "src/base/SkRandom.h"
+#include "src/gpu/ganesh/GrDrawOpTest.h"
+#include "src/gpu/ganesh/GrTestUtils.h"
+#endif
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <utility>
+
+class GrDstProxyView;
+class GrGLSLProgramDataManager;
+class GrSurfaceProxyView;
+enum class GrXferBarrierFlags;
+
+namespace skgpu::ganesh {
+class SurfaceDrawContext;
+}
+
+using namespace skia_private;
 
 namespace skgpu::ganesh::FillRRectOp {
 
 namespace {
+
+// Note: Just checking m.restStaysRect is not sufficient
+bool skews_are_relevant(const SkMatrix& m) {
+    SkASSERT(!m.hasPerspective());
+
+    if (m[SkMatrix::kMSkewX] == 0.0f && m[SkMatrix::kMSkewY] == 0.0f) {
+        return false;
+    }
+
+    static constexpr float kTol = SK_ScalarNearlyZero;
+    float absScaleX = SkScalarAbs(m[SkMatrix::kMScaleX]);
+    float absSkewX  = SkScalarAbs(m[SkMatrix::kMSkewX]);
+    float absScaleY = SkScalarAbs(m[SkMatrix::kMScaleY]);
+    float absSkewY  = SkScalarAbs(m[SkMatrix::kMSkewY]);
+
+    // The maximum absolute column sum norm of the upper left 2x2
+    float norm = std::max(absScaleX + absSkewY, absSkewX + absScaleY);
+
+    return absSkewX > kTol * norm || absSkewY > kTol * norm;
+}
 
 class FillRRectOpImpl final : public GrMeshDrawOp {
 private:
@@ -74,6 +145,10 @@ public:
     GrProcessorSet::Analysis finalize(const GrCaps&, const GrAppliedClip*, GrClampType) override;
     CombineResult onCombineIfPossible(GrOp*, SkArenaAlloc*, const GrCaps&) override;
 
+#if defined(GPU_TEST_UTILS)
+    SkString onDumpInfo() const override;
+#endif
+
     void visitProxies(const GrVisitProxyFunc& func) const override {
         if (fProgramInfo) {
             fProgramInfo->visitFPProxies(func);
@@ -100,7 +175,7 @@ private:
     };
     constexpr static int kNumProcessorFlags = 5;
 
-    GR_DECL_BITFIELD_CLASS_OPS_FRIENDS(ProcessorFlags);
+    SK_DECL_BITFIELD_CLASS_OPS_FRIENDS(ProcessorFlags);
 
     class Processor;
 
@@ -155,7 +230,7 @@ private:
     GrProgramInfo* fProgramInfo = nullptr;
 };
 
-GR_MAKE_BITFIELD_CLASS_OPS(FillRRectOpImpl::ProcessorFlags)
+SK_MAKE_BITFIELD_CLASS_OPS(FillRRectOpImpl::ProcessorFlags)
 
 // Hardware derivatives are not always accurate enough for highly elliptical corners. This method
 // checks to make sure the corners will still all look good if we use HW derivatives.
@@ -257,8 +332,8 @@ GrDrawOp::ClipResult FillRRectOpImpl::clipToShape(skgpu::ganesh::SurfaceDrawCont
             }
             clipToView.preConcat(clipMatrix);
             SkASSERT(!clipToView.hasPerspective());
-            if (!SkScalarNearlyZero(clipToView.getSkewX()) ||
-                !SkScalarNearlyZero(clipToView.getSkewY())) {
+
+            if (skews_are_relevant(clipToView)) {
                 // A rect in "clipMatrix" space is not a rect in "viewMatrix" space.
                 return ClipResult::kFail;
             }
@@ -269,7 +344,9 @@ GrDrawOp::ClipResult FillRRectOpImpl::clipToShape(skgpu::ganesh::SurfaceDrawCont
             if (shape.isRect()) {
                 clipRRect.setRect(clipToView.mapRect(shape.rect()));
             } else {
-                if (!shape.rrect().transform(clipToView, &clipRRect)) {
+                if (auto rr = shape.rrect().transform(clipToView)) {
+                    clipRRect = *rr;
+                } else {
                     // Transforming the rrect failed. This shouldn't generally happen except in
                     // cases of fp32 overflow.
                     return ClipResult::kFail;
@@ -303,13 +380,16 @@ GrDrawOp::ClipResult FillRRectOpImpl::clipToShape(skgpu::ganesh::SurfaceDrawCont
 
         if (fHeadInstance->fLocalCoords.fType == LocalCoords::Type::kRect) {
             // Update the local rect.
-            auto rect = skvx::bit_pun<skvx::float4>(fHeadInstance->fRRect.rect());
-            auto local = skvx::bit_pun<skvx::float4>(fHeadInstance->fLocalCoords.fRect);
-            auto isect = skvx::bit_pun<skvx::float4>(isectRRect.rect());
+            auto rect = sk_bit_cast<skvx::float4>(fHeadInstance->fRRect.rect());
+            auto local = sk_bit_cast<skvx::float4>(fHeadInstance->fLocalCoords.fRect);
+            auto isect = sk_bit_cast<skvx::float4>(isectRRect.rect());
             auto rectToLocalSize = (local - skvx::shuffle<2,3,0,1>(local)) /
                                    (rect - skvx::shuffle<2,3,0,1>(rect));
-            fHeadInstance->fLocalCoords.fRect =
-                    skvx::bit_pun<SkRect>((isect - rect) * rectToLocalSize + local);
+            auto localCoordsRect = (isect - rect) * rectToLocalSize + local;
+            fHeadInstance->fLocalCoords.fRect.setLTRB(localCoordsRect.x(),
+                                                      localCoordsRect.y(),
+                                                      localCoordsRect.z(),
+                                                      localCoordsRect.w());
         }
 
         // Update the round rect.
@@ -352,6 +432,24 @@ GrOp::CombineResult FillRRectOpImpl::onCombineIfPossible(GrOp* op,
     fInstanceCount += that->fInstanceCount;
     return CombineResult::kMerged;
 }
+
+#if defined(GPU_TEST_UTILS)
+SkString FillRRectOpImpl::onDumpInfo() const {
+    SkString str = SkStringPrintf("# instances: %d\n", fInstanceCount);
+    str += fHelper.dumpInfo();
+    int i = 0;
+    for (Instance* tmp = fHeadInstance; tmp; tmp = tmp->fNext, ++i) {
+        str.appendf("%d: Color: [%.2f, %.2f, %.2f, %.2f] ",
+                    i, tmp->fColor.fR, tmp->fColor.fG, tmp->fColor.fB, tmp->fColor.fA);
+        SkMatrix m = tmp->fViewMatrix;
+        str.appendf("ViewMatrix: [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f] ",
+                    m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
+        SkRect r = tmp->fRRect.rect();
+        str.appendf("Rect: [%f %f %f %f]\n", r.fLeft, r.fTop, r.fRight, r.fBottom);
+    }
+    return str;
+}
+#endif
 
 class FillRRectOpImpl::Processor final : public GrGeometryProcessor {
 public:
@@ -407,7 +505,7 @@ private:
     const ProcessorFlags fFlags;
 
     constexpr static int kMaxInstanceAttribs = 6;
-    SkSTArray<kMaxInstanceAttribs, Attribute> fInstanceAttribs;
+    STArray<kMaxInstanceAttribs, Attribute> fInstanceAttribs;
     const Attribute* fColorAttrib;
 };
 
@@ -922,9 +1020,7 @@ GrOp::Owner Make(GrRecordingContext* ctx,
 
 }  // namespace skgpu::ganesh::FillRRectOp
 
-#if GR_TEST_UTILS
-
-#include "src/gpu/ganesh/GrDrawOpTest.h"
+#if defined(GPU_TEST_UTILS)
 
 GR_DRAW_OP_TEST_DEFINE(FillRRectOp) {
     SkArenaAlloc arena(64 * sizeof(float));

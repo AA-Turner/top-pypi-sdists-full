@@ -57,7 +57,9 @@ def run_command_on_all_nodes(command: str, timeout: Optional[float]):
                 time.sleep(1)
 
     ray = try_import_ray()
-    from ray.util.placement_group import placement_group
+    from ray.util.placement_group import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray dependency for placement groups")
+        placement_group,
+    )
 
     nodes = ray.nodes()
     bundles = [{"CPU": 1} for node in nodes]
@@ -131,7 +133,7 @@ class ConfigController(BaseController):
     ):
         # import ray dependencies here to avoid making ray a general dependency for
         # the CLI
-        import ray
+        import ray  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray dependency for dev setup")
 
         optional_args = {}
         if cluster_env:
@@ -243,7 +245,7 @@ class ConfigController(BaseController):
                     "available_node_types is missing the node_config for the head_node_type."
                 )
 
-            if len(global_aws_options):
+            if global_aws_options:
                 global_aws_options_keys = ", ".join(global_aws_options.keys())
                 self.log.warning(
                     f"We squished the following configurations: ({global_aws_options_keys}) "

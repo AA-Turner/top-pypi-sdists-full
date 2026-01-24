@@ -26,7 +26,7 @@ class Matches:
 
 
 def check_attributes(ipf, devices):
-    matches = list()
+    matches = []
     attributes = {a["sn"]: a for a in Attributes(client=ipf).all(filters={"name": ["eq", "siteName"]})}
     for sn, dev in deepcopy(devices).items():
         if sn in attributes:
@@ -62,7 +62,7 @@ def _create_device_match(rule, device, idx):
 
 
 def _get_cloud_inventory(ipf) -> dict:
-    cloud = dict()
+    cloud = {}
     for k, v in {"aws": "arn", "azure": "resourceId", "gcp": "resourceName"}.items():
         columns = {"sn"}
         columns.add(v)
@@ -84,7 +84,7 @@ def map_devices_to_rules(ipf, snapshot_id: str = "$last"):  # NOSONAR
     {devices[_].update({"resourceId": cloud.get(_, None)}) for _ in devices}
     rules = ss.get_separation_rules()
 
-    matches = check_attributes(ipf, devices) if rules["manualEnabled"] else list()
+    matches = check_attributes(ipf, devices) if rules["manualEnabled"] else []
 
     for idx, rule in enumerate(rules["rules"]):
         if rule["type"] != "slug":

@@ -35,7 +35,8 @@ class ViewCollection(ViewCollectionBase):
 class ViewResource(ViewResourceBase):
     """Represents a reference to a Snowflake view.
 
-    With this view reference, you can drop and fetch information about views.
+    With this view reference, you can fetch information about a view, as well as perform certain
+    actions on it.
     """
 
     _plural_name = "views"

@@ -8,9 +8,10 @@ T = TypeVar("T", bound="CreateSqsTriggerJsonBodyRetryRetryIf")
 
 @_attrs_define
 class CreateSqsTriggerJsonBodyRetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

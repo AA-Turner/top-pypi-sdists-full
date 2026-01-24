@@ -10,6 +10,7 @@ from ..models.custom_fields import CustomFields
 from ..models.dna_annotation import DnaAnnotation
 from ..models.dna_sequence_part import DnaSequencePart
 from ..models.dna_sequence_transcription import DnaSequenceTranscription
+from ..models.dna_sequence_with_entity_type_entity_type import DnaSequenceWithEntityTypeEntityType
 from ..models.fields import Fields
 from ..models.inaccessible_resource_resource_type import InaccessibleResourceResourceType
 from ..models.ingredient import Ingredient
@@ -32,6 +33,7 @@ class RequestResponseSamplesItemEntity:
     _inaccessible_id: Union[Unset, str] = UNSET
     _resource_type: Union[Unset, InaccessibleResourceResourceType] = UNSET
     _type: Union[Unset, str] = UNSET
+    _entity_type: Union[Unset, DnaSequenceWithEntityTypeEntityType] = UNSET
     _aliases: Union[Unset, List[str]] = UNSET
     _api_url: Union[Unset, str] = UNSET
     _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
@@ -48,12 +50,15 @@ class RequestResponseSamplesItemEntity:
     _registration_origin: Union[Unset, None, RegistrationOrigin] = UNSET
     _registry_id: Union[Unset, None, str] = UNSET
     _schema: Union[Unset, None, SchemaSummary] = UNSET
+    _url: Union[Unset, str] = UNSET
     _web_url: Union[Unset, str] = UNSET
+    _canonicalized_smiles: Union[Unset, str] = UNSET
+    _original_smiles: Union[Unset, None, str] = UNSET
     _annotations: Union[Unset, List[DnaAnnotation]] = UNSET
     _bases: Union[Unset, str] = UNSET
     _custom_notation: Union[Unset, None, str] = UNSET
     _custom_notation_name: Union[Unset, None, str] = UNSET
-    _helm: Union[Unset, str] = UNSET
+    _helm: Union[Unset, None, str] = UNSET
     _nucleotide_type: Union[Unset, OligoNucleotideType] = UNSET
     _length: Union[Unset, int] = UNSET
     _allow_measured_ingredients: Union[Unset, bool] = UNSET
@@ -61,11 +66,13 @@ class RequestResponseSamplesItemEntity:
     _ingredients: Union[Unset, List[Ingredient]] = UNSET
     _units: Union[Unset, MixtureMeasurementUnits] = UNSET
     _amino_acids: Union[Unset, str] = UNSET
+    _alignment_ids: Union[Unset, List[str]] = UNSET
     _is_circular: Union[Unset, bool] = UNSET
     _parts: Union[Unset, List[DnaSequencePart]] = UNSET
     _primers: Union[Unset, List[Primer]] = UNSET
-    _transcriptions: Union[Unset, List[DnaSequenceTranscription]] = UNSET
     _translations: Union[Unset, List[Translation]] = UNSET
+    _dna_alignment_ids: Union[Unset, List[str]] = UNSET
+    _transcriptions: Union[Unset, List[DnaSequenceTranscription]] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
     def __repr__(self):
@@ -73,6 +80,7 @@ class RequestResponseSamplesItemEntity:
         fields.append("inaccessible_id={}".format(repr(self._inaccessible_id)))
         fields.append("resource_type={}".format(repr(self._resource_type)))
         fields.append("type={}".format(repr(self._type)))
+        fields.append("entity_type={}".format(repr(self._entity_type)))
         fields.append("aliases={}".format(repr(self._aliases)))
         fields.append("api_url={}".format(repr(self._api_url)))
         fields.append("archive_record={}".format(repr(self._archive_record)))
@@ -89,7 +97,10 @@ class RequestResponseSamplesItemEntity:
         fields.append("registration_origin={}".format(repr(self._registration_origin)))
         fields.append("registry_id={}".format(repr(self._registry_id)))
         fields.append("schema={}".format(repr(self._schema)))
+        fields.append("url={}".format(repr(self._url)))
         fields.append("web_url={}".format(repr(self._web_url)))
+        fields.append("canonicalized_smiles={}".format(repr(self._canonicalized_smiles)))
+        fields.append("original_smiles={}".format(repr(self._original_smiles)))
         fields.append("annotations={}".format(repr(self._annotations)))
         fields.append("bases={}".format(repr(self._bases)))
         fields.append("custom_notation={}".format(repr(self._custom_notation)))
@@ -102,11 +113,13 @@ class RequestResponseSamplesItemEntity:
         fields.append("ingredients={}".format(repr(self._ingredients)))
         fields.append("units={}".format(repr(self._units)))
         fields.append("amino_acids={}".format(repr(self._amino_acids)))
+        fields.append("alignment_ids={}".format(repr(self._alignment_ids)))
         fields.append("is_circular={}".format(repr(self._is_circular)))
         fields.append("parts={}".format(repr(self._parts)))
         fields.append("primers={}".format(repr(self._primers)))
-        fields.append("transcriptions={}".format(repr(self._transcriptions)))
         fields.append("translations={}".format(repr(self._translations)))
+        fields.append("dna_alignment_ids={}".format(repr(self._dna_alignment_ids)))
+        fields.append("transcriptions={}".format(repr(self._transcriptions)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "RequestResponseSamplesItemEntity({})".format(", ".join(fields))
 
@@ -117,6 +130,10 @@ class RequestResponseSamplesItemEntity:
             resource_type = self._resource_type.value
 
         type = self._type
+        entity_type: Union[Unset, int] = UNSET
+        if not isinstance(self._entity_type, Unset):
+            entity_type = self._entity_type.value
+
         aliases: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._aliases, Unset):
             aliases = self._aliases
@@ -167,7 +184,10 @@ class RequestResponseSamplesItemEntity:
         if not isinstance(self._schema, Unset):
             schema = self._schema.to_dict() if self._schema else None
 
+        url = self._url
         web_url = self._web_url
+        canonicalized_smiles = self._canonicalized_smiles
+        original_smiles = self._original_smiles
         annotations: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._annotations, Unset):
             annotations = []
@@ -200,6 +220,10 @@ class RequestResponseSamplesItemEntity:
             units = self._units.value
 
         amino_acids = self._amino_acids
+        alignment_ids: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._alignment_ids, Unset):
+            alignment_ids = self._alignment_ids
+
         is_circular = self._is_circular
         parts: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._parts, Unset):
@@ -217,14 +241,6 @@ class RequestResponseSamplesItemEntity:
 
                 primers.append(primers_item)
 
-        transcriptions: Union[Unset, List[Any]] = UNSET
-        if not isinstance(self._transcriptions, Unset):
-            transcriptions = []
-            for transcriptions_item_data in self._transcriptions:
-                transcriptions_item = transcriptions_item_data.to_dict()
-
-                transcriptions.append(transcriptions_item)
-
         translations: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._translations, Unset):
             translations = []
@@ -232,6 +248,18 @@ class RequestResponseSamplesItemEntity:
                 translations_item = translations_item_data.to_dict()
 
                 translations.append(translations_item)
+
+        dna_alignment_ids: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._dna_alignment_ids, Unset):
+            dna_alignment_ids = self._dna_alignment_ids
+
+        transcriptions: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._transcriptions, Unset):
+            transcriptions = []
+            for transcriptions_item_data in self._transcriptions:
+                transcriptions_item = transcriptions_item_data.to_dict()
+
+                transcriptions.append(transcriptions_item)
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -242,6 +270,8 @@ class RequestResponseSamplesItemEntity:
             field_dict["resourceType"] = resource_type
         if type is not UNSET:
             field_dict["type"] = type
+        if entity_type is not UNSET:
+            field_dict["entityType"] = entity_type
         if aliases is not UNSET:
             field_dict["aliases"] = aliases
         if api_url is not UNSET:
@@ -274,8 +304,14 @@ class RequestResponseSamplesItemEntity:
             field_dict["registryId"] = registry_id
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if url is not UNSET:
+            field_dict["url"] = url
         if web_url is not UNSET:
             field_dict["webURL"] = web_url
+        if canonicalized_smiles is not UNSET:
+            field_dict["canonicalizedSmiles"] = canonicalized_smiles
+        if original_smiles is not UNSET:
+            field_dict["originalSmiles"] = original_smiles
         if annotations is not UNSET:
             field_dict["annotations"] = annotations
         if bases is not UNSET:
@@ -300,16 +336,20 @@ class RequestResponseSamplesItemEntity:
             field_dict["units"] = units
         if amino_acids is not UNSET:
             field_dict["aminoAcids"] = amino_acids
+        if alignment_ids is not UNSET:
+            field_dict["alignmentIds"] = alignment_ids
         if is_circular is not UNSET:
             field_dict["isCircular"] = is_circular
         if parts is not UNSET:
             field_dict["parts"] = parts
         if primers is not UNSET:
             field_dict["primers"] = primers
-        if transcriptions is not UNSET:
-            field_dict["transcriptions"] = transcriptions
         if translations is not UNSET:
             field_dict["translations"] = translations
+        if dna_alignment_ids is not UNSET:
+            field_dict["dnaAlignmentIds"] = dna_alignment_ids
+        if transcriptions is not UNSET:
+            field_dict["transcriptions"] = transcriptions
 
         return field_dict
 
@@ -356,6 +396,24 @@ class RequestResponseSamplesItemEntity:
             if strict:
                 raise
             type = cast(Union[Unset, str], UNSET)
+
+        def get_entity_type() -> Union[Unset, DnaSequenceWithEntityTypeEntityType]:
+            entity_type = UNSET
+            _entity_type = d.pop("entityType")
+            if _entity_type is not None and _entity_type is not UNSET:
+                try:
+                    entity_type = DnaSequenceWithEntityTypeEntityType(_entity_type)
+                except ValueError:
+                    entity_type = DnaSequenceWithEntityTypeEntityType.of_unknown(_entity_type)
+
+            return entity_type
+
+        try:
+            entity_type = get_entity_type()
+        except KeyError:
+            if strict:
+                raise
+            entity_type = cast(Union[Unset, DnaSequenceWithEntityTypeEntityType], UNSET)
 
         def get_aliases() -> Union[Unset, List[str]]:
             aliases = cast(List[str], d.pop("aliases"))
@@ -578,6 +636,17 @@ class RequestResponseSamplesItemEntity:
                 raise
             schema = cast(Union[Unset, None, SchemaSummary], UNSET)
 
+        def get_url() -> Union[Unset, str]:
+            url = d.pop("url")
+            return url
+
+        try:
+            url = get_url()
+        except KeyError:
+            if strict:
+                raise
+            url = cast(Union[Unset, str], UNSET)
+
         def get_web_url() -> Union[Unset, str]:
             web_url = d.pop("webURL")
             return web_url
@@ -588,6 +657,28 @@ class RequestResponseSamplesItemEntity:
             if strict:
                 raise
             web_url = cast(Union[Unset, str], UNSET)
+
+        def get_canonicalized_smiles() -> Union[Unset, str]:
+            canonicalized_smiles = d.pop("canonicalizedSmiles")
+            return canonicalized_smiles
+
+        try:
+            canonicalized_smiles = get_canonicalized_smiles()
+        except KeyError:
+            if strict:
+                raise
+            canonicalized_smiles = cast(Union[Unset, str], UNSET)
+
+        def get_original_smiles() -> Union[Unset, None, str]:
+            original_smiles = d.pop("originalSmiles")
+            return original_smiles
+
+        try:
+            original_smiles = get_original_smiles()
+        except KeyError:
+            if strict:
+                raise
+            original_smiles = cast(Union[Unset, None, str], UNSET)
 
         def get_annotations() -> Union[Unset, List[DnaAnnotation]]:
             annotations = []
@@ -639,7 +730,7 @@ class RequestResponseSamplesItemEntity:
                 raise
             custom_notation_name = cast(Union[Unset, None, str], UNSET)
 
-        def get_helm() -> Union[Unset, str]:
+        def get_helm() -> Union[Unset, None, str]:
             helm = d.pop("helm")
             return helm
 
@@ -648,7 +739,7 @@ class RequestResponseSamplesItemEntity:
         except KeyError:
             if strict:
                 raise
-            helm = cast(Union[Unset, str], UNSET)
+            helm = cast(Union[Unset, None, str], UNSET)
 
         def get_nucleotide_type() -> Union[Unset, OligoNucleotideType]:
             nucleotide_type = UNSET
@@ -747,6 +838,18 @@ class RequestResponseSamplesItemEntity:
                 raise
             amino_acids = cast(Union[Unset, str], UNSET)
 
+        def get_alignment_ids() -> Union[Unset, List[str]]:
+            alignment_ids = cast(List[str], d.pop("alignmentIds"))
+
+            return alignment_ids
+
+        try:
+            alignment_ids = get_alignment_ids()
+        except KeyError:
+            if strict:
+                raise
+            alignment_ids = cast(Union[Unset, List[str]], UNSET)
+
         def get_is_circular() -> Union[Unset, bool]:
             is_circular = d.pop("isCircular")
             return is_circular
@@ -792,6 +895,35 @@ class RequestResponseSamplesItemEntity:
                 raise
             primers = cast(Union[Unset, List[Primer]], UNSET)
 
+        def get_translations() -> Union[Unset, List[Translation]]:
+            translations = []
+            _translations = d.pop("translations")
+            for translations_item_data in _translations or []:
+                translations_item = Translation.from_dict(translations_item_data, strict=False)
+
+                translations.append(translations_item)
+
+            return translations
+
+        try:
+            translations = get_translations()
+        except KeyError:
+            if strict:
+                raise
+            translations = cast(Union[Unset, List[Translation]], UNSET)
+
+        def get_dna_alignment_ids() -> Union[Unset, List[str]]:
+            dna_alignment_ids = cast(List[str], d.pop("dnaAlignmentIds"))
+
+            return dna_alignment_ids
+
+        try:
+            dna_alignment_ids = get_dna_alignment_ids()
+        except KeyError:
+            if strict:
+                raise
+            dna_alignment_ids = cast(Union[Unset, List[str]], UNSET)
+
         def get_transcriptions() -> Union[Unset, List[DnaSequenceTranscription]]:
             transcriptions = []
             _transcriptions = d.pop("transcriptions")
@@ -811,27 +943,11 @@ class RequestResponseSamplesItemEntity:
                 raise
             transcriptions = cast(Union[Unset, List[DnaSequenceTranscription]], UNSET)
 
-        def get_translations() -> Union[Unset, List[Translation]]:
-            translations = []
-            _translations = d.pop("translations")
-            for translations_item_data in _translations or []:
-                translations_item = Translation.from_dict(translations_item_data, strict=False)
-
-                translations.append(translations_item)
-
-            return translations
-
-        try:
-            translations = get_translations()
-        except KeyError:
-            if strict:
-                raise
-            translations = cast(Union[Unset, List[Translation]], UNSET)
-
         request_response_samples_item_entity = cls(
             inaccessible_id=inaccessible_id,
             resource_type=resource_type,
             type=type,
+            entity_type=entity_type,
             aliases=aliases,
             api_url=api_url,
             archive_record=archive_record,
@@ -848,7 +964,10 @@ class RequestResponseSamplesItemEntity:
             registration_origin=registration_origin,
             registry_id=registry_id,
             schema=schema,
+            url=url,
             web_url=web_url,
+            canonicalized_smiles=canonicalized_smiles,
+            original_smiles=original_smiles,
             annotations=annotations,
             bases=bases,
             custom_notation=custom_notation,
@@ -861,11 +980,13 @@ class RequestResponseSamplesItemEntity:
             ingredients=ingredients,
             units=units,
             amino_acids=amino_acids,
+            alignment_ids=alignment_ids,
             is_circular=is_circular,
             parts=parts,
             primers=primers,
-            transcriptions=transcriptions,
             translations=translations,
+            dna_alignment_ids=dna_alignment_ids,
+            transcriptions=transcriptions,
         )
 
         request_response_samples_item_entity.additional_properties = d
@@ -932,6 +1053,20 @@ class RequestResponseSamplesItemEntity:
     @type.deleter
     def type(self) -> None:
         self._type = UNSET
+
+    @property
+    def entity_type(self) -> DnaSequenceWithEntityTypeEntityType:
+        if isinstance(self._entity_type, Unset):
+            raise NotPresentError(self, "entity_type")
+        return self._entity_type
+
+    @entity_type.setter
+    def entity_type(self, value: DnaSequenceWithEntityTypeEntityType) -> None:
+        self._entity_type = value
+
+    @entity_type.deleter
+    def entity_type(self) -> None:
+        self._entity_type = UNSET
 
     @property
     def aliases(self) -> List[str]:
@@ -1159,6 +1294,21 @@ class RequestResponseSamplesItemEntity:
         self._schema = UNSET
 
     @property
+    def url(self) -> str:
+        """ The path of the web URL, omitting the tenant domain """
+        if isinstance(self._url, Unset):
+            raise NotPresentError(self, "url")
+        return self._url
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self._url = value
+
+    @url.deleter
+    def url(self) -> None:
+        self._url = UNSET
+
+    @property
     def web_url(self) -> str:
         if isinstance(self._web_url, Unset):
             raise NotPresentError(self, "web_url")
@@ -1171,6 +1321,36 @@ class RequestResponseSamplesItemEntity:
     @web_url.deleter
     def web_url(self) -> None:
         self._web_url = UNSET
+
+    @property
+    def canonicalized_smiles(self) -> str:
+        """ The canonicalized chemical structure in SMILES format. """
+        if isinstance(self._canonicalized_smiles, Unset):
+            raise NotPresentError(self, "canonicalized_smiles")
+        return self._canonicalized_smiles
+
+    @canonicalized_smiles.setter
+    def canonicalized_smiles(self, value: str) -> None:
+        self._canonicalized_smiles = value
+
+    @canonicalized_smiles.deleter
+    def canonicalized_smiles(self) -> None:
+        self._canonicalized_smiles = UNSET
+
+    @property
+    def original_smiles(self) -> Optional[str]:
+        """ The original chemical structure supplied by the user in SMILES format. Null if the user did not originally supply SMILES. """
+        if isinstance(self._original_smiles, Unset):
+            raise NotPresentError(self, "original_smiles")
+        return self._original_smiles
+
+    @original_smiles.setter
+    def original_smiles(self, value: Optional[str]) -> None:
+        self._original_smiles = value
+
+    @original_smiles.deleter
+    def original_smiles(self) -> None:
+        self._original_smiles = UNSET
 
     @property
     def annotations(self) -> List[DnaAnnotation]:
@@ -1202,7 +1382,7 @@ class RequestResponseSamplesItemEntity:
 
     @property
     def custom_notation(self) -> Optional[str]:
-        """ Representation of the oligo in the custom notation specified in the request. Null if no notation was specified. """
+        """ Representation of the RNA Sequence in the custom notation specified in the request. Null if no notation was specified. """
         if isinstance(self._custom_notation, Unset):
             raise NotPresentError(self, "custom_notation")
         return self._custom_notation
@@ -1231,14 +1411,14 @@ class RequestResponseSamplesItemEntity:
         self._custom_notation_name = UNSET
 
     @property
-    def helm(self) -> str:
-        """ Representation of the oligo in HELM syntax, including any chemical modifications """
+    def helm(self) -> Optional[str]:
+        """ Representation of the RNA Sequence in HELM syntax, including any chemical modifications. """
         if isinstance(self._helm, Unset):
             raise NotPresentError(self, "helm")
         return self._helm
 
     @helm.setter
-    def helm(self, value: str) -> None:
+    def helm(self, value: Optional[str]) -> None:
         self._helm = value
 
     @helm.deleter
@@ -1349,6 +1529,21 @@ class RequestResponseSamplesItemEntity:
         self._amino_acids = UNSET
 
     @property
+    def alignment_ids(self) -> List[str]:
+        """ API IDs of Nucleotide Alignments involving the RNA sequence """
+        if isinstance(self._alignment_ids, Unset):
+            raise NotPresentError(self, "alignment_ids")
+        return self._alignment_ids
+
+    @alignment_ids.setter
+    def alignment_ids(self, value: List[str]) -> None:
+        self._alignment_ids = value
+
+    @alignment_ids.deleter
+    def alignment_ids(self) -> None:
+        self._alignment_ids = UNSET
+
+    @property
     def is_circular(self) -> bool:
         if isinstance(self._is_circular, Unset):
             raise NotPresentError(self, "is_circular")
@@ -1391,20 +1586,6 @@ class RequestResponseSamplesItemEntity:
         self._primers = UNSET
 
     @property
-    def transcriptions(self) -> List[DnaSequenceTranscription]:
-        if isinstance(self._transcriptions, Unset):
-            raise NotPresentError(self, "transcriptions")
-        return self._transcriptions
-
-    @transcriptions.setter
-    def transcriptions(self, value: List[DnaSequenceTranscription]) -> None:
-        self._transcriptions = value
-
-    @transcriptions.deleter
-    def transcriptions(self) -> None:
-        self._transcriptions = UNSET
-
-    @property
     def translations(self) -> List[Translation]:
         if isinstance(self._translations, Unset):
             raise NotPresentError(self, "translations")
@@ -1417,3 +1598,32 @@ class RequestResponseSamplesItemEntity:
     @translations.deleter
     def translations(self) -> None:
         self._translations = UNSET
+
+    @property
+    def dna_alignment_ids(self) -> List[str]:
+        """ API IDs of Nucleotide Alignments involving the RNA sequence """
+        if isinstance(self._dna_alignment_ids, Unset):
+            raise NotPresentError(self, "dna_alignment_ids")
+        return self._dna_alignment_ids
+
+    @dna_alignment_ids.setter
+    def dna_alignment_ids(self, value: List[str]) -> None:
+        self._dna_alignment_ids = value
+
+    @dna_alignment_ids.deleter
+    def dna_alignment_ids(self) -> None:
+        self._dna_alignment_ids = UNSET
+
+    @property
+    def transcriptions(self) -> List[DnaSequenceTranscription]:
+        if isinstance(self._transcriptions, Unset):
+            raise NotPresentError(self, "transcriptions")
+        return self._transcriptions
+
+    @transcriptions.setter
+    def transcriptions(self, value: List[DnaSequenceTranscription]) -> None:
+        self._transcriptions = value
+
+    @transcriptions.deleter
+    def transcriptions(self) -> None:
+        self._transcriptions = UNSET

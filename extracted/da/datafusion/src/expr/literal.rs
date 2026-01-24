@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::errors::PyDataFusionError;
-use datafusion::{common::ScalarValue, logical_expr::expr::FieldMetadata};
-use pyo3::{prelude::*, IntoPyObjectExt};
+use datafusion::common::ScalarValue;
+use datafusion::logical_expr::expr::FieldMetadata;
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
-#[pyclass(name = "Literal", module = "datafusion.expr", subclass)]
+use crate::errors::PyDataFusionError;
+
+#[pyclass(name = "Literal", module = "datafusion.expr", subclass, frozen)]
 #[derive(Clone)]
 pub struct PyLiteral {
     pub value: ScalarValue,
@@ -71,7 +74,7 @@ impl PyLiteral {
         extract_scalar_value!(self, Float64)
     }
 
-    pub fn value_decimal128(&mut self) -> PyResult<(Option<i128>, u8, i8)> {
+    pub fn value_decimal128(&self) -> PyResult<(Option<i128>, u8, i8)> {
         match &self.value {
             ScalarValue::Decimal128(value, precision, scale) => Ok((*value, *precision, *scale)),
             other => Err(unexpected_literal_value(other)),
@@ -122,7 +125,7 @@ impl PyLiteral {
         extract_scalar_value!(self, Time64Nanosecond)
     }
 
-    pub fn value_timestamp(&mut self) -> PyResult<(Option<i64>, Option<String>)> {
+    pub fn value_timestamp(&self) -> PyResult<(Option<i64>, Option<String>)> {
         match &self.value {
             ScalarValue::TimestampNanosecond(iv, tz)
             | ScalarValue::TimestampMicrosecond(iv, tz)

@@ -3,13 +3,15 @@ from __future__ import annotations
 import binascii
 import inspect
 import os
+from collections.abc import MutableMapping
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, MutableMapping
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from schemathesis.core import NotSet
+from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.rate_limit import ratelimit
-from schemathesis.core.transforms import deepclone, merge_at
+from schemathesis.core.transforms import merge_at
 from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT, Response
 from schemathesis.generation.overrides import Override
 from schemathesis.transport import BaseTransport, SerializationContext
@@ -61,7 +63,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
 
         # Replace empty dictionaries with empty strings, so the parameters actually present in the query string
         if any(value == {} for value in (params or {}).values()):
-            params = deepclone(params)
+            params = dict(params)
             for key, value in params.items():
                 if value == {}:
                     params[key] = ""
@@ -95,6 +97,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         timeout = config.request_timeout_for(operation=case.operation)
         verify = config.tls_verify_for(operation=case.operation)
         cert = config.request_cert_for(operation=case.operation)
+        proxies = config.proxy_for(operation=case.operation)
 
         if session is not None and session.headers:
             # These headers are explicitly provided via config or CLI args.
@@ -114,8 +117,12 @@ class RequestsTransport(BaseTransport["requests.Session"]):
             data.setdefault("cert", cert)
 
         kwargs.pop("base_url", None)
-        data.update({key: value for key, value in kwargs.items() if key not in data})
+        for key, value in kwargs.items():
+            if key not in ("headers", "cookies", "params") or key not in data:
+                data[key] = value
         data.setdefault("timeout", DEFAULT_RESPONSE_TIMEOUT)
+        if proxies is not None:
+            data.setdefault("proxies", {"all": proxies})
 
         current_session_headers: MutableMapping[str, Any] = {}
         current_session_auth = None
@@ -141,7 +148,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         try:
             rate_limit = config.rate_limit_for(operation=case.operation)
             with ratelimit(rate_limit, config.base_url):
-                response = session.request(**data)  # type: ignore
+                response = session.request(**data)
             return Response.from_requests(
                 response,
                 verify=verify,
@@ -150,6 +157,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
                     headers=kwargs.get("headers") or {},
                     cookies=kwargs.get("cookies") or {},
                     path_parameters={},
+                    body={},
                 ),
             )
         finally:
@@ -174,7 +182,7 @@ def validate_vanilla_requests_kwargs(data: dict[str, Any]) -> None:
             if frame.function == "call_and_validate":
                 method_name = "call_and_validate"
                 break
-        raise RuntimeError(
+        raise IncorrectUsage(
             "The `base_url` argument is required when specifying a schema via a file, so Schemathesis knows where to send the data. \n"
             f"Pass `base_url` either to the `schemathesis.openapi.from_*` loader or to the `Case.{method_name}`.\n"
             f"If you use the ASGI integration, please supply your test client "
@@ -200,7 +208,7 @@ def yaml_serializer(ctx: SerializationContext, value: Any) -> dict[str, Any]:
 def _should_coerce_to_bytes(item: Any) -> bool:
     """Whether the item should be converted to bytes."""
     # These types are OK in forms, others should be coerced to bytes
-    return isinstance(item, Binary) or not isinstance(item, (bytes, str, int))
+    return isinstance(item, Binary) or not isinstance(item, (bytes | str | int))
 
 
 def _prepare_form_data(data: dict[str, Any]) -> dict[str, Any]:
@@ -243,9 +251,8 @@ def multipart_serializer(ctx: SerializationContext, value: Any) -> dict[str, Any
     if isinstance(value, bytes):
         return {"data": value}
     if isinstance(value, dict):
-        value = deepclone(value)
         multipart = _prepare_form_data(value)
-        files, data = ctx.case.operation.prepare_multipart(multipart)
+        files, data = ctx.case.operation.prepare_multipart(multipart, ctx.case.multipart_content_types)
         return {"files": files, "data": data}
     # Uncommon schema. For example - `{"type": "string"}`
     boundary = choose_boundary()
@@ -256,14 +263,7 @@ def multipart_serializer(ctx: SerializationContext, value: Any) -> dict[str, Any
 
 @REQUESTS_TRANSPORT.serializer("application/xml", "text/xml")
 def xml_serializer(ctx: SerializationContext, value: Any) -> dict[str, Any]:
-    media_type = ctx.case.media_type
-
-    assert media_type is not None
-
-    raw_schema = ctx.case.operation.get_raw_payload_schema(media_type)
-    resolved_schema = ctx.case.operation.get_resolved_payload_schema(media_type)
-
-    return serialize_xml(value, raw_schema, resolved_schema)
+    return serialize_xml(ctx.case, value)
 
 
 @REQUESTS_TRANSPORT.serializer("application/x-www-form-urlencoded")

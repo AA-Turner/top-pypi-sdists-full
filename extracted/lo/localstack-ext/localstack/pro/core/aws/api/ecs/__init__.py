@@ -1,11 +1,13 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
+AllowedInstanceType = str
 Boolean = bool
 BoxedBoolean = bool
+BoxedDouble = float
 BoxedInteger = int
 CapacityProviderStrategyItemBase = int
 CapacityProviderStrategyItemWeight = int
@@ -15,6 +17,7 @@ EBSKMSKeyId = str
 EBSSnapshotId = str
 EBSVolumeType = str
 ECSVolumeName = str
+ExcludedInstanceType = str
 IAMRoleArn = str
 Integer = int
 ManagedScalingInstanceWarmupPeriod = int
@@ -25,6 +28,41 @@ SensitiveString = str
 String = str
 TagKey = str
 TagValue = str
+TaskVolumeStorageGiB = int
+
+
+class AcceleratorManufacturer(StrEnum):
+    amazon_web_services = "amazon-web-services"
+    amd = "amd"
+    nvidia = "nvidia"
+    xilinx = "xilinx"
+    habana = "habana"
+
+
+class AcceleratorName(StrEnum):
+    a100 = "a100"
+    inferentia = "inferentia"
+    k520 = "k520"
+    k80 = "k80"
+    m60 = "m60"
+    radeon_pro_v520 = "radeon-pro-v520"
+    t4 = "t4"
+    vu9p = "vu9p"
+    v100 = "v100"
+    a10g = "a10g"
+    h100 = "h100"
+    t4g = "t4g"
+
+
+class AcceleratorType(StrEnum):
+    gpu = "gpu"
+    fpga = "fpga"
+    inference = "inference"
+
+
+class AccessType(StrEnum):
+    PUBLIC = "PUBLIC"
+    PRIVATE = "PRIVATE"
 
 
 class AgentUpdateStatus(StrEnum):
@@ -52,6 +90,18 @@ class AvailabilityZoneRebalancing(StrEnum):
     DISABLED = "DISABLED"
 
 
+class BareMetal(StrEnum):
+    included = "included"
+    required = "required"
+    excluded = "excluded"
+
+
+class BurstablePerformance(StrEnum):
+    included = "included"
+    required = "required"
+    excluded = "excluded"
+
+
 class CPUArchitecture(StrEnum):
     X86_64 = "X86_64"
     ARM64 = "ARM64"
@@ -62,11 +112,23 @@ class CapacityProviderField(StrEnum):
 
 
 class CapacityProviderStatus(StrEnum):
+    PROVISIONING = "PROVISIONING"
     ACTIVE = "ACTIVE"
+    DEPROVISIONING = "DEPROVISIONING"
     INACTIVE = "INACTIVE"
 
 
+class CapacityProviderType(StrEnum):
+    EC2_AUTOSCALING = "EC2_AUTOSCALING"
+    MANAGED_INSTANCES = "MANAGED_INSTANCES"
+    FARGATE = "FARGATE"
+    FARGATE_SPOT = "FARGATE_SPOT"
+
+
 class CapacityProviderUpdateStatus(StrEnum):
+    CREATE_IN_PROGRESS = "CREATE_IN_PROGRESS"
+    CREATE_COMPLETE = "CREATE_COMPLETE"
+    CREATE_FAILED = "CREATE_FAILED"
     DELETE_IN_PROGRESS = "DELETE_IN_PROGRESS"
     DELETE_COMPLETE = "DELETE_COMPLETE"
     DELETE_FAILED = "DELETE_FAILED"
@@ -91,6 +153,7 @@ class Compatibility(StrEnum):
     EC2 = "EC2"
     FARGATE = "FARGATE"
     EXTERNAL = "EXTERNAL"
+    MANAGED_INSTANCES = "MANAGED_INSTANCES"
 
 
 class Connectivity(StrEnum):
@@ -118,6 +181,12 @@ class ContainerInstanceStatus(StrEnum):
     REGISTRATION_FAILED = "REGISTRATION_FAILED"
 
 
+class CpuManufacturer(StrEnum):
+    intel = "intel"
+    amd = "amd"
+    amazon_web_services = "amazon-web-services"
+
+
 class DeploymentControllerType(StrEnum):
     ECS = "ECS"
     CODE_DEPLOY = "CODE_DEPLOY"
@@ -143,6 +212,8 @@ class DeploymentRolloutState(StrEnum):
 class DeploymentStrategy(StrEnum):
     ROLLING = "ROLLING"
     BLUE_GREEN = "BLUE_GREEN"
+    LINEAR = "LINEAR"
+    CANARY = "CANARY"
 
 
 class DesiredStatus(StrEnum):
@@ -181,6 +252,22 @@ class ExecuteCommandLogging(StrEnum):
     OVERRIDE = "OVERRIDE"
 
 
+class ExpressGatewayServiceInclude(StrEnum):
+    TAGS = "TAGS"
+
+
+class ExpressGatewayServiceScalingMetric(StrEnum):
+    AVERAGE_CPU = "AVERAGE_CPU"
+    AVERAGE_MEMORY = "AVERAGE_MEMORY"
+    REQUEST_COUNT_PER_TARGET = "REQUEST_COUNT_PER_TARGET"
+
+
+class ExpressGatewayServiceStatusCode(StrEnum):
+    ACTIVE = "ACTIVE"
+    DRAINING = "DRAINING"
+    INACTIVE = "INACTIVE"
+
+
 class FirelensConfigurationType(StrEnum):
     fluentd = "fluentd"
     fluentbit = "fluentbit"
@@ -190,6 +277,11 @@ class HealthStatus(StrEnum):
     HEALTHY = "HEALTHY"
     UNHEALTHY = "UNHEALTHY"
     UNKNOWN = "UNKNOWN"
+
+
+class InstanceGeneration(StrEnum):
+    current = "current"
+    previous = "previous"
 
 
 class InstanceHealthCheckState(StrEnum):
@@ -213,6 +305,18 @@ class LaunchType(StrEnum):
     EC2 = "EC2"
     FARGATE = "FARGATE"
     EXTERNAL = "EXTERNAL"
+    MANAGED_INSTANCES = "MANAGED_INSTANCES"
+
+
+class LocalStorage(StrEnum):
+    included = "included"
+    required = "required"
+    excluded = "excluded"
+
+
+class LocalStorageType(StrEnum):
+    hdd = "hdd"
+    ssd = "ssd"
 
 
 class LogDriver(StrEnum):
@@ -233,6 +337,19 @@ class ManagedAgentName(StrEnum):
 class ManagedDraining(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
+
+
+class ManagedInstancesMonitoringOptions(StrEnum):
+    BASIC = "BASIC"
+    DETAILED = "DETAILED"
+
+
+class ManagedResourceStatus(StrEnum):
+    PROVISIONING = "PROVISIONING"
+    ACTIVE = "ACTIVE"
+    DEPROVISIONING = "DEPROVISIONING"
+    DELETED = "DELETED"
+    FAILED = "FAILED"
 
 
 class ManagedScalingStatus(StrEnum):
@@ -285,6 +402,11 @@ class PlatformDeviceType(StrEnum):
     GPU = "GPU"
 
 
+class PropagateMITags(StrEnum):
+    CAPACITY_PROVIDER = "CAPACITY_PROVIDER"
+    NONE = "NONE"
+
+
 class PropagateTags(StrEnum):
     TASK_DEFINITION = "TASK_DEFINITION"
     SERVICE = "SERVICE"
@@ -293,6 +415,11 @@ class PropagateTags(StrEnum):
 
 class ProxyConfigurationType(StrEnum):
     APPMESH = "APPMESH"
+
+
+class ResourceManagementType(StrEnum):
+    CUSTOMER = "CUSTOMER"
+    ECS = "ECS"
 
 
 class ResourceType(StrEnum):
@@ -312,6 +439,16 @@ class SchedulingStrategy(StrEnum):
 class Scope(StrEnum):
     task = "task"
     shared = "shared"
+
+
+class ServiceConnectAccessLoggingFormat(StrEnum):
+    TEXT = "TEXT"
+    JSON = "JSON"
+
+
+class ServiceConnectIncludeQueryParameters(StrEnum):
+    DISABLED = "DISABLED"
+    ENABLED = "ENABLED"
 
 
 class ServiceDeploymentLifecycleStage(StrEnum):
@@ -503,6 +640,19 @@ class ClientException(ServiceException):
     status_code: int = 400
 
 
+class ClusterContainsCapacityProviderException(ServiceException):
+    """The cluster contains one or more capacity providers that prevent the
+    requested operation. This exception occurs when you try to delete a
+    cluster that still has active capacity providers, including Amazon ECS
+    Managed Instances capacity providers. You must first delete all capacity
+    providers from the cluster before you can delete the cluster itself.
+    """
+
+    code: str = "ClusterContainsCapacityProviderException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class ClusterContainsContainerInstancesException(ServiceException):
     """You can't delete a cluster that has registered container instances.
     First, deregister the container instances before you can delete the
@@ -549,7 +699,7 @@ class ClusterNotFoundException(ServiceException):
     status_code: int = 400
 
 
-ResourceIds = List[String]
+ResourceIds = list[String]
 
 
 class ConflictException(ServiceException):
@@ -560,7 +710,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 400
-    resourceIds: Optional[ResourceIds]
+    resourceIds: ResourceIds | None
 
 
 class InvalidParameterException(ServiceException):
@@ -762,6 +912,33 @@ class UpdateInProgressException(ServiceException):
     status_code: int = 400
 
 
+class AcceleratorCountRequest(TypedDict, total=False):
+    """The minimum and maximum number of accelerators (such as GPUs) for
+    instance type selection. This is used for workloads that require
+    specific numbers of accelerators.
+    """
+
+    min: BoxedInteger | None
+    max: BoxedInteger | None
+
+
+AcceleratorManufacturerSet = list[AcceleratorManufacturer]
+AcceleratorNameSet = list[AcceleratorName]
+
+
+class AcceleratorTotalMemoryMiBRequest(TypedDict, total=False):
+    """The minimum and maximum total accelerator memory in mebibytes (MiB) for
+    instance type selection. This is important for GPU workloads that
+    require specific amounts of video memory.
+    """
+
+    min: BoxedInteger | None
+    max: BoxedInteger | None
+
+
+AcceleratorTypeSet = list[AcceleratorType]
+
+
 class AdvancedConfiguration(TypedDict, total=False):
     """The advanced settings for a load balancer used in blue/green
     deployments. Specify the alternate target group, listener rules, and IAM
@@ -771,27 +948,30 @@ class AdvancedConfiguration(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    alternateTargetGroupArn: Optional[String]
-    productionListenerRule: Optional[String]
-    testListenerRule: Optional[String]
-    roleArn: Optional[String]
+    alternateTargetGroupArn: String | None
+    productionListenerRule: String | None
+    testListenerRule: String | None
+    roleArn: String | None
+
+
+AllowedInstanceTypeSet = list[AllowedInstanceType]
 
 
 class KeyValuePair(TypedDict, total=False):
     """A key-value pair object."""
 
-    name: Optional[String]
-    value: Optional[String]
+    name: String | None
+    value: String | None
 
 
-AttachmentDetails = List[KeyValuePair]
+AttachmentDetails = list[KeyValuePair]
 
 
 class Attachment(TypedDict, total=False):
-    id: Optional[String]
-    type: Optional[String]
-    status: Optional[String]
-    details: Optional[AttachmentDetails]
+    id: String | None
+    type: String | None
+    status: String | None
+    details: AttachmentDetails | None
 
 
 class AttachmentStateChange(TypedDict, total=False):
@@ -801,8 +981,8 @@ class AttachmentStateChange(TypedDict, total=False):
     status: String
 
 
-AttachmentStateChanges = List[AttachmentStateChange]
-Attachments = List[Attachment]
+AttachmentStateChanges = list[AttachmentStateChange]
+Attachments = list[Attachment]
 
 
 class Attribute(TypedDict, total=False):
@@ -814,12 +994,12 @@ class Attribute(TypedDict, total=False):
     """
 
     name: String
-    value: Optional[String]
-    targetType: Optional[TargetType]
-    targetId: Optional[String]
+    value: String | None
+    targetType: TargetType | None
+    targetId: String | None
 
 
-Attributes = List[Attribute]
+Attributes = list[Attribute]
 
 
 class ManagedScaling(TypedDict, total=False):
@@ -838,31 +1018,31 @@ class ManagedScaling(TypedDict, total=False):
     Scaling group.
     """
 
-    status: Optional[ManagedScalingStatus]
-    targetCapacity: Optional[ManagedScalingTargetCapacity]
-    minimumScalingStepSize: Optional[ManagedScalingStepSize]
-    maximumScalingStepSize: Optional[ManagedScalingStepSize]
-    instanceWarmupPeriod: Optional[ManagedScalingInstanceWarmupPeriod]
+    status: ManagedScalingStatus | None
+    targetCapacity: ManagedScalingTargetCapacity | None
+    minimumScalingStepSize: ManagedScalingStepSize | None
+    maximumScalingStepSize: ManagedScalingStepSize | None
+    instanceWarmupPeriod: ManagedScalingInstanceWarmupPeriod | None
 
 
 class AutoScalingGroupProvider(TypedDict, total=False):
     """The details of the Auto Scaling group for the capacity provider."""
 
     autoScalingGroupArn: String
-    managedScaling: Optional[ManagedScaling]
-    managedTerminationProtection: Optional[ManagedTerminationProtection]
-    managedDraining: Optional[ManagedDraining]
+    managedScaling: ManagedScaling | None
+    managedTerminationProtection: ManagedTerminationProtection | None
+    managedDraining: ManagedDraining | None
 
 
 class AutoScalingGroupProviderUpdate(TypedDict, total=False):
     """The details of the Auto Scaling group capacity provider to update."""
 
-    managedScaling: Optional[ManagedScaling]
-    managedTerminationProtection: Optional[ManagedTerminationProtection]
-    managedDraining: Optional[ManagedDraining]
+    managedScaling: ManagedScaling | None
+    managedTerminationProtection: ManagedTerminationProtection | None
+    managedDraining: ManagedDraining | None
 
 
-StringList = List[String]
+StringList = list[String]
 
 
 class AwsVpcConfiguration(TypedDict, total=False):
@@ -872,8 +1052,32 @@ class AwsVpcConfiguration(TypedDict, total=False):
     """
 
     subnets: StringList
-    securityGroups: Optional[StringList]
-    assignPublicIp: Optional[AssignPublicIp]
+    securityGroups: StringList | None
+    assignPublicIp: AssignPublicIp | None
+
+
+class BaselineEbsBandwidthMbpsRequest(TypedDict, total=False):
+    """The minimum and maximum baseline Amazon EBS bandwidth in megabits per
+    second (Mbps) for instance type selection. This is important for
+    workloads with high storage I/O requirements.
+    """
+
+    min: BoxedInteger | None
+    max: BoxedInteger | None
+
+
+class CanaryConfiguration(TypedDict, total=False):
+    """Configuration for a canary deployment strategy that shifts a fixed
+    percentage of traffic to the new service revision, waits for a specified
+    bake time, then shifts the remaining traffic.
+
+    This is only valid when you run ``CreateService`` or ``UpdateService``
+    with ``deploymentController`` set to ``ECS`` and a
+    ``deploymentConfiguration`` with a strategy set to ``CANARY``.
+    """
+
+    canaryPercent: Double | None
+    canaryBakeTimeInMinutes: Integer | None
 
 
 class Tag(TypedDict, total=False):
@@ -907,26 +1111,191 @@ class Tag(TypedDict, total=False):
        tags per resource limit.
     """
 
-    key: Optional[TagKey]
-    value: Optional[TagValue]
+    key: TagKey | None
+    value: TagValue | None
 
 
-Tags = List[Tag]
+Tags = list[Tag]
+
+
+class InfrastructureOptimization(TypedDict, total=False):
+    """The configuration that controls how Amazon ECS optimizes your
+    infrastructure.
+    """
+
+    scaleInAfter: BoxedInteger | None
+
+
+class NetworkBandwidthGbpsRequest(TypedDict, total=False):
+    """The minimum and maximum network bandwidth in gigabits per second (Gbps)
+    for instance type selection. This is important for network-intensive
+    workloads.
+    """
+
+    min: BoxedDouble | None
+    max: BoxedDouble | None
+
+
+class TotalLocalStorageGBRequest(TypedDict, total=False):
+    """The minimum and maximum total local storage in gigabytes (GB) for
+    instance types with local storage. This is useful for workloads that
+    require local storage for temporary data or caching.
+    """
+
+    min: BoxedDouble | None
+    max: BoxedDouble | None
+
+
+LocalStorageTypeSet = list[LocalStorageType]
+
+
+class NetworkInterfaceCountRequest(TypedDict, total=False):
+    """The minimum and maximum number of network interfaces for instance type
+    selection. This is useful for workloads that require multiple network
+    interfaces.
+    """
+
+    min: BoxedInteger | None
+    max: BoxedInteger | None
+
+
+InstanceGenerationSet = list[InstanceGeneration]
+ExcludedInstanceTypeSet = list[ExcludedInstanceType]
+
+
+class MemoryGiBPerVCpuRequest(TypedDict, total=False):
+    """The minimum and maximum amount of memory per vCPU in gibibytes (GiB).
+    This helps ensure that instance types have the appropriate memory-to-CPU
+    ratio for your workloads.
+    """
+
+    min: BoxedDouble | None
+    max: BoxedDouble | None
+
+
+CpuManufacturerSet = list[CpuManufacturer]
+
+
+class MemoryMiBRequest(TypedDict, total=False):
+    """The minimum and maximum amount of memory in mebibytes (MiB) for instance
+    type selection. This ensures that selected instance types have adequate
+    memory for your workloads.
+    """
+
+    min: BoxedInteger
+    max: BoxedInteger | None
+
+
+class VCpuCountRangeRequest(TypedDict, total=False):
+    """The minimum and maximum number of vCPUs for instance type selection.
+    This allows you to specify a range of vCPU counts that meet your
+    workload requirements.
+    """
+
+    min: BoxedInteger
+    max: BoxedInteger | None
+
+
+class InstanceRequirementsRequest(TypedDict, total=False):
+    """The instance requirements for attribute-based instance type selection.
+    Instead of specifying exact instance types, you define requirements such
+    as vCPU count, memory size, network performance, and accelerator
+    specifications. Amazon ECS automatically selects Amazon EC2 instance
+    types that match these requirements, providing flexibility and helping
+    to mitigate capacity constraints.
+    """
+
+    vCpuCount: VCpuCountRangeRequest
+    memoryMiB: MemoryMiBRequest
+    cpuManufacturers: CpuManufacturerSet | None
+    memoryGiBPerVCpu: MemoryGiBPerVCpuRequest | None
+    excludedInstanceTypes: ExcludedInstanceTypeSet | None
+    instanceGenerations: InstanceGenerationSet | None
+    spotMaxPricePercentageOverLowestPrice: BoxedInteger | None
+    onDemandMaxPricePercentageOverLowestPrice: BoxedInteger | None
+    bareMetal: BareMetal | None
+    burstablePerformance: BurstablePerformance | None
+    requireHibernateSupport: BoxedBoolean | None
+    networkInterfaceCount: NetworkInterfaceCountRequest | None
+    localStorage: LocalStorage | None
+    localStorageTypes: LocalStorageTypeSet | None
+    totalLocalStorageGB: TotalLocalStorageGBRequest | None
+    baselineEbsBandwidthMbps: BaselineEbsBandwidthMbpsRequest | None
+    acceleratorTypes: AcceleratorTypeSet | None
+    acceleratorCount: AcceleratorCountRequest | None
+    acceleratorManufacturers: AcceleratorManufacturerSet | None
+    acceleratorNames: AcceleratorNameSet | None
+    acceleratorTotalMemoryMiB: AcceleratorTotalMemoryMiBRequest | None
+    networkBandwidthGbps: NetworkBandwidthGbpsRequest | None
+    allowedInstanceTypes: AllowedInstanceTypeSet | None
+    maxSpotPriceAsPercentageOfOptimalOnDemandPrice: BoxedInteger | None
+
+
+class ManagedInstancesStorageConfiguration(TypedDict, total=False):
+    """The storage configuration for Amazon ECS Managed Instances. This defines
+    the root volume configuration for the instances.
+    """
+
+    storageSizeGiB: TaskVolumeStorageGiB | None
+
+
+class ManagedInstancesNetworkConfiguration(TypedDict, total=False):
+    """The network configuration for Amazon ECS Managed Instances. This
+    specifies the VPC subnets and security groups that instances use for
+    network connectivity. Amazon ECS Managed Instances support multiple
+    network modes including ``awsvpc`` (instances receive ENIs for task
+    isolation), ``host`` (instances share network namespace with tasks), and
+    ``none`` (no external network connectivity), ensuring backward
+    compatibility for migrating workloads from Fargate or Amazon EC2.
+    """
+
+    subnets: StringList | None
+    securityGroups: StringList | None
+
+
+class InstanceLaunchTemplate(TypedDict, total=False):
+    """The launch template configuration for Amazon ECS Managed Instances. This
+    defines how Amazon ECS launches Amazon EC2 instances, including the
+    instance profile for your tasks, network and storage configuration,
+    capacity options, and instance requirements for flexible instance type
+    selection.
+    """
+
+    ec2InstanceProfileArn: String
+    networkConfiguration: ManagedInstancesNetworkConfiguration
+    storageConfiguration: ManagedInstancesStorageConfiguration | None
+    monitoring: ManagedInstancesMonitoringOptions | None
+    instanceRequirements: InstanceRequirementsRequest | None
+
+
+class ManagedInstancesProvider(TypedDict, total=False):
+    """The configuration for a Amazon ECS Managed Instances provider. Amazon
+    ECS uses this configuration to automatically launch, manage, and
+    terminate Amazon EC2 instances on your behalf. Managed instances provide
+    access to the full range of Amazon EC2 instance types and features while
+    offloading infrastructure management to Amazon Web Services.
+    """
+
+    infrastructureRoleArn: String | None
+    instanceLaunchTemplate: InstanceLaunchTemplate | None
+    propagateTags: PropagateMITags | None
+    infrastructureOptimization: InfrastructureOptimization | None
 
 
 class CapacityProvider(TypedDict, total=False):
-    """The details for a capacity provider."""
+    capacityProviderArn: String | None
+    name: String | None
+    cluster: String | None
+    status: CapacityProviderStatus | None
+    autoScalingGroupProvider: AutoScalingGroupProvider | None
+    managedInstancesProvider: ManagedInstancesProvider | None
+    updateStatus: CapacityProviderUpdateStatus | None
+    updateStatusReason: String | None
+    tags: Tags | None
+    type: CapacityProviderType | None
 
-    capacityProviderArn: Optional[String]
-    name: Optional[String]
-    status: Optional[CapacityProviderStatus]
-    autoScalingGroupProvider: Optional[AutoScalingGroupProvider]
-    updateStatus: Optional[CapacityProviderUpdateStatus]
-    updateStatusReason: Optional[String]
-    tags: Optional[Tags]
 
-
-CapacityProviderFieldList = List[CapacityProviderField]
+CapacityProviderFieldList = list[CapacityProviderField]
 
 
 class CapacityProviderStrategyItem(TypedDict, total=False):
@@ -967,12 +1336,12 @@ class CapacityProviderStrategyItem(TypedDict, total=False):
     """
 
     capacityProvider: String
-    weight: Optional[CapacityProviderStrategyItemWeight]
-    base: Optional[CapacityProviderStrategyItemBase]
+    weight: CapacityProviderStrategyItemWeight | None
+    base: CapacityProviderStrategyItemBase | None
 
 
-CapacityProviderStrategy = List[CapacityProviderStrategyItem]
-CapacityProviders = List[CapacityProvider]
+CapacityProviderStrategy = list[CapacityProviderStrategyItem]
+CapacityProviders = list[CapacityProvider]
 
 
 class ClusterServiceConnectDefaults(TypedDict, total=False):
@@ -995,7 +1364,7 @@ class ClusterServiceConnectDefaults(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    namespace: Optional[String]
+    namespace: String | None
 
 
 class ClusterSetting(TypedDict, total=False):
@@ -1019,19 +1388,19 @@ class ClusterSetting(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    name: Optional[ClusterSettingName]
-    value: Optional[String]
+    name: ClusterSettingName | None
+    value: String | None
 
 
-ClusterSettings = List[ClusterSetting]
-Statistics = List[KeyValuePair]
+ClusterSettings = list[ClusterSetting]
+Statistics = list[KeyValuePair]
 
 
 class ManagedStorageConfiguration(TypedDict, total=False):
     """The managed storage configuration for the cluster."""
 
-    kmsKeyId: Optional[String]
-    fargateEphemeralStorageKmsKeyId: Optional[String]
+    kmsKeyId: String | None
+    fargateEphemeralStorageKmsKeyId: String | None
 
 
 class ExecuteCommandLogConfiguration(TypedDict, total=False):
@@ -1039,26 +1408,26 @@ class ExecuteCommandLogConfiguration(TypedDict, total=False):
     The logs can be sent to CloudWatch Logs or an Amazon S3 bucket.
     """
 
-    cloudWatchLogGroupName: Optional[String]
-    cloudWatchEncryptionEnabled: Optional[Boolean]
-    s3BucketName: Optional[String]
-    s3EncryptionEnabled: Optional[Boolean]
-    s3KeyPrefix: Optional[String]
+    cloudWatchLogGroupName: String | None
+    cloudWatchEncryptionEnabled: Boolean | None
+    s3BucketName: String | None
+    s3EncryptionEnabled: Boolean | None
+    s3KeyPrefix: String | None
 
 
 class ExecuteCommandConfiguration(TypedDict, total=False):
     """The details of the execute command configuration."""
 
-    kmsKeyId: Optional[String]
-    logging: Optional[ExecuteCommandLogging]
-    logConfiguration: Optional[ExecuteCommandLogConfiguration]
+    kmsKeyId: String | None
+    logging: ExecuteCommandLogging | None
+    logConfiguration: ExecuteCommandLogConfiguration | None
 
 
 class ClusterConfiguration(TypedDict, total=False):
     """The execute command and managed storage configuration for the cluster."""
 
-    executeCommandConfiguration: Optional[ExecuteCommandConfiguration]
-    managedStorageConfiguration: Optional[ManagedStorageConfiguration]
+    executeCommandConfiguration: ExecuteCommandConfiguration | None
+    managedStorageConfiguration: ManagedStorageConfiguration | None
 
 
 class Cluster(TypedDict, total=False):
@@ -1068,25 +1437,25 @@ class Cluster(TypedDict, total=False):
     Clusters may contain more than one instance type simultaneously.
     """
 
-    clusterArn: Optional[String]
-    clusterName: Optional[String]
-    configuration: Optional[ClusterConfiguration]
-    status: Optional[String]
-    registeredContainerInstancesCount: Optional[Integer]
-    runningTasksCount: Optional[Integer]
-    pendingTasksCount: Optional[Integer]
-    activeServicesCount: Optional[Integer]
-    statistics: Optional[Statistics]
-    tags: Optional[Tags]
-    settings: Optional[ClusterSettings]
-    capacityProviders: Optional[StringList]
-    defaultCapacityProviderStrategy: Optional[CapacityProviderStrategy]
-    attachments: Optional[Attachments]
-    attachmentsStatus: Optional[String]
-    serviceConnectDefaults: Optional[ClusterServiceConnectDefaults]
+    clusterArn: String | None
+    clusterName: String | None
+    configuration: ClusterConfiguration | None
+    status: String | None
+    registeredContainerInstancesCount: Integer | None
+    runningTasksCount: Integer | None
+    pendingTasksCount: Integer | None
+    activeServicesCount: Integer | None
+    statistics: Statistics | None
+    tags: Tags | None
+    settings: ClusterSettings | None
+    capacityProviders: StringList | None
+    defaultCapacityProviderStrategy: CapacityProviderStrategy | None
+    attachments: Attachments | None
+    attachmentsStatus: String | None
+    serviceConnectDefaults: ClusterServiceConnectDefaults | None
 
 
-ClusterFieldList = List[ClusterField]
+ClusterFieldList = list[ClusterField]
 
 
 class ClusterServiceConnectDefaultsRequest(TypedDict, total=False):
@@ -1112,22 +1481,22 @@ class ClusterServiceConnectDefaultsRequest(TypedDict, total=False):
     namespace: String
 
 
-Clusters = List[Cluster]
-CompatibilityList = List[Compatibility]
-GpuIds = List[String]
+Clusters = list[Cluster]
+CompatibilityList = list[Compatibility]
+GpuIds = list[String]
 Timestamp = datetime
 
 
 class ManagedAgent(TypedDict, total=False):
     """Details about the managed agent status for the container."""
 
-    lastStartedAt: Optional[Timestamp]
-    name: Optional[ManagedAgentName]
-    reason: Optional[String]
-    lastStatus: Optional[String]
+    lastStartedAt: Timestamp | None
+    name: ManagedAgentName | None
+    reason: String | None
+    lastStatus: String | None
 
 
-ManagedAgents = List[ManagedAgent]
+ManagedAgents = list[ManagedAgent]
 
 
 class NetworkInterface(TypedDict, total=False):
@@ -1135,12 +1504,12 @@ class NetworkInterface(TypedDict, total=False):
     the ``awsvpc`` network mode.
     """
 
-    attachmentId: Optional[String]
-    privateIpv4Address: Optional[String]
-    ipv6Address: Optional[String]
+    attachmentId: String | None
+    privateIpv4Address: String | None
+    ipv6Address: String | None
 
 
-NetworkInterfaces = List[NetworkInterface]
+NetworkInterfaces = list[NetworkInterface]
 
 
 class NetworkBinding(TypedDict, total=False):
@@ -1152,45 +1521,45 @@ class NetworkBinding(TypedDict, total=False):
     API responses.
     """
 
-    bindIP: Optional[String]
-    containerPort: Optional[BoxedInteger]
-    hostPort: Optional[BoxedInteger]
-    protocol: Optional[TransportProtocol]
-    containerPortRange: Optional[String]
-    hostPortRange: Optional[String]
+    bindIP: String | None
+    containerPort: BoxedInteger | None
+    hostPort: BoxedInteger | None
+    protocol: TransportProtocol | None
+    containerPortRange: String | None
+    hostPortRange: String | None
 
 
-NetworkBindings = List[NetworkBinding]
+NetworkBindings = list[NetworkBinding]
 
 
 class Container(TypedDict, total=False):
     """A Docker container that's part of a task."""
 
-    containerArn: Optional[String]
-    taskArn: Optional[String]
-    name: Optional[String]
-    image: Optional[String]
-    imageDigest: Optional[String]
-    runtimeId: Optional[String]
-    lastStatus: Optional[String]
-    exitCode: Optional[BoxedInteger]
-    reason: Optional[String]
-    networkBindings: Optional[NetworkBindings]
-    networkInterfaces: Optional[NetworkInterfaces]
-    healthStatus: Optional[HealthStatus]
-    managedAgents: Optional[ManagedAgents]
-    cpu: Optional[String]
-    memory: Optional[String]
-    memoryReservation: Optional[String]
-    gpuIds: Optional[GpuIds]
+    containerArn: String | None
+    taskArn: String | None
+    name: String | None
+    image: String | None
+    imageDigest: String | None
+    runtimeId: String | None
+    lastStatus: String | None
+    exitCode: BoxedInteger | None
+    reason: String | None
+    networkBindings: NetworkBindings | None
+    networkInterfaces: NetworkInterfaces | None
+    healthStatus: HealthStatus | None
+    managedAgents: ManagedAgents | None
+    cpu: String | None
+    memory: String | None
+    memoryReservation: String | None
+    gpuIds: GpuIds | None
 
 
-FirelensConfigurationOptionsMap = Dict[String, String]
+FirelensConfigurationOptionsMap = dict[String, String]
 
 
 class FirelensConfiguration(TypedDict, total=False):
     type: FirelensConfigurationType
-    options: Optional[FirelensConfigurationOptionsMap]
+    options: FirelensConfigurationOptionsMap | None
 
 
 class ResourceRequirement(TypedDict, total=False):
@@ -1198,7 +1567,7 @@ class ResourceRequirement(TypedDict, total=False):
     type: ResourceType
 
 
-ResourceRequirements = List[ResourceRequirement]
+ResourceRequirements = list[ResourceRequirement]
 
 
 class SystemControl(TypedDict, total=False):
@@ -1240,11 +1609,11 @@ class SystemControl(TypedDict, total=False):
     isn't supported for Windows containers on Fargate.
     """
 
-    namespace: Optional[String]
-    value: Optional[String]
+    namespace: String | None
+    value: String | None
 
 
-SystemControls = List[SystemControl]
+SystemControls = list[SystemControl]
 
 
 class HealthCheck(TypedDict, total=False):
@@ -1407,10 +1776,10 @@ class HealthCheck(TypedDict, total=False):
     """
 
     command: StringList
-    interval: Optional[BoxedInteger]
-    timeout: Optional[BoxedInteger]
-    retries: Optional[BoxedInteger]
-    startPeriod: Optional[BoxedInteger]
+    interval: BoxedInteger | None
+    timeout: BoxedInteger | None
+    retries: BoxedInteger | None
+    startPeriod: BoxedInteger | None
 
 
 class Secret(TypedDict, total=False):
@@ -1432,8 +1801,8 @@ class Secret(TypedDict, total=False):
     valueFrom: String
 
 
-SecretList = List[Secret]
-LogConfigurationOptionsMap = Dict[String, String]
+SecretList = list[Secret]
+LogConfigurationOptionsMap = dict[String, String]
 
 
 class LogConfiguration(TypedDict, total=False):
@@ -1479,8 +1848,8 @@ class LogConfiguration(TypedDict, total=False):
     """
 
     logDriver: LogDriver
-    options: Optional[LogConfigurationOptionsMap]
-    secretOptions: Optional[SecretList]
+    options: LogConfigurationOptionsMap | None
+    secretOptions: SecretList | None
 
 
 class Ulimit(TypedDict, total=False):
@@ -1502,8 +1871,8 @@ class Ulimit(TypedDict, total=False):
     hardLimit: Integer
 
 
-UlimitList = List[Ulimit]
-DockerLabelsMap = Dict[String, String]
+UlimitList = list[Ulimit]
+DockerLabelsMap = dict[String, String]
 
 
 class HostEntry(TypedDict, total=False):
@@ -1516,7 +1885,7 @@ class HostEntry(TypedDict, total=False):
     ipAddress: String
 
 
-HostEntryList = List[HostEntry]
+HostEntryList = list[HostEntry]
 
 
 class ContainerDependency(TypedDict, total=False):
@@ -1556,7 +1925,7 @@ class ContainerDependency(TypedDict, total=False):
     condition: ContainerCondition
 
 
-ContainerDependencies = List[ContainerDependency]
+ContainerDependencies = list[ContainerDependency]
 
 
 class Tmpfs(TypedDict, total=False):
@@ -1564,22 +1933,22 @@ class Tmpfs(TypedDict, total=False):
 
     containerPath: String
     size: Integer
-    mountOptions: Optional[StringList]
+    mountOptions: StringList | None
 
 
-TmpfsList = List[Tmpfs]
-DeviceCgroupPermissions = List[DeviceCgroupPermission]
+TmpfsList = list[Tmpfs]
+DeviceCgroupPermissions = list[DeviceCgroupPermission]
 
 
 class Device(TypedDict, total=False):
     """An object representing a container instance host device."""
 
     hostPath: String
-    containerPath: Optional[String]
-    permissions: Optional[DeviceCgroupPermissions]
+    containerPath: String | None
+    permissions: DeviceCgroupPermissions | None
 
 
-DevicesList = List[Device]
+DevicesList = list[Device]
 
 
 class KernelCapabilities(TypedDict, total=False):
@@ -1618,8 +1987,8 @@ class KernelCapabilities(TypedDict, total=False):
        in the ``add`` request parameter.
     """
 
-    add: Optional[StringList]
-    drop: Optional[StringList]
+    add: StringList | None
+    drop: StringList | None
 
 
 class LinuxParameters(TypedDict, total=False):
@@ -1628,13 +1997,13 @@ class LinuxParameters(TypedDict, total=False):
     `KernelCapabilities <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_KernelCapabilities.html>`__.
     """
 
-    capabilities: Optional[KernelCapabilities]
-    devices: Optional[DevicesList]
-    initProcessEnabled: Optional[BoxedBoolean]
-    sharedMemorySize: Optional[BoxedInteger]
-    tmpfs: Optional[TmpfsList]
-    maxSwap: Optional[BoxedInteger]
-    swappiness: Optional[BoxedInteger]
+    capabilities: KernelCapabilities | None
+    devices: DevicesList | None
+    initProcessEnabled: BoxedBoolean | None
+    sharedMemorySize: BoxedInteger | None
+    tmpfs: TmpfsList | None
+    maxSwap: BoxedInteger | None
+    swappiness: BoxedInteger | None
 
 
 class VolumeFrom(TypedDict, total=False):
@@ -1642,11 +2011,11 @@ class VolumeFrom(TypedDict, total=False):
     definition.
     """
 
-    sourceContainer: Optional[String]
-    readOnly: Optional[BoxedBoolean]
+    sourceContainer: String | None
+    readOnly: BoxedBoolean | None
 
 
-VolumeFromList = List[VolumeFrom]
+VolumeFromList = list[VolumeFrom]
 
 
 class MountPoint(TypedDict, total=False):
@@ -1654,12 +2023,12 @@ class MountPoint(TypedDict, total=False):
     definition.
     """
 
-    sourceVolume: Optional[String]
-    containerPath: Optional[String]
-    readOnly: Optional[BoxedBoolean]
+    sourceVolume: String | None
+    containerPath: String | None
+    readOnly: BoxedBoolean | None
 
 
-MountPointList = List[MountPoint]
+MountPointList = list[MountPoint]
 
 
 class EnvironmentFile(TypedDict, total=False):
@@ -1667,9 +2036,9 @@ class EnvironmentFile(TypedDict, total=False):
     type: EnvironmentFileType
 
 
-EnvironmentFiles = List[EnvironmentFile]
-EnvironmentVariables = List[KeyValuePair]
-IntegerList = List[BoxedInteger]
+EnvironmentFiles = list[EnvironmentFile]
+EnvironmentVariables = list[KeyValuePair]
+IntegerList = list[BoxedInteger]
 
 
 class ContainerRestartPolicy(TypedDict, total=False):
@@ -1684,8 +2053,8 @@ class ContainerRestartPolicy(TypedDict, total=False):
     """
 
     enabled: BoxedBoolean
-    ignoredExitCodes: Optional[IntegerList]
-    restartAttemptPeriod: Optional[BoxedInteger]
+    ignoredExitCodes: IntegerList | None
+    restartAttemptPeriod: BoxedInteger | None
 
 
 class PortMapping(TypedDict, total=False):
@@ -1714,15 +2083,15 @@ class PortMapping(TypedDict, total=False):
     API responses.
     """
 
-    containerPort: Optional[BoxedInteger]
-    hostPort: Optional[BoxedInteger]
-    protocol: Optional[TransportProtocol]
-    name: Optional[String]
-    appProtocol: Optional[ApplicationProtocol]
-    containerPortRange: Optional[String]
+    containerPort: BoxedInteger | None
+    hostPort: BoxedInteger | None
+    protocol: TransportProtocol | None
+    name: String | None
+    appProtocol: ApplicationProtocol | None
+    containerPortRange: String | None
 
 
-PortMappingList = List[PortMapping]
+PortMappingList = list[PortMapping]
 
 
 class RepositoryCredentials(TypedDict, total=False):
@@ -1736,51 +2105,51 @@ class ContainerDefinition(TypedDict, total=False):
     different containers that are launched as part of a task.
     """
 
-    name: Optional[String]
-    image: Optional[String]
-    repositoryCredentials: Optional[RepositoryCredentials]
-    cpu: Optional[Integer]
-    memory: Optional[BoxedInteger]
-    memoryReservation: Optional[BoxedInteger]
-    links: Optional[StringList]
-    portMappings: Optional[PortMappingList]
-    essential: Optional[BoxedBoolean]
-    restartPolicy: Optional[ContainerRestartPolicy]
-    entryPoint: Optional[StringList]
-    command: Optional[StringList]
-    environment: Optional[EnvironmentVariables]
-    environmentFiles: Optional[EnvironmentFiles]
-    mountPoints: Optional[MountPointList]
-    volumesFrom: Optional[VolumeFromList]
-    linuxParameters: Optional[LinuxParameters]
-    secrets: Optional[SecretList]
-    dependsOn: Optional[ContainerDependencies]
-    startTimeout: Optional[BoxedInteger]
-    stopTimeout: Optional[BoxedInteger]
-    versionConsistency: Optional[VersionConsistency]
-    hostname: Optional[String]
-    user: Optional[String]
-    workingDirectory: Optional[String]
-    disableNetworking: Optional[BoxedBoolean]
-    privileged: Optional[BoxedBoolean]
-    readonlyRootFilesystem: Optional[BoxedBoolean]
-    dnsServers: Optional[StringList]
-    dnsSearchDomains: Optional[StringList]
-    extraHosts: Optional[HostEntryList]
-    dockerSecurityOptions: Optional[StringList]
-    interactive: Optional[BoxedBoolean]
-    pseudoTerminal: Optional[BoxedBoolean]
-    dockerLabels: Optional[DockerLabelsMap]
-    ulimits: Optional[UlimitList]
-    logConfiguration: Optional[LogConfiguration]
-    healthCheck: Optional[HealthCheck]
-    systemControls: Optional[SystemControls]
-    resourceRequirements: Optional[ResourceRequirements]
-    firelensConfiguration: Optional[FirelensConfiguration]
-    credentialSpecs: Optional[StringList]
+    name: String | None
+    image: String | None
+    repositoryCredentials: RepositoryCredentials | None
+    cpu: Integer | None
+    memory: BoxedInteger | None
+    memoryReservation: BoxedInteger | None
+    links: StringList | None
+    portMappings: PortMappingList | None
+    essential: BoxedBoolean | None
+    restartPolicy: ContainerRestartPolicy | None
+    entryPoint: StringList | None
+    command: StringList | None
+    environment: EnvironmentVariables | None
+    environmentFiles: EnvironmentFiles | None
+    mountPoints: MountPointList | None
+    volumesFrom: VolumeFromList | None
+    linuxParameters: LinuxParameters | None
+    secrets: SecretList | None
+    dependsOn: ContainerDependencies | None
+    startTimeout: BoxedInteger | None
+    stopTimeout: BoxedInteger | None
+    versionConsistency: VersionConsistency | None
+    hostname: String | None
+    user: String | None
+    workingDirectory: String | None
+    disableNetworking: BoxedBoolean | None
+    privileged: BoxedBoolean | None
+    readonlyRootFilesystem: BoxedBoolean | None
+    dnsServers: StringList | None
+    dnsSearchDomains: StringList | None
+    extraHosts: HostEntryList | None
+    dockerSecurityOptions: StringList | None
+    interactive: BoxedBoolean | None
+    pseudoTerminal: BoxedBoolean | None
+    dockerLabels: DockerLabelsMap | None
+    ulimits: UlimitList | None
+    logConfiguration: LogConfiguration | None
+    healthCheck: HealthCheck | None
+    systemControls: SystemControls | None
+    resourceRequirements: ResourceRequirements | None
+    firelensConfiguration: FirelensConfiguration | None
+    credentialSpecs: StringList | None
 
 
-ContainerDefinitions = List[ContainerDefinition]
+ContainerDefinitions = list[ContainerDefinition]
 
 
 class ContainerImage(TypedDict, total=False):
@@ -1800,44 +2169,44 @@ class ContainerImage(TypedDict, total=False):
     in the Amazon ECS Developer Guide.
     """
 
-    containerName: Optional[String]
-    imageDigest: Optional[String]
-    image: Optional[String]
+    containerName: String | None
+    imageDigest: String | None
+    image: String | None
 
 
-ContainerImages = List[ContainerImage]
+ContainerImages = list[ContainerImage]
 
 
 class InstanceHealthCheckResult(TypedDict, total=False):
-    type: Optional[InstanceHealthCheckType]
-    status: Optional[InstanceHealthCheckState]
-    lastUpdated: Optional[Timestamp]
-    lastStatusChange: Optional[Timestamp]
+    type: InstanceHealthCheckType | None
+    status: InstanceHealthCheckState | None
+    lastUpdated: Timestamp | None
+    lastStatusChange: Timestamp | None
 
 
-InstanceHealthCheckResultList = List[InstanceHealthCheckResult]
+InstanceHealthCheckResultList = list[InstanceHealthCheckResult]
 
 
 class ContainerInstanceHealthStatus(TypedDict, total=False):
     """An object representing the health status of the container instance."""
 
-    overallStatus: Optional[InstanceHealthCheckState]
-    details: Optional[InstanceHealthCheckResultList]
+    overallStatus: InstanceHealthCheckState | None
+    details: InstanceHealthCheckResultList | None
 
 
 Long = int
 
 
 class Resource(TypedDict, total=False):
-    name: Optional[String]
-    type: Optional[String]
-    doubleValue: Optional[Double]
-    longValue: Optional[Long]
-    integerValue: Optional[Integer]
-    stringSetValue: Optional[StringList]
+    name: String | None
+    type: String | None
+    doubleValue: Double | None
+    longValue: Long | None
+    integerValue: Integer | None
+    stringSetValue: StringList | None
 
 
-Resources = List[Resource]
+Resources = list[Resource]
 
 
 class VersionInfo(TypedDict, total=False):
@@ -1845,9 +2214,9 @@ class VersionInfo(TypedDict, total=False):
     container instance.
     """
 
-    agentVersion: Optional[String]
-    agentHash: Optional[String]
-    dockerVersion: Optional[String]
+    agentVersion: String | None
+    agentHash: String | None
+    dockerVersion: String | None
 
 
 class ContainerInstance(TypedDict, total=False):
@@ -1855,28 +2224,28 @@ class ContainerInstance(TypedDict, total=False):
     and has been registered with a cluster.
     """
 
-    containerInstanceArn: Optional[String]
-    ec2InstanceId: Optional[String]
-    capacityProviderName: Optional[String]
-    version: Optional[Long]
-    versionInfo: Optional[VersionInfo]
-    remainingResources: Optional[Resources]
-    registeredResources: Optional[Resources]
-    status: Optional[String]
-    statusReason: Optional[String]
-    agentConnected: Optional[Boolean]
-    runningTasksCount: Optional[Integer]
-    pendingTasksCount: Optional[Integer]
-    agentUpdateStatus: Optional[AgentUpdateStatus]
-    attributes: Optional[Attributes]
-    registeredAt: Optional[Timestamp]
-    attachments: Optional[Attachments]
-    tags: Optional[Tags]
-    healthStatus: Optional[ContainerInstanceHealthStatus]
+    containerInstanceArn: String | None
+    ec2InstanceId: String | None
+    capacityProviderName: String | None
+    version: Long | None
+    versionInfo: VersionInfo | None
+    remainingResources: Resources | None
+    registeredResources: Resources | None
+    status: String | None
+    statusReason: String | None
+    agentConnected: Boolean | None
+    runningTasksCount: Integer | None
+    pendingTasksCount: Integer | None
+    agentUpdateStatus: AgentUpdateStatus | None
+    attributes: Attributes | None
+    registeredAt: Timestamp | None
+    attachments: Attachments | None
+    tags: Tags | None
+    healthStatus: ContainerInstanceHealthStatus | None
 
 
-ContainerInstanceFieldList = List[ContainerInstanceField]
-ContainerInstances = List[ContainerInstance]
+ContainerInstanceFieldList = list[ContainerInstanceField]
+ContainerInstances = list[ContainerInstance]
 
 
 class ContainerOverride(TypedDict, total=False):
@@ -1892,57 +2261,222 @@ class ContainerOverride(TypedDict, total=False):
     in the Amazon ECS Developer Guide.
     """
 
-    name: Optional[String]
-    command: Optional[StringList]
-    environment: Optional[EnvironmentVariables]
-    environmentFiles: Optional[EnvironmentFiles]
-    cpu: Optional[BoxedInteger]
-    memory: Optional[BoxedInteger]
-    memoryReservation: Optional[BoxedInteger]
-    resourceRequirements: Optional[ResourceRequirements]
+    name: String | None
+    command: StringList | None
+    environment: EnvironmentVariables | None
+    environmentFiles: EnvironmentFiles | None
+    cpu: BoxedInteger | None
+    memory: BoxedInteger | None
+    memoryReservation: BoxedInteger | None
+    resourceRequirements: ResourceRequirements | None
 
 
-ContainerOverrides = List[ContainerOverride]
+ContainerOverrides = list[ContainerOverride]
 
 
 class ContainerStateChange(TypedDict, total=False):
     """An object that represents a change in state for a container."""
 
-    containerName: Optional[String]
-    imageDigest: Optional[String]
-    runtimeId: Optional[String]
-    exitCode: Optional[BoxedInteger]
-    networkBindings: Optional[NetworkBindings]
-    reason: Optional[String]
-    status: Optional[String]
+    containerName: String | None
+    imageDigest: String | None
+    runtimeId: String | None
+    exitCode: BoxedInteger | None
+    networkBindings: NetworkBindings | None
+    reason: String | None
+    status: String | None
 
 
-ContainerStateChanges = List[ContainerStateChange]
-Containers = List[Container]
+ContainerStateChanges = list[ContainerStateChange]
+Containers = list[Container]
+
+
+class CreateManagedInstancesProviderConfiguration(TypedDict, total=False):
+    """The configuration for creating a Amazon ECS Managed Instances provider.
+    This specifies how Amazon ECS should manage Amazon EC2 instances,
+    including the infrastructure role, instance launch template, and whether
+    to propagate tags from the capacity provider to the instances.
+    """
+
+    infrastructureRoleArn: String
+    instanceLaunchTemplate: InstanceLaunchTemplate
+    propagateTags: PropagateMITags | None
+    infrastructureOptimization: InfrastructureOptimization | None
 
 
 class CreateCapacityProviderRequest(ServiceRequest):
     name: String
-    autoScalingGroupProvider: AutoScalingGroupProvider
-    tags: Optional[Tags]
+    cluster: String | None
+    autoScalingGroupProvider: AutoScalingGroupProvider | None
+    managedInstancesProvider: CreateManagedInstancesProviderConfiguration | None
+    tags: Tags | None
 
 
 class CreateCapacityProviderResponse(TypedDict, total=False):
-    capacityProvider: Optional[CapacityProvider]
+    capacityProvider: CapacityProvider | None
 
 
 class CreateClusterRequest(ServiceRequest):
-    clusterName: Optional[String]
-    tags: Optional[Tags]
-    settings: Optional[ClusterSettings]
-    configuration: Optional[ClusterConfiguration]
-    capacityProviders: Optional[StringList]
-    defaultCapacityProviderStrategy: Optional[CapacityProviderStrategy]
-    serviceConnectDefaults: Optional[ClusterServiceConnectDefaultsRequest]
+    clusterName: String | None
+    tags: Tags | None
+    settings: ClusterSettings | None
+    configuration: ClusterConfiguration | None
+    capacityProviders: StringList | None
+    defaultCapacityProviderStrategy: CapacityProviderStrategy | None
+    serviceConnectDefaults: ClusterServiceConnectDefaultsRequest | None
 
 
 class CreateClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
+
+
+class ExpressGatewayScalingTarget(TypedDict, total=False):
+    """Defines the auto-scaling configuration for an Express service. This
+    determines how the service automatically adjusts the number of running
+    tasks based on demand metrics such as CPU utilization, memory
+    utilization, or request count per target.
+
+    Auto-scaling helps ensure your application can handle varying levels of
+    traffic while optimizing costs by scaling down during low-demand
+    periods. You can specify the minimum and maximum number of tasks, the
+    scaling metric, and the target value for that metric.
+    """
+
+    minTaskCount: BoxedInteger | None
+    maxTaskCount: BoxedInteger | None
+    autoScalingMetric: ExpressGatewayServiceScalingMetric | None
+    autoScalingTargetValue: BoxedInteger | None
+
+
+class ExpressGatewayServiceNetworkConfiguration(TypedDict, total=False):
+    """The network configuration for an Express service. By default, an Express
+    service utilizes subnets and security groups associated with the default
+    VPC.
+    """
+
+    securityGroups: StringList | None
+    subnets: StringList | None
+
+
+class ExpressGatewayRepositoryCredentials(TypedDict, total=False):
+    """The repository credentials for private registry authentication to pass
+    to the container.
+    """
+
+    credentialsParameter: String | None
+
+
+class ExpressGatewayServiceAwsLogsConfiguration(TypedDict, total=False):
+    """Specifies the Amazon CloudWatch Logs configuration for the Express
+    service container.
+    """
+
+    logGroup: String
+    logStreamPrefix: String
+
+
+class ExpressGatewayContainer(TypedDict, total=False):
+    """Defines the configuration for the primary container in an Express
+    service. This container receives traffic from the Application Load
+    Balancer and runs your application code.
+
+    The container configuration includes the container image, port mapping,
+    logging settings, environment variables, and secrets. The container
+    image is the only required parameter, with sensible defaults provided
+    for other settings.
+    """
+
+    image: String
+    containerPort: BoxedInteger | None
+    awsLogsConfiguration: ExpressGatewayServiceAwsLogsConfiguration | None
+    repositoryCredentials: ExpressGatewayRepositoryCredentials | None
+    command: StringList | None
+    environment: EnvironmentVariables | None
+    secrets: SecretList | None
+
+
+class CreateExpressGatewayServiceRequest(ServiceRequest):
+    executionRoleArn: String
+    infrastructureRoleArn: String
+    serviceName: String | None
+    cluster: String | None
+    healthCheckPath: String | None
+    primaryContainer: ExpressGatewayContainer
+    taskRoleArn: String | None
+    networkConfiguration: ExpressGatewayServiceNetworkConfiguration | None
+    cpu: String | None
+    memory: String | None
+    scalingTarget: ExpressGatewayScalingTarget | None
+    tags: Tags | None
+
+
+class IngressPathSummary(TypedDict, total=False):
+    """The entry point into an Express service."""
+
+    accessType: AccessType
+    endpoint: String
+
+
+IngressPathSummaries = list[IngressPathSummary]
+
+
+class ExpressGatewayServiceConfiguration(TypedDict, total=False):
+    """Represents a specific configuration revision of an Express service,
+    containing all the settings and parameters for that revision.
+    """
+
+    serviceRevisionArn: String | None
+    executionRoleArn: String | None
+    taskRoleArn: String | None
+    cpu: String | None
+    memory: String | None
+    networkConfiguration: ExpressGatewayServiceNetworkConfiguration | None
+    healthCheckPath: String | None
+    primaryContainer: ExpressGatewayContainer | None
+    scalingTarget: ExpressGatewayScalingTarget | None
+    ingressPaths: IngressPathSummaries | None
+    createdAt: Timestamp | None
+
+
+ExpressGatewayServiceConfigurations = list[ExpressGatewayServiceConfiguration]
+
+
+class ExpressGatewayServiceStatus(TypedDict, total=False):
+    """An object that defines the status of Express service creation and
+    information about the status of the service.
+    """
+
+    statusCode: ExpressGatewayServiceStatusCode | None
+    statusReason: String | None
+
+
+class ECSExpressGatewayService(TypedDict, total=False):
+    """Represents an Express service, which provides a simplified way to deploy
+    containerized web applications on Amazon ECS with managed Amazon Web
+    Services infrastructure. An Express service automatically provisions and
+    manages Application Load Balancers, target groups, security groups, and
+    auto-scaling policies.
+
+    Express services use a service revision architecture where each service
+    can have multiple active configurations, enabling blue-green deployments
+    and gradual rollouts. The service maintains a list of active
+    configurations and manages the lifecycle of the underlying Amazon Web
+    Services resources.
+    """
+
+    cluster: String | None
+    serviceName: String | None
+    serviceArn: String | None
+    infrastructureRoleArn: String | None
+    status: ExpressGatewayServiceStatus | None
+    currentDeployment: String | None
+    activeConfigurations: ExpressGatewayServiceConfigurations | None
+    tags: Tags | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
+
+
+class CreateExpressGatewayServiceResponse(TypedDict, total=False):
+    service: ECSExpressGatewayService | None
 
 
 class VpcLatticeConfiguration(TypedDict, total=False):
@@ -1956,18 +2490,18 @@ class VpcLatticeConfiguration(TypedDict, total=False):
     portName: String
 
 
-VpcLatticeConfigurations = List[VpcLatticeConfiguration]
+VpcLatticeConfigurations = list[VpcLatticeConfiguration]
 
 
 class EBSTagSpecification(TypedDict, total=False):
     """The tag specifications of an Amazon EBS volume."""
 
     resourceType: EBSResourceType
-    tags: Optional[Tags]
-    propagateTags: Optional[PropagateTags]
+    tags: Tags | None
+    propagateTags: PropagateTags | None
 
 
-EBSTagSpecifications = List[EBSTagSpecification]
+EBSTagSpecifications = list[EBSTagSpecification]
 
 
 class ServiceManagedEBSVolumeConfiguration(TypedDict, total=False):
@@ -1983,17 +2517,17 @@ class ServiceManagedEBSVolumeConfiguration(TypedDict, total=False):
     API request parameters.
     """
 
-    encrypted: Optional[BoxedBoolean]
-    kmsKeyId: Optional[EBSKMSKeyId]
-    volumeType: Optional[EBSVolumeType]
-    sizeInGiB: Optional[BoxedInteger]
-    snapshotId: Optional[EBSSnapshotId]
-    volumeInitializationRate: Optional[BoxedInteger]
-    iops: Optional[BoxedInteger]
-    throughput: Optional[BoxedInteger]
-    tagSpecifications: Optional[EBSTagSpecifications]
+    encrypted: BoxedBoolean | None
+    kmsKeyId: EBSKMSKeyId | None
+    volumeType: EBSVolumeType | None
+    sizeInGiB: BoxedInteger | None
+    snapshotId: EBSSnapshotId | None
+    volumeInitializationRate: BoxedInteger | None
+    iops: BoxedInteger | None
+    throughput: BoxedInteger | None
+    tagSpecifications: EBSTagSpecifications | None
     roleArn: IAMRoleArn
-    filesystemType: Optional[TaskFilesystemType]
+    filesystemType: TaskFilesystemType | None
 
 
 class ServiceVolumeConfiguration(TypedDict, total=False):
@@ -2003,16 +2537,30 @@ class ServiceVolumeConfiguration(TypedDict, total=False):
     """
 
     name: ECSVolumeName
-    managedEBSVolume: Optional[ServiceManagedEBSVolumeConfiguration]
+    managedEBSVolume: ServiceManagedEBSVolumeConfiguration | None
 
 
-ServiceVolumeConfigurations = List[ServiceVolumeConfiguration]
+ServiceVolumeConfigurations = list[ServiceVolumeConfiguration]
+
+
+class ServiceConnectAccessLogConfiguration(TypedDict, total=False):
+    """Configuration for Service Connect access logging. Access logs provide
+    detailed information about requests made to your service, including
+    request patterns, response codes, and timing data for debugging and
+    monitoring purposes.
+
+    To enable access logs, you must also specify a ``logConfiguration`` in
+    the ``serviceConnectConfiguration``.
+    """
+
+    format: ServiceConnectAccessLoggingFormat
+    includeQueryParameters: ServiceConnectIncludeQueryParameters | None
 
 
 class ServiceConnectTlsCertificateAuthority(TypedDict, total=False):
     """The certificate root authority that secures your service."""
 
-    awsPcaAuthorityArn: Optional[String]
+    awsPcaAuthorityArn: String | None
 
 
 class ServiceConnectTlsConfiguration(TypedDict, total=False):
@@ -2021,8 +2569,8 @@ class ServiceConnectTlsConfiguration(TypedDict, total=False):
     """
 
     issuerCertificateAuthority: ServiceConnectTlsCertificateAuthority
-    kmsKey: Optional[String]
-    roleArn: Optional[String]
+    kmsKey: String | None
+    roleArn: String | None
 
 
 class TimeoutConfiguration(TypedDict, total=False):
@@ -2034,8 +2582,8 @@ class TimeoutConfiguration(TypedDict, total=False):
     ``idleTimeout`` is reached and not the ``perRequestTimeout``.
     """
 
-    idleTimeoutSeconds: Optional[Duration]
-    perRequestTimeoutSeconds: Optional[Duration]
+    idleTimeoutSeconds: Duration | None
+    perRequestTimeoutSeconds: Duration | None
 
 
 class ServiceConnectTestTrafficHeaderMatchRules(TypedDict, total=False):
@@ -2059,7 +2607,7 @@ class ServiceConnectTestTrafficHeaderRules(TypedDict, total=False):
     """
 
     name: String
-    value: Optional[ServiceConnectTestTrafficHeaderMatchRules]
+    value: ServiceConnectTestTrafficHeaderMatchRules | None
 
 
 class ServiceConnectTestTrafficRules(TypedDict, total=False):
@@ -2093,11 +2641,11 @@ class ServiceConnectClientAlias(TypedDict, total=False):
     """
 
     port: PortNumber
-    dnsName: Optional[String]
-    testTrafficRules: Optional[ServiceConnectTestTrafficRules]
+    dnsName: String | None
+    testTrafficRules: ServiceConnectTestTrafficRules | None
 
 
-ServiceConnectClientAliasList = List[ServiceConnectClientAlias]
+ServiceConnectClientAliasList = list[ServiceConnectClientAlias]
 
 
 class ServiceConnectService(TypedDict, total=False):
@@ -2108,14 +2656,14 @@ class ServiceConnectService(TypedDict, total=False):
     """
 
     portName: String
-    discoveryName: Optional[String]
-    clientAliases: Optional[ServiceConnectClientAliasList]
-    ingressPortOverride: Optional[PortNumber]
-    timeout: Optional[TimeoutConfiguration]
-    tls: Optional[ServiceConnectTlsConfiguration]
+    discoveryName: String | None
+    clientAliases: ServiceConnectClientAliasList | None
+    ingressPortOverride: PortNumber | None
+    timeout: TimeoutConfiguration | None
+    tls: ServiceConnectTlsConfiguration | None
 
 
-ServiceConnectServiceList = List[ServiceConnectService]
+ServiceConnectServiceList = list[ServiceConnectService]
 
 
 class ServiceConnectConfiguration(TypedDict, total=False):
@@ -2134,9 +2682,10 @@ class ServiceConnectConfiguration(TypedDict, total=False):
     """
 
     enabled: Boolean
-    namespace: Optional[String]
-    services: Optional[ServiceConnectServiceList]
-    logConfiguration: Optional[LogConfiguration]
+    namespace: String | None
+    services: ServiceConnectServiceList | None
+    logConfiguration: LogConfiguration | None
+    accessLogConfiguration: ServiceConnectAccessLogConfiguration | None
 
 
 class DeploymentController(TypedDict, total=False):
@@ -2146,30 +2695,43 @@ class DeploymentController(TypedDict, total=False):
 class NetworkConfiguration(TypedDict, total=False):
     """The network configuration for a task or service."""
 
-    awsvpcConfiguration: Optional[AwsVpcConfiguration]
+    awsvpcConfiguration: AwsVpcConfiguration | None
 
 
 class PlacementStrategy(TypedDict, total=False):
-    type: Optional[PlacementStrategyType]
-    field: Optional[String]
+    type: PlacementStrategyType | None
+    field: String | None
 
 
-PlacementStrategies = List[PlacementStrategy]
+PlacementStrategies = list[PlacementStrategy]
 
 
 class PlacementConstraint(TypedDict, total=False):
-    type: Optional[PlacementConstraintType]
-    expression: Optional[String]
+    type: PlacementConstraintType | None
+    expression: String | None
 
 
-PlacementConstraints = List[PlacementConstraint]
+PlacementConstraints = list[PlacementConstraint]
+
+
+class LinearConfiguration(TypedDict, total=False):
+    """Configuration for linear deployment strategy that shifts production
+    traffic in equal percentage increments with configurable wait times
+    between each step until 100% of traffic is shifted to the new service
+    revision. This is only valid when you run ``CreateService`` or
+    ``UpdateService`` with ``deploymentController`` set to ``ECS`` and a
+    ``deploymentConfiguration`` with a strategy set to ``LINEAR``.
+    """
+
+    stepPercent: Double | None
+    stepBakeTimeInMinutes: Integer | None
 
 
 class HookDetails(TypedDict, total=False):
     pass
 
 
-DeploymentLifecycleHookStageList = List[DeploymentLifecycleHookStage]
+DeploymentLifecycleHookStageList = list[DeploymentLifecycleHookStage]
 
 
 class DeploymentLifecycleHook(TypedDict, total=False):
@@ -2182,13 +2744,13 @@ class DeploymentLifecycleHook(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    hookTargetArn: Optional[String]
-    roleArn: Optional[IAMRoleArn]
-    lifecycleStages: Optional[DeploymentLifecycleHookStageList]
-    hookDetails: Optional[HookDetails]
+    hookTargetArn: String | None
+    roleArn: IAMRoleArn | None
+    lifecycleStages: DeploymentLifecycleHookStageList | None
+    hookDetails: HookDetails | None
 
 
-DeploymentLifecycleHookList = List[DeploymentLifecycleHook]
+DeploymentLifecycleHookList = list[DeploymentLifecycleHook]
 
 
 class DeploymentAlarms(TypedDict, total=False):
@@ -2240,13 +2802,15 @@ class DeploymentConfiguration(TypedDict, total=False):
     deployment and the ordering of stopping and starting tasks.
     """
 
-    deploymentCircuitBreaker: Optional[DeploymentCircuitBreaker]
-    maximumPercent: Optional[BoxedInteger]
-    minimumHealthyPercent: Optional[BoxedInteger]
-    alarms: Optional[DeploymentAlarms]
-    strategy: Optional[DeploymentStrategy]
-    bakeTimeInMinutes: Optional[BoxedInteger]
-    lifecycleHooks: Optional[DeploymentLifecycleHookList]
+    deploymentCircuitBreaker: DeploymentCircuitBreaker | None
+    maximumPercent: BoxedInteger | None
+    minimumHealthyPercent: BoxedInteger | None
+    alarms: DeploymentAlarms | None
+    strategy: DeploymentStrategy | None
+    bakeTimeInMinutes: BoxedInteger | None
+    lifecycleHooks: DeploymentLifecycleHookList | None
+    linearConfiguration: LinearConfiguration | None
+    canaryConfiguration: CanaryConfiguration | None
 
 
 class ServiceRegistry(TypedDict, total=False):
@@ -2260,13 +2824,13 @@ class ServiceRegistry(TypedDict, total=False):
     deregistered to the updated service registry configuration.
     """
 
-    registryArn: Optional[String]
-    port: Optional[BoxedInteger]
-    containerName: Optional[String]
-    containerPort: Optional[BoxedInteger]
+    registryArn: String | None
+    port: BoxedInteger | None
+    containerName: String | None
+    containerPort: BoxedInteger | None
 
 
-ServiceRegistries = List[ServiceRegistry]
+ServiceRegistries = list[ServiceRegistry]
 
 
 class LoadBalancer(TypedDict, total=False):
@@ -2286,60 +2850,72 @@ class LoadBalancer(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    targetGroupArn: Optional[String]
-    loadBalancerName: Optional[String]
-    containerName: Optional[String]
-    containerPort: Optional[BoxedInteger]
-    advancedConfiguration: Optional[AdvancedConfiguration]
+    targetGroupArn: String | None
+    loadBalancerName: String | None
+    containerName: String | None
+    containerPort: BoxedInteger | None
+    advancedConfiguration: AdvancedConfiguration | None
 
 
-LoadBalancers = List[LoadBalancer]
+LoadBalancers = list[LoadBalancer]
 
 
 class CreateServiceRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     serviceName: String
-    taskDefinition: Optional[String]
-    availabilityZoneRebalancing: Optional[AvailabilityZoneRebalancing]
-    loadBalancers: Optional[LoadBalancers]
-    serviceRegistries: Optional[ServiceRegistries]
-    desiredCount: Optional[BoxedInteger]
-    clientToken: Optional[String]
-    launchType: Optional[LaunchType]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    platformVersion: Optional[String]
-    role: Optional[String]
-    deploymentConfiguration: Optional[DeploymentConfiguration]
-    placementConstraints: Optional[PlacementConstraints]
-    placementStrategy: Optional[PlacementStrategies]
-    networkConfiguration: Optional[NetworkConfiguration]
-    healthCheckGracePeriodSeconds: Optional[BoxedInteger]
-    schedulingStrategy: Optional[SchedulingStrategy]
-    deploymentController: Optional[DeploymentController]
-    tags: Optional[Tags]
-    enableECSManagedTags: Optional[Boolean]
-    propagateTags: Optional[PropagateTags]
-    enableExecuteCommand: Optional[Boolean]
-    serviceConnectConfiguration: Optional[ServiceConnectConfiguration]
-    volumeConfigurations: Optional[ServiceVolumeConfigurations]
-    vpcLatticeConfigurations: Optional[VpcLatticeConfigurations]
+    taskDefinition: String | None
+    availabilityZoneRebalancing: AvailabilityZoneRebalancing | None
+    loadBalancers: LoadBalancers | None
+    serviceRegistries: ServiceRegistries | None
+    desiredCount: BoxedInteger | None
+    clientToken: String | None
+    launchType: LaunchType | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    platformVersion: String | None
+    role: String | None
+    deploymentConfiguration: DeploymentConfiguration | None
+    placementConstraints: PlacementConstraints | None
+    placementStrategy: PlacementStrategies | None
+    networkConfiguration: NetworkConfiguration | None
+    healthCheckGracePeriodSeconds: BoxedInteger | None
+    schedulingStrategy: SchedulingStrategy | None
+    deploymentController: DeploymentController | None
+    tags: Tags | None
+    enableECSManagedTags: Boolean | None
+    propagateTags: PropagateTags | None
+    enableExecuteCommand: Boolean | None
+    serviceConnectConfiguration: ServiceConnectConfiguration | None
+    volumeConfigurations: ServiceVolumeConfigurations | None
+    vpcLatticeConfigurations: VpcLatticeConfigurations | None
+
+
+class ServiceCurrentRevisionSummary(TypedDict, total=False):
+    """The summary of the current service revision configuration"""
+
+    arn: String | None
+    requestedTaskCount: Integer | None
+    runningTaskCount: Integer | None
+    pendingTaskCount: Integer | None
+
+
+ServiceCurrentRevisionSummaryList = list[ServiceCurrentRevisionSummary]
 
 
 class ServiceEvent(TypedDict, total=False):
     """The details for an event that's associated with a service."""
 
-    id: Optional[String]
-    createdAt: Optional[Timestamp]
-    message: Optional[String]
+    id: String | None
+    createdAt: Timestamp | None
+    message: String | None
 
 
-ServiceEvents = List[ServiceEvent]
+ServiceEvents = list[ServiceEvent]
 
 
 class DeploymentEphemeralStorage(TypedDict, total=False):
     """The amount of ephemeral storage to allocate for the deployment."""
 
-    kmsKeyId: Optional[String]
+    kmsKeyId: String | None
 
 
 class ServiceConnectServiceResource(TypedDict, total=False):
@@ -2354,11 +2930,11 @@ class ServiceConnectServiceResource(TypedDict, total=False):
     that service for the list of ``clientAliases`` that you can use.
     """
 
-    discoveryName: Optional[String]
-    discoveryArn: Optional[String]
+    discoveryName: String | None
+    discoveryArn: String | None
 
 
-ServiceConnectServiceResourceList = List[ServiceConnectServiceResource]
+ServiceConnectServiceResourceList = list[ServiceConnectServiceResource]
 
 
 class Deployment(TypedDict, total=False):
@@ -2366,30 +2942,30 @@ class Deployment(TypedDict, total=False):
     a service uses the ``ECS`` deployment controller type.
     """
 
-    id: Optional[String]
-    status: Optional[String]
-    taskDefinition: Optional[String]
-    desiredCount: Optional[Integer]
-    pendingCount: Optional[Integer]
-    runningCount: Optional[Integer]
-    failedTasks: Optional[Integer]
-    createdAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    launchType: Optional[LaunchType]
-    platformVersion: Optional[String]
-    platformFamily: Optional[String]
-    networkConfiguration: Optional[NetworkConfiguration]
-    rolloutState: Optional[DeploymentRolloutState]
-    rolloutStateReason: Optional[String]
-    serviceConnectConfiguration: Optional[ServiceConnectConfiguration]
-    serviceConnectResources: Optional[ServiceConnectServiceResourceList]
-    volumeConfigurations: Optional[ServiceVolumeConfigurations]
-    fargateEphemeralStorage: Optional[DeploymentEphemeralStorage]
-    vpcLatticeConfigurations: Optional[VpcLatticeConfigurations]
+    id: String | None
+    status: String | None
+    taskDefinition: String | None
+    desiredCount: Integer | None
+    pendingCount: Integer | None
+    runningCount: Integer | None
+    failedTasks: Integer | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    launchType: LaunchType | None
+    platformVersion: String | None
+    platformFamily: String | None
+    networkConfiguration: NetworkConfiguration | None
+    rolloutState: DeploymentRolloutState | None
+    rolloutStateReason: String | None
+    serviceConnectConfiguration: ServiceConnectConfiguration | None
+    serviceConnectResources: ServiceConnectServiceResourceList | None
+    volumeConfigurations: ServiceVolumeConfigurations | None
+    fargateEphemeralStorage: DeploymentEphemeralStorage | None
+    vpcLatticeConfigurations: VpcLatticeConfigurations | None
 
 
-Deployments = List[Deployment]
+Deployments = list[Deployment]
 
 
 class Scale(TypedDict, total=False):
@@ -2397,8 +2973,8 @@ class Scale(TypedDict, total=False):
     keep running in the task set.
     """
 
-    value: Optional[Double]
-    unit: Optional[ScaleUnit]
+    value: Double | None
+    unit: ScaleUnit | None
 
 
 class TaskSet(TypedDict, total=False):
@@ -2408,95 +2984,98 @@ class TaskSet(TypedDict, total=False):
     the task set serves production traffic.
     """
 
-    id: Optional[String]
-    taskSetArn: Optional[String]
-    serviceArn: Optional[String]
-    clusterArn: Optional[String]
-    startedBy: Optional[String]
-    externalId: Optional[String]
-    status: Optional[String]
-    taskDefinition: Optional[String]
-    computedDesiredCount: Optional[Integer]
-    pendingCount: Optional[Integer]
-    runningCount: Optional[Integer]
-    createdAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
-    launchType: Optional[LaunchType]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    platformVersion: Optional[String]
-    platformFamily: Optional[String]
-    networkConfiguration: Optional[NetworkConfiguration]
-    loadBalancers: Optional[LoadBalancers]
-    serviceRegistries: Optional[ServiceRegistries]
-    scale: Optional[Scale]
-    stabilityStatus: Optional[StabilityStatus]
-    stabilityStatusAt: Optional[Timestamp]
-    tags: Optional[Tags]
-    fargateEphemeralStorage: Optional[DeploymentEphemeralStorage]
+    id: String | None
+    taskSetArn: String | None
+    serviceArn: String | None
+    clusterArn: String | None
+    startedBy: String | None
+    externalId: String | None
+    status: String | None
+    taskDefinition: String | None
+    computedDesiredCount: Integer | None
+    pendingCount: Integer | None
+    runningCount: Integer | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
+    launchType: LaunchType | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    platformVersion: String | None
+    platformFamily: String | None
+    networkConfiguration: NetworkConfiguration | None
+    loadBalancers: LoadBalancers | None
+    serviceRegistries: ServiceRegistries | None
+    scale: Scale | None
+    stabilityStatus: StabilityStatus | None
+    stabilityStatusAt: Timestamp | None
+    tags: Tags | None
+    fargateEphemeralStorage: DeploymentEphemeralStorage | None
 
 
-TaskSets = List[TaskSet]
+TaskSets = list[TaskSet]
 
 
 class Service(TypedDict, total=False):
     """Details on a service within a cluster."""
 
-    serviceArn: Optional[String]
-    serviceName: Optional[String]
-    clusterArn: Optional[String]
-    loadBalancers: Optional[LoadBalancers]
-    serviceRegistries: Optional[ServiceRegistries]
-    status: Optional[String]
-    desiredCount: Optional[Integer]
-    runningCount: Optional[Integer]
-    pendingCount: Optional[Integer]
-    launchType: Optional[LaunchType]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    platformVersion: Optional[String]
-    platformFamily: Optional[String]
-    taskDefinition: Optional[String]
-    deploymentConfiguration: Optional[DeploymentConfiguration]
-    taskSets: Optional[TaskSets]
-    deployments: Optional[Deployments]
-    roleArn: Optional[String]
-    events: Optional[ServiceEvents]
-    createdAt: Optional[Timestamp]
-    placementConstraints: Optional[PlacementConstraints]
-    placementStrategy: Optional[PlacementStrategies]
-    networkConfiguration: Optional[NetworkConfiguration]
-    healthCheckGracePeriodSeconds: Optional[BoxedInteger]
-    schedulingStrategy: Optional[SchedulingStrategy]
-    deploymentController: Optional[DeploymentController]
-    tags: Optional[Tags]
-    createdBy: Optional[String]
-    enableECSManagedTags: Optional[Boolean]
-    propagateTags: Optional[PropagateTags]
-    enableExecuteCommand: Optional[Boolean]
-    availabilityZoneRebalancing: Optional[AvailabilityZoneRebalancing]
+    serviceArn: String | None
+    serviceName: String | None
+    clusterArn: String | None
+    loadBalancers: LoadBalancers | None
+    serviceRegistries: ServiceRegistries | None
+    status: String | None
+    desiredCount: Integer | None
+    runningCount: Integer | None
+    pendingCount: Integer | None
+    launchType: LaunchType | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    platformVersion: String | None
+    platformFamily: String | None
+    taskDefinition: String | None
+    deploymentConfiguration: DeploymentConfiguration | None
+    taskSets: TaskSets | None
+    deployments: Deployments | None
+    roleArn: String | None
+    events: ServiceEvents | None
+    createdAt: Timestamp | None
+    currentServiceDeployment: String | None
+    currentServiceRevisions: ServiceCurrentRevisionSummaryList | None
+    placementConstraints: PlacementConstraints | None
+    placementStrategy: PlacementStrategies | None
+    networkConfiguration: NetworkConfiguration | None
+    healthCheckGracePeriodSeconds: BoxedInteger | None
+    schedulingStrategy: SchedulingStrategy | None
+    deploymentController: DeploymentController | None
+    tags: Tags | None
+    createdBy: String | None
+    enableECSManagedTags: Boolean | None
+    propagateTags: PropagateTags | None
+    enableExecuteCommand: Boolean | None
+    availabilityZoneRebalancing: AvailabilityZoneRebalancing | None
+    resourceManagementType: ResourceManagementType | None
 
 
 class CreateServiceResponse(TypedDict, total=False):
-    service: Optional[Service]
+    service: Service | None
 
 
 class CreateTaskSetRequest(ServiceRequest):
     service: String
     cluster: String
-    externalId: Optional[String]
+    externalId: String | None
     taskDefinition: String
-    networkConfiguration: Optional[NetworkConfiguration]
-    loadBalancers: Optional[LoadBalancers]
-    serviceRegistries: Optional[ServiceRegistries]
-    launchType: Optional[LaunchType]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    platformVersion: Optional[String]
-    scale: Optional[Scale]
-    clientToken: Optional[String]
-    tags: Optional[Tags]
+    networkConfiguration: NetworkConfiguration | None
+    loadBalancers: LoadBalancers | None
+    serviceRegistries: ServiceRegistries | None
+    launchType: LaunchType | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    platformVersion: String | None
+    scale: Scale | None
+    clientToken: String | None
+    tags: Tags | None
 
 
 class CreateTaskSetResponse(TypedDict, total=False):
-    taskSet: Optional[TaskSet]
+    taskSet: TaskSet | None
 
 
 class CreatedAt(TypedDict, total=False):
@@ -2506,41 +3085,42 @@ class CreatedAt(TypedDict, total=False):
     before the current time are included in the result.
     """
 
-    before: Optional[Timestamp]
-    after: Optional[Timestamp]
+    before: Timestamp | None
+    after: Timestamp | None
 
 
 class DeleteAccountSettingRequest(ServiceRequest):
     name: SettingName
-    principalArn: Optional[String]
+    principalArn: String | None
 
 
 class Setting(TypedDict, total=False):
-    name: Optional[SettingName]
-    value: Optional[String]
-    principalArn: Optional[String]
-    type: Optional[SettingType]
+    name: SettingName | None
+    value: String | None
+    principalArn: String | None
+    type: SettingType | None
 
 
 class DeleteAccountSettingResponse(TypedDict, total=False):
-    setting: Optional[Setting]
+    setting: Setting | None
 
 
 class DeleteAttributesRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     attributes: Attributes
 
 
 class DeleteAttributesResponse(TypedDict, total=False):
-    attributes: Optional[Attributes]
+    attributes: Attributes | None
 
 
 class DeleteCapacityProviderRequest(ServiceRequest):
     capacityProvider: String
+    cluster: String | None
 
 
 class DeleteCapacityProviderResponse(TypedDict, total=False):
-    capacityProvider: Optional[CapacityProvider]
+    capacityProvider: CapacityProvider | None
 
 
 class DeleteClusterRequest(ServiceRequest):
@@ -2548,17 +3128,25 @@ class DeleteClusterRequest(ServiceRequest):
 
 
 class DeleteClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
+
+
+class DeleteExpressGatewayServiceRequest(ServiceRequest):
+    serviceArn: String
+
+
+class DeleteExpressGatewayServiceResponse(TypedDict, total=False):
+    service: ECSExpressGatewayService | None
 
 
 class DeleteServiceRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     service: String
-    force: Optional[BoxedBoolean]
+    force: BoxedBoolean | None
 
 
 class DeleteServiceResponse(TypedDict, total=False):
-    service: Optional[Service]
+    service: Service | None
 
 
 class DeleteTaskDefinitionsRequest(ServiceRequest):
@@ -2571,12 +3159,12 @@ class Failure(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    arn: Optional[String]
-    reason: Optional[String]
-    detail: Optional[String]
+    arn: String | None
+    reason: String | None
+    detail: String | None
 
 
-Failures = List[Failure]
+Failures = list[Failure]
 
 
 class EphemeralStorage(TypedDict, total=False):
@@ -2598,13 +3186,13 @@ class EphemeralStorage(TypedDict, total=False):
     sizeInGiB: Integer
 
 
-ProxyConfigurationProperties = List[KeyValuePair]
+ProxyConfigurationProperties = list[KeyValuePair]
 
 
 class ProxyConfiguration(TypedDict, total=False):
-    type: Optional[ProxyConfigurationType]
+    type: ProxyConfigurationType | None
     containerName: String
-    properties: Optional[ProxyConfigurationProperties]
+    properties: ProxyConfigurationProperties | None
 
 
 class InferenceAccelerator(TypedDict, total=False):
@@ -2618,7 +3206,7 @@ class InferenceAccelerator(TypedDict, total=False):
     deviceType: String
 
 
-InferenceAccelerators = List[InferenceAccelerator]
+InferenceAccelerators = list[InferenceAccelerator]
 
 
 class RuntimePlatform(TypedDict, total=False):
@@ -2629,17 +3217,17 @@ class RuntimePlatform(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    cpuArchitecture: Optional[CPUArchitecture]
-    operatingSystemFamily: Optional[OSFamily]
+    cpuArchitecture: CPUArchitecture | None
+    operatingSystemFamily: OSFamily | None
 
 
 class TaskDefinitionPlacementConstraint(TypedDict, total=False):
-    type: Optional[TaskDefinitionPlacementConstraintType]
-    expression: Optional[String]
+    type: TaskDefinitionPlacementConstraintType | None
+    expression: String | None
 
 
-TaskDefinitionPlacementConstraints = List[TaskDefinitionPlacementConstraint]
-RequiresAttributes = List[Attribute]
+TaskDefinitionPlacementConstraints = list[TaskDefinitionPlacementConstraint]
+RequiresAttributes = list[Attribute]
 
 
 class FSxWindowsFileServerAuthorizationConfig(TypedDict, total=False):
@@ -2678,8 +3266,8 @@ class FSxWindowsFileServerVolumeConfiguration(TypedDict, total=False):
 class EFSAuthorizationConfig(TypedDict, total=False):
     """The authorization configuration details for the Amazon EFS file system."""
 
-    accessPointId: Optional[String]
-    iam: Optional[EFSAuthorizationConfigIAM]
+    accessPointId: String | None
+    iam: EFSAuthorizationConfigIAM | None
 
 
 class EFSVolumeConfiguration(TypedDict, total=False):
@@ -2691,13 +3279,13 @@ class EFSVolumeConfiguration(TypedDict, total=False):
     """
 
     fileSystemId: String
-    rootDirectory: Optional[String]
-    transitEncryption: Optional[EFSTransitEncryption]
-    transitEncryptionPort: Optional[BoxedInteger]
-    authorizationConfig: Optional[EFSAuthorizationConfig]
+    rootDirectory: String | None
+    transitEncryption: EFSTransitEncryption | None
+    transitEncryptionPort: BoxedInteger | None
+    authorizationConfig: EFSAuthorizationConfig | None
 
 
-StringMap = Dict[String, String]
+StringMap = dict[String, String]
 
 
 class DockerVolumeConfiguration(TypedDict, total=False):
@@ -2707,17 +3295,17 @@ class DockerVolumeConfiguration(TypedDict, total=False):
     bind mounts, specify a ``host`` instead.
     """
 
-    scope: Optional[Scope]
-    autoprovision: Optional[BoxedBoolean]
-    driver: Optional[String]
-    driverOpts: Optional[StringMap]
-    labels: Optional[StringMap]
+    scope: Scope | None
+    autoprovision: BoxedBoolean | None
+    driver: String | None
+    driverOpts: StringMap | None
+    labels: StringMap | None
 
 
 class HostVolumeProperties(TypedDict, total=False):
     """Details on a container instance bind mount host volume."""
 
-    sourcePath: Optional[String]
+    sourcePath: String | None
 
 
 class Volume(TypedDict, total=False):
@@ -2734,15 +3322,15 @@ class Volume(TypedDict, total=False):
     tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`__.
     """
 
-    name: Optional[String]
-    host: Optional[HostVolumeProperties]
-    dockerVolumeConfiguration: Optional[DockerVolumeConfiguration]
-    efsVolumeConfiguration: Optional[EFSVolumeConfiguration]
-    fsxWindowsFileServerVolumeConfiguration: Optional[FSxWindowsFileServerVolumeConfiguration]
-    configuredAtLaunch: Optional[BoxedBoolean]
+    name: String | None
+    host: HostVolumeProperties | None
+    dockerVolumeConfiguration: DockerVolumeConfiguration | None
+    efsVolumeConfiguration: EFSVolumeConfiguration | None
+    fsxWindowsFileServerVolumeConfiguration: FSxWindowsFileServerVolumeConfiguration | None
+    configuredAtLaunch: BoxedBoolean | None
 
 
-VolumeList = List[Volume]
+VolumeList = list[Volume]
 
 
 class TaskDefinition(TypedDict, total=False):
@@ -2753,60 +3341,60 @@ class TaskDefinition(TypedDict, total=False):
     Amazon ECS service or task.
     """
 
-    taskDefinitionArn: Optional[String]
-    containerDefinitions: Optional[ContainerDefinitions]
-    family: Optional[String]
-    taskRoleArn: Optional[String]
-    executionRoleArn: Optional[String]
-    networkMode: Optional[NetworkMode]
-    revision: Optional[Integer]
-    volumes: Optional[VolumeList]
-    status: Optional[TaskDefinitionStatus]
-    requiresAttributes: Optional[RequiresAttributes]
-    placementConstraints: Optional[TaskDefinitionPlacementConstraints]
-    compatibilities: Optional[CompatibilityList]
-    runtimePlatform: Optional[RuntimePlatform]
-    requiresCompatibilities: Optional[CompatibilityList]
-    cpu: Optional[String]
-    memory: Optional[String]
-    inferenceAccelerators: Optional[InferenceAccelerators]
-    pidMode: Optional[PidMode]
-    ipcMode: Optional[IpcMode]
-    proxyConfiguration: Optional[ProxyConfiguration]
-    registeredAt: Optional[Timestamp]
-    deregisteredAt: Optional[Timestamp]
-    registeredBy: Optional[String]
-    ephemeralStorage: Optional[EphemeralStorage]
-    enableFaultInjection: Optional[BoxedBoolean]
+    taskDefinitionArn: String | None
+    containerDefinitions: ContainerDefinitions | None
+    family: String | None
+    taskRoleArn: String | None
+    executionRoleArn: String | None
+    networkMode: NetworkMode | None
+    revision: Integer | None
+    volumes: VolumeList | None
+    status: TaskDefinitionStatus | None
+    requiresAttributes: RequiresAttributes | None
+    placementConstraints: TaskDefinitionPlacementConstraints | None
+    compatibilities: CompatibilityList | None
+    runtimePlatform: RuntimePlatform | None
+    requiresCompatibilities: CompatibilityList | None
+    cpu: String | None
+    memory: String | None
+    inferenceAccelerators: InferenceAccelerators | None
+    pidMode: PidMode | None
+    ipcMode: IpcMode | None
+    proxyConfiguration: ProxyConfiguration | None
+    registeredAt: Timestamp | None
+    deregisteredAt: Timestamp | None
+    registeredBy: String | None
+    ephemeralStorage: EphemeralStorage | None
+    enableFaultInjection: BoxedBoolean | None
 
 
-TaskDefinitionList = List[TaskDefinition]
+TaskDefinitionList = list[TaskDefinition]
 
 
 class DeleteTaskDefinitionsResponse(TypedDict, total=False):
-    taskDefinitions: Optional[TaskDefinitionList]
-    failures: Optional[Failures]
+    taskDefinitions: TaskDefinitionList | None
+    failures: Failures | None
 
 
 class DeleteTaskSetRequest(ServiceRequest):
     cluster: String
     service: String
     taskSet: String
-    force: Optional[BoxedBoolean]
+    force: BoxedBoolean | None
 
 
 class DeleteTaskSetResponse(TypedDict, total=False):
-    taskSet: Optional[TaskSet]
+    taskSet: TaskSet | None
 
 
 class DeregisterContainerInstanceRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     containerInstance: String
-    force: Optional[BoxedBoolean]
+    force: BoxedBoolean | None
 
 
 class DeregisterContainerInstanceResponse(TypedDict, total=False):
-    containerInstance: Optional[ContainerInstance]
+    containerInstance: ContainerInstance | None
 
 
 class DeregisterTaskDefinitionRequest(ServiceRequest):
@@ -2814,41 +3402,54 @@ class DeregisterTaskDefinitionRequest(ServiceRequest):
 
 
 class DeregisterTaskDefinitionResponse(TypedDict, total=False):
-    taskDefinition: Optional[TaskDefinition]
+    taskDefinition: TaskDefinition | None
 
 
 class DescribeCapacityProvidersRequest(ServiceRequest):
-    capacityProviders: Optional[StringList]
-    include: Optional[CapacityProviderFieldList]
-    maxResults: Optional[BoxedInteger]
-    nextToken: Optional[String]
+    capacityProviders: StringList | None
+    cluster: String | None
+    include: CapacityProviderFieldList | None
+    maxResults: BoxedInteger | None
+    nextToken: String | None
 
 
 class DescribeCapacityProvidersResponse(TypedDict, total=False):
-    capacityProviders: Optional[CapacityProviders]
-    failures: Optional[Failures]
-    nextToken: Optional[String]
+    capacityProviders: CapacityProviders | None
+    failures: Failures | None
+    nextToken: String | None
 
 
 class DescribeClustersRequest(ServiceRequest):
-    clusters: Optional[StringList]
-    include: Optional[ClusterFieldList]
+    clusters: StringList | None
+    include: ClusterFieldList | None
 
 
 class DescribeClustersResponse(TypedDict, total=False):
-    clusters: Optional[Clusters]
-    failures: Optional[Failures]
+    clusters: Clusters | None
+    failures: Failures | None
 
 
 class DescribeContainerInstancesRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     containerInstances: StringList
-    include: Optional[ContainerInstanceFieldList]
+    include: ContainerInstanceFieldList | None
 
 
 class DescribeContainerInstancesResponse(TypedDict, total=False):
-    containerInstances: Optional[ContainerInstances]
-    failures: Optional[Failures]
+    containerInstances: ContainerInstances | None
+    failures: Failures | None
+
+
+ExpressGatewayServiceIncludeList = list[ExpressGatewayServiceInclude]
+
+
+class DescribeExpressGatewayServiceRequest(ServiceRequest):
+    serviceArn: String
+    include: ExpressGatewayServiceIncludeList | None
+
+
+class DescribeExpressGatewayServiceResponse(TypedDict, total=False):
+    service: ECSExpressGatewayService | None
 
 
 class DescribeServiceDeploymentsRequest(ServiceRequest):
@@ -2865,9 +3466,9 @@ class ServiceDeploymentAlarms(TypedDict, total=False):
     in the Amazon ECS Developer Guide.
     """
 
-    status: Optional[ServiceDeploymentRollbackMonitorsStatus]
-    alarmNames: Optional[StringList]
-    triggeredAlarmNames: Optional[StringList]
+    status: ServiceDeploymentRollbackMonitorsStatus | None
+    alarmNames: StringList | None
+    triggeredAlarmNames: StringList | None
 
 
 class ServiceDeploymentCircuitBreaker(TypedDict, total=False):
@@ -2883,17 +3484,17 @@ class ServiceDeploymentCircuitBreaker(TypedDict, total=False):
     in the *Amazon ECS Developer Guide*.
     """
 
-    status: Optional[ServiceDeploymentRollbackMonitorsStatus]
-    failureCount: Optional[Integer]
-    threshold: Optional[Integer]
+    status: ServiceDeploymentRollbackMonitorsStatus | None
+    failureCount: Integer | None
+    threshold: Integer | None
 
 
 class Rollback(TypedDict, total=False):
     """Information about the service deployment rollback."""
 
-    reason: Optional[String]
-    startedAt: Optional[Timestamp]
-    serviceRevisionArn: Optional[String]
+    reason: String | None
+    startedAt: Timestamp | None
+    serviceRevisionArn: String | None
 
 
 class ServiceRevisionSummary(TypedDict, total=False):
@@ -2901,13 +3502,15 @@ class ServiceRevisionSummary(TypedDict, total=False):
     tasks for a service revision.
     """
 
-    arn: Optional[String]
-    requestedTaskCount: Optional[Integer]
-    runningTaskCount: Optional[Integer]
-    pendingTaskCount: Optional[Integer]
+    arn: String | None
+    requestedTaskCount: Integer | None
+    runningTaskCount: Integer | None
+    pendingTaskCount: Integer | None
+    requestedTestTrafficWeight: Double | None
+    requestedProductionTrafficWeight: Double | None
 
 
-ServiceRevisionsSummaryList = List[ServiceRevisionSummary]
+ServiceRevisionsSummaryList = list[ServiceRevisionSummary]
 
 
 class ServiceDeployment(TypedDict, total=False):
@@ -2920,35 +3523,205 @@ class ServiceDeployment(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide* .
     """
 
-    serviceDeploymentArn: Optional[String]
-    serviceArn: Optional[String]
-    clusterArn: Optional[String]
-    createdAt: Optional[Timestamp]
-    startedAt: Optional[Timestamp]
-    finishedAt: Optional[Timestamp]
-    stoppedAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
-    sourceServiceRevisions: Optional[ServiceRevisionsSummaryList]
-    targetServiceRevision: Optional[ServiceRevisionSummary]
-    status: Optional[ServiceDeploymentStatus]
-    statusReason: Optional[String]
-    lifecycleStage: Optional[ServiceDeploymentLifecycleStage]
-    deploymentConfiguration: Optional[DeploymentConfiguration]
-    rollback: Optional[Rollback]
-    deploymentCircuitBreaker: Optional[ServiceDeploymentCircuitBreaker]
-    alarms: Optional[ServiceDeploymentAlarms]
+    serviceDeploymentArn: String | None
+    serviceArn: String | None
+    clusterArn: String | None
+    createdAt: Timestamp | None
+    startedAt: Timestamp | None
+    finishedAt: Timestamp | None
+    stoppedAt: Timestamp | None
+    updatedAt: Timestamp | None
+    sourceServiceRevisions: ServiceRevisionsSummaryList | None
+    targetServiceRevision: ServiceRevisionSummary | None
+    status: ServiceDeploymentStatus | None
+    statusReason: String | None
+    lifecycleStage: ServiceDeploymentLifecycleStage | None
+    deploymentConfiguration: DeploymentConfiguration | None
+    rollback: Rollback | None
+    deploymentCircuitBreaker: ServiceDeploymentCircuitBreaker | None
+    alarms: ServiceDeploymentAlarms | None
 
 
-ServiceDeployments = List[ServiceDeployment]
+ServiceDeployments = list[ServiceDeployment]
 
 
 class DescribeServiceDeploymentsResponse(TypedDict, total=False):
-    serviceDeployments: Optional[ServiceDeployments]
-    failures: Optional[Failures]
+    serviceDeployments: ServiceDeployments | None
+    failures: Failures | None
 
 
 class DescribeServiceRevisionsRequest(ServiceRequest):
     serviceRevisionArns: StringList
+
+
+class ManagedLogGroup(TypedDict, total=False):
+    """The Cloudwatch Log Group created by Amazon ECS for an Express service."""
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+    logGroupName: String
+
+
+ManagedLogGroups = list[ManagedLogGroup]
+
+
+class ManagedSecurityGroup(TypedDict, total=False):
+    """A security group associated with the Express service."""
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+
+
+ManagedSecurityGroups = list[ManagedSecurityGroup]
+
+
+class ManagedMetricAlarm(TypedDict, total=False):
+    """The CloudWatch metric alarm associated with the Express service's
+    scaling policy.
+    """
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+
+
+ManagedMetricAlarms = list[ManagedMetricAlarm]
+
+
+class ManagedApplicationAutoScalingPolicy(TypedDict, total=False):
+    """The Application Auto Scaling policy created by Amazon ECS when you
+    create an Express service.
+    """
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+    policyType: String
+    targetValue: Double
+    metric: String
+
+
+ManagedApplicationAutoScalingPolicies = list[ManagedApplicationAutoScalingPolicy]
+
+
+class ManagedScalableTarget(TypedDict, total=False):
+    """Represents a scalable target."""
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+    minCapacity: Integer
+    maxCapacity: Integer
+
+
+class ManagedAutoScaling(TypedDict, total=False):
+    """The auto scaling configuration created by Amazon ECS for an Express
+    service.
+    """
+
+    scalableTarget: ManagedScalableTarget | None
+    applicationAutoScalingPolicies: ManagedApplicationAutoScalingPolicies | None
+
+
+class ManagedTargetGroup(TypedDict, total=False):
+    """The target group associated with the Express service's Application Load
+    Balancer. For more information about load balancer target groups, see
+    `CreateTargetGroup <https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_CreateTargetGroup.html>`__
+    in the *Elastic Load Balancing API Reference*
+    """
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+    healthCheckPath: String
+    healthCheckPort: Integer
+    port: Integer
+
+
+ManagedTargetGroups = list[ManagedTargetGroup]
+
+
+class ManagedListenerRule(TypedDict, total=False):
+    """The listener rule associated with the Express service's Application Load
+    Balancer.
+    """
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+
+
+class ManagedListener(TypedDict, total=False):
+    """The listeners associated with the Express service's Application Load
+    Balancer.
+    """
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+
+
+class ManagedCertificate(TypedDict, total=False):
+    """The ACM certificate associated with the HTTPS domain created for the
+    Express service.
+    """
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+    domainName: String
+
+
+class ManagedLoadBalancer(TypedDict, total=False):
+    """The Application Load Balancer associated with the Express service."""
+
+    arn: String | None
+    status: ManagedResourceStatus
+    statusReason: String | None
+    updatedAt: Timestamp
+    scheme: String
+    subnetIds: StringList | None
+    securityGroupIds: StringList | None
+
+
+class ManagedIngressPath(TypedDict, total=False):
+    """The entry point into the Express service."""
+
+    accessType: AccessType
+    endpoint: String
+    loadBalancer: ManagedLoadBalancer | None
+    loadBalancerSecurityGroups: ManagedSecurityGroups | None
+    certificate: ManagedCertificate | None
+    listener: ManagedListener | None
+    rule: ManagedListenerRule | None
+    targetGroups: ManagedTargetGroups | None
+
+
+ManagedIngressPaths = list[ManagedIngressPath]
+
+
+class ECSManagedResources(TypedDict, total=False):
+    """Represents the Amazon Web Services resources managed by Amazon ECS for
+    an Express service, including ingress paths, auto-scaling policies,
+    metric alarms, and security groups.
+    """
+
+    ingressPaths: ManagedIngressPaths | None
+    autoScaling: ManagedAutoScaling | None
+    metricAlarms: ManagedMetricAlarms | None
+    serviceSecurityGroups: ManagedSecurityGroups | None
+    logGroups: ManagedLogGroups | None
 
 
 class ServiceRevisionLoadBalancer(TypedDict, total=False):
@@ -2957,11 +3730,11 @@ class ServiceRevisionLoadBalancer(TypedDict, total=False):
     listener rules direct traffic to them.
     """
 
-    targetGroupArn: Optional[String]
-    productionListenerRule: Optional[String]
+    targetGroupArn: String | None
+    productionListenerRule: String | None
 
 
-ServiceRevisionLoadBalancers = List[ServiceRevisionLoadBalancer]
+ServiceRevisionLoadBalancers = list[ServiceRevisionLoadBalancer]
 
 
 class ResolvedConfiguration(TypedDict, total=False):
@@ -2970,7 +3743,7 @@ class ResolvedConfiguration(TypedDict, total=False):
     serve traffic.
     """
 
-    loadBalancers: Optional[ServiceRevisionLoadBalancers]
+    loadBalancers: ServiceRevisionLoadBalancers | None
 
 
 class ServiceRevision(TypedDict, total=False):
@@ -2985,94 +3758,95 @@ class ServiceRevision(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide* .
     """
 
-    serviceRevisionArn: Optional[String]
-    serviceArn: Optional[String]
-    clusterArn: Optional[String]
-    taskDefinition: Optional[String]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    launchType: Optional[LaunchType]
-    platformVersion: Optional[String]
-    platformFamily: Optional[String]
-    loadBalancers: Optional[LoadBalancers]
-    serviceRegistries: Optional[ServiceRegistries]
-    networkConfiguration: Optional[NetworkConfiguration]
-    containerImages: Optional[ContainerImages]
-    guardDutyEnabled: Optional[Boolean]
-    serviceConnectConfiguration: Optional[ServiceConnectConfiguration]
-    volumeConfigurations: Optional[ServiceVolumeConfigurations]
-    fargateEphemeralStorage: Optional[DeploymentEphemeralStorage]
-    createdAt: Optional[Timestamp]
-    vpcLatticeConfigurations: Optional[VpcLatticeConfigurations]
-    resolvedConfiguration: Optional[ResolvedConfiguration]
+    serviceRevisionArn: String | None
+    serviceArn: String | None
+    clusterArn: String | None
+    taskDefinition: String | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    launchType: LaunchType | None
+    platformVersion: String | None
+    platformFamily: String | None
+    loadBalancers: LoadBalancers | None
+    serviceRegistries: ServiceRegistries | None
+    networkConfiguration: NetworkConfiguration | None
+    containerImages: ContainerImages | None
+    guardDutyEnabled: Boolean | None
+    serviceConnectConfiguration: ServiceConnectConfiguration | None
+    volumeConfigurations: ServiceVolumeConfigurations | None
+    fargateEphemeralStorage: DeploymentEphemeralStorage | None
+    createdAt: Timestamp | None
+    vpcLatticeConfigurations: VpcLatticeConfigurations | None
+    resolvedConfiguration: ResolvedConfiguration | None
+    ecsManagedResources: ECSManagedResources | None
 
 
-ServiceRevisions = List[ServiceRevision]
+ServiceRevisions = list[ServiceRevision]
 
 
 class DescribeServiceRevisionsResponse(TypedDict, total=False):
-    serviceRevisions: Optional[ServiceRevisions]
-    failures: Optional[Failures]
+    serviceRevisions: ServiceRevisions | None
+    failures: Failures | None
 
 
-ServiceFieldList = List[ServiceField]
+ServiceFieldList = list[ServiceField]
 
 
 class DescribeServicesRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     services: StringList
-    include: Optional[ServiceFieldList]
+    include: ServiceFieldList | None
 
 
-Services = List[Service]
+Services = list[Service]
 
 
 class DescribeServicesResponse(TypedDict, total=False):
-    services: Optional[Services]
-    failures: Optional[Failures]
+    services: Services | None
+    failures: Failures | None
 
 
-TaskDefinitionFieldList = List[TaskDefinitionField]
+TaskDefinitionFieldList = list[TaskDefinitionField]
 
 
 class DescribeTaskDefinitionRequest(ServiceRequest):
     taskDefinition: String
-    include: Optional[TaskDefinitionFieldList]
+    include: TaskDefinitionFieldList | None
 
 
 class DescribeTaskDefinitionResponse(TypedDict, total=False):
-    taskDefinition: Optional[TaskDefinition]
-    tags: Optional[Tags]
+    taskDefinition: TaskDefinition | None
+    tags: Tags | None
 
 
-TaskSetFieldList = List[TaskSetField]
+TaskSetFieldList = list[TaskSetField]
 
 
 class DescribeTaskSetsRequest(ServiceRequest):
     cluster: String
     service: String
-    taskSets: Optional[StringList]
-    include: Optional[TaskSetFieldList]
+    taskSets: StringList | None
+    include: TaskSetFieldList | None
 
 
 class DescribeTaskSetsResponse(TypedDict, total=False):
-    taskSets: Optional[TaskSets]
-    failures: Optional[Failures]
+    taskSets: TaskSets | None
+    failures: Failures | None
 
 
-TaskFieldList = List[TaskField]
+TaskFieldList = list[TaskField]
 
 
 class DescribeTasksRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     tasks: StringList
-    include: Optional[TaskFieldList]
+    include: TaskFieldList | None
 
 
 class TaskEphemeralStorage(TypedDict, total=False):
     """The amount of ephemeral storage to allocate for the task."""
 
-    sizeInGiB: Optional[Integer]
-    kmsKeyId: Optional[String]
+    sizeInGiB: Integer | None
+    kmsKeyId: String | None
 
 
 class InferenceAcceleratorOverride(TypedDict, total=False):
@@ -3084,89 +3858,89 @@ class InferenceAcceleratorOverride(TypedDict, total=False):
     in the *Amazon Elastic Container Service Developer Guide*.
     """
 
-    deviceName: Optional[String]
-    deviceType: Optional[String]
+    deviceName: String | None
+    deviceType: String | None
 
 
-InferenceAcceleratorOverrides = List[InferenceAcceleratorOverride]
+InferenceAcceleratorOverrides = list[InferenceAcceleratorOverride]
 
 
 class TaskOverride(TypedDict, total=False):
     """The overrides that are associated with a task."""
 
-    containerOverrides: Optional[ContainerOverrides]
-    cpu: Optional[String]
-    inferenceAcceleratorOverrides: Optional[InferenceAcceleratorOverrides]
-    executionRoleArn: Optional[String]
-    memory: Optional[String]
-    taskRoleArn: Optional[String]
-    ephemeralStorage: Optional[EphemeralStorage]
+    containerOverrides: ContainerOverrides | None
+    cpu: String | None
+    inferenceAcceleratorOverrides: InferenceAcceleratorOverrides | None
+    executionRoleArn: String | None
+    memory: String | None
+    taskRoleArn: String | None
+    ephemeralStorage: EphemeralStorage | None
 
 
 class Task(TypedDict, total=False):
     """Details on a task in a cluster."""
 
-    attachments: Optional[Attachments]
-    attributes: Optional[Attributes]
-    availabilityZone: Optional[String]
-    capacityProviderName: Optional[String]
-    clusterArn: Optional[String]
-    connectivity: Optional[Connectivity]
-    connectivityAt: Optional[Timestamp]
-    containerInstanceArn: Optional[String]
-    containers: Optional[Containers]
-    cpu: Optional[String]
-    createdAt: Optional[Timestamp]
-    desiredStatus: Optional[String]
-    enableExecuteCommand: Optional[Boolean]
-    executionStoppedAt: Optional[Timestamp]
-    group: Optional[String]
-    healthStatus: Optional[HealthStatus]
-    inferenceAccelerators: Optional[InferenceAccelerators]
-    lastStatus: Optional[String]
-    launchType: Optional[LaunchType]
-    memory: Optional[String]
-    overrides: Optional[TaskOverride]
-    platformVersion: Optional[String]
-    platformFamily: Optional[String]
-    pullStartedAt: Optional[Timestamp]
-    pullStoppedAt: Optional[Timestamp]
-    startedAt: Optional[Timestamp]
-    startedBy: Optional[String]
-    stopCode: Optional[TaskStopCode]
-    stoppedAt: Optional[Timestamp]
-    stoppedReason: Optional[String]
-    stoppingAt: Optional[Timestamp]
-    tags: Optional[Tags]
-    taskArn: Optional[String]
-    taskDefinitionArn: Optional[String]
-    version: Optional[Long]
-    ephemeralStorage: Optional[EphemeralStorage]
-    fargateEphemeralStorage: Optional[TaskEphemeralStorage]
+    attachments: Attachments | None
+    attributes: Attributes | None
+    availabilityZone: String | None
+    capacityProviderName: String | None
+    clusterArn: String | None
+    connectivity: Connectivity | None
+    connectivityAt: Timestamp | None
+    containerInstanceArn: String | None
+    containers: Containers | None
+    cpu: String | None
+    createdAt: Timestamp | None
+    desiredStatus: String | None
+    enableExecuteCommand: Boolean | None
+    executionStoppedAt: Timestamp | None
+    group: String | None
+    healthStatus: HealthStatus | None
+    inferenceAccelerators: InferenceAccelerators | None
+    lastStatus: String | None
+    launchType: LaunchType | None
+    memory: String | None
+    overrides: TaskOverride | None
+    platformVersion: String | None
+    platformFamily: String | None
+    pullStartedAt: Timestamp | None
+    pullStoppedAt: Timestamp | None
+    startedAt: Timestamp | None
+    startedBy: String | None
+    stopCode: TaskStopCode | None
+    stoppedAt: Timestamp | None
+    stoppedReason: String | None
+    stoppingAt: Timestamp | None
+    tags: Tags | None
+    taskArn: String | None
+    taskDefinitionArn: String | None
+    version: Long | None
+    ephemeralStorage: EphemeralStorage | None
+    fargateEphemeralStorage: TaskEphemeralStorage | None
 
 
-Tasks = List[Task]
+Tasks = list[Task]
 
 
 class DescribeTasksResponse(TypedDict, total=False):
-    tasks: Optional[Tasks]
-    failures: Optional[Failures]
+    tasks: Tasks | None
+    failures: Failures | None
 
 
 class DiscoverPollEndpointRequest(ServiceRequest):
-    containerInstance: Optional[String]
-    cluster: Optional[String]
+    containerInstance: String | None
+    cluster: String | None
 
 
 class DiscoverPollEndpointResponse(TypedDict, total=False):
-    endpoint: Optional[String]
-    telemetryEndpoint: Optional[String]
-    serviceConnectEndpoint: Optional[String]
+    endpoint: String | None
+    telemetryEndpoint: String | None
+    serviceConnectEndpoint: String | None
 
 
 class ExecuteCommandRequest(ServiceRequest):
-    cluster: Optional[String]
-    container: Optional[String]
+    cluster: String | None
+    container: String | None
     command: String
     interactive: Boolean
     task: String
@@ -3175,23 +3949,23 @@ class ExecuteCommandRequest(ServiceRequest):
 class Session(TypedDict, total=False):
     """The details for the execute command session."""
 
-    sessionId: Optional[String]
-    streamUrl: Optional[String]
-    tokenValue: Optional[SensitiveString]
+    sessionId: String | None
+    streamUrl: String | None
+    tokenValue: SensitiveString | None
 
 
 class ExecuteCommandResponse(TypedDict, total=False):
-    clusterArn: Optional[String]
-    containerArn: Optional[String]
-    containerName: Optional[String]
-    interactive: Optional[Boolean]
-    session: Optional[Session]
-    taskArn: Optional[String]
+    clusterArn: String | None
+    containerArn: String | None
+    containerName: String | None
+    interactive: Boolean | None
+    session: Session | None
+    taskArn: String | None
 
 
 class GetTaskProtectionRequest(ServiceRequest):
     cluster: String
-    tasks: Optional[StringList]
+    tasks: StringList | None
 
 
 class ProtectedTask(TypedDict, total=False):
@@ -3203,83 +3977,102 @@ class ProtectedTask(TypedDict, total=False):
     API.
     """
 
-    taskArn: Optional[String]
-    protectionEnabled: Optional[Boolean]
-    expirationDate: Optional[Timestamp]
+    taskArn: String | None
+    protectionEnabled: Boolean | None
+    expirationDate: Timestamp | None
 
 
-ProtectedTasks = List[ProtectedTask]
+ProtectedTasks = list[ProtectedTask]
 
 
 class GetTaskProtectionResponse(TypedDict, total=False):
-    protectedTasks: Optional[ProtectedTasks]
-    failures: Optional[Failures]
+    protectedTasks: ProtectedTasks | None
+    failures: Failures | None
+
+
+class InstanceLaunchTemplateUpdate(TypedDict, total=False):
+    """The updated launch template configuration for Amazon ECS Managed
+    Instances. You can modify the instance profile, network configuration,
+    storage settings, and instance requirements. Changes apply to new
+    instances launched after the update.
+
+    For more information, see `Store instance launch parameters in Amazon
+    EC2 launch
+    templates <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html>`__
+    in the *Amazon EC2 User Guide*.
+    """
+
+    ec2InstanceProfileArn: String | None
+    networkConfiguration: ManagedInstancesNetworkConfiguration | None
+    storageConfiguration: ManagedInstancesStorageConfiguration | None
+    monitoring: ManagedInstancesMonitoringOptions | None
+    instanceRequirements: InstanceRequirementsRequest | None
 
 
 class ListAccountSettingsRequest(ServiceRequest):
-    name: Optional[SettingName]
-    value: Optional[String]
-    principalArn: Optional[String]
-    effectiveSettings: Optional[Boolean]
-    nextToken: Optional[String]
-    maxResults: Optional[Integer]
+    name: SettingName | None
+    value: String | None
+    principalArn: String | None
+    effectiveSettings: Boolean | None
+    nextToken: String | None
+    maxResults: Integer | None
 
 
-Settings = List[Setting]
+Settings = list[Setting]
 
 
 class ListAccountSettingsResponse(TypedDict, total=False):
-    settings: Optional[Settings]
-    nextToken: Optional[String]
+    settings: Settings | None
+    nextToken: String | None
 
 
 class ListAttributesRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     targetType: TargetType
-    attributeName: Optional[String]
-    attributeValue: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
+    attributeName: String | None
+    attributeValue: String | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
 
 
 class ListAttributesResponse(TypedDict, total=False):
-    attributes: Optional[Attributes]
-    nextToken: Optional[String]
+    attributes: Attributes | None
+    nextToken: String | None
 
 
 class ListClustersRequest(ServiceRequest):
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
+    nextToken: String | None
+    maxResults: BoxedInteger | None
 
 
 class ListClustersResponse(TypedDict, total=False):
-    clusterArns: Optional[StringList]
-    nextToken: Optional[String]
+    clusterArns: StringList | None
+    nextToken: String | None
 
 
 class ListContainerInstancesRequest(ServiceRequest):
-    cluster: Optional[String]
-    filter: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
-    status: Optional[ContainerInstanceStatus]
+    cluster: String | None
+    filter: String | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
+    status: ContainerInstanceStatus | None
 
 
 class ListContainerInstancesResponse(TypedDict, total=False):
-    containerInstanceArns: Optional[StringList]
-    nextToken: Optional[String]
+    containerInstanceArns: StringList | None
+    nextToken: String | None
 
 
-ServiceDeploymentStatusList = List[ServiceDeploymentStatus]
+ServiceDeploymentStatusList = list[ServiceDeploymentStatus]
 
 
 class ListServiceDeploymentsRequest(ServiceRequest):
     service: String
-    cluster: Optional[String]
-    status: Optional[ServiceDeploymentStatusList]
-    createdAt: Optional[CreatedAt]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
+    cluster: String | None
+    status: ServiceDeploymentStatusList | None
+    createdAt: CreatedAt | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
 
 
 class ServiceDeploymentBrief(TypedDict, total=False):
@@ -3289,47 +4082,48 @@ class ServiceDeploymentBrief(TypedDict, total=False):
     This provides a high-level overview of the service deployment.
     """
 
-    serviceDeploymentArn: Optional[String]
-    serviceArn: Optional[String]
-    clusterArn: Optional[String]
-    startedAt: Optional[Timestamp]
-    createdAt: Optional[Timestamp]
-    finishedAt: Optional[Timestamp]
-    targetServiceRevisionArn: Optional[String]
-    status: Optional[ServiceDeploymentStatus]
-    statusReason: Optional[String]
+    serviceDeploymentArn: String | None
+    serviceArn: String | None
+    clusterArn: String | None
+    startedAt: Timestamp | None
+    createdAt: Timestamp | None
+    finishedAt: Timestamp | None
+    targetServiceRevisionArn: String | None
+    status: ServiceDeploymentStatus | None
+    statusReason: String | None
 
 
-ServiceDeploymentsBrief = List[ServiceDeploymentBrief]
+ServiceDeploymentsBrief = list[ServiceDeploymentBrief]
 
 
 class ListServiceDeploymentsResponse(TypedDict, total=False):
-    serviceDeployments: Optional[ServiceDeploymentsBrief]
-    nextToken: Optional[String]
+    serviceDeployments: ServiceDeploymentsBrief | None
+    nextToken: String | None
 
 
 class ListServicesByNamespaceRequest(ServiceRequest):
     namespace: String
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
+    nextToken: String | None
+    maxResults: BoxedInteger | None
 
 
 class ListServicesByNamespaceResponse(TypedDict, total=False):
-    serviceArns: Optional[StringList]
-    nextToken: Optional[String]
+    serviceArns: StringList | None
+    nextToken: String | None
 
 
 class ListServicesRequest(ServiceRequest):
-    cluster: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
-    launchType: Optional[LaunchType]
-    schedulingStrategy: Optional[SchedulingStrategy]
+    cluster: String | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
+    launchType: LaunchType | None
+    schedulingStrategy: SchedulingStrategy | None
+    resourceManagementType: ResourceManagementType | None
 
 
 class ListServicesResponse(TypedDict, total=False):
-    serviceArns: Optional[StringList]
-    nextToken: Optional[String]
+    serviceArns: StringList | None
+    nextToken: String | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -3337,49 +4131,49 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[Tags]
+    tags: Tags | None
 
 
 class ListTaskDefinitionFamiliesRequest(ServiceRequest):
-    familyPrefix: Optional[String]
-    status: Optional[TaskDefinitionFamilyStatus]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
+    familyPrefix: String | None
+    status: TaskDefinitionFamilyStatus | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
 
 
 class ListTaskDefinitionFamiliesResponse(TypedDict, total=False):
-    families: Optional[StringList]
-    nextToken: Optional[String]
+    families: StringList | None
+    nextToken: String | None
 
 
 class ListTaskDefinitionsRequest(ServiceRequest):
-    familyPrefix: Optional[String]
-    status: Optional[TaskDefinitionStatus]
-    sort: Optional[SortOrder]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
+    familyPrefix: String | None
+    status: TaskDefinitionStatus | None
+    sort: SortOrder | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
 
 
 class ListTaskDefinitionsResponse(TypedDict, total=False):
-    taskDefinitionArns: Optional[StringList]
-    nextToken: Optional[String]
+    taskDefinitionArns: StringList | None
+    nextToken: String | None
 
 
 class ListTasksRequest(ServiceRequest):
-    cluster: Optional[String]
-    containerInstance: Optional[String]
-    family: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[BoxedInteger]
-    startedBy: Optional[String]
-    serviceName: Optional[String]
-    desiredStatus: Optional[DesiredStatus]
-    launchType: Optional[LaunchType]
+    cluster: String | None
+    containerInstance: String | None
+    family: String | None
+    nextToken: String | None
+    maxResults: BoxedInteger | None
+    startedBy: String | None
+    serviceName: String | None
+    desiredStatus: DesiredStatus | None
+    launchType: LaunchType | None
 
 
 class ListTasksResponse(TypedDict, total=False):
-    taskArns: Optional[StringList]
-    nextToken: Optional[String]
+    taskArns: StringList | None
+    nextToken: String | None
 
 
 class ManagedAgentStateChange(TypedDict, total=False):
@@ -3388,10 +4182,10 @@ class ManagedAgentStateChange(TypedDict, total=False):
     containerName: String
     managedAgentName: ManagedAgentName
     status: String
-    reason: Optional[String]
+    reason: String | None
 
 
-ManagedAgentStateChanges = List[ManagedAgentStateChange]
+ManagedAgentStateChanges = list[ManagedAgentStateChange]
 
 
 class PlatformDevice(TypedDict, total=False):
@@ -3399,7 +4193,7 @@ class PlatformDevice(TypedDict, total=False):
     type: PlatformDeviceType
 
 
-PlatformDevices = List[PlatformDevice]
+PlatformDevices = list[PlatformDevice]
 
 
 class PutAccountSettingDefaultRequest(ServiceRequest):
@@ -3408,26 +4202,26 @@ class PutAccountSettingDefaultRequest(ServiceRequest):
 
 
 class PutAccountSettingDefaultResponse(TypedDict, total=False):
-    setting: Optional[Setting]
+    setting: Setting | None
 
 
 class PutAccountSettingRequest(ServiceRequest):
     name: SettingName
     value: String
-    principalArn: Optional[String]
+    principalArn: String | None
 
 
 class PutAccountSettingResponse(TypedDict, total=False):
-    setting: Optional[Setting]
+    setting: Setting | None
 
 
 class PutAttributesRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     attributes: Attributes
 
 
 class PutAttributesResponse(TypedDict, total=False):
-    attributes: Optional[Attributes]
+    attributes: Attributes | None
 
 
 class PutClusterCapacityProvidersRequest(ServiceRequest):
@@ -3437,49 +4231,49 @@ class PutClusterCapacityProvidersRequest(ServiceRequest):
 
 
 class PutClusterCapacityProvidersResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class RegisterContainerInstanceRequest(ServiceRequest):
-    cluster: Optional[String]
-    instanceIdentityDocument: Optional[String]
-    instanceIdentityDocumentSignature: Optional[String]
-    totalResources: Optional[Resources]
-    versionInfo: Optional[VersionInfo]
-    containerInstanceArn: Optional[String]
-    attributes: Optional[Attributes]
-    platformDevices: Optional[PlatformDevices]
-    tags: Optional[Tags]
+    cluster: String | None
+    instanceIdentityDocument: String | None
+    instanceIdentityDocumentSignature: String | None
+    totalResources: Resources | None
+    versionInfo: VersionInfo | None
+    containerInstanceArn: String | None
+    attributes: Attributes | None
+    platformDevices: PlatformDevices | None
+    tags: Tags | None
 
 
 class RegisterContainerInstanceResponse(TypedDict, total=False):
-    containerInstance: Optional[ContainerInstance]
+    containerInstance: ContainerInstance | None
 
 
 class RegisterTaskDefinitionRequest(ServiceRequest):
     family: String
-    taskRoleArn: Optional[String]
-    executionRoleArn: Optional[String]
-    networkMode: Optional[NetworkMode]
+    taskRoleArn: String | None
+    executionRoleArn: String | None
+    networkMode: NetworkMode | None
     containerDefinitions: ContainerDefinitions
-    volumes: Optional[VolumeList]
-    placementConstraints: Optional[TaskDefinitionPlacementConstraints]
-    requiresCompatibilities: Optional[CompatibilityList]
-    cpu: Optional[String]
-    memory: Optional[String]
-    tags: Optional[Tags]
-    pidMode: Optional[PidMode]
-    ipcMode: Optional[IpcMode]
-    proxyConfiguration: Optional[ProxyConfiguration]
-    inferenceAccelerators: Optional[InferenceAccelerators]
-    ephemeralStorage: Optional[EphemeralStorage]
-    runtimePlatform: Optional[RuntimePlatform]
-    enableFaultInjection: Optional[BoxedBoolean]
+    volumes: VolumeList | None
+    placementConstraints: TaskDefinitionPlacementConstraints | None
+    requiresCompatibilities: CompatibilityList | None
+    cpu: String | None
+    memory: String | None
+    tags: Tags | None
+    pidMode: PidMode | None
+    ipcMode: IpcMode | None
+    proxyConfiguration: ProxyConfiguration | None
+    inferenceAccelerators: InferenceAccelerators | None
+    ephemeralStorage: EphemeralStorage | None
+    runtimePlatform: RuntimePlatform | None
+    enableFaultInjection: BoxedBoolean | None
 
 
 class RegisterTaskDefinitionResponse(TypedDict, total=False):
-    taskDefinition: Optional[TaskDefinition]
-    tags: Optional[Tags]
+    taskDefinition: TaskDefinition | None
+    tags: Tags | None
 
 
 class TaskManagedEBSVolumeTerminationPolicy(TypedDict, total=False):
@@ -3497,18 +4291,18 @@ class TaskManagedEBSVolumeConfiguration(TypedDict, total=False):
     EBS volume, with one volume created for each task.
     """
 
-    encrypted: Optional[BoxedBoolean]
-    kmsKeyId: Optional[EBSKMSKeyId]
-    volumeType: Optional[EBSVolumeType]
-    sizeInGiB: Optional[BoxedInteger]
-    snapshotId: Optional[EBSSnapshotId]
-    volumeInitializationRate: Optional[BoxedInteger]
-    iops: Optional[BoxedInteger]
-    throughput: Optional[BoxedInteger]
-    tagSpecifications: Optional[EBSTagSpecifications]
+    encrypted: BoxedBoolean | None
+    kmsKeyId: EBSKMSKeyId | None
+    volumeType: EBSVolumeType | None
+    sizeInGiB: BoxedInteger | None
+    snapshotId: EBSSnapshotId | None
+    volumeInitializationRate: BoxedInteger | None
+    iops: BoxedInteger | None
+    throughput: BoxedInteger | None
+    tagSpecifications: EBSTagSpecifications | None
     roleArn: IAMRoleArn
-    terminationPolicy: Optional[TaskManagedEBSVolumeTerminationPolicy]
-    filesystemType: Optional[TaskFilesystemType]
+    terminationPolicy: TaskManagedEBSVolumeTerminationPolicy | None
+    filesystemType: TaskFilesystemType | None
 
 
 class TaskVolumeConfiguration(TypedDict, total=False):
@@ -3517,121 +4311,121 @@ class TaskVolumeConfiguration(TypedDict, total=False):
     """
 
     name: ECSVolumeName
-    managedEBSVolume: Optional[TaskManagedEBSVolumeConfiguration]
+    managedEBSVolume: TaskManagedEBSVolumeConfiguration | None
 
 
-TaskVolumeConfigurations = List[TaskVolumeConfiguration]
+TaskVolumeConfigurations = list[TaskVolumeConfiguration]
 
 
 class RunTaskRequest(ServiceRequest):
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    cluster: Optional[String]
-    count: Optional[BoxedInteger]
-    enableECSManagedTags: Optional[Boolean]
-    enableExecuteCommand: Optional[Boolean]
-    group: Optional[String]
-    launchType: Optional[LaunchType]
-    networkConfiguration: Optional[NetworkConfiguration]
-    overrides: Optional[TaskOverride]
-    placementConstraints: Optional[PlacementConstraints]
-    placementStrategy: Optional[PlacementStrategies]
-    platformVersion: Optional[String]
-    propagateTags: Optional[PropagateTags]
-    referenceId: Optional[String]
-    startedBy: Optional[String]
-    tags: Optional[Tags]
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    cluster: String | None
+    count: BoxedInteger | None
+    enableECSManagedTags: Boolean | None
+    enableExecuteCommand: Boolean | None
+    group: String | None
+    launchType: LaunchType | None
+    networkConfiguration: NetworkConfiguration | None
+    overrides: TaskOverride | None
+    placementConstraints: PlacementConstraints | None
+    placementStrategy: PlacementStrategies | None
+    platformVersion: String | None
+    propagateTags: PropagateTags | None
+    referenceId: String | None
+    startedBy: String | None
+    tags: Tags | None
     taskDefinition: String
-    clientToken: Optional[String]
-    volumeConfigurations: Optional[TaskVolumeConfigurations]
+    clientToken: String | None
+    volumeConfigurations: TaskVolumeConfigurations | None
 
 
 class RunTaskResponse(TypedDict, total=False):
-    tasks: Optional[Tasks]
-    failures: Optional[Failures]
+    tasks: Tasks | None
+    failures: Failures | None
 
 
 class StartTaskRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     containerInstances: StringList
-    enableECSManagedTags: Optional[Boolean]
-    enableExecuteCommand: Optional[Boolean]
-    group: Optional[String]
-    networkConfiguration: Optional[NetworkConfiguration]
-    overrides: Optional[TaskOverride]
-    propagateTags: Optional[PropagateTags]
-    referenceId: Optional[String]
-    startedBy: Optional[String]
-    tags: Optional[Tags]
+    enableECSManagedTags: Boolean | None
+    enableExecuteCommand: Boolean | None
+    group: String | None
+    networkConfiguration: NetworkConfiguration | None
+    overrides: TaskOverride | None
+    propagateTags: PropagateTags | None
+    referenceId: String | None
+    startedBy: String | None
+    tags: Tags | None
     taskDefinition: String
-    volumeConfigurations: Optional[TaskVolumeConfigurations]
+    volumeConfigurations: TaskVolumeConfigurations | None
 
 
 class StartTaskResponse(TypedDict, total=False):
-    tasks: Optional[Tasks]
-    failures: Optional[Failures]
+    tasks: Tasks | None
+    failures: Failures | None
 
 
 class StopServiceDeploymentRequest(ServiceRequest):
     serviceDeploymentArn: String
-    stopType: Optional[StopServiceDeploymentStopType]
+    stopType: StopServiceDeploymentStopType | None
 
 
 class StopServiceDeploymentResponse(TypedDict, total=False):
-    serviceDeploymentArn: Optional[String]
+    serviceDeploymentArn: String | None
 
 
 class StopTaskRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     task: String
-    reason: Optional[String]
+    reason: String | None
 
 
 class StopTaskResponse(TypedDict, total=False):
-    task: Optional[Task]
+    task: Task | None
 
 
 class SubmitAttachmentStateChangesRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     attachments: AttachmentStateChanges
 
 
 class SubmitAttachmentStateChangesResponse(TypedDict, total=False):
-    acknowledgment: Optional[String]
+    acknowledgment: String | None
 
 
 class SubmitContainerStateChangeRequest(ServiceRequest):
-    cluster: Optional[String]
-    task: Optional[String]
-    containerName: Optional[String]
-    runtimeId: Optional[String]
-    status: Optional[String]
-    exitCode: Optional[BoxedInteger]
-    reason: Optional[String]
-    networkBindings: Optional[NetworkBindings]
+    cluster: String | None
+    task: String | None
+    containerName: String | None
+    runtimeId: String | None
+    status: String | None
+    exitCode: BoxedInteger | None
+    reason: String | None
+    networkBindings: NetworkBindings | None
 
 
 class SubmitContainerStateChangeResponse(TypedDict, total=False):
-    acknowledgment: Optional[String]
+    acknowledgment: String | None
 
 
 class SubmitTaskStateChangeRequest(ServiceRequest):
-    cluster: Optional[String]
-    task: Optional[String]
-    status: Optional[String]
-    reason: Optional[String]
-    containers: Optional[ContainerStateChanges]
-    attachments: Optional[AttachmentStateChanges]
-    managedAgents: Optional[ManagedAgentStateChanges]
-    pullStartedAt: Optional[Timestamp]
-    pullStoppedAt: Optional[Timestamp]
-    executionStoppedAt: Optional[Timestamp]
+    cluster: String | None
+    task: String | None
+    status: String | None
+    reason: String | None
+    containers: ContainerStateChanges | None
+    attachments: AttachmentStateChanges | None
+    managedAgents: ManagedAgentStateChanges | None
+    pullStartedAt: Timestamp | None
+    pullStoppedAt: Timestamp | None
+    executionStoppedAt: Timestamp | None
 
 
 class SubmitTaskStateChangeResponse(TypedDict, total=False):
-    acknowledgment: Optional[String]
+    acknowledgment: String | None
 
 
-TagKeys = List[TagKey]
+TagKeys = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -3652,24 +4446,39 @@ class UntagResourceResponse(TypedDict, total=False):
     pass
 
 
+class UpdateManagedInstancesProviderConfiguration(TypedDict, total=False):
+    """The updated configuration for a Amazon ECS Managed Instances provider.
+    You can modify the infrastructure role, instance launch template, and
+    tag propagation settings. Changes apply to new instances launched after
+    the update.
+    """
+
+    infrastructureRoleArn: String
+    instanceLaunchTemplate: InstanceLaunchTemplateUpdate
+    propagateTags: PropagateMITags | None
+    infrastructureOptimization: InfrastructureOptimization | None
+
+
 class UpdateCapacityProviderRequest(ServiceRequest):
     name: String
-    autoScalingGroupProvider: AutoScalingGroupProviderUpdate
+    cluster: String | None
+    autoScalingGroupProvider: AutoScalingGroupProviderUpdate | None
+    managedInstancesProvider: UpdateManagedInstancesProviderConfiguration | None
 
 
 class UpdateCapacityProviderResponse(TypedDict, total=False):
-    capacityProvider: Optional[CapacityProvider]
+    capacityProvider: CapacityProvider | None
 
 
 class UpdateClusterRequest(ServiceRequest):
     cluster: String
-    settings: Optional[ClusterSettings]
-    configuration: Optional[ClusterConfiguration]
-    serviceConnectDefaults: Optional[ClusterServiceConnectDefaultsRequest]
+    settings: ClusterSettings | None
+    configuration: ClusterConfiguration | None
+    serviceConnectDefaults: ClusterServiceConnectDefaultsRequest | None
 
 
 class UpdateClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class UpdateClusterSettingsRequest(ServiceRequest):
@@ -3678,27 +4487,55 @@ class UpdateClusterSettingsRequest(ServiceRequest):
 
 
 class UpdateClusterSettingsResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class UpdateContainerAgentRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     containerInstance: String
 
 
 class UpdateContainerAgentResponse(TypedDict, total=False):
-    containerInstance: Optional[ContainerInstance]
+    containerInstance: ContainerInstance | None
 
 
 class UpdateContainerInstancesStateRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     containerInstances: StringList
     status: ContainerInstanceStatus
 
 
 class UpdateContainerInstancesStateResponse(TypedDict, total=False):
-    containerInstances: Optional[ContainerInstances]
-    failures: Optional[Failures]
+    containerInstances: ContainerInstances | None
+    failures: Failures | None
+
+
+class UpdateExpressGatewayServiceRequest(ServiceRequest):
+    serviceArn: String
+    executionRoleArn: String | None
+    healthCheckPath: String | None
+    primaryContainer: ExpressGatewayContainer | None
+    taskRoleArn: String | None
+    networkConfiguration: ExpressGatewayServiceNetworkConfiguration | None
+    cpu: String | None
+    memory: String | None
+    scalingTarget: ExpressGatewayScalingTarget | None
+
+
+class UpdatedExpressGatewayService(TypedDict, total=False):
+    """An object that describes an Express service to be updated."""
+
+    serviceArn: String | None
+    cluster: String | None
+    serviceName: String | None
+    status: ExpressGatewayServiceStatus | None
+    targetConfiguration: ExpressGatewayServiceConfiguration | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
+
+
+class UpdateExpressGatewayServiceResponse(TypedDict, total=False):
+    service: UpdatedExpressGatewayService | None
 
 
 class UpdateServicePrimaryTaskSetRequest(ServiceRequest):
@@ -3708,48 +4545,48 @@ class UpdateServicePrimaryTaskSetRequest(ServiceRequest):
 
 
 class UpdateServicePrimaryTaskSetResponse(TypedDict, total=False):
-    taskSet: Optional[TaskSet]
+    taskSet: TaskSet | None
 
 
 class UpdateServiceRequest(ServiceRequest):
-    cluster: Optional[String]
+    cluster: String | None
     service: String
-    desiredCount: Optional[BoxedInteger]
-    taskDefinition: Optional[String]
-    capacityProviderStrategy: Optional[CapacityProviderStrategy]
-    deploymentConfiguration: Optional[DeploymentConfiguration]
-    availabilityZoneRebalancing: Optional[AvailabilityZoneRebalancing]
-    networkConfiguration: Optional[NetworkConfiguration]
-    placementConstraints: Optional[PlacementConstraints]
-    placementStrategy: Optional[PlacementStrategies]
-    platformVersion: Optional[String]
-    forceNewDeployment: Optional[Boolean]
-    healthCheckGracePeriodSeconds: Optional[BoxedInteger]
-    deploymentController: Optional[DeploymentController]
-    enableExecuteCommand: Optional[BoxedBoolean]
-    enableECSManagedTags: Optional[BoxedBoolean]
-    loadBalancers: Optional[LoadBalancers]
-    propagateTags: Optional[PropagateTags]
-    serviceRegistries: Optional[ServiceRegistries]
-    serviceConnectConfiguration: Optional[ServiceConnectConfiguration]
-    volumeConfigurations: Optional[ServiceVolumeConfigurations]
-    vpcLatticeConfigurations: Optional[VpcLatticeConfigurations]
+    desiredCount: BoxedInteger | None
+    taskDefinition: String | None
+    capacityProviderStrategy: CapacityProviderStrategy | None
+    deploymentConfiguration: DeploymentConfiguration | None
+    availabilityZoneRebalancing: AvailabilityZoneRebalancing | None
+    networkConfiguration: NetworkConfiguration | None
+    placementConstraints: PlacementConstraints | None
+    placementStrategy: PlacementStrategies | None
+    platformVersion: String | None
+    forceNewDeployment: Boolean | None
+    healthCheckGracePeriodSeconds: BoxedInteger | None
+    deploymentController: DeploymentController | None
+    enableExecuteCommand: BoxedBoolean | None
+    enableECSManagedTags: BoxedBoolean | None
+    loadBalancers: LoadBalancers | None
+    propagateTags: PropagateTags | None
+    serviceRegistries: ServiceRegistries | None
+    serviceConnectConfiguration: ServiceConnectConfiguration | None
+    volumeConfigurations: ServiceVolumeConfigurations | None
+    vpcLatticeConfigurations: VpcLatticeConfigurations | None
 
 
 class UpdateServiceResponse(TypedDict, total=False):
-    service: Optional[Service]
+    service: Service | None
 
 
 class UpdateTaskProtectionRequest(ServiceRequest):
     cluster: String
     tasks: StringList
     protectionEnabled: Boolean
-    expiresInMinutes: Optional[BoxedInteger]
+    expiresInMinutes: BoxedInteger | None
 
 
 class UpdateTaskProtectionResponse(TypedDict, total=False):
-    protectedTasks: Optional[ProtectedTasks]
-    failures: Optional[Failures]
+    protectedTasks: ProtectedTasks | None
+    failures: Failures | None
 
 
 class UpdateTaskSetRequest(ServiceRequest):
@@ -3760,33 +4597,34 @@ class UpdateTaskSetRequest(ServiceRequest):
 
 
 class UpdateTaskSetResponse(TypedDict, total=False):
-    taskSet: Optional[TaskSet]
+    taskSet: TaskSet | None
 
 
 class EcsApi:
-    service = "ecs"
-    version = "2014-11-13"
+    service: str = "ecs"
+    version: str = "2014-11-13"
 
     @handler("CreateCapacityProvider")
     def create_capacity_provider(
         self,
         context: RequestContext,
         name: String,
-        auto_scaling_group_provider: AutoScalingGroupProvider,
+        cluster: String | None = None,
+        auto_scaling_group_provider: AutoScalingGroupProvider | None = None,
+        managed_instances_provider: CreateManagedInstancesProviderConfiguration | None = None,
         tags: Tags | None = None,
         **kwargs,
     ) -> CreateCapacityProviderResponse:
-        """Creates a new capacity provider. Capacity providers are associated with
-        an Amazon ECS cluster and are used in capacity provider strategies to
-        facilitate cluster auto scaling.
-
-        Only capacity providers that use an Auto Scaling group can be created.
-        Amazon ECS tasks on Fargate use the ``FARGATE`` and ``FARGATE_SPOT``
-        capacity providers. These providers are available to all accounts in the
-        Amazon Web Services Regions that Fargate supports.
+        """Creates a capacity provider. Capacity providers are associated with a
+        cluster and are used in capacity provider strategies to facilitate
+        cluster auto scaling. You can create capacity providers for Amazon ECS
+        Managed Instances and EC2 instances. Fargate has the predefined
+        ``FARGATE`` and ``FARGATE_SPOT`` capacity providers.
 
         :param name: The name of the capacity provider.
+        :param cluster: The name of the cluster to associate with the capacity provider.
         :param auto_scaling_group_provider: The details of the Auto Scaling group for the capacity provider.
+        :param managed_instances_provider: The configuration for the Amazon ECS Managed Instances provider.
         :param tags: The metadata that you apply to the capacity provider to categorize and
         organize them more conveniently.
         :returns: CreateCapacityProviderResponse
@@ -3795,6 +4633,8 @@ class EcsApi:
         :raises InvalidParameterException:
         :raises LimitExceededException:
         :raises UpdateInProgressException:
+        :raises UnsupportedFeatureException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -3840,6 +4680,70 @@ class EcsApi:
         :raises ClientException:
         :raises InvalidParameterException:
         :raises NamespaceNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateExpressGatewayService")
+    def create_express_gateway_service(
+        self,
+        context: RequestContext,
+        execution_role_arn: String,
+        infrastructure_role_arn: String,
+        primary_container: ExpressGatewayContainer,
+        service_name: String | None = None,
+        cluster: String | None = None,
+        health_check_path: String | None = None,
+        task_role_arn: String | None = None,
+        network_configuration: ExpressGatewayServiceNetworkConfiguration | None = None,
+        cpu: String | None = None,
+        memory: String | None = None,
+        scaling_target: ExpressGatewayScalingTarget | None = None,
+        tags: Tags | None = None,
+        **kwargs,
+    ) -> CreateExpressGatewayServiceResponse:
+        """Creates an Express service that simplifies deploying containerized web
+        applications on Amazon ECS with managed Amazon Web Services
+        infrastructure. This operation provisions and configures Application
+        Load Balancers, target groups, security groups, and auto-scaling
+        policies automatically.
+
+        Specify a primary container configuration with your application image
+        and basic settings. Amazon ECS creates the necessary Amazon Web Services
+        resources for traffic distribution, health monitoring, network access
+        control, and capacity management.
+
+        Provide an execution role for task operations and an infrastructure role
+        for managing Amazon Web Services resources on your behalf.
+
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants
+        the Amazon ECS container agent permission to make Amazon Web Services
+        API calls on your behalf.
+        :param infrastructure_role_arn: The Amazon Resource Name (ARN) of the infrastructure role that grants
+        Amazon ECS permission to create and manage Amazon Web Services resources
+        on your behalf for the Express service.
+        :param primary_container: The primary container configuration for the Express service.
+        :param service_name: The name of the Express service.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster on
+        which to create the Express service.
+        :param health_check_path: The path on the container that the Application Load Balancer uses for
+        health checks.
+        :param task_role_arn: The Amazon Resource Name (ARN) of the IAM role that containers in this
+        task can assume.
+        :param network_configuration: The network configuration for the Express service tasks.
+        :param cpu: The number of CPU units used by the task.
+        :param memory: The amount of memory (in MiB) used by the task.
+        :param scaling_target: The auto-scaling configuration for the Express service.
+        :param tags: The metadata that you apply to the Express service to help categorize
+        and organize it.
+        :returns: CreateExpressGatewayServiceResponse
+        :raises AccessDeniedException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
+        :raises InvalidParameterException:
+        :raises PlatformUnknownException:
+        :raises PlatformTaskDefinitionIncompatibilityException:
+        :raises ServerException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -4011,6 +4915,47 @@ class EcsApi:
               -  Load balancer requirement: When your service uses Application
                  Load Balancer, Network Load Balancer, or Service Connect
 
+           -  ``LINEAR``: A *linear* deployment strategy (``LINEAR``) gradually
+              shifts traffic from the current production environment to a new
+              environment in equal percentage increments. With Amazon ECS linear
+              deployments, you can control the pace of traffic shifting and
+              validate new service revisions with increasing amounts of
+              production traffic.
+
+              Linear deployments are best suited for the following scenarios:
+
+              -  Gradual validation: When you want to gradually validate your
+                 new service version with increasing traffic
+
+              -  Performance monitoring: When you need time to monitor metrics
+                 and performance during the deployment
+
+              -  Risk minimization: When you want to minimize risk by exposing
+                 the new version to production traffic incrementally
+
+              -  Load balancer requirement: When your service uses Application
+                 Load Balancer or Service Connect
+
+           -  ``CANARY``: A *canary* deployment strategy (``CANARY``) shifts a
+              small percentage of traffic to the new service revision first,
+              then shifts the remaining traffic all at once after a specified
+              time period. This allows you to test the new version with a subset
+              of users before full deployment.
+
+              Canary deployments are best suited for the following scenarios:
+
+              -  Feature testing: When you want to test new features with a
+                 small subset of users before full rollout
+
+              -  Production validation: When you need to validate performance
+                 and functionality with real production traffic
+
+              -  Blast radius control: When you want to minimize blast radius if
+                 issues are discovered in the new version
+
+              -  Load balancer requirement: When your service uses Application
+                 Load Balancer or Service Connect
+
         -  External
 
            Use a third-party deployment controller.
@@ -4063,9 +5008,9 @@ class EcsApi:
         service.
         :param placement_strategy: The placement strategy objects to use for tasks in your service.
         :param network_configuration: The network configuration for the service.
-        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon Amazon ECS service
-        scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and
-        container health checks after a task has first started.
+        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler
+        ignores unhealthy Elastic Load Balancing, VPC Lattice, and container
+        health checks after a task has first started.
         :param scheduling_strategy: The scheduling strategy to use for the service.
         :param deployment_controller: The deployment controller to use for the service.
         :param tags: The metadata that you apply to the service to help you categorize and
@@ -4207,7 +5152,11 @@ class EcsApi:
 
     @handler("DeleteCapacityProvider")
     def delete_capacity_provider(
-        self, context: RequestContext, capacity_provider: String, **kwargs
+        self,
+        context: RequestContext,
+        capacity_provider: String,
+        cluster: String | None = None,
+        **kwargs,
     ) -> DeleteCapacityProviderResponse:
         """Deletes the specified capacity provider.
 
@@ -4231,10 +5180,13 @@ class EcsApi:
 
         :param capacity_provider: The short name or full Amazon Resource Name (ARN) of the capacity
         provider to delete.
+        :param cluster: The name of the cluster that contains the capacity provider to delete.
         :returns: DeleteCapacityProviderResponse
         :raises ServerException:
         :raises ClientException:
         :raises InvalidParameterException:
+        :raises UnsupportedFeatureException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -4261,10 +5213,40 @@ class EcsApi:
         :raises ClientException:
         :raises InvalidParameterException:
         :raises ClusterNotFoundException:
+        :raises ClusterContainsCapacityProviderException:
         :raises ClusterContainsContainerInstancesException:
         :raises ClusterContainsServicesException:
         :raises ClusterContainsTasksException:
         :raises UpdateInProgressException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteExpressGatewayService")
+    def delete_express_gateway_service(
+        self, context: RequestContext, service_arn: String, **kwargs
+    ) -> DeleteExpressGatewayServiceResponse:
+        """Deletes an Express service and removes all associated Amazon Web
+        Services resources. This operation stops service tasks, removes the
+        Application Load Balancer, target groups, security groups, auto-scaling
+        policies, and other managed infrastructure components.
+
+        The service enters a ``DRAINING`` state where existing tasks complete
+        current requests without starting new tasks. After all tasks stop, the
+        service and infrastructure are permanently removed.
+
+        This operation cannot be reversed. Back up important data and verify the
+        service is no longer needed before deletion.
+
+        :param service_arn: The Amazon Resource Name (ARN) of the Express service to delete.
+        :returns: DeleteExpressGatewayServiceResponse
+        :raises AccessDeniedException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
+        :raises InvalidParameterException:
+        :raises ServerException:
+        :raises ServiceNotFoundException:
+        :raises ServiceNotActiveException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -4478,6 +5460,7 @@ class EcsApi:
         self,
         context: RequestContext,
         capacity_providers: StringList | None = None,
+        cluster: String | None = None,
         include: CapacityProviderFieldList | None = None,
         max_results: BoxedInteger | None = None,
         next_token: String | None = None,
@@ -4487,6 +5470,7 @@ class EcsApi:
 
         :param capacity_providers: The short name or full Amazon Resource Name (ARN) of one or more
         capacity providers.
+        :param cluster: The name of the cluster to describe capacity providers for.
         :param include: Specifies whether or not you want to see the resource tags for the
         capacity provider.
         :param max_results: The maximum number of account setting results returned by
@@ -4498,6 +5482,8 @@ class EcsApi:
         :raises ServerException:
         :raises ClientException:
         :raises InvalidParameterException:
+        :raises UnsupportedFeatureException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -4549,6 +5535,38 @@ class EcsApi:
         :raises ClientException:
         :raises InvalidParameterException:
         :raises ClusterNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeExpressGatewayService")
+    def describe_express_gateway_service(
+        self,
+        context: RequestContext,
+        service_arn: String,
+        include: ExpressGatewayServiceIncludeList | None = None,
+        **kwargs,
+    ) -> DescribeExpressGatewayServiceResponse:
+        """Retrieves detailed information about an Express service, including
+        current status, configuration, managed infrastructure, and service
+        revisions.
+
+        Returns comprehensive service details, active service revisions, ingress
+        paths with endpoints, and managed Amazon Web Services resource status
+        including load balancers and auto-scaling policies.
+
+        Use the ``include`` parameter to retrieve additional information such as
+        resource tags.
+
+        :param service_arn: The Amazon Resource Name (ARN) of the Express service to describe.
+        :param include: Specifies additional information to include in the response.
+        :returns: DescribeExpressGatewayServiceResponse
+        :raises AccessDeniedException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
+        :raises InvalidParameterException:
+        :raises ResourceNotFoundException:
+        :raises ServerException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -4977,6 +5995,7 @@ class EcsApi:
         max_results: BoxedInteger | None = None,
         launch_type: LaunchType | None = None,
         scheduling_strategy: SchedulingStrategy | None = None,
+        resource_management_type: ResourceManagementType | None = None,
         **kwargs,
     ) -> ListServicesResponse:
         """Returns a list of services. You can filter the results by cluster,
@@ -4992,6 +6011,8 @@ class EcsApi:
         :param launch_type: The launch type to use when filtering the ``ListServices`` results.
         :param scheduling_strategy: The scheduling strategy to use when filtering the ``ListServices``
         results.
+        :param resource_management_type: The resourceManagementType type to use when filtering the
+        ``ListServices`` results.
         :returns: ListServicesResponse
         :raises ServerException:
         :raises ClientException:
@@ -5259,6 +6280,10 @@ class EcsApi:
         capacity provider strategy is used. We recommend that you define a
         default capacity provider strategy for your cluster. However, you must
         specify an empty array (``[]``) to bypass defining a default strategy.
+
+        Amazon ECS Managed Instances doesn't support this, because when you
+        create a capacity provider with Amazon ECS Managed Instances, it becomes
+        available only within the specified cluster.
 
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to
         modify the capacity provider settings for.
@@ -5651,11 +6676,13 @@ class EcsApi:
         """Stops a running task. Any tags associated with the task will be deleted.
 
         When you call ``StopTask`` on a task, the equivalent of ``docker stop``
-        is issued to the containers running in the task. This results in a
-        ``SIGTERM`` value and a default 30-second timeout, after which the
-        ``SIGKILL`` value is sent and the containers are forcibly stopped. If
-        the container handles the ``SIGTERM`` value gracefully and exits within
-        30 seconds from receiving it, no ``SIGKILL`` value is sent.
+        is issued to the containers running in the task. This results in a stop
+        signal value and a default 30-second timeout, after which the
+        ``SIGKILL`` value is sent and the containers are forcibly stopped. This
+        signal can be defined in your container image with the ``STOPSIGNAL``
+        instruction and will default to ``SIGTERM``. If the container handles
+        the ``SIGTERM`` value gracefully and exits within 30 seconds from
+        receiving it, no ``SIGKILL`` value is sent.
 
         For Windows containers, POSIX signals do not work and runtime stops the
         container by sending a ``CTRL_SHUTDOWN_EVENT``. For more information,
@@ -5821,18 +6848,27 @@ class EcsApi:
         self,
         context: RequestContext,
         name: String,
-        auto_scaling_group_provider: AutoScalingGroupProviderUpdate,
+        cluster: String | None = None,
+        auto_scaling_group_provider: AutoScalingGroupProviderUpdate | None = None,
+        managed_instances_provider: UpdateManagedInstancesProviderConfiguration | None = None,
         **kwargs,
     ) -> UpdateCapacityProviderResponse:
         """Modifies the parameters for a capacity provider.
 
+        These changes only apply to new Amazon ECS Managed Instances, or EC2
+        instances, not existing ones.
+
         :param name: The name of the capacity provider to update.
+        :param cluster: The name of the cluster that contains the capacity provider to update.
         :param auto_scaling_group_provider: An object that represent the parameters to update for the Auto Scaling
         group capacity provider.
+        :param managed_instances_provider: The updated configuration for the Amazon ECS Managed Instances provider.
         :returns: UpdateCapacityProviderResponse
         :raises ServerException:
         :raises ClientException:
         :raises InvalidParameterException:
+        :raises UnsupportedFeatureException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -6000,6 +7036,55 @@ class EcsApi:
         :raises ClientException:
         :raises InvalidParameterException:
         :raises ClusterNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateExpressGatewayService")
+    def update_express_gateway_service(
+        self,
+        context: RequestContext,
+        service_arn: String,
+        execution_role_arn: String | None = None,
+        health_check_path: String | None = None,
+        primary_container: ExpressGatewayContainer | None = None,
+        task_role_arn: String | None = None,
+        network_configuration: ExpressGatewayServiceNetworkConfiguration | None = None,
+        cpu: String | None = None,
+        memory: String | None = None,
+        scaling_target: ExpressGatewayScalingTarget | None = None,
+        **kwargs,
+    ) -> UpdateExpressGatewayServiceResponse:
+        """Updates an existing Express service configuration. Modifies container
+        settings, resource allocation, auto-scaling configuration, and other
+        service parameters without recreating the service.
+
+        Amazon ECS creates a new service revision with updated configuration and
+        performs a rolling deployment to replace existing tasks. The service
+        remains available during updates, ensuring zero-downtime deployments.
+
+        Some parameters like the infrastructure role cannot be modified after
+        service creation and require creating a new service.
+
+        :param service_arn: The Amazon Resource Name (ARN) of the Express service to update.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role for the
+        Express service.
+        :param health_check_path: The path on the container for Application Load Balancer health checks.
+        :param primary_container: The primary container configuration for the Express service.
+        :param task_role_arn: The Amazon Resource Name (ARN) of the IAM role for containers in this
+        task.
+        :param network_configuration: The network configuration for the Express service tasks.
+        :param cpu: The number of CPU units used by the task.
+        :param memory: The amount of memory (in MiB) used by the task.
+        :param scaling_target: The auto-scaling configuration for the Express service.
+        :returns: UpdateExpressGatewayServiceResponse
+        :raises AccessDeniedException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
+        :raises InvalidParameterException:
+        :raises ServerException:
+        :raises ServiceNotFoundException:
+        :raises ServiceNotActiveException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 

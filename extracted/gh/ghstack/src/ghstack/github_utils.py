@@ -25,7 +25,9 @@ def get_github_repo_name_with_owner(
     remote_name: str,
 ) -> GitHubRepoNameWithOwner:
     # Grovel in remotes to figure it out
-    remote_url = sh.git("remote", "get-url", remote_name)
+    # Use --push to get the push URL, which is what matters for determining
+    # where commits will actually be pushed to
+    remote_url = sh.git("remote", "get-url", "--push", remote_name)
     while True:
         match = r"^git@{github_url}:/?([^/]+)/(.+?)(?:\.git)?$".format(
             github_url=github_url
@@ -138,20 +140,32 @@ GitHubPullRequestParams = TypedDict(
 )
 
 
+def _normalize_remote_url(remote_url: str) -> str:
+    """Convert SSH remote URL to HTTPS format, strip .git suffix."""
+    # git@github.com:owner/repo.git -> https://github.com/owner/repo
+    m = re.match(r"^git@([^:]+):/?(.+?)(?:\.git)?$", remote_url)
+    if m:
+        return f"https://{m.group(1)}/{m.group(2)}"
+    return re.sub(r"\.git$", "", remote_url)
+
+
 def parse_pull_request(
     pull_request: str,
     *,
     sh: Optional[ghstack.shell.Shell] = None,
     remote_name: Optional[str] = None,
 ) -> GitHubPullRequestParams:
+    pull_request = pull_request.lstrip("#")
     m = RE_PR_URL.match(pull_request)
     if not m:
         # We can reconstruct the URL if just a PR number is passed
         if sh is not None and remote_name is not None:
-            remote_url = sh.git("remote", "get-url", remote_name)
+            remote_url = sh.git("remote", "get-url", "--push", remote_name)
             # Do not pass the shell to avoid infinite loop
             try:
-                return parse_pull_request(remote_url + "/pull/" + pull_request)
+                return parse_pull_request(
+                    _normalize_remote_url(remote_url) + "/pull/" + pull_request
+                )
             except RuntimeError:
                 # Fall back on original error message
                 pass

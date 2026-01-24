@@ -1,12 +1,12 @@
 import urllib
 from contextlib import suppress
 
-from django.contrib.auth import get_user_model
 from django.core.validators import URLValidator, ValidationError
 from django.db import models
 from django.urls import Resolver404, resolve
 from django.utils.functional import cached_property
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.contrib.notifications.utils import base_domain, create_notification_type
 
 
@@ -14,7 +14,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=255)
     body = models.TextField(null=True, blank=True)
 
-    user = models.ForeignKey(to=get_user_model(), related_name="notifications_notifications", on_delete=models.CASCADE)
+    user = models.ForeignKey(to=User, related_name="notifications_notifications", on_delete=models.CASCADE)
     notification_type = models.ForeignKey(
         to="notifications.NotificationType", related_name="notifications", on_delete=models.CASCADE
     )

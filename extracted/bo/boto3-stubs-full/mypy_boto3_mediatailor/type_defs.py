@@ -3,7 +3,7 @@ Type annotations for mediatailor service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -26,12 +27,14 @@ from .literals import (
     AdsInteractionExcludeEventTypeType,
     AlertCategoryType,
     ChannelStateType,
+    CompressionMethodType,
     FillPolicyType,
     InsertionModeType,
     ListPrefetchScheduleTypeType,
     LoggingStrategyType,
     ManifestServiceExcludeEventTypeType,
     MessageTypeType,
+    MethodType,
     ModeType,
     OriginManifestTypeType,
     PlaybackModeType,
@@ -40,15 +43,10 @@ from .literals import (
     ScheduleEntryTypeType,
     StreamingMediaFileConditioningType,
     TierType,
+    TrafficShapingTypeType,
     TypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -62,6 +60,9 @@ __all__ = (
     "AdBreakTypeDef",
     "AdBreakUnionTypeDef",
     "AdConditioningConfigurationTypeDef",
+    "AdDecisionServerConfigurationOutputTypeDef",
+    "AdDecisionServerConfigurationTypeDef",
+    "AdDecisionServerConfigurationUnionTypeDef",
     "AdMarkerPassthroughTypeDef",
     "AdsInteractionLogOutputTypeDef",
     "AdsInteractionLogTypeDef",
@@ -133,6 +134,8 @@ __all__ = (
     "HlsPlaylistSettingsUnionTypeDef",
     "HttpConfigurationTypeDef",
     "HttpPackageConfigurationTypeDef",
+    "HttpRequestOutputTypeDef",
+    "HttpRequestTypeDef",
     "KeyValuePairTypeDef",
     "ListAlertsRequestPaginateTypeDef",
     "ListAlertsRequestTypeDef",
@@ -205,6 +208,7 @@ __all__ = (
     "TimeSignalMessageUnionTypeDef",
     "TimestampTypeDef",
     "TrafficShapingRetrievalWindowTypeDef",
+    "TrafficShapingTpsConfigurationTypeDef",
     "TransitionTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateChannelRequestTypeDef",
@@ -254,13 +258,27 @@ class AdConditioningConfigurationTypeDef(TypedDict):
     StreamingMediaFileConditioning: StreamingMediaFileConditioningType
 
 
+class HttpRequestOutputTypeDef(TypedDict):
+    Method: NotRequired[MethodType]
+    Body: NotRequired[str]
+    Headers: NotRequired[dict[str, str]]
+    CompressRequest: NotRequired[CompressionMethodType]
+
+
+class HttpRequestTypeDef(TypedDict):
+    Method: NotRequired[MethodType]
+    Body: NotRequired[str]
+    Headers: NotRequired[Mapping[str, str]]
+    CompressRequest: NotRequired[CompressionMethodType]
+
+
 class AdMarkerPassthroughTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
 
 class AdsInteractionLogOutputTypeDef(TypedDict):
-    PublishOptInEventTypes: NotRequired[List[Literal["RAW_ADS_RESPONSE"]]]
-    ExcludeEventTypes: NotRequired[List[AdsInteractionExcludeEventTypeType]]
+    PublishOptInEventTypes: NotRequired[list[Literal["RAW_ADS_RESPONSE"]]]
+    ExcludeEventTypes: NotRequired[list[AdsInteractionExcludeEventTypeType]]
 
 
 class AdsInteractionLogTypeDef(TypedDict):
@@ -272,7 +290,7 @@ class AlertTypeDef(TypedDict):
     AlertCode: str
     AlertMessage: str
     LastModifiedTime: datetime
-    RelatedResourceArns: List[str]
+    RelatedResourceArns: list[str]
     ResourceArn: str
     Category: NotRequired[AlertCategoryType]
 
@@ -304,7 +322,7 @@ class CdnConfigurationTypeDef(TypedDict):
 
 
 class LogConfigurationForChannelTypeDef(TypedDict):
-    LogTypes: NotRequired[List[Literal["AS_RUN"]]]
+    LogTypes: NotRequired[list[Literal["AS_RUN"]]]
 
 
 class ConfigureLogsForChannelRequestTypeDef(TypedDict):
@@ -315,13 +333,13 @@ class ConfigureLogsForChannelRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class ManifestServiceInteractionLogOutputTypeDef(TypedDict):
-    ExcludeEventTypes: NotRequired[List[ManifestServiceExcludeEventTypeType]]
+    ExcludeEventTypes: NotRequired[list[ManifestServiceExcludeEventTypeType]]
 
 
 class TimeShiftConfigurationTypeDef(TypedDict):
@@ -466,7 +484,7 @@ class GetPrefetchScheduleRequestTypeDef(TypedDict):
 
 class HlsPlaylistSettingsOutputTypeDef(TypedDict):
     ManifestWindowSeconds: NotRequired[int]
-    AdMarkupType: NotRequired[List[AdMarkupTypeType]]
+    AdMarkupType: NotRequired[list[AdMarkupTypeType]]
 
 
 class HlsPlaylistSettingsTypeDef(TypedDict):
@@ -528,6 +546,11 @@ TimestampTypeDef = Union[datetime, str]
 
 class TrafficShapingRetrievalWindowTypeDef(TypedDict):
     RetrievalWindowDurationSeconds: NotRequired[int]
+
+
+class TrafficShapingTpsConfigurationTypeDef(TypedDict):
+    PeakTps: NotRequired[int]
+    PeakConcurrentUsers: NotRequired[int]
 
 
 class PutChannelPolicyRequestTypeDef(TypedDict):
@@ -595,6 +618,14 @@ class AccessConfigurationTypeDef(TypedDict):
     ]
 
 
+class AdDecisionServerConfigurationOutputTypeDef(TypedDict):
+    HttpRequest: NotRequired[HttpRequestOutputTypeDef]
+
+
+class AdDecisionServerConfigurationTypeDef(TypedDict):
+    HttpRequest: NotRequired[HttpRequestTypeDef]
+
+
 class ManifestProcessingRulesTypeDef(TypedDict):
     AdMarkerPassthrough: NotRequired[AdMarkerPassthroughTypeDef]
 
@@ -604,13 +635,13 @@ AdsInteractionLogUnionTypeDef = Union[AdsInteractionLogTypeDef, AdsInteractionLo
 
 class PrefetchConsumptionOutputTypeDef(TypedDict):
     EndTime: datetime
-    AvailMatchingCriteria: NotRequired[List[AvailMatchingCriteriaTypeDef]]
+    AvailMatchingCriteria: NotRequired[list[AvailMatchingCriteriaTypeDef]]
     StartTime: NotRequired[datetime]
 
 
 class RecurringConsumptionOutputTypeDef(TypedDict):
     RetrievedAdExpirationSeconds: NotRequired[int]
-    AvailMatchingCriteria: NotRequired[List[AvailMatchingCriteriaTypeDef]]
+    AvailMatchingCriteria: NotRequired[list[AvailMatchingCriteriaTypeDef]]
 
 
 class RecurringConsumptionTypeDef(TypedDict):
@@ -620,7 +651,7 @@ class RecurringConsumptionTypeDef(TypedDict):
 
 class ConfigureLogsForChannelResponseTypeDef(TypedDict):
     ChannelName: str
-    LogTypes: List[Literal["AS_RUN"]]
+    LogTypes: list[Literal["AS_RUN"]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -634,20 +665,20 @@ class GetChannelPolicyResponseTypeDef(TypedDict):
 
 
 class ListAlertsResponseTypeDef(TypedDict):
-    Items: List[AlertTypeDef]
+    Items: list[AlertTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ConfigureLogsForPlaybackConfigurationResponseTypeDef(TypedDict):
     PercentEnabled: int
     PlaybackConfigurationName: str
-    EnabledLoggingStrategies: List[LoggingStrategyType]
+    EnabledLoggingStrategies: list[LoggingStrategyType]
     AdsInteractionLog: AdsInteractionLogOutputTypeDef
     ManifestServiceInteractionLog: ManifestServiceInteractionLogOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -655,7 +686,7 @@ class ConfigureLogsForPlaybackConfigurationResponseTypeDef(TypedDict):
 
 class LogConfigurationTypeDef(TypedDict):
     PercentEnabled: int
-    EnabledLoggingStrategies: List[LoggingStrategyType]
+    EnabledLoggingStrategies: list[LoggingStrategyType]
     AdsInteractionLog: NotRequired[AdsInteractionLogOutputTypeDef]
     ManifestServiceInteractionLog: NotRequired[ManifestServiceInteractionLogOutputTypeDef]
 
@@ -670,11 +701,11 @@ class CreateLiveSourceRequestTypeDef(TypedDict):
 class CreateLiveSourceResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LastModifiedTime: datetime
     LiveSourceName: str
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -688,10 +719,10 @@ class CreateVodSourceRequestTypeDef(TypedDict):
 class CreateVodSourceResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LastModifiedTime: datetime
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     VodSourceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -699,34 +730,34 @@ class CreateVodSourceResponseTypeDef(TypedDict):
 class DescribeLiveSourceResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LastModifiedTime: datetime
     LiveSourceName: str
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeVodSourceResponseTypeDef(TypedDict):
-    AdBreakOpportunities: List[AdBreakOpportunityTypeDef]
+    AdBreakOpportunities: list[AdBreakOpportunityTypeDef]
     Arn: str
     CreationTime: datetime
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LastModifiedTime: datetime
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     VodSourceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LiveSourceTypeDef(TypedDict):
     Arn: str
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LiveSourceName: str
     SourceLocationName: str
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class UpdateLiveSourceRequestTypeDef(TypedDict):
@@ -738,11 +769,11 @@ class UpdateLiveSourceRequestTypeDef(TypedDict):
 class UpdateLiveSourceResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LastModifiedTime: datetime
     LiveSourceName: str
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -755,22 +786,22 @@ class UpdateVodSourceRequestTypeDef(TypedDict):
 class UpdateVodSourceResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     LastModifiedTime: datetime
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     VodSourceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class VodSourceTypeDef(TypedDict):
     Arn: str
-    HttpPackageConfigurations: List[HttpPackageConfigurationTypeDef]
+    HttpPackageConfigurations: list[HttpPackageConfigurationTypeDef]
     SourceLocationName: str
     VodSourceName: str
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class GetChannelScheduleRequestPaginateTypeDef(TypedDict):
@@ -838,32 +869,36 @@ class PrefetchConsumptionTypeDef(TypedDict):
 
 class PrefetchRetrievalOutputTypeDef(TypedDict):
     EndTime: datetime
-    DynamicVariables: NotRequired[Dict[str, str]]
+    DynamicVariables: NotRequired[dict[str, str]]
     StartTime: NotRequired[datetime]
-    TrafficShapingType: NotRequired[Literal["RETRIEVAL_WINDOW"]]
+    TrafficShapingType: NotRequired[TrafficShapingTypeType]
     TrafficShapingRetrievalWindow: NotRequired[TrafficShapingRetrievalWindowTypeDef]
+    TrafficShapingTpsConfiguration: NotRequired[TrafficShapingTpsConfigurationTypeDef]
 
 
 class PrefetchRetrievalTypeDef(TypedDict):
     EndTime: TimestampTypeDef
     DynamicVariables: NotRequired[Mapping[str, str]]
     StartTime: NotRequired[TimestampTypeDef]
-    TrafficShapingType: NotRequired[Literal["RETRIEVAL_WINDOW"]]
+    TrafficShapingType: NotRequired[TrafficShapingTypeType]
     TrafficShapingRetrievalWindow: NotRequired[TrafficShapingRetrievalWindowTypeDef]
+    TrafficShapingTpsConfiguration: NotRequired[TrafficShapingTpsConfigurationTypeDef]
 
 
 class RecurringRetrievalOutputTypeDef(TypedDict):
-    DynamicVariables: NotRequired[Dict[str, str]]
+    DynamicVariables: NotRequired[dict[str, str]]
     DelayAfterAvailEndSeconds: NotRequired[int]
-    TrafficShapingType: NotRequired[Literal["RETRIEVAL_WINDOW"]]
+    TrafficShapingType: NotRequired[TrafficShapingTypeType]
     TrafficShapingRetrievalWindow: NotRequired[TrafficShapingRetrievalWindowTypeDef]
+    TrafficShapingTpsConfiguration: NotRequired[TrafficShapingTpsConfigurationTypeDef]
 
 
 class RecurringRetrievalTypeDef(TypedDict):
     DynamicVariables: NotRequired[Mapping[str, str]]
     DelayAfterAvailEndSeconds: NotRequired[int]
-    TrafficShapingType: NotRequired[Literal["RETRIEVAL_WINDOW"]]
+    TrafficShapingType: NotRequired[TrafficShapingTypeType]
     TrafficShapingRetrievalWindow: NotRequired[TrafficShapingRetrievalWindowTypeDef]
+    TrafficShapingTpsConfiguration: NotRequired[TrafficShapingTpsConfigurationTypeDef]
 
 
 class ScheduleEntryTypeDef(TypedDict):
@@ -874,10 +909,10 @@ class ScheduleEntryTypeDef(TypedDict):
     ApproximateDurationSeconds: NotRequired[int]
     ApproximateStartTime: NotRequired[datetime]
     LiveSourceName: NotRequired[str]
-    ScheduleAdBreaks: NotRequired[List[ScheduleAdBreakTypeDef]]
+    ScheduleAdBreaks: NotRequired[list[ScheduleAdBreakTypeDef]]
     ScheduleEntryType: NotRequired[ScheduleEntryTypeType]
     VodSourceName: NotRequired[str]
-    Audiences: NotRequired[List[str]]
+    Audiences: NotRequired[list[str]]
 
 
 class ScheduleConfigurationTypeDef(TypedDict):
@@ -886,7 +921,7 @@ class ScheduleConfigurationTypeDef(TypedDict):
 
 
 class TimeSignalMessageOutputTypeDef(TypedDict):
-    SegmentationDescriptors: NotRequired[List[SegmentationDescriptorTypeDef]]
+    SegmentationDescriptors: NotRequired[list[SegmentationDescriptorTypeDef]]
 
 
 class TimeSignalMessageTypeDef(TypedDict):
@@ -914,9 +949,9 @@ class CreateSourceLocationResponseTypeDef(TypedDict):
     DefaultSegmentDeliveryConfiguration: DefaultSegmentDeliveryConfigurationTypeDef
     HttpConfiguration: HttpConfigurationTypeDef
     LastModifiedTime: datetime
-    SegmentDeliveryConfigurations: List[SegmentDeliveryConfigurationTypeDef]
+    SegmentDeliveryConfigurations: list[SegmentDeliveryConfigurationTypeDef]
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -927,9 +962,9 @@ class DescribeSourceLocationResponseTypeDef(TypedDict):
     DefaultSegmentDeliveryConfiguration: DefaultSegmentDeliveryConfigurationTypeDef
     HttpConfiguration: HttpConfigurationTypeDef
     LastModifiedTime: datetime
-    SegmentDeliveryConfigurations: List[SegmentDeliveryConfigurationTypeDef]
+    SegmentDeliveryConfigurations: list[SegmentDeliveryConfigurationTypeDef]
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -941,8 +976,8 @@ class SourceLocationTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     DefaultSegmentDeliveryConfiguration: NotRequired[DefaultSegmentDeliveryConfigurationTypeDef]
     LastModifiedTime: NotRequired[datetime]
-    SegmentDeliveryConfigurations: NotRequired[List[SegmentDeliveryConfigurationTypeDef]]
-    Tags: NotRequired[Dict[str, str]]
+    SegmentDeliveryConfigurations: NotRequired[list[SegmentDeliveryConfigurationTypeDef]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class UpdateSourceLocationRequestTypeDef(TypedDict):
@@ -960,29 +995,15 @@ class UpdateSourceLocationResponseTypeDef(TypedDict):
     DefaultSegmentDeliveryConfiguration: DefaultSegmentDeliveryConfigurationTypeDef
     HttpConfiguration: HttpConfigurationTypeDef
     LastModifiedTime: datetime
-    SegmentDeliveryConfigurations: List[SegmentDeliveryConfigurationTypeDef]
+    SegmentDeliveryConfigurations: list[SegmentDeliveryConfigurationTypeDef]
     SourceLocationName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class PutPlaybackConfigurationRequestTypeDef(TypedDict):
-    Name: str
-    AdDecisionServerUrl: NotRequired[str]
-    AvailSuppression: NotRequired[AvailSuppressionTypeDef]
-    Bumper: NotRequired[BumperTypeDef]
-    CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
-    ConfigurationAliases: NotRequired[Mapping[str, Mapping[str, str]]]
-    DashConfiguration: NotRequired[DashConfigurationForPutTypeDef]
-    InsertionMode: NotRequired[InsertionModeType]
-    LivePreRollConfiguration: NotRequired[LivePreRollConfigurationTypeDef]
-    ManifestProcessingRules: NotRequired[ManifestProcessingRulesTypeDef]
-    PersonalizationThresholdSeconds: NotRequired[int]
-    SlateAdUrl: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    TranscodeProfileName: NotRequired[str]
-    VideoContentSourceUrl: NotRequired[str]
-    AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
+AdDecisionServerConfigurationUnionTypeDef = Union[
+    AdDecisionServerConfigurationTypeDef, AdDecisionServerConfigurationOutputTypeDef
+]
 
 
 class GetPlaybackConfigurationResponseTypeDef(TypedDict):
@@ -990,7 +1011,7 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     AvailSuppression: AvailSuppressionTypeDef
     Bumper: BumperTypeDef
     CdnConfiguration: CdnConfigurationTypeDef
-    ConfigurationAliases: Dict[str, Dict[str, str]]
+    ConfigurationAliases: dict[str, dict[str, str]]
     DashConfiguration: DashConfigurationTypeDef
     HlsConfiguration: HlsConfigurationTypeDef
     InsertionMode: InsertionModeType
@@ -1003,10 +1024,11 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     PlaybackEndpointPrefix: str
     SessionInitializationEndpointPrefix: str
     SlateAdUrl: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TranscodeProfileName: str
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
+    AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1015,7 +1037,7 @@ class PlaybackConfigurationTypeDef(TypedDict):
     AvailSuppression: NotRequired[AvailSuppressionTypeDef]
     Bumper: NotRequired[BumperTypeDef]
     CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
-    ConfigurationAliases: NotRequired[Dict[str, Dict[str, str]]]
+    ConfigurationAliases: NotRequired[dict[str, dict[str, str]]]
     DashConfiguration: NotRequired[DashConfigurationTypeDef]
     HlsConfiguration: NotRequired[HlsConfigurationTypeDef]
     InsertionMode: NotRequired[InsertionModeType]
@@ -1028,10 +1050,11 @@ class PlaybackConfigurationTypeDef(TypedDict):
     PlaybackEndpointPrefix: NotRequired[str]
     SessionInitializationEndpointPrefix: NotRequired[str]
     SlateAdUrl: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     TranscodeProfileName: NotRequired[str]
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
+    AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
 
 
 class PutPlaybackConfigurationResponseTypeDef(TypedDict):
@@ -1039,7 +1062,7 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     AvailSuppression: AvailSuppressionTypeDef
     Bumper: BumperTypeDef
     CdnConfiguration: CdnConfigurationTypeDef
-    ConfigurationAliases: Dict[str, Dict[str, str]]
+    ConfigurationAliases: dict[str, dict[str, str]]
     DashConfiguration: DashConfigurationTypeDef
     HlsConfiguration: HlsConfigurationTypeDef
     InsertionMode: InsertionModeType
@@ -1052,21 +1075,22 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     PlaybackEndpointPrefix: str
     SessionInitializationEndpointPrefix: str
     SlateAdUrl: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TranscodeProfileName: str
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
+    AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListLiveSourcesResponseTypeDef(TypedDict):
-    Items: List[LiveSourceTypeDef]
+    Items: list[LiveSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListVodSourcesResponseTypeDef(TypedDict):
-    Items: List[VodSourceTypeDef]
+    Items: list[VodSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1075,15 +1099,15 @@ class ChannelTypeDef(TypedDict):
     Arn: str
     ChannelName: str
     ChannelState: str
-    Outputs: List[ResponseOutputItemTypeDef]
+    Outputs: list[ResponseOutputItemTypeDef]
     PlaybackMode: str
     Tier: str
     LogConfiguration: LogConfigurationForChannelTypeDef
     CreationTime: NotRequired[datetime]
     FillerSlate: NotRequired[SlateSourceTypeDef]
     LastModifiedTime: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
-    Audiences: NotRequired[List[str]]
+    Tags: NotRequired[dict[str, str]]
+    Audiences: NotRequired[list[str]]
 
 
 class CreateChannelResponseTypeDef(TypedDict):
@@ -1093,12 +1117,12 @@ class CreateChannelResponseTypeDef(TypedDict):
     CreationTime: datetime
     FillerSlate: SlateSourceTypeDef
     LastModifiedTime: datetime
-    Outputs: List[ResponseOutputItemTypeDef]
+    Outputs: list[ResponseOutputItemTypeDef]
     PlaybackMode: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Tier: str
     TimeShiftConfiguration: TimeShiftConfigurationTypeDef
-    Audiences: List[str]
+    Audiences: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1109,13 +1133,13 @@ class DescribeChannelResponseTypeDef(TypedDict):
     CreationTime: datetime
     FillerSlate: SlateSourceTypeDef
     LastModifiedTime: datetime
-    Outputs: List[ResponseOutputItemTypeDef]
+    Outputs: list[ResponseOutputItemTypeDef]
     PlaybackMode: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Tier: str
     LogConfiguration: LogConfigurationForChannelTypeDef
     TimeShiftConfiguration: TimeShiftConfigurationTypeDef
-    Audiences: List[str]
+    Audiences: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1126,12 +1150,12 @@ class UpdateChannelResponseTypeDef(TypedDict):
     CreationTime: datetime
     FillerSlate: SlateSourceTypeDef
     LastModifiedTime: datetime
-    Outputs: List[ResponseOutputItemTypeDef]
+    Outputs: list[ResponseOutputItemTypeDef]
     PlaybackMode: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Tier: str
     TimeShiftConfiguration: TimeShiftConfigurationTypeDef
-    Audiences: List[str]
+    Audiences: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1171,7 +1195,7 @@ class RecurringPrefetchConfigurationTypeDef(TypedDict):
 
 
 class GetChannelScheduleResponseTypeDef(TypedDict):
-    Items: List[ScheduleEntryTypeDef]
+    Items: list[ScheduleEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1182,26 +1206,46 @@ class AdBreakOutputTypeDef(TypedDict):
     Slate: NotRequired[SlateSourceTypeDef]
     SpliceInsertMessage: NotRequired[SpliceInsertMessageTypeDef]
     TimeSignalMessage: NotRequired[TimeSignalMessageOutputTypeDef]
-    AdBreakMetadata: NotRequired[List[KeyValuePairTypeDef]]
+    AdBreakMetadata: NotRequired[list[KeyValuePairTypeDef]]
 
 
 TimeSignalMessageUnionTypeDef = Union[TimeSignalMessageTypeDef, TimeSignalMessageOutputTypeDef]
 
 
 class ListSourceLocationsResponseTypeDef(TypedDict):
-    Items: List[SourceLocationTypeDef]
+    Items: list[SourceLocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
+class PutPlaybackConfigurationRequestTypeDef(TypedDict):
+    Name: str
+    AdDecisionServerUrl: NotRequired[str]
+    AvailSuppression: NotRequired[AvailSuppressionTypeDef]
+    Bumper: NotRequired[BumperTypeDef]
+    CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
+    ConfigurationAliases: NotRequired[Mapping[str, Mapping[str, str]]]
+    DashConfiguration: NotRequired[DashConfigurationForPutTypeDef]
+    InsertionMode: NotRequired[InsertionModeType]
+    LivePreRollConfiguration: NotRequired[LivePreRollConfigurationTypeDef]
+    ManifestProcessingRules: NotRequired[ManifestProcessingRulesTypeDef]
+    PersonalizationThresholdSeconds: NotRequired[int]
+    SlateAdUrl: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    TranscodeProfileName: NotRequired[str]
+    VideoContentSourceUrl: NotRequired[str]
+    AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
+    AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
+
+
 class ListPlaybackConfigurationsResponseTypeDef(TypedDict):
-    Items: List[PlaybackConfigurationTypeDef]
+    Items: list[PlaybackConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListChannelsResponseTypeDef(TypedDict):
-    Items: List[ChannelTypeDef]
+    Items: list[ChannelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1271,7 +1315,7 @@ class AlternateMediaOutputTypeDef(TypedDict):
     VodSourceName: NotRequired[str]
     ClipRange: NotRequired[ClipRangeTypeDef]
     ScheduledStartTimeMillis: NotRequired[int]
-    AdBreaks: NotRequired[List[AdBreakOutputTypeDef]]
+    AdBreaks: NotRequired[list[AdBreakOutputTypeDef]]
     DurationMillis: NotRequired[int]
 
 
@@ -1285,7 +1329,7 @@ class AdBreakTypeDef(TypedDict):
 
 
 class ListPrefetchSchedulesResponseTypeDef(TypedDict):
-    Items: List[PrefetchScheduleTypeDef]
+    Items: list[PrefetchScheduleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1302,14 +1346,14 @@ class CreatePrefetchScheduleRequestTypeDef(TypedDict):
 
 class AudienceMediaOutputTypeDef(TypedDict):
     Audience: NotRequired[str]
-    AlternateMedia: NotRequired[List[AlternateMediaOutputTypeDef]]
+    AlternateMedia: NotRequired[list[AlternateMediaOutputTypeDef]]
 
 
 AdBreakUnionTypeDef = Union[AdBreakTypeDef, AdBreakOutputTypeDef]
 
 
 class CreateProgramResponseTypeDef(TypedDict):
-    AdBreaks: List[AdBreakOutputTypeDef]
+    AdBreaks: list[AdBreakOutputTypeDef]
     Arn: str
     ChannelName: str
     CreationTime: datetime
@@ -1320,12 +1364,12 @@ class CreateProgramResponseTypeDef(TypedDict):
     VodSourceName: str
     ClipRange: ClipRangeTypeDef
     DurationMillis: int
-    AudienceMedia: List[AudienceMediaOutputTypeDef]
+    AudienceMedia: list[AudienceMediaOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeProgramResponseTypeDef(TypedDict):
-    AdBreaks: List[AdBreakOutputTypeDef]
+    AdBreaks: list[AdBreakOutputTypeDef]
     Arn: str
     ChannelName: str
     CreationTime: datetime
@@ -1336,12 +1380,12 @@ class DescribeProgramResponseTypeDef(TypedDict):
     VodSourceName: str
     ClipRange: ClipRangeTypeDef
     DurationMillis: int
-    AudienceMedia: List[AudienceMediaOutputTypeDef]
+    AudienceMedia: list[AudienceMediaOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateProgramResponseTypeDef(TypedDict):
-    AdBreaks: List[AdBreakOutputTypeDef]
+    AdBreaks: list[AdBreakOutputTypeDef]
     Arn: str
     ChannelName: str
     CreationTime: datetime
@@ -1352,7 +1396,7 @@ class UpdateProgramResponseTypeDef(TypedDict):
     ClipRange: ClipRangeTypeDef
     DurationMillis: int
     ScheduledStartTime: datetime
-    AudienceMedia: List[AudienceMediaOutputTypeDef]
+    AudienceMedia: list[AudienceMediaOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

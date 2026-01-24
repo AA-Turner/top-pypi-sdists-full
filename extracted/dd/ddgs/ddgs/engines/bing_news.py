@@ -1,14 +1,13 @@
 """Bing news engine implementation."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, ClassVar
 
-from ..base import BaseSearchEngine
-from ..results import NewsResult
+from ddgs.base import BaseSearchEngine
+from ddgs.results import NewsResult
 
 DATE_RE = re.compile(r"\b(\d+)\s*(days|tagen|jours|giorni|dias|días|дн\.|день)?\b", re.IGNORECASE)
 
@@ -18,10 +17,8 @@ def extract_date(pub_date_str: str) -> str:
     # Try parsing the date with predefined formats
     date_formats = ["%d.%m.%Y", "%m/%d/%Y", "%d/%m/%Y"]
     for date_format in date_formats:
-        try:
+        with suppress(ValueError):
             return datetime.strptime(pub_date_str, date_format).astimezone(timezone.utc).isoformat()
-        except ValueError:
-            pass
 
     # Search for relative date expressions
     match = DATE_RE.search(pub_date_str)
@@ -44,7 +41,7 @@ class BingNews(BaseSearchEngine[NewsResult]):
     search_method = "GET"
 
     items_xpath = "//div[contains(@class, 'newsitem')]"
-    elements_xpath: Mapping[str, str] = {
+    elements_xpath: ClassVar[Mapping[str, str]] = {
         "date": ".//span[@aria-label]//@aria-label",
         "title": "@data-title",
         "body": ".//div[@class='snippet']//text()",
@@ -54,7 +51,13 @@ class BingNews(BaseSearchEngine[NewsResult]):
     }
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,
+        safesearch: str,  # noqa: ARG002
+        timelimit: str | None,
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the Bing search request."""
         country, lang = region.lower().split("-")

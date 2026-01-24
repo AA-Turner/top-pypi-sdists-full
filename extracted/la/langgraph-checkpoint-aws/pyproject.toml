@@ -1,0 +1,125 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+authors = []
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "langgraph-checkpoint>=3.0.0,<4.0.0",
+    "langgraph>=1.0.0",
+    "boto3>=1.40.19",
+    "typing_extensions>=4.0.0; python_version<'3.11'",
+]
+name = "langgraph-checkpoint-aws"
+version = "1.0.3"
+description = "A LangChain checkpointer implementation that uses Bedrock Session Management Service and ElastiCache Valkey to enable stateful and resumable LangGraph agents."
+readme = "README.md"
+keywords = [
+    "aws",
+    "bedrock",
+    "langchain",
+    "langgraph",
+    "checkpointer",
+    "dynamodb",
+    "elasticache",
+    "valkey",
+]
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+"Source Code" = "https://github.com/langchain-ai/langchain-aws/tree/main/libs/langgraph-checkpoint-aws"
+repository = "https://github.com/langchain-ai/langchain-aws"
+
+[project.optional-dependencies]
+valkey = [
+    "valkey>=6.1.1",
+    "orjson>=3.11.3",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.13.0",
+    "mypy>=1.17.1",
+]
+test = [
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-socket>=0.7.0",
+    "pytest-asyncio>=0.26.0",
+    "pytest-mock>=3.15.1",
+    "fakeredis>=2.25.1",
+]
+test_integration = [
+    "langchain>=1.0.0",
+    "langchain-aws>=1.0.0",
+]
+lint = [
+    "ruff>=0.12.10",
+]
+typing = [
+    "boto3-stubs[dynamodb,s3]>=1.40.19",
+    "mypy>=1.17.1",
+]
+
+[tool.uv]
+prerelease = "allow"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "UP",
+    "B",
+    "I",
+    "T201",
+]
+
+[tool.mypy]
+ignore_missing_imports = "True"
+
+[tool.coverage.run]
+source = [
+    "langgraph_checkpoint_aws",
+]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test_*",
+    "*_test.py",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+precision = 2
+show_missing = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --durations=5"
+markers = [
+    "requires: mark tests as requiring a specific library",
+    "asyncio: mark tests as requiring asyncio",
+    "compile: mark placeholder test used to compile integration tests without running them",
+    "scheduled: mark tests to run in scheduled testing",
+    "timeout: mark tests with timeout limits",
+]
+asyncio_mode = "auto"

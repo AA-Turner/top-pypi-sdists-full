@@ -15,7 +15,6 @@ from pex.artifact_url import Fingerprint
 from pex.cache.dirs import CacheDir
 from pex.common import safe_open
 from pex.dist_metadata import Constraint, Requirement
-from pex.interpreter import PythonInterpreter
 from pex.interpreter_constraints import InterpreterConstraint
 from pex.pep_440 import Version
 from pex.pep_503 import ProjectName
@@ -120,6 +119,7 @@ def test_create_style(
             style,
             "--pex-root",
             pex_root,
+            "--no-avoid-downloads",
         )
         run_pex3(*(args + additional_args)).assert_success()
         lock = json_codec.load(lock_file)
@@ -901,7 +901,7 @@ def test_update_targeted_impossible(
     ] == error_lines[:11]
     assert re.match(
         r"^1\.\) {platform}: pid [\d]+ -> ".format(
-            platform=LocalInterpreter.create(PythonInterpreter.from_binary(py310)).platform.tag
+            platform=LocalInterpreter.create(py310).platform.tag
         ),
         error_lines[11],
     )
@@ -913,24 +913,38 @@ def test_update_targeted_impossible(
             "pip: ERROR: No matching distribution found for urllib3<1.27,>=1.21.1",
         ]
     else:
-        expected_lines = [
-            "pip: ERROR: Cannot install requests==2.26.0 because these package versions have "
-            "conflicting dependencies.",
-            "pip: ERROR: ResolutionImpossible: for help visit "
-            "https://pip.pypa.io/en/latest/topics/dependency-resolution/"
-            "#dealing-with-dependency-conflicts",
-            "pip:  ",
-            "pip:  The conflict is caused by:",
-            "pip:      requests 2.26.0 depends on urllib3<1.27 and >=1.21.1",
-            "pip:      The user requested (constraint) urllib3<1.16",
-            "pip:  ",
-            "pip:  To fix this you could try to:",
-            "pip:  1. loosen the range of package versions you've specified",
-            "pip:  2. remove package versions to allow {pip_to} attempt to solve the dependency "
-            "conflict".format(
-                pip_to="pip" if pip_version.version < PipVersion.v24_1.version else "pip to"
-            ),
-        ]
+        expected_lines = (
+            [
+                "pip: ERROR: Cannot install requests==2.26.0 because these package versions have "
+                "conflicting dependencies.",
+                "pip: ERROR: ResolutionImpossible: for help visit "
+                "https://pip.pypa.io/en/latest/topics/dependency-resolution/"
+                "#dealing-with-dependency-conflicts",
+                "pip:  ",
+                "pip:  The conflict is caused by:",
+                "pip:      requests 2.26.0 depends on urllib3<1.27 and >=1.21.1",
+                "pip:      The user requested (constraint) urllib3<1.16",
+                "pip:  ",
+            ]
+            + (
+                [
+                    "pip:  Additionally, some packages in these conflicts have no matching "
+                    "distributions available for your environment:",
+                    "pip:      urllib3",
+                    "pip:  ",
+                ]
+                if pip_version >= PipVersion.v25_3
+                else []
+            )
+            + [
+                "pip:  To fix this you could try to:",
+                "pip:  1. loosen the range of package versions you've specified",
+                "pip:  2. remove package versions to allow {pip_to} attempt to solve the "
+                "dependency conflict".format(
+                    pip_to="pip" if pip_version.version < PipVersion.v24_1.version else "pip to"
+                ),
+            ]
+        )
     assert expected_lines == error_lines[12:], "\n".join(
         difflib.unified_diff(expected_lines, error_lines[12:])
     )
@@ -1000,7 +1014,7 @@ def test_update_add_impossible(
     ] == error_lines[:12]
     assert re.match(
         r"^1\.\) {platform}: pid [\d]+ -> ".format(
-            platform=LocalInterpreter.create(PythonInterpreter.from_binary(py310)).platform.tag
+            platform=LocalInterpreter.create(py310).platform.tag
         ),
         error_lines[12],
     )
@@ -1012,25 +1026,39 @@ def test_update_add_impossible(
             "pip: ERROR: No matching distribution found for certifi<2017.4.17",
         ]
     else:
-        expected_lines = [
-            "pip: ERROR: Cannot install conflicting-certifi-requirement==1.2.3 and "
-            "requests==2.26.0 because these package versions have conflicting dependencies.",
-            "pip: ERROR: ResolutionImpossible: for help visit "
-            "https://pip.pypa.io/en/latest/topics/dependency-resolution/"
-            "#dealing-with-dependency-conflicts",
-            "pip:  ",
-            "pip:  The conflict is caused by:",
-            "pip:      requests 2.26.0 depends on certifi>=2017.4.17",
-            "pip:      conflicting-certifi-requirement 1.2.3 depends on certifi<2017.4.17",
-            "pip:      The user requested (constraint) certifi==2021.5.30",
-            "pip:  ",
-            "pip:  To fix this you could try to:",
-            "pip:  1. loosen the range of package versions you've specified",
-            "pip:  2. remove package versions to allow {pip_to} attempt to solve the dependency "
-            "conflict".format(
-                pip_to="pip" if pip_version.version < PipVersion.v24_1.version else "pip to"
-            ),
-        ]
+        expected_lines = (
+            [
+                "pip: ERROR: Cannot install conflicting-certifi-requirement==1.2.3 and "
+                "requests==2.26.0 because these package versions have conflicting dependencies.",
+                "pip: ERROR: ResolutionImpossible: for help visit "
+                "https://pip.pypa.io/en/latest/topics/dependency-resolution/"
+                "#dealing-with-dependency-conflicts",
+                "pip:  ",
+                "pip:  The conflict is caused by:",
+                "pip:      requests 2.26.0 depends on certifi>=2017.4.17",
+                "pip:      conflicting-certifi-requirement 1.2.3 depends on certifi<2017.4.17",
+                "pip:      The user requested (constraint) certifi==2021.5.30",
+                "pip:  ",
+            ]
+            + (
+                [
+                    "pip:  Additionally, some packages in these conflicts have no matching "
+                    "distributions available for your environment:",
+                    "pip:      certifi",
+                    "pip:  ",
+                ]
+                if pip_version >= PipVersion.v25_3
+                else []
+            )
+            + [
+                "pip:  To fix this you could try to:",
+                "pip:  1. loosen the range of package versions you've specified",
+                "pip:  2. remove package versions to allow {pip_to} attempt to solve the "
+                "dependency conflict".format(
+                    pip_to="pip" if pip_version.version < PipVersion.v24_1.version else "pip to"
+                ),
+            ]
+        )
     assert expected_lines == error_lines[13:], "\n".join(
         difflib.unified_diff(expected_lines, error_lines[12:])
     )

@@ -735,7 +735,7 @@ class TestProxy(IsolatedDbusTestCase):
         with self.assertRaises(DbusNoReplyError):
             await wait_for(test_object_connection.looong_method(), timeout=1)
 
-        self.assertAlmostEqual(loop.time() - start, 0.01, delta=0.01)
+        self.assertLess(loop.time() - start, 0.2)
 
     async def test_signal_queue_wildcard_match(self) -> None:
         test_object, test_object_connection = initialize_object()
@@ -1003,6 +1003,28 @@ class TestProxy(IsolatedDbusTestCase):
         test_object2 = TestInterface()
         handle = test_object2.export_to_dbus("/")
         await test_object_connection.returns_none_method()
+        handle.stop()
+
+        with self.assertRaises(DbusUnknownObjectError):
+            await test_object_connection.returns_none_method()
+
+    async def test_export_handle_lifetime(self) -> None:
+        test_object = TestInterface()
+        test_object_connection = TestInterface.new_proxy(
+            TEST_SERVICE_NAME, '/',
+        )
+        handle = test_object.export_to_dbus("/")
+        await test_object_connection.returns_none_method()
+
+        del test_object
+
+        handle.stop()
+
+        with self.assertRaises(DbusUnknownObjectError):
+            await test_object_connection.returns_none_method()
+
+        # Test idempotency
+        handle.stop()
         handle.stop()
 
         with self.assertRaises(DbusUnknownObjectError):

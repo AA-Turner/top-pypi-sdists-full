@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def moon(im):
+def moon(im: Image.Image) -> Image.Image:
     """Applies Moon filter.
 
     Arguments:
@@ -26,12 +27,12 @@ def moon(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs1 = util.fill(cb.size, [160, 160, 160])
+    cs1 = util.fill(cb.size, (160, 160, 160))
     cs = css.blending.soft_light(cb, cs1)
 
-    cs2 = util.fill(cb.size, [56, 56, 56])
+    cs2 = util.fill(cb.size, (56, 56, 56))
     cr = css.blending.lighten(cs, cs2)
 
     cr = css.grayscale(cr)

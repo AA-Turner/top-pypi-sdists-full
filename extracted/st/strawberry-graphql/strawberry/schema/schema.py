@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import warnings
 from asyncio import ensure_future
-from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Iterable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterable
 from functools import cached_property, lru_cache
 from inspect import isawaitable
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     NamedTuple,
-    Optional,
-    Union,
     cast,
 )
 
@@ -42,6 +39,7 @@ from graphql.validation import validate
 from strawberry import relay
 from strawberry.annotation import StrawberryAnnotation
 from strawberry.exceptions import MissingQueryError
+from strawberry.execution import optimized_is_awaitable
 from strawberry.extensions import SchemaExtension
 from strawberry.extensions.directives import (
     DirectivesExtension,
@@ -83,7 +81,7 @@ from .exceptions import CannotGetOperationTypeError, InvalidOperationTypeError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
     from graphql.language import DocumentNode
     from graphql.pyutils import Path
@@ -92,19 +90,18 @@ if TYPE_CHECKING:
 
     from strawberry.directive import StrawberryDirective
     from strawberry.types.base import StrawberryType
-    from strawberry.types.enum import EnumDefinition
+    from strawberry.types.enum import StrawberryEnumDefinition
     from strawberry.types.field import StrawberryField
     from strawberry.types.scalar import ScalarDefinition, ScalarWrapper
     from strawberry.types.union import StrawberryUnion
 
 SubscriptionResult: TypeAlias = AsyncGenerator[
-    Union[PreExecutionError, ExecutionResult], None
+    PreExecutionError | ExecutionResult, None
 ]
 
-OriginSubscriptionResult = Union[
-    OriginalExecutionResult,
-    AsyncIterator[OriginalExecutionResult],
-]
+OriginSubscriptionResult: TypeAlias = (
+    OriginalExecutionResult | AsyncIterator[OriginalExecutionResult]
+)
 
 
 DEFAULT_ALLOWED_OPERATION_TYPES = {
@@ -113,7 +110,7 @@ DEFAULT_ALLOWED_OPERATION_TYPES = {
     OperationType.SUBSCRIPTION,
 }
 ProcessErrors: TypeAlias = (
-    "Callable[[list[GraphQLError], Optional[ExecutionContext]], None]"
+    "Callable[[list[GraphQLError], ExecutionContext | None], None]"
 )
 
 
@@ -150,7 +147,7 @@ def _run_validation(execution_context: ExecutionContext) -> None:
         )
 
 
-def _coerce_error(error: Union[GraphQLError, Exception]) -> GraphQLError:
+def _coerce_error(error: GraphQLError | Exception) -> GraphQLError:
     if isinstance(error, GraphQLError):
         return error
     return GraphQLError(str(error), original_error=error)
@@ -212,16 +209,16 @@ class Schema(BaseSchema):
         # TODO: can we make sure we only allow to pass
         # something that has been decorated?
         query: type,
-        mutation: Optional[type] = None,
-        subscription: Optional[type] = None,
+        mutation: type | None = None,
+        subscription: type | None = None,
         directives: Iterable[StrawberryDirective] = (),
-        types: Iterable[Union[type, StrawberryType]] = (),
-        extensions: Iterable[Union[type[SchemaExtension], SchemaExtension]] = (),
-        execution_context_class: Optional[type[GraphQLExecutionContext]] = None,
-        config: Optional[StrawberryConfig] = None,
-        scalar_overrides: Optional[
-            Mapping[object, Union[type, ScalarWrapper, ScalarDefinition]],
-        ] = None,
+        types: Iterable[type | StrawberryType] = (),
+        extensions: Iterable[type[SchemaExtension] | SchemaExtension] = (),
+        execution_context_class: type[GraphQLExecutionContext] | None = None,
+        config: StrawberryConfig | None = None,
+        scalar_overrides: (
+            Mapping[object, type | ScalarWrapper | ScalarDefinition] | None
+        ) = None,
         schema_directives: Iterable[object] = (),
     ) -> None:
         """Default Schema to be used in a Strawberry application.
@@ -273,6 +270,7 @@ class Schema(BaseSchema):
         self.schema_converter = GraphQLCoreConverter(
             self.config,
             scalar_overrides=scalar_overrides or {},  # type: ignore
+            scalar_map=self.config.scalar_map,
             get_fields=self.get_fields,
         )
 
@@ -398,7 +396,7 @@ class Schema(BaseSchema):
         )
 
     def _get_custom_context_kwargs(
-        self, operation_extensions: Optional[dict[str, Any]] = None
+        self, operation_extensions: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         if not IS_GQL_33:
             return {}
@@ -417,13 +415,13 @@ class Schema(BaseSchema):
 
     def _create_execution_context(
         self,
-        query: Optional[str],
+        query: str | None,
         allowed_operation_types: Iterable[OperationType],
-        variable_values: Optional[dict[str, Any]] = None,
-        context_value: Optional[Any] = None,
-        root_value: Optional[Any] = None,
-        operation_name: Optional[str] = None,
-        operation_extensions: Optional[dict[str, Any]] = None,
+        variable_values: dict[str, Any] | None = None,
+        context_value: Any | None = None,
+        root_value: Any | None = None,
+        operation_name: str | None = None,
+        operation_extensions: dict[str, Any] | None = None,
     ) -> ExecutionContext:
         return ExecutionContext(
             query=query,
@@ -439,14 +437,13 @@ class Schema(BaseSchema):
     @lru_cache
     def get_type_by_name(
         self, name: str
-    ) -> Optional[
-        Union[
-            StrawberryObjectDefinition,
-            ScalarDefinition,
-            EnumDefinition,
-            StrawberryUnion,
-        ]
-    ]:
+    ) -> (
+        StrawberryObjectDefinition
+        | ScalarDefinition
+        | StrawberryEnumDefinition
+        | StrawberryUnion
+        | None
+    ):
         # TODO: respect auto_camel_case
         if name in self.schema_converter.type_map:
             return self.schema_converter.type_map[name].definition
@@ -455,7 +452,7 @@ class Schema(BaseSchema):
 
     def get_field_for_type(
         self, field_name: str, type_name: str
-    ) -> Optional[StrawberryField]:
+    ) -> StrawberryField | None:
         type_ = self.get_type_by_name(type_name)
 
         if not type_:
@@ -473,7 +470,7 @@ class Schema(BaseSchema):
         )
 
     @lru_cache
-    def get_directive_by_name(self, graphql_name: str) -> Optional[StrawberryDirective]:
+    def get_directive_by_name(self, graphql_name: str) -> StrawberryDirective | None:
         return next(
             (
                 directive
@@ -490,7 +487,7 @@ class Schema(BaseSchema):
 
     async def _parse_and_validate_async(
         self, context: ExecutionContext, extensions_runner: SchemaExtensionsRunner
-    ) -> Optional[PreExecutionError]:
+    ) -> PreExecutionError | None:
         if not context.query:
             raise MissingQueryError
 
@@ -553,13 +550,13 @@ class Schema(BaseSchema):
 
     async def execute(
         self,
-        query: Optional[str],
-        variable_values: Optional[dict[str, Any]] = None,
-        context_value: Optional[Any] = None,
-        root_value: Optional[Any] = None,
-        operation_name: Optional[str] = None,
-        allowed_operation_types: Optional[Iterable[OperationType]] = None,
-        operation_extensions: Optional[dict[str, Any]] = None,
+        query: str | None,
+        variable_values: dict[str, Any] | None = None,
+        context_value: Any | None = None,
+        root_value: Any | None = None,
+        operation_name: str | None = None,
+        allowed_operation_types: Iterable[OperationType] | None = None,
+        operation_extensions: dict[str, Any] | None = None,
     ) -> ExecutionResult:
         if allowed_operation_types is None:
             allowed_operation_types = DEFAULT_ALLOWED_OPERATION_TYPES
@@ -621,6 +618,7 @@ class Schema(BaseSchema):
                                 operation_name=execution_context.operation_name,
                                 context_value=execution_context.context,
                                 execution_context_class=self.execution_context_class,
+                                is_awaitable=optimized_is_awaitable,
                                 **custom_context_kwargs,
                             )
                         )
@@ -659,13 +657,13 @@ class Schema(BaseSchema):
 
     def execute_sync(
         self,
-        query: Optional[str],
-        variable_values: Optional[dict[str, Any]] = None,
-        context_value: Optional[Any] = None,
-        root_value: Optional[Any] = None,
-        operation_name: Optional[str] = None,
-        allowed_operation_types: Optional[Iterable[OperationType]] = None,
-        operation_extensions: Optional[dict[str, Any]] = None,
+        query: str | None,
+        variable_values: dict[str, Any] | None = None,
+        context_value: Any | None = None,
+        root_value: Any | None = None,
+        operation_name: str | None = None,
+        allowed_operation_types: Iterable[OperationType] | None = None,
+        operation_extensions: dict[str, Any] | None = None,
     ) -> ExecutionResult:
         if allowed_operation_types is None:
             allowed_operation_types = DEFAULT_ALLOWED_OPERATION_TYPES
@@ -756,6 +754,7 @@ class Schema(BaseSchema):
                             operation_name=execution_context.operation_name,
                             context_value=execution_context.context,
                             execution_context_class=self.execution_context_class,
+                            is_awaitable=optimized_is_awaitable,
                             **custom_context_kwargs,
                         )
 
@@ -805,7 +804,7 @@ class Schema(BaseSchema):
         extensions_runner: SchemaExtensionsRunner,
         middleware_manager: MiddlewareManager,
         execution_context_class: type[GraphQLExecutionContext] | None = None,
-        operation_extensions: Optional[dict[str, Any]] = None,
+        operation_extensions: dict[str, Any] | None = None,
     ) -> AsyncGenerator[ExecutionResult, None]:
         async with extensions_runner.operation():
             if initial_error := await self._parse_and_validate_async(
@@ -884,12 +883,12 @@ class Schema(BaseSchema):
 
     async def subscribe(
         self,
-        query: Optional[str],
-        variable_values: Optional[dict[str, Any]] = None,
-        context_value: Optional[Any] = None,
-        root_value: Optional[Any] = None,
-        operation_name: Optional[str] = None,
-        operation_extensions: Optional[dict[str, Any]] = None,
+        query: str | None,
+        variable_values: dict[str, Any] | None = None,
+        context_value: Any | None = None,
+        root_value: Any | None = None,
+        operation_name: str | None = None,
+        operation_extensions: dict[str, Any] | None = None,
     ) -> SubscriptionResult:
         execution_context = self._create_execution_context(
             query=query,
@@ -918,7 +917,7 @@ class Schema(BaseSchema):
         for concrete_type in self.schema_converter.type_map.values():
             type_def = concrete_type.definition
 
-            # This can be a TypeDefinition, EnumDefinition, ScalarDefinition
+            # This can be a TypeDefinition, StrawberryEnumDefinition, ScalarDefinition
             # or UnionDefinition
             if not isinstance(type_def, StrawberryObjectDefinition):
                 continue

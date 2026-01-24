@@ -19,12 +19,17 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.JWTTemplate]]:
+    ) -> List[models.JWTTemplate]:
         r"""List all templates
 
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -59,6 +64,7 @@ class JwtTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -79,7 +85,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListJWTTemplates",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -88,7 +94,7 @@ class JwtTemplates(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.JWTTemplate]], http_res)
+            return unmarshal_json_response(List[models.JWTTemplate], http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.SDKError("API error occurred", http_res, http_res_text)
@@ -108,12 +114,17 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.JWTTemplate]]:
+    ) -> List[models.JWTTemplate]:
         r"""List all templates
 
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -148,6 +159,7 @@ class JwtTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +180,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListJWTTemplates",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -177,7 +189,7 @@ class JwtTemplates(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.JWTTemplate]], http_res)
+            return unmarshal_json_response(List[models.JWTTemplate], http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.SDKError("API error occurred", http_res, http_res_text)
@@ -200,7 +212,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.JWTTemplate]:
+    ) -> models.JWTTemplate:
         r"""Create a JWT template
 
         Create a new JWT template
@@ -247,6 +259,7 @@ class JwtTemplates(BaseSDK):
                 "json",
                 Optional[models.CreateJWTTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -267,7 +280,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -277,7 +290,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.JWTTemplate], http_res)
+            return unmarshal_json_response(models.JWTTemplate, http_res)
         if utils.match_response(http_res, ["400", "402", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -303,7 +316,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.JWTTemplate]:
+    ) -> models.JWTTemplate:
         r"""Create a JWT template
 
         Create a new JWT template
@@ -350,6 +363,7 @@ class JwtTemplates(BaseSDK):
                 "json",
                 Optional[models.CreateJWTTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -370,7 +384,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -380,7 +394,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.JWTTemplate], http_res)
+            return unmarshal_json_response(models.JWTTemplate, http_res)
         if utils.match_response(http_res, ["400", "402", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -401,7 +415,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.JWTTemplate]:
+    ) -> models.JWTTemplate:
         r"""Retrieve a template
 
         Retrieve the details of a given JWT template
@@ -439,6 +453,7 @@ class JwtTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -459,7 +474,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -469,7 +484,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.JWTTemplate], http_res)
+            return unmarshal_json_response(models.JWTTemplate, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -490,7 +505,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.JWTTemplate]:
+    ) -> models.JWTTemplate:
         r"""Retrieve a template
 
         Retrieve the details of a given JWT template
@@ -528,6 +543,7 @@ class JwtTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -548,7 +564,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -558,7 +574,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.JWTTemplate], http_res)
+            return unmarshal_json_response(models.JWTTemplate, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -588,7 +604,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.JWTTemplate]:
+    ) -> models.JWTTemplate:
         r"""Update a JWT template
 
         Updates an existing JWT template
@@ -596,8 +612,8 @@ class JwtTemplates(BaseSDK):
         :param template_id: The ID of the JWT template to update
         :param name: JWT template name
         :param claims: JWT template claims in JSON format
-        :param lifetime: JWT token lifetime
-        :param allowed_clock_skew: JWT token allowed clock skew
+        :param lifetime: JWT lifetime
+        :param allowed_clock_skew: JWT allowed clock skew
         :param custom_signing_key: Whether a custom signing key/algorithm is also provided for this template
         :param signing_algorithm: The custom signing algorithm to use when minting JWTs. Required if `custom_signing_key` is `true`.
         :param signing_key: The custom signing private key to use when minting JWTs. Required if `custom_signing_key` is `true`.
@@ -649,6 +665,7 @@ class JwtTemplates(BaseSDK):
                 "json",
                 Optional[models.UpdateJWTTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -669,7 +686,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -679,7 +696,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.JWTTemplate], http_res)
+            return unmarshal_json_response(models.JWTTemplate, http_res)
         if utils.match_response(http_res, ["400", "402", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -709,7 +726,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.JWTTemplate]:
+    ) -> models.JWTTemplate:
         r"""Update a JWT template
 
         Updates an existing JWT template
@@ -717,8 +734,8 @@ class JwtTemplates(BaseSDK):
         :param template_id: The ID of the JWT template to update
         :param name: JWT template name
         :param claims: JWT template claims in JSON format
-        :param lifetime: JWT token lifetime
-        :param allowed_clock_skew: JWT token allowed clock skew
+        :param lifetime: JWT lifetime
+        :param allowed_clock_skew: JWT allowed clock skew
         :param custom_signing_key: Whether a custom signing key/algorithm is also provided for this template
         :param signing_algorithm: The custom signing algorithm to use when minting JWTs. Required if `custom_signing_key` is `true`.
         :param signing_key: The custom signing private key to use when minting JWTs. Required if `custom_signing_key` is `true`.
@@ -770,6 +787,7 @@ class JwtTemplates(BaseSDK):
                 "json",
                 Optional[models.UpdateJWTTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -790,7 +808,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -800,7 +818,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.JWTTemplate], http_res)
+            return unmarshal_json_response(models.JWTTemplate, http_res)
         if utils.match_response(http_res, ["400", "402", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -821,7 +839,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete a Template
 
         :param template_id: JWT Template ID
@@ -857,6 +875,7 @@ class JwtTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -877,7 +896,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -887,7 +906,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -908,7 +927,7 @@ class JwtTemplates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete a Template
 
         :param template_id: JWT Template ID
@@ -944,6 +963,7 @@ class JwtTemplates(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -964,7 +984,7 @@ class JwtTemplates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteJWTTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -974,7 +994,7 @@ class JwtTemplates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

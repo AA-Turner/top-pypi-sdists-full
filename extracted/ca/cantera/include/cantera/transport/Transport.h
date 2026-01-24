@@ -86,6 +86,14 @@ public:
     Transport(const Transport&) = delete;
     Transport& operator=(const Transport&) = delete;
 
+    //! Create a new Transport object using the same transport model and species
+    //! transport properties as this one.
+    //! @param thermo ThermoPhase used to specify the state for the newly cloned
+    //!     Transport object. Can be created from the phase used by the current
+    //!     Transport object using the ThermoPhase::clone() method.
+    //! @since New in %Cantera 3.2.
+    shared_ptr<Transport> clone(shared_ptr<ThermoPhase> thermo) const;
+
     //! Identifies the model represented by this Transport object. Each derived class
     //! should override this method to return a meaningful identifier.
     //! @since New in %Cantera 3.0. The name returned by this method corresponds
@@ -104,38 +112,38 @@ public:
         return *m_thermo;
     }
 
-    //! Check that the specified species index is in range. Throws an exception
-    //! if k is greater than nSpecies()
-    void checkSpeciesIndex(size_t k) const;
+    //! Check that the specified species index is in range.
+    /*!
+     * @since Starting in %Cantera 3.2, returns the input species index, if valid.
+     * @exception Throws an IndexError if k is greater than #m_nsp.
+     */
+    size_t checkSpeciesIndex(size_t k) const;
 
-    //! Check that an array size is at least nSpecies(). Throws an exception if
-    //! kk is less than nSpecies(). Used before calls which take an array
+    //! Check that an array size is at least #m_nsp. Throws an exception if
+    //! kk is less than #m_nsp. Used before calls which take an array
     //! pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkSpeciesArraySize(size_t kk) const;
 
     //! @name Transport Properties
     //! @{
 
-    /**
-     * The viscosity in Pa-s.
-     */
+    //! Get the dynamic viscosity [Pa·s]
     virtual double viscosity() {
         throw NotImplementedError("Transport::viscosity",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Returns the pure species viscosities
+    //! Get the pure species viscosities [Pa·s].
     /*!
-     * The units are Pa-s and the length is the number of species
-     *
-     * @param visc   Vector of viscosities
+     * @param visc   Vector of viscosities; length is the number of species
      */
     virtual void getSpeciesViscosities(double* const visc) {
         throw NotImplementedError("Transport::getSpeciesViscosities",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! The bulk viscosity in Pa-s.
+    //! The bulk viscosity [Pa·s].
     /*!
      * The bulk viscosity is only non-zero in rare cases. Most transport
      * managers either overload this method to return zero, or do not implement
@@ -146,24 +154,19 @@ public:
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Returns the mixture thermal conductivity in W/m/K.
-    /*!
-     * Units are in W / m K  or equivalently kg m / s3 K
-     *
-     * @returns thermal conductivity in W/m/K.
-     */
+    //! Get the mixture thermal conductivity [W/m/K].
     virtual double thermalConductivity() {
         throw NotImplementedError("Transport::thermalConductivity",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! The electrical conductivity (Siemens/m).
+    //! Get the electrical conductivity [siemens/m].
     virtual double electricalConductivity() {
         throw NotImplementedError("Transport::electricalConductivity",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Get the Electrical mobilities (m^2/V/s).
+    //! Get the electrical mobilities [m²/V/s].
     /*!
      * This function returns the mobilities. In some formulations this is equal
      * to the normal mobility multiplied by Faraday's constant.
@@ -186,24 +189,24 @@ public:
 
     //! @}
 
-    //! Get the species diffusive mass fluxes wrt to the specified solution
-    //! averaged velocity, given the gradients in mole fraction and temperature
+    //! Get the species diffusive mass fluxes [kg/m²/s] with respect to the specified
+    //! solution averaged velocity, given the mole fraction and temperature gradients.
     /*!
-     * Units for the returned fluxes are kg m-2 s-1.
+     * Usually the specified solution average velocity is the mass averaged velocity.
+     * This is changed in some subclasses, however.
      *
-     * Usually the specified solution average velocity is the mass averaged
-     * velocity. This is changed in some subclasses, however.
-     *
-     * @param ndim       Number of dimensions in the flux expressions
-     * @param grad_T     Gradient of the temperature (length = ndim)
-     * @param ldx        Leading dimension of the grad_X array (usually equal to
-     *                   m_nsp but not always)
-     * @param grad_X     Gradients of the mole fraction Flat vector with the
-     *                   m_nsp in the inner loop. length = ldx * ndim
-     * @param ldf        Leading dimension of the fluxes array (usually equal to
-     *                   m_nsp but not always)
-     * @param fluxes     Output of the diffusive mass fluxes. Flat vector with
-     *                   the m_nsp in the inner loop. length = ldx * ndim
+     * @param ndim  Number of dimensions in the flux expressions
+     * @param[in] grad_T  Gradient of the temperature (length `ndim`)
+     * @param ldx  Leading dimension of the `grad_X` array (usually equal to the number
+     *     of species)
+     * @param[in] grad_X  Gradients of the mole fractions; flattened matrix such that
+     *     @f$ dX_k/dx_n = \tt{ grad\_X[n*ldx+k]} @f$ is the gradient of species *k*
+     *     in dimension *n*. Length is `ldx` * `ndim`.
+     * @param ldf  Leading dimension of the `fluxes` array (usually equal to the number
+     *     of species)
+     * @param[out] fluxes  The diffusive mass fluxes; flattened matrix such that
+     *     @f$ j_{kn} = \tt{ fluxes[n*ldf+k]} @f$ is the flux of species *k*
+     *     in dimension *n*. Length is `ldf` * `ndim`.
      */
     virtual void getSpeciesFluxes(size_t ndim, const double* const grad_T,
                                   size_t ldx, const double* const grad_X,
@@ -212,18 +215,16 @@ public:
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Get the molar fluxes [kmol/m^2/s], given the thermodynamic state at two
+    //! Get the molar fluxes [kmol/m²/s], given the thermodynamic state at two
     //! nearby points.
     /*!
      * @param[in] state1 Array of temperature, density, and mass fractions for
      *               state 1.
      * @param[in] state2 Array of temperature, density, and mass fractions for
      *               state 2.
-     * @param[in] delta  Distance from state 1 to state 2 (m).
-     * @param[out] cfluxes Output array containing the diffusive molar fluxes of
-     *               species from state1 to state2. This is a flat vector with
-     *               m_nsp in the inner loop. length = ldx * ndim. Units are
-     *               [kmol/m^2/s].
+     * @param[in] delta  Distance [m] from state 1 to state 2.
+     * @param[out] cfluxes  Array containing the diffusive molar fluxes of species from
+     *     `state1` to `state2`; Length is number of species.
      */
     virtual void getMolarFluxes(const double* const state1,
                                 const double* const state2, const double delta,
@@ -232,18 +233,16 @@ public:
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Get the mass fluxes [kg/m^2/s], given the thermodynamic state at two
+    //! Get the mass fluxes [kg/m²/s], given the thermodynamic state at two
     //! nearby points.
     /*!
      * @param[in] state1 Array of temperature, density, and mass
      *               fractions for state 1.
      * @param[in] state2 Array of temperature, density, and mass fractions for
      *               state 2.
-     * @param[in] delta Distance from state 1 to state 2 (m).
-     * @param[out] mfluxes Output array containing the diffusive mass fluxes of
-     *               species from state1 to state2. This is a flat vector with
-     *               m_nsp in the inner loop. length = ldx * ndim. Units are
-     *               [kg/m^2/s].
+     * @param[in] delta Distance [m] from state 1 to state 2.
+     * @param[out] mfluxes  Array containing the diffusive mass fluxes of species from
+     *     `state1` to `state2`; length is number of species.
      */
     virtual void getMassFluxes(const double* state1,
                                const double* state2, double delta,
@@ -252,90 +251,95 @@ public:
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Return a vector of Thermal diffusion coefficients [kg/m/sec].
+    //! Return a vector of thermal diffusion coefficients [kg/m/s].
     /*!
      * The thermal diffusion coefficient @f$ D^T_k @f$ is defined so that the
      * diffusive mass flux of species *k* induced by the local temperature
-     * gradient is given by the following formula:
+     * gradient is given by:
      *
      * @f[
-     *     M_k J_k = -D^T_k \nabla \ln T.
+     *     \mathbf{j}_k = -D^T_k \frac{\nabla T}{T}.
      * @f]
      *
      * The thermal diffusion coefficient can be either positive or negative.
      *
-     * @param dt On return, dt will contain the species thermal diffusion
-     *           coefficients.  Dimension dt at least as large as the number of
-     *           species. Units are kg/m/s.
+     * @param dt On return, dt will contain the species thermal diffusion coefficients.
+     *           Dimension dt at least as large as the number of species.
      */
     virtual void getThermalDiffCoeffs(double* const dt) {
         throw NotImplementedError("Transport::getThermalDiffCoeffs",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Returns the matrix of binary diffusion coefficients [m^2/s].
+    //! Returns the matrix of binary diffusion coefficients [m²/s].
     /*!
-     * @param[in] ld   Inner stride for writing the two dimension diffusion
-     *                 coefficients into a one dimensional vector
-     * @param[out] d   Diffusion coefficient matrix (must be at least m_k * m_k
-     *                 in length.
+     * @param[in] ld  Leading dimension of the flattened array `d` used to store the
+     *                diffusion coefficient matrix; usually equal to the number of
+     *                species.
+     * @param[out] d  Diffusion coefficient matrix stored in column-major (Fortran)
+     *                order, such that @f$ \mathcal{D}_{ij} = \tt{d[ld*j + i]} @f$; must
+     *                be at least `ld` times the number of species in length.
+     * @see GasTransport::fitDiffCoeffs()
      */
     virtual void getBinaryDiffCoeffs(const size_t ld, double* const d) {
         throw NotImplementedError("Transport::getBinaryDiffCoeffs",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Return the Multicomponent diffusion coefficients. Units: [m^2/s].
+    //! Return the multicomponent diffusion coefficients [m²/s].
     /*!
      * If the transport manager implements a multicomponent diffusion
      * model, then this method returns the array of multicomponent
      * diffusion coefficients. Otherwise it throws an exception.
      *
-     * @param[in] ld  The dimension of the inner loop of d (usually equal to m_nsp)
-     * @param[out] d  flat vector of diffusion coefficients, fortran ordering.
-     *            d[ld*j+i] is the D_ij diffusion coefficient (the diffusion
-     *            coefficient for species i due to concentration gradients in
-     *            species j). Units: m^2/s
+     * @param[in] ld  Leading dimension of the flattened array `d` used to store the
+     *                diffusion coefficient matrix; usually equal to the number of
+     *                species.
+     * @param[out] d  Diffusion coefficient matrix stored in column-major (Fortran)
+     *                order, such that @f$ D_{ij} = \tt{d[ld*j + i]} @f$ is the
+     *                diffusion coefficient for species *i* due to concentration
+     *                gradients in species *j*; must be at least `ld` times the number
+     *                of species in length.
      */
     virtual void getMultiDiffCoeffs(const size_t ld, double* const d) {
         throw NotImplementedError("Transport::getMultiDiffCoeffs",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Returns a vector of mixture averaged diffusion coefficients
+    //! Return a vector of mixture averaged diffusion coefficients [m²/s].
     /**
      * Mixture-averaged diffusion coefficients [m^2/s].  If the transport
      * manager implements a mixture-averaged diffusion model, then this method
      * returns the array of mixture-averaged diffusion coefficients. Otherwise
      * it throws an exception.
      *
-     * @param d  Return vector of mixture averaged diffusion coefficients
-     *           Units = m2/s. Length = n_sp
+     * @param d  Return vector of mixture averaged diffusion coefficients; length is
+     *     the number of species.
      */
     virtual void getMixDiffCoeffs(double* const d) {
         throw NotImplementedError("Transport::getMixDiffCoeffs",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Returns a vector of mixture averaged diffusion coefficients
+    //! Returns a vector of mixture averaged diffusion coefficients [m²/s].
     virtual void getMixDiffCoeffsMole(double* const d) {
         throw NotImplementedError("Transport::getMixDiffCoeffsMole",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Returns a vector of mixture averaged diffusion coefficients
+    //! Returns a vector of mixture averaged diffusion coefficients [m²/s].
     virtual void getMixDiffCoeffsMass(double* const d) {
         throw NotImplementedError("Transport::getMixDiffCoeffsMass",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Return the polynomial fits to the viscosity of species i
+    //! Return the polynomial fits to the viscosity of species `i`.
     virtual void getViscosityPolynomial(size_t i, double* coeffs) const{
         throw NotImplementedError("Transport::getViscosityPolynomial",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Return the temperature fits of the heat conductivity of species i
+    //! Return the temperature fits of the heat conductivity of species `i`.
     virtual void getConductivityPolynomial(size_t i, double* coeffs) const{
         throw NotImplementedError("Transport::getConductivityPolynomial",
             "Not implemented for transport model '{}'.", transportModel());
@@ -356,13 +360,13 @@ public:
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Modify the polynomial fits to the viscosity of species i
+    //! Modify the polynomial fits to the viscosity of species `i`
     virtual void setViscosityPolynomial(size_t i, double* coeffs){
         throw NotImplementedError("Transport::setViscosityPolynomial",
             "Not implemented for transport model '{}'.", transportModel());
     }
 
-    //! Modify the temperature fits of the heat conductivity of species i
+    //! Modify the temperature fits of the heat conductivity of species `i`
     virtual void setConductivityPolynomial(size_t i, double* coeffs){
         throw NotImplementedError("Transport::setConductivityPolynomial",
             "Not implemented for transport model '{}'.", transportModel());
@@ -384,7 +388,7 @@ public:
     }
 
     //! Return the parameters for a phase definition which are needed to
-    //! reconstruct an identical object using the newTransport function. This
+    //! reconstruct an identical object using the newTransport() function. This
     //! excludes the individual species transport properties, which are handled
     //! separately.
     AnyMap parameters() const;
@@ -412,11 +416,23 @@ public:
      * @param thermo  Pointer to the ThermoPhase object
      * @param mode    Chemkin compatible mode or not. This alters the
      *                 specification of the collision integrals. defaults to no.
-     * @param log_level Defaults to zero, no logging
-     * @deprecated The `log_level` parameter is deprecated and will be removed after
-     *     %Cantera 3.1.
+     * @deprecated To be removed after %Cantera 3.2. Use version that takes
+     *     `shared_ptr<ThermoPhase>`.
      */
-    virtual void init(ThermoPhase* thermo, int mode=0, int log_level=-7) {}
+    virtual void init(ThermoPhase* thermo, int mode=0) {}
+
+    //! Initialize a transport manager
+    /*!
+     * This routine sets up a transport manager. It calculates the collision
+     * integrals and populates species-dependent data structures.
+     *
+     * @param thermo  ThermoPhase object determining conditions for which to compute
+     *     transport properties.
+     * @param mode  Chemkin compatible mode or not. This alters the
+     *     specification of the collision integrals. defaults to no.
+     * @since  Changed to use `shared_ptr<ThermoPhase>` in %Cantera 3.2.
+     */
+    virtual void init(shared_ptr<ThermoPhase> thermo, int mode=0) {}
 
     //! Boolean indicating the form of the transport properties polynomial fits.
     //! Returns true if the Chemkin form is used.
@@ -436,7 +452,7 @@ protected:
     //! pointer to the object representing the phase
     ThermoPhase* m_thermo;
 
-    //! Number of species
+    //! Number of species in the phase
     size_t m_nsp = 0;
 
     //! Maximum errors associated with fitting pure species transport properties.

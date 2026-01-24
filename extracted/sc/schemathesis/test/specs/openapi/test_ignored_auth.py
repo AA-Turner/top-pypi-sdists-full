@@ -1,4 +1,4 @@
-import sys
+import json
 from typing import Annotated
 from unittest.mock import Mock
 
@@ -17,12 +17,7 @@ from schemathesis.core.transport import Response
 from schemathesis.engine import Status
 from schemathesis.engine.events import ScenarioFinished
 from schemathesis.engine.phases import PhaseName
-from schemathesis.specs.openapi.checks import (
-    AuthKind,
-    _contains_auth,
-    ignored_auth,
-    remove_auth,
-)
+from schemathesis.specs.openapi.checks import AuthKind, IgnoredAuth, _contains_auth, ignored_auth, remove_auth
 from schemathesis.transport.requests import RequestsTransport
 from test.utils import EventStream
 
@@ -113,6 +108,19 @@ def test_keep_tls_verification(schema_url, mocker):
     for call in send.mock_calls:
         assert call.kwargs["timeout"] == 5
         assert not call.kwargs["verify"]
+
+
+@pytest.mark.openapi_version("3.0")
+@pytest.mark.operations("ignored_auth")
+def test_file_loaded_schema_requires_explicit_base_url(openapi3_schema, openapi3_base_url, tmp_path):
+    # See GH-3318
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text(json.dumps(openapi3_schema.raw_schema))
+    schema = schemathesis.openapi.from_path(schema_path)
+    case = schema["/ignored_auth"]["get"].Case(headers={"Authorization": "Basic dGVzdDp0ZXN0"})
+    with pytest.raises(FailureGroup) as exc_info:
+        case.call_and_validate(base_url=openapi3_base_url, checks=[ignored_auth])
+    assert any(isinstance(failure, IgnoredAuth) for failure in exc_info.value.exceptions)
 
 
 @pytest.mark.parametrize(
@@ -269,7 +277,6 @@ def test_proper_session(ignores_auth):
         (False, "API accepts invalid authentication"),
     ],
 )
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Typing syntax is not supported on Python 3.9 and below")
 def test_accepts_any_auth_if_explicit_is_present(ignores_auth, expected):
     app = FastAPI()
 
@@ -378,7 +385,6 @@ def test_stateful_in_cli_no_error(ctx, cli, with_error, base_url, snapshot_cli):
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Typing syntax is not supported on Python 3.9 and below")
 def test_custom_auth():
     app = FastAPI()
     token = "TEST"
@@ -444,6 +450,24 @@ async def get_api_key(api_key: str = Security(api_key)):
 async def data(api_key: str = Depends(get_api_key)):
     return {{"message": "Authenticated"}}
         """
+
+
+def test_explicit_auth_tuple_in_call_and_validate():
+    # GH-3386: `auth` kwarg passed to `call_and_validate` is not forwarded to CheckContext
+    app = FastAPI()
+    api_key = APIKeyHeader(name="Authorization", auto_error=False)
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
+    def root(credentials: Annotated[str | None, Security(api_key)]):
+        if credentials is None or credentials != "Basic dGVzdDp0ZXN0":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        return {"message": "OK"}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    case = schema["/"]["GET"].Case()
+    client = TestClient(app)
+    # Valid auth passed as tuple - should NOT raise IgnoredAuth
+    case.call_and_validate(session=client, auth=("test", "test"), checks=[ignored_auth])
 
 
 @pytest.mark.parametrize("location", ["query", "cookie", "header"])

@@ -11,13 +11,13 @@ from wbcore.contrib.directory.models import (
     BankingContact,
     Company,
     EmailContact,
+    EmployerEmployeeRelationship,
     Entry,
     Person,
     SocialMediaContact,
     TelephoneContact,
     WebsiteContact,
 )
-from wbcore.contrib.directory.models import EmployerEmployeeRelationship as EER
 
 from ..filters import (
     AddressContactCompanyFilter,
@@ -129,16 +129,16 @@ class ContactModelMixin(_Base):
             if not entry.is_company:
                 person = entry.get_casted_entry()
                 if (
-                    EER.objects.filter(employee=person, primary=True).exists()
-                    and EER.objects.filter(employee=person).count() > 1
+                    EmployerEmployeeRelationship.objects.filter(employee=person, primary=True).exists()
+                    and EmployerEmployeeRelationship.objects.filter(employee=person).count() > 1
                 ):
                     return (
                         super()
                         .get_queryset()
                         .exclude(
-                            entry__in=EER.objects.filter(employee=person, primary=False).values_list(
-                                "employer", flat=True
-                            )
+                            entry__in=EmployerEmployeeRelationship.objects.filter(
+                                employee=person, primary=False
+                            ).values_list("employer", flat=True)
                         )
                     )
         return super().get_queryset()

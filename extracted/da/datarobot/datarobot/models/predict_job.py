@@ -90,9 +90,7 @@ class PredictJob(AbstractSpecificJob):
     """
 
     _extra_fields = frozenset(["message"])
-    _converter_extra = t.Dict(
-        {t.Key("message", optional=True, default=""): String(allow_blank=True)}
-    )
+    _converter_extra = t.Dict({t.Key("message", optional=True, default=""): String(allow_blank=True)})
 
     def __init__(self, data, completed_resource_url=None):
         super().__init__(data, completed_resource_url=completed_resource_url)

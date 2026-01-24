@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.edit_sqs_trigger_aws_auth_resource_type import EditSqsTriggerAwsAuthResourceType
+from ..models.edit_sqs_trigger_mode import EditSqsTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,11 +25,11 @@ class EditSqsTrigger:
         path (str):
         script_path (str):
         is_flow (bool):
-        enabled (bool):
         message_attributes (Union[Unset, List[str]]):
+        mode (Union[Unset, EditSqsTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, EditSqsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, EditSqsTriggerRetry]):
+        retry (Union[Unset, EditSqsTriggerRetry]): Retry configuration for failed module executions
     """
 
     queue_url: str
@@ -37,8 +38,8 @@ class EditSqsTrigger:
     path: str
     script_path: str
     is_flow: bool
-    enabled: bool
     message_attributes: Union[Unset, List[str]] = UNSET
+    mode: Union[Unset, EditSqsTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "EditSqsTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "EditSqsTriggerRetry"] = UNSET
@@ -52,10 +53,13 @@ class EditSqsTrigger:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
-        enabled = self.enabled
         message_attributes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
             message_attributes = self.message_attributes
+
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
 
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -76,11 +80,12 @@ class EditSqsTrigger:
                 "path": path,
                 "script_path": script_path,
                 "is_flow": is_flow,
-                "enabled": enabled,
             }
         )
         if message_attributes is not UNSET:
             field_dict["message_attributes"] = message_attributes
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -108,9 +113,14 @@ class EditSqsTrigger:
 
         is_flow = d.pop("is_flow")
 
-        enabled = d.pop("enabled")
-
         message_attributes = cast(List[str], d.pop("message_attributes", UNSET))
+
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, EditSqsTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = EditSqsTriggerMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -135,8 +145,8 @@ class EditSqsTrigger:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
-            enabled=enabled,
             message_attributes=message_attributes,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

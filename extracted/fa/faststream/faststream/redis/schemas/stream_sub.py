@@ -1,12 +1,45 @@
 import warnings
-from typing import Optional
+from copy import deepcopy
 
-from faststream.broker.schemas import NameRequired
+from faststream._internal.proto import NameRequired
 from faststream.exceptions import SetupError
 
 
 class StreamSub(NameRequired):
-    """A class to represent a Redis Stream subscriber."""
+    """A class to represent a Redis Stream subscriber.
+
+    Args:
+        batch:
+            Whether to consume messages in batches or not.
+        max_records:
+            Number of messages to consume as one batch.
+        consumer:
+            The consumer unique name
+
+            https://redis.io/docs/latest/develop/tools/insight/tutorials/insight-stream-consumer/#run-the-consumer
+        group:
+            The name of consumer group
+        last_id:
+            An Entry ID, which uses to pick up from where it left off after it is restarted.
+        maxlen:
+            Redis Stream maxlen publish option. Remove eldest message if maxlen exceeded.
+
+            https://redis.io/docs/latest/develop/data-types/streams/#capped-streams
+        name:
+            The original Redis Stream name.
+        no_ack:
+            If True, to enable the XREADGROUP NOACK subcommand.
+
+            https://redis.io/docs/latest/commands/xreadgroup/#differences-between-xread-and-xreadgroup
+        polling_interval:
+            Polling interval in seconds.
+        min_idle_time:
+            Minimum idle time in milliseconds for a message to be eligible for claiming via XAUTOCLAIM.
+            Messages that have been pending (unacknowledged) for at least this duration can be
+            reclaimed by this consumer. Only applicable when using consumer groups.
+
+            https://redis.io/docs/latest/commands/xautoclaim/
+    """
 
     __slots__ = (
         "batch",
@@ -15,6 +48,7 @@ class StreamSub(NameRequired):
         "last_id",
         "max_records",
         "maxlen",
+        "min_idle_time",
         "name",
         "no_ack",
         "polling_interval",
@@ -23,17 +57,22 @@ class StreamSub(NameRequired):
     def __init__(
         self,
         stream: str,
-        polling_interval: Optional[int] = 100,
-        group: Optional[str] = None,
-        consumer: Optional[str] = None,
+        polling_interval: int | None = None,
+        group: str | None = None,
+        consumer: str | None = None,
         batch: bool = False,
         no_ack: bool = False,
-        last_id: Optional[str] = None,
-        maxlen: Optional[int] = None,
-        max_records: Optional[int] = None,
+        last_id: str | None = None,
+        maxlen: int | None = None,
+        max_records: int | None = None,
+        min_idle_time: int | None = None,
     ) -> None:
         if (group and not consumer) or (not group and consumer):
-            raise SetupError("You should specify `group` and `consumer` both")
+            msg = "You should specify `group` and `consumer` both"
+            raise SetupError(msg)
+
+        if last_id is None:
+            last_id = ">" if group and consumer else "$"
 
         if group and consumer:
             if last_id != ">":
@@ -43,39 +82,34 @@ class StreamSub(NameRequired):
                         category=RuntimeWarning,
                         stacklevel=1,
                     )
-                    polling_interval = None
+
                 if no_ack:
                     warnings.warn(
                         message="`no_ack` is not supported by consumer group with last_id other than `>`",
                         category=RuntimeWarning,
                         stacklevel=1,
                     )
-                    no_ack = False
+
             elif no_ack:
                 warnings.warn(
                     message="`no_ack` has no effect with consumer group",
                     category=RuntimeWarning,
                     stacklevel=1,
                 )
-                no_ack = False
-
-        if last_id is None:
-            last_id = ">" if group and consumer else "$"
 
         super().__init__(stream)
 
         self.group = group
         self.consumer = consumer
-        self.polling_interval = polling_interval
+        self.polling_interval = polling_interval or 100
         self.batch = batch
         self.no_ack = no_ack
         self.last_id = last_id
         self.maxlen = maxlen
         self.max_records = max_records
+        self.min_idle_time = min_idle_time
 
-    def __hash__(self) -> int:
-        if self.group is not None:
-            return hash(
-                f"stream:{self.name} group:{self.group} consumer:{self.consumer}"
-            )
-        return hash(f"stream:{self.name}")
+    def add_prefix(self, prefix: str) -> "StreamSub":
+        new_stream = deepcopy(self)
+        new_stream.name = f"{prefix}{new_stream.name}"
+        return new_stream

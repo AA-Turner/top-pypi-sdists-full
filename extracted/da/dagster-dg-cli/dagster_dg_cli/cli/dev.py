@@ -7,7 +7,7 @@ from typing import Optional, TypeVar
 import click
 from dagster_dg_core.config import normalize_cli_config
 from dagster_dg_core.context import DgContext
-from dagster_dg_core.shared_options import dg_global_options, dg_path_options
+from dagster_dg_core.shared_options import dg_global_options, dg_path_options, dg_venv_options
 from dagster_dg_core.utils import DgClickCommand, exit_with_error, pushd
 from dagster_dg_core.utils.telemetry import cli_telemetry_wrapper
 from dagster_shared.cli import WorkspaceOpts, dg_workspace_options
@@ -70,6 +70,7 @@ T = TypeVar("T")
 )
 @dg_path_options
 @dg_global_options
+@dg_venv_options
 @dg_workspace_options
 @cli_telemetry_wrapper
 def dev_command(
@@ -81,6 +82,8 @@ def dev_command(
     live_data_poll_rate: int,
     check_yaml: Optional[bool],
     target_path: Path,
+    verbose: bool,  # from dg_global_options
+    use_active_venv: bool,
     **other_options: Mapping[str, object],
 ) -> None:
     """Start a local instance of Dagster.
@@ -105,7 +108,7 @@ def dev_command(
             live_data_poll_rate=str(live_data_poll_rate),
             use_legacy_code_server_behavior=False,
             shutdown_pipe=None,
-            verbose=False,
+            verbose=verbose,
             workspace_opts=workspace_opts,
         )
 
@@ -136,7 +139,7 @@ def dev_command(
 
     with (
         pushd(dg_context.root_path),
-        create_temp_workspace_file(dg_context) as workspace_file,
+        create_temp_workspace_file(dg_context, use_active_venv) as workspace_file,
     ):
         if check_yaml:
             overall_check_result = True
@@ -166,6 +169,6 @@ def dev_command(
             live_data_poll_rate=str(live_data_poll_rate),
             use_legacy_code_server_behavior=False,
             shutdown_pipe=None,
-            verbose=False,
+            verbose=verbose,
             workspace_opts=WorkspaceOpts(workspace=[workspace_file]),
         )

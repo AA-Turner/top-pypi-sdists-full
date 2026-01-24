@@ -18,20 +18,21 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.lusid_property_definition import LusidPropertyDefinition
-from finbourne_horizon.models.optionality import Optionality
 
 class LusidPropertyToVendorFieldMapping(BaseModel):
     """
     The mapping of a LUSID Property from the Vendor Field that would populate it  # noqa: E501
     """
-    var_property: LusidPropertyDefinition = Field(..., alias="property")
+    var_property: LusidPropertyDefinition = Field(alias="property")
     vendor_field:  StrictStr = Field(...,alias="vendorField") 
     vendor_package:  StrictStr = Field(...,alias="vendorPackage") 
     vendor_namespace:  StrictStr = Field(...,alias="vendorNamespace") 
-    optionality: Optionality = Field(...)
+    optionality:  StrictStr = Field(...,alias="optionality") 
     __properties = ["property", "vendorField", "vendorPackage", "vendorNamespace", "optionality"]
 
     class Config:
@@ -88,3 +89,5 @@ class LusidPropertyToVendorFieldMapping(BaseModel):
             "optionality": obj.get("optionality")
         })
         return _obj
+
+LusidPropertyToVendorFieldMapping.update_forward_refs()

@@ -1,16 +1,16 @@
-use lazy_static::lazy_static;
+use crate::utils::element_cache::ElementCache;
+use crate::utils::range_utils::LineIndex;
 use regex::Regex;
 use std::fmt;
+use std::sync::LazyLock;
 
-lazy_static! {
-    // Standard code block detection patterns
-    static ref FENCED_CODE_BLOCK_START: Regex = Regex::new(r"^(\s*)```(?:[^`\r\n]*)$").unwrap();
-    static ref FENCED_CODE_BLOCK_END: Regex = Regex::new(r"^(\s*)```\s*$").unwrap();
-    static ref ALTERNATE_FENCED_CODE_BLOCK_START: Regex = Regex::new(r"^(\s*)~~~(?:[^~\r\n]*)$").unwrap();
-    static ref ALTERNATE_FENCED_CODE_BLOCK_END: Regex = Regex::new(r"^(\s*)~~~\s*$").unwrap();
-    static ref INDENTED_CODE_BLOCK: Regex = Regex::new(r"^(\s{4,})").unwrap();
-    static ref LIST_ITEM_RE: Regex = Regex::new(r"^(\s*)([*+-]|\d+[.)])(\s*)(.*)$").unwrap();
-}
+// Standard code block detection patterns
+static FENCED_CODE_BLOCK_START: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)```(?:[^`\r\n]*)$").unwrap());
+static FENCED_CODE_BLOCK_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)```\s*$").unwrap());
+static ALTERNATE_FENCED_CODE_BLOCK_START: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(\s*)~~~(?:[^~\r\n]*)$").unwrap());
+static ALTERNATE_FENCED_CODE_BLOCK_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)~~~\s*$").unwrap());
+static LIST_ITEM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)([*+-]|\d+[.)])(\s*)(.*)$").unwrap());
 
 /// Utility functions for detecting and handling code blocks in Markdown documents
 pub struct CodeBlockUtils;
@@ -69,11 +69,10 @@ impl CodeBlockUtils {
         FENCED_CODE_BLOCK_END.is_match(line) || ALTERNATE_FENCED_CODE_BLOCK_END.is_match(line)
     }
 
-    /// Check if a line is an indented code block
+    /// Check if a line is an indented code block (4+ columns of leading whitespace)
     pub fn is_indented_code_block(line: &str) -> bool {
-        // Convert tabs to spaces (1 tab = 4 spaces) for proper indentation checking
-        let expanded_line = line.replace('\t', "    ");
-        INDENTED_CODE_BLOCK.is_match(&expanded_line)
+        // Use proper tab expansion to calculate effective indentation
+        ElementCache::calculate_indentation_width_default(line) >= 4
     }
 
     /// Extracts the language specifier from a fenced code block start line
@@ -175,7 +174,7 @@ impl CodeBlockUtils {
             } else if !in_code_block[i] {
                 // Check for indented code blocks only if not already marked
                 // Do not mark as code block if the line is a list item
-                if (line.starts_with("    ") || INDENTED_CODE_BLOCK.is_match(line)) && !LIST_ITEM_RE.is_match(line) {
+                if ElementCache::calculate_indentation_width_default(line) >= 4 && !LIST_ITEM_RE.is_match(line) {
                     in_code_block[i] = true;
                 }
             }
@@ -186,11 +185,7 @@ impl CodeBlockUtils {
 }
 
 // Cached regex patterns for better performance
-lazy_static! {
-    static ref FENCED_CODE_BLOCK_PATTERN: Regex = Regex::new(r"^(?:```|~~~)").unwrap();
-    static ref INDENTED_CODE_BLOCK_PATTERN: Regex = Regex::new(r"^(\s{4,})").unwrap();
-    static ref BACKTICK_PATTERN: Regex = Regex::new(r"(`+)").unwrap();
-}
+static FENCED_CODE_BLOCK_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:```|~~~)").unwrap());
 
 /// Tracks which lines are inside code blocks and their types
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -202,25 +197,29 @@ pub enum CodeBlockState {
 
 /// Structure to hold pre-computed code block information
 #[derive(Debug)]
-pub struct CodeBlockInfo {
+pub struct CodeBlockInfo<'a> {
     /// Whether each line is in a code block, and which type
     pub block_states: Vec<CodeBlockState>,
     /// Positions of code spans in the text (start, end)
     pub code_spans: Vec<(usize, usize)>,
     /// The original content used to create this info
-    content: String,
+    content: &'a str,
+    /// LineIndex for correct byte position calculations across all line ending types
+    line_index: LineIndex<'a>,
 }
 
-impl CodeBlockInfo {
+impl<'a> CodeBlockInfo<'a> {
     /// Create a new CodeBlockInfo by analyzing the content
-    pub fn new(content: &str) -> Self {
+    pub fn new(content: &'a str) -> Self {
         let block_states = compute_code_blocks(content);
         let code_spans = compute_code_spans(content);
+        let line_index = LineIndex::new(content);
 
         CodeBlockInfo {
             block_states,
             code_spans,
-            content: content.to_string(),
+            content,
+            line_index,
         }
     }
 
@@ -235,28 +234,17 @@ impl CodeBlockInfo {
 
     /// Check if a position is inside a code span
     pub fn is_in_code_span(&self, line_index: usize, column_index: usize) -> bool {
-        // Calculate absolute position (this assumes content is ASCII-only)
-        let mut position = 0;
-        let content_lines: Vec<&str> = self.content.lines().collect();
+        // Calculate absolute position using LineIndex for correct handling of all line ending types
+        let line_start = self
+            .line_index
+            .get_line_start_byte(line_index + 1)
+            .unwrap_or(self.content.len());
+        let position = line_start + column_index;
 
-        for i in 0..line_index {
-            if i < content_lines.len() {
-                position += content_lines[i].len() + 1; // +1 for newline
-            }
-        }
-
-        if line_index < content_lines.len() {
-            // Add column position
-            let line = content_lines[line_index];
-            if column_index < line.len() {
-                position += column_index;
-
-                // Check if position is in any code span
-                for &(start, end) in &self.code_spans {
-                    if position >= start && position <= end {
-                        return true;
-                    }
-                }
+        // Check if position is in any code span
+        for &(start, end) in &self.code_spans {
+            if position >= start && position <= end {
+                return true;
             }
         }
 
@@ -293,9 +281,8 @@ pub fn compute_code_blocks(content: &str) -> Vec<CodeBlockState> {
             fence_marker = if line.trim().starts_with("```") { "```" } else { "~~~" };
             result.push(CodeBlockState::Fenced); // The opening fence is part of the block
         } else if !line.trim().is_empty() {
-            // Convert tabs to spaces for proper indentation checking
-            let expanded_line = line.replace('\t', "    ");
-            if INDENTED_CODE_BLOCK_PATTERN.is_match(&expanded_line) {
+            // Use proper tab expansion to check for indented code block
+            if ElementCache::calculate_indentation_width_default(line) >= 4 {
                 result.push(CodeBlockState::Indented);
             } else {
                 result.push(CodeBlockState::None);
@@ -528,10 +515,13 @@ More text";
     fn test_is_indented_code_block() {
         assert!(CodeBlockUtils::is_indented_code_block("    code"));
         assert!(CodeBlockUtils::is_indented_code_block("        more indented"));
-        // Tabs should be treated as 4 spaces each
-        assert!(CodeBlockUtils::is_indented_code_block("\tcode")); // 1 tab = 4 spaces
-        assert!(CodeBlockUtils::is_indented_code_block("\t\tcode")); // 2 tabs = 8 spaces
-        assert!(CodeBlockUtils::is_indented_code_block("  \tcode")); // 2 spaces + 1 tab = 6 spaces
+
+        // Tab expansion per CommonMark: tabs expand to next tab stop (columns 4, 8, 12, ...)
+        assert!(CodeBlockUtils::is_indented_code_block("\tcode")); // tab → column 4
+        assert!(CodeBlockUtils::is_indented_code_block("\t\tcode")); // 2 tabs → column 8
+        assert!(CodeBlockUtils::is_indented_code_block("  \tcode")); // 2 spaces + tab → column 4
+        assert!(CodeBlockUtils::is_indented_code_block(" \tcode")); // 1 space + tab → column 4
+        assert!(CodeBlockUtils::is_indented_code_block("   \tcode")); // 3 spaces + tab → column 4
 
         assert!(!CodeBlockUtils::is_indented_code_block("   code")); // Only 3 spaces
         assert!(!CodeBlockUtils::is_indented_code_block("normal text"));

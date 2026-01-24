@@ -1,0 +1,76 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "ninja",
+    "cmake>=3.12",
+    "nanobind==2.9.2",
+    # uv pip install vllm==0.9.1 --dry-run 2>&1 | grep protobuf | sed 's/^ + //'
+    "protobuf==5.29.5",
+    "grpcio-tools",
+    "torch==2.8.0", # need to be same as user env.
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arctic_inference"
+version = "0.1.2"
+description = "Snowflake LLM inference library"
+
+[project.entry-points."vllm.general_plugins"]
+arctic_inference = "arctic_inference.vllm.plugin:arctic_inference_plugin"
+
+[tool.setuptools]
+packages = [
+    "arctic_inference",
+    "arctic_inference.common",
+    "arctic_inference.common.swiftkv",
+    "arctic_inference.dynasor",
+    "arctic_inference.op_builder",
+    "arctic_inference.suffix_decoding",
+    "arctic_inference.vllm",
+    "arctic_inference.vllm.swiftkv",
+    "arctic_inference.vllm.spec_dec",
+    "arctic_inference.embedding",
+    "arctic_inference.csrc",
+]
+
+[tool.setuptools.package-dir]
+"arctic_inference.csrc" = "csrc"
+
+[tool.setuptools.package-data]
+"arctic_inference.embedding" = ["arctic_inference/embedding/proto/*.proto"]
+
+[project.optional-dependencies]
+vllm = [
+    'vllm==0.11.0',
+]
+
+docs = [
+    "sphinx>=8.1.3",
+    "sphinx-copybutton",
+    "sphinx-rtd-theme",
+]
+
+test = [
+    "lm_eval[api,ifeval]==0.4.8",
+    "pandas",
+    "pytest",
+    "sentence_transformers"
+]
+
+embedding = [
+    "vllm==0.9.2",
+    # uv pip install vllm==0.9.2 --dry-run 2>&1 | grep protobuf | sed 's/^ + //'
+    "protobuf==5.29.5",
+]
+
+dynasor = [
+    "rich",
+    "prompt_toolkit",
+    "pydantic",
+    "datasets",
+    "latex2sympy2",
+    "transformers",
+    "word2number",
+]

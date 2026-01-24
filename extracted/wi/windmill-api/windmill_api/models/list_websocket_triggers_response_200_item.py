@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.list_websocket_triggers_response_200_item_mode import ListWebsocketTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -37,9 +38,9 @@ class ListWebsocketTriggersResponse200Item:
     """
     Attributes:
         url (str):
-        enabled (bool):
         filters (List['ListWebsocketTriggersResponse200ItemFiltersItem']):
         can_return_message (bool):
+        can_return_error_result (bool):
         path (str):
         script_path (str):
         email (str):
@@ -48,6 +49,7 @@ class ListWebsocketTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListWebsocketTriggersResponse200ItemMode): job trigger mode
         server_id (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error (Union[Unset, str]):
@@ -58,13 +60,14 @@ class ListWebsocketTriggersResponse200Item:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListWebsocketTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass
             to the script or flow
-        retry (Union[Unset, ListWebsocketTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListWebsocketTriggersResponse200ItemRetry]): Retry configuration for failed module
+            executions
     """
 
     url: str
-    enabled: bool
     filters: List["ListWebsocketTriggersResponse200ItemFiltersItem"]
     can_return_message: bool
+    can_return_error_result: bool
     path: str
     script_path: str
     email: str
@@ -73,6 +76,7 @@ class ListWebsocketTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListWebsocketTriggersResponse200ItemMode
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -97,7 +101,6 @@ class ListWebsocketTriggersResponse200Item:
         )
 
         url = self.url
-        enabled = self.enabled
         filters = []
         for filters_item_data in self.filters:
             filters_item = filters_item_data.to_dict()
@@ -105,6 +108,7 @@ class ListWebsocketTriggersResponse200Item:
             filters.append(filters_item)
 
         can_return_message = self.can_return_message
+        can_return_error_result = self.can_return_error_result
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -115,6 +119,8 @@ class ListWebsocketTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET
         if not isinstance(self.last_server_ping, Unset):
@@ -153,9 +159,9 @@ class ListWebsocketTriggersResponse200Item:
         field_dict.update(
             {
                 "url": url,
-                "enabled": enabled,
                 "filters": filters,
                 "can_return_message": can_return_message,
+                "can_return_error_result": can_return_error_result,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -164,6 +170,7 @@ class ListWebsocketTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if server_id is not UNSET:
@@ -210,8 +217,6 @@ class ListWebsocketTriggersResponse200Item:
         d = src_dict.copy()
         url = d.pop("url")
 
-        enabled = d.pop("enabled")
-
         filters = []
         _filters = d.pop("filters")
         for filters_item_data in _filters:
@@ -220,6 +225,8 @@ class ListWebsocketTriggersResponse200Item:
             filters.append(filters_item)
 
         can_return_message = d.pop("can_return_message")
+
+        can_return_error_result = d.pop("can_return_error_result")
 
         path = d.pop("path")
 
@@ -236,6 +243,8 @@ class ListWebsocketTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListWebsocketTriggersResponse200ItemMode(d.pop("mode"))
 
         server_id = d.pop("server_id", UNSET)
 
@@ -305,9 +314,9 @@ class ListWebsocketTriggersResponse200Item:
 
         list_websocket_triggers_response_200_item = cls(
             url=url,
-            enabled=enabled,
             filters=filters,
             can_return_message=can_return_message,
+            can_return_error_result=can_return_error_result,
             path=path,
             script_path=script_path,
             email=email,
@@ -316,6 +325,7 @@ class ListWebsocketTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             server_id=server_id,
             last_server_ping=last_server_ping,
             error=error,

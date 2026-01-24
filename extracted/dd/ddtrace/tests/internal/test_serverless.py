@@ -30,7 +30,6 @@ def test_not_azure_function():
 
 standard_blocklist = [
     "ddtrace.appsec._api_security.api_manager",
-    "ddtrace.appsec._iast._ast.ast_patching",
     "ddtrace.internal.telemetry.writer",
     "email.mime.application",
     "email.mime.multipart",
@@ -43,18 +42,24 @@ standard_blocklist = [
     # These modules must not be imported because their source files are
     # specifically removed from the serverless python layer.
     # See https://github.com/DataDog/datadog-lambda-python/blob/main/Dockerfile
+    "ddtrace.appsec._iast._ast.ast_patching",
     "ddtrace.appsec._iast._ast.iastpatch",
     "ddtrace.appsec._iast._taint_tracking._native",
+    "ddtrace.appsec._iast._taint_tracking._vendor",
     "ddtrace.appsec._iast._stacktrace",
     "ddtrace.internal.datadog.profiling.libdd_wrapper",
     "ddtrace.internal.datadog.profiling.ddup._ddup",
-    "ddtrace.internal.datadog.profiling.stack_v2._stack_v2",
+    "ddtrace.internal.datadog.profiling.stack._stack",
     "ddtrace.internal._file_queue",
     "secrets",
 ]
-expanded_blocklist = standard_blocklist + [
-    "importlib.metadata",
-]
+expanded_blocklist = (
+    standard_blocklist
+    + [
+        # wrapt 2.0 is importing importlib.metada
+        # "importlib.metadata",
+    ]
+)
 
 
 @pytest.mark.parametrize(
@@ -65,7 +70,7 @@ expanded_blocklist = standard_blocklist + [
         ("ddtrace.contrib.internal.psycopg", expanded_blocklist),
         # requests imports urlib3 which imports importlib.metadata
         # TODO: Fix the requests parameter in a future PR
-        # ("ddtrace.contrib.internal.requests", standard_blocklist),
+        ("ddtrace.contrib.internal.requests", standard_blocklist),
     ],
 )
 def test_slow_imports(package, blocklist, run_python_code_in_subprocess):
@@ -98,6 +103,59 @@ sys.meta_path = [BlockListFinder()] + sys.meta_path
 
 import {package}
 """
+
+    stderr, stdout, status, _ = run_python_code_in_subprocess(code, env=env)
+    assert stdout.decode() == ""
+    assert stderr.decode() == ""
+    assert status == 0
+
+
+@pytest.mark.parametrize(
+    "from_,import_",
+    [
+        ("ddtrace", "__version__"),
+        ("ddtrace", "patch"),
+        ("ddtrace", "patch_all"),
+        ("ddtrace._trace._span_pointer", "_SpanPointerDescription"),
+        ("ddtrace._trace._span_pointer", "_SpanPointerDirection"),
+        ("ddtrace._trace.utils_botocore.span_pointers.dynamodb", "_aws_dynamodb_item_span_pointer_description"),
+        ("ddtrace._trace.utils_botocore.span_pointers.s3", "_aws_s3_object_span_pointer_description"),
+        ("ddtrace.contrib.internal.trace_utils", "_get_request_header_client_ip"),
+        ("ddtrace.data_streams", "set_consume_checkpoint"),
+        ("ddtrace.debugging._exception.replay", "SpanExceptionHandler"),
+        ("ddtrace.debugging._uploader", "SignalUploader"),
+        ("ddtrace.internal", "core"),
+        ("ddtrace.internal._exceptions", "BlockingException"),
+        ("ddtrace.internal.appsec.product", "start"),
+        ("ddtrace.internal.telemetry", "telemetry_writer"),
+        ("ddtrace.internal.utils", "get_blocked"),
+        ("ddtrace.internal.utils", "http"),
+        ("ddtrace.llmobs", "LLMObs"),
+        ("ddtrace.opentelemetry", "TracerProvider"),
+        ("ddtrace.profiling", "profiler"),
+        ("ddtrace.propagation.http", "HTTPPropagator"),
+        ("ddtrace.trace", "Context, Span, tracer"),
+        ("ddtrace.trace", "Span"),
+        ("ddtrace.trace", "tracer"),
+    ],
+)
+def test_serverless_imports(from_, import_, run_python_code_in_subprocess):
+    # datadog-lambda-python imports a bunch of packages from ddtrace.  This
+    # test ensures that none of those imports break.  If this test fails, then
+    # either you will need to retain the import that was removed or you must
+    # update datadog-lambda-python to support the new import path.
+    import os
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "AWS_LAMBDA_FUNCTION_NAME": "foobar",
+            "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "False",
+            "DD_API_SECURITY_ENABLED": "False",
+        }
+    )
+
+    code = f"from {from_} import {import_}"
 
     stderr, stdout, status, _ = run_python_code_in_subprocess(code, env=env)
     assert stdout.decode() == ""

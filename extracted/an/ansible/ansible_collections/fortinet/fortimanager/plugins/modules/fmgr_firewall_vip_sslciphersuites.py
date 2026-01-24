@@ -16,7 +16,6 @@ short_description: SSL/TLS cipher suites acceptable from a client, ordered by pr
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -200,8 +202,8 @@ EXAMPLES = '''
     - name: SSL/TLS cipher suites acceptable from a client, ordered by priority.
       fortinet.fortimanager.fmgr_firewall_vip_sslciphersuites:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -274,6 +276,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'vip': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_vip_sslciphersuites': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -307,7 +310,7 @@ def main():
                     ],
                     'type': 'str'
                 },
-                'id': {'v_range': [['6.0.0', '7.6.2']], 'required': True, 'type': 'int'},
+                'id': {'v_range': [['6.0.0', '7.6.2'], ['7.6.4', '']], 'required': True, 'type': 'int'},
                 'versions': {'type': 'list', 'choices': ['ssl-3.0', 'tls-1.0', 'tls-1.1', 'tls-1.2', 'tls-1.3'], 'elements': 'str'},
                 'priority': {'v_range': [['6.4.0', '']], 'type': 'int'}
             }

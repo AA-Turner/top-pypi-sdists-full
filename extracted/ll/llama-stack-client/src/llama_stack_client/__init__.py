@@ -1,9 +1,15 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 import typing as _t
 
 from . import types
-from ._types import NOT_GIVEN, Omit, NoneType, NotGiven, Transport, ProxiesTypes
+from ._types import NOT_GIVEN, Omit, NoneType, NotGiven, Transport, ProxiesTypes, omit, not_given
 from ._utils import file_from_path
 from ._client import (
     Client,
@@ -41,16 +47,12 @@ from ._utils._logs import setup_logging as _setup_logging
 from .lib.agents.agent import Agent
 from .lib.agents.event_logger import EventLogger as AgentEventLogger
 from .lib.inference.event_logger import EventLogger as InferenceEventLogger
-from .types.shared_params.document import Document as RAGDocument
-from .types.agents.turn_create_params import Document
 
 __all__ = [
     "types",
     "Agent",
     "AgentEventLogger",
     "InferenceEventLogger",
-    "Document",
-    "RAGDocument",
     "__version__",
     "__title__",
     "NoneType",
@@ -58,7 +60,9 @@ __all__ = [
     "ProxiesTypes",
     "NotGiven",
     "NOT_GIVEN",
+    "not_given",
     "Omit",
+    "omit",
     "LlamaStackClientError",
     "APIError",
     "APIStatusError",

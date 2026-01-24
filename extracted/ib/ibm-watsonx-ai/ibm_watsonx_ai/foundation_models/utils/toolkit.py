@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import copy
@@ -96,7 +96,7 @@ class Tool(WMLResource):
         .. code-block:: python
 
             toolkit = Toolkit(api_client=api_client)
-            google_search = toolkit.get_tool(tool_name='GoogleSearch')
+            google_search = toolkit.get_tool(tool_name="GoogleSearch")
             result = google_search.run(input="Search IBM")
 
         **Example for the tool with input schema:**
@@ -104,7 +104,7 @@ class Tool(WMLResource):
         .. code-block:: python
 
             toolkit = Toolkit(api_client=api_client)
-            weather_tool = toolkit.get_tool(tool_name='Weather')
+            weather_tool = toolkit.get_tool(tool_name="Weather")
             tool_input = {"location": "New York"}
             result = weather_tool.run(input=tool_input)
 
@@ -126,7 +126,7 @@ class Tool(WMLResource):
         config = config or self.config
 
         if config and self.config_schema:
-            payload.update({"config": config})  # type: ignore[dict-item]
+            payload["config"] = config
 
         response = self._client.httpx_client.post(
             url=self._client._href_definitions.get_utility_agent_tools_run_href(),
@@ -177,13 +177,8 @@ class Toolkit(WMLResource):
         from ibm_watsonx_ai import APIClient, Credentials
         from ibm_watsonx_ai.foundation_models.utils import Toolkit
 
-        credentials = Credentials(
-            url = "<url>",
-            api_key = IAM_API_KEY
-        )
-        tools_params = {
-            "GoogleSearch": {"maxResults": 2}
-        }
+        credentials = Credentials(url="<url>", api_key=IAM_API_KEY)
+        tools_params = {"GoogleSearch": {"maxResults": 2}}
 
         api_client = APIClient(credentials)
         toolkit = Toolkit(api_client=api_client, params=tools_params)
@@ -250,7 +245,7 @@ class Toolkit(WMLResource):
         .. code-block:: python
 
             toolkit = Toolkit(api_client=api_client)
-            google_search = toolkit.get_tool(tool_name='GoogleSearch')
+            google_search = toolkit.get_tool(tool_name="GoogleSearch")
 
         """
         Toolkit._validate_type(tool_name, "tool_name", str)
@@ -354,7 +349,10 @@ def convert_to_utility_tool_call(tool_call: dict) -> dict:
         tool_call = {
             "id": "rcWg61ytv",
             "type": "function",
-            "function": {"name": "GoogleSearch", "arguments": '{"input": "IBM"}'},
+            "function": {
+                "name": "GoogleSearch",
+                "arguments": '{"input": "IBM"}',
+            },
         }
         convert_to_utility_tool_call(tool_call)
 

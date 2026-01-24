@@ -2,17 +2,41 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing import Union
+from typing_extensions import Required, TypeAlias, TypedDict
 
 from .attribute_type import AttributeType
+from .distance_metric import DistanceMetric
 from .full_text_search_param import FullTextSearchParam
 
-__all__ = ["AttributeSchemaConfigParam"]
+__all__ = ["AttributeSchemaConfigParam", "Ann", "AnnAnnConfig"]
+
+
+class AnnAnnConfig(TypedDict, total=False):
+    """Configuration options for ANN (Approximate Nearest Neighbor) indexing."""
+
+    distance_metric: DistanceMetric
+    """A function used to calculate vector similarity."""
+
+
+Ann: TypeAlias = Union[bool, AnnAnnConfig]
 
 
 class AttributeSchemaConfigParam(TypedDict, total=False):
-    ann: bool
-    """Whether to create an approximate nearest neighbor index for the attribute."""
+    """Detailed configuration for an attribute attached to a document."""
+
+    type: Required[AttributeType]
+    """The data type of the attribute.
+
+    Valid values: string, int, uint, float, uuid, datetime, bool, []string, []int,
+    []uint, []float, []uuid, []datetime, []bool, [DIMS]f16, [DIMS]f32.
+    """
+
+    ann: Ann
+    """Whether to create an approximate nearest neighbor index for the attribute.
+
+    Can be a boolean or a detailed configuration object.
+    """
 
     filterable: bool
     """Whether or not the attributes can be used in filters."""
@@ -27,10 +51,3 @@ class AttributeSchemaConfigParam(TypedDict, total=False):
 
     regex: bool
     """Whether to enable Regex filters on this attribute."""
-
-    type: AttributeType
-    """The data type of the attribute.
-
-    Valid values: string, int, uint, uuid, datetime, bool, []string, []int, []uint,
-    []uuid, []datetime, [DIMS]f16, [DIMS]f32.
-    """

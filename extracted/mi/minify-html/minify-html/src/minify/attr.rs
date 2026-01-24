@@ -33,21 +33,18 @@ fn build_double_quoted_replacer() -> Replacer {
 
   Replacer::new(
     AhoCorasickBuilder::new()
-      .dfa(true)
       .match_kind(MatchKind::LeftmostLongest)
-      .build(patterns),
+      .build(patterns)
+      .unwrap(),
     replacements,
   )
 }
 
 // To pass validation, entities MUST end with a semicolon.
 fn build_whatwg_double_quoted_replacer() -> Replacer {
-  Replacer::new(
-    AhoCorasickBuilder::new()
-      .dfa(true)
-      .build([b"\""]),
-    vec![b"&#34;".to_vec()],
-  )
+  Replacer::new(AhoCorasickBuilder::new().build([b"\""]).unwrap(), vec![
+    b"&#34;".to_vec(),
+  ])
 }
 
 fn build_single_quoted_replacer() -> Replacer {
@@ -65,21 +62,18 @@ fn build_single_quoted_replacer() -> Replacer {
 
   Replacer::new(
     AhoCorasickBuilder::new()
-      .dfa(true)
       .match_kind(MatchKind::LeftmostLongest)
-      .build(patterns),
+      .build(patterns)
+      .unwrap(),
     replacements,
   )
 }
 
 // To pass validation, entities MUST end with a semicolon.
 fn build_whatwg_single_quoted_replacer() -> Replacer {
-  Replacer::new(
-    AhoCorasickBuilder::new()
-      .dfa(true)
-      .build([b"'"]),
-    vec![b"&#39;".to_vec()],
-  )
+  Replacer::new(AhoCorasickBuilder::new().build([b"'"]).unwrap(), vec![
+    b"&#39;".to_vec(),
+  ])
 }
 
 // TODO Sync with WHITESPACE definition.
@@ -123,9 +117,9 @@ fn build_unquoted_replacer() -> Replacer {
 
   Replacer::new(
     AhoCorasickBuilder::new()
-      .dfa(true)
       .match_kind(MatchKind::LeftmostLongest)
-      .build(patterns),
+      .build(patterns)
+      .unwrap(),
     replacements,
   )
 }
@@ -198,9 +192,9 @@ fn build_semi_whatwg_unquoted_replacer() -> Replacer {
 
   Replacer::new(
     AhoCorasickBuilder::new()
-      .dfa(true)
       .match_kind(MatchKind::LeftmostLongest)
-      .build(patterns),
+      .build(patterns)
+      .unwrap(),
     replacements,
   )
 }
@@ -240,9 +234,9 @@ fn build_whatwg_unquoted_replacer() -> Replacer {
 
   Replacer::new(
     AhoCorasickBuilder::new()
-      .dfa(true)
       .match_kind(MatchKind::LeftmostLongest)
-      .build(patterns),
+      .build(patterns)
+      .unwrap(),
     replacements,
   )
 }

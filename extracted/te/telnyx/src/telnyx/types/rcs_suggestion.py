@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import Dict, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -19,6 +19,10 @@ __all__ = [
 
 
 class ActionCreateCalendarEventAction(BaseModel):
+    """
+    Opens the user's default calendar app and starts the new calendar event flow with the agent-specified event data pre-filled.
+    """
+
     description: Optional[str] = None
     """Event description. Maximum 500 characters."""
 
@@ -31,11 +35,17 @@ class ActionCreateCalendarEventAction(BaseModel):
 
 
 class ActionDialAction(BaseModel):
+    """
+    Opens the user's default dialer app with the agent-specified phone number filled in.
+    """
+
     phone_number: str
     """Phone number in +E.164 format"""
 
 
 class ActionOpenURLAction(BaseModel):
+    """Opens the user's default web browser app to the specified URL."""
+
     application: Literal["OPEN_URL_APPLICATION_UNSPECIFIED", "BROWSER", "WEBVIEW"]
     """URL open application, browser or webview."""
 
@@ -56,6 +66,8 @@ class ActionViewLocationActionLatLong(BaseModel):
 
 
 class ActionViewLocationAction(BaseModel):
+    """Opens the user's default map app and selects the agent-specified location."""
+
     label: Optional[str] = None
     """The label of the pin dropped"""
 
@@ -66,6 +78,8 @@ class ActionViewLocationAction(BaseModel):
 
 
 class Action(BaseModel):
+    """When tapped, initiates the corresponding native action on the device."""
+
     create_calendar_event_action: Optional[ActionCreateCalendarEventAction] = None
     """
     Opens the user's default calendar app and starts the new calendar event flow
@@ -93,7 +107,7 @@ class Action(BaseModel):
     results when the user taps the suggested action. Maximum 2048 characters.
     """
 
-    share_location_action: Optional[object] = None
+    share_location_action: Optional[Dict[str, object]] = None
     """
     Opens the RCS app's location chooser so the user can pick a location to send
     back to the agent.

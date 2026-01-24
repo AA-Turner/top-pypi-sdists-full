@@ -1,0 +1,73 @@
+name: CI Workflows
+
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - '*'
+  pull_request:
+
+jobs:
+  initial_checks:
+    # Mandatory checks before CI tests
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
+    with:
+      coverage: false
+      envs: |
+        # Code style
+        - linux: codestyle
+
+  tests:
+    needs: initial_checks
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
+    with:
+      display: true
+      coverage: codecov
+      # Linux PyQt 5.15 and 6.x installations require apt-getting xcb and EGL deps
+      # and headless X11 display
+      libraries: |
+        apt:
+          - '^libxcb.*-dev'
+          - libxkbcommon-x11-dev
+          - libegl1-mesa-dev
+      envs: |
+        # Tests without Qt. For now glfw can't run on MacOS runners in headless mode
+        # so we only run on Linux and Windows.
+        - linux: py38-test-oldestdeps
+        - windows: py39-test
+        - linux: py310-test
+        - windows: py311-test
+        - linux: py311-test-dev
+
+        # Tests with Jupyter
+        - linux: py38-test-jupyter-oldestdeps
+        - windows: py39-test-jupyter
+        - linux: py310-test-jupyter
+        - windows: py311-test-jupyter
+
+        # Tests with Qt
+        - linux: py38-test-pyqt63-oldestdeps
+        - linux: py39-test-pyside63
+        - linux: py310-test-pyqt64
+        - linux: py311-test-dev-pyqt64
+        # - macos: py38-test-pyqt63  # segfault
+        - macos: py39-test-pyside63
+        - macos: py310-test-pyqt64
+        - macos: py311-test-dev-pyqt64
+        - windows: py38-test-pyqt63
+        # - windows: py39-test-pyside63  # segfault
+        - windows: py310-test-pyqt64
+        - windows: py311-test-dev-pyqt64
+
+
+  publish:
+    needs: tests
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish_pure_python.yml@v1
+    with:
+      # Setup PyQt5 deps and headless X server as per pyvista/setup-headless-display-action@v1
+      libraries: '^libxcb.*-dev libxkbcommon-x11-dev xvfb'
+      test_extras: 'test,qt'
+      test_command: Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 & sleep 3; DISPLAY=:99.0 pytest --pyargs glue_vispy_viewers
+    secrets:
+      pypi_token: ${{ secrets.pypi_token }}

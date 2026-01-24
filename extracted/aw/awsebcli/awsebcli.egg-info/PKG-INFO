@@ -1,11 +1,12 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: awsebcli
-Version: 3.25
+Version: 3.26
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
 Author-email: aws-eb-cli@amazon.com
 License: Apache License 2.0
+Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -19,32 +20,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE.txt
-Requires-Dist: botocore<2,>=1.35.0
-Requires-Dist: cement==2.10.14
-Requires-Dist: colorama<0.5,>=0.4.6
-Requires-Dist: pathspec==0.12.1
-Requires-Dist: python-dateutil<3.0.0,>=2.1
-Requires-Dist: requests<3,>=2.31
-Requires-Dist: setuptools>=20.0
-Requires-Dist: semantic_version<2.11,>=2.10.0
-Requires-Dist: termcolor<3,>=2.4.0
-Requires-Dist: wcwidth<0.3,>=0.2.13
-Requires-Dist: PyYAML<6.1,>=5.3.1
-Requires-Dist: urllib3<2,>=1.26.5
-Requires-Dist: packaging<25.0,>=24.2
-Requires-Dist: blessed>=1.20.0
-Requires-Dist: fabric==3.2.2
-Requires-Dist: pypiwin32==219; sys_platform == "win32" and python_version < "3.6"
-Requires-Dist: pypiwin32==223; sys_platform == "win32" and python_version >= "3.6"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 ======
 EB CLI
@@ -124,6 +99,29 @@ in the *AWS Elastic Beanstalk Developer Guide*.
 
 Changelog
 =========
+--------------------
+3.26 (2026-01-07)
+--------------------
+- Added ap-southeast-6 (New Zealand), ap-southeast-4 (Melbourne), ca-west-1 (Calgary), ap-south-2 (Hyderabad), eu-central-2 (Zurich), eu-south-2 (Spain), ap-southeast-7 (Thailand), and ap-southeast-5 (Malaysia) to regions list
+- Updated bucket naming with hash suffixes for newer regions
+
+--------------------
+3.25.3 (2025-11-11)
+--------------------
+- Added verbose flag support for remote site exploration
+
+--------------------
+3.25.2 (2025-10-28)
+--------------------
+- Added remote execution support for `eb migrate explore` command
+- Fixed `namedtuple` import for Python 3.9+ compatibility
+- Fixed AttributeError when selecting platform branch interactively in `eb migrate`
+
+--------------------
+3.25.1 (2025-09-30)
+--------------------
+- Fixed pythonnet imports to be lazy
+
 --------------------
 3.25 (2025-06-27)
 --------------------
@@ -966,3 +964,5 @@ Changelog
 - Default database username changed from admin to ebroot
 - Trim application version description if it is too long
 - Application version no longer includes git hash
+
+

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: blosc
-Version: 1.11.3
+Version: 1.11.4
 Summary: Blosc data compressor
 Home-page: https://github.com/blosc/python-blosc
 Author: The Blosc development team
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Compression
@@ -27,6 +28,18 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Requires-Python: >=3.9
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 ============
 Python-Blosc

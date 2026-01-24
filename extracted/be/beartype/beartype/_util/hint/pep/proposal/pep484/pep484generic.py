@@ -14,8 +14,8 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.roar import BeartypeDecorHintPep484Exception
 from beartype.typing import Generic
 from beartype._data.cls.datacls import TYPES_PEP484544_GENERIC
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.datahinttyping import TypeException
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.typing.datatyping import TypeException
 from beartype._util.cache.utilcachecall import callable_cached
 from beartype._util.cls.utilclstest import is_type_subclass
 from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_11
@@ -194,8 +194,8 @@ def get_hint_pep484_generic_bases_unerased(
     Tuple of all unerased :mod:`typing` **pseudo-superclasses** (i.e.,
     :mod:`typing` objects originally listed as superclasses prior to their
     implicit type erasure under :pep:`560`) of the passed :pep:`484`-compliant
-    **generic** (i.e., class subclassing at least one non-class :mod:`typing`
-    object).
+    **generic** (i.e., either subscripted or unsubscripted type subclassing at
+    least one non-class :mod:`typing` object).
 
     This getter is memoized for efficiency.
 
@@ -367,23 +367,30 @@ def get_hint_pep484_generic_bases_unerased(
     #    eliminate duplicates at the end.
     #  * Return a frozenset of this list, thus implicitly eliminating
     #    duplicate superclasses.
+    #FIXME: Actually, a simpler implementation could now be defined in terms of
+    #the new iter_hint_pep560_bases_unerased() iterator. Still, let's
+    #avoid doing so until we *ABSOLUTELY* must. *sigh*
 
     # Avoid circular import dependencies.
     from beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget import (
         get_hint_pep484585_generic_type_or_none)
 
-    # If this hint is *NOT* a class, reduce this hint to the object originating
-    # this hint if any. See is_hint_pep484_generic() for details.
+    # Either the unsubscripted generic reduced from this possibly subscripted
+    # generic if this hint is a generic *OR* "None". Specifically, either:
+    # * If this generic if unsubscripted, this unsubscripted generic as is.
+    # * If this generic if subscripted, the unsubscripted generic underlying
+    #   this subscripted generic.
+    # * If this generic is *NOT* actually a generic, "None".
     hint = get_hint_pep484585_generic_type_or_none(hint)  # pyright: ignore
 
-    # If this hint is *NOT* a PEP 484- or 544-compliant generic, raise an
-    # exception.
+    # If this hint is *NOT* a PEP 484- or 544-compliant unsubscripted generic,
+    # raise an exception.
     if not is_hint_pep484_generic_unsubbed(hint):
         raise exception_cls(
-            f'{exception_prefix}type hint {repr(hint)} neither '
-            f'PEP 484 generic nor PEP 544 protocol.'
+            f'{exception_prefix}type hint {repr(hint)} not '
+            f'PEP 484 or 585 unsubscripted generic.'
         )
-    # Else, this hint is a PEP 484- or 544-compliant generic.
+    # Else, this hint is a PEP 484- or 544-compliant unsubscripted generic.
     #
     # If this hint is a PEP 484- or 544-compliant generic superclass in either
     # unsubscripted form (e.g., "typing.Generic", "typing.Protocol") or

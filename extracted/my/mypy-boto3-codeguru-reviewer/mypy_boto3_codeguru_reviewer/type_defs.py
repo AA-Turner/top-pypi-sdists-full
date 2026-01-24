@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -33,12 +34,6 @@ from .literals import (
     VendorNameType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -114,7 +109,7 @@ class KMSKeyDetailsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -169,7 +164,7 @@ class DescribeRecommendationFeedbackRequestTypeDef(TypedDict):
 class RecommendationFeedbackTypeDef(TypedDict):
     CodeReviewArn: NotRequired[str]
     RecommendationId: NotRequired[str]
-    Reactions: NotRequired[List[ReactionType]]
+    Reactions: NotRequired[list[ReactionType]]
     UserId: NotRequired[str]
     CreatedTimeStamp: NotRequired[datetime]
     LastUpdatedTimeStamp: NotRequired[datetime]
@@ -211,7 +206,7 @@ class ListRecommendationFeedbackRequestTypeDef(TypedDict):
 
 class RecommendationFeedbackSummaryTypeDef(TypedDict):
     RecommendationId: NotRequired[str]
-    Reactions: NotRequired[List[ReactionType]]
+    Reactions: NotRequired[list[ReactionType]]
     UserId: NotRequired[str]
 
 
@@ -262,7 +257,7 @@ class RuleMetadataTypeDef(TypedDict):
     RuleName: NotRequired[str]
     ShortDescription: NotRequired[str]
     LongDescription: NotRequired[str]
-    RuleTags: NotRequired[List[str]]
+    RuleTags: NotRequired[list[str]]
 
 
 class RepositoryHeadSourceCodeTypeTypeDef(TypedDict):
@@ -291,7 +286,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -323,7 +318,7 @@ class RequestMetadataTypeDef(TypedDict):
 
 
 class ListRecommendationFeedbackResponseTypeDef(TypedDict):
-    RecommendationFeedbackSummaries: List[RecommendationFeedbackSummaryTypeDef]
+    RecommendationFeedbackSummaries: list[RecommendationFeedbackSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -337,7 +332,7 @@ class ListRepositoryAssociationsRequestPaginateTypeDef(TypedDict):
 
 
 class ListRepositoryAssociationsResponseTypeDef(TypedDict):
-    RepositoryAssociationSummaries: List[RepositoryAssociationSummaryTypeDef]
+    RepositoryAssociationSummaries: list[RepositoryAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -381,7 +376,7 @@ class S3BucketRepositoryTypeDef(TypedDict):
 
 
 class ListRecommendationsResponseTypeDef(TypedDict):
-    RecommendationSummaries: List[RecommendationSummaryTypeDef]
+    RecommendationSummaries: list[RecommendationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -395,19 +390,19 @@ class AssociateRepositoryRequestTypeDef(TypedDict):
 
 class AssociateRepositoryResponseTypeDef(TypedDict):
     RepositoryAssociation: RepositoryAssociationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeRepositoryAssociationResponseTypeDef(TypedDict):
     RepositoryAssociation: RepositoryAssociationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DisassociateRepositoryResponseTypeDef(TypedDict):
     RepositoryAssociation: RepositoryAssociationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -453,7 +448,7 @@ CodeReviewTypeDef = TypedDict(
         "SourceCodeType": NotRequired[SourceCodeTypeTypeDef],
         "AssociationArn": NotRequired[str],
         "Metrics": NotRequired[MetricsTypeDef],
-        "AnalysisTypes": NotRequired[List[AnalysisTypeType]],
+        "AnalysisTypes": NotRequired[list[AnalysisTypeType]],
         "ConfigFileState": NotRequired[ConfigFileStateType],
     },
 )
@@ -465,7 +460,7 @@ class RepositoryAnalysisTypeDef(TypedDict):
 
 
 class ListCodeReviewsResponseTypeDef(TypedDict):
-    CodeReviewSummaries: List[CodeReviewSummaryTypeDef]
+    CodeReviewSummaries: list[CodeReviewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

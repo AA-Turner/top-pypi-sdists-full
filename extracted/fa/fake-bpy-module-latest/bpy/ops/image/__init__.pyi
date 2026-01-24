@@ -11,11 +11,7 @@ def add_render_slot(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new render slot
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new render slot"""
 
 def change_frame(
     execution_context: int | str | None = None,
@@ -26,10 +22,7 @@ def change_frame(
 ) -> None:
     """Interactively change the current frame number
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame: Frame
-    :type frame: int | None
     """
 
 def clear_render_border(
@@ -37,44 +30,28 @@ def clear_render_border(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear the boundaries of the render region and disable render region
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear the boundaries of the render region and disable render region"""
 
 def clear_render_slot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear the currently selected render slot
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear the currently selected render slot"""
 
 def clipboard_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the image to the clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the image to the clipboard"""
 
 def clipboard_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste new image from the clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste new image from the clipboard"""
 
 def convert_to_mesh_plane(
     execution_context: int | str | None = None,
@@ -98,8 +75,6 @@ def convert_to_mesh_plane(
 ) -> None:
     """Convert selected reference images to textured mesh plane
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param interpolation: Interpolation, Texture interpolation
 
     Linear
@@ -113,7 +88,6 @@ def convert_to_mesh_plane(
 
     Smart
     Smart -- Bicubic when magnifying, else bilinear (OSL only).
-        :type interpolation: typing.Literal['Linear','Closest','Cubic','Smart'] | None
         :param extension: Extension, How the image is extrapolated past its original bounds
 
     CLIP
@@ -124,11 +98,8 @@ def convert_to_mesh_plane(
 
     REPEAT
     Repeat -- Cause the image to repeat horizontally and vertically.
-        :type extension: typing.Literal['CLIP','EXTEND','REPEAT'] | None
         :param use_auto_refresh: Auto Refresh, Always refresh image on frame changes
-        :type use_auto_refresh: bool | None
         :param relative: Relative Paths, Use relative file paths
-        :type relative: bool | None
         :param shader: Shader, Node shader to use
 
     PRINCIPLED
@@ -139,11 +110,8 @@ def convert_to_mesh_plane(
 
     EMISSION
     Emission -- Emission shader.
-        :type shader: typing.Literal['PRINCIPLED','SHADELESS','EMISSION'] | None
         :param emit_strength: Emission Strength, Strength of emission
-        :type emit_strength: float | None
         :param use_transparency: Use Alpha, Use alpha channel for transparency
-        :type use_transparency: bool | None
         :param render_method: Render Method
 
     DITHERED
@@ -151,13 +119,9 @@ def convert_to_mesh_plane(
 
     BLENDED
     Blended -- Allows for colored transparency, but incompatible with render passes and ray-tracing. Also known as forward rendering..
-        :type render_method: typing.Literal['DITHERED','BLENDED'] | None
         :param use_backface_culling: Backface Culling, Use backface culling to hide the back side of faces
-        :type use_backface_culling: bool | None
         :param show_transparent_back: Show Backface, Render multiple transparent layers (may introduce transparency sorting problems)
-        :type show_transparent_back: bool | None
         :param overwrite_material: Overwrite Material, Overwrite existing material with the same name
-        :type overwrite_material: bool | None
         :param name_from: Name After, Name for new mesh object and material
 
     OBJECT
@@ -165,9 +129,7 @@ def convert_to_mesh_plane(
 
     IMAGE
     Source Image -- Name from loaded image.
-        :type name_from: typing.Literal['OBJECT','IMAGE'] | None
         :param delete_ref: Delete Reference Object, Delete empty image object once mesh plane is created
-        :type delete_ref: bool | None
     """
 
 def curves_point_set(
@@ -180,12 +142,8 @@ def curves_point_set(
 ) -> None:
     """Set black point or white point for curves
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param point: Point, Set black point or white point for curves
-    :type point: typing.Literal['BLACK_POINT','WHITE_POINT'] | None
     :param size: Sample Size
-    :type size: int | None
     """
 
 def cycle_render_slot(
@@ -197,10 +155,7 @@ def cycle_render_slot(
 ) -> None:
     """Cycle through all non-void render slots
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param reverse: Cycle in Reverse
-    :type reverse: bool | None
     """
 
 def external_edit(
@@ -212,10 +167,7 @@ def external_edit(
 ) -> None:
     """Edit image in an external application
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     """
 
 def file_browse(
@@ -254,54 +206,29 @@ def file_browse(
 ) -> None:
     """Open an image file browser, hold Shift to open the file, Alt to browse containing directory
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -315,9 +242,7 @@ def file_browse(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def flip(
@@ -330,12 +255,8 @@ def flip(
 ) -> None:
     """Flip the image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_flip_x: Horizontal, Flip the image horizontally
-    :type use_flip_x: bool | None
     :param use_flip_y: Vertical, Flip the image vertically
-    :type use_flip_y: bool | None
     """
 
 def import_as_mesh_planes(
@@ -392,8 +313,6 @@ def import_as_mesh_planes(
 ) -> None:
     """Create mesh plane(s) from image files with the appropriate aspect ratio
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param interpolation: Interpolation, Texture interpolation
 
     Linear
@@ -407,7 +326,6 @@ def import_as_mesh_planes(
 
     Smart
     Smart -- Bicubic when magnifying, else bilinear (OSL only).
-        :type interpolation: typing.Literal['Linear','Closest','Cubic','Smart'] | None
         :param extension: Extension, How the image is extrapolated past its original bounds
 
     CLIP
@@ -418,11 +336,8 @@ def import_as_mesh_planes(
 
     REPEAT
     Repeat -- Cause the image to repeat horizontally and vertically.
-        :type extension: typing.Literal['CLIP','EXTEND','REPEAT'] | None
         :param use_auto_refresh: Auto Refresh, Always refresh image on frame changes
-        :type use_auto_refresh: bool | None
         :param relative: Relative Paths, Use relative file paths
-        :type relative: bool | None
         :param shader: Shader, Node shader to use
 
     PRINCIPLED
@@ -433,11 +348,8 @@ def import_as_mesh_planes(
 
     EMISSION
     Emission -- Emission shader.
-        :type shader: typing.Literal['PRINCIPLED','SHADELESS','EMISSION'] | None
         :param emit_strength: Emission Strength, Strength of emission
-        :type emit_strength: float | None
         :param use_transparency: Use Alpha, Use alpha channel for transparency
-        :type use_transparency: bool | None
         :param render_method: Render Method
 
     DITHERED
@@ -445,15 +357,10 @@ def import_as_mesh_planes(
 
     BLENDED
     Blended -- Allows for colored transparency, but incompatible with render passes and ray-tracing. Also known as forward rendering..
-        :type render_method: typing.Literal['DITHERED','BLENDED'] | None
         :param use_backface_culling: Backface Culling, Use backface culling to hide the back side of faces
-        :type use_backface_culling: bool | None
         :param show_transparent_back: Show Backface, Render multiple transparent layers (may introduce transparency sorting problems)
-        :type show_transparent_back: bool | None
         :param overwrite_material: Overwrite Material, Overwrite existing material with the same name
-        :type overwrite_material: bool | None
         :param filepath: File Path, Filepath used for importing the file
-        :type filepath: str
         :param align: Align
 
     WORLD
@@ -464,27 +371,16 @@ def import_as_mesh_planes(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :type align: typing.Literal['WORLD','VIEW','CURSOR'] | None
         :param location: Location
-        :type location: collections.abc.Sequence[float] | mathutils.Vector | None
         :param rotation: Rotation
-        :type rotation: collections.abc.Sequence[float] | mathutils.Euler | None
         :param files: files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param directory: directory
-        :type directory: str
         :param filter_image: filter_image
-        :type filter_image: bool | None
         :param filter_movie: filter_movie
-        :type filter_movie: bool | None
         :param filter_folder: filter_folder
-        :type filter_folder: bool | None
         :param force_reload: Force Reload, Force reload the image if it is already opened elsewhere in Blender
-        :type force_reload: bool | None
         :param image_sequence: Detect Image Sequences, Import sequentially numbered images as an animated image sequence instead of separate planes
-        :type image_sequence: bool | None
         :param offset: Offset Planes, Offset planes from each other. If disabled, multiple planes will be created at the same location
-        :type offset: bool | None
         :param offset_axis: Offset Direction, How planes are oriented relative to each others local axis
 
     +X
@@ -504,9 +400,7 @@ def import_as_mesh_planes(
 
     -Z
     -Z -- Stacked Below.
-        :type offset_axis: typing.Literal['+X','+Y','+Z','-X','-Y','-Z'] | None
         :param offset_amount: Offset Distance, Set distance between each plane
-        :type offset_amount: float | None
         :param align_axis: Align, How to align the planes
 
     +X
@@ -532,7 +426,6 @@ def import_as_mesh_planes(
 
     CAM_AX
     Cameras Main Axis -- Facing the cameras dominant axis.
-        :type align_axis: typing.Literal['+X','+Y','+Z','-X','-Y','-Z','CAM','CAM_AX'] | None
         :param prev_align_axis: prev_align_axis
 
     +X
@@ -561,9 +454,7 @@ def import_as_mesh_planes(
 
     NONE
     Undocumented.
-        :type prev_align_axis: typing.Literal['+X','+Y','+Z','-X','-Y','-Z','CAM','CAM_AX','NONE'] | None
         :param align_track: Track Camera, Add a constraint to make the planes track the camera
-        :type align_track: bool | None
         :param size_mode: Size Mode, Method for computing the plane size
 
     ABSOLUTE
@@ -577,7 +468,6 @@ def import_as_mesh_planes(
 
     DPBU
     Pixels per Blender Unit -- Scale based on pixels per Blender Unit.
-        :type size_mode: typing.Literal['ABSOLUTE','CAMERA','DPI','DPBU'] | None
         :param fill_mode: Scale, Method to scale the plane with the camera frame
 
     FILL
@@ -585,11 +475,8 @@ def import_as_mesh_planes(
 
     FIT
     Fit -- Fit entire image within the camera frame.
-        :type fill_mode: typing.Literal['FILL','FIT'] | None
         :param height: Height, Height of the created plane
-        :type height: float | None
         :param factor: Definition, Number of pixels per inch or Blender Unit
-        :type factor: float | None
     """
 
 def invert(
@@ -604,16 +491,10 @@ def invert(
 ) -> None:
     """Invert images channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param invert_r: Red, Invert red channel
-    :type invert_r: bool | None
     :param invert_g: Green, Invert green channel
-    :type invert_g: bool | None
     :param invert_b: Blue, Invert blue channel
-    :type invert_b: bool | None
     :param invert_a: Alpha, Invert alpha channel
-    :type invert_a: bool | None
     """
 
 def match_movie_length(
@@ -621,11 +502,7 @@ def match_movie_length(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set images users length to the one of this video
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set images users length to the one of this video"""
 
 def new(
     execution_context: int | str | None = None,
@@ -645,26 +522,15 @@ def new(
 ) -> None:
     """Create a new image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Image data-block name
-    :type name: str
     :param width: Width, Image width
-    :type width: int | None
     :param height: Height, Image height
-    :type height: int | None
     :param color: Color, Default fill color
-    :type color: collections.abc.Iterable[float] | None
     :param alpha: Alpha, Create an image with an alpha channel
-    :type alpha: bool | None
     :param generated_type: Generated Type, Fill the image with a grid for UV map testing
-    :type generated_type: bpy.stub_internal.rna_enums.ImageGeneratedTypeItems | None
     :param float: 32-bit Float, Create image with 32-bit floating-point bit depth
-    :type float: bool | None
     :param use_stereo_3d: Stereo 3D, Create an image with left and right views
-    :type use_stereo_3d: bool | None
     :param tiled: Tiled, Create a tiled image
-    :type tiled: bool | None
     """
 
 def open(
@@ -709,60 +575,32 @@ def open(
 ) -> None:
     """Open image
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param allow_path_tokens: Allow the path to contain substitution tokens
-        :type allow_path_tokens: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -776,13 +614,9 @@ def open(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param use_sequence_detection: Detect Sequences, Automatically detect animated sequences in selected images (based on file names)
-        :type use_sequence_detection: bool | None
         :param use_udim_detecting: Detect UDIMs, Detect selected UDIM files and load all matching tiles
-        :type use_udim_detecting: bool | None
     """
 
 def open_images(
@@ -799,18 +633,11 @@ def open_images(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param directory: directory
-    :type directory: str
     :param files: files
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     :param relative_path: Use relative path
-    :type relative_path: bool | None
     :param use_sequence_detection: Use sequence detection
-    :type use_sequence_detection: bool | None
     :param use_udim_detection: Use UDIM detection
-    :type use_udim_detection: bool | None
     """
 
 def pack(
@@ -818,66 +645,42 @@ def pack(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Pack an image as embedded data into the .blend file
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Pack an image as embedded data into the .blend file"""
 
 def project_apply(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Project edited image back onto the object
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Project edited image back onto the object"""
 
 def project_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Edit a snapshot of the 3D Viewport in an external image editor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Edit a snapshot of the 3D Viewport in an external image editor"""
 
 def read_viewlayers(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Read all the current scenes view layers from cache, as needed
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Read all the current scenes view layers from cache, as needed"""
 
 def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reload current image from disk
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reload current image from disk"""
 
 def remove_render_slot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the current render slot
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the current render slot"""
 
 def render_border(
     execution_context: int | str | None = None,
@@ -892,18 +695,11 @@ def render_border(
 ) -> None:
     """Set the boundaries of the render region and enable render region
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     """
 
 def replace(
@@ -942,54 +738,29 @@ def replace(
 ) -> None:
     """Replace current image by another one from disk
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1003,9 +774,7 @@ def replace(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def resize(
@@ -1018,12 +787,8 @@ def resize(
 ) -> None:
     """Resize the image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param size: Size
-    :type size: collections.abc.Iterable[int] | None
     :param all_udims: All UDIM Tiles, Scale all the images UDIM tiles
-    :type all_udims: bool | None
     """
 
 def rotate_orthogonal(
@@ -1035,8 +800,6 @@ def rotate_orthogonal(
 ) -> None:
     """Rotate the image
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param degrees: Degrees, Amount of rotation in degrees (90, 180, 270)
 
     90
@@ -1047,7 +810,6 @@ def rotate_orthogonal(
 
     270
     270 Degrees -- Rotate 270 degrees clockwise.
-        :type degrees: typing.Literal['90','180','270'] | None
     """
 
 def sample(
@@ -1059,10 +821,7 @@ def sample(
 ) -> None:
     """Use mouse to sample a color in current image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param size: Sample Size
-    :type size: int | None
     """
 
 def sample_line(
@@ -1079,20 +838,12 @@ def sample_line(
 ) -> None:
     """Sample a line and show it in Scope panels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xstart: X Start
-    :type xstart: int | None
     :param xend: X End
-    :type xend: int | None
     :param ystart: Y Start
-    :type ystart: int | None
     :param yend: Y End
-    :type yend: int | None
     :param flip: Flip
-    :type flip: bool | None
     :param cursor: Cursor, Mouse cursor style to use during the modal operator
-    :type cursor: int | None
     """
 
 def save(
@@ -1100,22 +851,14 @@ def save(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Save the image with current name and settings
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Save the image with current name and settings"""
 
 def save_all_modified(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Save all modified images
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Save all modified images"""
 
 def save_as(
     execution_context: int | str | None = None,
@@ -1155,58 +898,31 @@ def save_as(
 ) -> None:
     """Save the image with another name and/or settings
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param save_as_render: Save As Render, Save image with render color management.For display image formats like PNG, apply view and display transform.For intermediate image formats like OpenEXR, use the default render output color space
-        :type save_as_render: bool | None
         :param copy: Copy, Create a new image file without modifying the current image in Blender
-        :type copy: bool | None
         :param allow_path_tokens: Allow the path to contain substitution tokens
-        :type allow_path_tokens: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1220,9 +936,7 @@ def save_as(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def save_sequence(
@@ -1230,11 +944,7 @@ def save_sequence(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Save a sequence of images
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Save a sequence of images"""
 
 def tile_add(
     execution_context: int | str | None = None,
@@ -1255,28 +965,16 @@ def tile_add(
 ) -> None:
     """Adds a tile to the image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param number: Number, UDIM number of the tile
-    :type number: int | None
     :param count: Count, How many tiles to add
-    :type count: int | None
     :param label: Label, Optional tile label
-    :type label: str
     :param fill: Fill, Fill new tile with a generated image
-    :type fill: bool | None
     :param color: Color, Default fill color
-    :type color: collections.abc.Iterable[float] | None
     :param generated_type: Generated Type, Fill the image with a grid for UV map testing
-    :type generated_type: bpy.stub_internal.rna_enums.ImageGeneratedTypeItems | None
     :param width: Width, Image width
-    :type width: int | None
     :param height: Height, Image height
-    :type height: int | None
     :param float: 32-bit Float, Create image with 32-bit floating-point bit depth
-    :type float: bool | None
     :param alpha: Alpha, Create an image with an alpha channel
-    :type alpha: bool | None
     """
 
 def tile_fill(
@@ -1294,20 +992,12 @@ def tile_fill(
 ) -> None:
     """Fill the current tile with a generated image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param color: Color, Default fill color
-    :type color: collections.abc.Iterable[float] | None
     :param generated_type: Generated Type, Fill the image with a grid for UV map testing
-    :type generated_type: bpy.stub_internal.rna_enums.ImageGeneratedTypeItems | None
     :param width: Width, Image width
-    :type width: int | None
     :param height: Height, Image height
-    :type height: int | None
     :param float: 32-bit Float, Create image with 32-bit floating-point bit depth
-    :type float: bool | None
     :param alpha: Alpha, Create an image with an alpha channel
-    :type alpha: bool | None
     """
 
 def tile_remove(
@@ -1315,11 +1005,7 @@ def tile_remove(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Removes a tile from the image
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Removes a tile from the image"""
 
 def unpack(
     execution_context: int | str | None = None,
@@ -1331,12 +1017,8 @@ def unpack(
 ) -> None:
     """Save an image packed in the .blend file to disk
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param method: Method, How to unpack
-    :type method: bpy.stub_internal.rna_enums.UnpackMethodItems | None
     :param id: Image Name, Image data-block name to unpack
-    :type id: str
     """
 
 def view_all(
@@ -1348,10 +1030,7 @@ def view_all(
 ) -> None:
     """View the entire image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param fit_view: Fit View, Fit frame to the viewport
-    :type fit_view: bool | None
     """
 
 def view_center_cursor(
@@ -1359,11 +1038,7 @@ def view_center_cursor(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Center the view so that the cursor is in the middle of the view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Center the view so that the cursor is in the middle of the view"""
 
 def view_cursor_center(
     execution_context: int | str | None = None,
@@ -1374,10 +1049,7 @@ def view_cursor_center(
 ) -> None:
     """Set 2D Cursor To Center View location
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param fit_view: Fit View, Fit frame to the viewport
-    :type fit_view: bool | None
     """
 
 def view_ndof(
@@ -1385,11 +1057,7 @@ def view_ndof(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Use a 3D mouse device to pan/zoom the view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Use a 3D mouse device to pan/zoom the view"""
 
 def view_pan(
     execution_context: int | str | None = None,
@@ -1400,10 +1068,7 @@ def view_pan(
 ) -> None:
     """Pan the view
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param offset: Offset, Offset in floating-point units, 1.0 is the width and height of the image
-    :type offset: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def view_selected(
@@ -1411,11 +1076,7 @@ def view_selected(
     undo: bool | None = None,
     /,
 ) -> None:
-    """View all selected UVs
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """View all selected UVs"""
 
 def view_zoom(
     execution_context: int | str | None = None,
@@ -1427,12 +1088,8 @@ def view_zoom(
 ) -> None:
     """Zoom in/out the image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, Zoom factor, values higher than 1.0 zoom in, lower values zoom out
-    :type factor: float | None
     :param use_cursor_init: Use Mouse Position, Allow the initial mouse position to be used
-    :type use_cursor_init: bool | None
     """
 
 def view_zoom_border(
@@ -1449,20 +1106,12 @@ def view_zoom_border(
 ) -> None:
     """Zoom in the view to the nearest item contained in the border
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     :param zoom_out: Zoom Out
-    :type zoom_out: bool | None
     """
 
 def view_zoom_in(
@@ -1474,10 +1123,7 @@ def view_zoom_in(
 ) -> None:
     """Zoom in the image (centered around 2D cursor)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Cursor location in screen coordinates
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def view_zoom_out(
@@ -1489,10 +1135,7 @@ def view_zoom_out(
 ) -> None:
     """Zoom out the image (centered around 2D cursor)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Cursor location in screen coordinates
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def view_zoom_ratio(
@@ -1504,8 +1147,5 @@ def view_zoom_ratio(
 ) -> None:
     """Set zoom ratio of the view
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param ratio: Ratio, Zoom ratio, 1.0 is 1:1, higher is zoomed in, lower is zoomed out
-    :type ratio: float | None
     """

@@ -8,6 +8,7 @@ from pyparsing import (
     Combine,
     Regex,
     CaselessKeyword,
+    Literal,
     Opt,
     one_of,
     Group,
@@ -92,7 +93,9 @@ class KeyWords:
         SPACE,
         LBRACKET,
         RBRACKET,
-    ) = map(Suppress, "(),;:.'\"`= []")
+        LCURLYBRACKET,
+        RCURLYBRACKET,
+    ) = map(Suppress, "(),;:.'\"`= []{}")
     STAR, QUESTION = "*", "?"
     SUPPRESS_QUOTE = (SINGLEQUOTE | BACKQUOTE | DOUBLEQUOTE).set_name("suppress_quote")
     QUOTE = one_of("' \" `").set_name("quote")
@@ -107,14 +110,8 @@ class KeyWords:
         LESS,
         GREATER_OR_EQUAL,
         LESS_OR_EQUAL,
-        AND,
-        BETWEEN,
-        IN,
-        IS,
-        NOT,
-        OR,
     ) = map(
-        CaselessKeyword,
+        Literal,
         [
             "+",
             "-",
@@ -124,6 +121,18 @@ class KeyWords:
             "<",
             ">=",
             "<=",
+        ],
+    )
+    (
+        AND,
+        BETWEEN,
+        IN,
+        IS,
+        NOT,
+        OR,
+    ) = map(
+        CaselessKeyword,
+        [
             "AND",
             "BETWEEN",
             "IN",
@@ -149,18 +158,23 @@ class KeyWords:
         FROM,
         WHERE,
         INSERT,
+        INTO,
+        VALUE,
         GLOBAL,
         PARTITION_KEY,
         SORT_KEY,
         HASH,
         RANGE,
         UPDATE,
+        SET,
+        REMOVE,
         DELETE,
         INDEX,
         REPLICA,
         ORDER_BY,
         LIMIT,
         AS,
+        RETURNING,
     ) = map(
         CaselessKeyword,
         [
@@ -172,18 +186,23 @@ class KeyWords:
             "FROM",
             "WHERE",
             "INSERT",
+            "INTO",
+            "VALUE",
             "GLOBAL",
             "PARTITION KEY",
             "SORT KEY",
             "HASH",
             "RANGE",
             "UPDATE",
+            "SET",
+            "REMOVE",
             "DELETE",
             "INDEX",
             "REPLICA",
             "ORDER BY",
             "Limit",
             "AS",
+            "RETURNING",
         ],
     )
 
@@ -337,6 +356,13 @@ def get_query_type(sql: str) -> QueryType:
             return type
 
     raise LookupError("Not supported query type")
+
+
+def escape_keyword(word: str) -> str:
+    if word.upper() in RESERVED_WORDS:
+        return f'"{word}"'
+    else:
+        return word
 
 
 # DynamoDB reserved words

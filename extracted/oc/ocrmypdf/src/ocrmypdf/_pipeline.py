@@ -39,6 +39,7 @@ from ocrmypdf.hocrtransform import DebugRenderOptions, HocrTransform
 from ocrmypdf.hocrtransform._font import Courier
 from ocrmypdf.pdfa import generate_pdfa_ps
 from ocrmypdf.pdfinfo import Colorspace, Encoding, PageInfo, PdfInfo
+from ocrmypdf.pdfinfo.info import FloatRect
 from ocrmypdf.pluginspec import OrientationConfidence
 
 try:
@@ -549,7 +550,9 @@ def rasterize(
 
     device = colorspaces[device_idx]
 
-    log.debug(f"Rasterize with {device}, rotation {correction}")
+    log.debug(
+        f"Rasterize with {device}, rotation {correction}, mediabox {pageinfo.mediabox}"
+    )
 
     canvas_dpi, page_dpi = calculate_raster_dpi(page_context)
 
@@ -830,6 +833,23 @@ def _offset_rect(rect: tuple[float, float, float, float], offset: tuple[float, f
     )
 
 
+def _adjust_pagebox(
+    page: pikepdf.Page,
+    media_box: FloatRect,
+    name: pikepdf.Name,
+    target_box: FloatRect,
+    offset: tuple[float, float],
+    swap_axis: bool,
+):
+    if media_box == target_box:
+        return
+    box = _offset_rect(target_box, offset)
+    if swap_axis:
+        box = box[1], box[0], box[3], box[2]
+    page[name] = box
+    log.debug(f"{str(name)} = {target_box}")
+
+
 def fix_pagepdf_boxes(
     infile: Path | BinaryIO,
     out_file: Path,
@@ -840,7 +860,7 @@ def fix_pagepdf_boxes(
 
     The single page PDF is created with a normal MediaBox with its lower left corner
     at (0, 0). infile is the single page PDF. page_context.mediabox has the original
-    file's mediabox, which may have a different origin. We needto adjust the other
+    file's mediabox, which may have a different origin. We need to adjust the other
     boxes in the single page PDF to match the effect they had on the original page.
 
     When correcting page rotation, we create a single page PDF that is correctly
@@ -854,18 +874,25 @@ def fix_pagepdf_boxes(
     """
     with pikepdf.open(infile) as pdf:
         for page in pdf.pages:
-            # page.BleedBox = page_context.pageinfo.bleedbox
-            # page.ArtBox = page_context.pageinfo.artbox
+            log.debug(
+                f"initial mediabox={page.MediaBox} and pageinfo "
+                f"mediabox={page_context.pageinfo.mediabox}"
+            )
             mediabox = page_context.pageinfo.mediabox
-            offset = mediabox[0], mediabox[1]
-            cropbox = _offset_rect(page_context.pageinfo.cropbox, offset)
-            trimbox = _offset_rect(page_context.pageinfo.trimbox, offset)
-
+            offset = -mediabox[0], -mediabox[1]
             if swap_axis:
-                cropbox = cropbox[1], cropbox[0], cropbox[3], cropbox[2]
-                trimbox = trimbox[1], trimbox[0], trimbox[3], trimbox[2]
-            page.CropBox = cropbox
-            page.TrimBox = trimbox
+                mediabox = mediabox[1], mediabox[0], mediabox[3], mediabox[2]
+            boxes = ['CropBox', 'TrimBox', 'ArtBox', 'BleedBox']
+            for box_name in boxes:
+                _adjust_pagebox(
+                    page,
+                    mediabox,
+                    pikepdf.Name(f"/{box_name}"),
+                    getattr(page_context.pageinfo, box_name.lower()),
+                    offset,
+                    swap_axis,
+                )
+
         pdf.save(out_file)
     return out_file
 

@@ -1,6 +1,6 @@
 #
 # -*- coding: utf-8 -*-
-# Copyright 2020 Dell Inc. or its subsidiaries. All Rights Reserved
+# Copyright 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 """
@@ -125,6 +125,14 @@ class MclagFacts(object):
                         config['system_mac'] = domain_config['mclag-system-mac']
                     if domain_config.get('delay-restore', None):
                         config['delay_restore'] = domain_config['delay-restore']
+                    if domain_config.get('backup-keepalive-source-address', None):
+                        config['backup_keepalive_source_address'] = domain_config['backup-keepalive-source-address']
+                    if domain_config.get('backup-keepalive-peer-address', None):
+                        config['backup_keepalive_peer_address'] = domain_config['backup-keepalive-peer-address']
+                    if domain_config.get('backup-keepalive-interval', None):
+                        config['backup_keepalive_interval'] = domain_config['backup-keepalive-interval']
+                    if domain_config.get('backup-keepalive-session-vrf', None):
+                        config['backup_keepalive_session_vrf'] = domain_config['backup-keepalive-session-vrf']
 
                 if conf.get('vlan-interfaces', None) and conf['vlan-interfaces'].get('vlan-interface', None):
                     vlans_list = []

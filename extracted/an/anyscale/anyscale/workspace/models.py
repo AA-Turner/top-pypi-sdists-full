@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from datetime import datetime
+from typing import ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ImageURI, ModelBase
 from anyscale._private.models.model_base import ModelEnum
@@ -12,6 +13,7 @@ from anyscale.compute_config.models import (
 
 
 class WorkspaceState(ModelEnum):
+    """Possible states for a workspace."""
 
     STARTING = "STARTING"
     UPDATING = "UPDATING"
@@ -21,7 +23,7 @@ class WorkspaceState(ModelEnum):
     ERRORED = "ERRORED"
     UNKNOWN = "UNKNOWN"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         "STARTING": "The workspace is starting up.",
         "UPDATING": "The workspace is updating.",
         "RUNNING": "The workspace is running.",
@@ -29,6 +31,32 @@ class WorkspaceState(ModelEnum):
         "TERMINATED": "The workspace is terminated.",
         "ERRORED": "The workspace is in an error state.",
         "UNKNOWN": "The workspace state",
+    }
+
+
+class WorkspaceSortField(ModelEnum):
+    """Fields available for sorting workspaces."""
+
+    STATUS = "STATUS"
+    CREATED_AT = "CREATED_AT"
+    LATEST_STARTED_AT = "LATEST_STARTED_AT"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        "STATUS": "Sort by workspace status (active first by default).",
+        "CREATED_AT": "Sort by creation timestamp.",
+        "LATEST_STARTED_AT": "Sort by most recent start time.",
+    }
+
+
+class WorkspaceSortOrder(ModelEnum):
+    """Enum for sort order directions."""
+
+    ASC = "ASC"
+    DESC = "DESC"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        "ASC": "Sort in ascending order.",
+        "DESC": "Sort in descending order.",
     }
 
 
@@ -53,6 +81,9 @@ idle_termination_minutes: 220
 env_vars:
     key: value
 requirements: /tmp/requirements.txt
+tags:
+    team: mlops
+    env: prod
 """
 
     name: Optional[str] = field(
@@ -87,6 +118,19 @@ requirements: /tmp/requirements.txt
     def _validate_containerfile(self, containerfile: Optional[str]):
         if containerfile is not None and not isinstance(containerfile, str):
             raise TypeError("'containerfile' must be a string.")
+
+    tags: Optional[Dict[str, str]] = field(
+        default=None, metadata={"docstring": "Tags to associate with the workspace."},
+    )
+
+    def _validate_tags(self, tags: Optional[Dict[str, str]]):
+        if tags is None:
+            return
+        if not isinstance(tags, dict):
+            raise TypeError("'tags' must be a Dict[str, str].")
+        for k, v in tags.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise TypeError("'tags' must be a Dict[str, str].")
 
     compute_config: Union[ComputeConfigType, Dict, str, None] = field(
         default=None,
@@ -215,6 +259,9 @@ idle_termination_minutes: 220
 env_vars:
     key: value
 requirements: /tmp/requirements.txt
+tags:
+  team: mlops
+  env: prod
 """
 
     project: Optional[str] = field(
@@ -242,60 +289,114 @@ requirements: /tmp/requirements.txt
 
 @dataclass(frozen=True)
 class Workspace(ModelBase):
+    """Workspace information including metadata and state."""
+
     __doc_py_example__ = """\
 import anyscale
 from anyscale.workspace.models import Workspace
 
 workspace: Workspace = anyscale.workspace.get(name="workspace-name")
+first_workspace: Workspace = next(anyscale.workspace.list(max_items=1), None)
 """
 
-    __doc_cli_example__ = """\
-$ anyscale workspace get -n my-workspace
-id: expwrk_k13avulibzkx2tekkirvrhc9s4
-name: my-workspace
-state: TERMINATED
-config:
-  name: my-workspace
-  project: default
-  cloud: my-cloud
-  image_uri: anyscale/ray:2.37.0-slim-py312-cu123
-  compute_config:
-    cloud: my-cloud
-    head_node:
-      instance_type: m5.2xlarge
-    worker_nodes: []
-    enable_cross_zone_scaling: false
-  idle_termination_minutes: 120
-"""
-
-    id: str = field(metadata={"docstring": "The unique identifier of the workspace."})
+    id: str = field(metadata={"docstring": "Unique identifier of the workspace."})
 
     def _validate_id(self, id: str):  # noqa: A002
         if not isinstance(id, str):
-            raise ValueError("'id' must be a string.")
+            raise ValueError("The workspace id must be a string.")
 
-    name: str = field(metadata={"docstring": "The name of the workspace"})
+    name: str = field(metadata={"docstring": "The name of the workspace."})
 
     def _validate_name(self, name: str):
         if not isinstance(name, str):
-            raise ValueError("'name' must be a string.")
+            raise ValueError("The workspace name must be a string.")
 
     state: WorkspaceState = field(
-        metadata={"docstring": "The current status of the workspace."},
+        metadata={"docstring": "The current state of the workspace."}
     )
 
     def _validate_state(self, state: WorkspaceState):
         WorkspaceState.validate(state)
 
-    config: Union[WorkspaceConfig, Dict] = field(
-        repr=False, metadata={"docstring": "Configuration of this service version."}
+    project_id: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "Project identifier that owns this workspace."},
     )
 
-    def _validate_config(self, config: Union[WorkspaceConfig, Dict]) -> WorkspaceConfig:
+    def _validate_project_id(self, project_id: Optional[str]):
+        if project_id is not None and not isinstance(project_id, str):
+            raise ValueError("The project id must be a string if provided.")
+
+    cloud_id: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "Cloud identifier where the workspace is running."},
+    )
+
+    def _validate_cloud_id(self, cloud_id: Optional[str]):
+        if cloud_id is not None and not isinstance(cloud_id, str):
+            raise ValueError("The cloud id must be a string if provided.")
+
+    creator_id: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "Identifier of the user who created the workspace."},
+    )
+
+    def _validate_creator_id(self, creator_id: Optional[str]):
+        if creator_id is not None and not isinstance(creator_id, str):
+            raise ValueError("The creator id must be a string if provided.")
+
+    creator_email: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "Email address of the user who created the workspace."},
+    )
+
+    def _validate_creator_email(self, creator_email: Optional[str]):
+        if creator_email is not None and not isinstance(creator_email, str):
+            raise ValueError("The creator email must be a string if provided.")
+
+    created_at: Optional[datetime] = field(
+        default=None,
+        metadata={"docstring": "Timestamp when the workspace was created."},
+    )
+
+    def _validate_created_at(self, created_at: Optional[datetime]):
+        if created_at is not None and not isinstance(created_at, datetime):
+            raise ValueError("The created_at field must be a datetime if provided.")
+
+    last_started_at: Optional[datetime] = field(
+        default=None,
+        metadata={"docstring": "Timestamp when the workspace was last started."},
+    )
+
+    def _validate_last_started_at(self, last_started_at: Optional[datetime]):
+        if last_started_at is not None and not isinstance(last_started_at, datetime):
+            raise ValueError(
+                "The last_started_at field must be a datetime if provided."
+            )
+
+    cluster_id: Optional[str] = field(
+        default=None, metadata={"docstring": "Cluster identifier for the workspace."},
+    )
+
+    def _validate_cluster_id(self, cluster_id: Optional[str]):
+        if cluster_id is not None and not isinstance(cluster_id, str):
+            raise ValueError("The cluster id must be a string if provided.")
+
+    config: Optional[Union[WorkspaceConfig, Dict]] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Full workspace configuration. Only populated for get() operations, not list()."
+        },
+    )
+
+    def _validate_config(
+        self, config: Optional[Union[WorkspaceConfig, Dict]]
+    ) -> Optional[WorkspaceConfig]:
+        if config is None:
+            return None
         if isinstance(config, dict):
             config = WorkspaceConfig.from_dict(config)
-
         if not isinstance(config, WorkspaceConfig):
             raise TypeError("'config' must be a WorkspaceConfig or corresponding dict.")
-
         return config

@@ -1,0 +1,159 @@
+apiVersion: v1
+schemas:
+  # document
+  # image
+  # video
+  # industry: media
+
+  - domain: document.bank-check
+    schema: vlmrun.hub.schemas.contrib.document.bank_check.BankCheck
+    prompt: "You are a detail-oriented financial document analyst. Extract all the relevant information from the bank check as accurately as possible."
+    description: "Bank check data extraction system that processes check images to extract structured information including check number, date, payee, amount, bank information, and other relevant check details."
+    sample_data: "https://www.shutterstock.com/image-vector/bank-check-vector-template-filled-260nw-1461323885.jpg"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["accounting", "banking", "finance"]
+
+  - domain: food.nutrition-facts-label
+    schema: vlmrun.hub.schemas.contrib.food.nutrition_facts_label.NutritionFactsLabel
+    prompt: "You are a detail-oriented nutrition analyst. Extract all the relevant information from the nutrition facts label as accurately as possible."
+    description: "Nutrition facts label extraction system that processes images of nutrition labels to extract structured information including serving size, calories, nutrients, and daily values."
+    sample_data: "https://www.wymans.com/cdn/shop/products/dried-nutritionals_1000x1000.jpg"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["food", "health"]
+
+  - domain: accounting.form-payslip
+    schema: vlmrun.hub.schemas.contrib.accounting.form_payslip.Payslip
+    prompt: "You are a detail-oriented tax document analyst. Extract all the relevant information from the payslip as accurately as possible."
+    description: "Payslip data extraction system that processes payslip documents to extract structured information including account details, billing period, charges, and payment information."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/accounting.form-payslip/ps-6.webp"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["finance", "work"]
+
+  - domain: media.nfl-game-state
+    schema: vlmrun.hub.schemas.contrib.media.nfl_game_state.NFLGameState
+    prompt: "You are a detail-oriented NFL Game Analyst. Extract all the relevant game state information from the video feed or screenshot as accurately as possible."
+    description: "NFL game state extraction system that processes game footage or screenshots to extract structured information including teams, scores, game clock, possession, and other relevant game state details."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/media.nfl-game-state/packers_cardinals_screenshot.png"
+    metadata:
+      supported_inputs: ["image", "video"]
+      tags: ["media", "sports"]
+
+  - domain: social.twitter-card
+    schema: vlmrun.hub.schemas.contrib.social.twitter_card.TwitterCard
+    prompt: "You are a detail-oriented social media analyst. Extract all the relevant information from the tweet card as accurately as possible."
+    description: "Twitter card data extraction system that processes tweet screenshots to extract structured information including tweet content, user details, engagement metrics, and quoted tweets."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/social.twitter_card/tweet_openai.png"
+    metadata:
+      supported_inputs: ["image"]
+      tags: ["social", "media"]
+
+  - domain: media.nba-game-state
+    schema: vlmrun.hub.schemas.contrib.media.nba_game_state.NBAGameState
+    prompt: "You are a detail-oriented NBA Game Analyst. Extract all the relevant game state information from the video feed or screenshot as accurately as possible."
+    description: "NBA game state extraction system that processes game footage or screenshots to extract structured information including teams, scores, game clock, shot clock, and other relevant game state details."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/media.nba-game-state/heats_spurs.png"
+    metadata:
+      supported_inputs: ["image", "video"]
+      tags: ["media", "sports"]
+
+  - domain: healthcare.pathology-report
+    schema: vlmrun.hub.schemas.contrib.healthcare.pathology_report.PathologyReport
+    prompt: "You are a detail-oriented Pathology Analyst. Extract all the relevant pathology report information from the pathology report as accurately as possible."
+    description: "Pathology report extraction system that processes pathology reports to extract structured information including patient information, facility information, specimens, gross and microscopic examinations, immunohistochemistry results, molecular studies, integrated diagnosis, clinical notes, and other relevant pathology report details."
+    sample_data: "https://storage.googleapis.com/sample-hub-data/healthcare.pathology_report/sample_report_5.pdf"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["healthcare", "laboratory", "pathology"]
+
+  - domain: finance.balance-sheet
+    schema: vlmrun.hub.schemas.contrib.finance.balance_sheet.BalanceSheet
+    prompt: "You are a detail-oriented Financial Analyst. Extract all the relevant balance sheet information from the document as accurately as possible."
+    description: "Balance sheet extraction system that processes financial documents to extract structured information including company information, assets, liabilities, shareholders' equity, and other relevant balance sheet details."
+    sample_data: "https://storage.googleapis.com/sample-hub-data/finance.balance-sheet/balance-sheet-apple.pdf"
+    metadata:
+      supported_inputs: ["document", "image"]
+      tags: ["finance", "accounting", "financial-statements", "balance-sheet"]
+  
+  - domain: real-estate.lease-agreement
+    schema: vlmrun.hub.schemas.contrib.real_estate.lease_agreement.LeaseAgreement
+    prompt: "You are a detail-oriented Lease Analyst. Extract all the relevant lease agreement information from the lease agreement as accurately as possible."
+    description: "Lease agreement extraction system that processes lease agreements to extract structured information including parties, property details, lease terms, renewal options, and other relevant lease agreement details."
+    sample_data: "https://storage.googleapis.com/sample-hub-data/real-estate.lease-agreement/sample_lease_doc_6.pdf"
+    metadata:
+      supported_inputs: ["document"]
+      tags: ["document", "real estate"]
+
+  - domain: document.in-aadhaar-card
+    schema: vlmrun.hub.schemas.contrib.document.india.aadhaar_card.AadhaarCard
+    prompt: "You are a detail-oriented identity document analyst. Extract all the relevant information from the Aadhaar card as accurately as possible. Determine whether you're seeing the front side (with photo, name, DOB, etc) or back side (with address, etc) and extract accordingly."
+    description: "Aadhaar card information extraction system that processes images of India's national identity document to extract structured information including personal details, address information, and security features."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/document.aadhaar-card/aadhaar_card_sample.jpg"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["identity", "document", "india"]
+
+  - domain: document.in-pan-card
+    schema: vlmrun.hub.schemas.contrib.document.india.pan_card.PANCard
+    prompt: "You are a detail-oriented identity document analyst. Extract all the relevant information from the PAN card as accurately as possible. Focus on the PAN number, name, father's name, and date of birth. Also note if a photo, signature, and Income Tax Department logo are present."
+    description: "PAN card information extraction system that processes images of India's tax identity document to extract structured information including PAN number, personal details, and security features."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/document.pan-card/pan_card_sample.jpg"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["identity", "document", "india", "tax"]
+
+  - domain: document.request-for-proposal
+    schema: vlmrun.hub.schemas.contrib.document.request_for_proposal.RFP
+    prompt: "You are a detail-oriented RFP(Request for Proposal) document analyst. Extract all the relevant information from the rfp document as accurately as possible."
+    description: "RFP document information extraction system that processes images of RFP documents to extract structured information including project details, requirements, and other relevant information."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/document.rfp/RFP-Branding-and-Marketing-Project.pdf"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["rfp", "document", "proposal"]
+
+  - domain: document.insurance-claim
+    schema: vlmrun.hub.schemas.contrib.document.insurance_claim.InsuranceClaim
+    prompt: "You are a detail-oriented insurance claim analyst. Extract all the relevant information from the insurance claim as accurately as possible."
+    description: "Insurance claim information extraction system that processes images of insurance claims to extract structured information including claim details, policy information, and other relevant information."
+    sample_data: "https://storage.googleapis.com/sample-hub-data/document.insurance-claim/insurance_claim_2.pdf"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["insurance", "claim", "document"]
+
+  - domain: document.business-card
+    schema: vlmrun.hub.schemas.contrib.document.business_card.BusinessCard
+    prompt: "You are a detail-oriented business card analyst. Extract all the relevant information from the business card as accurately as possible, including name, job title, company, contact information, and any other details present."
+    description: "Business card information extraction system that processes images of business cards to extract structured information including personal details, company information, and contact information."
+    sample_data: "https://cdnspecseu.bizay.com/24/2/923/2@COUCHE-RECIC@4_0@en@1.png"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["work", "identity"]
+
+  - domain: logistics.bill-of-lading
+    schema: vlmrun.hub.schemas.contrib.logistics.bill_of_lading.BillOfLading
+    prompt: "You are a detail-oriented logistics document analyst. Extract all the relevant information from the Bill of Lading as accurately as possible."
+    description: "Bill of Lading data extraction system that processes shipping documents to extract structured information including shipper/consignee details, vessel information, cargo details, and other relevant shipping information."
+    sample_data: "https://icecargo.com.au/wp-content/uploads/2022/11/sea-way-bill-of-lading-1-768x1087-1.jpg"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["logistics", "supply-chain"]
+
+  - domain: document.form-work-order
+    schema: vlmrun.hub.schemas.contrib.document.form_work_order.WorkOrder
+    prompt: "You are a detail-oriented work order analyst. Extract all the relevant information from this work order form, including company details, client information, service details, costs, and authorization information. Pay attention to whether this is an automotive, landscaping, or electrical work order and extract the appropriate specialized fields."
+    description: "Work order form schema for extracting structured information from various types of work orders (automotive, landscaping, electrical) including company information, client details, service requirements, costs, and authorization details."
+    sample_data: "https://raw.githubusercontent.com/ashrafulparan2/resource/refs/heads/main/wor1.pdf"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["document", "form", "work-order", "automotive", "landscaping", "electrical", "service"]
+
+  - domain: accounting.form-1040-tax-statement
+    schema: vlmrun.hub.schemas.contrib.accounting.form_1040_tax_statement.Form1040TaxStatement
+    prompt: "You are a detail-oriented tax document analyst specializing in IRS forms. Extract all the relevant information from this Form 1040 US Individual Income Tax Return as accurately as possible. Pay special attention to taxpayer information, filing status, income sources, adjustments, deductions, credits, tax calculations, and payment/refund details. Be precise with numerical values and handle both current and older versions of Form 1040."
+    description: "Form 1040 tax statement extraction system that processes US Individual Income Tax Return documents from various tax years to extract structured information including taxpayer and dependent details, filing status, income from all sources, adjustments, deductions, credits, tax calculations, payments, and refund/amount owed information."
+    sample_data: "https://storage.googleapis.com/vlm-data-public-prod/hub/examples/accounting.form-1040-tax-statement/IRS_1040_1_01.pdf"
+    metadata:
+      supported_inputs: ["image", "document"]
+      tags: ["tax", "finance", "accounting", "irs", "form-1040"]

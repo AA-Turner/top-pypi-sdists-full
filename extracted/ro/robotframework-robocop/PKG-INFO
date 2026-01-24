@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: robotframework-robocop
-Version: 6.7.0
+Version: 7.2.0
 Summary: Static code analysis tool (linter) and code formatter for Robot Framework
 Project-URL: Bug tracker, https://github.com/MarketSquare/robotframework-robocop/issues
 Project-URL: Source code, https://github.com/MarketSquare/robotframework-robocop
-Project-URL: Documentation, https://robocop.readthedocs.io/
-Project-URL: Homepage, https://robocop.readthedocs.io/
+Project-URL: Documentation, https://robocop.dev/
+Project-URL: Homepage, https://robocop.dev/
 Author-email: Bartlomiej Hirsz <bartek.hirsz@gmail.com>, Mateusz Nojek <matnojek@gmail.com>
 Maintainer-email: Bartlomiej Hirsz <bartek.hirsz@gmail.com>
 License-File: LICENSE
@@ -22,20 +22,26 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Requires-Dist: jinja2>=3.1.4
+Requires-Dist: msgpack>=1.0.0
 Requires-Dist: pathspec>=0.12
 Requires-Dist: platformdirs>=4.3
 Requires-Dist: pytz>=2022.7
 Requires-Dist: rich>=10.11.0
-Requires-Dist: robotframework<7.4,>=4.0
+Requires-Dist: robotframework<7.5,>=4.0
 Requires-Dist: tomli-w>=1.0
 Requires-Dist: tomli==2.2.1; python_version < '3.11'
 Requires-Dist: typer-slim>=0.12.5
+Provides-Extra: mcp
+Requires-Dist: fastmcp>=2.13.0; (python_version >= '3.10') and extra == 'mcp'
 Description-Content-Type: text/markdown
+
+# Robocop
 
 [![Unit tests](https://github.com/MarketSquare/robotframework-robocop/actions/workflows/tests.yml/badge.svg)](https://github.com/MarketSquare/robotframework-robocop/actions/workflows/unit-tests.yml "GitHub Workflow Unit Tests Status")
 ![Codecov](https://img.shields.io/codecov/c/github/MarketSquare/robotframework-robocop/master "Code coverage on master branch")
@@ -48,8 +54,6 @@ Description-Content-Type: text/markdown
 
 <img style="float:right" src="https://raw.githubusercontent.com/MarketSquare/robotframework-robocop/main/docs/source/images/robocop_logo_small.png">
 
-Robocop
-===============
 
 - [Introduction](#introduction)
 - [Documentation](#documentation)
@@ -57,36 +61,33 @@ Robocop
 - [Installation](#installation)
 - [Usage](#usage)
 - [Example Output](#example-output)
+- [MCP Server](#mcp-server)
 - [Values](#values)
-- [Fixing issues](#fixing-issues)
 - [FAQ](#faq)
 
 ---
 
-Introduction
-------------
+## Introduction
 
 Robocop is a tool that performs static code analysis and formatting of [Robot Framework](https://github.com/robotframework/robotframework) code.
 
-It uses official [Robot Framework parsing API](https://robot-framework.readthedocs.io/en/stable/) to parse files and runs number of checks,
-looking for potential errors or violations to code quality standards (commonly referred as *linting issues*).
+It uses official [Robot Framework parsing API](https://robot-framework.readthedocs.io/en/stable/) to parse files and
+runs a number of checks, looking for potential errors or violations to code quality standards (commonly referred to as
+*linting issues*).
 
 > Hosted on [GitHub](https://github.com/MarketSquare/robotframework-robocop).
 
-Documentation
--------------
+## Documentation
 
-Full documentation is available [here](https://robocop.readthedocs.io). :open_book:
+Full documentation is available at [https://robocop.dev](https://robocop.dev). :open_book:
 
-Most common questions with answers can be found at the bottom ⬇ of this README file.
+The most common questions with answers can be found at the bottom ⬇ of this README file.
 
-Requirements
-------------
+## Requirements
 
 Python 3.9+ :snake: and Robot Framework 4.0+ :robot:.
 
-Installation
-------------
+## Installation
 
 You can install the latest version of Robocop simply by running:
 
@@ -95,35 +96,33 @@ pip install -U robotframework-robocop
 ```
 
 
-Usage
------
+## Usage
 
 Robocop runs by default from the current directory, and it discovers supported files recursively.
-To lint the files you can run:
+To lint the files, you can run:
 
 ```
 robocop check
 ```
 
-To format the files you can run:
+To format the files, you can run:
 
 ```commandline
 robocop format
 ```
 
-All command line options can be displayed in help message by executing:
+All command line options can be displayed in a help message by executing:
 
 ```
 robocop -h
 ```
 
-Example Output
---------------
+## Example Output
 
 Executing command:
 
 ```
-robocop check --report rules_by_error_type test.robot
+robocop check --reports rules_by_error_type test.robot
 ```
 
 
@@ -152,38 +151,56 @@ test.robot:28:1 SPC14 Variable in Variables section is not left aligned
 Found 2 issues: 2 ERRORs, 0 WARNINGs, 0 INFO.
 ```
 
-Values
--------
-Original *RoboCop* - a fictional cybernetic police officer :policeman: - was following 3 prime directives
+## MCP Server
+
+Robocop provides an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that allows AI assistants like Claude and GitHub Copilot to lint and format Robot Framework code directly.
+
+Install with MCP support:
+
+```bash
+pip install robotframework-robocop[mcp]
+```
+
+Run the server:
+
+```bash
+robocop-mcp
+```
+
+Full documentation: [MCP Server](https://robocop.dev/stable/integrations/ai/)
+
+## Values
+
+Original *RoboCop* - a fictional cybernetic police officer - was the following three prime directives
 which also drive the progress of Robocop linter:
 
-> First Directive: **Serve the public trust** :family_man_woman_girl_boy:
+First Directive: **Serve the public trust**
 
 Which lies behind the creation of the project - to **serve** developers and testers as a tool to build applications they can **trust**.
 
-> Second Directive: **Protect the innocent** :baby:
+Second Directive: **Protect the innocent**
 
-**The innocent** testers and developers have no intention to produce ugly code but sometimes, you know, it just happens,
+**The innocent** testers and developers have no intention of producing ugly code, but sometimes, you know, it just happens,
 so Robocop is there to **protect** them.
 
-> Third Directive: **Uphold the law** :classical_building:
+Third Directive: **Uphold the law**
 
-Following the coding guidelines established in the project are something very important to keep the code clean,
-readable and understandable by others and Robocop can help to **uphold the law**.
+Following the coding guidelines established in the project are something crucial to keep the code clean,
+readable and understandable by others, and Robocop can help to **uphold the law**.
 
-FAQ
----
+## FAQ
+
 <details>
   <summary>Can I integrate Robocop with my code editor (IDE)?</summary>
 
   **Yes**, Robocop integrates nicely with popular IDEs like PyCharm or VSCode
-  thanks to [RobotCode](https://github.com/robotcodedev/robotcode) plugin.
-  Read simple manual (README) in that project to figure out how to install & use it.
+  thanks to [the RobotCode](https://robotcode.io/) plugin.
+  Read a simple manual (README) in that project to figure out how to install and use it.
 
 </details>
 
 <details>
-  <summary>Can I load configuration from file?</summary>
+  <summary>Can I load configuration from a file?</summary>
 
   **Yes**, you can use toml-based configuration files:
 
@@ -214,8 +231,8 @@ FAQ
   ```
 
   Multiple configuration files are supported. However, global-like options such as ``--verbose`` or ``--reports`` are
-  only loaded from top configuration file. Read more in
-  [configuration](https://robocop.readthedocs.io/en/stable/configuration/configuration.html).
+  only loaded from a top configuration file. Read more in
+  [configuration](https://robocop.dev/stable/configuration/).
 
 </details>
 
@@ -261,7 +278,7 @@ FAQ
   ```
 
   More about it in
-  [our documentation](https://robocop.readthedocs.io/en/stable/rules/rules_basics.html#selecting-and-ignoring-rules).
+  [our documentation](https://robocop.dev/stable/configuration/configuration_reference/#selecting-rules).
 
 </details>
 
@@ -271,7 +288,7 @@ FAQ
   **Yes**, you can define and include custom rules using `--custom-rules` command line option
   by providing a path to a file containing your rule(s):
   ```
-  robocop --custom-rules my/own/rule.py --custom-rules rules.py,external_rules.py
+  robocop --custom-rules my/own/rule.py --custom-rules external_rules.py
   ```
 
   If you feel that your rule is very helpful and should be included in Robocop permanently,
@@ -281,17 +298,17 @@ FAQ
   [creating an issue](https://github.com/MarketSquare/robotframework-robocop/issues/new/choose).
 
   More about custom rules with code examples in
-  [our documentation](https://robocop.readthedocs.io/en/stable/rules/external_rules.html).
+  [our documentation](https://robocop.dev/stable/linter/custom_rules/).
 </details>
 
 <details>
   <summary>Can I use Robocop in continuous integration (CI) tools?</summary>
 
   **Yes**, Robocop is able to produce different kinds of reports that are supported by most popular platforms such as
-  GitHub, Gitlab, Sonar Qube etc. Read more in [reports](https://robocop.readthedocs.io/en/stable/integrations.html).
+  GitHub, Gitlab, Sonar Qube, etc. Read more in [integrations](https://robocop.dev/stable/integrations/precommit/).
 
 </details>
 
-----
+---
 
 > Excuse me, I have to go. Somewhere there is a crime happening. - Robocop

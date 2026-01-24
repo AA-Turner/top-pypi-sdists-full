@@ -52,6 +52,7 @@ class WhatsAppBusinessAccount(
         purchase_order_number = 'purchase_order_number'
         status = 'status'
         timezone_id = 'timezone_id'
+        whatsapp_business_manager_messaging_limit = 'whatsapp_business_manager_messaging_limit'
 
     class BusinessVerificationStatus:
         expired = 'expired'
@@ -65,6 +66,14 @@ class WhatsAppBusinessAccount(
         revoked = 'revoked'
         verified = 'verified'
 
+    class WhatsappBusinessManagerMessagingLimit:
+        tier_100k = 'TIER_100K'
+        tier_10k = 'TIER_10K'
+        tier_250 = 'TIER_250'
+        tier_2k = 'TIER_2K'
+        tier_unlimited = 'TIER_UNLIMITED'
+        untiered = 'UNTIERED'
+
     class Tasks:
         develop = 'DEVELOP'
         manage = 'MANAGE'
@@ -76,6 +85,10 @@ class WhatsAppBusinessAccount(
         view_cost = 'VIEW_COST'
         view_phone_assets = 'VIEW_PHONE_ASSETS'
         view_templates = 'VIEW_TEMPLATES'
+
+    class Type:
+        interactive = 'INTERACTIVE'
+        text = 'TEXT'
 
     class Category:
         authentication = 'AUTHENTICATION'
@@ -89,9 +102,14 @@ class WhatsAppBusinessAccount(
         named = 'NAMED'
         positional = 'POSITIONAL'
 
+    class SendType:
+        campaign = 'CAMPAIGN'
+        direct = 'DIRECT'
+
     class SubCategory:
         order_details = 'ORDER_DETAILS'
         order_status = 'ORDER_STATUS'
+        rich_order_status = 'RICH_ORDER_STATUS'
 
     class ProviderName:
         billdesk = 'BILLDESK'
@@ -330,6 +348,7 @@ class WhatsAppBusinessAccount(
             'metric_types': 'list<metric_types_enum>',
             'phone_numbers': 'list<string>',
             'start': 'unsigned int',
+            'tiers': 'list<string>',
         }
         enums = {
             'dimensions_enum': [
@@ -518,6 +537,36 @@ class WhatsAppBusinessAccount(
             self.assure_call()
             return request.execute()
 
+    def get_degrees_of_freedom_spec(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
+        from facebook_business.utils import api_utils
+        if batch is None and (success is not None or failure is not None):
+          api_utils.warning('`success` and `failure` callback only work for batch call.')
+        param_types = {
+        }
+        enums = {
+        }
+        request = FacebookRequest(
+            node_id=self['id'],
+            method='GET',
+            endpoint='/degrees_of_freedom_spec',
+            api=self._api,
+            param_checker=TypeChecker(param_types, enums),
+            target_class=AbstractCrudObject,
+            api_type='EDGE',
+            response_parser=ObjectParser(target_class=AbstractCrudObject, api=self._api),
+        )
+        request.add_params(params)
+        request.add_fields(fields)
+
+        if batch is not None:
+            request.add_to_batch(batch, success=success, failure=failure)
+            return request
+        elif pending:
+            return request
+        else:
+            self.assure_call()
+            return request.execute()
+
     def get_flows(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
         from facebook_business.utils import api_utils
         if batch is None and (success is not None or failure is not None):
@@ -627,6 +676,84 @@ class WhatsAppBusinessAccount(
             self.assure_call()
             return request.execute()
 
+    def get_group_analytics(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
+        from facebook_business.utils import api_utils
+        if batch is None and (success is not None or failure is not None):
+          api_utils.warning('`success` and `failure` callback only work for batch call.')
+        param_types = {
+            'end': 'datetime',
+            'granularity': 'granularity_enum',
+            'group_ids': 'list<string>',
+            'metric_types': 'list<metric_types_enum>',
+            'start': 'datetime',
+        }
+        enums = {
+            'granularity_enum': [
+                'DAILY',
+            ],
+            'metric_types_enum': [
+                'CLICKS',
+                'COST',
+                'DELIVERED',
+                'PARTICIPANTS_JOINED',
+                'PARTICIPANTS_LEFT',
+                'READ',
+                'REPLIES',
+                'SENT',
+            ],
+        }
+        request = FacebookRequest(
+            node_id=self['id'],
+            method='GET',
+            endpoint='/group_analytics',
+            api=self._api,
+            param_checker=TypeChecker(param_types, enums),
+            target_class=AbstractCrudObject,
+            api_type='EDGE',
+            response_parser=ObjectParser(target_class=AbstractCrudObject, api=self._api),
+        )
+        request.add_params(params)
+        request.add_fields(fields)
+
+        if batch is not None:
+            request.add_to_batch(batch, success=success, failure=failure)
+            return request
+        elif pending:
+            return request
+        else:
+            self.assure_call()
+            return request.execute()
+
+    def get_marketing_campaigns(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
+        from facebook_business.utils import api_utils
+        if batch is None and (success is not None or failure is not None):
+          api_utils.warning('`success` and `failure` callback only work for batch call.')
+        param_types = {
+        }
+        enums = {
+        }
+        request = FacebookRequest(
+            node_id=self['id'],
+            method='GET',
+            endpoint='/marketing_campaigns',
+            api=self._api,
+            param_checker=TypeChecker(param_types, enums),
+            target_class=AbstractCrudObject,
+            api_type='EDGE',
+            response_parser=ObjectParser(target_class=AbstractCrudObject, api=self._api),
+        )
+        request.add_params(params)
+        request.add_fields(fields)
+
+        if batch is not None:
+            request.add_to_batch(batch, success=success, failure=failure)
+            return request
+        elif pending:
+            return request
+        else:
+            self.assure_call()
+            return request.execute()
+
     def get_message_campaigns(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
         from facebook_business.utils import api_utils
         if batch is None and (success is not None or failure is not None):
@@ -657,12 +784,47 @@ class WhatsAppBusinessAccount(
             self.assure_call()
             return request.execute()
 
+    def create_message_sample(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
+        from facebook_business.utils import api_utils
+        if batch is None and (success is not None or failure is not None):
+          api_utils.warning('`success` and `failure` callback only work for batch call.')
+        param_types = {
+            'interactive': 'map',
+            'text': 'map',
+            'type': 'type_enum',
+        }
+        enums = {
+            'type_enum': WhatsAppBusinessAccount.Type.__dict__.values(),
+        }
+        request = FacebookRequest(
+            node_id=self['id'],
+            method='POST',
+            endpoint='/message_samples',
+            api=self._api,
+            param_checker=TypeChecker(param_types, enums),
+            target_class=WhatsAppBusinessAccount,
+            api_type='EDGE',
+            response_parser=ObjectParser(target_class=WhatsAppBusinessAccount, api=self._api),
+        )
+        request.add_params(params)
+        request.add_fields(fields)
+
+        if batch is not None:
+            request.add_to_batch(batch, success=success, failure=failure)
+            return request
+        elif pending:
+            return request
+        else:
+            self.assure_call()
+            return request.execute()
+
     def get_message_template_previews(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
         from facebook_business.utils import api_utils
         if batch is None and (success is not None or failure is not None):
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         param_types = {
             'add_security_recommendation': 'bool',
+            'business_name': 'string',
             'button_types': 'list<button_types_enum>',
             'category': 'category_enum',
             'code_expiration_minutes': 'unsigned int',
@@ -741,6 +903,7 @@ class WhatsAppBusinessAccount(
             'name': 'string',
             'name_or_content': 'string',
             'quality_score': 'list<quality_score_enum>',
+            'source': 'source_enum',
             'status': 'list<status_enum>',
         }
         enums = {
@@ -750,6 +913,10 @@ class WhatsAppBusinessAccount(
                 'RED',
                 'UNKNOWN',
                 'YELLOW',
+            ],
+            'source_enum': [
+                'AUTO_GENERATED',
+                'MANUAL',
             ],
             'status_enum': [
                 'APPROVED',
@@ -792,8 +959,10 @@ class WhatsAppBusinessAccount(
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         param_types = {
             'allow_category_change': 'bool',
+            'bid_spec': 'map',
             'category': 'category_enum',
             'components': 'list<map>',
+            'creative_sourcing_spec': 'map',
             'cta_url_link_tracking_opted_out': 'bool',
             'degrees_of_freedom_spec': 'map',
             'display_format': 'display_format_enum',
@@ -804,12 +973,14 @@ class WhatsAppBusinessAccount(
             'message_send_ttl_seconds': 'unsigned int',
             'name': 'string',
             'parameter_format': 'parameter_format_enum',
+            'send_type': 'send_type_enum',
             'sub_category': 'sub_category_enum',
         }
         enums = {
             'category_enum': WhatsAppBusinessAccount.Category.__dict__.values(),
             'display_format_enum': WhatsAppBusinessAccount.DisplayFormat.__dict__.values(),
             'parameter_format_enum': WhatsAppBusinessAccount.ParameterFormat.__dict__.values(),
+            'send_type_enum': WhatsAppBusinessAccount.SendType.__dict__.values(),
             'sub_category_enum': WhatsAppBusinessAccount.SubCategory.__dict__.values(),
         }
         request = FacebookRequest(
@@ -871,8 +1042,10 @@ class WhatsAppBusinessAccount(
         if batch is None and (success is not None or failure is not None):
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         param_types = {
+            'count': 'unsigned int',
             'page_number': 'unsigned int',
             'source_waba_id': 'string',
+            'template_ids': 'list<string>',
         }
         enums = {
         }
@@ -1130,10 +1303,12 @@ class WhatsAppBusinessAccount(
                 'AUTHENTICATION',
                 'AUTHENTICATION_INTERNATIONAL',
                 'GROUP_MARKETING',
+                'GROUP_MARKETING_LITE',
                 'GROUP_SERVICE',
                 'GROUP_UTILITY',
                 'MARKETING',
                 'MARKETING_LITE',
+                'MARKETING_LITE_DYNAMIC',
                 'SERVICE',
                 'UTILITY',
             ],
@@ -1486,18 +1661,28 @@ class WhatsAppBusinessAccount(
             'product_type': 'product_type_enum',
             'start': 'datetime',
             'template_ids': 'list<string>',
+            'use_waba_timezone': 'bool',
         }
         enums = {
             'granularity_enum': [
                 'DAILY',
             ],
             'metric_types_enum': [
+                'APP_ACTIVATIONS',
+                'APP_ADD_TO_CART',
+                'APP_CHECKOUTS_INITIATED',
+                'APP_PURCHASES',
+                'APP_PURCHASES_CONVERSION_VALUE',
                 'CLICKED',
                 'COST',
                 'DELIVERED',
                 'READ',
                 'REPLIED',
                 'SENT',
+                'WEBSITE_ADD_TO_CART',
+                'WEBSITE_CHECKOUTS_INITIATED',
+                'WEBSITE_PURCHASES',
+                'WEBSITE_PURCHASES_CONVERSION_VALUE',
             ],
             'product_type_enum': [
                 'CLOUD_API',
@@ -1536,18 +1721,28 @@ class WhatsAppBusinessAccount(
             'metric_types': 'list<metric_types_enum>',
             'start': 'datetime',
             'template_group_ids': 'list<string>',
+            'use_waba_timezone': 'bool',
         }
         enums = {
             'granularity_enum': [
                 'DAILY',
             ],
             'metric_types_enum': [
+                'APP_ACTIVATIONS',
+                'APP_ADD_TO_CART',
+                'APP_CHECKOUTS_INITIATED',
+                'APP_PURCHASES',
+                'APP_PURCHASES_CONVERSION_VALUE',
                 'CLICKED',
                 'COST',
                 'DELIVERED',
                 'READ',
                 'REPLIED',
                 'SENT',
+                'WEBSITE_ADD_TO_CART',
+                'WEBSITE_CHECKOUTS_INITIATED',
+                'WEBSITE_PURCHASES',
+                'WEBSITE_PURCHASES_CONVERSION_VALUE',
             ],
         }
         request = FacebookRequest(
@@ -1703,6 +1898,37 @@ class WhatsAppBusinessAccount(
             self.assure_call()
             return request.execute()
 
+    def delete_welcome_message_sequences(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
+        from facebook_business.utils import api_utils
+        if batch is None and (success is not None or failure is not None):
+          api_utils.warning('`success` and `failure` callback only work for batch call.')
+        param_types = {
+            'sequence_id': 'string',
+        }
+        enums = {
+        }
+        request = FacebookRequest(
+            node_id=self['id'],
+            method='DELETE',
+            endpoint='/welcome_message_sequences',
+            api=self._api,
+            param_checker=TypeChecker(param_types, enums),
+            target_class=AbstractCrudObject,
+            api_type='EDGE',
+            response_parser=ObjectParser(target_class=AbstractCrudObject, api=self._api),
+        )
+        request.add_params(params)
+        request.add_fields(fields)
+
+        if batch is not None:
+            request.add_to_batch(batch, success=success, failure=failure)
+            return request
+        elif pending:
+            return request
+        else:
+            self.assure_call()
+            return request.execute()
+
     def get_welcome_message_sequences(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
         from facebook_business.utils import api_utils
         if batch is None and (success is not None or failure is not None):
@@ -1723,6 +1949,39 @@ class WhatsAppBusinessAccount(
             target_class=CTXPartnerAppWelcomeMessageFlow,
             api_type='EDGE',
             response_parser=ObjectParser(target_class=CTXPartnerAppWelcomeMessageFlow, api=self._api),
+        )
+        request.add_params(params)
+        request.add_fields(fields)
+
+        if batch is not None:
+            request.add_to_batch(batch, success=success, failure=failure)
+            return request
+        elif pending:
+            return request
+        else:
+            self.assure_call()
+            return request.execute()
+
+    def create_welcome_message_sequence(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
+        from facebook_business.utils import api_utils
+        if batch is None and (success is not None or failure is not None):
+          api_utils.warning('`success` and `failure` callback only work for batch call.')
+        param_types = {
+            'name': 'string',
+            'sequence_id': 'string',
+            'welcome_message_sequence': 'Object',
+        }
+        enums = {
+        }
+        request = FacebookRequest(
+            node_id=self['id'],
+            method='POST',
+            endpoint='/welcome_message_sequences',
+            api=self._api,
+            param_checker=TypeChecker(param_types, enums),
+            target_class=AbstractCrudObject,
+            api_type='EDGE',
+            response_parser=ObjectParser(target_class=AbstractCrudObject, api=self._api),
         )
         request.add_params(params)
         request.add_fields(fields)
@@ -1762,15 +2021,19 @@ class WhatsAppBusinessAccount(
         'purchase_order_number': 'string',
         'status': 'string',
         'timezone_id': 'string',
+        'whatsapp_business_manager_messaging_limit': 'WhatsappBusinessManagerMessagingLimit',
     }
     @classmethod
     def _get_field_enum_info(cls):
         field_enum_info = {}
         field_enum_info['BusinessVerificationStatus'] = WhatsAppBusinessAccount.BusinessVerificationStatus.__dict__.values()
+        field_enum_info['WhatsappBusinessManagerMessagingLimit'] = WhatsAppBusinessAccount.WhatsappBusinessManagerMessagingLimit.__dict__.values()
         field_enum_info['Tasks'] = WhatsAppBusinessAccount.Tasks.__dict__.values()
+        field_enum_info['Type'] = WhatsAppBusinessAccount.Type.__dict__.values()
         field_enum_info['Category'] = WhatsAppBusinessAccount.Category.__dict__.values()
         field_enum_info['DisplayFormat'] = WhatsAppBusinessAccount.DisplayFormat.__dict__.values()
         field_enum_info['ParameterFormat'] = WhatsAppBusinessAccount.ParameterFormat.__dict__.values()
+        field_enum_info['SendType'] = WhatsAppBusinessAccount.SendType.__dict__.values()
         field_enum_info['SubCategory'] = WhatsAppBusinessAccount.SubCategory.__dict__.values()
         field_enum_info['ProviderName'] = WhatsAppBusinessAccount.ProviderName.__dict__.values()
         return field_enum_info

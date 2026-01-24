@@ -18,17 +18,19 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class RowDetails(BaseModel):
     """
     Information about the nuber of rows processed.  # noqa: E501
     """
-    rows_total: Optional[StrictInt] = Field(None, alias="rowsTotal", description="The number of rows processed.")
-    rows_succeeded: Optional[StrictInt] = Field(None, alias="rowsSucceeded", description="The number of rows that were successfully processed.")
-    rows_ignored: Optional[StrictInt] = Field(None, alias="rowsIgnored", description="The number of rows that were not processed.")
-    rows_failed: Optional[StrictInt] = Field(None, alias="rowsFailed", description="The number of rows that failed when being processed.")
+    rows_total: Optional[StrictInt] = Field(default=None, description="The number of rows processed.", alias="rowsTotal")
+    rows_succeeded: Optional[StrictInt] = Field(default=None, description="The number of rows that were successfully processed.", alias="rowsSucceeded")
+    rows_ignored: Optional[StrictInt] = Field(default=None, description="The number of rows that were not processed.", alias="rowsIgnored")
+    rows_failed: Optional[StrictInt] = Field(default=None, description="The number of rows that failed when being processed.", alias="rowsFailed")
     __properties = ["rowsTotal", "rowsSucceeded", "rowsIgnored", "rowsFailed"]
 
     class Config:
@@ -101,3 +103,5 @@ class RowDetails(BaseModel):
             "rows_failed": obj.get("rowsFailed")
         })
         return _obj
+
+RowDetails.update_forward_refs()

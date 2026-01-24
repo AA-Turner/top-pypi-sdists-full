@@ -103,6 +103,8 @@ class BF16_Optimizer(ZeROOptimizer):
         see_memory_usage('end bf16_ optimizer', force=True)
 
     def destroy(self):
+        if not self.using_real_optimizer:
+            return
         for i, _ in enumerate(self.optimizer.param_groups):
             for p in self.bf16_groups[i]:
                 if getattr(p, '_hp_mapping', None):
@@ -316,18 +318,10 @@ class BF16_Optimizer(ZeROOptimizer):
 
         self.clear_hp_grads()
 
-    def backward(self, loss, retain_graph=False, update_hp_grads=True, clear_lp_grads=False, **bwd_kwargs):
-        """Perform a backward pass and copy the low-precision gradients to the
-        high-precision copy.
-
-        We copy/accumulate to the high-precision grads now to prevent accumulating in the
-        bf16 grads after successive backward() calls (i.e., grad accumulation steps > 1)
-
-        The low-precision grads are deallocated during this procedure.
-        """
+    def backward_prologue(self):
         self.clear_lp_grads()
-        loss.backward(retain_graph=retain_graph, **bwd_kwargs)
 
+    def backward_epilogue(self, update_hp_grads=True, clear_lp_grads=False, **bwd_kwargs):
         if update_hp_grads:
             self.update_hp_grads(clear_lp_grads=clear_lp_grads)
 

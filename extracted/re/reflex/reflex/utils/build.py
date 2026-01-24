@@ -20,6 +20,7 @@ def set_env_json():
         str(prerequisites.get_web_dir() / constants.Dirs.ENV_JSON),
         {
             **{endpoint.name: endpoint.get_url() for endpoint in constants.Endpoint},
+            "TRANSPORT": get_config().transport,
             "TEST_MODE": is_in_app_harness(),
         },
     )
@@ -187,15 +188,20 @@ def _duplicate_index_html_to_parent_directory(directory: Path):
 
 
 def build():
-    """Build the app for deployment."""
+    """Build the app for deployment.
+
+    Raises:
+        SystemExit: If the build process fails.
+    """
     wdir = prerequisites.get_web_dir()
 
     # Clean the static directory if it exists.
     path_ops.rm(str(wdir / constants.Dirs.BUILD_DIR))
 
     checkpoints = [
-        "building for production",
-        "building SSR bundle for production",
+        "building client environment for production...",
+        "modules transformed",
+        "building ssr environment for production...",
         "built in",
     ]
 
@@ -214,11 +220,23 @@ def build():
         },
     )
     processes.show_progress("Creating Production Build", process, checkpoints)
+    process.wait()
+    if process.returncode != 0:
+        console.error(
+            "Failed to build the frontend. Please run with --loglevel debug for more information.",
+        )
+        raise SystemExit(1)
     _duplicate_index_html_to_parent_directory(wdir / constants.Dirs.STATIC)
-    path_ops.cp(
-        wdir / constants.Dirs.STATIC / constants.ReactRouter.SPA_FALLBACK,
-        wdir / constants.Dirs.STATIC / "404.html",
-    )
+
+    spa_fallback = wdir / constants.Dirs.STATIC / constants.ReactRouter.SPA_FALLBACK
+    if not spa_fallback.exists():
+        spa_fallback = wdir / constants.Dirs.STATIC / "index.html"
+
+    if spa_fallback.exists():
+        path_ops.cp(
+            spa_fallback,
+            wdir / constants.Dirs.STATIC / "404.html",
+        )
 
     config = get_config()
 

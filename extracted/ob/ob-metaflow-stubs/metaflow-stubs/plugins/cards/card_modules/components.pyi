@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.705789                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.871956                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,10 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
+    import metaflow.plugins.cards.card_modules.components
     import typing
+    import metaflow.plugins.cards.card_modules.json_viewer
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent
@@ -267,10 +268,22 @@ class Markdown(UserComponent, metaclass=type):
     )
     ```
     
+    Multi-line strings with indentation are automatically dedented:
+    ```
+    current.card.append(
+        Markdown(f'''
+            # Header
+            - Item 1
+            - Item 2
+        ''')
+    )
+    ```
+    
     Parameters
     ----------
     text : str
-        Text formatted in Markdown.
+        Text formatted in Markdown. Leading whitespace common to all lines
+        is automatically removed to support indented multi-line strings.
     """
     def update(self, text = None):
         ...
@@ -462,5 +475,168 @@ class PythonCode(UserComponent, metaclass=type):
         ...
     def render(self, *args, **kwargs):
         ...
+    ...
+
+class EventsTimeline(UserComponent, metaclass=type):
+    """
+    An events timeline component for displaying structured log messages in real-time.
+    
+    This component displays events in a timeline format with the latest events at the top.
+    Each event can contain structured data including other UserComponents for rich display.
+    
+    Example: Basic usage
+    ```python
+    @card
+    @step
+    def my_step(self):
+        from metaflow.cards import EventsTimeline
+        from metaflow import current
+    
+        # Create an events component
+        events = EventsTimeline(title="Processing Events")
+        current.card.append(events)
+    
+        # Add events during processing
+        for i in range(10):
+            events.update(
+                event_data={
+                    "timestamp": datetime.now().isoformat(),
+                    "event_type": "processing",
+                    "item_id": i,
+                    "status": "completed",
+                    "duration_ms": random.randint(100, 500)
+                }
+            )
+            time.sleep(1)
+    ```
+    
+    Example: With styling and rich components
+    ```python
+    from metaflow.cards import EventsTimeline, Markdown, PythonCode
+    
+    events = EventsTimeline(title="Agent Actions")
+    current.card.append(events)
+    
+    # Event with styling
+    events.update(
+        event_data={
+            "action": "tool_call",
+            "function": "get_weather",
+            "result": "Success"
+        },
+        style_theme="success"
+    )
+    
+    # Event with rich components
+    events.update(
+        event_data={
+            "action": "code_execution",
+            "status": "completed"
+        },
+        payloads={
+            "code": PythonCode(code_string="print('Hello World')"),
+            "notes": Markdown("**Important**: This ran successfully")
+        },
+        style_theme="info"
+    )
+    ```
+    
+    Parameters
+    ----------
+    title : str, optional
+        Title for the events timeline.
+    max_events : int, default 100
+        Maximum number of events to display. Older events are removed from display
+        but total count is still tracked. Stats and relative time display are always enabled.
+    """
+    def __init__(self, title: typing.Optional[str] = None, max_events: int = 100):
+        ...
+    def update(self, event_data: dict, style_theme: typing.Optional[str] = None, priority: typing.Optional[str] = None, payloads: typing.Optional[dict] = None, finished: typing.Optional[bool] = None):
+        """
+        Add a new event to the timeline.
+        
+        Parameters
+        ----------
+        event_data : dict
+            Basic event metadata (strings, numbers, simple values only).
+            This appears in the main event display area.
+        style_theme : str, optional
+            Visual theme for this event. Valid values: 'default', 'success', 'warning',
+            'error', 'info', 'primary', 'secondary', 'tool_call', 'ai_response'.
+        priority : str, optional
+            Priority level for the event ('low', 'normal', 'high', 'critical').
+            Affects visual prominence.
+        payloads : dict, optional
+            Rich payload components that will be displayed in collapsible sections.
+            Values must be UserComponent instances: ValueBox, Image, Markdown,
+            Artifact, JSONViewer, YAMLViewer. VegaChart is not supported inside EventsTimeline.
+        finished : bool, optional
+            Mark the timeline as finished. When True, the status indicator will show
+            "Finished" in the header.
+        """
+        ...
+    def get_stats(self) -> dict:
+        """
+        Get timeline statistics.
+        
+        Returns
+        -------
+        dict
+            Statistics including total events, display count, timing info, etc.
+        """
+        ...
+    def render(self, *args, **kwargs):
+        ...
+    ...
+
+class JSONViewer(metaflow.plugins.cards.card_modules.json_viewer.JSONViewer, UserComponent, metaclass=type):
+    """
+    A component for displaying JSON data with syntax highlighting and collapsible sections.
+    
+    This component provides a rich view of JSON data with proper formatting, syntax highlighting,
+    and the ability to collapse/expand sections for better readability.
+    
+    Example:
+    ```python
+    from metaflow.cards import JSONViewer, EventsTimeline
+    from metaflow import current
+    
+    # Use in events timeline
+    events = EventsTimeline(title="API Calls")
+    events.update({
+        "action": "api_request",
+        "endpoint": "/users",
+        "payload": JSONViewer({"user_id": 123, "fields": ["name", "email"]})
+    })
+    
+    # Use standalone
+    data = {"config": {"debug": True, "timeout": 30}}
+    current.card.append(JSONViewer(data, collapsible=True))
+    ```
+    """
+    ...
+
+class YAMLViewer(metaflow.plugins.cards.card_modules.json_viewer.YAMLViewer, UserComponent, metaclass=type):
+    """
+    A component for displaying YAML data with syntax highlighting and collapsible sections.
+    
+    This component provides a rich view of YAML data with proper formatting and syntax highlighting.
+    
+    Example:
+    ```python
+    from metaflow.cards import YAMLViewer, EventsTimeline
+    from metaflow import current
+    
+    # Use in events timeline
+    events = EventsTimeline(title="Configuration Changes")
+    events.update({
+        "action": "config_update",
+        "config": YAMLViewer({
+            "database": {"host": "localhost", "port": 5432},
+            "features": ["auth", "logging"]
+        })
+    })
+    ```
+    """
     ...
 

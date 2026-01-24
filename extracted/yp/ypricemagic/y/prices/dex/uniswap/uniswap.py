@@ -1,10 +1,9 @@
 import logging
 import threading
 from contextlib import suppress
-from typing import List, Optional, Tuple, Union
+from typing import Union
 
-import a_sync
-from a_sync import igather
+from a_sync import ASyncGenericSingleton, igather
 from brownie import ZERO_ADDRESS
 from web3.exceptions import ContractLogicError
 
@@ -40,7 +39,7 @@ _special_routers = {
 Uniswap = Union[UniswapV1, UniswapRouterV2, UniswapV3]
 
 
-class UniswapMultiplexer(a_sync.ASyncGenericSingleton):
+class UniswapMultiplexer(ASyncGenericSingleton):
     """
     A multiplexer for Uniswap routers that provides aggregated functionality across multiple Uniswap instances,
     including Uniswap V1, V2, V3, and certain protocols with similar interfaces like Solidly and Velodrome.
@@ -89,7 +88,7 @@ class UniswapMultiplexer(a_sync.ASyncGenericSingleton):
         # TODO: fix that if it causes issues for somebody. For us its fine.
         self.v3_forks = v3.forks
 
-        self.uniswaps: List[Uniswap] = []
+        self.uniswaps: list[Uniswap] = []
         if self.v1:
             self.uniswaps.append(self.v1)
         self.uniswaps.extend(self.v2_routers.values())
@@ -125,10 +124,10 @@ class UniswapMultiplexer(a_sync.ASyncGenericSingleton):
     async def get_price(
         self,
         token_in: AnyAddressType,
-        block: Optional[Block] = None,
-        ignore_pools: Tuple[Pool, ...] = (),
+        block: Block | None = None,
+        ignore_pools: tuple[Pool, ...] = (),
         skip_cache: bool = ENVS.SKIP_CACHE,
-    ) -> Optional[UsdPrice]:
+    ) -> UsdPrice | None:
         """
         Calculate a price based on Uniswap Router quote for selling one `token_in`.
         Always finds the deepest swap path for `token_in`.
@@ -173,9 +172,9 @@ class UniswapMultiplexer(a_sync.ASyncGenericSingleton):
     async def routers_by_depth(
         self,
         token_in: AnyAddressType,
-        block: Optional[Block] = None,
-        ignore_pools: Tuple[Pool, ...] = (),
-    ) -> List[UniswapRouterV2]:
+        block: Block | None = None,
+        ignore_pools: tuple[Pool, ...] = (),
+    ) -> list[UniswapRouterV2]:
         """
         Get Uniswap routers sorted by liquidity depth for a given token.
 
@@ -209,28 +208,23 @@ class UniswapMultiplexer(a_sync.ASyncGenericSingleton):
             depth_to_router[balance] for balance in sorted(depth_to_router, reverse=True) if balance
         ]
 
-    @a_sync.Semaphore(100)  # some arbitrary number to keep the loop unclogged
     @stuck_coro_debugger
     async def check_liquidity(
         self,
         token: Address,
         block: Block,
-        ignore_pools: Tuple[Pool, ...] = (),
+        ignore_pools: tuple[Pool, ...] = (),
     ) -> int:
         """
         Check the maximum liquidity for a token across all Uniswap instances.
 
-        This method checks the liquidity of the given token across all Uniswap instances
-        and returns the maximum liquidity found.
+        This method concurrently checks the liquidity of the given token across
+        all Uniswap instances and returns the maximum liquidity found.
 
         Args:
             token: The address of the token to check liquidity for.
             block: The block number to query.
             ignore_pools (optional): A tuple of Pool objects to ignore when checking liquidity.
-
-        Note:
-            - The method uses asyncio.gather to check liquidity across all Uniswap instances concurrently.
-            - A semaphore is used to limit the number of concurrent checks to 100.
 
         Examples:
             >>> multiplexer = UniswapMultiplexer(asynchronous=True)

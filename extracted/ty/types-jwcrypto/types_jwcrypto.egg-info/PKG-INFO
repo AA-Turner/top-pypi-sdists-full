@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-jwcrypto
-Version: 1.5.0.20250516
+Version: 1.5.0.20251102
 Summary: Typing stubs for jwcrypto
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -18,14 +18,9 @@ Dynamic: license-file
 
 ## Typing stubs for jwcrypto
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`jwcrypto`](https://github.com/latchset/jwcrypto) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `jwcrypto`. This version of
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`jwcrypto`](https://github.com/latchset/jwcrypto) package. It can be used by type checkers
+to check code that uses `jwcrypto`. This version of
 `types-jwcrypto` aims to provide accurate annotations for
 `jwcrypto==1.5.*`.
 
@@ -36,9 +31,9 @@ for more details. The source for this package can be found in the
 [`stubs/jwcrypto`](https://github.com/python/typeshed/tree/main/stubs/jwcrypto)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
+
 It was generated from typeshed commit
-[`126768408a69b7a3a09b7d3992970b289f92937e`](https://github.com/python/typeshed/commit/126768408a69b7a3a09b7d3992970b289f92937e).
+[`8aaa86f6a4b5f518734973884d14bf4da0f6f399`](https://github.com/python/typeshed/commit/8aaa86f6a4b5f518734973884d14bf4da0f6f399).

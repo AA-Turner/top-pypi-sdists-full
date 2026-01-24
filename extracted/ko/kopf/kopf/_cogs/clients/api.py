@@ -5,7 +5,7 @@ import json
 import ssl
 import urllib.parse
 from collections.abc import AsyncIterator, Mapping
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -18,8 +18,8 @@ from kopf._cogs.helpers import typedefs
 @auth.authenticated
 async def get_default_namespace(
         *,
-        context: Optional[auth.APIContext] = None,
-) -> Optional[str]:
+        context: auth.APIContext | None = None,
+) -> str | None:
     if context is None:
         raise RuntimeError("API instance is not injected by the decorator.")
     return context.default_namespace
@@ -28,7 +28,7 @@ async def get_default_namespace(
 @auth.authenticated
 async def read_sslcert(
         *,
-        context: Optional[auth.APIContext] = None,
+        context: auth.APIContext | None = None,
 ) -> tuple[str, bytes]:
     if context is None:
         raise RuntimeError("API instance is not injected by the decorator.")
@@ -47,10 +47,10 @@ async def request(
         url: str,  # relative to the server/api root.
         *,
         settings: configuration.OperatorSettings,
-        payload: Optional[object] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
-        context: Optional[auth.APIContext] = None,  # injected by the decorator
+        payload: object | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
+        context: auth.APIContext | None = None,  # injected by the decorator
         logger: typedefs.Logger,
 ) -> aiohttp.ClientResponse:
     if context is None:  # for type-checking!
@@ -68,7 +68,7 @@ async def request(
     backoffs = settings.networking.error_backoffs
     backoffs = backoffs if isinstance(backoffs, collections.abc.Iterable) else [backoffs]
     count = len(backoffs) + 1 if isinstance(backoffs, collections.abc.Sized) else None
-    backoff: Optional[float]
+    backoff: float | None
     for retry, backoff in enumerate(itertools.chain(backoffs, [None]), start=1):
         idx = f"#{retry}/{count}" if count is not None else f"#{retry}"
         what = f"{method.upper()} {url}"
@@ -118,9 +118,9 @@ async def get(
         url: str,  # relative to the server/api root.
         *,
         settings: configuration.OperatorSettings,
-        payload: Optional[object] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
+        payload: object | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
         logger: typedefs.Logger,
 ) -> Any:
     response = await request(
@@ -140,9 +140,9 @@ async def post(
         url: str,  # relative to the server/api root.
         *,
         settings: configuration.OperatorSettings,
-        payload: Optional[object] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
+        payload: object | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
         logger: typedefs.Logger,
 ) -> Any:
     response = await request(
@@ -162,9 +162,9 @@ async def patch(
         url: str,  # relative to the server/api root.
         *,
         settings: configuration.OperatorSettings,
-        payload: Optional[object] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
+        payload: object | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
         logger: typedefs.Logger,
 ) -> Any:
     response = await request(
@@ -184,9 +184,9 @@ async def delete(
         url: str,  # relative to the server/api root.
         *,
         settings: configuration.OperatorSettings,
-        payload: Optional[object] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
+        payload: object | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
         logger: typedefs.Logger,
 ) -> Any:
     response = await request(
@@ -206,22 +206,50 @@ async def stream(
         url: str,  # relative to the server/api root.
         *,
         settings: configuration.OperatorSettings,
-        payload: Optional[object] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
-        stopper: Optional[aiotasks.Future] = None,
+        payload: object | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
+        stopper: aiotasks.Future | None = None,
         logger: typedefs.Logger,
 ) -> AsyncIterator[Any]:
-    response = await request(
-        method='get',
-        url=url,
-        payload=payload,
-        headers=headers,
-        timeout=timeout,
-        settings=settings,
-        logger=logger,
-    )
-    response_close_callback = lambda _: response.close()  # to remove the positional arg.
+    # This dirty trickery is for cases when the server thinks too slowly before
+    # sending the headers, but the stopper is already set during the initial wait.
+    def request_cancel_callback(_: aiotasks.Future) -> None:
+        task = asyncio.current_task()
+        assert task is not None  # for type-checkers; this is `async def`, so always in a task.
+        task.cancel()
+
+    if stopper is not None and not stopper.done():
+        stopper.add_done_callback(request_cancel_callback)
+    try:
+        response = await request(
+            method='get',
+            url=url,
+            payload=payload,
+            headers=headers,
+            timeout=timeout,
+            settings=settings,
+            logger=logger,
+        )
+    except asyncio.CancelledError:
+        if stopper is not None and stopper.done():
+            return
+        else:
+            raise  # triggered not by the stopper, escalate
+    finally:
+        if stopper is not None:
+            stopper.remove_done_callback(request_cancel_callback)
+
+    # Do not proceed if managed to avoid the cancellation somehow, but got here.
+    if stopper is not None and stopper.done():
+        response.close()
+        return
+
+    # Once the headers were sent & received, the stopper works slightly differently:
+    # it closes the response instead of cancelling the already performed request.
+    def response_close_callback(_: aiotasks.Future) -> None:
+        response.close()
+
     if stopper is not None:
         stopper.add_done_callback(response_close_callback)
     try:
@@ -232,7 +260,7 @@ async def stream(
         if stopper is not None and stopper.done():
             pass
         else:
-            raise
+            raise  # triggered not by the stopper, escalate
     finally:
         if stopper is not None:
             stopper.remove_done_callback(response_close_callback)

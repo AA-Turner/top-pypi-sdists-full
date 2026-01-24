@@ -22,38 +22,70 @@ from __future__ import annotations
 
 import inspect
 from typing import TYPE_CHECKING
-from typing import Any
-from typing import ClassVar
-from typing import Literal
 
-from griffe import Alias
-from griffe import Attribute
-from griffe import Class
 from griffe import Docstring
 from griffe import Extension
-from griffe import Inspector
-from griffe import Object
 from griffe import ObjectNode
-from griffe import Visitor
+from griffe import Parser
 from griffe import dynamic_import
 from griffe import get_logger
 
+from ._internal import BaseGoogleDocstringInheritanceMeta
+from ._internal import BaseNumpyDocstringInheritanceMeta
+
 if TYPE_CHECKING:
     import ast
+    from typing import Any
+    from typing import Literal
 
-    from griffe import Parser
+    from griffe import Alias
+    from griffe import Class
+    from griffe import DocstringStyle
+    from griffe import Inspector
+    from griffe import Object
+    from griffe import Visitor
+
+    DocstringParser = DocstringStyle | Literal[""]
 
 _logger = get_logger(__name__)
 
 
+def _import_dynamically(obj: Object | Alias) -> Any:
+    """Import dynamically and return an object in a failsafe way."""
+    try:
+        return dynamic_import(obj.path)
+    except ImportError:
+        _logger.debug("Cannot get the dynamic imported docstring for %s", obj.path)
+
+
+def _get_inherited_docstring_parser_kind(
+    class_: type[Any],
+) -> DocstringParser:
+    """Return the inherited docstring parser kind of a class."""
+    # Is it the first class that has a metaclass defined which has
+    # DocstringInheritanceMeta in its hierarchy?
+    # In other words, none of its - eventually multiple inherited - base classes
+    # has a metaclass with DocstringInheritanceMeta.
+    for base_class in class_.__mro__[1:]:
+        if docstring_style := _get_parser_kind(base_class):
+            return docstring_style
+    return ""
+
+
+def _get_parser_kind(
+    class_: type[Any],
+) -> DocstringParser:
+    """Return the docstring parser kind of a class."""
+    for base_meta in class_.__class__.__mro__:
+        if issubclass(base_meta, BaseGoogleDocstringInheritanceMeta):
+            return Parser.google.value
+        if issubclass(base_meta, BaseNumpyDocstringInheritanceMeta):
+            return Parser.numpy.value
+    return ""
+
+
 class DocstringInheritance(Extension):
     """Inherit docstrings when the package docstring-inheritance is used."""
-
-    __parser: Literal["google", "numpy", "sphinx"] | Parser | None = None
-    """The docstring parser."""
-
-    __parser_options: ClassVar[dict[str, Any]] = {}
-    """The docstring parser options."""
 
     def on_class_members(  # noqa: D102
         self,
@@ -64,42 +96,58 @@ class DocstringInheritance(Extension):
         **kwargs: Any,
     ) -> None:
         if isinstance(node, ObjectNode):
-            # Skip runtime objects, their docstrings are already OK.
+            # Skip runtime objects, their docstrings have already been inherited.
             return
 
-        runtime_cls = self.__import_dynamically(cls)
-
-        if not self.__has_docstring_inheritance(runtime_cls):
+        runtime_cls = _import_dynamically(cls)
+        if runtime_cls is None:
+            # Skip when the docstring has not been processed by docstring-inheritance,
+            # as this only happens at runtime.
             return
 
+        docstring_parser_kind = _get_inherited_docstring_parser_kind(runtime_cls)
+        if not docstring_parser_kind:
+            # If the docstring parser cannot be determined then new docstrings
+            # cannot be created.
+            return
+
+        _DocstringUpdater(
+            cls, runtime_cls, docstring_parser_kind, agent.docstring_options
+        ).update()
+
+
+class _DocstringUpdater:
+    """Update the docstrings of a class from its runtime docstrings."""
+
+    def __init__(self, cls, runtime_cls, parser, parser_options) -> None:
+        self.__cls = cls
+        self.__runtime_cls = runtime_cls
+        self.__parser = parser
+        self.__parser_options = parser_options
+
+    def update(self) -> None:
+        """Update the docstrings."""
         # Inherit the class docstring.
-        self.__set_docstring(cls, runtime_cls)
+        self.__set_docstring(self.__cls, self.__runtime_cls)
 
         # Inherit the methods docstrings.
-        for member in cls.members.values():
-            if not isinstance(member, Attribute):
-                runtime_obj = self.__import_dynamically(member)
-                self.__set_docstring(member, runtime_obj)
+        for member in self.__cls.members.values():
+            if member.is_function:
+                runtime_member = _import_dynamically(member)
+                if runtime_member is not None:
+                    self.__set_docstring(member, runtime_member)
 
-    @staticmethod
-    def __import_dynamically(obj: Object | Alias) -> Any:
-        """Import dynamically and return an object."""
-        try:
-            return dynamic_import(obj.path)
-        except ImportError:
-            _logger.debug("Could not get dynamic docstring for %s", obj.path)
-
-    @classmethod
-    def __set_docstring(cls, obj: Object | Alias, runtime_obj: Any) -> None:
+    def __set_docstring(
+        self,
+        obj: Object | Alias,
+        runtime_obj: Any,
+    ) -> None:
         """Set the docstring from a runtime object.
 
         Args:
             obj: The griffe object.
             runtime_obj: The runtime object.
         """
-        if runtime_obj is None:
-            return
-
         try:
             docstring = runtime_obj.__doc__
         except AttributeError:
@@ -107,48 +155,21 @@ class DocstringInheritance(Extension):
             return
 
         if docstring is None:
-            return
+            if runtime_obj.__name__ != "__init__":
+                return
+            # This is a constructor with no arguments,
+            # thus prevent griffe_inherited_docstrings from inheriting
+            # a docstring that is empty,
+            # since griffe_inherited_docstrings looks for docstrings that are None.
+            docstring = ""
 
-        # Update the object instance with the evaluated docstring.
+        # Set the inherited docstring.
         if obj.docstring:
             obj.docstring.value = inspect.cleandoc(docstring)
         else:
-            assert not isinstance(obj, Alias)
-            cls.__find_parser(obj)
             obj.docstring = Docstring(
                 docstring,
                 parent=obj,
-                parser=cls.__parser,
-                parser_options=cls.__parser_options,
+                parser=self.__parser,
+                parser_options=self.__parser_options,
             )
-
-    @staticmethod
-    def __has_docstring_inheritance(cls: type[Any]) -> bool:
-        """Return whether a class has docstring inheritance."""
-        for base in cls.__class__.__mro__:
-            if base.__name__.endswith("DocstringInheritanceMeta"):
-                return True
-        return False
-
-    @classmethod
-    def __find_parser(cls, obj: Object) -> None:
-        """Search a docstring parser recursively from an object parents."""
-        if cls.__parser is not None:
-            return
-
-        parent = obj.parent
-        if parent is None:
-            msg = f"Cannot find a parent of the object {obj}"
-            raise RuntimeError(msg)
-
-        if parent.docstring is None:
-            msg = f"Cannot find a docstring for the parent of the object {obj}"
-            raise RuntimeError(msg)
-
-        parser = parent.docstring.parser
-
-        if parser is None:
-            cls.__find_parser(parent)
-        else:
-            cls.__parser = parser
-            cls.__parser_options = parent.docstring.parser_options

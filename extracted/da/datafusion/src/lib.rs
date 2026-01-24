@@ -15,19 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Re-export Apache Arrow DataFusion dependencies
+pub use datafusion;
+pub use datafusion::{
+    common as datafusion_common, logical_expr as datafusion_expr, optimizer, sql as datafusion_sql,
+};
+#[cfg(feature = "substrait")]
+pub use datafusion_substrait;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 use pyo3::prelude::*;
-
-// Re-export Apache Arrow DataFusion dependencies
-pub use datafusion;
-pub use datafusion::common as datafusion_common;
-pub use datafusion::logical_expr as datafusion_expr;
-pub use datafusion::optimizer;
-pub use datafusion::sql as datafusion_sql;
-
-#[cfg(feature = "substrait")]
-pub use datafusion_substrait;
 
 #[allow(clippy::borrow_deref_ref)]
 pub mod catalog;
@@ -52,6 +49,7 @@ pub mod pyarrow_util;
 mod record_batch;
 pub mod sql;
 pub mod store;
+pub mod table;
 pub mod unparser;
 
 #[cfg(feature = "substrait")]
@@ -86,6 +84,8 @@ fn _internal(py: Python, m: Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<context::PySessionContext>()?;
     m.add_class::<context::PySQLOptions>()?;
     m.add_class::<dataframe::PyDataFrame>()?;
+    m.add_class::<dataframe::PyInsertOp>()?;
+    m.add_class::<dataframe::PyDataFrameWriteOptions>()?;
     m.add_class::<dataframe::PyParquetColumnOptions>()?;
     m.add_class::<dataframe::PyParquetWriterOptions>()?;
     m.add_class::<udf::PyScalarUDF>()?;

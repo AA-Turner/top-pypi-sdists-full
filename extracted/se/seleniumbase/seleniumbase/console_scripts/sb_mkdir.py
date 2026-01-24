@@ -10,6 +10,7 @@ Example:
 
 Options:
     -b / --basic  (Only config files. No tests added.)
+    --gha  (Include GitHub Actions YML with defaults.)
 
 Output:
     Creates a new folder for running SBase scripts.
@@ -18,7 +19,6 @@ Output:
     and Python boilerplates for setting up customized
     test frameworks.
 """
-import codecs
 import colorama
 import os
 import sys
@@ -33,6 +33,7 @@ def invalid_run_command(msg=None):
     exp += "     sbase mkdir ui_tests\n"
     exp += "  Options:\n"
     exp += "     -b / --basic  (Only config files. No tests added.)\n"
+    exp += "     --gha  (Include GitHub Actions YML with defaults.)\n"
     exp += "  Output:\n"
     exp += "     Creates a new folder for running SBase scripts.\n"
     exp += "     The new folder contains default config files,\n"
@@ -59,6 +60,7 @@ def main():
         c7 = colorama.Fore.BLACK + colorama.Back.MAGENTA
         cr = colorama.Style.RESET_ALL
 
+    gha = False
     basic = False
     help_me = False
     error_msg = None
@@ -90,6 +92,8 @@ def main():
                 help_me = True
             elif option == "-b" or option == "--basic":
                 basic = True
+            elif option == "--gha":
+                gha = True
             else:
                 invalid_cmd = "\n===> INVALID OPTION: >> %s <<\n" % option
                 invalid_cmd = invalid_cmd.replace(">> ", ">>" + c5 + " ")
@@ -114,7 +118,7 @@ def main():
     data.append(seleniumbase_req)
     data.append("")
     file_path = "%s/%s" % (dir_name, "requirements.txt")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -152,7 +156,7 @@ def main():
     data.append("    production: custom marker")
     data.append("")
     file_path = "%s/%s" % (dir_name, "pytest.ini")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -169,14 +173,14 @@ def main():
     data.append("show_skipped=false")
     data.append("show_timings=false")
     file_path = "%s/%s" % (dir_name, "setup.cfg")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
     data = []
     data.append("")
     file_path = "%s/%s" % (dir_name, "__init__.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -247,6 +251,12 @@ def main():
     data.append("msedgedriver.exe")
     data.append("operadriver.exe")
     data.append("uc_driver.exe")
+    data.append("chrome-mac.zip")
+    data.append("chrome-linux.zip")
+    data.append("chrome-win.zip")
+    data.append("chrome-mac")
+    data.append("chrome-linux")
+    data.append("chrome-win")
     data.append("chrome-mac-arm64.zip")
     data.append("chrome-mac-x64.zip")
     data.append("chrome-linux64.zip")
@@ -312,19 +322,79 @@ def main():
     data.append("temp_*/")
     data.append("node_modules")
     file_path = "%s/%s" % (dir_name, ".gitignore")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
+
+    if gha:
+        dir_name_b = dir_name + "/" + ".github"
+        os.mkdir(dir_name_b)
+        dir_name_c = dir_name_b + "/" + "workflows"
+        os.mkdir(dir_name_c)
+
+        data = []
+        data.append("name: CI build")
+        data.append("on:")
+        data.append("  push:")
+        data.append("    branches:")
+        data.append("  pull_request:")
+        data.append("    branches:")
+        data.append("  workflow_dispatch:")
+        data.append("    branches:")
+        data.append("jobs:")
+        data.append("  build:")
+        data.append("    env:")
+        data.append('      PY_COLORS: "1"')
+        data.append("    strategy:")
+        data.append("      fail-fast: false")
+        data.append("      max-parallel: 15")
+        data.append("      matrix:")
+        data.append("        os: [ubuntu-latest]")
+        data.append('        python-version: ["3.x"]')
+        data.append("    runs-on: ${{ matrix.os }}")
+        data.append("    steps:")
+        data.append("    - uses: actions/checkout@v6")
+        data.append("    - name: Set up Python ${{ matrix.python-version }}")
+        data.append("      uses: actions/setup-python@v6")
+        data.append("      with:")
+        data.append("        python-version: ${{ matrix.python-version }}")
+        data.append("    - name: Install dependencies")
+        data.append("      run: |")
+        data.append("        python -m pip install --upgrade pip")
+        data.append("        pip install -r requirements.txt")
+        data.append("    - name: Install Chrome")
+        data.append("      if: matrix.os == 'ubuntu-latest'")
+        data.append("      run: sudo apt install google-chrome-stable")
+        data.append("    - name: Download chromedriver")
+        data.append("      run: sbase get chromedriver")
+        data.append("    - name: Run pytest")
+        data.append("      run: pytest -v -s --rs --crumbs --reruns=1")
+        data.append("    - name: Upload artifacts")
+        data.append("      if: ${{ always() }}")
+        data.append("      uses: actions/upload-artifact@v6")
+        data.append("      with:")
+        data.append("        name: seleniumbase-artifacts")
+        data.append("        path: ./latest_logs/")
+        data.append("        if-no-files-found: ignore")
+        data.append("")
+        file_path = "%s/%s" % (dir_name_c, "python-package.yml")
+        file = open(file_path, mode="w+", encoding="utf-8")
+        file.writelines("\r\n".join(data))
+        file.close()
 
     if basic:
         data = []
         data.append("  %s/" % dir_name)
+        if gha:
+            data.append("  ├── .github")
+            data.append("  │   └── workflows/")
+            data.append("  │      └── python-package.yml")
         data.append("  ├── __init__.py")
         data.append("  ├── pytest.ini")
         data.append("  ├── requirements.txt")
         data.append("  └── setup.cfg")
         file_path = "%s/%s" % (dir_name, "outline.rst")
-        file = codecs.open(file_path, "w+", "utf-8")
+        file = open(file_path, mode="w+", encoding="utf-8")
         file.writelines("\r\n".join(data))
         file.close()
         os.system("sbase print %s -n" % file_path)
@@ -368,7 +438,7 @@ def main():
     data.append('        self.assert_element("div#login_button_container")')
     data.append("")
     file_path = "%s/%s" % (dir_name, "my_first_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -461,7 +531,7 @@ def main():
     data.append('        self.assert_text("SeleniumBase", "h2")')
     data.append("")
     file_path = "%s/%s" % (dir_name, "test_demo_site.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -498,9 +568,10 @@ def main():
     )
     data.append('        self.click(\'mark:contains("%s")\' % keyword)')
     data.append('        self.assert_title_contains(title_text)')
+    data.append('        self.save_screenshot_to_logs()')
     data.append("")
     file_path = "%s/%s" % (dir_name, "parameterized_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -510,7 +581,7 @@ def main():
     data = []
     data.append("")
     file_path = "%s/%s" % (dir_name_2, "__init__.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -545,7 +616,7 @@ def main():
     data.append("        pass")
     data.append("")
     file_path = "%s/%s" % (dir_name_2, "base_test_case.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -554,7 +625,7 @@ def main():
     data.append('    html = "html"')
     data.append("")
     file_path = "%s/%s" % (dir_name_2, "page_objects.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -570,7 +641,7 @@ def main():
     data.append("        self.assert_element(Page.html)")
     data.append("")
     file_path = "%s/%s" % (dir_name_2, "boilerplate_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -594,7 +665,7 @@ def main():
     data.append('        DataPage().add_input_text(self, "Goodbye!")')
     data.append("")
     file_path = "%s/%s" % (dir_name_2, "classic_obj_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -614,7 +685,7 @@ def main():
     data.append('        DataPage().add_input_text(sb, "Goodbye!")')
     data.append("")
     file_path = "%s/%s" % (dir_name_2, "sb_fixture_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -624,7 +695,7 @@ def main():
     data = []
     data.append("")
     file_path = "%s/%s" % (dir_name_3, "__init__.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -636,17 +707,12 @@ def main():
     data.append("")
     data.append("class GoogleTests(BaseCase):")
     data.append("    def test_google_dot_com(self):")
+    data.append("        if self.headless:")
+    data.append('            self.skip("Skipping test in headless mode.")')
     data.append("        if not self.undetectable:")
     data.append("            self.get_new_driver(undetectable=True)")
     data.append('        self.open("https://google.com/ncr")')
     data.append('        self.assert_title_contains("Google")')
-    data.append("        self.sleep(0.05)")
-    data.append("        self.save_screenshot_to_logs()")
-    data.append(
-        "        self.wait_for_element('iframe[role=\"presentation\"]')"
-    )
-    data.append("        self.hide_elements('iframe')")
-    data.append("        self.sleep(0.05)")
     data.append("        self.save_screenshot_to_logs()")
     data.append('        self.type(HomePage.search_box, "github.com")')
     data.append("        self.assert_element(HomePage.search_button)")
@@ -657,7 +723,7 @@ def main():
     )
     data.append("")
     file_path = "%s/%s" % (dir_name_3, "google_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -675,7 +741,7 @@ def main():
     data.append('    search_results = "div#center_col"')
     data.append("")
     file_path = "%s/%s" % (dir_name_3, "google_objects.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -707,7 +773,7 @@ def main():
     data.append('        self.assert_element("div#login_button_container")')
     data.append("")
     file_path = "%s/%s" % (dir_name_3, "swag_labs_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
@@ -734,12 +800,16 @@ def main():
     data.append('        sb.assert_element("div#login_button_container")')
     data.append("")
     file_path = "%s/%s" % (dir_name_3, "sb_swag_test.py")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
 
     data = []
     data.append("  %s/" % dir_name)
+    if gha:
+        data.append("  ├── .github")
+        data.append("  │   └── workflows/")
+        data.append("  │      └── python-package.yml")
     data.append("  ├── __init__.py")
     data.append("  ├── my_first_test.py")
     data.append("  ├── parameterized_test.py")
@@ -761,7 +831,7 @@ def main():
     data.append("          ├── sb_swag_test.py")
     data.append("          └── swag_labs_test.py")
     file_path = "%s/%s" % (dir_name, "outline.rst")
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
     if " " not in file_path:

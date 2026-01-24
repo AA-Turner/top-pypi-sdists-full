@@ -13,13 +13,15 @@
 """  # noqa: E501
 
 
+import time
+import base64
 import copy
 import http.client as httplib
 import logging
 from logging import FileHandler
 import multiprocessing
 import sys
-from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict
+from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
 from typing_extensions import NotRequired, Self
 
 import urllib3
@@ -115,6 +117,7 @@ AuthSettings = TypedDict(
     "AuthSettings",
     {
         "Basic": BasicAuthSetting,
+        "OAuth2": OAuth2AuthSetting,
     },
     total=False,
 )
@@ -149,6 +152,8 @@ class Configuration:
     :param username: Username for HTTP basic authentication.
     :param password: Password for HTTP basic authentication.
     :param access_token: Access token.
+    :param client_id: Client ID for OAuth2 authentication.
+    :param client_secret: Client Secret for OAuth2 authentication.
     :param server_index: Index to servers configuration.
     :param server_variables: Mapping with string values to replace variables in
       templated server configuration. The validation of enums is performed for
@@ -162,6 +167,10 @@ class Configuration:
     :param ssl_ca_cert: str - the path to a file of concatenated CA certificates
       in PEM format.
     :param retries: Number of retries for API requests.
+    :param ca_cert_data: verify the peer using concatenated CA certificate data
+      in PEM (str) or DER (bytes) format.
+    :param cert_file: the path to a client certificate file, for mTLS.
+    :param key_file: the path to a client key file, for mTLS. 
 
     :Example:
 
@@ -192,13 +201,18 @@ conf = bandwidth.Configuration(
         username: Optional[str]=None,
         password: Optional[str]=None,
         access_token: Optional[str]=None,
-        server_index: Optional[int]=None, 
+        client_id: Optional[str]=None,
+        client_secret: Optional[str]=None,
+        server_index: Optional[int]=None,
         server_variables: Optional[ServerVariablesT]=None,
         server_operation_index: Optional[Dict[int, int]]=None,
         server_operation_variables: Optional[Dict[int, ServerVariablesT]]=None,
         ignore_operation_servers: bool=False,
         ssl_ca_cert: Optional[str]=None,
         retries: Optional[int] = None,
+        ca_cert_data: Optional[Union[str, bytes]] = None,
+        cert_file: Optional[str]=None,
+        key_file: Optional[str]=None,
         *,
         debug: Optional[bool] = None,
     ) -> None:
@@ -244,6 +258,18 @@ conf = bandwidth.Configuration(
         self.access_token = access_token
         """Access token
         """
+        self.client_id = client_id
+        """Client ID for OAuth2 authentication
+        """
+        self.client_secret = client_secret
+        """Client Secret for OAuth2 authentication
+        """
+        self.temp_access_token = None
+        """Temporary access token for OAuth2
+        """
+        self.temp_access_token_expiration = 0
+        """Expiration time of the temporary access token
+        """
         self.logger = {}
         """Logging Settings
         """
@@ -276,10 +302,14 @@ conf = bandwidth.Configuration(
         self.ssl_ca_cert = ssl_ca_cert
         """Set this to customize the certificate file to verify the peer.
         """
-        self.cert_file = None
+        self.ca_cert_data = ca_cert_data
+        """Set this to verify the peer using PEM (str) or DER (bytes)
+           certificate data.
+        """
+        self.cert_file = cert_file
         """client certificate file
         """
-        self.key_file = None
+        self.key_file = key_file
         """client key file
         """
         self.assert_hostname = None
@@ -496,6 +526,33 @@ conf = bandwidth.Configuration(
             basic_auth=username + ':' + password
         ).get('authorization')
 
+    def get_access_token(self) -> str:
+        """Gets HTTP bearer authentication header (string).
+
+        :return: The token for bearer HTTP authentication.
+        """
+        now = int(time.time())
+        if self.temp_access_token and self.temp_access_token_expiration > now + 60:
+            return self.temp_access_token
+        else:
+            print("Fetching new access token")
+            _bytes = f"{self.client_id}:{self.client_secret}".encode('utf-8')
+            _encoded_string = base64.b64encode(_bytes).decode('utf-8')
+            auth_header = f"Basic {_encoded_string}"
+            resp = urllib3.request(
+                'POST',
+                'https://api.bandwidth.com/api/v1/oauth2/token',
+                headers={
+                    'Authorization': auth_header,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body='grant_type=client_credentials'
+            )
+            body = resp.json()
+            self.temp_access_token = body['access_token']
+            self.temp_access_token_expiration = now + body['expires_in']
+            return self.temp_access_token
+
     def auth_settings(self)-> AuthSettings:
         """Gets Auth Settings dict for api client.
 
@@ -509,6 +566,20 @@ conf = bandwidth.Configuration(
                 'key': 'Authorization',
                 'value': self.get_basic_auth_token()
             }
+        if self.access_token is not None:
+            auth['OAuth2'] = {
+                'type': 'oauth2',
+                'in': 'header',
+                'key': 'Authorization',
+                'value': 'Bearer ' + self.access_token
+            }
+        if self.client_id is not None and self.client_secret is not None:
+            auth['OAuth2'] = {
+                'type': 'oauth2',
+                'in': 'header',
+                'key': 'Authorization',
+                'value': 'Bearer ' + self.get_access_token(),
+            }
         return auth
 
     def to_debug_report(self) -> str:
@@ -520,7 +591,7 @@ conf = bandwidth.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 1.0.0\n"\
-               "SDK Package Version: 20.2.0".\
+               "SDK Package Version: 21.1.0".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:

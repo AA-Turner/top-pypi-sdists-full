@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2021, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -8,7 +8,7 @@
 # @author Davide Brunato <brunato@sissa.it>
 #
 from collections.abc import MutableMapping, MutableSequence
-from typing import TYPE_CHECKING, Any, Optional, Type, Union
+from typing import TYPE_CHECKING, Any
 
 from xmlschema.exceptions import XMLSchemaValueError
 from xmlschema.aliases import NsmapType, BaseXsdType
@@ -34,9 +34,9 @@ class AbderaConverter(XMLSchemaConverter):
     """
     __slots__ = ()
 
-    def __init__(self, namespaces: Optional[NsmapType] = None,
-                 dict_class: Optional[Type[dict[str, Any]]] = None,
-                 list_class: Optional[Type[list[Any]]] = None,
+    def __init__(self, namespaces: NsmapType | None = None,
+                 dict_class: type[dict[str, Any]] | None = None,
+                 list_class: type[list[Any]] | None = None,
                  **kwargs: Any) -> None:
         kwargs.update(attr_prefix='', text_key='', cdata_prefix=None)
         super().__init__(namespaces, dict_class, list_class, **kwargs)
@@ -54,43 +54,47 @@ class AbderaConverter(XMLSchemaConverter):
         return True
 
     def element_decode(self, data: ElementData, xsd_element: 'XsdElement',
-                       xsd_type: Optional[BaseXsdType] = None, level: int = 0) -> Any:
+                       xsd_type: BaseXsdType | None = None, level: int = 0) -> Any:
         xsd_type = xsd_type or xsd_element.type
         if xsd_type.simple_type is not None:
             children = data.text
         else:
-            children = self.dict()
+            children = self.dict_class()
             for name, value, xsd_child in self.map_content(data.content):
                 if value is None:
-                    value = self.list()
+                    value = self.list_class()
 
                 try:
                     children[name].append(value)
                 except KeyError:
                     if isinstance(value, MutableSequence) and value:
-                        children[name] = self.list([value])
+                        children[name] = self.list_class((value,))
                     else:
                         children[name] = value
                 except AttributeError:
-                    children[name] = self.list([children[name], value])
+                    children[name] = self.list_class((children[name], value))
             if not children:
                 children = data.text
 
-        result: Union[list[Any], dict[str, Any]]
+        result: list[Any] | dict[str, Any]
         if data.attributes:
-            result = self.dict([
+            result = self.dict_class([
                 ('attributes',
-                 self.dict((k, v) for k, v in self.map_attributes(data.attributes)))
+                 self.dict_class((k, v) for k, v in self.map_attributes(data.attributes)))
             ])
             if children is not None and children != []:
-                result['children'] = self.list([children])
+                result['children'] = self.list_class((children,))
 
         elif children is not None:
             result = children
         else:
-            result = self.list()
+            result = self.list_class()
 
-        return result if level else self.dict([(self.map_qname(data.tag), result)])
+        if level:
+            return result
+        elif self.dict_class is dict:
+            return {self.map_qname(data.tag): result}
+        return self.dict_class(((self.map_qname(data.tag), result),))
 
     def element_encode(self, obj: Any, xsd_element: 'XsdElement', level: int = 0) -> ElementData:
         if not isinstance(obj, MutableMapping):
@@ -110,7 +114,7 @@ class AbderaConverter(XMLSchemaConverter):
                 tag = xsd_element.name
 
         attributes: dict[str, Any] = {}
-        children: Union[list[Any], MutableMapping[str, Any]]
+        children: list[Any] | MutableMapping[str, Any]
 
         try:
             attributes.update((self.unmap_qname(k, xsd_element.attributes), v)

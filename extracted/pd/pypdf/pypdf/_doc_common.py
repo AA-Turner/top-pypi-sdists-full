@@ -599,7 +599,7 @@ class PdfDocCommon:
             fileobj.write("\n")
         retval[key] = Field(field)
         obj = retval[key].indirect_reference.get_object()  # to get the full object
-        if obj.get(FA.FT, "") == "/Ch":
+        if obj.get(FA.FT, "") == "/Ch" and obj.get(NameObject(FA.Opt)):
             retval[key][NameObject("/_States_")] = obj[NameObject(FA.Opt)]
         if obj.get(FA.FT, "") == "/Btn" and "/AP" in obj:
             #  Checkbox
@@ -1170,7 +1170,11 @@ class PdfDocCommon:
             for attr in inheritable_page_attributes:
                 if attr in pages:
                     inherit[attr] = pages[attr]
+            pages_reference = getattr(pages, "indirect_reference", object())
             for page in cast(ArrayObject, pages[PagesAttributes.KIDS]):
+                if getattr(page, "indirect_reference", object()) == pages_reference:
+                    raise PdfReadError("Detected cyclic page references.")
+
                 addt = {}
                 if isinstance(page, IndirectObject):
                     addt["indirect_reference"] = page

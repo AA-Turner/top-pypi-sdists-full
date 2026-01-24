@@ -191,6 +191,20 @@ class ClientFromUrlTestCase(TestCase):
 
         c = Client.from_url(
             base_url +
+            'keyfile=/tmp/client.key&'
+            'certfile=/tmp/client.cert&'
+            'keypass=foobar'
+        )
+        expected = base_expected.copy()
+        expected.update({
+            'keyfile': '/tmp/client.key',
+            'certfile': '/tmp/client.cert',
+            'keypass': 'foobar',
+        })
+        self.assertEqual(c.connection.ssl_options, expected)
+
+        c = Client.from_url(
+            base_url +
             'certfile=/tmp/client.cert'
         )
         expected = base_expected.copy()
@@ -198,6 +212,12 @@ class ClientFromUrlTestCase(TestCase):
             'certfile': '/tmp/client.cert'
         })
         self.assertEqual(c.connection.ssl_options, expected)
+
+    def test_check_hostname(self):
+        c = Client.from_url(
+            'clickhouses://host?verify=true&check_hostname=false'
+        )
+        self.assertEqual(c.connection.check_hostname, False)
 
     def test_alt_hosts(self):
         c = Client.from_url('clickhouse://host?alt_hosts=host2:1234')

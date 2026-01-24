@@ -2424,13 +2424,15 @@ class invlst(Variable):
         maries_ou_pacses = foyer_fiscal('maries_ou_pacses', period)  # noqa F841
         report_logement_neuf_2012 = foyer_fiscal('f7uy', period)
         report_rehabilitation_2012 = foyer_fiscal('f7uz', period)
-        P = parameters(period).impot_revenu.calcul_reductions_impots.investissements_immobiliers.invlst
+        seuil1 = parameters(period).impot_revenu.calcul_reductions_impots.investissements_immobiliers.invlst.seuil1
+        taux_xi = parameters(period).impot_revenu.calcul_reductions_impots.investissements_immobiliers.invlst.taux_xi
+        taux_xj = parameters(period).impot_revenu.calcul_reductions_impots.investissements_immobiliers.invlst.taux_xj
 
-        red_neuf = min_(P.seuil1 * (1 + maries_ou_pacses), report_logement_neuf_2012)
-        red_rehab = min_(P.seuil1 * (1 + maries_ou_pacses) - red_neuf, report_rehabilitation_2012)
+        red_neuf = min_(seuil1 * (1 + maries_ou_pacses), report_logement_neuf_2012)
+        red_rehab = min_(seuil1 * (1 + maries_ou_pacses) - red_neuf, report_rehabilitation_2012)
 
-        reduction_logement_neuf = P.taux_xi * red_neuf
-        reduction_rehabilitation = P.taux_xj * red_rehab
+        reduction_logement_neuf = taux_xi * red_neuf
+        reduction_rehabilitation = taux_xj * red_rehab
 
         return around(reduction_logement_neuf + reduction_rehabilitation)
 
@@ -3782,13 +3784,15 @@ class ri_saldom(Variable):
 
         # détérminer le plafond
 
-        if invalide.any():
-            plaf = P.plafond_invalides
-        else:
-            if annee1.any():
-                plaf = min_(P.plafond_maximum_1ere_annee, P.plafond_1ere_annee + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
-            else:
-                plaf = min_(P.plafond_maximum, P.plafond + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
+        plaf = where(
+            invalide,
+            P.plafond_invalides,
+            where(
+                annee1,
+                min_(P.plafond_maximum_1ere_annee, P.plafond_1ere_annee + P.increment_plafond * (nb_pac_majoration_plafond + f7dl)),
+                min_(P.plafond_maximum, P.plafond + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
+                )
+            )
 
         # calcul de la RI et du CI
 

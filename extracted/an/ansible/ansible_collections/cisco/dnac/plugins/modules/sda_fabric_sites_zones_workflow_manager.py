@@ -107,12 +107,17 @@ options:
               for control nodes in the fabric site.
               This feature is relevant only when creating
               or updating fabric sites, not fabric zones.
-              When set to True, pub/sub facilitates
-              more efficient communication and control
-              within the site. The default is True for
-              fabric sites, and this setting is not
+              When set to 'true', pub/sub is enabled for
+              more efficient control plane communication
+              within the fabric site. The default is True
+              for fabric sites, and this setting is not
               applicable for fabric zones.
+              When set to 'false', the fabric site is
+              configured to use LISP/BGP for control plane
+              communication, which provides traditional
+              routing mechanisms.
             type: bool
+            default: true
           apply_pending_events:
             description: Modifying an IP address pool
               used in a fabric causes the fabric to
@@ -743,9 +748,8 @@ class FabricSitesZones(DnacBase):
             site_exists, site_id = self.get_site_id(site_name)
             if not site_exists:
                 self.msg = (
-                    "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
-                    )
+                    f"The site '{site_name}' does not exist in the Catalyst Center. "
+                    "A site must be created first before it can be converted into a Fabric Site."
                 )
                 self.set_operation_result(
                     "failed", False, self.msg, "ERROR"
@@ -876,9 +880,8 @@ class FabricSitesZones(DnacBase):
             site_exists, site_id = self.get_site_id(site_name)
             if not site_exists:
                 self.msg = (
-                    "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
-                    )
+                    f"The site '{site_name}' does not exist in the Catalyst Center. "
+                    "A site must be created first before it can be converted into a Fabric Site."
                 )
                 self.set_operation_result(
                     "failed", False, self.msg, "ERROR"
@@ -1049,9 +1052,8 @@ class FabricSitesZones(DnacBase):
             site_exists, site_id = self.get_site_id(site_name)
             if not site_exists:
                 self.msg = (
-                    "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
-                    )
+                    f"The site '{site_name}' does not exist in the Catalyst Center. "
+                    "A site must be created first before it can be converted into a Fabric Site."
                 )
                 self.set_operation_result(
                     "failed", False, self.msg, "ERROR"
@@ -2341,9 +2343,8 @@ class FabricSitesZones(DnacBase):
             site_exists, site_id = self.get_site_id(site_name)
             if not site_exists:
                 self.msg = (
-                    "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
-                    )
+                    f"The site '{site_name}' does not exist in the Catalyst Center. "
+                    "A site must be created first before it can be converted into a Fabric Site."
                 )
                 self.set_operation_result(
                     "failed", False, self.msg, "ERROR"
@@ -2664,9 +2665,8 @@ class FabricSitesZones(DnacBase):
             site_exists, site_id = self.get_site_id(site_name)
             if not site_exists:
                 self.msg = (
-                    "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
-                    )
+                    f"The site '{site_name}' does not exist in the Catalyst Center. "
+                    "A site must be created first before it can be converted into a Fabric Site."
                 )
                 self.set_operation_result(
                     "failed", False, self.msg, "ERROR"
@@ -2748,8 +2748,9 @@ class FabricSitesZones(DnacBase):
                 fabric_type = site.get("fabric_type", "fabric_site")
                 site_exists, site_id = self.get_site_id(site_name)
                 if not site_exists:
-                    self.msg = "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
+                    self.msg = (
+                        f"The site '{site_name}' does not exist in the Catalyst Center. "
+                        "A site must be created first before it can be converted into a Fabric Site."
                     )
                     self.set_operation_result(
                         "failed", False, self.msg, "ERROR"
@@ -2841,9 +2842,8 @@ class FabricSitesZones(DnacBase):
             site_exists, site_id = self.get_site_id(site_name)
             if not site_exists:
                 self.msg = (
-                    "Given site '{0}' does not exist in the Catalyst Center.".format(
-                        site_name
-                    )
+                    f"The site '{site_name}' does not exist in the Catalyst Center. "
+                    "A site must be created first before it can be converted into a Fabric Site."
                 )
                 self.set_operation_result(
                     "failed", False, self.msg, "ERROR"

@@ -12,6 +12,7 @@ from typing import Any, Optional, Union
 
 from ml_goodput_measurement.src import checkpoint_badput_calculator
 from ml_goodput_measurement.src import goodput_cache
+from ml_goodput_measurement.src import goodput_exclusion
 from ml_goodput_measurement.src import goodput_utils
 
 
@@ -58,6 +59,7 @@ _CUSTOM_BADPUT_EVENT_START_TIME = 'custom_badput_event_start_time'
 _CUSTOM_BADPUT_EVENT_END_TIME = 'custom_badput_event_end_time'
 
 _CLOUD_LOGGING_PAGE_SIZE = 1000000
+_CLOUD_LOGGING_DEFAULT_RETENTION = datetime.timedelta(days=60)
 
 logger = logging.getLogger(__name__)
 
@@ -71,19 +73,34 @@ class _CloudLogger:
     job_start_time: Start time of the job run.
   """
 
-  def __init__(self, job_name: str, log_name: str):
+  def __init__(
+      self,
+      job_name: str,
+      log_name: str,
+      max_logs_retention_period: Optional[datetime.timedelta] = None,
+  ):
     """_CloudLogger constructor.
 
     Args:
       job_name: Name of the job the _CloudLogger is for.
       log_name: Name of the log being written.
+      max_logs_retention_period: Maximum retention period for Cloud Logging
+        logs.
     """
+
     import google.cloud.logging  # pylint: disable=g-import-not-at-top
 
     self.job_name = job_name
     logging_client = google.cloud.logging.Client()
+    self.project_id = logging_client.project
+    self.log_name = log_name
     self.logger = logging_client.logger(log_name)
     self.job_start_time = None
+    self.retention_period = (
+        max_logs_retention_period
+        if max_logs_retention_period
+        else _CLOUD_LOGGING_DEFAULT_RETENTION
+    )
 
   def write_cloud_logging_entry(self, entry) -> None:
     """Writes an entry to the Cloud Logging logger at INFO level.
@@ -108,10 +125,13 @@ class _CloudLogger:
       ] = None,  # (timestamp, id)
   ) -> str:
     """Gets the filter message for the Cloud Logging query."""
-    filter_entries = [
-        'severity=INFO',
-        f'jsonPayload.job_name="{self.job_name}"',
-    ]
+    filter_entries = []
+    if self.project_id:
+      full_log_name = f'projects/{self.project_id}/logs/{self.log_name}'
+      filter_entries.append(f'logName="{full_log_name}"')
+
+    filter_entries.append('severity=INFO')
+    filter_entries.append(f'jsonPayload.job_name="{self.job_name}"')
     # Add a filter to bind an end-time to the query window.
     if end_time is None:
       end_time = datetime.datetime.now(datetime.timezone.utc)
@@ -140,6 +160,8 @@ class _CloudLogger:
         effective_start_timestamp = effective_start_timestamp.replace(
             tzinfo=datetime.timezone.utc
         )
+    else:
+      effective_start_timestamp = end_time - self.retention_period
 
     if effective_start_timestamp is not None:
       if effective_start_entry_id:
@@ -498,7 +520,7 @@ class GoodputRecorder:
     })
 
 
-class GoodputCalculator:
+class GoodputCalculator(goodput_exclusion.GoodputExclusion):
   """The Goodput calculator class, responsible for querying necessary information and computing Goodput metrics to return to the user application.
 
   Attributes:
@@ -512,6 +534,7 @@ class GoodputCalculator:
       logger_name: str,
       cloud_logger: Optional[_CloudLogger] = None,
       using_pathways: bool = False,
+      max_logs_retention_period: Optional[datetime.timedelta] = None,
   ):
     """GoodputCalculator constructor.
 
@@ -520,13 +543,19 @@ class GoodputCalculator:
       logger_name: Name of the log being written.
       cloud_logger: Should never be passed directly by the user.
       using_pathways: Whether or not the job uses Pathways.
+      max_logs_retention_period: Optional retention period for query of Cloud
+        Logging entries.
     """
     self.job_name = job_name
     self.using_pathways = using_pathways
     if cloud_logger is not None:
       self._cloud_logger = cloud_logger
     else:
-      self._cloud_logger = _CloudLogger(job_name, logger_name)
+      self._cloud_logger = _CloudLogger(
+          job_name,
+          logger_name,
+          max_logs_retention_period=max_logs_retention_period,
+      )
     self._current_entries = []
     self._goodput_cache = GoodputCache()
     self._goodput_cache_lock = threading.Lock()
@@ -613,6 +642,44 @@ class GoodputCalculator:
         else:
           total_unproductive_time[badput_type] = unproductive_value
 
+  def _extract_custom_sync_intervals(
+      self,
+      entries: list[dict[str, Any]],
+  ) -> list[tuple[float, float, str]]:
+    """Extracts custom badput intervals from Cloud Logging entries.
+
+    This helper function scans through a list of Cloud Logging entries to find
+    custom badput start and end times, pairing them into intervals.
+
+    Args:
+        entries: A list of dictionaries representing Cloud Logging entries. Each
+          entry may contain keys indicating the start or end of a custom badput
+          event.
+
+    Returns:
+        A list of tuples, where each tuple consists of:
+            - start_time (float): The timestamp when the sync event started.
+            - end_time (float): The timestamp when the sync event ended.
+            - sync_type (str): The type of custom sync
+            event.
+    """
+    intervals = []
+    active_syncs = {}
+
+    for entry in entries:
+      if _CUSTOM_BADPUT_EVENT_START_TIME in entry:
+        sync_type = entry[_CUSTOM_BADPUT_EVENT_TYPE].upper()
+        active_syncs[sync_type] = entry[_CUSTOM_BADPUT_EVENT_START_TIME]
+      elif _CUSTOM_BADPUT_EVENT_END_TIME in entry:
+        sync_type = entry[_CUSTOM_BADPUT_EVENT_TYPE].upper()
+        if sync_type in active_syncs:
+          start_time = active_syncs.pop(sync_type)
+          end_time = entry[_CUSTOM_BADPUT_EVENT_END_TIME]
+          if start_time < end_time:
+            intervals.append((start_time, end_time, sync_type))
+
+    return intervals
+
   def _get_current_productive_and_unproductive_time(
       self, interval_query: Optional[bool] = False
   ) -> tuple[
@@ -632,44 +699,6 @@ class GoodputCalculator:
       (dict of BadputType and unproductive time), the last productive step and
       the last recorded step.
     """
-    def _extract_custom_sync_intervals(
-        entries: list[dict[str, Any]],
-    ) -> list[tuple[float, float, str]]:
-      """Extracts custom badput intervals from Cloud Logging entries.
-
-      This helperfunction scans through a list of Cloud Logging entries to find
-      custom
-      badput start and end times, pairing them into intervals.
-
-      Args:
-          entries: A list of dictionaries representing Cloud Logging entries.
-            Each entry may contain keys indicating the start or end of a custom
-            badput event.
-
-      Returns:
-          A list of tuples, where each tuple consists of:
-              - start_time (float): The timestamp when the sync event started.
-              - end_time (float): The timestamp when the sync event ended.
-              - sync_type (str): The type of custom sync
-              event.
-      """
-      intervals = []
-      active_syncs = {}
-
-      for entry in entries:
-        if _CUSTOM_BADPUT_EVENT_START_TIME in entry:
-          sync_type = entry[_CUSTOM_BADPUT_EVENT_TYPE].upper()
-          active_syncs[sync_type] = entry[_CUSTOM_BADPUT_EVENT_START_TIME]
-        elif _CUSTOM_BADPUT_EVENT_END_TIME in entry:
-          sync_type = entry[_CUSTOM_BADPUT_EVENT_TYPE].upper()
-          if sync_type in active_syncs:
-            start_time = active_syncs.pop(sync_type)
-            end_time = entry[_CUSTOM_BADPUT_EVENT_END_TIME]
-            if start_time < end_time:
-              intervals.append((start_time, end_time, sync_type))
-
-      return intervals
-
     def _compute_adjusted_segment_productive_and_unproductive_time(
         step_items: list[tuple[int, float]],
         curr_step: int,
@@ -840,7 +869,9 @@ class GoodputCalculator:
       min_step = min(step_start_data.keys())
 
       # Extract custom sync intervals
-      custom_sync_intervals = _extract_custom_sync_intervals(entries_to_process)
+      custom_sync_intervals = self._extract_custom_sync_intervals(
+          entries_to_process
+      )
 
       # Compute adjusted segmentproductive and unproductive times
       (
@@ -1760,6 +1791,7 @@ class GoodputCalculator:
             MetricType.DISRUPTION_COUNT.value: 0,
             MetricType.STEP_TIME_DEVIATION.value: {},
             MetricType.IDEAL_STEP_TIME.value: 0.0,
+            MetricType.TOTAL_EXCLUDED_TIME.value: 0.0,
         }
 
       (
@@ -1816,6 +1848,7 @@ class GoodputCalculator:
           MetricType.DISRUPTION_COUNT.value: number_of_disruptions,
           MetricType.STEP_TIME_DEVIATION.value: step_time_deviation,
           MetricType.IDEAL_STEP_TIME.value: ideal_step_time,
+          MetricType.TOTAL_EXCLUDED_TIME.value: 0.0,
       }
 
   def get_interval_metric_details(

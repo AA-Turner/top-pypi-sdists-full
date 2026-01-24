@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function
 
 import os.path
 import re
+import subprocess
 import sys
 from textwrap import dedent
 from typing import Iterator
@@ -14,9 +15,11 @@ import pytest
 from pex.cache.dirs import VenvDirs
 from pex.common import safe_copy, safe_open
 from pex.http.server import Server, ServerInfo
+from pex.sysconfig import SysPlatform
 from pex.typing import TYPE_CHECKING
+from pex.venv.virtualenv import InstallationChoice, Virtualenv
 from pex.version import __version__
-from testing import IS_MAC, run_pex_command
+from testing import IS_MAC, PY_VER, make_env, run_pex_command
 from testing.cli import run_pex3
 from testing.pytest_utils import IS_CI
 from testing.pytest_utils.tmp import Tempdir
@@ -27,10 +30,11 @@ else:
     from pex.third_party import colors
 
 skip_if_locked_dev_cmd_not_compatible = pytest.mark.skipif(
-    sys.version_info[:2] < (3, 9),
+    PY_VER < (3, 9) or PY_VER >= (3, 15),
     reason=(
         "The dev-cmd project started shipping embedded locks when it moved to supporting "
-        "Python>=3.9."
+        "Python>=3.9. In addition, the dev-cmd project has a build dependency on Pex and there is "
+        "no Pex released yet that supports Python 3.15."
     ),
 )
 
@@ -142,9 +146,7 @@ def test_entry_point_with_extras():
     )
 
 
-@pytest.mark.skipif(
-    sys.version_info[:2] < (3, 8), reason="The Pex pyproject.toml uses heterogeneous arrays."
-)
+@pytest.mark.skipif(PY_VER < (3, 8), reason="The Pex pyproject.toml uses heterogeneous arrays.")
 def test_locked_local_project(
     tmpdir,  # type: Tempdir
     pex_project_dir,  # type: str
@@ -537,3 +539,55 @@ def test_run_constraints(
         "cowsay",
         "--version",
     ).assert_success(expected_output_re=r"^4\.0$")
+
+
+def test_pexec(tmpdir):
+    # type: (Tempdir) -> None
+
+    dist_dir = tmpdir.join("dist")
+    # The package command can be slow to run which locks up uv; so we just ensure a synced
+    # uv venv (fast), then run the dev-cmd console script directly to avoid uv lock
+    # timeouts in CI.
+    subprocess.check_call(args=["uv", "sync", "--frozen"])
+    subprocess.check_call(
+        args=[
+            Virtualenv(".venv").bin_path("dev-cmd"),
+            "package",
+            "--",
+            "--dist-dir",
+            dist_dir,
+            "--scie",
+            "--additional-format",
+            "whl-3.12-plus" if sys.version_info[:2] >= (3, 12) else "whl",
+        ]
+    )
+
+    venv_dir = tmpdir.join("venv")
+    venv = Virtualenv.create(venv_dir=venv_dir, install_pip=InstallationChoice.YES)
+    subprocess.check_call(
+        args=[
+            venv.interpreter.binary,
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--find-links",
+            dist_dir,
+            "pex=={version}".format(version=__version__),
+        ]
+    )
+    assert b"| Moo! |" in subprocess.check_output(
+        args=[venv.bin_path("pexec"), "cowsay==5", "Moo!"]
+    ), "Expected install of Pex whl to yield a functioning pexec console script."
+
+    assert b"| Moo! |" in subprocess.check_output(
+        args=[os.path.join(dist_dir, "pex"), "cowsay==5", "Moo!"], env=make_env(PEX_SCRIPT="pexec")
+    ), "Expected Pex PEX to support the pexec console script."
+    assert b"| Moo! |" in subprocess.check_output(
+        args=[
+            os.path.join(dist_dir, SysPlatform.CURRENT.qualified_binary_name("pex")),
+            "pexec",
+            "cowsay==5",
+            "Moo!",
+        ]
+    ), "Expected Pex scie to support a pexec busybox entry point."

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -12,10 +12,12 @@ BackupPlanName = str
 BackupRuleName = str
 BackupSelectionName = str
 BackupVaultName = str
+BackupVaultNameOrWildcard = str
 Boolean = bool
 ConditionKey = str
 ConditionValue = str
 ControlName = str
+CreatorRequestId = str
 CronExpression = str
 FrameworkDescription = str
 FrameworkName = str
@@ -26,8 +28,10 @@ IAMRoleArn = str
 IsEnabled = bool
 ListRestoreTestingPlansInputMaxResultsInteger = int
 ListRestoreTestingSelectionsInputMaxResultsInteger = int
+ListScanJobsInputMaxResultsInteger = int
 MaxFrameworkInputs = int
 MaxResults = int
+MaxScheduledRunsPreview = int
 MessageCategory = str
 MetadataKey = str
 MetadataValue = str
@@ -43,6 +47,8 @@ RestoreJobId = str
 String = str
 TagKey = str
 TagValue = str
+TieringConfigurationName = str
+TieringDownSettingsInDays = int
 Timezone = str
 boolean = bool
 integer = int
@@ -131,6 +137,11 @@ class CopyJobStatus(StrEnum):
     ANY = "ANY"
 
 
+class EncryptionKeyType(StrEnum):
+    AWS_OWNED_KMS_KEY = "AWS_OWNED_KMS_KEY"
+    CUSTOMER_MANAGED_KMS_KEY = "CUSTOMER_MANAGED_KMS_KEY"
+
+
 class Index(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
@@ -148,6 +159,14 @@ class LegalHoldStatus(StrEnum):
     ACTIVE = "ACTIVE"
     CANCELING = "CANCELING"
     CANCELED = "CANCELED"
+
+
+class LifecycleDeleteAfterEvent(StrEnum):
+    DELETE_AFTER_COPY = "DELETE_AFTER_COPY"
+
+
+class MalwareScanner(StrEnum):
+    GUARDDUTY = "GUARDDUTY"
 
 
 class MpaRevokeSessionStatus(StrEnum):
@@ -213,6 +232,59 @@ class RestoreValidationStatus(StrEnum):
     VALIDATING = "VALIDATING"
 
 
+class RuleExecutionType(StrEnum):
+    CONTINUOUS = "CONTINUOUS"
+    SNAPSHOTS = "SNAPSHOTS"
+    CONTINUOUS_AND_SNAPSHOTS = "CONTINUOUS_AND_SNAPSHOTS"
+
+
+class ScanFinding(StrEnum):
+    MALWARE = "MALWARE"
+
+
+class ScanJobState(StrEnum):
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_ISSUES = "COMPLETED_WITH_ISSUES"
+    FAILED = "FAILED"
+    CANCELED = "CANCELED"
+
+
+class ScanJobStatus(StrEnum):
+    CREATED = "CREATED"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_ISSUES = "COMPLETED_WITH_ISSUES"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+    CANCELED = "CANCELED"
+    AGGREGATE_ALL = "AGGREGATE_ALL"
+    ANY = "ANY"
+
+
+class ScanMode(StrEnum):
+    FULL_SCAN = "FULL_SCAN"
+    INCREMENTAL_SCAN = "INCREMENTAL_SCAN"
+
+
+class ScanResourceType(StrEnum):
+    EBS = "EBS"
+    EC2 = "EC2"
+    S3 = "S3"
+
+
+class ScanResultStatus(StrEnum):
+    NO_THREATS_FOUND = "NO_THREATS_FOUND"
+    THREATS_FOUND = "THREATS_FOUND"
+
+
+class ScanState(StrEnum):
+    CANCELED = "CANCELED"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_ISSUES = "COMPLETED_WITH_ISSUES"
+    CREATED = "CREATED"
+    FAILED = "FAILED"
+    RUNNING = "RUNNING"
+
+
 class StorageClass(StrEnum):
     WARM = "WARM"
     COLD = "COLD"
@@ -237,10 +309,10 @@ class AlreadyExistsException(ServiceException):
     code: str = "AlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    CreatorRequestId: Optional[string]
-    Arn: Optional[string]
-    Type: Optional[string]
-    Context: Optional[string]
+    CreatorRequestId: string | None
+    Arn: string | None
+    Type: string | None
+    Context: string | None
 
 
 class ConflictException(ServiceException):
@@ -251,8 +323,8 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class DependencyFailureException(ServiceException):
@@ -263,8 +335,8 @@ class DependencyFailureException(ServiceException):
     code: str = "DependencyFailureException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class InvalidParameterValueException(ServiceException):
@@ -275,8 +347,8 @@ class InvalidParameterValueException(ServiceException):
     code: str = "InvalidParameterValueException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class InvalidRequestException(ServiceException):
@@ -287,8 +359,8 @@ class InvalidRequestException(ServiceException):
     code: str = "InvalidRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class InvalidResourceStateException(ServiceException):
@@ -300,8 +372,8 @@ class InvalidResourceStateException(ServiceException):
     code: str = "InvalidResourceStateException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class LimitExceededException(ServiceException):
@@ -312,8 +384,8 @@ class LimitExceededException(ServiceException):
     code: str = "LimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class MissingParameterValueException(ServiceException):
@@ -322,8 +394,8 @@ class MissingParameterValueException(ServiceException):
     code: str = "MissingParameterValueException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -332,8 +404,8 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
 class ServiceUnavailableException(ServiceException):
@@ -342,30 +414,41 @@ class ServiceUnavailableException(ServiceException):
     code: str = "ServiceUnavailableException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[string]
-    Context: Optional[string]
+    Type: string | None
+    Context: string | None
 
 
-BackupOptions = Dict[BackupOptionKey, BackupOptionValue]
+BackupOptions = dict[BackupOptionKey, BackupOptionValue]
 
 
 class AdvancedBackupSetting(TypedDict, total=False):
     """The backup options for each resource type."""
 
-    ResourceType: Optional[ResourceType]
-    BackupOptions: Optional[BackupOptions]
+    ResourceType: ResourceType | None
+    BackupOptions: BackupOptions | None
 
 
-AdvancedBackupSettings = List[AdvancedBackupSetting]
+AdvancedBackupSettings = list[AdvancedBackupSetting]
+timestamp = datetime
+ScanFindings = list[ScanFinding]
+
+
+class AggregatedScanResult(TypedDict, total=False):
+    """Contains aggregated scan results across multiple scan operations,
+    providing a summary of scan status and findings.
+    """
+
+    FailedScan: Boolean | None
+    Findings: ScanFindings | None
+    LastComputed: timestamp | None
 
 
 class AssociateBackupVaultMpaApprovalTeamInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     MpaApprovalTeamArn: ARN
-    RequesterComment: Optional[RequesterComment]
+    RequesterComment: RequesterComment | None
 
 
-timestamp = datetime
 Long = int
 
 
@@ -374,79 +457,14 @@ class RecoveryPointCreator(TypedDict, total=False):
     initiate the recovery point backup.
     """
 
-    BackupPlanId: Optional[string]
-    BackupPlanArn: Optional[ARN]
-    BackupPlanVersion: Optional[string]
-    BackupRuleId: Optional[string]
-
-
-class BackupJob(TypedDict, total=False):
-    """Contains detailed information about a backup job."""
-
-    AccountId: Optional[AccountId]
-    BackupJobId: Optional[string]
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    RecoveryPointArn: Optional[ARN]
-    ResourceArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    State: Optional[BackupJobState]
-    StatusMessage: Optional[string]
-    PercentDone: Optional[string]
-    BackupSizeInBytes: Optional[Long]
-    IamRoleArn: Optional[IAMRoleArn]
-    CreatedBy: Optional[RecoveryPointCreator]
-    ExpectedCompletionDate: Optional[timestamp]
-    StartBy: Optional[timestamp]
-    ResourceType: Optional[ResourceType]
-    BytesTransferred: Optional[Long]
-    BackupOptions: Optional[BackupOptions]
-    BackupType: Optional[string]
-    ParentJobId: Optional[string]
-    IsParent: Optional[boolean]
-    ResourceName: Optional[string]
-    InitiationDate: Optional[timestamp]
-    MessageCategory: Optional[string]
-
-
-BackupJobChildJobsInState = Dict[BackupJobState, Long]
-
-
-class BackupJobSummary(TypedDict, total=False):
-    """This is a summary of jobs created or running within the most recent 30
-    days.
-
-    The returned summary may contain the following: Region, Account, State,
-    RestourceType, MessageCategory, StartTime, EndTime, and Count of
-    included jobs.
-    """
-
-    Region: Optional[Region]
-    AccountId: Optional[AccountId]
-    State: Optional[BackupJobStatus]
-    ResourceType: Optional[ResourceType]
-    MessageCategory: Optional[MessageCategory]
-    Count: Optional[integer]
-    StartTime: Optional[timestamp]
-    EndTime: Optional[timestamp]
-
-
-BackupJobSummaryList = List[BackupJobSummary]
-BackupJobsList = List[BackupJob]
-ResourceTypes = List[ResourceType]
-
-
-class IndexAction(TypedDict, total=False):
-    """This is an optional array within a BackupRule.
-
-    IndexAction consists of one ResourceTypes.
-    """
-
-    ResourceTypes: Optional[ResourceTypes]
-
-
-IndexActions = List[IndexAction]
+    BackupPlanId: string | None
+    BackupPlanArn: ARN | None
+    BackupPlanName: string | None
+    BackupPlanVersion: string | None
+    BackupRuleId: string | None
+    BackupRuleName: string | None
+    BackupRuleCron: string | None
+    BackupRuleTimezone: string | None
 
 
 class Lifecycle(TypedDict, total=False):
@@ -469,20 +487,120 @@ class Lifecycle(TypedDict, total=False):
     ``MoveToColdStorageAfterDays`` and ``DeleteAfterDays``.
     """
 
-    MoveToColdStorageAfterDays: Optional[Long]
-    DeleteAfterDays: Optional[Long]
-    OptInToArchiveForSupportedResources: Optional[Boolean]
+    MoveToColdStorageAfterDays: Long | None
+    DeleteAfterDays: Long | None
+    OptInToArchiveForSupportedResources: Boolean | None
+    DeleteAfterEvent: LifecycleDeleteAfterEvent | None
+
+
+class BackupJob(TypedDict, total=False):
+    """Contains detailed information about a backup job."""
+
+    AccountId: AccountId | None
+    BackupJobId: string | None
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    VaultType: string | None
+    VaultLockState: string | None
+    RecoveryPointArn: ARN | None
+    RecoveryPointLifecycle: Lifecycle | None
+    EncryptionKeyArn: ARN | None
+    IsEncrypted: boolean | None
+    ResourceArn: ARN | None
+    CreationDate: timestamp | None
+    CompletionDate: timestamp | None
+    State: BackupJobState | None
+    StatusMessage: string | None
+    PercentDone: string | None
+    BackupSizeInBytes: Long | None
+    IamRoleArn: IAMRoleArn | None
+    CreatedBy: RecoveryPointCreator | None
+    ExpectedCompletionDate: timestamp | None
+    StartBy: timestamp | None
+    ResourceType: ResourceType | None
+    BytesTransferred: Long | None
+    BackupOptions: BackupOptions | None
+    BackupType: string | None
+    ParentJobId: string | None
+    IsParent: boolean | None
+    ResourceName: string | None
+    InitiationDate: timestamp | None
+    MessageCategory: string | None
+
+
+BackupJobChildJobsInState = dict[BackupJobState, Long]
+
+
+class BackupJobSummary(TypedDict, total=False):
+    """This is a summary of jobs created or running within the most recent 30
+    days.
+
+    The returned summary may contain the following: Region, Account, State,
+    RestourceType, MessageCategory, StartTime, EndTime, and Count of
+    included jobs.
+    """
+
+    Region: Region | None
+    AccountId: AccountId | None
+    State: BackupJobStatus | None
+    ResourceType: ResourceType | None
+    MessageCategory: MessageCategory | None
+    Count: integer | None
+    StartTime: timestamp | None
+    EndTime: timestamp | None
+
+
+BackupJobSummaryList = list[BackupJobSummary]
+BackupJobsList = list[BackupJob]
+ResourceTypes = list[ResourceType]
+
+
+class ScanSetting(TypedDict, total=False):
+    """Contains configuration settings for malware scanning, including the
+    scanner type, target resource types, and scanner role.
+    """
+
+    MalwareScanner: MalwareScanner | None
+    ResourceTypes: ResourceTypes | None
+    ScannerRoleArn: IAMRoleArn | None
+
+
+ScanSettings = list[ScanSetting]
+
+
+class ScanAction(TypedDict, total=False):
+    """Defines a scanning action that specifies the malware scanner and scan
+    mode to use.
+    """
+
+    MalwareScanner: MalwareScanner | None
+    ScanMode: ScanMode | None
+
+
+ScanActions = list[ScanAction]
+
+
+class IndexAction(TypedDict, total=False):
+    """This is an optional array within a BackupRule.
+
+    IndexAction consists of one ResourceTypes.
+    """
+
+    ResourceTypes: ResourceTypes | None
+
+
+IndexActions = list[IndexAction]
 
 
 class CopyAction(TypedDict, total=False):
     """The details of the copy operation."""
 
-    Lifecycle: Optional[Lifecycle]
+    Lifecycle: Lifecycle | None
     DestinationBackupVaultArn: ARN
 
 
-CopyActions = List[CopyAction]
-Tags = Dict[TagKey, TagValue]
+CopyActions = list[CopyAction]
+Tags = dict[TagKey, TagValue]
 WindowMinutes = int
 
 
@@ -491,19 +609,21 @@ class BackupRule(TypedDict, total=False):
 
     RuleName: BackupRuleName
     TargetBackupVaultName: BackupVaultName
-    ScheduleExpression: Optional[CronExpression]
-    StartWindowMinutes: Optional[WindowMinutes]
-    CompletionWindowMinutes: Optional[WindowMinutes]
-    Lifecycle: Optional[Lifecycle]
-    RecoveryPointTags: Optional[Tags]
-    RuleId: Optional[string]
-    CopyActions: Optional[CopyActions]
-    EnableContinuousBackup: Optional[Boolean]
-    ScheduleExpressionTimezone: Optional[Timezone]
-    IndexActions: Optional[IndexActions]
+    TargetLogicallyAirGappedBackupVaultArn: ARN | None
+    ScheduleExpression: CronExpression | None
+    StartWindowMinutes: WindowMinutes | None
+    CompletionWindowMinutes: WindowMinutes | None
+    Lifecycle: Lifecycle | None
+    RecoveryPointTags: Tags | None
+    RuleId: string | None
+    CopyActions: CopyActions | None
+    EnableContinuousBackup: Boolean | None
+    ScheduleExpressionTimezone: Timezone | None
+    IndexActions: IndexActions | None
+    ScanActions: ScanActions | None
 
 
-BackupRules = List[BackupRule]
+BackupRules = list[BackupRule]
 
 
 class BackupPlan(TypedDict, total=False):
@@ -515,7 +635,8 @@ class BackupPlan(TypedDict, total=False):
 
     BackupPlanName: BackupPlanName
     Rules: BackupRules
-    AdvancedBackupSettings: Optional[AdvancedBackupSettings]
+    AdvancedBackupSettings: AdvancedBackupSettings | None
+    ScanSettings: ScanSettings | None
 
 
 class BackupRuleInput(TypedDict, total=False):
@@ -523,18 +644,20 @@ class BackupRuleInput(TypedDict, total=False):
 
     RuleName: BackupRuleName
     TargetBackupVaultName: BackupVaultName
-    ScheduleExpression: Optional[CronExpression]
-    StartWindowMinutes: Optional[WindowMinutes]
-    CompletionWindowMinutes: Optional[WindowMinutes]
-    Lifecycle: Optional[Lifecycle]
-    RecoveryPointTags: Optional[Tags]
-    CopyActions: Optional[CopyActions]
-    EnableContinuousBackup: Optional[Boolean]
-    ScheduleExpressionTimezone: Optional[Timezone]
-    IndexActions: Optional[IndexActions]
+    TargetLogicallyAirGappedBackupVaultArn: ARN | None
+    ScheduleExpression: CronExpression | None
+    StartWindowMinutes: WindowMinutes | None
+    CompletionWindowMinutes: WindowMinutes | None
+    Lifecycle: Lifecycle | None
+    RecoveryPointTags: Tags | None
+    CopyActions: CopyActions | None
+    EnableContinuousBackup: Boolean | None
+    ScheduleExpressionTimezone: Timezone | None
+    IndexActions: IndexActions | None
+    ScanActions: ScanActions | None
 
 
-BackupRulesInput = List[BackupRuleInput]
+BackupRulesInput = list[BackupRuleInput]
 
 
 class BackupPlanInput(TypedDict, total=False):
@@ -545,35 +668,36 @@ class BackupPlanInput(TypedDict, total=False):
 
     BackupPlanName: BackupPlanName
     Rules: BackupRulesInput
-    AdvancedBackupSettings: Optional[AdvancedBackupSettings]
+    AdvancedBackupSettings: AdvancedBackupSettings | None
+    ScanSettings: ScanSettings | None
 
 
 class BackupPlanTemplatesListMember(TypedDict, total=False):
     """An object specifying metadata associated with a backup plan template."""
 
-    BackupPlanTemplateId: Optional[string]
-    BackupPlanTemplateName: Optional[string]
+    BackupPlanTemplateId: string | None
+    BackupPlanTemplateName: string | None
 
 
-BackupPlanTemplatesList = List[BackupPlanTemplatesListMember]
+BackupPlanTemplatesList = list[BackupPlanTemplatesListMember]
 
 
 class BackupPlansListMember(TypedDict, total=False):
     """Contains metadata about a backup plan."""
 
-    BackupPlanArn: Optional[ARN]
-    BackupPlanId: Optional[string]
-    CreationDate: Optional[timestamp]
-    DeletionDate: Optional[timestamp]
-    VersionId: Optional[string]
-    BackupPlanName: Optional[BackupPlanName]
-    CreatorRequestId: Optional[string]
-    LastExecutionDate: Optional[timestamp]
-    AdvancedBackupSettings: Optional[AdvancedBackupSettings]
+    BackupPlanArn: ARN | None
+    BackupPlanId: string | None
+    CreationDate: timestamp | None
+    DeletionDate: timestamp | None
+    VersionId: string | None
+    BackupPlanName: BackupPlanName | None
+    CreatorRequestId: string | None
+    LastExecutionDate: timestamp | None
+    AdvancedBackupSettings: AdvancedBackupSettings | None
 
 
-BackupPlanVersionsList = List[BackupPlansListMember]
-BackupPlansList = List[BackupPlansListMember]
+BackupPlanVersionsList = list[BackupPlansListMember]
+BackupPlansList = list[BackupPlansListMember]
 
 
 class ConditionParameter(TypedDict, total=False):
@@ -584,11 +708,11 @@ class ConditionParameter(TypedDict, total=False):
     ``"aws:ResourceTag/TagKey1": "Value1"``.
     """
 
-    ConditionKey: Optional[ConditionKey]
-    ConditionValue: Optional[ConditionValue]
+    ConditionKey: ConditionKey | None
+    ConditionValue: ConditionValue | None
 
 
-ConditionParameters = List[ConditionParameter]
+ConditionParameters = list[ConditionParameter]
 
 
 class Conditions(TypedDict, total=False):
@@ -596,13 +720,13 @@ class Conditions(TypedDict, total=False):
     backup plan using their tags. Conditions are case sensitive.
     """
 
-    StringEquals: Optional[ConditionParameters]
-    StringNotEquals: Optional[ConditionParameters]
-    StringLike: Optional[ConditionParameters]
-    StringNotLike: Optional[ConditionParameters]
+    StringEquals: ConditionParameters | None
+    StringNotEquals: ConditionParameters | None
+    StringLike: ConditionParameters | None
+    StringNotLike: ConditionParameters | None
 
 
-ResourceArns = List[ARN]
+ResourceArns = list[ARN]
 
 
 class Condition(TypedDict, total=False):
@@ -616,7 +740,7 @@ class Condition(TypedDict, total=False):
     ConditionValue: ConditionValue
 
 
-ListOfTags = List[Condition]
+ListOfTags = list[Condition]
 
 
 class BackupSelection(TypedDict, total=False):
@@ -633,46 +757,47 @@ class BackupSelection(TypedDict, total=False):
 
     SelectionName: BackupSelectionName
     IamRoleArn: IAMRoleArn
-    Resources: Optional[ResourceArns]
-    ListOfTags: Optional[ListOfTags]
-    NotResources: Optional[ResourceArns]
-    Conditions: Optional[Conditions]
+    Resources: ResourceArns | None
+    ListOfTags: ListOfTags | None
+    NotResources: ResourceArns | None
+    Conditions: Conditions | None
 
 
 class BackupSelectionsListMember(TypedDict, total=False):
     """Contains metadata about a ``BackupSelection`` object."""
 
-    SelectionId: Optional[string]
-    SelectionName: Optional[BackupSelectionName]
-    BackupPlanId: Optional[string]
-    CreationDate: Optional[timestamp]
-    CreatorRequestId: Optional[string]
-    IamRoleArn: Optional[IAMRoleArn]
+    SelectionId: string | None
+    SelectionName: BackupSelectionName | None
+    BackupPlanId: string | None
+    CreationDate: timestamp | None
+    CreatorRequestId: string | None
+    IamRoleArn: IAMRoleArn | None
 
 
-BackupSelectionsList = List[BackupSelectionsListMember]
-BackupVaultEvents = List[BackupVaultEvent]
+BackupSelectionsList = list[BackupSelectionsListMember]
+BackupVaultEvents = list[BackupVaultEvent]
 long = int
 
 
 class BackupVaultListMember(TypedDict, total=False):
     """Contains metadata about a backup vault."""
 
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    VaultType: Optional[VaultType]
-    VaultState: Optional[VaultState]
-    CreationDate: Optional[timestamp]
-    EncryptionKeyArn: Optional[ARN]
-    CreatorRequestId: Optional[string]
-    NumberOfRecoveryPoints: Optional[long]
-    Locked: Optional[Boolean]
-    MinRetentionDays: Optional[Long]
-    MaxRetentionDays: Optional[Long]
-    LockDate: Optional[timestamp]
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    VaultType: VaultType | None
+    VaultState: VaultState | None
+    CreationDate: timestamp | None
+    EncryptionKeyArn: ARN | None
+    CreatorRequestId: string | None
+    NumberOfRecoveryPoints: long | None
+    Locked: Boolean | None
+    MinRetentionDays: Long | None
+    MaxRetentionDays: Long | None
+    LockDate: timestamp | None
+    EncryptionKeyType: EncryptionKeyType | None
 
 
-BackupVaultList = List[BackupVaultListMember]
+BackupVaultList = list[BackupVaultListMember]
 
 
 class CalculatedLifecycle(TypedDict, total=False):
@@ -695,21 +820,21 @@ class CalculatedLifecycle(TypedDict, total=False):
     table. Backup ignores this expression for other resource types.
     """
 
-    MoveToColdStorageAt: Optional[timestamp]
-    DeleteAt: Optional[timestamp]
+    MoveToColdStorageAt: timestamp | None
+    DeleteAt: timestamp | None
 
 
 class CancelLegalHoldInput(ServiceRequest):
     LegalHoldId: string
     CancelDescription: string
-    RetainRecordInDays: Optional[Long]
+    RetainRecordInDays: Long | None
 
 
 class CancelLegalHoldOutput(TypedDict, total=False):
     pass
 
 
-ComplianceResourceIdList = List[string]
+ComplianceResourceIdList = list[string]
 
 
 class ControlInputParameter(TypedDict, total=False):
@@ -720,13 +845,13 @@ class ControlInputParameter(TypedDict, total=False):
     parameter is ``1 year``.
     """
 
-    ParameterName: Optional[ParameterName]
-    ParameterValue: Optional[ParameterValue]
+    ParameterName: ParameterName | None
+    ParameterValue: ParameterValue | None
 
 
-ControlInputParameters = List[ControlInputParameter]
-stringMap = Dict[string, string]
-ResourceTypeList = List[ARN]
+ControlInputParameters = list[ControlInputParameter]
+stringMap = dict[string, string]
+ResourceTypeList = list[ARN]
 
 
 class ControlScope(TypedDict, total=False):
@@ -742,39 +867,44 @@ class ControlScope(TypedDict, total=False):
     ``CreateFramework``.
     """
 
-    ComplianceResourceIds: Optional[ComplianceResourceIdList]
-    ComplianceResourceTypes: Optional[ResourceTypeList]
-    Tags: Optional[stringMap]
+    ComplianceResourceIds: ComplianceResourceIdList | None
+    ComplianceResourceTypes: ResourceTypeList | None
+    Tags: stringMap | None
 
 
-CopyJobChildJobsInState = Dict[CopyJobState, Long]
+CopyJobChildJobsInState = dict[CopyJobState, Long]
 
 
 class CopyJob(TypedDict, total=False):
     """Contains detailed information about a copy job."""
 
-    AccountId: Optional[AccountId]
-    CopyJobId: Optional[string]
-    SourceBackupVaultArn: Optional[ARN]
-    SourceRecoveryPointArn: Optional[ARN]
-    DestinationBackupVaultArn: Optional[ARN]
-    DestinationRecoveryPointArn: Optional[ARN]
-    ResourceArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    State: Optional[CopyJobState]
-    StatusMessage: Optional[string]
-    BackupSizeInBytes: Optional[Long]
-    IamRoleArn: Optional[IAMRoleArn]
-    CreatedBy: Optional[RecoveryPointCreator]
-    ResourceType: Optional[ResourceType]
-    ParentJobId: Optional[string]
-    IsParent: Optional[boolean]
-    CompositeMemberIdentifier: Optional[string]
-    NumberOfChildJobs: Optional[Long]
-    ChildJobsInState: Optional[CopyJobChildJobsInState]
-    ResourceName: Optional[string]
-    MessageCategory: Optional[string]
+    AccountId: AccountId | None
+    CopyJobId: string | None
+    SourceBackupVaultArn: ARN | None
+    SourceRecoveryPointArn: ARN | None
+    DestinationBackupVaultArn: ARN | None
+    DestinationVaultType: string | None
+    DestinationVaultLockState: string | None
+    DestinationRecoveryPointArn: ARN | None
+    DestinationEncryptionKeyArn: ARN | None
+    DestinationRecoveryPointLifecycle: Lifecycle | None
+    ResourceArn: ARN | None
+    CreationDate: timestamp | None
+    CompletionDate: timestamp | None
+    State: CopyJobState | None
+    StatusMessage: string | None
+    BackupSizeInBytes: Long | None
+    IamRoleArn: IAMRoleArn | None
+    CreatedBy: RecoveryPointCreator | None
+    CreatedByBackupJobId: string | None
+    ResourceType: ResourceType | None
+    ParentJobId: string | None
+    IsParent: boolean | None
+    CompositeMemberIdentifier: string | None
+    NumberOfChildJobs: Long | None
+    ChildJobsInState: CopyJobChildJobsInState | None
+    ResourceName: string | None
+    MessageCategory: string | None
 
 
 class CopyJobSummary(TypedDict, total=False):
@@ -786,57 +916,57 @@ class CopyJobSummary(TypedDict, total=False):
     included jobs.
     """
 
-    Region: Optional[Region]
-    AccountId: Optional[AccountId]
-    State: Optional[CopyJobStatus]
-    ResourceType: Optional[ResourceType]
-    MessageCategory: Optional[MessageCategory]
-    Count: Optional[integer]
-    StartTime: Optional[timestamp]
-    EndTime: Optional[timestamp]
+    Region: Region | None
+    AccountId: AccountId | None
+    State: CopyJobStatus | None
+    ResourceType: ResourceType | None
+    MessageCategory: MessageCategory | None
+    Count: integer | None
+    StartTime: timestamp | None
+    EndTime: timestamp | None
 
 
-CopyJobSummaryList = List[CopyJobSummary]
-CopyJobsList = List[CopyJob]
+CopyJobSummaryList = list[CopyJobSummary]
+CopyJobsList = list[CopyJob]
 
 
 class CreateBackupPlanInput(ServiceRequest):
     BackupPlan: BackupPlanInput
-    BackupPlanTags: Optional[Tags]
-    CreatorRequestId: Optional[string]
+    BackupPlanTags: Tags | None
+    CreatorRequestId: string | None
 
 
 class CreateBackupPlanOutput(TypedDict, total=False):
-    BackupPlanId: Optional[string]
-    BackupPlanArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    VersionId: Optional[string]
-    AdvancedBackupSettings: Optional[AdvancedBackupSettings]
+    BackupPlanId: string | None
+    BackupPlanArn: ARN | None
+    CreationDate: timestamp | None
+    VersionId: string | None
+    AdvancedBackupSettings: AdvancedBackupSettings | None
 
 
 class CreateBackupSelectionInput(ServiceRequest):
     BackupPlanId: string
     BackupSelection: BackupSelection
-    CreatorRequestId: Optional[string]
+    CreatorRequestId: string | None
 
 
 class CreateBackupSelectionOutput(TypedDict, total=False):
-    SelectionId: Optional[string]
-    BackupPlanId: Optional[string]
-    CreationDate: Optional[timestamp]
+    SelectionId: string | None
+    BackupPlanId: string | None
+    CreationDate: timestamp | None
 
 
 class CreateBackupVaultInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    BackupVaultTags: Optional[Tags]
-    EncryptionKeyArn: Optional[ARN]
-    CreatorRequestId: Optional[string]
+    BackupVaultTags: Tags | None
+    EncryptionKeyArn: ARN | None
+    CreatorRequestId: string | None
 
 
 class CreateBackupVaultOutput(TypedDict, total=False):
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    CreationDate: timestamp | None
 
 
 class FrameworkControl(TypedDict, total=False):
@@ -845,24 +975,24 @@ class FrameworkControl(TypedDict, total=False):
     """
 
     ControlName: ControlName
-    ControlInputParameters: Optional[ControlInputParameters]
-    ControlScope: Optional[ControlScope]
+    ControlInputParameters: ControlInputParameters | None
+    ControlScope: ControlScope | None
 
 
-FrameworkControls = List[FrameworkControl]
+FrameworkControls = list[FrameworkControl]
 
 
 class CreateFrameworkInput(ServiceRequest):
     FrameworkName: FrameworkName
-    FrameworkDescription: Optional[FrameworkDescription]
+    FrameworkDescription: FrameworkDescription | None
     FrameworkControls: FrameworkControls
-    IdempotencyToken: Optional[string]
-    FrameworkTags: Optional[stringMap]
+    IdempotencyToken: string | None
+    FrameworkTags: stringMap | None
 
 
 class CreateFrameworkOutput(TypedDict, total=False):
-    FrameworkName: Optional[FrameworkName]
-    FrameworkArn: Optional[ARN]
+    FrameworkName: FrameworkName | None
+    FrameworkArn: ARN | None
 
 
 class DateRange(TypedDict, total=False):
@@ -880,8 +1010,8 @@ class DateRange(TypedDict, total=False):
     ToDate: timestamp
 
 
-ResourceIdentifiers = List[string]
-VaultNames = List[string]
+ResourceIdentifiers = list[string]
+VaultNames = list[string]
 
 
 class RecoveryPointSelection(TypedDict, total=False):
@@ -889,59 +1019,60 @@ class RecoveryPointSelection(TypedDict, total=False):
     types or backup vaults.
     """
 
-    VaultNames: Optional[VaultNames]
-    ResourceIdentifiers: Optional[ResourceIdentifiers]
-    DateRange: Optional[DateRange]
+    VaultNames: VaultNames | None
+    ResourceIdentifiers: ResourceIdentifiers | None
+    DateRange: DateRange | None
 
 
 class CreateLegalHoldInput(ServiceRequest):
     Title: string
     Description: string
-    IdempotencyToken: Optional[string]
-    RecoveryPointSelection: Optional[RecoveryPointSelection]
-    Tags: Optional[Tags]
+    IdempotencyToken: string | None
+    RecoveryPointSelection: RecoveryPointSelection | None
+    Tags: Tags | None
 
 
 class CreateLegalHoldOutput(TypedDict, total=False):
-    Title: Optional[string]
-    Status: Optional[LegalHoldStatus]
-    Description: Optional[string]
-    LegalHoldId: Optional[string]
-    LegalHoldArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    RecoveryPointSelection: Optional[RecoveryPointSelection]
+    Title: string | None
+    Status: LegalHoldStatus | None
+    Description: string | None
+    LegalHoldId: string | None
+    LegalHoldArn: ARN | None
+    CreationDate: timestamp | None
+    RecoveryPointSelection: RecoveryPointSelection | None
 
 
 class CreateLogicallyAirGappedBackupVaultInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    BackupVaultTags: Optional[Tags]
-    CreatorRequestId: Optional[string]
+    BackupVaultTags: Tags | None
+    CreatorRequestId: string | None
     MinRetentionDays: Long
     MaxRetentionDays: Long
+    EncryptionKeyArn: ARN | None
 
 
 class CreateLogicallyAirGappedBackupVaultOutput(TypedDict, total=False):
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    VaultState: Optional[VaultState]
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    CreationDate: timestamp | None
+    VaultState: VaultState | None
 
 
-stringList = List[string]
+stringList = list[string]
 
 
 class ReportSetting(TypedDict, total=False):
     """Contains detailed information about a report setting."""
 
     ReportTemplate: string
-    FrameworkArns: Optional[stringList]
-    NumberOfFrameworks: Optional[integer]
-    Accounts: Optional[stringList]
-    OrganizationUnits: Optional[stringList]
-    Regions: Optional[stringList]
+    FrameworkArns: stringList | None
+    NumberOfFrameworks: integer | None
+    Accounts: stringList | None
+    OrganizationUnits: stringList | None
+    Regions: stringList | None
 
 
-FormatList = List[string]
+FormatList = list[string]
 
 
 class ReportDeliveryChannel(TypedDict, total=False):
@@ -951,42 +1082,42 @@ class ReportDeliveryChannel(TypedDict, total=False):
     """
 
     S3BucketName: string
-    S3KeyPrefix: Optional[string]
-    Formats: Optional[FormatList]
+    S3KeyPrefix: string | None
+    Formats: FormatList | None
 
 
 class CreateReportPlanInput(ServiceRequest):
     ReportPlanName: ReportPlanName
-    ReportPlanDescription: Optional[ReportPlanDescription]
+    ReportPlanDescription: ReportPlanDescription | None
     ReportDeliveryChannel: ReportDeliveryChannel
     ReportSetting: ReportSetting
-    ReportPlanTags: Optional[stringMap]
-    IdempotencyToken: Optional[string]
+    ReportPlanTags: stringMap | None
+    IdempotencyToken: string | None
 
 
 class CreateReportPlanOutput(TypedDict, total=False):
-    ReportPlanName: Optional[ReportPlanName]
-    ReportPlanArn: Optional[ARN]
-    CreationTime: Optional[timestamp]
+    ReportPlanName: ReportPlanName | None
+    ReportPlanArn: ARN | None
+    CreationTime: timestamp | None
 
 
 class CreateRestoreAccessBackupVaultInput(ServiceRequest):
     SourceBackupVaultArn: ARN
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultTags: Optional[Tags]
-    CreatorRequestId: Optional[string]
-    RequesterComment: Optional[RequesterComment]
+    BackupVaultName: BackupVaultName | None
+    BackupVaultTags: Tags | None
+    CreatorRequestId: string | None
+    RequesterComment: RequesterComment | None
 
 
 class CreateRestoreAccessBackupVaultOutput(TypedDict, total=False):
-    RestoreAccessBackupVaultArn: Optional[ARN]
-    VaultState: Optional[VaultState]
-    RestoreAccessBackupVaultName: Optional[BackupVaultName]
-    CreationDate: Optional[timestamp]
+    RestoreAccessBackupVaultArn: ARN | None
+    VaultState: VaultState | None
+    RestoreAccessBackupVaultName: BackupVaultName | None
+    CreationDate: timestamp | None
 
 
-SensitiveStringMap = Dict[String, String]
-RestoreTestingRecoveryPointTypeList = List[RestoreTestingRecoveryPointType]
+SensitiveStringMap = dict[String, String]
+RestoreTestingRecoveryPointTypeList = list[RestoreTestingRecoveryPointType]
 
 
 class RestoreTestingRecoveryPointSelection(TypedDict, total=False):
@@ -1019,11 +1150,11 @@ class RestoreTestingRecoveryPointSelection(TypedDict, total=False):
     parameter and its value are not included, it defaults to empty list.
     """
 
-    Algorithm: Optional[RestoreTestingRecoveryPointSelectionAlgorithm]
-    ExcludeVaults: Optional[stringList]
-    IncludeVaults: Optional[stringList]
-    RecoveryPointTypes: Optional[RestoreTestingRecoveryPointTypeList]
-    SelectionWindowDays: Optional[integer]
+    Algorithm: RestoreTestingRecoveryPointSelectionAlgorithm | None
+    ExcludeVaults: stringList | None
+    IncludeVaults: stringList | None
+    RecoveryPointTypes: RestoreTestingRecoveryPointTypeList | None
+    SelectionWindowDays: integer | None
 
 
 class RestoreTestingPlanForCreate(TypedDict, total=False):
@@ -1032,14 +1163,14 @@ class RestoreTestingPlanForCreate(TypedDict, total=False):
     RecoveryPointSelection: RestoreTestingRecoveryPointSelection
     RestoreTestingPlanName: String
     ScheduleExpression: String
-    ScheduleExpressionTimezone: Optional[String]
-    StartWindowHours: Optional[integer]
+    ScheduleExpressionTimezone: String | None
+    StartWindowHours: integer | None
 
 
 class CreateRestoreTestingPlanInput(ServiceRequest):
-    CreatorRequestId: Optional[String]
+    CreatorRequestId: String | None
     RestoreTestingPlan: RestoreTestingPlanForCreate
-    Tags: Optional[SensitiveStringMap]
+    Tags: SensitiveStringMap | None
 
 
 Timestamp = datetime
@@ -1061,7 +1192,7 @@ class KeyValue(TypedDict, total=False):
     Value: String
 
 
-KeyValueList = List[KeyValue]
+KeyValueList = list[KeyValue]
 
 
 class ProtectedResourceConditions(TypedDict, total=False):
@@ -1069,8 +1200,8 @@ class ProtectedResourceConditions(TypedDict, total=False):
     plan using tags.
     """
 
-    StringEquals: Optional[KeyValueList]
-    StringNotEquals: Optional[KeyValueList]
+    StringEquals: KeyValueList | None
+    StringNotEquals: KeyValueList | None
 
 
 class RestoreTestingSelectionForCreate(TypedDict, total=False):
@@ -1097,16 +1228,16 @@ class RestoreTestingSelectionForCreate(TypedDict, total=False):
     """
 
     IamRoleArn: String
-    ProtectedResourceArns: Optional[stringList]
-    ProtectedResourceConditions: Optional[ProtectedResourceConditions]
+    ProtectedResourceArns: stringList | None
+    ProtectedResourceConditions: ProtectedResourceConditions | None
     ProtectedResourceType: String
-    RestoreMetadataOverrides: Optional[SensitiveStringMap]
+    RestoreMetadataOverrides: SensitiveStringMap | None
     RestoreTestingSelectionName: String
-    ValidationWindowHours: Optional[integer]
+    ValidationWindowHours: integer | None
 
 
 class CreateRestoreTestingSelectionInput(ServiceRequest):
-    CreatorRequestId: Optional[String]
+    CreatorRequestId: String | None
     RestoreTestingPlanName: String
     RestoreTestingSelection: RestoreTestingSelectionForCreate
 
@@ -1118,15 +1249,54 @@ class CreateRestoreTestingSelectionOutput(TypedDict, total=False):
     RestoreTestingSelectionName: String
 
 
+class ResourceSelection(TypedDict, total=False):
+    """This contains metadata about resource selection for tiering
+    configurations.
+
+    You can specify up to 5 different resource selections per tiering
+    configuration. Data moved to lower-cost tier remains there until
+    deletion (one-way transition).
+    """
+
+    Resources: ResourceArns
+    TieringDownSettingsInDays: TieringDownSettingsInDays
+    ResourceType: ResourceType
+
+
+ResourceSelections = list[ResourceSelection]
+
+
+class TieringConfigurationInputForCreate(TypedDict, total=False):
+    """This contains metadata about a tiering configuration for create
+    operations.
+    """
+
+    TieringConfigurationName: TieringConfigurationName
+    BackupVaultName: BackupVaultNameOrWildcard
+    ResourceSelection: ResourceSelections
+
+
+class CreateTieringConfigurationInput(ServiceRequest):
+    TieringConfiguration: TieringConfigurationInputForCreate
+    TieringConfigurationTags: Tags | None
+    CreatorRequestId: CreatorRequestId | None
+
+
+class CreateTieringConfigurationOutput(TypedDict, total=False):
+    TieringConfigurationArn: ARN | None
+    TieringConfigurationName: string | None
+    CreationTime: timestamp | None
+
+
 class DeleteBackupPlanInput(ServiceRequest):
     BackupPlanId: string
 
 
 class DeleteBackupPlanOutput(TypedDict, total=False):
-    BackupPlanId: Optional[string]
-    BackupPlanArn: Optional[ARN]
-    DeletionDate: Optional[timestamp]
-    VersionId: Optional[string]
+    BackupPlanId: string | None
+    BackupPlanArn: ARN | None
+    DeletionDate: timestamp | None
+    VersionId: string | None
 
 
 class DeleteBackupSelectionInput(ServiceRequest):
@@ -1172,43 +1342,56 @@ class DeleteRestoreTestingSelectionInput(ServiceRequest):
     RestoreTestingSelectionName: String
 
 
+class DeleteTieringConfigurationInput(ServiceRequest):
+    TieringConfigurationName: TieringConfigurationName
+
+
+class DeleteTieringConfigurationOutput(TypedDict, total=False):
+    pass
+
+
 class DescribeBackupJobInput(ServiceRequest):
     BackupJobId: string
 
 
 class DescribeBackupJobOutput(TypedDict, total=False):
-    AccountId: Optional[AccountId]
-    BackupJobId: Optional[string]
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    RecoveryPointArn: Optional[ARN]
-    ResourceArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    State: Optional[BackupJobState]
-    StatusMessage: Optional[string]
-    PercentDone: Optional[string]
-    BackupSizeInBytes: Optional[Long]
-    IamRoleArn: Optional[IAMRoleArn]
-    CreatedBy: Optional[RecoveryPointCreator]
-    ResourceType: Optional[ResourceType]
-    BytesTransferred: Optional[Long]
-    ExpectedCompletionDate: Optional[timestamp]
-    StartBy: Optional[timestamp]
-    BackupOptions: Optional[BackupOptions]
-    BackupType: Optional[string]
-    ParentJobId: Optional[string]
-    IsParent: Optional[boolean]
-    NumberOfChildJobs: Optional[Long]
-    ChildJobsInState: Optional[BackupJobChildJobsInState]
-    ResourceName: Optional[string]
-    InitiationDate: Optional[timestamp]
-    MessageCategory: Optional[string]
+    AccountId: AccountId | None
+    BackupJobId: string | None
+    BackupVaultName: BackupVaultName | None
+    RecoveryPointLifecycle: Lifecycle | None
+    BackupVaultArn: ARN | None
+    VaultType: string | None
+    VaultLockState: string | None
+    RecoveryPointArn: ARN | None
+    EncryptionKeyArn: ARN | None
+    IsEncrypted: boolean | None
+    ResourceArn: ARN | None
+    CreationDate: timestamp | None
+    CompletionDate: timestamp | None
+    State: BackupJobState | None
+    StatusMessage: string | None
+    PercentDone: string | None
+    BackupSizeInBytes: Long | None
+    IamRoleArn: IAMRoleArn | None
+    CreatedBy: RecoveryPointCreator | None
+    ResourceType: ResourceType | None
+    BytesTransferred: Long | None
+    ExpectedCompletionDate: timestamp | None
+    StartBy: timestamp | None
+    BackupOptions: BackupOptions | None
+    BackupType: string | None
+    ParentJobId: string | None
+    IsParent: boolean | None
+    NumberOfChildJobs: Long | None
+    ChildJobsInState: BackupJobChildJobsInState | None
+    ResourceName: string | None
+    InitiationDate: timestamp | None
+    MessageCategory: string | None
 
 
 class DescribeBackupVaultInput(ServiceRequest):
     BackupVaultName: string
-    BackupVaultAccountId: Optional[string]
+    BackupVaultAccountId: string | None
 
 
 class LatestMpaApprovalTeamUpdate(TypedDict, total=False):
@@ -1216,30 +1399,31 @@ class LatestMpaApprovalTeamUpdate(TypedDict, total=False):
     association.
     """
 
-    MpaSessionArn: Optional[ARN]
-    Status: Optional[MpaSessionStatus]
-    StatusMessage: Optional[string]
-    InitiationDate: Optional[timestamp]
-    ExpiryDate: Optional[timestamp]
+    MpaSessionArn: ARN | None
+    Status: MpaSessionStatus | None
+    StatusMessage: string | None
+    InitiationDate: timestamp | None
+    ExpiryDate: timestamp | None
 
 
 class DescribeBackupVaultOutput(TypedDict, total=False):
-    BackupVaultName: Optional[string]
-    BackupVaultArn: Optional[ARN]
-    VaultType: Optional[VaultType]
-    VaultState: Optional[VaultState]
-    EncryptionKeyArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CreatorRequestId: Optional[string]
-    NumberOfRecoveryPoints: Optional[long]
-    Locked: Optional[Boolean]
-    MinRetentionDays: Optional[Long]
-    MaxRetentionDays: Optional[Long]
-    LockDate: Optional[timestamp]
-    SourceBackupVaultArn: Optional[ARN]
-    MpaApprovalTeamArn: Optional[ARN]
-    MpaSessionArn: Optional[ARN]
-    LatestMpaApprovalTeamUpdate: Optional[LatestMpaApprovalTeamUpdate]
+    BackupVaultName: string | None
+    BackupVaultArn: ARN | None
+    VaultType: VaultType | None
+    VaultState: VaultState | None
+    EncryptionKeyArn: ARN | None
+    CreationDate: timestamp | None
+    CreatorRequestId: string | None
+    NumberOfRecoveryPoints: long | None
+    Locked: Boolean | None
+    MinRetentionDays: Long | None
+    MaxRetentionDays: Long | None
+    LockDate: timestamp | None
+    SourceBackupVaultArn: ARN | None
+    MpaApprovalTeamArn: ARN | None
+    MpaSessionArn: ARN | None
+    LatestMpaApprovalTeamUpdate: LatestMpaApprovalTeamUpdate | None
+    EncryptionKeyType: EncryptionKeyType | None
 
 
 class DescribeCopyJobInput(ServiceRequest):
@@ -1247,7 +1431,7 @@ class DescribeCopyJobInput(ServiceRequest):
 
 
 class DescribeCopyJobOutput(TypedDict, total=False):
-    CopyJob: Optional[CopyJob]
+    CopyJob: CopyJob | None
 
 
 class DescribeFrameworkInput(ServiceRequest):
@@ -1255,26 +1439,26 @@ class DescribeFrameworkInput(ServiceRequest):
 
 
 class DescribeFrameworkOutput(TypedDict, total=False):
-    FrameworkName: Optional[FrameworkName]
-    FrameworkArn: Optional[ARN]
-    FrameworkDescription: Optional[FrameworkDescription]
-    FrameworkControls: Optional[FrameworkControls]
-    CreationTime: Optional[timestamp]
-    DeploymentStatus: Optional[string]
-    FrameworkStatus: Optional[string]
-    IdempotencyToken: Optional[string]
+    FrameworkName: FrameworkName | None
+    FrameworkArn: ARN | None
+    FrameworkDescription: FrameworkDescription | None
+    FrameworkControls: FrameworkControls | None
+    CreationTime: timestamp | None
+    DeploymentStatus: string | None
+    FrameworkStatus: string | None
+    IdempotencyToken: string | None
 
 
 class DescribeGlobalSettingsInput(ServiceRequest):
     pass
 
 
-GlobalSettings = Dict[GlobalSettingsName, GlobalSettingsValue]
+GlobalSettings = dict[GlobalSettingsName, GlobalSettingsValue]
 
 
 class DescribeGlobalSettingsOutput(TypedDict, total=False):
-    GlobalSettings: Optional[GlobalSettings]
-    LastUpdateTime: Optional[timestamp]
+    GlobalSettings: GlobalSettings | None
+    LastUpdateTime: timestamp | None
 
 
 class DescribeProtectedResourceInput(ServiceRequest):
@@ -1282,64 +1466,80 @@ class DescribeProtectedResourceInput(ServiceRequest):
 
 
 class DescribeProtectedResourceOutput(TypedDict, total=False):
-    ResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    LastBackupTime: Optional[timestamp]
-    ResourceName: Optional[string]
-    LastBackupVaultArn: Optional[ARN]
-    LastRecoveryPointArn: Optional[ARN]
-    LatestRestoreExecutionTimeMinutes: Optional[Long]
-    LatestRestoreJobCreationDate: Optional[timestamp]
-    LatestRestoreRecoveryPointCreationDate: Optional[timestamp]
+    ResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    LastBackupTime: timestamp | None
+    ResourceName: string | None
+    LastBackupVaultArn: ARN | None
+    LastRecoveryPointArn: ARN | None
+    LatestRestoreExecutionTimeMinutes: Long | None
+    LatestRestoreJobCreationDate: timestamp | None
+    LatestRestoreRecoveryPointCreationDate: timestamp | None
 
 
 class DescribeRecoveryPointInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     RecoveryPointArn: ARN
-    BackupVaultAccountId: Optional[AccountId]
+    BackupVaultAccountId: AccountId | None
+
+
+class ScanResult(TypedDict, total=False):
+    """Contains the results of a security scan, including scanner information,
+    scan state, and any findings discovered.
+    """
+
+    MalwareScanner: MalwareScanner | None
+    ScanJobState: ScanJobState | None
+    LastScanTimestamp: timestamp | None
+    Findings: ScanFindings | None
+
+
+ScanResults = list[ScanResult]
 
 
 class DescribeRecoveryPointOutput(TypedDict, total=False):
-    RecoveryPointArn: Optional[ARN]
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    SourceBackupVaultArn: Optional[ARN]
-    ResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    CreatedBy: Optional[RecoveryPointCreator]
-    IamRoleArn: Optional[IAMRoleArn]
-    Status: Optional[RecoveryPointStatus]
-    StatusMessage: Optional[string]
-    CreationDate: Optional[timestamp]
-    InitiationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    BackupSizeInBytes: Optional[Long]
-    CalculatedLifecycle: Optional[CalculatedLifecycle]
-    Lifecycle: Optional[Lifecycle]
-    EncryptionKeyArn: Optional[ARN]
-    IsEncrypted: Optional[boolean]
-    StorageClass: Optional[StorageClass]
-    LastRestoreTime: Optional[timestamp]
-    ParentRecoveryPointArn: Optional[ARN]
-    CompositeMemberIdentifier: Optional[string]
-    IsParent: Optional[boolean]
-    ResourceName: Optional[string]
-    VaultType: Optional[VaultType]
-    IndexStatus: Optional[IndexStatus]
-    IndexStatusMessage: Optional[string]
+    RecoveryPointArn: ARN | None
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    SourceBackupVaultArn: ARN | None
+    ResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    CreatedBy: RecoveryPointCreator | None
+    IamRoleArn: IAMRoleArn | None
+    Status: RecoveryPointStatus | None
+    StatusMessage: string | None
+    CreationDate: timestamp | None
+    InitiationDate: timestamp | None
+    CompletionDate: timestamp | None
+    BackupSizeInBytes: Long | None
+    CalculatedLifecycle: CalculatedLifecycle | None
+    Lifecycle: Lifecycle | None
+    EncryptionKeyArn: ARN | None
+    IsEncrypted: boolean | None
+    StorageClass: StorageClass | None
+    LastRestoreTime: timestamp | None
+    ParentRecoveryPointArn: ARN | None
+    CompositeMemberIdentifier: string | None
+    IsParent: boolean | None
+    ResourceName: string | None
+    VaultType: VaultType | None
+    IndexStatus: IndexStatus | None
+    IndexStatusMessage: string | None
+    EncryptionKeyType: EncryptionKeyType | None
+    ScanResults: ScanResults | None
 
 
 class DescribeRegionSettingsInput(ServiceRequest):
     pass
 
 
-ResourceTypeManagementPreference = Dict[ResourceType, IsEnabled]
-ResourceTypeOptInPreference = Dict[ResourceType, IsEnabled]
+ResourceTypeManagementPreference = dict[ResourceType, IsEnabled]
+ResourceTypeOptInPreference = dict[ResourceType, IsEnabled]
 
 
 class DescribeRegionSettingsOutput(TypedDict, total=False):
-    ResourceTypeOptInPreference: Optional[ResourceTypeOptInPreference]
-    ResourceTypeManagementPreference: Optional[ResourceTypeManagementPreference]
+    ResourceTypeOptInPreference: ResourceTypeOptInPreference | None
+    ResourceTypeManagementPreference: ResourceTypeManagementPreference | None
 
 
 class DescribeReportJobInput(ServiceRequest):
@@ -1349,8 +1549,8 @@ class DescribeReportJobInput(ServiceRequest):
 class ReportDestination(TypedDict, total=False):
     """Contains information from your report job about your report destination."""
 
-    S3BucketName: Optional[string]
-    S3Keys: Optional[stringList]
+    S3BucketName: string | None
+    S3Keys: stringList | None
 
 
 class ReportJob(TypedDict, total=False):
@@ -1358,18 +1558,18 @@ class ReportJob(TypedDict, total=False):
     a report based on a report plan and publishes it to Amazon S3.
     """
 
-    ReportJobId: Optional[ReportJobId]
-    ReportPlanArn: Optional[ARN]
-    ReportTemplate: Optional[string]
-    CreationTime: Optional[timestamp]
-    CompletionTime: Optional[timestamp]
-    Status: Optional[string]
-    StatusMessage: Optional[string]
-    ReportDestination: Optional[ReportDestination]
+    ReportJobId: ReportJobId | None
+    ReportPlanArn: ARN | None
+    ReportTemplate: string | None
+    CreationTime: timestamp | None
+    CompletionTime: timestamp | None
+    Status: string | None
+    StatusMessage: string | None
+    ReportDestination: ReportDestination | None
 
 
 class DescribeReportJobOutput(TypedDict, total=False):
-    ReportJob: Optional[ReportJob]
+    ReportJob: ReportJob | None
 
 
 class DescribeReportPlanInput(ServiceRequest):
@@ -1379,19 +1579,19 @@ class DescribeReportPlanInput(ServiceRequest):
 class ReportPlan(TypedDict, total=False):
     """Contains detailed information about a report plan."""
 
-    ReportPlanArn: Optional[ARN]
-    ReportPlanName: Optional[ReportPlanName]
-    ReportPlanDescription: Optional[ReportPlanDescription]
-    ReportSetting: Optional[ReportSetting]
-    ReportDeliveryChannel: Optional[ReportDeliveryChannel]
-    DeploymentStatus: Optional[string]
-    CreationTime: Optional[timestamp]
-    LastAttemptedExecutionTime: Optional[timestamp]
-    LastSuccessfulExecutionTime: Optional[timestamp]
+    ReportPlanArn: ARN | None
+    ReportPlanName: ReportPlanName | None
+    ReportPlanDescription: ReportPlanDescription | None
+    ReportSetting: ReportSetting | None
+    ReportDeliveryChannel: ReportDeliveryChannel | None
+    DeploymentStatus: string | None
+    CreationTime: timestamp | None
+    LastAttemptedExecutionTime: timestamp | None
+    LastSuccessfulExecutionTime: timestamp | None
 
 
 class DescribeReportPlanOutput(TypedDict, total=False):
-    ReportPlan: Optional[ReportPlan]
+    ReportPlan: ReportPlan | None
 
 
 class DescribeRestoreJobInput(ServiceRequest):
@@ -1403,34 +1603,82 @@ class RestoreJobCreator(TypedDict, total=False):
     initiate the restore job.
     """
 
-    RestoreTestingPlanArn: Optional[ARN]
+    RestoreTestingPlanArn: ARN | None
 
 
 class DescribeRestoreJobOutput(TypedDict, total=False):
-    AccountId: Optional[AccountId]
-    RestoreJobId: Optional[string]
-    RecoveryPointArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    Status: Optional[RestoreJobStatus]
-    StatusMessage: Optional[string]
-    PercentDone: Optional[string]
-    BackupSizeInBytes: Optional[Long]
-    IamRoleArn: Optional[IAMRoleArn]
-    ExpectedCompletionTimeMinutes: Optional[Long]
-    CreatedResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    RecoveryPointCreationDate: Optional[timestamp]
-    CreatedBy: Optional[RestoreJobCreator]
-    ValidationStatus: Optional[RestoreValidationStatus]
-    ValidationStatusMessage: Optional[string]
-    DeletionStatus: Optional[RestoreDeletionStatus]
-    DeletionStatusMessage: Optional[string]
+    AccountId: AccountId | None
+    RestoreJobId: string | None
+    RecoveryPointArn: ARN | None
+    SourceResourceArn: ARN | None
+    BackupVaultArn: ARN | None
+    CreationDate: timestamp | None
+    CompletionDate: timestamp | None
+    Status: RestoreJobStatus | None
+    StatusMessage: string | None
+    PercentDone: string | None
+    BackupSizeInBytes: Long | None
+    IamRoleArn: IAMRoleArn | None
+    ExpectedCompletionTimeMinutes: Long | None
+    CreatedResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    RecoveryPointCreationDate: timestamp | None
+    CreatedBy: RestoreJobCreator | None
+    ValidationStatus: RestoreValidationStatus | None
+    ValidationStatusMessage: string | None
+    DeletionStatus: RestoreDeletionStatus | None
+    DeletionStatusMessage: string | None
+    IsParent: boolean | None
+    ParentJobId: string | None
+
+
+class DescribeScanJobInput(ServiceRequest):
+    ScanJobId: String
+
+
+class ScanResultInfo(TypedDict, total=False):
+    """Contains information about the results of a scan job."""
+
+    ScanResultStatus: ScanResultStatus
+
+
+class ScanJobCreator(TypedDict, total=False):
+    """Contains identifying information about the creation of a scan job,
+    including the backup plan and rule that initiated the scan.
+    """
+
+    BackupPlanArn: String
+    BackupPlanId: String
+    BackupPlanVersion: String
+    BackupRuleId: String
+
+
+class DescribeScanJobOutput(TypedDict, total=False):
+    AccountId: String
+    BackupVaultArn: String
+    BackupVaultName: String
+    CompletionDate: Timestamp | None
+    CreatedBy: ScanJobCreator
+    CreationDate: Timestamp
+    IamRoleArn: String
+    MalwareScanner: MalwareScanner
+    RecoveryPointArn: String
+    ResourceArn: String
+    ResourceName: String
+    ResourceType: ScanResourceType
+    ScanBaseRecoveryPointArn: String | None
+    ScanId: String | None
+    ScanJobId: String
+    ScanMode: ScanMode
+    ScanResult: ScanResultInfo | None
+    ScannerRoleArn: String
+    State: ScanState
+    StatusMessage: String | None
 
 
 class DisassociateBackupVaultMpaApprovalTeamInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    RequesterComment: Optional[RequesterComment]
+    RequesterComment: RequesterComment | None
 
 
 class DisassociateRecoveryPointFromParentInput(ServiceRequest):
@@ -1448,7 +1696,7 @@ class ExportBackupPlanTemplateInput(ServiceRequest):
 
 
 class ExportBackupPlanTemplateOutput(TypedDict, total=False):
-    BackupPlanTemplateJson: Optional[string]
+    BackupPlanTemplateJson: string | None
 
 
 class Framework(TypedDict, total=False):
@@ -1457,15 +1705,15 @@ class Framework(TypedDict, total=False):
     Frameworks generate daily compliance results.
     """
 
-    FrameworkName: Optional[FrameworkName]
-    FrameworkArn: Optional[ARN]
-    FrameworkDescription: Optional[FrameworkDescription]
-    NumberOfControls: Optional[integer]
-    CreationTime: Optional[timestamp]
-    DeploymentStatus: Optional[string]
+    FrameworkName: FrameworkName | None
+    FrameworkArn: ARN | None
+    FrameworkDescription: FrameworkDescription | None
+    NumberOfControls: integer | None
+    CreationTime: timestamp | None
+    DeploymentStatus: string | None
 
 
-FrameworkList = List[Framework]
+FrameworkList = list[Framework]
 
 
 class GetBackupPlanFromJSONInput(ServiceRequest):
@@ -1473,7 +1721,7 @@ class GetBackupPlanFromJSONInput(ServiceRequest):
 
 
 class GetBackupPlanFromJSONOutput(TypedDict, total=False):
-    BackupPlan: Optional[BackupPlan]
+    BackupPlan: BackupPlan | None
 
 
 class GetBackupPlanFromTemplateInput(ServiceRequest):
@@ -1481,24 +1729,39 @@ class GetBackupPlanFromTemplateInput(ServiceRequest):
 
 
 class GetBackupPlanFromTemplateOutput(TypedDict, total=False):
-    BackupPlanDocument: Optional[BackupPlan]
+    BackupPlanDocument: BackupPlan | None
 
 
 class GetBackupPlanInput(ServiceRequest):
     BackupPlanId: string
-    VersionId: Optional[string]
+    VersionId: string | None
+    MaxScheduledRunsPreview: MaxScheduledRunsPreview | None
+
+
+class ScheduledPlanExecutionMember(TypedDict, total=False):
+    """Contains information about a scheduled backup plan execution, including
+    the execution time, rule type, and associated rule identifier.
+    """
+
+    ExecutionTime: timestamp | None
+    RuleId: string | None
+    RuleExecutionType: RuleExecutionType | None
+
+
+ScheduledRunsPreview = list[ScheduledPlanExecutionMember]
 
 
 class GetBackupPlanOutput(TypedDict, total=False):
-    BackupPlan: Optional[BackupPlan]
-    BackupPlanId: Optional[string]
-    BackupPlanArn: Optional[ARN]
-    VersionId: Optional[string]
-    CreatorRequestId: Optional[string]
-    CreationDate: Optional[timestamp]
-    DeletionDate: Optional[timestamp]
-    LastExecutionDate: Optional[timestamp]
-    AdvancedBackupSettings: Optional[AdvancedBackupSettings]
+    BackupPlan: BackupPlan | None
+    BackupPlanId: string | None
+    BackupPlanArn: ARN | None
+    VersionId: string | None
+    CreatorRequestId: string | None
+    CreationDate: timestamp | None
+    DeletionDate: timestamp | None
+    LastExecutionDate: timestamp | None
+    AdvancedBackupSettings: AdvancedBackupSettings | None
+    ScheduledRunsPreview: ScheduledRunsPreview | None
 
 
 class GetBackupSelectionInput(ServiceRequest):
@@ -1507,11 +1770,11 @@ class GetBackupSelectionInput(ServiceRequest):
 
 
 class GetBackupSelectionOutput(TypedDict, total=False):
-    BackupSelection: Optional[BackupSelection]
-    SelectionId: Optional[string]
-    BackupPlanId: Optional[string]
-    CreationDate: Optional[timestamp]
-    CreatorRequestId: Optional[string]
+    BackupSelection: BackupSelection | None
+    SelectionId: string | None
+    BackupPlanId: string | None
+    CreationDate: timestamp | None
+    CreatorRequestId: string | None
 
 
 class GetBackupVaultAccessPolicyInput(ServiceRequest):
@@ -1519,9 +1782,9 @@ class GetBackupVaultAccessPolicyInput(ServiceRequest):
 
 
 class GetBackupVaultAccessPolicyOutput(TypedDict, total=False):
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    Policy: Optional[IAMPolicy]
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    Policy: IAMPolicy | None
 
 
 class GetBackupVaultNotificationsInput(ServiceRequest):
@@ -1529,10 +1792,10 @@ class GetBackupVaultNotificationsInput(ServiceRequest):
 
 
 class GetBackupVaultNotificationsOutput(TypedDict, total=False):
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    SNSTopicArn: Optional[ARN]
-    BackupVaultEvents: Optional[BackupVaultEvents]
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    SNSTopicArn: ARN | None
+    BackupVaultEvents: BackupVaultEvents | None
 
 
 class GetLegalHoldInput(ServiceRequest):
@@ -1540,16 +1803,16 @@ class GetLegalHoldInput(ServiceRequest):
 
 
 class GetLegalHoldOutput(TypedDict, total=False):
-    Title: Optional[string]
-    Status: Optional[LegalHoldStatus]
-    Description: Optional[string]
-    CancelDescription: Optional[string]
-    LegalHoldId: Optional[string]
-    LegalHoldArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CancellationDate: Optional[timestamp]
-    RetainRecordUntil: Optional[timestamp]
-    RecoveryPointSelection: Optional[RecoveryPointSelection]
+    Title: string | None
+    Status: LegalHoldStatus | None
+    Description: string | None
+    CancelDescription: string | None
+    LegalHoldId: string | None
+    LegalHoldArn: ARN | None
+    CreationDate: timestamp | None
+    CancellationDate: timestamp | None
+    RetainRecordUntil: timestamp | None
+    RecoveryPointSelection: RecoveryPointSelection | None
 
 
 class GetRecoveryPointIndexDetailsInput(ServiceRequest):
@@ -1558,31 +1821,31 @@ class GetRecoveryPointIndexDetailsInput(ServiceRequest):
 
 
 class GetRecoveryPointIndexDetailsOutput(TypedDict, total=False):
-    RecoveryPointArn: Optional[ARN]
-    BackupVaultArn: Optional[ARN]
-    SourceResourceArn: Optional[ARN]
-    IndexCreationDate: Optional[timestamp]
-    IndexDeletionDate: Optional[timestamp]
-    IndexCompletionDate: Optional[timestamp]
-    IndexStatus: Optional[IndexStatus]
-    IndexStatusMessage: Optional[string]
-    TotalItemsIndexed: Optional[Long]
+    RecoveryPointArn: ARN | None
+    BackupVaultArn: ARN | None
+    SourceResourceArn: ARN | None
+    IndexCreationDate: timestamp | None
+    IndexDeletionDate: timestamp | None
+    IndexCompletionDate: timestamp | None
+    IndexStatus: IndexStatus | None
+    IndexStatusMessage: string | None
+    TotalItemsIndexed: Long | None
 
 
 class GetRecoveryPointRestoreMetadataInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     RecoveryPointArn: ARN
-    BackupVaultAccountId: Optional[AccountId]
+    BackupVaultAccountId: AccountId | None
 
 
-Metadata = Dict[MetadataKey, MetadataValue]
+Metadata = dict[MetadataKey, MetadataValue]
 
 
 class GetRecoveryPointRestoreMetadataOutput(TypedDict, total=False):
-    BackupVaultArn: Optional[ARN]
-    RecoveryPointArn: Optional[ARN]
-    RestoreMetadata: Optional[Metadata]
-    ResourceType: Optional[ResourceType]
+    BackupVaultArn: ARN | None
+    RecoveryPointArn: ARN | None
+    RestoreMetadata: Metadata | None
+    ResourceType: ResourceType | None
 
 
 class GetRestoreJobMetadataInput(ServiceRequest):
@@ -1590,12 +1853,12 @@ class GetRestoreJobMetadataInput(ServiceRequest):
 
 
 class GetRestoreJobMetadataOutput(TypedDict, total=False):
-    RestoreJobId: Optional[RestoreJobId]
-    Metadata: Optional[Metadata]
+    RestoreJobId: RestoreJobId | None
+    Metadata: Metadata | None
 
 
 class GetRestoreTestingInferredMetadataInput(ServiceRequest):
-    BackupVaultAccountId: Optional[String]
+    BackupVaultAccountId: String | None
     BackupVaultName: String
     RecoveryPointArn: String
 
@@ -1612,15 +1875,15 @@ class RestoreTestingPlanForGet(TypedDict, total=False):
     """This contains metadata about a restore testing plan."""
 
     CreationTime: Timestamp
-    CreatorRequestId: Optional[String]
-    LastExecutionTime: Optional[Timestamp]
-    LastUpdateTime: Optional[Timestamp]
+    CreatorRequestId: String | None
+    LastExecutionTime: Timestamp | None
+    LastUpdateTime: Timestamp | None
     RecoveryPointSelection: RestoreTestingRecoveryPointSelection
     RestoreTestingPlanArn: String
     RestoreTestingPlanName: String
     ScheduleExpression: String
-    ScheduleExpressionTimezone: Optional[String]
-    StartWindowHours: Optional[integer]
+    ScheduleExpressionTimezone: String | None
+    StartWindowHours: integer | None
 
 
 class GetRestoreTestingPlanOutput(TypedDict, total=False):
@@ -1636,15 +1899,15 @@ class RestoreTestingSelectionForGet(TypedDict, total=False):
     """This contains metadata about a restore testing selection."""
 
     CreationTime: Timestamp
-    CreatorRequestId: Optional[String]
+    CreatorRequestId: String | None
     IamRoleArn: String
-    ProtectedResourceArns: Optional[stringList]
-    ProtectedResourceConditions: Optional[ProtectedResourceConditions]
+    ProtectedResourceArns: stringList | None
+    ProtectedResourceConditions: ProtectedResourceConditions | None
     ProtectedResourceType: String
-    RestoreMetadataOverrides: Optional[SensitiveStringMap]
+    RestoreMetadataOverrides: SensitiveStringMap | None
     RestoreTestingPlanName: String
     RestoreTestingSelectionName: String
-    ValidationWindowHours: Optional[integer]
+    ValidationWindowHours: integer | None
 
 
 class GetRestoreTestingSelectionOutput(TypedDict, total=False):
@@ -1652,7 +1915,27 @@ class GetRestoreTestingSelectionOutput(TypedDict, total=False):
 
 
 class GetSupportedResourceTypesOutput(TypedDict, total=False):
-    ResourceTypes: Optional[ResourceTypes]
+    ResourceTypes: ResourceTypes | None
+
+
+class GetTieringConfigurationInput(ServiceRequest):
+    TieringConfigurationName: TieringConfigurationName
+
+
+class TieringConfiguration(TypedDict, total=False):
+    """This contains metadata about a tiering configuration."""
+
+    TieringConfigurationName: TieringConfigurationName
+    TieringConfigurationArn: ARN | None
+    BackupVaultName: BackupVaultNameOrWildcard
+    ResourceSelection: ResourceSelections
+    CreatorRequestId: CreatorRequestId | None
+    CreationTime: timestamp | None
+    LastUpdatedTime: timestamp | None
+
+
+class GetTieringConfigurationOutput(TypedDict, total=False):
+    TieringConfiguration: TieringConfiguration | None
 
 
 class IndexedRecoveryPoint(TypedDict, total=False):
@@ -1661,18 +1944,18 @@ class IndexedRecoveryPoint(TypedDict, total=False):
     Only recovery points with a backup index can be included in a search.
     """
 
-    RecoveryPointArn: Optional[ARN]
-    SourceResourceArn: Optional[ARN]
-    IamRoleArn: Optional[ARN]
-    BackupCreationDate: Optional[timestamp]
-    ResourceType: Optional[ResourceType]
-    IndexCreationDate: Optional[timestamp]
-    IndexStatus: Optional[IndexStatus]
-    IndexStatusMessage: Optional[string]
-    BackupVaultArn: Optional[ARN]
+    RecoveryPointArn: ARN | None
+    SourceResourceArn: ARN | None
+    IamRoleArn: ARN | None
+    BackupCreationDate: timestamp | None
+    ResourceType: ResourceType | None
+    IndexCreationDate: timestamp | None
+    IndexStatus: IndexStatus | None
+    IndexStatusMessage: string | None
+    BackupVaultArn: ARN | None
 
 
-IndexedRecoveryPointList = List[IndexedRecoveryPoint]
+IndexedRecoveryPointList = list[IndexedRecoveryPoint]
 
 
 class LatestRevokeRequest(TypedDict, total=False):
@@ -1680,11 +1963,11 @@ class LatestRevokeRequest(TypedDict, total=False):
     backup vault.
     """
 
-    MpaSessionArn: Optional[string]
-    Status: Optional[MpaRevokeSessionStatus]
-    StatusMessage: Optional[string]
-    InitiationDate: Optional[timestamp]
-    ExpiryDate: Optional[timestamp]
+    MpaSessionArn: string | None
+    Status: MpaRevokeSessionStatus | None
+    StatusMessage: string | None
+    InitiationDate: timestamp | None
+    ExpiryDate: timestamp | None
 
 
 class LegalHold(TypedDict, total=False):
@@ -1698,229 +1981,230 @@ class LegalHold(TypedDict, total=False):
     IDs.
     """
 
-    Title: Optional[string]
-    Status: Optional[LegalHoldStatus]
-    Description: Optional[string]
-    LegalHoldId: Optional[string]
-    LegalHoldArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CancellationDate: Optional[timestamp]
+    Title: string | None
+    Status: LegalHoldStatus | None
+    Description: string | None
+    LegalHoldId: string | None
+    LegalHoldArn: ARN | None
+    CreationDate: timestamp | None
+    CancellationDate: timestamp | None
 
 
-LegalHoldsList = List[LegalHold]
+LegalHoldsList = list[LegalHold]
 
 
 class ListBackupJobSummariesInput(ServiceRequest):
-    AccountId: Optional[AccountId]
-    State: Optional[BackupJobStatus]
-    ResourceType: Optional[ResourceType]
-    MessageCategory: Optional[MessageCategory]
-    AggregationPeriod: Optional[AggregationPeriod]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[string]
+    AccountId: AccountId | None
+    State: BackupJobStatus | None
+    ResourceType: ResourceType | None
+    MessageCategory: MessageCategory | None
+    AggregationPeriod: AggregationPeriod | None
+    MaxResults: MaxResults | None
+    NextToken: string | None
 
 
 class ListBackupJobSummariesOutput(TypedDict, total=False):
-    BackupJobSummaries: Optional[BackupJobSummaryList]
-    AggregationPeriod: Optional[string]
-    NextToken: Optional[string]
+    BackupJobSummaries: BackupJobSummaryList | None
+    AggregationPeriod: string | None
+    NextToken: string | None
 
 
 class ListBackupJobsInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    ByResourceArn: Optional[ARN]
-    ByState: Optional[BackupJobState]
-    ByBackupVaultName: Optional[BackupVaultName]
-    ByCreatedBefore: Optional[timestamp]
-    ByCreatedAfter: Optional[timestamp]
-    ByResourceType: Optional[ResourceType]
-    ByAccountId: Optional[AccountId]
-    ByCompleteAfter: Optional[timestamp]
-    ByCompleteBefore: Optional[timestamp]
-    ByParentJobId: Optional[string]
-    ByMessageCategory: Optional[string]
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    ByResourceArn: ARN | None
+    ByState: BackupJobState | None
+    ByBackupVaultName: BackupVaultName | None
+    ByCreatedBefore: timestamp | None
+    ByCreatedAfter: timestamp | None
+    ByResourceType: ResourceType | None
+    ByAccountId: AccountId | None
+    ByCompleteAfter: timestamp | None
+    ByCompleteBefore: timestamp | None
+    ByParentJobId: string | None
+    ByMessageCategory: string | None
 
 
 class ListBackupJobsOutput(TypedDict, total=False):
-    BackupJobs: Optional[BackupJobsList]
-    NextToken: Optional[string]
+    BackupJobs: BackupJobsList | None
+    NextToken: string | None
 
 
 class ListBackupPlanTemplatesInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListBackupPlanTemplatesOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    BackupPlanTemplatesList: Optional[BackupPlanTemplatesList]
+    NextToken: string | None
+    BackupPlanTemplatesList: BackupPlanTemplatesList | None
 
 
 class ListBackupPlanVersionsInput(ServiceRequest):
     BackupPlanId: string
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListBackupPlanVersionsOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    BackupPlanVersionsList: Optional[BackupPlanVersionsList]
+    NextToken: string | None
+    BackupPlanVersionsList: BackupPlanVersionsList | None
 
 
 class ListBackupPlansInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    IncludeDeleted: Optional[Boolean]
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    IncludeDeleted: Boolean | None
 
 
 class ListBackupPlansOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    BackupPlansList: Optional[BackupPlansList]
+    NextToken: string | None
+    BackupPlansList: BackupPlansList | None
 
 
 class ListBackupSelectionsInput(ServiceRequest):
     BackupPlanId: string
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListBackupSelectionsOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    BackupSelectionsList: Optional[BackupSelectionsList]
+    NextToken: string | None
+    BackupSelectionsList: BackupSelectionsList | None
 
 
 class ListBackupVaultsInput(ServiceRequest):
-    ByVaultType: Optional[VaultType]
-    ByShared: Optional[boolean]
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    ByVaultType: VaultType | None
+    ByShared: boolean | None
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListBackupVaultsOutput(TypedDict, total=False):
-    BackupVaultList: Optional[BackupVaultList]
-    NextToken: Optional[string]
+    BackupVaultList: BackupVaultList | None
+    NextToken: string | None
 
 
 class ListCopyJobSummariesInput(ServiceRequest):
-    AccountId: Optional[AccountId]
-    State: Optional[CopyJobStatus]
-    ResourceType: Optional[ResourceType]
-    MessageCategory: Optional[MessageCategory]
-    AggregationPeriod: Optional[AggregationPeriod]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[string]
+    AccountId: AccountId | None
+    State: CopyJobStatus | None
+    ResourceType: ResourceType | None
+    MessageCategory: MessageCategory | None
+    AggregationPeriod: AggregationPeriod | None
+    MaxResults: MaxResults | None
+    NextToken: string | None
 
 
 class ListCopyJobSummariesOutput(TypedDict, total=False):
-    CopyJobSummaries: Optional[CopyJobSummaryList]
-    AggregationPeriod: Optional[string]
-    NextToken: Optional[string]
+    CopyJobSummaries: CopyJobSummaryList | None
+    AggregationPeriod: string | None
+    NextToken: string | None
 
 
 class ListCopyJobsInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    ByResourceArn: Optional[ARN]
-    ByState: Optional[CopyJobState]
-    ByCreatedBefore: Optional[timestamp]
-    ByCreatedAfter: Optional[timestamp]
-    ByResourceType: Optional[ResourceType]
-    ByDestinationVaultArn: Optional[string]
-    ByAccountId: Optional[AccountId]
-    ByCompleteBefore: Optional[timestamp]
-    ByCompleteAfter: Optional[timestamp]
-    ByParentJobId: Optional[string]
-    ByMessageCategory: Optional[string]
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    ByResourceArn: ARN | None
+    ByState: CopyJobState | None
+    ByCreatedBefore: timestamp | None
+    ByCreatedAfter: timestamp | None
+    ByResourceType: ResourceType | None
+    ByDestinationVaultArn: string | None
+    ByAccountId: AccountId | None
+    ByCompleteBefore: timestamp | None
+    ByCompleteAfter: timestamp | None
+    ByParentJobId: string | None
+    ByMessageCategory: string | None
+    BySourceRecoveryPointArn: string | None
 
 
 class ListCopyJobsOutput(TypedDict, total=False):
-    CopyJobs: Optional[CopyJobsList]
-    NextToken: Optional[string]
+    CopyJobs: CopyJobsList | None
+    NextToken: string | None
 
 
 class ListFrameworksInput(ServiceRequest):
-    MaxResults: Optional[MaxFrameworkInputs]
-    NextToken: Optional[string]
+    MaxResults: MaxFrameworkInputs | None
+    NextToken: string | None
 
 
 class ListFrameworksOutput(TypedDict, total=False):
-    Frameworks: Optional[FrameworkList]
-    NextToken: Optional[string]
+    Frameworks: FrameworkList | None
+    NextToken: string | None
 
 
 class ListIndexedRecoveryPointsInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    SourceResourceArn: Optional[ARN]
-    CreatedBefore: Optional[timestamp]
-    CreatedAfter: Optional[timestamp]
-    ResourceType: Optional[ResourceType]
-    IndexStatus: Optional[IndexStatus]
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    SourceResourceArn: ARN | None
+    CreatedBefore: timestamp | None
+    CreatedAfter: timestamp | None
+    ResourceType: ResourceType | None
+    IndexStatus: IndexStatus | None
 
 
 class ListIndexedRecoveryPointsOutput(TypedDict, total=False):
-    IndexedRecoveryPoints: Optional[IndexedRecoveryPointList]
-    NextToken: Optional[string]
+    IndexedRecoveryPoints: IndexedRecoveryPointList | None
+    NextToken: string | None
 
 
 class ListLegalHoldsInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListLegalHoldsOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    LegalHolds: Optional[LegalHoldsList]
+    NextToken: string | None
+    LegalHolds: LegalHoldsList | None
 
 
 class ListProtectedResourcesByBackupVaultInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    BackupVaultAccountId: Optional[AccountId]
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    BackupVaultAccountId: AccountId | None
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ProtectedResource(TypedDict, total=False):
     """A structure that contains information about a backed-up resource."""
 
-    ResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    LastBackupTime: Optional[timestamp]
-    ResourceName: Optional[string]
-    LastBackupVaultArn: Optional[ARN]
-    LastRecoveryPointArn: Optional[ARN]
+    ResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    LastBackupTime: timestamp | None
+    ResourceName: string | None
+    LastBackupVaultArn: ARN | None
+    LastRecoveryPointArn: ARN | None
 
 
-ProtectedResourcesList = List[ProtectedResource]
+ProtectedResourcesList = list[ProtectedResource]
 
 
 class ListProtectedResourcesByBackupVaultOutput(TypedDict, total=False):
-    Results: Optional[ProtectedResourcesList]
-    NextToken: Optional[string]
+    Results: ProtectedResourcesList | None
+    NextToken: string | None
 
 
 class ListProtectedResourcesInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListProtectedResourcesOutput(TypedDict, total=False):
-    Results: Optional[ProtectedResourcesList]
-    NextToken: Optional[string]
+    Results: ProtectedResourcesList | None
+    NextToken: string | None
 
 
 class ListRecoveryPointsByBackupVaultInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    BackupVaultAccountId: Optional[AccountId]
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    ByResourceArn: Optional[ARN]
-    ByResourceType: Optional[ResourceType]
-    ByBackupPlanId: Optional[string]
-    ByCreatedBefore: Optional[timestamp]
-    ByCreatedAfter: Optional[timestamp]
-    ByParentRecoveryPointArn: Optional[ARN]
+    BackupVaultAccountId: AccountId | None
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    ByResourceArn: ARN | None
+    ByResourceType: ResourceType | None
+    ByBackupPlanId: string | None
+    ByCreatedBefore: timestamp | None
+    ByCreatedAfter: timestamp | None
+    ByParentRecoveryPointArn: ARN | None
 
 
 class RecoveryPointByBackupVault(TypedDict, total=False):
@@ -1928,46 +2212,48 @@ class RecoveryPointByBackupVault(TypedDict, total=False):
     backup vault.
     """
 
-    RecoveryPointArn: Optional[ARN]
-    BackupVaultName: Optional[BackupVaultName]
-    BackupVaultArn: Optional[ARN]
-    SourceBackupVaultArn: Optional[ARN]
-    ResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    CreatedBy: Optional[RecoveryPointCreator]
-    IamRoleArn: Optional[IAMRoleArn]
-    Status: Optional[RecoveryPointStatus]
-    StatusMessage: Optional[string]
-    CreationDate: Optional[timestamp]
-    InitiationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    BackupSizeInBytes: Optional[Long]
-    CalculatedLifecycle: Optional[CalculatedLifecycle]
-    Lifecycle: Optional[Lifecycle]
-    EncryptionKeyArn: Optional[ARN]
-    IsEncrypted: Optional[boolean]
-    LastRestoreTime: Optional[timestamp]
-    ParentRecoveryPointArn: Optional[ARN]
-    CompositeMemberIdentifier: Optional[string]
-    IsParent: Optional[boolean]
-    ResourceName: Optional[string]
-    VaultType: Optional[VaultType]
-    IndexStatus: Optional[IndexStatus]
-    IndexStatusMessage: Optional[string]
+    RecoveryPointArn: ARN | None
+    BackupVaultName: BackupVaultName | None
+    BackupVaultArn: ARN | None
+    SourceBackupVaultArn: ARN | None
+    ResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    CreatedBy: RecoveryPointCreator | None
+    IamRoleArn: IAMRoleArn | None
+    Status: RecoveryPointStatus | None
+    StatusMessage: string | None
+    CreationDate: timestamp | None
+    InitiationDate: timestamp | None
+    CompletionDate: timestamp | None
+    BackupSizeInBytes: Long | None
+    CalculatedLifecycle: CalculatedLifecycle | None
+    Lifecycle: Lifecycle | None
+    EncryptionKeyArn: ARN | None
+    IsEncrypted: boolean | None
+    LastRestoreTime: timestamp | None
+    ParentRecoveryPointArn: ARN | None
+    CompositeMemberIdentifier: string | None
+    IsParent: boolean | None
+    ResourceName: string | None
+    VaultType: VaultType | None
+    IndexStatus: IndexStatus | None
+    IndexStatusMessage: string | None
+    EncryptionKeyType: EncryptionKeyType | None
+    AggregatedScanResult: AggregatedScanResult | None
 
 
-RecoveryPointByBackupVaultList = List[RecoveryPointByBackupVault]
+RecoveryPointByBackupVaultList = list[RecoveryPointByBackupVault]
 
 
 class ListRecoveryPointsByBackupVaultOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    RecoveryPoints: Optional[RecoveryPointByBackupVaultList]
+    NextToken: string | None
+    RecoveryPoints: RecoveryPointByBackupVaultList | None
 
 
 class ListRecoveryPointsByLegalHoldInput(ServiceRequest):
     LegalHoldId: string
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class RecoveryPointMember(TypedDict, total=False):
@@ -1977,114 +2263,116 @@ class RecoveryPointMember(TypedDict, total=False):
     case they will no longer be a member.
     """
 
-    RecoveryPointArn: Optional[ARN]
-    ResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    BackupVaultName: Optional[BackupVaultName]
+    RecoveryPointArn: ARN | None
+    ResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    BackupVaultName: BackupVaultName | None
 
 
-RecoveryPointsList = List[RecoveryPointMember]
+RecoveryPointsList = list[RecoveryPointMember]
 
 
 class ListRecoveryPointsByLegalHoldOutput(TypedDict, total=False):
-    RecoveryPoints: Optional[RecoveryPointsList]
-    NextToken: Optional[string]
+    RecoveryPoints: RecoveryPointsList | None
+    NextToken: string | None
 
 
 class ListRecoveryPointsByResourceInput(ServiceRequest):
     ResourceArn: ARN
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    ManagedByAWSBackupOnly: Optional[boolean]
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    ManagedByAWSBackupOnly: boolean | None
 
 
 class RecoveryPointByResource(TypedDict, total=False):
     """Contains detailed information about a saved recovery point."""
 
-    RecoveryPointArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    Status: Optional[RecoveryPointStatus]
-    StatusMessage: Optional[string]
-    EncryptionKeyArn: Optional[ARN]
-    BackupSizeBytes: Optional[Long]
-    BackupVaultName: Optional[BackupVaultName]
-    IsParent: Optional[boolean]
-    ParentRecoveryPointArn: Optional[ARN]
-    ResourceName: Optional[string]
-    VaultType: Optional[VaultType]
-    IndexStatus: Optional[IndexStatus]
-    IndexStatusMessage: Optional[string]
+    RecoveryPointArn: ARN | None
+    CreationDate: timestamp | None
+    Status: RecoveryPointStatus | None
+    StatusMessage: string | None
+    EncryptionKeyArn: ARN | None
+    BackupSizeBytes: Long | None
+    BackupVaultName: BackupVaultName | None
+    IsParent: boolean | None
+    ParentRecoveryPointArn: ARN | None
+    ResourceName: string | None
+    VaultType: VaultType | None
+    IndexStatus: IndexStatus | None
+    IndexStatusMessage: string | None
+    EncryptionKeyType: EncryptionKeyType | None
+    AggregatedScanResult: AggregatedScanResult | None
 
 
-RecoveryPointByResourceList = List[RecoveryPointByResource]
+RecoveryPointByResourceList = list[RecoveryPointByResource]
 
 
 class ListRecoveryPointsByResourceOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    RecoveryPoints: Optional[RecoveryPointByResourceList]
+    NextToken: string | None
+    RecoveryPoints: RecoveryPointByResourceList | None
 
 
 class ListReportJobsInput(ServiceRequest):
-    ByReportPlanName: Optional[ReportPlanName]
-    ByCreationBefore: Optional[timestamp]
-    ByCreationAfter: Optional[timestamp]
-    ByStatus: Optional[string]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[string]
+    ByReportPlanName: ReportPlanName | None
+    ByCreationBefore: timestamp | None
+    ByCreationAfter: timestamp | None
+    ByStatus: string | None
+    MaxResults: MaxResults | None
+    NextToken: string | None
 
 
-ReportJobList = List[ReportJob]
+ReportJobList = list[ReportJob]
 
 
 class ListReportJobsOutput(TypedDict, total=False):
-    ReportJobs: Optional[ReportJobList]
-    NextToken: Optional[string]
+    ReportJobs: ReportJobList | None
+    NextToken: string | None
 
 
 class ListReportPlansInput(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[string]
+    MaxResults: MaxResults | None
+    NextToken: string | None
 
 
-ReportPlanList = List[ReportPlan]
+ReportPlanList = list[ReportPlan]
 
 
 class ListReportPlansOutput(TypedDict, total=False):
-    ReportPlans: Optional[ReportPlanList]
-    NextToken: Optional[string]
+    ReportPlans: ReportPlanList | None
+    NextToken: string | None
 
 
 class ListRestoreAccessBackupVaultsInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class RestoreAccessBackupVaultListMember(TypedDict, total=False):
     """Contains information about a restore access backup vault."""
 
-    RestoreAccessBackupVaultArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    ApprovalDate: Optional[timestamp]
-    VaultState: Optional[VaultState]
-    LatestRevokeRequest: Optional[LatestRevokeRequest]
+    RestoreAccessBackupVaultArn: ARN | None
+    CreationDate: timestamp | None
+    ApprovalDate: timestamp | None
+    VaultState: VaultState | None
+    LatestRevokeRequest: LatestRevokeRequest | None
 
 
-RestoreAccessBackupVaultList = List[RestoreAccessBackupVaultListMember]
+RestoreAccessBackupVaultList = list[RestoreAccessBackupVaultListMember]
 
 
 class ListRestoreAccessBackupVaultsOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    RestoreAccessBackupVaults: Optional[RestoreAccessBackupVaultList]
+    NextToken: string | None
+    RestoreAccessBackupVaults: RestoreAccessBackupVaultList | None
 
 
 class ListRestoreJobSummariesInput(ServiceRequest):
-    AccountId: Optional[AccountId]
-    State: Optional[RestoreJobState]
-    ResourceType: Optional[ResourceType]
-    AggregationPeriod: Optional[AggregationPeriod]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[string]
+    AccountId: AccountId | None
+    State: RestoreJobState | None
+    ResourceType: ResourceType | None
+    AggregationPeriod: AggregationPeriod | None
+    MaxResults: MaxResults | None
+    NextToken: string | None
 
 
 class RestoreJobSummary(TypedDict, total=False):
@@ -2096,112 +2384,117 @@ class RestoreJobSummary(TypedDict, total=False):
     jobs.
     """
 
-    Region: Optional[Region]
-    AccountId: Optional[AccountId]
-    State: Optional[RestoreJobState]
-    ResourceType: Optional[ResourceType]
-    Count: Optional[integer]
-    StartTime: Optional[timestamp]
-    EndTime: Optional[timestamp]
+    Region: Region | None
+    AccountId: AccountId | None
+    State: RestoreJobState | None
+    ResourceType: ResourceType | None
+    Count: integer | None
+    StartTime: timestamp | None
+    EndTime: timestamp | None
 
 
-RestoreJobSummaryList = List[RestoreJobSummary]
+RestoreJobSummaryList = list[RestoreJobSummary]
 
 
 class ListRestoreJobSummariesOutput(TypedDict, total=False):
-    RestoreJobSummaries: Optional[RestoreJobSummaryList]
-    AggregationPeriod: Optional[string]
-    NextToken: Optional[string]
+    RestoreJobSummaries: RestoreJobSummaryList | None
+    AggregationPeriod: string | None
+    NextToken: string | None
 
 
 class ListRestoreJobsByProtectedResourceInput(ServiceRequest):
     ResourceArn: ARN
-    ByStatus: Optional[RestoreJobStatus]
-    ByRecoveryPointCreationDateAfter: Optional[timestamp]
-    ByRecoveryPointCreationDateBefore: Optional[timestamp]
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    ByStatus: RestoreJobStatus | None
+    ByRecoveryPointCreationDateAfter: timestamp | None
+    ByRecoveryPointCreationDateBefore: timestamp | None
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class RestoreJobsListMember(TypedDict, total=False):
     """Contains metadata about a restore job."""
 
-    AccountId: Optional[AccountId]
-    RestoreJobId: Optional[string]
-    RecoveryPointArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    CompletionDate: Optional[timestamp]
-    Status: Optional[RestoreJobStatus]
-    StatusMessage: Optional[string]
-    PercentDone: Optional[string]
-    BackupSizeInBytes: Optional[Long]
-    IamRoleArn: Optional[IAMRoleArn]
-    ExpectedCompletionTimeMinutes: Optional[Long]
-    CreatedResourceArn: Optional[ARN]
-    ResourceType: Optional[ResourceType]
-    RecoveryPointCreationDate: Optional[timestamp]
-    CreatedBy: Optional[RestoreJobCreator]
-    ValidationStatus: Optional[RestoreValidationStatus]
-    ValidationStatusMessage: Optional[string]
-    DeletionStatus: Optional[RestoreDeletionStatus]
-    DeletionStatusMessage: Optional[string]
+    AccountId: AccountId | None
+    RestoreJobId: string | None
+    RecoveryPointArn: ARN | None
+    SourceResourceArn: ARN | None
+    BackupVaultArn: ARN | None
+    CreationDate: timestamp | None
+    CompletionDate: timestamp | None
+    Status: RestoreJobStatus | None
+    StatusMessage: string | None
+    PercentDone: string | None
+    BackupSizeInBytes: Long | None
+    IamRoleArn: IAMRoleArn | None
+    ExpectedCompletionTimeMinutes: Long | None
+    CreatedResourceArn: ARN | None
+    ResourceType: ResourceType | None
+    RecoveryPointCreationDate: timestamp | None
+    IsParent: boolean | None
+    ParentJobId: string | None
+    CreatedBy: RestoreJobCreator | None
+    ValidationStatus: RestoreValidationStatus | None
+    ValidationStatusMessage: string | None
+    DeletionStatus: RestoreDeletionStatus | None
+    DeletionStatusMessage: string | None
 
 
-RestoreJobsList = List[RestoreJobsListMember]
+RestoreJobsList = list[RestoreJobsListMember]
 
 
 class ListRestoreJobsByProtectedResourceOutput(TypedDict, total=False):
-    RestoreJobs: Optional[RestoreJobsList]
-    NextToken: Optional[string]
+    RestoreJobs: RestoreJobsList | None
+    NextToken: string | None
 
 
 class ListRestoreJobsInput(ServiceRequest):
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
-    ByAccountId: Optional[AccountId]
-    ByResourceType: Optional[ResourceType]
-    ByCreatedBefore: Optional[timestamp]
-    ByCreatedAfter: Optional[timestamp]
-    ByStatus: Optional[RestoreJobStatus]
-    ByCompleteBefore: Optional[timestamp]
-    ByCompleteAfter: Optional[timestamp]
-    ByRestoreTestingPlanArn: Optional[ARN]
+    NextToken: string | None
+    MaxResults: MaxResults | None
+    ByAccountId: AccountId | None
+    ByResourceType: ResourceType | None
+    ByCreatedBefore: timestamp | None
+    ByCreatedAfter: timestamp | None
+    ByStatus: RestoreJobStatus | None
+    ByCompleteBefore: timestamp | None
+    ByCompleteAfter: timestamp | None
+    ByRestoreTestingPlanArn: ARN | None
+    ByParentJobId: string | None
 
 
 class ListRestoreJobsOutput(TypedDict, total=False):
-    RestoreJobs: Optional[RestoreJobsList]
-    NextToken: Optional[string]
+    RestoreJobs: RestoreJobsList | None
+    NextToken: string | None
 
 
 class ListRestoreTestingPlansInput(ServiceRequest):
-    MaxResults: Optional[ListRestoreTestingPlansInputMaxResultsInteger]
-    NextToken: Optional[String]
+    MaxResults: ListRestoreTestingPlansInputMaxResultsInteger | None
+    NextToken: String | None
 
 
 class RestoreTestingPlanForList(TypedDict, total=False):
     """This contains metadata about a restore testing plan."""
 
     CreationTime: Timestamp
-    LastExecutionTime: Optional[Timestamp]
-    LastUpdateTime: Optional[Timestamp]
+    LastExecutionTime: Timestamp | None
+    LastUpdateTime: Timestamp | None
     RestoreTestingPlanArn: String
     RestoreTestingPlanName: String
     ScheduleExpression: String
-    ScheduleExpressionTimezone: Optional[String]
-    StartWindowHours: Optional[integer]
+    ScheduleExpressionTimezone: String | None
+    StartWindowHours: integer | None
 
 
-RestoreTestingPlans = List[RestoreTestingPlanForList]
+RestoreTestingPlans = list[RestoreTestingPlanForList]
 
 
 class ListRestoreTestingPlansOutput(TypedDict, total=False):
-    NextToken: Optional[String]
+    NextToken: String | None
     RestoreTestingPlans: RestoreTestingPlans
 
 
 class ListRestoreTestingSelectionsInput(ServiceRequest):
-    MaxResults: Optional[ListRestoreTestingSelectionsInputMaxResultsInteger]
-    NextToken: Optional[String]
+    MaxResults: ListRestoreTestingSelectionsInputMaxResultsInteger | None
+    NextToken: String | None
     RestoreTestingPlanName: String
 
 
@@ -2213,38 +2506,147 @@ class RestoreTestingSelectionForList(TypedDict, total=False):
     ProtectedResourceType: String
     RestoreTestingPlanName: String
     RestoreTestingSelectionName: String
-    ValidationWindowHours: Optional[integer]
+    ValidationWindowHours: integer | None
 
 
-RestoreTestingSelections = List[RestoreTestingSelectionForList]
+RestoreTestingSelections = list[RestoreTestingSelectionForList]
 
 
 class ListRestoreTestingSelectionsOutput(TypedDict, total=False):
-    NextToken: Optional[String]
+    NextToken: String | None
     RestoreTestingSelections: RestoreTestingSelections
+
+
+class ListScanJobSummariesInput(ServiceRequest):
+    AccountId: AccountId | None
+    ResourceType: ResourceType | None
+    MalwareScanner: MalwareScanner | None
+    ScanResultStatus: ScanResultStatus | None
+    State: ScanJobStatus | None
+    AggregationPeriod: AggregationPeriod | None
+    MaxResults: MaxResults | None
+    NextToken: string | None
+
+
+class ScanJobSummary(TypedDict, total=False):
+    """Contains summary information about scan jobs, including counts and
+    metadata for a specific time period and criteria.
+    """
+
+    Region: Region | None
+    AccountId: AccountId | None
+    State: ScanJobStatus | None
+    ResourceType: ResourceType | None
+    Count: integer | None
+    StartTime: timestamp | None
+    EndTime: timestamp | None
+    MalwareScanner: MalwareScanner | None
+    ScanResultStatus: ScanResultStatus | None
+
+
+ScanJobSummaryList = list[ScanJobSummary]
+
+
+class ListScanJobSummariesOutput(TypedDict, total=False):
+    ScanJobSummaries: ScanJobSummaryList | None
+    AggregationPeriod: string | None
+    NextToken: string | None
+
+
+class ListScanJobsInput(ServiceRequest):
+    ByAccountId: String | None
+    ByBackupVaultName: String | None
+    ByCompleteAfter: Timestamp | None
+    ByCompleteBefore: Timestamp | None
+    ByMalwareScanner: MalwareScanner | None
+    ByRecoveryPointArn: String | None
+    ByResourceArn: String | None
+    ByResourceType: ScanResourceType | None
+    ByScanResultStatus: ScanResultStatus | None
+    ByState: ScanState | None
+    MaxResults: ListScanJobsInputMaxResultsInteger | None
+    NextToken: String | None
+
+
+class ScanJob(TypedDict, total=False):
+    """Contains metadata about a scan job, including information about the
+    scanning process, results, and associated resources.
+    """
+
+    AccountId: String
+    BackupVaultArn: String
+    BackupVaultName: String
+    CompletionDate: Timestamp | None
+    CreatedBy: ScanJobCreator
+    CreationDate: Timestamp
+    IamRoleArn: String
+    MalwareScanner: MalwareScanner
+    RecoveryPointArn: String
+    ResourceArn: String
+    ResourceName: String
+    ResourceType: ScanResourceType
+    ScanBaseRecoveryPointArn: String | None
+    ScanId: String | None
+    ScanJobId: String
+    ScanMode: ScanMode
+    ScanResult: ScanResultInfo | None
+    ScannerRoleArn: String
+    State: ScanState | None
+    StatusMessage: String | None
+
+
+ScanJobs = list[ScanJob]
+
+
+class ListScanJobsOutput(TypedDict, total=False):
+    NextToken: String | None
+    ScanJobs: ScanJobs
 
 
 class ListTagsInput(ServiceRequest):
     ResourceArn: ARN
-    NextToken: Optional[string]
-    MaxResults: Optional[MaxResults]
+    NextToken: string | None
+    MaxResults: MaxResults | None
 
 
 class ListTagsOutput(TypedDict, total=False):
-    NextToken: Optional[string]
-    Tags: Optional[Tags]
+    NextToken: string | None
+    Tags: Tags | None
+
+
+class ListTieringConfigurationsInput(ServiceRequest):
+    MaxResults: MaxResults | None
+    NextToken: string | None
+
+
+class TieringConfigurationsListMember(TypedDict, total=False):
+    """This contains metadata about a tiering configuration returned in a list."""
+
+    TieringConfigurationArn: ARN | None
+    TieringConfigurationName: TieringConfigurationName | None
+    BackupVaultName: BackupVaultNameOrWildcard | None
+    CreationTime: timestamp | None
+    LastUpdatedTime: timestamp | None
+
+
+TieringConfigurationsList = list[TieringConfigurationsListMember]
+
+
+class ListTieringConfigurationsOutput(TypedDict, total=False):
+    TieringConfigurations: TieringConfigurationsList | None
+    NextToken: string | None
 
 
 class PutBackupVaultAccessPolicyInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    Policy: Optional[IAMPolicy]
+    Policy: IAMPolicy | None
 
 
 class PutBackupVaultLockConfigurationInput(ServiceRequest):
     BackupVaultName: BackupVaultName
-    MinRetentionDays: Optional[Long]
-    MaxRetentionDays: Optional[Long]
-    ChangeableForDays: Optional[Long]
+    MinRetentionDays: Long | None
+    MaxRetentionDays: Long | None
+    ChangeableForDays: Long | None
 
 
 class PutBackupVaultNotificationsInput(ServiceRequest):
@@ -2256,52 +2658,53 @@ class PutBackupVaultNotificationsInput(ServiceRequest):
 class PutRestoreValidationResultInput(ServiceRequest):
     RestoreJobId: RestoreJobId
     ValidationStatus: RestoreValidationStatus
-    ValidationStatusMessage: Optional[string]
+    ValidationStatusMessage: string | None
 
 
 class RestoreTestingPlanForUpdate(TypedDict, total=False):
     """This contains metadata about a restore testing plan."""
 
-    RecoveryPointSelection: Optional[RestoreTestingRecoveryPointSelection]
-    ScheduleExpression: Optional[String]
-    ScheduleExpressionTimezone: Optional[String]
-    StartWindowHours: Optional[integer]
+    RecoveryPointSelection: RestoreTestingRecoveryPointSelection | None
+    ScheduleExpression: String | None
+    ScheduleExpressionTimezone: String | None
+    StartWindowHours: integer | None
 
 
 class RestoreTestingSelectionForUpdate(TypedDict, total=False):
     """This contains metadata about a restore testing selection."""
 
-    IamRoleArn: Optional[String]
-    ProtectedResourceArns: Optional[stringList]
-    ProtectedResourceConditions: Optional[ProtectedResourceConditions]
-    RestoreMetadataOverrides: Optional[SensitiveStringMap]
-    ValidationWindowHours: Optional[integer]
+    IamRoleArn: String | None
+    ProtectedResourceArns: stringList | None
+    ProtectedResourceConditions: ProtectedResourceConditions | None
+    RestoreMetadataOverrides: SensitiveStringMap | None
+    ValidationWindowHours: integer | None
 
 
 class RevokeRestoreAccessBackupVaultInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     RestoreAccessBackupVaultArn: ARN
-    RequesterComment: Optional[RequesterComment]
+    RequesterComment: RequesterComment | None
 
 
 class StartBackupJobInput(ServiceRequest):
     BackupVaultName: BackupVaultName
+    LogicallyAirGappedBackupVaultArn: ARN | None
     ResourceArn: ARN
     IamRoleArn: IAMRoleArn
-    IdempotencyToken: Optional[string]
-    StartWindowMinutes: Optional[WindowMinutes]
-    CompleteWindowMinutes: Optional[WindowMinutes]
-    Lifecycle: Optional[Lifecycle]
-    RecoveryPointTags: Optional[Tags]
-    BackupOptions: Optional[BackupOptions]
-    Index: Optional[Index]
+    IdempotencyToken: string | None
+    StartWindowMinutes: WindowMinutes | None
+    CompleteWindowMinutes: WindowMinutes | None
+    Lifecycle: Lifecycle | None
+    RecoveryPointTags: Tags | None
+    BackupOptions: BackupOptions | None
+    Index: Index | None
 
 
 class StartBackupJobOutput(TypedDict, total=False):
-    BackupJobId: Optional[string]
-    RecoveryPointArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    IsParent: Optional[boolean]
+    BackupJobId: string | None
+    RecoveryPointArn: ARN | None
+    CreationDate: timestamp | None
+    IsParent: boolean | None
 
 
 class StartCopyJobInput(ServiceRequest):
@@ -2309,48 +2712,73 @@ class StartCopyJobInput(ServiceRequest):
     SourceBackupVaultName: BackupVaultName
     DestinationBackupVaultArn: ARN
     IamRoleArn: IAMRoleArn
-    IdempotencyToken: Optional[string]
-    Lifecycle: Optional[Lifecycle]
+    IdempotencyToken: string | None
+    Lifecycle: Lifecycle | None
 
 
 class StartCopyJobOutput(TypedDict, total=False):
-    CopyJobId: Optional[string]
-    CreationDate: Optional[timestamp]
-    IsParent: Optional[boolean]
+    CopyJobId: string | None
+    CreationDate: timestamp | None
+    IsParent: boolean | None
 
 
 class StartReportJobInput(ServiceRequest):
     ReportPlanName: ReportPlanName
-    IdempotencyToken: Optional[string]
+    IdempotencyToken: string | None
 
 
 class StartReportJobOutput(TypedDict, total=False):
-    ReportJobId: Optional[ReportJobId]
+    ReportJobId: ReportJobId | None
 
 
 class StartRestoreJobInput(ServiceRequest):
     RecoveryPointArn: ARN
     Metadata: Metadata
-    IamRoleArn: Optional[IAMRoleArn]
-    IdempotencyToken: Optional[string]
-    ResourceType: Optional[ResourceType]
-    CopySourceTagsToRestoredResource: Optional[boolean]
+    IamRoleArn: IAMRoleArn | None
+    IdempotencyToken: string | None
+    ResourceType: ResourceType | None
+    CopySourceTagsToRestoredResource: boolean | None
 
 
 class StartRestoreJobOutput(TypedDict, total=False):
-    RestoreJobId: Optional[RestoreJobId]
+    RestoreJobId: RestoreJobId | None
+
+
+class StartScanJobInput(ServiceRequest):
+    BackupVaultName: String
+    IamRoleArn: String
+    IdempotencyToken: String | None
+    MalwareScanner: MalwareScanner
+    RecoveryPointArn: String
+    ScanBaseRecoveryPointArn: String | None
+    ScanMode: ScanMode
+    ScannerRoleArn: String
+
+
+class StartScanJobOutput(TypedDict, total=False):
+    CreationDate: Timestamp
+    ScanJobId: String
 
 
 class StopBackupJobInput(ServiceRequest):
     BackupJobId: string
 
 
-TagKeyList = List[string]
+TagKeyList = list[string]
 
 
 class TagResourceInput(ServiceRequest):
     ResourceArn: ARN
     Tags: Tags
+
+
+class TieringConfigurationInputForUpdate(TypedDict, total=False):
+    """This contains metadata about a tiering configuration for update
+    operations.
+    """
+
+    ResourceSelection: ResourceSelections
+    BackupVaultName: BackupVaultNameOrWildcard
 
 
 class UntagResourceInput(ServiceRequest):
@@ -2364,74 +2792,75 @@ class UpdateBackupPlanInput(ServiceRequest):
 
 
 class UpdateBackupPlanOutput(TypedDict, total=False):
-    BackupPlanId: Optional[string]
-    BackupPlanArn: Optional[ARN]
-    CreationDate: Optional[timestamp]
-    VersionId: Optional[string]
-    AdvancedBackupSettings: Optional[AdvancedBackupSettings]
+    BackupPlanId: string | None
+    BackupPlanArn: ARN | None
+    CreationDate: timestamp | None
+    VersionId: string | None
+    AdvancedBackupSettings: AdvancedBackupSettings | None
+    ScanSettings: ScanSettings | None
 
 
 class UpdateFrameworkInput(ServiceRequest):
     FrameworkName: FrameworkName
-    FrameworkDescription: Optional[FrameworkDescription]
-    FrameworkControls: Optional[FrameworkControls]
-    IdempotencyToken: Optional[string]
+    FrameworkDescription: FrameworkDescription | None
+    FrameworkControls: FrameworkControls | None
+    IdempotencyToken: string | None
 
 
 class UpdateFrameworkOutput(TypedDict, total=False):
-    FrameworkName: Optional[FrameworkName]
-    FrameworkArn: Optional[ARN]
-    CreationTime: Optional[timestamp]
+    FrameworkName: FrameworkName | None
+    FrameworkArn: ARN | None
+    CreationTime: timestamp | None
 
 
 class UpdateGlobalSettingsInput(ServiceRequest):
-    GlobalSettings: Optional[GlobalSettings]
+    GlobalSettings: GlobalSettings | None
 
 
 class UpdateRecoveryPointIndexSettingsInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     RecoveryPointArn: ARN
-    IamRoleArn: Optional[IAMRoleArn]
+    IamRoleArn: IAMRoleArn | None
     Index: Index
 
 
 class UpdateRecoveryPointIndexSettingsOutput(TypedDict, total=False):
-    BackupVaultName: Optional[BackupVaultName]
-    RecoveryPointArn: Optional[ARN]
-    IndexStatus: Optional[IndexStatus]
-    Index: Optional[Index]
+    BackupVaultName: BackupVaultName | None
+    RecoveryPointArn: ARN | None
+    IndexStatus: IndexStatus | None
+    Index: Index | None
 
 
 class UpdateRecoveryPointLifecycleInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     RecoveryPointArn: ARN
-    Lifecycle: Optional[Lifecycle]
+    Lifecycle: Lifecycle | None
 
 
 class UpdateRecoveryPointLifecycleOutput(TypedDict, total=False):
-    BackupVaultArn: Optional[ARN]
-    RecoveryPointArn: Optional[ARN]
-    Lifecycle: Optional[Lifecycle]
-    CalculatedLifecycle: Optional[CalculatedLifecycle]
+    BackupVaultArn: ARN | None
+    RecoveryPointArn: ARN | None
+    Lifecycle: Lifecycle | None
+    CalculatedLifecycle: CalculatedLifecycle | None
 
 
 class UpdateRegionSettingsInput(ServiceRequest):
-    ResourceTypeOptInPreference: Optional[ResourceTypeOptInPreference]
-    ResourceTypeManagementPreference: Optional[ResourceTypeManagementPreference]
+    ResourceTypeOptInPreference: ResourceTypeOptInPreference | None
+    ResourceTypeManagementPreference: ResourceTypeManagementPreference | None
 
 
 class UpdateReportPlanInput(ServiceRequest):
     ReportPlanName: ReportPlanName
-    ReportPlanDescription: Optional[ReportPlanDescription]
-    ReportDeliveryChannel: Optional[ReportDeliveryChannel]
-    ReportSetting: Optional[ReportSetting]
-    IdempotencyToken: Optional[string]
+    ReportPlanDescription: ReportPlanDescription | None
+    ReportDeliveryChannel: ReportDeliveryChannel | None
+    ReportSetting: ReportSetting | None
+    IdempotencyToken: string | None
 
 
 class UpdateReportPlanOutput(TypedDict, total=False):
-    ReportPlanName: Optional[ReportPlanName]
-    ReportPlanArn: Optional[ARN]
-    CreationTime: Optional[timestamp]
+    ReportPlanName: ReportPlanName | None
+    ReportPlanArn: ARN | None
+    CreationTime: timestamp | None
 
 
 class UpdateRestoreTestingPlanInput(ServiceRequest):
@@ -2460,9 +2889,21 @@ class UpdateRestoreTestingSelectionOutput(TypedDict, total=False):
     UpdateTime: Timestamp
 
 
+class UpdateTieringConfigurationInput(ServiceRequest):
+    TieringConfigurationName: TieringConfigurationName
+    TieringConfiguration: TieringConfigurationInputForUpdate
+
+
+class UpdateTieringConfigurationOutput(TypedDict, total=False):
+    TieringConfigurationArn: ARN | None
+    TieringConfigurationName: TieringConfigurationName | None
+    CreationTime: timestamp | None
+    LastUpdatedTime: timestamp | None
+
+
 class BackupApi:
-    service = "backup"
-    version = "2018-11-15"
+    service: str = "backup"
+    version: str = "2018-11-15"
 
     @handler("AssociateBackupVaultMpaApprovalTeam")
     def associate_backup_vault_mpa_approval_team(
@@ -2673,6 +3114,7 @@ class BackupApi:
         max_retention_days: Long,
         backup_vault_tags: Tags | None = None,
         creator_request_id: string | None = None,
+        encryption_key_arn: ARN | None = None,
         **kwargs,
     ) -> CreateLogicallyAirGappedBackupVaultOutput:
         """Creates a logical container to where backups may be copied.
@@ -2690,6 +3132,8 @@ class BackupApi:
         :param max_retention_days: The maximum retention period that the vault retains its recovery points.
         :param backup_vault_tags: The tags to assign to the vault.
         :param creator_request_id: The ID of the creation request.
+        :param encryption_key_arn: The ARN of the customer-managed KMS key to use for encrypting the
+        logically air-gapped backup vault.
         :returns: CreateLogicallyAirGappedBackupVaultOutput
         :raises AlreadyExistsException:
         :raises InvalidParameterValueException:
@@ -2851,6 +3295,40 @@ class BackupApi:
         :raises LimitExceededException:
         :raises MissingParameterValueException:
         :raises ResourceNotFoundException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateTieringConfiguration")
+    def create_tiering_configuration(
+        self,
+        context: RequestContext,
+        tiering_configuration: TieringConfigurationInputForCreate,
+        tiering_configuration_tags: Tags | None = None,
+        creator_request_id: CreatorRequestId | None = None,
+        **kwargs,
+    ) -> CreateTieringConfigurationOutput:
+        """Creates a tiering configuration.
+
+        A tiering configuration enables automatic movement of backup data to a
+        lower-cost storage tier based on the age of backed-up objects in the
+        backup vault.
+
+        Each vault can only have one vault-specific tiering configuration, in
+        addition to any global configuration that applies to all vaults.
+
+        :param tiering_configuration: A tiering configuration must contain a unique
+        ``TieringConfigurationName`` string you create and must contain a
+        ``BackupVaultName`` and ``ResourceSelection``.
+        :param tiering_configuration_tags: The tags to assign to the tiering configuration.
+        :param creator_request_id: This is a unique string that identifies the request and allows failed
+        requests to be retried without the risk of running the operation twice.
+        :returns: CreateTieringConfigurationOutput
+        :raises AlreadyExistsException:
+        :raises ConflictException:
+        :raises InvalidParameterValueException:
+        :raises LimitExceededException:
+        :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
         """
         raise NotImplementedError
@@ -3065,6 +3543,25 @@ class BackupApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteTieringConfiguration")
+    def delete_tiering_configuration(
+        self,
+        context: RequestContext,
+        tiering_configuration_name: TieringConfigurationName,
+        **kwargs,
+    ) -> DeleteTieringConfigurationOutput:
+        """Deletes the tiering configuration specified by a tiering configuration
+        name.
+
+        :param tiering_configuration_name: The unique name of a tiering configuration.
+        :returns: DeleteTieringConfigurationOutput
+        :raises MissingParameterValueException:
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterValueException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
     @handler("DescribeBackupJob")
     def describe_backup_job(
         self, context: RequestContext, backup_job_id: string, **kwargs
@@ -3251,6 +3748,21 @@ class BackupApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeScanJob")
+    def describe_scan_job(
+        self, context: RequestContext, scan_job_id: String, **kwargs
+    ) -> DescribeScanJobOutput:
+        """Returns scan job details for the specified ScanJobID.
+
+        :param scan_job_id: Uniquely identifies a request to Backup to scan a resource.
+        :returns: DescribeScanJobOutput
+        :raises InvalidParameterValueException:
+        :raises MissingParameterValueException:
+        :raises ResourceNotFoundException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
     @handler("DisassociateBackupVaultMpaApprovalTeam")
     def disassociate_backup_vault_mpa_approval_team(
         self,
@@ -3349,6 +3861,7 @@ class BackupApi:
         context: RequestContext,
         backup_plan_id: string,
         version_id: string | None = None,
+        max_scheduled_runs_preview: MaxScheduledRunsPreview | None = None,
         **kwargs,
     ) -> GetBackupPlanOutput:
         """Returns ``BackupPlan`` details for the specified ``BackupPlanId``. The
@@ -3358,6 +3871,7 @@ class BackupApi:
         :param backup_plan_id: Uniquely identifies a backup plan.
         :param version_id: Unique, randomly generated, Unicode, UTF-8 encoded strings that are at
         most 1,024 bytes long.
+        :param max_scheduled_runs_preview: Number of future scheduled backup runs to preview.
         :returns: GetBackupPlanOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -3592,6 +4106,26 @@ class BackupApi:
         """Returns the Amazon Web Services resource types supported by Backup.
 
         :returns: GetSupportedResourceTypesOutput
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("GetTieringConfiguration")
+    def get_tiering_configuration(
+        self,
+        context: RequestContext,
+        tiering_configuration_name: TieringConfigurationName,
+        **kwargs,
+    ) -> GetTieringConfigurationOutput:
+        """Returns ``TieringConfiguration`` details for the specified
+        ``TieringConfigurationName``. The details are the body of a tiering
+        configuration in JSON format, in addition to configuration metadata.
+
+        :param tiering_configuration_name: The unique name of a tiering configuration.
+        :returns: GetTieringConfigurationOutput
+        :raises MissingParameterValueException:
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
         """
         raise NotImplementedError
@@ -3879,6 +4413,7 @@ class BackupApi:
         by_complete_after: timestamp | None = None,
         by_parent_job_id: string | None = None,
         by_message_category: string | None = None,
+        by_source_recovery_point_arn: string | None = None,
         **kwargs,
     ) -> ListCopyJobsOutput:
         """Returns metadata about your copy jobs.
@@ -3935,6 +4470,7 @@ class BackupApi:
         :param by_parent_job_id: This is a filter to list child (nested) jobs based on parent job ID.
         :param by_message_category: This is an optional parameter that can be used to filter out jobs with a
         MessageCategory which matches the value you input.
+        :param by_source_recovery_point_arn: Filters copy jobs by the specified source recovery point ARN.
         :returns: ListCopyJobsOutput
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
@@ -4312,6 +4848,7 @@ class BackupApi:
         by_complete_before: timestamp | None = None,
         by_complete_after: timestamp | None = None,
         by_restore_testing_plan_arn: ARN | None = None,
+        by_parent_job_id: string | None = None,
         **kwargs,
     ) -> ListRestoreJobsOutput:
         """Returns a list of jobs that Backup initiated to restore a saved
@@ -4364,6 +4901,8 @@ class BackupApi:
         and Coordinated Universal Time (UTC).
         :param by_restore_testing_plan_arn: This returns only restore testing jobs that match the specified resource
         Amazon Resource Name (ARN).
+        :param by_parent_job_id: This is a filter to list child (nested) restore jobs based on parent
+        restore job ID.
         :returns: ListRestoreJobsOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -4449,6 +4988,86 @@ class BackupApi:
         """
         raise NotImplementedError
 
+    @handler("ListScanJobSummaries")
+    def list_scan_job_summaries(
+        self,
+        context: RequestContext,
+        account_id: AccountId | None = None,
+        resource_type: ResourceType | None = None,
+        malware_scanner: MalwareScanner | None = None,
+        scan_result_status: ScanResultStatus | None = None,
+        state: ScanJobStatus | None = None,
+        aggregation_period: AggregationPeriod | None = None,
+        max_results: MaxResults | None = None,
+        next_token: string | None = None,
+        **kwargs,
+    ) -> ListScanJobSummariesOutput:
+        """This is a request for a summary of scan jobs created or running within
+        the most recent 30 days.
+
+        :param account_id: Returns the job count for the specified account.
+        :param resource_type: Returns the job count for the specified resource type.
+        :param malware_scanner: Returns only the scan jobs for the specified malware scanner.
+        :param scan_result_status: Returns only the scan jobs for the specified scan results.
+        :param state: Returns only the scan jobs for the specified scanning job state.
+        :param aggregation_period: The period for the returned results.
+        :param max_results: The maximum number of items to be returned.
+        :param next_token: The next item following a partial list of returned items.
+        :returns: ListScanJobSummariesOutput
+        :raises InvalidParameterValueException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("ListScanJobs")
+    def list_scan_jobs(
+        self,
+        context: RequestContext,
+        by_account_id: String | None = None,
+        by_backup_vault_name: String | None = None,
+        by_complete_after: Timestamp | None = None,
+        by_complete_before: Timestamp | None = None,
+        by_malware_scanner: MalwareScanner | None = None,
+        by_recovery_point_arn: String | None = None,
+        by_resource_arn: String | None = None,
+        by_resource_type: ScanResourceType | None = None,
+        by_scan_result_status: ScanResultStatus | None = None,
+        by_state: ScanState | None = None,
+        max_results: ListScanJobsInputMaxResultsInteger | None = None,
+        next_token: String | None = None,
+        **kwargs,
+    ) -> ListScanJobsOutput:
+        """Returns a list of existing scan jobs for an authenticated account for
+        the last 30 days.
+
+        :param by_account_id: The account ID to list the jobs from.
+        :param by_backup_vault_name: Returns only scan jobs that will be stored in the specified backup
+        vault.
+        :param by_complete_after: Returns only scan jobs completed after a date expressed in Unix format
+        and Coordinated Universal Time (UTC).
+        :param by_complete_before: Returns only backup jobs completed before a date expressed in Unix
+        format and Coordinated Universal Time (UTC).
+        :param by_malware_scanner: Returns only the scan jobs for the specified malware scanner.
+        :param by_recovery_point_arn: Returns only the scan jobs that are ran against the specified recovery
+        point.
+        :param by_resource_arn: Returns only scan jobs that match the specified resource Amazon Resource
+        Name (ARN).
+        :param by_resource_type: Returns restore testing selections by the specified restore testing plan
+        name.
+        :param by_scan_result_status: Returns only the scan jobs for the specified scan results:
+
+        -  ``THREATS_FOUND``
+
+        -  ``NO_THREATS_FOUND``.
+        :param by_state: Returns only the scan jobs for the specified scanning job state.
+        :param max_results: The maximum number of items to be returned.
+        :param next_token: The next item following a partial list of returned items.
+        :returns: ListScanJobsOutput
+        :raises InvalidParameterValueException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
     @handler("ListTags")
     def list_tags(
         self,
@@ -4484,6 +5103,24 @@ class BackupApi:
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("ListTieringConfigurations")
+    def list_tiering_configurations(
+        self,
+        context: RequestContext,
+        max_results: MaxResults | None = None,
+        next_token: string | None = None,
+        **kwargs,
+    ) -> ListTieringConfigurationsOutput:
+        """Returns a list of tiering configurations.
+
+        :param max_results: The maximum number of items to be returned.
+        :param next_token: The next item following a partial list of returned items.
+        :returns: ListTieringConfigurationsOutput
+        :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
         """
         raise NotImplementedError
@@ -4633,6 +5270,7 @@ class BackupApi:
         backup_vault_name: BackupVaultName,
         resource_arn: ARN,
         iam_role_arn: IAMRoleArn,
+        logically_air_gapped_backup_vault_arn: ARN | None = None,
         idempotency_token: string | None = None,
         start_window_minutes: WindowMinutes | None = None,
         complete_window_minutes: WindowMinutes | None = None,
@@ -4648,6 +5286,7 @@ class BackupApi:
         :param resource_arn: An Amazon Resource Name (ARN) that uniquely identifies a resource.
         :param iam_role_arn: Specifies the IAM role ARN used to create the target recovery point; for
         example, ``arn:aws:iam::123456789012:role/S3Access``.
+        :param logically_air_gapped_backup_vault_arn: The ARN of a logically air-gapped vault.
         :param idempotency_token: A customer-chosen string that you can use to distinguish between
         otherwise identical calls to ``StartBackupJob``.
         :param start_window_minutes: A value in minutes after a backup is scheduled before a job will be
@@ -4685,6 +5324,10 @@ class BackupApi:
         """Starts a job to create a one-time copy of the specified resource.
 
         Does not support continuous backups.
+
+        See `Copy job
+        retry <https://docs.aws.amazon.com/aws-backup/latest/devguide/recov-point-create-a-copy.html#backup-copy-retry>`__
+        for information on how Backup retries copy job operations.
 
         :param recovery_point_arn: An ARN that uniquely identifies a recovery point to use for the copy
         job; for example,
@@ -4791,6 +5434,43 @@ class BackupApi:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
         :raises InvalidRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("StartScanJob")
+    def start_scan_job(
+        self,
+        context: RequestContext,
+        backup_vault_name: String,
+        iam_role_arn: String,
+        malware_scanner: MalwareScanner,
+        recovery_point_arn: String,
+        scan_mode: ScanMode,
+        scanner_role_arn: String,
+        idempotency_token: String | None = None,
+        scan_base_recovery_point_arn: String | None = None,
+        **kwargs,
+    ) -> StartScanJobOutput:
+        """Starts scanning jobs for specific resources.
+
+        :param backup_vault_name: The name of a logical container where backups are stored.
+        :param iam_role_arn: Specifies the IAM role ARN used to create the target recovery point; for
+        example, ``arn:aws:iam::123456789012:role/S3Access``.
+        :param malware_scanner: Specifies the malware scanner used during the scan job.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point.
+        :param scan_mode: Specifies the scan type use for the scan job.
+        :param scanner_role_arn: Specified the IAM scanner role ARN.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between
+        otherwise identical calls to ``StartScanJob``.
+        :param scan_base_recovery_point_arn: An ARN that uniquely identifies the base recovery point to be used for
+        incremental scanning.
+        :returns: StartScanJobOutput
+        :raises InvalidParameterValueException:
+        :raises InvalidRequestException:
+        :raises LimitExceededException:
+        :raises MissingParameterValueException:
+        :raises ResourceNotFoundException:
+        :raises ServiceUnavailableException:
         """
         raise NotImplementedError
 
@@ -4922,7 +5602,9 @@ class BackupApi:
         Organizations management account. Use the ``DescribeGlobalSettings`` API
         to determine the current settings.
 
-        :param global_settings: A value for ``isCrossAccountBackupEnabled`` and a Region.
+        :param global_settings: Inputs can include:
+
+        A value for ``isCrossAccountBackupEnabled`` and a Region.
         :raises ServiceUnavailableException:
         :raises MissingParameterValueException:
         :raises InvalidParameterValueException:
@@ -5121,6 +5803,38 @@ class BackupApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ResourceNotFoundException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateTieringConfiguration")
+    def update_tiering_configuration(
+        self,
+        context: RequestContext,
+        tiering_configuration_name: TieringConfigurationName,
+        tiering_configuration: TieringConfigurationInputForUpdate,
+        **kwargs,
+    ) -> UpdateTieringConfigurationOutput:
+        """This request will send changes to your specified tiering configuration.
+        ``TieringConfigurationName`` cannot be updated after it is created.
+
+        ``ResourceSelection`` can contain:
+
+        -  ``Resources``
+
+        -  ``TieringDownSettingsInDays``
+
+        -  ``ResourceType``
+
+        :param tiering_configuration_name: The name of a tiering configuration to update.
+        :param tiering_configuration: Specifies the body of a tiering configuration.
+        :returns: UpdateTieringConfigurationOutput
+        :raises AlreadyExistsException:
+        :raises ConflictException:
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterValueException:
+        :raises LimitExceededException:
+        :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
         """
         raise NotImplementedError

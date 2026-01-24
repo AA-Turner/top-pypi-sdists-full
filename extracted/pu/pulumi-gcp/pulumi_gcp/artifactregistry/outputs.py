@@ -43,6 +43,10 @@ __all__ = [
     'RepositoryVirtualRepositoryConfigUpstreamPolicy',
     'RepositoryVulnerabilityScanningConfig',
     'GetDockerImagesDockerImageResult',
+    'GetMavenArtifactsMavenArtifactResult',
+    'GetNpmPackagesNpmPackageResult',
+    'GetPackagesPackageResult',
+    'GetPythonPackagesPythonPackageResult',
     'GetRepositoriesRepositoryResult',
     'GetRepositoryCleanupPolicyResult',
     'GetRepositoryCleanupPolicyConditionResult',
@@ -70,6 +74,8 @@ __all__ = [
     'GetRepositoryVulnerabilityScanningConfigResult',
     'GetTagsTagResult',
     'GetVersionRelatedTagResult',
+    'GetVersionsVersionResult',
+    'GetVersionsVersionRelatedTagResult',
 ]
 
 @pulumi.output_type
@@ -1479,6 +1485,293 @@ class GetDockerImagesDockerImageResult(dict):
 
 
 @pulumi.output_type
+class GetMavenArtifactsMavenArtifactResult(dict):
+    def __init__(__self__, *,
+                 artifact_id: _builtins.str,
+                 create_time: _builtins.str,
+                 group_id: _builtins.str,
+                 name: _builtins.str,
+                 pom_uri: _builtins.str,
+                 update_time: _builtins.str,
+                 version: _builtins.str):
+        """
+        :param _builtins.str artifact_id: The name of the artifact to fetch.
+        :param _builtins.str create_time: The time the artifact was created.
+        :param _builtins.str group_id: Group ID for the artifact.
+        :param _builtins.str name: The fully qualified name of the fetched artifact. Format:
+               ```
+               projects/{{project}}/locations/{{location}}/repositories/{{repository_id}}/mavenArtifacts/{{group_id}}:{{artifact_id}}:{{version}}
+               ```
+        :param _builtins.str pom_uri: URL to access the pom file of the artifact.
+        :param _builtins.str update_time: The time the artifact was last updated.
+        :param _builtins.str version: The version of the Maven artifact.
+        """
+        pulumi.set(__self__, "artifact_id", artifact_id)
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "group_id", group_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "pom_uri", pom_uri)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter(name="artifactId")
+    def artifact_id(self) -> _builtins.str:
+        """
+        The name of the artifact to fetch.
+        """
+        return pulumi.get(self, "artifact_id")
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time the artifact was created.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="groupId")
+    def group_id(self) -> _builtins.str:
+        """
+        Group ID for the artifact.
+        """
+        return pulumi.get(self, "group_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The fully qualified name of the fetched artifact. Format:
+        ```
+        projects/{{project}}/locations/{{location}}/repositories/{{repository_id}}/mavenArtifacts/{{group_id}}:{{artifact_id}}:{{version}}
+        ```
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="pomUri")
+    def pom_uri(self) -> _builtins.str:
+        """
+        URL to access the pom file of the artifact.
+        """
+        return pulumi.get(self, "pom_uri")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time the artifact was last updated.
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        """
+        The version of the Maven artifact.
+        """
+        return pulumi.get(self, "version")
+
+
+@pulumi.output_type
+class GetNpmPackagesNpmPackageResult(dict):
+    def __init__(__self__, *,
+                 create_time: _builtins.str,
+                 name: _builtins.str,
+                 package_name: _builtins.str,
+                 tags: Sequence[_builtins.str],
+                 update_time: _builtins.str,
+                 version: _builtins.str):
+        """
+        :param _builtins.str create_time: The time, as a RFC 3339 string, this package was created.
+        :param _builtins.str name: The fully qualified name of the fetched package.  This name has the form: `projects/{{project}}/locations/{{location}}/repository/{{repository_id}}/npmPackages/{{npmPackage}}`. For example, `projects/example-project/locations/us-central1/repository/example-repo/npmPackages/my-test-package:0.0.1`
+        :param _builtins.str package_name: Extracted short name of the package (last part of `name`, without version). For example, from `.../my-test-package:0.0.1` → `my-test-package`.
+        :param Sequence[_builtins.str] tags: The tags associated with the Npm package.
+        :param _builtins.str update_time: The time, as a RFC 3339 string, this package was updated.
+        :param _builtins.str version: Version of this package.
+        """
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "package_name", package_name)
+        pulumi.set(__self__, "tags", tags)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was created.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The fully qualified name of the fetched package.  This name has the form: `projects/{{project}}/locations/{{location}}/repository/{{repository_id}}/npmPackages/{{npmPackage}}`. For example, `projects/example-project/locations/us-central1/repository/example-repo/npmPackages/my-test-package:0.0.1`
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="packageName")
+    def package_name(self) -> _builtins.str:
+        """
+        Extracted short name of the package (last part of `name`, without version). For example, from `.../my-test-package:0.0.1` → `my-test-package`.
+        """
+        return pulumi.get(self, "package_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Sequence[_builtins.str]:
+        """
+        The tags associated with the Npm package.
+        """
+        return pulumi.get(self, "tags")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was updated.
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        """
+        Version of this package.
+        """
+        return pulumi.get(self, "version")
+
+
+@pulumi.output_type
+class GetPackagesPackageResult(dict):
+    def __init__(__self__, *,
+                 annotations: Mapping[str, _builtins.str],
+                 create_time: _builtins.str,
+                 display_name: _builtins.str,
+                 name: _builtins.str,
+                 update_time: _builtins.str):
+        """
+        :param Mapping[str, _builtins.str] annotations: Client specified annotations.
+        :param _builtins.str create_time: The time, as a RFC 3339 string, this package was created.
+        :param _builtins.str display_name: The display name of the package.
+        :param _builtins.str name: The name of the package, for example: `projects/p1/locations/us-central1/repositories/repo1/packages/pkg1`. If the package ID part contains slashes, the slashes are escaped.
+        :param _builtins.str update_time: The time, as a RFC 3339 string, this package was last updated. This includes publishing a new version of the package.
+        """
+        pulumi.set(__self__, "annotations", annotations)
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "update_time", update_time)
+
+    @_builtins.property
+    @pulumi.getter
+    def annotations(self) -> Mapping[str, _builtins.str]:
+        """
+        Client specified annotations.
+        """
+        return pulumi.get(self, "annotations")
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was created.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> _builtins.str:
+        """
+        The display name of the package.
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the package, for example: `projects/p1/locations/us-central1/repositories/repo1/packages/pkg1`. If the package ID part contains slashes, the slashes are escaped.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was last updated. This includes publishing a new version of the package.
+        """
+        return pulumi.get(self, "update_time")
+
+
+@pulumi.output_type
+class GetPythonPackagesPythonPackageResult(dict):
+    def __init__(__self__, *,
+                 create_time: _builtins.str,
+                 name: _builtins.str,
+                 package_name: _builtins.str,
+                 update_time: _builtins.str,
+                 version: _builtins.str):
+        """
+        :param _builtins.str create_time: The time, as a RFC 3339 string, this package was created.
+        :param _builtins.str name: The fully qualified name of the fetched package.  This name has the form: `projects/{{project}}/locations/{{location}}/repository/{{repository_id}}/pythonPackages/{{pythonPackage}}`. For example, `projects/example-project/locations/us-central1/repository/example-repo/pythonPackages/my-test-package:0.0.1`
+        :param _builtins.str package_name: Extracted short name of the package (last part of `name`, without version). For example, from `.../my-test-package:0.0.1` → `my-test-package`.
+        :param _builtins.str update_time: The time, as a RFC 3339 string, this package was updated.
+        :param _builtins.str version: Version of this package.
+        """
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "package_name", package_name)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was created.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The fully qualified name of the fetched package.  This name has the form: `projects/{{project}}/locations/{{location}}/repository/{{repository_id}}/pythonPackages/{{pythonPackage}}`. For example, `projects/example-project/locations/us-central1/repository/example-repo/pythonPackages/my-test-package:0.0.1`
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="packageName")
+    def package_name(self) -> _builtins.str:
+        """
+        Extracted short name of the package (last part of `name`, without version). For example, from `.../my-test-package:0.0.1` → `my-test-package`.
+        """
+        return pulumi.get(self, "package_name")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was updated.
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        """
+        Version of this package.
+        """
+        return pulumi.get(self, "version")
+
+
+@pulumi.output_type
 class GetRepositoriesRepositoryResult(dict):
     def __init__(__self__, *,
                  create_time: _builtins.str,
@@ -2360,6 +2653,104 @@ class GetTagsTagResult(dict):
 
 @pulumi.output_type
 class GetVersionRelatedTagResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 version: _builtins.str):
+        """
+        :param _builtins.str name: The name of the version, for example: `projects/p1/locations/us-central1/repositories/repo1/packages/pkg1/versions/version1`. If the package part contains slashes, the slashes are escaped.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the version, for example: `projects/p1/locations/us-central1/repositories/repo1/packages/pkg1/versions/version1`. If the package part contains slashes, the slashes are escaped.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        return pulumi.get(self, "version")
+
+
+@pulumi.output_type
+class GetVersionsVersionResult(dict):
+    def __init__(__self__, *,
+                 annotations: Mapping[str, _builtins.str],
+                 create_time: _builtins.str,
+                 description: _builtins.str,
+                 name: _builtins.str,
+                 related_tags: Sequence['outputs.GetVersionsVersionRelatedTagResult'],
+                 update_time: _builtins.str):
+        """
+        :param Mapping[str, _builtins.str] annotations: Client specified annotations.
+        :param _builtins.str create_time: The time, as a RFC 3339 string, this package was created.
+        :param _builtins.str description: Description of the version, as specified in its metadata.
+        :param _builtins.str name: The name of the version, for example: `projects/p1/locations/us-central1/repositories/repo1/packages/pkg1/versions/version1`. If the package part contains slashes, the slashes are escaped.
+        :param Sequence['GetVersionsVersionRelatedTagArgs'] related_tags: A list of related tags. Will contain up to 100 tags that reference this version.
+        :param _builtins.str update_time: The time, as a RFC 3339 string, this package was last updated. This includes publishing a new version of the package.
+        """
+        pulumi.set(__self__, "annotations", annotations)
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "related_tags", related_tags)
+        pulumi.set(__self__, "update_time", update_time)
+
+    @_builtins.property
+    @pulumi.getter
+    def annotations(self) -> Mapping[str, _builtins.str]:
+        """
+        Client specified annotations.
+        """
+        return pulumi.get(self, "annotations")
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was created.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        Description of the version, as specified in its metadata.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the version, for example: `projects/p1/locations/us-central1/repositories/repo1/packages/pkg1/versions/version1`. If the package part contains slashes, the slashes are escaped.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="relatedTags")
+    def related_tags(self) -> Sequence['outputs.GetVersionsVersionRelatedTagResult']:
+        """
+        A list of related tags. Will contain up to 100 tags that reference this version.
+        """
+        return pulumi.get(self, "related_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time, as a RFC 3339 string, this package was last updated. This includes publishing a new version of the package.
+        """
+        return pulumi.get(self, "update_time")
+
+
+@pulumi.output_type
+class GetVersionsVersionRelatedTagResult(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
                  version: _builtins.str):

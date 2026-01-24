@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include <qpdf/Constants.h>
-#include <qpdf/Types.h>
 #include <qpdf/DLL.h>
+#include <qpdf/QPDFAcroFormDocumentHelper.hh>
 #include <qpdf/QPDFExc.hh>
 #include <qpdf/QPDFFormFieldObjectHelper.hh>
-#include <qpdf/QPDFAcroFormDocumentHelper.hh>
+#include <qpdf/Types.h>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -132,18 +132,6 @@ void init_acroform(py::module_ &m)
             &QPDFAcroFormDocumentHelper::addAndRenameFormFields,
             py::arg("fields"))
         .def(
-            "add_and_rename_fields",
-            [](QPDFAcroFormDocumentHelper &acroform,
-                const std::vector<QPDFObjectHelper> &fields) {
-                // convert fields to object handles
-                std::set<QPDFObjGen> objects;
-                for (auto &field : fields) {
-                    objects.insert(field.getObjectHandle().getObjGen());
-                }
-                acroform.removeFormFields(objects);
-            },
-            py::arg("fields"))
-        .def(
             "remove_fields",
             [](QPDFAcroFormDocumentHelper &acroform,
                 const std::vector<QPDFObjectHelper> &fields) {
@@ -181,7 +169,7 @@ void init_acroform(py::module_ &m)
                 QPDF &qpdf = acroform.getQPDF();
                 for (auto ref : refs) {
                     auto object = qpdf.getObjectByObjGen(ref);
-                    auto field  = new QPDFFormFieldObjectHelper(object);
+                    auto field = new QPDFFormFieldObjectHelper(object);
                     fields.push_back(*field);
                 }
                 return fields;
@@ -221,7 +209,7 @@ void init_acroform(py::module_ &m)
                 QPDF &qpdf = acroform.getQPDF();
                 for (auto ref : refs) {
                     auto object = qpdf.getObjectByObjGen(ref);
-                    auto field  = new QPDFFormFieldObjectHelper(object);
+                    auto field = new QPDFFormFieldObjectHelper(object);
                     fields.push_back(*field);
                 }
                 return fields;

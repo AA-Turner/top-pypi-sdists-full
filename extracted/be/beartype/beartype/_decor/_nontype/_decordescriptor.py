@@ -17,7 +17,7 @@ from beartype._cave._cavefast import (
     MethodBoundInstanceOrClassType,
     MethodDecoratorPropertyType,
 )
-from beartype._data.hint.datahinttyping import BeartypeableT
+from beartype._data.typing.datatyping import BeartypeableT
 from beartype._util.func.utilfuncget import get_func_boundmethod_self
 from beartype._util.func.utilfunctest import is_func_boundmethod
 from beartype._util.func.utilfuncwrap import (
@@ -137,9 +137,9 @@ def beartype_descriptor_decorator_builtin_property(
     # Avoid circular import dependencies.
     from beartype._decor._nontype.decornontype import beartype_func
 
-    # Pure-Python unbound getter, setter, and deleter functions wrapped by
-    # this descriptor if any *OR* "None" otherwise (i.e., for each such
-    # function currently unwrapped by this descriptor).
+    # Pure-Python unbound getter, setter, and deleter functions wrapped by this
+    # descriptor if any *OR* "None" otherwise (i.e., for each such function
+    # currently unwrapped by this descriptor).
     descriptor_getter  = descriptor.fget  # type: ignore[assignment,union-attr]
     descriptor_setter  = descriptor.fset  # type: ignore[assignment,union-attr]
     descriptor_deleter = descriptor.fdel  # type: ignore[assignment,union-attr]

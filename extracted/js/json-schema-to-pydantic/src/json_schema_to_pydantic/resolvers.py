@@ -1,5 +1,5 @@
 from datetime import date, datetime, time
-from typing import Any, List, Literal, Optional, Set
+from typing import Any, List, Literal, Optional, Set, Union
 from uuid import UUID
 
 from pydantic import AnyUrl
@@ -12,7 +12,7 @@ class TypeResolver(ITypeResolver):
     """Resolves JSON Schema types to Pydantic types"""
 
     def resolve_type(
-        self, schema: dict, root_schema: dict, allow_undefined_array_items: bool = False
+        self, schema: dict, root_schema: dict, allow_undefined_array_items: bool = False, allow_undefined_type: bool = False
     ) -> Any:
         """Get the Pydantic field type for a JSON schema field."""
         if not isinstance(schema, dict):
@@ -36,15 +36,52 @@ class TypeResolver(ITypeResolver):
             types = schema["type"]
             if "null" in types:
                 other_types = [t for t in types if t != "null"]
-                if len(other_types) == 1:
+                if len(other_types) == 0:
+                    # Only null: {"type": ["null"]}
+                    return type(None)
+                elif len(other_types) == 1:
                     return Optional[
                         self.resolve_type(
-                            schema={"type": other_types[0]},
+                            schema={**schema, **{"type": other_types[0]}},
                             root_schema=root_schema,
                             allow_undefined_array_items=allow_undefined_array_items,
+                            allow_undefined_type=allow_undefined_type,
                         )
                     ]
-            raise TypeError("Unsupported type combination")
+                else:
+                    # Multiple types with null: Union[type1, type2, ...] | None
+                    resolved_types = [
+                        self.resolve_type(
+                            schema={**schema, **{"type": t}},
+                            root_schema=root_schema,
+                            allow_undefined_array_items=allow_undefined_array_items,
+                            allow_undefined_type=allow_undefined_type,
+                        )
+                        for t in other_types
+                    ]
+                    return Optional[Union[tuple(resolved_types)]]
+            else:
+                # No null in types
+                if len(types) == 1:
+                    # Single type in array: {"type": ["string"]}
+                    return self.resolve_type(
+                        schema={**schema, **{"type": types[0]}},
+                        root_schema=root_schema,
+                        allow_undefined_array_items=allow_undefined_array_items,
+                        allow_undefined_type=allow_undefined_type,
+                    )
+                else:
+                    # Multiple types without null: Union[type1, type2, ...]
+                    resolved_types = [
+                        self.resolve_type(
+                            schema={**schema, **{"type": t}},
+                            root_schema=root_schema,
+                            allow_undefined_array_items=allow_undefined_array_items,
+                            allow_undefined_type=allow_undefined_type,
+                        )
+                        for t in types
+                    ]
+                    return Union[tuple(resolved_types)]
 
         if "enum" in schema:
             if not schema["enum"]:
@@ -59,8 +96,10 @@ class TypeResolver(ITypeResolver):
                 schema_type = "object"
             elif "items" in schema:
                 schema_type = "array"
+            elif allow_undefined_type:
+                schema_type = "anyType"
             else:
-                raise TypeError("Schema must specify a type")
+                raise TypeError("Schema must specify a type. Set allow_undefined_type=True to infer Any type for schemas without explicit types.")
 
         if schema_type == "array":
             items_schema = schema.get("items")
@@ -82,6 +121,7 @@ class TypeResolver(ITypeResolver):
                 schema=items_schema,
                 root_schema=root_schema,
                 allow_undefined_array_items=allow_undefined_array_items,
+                allow_undefined_type=allow_undefined_type,
             )
             if schema.get("uniqueItems", False):
                 return Set[item_type]
@@ -144,18 +184,8 @@ class ReferenceResolver(IReferenceResolver):
                     raise ReferenceError(f"Invalid reference path: {ref}")
 
             # If we find another reference, resolve it
-            if isinstance(current, dict):
-                if "$ref" in current:
-                    current = self.resolve_ref(current["$ref"], current, root_schema)
-                elif "properties" in current:
-                    # Check properties for references
-                    properties = current["properties"]
-                    for prop_name, prop_schema in properties.items():
-                        if isinstance(prop_schema, dict) and "$ref" in prop_schema:
-                            # This will trigger circular reference detection if needed
-                            properties[prop_name] = self.resolve_ref(
-                                prop_schema["$ref"], prop_schema, root_schema
-                            )
+            if isinstance(current, dict) and "$ref" in current:
+                current = self.resolve_ref(current["$ref"], current, root_schema)
 
             return current
         finally:

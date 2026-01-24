@@ -2,7 +2,7 @@
 requires = [
     "scikit-build-core",
     "cython>=3",
-    "numpy>=2.0.0",
+    "numpy>=2.1",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -14,7 +14,7 @@ authors = [{name = "Blosc Development Team", email = "blosc@blosc.org"}]
 maintainers = [{ name = "Blosc Development Team", email = "blosc@blosc.org"}]
 license = {text = "BSD-3-Clause"}
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 6 - Mature",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: Science/Research",
@@ -28,20 +28,20 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.10"
 # Follow guidelines from https://scientific-python.org/specs/spec-0000/
 dependencies = [
     "numpy>=1.26",
-    #"numpy>=2",
     "ndindex",
     "msgpack",
     "platformdirs",
-    "numexpr>=2.12.1; platform_machine != 'wasm32'",
+    "numexpr>=2.14.1; platform_machine != 'wasm32'",
     "py-cpuinfo; platform_machine != 'wasm32'",
     "requests",
 ]
-version = "3.8.0"
+version = "3.12.2"
 [project.entry-points."array_api"]
 blosc2 = "blosc2"
 
@@ -124,8 +124,8 @@ ignore = [
     "RET508",
     "RUF005",
     "RUF015",
+    "RUF059",
     "SIM108",
-    "UP038",  # https://github.com/astral-sh/ruff/issues/7871
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]

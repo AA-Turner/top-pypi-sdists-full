@@ -6,7 +6,7 @@
 import json
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from difflib import get_close_matches
 from pathlib import Path
 
@@ -17,6 +17,7 @@ from mne.coreg import fit_matched_points
 from mne.transforms import apply_trans
 from mne.utils import get_subjects_dir, logger
 
+from mne_bids._fileio import _open_lock
 from mne_bids.config import (
     ALLOWED_DATATYPE_EXTENSIONS,
     ANNOTATIONS_TO_KEEP,
@@ -35,6 +36,7 @@ from mne_bids.tsv_handler import _drop, _from_tsv
 from mne_bids.utils import _get_ch_type_mapping, _import_nibabel, verbose, warn
 
 
+@verbose
 def _read_raw(
     raw_path,
     electrode=None,
@@ -42,6 +44,7 @@ def _read_raw(
     hpi=None,
     allow_maxshield=False,
     config_path=None,
+    verbose=None,
     **kwargs,
 ):
     """Read a raw file into MNE, making inferences based on extension."""
@@ -50,7 +53,13 @@ def _read_raw(
     # KIT systems
     if ext in [".con", ".sqd"]:
         raw = io.read_raw_kit(
-            raw_path, elp=electrode, hsp=hsp, mrk=hpi, preload=False, **kwargs
+            raw_path,
+            elp=electrode,
+            hsp=hsp,
+            mrk=hpi,
+            preload=False,
+            verbose=verbose,
+            **kwargs,
         )
 
     # BTi systems
@@ -60,15 +69,16 @@ def _read_raw(
             config_fname=config_path,
             head_shape_fname=hsp,
             preload=False,
+            verbose=verbose,
             **kwargs,
         )
 
     elif ext == ".fif":
-        raw = reader[ext](raw_path, allow_maxshield, **kwargs)
+        raw = reader[ext](raw_path, allow_maxshield, verbose=verbose, **kwargs)
 
     elif ext in [".ds", ".vhdr", ".set", ".edf", ".bdf", ".EDF", ".snirf", ".cdt"]:
         raw_path = Path(raw_path)
-        raw = reader[ext](raw_path, **kwargs)
+        raw = reader[ext](raw_path, verbose=verbose, **kwargs)
 
     # MEF and NWB are allowed, but not yet implemented
     elif ext in [".mef", ".nwb"]:
@@ -333,10 +343,6 @@ def _handle_scans_reading(scans_fname, raw, bids_path):
     scans_tsv = _from_tsv(scans_fname)
     fname = bids_path.fpath.name
 
-    if fname.endswith(".pdf"):
-        # for BTi files, the scan is an entire directory
-        fname = fname.split(".")[0]
-
     # get the row corresponding to the file
     # use string concatenation instead of os.path
     # to work nicely with windows
@@ -357,7 +363,15 @@ def _handle_scans_reading(scans_fname, raw, bids_path):
     if all(suffix in (".vhdr", ".eeg", ".vmrk") for suffix in acq_suffixes):
         ext = fnames[0].suffix
         data_fname = Path(data_fname).with_suffix(ext)
-    row_ind = _verbose_list_index(fnames, data_fname)
+    try:
+        row_ind = _verbose_list_index(fnames, data_fname)
+    except ValueError as exc:
+        if fname.endswith(".pdf"):
+            alt_fname = Path(bids_path.datatype) / Path(fname).with_suffix("")
+            row_ind = _verbose_list_index(fnames, alt_fname)
+            data_fname = alt_fname
+        else:
+            raise exc
 
     # check whether all split files have the same acq_time
     # and throw an error if they don't
@@ -403,10 +417,14 @@ def _handle_scans_reading(scans_fname, raw, bids_path):
 
         if acq_time_is_utc:
             # Enforce setting timezone to UTC without additonal conversion
-            acq_time = acq_time.replace(tzinfo=timezone.utc)
+            acq_time = acq_time.replace(tzinfo=UTC)
         else:
             # Convert time offset to UTC
-            acq_time = acq_time.astimezone(timezone.utc)
+            if acq_time.tzinfo is None:
+                # Windows needs an explicit local tz for naive, pre-epoch times.
+                local_tz = datetime.now().astimezone().tzinfo or UTC
+                acq_time = acq_time.replace(tzinfo=local_tz)
+            acq_time = acq_time.astimezone(UTC)
 
         logger.debug(f"Loaded {scans_fname} scans file to set acq_time as {acq_time}.")
         # First set measurement date to None and then call call anonymize() to
@@ -429,7 +447,7 @@ def _handle_info_reading(sidecar_fname, raw):
 
     Handle PowerLineFrequency of recording.
     """
-    with open(sidecar_fname, encoding="utf-8-sig") as fin:
+    with _open_lock(sidecar_fname, encoding="utf-8-sig") as fin:
         sidecar_json = json.load(fin)
 
     # read in the sidecar JSON's and raw object's line frequency
@@ -523,7 +541,8 @@ def _handle_info_reading(sidecar_fname, raw):
     return raw
 
 
-def events_file_to_annotation_kwargs(events_fname: str | Path) -> dict:
+@verbose
+def events_file_to_annotation_kwargs(events_fname: str | Path, *, verbose=None) -> dict:
     r"""
     Read the ``events.tsv`` file and extract onset, duration, and description.
 
@@ -531,6 +550,7 @@ def events_file_to_annotation_kwargs(events_fname: str | Path) -> dict:
     ----------
     events_fname : str
         The file path to the ``events.tsv`` file.
+    %(verbose)s
 
     Returns
     -------
@@ -574,8 +594,8 @@ def events_file_to_annotation_kwargs(events_fname: str | Path) -> dict:
     ...     'duration': [0.1, 0.1, 0.1],
     ...     'trial_type': ['event1', 'event2', 'event1'],
     ...     'value': [1, 2, 1],
-    ...     'sample': [10, 20, 30]
-            'foo': ['a', 'b', 'c'],
+    ...     'sample': [10, 20, 30],
+    ...     'foo': ['a', 'b', 'c'],
     ... }
     >>> df = pd.DataFrame(data)
     >>>
@@ -585,15 +605,11 @@ def events_file_to_annotation_kwargs(events_fname: str | Path) -> dict:
     >>> df.to_csv(events_file, sep='\t', index=False)
     >>>
     >>> # Read the events file using the function
-    >>> events_dict = events_file_to_annotation_kwargs(events_file)
+    >>> events_dict = events_file_to_annotation_kwargs(events_file, verbose=False)
     >>> events_dict
-    {'onset': array([0.1, 0.2, 0.3]),
-    'duration': array([0.1, 0.1, 0.1]),
-    'description': array(['event1', 'event2', 'event1'], dtype='<U6'),
-    'event_id': {'event1': 1, 'event2': 2},
-    'extras': [{'foo': 'a'}, {'foo': 'b'}, {'foo': 'c'}]}
+    {'onset': array([0.1, 0.2, 0.3]), 'duration': array([0.1, 0.1, 0.1]), 'description': array(['event1', 'event2', 'event1'], dtype='<U6'), 'event_id': {'event1': 1, 'event2': 2}, 'extras': [{'foo': 'a'}, {'foo': 'b'}, {'foo': 'c'}]}
 
-    """
+    """  # noqa E501
     logger.info(f"Reading events from {events_fname}.")
     events_dict = _from_tsv(events_fname)
 
@@ -659,9 +675,11 @@ def events_file_to_annotation_kwargs(events_fname: str | Path) -> dict:
                     culled_vals = culled_vals.astype(int)
                 except ValueError:  # numeric, but has some non-integer values
                     pass
+            # purge any np.str_, np.int_, or np.float_ types
+            culled_vals = np.asarray(culled_vals).tolist()
             event_id = dict(zip(culled[trial_type_col_name], culled_vals))
         else:
-            event_id = dict(zip(trial_types, np.arange(len(trial_types))))
+            event_id = dict(zip(trial_types, list(range(len(trial_types)))))
         descrs = np.asarray(trial_types, dtype=str)
 
     # convert onsets & durations to floats ("n/a" onsets were already dropped)
@@ -753,7 +771,28 @@ def _get_bads_from_tsv_data(tsv_data):
     return bads
 
 
-def _handle_channels_reading(channels_fname, raw):
+def _handle_channel_mismatch(raw, on_ch_mismatch, ch_names_tsv, channels_fname):
+    """Handle mismatch between channels.tsv and raw channel names."""
+    if on_ch_mismatch == "raise":
+        raise RuntimeError(
+            f"Channel mismatch between {channels_fname} and the raw data file detected."
+            f"Either align channel names in channels.tsv with the raw file, or call "
+            f"read_raw_bids(on_ch_mismatch='reorder'|'rename') to proceed."
+        )
+    logger.info(
+        "Channel mismatch between "
+        f"{channels_fname} and the raw data file detected. "
+        f"Using mismatch strategy: {on_ch_mismatch}."
+    )
+    if on_ch_mismatch == "reorder":
+        raw.reorder_channels(ch_names_tsv)
+    elif on_ch_mismatch == "rename":
+        raw.rename_channels(dict(zip(raw.ch_names, ch_names_tsv)))
+    else:
+        raise ValueError("on_ch_mismatch must be one of {'reorder','raise','rename'}")
+
+
+def _handle_channels_reading(channels_fname, raw, on_ch_mismatch="raise"):
     """Read associated channels.tsv and populate raw.
 
     Updates status (bad) and types of channels.
@@ -834,7 +873,9 @@ def _handle_channels_reading(channels_fname, raw):
             f"set channel names."
         )
     else:
-        raw.rename_channels(dict(zip(raw.ch_names, ch_names_tsv)))
+        orig_names = list(raw.ch_names)
+        if orig_names != ch_names_tsv:
+            _handle_channel_mismatch(raw, on_ch_mismatch, ch_names_tsv, channels_fname)
 
     # Set the channel types in the raw data according to channels.tsv
     channel_type_bids_mne_map_available_channels = {
@@ -874,7 +915,12 @@ def _handle_channels_reading(channels_fname, raw):
 
 @verbose
 def read_raw_bids(
-    bids_path, extra_params=None, *, return_event_dict=False, verbose=None
+    bids_path,
+    extra_params=None,
+    *,
+    return_event_dict=False,
+    on_ch_mismatch="raise",
+    verbose=None,
 ):
     """Read BIDS compatible data.
 
@@ -905,6 +951,17 @@ def read_raw_bids(
         event IDs, in addition to the :class:`~mne.io.Raw` object. If a ``value`` column
         is present in the ``*_events.tsv`` file, it will be used as the source of the
         integer event ID values (events with ``value="n/a"`` will be omitted).
+    on_ch_mismatch : str
+        How to handle a mismatch between channel names in channels.tsv file
+        and channel names in the raw data file.
+        Must be one of ``'raise'``, ``'reorder'``, ``'rename'`` (default ``'raise'``).
+
+        * ``'raise'`` will raise a RuntimeError if there is a channel mismatch.
+        * ``'reorder'`` will reorder the channels in the raw data file to match the
+          channel order in the channels.tsv file.
+        * ``'rename'`` will rename the channels in the raw data file to match the
+          channel names in the channels.tsv file.
+
     %(verbose)s
 
     Returns
@@ -931,6 +988,9 @@ def read_raw_bids(
     ValueError
         If the specified ``datatype`` cannot be found in the dataset.
 
+    RuntimeError
+        If channels.tsv and the raw file have a channel-name mismatch
+        and ``on_ch_mismatch`` is 'raise'.
     """
     if not isinstance(bids_path, BIDSPath):
         raise RuntimeError(
@@ -966,8 +1026,10 @@ def read_raw_bids(
     if suffix is None:
         bids_path.update(suffix=datatype)
 
-    if bids_path.fpath.suffix == ".pdf":
+    if bids_path.extension == ".pdf":
         bids_raw_folder = bids_path.directory / f"{bids_path.basename}"
+        if not bids_raw_folder.exists():
+            bids_raw_folder = bids_raw_folder.with_suffix("")
 
         # try to find the processed data file ("pdf")
         # see: https://www.fieldtriptoolbox.org/getting_started/bti/
@@ -1042,6 +1104,7 @@ def read_raw_bids(
         hsp=None,
         hpi=None,
         config_path=config_path,
+        verbose=verbose,
         **extra_params,
     )
 
@@ -1066,7 +1129,9 @@ def read_raw_bids(
         bids_path, suffix="channels", extension=".tsv", on_error="warn"
     )
     if channels_fname is not None:
-        raw = _handle_channels_reading(channels_fname, raw)
+        raw = _handle_channels_reading(
+            channels_fname, raw, on_ch_mismatch=on_ch_mismatch
+        )
 
     # Try to find an associated electrodes.tsv and coordsystem.json
     # to get information about the status and type of present channels
@@ -1078,14 +1143,14 @@ def read_raw_bids(
         bids_path, suffix="coordsystem", extension=".json", on_error=on_error
     )
     if electrodes_fname is not None:
-        if coordsystem_fname is None:
-            raise RuntimeError(
-                f"BIDS mandates that the coordsystem.json "
-                f"should exist if electrodes.tsv does. "
-                f"Please create coordsystem.json for"
-                f"{bids_path.basename}"
-            )
         if datatype in ["meg", "eeg", "ieeg"]:
+            if coordsystem_fname is None:
+                raise RuntimeError(
+                    f"BIDS mandates that the coordsystem.json "
+                    f"should exist if electrodes.tsv does. "
+                    f"Please create coordsystem.json for "
+                    f"{bids_path.basename}"
+                )
             _read_dig_bids(
                 electrodes_fname, coordsystem_fname, raw=raw, datatype=datatype
             )

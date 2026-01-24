@@ -17,34 +17,152 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from rich import box
 from rich.console import Group
-from rich.padding import Padding
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from edgar.entity.mappings_loader import load_learned_mappings, load_virtual_trees
+from edgar.core import log
+from edgar.entity.mappings_loader import (
+    get_all_statements_for_concept,
+    get_industry,
+    get_primary_statement,
+    load_industry_extension,
+    load_learned_mappings,
+    load_virtual_trees,
+)
 from edgar.entity.models import FinancialFact
 
-try:
-    from edgar.entity.terminal_styles import get_current_scheme
-except ImportError:
-    # Fallback if terminal_styles not available - use professional scheme
-    def get_current_scheme():
-        return {
-            "abstract_item": "bold blue",
-            "total_item": "bold bright_white",
-            "regular_item": "",
-            "low_confidence_item": "italic",
-            "positive_value": "green",
-            "negative_value": "red",
-            "total_value_prefix": "bold",
-            "separator": "blue",
-            "company_name": "bold bright_white",
-            "statement_type": "bold blue",
-            "panel_border": "white",
-            "empty_value": "bright_black",
-        }
+from edgar.display import get_statement_styles, SYMBOLS, get_style
 from edgar.richtools import repr_rich
+
+
+def _is_statement_abstract(label: str, depth: int) -> bool:
+    """Check if an item is a top-level statement abstract header (e.g., 'Income Statement [Abstract]')."""
+    return "[Abstract]" in label and depth == 0
+
+
+def _clean_label(label: str) -> str:
+    """Remove XBRL jargon like '[Abstract]' from labels."""
+    return label.replace(" [Abstract]", "").replace("[Abstract]", "").strip()
+
+
+def _calculate_label_width(num_periods: int, console_width: int | None = None) -> int:
+    """
+    Calculate label column width based on number of periods and available console width.
+
+    Dynamically allocates space: wider labels when fewer periods or wider console,
+    narrower labels when more periods or narrower console.
+
+    Args:
+        num_periods: Number of period columns in the statement
+        console_width: Available console width in characters. If None, uses sensible defaults.
+
+    Returns:
+        Width for the label column
+    """
+    # Constraints
+    min_label_width = 30
+    max_label_width = 55
+    value_column_width = 12  # Space needed per value column (value + padding)
+    table_overhead = 10  # Borders, panel padding, etc.
+
+    if console_width is None:
+        # Fallback to tier-based defaults when console width unknown
+        if num_periods < 4:
+            return 50
+        elif num_periods < 6:
+            return 46
+        else:
+            return 42
+
+    # Calculate available space for label column
+    space_for_values = num_periods * value_column_width
+    available_for_label = console_width - space_for_values - table_overhead
+
+    # Clamp to min/max bounds
+    return max(min_label_width, min(max_label_width, available_for_label))
+
+
+# Define which statements accept linked concepts from which source statements
+# Key = target statement, Value = set of source statements that can flow into it
+# Flow direction: Income/Balance -> CashFlow/Equity/Comprehensive (not reverse)
+_ACCEPTS_LINKED_FROM = {
+    'CashFlowStatement': {'IncomeStatement', 'BalanceSheet'},
+    'StatementOfEquity': {'IncomeStatement', 'BalanceSheet'},
+    'ComprehensiveIncome': {'IncomeStatement'},
+    # IncomeStatement and BalanceSheet don't accept linked concepts from other statements
+    'IncomeStatement': set(),
+    'BalanceSheet': set(),
+}
+
+# Income statement concept lists for deduplication and promotion
+# Revenue concepts (in priority order - first found wins)
+_REVENUE_CONCEPTS = [
+    'RevenueFromContractWithCustomerExcludingAssessedTax',
+    'SalesRevenueNet',
+    'Revenues'
+]
+
+# Cost concepts for deduplication (in priority order - first found wins)
+_COST_CONCEPTS = [
+    'CostOfGoodsAndServicesSold',
+    'CostOfRevenue',
+]
+
+# EPS concepts (deduplicated together, don't need the abstract parent)
+_EPS_CONCEPTS = [
+    'EarningsPerShareBasic',
+    'EarningsPerShareDiluted'
+]
+
+# Profit concepts to promote (no deduplication needed)
+_PROFIT_CONCEPTS = [
+    'GrossProfit',
+    'OperatingIncomeLoss',
+    'NetIncomeLoss',
+]
+
+
+def _fact_belongs_to_statement(fact: 'FinancialFact', target_stmt_type: str) -> bool:
+    """
+    Check if a fact belongs to a statement type (primary or linked).
+
+    A fact belongs to a statement if:
+    1. It's primarily assigned to that statement, OR
+    2. The concept appears in that statement via linkages AND the primary
+       statement flows into the target (e.g., Income -> CashFlow)
+
+    Args:
+        fact: The financial fact to check
+        target_stmt_type: Target statement type (e.g., 'IncomeStatement', 'CashFlow')
+
+    Returns:
+        True if the fact belongs to the target statement
+    """
+    # Normalize statement type names
+    normalized_target = target_stmt_type
+    if target_stmt_type == 'CashFlow':
+        normalized_target = 'CashFlowStatement'
+
+    # Check primary assignment - always include
+    if fact.statement_type == normalized_target:
+        return True
+    if target_stmt_type == 'CashFlow' and fact.statement_type == 'CashFlowStatement':
+        return True
+
+    # Check if concept appears in this statement via linkages
+    concept = fact.concept
+    if ':' in concept:
+        concept = concept.split(':')[-1]
+
+    all_statements = get_all_statements_for_concept(concept)
+    if normalized_target not in all_statements:
+        return False
+
+    # Only include if concept's primary statement flows into target
+    primary = get_primary_statement(concept)
+    accepted_sources = _ACCEPTS_LINKED_FROM.get(normalized_target, set())
+    return primary in accepted_sources
 
 
 @dataclass
@@ -66,6 +184,7 @@ class MultiPeriodStatement:
 
     # Metadata
     company_name: Optional[str] = None
+    ticker: Optional[str] = None
     cik: Optional[str] = None
     canonical_coverage: float = 0.0
 
@@ -74,8 +193,8 @@ class MultiPeriodStatement:
 
     def __rich__(self):
         """Create a rich representation with multiple periods."""
-        # Get color scheme at the start
-        colors = get_current_scheme()
+        # Get styles from the unified design language
+        styles = get_statement_styles()
 
         # Statement type mapping
         statement_names = {
@@ -84,126 +203,144 @@ class MultiPeriodStatement:
             'CashFlow': 'Cash Flow Statement'
         }
 
-        # Title
-        title_parts = []
-        if self.company_name:
-            title_parts.append((self.company_name, colors["company_name"]))
-        else:
-            title_parts.append(("Financial Statement", colors["total_item"]))
-
-        title = Text.assemble(*title_parts)
-
-        # Subtitle
+        # Build centered header like actual SEC filings:
+        # Line 1: Company name (ticker) (bold)
+        # Line 2: Statement name (bold)
+        # Line 3: Period range (dim)
         statement_display = statement_names.get(self.statement_type, self.statement_type)
         period_range = f"{self.periods[-1]} to {self.periods[0]}" if len(self.periods) > 1 else self.periods[0] if self.periods else ""
-        subtitle = f"{statement_display} • {period_range}"
+
+        header_lines = []
+        if self.company_name:
+            company_line = Text(self.company_name.upper(), style=styles["header"]["company_name"])
+            if self.ticker:
+                company_line.append("  ")
+                company_line.append(f" {self.ticker.upper()} ", style=styles["header"]["ticker_badge"])
+            header_lines.append(company_line)
+        header_lines.append(Text(statement_display.upper(), style=styles["header"]["statement_title"]))
+        if period_range:
+            header_lines.append(Text(period_range, style="dim"))
+
+        title = Text("\n").join(header_lines)
+
+        # Build footer with source and units note
+        footer_parts = [
+            ("Source: ", styles["metadata"]["source"]),
+            ("EntityFacts", styles["metadata"]["source_entity_facts"]),
+            ("  ", ""),
+            (SYMBOLS["bullet"], styles["structure"]["separator"]),
+            ("  ", ""),
+            ("Amounts in USD", styles["metadata"]["units"]),
+        ]
+        footer = Text.assemble(*footer_parts)
 
         # Main table with multiple period columns
         stmt_table = Table(
             box=box.SIMPLE,
             show_header=True,
             padding=(0, 1),
-            expand=True
         )
 
-        # Add concept column
-        stmt_table.add_column("", style="", ratio=2)
+        # Add concept column with dynamic width based on terminal size and number of periods
+        import shutil
+        terminal_width = shutil.get_terminal_size().columns
+        label_width = _calculate_label_width(len(self.periods), terminal_width)
+        stmt_table.add_column("", style="", width=label_width, no_wrap=False)
 
-        # Add period columns
+        # Add period columns with minimum width for values like "$138.6B"
         for period in self.periods:
-            stmt_table.add_column(period, justify="right", style="bold", ratio=1)
+            stmt_table.add_column(period, justify="right", style="bold", min_width=10)
 
         def add_item_to_table(item: 'MultiPeriodItem', depth: int = 0):
             """Add an item row to the table."""
-            indent = "  " * depth
+            # Skip top-level statement abstract headers (e.g., "Income Statement [Abstract]")
+            skip_render = _is_statement_abstract(item.label, depth)
 
-            # Prepare row values
-            row = []
+            if not skip_render:
+                indent = "  " * depth
+                row = []
+                label = _clean_label(item.label)
 
-            # Concept label
-            if item.is_abstract:
-                row.append(Text(f"{indent}{item.label}", style=colors["abstract_item"]))
-            elif item.is_total:
-                row.append(Text(f"{indent}{item.label}", style=colors["total_item"]))
-            else:
-                # Check if this is a key financial item that should always be prominent
-                important_labels = [
-                    'Total Revenue', 'Revenue', 'Net Sales', 'Total Net Sales',
-                    'Operating Income', 'Operating Income (Loss)', 'Operating Profit',
-                    'Net Income', 'Net Income (Loss)', 'Net Earnings',
-                    'Gross Profit', 'Gross Margin',
-                    'Cost of Revenue', 'Cost of Goods Sold',
-                    'Operating Expenses', 'Total Operating Expenses',
-                    'Earnings Per Share', 'EPS'
-                ]
-
-                is_important = any(label in item.label for label in important_labels)
-
-                # Don't mark important items as low confidence even if score is low
-                if is_important:
-                    style = colors["total_item"]  # Use bold styling for important items
-                    confidence_marker = ""
+                # Concept label with semantic styles
+                if item.is_abstract:
+                    row.append(Text(f"{indent}{label}", style=styles["row"]["abstract"]))
+                elif item.is_total:
+                    row.append(Text(f"{indent}{label}", style=styles["row"]["total"]))
                 else:
-                    style = colors["low_confidence_item"] if item.confidence < 0.8 else colors["regular_item"]
-                    confidence_marker = " ◦" if item.confidence < 0.8 else ""
+                    # Check if this is a key financial item that should always be prominent
+                    important_keywords = [
+                        'Total Revenue', 'Revenue', 'Net Sales', 'Total Net Sales',
+                        'Operating Income', 'Operating Income (Loss)', 'Operating Profit',
+                        'Net Income', 'Net Income (Loss)', 'Net Earnings',
+                        'Gross Profit', 'Gross Margin',
+                        'Cost of Revenue', 'Cost of Goods Sold',
+                        'Operating Expenses', 'Total Operating Expenses',
+                        'Earnings Per Share', 'EPS'
+                    ]
 
-                row.append(Text(f"{indent}{item.label}{confidence_marker}", style=style))
+                    is_important = any(kw in label for kw in important_keywords)
 
-            # Period values
-            for period in self.periods:
-                value_str = item.get_display_value(period, concise_format=self.concise_format)
-                if value_str and value_str != "-":
-                    # Color code values
-                    value = item.values.get(period)
-                    if value and isinstance(value, (int, float)):
-                        value_style = colors["negative_value"] if value < 0 else colors["positive_value"]
+                    # Don't mark important items as low confidence even if score is low
+                    if is_important:
+                        style = styles["row"]["total"]  # Use bold styling for important items
+                        confidence_marker = ""
                     else:
-                        value_style = ""
+                        style = styles["row"]["low_confidence"] if item.confidence < 0.8 else styles["row"]["item"]
+                        confidence_marker = f" {SYMBOLS['low_confidence']}" if item.confidence < 0.8 else ""
 
-                    if item.is_total:
-                        # Combine total style with value color if present
-                        total_style = colors["total_value_prefix"]
-                        if value_style:
-                            total_style = f"{total_style} {value_style}"
-                        row.append(Text(value_str, style=total_style))
+                    row.append(Text(f"{indent}{label}{confidence_marker}", style=style))
+
+                # Period values with semantic value styles
+                # Always use concise format for display (e.g., $416B vs $416,161,000,000)
+                for period in self.periods:
+                    value_str = item.get_display_value(period, concise_format=True)
+                    if value_str and value_str != "-":
+                        # Color code values
+                        value = item.values.get(period)
+                        if value and isinstance(value, (int, float)):
+                            value_style = styles["value"]["negative"] if value < 0 else styles["value"]["positive"]
+                        else:
+                            value_style = styles["value"]["default"]
+
+                        if item.is_total:
+                            # Combine total style with value color if present
+                            total_style = styles["value"]["total"]
+                            if value_style:
+                                total_style = f"{total_style} {value_style}"
+                            row.append(Text(value_str, style=total_style))
+                        else:
+                            row.append(Text(value_str, style=value_style))
                     else:
-                        row.append(Text(value_str, style=value_style))
-                else:
-                    row.append("")
+                        row.append(Text("", style=styles["value"]["empty"]))
 
-            stmt_table.add_row(*row)
+                stmt_table.add_row(*row)
 
-            # Add separator line after totals
-            if item.is_total and depth == 0:
-                separator_row = [Text("─" * 40, style=colors["separator"])]
-                for _ in self.periods:
-                    separator_row.append(Text("─" * 15, style=colors["separator"]))
-                stmt_table.add_row(*separator_row)
-
-            # Add children
+            # Add children (process even if we skipped rendering this item)
+            child_depth = depth if skip_render else depth + 1
             for child in item.children:
-                if depth < 3:
-                    add_item_to_table(child, depth + 1)
+                if child_depth < 3:
+                    add_item_to_table(child, child_depth)
 
         # Add all items
         for item in self.items:
             add_item_to_table(item)
 
-
-        # Combine content
-        content_parts = [
-            Padding("", (1, 0, 0, 0)),
+        # Combine content with title inside for proper multi-line rendering
+        # Header is centered like actual SEC filings
+        from rich.align import Align
+        content = Group(
+            Align.center(title),
             stmt_table
-        ]
-
-        content = Group(*content_parts)
+        )
 
         return Panel(
             content,
-            title=title,
-            subtitle=subtitle,
-            border_style=colors["panel_border"],
-            expand=True
+            subtitle=footer,
+            subtitle_align="left",
+            border_style=styles["structure"]["border"],
+            box=box.SIMPLE,
+            padding=(0, 1),
+            expand=False,
         )
 
     def to_dataframe(self) -> pd.DataFrame:
@@ -217,26 +354,29 @@ class MultiPeriodStatement:
 
         def collect_items(item: 'MultiPeriodItem', depth: int = 0):
             """Recursively collect items into flat structure."""
-            # Create row data
-            row = {
-                'concept': item.concept,
-                'label': item.label,
-                'depth': depth,
-                'is_abstract': item.is_abstract,
-                'is_total': item.is_total,
-                'section': item.section,
-                'confidence': item.confidence
-            }
+            skip_item = _is_statement_abstract(item.label, depth)
 
-            # Add period values
-            for period in self.periods:
-                row[period] = item.values.get(period)
+            if not skip_item:
+                row = {
+                    'concept': item.concept,
+                    'label': _clean_label(item.label),
+                    'depth': depth,
+                    'is_abstract': item.is_abstract,
+                    'is_total': item.is_total,
+                    'section': item.section,
+                    'confidence': item.confidence
+                }
 
-            data.append(row)
+                # Add period values
+                for period in self.periods:
+                    row[period] = item.values.get(period)
 
-            # Process children
+                data.append(row)
+
+            # Process children (adjust depth if we skipped the abstract)
+            child_depth = depth if skip_item else depth + 1
             for child in item.children:
-                collect_items(child, depth + 1)
+                collect_items(child, child_depth)
 
         # Collect all items
         for item in self.items:
@@ -604,7 +744,7 @@ class MultiPeriodStatement:
             if any(v is not None for v in item.values.values()):
                 yield item
 
-    def get_items_by_depth(self, max_depth: int = None) -> List['MultiPeriodItem']:
+    def get_items_by_depth(self, max_depth: Optional[int] = None) -> List['MultiPeriodItem']:
         """
         Get all items up to a specified depth level.
 
@@ -624,7 +764,7 @@ class MultiPeriodStatement:
                 result.append(item)
         return result
 
-    def find_item(self, concept: str = None, label: str = None) -> Optional['MultiPeriodItem']:
+    def find_item(self, concept: Optional[str] = None, label: Optional[str] = None) -> Optional['MultiPeriodItem']:
         """
         Find a specific item by concept name or label.
 
@@ -664,7 +804,7 @@ class MultiPeriodStatement:
             data = statement.to_dict()
             json.dumps(data)  # Ready for web API response
         """
-        def item_to_dict(item: 'MultiPeriodItem') -> Dict[str, Any]:
+        def item_to_dict(item: 'MultiPeriodItem') -> Optional[Dict[str, Any]]:
             # Skip items with no values unless requested
             if not include_empty and not any(v is not None for v in item.values.values()):
                 return None
@@ -802,6 +942,147 @@ class MultiPeriodStatement:
 
         return result
 
+    def _create_table(self, for_llm: bool = False) -> Table:
+        """
+        Create the statement table without Panel wrapper.
+
+        Args:
+            for_llm: If True, use minimal formatting for LLM consumption
+
+        Returns:
+            Rich Table object
+        """
+        # Get styles from unified design language
+        styles = get_statement_styles()
+
+        # Choose box style based on context
+        box_style = box.MINIMAL if for_llm else box.SIMPLE
+
+        # Main table with multiple period columns
+        stmt_table = Table(
+            box=box_style,
+            show_header=True,
+            padding=(0, 1),
+            expand=True
+        )
+
+        # Add concept column
+        stmt_table.add_column("", style="", ratio=2)
+
+        # Add period columns
+        for period in self.periods:
+            stmt_table.add_column(period, justify="right", style="bold", ratio=1)
+
+        def add_item_to_table(item: 'MultiPeriodItem', depth: int = 0):
+            """Add an item row to the table."""
+            # Skip top-level statement abstract headers (e.g., "Income Statement [Abstract]")
+            skip_render = _is_statement_abstract(item.label, depth)
+
+            if not skip_render:
+                indent = "  " * depth
+                row = []
+                label = _clean_label(item.label)
+
+                # Concept label
+                if item.is_abstract:
+                    row.append(Text(f"{indent}{label}", style=styles["row"]["abstract"]))
+                elif item.is_total:
+                    row.append(Text(f"{indent}{label}", style=styles["row"]["total"]))
+                else:
+                    # Check if this is a key financial item that should always be prominent
+                    important_keywords = [
+                        'Total Revenue', 'Revenue', 'Net Sales', 'Total Net Sales',
+                        'Operating Income', 'Operating Income (Loss)', 'Operating Profit',
+                        'Net Income', 'Net Income (Loss)', 'Net Earnings',
+                        'Gross Profit', 'Gross Margin',
+                        'Cost of Revenue', 'Cost of Goods Sold',
+                        'Operating Expenses', 'Total Operating Expenses',
+                        'Earnings Per Share', 'EPS'
+                    ]
+
+                    is_important = any(kw in label for kw in important_keywords)
+
+                    # Don't mark important items as low confidence even if score is low
+                    if is_important:
+                        style = styles["row"]["total"]  # Use bold styling for important items
+                        confidence_marker = ""
+                    else:
+                        style = styles["row"]["low_confidence"] if item.confidence < 0.8 else styles["row"]["item"]
+                        confidence_marker = f" {SYMBOLS['low_confidence']}" if item.confidence < 0.8 else ""
+
+                    row.append(Text(f"{indent}{label}{confidence_marker}", style=style))
+
+                # Period values
+                for period in self.periods:
+                    value_str = item.get_display_value(period, concise_format=self.concise_format)
+                    if value_str and value_str != "-":
+                        # Color code values
+                        value = item.values.get(period)
+                        if value and isinstance(value, (int, float)):
+                            value_style = styles["value"]["negative"] if value < 0 else styles["value"]["positive"]
+                        else:
+                            value_style = ""
+
+                        if item.is_total:
+                            # Combine total style with value color if present
+                            total_style = styles["value"]["total"]
+                            if value_style:
+                                total_style = f"{total_style} {value_style}"
+                            row.append(Text(value_str, style=total_style))
+                        else:
+                            row.append(Text(value_str, style=value_style))
+                    else:
+                        row.append("")
+
+                stmt_table.add_row(*row)
+
+            # Add children (process even if we skipped rendering this item)
+            child_depth = depth if skip_render else depth + 1
+            for child in item.children:
+                if child_depth < 3:
+                    add_item_to_table(child, child_depth)
+
+        # Add all items
+        for item in self.items:
+            add_item_to_table(item)
+
+        return stmt_table
+
+    def to_llm_string(self) -> str:
+        """
+        Generate LLM-optimized string representation.
+
+        Uses minimal formatting optimized for LLM consumption:
+        - No Panel borders (saves ~200 characters)
+        - Minimal table box style (saves ~100 characters per row)
+        - No ANSI color codes (plain text)
+        - Assumes concise_format is already set for number formatting
+        - Omits separator lines after totals
+
+        Returns:
+            String representation optimized for LLM token usage
+        """
+        from io import StringIO
+
+        from rich.console import Console
+
+        buffer = StringIO()
+        # Disable color/formatting codes for plain text output
+        console = Console(
+            file=buffer,
+            force_terminal=False,  # No ANSI codes
+            no_color=True,         # Plain text only
+            width=120,
+            legacy_windows=False
+        )
+
+        # Create table without Panel wrapper
+        table = self._create_table(for_llm=True)
+        console.print(table)
+
+        output = buffer.getvalue()
+        return output
+
     def __repr__(self) -> str:
         """String representation using rich formatting."""
         return repr_rich(self.__rich__())
@@ -871,6 +1152,211 @@ class MultiPeriodItem:
             return ""
         else:
             return "-"
+
+
+def validate_fiscal_year_period_end(fiscal_year: int, period_end: date) -> bool:
+    """
+    Validate that fiscal_year is reasonable given period_end.
+
+    This handles SEC Facts API data quality issues where comparative periods
+    are mislabeled with incorrect fiscal_year values (Issue #452).
+
+    Args:
+        fiscal_year: The fiscal year from the fact
+        period_end: The period end date
+
+    Returns:
+        True if the fiscal_year/period_end combination is valid, False otherwise
+
+    Examples:
+        >>> # Early January period (52/53-week calendar)
+        >>> validate_fiscal_year_period_end(2022, date(2023, 1, 1))
+        True
+        >>> validate_fiscal_year_period_end(2023, date(2023, 1, 1))
+        True
+        >>> validate_fiscal_year_period_end(2024, date(2023, 1, 1))
+        False
+
+        >>> # Late December period
+        >>> validate_fiscal_year_period_end(2023, date(2023, 12, 31))
+        True
+        >>> validate_fiscal_year_period_end(2024, date(2023, 12, 31))
+        True
+
+        >>> # Normal period
+        >>> validate_fiscal_year_period_end(2023, date(2023, 6, 30))
+        True
+        >>> validate_fiscal_year_period_end(2025, date(2023, 6, 30))
+        False
+    """
+    year_diff = fiscal_year - period_end.year
+
+    # Early January (Jan 1-7): fiscal_year should be year-1 (52/53-week calendar) or year
+    # Example: Period ending Jan 1, 2023 → FY 2022 (most common) or FY 2023 (edge case)
+    if period_end.month == 1 and period_end.day <= 7:
+        return year_diff in (-1, 0)
+
+    # Late December (Dec 25-31): fiscal_year should be year or year+1
+    # Example: Period ending Dec 31, 2023 → FY 2023 (most common) or FY 2024 (year-end shifts)
+    elif period_end.month == 12 and period_end.day >= 25:
+        return year_diff in (0, 1)
+
+    # All other dates: fiscal_year should match period_end.year exactly
+    else:
+        return year_diff == 0
+
+
+def validate_quarterly_period_end(fiscal_period: str,
+                                  period_end: date,
+                                  fiscal_year_end_month: int = 12) -> bool:
+    """
+    Validate that period_end matches the expected month for the fiscal_period.
+
+    This filters out comparative period data that's mislabeled with incorrect
+    fiscal_period values in the SEC Facts API.
+
+    Args:
+        fiscal_period: The fiscal period (Q1, Q2, Q3, Q4, FY)
+        period_end: The period end date
+        fiscal_year_end_month: Company's fiscal year end month (default: 12)
+
+    Returns:
+        True if period_end matches expected month for fiscal_period
+
+    Examples:
+        >>> # Apple (fiscal year ends in September, month 9)
+        >>> validate_quarterly_period_end('Q3', date(2025, 6, 28), 9)
+        True  # Q3 should end in June (3 months before Sept)
+
+        >>> validate_quarterly_period_end('Q3', date(2024, 9, 28), 9)
+        False  # This is Q4, not Q3
+    """
+    if fiscal_period == 'FY':
+        # FY should match fiscal year end month
+        return period_end.month == fiscal_year_end_month
+
+    # Calculate expected month for each quarter based on fiscal year end
+    # Q4 ends in fiscal year end month
+    # Q3 ends 3 months before that
+    # Q2 ends 6 months before that
+    # Q1 ends 9 months before that
+
+    quarter_offsets = {
+        'Q1': -9,  # 9 months before fiscal year end
+        'Q2': -6,  # 6 months before fiscal year end
+        'Q3': -3,  # 3 months before fiscal year end
+        'Q4': 0    # Fiscal year end month
+    }
+
+    if fiscal_period not in quarter_offsets:
+        return False
+
+    # Calculate expected month
+    offset = quarter_offsets[fiscal_period]
+    expected_month = fiscal_year_end_month + offset
+
+    # Handle month wrapping
+    if expected_month <= 0:
+        expected_month += 12
+    elif expected_month > 12:
+        expected_month -= 12
+
+    # Allow ±1 month flexibility for 52/53-week calendars
+    month_diff = abs(period_end.month - expected_month)
+
+    # Handle wrap-around (e.g., month 12 vs month 1 is only 1 month apart)
+    if month_diff > 6:
+        month_diff = 12 - month_diff
+
+    return month_diff <= 1
+
+
+def detect_fiscal_year_end(facts: List[FinancialFact]) -> int:
+    """
+    Detect company's fiscal year end month from FY period_end dates.
+
+    Returns:
+        Most common month from FY period_end dates (default: 12)
+    """
+    from collections import Counter
+
+    # Get all FY facts with period_end
+    fy_facts = [f for f in facts if f.fiscal_period == 'FY' and f.period_end]
+
+    if not fy_facts:
+        return 12  # Default to December
+
+    # Find most common period_end month
+    months = [f.period_end.month for f in fy_facts]
+    most_common = Counter(months).most_common(1)
+
+    return most_common[0][0] if most_common else 12
+
+
+def calculate_fiscal_year_for_label(period_end: date, fiscal_year_end_month: int) -> int:
+    """
+    Calculate the year for period labels based on period_end date and fiscal year end.
+
+    This function addresses Issue #460 where quarterly labels showed incorrect years
+    because the SEC Facts API provides forward-looking fiscal_year values.
+
+    Issue #02gu: The original implementation incorrectly added 1 year when
+    period_end.month > fiscal_year_end_month, which broke for companies with
+    early fiscal year ends (Jan-Mar) like NVIDIA where almost all months are
+    "after" the FYE month.
+
+    The nuanced fix:
+    - For companies with early FYE (Jan-Mar): Use calendar year labeling
+      This fixes NVIDIA (Jan FYE) where Q3 Oct 2025 should be "Q3 2025" not "Q3 2026"
+    - For companies with later FYE (Apr-Dec): Use fiscal year convention
+      This preserves Apple (Sept FYE) where Q1 Dec 2023 should be "Q1 2024"
+
+    Args:
+        period_end: The period end date
+        fiscal_year_end_month: Company's fiscal year end month (1-12)
+
+    Returns:
+        The year to use for labeling this period
+
+    Examples:
+        >>> # NVIDIA (fiscal year ends in January - early FYE, use calendar year)
+        >>> # Q3 ending October 26, 2025
+        >>> calculate_fiscal_year_for_label(date(2025, 10, 26), 1)
+        2025  # Q3 2025 - calendar year for early FYE companies
+
+        >>> # Apple (fiscal year ends in September - later FYE, use fiscal year)
+        >>> # Q1 ending December 30, 2023
+        >>> calculate_fiscal_year_for_label(date(2023, 12, 30), 9)
+        2024  # Q1 2024 - fiscal year convention preserved
+
+        >>> # Apple Q3 ending June 28, 2024
+        >>> calculate_fiscal_year_for_label(date(2024, 6, 28), 9)
+        2024  # Q3 2024 - before FYE, same calendar year
+
+        >>> # Early January period (52/53-week calendar edge case)
+        >>> calculate_fiscal_year_for_label(date(2023, 1, 1), 12)
+        2022  # FY 2022 (52/53-week calendar convention)
+    """
+    # Early January (Jan 1-7): Use prior year (52/53-week calendar convention)
+    # This handles companies with 52/53-week calendars where fiscal year end
+    # dates can fall in the first week of January
+    if period_end.month == 1 and period_end.day <= 7:
+        return period_end.year - 1
+
+    # For companies with early fiscal year ends (Jan-Mar), use calendar year
+    # This avoids the confusing "Q3 2026 for Oct 2025" issue with companies like NVIDIA
+    # where almost all months (Feb-Dec) would otherwise get +1 year added
+    if fiscal_year_end_month <= 3:
+        return period_end.year
+
+    # For companies with later fiscal year ends (Apr-Dec), use fiscal year convention
+    # Quarters after FYE month are in the next fiscal year
+    # Example: Apple (Sept FYE) Q1 ends in Dec, so Dec 2023 → Q1 2024
+    if period_end.month > fiscal_year_end_month:
+        return period_end.year + 1
+
+    # Period is at or before FYE month - use calendar year
+    return period_end.year
 
 
 class EnhancedStatementBuilder:
@@ -947,9 +1433,32 @@ class EnhancedStatementBuilder:
         'PaymentsForRepurchaseOfEquity': 'PaymentsForRepurchaseOfCommonStock'
     }
 
-    def __init__(self):
+    def __init__(self, sic_code: Optional[str] = None, ticker: Optional[str] = None):
+        """
+        Initialize the statement builder.
+
+        Args:
+            sic_code: Optional SIC code for industry-specific extensions.
+                     If provided and matches a known industry, industry-specific
+                     concepts will be merged into the virtual trees.
+            ticker: Optional ticker symbol for industry lookup. Used for industries
+                   like payment_networks where SIC codes don't map cleanly.
+                   Ticker-based lookup takes priority over SIC-based lookup.
+        """
         self.learned_mappings = load_learned_mappings()
         self.virtual_trees = load_virtual_trees()
+        self.sic_code = sic_code
+        self.ticker = ticker
+        self.industry = None
+        self.industry_extension = None
+
+        # Load industry extension using ticker (for curated industries) or SIC code
+        if ticker or sic_code:
+            self.industry = get_industry(sic_code=sic_code, ticker=ticker)
+            if self.industry:
+                self.industry_extension = load_industry_extension(self.industry)
+                if self.industry_extension:
+                    log.debug(f"Loaded {self.industry} industry extension")
 
     def _normalize_concept(self, concept: str) -> str:
         """Normalize concept names for matching."""
@@ -983,13 +1492,8 @@ class EnhancedStatementBuilder:
         Returns:
             MultiPeriodStatement with hierarchical structure and multiple periods
         """
-
-        # Filter facts by statement type
-        # Handle both 'CashFlow' and 'CashFlowStatement' for compatibility
-        if statement_type == 'CashFlow':
-            stmt_facts = [f for f in facts if f.statement_type in ['CashFlow', 'CashFlowStatement']]
-        else:
-            stmt_facts = [f for f in facts if f.statement_type == statement_type]
+        # Filter facts by statement type (including multi-statement concepts from feeder statements)
+        stmt_facts = [f for f in facts if _fact_belongs_to_statement(f, statement_type)]
 
         # Use the same logic as FactQuery.latest_periods for consistency
         # Group facts by unique periods and calculate period info
@@ -1022,6 +1526,10 @@ class EnhancedStatementBuilder:
         for period_key, info in period_info.items():
             period_list.append((period_key, info))
 
+        # Detect fiscal year end month for label calculation (Issue #460)
+        # This needs to be calculated before the annual/quarterly split so it's available for both paths
+        fiscal_year_end_month = detect_fiscal_year_end(stmt_facts)
+
         if annual:
             # When annual=True, filter for TRUE annual periods using duration
             # Some facts are marked as FY but are actually quarterly (90 days vs 363+ days)
@@ -1035,13 +1543,18 @@ class EnhancedStatementBuilder:
                 fiscal_year = pk[0]
                 period_end_date = pk[2]
 
-                # Allow fiscal_year to be within 0-3 years of period_end.year
-                # This handles current year data and comparative periods
+                # Validate fiscal_year against period_end to filter out mislabeled comparative data
+                # Issue #452: SEC Facts API has inconsistent fiscal_year values for comparatives
                 if not period_end_date:
                     continue
-                year_diff = fiscal_year - period_end_date.year
-                if year_diff < -1 or year_diff > 3:
-                    continue  # Too far off to be valid
+
+                # Use strict validation to reject invalid fiscal_year/period_end combinations
+                if not validate_fiscal_year_period_end(fiscal_year, period_end_date):
+                    log.debug(
+                        f"Skipping invalid fiscal_year={fiscal_year} for period_end={period_end_date} "
+                        f"(likely mislabeled comparative data - Issue #452)"
+                    )
+                    continue  # Skip mislabeled comparative data
 
                 # Get a fact from this period to check duration
                 period_fact_list = period_facts.get(pk, [])
@@ -1060,8 +1573,11 @@ class EnhancedStatementBuilder:
 
             # Group by period year and select most recent comprehensive filing
             # This approach combines availability (comprehensive data) with recency (latest corrections)
+            # Issue #452: When multiple periods exist for same year (e.g., Jan 1 and Dec 31 both in 2023),
+            # prefer the period where fiscal_year best matches expected value
             annual_by_period_year = {}
             for pk, info in true_annual_periods:
+                fiscal_year = pk[0]
                 period_end_date = pk[2]
                 period_year = period_end_date.year if period_end_date else None
 
@@ -1071,27 +1587,197 @@ class EnhancedStatementBuilder:
 
                     # Only consider periods with substantial data (≥5 facts) to avoid sparse comparative data
                     if len(facts_for_period) >= 5:
-                        if (period_year not in annual_by_period_year or 
-                            (filing_date and 
-                             annual_by_period_year[period_year][1].get('filing_date') and
-                             filing_date > annual_by_period_year[period_year][1]['filing_date'])):
+                        should_replace = False
+
+                        if period_year not in annual_by_period_year:
+                            should_replace = True
+                        else:
+                            existing_pk, existing_info = annual_by_period_year[period_year]
+                            existing_fiscal_year = existing_pk[0]
+                            existing_period_end = existing_pk[2]
+                            existing_filing_date = existing_info.get('filing_date')
+
+                            # Prefer period where fiscal_year matches expected value
+                            # For early January: expect fiscal_year = year - 1
+                            # For normal dates: expect fiscal_year = year
+                            is_early_jan = period_end_date.month == 1 and period_end_date.day <= 7
+                            existing_is_early_jan = existing_period_end.month == 1 and existing_period_end.day <= 7
+
+                            expected_fy = period_year - 1 if is_early_jan else period_year
+                            existing_expected_fy = period_year - 1 if existing_is_early_jan else period_year
+
+                            # Score: 0 = matches expected, 1 = doesn't match
+                            score = 0 if fiscal_year == expected_fy else 1
+                            existing_score = 0 if existing_fiscal_year == existing_expected_fy else 1
+
+                            # Replace if current period has better score, or same score but newer filing
+                            if score < existing_score:
+                                should_replace = True
+                            elif score == existing_score and filing_date and existing_filing_date and filing_date > existing_filing_date:
+                                should_replace = True
+
+                        if should_replace:
                             annual_by_period_year[period_year] = (pk, info)
 
             # Sort by period year (descending) and select
             sorted_periods = sorted(annual_by_period_year.items(), key=lambda x: x[0], reverse=True)
             selected_period_info = [period_info for year, period_info in sorted_periods[:periods]]
         else:
-            # Sort all periods by end date (newest first)
-            period_list.sort(key=lambda x: x[1]['end_date'], reverse=True)
-            selected_period_info = period_list[:periods]
+            # Quarterly mode: Filter out comparative data by validating period_end
+            # fiscal_year_end_month was already calculated at line 1223 and is in scope here
+
+            valid_quarterly_periods = []
+
+            for pk, info in period_list:
+                fiscal_period = info['fiscal_period']
+                period_end_date = pk[2]  # pk is (fiscal_year, fiscal_period, period_end)
+
+                # Skip if no period_end
+                if not period_end_date:
+                    continue
+
+                # Skip FY periods - we only want Q1/Q2/Q3/Q4 for quarterly mode
+                if fiscal_period == 'FY':
+                    continue
+
+                # Validate period_end matches expected month for fiscal_period
+                if validate_quarterly_period_end(fiscal_period, period_end_date, fiscal_year_end_month):
+                    valid_quarterly_periods.append((pk, info))
+                else:
+                    log.debug(
+                        f"Skipping invalid period_end={period_end_date} for fiscal_period={fiscal_period} "
+                        f"(likely comparative data)"
+                    )
+
+            # Group by fiscal period label and keep most recent
+            # FIX for Issue #460: Calculate fiscal_year from period_end for quarterly labels
+            quarterly_by_period = {}
+            for pk, info in valid_quarterly_periods:
+                fiscal_period = pk[1]
+                period_end_date = pk[2]
+
+                # Calculate correct fiscal year for label based on period_end
+                # This fixes Issue #460 where SEC's forward-looking fiscal_year caused
+                # quarterly labels to show 1 year ahead (Q3 2025 instead of Q3 2024)
+                calculated_fiscal_year = calculate_fiscal_year_for_label(
+                    period_end_date,
+                    fiscal_year_end_month
+                )
+                period_label = f"{fiscal_period} {calculated_fiscal_year}"
+
+                # Store the calculated fiscal year in info for later use
+                info_with_calculated_fy = info.copy()
+                info_with_calculated_fy['calculated_fiscal_year'] = calculated_fiscal_year
+
+                if period_label not in quarterly_by_period:
+                    quarterly_by_period[period_label] = (pk, info_with_calculated_fy)
+                else:
+                    # DEDUPLICATION LOGIC: Prefer PRIMARY data over COMPARATIVE disclosures
+                    #
+                    # Background: SEC filings include comparative data from prior periods.
+                    # When Apple files their FY2025 10-K, it includes:
+                    #   - FY2025 data (primary, tagged fiscal_year=2025)
+                    #   - FY2024 comparatives (tagged fiscal_year=2025, period_end=2024-xx-xx)
+                    #
+                    # The SEC Facts API captures both, creating collisions where two entries
+                    # have the same period_end but different fiscal_years. Both calculate to
+                    # the same period label (e.g., "Q3 2024").
+                    #
+                    # Key insight: Comparative disclosures typically contain only a subset of
+                    # concepts (e.g., StockholdersEquity in equity reconciliation tables),
+                    # while primary data contains the complete set (~21 concepts vs 1).
+                    #
+                    # Primary data: fact's fiscal_year matches the calculated label year
+                    #   - From the original filing (e.g., Q3 2024 10-Q filed Aug 2024)
+                    #   - Contains complete set of balance sheet concepts
+                    #
+                    # Comparative data: fact's fiscal_year is ahead of calculated label year
+                    #   - From a later filing's comparative disclosures (e.g., FY2025 10-K)
+                    #   - Contains only concepts that appear in comparative tables
+                    #
+                    # Issue #1kzb: The previous logic preferred the most recent filing_date,
+                    # which caused comparative data (sparse) to overwrite primary data (complete).
+                    #
+                    # Note on restatements: True restatements would also come from later filings,
+                    # but they typically have similar fact counts (full period restated) and are
+                    # filed as amendments (10-K/A, 10-Q/A). The sparse comparative data we see
+                    # (1 fact vs 21) is clearly not a restatement - it's just concepts that
+                    # happen to appear in multi-year comparative tables.
+                    #
+                    existing_pk, existing_info = quarterly_by_period[period_label]
+
+                    # Check if fiscal_year matches calculated year (primary data indicator)
+                    fact_fiscal_year = pk[0]
+                    existing_fiscal_year = existing_pk[0]
+
+                    current_is_primary = (fact_fiscal_year == calculated_fiscal_year)
+                    existing_is_primary = (existing_fiscal_year == existing_info['calculated_fiscal_year'])
+
+                    # Prefer primary data over comparative
+                    if current_is_primary and not existing_is_primary:
+                        quarterly_by_period[period_label] = (pk, info_with_calculated_fy)
+                    elif not current_is_primary and existing_is_primary:
+                        pass  # Keep existing (it's primary)
+                    else:
+                        # Both are primary or both are comparative - prefer most recent filing
+                        # This handles cases like corrections within the same fiscal year
+                        if info['filing_date'] > existing_info['filing_date']:
+                            quarterly_by_period[period_label] = (pk, info_with_calculated_fy)
+
+            # Sort by period end date (newest first) and select requested number
+            sorted_periods = sorted(
+                quarterly_by_period.values(),
+                key=lambda x: x[1]['end_date'],
+                reverse=True
+            )
+            selected_period_info = sorted_periods[:periods]
 
         # Extract period labels and build a mapping for the selected periods
-        # For annual periods, use the actual period end year in the label
+        # For annual periods: use period_end.year for Dec FYE, fiscal_year for others
+        # For quarterly periods, calculate fiscal year from period_end (Issue #460)
         selected_periods = []
         for pk, info in selected_period_info:
             if annual and info.get('is_annual') and pk[2]:  # pk[2] is period_end
-                # Use the actual period year instead of fiscal year in the label
-                label = f"FY {pk[2].year}"
+                period_end = pk[2]
+
+                # FIX for Issue edgartools-t3tr: For December fiscal year end companies,
+                # use period_end.year for the label instead of SEC's fiscal_year.
+                # This fixes duplicate labels for comparative data where SEC tags all
+                # periods with the filing's fiscal_year (e.g., BLK's 2023 data tagged as FY 2024).
+                #
+                # For non-December FYE companies (e.g., DLTR with Feb FYE), trust SEC's
+                # fiscal_year since their FY doesn't align with calendar year.
+                if fiscal_year_end_month == 12:
+                    # December FYE: fiscal year = calendar year, use period_end.year
+                    # Handle early January edge case (52/53-week calendars)
+                    if period_end.month == 1 and period_end.day <= 7:
+                        label = f"FY {period_end.year - 1}"
+                    else:
+                        label = f"FY {period_end.year}"
+                elif 'fiscal_year' in info and info['fiscal_year']:
+                    # Non-December FYE: trust SEC's fiscal_year tag
+                    label = f"FY {info['fiscal_year']}"
+                else:
+                    # Fallback: use period_end.year with early January adjustment
+                    if period_end.month == 1 and period_end.day <= 7:
+                        label = f"FY {period_end.year - 1}"
+                    else:
+                        label = f"FY {period_end.year}"
+            elif not annual and pk[2]:
+                # FIX for Issue #460: For quarterly periods, use the calculated fiscal year
+                # that was stored during grouping (avoids recalculation)
+                fiscal_period = pk[1]
+                period_end = pk[2]
+                calculated_fiscal_year = info.get('calculated_fiscal_year')
+                if calculated_fiscal_year is not None:
+                    label = f"{fiscal_period} {calculated_fiscal_year}"
+                else:
+                    # Fallback: calculate if not found (shouldn't happen for quarterly)
+                    calculated_fiscal_year = calculate_fiscal_year_for_label(
+                        period_end,
+                        fiscal_year_end_month
+                    )
+                    label = f"{fiscal_period} {calculated_fiscal_year}"
             else:
                 label = info['label']
             selected_periods.append(label)
@@ -1151,12 +1837,62 @@ class EnhancedStatementBuilder:
         )
 
 
-    def _build_with_canonical(self, 
+    def _get_merged_virtual_tree(self, virtual_tree_key: str) -> Dict[str, Any]:
+        """
+        Get virtual tree with industry extensions merged if available.
+
+        Args:
+            virtual_tree_key: Statement type key (e.g., 'BalanceSheet')
+
+        Returns:
+            Virtual tree dict, potentially merged with industry extension
+        """
+        import copy
+
+        base_tree = self.virtual_trees.get(virtual_tree_key, {})
+
+        # If no industry extension, return base tree
+        if not self.industry_extension:
+            return base_tree
+
+        # Get industry extension for this statement type
+        industry_stmt = self.industry_extension.get(virtual_tree_key, {})
+        industry_nodes = industry_stmt.get('nodes', {})
+
+        if not industry_nodes:
+            return base_tree
+
+        # Merge industry nodes into base tree
+        merged = copy.deepcopy(base_tree)
+        merged_nodes = merged.get('nodes', {})
+
+        for concept, node_info in industry_nodes.items():
+            if concept not in merged_nodes:
+                # Add industry-specific concept
+                merged_nodes[concept] = node_info
+
+                # Add to parent's children list if parent exists
+                parent = node_info.get('parent')
+                if parent and parent in merged_nodes:
+                    parent_children = merged_nodes[parent].get('children', [])
+                    if concept not in parent_children:
+                        parent_children.append(concept)
+                        merged_nodes[parent]['children'] = parent_children
+
+        merged['nodes'] = merged_nodes
+        log.debug(
+            f"Merged {len(industry_nodes)} {self.industry} concepts into {virtual_tree_key}"
+        )
+
+        return merged
+
+    def _build_with_canonical(self,
                              period_facts: Dict[str, List[FinancialFact]],
                              periods: List[str],
                              virtual_tree_key: str) -> List[MultiPeriodItem]:
         """Build items using canonical structure."""
-        virtual_tree = self.virtual_trees[virtual_tree_key]
+        # Get virtual tree with industry extensions merged
+        virtual_tree = self._get_merged_virtual_tree(virtual_tree_key)
         items = []
 
         # Create fact maps for each period
@@ -1206,6 +1942,13 @@ class EnhancedStatementBuilder:
         # Remove redundant table duplicates for cleaner presentation
         items = self._deduplicate_table_items(items)
 
+        # Filter out empty items and sections for cleaner display
+        items = self._filter_empty_items(items)
+
+        # Reorder Income Statement for logical flow
+        if virtual_tree_key == 'IncomeStatement':
+            items = self._reorder_income_statement(items)
+
         return items
 
     def _build_with_promoted_concepts(self,
@@ -1216,31 +1959,6 @@ class EnhancedStatementBuilder:
         """Build Income Statement with essential concepts promoted to top level."""
         items = []
         nodes = virtual_tree['nodes']
-
-        # Essential revenue/income concepts to promote
-        ESSENTIAL_CONCEPTS = [
-            # Revenue concepts (in priority order)
-            'RevenueFromContractWithCustomerExcludingAssessedTax',
-            'SalesRevenueNet',
-            'Revenues',
-            # Cost concepts
-            'CostOfGoodsAndServicesSold',
-            'CostOfRevenue',
-            # Profit concepts
-            'GrossProfit',
-            'OperatingIncomeLoss',
-            'NetIncomeLoss',
-            # Earnings per share
-            'EarningsPerShareBasic',
-            'EarningsPerShareDiluted'
-        ]
-
-        # Revenue concepts for deduplication (in priority order)
-        REVENUE_CONCEPTS = [
-            'RevenueFromContractWithCustomerExcludingAssessedTax',
-            'SalesRevenueNet',
-            'Revenues'
-        ]
 
         # First, add the abstract root for structure
         for root_concept in virtual_tree.get('roots', []):
@@ -1257,53 +1975,77 @@ class EnhancedStatementBuilder:
                     # Clear children to rebuild with promoted concepts
                     item.children = []
 
-                    # Handle revenue deduplication first
+                    # Track what we've added to prevent duplicates
                     promoted_added = set()
+
+                    # Handle revenue deduplication (pick first available)
                     revenue_item = self._create_deduplicated_revenue_item(
-                        REVENUE_CONCEPTS, nodes, period_maps, periods, statement_type
+                        _REVENUE_CONCEPTS, nodes, period_maps, periods, statement_type
                     )
                     if revenue_item:
                         item.children.append(revenue_item)
-                        # Mark all revenue concepts as processed
-                        promoted_added.update(REVENUE_CONCEPTS)
+                        # Mark all revenue concepts as processed (including synonyms)
+                        promoted_added.update(_REVENUE_CONCEPTS)
 
-                    # Add other promoted concepts that have values
-                    for concept in ESSENTIAL_CONCEPTS:
-                        if concept not in promoted_added and concept in nodes:
-                            # Check if it has values in any period
-                            has_values = any(
-                                concept in period_maps[p] for p in periods
-                            )
+                    # Handle cost deduplication (pick first available, display as "Cost of Revenue")
+                    cost_item = self._create_deduplicated_concept_item(
+                        _COST_CONCEPTS, nodes, period_maps, periods, statement_type,
+                        display_label='Cost of Revenue'
+                    )
+                    if cost_item:
+                        item.children.append(cost_item)
+                        promoted_added.update(_COST_CONCEPTS)
+
+                    # Add profit concepts
+                    for concept in _PROFIT_CONCEPTS:
+                        if concept in nodes:
+                            has_values = any(concept in period_maps[p] for p in periods)
                             if has_values:
-                                promoted_item = self._build_canonical_item(
-                                    concept,
-                                    nodes,
-                                    period_maps,
-                                    periods,
-                                    depth=1,
-                                    statement_type=statement_type
+                                profit_item = self._build_canonical_item(
+                                    concept, nodes, period_maps, periods,
+                                    depth=1, statement_type=statement_type
                                 )
-                                if promoted_item:
-                                    # Override label for better display
-                                    if concept == 'CostOfGoodsAndServicesSold':
-                                        promoted_item.label = 'Cost of Revenue'
-
-                                    promoted_item.children = []  # Don't show deep hierarchy
-                                    item.children.append(promoted_item)
+                                if profit_item:
+                                    profit_item.children = []  # Don't show deep hierarchy
+                                    item.children.append(profit_item)
                                     promoted_added.add(concept)
 
-                    # Then add other important concepts not in essential list
+                    # Add EPS concepts individually (skip abstract parent)
+                    for concept in _EPS_CONCEPTS:
+                        if concept in nodes:
+                            has_values = any(concept in period_maps[p] for p in periods)
+                            if has_values:
+                                eps_item = self._build_canonical_item(
+                                    concept, nodes, period_maps, periods,
+                                    depth=1, statement_type=statement_type
+                                )
+                                if eps_item:
+                                    eps_item.children = []
+                                    item.children.append(eps_item)
+                                    promoted_added.add(concept)
+                    # Mark EPS abstract as processed to prevent duplicate section
+                    promoted_added.add('EarningsPerShareAbstract')
+
+                    # Then add other concepts from canonical tree that weren't promoted
                     for child_concept in nodes.get(root_concept, {}).get('children', []):
                         if child_concept not in promoted_added:
+                            # Skip abstract parents if all their children were already promoted
+                            if 'Abstract' in child_concept:
+                                child_children = nodes.get(child_concept, {}).get('children', [])
+                                if all(c in promoted_added for c in child_children):
+                                    promoted_added.add(child_concept)
+                                    continue
+
                             child_item = self._build_canonical_item(
-                                child_concept,
-                                nodes,
-                                period_maps,
-                                periods,
-                                depth=1,
-                                statement_type=statement_type
+                                child_concept, nodes, period_maps, periods,
+                                depth=1, statement_type=statement_type
                             )
                             if child_item:
+                                # Filter out any promoted concepts from children (recursive dedup)
+                                child_item.children = [
+                                    c for c in child_item.children
+                                    if c.concept not in promoted_added
+                                ]
                                 item.children.append(child_item)
 
                     items.append(item)
@@ -1324,6 +2066,43 @@ class EnhancedStatementBuilder:
                     items.append(item)
 
         return items
+
+    def _create_deduplicated_concept_item(self,
+                                         concepts: List[str],
+                                         nodes: Dict[str, Any],
+                                         period_maps: Dict[str, Dict[str, FinancialFact]],
+                                         periods: List[str],
+                                         statement_type: str,
+                                         display_label: Optional[str] = None) -> Optional[MultiPeriodItem]:
+        """
+        Create a single item from multiple synonym concepts, picking first available.
+
+        Args:
+            concepts: List of concept names in priority order
+            nodes: Virtual tree nodes
+            period_maps: Period to fact mapping
+            periods: List of periods
+            statement_type: Statement type
+            display_label: Optional label to use for display (overrides concept label)
+
+        Returns:
+            MultiPeriodItem for the first concept with values, or None
+        """
+        for concept in concepts:
+            if concept not in nodes:
+                continue
+            has_values = any(concept in period_maps[p] for p in periods)
+            if has_values:
+                item = self._build_canonical_item(
+                    concept, nodes, period_maps, periods,
+                    depth=1, statement_type=statement_type
+                )
+                if item:
+                    if display_label:
+                        item.label = display_label
+                    item.children = []  # Don't show deep hierarchy
+                    return item
+        return None
 
     def _create_deduplicated_revenue_item(self,
                                         revenue_concepts: List[str],
@@ -1442,7 +2221,7 @@ class EnhancedStatementBuilder:
                              period_maps: Dict[str, Dict[str, FinancialFact]],
                              periods: List[str],
                              depth: int = 0,
-                             statement_type: str = None) -> Optional[MultiPeriodItem]:
+                             statement_type: Optional[str] = None) -> Optional[MultiPeriodItem]:
         """Build a single canonical item with multi-period values."""
         node = nodes.get(concept, {})
 
@@ -1616,7 +2395,7 @@ class EnhancedStatementBuilder:
         concept_lower = concept.lower()
         return any(keyword.lower() in concept_lower for keyword in important_keywords)
 
-    def _is_total_concept(self, concept: str, label: str = None) -> bool:
+    def _is_total_concept(self, concept: str, label: Optional[str] = None) -> bool:
         """Determine if a concept represents a total."""
         indicators = ['total', 'net', 'gross', 'subtotal', 'aggregate']
         concept_lower = concept.lower()
@@ -1849,6 +2628,138 @@ class EnhancedStatementBuilder:
                 cleaned_items.append(cleaned_item)
 
         return cleaned_items
+
+    def _filter_empty_items(self, items: List[MultiPeriodItem]) -> List[MultiPeriodItem]:
+        """
+        Filter out items with no values and empty abstract sections.
+
+        This removes:
+        - Non-abstract items where all period values are None
+        - Abstract sections where all children have been filtered out
+        """
+        def item_has_values(item: MultiPeriodItem) -> bool:
+            """Check if item has any non-None values."""
+            return any(v is not None for v in item.values.values())
+
+        def filter_item(item: MultiPeriodItem) -> Optional[MultiPeriodItem]:
+            """Recursively filter an item and its children."""
+            # First, filter children
+            filtered_children = []
+            for child in item.children:
+                filtered_child = filter_item(child)
+                if filtered_child:
+                    filtered_children.append(filtered_child)
+
+            item.children = filtered_children
+
+            # For abstract items, keep only if they have children with values
+            if item.is_abstract:
+                if filtered_children:
+                    return item
+                else:
+                    return None
+
+            # For data items, keep if they have values OR children with values
+            if item_has_values(item) or filtered_children:
+                return item
+
+            return None
+
+        # Filter all top-level items
+        filtered_items = []
+        for item in items:
+            filtered_item = filter_item(item)
+            if filtered_item:
+                filtered_items.append(filtered_item)
+
+        return filtered_items
+
+    def _reorder_income_statement(self, items: List[MultiPeriodItem]) -> List[MultiPeriodItem]:
+        """
+        Reorder Income Statement items for logical flow.
+
+        Desired order:
+        1. Revenue
+        2. Cost of Revenue
+        3. Gross Profit (if present/calculated)
+        4. Operating Expenses
+        5. Operating Income
+        6. Other Income/Expense
+        7. Income Before Tax
+        8. Tax
+        9. Net Income
+        10. EPS
+        """
+        # Find the main abstract container
+        main_container = None
+        other_items = []
+
+        for item in items:
+            if item.is_abstract and 'Statement' in item.label and 'Abstract' in item.label:
+                main_container = item
+            else:
+                other_items.append(item)
+
+        if not main_container:
+            return items
+
+        # Define the preferred order of concepts
+        concept_order = [
+            # Revenue first
+            'RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues', 'SalesRevenueNet', 'TotalRevenue',
+            # Cost of Revenue
+            'CostOfGoodsAndServicesSold', 'CostOfRevenue',
+            # Gross Profit (calculated or actual)
+            'GrossProfit', 'GrossProfit_Calculated',
+            # Operating Expenses section
+            'OperatingExpensesAbstract', 'OperatingExpenses',
+            # Key expense items
+            'ResearchAndDevelopmentExpense', 'SellingGeneralAndAdministrativeExpense',
+            # Operating Income
+            'OperatingIncomeLoss',
+            # Other income/expense
+            'OtherNonoperatingIncomeExpense', 'NonoperatingIncomeExpense',
+            # Income before tax
+            'IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest',
+            # Tax
+            'IncomeTaxExpenseBenefit',
+            # Non-controlling interest
+            'NetIncomeLossAttributableToNoncontrollingInterest',
+            # Net Income
+            'NetIncomeLoss', 'NetIncomeLossAvailableToCommonStockholdersBasic',
+            # EPS
+            'EarningsPerShareBasic', 'EarningsPerShareDiluted',
+        ]
+
+        def get_sort_key(item: MultiPeriodItem) -> int:
+            """Get sort key for an item based on concept order."""
+            concept = item.concept or ''
+            try:
+                return concept_order.index(concept)
+            except ValueError:
+                # Unknown concepts go at the end, but before calculated items
+                if 'Calculated' in concept:
+                    return 900
+                return 800
+
+        # Sort children of main container
+        main_container.children.sort(key=get_sort_key)
+
+        # Move Gross Profit (Calculated) into main container if it's in other_items
+        new_other_items = []
+        for item in other_items:
+            if item.concept == 'GrossProfit_Calculated':
+                # Insert after Cost of Revenue in main container children
+                insert_idx = 0
+                for i, child in enumerate(main_container.children):
+                    if child.concept in ['CostOfGoodsAndServicesSold', 'CostOfRevenue']:
+                        insert_idx = i + 1
+                        break
+                main_container.children.insert(insert_idx, item)
+            else:
+                new_other_items.append(item)
+
+        return [main_container] + new_other_items
 
     def _should_aggregate_children(self, item: MultiPeriodItem) -> bool:
         """Determine if children should be aggregated for this parent."""

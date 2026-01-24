@@ -290,11 +290,16 @@ You can write Lambda functions to process data either from [Amazon MSK](https://
 * **maxBatchingWindow**: The maximum amount of time to gather records before invoking the lambda. This increases the likelihood of a full batch at the cost of possibly delaying processing.
 * **onFailure**: In the event a record fails and consumes all retries, the record will be sent to SQS queue or SNS topic that is specified here
 * **enabled**: If the Kafka event source mapping should be enabled. The default is true.
+* **bisectBatchOnError**: If a batch encounters an error, this will cause the batch to be split in two and have each new smaller batch retried, allowing the records in error to be isolated. Available in provisioned mode only.
+* **reportBatchItemFailures**: Allow functions to return partially successful responses for a batch of records. Available in provisioned mode only.
+* **retryAttempts**: The maximum number of times a record should be retried in the event of failure. Available in provisioned mode only.
+* **maxRecordAge**: The maximum age of a record that will be sent to the function for processing. Records that exceed the max age will be treated as failures. Available in provisioned mode only.
 
 The following code sets up Amazon MSK as an event source for a lambda function. Credentials will need to be configured to access the
 MSK cluster, as described in [Username/Password authentication](https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html).
 
 ```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
 from aws_cdk.aws_secretsmanager import Secret
 from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource
 
@@ -308,14 +313,21 @@ cluster_arn = "arn:aws:kafka:us-east-1:0123456789019:cluster/SalesCluster/abcd12
 topic = "some-cool-topic"
 
 # The secret that allows access to your MSK cluster
-# You still have to make sure that it is associated with your cluster as described in the documentation
 secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
 my_function.add_event_source(ManagedKafkaEventSource(
     cluster_arn=cluster_arn,
     topic=topic,
     secret=secret,
     batch_size=100,  # default
-    starting_position=lambda_.StartingPosition.TRIM_HORIZON
+    starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+    bisect_batch_on_error=True,
+    report_batch_item_failures=True,
+    retry_attempts=3,
+    max_record_age=Duration.hours(24),
+    provisioned_poller_config=ProvisionedPollerConfig(
+        minimum_pollers=1,
+        maximum_pollers=3
+    )
 ))
 ```
 
@@ -323,6 +335,7 @@ The following code sets up a self managed Kafka cluster as an event source. User
 will need to be set up as described in [Managing access and permissions](https://docs.aws.amazon.com/lambda/latest/dg/smaa-permissions.html#smaa-permissions-add-secret).
 
 ```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
 from aws_cdk.aws_secretsmanager import Secret
 from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource
 
@@ -346,7 +359,15 @@ my_function.add_event_source(SelfManagedKafkaEventSource(
     consumer_group_id=consumer_group_id,
     secret=secret,
     batch_size=100,  # default
-    starting_position=lambda_.StartingPosition.TRIM_HORIZON
+    starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+    bisect_batch_on_error=True,
+    report_batch_item_failures=True,
+    retry_attempts=3,
+    max_record_age=Duration.hours(24),
+    provisioned_poller_config=ProvisionedPollerConfig(
+        minimum_pollers=1,
+        maximum_pollers=3
+    )
 ))
 ```
 
@@ -408,6 +429,68 @@ my_function.add_event_source(ManagedKafkaEventSource(
 ))
 ```
 
+### Failure Destinations
+
+You can specify failure destinations for records that fail processing. Kafka event sources support Kafka Topic Destinations, S3 Bucket Destinations, SQS Queue and SNS topic:
+
+#### Kafka Topic Destination
+
+For Kafka event sources, you can send failed records to another Kafka topic using `KafkaDlq`:
+
+```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, KafkaDlq
+
+# my_function: lambda.Function
+
+
+# Your MSK cluster arn
+cluster_arn = "arn:aws:kafka:us-east-1:0123456789019:cluster/SalesCluster/abcd1234-abcd-cafe-abab-9876543210ab-4"
+
+# The Kafka topic you want to subscribe to
+topic = "some-cool-topic"
+
+# Create a Kafka DLQ destination
+kafka_dlq = KafkaDlq("failure-topic")
+
+my_function.add_event_source(ManagedKafkaEventSource(
+    cluster_arn=cluster_arn,
+    topic=topic,
+    starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+    on_failure=kafka_dlq,
+    provisioned_poller_config=ProvisionedPollerConfig(
+        minimum_pollers=1,
+        maximum_pollers=1
+    )
+))
+```
+
+The same approach works with self-managed Kafka:
+
+```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource, KafkaDlq
+
+# my_function: lambda.Function
+
+
+bootstrap_servers = ["kafka-broker:9092"]
+topic = "some-cool-topic"
+
+my_function.add_event_source(SelfManagedKafkaEventSource(
+    bootstrap_servers=bootstrap_servers,
+    topic=topic,
+    starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+    on_failure=KafkaDlq("error-topic"),
+    provisioned_poller_config=ProvisionedPollerConfig(
+        minimum_pollers=1,
+        maximum_pollers=1
+    )
+))
+```
+
+#### S3 Bucket Destination
+
 You can also specify an S3 bucket as an "on failure" destination:
 
 ```python
@@ -437,6 +520,7 @@ my_function.add_event_source(ManagedKafkaEventSource(
 Set configuration for provisioned pollers that read from the event source.
 
 ```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
 from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource
 
 # Your MSK cluster arn
@@ -458,9 +542,33 @@ my_function.add_event_source(ManagedKafkaEventSource(
 ))
 ```
 
+You can reduce costs by sharing provisioned pollers across multiple Kafka event sources using the `pollerGroupName` property. This is particularly useful when you have multiple Kafka topics that don't require dedicated polling capacity.
+
+```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource
+
+# cluster_arn: str
+# orders_function: lambda.Function
+
+
+# Orders processing function
+orders_function.add_event_source(ManagedKafkaEventSource(
+    cluster_arn=cluster_arn,
+    topic="orders-topic",
+    starting_position=lambda_.StartingPosition.LATEST,
+    provisioned_poller_config=ProvisionedPollerConfig(
+        minimum_pollers=2,
+        maximum_pollers=10,
+        poller_group_name="shared-kafka-pollers"
+    )
+))
+```
+
 Set a confluent or self-managed schema registry to de-serialize events from the event source. Note, this will similarly work for `SelfManagedKafkaEventSource` but the example only shows setup for `ManagedKafkaEventSource`.
 
 ```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
 from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, ConfluentSchemaRegistry
 from aws_cdk.aws_secretsmanager import Secret
 
@@ -495,6 +603,7 @@ my_function.add_event_source(ManagedKafkaEventSource(
 Set Glue schema registry to de-serialize events from the event source. Note, this will similarly work for `SelfManagedKafkaEventSource` but the example only shows setup for `ManagedKafkaEventSource`.
 
 ```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
 from aws_cdk.aws_glue import CfnRegistry
 from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, GlueSchemaRegistry
 
@@ -682,14 +791,14 @@ class ApiEventSource(
         *,
         api_key_required: typing.Optional[builtins.bool] = None,
         authorization_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        authorization_type: typing.Optional[_AuthorizationType_8e46d953] = None,
-        authorizer: typing.Optional[_IAuthorizer_9c92dd30] = None,
-        method_responses: typing.Optional[typing.Sequence[typing.Union[_MethodResponse_2d9c5559, typing.Dict[builtins.str, typing.Any]]]] = None,
+        authorization_type: typing.Optional["_AuthorizationType_8e46d953"] = None,
+        authorizer: typing.Optional["_IAuthorizer_9c92dd30"] = None,
+        method_responses: typing.Optional[typing.Sequence[typing.Union["_MethodResponse_2d9c5559", typing.Dict[builtins.str, typing.Any]]]] = None,
         operation_name: typing.Optional[builtins.str] = None,
-        request_models: typing.Optional[typing.Mapping[builtins.str, _IModel_4d53e528]] = None,
+        request_models: typing.Optional[typing.Mapping[builtins.str, "_IModel_4d53e528"]] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.bool]] = None,
-        request_validator: typing.Optional[_IRequestValidator_150f2ffb] = None,
-        request_validator_options: typing.Optional[typing.Union[_RequestValidatorOptions_a587c765, typing.Dict[builtins.str, typing.Any]]] = None,
+        request_validator: typing.Optional["_IRequestValidator_150f2ffb"] = None,
+        request_validator_options: typing.Optional[typing.Union["_RequestValidatorOptions_a587c765", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param method: -
@@ -725,7 +834,7 @@ class ApiEventSource(
         jsii.create(self.__class__, self, [method, path, options])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -738,7 +847,34 @@ class ApiEventSource(
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_lambda_event_sources.AuthenticationMethod")
 class AuthenticationMethod(enum.Enum):
-    '''The authentication method to use with SelfManagedKafkaEventSource.'''
+    '''The authentication method to use with SelfManagedKafkaEventSource.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+        from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource, AuthenticationMethod
+        from aws_cdk.aws_lambda import StartingPosition, Function
+        from aws_cdk.aws_secretsmanager import ISecret
+        
+        # With provisioned pollers and poller group for cost optimization
+        # my_function: Function
+        # kafka_credentials: ISecret
+        
+        my_function.add_event_source(SelfManagedKafkaEventSource(
+            bootstrap_servers=["kafka-broker1.example.com:9092", "kafka-broker2.example.com:9092"],
+            topic="events-topic",
+            secret=kafka_credentials,
+            starting_position=StartingPosition.LATEST,
+            authentication_method=AuthenticationMethod.SASL_SCRAM_512_AUTH,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=8,
+                poller_group_name="self-managed-kafka-group"
+            )
+        ))
+    '''
 
     SASL_SCRAM_512_AUTH = "SASL_SCRAM_512_AUTH"
     '''SASL_SCRAM_512_AUTH authentication method for your Kafka cluster.'''
@@ -765,10 +901,10 @@ class BaseStreamEventSourceProps:
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''The set of properties for streaming event sources shared by Dynamo, Kinesis and Kafka.
@@ -798,7 +934,10 @@ class BaseStreamEventSourceProps:
                 max_batching_window=cdk.Duration.minutes(30),
                 provisioned_poller_config=lambda_event_sources.ProvisionedPollerConfig(
                     maximum_pollers=123,
-                    minimum_pollers=123
+                    minimum_pollers=123,
+            
+                    # the properties below are optional
+                    poller_group_name="pollerGroupName"
                 )
             )
         '''
@@ -824,11 +963,11 @@ class BaseStreamEventSourceProps:
             self._values["provisioned_poller_config"] = provisioned_poller_config
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -860,7 +999,7 @@ class BaseStreamEventSourceProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -870,7 +1009,7 @@ class BaseStreamEventSourceProps:
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
@@ -907,6 +1046,7 @@ class ConfluentSchemaRegistry(
 
     Example::
 
+        from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
         from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, ConfluentSchemaRegistry
         from aws_cdk.aws_secretsmanager import Secret
         
@@ -941,11 +1081,11 @@ class ConfluentSchemaRegistry(
     def __init__(
         self,
         *,
-        authentication_type: _KafkaSchemaRegistryAccessConfigType_54686f72,
+        authentication_type: "_KafkaSchemaRegistryAccessConfigType_54686f72",
         schema_registry_uri: builtins.str,
-        secret: _ISecret_6e020e6a,
-        event_record_format: _EventRecordFormat_5b272ecb,
-        schema_validation_configs: typing.Sequence[typing.Union[_KafkaSchemaValidationConfig_7eaaa8d2, typing.Dict[builtins.str, typing.Any]]],
+        secret: "_ISecret_6e020e6a",
+        event_record_format: "_EventRecordFormat_5b272ecb",
+        schema_validation_configs: typing.Sequence[typing.Union["_KafkaSchemaValidationConfig_7eaaa8d2", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''
         :param authentication_type: The type of authentication for schema registry credentials. Default: none
@@ -967,9 +1107,9 @@ class ConfluentSchemaRegistry(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _target: _IEventSourceMapping_e216064e,
-        target_handler: _IFunction_6adb0ab8,
-    ) -> _KafkaSchemaRegistryConfig_6ad4a035:
+        _target: "_IEventSourceMapping_e216064e",
+        target_handler: "_IFunction_6adb0ab8",
+    ) -> "_KafkaSchemaRegistryConfig_6ad4a035":
         '''Returns a schema registry configuration.
 
         :param _target: -
@@ -979,7 +1119,7 @@ class ConfluentSchemaRegistry(
             type_hints = typing.get_type_hints(_typecheckingstub__8d5348f9a76f1dae8737185acaa12cdb48a690a1caca1d80c53f519d99022ff3)
             check_type(argname="argument _target", value=_target, expected_type=type_hints["_target"])
             check_type(argname="argument target_handler", value=target_handler, expected_type=type_hints["target_handler"])
-        return typing.cast(_KafkaSchemaRegistryConfig_6ad4a035, jsii.invoke(self, "bind", [_target, target_handler]))
+        return typing.cast("_KafkaSchemaRegistryConfig_6ad4a035", jsii.invoke(self, "bind", [_target, target_handler]))
 
 
 @jsii.data_type(
@@ -997,11 +1137,11 @@ class ConfluentSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
     def __init__(
         self,
         *,
-        event_record_format: _EventRecordFormat_5b272ecb,
-        schema_validation_configs: typing.Sequence[typing.Union[_KafkaSchemaValidationConfig_7eaaa8d2, typing.Dict[builtins.str, typing.Any]]],
-        authentication_type: _KafkaSchemaRegistryAccessConfigType_54686f72,
+        event_record_format: "_EventRecordFormat_5b272ecb",
+        schema_validation_configs: typing.Sequence[typing.Union["_KafkaSchemaValidationConfig_7eaaa8d2", typing.Dict[builtins.str, typing.Any]]],
+        authentication_type: "_KafkaSchemaRegistryAccessConfigType_54686f72",
         schema_registry_uri: builtins.str,
-        secret: _ISecret_6e020e6a,
+        secret: "_ISecret_6e020e6a",
     ) -> None:
         '''Properties for confluent schema registry configuration.
 
@@ -1015,6 +1155,7 @@ class ConfluentSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
 
         Example::
 
+            from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
             from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, ConfluentSchemaRegistry
             from aws_cdk.aws_secretsmanager import Secret
             
@@ -1061,7 +1202,7 @@ class ConfluentSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         }
 
     @builtins.property
-    def event_record_format(self) -> _EventRecordFormat_5b272ecb:
+    def event_record_format(self) -> "_EventRecordFormat_5b272ecb":
         '''The record format that Lambda delivers to your function after schema validation.
 
         - Choose JSON to have Lambda deliver the record to your function as a standard JSON object.
@@ -1071,29 +1212,29 @@ class ConfluentSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         '''
         result = self._values.get("event_record_format")
         assert result is not None, "Required property 'event_record_format' is missing"
-        return typing.cast(_EventRecordFormat_5b272ecb, result)
+        return typing.cast("_EventRecordFormat_5b272ecb", result)
 
     @builtins.property
     def schema_validation_configs(
         self,
-    ) -> typing.List[_KafkaSchemaValidationConfig_7eaaa8d2]:
+    ) -> typing.List["_KafkaSchemaValidationConfig_7eaaa8d2"]:
         '''An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
 
         :default: - none
         '''
         result = self._values.get("schema_validation_configs")
         assert result is not None, "Required property 'schema_validation_configs' is missing"
-        return typing.cast(typing.List[_KafkaSchemaValidationConfig_7eaaa8d2], result)
+        return typing.cast(typing.List["_KafkaSchemaValidationConfig_7eaaa8d2"], result)
 
     @builtins.property
-    def authentication_type(self) -> _KafkaSchemaRegistryAccessConfigType_54686f72:
+    def authentication_type(self) -> "_KafkaSchemaRegistryAccessConfigType_54686f72":
         '''The type of authentication for schema registry credentials.
 
         :default: none
         '''
         result = self._values.get("authentication_type")
         assert result is not None, "Required property 'authentication_type' is missing"
-        return typing.cast(_KafkaSchemaRegistryAccessConfigType_54686f72, result)
+        return typing.cast("_KafkaSchemaRegistryAccessConfigType_54686f72", result)
 
     @builtins.property
     def schema_registry_uri(self) -> builtins.str:
@@ -1106,14 +1247,14 @@ class ConfluentSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def secret(self) -> _ISecret_6e020e6a:
+    def secret(self) -> "_ISecret_6e020e6a":
         '''The secret with the schema registry credentials.
 
         :default: none
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
-        return typing.cast(_ISecret_6e020e6a, result)
+        return typing.cast("_ISecret_6e020e6a", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1138,6 +1279,7 @@ class GlueSchemaRegistry(
 
     Example::
 
+        from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
         from aws_cdk.aws_glue import CfnRegistry
         from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, GlueSchemaRegistry
         
@@ -1174,10 +1316,10 @@ class GlueSchemaRegistry(
     def __init__(
         self,
         *,
-        schema_registry: typing.Optional[_CfnRegistry_23d07cb1] = None,
+        schema_registry: typing.Optional["_CfnRegistry_23d07cb1"] = None,
         schema_registry_arn: typing.Optional[builtins.str] = None,
-        event_record_format: _EventRecordFormat_5b272ecb,
-        schema_validation_configs: typing.Sequence[typing.Union[_KafkaSchemaValidationConfig_7eaaa8d2, typing.Dict[builtins.str, typing.Any]]],
+        event_record_format: "_EventRecordFormat_5b272ecb",
+        schema_validation_configs: typing.Sequence[typing.Union["_KafkaSchemaValidationConfig_7eaaa8d2", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''
         :param schema_registry: The CfnRegistry reference of your glue schema registry. If used, schemaRegistryArn will be ignored. Default: - none
@@ -1197,9 +1339,9 @@ class GlueSchemaRegistry(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _target: _IEventSourceMapping_e216064e,
-        target_handler: _IFunction_6adb0ab8,
-    ) -> _KafkaSchemaRegistryConfig_6ad4a035:
+        _target: "_IEventSourceMapping_e216064e",
+        target_handler: "_IFunction_6adb0ab8",
+    ) -> "_KafkaSchemaRegistryConfig_6ad4a035":
         '''Returns a schema registry configuration.
 
         :param _target: -
@@ -1209,7 +1351,7 @@ class GlueSchemaRegistry(
             type_hints = typing.get_type_hints(_typecheckingstub__d5de9e032f7783cc4e1549b6e5a3006224e69e981247337c42785778236be680)
             check_type(argname="argument _target", value=_target, expected_type=type_hints["_target"])
             check_type(argname="argument target_handler", value=target_handler, expected_type=type_hints["target_handler"])
-        return typing.cast(_KafkaSchemaRegistryConfig_6ad4a035, jsii.invoke(self, "bind", [_target, target_handler]))
+        return typing.cast("_KafkaSchemaRegistryConfig_6ad4a035", jsii.invoke(self, "bind", [_target, target_handler]))
 
 
 @jsii.data_type(
@@ -1226,9 +1368,9 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
     def __init__(
         self,
         *,
-        event_record_format: _EventRecordFormat_5b272ecb,
-        schema_validation_configs: typing.Sequence[typing.Union[_KafkaSchemaValidationConfig_7eaaa8d2, typing.Dict[builtins.str, typing.Any]]],
-        schema_registry: typing.Optional[_CfnRegistry_23d07cb1] = None,
+        event_record_format: "_EventRecordFormat_5b272ecb",
+        schema_validation_configs: typing.Sequence[typing.Union["_KafkaSchemaValidationConfig_7eaaa8d2", typing.Dict[builtins.str, typing.Any]]],
+        schema_registry: typing.Optional["_CfnRegistry_23d07cb1"] = None,
         schema_registry_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for glue schema registry configuration.
@@ -1242,6 +1384,7 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
 
         Example::
 
+            from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
             from aws_cdk.aws_glue import CfnRegistry
             from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, GlueSchemaRegistry
             
@@ -1290,7 +1433,7 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
             self._values["schema_registry_arn"] = schema_registry_arn
 
     @builtins.property
-    def event_record_format(self) -> _EventRecordFormat_5b272ecb:
+    def event_record_format(self) -> "_EventRecordFormat_5b272ecb":
         '''The record format that Lambda delivers to your function after schema validation.
 
         - Choose JSON to have Lambda deliver the record to your function as a standard JSON object.
@@ -1300,22 +1443,22 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         '''
         result = self._values.get("event_record_format")
         assert result is not None, "Required property 'event_record_format' is missing"
-        return typing.cast(_EventRecordFormat_5b272ecb, result)
+        return typing.cast("_EventRecordFormat_5b272ecb", result)
 
     @builtins.property
     def schema_validation_configs(
         self,
-    ) -> typing.List[_KafkaSchemaValidationConfig_7eaaa8d2]:
+    ) -> typing.List["_KafkaSchemaValidationConfig_7eaaa8d2"]:
         '''An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
 
         :default: - none
         '''
         result = self._values.get("schema_validation_configs")
         assert result is not None, "Required property 'schema_validation_configs' is missing"
-        return typing.cast(typing.List[_KafkaSchemaValidationConfig_7eaaa8d2], result)
+        return typing.cast(typing.List["_KafkaSchemaValidationConfig_7eaaa8d2"], result)
 
     @builtins.property
-    def schema_registry(self) -> typing.Optional[_CfnRegistry_23d07cb1]:
+    def schema_registry(self) -> typing.Optional["_CfnRegistry_23d07cb1"]:
         '''The CfnRegistry reference of your glue schema registry.
 
         If used, schemaRegistryArn will be ignored.
@@ -1323,7 +1466,7 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         :default: - none
         '''
         result = self._values.get("schema_registry")
-        return typing.cast(typing.Optional[_CfnRegistry_23d07cb1], result)
+        return typing.cast(typing.Optional["_CfnRegistry_23d07cb1"], result)
 
     @builtins.property
     def schema_registry_arn(self) -> typing.Optional[builtins.str]:
@@ -1346,6 +1489,96 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         )
 
 
+@jsii.implements(_IEventSourceDlq_5e2c6ad9)
+class KafkaDlq(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda_event_sources.KafkaDlq",
+):
+    '''A Kafka topic dead letter queue destination configuration for a Lambda event source.
+
+    This destination can only be used with Kafka-based event sources (MSK and self-managed Kafka).
+    When used with other event source types, a validation error will be thrown.
+
+
+    Kafka URI Format
+
+    new KafkaDlq('my-topic');
+
+
+    Topic Naming Requirements
+
+    Kafka topic names must follow these rules:
+
+    - Only alphanumeric characters, dots (.), underscores (_), and hyphens (-) are allowed
+    - Cannot be empty
+    - Must be a valid Kafka topic name
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+        from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, KafkaDlq
+        
+        # my_function: lambda.Function
+        
+        
+        # Your MSK cluster arn
+        cluster_arn = "arn:aws:kafka:us-east-1:0123456789019:cluster/SalesCluster/abcd1234-abcd-cafe-abab-9876543210ab-4"
+        
+        # The Kafka topic you want to subscribe to
+        topic = "some-cool-topic"
+        
+        # Create a Kafka DLQ destination
+        kafka_dlq = KafkaDlq("failure-topic")
+        
+        my_function.add_event_source(ManagedKafkaEventSource(
+            cluster_arn=cluster_arn,
+            topic=topic,
+            starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+            on_failure=kafka_dlq,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=1
+            )
+        ))
+    '''
+
+    def __init__(self, topic_name: builtins.str) -> None:
+        '''Creates a new Kafka DLQ destination.
+
+        :param topic_name: -
+
+        :throws: {TypeError} When the topic name is empty or contains invalid characters
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__823fb97b6c05c9aa864c58959bc603e8afe5edd71496f98ac320f9c6ee6738ce)
+            check_type(argname="argument topic_name", value=topic_name, expected_type=type_hints["topic_name"])
+        jsii.create(self.__class__, self, [topic_name])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        _target: "_IEventSourceMapping_e216064e",
+        _target_handler: "_IFunction_6adb0ab8",
+    ) -> "_DlqDestinationConfig_5fe54cfa":
+        '''Returns a destination configuration for the DLQ.
+
+        The returned configuration is used in the AWS Lambda EventSourceMapping's DestinationConfig
+        to specify where failed records should be sent.
+
+        :param _target: -
+        :param _target_handler: -
+
+        :return: The DLQ destination configuration with the properly formatted Kafka URI
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3687a83a7d4c5a8f9aa8079fb7189397989e6b5e01b5cde590f8d8d293bfff63)
+            check_type(argname="argument _target", value=_target, expected_type=type_hints["_target"])
+            check_type(argname="argument _target_handler", value=_target_handler, expected_type=type_hints["_target_handler"])
+        return typing.cast("_DlqDestinationConfig_5fe54cfa", jsii.invoke(self, "bind", [_target, _target_handler]))
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.KafkaEventSourceProps",
     jsii_struct_bases=[BaseStreamEventSourceProps],
@@ -1356,10 +1589,14 @@ class GlueSchemaRegistryProps(_SchemaRegistryProps_5853aecb):
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
         "topic": "topic",
+        "bisect_batch_on_error": "bisectBatchOnError",
         "consumer_group_id": "consumerGroupId",
         "filter_encryption": "filterEncryption",
         "filters": "filters",
+        "max_record_age": "maxRecordAge",
         "on_failure": "onFailure",
+        "report_batch_item_failures": "reportBatchItemFailures",
+        "retry_attempts": "retryAttempts",
         "schema_registry_config": "schemaRegistryConfig",
         "secret": "secret",
         "starting_position_timestamp": "startingPositionTimestamp",
@@ -1369,18 +1606,22 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         topic: builtins.str,
+        bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
-        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
+        report_batch_item_failures: typing.Optional[builtins.bool] = None,
+        retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["_ISchemaRegistry_7e66a87f"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for a Kafka event source.
@@ -1391,10 +1632,14 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param topic: The Kafka topic to subscribe to.
+        :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
         :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
-        :param on_failure: Add an on Failure Destination for this Kafka event. SNS/SQS/S3 are supported Default: - discarded records are ignored
+        :param max_record_age: The maximum age of a record that Lambda sends to a function for processing. The default value is -1, which sets the maximum age to infinite. When the value is set to infinite, Lambda never discards old records. Record are valid until it expires in the event source. Default: -1
+        :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
+        :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -1423,6 +1668,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             
                 # the properties below are optional
                 batch_size=123,
+                bisect_batch_on_error=False,
                 consumer_group_id="consumerGroupId",
                 enabled=False,
                 filter_encryption=key,
@@ -1430,11 +1676,17 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
                     "filters_key": filters
                 }],
                 max_batching_window=cdk.Duration.minutes(30),
+                max_record_age=cdk.Duration.minutes(30),
                 on_failure=event_source_dlq,
                 provisioned_poller_config=lambda_event_sources.ProvisionedPollerConfig(
                     maximum_pollers=123,
-                    minimum_pollers=123
+                    minimum_pollers=123,
+            
+                    # the properties below are optional
+                    poller_group_name="pollerGroupName"
                 ),
+                report_batch_item_failures=False,
+                retry_attempts=123,
                 schema_registry_config=schema_registry,
                 secret=secret,
                 starting_position_timestamp=123
@@ -1450,10 +1702,14 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
+            check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
             check_type(argname="argument filter_encryption", value=filter_encryption, expected_type=type_hints["filter_encryption"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument max_record_age", value=max_record_age, expected_type=type_hints["max_record_age"])
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
+            check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
+            check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
@@ -1469,14 +1725,22 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if bisect_batch_on_error is not None:
+            self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if consumer_group_id is not None:
             self._values["consumer_group_id"] = consumer_group_id
         if filter_encryption is not None:
             self._values["filter_encryption"] = filter_encryption
         if filters is not None:
             self._values["filters"] = filters
+        if max_record_age is not None:
+            self._values["max_record_age"] = max_record_age
         if on_failure is not None:
             self._values["on_failure"] = on_failure
+        if report_batch_item_failures is not None:
+            self._values["report_batch_item_failures"] = report_batch_item_failures
+        if retry_attempts is not None:
+            self._values["retry_attempts"] = retry_attempts
         if schema_registry_config is not None:
             self._values["schema_registry_config"] = schema_registry_config
         if secret is not None:
@@ -1485,11 +1749,11 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             self._values["starting_position_timestamp"] = starting_position_timestamp
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -1521,7 +1785,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -1531,7 +1795,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
@@ -1553,6 +1817,15 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
+        '''- If the function returns an error, split the batch in two and retry.
+
+        :default: false
+        '''
+        result = self._values.get("bisect_batch_on_error")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
         '''The identifier for the Kafka consumer group to join.
 
@@ -1566,7 +1839,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -1574,7 +1847,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -1590,33 +1863,71 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_IEventSourceDlq_5e2c6ad9]:
+    def max_record_age(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The maximum age of a record that Lambda sends to a function for processing.
+
+        The default value is -1, which sets the maximum age to infinite.
+        When the value is set to infinite, Lambda never discards old records.
+        Record are valid until it expires in the event source.
+
+        :default: -1
+        '''
+        result = self._values.get("max_record_age")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def on_failure(self) -> typing.Optional["_IEventSourceDlq_5e2c6ad9"]:
         '''Add an on Failure Destination for this Kafka event.
 
-        SNS/SQS/S3 are supported
+        Supported destinations:
+
+        - {@link KafkaDlq } - Send failed records to a Kafka topic
+        - SNS topics - Send failed records to an SNS topic
+        - SQS queues - Send failed records to an SQS queue
+        - S3 buckets - Send failed records to an S3 bucket
 
         :default: - discarded records are ignored
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_IEventSourceDlq_5e2c6ad9], result)
+        return typing.cast(typing.Optional["_IEventSourceDlq_5e2c6ad9"], result)
 
     @builtins.property
-    def schema_registry_config(self) -> typing.Optional[_ISchemaRegistry_7e66a87f]:
+    def report_batch_item_failures(self) -> typing.Optional[builtins.bool]:
+        '''- Allow functions to return partially successful responses for a batch of records.
+
+        :default: false
+        '''
+        result = self._values.get("report_batch_item_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def retry_attempts(self) -> typing.Optional[jsii.Number]:
+        '''- Maximum number of retry attempts.
+
+        Set to -1 for infinite retries (until the record expires in the event source).
+
+        :default: -1 (infinite retries)
+        '''
+        result = self._values.get("retry_attempts")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schema_registry_config(self) -> typing.Optional["_ISchemaRegistry_7e66a87f"]:
         '''Specific configuration settings for a Kafka schema registry.
 
         :default: - none
         '''
         result = self._values.get("schema_registry_config")
-        return typing.cast(typing.Optional[_ISchemaRegistry_7e66a87f], result)
+        return typing.cast(typing.Optional["_ISchemaRegistry_7e66a87f"], result)
 
     @builtins.property
-    def secret(self) -> typing.Optional[_ISecret_6e020e6a]:
+    def secret(self) -> typing.Optional["_ISecret_6e020e6a"]:
         '''The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet.
 
         :default: none
         '''
         result = self._values.get("secret")
-        return typing.cast(typing.Optional[_ISecret_6e020e6a], result)
+        return typing.cast(typing.Optional["_ISecret_6e020e6a"], result)
 
     @builtins.property
     def starting_position_timestamp(self) -> typing.Optional[jsii.Number]:
@@ -1649,10 +1960,14 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
         "topic": "topic",
+        "bisect_batch_on_error": "bisectBatchOnError",
         "consumer_group_id": "consumerGroupId",
         "filter_encryption": "filterEncryption",
         "filters": "filters",
+        "max_record_age": "maxRecordAge",
         "on_failure": "onFailure",
+        "report_batch_item_failures": "reportBatchItemFailures",
+        "retry_attempts": "retryAttempts",
         "schema_registry_config": "schemaRegistryConfig",
         "secret": "secret",
         "starting_position_timestamp": "startingPositionTimestamp",
@@ -1663,18 +1978,22 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         topic: builtins.str,
+        bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
-        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
+        report_batch_item_failures: typing.Optional[builtins.bool] = None,
+        retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["_ISchemaRegistry_7e66a87f"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
         cluster_arn: builtins.str,
     ) -> None:
@@ -1686,10 +2005,14 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param topic: The Kafka topic to subscribe to.
+        :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
         :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
-        :param on_failure: Add an on Failure Destination for this Kafka event. SNS/SQS/S3 are supported Default: - discarded records are ignored
+        :param max_record_age: The maximum age of a record that Lambda sends to a function for processing. The default value is -1, which sets the maximum age to infinite. When the value is set to infinite, Lambda never discards old records. Record are valid until it expires in the event source. Default: -1
+        :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
+        :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -1699,8 +2022,8 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
 
         Example::
 
-            from aws_cdk.aws_secretsmanager import Secret
-            from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource
+            from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+            from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, KafkaDlq
             
             # my_function: lambda.Function
             
@@ -1711,15 +2034,18 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             # The Kafka topic you want to subscribe to
             topic = "some-cool-topic"
             
-            # The secret that allows access to your MSK cluster
-            # You still have to make sure that it is associated with your cluster as described in the documentation
-            secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
+            # Create a Kafka DLQ destination
+            kafka_dlq = KafkaDlq("failure-topic")
+            
             my_function.add_event_source(ManagedKafkaEventSource(
                 cluster_arn=cluster_arn,
                 topic=topic,
-                secret=secret,
-                batch_size=100,  # default
-                starting_position=lambda_.StartingPosition.TRIM_HORIZON
+                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+                on_failure=kafka_dlq,
+                provisioned_poller_config=ProvisionedPollerConfig(
+                    minimum_pollers=1,
+                    maximum_pollers=1
+                )
             ))
         '''
         if isinstance(provisioned_poller_config, dict):
@@ -1732,10 +2058,14 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
+            check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
             check_type(argname="argument filter_encryption", value=filter_encryption, expected_type=type_hints["filter_encryption"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument max_record_age", value=max_record_age, expected_type=type_hints["max_record_age"])
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
+            check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
+            check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
@@ -1753,14 +2083,22 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if bisect_batch_on_error is not None:
+            self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if consumer_group_id is not None:
             self._values["consumer_group_id"] = consumer_group_id
         if filter_encryption is not None:
             self._values["filter_encryption"] = filter_encryption
         if filters is not None:
             self._values["filters"] = filters
+        if max_record_age is not None:
+            self._values["max_record_age"] = max_record_age
         if on_failure is not None:
             self._values["on_failure"] = on_failure
+        if report_batch_item_failures is not None:
+            self._values["report_batch_item_failures"] = report_batch_item_failures
+        if retry_attempts is not None:
+            self._values["retry_attempts"] = retry_attempts
         if schema_registry_config is not None:
             self._values["schema_registry_config"] = schema_registry_config
         if secret is not None:
@@ -1769,11 +2107,11 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["starting_position_timestamp"] = starting_position_timestamp
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -1805,7 +2143,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -1815,7 +2153,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
@@ -1837,6 +2175,15 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
+        '''- If the function returns an error, split the batch in two and retry.
+
+        :default: false
+        '''
+        result = self._values.get("bisect_batch_on_error")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
         '''The identifier for the Kafka consumer group to join.
 
@@ -1850,7 +2197,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -1858,7 +2205,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -1874,33 +2221,71 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_IEventSourceDlq_5e2c6ad9]:
+    def max_record_age(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The maximum age of a record that Lambda sends to a function for processing.
+
+        The default value is -1, which sets the maximum age to infinite.
+        When the value is set to infinite, Lambda never discards old records.
+        Record are valid until it expires in the event source.
+
+        :default: -1
+        '''
+        result = self._values.get("max_record_age")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def on_failure(self) -> typing.Optional["_IEventSourceDlq_5e2c6ad9"]:
         '''Add an on Failure Destination for this Kafka event.
 
-        SNS/SQS/S3 are supported
+        Supported destinations:
+
+        - {@link KafkaDlq } - Send failed records to a Kafka topic
+        - SNS topics - Send failed records to an SNS topic
+        - SQS queues - Send failed records to an SQS queue
+        - S3 buckets - Send failed records to an S3 bucket
 
         :default: - discarded records are ignored
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_IEventSourceDlq_5e2c6ad9], result)
+        return typing.cast(typing.Optional["_IEventSourceDlq_5e2c6ad9"], result)
 
     @builtins.property
-    def schema_registry_config(self) -> typing.Optional[_ISchemaRegistry_7e66a87f]:
+    def report_batch_item_failures(self) -> typing.Optional[builtins.bool]:
+        '''- Allow functions to return partially successful responses for a batch of records.
+
+        :default: false
+        '''
+        result = self._values.get("report_batch_item_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def retry_attempts(self) -> typing.Optional[jsii.Number]:
+        '''- Maximum number of retry attempts.
+
+        Set to -1 for infinite retries (until the record expires in the event source).
+
+        :default: -1 (infinite retries)
+        '''
+        result = self._values.get("retry_attempts")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schema_registry_config(self) -> typing.Optional["_ISchemaRegistry_7e66a87f"]:
         '''Specific configuration settings for a Kafka schema registry.
 
         :default: - none
         '''
         result = self._values.get("schema_registry_config")
-        return typing.cast(typing.Optional[_ISchemaRegistry_7e66a87f], result)
+        return typing.cast(typing.Optional["_ISchemaRegistry_7e66a87f"], result)
 
     @builtins.property
-    def secret(self) -> typing.Optional[_ISecret_6e020e6a]:
+    def secret(self) -> typing.Optional["_ISecret_6e020e6a"]:
         '''The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet.
 
         :default: none
         '''
         result = self._values.get("secret")
-        return typing.cast(typing.Optional[_ISecret_6e020e6a], result)
+        return typing.cast(typing.Optional["_ISecret_6e020e6a"], result)
 
     @builtins.property
     def starting_position_timestamp(self) -> typing.Optional[jsii.Number]:
@@ -1936,6 +2321,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
     name_mapping={
         "maximum_pollers": "maximumPollers",
         "minimum_pollers": "minimumPollers",
+        "poller_group_name": "pollerGroupName",
     },
 )
 class ProvisionedPollerConfig:
@@ -1944,45 +2330,41 @@ class ProvisionedPollerConfig:
         *,
         maximum_pollers: jsii.Number,
         minimum_pollers: jsii.Number,
+        poller_group_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(Amazon MSK and self-managed Apache Kafka only) The provisioned mode configuration for the event source.
 
         :param maximum_pollers: The maximum number of pollers that can be provisioned. Default: 200
         :param minimum_pollers: The minimum number of pollers that should be provisioned. Default: 1
+        :param poller_group_name: An optional identifier that groups multiple ESMs to share EPU capacity and reduce costs. ESMs with the same PollerGroupName share compute resources. Default: - not set, dedicated compute resource per event source.
 
         :exampleMetadata: infused
 
         Example::
 
-            from aws_cdk.aws_glue import CfnRegistry
-            from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, GlueSchemaRegistry
-            
-            # Your MSK cluster arn
-            # cluster_arn: str
+            from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+            from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, KafkaDlq
             
             # my_function: lambda.Function
             
             
+            # Your MSK cluster arn
+            cluster_arn = "arn:aws:kafka:us-east-1:0123456789019:cluster/SalesCluster/abcd1234-abcd-cafe-abab-9876543210ab-4"
+            
             # The Kafka topic you want to subscribe to
             topic = "some-cool-topic"
             
-            # Your Glue Schema Registry
-            glue_registry = CfnRegistry(self, "Registry",
-                name="schema-registry",
-                description="Schema registry for event source"
-            )
+            # Create a Kafka DLQ destination
+            kafka_dlq = KafkaDlq("failure-topic")
+            
             my_function.add_event_source(ManagedKafkaEventSource(
                 cluster_arn=cluster_arn,
                 topic=topic,
                 starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+                on_failure=kafka_dlq,
                 provisioned_poller_config=ProvisionedPollerConfig(
                     minimum_pollers=1,
-                    maximum_pollers=3
-                ),
-                schema_registry_config=GlueSchemaRegistry(
-                    schema_registry=glue_registry,
-                    event_record_format=lambda_.EventRecordFormat.JSON,
-                    schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+                    maximum_pollers=1
                 )
             ))
         '''
@@ -1990,10 +2372,13 @@ class ProvisionedPollerConfig:
             type_hints = typing.get_type_hints(_typecheckingstub__52613c26f6551f26dae012e5cb997a9c6c981e7e4a8c59f252b025ef2acd28a7)
             check_type(argname="argument maximum_pollers", value=maximum_pollers, expected_type=type_hints["maximum_pollers"])
             check_type(argname="argument minimum_pollers", value=minimum_pollers, expected_type=type_hints["minimum_pollers"])
+            check_type(argname="argument poller_group_name", value=poller_group_name, expected_type=type_hints["poller_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "maximum_pollers": maximum_pollers,
             "minimum_pollers": minimum_pollers,
         }
+        if poller_group_name is not None:
+            self._values["poller_group_name"] = poller_group_name
 
     @builtins.property
     def maximum_pollers(self) -> jsii.Number:
@@ -2014,6 +2399,18 @@ class ProvisionedPollerConfig:
         result = self._values.get("minimum_pollers")
         assert result is not None, "Required property 'minimum_pollers' is missing"
         return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def poller_group_name(self) -> typing.Optional[builtins.str]:
+        '''An optional identifier that groups multiple ESMs to share EPU capacity and reduce costs.
+
+        ESMs with the same PollerGroupName share compute
+        resources.
+
+        :default: - not set, dedicated compute resource per event source.
+        '''
+        result = self._values.get("poller_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2052,10 +2449,10 @@ class S3EventSource(
 
     def __init__(
         self,
-        bucket: _Bucket_2d22f22c,
+        bucket: "_Bucket_2d22f22c",
         *,
-        events: typing.Sequence[_EventType_ef204dc6],
-        filters: typing.Optional[typing.Sequence[typing.Union[_NotificationKeyFilter_eba42084, typing.Dict[builtins.str, typing.Any]]]] = None,
+        events: typing.Sequence["_EventType_ef204dc6"],
+        filters: typing.Optional[typing.Sequence[typing.Union["_NotificationKeyFilter_eba42084", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param bucket: -
@@ -2070,7 +2467,7 @@ class S3EventSource(
         jsii.create(self.__class__, self, [bucket, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -2082,8 +2479,8 @@ class S3EventSource(
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
-    def bucket(self) -> _Bucket_2d22f22c:
-        return typing.cast(_Bucket_2d22f22c, jsii.get(self, "bucket"))
+    def bucket(self) -> "_Bucket_2d22f22c":
+        return typing.cast("_Bucket_2d22f22c", jsii.get(self, "bucket"))
 
 
 @jsii.data_type(
@@ -2095,8 +2492,8 @@ class S3EventSourceProps:
     def __init__(
         self,
         *,
-        events: typing.Sequence[_EventType_ef204dc6],
-        filters: typing.Optional[typing.Sequence[typing.Union[_NotificationKeyFilter_eba42084, typing.Dict[builtins.str, typing.Any]]]] = None,
+        events: typing.Sequence["_EventType_ef204dc6"],
+        filters: typing.Optional[typing.Sequence[typing.Union["_NotificationKeyFilter_eba42084", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param events: The s3 event types that will trigger the notification.
@@ -2129,14 +2526,16 @@ class S3EventSourceProps:
             self._values["filters"] = filters
 
     @builtins.property
-    def events(self) -> typing.List[_EventType_ef204dc6]:
+    def events(self) -> typing.List["_EventType_ef204dc6"]:
         '''The s3 event types that will trigger the notification.'''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
-        return typing.cast(typing.List[_EventType_ef204dc6], result)
+        return typing.cast(typing.List["_EventType_ef204dc6"], result)
 
     @builtins.property
-    def filters(self) -> typing.Optional[typing.List[_NotificationKeyFilter_eba42084]]:
+    def filters(
+        self,
+    ) -> typing.Optional[typing.List["_NotificationKeyFilter_eba42084"]]:
         '''S3 object key filter rules to determine which objects trigger this event.
 
         Each filter must include a ``prefix`` and/or ``suffix`` that will be matched
@@ -2144,7 +2543,7 @@ class S3EventSourceProps:
         about allowed filter rules.
         '''
         result = self._values.get("filters")
-        return typing.cast(typing.Optional[typing.List[_NotificationKeyFilter_eba42084]], result)
+        return typing.cast(typing.Optional[typing.List["_NotificationKeyFilter_eba42084"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2184,10 +2583,10 @@ class S3EventSourceV2(
 
     def __init__(
         self,
-        bucket: _IBucket_42e086fd,
+        bucket: "_IBucket_42e086fd",
         *,
-        events: typing.Sequence[_EventType_ef204dc6],
-        filters: typing.Optional[typing.Sequence[typing.Union[_NotificationKeyFilter_eba42084, typing.Dict[builtins.str, typing.Any]]]] = None,
+        events: typing.Sequence["_EventType_ef204dc6"],
+        filters: typing.Optional[typing.Sequence[typing.Union["_NotificationKeyFilter_eba42084", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param bucket: -
@@ -2202,7 +2601,7 @@ class S3EventSourceV2(
         jsii.create(self.__class__, self, [bucket, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -2247,7 +2646,7 @@ class S3OnFailureDestination(
         ))
     '''
 
-    def __init__(self, bucket: _IBucket_42e086fd) -> None:
+    def __init__(self, bucket: "_IBucket_42e086fd") -> None:
         '''
         :param bucket: -
         '''
@@ -2259,9 +2658,9 @@ class S3OnFailureDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _target: _IEventSourceMapping_e216064e,
-        target_handler: _IFunction_6adb0ab8,
-    ) -> _DlqDestinationConfig_5fe54cfa:
+        _target: "_IEventSourceMapping_e216064e",
+        target_handler: "_IFunction_6adb0ab8",
+    ) -> "_DlqDestinationConfig_5fe54cfa":
         '''Returns a destination configuration for the DLQ.
 
         :param _target: -
@@ -2271,7 +2670,7 @@ class S3OnFailureDestination(
             type_hints = typing.get_type_hints(_typecheckingstub__ed74f959af3cc18fd86e892f9b5cbb3d2c7a862ab15b0750992d59c441bf5fe1)
             check_type(argname="argument _target", value=_target, expected_type=type_hints["_target"])
             check_type(argname="argument target_handler", value=target_handler, expected_type=type_hints["target_handler"])
-        return typing.cast(_DlqDestinationConfig_5fe54cfa, jsii.invoke(self, "bind", [_target, target_handler]))
+        return typing.cast("_DlqDestinationConfig_5fe54cfa", jsii.invoke(self, "bind", [_target, target_handler]))
 
 
 @jsii.data_type(
@@ -2284,10 +2683,14 @@ class S3OnFailureDestination(
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
         "topic": "topic",
+        "bisect_batch_on_error": "bisectBatchOnError",
         "consumer_group_id": "consumerGroupId",
         "filter_encryption": "filterEncryption",
         "filters": "filters",
+        "max_record_age": "maxRecordAge",
         "on_failure": "onFailure",
+        "report_batch_item_failures": "reportBatchItemFailures",
+        "retry_attempts": "retryAttempts",
         "schema_registry_config": "schemaRegistryConfig",
         "secret": "secret",
         "starting_position_timestamp": "startingPositionTimestamp",
@@ -2303,25 +2706,29 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         topic: builtins.str,
+        bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
-        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
+        report_batch_item_failures: typing.Optional[builtins.bool] = None,
+        retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["_ISchemaRegistry_7e66a87f"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
         bootstrap_servers: typing.Sequence[builtins.str],
-        authentication_method: typing.Optional[AuthenticationMethod] = None,
-        root_ca_certificate: typing.Optional[_ISecret_6e020e6a] = None,
-        security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        authentication_method: typing.Optional["AuthenticationMethod"] = None,
+        root_ca_certificate: typing.Optional["_ISecret_6e020e6a"] = None,
+        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties for a self managed Kafka cluster event source.
 
@@ -2333,10 +2740,14 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param topic: The Kafka topic to subscribe to.
+        :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
         :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
-        :param on_failure: Add an on Failure Destination for this Kafka event. SNS/SQS/S3 are supported Default: - discarded records are ignored
+        :param max_record_age: The maximum age of a record that Lambda sends to a function for processing. The default value is -1, which sets the maximum age to infinite. When the value is set to infinite, Lambda never discards old records. Record are valid until it expires in the event source. Default: -1
+        :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
+        :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -2351,30 +2762,26 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
 
         Example::
 
-            from aws_cdk.aws_secretsmanager import Secret
-            from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource
+            from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+            from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource, AuthenticationMethod
+            from aws_cdk.aws_lambda import StartingPosition, Function
+            from aws_cdk.aws_secretsmanager import ISecret
             
-            # The secret that allows access to your self hosted Kafka cluster
-            # secret: Secret
+            # With provisioned pollers and poller group for cost optimization
+            # my_function: Function
+            # kafka_credentials: ISecret
             
-            # my_function: lambda.Function
-            
-            
-            # The list of Kafka brokers
-            bootstrap_servers = ["kafka-broker:9092"]
-            
-            # The Kafka topic you want to subscribe to
-            topic = "some-cool-topic"
-            
-            # (Optional) The consumer group id to use when connecting to the Kafka broker. If omitted the UUID of the event source mapping will be used.
-            consumer_group_id = "my-consumer-group-id"
             my_function.add_event_source(SelfManagedKafkaEventSource(
-                bootstrap_servers=bootstrap_servers,
-                topic=topic,
-                consumer_group_id=consumer_group_id,
-                secret=secret,
-                batch_size=100,  # default
-                starting_position=lambda_.StartingPosition.TRIM_HORIZON
+                bootstrap_servers=["kafka-broker1.example.com:9092", "kafka-broker2.example.com:9092"],
+                topic="events-topic",
+                secret=kafka_credentials,
+                starting_position=StartingPosition.LATEST,
+                authentication_method=AuthenticationMethod.SASL_SCRAM_512_AUTH,
+                provisioned_poller_config=ProvisionedPollerConfig(
+                    minimum_pollers=1,
+                    maximum_pollers=8,
+                    poller_group_name="self-managed-kafka-group"
+                )
             ))
         '''
         if isinstance(provisioned_poller_config, dict):
@@ -2389,10 +2796,14 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
+            check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
             check_type(argname="argument filter_encryption", value=filter_encryption, expected_type=type_hints["filter_encryption"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument max_record_age", value=max_record_age, expected_type=type_hints["max_record_age"])
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
+            check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
+            check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
@@ -2415,14 +2826,22 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if bisect_batch_on_error is not None:
+            self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if consumer_group_id is not None:
             self._values["consumer_group_id"] = consumer_group_id
         if filter_encryption is not None:
             self._values["filter_encryption"] = filter_encryption
         if filters is not None:
             self._values["filters"] = filters
+        if max_record_age is not None:
+            self._values["max_record_age"] = max_record_age
         if on_failure is not None:
             self._values["on_failure"] = on_failure
+        if report_batch_item_failures is not None:
+            self._values["report_batch_item_failures"] = report_batch_item_failures
+        if retry_attempts is not None:
+            self._values["retry_attempts"] = retry_attempts
         if schema_registry_config is not None:
             self._values["schema_registry_config"] = schema_registry_config
         if secret is not None:
@@ -2441,11 +2860,11 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -2477,7 +2896,7 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -2487,10 +2906,10 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def provisioned_poller_config(self) -> typing.Optional[ProvisionedPollerConfig]:
+    def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
         '''Configuration for provisioned pollers that read from the event source.
 
         When specified, allows control over the minimum and maximum number of pollers
@@ -2499,7 +2918,7 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :default: - no provisioned pollers
         '''
         result = self._values.get("provisioned_poller_config")
-        return typing.cast(typing.Optional[ProvisionedPollerConfig], result)
+        return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
     def topic(self) -> builtins.str:
@@ -2507,6 +2926,15 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
+        '''- If the function returns an error, split the batch in two and retry.
+
+        :default: false
+        '''
+        result = self._values.get("bisect_batch_on_error")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
@@ -2522,7 +2950,7 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -2530,7 +2958,7 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -2546,33 +2974,71 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_IEventSourceDlq_5e2c6ad9]:
+    def max_record_age(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The maximum age of a record that Lambda sends to a function for processing.
+
+        The default value is -1, which sets the maximum age to infinite.
+        When the value is set to infinite, Lambda never discards old records.
+        Record are valid until it expires in the event source.
+
+        :default: -1
+        '''
+        result = self._values.get("max_record_age")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def on_failure(self) -> typing.Optional["_IEventSourceDlq_5e2c6ad9"]:
         '''Add an on Failure Destination for this Kafka event.
 
-        SNS/SQS/S3 are supported
+        Supported destinations:
+
+        - {@link KafkaDlq } - Send failed records to a Kafka topic
+        - SNS topics - Send failed records to an SNS topic
+        - SQS queues - Send failed records to an SQS queue
+        - S3 buckets - Send failed records to an S3 bucket
 
         :default: - discarded records are ignored
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_IEventSourceDlq_5e2c6ad9], result)
+        return typing.cast(typing.Optional["_IEventSourceDlq_5e2c6ad9"], result)
 
     @builtins.property
-    def schema_registry_config(self) -> typing.Optional[_ISchemaRegistry_7e66a87f]:
+    def report_batch_item_failures(self) -> typing.Optional[builtins.bool]:
+        '''- Allow functions to return partially successful responses for a batch of records.
+
+        :default: false
+        '''
+        result = self._values.get("report_batch_item_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def retry_attempts(self) -> typing.Optional[jsii.Number]:
+        '''- Maximum number of retry attempts.
+
+        Set to -1 for infinite retries (until the record expires in the event source).
+
+        :default: -1 (infinite retries)
+        '''
+        result = self._values.get("retry_attempts")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schema_registry_config(self) -> typing.Optional["_ISchemaRegistry_7e66a87f"]:
         '''Specific configuration settings for a Kafka schema registry.
 
         :default: - none
         '''
         result = self._values.get("schema_registry_config")
-        return typing.cast(typing.Optional[_ISchemaRegistry_7e66a87f], result)
+        return typing.cast(typing.Optional["_ISchemaRegistry_7e66a87f"], result)
 
     @builtins.property
-    def secret(self) -> typing.Optional[_ISecret_6e020e6a]:
+    def secret(self) -> typing.Optional["_ISecret_6e020e6a"]:
         '''The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet.
 
         :default: none
         '''
         result = self._values.get("secret")
-        return typing.cast(typing.Optional[_ISecret_6e020e6a], result)
+        return typing.cast(typing.Optional["_ISecret_6e020e6a"], result)
 
     @builtins.property
     def starting_position_timestamp(self) -> typing.Optional[jsii.Number]:
@@ -2594,49 +3060,49 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def authentication_method(self) -> typing.Optional[AuthenticationMethod]:
+    def authentication_method(self) -> typing.Optional["AuthenticationMethod"]:
         '''The authentication method for your Kafka cluster.
 
         :default: AuthenticationMethod.SASL_SCRAM_512_AUTH
         '''
         result = self._values.get("authentication_method")
-        return typing.cast(typing.Optional[AuthenticationMethod], result)
+        return typing.cast(typing.Optional["AuthenticationMethod"], result)
 
     @builtins.property
-    def root_ca_certificate(self) -> typing.Optional[_ISecret_6e020e6a]:
+    def root_ca_certificate(self) -> typing.Optional["_ISecret_6e020e6a"]:
         '''The secret with the root CA certificate used by your Kafka brokers for TLS encryption This field is required if your Kafka brokers use certificates signed by a private CA.
 
         :default: - none
         '''
         result = self._values.get("root_ca_certificate")
-        return typing.cast(typing.Optional[_ISecret_6e020e6a], result)
+        return typing.cast(typing.Optional["_ISecret_6e020e6a"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional[_ISecurityGroup_acf8a799]:
+    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
         '''If your Kafka brokers are only reachable via VPC, provide the security group here.
 
         :default: - none, required if setting vpc
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional[_ISecurityGroup_acf8a799], result)
+        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_IVpc_f30d5663]:
+    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
         '''If your Kafka brokers are only reachable via VPC provide the VPC here.
 
         :default: none
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_IVpc_f30d5663], result)
+        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''If your Kafka brokers are only reachable via VPC, provide the subnets selection here.
 
         :default: - none, required if setting vpc
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2671,7 +3137,7 @@ class SnsDlq(
         sns_dlq = lambda_event_sources.SnsDlq(topic)
     '''
 
-    def __init__(self, topic: _ITopic_9eca4852) -> None:
+    def __init__(self, topic: "_ITopic_9eca4852") -> None:
         '''
         :param topic: -
         '''
@@ -2683,9 +3149,9 @@ class SnsDlq(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _target: _IEventSourceMapping_e216064e,
-        target_handler: _IFunction_6adb0ab8,
-    ) -> _DlqDestinationConfig_5fe54cfa:
+        _target: "_IEventSourceMapping_e216064e",
+        target_handler: "_IFunction_6adb0ab8",
+    ) -> "_DlqDestinationConfig_5fe54cfa":
         '''Returns a destination configuration for the DLQ.
 
         :param _target: -
@@ -2695,7 +3161,7 @@ class SnsDlq(
             type_hints = typing.get_type_hints(_typecheckingstub__5a4899c9b6e98a265af4f5064591162ec9bd012aafd022427cecb6b1504f09aa)
             check_type(argname="argument _target", value=_target, expected_type=type_hints["_target"])
             check_type(argname="argument target_handler", value=target_handler, expected_type=type_hints["target_handler"])
-        return typing.cast(_DlqDestinationConfig_5fe54cfa, jsii.invoke(self, "bind", [_target, target_handler]))
+        return typing.cast("_DlqDestinationConfig_5fe54cfa", jsii.invoke(self, "bind", [_target, target_handler]))
 
 
 @jsii.implements(_IEventSource_3686b3f8)
@@ -2725,11 +3191,11 @@ class SnsEventSource(
 
     def __init__(
         self,
-        topic: _ITopic_9eca4852,
+        topic: "_ITopic_9eca4852",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
     ) -> None:
         '''
         :param topic: -
@@ -2749,7 +3215,7 @@ class SnsEventSource(
         jsii.create(self.__class__, self, [topic, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -2761,8 +3227,8 @@ class SnsEventSource(
 
     @builtins.property
     @jsii.member(jsii_name="topic")
-    def topic(self) -> _ITopic_9eca4852:
-        return typing.cast(_ITopic_9eca4852, jsii.get(self, "topic"))
+    def topic(self) -> "_ITopic_9eca4852":
+        return typing.cast("_ITopic_9eca4852", jsii.get(self, "topic"))
 
 
 @jsii.data_type(
@@ -2778,9 +3244,9 @@ class SnsEventSourceProps(_LambdaSubscriptionProps_3c30ead1):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        filter_policy: typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]] = None,
-        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        filter_policy: typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]] = None,
+        filter_policy_with_message_body: typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]] = None,
     ) -> None:
         '''Properties forwarded to the Lambda Subscription.
 
@@ -2819,7 +3285,7 @@ class SnsEventSourceProps(_LambdaSubscriptionProps_3c30ead1):
             self._values["filter_policy_with_message_body"] = filter_policy_with_message_body
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''Queue to be used as dead letter queue.
 
         If not passed no dead letter queue is enabled.
@@ -2827,23 +3293,23 @@ class SnsEventSourceProps(_LambdaSubscriptionProps_3c30ead1):
         :default: - No dead letter queue enabled.
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
     def filter_policy(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]]:
         '''The filter policy.
 
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _SubscriptionFilter_8e774360]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SubscriptionFilter_8e774360"]], result)
 
     @builtins.property
     def filter_policy_with_message_body(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]]:
         '''The filter policy that is applied on the message body.
 
         To apply a filter policy to the message attributes, use ``filterPolicy``. A maximum of one of ``filterPolicyWithMessageBody`` and ``filterPolicy`` may be used.
@@ -2851,7 +3317,7 @@ class SnsEventSourceProps(_LambdaSubscriptionProps_3c30ead1):
         :default: - all messages are delivered
         '''
         result = self._values.get("filter_policy_with_message_body")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _FilterOrPolicy_ad79be59]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_FilterOrPolicy_ad79be59"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2894,7 +3360,7 @@ class SqsDlq(
         ))
     '''
 
-    def __init__(self, queue: _IQueue_7ed6f679) -> None:
+    def __init__(self, queue: "_IQueue_7ed6f679") -> None:
         '''
         :param queue: -
         '''
@@ -2906,9 +3372,9 @@ class SqsDlq(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _target: _IEventSourceMapping_e216064e,
-        target_handler: _IFunction_6adb0ab8,
-    ) -> _DlqDestinationConfig_5fe54cfa:
+        _target: "_IEventSourceMapping_e216064e",
+        target_handler: "_IFunction_6adb0ab8",
+    ) -> "_DlqDestinationConfig_5fe54cfa":
         '''Returns a destination configuration for the DLQ.
 
         :param _target: -
@@ -2918,7 +3384,7 @@ class SqsDlq(
             type_hints = typing.get_type_hints(_typecheckingstub__91f9a9f92606b4cc4bf6fa7c800b430ae7ec8bb3a1758fbbe8dcb7b441750b27)
             check_type(argname="argument _target", value=_target, expected_type=type_hints["_target"])
             check_type(argname="argument target_handler", value=target_handler, expected_type=type_hints["target_handler"])
-        return typing.cast(_DlqDestinationConfig_5fe54cfa, jsii.invoke(self, "bind", [_target, target_handler]))
+        return typing.cast("_DlqDestinationConfig_5fe54cfa", jsii.invoke(self, "bind", [_target, target_handler]))
 
 
 @jsii.implements(_IEventSource_3686b3f8)
@@ -2943,15 +3409,15 @@ class SqsEventSource(
 
     def __init__(
         self,
-        queue: _IQueue_7ed6f679,
+        queue: "_IQueue_7ed6f679",
         *,
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         max_concurrency: typing.Optional[jsii.Number] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -2982,7 +3448,7 @@ class SqsEventSource(
         jsii.create(self.__class__, self, [queue, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -3006,8 +3472,8 @@ class SqsEventSource(
 
     @builtins.property
     @jsii.member(jsii_name="queue")
-    def queue(self) -> _IQueue_7ed6f679:
-        return typing.cast(_IQueue_7ed6f679, jsii.get(self, "queue"))
+    def queue(self) -> "_IQueue_7ed6f679":
+        return typing.cast("_IQueue_7ed6f679", jsii.get(self, "queue"))
 
 
 @jsii.data_type(
@@ -3030,11 +3496,11 @@ class SqsEventSourceProps:
         *,
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         max_concurrency: typing.Optional[jsii.Number] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -3120,7 +3586,7 @@ class SqsEventSourceProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -3128,7 +3594,7 @@ class SqsEventSourceProps:
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -3142,7 +3608,7 @@ class SqsEventSourceProps:
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Valid Range: Minimum value of 0 minutes. Maximum value of 5 minutes.
@@ -3150,7 +3616,7 @@ class SqsEventSourceProps:
         :default: - no batching window. The lambda function will be invoked immediately with the records that are available.
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def max_concurrency(self) -> typing.Optional[jsii.Number]:
@@ -3168,13 +3634,13 @@ class SqsEventSourceProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def metrics_config(self) -> typing.Optional[_MetricsConfig_48ab59c4]:
+    def metrics_config(self) -> typing.Optional["_MetricsConfig_48ab59c4"]:
         '''Configuration for enhanced monitoring metrics collection When specified, enables collection of additional metrics for the stream event source.
 
         :default: - Enhanced monitoring is disabled
         '''
         result = self._values.get("metrics_config")
-        return typing.cast(typing.Optional[_MetricsConfig_48ab59c4], result)
+        return typing.cast(typing.Optional["_MetricsConfig_48ab59c4"], result)
 
     @builtins.property
     def report_batch_item_failures(self) -> typing.Optional[builtins.bool]:
@@ -3210,20 +3676,20 @@ class StreamEventSource(
         self,
         *,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
-        starting_position: _StartingPosition_c0a4852c,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param bisect_batch_on_error: If the function returns an error, split the batch in two and retry. Default: false
@@ -3264,7 +3730,7 @@ class StreamEventSource(
 
     @jsii.member(jsii_name="bind")
     @abc.abstractmethod
-    def bind(self, _target: _IFunction_6adb0ab8) -> None:
+    def bind(self, _target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param _target: -
@@ -3279,27 +3745,27 @@ class StreamEventSource(
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         event_source_arn: typing.Optional[builtins.str] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         max_concurrency: typing.Optional[jsii.Number] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[_ProvisionedPollerConfig_1025e063, typing.Dict[builtins.str, typing.Any]]] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["_ProvisionedPollerConfig_1025e063", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
-        source_access_configurations: typing.Optional[typing.Sequence[typing.Union[_SourceAccessConfiguration_1926ff89, typing.Dict[builtins.str, typing.Any]]]] = None,
-        starting_position: typing.Optional[_StartingPosition_c0a4852c] = None,
+        schema_registry_config: typing.Optional["_ISchemaRegistry_7e66a87f"] = None,
+        source_access_configurations: typing.Optional[typing.Sequence[typing.Union["_SourceAccessConfiguration_1926ff89", typing.Dict[builtins.str, typing.Any]]]] = None,
+        starting_position: typing.Optional["_StartingPosition_c0a4852c"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
         support_s3_on_failure_destination: typing.Optional[builtins.bool] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
-    ) -> _EventSourceMappingOptions_b3f2bb85:
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> "_EventSourceMappingOptions_b3f2bb85":
         '''
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: Minimum value of 1. Maximum value of 10000. Default: - Amazon Kinesis, Amazon DynamoDB, and Amazon MSK is 100 records. The default for Amazon SQS is 10 messages. For standard SQS queues, the maximum is 10,000. For FIFO SQS queues, the maximum is 10.
         :param bisect_batch_on_error: If the function returns an error, split the batch in two and retry. Default: false
@@ -3353,7 +3819,7 @@ class StreamEventSource(
             tumbling_window=tumbling_window,
         )
 
-        return typing.cast(_EventSourceMappingOptions_b3f2bb85, jsii.invoke(self, "enrichMappingOptions", [options]))
+        return typing.cast("_EventSourceMappingOptions_b3f2bb85", jsii.invoke(self, "enrichMappingOptions", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="props")
@@ -3363,7 +3829,7 @@ class StreamEventSource(
 
 class _StreamEventSourceProxy(StreamEventSource):
     @jsii.member(jsii_name="bind")
-    def bind(self, _target: _IFunction_6adb0ab8) -> None:
+    def bind(self, _target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param _target: -
@@ -3402,21 +3868,21 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''The set of properties for streaming event sources shared by Dynamo and Kinesis.
 
@@ -3471,7 +3937,10 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
                 parallelization_factor=123,
                 provisioned_poller_config=lambda_event_sources.ProvisionedPollerConfig(
                     maximum_pollers=123,
-                    minimum_pollers=123
+                    minimum_pollers=123,
+            
+                    # the properties below are optional
+                    poller_group_name="pollerGroupName"
                 ),
                 report_batch_item_failures=False,
                 retry_attempts=123,
@@ -3532,11 +4001,11 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
             self._values["tumbling_window"] = tumbling_window
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -3568,7 +4037,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -3578,10 +4047,10 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def provisioned_poller_config(self) -> typing.Optional[ProvisionedPollerConfig]:
+    def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
         '''Configuration for provisioned pollers that read from the event source.
 
         When specified, allows control over the minimum and maximum number of pollers
@@ -3590,7 +4059,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         :default: - no provisioned pollers
         '''
         result = self._values.get("provisioned_poller_config")
-        return typing.cast(typing.Optional[ProvisionedPollerConfig], result)
+        return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
     def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
@@ -3602,7 +4071,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -3610,7 +4079,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -3624,7 +4093,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def max_record_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_record_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a record that Lambda sends to a function for processing.
 
         Valid Range:
@@ -3639,25 +4108,25 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         :default: -1
         '''
         result = self._values.get("max_record_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def metrics_config(self) -> typing.Optional[_MetricsConfig_48ab59c4]:
+    def metrics_config(self) -> typing.Optional["_MetricsConfig_48ab59c4"]:
         '''Configuration for enhanced monitoring metrics collection When specified, enables collection of additional metrics for the stream event source.
 
         :default: - Enhanced monitoring is disabled
         '''
         result = self._values.get("metrics_config")
-        return typing.cast(typing.Optional[_MetricsConfig_48ab59c4], result)
+        return typing.cast(typing.Optional["_MetricsConfig_48ab59c4"], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_IEventSourceDlq_5e2c6ad9]:
+    def on_failure(self) -> typing.Optional["_IEventSourceDlq_5e2c6ad9"]:
         '''An Amazon S3, Amazon SQS queue or Amazon SNS topic destination for discarded records.
 
         :default: - discarded records are ignored
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_IEventSourceDlq_5e2c6ad9], result)
+        return typing.cast(typing.Optional["_IEventSourceDlq_5e2c6ad9"], result)
 
     @builtins.property
     def parallelization_factor(self) -> typing.Optional[jsii.Number]:
@@ -3698,13 +4167,13 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tumbling_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def tumbling_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes.
 
         :default: - None
         '''
         result = self._values.get("tumbling_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3752,23 +4221,23 @@ class DynamoEventSource(
 
     def __init__(
         self,
-        table: _ITable_504fd401,
+        table: "_ITable_504fd401",
         *,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
-        starting_position: _StartingPosition_c0a4852c,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param table: -
@@ -3812,7 +4281,7 @@ class DynamoEventSource(
         jsii.create(self.__class__, self, [table, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -3860,21 +4329,21 @@ class DynamoEventSourceProps(StreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
         :param starting_position: Where to begin consuming the stream.
@@ -3971,11 +4440,11 @@ class DynamoEventSourceProps(StreamEventSourceProps):
             self._values["tumbling_window"] = tumbling_window
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -4007,7 +4476,7 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -4017,10 +4486,10 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def provisioned_poller_config(self) -> typing.Optional[ProvisionedPollerConfig]:
+    def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
         '''Configuration for provisioned pollers that read from the event source.
 
         When specified, allows control over the minimum and maximum number of pollers
@@ -4029,7 +4498,7 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         :default: - no provisioned pollers
         '''
         result = self._values.get("provisioned_poller_config")
-        return typing.cast(typing.Optional[ProvisionedPollerConfig], result)
+        return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
     def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
@@ -4041,7 +4510,7 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -4049,7 +4518,7 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -4063,7 +4532,7 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def max_record_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_record_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a record that Lambda sends to a function for processing.
 
         Valid Range:
@@ -4078,25 +4547,25 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         :default: -1
         '''
         result = self._values.get("max_record_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def metrics_config(self) -> typing.Optional[_MetricsConfig_48ab59c4]:
+    def metrics_config(self) -> typing.Optional["_MetricsConfig_48ab59c4"]:
         '''Configuration for enhanced monitoring metrics collection When specified, enables collection of additional metrics for the stream event source.
 
         :default: - Enhanced monitoring is disabled
         '''
         result = self._values.get("metrics_config")
-        return typing.cast(typing.Optional[_MetricsConfig_48ab59c4], result)
+        return typing.cast(typing.Optional["_MetricsConfig_48ab59c4"], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_IEventSourceDlq_5e2c6ad9]:
+    def on_failure(self) -> typing.Optional["_IEventSourceDlq_5e2c6ad9"]:
         '''An Amazon S3, Amazon SQS queue or Amazon SNS topic destination for discarded records.
 
         :default: - discarded records are ignored
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_IEventSourceDlq_5e2c6ad9], result)
+        return typing.cast(typing.Optional["_IEventSourceDlq_5e2c6ad9"], result)
 
     @builtins.property
     def parallelization_factor(self) -> typing.Optional[jsii.Number]:
@@ -4137,13 +4606,13 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tumbling_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def tumbling_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes.
 
         :default: - None
         '''
         result = self._values.get("tumbling_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4187,24 +4656,24 @@ class KinesisConsumerEventSource(
 
     def __init__(
         self,
-        stream_consumer: _IStreamConsumer_019d062e,
+        stream_consumer: "_IStreamConsumer_019d062e",
         *,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
-        starting_position: _StartingPosition_c0a4852c,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param stream_consumer: -
@@ -4250,7 +4719,7 @@ class KinesisConsumerEventSource(
         jsii.create(self.__class__, self, [stream_consumer, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -4274,8 +4743,8 @@ class KinesisConsumerEventSource(
 
     @builtins.property
     @jsii.member(jsii_name="streamConsumer")
-    def stream_consumer(self) -> _IStreamConsumer_019d062e:
-        return typing.cast(_IStreamConsumer_019d062e, jsii.get(self, "streamConsumer"))
+    def stream_consumer(self) -> "_IStreamConsumer_019d062e":
+        return typing.cast("_IStreamConsumer_019d062e", jsii.get(self, "streamConsumer"))
 
 
 class KinesisEventSource(
@@ -4304,24 +4773,24 @@ class KinesisEventSource(
 
     def __init__(
         self,
-        stream: _IStream_4e2457d2,
+        stream: "_IStream_4e2457d2",
         *,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
-        starting_position: _StartingPosition_c0a4852c,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param stream: -
@@ -4367,7 +4836,7 @@ class KinesisEventSource(
         jsii.create(self.__class__, self, [stream, props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -4391,8 +4860,8 @@ class KinesisEventSource(
 
     @builtins.property
     @jsii.member(jsii_name="stream")
-    def stream(self) -> _IStream_4e2457d2:
-        return typing.cast(_IStream_4e2457d2, jsii.get(self, "stream"))
+    def stream(self) -> "_IStream_4e2457d2":
+        return typing.cast("_IStream_4e2457d2", jsii.get(self, "stream"))
 
 
 @jsii.data_type(
@@ -4421,21 +4890,21 @@ class KinesisEventSourceProps(StreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        max_record_age: typing.Optional[_Duration_4839e8c3] = None,
-        metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
         parallelization_factor: typing.Optional[jsii.Number] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        tumbling_window: typing.Optional[_Duration_4839e8c3] = None,
+        tumbling_window: typing.Optional["_Duration_4839e8c3"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -4529,11 +4998,11 @@ class KinesisEventSourceProps(StreamEventSourceProps):
             self._values["starting_position_timestamp"] = starting_position_timestamp
 
     @builtins.property
-    def starting_position(self) -> _StartingPosition_c0a4852c:
+    def starting_position(self) -> "_StartingPosition_c0a4852c":
         '''Where to begin consuming the stream.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast(_StartingPosition_c0a4852c, result)
+        return typing.cast("_StartingPosition_c0a4852c", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -4565,7 +5034,7 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def max_batching_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_batching_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time to gather records before invoking the function.
 
         Maximum of Duration.minutes(5).
@@ -4575,10 +5044,10 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         :see: https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html#invocation-eventsourcemapping-batching
         '''
         result = self._values.get("max_batching_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def provisioned_poller_config(self) -> typing.Optional[ProvisionedPollerConfig]:
+    def provisioned_poller_config(self) -> typing.Optional["ProvisionedPollerConfig"]:
         '''Configuration for provisioned pollers that read from the event source.
 
         When specified, allows control over the minimum and maximum number of pollers
@@ -4587,7 +5056,7 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         :default: - no provisioned pollers
         '''
         result = self._values.get("provisioned_poller_config")
-        return typing.cast(typing.Optional[ProvisionedPollerConfig], result)
+        return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
     def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
@@ -4599,7 +5068,7 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def filter_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def filter_encryption(self) -> typing.Optional["_IKey_5f11635f"]:
         '''Add Customer managed KMS key to encrypt Filter Criteria.
 
         :default: - none
@@ -4607,7 +5076,7 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         :see: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk
         '''
         result = self._values.get("filter_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def filters(
@@ -4621,7 +5090,7 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[typing.List[typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def max_record_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_record_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a record that Lambda sends to a function for processing.
 
         Valid Range:
@@ -4636,25 +5105,25 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         :default: -1
         '''
         result = self._values.get("max_record_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def metrics_config(self) -> typing.Optional[_MetricsConfig_48ab59c4]:
+    def metrics_config(self) -> typing.Optional["_MetricsConfig_48ab59c4"]:
         '''Configuration for enhanced monitoring metrics collection When specified, enables collection of additional metrics for the stream event source.
 
         :default: - Enhanced monitoring is disabled
         '''
         result = self._values.get("metrics_config")
-        return typing.cast(typing.Optional[_MetricsConfig_48ab59c4], result)
+        return typing.cast(typing.Optional["_MetricsConfig_48ab59c4"], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_IEventSourceDlq_5e2c6ad9]:
+    def on_failure(self) -> typing.Optional["_IEventSourceDlq_5e2c6ad9"]:
         '''An Amazon S3, Amazon SQS queue or Amazon SNS topic destination for discarded records.
 
         :default: - discarded records are ignored
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_IEventSourceDlq_5e2c6ad9], result)
+        return typing.cast(typing.Optional["_IEventSourceDlq_5e2c6ad9"], result)
 
     @builtins.property
     def parallelization_factor(self) -> typing.Optional[jsii.Number]:
@@ -4695,13 +5164,13 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tumbling_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def tumbling_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes.
 
         :default: - None
         '''
         result = self._values.get("tumbling_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def starting_position_timestamp(self) -> typing.Optional[jsii.Number]:
@@ -4731,31 +5200,24 @@ class ManagedKafkaEventSource(
 ):
     '''Use a MSK cluster as a streaming source for AWS Lambda.
 
-    :exampleMetadata: infused
-
     Example::
 
-        from aws_cdk.aws_secretsmanager import Secret
+        from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
         from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource
+        from aws_cdk.aws_lambda import StartingPosition, Function
         
-        # my_function: lambda.Function
+        # With provisioned pollers and poller group for cost optimization
+        # my_function: Function
         
-        
-        # Your MSK cluster arn
-        cluster_arn = "arn:aws:kafka:us-east-1:0123456789019:cluster/SalesCluster/abcd1234-abcd-cafe-abab-9876543210ab-4"
-        
-        # The Kafka topic you want to subscribe to
-        topic = "some-cool-topic"
-        
-        # The secret that allows access to your MSK cluster
-        # You still have to make sure that it is associated with your cluster as described in the documentation
-        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
         my_function.add_event_source(ManagedKafkaEventSource(
-            cluster_arn=cluster_arn,
-            topic=topic,
-            secret=secret,
-            batch_size=100,  # default
-            starting_position=lambda_.StartingPosition.TRIM_HORIZON
+            cluster_arn="arn:aws:kafka:us-east-1:123456789012:cluster/my-cluster/abcd1234-abcd-cafe-abab-9876543210ab-4",
+            topic="orders-topic",
+            starting_position=StartingPosition.LATEST,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=2,
+                maximum_pollers=10,
+                poller_group_name="shared-kafka-pollers"
+            )
         ))
     '''
 
@@ -4764,26 +5226,34 @@ class ManagedKafkaEventSource(
         *,
         cluster_arn: builtins.str,
         topic: builtins.str,
+        bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
-        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
+        report_batch_item_failures: typing.Optional[builtins.bool] = None,
+        retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["_ISchemaRegistry_7e66a87f"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param cluster_arn: An MSK cluster construct.
         :param topic: The Kafka topic to subscribe to.
+        :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
         :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
-        :param on_failure: Add an on Failure Destination for this Kafka event. SNS/SQS/S3 are supported Default: - discarded records are ignored
+        :param max_record_age: The maximum age of a record that Lambda sends to a function for processing. The default value is -1, which sets the maximum age to infinite. When the value is set to infinite, Lambda never discards old records. Record are valid until it expires in the event source. Default: -1
+        :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
+        :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -4796,10 +5266,14 @@ class ManagedKafkaEventSource(
         props = ManagedKafkaEventSourceProps(
             cluster_arn=cluster_arn,
             topic=topic,
+            bisect_batch_on_error=bisect_batch_on_error,
             consumer_group_id=consumer_group_id,
             filter_encryption=filter_encryption,
             filters=filters,
+            max_record_age=max_record_age,
             on_failure=on_failure,
+            report_batch_item_failures=report_batch_item_failures,
+            retry_attempts=retry_attempts,
             schema_registry_config=schema_registry_config,
             secret=secret,
             starting_position_timestamp=starting_position_timestamp,
@@ -4813,7 +5287,7 @@ class ManagedKafkaEventSource(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -4843,34 +5317,28 @@ class SelfManagedKafkaEventSource(
 ):
     '''Use a self hosted Kafka installation as a streaming source for AWS Lambda.
 
-    :exampleMetadata: infused
-
     Example::
 
-        from aws_cdk.aws_secretsmanager import Secret
-        from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource
+        from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+        from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource, AuthenticationMethod
+        from aws_cdk.aws_lambda import StartingPosition, Function
+        from aws_cdk.aws_secretsmanager import ISecret
         
-        # The secret that allows access to your self hosted Kafka cluster
-        # secret: Secret
+        # With provisioned pollers and poller group for cost optimization
+        # my_function: Function
+        # kafka_credentials: ISecret
         
-        # my_function: lambda.Function
-        
-        
-        # The list of Kafka brokers
-        bootstrap_servers = ["kafka-broker:9092"]
-        
-        # The Kafka topic you want to subscribe to
-        topic = "some-cool-topic"
-        
-        # (Optional) The consumer group id to use when connecting to the Kafka broker. If omitted the UUID of the event source mapping will be used.
-        consumer_group_id = "my-consumer-group-id"
         my_function.add_event_source(SelfManagedKafkaEventSource(
-            bootstrap_servers=bootstrap_servers,
-            topic=topic,
-            consumer_group_id=consumer_group_id,
-            secret=secret,
-            batch_size=100,  # default
-            starting_position=lambda_.StartingPosition.TRIM_HORIZON
+            bootstrap_servers=["kafka-broker1.example.com:9092", "kafka-broker2.example.com:9092"],
+            topic="events-topic",
+            secret=kafka_credentials,
+            starting_position=StartingPosition.LATEST,
+            authentication_method=AuthenticationMethod.SASL_SCRAM_512_AUTH,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=8,
+                poller_group_name="self-managed-kafka-group"
+            )
         ))
     '''
 
@@ -4878,24 +5346,28 @@ class SelfManagedKafkaEventSource(
         self,
         *,
         bootstrap_servers: typing.Sequence[builtins.str],
-        authentication_method: typing.Optional[AuthenticationMethod] = None,
-        root_ca_certificate: typing.Optional[_ISecret_6e020e6a] = None,
-        security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        authentication_method: typing.Optional["AuthenticationMethod"] = None,
+        root_ca_certificate: typing.Optional["_ISecret_6e020e6a"] = None,
+        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         topic: builtins.str,
+        bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
-        filter_encryption: typing.Optional[_IKey_5f11635f] = None,
+        filter_encryption: typing.Optional["_IKey_5f11635f"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
-        on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
-        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        max_record_age: typing.Optional["_Duration_4839e8c3"] = None,
+        on_failure: typing.Optional["_IEventSourceDlq_5e2c6ad9"] = None,
+        report_batch_item_failures: typing.Optional[builtins.bool] = None,
+        retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["_ISchemaRegistry_7e66a87f"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
-        starting_position: _StartingPosition_c0a4852c,
+        starting_position: "_StartingPosition_c0a4852c",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
-        provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param bootstrap_servers: The list of host and port pairs that are the addresses of the Kafka brokers in a "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.xyz.com:xxxx``.
@@ -4905,10 +5377,14 @@ class SelfManagedKafkaEventSource(
         :param vpc: If your Kafka brokers are only reachable via VPC provide the VPC here. Default: none
         :param vpc_subnets: If your Kafka brokers are only reachable via VPC, provide the subnets selection here. Default: - none, required if setting vpc
         :param topic: The Kafka topic to subscribe to.
+        :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
         :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
-        :param on_failure: Add an on Failure Destination for this Kafka event. SNS/SQS/S3 are supported Default: - discarded records are ignored
+        :param max_record_age: The maximum age of a record that Lambda sends to a function for processing. The default value is -1, which sets the maximum age to infinite. When the value is set to infinite, Lambda never discards old records. Record are valid until it expires in the event source. Default: -1
+        :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
+        :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -4926,10 +5402,14 @@ class SelfManagedKafkaEventSource(
             vpc=vpc,
             vpc_subnets=vpc_subnets,
             topic=topic,
+            bisect_batch_on_error=bisect_batch_on_error,
             consumer_group_id=consumer_group_id,
             filter_encryption=filter_encryption,
             filters=filters,
+            max_record_age=max_record_age,
             on_failure=on_failure,
+            report_batch_item_failures=report_batch_item_failures,
+            retry_attempts=retry_attempts,
             schema_registry_config=schema_registry_config,
             secret=secret,
             starting_position_timestamp=starting_position_timestamp,
@@ -4943,7 +5423,7 @@ class SelfManagedKafkaEventSource(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, target: _IFunction_6adb0ab8) -> None:
+    def bind(self, target: "_IFunction_6adb0ab8") -> None:
         '''Called by ``lambda.addEventSource`` to allow the event source to bind to this function.
 
         :param target: -
@@ -4964,6 +5444,7 @@ __all__ = [
     "DynamoEventSourceProps",
     "GlueSchemaRegistry",
     "GlueSchemaRegistryProps",
+    "KafkaDlq",
     "KafkaEventSourceProps",
     "KinesisConsumerEventSource",
     "KinesisEventSource",
@@ -5059,6 +5540,19 @@ def _typecheckingstub__fd8b6d63d7be96242ad14075f80e7d59f499d7f1727317cfae98da93e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__823fb97b6c05c9aa864c58959bc603e8afe5edd71496f98ac320f9c6ee6738ce(
+    topic_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3687a83a7d4c5a8f9aa8079fb7189397989e6b5e01b5cde590f8d8d293bfff63(
+    _target: _IEventSourceMapping_e216064e,
+    _target_handler: _IFunction_6adb0ab8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__980041697091a50415a7444df02a046d910ddd83f1229789d80780bf7903633d(
     *,
     starting_position: _StartingPosition_c0a4852c,
@@ -5067,10 +5561,14 @@ def _typecheckingstub__980041697091a50415a7444df02a046d910ddd83f1229789d80780bf7
     max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     topic: builtins.str,
+    bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
     filter_encryption: typing.Optional[_IKey_5f11635f] = None,
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
+    max_record_age: typing.Optional[_Duration_4839e8c3] = None,
     on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+    report_batch_item_failures: typing.Optional[builtins.bool] = None,
+    retry_attempts: typing.Optional[jsii.Number] = None,
     schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
     secret: typing.Optional[_ISecret_6e020e6a] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -5086,10 +5584,14 @@ def _typecheckingstub__e930f585c1bae37174885c54f0f224909bfb0a75d9f1b652bbcf33461
     max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     topic: builtins.str,
+    bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
     filter_encryption: typing.Optional[_IKey_5f11635f] = None,
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
+    max_record_age: typing.Optional[_Duration_4839e8c3] = None,
     on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+    report_batch_item_failures: typing.Optional[builtins.bool] = None,
+    retry_attempts: typing.Optional[jsii.Number] = None,
     schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
     secret: typing.Optional[_ISecret_6e020e6a] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -5102,6 +5604,7 @@ def _typecheckingstub__52613c26f6551f26dae012e5cb997a9c6c981e7e4a8c59f252b025ef2
     *,
     maximum_pollers: jsii.Number,
     minimum_pollers: jsii.Number,
+    poller_group_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5165,10 +5668,14 @@ def _typecheckingstub__0100a45aa91b9c2103378e2ba54dd41b054f1d6a50733797256d6971b
     max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     topic: builtins.str,
+    bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
     filter_encryption: typing.Optional[_IKey_5f11635f] = None,
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
+    max_record_age: typing.Optional[_Duration_4839e8c3] = None,
     on_failure: typing.Optional[_IEventSourceDlq_5e2c6ad9] = None,
+    report_batch_item_failures: typing.Optional[builtins.bool] = None,
+    retry_attempts: typing.Optional[jsii.Number] = None,
     schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
     secret: typing.Optional[_ISecret_6e020e6a] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,

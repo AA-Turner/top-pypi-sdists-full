@@ -1,12 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ob-metaflow-stubs
-Version: 6.0.10.10
+Version: 6.0.12.6
 Summary: Metaflow Stubs: Stubs for the metaflow package
 Author: Netflix, Outerbounds & the Metaflow Community
 Author-email: help@outerbounds.co
 License: Apache License 2.0
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: requires-python
+Dynamic: summary
 
 # Metaflow Stubs
 

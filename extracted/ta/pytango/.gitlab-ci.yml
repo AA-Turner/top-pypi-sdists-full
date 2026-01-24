@@ -17,9 +17,12 @@ include:
     file: 'ArchiveWithSubmodules.gitlab-ci.yml'
 
 variables:
-  CPP_TANGO_VERSION: "10.0.2"
-  TANGO_TEST_VERSION: "3.11"
+  CPP_TANGO_VERSION: "10.1.1"
+  CPP_TANGO_VERSION_TAG: "10.1.1"
+  LINUX_WHEEL_DOCKER_IMAGE_VERSION: "2.1.1-1"
+  TANGO_TEST_VERSION: "3.12"
   PYTHONUNBUFFERED: "1"
+  FF_USE_WINDOWS_JOB_OBJECT: 1
 
 .rules-wheel:
   rules:
@@ -55,7 +58,7 @@ variables:
     - pixi info
     - pixi run install
     - pixi run check
-    - pixi run pytest -v -k "test_ping or restart_server"
+    - pixi run pytest -v -k "test_state_status[scalar_int]"
     - pixi run install-cpptango-and-tangotest
   dependencies: [ ]
   rules:
@@ -119,20 +122,13 @@ test-docs:
 
 release-pypi-package:
   stage: release
-  image: quay.io/condaforge/miniforge3:latest
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm
   id_tokens:
     PYPI_ID_TOKEN:
       aud: pypi
-  before_script:
-    - apt update && apt install -y jq curl
-    - python -m pip install -U twine id
   script:
-    # Retrieve the OIDC token from GitLab CI/CD, and exchange it for a PyPI API token
     # See https://docs.pypi.org/trusted-publishers/using-a-publisher/#gitlab-cicd
-    - oidc_token=$(python -m id PYPI)
-    - resp=$(curl -X POST https://pypi.org/_/oidc/mint-token -d "{\"token\":\"${oidc_token}\"}")
-    - api_token=$(jq --raw-output '.token' <<< "${resp}")
-    - twine upload -u __token__ -p "${api_token}" dist/pytango-*
+    - uvx twine upload --verbose dist/pytango-*
   environment:
     name: release
   rules:

@@ -4,7 +4,6 @@ import zipfile
 from typing import Optional
 
 from boto3 import Session
-from botocore.credentials import Credentials
 
 from sagemaker_studio.credentials import CredentialsVendingService
 from sagemaker_studio.data_models import ClientConfig
@@ -80,6 +79,9 @@ class SageMakerStudioAPI:
         self.secrets_manager_api = self._get_aws_client(
             "secretsmanager", self.sagemaker_studio_config.overrides.get("secretsmanager", {})
         )
+        self.kms_api = self._get_aws_client(
+            "kms", self.sagemaker_studio_config.overrides.get("kms", {})
+        )
         self.project_api = ProjectService(self.datazone_api)
         self.credentials_api = CredentialsVendingService(self.datazone_api, self.project_api)
         self.git_api = GitService(self.datazone_api, self.project_api)
@@ -137,13 +139,6 @@ class SageMakerStudioAPI:
             if override_region_name:
                 region_name = override_region_name
             endpoint_url = service_override_config.get("endpoint_url")
-        access_key_id = secret_access_key = session_token = None
-
-        session_creds: Optional[Credentials] = session.get_credentials()
-        if session_creds:
-            access_key_id = session_creds.access_key
-            secret_access_key = session_creds.secret_key
-            session_token = session_creds.token
 
         if "environment" in service_override_config:
             region_name = service_override_config["environment"]["aws_region"]
@@ -159,14 +154,18 @@ class SageMakerStudioAPI:
             secret_access_key = get_environment_credentials_response["aws_secret_access_key"]
             session_token = get_environment_credentials_response["aws_session_token"]
 
-        return session.client(  # type: ignore
-            service_name=service_name,
-            region_name=region_name,
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key,
-            aws_session_token=session_token,
-        )
+            return session.client(  # type: ignore
+                service_name=service_name,
+                region_name=region_name,
+                endpoint_url=endpoint_url,
+                aws_access_key_id=access_key_id,
+                aws_secret_access_key=secret_access_key,
+                aws_session_token=session_token,
+            )
+        else:
+            return session.client(  # type: ignore
+                service_name=service_name, region_name=region_name, endpoint_url=endpoint_url
+            )
 
     def _set_boto3_models_path_env_var(self):
         models_path: str = str(

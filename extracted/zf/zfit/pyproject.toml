@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 name = "zfit"
 description = "scalable pythonic model fitting for high energy physics"
 readme = "README.rst"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.10, <3.14"
 license = { text = "BSD-3-Clause" }
 authors = [
     { name = "Jonas Eschle", email = "Jonas.Eschle@cern.ch" },
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Physics"
 ]
 keywords = ["TensorFlow", "model", "fitting", "scalable", "HEP", "likelihood"]
@@ -56,8 +57,8 @@ dependencies = [
     "pyyaml",
     "scipy>=1.2",
     "tabulate",
-    "tensorflow>=2.16.2, <2.20",
-    "tensorflow-probability[tf]>=0.24, <0.27",
+    "tensorflow>=2.16.2, <3.0",
+    "tensorflow-probability[tf]>=0.24, <1.0",
     "texttable",
     "uhi",
     "uproot>=4",
@@ -74,6 +75,14 @@ ipyopt = ["ipyopt>=0.12 ; sys_platform == 'linux'"]
 nlopt = ["nlopt>=2.7.1 ; sys_platform == 'linux' or sys_platform == 'darwin' and platform_machine != 'arm64' or sys_platform == 'win32'"]
 hs3 = ["asdf<4.0.0"]
 uproot = ["awkward-pandas"]
+
+emcee = ["emcee>=3.0.0"]
+
+bayes = [
+    "zfit[emcee]",
+    "arviz>=0.14.0"
+]
+
 plot = ["matplotlib", "mplhep"]
 
 # Additional extras with platform-specific markers
@@ -83,6 +92,7 @@ all = [
     "zfit[ipyopt]",
     "zfit[nlopt]",
     "zfit[plot]",
+    "zfit[bayes]",
 ]
 
 test = [
@@ -96,6 +106,7 @@ test = [
     "pyyaml",
     "matplotlib",
     "mplhep",
+    "scikit-image",  # for better error reporting if plots disagree, not mandatory
     # all aspects of zfit
     "zfit[all]", # TODO: we cannot have platform specific deps in here? A bug?
 
@@ -181,9 +192,12 @@ testpaths = [
 ]
 markers = [
     "plots: create and safe plots",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 console_output_style = "progress"
 collect_ignore = "setup.py"
+timeout = 300
+timeout_method = "thread"
 
 [tool.coverage.run]
 branch = true

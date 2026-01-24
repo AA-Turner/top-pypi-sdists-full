@@ -1,11 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: gcovr
-Version: 8.3
+Version: 8.6
 Summary: Generate C/C++ code coverage reports with gcov
 Project-URL: Documentation, https://gcovr.com
 Project-URL: Github, https://github.com/gcovr/gcovr
 Project-URL: Issues, https://github.com/gcovr/gcovr/issues
 Author-email: Lukas Atkinson <opensource@lukasatkinson.de>, Michael Förderer <michael.foerderer@gmx.de>
+License-Expression: BSD-3-Clause
+License-File: LICENSE.txt
 Keywords: Cobertura,Jenkins,coverage,gcc,gcov,lcov
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -19,21 +21,46 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: colorlog
 Requires-Dist: jinja2
 Requires-Dist: lxml
 Requires-Dist: pygments>=2.13.0
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
+Provides-Extra: dev
+Requires-Dist: bandit[toml]; extra == 'dev'
+Requires-Dist: build; extra == 'dev'
+Requires-Dist: cmake; extra == 'dev'
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: nox; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pygments==2.19.2; extra == 'dev'
+Requires-Dist: pyinstaller~=6.16.0; extra == 'dev'
+Requires-Dist: pylint<4.0.0; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-check; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-env; extra == 'dev'
+Requires-Dist: pytest-timeout; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
+Requires-Dist: pywin32; (sys_platform == 'win32') and extra == 'dev'
+Requires-Dist: requests; extra == 'dev'
+Requires-Dist: ruff~=0.13.2; extra == 'dev'
+Requires-Dist: tomli>=1.1.0; (python_version < '3.11') and extra == 'dev'
+Requires-Dist: twine; extra == 'dev'
+Requires-Dist: wheel; extra == 'dev'
+Requires-Dist: yamllint; extra == 'dev'
+Requires-Dist: yaxmldiff; extra == 'dev'
 Description-Content-Type: text/x-rst
 
 gcovr
@@ -43,7 +70,7 @@ generate GCC code coverage reports
 
 `website and documentation <website_>`__ • bugtracker_ • `GitHub <repo_>`__
 
-|GitHub-Actions-badge| |codacy-quality-badge| |codacy-coverage-badge| |pypi-badge| |Readthedocs-badge| |gitter-badge|
+|GitHub-Actions-badge| |codacy-quality-badge| |codacy-coverage-badge| |pypi-badge| |pypi-stats-badge| |Readthedocs-badge| |gitter-badge|
 
 .. begin abstract
 
@@ -89,6 +116,14 @@ The ``gcovr`` command can produce different kinds of coverage reports:
      - |abstract-guide-json-summary|
      - JSON summary coverage report
 
+   * - |abstract-option-markdown|
+     - |abstract-guide-markdown|
+     - Markdown coverage report
+
+   * - |abstract-option-markdown-summary|
+     - |abstract-guide-markdown-summary|
+     - Markdown summary coverage report
+
    * - |abstract-option-clover|
      - |abstract-guide-clover|
      - machine readable XML reports in Clover_ format
@@ -121,7 +156,7 @@ The development of gcovr was motivated by the need for
 text summaries and XML reports.
 
 .. _gcov: https://gcc.gnu.org/onlinedocs/gcc/Gcov.html
-.. _coverage.py: https://coverage.readthedocs.io/en/stable/
+.. _coverage.py: https://coverage.readthedocs.io/
 .. _clover: https://bitbucket.org/atlassian/clover/src/master/
 .. _cobertura: https://github.com/cobertura/cobertura/
 .. _coveralls: https://coveralls.io/
@@ -143,6 +178,8 @@ text summaries and XML reports.
 .. |abstract-option-csv| replace:: ``--csv``
 .. |abstract-option-json| replace:: ``--json``
 .. |abstract-option-json-summary| replace:: ``--json-summary``
+.. |abstract-option-markdown| replace:: ``--markdown``
+.. |abstract-option-markdown-summary| replace:: ``--markdown-summary``
 
 .. |abstract-option-clover| replace:: ``--clover``
 .. |abstract-option-cobertura| replace:: ``--cobertura``
@@ -158,6 +195,8 @@ text summaries and XML reports.
 .. |abstract-guide-csv| replace:: `CSV Output <https://gcovr.com/en/stable/output/csv.html>`__
 .. |abstract-guide-json| replace:: `JSON Output <https://gcovr.com/en/stable/output/json.html>`__
 .. |abstract-guide-json-summary| replace:: `JSON Output <https://gcovr.com/en/stable/output/json.html>`__
+.. |abstract-guide-markdown| replace:: `Markdown Output <https://gcovr.com/en/stable/output/markdown.html>`__
+.. |abstract-guide-markdown-summary| replace:: `Markdown Output <https://gcovr.com/en/stable/output/markdown.html>`__
 
 .. |abstract-guide-clover| replace:: `Clover XML Output <https://gcovr.com/en/stable/output/clover.html>`__
 .. |abstract-guide-cobertura| replace:: `Cobertura XML Output <https://gcovr.com/en/stable/output/cobertura.html>`__
@@ -169,11 +208,11 @@ text summaries and XML reports.
 
 Example HTML summary:
 
-.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.3/doc/images/screenshot-html.jpeg
+.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.6/doc/images/screenshot-html.jpeg
 
 Example HTML details:
 
-.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.3/doc/images/screenshot-html-details.example.cpp.jpeg
+.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.6/doc/images/screenshot-html-details.example.cpp.jpeg
 
 .. begin links
 
@@ -192,7 +231,10 @@ Example HTML details:
    :alt: Codacy coverage status
 .. |pypi-badge| image:: https://img.shields.io/pypi/v/gcovr.svg
    :target: https://pypi.python.org/pypi/gcovr
-   :alt: install from PyPI
+   :alt: Install from PyPI
+.. |pypi-stats-badge| image:: https://img.shields.io/pypi/dm/gcovr
+   :target: https://pypistats.org/packages/gcovr
+   :alt: Downloads from PyPI
 .. |Readthedocs-badge| image:: https://readthedocs.org/projects/gcovr/badge/?version=latest
    :target: https://gcovr.com/en/latest/?badge=latest
    :alt: Documentation Status

@@ -1,8 +1,8 @@
-use crate::target::RUST_1_64_0;
 #[cfg(feature = "zig")]
 use crate::PlatformTag;
+use crate::target::RUST_1_64_0;
 use crate::{BridgeModel, BuildContext, PythonInterpreter, Target};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use cargo_metadata::CrateType;
 use fat_macho::FatWriter;
 use fs_err::{self as fs, File};
@@ -169,11 +169,6 @@ fn cargo_build_command(
         .clone()
         .into_rustc_options(user_specified_target);
     cargo_rustc.message_format = vec!["json-render-diagnostics".to_string()];
-
-    // --release and --profile are conflicting options
-    if context.release && cargo_rustc.profile.is_none() {
-        cargo_rustc.release = true;
-    }
 
     // Add `--crate-type cdylib` if available
     if compile_target
@@ -459,10 +454,6 @@ fn cargo_build_command(
         }
     }
 
-    if let Some(lib_dir) = env::var_os("MATURIN_PYTHON_SYSCONFIGDATA_DIR") {
-        build_command.env("PYO3_CROSS_LIB_DIR", lib_dir);
-    }
-
     // Set default macOS deployment target version for non-editable builds
     if !context.editable && target.is_macos() && env::var_os("MACOSX_DEPLOYMENT_TARGET").is_none() {
         use crate::build_context::rustc_macosx_target_version;
@@ -541,7 +532,7 @@ fn compile_target(
                 };
 
                 // Extract the location of the .so/.dll/etc. from cargo's json output
-                if crate_name == &context.crate_name {
+                if crate_name.as_ref() == context.crate_name {
                     let tuples = artifact
                         .target
                         .crate_types
@@ -686,9 +677,9 @@ fn pyo3_version(cargo_metadata: &cargo_metadata::Metadata) -> Option<(u64, u64, 
         .packages
         .iter()
         .filter_map(|pkg| {
-            let name = &pkg.name;
+            let name = pkg.name.as_ref();
             if name == "pyo3" || name == "pyo3-ffi" {
-                Some((name.as_ref(), pkg))
+                Some((name, pkg))
             } else {
                 None
             }

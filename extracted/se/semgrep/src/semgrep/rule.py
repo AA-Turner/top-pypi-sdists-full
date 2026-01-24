@@ -12,6 +12,7 @@
 #
 import hashlib
 import json
+from functools import cached_property
 from typing import Any
 from typing import AnyStr
 from typing import cast
@@ -35,6 +36,11 @@ from semgrep.semgrep_types import JOIN_MODE
 from semgrep.semgrep_types import LANGUAGE
 from semgrep.semgrep_types import Language
 from semgrep.semgrep_types import SEARCH_MODE
+
+INTERNAL_DEPENDS_ON_KEY = "r2c-internal-project-depends-on"
+_PRODUCT_SCA = out.Product(out.SCA())
+_PRODUCT_SECRETS = out.Product(out.Secrets())
+_PRODUCT_SAST = out.Product(out.SAST())
 
 
 class Rule:
@@ -183,8 +189,8 @@ class Rule:
 
     @property
     def project_depends_on(self) -> List[Dict[str, str]]:
-        if "r2c-internal-project-depends-on" in self._raw:
-            depends_on = self._raw["r2c-internal-project-depends-on"]
+        if INTERNAL_DEPENDS_ON_KEY in self._raw:
+            depends_on = self._raw[INTERNAL_DEPENDS_ON_KEY]
             if "depends-on-either" in depends_on:
                 dependencies: List[Dict[str, str]] = depends_on["depends-on-either"]
                 return dependencies
@@ -195,8 +201,8 @@ class Rule:
 
     @property
     def ecosystems(self) -> Set[Ecosystem]:
-        if "r2c-internal-project-depends-on" in self._raw:
-            depends_on = self._raw["r2c-internal-project-depends-on"]
+        if INTERNAL_DEPENDS_ON_KEY in self._raw:
+            depends_on = self._raw[INTERNAL_DEPENDS_ON_KEY]
             if "depends-on-either" in depends_on:
                 dependencies: List[Dict[str, str]] = depends_on["depends-on-either"]
                 return {
@@ -261,17 +267,17 @@ class Rule:
         """
         return any(key in RuleValidation.PATTERN_KEYS for key in self._raw)
 
-    @property
+    @cached_property
     def product(self) -> out.Product:
         if "r2c-internal-project-depends-on" in self._raw:
-            return out.Product(out.SCA())
+            return _PRODUCT_SCA
         elif "product" in self.metadata:
             if self.metadata.get("product") == "secrets":
-                return out.Product(out.Secrets())
+                return _PRODUCT_SECRETS
             else:
-                return out.Product(out.SAST())
+                return _PRODUCT_SAST
         else:
-            return out.Product(out.SAST())
+            return _PRODUCT_SAST
 
     @property
     def scan_source(self) -> RuleScanSource:

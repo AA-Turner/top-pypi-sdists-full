@@ -10,6 +10,7 @@ from typing import (
     Any, Callable, cast, Dict, Optional, Union,
     TYPE_CHECKING
 )
+from typing_extensions import Self
 
 from azure.core.exceptions import AzureError, HttpResponseError
 from azure.core.tracing.decorator import distributed_trace
@@ -137,6 +138,28 @@ class PathClient(StorageAccountHostsMixin):
         self._client = self._build_generated_client(self.url)
         self._datalake_client_for_blob_operation = self._build_generated_client(self._blob_client.url)
 
+    def __enter__(self) -> Self:
+        self._client.__enter__()
+        self._blob_client.__enter__()
+        self._datalake_client_for_blob_operation.__enter__()
+        return self
+
+    def __exit__(self, *args) -> None:
+        self._datalake_client_for_blob_operation.__exit__(*args)
+        self._blob_client.__exit__(*args)
+        self._client.__exit__(*args)
+
+    def close(self) -> None:
+        """This method is to close the sockets opened by the client.
+        It need not be used when using with a context manager.
+
+        :return: None
+        :rtype: None
+        """
+        self._datalake_client_for_blob_operation.close()
+        self._blob_client.close()
+        self._client.close()
+
     def _build_generated_client(self, url: str) -> AzureDataLakeStorageRESTAPI:
         client = AzureDataLakeStorageRESTAPI(
             url,
@@ -147,18 +170,6 @@ class PathClient(StorageAccountHostsMixin):
         )
         client._config.version = self._api_version  # type: ignore [assignment] # pylint: disable=protected-access
         return client
-
-    def __exit__(self, *args):
-        self._blob_client.close()
-        self._datalake_client_for_blob_operation.close()
-        super(PathClient, self).__exit__(*args)
-
-    def close(self) -> None:
-        """
-        This method is to close the sockets opened by the client.
-        It need not be used when using with a context manager.
-        """
-        self.__exit__()
 
     def _format_url(self, hostname: str) -> str:
         return _format_url(self.scheme, hostname, self.file_system_name, self.path_name, self._query_str)
@@ -458,7 +469,7 @@ class PathClient(StorageAccountHostsMixin):
             group identifier, and permissions in the format
             "[scope:][type]:[id]:[permissions]".
         :type acl: str
-        :keyword func(~azure.storage.filedatalake.AccessControlChanges) progress_hook:
+        :keyword Callable[[AccessControlChanges], None] progress_hook:
             Callback where the caller can track progress of the operation
             as well as collect paths that failed to change Access Control.
         :keyword str continuation_token:
@@ -511,7 +522,7 @@ class PathClient(StorageAccountHostsMixin):
             group identifier, and permissions in the format
             "[scope:][type]:[id]:[permissions]".
         :type acl: str
-        :keyword func(~azure.storage.filedatalake.AccessControlChanges) progress_hook:
+        :keyword Callable[[AccessControlChanges], None] progress_hook:
             Callback where the caller can track progress of the operation
             as well as collect paths that failed to change Access Control.
         :keyword str continuation_token:
@@ -563,7 +574,7 @@ class PathClient(StorageAccountHostsMixin):
             access control entry (ACE) consists of a scope, a type, and a user or
             group identifier in the format "[scope:][type]:[id]".
         :type acl: str
-        :keyword func(~azure.storage.filedatalake.AccessControlChanges) progress_hook:
+        :keyword Callable[[AccessControlChanges], None] progress_hook:
             Callback where the caller can track progress of the operation
             as well as collect paths that failed to change Access Control.
         :keyword str continuation_token:
@@ -769,7 +780,7 @@ class PathClient(StorageAccountHostsMixin):
             Required if the file/directory was created with a customer-provided key.
         :keyword bool upn:
             If True, the user identity values returned in the x-ms-owner, x-ms-group,
-            and x-ms-acl response headers will be transformed from Azure Active Directory Object IDs to User 
+            and x-ms-acl response headers will be transformed from Azure Active Directory Object IDs to User
             Principal Names in the owner, group, and acl fields of the respective property object returned.
             If False, the values will be returned as Azure Active Directory Object IDs.
             The default value is False. Note that group and application Object IDs are not translate

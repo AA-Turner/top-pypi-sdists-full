@@ -1,0 +1,54 @@
+{% set name = "pyre2" %}
+{% set version = "0.3.10" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv
+  skip: true  # [py<36]
+
+requirements:
+  build:
+    - {{ compiler('cxx') }}
+  host:
+    - python
+    - cmake >=3.15
+    - pybind11
+    - ninja
+    - cython
+    - pip
+    - re2
+  run:
+    - python
+    - re2
+
+test:
+  requires:
+    - pytest
+  commands:
+    - export "PYTHONIOENCODING=utf8"  # [unix]
+    - set "PYTHONIOENCODING=utf8"  # [win]
+    - python -m pytest -v .
+  imports:
+    - re2
+  source_files:
+    - tests/
+
+about:
+  home: "https://github.com/andreasvc/pyre2"
+  license: BSD-3-Clause
+  license_family: BSD
+  license_file: LICENSE
+  summary: "Python wrapper for Google's RE2 using Cython"
+  doc_url: "https://github.com/andreasvc/pyre2/blob/master/README.rst"
+  dev_url: "https://github.com/andreasvc/pyre2"
+
+extra:
+  recipe-maintainers:
+    - sarnold

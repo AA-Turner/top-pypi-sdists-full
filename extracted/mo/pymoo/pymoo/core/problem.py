@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 
 import numpy as np
@@ -6,10 +8,12 @@ import pymoo.gradient.toolbox as anp
 from pymoo.util.cache import Cache
 from pymoo.util.misc import at_least_2d_array
 
-try:
-    import ray
-except ImportError:
-    ray = None
+
+class LoopedElementwiseEvaluation:
+    """Default sequential evaluation for elementwise problems."""
+
+    def __call__(self, f, X):
+        return [f(x) for x in X]
 
 
 class ElementwiseEvaluationFunction:
@@ -24,97 +28,6 @@ class ElementwiseEvaluationFunction:
         out = dict()
         self.problem._evaluate(x, out, *self.args, **self.kwargs)
         return out
-
-
-class LoopedElementwiseEvaluation:
-
-    def __call__(self, f, X):
-        return [f(x) for x in X]
-
-
-class StarmapParallelization:
-
-    def __init__(self, starmap) -> None:
-        super().__init__()
-        self.starmap = starmap
-
-    def __call__(self, f, X):
-        return list(self.starmap(f, [[x] for x in X]))
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state.pop("starmap", None)
-        return state
-
-
-class DaskParallelization:
-
-    def __init__(self, client) -> None:
-        super().__init__()
-        self.client = client
-
-    def __call__(self, f, X):
-        jobs = [self.client.submit(f, x) for x in X]
-        return [job.result() for job in jobs]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state.pop("client", None)
-        return state
-
-
-class JoblibParallelization:
-
-    def __init__(self, aJoblibParallel,  aJoblibDelayed, *args, **kwargs) -> None:
-        super().__init__()
-        self.parallel = aJoblibParallel 
-        self.delayed =  aJoblibDelayed 
-
-    def __call__(self, f, X):
-        return self.parallel(self.delayed(f)(x) for x in X)
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state.pop("parallel", None)
-        state.pop("delayed", None)
-        return state
-
-
-class RayParallelization:
-    """Use Ray as backend to parallelize problem evaluation.
-    
-    Ray is an open-source unified framework for scaling AI and Python applicaitons.
-    Read more here: https://docs.ray.io.
-    
-    You will need to install Ray to use this.
-    """
-    def __init__(self, job_resources: dict = {'num_cpus': 1}) -> None:
-        """
-        Parameters
-        ----------
-        job_resources: A resource in Ray is a key-value pair where the key denotes a 
-            resource name and the value is a float quantity. Ray has native support for CPU,
-            GPU, and memory resource types; `'num_cpus'`, `'num_gpus'`, and `'memory'`.
-            Read more here: 
-            https://docs.ray.io/en/latest/ray-core/scheduling/resources.html.
-        """
-        assert ray is not None, (
-            "Ray must be installed! "
-            "You can install Ray with the command: "
-            '`pip install -U "ray[default]"`'
-        )
-        super().__init__()
-        self.job_resources = job_resources
-
-    def __call__(self, f, X):
-        runnable = ray.remote(f.__call__.__func__)
-        runnable = runnable.options(**self.job_resources)
-        futures = [runnable.remote(f, x) for x in X]
-        return ray.get(futures)
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        return state
 
 
 class Problem:

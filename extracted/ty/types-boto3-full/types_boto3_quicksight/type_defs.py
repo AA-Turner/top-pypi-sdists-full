@@ -3,26 +3,29 @@ Type annotations for quicksight service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_boto3_quicksight.type_defs import AccountCustomizationTypeDef
+    from types_boto3_quicksight.type_defs import APIKeyConnectionMetadataTypeDef
 
-    data: AccountCustomizationTypeDef = ...
+    data: APIKeyConnectionMetadataTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
 from .literals import (
+    ActionConnectorSearchFilterNameEnumType,
+    ActionConnectorTypeType,
     AggTypeType,
     AnalysisErrorTypeType,
     AnalysisFilterAttributeType,
@@ -62,6 +65,7 @@ from .literals import (
     ComparisonMethodType,
     ComparisonMethodTypeType,
     ConditionalFormattingIconSetTypeType,
+    ConnectionAuthTypeType,
     ConstantTypeType,
     ContributionAnalysisDirectionType,
     ContributionAnalysisSortTypeType,
@@ -69,6 +73,7 @@ from .literals import (
     CustomContentImageScalingConfigurationType,
     CustomContentTypeType,
     DashboardBehaviorType,
+    DashboardCustomizationStatusType,
     DashboardErrorTypeType,
     DashboardFilterAttributeType,
     DashboardsQAStatusType,
@@ -76,25 +81,34 @@ from .literals import (
     DataLabelContentType,
     DataLabelOverlapType,
     DataLabelPositionType,
+    DataPrepSimpleAggregationFunctionTypeType,
+    DataSetDateComparisonFilterOperatorType,
     DataSetFilterAttributeType,
     DataSetImportModeType,
+    DataSetNumericComparisonFilterOperatorType,
     DatasetParameterValueTypeType,
+    DataSetStringComparisonFilterOperatorType,
+    DataSetStringListFilterOperatorType,
     DataSourceErrorInfoTypeType,
     DataSourceFilterAttributeType,
     DataSourceTypeType,
     DateAggregationFunctionType,
     DayOfTheWeekType,
     DayOfWeekType,
+    DecalPatternTypeType,
+    DecalStyleTypeType,
     DefaultAggregationType,
     DigitGroupingStyleType,
     DisplayFormatType,
     EditionType,
     EmbeddingIdentityTypeType,
+    FieldNameType,
     FileFormatType,
     FilterClassType,
     FilterNullOptionType,
     FilterOperatorType,
     FilterVisualScopeType,
+    FlowPublishStateType,
     FolderFilterAttributeType,
     FolderTypeType,
     FontDecorationType,
@@ -122,6 +136,7 @@ from .literals import (
     IngestionStatusType,
     IngestionTypeType,
     InputColumnDataTypeType,
+    JoinOperationTypeType,
     JoinTypeType,
     KPISparklineTypeType,
     KPIVisualStandardLayoutTypeType,
@@ -188,8 +203,12 @@ from .literals import (
     RoleType,
     RowLevelPermissionFormatVersionType,
     RowLevelPermissionPolicyType,
+    SearchFilterOperatorType,
     SectionPageBreakStatusType,
     SelectedTooltipTypeType,
+    SelfUpgradeAdminActionType,
+    SelfUpgradeRequestStatusType,
+    SelfUpgradeStatusType,
     ServiceTypeType,
     SharingModelType,
     SheetContentTypeType,
@@ -197,6 +216,7 @@ from .literals import (
     SheetControlListTypeType,
     SheetControlSliderTypeType,
     SheetImageScalingTypeType,
+    SheetLayoutGroupMemberTypeType,
     SimpleNumericalAggregationFunctionType,
     SimpleTotalAggregationFunctionType,
     SmallMultiplesAxisPlacementType,
@@ -247,6 +267,7 @@ from .literals import (
     VisualRoleType,
     VPCConnectionAvailabilityStatusType,
     VPCConnectionResourceStatusType,
+    WebCrawlerAuthTypeType,
     WidgetStatusType,
     WordCloudCloudLayoutType,
     WordCloudWordCasingType,
@@ -255,12 +276,6 @@ from .literals import (
     WordCloudWordScalingType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -268,17 +283,25 @@ else:
 
 
 __all__ = (
+    "APIKeyConnectionMetadataTypeDef",
     "AccountCustomizationTypeDef",
     "AccountInfoTypeDef",
     "AccountSettingsTypeDef",
+    "ActionConnectorErrorTypeDef",
+    "ActionConnectorSearchFilterTypeDef",
+    "ActionConnectorSummaryTypeDef",
+    "ActionConnectorTypeDef",
     "ActiveIAMPolicyAssignmentTypeDef",
     "AdHocFilteringOptionTypeDef",
     "AggFunctionOutputTypeDef",
     "AggFunctionTypeDef",
     "AggFunctionUnionTypeDef",
+    "AggregateOperationOutputTypeDef",
+    "AggregateOperationTypeDef",
     "AggregationFunctionTypeDef",
     "AggregationPartitionByTypeDef",
     "AggregationSortConfigurationTypeDef",
+    "AggregationTypeDef",
     "AmazonElasticsearchParametersTypeDef",
     "AmazonOpenSearchParametersTypeDef",
     "AmazonQInQuickSightConsoleConfigurationsTypeDef",
@@ -302,6 +325,9 @@ __all__ = (
     "AnonymousUserGenerativeQnAEmbeddingConfigurationTypeDef",
     "AnonymousUserQSearchBarEmbeddingConfigurationTypeDef",
     "AnonymousUserSnapshotJobResultTypeDef",
+    "AppendOperationOutputTypeDef",
+    "AppendOperationTypeDef",
+    "AppendedColumnTypeDef",
     "ApplicationThemeTypeDef",
     "ArcAxisConfigurationTypeDef",
     "ArcAxisDisplayRangeTypeDef",
@@ -396,6 +422,11 @@ __all__ = (
     "AttributeAggregationFunctionTypeDef",
     "AuroraParametersTypeDef",
     "AuroraPostgreSqlParametersTypeDef",
+    "AuthConfigTypeDef",
+    "AuthenticationMetadataTypeDef",
+    "AuthorizationCodeGrantCredentialsDetailsTypeDef",
+    "AuthorizationCodeGrantDetailsTypeDef",
+    "AuthorizationCodeGrantMetadataTypeDef",
     "AuthorizedTargetsByServiceTypeDef",
     "AwsIotAnalyticsParametersTypeDef",
     "AxisDataOptionsOutputTypeDef",
@@ -415,12 +446,16 @@ __all__ = (
     "BarChartAggregatedFieldWellsTypeDef",
     "BarChartConfigurationOutputTypeDef",
     "BarChartConfigurationTypeDef",
+    "BarChartDefaultSeriesSettingsTypeDef",
     "BarChartFieldWellsOutputTypeDef",
     "BarChartFieldWellsTypeDef",
+    "BarChartSeriesSettingsTypeDef",
     "BarChartSortConfigurationOutputTypeDef",
     "BarChartSortConfigurationTypeDef",
     "BarChartVisualOutputTypeDef",
     "BarChartVisualTypeDef",
+    "BarSeriesItemTypeDef",
+    "BasicAuthConnectionMetadataTypeDef",
     "BatchCreateTopicReviewedAnswerRequestTypeDef",
     "BatchCreateTopicReviewedAnswerResponseTypeDef",
     "BatchDeleteTopicReviewedAnswerRequestTypeDef",
@@ -443,6 +478,7 @@ __all__ = (
     "BodySectionRepeatDimensionConfigurationTypeDef",
     "BodySectionRepeatPageBreakConfigurationTypeDef",
     "BookmarksConfigurationsTypeDef",
+    "BorderSettingsTypeDef",
     "BorderStyleTypeDef",
     "BoxPlotAggregatedFieldWellsOutputTypeDef",
     "BoxPlotAggregatedFieldWellsTypeDef",
@@ -471,6 +507,8 @@ __all__ = (
     "CascadingControlConfigurationTypeDef",
     "CascadingControlSourceTypeDef",
     "CastColumnTypeOperationTypeDef",
+    "CastColumnTypesOperationOutputTypeDef",
+    "CastColumnTypesOperationTypeDef",
     "CategoricalDimensionFieldTypeDef",
     "CategoricalMeasureFieldTypeDef",
     "CategoryDrillDownFilterOutputTypeDef",
@@ -485,6 +523,9 @@ __all__ = (
     "CellValueSynonymTypeDef",
     "ChartAxisLabelOptionsOutputTypeDef",
     "ChartAxisLabelOptionsTypeDef",
+    "ClientCredentialsDetailsTypeDef",
+    "ClientCredentialsGrantDetailsTypeDef",
+    "ClientCredentialsGrantMetadataTypeDef",
     "ClusterMarkerConfigurationTypeDef",
     "ClusterMarkerTypeDef",
     "CollectiveConstantEntryTypeDef",
@@ -512,17 +553,21 @@ __all__ = (
     "ColumnSchemaTypeDef",
     "ColumnSortTypeDef",
     "ColumnTagTypeDef",
+    "ColumnToUnpivotTypeDef",
     "ColumnTooltipItemTypeDef",
     "ComboChartAggregatedFieldWellsOutputTypeDef",
     "ComboChartAggregatedFieldWellsTypeDef",
     "ComboChartConfigurationOutputTypeDef",
     "ComboChartConfigurationTypeDef",
+    "ComboChartDefaultSeriesSettingsTypeDef",
     "ComboChartFieldWellsOutputTypeDef",
     "ComboChartFieldWellsTypeDef",
+    "ComboChartSeriesSettingsTypeDef",
     "ComboChartSortConfigurationOutputTypeDef",
     "ComboChartSortConfigurationTypeDef",
     "ComboChartVisualOutputTypeDef",
     "ComboChartVisualTypeDef",
+    "ComboSeriesItemTypeDef",
     "ComparativeOrderOutputTypeDef",
     "ComparativeOrderTypeDef",
     "ComparisonConfigurationTypeDef",
@@ -538,17 +583,22 @@ __all__ = (
     "ConditionalFormattingIconSetTypeDef",
     "ConditionalFormattingIconTypeDef",
     "ConditionalFormattingSolidColorTypeDef",
+    "ConfluenceParametersTypeDef",
     "ContextMenuOptionTypeDef",
+    "ContextualAccentPaletteTypeDef",
     "ContributionAnalysisDefaultOutputTypeDef",
     "ContributionAnalysisDefaultTypeDef",
     "ContributionAnalysisFactorTypeDef",
     "ContributionAnalysisTimeRangesOutputTypeDef",
     "ContributionAnalysisTimeRangesTypeDef",
     "ContributionAnalysisTimeRangesUnionTypeDef",
+    "CoordinateTypeDef",
     "CreateAccountCustomizationRequestTypeDef",
     "CreateAccountCustomizationResponseTypeDef",
     "CreateAccountSubscriptionRequestTypeDef",
     "CreateAccountSubscriptionResponseTypeDef",
+    "CreateActionConnectorRequestTypeDef",
+    "CreateActionConnectorResponseTypeDef",
     "CreateAnalysisRequestTypeDef",
     "CreateAnalysisResponseTypeDef",
     "CreateBrandRequestTypeDef",
@@ -623,6 +673,8 @@ __all__ = (
     "CustomSqlUnionTypeDef",
     "CustomValuesConfigurationOutputTypeDef",
     "CustomValuesConfigurationTypeDef",
+    "DashboardCustomizationVisualOptionsOutputTypeDef",
+    "DashboardCustomizationVisualOptionsTypeDef",
     "DashboardErrorTypeDef",
     "DashboardPublishOptionsTypeDef",
     "DashboardSearchFilterTypeDef",
@@ -643,6 +695,8 @@ __all__ = (
     "DataColorPaletteOutputTypeDef",
     "DataColorPaletteTypeDef",
     "DataColorTypeDef",
+    "DataFieldBarSeriesItemTypeDef",
+    "DataFieldComboSeriesItemTypeDef",
     "DataFieldSeriesItemTypeDef",
     "DataLabelOptionsOutputTypeDef",
     "DataLabelOptionsTypeDef",
@@ -656,16 +710,50 @@ __all__ = (
     "DataPointDrillUpDownOptionTypeDef",
     "DataPointMenuLabelOptionTypeDef",
     "DataPointTooltipOptionTypeDef",
+    "DataPrepAggregationFunctionTypeDef",
+    "DataPrepConfigurationOutputTypeDef",
+    "DataPrepConfigurationTypeDef",
+    "DataPrepConfigurationUnionTypeDef",
+    "DataPrepListAggregationFunctionTypeDef",
+    "DataPrepSimpleAggregationFunctionTypeDef",
     "DataQAEnabledOptionTypeDef",
     "DataQnAConfigurationsTypeDef",
+    "DataSetColumnIdMappingTypeDef",
     "DataSetConfigurationOutputTypeDef",
     "DataSetConfigurationTypeDef",
+    "DataSetDateComparisonFilterConditionOutputTypeDef",
+    "DataSetDateComparisonFilterConditionTypeDef",
+    "DataSetDateComparisonFilterConditionUnionTypeDef",
+    "DataSetDateFilterConditionOutputTypeDef",
+    "DataSetDateFilterConditionTypeDef",
+    "DataSetDateFilterConditionUnionTypeDef",
+    "DataSetDateFilterValueOutputTypeDef",
+    "DataSetDateFilterValueTypeDef",
+    "DataSetDateFilterValueUnionTypeDef",
+    "DataSetDateRangeFilterConditionOutputTypeDef",
+    "DataSetDateRangeFilterConditionTypeDef",
+    "DataSetDateRangeFilterConditionUnionTypeDef",
     "DataSetIdentifierDeclarationTypeDef",
+    "DataSetNumericComparisonFilterConditionTypeDef",
+    "DataSetNumericFilterConditionTypeDef",
+    "DataSetNumericFilterValueTypeDef",
+    "DataSetNumericRangeFilterConditionTypeDef",
     "DataSetReferenceTypeDef",
     "DataSetRefreshPropertiesTypeDef",
     "DataSetSchemaOutputTypeDef",
     "DataSetSchemaTypeDef",
     "DataSetSearchFilterTypeDef",
+    "DataSetStringComparisonFilterConditionTypeDef",
+    "DataSetStringFilterConditionOutputTypeDef",
+    "DataSetStringFilterConditionTypeDef",
+    "DataSetStringFilterConditionUnionTypeDef",
+    "DataSetStringFilterValueTypeDef",
+    "DataSetStringListFilterConditionOutputTypeDef",
+    "DataSetStringListFilterConditionTypeDef",
+    "DataSetStringListFilterConditionUnionTypeDef",
+    "DataSetStringListFilterValueOutputTypeDef",
+    "DataSetStringListFilterValueTypeDef",
+    "DataSetStringListFilterValueUnionTypeDef",
     "DataSetSummaryTypeDef",
     "DataSetTypeDef",
     "DataSetUsageConfigurationTypeDef",
@@ -706,6 +794,9 @@ __all__ = (
     "DateTimePickerControlDisplayOptionsTypeDef",
     "DateTimeValueWhenUnsetConfigurationOutputTypeDef",
     "DateTimeValueWhenUnsetConfigurationTypeDef",
+    "DecalSettingsConfigurationOutputTypeDef",
+    "DecalSettingsConfigurationTypeDef",
+    "DecalSettingsTypeDef",
     "DecimalDatasetParameterDefaultValuesOutputTypeDef",
     "DecimalDatasetParameterDefaultValuesTypeDef",
     "DecimalDatasetParameterDefaultValuesUnionTypeDef",
@@ -746,6 +837,8 @@ __all__ = (
     "DeleteAccountCustomizationResponseTypeDef",
     "DeleteAccountSubscriptionRequestTypeDef",
     "DeleteAccountSubscriptionResponseTypeDef",
+    "DeleteActionConnectorRequestTypeDef",
+    "DeleteActionConnectorResponseTypeDef",
     "DeleteAnalysisRequestTypeDef",
     "DeleteAnalysisResponseTypeDef",
     "DeleteBrandAssignmentRequestTypeDef",
@@ -812,6 +905,10 @@ __all__ = (
     "DescribeAccountSettingsResponseTypeDef",
     "DescribeAccountSubscriptionRequestTypeDef",
     "DescribeAccountSubscriptionResponseTypeDef",
+    "DescribeActionConnectorPermissionsRequestTypeDef",
+    "DescribeActionConnectorPermissionsResponseTypeDef",
+    "DescribeActionConnectorRequestTypeDef",
+    "DescribeActionConnectorResponseTypeDef",
     "DescribeAnalysisDefinitionRequestTypeDef",
     "DescribeAnalysisDefinitionResponseTypeDef",
     "DescribeAnalysisPermissionsRequestTypeDef",
@@ -884,6 +981,8 @@ __all__ = (
     "DescribeRefreshScheduleResponseTypeDef",
     "DescribeRoleCustomPermissionRequestTypeDef",
     "DescribeRoleCustomPermissionResponseTypeDef",
+    "DescribeSelfUpgradeConfigurationRequestTypeDef",
+    "DescribeSelfUpgradeConfigurationResponseTypeDef",
     "DescribeTemplateAliasRequestTypeDef",
     "DescribeTemplateAliasResponseTypeDef",
     "DescribeTemplateDefinitionRequestTypeDef",
@@ -912,6 +1011,8 @@ __all__ = (
     "DescribeVPCConnectionResponseTypeDef",
     "DestinationParameterValueConfigurationOutputTypeDef",
     "DestinationParameterValueConfigurationTypeDef",
+    "DestinationTableSourceTypeDef",
+    "DestinationTableTypeDef",
     "DimensionFieldTypeDef",
     "DisplayFormatOptionsTypeDef",
     "DonutCenterOptionsTypeDef",
@@ -934,8 +1035,10 @@ __all__ = (
     "ExportToCSVOptionTypeDef",
     "ExportWithHiddenFieldsOptionTypeDef",
     "FailedKeyRegistrationEntryTypeDef",
+    "FieldBarSeriesItemTypeDef",
     "FieldBasedTooltipOutputTypeDef",
     "FieldBasedTooltipTypeDef",
+    "FieldComboSeriesItemTypeDef",
     "FieldFolderOutputTypeDef",
     "FieldFolderTypeDef",
     "FieldFolderUnionTypeDef",
@@ -974,11 +1077,13 @@ __all__ = (
     "FilterListConfigurationTypeDef",
     "FilterListControlOutputTypeDef",
     "FilterListControlTypeDef",
+    "FilterOperationOutputTypeDef",
     "FilterOperationSelectedFieldsConfigurationOutputTypeDef",
     "FilterOperationSelectedFieldsConfigurationTypeDef",
     "FilterOperationTargetVisualsConfigurationOutputTypeDef",
     "FilterOperationTargetVisualsConfigurationTypeDef",
     "FilterOperationTypeDef",
+    "FilterOperationUnionTypeDef",
     "FilterOutputTypeDef",
     "FilterRelativeDateTimeControlTypeDef",
     "FilterScopeConfigurationOutputTypeDef",
@@ -989,6 +1094,9 @@ __all__ = (
     "FilterTextAreaControlTypeDef",
     "FilterTextFieldControlTypeDef",
     "FilterTypeDef",
+    "FiltersOperationOutputTypeDef",
+    "FiltersOperationTypeDef",
+    "FlowSummaryTypeDef",
     "FolderMemberTypeDef",
     "FolderSearchFilterTypeDef",
     "FolderSummaryTypeDef",
@@ -1051,6 +1159,9 @@ __all__ = (
     "GeoSpatialColumnGroupOutputTypeDef",
     "GeoSpatialColumnGroupTypeDef",
     "GeoSpatialColumnGroupUnionTypeDef",
+    "GeocodePreferenceTypeDef",
+    "GeocodePreferenceValueTypeDef",
+    "GeocoderHierarchyTypeDef",
     "GeospatialCategoricalColorOutputTypeDef",
     "GeospatialCategoricalColorTypeDef",
     "GeospatialCategoricalDataColorTypeDef",
@@ -1116,6 +1227,12 @@ __all__ = (
     "GeospatialWindowOptionsTypeDef",
     "GetDashboardEmbedUrlRequestTypeDef",
     "GetDashboardEmbedUrlResponseTypeDef",
+    "GetFlowMetadataInputTypeDef",
+    "GetFlowMetadataOutputTypeDef",
+    "GetFlowPermissionsInputTypeDef",
+    "GetFlowPermissionsOutputTypeDef",
+    "GetIdentityContextRequestTypeDef",
+    "GetIdentityContextResponseTypeDef",
     "GetSessionEmbedUrlRequestTypeDef",
     "GetSessionEmbedUrlResponseTypeDef",
     "GlobalTableBorderOptionsTypeDef",
@@ -1125,6 +1242,8 @@ __all__ = (
     "GridLayoutCanvasSizeOptionsTypeDef",
     "GridLayoutConfigurationOutputTypeDef",
     "GridLayoutConfigurationTypeDef",
+    "GridLayoutElementBackgroundStyleTypeDef",
+    "GridLayoutElementBorderStyleTypeDef",
     "GridLayoutElementTypeDef",
     "GridLayoutScreenCanvasSizeOptionsTypeDef",
     "GroupMemberTypeDef",
@@ -1153,6 +1272,7 @@ __all__ = (
     "HistogramFieldWellsTypeDef",
     "HistogramVisualOutputTypeDef",
     "HistogramVisualTypeDef",
+    "IAMConnectionMetadataTypeDef",
     "IAMPolicyAssignmentSummaryTypeDef",
     "IAMPolicyAssignmentTypeDef",
     "IdentifierTypeDef",
@@ -1170,6 +1290,10 @@ __all__ = (
     "ImageStaticFileTypeDef",
     "ImageTypeDef",
     "ImpalaParametersTypeDef",
+    "ImportTableOperationOutputTypeDef",
+    "ImportTableOperationSourceOutputTypeDef",
+    "ImportTableOperationSourceTypeDef",
+    "ImportTableOperationTypeDef",
     "IncrementalRefreshTypeDef",
     "IngestionTypeDef",
     "InnerFilterOutputTypeDef",
@@ -1197,6 +1321,10 @@ __all__ = (
     "JiraParametersTypeDef",
     "JoinInstructionTypeDef",
     "JoinKeyPropertiesTypeDef",
+    "JoinOperandPropertiesOutputTypeDef",
+    "JoinOperandPropertiesTypeDef",
+    "JoinOperationOutputTypeDef",
+    "JoinOperationTypeDef",
     "KPIActualValueConditionalFormattingOutputTypeDef",
     "KPIActualValueConditionalFormattingTypeDef",
     "KPIComparisonValueConditionalFormattingOutputTypeDef",
@@ -1221,6 +1349,7 @@ __all__ = (
     "KPIVisualOutputTypeDef",
     "KPIVisualStandardLayoutTypeDef",
     "KPIVisualTypeDef",
+    "KeyPairCredentialsTypeDef",
     "LabelOptionsTypeDef",
     "LayerCustomActionOperationOutputTypeDef",
     "LayerCustomActionOperationTypeDef",
@@ -1252,6 +1381,9 @@ __all__ = (
     "LinkSharingConfigurationOutputTypeDef",
     "LinkSharingConfigurationTypeDef",
     "LinkSharingConfigurationUnionTypeDef",
+    "ListActionConnectorsRequestPaginateTypeDef",
+    "ListActionConnectorsRequestTypeDef",
+    "ListActionConnectorsResponseTypeDef",
     "ListAnalysesRequestPaginateTypeDef",
     "ListAnalysesRequestTypeDef",
     "ListAnalysesResponseTypeDef",
@@ -1282,6 +1414,9 @@ __all__ = (
     "ListDataSourcesRequestPaginateTypeDef",
     "ListDataSourcesRequestTypeDef",
     "ListDataSourcesResponseTypeDef",
+    "ListFlowsInputPaginateTypeDef",
+    "ListFlowsInputTypeDef",
+    "ListFlowsOutputTypeDef",
     "ListFolderMembersRequestPaginateTypeDef",
     "ListFolderMembersRequestTypeDef",
     "ListFolderMembersResponseTypeDef",
@@ -1316,6 +1451,8 @@ __all__ = (
     "ListRoleMembershipsRequestPaginateTypeDef",
     "ListRoleMembershipsRequestTypeDef",
     "ListRoleMembershipsResponseTypeDef",
+    "ListSelfUpgradesRequestTypeDef",
+    "ListSelfUpgradesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListTemplateAliasesRequestPaginateTypeDef",
@@ -1389,6 +1526,7 @@ __all__ = (
     "NewDefaultValuesOutputTypeDef",
     "NewDefaultValuesTypeDef",
     "NewDefaultValuesUnionTypeDef",
+    "NoneConnectionMetadataTypeDef",
     "NullValueFormatConfigurationTypeDef",
     "NumberDisplayFormatConfigurationTypeDef",
     "NumberFormatConfigurationTypeDef",
@@ -1407,6 +1545,7 @@ __all__ = (
     "NumericalMeasureFieldTypeDef",
     "OAuthParametersTypeDef",
     "OracleParametersTypeDef",
+    "OutputColumnNameOverrideTypeDef",
     "OutputColumnTypeDef",
     "OverrideDatasetParameterOperationOutputTypeDef",
     "OverrideDatasetParameterOperationTypeDef",
@@ -1433,6 +1572,8 @@ __all__ = (
     "ParametersOutputTypeDef",
     "ParametersTypeDef",
     "ParametersUnionTypeDef",
+    "ParentDataSetOutputTypeDef",
+    "ParentDataSetTypeDef",
     "PercentVisibleRangeTypeDef",
     "PercentageDisplayFormatConfigurationTypeDef",
     "PercentileAggregationTypeDef",
@@ -1441,6 +1582,9 @@ __all__ = (
     "PerformanceConfigurationUnionTypeDef",
     "PeriodOverPeriodComputationTypeDef",
     "PeriodToDateComputationTypeDef",
+    "PermissionOutputTypeDef",
+    "PermissionTypeDef",
+    "PermissionUnionTypeDef",
     "PhysicalTableOutputTypeDef",
     "PhysicalTableTypeDef",
     "PhysicalTableUnionTypeDef",
@@ -1454,8 +1598,12 @@ __all__ = (
     "PieChartSortConfigurationTypeDef",
     "PieChartVisualOutputTypeDef",
     "PieChartVisualTypeDef",
+    "PivotConfigurationOutputTypeDef",
+    "PivotConfigurationTypeDef",
     "PivotFieldSortOptionsOutputTypeDef",
     "PivotFieldSortOptionsTypeDef",
+    "PivotOperationOutputTypeDef",
+    "PivotOperationTypeDef",
     "PivotTableAggregatedFieldWellsOutputTypeDef",
     "PivotTableAggregatedFieldWellsTypeDef",
     "PivotTableCellConditionalFormattingOutputTypeDef",
@@ -1493,6 +1641,7 @@ __all__ = (
     "PivotTableVisualTypeDef",
     "PivotTotalOptionsOutputTypeDef",
     "PivotTotalOptionsTypeDef",
+    "PivotedLabelTypeDef",
     "PluginVisualConfigurationOutputTypeDef",
     "PluginVisualConfigurationTypeDef",
     "PluginVisualFieldWellOutputTypeDef",
@@ -1520,9 +1669,11 @@ __all__ = (
     "PutDataSetRefreshPropertiesRequestTypeDef",
     "PutDataSetRefreshPropertiesResponseTypeDef",
     "QAResultTypeDef",
+    "QBusinessParametersTypeDef",
     "QDataKeyTypeDef",
     "QueryExecutionOptionsTypeDef",
     "QueueInfoTypeDef",
+    "QuickSuiteActionsOptionTypeDef",
     "RadarChartAggregatedFieldWellsOutputTypeDef",
     "RadarChartAggregatedFieldWellsTypeDef",
     "RadarChartAreaStyleSettingsTypeDef",
@@ -1538,6 +1689,18 @@ __all__ = (
     "RangeConstantTypeDef",
     "RangeEndsLabelTypeTypeDef",
     "RdsParametersTypeDef",
+    "ReadAPIKeyConnectionMetadataTypeDef",
+    "ReadAuthConfigTypeDef",
+    "ReadAuthenticationMetadataTypeDef",
+    "ReadAuthorizationCodeGrantCredentialsDetailsTypeDef",
+    "ReadAuthorizationCodeGrantDetailsTypeDef",
+    "ReadAuthorizationCodeGrantMetadataTypeDef",
+    "ReadBasicAuthConnectionMetadataTypeDef",
+    "ReadClientCredentialsDetailsTypeDef",
+    "ReadClientCredentialsGrantDetailsTypeDef",
+    "ReadClientCredentialsGrantMetadataTypeDef",
+    "ReadIamConnectionMetadataTypeDef",
+    "ReadNoneConnectionMetadataTypeDef",
     "RecentSnapshotsConfigurationsTypeDef",
     "RedshiftIAMParametersOutputTypeDef",
     "RedshiftIAMParametersTypeDef",
@@ -1571,6 +1734,7 @@ __all__ = (
     "RegisteredUserGenerativeQnAEmbeddingConfigurationTypeDef",
     "RegisteredUserQSearchBarEmbeddingConfigurationTypeDef",
     "RegisteredUserQuickSightConsoleEmbeddingConfigurationTypeDef",
+    "RegisteredUserSnapshotJobResultTypeDef",
     "RelationalTableOutputTypeDef",
     "RelationalTableTypeDef",
     "RelationalTableUnionTypeDef",
@@ -1578,6 +1742,8 @@ __all__ = (
     "RelativeDatesFilterOutputTypeDef",
     "RelativeDatesFilterTypeDef",
     "RenameColumnOperationTypeDef",
+    "RenameColumnsOperationOutputTypeDef",
+    "RenameColumnsOperationTypeDef",
     "ResourcePermissionOutputTypeDef",
     "ResourcePermissionTypeDef",
     "ResourcePermissionUnionTypeDef",
@@ -1588,16 +1754,22 @@ __all__ = (
     "RowAlternateColorOptionsOutputTypeDef",
     "RowAlternateColorOptionsTypeDef",
     "RowInfoTypeDef",
+    "RowLevelPermissionConfigurationOutputTypeDef",
+    "RowLevelPermissionConfigurationTypeDef",
     "RowLevelPermissionDataSetTypeDef",
     "RowLevelPermissionTagConfigurationOutputTypeDef",
     "RowLevelPermissionTagConfigurationTypeDef",
     "RowLevelPermissionTagConfigurationUnionTypeDef",
     "RowLevelPermissionTagRuleTypeDef",
     "S3BucketConfigurationTypeDef",
+    "S3KnowledgeBaseParametersTypeDef",
     "S3ParametersTypeDef",
     "S3SourceOutputTypeDef",
     "S3SourceTypeDef",
     "S3SourceUnionTypeDef",
+    "SaaSTableOutputTypeDef",
+    "SaaSTableTypeDef",
+    "SaaSTableUnionTypeDef",
     "SameSheetTargetVisualConfigurationOutputTypeDef",
     "SameSheetTargetVisualConfigurationTypeDef",
     "SankeyDiagramAggregatedFieldWellsOutputTypeDef",
@@ -1624,6 +1796,9 @@ __all__ = (
     "ScheduleRefreshOnEntityTypeDef",
     "SchedulesConfigurationsTypeDef",
     "ScrollBarOptionsTypeDef",
+    "SearchActionConnectorsRequestPaginateTypeDef",
+    "SearchActionConnectorsRequestTypeDef",
+    "SearchActionConnectorsResponseTypeDef",
     "SearchAnalysesRequestPaginateTypeDef",
     "SearchAnalysesRequestTypeDef",
     "SearchAnalysesResponseTypeDef",
@@ -1636,6 +1811,10 @@ __all__ = (
     "SearchDataSourcesRequestPaginateTypeDef",
     "SearchDataSourcesRequestTypeDef",
     "SearchDataSourcesResponseTypeDef",
+    "SearchFlowsFilterTypeDef",
+    "SearchFlowsInputPaginateTypeDef",
+    "SearchFlowsInputTypeDef",
+    "SearchFlowsOutputTypeDef",
     "SearchFoldersRequestPaginateTypeDef",
     "SearchFoldersRequestTypeDef",
     "SearchFoldersResponseTypeDef",
@@ -1657,8 +1836,15 @@ __all__ = (
     "SectionStyleTypeDef",
     "SelectedSheetsFilterScopeConfigurationOutputTypeDef",
     "SelectedSheetsFilterScopeConfigurationTypeDef",
+    "SelfUpgradeConfigurationTypeDef",
+    "SelfUpgradeRequestDetailTypeDef",
     "SemanticEntityTypeOutputTypeDef",
     "SemanticEntityTypeTypeDef",
+    "SemanticModelConfigurationOutputTypeDef",
+    "SemanticModelConfigurationTypeDef",
+    "SemanticModelConfigurationUnionTypeDef",
+    "SemanticTableOutputTypeDef",
+    "SemanticTableTypeDef",
     "SemanticTypeOutputTypeDef",
     "SemanticTypeTypeDef",
     "SeriesItemTypeDef",
@@ -1669,6 +1855,7 @@ __all__ = (
     "ShapeConditionalFormatOutputTypeDef",
     "ShapeConditionalFormatTypeDef",
     "SharedViewConfigurationsTypeDef",
+    "SheetBackgroundStyleTypeDef",
     "SheetControlInfoIconLabelOptionsTypeDef",
     "SheetControlLayoutConfigurationOutputTypeDef",
     "SheetControlLayoutConfigurationTypeDef",
@@ -1687,6 +1874,9 @@ __all__ = (
     "SheetImageTooltipTextTypeDef",
     "SheetImageTypeDef",
     "SheetLayoutElementMaximizationOptionTypeDef",
+    "SheetLayoutGroupMemberTypeDef",
+    "SheetLayoutGroupOutputTypeDef",
+    "SheetLayoutGroupTypeDef",
     "SheetStyleTypeDef",
     "SheetTextBoxTypeDef",
     "SheetTypeDef",
@@ -1722,6 +1912,8 @@ __all__ = (
     "SnapshotUserConfigurationRedactedTypeDef",
     "SnapshotUserConfigurationTypeDef",
     "SnowflakeParametersTypeDef",
+    "SourceTableOutputTypeDef",
+    "SourceTableTypeDef",
     "SpacingTypeDef",
     "SparkParametersTypeDef",
     "SpatialStaticFileTypeDef",
@@ -1787,6 +1979,7 @@ __all__ = (
     "TableOptionsOutputTypeDef",
     "TableOptionsTypeDef",
     "TablePaginatedReportOptionsTypeDef",
+    "TablePathElementTypeDef",
     "TablePinnedFieldOptionsOutputTypeDef",
     "TablePinnedFieldOptionsTypeDef",
     "TableRowConditionalFormattingOutputTypeDef",
@@ -1916,8 +2109,13 @@ __all__ = (
     "TotalOptionsOutputTypeDef",
     "TotalOptionsTypeDef",
     "TransformOperationOutputTypeDef",
+    "TransformOperationSourceOutputTypeDef",
+    "TransformOperationSourceTypeDef",
+    "TransformOperationSourceUnionTypeDef",
     "TransformOperationTypeDef",
     "TransformOperationUnionTypeDef",
+    "TransformStepOutputTypeDef",
+    "TransformStepTypeDef",
     "TransposedTableOptionTypeDef",
     "TreeMapAggregatedFieldWellsOutputTypeDef",
     "TreeMapAggregatedFieldWellsTypeDef",
@@ -1939,6 +2137,8 @@ __all__ = (
     "UniqueKeyOutputTypeDef",
     "UniqueKeyTypeDef",
     "UniqueValuesComputationTypeDef",
+    "UnpivotOperationOutputTypeDef",
+    "UnpivotOperationTypeDef",
     "UntagColumnOperationOutputTypeDef",
     "UntagColumnOperationTypeDef",
     "UntagColumnOperationUnionTypeDef",
@@ -1950,6 +2150,10 @@ __all__ = (
     "UpdateAccountCustomizationResponseTypeDef",
     "UpdateAccountSettingsRequestTypeDef",
     "UpdateAccountSettingsResponseTypeDef",
+    "UpdateActionConnectorPermissionsRequestTypeDef",
+    "UpdateActionConnectorPermissionsResponseTypeDef",
+    "UpdateActionConnectorRequestTypeDef",
+    "UpdateActionConnectorResponseTypeDef",
     "UpdateAnalysisPermissionsRequestTypeDef",
     "UpdateAnalysisPermissionsResponseTypeDef",
     "UpdateAnalysisRequestTypeDef",
@@ -1984,6 +2188,8 @@ __all__ = (
     "UpdateDataSourceResponseTypeDef",
     "UpdateDefaultQBusinessApplicationRequestTypeDef",
     "UpdateDefaultQBusinessApplicationResponseTypeDef",
+    "UpdateFlowPermissionsInputTypeDef",
+    "UpdateFlowPermissionsOutputTypeDef",
     "UpdateFolderPermissionsRequestTypeDef",
     "UpdateFolderPermissionsResponseTypeDef",
     "UpdateFolderRequestTypeDef",
@@ -2010,6 +2216,10 @@ __all__ = (
     "UpdateRoleCustomPermissionResponseTypeDef",
     "UpdateSPICECapacityConfigurationRequestTypeDef",
     "UpdateSPICECapacityConfigurationResponseTypeDef",
+    "UpdateSelfUpgradeConfigurationRequestTypeDef",
+    "UpdateSelfUpgradeConfigurationResponseTypeDef",
+    "UpdateSelfUpgradeRequestTypeDef",
+    "UpdateSelfUpgradeResponseTypeDef",
     "UpdateTemplateAliasRequestTypeDef",
     "UpdateTemplateAliasResponseTypeDef",
     "UpdateTemplatePermissionsRequestTypeDef",
@@ -2035,10 +2245,12 @@ __all__ = (
     "UpdateVPCConnectionRequestTypeDef",
     "UpdateVPCConnectionResponseTypeDef",
     "UploadSettingsTypeDef",
+    "UserIdentifierTypeDef",
     "UserTypeDef",
     "VPCConnectionSummaryTypeDef",
     "VPCConnectionTypeDef",
     "ValidationStrategyTypeDef",
+    "ValueColumnConfigurationTypeDef",
     "VisibleRangeOptionsTypeDef",
     "VisualAxisSortOptionTypeDef",
     "VisualCustomActionDefaultsTypeDef",
@@ -2046,6 +2258,8 @@ __all__ = (
     "VisualCustomActionOperationTypeDef",
     "VisualCustomActionOutputTypeDef",
     "VisualCustomActionTypeDef",
+    "VisualCustomizationFieldsConfigurationOutputTypeDef",
+    "VisualCustomizationFieldsConfigurationTypeDef",
     "VisualHighlightOperationTypeDef",
     "VisualInteractionOptionsTypeDef",
     "VisualMenuOptionTypeDef",
@@ -2053,7 +2267,9 @@ __all__ = (
     "VisualOutputTypeDef",
     "VisualPaletteOutputTypeDef",
     "VisualPaletteTypeDef",
+    "VisualSubtitleFontConfigurationTypeDef",
     "VisualSubtitleLabelOptionsTypeDef",
+    "VisualTitleFontConfigurationTypeDef",
     "VisualTitleLabelOptionsTypeDef",
     "VisualTypeDef",
     "VpcConnectionPropertiesTypeDef",
@@ -2070,6 +2286,8 @@ __all__ = (
     "WaterfallChartSortConfigurationTypeDef",
     "WaterfallVisualOutputTypeDef",
     "WaterfallVisualTypeDef",
+    "WebCrawlerParametersTypeDef",
+    "WebProxyCredentialsTypeDef",
     "WhatIfPointScenarioOutputTypeDef",
     "WhatIfPointScenarioTypeDef",
     "WhatIfRangeScenarioOutputTypeDef",
@@ -2087,6 +2305,12 @@ __all__ = (
     "WordCloudVisualTypeDef",
     "YAxisOptionsTypeDef",
 )
+
+
+class APIKeyConnectionMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    ApiKey: str
+    Email: NotRequired[str]
 
 
 class AccountCustomizationTypeDef(TypedDict):
@@ -2112,6 +2336,21 @@ class AccountSettingsTypeDef(TypedDict):
     TerminationProtectionEnabled: NotRequired[bool]
 
 
+ActionConnectorErrorTypeDef = TypedDict(
+    "ActionConnectorErrorTypeDef",
+    {
+        "Message": NotRequired[str],
+        "Type": NotRequired[Literal["INTERNAL_FAILURE"]],
+    },
+)
+
+
+class ActionConnectorSearchFilterTypeDef(TypedDict):
+    Name: ActionConnectorSearchFilterNameEnumType
+    Operator: FilterOperatorType
+    Value: str
+
+
 class ActiveIAMPolicyAssignmentTypeDef(TypedDict):
     AssignmentName: NotRequired[str]
     PolicyArn: NotRequired[str]
@@ -2123,7 +2362,7 @@ class AdHocFilteringOptionTypeDef(TypedDict):
 
 class AggFunctionOutputTypeDef(TypedDict):
     Aggregation: NotRequired[AggTypeType]
-    AggregationFunctionParameters: NotRequired[Dict[str, str]]
+    AggregationFunctionParameters: NotRequired[dict[str, str]]
     Period: NotRequired[TopicTimeGranularityType]
     PeriodField: NotRequired[str]
 
@@ -2242,6 +2481,11 @@ class AnonymousUserQSearchBarEmbeddingConfigurationTypeDef(TypedDict):
     InitialTopicId: str
 
 
+class AppendedColumnTypeDef(TypedDict):
+    ColumnName: str
+    NewColumnId: str
+
+
 class ArcAxisDisplayRangeTypeDef(TypedDict):
     Min: NotRequired[float]
     Max: NotRequired[float]
@@ -2258,32 +2502,32 @@ class ArcOptionsTypeDef(TypedDict):
 
 class AssetBundleExportJobAnalysisOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[Literal["Name"]]
+    Properties: list[Literal["Name"]]
 
 
 class AssetBundleExportJobDashboardOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[Literal["Name"]]
+    Properties: list[Literal["Name"]]
 
 
 class AssetBundleExportJobDataSetOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[AssetBundleExportJobDataSetPropertyToOverrideType]
+    Properties: list[AssetBundleExportJobDataSetPropertyToOverrideType]
 
 
 class AssetBundleExportJobDataSourceOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[AssetBundleExportJobDataSourcePropertyToOverrideType]
+    Properties: list[AssetBundleExportJobDataSourcePropertyToOverrideType]
 
 
 class AssetBundleExportJobFolderOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[AssetBundleExportJobFolderPropertyToOverrideType]
+    Properties: list[AssetBundleExportJobFolderPropertyToOverrideType]
 
 
 class AssetBundleExportJobRefreshScheduleOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[Literal["StartAfterDateTime"]]
+    Properties: list[Literal["StartAfterDateTime"]]
 
 
 class AssetBundleExportJobResourceIdOverrideConfigurationTypeDef(TypedDict):
@@ -2292,12 +2536,12 @@ class AssetBundleExportJobResourceIdOverrideConfigurationTypeDef(TypedDict):
 
 class AssetBundleExportJobThemeOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[Literal["Name"]]
+    Properties: list[Literal["Name"]]
 
 
 class AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
-    Properties: List[AssetBundleExportJobVPCConnectionPropertyToOverrideType]
+    Properties: list[AssetBundleExportJobVPCConnectionPropertyToOverrideType]
 
 
 class AssetBundleExportJobAnalysisOverridePropertiesTypeDef(TypedDict):
@@ -2376,8 +2620,8 @@ class AssetBundleImportJobAnalysisOverrideParametersTypeDef(TypedDict):
 
 
 class AssetBundleResourcePermissionsOutputTypeDef(TypedDict):
-    Principals: List[str]
-    Actions: List[str]
+    Principals: list[str]
+    Actions: list[str]
 
 
 class AssetBundleResourcePermissionsTypeDef(TypedDict):
@@ -2442,9 +2686,9 @@ class AssetBundleImportJobThemeOverrideParametersTypeDef(TypedDict):
 class AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef(TypedDict):
     VPCConnectionId: str
     Name: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
-    DnsResolvers: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    DnsResolvers: NotRequired[list[str]]
     RoleArn: NotRequired[str]
 
 
@@ -2501,9 +2745,30 @@ class AuroraPostgreSqlParametersTypeDef(TypedDict):
     Database: str
 
 
+class BasicAuthConnectionMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    Username: str
+    Password: str
+
+
+class IAMConnectionMetadataTypeDef(TypedDict):
+    RoleArn: str
+
+
+class NoneConnectionMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+
+
+class AuthorizationCodeGrantDetailsTypeDef(TypedDict):
+    ClientId: str
+    ClientSecret: str
+    TokenEndpoint: str
+    AuthorizationEndpoint: str
+
+
 class AuthorizedTargetsByServiceTypeDef(TypedDict):
     Service: NotRequired[ServiceTypeType]
-    AuthorizedTargets: NotRequired[List[str]]
+    AuthorizedTargets: NotRequired[list[str]]
 
 
 class AwsIotAnalyticsParametersTypeDef(TypedDict):
@@ -2528,6 +2793,20 @@ class AxisLogarithmicScaleTypeDef(TypedDict):
     Base: NotRequired[float]
 
 
+class BorderSettingsTypeDef(TypedDict):
+    BorderVisibility: NotRequired[VisibilityType]
+    BorderWidth: NotRequired[str]
+    BorderColor: NotRequired[str]
+
+
+class DecalSettingsTypeDef(TypedDict):
+    ElementValue: NotRequired[str]
+    DecalVisibility: NotRequired[VisibilityType]
+    DecalColor: NotRequired[str]
+    DecalPatternType: NotRequired[DecalPatternTypeType]
+    DecalStyleType: NotRequired[DecalStyleTypeType]
+
+
 class ItemsLimitConfigurationTypeDef(TypedDict):
     ItemsLimit: NotRequired[int]
     OtherCategories: NotRequired[OtherCategoriesType]
@@ -2541,7 +2820,7 @@ class InvalidTopicReviewedAnswerTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -2579,7 +2858,9 @@ class BookmarksConfigurationsTypeDef(TypedDict):
 
 
 class BorderStyleTypeDef(TypedDict):
+    Color: NotRequired[str]
     Show: NotRequired[bool]
+    Width: NotRequired[str]
 
 
 class BoxPlotStyleOptionsTypeDef(TypedDict):
@@ -2649,6 +2930,191 @@ class CapabilitiesTypeDef(TypedDict):
     IncludeContentInScheduledReportsEmail: NotRequired[Literal["DENY"]]
     Dashboard: NotRequired[Literal["DENY"]]
     Analysis: NotRequired[Literal["DENY"]]
+    Automate: NotRequired[Literal["DENY"]]
+    Flow: NotRequired[Literal["DENY"]]
+    PublishWithoutApproval: NotRequired[Literal["DENY"]]
+    UseBedrockModels: NotRequired[Literal["DENY"]]
+    PerformFlowUiTask: NotRequired[Literal["DENY"]]
+    UseAgentWebSearch: NotRequired[Literal["DENY"]]
+    KnowledgeBase: NotRequired[Literal["DENY"]]
+    Action: NotRequired[Literal["DENY"]]
+    GenericHTTPAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateGenericHTTPAction: NotRequired[Literal["DENY"]]
+    ShareGenericHTTPAction: NotRequired[Literal["DENY"]]
+    UseGenericHTTPAction: NotRequired[Literal["DENY"]]
+    AsanaAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAsanaAction: NotRequired[Literal["DENY"]]
+    ShareAsanaAction: NotRequired[Literal["DENY"]]
+    UseAsanaAction: NotRequired[Literal["DENY"]]
+    SlackAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSlackAction: NotRequired[Literal["DENY"]]
+    ShareSlackAction: NotRequired[Literal["DENY"]]
+    UseSlackAction: NotRequired[Literal["DENY"]]
+    ServiceNowAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateServiceNowAction: NotRequired[Literal["DENY"]]
+    ShareServiceNowAction: NotRequired[Literal["DENY"]]
+    UseServiceNowAction: NotRequired[Literal["DENY"]]
+    SalesforceAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSalesforceAction: NotRequired[Literal["DENY"]]
+    ShareSalesforceAction: NotRequired[Literal["DENY"]]
+    UseSalesforceAction: NotRequired[Literal["DENY"]]
+    MSExchangeAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMSExchangeAction: NotRequired[Literal["DENY"]]
+    ShareMSExchangeAction: NotRequired[Literal["DENY"]]
+    UseMSExchangeAction: NotRequired[Literal["DENY"]]
+    PagerDutyAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdatePagerDutyAction: NotRequired[Literal["DENY"]]
+    SharePagerDutyAction: NotRequired[Literal["DENY"]]
+    UsePagerDutyAction: NotRequired[Literal["DENY"]]
+    JiraAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateJiraAction: NotRequired[Literal["DENY"]]
+    ShareJiraAction: NotRequired[Literal["DENY"]]
+    UseJiraAction: NotRequired[Literal["DENY"]]
+    ConfluenceAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateConfluenceAction: NotRequired[Literal["DENY"]]
+    ShareConfluenceAction: NotRequired[Literal["DENY"]]
+    UseConfluenceAction: NotRequired[Literal["DENY"]]
+    OneDriveAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateOneDriveAction: NotRequired[Literal["DENY"]]
+    ShareOneDriveAction: NotRequired[Literal["DENY"]]
+    UseOneDriveAction: NotRequired[Literal["DENY"]]
+    SharePointAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSharePointAction: NotRequired[Literal["DENY"]]
+    ShareSharePointAction: NotRequired[Literal["DENY"]]
+    UseSharePointAction: NotRequired[Literal["DENY"]]
+    MSTeamsAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMSTeamsAction: NotRequired[Literal["DENY"]]
+    ShareMSTeamsAction: NotRequired[Literal["DENY"]]
+    UseMSTeamsAction: NotRequired[Literal["DENY"]]
+    GoogleCalendarAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateGoogleCalendarAction: NotRequired[Literal["DENY"]]
+    ShareGoogleCalendarAction: NotRequired[Literal["DENY"]]
+    UseGoogleCalendarAction: NotRequired[Literal["DENY"]]
+    ZendeskAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateZendeskAction: NotRequired[Literal["DENY"]]
+    ShareZendeskAction: NotRequired[Literal["DENY"]]
+    UseZendeskAction: NotRequired[Literal["DENY"]]
+    SmartsheetAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSmartsheetAction: NotRequired[Literal["DENY"]]
+    ShareSmartsheetAction: NotRequired[Literal["DENY"]]
+    UseSmartsheetAction: NotRequired[Literal["DENY"]]
+    SAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    ShareSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    UseSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    SAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    ShareSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    UseSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    SAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    ShareSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    UseSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    SAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    ShareSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    UseSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    SAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    ShareSAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    UseSAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    FactSetAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateFactSetAction: NotRequired[Literal["DENY"]]
+    ShareFactSetAction: NotRequired[Literal["DENY"]]
+    UseFactSetAction: NotRequired[Literal["DENY"]]
+    AmazonSThreeAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonSThreeAction: NotRequired[Literal["DENY"]]
+    ShareAmazonSThreeAction: NotRequired[Literal["DENY"]]
+    UseAmazonSThreeAction: NotRequired[Literal["DENY"]]
+    TextractAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateTextractAction: NotRequired[Literal["DENY"]]
+    ShareTextractAction: NotRequired[Literal["DENY"]]
+    UseTextractAction: NotRequired[Literal["DENY"]]
+    ComprehendAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateComprehendAction: NotRequired[Literal["DENY"]]
+    ShareComprehendAction: NotRequired[Literal["DENY"]]
+    UseComprehendAction: NotRequired[Literal["DENY"]]
+    ComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    ShareComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    UseComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    AmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    ShareAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    UseAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    AmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    ShareAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    UseAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    AmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    ShareAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    UseAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    MCPAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMCPAction: NotRequired[Literal["DENY"]]
+    ShareMCPAction: NotRequired[Literal["DENY"]]
+    UseMCPAction: NotRequired[Literal["DENY"]]
+    OpenAPIAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateOpenAPIAction: NotRequired[Literal["DENY"]]
+    ShareOpenAPIAction: NotRequired[Literal["DENY"]]
+    UseOpenAPIAction: NotRequired[Literal["DENY"]]
+    SandPGMIAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSandPGMIAction: NotRequired[Literal["DENY"]]
+    ShareSandPGMIAction: NotRequired[Literal["DENY"]]
+    UseSandPGMIAction: NotRequired[Literal["DENY"]]
+    SandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    ShareSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    UseSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    BambooHRAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateBambooHRAction: NotRequired[Literal["DENY"]]
+    ShareBambooHRAction: NotRequired[Literal["DENY"]]
+    UseBambooHRAction: NotRequired[Literal["DENY"]]
+    BoxAgentAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateBoxAgentAction: NotRequired[Literal["DENY"]]
+    ShareBoxAgentAction: NotRequired[Literal["DENY"]]
+    UseBoxAgentAction: NotRequired[Literal["DENY"]]
+    CanvaAgentAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateCanvaAgentAction: NotRequired[Literal["DENY"]]
+    ShareCanvaAgentAction: NotRequired[Literal["DENY"]]
+    UseCanvaAgentAction: NotRequired[Literal["DENY"]]
+    GithubAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateGithubAction: NotRequired[Literal["DENY"]]
+    ShareGithubAction: NotRequired[Literal["DENY"]]
+    UseGithubAction: NotRequired[Literal["DENY"]]
+    NotionAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateNotionAction: NotRequired[Literal["DENY"]]
+    ShareNotionAction: NotRequired[Literal["DENY"]]
+    UseNotionAction: NotRequired[Literal["DENY"]]
+    LinearAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateLinearAction: NotRequired[Literal["DENY"]]
+    ShareLinearAction: NotRequired[Literal["DENY"]]
+    UseLinearAction: NotRequired[Literal["DENY"]]
+    HuggingFaceAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateHuggingFaceAction: NotRequired[Literal["DENY"]]
+    ShareHuggingFaceAction: NotRequired[Literal["DENY"]]
+    UseHuggingFaceAction: NotRequired[Literal["DENY"]]
+    MondayAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMondayAction: NotRequired[Literal["DENY"]]
+    ShareMondayAction: NotRequired[Literal["DENY"]]
+    UseMondayAction: NotRequired[Literal["DENY"]]
+    HubspotAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateHubspotAction: NotRequired[Literal["DENY"]]
+    ShareHubspotAction: NotRequired[Literal["DENY"]]
+    UseHubspotAction: NotRequired[Literal["DENY"]]
+    IntercomAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateIntercomAction: NotRequired[Literal["DENY"]]
+    ShareIntercomAction: NotRequired[Literal["DENY"]]
+    UseIntercomAction: NotRequired[Literal["DENY"]]
+    NewRelicAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateNewRelicAction: NotRequired[Literal["DENY"]]
+    ShareNewRelicAction: NotRequired[Literal["DENY"]]
+    UseNewRelicAction: NotRequired[Literal["DENY"]]
+    Space: NotRequired[Literal["DENY"]]
+    ChatAgent: NotRequired[Literal["DENY"]]
+    CreateChatAgents: NotRequired[Literal["DENY"]]
+    Research: NotRequired[Literal["DENY"]]
+    SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
 
 
 class CastColumnTypeOperationTypeDef(TypedDict):
@@ -2669,13 +3135,13 @@ class CustomFilterConfigurationTypeDef(TypedDict):
 class CustomFilterListConfigurationOutputTypeDef(TypedDict):
     MatchOperator: CategoryFilterMatchOperatorType
     NullOption: FilterNullOptionType
-    CategoryValues: NotRequired[List[str]]
+    CategoryValues: NotRequired[list[str]]
     SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
 
 
 class FilterListConfigurationOutputTypeDef(TypedDict):
     MatchOperator: CategoryFilterMatchOperatorType
-    CategoryValues: NotRequired[List[str]]
+    CategoryValues: NotRequired[list[str]]
     SelectAllOptions: NotRequired[Literal["FILTER_ALL_VALUES"]]
     NullOption: NotRequired[FilterNullOptionType]
 
@@ -2696,12 +3162,18 @@ class FilterListConfigurationTypeDef(TypedDict):
 
 class CellValueSynonymOutputTypeDef(TypedDict):
     CellValue: NotRequired[str]
-    Synonyms: NotRequired[List[str]]
+    Synonyms: NotRequired[list[str]]
 
 
 class CellValueSynonymTypeDef(TypedDict):
     CellValue: NotRequired[str]
     Synonyms: NotRequired[Sequence[str]]
+
+
+class ClientCredentialsGrantDetailsTypeDef(TypedDict):
+    ClientId: str
+    ClientSecret: str
+    TokenEndpoint: str
 
 
 class SimpleClusterMarkerTypeDef(TypedDict):
@@ -2714,7 +3186,7 @@ class CollectiveConstantEntryTypeDef(TypedDict):
 
 
 class CollectiveConstantOutputTypeDef(TypedDict):
-    ValueList: NotRequired[List[str]]
+    ValueList: NotRequired[list[str]]
 
 
 class CollectiveConstantTypeDef(TypedDict):
@@ -2746,13 +3218,13 @@ class ColumnGroupColumnSchemaTypeDef(TypedDict):
 
 class GeoSpatialColumnGroupOutputTypeDef(TypedDict):
     Name: str
-    Columns: List[str]
+    Columns: list[str]
     CountryCode: NotRequired[Literal["US"]]
 
 
 class ColumnLevelPermissionRuleOutputTypeDef(TypedDict):
-    Principals: NotRequired[List[str]]
-    ColumnNames: NotRequired[List[str]]
+    Principals: NotRequired[list[str]]
+    ColumnNames: NotRequired[list[str]]
 
 
 class ColumnLevelPermissionRuleTypeDef(TypedDict):
@@ -2766,9 +3238,28 @@ class ColumnSchemaTypeDef(TypedDict):
     GeographicRole: NotRequired[str]
 
 
+class ColumnToUnpivotTypeDef(TypedDict):
+    ColumnName: NotRequired[str]
+    NewValue: NotRequired[str]
+
+
+class LineChartLineStyleSettingsTypeDef(TypedDict):
+    LineVisibility: NotRequired[VisibilityType]
+    LineInterpolation: NotRequired[LineInterpolationType]
+    LineStyle: NotRequired[LineChartLineStyleType]
+    LineWidth: NotRequired[str]
+
+
+class LineChartMarkerStyleSettingsTypeDef(TypedDict):
+    MarkerVisibility: NotRequired[VisibilityType]
+    MarkerShape: NotRequired[LineChartMarkerShapeType]
+    MarkerSize: NotRequired[str]
+    MarkerColor: NotRequired[str]
+
+
 class ComparativeOrderOutputTypeDef(TypedDict):
     UseOrdering: NotRequired[ColumnOrderingTypeType]
-    SpecifedOrder: NotRequired[List[str]]
+    SpecifedOrder: NotRequired[list[str]]
     TreatUndefinedSpecifiedValues: NotRequired[UndefinedSpecifiedValueTypeType]
 
 
@@ -2797,12 +3288,21 @@ class ConditionalFormattingIconSetTypeDef(TypedDict):
     IconSetType: NotRequired[ConditionalFormattingIconSetTypeType]
 
 
+class ConfluenceParametersTypeDef(TypedDict):
+    ConfluenceUrl: str
+
+
 class ContextMenuOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
 
 
 class ContributionAnalysisFactorTypeDef(TypedDict):
     FieldName: NotRequired[str]
+
+
+class CoordinateTypeDef(TypedDict):
+    Latitude: float
+    Longitude: float
 
 
 class CreateAccountSubscriptionRequestTypeDef(TypedDict):
@@ -2972,10 +3472,10 @@ class CustomNarrativeOptionsTypeDef(TypedDict):
 
 
 class CustomParameterValuesOutputTypeDef(TypedDict):
-    StringValues: NotRequired[List[str]]
-    IntegerValues: NotRequired[List[int]]
-    DecimalValues: NotRequired[List[float]]
-    DateTimeValues: NotRequired[List[datetime]]
+    StringValues: NotRequired[list[str]]
+    IntegerValues: NotRequired[list[int]]
+    DecimalValues: NotRequired[list[float]]
+    DateTimeValues: NotRequired[list[datetime]]
 
 
 InputColumnTypeDef = TypedDict(
@@ -2983,6 +3483,7 @@ InputColumnTypeDef = TypedDict(
     {
         "Name": str,
         "Type": InputColumnDataTypeType,
+        "Id": NotRequired[str],
         "SubType": NotRequired[ColumnDataSubTypeType],
     },
 )
@@ -3017,6 +3518,10 @@ class ExportToCSVOptionTypeDef(TypedDict):
 
 
 class ExportWithHiddenFieldsOptionTypeDef(TypedDict):
+    AvailabilityStatus: NotRequired[DashboardBehaviorType]
+
+
+class QuickSuiteActionsOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
 
 
@@ -3088,8 +3593,8 @@ class DataBarsOptionsTypeDef(TypedDict):
 
 
 class DataColorPaletteOutputTypeDef(TypedDict):
-    Colors: NotRequired[List[str]]
-    MinMaxGradient: NotRequired[List[str]]
+    Colors: NotRequired[list[str]]
+    MinMaxGradient: NotRequired[list[str]]
     EmptyFillColor: NotRequired[str]
 
 
@@ -3126,26 +3631,76 @@ class DataPathTypeTypeDef(TypedDict):
     PivotTableDataPathType: NotRequired[PivotTableDataPathTypeType]
 
 
+class DataPrepListAggregationFunctionTypeDef(TypedDict):
+    Separator: str
+    Distinct: bool
+    InputColumnName: NotRequired[str]
+
+
+class DataPrepSimpleAggregationFunctionTypeDef(TypedDict):
+    FunctionType: DataPrepSimpleAggregationFunctionTypeType
+    InputColumnName: NotRequired[str]
+
+
+class DataSetColumnIdMappingTypeDef(TypedDict):
+    SourceColumnId: str
+    TargetColumnId: str
+
+
+class DataSetDateFilterValueOutputTypeDef(TypedDict):
+    StaticValue: NotRequired[datetime]
+
+
+class DataSetNumericFilterValueTypeDef(TypedDict):
+    StaticValue: NotRequired[float]
+
+
 class DataSetSearchFilterTypeDef(TypedDict):
     Operator: FilterOperatorType
     Name: DataSetFilterAttributeType
     Value: str
 
 
+class DataSetStringFilterValueTypeDef(TypedDict):
+    StaticValue: NotRequired[str]
+
+
+class DataSetStringListFilterValueOutputTypeDef(TypedDict):
+    StaticValues: NotRequired[list[str]]
+
+
+class DataSetStringListFilterValueTypeDef(TypedDict):
+    StaticValues: NotRequired[Sequence[str]]
+
+
 class FieldFolderOutputTypeDef(TypedDict):
     description: NotRequired[str]
-    columns: NotRequired[List[str]]
+    columns: NotRequired[list[str]]
 
 
 OutputColumnTypeDef = TypedDict(
     "OutputColumnTypeDef",
     {
         "Name": NotRequired[str],
+        "Id": NotRequired[str],
         "Description": NotRequired[str],
         "Type": NotRequired[ColumnDataTypeType],
         "SubType": NotRequired[ColumnDataSubTypeType],
     },
 )
+
+
+class KeyPairCredentialsTypeDef(TypedDict):
+    KeyPairUsername: str
+    PrivateKey: str
+    PrivateKeyPassphrase: NotRequired[str]
+
+
+class WebProxyCredentialsTypeDef(TypedDict):
+    WebProxyUsername: str
+    WebProxyPassword: str
+
+
 DataSourceErrorInfoTypeDef = TypedDict(
     "DataSourceErrorInfoTypeDef",
     {
@@ -3208,9 +3763,19 @@ class PrestoParametersTypeDef(TypedDict):
     Catalog: str
 
 
+class QBusinessParametersTypeDef(TypedDict):
+    ApplicationArn: str
+
+
 class RdsParametersTypeDef(TypedDict):
     InstanceId: str
     Database: str
+
+
+class S3KnowledgeBaseParametersTypeDef(TypedDict):
+    BucketUrl: str
+    RoleArn: NotRequired[str]
+    MetadataFilesLocation: NotRequired[str]
 
 
 class ServiceNowParametersTypeDef(TypedDict):
@@ -3245,6 +3810,17 @@ class TwitterParametersTypeDef(TypedDict):
     MaxRows: int
 
 
+class WebCrawlerParametersTypeDef(TypedDict):
+    WebCrawlerAuthType: WebCrawlerAuthTypeType
+    UsernameFieldXpath: NotRequired[str]
+    PasswordFieldXpath: NotRequired[str]
+    UsernameButtonXpath: NotRequired[str]
+    PasswordButtonXpath: NotRequired[str]
+    LoginPageUrl: NotRequired[str]
+    WebProxyHostName: NotRequired[str]
+    WebProxyPortNumber: NotRequired[int]
+
+
 class DataSourceSearchFilterTypeDef(TypedDict):
     Operator: FilterOperatorType
     Name: DataSourceFilterAttributeType
@@ -3265,7 +3841,7 @@ DataSourceSummaryTypeDef = TypedDict(
 
 
 class DateTimeDatasetParameterDefaultValuesOutputTypeDef(TypedDict):
-    StaticValues: NotRequired[List[datetime]]
+    StaticValues: NotRequired[list[datetime]]
 
 
 class RollingDateConfigurationTypeDef(TypedDict):
@@ -3285,7 +3861,7 @@ class MappedDataSetParameterTypeDef(TypedDict):
 
 class DateTimeParameterOutputTypeDef(TypedDict):
     Name: str
-    Values: List[datetime]
+    Values: list[datetime]
 
 
 class SheetControlInfoIconLabelOptionsTypeDef(TypedDict):
@@ -3294,7 +3870,7 @@ class SheetControlInfoIconLabelOptionsTypeDef(TypedDict):
 
 
 class DecimalDatasetParameterDefaultValuesOutputTypeDef(TypedDict):
-    StaticValues: NotRequired[List[float]]
+    StaticValues: NotRequired[list[float]]
 
 
 class DecimalDatasetParameterDefaultValuesTypeDef(TypedDict):
@@ -3308,7 +3884,7 @@ class DecimalValueWhenUnsetConfigurationTypeDef(TypedDict):
 
 class DecimalParameterOutputTypeDef(TypedDict):
     Name: str
-    Values: List[float]
+    Values: list[float]
 
 
 class DecimalParameterTypeDef(TypedDict):
@@ -3317,7 +3893,7 @@ class DecimalParameterTypeDef(TypedDict):
 
 
 class FilterSelectableValuesOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class FilterSelectableValuesTypeDef(TypedDict):
@@ -3335,6 +3911,11 @@ class DeleteAccountCustomizationRequestTypeDef(TypedDict):
 
 class DeleteAccountSubscriptionRequestTypeDef(TypedDict):
     AwsAccountId: str
+
+
+class DeleteActionConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ActionConnectorId: str
 
 
 class DeleteAnalysisRequestTypeDef(TypedDict):
@@ -3520,6 +4101,21 @@ class DescribeAccountSubscriptionRequestTypeDef(TypedDict):
     AwsAccountId: str
 
 
+class DescribeActionConnectorPermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ActionConnectorId: str
+
+
+class ResourcePermissionOutputTypeDef(TypedDict):
+    Principal: str
+    Actions: list[str]
+
+
+class DescribeActionConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ActionConnectorId: str
+
+
 class DescribeAnalysisDefinitionRequestTypeDef(TypedDict):
     AwsAccountId: str
     AnalysisId: str
@@ -3528,11 +4124,6 @@ class DescribeAnalysisDefinitionRequestTypeDef(TypedDict):
 class DescribeAnalysisPermissionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     AnalysisId: str
-
-
-class ResourcePermissionOutputTypeDef(TypedDict):
-    Principal: str
-    Actions: List[str]
 
 
 class DescribeAnalysisRequestTypeDef(TypedDict):
@@ -3672,7 +4263,7 @@ class FolderTypeDef(TypedDict):
     Arn: NotRequired[str]
     Name: NotRequired[str]
     FolderType: NotRequired[FolderTypeType]
-    FolderPath: NotRequired[List[str]]
+    FolderPath: NotRequired[list[str]]
     CreatedTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
     SharingModel: NotRequired[SharingModelType]
@@ -3702,7 +4293,7 @@ class IAMPolicyAssignmentTypeDef(TypedDict):
     AssignmentId: NotRequired[str]
     AssignmentName: NotRequired[str]
     PolicyArn: NotRequired[str]
-    Identities: NotRequired[Dict[str, List[str]]]
+    Identities: NotRequired[dict[str, list[str]]]
     AssignmentStatus: NotRequired[AssignmentStatusType]
 
 
@@ -3754,6 +4345,15 @@ class DescribeRoleCustomPermissionRequestTypeDef(TypedDict):
     Role: RoleType
     AwsAccountId: str
     Namespace: str
+
+
+class DescribeSelfUpgradeConfigurationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Namespace: str
+
+
+class SelfUpgradeConfigurationTypeDef(TypedDict):
+    SelfUpgradeStatus: NotRequired[SelfUpgradeStatusType]
 
 
 class DescribeTemplateAliasRequestTypeDef(TypedDict):
@@ -3861,6 +4461,10 @@ class DescribeVPCConnectionRequestTypeDef(TypedDict):
     VPCConnectionId: str
 
 
+class DestinationTableSourceTypeDef(TypedDict):
+    TransformOperationId: str
+
+
 class NegativeFormatTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Suffix: NotRequired[str]
@@ -3922,7 +4526,7 @@ class IdentifierTypeDef(TypedDict):
 
 
 class SameSheetTargetVisualConfigurationOutputTypeDef(TypedDict):
-    TargetVisuals: NotRequired[List[str]]
+    TargetVisuals: NotRequired[list[str]]
     TargetVisualOptions: NotRequired[Literal["ALL_VISUALS"]]
 
 
@@ -3931,8 +4535,20 @@ class SameSheetTargetVisualConfigurationTypeDef(TypedDict):
     TargetVisualOptions: NotRequired[Literal["ALL_VISUALS"]]
 
 
-class FilterOperationTypeDef(TypedDict):
-    ConditionExpression: str
+class FlowSummaryTypeDef(TypedDict):
+    Arn: str
+    FlowId: str
+    Name: str
+    CreatedTime: datetime
+    Description: NotRequired[str]
+    CreatedBy: NotRequired[str]
+    LastUpdatedTime: NotRequired[datetime]
+    LastUpdatedBy: NotRequired[str]
+    PublishState: NotRequired[FlowPublishStateType]
+    RunCount: NotRequired[int]
+    UserCount: NotRequired[int]
+    LastPublishedBy: NotRequired[str]
+    LastPublishedAt: NotRequired[datetime]
 
 
 class FolderSearchFilterTypeDef(TypedDict):
@@ -3996,6 +4612,7 @@ class FreeFormLayoutElementBackgroundStyleTypeDef(TypedDict):
 class FreeFormLayoutElementBorderStyleTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     Color: NotRequired[str]
+    Width: NotRequired[str]
 
 
 class LoadingAnimationTypeDef(TypedDict):
@@ -4027,6 +4644,14 @@ class GeoSpatialColumnGroupTypeDef(TypedDict):
     Name: str
     Columns: Sequence[str]
     CountryCode: NotRequired[Literal["US"]]
+
+
+class GeocoderHierarchyTypeDef(TypedDict):
+    Country: NotRequired[str]
+    State: NotRequired[str]
+    County: NotRequired[str]
+    City: NotRequired[str]
+    PostCode: NotRequired[str]
 
 
 class GeospatialCategoricalDataColorTypeDef(TypedDict):
@@ -4092,6 +4717,27 @@ class GetDashboardEmbedUrlRequestTypeDef(TypedDict):
     AdditionalDashboardIds: NotRequired[Sequence[str]]
 
 
+class GetFlowMetadataInputTypeDef(TypedDict):
+    AwsAccountId: str
+    FlowId: str
+
+
+class GetFlowPermissionsInputTypeDef(TypedDict):
+    AwsAccountId: str
+    FlowId: str
+
+
+class PermissionOutputTypeDef(TypedDict):
+    Actions: list[str]
+    Principal: str
+
+
+class UserIdentifierTypeDef(TypedDict):
+    UserName: NotRequired[str]
+    Email: NotRequired[str]
+    UserArn: NotRequired[str]
+
+
 class GetSessionEmbedUrlRequestTypeDef(TypedDict):
     AwsAccountId: str
     EntryPoint: NotRequired[str]
@@ -4116,13 +4762,15 @@ class GridLayoutScreenCanvasSizeOptionsTypeDef(TypedDict):
     OptimizedViewPortWidth: NotRequired[str]
 
 
-class GridLayoutElementTypeDef(TypedDict):
-    ElementId: str
-    ElementType: LayoutElementTypeType
-    ColumnSpan: int
-    RowSpan: int
-    ColumnIndex: NotRequired[int]
-    RowIndex: NotRequired[int]
+class GridLayoutElementBackgroundStyleTypeDef(TypedDict):
+    Visibility: NotRequired[VisibilityType]
+    Color: NotRequired[str]
+
+
+class GridLayoutElementBorderStyleTypeDef(TypedDict):
+    Visibility: NotRequired[VisibilityType]
+    Color: NotRequired[str]
+    Width: NotRequired[str]
 
 
 class GroupSearchFilterTypeDef(TypedDict):
@@ -4167,7 +4815,7 @@ class RowInfoTypeDef(TypedDict):
 
 
 class IntegerDatasetParameterDefaultValuesOutputTypeDef(TypedDict):
-    StaticValues: NotRequired[List[int]]
+    StaticValues: NotRequired[list[int]]
 
 
 class IntegerDatasetParameterDefaultValuesTypeDef(TypedDict):
@@ -4181,7 +4829,7 @@ class IntegerValueWhenUnsetConfigurationTypeDef(TypedDict):
 
 class IntegerParameterOutputTypeDef(TypedDict):
     Name: str
-    Values: List[int]
+    Values: list[int]
 
 
 class IntegerParameterTypeDef(TypedDict):
@@ -4191,6 +4839,11 @@ class IntegerParameterTypeDef(TypedDict):
 
 class JoinKeyPropertiesTypeDef(TypedDict):
     UniqueKey: NotRequired[bool]
+
+
+class OutputColumnNameOverrideTypeDef(TypedDict):
+    OutputColumnName: str
+    SourceColumnName: NotRequired[str]
 
 
 KPISparklineOptionsTypeDef = TypedDict(
@@ -4224,20 +4877,6 @@ KPIVisualStandardLayoutTypeDef = TypedDict(
 )
 
 
-class LineChartLineStyleSettingsTypeDef(TypedDict):
-    LineVisibility: NotRequired[VisibilityType]
-    LineInterpolation: NotRequired[LineInterpolationType]
-    LineStyle: NotRequired[LineChartLineStyleType]
-    LineWidth: NotRequired[str]
-
-
-class LineChartMarkerStyleSettingsTypeDef(TypedDict):
-    MarkerVisibility: NotRequired[VisibilityType]
-    MarkerShape: NotRequired[LineChartMarkerShapeType]
-    MarkerSize: NotRequired[str]
-    MarkerColor: NotRequired[str]
-
-
 class MissingDataConfigurationTypeDef(TypedDict):
     TreatmentOption: NotRequired[MissingDataTreatmentOptionType]
 
@@ -4245,6 +4884,12 @@ class MissingDataConfigurationTypeDef(TypedDict):
 class ResourcePermissionTypeDef(TypedDict):
     Principal: str
     Actions: Sequence[str]
+
+
+class ListActionConnectorsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListAnalysesRequestTypeDef(TypedDict):
@@ -4301,6 +4946,12 @@ class ListDataSetsRequestTypeDef(TypedDict):
 
 
 class ListDataSourcesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListFlowsInputTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -4392,6 +5043,25 @@ class ListRoleMembershipsRequestTypeDef(TypedDict):
     Namespace: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListSelfUpgradesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Namespace: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class SelfUpgradeRequestDetailTypeDef(TypedDict):
+    UpgradeRequestId: NotRequired[str]
+    UserName: NotRequired[str]
+    OriginalRole: NotRequired[UserRoleType]
+    RequestedRole: NotRequired[UserRoleType]
+    RequestNote: NotRequired[str]
+    CreationTime: NotRequired[int]
+    RequestStatus: NotRequired[SelfUpgradeRequestStatusType]
+    lastUpdateAttemptTime: NotRequired[int]
+    lastUpdateFailureReason: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -4537,7 +5207,7 @@ class MarginStyleTypeDef(TypedDict):
 
 class NamedEntityDefinitionMetricOutputTypeDef(TypedDict):
     Aggregation: NotRequired[NamedEntityAggTypeType]
-    AggregationFunctionParameters: NotRequired[Dict[str, str]]
+    AggregationFunctionParameters: NotRequired[dict[str, str]]
 
 
 class NamedEntityDefinitionMetricTypeDef(TypedDict):
@@ -4567,10 +5237,10 @@ class NetworkInterfaceTypeDef(TypedDict):
 
 
 class NewDefaultValuesOutputTypeDef(TypedDict):
-    StringStaticValues: NotRequired[List[str]]
-    DecimalStaticValues: NotRequired[List[float]]
-    DateTimeStaticValues: NotRequired[List[datetime]]
-    IntegerStaticValues: NotRequired[List[int]]
+    StringStaticValues: NotRequired[list[str]]
+    DecimalStaticValues: NotRequired[list[float]]
+    DateTimeStaticValues: NotRequired[list[datetime]]
+    IntegerStaticValues: NotRequired[list[int]]
 
 
 class NumericRangeFilterValueTypeDef(TypedDict):
@@ -4590,7 +5260,7 @@ class PercentileAggregationTypeDef(TypedDict):
 
 class StringParameterOutputTypeDef(TypedDict):
     Name: str
-    Values: List[str]
+    Values: list[str]
 
 
 class StringParameterTypeDef(TypedDict):
@@ -4604,11 +5274,22 @@ class PercentVisibleRangeTypeDef(TypedDict):
 
 
 class UniqueKeyOutputTypeDef(TypedDict):
-    ColumnNames: List[str]
+    ColumnNames: list[str]
 
 
 class UniqueKeyTypeDef(TypedDict):
     ColumnNames: Sequence[str]
+
+
+class PermissionTypeDef(TypedDict):
+    Actions: Sequence[str]
+    Principal: str
+
+
+class PivotedLabelTypeDef(TypedDict):
+    LabelName: str
+    NewColumnName: str
+    NewColumnId: str
 
 
 class PivotTableConditionalFormattingScopeTypeDef(TypedDict):
@@ -4637,7 +5318,7 @@ class PivotTableRowsLabelOptionsTypeDef(TypedDict):
 
 class RowAlternateColorOptionsOutputTypeDef(TypedDict):
     Status: NotRequired[WidgetStatusType]
-    RowAlternateColors: NotRequired[List[str]]
+    RowAlternateColors: NotRequired[list[str]]
     UsePrimaryBackgroundColor: NotRequired[WidgetStatusType]
 
 
@@ -4664,14 +5345,6 @@ class PredictQAResultsRequestTypeDef(TypedDict):
     MaxTopicsToConsider: NotRequired[int]
 
 
-class ProjectOperationOutputTypeDef(TypedDict):
-    ProjectedColumns: List[str]
-
-
-class ProjectOperationTypeDef(TypedDict):
-    ProjectedColumns: Sequence[str]
-
-
 class RadarChartAreaStyleSettingsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
@@ -4681,6 +5354,36 @@ class RangeConstantTypeDef(TypedDict):
     Maximum: NotRequired[str]
 
 
+class ReadAPIKeyConnectionMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    Email: NotRequired[str]
+
+
+class ReadBasicAuthConnectionMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    Username: str
+
+
+class ReadIamConnectionMetadataTypeDef(TypedDict):
+    RoleArn: str
+    SourceArn: str
+
+
+class ReadNoneConnectionMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+
+
+class ReadAuthorizationCodeGrantDetailsTypeDef(TypedDict):
+    ClientId: str
+    TokenEndpoint: str
+    AuthorizationEndpoint: str
+
+
+class ReadClientCredentialsGrantDetailsTypeDef(TypedDict):
+    ClientId: str
+    TokenEndpoint: str
+
+
 class RecentSnapshotsConfigurationsTypeDef(TypedDict):
     Enabled: bool
 
@@ -4688,7 +5391,7 @@ class RecentSnapshotsConfigurationsTypeDef(TypedDict):
 class RedshiftIAMParametersOutputTypeDef(TypedDict):
     RoleArn: str
     DatabaseUser: NotRequired[str]
-    DatabaseGroups: NotRequired[List[str]]
+    DatabaseGroups: NotRequired[list[str]]
     AutoCreateDatabaseUser: NotRequired[bool]
 
 
@@ -4775,6 +5478,18 @@ class UploadSettingsTypeDef(TypedDict):
     ContainsHeader: NotRequired[bool]
     TextQualifier: NotRequired[TextQualifierType]
     Delimiter: NotRequired[str]
+    CustomCellAddressRange: NotRequired[str]
+
+
+class TablePathElementTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Id: NotRequired[str]
+
+
+class SearchFlowsFilterTypeDef(TypedDict):
+    Name: FieldNameType
+    Operator: SearchFilterOperatorType
+    Value: str
 
 
 class TopicSearchFilterTypeDef(TypedDict):
@@ -4793,7 +5508,7 @@ class SpacingTypeDef(TypedDict):
 class SheetVisualScopingConfigurationOutputTypeDef(TypedDict):
     SheetId: str
     Scope: FilterVisualScopeType
-    VisualIds: NotRequired[List[str]]
+    VisualIds: NotRequired[list[str]]
 
 
 class SheetVisualScopingConfigurationTypeDef(TypedDict):
@@ -4805,7 +5520,7 @@ class SheetVisualScopingConfigurationTypeDef(TypedDict):
 class SemanticEntityTypeOutputTypeDef(TypedDict):
     TypeName: NotRequired[str]
     SubTypeName: NotRequired[str]
-    TypeParameters: NotRequired[Dict[str, str]]
+    TypeParameters: NotRequired[dict[str, str]]
 
 
 class SemanticEntityTypeTypeDef(TypedDict):
@@ -4817,11 +5532,11 @@ class SemanticEntityTypeTypeDef(TypedDict):
 class SemanticTypeOutputTypeDef(TypedDict):
     TypeName: NotRequired[str]
     SubTypeName: NotRequired[str]
-    TypeParameters: NotRequired[Dict[str, str]]
+    TypeParameters: NotRequired[dict[str, str]]
     TruthyCellValue: NotRequired[str]
-    TruthyCellValueSynonyms: NotRequired[List[str]]
+    TruthyCellValueSynonyms: NotRequired[list[str]]
     FalseyCellValue: NotRequired[str]
-    FalseyCellValueSynonyms: NotRequired[List[str]]
+    FalseyCellValueSynonyms: NotRequired[list[str]]
 
 
 class SemanticTypeTypeDef(TypedDict):
@@ -4832,6 +5547,11 @@ class SemanticTypeTypeDef(TypedDict):
     TruthyCellValueSynonyms: NotRequired[Sequence[str]]
     FalseyCellValue: NotRequired[str]
     FalseyCellValueSynonyms: NotRequired[Sequence[str]]
+
+
+class SheetBackgroundStyleTypeDef(TypedDict):
+    Color: NotRequired[str]
+    Gradient: NotRequired[str]
 
 
 class SheetElementConfigurationOverridesTypeDef(TypedDict):
@@ -4848,6 +5568,15 @@ class SheetImageStaticFileSourceTypeDef(TypedDict):
 
 class SheetImageTooltipTextTypeDef(TypedDict):
     PlainText: NotRequired[str]
+
+
+SheetLayoutGroupMemberTypeDef = TypedDict(
+    "SheetLayoutGroupMemberTypeDef",
+    {
+        "Id": str,
+        "Type": SheetLayoutGroupMemberTypeType,
+    },
+)
 
 
 class ShortFormatTextTypeDef(TypedDict):
@@ -4870,13 +5599,13 @@ class SmallMultiplesAxisPropertiesTypeDef(TypedDict):
 
 
 class SnapshotAnonymousUserRedactedTypeDef(TypedDict):
-    RowLevelPermissionTagKeys: NotRequired[List[str]]
+    RowLevelPermissionTagKeys: NotRequired[list[str]]
 
 
 class SnapshotFileSheetSelectionOutputTypeDef(TypedDict):
     SheetId: str
     SelectionScope: SnapshotFileSheetSelectionScopeType
-    VisualIds: NotRequired[List[str]]
+    VisualIds: NotRequired[list[str]]
 
 
 class SnapshotFileSheetSelectionTypeDef(TypedDict):
@@ -4907,7 +5636,7 @@ class StaticFileUrlSourceOptionsTypeDef(TypedDict):
 
 
 class StringDatasetParameterDefaultValuesOutputTypeDef(TypedDict):
-    StaticValues: NotRequired[List[str]]
+    StaticValues: NotRequired[list[str]]
 
 
 class StringDatasetParameterDefaultValuesTypeDef(TypedDict):
@@ -4942,7 +5671,7 @@ class TableFieldCustomIconContentTypeDef(TypedDict):
 
 
 class TablePinnedFieldOptionsOutputTypeDef(TypedDict):
-    PinnedLeftFields: NotRequired[List[str]]
+    PinnedLeftFields: NotRequired[list[str]]
 
 
 class TransposedTableOptionTypeDef(TypedDict):
@@ -5028,7 +5757,7 @@ class TotalAggregationFunctionTypeDef(TypedDict):
 
 class UntagColumnOperationOutputTypeDef(TypedDict):
     ColumnName: str
-    TagNames: List[ColumnTagNameType]
+    TagNames: list[ColumnTagNameType]
 
 
 class UntagColumnOperationTypeDef(TypedDict):
@@ -5155,6 +5884,19 @@ class UpdateSPICECapacityConfigurationRequestTypeDef(TypedDict):
     PurchaseMode: PurchaseModeType
 
 
+class UpdateSelfUpgradeConfigurationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Namespace: str
+    SelfUpgradeStatus: SelfUpgradeStatusType
+
+
+class UpdateSelfUpgradeRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Namespace: str
+    UpgradeRequestId: str
+    Action: SelfUpgradeAdminActionType
+
+
 class UpdateTemplateAliasRequestTypeDef(TypedDict):
     AwsAccountId: str
     TemplateId: str
@@ -5228,6 +5970,28 @@ class UpdateAccountCustomizationRequestTypeDef(TypedDict):
     Namespace: NotRequired[str]
 
 
+ActionConnectorSummaryTypeDef = TypedDict(
+    "ActionConnectorSummaryTypeDef",
+    {
+        "Arn": str,
+        "ActionConnectorId": str,
+        "Type": ActionConnectorTypeType,
+        "Name": str,
+        "LastUpdatedTime": datetime,
+        "CreatedTime": NotRequired[datetime],
+        "Status": NotRequired[ResourceStatusType],
+        "Error": NotRequired[ActionConnectorErrorTypeDef],
+    },
+)
+
+
+class SearchActionConnectorsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[ActionConnectorSearchFilterTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 AggFunctionUnionTypeDef = Union[AggFunctionTypeDef, AggFunctionOutputTypeDef]
 
 
@@ -5243,7 +6007,7 @@ class CascadingControlSourceTypeDef(TypedDict):
 
 class CategoryDrillDownFilterOutputTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
-    CategoryValues: List[str]
+    CategoryValues: list[str]
 
 
 class CategoryDrillDownFilterTypeDef(TypedDict):
@@ -5253,7 +6017,7 @@ class CategoryDrillDownFilterTypeDef(TypedDict):
 
 class ContributionAnalysisDefaultOutputTypeDef(TypedDict):
     MeasureFieldId: str
-    ContributorDimensions: List[ColumnIdentifierTypeDef]
+    ContributorDimensions: list[ColumnIdentifierTypeDef]
 
 
 class ContributionAnalysisDefaultTypeDef(TypedDict):
@@ -5268,9 +6032,9 @@ class DynamicDefaultValueTypeDef(TypedDict):
 
 
 class FilterOperationSelectedFieldsConfigurationOutputTypeDef(TypedDict):
-    SelectedFields: NotRequired[List[str]]
+    SelectedFields: NotRequired[list[str]]
     SelectedFieldOptions: NotRequired[Literal["ALL_FIELDS"]]
-    SelectedColumns: NotRequired[List[ColumnIdentifierTypeDef]]
+    SelectedColumns: NotRequired[list[ColumnIdentifierTypeDef]]
 
 
 class FilterOperationSelectedFieldsConfigurationTypeDef(TypedDict):
@@ -5285,7 +6049,7 @@ class NumericEqualityDrillDownFilterTypeDef(TypedDict):
 
 
 class ParameterSelectableValuesOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
     LinkToDataSetColumn: NotRequired[ColumnIdentifierTypeDef]
 
 
@@ -5299,6 +6063,16 @@ class TimeRangeDrillDownFilterOutputTypeDef(TypedDict):
     RangeMinimum: datetime
     RangeMaximum: datetime
     TimeGranularity: TimeGranularityType
+
+
+class VisualCustomizationFieldsConfigurationOutputTypeDef(TypedDict):
+    Status: NotRequired[DashboardCustomizationStatusType]
+    AdditionalFields: NotRequired[list[ColumnIdentifierTypeDef]]
+
+
+class VisualCustomizationFieldsConfigurationTypeDef(TypedDict):
+    Status: NotRequired[DashboardCustomizationStatusType]
+    AdditionalFields: NotRequired[Sequence[ColumnIdentifierTypeDef]]
 
 
 class AmazonQInQuickSightDashboardConfigurationsTypeDef(TypedDict):
@@ -5317,7 +6091,7 @@ AnalysisErrorTypeDef = TypedDict(
     {
         "Type": NotRequired[AnalysisErrorTypeType],
         "Message": NotRequired[str],
-        "ViolatedEntities": NotRequired[List[EntityTypeDef]],
+        "ViolatedEntities": NotRequired[list[EntityTypeDef]],
     },
 )
 DashboardErrorTypeDef = TypedDict(
@@ -5325,7 +6099,7 @@ DashboardErrorTypeDef = TypedDict(
     {
         "Type": NotRequired[DashboardErrorTypeType],
         "Message": NotRequired[str],
-        "ViolatedEntities": NotRequired[List[EntityTypeDef]],
+        "ViolatedEntities": NotRequired[list[EntityTypeDef]],
     },
 )
 TemplateErrorTypeDef = TypedDict(
@@ -5333,7 +6107,7 @@ TemplateErrorTypeDef = TypedDict(
     {
         "Type": NotRequired[TemplateErrorTypeType],
         "Message": NotRequired[str],
-        "ViolatedEntities": NotRequired[List[EntityTypeDef]],
+        "ViolatedEntities": NotRequired[list[EntityTypeDef]],
     },
 )
 
@@ -5382,17 +6156,17 @@ class AssetBundleCloudFormationOverridePropertyConfigurationOutputTypeDef(TypedD
         AssetBundleExportJobResourceIdOverrideConfigurationTypeDef
     ]
     VPCConnections: NotRequired[
-        List[AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef]
+        list[AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef]
     ]
     RefreshSchedules: NotRequired[
-        List[AssetBundleExportJobRefreshScheduleOverridePropertiesOutputTypeDef]
+        list[AssetBundleExportJobRefreshScheduleOverridePropertiesOutputTypeDef]
     ]
-    DataSources: NotRequired[List[AssetBundleExportJobDataSourceOverridePropertiesOutputTypeDef]]
-    DataSets: NotRequired[List[AssetBundleExportJobDataSetOverridePropertiesOutputTypeDef]]
-    Themes: NotRequired[List[AssetBundleExportJobThemeOverridePropertiesOutputTypeDef]]
-    Analyses: NotRequired[List[AssetBundleExportJobAnalysisOverridePropertiesOutputTypeDef]]
-    Dashboards: NotRequired[List[AssetBundleExportJobDashboardOverridePropertiesOutputTypeDef]]
-    Folders: NotRequired[List[AssetBundleExportJobFolderOverridePropertiesOutputTypeDef]]
+    DataSources: NotRequired[list[AssetBundleExportJobDataSourceOverridePropertiesOutputTypeDef]]
+    DataSets: NotRequired[list[AssetBundleExportJobDataSetOverridePropertiesOutputTypeDef]]
+    Themes: NotRequired[list[AssetBundleExportJobThemeOverridePropertiesOutputTypeDef]]
+    Analyses: NotRequired[list[AssetBundleExportJobAnalysisOverridePropertiesOutputTypeDef]]
+    Dashboards: NotRequired[list[AssetBundleExportJobDashboardOverridePropertiesOutputTypeDef]]
+    Folders: NotRequired[list[AssetBundleExportJobFolderOverridePropertiesOutputTypeDef]]
 
 
 class AssetBundleCloudFormationOverridePropertyConfigurationTypeDef(TypedDict):
@@ -5414,27 +6188,27 @@ class AssetBundleCloudFormationOverridePropertyConfigurationTypeDef(TypedDict):
 
 
 class AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef(TypedDict):
-    AnalysisIds: List[str]
+    AnalysisIds: list[str]
     Permissions: AssetBundleResourcePermissionsOutputTypeDef
 
 
 class AssetBundleImportJobDataSetOverridePermissionsOutputTypeDef(TypedDict):
-    DataSetIds: List[str]
+    DataSetIds: list[str]
     Permissions: AssetBundleResourcePermissionsOutputTypeDef
 
 
 class AssetBundleImportJobDataSourceOverridePermissionsOutputTypeDef(TypedDict):
-    DataSourceIds: List[str]
+    DataSourceIds: list[str]
     Permissions: AssetBundleResourcePermissionsOutputTypeDef
 
 
 class AssetBundleImportJobFolderOverridePermissionsOutputTypeDef(TypedDict):
-    FolderIds: List[str]
+    FolderIds: list[str]
     Permissions: NotRequired[AssetBundleResourcePermissionsOutputTypeDef]
 
 
 class AssetBundleImportJobThemeOverridePermissionsOutputTypeDef(TypedDict):
-    ThemeIds: List[str]
+    ThemeIds: list[str]
     Permissions: AssetBundleResourcePermissionsOutputTypeDef
 
 
@@ -5472,8 +6246,8 @@ class AssetBundleResourceLinkSharingConfigurationTypeDef(TypedDict):
 
 
 class AssetBundleImportJobAnalysisOverrideTagsOutputTypeDef(TypedDict):
-    AnalysisIds: List[str]
-    Tags: List[TagTypeDef]
+    AnalysisIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobAnalysisOverrideTagsTypeDef(TypedDict):
@@ -5482,8 +6256,8 @@ class AssetBundleImportJobAnalysisOverrideTagsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobDashboardOverrideTagsOutputTypeDef(TypedDict):
-    DashboardIds: List[str]
-    Tags: List[TagTypeDef]
+    DashboardIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobDashboardOverrideTagsTypeDef(TypedDict):
@@ -5492,8 +6266,8 @@ class AssetBundleImportJobDashboardOverrideTagsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobDataSetOverrideTagsOutputTypeDef(TypedDict):
-    DataSetIds: List[str]
-    Tags: List[TagTypeDef]
+    DataSetIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobDataSetOverrideTagsTypeDef(TypedDict):
@@ -5502,8 +6276,8 @@ class AssetBundleImportJobDataSetOverrideTagsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobDataSourceOverrideTagsOutputTypeDef(TypedDict):
-    DataSourceIds: List[str]
-    Tags: List[TagTypeDef]
+    DataSourceIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobDataSourceOverrideTagsTypeDef(TypedDict):
@@ -5512,8 +6286,8 @@ class AssetBundleImportJobDataSourceOverrideTagsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobFolderOverrideTagsOutputTypeDef(TypedDict):
-    FolderIds: List[str]
-    Tags: List[TagTypeDef]
+    FolderIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobFolderOverrideTagsTypeDef(TypedDict):
@@ -5522,8 +6296,8 @@ class AssetBundleImportJobFolderOverrideTagsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobThemeOverrideTagsOutputTypeDef(TypedDict):
-    ThemeIds: List[str]
-    Tags: List[TagTypeDef]
+    ThemeIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobThemeOverrideTagsTypeDef(TypedDict):
@@ -5532,8 +6306,8 @@ class AssetBundleImportJobThemeOverrideTagsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobVPCConnectionOverrideTagsOutputTypeDef(TypedDict):
-    VPCConnectionIds: List[str]
-    Tags: List[TagTypeDef]
+    VPCConnectionIds: list[str]
+    Tags: list[TagTypeDef]
 
 
 class AssetBundleImportJobVPCConnectionOverrideTagsTypeDef(TypedDict):
@@ -5612,6 +6386,10 @@ class CustomParameterValuesTypeDef(TypedDict):
     DateTimeValues: NotRequired[Sequence[TimestampTypeDef]]
 
 
+class DataSetDateFilterValueTypeDef(TypedDict):
+    StaticValue: NotRequired[TimestampTypeDef]
+
+
 class DateTimeDatasetParameterDefaultValuesTypeDef(TypedDict):
     StaticValues: NotRequired[Sequence[TimestampTypeDef]]
 
@@ -5671,9 +6449,13 @@ class AthenaParametersTypeDef(TypedDict):
     IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
 
 
+class AuthorizationCodeGrantCredentialsDetailsTypeDef(TypedDict):
+    AuthorizationCodeGrantDetails: NotRequired[AuthorizationCodeGrantDetailsTypeDef]
+
+
 class AxisDisplayRangeOutputTypeDef(TypedDict):
     MinMax: NotRequired[AxisDisplayMinMaxRangeTypeDef]
-    DataDriven: NotRequired[Dict[str, Any]]
+    DataDriven: NotRequired[dict[str, Any]]
 
 
 class AxisDisplayRangeTypeDef(TypedDict):
@@ -5684,6 +6466,24 @@ class AxisDisplayRangeTypeDef(TypedDict):
 class AxisScaleTypeDef(TypedDict):
     Linear: NotRequired[AxisLinearScaleTypeDef]
     Logarithmic: NotRequired[AxisLogarithmicScaleTypeDef]
+
+
+class BarChartDefaultSeriesSettingsTypeDef(TypedDict):
+    DecalSettings: NotRequired[DecalSettingsTypeDef]
+    BorderSettings: NotRequired[BorderSettingsTypeDef]
+
+
+class BarChartSeriesSettingsTypeDef(TypedDict):
+    DecalSettings: NotRequired[DecalSettingsTypeDef]
+    BorderSettings: NotRequired[BorderSettingsTypeDef]
+
+
+class DecalSettingsConfigurationOutputTypeDef(TypedDict):
+    CustomDecalSettings: NotRequired[list[DecalSettingsTypeDef]]
+
+
+class DecalSettingsConfigurationTypeDef(TypedDict):
+    CustomDecalSettings: NotRequired[Sequence[DecalSettingsTypeDef]]
 
 
 class ScatterPlotSortConfigurationTypeDef(TypedDict):
@@ -5703,6 +6503,15 @@ class CreateAccountCustomizationResponseTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: str
     AccountCustomization: AccountCustomizationTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateActionConnectorResponseTypeDef(TypedDict):
+    Arn: str
+    CreationStatus: ResourceStatusType
+    ActionConnectorId: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5766,7 +6575,7 @@ class CreateIAMPolicyAssignmentResponseTypeDef(TypedDict):
     AssignmentId: str
     AssignmentStatus: AssignmentStatusType
     PolicyArn: str
-    Identities: Dict[str, List[str]]
+    Identities: dict[str, list[str]]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5867,6 +6676,14 @@ class DeleteAccountCustomizationResponseTypeDef(TypedDict):
 
 
 class DeleteAccountSubscriptionResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteActionConnectorResponseTypeDef(TypedDict):
+    Arn: str
+    ActionConnectorId: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6131,9 +6948,9 @@ class DescribeDefaultQBusinessApplicationResponseTypeDef(TypedDict):
 
 class DescribeIpRestrictionResponseTypeDef(TypedDict):
     AwsAccountId: str
-    IpRestrictionRuleMap: Dict[str, str]
-    VpcIdRestrictionRuleMap: Dict[str, str]
-    VpcEndpointIdRestrictionRuleMap: Dict[str, str]
+    IpRestrictionRuleMap: dict[str, str]
+    VpcIdRestrictionRuleMap: dict[str, str]
+    VpcEndpointIdRestrictionRuleMap: dict[str, str]
     Enabled: bool
     RequestId: str
     Status: int
@@ -6190,6 +7007,28 @@ class GetDashboardEmbedUrlResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetFlowMetadataOutputTypeDef(TypedDict):
+    Arn: str
+    FlowId: str
+    Name: str
+    Description: str
+    PublishState: FlowPublishStateType
+    UserCount: int
+    RunCount: int
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetIdentityContextResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    Context: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetSessionEmbedUrlResponseTypeDef(TypedDict):
     EmbedUrl: str
     Status: int
@@ -6198,7 +7037,7 @@ class GetSessionEmbedUrlResponseTypeDef(TypedDict):
 
 
 class ListAnalysesResponseTypeDef(TypedDict):
-    AnalysisSummaryList: List[AnalysisSummaryTypeDef]
+    AnalysisSummaryList: list[AnalysisSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6206,7 +7045,7 @@ class ListAnalysesResponseTypeDef(TypedDict):
 
 
 class ListAssetBundleExportJobsResponseTypeDef(TypedDict):
-    AssetBundleExportJobSummaryList: List[AssetBundleExportJobSummaryTypeDef]
+    AssetBundleExportJobSummaryList: list[AssetBundleExportJobSummaryTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6214,7 +7053,7 @@ class ListAssetBundleExportJobsResponseTypeDef(TypedDict):
 
 
 class ListAssetBundleImportJobsResponseTypeDef(TypedDict):
-    AssetBundleImportJobSummaryList: List[AssetBundleImportJobSummaryTypeDef]
+    AssetBundleImportJobSummaryList: list[AssetBundleImportJobSummaryTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6223,14 +7062,14 @@ class ListAssetBundleImportJobsResponseTypeDef(TypedDict):
 
 class ListFoldersForResourceResponseTypeDef(TypedDict):
     Status: int
-    Folders: List[str]
+    Folders: list[str]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListIAMPolicyAssignmentsForUserResponseTypeDef(TypedDict):
-    ActiveAssignments: List[ActiveIAMPolicyAssignmentTypeDef]
+    ActiveAssignments: list[ActiveIAMPolicyAssignmentTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6238,7 +7077,7 @@ class ListIAMPolicyAssignmentsForUserResponseTypeDef(TypedDict):
 
 
 class ListIdentityPropagationConfigsResponseTypeDef(TypedDict):
-    Services: List[AuthorizedTargetsByServiceTypeDef]
+    Services: list[AuthorizedTargetsByServiceTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6246,7 +7085,7 @@ class ListIdentityPropagationConfigsResponseTypeDef(TypedDict):
 
 
 class ListRoleMembershipsResponseTypeDef(TypedDict):
-    MembersList: List[str]
+    MembersList: list[str]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6254,7 +7093,7 @@ class ListRoleMembershipsResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6271,12 +7110,12 @@ class RestoreAnalysisResponseTypeDef(TypedDict):
     Arn: str
     AnalysisId: str
     RequestId: str
-    RestorationFailedFolderArns: List[str]
+    RestorationFailedFolderArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchAnalysesResponseTypeDef(TypedDict):
-    AnalysisSummaryList: List[AnalysisSummaryTypeDef]
+    AnalysisSummaryList: list[AnalysisSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6347,6 +7186,15 @@ class UpdateAccountSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateActionConnectorResponseTypeDef(TypedDict):
+    Arn: str
+    ActionConnectorId: str
+    RequestId: str
+    UpdateStatus: ResourceStatusType
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateAnalysisResponseTypeDef(TypedDict):
     Arn: str
     AnalysisId: str
@@ -6385,7 +7233,7 @@ class UpdateDashboardLinksResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     DashboardArn: str
-    LinkEntities: List[str]
+    LinkEntities: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6467,7 +7315,7 @@ class UpdateIAMPolicyAssignmentResponseTypeDef(TypedDict):
     AssignmentName: str
     AssignmentId: str
     PolicyArn: str
-    Identities: Dict[str, List[str]]
+    Identities: dict[str, list[str]]
     AssignmentStatus: AssignmentStatusType
     RequestId: str
     Status: int
@@ -6522,6 +7370,12 @@ class UpdateRoleCustomPermissionResponseTypeDef(TypedDict):
 
 
 class UpdateSPICECapacityConfigurationResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateSelfUpgradeConfigurationResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6584,8 +7438,8 @@ class UpdateVPCConnectionResponseTypeDef(TypedDict):
 class BatchCreateTopicReviewedAnswerResponseTypeDef(TypedDict):
     TopicId: str
     TopicArn: str
-    SucceededAnswers: List[SucceededTopicReviewedAnswerTypeDef]
-    InvalidAnswers: List[InvalidTopicReviewedAnswerTypeDef]
+    SucceededAnswers: list[SucceededTopicReviewedAnswerTypeDef]
+    InvalidAnswers: list[InvalidTopicReviewedAnswerTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6594,8 +7448,8 @@ class BatchCreateTopicReviewedAnswerResponseTypeDef(TypedDict):
 class BatchDeleteTopicReviewedAnswerResponseTypeDef(TypedDict):
     TopicId: str
     TopicArn: str
-    SucceededAnswers: List[SucceededTopicReviewedAnswerTypeDef]
-    InvalidAnswers: List[InvalidTopicReviewedAnswerTypeDef]
+    SucceededAnswers: list[SucceededTopicReviewedAnswerTypeDef]
+    InvalidAnswers: list[InvalidTopicReviewedAnswerTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6617,7 +7471,10 @@ class SectionPageBreakConfigurationTypeDef(TypedDict):
 
 
 class TileStyleTypeDef(TypedDict):
+    BackgroundColor: NotRequired[str]
     Border: NotRequired[BorderStyleTypeDef]
+    BorderRadius: NotRequired[str]
+    Padding: NotRequired[str]
 
 
 class BoxPlotOptionsTypeDef(TypedDict):
@@ -6642,23 +7499,22 @@ BrandColorPaletteTypeDef = TypedDict(
 )
 
 
+class ContextualAccentPaletteTypeDef(TypedDict):
+    Connection: NotRequired[PaletteTypeDef]
+    Visualization: NotRequired[PaletteTypeDef]
+    Insight: NotRequired[PaletteTypeDef]
+    Automation: NotRequired[PaletteTypeDef]
+
+
 class NavbarStyleTypeDef(TypedDict):
     GlobalNavbar: NotRequired[PaletteTypeDef]
     ContextualNavbar: NotRequired[PaletteTypeDef]
 
 
 class ListBrandsResponseTypeDef(TypedDict):
-    Brands: List[BrandSummaryTypeDef]
+    Brands: list[BrandSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class CreateColumnsOperationOutputTypeDef(TypedDict):
-    Columns: List[CalculatedColumnTypeDef]
-
-
-class CreateColumnsOperationTypeDef(TypedDict):
-    Columns: Sequence[CalculatedColumnTypeDef]
 
 
 class CreateCustomPermissionsRequestTypeDef(TypedDict):
@@ -6692,6 +7548,10 @@ class CategoryFilterConfigurationTypeDef(TypedDict):
     CustomFilterConfiguration: NotRequired[CustomFilterConfigurationTypeDef]
 
 
+class ClientCredentialsDetailsTypeDef(TypedDict):
+    ClientCredentialsGrantDetails: NotRequired[ClientCredentialsGrantDetailsTypeDef]
+
+
 class ClusterMarkerTypeDef(TypedDict):
     SimpleClusterMarker: NotRequired[SimpleClusterMarkerTypeDef]
 
@@ -6701,7 +7561,7 @@ class TopicConstantValueOutputTypeDef(TypedDict):
     Value: NotRequired[str]
     Minimum: NotRequired[str]
     Maximum: NotRequired[str]
-    ValueList: NotRequired[List[CollectiveConstantEntryTypeDef]]
+    ValueList: NotRequired[list[CollectiveConstantEntryTypeDef]]
 
 
 class TopicConstantValueTypeDef(TypedDict):
@@ -6725,7 +7585,7 @@ class TopicCategoryFilterConstantTypeDef(TypedDict):
 
 
 class ColorScaleOutputTypeDef(TypedDict):
-    Colors: List[DataColorTypeDef]
+    Colors: list[DataColorTypeDef]
     ColorFillType: ColorFillTypeType
     NullValueColor: NotRequired[DataColorTypeDef]
 
@@ -6737,7 +7597,7 @@ class ColorScaleTypeDef(TypedDict):
 
 
 class ColorsConfigurationOutputTypeDef(TypedDict):
-    CustomColors: NotRequired[List[CustomColorTypeDef]]
+    CustomColors: NotRequired[list[CustomColorTypeDef]]
 
 
 class ColorsConfigurationTypeDef(TypedDict):
@@ -6751,7 +7611,7 @@ class ColumnTagTypeDef(TypedDict):
 
 class ColumnGroupSchemaOutputTypeDef(TypedDict):
     Name: NotRequired[str]
-    ColumnGroupColumnSchemaList: NotRequired[List[ColumnGroupColumnSchemaTypeDef]]
+    ColumnGroupColumnSchemaList: NotRequired[list[ColumnGroupColumnSchemaTypeDef]]
 
 
 class ColumnGroupSchemaTypeDef(TypedDict):
@@ -6769,11 +7629,38 @@ ColumnLevelPermissionRuleUnionTypeDef = Union[
 
 
 class DataSetSchemaOutputTypeDef(TypedDict):
-    ColumnSchemaList: NotRequired[List[ColumnSchemaTypeDef]]
+    ColumnSchemaList: NotRequired[list[ColumnSchemaTypeDef]]
 
 
 class DataSetSchemaTypeDef(TypedDict):
     ColumnSchemaList: NotRequired[Sequence[ColumnSchemaTypeDef]]
+
+
+class ComboChartDefaultSeriesSettingsTypeDef(TypedDict):
+    LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
+    MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
+    DecalSettings: NotRequired[DecalSettingsTypeDef]
+    BorderSettings: NotRequired[BorderSettingsTypeDef]
+
+
+class ComboChartSeriesSettingsTypeDef(TypedDict):
+    LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
+    MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
+    DecalSettings: NotRequired[DecalSettingsTypeDef]
+    BorderSettings: NotRequired[BorderSettingsTypeDef]
+
+
+class LineChartDefaultSeriesSettingsTypeDef(TypedDict):
+    AxisBinding: NotRequired[AxisBindingType]
+    LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
+    MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
+    DecalSettings: NotRequired[DecalSettingsTypeDef]
+
+
+class LineChartSeriesSettingsTypeDef(TypedDict):
+    LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
+    MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
+    DecalSettings: NotRequired[DecalSettingsTypeDef]
 
 
 class ConditionalFormattingCustomIconConditionTypeDef(TypedDict):
@@ -6798,6 +7685,7 @@ class DataSetSummaryTypeDef(TypedDict):
     LastUpdatedTime: NotRequired[datetime]
     ImportMode: NotRequired[DataSetImportModeType]
     RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
+    RowLevelPermissionDataSetMap: NotRequired[dict[str, RowLevelPermissionDataSetTypeDef]]
     RowLevelPermissionTagConfigurationApplied: NotRequired[bool]
     ColumnLevelPermissionRulesApplied: NotRequired[bool]
     UseAs: NotRequired[Literal["RLS_RULES"]]
@@ -6825,7 +7713,7 @@ class DescribeGroupMembershipResponseTypeDef(TypedDict):
 
 
 class ListGroupMembershipsResponseTypeDef(TypedDict):
-    GroupMemberList: List[GroupMemberTypeDef]
+    GroupMemberList: list[GroupMemberTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6847,7 +7735,7 @@ class DescribeGroupResponseTypeDef(TypedDict):
 
 
 class ListGroupsResponseTypeDef(TypedDict):
-    GroupList: List[GroupTypeDef]
+    GroupList: list[GroupTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6855,7 +7743,7 @@ class ListGroupsResponseTypeDef(TypedDict):
 
 
 class ListUserGroupsResponseTypeDef(TypedDict):
-    GroupList: List[GroupTypeDef]
+    GroupList: list[GroupTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6863,7 +7751,7 @@ class ListUserGroupsResponseTypeDef(TypedDict):
 
 
 class SearchGroupsResponseTypeDef(TypedDict):
-    GroupList: List[GroupTypeDef]
+    GroupList: list[GroupTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6892,7 +7780,7 @@ class DescribeTemplateAliasResponseTypeDef(TypedDict):
 
 
 class ListTemplateAliasesResponseTypeDef(TypedDict):
-    TemplateAliasList: List[TemplateAliasTypeDef]
+    TemplateAliasList: list[TemplateAliasTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6921,7 +7809,7 @@ class DescribeThemeAliasResponseTypeDef(TypedDict):
 
 
 class ListThemeAliasesResponseTypeDef(TypedDict):
-    ThemeAliasList: List[ThemeAliasTypeDef]
+    ThemeAliasList: list[ThemeAliasTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6948,7 +7836,7 @@ class CustomSqlOutputTypeDef(TypedDict):
     DataSourceArn: str
     Name: str
     SqlQuery: str
-    Columns: NotRequired[List[InputColumnTypeDef]]
+    Columns: NotRequired[list[InputColumnTypeDef]]
 
 
 class CustomSqlTypeDef(TypedDict):
@@ -6958,10 +7846,20 @@ class CustomSqlTypeDef(TypedDict):
     Columns: NotRequired[Sequence[InputColumnTypeDef]]
 
 
+class ParentDataSetOutputTypeDef(TypedDict):
+    DataSetArn: str
+    InputColumns: list[InputColumnTypeDef]
+
+
+class ParentDataSetTypeDef(TypedDict):
+    DataSetArn: str
+    InputColumns: Sequence[InputColumnTypeDef]
+
+
 class RelationalTableOutputTypeDef(TypedDict):
     DataSourceArn: str
     Name: str
-    InputColumns: List[InputColumnTypeDef]
+    InputColumns: list[InputColumnTypeDef]
     Catalog: NotRequired[str]
     Schema: NotRequired[str]
 
@@ -6987,7 +7885,7 @@ class SearchDashboardsRequestTypeDef(TypedDict):
 
 
 class ListDashboardsResponseTypeDef(TypedDict):
-    DashboardSummaryList: List[DashboardSummaryTypeDef]
+    DashboardSummaryList: list[DashboardSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6995,7 +7893,7 @@ class ListDashboardsResponseTypeDef(TypedDict):
 
 
 class SearchDashboardsResponseTypeDef(TypedDict):
-    DashboardSummaryList: List[DashboardSummaryTypeDef]
+    DashboardSummaryList: list[DashboardSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7003,7 +7901,7 @@ class SearchDashboardsResponseTypeDef(TypedDict):
 
 
 class ListDashboardVersionsResponseTypeDef(TypedDict):
-    DashboardVersionSummaryList: List[DashboardVersionSummaryTypeDef]
+    DashboardVersionSummaryList: list[DashboardVersionSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7032,11 +7930,75 @@ class DataPathValueTypeDef(TypedDict):
     DataPathType: NotRequired[DataPathTypeTypeDef]
 
 
+class DataPrepAggregationFunctionTypeDef(TypedDict):
+    SimpleAggregation: NotRequired[DataPrepSimpleAggregationFunctionTypeDef]
+    ListAggregation: NotRequired[DataPrepListAggregationFunctionTypeDef]
+
+
+class ImportTableOperationSourceOutputTypeDef(TypedDict):
+    SourceTableId: str
+    ColumnIdMappings: NotRequired[list[DataSetColumnIdMappingTypeDef]]
+
+
+class ImportTableOperationSourceTypeDef(TypedDict):
+    SourceTableId: str
+    ColumnIdMappings: NotRequired[Sequence[DataSetColumnIdMappingTypeDef]]
+
+
+class TransformOperationSourceOutputTypeDef(TypedDict):
+    TransformOperationId: str
+    ColumnIdMappings: NotRequired[list[DataSetColumnIdMappingTypeDef]]
+
+
+class TransformOperationSourceTypeDef(TypedDict):
+    TransformOperationId: str
+    ColumnIdMappings: NotRequired[Sequence[DataSetColumnIdMappingTypeDef]]
+
+
+class DataSetDateComparisonFilterConditionOutputTypeDef(TypedDict):
+    Operator: DataSetDateComparisonFilterOperatorType
+    Value: NotRequired[DataSetDateFilterValueOutputTypeDef]
+
+
+class DataSetDateRangeFilterConditionOutputTypeDef(TypedDict):
+    RangeMinimum: NotRequired[DataSetDateFilterValueOutputTypeDef]
+    RangeMaximum: NotRequired[DataSetDateFilterValueOutputTypeDef]
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
+
+
+class DataSetNumericComparisonFilterConditionTypeDef(TypedDict):
+    Operator: DataSetNumericComparisonFilterOperatorType
+    Value: NotRequired[DataSetNumericFilterValueTypeDef]
+
+
+class DataSetNumericRangeFilterConditionTypeDef(TypedDict):
+    RangeMinimum: NotRequired[DataSetNumericFilterValueTypeDef]
+    RangeMaximum: NotRequired[DataSetNumericFilterValueTypeDef]
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
+
+
 class SearchDataSetsRequestTypeDef(TypedDict):
     AwsAccountId: str
     Filters: Sequence[DataSetSearchFilterTypeDef]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class DataSetStringComparisonFilterConditionTypeDef(TypedDict):
+    Operator: DataSetStringComparisonFilterOperatorType
+    Value: NotRequired[DataSetStringFilterValueTypeDef]
+
+
+class DataSetStringListFilterConditionOutputTypeDef(TypedDict):
+    Operator: DataSetStringListFilterOperatorType
+    Values: NotRequired[DataSetStringListFilterValueOutputTypeDef]
+
+
+DataSetStringListFilterValueUnionTypeDef = Union[
+    DataSetStringListFilterValueTypeDef, DataSetStringListFilterValueOutputTypeDef
+]
 
 
 class SearchDataSourcesRequestTypeDef(TypedDict):
@@ -7047,7 +8009,7 @@ class SearchDataSourcesRequestTypeDef(TypedDict):
 
 
 class SearchDataSourcesResponseTypeDef(TypedDict):
-    DataSourceSummaries: List[DataSourceSummaryTypeDef]
+    DataSourceSummaries: list[DataSourceSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7086,10 +8048,19 @@ DecimalDatasetParameterDefaultValuesUnionTypeDef = Union[
 ]
 
 
+class DescribeActionConnectorPermissionsResponseTypeDef(TypedDict):
+    Arn: str
+    ActionConnectorId: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeAnalysisPermissionsResponseTypeDef(TypedDict):
     AnalysisId: str
     AnalysisArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7098,7 +8069,7 @@ class DescribeAnalysisPermissionsResponseTypeDef(TypedDict):
 class DescribeDataSetPermissionsResponseTypeDef(TypedDict):
     DataSetArn: str
     DataSetId: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7107,7 +8078,7 @@ class DescribeDataSetPermissionsResponseTypeDef(TypedDict):
 class DescribeDataSourcePermissionsResponseTypeDef(TypedDict):
     DataSourceArn: str
     DataSourceId: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7117,7 +8088,7 @@ class DescribeFolderPermissionsResponseTypeDef(TypedDict):
     Status: int
     FolderId: str
     Arn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -7127,7 +8098,7 @@ class DescribeFolderResolvedPermissionsResponseTypeDef(TypedDict):
     Status: int
     FolderId: str
     Arn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -7136,7 +8107,7 @@ class DescribeFolderResolvedPermissionsResponseTypeDef(TypedDict):
 class DescribeTemplatePermissionsResponseTypeDef(TypedDict):
     TemplateId: str
     TemplateArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7145,7 +8116,7 @@ class DescribeTemplatePermissionsResponseTypeDef(TypedDict):
 class DescribeThemePermissionsResponseTypeDef(TypedDict):
     ThemeId: str
     ThemeArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7154,20 +8125,29 @@ class DescribeThemePermissionsResponseTypeDef(TypedDict):
 class DescribeTopicPermissionsResponseTypeDef(TypedDict):
     TopicId: str
     TopicArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LinkSharingConfigurationOutputTypeDef(TypedDict):
-    Permissions: NotRequired[List[ResourcePermissionOutputTypeDef]]
+    Permissions: NotRequired[list[ResourcePermissionOutputTypeDef]]
+
+
+class UpdateActionConnectorPermissionsResponseTypeDef(TypedDict):
+    Arn: str
+    ActionConnectorId: str
+    RequestId: str
+    Status: int
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateAnalysisPermissionsResponseTypeDef(TypedDict):
     AnalysisArn: str
     AnalysisId: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7177,7 +8157,7 @@ class UpdateFolderPermissionsResponseTypeDef(TypedDict):
     Status: int
     Arn: str
     FolderId: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -7185,7 +8165,7 @@ class UpdateFolderPermissionsResponseTypeDef(TypedDict):
 class UpdateTemplatePermissionsResponseTypeDef(TypedDict):
     TemplateId: str
     TemplateArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7194,7 +8174,7 @@ class UpdateTemplatePermissionsResponseTypeDef(TypedDict):
 class UpdateThemePermissionsResponseTypeDef(TypedDict):
     ThemeId: str
     ThemeArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7203,7 +8183,7 @@ class UpdateThemePermissionsResponseTypeDef(TypedDict):
 class UpdateTopicPermissionsResponseTypeDef(TypedDict):
     TopicId: str
     TopicArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7220,6 +8200,11 @@ class DescribeFolderResolvedPermissionsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     FolderId: str
     Namespace: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListActionConnectorsRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -7265,6 +8250,11 @@ class ListDataSetsRequestPaginateTypeDef(TypedDict):
 
 
 class ListDataSourcesRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListFlowsInputPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -7377,6 +8367,12 @@ class ListUsersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class SearchActionConnectorsRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[ActionConnectorSearchFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class SearchAnalysesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     Filters: Sequence[AnalysisSearchFilterTypeDef]
@@ -7417,7 +8413,7 @@ class DescribeIAMPolicyAssignmentResponseTypeDef(TypedDict):
 
 class DescribeKeyRegistrationResponseTypeDef(TypedDict):
     AwsAccountId: str
-    KeyRegistration: List[RegisteredCustomerManagedKeyTypeDef]
+    KeyRegistration: list[RegisteredCustomerManagedKeyTypeDef]
     QDataKey: QDataKeyTypeDef
     RequestId: str
     Status: int
@@ -7427,6 +8423,13 @@ class DescribeKeyRegistrationResponseTypeDef(TypedDict):
 class UpdateKeyRegistrationRequestTypeDef(TypedDict):
     AwsAccountId: str
     KeyRegistration: Sequence[RegisteredCustomerManagedKeyTypeDef]
+
+
+class DescribeSelfUpgradeConfigurationResponseTypeDef(TypedDict):
+    SelfUpgradeConfiguration: SelfUpgradeConfigurationTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTopicRefreshResponseTypeDef(TypedDict):
@@ -7461,7 +8464,7 @@ class DescribeUserResponseTypeDef(TypedDict):
 
 
 class ListUsersResponseTypeDef(TypedDict):
-    UserList: List[UserTypeDef]
+    UserList: list[UserTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7481,6 +8484,11 @@ class UpdateUserResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DestinationTableTypeDef(TypedDict):
+    Alias: str
+    Source: DestinationTableSourceTypeDef
 
 
 class DisplayFormatOptionsTypeDef(TypedDict):
@@ -7525,6 +8533,22 @@ class FilterOperationTargetVisualsConfigurationTypeDef(TypedDict):
     SameSheetTargetVisualConfiguration: NotRequired[SameSheetTargetVisualConfigurationTypeDef]
 
 
+class ListFlowsOutputTypeDef(TypedDict):
+    FlowSummaryList: list[FlowSummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class SearchFlowsOutputTypeDef(TypedDict):
+    FlowSummaryList: list[FlowSummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class SearchFoldersRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     Filters: Sequence[FolderSearchFilterTypeDef]
@@ -7540,7 +8564,7 @@ class SearchFoldersRequestTypeDef(TypedDict):
 
 class ListFoldersResponseTypeDef(TypedDict):
     Status: int
-    FolderSummaryList: List[FolderSummaryTypeDef]
+    FolderSummaryList: list[FolderSummaryTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -7548,7 +8572,7 @@ class ListFoldersResponseTypeDef(TypedDict):
 
 class SearchFoldersResponseTypeDef(TypedDict):
     Status: int
-    FolderSummaryList: List[FolderSummaryTypeDef]
+    FolderSummaryList: list[FolderSummaryTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -7561,14 +8585,6 @@ class FontConfigurationTypeDef(TypedDict):
     FontWeight: NotRequired[FontWeightTypeDef]
     FontStyle: NotRequired[FontStyleType]
     FontFamily: NotRequired[str]
-
-
-class TypographyOutputTypeDef(TypedDict):
-    FontFamilies: NotRequired[List[FontTypeDef]]
-
-
-class TypographyTypeDef(TypedDict):
-    FontFamilies: NotRequired[Sequence[FontTypeDef]]
 
 
 class ForecastScenarioOutputTypeDef(TypedDict):
@@ -7595,6 +8611,11 @@ GeoSpatialColumnGroupUnionTypeDef = Union[
 ]
 
 
+class GeocodePreferenceValueTypeDef(TypedDict):
+    GeocoderHierarchy: NotRequired[GeocoderHierarchyTypeDef]
+    Coordinate: NotRequired[CoordinateTypeDef]
+
+
 class GeospatialMapStateTypeDef(TypedDict):
     Bounds: NotRequired[GeospatialCoordinateBoundsTypeDef]
     MapNavigation: NotRequired[GeospatialMapNavigationType]
@@ -7610,7 +8631,7 @@ class GeospatialDataSourceItemTypeDef(TypedDict):
 
 
 class GeospatialHeatmapColorScaleOutputTypeDef(TypedDict):
-    Colors: NotRequired[List[GeospatialHeatmapDataColorTypeDef]]
+    Colors: NotRequired[list[GeospatialHeatmapDataColorTypeDef]]
 
 
 class GeospatialHeatmapColorScaleTypeDef(TypedDict):
@@ -7619,6 +8640,31 @@ class GeospatialHeatmapColorScaleTypeDef(TypedDict):
 
 class GeospatialNullDataSettingsTypeDef(TypedDict):
     SymbolStyle: GeospatialNullSymbolStyleTypeDef
+
+
+class GetFlowPermissionsOutputTypeDef(TypedDict):
+    Arn: str
+    FlowId: str
+    Permissions: list[PermissionOutputTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateFlowPermissionsOutputTypeDef(TypedDict):
+    Status: int
+    Arn: str
+    Permissions: list[PermissionOutputTypeDef]
+    RequestId: str
+    FlowId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetIdentityContextRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    UserIdentifier: UserIdentifierTypeDef
+    Namespace: NotRequired[str]
+    SessionExpiresAt: NotRequired[TimestampTypeDef]
 
 
 class TableSideBorderOptionsTypeDef(TypedDict):
@@ -7631,7 +8677,7 @@ class TableSideBorderOptionsTypeDef(TypedDict):
 
 
 class GradientColorOutputTypeDef(TypedDict):
-    Stops: NotRequired[List[GradientStopTypeDef]]
+    Stops: NotRequired[list[GradientStopTypeDef]]
 
 
 class GradientColorTypeDef(TypedDict):
@@ -7640,6 +8686,21 @@ class GradientColorTypeDef(TypedDict):
 
 class GridLayoutCanvasSizeOptionsTypeDef(TypedDict):
     ScreenCanvasSizeOptions: NotRequired[GridLayoutScreenCanvasSizeOptionsTypeDef]
+
+
+class GridLayoutElementTypeDef(TypedDict):
+    ElementId: str
+    ElementType: LayoutElementTypeType
+    ColumnSpan: int
+    RowSpan: int
+    ColumnIndex: NotRequired[int]
+    RowIndex: NotRequired[int]
+    BorderStyle: NotRequired[GridLayoutElementBorderStyleTypeDef]
+    SelectedBorderStyle: NotRequired[GridLayoutElementBorderStyleTypeDef]
+    BackgroundStyle: NotRequired[GridLayoutElementBackgroundStyleTypeDef]
+    LoadingAnimation: NotRequired[LoadingAnimationTypeDef]
+    BorderRadius: NotRequired[str]
+    Padding: NotRequired[str]
 
 
 class SearchGroupsRequestPaginateTypeDef(TypedDict):
@@ -7658,7 +8719,7 @@ class SearchGroupsRequestTypeDef(TypedDict):
 
 
 class ListIAMPolicyAssignmentsResponseTypeDef(TypedDict):
-    IAMPolicyAssignments: List[IAMPolicyAssignmentSummaryTypeDef]
+    IAMPolicyAssignments: list[IAMPolicyAssignmentSummaryTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7719,19 +8780,16 @@ JoinInstructionTypeDef = TypedDict(
 )
 
 
+class JoinOperandPropertiesOutputTypeDef(TypedDict):
+    OutputColumnNameOverrides: list[OutputColumnNameOverrideTypeDef]
+
+
+class JoinOperandPropertiesTypeDef(TypedDict):
+    OutputColumnNameOverrides: Sequence[OutputColumnNameOverrideTypeDef]
+
+
 class KPIVisualLayoutOptionsTypeDef(TypedDict):
     StandardLayout: NotRequired[KPIVisualStandardLayoutTypeDef]
-
-
-class LineChartDefaultSeriesSettingsTypeDef(TypedDict):
-    AxisBinding: NotRequired[AxisBindingType]
-    LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
-    MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
-
-
-class LineChartSeriesSettingsTypeDef(TypedDict):
-    LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
-    MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
 
 
 class LinkSharingConfigurationTypeDef(TypedDict):
@@ -7743,14 +8801,29 @@ ResourcePermissionUnionTypeDef = Union[ResourcePermissionTypeDef, ResourcePermis
 
 class ListFolderMembersResponseTypeDef(TypedDict):
     Status: int
-    FolderMemberList: List[MemberIdArnPairTypeDef]
+    FolderMemberList: list[MemberIdArnPairTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
+class ListSelfUpgradesResponseTypeDef(TypedDict):
+    SelfUpgradeRequestDetails: list[SelfUpgradeRequestDetailTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateSelfUpgradeResponseTypeDef(TypedDict):
+    SelfUpgradeRequestDetail: SelfUpgradeRequestDetailTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTemplateVersionsResponseTypeDef(TypedDict):
-    TemplateVersionSummaryList: List[TemplateVersionSummaryTypeDef]
+    TemplateVersionSummaryList: list[TemplateVersionSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7758,7 +8831,7 @@ class ListTemplateVersionsResponseTypeDef(TypedDict):
 
 
 class ListTemplatesResponseTypeDef(TypedDict):
-    TemplateSummaryList: List[TemplateSummaryTypeDef]
+    TemplateSummaryList: list[TemplateSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7766,7 +8839,7 @@ class ListTemplatesResponseTypeDef(TypedDict):
 
 
 class ListThemeVersionsResponseTypeDef(TypedDict):
-    ThemeVersionSummaryList: List[ThemeVersionSummaryTypeDef]
+    ThemeVersionSummaryList: list[ThemeVersionSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7774,7 +8847,7 @@ class ListThemeVersionsResponseTypeDef(TypedDict):
 
 
 class ListThemesResponseTypeDef(TypedDict):
-    ThemeSummaryList: List[ThemeSummaryTypeDef]
+    ThemeSummaryList: list[ThemeSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7782,7 +8855,7 @@ class ListThemesResponseTypeDef(TypedDict):
 
 
 class ListTopicsResponseTypeDef(TypedDict):
-    TopicsSummaries: List[TopicSummaryTypeDef]
+    TopicsSummaries: list[TopicSummaryTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7790,7 +8863,7 @@ class ListTopicsResponseTypeDef(TypedDict):
 
 
 class SearchTopicsResponseTypeDef(TypedDict):
-    TopicSummaryList: List[TopicSummaryTypeDef]
+    TopicSummaryList: list[TopicSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7844,11 +8917,11 @@ class VPCConnectionSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
     Name: NotRequired[str]
     VPCId: NotRequired[str]
-    SecurityGroupIds: NotRequired[List[str]]
-    DnsResolvers: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    DnsResolvers: NotRequired[list[str]]
     Status: NotRequired[VPCConnectionResourceStatusType]
     AvailabilityStatus: NotRequired[VPCConnectionAvailabilityStatusType]
-    NetworkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    NetworkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     RoleArn: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
@@ -7859,11 +8932,11 @@ class VPCConnectionTypeDef(TypedDict):
     Arn: NotRequired[str]
     Name: NotRequired[str]
     VPCId: NotRequired[str]
-    SecurityGroupIds: NotRequired[List[str]]
-    DnsResolvers: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    DnsResolvers: NotRequired[list[str]]
     Status: NotRequired[VPCConnectionResourceStatusType]
     AvailabilityStatus: NotRequired[VPCConnectionAvailabilityStatusType]
-    NetworkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    NetworkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     RoleArn: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
@@ -7886,10 +8959,10 @@ class NumericalAggregationFunctionTypeDef(TypedDict):
 
 
 class ParametersOutputTypeDef(TypedDict):
-    StringParameters: NotRequired[List[StringParameterOutputTypeDef]]
-    IntegerParameters: NotRequired[List[IntegerParameterOutputTypeDef]]
-    DecimalParameters: NotRequired[List[DecimalParameterOutputTypeDef]]
-    DateTimeParameters: NotRequired[List[DateTimeParameterOutputTypeDef]]
+    StringParameters: NotRequired[list[StringParameterOutputTypeDef]]
+    IntegerParameters: NotRequired[list[IntegerParameterOutputTypeDef]]
+    DecimalParameters: NotRequired[list[DecimalParameterOutputTypeDef]]
+    DateTimeParameters: NotRequired[list[DateTimeParameterOutputTypeDef]]
 
 
 class VisibleRangeOptionsTypeDef(TypedDict):
@@ -7897,22 +8970,32 @@ class VisibleRangeOptionsTypeDef(TypedDict):
 
 
 class PerformanceConfigurationOutputTypeDef(TypedDict):
-    UniqueKeys: NotRequired[List[UniqueKeyOutputTypeDef]]
+    UniqueKeys: NotRequired[list[UniqueKeyOutputTypeDef]]
 
 
 class PerformanceConfigurationTypeDef(TypedDict):
     UniqueKeys: NotRequired[Sequence[UniqueKeyTypeDef]]
 
 
+PermissionUnionTypeDef = Union[PermissionTypeDef, PermissionOutputTypeDef]
+
+
+class PivotConfigurationOutputTypeDef(TypedDict):
+    PivotedLabels: list[PivotedLabelTypeDef]
+    LabelColumnName: NotRequired[str]
+
+
+class PivotConfigurationTypeDef(TypedDict):
+    PivotedLabels: Sequence[PivotedLabelTypeDef]
+    LabelColumnName: NotRequired[str]
+
+
 class PluginVisualOptionsOutputTypeDef(TypedDict):
-    VisualProperties: NotRequired[List[PluginVisualPropertyTypeDef]]
+    VisualProperties: NotRequired[list[PluginVisualPropertyTypeDef]]
 
 
 class PluginVisualOptionsTypeDef(TypedDict):
     VisualProperties: NotRequired[Sequence[PluginVisualPropertyTypeDef]]
-
-
-ProjectOperationUnionTypeDef = Union[ProjectOperationTypeDef, ProjectOperationOutputTypeDef]
 
 
 class RadarChartSeriesSettingsTypeDef(TypedDict):
@@ -7922,6 +9005,14 @@ class RadarChartSeriesSettingsTypeDef(TypedDict):
 class TopicRangeFilterConstantTypeDef(TypedDict):
     ConstantType: NotRequired[ConstantTypeType]
     RangeConstant: NotRequired[RangeConstantTypeDef]
+
+
+class ReadAuthorizationCodeGrantCredentialsDetailsTypeDef(TypedDict):
+    ReadAuthorizationCodeGrantDetails: NotRequired[ReadAuthorizationCodeGrantDetailsTypeDef]
+
+
+class ReadClientCredentialsDetailsTypeDef(TypedDict):
+    ReadClientCredentialsGrantDetails: NotRequired[ReadClientCredentialsGrantDetailsTypeDef]
 
 
 class RedshiftParametersOutputTypeDef(TypedDict):
@@ -7950,9 +9041,9 @@ class RefreshFrequencyTypeDef(TypedDict):
 
 
 class RowLevelPermissionTagConfigurationOutputTypeDef(TypedDict):
-    TagRules: List[RowLevelPermissionTagRuleTypeDef]
+    TagRules: list[RowLevelPermissionTagRuleTypeDef]
     Status: NotRequired[StatusType]
-    TagRuleConfigurations: NotRequired[List[List[str]]]
+    TagRuleConfigurations: NotRequired[list[list[str]]]
 
 
 class RowLevelPermissionTagConfigurationTypeDef(TypedDict):
@@ -7967,7 +9058,7 @@ class SnapshotS3DestinationConfigurationTypeDef(TypedDict):
 
 class S3SourceOutputTypeDef(TypedDict):
     DataSourceArn: str
-    InputColumns: List[InputColumnTypeDef]
+    InputColumns: list[InputColumnTypeDef]
     UploadSettings: NotRequired[UploadSettingsTypeDef]
 
 
@@ -7975,6 +9066,31 @@ class S3SourceTypeDef(TypedDict):
     DataSourceArn: str
     InputColumns: Sequence[InputColumnTypeDef]
     UploadSettings: NotRequired[UploadSettingsTypeDef]
+
+
+class SaaSTableOutputTypeDef(TypedDict):
+    DataSourceArn: str
+    TablePath: list[TablePathElementTypeDef]
+    InputColumns: list[InputColumnTypeDef]
+
+
+class SaaSTableTypeDef(TypedDict):
+    DataSourceArn: str
+    TablePath: Sequence[TablePathElementTypeDef]
+    InputColumns: Sequence[InputColumnTypeDef]
+
+
+class SearchFlowsInputPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[SearchFlowsFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchFlowsInputTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[SearchFlowsFilterTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 
 class SearchTopicsRequestPaginateTypeDef(TypedDict):
@@ -8003,7 +9119,7 @@ class SectionStyleTypeDef(TypedDict):
 
 class SelectedSheetsFilterScopeConfigurationOutputTypeDef(TypedDict):
     SheetVisualScopingConfigurations: NotRequired[
-        List[SheetVisualScopingConfigurationOutputTypeDef]
+        list[SheetVisualScopingConfigurationOutputTypeDef]
     ]
 
 
@@ -8025,6 +9141,16 @@ class SheetImageTooltipConfigurationTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
 
+class SheetLayoutGroupOutputTypeDef(TypedDict):
+    Id: str
+    Members: list[SheetLayoutGroupMemberTypeDef]
+
+
+class SheetLayoutGroupTypeDef(TypedDict):
+    Id: str
+    Members: Sequence[SheetLayoutGroupMemberTypeDef]
+
+
 class VisualTitleLabelOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     FormatText: NotRequired[ShortFormatTextTypeDef]
@@ -8036,7 +9162,7 @@ class SingleAxisOptionsTypeDef(TypedDict):
 
 class TopicTemplateOutputTypeDef(TypedDict):
     TemplateType: NotRequired[str]
-    Slots: NotRequired[List[SlotTypeDef]]
+    Slots: NotRequired[list[SlotTypeDef]]
 
 
 class TopicTemplateTypeDef(TypedDict):
@@ -8045,11 +9171,11 @@ class TopicTemplateTypeDef(TypedDict):
 
 
 class SnapshotUserConfigurationRedactedTypeDef(TypedDict):
-    AnonymousUsers: NotRequired[List[SnapshotAnonymousUserRedactedTypeDef]]
+    AnonymousUsers: NotRequired[list[SnapshotAnonymousUserRedactedTypeDef]]
 
 
 class SnapshotFileOutputTypeDef(TypedDict):
-    SheetSelections: List[SnapshotFileSheetSelectionOutputTypeDef]
+    SheetSelections: list[SnapshotFileSheetSelectionOutputTypeDef]
     FormatType: SnapshotFileFormatTypeType
 
 
@@ -8076,8 +9202,8 @@ StringDatasetParameterDefaultValuesUnionTypeDef = Union[
 
 
 class UpdateKeyRegistrationResponseTypeDef(TypedDict):
-    FailedKeyRegistration: List[FailedKeyRegistrationEntryTypeDef]
-    SuccessfulKeyRegistration: List[SuccessfulKeyRegistrationEntryTypeDef]
+    FailedKeyRegistration: list[FailedKeyRegistrationEntryTypeDef]
+    SuccessfulKeyRegistration: list[SuccessfulKeyRegistrationEntryTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -8125,8 +9251,24 @@ class WaterfallChartColorConfigurationTypeDef(TypedDict):
     GroupColorConfiguration: NotRequired[WaterfallChartGroupColorConfigurationTypeDef]
 
 
+class ListActionConnectorsResponseTypeDef(TypedDict):
+    ActionConnectorSummaries: list[ActionConnectorSummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class SearchActionConnectorsResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ActionConnectorSummaries: list[ActionConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CascadingControlConfigurationOutputTypeDef(TypedDict):
-    SourceControls: NotRequired[List[CascadingControlSourceTypeDef]]
+    SourceControls: NotRequired[list[CascadingControlSourceTypeDef]]
 
 
 class CascadingControlConfigurationTypeDef(TypedDict):
@@ -8135,7 +9277,7 @@ class CascadingControlConfigurationTypeDef(TypedDict):
 
 class DateTimeDefaultValuesOutputTypeDef(TypedDict):
     DynamicValue: NotRequired[DynamicDefaultValueTypeDef]
-    StaticValues: NotRequired[List[datetime]]
+    StaticValues: NotRequired[list[datetime]]
     RollingDate: NotRequired[RollingDateConfigurationTypeDef]
 
 
@@ -8147,7 +9289,7 @@ class DateTimeDefaultValuesTypeDef(TypedDict):
 
 class DecimalDefaultValuesOutputTypeDef(TypedDict):
     DynamicValue: NotRequired[DynamicDefaultValueTypeDef]
-    StaticValues: NotRequired[List[float]]
+    StaticValues: NotRequired[list[float]]
 
 
 class DecimalDefaultValuesTypeDef(TypedDict):
@@ -8157,7 +9299,7 @@ class DecimalDefaultValuesTypeDef(TypedDict):
 
 class IntegerDefaultValuesOutputTypeDef(TypedDict):
     DynamicValue: NotRequired[DynamicDefaultValueTypeDef]
-    StaticValues: NotRequired[List[int]]
+    StaticValues: NotRequired[list[int]]
 
 
 class IntegerDefaultValuesTypeDef(TypedDict):
@@ -8167,7 +9309,7 @@ class IntegerDefaultValuesTypeDef(TypedDict):
 
 class StringDefaultValuesOutputTypeDef(TypedDict):
     DynamicValue: NotRequired[DynamicDefaultValueTypeDef]
-    StaticValues: NotRequired[List[str]]
+    StaticValues: NotRequired[list[str]]
 
 
 class StringDefaultValuesTypeDef(TypedDict):
@@ -8179,6 +9321,14 @@ class DrillDownFilterOutputTypeDef(TypedDict):
     NumericEqualityFilter: NotRequired[NumericEqualityDrillDownFilterTypeDef]
     CategoryFilter: NotRequired[CategoryDrillDownFilterOutputTypeDef]
     TimeRangeFilter: NotRequired[TimeRangeDrillDownFilterOutputTypeDef]
+
+
+class DashboardCustomizationVisualOptionsOutputTypeDef(TypedDict):
+    FieldsConfiguration: NotRequired[VisualCustomizationFieldsConfigurationOutputTypeDef]
+
+
+class DashboardCustomizationVisualOptionsTypeDef(TypedDict):
+    FieldsConfiguration: NotRequired[VisualCustomizationFieldsConfigurationTypeDef]
 
 
 class RegisteredUserDashboardFeatureConfigurationsTypeDef(TypedDict):
@@ -8223,12 +9373,12 @@ class AnonymousUserDashboardEmbeddingConfigurationTypeDef(TypedDict):
 class DescribeAssetBundleExportJobResponseTypeDef(TypedDict):
     JobStatus: AssetBundleExportJobStatusType
     DownloadUrl: str
-    Errors: List[AssetBundleExportJobErrorTypeDef]
+    Errors: list[AssetBundleExportJobErrorTypeDef]
     Arn: str
     CreatedTime: datetime
     AssetBundleExportJobId: str
     AwsAccountId: str
-    ResourceArns: List[str]
+    ResourceArns: list[str]
     IncludeAllDependencies: bool
     ExportFormat: AssetBundleExportFormatType
     CloudFormationOverridePropertyConfiguration: (
@@ -8239,7 +9389,7 @@ class DescribeAssetBundleExportJobResponseTypeDef(TypedDict):
     IncludePermissions: bool
     IncludeTags: bool
     ValidationStrategy: AssetBundleExportJobValidationStrategyTypeDef
-    Warnings: List[AssetBundleExportJobWarningTypeDef]
+    Warnings: list[AssetBundleExportJobWarningTypeDef]
     IncludeFolderMemberships: bool
     IncludeFolderMembers: IncludeFolderMembersType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8252,7 +9402,7 @@ AssetBundleCloudFormationOverridePropertyConfigurationUnionTypeDef = Union[
 
 
 class AssetBundleImportJobDashboardOverridePermissionsOutputTypeDef(TypedDict):
-    DashboardIds: List[str]
+    DashboardIds: list[str]
     Permissions: NotRequired[AssetBundleResourcePermissionsOutputTypeDef]
     LinkSharingConfiguration: NotRequired[AssetBundleResourceLinkSharingConfigurationOutputTypeDef]
 
@@ -8264,13 +9414,13 @@ class AssetBundleImportJobDashboardOverridePermissionsTypeDef(TypedDict):
 
 
 class AssetBundleImportJobOverrideTagsOutputTypeDef(TypedDict):
-    VPCConnections: NotRequired[List[AssetBundleImportJobVPCConnectionOverrideTagsOutputTypeDef]]
-    DataSources: NotRequired[List[AssetBundleImportJobDataSourceOverrideTagsOutputTypeDef]]
-    DataSets: NotRequired[List[AssetBundleImportJobDataSetOverrideTagsOutputTypeDef]]
-    Themes: NotRequired[List[AssetBundleImportJobThemeOverrideTagsOutputTypeDef]]
-    Analyses: NotRequired[List[AssetBundleImportJobAnalysisOverrideTagsOutputTypeDef]]
-    Dashboards: NotRequired[List[AssetBundleImportJobDashboardOverrideTagsOutputTypeDef]]
-    Folders: NotRequired[List[AssetBundleImportJobFolderOverrideTagsOutputTypeDef]]
+    VPCConnections: NotRequired[list[AssetBundleImportJobVPCConnectionOverrideTagsOutputTypeDef]]
+    DataSources: NotRequired[list[AssetBundleImportJobDataSourceOverrideTagsOutputTypeDef]]
+    DataSets: NotRequired[list[AssetBundleImportJobDataSetOverrideTagsOutputTypeDef]]
+    Themes: NotRequired[list[AssetBundleImportJobThemeOverrideTagsOutputTypeDef]]
+    Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverrideTagsOutputTypeDef]]
+    Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverrideTagsOutputTypeDef]]
+    Folders: NotRequired[list[AssetBundleImportJobFolderOverrideTagsOutputTypeDef]]
 
 
 class AssetBundleImportJobOverrideTagsTypeDef(TypedDict):
@@ -8307,6 +9457,9 @@ class CustomValuesConfigurationTypeDef(TypedDict):
     IncludeNullValue: NotRequired[bool]
 
 
+DataSetDateFilterValueUnionTypeDef = Union[
+    DataSetDateFilterValueTypeDef, DataSetDateFilterValueOutputTypeDef
+]
 DateTimeDatasetParameterDefaultValuesUnionTypeDef = Union[
     DateTimeDatasetParameterDefaultValuesTypeDef, DateTimeDatasetParameterDefaultValuesOutputTypeDef
 ]
@@ -8338,6 +9491,15 @@ class ForecastScenarioTypeDef(TypedDict):
     WhatIfRangeScenario: NotRequired[WhatIfRangeScenarioTypeDef]
 
 
+class AuthorizationCodeGrantMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    RedirectUrl: str
+    AuthorizationCodeGrantCredentialsSource: NotRequired[Literal["PLAIN_CREDENTIALS"]]
+    AuthorizationCodeGrantCredentialsDetails: NotRequired[
+        AuthorizationCodeGrantCredentialsDetailsTypeDef
+    ]
+
+
 class NumericAxisOptionsOutputTypeDef(TypedDict):
     Scale: NotRequired[AxisScaleTypeDef]
     Range: NotRequired[AxisDisplayRangeOutputTypeDef]
@@ -8348,13 +9510,19 @@ class NumericAxisOptionsTypeDef(TypedDict):
     Range: NotRequired[AxisDisplayRangeTypeDef]
 
 
+class DataFieldBarSeriesItemTypeDef(TypedDict):
+    FieldId: str
+    FieldValue: NotRequired[str]
+    Settings: NotRequired[BarChartSeriesSettingsTypeDef]
+
+
+class FieldBarSeriesItemTypeDef(TypedDict):
+    FieldId: str
+    Settings: NotRequired[BarChartSeriesSettingsTypeDef]
+
+
 class BrandElementStyleTypeDef(TypedDict):
     NavbarStyle: NotRequired[NavbarStyleTypeDef]
-
-
-CreateColumnsOperationUnionTypeDef = Union[
-    CreateColumnsOperationTypeDef, CreateColumnsOperationOutputTypeDef
-]
 
 
 class DescribeCustomPermissionsResponseTypeDef(TypedDict):
@@ -8366,10 +9534,16 @@ class DescribeCustomPermissionsResponseTypeDef(TypedDict):
 
 class ListCustomPermissionsResponseTypeDef(TypedDict):
     Status: int
-    CustomPermissionsList: List[CustomPermissionsTypeDef]
+    CustomPermissionsList: list[CustomPermissionsTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ClientCredentialsGrantMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    ClientCredentialsSource: NotRequired[Literal["PLAIN_CREDENTIALS"]]
+    ClientCredentialsDetails: NotRequired[ClientCredentialsDetailsTypeDef]
 
 
 class ClusterMarkerConfigurationTypeDef(TypedDict):
@@ -8395,7 +9569,7 @@ class TopicCategoryFilterTypeDef(TypedDict):
 
 class TagColumnOperationOutputTypeDef(TypedDict):
     ColumnName: str
-    Tags: List[ColumnTagTypeDef]
+    Tags: list[ColumnTagTypeDef]
 
 
 class TagColumnOperationTypeDef(TypedDict):
@@ -8406,7 +9580,7 @@ class TagColumnOperationTypeDef(TypedDict):
 class DataSetConfigurationOutputTypeDef(TypedDict):
     Placeholder: NotRequired[str]
     DataSetSchema: NotRequired[DataSetSchemaOutputTypeDef]
-    ColumnGroupSchemaList: NotRequired[List[ColumnGroupSchemaOutputTypeDef]]
+    ColumnGroupSchemaList: NotRequired[list[ColumnGroupSchemaOutputTypeDef]]
 
 
 class DataSetConfigurationTypeDef(TypedDict):
@@ -8415,13 +9589,37 @@ class DataSetConfigurationTypeDef(TypedDict):
     ColumnGroupSchemaList: NotRequired[Sequence[ColumnGroupSchemaTypeDef]]
 
 
+class DataFieldComboSeriesItemTypeDef(TypedDict):
+    FieldId: str
+    FieldValue: NotRequired[str]
+    Settings: NotRequired[ComboChartSeriesSettingsTypeDef]
+
+
+class FieldComboSeriesItemTypeDef(TypedDict):
+    FieldId: str
+    Settings: NotRequired[ComboChartSeriesSettingsTypeDef]
+
+
+class DataFieldSeriesItemTypeDef(TypedDict):
+    FieldId: str
+    AxisBinding: AxisBindingType
+    FieldValue: NotRequired[str]
+    Settings: NotRequired[LineChartSeriesSettingsTypeDef]
+
+
+class FieldSeriesItemTypeDef(TypedDict):
+    FieldId: str
+    AxisBinding: AxisBindingType
+    Settings: NotRequired[LineChartSeriesSettingsTypeDef]
+
+
 class ConditionalFormattingIconTypeDef(TypedDict):
     IconSet: NotRequired[ConditionalFormattingIconSetTypeDef]
     CustomCondition: NotRequired[ConditionalFormattingCustomIconConditionTypeDef]
 
 
 class ListDataSetsResponseTypeDef(TypedDict):
-    DataSetSummaries: List[DataSetSummaryTypeDef]
+    DataSetSummaries: list[DataSetSummaryTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8429,7 +9627,7 @@ class ListDataSetsResponseTypeDef(TypedDict):
 
 
 class SearchDataSetsResponseTypeDef(TypedDict):
-    DataSetSummaries: List[DataSetSummaryTypeDef]
+    DataSetSummaries: list[DataSetSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8445,6 +9643,18 @@ class DestinationParameterValueConfigurationOutputTypeDef(TypedDict):
 
 
 CustomSqlUnionTypeDef = Union[CustomSqlTypeDef, CustomSqlOutputTypeDef]
+
+
+class SourceTableOutputTypeDef(TypedDict):
+    PhysicalTableId: NotRequired[str]
+    DataSet: NotRequired[ParentDataSetOutputTypeDef]
+
+
+class SourceTableTypeDef(TypedDict):
+    PhysicalTableId: NotRequired[str]
+    DataSet: NotRequired[ParentDataSetTypeDef]
+
+
 RelationalTableUnionTypeDef = Union[RelationalTableTypeDef, RelationalTableOutputTypeDef]
 
 
@@ -8468,6 +9678,7 @@ class DashboardPublishOptionsTypeDef(TypedDict):
     DataPointMenuLabelOption: NotRequired[DataPointMenuLabelOptionTypeDef]
     DataPointTooltipOption: NotRequired[DataPointTooltipOptionTypeDef]
     DataQAEnabledOption: NotRequired[DataQAEnabledOptionTypeDef]
+    QuickSuiteActionsOption: NotRequired[QuickSuiteActionsOptionTypeDef]
     ExecutiveSummaryOption: NotRequired[ExecutiveSummaryOptionTypeDef]
     DataStoriesSharingOption: NotRequired[DataStoriesSharingOptionTypeDef]
 
@@ -8480,7 +9691,7 @@ class DataPathColorTypeDef(TypedDict):
 
 class DataPathSortOutputTypeDef(TypedDict):
     Direction: SortDirectionType
-    SortPaths: List[DataPathValueTypeDef]
+    SortPaths: list[DataPathValueTypeDef]
 
 
 class DataPathSortTypeDef(TypedDict):
@@ -8489,7 +9700,7 @@ class DataPathSortTypeDef(TypedDict):
 
 
 class PivotTableDataPathOptionOutputTypeDef(TypedDict):
-    DataPathList: List[DataPathValueTypeDef]
+    DataPathList: list[DataPathValueTypeDef]
     Width: NotRequired[str]
 
 
@@ -8500,12 +9711,130 @@ class PivotTableDataPathOptionTypeDef(TypedDict):
 
 class PivotTableFieldCollapseStateTargetOutputTypeDef(TypedDict):
     FieldId: NotRequired[str]
-    FieldDataPathValues: NotRequired[List[DataPathValueTypeDef]]
+    FieldDataPathValues: NotRequired[list[DataPathValueTypeDef]]
 
 
 class PivotTableFieldCollapseStateTargetTypeDef(TypedDict):
     FieldId: NotRequired[str]
     FieldDataPathValues: NotRequired[Sequence[DataPathValueTypeDef]]
+
+
+class AggregationTypeDef(TypedDict):
+    AggregationFunction: DataPrepAggregationFunctionTypeDef
+    NewColumnName: str
+    NewColumnId: str
+
+
+class ValueColumnConfigurationTypeDef(TypedDict):
+    AggregationFunction: NotRequired[DataPrepAggregationFunctionTypeDef]
+
+
+class ImportTableOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: ImportTableOperationSourceOutputTypeDef
+
+
+class ImportTableOperationTypeDef(TypedDict):
+    Alias: str
+    Source: ImportTableOperationSourceTypeDef
+
+
+class AppendOperationOutputTypeDef(TypedDict):
+    Alias: str
+    AppendedColumns: list[AppendedColumnTypeDef]
+    FirstSource: NotRequired[TransformOperationSourceOutputTypeDef]
+    SecondSource: NotRequired[TransformOperationSourceOutputTypeDef]
+
+
+class CastColumnTypesOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceOutputTypeDef
+    CastColumnTypeOperations: list[CastColumnTypeOperationTypeDef]
+
+
+class CreateColumnsOperationOutputTypeDef(TypedDict):
+    Columns: list[CalculatedColumnTypeDef]
+    Alias: NotRequired[str]
+    Source: NotRequired[TransformOperationSourceOutputTypeDef]
+
+
+class ProjectOperationOutputTypeDef(TypedDict):
+    ProjectedColumns: list[str]
+    Alias: NotRequired[str]
+    Source: NotRequired[TransformOperationSourceOutputTypeDef]
+
+
+class RenameColumnsOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceOutputTypeDef
+    RenameColumnOperations: list[RenameColumnOperationTypeDef]
+
+
+class UnpivotOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceOutputTypeDef
+    ColumnsToUnpivot: list[ColumnToUnpivotTypeDef]
+    UnpivotedLabelColumnName: str
+    UnpivotedLabelColumnId: str
+    UnpivotedValueColumnName: str
+    UnpivotedValueColumnId: str
+
+
+class AppendOperationTypeDef(TypedDict):
+    Alias: str
+    AppendedColumns: Sequence[AppendedColumnTypeDef]
+    FirstSource: NotRequired[TransformOperationSourceTypeDef]
+    SecondSource: NotRequired[TransformOperationSourceTypeDef]
+
+
+class CastColumnTypesOperationTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceTypeDef
+    CastColumnTypeOperations: Sequence[CastColumnTypeOperationTypeDef]
+
+
+class RenameColumnsOperationTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceTypeDef
+    RenameColumnOperations: Sequence[RenameColumnOperationTypeDef]
+
+
+TransformOperationSourceUnionTypeDef = Union[
+    TransformOperationSourceTypeDef, TransformOperationSourceOutputTypeDef
+]
+
+
+class UnpivotOperationTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceTypeDef
+    ColumnsToUnpivot: Sequence[ColumnToUnpivotTypeDef]
+    UnpivotedLabelColumnName: str
+    UnpivotedLabelColumnId: str
+    UnpivotedValueColumnName: str
+    UnpivotedValueColumnId: str
+
+
+class DataSetDateFilterConditionOutputTypeDef(TypedDict):
+    ColumnName: NotRequired[str]
+    ComparisonFilterCondition: NotRequired[DataSetDateComparisonFilterConditionOutputTypeDef]
+    RangeFilterCondition: NotRequired[DataSetDateRangeFilterConditionOutputTypeDef]
+
+
+class DataSetNumericFilterConditionTypeDef(TypedDict):
+    ColumnName: NotRequired[str]
+    ComparisonFilterCondition: NotRequired[DataSetNumericComparisonFilterConditionTypeDef]
+    RangeFilterCondition: NotRequired[DataSetNumericRangeFilterConditionTypeDef]
+
+
+class DataSetStringFilterConditionOutputTypeDef(TypedDict):
+    ColumnName: NotRequired[str]
+    ComparisonFilterCondition: NotRequired[DataSetStringComparisonFilterConditionTypeDef]
+    ListFilterCondition: NotRequired[DataSetStringListFilterConditionOutputTypeDef]
+
+
+class DataSetStringListFilterConditionTypeDef(TypedDict):
+    Operator: DataSetStringListFilterOperatorType
+    Values: NotRequired[DataSetStringListFilterValueUnionTypeDef]
 
 
 class DecimalDatasetParameterTypeDef(TypedDict):
@@ -8518,7 +9847,7 @@ class DecimalDatasetParameterTypeDef(TypedDict):
 class DescribeDashboardPermissionsResponseTypeDef(TypedDict):
     DashboardId: str
     DashboardArn: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     Status: int
     RequestId: str
     LinkSharingConfiguration: LinkSharingConfigurationOutputTypeDef
@@ -8528,7 +9857,7 @@ class DescribeDashboardPermissionsResponseTypeDef(TypedDict):
 class UpdateDashboardPermissionsResponseTypeDef(TypedDict):
     DashboardArn: str
     DashboardId: str
-    Permissions: List[ResourcePermissionOutputTypeDef]
+    Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
     Status: int
     LinkSharingConfiguration: LinkSharingConfigurationOutputTypeDef
@@ -8538,7 +9867,7 @@ class UpdateDashboardPermissionsResponseTypeDef(TypedDict):
 class ListTopicRefreshSchedulesResponseTypeDef(TypedDict):
     TopicId: str
     TopicArn: str
-    RefreshSchedules: List[TopicRefreshScheduleSummaryTypeDef]
+    RefreshSchedules: list[TopicRefreshScheduleSummaryTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8552,10 +9881,10 @@ class DefaultFormattingTypeDef(TypedDict):
 class TopicIRMetricOutputTypeDef(TypedDict):
     MetricId: NotRequired[IdentifierTypeDef]
     Function: NotRequired[AggFunctionOutputTypeDef]
-    Operands: NotRequired[List[IdentifierTypeDef]]
+    Operands: NotRequired[list[IdentifierTypeDef]]
     ComparisonMethod: NotRequired[TopicIRComparisonMethodTypeDef]
     Expression: NotRequired[str]
-    CalculatedFieldReferences: NotRequired[List[IdentifierTypeDef]]
+    CalculatedFieldReferences: NotRequired[list[IdentifierTypeDef]]
     DisplayFormat: NotRequired[DisplayFormatType]
     DisplayFormatOptions: NotRequired[DisplayFormatOptionsTypeDef]
     NamedEntity: NotRequired[NamedEntityRefTypeDef]
@@ -8582,13 +9911,13 @@ class TopicIRFilterOptionOutputTypeDef(TypedDict):
     Inverse: NotRequired[bool]
     NullFilter: NotRequired[NullFilterOptionType]
     Aggregation: NotRequired[AggTypeType]
-    AggregationFunctionParameters: NotRequired[Dict[str, str]]
-    AggregationPartitionBy: NotRequired[List[AggregationPartitionByTypeDef]]
+    AggregationFunctionParameters: NotRequired[dict[str, str]]
+    AggregationPartitionBy: NotRequired[list[AggregationPartitionByTypeDef]]
     Range: NotRequired[TopicConstantValueOutputTypeDef]
     Inclusive: NotRequired[bool]
     TimeGranularity: NotRequired[TimeGranularityType]
     LastNextOffset: NotRequired[TopicConstantValueOutputTypeDef]
-    AggMetrics: NotRequired[List[FilterAggMetricsTypeDef]]
+    AggMetrics: NotRequired[list[FilterAggMetricsTypeDef]]
     TopBottomLimit: NotRequired[TopicConstantValueOutputTypeDef]
     SortDirection: NotRequired[TopicSortDirectionType]
     Anchor: NotRequired[AnchorTypeDef]
@@ -8623,7 +9952,7 @@ class DataLabelOptionsOutputTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     CategoryLabelVisibility: NotRequired[VisibilityType]
     MeasureLabelVisibility: NotRequired[VisibilityType]
-    DataLabelTypes: NotRequired[List[DataLabelTypeTypeDef]]
+    DataLabelTypes: NotRequired[list[DataLabelTypeTypeDef]]
     Position: NotRequired[DataLabelPositionType]
     LabelContent: NotRequired[DataLabelContentType]
     LabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
@@ -8672,6 +10001,18 @@ class TableFieldCustomTextContentTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
+class VisualSubtitleFontConfigurationTypeDef(TypedDict):
+    FontConfiguration: NotRequired[FontConfigurationTypeDef]
+    TextAlignment: NotRequired[HorizontalTextAlignmentType]
+    TextTransform: NotRequired[Literal["CAPITALIZE"]]
+
+
+class VisualTitleFontConfigurationTypeDef(TypedDict):
+    FontConfiguration: NotRequired[FontConfigurationTypeDef]
+    TextAlignment: NotRequired[HorizontalTextAlignmentType]
+    TextTransform: NotRequired[Literal["CAPITALIZE"]]
+
+
 class ForecastConfigurationOutputTypeDef(TypedDict):
     ForecastProperties: NotRequired[TimeBasedForecastPropertiesTypeDef]
     Scenario: NotRequired[ForecastScenarioOutputTypeDef]
@@ -8687,7 +10028,7 @@ class SnapshotUserConfigurationTypeDef(TypedDict):
 
 class PredictQAResultsResponseTypeDef(TypedDict):
     PrimaryResult: QAResultTypeDef
-    AdditionalResults: List[QAResultTypeDef]
+    AdditionalResults: list[QAResultTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8695,6 +10036,11 @@ class PredictQAResultsResponseTypeDef(TypedDict):
 
 class ColumnGroupTypeDef(TypedDict):
     GeoSpatialColumnGroup: NotRequired[GeoSpatialColumnGroupUnionTypeDef]
+
+
+class GeocodePreferenceTypeDef(TypedDict):
+    RequestKey: GeocoderHierarchyTypeDef
+    Preference: GeocodePreferenceValueTypeDef
 
 
 class GeospatialHeatmapConfigurationOutputTypeDef(TypedDict):
@@ -8706,7 +10052,7 @@ class GeospatialHeatmapConfigurationTypeDef(TypedDict):
 
 
 class GeospatialCategoricalColorOutputTypeDef(TypedDict):
-    CategoryDataColors: List[GeospatialCategoricalDataColorTypeDef]
+    CategoryDataColors: list[GeospatialCategoricalDataColorTypeDef]
     NullDataVisibility: NotRequired[VisibilityType]
     NullDataSettings: NotRequired[GeospatialNullDataSettingsTypeDef]
     DefaultOpacity: NotRequired[float]
@@ -8720,7 +10066,7 @@ class GeospatialCategoricalColorTypeDef(TypedDict):
 
 
 class GeospatialGradientColorOutputTypeDef(TypedDict):
-    StepColors: List[GeospatialGradientStepColorTypeDef]
+    StepColors: list[GeospatialGradientStepColorTypeDef]
     NullDataVisibility: NotRequired[VisibilityType]
     NullDataSettings: NotRequired[GeospatialNullDataSettingsTypeDef]
     DefaultOpacity: NotRequired[float]
@@ -8753,7 +10099,7 @@ class DefaultGridLayoutConfigurationTypeDef(TypedDict):
 
 
 class GridLayoutConfigurationOutputTypeDef(TypedDict):
-    Elements: List[GridLayoutElementTypeDef]
+    Elements: list[GridLayoutElementTypeDef]
     CanvasSizeOptions: NotRequired[GridLayoutCanvasSizeOptionsTypeDef]
 
 
@@ -8784,7 +10130,7 @@ class DescribeIngestionResponseTypeDef(TypedDict):
 
 
 class ListIngestionsResponseTypeDef(TypedDict):
-    Ingestions: List[IngestionTypeDef]
+    Ingestions: list[IngestionTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8804,19 +10150,30 @@ class LogicalTableSourceTypeDef(TypedDict):
     DataSetArn: NotRequired[str]
 
 
-class DataFieldSeriesItemTypeDef(TypedDict):
-    FieldId: str
-    AxisBinding: AxisBindingType
-    FieldValue: NotRequired[str]
-    Settings: NotRequired[LineChartSeriesSettingsTypeDef]
-
-
-class FieldSeriesItemTypeDef(TypedDict):
-    FieldId: str
-    AxisBinding: AxisBindingType
-    Settings: NotRequired[LineChartSeriesSettingsTypeDef]
-
-
+JoinOperationOutputTypeDef = TypedDict(
+    "JoinOperationOutputTypeDef",
+    {
+        "Alias": str,
+        "LeftOperand": TransformOperationSourceOutputTypeDef,
+        "RightOperand": TransformOperationSourceOutputTypeDef,
+        "Type": JoinOperationTypeType,
+        "OnClause": str,
+        "LeftOperandProperties": NotRequired[JoinOperandPropertiesOutputTypeDef],
+        "RightOperandProperties": NotRequired[JoinOperandPropertiesOutputTypeDef],
+    },
+)
+JoinOperationTypeDef = TypedDict(
+    "JoinOperationTypeDef",
+    {
+        "Alias": str,
+        "LeftOperand": TransformOperationSourceTypeDef,
+        "RightOperand": TransformOperationSourceTypeDef,
+        "Type": JoinOperationTypeType,
+        "OnClause": str,
+        "LeftOperandProperties": NotRequired[JoinOperandPropertiesTypeDef],
+        "RightOperandProperties": NotRequired[JoinOperandPropertiesTypeDef],
+    },
+)
 LinkSharingConfigurationUnionTypeDef = Union[
     LinkSharingConfigurationTypeDef, LinkSharingConfigurationOutputTypeDef
 ]
@@ -8831,6 +10188,13 @@ class CreateFolderRequestTypeDef(TypedDict):
     Permissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     SharingModel: NotRequired[SharingModelType]
+
+
+class UpdateActionConnectorPermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ActionConnectorId: str
+    GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
 
 
 class UpdateAnalysisPermissionsRequestTypeDef(TypedDict):
@@ -8894,14 +10258,15 @@ class UpdateTopicPermissionsRequestTypeDef(TypedDict):
 class SheetStyleTypeDef(TypedDict):
     Tile: NotRequired[TileStyleTypeDef]
     TileLayout: NotRequired[TileLayoutStyleTypeDef]
+    Background: NotRequired[SheetBackgroundStyleTypeDef]
 
 
 class TopicNamedEntityOutputTypeDef(TypedDict):
     EntityName: str
     EntityDescription: NotRequired[str]
-    EntitySynonyms: NotRequired[List[str]]
+    EntitySynonyms: NotRequired[list[str]]
     SemanticEntityType: NotRequired[SemanticEntityTypeOutputTypeDef]
-    Definition: NotRequired[List[NamedEntityDefinitionOutputTypeDef]]
+    Definition: NotRequired[list[NamedEntityDefinitionOutputTypeDef]]
 
 
 class TopicNamedEntityTypeDef(TypedDict):
@@ -8920,7 +10285,7 @@ class DescribeNamespaceResponseTypeDef(TypedDict):
 
 
 class ListNamespacesResponseTypeDef(TypedDict):
-    Namespaces: List[NamespaceInfoV2TypeDef]
+    Namespaces: list[NamespaceInfoV2TypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8928,7 +10293,7 @@ class ListNamespacesResponseTypeDef(TypedDict):
 
 
 class ListVPCConnectionsResponseTypeDef(TypedDict):
-    VPCConnectionSummaries: List[VPCConnectionSummaryTypeDef]
+    VPCConnectionSummaries: list[VPCConnectionSummaryTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8989,6 +10354,13 @@ PerformanceConfigurationUnionTypeDef = Union[
 ]
 
 
+class UpdateFlowPermissionsInputTypeDef(TypedDict):
+    AwsAccountId: str
+    FlowId: str
+    GrantPermissions: NotRequired[Sequence[PermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[PermissionUnionTypeDef]]
+
+
 class TopicDateRangeFilterTypeDef(TypedDict):
     Inclusive: NotRequired[bool]
     Constant: NotRequired[TopicRangeFilterConstantTypeDef]
@@ -8998,6 +10370,21 @@ class TopicNumericRangeFilterTypeDef(TypedDict):
     Inclusive: NotRequired[bool]
     Constant: NotRequired[TopicRangeFilterConstantTypeDef]
     Aggregation: NotRequired[NamedFilterAggTypeType]
+
+
+class ReadAuthorizationCodeGrantMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    RedirectUrl: str
+    ReadAuthorizationCodeGrantCredentialsDetails: NotRequired[
+        ReadAuthorizationCodeGrantCredentialsDetailsTypeDef
+    ]
+    AuthorizationCodeGrantCredentialsSource: NotRequired[Literal["PLAIN_CREDENTIALS"]]
+
+
+class ReadClientCredentialsGrantMetadataTypeDef(TypedDict):
+    BaseEndpoint: str
+    ReadClientCredentialsDetails: NotRequired[ReadClientCredentialsDetailsTypeDef]
+    ClientCredentialsSource: NotRequired[Literal["PLAIN_CREDENTIALS"]]
 
 
 class RedshiftParametersTypeDef(TypedDict):
@@ -9025,13 +10412,23 @@ class RefreshScheduleTypeDef(TypedDict):
     Arn: NotRequired[str]
 
 
+class RowLevelPermissionConfigurationOutputTypeDef(TypedDict):
+    TagConfiguration: NotRequired[RowLevelPermissionTagConfigurationOutputTypeDef]
+    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
+
+
+class RowLevelPermissionConfigurationTypeDef(TypedDict):
+    TagConfiguration: NotRequired[RowLevelPermissionTagConfigurationTypeDef]
+    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
+
+
 RowLevelPermissionTagConfigurationUnionTypeDef = Union[
     RowLevelPermissionTagConfigurationTypeDef, RowLevelPermissionTagConfigurationOutputTypeDef
 ]
 
 
 class SnapshotDestinationConfigurationOutputTypeDef(TypedDict):
-    S3Destinations: NotRequired[List[SnapshotS3DestinationConfigurationTypeDef]]
+    S3Destinations: NotRequired[list[SnapshotS3DestinationConfigurationTypeDef]]
 
 
 class SnapshotDestinationConfigurationTypeDef(TypedDict):
@@ -9041,16 +10438,20 @@ class SnapshotDestinationConfigurationTypeDef(TypedDict):
 class SnapshotJobS3ResultTypeDef(TypedDict):
     S3DestinationConfiguration: NotRequired[SnapshotS3DestinationConfigurationTypeDef]
     S3Uri: NotRequired[str]
-    ErrorInfo: NotRequired[List[SnapshotJobResultErrorInfoTypeDef]]
+    ErrorInfo: NotRequired[list[SnapshotJobResultErrorInfoTypeDef]]
+
+
+S3SourceUnionTypeDef = Union[S3SourceTypeDef, S3SourceOutputTypeDef]
 
 
 class PhysicalTableOutputTypeDef(TypedDict):
     RelationalTable: NotRequired[RelationalTableOutputTypeDef]
     CustomSql: NotRequired[CustomSqlOutputTypeDef]
     S3Source: NotRequired[S3SourceOutputTypeDef]
+    SaaSTable: NotRequired[SaaSTableOutputTypeDef]
 
 
-S3SourceUnionTypeDef = Union[S3SourceTypeDef, S3SourceOutputTypeDef]
+SaaSTableUnionTypeDef = Union[SaaSTableTypeDef, SaaSTableOutputTypeDef]
 
 
 class SectionBasedLayoutCanvasSizeOptionsTypeDef(TypedDict):
@@ -9059,7 +10460,7 @@ class SectionBasedLayoutCanvasSizeOptionsTypeDef(TypedDict):
 
 class FilterScopeConfigurationOutputTypeDef(TypedDict):
     SelectedSheets: NotRequired[SelectedSheetsFilterScopeConfigurationOutputTypeDef]
-    AllSheets: NotRequired[Dict[str, Any]]
+    AllSheets: NotRequired[dict[str, Any]]
 
 
 class FilterScopeConfigurationTypeDef(TypedDict):
@@ -9075,11 +10476,13 @@ class FreeFormLayoutElementOutputTypeDef(TypedDict):
     Width: str
     Height: str
     Visibility: NotRequired[VisibilityType]
-    RenderingRules: NotRequired[List[SheetElementRenderingRuleTypeDef]]
+    RenderingRules: NotRequired[list[SheetElementRenderingRuleTypeDef]]
     BorderStyle: NotRequired[FreeFormLayoutElementBorderStyleTypeDef]
     SelectedBorderStyle: NotRequired[FreeFormLayoutElementBorderStyleTypeDef]
     BackgroundStyle: NotRequired[FreeFormLayoutElementBackgroundStyleTypeDef]
     LoadingAnimation: NotRequired[LoadingAnimationTypeDef]
+    BorderRadius: NotRequired[str]
+    Padding: NotRequired[str]
 
 
 class FreeFormLayoutElementTypeDef(TypedDict):
@@ -9095,13 +10498,15 @@ class FreeFormLayoutElementTypeDef(TypedDict):
     SelectedBorderStyle: NotRequired[FreeFormLayoutElementBorderStyleTypeDef]
     BackgroundStyle: NotRequired[FreeFormLayoutElementBackgroundStyleTypeDef]
     LoadingAnimation: NotRequired[LoadingAnimationTypeDef]
+    BorderRadius: NotRequired[str]
+    Padding: NotRequired[str]
 
 
 TopicTemplateUnionTypeDef = Union[TopicTemplateTypeDef, TopicTemplateOutputTypeDef]
 
 
 class SnapshotFileGroupOutputTypeDef(TypedDict):
-    Files: NotRequired[List[SnapshotFileOutputTypeDef]]
+    Files: NotRequired[list[SnapshotFileOutputTypeDef]]
 
 
 class SnapshotFileGroupTypeDef(TypedDict):
@@ -9142,7 +10547,7 @@ class AssetOptionsOutputTypeDef(TypedDict):
     Timezone: NotRequired[str]
     WeekStart: NotRequired[DayOfTheWeekType]
     QBusinessInsightsStatus: NotRequired[QBusinessInsightsStatusType]
-    ExcludedDataSetArns: NotRequired[List[str]]
+    ExcludedDataSetArns: NotRequired[list[str]]
     CustomActionDefaults: NotRequired[VisualCustomActionDefaultsTypeDef]
 
 
@@ -9171,7 +10576,7 @@ class DateTimeParameterDeclarationOutputTypeDef(TypedDict):
     DefaultValues: NotRequired[DateTimeDefaultValuesOutputTypeDef]
     TimeGranularity: NotRequired[TimeGranularityType]
     ValueWhenUnset: NotRequired[DateTimeValueWhenUnsetConfigurationOutputTypeDef]
-    MappedDataSetParameters: NotRequired[List[MappedDataSetParameterTypeDef]]
+    MappedDataSetParameters: NotRequired[list[MappedDataSetParameterTypeDef]]
 
 
 class DateTimeParameterDeclarationTypeDef(TypedDict):
@@ -9187,7 +10592,7 @@ class DecimalParameterDeclarationOutputTypeDef(TypedDict):
     Name: str
     DefaultValues: NotRequired[DecimalDefaultValuesOutputTypeDef]
     ValueWhenUnset: NotRequired[DecimalValueWhenUnsetConfigurationTypeDef]
-    MappedDataSetParameters: NotRequired[List[MappedDataSetParameterTypeDef]]
+    MappedDataSetParameters: NotRequired[list[MappedDataSetParameterTypeDef]]
 
 
 class DecimalParameterDeclarationTypeDef(TypedDict):
@@ -9203,7 +10608,7 @@ class IntegerParameterDeclarationOutputTypeDef(TypedDict):
     Name: str
     DefaultValues: NotRequired[IntegerDefaultValuesOutputTypeDef]
     ValueWhenUnset: NotRequired[IntegerValueWhenUnsetConfigurationTypeDef]
-    MappedDataSetParameters: NotRequired[List[MappedDataSetParameterTypeDef]]
+    MappedDataSetParameters: NotRequired[list[MappedDataSetParameterTypeDef]]
 
 
 class IntegerParameterDeclarationTypeDef(TypedDict):
@@ -9219,7 +10624,7 @@ class StringParameterDeclarationOutputTypeDef(TypedDict):
     Name: str
     DefaultValues: NotRequired[StringDefaultValuesOutputTypeDef]
     ValueWhenUnset: NotRequired[StringValueWhenUnsetConfigurationTypeDef]
-    MappedDataSetParameters: NotRequired[List[MappedDataSetParameterTypeDef]]
+    MappedDataSetParameters: NotRequired[list[MappedDataSetParameterTypeDef]]
 
 
 class StringParameterDeclarationTypeDef(TypedDict):
@@ -9232,19 +10637,19 @@ class StringParameterDeclarationTypeDef(TypedDict):
 
 class DateTimeHierarchyOutputTypeDef(TypedDict):
     HierarchyId: str
-    DrillDownFilters: NotRequired[List[DrillDownFilterOutputTypeDef]]
+    DrillDownFilters: NotRequired[list[DrillDownFilterOutputTypeDef]]
 
 
 class ExplicitHierarchyOutputTypeDef(TypedDict):
     HierarchyId: str
-    Columns: List[ColumnIdentifierTypeDef]
-    DrillDownFilters: NotRequired[List[DrillDownFilterOutputTypeDef]]
+    Columns: list[ColumnIdentifierTypeDef]
+    DrillDownFilters: NotRequired[list[DrillDownFilterOutputTypeDef]]
 
 
 class PredefinedHierarchyOutputTypeDef(TypedDict):
     HierarchyId: str
-    Columns: List[ColumnIdentifierTypeDef]
-    DrillDownFilters: NotRequired[List[DrillDownFilterOutputTypeDef]]
+    Columns: list[ColumnIdentifierTypeDef]
+    DrillDownFilters: NotRequired[list[DrillDownFilterOutputTypeDef]]
 
 
 class RegisteredUserDashboardEmbeddingConfigurationTypeDef(TypedDict):
@@ -9281,12 +10686,12 @@ class StartAssetBundleExportJobRequestTypeDef(TypedDict):
 
 
 class AssetBundleImportJobOverridePermissionsOutputTypeDef(TypedDict):
-    DataSources: NotRequired[List[AssetBundleImportJobDataSourceOverridePermissionsOutputTypeDef]]
-    DataSets: NotRequired[List[AssetBundleImportJobDataSetOverridePermissionsOutputTypeDef]]
-    Themes: NotRequired[List[AssetBundleImportJobThemeOverridePermissionsOutputTypeDef]]
-    Analyses: NotRequired[List[AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef]]
-    Dashboards: NotRequired[List[AssetBundleImportJobDashboardOverridePermissionsOutputTypeDef]]
-    Folders: NotRequired[List[AssetBundleImportJobFolderOverridePermissionsOutputTypeDef]]
+    DataSources: NotRequired[list[AssetBundleImportJobDataSourceOverridePermissionsOutputTypeDef]]
+    DataSets: NotRequired[list[AssetBundleImportJobDataSetOverridePermissionsOutputTypeDef]]
+    Themes: NotRequired[list[AssetBundleImportJobThemeOverridePermissionsOutputTypeDef]]
+    Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef]]
+    Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverridePermissionsOutputTypeDef]]
+    Folders: NotRequired[list[AssetBundleImportJobFolderOverridePermissionsOutputTypeDef]]
 
 
 class AssetBundleImportJobOverridePermissionsTypeDef(TypedDict):
@@ -9318,6 +10723,7 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     RdsParameters: NotRequired[RdsParametersTypeDef]
     RedshiftParameters: NotRequired[RedshiftParametersOutputTypeDef]
     S3Parameters: NotRequired[S3ParametersTypeDef]
+    S3KnowledgeBaseParameters: NotRequired[S3KnowledgeBaseParametersTypeDef]
     ServiceNowParameters: NotRequired[ServiceNowParametersTypeDef]
     SnowflakeParameters: NotRequired[SnowflakeParametersTypeDef]
     SparkParameters: NotRequired[SparkParametersTypeDef]
@@ -9332,6 +10738,9 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
     ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
     CustomConnectionParameters: NotRequired[CustomConnectionParametersTypeDef]
+    WebCrawlerParameters: NotRequired[WebCrawlerParametersTypeDef]
+    ConfluenceParameters: NotRequired[ConfluenceParametersTypeDef]
+    QBusinessParameters: NotRequired[QBusinessParametersTypeDef]
 
 
 class DestinationParameterValueConfigurationTypeDef(TypedDict):
@@ -9340,6 +10749,18 @@ class DestinationParameterValueConfigurationTypeDef(TypedDict):
     SourceParameterName: NotRequired[str]
     SourceField: NotRequired[str]
     SourceColumn: NotRequired[ColumnIdentifierTypeDef]
+
+
+class DataSetDateComparisonFilterConditionTypeDef(TypedDict):
+    Operator: DataSetDateComparisonFilterOperatorType
+    Value: NotRequired[DataSetDateFilterValueUnionTypeDef]
+
+
+class DataSetDateRangeFilterConditionTypeDef(TypedDict):
+    RangeMinimum: NotRequired[DataSetDateFilterValueUnionTypeDef]
+    RangeMaximum: NotRequired[DataSetDateFilterValueUnionTypeDef]
+    IncludeMinimum: NotRequired[bool]
+    IncludeMaximum: NotRequired[bool]
 
 
 class DateTimeDatasetParameterTypeDef(TypedDict):
@@ -9406,9 +10827,24 @@ class AxisDataOptionsTypeDef(TypedDict):
     DateAxisOptions: NotRequired[DateAxisOptionsTypeDef]
 
 
+class BarSeriesItemTypeDef(TypedDict):
+    FieldBarSeriesItem: NotRequired[FieldBarSeriesItemTypeDef]
+    DataFieldBarSeriesItem: NotRequired[DataFieldBarSeriesItemTypeDef]
+
+
 class ApplicationThemeTypeDef(TypedDict):
     BrandColorPalette: NotRequired[BrandColorPaletteTypeDef]
+    ContextualAccentPalette: NotRequired[ContextualAccentPaletteTypeDef]
     BrandElementStyle: NotRequired[BrandElementStyleTypeDef]
+
+
+class AuthenticationMetadataTypeDef(TypedDict):
+    AuthorizationCodeGrantMetadata: NotRequired[AuthorizationCodeGrantMetadataTypeDef]
+    ClientCredentialsGrantMetadata: NotRequired[ClientCredentialsGrantMetadataTypeDef]
+    BasicAuthConnectionMetadata: NotRequired[BasicAuthConnectionMetadataTypeDef]
+    ApiKeyConnectionMetadata: NotRequired[APIKeyConnectionMetadataTypeDef]
+    NoneConnectionMetadata: NotRequired[NoneConnectionMetadataTypeDef]
+    IamConnectionMetadata: NotRequired[IAMConnectionMetadataTypeDef]
 
 
 class TopicIRFilterOptionTypeDef(TypedDict):
@@ -9432,18 +10868,17 @@ class TopicIRFilterOptionTypeDef(TypedDict):
     Anchor: NotRequired[AnchorTypeDef]
 
 
-class TransformOperationOutputTypeDef(TypedDict):
-    ProjectOperation: NotRequired[ProjectOperationOutputTypeDef]
-    FilterOperation: NotRequired[FilterOperationTypeDef]
-    CreateColumnsOperation: NotRequired[CreateColumnsOperationOutputTypeDef]
-    RenameColumnOperation: NotRequired[RenameColumnOperationTypeDef]
-    CastColumnTypeOperation: NotRequired[CastColumnTypeOperationTypeDef]
-    TagColumnOperation: NotRequired[TagColumnOperationOutputTypeDef]
-    UntagColumnOperation: NotRequired[UntagColumnOperationOutputTypeDef]
-    OverrideDatasetParameterOperation: NotRequired[OverrideDatasetParameterOperationOutputTypeDef]
-
-
 TagColumnOperationUnionTypeDef = Union[TagColumnOperationTypeDef, TagColumnOperationOutputTypeDef]
+
+
+class ComboSeriesItemTypeDef(TypedDict):
+    FieldComboSeriesItem: NotRequired[FieldComboSeriesItemTypeDef]
+    DataFieldComboSeriesItem: NotRequired[DataFieldComboSeriesItemTypeDef]
+
+
+class SeriesItemTypeDef(TypedDict):
+    FieldSeriesItem: NotRequired[FieldSeriesItemTypeDef]
+    DataFieldSeriesItem: NotRequired[DataFieldSeriesItemTypeDef]
 
 
 class SetParameterValueConfigurationOutputTypeDef(TypedDict):
@@ -9453,7 +10888,7 @@ class SetParameterValueConfigurationOutputTypeDef(TypedDict):
 
 class VisualPaletteOutputTypeDef(TypedDict):
     ChartColor: NotRequired[str]
-    ColorMap: NotRequired[List[DataPathColorTypeDef]]
+    ColorMap: NotRequired[list[DataPathColorTypeDef]]
 
 
 class VisualPaletteTypeDef(TypedDict):
@@ -9471,6 +10906,58 @@ class PivotTableFieldCollapseStateOptionTypeDef(TypedDict):
     State: NotRequired[PivotTableFieldCollapseStateType]
 
 
+class AggregateOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceOutputTypeDef
+    Aggregations: list[AggregationTypeDef]
+    GroupByColumnNames: NotRequired[list[str]]
+
+
+class AggregateOperationTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceTypeDef
+    Aggregations: Sequence[AggregationTypeDef]
+    GroupByColumnNames: NotRequired[Sequence[str]]
+
+
+class PivotOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceOutputTypeDef
+    ValueColumnConfiguration: ValueColumnConfigurationTypeDef
+    PivotConfiguration: PivotConfigurationOutputTypeDef
+    GroupByColumnNames: NotRequired[list[str]]
+
+
+class PivotOperationTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceTypeDef
+    ValueColumnConfiguration: ValueColumnConfigurationTypeDef
+    PivotConfiguration: PivotConfigurationTypeDef
+    GroupByColumnNames: NotRequired[Sequence[str]]
+
+
+class CreateColumnsOperationTypeDef(TypedDict):
+    Columns: Sequence[CalculatedColumnTypeDef]
+    Alias: NotRequired[str]
+    Source: NotRequired[TransformOperationSourceUnionTypeDef]
+
+
+class ProjectOperationTypeDef(TypedDict):
+    ProjectedColumns: Sequence[str]
+    Alias: NotRequired[str]
+    Source: NotRequired[TransformOperationSourceUnionTypeDef]
+
+
+class FilterOperationOutputTypeDef(TypedDict):
+    ConditionExpression: NotRequired[str]
+    StringFilterCondition: NotRequired[DataSetStringFilterConditionOutputTypeDef]
+    NumericFilterCondition: NotRequired[DataSetNumericFilterConditionTypeDef]
+    DateFilterCondition: NotRequired[DataSetDateFilterConditionOutputTypeDef]
+
+
+DataSetStringListFilterConditionUnionTypeDef = Union[
+    DataSetStringListFilterConditionTypeDef, DataSetStringListFilterConditionOutputTypeDef
+]
 DecimalDatasetParameterUnionTypeDef = Union[
     DecimalDatasetParameterTypeDef, DecimalDatasetParameterOutputTypeDef
 ]
@@ -9480,7 +10967,7 @@ class TopicCalculatedFieldOutputTypeDef(TypedDict):
     CalculatedFieldName: str
     Expression: str
     CalculatedFieldDescription: NotRequired[str]
-    CalculatedFieldSynonyms: NotRequired[List[str]]
+    CalculatedFieldSynonyms: NotRequired[list[str]]
     IsIncludedInTopic: NotRequired[bool]
     DisableIndexing: NotRequired[bool]
     ColumnDataRole: NotRequired[ColumnDataRoleType]
@@ -9489,10 +10976,10 @@ class TopicCalculatedFieldOutputTypeDef(TypedDict):
     Aggregation: NotRequired[DefaultAggregationType]
     ComparativeOrder: NotRequired[ComparativeOrderOutputTypeDef]
     SemanticType: NotRequired[SemanticTypeOutputTypeDef]
-    AllowedAggregations: NotRequired[List[AuthorSpecifiedAggregationType]]
-    NotAllowedAggregations: NotRequired[List[AuthorSpecifiedAggregationType]]
+    AllowedAggregations: NotRequired[list[AuthorSpecifiedAggregationType]]
+    NotAllowedAggregations: NotRequired[list[AuthorSpecifiedAggregationType]]
     NeverAggregateInFilter: NotRequired[bool]
-    CellValueSynonyms: NotRequired[List[CellValueSynonymOutputTypeDef]]
+    CellValueSynonyms: NotRequired[list[CellValueSynonymOutputTypeDef]]
     NonAdditive: NotRequired[bool]
 
 
@@ -9520,7 +11007,7 @@ class TopicColumnOutputTypeDef(TypedDict):
     ColumnName: str
     ColumnFriendlyName: NotRequired[str]
     ColumnDescription: NotRequired[str]
-    ColumnSynonyms: NotRequired[List[str]]
+    ColumnSynonyms: NotRequired[list[str]]
     ColumnDataRole: NotRequired[ColumnDataRoleType]
     Aggregation: NotRequired[DefaultAggregationType]
     IsIncludedInTopic: NotRequired[bool]
@@ -9528,11 +11015,11 @@ class TopicColumnOutputTypeDef(TypedDict):
     ComparativeOrder: NotRequired[ComparativeOrderOutputTypeDef]
     SemanticType: NotRequired[SemanticTypeOutputTypeDef]
     TimeGranularity: NotRequired[TopicTimeGranularityType]
-    AllowedAggregations: NotRequired[List[AuthorSpecifiedAggregationType]]
-    NotAllowedAggregations: NotRequired[List[AuthorSpecifiedAggregationType]]
+    AllowedAggregations: NotRequired[list[AuthorSpecifiedAggregationType]]
+    NotAllowedAggregations: NotRequired[list[AuthorSpecifiedAggregationType]]
     DefaultFormatting: NotRequired[DefaultFormattingTypeDef]
     NeverAggregateInFilter: NotRequired[bool]
-    CellValueSynonyms: NotRequired[List[CellValueSynonymOutputTypeDef]]
+    CellValueSynonyms: NotRequired[list[CellValueSynonymOutputTypeDef]]
     NonAdditive: NotRequired[bool]
 
 
@@ -9567,7 +11054,7 @@ class ContributionAnalysisTimeRangesOutputTypeDef(TypedDict):
 class ChartAxisLabelOptionsOutputTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     SortIconVisibility: NotRequired[VisibilityType]
-    AxisLabelOptions: NotRequired[List[AxisLabelOptionsTypeDef]]
+    AxisLabelOptions: NotRequired[list[AxisLabelOptionsTypeDef]]
 
 
 class ChartAxisLabelOptionsTypeDef(TypedDict):
@@ -9651,6 +11138,28 @@ class TableFieldLinkContentConfigurationTypeDef(TypedDict):
     CustomIconContent: NotRequired[TableFieldCustomIconContentTypeDef]
 
 
+class TypographyOutputTypeDef(TypedDict):
+    FontFamilies: NotRequired[list[FontTypeDef]]
+    AxisTitleFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    AxisLabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    LegendTitleFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    LegendValueFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    DataLabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    VisualTitleFontConfiguration: NotRequired[VisualTitleFontConfigurationTypeDef]
+    VisualSubtitleFontConfiguration: NotRequired[VisualSubtitleFontConfigurationTypeDef]
+
+
+class TypographyTypeDef(TypedDict):
+    FontFamilies: NotRequired[Sequence[FontTypeDef]]
+    AxisTitleFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    AxisLabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    LegendTitleFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    LegendValueFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    DataLabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
+    VisualTitleFontConfiguration: NotRequired[VisualTitleFontConfigurationTypeDef]
+    VisualSubtitleFontConfiguration: NotRequired[VisualSubtitleFontConfigurationTypeDef]
+
+
 ColumnGroupUnionTypeDef = Union[ColumnGroupTypeDef, ColumnGroupOutputTypeDef]
 
 
@@ -9732,25 +11241,6 @@ IntegerDatasetParameterUnionTypeDef = Union[
 ]
 
 
-class SeriesItemTypeDef(TypedDict):
-    FieldSeriesItem: NotRequired[FieldSeriesItemTypeDef]
-    DataFieldSeriesItem: NotRequired[DataFieldSeriesItemTypeDef]
-
-
-class ThemeConfigurationOutputTypeDef(TypedDict):
-    DataColorPalette: NotRequired[DataColorPaletteOutputTypeDef]
-    UIColorPalette: NotRequired[UIColorPaletteTypeDef]
-    Sheet: NotRequired[SheetStyleTypeDef]
-    Typography: NotRequired[TypographyOutputTypeDef]
-
-
-class ThemeConfigurationTypeDef(TypedDict):
-    DataColorPalette: NotRequired[DataColorPaletteTypeDef]
-    UIColorPalette: NotRequired[UIColorPaletteTypeDef]
-    Sheet: NotRequired[SheetStyleTypeDef]
-    Typography: NotRequired[TypographyTypeDef]
-
-
 class ComparisonFormatConfigurationTypeDef(TypedDict):
     NumberDisplayFormatConfiguration: NotRequired[NumberDisplayFormatConfigurationTypeDef]
     PercentageDisplayFormatConfiguration: NotRequired[PercentageDisplayFormatConfigurationTypeDef]
@@ -9793,7 +11283,7 @@ class TopicFilterOutputTypeDef(TypedDict):
     OperandFieldName: str
     FilterDescription: NotRequired[str]
     FilterClass: NotRequired[FilterClassType]
-    FilterSynonyms: NotRequired[List[str]]
+    FilterSynonyms: NotRequired[list[str]]
     FilterType: NotRequired[NamedFilterTypeType]
     CategoryFilter: NotRequired[TopicCategoryFilterOutputTypeDef]
     NumericEqualityFilter: NotRequired[TopicNumericEqualityFilterTypeDef]
@@ -9818,6 +11308,15 @@ class TopicFilterTypeDef(TypedDict):
     NullFilter: NotRequired[TopicNullFilterTypeDef]
 
 
+class ReadAuthenticationMetadataTypeDef(TypedDict):
+    AuthorizationCodeGrantMetadata: NotRequired[ReadAuthorizationCodeGrantMetadataTypeDef]
+    ClientCredentialsGrantMetadata: NotRequired[ReadClientCredentialsGrantMetadataTypeDef]
+    BasicAuthConnectionMetadata: NotRequired[ReadBasicAuthConnectionMetadataTypeDef]
+    ApiKeyConnectionMetadata: NotRequired[ReadAPIKeyConnectionMetadataTypeDef]
+    NoneConnectionMetadata: NotRequired[ReadNoneConnectionMetadataTypeDef]
+    IamConnectionMetadata: NotRequired[ReadIamConnectionMetadataTypeDef]
+
+
 RedshiftParametersUnionTypeDef = Union[RedshiftParametersTypeDef, RedshiftParametersOutputTypeDef]
 
 
@@ -9830,7 +11329,7 @@ class DescribeRefreshScheduleResponseTypeDef(TypedDict):
 
 
 class ListRefreshSchedulesResponseTypeDef(TypedDict):
-    RefreshSchedules: List[RefreshScheduleOutputTypeDef]
+    RefreshSchedules: list[RefreshScheduleOutputTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9839,15 +11338,28 @@ class ListRefreshSchedulesResponseTypeDef(TypedDict):
 RefreshScheduleUnionTypeDef = Union[RefreshScheduleTypeDef, RefreshScheduleOutputTypeDef]
 
 
+class SemanticTableOutputTypeDef(TypedDict):
+    Alias: str
+    DestinationTableId: str
+    RowLevelPermissionConfiguration: NotRequired[RowLevelPermissionConfigurationOutputTypeDef]
+
+
+class SemanticTableTypeDef(TypedDict):
+    Alias: str
+    DestinationTableId: str
+    RowLevelPermissionConfiguration: NotRequired[RowLevelPermissionConfigurationTypeDef]
+
+
 class SnapshotJobResultFileGroupTypeDef(TypedDict):
-    Files: NotRequired[List[SnapshotFileOutputTypeDef]]
-    S3Results: NotRequired[List[SnapshotJobS3ResultTypeDef]]
+    Files: NotRequired[list[SnapshotFileOutputTypeDef]]
+    S3Results: NotRequired[list[SnapshotJobS3ResultTypeDef]]
 
 
 class PhysicalTableTypeDef(TypedDict):
     RelationalTable: NotRequired[RelationalTableUnionTypeDef]
     CustomSql: NotRequired[CustomSqlUnionTypeDef]
     S3Source: NotRequired[S3SourceUnionTypeDef]
+    SaaSTable: NotRequired[SaaSTableUnionTypeDef]
 
 
 class DefaultSectionBasedLayoutConfigurationTypeDef(TypedDict):
@@ -9855,17 +11367,19 @@ class DefaultSectionBasedLayoutConfigurationTypeDef(TypedDict):
 
 
 class FreeFormLayoutConfigurationOutputTypeDef(TypedDict):
-    Elements: List[FreeFormLayoutElementOutputTypeDef]
+    Elements: list[FreeFormLayoutElementOutputTypeDef]
     CanvasSizeOptions: NotRequired[FreeFormLayoutCanvasSizeOptionsTypeDef]
+    Groups: NotRequired[list[SheetLayoutGroupOutputTypeDef]]
 
 
 class FreeFormSectionLayoutConfigurationOutputTypeDef(TypedDict):
-    Elements: List[FreeFormLayoutElementOutputTypeDef]
+    Elements: list[FreeFormLayoutElementOutputTypeDef]
 
 
 class FreeFormLayoutConfigurationTypeDef(TypedDict):
     Elements: Sequence[FreeFormLayoutElementTypeDef]
     CanvasSizeOptions: NotRequired[FreeFormLayoutCanvasSizeOptionsTypeDef]
+    Groups: NotRequired[Sequence[SheetLayoutGroupTypeDef]]
 
 
 class FreeFormSectionLayoutConfigurationTypeDef(TypedDict):
@@ -9873,7 +11387,7 @@ class FreeFormSectionLayoutConfigurationTypeDef(TypedDict):
 
 
 class SnapshotConfigurationOutputTypeDef(TypedDict):
-    FileGroups: List[SnapshotFileGroupOutputTypeDef]
+    FileGroups: list[SnapshotFileGroupOutputTypeDef]
     DestinationConfiguration: NotRequired[SnapshotDestinationConfigurationOutputTypeDef]
     Parameters: NotRequired[ParametersOutputTypeDef]
 
@@ -9920,6 +11434,7 @@ class RegisteredUserEmbeddingExperienceConfigurationTypeDef(TypedDict):
     QSearchBar: NotRequired[RegisteredUserQSearchBarEmbeddingConfigurationTypeDef]
     DashboardVisual: NotRequired[RegisteredUserDashboardVisualEmbeddingConfigurationTypeDef]
     GenerativeQnA: NotRequired[RegisteredUserGenerativeQnAEmbeddingConfigurationTypeDef]
+    QuickChat: NotRequired[Mapping[str, Any]]
 
 
 class GenerateEmbedUrlForAnonymousUserRequestTypeDef(TypedDict):
@@ -9958,7 +11473,7 @@ DataSourceTypeDef = TypedDict(
         "CreatedTime": NotRequired[datetime],
         "LastUpdatedTime": NotRequired[datetime],
         "DataSourceParameters": NotRequired[DataSourceParametersOutputTypeDef],
-        "AlternateDataSourceParameters": NotRequired[List[DataSourceParametersOutputTypeDef]],
+        "AlternateDataSourceParameters": NotRequired[list[DataSourceParametersOutputTypeDef]],
         "VpcConnectionProperties": NotRequired[VpcConnectionPropertiesTypeDef],
         "SslProperties": NotRequired[SslPropertiesTypeDef],
         "ErrorInfo": NotRequired[DataSourceErrorInfoTypeDef],
@@ -9972,6 +11487,12 @@ class SetParameterValueConfigurationTypeDef(TypedDict):
     Value: DestinationParameterValueConfigurationTypeDef
 
 
+DataSetDateComparisonFilterConditionUnionTypeDef = Union[
+    DataSetDateComparisonFilterConditionTypeDef, DataSetDateComparisonFilterConditionOutputTypeDef
+]
+DataSetDateRangeFilterConditionUnionTypeDef = Union[
+    DataSetDateRangeFilterConditionTypeDef, DataSetDateRangeFilterConditionOutputTypeDef
+]
 DateTimeDatasetParameterUnionTypeDef = Union[
     DateTimeDatasetParameterTypeDef, DateTimeDatasetParameterOutputTypeDef
 ]
@@ -9986,25 +11507,24 @@ class ColumnHierarchyTypeDef(TypedDict):
     PredefinedHierarchy: NotRequired[PredefinedHierarchyTypeDef]
 
 
+class AuthConfigTypeDef(TypedDict):
+    AuthenticationType: ConnectionAuthTypeType
+    AuthenticationMetadata: AuthenticationMetadataTypeDef
+
+
 TopicIRFilterOptionUnionTypeDef = Union[
     TopicIRFilterOptionTypeDef, TopicIRFilterOptionOutputTypeDef
 ]
 
 
-class LogicalTableOutputTypeDef(TypedDict):
-    Alias: str
-    Source: LogicalTableSourceTypeDef
-    DataTransforms: NotRequired[List[TransformOperationOutputTypeDef]]
-
-
 class CustomActionSetParametersOperationOutputTypeDef(TypedDict):
-    ParameterValueConfigurations: List[SetParameterValueConfigurationOutputTypeDef]
+    ParameterValueConfigurations: list[SetParameterValueConfigurationOutputTypeDef]
 
 
 class PivotTableFieldOptionsOutputTypeDef(TypedDict):
-    SelectedFieldOptions: NotRequired[List[PivotTableFieldOptionTypeDef]]
-    DataPathOptions: NotRequired[List[PivotTableDataPathOptionOutputTypeDef]]
-    CollapseStateOptions: NotRequired[List[PivotTableFieldCollapseStateOptionOutputTypeDef]]
+    SelectedFieldOptions: NotRequired[list[PivotTableFieldOptionTypeDef]]
+    DataPathOptions: NotRequired[list[PivotTableDataPathOptionOutputTypeDef]]
+    CollapseStateOptions: NotRequired[list[PivotTableFieldCollapseStateOptionOutputTypeDef]]
 
 
 class PivotTableFieldOptionsTypeDef(TypedDict):
@@ -10013,8 +11533,37 @@ class PivotTableFieldOptionsTypeDef(TypedDict):
     CollapseStateOptions: NotRequired[Sequence[PivotTableFieldCollapseStateOptionTypeDef]]
 
 
+CreateColumnsOperationUnionTypeDef = Union[
+    CreateColumnsOperationTypeDef, CreateColumnsOperationOutputTypeDef
+]
+ProjectOperationUnionTypeDef = Union[ProjectOperationTypeDef, ProjectOperationOutputTypeDef]
+
+
+class FiltersOperationOutputTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceOutputTypeDef
+    FilterOperations: list[FilterOperationOutputTypeDef]
+
+
+class TransformOperationOutputTypeDef(TypedDict):
+    ProjectOperation: NotRequired[ProjectOperationOutputTypeDef]
+    FilterOperation: NotRequired[FilterOperationOutputTypeDef]
+    CreateColumnsOperation: NotRequired[CreateColumnsOperationOutputTypeDef]
+    RenameColumnOperation: NotRequired[RenameColumnOperationTypeDef]
+    CastColumnTypeOperation: NotRequired[CastColumnTypeOperationTypeDef]
+    TagColumnOperation: NotRequired[TagColumnOperationOutputTypeDef]
+    UntagColumnOperation: NotRequired[UntagColumnOperationOutputTypeDef]
+    OverrideDatasetParameterOperation: NotRequired[OverrideDatasetParameterOperationOutputTypeDef]
+
+
+class DataSetStringFilterConditionTypeDef(TypedDict):
+    ColumnName: NotRequired[str]
+    ComparisonFilterCondition: NotRequired[DataSetStringComparisonFilterConditionTypeDef]
+    ListFilterCondition: NotRequired[DataSetStringListFilterConditionUnionTypeDef]
+
+
 class TopicIRContributionAnalysisOutputTypeDef(TypedDict):
-    Factors: NotRequired[List[ContributionAnalysisFactorTypeDef]]
+    Factors: NotRequired[list[ContributionAnalysisFactorTypeDef]]
     TimeRanges: NotRequired[ContributionAnalysisTimeRangesOutputTypeDef]
     Direction: NotRequired[ContributionAnalysisDirectionType]
     SortType: NotRequired[ContributionAnalysisSortTypeType]
@@ -10302,6 +11851,20 @@ class TableFieldLinkConfigurationTypeDef(TypedDict):
     Content: TableFieldLinkContentConfigurationTypeDef
 
 
+class ThemeConfigurationOutputTypeDef(TypedDict):
+    DataColorPalette: NotRequired[DataColorPaletteOutputTypeDef]
+    UIColorPalette: NotRequired[UIColorPaletteTypeDef]
+    Sheet: NotRequired[SheetStyleTypeDef]
+    Typography: NotRequired[TypographyOutputTypeDef]
+
+
+class ThemeConfigurationTypeDef(TypedDict):
+    DataColorPalette: NotRequired[DataColorPaletteTypeDef]
+    UIColorPalette: NotRequired[UIColorPaletteTypeDef]
+    Sheet: NotRequired[SheetStyleTypeDef]
+    Typography: NotRequired[TypographyTypeDef]
+
+
 class GeospatialCircleSymbolStyleOutputTypeDef(TypedDict):
     FillColor: NotRequired[GeospatialColorOutputTypeDef]
     StrokeColor: NotRequired[GeospatialColorOutputTypeDef]
@@ -10378,7 +11941,7 @@ class PivotTotalOptionsOutputTypeDef(TypedDict):
     TotalCellStyle: NotRequired[TableCellStyleTypeDef]
     ValueCellStyle: NotRequired[TableCellStyleTypeDef]
     MetricHeaderCellStyle: NotRequired[TableCellStyleTypeDef]
-    TotalAggregationOptions: NotRequired[List[TotalAggregationOptionTypeDef]]
+    TotalAggregationOptions: NotRequired[list[TotalAggregationOptionTypeDef]]
 
 
 class PivotTotalOptionsTypeDef(TypedDict):
@@ -10396,11 +11959,11 @@ class SubtotalOptionsOutputTypeDef(TypedDict):
     TotalsVisibility: NotRequired[VisibilityType]
     CustomLabel: NotRequired[str]
     FieldLevel: NotRequired[PivotTableSubtotalLevelType]
-    FieldLevelOptions: NotRequired[List[PivotTableFieldSubtotalOptionsTypeDef]]
+    FieldLevelOptions: NotRequired[list[PivotTableFieldSubtotalOptionsTypeDef]]
     TotalCellStyle: NotRequired[TableCellStyleTypeDef]
     ValueCellStyle: NotRequired[TableCellStyleTypeDef]
     MetricHeaderCellStyle: NotRequired[TableCellStyleTypeDef]
-    StyleTargets: NotRequired[List[TableStyleTargetTypeDef]]
+    StyleTargets: NotRequired[list[TableStyleTargetTypeDef]]
 
 
 class SubtotalOptionsTypeDef(TypedDict):
@@ -10434,7 +11997,7 @@ class TotalOptionsOutputTypeDef(TypedDict):
     ScrollStatus: NotRequired[TableTotalsScrollStatusType]
     CustomLabel: NotRequired[str]
     TotalCellStyle: NotRequired[TableCellStyleTypeDef]
-    TotalAggregationOptions: NotRequired[List[TotalAggregationOptionTypeDef]]
+    TotalAggregationOptions: NotRequired[list[TotalAggregationOptionTypeDef]]
 
 
 class TotalOptionsTypeDef(TypedDict):
@@ -10569,20 +12132,6 @@ class PutDataSetRefreshPropertiesRequestTypeDef(TypedDict):
     DataSetRefreshProperties: DataSetRefreshPropertiesTypeDef
 
 
-class ThemeVersionTypeDef(TypedDict):
-    VersionNumber: NotRequired[int]
-    Arn: NotRequired[str]
-    Description: NotRequired[str]
-    BaseThemeId: NotRequired[str]
-    CreatedTime: NotRequired[datetime]
-    Configuration: NotRequired[ThemeConfigurationOutputTypeDef]
-    Errors: NotRequired[List[ThemeErrorTypeDef]]
-    Status: NotRequired[ResourceStatusType]
-
-
-ThemeConfigurationUnionTypeDef = Union[ThemeConfigurationTypeDef, ThemeConfigurationOutputTypeDef]
-
-
 class ComparisonConfigurationTypeDef(TypedDict):
     ComparisonMethod: NotRequired[ComparisonMethodType]
     ComparisonFormat: NotRequired[ComparisonFormatConfigurationTypeDef]
@@ -10611,7 +12160,7 @@ class StringFormatConfigurationTypeDef(TypedDict):
 class BodySectionDynamicCategoryDimensionConfigurationOutputTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     Limit: NotRequired[int]
-    SortByMetrics: NotRequired[List[ColumnSortTypeDef]]
+    SortByMetrics: NotRequired[list[ColumnSortTypeDef]]
 
 
 class BodySectionDynamicCategoryDimensionConfigurationTypeDef(TypedDict):
@@ -10623,7 +12172,7 @@ class BodySectionDynamicCategoryDimensionConfigurationTypeDef(TypedDict):
 class BodySectionDynamicNumericDimensionConfigurationOutputTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     Limit: NotRequired[int]
-    SortByMetrics: NotRequired[List[ColumnSortTypeDef]]
+    SortByMetrics: NotRequired[list[ColumnSortTypeDef]]
 
 
 class BodySectionDynamicNumericDimensionConfigurationTypeDef(TypedDict):
@@ -10666,10 +12215,10 @@ class DatasetMetadataOutputTypeDef(TypedDict):
     DatasetName: NotRequired[str]
     DatasetDescription: NotRequired[str]
     DataAggregation: NotRequired[DataAggregationTypeDef]
-    Filters: NotRequired[List[TopicFilterOutputTypeDef]]
-    Columns: NotRequired[List[TopicColumnOutputTypeDef]]
-    CalculatedFields: NotRequired[List[TopicCalculatedFieldOutputTypeDef]]
-    NamedEntities: NotRequired[List[TopicNamedEntityOutputTypeDef]]
+    Filters: NotRequired[list[TopicFilterOutputTypeDef]]
+    Columns: NotRequired[list[TopicColumnOutputTypeDef]]
+    CalculatedFields: NotRequired[list[TopicCalculatedFieldOutputTypeDef]]
+    NamedEntities: NotRequired[list[TopicNamedEntityOutputTypeDef]]
 
 
 class DatasetMetadataTypeDef(TypedDict):
@@ -10681,6 +12230,11 @@ class DatasetMetadataTypeDef(TypedDict):
     Columns: NotRequired[Sequence[TopicColumnTypeDef]]
     CalculatedFields: NotRequired[Sequence[TopicCalculatedFieldTypeDef]]
     NamedEntities: NotRequired[Sequence[TopicNamedEntityTypeDef]]
+
+
+class ReadAuthConfigTypeDef(TypedDict):
+    AuthenticationType: ConnectionAuthTypeType
+    AuthenticationMetadata: ReadAuthenticationMetadataTypeDef
 
 
 class DataSourceParametersTypeDef(TypedDict):
@@ -10698,6 +12252,7 @@ class DataSourceParametersTypeDef(TypedDict):
     RdsParameters: NotRequired[RdsParametersTypeDef]
     RedshiftParameters: NotRequired[RedshiftParametersUnionTypeDef]
     S3Parameters: NotRequired[S3ParametersTypeDef]
+    S3KnowledgeBaseParameters: NotRequired[S3KnowledgeBaseParametersTypeDef]
     ServiceNowParameters: NotRequired[ServiceNowParametersTypeDef]
     SnowflakeParameters: NotRequired[SnowflakeParametersTypeDef]
     SparkParameters: NotRequired[SparkParametersTypeDef]
@@ -10712,6 +12267,9 @@ class DataSourceParametersTypeDef(TypedDict):
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
     ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
     CustomConnectionParameters: NotRequired[CustomConnectionParametersTypeDef]
+    WebCrawlerParameters: NotRequired[WebCrawlerParametersTypeDef]
+    ConfluenceParameters: NotRequired[ConfluenceParametersTypeDef]
+    QBusinessParameters: NotRequired[QBusinessParametersTypeDef]
 
 
 class CreateRefreshScheduleRequestTypeDef(TypedDict):
@@ -10726,8 +12284,20 @@ class UpdateRefreshScheduleRequestTypeDef(TypedDict):
     Schedule: RefreshScheduleUnionTypeDef
 
 
+class SemanticModelConfigurationOutputTypeDef(TypedDict):
+    TableMap: NotRequired[dict[str, SemanticTableOutputTypeDef]]
+
+
+class SemanticModelConfigurationTypeDef(TypedDict):
+    TableMap: NotRequired[Mapping[str, SemanticTableTypeDef]]
+
+
 class AnonymousUserSnapshotJobResultTypeDef(TypedDict):
-    FileGroups: NotRequired[List[SnapshotJobResultFileGroupTypeDef]]
+    FileGroups: NotRequired[list[SnapshotJobResultFileGroupTypeDef]]
+
+
+class RegisteredUserSnapshotJobResultTypeDef(TypedDict):
+    FileGroups: NotRequired[list[SnapshotJobResultFileGroupTypeDef]]
 
 
 PhysicalTableUnionTypeDef = Union[PhysicalTableTypeDef, PhysicalTableOutputTypeDef]
@@ -10788,7 +12358,7 @@ class DescribeDataSourceResponseTypeDef(TypedDict):
 
 
 class ListDataSourcesResponseTypeDef(TypedDict):
-    DataSources: List[DataSourceTypeDef]
+    DataSources: list[DataSourceTypeDef]
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10799,6 +12369,12 @@ class CustomActionSetParametersOperationTypeDef(TypedDict):
     ParameterValueConfigurations: Sequence[SetParameterValueConfigurationTypeDef]
 
 
+class DataSetDateFilterConditionTypeDef(TypedDict):
+    ColumnName: NotRequired[str]
+    ComparisonFilterCondition: NotRequired[DataSetDateComparisonFilterConditionUnionTypeDef]
+    RangeFilterCondition: NotRequired[DataSetDateRangeFilterConditionUnionTypeDef]
+
+
 class DatasetParameterTypeDef(TypedDict):
     StringDatasetParameter: NotRequired[StringDatasetParameterUnionTypeDef]
     DecimalDatasetParameter: NotRequired[DecimalDatasetParameterUnionTypeDef]
@@ -10806,42 +12382,34 @@ class DatasetParameterTypeDef(TypedDict):
     DateTimeDatasetParameter: NotRequired[DateTimeDatasetParameterUnionTypeDef]
 
 
-class TransformOperationTypeDef(TypedDict):
-    ProjectOperation: NotRequired[ProjectOperationUnionTypeDef]
-    FilterOperation: NotRequired[FilterOperationTypeDef]
-    CreateColumnsOperation: NotRequired[CreateColumnsOperationUnionTypeDef]
-    RenameColumnOperation: NotRequired[RenameColumnOperationTypeDef]
-    CastColumnTypeOperation: NotRequired[CastColumnTypeOperationTypeDef]
-    TagColumnOperation: NotRequired[TagColumnOperationUnionTypeDef]
-    UntagColumnOperation: NotRequired[UntagColumnOperationUnionTypeDef]
-    OverrideDatasetParameterOperation: NotRequired[OverrideDatasetParameterOperationUnionTypeDef]
+CreateActionConnectorRequestTypeDef = TypedDict(
+    "CreateActionConnectorRequestTypeDef",
+    {
+        "AwsAccountId": str,
+        "ActionConnectorId": str,
+        "Name": str,
+        "Type": ActionConnectorTypeType,
+        "AuthenticationConfig": AuthConfigTypeDef,
+        "Description": NotRequired[str],
+        "Permissions": NotRequired[Sequence[ResourcePermissionUnionTypeDef]],
+        "VpcConnectionArn": NotRequired[str],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
+
+
+class UpdateActionConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ActionConnectorId: str
+    Name: str
+    AuthenticationConfig: AuthConfigTypeDef
+    Description: NotRequired[str]
+    VpcConnectionArn: NotRequired[str]
 
 
 class ContributionAnalysisTimeRangesTypeDef(TypedDict):
     StartRange: NotRequired[TopicIRFilterOptionUnionTypeDef]
     EndRange: NotRequired[TopicIRFilterOptionUnionTypeDef]
-
-
-class DataSetTypeDef(TypedDict):
-    Arn: NotRequired[str]
-    DataSetId: NotRequired[str]
-    Name: NotRequired[str]
-    CreatedTime: NotRequired[datetime]
-    LastUpdatedTime: NotRequired[datetime]
-    PhysicalTableMap: NotRequired[Dict[str, PhysicalTableOutputTypeDef]]
-    LogicalTableMap: NotRequired[Dict[str, LogicalTableOutputTypeDef]]
-    OutputColumns: NotRequired[List[OutputColumnTypeDef]]
-    ImportMode: NotRequired[DataSetImportModeType]
-    ConsumedSpiceCapacityInBytes: NotRequired[int]
-    ColumnGroups: NotRequired[List[ColumnGroupOutputTypeDef]]
-    FieldFolders: NotRequired[Dict[str, FieldFolderOutputTypeDef]]
-    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
-    RowLevelPermissionTagConfiguration: NotRequired[RowLevelPermissionTagConfigurationOutputTypeDef]
-    ColumnLevelPermissionRules: NotRequired[List[ColumnLevelPermissionRuleOutputTypeDef]]
-    DataSetUsageConfiguration: NotRequired[DataSetUsageConfigurationTypeDef]
-    DatasetParameters: NotRequired[List[DatasetParameterOutputTypeDef]]
-    PerformanceConfiguration: NotRequired[PerformanceConfigurationOutputTypeDef]
-    UseAs: NotRequired[Literal["RLS_RULES"]]
 
 
 class ImageCustomActionOperationOutputTypeDef(TypedDict):
@@ -10864,10 +12432,35 @@ class VisualCustomActionOperationOutputTypeDef(TypedDict):
     SetParametersOperation: NotRequired[CustomActionSetParametersOperationOutputTypeDef]
 
 
+class TransformStepOutputTypeDef(TypedDict):
+    ImportTableStep: NotRequired[ImportTableOperationOutputTypeDef]
+    ProjectStep: NotRequired[ProjectOperationOutputTypeDef]
+    FiltersStep: NotRequired[FiltersOperationOutputTypeDef]
+    CreateColumnsStep: NotRequired[CreateColumnsOperationOutputTypeDef]
+    RenameColumnsStep: NotRequired[RenameColumnsOperationOutputTypeDef]
+    CastColumnTypesStep: NotRequired[CastColumnTypesOperationOutputTypeDef]
+    JoinStep: NotRequired[JoinOperationOutputTypeDef]
+    AggregateStep: NotRequired[AggregateOperationOutputTypeDef]
+    PivotStep: NotRequired[PivotOperationOutputTypeDef]
+    UnpivotStep: NotRequired[UnpivotOperationOutputTypeDef]
+    AppendStep: NotRequired[AppendOperationOutputTypeDef]
+
+
+class LogicalTableOutputTypeDef(TypedDict):
+    Alias: str
+    Source: LogicalTableSourceTypeDef
+    DataTransforms: NotRequired[list[TransformOperationOutputTypeDef]]
+
+
+DataSetStringFilterConditionUnionTypeDef = Union[
+    DataSetStringFilterConditionTypeDef, DataSetStringFilterConditionOutputTypeDef
+]
+
+
 class TopicIROutputTypeDef(TypedDict):
-    Metrics: NotRequired[List[TopicIRMetricOutputTypeDef]]
-    GroupByList: NotRequired[List[TopicIRGroupByTypeDef]]
-    Filters: NotRequired[List[List[TopicIRFilterOptionOutputTypeDef]]]
+    Metrics: NotRequired[list[TopicIRMetricOutputTypeDef]]
+    GroupByList: NotRequired[list[TopicIRGroupByTypeDef]]
+    Filters: NotRequired[list[list[TopicIRFilterOptionOutputTypeDef]]]
     Sort: NotRequired[TopicSortClauseTypeDef]
     ContributionAnalysis: NotRequired[TopicIRContributionAnalysisOutputTypeDef]
     Visual: NotRequired[VisualOptionsTypeDef]
@@ -10875,7 +12468,7 @@ class TopicIROutputTypeDef(TypedDict):
 
 class LineSeriesAxisDisplayOptionsOutputTypeDef(TypedDict):
     AxisOptions: NotRequired[AxisDisplayOptionsOutputTypeDef]
-    MissingDataConfigurations: NotRequired[List[MissingDataConfigurationTypeDef]]
+    MissingDataConfigurations: NotRequired[list[MissingDataConfigurationTypeDef]]
 
 
 class LineSeriesAxisDisplayOptionsTypeDef(TypedDict):
@@ -10958,6 +12551,20 @@ class TableFieldURLConfigurationTypeDef(TypedDict):
     ImageConfiguration: NotRequired[TableFieldImageConfigurationTypeDef]
 
 
+class ThemeVersionTypeDef(TypedDict):
+    VersionNumber: NotRequired[int]
+    Arn: NotRequired[str]
+    Description: NotRequired[str]
+    BaseThemeId: NotRequired[str]
+    CreatedTime: NotRequired[datetime]
+    Configuration: NotRequired[ThemeConfigurationOutputTypeDef]
+    Errors: NotRequired[list[ThemeErrorTypeDef]]
+    Status: NotRequired[ResourceStatusType]
+
+
+ThemeConfigurationUnionTypeDef = Union[ThemeConfigurationTypeDef, ThemeConfigurationOutputTypeDef]
+
+
 class GeospatialPointStyleOutputTypeDef(TypedDict):
     CircleSymbolStyle: NotRequired[GeospatialCircleSymbolStyleOutputTypeDef]
 
@@ -11017,7 +12624,7 @@ class PivotTableCellConditionalFormattingOutputTypeDef(TypedDict):
     FieldId: str
     TextFormat: NotRequired[TextConditionalFormatOutputTypeDef]
     Scope: NotRequired[PivotTableConditionalFormattingScopeTypeDef]
-    Scopes: NotRequired[List[PivotTableConditionalFormattingScopeTypeDef]]
+    Scopes: NotRequired[list[PivotTableConditionalFormattingScopeTypeDef]]
 
 
 class TableCellConditionalFormattingOutputTypeDef(TypedDict):
@@ -11069,7 +12676,7 @@ class BrandDetailTypeDef(TypedDict):
     LastUpdatedTime: NotRequired[datetime]
     VersionId: NotRequired[str]
     VersionStatus: NotRequired[BrandVersionStatusType]
-    Errors: NotRequired[List[str]]
+    Errors: NotRequired[list[str]]
     Logo: NotRequired[LogoTypeDef]
 
 
@@ -11078,51 +12685,17 @@ class AssetBundleImportJobOverrideParametersOutputTypeDef(TypedDict):
         AssetBundleImportJobResourceIdOverrideConfigurationTypeDef
     ]
     VPCConnections: NotRequired[
-        List[AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef]
+        list[AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef]
     ]
     RefreshSchedules: NotRequired[
-        List[AssetBundleImportJobRefreshScheduleOverrideParametersOutputTypeDef]
+        list[AssetBundleImportJobRefreshScheduleOverrideParametersOutputTypeDef]
     ]
-    DataSources: NotRequired[List[AssetBundleImportJobDataSourceOverrideParametersOutputTypeDef]]
-    DataSets: NotRequired[List[AssetBundleImportJobDataSetOverrideParametersTypeDef]]
-    Themes: NotRequired[List[AssetBundleImportJobThemeOverrideParametersTypeDef]]
-    Analyses: NotRequired[List[AssetBundleImportJobAnalysisOverrideParametersTypeDef]]
-    Dashboards: NotRequired[List[AssetBundleImportJobDashboardOverrideParametersTypeDef]]
-    Folders: NotRequired[List[AssetBundleImportJobFolderOverrideParametersTypeDef]]
-
-
-ThemeTypeDef = TypedDict(
-    "ThemeTypeDef",
-    {
-        "Arn": NotRequired[str],
-        "Name": NotRequired[str],
-        "ThemeId": NotRequired[str],
-        "Version": NotRequired[ThemeVersionTypeDef],
-        "CreatedTime": NotRequired[datetime],
-        "LastUpdatedTime": NotRequired[datetime],
-        "Type": NotRequired[ThemeTypeType],
-    },
-)
-
-
-class CreateThemeRequestTypeDef(TypedDict):
-    AwsAccountId: str
-    ThemeId: str
-    Name: str
-    BaseThemeId: str
-    Configuration: ThemeConfigurationUnionTypeDef
-    VersionDescription: NotRequired[str]
-    Permissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class UpdateThemeRequestTypeDef(TypedDict):
-    AwsAccountId: str
-    ThemeId: str
-    BaseThemeId: str
-    Name: NotRequired[str]
-    VersionDescription: NotRequired[str]
-    Configuration: NotRequired[ThemeConfigurationUnionTypeDef]
+    DataSources: NotRequired[list[AssetBundleImportJobDataSourceOverrideParametersOutputTypeDef]]
+    DataSets: NotRequired[list[AssetBundleImportJobDataSetOverrideParametersTypeDef]]
+    Themes: NotRequired[list[AssetBundleImportJobThemeOverrideParametersTypeDef]]
+    Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverrideParametersTypeDef]]
+    Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverrideParametersTypeDef]]
+    Folders: NotRequired[list[AssetBundleImportJobFolderOverrideParametersTypeDef]]
 
 
 class GaugeChartOptionsTypeDef(TypedDict):
@@ -11222,11 +12795,11 @@ class BodySectionRepeatDimensionConfigurationTypeDef(TypedDict):
 
 
 class BarChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     CategoryItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
-    ColorSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    ColorSort: NotRequired[list[FieldSortOptionsTypeDef]]
     ColorItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
-    SmallMultiplesSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    SmallMultiplesSort: NotRequired[list[FieldSortOptionsTypeDef]]
     SmallMultiplesLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11240,7 +12813,7 @@ class BarChartSortConfigurationTypeDef(TypedDict):
 
 
 class BoxPlotSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     PaginationConfiguration: NotRequired[PaginationConfigurationTypeDef]
 
 
@@ -11250,9 +12823,9 @@ class BoxPlotSortConfigurationTypeDef(TypedDict):
 
 
 class ComboChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     CategoryItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
-    ColorSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    ColorSort: NotRequired[list[FieldSortOptionsTypeDef]]
     ColorItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11264,7 +12837,7 @@ class ComboChartSortConfigurationTypeDef(TypedDict):
 
 
 class FilledMapSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
 
 
 class FilledMapSortConfigurationTypeDef(TypedDict):
@@ -11272,7 +12845,7 @@ class FilledMapSortConfigurationTypeDef(TypedDict):
 
 
 class FunnelChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     CategoryItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11282,8 +12855,8 @@ class FunnelChartSortConfigurationTypeDef(TypedDict):
 
 
 class HeatMapSortConfigurationOutputTypeDef(TypedDict):
-    HeatMapRowSort: NotRequired[List[FieldSortOptionsTypeDef]]
-    HeatMapColumnSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    HeatMapRowSort: NotRequired[list[FieldSortOptionsTypeDef]]
+    HeatMapColumnSort: NotRequired[list[FieldSortOptionsTypeDef]]
     HeatMapRowItemsLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
     HeatMapColumnItemsLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
 
@@ -11296,7 +12869,7 @@ class HeatMapSortConfigurationTypeDef(TypedDict):
 
 
 class KPISortConfigurationOutputTypeDef(TypedDict):
-    TrendGroupSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    TrendGroupSort: NotRequired[list[FieldSortOptionsTypeDef]]
 
 
 class KPISortConfigurationTypeDef(TypedDict):
@@ -11304,10 +12877,10 @@ class KPISortConfigurationTypeDef(TypedDict):
 
 
 class LineChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     CategoryItemsLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
     ColorItemsLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
-    SmallMultiplesSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    SmallMultiplesSort: NotRequired[list[FieldSortOptionsTypeDef]]
     SmallMultiplesLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11320,9 +12893,9 @@ class LineChartSortConfigurationTypeDef(TypedDict):
 
 
 class PieChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     CategoryItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
-    SmallMultiplesSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    SmallMultiplesSort: NotRequired[list[FieldSortOptionsTypeDef]]
     SmallMultiplesLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11334,7 +12907,7 @@ class PieChartSortConfigurationTypeDef(TypedDict):
 
 
 class PluginVisualTableQuerySortOutputTypeDef(TypedDict):
-    RowSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    RowSort: NotRequired[list[FieldSortOptionsTypeDef]]
     ItemsLimitConfiguration: NotRequired[PluginVisualItemsLimitConfigurationTypeDef]
 
 
@@ -11344,9 +12917,9 @@ class PluginVisualTableQuerySortTypeDef(TypedDict):
 
 
 class RadarChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     CategoryItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
-    ColorSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    ColorSort: NotRequired[list[FieldSortOptionsTypeDef]]
     ColorItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11358,7 +12931,7 @@ class RadarChartSortConfigurationTypeDef(TypedDict):
 
 
 class SankeyDiagramSortConfigurationOutputTypeDef(TypedDict):
-    WeightSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    WeightSort: NotRequired[list[FieldSortOptionsTypeDef]]
     SourceItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
     DestinationItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
 
@@ -11370,7 +12943,7 @@ class SankeyDiagramSortConfigurationTypeDef(TypedDict):
 
 
 class TableSortConfigurationOutputTypeDef(TypedDict):
-    RowSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    RowSort: NotRequired[list[FieldSortOptionsTypeDef]]
     PaginationConfiguration: NotRequired[PaginationConfigurationTypeDef]
 
 
@@ -11380,7 +12953,7 @@ class TableSortConfigurationTypeDef(TypedDict):
 
 
 class TreeMapSortConfigurationOutputTypeDef(TypedDict):
-    TreeMapSort: NotRequired[List[FieldSortOptionsTypeDef]]
+    TreeMapSort: NotRequired[list[FieldSortOptionsTypeDef]]
     TreeMapGroupItemsLimitConfiguration: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11390,7 +12963,7 @@ class TreeMapSortConfigurationTypeDef(TypedDict):
 
 
 class WaterfallChartSortConfigurationOutputTypeDef(TypedDict):
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
     BreakdownItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
 
 
@@ -11401,7 +12974,7 @@ class WaterfallChartSortConfigurationTypeDef(TypedDict):
 
 class WordCloudSortConfigurationOutputTypeDef(TypedDict):
     CategoryItemsLimit: NotRequired[ItemsLimitConfigurationTypeDef]
-    CategorySort: NotRequired[List[FieldSortOptionsTypeDef]]
+    CategorySort: NotRequired[list[FieldSortOptionsTypeDef]]
 
 
 class WordCloudSortConfigurationTypeDef(TypedDict):
@@ -11422,7 +12995,7 @@ class PivotFieldSortOptionsTypeDef(TypedDict):
 class FieldBasedTooltipOutputTypeDef(TypedDict):
     AggregationVisibility: NotRequired[VisibilityType]
     TooltipTitleType: NotRequired[TooltipTitleTypeType]
-    TooltipFields: NotRequired[List[TooltipItemTypeDef]]
+    TooltipFields: NotRequired[list[TooltipItemTypeDef]]
 
 
 class FieldBasedTooltipTypeDef(TypedDict):
@@ -11435,7 +13008,7 @@ class TopicDetailsOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     UserExperienceVersion: NotRequired[TopicUserExperienceVersionType]
-    DataSets: NotRequired[List[DatasetMetadataOutputTypeDef]]
+    DataSets: NotRequired[list[DatasetMetadataOutputTypeDef]]
     ConfigOptions: NotRequired[TopicConfigOptionsTypeDef]
 
 
@@ -11445,6 +13018,25 @@ class TopicDetailsTypeDef(TypedDict):
     UserExperienceVersion: NotRequired[TopicUserExperienceVersionType]
     DataSets: NotRequired[Sequence[DatasetMetadataTypeDef]]
     ConfigOptions: NotRequired[TopicConfigOptionsTypeDef]
+
+
+ActionConnectorTypeDef = TypedDict(
+    "ActionConnectorTypeDef",
+    {
+        "Arn": str,
+        "ActionConnectorId": str,
+        "Type": ActionConnectorTypeType,
+        "Name": str,
+        "LastUpdatedTime": datetime,
+        "CreatedTime": NotRequired[datetime],
+        "Status": NotRequired[ResourceStatusType],
+        "Error": NotRequired[ActionConnectorErrorTypeDef],
+        "Description": NotRequired[str],
+        "AuthenticationConfig": NotRequired[ReadAuthConfigTypeDef],
+        "EnabledActions": NotRequired[list[str]],
+        "VpcConnectionArn": NotRequired[str],
+    },
+)
 
 
 class AssetBundleImportJobDataSourceOverrideParametersTypeDef(TypedDict):
@@ -11459,10 +13051,14 @@ class AssetBundleImportJobDataSourceOverrideParametersTypeDef(TypedDict):
 DataSourceParametersUnionTypeDef = Union[
     DataSourceParametersTypeDef, DataSourceParametersOutputTypeDef
 ]
+SemanticModelConfigurationUnionTypeDef = Union[
+    SemanticModelConfigurationTypeDef, SemanticModelConfigurationOutputTypeDef
+]
 
 
 class SnapshotJobResultTypeDef(TypedDict):
-    AnonymousUsers: NotRequired[List[AnonymousUserSnapshotJobResultTypeDef]]
+    AnonymousUsers: NotRequired[list[AnonymousUserSnapshotJobResultTypeDef]]
+    RegisteredUsers: NotRequired[list[RegisteredUserSnapshotJobResultTypeDef]]
 
 
 class DefaultNewSheetConfigurationTypeDef(TypedDict):
@@ -11495,8 +13091,8 @@ class StartDashboardSnapshotJobRequestTypeDef(TypedDict):
     AwsAccountId: str
     DashboardId: str
     SnapshotJobId: str
-    UserConfiguration: SnapshotUserConfigurationTypeDef
     SnapshotConfiguration: SnapshotConfigurationUnionTypeDef
+    UserConfiguration: NotRequired[SnapshotUserConfigurationTypeDef]
 
 
 class ImageCustomActionOperationTypeDef(TypedDict):
@@ -11519,25 +13115,20 @@ class VisualCustomActionOperationTypeDef(TypedDict):
     SetParametersOperation: NotRequired[CustomActionSetParametersOperationTypeDef]
 
 
+DataSetDateFilterConditionUnionTypeDef = Union[
+    DataSetDateFilterConditionTypeDef, DataSetDateFilterConditionOutputTypeDef
+]
 DatasetParameterUnionTypeDef = Union[DatasetParameterTypeDef, DatasetParameterOutputTypeDef]
-TransformOperationUnionTypeDef = Union[TransformOperationTypeDef, TransformOperationOutputTypeDef]
 ContributionAnalysisTimeRangesUnionTypeDef = Union[
     ContributionAnalysisTimeRangesTypeDef, ContributionAnalysisTimeRangesOutputTypeDef
 ]
-
-
-class DescribeDataSetResponseTypeDef(TypedDict):
-    DataSet: DataSetTypeDef
-    RequestId: str
-    Status: int
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ImageCustomActionOutputTypeDef(TypedDict):
     CustomActionId: str
     Name: str
     Trigger: ImageCustomActionTriggerType
-    ActionOperations: List[ImageCustomActionOperationOutputTypeDef]
+    ActionOperations: list[ImageCustomActionOperationOutputTypeDef]
     Status: NotRequired[WidgetStatusType]
 
 
@@ -11545,7 +13136,7 @@ class LayerCustomActionOutputTypeDef(TypedDict):
     CustomActionId: str
     Name: str
     Trigger: LayerCustomActionTriggerType
-    ActionOperations: List[LayerCustomActionOperationOutputTypeDef]
+    ActionOperations: list[LayerCustomActionOperationOutputTypeDef]
     Status: NotRequired[WidgetStatusType]
 
 
@@ -11553,15 +13144,21 @@ class VisualCustomActionOutputTypeDef(TypedDict):
     CustomActionId: str
     Name: str
     Trigger: VisualCustomActionTriggerType
-    ActionOperations: List[VisualCustomActionOperationOutputTypeDef]
+    ActionOperations: list[VisualCustomActionOperationOutputTypeDef]
     Status: NotRequired[WidgetStatusType]
+
+
+class DataPrepConfigurationOutputTypeDef(TypedDict):
+    SourceTableMap: dict[str, SourceTableOutputTypeDef]
+    TransformStepMap: dict[str, TransformStepOutputTypeDef]
+    DestinationTableMap: dict[str, DestinationTableTypeDef]
 
 
 class TopicVisualOutputTypeDef(TypedDict):
     VisualId: NotRequired[str]
     Role: NotRequired[VisualRoleType]
     Ir: NotRequired[TopicIROutputTypeDef]
-    SupportingVisuals: NotRequired[List[Dict[str, Any]]]
+    SupportingVisuals: NotRequired[list[dict[str, Any]]]
 
 
 class DefaultFilterControlConfigurationOutputTypeDef(TypedDict):
@@ -11580,6 +13177,40 @@ class TableFieldOptionTypeDef(TypedDict):
     CustomLabel: NotRequired[str]
     Visibility: NotRequired[VisibilityType]
     URLStyling: NotRequired[TableFieldURLConfigurationTypeDef]
+
+
+ThemeTypeDef = TypedDict(
+    "ThemeTypeDef",
+    {
+        "Arn": NotRequired[str],
+        "Name": NotRequired[str],
+        "ThemeId": NotRequired[str],
+        "Version": NotRequired[ThemeVersionTypeDef],
+        "CreatedTime": NotRequired[datetime],
+        "LastUpdatedTime": NotRequired[datetime],
+        "Type": NotRequired[ThemeTypeType],
+    },
+)
+
+
+class CreateThemeRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ThemeId: str
+    Name: str
+    BaseThemeId: str
+    Configuration: ThemeConfigurationUnionTypeDef
+    VersionDescription: NotRequired[str]
+    Permissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateThemeRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ThemeId: str
+    BaseThemeId: str
+    Name: NotRequired[str]
+    VersionDescription: NotRequired[str]
+    Configuration: NotRequired[ThemeConfigurationUnionTypeDef]
 
 
 class GeospatialPointLayerOutputTypeDef(TypedDict):
@@ -11608,12 +13239,12 @@ class GeospatialPolygonLayerTypeDef(TypedDict):
 
 class GaugeChartConditionalFormattingOutputTypeDef(TypedDict):
     ConditionalFormattingOptions: NotRequired[
-        List[GaugeChartConditionalFormattingOptionOutputTypeDef]
+        list[GaugeChartConditionalFormattingOptionOutputTypeDef]
     ]
 
 
 class KPIConditionalFormattingOutputTypeDef(TypedDict):
-    ConditionalFormattingOptions: NotRequired[List[KPIConditionalFormattingOptionOutputTypeDef]]
+    ConditionalFormattingOptions: NotRequired[list[KPIConditionalFormattingOptionOutputTypeDef]]
 
 
 class FilledMapConditionalFormattingOptionOutputTypeDef(TypedDict):
@@ -11695,8 +13326,8 @@ class UpdateBrandResponseTypeDef(TypedDict):
 
 class DescribeAssetBundleImportJobResponseTypeDef(TypedDict):
     JobStatus: AssetBundleImportJobStatusType
-    Errors: List[AssetBundleImportJobErrorTypeDef]
-    RollbackErrors: List[AssetBundleImportJobErrorTypeDef]
+    Errors: list[AssetBundleImportJobErrorTypeDef]
+    RollbackErrors: list[AssetBundleImportJobErrorTypeDef]
     Arn: str
     CreatedTime: datetime
     AssetBundleImportJobId: str
@@ -11709,14 +13340,7 @@ class DescribeAssetBundleImportJobResponseTypeDef(TypedDict):
     OverridePermissions: AssetBundleImportJobOverridePermissionsOutputTypeDef
     OverrideTags: AssetBundleImportJobOverrideTagsOutputTypeDef
     OverrideValidationStrategy: AssetBundleImportJobOverrideValidationStrategyTypeDef
-    Warnings: List[AssetBundleImportJobWarningTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeThemeResponseTypeDef(TypedDict):
-    Theme: ThemeTypeDef
-    Status: int
-    RequestId: str
+    Warnings: list[AssetBundleImportJobWarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11745,6 +13369,7 @@ class ColumnConfigurationOutputTypeDef(TypedDict):
     FormatConfiguration: NotRequired[FormatConfigurationTypeDef]
     Role: NotRequired[ColumnRoleType]
     ColorsConfiguration: NotRequired[ColorsConfigurationOutputTypeDef]
+    DecalSettingsConfiguration: NotRequired[DecalSettingsConfigurationOutputTypeDef]
 
 
 class ColumnConfigurationTypeDef(TypedDict):
@@ -11752,6 +13377,7 @@ class ColumnConfigurationTypeDef(TypedDict):
     FormatConfiguration: NotRequired[FormatConfigurationTypeDef]
     Role: NotRequired[ColumnRoleType]
     ColorsConfiguration: NotRequired[ColorsConfigurationTypeDef]
+    DecalSettingsConfiguration: NotRequired[DecalSettingsConfigurationTypeDef]
 
 
 class UnaggregatedFieldTypeDef(TypedDict):
@@ -11761,9 +13387,9 @@ class UnaggregatedFieldTypeDef(TypedDict):
 
 
 class BodySectionRepeatConfigurationOutputTypeDef(TypedDict):
-    DimensionConfigurations: NotRequired[List[BodySectionRepeatDimensionConfigurationOutputTypeDef]]
+    DimensionConfigurations: NotRequired[list[BodySectionRepeatDimensionConfigurationOutputTypeDef]]
     PageBreakConfiguration: NotRequired[BodySectionRepeatPageBreakConfigurationTypeDef]
-    NonRepeatingVisuals: NotRequired[List[str]]
+    NonRepeatingVisuals: NotRequired[list[str]]
 
 
 class BodySectionRepeatConfigurationTypeDef(TypedDict):
@@ -11781,7 +13407,7 @@ class PluginVisualSortConfigurationTypeDef(TypedDict):
 
 
 class PivotTableSortConfigurationOutputTypeDef(TypedDict):
-    FieldSortOptions: NotRequired[List[PivotFieldSortOptionsOutputTypeDef]]
+    FieldSortOptions: NotRequired[list[PivotFieldSortOptionsOutputTypeDef]]
 
 
 class PivotTableSortConfigurationTypeDef(TypedDict):
@@ -11811,6 +13437,13 @@ class DescribeTopicResponseTypeDef(TypedDict):
 
 
 TopicDetailsUnionTypeDef = Union[TopicDetailsTypeDef, TopicDetailsOutputTypeDef]
+
+
+class DescribeActionConnectorResponseTypeDef(TypedDict):
+    ActionConnector: ActionConnectorTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AssetBundleImportJobOverrideParametersTypeDef(TypedDict):
@@ -11877,10 +13510,11 @@ class VisualCustomActionTypeDef(TypedDict):
     Status: NotRequired[WidgetStatusType]
 
 
-class LogicalTableTypeDef(TypedDict):
-    Alias: str
-    Source: LogicalTableSourceTypeDef
-    DataTransforms: NotRequired[Sequence[TransformOperationUnionTypeDef]]
+class FilterOperationTypeDef(TypedDict):
+    ConditionExpression: NotRequired[str]
+    StringFilterCondition: NotRequired[DataSetStringFilterConditionUnionTypeDef]
+    NumericFilterCondition: NotRequired[DataSetNumericFilterConditionTypeDef]
+    DateFilterCondition: NotRequired[DataSetDateFilterConditionUnionTypeDef]
 
 
 class TopicIRContributionAnalysisTypeDef(TypedDict):
@@ -11897,7 +13531,7 @@ class SheetImageOutputTypeDef(TypedDict):
     Tooltip: NotRequired[SheetImageTooltipConfigurationTypeDef]
     ImageContentAltText: NotRequired[str]
     Interactions: NotRequired[ImageInteractionOptionsTypeDef]
-    Actions: NotRequired[List[ImageCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[ImageCustomActionOutputTypeDef]]
 
 
 class CustomContentVisualOutputTypeDef(TypedDict):
@@ -11906,14 +13540,38 @@ class CustomContentVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[CustomContentConfigurationTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
 class EmptyVisualOutputTypeDef(TypedDict):
     VisualId: str
     DataSetIdentifier: str
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+
+
+class DataSetTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    DataSetId: NotRequired[str]
+    Name: NotRequired[str]
+    CreatedTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
+    PhysicalTableMap: NotRequired[dict[str, PhysicalTableOutputTypeDef]]
+    LogicalTableMap: NotRequired[dict[str, LogicalTableOutputTypeDef]]
+    OutputColumns: NotRequired[list[OutputColumnTypeDef]]
+    ImportMode: NotRequired[DataSetImportModeType]
+    ConsumedSpiceCapacityInBytes: NotRequired[int]
+    ColumnGroups: NotRequired[list[ColumnGroupOutputTypeDef]]
+    FieldFolders: NotRequired[dict[str, FieldFolderOutputTypeDef]]
+    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
+    RowLevelPermissionTagConfiguration: NotRequired[RowLevelPermissionTagConfigurationOutputTypeDef]
+    ColumnLevelPermissionRules: NotRequired[list[ColumnLevelPermissionRuleOutputTypeDef]]
+    DataSetUsageConfiguration: NotRequired[DataSetUsageConfigurationTypeDef]
+    DatasetParameters: NotRequired[list[DatasetParameterOutputTypeDef]]
+    PerformanceConfiguration: NotRequired[PerformanceConfigurationOutputTypeDef]
+    UseAs: NotRequired[Literal["RLS_RULES"]]
+    DataPrepConfiguration: NotRequired[DataPrepConfigurationOutputTypeDef]
+    SemanticModelConfiguration: NotRequired[SemanticModelConfigurationOutputTypeDef]
 
 
 class TopicReviewedAnswerTypeDef(TypedDict):
@@ -12004,7 +13662,7 @@ class TimeRangeFilterOutputTypeDef(TypedDict):
 class TopBottomFilterOutputTypeDef(TypedDict):
     FilterId: str
     Column: ColumnIdentifierTypeDef
-    AggregationSortConfigurations: List[AggregationSortConfigurationTypeDef]
+    AggregationSortConfigurations: list[AggregationSortConfigurationTypeDef]
     Limit: NotRequired[int]
     TimeGranularity: NotRequired[TimeGranularityType]
     ParameterName: NotRequired[str]
@@ -12097,10 +13755,10 @@ class TopBottomFilterTypeDef(TypedDict):
 
 
 class TableFieldOptionsOutputTypeDef(TypedDict):
-    SelectedFieldOptions: NotRequired[List[TableFieldOptionTypeDef]]
-    Order: NotRequired[List[str]]
+    SelectedFieldOptions: NotRequired[list[TableFieldOptionTypeDef]]
+    Order: NotRequired[list[str]]
     PinnedFieldOptions: NotRequired[TablePinnedFieldOptionsOutputTypeDef]
-    TransposedTableOptions: NotRequired[List[TransposedTableOptionTypeDef]]
+    TransposedTableOptions: NotRequired[list[TransposedTableOptionTypeDef]]
 
 
 class TableFieldOptionsTypeDef(TypedDict):
@@ -12108,6 +13766,13 @@ class TableFieldOptionsTypeDef(TypedDict):
     Order: NotRequired[Sequence[str]]
     PinnedFieldOptions: NotRequired[TablePinnedFieldOptionsTypeDef]
     TransposedTableOptions: NotRequired[Sequence[TransposedTableOptionTypeDef]]
+
+
+class DescribeThemeResponseTypeDef(TypedDict):
+    Theme: ThemeTypeDef
+    Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GeospatialLayerDefinitionOutputTypeDef(TypedDict):
@@ -12123,17 +13788,17 @@ class GeospatialLayerDefinitionTypeDef(TypedDict):
 
 
 class FilledMapConditionalFormattingOutputTypeDef(TypedDict):
-    ConditionalFormattingOptions: List[FilledMapConditionalFormattingOptionOutputTypeDef]
+    ConditionalFormattingOptions: list[FilledMapConditionalFormattingOptionOutputTypeDef]
 
 
 class PivotTableConditionalFormattingOutputTypeDef(TypedDict):
     ConditionalFormattingOptions: NotRequired[
-        List[PivotTableConditionalFormattingOptionOutputTypeDef]
+        list[PivotTableConditionalFormattingOptionOutputTypeDef]
     ]
 
 
 class TableConditionalFormattingOutputTypeDef(TypedDict):
-    ConditionalFormattingOptions: NotRequired[List[TableConditionalFormattingOptionOutputTypeDef]]
+    ConditionalFormattingOptions: NotRequired[list[TableConditionalFormattingOptionOutputTypeDef]]
 
 
 class FilledMapConditionalFormattingTypeDef(TypedDict):
@@ -12157,10 +13822,10 @@ class UniqueValuesComputationTypeDef(TypedDict):
 
 
 class BarChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    Colors: NotRequired[List[DimensionFieldTypeDef]]
-    SmallMultiples: NotRequired[List[DimensionFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    Colors: NotRequired[list[DimensionFieldTypeDef]]
+    SmallMultiples: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class BarChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12171,8 +13836,8 @@ class BarChartAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class BoxPlotAggregatedFieldWellsOutputTypeDef(TypedDict):
-    GroupBy: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    GroupBy: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class BoxPlotAggregatedFieldWellsTypeDef(TypedDict):
@@ -12181,10 +13846,10 @@ class BoxPlotAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class ComboChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    BarValues: NotRequired[List[MeasureFieldTypeDef]]
-    Colors: NotRequired[List[DimensionFieldTypeDef]]
-    LineValues: NotRequired[List[MeasureFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    BarValues: NotRequired[list[MeasureFieldTypeDef]]
+    Colors: NotRequired[list[DimensionFieldTypeDef]]
+    LineValues: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class ComboChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12195,8 +13860,8 @@ class ComboChartAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class FilledMapAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Geospatial: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    Geospatial: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class FilledMapAggregatedFieldWellsTypeDef(TypedDict):
@@ -12219,8 +13884,8 @@ class ForecastComputationTypeDef(TypedDict):
 
 
 class FunnelChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class FunnelChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12229,8 +13894,8 @@ class FunnelChartAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class GaugeChartFieldWellsOutputTypeDef(TypedDict):
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    TargetValues: NotRequired[List[MeasureFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    TargetValues: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class GaugeChartFieldWellsTypeDef(TypedDict):
@@ -12239,8 +13904,8 @@ class GaugeChartFieldWellsTypeDef(TypedDict):
 
 
 class GeospatialLayerColorFieldOutputTypeDef(TypedDict):
-    ColorDimensionsFields: NotRequired[List[DimensionFieldTypeDef]]
-    ColorValuesFields: NotRequired[List[MeasureFieldTypeDef]]
+    ColorDimensionsFields: NotRequired[list[DimensionFieldTypeDef]]
+    ColorValuesFields: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class GeospatialLayerColorFieldTypeDef(TypedDict):
@@ -12249,9 +13914,9 @@ class GeospatialLayerColorFieldTypeDef(TypedDict):
 
 
 class GeospatialMapAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Geospatial: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    Colors: NotRequired[List[DimensionFieldTypeDef]]
+    Geospatial: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    Colors: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class GeospatialMapAggregatedFieldWellsTypeDef(TypedDict):
@@ -12269,9 +13934,9 @@ class GrowthRateComputationTypeDef(TypedDict):
 
 
 class HeatMapAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Rows: NotRequired[List[DimensionFieldTypeDef]]
-    Columns: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    Rows: NotRequired[list[DimensionFieldTypeDef]]
+    Columns: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class HeatMapAggregatedFieldWellsTypeDef(TypedDict):
@@ -12281,7 +13946,7 @@ class HeatMapAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class HistogramAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class HistogramAggregatedFieldWellsTypeDef(TypedDict):
@@ -12289,9 +13954,9 @@ class HistogramAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class KPIFieldWellsOutputTypeDef(TypedDict):
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    TargetValues: NotRequired[List[MeasureFieldTypeDef]]
-    TrendGroups: NotRequired[List[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    TargetValues: NotRequired[list[MeasureFieldTypeDef]]
+    TrendGroups: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class KPIFieldWellsTypeDef(TypedDict):
@@ -12301,10 +13966,10 @@ class KPIFieldWellsTypeDef(TypedDict):
 
 
 class LineChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    Colors: NotRequired[List[DimensionFieldTypeDef]]
-    SmallMultiples: NotRequired[List[DimensionFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    Colors: NotRequired[list[DimensionFieldTypeDef]]
+    SmallMultiples: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class LineChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12350,9 +14015,9 @@ class PeriodToDateComputationTypeDef(TypedDict):
 
 
 class PieChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    SmallMultiples: NotRequired[List[DimensionFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    SmallMultiples: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class PieChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12362,9 +14027,9 @@ class PieChartAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class PivotTableAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Rows: NotRequired[List[DimensionFieldTypeDef]]
-    Columns: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    Rows: NotRequired[list[DimensionFieldTypeDef]]
+    Columns: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class PivotTableAggregatedFieldWellsTypeDef(TypedDict):
@@ -12374,9 +14039,9 @@ class PivotTableAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class RadarChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Color: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Color: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class RadarChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12386,9 +14051,9 @@ class RadarChartAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class SankeyDiagramAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Source: NotRequired[List[DimensionFieldTypeDef]]
-    Destination: NotRequired[List[DimensionFieldTypeDef]]
-    Weight: NotRequired[List[MeasureFieldTypeDef]]
+    Source: NotRequired[list[DimensionFieldTypeDef]]
+    Destination: NotRequired[list[DimensionFieldTypeDef]]
+    Weight: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class SankeyDiagramAggregatedFieldWellsTypeDef(TypedDict):
@@ -12398,11 +14063,11 @@ class SankeyDiagramAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class ScatterPlotCategoricallyAggregatedFieldWellsOutputTypeDef(TypedDict):
-    XAxis: NotRequired[List[MeasureFieldTypeDef]]
-    YAxis: NotRequired[List[MeasureFieldTypeDef]]
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Size: NotRequired[List[MeasureFieldTypeDef]]
-    Label: NotRequired[List[DimensionFieldTypeDef]]
+    XAxis: NotRequired[list[MeasureFieldTypeDef]]
+    YAxis: NotRequired[list[MeasureFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Size: NotRequired[list[MeasureFieldTypeDef]]
+    Label: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class ScatterPlotCategoricallyAggregatedFieldWellsTypeDef(TypedDict):
@@ -12414,11 +14079,11 @@ class ScatterPlotCategoricallyAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class ScatterPlotUnaggregatedFieldWellsOutputTypeDef(TypedDict):
-    XAxis: NotRequired[List[DimensionFieldTypeDef]]
-    YAxis: NotRequired[List[DimensionFieldTypeDef]]
-    Size: NotRequired[List[MeasureFieldTypeDef]]
-    Category: NotRequired[List[DimensionFieldTypeDef]]
-    Label: NotRequired[List[DimensionFieldTypeDef]]
+    XAxis: NotRequired[list[DimensionFieldTypeDef]]
+    YAxis: NotRequired[list[DimensionFieldTypeDef]]
+    Size: NotRequired[list[MeasureFieldTypeDef]]
+    Category: NotRequired[list[DimensionFieldTypeDef]]
+    Label: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class ScatterPlotUnaggregatedFieldWellsTypeDef(TypedDict):
@@ -12430,8 +14095,8 @@ class ScatterPlotUnaggregatedFieldWellsTypeDef(TypedDict):
 
 
 class TableAggregatedFieldWellsOutputTypeDef(TypedDict):
-    GroupBy: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
+    GroupBy: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class TableAggregatedFieldWellsTypeDef(TypedDict):
@@ -12472,9 +14137,9 @@ class TotalAggregationComputationTypeDef(TypedDict):
 
 
 class TreeMapAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Groups: NotRequired[List[DimensionFieldTypeDef]]
-    Sizes: NotRequired[List[MeasureFieldTypeDef]]
-    Colors: NotRequired[List[MeasureFieldTypeDef]]
+    Groups: NotRequired[list[DimensionFieldTypeDef]]
+    Sizes: NotRequired[list[MeasureFieldTypeDef]]
+    Colors: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class TreeMapAggregatedFieldWellsTypeDef(TypedDict):
@@ -12484,9 +14149,9 @@ class TreeMapAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class WaterfallChartAggregatedFieldWellsOutputTypeDef(TypedDict):
-    Categories: NotRequired[List[DimensionFieldTypeDef]]
-    Values: NotRequired[List[MeasureFieldTypeDef]]
-    Breakdowns: NotRequired[List[DimensionFieldTypeDef]]
+    Categories: NotRequired[list[DimensionFieldTypeDef]]
+    Values: NotRequired[list[MeasureFieldTypeDef]]
+    Breakdowns: NotRequired[list[DimensionFieldTypeDef]]
 
 
 class WaterfallChartAggregatedFieldWellsTypeDef(TypedDict):
@@ -12496,8 +14161,8 @@ class WaterfallChartAggregatedFieldWellsTypeDef(TypedDict):
 
 
 class WordCloudAggregatedFieldWellsOutputTypeDef(TypedDict):
-    GroupBy: NotRequired[List[DimensionFieldTypeDef]]
-    Size: NotRequired[List[MeasureFieldTypeDef]]
+    GroupBy: NotRequired[list[DimensionFieldTypeDef]]
+    Size: NotRequired[list[MeasureFieldTypeDef]]
 
 
 class WordCloudAggregatedFieldWellsTypeDef(TypedDict):
@@ -12507,9 +14172,9 @@ class WordCloudAggregatedFieldWellsTypeDef(TypedDict):
 
 class PluginVisualFieldWellOutputTypeDef(TypedDict):
     AxisName: NotRequired[PluginVisualAxisNameType]
-    Dimensions: NotRequired[List[DimensionFieldTypeDef]]
-    Measures: NotRequired[List[MeasureFieldTypeDef]]
-    Unaggregated: NotRequired[List[UnaggregatedFieldTypeDef]]
+    Dimensions: NotRequired[list[DimensionFieldTypeDef]]
+    Measures: NotRequired[list[MeasureFieldTypeDef]]
+    Unaggregated: NotRequired[list[UnaggregatedFieldTypeDef]]
 
 
 class PluginVisualFieldWellTypeDef(TypedDict):
@@ -12520,7 +14185,7 @@ class PluginVisualFieldWellTypeDef(TypedDict):
 
 
 class TableUnaggregatedFieldWellsOutputTypeDef(TypedDict):
-    Values: NotRequired[List[UnaggregatedFieldTypeDef]]
+    Values: NotRequired[list[UnaggregatedFieldTypeDef]]
 
 
 class TableUnaggregatedFieldWellsTypeDef(TypedDict):
@@ -12569,6 +14234,8 @@ class DataSourceCredentialsTypeDef(TypedDict):
     CredentialPair: NotRequired[CredentialPairTypeDef]
     CopySourceArn: NotRequired[str]
     SecretArn: NotRequired[str]
+    KeyPairCredentials: NotRequired[KeyPairCredentialsTypeDef]
+    WebProxyCredentials: NotRequired[WebProxyCredentialsTypeDef]
 
 
 class SheetImageTypeDef(TypedDict):
@@ -12597,7 +14264,15 @@ class EmptyVisualTypeDef(TypedDict):
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
 
 
-LogicalTableUnionTypeDef = Union[LogicalTableTypeDef, LogicalTableOutputTypeDef]
+FilterOperationUnionTypeDef = Union[FilterOperationTypeDef, FilterOperationOutputTypeDef]
+
+
+class FiltersOperationTypeDef(TypedDict):
+    Alias: str
+    Source: TransformOperationSourceTypeDef
+    FilterOperations: Sequence[FilterOperationTypeDef]
+
+
 TopicIRContributionAnalysisUnionTypeDef = Union[
     TopicIRContributionAnalysisTypeDef, TopicIRContributionAnalysisOutputTypeDef
 ]
@@ -12606,13 +14281,20 @@ TopicIRContributionAnalysisUnionTypeDef = Union[
 class SheetTypeDef(TypedDict):
     SheetId: NotRequired[str]
     Name: NotRequired[str]
-    Images: NotRequired[List[SheetImageOutputTypeDef]]
+    Images: NotRequired[list[SheetImageOutputTypeDef]]
+
+
+class DescribeDataSetResponseTypeDef(TypedDict):
+    DataSet: DataSetTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTopicReviewedAnswersResponseTypeDef(TypedDict):
     TopicId: str
     TopicArn: str
-    Answers: List[TopicReviewedAnswerTypeDef]
+    Answers: list[TopicReviewedAnswerTypeDef]
     Status: int
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -12828,7 +14510,7 @@ class WordCloudFieldWellsTypeDef(TypedDict):
 
 
 class PluginVisualConfigurationOutputTypeDef(TypedDict):
-    FieldWells: NotRequired[List[PluginVisualFieldWellOutputTypeDef]]
+    FieldWells: NotRequired[list[PluginVisualFieldWellOutputTypeDef]]
     VisualOptions: NotRequired[PluginVisualOptionsOutputTypeDef]
     SortConfiguration: NotRequired[PluginVisualSortConfigurationOutputTypeDef]
 
@@ -12850,9 +14532,9 @@ class TableFieldWellsTypeDef(TypedDict):
 
 
 class SectionBasedLayoutConfigurationOutputTypeDef(TypedDict):
-    HeaderSections: List[HeaderFooterSectionConfigurationOutputTypeDef]
-    BodySections: List[BodySectionConfigurationOutputTypeDef]
-    FooterSections: List[HeaderFooterSectionConfigurationOutputTypeDef]
+    HeaderSections: list[HeaderFooterSectionConfigurationOutputTypeDef]
+    BodySections: list[BodySectionConfigurationOutputTypeDef]
+    FooterSections: list[HeaderFooterSectionConfigurationOutputTypeDef]
     CanvasSizeOptions: SectionBasedLayoutCanvasSizeOptionsTypeDef
 
 
@@ -12902,42 +14584,29 @@ class UpdateDataSourceRequestTypeDef(TypedDict):
     SslProperties: NotRequired[SslPropertiesTypeDef]
 
 
-class CreateDataSetRequestTypeDef(TypedDict):
-    AwsAccountId: str
-    DataSetId: str
-    Name: str
-    PhysicalTableMap: Mapping[str, PhysicalTableUnionTypeDef]
-    ImportMode: DataSetImportModeType
-    LogicalTableMap: NotRequired[Mapping[str, LogicalTableUnionTypeDef]]
-    ColumnGroups: NotRequired[Sequence[ColumnGroupUnionTypeDef]]
-    FieldFolders: NotRequired[Mapping[str, FieldFolderUnionTypeDef]]
-    Permissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
-    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
-    RowLevelPermissionTagConfiguration: NotRequired[RowLevelPermissionTagConfigurationUnionTypeDef]
-    ColumnLevelPermissionRules: NotRequired[Sequence[ColumnLevelPermissionRuleUnionTypeDef]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    DataSetUsageConfiguration: NotRequired[DataSetUsageConfigurationTypeDef]
-    DatasetParameters: NotRequired[Sequence[DatasetParameterUnionTypeDef]]
-    FolderArns: NotRequired[Sequence[str]]
-    PerformanceConfiguration: NotRequired[PerformanceConfigurationUnionTypeDef]
-    UseAs: NotRequired[Literal["RLS_RULES"]]
+class TransformOperationTypeDef(TypedDict):
+    ProjectOperation: NotRequired[ProjectOperationUnionTypeDef]
+    FilterOperation: NotRequired[FilterOperationUnionTypeDef]
+    CreateColumnsOperation: NotRequired[CreateColumnsOperationUnionTypeDef]
+    RenameColumnOperation: NotRequired[RenameColumnOperationTypeDef]
+    CastColumnTypeOperation: NotRequired[CastColumnTypeOperationTypeDef]
+    TagColumnOperation: NotRequired[TagColumnOperationUnionTypeDef]
+    UntagColumnOperation: NotRequired[UntagColumnOperationUnionTypeDef]
+    OverrideDatasetParameterOperation: NotRequired[OverrideDatasetParameterOperationUnionTypeDef]
 
 
-class UpdateDataSetRequestTypeDef(TypedDict):
-    AwsAccountId: str
-    DataSetId: str
-    Name: str
-    PhysicalTableMap: Mapping[str, PhysicalTableUnionTypeDef]
-    ImportMode: DataSetImportModeType
-    LogicalTableMap: NotRequired[Mapping[str, LogicalTableUnionTypeDef]]
-    ColumnGroups: NotRequired[Sequence[ColumnGroupUnionTypeDef]]
-    FieldFolders: NotRequired[Mapping[str, FieldFolderUnionTypeDef]]
-    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
-    RowLevelPermissionTagConfiguration: NotRequired[RowLevelPermissionTagConfigurationUnionTypeDef]
-    ColumnLevelPermissionRules: NotRequired[Sequence[ColumnLevelPermissionRuleUnionTypeDef]]
-    DataSetUsageConfiguration: NotRequired[DataSetUsageConfigurationTypeDef]
-    DatasetParameters: NotRequired[Sequence[DatasetParameterUnionTypeDef]]
-    PerformanceConfiguration: NotRequired[PerformanceConfigurationUnionTypeDef]
+class TransformStepTypeDef(TypedDict):
+    ImportTableStep: NotRequired[ImportTableOperationTypeDef]
+    ProjectStep: NotRequired[ProjectOperationTypeDef]
+    FiltersStep: NotRequired[FiltersOperationTypeDef]
+    CreateColumnsStep: NotRequired[CreateColumnsOperationTypeDef]
+    RenameColumnsStep: NotRequired[RenameColumnsOperationTypeDef]
+    CastColumnTypesStep: NotRequired[CastColumnTypesOperationTypeDef]
+    JoinStep: NotRequired[JoinOperationTypeDef]
+    AggregateStep: NotRequired[AggregateOperationTypeDef]
+    PivotStep: NotRequired[PivotOperationTypeDef]
+    UnpivotStep: NotRequired[UnpivotOperationTypeDef]
+    AppendStep: NotRequired[AppendOperationTypeDef]
 
 
 class TopicIRTypeDef(TypedDict):
@@ -12954,37 +14623,37 @@ class AnalysisTypeDef(TypedDict):
     Arn: NotRequired[str]
     Name: NotRequired[str]
     Status: NotRequired[ResourceStatusType]
-    Errors: NotRequired[List[AnalysisErrorTypeDef]]
-    DataSetArns: NotRequired[List[str]]
+    Errors: NotRequired[list[AnalysisErrorTypeDef]]
+    DataSetArns: NotRequired[list[str]]
     ThemeArn: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
-    Sheets: NotRequired[List[SheetTypeDef]]
+    Sheets: NotRequired[list[SheetTypeDef]]
 
 
 class DashboardVersionTypeDef(TypedDict):
     CreatedTime: NotRequired[datetime]
-    Errors: NotRequired[List[DashboardErrorTypeDef]]
+    Errors: NotRequired[list[DashboardErrorTypeDef]]
     VersionNumber: NotRequired[int]
     Status: NotRequired[ResourceStatusType]
     Arn: NotRequired[str]
     SourceEntityArn: NotRequired[str]
-    DataSetArns: NotRequired[List[str]]
+    DataSetArns: NotRequired[list[str]]
     Description: NotRequired[str]
     ThemeArn: NotRequired[str]
-    Sheets: NotRequired[List[SheetTypeDef]]
+    Sheets: NotRequired[list[SheetTypeDef]]
 
 
 class TemplateVersionTypeDef(TypedDict):
     CreatedTime: NotRequired[datetime]
-    Errors: NotRequired[List[TemplateErrorTypeDef]]
+    Errors: NotRequired[list[TemplateErrorTypeDef]]
     VersionNumber: NotRequired[int]
     Status: NotRequired[ResourceStatusType]
-    DataSetConfigurations: NotRequired[List[DataSetConfigurationOutputTypeDef]]
+    DataSetConfigurations: NotRequired[list[DataSetConfigurationOutputTypeDef]]
     Description: NotRequired[str]
     SourceEntityArn: NotRequired[str]
     ThemeArn: NotRequired[str]
-    Sheets: NotRequired[List[SheetTypeDef]]
+    Sheets: NotRequired[list[SheetTypeDef]]
 
 
 class NestedFilterOutputTypeDef(TypedDict):
@@ -13013,11 +14682,13 @@ class BarChartConfigurationOutputTypeDef(TypedDict):
     ValueAxis: NotRequired[AxisDisplayOptionsOutputTypeDef]
     ValueLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
     ColorLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
+    DefaultSeriesSettings: NotRequired[BarChartDefaultSeriesSettingsTypeDef]
+    Series: NotRequired[list[BarSeriesItemTypeDef]]
     Legend: NotRequired[LegendOptionsTypeDef]
     DataLabels: NotRequired[DataLabelOptionsOutputTypeDef]
     Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
-    ReferenceLines: NotRequired[List[ReferenceLineTypeDef]]
-    ContributionAnalysisDefaults: NotRequired[List[ContributionAnalysisDefaultOutputTypeDef]]
+    ReferenceLines: NotRequired[list[ReferenceLineTypeDef]]
+    ContributionAnalysisDefaults: NotRequired[list[ContributionAnalysisDefaultOutputTypeDef]]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
 
@@ -13033,6 +14704,8 @@ class BarChartConfigurationTypeDef(TypedDict):
     ValueAxis: NotRequired[AxisDisplayOptionsTypeDef]
     ValueLabelOptions: NotRequired[ChartAxisLabelOptionsTypeDef]
     ColorLabelOptions: NotRequired[ChartAxisLabelOptionsTypeDef]
+    DefaultSeriesSettings: NotRequired[BarChartDefaultSeriesSettingsTypeDef]
+    Series: NotRequired[Sequence[BarSeriesItemTypeDef]]
     Legend: NotRequired[LegendOptionsTypeDef]
     DataLabels: NotRequired[DataLabelOptionsTypeDef]
     Tooltip: NotRequired[TooltipOptionsTypeDef]
@@ -13051,7 +14724,7 @@ class BoxPlotChartConfigurationOutputTypeDef(TypedDict):
     PrimaryYAxisLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
     Legend: NotRequired[LegendOptionsTypeDef]
     Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
-    ReferenceLines: NotRequired[List[ReferenceLineTypeDef]]
+    ReferenceLines: NotRequired[list[ReferenceLineTypeDef]]
     VisualPalette: NotRequired[VisualPaletteOutputTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
@@ -13083,11 +14756,13 @@ class ComboChartConfigurationOutputTypeDef(TypedDict):
     SecondaryYAxisLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
     SingleAxisOptions: NotRequired[SingleAxisOptionsTypeDef]
     ColorLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
+    DefaultSeriesSettings: NotRequired[ComboChartDefaultSeriesSettingsTypeDef]
+    Series: NotRequired[list[ComboSeriesItemTypeDef]]
     Legend: NotRequired[LegendOptionsTypeDef]
     BarDataLabels: NotRequired[DataLabelOptionsOutputTypeDef]
     LineDataLabels: NotRequired[DataLabelOptionsOutputTypeDef]
     Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
-    ReferenceLines: NotRequired[List[ReferenceLineTypeDef]]
+    ReferenceLines: NotRequired[list[ReferenceLineTypeDef]]
     VisualPalette: NotRequired[VisualPaletteOutputTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
@@ -13104,6 +14779,8 @@ class ComboChartConfigurationTypeDef(TypedDict):
     SecondaryYAxisLabelOptions: NotRequired[ChartAxisLabelOptionsTypeDef]
     SingleAxisOptions: NotRequired[SingleAxisOptionsTypeDef]
     ColorLabelOptions: NotRequired[ChartAxisLabelOptionsTypeDef]
+    DefaultSeriesSettings: NotRequired[ComboChartDefaultSeriesSettingsTypeDef]
+    Series: NotRequired[Sequence[ComboSeriesItemTypeDef]]
     Legend: NotRequired[LegendOptionsTypeDef]
     BarDataLabels: NotRequired[DataLabelOptionsTypeDef]
     LineDataLabels: NotRequired[DataLabelOptionsTypeDef]
@@ -13161,7 +14838,7 @@ class GaugeChartVisualOutputTypeDef(TypedDict):
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[GaugeChartConfigurationOutputTypeDef]
     ConditionalFormatting: NotRequired[GaugeChartConditionalFormattingOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13184,7 +14861,7 @@ class GeospatialLayerItemOutputTypeDef(TypedDict):
     LayerDefinition: NotRequired[GeospatialLayerDefinitionOutputTypeDef]
     Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
     JoinDefinition: NotRequired[GeospatialLayerJoinDefinitionOutputTypeDef]
-    Actions: NotRequired[List[LayerCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[LayerCustomActionOutputTypeDef]]
 
 
 class GeospatialLayerItemTypeDef(TypedDict):
@@ -13279,8 +14956,8 @@ class KPIVisualOutputTypeDef(TypedDict):
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[KPIConfigurationOutputTypeDef]
     ConditionalFormatting: NotRequired[KPIConditionalFormattingOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13300,7 +14977,7 @@ LineChartConfigurationOutputTypeDef = TypedDict(
     {
         "FieldWells": NotRequired[LineChartFieldWellsOutputTypeDef],
         "SortConfiguration": NotRequired[LineChartSortConfigurationOutputTypeDef],
-        "ForecastConfigurations": NotRequired[List[ForecastConfigurationOutputTypeDef]],
+        "ForecastConfigurations": NotRequired[list[ForecastConfigurationOutputTypeDef]],
         "Type": NotRequired[LineChartTypeType],
         "SmallMultiplesOptions": NotRequired[SmallMultiplesOptionsTypeDef],
         "XAxisDisplayOptions": NotRequired[AxisDisplayOptionsOutputTypeDef],
@@ -13311,12 +14988,12 @@ LineChartConfigurationOutputTypeDef = TypedDict(
         "SecondaryYAxisLabelOptions": NotRequired[ChartAxisLabelOptionsOutputTypeDef],
         "SingleAxisOptions": NotRequired[SingleAxisOptionsTypeDef],
         "DefaultSeriesSettings": NotRequired[LineChartDefaultSeriesSettingsTypeDef],
-        "Series": NotRequired[List[SeriesItemTypeDef]],
+        "Series": NotRequired[list[SeriesItemTypeDef]],
         "Legend": NotRequired[LegendOptionsTypeDef],
         "DataLabels": NotRequired[DataLabelOptionsOutputTypeDef],
-        "ReferenceLines": NotRequired[List[ReferenceLineTypeDef]],
+        "ReferenceLines": NotRequired[list[ReferenceLineTypeDef]],
         "Tooltip": NotRequired[TooltipOptionsOutputTypeDef],
-        "ContributionAnalysisDefaults": NotRequired[List[ContributionAnalysisDefaultOutputTypeDef]],
+        "ContributionAnalysisDefaults": NotRequired[list[ContributionAnalysisDefaultOutputTypeDef]],
         "VisualPalette": NotRequired[VisualPaletteOutputTypeDef],
         "Interactions": NotRequired[VisualInteractionOptionsTypeDef],
     },
@@ -13360,7 +15037,7 @@ class PieChartConfigurationOutputTypeDef(TypedDict):
     DataLabels: NotRequired[DataLabelOptionsOutputTypeDef]
     Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
     VisualPalette: NotRequired[VisualPaletteOutputTypeDef]
-    ContributionAnalysisDefaults: NotRequired[List[ContributionAnalysisDefaultOutputTypeDef]]
+    ContributionAnalysisDefaults: NotRequired[list[ContributionAnalysisDefaultOutputTypeDef]]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
 
@@ -13386,6 +15063,9 @@ class PivotTableConfigurationOutputTypeDef(TypedDict):
     TotalOptions: NotRequired[PivotTableTotalOptionsOutputTypeDef]
     FieldOptions: NotRequired[PivotTableFieldOptionsOutputTypeDef]
     PaginatedReportOptions: NotRequired[PivotTablePaginatedReportOptionsTypeDef]
+    DashboardCustomizationVisualOptions: NotRequired[
+        DashboardCustomizationVisualOptionsOutputTypeDef
+    ]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
 
@@ -13396,6 +15076,7 @@ class PivotTableConfigurationTypeDef(TypedDict):
     TotalOptions: NotRequired[PivotTableTotalOptionsTypeDef]
     FieldOptions: NotRequired[PivotTableFieldOptionsTypeDef]
     PaginatedReportOptions: NotRequired[PivotTablePaginatedReportOptionsTypeDef]
+    DashboardCustomizationVisualOptions: NotRequired[DashboardCustomizationVisualOptionsTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
 
@@ -13480,7 +15161,7 @@ class ScatterPlotConfigurationTypeDef(TypedDict):
 
 
 class InsightConfigurationOutputTypeDef(TypedDict):
-    Computations: NotRequired[List[ComputationTypeDef]]
+    Computations: NotRequired[list[ComputationTypeDef]]
     CustomNarrative: NotRequired[CustomNarrativeOptionsTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
@@ -13569,7 +15250,7 @@ class PluginVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[PluginVisualConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13590,7 +15271,10 @@ class TableConfigurationOutputTypeDef(TypedDict):
     TotalOptions: NotRequired[TotalOptionsOutputTypeDef]
     FieldOptions: NotRequired[TableFieldOptionsOutputTypeDef]
     PaginatedReportOptions: NotRequired[TablePaginatedReportOptionsTypeDef]
-    TableInlineVisualizations: NotRequired[List[TableInlineVisualizationTypeDef]]
+    TableInlineVisualizations: NotRequired[list[TableInlineVisualizationTypeDef]]
+    DashboardCustomizationVisualOptions: NotRequired[
+        DashboardCustomizationVisualOptionsOutputTypeDef
+    ]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
 
@@ -13602,6 +15286,7 @@ class TableConfigurationTypeDef(TypedDict):
     FieldOptions: NotRequired[TableFieldOptionsTypeDef]
     PaginatedReportOptions: NotRequired[TablePaginatedReportOptionsTypeDef]
     TableInlineVisualizations: NotRequired[Sequence[TableInlineVisualizationTypeDef]]
+    DashboardCustomizationVisualOptions: NotRequired[DashboardCustomizationVisualOptionsTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
 
@@ -13615,6 +15300,15 @@ class LayoutConfigurationTypeDef(TypedDict):
     GridLayout: NotRequired[GridLayoutConfigurationTypeDef]
     FreeFormLayout: NotRequired[FreeFormLayoutConfigurationTypeDef]
     SectionBasedLayout: NotRequired[SectionBasedLayoutConfigurationTypeDef]
+
+
+TransformOperationUnionTypeDef = Union[TransformOperationTypeDef, TransformOperationOutputTypeDef]
+
+
+class DataPrepConfigurationTypeDef(TypedDict):
+    SourceTableMap: Mapping[str, SourceTableTypeDef]
+    TransformStepMap: Mapping[str, TransformStepTypeDef]
+    DestinationTableMap: Mapping[str, DestinationTableTypeDef]
 
 
 TopicIRUnionTypeDef = Union[TopicIRTypeDef, TopicIROutputTypeDef]
@@ -13635,7 +15329,7 @@ class DashboardTypeDef(TypedDict):
     CreatedTime: NotRequired[datetime]
     LastPublishedTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
-    LinkEntities: NotRequired[List[str]]
+    LinkEntities: NotRequired[list[str]]
 
 
 class TemplateTypeDef(TypedDict):
@@ -13674,8 +15368,8 @@ class BarChartVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[BarChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13694,8 +15388,8 @@ class BoxPlotVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[BoxPlotChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13714,8 +15408,8 @@ class ComboChartVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[ComboChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13735,9 +15429,10 @@ class FilledMapVisualOutputTypeDef(TypedDict):
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[FilledMapConfigurationOutputTypeDef]
     ConditionalFormatting: NotRequired[FilledMapConditionalFormattingOutputTypeDef]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
+    GeocodingPreferences: NotRequired[list[GeocodePreferenceTypeDef]]
 
 
 class FilledMapVisualTypeDef(TypedDict):
@@ -13749,6 +15444,7 @@ class FilledMapVisualTypeDef(TypedDict):
     ColumnHierarchies: NotRequired[Sequence[ColumnHierarchyTypeDef]]
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
     VisualContentAltText: NotRequired[str]
+    GeocodingPreferences: NotRequired[Sequence[GeocodePreferenceTypeDef]]
 
 
 class FunnelChartVisualOutputTypeDef(TypedDict):
@@ -13756,8 +15452,8 @@ class FunnelChartVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[FunnelChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13773,7 +15469,7 @@ class FunnelChartVisualTypeDef(TypedDict):
 
 class GeospatialLayerMapConfigurationOutputTypeDef(TypedDict):
     Legend: NotRequired[LegendOptionsTypeDef]
-    MapLayers: NotRequired[List[GeospatialLayerItemOutputTypeDef]]
+    MapLayers: NotRequired[list[GeospatialLayerItemOutputTypeDef]]
     MapState: NotRequired[GeospatialMapStateTypeDef]
     MapStyle: NotRequired[GeospatialMapStyleTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
@@ -13792,9 +15488,10 @@ class GeospatialMapVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[GeospatialMapConfigurationOutputTypeDef]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
+    GeocodingPreferences: NotRequired[list[GeocodePreferenceTypeDef]]
 
 
 class GeospatialMapVisualTypeDef(TypedDict):
@@ -13805,6 +15502,7 @@ class GeospatialMapVisualTypeDef(TypedDict):
     ColumnHierarchies: NotRequired[Sequence[ColumnHierarchyTypeDef]]
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
     VisualContentAltText: NotRequired[str]
+    GeocodingPreferences: NotRequired[Sequence[GeocodePreferenceTypeDef]]
 
 
 class HeatMapVisualOutputTypeDef(TypedDict):
@@ -13812,8 +15510,8 @@ class HeatMapVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[HeatMapConfigurationOutputTypeDef]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13832,7 +15530,7 @@ class HistogramVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[HistogramConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13850,8 +15548,8 @@ class LineChartVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[LineChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13870,8 +15568,8 @@ class PieChartVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[PieChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13891,7 +15589,7 @@ class PivotTableVisualOutputTypeDef(TypedDict):
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[PivotTableConfigurationOutputTypeDef]
     ConditionalFormatting: NotRequired[PivotTableConditionalFormattingOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13910,8 +15608,8 @@ class RadarChartVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[RadarChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13930,7 +15628,7 @@ class SankeyDiagramVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[SankeyDiagramChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13948,8 +15646,8 @@ class ScatterPlotVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[ScatterPlotConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13969,7 +15667,7 @@ class InsightVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     InsightConfiguration: NotRequired[InsightConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -13988,8 +15686,8 @@ class TreeMapVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[TreeMapConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -14008,8 +15706,8 @@ class WaterfallVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[WaterfallChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -14028,8 +15726,8 @@ class WordCloudVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[WordCloudChartConfigurationOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
-    ColumnHierarchies: NotRequired[List[ColumnHierarchyOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    ColumnHierarchies: NotRequired[list[ColumnHierarchyOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -14049,7 +15747,7 @@ class TableVisualOutputTypeDef(TypedDict):
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[TableConfigurationOutputTypeDef]
     ConditionalFormatting: NotRequired[TableConditionalFormattingOutputTypeDef]
-    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
+    Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 
@@ -14069,6 +15767,17 @@ class LayoutOutputTypeDef(TypedDict):
 
 class LayoutTypeDef(TypedDict):
     Configuration: LayoutConfigurationTypeDef
+
+
+class LogicalTableTypeDef(TypedDict):
+    Alias: str
+    Source: LogicalTableSourceTypeDef
+    DataTransforms: NotRequired[Sequence[TransformOperationUnionTypeDef]]
+
+
+DataPrepConfigurationUnionTypeDef = Union[
+    DataPrepConfigurationTypeDef, DataPrepConfigurationOutputTypeDef
+]
 
 
 class TopicVisualTypeDef(TypedDict):
@@ -14094,7 +15803,7 @@ class DescribeTemplateResponseTypeDef(TypedDict):
 
 class FilterGroupOutputTypeDef(TypedDict):
     FilterGroupId: str
-    Filters: List[FilterOutputTypeDef]
+    Filters: list[FilterOutputTypeDef]
     ScopeConfiguration: FilterScopeConfigurationOutputTypeDef
     CrossDataset: CrossDatasetTypesType
     Status: NotRequired[WidgetStatusType]
@@ -14126,6 +15835,7 @@ class LayerMapVisualTypeDef(TypedDict):
     VisualContentAltText: NotRequired[str]
 
 
+LogicalTableUnionTypeDef = Union[LogicalTableTypeDef, LogicalTableOutputTypeDef]
 TopicVisualUnionTypeDef = Union[TopicVisualTypeDef, TopicVisualOutputTypeDef]
 
 
@@ -14185,6 +15895,48 @@ class VisualTypeDef(TypedDict):
     PluginVisual: NotRequired[PluginVisualTypeDef]
 
 
+class CreateDataSetRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DataSetId: str
+    Name: str
+    PhysicalTableMap: Mapping[str, PhysicalTableUnionTypeDef]
+    ImportMode: DataSetImportModeType
+    LogicalTableMap: NotRequired[Mapping[str, LogicalTableUnionTypeDef]]
+    ColumnGroups: NotRequired[Sequence[ColumnGroupUnionTypeDef]]
+    FieldFolders: NotRequired[Mapping[str, FieldFolderUnionTypeDef]]
+    Permissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
+    RowLevelPermissionTagConfiguration: NotRequired[RowLevelPermissionTagConfigurationUnionTypeDef]
+    ColumnLevelPermissionRules: NotRequired[Sequence[ColumnLevelPermissionRuleUnionTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    DataSetUsageConfiguration: NotRequired[DataSetUsageConfigurationTypeDef]
+    DatasetParameters: NotRequired[Sequence[DatasetParameterUnionTypeDef]]
+    FolderArns: NotRequired[Sequence[str]]
+    PerformanceConfiguration: NotRequired[PerformanceConfigurationUnionTypeDef]
+    UseAs: NotRequired[Literal["RLS_RULES"]]
+    DataPrepConfiguration: NotRequired[DataPrepConfigurationUnionTypeDef]
+    SemanticModelConfiguration: NotRequired[SemanticModelConfigurationUnionTypeDef]
+
+
+class UpdateDataSetRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DataSetId: str
+    Name: str
+    PhysicalTableMap: Mapping[str, PhysicalTableUnionTypeDef]
+    ImportMode: DataSetImportModeType
+    LogicalTableMap: NotRequired[Mapping[str, LogicalTableUnionTypeDef]]
+    ColumnGroups: NotRequired[Sequence[ColumnGroupUnionTypeDef]]
+    FieldFolders: NotRequired[Mapping[str, FieldFolderUnionTypeDef]]
+    RowLevelPermissionDataSet: NotRequired[RowLevelPermissionDataSetTypeDef]
+    RowLevelPermissionTagConfiguration: NotRequired[RowLevelPermissionTagConfigurationUnionTypeDef]
+    ColumnLevelPermissionRules: NotRequired[Sequence[ColumnLevelPermissionRuleUnionTypeDef]]
+    DataSetUsageConfiguration: NotRequired[DataSetUsageConfigurationTypeDef]
+    DatasetParameters: NotRequired[Sequence[DatasetParameterUnionTypeDef]]
+    PerformanceConfiguration: NotRequired[PerformanceConfigurationUnionTypeDef]
+    DataPrepConfiguration: NotRequired[DataPrepConfigurationUnionTypeDef]
+    SemanticModelConfiguration: NotRequired[SemanticModelConfigurationUnionTypeDef]
+
+
 class CreateTopicReviewedAnswerTypeDef(TypedDict):
     AnswerId: str
     DatasetArn: str
@@ -14199,13 +15951,13 @@ class SheetDefinitionOutputTypeDef(TypedDict):
     Title: NotRequired[str]
     Description: NotRequired[str]
     Name: NotRequired[str]
-    ParameterControls: NotRequired[List[ParameterControlOutputTypeDef]]
-    FilterControls: NotRequired[List[FilterControlOutputTypeDef]]
-    Visuals: NotRequired[List[VisualOutputTypeDef]]
-    TextBoxes: NotRequired[List[SheetTextBoxTypeDef]]
-    Images: NotRequired[List[SheetImageOutputTypeDef]]
-    Layouts: NotRequired[List[LayoutOutputTypeDef]]
-    SheetControlLayouts: NotRequired[List[SheetControlLayoutOutputTypeDef]]
+    ParameterControls: NotRequired[list[ParameterControlOutputTypeDef]]
+    FilterControls: NotRequired[list[FilterControlOutputTypeDef]]
+    Visuals: NotRequired[list[VisualOutputTypeDef]]
+    TextBoxes: NotRequired[list[SheetTextBoxTypeDef]]
+    Images: NotRequired[list[SheetImageOutputTypeDef]]
+    Layouts: NotRequired[list[LayoutOutputTypeDef]]
+    SheetControlLayouts: NotRequired[list[SheetControlLayoutOutputTypeDef]]
     ContentType: NotRequired[SheetContentTypeType]
     CustomActionDefaults: NotRequired[VisualCustomActionDefaultsTypeDef]
 
@@ -14233,41 +15985,41 @@ class BatchCreateTopicReviewedAnswerRequestTypeDef(TypedDict):
 
 
 class AnalysisDefinitionOutputTypeDef(TypedDict):
-    DataSetIdentifierDeclarations: List[DataSetIdentifierDeclarationTypeDef]
-    Sheets: NotRequired[List[SheetDefinitionOutputTypeDef]]
-    CalculatedFields: NotRequired[List[CalculatedFieldTypeDef]]
-    ParameterDeclarations: NotRequired[List[ParameterDeclarationOutputTypeDef]]
-    FilterGroups: NotRequired[List[FilterGroupOutputTypeDef]]
-    ColumnConfigurations: NotRequired[List[ColumnConfigurationOutputTypeDef]]
+    DataSetIdentifierDeclarations: list[DataSetIdentifierDeclarationTypeDef]
+    Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
+    CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
+    ParameterDeclarations: NotRequired[list[ParameterDeclarationOutputTypeDef]]
+    FilterGroups: NotRequired[list[FilterGroupOutputTypeDef]]
+    ColumnConfigurations: NotRequired[list[ColumnConfigurationOutputTypeDef]]
     AnalysisDefaults: NotRequired[AnalysisDefaultsTypeDef]
     Options: NotRequired[AssetOptionsOutputTypeDef]
     QueryExecutionOptions: NotRequired[QueryExecutionOptionsTypeDef]
-    StaticFiles: NotRequired[List[StaticFileTypeDef]]
+    StaticFiles: NotRequired[list[StaticFileTypeDef]]
 
 
 class DashboardVersionDefinitionOutputTypeDef(TypedDict):
-    DataSetIdentifierDeclarations: List[DataSetIdentifierDeclarationTypeDef]
-    Sheets: NotRequired[List[SheetDefinitionOutputTypeDef]]
-    CalculatedFields: NotRequired[List[CalculatedFieldTypeDef]]
-    ParameterDeclarations: NotRequired[List[ParameterDeclarationOutputTypeDef]]
-    FilterGroups: NotRequired[List[FilterGroupOutputTypeDef]]
-    ColumnConfigurations: NotRequired[List[ColumnConfigurationOutputTypeDef]]
+    DataSetIdentifierDeclarations: list[DataSetIdentifierDeclarationTypeDef]
+    Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
+    CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
+    ParameterDeclarations: NotRequired[list[ParameterDeclarationOutputTypeDef]]
+    FilterGroups: NotRequired[list[FilterGroupOutputTypeDef]]
+    ColumnConfigurations: NotRequired[list[ColumnConfigurationOutputTypeDef]]
     AnalysisDefaults: NotRequired[AnalysisDefaultsTypeDef]
     Options: NotRequired[AssetOptionsOutputTypeDef]
-    StaticFiles: NotRequired[List[StaticFileTypeDef]]
+    StaticFiles: NotRequired[list[StaticFileTypeDef]]
 
 
 class TemplateVersionDefinitionOutputTypeDef(TypedDict):
-    DataSetConfigurations: List[DataSetConfigurationOutputTypeDef]
-    Sheets: NotRequired[List[SheetDefinitionOutputTypeDef]]
-    CalculatedFields: NotRequired[List[CalculatedFieldTypeDef]]
-    ParameterDeclarations: NotRequired[List[ParameterDeclarationOutputTypeDef]]
-    FilterGroups: NotRequired[List[FilterGroupOutputTypeDef]]
-    ColumnConfigurations: NotRequired[List[ColumnConfigurationOutputTypeDef]]
+    DataSetConfigurations: list[DataSetConfigurationOutputTypeDef]
+    Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
+    CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
+    ParameterDeclarations: NotRequired[list[ParameterDeclarationOutputTypeDef]]
+    FilterGroups: NotRequired[list[FilterGroupOutputTypeDef]]
+    ColumnConfigurations: NotRequired[list[ColumnConfigurationOutputTypeDef]]
     AnalysisDefaults: NotRequired[AnalysisDefaultsTypeDef]
     Options: NotRequired[AssetOptionsOutputTypeDef]
     QueryExecutionOptions: NotRequired[QueryExecutionOptionsTypeDef]
-    StaticFiles: NotRequired[List[StaticFileTypeDef]]
+    StaticFiles: NotRequired[list[StaticFileTypeDef]]
 
 
 class AnalysisDefinitionTypeDef(TypedDict):
@@ -14311,7 +16063,7 @@ class TemplateVersionDefinitionTypeDef(TypedDict):
 class DescribeAnalysisDefinitionResponseTypeDef(TypedDict):
     AnalysisId: str
     Name: str
-    Errors: List[AnalysisErrorTypeDef]
+    Errors: list[AnalysisErrorTypeDef]
     ResourceStatus: ResourceStatusType
     ThemeArn: str
     Definition: AnalysisDefinitionOutputTypeDef
@@ -14322,7 +16074,7 @@ class DescribeAnalysisDefinitionResponseTypeDef(TypedDict):
 
 class DescribeDashboardDefinitionResponseTypeDef(TypedDict):
     DashboardId: str
-    Errors: List[DashboardErrorTypeDef]
+    Errors: list[DashboardErrorTypeDef]
     Name: str
     ResourceStatus: ResourceStatusType
     ThemeArn: str
@@ -14336,7 +16088,7 @@ class DescribeDashboardDefinitionResponseTypeDef(TypedDict):
 class DescribeTemplateDefinitionResponseTypeDef(TypedDict):
     Name: str
     TemplateId: str
-    Errors: List[TemplateErrorTypeDef]
+    Errors: list[TemplateErrorTypeDef]
     ResourceStatus: ResourceStatusType
     ThemeArn: str
     Definition: TemplateVersionDefinitionOutputTypeDef

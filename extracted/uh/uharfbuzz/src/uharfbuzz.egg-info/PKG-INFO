@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: uharfbuzz
-Version: 0.51.5
+Version: 0.53.2
 Summary: Streamlined Cython bindings for the harfbuzz shaping engine
 Home-page: https://github.com/trufont/uharfbuzz
 Author: Adrien Tétar
 Author-email: adri-from-59@hotmail.fr
 License: Apache License 2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author
@@ -19,11 +19,16 @@ Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary
 
+## uharfbuzz
+
+<div align="center">
+<p><img src="./logo.png" alt="uharfbuzz Logo" width="256" align="center"/></p>
+
 [![Build + Deploy](https://github.com/harfbuzz/uharfbuzz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/harfbuzz/uharfbuzz/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/uharfbuzz.svg)](https://pypi.org/project/uharfbuzz)
 [![Documentation Status](https://readthedocs.org/projects/uharfbuzz/badge/?version=stable)](https://uharfbuzz.readthedocs.io)
 
-## uharfbuzz
+</div>
 
 Streamlined Cython bindings for the [HarfBuzz][hb] shaping engine.
 

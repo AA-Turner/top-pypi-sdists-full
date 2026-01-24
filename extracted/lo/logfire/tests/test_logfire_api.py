@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import warnings
 from pathlib import Path
 from types import ModuleType
 from typing import Callable
@@ -184,24 +185,39 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_pydantic_ai')
 
     assert hasattr(logfire_api, 'instrument_mcp')
-    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.7.0'):
+    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.11.0'):
         logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
     if get_version(pydantic_version) >= get_version('2.7.0'):
-        logfire_api.instrument_google_genai()
+        with warnings.catch_warnings():
+            if sys.version_info[:2] <= (3, 9):
+                warnings.simplefilter('ignore', category=FutureWarning)
+            logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
     if not pydantic_pre_2_5:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=DeprecationWarning)
+            try:
+                importlib.import_module('litellm')
+            except AttributeError:  # pragma: no cover  # TODO figure this out
+                pass
+            else:
+                logfire_api.instrument_litellm()
+    logfire__all__.remove('instrument_litellm')
+
+    assert hasattr(logfire_api, 'instrument_dspy')
+    if not pydantic_pre_2_5:
         try:
-            importlib.import_module('litellm')
-        except AttributeError:  # pragma: no cover  # TODO figure this out
+            importlib.import_module('openinference.instrumentation.dspy')
+        except ImportError:
             pass
         else:
-            logfire_api.instrument_litellm()
-    logfire__all__.remove('instrument_litellm')
+            logfire_api.instrument_dspy()
+    logfire__all__.remove('instrument_dspy')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member

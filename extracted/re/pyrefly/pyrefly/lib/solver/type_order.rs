@@ -69,12 +69,10 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn has_metaclass(self, cls: &Class, metaclass: &ClassType) -> bool {
         let metadata = self.0.get_metadata_for_class(cls);
-        match metadata.metaclass() {
-            Some(m) => {
-                self.0.as_superclass(m, metaclass.class_object()).as_ref() == Some(metaclass)
-            }
-            None => metaclass == self.stdlib().builtins_type(),
-        }
+        self.0
+            .as_superclass(metadata.metaclass(self.stdlib()), metaclass.class_object())
+            .as_ref()
+            == Some(metaclass)
     }
 
     pub fn is_protocol(self, cls: &Class) -> bool {
@@ -133,8 +131,8 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.typed_dict_kw_param_info(typed_dict)
     }
 
-    pub fn typed_dict_extra_items(self, cls: &Class) -> ExtraItems {
-        self.0.typed_dict_extra_items(cls)
+    pub fn typed_dict_extra_items(self, typed_dict: &TypedDict) -> ExtraItems {
+        self.0.typed_dict_extra_items(typed_dict)
     }
 
     pub fn get_typed_dict_value_type(self, typed_dict: &TypedDict) -> Type {

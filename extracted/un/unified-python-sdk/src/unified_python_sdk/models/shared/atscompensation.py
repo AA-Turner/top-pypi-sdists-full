@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class Frequency(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -39,14 +39,44 @@ class AtsCompensationTypedDict(TypedDict):
 class AtsCompensation(BaseModel):
     currency: Optional[str] = None
 
-    frequency: Annotated[
-        Optional[Frequency], PlainValidator(validate_open_enum(False))
-    ] = None
+    frequency: Optional[Frequency] = None
 
     max: Optional[float] = None
 
     min: Optional[float] = None
 
-    type: Annotated[
-        Optional[AtsCompensationType], PlainValidator(validate_open_enum(False))
-    ] = None
+    type: Optional[AtsCompensationType] = None
+
+    @field_serializer("frequency")
+    def serialize_frequency(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Frequency(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.AtsCompensationType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["currency", "frequency", "max", "min", "type"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

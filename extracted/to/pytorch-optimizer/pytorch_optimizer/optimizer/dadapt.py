@@ -10,28 +10,29 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.utils import get_global_gradient_norm, to_real
 
 
 class DAdaptAdaGrad(BaseOptimizer):
-    r"""AdaGrad with D-Adaptation. Leave LR set to 1 unless you encounter instability.
+    """AdaGrad with D-Adaptation. Leave LR set to 1 unless you encounter instability.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param momentum: float. momentum.
-    :param d0: float. initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-    :param growth_rate: float. prevent the D estimate from growing faster than this multiplicative rate.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        momentum (float): Momentum factor.
+        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
+        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1.0,
         momentum: float = 0.0,
         d0: float = 1e-6,
@@ -50,7 +51,7 @@ class DAdaptAdaGrad(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'momentum': momentum,
             'd': d0,
@@ -67,7 +68,10 @@ class DAdaptAdaGrad(BaseOptimizer):
     def __str__(self) -> str:
         return 'DAdaptAdaGrad'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -85,8 +89,8 @@ class DAdaptAdaGrad(BaseOptimizer):
                     state['weighted_sk'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:  # noqa: PLR0912, PLR0915
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:  # noqa: PLR0912, PLR0915
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -112,11 +116,8 @@ class DAdaptAdaGrad(BaseOptimizer):
         sk_l1 = group['sk_l1']
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             eps = group['eps']
 
@@ -251,26 +252,27 @@ class DAdaptAdaGrad(BaseOptimizer):
 
 
 class DAdaptAdam(BaseOptimizer):
-    r"""Adam with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
+    """Adam with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. betas.
-    :param d0: float. initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-    :param growth_rate: float. prevent the D estimate from growing faster than this multiplicative rate.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. use AdamW style weight decay.
-    :param fixed_decay: bool. fix weight decay.
-    :param bias_correction: bool. Turn on Adam's bias correction.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Betas.
+        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
+        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Use AdamW style weight decay.
+        fixed_decay (bool): Fix weight decay.
+        bias_correction (bool): Turn on Adam's bias correction.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1.0,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         d0: float = 1e-6,
         growth_rate: float = float('inf'),
         weight_decay: float = 0.0,
@@ -288,7 +290,7 @@ class DAdaptAdam(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'd': d0,
@@ -306,7 +308,10 @@ class DAdaptAdam(BaseOptimizer):
     def __str__(self) -> str:
         return 'DAdaptAdam'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -326,8 +331,8 @@ class DAdaptAdam(BaseOptimizer):
                 state['exp_avg_sq'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -423,22 +428,23 @@ class DAdaptAdam(BaseOptimizer):
 
 
 class DAdaptSGD(BaseOptimizer):
-    r"""SGD with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
+    """SGD with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param momentum: float. momentum.
-    :param d0: float. initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-    :param growth_rate: float. prevent the D estimate from growing faster than this multiplicative rate.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        momentum (float): Momentum.
+        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
+        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1.0,
         momentum: float = 0.9,
         d0: float = 1e-6,
@@ -455,7 +461,7 @@ class DAdaptSGD(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'momentum': momentum,
             'd': d0,
@@ -471,7 +477,10 @@ class DAdaptSGD(BaseOptimizer):
     def __str__(self) -> str:
         return 'DAdaptSGD'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -491,8 +500,8 @@ class DAdaptSGD(BaseOptimizer):
                 state['x0'] = p.clone()
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -569,25 +578,26 @@ class DAdaptSGD(BaseOptimizer):
 
 
 class DAdaptAdan(BaseOptimizer):
-    r"""Adan with D-Adaptation. Leave LR set to 1 unless you encounter instability.
+    """Adan with D-Adaptation. Leave LR set to 1 unless you encounter instability.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. decoupled weight decay.
-    :param d0: float. initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-    :param growth_rate: float. prevent the D estimate from growing faster than this multiplicative rate.
-        Default is inf, for unrestricted.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas: (Betas). coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Decoupled weight decay.
+        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
+        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
+            Default is inf, for unrestricted.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1.0,
-        betas: BETAS = (0.98, 0.92, 0.99),
+        betas: Betas = (0.98, 0.92, 0.99),
         weight_decay: float = 0.0,
         weight_decouple: bool = False,
         d0: float = 1e-6,
@@ -603,7 +613,7 @@ class DAdaptAdan(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -619,7 +629,10 @@ class DAdaptAdan(BaseOptimizer):
     def __str__(self) -> str:
         return 'DAdaptAdan'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -641,8 +654,8 @@ class DAdaptAdan(BaseOptimizer):
                 state['previous_grad'] = -grad.clone()
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -741,23 +754,24 @@ class DAdaptAdan(BaseOptimizer):
 
 
 class DAdaptLion(BaseOptimizer):
-    r"""Lion with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
+    """Lion with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param d0: float. initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas: (Betas). Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1.0,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         d0: float = 1e-6,
         weight_decay: float = 0.0,
         weight_decouple: bool = False,
@@ -771,7 +785,7 @@ class DAdaptLion(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'd': d0,
@@ -786,7 +800,10 @@ class DAdaptLion(BaseOptimizer):
     def __str__(self) -> str:
         return 'DAdaptLion'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -805,8 +822,8 @@ class DAdaptLion(BaseOptimizer):
                 state['s'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()

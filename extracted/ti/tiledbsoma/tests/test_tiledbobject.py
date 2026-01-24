@@ -54,31 +54,30 @@ def _make_object(name, uri):
             "string": ["apple", "ball", "cat", "dog", "egg"],
         }
         arrow_df = pa.Table.from_pydict(pydict)
-        return (soma.DataFrame, soma.DataFrame.create(uri, schema=arrow_df.schema))
+        return (soma.DataFrame, soma.DataFrame.create(uri, schema=arrow_df.schema, domain=((0, 100),)))
 
-    elif name == "sparsendarray":
+    if name == "sparsendarray":
         return (
             soma.SparseNDArray,
             soma.SparseNDArray.create(uri, type=pa.int64(), shape=(10, 20)),
         )
 
-    elif name == "densendarray":
+    if name == "densendarray":
         return (
             soma.DenseNDArray,
             soma.DenseNDArray.create(uri, type=pa.int64(), shape=(10, 20)),
         )
 
-    elif name == "collection":
+    if name == "collection":
         return (soma.Collection, soma.Collection.create(uri))
 
-    elif name == "measurement":
+    if name == "measurement":
         return (soma.Measurement, soma.Measurement.create(uri))
 
-    elif name == "experiment":
+    if name == "experiment":
         return (soma.Experiment, soma.Experiment.create(uri))
 
-    else:
-        raise Exception("interal unit-test coding error")
+    raise Exception("interal unit-test coding error")
 
 
 @pytest.mark.parametrize(
@@ -106,15 +105,15 @@ def _make_object(name, uri):
 def test_tiledbobject_exists_cross_types(tmp_path, name1, name2):
     if name1 == name2:
         uri1 = (tmp_path / name1).as_posix()
-        (cls1, obj1) = _make_object(name1, uri1)
+        (cls1, _) = _make_object(name1, uri1)
         assert cls1.exists(uri1)
 
     else:
         uri1 = (tmp_path / name1).as_posix()
         uri2 = (tmp_path / name2).as_posix()
 
-        (cls1, obj1) = _make_object(name1, uri1)
-        (cls2, obj2) = _make_object(name2, uri2)
+        (cls1, _) = _make_object(name1, uri1)
+        (cls2, _) = _make_object(name2, uri2)
 
         assert not cls1.exists(uri2)
         assert not cls2.exists(uri1)

@@ -63,7 +63,7 @@ class NotifyIFTTT(NotifyBase):
     secure_protocol = "ifttt"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_ifttt"
+    setup_url = "https://appriseit.com/services/ifttt/"
 
     # Even though you'll add 'Ingredients' as {{ Value1 }} to your Applets,
     # you must use their lowercase value in the HTTP POST.
@@ -199,7 +199,7 @@ class NotifyIFTTT(NotifyBase):
         payload = {
             self.ifttt_default_title_key: title,
             self.ifttt_default_body_key: body,
-            self.ifttt_default_type_key: notify_type,
+            self.ifttt_default_type_key: notify_type.value,
         }
 
         # Add any new tokens expected (this can also potentially override
@@ -269,7 +269,8 @@ class NotifyIFTTT(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

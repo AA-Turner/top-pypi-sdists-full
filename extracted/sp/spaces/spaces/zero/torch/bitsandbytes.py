@@ -2,8 +2,6 @@
 """
 # pyright: reportPrivateImportUsage=false
 
-from __future__ import annotations
-
 from importlib import metadata
 
 from packaging import version

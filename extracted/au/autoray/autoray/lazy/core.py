@@ -1,14 +1,13 @@
 """Core lazy array functionality."""
 
-import operator
-import threading
+import collections
+import contextlib
 import functools
 import itertools
-import contextlib
-import collections
+import operator
+import threading
 
 from ..autoray import (
-    shape,
     astype,
     get_dtype_name,
     get_lib_fn,
@@ -16,19 +15,19 @@ from ..autoray import (
     multi_class_priorities,
     register_backend,
     register_function,
+    shape,
     tree_flatten,
-    tree_map,
     tree_iter,
+    tree_map,
     tree_unflatten,
 )
 from .draw import (
-    plot_graph,
     plot_circuit,
-    plot_history_size_footprint,
+    plot_graph,
     plot_history_functions,
+    plot_history_size_footprint,
     plot_history_stats,
 )
-
 
 _EMPTY_DICT = {}
 get_depth = operator.attrgetter("_depth")
@@ -530,8 +529,49 @@ class LazyArray:
             inputs=variables, outputs=self, fold_constants=fold_constants
         )
 
-    def show(self, filler=" ", max_lines=None, max_depth=None):
-        """Show the computational graph as a nested directory structure."""
+    def as_string_pretty(self):
+        """Render this LazyArray as a nice string, for display rather than
+        evaluation purposes.
+        """
+
+        def _maybe_replace(x):
+            if isinstance(x, LazyArray):
+                return "#"
+            return x
+
+        args, kwargs = tree_map(_maybe_replace, (self._args, self._kwargs))
+        args = [repr(a) for a in args]
+        for k, v in kwargs.items():
+            args.append(f"{k}={repr(v)}")
+
+        s = ", ".join(args)
+        s = f"{self.fn_name}({s}) → {list(self.shape)}"
+        s = s.replace("'#'", "#")
+        s = s.replace("slice(None, None, None)", ":")
+
+        return s
+
+    def show(
+        self,
+        filler=" ",
+        max_lines=None,
+        max_depth=None,
+        show_args=True,
+    ):
+        """Show the computational graph as a nested directory structure.
+
+        Parameters
+        ----------
+        filler : str, optional
+            The string to use to fill in the empty space on the left.
+        max_lines : int, optional
+            The maximum number of lines to show. By default all lines are
+            shown.
+        max_depth : int, optional
+            The maximum depth to show. By default all depths are shown.
+        show_args : bool, optional
+            Whether to show the arguments to each function in the graph.
+        """
         if max_lines is None:
             max_lines = float("inf")
         if max_depth is None:
@@ -560,14 +600,17 @@ class LazyArray:
                 prefix += bend if columns[-1] else junction
 
             if t.fn_name not in (None, "None"):
-                item = f"{t.fn_name}{list(t.shape)}"
+                if show_args:
+                    item = t.as_string_pretty()
+                else:
+                    item = f"{t.fn_name}{list(t.shape)}"
             else:
                 # input node
                 item = f"←{list(t.shape)}"
 
             if t in seen:
                 # ignore loops, but point to when it was computed
-                print(f"{line:>4} {prefix} ... ({item} from line {seen[t]})")
+                print(f"{line:>4} {prefix} ... [{item} from line {seen[t]}]")
                 line += 1
                 continue
 
@@ -1477,7 +1520,7 @@ def _get_parse_einsum_input():
 
 
 @lazy_cache("einsum")
-def einsum(*operands):
+def einsum(*operands, **kwargs):
     lhs, rhs, larrays = _get_parse_einsum_input()(operands)
 
     size_dict = {}
@@ -1491,11 +1534,14 @@ def einsum(*operands):
     backend = find_common_backend(*larrays)
     fn_einsum = get_lib_fn(backend, "einsum")
 
+    if backend == "numpy":
+        kwargs.setdefault("optimize", True)
+
     return LazyArray(
         backend=backend,
         fn=fn_einsum,
         args=(eq, *larrays),
-        kwargs=None,
+        kwargs=kwargs,
         shape=newshape,
         deps=tuple(x for x in larrays if isinstance(x, LazyArray)),
     )
@@ -1825,43 +1871,45 @@ def complex_(re, im):
     )
 
 
-def make_unary_func(name):
+def make_unary_func(name, var_name=None):
     @lazy_cache(name)
     def unary_func(x):
         x = ensure_lazy(x)
         return x.to(fn=get_lib_fn(x.backend, name))
 
-    unary_func.__name__ = name
+    if var_name is not None:
+        unary_func.__name__ = name
+        unary_func.__qualname__ = name
 
     return unary_func
 
 
-sin = make_unary_func("sin")
-cos = make_unary_func("cos")
-tan = make_unary_func("tan")
-arcsin = make_unary_func("arcsin")
-arccos = make_unary_func("arccos")
-arctan = make_unary_func("arctan")
-sinh = make_unary_func("sinh")
-cosh = make_unary_func("cosh")
-tanh = make_unary_func("tanh")
-arcsinh = make_unary_func("arcsinh")
-arccosh = make_unary_func("arccosh")
-arctanh = make_unary_func("arctanh")
-sqrt = make_unary_func("sqrt")
-exp = make_unary_func("exp")
-log = make_unary_func("log")
-log2 = make_unary_func("log2")
-log10 = make_unary_func("log10")
-conj = make_unary_func("conj")
-sign = make_unary_func("sign")
-abs_ = make_unary_func("abs")
-angle = make_unary_func("angle")
-real = make_unary_func("real")
-imag = make_unary_func("imag")
+sin = make_unary_func("sin", var_name="sin")
+cos = make_unary_func("cos", var_name="cos")
+tan = make_unary_func("tan", var_name="tan")
+arcsin = make_unary_func("arcsin", var_name="arcsin")
+arccos = make_unary_func("arccos", var_name="arccos")
+arctan = make_unary_func("arctan", var_name="arctan")
+sinh = make_unary_func("sinh", var_name="sinh")
+cosh = make_unary_func("cosh", var_name="cosh")
+tanh = make_unary_func("tanh", var_name="tanh")
+arcsinh = make_unary_func("arcsinh", var_name="arcsinh")
+arccosh = make_unary_func("arccosh", var_name="arccosh")
+arctanh = make_unary_func("arctanh", var_name="arctanh")
+sqrt = make_unary_func("sqrt", var_name="sqrt")
+exp = make_unary_func("exp", var_name="exp")
+log = make_unary_func("log", var_name="log")
+log2 = make_unary_func("log2", var_name="log2")
+log10 = make_unary_func("log10", var_name="log10")
+conj = make_unary_func("conj", var_name="conj")
+sign = make_unary_func("sign", var_name="sign")
+abs_ = make_unary_func("abs", var_name="abs_")
+angle = make_unary_func("angle", var_name="angle")
+real = make_unary_func("real", var_name="real")
+imag = make_unary_func("imag", var_name="imag")
 
 
-def make_reduction_func(name):
+def make_reduction_func(name, var_name=None):
     @lazy_cache(name)
     def reduction_func(a, axis=None):
         a = ensure_lazy(a)
@@ -1880,13 +1928,17 @@ def make_reduction_func(name):
         newshape = tuple(d for i, d in enumerate(shape(a)) if i not in axis)
         return a.to(fn=fn, args=(a, axis), shape=newshape)
 
+    if var_name is not None:
+        reduction_func.__name__ = var_name
+        reduction_func.__qualname__ = var_name
+
     return reduction_func
 
 
-sum_ = make_reduction_func("sum")
-prod = make_reduction_func("prod")
-min_ = make_reduction_func("min")
-max_ = make_reduction_func("max")
+sum_ = make_reduction_func("sum", var_name="sum_")
+prod = make_reduction_func("prod", var_name="prod")
+min_ = make_reduction_func("min", var_name="min_")
+max_ = make_reduction_func("max", var_name="max_")
 
 # # XXX: still missing
 # allclose
@@ -1899,8 +1951,18 @@ max_ = make_reduction_func("max")
 # ----------------------------- array creation ------------------------------ #
 
 
+def parse_creation_shape(shape):
+    try:
+        shape = tuple(shape)
+    except TypeError:
+        # single integer implies 1D shape
+        shape = (shape,)
+    return shape
+
+
 def empty(shape, *, backend="numpy", **kwargs):
     """Lazy creation of an empty array with a given shape."""
+    shape = parse_creation_shape(shape)
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "empty"),
@@ -1913,6 +1975,7 @@ def empty(shape, *, backend="numpy", **kwargs):
 
 def zeros(shape, *, backend="numpy", **kwargs):
     """Lazy creation of an array filled with zeros with a given shape."""
+    shape = parse_creation_shape(shape)
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "zeros"),
@@ -1925,6 +1988,7 @@ def zeros(shape, *, backend="numpy", **kwargs):
 
 def ones(shape, *, backend="numpy", **kwargs):
     """Lazy creation of an array filled with ones with a given shape."""
+    shape = parse_creation_shape(shape)
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "ones"),

@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-picklefield
-Version: 3.3
+Version: 3.4.0
 Summary: Pickled object field for Django
 Home-page: http://github.com/gintas/django-picklefield
 Author: Simon Charette
 Author-email: charette.s+django-picklefiel@gmail.com
 License: MIT
 Keywords: django pickle model field
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -15,23 +14,39 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-Provides-Extra: tests
 License-File: LICENSE
+Requires-Dist: Django>=4.2
+Provides-Extra: tests
+Requires-Dist: tox; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 django-picklefield
 ==================
@@ -98,6 +113,22 @@ and assign whatever you like (as long as it's picklable) to the field:
     >>> obj.args = ['fancy', {'objects': 'inside'}]
     >>> obj.save()
 
+.. warning::
+
+  As the name of this package implies ``django-picklefield`` relies on the
+  stdlib `pickle`_ module to serialize its data. Concretely this means that
+  **this package should not be used to store user controllable data under any
+  circumstances at the risk of exposing your application to arbitrary code
+  execution**.
+
+  In order to prevent potentially dangerous usage of ``PickledObjectField``
+  field it is explicitly marked as ``editable=False`` which will prevent its
+  declarative usage in forms and consequently the admin but be aware that
+  assigning unsanitized user provided strings directly to a ``PickledObjectField``
+  exposes your to arbitrary code execution the same way piping malicious
+  strings into ``pickle.loads`` does.
+
+.. _pickle: https://docs.python.org/3/library/pickle.html#module-pickle
 
 -----
 Notes
@@ -196,6 +227,13 @@ since it is never a good idea to have a PickledObjectField be user editable.
 -------
 Changes
 -------
+
+Changes in version 3.4.0
+========================
+
+* Added tested support for Django 6.0.
+* Added tested support for Python 3.14.
+* Dropped support for Python 3.9.
 
 Changes in version 3.3.0
 ========================
@@ -352,5 +390,3 @@ There is a home page <http://github.com/gintas/django-picklefield>
 with instructions on how to access the code repository.
 
 Send feedback and suggestions to gintautas@miliauskas.lt .
-
-

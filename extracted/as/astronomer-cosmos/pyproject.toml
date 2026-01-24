@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Orchestrate your dbt projects in Airflow"
 readme = "README.rst"
 license = "Apache-2.0"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{ name = "Astronomer", email = "humans@astronomer.io" }]
 keywords = ["airflow", "apache-airflow", "astronomer", "dags", "dbt"]
 classifiers = [
@@ -21,21 +21,22 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "aenum",
     "attrs",
-    "apache-airflow>=2.4.0",
+    "apache-airflow>=2.6.0",
     "deprecation",  # Python 3.13 exposes a deprecated operator, we can remove this dependency in the future
     "Jinja2>=3.0.0",
     "msgpack",
     "packaging>=22.0",
     "pydantic>=1.10.0",
     "virtualenv",
+    "openlineage-integration-common"  # Without this dependency, Airflow datasets/assets don't work
 ]
 
 [project.optional-dependencies]
@@ -49,12 +50,13 @@ dbt-all = [
     "dbt-databricks!=1.9.0",
     "dbt-duckdb",
     "dbt-exasol",
-    "dbt-duckdb",
+    "dbt-mysql",
     "dbt-oracle",
     "dbt-postgres",
     "dbt-redshift",
     "dbt-snowflake",
     "dbt-spark",
+    "dbt-sqlserver",
     "dbt-teradata",
     "dbt-vertica",
 ]
@@ -64,11 +66,13 @@ dbt-clickhouse = ["dbt-clickhouse"]
 dbt-databricks = ["dbt-databricks"]
 dbt-duckdb = ["dbt-duckdb", "airflow-provider-duckdb>=0.2.0"]
 dbt-exasol = ["dbt-exasol"]
+dbt-mysql = ["dbt-mysql"]
 dbt-oracle = ["dbt-oracle"]
 dbt-postgres = ["dbt-postgres"]
 dbt-redshift = ["dbt-redshift"]
 dbt-snowflake = ["dbt-snowflake"]
 dbt-spark = ["dbt-spark"]
+dbt-sqlserver = ["dbt-sqlserver"]
 dbt-teradata = ["dbt-teradata"]
 dbt-vertica = ["dbt-vertica<=1.5.4"]
 openlineage = ["openlineage-integration-common!=1.15.0", "openlineage-airflow"]
@@ -145,6 +149,7 @@ dependencies = [
     "pytest>=6.0",
     "pytest-split",
     "pytest-dotenv",
+    "pytest-rerunfailures",
     "requests-mock",
     "pytest-cov",
     "pytest-describe",
@@ -157,13 +162,14 @@ dependencies = [
     "types-python-dateutil",
     "Werkzeug<3.0.0",
     "methodtools",
+    "pytest-asyncio",
 ]
 pre-install-commands = ["sh scripts/test/pre-install-airflow.sh {matrix:airflow} {matrix:python}"]
 
 [[tool.hatch.envs.tests.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12"]
-airflow = ["2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "3.0"]
-dbt = ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10"]
+python = ["3.10", "3.11", "3.12", "3.13"]
+airflow = ["2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "3.0", "3.1"]
+dbt = ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "2.0"]
 
 [tool.hatch.envs.tests.overrides]
 matrix.airflow.dependencies = [
@@ -176,13 +182,16 @@ matrix.airflow.dependencies = [
 freeze = "pip freeze"
 test = 'sh scripts/test/unit.sh'
 test-cov = 'sh scripts/test/unit-cov.sh'
+test-integration-setup = 'sh scripts/test/integration-setup.sh {matrix:dbt}'
 test-integration = 'sh scripts/test/integration.sh'
 test-kubernetes = "sh scripts/test/integration-kubernetes.sh"
 test-kubernetes-setup = "sh scripts/test/kubernetes-setup.sh {matrix:dbt}"
+test-integration-dbtf-setup = 'sh scripts/test/integration-dbtf-setup.sh'
+test-integration-dbtf = 'sh scripts/test/integration-dbtf.sh'
 test-integration-dbt-1-5-4 = 'sh scripts/test/integration-dbt-1-5-4.sh'
 test-integration-dbt-async = 'sh scripts/test/integration-dbt-async.sh {matrix:dbt}'
 test-integration-expensive = 'sh scripts/test/integration-expensive.sh'
-test-integration-setup = 'sh scripts/test/integration-setup.sh {matrix:dbt}'
+
 test-performance = 'sh scripts/test/performance.sh'
 test-performance-setup = 'sh scripts/test/performance-setup.sh {matrix:dbt}'
 type-check = "pre-commit run mypy --files cosmos/**/*"
@@ -191,7 +200,7 @@ type-check = "pre-commit run mypy --files cosmos/**/*"
 addopts = "--ignore-glob=**/dbt_packages/*"
 filterwarnings = ["ignore::DeprecationWarning"]
 minversion = "6.0"
-markers = ["integration", "perf"]
+markers = ["integration", "perf", "dbtfusion"]
 
 ######################################
 # DOCS
@@ -218,7 +227,7 @@ serve = "sphinx-autobuild docs docs/_build"
 ######################################
 [tool.black]
 line-length = 120
-target-version = ['py37', 'py38', 'py39', 'py310']
+target-version = ["py310", "py311", "py312", "py313"]
 
 [tool.isort]
 profile = "black"

@@ -1,14 +1,44 @@
-Metadata-Version: 2.1
-Name: jupyterlab_execute_time
-Version: 3.2.0
+Metadata-Version: 2.4
+Name: jupyterlab-execute-time
+Version: 3.3.0
 Summary: Display cell timings in Jupyter Lab
-Home-page: https://github.com/deshaw/jupyterlab-execute-time
+Project-URL: Homepage, https://github.com/deshaw/jupyterlab-execute-time
 Author: Marc Udoff
-License: BSD-3-Clause
+License: Copyright 2020 D. E. Shaw & Co., L.P.
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE.txt
 Keywords: Jupyter,JupyterLab,JupyterLab4
-Platform: Linux
-Platform: Mac OS X
-Platform: Windows
+Classifier: Framework :: Jupyter
+Classifier: Framework :: Jupyter :: JupyterLab
+Classifier: Framework :: Jupyter :: JupyterLab :: 4
+Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
+Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -17,15 +47,9 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Framework :: Jupyter
-Classifier: Framework :: Jupyter :: JupyterLab
-Classifier: Framework :: Jupyter :: JupyterLab :: 4
-Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
-Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
 Requires-Python: >=3.7
-Description-Content-Type: text/markdown
-License-File: LICENSE.txt
 Requires-Dist: jupyterlab<5,>=4
+Description-Content-Type: text/markdown
 
 # jupyterlab-execute-time
 
@@ -98,38 +122,11 @@ jupyter lab build --minimize=False
 
 #### Publishing
 
-Before starting, you'll need to have run: `pip install twine jupyter_packaging`
-
 1. Update the version in `package.json` and update the release date in `CHANGELOG.md`
-2. Commit the change in step 1, tag it, then push it
-
-```
-git commit -am <msg>
-git tag vX.Z.Y
-git push && git push --tags
-```
-
-3. Create the artifacts
-
-```
-rm -rf dist build jupyterlab_execute_time/labextension
-jlpm run build
-python setup.py sdist bdist_wheel
-```
-
-4. Test this against the test pypi. You can then install from here to test as well:
-
-```
-twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-# In a new venv
-pip install --index-url https://test.pypi.org/simple/ jupyterlab_execute_time
-```
-
-5. Upload this to pypi:
-
-```
-twine upload dist/*
-```
+2. Commit the change in step 1
+3. For test release, manually trigger the [`Build and publish to PyPI` workflow](https://github.com/deshaw/jupyterlab-execute-time/actions/workflows/build.yml) - you need to check the `Test release` checkbox
+4. Draft a new [GitHub release](https://github.com/deshaw/jupyterlab-execute-time/releases/new), creating an approriate version tag
+5. Publish the draft and verify that the `publish` job in the build workflow passed.
 
 ### Uninstall
 
@@ -154,7 +151,7 @@ This project is released under a [BSD-3-Clause license](https://github.com/desha
 We love contributions! Before you can contribute, please sign and submit this [Contributor License Agreement (CLA)](https://www.deshaw.com/oss/cla).
 This CLA is in place to protect all users of this project.
 
-"Jupyter" is a trademark of the NumFOCUS foundation, of which Project Jupyter is a part.
+"Jupyter" is a trademark of the LF Charities, of which Project Jupyter is a part.
 
 [pypi-url]: https://pypi.org/project/jupyterlab-execute-time
 [pypi-image]: https://img.shields.io/pypi/v/jupyterlab-execute-time

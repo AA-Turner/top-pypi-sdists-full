@@ -54,7 +54,7 @@ class NotifyFreeMobile(NotifyBase):
     secure_protocol = "freemobile"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_freemobile"
+    setup_url = "https://appriseit.com/services/freemobile/"
 
     # Plain Text Notification URL
     notify_url = "https://smsapi.free-mobile.fr/sendmsg"
@@ -165,7 +165,8 @@ class NotifyFreeMobile(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

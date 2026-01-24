@@ -37,6 +37,7 @@ class ProductionServiceV2VersionModel(object):
         'created_at': 'datetime',
         'weight': 'int',
         'current_weight': 'int',
+        'target_weight': 'int',
         'version': 'str',
         'ray_serve_config': 'object',
         'ray_gcs_external_storage_config': 'RayGCSExternalStorageConfig',
@@ -52,6 +53,7 @@ class ProductionServiceV2VersionModel(object):
         'created_at': 'created_at',
         'weight': 'weight',
         'current_weight': 'current_weight',
+        'target_weight': 'target_weight',
         'version': 'version',
         'ray_serve_config': 'ray_serve_config',
         'ray_gcs_external_storage_config': 'ray_gcs_external_storage_config',
@@ -62,7 +64,7 @@ class ProductionServiceV2VersionModel(object):
         'current_state': 'current_state'
     }
 
-    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, current_state=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, current_state=None, local_vars_configuration=None):  # noqa: E501
         """ProductionServiceV2VersionModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -72,6 +74,7 @@ class ProductionServiceV2VersionModel(object):
         self._created_at = None
         self._weight = None
         self._current_weight = None
+        self._target_weight = None
         self._version = None
         self._ray_serve_config = None
         self._ray_gcs_external_storage_config = None
@@ -87,6 +90,8 @@ class ProductionServiceV2VersionModel(object):
         self.weight = weight
         if current_weight is not None:
             self.current_weight = current_weight
+        if target_weight is not None:
+            self.target_weight = target_weight
         self.version = version
         self.ray_serve_config = ray_serve_config
         if ray_gcs_external_storage_config is not None:
@@ -195,6 +200,29 @@ class ProductionServiceV2VersionModel(object):
         """
 
         self._current_weight = current_weight
+
+    @property
+    def target_weight(self):
+        """Gets the target_weight of this ProductionServiceV2VersionModel.  # noqa: E501
+
+        The target weight for this version during a weight change operation. This is a number between 0 and 100.  # noqa: E501
+
+        :return: The target_weight of this ProductionServiceV2VersionModel.  # noqa: E501
+        :rtype: int
+        """
+        return self._target_weight
+
+    @target_weight.setter
+    def target_weight(self, target_weight):
+        """Sets the target_weight of this ProductionServiceV2VersionModel.
+
+        The target weight for this version during a weight change operation. This is a number between 0 and 100.  # noqa: E501
+
+        :param target_weight: The target_weight of this ProductionServiceV2VersionModel.  # noqa: E501
+        :type: int
+        """
+
+        self._target_weight = target_weight
 
     @property
     def version(self):

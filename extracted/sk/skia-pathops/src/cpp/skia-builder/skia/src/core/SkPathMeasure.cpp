@@ -5,8 +5,19 @@
  * found in the LICENSE file.
  */
 
-#include "include/core/SkContourMeasure.h"
 #include "include/core/SkPathMeasure.h"
+
+#include "include/core/SkContourMeasure.h"
+#include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"  // IWYU pragma: keep
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkScalar.h"
+#include "include/private/base/SkTDArray.h"
+#include "src/core/SkPathMeasurePriv.h"
+
+#include <cstddef>
+
+class SkMatrix;
 
 SkPathMeasure::SkPathMeasure() {}
 
@@ -35,7 +46,8 @@ bool SkPathMeasure::getMatrix(SkScalar distance, SkMatrix* matrix, MatrixFlags f
     return fContour && fContour->getMatrix(distance, matrix, (SkContourMeasure::MatrixFlags)flags);
 }
 
-bool SkPathMeasure::getSegment(SkScalar startD, SkScalar stopD, SkPath* dst, bool startWithMoveTo) {
+bool SkPathMeasure::getSegment(SkScalar startD, SkScalar stopD, SkPathBuilder* dst,
+                               bool startWithMoveTo) {
     return fContour && fContour->getSegment(startD, stopD, dst, startWithMoveTo);
 }
 
@@ -48,6 +60,27 @@ bool SkPathMeasure::nextContour() {
     return !!fContour;
 }
 
+#ifdef SK_SUPPORT_MUTABLE_PATHEFFECT
+bool SkPathMeasure::getSegment(SkScalar startD, SkScalar stopD, SkPath* dst,
+                               bool startWithMoveTo) {
+    SkPathBuilder builder;
+    if (this->getSegment(startD, stopD, &builder, startWithMoveTo)) {
+        *dst = builder.detach();
+        return true;
+    }
+    return false;
+}
+#endif
+
 #ifdef SK_DEBUG
 void SkPathMeasure::dump() {}
 #endif
+
+/////
+
+size_t SkPathMeasurePriv::CountSegments(const SkPathMeasure& meas) {
+    if (auto cntr = meas.currentMeasure()) {
+        return cntr->fSegments.size();
+    }
+    return 0;
+}

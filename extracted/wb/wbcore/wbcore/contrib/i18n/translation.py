@@ -9,6 +9,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from modeltrans.fields import TranslatedVirtualField
 
 from wbcore.contrib.ai.llm.utils import run_llm
+from wbcore.workers import Queue
 
 if TYPE_CHECKING:
     from django.db.models import Model
@@ -123,7 +124,7 @@ def translate_model(model: "Model", override: bool = False):
     model.save()
 
 
-@shared_task
+@shared_task(queue=Queue.DEFAULT.value)
 def translate_model_as_task(content_type_id: int, pk: Any, override: bool = False):
     """
     Celery task for asynchronous translation of a model instance.

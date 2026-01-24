@@ -47,9 +47,9 @@ class Result(object):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Result):
             return False
-        equal = (self.info == other.info)
-        equal &= (self.stats == other.stats)
-        equal &= (self.trajectories == other.trajectories)
+        equal = self.info == other.info
+        equal &= self.stats == other.stats
+        equal &= self.trajectories == other.trajectories
         for k in self.np_arrays:
             if k not in other.np_arrays:
                 equal &= False
@@ -57,7 +57,8 @@ class Result(object):
             if not equal:
                 break
             equal &= all(
-                [np.array_equal(self.np_arrays[k], other.np_arrays[k])])
+                [np.array_equal(self.np_arrays[k], other.np_arrays[k])]
+            )
         return equal
 
     def __ne__(self, other: object) -> bool:
@@ -66,13 +67,13 @@ class Result(object):
     def pretty_str(self, title=True, stats=True, info=False) -> str:
         p_str = ""
         if title and "title" in self.info:
-            p_str += "{}\n\n".format(self.info["title"])
+            p_str += f"{self.info['title']}\n\n"
         if stats:
             for name, val in sorted(self.stats.items()):
-                p_str += "{:>10}\t{:.6f}\n".format(name, val)
+                p_str += f"{name:>10}\t{val:.6f}\n"
         if info:
             for name, val in sorted(self.info.items()):
-                p_str += "{:>10}\t{}\n".format(name, val)
+                p_str += f"{name:>10}\t{val}\n"
         return p_str
 
     def add_np_array(self, name: str, array: np.ndarray) -> None:
@@ -120,11 +121,13 @@ def merge_results(results: typing.Sequence[Result]) -> Result:
         }
         for key, array in merged_result.np_arrays.items():
             if strategy == "average":
-                merged_result.np_arrays[key] = np.add(array,
-                                                      result.np_arrays[key])
+                merged_result.np_arrays[key] = np.add(
+                    array, result.np_arrays[key]
+                )
             elif strategy == "append":
                 merged_result.np_arrays[key] = np.append(
-                    array, result.np_arrays[key])
+                    array, result.np_arrays[key]
+                )
 
     # Compute average.
     merged_result.stats = {
@@ -133,7 +136,8 @@ def merge_results(results: typing.Sequence[Result]) -> Result:
     }
     if strategy == "average":
         for key, summed_array in merged_result.np_arrays.items():
-            merged_result.np_arrays[key] = np.divide(summed_array,
-                                                     len(results))
+            merged_result.np_arrays[key] = np.divide(
+                summed_array, len(results)
+            )
 
     return merged_result

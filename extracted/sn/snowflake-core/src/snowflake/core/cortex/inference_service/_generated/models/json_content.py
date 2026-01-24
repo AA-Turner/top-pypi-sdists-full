@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Dict
 
-from pydantic import BaseModel, Field, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 
 
 class JSONContent(BaseModel):
@@ -46,9 +46,10 @@ class JSONContent(BaseModel):
             raise ValueError("must validate the enum values ('json')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -73,7 +74,7 @@ class JSONContent(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -88,9 +89,9 @@ class JSONContent(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return JSONContent.parse_obj(obj)
+            return JSONContent.model_validate(obj)
 
-        _obj = JSONContent.parse_obj(
+        _obj = JSONContent.model_validate(
             {
                 "type": obj.get("type"),
                 "var_json": obj.get("json"),

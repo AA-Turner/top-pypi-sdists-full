@@ -19,21 +19,23 @@ __all__ = [
 
 
 class MaxGroupTieredPackageConfigTier(TypedDict, total=False):
+    """Configuration for a single tier"""
+
     tier_lower_bound: Required[str]
-    """Tier lower bound"""
 
     unit_amount: Required[str]
     """Per unit amount"""
 
 
 class MaxGroupTieredPackageConfig(TypedDict, total=False):
+    """Configuration for max_group_tiered_package pricing"""
+
     grouping_key: Required[str]
     """
     The event property used to group before tiering the group with the highest value
     """
 
     package_size: Required[str]
-    """Package size"""
 
     tiers: Required[Iterable[MaxGroupTieredPackageConfigTier]]
     """Apply tiered pricing to the largest group after grouping with the provided key."""

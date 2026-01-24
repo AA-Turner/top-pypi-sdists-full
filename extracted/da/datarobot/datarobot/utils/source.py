@@ -39,6 +39,4 @@ def parse_source_type(
     elif isinstance(source, IOBase):
         return LocalSourceType.FILELIKE
     else:
-        raise InvalidUsageError(
-            f"Unable to parse source ({source}) as URL, filepath, DataFrame or file."
-        )
+        raise InvalidUsageError(f"Unable to parse source ({source}) as URL, filepath, DataFrame or file.")

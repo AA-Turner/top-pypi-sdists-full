@@ -13,10 +13,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import findpython
-import httpretty
 import keyring
 import packaging.version
 import pytest
+import responses
 
 from installer.utils import SCHEME_NAMES
 from jaraco.classes import properties
@@ -62,10 +62,10 @@ from tests.helpers import with_working_directory
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Iterator
     from collections.abc import Mapping
     from typing import Any
-    from typing import Callable
     from unittest.mock import MagicMock
 
     from cleo.io.inputs.argument import Argument
@@ -377,15 +377,16 @@ def git_mock(mocker: MockerFixture, request: FixtureRequest) -> None:
 
 
 @pytest.fixture
-def http() -> Iterator[type[httpretty.httpretty]]:
-    httpretty.reset()
-    with httpretty.enabled(allow_net_connect=False, verbose=True):
-        yield httpretty
+def http() -> Iterator[responses.RequestsMock]:
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+        yield rsps
 
 
 @pytest.fixture
-def http_redirector(http: type[httpretty.httpretty]) -> None:
-    http_setup_redirect(http, http.HEAD, http.GET, http.PUT, http.POST)
+def http_redirector(http: responses.RequestsMock) -> None:
+    http_setup_redirect(
+        http, responses.HEAD, responses.GET, responses.PUT, responses.POST
+    )
 
 
 @pytest.fixture
@@ -439,11 +440,8 @@ def default_python(current_python: PythonVersion) -> str:
 
 
 @pytest.fixture
-def repo(http: type[httpretty.httpretty]) -> TestRepository:
-    http.register_uri(
-        http.GET,
-        re.compile("^https?://foo.bar/(.+?)$"),
-    )
+def repo(http: responses.RequestsMock) -> TestRepository:
+    http.get(re.compile(r"^https?://foo\.bar/(.+?)$"))
     return TestRepository(name="foo")
 
 
@@ -658,12 +656,6 @@ def venv_flags_default() -> dict[str, bool]:
         "system-site-packages": False,
         "no-pip": False,
     }
-
-
-@pytest.fixture(autouse=(os.name == "nt"))
-def httpretty_windows_mock_urllib3_wait_for_socket(mocker: MockerFixture) -> None:
-    # this is a workaround for https://github.com/gabrielfalcao/HTTPretty/issues/442
-    mocker.patch("urllib3.util.wait.select_wait_for_socket", returns=True)
 
 
 @pytest.fixture
@@ -904,6 +896,7 @@ def mocked_python_register(
         version: str,
         executable_name: str | Path | None = None,
         implementation: str | None = None,
+        free_threaded: bool = False,
         parent: str | Path | None = None,
         make_system: bool = False,
     ) -> Python:
@@ -918,6 +911,10 @@ def mocked_python_register(
             @property
             def implementation(self) -> str:
                 return implementation or platform.python_implementation()
+
+            @property
+            def freethreaded(self) -> bool:
+                return free_threaded
 
         python = MockPythonVersion(
             executable=parent / executable_name,
@@ -996,13 +993,20 @@ def mock_python_version(mocker: MockerFixture) -> None:
 
         @property
         def freethreaded(self) -> bool:
-            return False
+            return self._install_dir.name.endswith("t")
 
-        def _get_version(self) -> packaging.version.Version:
+        @property
+        def _install_dir(self) -> Path:
             install_dir = self.executable.parent
             if not WINDOWS:
                 install_dir = install_dir.parent
-            return packaging.version.Version(install_dir.name.split("@")[1])
+            assert isinstance(install_dir, Path)
+            return install_dir
+
+        def _get_version(self) -> packaging.version.Version:
+            return packaging.version.Version(
+                self._install_dir.name.removesuffix("t").split("@")[1]
+            )
 
         def _get_architecture(self) -> str:
             return "64bit"
@@ -1023,9 +1027,15 @@ def mocked_poetry_managed_python_register(
     config.python_installation_dir.mkdir()
 
     def register(
-        version: str, implementation: str, with_install_dir: bool = False
+        version: str,
+        implementation: str,
+        free_threaded: bool = False,
+        with_install_dir: bool = False,
     ) -> Path:
-        bin_dir = config.python_installation_dir / f"{implementation}@{version}"
+        python_dir_name = f"{implementation}@{version}"
+        if free_threaded:
+            python_dir_name += "t"
+        bin_dir = config.python_installation_dir / python_dir_name
         if with_install_dir:
             bin_dir /= "install"
         if not WINDOWS:

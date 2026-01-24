@@ -209,6 +209,8 @@ class Transformers(Model):
         self,
         model: "PreTrainedModel",
         tokenizer: "PreTrainedTokenizer",
+        *,
+        device_dtype: Optional["torch.dtype"] = None,
     ):
         """
         Parameters:
@@ -219,6 +221,9 @@ class Transformers(Model):
         tokenizer
             A `PreTrainedTokenizer`, or any tokenizer that is compatible with
             the `transformers` API for tokenizers.
+        device_dtype
+            The dtype to use for the model. If not provided, the model will use
+            the default dtype.
 
         """
         # We need to handle the cases in which jax/flax or tensorflow
@@ -237,6 +242,7 @@ class Transformers(Model):
         self.model = model
         self.hf_tokenizer = tokenizer
         self.tokenizer = TransformerTokenizer(tokenizer)
+        self.device_dtype = device_dtype
         self.type_adapter = TransformersTypeAdapter(tokenizer=tokenizer)
 
         if (
@@ -287,7 +293,11 @@ class Transformers(Model):
         input_ids, attention_mask = self.tokenizer.encode(prompts)
         inputs = {
             "input_ids": input_ids.to(self.model.device),
-            "attention_mask": attention_mask.to(self.model.device),
+            "attention_mask": (
+                attention_mask.to(self.model.device, dtype=self.device_dtype)
+                if self.device_dtype is not None
+                else attention_mask.to(self.model.device)
+            ),
         }
 
         return prompts, inputs
@@ -430,60 +440,115 @@ class TransformersMultiModalTypeAdapter(ModelTypeAdapter):
             + "model or a `Chat` instance."
         )
 
-    @format_input.register(dict)
-    def format_dict_input(self, model_input: dict) -> dict:
-        warnings.warn("""
-            Providing the input as a dict is deprecated. Support for this will
-            be removed in the v1.2.0 release of Outlines. Use a list containing
-            a text prompt and assets (`Image`, `Audio` or `Video` instances)
-            instead.
-            For instance:
-            ```python
-            from outlines import Image
-            model = from_transformers(mymodel, myprocessor)
-            response = model([
-                "A beautiful image of a cat",
-                Image(my_image),
-            ])
-            ```
-            """,
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if "text" not in model_input:
-            raise ValueError(
-                "The input must contain the 'text' key along with the other "
-                + "keys required by your processor."
-            )
-        return model_input
-
     @format_input.register(Chat)
     def format_chat_input(self, model_input: Chat) -> dict:
-        # we need to separate the images from the messages
-        # to apply the chat template to the messages without images
-        messages = model_input.messages
-        images = []
-        messages_without_images = []
-        for message in messages:
-            if isinstance(message["content"], list):
-                images.extend(message["content"][1:])
-                messages_without_images.append({
-                    "role": message["role"],
-                    "content": message["content"][0],
-                })
-            else:
-                messages_without_images.append(message)
+        conversation = []
+        assets = []
+
+        # process each message, convert if needed to standardized multimodal chat template format
+        # and collect assets for HF processor
+        for message in model_input.messages:
+            processed_message, message_assets = self._prepare_message(
+                message["role"], message["content"]
+            )
+            conversation.append(processed_message)
+            assets.extend(message_assets)
+
         formatted_prompt = self.tokenizer.apply_chat_template(
-            messages_without_images,
-            tokenize=False
+            conversation,
+            tokenize=False,
+            add_generation_prompt=True
         )
-        # use the formatted prompt and the images to format the input
-        return self.format_list_input([formatted_prompt, *images])
+        # use the formatted prompt and the assets to format the input
+        return self.format_list_input([formatted_prompt, *assets])
+
+    def _prepare_message(self, role: str, content: str | list) -> tuple[dict, list]:
+        """Create a message."""
+        if isinstance(content, str):
+            return {"role": role, "content": content}, []
+
+        elif isinstance(content, list):
+            if all(isinstance(item, dict) for item in content): # HF multimodal chat template
+                return {"role": role, "content": content}, self._extract_assets_from_content(content)
+            else: # list of string + assets
+                prompt = content[0]
+                assets = content[1:]
+                assets_dict = [self._format_asset_for_template(asset) for asset in assets]
+
+                return {"role": role, "content": [
+                    {"type": "text", "text": prompt},
+                    *assets_dict
+                ]}, assets
+        else:
+            raise ValueError(
+                f"Invalid content type: {type(content)}. "
+                + "The content must be a string or a list containing text and assets "
+                + "or a list of dict items with explicit types."
+            )
+
+    def _extract_assets_from_content(self, content: list) -> list:
+        """Process a list of dict items."""
+        assets = []
+
+        for item in content:
+            if len(item) > 2:
+                raise ValueError(
+                    f"Found item with multiple keys: {item}. "
+                    + "Each item in the content list must be a dictionary with a 'type' key and a single asset key. "
+                    + "To include multiple assets, use separate dictionary items. "
+                    + "For example: [{{'type': 'image', 'image': image1}}, {{'type': 'image', 'image': image2}}]. "
+                )
+
+            if "type" not in item:
+                raise ValueError(
+                    "Each item in the content list must be a dictionary with a 'type' key. "
+                    + "Valid types are 'text', 'image', 'video', or 'audio'. "
+                    + "For instance {{'type': 'text', 'text': 'your message'}}. "
+                    + f"Found item without 'type' key: {item}"
+                )
+            if item["type"] == "text":
+                continue
+            elif item["type"] in ["image", "video", "audio"]:
+                asset_key = item["type"]
+                if asset_key not in item:
+                    raise ValueError(
+                        f"Item with type '{asset_key}' must contain a '{asset_key}' key. "
+                        + f"Found item: {item}"
+                    )
+                if isinstance(item[asset_key], (Image, Video, Audio)):
+                    assets.append(item[asset_key])
+                else:
+                    raise ValueError(
+                        "Assets must be of type `Image`, `Video` or `Audio`. "
+                        + f"Unsupported asset type: {type(item[asset_key])}"
+                    )
+            else:
+                raise ValueError(
+                    "Content must be 'text', 'image', 'video' or 'audio'. "
+                    + f"Unsupported content type: {item['type']}")
+        return assets
+
+    def _format_asset_for_template(self, asset: Image | Video | Audio) -> dict:
+        """Process an asset."""
+        if isinstance(asset, Image):
+            return {"type": "image", "image": asset}
+        elif isinstance(asset, Video):
+            return {"type": "video", "video": asset}
+        elif isinstance(asset, Audio):
+            return {"type": "audio", "audio": asset}
+        else:
+            raise ValueError(
+                "Assets must be of type `Image`, `Video` or `Audio`. "
+                + f"Unsupported asset type: {type(asset)}"
+            )
 
     @format_input.register(list)
     def format_list_input(self, model_input: list) -> dict:
         prompt = model_input[0]
         assets = model_input[1:]
+
+        if not assets:  # handle empty assets case
+            return {"text": prompt}
 
         asset_types = set(type(asset) for asset in assets)
         if len(asset_types) > 1:
@@ -545,7 +610,13 @@ class TransformersMultiModal(Transformers):
 
     """
 
-    def __init__(self, model: "PreTrainedModel", processor):
+    def __init__(
+        self,
+        model: "PreTrainedModel",
+        processor,
+        *,
+        device_dtype: Optional["torch.dtype"] = None,
+    ):
         """Create a TransformersMultiModal model instance
 
         We rely on the `__init__` method of the `Transformers` class to handle
@@ -559,6 +630,9 @@ class TransformersMultiModal(Transformers):
             `transformers` API for models.
         processor
             A `ProcessorMixin` instance.
+        device_dtype
+            The dtype to use for the model. If not provided, the model will use
+            the default dtype.
 
         """
         self.processor = processor
@@ -567,7 +641,7 @@ class TransformersMultiModal(Transformers):
 
         tokenizer: "PreTrainedTokenizer" = self.processor.tokenizer
 
-        super().__init__(model, tokenizer)
+        super().__init__(model, tokenizer, device_dtype=device_dtype)
 
         self.type_adapter = TransformersMultiModalTypeAdapter(
             tokenizer=tokenizer
@@ -600,7 +674,11 @@ class TransformersMultiModal(Transformers):
 
         inputs = self.processor(
             **merged_prompts, padding=True, return_tensors="pt"
-        ).to(self.model.device)
+        )
+        if self.device_dtype is not None:
+            inputs = inputs.to(self.model.device, dtype=self.device_dtype)
+        else:
+            inputs = inputs.to(self.model.device)
 
         return merged_prompts["text"], inputs
 
@@ -608,6 +686,8 @@ class TransformersMultiModal(Transformers):
 def from_transformers(
     model: "PreTrainedModel",
     tokenizer_or_processor: Union["PreTrainedTokenizer", "ProcessorMixin"],
+    *,
+    device_dtype: Optional["torch.dtype"] = None,
 ) -> Union[Transformers, TransformersMultiModal]:
     """Create an Outlines `Transformers` or `TransformersMultiModal` model
     instance from a `PreTrainedModel` instance and a `PreTrainedTokenizer` or
@@ -624,6 +704,9 @@ def from_transformers(
     tokenizer_or_processor
         A `transformers.PreTrainedTokenizer` or
         `transformers.ProcessorMixin` instance.
+    device_dtype
+        The dtype to use for the model. If not provided, the model will use
+        the default dtype.
 
     Returns
     -------
@@ -638,10 +721,10 @@ def from_transformers(
         tokenizer_or_processor, (PreTrainedTokenizer, PreTrainedTokenizerFast)
     ):
         tokenizer = tokenizer_or_processor
-        return Transformers(model, tokenizer)
+        return Transformers(model, tokenizer, device_dtype=device_dtype)
     elif isinstance(tokenizer_or_processor, ProcessorMixin):
         processor = tokenizer_or_processor
-        return TransformersMultiModal(model, processor)
+        return TransformersMultiModal(model, processor, device_dtype=device_dtype)
     else:
         raise ValueError(
             "We could determine whether the model passed to `from_transformers`"

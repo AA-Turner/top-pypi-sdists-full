@@ -1,122 +1,121 @@
+"""Tests for GraphQL annotated types generation."""
+
 from __future__ import annotations
 
-from argparse import Namespace
 from typing import TYPE_CHECKING
 
 import pytest
-from freezegun import freeze_time
 
-from datamodel_code_generator.__main__ import Exit, main
-from tests.main.test_main_general import DATA_PATH, EXPECTED_MAIN_PATH
+from tests.main.conftest import GRAPHQL_DATA_PATH, run_main_and_assert
+from tests.main.graphql.conftest import assert_file_content
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-GRAPHQL_DATA_PATH: Path = DATA_PATH / "graphql"
-EXPECTED_GRAPHQL_PATH: Path = EXPECTED_MAIN_PATH / "graphql"
 
+@pytest.mark.cli_doc(
+    options=["--use-annotated"],
+    option_description="""Use typing.Annotated for Field() with constraints.
 
-@pytest.fixture(autouse=True)
-def reset_namespace(monkeypatch: pytest.MonkeyPatch) -> None:
-    namespace_ = Namespace(no_color=False)
-    monkeypatch.setattr("datamodel_code_generator.__main__.namespace", namespace_)
-    monkeypatch.setattr("datamodel_code_generator.arguments.namespace", namespace_)
+The `--use-annotated` flag generates Field definitions using typing.Annotated
+syntax instead of default values. This also enables `--field-constraints`.""",
+    input_schema="graphql/annotated.graphql",
+    cli_args=["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated"],
+    golden_output="graphql/annotated.py",
+)
+def test_annotated(output_file: Path) -> None:
+    """Use typing.Annotated for Field() with constraints.
 
-
-@freeze_time("2019-07-26")
-def test_annotated(tmp_path: Path) -> None:
-    output_file: Path = tmp_path / "output.py"
-    return_code: Exit = main([
-        "--input",
-        str(GRAPHQL_DATA_PATH / "annotated.graphql"),
-        "--output",
-        str(output_file),
-        "--input-file-type",
-        "graphql",
-        "--output-model-type",
-        "pydantic_v2.BaseModel",
-        "--use-annotated",
-    ])
-    assert return_code == Exit.OK
-    assert output_file.read_text() == (EXPECTED_GRAPHQL_PATH / "annotated.py").read_text()
-
-
-@freeze_time("2019-07-26")
-def test_annotated_use_standard_collections(tmp_path: Path) -> None:
-    output_file: Path = tmp_path / "output.py"
-    return_code: Exit = main([
-        "--input",
-        str(GRAPHQL_DATA_PATH / "annotated.graphql"),
-        "--output",
-        str(output_file),
-        "--input-file-type",
-        "graphql",
-        "--output-model-type",
-        "pydantic_v2.BaseModel",
-        "--use-annotated",
-        "--use-standard-collections",
-    ])
-    assert return_code == Exit.OK
-    assert output_file.read_text() == (EXPECTED_GRAPHQL_PATH / "annotated_use_standard_collections.py").read_text()
-
-
-@freeze_time("2019-07-26")
-def test_annotated_use_standard_collections_use_union_operator(tmp_path: Path) -> None:
-    output_file: Path = tmp_path / "output.py"
-    return_code: Exit = main([
-        "--input",
-        str(GRAPHQL_DATA_PATH / "annotated.graphql"),
-        "--output",
-        str(output_file),
-        "--input-file-type",
-        "graphql",
-        "--output-model-type",
-        "pydantic_v2.BaseModel",
-        "--use-annotated",
-        "--use-standard-collections",
-        "--use-union-operator",
-    ])
-    assert return_code == Exit.OK
-    assert (
-        output_file.read_text()
-        == (EXPECTED_GRAPHQL_PATH / "annotated_use_standard_collections_use_union_operator.py").read_text()
+    The `--use-annotated` flag generates Field definitions using typing.Annotated
+    syntax instead of default values. This also enables `--field-constraints`.
+    """
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "annotated.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        assert_func=assert_file_content,
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated"],
     )
 
 
-@freeze_time("2019-07-26")
-def test_annotated_use_union_operator(tmp_path: Path) -> None:
-    output_file: Path = tmp_path / "output.py"
-    return_code: Exit = main([
-        "--input",
-        str(GRAPHQL_DATA_PATH / "annotated.graphql"),
-        "--output",
-        str(output_file),
-        "--input-file-type",
-        "graphql",
-        "--output-model-type",
-        "pydantic_v2.BaseModel",
-        "--use-annotated",
-        "--use-union-operator",
-    ])
-    assert return_code == Exit.OK
-    assert output_file.read_text() == (EXPECTED_GRAPHQL_PATH / "annotated_use_union_operator.py").read_text()
+def test_annotated_use_standard_collections(output_file: Path) -> None:
+    """Test GraphQL annotated types with standard collections."""
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "annotated.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            "--use-standard-collections",
+        ],
+    )
 
 
-@freeze_time("2019-07-26")
-def test_annotated_field_aliases(tmp_path: Path) -> None:
-    output_file: Path = tmp_path / "output.py"
-    return_code: Exit = main([
-        "--input",
-        str(GRAPHQL_DATA_PATH / "field-aliases.graphql"),
-        "--output",
-        str(output_file),
-        "--input-file-type",
-        "graphql",
-        "--output-model-type",
-        "pydantic_v2.BaseModel",
-        "--use-annotated",
-        "--aliases",
-        str(GRAPHQL_DATA_PATH / "field-aliases.json"),
-    ])
-    assert return_code == Exit.OK
-    assert output_file.read_text() == (EXPECTED_GRAPHQL_PATH / "annotated_field_aliases.py").read_text()
+def test_annotated_use_standard_collections_use_union_operator(output_file: Path) -> None:
+    """Test GraphQL annotated types with standard collections and union operator."""
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "annotated.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            "--use-standard-collections",
+            "--use-union-operator",
+        ],
+    )
+
+
+@pytest.mark.cli_doc(
+    options=["--use-union-operator"],
+    option_description="""Use | operator for Union types (PEP 604).
+
+The `--use-union-operator` flag generates union types using the | operator
+(e.g., `str | None`) instead of `Union[str, None]` or `Optional[str]`.
+This is the default behavior.""",
+    input_schema="graphql/annotated.graphql",
+    cli_args=["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated", "--use-union-operator"],
+    golden_output="graphql/annotated_use_union_operator.py",
+    related_options=["--no-use-union-operator"],
+)
+def test_annotated_use_union_operator(output_file: Path) -> None:
+    """Use | operator for Union types (PEP 604).
+
+    The `--use-union-operator` flag generates union types using the | operator
+    (e.g., `str | None`) instead of `Union[str, None]` or `Optional[str]`.
+    This is the default behavior.
+    """
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "annotated.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            "--use-union-operator",
+        ],
+    )
+
+
+def test_annotated_field_aliases(output_file: Path) -> None:
+    """Test GraphQL annotated types with field aliases."""
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "field-aliases.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            "--aliases",
+            str(GRAPHQL_DATA_PATH / "field-aliases.json"),
+        ],
+    )

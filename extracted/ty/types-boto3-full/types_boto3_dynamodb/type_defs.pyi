@@ -3,7 +3,7 @@ Type annotations for dynamodb service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Union
@@ -68,13 +69,6 @@ from .literals import (
     WitnessStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from builtins import set as Set
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence, Set
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -156,17 +150,21 @@ __all__ = (
     "DescribeContinuousBackupsInputTypeDef",
     "DescribeContinuousBackupsOutputTypeDef",
     "DescribeContributorInsightsInputTypeDef",
+    "DescribeContributorInsightsInputWaitTypeDef",
     "DescribeContributorInsightsOutputTypeDef",
     "DescribeEndpointsResponseTypeDef",
     "DescribeExportInputTypeDef",
+    "DescribeExportInputWaitTypeDef",
     "DescribeExportOutputTypeDef",
     "DescribeGlobalTableInputTypeDef",
     "DescribeGlobalTableOutputTypeDef",
     "DescribeGlobalTableSettingsInputTypeDef",
     "DescribeGlobalTableSettingsOutputTypeDef",
     "DescribeImportInputTypeDef",
+    "DescribeImportInputWaitTypeDef",
     "DescribeImportOutputTypeDef",
     "DescribeKinesisStreamingDestinationInputTypeDef",
+    "DescribeKinesisStreamingDestinationInputWaitTypeDef",
     "DescribeKinesisStreamingDestinationOutputTypeDef",
     "DescribeLimitsOutputTypeDef",
     "DescribeTableInputTypeDef",
@@ -402,11 +400,11 @@ TableAttributeValueTypeDef = Union[
     int,
     Decimal,
     bool,
-    Set[int],
-    Set[Decimal],
-    Set[str],
-    Set[bytes],
-    Set[bytearray],
+    set[int],
+    set[Decimal],
+    set[str],
+    set[bytes],
+    set[bytearray],
     Sequence[Any],
     Mapping[str, Any],
     None,
@@ -448,7 +446,7 @@ class BackupSummaryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -535,7 +533,7 @@ class TagTypeDef(TypedDict):
 
 class CsvOptionsOutputTypeDef(TypedDict):
     Delimiter: NotRequired[str]
-    HeaderList: NotRequired[List[str]]
+    HeaderList: NotRequired[list[str]]
 
 class CsvOptionsTypeDef(TypedDict):
     Delimiter: NotRequired[str]
@@ -583,6 +581,10 @@ class DescribeContributorInsightsInputTypeDef(TypedDict):
     TableName: str
     IndexName: NotRequired[str]
 
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
 class FailureExceptionTypeDef(TypedDict):
     ExceptionName: NotRequired[str]
     ExceptionDescription: NotRequired[str]
@@ -614,10 +616,6 @@ class KinesisDataStreamDestinationTypeDef(TypedDict):
 
 class DescribeTableInputTypeDef(TypedDict):
     TableName: str
-
-class WaiterConfigTypeDef(TypedDict):
-    Delay: NotRequired[int]
-    MaxAttempts: NotRequired[int]
 
 class DescribeTableReplicaAutoScalingInputTypeDef(TypedDict):
     TableName: str
@@ -654,7 +652,7 @@ class GlobalSecondaryIndexWarmThroughputDescriptionTypeDef(TypedDict):
 
 class ProjectionOutputTypeDef(TypedDict):
     ProjectionType: NotRequired[ProjectionTypeType]
-    NonKeyAttributes: NotRequired[List[str]]
+    NonKeyAttributes: NotRequired[list[str]]
 
 class ProvisionedThroughputDescriptionTypeDef(TypedDict):
     LastIncreaseDateTime: NotRequired[datetime]
@@ -749,7 +747,7 @@ class SSEDescriptionTypeDef(TypedDict):
     InaccessibleEncryptionDateTime: NotRequired[datetime]
 
 class TableBatchWriterRequestTypeDef(TypedDict):
-    overwrite_by_pkeys: NotRequired[List[str]]
+    overwrite_by_pkeys: NotRequired[list[str]]
 
 class TimeToLiveSpecificationTypeDef(TypedDict):
     Enabled: bool
@@ -771,27 +769,27 @@ class UpdateKinesisStreamingConfigurationTypeDef(TypedDict):
 class BatchStatementErrorTypeDef(TypedDict):
     Code: NotRequired[BatchStatementErrorCodeEnumType]
     Message: NotRequired[str]
-    Item: NotRequired[Dict[str, AttributeValueTypeDef]]
+    Item: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class DeleteRequestOutputTypeDef(TypedDict):
-    Key: Dict[str, AttributeValueTypeDef]
+    Key: dict[str, AttributeValueTypeDef]
 
 class ItemCollectionMetricsTypeDef(TypedDict):
-    ItemCollectionKey: NotRequired[Dict[str, AttributeValueTypeDef]]
-    SizeEstimateRangeGB: NotRequired[List[float]]
+    ItemCollectionKey: NotRequired[dict[str, AttributeValueTypeDef]]
+    SizeEstimateRangeGB: NotRequired[list[float]]
 
 class ItemResponseTypeDef(TypedDict):
-    Item: NotRequired[Dict[str, AttributeValueTypeDef]]
+    Item: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class KeysAndAttributesOutputTypeDef(TypedDict):
-    Keys: List[Dict[str, AttributeValueTypeDef]]
-    AttributesToGet: NotRequired[List[str]]
+    Keys: list[dict[str, AttributeValueTypeDef]]
+    AttributesToGet: NotRequired[list[str]]
     ConsistentRead: NotRequired[bool]
     ProjectionExpression: NotRequired[str]
-    ExpressionAttributeNames: NotRequired[Dict[str, str]]
+    ExpressionAttributeNames: NotRequired[dict[str, str]]
 
 class PutRequestOutputTypeDef(TypedDict):
-    Item: Dict[str, AttributeValueTypeDef]
+    Item: dict[str, AttributeValueTypeDef]
 
 UniversalAttributeValueTypeDef = Union[
     AttributeValueTypeDef,
@@ -801,11 +799,11 @@ UniversalAttributeValueTypeDef = Union[
     int,
     Decimal,
     bool,
-    Set[int],
-    Set[Decimal],
-    Set[str],
-    Set[bytes],
-    Set[bytearray],
+    set[int],
+    set[Decimal],
+    set[str],
+    set[bytes],
+    set[bytearray],
     Sequence[Any],
     Mapping[str, Any],
     None,
@@ -820,7 +818,7 @@ class ConditionTableTypeDef(TypedDict):
     AttributeValueList: NotRequired[Sequence[TableAttributeValueTypeDef]]
 
 class DeleteRequestServiceResourceOutputTypeDef(TypedDict):
-    Key: Dict[str, TableAttributeValueTypeDef]
+    Key: dict[str, TableAttributeValueTypeDef]
 
 class DeleteRequestServiceResourceTypeDef(TypedDict):
     Key: Mapping[str, TableAttributeValueTypeDef]
@@ -840,19 +838,19 @@ class GetItemInputTableGetItemTypeDef(TypedDict):
     ExpressionAttributeNames: NotRequired[Mapping[str, str]]
 
 class ItemCollectionMetricsServiceResourceTypeDef(TypedDict):
-    ItemCollectionKey: NotRequired[Dict[str, TableAttributeValueTypeDef]]
-    SizeEstimateRangeGB: NotRequired[List[float]]
+    ItemCollectionKey: NotRequired[dict[str, TableAttributeValueTypeDef]]
+    SizeEstimateRangeGB: NotRequired[list[float]]
 
 class ItemCollectionMetricsTableTypeDef(TypedDict):
-    ItemCollectionKey: NotRequired[Dict[str, TableAttributeValueTypeDef]]
-    SizeEstimateRangeGB: NotRequired[List[float]]
+    ItemCollectionKey: NotRequired[dict[str, TableAttributeValueTypeDef]]
+    SizeEstimateRangeGB: NotRequired[list[float]]
 
 class KeysAndAttributesServiceResourceOutputTypeDef(TypedDict):
-    Keys: List[Dict[str, TableAttributeValueTypeDef]]
-    AttributesToGet: NotRequired[List[str]]
+    Keys: list[dict[str, TableAttributeValueTypeDef]]
+    AttributesToGet: NotRequired[list[str]]
     ConsistentRead: NotRequired[bool]
     ProjectionExpression: NotRequired[str]
-    ExpressionAttributeNames: NotRequired[Dict[str, str]]
+    ExpressionAttributeNames: NotRequired[dict[str, str]]
 
 class KeysAndAttributesServiceResourceTypeDef(TypedDict):
     Keys: Sequence[Mapping[str, TableAttributeValueTypeDef]]
@@ -862,7 +860,7 @@ class KeysAndAttributesServiceResourceTypeDef(TypedDict):
     ExpressionAttributeNames: NotRequired[Mapping[str, str]]
 
 class PutRequestServiceResourceOutputTypeDef(TypedDict):
-    Item: Dict[str, TableAttributeValueTypeDef]
+    Item: dict[str, TableAttributeValueTypeDef]
 
 class PutRequestServiceResourceTypeDef(TypedDict):
     Item: Mapping[str, TableAttributeValueTypeDef]
@@ -903,12 +901,12 @@ class GetResourcePolicyOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBackupsOutputTypeDef(TypedDict):
-    BackupSummaries: List[BackupSummaryTypeDef]
+    BackupSummaries: list[BackupSummaryTypeDef]
     LastEvaluatedBackupArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTablesOutputTypeDef(TypedDict):
-    TableNames: List[str]
+    TableNames: list[str]
     LastEvaluatedTableName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -929,22 +927,22 @@ class ConsumedCapacityTypeDef(TypedDict):
     ReadCapacityUnits: NotRequired[float]
     WriteCapacityUnits: NotRequired[float]
     Table: NotRequired[CapacityTypeDef]
-    LocalSecondaryIndexes: NotRequired[Dict[str, CapacityTypeDef]]
-    GlobalSecondaryIndexes: NotRequired[Dict[str, CapacityTypeDef]]
+    LocalSecondaryIndexes: NotRequired[dict[str, CapacityTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[dict[str, CapacityTypeDef]]
 
 class ContinuousBackupsDescriptionTypeDef(TypedDict):
     ContinuousBackupsStatus: ContinuousBackupsStatusType
     PointInTimeRecoveryDescription: NotRequired[PointInTimeRecoveryDescriptionTypeDef]
 
 class ListContributorInsightsOutputTypeDef(TypedDict):
-    ContributorInsightsSummaries: List[ContributorInsightsSummaryTypeDef]
+    ContributorInsightsSummaries: list[ContributorInsightsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class SourceTableDetailsTypeDef(TypedDict):
     TableName: str
     TableId: str
-    KeySchema: List[KeySchemaElementTypeDef]
+    KeySchema: list[KeySchemaElementTypeDef]
     TableCreationDateTime: datetime
     ProvisionedThroughput: ProvisionedThroughputTypeDef
     TableArn: NotRequired[str]
@@ -965,7 +963,7 @@ class CreateGlobalTableInputTypeDef(TypedDict):
 
 class GlobalTableTypeDef(TypedDict):
     GlobalTableName: NotRequired[str]
-    ReplicationGroup: NotRequired[List[ReplicaTypeDef]]
+    ReplicationGroup: NotRequired[list[ReplicaTypeDef]]
 
 class ReplicaGlobalSecondaryIndexTypeDef(TypedDict):
     IndexName: str
@@ -973,7 +971,7 @@ class ReplicaGlobalSecondaryIndexTypeDef(TypedDict):
     OnDemandThroughputOverride: NotRequired[OnDemandThroughputOverrideTypeDef]
 
 class ListTagsOfResourceOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -995,24 +993,22 @@ class ReplicaUpdateTypeDef(TypedDict):
     Create: NotRequired[CreateReplicaActionTypeDef]
     Delete: NotRequired[DeleteReplicaActionTypeDef]
 
-class DescribeContributorInsightsOutputTypeDef(TypedDict):
+class DescribeContributorInsightsInputWaitTypeDef(TypedDict):
     TableName: str
-    IndexName: str
-    ContributorInsightsRuleList: List[str]
-    ContributorInsightsStatus: ContributorInsightsStatusType
-    LastUpdateDateTime: datetime
-    FailureException: FailureExceptionTypeDef
-    ContributorInsightsMode: ContributorInsightsModeType
-    ResponseMetadata: ResponseMetadataTypeDef
+    IndexName: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
-class DescribeEndpointsResponseTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class DescribeExportInputWaitTypeDef(TypedDict):
+    ExportArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
-class DescribeKinesisStreamingDestinationOutputTypeDef(TypedDict):
+class DescribeImportInputWaitTypeDef(TypedDict):
+    ImportArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeKinesisStreamingDestinationInputWaitTypeDef(TypedDict):
     TableName: str
-    KinesisDataStreamDestinations: List[KinesisDataStreamDestinationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeTableInputWaitExtraTypeDef(TypedDict):
     TableName: str
@@ -1021,6 +1017,25 @@ class DescribeTableInputWaitExtraTypeDef(TypedDict):
 class DescribeTableInputWaitTypeDef(TypedDict):
     TableName: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeContributorInsightsOutputTypeDef(TypedDict):
+    TableName: str
+    IndexName: str
+    ContributorInsightsRuleList: list[str]
+    ContributorInsightsStatus: ContributorInsightsStatusType
+    LastUpdateDateTime: datetime
+    FailureException: FailureExceptionTypeDef
+    ContributorInsightsMode: ContributorInsightsModeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeEndpointsResponseTypeDef(TypedDict):
+    Endpoints: list[EndpointTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeKinesisStreamingDestinationOutputTypeDef(TypedDict):
+    TableName: str
+    KinesisDataStreamDestinations: list[KinesisDataStreamDestinationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTimeToLiveOutputTypeDef(TypedDict):
     TimeToLiveDescription: TimeToLiveDescriptionTypeDef
@@ -1067,7 +1082,7 @@ class ExportDescriptionTypeDef(TypedDict):
     IncrementalExportSpecification: NotRequired[IncrementalExportSpecificationOutputTypeDef]
 
 class ListExportsOutputTypeDef(TypedDict):
-    ExportSummaries: List[ExportSummaryTypeDef]
+    ExportSummaries: list[ExportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1092,14 +1107,14 @@ class ReplicaGlobalSecondaryIndexDescriptionTypeDef(TypedDict):
 
 class GlobalSecondaryIndexInfoTypeDef(TypedDict):
     IndexName: NotRequired[str]
-    KeySchema: NotRequired[List[KeySchemaElementTypeDef]]
+    KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
     Projection: NotRequired[ProjectionOutputTypeDef]
     ProvisionedThroughput: NotRequired[ProvisionedThroughputTypeDef]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
 
 class GlobalSecondaryIndexOutputTypeDef(TypedDict):
     IndexName: str
-    KeySchema: List[KeySchemaElementTypeDef]
+    KeySchema: list[KeySchemaElementTypeDef]
     Projection: ProjectionOutputTypeDef
     ProvisionedThroughput: NotRequired[ProvisionedThroughputTypeDef]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
@@ -1107,7 +1122,7 @@ class GlobalSecondaryIndexOutputTypeDef(TypedDict):
 
 class LocalSecondaryIndexDescriptionTypeDef(TypedDict):
     IndexName: NotRequired[str]
-    KeySchema: NotRequired[List[KeySchemaElementTypeDef]]
+    KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
     Projection: NotRequired[ProjectionOutputTypeDef]
     IndexSizeBytes: NotRequired[int]
     ItemCount: NotRequired[int]
@@ -1115,12 +1130,12 @@ class LocalSecondaryIndexDescriptionTypeDef(TypedDict):
 
 class LocalSecondaryIndexInfoTypeDef(TypedDict):
     IndexName: NotRequired[str]
-    KeySchema: NotRequired[List[KeySchemaElementTypeDef]]
+    KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
     Projection: NotRequired[ProjectionOutputTypeDef]
 
 class GlobalSecondaryIndexDescriptionTypeDef(TypedDict):
     IndexName: NotRequired[str]
-    KeySchema: NotRequired[List[KeySchemaElementTypeDef]]
+    KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
     Projection: NotRequired[ProjectionOutputTypeDef]
     IndexStatus: NotRequired[IndexStatusType]
     Backfilling: NotRequired[bool]
@@ -1184,7 +1199,7 @@ class UpdateKinesisStreamingDestinationOutputTypeDef(TypedDict):
 class BatchStatementResponseTypeDef(TypedDict):
     Error: NotRequired[BatchStatementErrorTypeDef]
     TableName: NotRequired[str]
-    Item: NotRequired[Dict[str, AttributeValueTypeDef]]
+    Item: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class WriteRequestOutputTypeDef(TypedDict):
     PutRequest: NotRequired[PutRequestOutputTypeDef]
@@ -1379,7 +1394,7 @@ class AutoScalingSettingsDescriptionTypeDef(TypedDict):
     MaximumUnits: NotRequired[int]
     AutoScalingDisabled: NotRequired[bool]
     AutoScalingRoleArn: NotRequired[str]
-    ScalingPolicies: NotRequired[List[AutoScalingPolicyDescriptionTypeDef]]
+    ScalingPolicies: NotRequired[list[AutoScalingPolicyDescriptionTypeDef]]
 
 class AutoScalingSettingsUpdateTypeDef(TypedDict):
     MinimumUnits: NotRequired[int]
@@ -1389,113 +1404,113 @@ class AutoScalingSettingsUpdateTypeDef(TypedDict):
     ScalingPolicyUpdate: NotRequired[AutoScalingPolicyUpdateTypeDef]
 
 class BatchGetItemOutputServiceResourceTypeDef(TypedDict):
-    Responses: Dict[str, List[Dict[str, TableAttributeValueTypeDef]]]
-    UnprocessedKeys: Dict[str, KeysAndAttributesServiceResourceOutputTypeDef]
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
+    Responses: dict[str, list[dict[str, TableAttributeValueTypeDef]]]
+    UnprocessedKeys: dict[str, KeysAndAttributesServiceResourceOutputTypeDef]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetItemOutputTypeDef(TypedDict):
-    Responses: Dict[str, List[Dict[str, AttributeValueTypeDef]]]
-    UnprocessedKeys: Dict[str, KeysAndAttributesOutputTypeDef]
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
+    Responses: dict[str, list[dict[str, AttributeValueTypeDef]]]
+    UnprocessedKeys: dict[str, KeysAndAttributesOutputTypeDef]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteItemOutputTableTypeDef(TypedDict):
-    Attributes: Dict[str, TableAttributeValueTypeDef]
+    Attributes: dict[str, TableAttributeValueTypeDef]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ItemCollectionMetrics: ItemCollectionMetricsTableTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteItemOutputTypeDef(TypedDict):
-    Attributes: Dict[str, AttributeValueTypeDef]
+    Attributes: dict[str, AttributeValueTypeDef]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ItemCollectionMetrics: ItemCollectionMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ExecuteStatementOutputTypeDef(TypedDict):
-    Items: List[Dict[str, AttributeValueTypeDef]]
+    Items: list[dict[str, AttributeValueTypeDef]]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-    LastEvaluatedKey: NotRequired[Dict[str, AttributeValueTypeDef]]
+    LastEvaluatedKey: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class ExecuteTransactionOutputTypeDef(TypedDict):
-    Responses: List[ItemResponseTypeDef]
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
+    Responses: list[ItemResponseTypeDef]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetItemOutputTableTypeDef(TypedDict):
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-    Item: NotRequired[Dict[str, TableAttributeValueTypeDef]]
+    Item: NotRequired[dict[str, TableAttributeValueTypeDef]]
 
 class GetItemOutputTypeDef(TypedDict):
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-    Item: NotRequired[Dict[str, AttributeValueTypeDef]]
+    Item: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class PutItemOutputTableTypeDef(TypedDict):
-    Attributes: Dict[str, TableAttributeValueTypeDef]
+    Attributes: dict[str, TableAttributeValueTypeDef]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ItemCollectionMetrics: ItemCollectionMetricsTableTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutItemOutputTypeDef(TypedDict):
-    Attributes: Dict[str, AttributeValueTypeDef]
+    Attributes: dict[str, AttributeValueTypeDef]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ItemCollectionMetrics: ItemCollectionMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class QueryOutputTableTypeDef(TypedDict):
-    Items: List[Dict[str, TableAttributeValueTypeDef]]
+    Items: list[dict[str, TableAttributeValueTypeDef]]
     Count: int
     ScannedCount: int
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-    LastEvaluatedKey: NotRequired[Dict[str, TableAttributeValueTypeDef]]
+    LastEvaluatedKey: NotRequired[dict[str, TableAttributeValueTypeDef]]
 
 class QueryOutputTypeDef(TypedDict):
-    Items: List[Dict[str, AttributeValueTypeDef]]
+    Items: list[dict[str, AttributeValueTypeDef]]
     Count: int
     ScannedCount: int
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-    LastEvaluatedKey: NotRequired[Dict[str, AttributeValueTypeDef]]
+    LastEvaluatedKey: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class ScanOutputTableTypeDef(TypedDict):
-    Items: List[Dict[str, TableAttributeValueTypeDef]]
+    Items: list[dict[str, TableAttributeValueTypeDef]]
     Count: int
     ScannedCount: int
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-    LastEvaluatedKey: NotRequired[Dict[str, TableAttributeValueTypeDef]]
+    LastEvaluatedKey: NotRequired[dict[str, TableAttributeValueTypeDef]]
 
 class ScanOutputTypeDef(TypedDict):
-    Items: List[Dict[str, AttributeValueTypeDef]]
+    Items: list[dict[str, AttributeValueTypeDef]]
     Count: int
     ScannedCount: int
     ConsumedCapacity: ConsumedCapacityTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-    LastEvaluatedKey: NotRequired[Dict[str, AttributeValueTypeDef]]
+    LastEvaluatedKey: NotRequired[dict[str, AttributeValueTypeDef]]
 
 class TransactGetItemsOutputTypeDef(TypedDict):
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
-    Responses: List[ItemResponseTypeDef]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
+    Responses: list[ItemResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TransactWriteItemsOutputTypeDef(TypedDict):
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
-    ItemCollectionMetrics: Dict[str, List[ItemCollectionMetricsTypeDef]]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
+    ItemCollectionMetrics: dict[str, list[ItemCollectionMetricsTypeDef]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateItemOutputTableTypeDef(TypedDict):
-    Attributes: Dict[str, TableAttributeValueTypeDef]
+    Attributes: dict[str, TableAttributeValueTypeDef]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ItemCollectionMetrics: ItemCollectionMetricsTableTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateItemOutputTypeDef(TypedDict):
-    Attributes: Dict[str, AttributeValueTypeDef]
+    Attributes: dict[str, AttributeValueTypeDef]
     ConsumedCapacity: ConsumedCapacityTypeDef
     ItemCollectionMetrics: ItemCollectionMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1509,7 +1524,7 @@ class UpdateContinuousBackupsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGlobalTablesOutputTypeDef(TypedDict):
-    GlobalTables: List[GlobalTableTypeDef]
+    GlobalTables: list[GlobalTableTypeDef]
     LastEvaluatedGlobalTableName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1563,7 +1578,7 @@ ReplicaDescriptionTypeDef = TypedDict(
         "ProvisionedThroughputOverride": NotRequired[ProvisionedThroughputOverrideTypeDef],
         "OnDemandThroughputOverride": NotRequired[OnDemandThroughputOverrideTypeDef],
         "WarmThroughput": NotRequired[TableWarmThroughputDescriptionTypeDef],
-        "GlobalSecondaryIndexes": NotRequired[List[ReplicaGlobalSecondaryIndexDescriptionTypeDef]],
+        "GlobalSecondaryIndexes": NotRequired[list[ReplicaGlobalSecondaryIndexDescriptionTypeDef]],
         "ReplicaInaccessibleDateTime": NotRequired[datetime],
         "ReplicaTableClassSummary": NotRequired[TableClassSummaryTypeDef],
     },
@@ -1571,23 +1586,23 @@ ReplicaDescriptionTypeDef = TypedDict(
 
 class TableCreationParametersOutputTypeDef(TypedDict):
     TableName: str
-    AttributeDefinitions: List[AttributeDefinitionTypeDef]
-    KeySchema: List[KeySchemaElementTypeDef]
+    AttributeDefinitions: list[AttributeDefinitionTypeDef]
+    KeySchema: list[KeySchemaElementTypeDef]
     BillingMode: NotRequired[BillingModeType]
     ProvisionedThroughput: NotRequired[ProvisionedThroughputTypeDef]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     SSESpecification: NotRequired[SSESpecificationTypeDef]
-    GlobalSecondaryIndexes: NotRequired[List[GlobalSecondaryIndexOutputTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[list[GlobalSecondaryIndexOutputTypeDef]]
 
 class SourceTableFeatureDetailsTypeDef(TypedDict):
-    LocalSecondaryIndexes: NotRequired[List[LocalSecondaryIndexInfoTypeDef]]
-    GlobalSecondaryIndexes: NotRequired[List[GlobalSecondaryIndexInfoTypeDef]]
+    LocalSecondaryIndexes: NotRequired[list[LocalSecondaryIndexInfoTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[list[GlobalSecondaryIndexInfoTypeDef]]
     StreamDescription: NotRequired[StreamSpecificationTypeDef]
     TimeToLiveDescription: NotRequired[TimeToLiveDescriptionTypeDef]
     SSEDescription: NotRequired[SSEDescriptionTypeDef]
 
 class ListImportsOutputTypeDef(TypedDict):
-    ImportSummaryList: List[ImportSummaryTypeDef]
+    ImportSummaryList: list[ImportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1613,14 +1628,14 @@ class LocalSecondaryIndexTypeDef(TypedDict):
     Projection: ProjectionUnionTypeDef
 
 class BatchExecuteStatementOutputTypeDef(TypedDict):
-    Responses: List[BatchStatementResponseTypeDef]
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
+    Responses: list[BatchStatementResponseTypeDef]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchWriteItemOutputTypeDef(TypedDict):
-    UnprocessedItems: Dict[str, List[WriteRequestOutputTypeDef]]
-    ItemCollectionMetrics: Dict[str, List[ItemCollectionMetricsTypeDef]]
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
+    UnprocessedItems: dict[str, list[WriteRequestOutputTypeDef]]
+    ItemCollectionMetrics: dict[str, list[ItemCollectionMetricsTypeDef]]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchExecuteStatementInputTypeDef(TypedDict):
@@ -1765,9 +1780,9 @@ class BatchGetItemInputServiceResourceBatchGetItemTypeDef(TypedDict):
     ReturnConsumedCapacity: NotRequired[ReturnConsumedCapacityType]
 
 class BatchWriteItemOutputServiceResourceTypeDef(TypedDict):
-    UnprocessedItems: Dict[str, List[WriteRequestServiceResourceOutputTypeDef]]
-    ItemCollectionMetrics: Dict[str, List[ItemCollectionMetricsServiceResourceTypeDef]]
-    ConsumedCapacity: List[ConsumedCapacityTypeDef]
+    UnprocessedItems: dict[str, list[WriteRequestServiceResourceOutputTypeDef]]
+    ItemCollectionMetrics: dict[str, list[ItemCollectionMetricsServiceResourceTypeDef]]
+    ConsumedCapacity: list[ConsumedCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class WriteRequestServiceResourceTypeDef(TypedDict):
@@ -1825,16 +1840,16 @@ class ExportTableToPointInTimeInputTypeDef(TypedDict):
     IncrementalExportSpecification: NotRequired[IncrementalExportSpecificationUnionTypeDef]
 
 class GlobalTableDescriptionTypeDef(TypedDict):
-    ReplicationGroup: NotRequired[List[ReplicaDescriptionTypeDef]]
+    ReplicationGroup: NotRequired[list[ReplicaDescriptionTypeDef]]
     GlobalTableArn: NotRequired[str]
     CreationDateTime: NotRequired[datetime]
     GlobalTableStatus: NotRequired[GlobalTableStatusType]
     GlobalTableName: NotRequired[str]
 
 class TableDescriptionTypeDef(TypedDict):
-    AttributeDefinitions: NotRequired[List[AttributeDefinitionTypeDef]]
+    AttributeDefinitions: NotRequired[list[AttributeDefinitionTypeDef]]
     TableName: NotRequired[str]
-    KeySchema: NotRequired[List[KeySchemaElementTypeDef]]
+    KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
     TableStatus: NotRequired[TableStatusType]
     CreationDateTime: NotRequired[datetime]
     ProvisionedThroughput: NotRequired[ProvisionedThroughputDescriptionTypeDef]
@@ -1843,14 +1858,14 @@ class TableDescriptionTypeDef(TypedDict):
     TableArn: NotRequired[str]
     TableId: NotRequired[str]
     BillingModeSummary: NotRequired[BillingModeSummaryTypeDef]
-    LocalSecondaryIndexes: NotRequired[List[LocalSecondaryIndexDescriptionTypeDef]]
-    GlobalSecondaryIndexes: NotRequired[List[GlobalSecondaryIndexDescriptionTypeDef]]
+    LocalSecondaryIndexes: NotRequired[list[LocalSecondaryIndexDescriptionTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[list[GlobalSecondaryIndexDescriptionTypeDef]]
     StreamSpecification: NotRequired[StreamSpecificationTypeDef]
     LatestStreamLabel: NotRequired[str]
     LatestStreamArn: NotRequired[str]
     GlobalTableVersion: NotRequired[str]
-    Replicas: NotRequired[List[ReplicaDescriptionTypeDef]]
-    GlobalTableWitnesses: NotRequired[List[GlobalTableWitnessDescriptionTypeDef]]
+    Replicas: NotRequired[list[ReplicaDescriptionTypeDef]]
+    GlobalTableWitnesses: NotRequired[list[GlobalTableWitnessDescriptionTypeDef]]
     RestoreSummary: NotRequired[RestoreSummaryTypeDef]
     SSEDescription: NotRequired[SSEDescriptionTypeDef]
     ArchivalSummary: NotRequired[ArchivalSummaryTypeDef]
@@ -1931,7 +1946,7 @@ ReplicaAutoScalingDescriptionTypeDef = TypedDict(
     {
         "RegionName": NotRequired[str],
         "GlobalSecondaryIndexes": NotRequired[
-            List[ReplicaGlobalSecondaryIndexAutoScalingDescriptionTypeDef]
+            list[ReplicaGlobalSecondaryIndexAutoScalingDescriptionTypeDef]
         ],
         "ReplicaProvisionedReadCapacityAutoScalingSettings": NotRequired[
             AutoScalingSettingsDescriptionTypeDef
@@ -1957,7 +1972,7 @@ ReplicaSettingsDescriptionTypeDef = TypedDict(
             AutoScalingSettingsDescriptionTypeDef
         ],
         "ReplicaGlobalSecondaryIndexSettings": NotRequired[
-            List[ReplicaGlobalSecondaryIndexSettingsDescriptionTypeDef]
+            list[ReplicaGlobalSecondaryIndexSettingsDescriptionTypeDef]
         ],
         "ReplicaTableClassSummary": NotRequired[TableClassSummaryTypeDef],
     },
@@ -2142,16 +2157,16 @@ class BatchWriteItemInputServiceResourceBatchWriteItemTypeDef(TypedDict):
 class TableAutoScalingDescriptionTypeDef(TypedDict):
     TableName: NotRequired[str]
     TableStatus: NotRequired[TableStatusType]
-    Replicas: NotRequired[List[ReplicaAutoScalingDescriptionTypeDef]]
+    Replicas: NotRequired[list[ReplicaAutoScalingDescriptionTypeDef]]
 
 class DescribeGlobalTableSettingsOutputTypeDef(TypedDict):
     GlobalTableName: str
-    ReplicaSettings: List[ReplicaSettingsDescriptionTypeDef]
+    ReplicaSettings: list[ReplicaSettingsDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateGlobalTableSettingsOutputTypeDef(TypedDict):
     GlobalTableName: str
-    ReplicaSettings: List[ReplicaSettingsDescriptionTypeDef]
+    ReplicaSettings: list[ReplicaSettingsDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateTableReplicaAutoScalingInputTypeDef(TypedDict):

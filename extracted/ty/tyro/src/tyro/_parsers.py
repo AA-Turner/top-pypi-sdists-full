@@ -7,15 +7,15 @@ import numbers
 import warnings
 from typing import Any, Callable, Dict, List, Set, Tuple, Type, TypeVar, Union, cast
 
-from rich.text import Text
 from typing_extensions import Annotated, get_args, get_origin
 
 from tyro.constructors._registry import ConstructorRegistry
-from tyro.constructors._struct_spec import UnsupportedStructTypeMessage
+from tyro.constructors._struct_spec import (
+    InvalidDefaultInstanceError,
+    UnsupportedStructTypeMessage,
+)
 
-from . import _argparse as argparse
 from . import (
-    _argparse_formatter,
     _arguments,
     _docstrings,
     _fields,
@@ -24,16 +24,47 @@ from . import (
     _strings,
     _subcommand_matching,
 )
+from . import _fmtlib as fmt
 from ._typing import TypeForm
 from ._typing_compat import is_typing_union
 from .conf import _confstruct, _markers
-from .conf._mutex_group import _MutexGroupConfig
 from .constructors._primitive_spec import (
     PrimitiveConstructorSpec,
     UnsupportedTypeAnnotationError,
 )
 
 T = TypeVar("T")
+
+
+@dataclasses.dataclass()
+class LazyParserSpecification:
+    """Lazy wrapper that defers full ParserSpecification creation until needed.
+
+    Stores lightweight metadata (description) for fast help text generation,
+    while deferring expensive parser construction until actually needed.
+    """
+
+    # Lightweight field needed for tyro help formatting.
+    description: str
+
+    # Factory for creating the full parser when needed.
+    _factory: Callable[[], ParserSpecification]
+    _cached: ParserSpecification | None = dataclasses.field(default=None, init=False)
+
+    def evaluate(self) -> ParserSpecification:
+        """Get the full ParserSpecification, creating it if needed."""
+        if self._cached is None:
+            self._cached = self._factory()
+        return self._cached
+
+
+@dataclasses.dataclass()
+class ArgWithContext:
+    arg: _arguments.ArgumentDefinition
+    source_parser: ParserSpecification
+    """ParserSpecification that directly contains this argument."""
+    local_root_parser: ParserSpecification
+    """Furthest ancestor of `source_parser` within the same (sub)command."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -46,48 +77,46 @@ class ParserSpecification:
     args: List[_arguments.ArgumentDefinition]
     field_list: List[_fields.FieldDefinition]
     child_from_prefix: Dict[str, ParserSpecification]
-    helptext_from_intern_prefixed_field_name: Dict[str, str | None]
+    helptext_from_intern_prefixed_field_name: Dict[
+        str, str | Callable[[], str | None] | None
+    ]
 
-    # We have two mechanics for tracking subparser groups:
-    # - A single subparser group, which is what gets added in the tree structure built
-    # by the argparse parser.
-    subparsers: SubparsersSpecification | None
-    # - A set of subparser groups, which reflect the tree structure built by the
-    # hierarchy of a nested config structure.
+    # Subparser groups that are direct children of this parser. The actual tree
+    # structure for argparse is built on-demand in apply().
     subparsers_from_intern_prefix: Dict[str, SubparsersSpecification]
     intern_prefix: str
     extern_prefix: str
     has_required_args: bool
-    consolidate_subcommand_args: bool
-    add_help: bool
+    subparser_parent: ParserSpecification | None
+    prog_suffix: str
 
     @staticmethod
     def from_callable_or_type(
         f: Callable[..., T],
-        markers: Set[_markers._Marker],
-        description: str | None,
+        markers: Set[_markers.Marker],
+        description: str | Callable[[], str | None] | None,
         parent_classes: Set[Type[Any]],
         default_instance: Union[
             T, _singleton.PropagatingMissingType, _singleton.NonpropagatingMissingType
         ],
         intern_prefix: str,
         extern_prefix: str,
-        add_help: bool,
-        subcommand_prefix: str = "",
-        support_single_arg_types: bool = False,
+        subcommand_prefix: str,
+        support_single_arg_types: bool,
+        prog_suffix: str,
     ) -> ParserSpecification:
         """Create a parser definition from a callable or type."""
 
         # Consolidate subcommand types.
-        markers = markers | set(_resolver.unwrap_annotated(f, _markers._Marker)[1])
-        consolidate_subcommand_args = _markers.ConsolidateSubcommandArgs in markers
+        f_unwrapped, new_markers = _resolver.unwrap_annotated(f, _markers._Marker)
+        markers = markers | set(new_markers)
 
         # Cycle detection.
         #
-        # - 'parent' here refers to in the nesting hierarchy, not the superclass.
+        # - `parent` here refers to in the nesting hierarchy, not the superclass.
         # - We threshold by `max_nesting_depth` to suppress false positives,
-        #  for example from custom constructors that behave differently
-        #  depending the default value. (example: ml_collections.ConfigDict)
+        #   for example from custom constructors that behave differently
+        #   depending the default value. (example: ml_collections.ConfigDict)
         max_nesting_depth = 128
         if (
             f in parent_classes
@@ -95,7 +124,12 @@ class ParserSpecification:
             and intern_prefix.count(".") > max_nesting_depth
         ):
             raise UnsupportedTypeAnnotationError(
-                f"Found a cyclic dependency with type {f}."
+                (
+                    fmt.text(
+                        "Found a cyclic dependency with type ",
+                        fmt.text["cyan"](str(f)),
+                    ),
+                )
             )
 
         # TODO: we are abusing the (minor) distinctions between types, classes, and
@@ -103,23 +137,70 @@ class ParserSpecification:
         # cleaned up.
         parent_classes = parent_classes | {cast(Type, f)}
 
+        # Wrap our type with a dummy dataclass if it can't be treated as a
+        # nested type. For example: passing in f=int will result in a dataclass
+        # with a single field typed as int.
+        #
+        # Why don't we always use a dummy dataclass?
+        # => Docstrings for inner structs are currently lost when we nest struct types.
+        from . import _calling
+
         # Resolve the type of `f`, generate a field list.
+        # Try once first to avoid calling field_list_from_type_or_callable twice.
+        f_for_field_list = f
+        default_instance_for_field_list = default_instance
+
+        # Check if we need DummyWrapper by trying to get fields first.
         with _fields.FieldDefinition.marker_context(tuple(markers)):
             out = _fields.field_list_from_type_or_callable(
-                f=f,
-                default_instance=default_instance,
+                f=f_for_field_list,
+                default_instance=default_instance_for_field_list,
                 support_single_arg_types=support_single_arg_types,
+                in_union_context=False,
             )
-            assert not isinstance(out, UnsupportedStructTypeMessage), out
+
+            # If not a struct type and not None, wrap in DummyWrapper and try again.
+            if isinstance(
+                out, UnsupportedStructTypeMessage
+            ) and f_unwrapped is not type(None):
+                try:
+                    f_for_field_list = _calling.DummyWrapper[f]  # type: ignore
+                    default_instance_for_field_list = _calling.DummyWrapper(
+                        default_instance
+                    )  # type: ignore
+                    out = _fields.field_list_from_type_or_callable(
+                        f=f_for_field_list,
+                        default_instance=default_instance_for_field_list,
+                        support_single_arg_types=support_single_arg_types,
+                        in_union_context=False,
+                    )
+                except TypeError as e:  # pragma: no cover
+                    # In Python 3.8, DummyWrapper[f] raises TypeError if f is not a valid type.
+                    # (e.g., "Parameters to generic types must be types. Got 5.")
+                    raise UnsupportedTypeAnnotationError(
+                        (
+                            fmt.text(
+                                "Expected a type, class, or callable, but got ",
+                                fmt.text["cyan"](repr(f)),
+                                ".",
+                            ),
+                        )
+                    ) from e
+
+            assert not isinstance(out, UnsupportedStructTypeMessage), out.message
+            assert not isinstance(out, InvalidDefaultInstanceError), "\n".join(
+                repr(fmt.rows(*out.message))
+            )
             f, field_list = out
 
         has_required_args = False
-        args = []
-        helptext_from_intern_prefixed_field_name: Dict[str, str | None] = {}
+        args: list[_arguments.ArgumentDefinition] = []
+        helptext_from_intern_prefixed_field_name: Dict[
+            str, str | Callable[[], str | None] | None
+        ] = {}
 
         child_from_prefix: Dict[str, ParserSpecification] = {}
 
-        subparsers = None
         subparsers_from_prefix = {}
 
         for field in field_list:
@@ -129,7 +210,7 @@ class ParserSpecification:
                 intern_prefix=intern_prefix,
                 extern_prefix=extern_prefix,
                 subcommand_prefix=subcommand_prefix,
-                add_help=add_help,
+                prog_suffix=prog_suffix,
             )
             if isinstance(field_out, _arguments.ArgumentDefinition):
                 # Handle single arguments.
@@ -139,29 +220,29 @@ class ParserSpecification:
             elif isinstance(field_out, SubparsersSpecification):
                 # Handle subparsers.
                 subparsers_from_prefix[field_out.intern_prefix] = field_out
-                subparsers = add_subparsers_to_leaves(subparsers, field_out)
             elif isinstance(field_out, ParserSpecification):
                 # Handle nested parsers.
                 nested_parser = field_out
                 child_from_prefix[field_out.intern_prefix] = nested_parser
 
+                # Flatten subparsers from nested parser into current parser.
+                # This handles the case where a field's type has subcommands that need
+                # to be accessible at the parent level.
+                for (
+                    prefix,
+                    subparser_spec,
+                ) in nested_parser.subparsers_from_intern_prefix.items():
+                    subparsers_from_prefix[prefix] = subparser_spec
+
                 if nested_parser.has_required_args:
                     has_required_args = True
-
-                # Include nested subparsers.
-                if nested_parser.subparsers is not None:
-                    subparsers_from_prefix.update(
-                        nested_parser.subparsers_from_intern_prefix
-                    )
-                    subparsers = add_subparsers_to_leaves(
-                        subparsers, nested_parser.subparsers
-                    )
 
                 # Helptext for this field; used as description for grouping arguments.
                 class_field_name = _strings.make_field_name(
                     [intern_prefix, field.intern_name]
                 )
                 if field.helptext is not None:
+                    # Keep lazy - don't evaluate yet.
                     helptext_from_intern_prefixed_field_name[class_field_name] = (
                         field.helptext
                     )
@@ -179,166 +260,59 @@ class ParserSpecification:
                     current_helptext = helptext_from_intern_prefixed_field_name[
                         class_field_name
                     ]
+                    # Evaluate lazy helptext before concatenating.
+                    if callable(current_helptext):
+                        current_helptext = current_helptext()
                     helptext_from_intern_prefixed_field_name[class_field_name] = (
                         ("" if current_helptext is None else current_helptext + "\n\n")
                         + "Default: "
                         + str(field.default)
                     )
 
-        return ParserSpecification(
+        # Evaluate lazy description if callable.
+        desc = (
+            description
+            if description is not None
+            else _docstrings.get_callable_description(f)
+        )
+        if callable(desc):
+            desc = desc()
+        # If still None after evaluation, use empty string.
+        if desc is None:
+            desc = ""
+
+        parser_spec = ParserSpecification(
             f=f,
             markers=markers,
-            description=_strings.remove_single_line_breaks(
-                description
-                if description is not None
-                else _docstrings.get_callable_description(f)
-            ),
+            description=_strings.remove_single_line_breaks(desc),
             args=args,
             field_list=field_list,
             child_from_prefix=child_from_prefix,
             helptext_from_intern_prefixed_field_name=helptext_from_intern_prefixed_field_name,
-            subparsers=subparsers,
             subparsers_from_intern_prefix=subparsers_from_prefix,
             intern_prefix=intern_prefix,
             extern_prefix=extern_prefix,
             has_required_args=has_required_args,
-            consolidate_subcommand_args=consolidate_subcommand_args,
-            add_help=add_help,
+            subparser_parent=None,
+            prog_suffix=prog_suffix,
         )
 
-    def apply(
-        self, parser: argparse.ArgumentParser, force_required_subparsers: bool
-    ) -> Tuple[argparse.ArgumentParser, ...]:
-        """Create defined arguments and subparsers."""
+        return parser_spec
 
-        # Generate helptext.
-        parser.description = self.description
-
-        # `force_required_subparsers`: if we have required arguments and we're
-        # consolidating all arguments into the leaves of the subparser trees, a
-        # required argument in one node of this tree means that all of its
-        # descendants are required.
-        if self.consolidate_subcommand_args and self.has_required_args:
-            force_required_subparsers = True
-
-        # Create subparser tree.
-        subparser_group = None
-        if self.subparsers is not None:
-            leaves = self.subparsers.apply(parser, force_required_subparsers)
-            subparser_group = parser._action_groups.pop()
-        else:
-            leaves = (parser,)
-
-        # Depending on whether we want to consolidate subcommand args, we can either
-        # apply arguments to the intermediate parser or only on the leaves.
-        if self.consolidate_subcommand_args:
-            for leaf in leaves:
-                self.apply_args(leaf)
-        else:
-            self.apply_args(parser)
-
-        if subparser_group is not None:
-            parser._action_groups.append(subparser_group)
-
-        # Break some API boundaries to rename the "optional arguments" => "options".
-        assert parser._action_groups[1].title in (
-            # python <= 3.9
-            "optional arguments",
-            # python >= 3.10
-            "options",
-        )
-        parser._action_groups[1].title = "options"
-
-        return leaves
-
-    def apply_args(
+    def get_args_including_children(
         self,
-        parser: argparse.ArgumentParser,
-        parent: ParserSpecification | None = None,
-        exclusive_group_from_group_conf: Dict[
-            _MutexGroupConfig, argparse._MutuallyExclusiveGroup
-        ]
-        | None = None,
-    ) -> None:
-        """Create defined arguments and subparsers."""
+        local_root: ParserSpecification | None = None,
+    ) -> list[ArgWithContext]:
+        """Get all arguments in this parser and its children.
 
-        # Make argument groups.
-        def format_group_name(group_name: str) -> str:
-            return (group_name + " options").strip()
-
-        group_from_group_name: Dict[str, argparse._ArgumentGroup] = {
-            "": parser._action_groups[1],
-            **{
-                cast(str, group.title).partition(" ")[0]: group
-                for group in parser._action_groups[2:]
-            },
-        }
-        positional_group = parser._action_groups[0]
-        assert positional_group.title == "positional arguments"
-
-        # Inherit mutex groups from parent or create new dict
-        if exclusive_group_from_group_conf is None:
-            exclusive_group_from_group_conf = {}
-
-        # Add each argument group. Groups with only suppressed arguments won't
-        # be added.
-        for arg in self.args:
-            # Don't add suppressed arguments to the parser.
-            if arg.is_suppressed():
-                continue
-            elif arg.field.is_positional():
-                arg.add_argument(positional_group)
-                continue
-            elif arg.field.mutex_group is not None:
-                group_conf = arg.field.mutex_group
-                if group_conf not in exclusive_group_from_group_conf:
-                    exclusive_group_from_group_conf[group_conf] = (
-                        parser.add_argument_group(
-                            "mutually exclusive",
-                            description=_argparse_formatter.str_from_rich(
-                                Text.from_markup(
-                                    "Exactly one argument must be passed in. [bright_red](required)[/bright_red]"
-                                )
-                            )
-                            if group_conf.required
-                            else "At most one argument can overridden.",
-                        ).add_mutually_exclusive_group(required=group_conf.required)
-                    )
-                arg.add_argument(exclusive_group_from_group_conf[group_conf])
-            else:
-                group_name = (
-                    arg.extern_prefix
-                    if arg.field.argconf.name != ""
-                    # If the field name is "erased", we'll place the argument in
-                    # the parent's group.
-                    #
-                    # This is to avoid "issue 1" in:
-                    # https://github.com/brentyi/tyro/issues/183
-                    #
-                    # Setting `tyro.conf.arg(name="")` should generally be
-                    # discouraged, so this will rarely matter.
-                    else arg.extern_prefix.rpartition(".")[0]
-                )
-                if group_name not in group_from_group_name:
-                    description = (
-                        parent.helptext_from_intern_prefixed_field_name.get(
-                            arg.intern_prefix
-                        )
-                        if parent is not None
-                        else None
-                    )
-                    group_from_group_name[group_name] = parser.add_argument_group(
-                        format_group_name(group_name),
-                        description=description,
-                    )
-                arg.add_argument(group_from_group_name[group_name])
-
+        Does not include arguments in subparsers.
+        """
+        if local_root is None:
+            local_root = self
+        args = [ArgWithContext(arg, self, local_root) for arg in self.args]
         for child in self.child_from_prefix.values():
-            child.apply_args(
-                parser,
-                parent=self,
-                exclusive_group_from_group_conf=exclusive_group_from_group_conf,
-            )
+            args.extend(child.get_args_including_children(local_root))
+        return args
 
 
 def handle_field(
@@ -347,7 +321,7 @@ def handle_field(
     intern_prefix: str,
     extern_prefix: str,
     subcommand_prefix: str,
-    add_help: bool,
+    prog_suffix: str,
 ) -> Union[
     _arguments.ArgumentDefinition,
     ParserSpecification,
@@ -363,7 +337,7 @@ def handle_field(
         # If a custom constructor is set, static_type may not be
         # matched to the annotated type.
         and field.argconf.constructor_factory is None
-        and field.default not in _singleton.DEFAULT_SENTINEL_SINGLETONS
+        and not _singleton.is_sentinel(field.default)
         # The numeric tower in Python is wacky. This logic is non-critical, so
         # we'll just skip it (+the complexity) for numbers.
         and not isinstance(field.default, numbers.Number)
@@ -401,17 +375,18 @@ def handle_field(
                 extern_prefix=_strings.make_field_name(
                     [extern_prefix, field.extern_name]
                 ),
-                add_help=add_help,
+                prog_suffix=prog_suffix,
             )
             if subparsers_attempt is not None:
                 return subparsers_attempt
 
         # (2) Handle nested callables.
-        if _fields.is_struct_type(field.type, field.default):
+        if _fields.is_struct_type(field.type, field.default, in_union_context=False):
+            # Keep description lazy - don't evaluate yet.
             return ParserSpecification.from_callable_or_type(
                 field.type_stripped,
                 markers=field.markers,
-                description=None,
+                description=field.helptext,
                 parent_classes=parent_classes,
                 default_instance=field.default,
                 intern_prefix=_strings.make_field_name(
@@ -422,33 +397,50 @@ def handle_field(
                     if field.argconf.prefix_name in (True, None)
                     else field.extern_name
                 ),
-                add_help=add_help,
                 subcommand_prefix=subcommand_prefix,
                 support_single_arg_types=False,
+                prog_suffix=prog_suffix,
             )
 
     # (3) Handle primitive or fixed types. These produce a single argument!
-    return _arguments.ArgumentDefinition(
+    arg = _arguments.ArgumentDefinition(
         intern_prefix=intern_prefix,
         extern_prefix=extern_prefix,
         subcommand_prefix=subcommand_prefix,
         field=field,
     )
 
+    # Validate that Fixed/Suppress fields have defaults.
+    if (
+        _markers.Fixed in field.markers or _markers.Suppress in field.markers
+    ) and _singleton.is_missing(field.default):
+        raise UnsupportedTypeAnnotationError(
+            (
+                fmt.text(
+                    "Field ",
+                    fmt.text["magenta", "bold"](field.intern_name),
+                    " is marked as Fixed or Suppress but is missing a default value",
+                ),
+            )
+        )
+
+    return arg
+
 
 @dataclasses.dataclass(frozen=True)
 class SubparsersSpecification:
     """Structure for defining subparsers. Each subparser is a parser with a name."""
 
-    name: str
-    description: str | None
-    parser_from_name: Dict[str, ParserSpecification]
+    description: str | Callable[[], str | None] | None
+    parser_from_name: Dict[str, LazyParserSpecification]
     default_name: str | None
     default_parser: ParserSpecification | None
     intern_prefix: str
+    extern_prefix: str
     required: bool
     default_instance: Any
     options: Tuple[Union[TypeForm[Any], Callable], ...]
+    prog_suffix: str
 
     @staticmethod
     def from_field(
@@ -456,7 +448,7 @@ class SubparsersSpecification:
         parent_classes: Set[Type[Any]],
         intern_prefix: str,
         extern_prefix: str,
-        add_help: bool,
+        prog_suffix: str,
     ) -> SubparsersSpecification | ParserSpecification | None:
         """From a field: return either a subparser specification, a parser
         specification for subcommands when `tyro.conf.AvoidSubcommands` is used
@@ -470,15 +462,9 @@ class SubparsersSpecification:
         # We don't use sets here to retain order of subcommands.
         options: List[Union[type, Callable]]
         options = [typ for typ in get_args(typ)]
-        options = [
-            (
-                # Cast seems unnecessary but needed in mypy... (1.4.1)
-                cast(Callable, none_proxy) if o is type(None) else o
-            )
-            for o in options
-        ]
 
         # If specified, swap types using tyro.conf.subcommand(constructor=...).
+        found_subcommand_conf = False
         for i, option in enumerate(options):
             _, found_subcommand_configs = _resolver.unwrap_annotated(
                 option, _confstruct._SubcommandConfig
@@ -487,6 +473,7 @@ class SubparsersSpecification:
                 len(found_subcommand_configs) > 0
                 and found_subcommand_configs[0].constructor_factory is not None
             ):
+                found_subcommand_conf = True
                 options[i] = Annotated[  # type: ignore
                     (
                         found_subcommand_configs[0].constructor_factory(),
@@ -494,19 +481,25 @@ class SubparsersSpecification:
                     )
                 ]
 
-        # Exit if we don't contain any nested types.
-        if not any(
-            [
-                o is not none_proxy
-                and _fields.is_struct_type(cast(type, o), _singleton.MISSING_NONPROP)
-                for o in options
-            ]
-        ):
+        # Exit if we don't contain any struct types.
+        def recursive_contains_struct_type(options: list[Any]) -> bool:
+            for o in options:
+                if _fields.is_struct_type(
+                    o, _singleton.MISSING_NONPROP, in_union_context=True
+                ):
+                    return True
+                if is_typing_union(get_origin(_resolver.unwrap_annotated(o))):
+                    if recursive_contains_struct_type(get_args(o)):  # type: ignore
+                        return True
+            return False
+
+        if not found_subcommand_conf and not recursive_contains_struct_type(options):
             return None
 
         # Get subcommand configurations from `tyro.conf.subcommand()`.
         subcommand_config_from_name: Dict[str, _confstruct._SubcommandConfig] = {}
         subcommand_type_from_name: Dict[str, type] = {}
+        subcommand_names: list[str] = []
         for option in options:
             option_unwrapped, found_subcommand_configs = _resolver.unwrap_annotated(
                 option, _confstruct._SubcommandConfig
@@ -517,21 +510,19 @@ class SubparsersSpecification:
                     if _markers.OmitSubcommandPrefixes in field.markers
                     else extern_prefix
                 ),
-                type(None) if option_unwrapped is none_proxy else cast(type, option),
+                cast(type, option),
             )
+            subcommand_names.append(subcommand_name)
             if subcommand_name in subcommand_type_from_name:
                 # Raise a warning that the subcommand already exists
                 original_type = subcommand_type_from_name[subcommand_name]
-                new_type = (
-                    type(None) if option_unwrapped is none_proxy else option_unwrapped
-                )
                 original_type_full_name = (
                     f"{original_type.__module__}.{original_type.__name__}"
                 )
                 new_type_full_name = (
-                    f"{new_type.__module__}.{new_type.__name__}"
-                    if new_type is not None
-                    else "None"
+                    f"{option_unwrapped.__module__}.{option_unwrapped.__name__}"
+                    if option_unwrapped is not None
+                    else "none"
                 )
 
                 warnings.warn(
@@ -553,33 +544,53 @@ class SubparsersSpecification:
             subcommand_type_from_name[subcommand_name] = cast(type, option)
 
         # If a field default is provided, try to find a matching subcommand name.
-        default_name = None
-        if field.default not in _singleton.MISSING_AND_MISSING_NONPROP:
-            # Subcommand matcher won't work with `none_proxy`.
-            if field.default is None:
-                default_name = next(
-                    iter(
-                        filter(
-                            lambda pair: pair[1] is none_proxy,
-                            subcommand_type_from_name.items(),
-                        )
-                    )
-                )[0]
-            else:
-                default_name = _subcommand_matching.match_subcommand(
-                    field.default,
-                    subcommand_config_from_name,
-                    subcommand_type_from_name,
-                )
-
-            assert default_name is not None, (
-                f"`{extern_prefix}` was provided a default value of type"
-                f" {type(field.default)} but no matching subcommand was found. A"
-                " type may be missing in the Union type declaration for"
-                f" `{extern_prefix}`, which currently expects {options}. "
-                "The types may also be too complex for tyro's subcommand matcher; support "
-                "is particularly limited for custom generic types."
+        # Note: EXCLUDE_FROM_CALL (from TypedDict total=False or NotRequired[]) is
+        # a sentinel that means no default was provided, so we skip matching.
+        default_name = (
+            _subcommand_matching.match_subcommand(
+                field.default,
+                subcommand_config_from_name,
+                subcommand_type_from_name,
+                extern_prefix,
             )
+            if not _singleton.is_sentinel(field.default)
+            else None
+        )
+
+        if (
+            default_name is not None
+            and _markers.NewSubcommandForDefaults in field.markers
+        ):
+            # Create a new "default" subcommand instead of matching to an
+            # existing one. This preserves original subcommand defaults.
+            default_subcommand_name = (
+                "default"
+                if _markers.OmitSubcommandPrefixes in field.markers
+                else f"{extern_prefix}:default"
+            )
+            assert default_subcommand_name not in subcommand_type_from_name, (
+                f"Cannot create new default subcommand '{default_subcommand_name}' "
+                f"because it already exists."
+            )
+
+            # Add to tracking structures. We inherit type from matched default
+            # subcommand.
+            default_config = _confstruct._SubcommandConfig(
+                name="default",
+                description="",
+                default=field.default,
+                prefix_name=True,
+                constructor_factory=None,
+            )
+            default_type = subcommand_type_from_name[default_name]
+            subcommand_config_from_name[default_subcommand_name] = default_config
+            subcommand_type_from_name[default_subcommand_name] = default_type
+
+            # Add matching pair of subcommand name and type.
+            subcommand_names.append(default_subcommand_name)
+            options.append(default_type)
+
+            default_name = default_subcommand_name
 
         # Handle `tyro.conf.AvoidSubcommands` with a default value.
         if default_name is not None and _markers.AvoidSubcommands in field.markers:
@@ -591,23 +602,14 @@ class SubparsersSpecification:
                 default_instance=field.default,
                 intern_prefix=intern_prefix,
                 extern_prefix=extern_prefix,
-                add_help=add_help,
-                subcommand_prefix=intern_prefix,
-                support_single_arg_types=False,
+                subcommand_prefix=extern_prefix,
+                support_single_arg_types=True,
+                prog_suffix=prog_suffix,
             )
 
         # Add subcommands for each option.
-        parser_from_name: Dict[str, ParserSpecification] = {}
-        for option in options:
-            subcommand_name = _strings.subparser_name_from_type(
-                (
-                    ""
-                    if _markers.OmitSubcommandPrefixes in field.markers
-                    else extern_prefix
-                ),
-                type(None) if option is none_proxy else cast(type, option),
-            )
-
+        parser_from_name: Dict[str, LazyParserSpecification] = {}
+        for option, subcommand_name in zip(options, subcommand_names):
             # Get a subcommand config: either pulled from the type annotations or the
             # field default.
             if subcommand_name in subcommand_config_from_name:
@@ -622,8 +624,8 @@ class SubparsersSpecification:
                 )
 
             # If names match, borrow subcommand default from field default.
-            if default_name == subcommand_name and (
-                field.default not in _singleton.MISSING_AND_MISSING_NONPROP
+            if default_name == subcommand_name and not _singleton.is_missing(
+                field.default
             ):
                 subcommand_config = dataclasses.replace(
                     subcommand_config, default=field.default
@@ -631,7 +633,7 @@ class SubparsersSpecification:
 
             # Strip the subcommand config from the option type.
             # Relevant: https://github.com/brentyi/tyro/pull/117
-            option_origin, annotations = _resolver.unwrap_annotated(option, "all")
+            option_unwrapped, annotations = _resolver.unwrap_annotated(option, "all")
             annotations = tuple(
                 a
                 for a in annotations
@@ -640,34 +642,72 @@ class SubparsersSpecification:
             if _markers.Suppress in annotations:
                 continue
 
-            if len(annotations) == 0:
-                option = option_origin
-            else:
-                option = Annotated[(option_origin,) + annotations]  # type: ignore
+            # Skip None options when DisallowNone is present.
+            # This follows the same pattern as regular field DisallowNone handling.
+            if (
+                option_unwrapped is type(None)
+                and _markers.DisallowNone in field.markers
+            ):
+                continue
 
-            with _fields.FieldDefinition.marker_context(tuple(field.markers)):
-                subparser = ParserSpecification.from_callable_or_type(
-                    option,  # type: ignore
-                    markers=field.markers,
-                    description=subcommand_config.description,
-                    parent_classes=parent_classes,
-                    default_instance=subcommand_config.default,
-                    intern_prefix=intern_prefix,
-                    extern_prefix=extern_prefix,
-                    add_help=add_help,
-                    subcommand_prefix=intern_prefix,
-                    support_single_arg_types=True,
+            if len(annotations) == 0:
+                option = option_unwrapped
+            else:
+                option = Annotated[(option_unwrapped,) + annotations]  # type: ignore
+
+            # Extract description early for fast help text generation.
+            # If no explicit description, get it from the callable's docstring.
+            description_for_help = subcommand_config.description
+            if option_unwrapped is type(None):
+                description_for_help = ""
+            elif description_for_help is None:
+                description_for_help = _docstrings.get_callable_description(
+                    option_unwrapped
                 )
 
-            # Apply prefix to helptext in nested classes in subparsers.
-            subparser = dataclasses.replace(
-                subparser,
-                helptext_from_intern_prefixed_field_name={
-                    _strings.make_field_name([intern_prefix, k]): v
-                    for k, v in subparser.helptext_from_intern_prefixed_field_name.items()
-                },
+            # Create lazy parser: defer expensive parsing until actually needed.
+            def parser_factory(
+                option_captured: Any = option,
+                markers_captured: Set[_markers._Marker] = field.markers,
+                subcommand_config_captured: _confstruct._SubcommandConfig = subcommand_config,
+                parent_classes_captured: Set[Type[Any]] = parent_classes,
+                intern_prefix_captured: str = intern_prefix,
+                extern_prefix_captured: str = extern_prefix,
+                prog_suffix_captured: str = prog_suffix,
+                subcommand_name_captured: str = subcommand_name,
+                field_markers_captured: Set[_markers._Marker] = field.markers,
+            ) -> ParserSpecification:
+                with _fields.FieldDefinition.marker_context(
+                    tuple(field_markers_captured)
+                ):
+                    subparser = ParserSpecification.from_callable_or_type(
+                        option_captured,  # type: ignore
+                        markers=markers_captured,
+                        description=subcommand_config_captured.description,
+                        parent_classes=parent_classes_captured,
+                        default_instance=subcommand_config_captured.default,
+                        intern_prefix=intern_prefix_captured,
+                        extern_prefix=extern_prefix_captured,
+                        subcommand_prefix=extern_prefix_captured,
+                        support_single_arg_types=True,
+                        prog_suffix=subcommand_name_captured
+                        if prog_suffix_captured == ""
+                        else prog_suffix_captured + " " + subcommand_name_captured,
+                    )
+                # Apply prefix to helptext in nested classes in subparsers.
+                subparser = dataclasses.replace(
+                    subparser,
+                    helptext_from_intern_prefixed_field_name={
+                        _strings.make_field_name([intern_prefix_captured, k]): v
+                        for k, v in subparser.helptext_from_intern_prefixed_field_name.items()
+                    },
+                )
+                return subparser
+
+            parser_from_name[subcommand_name] = LazyParserSpecification(
+                description=_strings.remove_single_line_breaks(description_for_help),
+                _factory=parser_factory,  # type: ignore
             )
-            parser_from_name[subcommand_name] = subparser
 
         # Default parser was suppressed!
         if default_name not in parser_from_name:
@@ -677,128 +717,53 @@ class SubparsersSpecification:
         # parameters.
         default_parser = None
         if default_name is None:
-            required = True
+            # Special case for DisallowNone: if the default would be None but we
+            # suppressed the None subcommand due to DisallowNone, keep it optional.
+            if field.default is None and _markers.DisallowNone in field.markers:
+                required = False
+            else:
+                # If the default is EXCLUDE_FROM_CALL (from TypedDict total=False or
+                # NotRequired[Union[...]]), the subparser is optional. When no subcommand
+                # is selected, the field will be excluded from the result (see _calling.py).
+                required = field.default is not _singleton.EXCLUDE_FROM_CALL
         else:
             required = False
-            default_parser = parser_from_name[default_name]
+            # Evaluate the lazy parser to check for required args/subparsers.
+            default_parser_evaluated = parser_from_name[default_name].evaluate()
+            # Error should have been caught earlier.
+            assert not isinstance(
+                default_parser_evaluated, UnsupportedTypeAnnotationError
+            ), "Unexpected UnsupportedTypeAnnotationError in backend"
 
             # If there are any required arguments.
-            if any(map(lambda arg: arg.lowered.required, default_parser.args)):
-                required = True
-                default_parser = None
-
-            # If there are any required subparsers.
-            elif (
-                default_parser.subparsers is not None
-                and default_parser.subparsers.required
+            if any(
+                map(lambda arg: arg.lowered.required, default_parser_evaluated.args)
             ):
                 required = True
                 default_parser = None
+            # If there are any required subparsers.
+            elif any(
+                subparser_spec.required
+                for subparser_spec in default_parser_evaluated.subparsers_from_intern_prefix.values()
+            ):
+                required = True
+                default_parser = None
+            else:
+                default_parser = default_parser_evaluated
 
         return SubparsersSpecification(
-            name=field.intern_name,
             # If we wanted, we could add information about the default instance
             # automatically, as is done for normal fields. But for now we just rely on
             # the user to include it in the docstring.
+            # Keep description lazy - don't evaluate yet.
             description=field.helptext,
             parser_from_name=parser_from_name,
             default_name=default_name,
             default_parser=default_parser,
             intern_prefix=intern_prefix,
+            extern_prefix=extern_prefix,
             required=required,
             default_instance=field.default,
             options=tuple(options),
+            prog_suffix=prog_suffix,
         )
-
-    def apply(
-        self,
-        parent_parser: argparse.ArgumentParser,
-        force_required_subparsers: bool,
-    ) -> Tuple[argparse.ArgumentParser, ...]:
-        title = "subcommands"
-        metavar = "{" + ",".join(self.parser_from_name.keys()) + "}"
-
-        required = self.required or force_required_subparsers
-
-        if not required:
-            title = "optional " + title
-            metavar = f"[{metavar}]"
-
-        # Make description.
-        description_parts = []
-        if self.description is not None:
-            description_parts.append(self.description)
-        if not required and self.default_name is not None:
-            description_parts.append(f"(default: {self.default_name})")
-
-        # If this subparser is required because of a required argument in a
-        # parent (tyro.conf.ConsolidateSubcommandArgs).
-        if not self.required and force_required_subparsers:
-            description_parts.append("(required to specify parent argument)")
-
-        description = (
-            # We use `None` instead of an empty string to prevent a line break from
-            # being created where the description would be.
-            " ".join(description_parts) if len(description_parts) > 0 else None
-        )
-
-        # Add subparsers to every node in previous level of the tree.
-        argparse_subparsers = parent_parser.add_subparsers(
-            dest=_strings.make_subparser_dest(self.intern_prefix),
-            description=description,
-            required=required,
-            title=title,
-            metavar=metavar,
-        )
-
-        subparser_tree_leaves: List[argparse.ArgumentParser] = []
-        for name, subparser_def in self.parser_from_name.items():
-            helptext = subparser_def.description.replace("%", "%%")
-            if len(helptext) > 0:
-                # TODO: calling a private function here.
-                helptext = _arguments._rich_tag_if_enabled(helptext.strip(), "helptext")
-
-            subparser = argparse_subparsers.add_parser(
-                name,
-                formatter_class=_argparse_formatter.TyroArgparseHelpFormatter,
-                help=helptext,
-                allow_abbrev=False,
-                add_help=parent_parser.add_help,
-            )
-
-            # Attributes used for error message generation.
-            assert isinstance(subparser, _argparse_formatter.TyroArgumentParser)
-            assert isinstance(parent_parser, _argparse_formatter.TyroArgumentParser)
-            subparser._parsing_known_args = parent_parser._parsing_known_args
-            subparser._parser_specification = parent_parser._parser_specification
-            subparser._console_outputs = parent_parser._console_outputs
-            subparser._args = parent_parser._args
-
-            subparser_tree_leaves.extend(
-                subparser_def.apply(subparser, force_required_subparsers)
-            )
-
-        return tuple(subparser_tree_leaves)
-
-
-def add_subparsers_to_leaves(
-    root: SubparsersSpecification | None, leaf: SubparsersSpecification
-) -> SubparsersSpecification:
-    if root is None:
-        return leaf
-
-    new_parsers_from_name = {}
-    for name, parser in root.parser_from_name.items():
-        new_parsers_from_name[name] = dataclasses.replace(
-            parser,
-            subparsers=add_subparsers_to_leaves(parser.subparsers, leaf),
-        )
-    return dataclasses.replace(
-        root,
-        parser_from_name=new_parsers_from_name,
-        required=root.required or leaf.required,
-    )
-
-
-def none_proxy() -> None:
-    return None

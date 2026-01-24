@@ -1856,68 +1856,67 @@ def test_kern_zyyy_zinh(FontClass):
         """\
         lookup kern_Deva {
             lookupflag IgnoreMarks;
-            pos uni1CD0 uni1CD0 7;
-            pos uni1CE0 uni1CE0 8;
-            pos uni1CF0 uni1CF0 9;
-            pos uni20F0 uni20F0 11;
-            pos uniA830 uniA830 34;
+            pos uni1CD0 uni1CD0 6;
+            pos uni1CE0 uni1CE0 7;
+            pos uni1CF0 uni1CF0 8;
+            pos uni20F0 uni20F0 10;
+            pos uniA830 uniA830 33;
         } kern_Deva;
 
         lookup kern_Dupl {
             lookupflag IgnoreMarks;
-            pos uni1BCA0 uni1BCA0 42;
+            pos uni1BCA0 uni1BCA0 41;
         } kern_Dupl;
 
         lookup kern_Grek {
             lookupflag IgnoreMarks;
             pos uni0300 uni0300 0;
-            pos uni1DC0 uni1DC0 10;
+            pos uni1DC0 uni1DC0 9;
         } kern_Grek;
 
         lookup kern_Hani_Hrkt {
             lookupflag IgnoreMarks;
-            pos uni1D360 uni1D360 43;
-            pos uni1D370 uni1D370 44;
-            pos uni1F250 uni1F250 45;
-            pos uni2FF0 uni2FF0 13;
-            pos uni3010 uni3010 14;
-            pos uni3030 uni3030 15;
-            pos uni30A0 uni30A0 16;
-            pos uni3190 uni3190 17;
-            pos uni31C0 uni31C0 18;
-            pos uni31D0 uni31D0 19;
-            pos uni31E0 uni31E0 20;
-            pos uni3220 uni3220 21;
-            pos uni3230 uni3230 22;
-            pos uni3240 uni3240 23;
-            pos uni3280 uni3280 24;
-            pos uni3290 uni3290 25;
-            pos uni32A0 uni32A0 26;
-            pos uni32B0 uni32B0 27;
-            pos uni32C0 uni32C0 28;
-            pos uni3360 uni3360 29;
-            pos uni3370 uni3370 30;
-            pos uni33E0 uni33E0 31;
-            pos uni33F0 uni33F0 32;
-            pos uniA700 uniA700 33;
-            pos uniFF70 uniFF70 35;
+            pos uni1D360 uni1D360 42;
+            pos uni1D370 uni1D370 43;
+            pos uni1F250 uni1F250 44;
+            pos uni2FF0 uni2FF0 12;
+            pos uni3010 uni3010 13;
+            pos uni3030 uni3030 14;
+            pos uni30A0 uni30A0 15;
+            pos uni3190 uni3190 16;
+            pos uni31C0 uni31C0 17;
+            pos uni31D0 uni31D0 18;
+            pos uni31E0 uni31E0 19;
+            pos uni3220 uni3220 20;
+            pos uni3230 uni3230 21;
+            pos uni3240 uni3240 22;
+            pos uni3280 uni3280 23;
+            pos uni3290 uni3290 24;
+            pos uni32A0 uni32A0 25;
+            pos uni32B0 uni32B0 26;
+            pos uni32C0 uni32C0 27;
+            pos uni3360 uni3360 28;
+            pos uni3370 uni3370 29;
+            pos uni33E0 uni33E0 30;
+            pos uni33F0 uni33F0 31;
+            pos uniA700 uniA700 32;
+            pos uniFF70 uniFF70 34;
         } kern_Hani_Hrkt;
 
         lookup kern_Default {
             lookupflag IgnoreMarks;
             pos uni0310 uni0310 1;
-            pos uni0320 uni0320 2;
-            pos uni0330 uni0330 3;
-            pos uni0640 uni0640 4;
-            pos uni0650 uni0650 5;
-            pos uni0670 uni0670 6;
-            pos uni10100 uni10100 36;
-            pos uni10110 uni10110 37;
-            pos uni10120 uni10120 38;
-            pos uni10130 uni10130 39;
-            pos uni102E0 uni102E0 40;
-            pos uni102F0 uni102F0 41;
-            pos uni2E30 uni2E30 12;
+            pos uni0330 uni0330 2;
+            pos uni0640 uni0640 3;
+            pos uni0650 uni0650 4;
+            pos uni0670 uni0670 5;
+            pos uni10100 uni10100 35;
+            pos uni10110 uni10110 36;
+            pos uni10120 uni10120 37;
+            pos uni10130 uni10130 38;
+            pos uni102E0 uni102E0 39;
+            pos uni102F0 uni102F0 40;
+            pos uni2E30 uni2E30 11;
         } kern_Default;
 
         feature kern {
@@ -2277,6 +2276,60 @@ def test_dflt_language(FontClass):
         } kern;
         """
     )
+
+
+def test_skip_existing_feature_no_dangling_lookups(FontClass):
+    """Check that when a feature block already exists (e.g. dist), the lookups
+    that would have been generated for that feature are not written to the
+    feature file, thus ensuring no dangling/unreferenced lookups.
+
+    See: https://github.com/googlefonts/ufo2ft/issues/960
+    """
+    # Create glyphs for both kern (Latin) and dist (Kannada)
+    glyphs = {
+        "a": ord("a"),
+        "b": ord("b"),
+        "aaMatra_kannada": 0x0CBE,
+        "ailength_kannada": 0xCD6,
+    }
+    groups = {
+        "public.kern1.KND_aaMatra_R": ["aaMatra_kannada"],
+        "public.kern2.KND_ailength_L": ["aaMatra_kannada"],
+    }
+    kerning = {
+        ("a", "b"): 10,  # This will go to kern feature
+        ("public.kern1.KND_aaMatra_R", "public.kern2.KND_ailength_L"): 34,  # dist
+    }
+    # Features with existing dist block: this should cause dist to be skipped
+    features = dedent(
+        """\
+        languagesystem DFLT dflt;
+        languagesystem latn dflt;
+        languagesystem knda dflt;
+        languagesystem knd2 dflt;
+
+        feature dist {
+            # manual dist feature
+            pos aaMatra_kannada ailength_kannada 50;
+        } dist;
+        """
+    )
+
+    ufo = makeUFO(FontClass, glyphs, groups, kerning, features)
+
+    writer = KernFeatureWriter()
+    feaFile = parseLayoutFeatures(ufo)
+    writer.write(ufo, feaFile)
+
+    # Get all lookups in the generated feature file
+    lookups = getLookups(feaFile)
+    lookup_names = [lkp.name for lkp in lookups]
+
+    # Expect kern lookup for Latin, but NOT dist lookup for Kannada
+    assert "kern_Latn" in lookup_names
+    assert (
+        "kern_Knda" not in lookup_names
+    ), "kern_Knda lookup should not be generated when dist feature exists"
 
 
 if __name__ == "__main__":

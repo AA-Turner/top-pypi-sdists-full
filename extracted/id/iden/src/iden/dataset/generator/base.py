@@ -6,78 +6,26 @@ __all__ = ["BaseDatasetGenerator", "is_dataset_generator_config", "setup_dataset
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from coola.equality.testers import EqualityTester
 from objectory import AbstractFactory
 from objectory.utils import is_object_config
+
+from iden.utils.comparator import ObjectEqualityComparator
 
 if TYPE_CHECKING:
     from iden.dataset import BaseDataset
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BaseDatasetGenerator(Generic[T], ABC, metaclass=AbstractFactory):
+class BaseDatasetGenerator(ABC, Generic[T], metaclass=AbstractFactory):
     r"""Define the base class to create a dataset.
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.dataset.generator import VanillaDatasetGenerator
-    >>> from iden.shard.generator import ShardDictGenerator
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     generator = VanillaDatasetGenerator(
-    ...         path_uri=Path(tmpdir).joinpath("uri"),
-    ...         shards=ShardDictGenerator(
-    ...             path_uri=Path(tmpdir).joinpath("uri/shards"), shards={}
-    ...         ),
-    ...         assets=ShardDictGenerator(
-    ...             path_uri=Path(tmpdir).joinpath("uri/assets"), shards={}
-    ...         ),
-    ...     )
-    ...     generator
-    ...     dataset = generator.generate("dataset1")
-    ...     dataset
-    ...
-    VanillaDatasetGenerator(
-      (path_uri): PosixPath('/.../uri')
-      (shards): ShardDictGenerator(
-          (path_uri): PosixPath('/.../uri/shards')
-          (shards):
-        )
-      (assets): ShardDictGenerator(
-          (path_uri): PosixPath('/.../uri/assets')
-          (shards):
-        )
-    )
-    VanillaDataset(
-      (uri): file:///.../uri/dataset1
-      (shards): ShardDict(
-          (uri): file:///.../uri/shards/shards
-          (shards):
-        )
-      (assets): ShardDict(
-          (uri): file:///.../uri/assets/assets
-          (shards):
-        )
-    )
-
-    ```
-    """
-
-    @abstractmethod
-    def generate(self, dataset_id: str) -> BaseDataset[T]:
-        r"""Generate a dataset.
-
-        Args:
-            dataset_id: The dataset IDI.
-
-        Returns:
-            The generated dataset.
-
+    Example:
         ```pycon
         >>> import tempfile
         >>> from pathlib import Path
@@ -93,9 +41,21 @@ class BaseDatasetGenerator(Generic[T], ABC, metaclass=AbstractFactory):
         ...             path_uri=Path(tmpdir).joinpath("uri/assets"), shards={}
         ...         ),
         ...     )
+        ...     generator
         ...     dataset = generator.generate("dataset1")
         ...     dataset
         ...
+        VanillaDatasetGenerator(
+          (path_uri): PosixPath('/.../uri')
+          (shards): ShardDictGenerator(
+              (path_uri): PosixPath('/.../uri/shards')
+              (shards):
+            )
+          (assets): ShardDictGenerator(
+              (path_uri): PosixPath('/.../uri/assets')
+              (shards):
+            )
+        )
         VanillaDataset(
           (uri): file:///.../uri/dataset1
           (shards): ShardDict(
@@ -109,10 +69,99 @@ class BaseDatasetGenerator(Generic[T], ABC, metaclass=AbstractFactory):
         )
 
         ```
+    """
+
+    @abstractmethod
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        r"""Indicate if two objects are equal or not.
+
+        Args:
+            other: The object to compare with.
+            equal_nan: If ``True``, then two ``NaN``s will be
+                considered equal.
+
+        Returns:
+            ``True`` if the two objects are equal, otherwise ``False``.
+
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.dataset.generator import VanillaDatasetGenerator
+            >>> from iden.shard.generator import ShardDictGenerator
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     shards = ShardDictGenerator(path_uri=Path(tmpdir).joinpath("uri/shards"), shards={})
+            ...     assets = ShardDictGenerator(path_uri=Path(tmpdir).joinpath("uri/assets"), shards={})
+            ...     generator1 = VanillaDatasetGenerator(
+            ...         path_uri=Path(tmpdir).joinpath("uri"),
+            ...         shards=shards,
+            ...         assets=assets,
+            ...     )
+            ...     generator2 = VanillaDatasetGenerator(
+            ...         path_uri=Path(tmpdir).joinpath("uri"),
+            ...         shards=shards,
+            ...         assets=assets,
+            ...     )
+            ...     generator3 = VanillaDatasetGenerator(
+            ...         path_uri=Path(tmpdir).joinpath("uri2"),
+            ...         shards=shards,
+            ...         assets=assets,
+            ...     )
+            ...     generator1.equal(generator2)
+            ...     generator1.equal(generator3)
+            ...
+            True
+            False
+
+            ```
+        """
+
+    @abstractmethod
+    def generate(self, dataset_id: str) -> BaseDataset[T]:
+        r"""Generate a dataset.
+
+        Args:
+            dataset_id: The dataset IDI.
+
+        Returns:
+            The generated dataset.
+
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.dataset.generator import VanillaDatasetGenerator
+            >>> from iden.shard.generator import ShardDictGenerator
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     generator = VanillaDatasetGenerator(
+            ...         path_uri=Path(tmpdir).joinpath("uri"),
+            ...         shards=ShardDictGenerator(
+            ...             path_uri=Path(tmpdir).joinpath("uri/shards"), shards={}
+            ...         ),
+            ...         assets=ShardDictGenerator(
+            ...             path_uri=Path(tmpdir).joinpath("uri/assets"), shards={}
+            ...         ),
+            ...     )
+            ...     dataset = generator.generate("dataset1")
+            ...     dataset
+            ...
+            VanillaDataset(
+              (uri): file:///.../uri/dataset1
+              (shards): ShardDict(
+                  (uri): file:///.../uri/shards/shards
+                  (shards):
+                )
+              (assets): ShardDict(
+                  (uri): file:///.../uri/assets/assets
+                  (shards):
+                )
+            )
+
+            ```
         """
 
 
-def is_dataset_generator_config(config: dict) -> bool:
+def is_dataset_generator_config(config: dict[Any, Any]) -> bool:
     r"""Indicate if the input configuration is a configuration for a
     ``BaseDatasetGenerator``.
 
@@ -128,23 +177,21 @@ def is_dataset_generator_config(config: dict) -> bool:
         ``True`` if the input configuration is a configuration for a
             ``BaseDatasetGenerator`` object.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from iden.dataset.generator import is_dataset_generator_config
+        >>> is_dataset_generator_config(
+        ...     {"_target_": "iden.dataset.generator.VanillaDatasetGenerator"}
+        ... )
+        True
 
-    ```pycon
-
-    >>> from iden.dataset.generator import is_dataset_generator_config
-    >>> is_dataset_generator_config(
-    ...     {"_target_": "iden.dataset.generator.VanillaDatasetGenerator"}
-    ... )
-    True
-
-    ```
+        ```
     """
     return is_object_config(config, BaseDatasetGenerator)
 
 
 def setup_dataset_generator(
-    dataset_generator: BaseDatasetGenerator[T] | dict,
+    dataset_generator: BaseDatasetGenerator[T] | dict[Any, Any],
 ) -> BaseDatasetGenerator[T]:
     r"""Set up a dataset generator.
 
@@ -157,10 +204,8 @@ def setup_dataset_generator(
     Returns:
         The instantiated dataset generator.
 
-    Example usage:
-
+    Example:
     ```pycon
-
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.dataset.generator import setup_dataset_generator
@@ -205,3 +250,7 @@ def setup_dataset_generator(
             f"dataset generator is not a BaseDatasetGenerator (received: {type(dataset_generator)})"
         )
     return dataset_generator
+
+
+if not EqualityTester.has_comparator(BaseDatasetGenerator):  # pragma: no cover
+    EqualityTester.add_comparator(BaseDatasetGenerator, ObjectEqualityComparator())

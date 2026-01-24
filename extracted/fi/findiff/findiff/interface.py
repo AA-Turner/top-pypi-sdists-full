@@ -1,4 +1,3 @@
-import numpy as np
 
 from .grids import make_axis
 from .operators import Diff as _Diff
@@ -24,7 +23,7 @@ class Diff(_Diff):
         Define the first derivative:
             >>> from findiff import Diff
             >>> d_dx = Diff(0)
-            >>> d_dx = d_dx.set_grid({0: x[1] - x[0]})
+            >>> d_dx.set_grid({0: x[1] - x[0]})
 
         Now apply it:
             >>> df_dx = d_dx(f)

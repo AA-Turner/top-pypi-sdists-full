@@ -156,9 +156,11 @@ class XKRXExchangeCalendar(PrecomputedExchangeCalendar):
         """
         Returns
         -------
-        list: List of (timedelta, timedelta, timedelta, timedelta, AbstractHolidayCalendar) tuples
-         that represent special open, break_start, break_end, close offsets
-         and corresponding HolidayCalendars.
+        list:
+            List of (timedelta, timedelta, timedelta, timedelta,
+            AbstractHolidayCalendar) tuples that represent, respectively,
+            special open, break_start, break_end, close offsets and
+            corresponding HolidayCalendars.
         """
         return [
             (
@@ -354,18 +356,18 @@ class XKRXExchangeCalendar(PrecomputedExchangeCalendar):
                 weekmask=self.weekmask,
                 weekmasks=self.special_weekmasks,
             )
-        else:
-            return CustomBusinessDay(
-                holidays=self.adhoc_holidays,
-                calendar=self.regular_holidays,
-                weekmask=self.weekmask,
-            )
+        return CustomBusinessDay(
+            holidays=self.adhoc_holidays,
+            calendar=self.regular_holidays,
+            weekmask=self.weekmask,
+        )
 
 
 class PrecomputedXKRXExchangeCalendar(PrecomputedExchangeCalendar):
     """
     Calendar for the Korea exchange, and the primary calendar for
     the country of South Korea.
+    https://global.krx.co.kr/contents/GLB/05/0501/0501110000/GLB0501110000.jsp
 
     Open Time: 9:00 AM, KST (Korean Standard Time)
     Close Time: 3:30 PM, KST (Korean Standard Time)

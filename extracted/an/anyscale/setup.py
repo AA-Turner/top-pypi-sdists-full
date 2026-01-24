@@ -80,7 +80,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=[*find_packages(exclude=["tests", "tests.*"])],
     setup_requires=["setuptools_scm"],
-    python_requires=">=3.8",
+    python_requires=">=3.9,<3.14",
     package_data={
         "": [
             "anyscale/webterminal/bash-preexec.sh",

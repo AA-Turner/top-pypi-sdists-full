@@ -20,12 +20,6 @@ class TestCompletions:
     @parametrize
     def test_method_create(self, client: Cerebras) -> None:
         completion = client.chat.completions.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                }
-            ],
             model="model",
         )
         assert_matches_type(ChatCompletion, completion, path=["response"])
@@ -33,25 +27,32 @@ class TestCompletions:
     @parametrize
     def test_method_create_with_all_params(self, client: Cerebras) -> None:
         completion = client.chat.completions.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                    "name": "name",
-                }
-            ],
             model="model",
+            clear_thinking=True,
+            disable_reasoning=True,
             frequency_penalty=-2,
-            logit_bias={},
+            logit_bias={"foo": 0},
             logprobs=True,
             max_completion_tokens=0,
             max_tokens=0,
+            messages=[
+                {
+                    "content": "string",
+                    "name": "name",
+                    "role": "system",
+                }
+            ],
             min_completion_tokens=0,
             min_tokens=0,
             n=0,
             parallel_tool_calls=True,
+            prediction={
+                "content": "string",
+                "type": "content",
+            },
             presence_penalty=-2,
             reasoning_effort="low",
+            reasoning_format="none",
             response_format={"type": "text"},
             seed=0,
             service_tier="auto",
@@ -66,6 +67,7 @@ class TestCompletions:
                         "name": "name",
                         "description": "description",
                         "parameters": {},
+                        "strict": True,
                     },
                     "type": "type",
                 }
@@ -82,12 +84,6 @@ class TestCompletions:
     @parametrize
     def test_raw_response_create(self, client: Cerebras) -> None:
         response = client.chat.completions.with_raw_response.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                }
-            ],
             model="model",
         )
 
@@ -99,12 +95,6 @@ class TestCompletions:
     @parametrize
     def test_streaming_response_create(self, client: Cerebras) -> None:
         with client.chat.completions.with_streaming_response.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                }
-            ],
             model="model",
         ) as response:
             assert not response.is_closed
@@ -124,12 +114,6 @@ class TestAsyncCompletions:
     @parametrize
     async def test_method_create(self, async_client: AsyncCerebras) -> None:
         completion = await async_client.chat.completions.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                }
-            ],
             model="model",
         )
         assert_matches_type(ChatCompletion, completion, path=["response"])
@@ -137,25 +121,32 @@ class TestAsyncCompletions:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCerebras) -> None:
         completion = await async_client.chat.completions.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                    "name": "name",
-                }
-            ],
             model="model",
+            clear_thinking=True,
+            disable_reasoning=True,
             frequency_penalty=-2,
-            logit_bias={},
+            logit_bias={"foo": 0},
             logprobs=True,
             max_completion_tokens=0,
             max_tokens=0,
+            messages=[
+                {
+                    "content": "string",
+                    "name": "name",
+                    "role": "system",
+                }
+            ],
             min_completion_tokens=0,
             min_tokens=0,
             n=0,
             parallel_tool_calls=True,
+            prediction={
+                "content": "string",
+                "type": "content",
+            },
             presence_penalty=-2,
             reasoning_effort="low",
+            reasoning_format="none",
             response_format={"type": "text"},
             seed=0,
             service_tier="auto",
@@ -170,6 +161,7 @@ class TestAsyncCompletions:
                         "name": "name",
                         "description": "description",
                         "parameters": {},
+                        "strict": True,
                     },
                     "type": "type",
                 }
@@ -186,12 +178,6 @@ class TestAsyncCompletions:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCerebras) -> None:
         response = await async_client.chat.completions.with_raw_response.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                }
-            ],
             model="model",
         )
 
@@ -203,12 +189,6 @@ class TestAsyncCompletions:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCerebras) -> None:
         async with async_client.chat.completions.with_streaming_response.create(
-            messages=[
-                {
-                    "content": "string",
-                    "role": "system",
-                }
-            ],
             model="model",
         ) as response:
             assert not response.is_closed

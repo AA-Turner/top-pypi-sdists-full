@@ -140,12 +140,6 @@ in data, caused e.g. by an update
 Pointer properties do not support storing references to embedded IDs (e.g. bpy.types.Scene.collection, bpy.types.Material.node_tree).
 These should exclusively be referenced and accessed through their owner ID (e.g. the scene or material).
 
-[NOTE]
-Typically this function doesn't need to be accessed directly.
-Instead use del cls.attr
-
-
-
 """
 
 import typing
@@ -163,7 +157,7 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     default=False,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems = "NONE",
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
@@ -179,34 +173,25 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     """Returns a new boolean property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_number_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], bool] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, bool], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -214,7 +199,6 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool], bool] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -223,7 +207,6 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool, bool], bool] | None
     """
 
 def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
@@ -234,7 +217,7 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     default: collections.abc.Sequence[bool] | None = (False, False, False),
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems = "NONE",
     size: collections.abc.Sequence[int] | int | None = 3,
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
@@ -262,38 +245,27 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     """Returns a new vector boolean property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param default: sequence of booleans the length of size.
-        :type default: collections.abc.Sequence[bool] | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_number_array_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems
         :param size: Vector dimensions in [1, 32]. An int sequence can be used to define multi-dimension arrays.
-        :type size: collections.abc.Sequence[int] | int | None
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[bool]] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[bool]], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -301,7 +273,6 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[bool], bool], collections.abc.Sequence[bool]] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -310,7 +281,6 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[bool], collections.abc.Sequence[bool], bool], collections.abc.Sequence[bool]] | None
     """
 
 def CollectionProperty(
@@ -323,22 +293,16 @@ def CollectionProperty(
     override: set[
         bpy.stub_internal.rna_enums.PropertyOverrideFlagCollectionItems
     ] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
 ) -> None:
     """Returns a new collection property definition.
 
     :param type: A subclass of a property group.
-    :type type: type[bpy.types.PropertyGroup] | None
     :param name: Name used in the user interface.
-    :type name: str | None
     :param description: Text used for the tooltip and api documentation.
-    :type description: str | None
     :param translation_context: Text used as context to disambiguate translations.
-    :type translation_context: str | None
     :param options: Enumerator in `rna_enum_property_flag_items`.
-    :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
     :param override: Enumerator in `rna_enum_property_override_flag_collection_items`.
-    :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagCollectionItems]
     :param tags: Enumerator of tags that are defined by parent class.
     """
 
@@ -362,10 +326,10 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
-    default: int | str | None = None,
+    default: int | set[str] | str | None = None,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagEnumItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
     get: collections.abc.Callable[[_GenericType1], int] | None = None,
@@ -418,39 +382,29 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     There is a known bug with using a callback,
     Python must keep a reference to the strings returned by the callback or Blender
     will misbehave or even crash.
-        :type items: collections.abc.Iterable[tuple[str, str, str] | tuple[str, str, str, int] | tuple[str, str, str, str, int] | None] | collections.abc.Callable[[_GenericType1, bpy.types.Context | None], collections.abc.Iterable[tuple[str, str, str] | tuple[str, str, str, int] | tuple[str, str, str, str, int] | None]]
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param default: The default value for this enum, a string from the identifiers used in items, or integer matching an item number.
     If the ENUM_FLAG option is used this must be a set of such string identifiers instead.
     WARNING: Strings cannot be specified for dynamic enums
     (i.e. if a callback function is given as items parameter).
-        :type default: int | str | None
         :param options: Enumerator in `rna_enum_property_flag_enum_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagEnumItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], int] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, int], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -458,7 +412,6 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -467,7 +420,6 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int] | None
     """
 
 def FloatProperty[_GenericType1: bpy.types.bpy_struct](
@@ -480,11 +432,11 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     max: float | None = 3.402823e38,
     soft_min: float | None = -3.402823e38,
     soft_max: float | None = 3.402823e38,
-    step: int | None = 3,
+    step: float | None = 3,
     precision: int | None = 2,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems = "NONE",
     unit: bpy.stub_internal.rna_enums.PropertyUnitItems = "NONE",
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
@@ -501,48 +453,32 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     """Returns a new float (single precision) property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param min: Hard minimum, trying to assign a value below will silently assign this minimum instead.
-        :type min: float | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
-        :type max: float | None
         :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
-        :type soft_min: float | None
         :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
-        :type soft_max: float | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 3 (WARNING: actual value is /100).
-        :type step: int | None
         :param precision: Maximum number of decimal digits to display, in [0, 6]. Fraction is automatically hidden for exact integer values of fields with unit NONE or TIME (frame count) and step divisible by 100.
-        :type precision: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_number_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems
         :param unit: Enumerator in `rna_enum_property_unit_items`.
-        :type unit: bpy.stub_internal.rna_enums.PropertyUnitItems
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], float] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, float], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -550,7 +486,6 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, bool], float] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -559,7 +494,6 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, float, bool], float] | None
     """
 
 def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
@@ -572,11 +506,11 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     max: float | None = sys.float_info.max,
     soft_min: float | None = sys.float_info.min,
     soft_max: float | None = sys.float_info.max,
-    step: int | None = 3,
+    step: float | None = 3,
     precision: int | None = 2,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems = "NONE",
     unit: bpy.stub_internal.rna_enums.PropertyUnitItems = "NONE",
     size: collections.abc.Sequence[int] | int | None = 3,
@@ -592,52 +526,34 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     """Returns a new vector float property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param default: Sequence of floats the length of size.
-        :type default: collections.abc.Sequence[float] | None
         :param min: Hard minimum, trying to assign a value below will silently assign this minimum instead.
-        :type min: float | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
-        :type max: float | None
         :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
-        :type soft_min: float | None
         :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
-        :type soft_max: float | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 3 (WARNING: actual value is /100).
-        :type step: int | None
         :param precision: Maximum number of decimal digits to display, in [0, 6]. Fraction is automatically hidden for exact integer values of fields with unit NONE or TIME (frame count) and step divisible by 100.
-        :type precision: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_number_array_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems
         :param unit: Enumerator in `rna_enum_property_unit_items`.
-        :type unit: bpy.stub_internal.rna_enums.PropertyUnitItems
         :param size: Vector dimensions in [1, 32]. An int sequence can be used to define multi-dimension arrays.
-        :type size: collections.abc.Sequence[int] | int | None
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[float]] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[float]], None] | None
     """
 
 def IntProperty[_GenericType1: bpy.types.bpy_struct](
@@ -653,7 +569,7 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     step: int | None = 1,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems = "NONE",
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
@@ -667,44 +583,30 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     """Returns a new int property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param min: Hard minimum, trying to assign a value below will silently assign this minimum instead.
-        :type min: int | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
-        :type max: int | None
         :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
-        :type soft_min: int | None
         :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
-        :type soft_max: int | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 1 (WARNING: unused currently!).
-        :type step: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_number_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], int] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, int], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -712,7 +614,6 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -721,7 +622,6 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int] | None
     """
 
 def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
@@ -737,7 +637,7 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     step: int | None = 1,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems = "NONE",
     size: collections.abc.Sequence[int] | int | None = 3,
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
@@ -765,48 +665,32 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     """Returns a new vector int property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param default: sequence of ints the length of size.
-        :type default: collections.abc.Sequence[int] | None
         :param min: Hard minimum, trying to assign a value below will silently assign this minimum instead.
-        :type min: int | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
-        :type max: int | None
         :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
-        :type soft_min: int | None
         :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
-        :type soft_max: int | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 1 (WARNING: unused currently!).
-        :type step: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_number_array_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems
         :param size: Vector dimensions in [1, 32]. An int sequence can be used to define multi-dimension arrays.
-        :type size: collections.abc.Sequence[int] | int | None
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[int]] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[int]], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -814,7 +698,6 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[int], bool], collections.abc.Sequence[int]] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -823,7 +706,6 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[int], collections.abc.Sequence[int], bool], collections.abc.Sequence[int]] | None
     """
 
 def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.types.ID](
@@ -834,44 +716,34 @@ def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.type
     translation_context: str | None = "*",
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     poll: collections.abc.Callable[[_GenericType1, _GenericType2], bool] | None = None,
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
 ) -> None:
     """Returns a new pointer property definition.
 
-        :param type: A subclass of a property group or ID types.
-        :type type: type[bpy.types.PropertyGroup | bpy.types.ID] | None
+        :param type: A subclass of PropertyGroup or ID.
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param poll: Function that determines whether an item is valid for this property.
     The function must take 2 values (self, object) and return a boolean.
 
     The return value will be checked only when assigning an item from the UI, but it is still possible to assign an "invalid" item to the property directly.
-        :type poll: collections.abc.Callable[[_GenericType1, _GenericType2], bool] | None
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
     """
 
 def RemoveProperty(*, cls: typing.Any | None, attr: str | None) -> None:
     """Removes a dynamically defined property.
 
     :param cls: The class containing the property (must be a positional argument).
-    :type cls: typing.Any | None
     :param attr: Property name (must be passed as a keyword).
-    :type attr: str | None
     """
 
 def StringProperty[_GenericType1: bpy.types.bpy_struct](
@@ -883,7 +755,7 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
     maxlen: int | None = 0,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
-    tags=set(),
+    tags: set[str] | None = set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeStringItems = "NONE",
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
@@ -898,43 +770,32 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
         collections.abc.Iterable[str | tuple[str, str]],
     ]
     | None = None,
-    search_options={"SUGGESTION"},
+    search_options: set[str] | None = {"SUGGESTION"},
 ) -> None:
     """Returns a new string property definition.
 
         :param name: Name used in the user interface.
-        :type name: str | None
         :param description: Text used for the tooltip and api documentation.
-        :type description: str | None
         :param translation_context: Text used as context to disambiguate translations.
-        :type translation_context: str | None
         :param default: initializer string.
-        :type default: str | None
         :param maxlen: maximum length of the string.
-        :type maxlen: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
-        :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
-        :type override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems]
         :param tags: Enumerator of tags that are defined by parent class.
         :param subtype: Enumerator in `rna_enum_property_subtype_string_items`.
-        :type subtype: bpy.stub_internal.rna_enums.PropertySubtypeStringItems
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[_GenericType1], str] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[_GenericType1, str], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -942,7 +803,6 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type get_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, bool], str] | None
         :param set_transform: Function to be called when this value is written,
     if some additional processing must be performed on the given value before storing it.
     This function must take four arguments (self, the given value to store,
@@ -951,7 +811,6 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
-        :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, str, bool], str] | None
         :param search: Function to be called to show candidates for this string (shown in the UI).
     This function must take 3 values (self, context, edit_text)
     and return a sequence, iterator or generator where each item must be:
@@ -960,7 +819,6 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
 
     A tuple-pair of strings, where the first is a candidate and the second
     is additional information about the candidate.
-        :type search: collections.abc.Callable[[_GenericType1, bpy.types.Context, str], collections.abc.Iterable[str | tuple[str, str]]] | None
         :param search_options: Set of strings in:
 
     SORT sorts the resulting items.

@@ -1,4 +1,4 @@
-# $Id: body.py 10225 2025-08-28 22:07:49Z milde $
+# $Id: body.py 10263 2025-11-28 13:51:32Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -29,9 +29,20 @@ class BasePseudoSection(Directive):
     node_class = None
     """Node class to be used (must be set in subclasses)."""
 
+    invalid_parents = (nodes.SubStructural, nodes.Bibliographic,
+                       nodes.Decorative, nodes.Body, nodes.Part, nodes.topic)
+    """
+    Node categories where topics and sidebars are invalid children.
+
+    Sidebars are only valid in <document> and <section> elements,
+    topics also in <sidebar> elements. However, during parsing,
+    there may be wrapper nodes (like `sphinx.addnodes.only`).
+    """
+
     def run(self):
-        if not isinstance(self.state_machine.node,
-                          (nodes.document, nodes.section, nodes.sidebar)):
+        if (not isinstance(self.state_machine.node,
+                           (nodes.Root, nodes.section, nodes.sidebar))
+            and isinstance(self.state_machine.node, self.invalid_parents)):
             raise self.error('The "%s" directive may not be used within '
                              'topics or body elements.' % self.name)
         self.assert_has_content()

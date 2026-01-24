@@ -150,6 +150,8 @@ NETMIKO_LIB_MAPPER: t.Dict[str, str] = {
     "a10": "a10",
     "accedian": "accedian",
     "adtran_os": "adtran_os",
+    "adva_fsp150f2": "adva_fsp150f2",
+    "adva_fsp150f3": "adva_fsp150f3",
     "alcatel_aos": "alcatel_aos",
     "alcatel_sros": "alcatel_sros",
     "allied_telesis_awplus": "allied_telesis_awplus",
@@ -172,6 +174,7 @@ NETMIKO_LIB_MAPPER: t.Dict[str, str] = {
     "centec_os": "centec_os",
     "checkpoint_gaia": "checkpoint_gaia",
     "ciena_saos": "ciena_saos",
+    "ciena_saos10": "ciena_saos10",
     "cisco_asa": "cisco_asa",
     "cisco_ftd": "cisco_ftd",
     "cisco_ios": "cisco_ios",
@@ -308,12 +311,36 @@ NAPALM_LIB_MAPPER: t.Dict[str, str] = {
 
 # Running config command
 RUNNING_CONFIG_MAPPER: t.Dict[str, str] = {
+    "adva_fsp150f2": "show running-config",
+    "adva_fsp150f3": "show running-config delta",
+    "arista_eos": "show running-config",
+    "aruba_os": "show running-configuration",
+    "aruba_osswitch": "show running-config",
+    "aruba_procurve": "show running-config",
+    "checkpoint_gaia": 'clish -c "show configuration"',
+    "ciena_saos": "configuration show brief",
+    "ciena_saos10": "show running-config",
     "cisco_ios": "show running-config",
     "cisco_nxos": "show running-config",
+    "cisco_wlc": "show run-config commands",
     "cisco_xr": "show running-config",
+    "dell_os10": "show running-config",
+    "dell_os9": "show running-config",
+    "extreme_exos": "show configuration",
+    "extreme_slx": "show running-config",
+    "extreme_vsp": "show running-config",
+    "fortinet": "show full-configuration",
+    "hp_procurve": "show running-config",
     "juniper_junos": "show configuration | display set",
-    "arista_eos": "show running-config",
-    "checkpoint_gaia": 'clish -c "show configuration"',
+    "mikrotik_routeros": "/export",
+    "nokia_srl": "info",
+    "nokia_sros": "admin display-config",
+    "rad_etx": "info",
+    "ruckus_fastiron": "show running-config",
+    "ubiquiti_edge": "show configuration",
+    "ubiquiti_edgerouter": "show configuration",
+    "ubiquiti_edgeswitch": "show configuration",
+    "vyos": "show configuration",
 }
 
 # PYTNC | Normalized
@@ -403,11 +430,15 @@ HIERCONFIG_LIB_MAPPER: t.Dict[str, str] = {
 
 # Netutils Parser | Normalized
 NETUTILSPARSER_LIB_MAPPER: t.Dict[str, str] = {
+    "adva_fsp150f2": "adva_fsp150f2",
+    "adva_fsp150f3": "adva_fsp150f3",
     "arista_eos": "arista_eos",
     "aruba_aoscx": "aruba_aoscx",
     "aruba_os": "aruba_os",
     "aruba_osswitch": "aruba_osswitch",
     "bigip_f5": "bigip_f5",
+    "ciena_saos": "ciena_saos",
+    "ciena_saos10": "ciena_saos10",
     "cisco_aireos": "cisco_aireos",
     "cisco_asa": "cisco_asa",
     "cisco_ios": "cisco_ios",
@@ -574,11 +605,15 @@ HIERCONFIG_LIB_MAPPER_REVERSE: t.Dict[str, str] = {
 
 # Normalized | Netutils Parser
 NETUTILSPARSER_LIB_MAPPER_REVERSE: t.Dict[str, str] = {
+    "adva_fsp150f2": "adva_fsp150f2",
+    "adva_fsp150f3": "adva_fsp150f3",
     "arista_eos": "arista_eos",
     "aruba_aoscx": "aruba_aoscx",
     "aruba_os": "aruba_os",
     "aruba_osswitch": "aruba_osswitch",
     "bigip_f5": "bigip_f5",
+    "ciena_saos": "ciena_saos",
+    "ciena_saos10": "ciena_saos10",
     "cisco_aireos": "cisco_aireos",
     "cisco_asa": "cisco_asa",
     "cisco_ios": "cisco_ios",

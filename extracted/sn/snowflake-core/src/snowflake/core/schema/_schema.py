@@ -16,6 +16,7 @@ from .._common import Clone, CreateMode, DatabaseObjectCollectionParent, Databas
 from .._internal.telemetry import api_telemetry
 from .._internal.utils import deprecated
 from ..alert import AlertCollection
+from ..artifact_repository import ArtifactRepositoryCollection
 from ..cortex.search_service import CortexSearchServiceCollection
 from ..dynamic_table import DynamicTableCollection
 from ..event_table import EventTableCollection
@@ -23,12 +24,18 @@ from ..exceptions import NotFoundError
 from ..function import FunctionCollection
 from ..iceberg_table import IcebergTableCollection
 from ..image_repository import ImageRepositoryCollection
+from ..network_rule import NetworkRuleCollection
 from ..notebook import NotebookCollection
+from ..password_policy import PasswordPolicyCollection
 from ..procedure import ProcedureCollection
+from ..secret import SecretCollection
+from ..sequence import SequenceCollection
 from ..service import ServiceCollection
 from ..stage import StageCollection
 from ..stream import StreamCollection
+from ..streamlit import StreamlitCollection
 from ..table import TableCollection
+from ..tag import TagCollection
 from ..task import TaskCollection
 from ..user_defined_function import UserDefinedFunctionCollection
 from ..view import ViewCollection
@@ -280,8 +287,8 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
 class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
     """Represents a reference to a Snowflake schema.
 
-    With this schema reference, you can create, update, and fetch information about schemas, as well
-    as perform certain unique actions on them.
+    With this schema reference, you can fetch information about a schema, as well as perform
+    certain actions on it.
     """
 
     def __init__(self, name: str, collection: SchemaCollection) -> None:
@@ -514,6 +521,30 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         return NotebookCollection(self)
 
     @cached_property
+    def streamlits(self) -> StreamlitCollection:
+        """The StreamlitCollection of all Streamlits contained in this schema.
+
+        Examples
+        ________
+        Getting all streamlits in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].streamlits
+        """
+        return StreamlitCollection(self)
+
+    @cached_property
+    def artifact_repositories(self) -> ArtifactRepositoryCollection:
+        """The ArtifactRepositoryCollection of all artifact repositories in this schema.
+
+        Examples
+        ________
+        Getting all artifact repositories in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].artifact_repositories
+        """
+        return ArtifactRepositoryCollection(self)
+
+    @cached_property
     def image_repositories(self) -> ImageRepositoryCollection:
         """The ImageRepositoryCollection of all image repositories in this schema.
 
@@ -645,3 +676,63 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         >>> my_db.schemas["my_schema"].user_defined_functions
         """
         return UserDefinedFunctionCollection(self)
+
+    @cached_property
+    def network_rules(self) -> NetworkRuleCollection:
+        """The NetworkRuleCollection of all network rules contained in this schema.
+
+        Examples
+        ________
+        Get all network rules in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].network_rules
+        """
+        return NetworkRuleCollection(self)
+
+    @cached_property
+    def password_policies(self) -> PasswordPolicyCollection:
+        """The PasswordPolicyCollection of all password policies contained in this schema.
+
+        Examples
+        ________
+        Get all password policies in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].password_policies
+        """
+        return PasswordPolicyCollection(self)
+
+    @cached_property
+    def secrets(self) -> SecretCollection:
+        """The SecretCollection of all secrets contained in this schema.
+
+        Examples
+        ________
+        Get all secrets in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].secrets
+        """
+        return SecretCollection(self)
+
+    @cached_property
+    def sequences(self) -> SequenceCollection:
+        """The SequenceCollection of all sequences contained in this schema.
+
+        Examples
+        ________
+        Get all sequences in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].sequences
+        """
+        return SequenceCollection(self)
+
+    @cached_property
+    def tags(self) -> TagCollection:
+        """The TagCollection of all tags contained in this schema.
+
+        Examples
+        ________
+        Get all tags in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].tags
+        """
+        return TagCollection(self)

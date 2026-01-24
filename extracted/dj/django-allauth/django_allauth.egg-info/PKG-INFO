@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-allauth
-Version: 65.11.2
+Version: 65.14.0
 Summary: Integrated set of Django applications addressing authentication, registration, account management as well as 3rd party (social) account authentication.
 Author-email: Raymond Penners <raymond.penners@intenct.nl>
 License: MIT
@@ -30,12 +30,15 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: Django>=4.2.16
 Requires-Dist: asgiref>=3.8.1
+Provides-Extra: headless
+Requires-Dist: pyjwt[crypto]<3,>=2.0; extra == "headless"
 Provides-Extra: headless-spec
 Requires-Dist: PyYAML<7,>=6; extra == "headless-spec"
 Provides-Extra: idp-oidc

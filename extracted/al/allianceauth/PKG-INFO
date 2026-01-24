@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: allianceauth
-Version: 4.10.0
+Version: 4.12.0
 Summary: An auth system for EVE Online to help in-game organizations
 Keywords: allianceauth,eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.8,<3.13
 Description-Content-Type: text/markdown
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Celery
@@ -20,11 +20,10 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
-Requires-Dist: bcrypt
+Requires-Dist: bcrypt<5
 Requires-Dist: beautifulsoup4
 Requires-Dist: celery>=5.2,<6
 Requires-Dist: celery-once>=3.0.1
@@ -45,11 +44,14 @@ Requires-Dist: packaging>=21
 Requires-Dist: passlib
 Requires-Dist: pydiscourse
 Requires-Dist: python-slugify>=1.2
+Requires-Dist: pyyaml
 Requires-Dist: redis>=4
 Requires-Dist: requests>=2.9.1
 Requires-Dist: requests-oauthlib
 Requires-Dist: semantic-version
 Requires-Dist: slixmpp<1.9
+Requires-Dist: ua-parser
+Requires-Dist: user-agents
 Requires-Dist: myst-parser ; extra == "docs"
 Requires-Dist: sphinx ; extra == "docs"
 Requires-Dist: sphinx-copybutton ; extra == "docs"
@@ -131,7 +133,6 @@ Here is an example of the Alliance Auth web site with a mixture of Services, App
 - [Aaron Kable](https://gitlab.com/aaronkable/)
 - [Ariel Rin](https://gitlab.com/soratidus999/)
 - [Col Crunch](https://gitlab.com/colcrunch/)
-- [Erik Kalkoken](https://gitlab.com/ErikKalkoken/)
 - [Rounon Dax](https://gitlab.com/ppfeufer)
 - [snipereagle1](https://gitlab.com/mckernanin)
 
@@ -139,6 +140,7 @@ Here is an example of the Alliance Auth web site with a mixture of Services, App
 
 - [Adarnof](https://gitlab.com/adarnof/)
 - [Basraah](https://gitlab.com/basraah/)
+- [Erik Kalkoken](https://gitlab.com/ErikKalkoken/)
 
 ### Beta Testers / Bug Fixers
 

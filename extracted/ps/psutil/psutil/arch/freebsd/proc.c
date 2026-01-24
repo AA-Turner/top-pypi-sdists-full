@@ -5,26 +5,12 @@
  */
 
 #include <Python.h>
-#include <assert.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <sys/param.h>
-#include <sys/user.h>
-#include <sys/proc.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <devstat.h>
-#include <libutil.h>  // process open files, shared libs (kinfo_getvmmap), cwd
 #include <sys/cpuset.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#include <libutil.h>
 
 #include "../../arch/all/init.h"
-
-
-#define PSUTIL_TV2DOUBLE(t)    ((t).tv_sec + (t).tv_usec / 1000000.0)
 
 
 // ============================================================================
@@ -32,33 +18,9 @@
 // ============================================================================
 
 
-int
-psutil_kinfo_proc(pid_t pid, struct kinfo_proc *proc) {
-    // Fills a kinfo_proc struct based on process pid.
-    int mib[4];
-    size_t size;
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_PROC;
-    mib[2] = KERN_PROC_PID;
-    mib[3] = pid;
-
-    size = sizeof(struct kinfo_proc);
-    if (sysctl((int *)mib, 4, proc, &size, NULL, 0) == -1) {
-        psutil_PyErr_SetFromOSErrnoWithSyscall("sysctl(KERN_PROC_PID)");
-        return -1;
-    }
-
-    // sysctl stores 0 in the size if we can't find the process information.
-    if (size == 0) {
-        NoSuchProcess("sysctl (size = 0)");
-        return -1;
-    }
-    return 0;
-}
-
-
 // remove spaces from string
-static void psutil_remove_spaces(char *str) {
+static void
+psutil_remove_spaces(char *str) {
     char *p1 = str;
     char *p2 = str;
     do
@@ -71,25 +33,6 @@ static void psutil_remove_spaces(char *str) {
 // ============================================================================
 // APIS
 // ============================================================================
-
-
-int psutil_get_proc_list(struct kinfo_proc **procList, size_t *procCount) {
-    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PROC, 0 };
-    size_t length = 0;
-    char *buf = NULL;
-
-    assert(procList != NULL);
-    assert(*procList == NULL);
-    assert(procCount != NULL);
-
-    if (psutil_sysctl_malloc(mib, 4, &buf, &length) != 0) {
-        return 1;
-    }
-
-    *procList = (struct kinfo_proc *)buf;
-    *procCount = length / sizeof(struct kinfo_proc);
-    return 0;
-}
 
 /*
  * Borrowed from psi Python System Information project
@@ -159,7 +102,7 @@ psutil_proc_exe(PyObject *self, PyObject *args) {
     int ret;
     size_t size;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         return NULL;
 
     mib[0] = CTL_KERN;
@@ -175,19 +118,19 @@ psutil_proc_exe(PyObject *self, PyObject *args) {
             return PyUnicode_DecodeFSDefault("");
         }
         else {
-            return psutil_PyErr_SetFromOSErrnoWithSyscall(
-                "sysctl(KERN_PROC_PATHNAME)"
-            );
+            return psutil_oserror_wsyscall("sysctl(KERN_PROC_PATHNAME)");
         }
     }
     if (size == 0 || strlen(pathname) == 0) {
         ret = psutil_pid_exists(pid);
-        if (ret == -1)
+        if (ret == -1) {
+            psutil_oserror();
             return NULL;
+        }
         else if (ret == 0)
-            return NoSuchProcess("psutil_pid_exists -> 0");
+            return psutil_oserror_nsp("psutil_pid_exists -> 0");
         else
-            strcpy(pathname, "");
+            str_copy(pathname, sizeof(pathname), "");
     }
 
     return PyUnicode_DecodeFSDefault(pathname);
@@ -199,7 +142,7 @@ psutil_proc_num_threads(PyObject *self, PyObject *args) {
     // Return number of threads used by process as a Python integer.
     pid_t pid;
     struct kinfo_proc kp;
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         return NULL;
     if (psutil_kinfo_proc(pid, &kp) == -1)
         return NULL;
@@ -225,7 +168,7 @@ psutil_proc_threads(PyObject *self, PyObject *args) {
 
     if (py_retlist == NULL)
         return NULL;
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         goto error;
 
     // we need to re-query for thread information, so don't use *kipp
@@ -239,16 +182,18 @@ psutil_proc_threads(PyObject *self, PyObject *args) {
 
     // subtle check: size == 0 means no such process
     if (size == 0) {
-        NoSuchProcess("sysctl (size = 0)");
+        psutil_oserror_nsp("sysctl (size = 0)");
         goto error;
     }
 
     for (i = 0; i < size / sizeof(*kip); i++) {
         kipp = &kip[i];
-        py_tuple = Py_BuildValue("Idd",
-                                 kipp->ki_tid,
-                                 PSUTIL_TV2DOUBLE(kipp->ki_rusage.ru_utime),
-                                 PSUTIL_TV2DOUBLE(kipp->ki_rusage.ru_stime));
+        py_tuple = Py_BuildValue(
+            "Idd",
+            kipp->ki_tid,
+            PSUTIL_TV2DOUBLE(kipp->ki_rusage.ru_utime),
+            PSUTIL_TV2DOUBLE(kipp->ki_rusage.ru_stime)
+        );
         if (py_tuple == NULL)
             goto error;
         if (PyList_Append(py_retlist, py_tuple))
@@ -276,7 +221,7 @@ psutil_proc_cwd(PyObject *self, PyObject *args) {
 
     int i, cnt;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         goto error;
     if (psutil_kinfo_proc(pid, &kipp) == -1)
         goto error;
@@ -323,7 +268,7 @@ psutil_proc_num_fds(PyObject *self, PyObject *args) {
     struct kinfo_file *freep;
     struct kinfo_proc kipp;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         return NULL;
     if (psutil_kinfo_proc(pid, &kipp) == -1)
         return NULL;
@@ -360,7 +305,7 @@ psutil_proc_memory_maps(PyObject *self, PyObject *args) {
 
     if (py_retlist == NULL)
         return NULL;
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         goto error;
     if (psutil_kinfo_proc(pid, &kp) == -1)
         goto error;
@@ -376,15 +321,31 @@ psutil_proc_memory_maps(PyObject *self, PyObject *args) {
         kve = &freep[i];
         addr[0] = '\0';
         perms[0] = '\0';
-        sprintf(addr, "%#*jx-%#*jx", ptrwidth, (uintmax_t)kve->kve_start,
-                ptrwidth, (uintmax_t)kve->kve_end);
+        str_format(
+            addr,
+            sizeof(addr),
+            "%#*jx-%#*jx",
+            ptrwidth,
+            (uintmax_t)kve->kve_start,
+            ptrwidth,
+            (uintmax_t)kve->kve_end
+        );
         psutil_remove_spaces(addr);
-        strlcat(perms, kve->kve_protection & KVME_PROT_READ ? "r" : "-",
-                sizeof(perms));
-        strlcat(perms, kve->kve_protection & KVME_PROT_WRITE ? "w" : "-",
-                sizeof(perms));
-        strlcat(perms, kve->kve_protection & KVME_PROT_EXEC ? "x" : "-",
-                sizeof(perms));
+        str_append(
+            perms,
+            sizeof(perms),
+            kve->kve_protection & KVME_PROT_READ ? "r" : "-"
+        );
+        str_append(
+            perms,
+            sizeof(perms),
+            kve->kve_protection & KVME_PROT_WRITE ? "w" : "-"
+        );
+        str_append(
+            perms,
+            sizeof(perms),
+            kve->kve_protection & KVME_PROT_EXEC ? "x" : "-"
+        );
 
         if (strlen(kve->kve_path) == 0) {
             switch (kve->kve_type) {
@@ -427,16 +388,18 @@ psutil_proc_memory_maps(PyObject *self, PyObject *args) {
         }
 
         py_path = PyUnicode_DecodeFSDefault(path);
-        if (! py_path)
+        if (!py_path)
             goto error;
-        py_tuple = Py_BuildValue("ssOiiii",
-            addr,                       // "start-end" address
-            perms,                      // "rwx" permissions
-            py_path,                    // path
-            kve->kve_resident,          // rss
+        py_tuple = Py_BuildValue(
+            "ssOiiii",
+            addr,  // "start-end" address
+            perms,  // "rwx" permissions
+            py_path,  // path
+            kve->kve_resident,  // rss
             kve->kve_private_resident,  // private
-            kve->kve_ref_count,         // ref count
-            kve->kve_shadow_count);     // shadow count
+            kve->kve_ref_count,  // ref count
+            kve->kve_shadow_count  // shadow count
+        );
         if (!py_tuple)
             goto error;
         if (PyList_Append(py_retlist, py_tuple))
@@ -457,8 +420,8 @@ error:
 }
 
 
-PyObject*
-psutil_proc_cpu_affinity_get(PyObject* self, PyObject* args) {
+PyObject *
+psutil_proc_cpu_affinity_get(PyObject *self, PyObject *args) {
     // Get process CPU affinity.
     // Reference:
     // http://sources.freebsd.org/RELENG_9/src/usr.bin/cpuset/cpuset.c
@@ -466,15 +429,16 @@ psutil_proc_cpu_affinity_get(PyObject* self, PyObject* args) {
     int ret;
     int i;
     cpuset_t mask;
-    PyObject* py_retlist;
-    PyObject* py_cpu_num;
+    PyObject *py_retlist;
+    PyObject *py_cpu_num;
 
     if (!PyArg_ParseTuple(args, _Py_PARSE_PID, &pid))
         return NULL;
-    ret = cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, pid,
-                             sizeof(mask), &mask);
+    ret = cpuset_getaffinity(
+        CPU_LEVEL_WHICH, CPU_WHICH_PID, pid, sizeof(mask), &mask
+    );
     if (ret != 0)
-        return PyErr_SetFromErrno(PyExc_OSError);
+        return psutil_oserror();
 
     py_retlist = PyList_New(0);
     if (py_retlist == NULL)
@@ -531,10 +495,11 @@ psutil_proc_cpu_affinity_set(PyObject *self, PyObject *args) {
     }
 
     // set affinity
-    ret = cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, pid,
-                             sizeof(cpu_set), &cpu_set);
+    ret = cpuset_setaffinity(
+        CPU_LEVEL_WHICH, CPU_WHICH_PID, pid, sizeof(cpu_set), &cpu_set
+    );
     if (ret != 0) {
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
         goto error;
     }
 
@@ -558,7 +523,7 @@ psutil_proc_getrlimit(PyObject *self, PyObject *args) {
     int name[5];
     struct rlimit rlp;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID "i", &pid, &resource))
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID "i", &pid, &resource))
         return NULL;
 
     name[0] = CTL_KERN;
@@ -571,13 +536,11 @@ psutil_proc_getrlimit(PyObject *self, PyObject *args) {
         return NULL;
 
 #if defined(HAVE_LONG_LONG)
-    return Py_BuildValue("LL",
-                         (PY_LONG_LONG) rlp.rlim_cur,
-                         (PY_LONG_LONG) rlp.rlim_max);
+    return Py_BuildValue(
+        "LL", (PY_LONG_LONG)rlp.rlim_cur, (PY_LONG_LONG)rlp.rlim_max
+    );
 #else
-    return Py_BuildValue("ll",
-                         (long) rlp.rlim_cur,
-                         (long) rlp.rlim_max);
+    return Py_BuildValue("ll", (long)rlp.rlim_cur, (long)rlp.rlim_max);
 #endif
 }
 
@@ -596,8 +559,9 @@ psutil_proc_setrlimit(PyObject *self, PyObject *args) {
     PyObject *py_soft = NULL;
     PyObject *py_hard = NULL;
 
-    if (! PyArg_ParseTuple(
-            args, _Py_PARSE_PID "iOO", &pid, &resource, &py_soft, &py_hard))
+    if (!PyArg_ParseTuple(
+            args, _Py_PARSE_PID "iOO", &pid, &resource, &py_soft, &py_hard
+        ))
         return NULL;
 
     name[0] = CTL_KERN;
@@ -608,22 +572,22 @@ psutil_proc_setrlimit(PyObject *self, PyObject *args) {
 
 #if defined(HAVE_LONG_LONG)
     new.rlim_cur = PyLong_AsLongLong(py_soft);
-    if (new.rlim_cur == (rlim_t) - 1 && PyErr_Occurred())
+    if (new.rlim_cur == (rlim_t)-1 && PyErr_Occurred())
         return NULL;
     new.rlim_max = PyLong_AsLongLong(py_hard);
-    if (new.rlim_max == (rlim_t) - 1 && PyErr_Occurred())
+    if (new.rlim_max == (rlim_t)-1 && PyErr_Occurred())
         return NULL;
 #else
     new.rlim_cur = PyLong_AsLong(py_soft);
-    if (new.rlim_cur == (rlim_t) - 1 && PyErr_Occurred())
+    if (new.rlim_cur == (rlim_t)-1 && PyErr_Occurred())
         return NULL;
     new.rlim_max = PyLong_AsLong(py_hard);
-    if (new.rlim_max == (rlim_t) - 1 && PyErr_Occurred())
+    if (new.rlim_max == (rlim_t)-1 && PyErr_Occurred())
         return NULL;
 #endif
     newp = &new;
     ret = sysctl(name, 5, NULL, 0, newp, sizeof(*newp));
     if (ret == -1)
-        return PyErr_SetFromErrno(PyExc_OSError);
+        return psutil_oserror();
     Py_RETURN_NONE;
 }

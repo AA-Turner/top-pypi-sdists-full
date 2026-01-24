@@ -4,8 +4,8 @@ import typing as t
 
 from sqlglot import exp
 from sqlglot.dialects.dialect import (
-    Version,
     rename_func,
+    build_like,
     unit_to_var,
     timestampdiff_sql,
     build_date_delta,
@@ -14,6 +14,7 @@ from sqlglot.dialects.dialect import (
 )
 from sqlglot.dialects.hive import _build_with_ignore_nulls
 from sqlglot.dialects.spark2 import Spark2, temporary_storage_provider, _build_as_cast
+from sqlglot.typing.spark import EXPRESSION_METADATA
 from sqlglot.helper import ensure_list, seq_get
 from sqlglot.tokens import TokenType
 from sqlglot.transforms import (
@@ -99,7 +100,7 @@ def _dateadd_sql(self: Spark.Generator, expression: exp.TsOrDsAdd | exp.Timestam
 
 
 def _groupconcat_sql(self: Spark.Generator, expression: exp.GroupConcat) -> str:
-    if self.dialect.version < Version("4.0.0"):
+    if self.dialect.version < (4,):
         expr = exp.ArrayToString(
             this=exp.ArrayAgg(this=expression.this),
             expression=expression.args.get("separator") or exp.Literal.string(""),
@@ -111,6 +112,8 @@ def _groupconcat_sql(self: Spark.Generator, expression: exp.GroupConcat) -> str:
 
 class Spark(Spark2):
     SUPPORTS_ORDER_BY_ALL = True
+    SUPPORTS_NULL_TYPE = True
+    EXPRESSION_METADATA = EXPRESSION_METADATA.copy()
 
     class Tokenizer(Spark2.Tokenizer):
         STRING_ESCAPES_ALLOWED_IN_RAW_STRINGS = False
@@ -128,7 +131,7 @@ class Spark(Spark2):
             "BIT_AND": exp.BitwiseAndAgg.from_arg_list,
             "BIT_OR": exp.BitwiseOrAgg.from_arg_list,
             "BIT_XOR": exp.BitwiseXorAgg.from_arg_list,
-            "BIT_COUNT": exp.BitwiseCountAgg.from_arg_list,
+            "BIT_COUNT": exp.BitwiseCount.from_arg_list,
             "DATE_ADD": _build_dateadd,
             "DATEADD": _build_dateadd,
             "TIMESTAMPADD": _build_dateadd,
@@ -138,6 +141,7 @@ class Spark(Spark2):
             "TRY_SUBTRACT": exp.SafeSubtract.from_arg_list,
             "DATEDIFF": _build_datediff,
             "DATE_DIFF": _build_datediff,
+            "JSON_OBJECT_KEYS": exp.JSONKeys.from_arg_list,
             "LISTAGG": exp.GroupConcat.from_arg_list,
             "TIMESTAMP_LTZ": _build_as_cast("TIMESTAMP_LTZ"),
             "TIMESTAMP_NTZ": _build_as_cast("TIMESTAMP_NTZ"),
@@ -147,6 +151,8 @@ class Spark(Spark2):
                 offset=1,
                 safe=True,
             ),
+            "LIKE": build_like(exp.Like),
+            "ILIKE": build_like(exp.ILike),
         }
 
         PLACEHOLDER_PARSERS = {
@@ -170,6 +176,12 @@ class Spark(Spark2):
             if this.expression:
                 return self.expression(exp.ComputedColumnConstraint, this=this.expression)
             return this
+
+        def _parse_pivot_aggregation(self) -> t.Optional[exp.Expression]:
+            # Spark 3+ and Databricks support non aggregate functions in PIVOT too, e.g
+            # PIVOT (..., 'foo' AS bar FOR col_to_pivot IN (...))
+            aggregate_expr = self._parse_function() or self._parse_disjunction()
+            return self._parse_alias(aggregate_expr)
 
     class Generator(Spark2.Generator):
         SUPPORTS_TO_NUMBER = True
@@ -196,7 +208,7 @@ class Spark(Spark2):
             exp.BitwiseAndAgg: rename_func("BIT_AND"),
             exp.BitwiseOrAgg: rename_func("BIT_OR"),
             exp.BitwiseXorAgg: rename_func("BIT_XOR"),
-            exp.BitwiseCountAgg: rename_func("BIT_COUNT"),
+            exp.BitwiseCount: rename_func("BIT_COUNT"),
             exp.Create: preprocess(
                 [
                     remove_unique_constraints,
@@ -211,6 +223,7 @@ class Spark(Spark2):
             exp.DatetimeSub: date_delta_to_binary_interval_op(cast=False),
             exp.GroupConcat: _groupconcat_sql,
             exp.EndsWith: rename_func("ENDSWITH"),
+            exp.JSONKeys: rename_func("JSON_OBJECT_KEYS"),
             exp.PartitionedByProperty: lambda self,
             e: f"PARTITIONED BY {self.wrap(self.expressions(sqls=[_normalize_partition(e) for e in e.this.expressions], skip_first=True))}",
             exp.SafeAdd: rename_func("TRY_ADD"),
@@ -230,7 +243,6 @@ class Spark(Spark2):
         }
         TRANSFORMS.pop(exp.AnyValue)
         TRANSFORMS.pop(exp.DateDiff)
-        TRANSFORMS.pop(exp.Group)
 
         def bracket_sql(self, expression: exp.Bracket) -> str:
             if expression.args.get("safe"):
@@ -259,3 +271,11 @@ class Spark(Spark2):
                 return super().placeholder_sql(expression)
 
             return f"{{{expression.name}}}"
+
+        def readparquet_sql(self, expression: exp.ReadParquet) -> str:
+            if len(expression.expressions) != 1:
+                self.unsupported("READ_PARQUET with multiple arguments is not supported")
+                return ""
+
+            parquet_file = expression.expressions[0]
+            return f"parquet.`{parquet_file.name}`"

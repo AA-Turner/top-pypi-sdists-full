@@ -8,8 +8,12 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.model_registry_pb2 import (
+    CreateModelArtifactRequest,
+    CreateModelArtifactResponse,
     CreateModelRequest,
     CreateModelResponse,
+    CreateModelVersionFromArtifactRequest,
+    CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
     GetModelArtifactUploadUrlsRequest,
@@ -67,6 +71,14 @@ class ModelRegistryServiceStub:
     CreateModelVersion: UnaryUnaryMultiCallable[
         CreateModelVersionRequest,
         CreateModelVersionResponse,
+    ]
+    CreateModelArtifact: UnaryUnaryMultiCallable[
+        CreateModelArtifactRequest,
+        CreateModelArtifactResponse,
+    ]
+    CreateModelVersionFromArtifact: UnaryUnaryMultiCallable[
+        CreateModelVersionFromArtifactRequest,
+        CreateModelVersionFromArtifactResponse,
     ]
     UpdateModelVersion: UnaryUnaryMultiCallable[
         UpdateModelVersionRequest,
@@ -128,6 +140,18 @@ class ModelRegistryServiceServicer(metaclass=ABCMeta):
         request: CreateModelVersionRequest,
         context: ServicerContext,
     ) -> CreateModelVersionResponse: ...
+    @abstractmethod
+    def CreateModelArtifact(
+        self,
+        request: CreateModelArtifactRequest,
+        context: ServicerContext,
+    ) -> CreateModelArtifactResponse: ...
+    @abstractmethod
+    def CreateModelVersionFromArtifact(
+        self,
+        request: CreateModelVersionFromArtifactRequest,
+        context: ServicerContext,
+    ) -> CreateModelVersionFromArtifactResponse: ...
     @abstractmethod
     def UpdateModelVersion(
         self,

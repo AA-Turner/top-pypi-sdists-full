@@ -20,11 +20,37 @@ class CloudProviderKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CLOUD_PROVIDER_KIND_UNKNOWN: _ClassVar[CloudProviderKind]
     CLOUD_PROVIDER_KIND_GCP: _ClassVar[CloudProviderKind]
     CLOUD_PROVIDER_KIND_AWS: _ClassVar[CloudProviderKind]
+    CLOUD_PROVIDER_KIND_AZURE: _ClassVar[CloudProviderKind]
+
+class VectorDBKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    VECTOR_DB_KIND_UNSPECIFIED: _ClassVar[VectorDBKind]
+    VECTOR_DB_KIND_OPENSEARCH: _ClassVar[VectorDBKind]
+    VECTOR_DB_KIND_PGVECTOR: _ClassVar[VectorDBKind]
+    VECTOR_DB_KIND_MILVUS: _ClassVar[VectorDBKind]
+
+class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DEPLOYMENT_BUILD_PROFILE_UNSPECIFIED: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_PROFILING: _ClassVar[DeploymentBuildProfile]
 
 CLOUD_PROVIDER_KIND_UNSPECIFIED: CloudProviderKind
 CLOUD_PROVIDER_KIND_UNKNOWN: CloudProviderKind
 CLOUD_PROVIDER_KIND_GCP: CloudProviderKind
 CLOUD_PROVIDER_KIND_AWS: CloudProviderKind
+CLOUD_PROVIDER_KIND_AZURE: CloudProviderKind
+VECTOR_DB_KIND_UNSPECIFIED: VectorDBKind
+VECTOR_DB_KIND_OPENSEARCH: VectorDBKind
+VECTOR_DB_KIND_PGVECTOR: VectorDBKind
+VECTOR_DB_KIND_MILVUS: VectorDBKind
+DEPLOYMENT_BUILD_PROFILE_UNSPECIFIED: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_PROFILING: DeploymentBuildProfile
 
 class AWSCloudWatchConfig(_message.Message):
     __slots__ = ("log_group_path", "log_group_paths")
@@ -226,16 +252,70 @@ class GCPCloudConfig(_message.Message):
         region_config: _Optional[_Union[GCPRegionConfig, _Mapping]] = ...,
     ) -> None: ...
 
+class AzureContainerRegistryConfig(_message.Message):
+    __slots__ = ("registry_name",)
+    REGISTRY_NAME_FIELD_NUMBER: _ClassVar[int]
+    registry_name: str
+    def __init__(self, registry_name: _Optional[str] = ...) -> None: ...
+
+class AzureKeyVaultConfig(_message.Message):
+    __slots__ = ("vault_name",)
+    VAULT_NAME_FIELD_NUMBER: _ClassVar[int]
+    vault_name: str
+    def __init__(self, vault_name: _Optional[str] = ...) -> None: ...
+
+class AzureCloudConfig(_message.Message):
+    __slots__ = (
+        "subscription_id",
+        "tenant_id",
+        "region",
+        "resource_group",
+        "docker_build_config",
+        "container_registry_config",
+        "key_vault_config",
+        "gcp_workload_identity",
+    )
+    SUBSCRIPTION_ID_FIELD_NUMBER: _ClassVar[int]
+    TENANT_ID_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    DOCKER_BUILD_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_REGISTRY_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    KEY_VAULT_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    GCP_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
+    subscription_id: str
+    tenant_id: str
+    region: str
+    resource_group: str
+    docker_build_config: DockerBuildConfig
+    container_registry_config: AzureContainerRegistryConfig
+    key_vault_config: AzureKeyVaultConfig
+    gcp_workload_identity: GCPWorkloadIdentity
+    def __init__(
+        self,
+        subscription_id: _Optional[str] = ...,
+        tenant_id: _Optional[str] = ...,
+        region: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        docker_build_config: _Optional[_Union[DockerBuildConfig, _Mapping]] = ...,
+        container_registry_config: _Optional[_Union[AzureContainerRegistryConfig, _Mapping]] = ...,
+        key_vault_config: _Optional[_Union[AzureKeyVaultConfig, _Mapping]] = ...,
+        gcp_workload_identity: _Optional[_Union[GCPWorkloadIdentity, _Mapping]] = ...,
+    ) -> None: ...
+
 class CloudConfig(_message.Message):
-    __slots__ = ("aws", "gcp")
+    __slots__ = ("aws", "gcp", "azure")
     AWS_FIELD_NUMBER: _ClassVar[int]
     GCP_FIELD_NUMBER: _ClassVar[int]
+    AZURE_FIELD_NUMBER: _ClassVar[int]
     aws: AWSCloudConfig
     gcp: GCPCloudConfig
+    azure: AzureCloudConfig
     def __init__(
         self,
         aws: _Optional[_Union[AWSCloudConfig, _Mapping]] = ...,
         gcp: _Optional[_Union[GCPCloudConfig, _Mapping]] = ...,
+        azure: _Optional[_Union[AzureCloudConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class EnvironmentObjectStorageConfig(_message.Message):
@@ -315,6 +395,10 @@ class Environment(_message.Message):
         "kube_cluster_id",
         "managed",
         "telemetry_deployment_id",
+        "suspended_at",
+        "default_build_profile",
+        "vector_db_kind",
+        "vector_db_secret",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -399,6 +483,10 @@ class Environment(_message.Message):
     KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     MANAGED_FIELD_NUMBER: _ClassVar[int]
     TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_AT_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_DB_KIND_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_DB_SECRET_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -456,6 +544,10 @@ class Environment(_message.Message):
     kube_cluster_id: str
     managed: bool
     telemetry_deployment_id: str
+    suspended_at: _timestamp_pb2.Timestamp
+    default_build_profile: DeploymentBuildProfile
+    vector_db_kind: VectorDBKind
+    vector_db_secret: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -515,4 +607,8 @@ class Environment(_message.Message):
         kube_cluster_id: _Optional[str] = ...,
         managed: bool = ...,
         telemetry_deployment_id: _Optional[str] = ...,
+        suspended_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        default_build_profile: _Optional[_Union[DeploymentBuildProfile, str]] = ...,
+        vector_db_kind: _Optional[_Union[VectorDBKind, str]] = ...,
+        vector_db_secret: _Optional[str] = ...,
     ) -> None: ...

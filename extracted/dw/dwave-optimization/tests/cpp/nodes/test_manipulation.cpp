@@ -13,10 +13,11 @@
 //    limitations under the License.
 
 #include <ranges>
+#include <stdexcept>
 #include <vector>
 
 #include "catch2/catch_test_macros.hpp"
-#include "catch2/matchers/catch_matchers_all.hpp"
+#include "catch2/matchers/catch_matchers_range_equals.hpp"
 #include "dwave-optimization/nodes/binaryop.hpp"
 #include "dwave-optimization/nodes/collections.hpp"
 #include "dwave-optimization/nodes/constants.hpp"
@@ -74,6 +75,37 @@ TEST_CASE("BroadcastToNode") {
         }
     }
 
+    SECTION("broadcast (3,) array to a (0,3) array") {
+        auto i = graph.emplace_node<InputNode>(std::vector<ssize_t>{3});
+        auto b = graph.emplace_node<BroadcastToNode>(i, std::vector<ssize_t>{0, 3});
+        graph.emplace_node<ArrayValidationNode>(b);
+
+        CHECK(b->size() == 0);
+        CHECK_THAT(b->shape(), RangeEquals({0, 3}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 8}));
+
+        auto state = graph.empty_state();
+        i->initialize_state(state, {0, 1, 2});
+        graph.initialize_state(state);
+        CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+
+        // Do an update followed by a propagation
+        i->assign(state, {1, 0, 2});
+        graph.propagate(state);
+
+        CHECK(b->diff(state).size() == 0);
+        CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+
+        AND_WHEN("We commit") {
+            graph.commit(state);
+            CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+        }
+        AND_WHEN("We revert") {
+            graph.revert(state);
+            CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+        }
+    }
+
     SECTION("broadcast (-1,1) array to a (-1,2) array") {
         auto s = graph.emplace_node<SetNode>(100);
         auto rs = graph.emplace_node<ReshapeNode>(s, std::vector<ssize_t>{-1, 1});
@@ -82,6 +114,7 @@ TEST_CASE("BroadcastToNode") {
         graph.emplace_node<ArrayValidationNode>(b);
 
         CHECK_THAT(b->shape(), RangeEquals({-1, 2}));
+        CHECK_THAT(b->strides(), RangeEquals({8, 0}));
 
         auto state = graph.empty_state();
         s->initialize_state(state, {0, 1, 2});
@@ -131,6 +164,71 @@ TEST_CASE("BroadcastToNode") {
 
                 CHECK_THAT(b->shape(state), RangeEquals({3, 2}));
                 CHECK_THAT(b->view(state), RangeEquals({0, 0, 1, 1, 2, 2}));
+            }
+        }
+    }
+
+    SECTION("broadcast (-1,1) array to a (-1,0) array") {
+        auto s = graph.emplace_node<SetNode>(100);
+        auto rs = graph.emplace_node<ReshapeNode>(s, std::vector<ssize_t>{-1, 1});
+        CHECK(rs->ndim() == 2);
+        auto b = graph.emplace_node<BroadcastToNode>(rs, std::vector<ssize_t>{-1, 0});
+        graph.emplace_node<ArrayValidationNode>(b);
+
+        CHECK(b->size() == 0);
+        CHECK_THAT(b->shape(), RangeEquals({-1, 0}));
+        CHECK_THAT(b->strides(), RangeEquals({8, 0}));
+
+        auto state = graph.empty_state();
+        s->initialize_state(state, {0, 1, 2});
+        graph.initialize_state(state);
+
+        CHECK_THAT(b->shape(state), RangeEquals({3, 0}));
+        CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+
+        WHEN("We grow the set") {
+            s->assign(state, {0, 2, 1, 3, 5});
+            graph.propagate(state);
+
+            CHECK_THAT(b->shape(state), RangeEquals({5, 0}));
+            CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+            CHECK(b->diff(state).size() == 0);
+
+            AND_WHEN("We commit") {
+                graph.commit(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({5, 0}));
+                CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+            }
+
+            AND_WHEN("We revert") {
+                graph.revert(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({3, 0}));
+                CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+            }
+        }
+
+        WHEN("We shrink the set") {
+            s->assign(state, {0, 5});
+            graph.propagate(state);
+
+            CHECK_THAT(b->shape(state), RangeEquals({2, 0}));
+            CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+            CHECK(b->diff(state).size() == 0);
+
+            AND_WHEN("We commit") {
+                graph.commit(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({2, 0}));
+                CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
+            }
+
+            AND_WHEN("We revert") {
+                graph.revert(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({3, 0}));
+                CHECK_THAT(b->view(state), RangeEquals(std::vector<double>{}));
             }
         }
     }
@@ -185,6 +283,55 @@ TEST_CASE("BroadcastToNode") {
         a->assign(state, {1, 0, 2, 3, 6, 5});
         graph.propagate(state);
         CHECK_THAT(b->view(state), RangeEquals({1, 0, 2, 3, 6, 5, 1, 0, 2, 3, 6, 5}));
+    }
+
+    SECTION("broadcast (3,2) array to a (3,2,3,2) array") {
+        auto a = graph.emplace_node<InputNode>(std::vector<ssize_t>{3, 2});
+        auto b = graph.emplace_node<BroadcastToNode>(a, std::vector<ssize_t>{3, 2, 3, 2});
+        graph.emplace_node<ArrayValidationNode>(b);
+        CHECK_THAT(b->shape(), RangeEquals({3, 2, 3, 2}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 0, 16, 8}));
+
+        auto state = graph.empty_state();
+        a->initialize_state(state, {0, 1, 2, 3, 4, 5});
+        graph.initialize_state(state);
+        CHECK_THAT(b->view(state),
+                   RangeEquals({0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
+                                0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5}));
+
+        // Do an update followed by a propagation
+        a->assign(state, {1, 0, 2, 3, 6, 5});
+        graph.propagate(state);
+        CHECK_THAT(b->view(state),
+                   RangeEquals({1, 0, 2, 3, 6, 5, 1, 0, 2, 3, 6, 5, 1, 0, 2, 3, 6, 5,
+                                1, 0, 2, 3, 6, 5, 1, 0, 2, 3, 6, 5, 1, 0, 2, 3, 6, 5}));
+    }
+
+    GIVEN("arr = broadcast_to(set(10).reshape(-1, 1, 1), (-1, 2, 3))") {
+        auto graph = Graph();
+        auto set_ptr = graph.emplace_node<SetNode>(10);
+        auto reshape_ptr =
+                graph.emplace_node<ReshapeNode>(set_ptr, std::array<ssize_t, 3>{-1, 1, 1});
+        auto arr_ptr =
+                graph.emplace_node<BroadcastToNode>(reshape_ptr, std::array<ssize_t, 3>{-1, 2, 3});
+        graph.emplace_node<ArrayValidationNode>(arr_ptr);
+
+        AND_GIVEN("set = {1, 2, 3]") {
+            auto state = graph.empty_state();
+            set_ptr->initialize_state(state, {1, 2, 3});
+            graph.initialize_state(state);
+
+            CHECK_THAT(arr_ptr->view(state),
+                       RangeEquals({1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3}));
+
+            WHEN("We change the set to equal {1, 2, 4, 3}") {
+                set_ptr->assign(state, {1, 2, 4, 3});
+                graph.propagate(state);
+
+                CHECK_THAT(arr_ptr->view(state), RangeEquals({1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2,
+                                                              4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3}));
+            }
+        }
     }
 }
 
@@ -1015,7 +1162,7 @@ TEST_CASE("ReshapeNode") {
 
         CHECK_THAT(reshape_ptr->shape(), RangeEquals({-1, 1}));
 
-        CHECK(reshape_ptr->sizeinfo() == SizeInfo(set_ptr));
+        CHECK(reshape_ptr->sizeinfo() == SizeInfo(set_ptr, 0, 10));
 
         auto state = graph.empty_state();
         set_ptr->initialize_state(state, {0, 1, 2, 3});  // size 4
@@ -1141,6 +1288,197 @@ TEST_CASE("ResizeNode") {
     }
 }
 
+TEST_CASE("RollNode") {
+    GIVEN("x = list(10, min_size=5, max_size=10)") {
+        auto graph = Graph();
+        auto x_ptr = graph.emplace_node<ListNode>(10, 5, 10);
+
+        AND_GIVEN("r = roll(x, shift=2)") {
+            auto r_ptr = graph.emplace_node<RollNode>(x_ptr, 2);
+            graph.emplace_node<ArrayValidationNode>(r_ptr);
+
+            auto state = graph.empty_state();
+            x_ptr->initialize_state(state, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+            graph.initialize_state(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({8, 9, 0, 1, 2, 3, 4, 5, 6, 7}));
+
+            x_ptr->assign(state, {1, 0, 2, 3, 4, 5, 6, 7, 8, 9});  // swap first two
+            graph.propagate(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({8, 9, 1, 0, 2, 3, 4, 5, 6, 7}));
+
+            graph.revert(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({8, 9, 0, 1, 2, 3, 4, 5, 6, 7}));
+
+            x_ptr->assign(state, {1, 0, 2, 3, 5});
+            x_ptr->assign(state, {8, 9, 0, 6, 7, 5, 1, 2, 3, 4});
+            graph.propagate(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({3, 4, 8, 9, 0, 6, 7, 5, 1, 2}));
+        }
+
+        AND_GIVEN("r = roll(x, shift=-2)") {
+            auto r_ptr = graph.emplace_node<RollNode>(x_ptr, -2);
+            graph.emplace_node<ArrayValidationNode>(r_ptr);
+
+            auto state = graph.empty_state();
+            x_ptr->initialize_state(state, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+            graph.initialize_state(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({2, 3, 4, 5, 6, 7, 8, 9, 0, 1}));
+
+            x_ptr->assign(state, {0, 2, 1, 3, 4, 5, 6, 7, 8, 9});  // swap index 1 and 2
+            graph.propagate(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({1, 3, 4, 5, 6, 7, 8, 9, 0, 2}));
+
+            graph.commit(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({1, 3, 4, 5, 6, 7, 8, 9, 0, 2}));
+
+            x_ptr->assign(state, {1, 0, 2, 3, 5});
+            x_ptr->assign(state, {8, 9, 0, 6, 7, 2});
+            graph.propagate(state);
+            CHECK_THAT(r_ptr->view(state), RangeEquals({0, 6, 7, 2, 8, 9}));
+        }
+    }
+
+    GIVEN("x = arange(10).reshape(2, 5)") {
+        auto graph = Graph();
+
+        // the test string is a simplification, but this'll give us the behavior we want
+        auto a_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{5, 5}, 0, 24);
+        auto s_ptr = graph.emplace_node<SetNode>(5);  // so we can make a dynamic node
+        auto x_ptr = graph.emplace_node<AdvancedIndexingNode>(a_ptr, s_ptr, Slice());
+
+        auto shift_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{}, -100, 100);
+
+        AND_GIVEN("r = roll(x, shift=1)") {
+            auto r_ptr = graph.emplace_node<RollNode>(x_ptr, shift_ptr);
+            graph.emplace_node<ArrayValidationNode>(r_ptr);
+
+            auto state = graph.empty_state();
+            a_ptr->initialize_state(state, std::views::iota(0, 25));
+            s_ptr->initialize_state(state, std::vector<double>{0, 1});
+            shift_ptr->initialize_state(state, std::vector<double>{1});
+            graph.initialize_state(state);
+
+            CHECK_THAT(r_ptr->shape(state), RangeEquals({2, 5}));
+            CHECK_THAT(r_ptr->view(state), RangeEquals({9, 0, 1, 2, 3, 4, 5, 6, 7, 8}));
+
+            WHEN("We change shift so that r = roll(x, shift=-3)") {
+                shift_ptr->set_value(state, 0, -3);
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state), RangeEquals({3, 4, 5, 6, 7, 8, 9, 0, 1, 2}));
+            }
+
+            WHEN("We change x = arange(15).reshape(3, 5)") {
+                s_ptr->assign(state, {0, 1, 2});
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state),
+                           RangeEquals({14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}));
+            }
+        }
+
+        AND_GIVEN("r = roll(x, shift=1, axis=0)") {
+            auto r_ptr = graph.emplace_node<RollNode>(x_ptr, shift_ptr, std::vector<ssize_t>{0});
+            graph.emplace_node<ArrayValidationNode>(r_ptr);
+
+            auto state = graph.empty_state();
+            a_ptr->initialize_state(state, std::views::iota(0, 25));
+            s_ptr->initialize_state(state, std::vector<double>{0, 1});
+            shift_ptr->initialize_state(state, std::vector<double>{1});
+            graph.initialize_state(state);
+
+            CHECK_THAT(r_ptr->shape(state), RangeEquals({2, 5}));
+            CHECK_THAT(r_ptr->view(state), RangeEquals({5, 6, 7, 8, 9, 0, 1, 2, 3, 4}));
+
+            WHEN("We change shift so that r = roll(x, shift=-4, axis=0)") {
+                shift_ptr->set_value(state, 0, -4);
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state), RangeEquals({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+            }
+
+            WHEN("We change x = arange(15).reshape(3, 5)") {
+                s_ptr->assign(state, {0, 1, 2});
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state),
+                           RangeEquals({10, 11, 12, 13, 14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+            }
+
+            WHEN("We change x = arange(5, 15).reshape(2, 5)") {
+                s_ptr->assign(state, {1, 2});
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state), RangeEquals({10, 11, 12, 13, 14, 5, 6, 7, 8, 9}));
+            }
+        }
+
+        AND_GIVEN("r = roll(x, shift=1, axis=1)") {
+            auto r_ptr = graph.emplace_node<RollNode>(x_ptr, shift_ptr, std::vector<ssize_t>{1});
+            graph.emplace_node<ArrayValidationNode>(r_ptr);
+
+            auto state = graph.empty_state();
+            a_ptr->initialize_state(state, std::views::iota(0, 25));
+            s_ptr->initialize_state(state, std::vector<double>{0, 1});
+            shift_ptr->initialize_state(state, std::vector<double>{1});
+            graph.initialize_state(state);
+
+            CHECK_THAT(r_ptr->shape(state), RangeEquals({2, 5}));
+            CHECK_THAT(r_ptr->view(state), RangeEquals({4, 0, 1, 2, 3, 9, 5, 6, 7, 8}));
+
+            WHEN("We change shift so that r = roll(x, shift=-3, axis=1)") {
+                shift_ptr->set_value(state, 0, -3);
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state), RangeEquals({3, 4, 0, 1, 2, 8, 9, 5, 6, 7}));
+            }
+
+            WHEN("We change x = arange(15).reshape(3, 5)") {
+                s_ptr->assign(state, {0, 1, 2});
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state),
+                           RangeEquals({4, 0, 1, 2, 3, 9, 5, 6, 7, 8, 14, 10, 11, 12, 13}));
+            }
+
+            WHEN("We change x = arange(5, 15).reshape(2, 5)") {
+                s_ptr->assign(state, {1, 2});
+                graph.propagate(state);
+                CHECK_THAT(r_ptr->view(state), RangeEquals({9, 5, 6, 7, 8, 14, 10, 11, 12, 13}));
+            }
+        }
+    }
+
+    GIVEN("x = arange(24).reshape(2, 4, 3)") {
+        auto graph = Graph();
+
+        // the test string is a simplification, but this'll give us the behavior we want
+        auto a_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{5, 4, 3}, 0, 60);
+        auto s_ptr = graph.emplace_node<SetNode>(5);  // so we can make a dynamic node
+        auto x_ptr = graph.emplace_node<AdvancedIndexingNode>(a_ptr, s_ptr, Slice(), Slice());
+
+        // auto shift_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{}, -100, 100);
+
+        AND_GIVEN("r = roll(x, shift=(2, 1), axis=(1, 0))") {
+            auto r_ptr = graph.emplace_node<RollNode>(x_ptr, std::vector<ssize_t>{2, 1},
+                                                      std::vector<ssize_t>{1, 0});
+            graph.emplace_node<ArrayValidationNode>(r_ptr);
+
+            auto state = graph.empty_state();
+            a_ptr->initialize_state(state, std::views::iota(0, 60));
+            s_ptr->initialize_state(state, std::vector<double>{0, 1});
+            graph.initialize_state(state);
+
+            CHECK_THAT(r_ptr->view(state),
+                       RangeEquals({18, 19, 20, 21, 22, 23, 12, 13, 14, 15, 16, 17,
+                                    6,  7,  8,  9,  10, 11, 0,  1,  2,  3,  4,  5}));
+
+            WHEN("We change x = arange(12, 36).reshape(2, 5)") {
+                s_ptr->assign(state, {1, 2, 3});
+                s_ptr->assign(state, {1, 2});
+                graph.propagate(state);
+
+                CHECK_THAT(r_ptr->view(state),
+                           RangeEquals({30, 31, 32, 33, 34, 35, 24, 25, 26, 27, 28, 29,
+                                        18, 19, 20, 21, 22, 23, 12, 13, 14, 15, 16, 17}));
+            }
+        }
+    }
+}
+
 TEST_CASE("SizeNode") {
     GIVEN("A 0d node") {
         auto C = ConstantNode(5);
@@ -1218,9 +1556,9 @@ TEST_CASE("SizeNode") {
                 CHECK(len.min() >= 0);
                 CHECK(len.max() <= std::numeric_limits<ssize_t>::max());
 
-                // these are an implementation detail and could change in the future
-                CHECK(len.min() == 0);
-                CHECK(len.max() == std::numeric_limits<ssize_t>::max());
+                // These should be one less than the min/max of the original set node
+                CHECK(len.min() == 1.0);
+                CHECK(len.max() == 3.0);
             }
         }
     }
@@ -1263,6 +1601,349 @@ TEST_CASE("SizeNode") {
 
                 THEN("The state of the SizeNode is the same as the size of the SetNode") {
                     CHECK(*(len_ptr->buff(state)) == s_ptr->size(state));
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("TransposeNode") {
+    auto graph = Graph();
+
+    GIVEN("A dynamic vector and a transpose node") {
+        auto vec_ptr =
+                graph.emplace_node<DynamicArrayTestingNode>(std::initializer_list<ssize_t>{-1});
+        auto transpose_ptr = graph.emplace_node<TransposeNode>(vec_ptr);
+
+        THEN("The basic attributes of the transpose node are correct") {
+            CHECK_THAT(transpose_ptr->strides(), RangeEquals({8}));
+            CHECK_THAT(transpose_ptr->shape(), RangeEquals({-1}));
+            CHECK(transpose_ptr->min() == vec_ptr->min());
+            CHECK(transpose_ptr->max() == vec_ptr->max());
+            CHECK(transpose_ptr->integral() == vec_ptr->integral());
+            CHECK(transpose_ptr->contiguous() == vec_ptr->contiguous());
+        }
+
+        WHEN("We initialize an empty state") {
+            auto state = graph.empty_state();
+            vec_ptr->initialize_state(state, {});
+            graph.initialize_state(state);
+
+            THEN("The initial transpose is correct") { CHECK(transpose_ptr->size(state) == 0); }
+        }
+
+        WHEN("We initialize a state") {
+            auto state = graph.empty_state();
+            vec_ptr->initialize_state(state, {0, 1});
+            graph.initialize_state(state);
+
+            THEN("The initial transpose is correct") {
+                CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 1}));
+            }
+
+            AND_WHEN("We make some changes to the integer node and propagate") {
+                vec_ptr->grow(state, std::vector<double>{3});
+                // vec_ptr should now be {0, 1, 3}
+
+                graph.propagate(state);
+
+                THEN("The transpose is correct") {
+                    CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 1, 3}));
+                    CHECK_THAT(transpose_ptr->diff(state), RangeEquals({Update(2, NAN, 3)}));
+                    CHECK(transpose_ptr->size_diff(state) == 1);
+                }
+
+                AND_WHEN("We commit, make changes to integer node, and propagate") {
+                    graph.commit(state);
+                    vec_ptr->shrink(state);
+                    vec_ptr->shrink(state);
+                    // vec_ptr should now be {0}
+
+                    graph.propagate(state);
+
+                    THEN("The transpose is correct") {
+                        CHECK_THAT(transpose_ptr->view(state), RangeEquals({0}));
+                        CHECK_THAT(transpose_ptr->diff(state),
+                                   RangeEquals({Update(2, 3, NAN), Update(1, 1, NAN)}));
+                        CHECK(transpose_ptr->size_diff(state) == -2);
+                    }
+
+                    AND_WHEN("We revert") {
+                        graph.revert(state);
+
+                        THEN("The transpose is correct") {
+                            CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 1, 3}));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    GIVEN("A dynamic (>=2)-D array and a transpose node") {
+        auto arr_ptr = graph.emplace_node<DynamicArrayTestingNode>(
+                std::initializer_list<ssize_t>{-1, 3, 5, 4});
+        REQUIRE_THROWS(graph.emplace_node<TransposeNode>(arr_ptr));
+    }
+
+    GIVEN("An integer vector and a transpose node") {
+        auto i_ptr = graph.emplace_node<IntegerNode>(5);
+        auto transpose_ptr = graph.emplace_node<TransposeNode>(i_ptr);
+
+        THEN("The basic attributes of the transpose node are correct") {
+            CHECK_THAT(transpose_ptr->strides(), RangeEquals({8}));
+            CHECK_THAT(transpose_ptr->shape(), RangeEquals({5}));
+            CHECK(transpose_ptr->min() == i_ptr->min());
+            CHECK(transpose_ptr->max() == i_ptr->max());
+            CHECK(transpose_ptr->integral() == i_ptr->integral());
+            CHECK(transpose_ptr->contiguous() == i_ptr->contiguous());
+        }
+
+        WHEN("We initialize a state") {
+            auto state = graph.empty_state();
+            i_ptr->initialize_state(state, {0, 1, 2, 3, 4});
+            graph.initialize_state(state);
+
+            THEN("The initial transpose state is correct") {
+                CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 1, 2, 3, 4}));
+            }
+
+            AND_WHEN("We make some changes to the integer node and propagate") {
+                i_ptr->set_value(state, 1, 6);
+                i_ptr->set_value(state, 4, 7);
+                // i_ptr should now be {0, 6, 2, 3, 7}
+
+                graph.propagate(state);
+
+                THEN("The transpose is correct") {
+                    CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 6, 2, 3, 7}));
+                    CHECK_THAT(transpose_ptr->diff(state),
+                               RangeEquals({Update(1, 1, 6), Update(4, 4, 7)}));
+                }
+
+                AND_WHEN("We commit, make changes to integer node, and propagate") {
+                    graph.commit(state);
+                    i_ptr->set_value(state, 0, 8);
+                    // i_ptr should now be {8, 6, 2, 3, 7}
+
+                    graph.propagate(state);
+
+                    THEN("The transpose is correct") {
+                        CHECK_THAT(transpose_ptr->view(state), RangeEquals({8, 6, 2, 3, 7}));
+                        CHECK_THAT(transpose_ptr->diff(state), RangeEquals({Update(0, 0, 8)}));
+                    }
+
+                    AND_WHEN("We revert") {
+                        graph.revert(state);
+
+                        THEN("The transpose is correct") {
+                            CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 6, 2, 3, 7}));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    GIVEN("An integer 2-D array and a transpose node") {
+        auto array_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{2, 3});
+        auto transpose_ptr = graph.emplace_node<TransposeNode>(array_ptr);
+
+        THEN("The basic attributes of the transpose node are correct") {
+            CHECK_THAT(transpose_ptr->strides(), RangeEquals({8, 24}));
+            CHECK_THAT(transpose_ptr->shape(), RangeEquals({3, 2}));
+            CHECK(transpose_ptr->min() == array_ptr->min());
+            CHECK(transpose_ptr->max() == array_ptr->max());
+            CHECK(transpose_ptr->integral() == array_ptr->integral());
+            CHECK(!transpose_ptr->contiguous());
+        }
+
+        WHEN("We initialize a state") {
+            auto state = graph.empty_state();
+            array_ptr->initialize_state(state, {0, 1, 2, 3, 4, 5});
+            // | 0 1 2 |T    | 0 3 |
+            // | 3 4 5 |  -> | 1 4 |
+            //               | 2 5 |
+            graph.initialize_state(state);
+
+            THEN("The initial transpose state is correct") {
+                CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 3, 1, 4, 2, 5}));
+            }
+
+            AND_THEN("We make some changes to the array node and propagate") {
+                array_ptr->set_value(state, 1, 6);
+                array_ptr->set_value(state, 4, 7);
+                array_ptr->set_value(state, 5, 8);
+                // | 0 6 2 |T    | 0 3 |
+                // | 3 7 8 |  -> | 6 7 |
+                //               | 2 8 |
+                graph.propagate(state);
+
+                THEN("The transpose state is correct") {
+                    CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 3, 6, 7, 2, 8}));
+                    CHECK_THAT(transpose_ptr->diff(state),
+                               RangeEquals({Update(2, 1, 6), Update(3, 4, 7), Update(5, 5, 8)}));
+                }
+
+                AND_WHEN("We commit, make changes to integer node, and propagate") {
+                    graph.commit(state);
+                    array_ptr->set_value(state, 0, 9);
+                    array_ptr->set_value(state, 2, 10);
+                    // | 9 6 2 |T    | 9 3 |
+                    // | 3 7 8 |  -> | 6 7 |
+                    //               | 10 8 |
+
+                    graph.propagate(state);
+
+                    THEN("The transpose is correct") {
+                        CHECK_THAT(transpose_ptr->view(state), RangeEquals({9, 3, 6, 7, 10, 8}));
+                        CHECK_THAT(transpose_ptr->diff(state),
+                                   RangeEquals({Update(0, 0, 9), Update(4, 2, 10)}));
+                    }
+
+                    AND_WHEN("We revert") {
+                        graph.revert(state);
+
+                        THEN("The transpose is correct") {
+                            CHECK_THAT(transpose_ptr->view(state), RangeEquals({0, 3, 6, 7, 2, 8}));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    GIVEN("An integer 2-D array and TWO transpose node") {
+        auto array_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{2, 3});
+        auto transpose_ptr_1 = graph.emplace_node<TransposeNode>(array_ptr);
+        auto transpose_ptr_2 = graph.emplace_node<TransposeNode>(transpose_ptr_1);
+
+        THEN("The basic attributes of the second transpose node are correct") {
+            CHECK_THAT(transpose_ptr_2->strides(), RangeEquals({24, 8}));
+            CHECK_THAT(transpose_ptr_2->shape(), RangeEquals({2, 3}));
+            CHECK(transpose_ptr_2->contiguous());
+        }
+
+        WHEN("We initialize a state") {
+            auto state = graph.empty_state();
+            array_ptr->initialize_state(state, {0, 1, 2, 3, 4, 5});
+            // | 0 1 2 |
+            // | 3 4 5 |
+            graph.initialize_state(state);
+
+            THEN("The initial second transpose state is correct") {
+                CHECK_THAT(transpose_ptr_2->view(state), RangeEquals({0, 1, 2, 3, 4, 5}));
+            }
+
+            AND_THEN("We make some changes to the array node and propagate") {
+                array_ptr->set_value(state, 1, 6);
+                array_ptr->set_value(state, 4, 7);
+                array_ptr->set_value(state, 5, 8);
+                // | 0 6 2 |
+                // | 3 7 8 |
+
+                graph.propagate(state);
+
+                THEN("The second transpose state is correct") {
+                    CHECK_THAT(transpose_ptr_2->view(state), RangeEquals({0, 6, 2, 3, 7, 8}));
+                    CHECK_THAT(transpose_ptr_2->diff(state),
+                               RangeEquals({Update(1, 1, 6), Update(4, 4, 7), Update(5, 5, 8)}));
+                }
+
+                AND_WHEN("We commit, make changes to integer node, and propagate") {
+                    graph.commit(state);
+                    array_ptr->set_value(state, 0, 9);
+                    array_ptr->set_value(state, 2, 10);
+                    // | 9 6 10 |
+                    // | 3 7 8  |
+
+                    graph.propagate(state);
+
+                    THEN("The second transpose is correct") {
+                        CHECK_THAT(transpose_ptr_2->view(state), RangeEquals({9, 6, 10, 3, 7, 8}));
+                        CHECK_THAT(transpose_ptr_2->diff(state),
+                                   RangeEquals({Update(0, 0, 9), Update(2, 2, 10)}));
+                    }
+
+                    AND_WHEN("We revert") {
+                        graph.revert(state);
+
+                        THEN("The second transpose is correct") {
+                            CHECK_THAT(transpose_ptr_2->view(state),
+                                       RangeEquals({0, 6, 2, 3, 7, 8}));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    GIVEN("An integer 4-D array and a transpose node") {
+        auto array_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{2, 2, 2, 3});
+        auto transpose_ptr = graph.emplace_node<TransposeNode>(array_ptr);
+        // Python code to obtain the outputs because I was unwilling to do this by hand..
+        // >>> import numpy as np
+        // >>> a = np.arange(24).reshape(2, 2, 2, 3)
+
+        THEN("The basic attributes of the transpose node are correct") {
+            // >>> a.transpose().strides
+            // (8, 24, 48, 96)
+            CHECK_THAT(transpose_ptr->strides(), RangeEquals({8, 24, 48, 96}));
+            CHECK_THAT(transpose_ptr->shape(), RangeEquals({3, 2, 2, 2}));
+            CHECK(transpose_ptr->min() == array_ptr->min());
+            CHECK(transpose_ptr->max() == array_ptr->max());
+            CHECK(transpose_ptr->integral() == array_ptr->integral());
+            CHECK(!transpose_ptr->contiguous());
+        }
+
+        WHEN("We initialize a state") {
+            auto state = graph.empty_state();
+            array_ptr->initialize_state(state, {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
+                                                12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23});
+            graph.initialize_state(state);
+
+            // >>> a.transpose().flatten()
+            // array([ 0, 12,  6, 18,  3, 15,  9, 21,  1, 13,  7, 19,  4, 16, 10, 22,  2,
+            // 14,  8, 20,  5, 17, 11, 23])
+            CHECK_THAT(transpose_ptr->view(state),
+                       RangeEquals({0, 12, 6,  18, 3, 15, 9, 21, 1, 13, 7,  19,
+                                    4, 16, 10, 22, 2, 14, 8, 20, 5, 17, 11, 23}));
+
+            AND_THEN("We make some changes to the array node and propagate") {
+                array_ptr->set_value(state, 1, 24);
+                array_ptr->set_value(state, 7, 25);
+                array_ptr->set_value(state, 10, 26);
+                array_ptr->set_value(state, 16, 27);
+                array_ptr->set_value(state, 22, 28);
+                graph.propagate(state);
+                // >>> a = a.flatten()
+                // >>> a[1] = 24
+                // >>> a[7] = 25
+                // >>> a[10] = 26
+                // >>> a[16] = 27
+                // >>> a[22] = 28
+                // >>> a = a.reshape(2,2,2,3)
+
+                THEN("The transpose state is correct") {
+                    // >>> a.transpose().flatten()
+                    // array([ 0, 12,  6, 18,  3, 15,  9, 21, 24, 13, 25, 19,  4, 27, 26, 28,  2,
+                    // 14,  8, 20,  5, 17, 11, 23])
+                    CHECK_THAT(transpose_ptr->view(state),
+                               RangeEquals({0, 12, 6,  18, 3, 15, 9, 21, 24, 13, 25, 19,
+                                            4, 27, 26, 28, 2, 14, 8, 20, 5,  17, 11, 23}));
+                    // >>> np.where(a.transpose().flatten() == 24)
+                    // (array([8]),)
+                    // >>> np.where(a.transpose().flatten() == 25)
+                    // (array([10]),)
+                    // >>> np.where(a.transpose().flatten() == 26)
+                    // (array([14]),)
+                    // >>> np.where(a.transpose().flatten() == 27)
+                    // (array([13]),)
+                    // >>> np.where(a.transpose().flatten() == 28)
+                    // (array([15]),)
+                    CHECK_THAT(transpose_ptr->diff(state),
+                               RangeEquals({Update(8, 1, 24), Update(10, 7, 25), Update(14, 10, 26),
+                                            Update(13, 16, 27), Update(15, 22, 28)}));
                 }
             }
         }

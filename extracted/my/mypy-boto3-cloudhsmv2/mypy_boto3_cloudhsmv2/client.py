@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -63,12 +64,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -79,14 +74,14 @@ __all__ = ("CloudHSMV2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CloudHsmAccessDeniedException: Type[BotocoreClientError]
-    CloudHsmInternalFailureException: Type[BotocoreClientError]
-    CloudHsmInvalidRequestException: Type[BotocoreClientError]
-    CloudHsmResourceLimitExceededException: Type[BotocoreClientError]
-    CloudHsmResourceNotFoundException: Type[BotocoreClientError]
-    CloudHsmServiceException: Type[BotocoreClientError]
-    CloudHsmTagException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CloudHsmAccessDeniedException: type[BotocoreClientError]
+    CloudHsmInternalFailureException: type[BotocoreClientError]
+    CloudHsmInvalidRequestException: type[BotocoreClientError]
+    CloudHsmResourceLimitExceededException: type[BotocoreClientError]
+    CloudHsmResourceNotFoundException: type[BotocoreClientError]
+    CloudHsmServiceException: type[BotocoreClientError]
+    CloudHsmTagException: type[BotocoreClientError]
 
 
 class CloudHSMV2Client(BaseClient):
@@ -280,7 +275,7 @@ class CloudHSMV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudhsmv2/client/#restore_backup)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or overwrites one or more tags for the specified CloudHSM cluster.
 
@@ -288,7 +283,7 @@ class CloudHSMV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudhsmv2/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tag or tags from the specified CloudHSM cluster.
 

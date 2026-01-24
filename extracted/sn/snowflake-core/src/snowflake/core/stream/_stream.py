@@ -320,8 +320,8 @@ class StreamCollection(StreamCollectionBase):
 class StreamResource(StreamResourceBase):
     """Represents a reference to a Snowflake Stream resource.
 
-    With this stream reference, you can create, update, and fetch information about streams, as well
-    as perform certain actions on them.
+    With this stream reference, you can fetch information about a stream, as well as perform
+    certain actions on it.
     """
 
     _plural_name = "streams"

@@ -13,6 +13,8 @@ from sqlmesh.core import dialect as d
 from sqlmesh.core.config.base import UpdateStrategy
 from sqlmesh.core.config.common import VirtualEnvironmentMode
 from sqlmesh.core.model import Model
+from sqlmesh.core.model.common import ParsableSql
+from sqlmesh.core.node import DbtNodeInfo
 from sqlmesh.dbt.column import (
     ColumnConfig,
     column_descriptions_to_sqlmesh,
@@ -56,6 +58,12 @@ class Materialization(str, Enum):
     # Snowflake, https://docs.getdbt.com/reference/resource-configs/snowflake-configs#dynamic-tables
     DYNAMIC_TABLE = "dynamic_table"
 
+    CUSTOM = "custom"
+
+    @classmethod
+    def _missing_(cls, value):  # type: ignore
+        return cls.CUSTOM
+
 
 class SnapshotStrategy(str, Enum):
     """DBT snapshot strategies"""
@@ -80,7 +88,7 @@ class Hook(DbtConfig):
     """
 
     sql: SqlStr
-    transaction: bool = True  # TODO not yet supported
+    transaction: bool = True
 
     _sql_validator = sql_str_validator
 
@@ -120,8 +128,10 @@ class BaseModelConfig(GeneralConfig):
     grain: t.Union[str, t.List[str]] = []
 
     # DBT configuration fields
+    unique_id: str = ""
     name: str = ""
     package_name: str = ""
+    fqn_: t.List[str] = Field(default_factory=list, alias="fqn")
     schema_: str = Field("", alias="schema")
     database: t.Optional[str] = None
     alias: t.Optional[str] = None
@@ -156,7 +166,11 @@ class BaseModelConfig(GeneralConfig):
 
     @field_validator("grants", mode="before")
     @classmethod
-    def _validate_grants(cls, v: t.Dict[str, str]) -> t.Dict[str, t.List[str]]:
+    def _validate_grants(
+        cls, v: t.Optional[t.Dict[str, str]]
+    ) -> t.Optional[t.Dict[str, t.List[str]]]:
+        if v is None:
+            return None
         return {key: ensure_list(value) for key, value in v.items()}
 
     _FIELD_UPDATE_STRATEGY: t.ClassVar[t.Dict[str, UpdateStrategy]] = {
@@ -269,16 +283,16 @@ class BaseModelConfig(GeneralConfig):
         ]
 
     @property
+    def fqn(self) -> str:
+        return ".".join(self.fqn_)
+
+    @property
     def sqlmesh_config_fields(self) -> t.Set[str]:
         return {"description", "owner", "stamp", "storage_format"}
 
     @property
-    def node_name(self) -> str:
-        resource_type = getattr(self, "resource_type", "model")
-        node_name = f"{resource_type}.{self.package_name}.{self.name}"
-        if self.version:
-            node_name += f".v{self.version}"
-        return node_name
+    def node_info(self) -> DbtNodeInfo:
+        return DbtNodeInfo(unique_id=self.unique_id, name=self.name, fqn=self.fqn, alias=self.alias)
 
     def sqlmesh_model_kwargs(
         self,
@@ -294,7 +308,19 @@ class BaseModelConfig(GeneralConfig):
             # precisely which variables are referenced in the model
             dependencies.variables |= set(context.variables)
 
+        if (
+            getattr(self, "model_materialization", None) == Materialization.CUSTOM
+            and hasattr(self, "_get_custom_materialization")
+            and (custom_mat := self._get_custom_materialization(context))
+        ):
+            # include custom materialization dependencies as they might use macros
+            dependencies = dependencies.union(custom_mat.dependencies)
+
         model_dialect = self.dialect(context)
+
+        # Only keep refs and sources that exist in the context to match dbt behavior
+        dependencies.refs.intersection_update(context.refs)
+        dependencies.sources.intersection_update(context.sources)
         model_context = context.context_for_dependencies(
             dependencies.union(self.tests_ref_source_dependencies)
         )
@@ -304,15 +330,28 @@ class BaseModelConfig(GeneralConfig):
         jinja_macros.add_globals(self._model_jinja_context(model_context, dependencies))
 
         model_kwargs = {
-            "audits": [(test.name, {}) for test in self.tests],
+            "audits": [(test.canonical_name, {}) for test in self.tests],
             "column_descriptions": column_descriptions_to_sqlmesh(self.columns) or None,
             "depends_on": {
                 model.canonical_name(context) for model in model_context.refs.values()
-            }.union({source.canonical_name(context) for source in model_context.sources.values()}),
+            }.union(
+                {
+                    source.canonical_name(context)
+                    for source in model_context.sources.values()
+                    if source.fqn not in context.model_fqns
+                    # Allow dbt projects to reference a model as a source without causing a cycle
+                },
+            ),
             "jinja_macros": jinja_macros,
             "path": self.path,
-            "pre_statements": [d.jinja_statement(hook.sql) for hook in self.pre_hook],
-            "post_statements": [d.jinja_statement(hook.sql) for hook in self.post_hook],
+            "pre_statements": [
+                ParsableSql(sql=d.jinja_statement(hook.sql).sql(), transaction=hook.transaction)
+                for hook in self.pre_hook
+            ],
+            "post_statements": [
+                ParsableSql(sql=d.jinja_statement(hook.sql).sql(), transaction=hook.transaction)
+                for hook in self.post_hook
+            ],
             "tags": self.tags,
             "physical_schema_mapping": context.sqlmesh_config.physical_schema_mapping,
             "default_catalog": context.target.database,
@@ -349,8 +388,8 @@ class BaseModelConfig(GeneralConfig):
     def _model_jinja_context(
         self, context: DbtContext, dependencies: Dependencies
     ) -> t.Dict[str, t.Any]:
-        if context._manifest and self.node_name in context._manifest._manifest.nodes:
-            attributes = context._manifest._manifest.nodes[self.node_name].to_dict()
+        if context._manifest and self.unique_id in context._manifest._manifest.nodes:
+            attributes = context._manifest._manifest.nodes[self.unique_id].to_dict()
             if dependencies.model_attrs.all_attrs:
                 model_node: AttributeDict[str, t.Any] = AttributeDict(attributes)
             else:

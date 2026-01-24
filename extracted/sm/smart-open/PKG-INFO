@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smart_open
-Version: 7.3.1
+Version: 7.5.0
 Summary: Utils for streaming large files (S3, HDFS, GCS, SFTP, Azure Blob Storage, gzip, bz2, zst...)
 Author-email: Radim Rehurek <me@radimrehurek.com>
 Project-URL: Repository, https://github.com/piskvorky/smart_open
@@ -11,22 +11,23 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: Database :: Front-Ends
-Requires-Python: <4.0,>=3.8
+Requires-Python: <4.0,>=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: wrapt
 Provides-Extra: s3
-Requires-Dist: boto3; extra == "s3"
+Requires-Dist: boto3>=1.9.17; extra == "s3"
 Provides-Extra: gcs
 Requires-Dist: google-cloud-storage>=2.6.0; extra == "gcs"
+Requires-Dist: google-api-core<2.28; python_version < "3.10" and extra == "gcs"
 Provides-Extra: azure
 Requires-Dist: azure-storage-blob; extra == "azure"
 Requires-Dist: azure-common; extra == "azure"
@@ -38,7 +39,7 @@ Requires-Dist: requests; extra == "webhdfs"
 Provides-Extra: ssh
 Requires-Dist: paramiko; extra == "ssh"
 Provides-Extra: zst
-Requires-Dist: zstandard; extra == "zst"
+Requires-Dist: backports.zstd>=1.0.0; python_version < "3.14" and extra == "zst"
 Provides-Extra: all
 Requires-Dist: smart_open[azure,gcs,http,s3,ssh,webhdfs,zst]; extra == "all"
 Provides-Extra: test
@@ -48,9 +49,12 @@ Requires-Dist: responses; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pytest_benchmark; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: pytest-xdist[psutil]; extra == "test"
 Requires-Dist: awscli; extra == "test"
 Requires-Dist: pyopenssl; extra == "test"
 Requires-Dist: numpy; extra == "test"
+Requires-Dist: flake8; extra == "test"
 Dynamic: license-file
 
 ======================================================
@@ -135,19 +139,19 @@ How?
 
   >>> # stream from HTTP
   >>> for line in open('http://example.com/index.html'):
-  ...     print(repr(line))
+  ...     print(repr(line[:15]))
   ...     break
-  '<!doctype html>\n'
+  '<!doctype html>'
 
 .. _doctools_after_examples:
 
-Other examples of URLs that ``smart_open`` accepts::
+Other examples of URIs that ``smart_open`` accepts::
 
-    s3://my_bucket/my_key
-    s3://my_key:my_secret@my_bucket/my_key
-    s3://my_key:my_secret@my_server:my_port@my_bucket/my_key
-    gs://my_bucket/my_blob
-    azure://my_bucket/my_blob
+    s3://bucket/key
+    s3://access_key_id:secret_access_key@bucket/key
+    s3://access_key_id:secret_access_key@server:port@bucket/key
+    gs://bucket/blob
+    azure://bucket/blob
     hdfs:///path/file
     hdfs://path/file
     webhdfs://host:port/path/file

@@ -16,35 +16,38 @@ from pydantic import Field
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class RepositoryRuleCodeScanningPropParameters(GitHubModel):
-    """RepositoryRuleCodeScanningPropParameters"""
+class RepositoryRuleMergeQueuePropParameters(GitHubModel):
+    """RepositoryRuleMergeQueuePropParameters"""
 
-    code_scanning_tools: list[RepositoryRuleParamsCodeScanningTool] = Field(
-        description="Tools that must provide code scanning results for this rule to pass."
+    check_response_timeout_minutes: int = Field(
+        le=360.0,
+        ge=1.0,
+        description="Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed",
+    )
+    grouping_strategy: Literal["ALLGREEN", "HEADGREEN"] = Field(
+        description="When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge."
+    )
+    max_entries_to_build: int = Field(
+        le=100.0,
+        description="Limit the number of queued pull requests requesting checks and workflow runs at the same time.",
+    )
+    max_entries_to_merge: int = Field(
+        le=100.0,
+        description="The maximum number of PRs that will be merged together in a group.",
+    )
+    merge_method: Literal["MERGE", "SQUASH", "REBASE"] = Field(
+        description="Method to use when merging changes from queued pull requests."
+    )
+    min_entries_to_merge: int = Field(
+        le=100.0,
+        description="The minimum number of PRs that will be merged together in a group.",
+    )
+    min_entries_to_merge_wait_minutes: int = Field(
+        le=360.0,
+        description="The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged.",
     )
 
 
-class RepositoryRuleParamsCodeScanningTool(GitHubModel):
-    """CodeScanningTool
+model_rebuild(RepositoryRuleMergeQueuePropParameters)
 
-    A tool that must provide code scanning results for this rule to pass.
-    """
-
-    alerts_threshold: Literal["none", "errors", "errors_and_warnings", "all"] = Field(
-        description='The severity level at which code scanning results that raise alerts block a reference update. For more information on alert severity levels, see "[About code scanning alerts](https://docs.github.com/code-security/code-scanning/managing-code-scanning-alerts/about-code-scanning-alerts#about-alert-severity-and-security-severity-levels)."'
-    )
-    security_alerts_threshold: Literal[
-        "none", "critical", "high_or_higher", "medium_or_higher", "all"
-    ] = Field(
-        description='The severity level at which code scanning results that raise security alerts block a reference update. For more information on security severity levels, see "[About code scanning alerts](https://docs.github.com/code-security/code-scanning/managing-code-scanning-alerts/about-code-scanning-alerts#about-alert-severity-and-security-severity-levels)."'
-    )
-    tool: str = Field(description="The name of a code scanning tool")
-
-
-model_rebuild(RepositoryRuleCodeScanningPropParameters)
-model_rebuild(RepositoryRuleParamsCodeScanningTool)
-
-__all__ = (
-    "RepositoryRuleCodeScanningPropParameters",
-    "RepositoryRuleParamsCodeScanningTool",
-)
+__all__ = ("RepositoryRuleMergeQueuePropParameters",)

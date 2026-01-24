@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fake-bpy-module-latest
-Version: 20250923
+Version: 20260123
 Summary: Collection of the fake Blender Python API module for the code completion.
 Author: nutti
 Author-email: nutti.metro@gmail.com
@@ -115,6 +115,9 @@ being too big for intelliSense to work.*
 |4.1|[https://pypi.org/project/fake-bpy-module-4.1/](https://pypi.org/project/fake-bpy-module-4.1/)|
 |4.2|[https://pypi.org/project/fake-bpy-module-4.2/](https://pypi.org/project/fake-bpy-module-4.2/)|
 |4.3|[https://pypi.org/project/fake-bpy-module-4.3/](https://pypi.org/project/fake-bpy-module-4.3/)|
+|4.4|[https://pypi.org/project/fake-bpy-module-4.4/](https://pypi.org/project/fake-bpy-module-4.4/)|
+|4.5|[https://pypi.org/project/fake-bpy-module-4.5/](https://pypi.org/project/fake-bpy-module-4.5/)|
+|5.0|[https://pypi.org/project/fake-bpy-module-5.0/](https://pypi.org/project/fake-bpy-module-5.0/)|
 |latest|[https://pypi.org/project/fake-bpy-module/](https://pypi.org/project/fake-bpy-module/)|
 ||[https://pypi.org/project/fake-bpy-module-latest/](https://pypi.org/project/fake-bpy-module-latest/)|
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: opentelemetry-exporter-gcp-trace
-Version: 1.9.0
+Version: 1.11.0
 Summary: Google Cloud Trace exporter for OpenTelemetry
 Home-page: https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-exporter-gcp-trace
 Author: Google
@@ -12,21 +12,20 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: google-cloud-trace~=1.1
-Requires-Dist: opentelemetry-api~=1.0
-Requires-Dist: opentelemetry-sdk~=1.0
+Requires-Dist: opentelemetry-api~=1.30
+Requires-Dist: opentelemetry-sdk~=1.30
 Requires-Dist: opentelemetry-resourcedetector-gcp==1.*,>=1.5.0dev0
 Provides-Extra: test
+Dynamic: license-file
 
 OpenTelemetry Google Cloud Integration
 ======================================

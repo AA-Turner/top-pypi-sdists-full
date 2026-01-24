@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygit2
-Version: 1.18.2
+Version: 1.19.1
 Summary: Python bindings for libgit2.
 Home-page: https://github.com/libgit2/pygit2
 Maintainer: J. David Ibáñez
@@ -14,19 +14,19 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Version Control
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: COPYING
 License-File: AUTHORS.md
-Requires-Dist: cffi>=1.17.0
+Requires-Dist: cffi>=2.0
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
@@ -44,20 +44,24 @@ Dynamic: summary
 # pygit2 - libgit2 bindings in Python
 
 Bindings to the libgit2 shared library, implements Git plumbing.
-Supports Python 3.10 to 3.13 and PyPy3 7.3+
+Supports Python 3.11 to 3.14 and PyPy3 7.3+
 
-[![image](https://github.com/libgit2/pygit2/actions/workflows/tests.yml/badge.svg)](https://github.com/libgit2/pygit2/actions/workflows/tests.yml)
+[![test-ci-badge][test-ci-badge]][test-ci-link]
+[![deploy-ci-badge][deploy-ci-badge]][deploy-ci-link]
 
-[![image](https://ci.appveyor.com/api/projects/status/edmwc0dctk5nacx0/branch/master?svg=true)](https://ci.appveyor.com/project/jdavid/pygit2/branch/master)
+[deploy-ci-badge]: https://github.com/libgit2/pygit2/actions/workflows/wheels.yml/badge.svg
+[deploy-ci-link]: https://github.com/libgit2/pygit2/actions/workflows/wheels.yml
+[test-ci-badge]: https://github.com/libgit2/pygit2/actions/workflows/tests.yml/badge.svg
+[test-ci-link]: https://github.com/libgit2/pygit2/actions/workflows/tests.yml
 
 ## Links
 
--   Documentation - <https://www.pygit2.org/>
--   Install - <https://www.pygit2.org/install.html>
--   Download - <https://pypi.org/project/pygit2/>
--   Source code and issue tracker - <https://github.com/libgit2/pygit2>
--   Changelog - <https://github.com/libgit2/pygit2/blob/master/CHANGELOG.md>
--   Authors - <https://github.com/libgit2/pygit2/blob/master/AUTHORS.md>
+- Documentation - <https://www.pygit2.org/>
+- Install - <https://www.pygit2.org/install.html>
+- Download - <https://pypi.org/project/pygit2/>
+- Source code and issue tracker - <https://github.com/libgit2/pygit2>
+- Changelog - <https://github.com/libgit2/pygit2/blob/master/CHANGELOG.md>
+- Authors - <https://github.com/libgit2/pygit2/blob/master/AUTHORS.md>
 
 ## Sponsors
 

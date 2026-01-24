@@ -163,7 +163,9 @@ class CSVKitUtility:
         whose single-letter form is contained in 'omitflags' will be left out of the configured parser. Use 'f' for
         file.
         """
-        self.argparser = argparse.ArgumentParser(description=self.description, epilog=self.epilog)
+        self.argparser = argparse.ArgumentParser(
+            prog=type(self).__name__.lower(), description=self.description, epilog=self.epilog
+        )
 
         # Input
         if 'f' not in self.override_flags:
@@ -261,7 +263,7 @@ class CSVKitUtility:
                      '1-based numbering.')
 
         self.argparser.add_argument(
-            '-V', '--version', action='version', version='%(prog)s 2.1.0',
+            '-V', '--version', action='version', version='%(prog)s 2.2.0',
             help='Display version information and exit.')
 
     def _open_input_file(self, path, opened=False):

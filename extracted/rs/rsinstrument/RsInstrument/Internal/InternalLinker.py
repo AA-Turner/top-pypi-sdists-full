@@ -3,7 +3,8 @@
 from time import time
 from typing import Dict, Callable
 
-from . import ArgSingle, ArgSingleSuppressed
+from .ArgSingle import ArgSingle
+from .ArgSingleSuppressed import ArgSingleSuppressed
 from .ArgLinkedEventArgs import ArgLinkedEventArgs
 from .Utilities import get_plural_string
 from .InstrumentErrors import RsInstrException
@@ -76,7 +77,7 @@ class InternalLinker(object):
 		self.invoke_single_intern_link(arg, context, suppressed_part)
 		return result
 
-	def invoke_single_intern_link(self, arg: ArgSingleSuppressed or ArgSingle, context: str, value: str) -> None:
+	def invoke_single_intern_link(self, arg: ArgSingleSuppressed | ArgSingle, context: str, value: str) -> None:
 		"""Invokes the registered handler for the internal linked argument."""
 		if arg.intern_link and arg.intern_link in self._handlers:
 			event_args = ArgLinkedEventArgs(arg.intern_link, arg.name, value, context, time())

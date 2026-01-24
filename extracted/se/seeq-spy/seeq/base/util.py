@@ -44,7 +44,7 @@ def os_lock(name, target, args=(), kwargs=None, timeout=7.0, retry_period=0.1):
     Otherwise it will just try to remove the lockfile after "timeout" seconds and do 'action()' anyway.
     retry_period is a float in seconds to wait between retries.
     """
-    lockfile = os.path.abspath(os.path.join(tempfile.tempdir, f'{name}.lock'))
+    lockfile = os.path.abspath(os.path.join(tempfile.gettempdir(), f'{name}.lock'))
 
     f = None
     started_at = time.time()
@@ -72,7 +72,7 @@ def os_lock(name, target, args=(), kwargs=None, timeout=7.0, retry_period=0.1):
             except OSError:
                 time.sleep(retry_period)
 
-        target(*args, **kwargs)
+        return target(*args, **kwargs)
     finally:
         if f:
             os.close(f)
@@ -210,8 +210,9 @@ def safe_isdir(filename):
     return os.path.isdir(handle_long_filenames(filename))
 
 
-def safe_abspath(filename):
-    return os.path.abspath(handle_long_filenames(filename))
+def safe_abspath(filename, *, long_filename=True):
+    filename = filename if not long_filename else handle_long_filenames(filename)
+    return os.path.abspath(filename)
 
 
 def safe_relpath(path, start):

@@ -13,8 +13,10 @@ from wbcore.contrib.color.fields import ColorField
 from wbcore.contrib.icons import WBIcon
 from wbcore.contrib.icons.models import IconField
 from wbcore.models import WBModel
+from wbcore.signals import pre_merge
 from wbcore.utils.itertools import get_inheriting_subclasses
 from wbcore.utils.models import DeleteToDisableMixin
+from wbcore.workers import Queue
 
 
 class CalendarItem(DeleteToDisableMixin, WBModel):
@@ -219,7 +221,7 @@ def m2m_entities_changed(sender, instance, action, pk_set, **kwargs):
         transaction.on_commit(set_entity_list.s(instance.id).delay)
 
 
-@shared_task
+@shared_task(queue=Queue.HIGH_PRIORITY.value)
 def set_entity_list(calendar_item_id: int):
     frontend_list = []
     with suppress(
@@ -237,3 +239,11 @@ def set_entity_list(calendar_item_id: int):
             )
         instance.entity_list = frontend_list
         instance.save()
+
+
+@receiver(pre_merge, sender="directory.Entry")
+def pre_merge_entry_calendaritem(sender: models.Model, merged_object, main_object, **kwargs):
+    for item in CalendarItem.objects.filter(entities=merged_object):
+        item.entities.remove(merged_object)
+        if main_object not in item.entities.all():
+            item.entities.add(main_object)

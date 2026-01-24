@@ -1,4 +1,5 @@
 import logging
+import re
 from inspect import isawaitable
 from time import time
 
@@ -9,7 +10,16 @@ from pyrate_limiter import Duration
 from pyrate_limiter import Rate
 from pyrate_limiter import RateItem
 from pyrate_limiter import SQLiteClock
+from pyrate_limiter import MonotonicClock
+from pyrate_limiter import AbstractClock
+
 from pyrate_limiter import validate_rate_list
+
+
+def test_version():
+    from pyrate_limiter import _version
+    assert re.match(r'^\d+\.\d+\.\d+(\..*)?', _version.__version__), f"""{_version.__version__=}
+    doesn't match a version pattern (x.y.z)"""
 
 
 def test_duration():
@@ -115,9 +125,11 @@ def test_rate_validator():
 
 
 @pytest.mark.asyncio
-async def test_clock(clock):
+async def test_clock(clock: AbstractClock | None = None):
     """Testing clock backends
     """
+    if clock is None:
+        clock = MonotonicClock()
     now = clock.now()
 
     while isawaitable(now):

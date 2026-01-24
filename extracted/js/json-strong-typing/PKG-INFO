@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json_strong_typing
-Version: 0.4.0
+Version: 0.4.2
 Summary: Type-safe data interchange for Python data classes
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: File Formats :: JSON
 Classifier: Topic :: File Formats :: JSON :: JSON Schema
@@ -25,11 +26,12 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: jsonschema>=4.24
+Requires-Dist: jsonschema>=4.25
 Requires-Dist: typing_extensions>=4.14; python_version < "3.11"
 Provides-Extra: dev
-Requires-Dist: mypy>=1.16; extra == "dev"
-Requires-Dist: ruff>=0.12; extra == "dev"
+Requires-Dist: build>=1.3; extra == "dev"
+Requires-Dist: mypy>=1.18; extra == "dev"
+Requires-Dist: ruff>=0.14; extra == "dev"
 Dynamic: license-file
 
 # Type-safe data interchange for Python

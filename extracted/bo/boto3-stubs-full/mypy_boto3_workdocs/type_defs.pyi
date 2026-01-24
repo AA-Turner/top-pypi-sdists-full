@@ -3,7 +3,7 @@ Type annotations for workdocs service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_workdocs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -55,12 +56,6 @@ from .literals import (
     UserTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -192,7 +187,7 @@ class ActivateUserRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -258,7 +253,7 @@ class FolderMetadataTypeDef(TypedDict):
     ModifiedTimestamp: NotRequired[datetime]
     ResourceState: NotRequired[ResourceStateTypeType]
     Signature: NotRequired[str]
-    Labels: NotRequired[List[str]]
+    Labels: NotRequired[list[str]]
     Size: NotRequired[int]
     LatestVersionSize: NotRequired[int]
 
@@ -372,8 +367,8 @@ class DocumentVersionMetadataTypeDef(TypedDict):
     ContentCreatedTimestamp: NotRequired[datetime]
     ContentModifiedTimestamp: NotRequired[datetime]
     CreatorId: NotRequired[str]
-    Thumbnail: NotRequired[Dict[DocumentThumbnailTypeType, str]]
-    Source: NotRequired[Dict[DocumentSourceTypeType, str]]
+    Thumbnail: NotRequired[dict[DocumentThumbnailTypeType, str]]
+    Source: NotRequired[dict[DocumentSourceTypeType, str]]
 
 DescribeFolderContentsRequestTypeDef = TypedDict(
     "DescribeFolderContentsRequestTypeDef",
@@ -480,7 +475,7 @@ class GetResourcesRequestTypeDef(TypedDict):
 
 class UploadMetadataTypeDef(TypedDict):
     UploadUrl: NotRequired[str]
-    SignedHeaders: NotRequired[Dict[str, str]]
+    SignedHeaders: NotRequired[dict[str, str]]
 
 PermissionInfoTypeDef = TypedDict(
     "PermissionInfoTypeDef",
@@ -555,7 +550,7 @@ class AddResourcePermissionsRequestTypeDef(TypedDict):
     NotificationOptions: NotRequired[NotificationOptionsTypeDef]
 
 class AddResourcePermissionsResponseTypeDef(TypedDict):
-    ShareResults: List[ShareResultTypeDef]
+    ShareResults: list[ShareResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFolderResponseTypeDef(TypedDict):
@@ -563,13 +558,13 @@ class CreateFolderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeRootFoldersResponseTypeDef(TypedDict):
-    Folders: List[FolderMetadataTypeDef]
+    Folders: list[FolderMetadataTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFolderResponseTypeDef(TypedDict):
     Metadata: FolderMetadataTypeDef
-    CustomMetadata: Dict[str, str]
+    CustomMetadata: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateNotificationSubscriptionResponseTypeDef(TypedDict):
@@ -577,7 +572,7 @@ class CreateNotificationSubscriptionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeNotificationSubscriptionsResponseTypeDef(TypedDict):
-    Subscriptions: List[SubscriptionTypeDef]
+    Subscriptions: list[SubscriptionTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -706,7 +701,7 @@ class DescribeUsersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeDocumentVersionsResponseTypeDef(TypedDict):
-    DocumentVersions: List[DocumentVersionMetadataTypeDef]
+    DocumentVersions: list[DocumentVersionMetadataTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -718,33 +713,33 @@ class DocumentMetadataTypeDef(TypedDict):
     ModifiedTimestamp: NotRequired[datetime]
     LatestVersionMetadata: NotRequired[DocumentVersionMetadataTypeDef]
     ResourceState: NotRequired[ResourceStateTypeType]
-    Labels: NotRequired[List[str]]
+    Labels: NotRequired[list[str]]
 
 class GetDocumentVersionResponseTypeDef(TypedDict):
     Metadata: DocumentVersionMetadataTypeDef
-    CustomMetadata: Dict[str, str]
+    CustomMetadata: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupMetadataTypeDef]
+    Groups: list[GroupMetadataTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ParticipantsTypeDef(TypedDict):
-    Users: NotRequired[List[UserMetadataTypeDef]]
-    Groups: NotRequired[List[GroupMetadataTypeDef]]
+    Users: NotRequired[list[UserMetadataTypeDef]]
+    Groups: NotRequired[list[GroupMetadataTypeDef]]
 
 PrincipalTypeDef = TypedDict(
     "PrincipalTypeDef",
     {
         "Id": NotRequired[str],
         "Type": NotRequired[PrincipalTypeType],
-        "Roles": NotRequired[List[PermissionInfoTypeDef]],
+        "Roles": NotRequired[list[PermissionInfoTypeDef]],
     },
 )
 
 class ResourcePathTypeDef(TypedDict):
-    Components: NotRequired[List[ResourcePathComponentTypeDef]]
+    Components: NotRequired[list[ResourcePathComponentTypeDef]]
 
 UserTypeDef = TypedDict(
     "UserTypeDef",
@@ -780,19 +775,19 @@ class FiltersTypeDef(TypedDict):
     ModifiedRange: NotRequired[DateRangeTypeTypeDef]
 
 class DescribeFolderContentsResponseTypeDef(TypedDict):
-    Folders: List[FolderMetadataTypeDef]
-    Documents: List[DocumentMetadataTypeDef]
+    Folders: list[FolderMetadataTypeDef]
+    Documents: list[DocumentMetadataTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDocumentResponseTypeDef(TypedDict):
     Metadata: DocumentMetadataTypeDef
-    CustomMetadata: Dict[str, str]
+    CustomMetadata: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetResourcesResponseTypeDef(TypedDict):
-    Folders: List[FolderMetadataTypeDef]
-    Documents: List[DocumentMetadataTypeDef]
+    Folders: list[FolderMetadataTypeDef]
+    Documents: list[DocumentMetadataTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -802,7 +797,7 @@ class InitiateDocumentVersionUploadResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeResourcePermissionsResponseTypeDef(TypedDict):
-    Principals: List[PrincipalTypeDef]
+    Principals: list[PrincipalTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -846,7 +841,7 @@ class CreateUserResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     TotalNumberOfUsers: int
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -908,16 +903,16 @@ class CreateCommentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeCommentsResponseTypeDef(TypedDict):
-    Comments: List[CommentTypeDef]
+    Comments: list[CommentTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeActivitiesResponseTypeDef(TypedDict):
-    UserActivities: List[ActivityTypeDef]
+    UserActivities: list[ActivityTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchResourcesResponseTypeDef(TypedDict):
-    Items: List[ResponseItemTypeDef]
+    Items: list[ResponseItemTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbclient
-Version: 0.10.2
+Version: 0.10.4
 Summary: A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor.
 Project-URL: Documentation, https://nbclient.readthedocs.io
 Project-URL: Funding, https://numfocus.org/
@@ -46,15 +46,15 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9.0
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10.0
 Requires-Dist: jupyter-client>=6.1.12
 Requires-Dist: jupyter-core!=5.0.*,>=4.12
-Requires-Dist: nbformat>=5.1
+Requires-Dist: nbformat>=5.1.3
 Requires-Dist: traitlets>=5.4
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == 'dev'
@@ -68,9 +68,9 @@ Requires-Dist: mock; extra == 'docs'
 Requires-Dist: moto; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
 Requires-Dist: nbconvert>=7.1.0; extra == 'docs'
-Requires-Dist: pytest-asyncio; extra == 'docs'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'docs'
 Requires-Dist: pytest-cov>=4.0; extra == 'docs'
-Requires-Dist: pytest<8,>=7.0; extra == 'docs'
+Requires-Dist: pytest<10,>=9.0.1; extra == 'docs'
 Requires-Dist: sphinx-book-theme; extra == 'docs'
 Requires-Dist: sphinx>=1.7; extra == 'docs'
 Requires-Dist: sphinxcontrib-spelling; extra == 'docs'
@@ -82,9 +82,9 @@ Requires-Dist: ipykernel>=6.19.3; extra == 'test'
 Requires-Dist: ipython; extra == 'test'
 Requires-Dist: ipywidgets; extra == 'test'
 Requires-Dist: nbconvert>=7.1.0; extra == 'test'
-Requires-Dist: pytest-asyncio; extra == 'test'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'test'
 Requires-Dist: pytest-cov>=4.0; extra == 'test'
-Requires-Dist: pytest<8,>=7.0; extra == 'test'
+Requires-Dist: pytest<10,>=9.0.1; extra == 'test'
 Requires-Dist: testpath; extra == 'test'
 Requires-Dist: xmltodict; extra == 'test'
 Description-Content-Type: text/markdown

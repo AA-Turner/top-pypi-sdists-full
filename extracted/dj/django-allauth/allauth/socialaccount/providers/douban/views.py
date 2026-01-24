@@ -17,11 +17,10 @@ class DoubanOAuth2Adapter(OAuth2Adapter):
     profile_url = "https://api.douban.com/v2/user/~me"
 
     def complete_login(self, request, app, token, **kwargs):
-        headers = {"Authorization": "Bearer %s" % token.token}
-        resp = (
-            get_adapter().get_requests_session().get(self.profile_url, headers=headers)
-        )
-        extra_data = resp.json()
+        headers = {"Authorization": f"Bearer {token.token}"}
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.get(self.profile_url, headers=headers)
+            extra_data = resp.json()
         """
         Douban may return data like this:
 

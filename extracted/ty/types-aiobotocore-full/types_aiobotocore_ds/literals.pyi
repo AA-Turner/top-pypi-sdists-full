@@ -3,14 +3,14 @@ Type annotations for ds service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_aiobotocore_ds.literals import CertificateStateType
+    from types_aiobotocore_ds.literals import CaEnrollmentPolicyStatusType
 
-    data: CertificateStateType = "Deregistered"
+    data: CaEnrollmentPolicyStatusType = "Disabled"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CaEnrollmentPolicyStatusType",
     "CertificateStateType",
     "CertificateTypeType",
     "ClientAuthenticationStatusType",
@@ -54,6 +55,7 @@ __all__ = (
     "ListLogSubscriptionsPaginatorName",
     "ListSchemaExtensionsPaginatorName",
     "ListTagsForResourcePaginatorName",
+    "NetworkTypeType",
     "OSVersionType",
     "PaginatorName",
     "RadiusAuthenticationProtocolType",
@@ -79,6 +81,9 @@ __all__ = (
     "WaiterName",
 )
 
+CaEnrollmentPolicyStatusType = Literal[
+    "Disabled", "Disabling", "Failed", "Impaired", "InProgress", "Success"
+]
 CertificateStateType = Literal[
     "DeregisterFailed",
     "Deregistered",
@@ -103,7 +108,7 @@ DescribeSnapshotsPaginatorName = Literal["describe_snapshots"]
 DescribeTrustsPaginatorName = Literal["describe_trusts"]
 DescribeUpdateDirectoryPaginatorName = Literal["describe_update_directory"]
 DirectoryConfigurationStatusType = Literal["Default", "Failed", "Requested", "Updated", "Updating"]
-DirectoryEditionType = Literal["Enterprise", "Standard"]
+DirectoryEditionType = Literal["Enterprise", "Hybrid", "Standard"]
 DirectorySizeType = Literal["Large", "Small"]
 DirectoryStageType = Literal[
     "Active",
@@ -136,6 +141,7 @@ ListIpRoutesPaginatorName = Literal["list_ip_routes"]
 ListLogSubscriptionsPaginatorName = Literal["list_log_subscriptions"]
 ListSchemaExtensionsPaginatorName = Literal["list_schema_extensions"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
+NetworkTypeType = Literal["Dual-stack", "IPv4", "IPv6"]
 OSVersionType = Literal["SERVER_2012", "SERVER_2019"]
 RadiusAuthenticationProtocolType = Literal["CHAP", "MS-CHAPv1", "MS-CHAPv2", "PAP"]
 RadiusStatusType = Literal["Completed", "Creating", "Failed"]
@@ -185,7 +191,7 @@ TrustStateType = Literal[
 ]
 TrustTypeType = Literal["External", "Forest"]
 UpdateStatusType = Literal["UpdateFailed", "Updated", "Updating"]
-UpdateTypeType = Literal["OS"]
+UpdateTypeType = Literal["NETWORK", "OS", "SIZE"]
 DirectoryServiceServiceName = Literal["ds"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -213,7 +219,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -283,6 +288,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -328,7 +334,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -381,7 +386,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -420,8 +424,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -456,6 +458,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -465,18 +468,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -498,8 +503,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -514,15 +517,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -553,8 +557,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -594,6 +598,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -605,16 +610,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_client_authentication_settings",

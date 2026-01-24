@@ -37,8 +37,10 @@
 #include "include/effects/SkShaderMaskFilter.h"
 #include "include/private/base/SkTArray.h"
 #include "src/core/SkLineClipper.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 #include "tools/gpu/YUVUtils.h"
 
 #include <array>
@@ -138,7 +140,7 @@ static void draw_outset_line(SkCanvas* canvas, const SkMatrix& local, const SkPo
                              const SkPaint& paint) {
     static constexpr SkScalar kLineOutset = 10.f;
     SkPoint mapped[2];
-    local.mapPoints(mapped, pts, 2);
+    local.mapPoints({mapped, 2}, {pts, 2});
     SkVector v = mapped[1] - mapped[0];
     v.setLength(v.length() + kLineOutset);
     canvas->drawLine(mapped[1] - v, mapped[0] + v, paint);
@@ -191,7 +193,7 @@ static void draw_clipping_boundaries(SkCanvas* canvas, const SkMatrix& local) {
 }
 
 static void draw_text(SkCanvas* canvas, const char* text) {
-    SkFont font(ToolUtils::create_portable_typeface(), 12);
+    SkFont font(ToolUtils::DefaultPortableTypeface(), 12);
     canvas->drawString(text, 0, 0, font, SkPaint());
 }
 
@@ -285,7 +287,7 @@ protected:
             }
         } else {
             //  Haven't been split yet, so fill in based on the rect
-            baseRect.toQuad(points);
+            baseRect.copyToQuad(points);
         }
 
         // Consider the first line against the 4 quad edges in tile, which should have 0,1, or 2
@@ -326,7 +328,7 @@ protected:
         // splits are hardcoded below; subtile quad orderings are such that the sub tiles remain in
         // clockwise order and match expected edges for QuadAAFlags. subtile indices refer to the
         // 6-element 'points' array.
-        SkSTArray<3, std::array<int, 4>> subtiles;
+        STArray<3, std::array<int, 4>> subtiles;
         int s2 = -1; // Index of an original vertex chosen for a artificial split
         if (splitIndices[1] - splitIndices[0] == 2) {
             // Opposite edges, so the split trivially forms 2 sub quads
@@ -424,7 +426,7 @@ public:
             , fName(name) {}
 
 protected:
-    SkISize onISize() override {
+    SkISize getISize() override {
         // Initialize the array of renderers.
         this->onceBeforeDraw();
 
@@ -439,7 +441,7 @@ protected:
                              SkScalarRoundToInt(kCellHeight * fRenderers.size() + 75.f));
     }
 
-    SkString onShortName() override {
+    SkString getName() const override {
         SkString fullName;
         fullName.appendf("compositor_quads_%s", fName.c_str());
         return fullName;
@@ -529,13 +531,13 @@ private:
         fMatrixNames.push_back(SkString("Skew"));
 
         // Perspective
-        SkPoint src[4];
-        SkRect::MakeWH(kColCount * kTileWidth, kRowCount * kTileHeight).toQuad(src);
+        const std::array<SkPoint, 4> src = SkRect::MakeWH(kColCount * kTileWidth,
+                                                          kRowCount * kTileHeight).toQuad();
         SkPoint dst[4] = {{0, 0},
                           {kColCount * kTileWidth + 10.f, 15.f},
                           {kColCount * kTileWidth - 28.f, kRowCount * kTileHeight + 40.f},
                           {25.f, kRowCount * kTileHeight - 15.f}};
-        SkAssertResult(fMatrices[4].setPolyToPoly(src, dst, 4));
+        SkAssertResult(fMatrices[4].setPolyToPoly(src, dst));
         fMatrices[4].preTranslate(0.f, 10.f);
         fMatrixNames.push_back(SkString("Perspective"));
 
@@ -740,10 +742,9 @@ public:
 
         // This acts like the whole image is rendered over the entire tile grid, so derive local
         // coordinates from 'rect', based on the grid to image transform.
-        SkMatrix gridToImage = SkMatrix::RectToRect(SkRect::MakeWH(kColCount * kTileWidth,
-                                                                   kRowCount * kTileHeight),
-                                                    SkRect::MakeWH(fImage->width(),
-                                                                   fImage->height()));
+        SkMatrix gridToImage = SkMatrix::RectToRectOrIdentity(
+                                    SkRect::MakeWH(kColCount * kTileWidth, kRowCount * kTileHeight),
+                                    SkRect::MakeWH(fImage->width(), fImage->height()));
         SkRect localRect = gridToImage.mapRect(rect);
 
         // drawTextureSet automatically derives appropriate local quad from localRect if clipPtr
@@ -827,7 +828,7 @@ private:
             if (fResetEachQuad) {
                 // Apply a local transform in the shader to map from the tile rectangle to (0,0,w,h)
                 static const SkRect kTarget = SkRect::MakeWH(kTileWidth, kTileHeight);
-                SkMatrix local = SkMatrix::RectToRect(kTarget, rect);
+                SkMatrix local = SkMatrix::RectToRectOrIdentity(kTarget, rect);
                 paint->setShader(fShader->makeWithLocalMatrix(local));
             } else {
                 paint->setShader(fShader);
@@ -899,8 +900,11 @@ public:
     int drawTiles(SkCanvas* canvas) override {
         // Refresh the SkImage at the start, so that it's not attempted for every set entry
         if (fYUVData) {
+#if defined(SK_GANESH)
             fImage = fYUVData->refImage(canvas->recordingContext(),
                                         sk_gpu_test::LazyYUVImage::Type::kFromPixmaps);
+
+#endif
             if (!fImage) {
                 return 0;
             }
@@ -925,10 +929,9 @@ public:
 
         // This acts like the whole image is rendered over the entire tile grid, so derive local
         // coordinates from 'rect', based on the grid to image transform.
-        SkMatrix gridToImage = SkMatrix::RectToRect(SkRect::MakeWH(kColCount * kTileWidth,
-                                                                   kRowCount * kTileHeight),
-                                                    SkRect::MakeWH(fImage->width(),
-                                                                   fImage->height()));
+        SkMatrix gridToImage = SkMatrix::RectToRectOrIdentity(
+                                SkRect::MakeWH(kColCount * kTileWidth, kRowCount * kTileHeight),
+                                SkRect::MakeWH(fImage->width(), fImage->height()));
         SkRect localRect = gridToImage.mapRect(rect);
 
         // drawTextureSet automatically derives appropriate local quad from localRect if clipPtr
@@ -1018,7 +1021,7 @@ static ClipTileRendererArray make_shader_renderers() {
 }
 
 static ClipTileRendererArray make_image_renderers() {
-    sk_sp<SkImage> mandrill = GetResourceAsImage("images/mandrill_512.png");
+    sk_sp<SkImage> mandrill = ToolUtils::GetResourceAsImage("images/mandrill_512.png");
     sk_sp<SkData> mandrillJpeg = GetResourceAsData("images/mandrill_h1v1.jpg");
     return ClipTileRendererArray{TextureSetRenderer::MakeUnbatched(mandrill),
                                  TextureSetRenderer::MakeBatched(mandrill, 0),
@@ -1027,7 +1030,7 @@ static ClipTileRendererArray make_image_renderers() {
 }
 
 static ClipTileRendererArray make_filtered_renderers() {
-    sk_sp<SkImage> mandrill = GetResourceAsImage("images/mandrill_512.png");
+    sk_sp<SkImage> mandrill = ToolUtils::GetResourceAsImage("images/mandrill_512.png");
 
     SkColorMatrix cm;
     cm.setSaturation(10);

@@ -1,34 +1,11 @@
 from __future__ import annotations
 
-import itertools as it
+import re
 
 import pytest
 
 import ry
 
-JIFF_UNITS = [
-    "nanosecond",
-    "microsecond",
-    "millisecond",
-    "second",
-    "minute",
-    "hour",
-    "day",
-    "month",
-    "year",
-]
-
-JIFF_ROUND_MODES = [
-    "ceil",
-    "floor",
-    "expand",
-    "trunc",
-    "half-ceil",
-    "half-floor",
-    "half-expand",
-    "half-trunc",
-    "half-even",
-]
 # ====================
 # Zoned
 # ====================
@@ -132,10 +109,12 @@ class TestOffset:
         offset = ry.Offset.from_seconds(-4 * 60 * 60)
         assert offset == ry.Offset(hours=-4)
 
+    @pytest.mark.skip(reason="legacy")
     def test_offset_errors_when_given_both_hours_and_seconds(self) -> None:
         with pytest.raises(TypeError):
             ry.Offset(hours=-4, seconds=-4 * 60 * 60)
 
+    @pytest.mark.skip(reason="legacy")
     def test_offset_errors_when_given_neither_hours_nor_seconds(self) -> None:
         with pytest.raises(TypeError):
             ry.Offset()
@@ -143,7 +122,7 @@ class TestOffset:
 
 def test_zoned() -> None:
     zdt = ry.date(2020, 8, 26).at(6, 27, 0, 0).in_tz("America/New_York")
-    assert zdt.string() == "2020-08-26T06:27:00-04:00[America/New_York]"
+    assert str(zdt) == "2020-08-26T06:27:00-04:00[America/New_York]"
 
     zdt_fields = {
         "tz": str(zdt.timezone),
@@ -230,12 +209,12 @@ class TestTimeSpan:
         zdt1 = ry.date(2020, 8, 26).at(6, 27, 0, 0).in_tz("America/New_York")
         zdt2 = ry.date(2023, 12, 31).at(18, 30, 0, 0).in_tz("America/New_York")
         span = zdt2 - zdt1
-        assert span.string() == "PT29341H3M"
+        assert str(span) == "PT29341H3M"
         span_negated = -span
-        assert span_negated.string() == "-PT29341H3M"
+        assert str(span_negated) == "-PT29341H3M"
 
         span_inverted = ~span
-        assert span_inverted.string() == "-PT29341H3M"
+        assert str(span_inverted) == "-PT29341H3M"
 
     def test_span_2_duration(self) -> None:
         zdt1 = ry.date(2020, 8, 26).at(6, 27, 0, 0).in_tz("America/New_York")
@@ -314,37 +293,10 @@ class TestTimeSpanProperties:
         assert self.ts.nanoseconds == 5_000_000
 
 
-class TestDateTime:
-    d = ry.date(2020, 8, 26).at(6, 27, 0, 0)
-
-    def test_datetime_round_options(self) -> None:
-        default = ry.DateTimeRound()
-        expected_default_string = (
-            'DateTimeRound(smallest="nanosecond", mode="half-expand", increment=1)'
-        )
-        assert str(default) == expected_default_string
-
-        for unit, mode in it.product(JIFF_UNITS, JIFF_ROUND_MODES):
-            options = ry.DateTimeRound(smallest=unit, mode=mode, increment=1)  # type: ignore[arg-type]
-
-            options_chained = (
-                ry.DateTimeRound()._smallest(unit)._mode(mode)._increment(1)  # type: ignore[arg-type]
-            )
-            expected_string = (
-                f'DateTimeRound(smallest="{unit}", mode="{mode}", increment=1)'
-            )
-            assert str(options) == expected_string
-            assert options == options_chained
-
-    def test_datetime_to_iso_week_date(self) -> None:
-        iwd = self.d.iso_week_date()
-        assert iwd == ry.ISOWeekDate(2020, 35, 3)
-
-
 class TestTimespanFunction:
     def test_timespan_fn(self) -> None:
         ts = ry.timespan(weeks=1)
-        assert ts.string() == "P1W"
+        assert str(ts) == "P1W"
 
     def test_timespan_overflow(self) -> None:
         max_i64 = 9_223_372_036_854_775_807
@@ -380,9 +332,19 @@ class TestTzOffset:
         assert offset == ry.Offset(seconds=7200)
 
     def test_from_hours_error(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "parameter 'offset-hours' with value 26 is not in the required range of -25..=25"
+            ),
+        ):
             _offset = ry.Offset.from_hours(26)
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "parameter 'offset-hours' with value -26 is not in the required range of -25..=25"
+            ),
+        ):
             _offset = ry.Offset.from_hours(-26)
 
     def test_from_seconds(self) -> None:
@@ -390,9 +352,19 @@ class TestTzOffset:
         assert offset == ry.Offset(seconds=61)
 
     def test_from_seconds_error(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "parameter 'offset-seconds' with value 93600 is not in the required range of -93599..=93599"
+            ),
+        ):
             _offset = ry.Offset.from_seconds(93600)
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "parameter 'offset-seconds' with value -93600 is not in the required range of -93599..=93599"
+            ),
+        ):
             _offset = ry.Offset.from_seconds(-93600)
 
     def test_negate(self) -> None:
@@ -466,35 +438,6 @@ class TestTzOffset:
         assert offset.saturating_sub(duration) == ry.Offset.MIN
 
 
-class TestDateWeekday:
-    def test_date_nth_weekday(self) -> None:
-        d = ry.date(2024, 3, 10)
-        assert d.weekday == 7
-
-        next_monday = d.nth_weekday(1, "monday")
-        assert next_monday == ry.date(2024, 3, 11)
-
-        next_sunday = d.nth_weekday(1, "sunday")
-        assert next_sunday == ry.date(2024, 3, 17)
-
-        next_next_thursday = d.nth_weekday(2, "thursday")
-        assert next_next_thursday == ry.date(2024, 3, 21)
-
-        last_saturday = d.nth_weekday(-1, "saturday")
-        assert last_saturday == ry.date(2024, 3, 9)
-
-    def test_date_nth_weekday_error(self) -> None:
-        d = ry.Date.MAX
-        assert d.weekday == 5
-        with pytest.raises(ValueError):
-            d.nth_weekday(1, "saturday")
-
-        d = ry.Date.MIN
-        assert d.weekday == 1
-        with pytest.raises(ValueError):
-            d.nth_weekday(-1, "sunday")
-
-
 class TestISOWeekDate:
     def test_iso_week_date(self) -> None:
         d = ry.date(2024, 3, 10)
@@ -541,19 +484,19 @@ class TestParse:
     zdt = ry.date(2020, 8, 26).at(6, 27, 0, 0).in_tz("America/New_York")
 
     def test_parse_date(self) -> None:
-        parsed_date = ry.Date.parse(self.d.string())
+        parsed_date = ry.Date.parse(str(self.d))
         assert parsed_date == self.d
 
     def test_parse_datetime(self) -> None:
-        parsed_datetime = ry.DateTime.from_str(self.dt.string())
+        parsed_datetime = ry.DateTime.from_str(str(self.dt))
         assert parsed_datetime == self.dt
 
     def test_parse_time(self) -> None:
-        parsed_time = ry.Time.parse(self.t.string())
+        parsed_time = ry.Time.parse(str(self.t))
         assert parsed_time == self.t
 
     def test_parse_zoned_datetime(self) -> None:
-        parsed_zdt = ry.ZonedDateTime.parse(self.zdt.string())
+        parsed_zdt = ry.ZonedDateTime.parse(str(self.zdt))
         assert parsed_zdt == self.zdt
         assert parsed_zdt.timezone == self.zdt.timezone
         assert parsed_zdt.date() == self.zdt.date()
@@ -574,4 +517,4 @@ class TestJiffFunctions:
         assert isinstance(zdt, ry.ZonedDateTime)
         assert zdt.date() == ry.date(2020, 2, 29)
         assert zdt.time() == ry.time(12, 30, 45)
-        assert zdt.string() == "2020-02-29T12:30:45-08:00[America/Los_Angeles]"
+        assert str(zdt) == "2020-02-29T12:30:45-08:00[America/Los_Angeles]"

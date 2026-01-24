@@ -10,6 +10,7 @@
 #include "include/core/SkRSXform.h"
 #include "include/core/SkSurface.h"
 #include "src/core/SkPaintPriv.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
 #include "tools/timer/Timer.h"
 #include "tools/viewer/Slide.h"
@@ -20,20 +21,27 @@ static const int kGrid = 100;
 static const int kWidth = 960;
 static const int kHeight = 640;
 
-typedef void (*DrawAtlasProc)(SkCanvas*, SkImage*, const SkRSXform[], const SkRect[],
-const SkColor[], int, const SkRect*, const SkSamplingOptions&, const SkPaint*);
+typedef void (*DrawAtlasProc)(SkCanvas*, SkImage*, SkSpan<const SkRSXform>, SkSpan<const SkRect>,
+                              SkSpan<const SkColor>, const SkRect*, const SkSamplingOptions&,
+                              const SkPaint*);
 
-static void draw_atlas(SkCanvas* canvas, SkImage* atlas, const SkRSXform xform[],
-                       const SkRect tex[], const SkColor colors[], int count, const SkRect* cull,
+static void draw_atlas(SkCanvas* canvas, SkImage* atlas, SkSpan<const SkRSXform> xform,
+                       SkSpan<const SkRect> tex,
+                       SkSpan<const SkColor> colors, const SkRect* cull,
                        const SkSamplingOptions& sampling, const SkPaint* paint) {
-    canvas->drawAtlas(atlas, xform, tex, colors, count, SkBlendMode::kModulate, sampling,
-                      cull, paint);
+    canvas->drawAtlas(atlas, xform, tex, colors, SkBlendMode::kModulate,
+                      sampling, cull, paint);
 }
 
-static void draw_atlas_sim(SkCanvas* canvas, SkImage* atlas, const SkRSXform xform[],
-                           const SkRect tex[], const SkColor colors[], int count, const SkRect* cull,
+static void draw_atlas_sim(SkCanvas* canvas, SkImage* atlas, SkSpan<const SkRSXform> xform,
+                           SkSpan<const SkRect> tex,
+                           SkSpan<const SkColor> colors, const SkRect* cull,
                            const SkSamplingOptions& sampling, const SkPaint* paint) {
-    for (int i = 0; i < count; ++i) {
+    size_t N = std::min(xform.size(), tex.size());
+    if (!colors.empty()) {
+        N = std::min(N, colors.size());
+    }
+    for (size_t i = 0; i < N; ++i) {
         SkMatrix matrix;
         matrix.setRSXform(xform[i]);
 
@@ -45,15 +53,18 @@ static void draw_atlas_sim(SkCanvas* canvas, SkImage* atlas, const SkRSXform xfo
     }
 }
 
-
 class DrawShipSlide : public Slide {
 public:
     DrawShipSlide(const char name[], DrawAtlasProc proc) : fProc(proc) {
         fName = name;
-        fAtlas = GetResourceAsImage("images/ship.png");
+    }
+
+protected:
+    void load(SkScalar, SkScalar) override {
+        fAtlas = ToolUtils::GetResourceAsImage("images/ship.png");
         if (!fAtlas) {
             SkDebugf("\nCould not decode file ship.png. Falling back to penguin mode.\n");
-            fAtlas = GetResourceAsImage("images/baby_tux.png");
+            fAtlas = ToolUtils::GetResourceAsImage("images/baby_tux.png");
             if (!fAtlas) {
                 SkDebugf("\nCould not decode file baby_tux.png. Did you forget"
                          " to set the resourcePath?\n");
@@ -82,6 +93,10 @@ public:
                                            SkIntToScalar(fAtlas->height()));
         fXform[currIndex] = SkRSXform::MakeFromRadians(0.5f, SK_ScalarPI*0.5f,
                                                        kWidth*0.5f, kHeight*0.5f, anchorX, anchorY);
+    }
+
+    void unload() override {
+        fAtlas = nullptr;
     }
 
     void draw(SkCanvas* canvas) override {
@@ -113,7 +128,9 @@ public:
             fXform[i].fTy += dy;
         }
 
-        fProc(canvas, fAtlas.get(), fXform, fTex, nullptr, kGrid*kGrid+1, nullptr,
+        SkSpan<const SkRSXform> xforms = {&fXform[0], kGrid*kGrid+1};
+        SkSpan<const SkRect>      texs = {&fTex[0],   kGrid*kGrid+1};
+        fProc(canvas, fAtlas.get(), xforms, texs, {}, nullptr,
               SkSamplingOptions(SkFilterMode::kLinear), &paint);
     }
 
@@ -125,11 +142,11 @@ public:
     }
 
 private:
-    DrawAtlasProc       fProc;
+    DrawAtlasProc  fProc;
 
     sk_sp<SkImage> fAtlas;
-    SkRSXform   fXform[kGrid*kGrid+1];
-    SkRect      fTex[kGrid*kGrid+1];
+    SkRSXform      fXform[kGrid*kGrid+1];
+    SkRect         fTex[kGrid*kGrid+1];
 };
 
 //////////////////////////////////////////////////////////////////////////////

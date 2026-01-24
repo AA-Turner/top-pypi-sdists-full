@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chiabip158
-Version: 1.5.3
+Version: 1.5.4
 Summary: Chia BIP158 (wraps C++)
 Home-page: https://github.com/Chia-Network/chiabip158
 Author: Mariano Sorgente

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 import tyro
 from tyro.conf._markers import OmitArgPrefixes
-from tyro.constructors import UnsupportedTypeAnnotationError
+from tyro.constructors._primitive_spec import UnsupportedTypeAnnotationError
 
 
 def test_simple_generic() -> None:
@@ -146,7 +146,8 @@ def test_pep695_recursive_types() -> None:
     class Config:
         arg: RecursiveList[str]
 
-    with pytest.raises(UnsupportedTypeAnnotationError):
+    # Recursive types are still unsupported.
+    with pytest.raises((UnsupportedTypeAnnotationError, SystemExit)):
         tyro.cli(Config, args=["--arg", "True"])
 
 

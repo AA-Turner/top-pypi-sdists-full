@@ -3,7 +3,7 @@ Main interface for payment-cryptography-data service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

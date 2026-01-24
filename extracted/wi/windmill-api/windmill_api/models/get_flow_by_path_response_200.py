@@ -20,15 +20,18 @@ T = TypeVar("T", bound="GetFlowByPathResponse200")
 class GetFlowByPathResponse200:
     """
     Attributes:
-        summary (str):
-        value (GetFlowByPathResponse200Value):
+        summary (str): Short description of what this flow does
+        value (GetFlowByPathResponse200Value): The flow structure containing modules and optional preprocessor/failure
+            handlers
         path (str):
         edited_by (str):
         edited_at (datetime.datetime):
         archived (bool):
         extra_perms (GetFlowByPathResponse200ExtraPerms):
-        description (Union[Unset, str]):
-        schema (Union[Unset, GetFlowByPathResponse200Schema]):
+        description (Union[Unset, str]): Detailed documentation for this flow
+        schema (Union[Unset, GetFlowByPathResponse200Schema]): JSON Schema for flow inputs. Use this to define input
+            parameters, their types, defaults, and validation. For resource inputs, set type to 'object' and format to
+            'resource-<type>' (e.g., 'resource-stripe')
         workspace_id (Union[Unset, str]):
         starred (Union[Unset, bool]):
         draft_only (Union[Unset, bool]):
@@ -40,6 +43,7 @@ class GetFlowByPathResponse200:
         visible_to_runner_only (Union[Unset, bool]):
         on_behalf_of_email (Union[Unset, str]):
         lock_error_logs (Union[Unset, str]):
+        version_id (Union[Unset, float]):
     """
 
     summary: str
@@ -62,6 +66,7 @@ class GetFlowByPathResponse200:
     visible_to_runner_only: Union[Unset, bool] = UNSET
     on_behalf_of_email: Union[Unset, str] = UNSET
     lock_error_logs: Union[Unset, str] = UNSET
+    version_id: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -91,6 +96,7 @@ class GetFlowByPathResponse200:
         visible_to_runner_only = self.visible_to_runner_only
         on_behalf_of_email = self.on_behalf_of_email
         lock_error_logs = self.lock_error_logs
+        version_id = self.version_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -131,6 +137,8 @@ class GetFlowByPathResponse200:
             field_dict["on_behalf_of_email"] = on_behalf_of_email
         if lock_error_logs is not UNSET:
             field_dict["lock_error_logs"] = lock_error_logs
+        if version_id is not UNSET:
+            field_dict["version_id"] = version_id
 
         return field_dict
 
@@ -186,6 +194,8 @@ class GetFlowByPathResponse200:
 
         lock_error_logs = d.pop("lock_error_logs", UNSET)
 
+        version_id = d.pop("version_id", UNSET)
+
         get_flow_by_path_response_200 = cls(
             summary=summary,
             value=value,
@@ -207,6 +217,7 @@ class GetFlowByPathResponse200:
             visible_to_runner_only=visible_to_runner_only,
             on_behalf_of_email=on_behalf_of_email,
             lock_error_logs=lock_error_logs,
+            version_id=version_id,
         )
 
         get_flow_by_path_response_200.additional_properties = d

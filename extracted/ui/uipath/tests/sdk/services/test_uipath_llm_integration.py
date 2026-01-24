@@ -3,19 +3,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from uipath._config import Config
-from uipath._execution_context import ExecutionContext
-from uipath._services.llm_gateway_service import (
-    ChatModels,
-    UiPathLlmChatService,
-)
-from uipath.models.llm_gateway import (
+from uipath.platform import UiPathApiConfig, UiPathExecutionContext
+from uipath.platform.chat import (
     AutoToolChoice,
+    ChatModels,
     SpecificToolChoice,
     ToolDefinition,
     ToolFunctionDefinition,
     ToolParametersDefinition,
     ToolPropertyDefinition,
+    UiPathLlmChatService,
 )
 
 
@@ -38,8 +35,8 @@ class TestUiPathLLMIntegration:
         base_url = get_env_var("UIPATH_URL")
         api_key = get_env_var("UIPATH_ACCESS_TOKEN")
 
-        config = Config(base_url=base_url, secret=api_key)
-        execution_context = ExecutionContext()
+        config = UiPathApiConfig(base_url=base_url, secret=api_key)
+        execution_context = UiPathExecutionContext()
         return UiPathLlmChatService(config=config, execution_context=execution_context)
 
     @pytest.mark.asyncio
@@ -52,7 +49,7 @@ class TestUiPathLLMIntegration:
 
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=50,
             temperature=0,
         )
@@ -103,7 +100,7 @@ class TestUiPathLLMIntegration:
 
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=250,
             temperature=0,
             tools=[test_tool],
@@ -157,7 +154,7 @@ class TestUiPathLLMIntegration:
 
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=250,
             temperature=0,
             frequency_penalty=1,
@@ -187,7 +184,7 @@ class TestUiPathLLMIntegration:
 
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=100,
             temperature=0.7,
         )
@@ -207,11 +204,11 @@ class TestUiPathLLMIntegration:
 class TestUiPathLLMServiceMocked:
     @pytest.fixture
     def config(self):
-        return Config(base_url="https://example.com", secret="test_secret")
+        return UiPathApiConfig(base_url="https://example.com", secret="test_secret")
 
     @pytest.fixture
     def execution_context(self):
-        return ExecutionContext()
+        return UiPathExecutionContext()
 
     @pytest.fixture
     def llm_service(self, config, execution_context):
@@ -262,7 +259,7 @@ class TestUiPathLLMServiceMocked:
         # Call the method
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=50,
             temperature=0,
         )
@@ -278,7 +275,7 @@ class TestUiPathLLMServiceMocked:
 
         # Verify the correct endpoint and payload
         args, kwargs = mock_request.call_args
-        assert "/llmgateway_/api/chat/completions" in args[1]
+        assert "/orchestrator_/llm/api/chat/completions" in args[1]
         assert kwargs["json"]["messages"] == messages
         assert kwargs["json"]["max_tokens"] == 50
         assert kwargs["json"]["temperature"] == 0
@@ -355,7 +352,7 @@ class TestUiPathLLMServiceMocked:
         # Call the method
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=250,
             temperature=0,
             tools=[test_tool],
@@ -438,7 +435,7 @@ class TestUiPathLLMServiceMocked:
         # Call the method
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=250,
             temperature=0,
             frequency_penalty=1,
@@ -493,7 +490,7 @@ class TestUiPathLLMServiceMocked:
         # Call the method
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             max_tokens=100,
             temperature=0.7,
         )

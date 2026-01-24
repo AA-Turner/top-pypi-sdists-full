@@ -26,6 +26,7 @@ from faker.providers.date_time.de_AT import Provider as DeAtProvider
 from faker.providers.date_time.de_DE import Provider as DeDeProvider
 from faker.providers.date_time.el_GR import Provider as ElGrProvider
 from faker.providers.date_time.es_ES import Provider as EsEsProvider
+from faker.providers.date_time.fr_DZ import Provider as FrDzProvider
 from faker.providers.date_time.fr_FR import Provider as FrFrProvider
 from faker.providers.date_time.gu_IN import Provider as GuINProvider
 from faker.providers.date_time.hy_AM import Provider as HyAmProvider
@@ -175,6 +176,26 @@ class TestDateTime(unittest.TestCase):
         pytz = self.fake.pytimezone()
         date = datetime(2000, 1, 1, tzinfo=pytz)
         assert date.tzinfo == pytz
+
+    def test_pytimezone_tzdata_missing_error(self):
+        """Test that helpful error is raised when tzdata is needed but missing."""
+        from unittest.mock import patch
+        
+        # Mock ZoneInfo to raise ZoneInfoNotFoundError
+        with patch("zoneinfo.ZoneInfo") as mock_zoneinfo:
+            mock_zoneinfo.side_effect = zoneinfo.ZoneInfoNotFoundError("America/New_York")
+            
+            # Should raise ImportError with helpful message
+            with pytest.raises(ImportError) as exc_info:
+                self.fake.pytimezone()
+            
+            error_msg = str(exc_info.value)
+            # Verify error message contains helpful information
+            assert "tzdata" in error_msg.lower()
+            assert "faker[tzdata]" in error_msg
+            assert "pip install" in error_msg.lower()
+            # Verify it explains what tzdata is
+            assert "timezone" in error_msg.lower()
 
     def test_datetimes_with_and_without_tzinfo(self):
         assert self.fake.date_time().tzinfo is None
@@ -1276,6 +1297,20 @@ class TestNoNo(unittest.TestCase):
     def test_month(self):
         month = self.fake.month_name()
         assert month in NoNoProvider.MONTH_NAMES.values()
+
+
+class TestFrDz(unittest.TestCase):
+    def setUp(self):
+        self.fake = Faker("fr_DZ")
+        Faker.seed(0)
+
+    def test_day(self):
+        day = self.fake.day_of_week()
+        assert day in FrDzProvider.DAY_NAMES.values()
+
+    def test_month(self):
+        day = self.fake.month_name()
+        assert day in FrDzProvider.MONTH_NAMES.values()
 
 
 class TestFrFr(unittest.TestCase):

@@ -59,6 +59,7 @@ def plat_name_to_download_args(plat_name:str) -> list[str]:
         'manylinux1-x86_64':            ['linux', 'x86_64'],
         'manylinux2014_aarch64':        ['linux', 'aarch64'],
         'musllinux_1_2_x86_64':         ['musl', 'x86_64'],
+        'musllinux_1_2_aarch64':        ['musl', 'aarch64'],
         'win-amd64':                    ['win32', 'x86_64'],
         'win-arm64':                    ['win32', 'arm64'],
     }
@@ -82,10 +83,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 
     subprocess.run(
         [sys.executable, 'ci/download-wasmtime.py', *download_args],
-        check=True,
-    )
-    subprocess.run(
-        [sys.executable, 'ci/build-rust.py'],
         check=True,
     )
 

@@ -17,20 +17,24 @@ T = TypeVar("T", bound="RawScript")
 
 @_attrs_define
 class RawScript:
-    """
-    Attributes:
-        input_transforms (RawScriptInputTransforms):
-        content (str):
-        language (RawScriptLanguage):
-        type (RawScriptType):
-        path (Union[Unset, str]):
-        lock (Union[Unset, str]):
-        tag (Union[Unset, str]):
-        concurrent_limit (Union[Unset, float]):
-        concurrency_time_window_s (Union[Unset, float]):
-        custom_concurrency_key (Union[Unset, str]):
-        is_trigger (Union[Unset, bool]):
-        assets (Union[Unset, List['RawScriptAssetsItem']]):
+    """Inline script with code defined directly in the flow. Use 'bun' as default language if unspecified. The script
+    receives arguments from input_transforms
+
+        Attributes:
+            input_transforms (RawScriptInputTransforms): Map of parameter names to their values (static or JavaScript
+                expressions). These become the script's input arguments
+            content (str): The script source code. Should export a 'main' function
+            language (RawScriptLanguage): Programming language for this script
+            type (RawScriptType):
+            path (Union[Unset, str]): Optional path for saving this script
+            lock (Union[Unset, str]): Lock file content for dependencies
+            tag (Union[Unset, str]): Worker group tag for execution routing
+            concurrent_limit (Union[Unset, float]): Maximum concurrent executions of this script
+            concurrency_time_window_s (Union[Unset, float]): Time window for concurrent_limit
+            custom_concurrency_key (Union[Unset, str]): Custom key for grouping concurrent executions
+            is_trigger (Union[Unset, bool]): If true, this script is a trigger that can start the flow
+            assets (Union[Unset, List['RawScriptAssetsItem']]): External resources this script accesses (S3 objects,
+                resources, etc.)
     """
 
     input_transforms: "RawScriptInputTransforms"

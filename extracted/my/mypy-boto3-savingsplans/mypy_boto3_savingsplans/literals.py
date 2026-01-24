@@ -42,11 +42,25 @@ __all__ = (
 )
 
 
-CurrencyCodeType = Literal["CNY", "USD"]
+CurrencyCodeType = Literal["CNY", "EUR", "USD"]
 SavingsPlanOfferingFilterAttributeType = Literal["instanceFamily", "region"]
 SavingsPlanOfferingPropertyKeyType = Literal["instanceFamily", "region"]
 SavingsPlanPaymentOptionType = Literal["All Upfront", "No Upfront", "Partial Upfront"]
-SavingsPlanProductTypeType = Literal["EC2", "Fargate", "Lambda", "SageMaker"]
+SavingsPlanProductTypeType = Literal[
+    "DMS",
+    "DSQL",
+    "DocDB",
+    "DynamoDB",
+    "EC2",
+    "ElastiCache",
+    "Fargate",
+    "Keyspaces",
+    "Lambda",
+    "Neptune",
+    "RDS",
+    "SageMaker",
+    "Timestream",
+]
 SavingsPlanRateFilterAttributeType = Literal[
     "instanceFamily", "instanceType", "productDescription", "productId", "region", "tenancy"
 ]
@@ -64,9 +78,38 @@ SavingsPlanRatePropertyKeyType = Literal[
     "instanceFamily", "instanceType", "productDescription", "region", "tenancy"
 ]
 SavingsPlanRateServiceCodeType = Literal[
-    "AWSLambda", "AmazonEC2", "AmazonECS", "AmazonEKS", "AmazonSageMaker"
+    "AWSDatabaseMigrationSvc",
+    "AWSLambda",
+    "AmazonDocDB",
+    "AmazonDynamoDB",
+    "AmazonEC2",
+    "AmazonECS",
+    "AmazonEKS",
+    "AmazonElastiCache",
+    "AmazonMCS",
+    "AmazonNeptune",
+    "AmazonRDS",
+    "AmazonSageMaker",
+    "AmazonTimestream",
+    "AuroraDSQL",
 ]
-SavingsPlanRateUnitType = Literal["Hrs", "Lambda-GB-Second", "Request"]
+SavingsPlanRateUnitType = Literal[
+    "ACU-Hr",
+    "DCU-Hr",
+    "DPU",
+    "ElastiCacheProcessingUnit",
+    "GB-Hours",
+    "Hrs",
+    "Lambda-GB-Second",
+    "NCU-hr",
+    "ReadCapacityUnit-Hrs",
+    "ReadRequestUnits",
+    "ReplicatedWriteCapacityUnit-Hrs",
+    "ReplicatedWriteRequestUnits",
+    "Request",
+    "WriteCapacityUnit-Hrs",
+    "WriteRequestUnits",
+]
 SavingsPlanStateType = Literal[
     "active",
     "payment-failed",
@@ -77,11 +120,12 @@ SavingsPlanStateType = Literal[
     "retired",
     "returned",
 ]
-SavingsPlanTypeType = Literal["Compute", "EC2Instance", "SageMaker"]
+SavingsPlanTypeType = Literal["Compute", "Database", "EC2Instance", "SageMaker"]
 SavingsPlansFilterNameType = Literal[
     "commitment",
     "ec2-instance-family",
     "end",
+    "instance-family",
     "payment-option",
     "region",
     "savings-plan-type",
@@ -116,7 +160,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -186,6 +229,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -284,7 +328,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -323,8 +366,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -359,6 +400,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -368,6 +410,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -378,6 +421,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -399,8 +445,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -415,15 +459,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -454,8 +499,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",

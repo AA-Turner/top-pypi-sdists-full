@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import shutil
 import tempfile
 from collections.abc import Callable
@@ -221,6 +222,7 @@ def deploy(
             )
         else:
             app = hosting.get_app(app_id or "", client=authenticated_client)
+            app_name = app.get("name")
     except click.exceptions.Exit:
         raise
     except Exception as ex:
@@ -347,8 +349,8 @@ def deploy(
     if "error" in urls:
         console.error(urls["error"])
         raise click.exceptions.Exit(1)
-    server_url = urls["server"]  # backend
-    host_url = urls["hostname"]  # frontend
+    server_url = os.getenv("REFLEX_OVERRIDE_BACKEND_URL") or urls["server"]  # backend
+    host_url = os.getenv("REFLEX_OVERRIDE_FRONTEND_URL") or urls["hostname"]  # frontend
     processed_envs = hosting.process_envs(envs) if envs else None
 
     if not app_name:
@@ -361,6 +363,7 @@ def deploy(
 
     validation_message = hosting.validate_deployment_args(
         app_name=app_name,
+        app_id=app.get("id"),
         project_id=project_id,
         regions=regions,
         vmtype=vmtype,
@@ -447,6 +450,7 @@ def deploy(
         raise click.exceptions.Exit(1) from ex
 
     result = hosting.create_deployment(
+        app_id=app.get("id"),
         app_name=app_name,
         project_id=project_id,
         regions=regions,

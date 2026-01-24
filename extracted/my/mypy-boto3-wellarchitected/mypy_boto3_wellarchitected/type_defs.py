@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -58,12 +59,6 @@ from .literals import (
     WorkloadIssueManagementStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -348,7 +343,7 @@ class CheckSummaryTypeDef(TypedDict):
     QuestionId: NotRequired[str]
     ChoiceId: NotRequired[str]
     Status: NotRequired[CheckStatusType]
-    AccountSummary: NotRequired[Dict[CheckStatusType, int]]
+    AccountSummary: NotRequired[dict[CheckStatusType, int]]
 
 
 class ChoiceImprovementPlanTypeDef(TypedDict):
@@ -372,7 +367,7 @@ class CreateLensShareInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -515,7 +510,7 @@ class LensTypeDef(TypedDict):
     Description: NotRequired[str]
     Owner: NotRequired[str]
     ShareInvitationId: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class GetLensReviewInputTypeDef(TypedDict):
@@ -569,14 +564,14 @@ class GetReviewTemplateLensReviewInputTypeDef(TypedDict):
 
 class ReviewTemplateTypeDef(TypedDict):
     Description: NotRequired[str]
-    Lenses: NotRequired[List[str]]
+    Lenses: NotRequired[list[str]]
     Notes: NotRequired[str]
-    QuestionCounts: NotRequired[Dict[QuestionType, int]]
+    QuestionCounts: NotRequired[dict[QuestionType, int]]
     Owner: NotRequired[str]
     UpdatedAt: NotRequired[datetime]
     TemplateArn: NotRequired[str]
     TemplateName: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     UpdateStatus: NotRequired[ReviewTemplateUpdateStatusType]
     ShareInvitationId: NotRequired[str]
 
@@ -594,7 +589,7 @@ class ImportLensInputTypeDef(TypedDict):
 
 class SelectedPillarOutputTypeDef(TypedDict):
     PillarId: NotRequired[str]
-    SelectedQuestionIds: NotRequired[List[str]]
+    SelectedQuestionIds: NotRequired[list[str]]
 
 
 class SelectedPillarTypeDef(TypedDict):
@@ -611,8 +606,8 @@ class PillarReviewSummaryTypeDef(TypedDict):
     PillarId: NotRequired[str]
     PillarName: NotRequired[str]
     Notes: NotRequired[str]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
-    PrioritizedRiskCounts: NotRequired[Dict[RiskType, int]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
+    PrioritizedRiskCounts: NotRequired[dict[RiskType, int]]
 
 
 class LensShareSummaryTypeDef(TypedDict):
@@ -789,7 +784,7 @@ class ListReviewTemplatesInputTypeDef(TypedDict):
 
 class ReviewTemplateSummaryTypeDef(TypedDict):
     Description: NotRequired[str]
-    Lenses: NotRequired[List[str]]
+    Lenses: NotRequired[list[str]]
     Owner: NotRequired[str]
     UpdatedAt: NotRequired[datetime]
     TemplateArn: NotRequired[str]
@@ -886,7 +881,7 @@ class ReviewTemplatePillarReviewSummaryTypeDef(TypedDict):
     PillarId: NotRequired[str]
     PillarName: NotRequired[str]
     Notes: NotRequired[str]
-    QuestionCounts: NotRequired[Dict[QuestionType, int]]
+    QuestionCounts: NotRequired[dict[QuestionType, int]]
 
 
 class ShareInvitationTypeDef(TypedDict):
@@ -974,7 +969,7 @@ class UpgradeReviewTemplateLensReviewInputTypeDef(TypedDict):
 
 class WorkloadDiscoveryConfigOutputTypeDef(TypedDict):
     TrustedAdvisorIntegrationStatus: NotRequired[TrustedAdvisorIntegrationStatusType]
-    WorkloadResourceDefinition: NotRequired[List[DefinitionTypeType]]
+    WorkloadResourceDefinition: NotRequired[list[DefinitionTypeType]]
 
 
 class WorkloadDiscoveryConfigTypeDef(TypedDict):
@@ -999,7 +994,7 @@ AdditionalResourcesTypeDef = TypedDict(
     "AdditionalResourcesTypeDef",
     {
         "Type": NotRequired[AdditionalResourceTypeType],
-        "Content": NotRequired[List[ChoiceContentTypeDef]],
+        "Content": NotRequired[list[ChoiceContentTypeDef]],
     },
 )
 
@@ -1007,7 +1002,7 @@ AdditionalResourcesTypeDef = TypedDict(
 class QuestionMetricTypeDef(TypedDict):
     QuestionId: NotRequired[str]
     Risk: NotRequired[RiskType]
-    BestPractices: NotRequired[List[BestPracticeTypeDef]]
+    BestPractices: NotRequired[list[BestPracticeTypeDef]]
 
 
 class ImprovementSummaryTypeDef(TypedDict):
@@ -1016,7 +1011,7 @@ class ImprovementSummaryTypeDef(TypedDict):
     QuestionTitle: NotRequired[str]
     Risk: NotRequired[RiskType]
     ImprovementPlanUrl: NotRequired[str]
-    ImprovementPlans: NotRequired[List[ChoiceImprovementPlanTypeDef]]
+    ImprovementPlans: NotRequired[list[ChoiceImprovementPlanTypeDef]]
     JiraConfiguration: NotRequired[JiraConfigurationTypeDef]
 
 
@@ -1117,19 +1112,19 @@ class ImportLensOutputTypeDef(TypedDict):
 
 
 class ListCheckDetailsOutputTypeDef(TypedDict):
-    CheckDetails: List[CheckDetailTypeDef]
+    CheckDetails: list[CheckDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCheckSummariesOutputTypeDef(TypedDict):
-    CheckSummaries: List[CheckSummaryTypeDef]
+    CheckSummaries: list[CheckSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1170,7 +1165,7 @@ class UpdateReviewTemplateOutputTypeDef(TypedDict):
 
 
 class JiraSelectedQuestionConfigurationOutputTypeDef(TypedDict):
-    SelectedPillars: NotRequired[List[SelectedPillarOutputTypeDef]]
+    SelectedPillars: NotRequired[list[SelectedPillarOutputTypeDef]]
 
 
 class JiraSelectedQuestionConfigurationTypeDef(TypedDict):
@@ -1184,9 +1179,9 @@ class LensReviewSummaryTypeDef(TypedDict):
     LensName: NotRequired[str]
     LensStatus: NotRequired[LensStatusType]
     UpdatedAt: NotRequired[datetime]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
-    Profiles: NotRequired[List[WorkloadProfileTypeDef]]
-    PrioritizedRiskCounts: NotRequired[Dict[RiskType, int]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
+    Profiles: NotRequired[list[WorkloadProfileTypeDef]]
+    PrioritizedRiskCounts: NotRequired[dict[RiskType, int]]
 
 
 class WorkloadSummaryTypeDef(TypedDict):
@@ -1195,21 +1190,21 @@ class WorkloadSummaryTypeDef(TypedDict):
     WorkloadName: NotRequired[str]
     Owner: NotRequired[str]
     UpdatedAt: NotRequired[datetime]
-    Lenses: NotRequired[List[str]]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
+    Lenses: NotRequired[list[str]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
     ImprovementStatus: NotRequired[WorkloadImprovementStatusType]
-    Profiles: NotRequired[List[WorkloadProfileTypeDef]]
-    PrioritizedRiskCounts: NotRequired[Dict[RiskType, int]]
+    Profiles: NotRequired[list[WorkloadProfileTypeDef]]
+    PrioritizedRiskCounts: NotRequired[dict[RiskType, int]]
 
 
 class ListLensSharesOutputTypeDef(TypedDict):
-    LensShareSummaries: List[LensShareSummaryTypeDef]
+    LensShareSummaries: list[LensShareSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListLensesOutputTypeDef(TypedDict):
-    LensSummaries: List[LensSummaryTypeDef]
+    LensSummaries: list[LensSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1224,45 +1219,45 @@ NotificationSummaryTypeDef = TypedDict(
 
 
 class ListProfileNotificationsOutputTypeDef(TypedDict):
-    NotificationSummaries: List[ProfileNotificationSummaryTypeDef]
+    NotificationSummaries: list[ProfileNotificationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProfileSharesOutputTypeDef(TypedDict):
-    ProfileShareSummaries: List[ProfileShareSummaryTypeDef]
+    ProfileShareSummaries: list[ProfileShareSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProfilesOutputTypeDef(TypedDict):
-    ProfileSummaries: List[ProfileSummaryTypeDef]
+    ProfileSummaries: list[ProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListReviewTemplatesOutputTypeDef(TypedDict):
-    ReviewTemplates: List[ReviewTemplateSummaryTypeDef]
+    ReviewTemplates: list[ReviewTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListShareInvitationsOutputTypeDef(TypedDict):
-    ShareInvitationSummaries: List[ShareInvitationSummaryTypeDef]
+    ShareInvitationSummaries: list[ShareInvitationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTemplateSharesOutputTypeDef(TypedDict):
     TemplateArn: str
-    TemplateShareSummaries: List[TemplateShareSummaryTypeDef]
+    TemplateShareSummaries: list[TemplateShareSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWorkloadSharesOutputTypeDef(TypedDict):
     WorkloadId: str
-    WorkloadShareSummaries: List[WorkloadShareSummaryTypeDef]
+    WorkloadShareSummaries: list[WorkloadShareSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1271,15 +1266,15 @@ class PillarDifferenceTypeDef(TypedDict):
     PillarId: NotRequired[str]
     PillarName: NotRequired[str]
     DifferenceStatus: NotRequired[DifferenceStatusType]
-    QuestionDifferences: NotRequired[List[QuestionDifferenceTypeDef]]
+    QuestionDifferences: NotRequired[list[QuestionDifferenceTypeDef]]
 
 
 class ProfileQuestionTypeDef(TypedDict):
     QuestionId: NotRequired[str]
     QuestionTitle: NotRequired[str]
     QuestionDescription: NotRequired[str]
-    QuestionChoices: NotRequired[List[ProfileChoiceTypeDef]]
-    SelectedChoiceIds: NotRequired[List[str]]
+    QuestionChoices: NotRequired[list[ProfileChoiceTypeDef]]
+    SelectedChoiceIds: NotRequired[list[str]]
     MinSelectedChoices: NotRequired[int]
     MaxSelectedChoices: NotRequired[int]
 
@@ -1288,7 +1283,7 @@ class ProfileTemplateQuestionTypeDef(TypedDict):
     QuestionId: NotRequired[str]
     QuestionTitle: NotRequired[str]
     QuestionDescription: NotRequired[str]
-    QuestionChoices: NotRequired[List[ProfileTemplateChoiceTypeDef]]
+    QuestionChoices: NotRequired[list[ProfileTemplateChoiceTypeDef]]
     MinSelectedChoices: NotRequired[int]
     MaxSelectedChoices: NotRequired[int]
 
@@ -1299,10 +1294,10 @@ class ReviewTemplateLensReviewTypeDef(TypedDict):
     LensVersion: NotRequired[str]
     LensName: NotRequired[str]
     LensStatus: NotRequired[LensStatusType]
-    PillarReviewSummaries: NotRequired[List[ReviewTemplatePillarReviewSummaryTypeDef]]
+    PillarReviewSummaries: NotRequired[list[ReviewTemplatePillarReviewSummaryTypeDef]]
     UpdatedAt: NotRequired[datetime]
     Notes: NotRequired[str]
-    QuestionCounts: NotRequired[Dict[QuestionType, int]]
+    QuestionCounts: NotRequired[dict[QuestionType, int]]
     NextToken: NotRequired[str]
 
 
@@ -1329,9 +1324,9 @@ class WorkloadTypeDef(TypedDict):
     Description: NotRequired[str]
     Environment: NotRequired[WorkloadEnvironmentType]
     UpdatedAt: NotRequired[datetime]
-    AccountIds: NotRequired[List[str]]
-    AwsRegions: NotRequired[List[str]]
-    NonAwsRegions: NotRequired[List[str]]
+    AccountIds: NotRequired[list[str]]
+    AwsRegions: NotRequired[list[str]]
+    NonAwsRegions: NotRequired[list[str]]
     ArchitecturalDesign: NotRequired[str]
     ReviewOwner: NotRequired[str]
     ReviewRestrictionDate: NotRequired[datetime]
@@ -1340,16 +1335,16 @@ class WorkloadTypeDef(TypedDict):
     Industry: NotRequired[str]
     Notes: NotRequired[str]
     ImprovementStatus: NotRequired[WorkloadImprovementStatusType]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
-    PillarPriorities: NotRequired[List[str]]
-    Lenses: NotRequired[List[str]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
+    PillarPriorities: NotRequired[list[str]]
+    Lenses: NotRequired[list[str]]
     Owner: NotRequired[str]
     ShareInvitationId: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     DiscoveryConfig: NotRequired[WorkloadDiscoveryConfigOutputTypeDef]
-    Applications: NotRequired[List[str]]
-    Profiles: NotRequired[List[WorkloadProfileTypeDef]]
-    PrioritizedRiskCounts: NotRequired[Dict[RiskType, int]]
+    Applications: NotRequired[list[str]]
+    Profiles: NotRequired[list[WorkloadProfileTypeDef]]
+    PrioritizedRiskCounts: NotRequired[dict[RiskType, int]]
     JiraConfiguration: NotRequired[WorkloadJiraConfigurationOutputTypeDef]
 
 
@@ -1359,13 +1354,13 @@ class ChoiceTypeDef(TypedDict):
     Description: NotRequired[str]
     HelpfulResource: NotRequired[ChoiceContentTypeDef]
     ImprovementPlan: NotRequired[ChoiceContentTypeDef]
-    AdditionalResources: NotRequired[List[AdditionalResourcesTypeDef]]
+    AdditionalResources: NotRequired[list[AdditionalResourcesTypeDef]]
 
 
 class PillarMetricTypeDef(TypedDict):
     PillarId: NotRequired[str]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
-    Questions: NotRequired[List[QuestionMetricTypeDef]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
+    Questions: NotRequired[list[QuestionMetricTypeDef]]
 
 
 class ListLensReviewImprovementsOutputTypeDef(TypedDict):
@@ -1373,7 +1368,7 @@ class ListLensReviewImprovementsOutputTypeDef(TypedDict):
     MilestoneNumber: int
     LensAlias: str
     LensArn: str
-    ImprovementSummaries: List[ImprovementSummaryTypeDef]
+    ImprovementSummaries: list[ImprovementSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1384,14 +1379,14 @@ class LensReviewTypeDef(TypedDict):
     LensVersion: NotRequired[str]
     LensName: NotRequired[str]
     LensStatus: NotRequired[LensStatusType]
-    PillarReviewSummaries: NotRequired[List[PillarReviewSummaryTypeDef]]
+    PillarReviewSummaries: NotRequired[list[PillarReviewSummaryTypeDef]]
     JiraConfiguration: NotRequired[JiraSelectedQuestionConfigurationOutputTypeDef]
     UpdatedAt: NotRequired[datetime]
     Notes: NotRequired[str]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
     NextToken: NotRequired[str]
-    Profiles: NotRequired[List[WorkloadProfileTypeDef]]
-    PrioritizedRiskCounts: NotRequired[Dict[RiskType, int]]
+    Profiles: NotRequired[list[WorkloadProfileTypeDef]]
+    PrioritizedRiskCounts: NotRequired[dict[RiskType, int]]
 
 
 JiraSelectedQuestionConfigurationUnionTypeDef = Union[
@@ -1402,13 +1397,13 @@ JiraSelectedQuestionConfigurationUnionTypeDef = Union[
 class ListLensReviewsOutputTypeDef(TypedDict):
     WorkloadId: str
     MilestoneNumber: int
-    LensReviewSummaries: List[LensReviewSummaryTypeDef]
+    LensReviewSummaries: list[LensReviewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWorkloadsOutputTypeDef(TypedDict):
-    WorkloadSummaries: List[WorkloadSummaryTypeDef]
+    WorkloadSummaries: list[WorkloadSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1421,13 +1416,13 @@ class MilestoneSummaryTypeDef(TypedDict):
 
 
 class ListNotificationsOutputTypeDef(TypedDict):
-    NotificationSummaries: List[NotificationSummaryTypeDef]
+    NotificationSummaries: list[NotificationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class VersionDifferencesTypeDef(TypedDict):
-    PillarDifferences: NotRequired[List[PillarDifferenceTypeDef]]
+    PillarDifferences: NotRequired[list[PillarDifferenceTypeDef]]
 
 
 class ProfileTypeDef(TypedDict):
@@ -1435,17 +1430,17 @@ class ProfileTypeDef(TypedDict):
     ProfileVersion: NotRequired[str]
     ProfileName: NotRequired[str]
     ProfileDescription: NotRequired[str]
-    ProfileQuestions: NotRequired[List[ProfileQuestionTypeDef]]
+    ProfileQuestions: NotRequired[list[ProfileQuestionTypeDef]]
     Owner: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
     ShareInvitationId: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ProfileTemplateTypeDef(TypedDict):
     TemplateName: NotRequired[str]
-    TemplateQuestions: NotRequired[List[ProfileTemplateQuestionTypeDef]]
+    TemplateQuestions: NotRequired[list[ProfileTemplateQuestionTypeDef]]
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
 
@@ -1529,9 +1524,9 @@ AnswerSummaryTypeDef = TypedDict(
         "QuestionId": NotRequired[str],
         "PillarId": NotRequired[str],
         "QuestionTitle": NotRequired[str],
-        "Choices": NotRequired[List[ChoiceTypeDef]],
-        "SelectedChoices": NotRequired[List[str]],
-        "ChoiceAnswerSummaries": NotRequired[List[ChoiceAnswerSummaryTypeDef]],
+        "Choices": NotRequired[list[ChoiceTypeDef]],
+        "SelectedChoices": NotRequired[list[str]],
+        "ChoiceAnswerSummaries": NotRequired[list[ChoiceAnswerSummaryTypeDef]],
         "IsApplicable": NotRequired[bool],
         "Risk": NotRequired[RiskType],
         "Reason": NotRequired[AnswerReasonType],
@@ -1549,9 +1544,9 @@ class AnswerTypeDef(TypedDict):
     ImprovementPlanUrl: NotRequired[str]
     HelpfulResourceUrl: NotRequired[str]
     HelpfulResourceDisplayText: NotRequired[str]
-    Choices: NotRequired[List[ChoiceTypeDef]]
-    SelectedChoices: NotRequired[List[str]]
-    ChoiceAnswers: NotRequired[List[ChoiceAnswerTypeDef]]
+    Choices: NotRequired[list[ChoiceTypeDef]]
+    SelectedChoices: NotRequired[list[str]]
+    ChoiceAnswers: NotRequired[list[ChoiceAnswerTypeDef]]
     IsApplicable: NotRequired[bool]
     Risk: NotRequired[RiskType]
     Notes: NotRequired[str]
@@ -1565,9 +1560,9 @@ ReviewTemplateAnswerSummaryTypeDef = TypedDict(
         "QuestionId": NotRequired[str],
         "PillarId": NotRequired[str],
         "QuestionTitle": NotRequired[str],
-        "Choices": NotRequired[List[ChoiceTypeDef]],
-        "SelectedChoices": NotRequired[List[str]],
-        "ChoiceAnswerSummaries": NotRequired[List[ChoiceAnswerSummaryTypeDef]],
+        "Choices": NotRequired[list[ChoiceTypeDef]],
+        "SelectedChoices": NotRequired[list[str]],
+        "ChoiceAnswerSummaries": NotRequired[list[ChoiceAnswerSummaryTypeDef]],
         "IsApplicable": NotRequired[bool],
         "AnswerStatus": NotRequired[ReviewTemplateAnswerStatusType],
         "Reason": NotRequired[AnswerReasonType],
@@ -1584,9 +1579,9 @@ class ReviewTemplateAnswerTypeDef(TypedDict):
     ImprovementPlanUrl: NotRequired[str]
     HelpfulResourceUrl: NotRequired[str]
     HelpfulResourceDisplayText: NotRequired[str]
-    Choices: NotRequired[List[ChoiceTypeDef]]
-    SelectedChoices: NotRequired[List[str]]
-    ChoiceAnswers: NotRequired[List[ChoiceAnswerTypeDef]]
+    Choices: NotRequired[list[ChoiceTypeDef]]
+    SelectedChoices: NotRequired[list[str]]
+    ChoiceAnswers: NotRequired[list[ChoiceAnswerTypeDef]]
     IsApplicable: NotRequired[bool]
     AnswerStatus: NotRequired[ReviewTemplateAnswerStatusType]
     Notes: NotRequired[str]
@@ -1595,8 +1590,8 @@ class ReviewTemplateAnswerTypeDef(TypedDict):
 
 class LensMetricTypeDef(TypedDict):
     LensArn: NotRequired[str]
-    Pillars: NotRequired[List[PillarMetricTypeDef]]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
+    Pillars: NotRequired[list[PillarMetricTypeDef]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
 
 
 class GetLensReviewOutputTypeDef(TypedDict):
@@ -1622,7 +1617,7 @@ class UpdateLensReviewInputTypeDef(TypedDict):
 
 class ListMilestonesOutputTypeDef(TypedDict):
     WorkloadId: str
-    MilestoneSummaries: List[MilestoneSummaryTypeDef]
+    MilestoneSummaries: list[MilestoneSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1663,7 +1658,7 @@ class ListAnswersOutputTypeDef(TypedDict):
     MilestoneNumber: int
     LensAlias: str
     LensArn: str
-    AnswerSummaries: List[AnswerSummaryTypeDef]
+    AnswerSummaries: list[AnswerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1688,7 +1683,7 @@ class UpdateAnswerOutputTypeDef(TypedDict):
 class ListReviewTemplateAnswersOutputTypeDef(TypedDict):
     TemplateArn: str
     LensAlias: str
-    AnswerSummaries: List[ReviewTemplateAnswerSummaryTypeDef]
+    AnswerSummaries: list[ReviewTemplateAnswerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1709,17 +1704,17 @@ class UpdateReviewTemplateAnswerOutputTypeDef(TypedDict):
 
 class ConsolidatedReportMetricTypeDef(TypedDict):
     MetricType: NotRequired[Literal["WORKLOAD"]]
-    RiskCounts: NotRequired[Dict[RiskType, int]]
+    RiskCounts: NotRequired[dict[RiskType, int]]
     WorkloadId: NotRequired[str]
     WorkloadName: NotRequired[str]
     WorkloadArn: NotRequired[str]
     UpdatedAt: NotRequired[datetime]
-    Lenses: NotRequired[List[LensMetricTypeDef]]
+    Lenses: NotRequired[list[LensMetricTypeDef]]
     LensesAppliedCount: NotRequired[int]
 
 
 class GetConsolidatedReportOutputTypeDef(TypedDict):
-    Metrics: List[ConsolidatedReportMetricTypeDef]
+    Metrics: list[ConsolidatedReportMetricTypeDef]
     Base64String: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

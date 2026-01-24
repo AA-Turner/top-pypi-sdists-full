@@ -35,7 +35,7 @@ __author__ = 'Stephen Mallette (http://stephen.genoprime.com), Lyndon Bauto (lyn
 
 
 class GraphTraversalSource(object):
-    def __init__(self, graph, traversal_strategies, bytecode=None):
+    def __init__(self, graph, traversal_strategies, bytecode=None, remote_connection=None):
         log.info("Creating GraphTraversalSource.")
         self.graph = graph
         self.traversal_strategies = traversal_strategies
@@ -43,7 +43,9 @@ class GraphTraversalSource(object):
             bytecode = Bytecode()
         self.bytecode = bytecode
         self.graph_traversal = GraphTraversal
-        self.remote_connection = None
+        if remote_connection:
+            self.traversal_strategies.add_strategies([RemoteStrategy(remote_connection)])
+        self.remote_connection = remote_connection
 
     def __repr__(self):
         return "graphtraversalsource[" + str(self.graph) + "]"
@@ -133,24 +135,11 @@ class GraphTraversalSource(object):
 
         val = True if v is None else v
         if options_strategy is None:
-            options_strategy = OptionsStrategy({k: val})
+            options_strategy = OptionsStrategy(**{k: val})
             source = self.with_strategies(options_strategy)
         else:
             options_strategy[1].configuration[k] = val
 
-        return source
-
-    def withRemote(self, remote_connection):
-        warnings.warn(
-            "gremlin_python.process.GraphTraversalSource.withRemote will be replaced by "
-            "gremlin_python.process.GraphTraversalSource.with_remote.",
-            DeprecationWarning)
-        return self.with_remote(remote_connection)
-
-    def with_remote(self, remote_connection):
-        source = self.get_graph_traversal_source()
-        source.traversal_strategies.add_strategies([RemoteStrategy(remote_connection)])
-        self.remote_connection = remote_connection
         return source
 
     def tx(self):
@@ -325,8 +314,16 @@ class GraphTraversal(Traversal):
         self.bytecode.add_step("as", *args)
         return self
 
+    def as_bool(self, *args):
+        self.bytecode.add_step("asBool", *args)
+        return self
+
     def as_date(self, *args):
         self.bytecode.add_step("asDate", *args)
+        return self
+
+    def as_number(self, *args):
+        self.bytecode.add_step("asNumber", *args)
         return self
 
     def as_string(self, *args):
@@ -449,6 +446,10 @@ class GraphTraversal(Traversal):
         self.bytecode.add_step("difference", *args)
         return self
 
+    def discard(self, *args):
+        self.bytecode.add_step("discard", *args)
+        return self
+
     def disjunct(self, *args):
         self.bytecode.add_step("disjunct", *args)
         return self
@@ -551,6 +552,10 @@ class GraphTraversal(Traversal):
             DeprecationWarning)
         return self.has_key(*args)
     
+    def has_key(self, *args):
+        self.bytecode.add_step("hasKey", *args)
+        return self
+
     def has_key(self, *args):
         self.bytecode.add_step("hasKey", *args)
         return self
@@ -909,10 +914,6 @@ class GraphTraversal(Traversal):
         self.bytecode.add_step("split", *args)
         return self
 
-    def store(self, *args):
-        self.bytecode.add_step("store", *args)
-        return self
-
     def subgraph(self, *args):
         self.bytecode.add_step("subgraph", *args)
         return self
@@ -1103,8 +1104,16 @@ class __(object, metaclass=MagicType):
         return cls.graph_traversal(None, None, Bytecode()).as_(*args)
 
     @classmethod
+    def as_bool(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).as_bool(*args)
+
+    @classmethod
     def as_date(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).as_date(*args)
+
+    @classmethod
+    def as_number(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).as_number(*args)
 
     @classmethod
     def as_string(cls, *args):
@@ -1213,6 +1222,10 @@ class __(object, metaclass=MagicType):
     @classmethod
     def difference(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).difference(*args)
+
+    @classmethod
+    def discard(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).discard(*args)
 
     @classmethod
     def disjunct(cls, *args):
@@ -1441,7 +1454,7 @@ class __(object, metaclass=MagicType):
             "gremlin_python.process.__.l_trim.",
             DeprecationWarning)
         return cls.l_trim(*args)
-    
+
     @classmethod
     def l_trim(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).l_trim(*args)
@@ -1645,10 +1658,6 @@ class __(object, metaclass=MagicType):
     @classmethod
     def split(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).split(*args)
-
-    @classmethod
-    def store(cls, *args):
-        return cls.graph_traversal(None, None, Bytecode()).store(*args)
 
     @classmethod
     def subgraph(cls, *args):
@@ -1866,16 +1875,32 @@ def aggregate(*args):
     return __.aggregate(*args)
 
 
+def all_(*args):
+    return __.all_(*args)
+
+
 def and_(*args):
     return __.and_(*args)
+
+
+def any_(*args):
+    return __.any_(*args)
 
 
 def as_(*args):
     return __.as_(*args)
 
 
+def as_bool(*args):
+    return __.as_bool(*args)
+
+
 def as_date(*args):
     return __.as_date(*args)
+
+
+def as_number(*args):
+    return __.as_number(*args)
 
 
 def as_string(*args):
@@ -1930,8 +1955,16 @@ def coin(*args):
     return __.coin(*args)
 
 
+def combine(*args):
+    return __.combine(*args)
+
+
 def concat(*args):
     return __.concat(*args)
+
+
+def conjoin(*args):
+    return __.conjoin(*args)
 
 
 def constant(*args):
@@ -1960,6 +1993,14 @@ def date_diff(*args):
 
 def dedup(*args):
     return __.dedup(*args)
+
+
+def difference(*args):
+    return __.difference(*args)
+
+
+def discard(*args):
+    return __.discard(*args)
 
 
 def disjunct(*args):
@@ -2104,6 +2145,10 @@ def inject(*args):
     return __.inject(*args)
 
 
+def intersect(*args):
+    return __.intersect(*args)
+
+
 def is_(*args):
     return __.is_(*args)
 
@@ -2158,6 +2203,10 @@ def max_(*args):
 
 def mean(*args):
     return __.mean(*args)
+
+
+def merge(*args):
+    return __.merge(*args)
 
 
 def merge_e(*args):
@@ -2222,6 +2271,10 @@ def out_v(*args):
 
 def path(*args):
     return __.path(*args)
+
+
+def product(*args):
+    return __.product(*args)
 
 
 def project(*args):
@@ -2302,10 +2355,6 @@ def skip(*args):
 
 def split(*args):
     return __.split(*args)
-
-
-def store(*args):
-    return __.store(*args)
 
 
 def subgraph(*args):
@@ -2403,6 +2452,7 @@ def values(*args):
 def where(*args):
     return __.where(*args)
 
+statics.add_static('E', E)
 
 statics.add_static('V', V)
 
@@ -2416,11 +2466,19 @@ statics.add_static('add_v', add_v)
 
 statics.add_static('aggregate', aggregate)
 
+statics.add_static('all_', all_)
+
 statics.add_static('and_', and_)
+
+statics.add_static('any_', any_)
 
 statics.add_static('as_', as_)
 
+statics.add_static('as_bool', as_bool)
+
 statics.add_static('as_date', as_date)
+
+statics.add_static('as_number', as_number)
 
 statics.add_static('as_string', as_string)
 
@@ -2448,7 +2506,11 @@ statics.add_static('coalesce', coalesce)
 
 statics.add_static('coin', coin)
 
+statics.add_static('combine', combine)
+
 statics.add_static('concat', concat)
+
+statics.add_static('conjoin', conjoin)
 
 statics.add_static('constant', constant)
 
@@ -2463,6 +2525,10 @@ statics.add_static('date_add', date_add)
 statics.add_static('date_diff', date_diff)
 
 statics.add_static('dedup', dedup)
+
+statics.add_static('difference', difference)
+
+statics.add_static('discard', discard)
 
 statics.add_static('disjunct', disjunct)
 
@@ -2532,6 +2598,8 @@ statics.add_static('index', index)
 
 statics.add_static('inject', inject)
 
+statics.add_static('intersect', intersect)
+
 statics.add_static('is_', is_)
 
 statics.add_static('key', key)
@@ -2559,6 +2627,8 @@ statics.add_static('math', math)
 statics.add_static('max_', max_)
 
 statics.add_static('mean', mean)
+
+statics.add_static('merge', merge)
 
 statics.add_static('merge_e', merge_e)
 
@@ -2591,6 +2661,8 @@ statics.add_static('outV', outV)
 statics.add_static('out_v', out_v)
 
 statics.add_static('path', path)
+
+statics.add_static('product', product)
 
 statics.add_static('project', project)
 
@@ -2631,8 +2703,6 @@ statics.add_static('simple_path', simple_path)
 statics.add_static('skip', skip)
 
 statics.add_static('split', split)
-
-statics.add_static('store', store)
 
 statics.add_static('subgraph', subgraph)
 

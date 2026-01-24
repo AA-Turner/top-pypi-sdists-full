@@ -9,6 +9,7 @@ For details please refer to paper: https://nlp.stanford.edu/pubs/qi2018universal
 Training and evaluation for the parser.
 """
 
+import io
 import sys
 import os
 import copy
@@ -18,6 +19,8 @@ import argparse
 import logging
 import numpy as np
 import random
+import zipfile
+
 import torch
 from torch import nn, optim
 
@@ -45,6 +48,7 @@ def build_argparse():
     parser.add_argument('--eval_file', type=str, default=None, help='Input file for data loader.')
     parser.add_argument('--output_file', type=str, default=None, help='Output CoNLL-U file.')
     parser.add_argument('--no_gold_labels', dest='gold_labels', action='store_false', help="Don't score the eval file - perhaps it has no gold labels, for example.  Cannot be used at training time")
+    parser.add_argument('--output_latex', default=False, action='store_true', help='Output the per-relation table in Latex form')
     parser.add_argument('--mode', default='train', choices=['train', 'predict'])
     parser.add_argument('--lang', type=str, help='Language')
     parser.add_argument('--shorthand', type=str, help="Treebank shorthand")
@@ -125,6 +129,8 @@ def build_argparse():
 
     parser.add_argument('--wandb', action='store_true', help='Start a wandb session and write the results of training.  Only applies to training.  Use --wandb_name instead to specify a name')
     parser.add_argument('--wandb_name', default=None, help='Name of a wandb session to start when training.  Will default to the dataset short name')
+
+    parser.add_argument('--train_size', type=int, default=None, help='If specified, randomly select this many sentences from the training data')
     return parser
 
 def parse_args(args=None):
@@ -148,7 +154,7 @@ def main(args=None):
     if args['mode'] == 'train':
         return train(args)
     else:
-        evaluate(args)
+        return evaluate(args)
 
 def model_file_name(args):
     return utils.standard_model_file_name(args, "parser")
@@ -193,10 +199,32 @@ def train(args):
 
     # load data
     logger.info("Loading data with batch size {}...".format(args['batch_size']))
-    train_data, _, _ = CoNLL.conll2dict(input_file=args['train_file'])
+    train_file = args['train_file']
+    if zipfile.is_zipfile(train_file):
+        logger.info("Decompressing %s" % train_file)
+        train_data = []
+        with zipfile.ZipFile(train_file) as zin:
+            for zipped_train_file in zin.namelist():
+                with zin.open(zipped_train_file) as fin:
+                    logger.info("Reading %s from %s" % (zipped_train_file, train_file))
+                    train_str = fin.read()
+                    train_str = train_str.decode("utf-8")
+                    train_file_data, _, _ = CoNLL.conll2dict(input_str=train_str)
+                    logger.info("Train File {} from {}, Data Size: {}".format(zipped_train_file, train_file, len(train_file_data)))
+                    train_data.extend(train_file_data)
+    else:
+        train_data, _, _ = CoNLL.conll2dict(input_file=args['train_file'])
+        logger.info("Train File {}, Data Size: {}".format(train_file, len(train_data)))
     # possibly augment the training data with some amount of fake data
     # based on the options chosen
     logger.info("Original data size: {}".format(len(train_data)))
+    if args['train_size']:
+        if len(train_data) < args['train_size']:
+            random.shuffle(train_data)
+            train_data = train_data[:args['train_size']]
+            logger.info("Limiting training data to %d entries", len(train_data))
+        else:
+            logger.info("Train data less than %d already, not limiting train data", args['train_size'])
     train_data.extend(augment_punct(train_data, args['augment_nopunct'],
                                     keep_original_sentences=False))
     logger.info("Augmented data size: {}".format(len(train_data)))
@@ -205,9 +233,6 @@ def train(args):
     vocab = train_batch.vocab
     dev_doc = CoNLL.conll2doc(input_file=args['eval_file'])
     dev_batch = DataLoader(dev_doc, args['batch_size'], args, pretrain, vocab=vocab, evaluation=True, sort_during_eval=True)
-
-    # pred path
-    system_pred_file = args['output_file']
 
     # skip training if the language does not have training or dev data
     if len(train_batch) == 0 or len(dev_batch) == 0:
@@ -269,7 +294,9 @@ def train(args):
                 dev_preds = predict_dataset(trainer, dev_batch)
 
                 dev_batch.doc.set([HEAD, DEPREL], [y for x in dev_preds for y in x])
-                CoNLL.write_doc2conll(dev_batch.doc, system_pred_file)
+
+                system_pred_file = "{:C}\n\n".format(dev_batch.doc)
+                system_pred_file = io.StringIO(system_pred_file)
                 _, _, dev_score = scorer.score(system_pred_file, args['eval_file'])
 
                 train_loss = train_loss / args['eval_interval'] # avg loss per batch
@@ -306,7 +333,8 @@ def train(args):
 
                     dev_preds = predict_dataset(trainer, dev_batch)
                     dev_batch.doc.set([HEAD, DEPREL], [y for x in dev_preds for y in x])
-                    CoNLL.write_doc2conll(dev_batch.doc, system_pred_file)
+                    system_pred_file = "{:C}\n\n".format(dev_batch.doc)
+                    system_pred_file = io.StringIO(system_pred_file)
                     _, _, dev_score = scorer.score(system_pred_file, args['eval_file'])
                     logger.info("Reloaded model with dev score %.4f", dev_score)
 
@@ -352,7 +380,7 @@ def train(args):
         logger.info("Dev set never evaluated.  Saving final model.")
         trainer.save(model_file)
 
-    return trainer
+    return trainer, _
 
 def evaluate(args):
     model_file = model_file_name(args)
@@ -365,7 +393,7 @@ def evaluate(args):
     # load model
     logger.info("Loading model from: {}".format(model_file))
     trainer = Trainer(pretrain=pretrain, model_file=model_file, device=args['device'], args=load_args)
-    return evaluate_trainer(args, trainer, pretrain)
+    return trainer, evaluate_trainer(args, trainer, pretrain)
 
 def evaluate_trainer(args, trainer, pretrain):
     system_pred_file = args['output_file']
@@ -385,7 +413,8 @@ def evaluate_trainer(args, trainer, pretrain):
 
     # write to file and score
     batch.doc.set([HEAD, DEPREL], [y for x in preds for y in x])
-    CoNLL.write_doc2conll(batch.doc, system_pred_file)
+    if system_pred_file:
+        CoNLL.write_doc2conll(batch.doc, system_pred_file)
 
     if args['gold_labels']:
         gold_doc = CoNLL.conll2doc(input_file=args['eval_file'])
@@ -396,11 +425,15 @@ def evaluate_trainer(args, trainer, pretrain):
                 if word.deprel is None:
                     raise ValueError("Gold document {} has a None at sentence {} word {}\n{:C}".format(args['eval_file'], sent_idx, word_idx, sentence))
 
-        scorer.score_named_dependencies(batch.doc, gold_doc)
+        scorer.score_named_dependencies(batch.doc, gold_doc, args['output_latex'])
+        system_pred_file = "{:C}\n\n".format(batch.doc)
+        system_pred_file = io.StringIO(system_pred_file)            
         _, _, score = scorer.score(system_pred_file, args['eval_file'])
 
         logger.info("Parser score:")
         logger.info("{} {:.2f}".format(args['shorthand'], score*100))
+
+    return batch.doc
 
 if __name__ == '__main__':
     main()

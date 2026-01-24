@@ -1,15 +1,14 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Generator, Literal, cast, overload
 
 from cachetools import TTLCache, cached
 
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.metanames import MemberMetaNames, ProjectsMetaNames
 from ibm_watsonx_ai.service_instance import ServiceInstance
 from ibm_watsonx_ai.wml_client_error import (
@@ -41,7 +40,6 @@ class Projects(WMLResource):
 
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
-        self._client = client
 
     def _get_resources(
         self, url: str, op_name: str, params: dict | None = None
@@ -53,8 +51,8 @@ class Projects(WMLResource):
                 raise WMLClientError("Limit cannot be larger than 1000.")
 
         if params is not None and len(params) > 0:
-            response_get = requests.get(
-                url, headers=self._client._get_headers(), params=params
+            response_get = self._client.httpx_client.get(
+                url=url, headers=self._client._get_headers(), params=params
             )
 
             return self._handle_response(200, op_name, response_get)
@@ -62,7 +60,9 @@ class Projects(WMLResource):
             resources = []
 
             while True:
-                response_get = requests.get(url, headers=self._client._get_headers())
+                response_get = self._client.httpx_client.get(
+                    url=url, headers=self._client._get_headers()
+                )
 
                 result = self._handle_response(200, op_name, response_get)
                 resources.extend(result["resources"])
@@ -98,7 +98,7 @@ class Projects(WMLResource):
                 client.projects.ConfigurationMetaNames.DESCRIPTION: "test project",
                 client.projects.ConfigurationMetaNames.STORAGE: {
                     "type": "assetfiles"
-                }
+                },
             }
 
             projects_details = client.projects.store(meta_props)
@@ -122,8 +122,8 @@ class Projects(WMLResource):
         if "compute" in project_meta:
             project_meta["compute"] = [project_meta["compute"]]
 
-        creation_response = requests.post(
-            self._client._href_definitions.get_transactional_projects_href(),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_transactional_projects_href(),
             headers=self._client._get_headers(),
             json=project_meta,
         )
@@ -165,7 +165,7 @@ class Projects(WMLResource):
         Projects._validate_type(project_details, "project_details", object, True)
 
         return WMLResource._get_required_element_from_dict(
-            project_details, "project_details", ["metadata", "guid"]
+            project_details, "project_details", ["metadata", "guid"], str
         )
 
     def get_id_by_name(self, project_name: str) -> str:
@@ -205,6 +205,8 @@ class Projects(WMLResource):
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
 
+        :raises WMLClientError: if deletion failed
+
         **Example:**
 
         .. code-block:: python
@@ -217,35 +219,72 @@ class Projects(WMLResource):
             self._client._href_definitions.get_transactional_project_href(project_id)
         )
 
-        response_delete = requests.delete(
-            project_endpoint, headers=self._client._get_headers()
+        response_delete = self._client.httpx_client.delete(
+            url=project_endpoint, headers=self._client._get_headers()
         )
 
-        self._handle_response(204, "project deletion", response_delete, False)
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(204, "project deletion", response_delete, False),
+        )
 
-        print("DELETED")
+    @overload
+    def get_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        *,
+        asynchronous: Literal[True],
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> Generator[Any, None, None]: ...
 
-        return "SUCCESS"
+    @overload
+    def get_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: Literal[False] = False,
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    def get_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | Generator[Any, None, None]: ...
 
     def get_details(
         self,
         project_id: str | None = None,
         limit: int | None = None,
-        asynchronous: bool | None = False,
-        get_all: bool | None = False,
+        asynchronous: bool = False,
+        get_all: bool = False,
         project_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any] | Generator[Any, None, None]:
         """Get metadata of stored project(s).
 
         :param project_id: ID of the project
         :type project_id: str, optional
+
         :param limit: applicable when `project_id` is not provided, otherwise `limit` will be ignored
         :type limit: int, optional
+
         :param asynchronous: if `True`, it will work as a generator
         :type asynchronous: bool, optional
+
         :param get_all:  if `True`, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
+
         :param project_name: name of the stored project, can be used only when `project_id` is None
         :type project_name: str, optional
 
@@ -263,21 +302,23 @@ class Projects(WMLResource):
             project_details = client.projects.get_details(limit=100)
             project_details = client.projects.get_details(limit=100, get_all=True)
             project_details = []
-            for entry in client.projects.get_details(limit=100, asynchronous=True, get_all=True):
+            for entry in client.projects.get_details(
+                limit=100, asynchronous=True, get_all=True
+            ):
                 project_details.extend(entry)
 
         """
         Projects._validate_type(project_id, "project_id", str, False)
-
-        href = self._client._href_definitions.get_project_href(project_id)
 
         query_params = {}
         if include := kwargs.get("include"):
             query_params["include"] = include
 
         if project_id is not None:
-            response_get = requests.get(
-                href, headers=self._client._get_headers(), params=query_params
+            response_get = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_project_href(project_id),
+                headers=self._client._get_headers(),
+                params=query_params,
             )
 
             return self._handle_response(
@@ -307,11 +348,11 @@ class Projects(WMLResource):
         self,
         project_id: str | None = None,
         limit: int | None = None,
-        asynchronous: bool | None = False,
-        get_all: bool | None = False,
+        asynchronous: bool = False,
+        get_all: bool = False,
         project_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any] | Generator[Any, None, None]:
         """Get metadata of stored project(s) with caching. It's dedicated for internal usage."""
 
         return self.get_details(
@@ -334,13 +375,16 @@ class Projects(WMLResource):
 
         :param limit: limit number of fetched records
         :type limit: int, optional
+
         :param member: filters the result list, only includes projects where the user with a matching user ID
             is a member
         :type member: str, optional
+
         :param roles: a list of comma-separated project roles to use to filter the query results,
             must be used in conjunction with the "member" query parameter,
             available values : `admin`, `editor`, `viewer`
         :type roles: str, optional
+
         :param project_type: filter projects by their type, available types are 'cpd', 'wx', 'wca', 'dpx' and 'wxbi'
         :type project_type: str, optional
 
@@ -400,6 +444,7 @@ class Projects(WMLResource):
 
         :param project_id: ID of the project with the definition to be updated
         :type project_id: str
+
         :param changes: elements to be changed, where keys are ConfigurationMetaNames
         :type changes: dict
 
@@ -411,10 +456,11 @@ class Projects(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.projects.ConfigurationMetaNames.NAME:"updated_project",
-                client.projects.ConfigurationMetaNames.COMPUTE: {"name": "test_instance",
-                                                               "crn": "v1:staging:public:pm-20-dev:us-south:a/09796a1b4cddfcc9f7fe17824a68a0f8:f1026e4b-77cf-4703-843d-c9984eac7272::"
-                }
+                client.projects.ConfigurationMetaNames.NAME: "updated_project",
+                client.projects.ConfigurationMetaNames.COMPUTE: {
+                    "name": "test_instance",
+                    "crn": "v1:staging:public:pm-20-dev:us-south:a/09796a1b4cddfcc9f7fe17824a68a0f8:f1026e4b-77cf-4703-843d-c9984eac7272::",
+                },
             }
             project_details = client.projects.update(project_id, changes=metadata)
         """
@@ -451,7 +497,7 @@ class Projects(WMLResource):
 
         payload = details["entity"]
 
-        def modify(tree, path, value):
+        def modify(tree: dict, path: list, value: Any) -> None:
             if len(path) > 1:
                 modify(tree[path[0]], path[1:], value)
             else:
@@ -467,8 +513,8 @@ class Projects(WMLResource):
 
         href = self._client._href_definitions.get_project_href(project_id)
 
-        response = requests.patch(
-            href, json=payload, headers=self._client._get_headers()
+        response = self._client.httpx_client.patch(
+            url=href, json=payload, headers=self._client._get_headers()
         )
 
         updated_details = self._handle_response(
@@ -490,6 +536,7 @@ class Projects(WMLResource):
 
         :param project_id: ID of the project with the definition to be updated
         :type project_id: str
+
         :param meta_props: metadata of the member configuration. To see available meta names, use:
 
             .. code-block:: python
@@ -511,20 +558,28 @@ class Projects(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.projects.MemberMetaNames.MEMBERS: [{"id":"IBMid-100000DK0B",
-                                                         "type": "user",
-                                                         "role": "admin" }]
+                client.projects.MemberMetaNames.MEMBERS: [
+                    {"id": "IBMid-100000DK0B", "type": "user", "role": "admin"}
+                ]
             }
-            members_details = client.projects.create_member(project_id=project_id, meta_props=metadata)
+            members_details = client.projects.create_member(
+                project_id=project_id, meta_props=metadata
+            )
 
         .. code-block:: python
 
             metadata = {
-                client.projects.MemberMetaNames.MEMBERS: [{"id":"iam-ServiceId-5a216e59-6592-43b9-8669-625d341aca71",
-                                                         "type": "service",
-                                                         "role": "admin" }]
+                client.projects.MemberMetaNames.MEMBERS: [
+                    {
+                        "id": "iam-ServiceId-5a216e59-6592-43b9-8669-625d341aca71",
+                        "type": "service",
+                        "role": "admin",
+                    }
+                ]
             }
-            members_details = client.projects.create_member(project_id=project_id, meta_props=metadata)
+            members_details = client.projects.create_member(
+                project_id=project_id, meta_props=metadata
+            )
         """
         self._validate_type(project_id, "project_id", str, True)
 
@@ -544,8 +599,8 @@ class Projects(WMLResource):
             meta, with_validation=True, client=self._client
         )
 
-        creation_response = requests.post(
-            self._client._href_definitions.get_projects_members_href(project_id),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_projects_members_href(project_id),
             headers=self._client._get_headers(),
             json=project_meta,
         )
@@ -561,6 +616,7 @@ class Projects(WMLResource):
 
         :param project_id: ID of that project with the definition to be updated
         :type project_id: str
+
         :param user_name: name of the member
         :type user_name: str, optional
 
@@ -571,7 +627,9 @@ class Projects(WMLResource):
 
         .. code-block:: python
 
-            member_details = client.projects.get_member_details(project_id, "test@ibm.com")
+            member_details = client.projects.get_member_details(
+                project_id, "test@ibm.com"
+            )
             members_details = client.projects.get_member_details(project_id)
         """
         Projects._validate_type(project_id, "project_id", str, True)
@@ -582,18 +640,23 @@ class Projects(WMLResource):
             href = self._client._href_definitions.get_projects_member_href(
                 project_id, user_name
             )
-            response_get = requests.get(href, headers=self._client._get_headers())
+            response_get = self._client.httpx_client.get(
+                url=href, headers=self._client._get_headers()
+            )
             return self._handle_response(200, "Get project member", response_get)
         else:
             href = self._client._href_definitions.get_projects_members_href(project_id)
-            response_get = requests.get(href, headers=self._client._get_headers())
+            response_get = self._client.httpx_client.get(
+                url=href, headers=self._client._get_headers()
+            )
             return self._handle_response(200, "Get project members", response_get)
 
-    def delete_member(self, project_id: str, user_name: str | None = None) -> str:
+    def delete_member(self, project_id: str, user_name: str) -> Literal["SUCCESS"]:
         """Delete a member associated with a project.
 
         :param project_id: ID of the project
         :type project_id: str
+
         :param user_name: name of the member
         :type user_name: str, optional
 
@@ -613,23 +676,26 @@ class Projects(WMLResource):
             project_id, user_name
         )
 
-        response_delete = requests.delete(
-            member_endpoint, headers=self._client._get_headers()
+        response_delete = self._client.httpx_client.delete(
+            url=member_endpoint, headers=self._client._get_headers()
         )
 
-        print("DELETED")
-
-        self._handle_response(204, "project member deletion", response_delete, False)
-
-        return "SUCCESS"
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(
+                204, "project member deletion", response_delete, False
+            ),
+        )
 
     def update_member(self, project_id: str, user_name: str, changes: dict) -> dict:
         """Update the metadata of an existing member.
 
         :param project_id: ID of the project
         :type project_id: str
+
         :param user_name: name of the member to be updated
         :type user_name: str
+
         :param changes: elements to be changed, where keys are ConfigurationMetaNames
         :type changes: dict
 
@@ -640,10 +706,10 @@ class Projects(WMLResource):
 
         .. code-block:: python
 
-            metadata = {
-                client.projects.MemberMetaNames.MEMBER: {"role": "editor"}
-            }
-            member_details = client.projects.update_member(project_id, user_name, changes=metadata)
+            metadata = {client.projects.MemberMetaNames.MEMBER: {"role": "editor"}}
+            member_details = client.projects.update_member(
+                project_id, user_name, changes=metadata
+            )
         """
         self._validate_type(project_id, "project_id", str, True)
         self._validate_type(user_name, "user_name", str, True)
@@ -659,8 +725,8 @@ class Projects(WMLResource):
         patch_request.append(user_details)
 
         # patching is different here, you just pass updated members but without `state` and `type`
-        response = requests.patch(
-            self._client._href_definitions.get_projects_members_href(project_id),
+        response = self._client.httpx_client.patch(
+            url=self._client._href_definitions.get_projects_members_href(project_id),
             json={"members": patch_request},
             headers=self._client._get_headers(),
         )
@@ -681,12 +747,16 @@ class Projects(WMLResource):
 
         :param project_id: ID of the project
         :type project_id: str
+
         :param limit: limit number of fetched records
         :type limit: int, optional
+
         :param identity_type: filter the members by type
         :type identity_type: str, optional
+
         :param role: filter the members by role
         :type role: str, optional
+
         :param state: filter the members by state
         :type state: str, optional
 

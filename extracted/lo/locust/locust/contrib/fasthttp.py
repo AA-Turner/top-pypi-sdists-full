@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from locust.exception import CatchResponseError, LocustError, ResponseError
+from locust.exception import CatchResponseError, LocustError, ResponseError, StopTest
 from locust.user import User
 from locust.util.deprecation import DeprecatedFastHttpLocustClass as FastHttpLocust  # noqa: F401
 
@@ -72,7 +72,7 @@ CompatRequest.unverifiable = False
 CompatRequest.type = "https"
 
 # Regexp for checking if an absolute URL was specified
-absolute_http_url_regexp = re.compile(r"^https?://", re.I)
+absolute_http_url_regexp = re.compile(r"^https?://", re.IGNORECASE)
 
 # List of exceptions that can be raised by geventhttpclient when sending an HTTP request,
 # and that should result in a Locust failure
@@ -317,15 +317,24 @@ class FastHttpSession:
         return self.request("GET", url, **kwargs)
 
     def iter_lines(self, url: str, method: str = "GET", **kwargs) -> Generator[str]:
-        """Sends a iter_lines request"""
+        """Sends a iter_lines request for streaming responses"""
         response = self.request(method, url, stream=True, **kwargs)
         response.raise_for_status()
+
         buffer = ""
         for chunk in response.iter_content(chunk_size=1024, decode_content=True):
-            buffer += chunk.decode("utf-8")
+            #  Ensure that chunk is a string.
+            if isinstance(chunk, bytes):
+                chunk = chunk.decode("utf-8", errors="replace")
+
+            buffer += chunk
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)
                 yield line
+
+        # Return to the last line that may be incomplete.
+        if buffer:
+            yield buffer
 
     def head(self, url: str, **kwargs: Unpack[RESTKwargs]) -> ResponseContextManager:
         """Sends a HEAD request"""
@@ -413,7 +422,7 @@ class FastHttpUser(User):
     def __init__(self, environment) -> None:
         super().__init__(environment)
         if self.host is None:
-            raise LocustError(
+            raise StopTest(
                 "You must specify the base host. Either in the host attribute in the User class, or on the command line using the --host option."
             )
 
@@ -434,7 +443,7 @@ class FastHttpUser(User):
             proxy_port=self.proxy_port,
         )
         """
-        Instance of HttpSession that is created upon instantiation of User.
+        Instance of FastHttpSession that is created upon instantiation of User.
         The client support cookies, and therefore keeps the session between HTTP requests.
         """
 
@@ -569,6 +578,38 @@ class FastResponse(CompatResponse):
         if error := getattr(self, "error", None):
             raise error
 
+    def iter_content(self, chunk_size=1024, decode_content=True):
+        """
+        Simulates the `requests.Response.iter_content` method
+
+        Used for streaming response content
+
+        :param `chunk_size`: The size of the chunk read each time
+
+        :param `decode_content`: Whether to decode the content (from bytes to string)
+
+        :return: A generator that produces one chunk at a time
+        """
+        if not self._response:
+            raise LocustError("Cannot iterate content on a response without _response attribute")
+
+        while True:
+            try:
+                chunk = self._response.read(chunk_size)
+                if not chunk:
+                    break
+
+                if decode_content and isinstance(chunk, bytes):
+                    try:
+                        chunk = chunk.decode("utf-8")
+                    except UnicodeDecodeError:
+                        # If decoding fails, preserve the data in byte format.
+                        pass
+
+                yield chunk
+            except (HTTPConnectionClosed, ConnectionError):
+                break
+
     @property
     def status_code(self) -> int:
         """
@@ -630,7 +671,7 @@ class LocustBadStatusCode(ConnectionError):
 class LocustUserAgent(UserAgent):
     response_type = FastResponse
     request_type = FastRequest
-    valid_response_codes = frozenset([200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 301, 302, 303, 304, 307])
+    valid_response_codes = frozenset([200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 301, 302, 303, 304, 307, 308])
 
     def __init__(self, client_pool: HTTPClientPool | None = None, **kwargs):
         super().__init__(**kwargs)

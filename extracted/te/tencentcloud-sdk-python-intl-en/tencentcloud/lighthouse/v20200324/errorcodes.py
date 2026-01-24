@@ -23,6 +23,9 @@ AUTHFAILURE_INVALIDREGION = 'AuthFailure.InvalidRegion'
 # Operation failed.
 FAILEDOPERATION = 'FailedOperation'
 
+# The account balance is insufficient.
+FAILEDOPERATION_BALANCEINSUFFICIENT = 'FailedOperation.BalanceInsufficient'
+
 # Failed to create the image.
 FAILEDOPERATION_CREATEBLUEPRINTFAILED = 'FailedOperation.CreateBlueprintFailed'
 
@@ -38,6 +41,9 @@ FAILEDOPERATION_CREATEKEYPAIRFAILED = 'FailedOperation.CreateKeyPairFailed'
 # Failed to delete the key pair.
 FAILEDOPERATION_DELETEKEYPAIRFAILED = 'FailedOperation.DeleteKeyPairFailed'
 
+# Failed to query the image quota.
+FAILEDOPERATION_DESCRIBEBLUEPRINTQUOTAFAILED = 'FailedOperation.DescribeBlueprintQuotaFailed'
+
 # Failed to query the image. Try again later.
 FAILEDOPERATION_DESCRIBEBLUEPRINTSFAILED = 'FailedOperation.DescribeBlueprintsFailed'
 
@@ -49,6 +55,9 @@ FAILEDOPERATION_DESCRIBEBUNDLESFAILED = 'FailedOperation.DescribeBundlesFailed'
 
 # Querying CBS quota failed.
 FAILEDOPERATION_DESCRIBEDISKCONFIGQUOTAFAILED = 'FailedOperation.DescribeDiskConfigQuotaFailed'
+
+# Failed to query the CVM image list.
+FAILEDOPERATION_DESCRIBEIMAGESFAILED = 'FailedOperation.DescribeImagesFailed'
 
 # An error occurred when querying the instance status.
 FAILEDOPERATION_DESCRIBEINSTANCESTATUS = 'FailedOperation.DescribeInstanceStatus'
@@ -71,13 +80,16 @@ FAILEDOPERATION_DESTROYRESOURCESFAILED = 'FailedOperation.DestroyResourcesFailed
 # Failed to manipulate the firewall rule.
 FAILEDOPERATION_FIREWALLRULESOPERATIONFAILED = 'FailedOperation.FirewallRulesOperationFailed'
 
+# Failed to perform operations on the image.
+FAILEDOPERATION_IMAGEOPERATIONFAILED = 'FailedOperation.ImageOperationFailed'
+
 # Failed to import the key pair.
 FAILEDOPERATION_IMPORTKEYPAIRFAILED = 'FailedOperation.ImportKeyPairFailed'
 
 # Failed to manipulate the instance.
 FAILEDOPERATION_INSTANCEOPERATIONFAILED = 'FailedOperation.InstanceOperationFailed'
 
-# Insufficient account balance. Please recharge promptly.
+# The account balance is insufficient. Top up promptly.
 FAILEDOPERATION_INSUFFICIENTBALANCE = 'FailedOperation.InsufficientBalance'
 
 # The command is not found.
@@ -92,11 +104,20 @@ FAILEDOPERATION_MODIFYINSTANCESBUNDLEFAILED = 'FailedOperation.ModifyInstancesBu
 # Failed to change the resource attribute. Try again later...
 FAILEDOPERATION_MODIFYRESOURCESATTRIBUTEFAILED = 'FailedOperation.ModifyResourcesAttributeFailed'
 
+# The upper limit of the purchase quantity is exceeded.
+FAILEDOPERATION_NUMLIMITERROR = 'FailedOperation.NumLimitError'
+
 # Unable to renew the resource
 FAILEDOPERATION_RENEWRESOURCESFAILED = 'FailedOperation.RenewResourcesFailed'
 
 # A request error occurred.
 FAILEDOPERATION_REQUESTERROR = 'FailedOperation.RequestError'
+
+# Failed to scale out the cloud disk. Try again later.
+FAILEDOPERATION_RESIZEDISKSFAILED = 'FailedOperation.ResizeDisksFailed'
+
+# Failed to share an image across accounts. Try again later.
+FAILEDOPERATION_SHAREBLUEPRINTACROSSACCOUNTFAILED = 'FailedOperation.ShareBlueprintAcrossAccountFailed'
 
 # Failed to manipulate the snapshot.
 FAILEDOPERATION_SNAPSHOTOPERATIONFAILED = 'FailedOperation.SnapshotOperationFailed'
@@ -112,6 +133,9 @@ FAILEDOPERATION_UNABLETOCREATEBLUEPRINT = 'FailedOperation.UnableToCreateBluepri
 
 # Failed to create the instance
 FAILEDOPERATION_UNABLETOCREATEINSTANCES = 'FailedOperation.UnableToCreateInstances'
+
+# The current image status does not allow cross-region synchronization.
+FAILEDOPERATION_UNABLETOSYNCBLUEPRINT = 'FailedOperation.UnableToSyncBlueprint'
 
 # Internal error.
 INTERNALERROR = 'InternalError'
@@ -209,6 +233,18 @@ INVALIDPARAMETER_PARAMETERCONFLICT = 'InvalidParameter.ParameterConflict'
 # Incorrect parameter value.
 INVALIDPARAMETERVALUE = 'InvalidParameterValue'
 
+# Sharing images to accounts in different sites is not allowed.
+INVALIDPARAMETERVALUE_ACCOUNTIDINVALIDACCOUNTAREA = 'InvalidParameterValue.AccountIdInvalidAccountArea'
+
+# The account is the current user.
+INVALIDPARAMETERVALUE_ACCOUNTIDSAMEWITHUIN = 'InvalidParameterValue.AccountIdSameWithUin'
+
+# The account ID does not exist.
+INVALIDPARAMETERVALUE_ACCOUNTIDSNOTEXIST = 'InvalidParameterValue.AccountIdsNotExist'
+
+# The account ID is not a root account.
+INVALIDPARAMETERVALUE_ACCOUNTIDSNOTOWNERACCOUNT = 'InvalidParameterValue.AccountIdsNotOwnerAccount'
+
 # The configuration of this instance does not meet the requirements of the specified image.
 INVALIDPARAMETERVALUE_BLUEPRINTCONFIGNOTMATCH = 'InvalidParameterValue.BlueprintConfigNotMatch'
 
@@ -230,6 +266,9 @@ INVALIDPARAMETERVALUE_CCNIDMALFORMED = 'InvalidParameterValue.CcnIdMalformed'
 # The client token is too long.
 INVALIDPARAMETERVALUE_CLIENTTOKENTOOLONG = 'InvalidParameterValue.ClientTokenTooLong'
 
+# The target region is the same as the source region.
+INVALIDPARAMETERVALUE_DESTINATIONREGIONSAMEASSOURCEREGION = 'InvalidParameterValue.DestinationRegionSameAsSourceRegion'
+
 # The AZ of cloud disk does not match the AZ of instance. 
 INVALIDPARAMETERVALUE_DISKINSTANCEZONENOTMATCH = 'InvalidParameterValue.DiskInstanceZoneNotMatch'
 
@@ -238,6 +277,9 @@ INVALIDPARAMETERVALUE_DISKNAMETOOLONG = 'InvalidParameterValue.DiskNameTooLong'
 
 # The disk size has changed.
 INVALIDPARAMETERVALUE_DISKSIZENOTMATCH = 'InvalidParameterValue.DiskSizeNotMatch'
+
+# The specified cloud disk size is less than the current disk size.
+INVALIDPARAMETERVALUE_DISKSIZESMALLERTHANCURRENTDISKSIZE = 'InvalidParameterValue.DiskSizeSmallerThanCurrentDiskSize'
 
 # The parameter `KeyName` already exists and is duplicate.
 INVALIDPARAMETERVALUE_DUPLICATEPARAMETERVALUE = 'InvalidParameterValue.DuplicateParameterValue'
@@ -278,8 +320,14 @@ INVALIDPARAMETERVALUE_INVALIDCURINSTANCEDEADLINE = 'InvalidParameterValue.Invali
 # Invalid parameter value: the disk ID format is invalid.
 INVALIDPARAMETERVALUE_INVALIDDISKIDMALFORMED = 'InvalidParameterValue.InvalidDiskIdMalformed'
 
+# The specified cloud disk size does not meet the requirements.
+INVALIDPARAMETERVALUE_INVALIDDISKSIZE = 'InvalidParameterValue.InvalidDiskSize'
+
 # Invalid cloud disk type.
 INVALIDPARAMETERVALUE_INVALIDDISKTYPE = 'InvalidParameterValue.InvalidDiskType'
+
+# The image ID format is invalid.
+INVALIDPARAMETERVALUE_INVALIDIMAGEIDMALFORMED = 'InvalidParameterValue.InvalidImageIdMalformed'
 
 # The value of setting whether to use the default key pair for login is incorrect.
 INVALIDPARAMETERVALUE_INVALIDINSTANCELOGINKEYPAIRPERMITLOGIN = 'InvalidParameterValue.InvalidInstanceLoginKeyPairPermitLogin'
@@ -329,6 +377,9 @@ INVALIDPARAMETERVALUE_NEGATIVE = 'InvalidParameterValue.Negative'
 # It is not allowed to change the OS type.
 INVALIDPARAMETERVALUE_NOTALLOWTOCHANGEPLATFORMTYPE = 'InvalidParameterValue.NotAllowToChangePlatformType'
 
+# Cross-border image synchronization is not supported.
+INVALIDPARAMETERVALUE_NOTSUPPORTCROSSBORDERSYNCBLUEPRINT = 'InvalidParameterValue.NotSupportCrossBorderSyncBlueprint'
+
 # Invalid parametric value: it is not within the valid range.
 INVALIDPARAMETERVALUE_OUTOFRANGE = 'InvalidParameterValue.OutOfRange'
 
@@ -359,6 +410,9 @@ INVALIDPARAMETERVALUE_SNAPSHOTNAMETOOLONG = 'InvalidParameterValue.SnapshotNameT
 # The length of the parameter value exceeds the upper limit.
 INVALIDPARAMETERVALUE_TOOLONG = 'InvalidParameterValue.TooLong'
 
+# The region is not available.
+INVALIDPARAMETERVALUE_UNAVAILABLEREGION = 'InvalidParameterValue.UnavailableRegion'
+
 # Invalid AZ.
 INVALIDPARAMETERVALUE_ZONEINVALID = 'InvalidParameterValue.ZoneInvalid'
 
@@ -386,14 +440,23 @@ LIMITEXCEEDED_ISOLATERESOURCESLIMITEXCEEDED = 'LimitExceeded.IsolateResourcesLim
 # The key pair quota is exceeded.
 LIMITEXCEEDED_KEYPAIRLIMITEXCEEDED = 'LimitExceeded.KeyPairLimitExceeded'
 
+# The image quota is insufficient to share images to the specified account.
+LIMITEXCEEDED_SHAREBLUEPRINTACROSSACCOUNTQUOTALIMITEXCEEDED = 'LimitExceeded.ShareBlueprintAcrossAccountQuotaLimitExceeded'
+
 # The snapshot quota is exceeded.
 LIMITEXCEEDED_SNAPSHOTQUOTALIMITEXCEEDED = 'LimitExceeded.SnapshotQuotaLimitExceeded'
+
+# The image quota limit for the target region is exceeded.
+LIMITEXCEEDED_SYNCBLUEPRINTQUOTALIMITEXCEEDED = 'LimitExceeded.SyncBlueprintQuotaLimitExceeded'
 
 # Missing parameter.
 MISSINGPARAMETER = 'MissingParameter'
 
 # `Period` or `CurInstanceDeadline` is required. 
 MISSINGPARAMETER_MISSINGPARAMETERPERIODCURINSTANCEDEADLINE = 'MissingParameter.MissingParameterPeriodCurInstanceDeadline'
+
+# The image is being operated on. Try again later.
+OPERATIONDENIED_BLUEPRINTOPERATIONINPROGRESS = 'OperationDenied.BlueprintOperationInProgress'
 
 # This instance does not support upgrading packages.
 OPERATIONDENIED_BUNDLENOTSUPPORTMODIFY = 'OperationDenied.BundleNotSupportModify'
@@ -419,6 +482,12 @@ OPERATIONDENIED_OPERATIONDENIEDCREATESNAPSHOT = 'OperationDenied.OperationDenied
 # Instances using storage packages do not support snapshot creation.
 OPERATIONDENIED_OPERATIONDENIEDCREATESNAPSHOTFORSTORAGEBUNDLE = 'OperationDenied.OperationDeniedCreateSnapshotForStorageBundle'
 
+# The image is undergoing sharing property modifications. The operation is not supported.
+RESOURCEINUSE_BLUEPRINTMODIFYINGSHAREPERMISSION = 'ResourceInUse.BlueprintModifyingSharePermission'
+
+# The image is in use. The operation is not supported.
+RESOURCEINUSE_IMAGEINUSE = 'ResourceInUse.ImageInUse'
+
 # The key pair is in use.
 RESOURCEINUSE_KEYPAIRINUSE = 'ResourceInUse.KeyPairInUse'
 
@@ -435,6 +504,9 @@ RESOURCENOTFOUND_BLUEPRINTNOTFOUND = 'ResourceNotFound.BlueprintNotFound'
 RESOURCENOTFOUND_DISKIDNOTFOUND = 'ResourceNotFound.DiskIdNotFound'
 
 # The disk does not exist.
+RESOURCENOTFOUND_DISKNOTEXISTS = 'ResourceNotFound.DiskNotExists'
+
+# The disk does not exist.
 RESOURCENOTFOUND_DISKNOTFOUND = 'ResourceNotFound.DiskNotFound'
 
 # The firewall does not exist.
@@ -445,6 +517,9 @@ RESOURCENOTFOUND_FIREWALLRULESNOTFOUND = 'ResourceNotFound.FirewallRulesNotFound
 
 # Firewall template not found.
 RESOURCENOTFOUND_FIREWALLTEMPLATENOTFOUND = 'ResourceNotFound.FirewallTemplateNotFound'
+
+# The image ID does not exist.
+RESOURCENOTFOUND_IMAGEIDNOTFOUND = 'ResourceNotFound.ImageIdNotFound'
 
 # There are no data disks mounted to the instance.
 RESOURCENOTFOUND_INSTANCEDATADISKNOTFOUND = 'ResourceNotFound.InstanceDataDiskNotFound'
@@ -494,6 +569,9 @@ RESOURCESSOLDOUT_PURCHASESOURCEHASNOBUNDLECONFIGS = 'ResourcesSoldOut.PurchaseSo
 # There is no available configuration in the package.
 RESOURCESSOLDOUT_ZONESHASNOBUNDLECONFIGS = 'ResourcesSoldOut.ZonesHasNoBundleConfigs'
 
+# Completing identity information is required for cloud resource purchases due to account security upgrades.
+UNAUTHORIZEDOPERATION_CERTIFICATIONNEEDUPGRADE = 'UnauthorizedOperation.CertificationNeedUpgrade'
+
 # MFA has expired.
 UNAUTHORIZEDOPERATION_MFAEXPIRED = 'UnauthorizedOperation.MFAExpired'
 
@@ -502,6 +580,9 @@ UNAUTHORIZEDOPERATION_MFANOTFOUND = 'UnauthorizedOperation.MFANotFound'
 
 # No permission.
 UNAUTHORIZEDOPERATION_NOPERMISSION = 'UnauthorizedOperation.NoPermission'
+
+# The payment failed because the account identity verification has not been completed.
+UNAUTHORIZEDOPERATION_NOTCERTIFICATION = 'UnauthorizedOperation.NotCertification'
 
 # You do not have permission to perform this operation. The token in the request is invalid.
 UNAUTHORIZEDOPERATION_TOKENINVALID = 'UnauthorizedOperation.TokenInvalid'
@@ -512,14 +593,26 @@ UNKNOWNPARAMETER = 'UnknownParameter'
 # Unsupported operation.
 UNSUPPORTEDOPERATION = 'UnsupportedOperation'
 
+# Failed to obtain role authorization. Grant authorizations to the Lighthouse-related role and try again.
+UNSUPPORTEDOPERATION_ASSUMEROLEFAILED = 'UnsupportedOperation.AssumeRoleFailed'
+
 # Unable to associate with CCN: there is no instance in this region
 UNSUPPORTEDOPERATION_ATTACHCCNCONDITIONUNSATISFIED = 'UnsupportedOperation.AttachCcnConditionUnsatisfied'
 
 # Failed to associate the CCN instance. Please check the CCN status and try again later.
 UNSUPPORTEDOPERATION_ATTACHCCNFAILED = 'UnsupportedOperation.AttachCcnFailed'
 
+# The image has already been shared. The operation is not supported.
+UNSUPPORTEDOPERATION_BLUEPRINTALREADYSHARED = 'UnsupportedOperation.BlueprintAlreadyShared'
+
 # The current status of the image does not support this operation.
 UNSUPPORTEDOPERATION_BLUEPRINTCURSTATEINVALID = 'UnsupportedOperation.BlueprintCurStateInvalid'
+
+# The image has not been shared. The operation is not supported.
+UNSUPPORTEDOPERATION_BLUEPRINTHASNOTSHARED = 'UnsupportedOperation.BlueprintHasNotShared'
+
+# The last operation on the image is not completed yet.
+UNSUPPORTEDOPERATION_BLUEPRINTLATESTOPERATIONUNFINISHED = 'UnsupportedOperation.BlueprintLatestOperationUnfinished'
 
 # The image is in use, so this operation is not supported.
 UNSUPPORTEDOPERATION_BLUEPRINTOCCUPIED = 'UnsupportedOperation.BlueprintOccupied'
@@ -547,6 +640,15 @@ UNSUPPORTEDOPERATION_FIREWALLBUSY = 'UnsupportedOperation.FirewallBusy'
 
 # The specified firewall version number does not match the current version.
 UNSUPPORTEDOPERATION_FIREWALLVERSIONMISMATCH = 'UnsupportedOperation.FirewallVersionMismatch'
+
+# The image has already been shared. The operation is not supported.
+UNSUPPORTEDOPERATION_IMAGEALREADYSHARED = 'UnsupportedOperation.ImageAlreadyShared'
+
+# The image is currently in use by other operations. The operation is not supported. Try again later.
+UNSUPPORTEDOPERATION_IMAGEOCCUPIED = 'UnsupportedOperation.ImageOccupied'
+
+# Image sharing is not supported.
+UNSUPPORTEDOPERATION_IMAGEUNABLETOSHARE = 'UnsupportedOperation.ImageUnableToShare'
 
 # Unsupported operation: the instance has expired.
 UNSUPPORTEDOPERATION_INSTANCEEXPIRED = 'UnsupportedOperation.InstanceExpired'
@@ -589,6 +691,9 @@ UNSUPPORTEDOPERATION_RESETATTACHCCNFAILED = 'UnsupportedOperation.ResetAttachCcn
 
 # The resource cannot be returned.
 UNSUPPORTEDOPERATION_RESOURCENOTRETURNABLE = 'UnsupportedOperation.ResourceNotReturnable'
+
+# This operation is not supported if the new configuration is identical to the existing configuration during configuration changes.
+UNSUPPORTEDOPERATION_SAMEWITHOLDCONFIG = 'UnsupportedOperation.SameWithOldConfig'
 
 # The snapshot is busy.
 UNSUPPORTEDOPERATION_SNAPSHOTBUSY = 'UnsupportedOperation.SnapshotBusy'

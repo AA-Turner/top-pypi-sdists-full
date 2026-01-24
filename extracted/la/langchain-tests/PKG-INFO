@@ -1,55 +1,70 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: langchain-tests
-Version: 0.3.21
+Version: 1.1.2
 Summary: Standard tests for LangChain implementations
-Author-Email: Erick Friis <erick@langchain.dev>
+Project-URL: Homepage, https://docs.langchain.com/
+Project-URL: Documentation, https://docs.langchain.com/
+Project-URL: Source, https://github.com/langchain-ai/langchain/tree/master/libs/standard-tests
+Project-URL: Changelog, https://github.com/langchain-ai/langchain/releases?q=%22langchain-tests%3D%3D1%22
+Project-URL: Twitter, https://x.com/LangChainAI
+Project-URL: Slack, https://www.langchain.com/join-community
+Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
-Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/standard-tests
-Project-URL: repository, https://github.com/langchain-ai/langchain
-Requires-Python: >=3.9
-Requires-Dist: langchain-core<2.0.0,>=0.3.75
-Requires-Dist: pytest<9,>=7
-Requires-Dist: pytest-asyncio<2,>=0.20
-Requires-Dist: httpx<1,>=0.28.1
-Requires-Dist: syrupy<5,>=4
-Requires-Dist: pytest-socket<1,>=0.7.0
+Requires-Python: <4.0.0,>=3.10.0
+Requires-Dist: httpx<1.0.0,>=0.28.1
+Requires-Dist: langchain-core<2.0.0,>=1.2.2
+Requires-Dist: numpy>=1.26.2; python_version < '3.13'
+Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
+Requires-Dist: pytest-asyncio<2.0.0,>=0.20.0
 Requires-Dist: pytest-benchmark
 Requires-Dist: pytest-codspeed
 Requires-Dist: pytest-recording
-Requires-Dist: vcrpy>=7.0
-Requires-Dist: numpy>=1.26.2; python_version < "3.13"
-Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
+Requires-Dist: pytest-socket<1.0.0,>=0.7.0
+Requires-Dist: pytest<9.0.0,>=7.0.0
+Requires-Dist: syrupy<5.0.0,>=4.0.0
+Requires-Dist: vcrpy<8.0.0,>=7.0.0
 Description-Content-Type: text/markdown
 
-# langchain-tests
+# 🦜️🔗 langchain-tests
 
-This is a testing library for LangChain integrations. It contains the base classes for
-a standard set of tests.
+[![PyPI - Version](https://img.shields.io/pypi/v/langchain-tests?label=%20)](https://pypi.org/project/langchain-tests/#history)
+[![PyPI - License](https://img.shields.io/pypi/l/langchain-tests)](https://opensource.org/licenses/MIT)
+[![PyPI - Downloads](https://img.shields.io/pepy/dt/langchain-tests)](https://pypistats.org/packages/langchain-tests)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchainai.svg?style=social&label=Follow%20%40LangChainAI)](https://twitter.com/langchainai)
 
-## Installation
+Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 
-We encourage pinning your version to a specific version in order to avoid breaking
-your CI when we publish new tests. We recommend upgrading to the latest version
-periodically to make sure you have the latest tests.
-
-Not pinning your version will ensure you always have the latest tests, but it may
-also break your CI if we introduce tests that your integration doesn't pass.
-
-Pip:
+## Quick Install
 
 ```bash
-pip install -U langchain-tests
+pip install langchain-tests
 ```
 
-uv:
+## 🤔 What is this?
 
-```bash
-uv add langchain-tests
-```
+This is a testing library for LangChain integrations. It contains the base classes for a standard set of tests.
+
+## 📖 Documentation
+
+For full documentation, see the [API reference](https://reference.langchain.com/python/langchain_tests/).
+
+## 📕 Releases & Versioning
+
+See our [Releases](https://docs.langchain.com/oss/python/release-policy) and [Versioning](https://docs.langchain.com/oss/python/versioning) policies.
+
+We encourage pinning your version to a specific version in order to avoid breaking your CI when we publish new tests. We recommend upgrading to the latest version periodically to make sure you have the latest tests.
+
+Not pinning your version will ensure you always have the latest tests, but it may also break your CI if we introduce tests that your integration doesn't pass.
+
+## 💁 Contributing
+
+As an open-source project in a rapidly developing field, we are extremely open to contributions, whether it be in the form of a new feature, improved infrastructure, or better documentation.
+
+For detailed information on how to contribute, see the [Contributing Guide](https://docs.langchain.com/oss/python/contributing/overview).
 
 ## Usage
 
-To add standard tests to an integration package (e.g., for a ChatModel), you need to create
+To add standard tests to an integration package (e.g., for a chat model), you need to create
 
 1. A unit test class that inherits from `ChatModelUnitTests`
 2. An integration test class that inherits from `ChatModelIntegrationTests`

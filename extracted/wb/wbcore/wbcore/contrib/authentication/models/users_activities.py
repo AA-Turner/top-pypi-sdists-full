@@ -9,6 +9,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from wbcore.workers import Queue
+
 from .users import User
 
 ACCESS_TOKEN_LIFETIME = settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].seconds
@@ -59,7 +61,7 @@ class UserActivity(models.Model):
         return Subquery(qs.order_by("-latest_refresh").values("latest_refresh")[:1], output_field=DateTimeField())
 
     @classmethod
-    def get_endpoint_basename(self):
+    def get_endpoint_basename(cls):
         return "wbcore:authentication:useractivity"
 
     @classmethod
@@ -97,7 +99,7 @@ def log_user_logged_in_success(sender, user, request, **kwargs):
         )
 
 
-@shared_task()
+@shared_task(queue=Queue.HIGH_PRIORITY.value)
 def refresh_user_activity(user_id, refresh_time, jti):
     """
     Signal triggerd whenever a refresh token is submit from the frontend. Update latest_refresh to the associated UserActivity.

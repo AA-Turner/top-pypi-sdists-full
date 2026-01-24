@@ -1,111 +1,89 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Literal
 
 from bittensor_wallet.bittensor_wallet import Wallet
 
-from bittensor.utils import unlock_key
+from bittensor.core.extrinsics.asyncex.mev_shield import submit_encrypted_extrinsic
+from bittensor.core.extrinsics.pallets import SubtensorModule
+from bittensor.core.settings import DEFAULT_MEV_PROTECTION
+from bittensor.core.types import ExtrinsicResponse
 
 if TYPE_CHECKING:
     from bittensor.core.async_subtensor import AsyncSubtensor
 
 
-async def increase_take_extrinsic(
+async def set_take_extrinsic(
     subtensor: "AsyncSubtensor",
     wallet: Wallet,
     hotkey_ss58: str,
     take: int,
+    action: Literal["increase_take", "decrease_take"],
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
+    period: Optional[int] = None,
+    raise_error: bool = False,
     wait_for_inclusion: bool = True,
     wait_for_finalization: bool = True,
-    raise_error: bool = False,
-    period: Optional[int] = None,
-) -> tuple[bool, str]:
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
     """Sets the delegate 'take' percentage for a neuron identified by its hotkey.
 
-    Args:
-        subtensor (Subtensor): Blockchain connection.
-        wallet (Wallet): The wallet to sign the extrinsic.
-        hotkey_ss58 (str): SS58 address of the hotkey to set take for.
-        take (int): The percentage of rewards that the delegate claims from nominators.
-        wait_for_inclusion (bool, optional): Wait for inclusion before returning. Defaults to True.
-        wait_for_finalization (bool, optional): Wait for finalization before returning. Defaults to True.
-        raise_error (bool, optional): Raise error on failure. Defaults to False.
-        period: The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+    Parameters:
+        subtensor: The Subtensor instance.
+        wallet: The wallet to sign the extrinsic.
+        hotkey_ss58: SS58 address of the hotkey to set take for.
+        take: The percentage of rewards that the delegate claims from nominators.
+        action: The call function to use to set the take. Can be either "increase_take" or "decrease_take".
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        tuple[bool, str]: Success flag and status message.
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(wallet, raise_error)
+        ).success:
+            return unlocked
 
-    unlock = unlock_key(wallet, raise_error=raise_error)
+        if action == "increase_take":
+            call = await SubtensorModule(subtensor).increase_take(
+                hotkey=hotkey_ss58, take=take
+            )
+        elif action == "decrease_take":
+            call = await SubtensorModule(subtensor).decrease_take(
+                hotkey=hotkey_ss58, take=take
+            )
+        else:
+            raise ValueError(f"Invalid action: {action}")
 
-    if not unlock.success:
-        return False, unlock.message
+        if mev_protection:
+            return await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
+        else:
+            return await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                period=period,
+                raise_error=raise_error,
+            )
 
-    call = await subtensor.substrate.compose_call(
-        call_module="SubtensorModule",
-        call_function="increase_take",
-        call_params={
-            "hotkey": hotkey_ss58,
-            "take": take,
-        },
-    )
-
-    return await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-        raise_error=raise_error,
-    )
-
-
-async def decrease_take_extrinsic(
-    subtensor: "AsyncSubtensor",
-    wallet: Wallet,
-    hotkey_ss58: str,
-    take: int,
-    wait_for_inclusion: bool = True,
-    wait_for_finalization: bool = True,
-    raise_error: bool = False,
-    period: Optional[int] = None,
-) -> tuple[bool, str]:
-    """Sets the delegate 'take' percentage for a neuron identified by its hotkey.
-
-    Args:
-        subtensor (Subtensor): Blockchain connection.
-        wallet (Wallet): The wallet to sign the extrinsic.
-        hotkey_ss58 (str): SS58 address of the hotkey to set take for.
-        take (int): The percentage of rewards that the delegate claims from nominators.
-        wait_for_inclusion (bool, optional): Wait for inclusion before returning. Defaults to True.
-        wait_for_finalization (bool, optional): Wait for finalization before returning. Defaults to True.
-        raise_error (bool, optional): Raise error on failure. Defaults to False.
-        period: The number of blocks during which the transaction will remain valid after it's submitted. If
-            the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
-
-    Returns:
-        tuple[bool, str]: Success flag and status message.
-    """
-    unlock = unlock_key(wallet, raise_error=raise_error)
-
-    if not unlock.success:
-        return False, unlock.message
-
-    call = await subtensor.substrate.compose_call(
-        call_module="SubtensorModule",
-        call_function="decrease_take",
-        call_params={
-            "hotkey": hotkey_ss58,
-            "take": take,
-        },
-    )
-
-    return await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-        raise_error=raise_error,
-    )
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)

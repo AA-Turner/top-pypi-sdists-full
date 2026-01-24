@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from cloudfoundry_client.common_objects import JsonObject
 from cloudfoundry_client.v3.entities import Entity, EntityManager, ToOneRelationship
@@ -7,19 +7,19 @@ if TYPE_CHECKING:
     from cloudfoundry_client.client import CloudFoundryClient
 
 
-class ServiceInstanceManager(EntityManager):
+class ServiceInstanceManager(EntityManager[Entity]):
     def __init__(self, target_endpoint: str, client: "CloudFoundryClient"):
-        super(ServiceInstanceManager, self).__init__(target_endpoint, client, "/v3/service_instances")
+        super().__init__(target_endpoint, client, "/v3/service_instances")
 
     def create(
         self,
         name: str,
         space_guid: str,
         service_plan_guid: str,
-        meta_labels: Optional[dict] = None,
-        meta_annotations: Optional[dict] = None,
-        parameters: Optional[dict] = None,
-        tags: Optional[List[str]] = None,
+        meta_labels: dict | None = None,
+        meta_annotations: dict | None = None,
+        parameters: dict | None = None,
+        tags: list[str] | None = None,
     ) -> Entity:
         data = {
             "name": name,
@@ -30,25 +30,19 @@ class ServiceInstanceManager(EntityManager):
             data["parameters"] = parameters
         if tags:
             data["tags"] = tags
-        if meta_labels or meta_annotations:
-            metadata = dict()
-            if meta_labels:
-                metadata["labels"] = meta_labels
-            if meta_annotations:
-                metadata["annotations"] = meta_annotations
-            data["metadata"] = metadata
-        return super(ServiceInstanceManager, self)._create(data)
+        self._metadata(data, meta_labels, meta_annotations)
+        return super()._create(data)
 
     def update(
             self,
             instance_guid: str,
-            name: Optional[str] = None,
-            parameters: Optional[dict] = None,
-            service_plan: Optional[str] = None,
-            maintenance_info: Optional[str] = None,
-            meta_labels: Optional[dict] = None,
-            meta_annotations: Optional[dict] = None,
-            tags: Optional[List[str]] = None
+            name: str | None = None,
+            parameters: dict | None = None,
+            service_plan: str | None = None,
+            maintenance_info: str | None = None,
+            meta_labels: dict | None = None,
+            meta_annotations: dict | None = None,
+            tags: list[str] | None = None
     ) -> Entity:
         data = {}
         if name:
@@ -62,19 +56,13 @@ class ServiceInstanceManager(EntityManager):
             data["maintenance_info"] = {"version": maintenance_info}
         if tags:
             data["tags"] = tags
-        if meta_labels or meta_annotations:
-            metadata = dict()
-            if meta_labels:
-                metadata["labels"] = meta_labels
-            if meta_annotations:
-                metadata["annotations"] = meta_annotations
-            data["metadata"] = metadata
-        return super(ServiceInstanceManager, self)._update(instance_guid, data)
+        super()._metadata(data, meta_labels, meta_annotations)
+        return super()._update(instance_guid, data)
 
     def remove(self, guid: str, asynchronous: bool = True):
-        super(ServiceInstanceManager, self)._remove(guid, asynchronous)
+        super()._remove(guid, asynchronous)
 
     def get_permissions(self, instance_guid: str) -> JsonObject:
-        return super(ServiceInstanceManager, self)._get(
+        return super()._get(
             "%s%s/%s/permissions" % (self.target_endpoint, self.entity_uri, instance_guid)
         )

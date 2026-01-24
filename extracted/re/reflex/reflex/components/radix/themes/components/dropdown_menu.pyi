@@ -27,10 +27,6 @@ class DropdownMenuRoot(RadixThemesComponent):
     def create(
         cls,
         *children,
-        default_open: Var[bool] | bool | None = None,
-        open: Var[bool] | bool | None = None,
-        modal: Var[bool] | bool | None = None,
-        dir: Literal["ltr", "rtl"] | Var[Literal["ltr", "rtl"]] | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -67,10 +63,6 @@ class DropdownMenuRoot(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            default_open: The open state of the dropdown menu when it is initially rendered. Use when you do not need to control its open state.
-            open: The controlled open state of the dropdown menu. Must be used in conjunction with onOpenChange.
-            modal: The modality of the dropdown menu. When set to true, interaction with outside elements will be disabled and only menu content will be visible to screen readers. Defaults to True.
-            dir: The reading direction of submenus when applicable. If omitted, inherits globally from DirectionProvider or assumes LTR (left-to-right) reading mode.
             on_open_change: Fired when the open state changes.
             style: The style of the component.
             key: A unique key for the component.
@@ -89,7 +81,6 @@ class DropdownMenuTrigger(RadixThemesTriggerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -133,92 +124,6 @@ class DropdownMenuContent(RadixThemesComponent):
     def create(
         cls,
         *children,
-        size: Breakpoints[str, Literal["1", "2"]]
-        | Literal["1", "2"]
-        | Var[Breakpoints[str, Literal["1", "2"]] | Literal["1", "2"]]
-        | None = None,
-        variant: Literal["soft", "solid"] | Var[Literal["soft", "solid"]] | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        as_child: Var[bool] | bool | None = None,
-        loop: Var[bool] | bool | None = None,
-        force_mount: Var[bool] | bool | None = None,
-        side: Literal["bottom", "left", "right", "top"]
-        | Var[Literal["bottom", "left", "right", "top"]]
-        | None = None,
-        side_offset: Var[float | int] | float | int | None = None,
-        align: Literal["center", "end", "start"]
-        | Var[Literal["center", "end", "start"]]
-        | None = None,
-        align_offset: Var[float | int] | float | int | None = None,
-        avoid_collisions: Var[bool] | bool | None = None,
-        collision_padding: Var[dict[str, float | int] | float | int]
-        | dict[str, float | int]
-        | float
-        | int
-        | None = None,
-        sticky: Literal["always", "partial"]
-        | Var[Literal["always", "partial"]]
-        | None = None,
-        hide_when_detached: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -259,21 +164,6 @@ class DropdownMenuContent(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            size: Dropdown Menu Content size "1" - "2"
-            variant: Variant of Dropdown Menu Content: "solid" | "soft"
-            color_scheme: Override theme color for Dropdown Menu Content
-            high_contrast: Renders the Dropdown Menu Content in higher contrast
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            loop: When True, keyboard navigation will loop from last item to first, and vice versa. Defaults to False.
-            force_mount: Used to force mounting when more control is needed. Useful when controlling animation with React animation libraries.
-            side: The preferred side of the trigger to render against when open. Will be reversed when collisions occur and `avoid_collisions` is enabled.The position of the tooltip. Defaults to "top".
-            side_offset: The distance in pixels from the trigger. Defaults to 0.
-            align: The preferred alignment against the trigger. May change when collisions occur. Defaults to "center".
-            align_offset: An offset in pixels from the "start" or "end" alignment options.
-            avoid_collisions: When true, overrides the side and align preferences to prevent collisions with boundary edges. Defaults to True.
-            collision_padding: The distance in pixels from the boundary edges where collision detection should occur. Accepts a number (same for all sides), or a partial padding object, for example: { "top": 20, "left": 20 }. Defaults to 0.
-            sticky: The sticky behavior on the align axis. "partial" will keep the content in the boundary as long as the trigger is at least partially in the boundary whilst "always" will keep the content in the boundary regardless. Defaults to "partial".
-            hide_when_detached: Whether to hide the content when the trigger becomes fully occluded. Defaults to False.
             on_close_auto_focus: Fired when the dialog is closed.
             on_escape_key_down: Fired when the escape key is pressed.
             on_pointer_down_outside: Fired when the pointer is down outside the dialog.
@@ -296,9 +186,6 @@ class DropdownMenuSubTrigger(RadixThemesTriggerComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        text_value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -342,8 +229,6 @@ class DropdownMenuSub(RadixThemesComponent):
     def create(
         cls,
         *children,
-        open: Var[bool] | bool | None = None,
-        default_open: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -380,8 +265,6 @@ class DropdownMenuSub(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            open: The controlled open state of the submenu. Must be used in conjunction with `on_open_change`.
-            default_open: The open state of the submenu when it is initially rendered. Use when you do not need to control its open state.
             on_open_change: Fired when the open state changes.
             style: The style of the component.
             key: A unique key for the component.
@@ -400,21 +283,6 @@ class DropdownMenuSubContent(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        loop: Var[bool] | bool | None = None,
-        force_mount: Var[bool] | bool | None = None,
-        side_offset: Var[float | int] | float | int | None = None,
-        align_offset: Var[float | int] | float | int | None = None,
-        avoid_collisions: Var[bool] | bool | None = None,
-        collision_padding: Var[dict[str, float | int] | float | int]
-        | dict[str, float | int]
-        | float
-        | int
-        | None = None,
-        sticky: Literal["always", "partial"]
-        | Var[Literal["always", "partial"]]
-        | None = None,
-        hide_when_detached: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -454,15 +322,6 @@ class DropdownMenuSubContent(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            loop: When True, keyboard navigation will loop from last item to first, and vice versa. Defaults to False.
-            force_mount: Used to force mounting when more control is needed. Useful when controlling animation with React animation libraries.
-            side_offset: The distance in pixels from the trigger. Defaults to 0.
-            align_offset: An offset in pixels from the "start" or "end" alignment options.
-            avoid_collisions: When true, overrides the side and align preferences to prevent collisions with boundary edges. Defaults to True.
-            collision_padding: The distance in pixels from the boundary edges where collision detection should occur. Accepts a number (same for all sides), or a partial padding object, for example: { "top": 20, "left": 20 }. Defaults to 0.
-            sticky: The sticky behavior on the align axis. "partial" will keep the content in the boundary as long as the trigger is at least partially in the boundary whilst "always" will keep the content in the boundary regardless. Defaults to "partial".
-            hide_when_detached: Whether to hide the content when the trigger becomes fully occluded. Defaults to False.
             on_escape_key_down: Fired when the escape key is pressed.
             on_pointer_down_outside: Fired when the pointer is down outside the dialog.
             on_focus_outside: Fired when focus moves outside the dialog.
@@ -484,69 +343,6 @@ class DropdownMenuItem(RadixThemesComponent):
     def create(
         cls,
         *children,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        shortcut: Var[str] | str | None = None,
-        as_child: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        text_value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -583,11 +379,6 @@ class DropdownMenuItem(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            color_scheme: Override theme color for Dropdown Menu Item
-            shortcut: Shortcut to render a menu item as a link
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior. Defaults to False.
-            disabled: When true, prevents the user from interacting with the item.
-            text_value: Optional text used for typeahead purposes. By default the typeahead behavior will use the .textContent of the item. Use this when the content is complex, or you have non-textual content inside.
             on_select: Fired when the item is selected.
             style: The style of the component.
             key: A unique key for the component.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog-api-client
-Version: 2.43.0
+Version: 2.50.0
 Summary: Collection of all Datadog Public endpoints
 Home-page: https://github.com/DataDog/datadog-api-client-python
 Author: Datadog, Inc.
@@ -29,11 +29,11 @@ Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: apm
 Requires-Dist: ddtrace>=1.15.0; extra == "apm"
 Provides-Extra: async
-Requires-Dist: aiosonic==0.24.0; extra == "async"
+Requires-Dist: aiosonic>=0.24.0; extra == "async"
 Provides-Extra: zstandard
 Requires-Dist: zstandard; extra == "zstandard"
 Provides-Extra: tests
-Requires-Dist: aiosonic==0.24.0; extra == "tests"
+Requires-Dist: aiosonic>=0.24.0; extra == "tests"
 Requires-Dist: glom; extra == "tests"
 Requires-Dist: jinja2; extra == "tests"
 Requires-Dist: pytest<8.0.0; extra == "tests"
@@ -148,6 +148,29 @@ The default max retry is `3`, you can change it with `max_retries`
 ```python
     configuration.max_retries = 5
 ```
+
+#### Custom retry policy
+
+You can provide a custom retry policy by passing a `urllib3.util.Retry` instance to the configuration.
+When a custom retry policy is provided, it takes precedence over the `enable_retry`, `retry_backoff_factor`,
+and `max_retries` settings.
+
+```python
+import urllib3
+from datadog_api_client import Configuration
+
+# Create a custom retry policy
+custom_retry = urllib3.util.Retry(
+    total=5,
+    backoff_factor=2,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET", "POST", "PUT", "DELETE"]
+)
+
+configuration = Configuration(retry_policy=custom_retry)
+```
+
+See [urllib3.util.Retry documentation](https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html#urllib3.util.Retry) for more details.
 
 ### Configure proxy
 

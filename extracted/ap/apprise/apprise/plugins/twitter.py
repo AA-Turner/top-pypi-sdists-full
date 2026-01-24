@@ -76,7 +76,7 @@ class NotifyTwitter(NotifyBase):
     secure_protocol = ("x", "twitter", "tweet")
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_twitter"
+    setup_url = "https://appriseit.com/services/twitter/"
 
     # Support attachments
     attachment_support = True
@@ -584,7 +584,7 @@ class NotifyTwitter(NotifyBase):
                 target["recipient_id"] = user_id
 
                 # Send Twitter DM
-                postokay, response = self._fetch(
+                postokay, _response = self._fetch(
                     self.twitter_dm,
                     payload=payload,
                 )
@@ -784,7 +784,8 @@ class NotifyTwitter(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Mark our failure
                 return (False, content)

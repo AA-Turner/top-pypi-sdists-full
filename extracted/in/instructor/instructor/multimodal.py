@@ -14,13 +14,13 @@ def __getattr__(name: str):
         f"Please update your imports to use 'instructor.processing.multimodal.{name}' instead:\n"
         "  from instructor.processing.multimodal import PDF, Image, Audio",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
-    
+
     from .processing import multimodal as processing_multimodal
-    
+
     # Try to get the attribute from the processing.multimodal module
     if hasattr(processing_multimodal, name):
         return getattr(processing_multimodal, name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

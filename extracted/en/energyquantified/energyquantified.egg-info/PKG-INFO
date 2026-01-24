@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: energyquantified
-Version: 0.14.7
+Version: 0.15
 Summary: Energy Quantified Time series API client.
 Home-page: https://github.com/energyquantified/eq-python-client
 Author: Energy Quantified AS
@@ -18,20 +18,20 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Office/Business :: Financial
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
 # Energy Quantified Python Client
 
 ![Apache License version 2.0](https://img.shields.io/github/license/energyquantified/eq-python-client?style=flat "Apache License version 2.0")
-![Python 3.7+](https://img.shields.io/pypi/pyversions/energyquantified.svg?style=flat "Python versions")
+![Python 3.10+](https://img.shields.io/pypi/pyversions/energyquantified.svg?style=flat "Python versions")
 ![Wheel](https://img.shields.io/pypi/wheel/energyquantified "Wheel")
 
 [Documentation](https://energyquantified-python.readthedocs.io) |
@@ -44,7 +44,7 @@ Energy Quantified's time series database. It integrates with the popular
 [pandas](https://pandas.pydata.org/docs/) library and the [polars](https://docs.pola.rs/)
 libarary for high-performance data analysis and manipulation.
 
-Developed for **Python 3.7+**.
+Developed for **Python 3.10+**.
 
 ```python
 from datetime import date, timedelta

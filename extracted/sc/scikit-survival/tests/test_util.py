@@ -14,13 +14,13 @@ from sksurv.util import Surv, _PropertyAvailableIfDescriptor, property_available
 class ConcatCasesFactory(FixtureParameterFactory):
     @property
     def rnd(self):
-        return np.random.RandomState(14)
+        return np.random.default_rng(14)
 
     def to_data_frame(self, data):
         return pd.DataFrame.from_dict(OrderedDict(data))
 
     def make_numeric_series(self, name):
-        return pd.Series(self.rnd.randn(100), name=name)
+        return pd.Series(self.rnd.standard_normal(100), name=name)
 
     def make_categorical_5_series(self, name):
         return pd.Series(
@@ -105,11 +105,11 @@ class ConcatCasesAxes0(ConcatCasesFactory):
                 "col_A",
                 pd.Series(
                     pd.Categorical.from_codes(
-                        np.r_[a.col_A.cat.codes.values, b.col_A.cat.codes.values], ["C1", "C2", "C3"]
+                        np.r_[a.col_A.cat.codes.to_numpy(), b.col_A.cat.codes.to_numpy()], ["C1", "C2", "C3"]
                     )
                 ),
             ),
-            ("col_B", np.r_[a.col_B.values, b.col_B.values]),
+            ("col_B", np.r_[a.col_B.to_numpy(), b.col_B.to_numpy()]),
         ]
         expected_df = self.to_data_frame(expected)
         expected_df.index = pd.Index(a.index.tolist() + b.index.tolist())
@@ -155,8 +155,9 @@ def test_concat_axis_0(inputs, expected_df, expected_error):
 class SurvCases(FixtureParameterFactory):
     @property
     def event_and_time(self):
-        event = np.random.binomial(1, 0.5, size=100)
-        time = np.exp(np.random.randn(100))
+        rng = np.random.default_rng()
+        event = rng.binomial(1, 0.5, size=100)
+        time = np.exp(rng.standard_normal(100))
         return event, time
 
 
@@ -307,7 +308,7 @@ class SurvDataFrameCases(SurvCases):
 
     def data_bool(self):
         data, expected = self.get_surv_data_frame()
-        data["event"] = data["event"].astype(bool)
+        data = data.astype({"event": bool})
 
         inputs = ("event", "time", data)
         return inputs, expected, does_not_raise()
@@ -319,7 +320,7 @@ class SurvDataFrameCases(SurvCases):
 
     def data_float(self):
         data, expected = self.get_surv_data_frame()
-        data["event"] = data["event"].astype(float)
+        data = data.astype({"event": float})
         inputs = ("event", "time", data)
         return inputs, expected, does_not_raise()
 
@@ -358,7 +359,7 @@ class SurvDataFrameCases(SurvCases):
         data, _ = self.get_surv_data_frame()
 
         err = pytest.raises(TypeError, match=r"expected pandas.DataFrame, but got <class 'numpy.ndarray'>")
-        inputs = ("event", "time", data.values)
+        inputs = ("event", "time", data.to_numpy())
         return inputs, None, err
 
 

@@ -1,4 +1,5 @@
 // based on https://github.com/rust-lang/rust-analyzer/blob/d8887c0758bbd2d5f752d5bd405d4491e90e7ed6/crates/parser/src/tests.rs
+use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
 use camino::Utf8Path;
 use dir_test::{Fixture, dir_test};
 use insta::{assert_snapshot, with_settings};
@@ -30,11 +31,12 @@ fn parser_ok(fixture: Fixture<&str>) {
     // We check that all of our tests in `ok` also pass the Postgres parser,
     // if they don't, they should be moved to the `err` directory.
     assert!(
-        errors.is_empty(),
+        errors.is_none(),
         "tests defined in the `ok` can't have parser errors."
     );
-    // skipping pg17 specific stuff since our parser isn't using the latest parser
-    if !test_name.ends_with("pg17") {
+    // skipping pg17/pg18/pg19 specific stuff since our parser isn't using the latest parser
+    if !test_name.ends_with("pg17") && !test_name.ends_with("pg18") && !test_name.ends_with("pg19")
+    {
         let pg_result = pg_query::parse(content);
         if let Err(e) = &pg_result {
             assert!(
@@ -68,14 +70,13 @@ fn parser_err(fixture: Fixture<&str>) {
     });
 
     assert!(
-        !errors.is_empty(),
+        errors.is_some(),
         "tests defined in the `err` directory must have parser errors."
     );
 }
 
-// 102 failing
 #[dir_test(
-    dir: "$CARGO_MANIFEST_DIR/tests/data/regression_suite",
+    dir: "$CARGO_MANIFEST_DIR/../../postgres/regression_suite",
     glob: "*.sql",
 )]
 fn regression_suite(fixture: Fixture<&str>) {
@@ -92,17 +93,34 @@ fn regression_suite(fixture: Fixture<&str>) {
 
     let (_parsed, errors) = parse_text(content);
 
+    let expect_errors = test_name == "errors";
+
     let snapshot_name = format!("regression_{test_name}");
+
+    let no_errors = errors.is_none();
+    let has_errors = !no_errors;
 
     with_settings!({
       omit_expression => true,
       input_file => input_file
     }, {
-      assert_snapshot!(snapshot_name, errors.join(""));
+      assert_snapshot!(snapshot_name, errors.unwrap_or_default());
     });
+
+    if expect_errors {
+        assert!(
+            has_errors,
+            "the errors.sql regression test must have errors"
+        );
+    } else {
+        assert!(
+            no_errors,
+            "tests defined in the regression suite can't have parser errors."
+        );
+    }
 }
 
-fn parse_text(text: &str) -> (String, Vec<std::string::String>) {
+fn parse_text(text: &str) -> (String, Option<String>) {
     let lexed = LexedStr::new(text);
     let input = lexed.to_input();
     let output = parse(&input);
@@ -132,8 +150,7 @@ fn parse_text(text: &str) -> (String, Vec<std::string::String>) {
         }
         squawk_parser::StrStep::Error { msg, pos } => {
             assert!(depth > 0);
-            let err = "ERROR";
-            errors.push(format!("{err}@{pos}: {msg}\n"));
+            errors.push((pos, msg.to_string()));
         }
     });
     assert_eq!(
@@ -146,15 +163,35 @@ fn parse_text(text: &str) -> (String, Vec<std::string::String>) {
 
     for (token, msg) in lexed.errors() {
         let pos = lexed.text_start(token);
-        let err = "ERROR";
-        errors.push(format!("{err}@{pos}: {msg}\n"));
+        errors.push((pos, msg.to_string()));
     }
 
-    if !errors.is_empty() {
-        buf.push_str("---\n");
-        for e in &errors {
-            buf.push_str(e);
+    let error_message = if !errors.is_empty() {
+        errors.sort_by_key(|(pos, _)| *pos);
+
+        let renderer = Renderer::plain().decor_style(DecorStyle::Unicode);
+
+        let mut out = "---\n".to_owned();
+
+        for (pos, msg) in &errors {
+            let group = Level::ERROR.primary_title(msg).id("syntax-error").element(
+                Snippet::source(text)
+                    .fold(true)
+                    .annotation(AnnotationKind::Primary.span(*pos..*pos + 1)),
+            );
+            let rendered = renderer.render(&[group]).to_string();
+
+            out.push_str(&rendered);
+            out.push('\n');
         }
+        Some(out)
+    } else {
+        None
+    };
+
+    if let Some(error_message) = error_message.clone() {
+        buf.push_str(&error_message);
     }
-    (buf, errors)
+
+    (buf, error_message)
 }

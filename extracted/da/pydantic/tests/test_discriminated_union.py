@@ -1772,35 +1772,35 @@ def test_callable_discriminated_union_with_missing_tag() -> None:
         if isinstance(v, (dict, BaseModel)):
             return 'model'
 
-    try:
+    with pytest.raises(PydanticUserError) as exc_info:
 
         class DiscriminatedModel(BaseModel):
             x: Annotated[
                 Union[str, 'DiscriminatedModel'],
                 Discriminator(model_x_discriminator),
             ]
-    except PydanticUserError as exc_info:
-        assert exc_info.code == 'callable-discriminator-no-tag'
 
-    try:
+    assert exc_info.value.code == 'callable-discriminator-no-tag'
+
+    with pytest.raises(PydanticUserError) as exc_info:
 
         class DiscriminatedModel(BaseModel):
             x: Annotated[
                 Union[Annotated[str, Tag('str')], 'DiscriminatedModel'],
                 Discriminator(model_x_discriminator),
             ]
-    except PydanticUserError as exc_info:
-        assert exc_info.code == 'callable-discriminator-no-tag'
 
-    try:
+    assert exc_info.value.code == 'callable-discriminator-no-tag'
+
+    with pytest.raises(PydanticUserError) as exc_info:
 
         class DiscriminatedModel(BaseModel):
             x: Annotated[
                 Union[str, Annotated['DiscriminatedModel', Tag('model')]],
                 Discriminator(model_x_discriminator),
             ]
-    except PydanticUserError as exc_info:
-        assert exc_info.code == 'callable-discriminator-no-tag'
+
+    assert exc_info.value.code == 'callable-discriminator-no-tag'
 
 
 @pytest.mark.xfail(
@@ -2203,6 +2203,34 @@ def test_deferred_discriminated_union_meta_key_removed() -> None:
     assert Base.__pydantic_core_schema__ == base_schema
 
 
+def test_tagged_discriminator_type_alias() -> None:
+    """https://github.com/pydantic/pydantic/issues/11930"""
+
+    class Pie(BaseModel):
+        pass
+
+    class ApplePie(Pie):
+        fruit: Literal['apple'] = 'apple'
+
+    class PumpkinPie(Pie):
+        filling: Literal['pumpkin'] = 'pumpkin'
+
+    def get_discriminator_value(v):
+        return v.get('fruit', v.get('filling'))
+
+    TaggedApplePie = TypeAliasType('TaggedApplePie', Annotated[ApplePie, Tag('apple')])
+
+    class ThanksgivingDinner(BaseModel):
+        dessert: Annotated[
+            Union[TaggedApplePie, Annotated[PumpkinPie, Tag('pumpkin')]],
+            Discriminator(get_discriminator_value),
+        ]
+
+    inst = ThanksgivingDinner(dessert={'fruit': 'apple'})
+
+    assert isinstance(inst.dessert, ApplePie)
+
+
 def test_discriminated_union_type_alias_type() -> None:
     """https://github.com/pydantic/pydantic/issues/11661
 
@@ -2256,27 +2284,18 @@ def test_deferred_discriminated_union_and_references() -> None:
     assert final_schema['type'] == 'tagged-union'
 
 
-def test_field_info_reused() -> None:
-    """2.11 regression test for https://github.com/pydantic/pydantic/issues/11978."""
-
-    from typing import Annotated, Any, Generic, Literal, Optional, TypeVar, Union
-
-    from pydantic import AliasChoices, BaseModel, Discriminator, Field, Tag
+def test_recursive_discriminated_union() -> None:
+    """https://github.com/pydantic/pydantic/issues/11978"""
 
     F = TypeVar('F', bound=BaseModel)
 
-    class Not(BaseModel, Generic[F], extra='forbid'):
-        operand: F = Field(serialization_alias='not', validation_alias=AliasChoices('operand', 'not'))
+    class Not(BaseModel, Generic[F]):
+        operand: F = Field()
 
-    class Label(BaseModel, extra='forbid'):
+    class Label(BaseModel):
         prop: Literal['label'] = 'label'
-        label: str
 
-    class Keyword(BaseModel, extra='forbid'):
-        prop: Literal['keyword'] = 'keyword'
-        word: str
-
-    def filter_discriminator(v: Any) -> Optional[str]:
+    def filter_discriminator(v):
         if isinstance(v, dict):
             if 'not' in v:
                 return 'not'
@@ -2299,11 +2318,11 @@ def test_field_info_reused() -> None:
     FieldFilterExpression = Annotated[
         Union[
             Annotated[Not['FieldFilterExpression'], Tag('not')],
-            Annotated[Keyword, Tag('keyword')],
+            Annotated[Label, Tag('label')],
         ],
         Discriminator(filter_discriminator),
     ]
 
-    class FilterExpression(BaseModel, extra='forbid'):
-        field: Optional[FieldFilterExpression]
-        paragraph: Optional[ParagraphFilterExpression]
+    class FilterExpression(BaseModel):
+        field: FieldFilterExpression
+        paragraph: ParagraphFilterExpression

@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyperclip"
-dynamic = ["version", "readme"]
+dynamic = ["version"]
 description = "A cross-platform clipboard module for Python. (Only handles plain text for now.)"
+readme = "README.md"
 authors = [
     { name = "Al Sweigart", email = "al@inventwithpython.com" }
 ]
@@ -44,7 +45,6 @@ where = ["src"]
 
 [tool.setuptools.dynamic]
 version = { attr = "pyperclip.__version__" }
-readme = { file = ["README.md"], content-type = "text/markdown" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

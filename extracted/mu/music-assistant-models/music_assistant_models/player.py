@@ -28,11 +28,11 @@ class DeviceInfo(DataClassDictMixin):
     mac_address: str | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PlayerMedia(DataClassDictMixin):
     """Metadata of Media loading/loaded into a player."""
 
-    uri: str  # uri or other identifier of the loaded media
+    uri: str  # uri or other identifier of the loaded media - mandatory!
     media_type: MediaType = MediaType.UNKNOWN
     title: str | None = None  # optional
     artist: str | None = None  # optional
@@ -41,7 +41,18 @@ class PlayerMedia(DataClassDictMixin):
     duration: int | None = None  # optional
     source_id: str | None = None  # optional (ID of the source, may be a queue id)
     queue_item_id: str | None = None  # only present for requests from queue controller
-    custom_data: dict[str, Any] | None = None  # optional
+    custom_data: dict[str, Any] | None = None  # optional - must be serializable
+
+    # optional - elapsed playback time of the currently playing media
+    elapsed_time: int | None = None
+    elapsed_time_last_updated: float | None = None  # UTC timestamp
+
+    @property
+    def corrected_elapsed_time(self) -> float | None:
+        """Return the corrected/realtime elapsed time (while playing)."""
+        if self.elapsed_time is None or self.elapsed_time_last_updated is None:
+            return None
+        return self.elapsed_time + (time.time() - self.elapsed_time_last_updated)
 
 
 @dataclass
@@ -69,7 +80,7 @@ class Player(DataClassDictMixin):
     """Representation of (the state of) a player within Music Assistant."""
 
     player_id: str
-    provider: str  # instance_id/lookup_key of the player provider
+    provider: str  # instance_id of the player provider
     type: PlayerType
     name: str
     available: bool
@@ -89,6 +100,9 @@ class Player(DataClassDictMixin):
     #   this will return the id's of players synced to this player,
     #   and this will include the player's own id (as first item in the list).
     group_members: UniqueList[str] = field(default_factory=UniqueList)
+
+    # static_group_members: List of player group member id's that can not be ungrouped.
+    static_group_members: UniqueList[str] = field(default_factory=UniqueList)
 
     # can_group_with: return set of player_id's this player can group/sync with
     # can also be instance id of an entire provider if all players can group with each other

@@ -3,7 +3,7 @@ name = "connector-sdk-types"
 description = "Generated types for the Lumos Connector SDK"
 readme = "README.md"
 requires-python = ">=3.10"
-license =  { file = "LICENSE.txt" }
+license = "Apache-2.0"
 keywords = ["integrations", "types"]
 authors = [
     { name = "teamlumos", email = "security@lumos.com" },
@@ -43,6 +43,26 @@ exclude = ["logs"]
 
 [tool.setuptools.package-data]
 connector_sdk_types = ["generated/*", "py.typed"]
+
+[tool.coverage.run]
+source_pkgs = ["connector_sdk_types", "tests"]
+branch = true
+parallel = true
+omit = [
+    "connector_sdk_types/__about__.py",
+    "connector_sdk_types/generated/*",
+]
+
+[tool.coverage.paths]
+connector_sdk_types = ["connector_sdk_types", "*/python/connector_sdk_types"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
 
 [tool.mypy]
 exclude = []

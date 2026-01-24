@@ -1,5 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 
+#include <assert.h>
+
 #include <Python.h>
 #include "lsqpack.h"
 #include "lsxpack_header.h"
@@ -27,6 +29,8 @@ struct header_block {
     size_t data_len;
     const unsigned char *data_ptr;
     struct lsxpack_header xhdr;
+    // This buffer is owned by the header_block and is reused internally by xhdr.
+    char *header_buffer;
     uint64_t stream_id;
     PyObject *headers;
 };
@@ -49,7 +53,7 @@ static void header_block_free(struct header_block *hblock)
     free(hblock->data);
     hblock->data = 0;
     hblock->data_ptr = 0;
-    free(hblock->xhdr.buf);
+    free(hblock->header_buffer);
     Py_DECREF(hblock->headers);
     free(hblock);
 }
@@ -64,17 +68,18 @@ static void header_block_unblocked(void *opaque) {
  */
 static struct lsxpack_header *header_block_prepare_decode(void *opaque, struct lsxpack_header *xhdr, size_t space) {
     struct header_block *hblock = opaque;
-    char *buf;
+    char *buf = realloc(hblock->header_buffer, space);
+    if (!buf) return NULL;
+    hblock->header_buffer = buf;
 
     if (xhdr) {
-        buf = realloc(xhdr->buf, space);
-        if (!buf) return NULL;
+        assert(&hblock->xhdr == xhdr);
+        assert(space > xhdr->val_len);
+
         xhdr->buf = buf;
         xhdr->val_len = space;
     } else {
         xhdr = &hblock->xhdr;
-        buf = malloc(space);
-        if (!buf) return NULL;
         lsxpack_header_prepare_decode(xhdr, buf, 0, space);
     }
     return xhdr;

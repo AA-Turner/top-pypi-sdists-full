@@ -427,6 +427,7 @@ def _resolve_query_without_cache_regular(
     s3_additional_kwargs: dict[str, Any] | None,
     boto3_session: boto3.Session | None,
     execution_params: list[str] | None = None,
+    result_reuse_configuration: dict[str, Any] | None = None,
     dtype_backend: Literal["numpy_nullable", "pyarrow"] = "numpy_nullable",
     client_request_token: str | None = None,
 ) -> pd.DataFrame | Iterator[pd.DataFrame]:
@@ -444,6 +445,7 @@ def _resolve_query_without_cache_regular(
         encryption=encryption,
         kms_key=kms_key,
         execution_params=execution_params,
+        result_reuse_configuration=result_reuse_configuration,
         client_request_token=client_request_token,
         boto3_session=boto3_session,
     )
@@ -467,7 +469,7 @@ def _resolve_query_without_cache_regular(
     )
 
 
-def _resolve_query_without_cache(
+def _resolve_query_without_cache(  # noqa: PLR0913
     sql: str,
     database: str,
     data_source: str | None,
@@ -491,6 +493,7 @@ def _resolve_query_without_cache(
     boto3_session: boto3.Session | None,
     pyarrow_additional_kwargs: dict[str, Any] | None = None,
     execution_params: list[str] | None = None,
+    result_reuse_configuration: dict[str, Any] | None = None,
     dtype_backend: Literal["numpy_nullable", "pyarrow"] = "numpy_nullable",
     client_request_token: str | None = None,
 ) -> pd.DataFrame | Iterator[pd.DataFrame]:
@@ -572,6 +575,7 @@ def _resolve_query_without_cache(
         s3_additional_kwargs=s3_additional_kwargs,
         boto3_session=boto3_session,
         execution_params=execution_params,
+        result_reuse_configuration=result_reuse_configuration,
         dtype_backend=dtype_backend,
         client_request_token=client_request_token,
     )
@@ -785,6 +789,7 @@ def read_sql_query(
     athena_query_wait_polling_delay: float = _QUERY_WAIT_POLLING_DELAY,
     params: dict[str, Any] | list[str] | None = None,
     paramstyle: Literal["qmark", "named"] = "named",
+    result_reuse_configuration: dict[str, Any] | None = None,
     dtype_backend: Literal["numpy_nullable", "pyarrow"] = "numpy_nullable",
     s3_additional_kwargs: dict[str, Any] | None = None,
     pyarrow_additional_kwargs: dict[str, Any] | None = None,
@@ -793,11 +798,11 @@ def read_sql_query(
 
     **Related tutorial:**
 
-    - `Amazon Athena <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    - `Amazon Athena <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
       tutorials/006%20-%20Amazon%20Athena.html>`_
-    - `Athena Cache <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    - `Athena Cache <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
       tutorials/019%20-%20Athena%20Cache.html>`_
-    - `Global Configurations <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    - `Global Configurations <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
       tutorials/021%20-%20Global%20Configurations.html>`_
 
     **There are three approaches available through ctas_approach and unload_approach parameters:**
@@ -861,7 +866,7 @@ def read_sql_query(
     /athena.html#Athena.Client.get_query_execution>`_ .
 
     For a practical example check out the
-    `related tutorial <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    `related tutorial <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
     tutorials/024%20-%20Athena%20Query%20Metadata.html>`_!
 
 
@@ -980,6 +985,10 @@ def read_sql_query(
 
         - ``named``
         - ``qmark``
+    result_reuse_configuration
+        A structure that contains the configuration settings for reusing query results.
+        This parameter is only valid when both `ctas_approach` and `unload_approach` are set to `False`.
+        See also: https://docs.aws.amazon.com/athena/latest/ug/reusing-query-results.html
     dtype_backend
         Which dtype_backend to use, e.g. whether a DataFrame should have NumPy arrays,
         nullable dtypes are used for all dtypes that have a nullable implementation when
@@ -1039,6 +1048,10 @@ def read_sql_query(
     if client_request_token and (ctas_approach or unload_approach):
         raise exceptions.InvalidArgumentCombination(
             "Using `client_request_token` is only allowed when `ctas_approach=False` and `unload_approach=False`."
+        )
+    if result_reuse_configuration and (ctas_approach or unload_approach):
+        raise exceptions.InvalidArgumentCombination(
+            "Using `result_reuse_configuration` is only allowed when `ctas_approach=False` and `unload_approach=False`."
         )
     chunksize = sys.maxsize if ctas_approach is False and chunksize is True else chunksize
 
@@ -1104,6 +1117,7 @@ def read_sql_query(
         boto3_session=boto3_session,
         pyarrow_additional_kwargs=pyarrow_additional_kwargs,
         execution_params=execution_params,
+        result_reuse_configuration=result_reuse_configuration,
         dtype_backend=dtype_backend,
         client_request_token=client_request_token,
     )
@@ -1140,11 +1154,11 @@ def read_sql_table(
 
     **Related tutorial:**
 
-    - `Amazon Athena <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    - `Amazon Athena <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
       tutorials/006%20-%20Amazon%20Athena.html>`_
-    - `Athena Cache <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    - `Athena Cache <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
       tutorials/019%20-%20Athena%20Cache.html>`_
-    - `Global Configurations <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    - `Global Configurations <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
       tutorials/021%20-%20Global%20Configurations.html>`_
 
     **There are three approaches available through ctas_approach and unload_approach parameters:**
@@ -1208,7 +1222,7 @@ def read_sql_table(
     /athena.html#Athena.Client.get_query_execution>`_ .
 
     For a practical example check out the
-    `related tutorial <https://aws-sdk-pandas.readthedocs.io/en/3.13.0/
+    `related tutorial <https://aws-sdk-pandas.readthedocs.io/en/3.15.0/
     tutorials/024%20-%20Athena%20Query%20Metadata.html>`_!
 
 

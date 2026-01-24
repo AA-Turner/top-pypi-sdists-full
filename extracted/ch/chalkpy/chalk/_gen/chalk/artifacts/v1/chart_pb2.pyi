@@ -1,3 +1,4 @@
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -58,6 +59,18 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_FEATURE_LOOKED_UP_NULL_RATIO: _ClassVar[MetricKind]
     METRIC_KIND_FEATURE_INTERMEDIATE_NULL_RATIO: _ClassVar[MetricKind]
     METRIC_KIND_STREAM_INGEST_DELAY: _ClassVar[MetricKind]
+    METRIC_KIND_CONTAINER_MEMORY_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_HOST_MEMORY_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_CONTAINER_CPU_UTILIZATION: _ClassVar[MetricKind]
+    METRIC_KIND_DISK_USED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_DISK_AVAILABLE_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_RESOLVER_INVOKER_NET_TX: _ClassVar[MetricKind]
+    METRIC_KIND_RESOLVER_INVOKER_NET_RX: _ClassVar[MetricKind]
+    METRIC_KIND_RESOLVER_INVOKER_ROWS_WRITTEN: _ClassVar[MetricKind]
+    METRIC_KIND_TOPIC_MESSAGES_PROCESSED: _ClassVar[MetricKind]
+    METRIC_KIND_SUBSCRIPTION_NUM_UNACKED_MESSAGES: _ClassVar[MetricKind]
+    METRIC_KIND_SUBSCRIPTION_OLDEST_UNACKED_MESSAGE_AGE: _ClassVar[MetricKind]
+    METRIC_KIND_TOPIC_OFFSET_LAG: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -79,6 +92,10 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_USAGE_KIND: _ClassVar[FilterKind]
     FILTER_KIND_RESOURCE_GROUP: _ClassVar[FilterKind]
     FILTER_KIND_POD_NAME: _ClassVar[FilterKind]
+    FILTER_KIND_COMPUTATION_CONTEXT: _ClassVar[FilterKind]
+    FILTER_KIND_TOPIC_NAME: _ClassVar[FilterKind]
+    FILTER_KIND_SUBSCRIPTION_NAME: _ClassVar[FilterKind]
+    FILTER_KIND_PARTITION_NAME: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -120,6 +137,9 @@ class GroupByKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_BY_KIND_DEPLOYMENT_ID: _ClassVar[GroupByKind]
     GROUP_BY_KIND_OPERATION_ID: _ClassVar[GroupByKind]
     GROUP_BY_KIND_POD_NAME: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_TOPIC_NAME: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_SUBSCRIPTION_NAME: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_PARTITION_NAME: _ClassVar[GroupByKind]
 
 class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -206,6 +226,18 @@ METRIC_KIND_FEATURE_COMPUTED_NULL_RATIO: MetricKind
 METRIC_KIND_FEATURE_LOOKED_UP_NULL_RATIO: MetricKind
 METRIC_KIND_FEATURE_INTERMEDIATE_NULL_RATIO: MetricKind
 METRIC_KIND_STREAM_INGEST_DELAY: MetricKind
+METRIC_KIND_CONTAINER_MEMORY_BYTES: MetricKind
+METRIC_KIND_HOST_MEMORY_BYTES: MetricKind
+METRIC_KIND_CONTAINER_CPU_UTILIZATION: MetricKind
+METRIC_KIND_DISK_USED_BYTES: MetricKind
+METRIC_KIND_DISK_AVAILABLE_BYTES: MetricKind
+METRIC_KIND_RESOLVER_INVOKER_NET_TX: MetricKind
+METRIC_KIND_RESOLVER_INVOKER_NET_RX: MetricKind
+METRIC_KIND_RESOLVER_INVOKER_ROWS_WRITTEN: MetricKind
+METRIC_KIND_TOPIC_MESSAGES_PROCESSED: MetricKind
+METRIC_KIND_SUBSCRIPTION_NUM_UNACKED_MESSAGES: MetricKind
+METRIC_KIND_SUBSCRIPTION_OLDEST_UNACKED_MESSAGE_AGE: MetricKind
+METRIC_KIND_TOPIC_OFFSET_LAG: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -224,6 +256,10 @@ FILTER_KIND_IS_NULL: FilterKind
 FILTER_KIND_USAGE_KIND: FilterKind
 FILTER_KIND_RESOURCE_GROUP: FilterKind
 FILTER_KIND_POD_NAME: FilterKind
+FILTER_KIND_COMPUTATION_CONTEXT: FilterKind
+FILTER_KIND_TOPIC_NAME: FilterKind
+FILTER_KIND_SUBSCRIPTION_NAME: FilterKind
+FILTER_KIND_PARTITION_NAME: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind
@@ -256,6 +292,9 @@ GROUP_BY_KIND_RESOURCE_GROUP: GroupByKind
 GROUP_BY_KIND_DEPLOYMENT_ID: GroupByKind
 GROUP_BY_KIND_OPERATION_ID: GroupByKind
 GROUP_BY_KIND_POD_NAME: GroupByKind
+GROUP_BY_KIND_TOPIC_NAME: GroupByKind
+GROUP_BY_KIND_SUBSCRIPTION_NAME: GroupByKind
+GROUP_BY_KIND_PARTITION_NAME: GroupByKind
 METRIC_FORMULA_KIND_UNSPECIFIED: MetricFormulaKind
 METRIC_FORMULA_KIND_SUM: MetricFormulaKind
 METRIC_FORMULA_KIND_TOTAL_RATIO: MetricFormulaKind
@@ -366,17 +405,19 @@ class MetricFilter(_message.Message):
     ) -> None: ...
 
 class MetricConfigSeries(_message.Message):
-    __slots__ = ("metric", "filters", "name", "window_function", "group_by")
+    __slots__ = ("metric", "filters", "name", "window_function", "group_by", "time_shift")
     METRIC_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_FUNCTION_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+    TIME_SHIFT_FIELD_NUMBER: _ClassVar[int]
     metric: MetricKind
     filters: _containers.RepeatedCompositeFieldContainer[MetricFilter]
     name: str
     window_function: WindowFunctionKind
     group_by: _containers.RepeatedScalarFieldContainer[GroupByKind]
+    time_shift: _duration_pb2.Duration
     def __init__(
         self,
         metric: _Optional[_Union[MetricKind, str]] = ...,
@@ -384,22 +425,25 @@ class MetricConfigSeries(_message.Message):
         name: _Optional[str] = ...,
         window_function: _Optional[_Union[WindowFunctionKind, str]] = ...,
         group_by: _Optional[_Iterable[_Union[GroupByKind, str]]] = ...,
+        time_shift: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class MetricConfig(_message.Message):
-    __slots__ = ("name", "window_period", "series", "formulas", "trigger", "graph_generated")
+    __slots__ = ("name", "window_period", "series", "formulas", "trigger", "graph_generated", "id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     SERIES_FIELD_NUMBER: _ClassVar[int]
     FORMULAS_FIELD_NUMBER: _ClassVar[int]
     TRIGGER_FIELD_NUMBER: _ClassVar[int]
     GRAPH_GENERATED_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     window_period: str
     series: _containers.RepeatedCompositeFieldContainer[MetricConfigSeries]
     formulas: _containers.RepeatedCompositeFieldContainer[MetricFormula]
     trigger: AlertTrigger
     graph_generated: bool
+    id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -408,6 +452,7 @@ class MetricConfig(_message.Message):
         formulas: _Optional[_Iterable[_Union[MetricFormula, _Mapping]]] = ...,
         trigger: _Optional[_Union[AlertTrigger, _Mapping]] = ...,
         graph_generated: bool = ...,
+        id: _Optional[str] = ...,
     ) -> None: ...
 
 class Chart(_message.Message):

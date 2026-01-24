@@ -4,17 +4,18 @@ import os
 import shutil
 import sys
 
-from core.bulk_update_utils import bulk_update
+from core.feature_flags import flag_set
 from core.models import AsyncMigrationStatus
 from core.redis import start_job_async_or_sync
-from core.utils.common import batch
+from core.utils.common import batch, batched_iterator
+from core.utils.iterators import iterate_queryset
 from data_export.mixins import ExportMixin
 from data_export.models import DataExport
 from data_export.serializers import ExportDataSerializer
 from data_manager.managers import TaskQuerySet
 from django.conf import settings
-from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
+from django.db.models.lookups import GreaterThanOrEqual
 from organizations.models import Organization
 from projects.models import Project
 from tasks.models import Annotation, Prediction, Task
@@ -181,8 +182,6 @@ def update_tasks_counters(queryset, from_scratch=True):
     :param from_scratch: Skip calculated tasks
     :return: Count of updated tasks
     """
-    objs = []
-
     total_annotations = Count('annotations', distinct=True, filter=Q(annotations__was_cancelled=False))
     cancelled_annotations = Count('annotations', distinct=True, filter=Q(annotations__was_cancelled=True))
     total_predictions = Count('predictions', distinct=True)
@@ -199,7 +198,8 @@ def update_tasks_counters(queryset, from_scratch=True):
         )
 
     # filter our tasks with 0 annotations and 0 predictions and update them with 0
-    queryset.filter(annotations__isnull=True, predictions__isnull=True).update(
+    # order_by('id') ensures consistent row locking order to prevent deadlocks
+    queryset.filter(annotations__isnull=True, predictions__isnull=True).order_by('id').update(
         total_annotations=0, cancelled_annotations=0, total_predictions=0
     )
 
@@ -211,15 +211,74 @@ def update_tasks_counters(queryset, from_scratch=True):
         new_total_predictions=total_predictions,
     )
 
-    for task in queryset.only('id', 'total_annotations', 'cancelled_annotations', 'total_predictions'):
-        task.total_annotations = task.new_total_annotations
-        task.cancelled_annotations = task.new_cancelled_annotations
-        task.total_predictions = task.new_total_predictions
-        objs.append(task)
-    with transaction.atomic():
-        bulk_update(
-            objs,
-            update_fields=['total_annotations', 'cancelled_annotations', 'total_predictions'],
-            batch_size=settings.BATCH_SIZE,
-        )
-    return len(objs)
+    updated_count = 0
+
+    tasks_iterator = iterate_queryset(
+        queryset.only('id', 'total_annotations', 'cancelled_annotations', 'total_predictions'),
+        chunk_size=settings.BATCH_SIZE,
+    )
+
+    for _batch in batched_iterator(tasks_iterator, settings.BATCH_SIZE):
+        batch_list = []
+        for task in _batch:
+            task.total_annotations = task.new_total_annotations
+            task.cancelled_annotations = task.new_cancelled_annotations
+            task.total_predictions = task.new_total_predictions
+            batch_list.append(task)
+
+        if batch_list:
+            Task.objects.bulk_update(
+                batch_list,
+                ['total_annotations', 'cancelled_annotations', 'total_predictions'],
+                batch_size=settings.BATCH_SIZE,
+            )
+            updated_count += len(batch_list)
+
+    return updated_count
+
+
+def bulk_update_is_labeled_by_overlap(tasks_ids, project):
+    if not tasks_ids:
+        return
+
+    batch_size = settings.BATCH_SIZE
+
+    if flag_set('fflag_fix_fit_1082_overlap_use_distinct_annotators', user='auto'):
+        # Use distinct annotator count for overlap comparison
+        for i in range(0, len(tasks_ids), batch_size):
+            batch_ids = tasks_ids[i : i + batch_size]
+
+            # Annotate with distinct annotator count
+            if project.skip_queue == project.SkipQueue.IGNORE_SKIPPED:
+                annotator_count_expr = Count('annotations__completed_by', distinct=True)
+            else:
+                annotator_count_expr = Count(
+                    'annotations__completed_by',
+                    distinct=True,
+                    filter=Q(annotations__was_cancelled=False),
+                )
+
+            tasks_qs = Task.objects.filter(id__in=batch_ids, project=project).annotate(
+                annotator_count=annotator_count_expr
+            )
+
+            # Get IDs of tasks that meet the overlap requirement
+            finished_task_ids = list(tasks_qs.filter(annotator_count__gte=F('overlap')).values_list('id', flat=True))
+
+            # Update is_labeled based on annotator count
+            Task.objects.filter(id__in=finished_task_ids, project=project).update(is_labeled=True)
+            Task.objects.filter(id__in=batch_ids, project=project).exclude(id__in=finished_task_ids).update(
+                is_labeled=False
+            )
+    else:
+        # Original behavior: use total annotation count
+        completed_annotations_f_expr = F('total_annotations')
+        if project.skip_queue == project.SkipQueue.IGNORE_SKIPPED:
+            completed_annotations_f_expr += F('cancelled_annotations')
+        finished_q = Q(GreaterThanOrEqual(completed_annotations_f_expr, F('overlap')))
+
+        for i in range(0, len(tasks_ids), batch_size):
+            batch_ids = tasks_ids[i : i + batch_size]
+
+            Task.objects.filter(id__in=batch_ids, project=project).filter(finished_q).update(is_labeled=True)
+            Task.objects.filter(id__in=batch_ids, project=project).exclude(finished_q).update(is_labeled=False)

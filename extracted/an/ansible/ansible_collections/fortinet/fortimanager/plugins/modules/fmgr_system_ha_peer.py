@@ -16,7 +16,6 @@ short_description: Peer.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -118,7 +117,7 @@ EXAMPLES = '''
         system_ha_peer:
           id: 3
           ip: "11.11.11.5" # Required, could not be 0.0.0.0
-          serial-number: FMG-VM0000000003 # need a valid serial number
+          serial_number: FMG-VM0000000003 # need a valid serial number
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers

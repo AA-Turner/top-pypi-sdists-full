@@ -11,6 +11,7 @@ import threading
 import time
 import traceback
 
+
 def _get_stack_traces():
     code = []
     threads = dict((t.ident, t.name) for t in threading.enumerate())
@@ -35,14 +36,14 @@ class TraceDumper(threading.Thread):
         @param path: File path to output stack trace info.
         @param interval: in seconds - how often to update the trace file.
         """
-        assert(interval > 0.1)
+        assert (interval > 0.1)
         self.interval = interval
         self.path = os.path.abspath(path)
         self.stop_requested = threading.Event()
         threading.Thread.__init__(self)
 
     def run(self):
-        while not self.stop_requested.isSet():
+        while not self.stop_requested.is_set():
             time.sleep(self.interval)
             self.write_stack_traces()
 
@@ -56,6 +57,7 @@ class TraceDumper(threading.Thread):
 
 
 _tracer = None
+
 
 def start_trace(path, interval=5):
     """Start tracing into the given file."""

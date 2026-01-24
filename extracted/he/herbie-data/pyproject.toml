@@ -1,0 +1,139 @@
+[project]
+name = "herbie-data"
+description = "Download numerical weather prediction GRIB2 model data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Brian K. Blaylock", email = "blaylockbk@gmail.com" }]
+maintainers = [{ name = "Brian K. Blaylock", email = "blaylockbk@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+keywords = [
+    "weather",
+    "meteorology",
+    "forecast",
+    "atmosphere",
+    "GRIB2",
+    "xarray",
+    "HRRR",
+]
+dependencies = [
+    "cfgrib>=0.9.15",
+    "eccodes>=2.37.0",
+    "numpy>=1.24",
+    "pandas>=2.1",
+    "pyproj>=3.7.0",
+    "requests>=2.23.3",
+    "toml>=0.10.2",     # TODO: Drop in favor of tomllib when Python >=3.11 is required.
+    "xarray>=2025.1.1",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/blaylockbk/Herbie"
+"Documentation" = "https://herbie.readthedocs.io/"
+"Repository" = "https://github.com/blaylockbk/Herbie"
+"Changelog" = "https://github.com/blaylockbk/Herbie/releases"
+"Bug Tracker" = "https://github.com/blaylockbk/Herbie/issues"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+    "jupyter>=1.1.1",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "ruff>=0.11.6",
+    "scipy>=1.15.2", # only needed for test writing netcdf file
+    "cartopy>=0.22",
+    "metpy>=1.3.0",
+]
+docs = [
+    "autodocsumm>=0.2.14",
+    "ipython>=8.35.0",
+    "linkify-it-py>=2.0.3",
+    "myst-parser>=4.0.1",
+    "nbconvert>=7.16.6",
+    "nbsphinx>=0.9.7",
+    "pydata-sphinx-theme>=0.16.1",
+    "recommonmark>=0.7.1",
+    "sphinx>=8.1.3",
+    "sphinx-autosummary-accessors>=2025.3.1",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.1",
+    "sphinx-markdown-tables>=0.0.17",
+    "sphinxcontrib-mermaid>=1.0.0",
+]
+
+
+[project.optional-dependencies]
+plot = ["cartopy", "matplotlib", "metpy"]
+metpy = ["metpy"]
+scikit-learn = ["scikit-learn"]
+
+pygrib = ["pygrib"]
+
+extras = [
+    "herbie-data[plot,metpy,scikit-learn]", # Didn't include pygrib on purpose
+]
+
+[tool.hatch]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/herbie/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.github",
+    "/docs",
+    "/notebooks",
+    "/.vscode",
+    "/sample_data",
+    "/tests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/herbie"]
+
+
+[tool.ruff]
+extend-include = ["*.ipynb"]
+
+[tool.ruff.lint]
+extend-select = [
+    "UP", # pyupgrade
+    "D",  # pydocstyle
+
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.pytest.ini_options]
+minversion = "2.0"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --cov=src/herbie"
+log_level = "DEBUG"
+testpaths = ["tests"]
+xfail_strict = true
+markers = []
+
+[project.scripts]
+herbie = "herbie.cli:main"

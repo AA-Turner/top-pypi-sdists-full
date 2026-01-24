@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
 from io import StringIO
-
 import numpy as np
 from parmed.topologyobjects import DihedralTypeList
-
 from pyocse.interfaces.parmed import ParmEdStructure
 
 
@@ -119,9 +117,6 @@ kspace_modify gewald {gewald:} mesh {fftx:} {ffty:} {fftz:} order 6
         if len(self.dihedrals) == 0:
             head = head.replace("dihedral_style ", "#dihedral_style ")
         in_str += head
-        if slab:
-            in_str += "kspace_modify slab 3.0\n"
-
         for i, (_k, t) in enumerate(self.atomtypes_with_resname.items(), 1):
             in_str += "pair_coeff {0:d} {0:d} {1:11.7f} {2:11.7f}\n".format(
                 i, t.epsilon, t.sigma
@@ -133,6 +128,9 @@ kspace_modify gewald {gewald:} mesh {fftx:} {ffty:} {fftz:} order 6
                                 fftx=fftx,
                                 ffty=ffty,
                                 fftz=fftz)
+        if slab:
+            in_str += "kspace_modify slab 3.0\n"
+
         return in_str
 
     def _update_input(self, fin, lines):
@@ -204,18 +202,13 @@ kspace_modify gewald {gewald:} mesh {fftx:} {ffty:} {fftz:} order 6
                     )
                 )
                 raise
-            #of.write("%9.4f %9.4f xlo xhi\n" % (xlo - padding[0], xhi + padding[0]))
-            #of.write("%9.4f %9.4f ylo yhi\n" % (ylo - padding[1], yhi + padding[1]))
-            #of.write("%9.4f %9.4f zlo zhi\n" % (zlo - padding[2], zhi + padding[0]))
             box_str += "%9.4f %9.4f xlo xhi\n" % (xlo - padding[0], xhi + padding[0])
             box_str += "%9.4f %9.4f ylo yhi\n" % (ylo - padding[1], yhi + padding[1])
             box_str += "%9.4f %9.4f zlo zhi\n" % (zlo - padding[2], zhi + padding[0])
 
             if not orthogonality:
-                #of.write("%9.4f %9.4f %9.4f xy xz yz\n" % (xy, xz, yz))
                 box_str += "%9.4f %9.4f %9.4f xy xz yz\n" % (xy, xz, yz)
             else:
-                #of.write("#%9.4f %9.4f %9.4f xy xz yz\n" % (xy, xz, yz))
                 box_str += "#%9.4f %9.4f %9.4f xy xz yz\n" % (xy, xz, yz)
 
         else:
@@ -226,16 +219,11 @@ kspace_modify gewald {gewald:} mesh {fftx:} {ffty:} {fftz:} order 6
             yhi = 0.5 * yl
             zlo = -0.5 * zl
             zhi = 0.5 * zl
-            #of.write("%9.4f %9.4f xlo xhi\n" % (xlo, xhi))
-            #of.write("%9.4f %9.4f ylo yhi\n" % (ylo, yhi))
-            #of.write("%9.4f %9.4f zlo zhi\n" % (zlo, zhi))
-            #of.write("%9.4f %9.4f %9.4f xy xz yz\n" % (0, 0, 0))
             box_str += "%9.4f %9.4f xlo xhi\n" % (xlo, xhi)
             box_str += "%9.4f %9.4f ylo yhi\n" % (ylo, yhi)
             box_str += "%9.4f %9.4f zlo zhi\n" % (zlo, zhi)
             box_str += "%9.4f %9.4f %9.4f xy xz yz\n" % (0, 0, 0)
 
-        #of.write("\n")
         box_str += '\n'
 
         return box_str
@@ -304,7 +292,6 @@ kspace_modify gewald {gewald:} mesh {fftx:} {ffty:} {fftz:} order 6
             name = a.residue.name + a.type
             tid = ks.index(name) + 1
             imol = a.residue.number + 1
-            #atom_str += "%6d %6d %6d %13.8f %11.7f %11.7f %11.7f #%s:%s\n" % (i, imol, tid, a.charge, *r, a.residue.name, a.type)
             atom_str += "%6d %6d %6d %13.8f %11.7f %11.7f %11.7f\n" % (i, imol, tid, a.charge, *r)
         atom_str += '\n'
         if velocity:

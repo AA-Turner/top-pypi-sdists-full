@@ -3,10 +3,10 @@ from itertools import product
 
 import numpy as np
 
-from .utils import to_long_index, to_index_tuple
+from .utils import to_index_tuple, to_long_index
 
 
-class StencilSet(object):
+class StencilSet:
     """
     Represent the finite difference stencil for a given differential operator.
     """
@@ -239,12 +239,12 @@ class Stencil:
         if start is None:
             start = 0
         if start < 0:
-            start = length - start
+            start = length + start
         stop = sl.stop
         if stop is None:
-            stop = 0
+            stop = length
         if stop < 0:
-            stop = length - start
+            stop = length + stop
         return slice(start, stop)
 
     @property

@@ -6,6 +6,11 @@ from collections.abc import Iterable
 import pandas as pd
 import pytest
 
+# Register pandas backends before running tests
+from pandera.backends.pandas.register import register_pandas_backends
+
+register_pandas_backends("pandera.typing.pandas.Series")
+
 from pandera.api.checks import Check
 from pandera.api.pandas.array import SeriesSchema
 from pandera.api.pandas.components import Column
@@ -32,9 +37,9 @@ def check_values(
     )
 
     # Assert that the returned check object is what was passed in
-    assert (
-        check_result.checked_object == expected_check_obj
-    ).all(), "Wrong checked_object returned"
+    assert (check_result.checked_object == expected_check_obj).all(), (
+        "Wrong checked_object returned"
+    )
 
     # Assert that the failure cases are correct
     check_result_failures = set(
@@ -42,9 +47,9 @@ def check_values(
         if check_result.failure_cases is None
         else check_result.failure_cases
     )
-    assert check_result_failures == set(
-        expected_failure_cases
-    ), "Unexpected failure cases returned by Check.__call__()"
+    assert check_result_failures == set(expected_failure_cases), (
+        "Unexpected failure cases returned by Check.__call__()"
+    )
 
 
 def check_none_failures(values, check) -> None:
@@ -56,12 +61,12 @@ def check_none_failures(values, check) -> None:
     series = pd.Series(values)
     check_result = check(series)
     assert not check_result.check_passed, "Check should fail due to None value"
-    assert (
-        check_result.checked_object is series
-    ), "Wrong checked_object returned"
-    assert (
-        check_result.failure_cases.isnull().all()
-    ), "Only null values should be failure cases"
+    assert check_result.checked_object is series, (
+        "Wrong checked_object returned"
+    )
+    assert check_result.failure_cases.isnull().all(), (
+        "Only null values should be failure cases"
+    )
 
 
 def check_raise_error_or_warning(failure_values, check) -> None:
@@ -409,6 +414,35 @@ class TestInRange:
             Check.in_range(*args)
 
     @staticmethod
+    def test_positional_and_keyword_args():
+        """Test that positional and keyword arguments produce equivalent checks."""
+        # Test with positional args
+        check_positional = Check.in_range(0, 1)
+        check_keyword = Check.in_range(min_value=0, max_value=1)
+
+        series = pd.Series([0, 0.5, 1])
+        assert check_positional(series).check_passed
+        assert check_keyword(series).check_passed
+
+        # Both should fail on the same invalid data
+        invalid_series = pd.Series([0, 0.5, 2])
+        assert not check_positional(invalid_series).check_passed
+        assert not check_keyword(invalid_series).check_passed
+
+    @staticmethod
+    def test_mixed_positional_and_keyword_args():
+        """Test mixing positional and keyword arguments."""
+        # Min value as positional, max value as keyword should also work
+        # by first setting min via positional, then using keyword for include options
+        check = Check.in_range(0, 10, include_min=True, include_max=False)
+        series = pd.Series([0, 5, 9])
+        assert check(series).check_passed
+
+        # 10 should fail since include_max=False
+        invalid_series = pd.Series([0, 5, 10])
+        assert not check(invalid_series).check_passed
+
+    @staticmethod
     @pytest.mark.parametrize(
         "values, check_args",
         [
@@ -582,17 +616,36 @@ class TestIsin:
     """Tests for Check.isin"""
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "args",
-        [
-            (1,),  # Not Iterable
-            (None,),  # None should also not be accepted
-        ],
-    )
-    def test_argument_check(args):
-        """Test invalid arguments"""
+    def test_no_argument_check():
+        """Test that calling isin with no arguments raises ValueError"""
         with pytest.raises(ValueError):
-            Check.isin(*args)
+            Check.isin()
+
+    @staticmethod
+    def test_positional_and_keyword_args():
+        """Test that positional and keyword arguments produce equivalent checks."""
+        # Test with list as positional arg
+        check_positional = Check.isin([1, 2, 3])
+        check_keyword = Check.isin(allowed_values=[1, 2, 3])
+
+        series = pd.Series([1, 2, 3])
+        assert check_positional(series).check_passed
+        assert check_keyword(series).check_passed
+
+        # Both should fail on the same invalid data
+        invalid_series = pd.Series([1, 2, 4])
+        assert not check_positional(invalid_series).check_passed
+        assert not check_keyword(invalid_series).check_passed
+
+    @staticmethod
+    def test_tuple_as_allowed_values():
+        """Test that tuples work as allowed values."""
+        check = Check.isin((1, 2, 3))
+        series = pd.Series([1, 2, 3])
+        assert check(series).check_passed
+
+        invalid_series = pd.Series([1, 2, 4])
+        assert not check(invalid_series).check_passed
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -669,17 +722,10 @@ class TestNotin:
     """Tests for Check.notin"""
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "args",
-        [
-            (1,),  # Not Iterable
-            (None,),  # None should also not be accepted
-        ],
-    )
-    def test_argument_check(args):
-        """Test invalid arguments"""
+    def test_no_argument_check():
+        """Test that calling notin with no arguments raises ValueError"""
         with pytest.raises(ValueError):
-            Check.notin(*args)
+            Check.notin()
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -954,6 +1000,12 @@ class TestStrLength:
             Check.str_length()
 
     @staticmethod
+    def test_too_many_args():
+        """Test that too many positional args raises error"""
+        with pytest.raises(ValueError, match="at most 2 positional arguments"):
+            Check.str_length(1, 2, 3)
+
+    @staticmethod
     @pytest.mark.parametrize(
         "series_values, min_len, max_len",
         [
@@ -966,6 +1018,35 @@ class TestStrLength:
         """Run checks which should succeed"""
         check_values(
             series_values, Check.str_length(min_len, max_len), True, {}
+        )
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "series_values, exact_len",
+        [
+            (("abc", "def"), 3),  # exact length with single positional arg
+            (("ab", "cd"), 2),
+        ],
+    )
+    def test_exact_length_succeeding(series_values, exact_len):
+        """Test exact length matching with single positional arg"""
+        check_values(series_values, Check.str_length(exact_len), True, {})
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "series_values, exact_len, failure_cases",
+        [
+            (("abc", "defabc"), 3, {"defabc"}),  # "defabc" is 6 chars
+            (("ab", "abc"), 2, {"abc"}),
+        ],
+    )
+    def test_exact_length_failing(series_values, exact_len, failure_cases):
+        """Test exact length matching failures"""
+        check_values(
+            series_values, Check.str_length(exact_len), False, failure_cases
+        )
+        check_raise_error_or_warning(
+            series_values, Check.str_length(exact_len)
         )
 
     @staticmethod

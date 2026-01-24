@@ -38,6 +38,39 @@ For more information, please refer to <https://unlicense.org>
 
 _cloud_azure_registration_endpoints = [
   [
+    "cloud_registration_azure_delete_legacy_subscription",
+    "DELETE",
+    "/cloud-security-registration-azure/entities/accounts/legacy/v1",
+    "Delete existing legacy Azure subscriptions.",
+    "cloud_azure_registration",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "cloud_registration_azure_trigger_health_check",
+    "POST",
+    "/cloud-security-registration-azure/entities/registrations/healthcheck/v1",
+    "Trigger health check scan for Azure registrations",
+    "cloud_azure_registration",
+    [
+      {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "collectionFormat": "multi",
+        "description": "Azure tenant IDs",
+        "name": "tenant_ids",
+        "in": "query"
+      }
+    ]
+  ],
+  [
     "cloud_registration_azure_get_registration",
     "GET",
     "/cloud-security-registration-azure/entities/registrations/v1",
@@ -98,6 +131,32 @@ _cloud_azure_registration_endpoints = [
         "name": "tenant_ids",
         "in": "query",
         "required": True
+      }
+    ]
+  ],
+  [
+    "cloud_registration_azure_validate_registration",
+    "POST",
+    "/cloud-security-registration-azure/entities/registrations/validate/v1",
+    "Validate an Azure registration by checking service principal, role assignments and deployment stack (if "
+    "the deployment method is Bicep)",
+    "cloud_azure_registration",
+    [
+      {
+        "maxLength": 36,
+        "minLength": 36,
+        "pattern": "^[0-9a-z-]{36}$",
+        "type": "string",
+        "description": "Azure tenant ID to be validated",
+        "name": "tenant_id",
+        "in": "query",
+        "required": True
+      },
+      {
+        "type": "string",
+        "description": "Azure deployment stack name to be validated",
+        "name": "stack_name",
+        "in": "query"
       }
     ]
   ],

@@ -7,7 +7,7 @@ name = "scramp"
 authors = [{name = "The Contributors"}]
 description = "An implementation of the SCRAM protocol."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 keywords = ["SCRAM", "authentication", "SASL"]
 license = {text = "MIT No Attribution"}
 classifiers = [
@@ -16,13 +16,8 @@ classifiers = [
     "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: Implementation",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -31,7 +26,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/tlocke/scramp"
+Homepage = "https://codeberg.org/tlocke/scramp"
 
 [tool.hatch.version]
 source = "versioningit"
@@ -74,7 +69,6 @@ deps = [
     "Flake8-pyproject",
     "docutils",
     "build",
-    "passlib",
     "twine",
     "validate-pyproject",
 ]

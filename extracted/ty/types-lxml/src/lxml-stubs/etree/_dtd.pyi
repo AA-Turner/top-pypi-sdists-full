@@ -1,4 +1,6 @@
-from typing import Iterator, Literal, final, overload
+from collections.abc import Iterator
+from typing import Literal, final, overload
+from typing_extensions import disjoint_base
 
 from .._types import _ElementOrTree, _FileReadSource, _TextArg
 from ._module_misc import LxmlError, _Validator
@@ -79,6 +81,7 @@ class _DTDEntityDecl:
     @property
     def system_url(self) -> str | None: ...
 
+@disjoint_base
 class DTD(_Validator):
     # external_id is effective only when file is None, and
     # native string raises exception

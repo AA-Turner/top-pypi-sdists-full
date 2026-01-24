@@ -21,11 +21,6 @@ from datetime import datetime
 
 from .literals import EndpointAccessTypeType, EndpointStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -63,7 +58,7 @@ class CreateEndpointRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -116,7 +111,7 @@ class EndpointTypeDef(TypedDict):
     CidrBlock: NotRequired[str]
     Status: NotRequired[EndpointStatusType]
     CreationTime: NotRequired[datetime]
-    NetworkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    NetworkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     VpcId: NotRequired[str]
     SubnetId: NotRequired[str]
     SecurityGroupId: NotRequired[str]
@@ -135,16 +130,16 @@ class ListSharedEndpointsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListOutpostsWithS3ResultTypeDef(TypedDict):
-    Outposts: List[OutpostTypeDef]
+    Outposts: list[OutpostTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListEndpointsResultTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListSharedEndpointsResultTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

@@ -2,6 +2,7 @@ import asyncio
 import itertools
 import json
 import tempfile
+import threading
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -30,9 +31,12 @@ from dagster_dg_core.utils.editor import (
 )
 from dagster_dg_core.utils.telemetry import cli_telemetry_wrapper
 from dagster_shared import check
+from dagster_shared.serdes import deserialize_value
 from dagster_shared.serdes.objects import EnvRegistryKey
 from packaging.version import Version
+from rich.console import Console
 from rich.live import Live
+from rich.table import Table
 from rich.text import Text
 
 from dagster_dg_cli.cli.defs_state import (
@@ -48,6 +52,7 @@ from dagster_dg_cli.utils.yaml_template_generator import (
 
 if TYPE_CHECKING:
     from dagster._core.instance.instance import DagsterInstance
+    from dagster_shared.serdes.objects.models.defs_state_info import DefsStateManagementType
 
 DEFAULT_SCHEMA_FOLDER_NAME = ".dg"
 
@@ -291,14 +296,21 @@ MIN_ENV_VAR_INJECTION_VERSION = Version("1.10.8")
 
 
 @contextmanager
-def create_temp_workspace_file(dg_context: DgContext) -> Iterator[str]:
+def create_temp_workspace_file(
+    dg_context: DgContext, use_active_venv: bool = False
+) -> Iterator[str]:
     # defer for import performance
+    import sys
+
     import yaml
 
     check.invariant(
         dg_context.is_in_workspace or dg_context.is_project,
         "can only create a workspace file within a project or workspace context",
     )
+
+    if use_active_venv:
+        click.echo(f"Using active Python environment: {sys.executable}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_workspace_file = Path(temp_dir) / "workspace.yaml"
@@ -311,8 +323,13 @@ def create_temp_workspace_file(dg_context: DgContext) -> Iterator[str]:
                 project_root = dg_context.root_path / spec.path
                 project_context: DgContext = dg_context.with_root_path(project_root)
 
+                # when using the active virtual environment, do not attempt to resolve the python executable
+                use_executable_path = not use_active_venv
+
                 entries.append(
-                    _workspace_entry_for_project(project_context, use_executable_path=True)
+                    _workspace_entry_for_project(
+                        project_context, use_executable_path=use_executable_path
+                    )
                 )
 
         temp_workspace_file.write_text(yaml.dump({"load_from": entries}))
@@ -323,7 +340,8 @@ def _dagster_cloud_entry_for_project(
     dg_context: DgContext, workspace_context: Optional[DgContext]
 ) -> dict[str, Any]:
     merged_build_config: DgRawBuildConfig = merge_build_configs(
-        workspace_context.build_config if workspace_context else None, dg_context.build_config
+        workspace_context.build_config if workspace_context else None,
+        dg_context.build_config,
     )
 
     merged_container_context_config = merge_container_context_configs(
@@ -389,7 +407,10 @@ def _get_display_header(statuses: dict[str, ComponentStateRefreshStatus]) -> str
 
 
 def _get_display_text_for_status(
-    status: ComponentStateRefreshStatus, key: str, max_key_length: int, spinner_char: str
+    status: ComponentStateRefreshStatus,
+    key: str,
+    max_key_length: int,
+    spinner_char: str,
 ) -> str:
     padded_key = key.ljust(max_key_length)
     if status.status == "refreshing":
@@ -420,19 +441,43 @@ def _get_display_text(statuses: dict[str, ComponentStateRefreshStatus], spinner_
 
 
 async def _refresh_defs_state_with_live_display(
-    project_path: Path, instance: "DagsterInstance", defs_state_keys: Optional[set[str]] = None
+    project_path: Path,
+    instance: "DagsterInstance",
+    management_types: set["DefsStateManagementType"],
+    defs_state_keys: Optional[set[str]] = None,
 ) -> None:
     defs_state_storage = check.not_none(instance.defs_state_storage)
     refresh_task, statuses = get_updated_defs_state_info_task_and_statuses(
-        project_path, defs_state_storage, defs_state_keys
+        project_path, defs_state_storage, management_types, defs_state_keys
     )
-    with Live(refresh_per_second=10) as live:
-        spinner_char = itertools.cycle(DAGGY_SPINNER_FRAMES)
-        while not refresh_task.done():
-            live.update(Text.from_ansi(_get_display_text(statuses, next(spinner_char))))
-            await asyncio.sleep(0.1)
+
+    # Thread-safe coordination variables
+    display_stop_event = threading.Event()
+    display_lock = threading.Lock()
+
+    def display_update_worker():
+        """Display update worker that runs in a separate thread."""
+        with Live(refresh_per_second=10) as live:
+            spinner_char = itertools.cycle(DAGGY_SPINNER_FRAMES)
+            while not display_stop_event.is_set():
+                with display_lock:
+                    live.update(Text.from_ansi(_get_display_text(statuses, next(spinner_char))))
+                time.sleep(0.1)
+            # Final update before stopping
+            with display_lock:
+                live.update(Text.from_ansi(_get_display_text(statuses, next(spinner_char))))
+
+    # Start display thread
+    display_thread = threading.Thread(target=display_update_worker, daemon=True)
+    display_thread.start()
+
+    try:
+        # Wait for refresh task to complete
         await refresh_task
-        live.update(Text.from_ansi(_get_display_text(statuses, next(spinner_char))))
+    finally:
+        # Signal display thread to stop and wait for it
+        display_stop_event.set()
+        display_thread.join(timeout=1.0)  # Give it 1 second to finish
 
     raise_component_state_refresh_errors(statuses)
 
@@ -445,33 +490,108 @@ async def _refresh_defs_state_with_live_display(
     multiple=True,
     help="Only refresh state for specified defs state key. Can be specified multiple times.",
 )
+@click.option(
+    "--management-type",
+    multiple=True,
+    type=click.Choice(["LOCAL_FILESYSTEM", "VERSIONED_STATE_STORAGE"]),
+    help="Only refresh components with the specified management type. Can be specified multiple times to include multiple types. Defaults to all management types except for LEGACY_CODE_SERVER_SNAPSHOTS.",
+)
+@click.option(
+    "--instance-ref",
+    type=click.STRING,
+    required=False,
+    hidden=True,
+)
 @cli_telemetry_wrapper
 def refresh_defs_state(
     target_path: Path,
     defs_state_key: tuple[str, ...],
+    management_type: tuple[str, ...],
+    instance_ref: Optional[str],
     **other_opts: object,
 ) -> None:
     """Refresh the defs state for the current project."""
     from dagster._cli.utils import get_possibly_temporary_instance_for_cli
     from dagster._core.instance.config import is_dagster_home_set
+    from dagster._core.instance.ref import InstanceRef
+    from dagster_shared.serdes.objects.models.defs_state_info import DefsStateManagementType
 
     # Check if DAGSTER_HOME is set before proceeding
-    if not is_dagster_home_set():
-        raise click.UsageError(
-            "DAGSTER_HOME is not set, which means defs state cannot be stored in a persistent location, "
-            "please set it to use this command.\n"
-            "You can resolve this error by exporting the environment variable. "
-            "For example, you can run the following command in your shell or "
-            "include it in your shell configuration file:\n"
-            '\texport DAGSTER_HOME="~/dagster_home"'
-            "\n\n"
+    if not instance_ref and not is_dagster_home_set():
+        # emit warning
+        click.echo(
+            click.style(
+                "DAGSTER_HOME is not set, which means defs state for VERSIONED_STATE_STORAGE components "
+                "cannot be stored in a persistent location. \n"
+                "You can resolve this warning by exporting the environment variable. "
+                "For example, you can run the following command in your shell or "
+                "include it in your shell configuration file:\n"
+                '\texport DAGSTER_HOME="~/dagster_home"'
+                "\n\n",
+                fg="yellow",
+            )
         )
 
     cli_config = normalize_cli_config(other_opts, click.get_current_context())
     dg_context = DgContext.for_project_environment(target_path, cli_config)
 
-    with get_possibly_temporary_instance_for_cli("dg utils refresh-defs-state") as instance:
+    with get_possibly_temporary_instance_for_cli(
+        "dg utils refresh-defs-state",
+        instance_ref=deserialize_value(instance_ref, InstanceRef) if instance_ref else None,
+    ) as instance:
         defs_state_keys = set(defs_state_key) if defs_state_key else None
-        asyncio.run(
-            _refresh_defs_state_with_live_display(dg_context.root_path, instance, defs_state_keys)
+        management_types = (
+            {DefsStateManagementType(mt) for mt in management_type}
+            if management_type
+            else {
+                DefsStateManagementType.LOCAL_FILESYSTEM,
+                DefsStateManagementType.VERSIONED_STATE_STORAGE,
+            }
         )
+        asyncio.run(
+            _refresh_defs_state_with_live_display(
+                dg_context.root_path, instance, management_types, defs_state_keys
+            )
+        )
+
+
+@utils_group.command(
+    name="integrations",
+    cls=DgClickCommand,
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    default=False,
+    help="Output as JSON.",
+)
+@cli_telemetry_wrapper
+def integrations_docs_command(output_json: bool) -> None:
+    """View an index of available Dagster integrations."""
+    import requests  # defer for import perf
+
+    response = requests.get("https://dagster-marketplace.vercel.app/api/integrations/index.json")
+    response.raise_for_status()
+
+    payload = response.json()
+    if output_json:
+        click.echo(json.dumps(payload, indent=2))
+        return
+
+    console = Console()
+    table = Table(border_style="dim", show_lines=True)
+    table.add_column("Name")
+    table.add_column("Description")
+    table.add_column("PyPI")
+
+    for integration in payload:
+        # filter out incomplete entries
+        if integration.get("name") and integration.get("description") and integration.get("pypi"):
+            table.add_row(
+                integration["name"],
+                integration["description"],
+                integration["pypi"],
+            )
+
+    console.print(table)

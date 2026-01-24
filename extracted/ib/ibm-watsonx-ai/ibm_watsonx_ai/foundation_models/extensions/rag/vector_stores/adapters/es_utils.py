@@ -1,20 +1,20 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from typing import Any, Optional
 
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
-try:
-    import elasticsearch
-    from elasticsearch.helpers.vectorstore import (
-        RetrievalStrategy,
-    )
-    from elasticsearch.helpers.vectorstore._sync._utils import model_must_be_deployed
-except ImportError:
-    raise MissingExtension("langchain_elasticsearch")
+if not is_lib_installed(ext := "langchain-elasticsearch"):
+    raise MissingExtension(ext, extra_info="rag")
+import elasticsearch
+from elasticsearch.helpers.vectorstore import (
+    RetrievalStrategy,
+)
+from elasticsearch.helpers.vectorstore._sync._utils import model_must_be_deployed
 
 TEXT_FIELD = "text_field"
 
@@ -57,7 +57,7 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
         )
 
 
-        strategy=HybridStrategyElasticsearch(
+        strategy = HybridStrategyElasticsearch(
             retrieval_strategies={
                 RetrievalOptions.SPARSE: {"model_id": ".elser", "boost": 0.5},
                 RetrievalOptions.BM25: {"boost": 1},

@@ -31,7 +31,9 @@ from checkov.common.graph.graph_builder.graph_components.attribute_names import 
 from checkov.terraform.graph_builder.local_graph import TerraformLocalGraph
 from checkov.terraform.graph_manager import TerraformGraphManager
 from checkov.terraform.image_referencer.manager import TerraformImageReferencerManager
+from checkov.terraform.tag_providers import get_resource_tags
 from checkov.terraform.tf_parser import TFParser
+from checkov.common.util.env_vars_config import env_vars_config
 
 if TYPE_CHECKING:
     from networkx import DiGraph
@@ -106,7 +108,7 @@ class BaseTerraformRunner(
                 resource_registry.load_external_checks(directory)
                 self.graph_registry.load_external_checks(directory)
 
-    def _get_connected_node_data(self, connected_node: dict[str, Any], root_folder: str) \
+    def _get_connected_node_data(self, connected_node: dict[str, Any], root_folder: str | None) \
             -> Optional[Dict[str, Any]]:
         if not connected_node:
             return None
@@ -129,7 +131,7 @@ class BaseTerraformRunner(
         return connected_node_data
 
     def get_graph_checks_report(
-        self, root_folder: str, runner_filter: RunnerFilter, graph: LibraryGraph | None = None
+        self, root_folder: str | None, runner_filter: RunnerFilter, graph: LibraryGraph | None = None
     ) -> Report:
         report = Report(self.check_type)
         checks_results = self.run_graph_checks_results(runner_filter, self.check_type, graph)
@@ -138,6 +140,12 @@ class BaseTerraformRunner(
             for check_result in check_results:
                 entity = check_result["entity"]
                 entity_context = self.get_entity_context_and_evaluations(entity)
+                virtual_resources = entity.get(CustomAttributes.CONFIG, {}).get('virtual_resources')
+                if (env_vars_config.RAW_TF_IN_GRAPH_ENV and virtual_resources
+                        and isinstance(virtual_resources, list) and len(virtual_resources) > 0):
+                    # We want to skip violations for raw TF resources and keep only virtual one's. The raw resource
+                    # should have an array of attached virtual resources so we check it and skip if needed
+                    continue
                 if entity_context:
                     full_file_path = entity[CustomAttributes.FILE_PATH]
                     copy_of_check_result = pickle_deepcopy(check_result)
@@ -180,7 +188,7 @@ class BaseTerraformRunner(
                             entity_context.get("end_line", 1),
                         ],
                         resource=resource,
-                        entity_tags=entity.get("tags", {}),
+                        entity_tags=get_resource_tags(resource, entity_config),
                         evaluations=None,
                         check_class=check.__class__.__module__,
                         file_abs_path=os.path.abspath(full_file_path),

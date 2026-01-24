@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -231,7 +231,7 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class ConflictException(ServiceException):
@@ -240,7 +240,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class ForbiddenException(ServiceException):
@@ -249,7 +249,7 @@ class ForbiddenException(ServiceException):
     code: str = "ForbiddenException"
     sender_fault: bool = False
     status_code: int = 403
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class InternalServerErrorException(ServiceException):
@@ -258,7 +258,7 @@ class InternalServerErrorException(ServiceException):
     code: str = "InternalServerErrorException"
     sender_fault: bool = False
     status_code: int = 500
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class MethodNotAllowedException(ServiceException):
@@ -267,7 +267,7 @@ class MethodNotAllowedException(ServiceException):
     code: str = "MethodNotAllowedException"
     sender_fault: bool = False
     status_code: int = 405
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class NotFoundException(ServiceException):
@@ -276,7 +276,7 @@ class NotFoundException(ServiceException):
     code: str = "NotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class PayloadTooLargeException(ServiceException):
@@ -285,7 +285,7 @@ class PayloadTooLargeException(ServiceException):
     code: str = "PayloadTooLargeException"
     sender_fault: bool = False
     status_code: int = 413
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class TooManyRequestsException(ServiceException):
@@ -294,7 +294,7 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = False
     status_code: int = 429
-    RequestID: Optional[_string]
+    RequestID: _string | None
 
 
 class ADMChannelRequest(TypedDict, total=False):
@@ -304,7 +304,7 @@ class ADMChannelRequest(TypedDict, total=False):
 
     ClientId: _string
     ClientSecret: _string
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class ADMChannelResponse(TypedDict, total=False):
@@ -312,21 +312,21 @@ class ADMChannelResponse(TypedDict, total=False):
     Device Messaging) channel for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
-ListOf__string = List[_string]
-MapOfListOf__string = Dict[_string, ListOf__string]
-MapOf__string = Dict[_string, _string]
+ListOf__string = list[_string]
+MapOfListOf__string = dict[_string, ListOf__string]
+MapOf__string = dict[_string, _string]
 
 
 class ADMMessage(TypedDict, total=False):
@@ -334,22 +334,22 @@ class ADMMessage(TypedDict, total=False):
     endpoint through the ADM (Amazon Device Messaging) channel.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    ConsolidationKey: Optional[_string]
-    Data: Optional[MapOf__string]
-    ExpiresAfter: Optional[_string]
-    IconReference: Optional[_string]
-    ImageIconUrl: Optional[_string]
-    ImageUrl: Optional[_string]
-    MD5: Optional[_string]
-    RawContent: Optional[_string]
-    SilentPush: Optional[_boolean]
-    SmallImageIconUrl: Optional[_string]
-    Sound: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    ConsolidationKey: _string | None
+    Data: MapOf__string | None
+    ExpiresAfter: _string | None
+    IconReference: _string | None
+    ImageIconUrl: _string | None
+    ImageUrl: _string | None
+    MD5: _string | None
+    RawContent: _string | None
+    SilentPush: _boolean | None
+    SmallImageIconUrl: _string | None
+    Sound: _string | None
+    Substitutions: MapOfListOf__string | None
+    Title: _string | None
+    Url: _string | None
 
 
 class APNSChannelRequest(TypedDict, total=False):
@@ -357,14 +357,14 @@ class APNSChannelRequest(TypedDict, total=False):
     service) channel for an application.
     """
 
-    BundleId: Optional[_string]
-    Certificate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    PrivateKey: Optional[_string]
-    TeamId: Optional[_string]
-    TokenKey: Optional[_string]
-    TokenKeyId: Optional[_string]
+    BundleId: _string | None
+    Certificate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    PrivateKey: _string | None
+    TeamId: _string | None
+    TokenKey: _string | None
+    TokenKeyId: _string | None
 
 
 class APNSChannelResponse(TypedDict, total=False):
@@ -372,18 +372,18 @@ class APNSChannelResponse(TypedDict, total=False):
     Push Notification service) channel for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    HasTokenKey: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    HasTokenKey: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class APNSMessage(TypedDict, total=False):
@@ -391,24 +391,24 @@ class APNSMessage(TypedDict, total=False):
     endpoint through the APNs (Apple Push Notification service) channel.
     """
 
-    APNSPushType: Optional[_string]
-    Action: Optional[Action]
-    Badge: Optional[_integer]
-    Body: Optional[_string]
-    Category: Optional[_string]
-    CollapseId: Optional[_string]
-    Data: Optional[MapOf__string]
-    MediaUrl: Optional[_string]
-    PreferredAuthenticationMethod: Optional[_string]
-    Priority: Optional[_string]
-    RawContent: Optional[_string]
-    SilentPush: Optional[_boolean]
-    Sound: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    ThreadId: Optional[_string]
-    TimeToLive: Optional[_integer]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    APNSPushType: _string | None
+    Action: Action | None
+    Badge: _integer | None
+    Body: _string | None
+    Category: _string | None
+    CollapseId: _string | None
+    Data: MapOf__string | None
+    MediaUrl: _string | None
+    PreferredAuthenticationMethod: _string | None
+    Priority: _string | None
+    RawContent: _string | None
+    SilentPush: _boolean | None
+    Sound: _string | None
+    Substitutions: MapOfListOf__string | None
+    ThreadId: _string | None
+    TimeToLive: _integer | None
+    Title: _string | None
+    Url: _string | None
 
 
 class APNSPushNotificationTemplate(TypedDict, total=False):
@@ -417,13 +417,13 @@ class APNSPushNotificationTemplate(TypedDict, total=False):
     (Apple Push Notification service) channel.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    MediaUrl: Optional[_string]
-    RawContent: Optional[_string]
-    Sound: Optional[_string]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    MediaUrl: _string | None
+    RawContent: _string | None
+    Sound: _string | None
+    Title: _string | None
+    Url: _string | None
 
 
 class APNSSandboxChannelRequest(TypedDict, total=False):
@@ -431,14 +431,14 @@ class APNSSandboxChannelRequest(TypedDict, total=False):
     service) sandbox channel for an application.
     """
 
-    BundleId: Optional[_string]
-    Certificate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    PrivateKey: Optional[_string]
-    TeamId: Optional[_string]
-    TokenKey: Optional[_string]
-    TokenKeyId: Optional[_string]
+    BundleId: _string | None
+    Certificate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    PrivateKey: _string | None
+    TeamId: _string | None
+    TokenKey: _string | None
+    TokenKeyId: _string | None
 
 
 class APNSSandboxChannelResponse(TypedDict, total=False):
@@ -446,18 +446,18 @@ class APNSSandboxChannelResponse(TypedDict, total=False):
     Push Notification service) sandbox channel for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    HasTokenKey: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    HasTokenKey: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class APNSVoipChannelRequest(TypedDict, total=False):
@@ -465,14 +465,14 @@ class APNSVoipChannelRequest(TypedDict, total=False):
     service) VoIP channel for an application.
     """
 
-    BundleId: Optional[_string]
-    Certificate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    PrivateKey: Optional[_string]
-    TeamId: Optional[_string]
-    TokenKey: Optional[_string]
-    TokenKeyId: Optional[_string]
+    BundleId: _string | None
+    Certificate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    PrivateKey: _string | None
+    TeamId: _string | None
+    TokenKey: _string | None
+    TokenKeyId: _string | None
 
 
 class APNSVoipChannelResponse(TypedDict, total=False):
@@ -480,18 +480,18 @@ class APNSVoipChannelResponse(TypedDict, total=False):
     Push Notification service) VoIP channel for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    HasTokenKey: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    HasTokenKey: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class APNSVoipSandboxChannelRequest(TypedDict, total=False):
@@ -499,14 +499,14 @@ class APNSVoipSandboxChannelRequest(TypedDict, total=False):
     service) VoIP sandbox channel for an application.
     """
 
-    BundleId: Optional[_string]
-    Certificate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    PrivateKey: Optional[_string]
-    TeamId: Optional[_string]
-    TokenKey: Optional[_string]
-    TokenKeyId: Optional[_string]
+    BundleId: _string | None
+    Certificate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    PrivateKey: _string | None
+    TeamId: _string | None
+    TokenKey: _string | None
+    TokenKeyId: _string | None
 
 
 class APNSVoipSandboxChannelResponse(TypedDict, total=False):
@@ -514,18 +514,18 @@ class APNSVoipSandboxChannelResponse(TypedDict, total=False):
     Push Notification service) VoIP sandbox channel for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    HasTokenKey: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    HasTokenKey: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class ActivityResponse(TypedDict, total=False):
@@ -533,21 +533,21 @@ class ActivityResponse(TypedDict, total=False):
 
     ApplicationId: _string
     CampaignId: _string
-    End: Optional[_string]
+    End: _string | None
     Id: _string
-    Result: Optional[_string]
-    ScheduledStart: Optional[_string]
-    Start: Optional[_string]
-    State: Optional[_string]
-    SuccessfulEndpointCount: Optional[_integer]
-    TimezonesCompletedCount: Optional[_integer]
-    TimezonesTotalCount: Optional[_integer]
-    TotalEndpointCount: Optional[_integer]
-    TreatmentId: Optional[_string]
-    ExecutionMetrics: Optional[MapOf__string]
+    Result: _string | None
+    ScheduledStart: _string | None
+    Start: _string | None
+    State: _string | None
+    SuccessfulEndpointCount: _integer | None
+    TimezonesCompletedCount: _integer | None
+    TimezonesTotalCount: _integer | None
+    TotalEndpointCount: _integer | None
+    TreatmentId: _string | None
+    ExecutionMetrics: MapOf__string | None
 
 
-ListOfActivityResponse = List[ActivityResponse]
+ListOfActivityResponse = list[ActivityResponse]
 
 
 class ActivitiesResponse(TypedDict, total=False):
@@ -556,11 +556,11 @@ class ActivitiesResponse(TypedDict, total=False):
     """
 
     Item: ListOfActivityResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class ContactCenterActivity(TypedDict, total=False):
-    NextActivity: Optional[_string]
+    NextActivity: _string | None
 
 
 class WaitTime(TypedDict, total=False):
@@ -569,8 +569,8 @@ class WaitTime(TypedDict, total=False):
     activity moves participants to the next activity in a journey.
     """
 
-    WaitFor: Optional[_string]
-    WaitUntil: Optional[_string]
+    WaitFor: _string | None
+    WaitUntil: _string | None
 
 
 class WaitActivity(TypedDict, total=False):
@@ -579,8 +579,8 @@ class WaitActivity(TypedDict, total=False):
     time before moving participants to the next activity in a journey.
     """
 
-    NextActivity: Optional[_string]
-    WaitTime: Optional[WaitTime]
+    NextActivity: _string | None
+    WaitTime: WaitTime | None
 
 
 class JourneySMSMessage(TypedDict, total=False):
@@ -588,11 +588,11 @@ class JourneySMSMessage(TypedDict, total=False):
     to participants in a journey.
     """
 
-    MessageType: Optional[MessageType]
-    OriginationNumber: Optional[_string]
-    SenderId: Optional[_string]
-    EntityId: Optional[_string]
-    TemplateId: Optional[_string]
+    MessageType: MessageType | None
+    OriginationNumber: _string | None
+    SenderId: _string | None
+    EntityId: _string | None
+    TemplateId: _string | None
 
 
 class SMSMessageActivity(TypedDict, total=False):
@@ -600,10 +600,10 @@ class SMSMessageActivity(TypedDict, total=False):
     activity sends a text message to participants.
     """
 
-    MessageConfig: Optional[JourneySMSMessage]
-    NextActivity: Optional[_string]
-    TemplateName: Optional[_string]
-    TemplateVersion: Optional[_string]
+    MessageConfig: JourneySMSMessage | None
+    NextActivity: _string | None
+    TemplateName: _string | None
+    TemplateVersion: _string | None
 
 
 class RandomSplitEntry(TypedDict, total=False):
@@ -611,11 +611,11 @@ class RandomSplitEntry(TypedDict, total=False):
     journey.
     """
 
-    NextActivity: Optional[_string]
-    Percentage: Optional[_integer]
+    NextActivity: _string | None
+    Percentage: _integer | None
 
 
-ListOfRandomSplitEntry = List[RandomSplitEntry]
+ListOfRandomSplitEntry = list[RandomSplitEntry]
 
 
 class RandomSplitActivity(TypedDict, total=False):
@@ -625,7 +625,7 @@ class RandomSplitActivity(TypedDict, total=False):
     you specify.
     """
 
-    Branches: Optional[ListOfRandomSplitEntry]
+    Branches: ListOfRandomSplitEntry | None
 
 
 class JourneyPushMessage(TypedDict, total=False):
@@ -633,7 +633,7 @@ class JourneyPushMessage(TypedDict, total=False):
     to participants in a journey.
     """
 
-    TimeToLive: Optional[_string]
+    TimeToLive: _string | None
 
 
 class PushMessageActivity(TypedDict, total=False):
@@ -641,10 +641,10 @@ class PushMessageActivity(TypedDict, total=False):
     This type of activity sends a push notification to participants.
     """
 
-    MessageConfig: Optional[JourneyPushMessage]
-    NextActivity: Optional[_string]
-    TemplateName: Optional[_string]
-    TemplateVersion: Optional[_string]
+    MessageConfig: JourneyPushMessage | None
+    NextActivity: _string | None
+    TemplateName: _string | None
+    TemplateVersion: _string | None
 
 
 class AttributeDimension(TypedDict, total=False):
@@ -652,11 +652,11 @@ class AttributeDimension(TypedDict, total=False):
     from a segment.
     """
 
-    AttributeType: Optional[AttributeType]
+    AttributeType: AttributeType | None
     Values: ListOf__string
 
 
-MapOfAttributeDimension = Dict[_string, AttributeDimension]
+MapOfAttributeDimension = dict[_string, AttributeDimension]
 
 
 class MetricDimension(TypedDict, total=False):
@@ -669,7 +669,7 @@ class MetricDimension(TypedDict, total=False):
     Value: _double
 
 
-MapOfMetricDimension = Dict[_string, MetricDimension]
+MapOfMetricDimension = dict[_string, MetricDimension]
 
 
 class GPSCoordinates(TypedDict, total=False):
@@ -685,21 +685,21 @@ class GPSPointDimension(TypedDict, total=False):
     """
 
     Coordinates: GPSCoordinates
-    RangeInKilometers: Optional[_double]
+    RangeInKilometers: _double | None
 
 
 class SetDimension(TypedDict, total=False):
     """Specifies the dimension type and values for a segment dimension."""
 
-    DimensionType: Optional[DimensionType]
+    DimensionType: DimensionType | None
     Values: ListOf__string
 
 
 class SegmentLocation(TypedDict, total=False):
     """Specifies geographical dimension settings for a segment."""
 
-    Country: Optional[SetDimension]
-    GPSPoint: Optional[GPSPointDimension]
+    Country: SetDimension | None
+    GPSPoint: GPSPointDimension | None
 
 
 class SegmentDemographics(TypedDict, total=False):
@@ -708,12 +708,12 @@ class SegmentDemographics(TypedDict, total=False):
     characteristics of endpoint devices, such as platform, make, and model.
     """
 
-    AppVersion: Optional[SetDimension]
-    Channel: Optional[SetDimension]
-    DeviceType: Optional[SetDimension]
-    Make: Optional[SetDimension]
-    Model: Optional[SetDimension]
-    Platform: Optional[SetDimension]
+    AppVersion: SetDimension | None
+    Channel: SetDimension | None
+    DeviceType: SetDimension | None
+    Make: SetDimension | None
+    Model: SetDimension | None
+    Platform: SetDimension | None
 
 
 class RecencyDimension(TypedDict, total=False):
@@ -730,18 +730,18 @@ class SegmentBehaviors(TypedDict, total=False):
     segment based on how recently an endpoint was active.
     """
 
-    Recency: Optional[RecencyDimension]
+    Recency: RecencyDimension | None
 
 
 class SegmentDimensions(TypedDict, total=False):
     """Specifies the dimension settings for a segment."""
 
-    Attributes: Optional[MapOfAttributeDimension]
-    Behavior: Optional[SegmentBehaviors]
-    Demographic: Optional[SegmentDemographics]
-    Location: Optional[SegmentLocation]
-    Metrics: Optional[MapOfMetricDimension]
-    UserAttributes: Optional[MapOfAttributeDimension]
+    Attributes: MapOfAttributeDimension | None
+    Behavior: SegmentBehaviors | None
+    Demographic: SegmentDemographics | None
+    Location: SegmentLocation | None
+    Metrics: MapOfMetricDimension | None
+    UserAttributes: MapOfAttributeDimension | None
 
 
 class SegmentCondition(TypedDict, total=False):
@@ -755,9 +755,9 @@ class EventDimensions(TypedDict, total=False):
     campaign is sent or a journey activity is performed.
     """
 
-    Attributes: Optional[MapOfAttributeDimension]
-    EventType: Optional[SetDimension]
-    Metrics: Optional[MapOfMetricDimension]
+    Attributes: MapOfAttributeDimension | None
+    EventType: SetDimension | None
+    Metrics: MapOfMetricDimension | None
 
 
 class EventCondition(TypedDict, total=False):
@@ -765,26 +765,26 @@ class EventCondition(TypedDict, total=False):
     activity in a journey.
     """
 
-    Dimensions: Optional[EventDimensions]
-    MessageActivity: Optional[_string]
+    Dimensions: EventDimensions | None
+    MessageActivity: _string | None
 
 
 class SimpleCondition(TypedDict, total=False):
     """Specifies a condition to evaluate for an activity in a journey."""
 
-    EventCondition: Optional[EventCondition]
-    SegmentCondition: Optional[SegmentCondition]
-    SegmentDimensions: Optional[SegmentDimensions]
+    EventCondition: EventCondition | None
+    SegmentCondition: SegmentCondition | None
+    SegmentDimensions: SegmentDimensions | None
 
 
 class MultiConditionalBranch(TypedDict, total=False):
     """Specifies a condition to evaluate for an activity path in a journey."""
 
-    Condition: Optional[SimpleCondition]
-    NextActivity: Optional[_string]
+    Condition: SimpleCondition | None
+    NextActivity: _string | None
 
 
-ListOfMultiConditionalBranch = List[MultiConditionalBranch]
+ListOfMultiConditionalBranch = list[MultiConditionalBranch]
 
 
 class MultiConditionalSplitActivity(TypedDict, total=False):
@@ -802,9 +802,9 @@ class MultiConditionalSplitActivity(TypedDict, total=False):
     in the *Amazon Pinpoint Developer Guide*.
     """
 
-    Branches: Optional[ListOfMultiConditionalBranch]
-    DefaultActivity: Optional[_string]
-    EvaluationWaitTime: Optional[WaitTime]
+    Branches: ListOfMultiConditionalBranch | None
+    DefaultActivity: _string | None
+    EvaluationWaitTime: WaitTime | None
 
 
 class HoldoutActivity(TypedDict, total=False):
@@ -812,7 +812,7 @@ class HoldoutActivity(TypedDict, total=False):
     activity stops a journey for a specified percentage of participants.
     """
 
-    NextActivity: Optional[_string]
+    NextActivity: _string | None
     Percentage: _integer
 
 
@@ -821,7 +821,7 @@ class JourneyEmailMessage(TypedDict, total=False):
     participants in a journey.
     """
 
-    FromAddress: Optional[_string]
+    FromAddress: _string | None
 
 
 class EmailMessageActivity(TypedDict, total=False):
@@ -829,13 +829,13 @@ class EmailMessageActivity(TypedDict, total=False):
     activity sends an email message to participants.
     """
 
-    MessageConfig: Optional[JourneyEmailMessage]
-    NextActivity: Optional[_string]
-    TemplateName: Optional[_string]
-    TemplateVersion: Optional[_string]
+    MessageConfig: JourneyEmailMessage | None
+    NextActivity: _string | None
+    TemplateName: _string | None
+    TemplateVersion: _string | None
 
 
-ListOfSimpleCondition = List[SimpleCondition]
+ListOfSimpleCondition = list[SimpleCondition]
 
 
 class Condition(TypedDict, total=False):
@@ -843,8 +843,8 @@ class Condition(TypedDict, total=False):
     how to evaluate those conditions.
     """
 
-    Conditions: Optional[ListOfSimpleCondition]
-    Operator: Optional[Operator]
+    Conditions: ListOfSimpleCondition | None
+    Operator: Operator | None
 
 
 class ConditionalSplitActivity(TypedDict, total=False):
@@ -860,10 +860,10 @@ class ConditionalSplitActivity(TypedDict, total=False):
     in the *Amazon Pinpoint Developer Guide*.
     """
 
-    Condition: Optional[Condition]
-    EvaluationWaitTime: Optional[WaitTime]
-    FalseActivity: Optional[_string]
-    TrueActivity: Optional[_string]
+    Condition: Condition | None
+    EvaluationWaitTime: WaitTime | None
+    FalseActivity: _string | None
+    TrueActivity: _string | None
 
 
 class JourneyCustomMessage(TypedDict, total=False):
@@ -871,10 +871,10 @@ class JourneyCustomMessage(TypedDict, total=False):
     to participants in a journey.
     """
 
-    Data: Optional[_string]
+    Data: _string | None
 
 
-ListOf__EndpointTypesElement = List[_EndpointTypesElement]
+ListOf__EndpointTypesElement = list[_EndpointTypesElement]
 
 
 class CustomMessageActivity(TypedDict, total=False):
@@ -882,12 +882,12 @@ class CustomMessageActivity(TypedDict, total=False):
     an AWS Lambda function or web hook that sends messages to participants.
     """
 
-    DeliveryUri: Optional[_string]
-    EndpointTypes: Optional[ListOf__EndpointTypesElement]
-    MessageConfig: Optional[JourneyCustomMessage]
-    NextActivity: Optional[_string]
-    TemplateName: Optional[_string]
-    TemplateVersion: Optional[_string]
+    DeliveryUri: _string | None
+    EndpointTypes: ListOf__EndpointTypesElement | None
+    MessageConfig: JourneyCustomMessage | None
+    NextActivity: _string | None
+    TemplateName: _string | None
+    TemplateVersion: _string | None
 
 
 class Activity(TypedDict, total=False):
@@ -895,17 +895,17 @@ class Activity(TypedDict, total=False):
     journey.
     """
 
-    CUSTOM: Optional[CustomMessageActivity]
-    ConditionalSplit: Optional[ConditionalSplitActivity]
-    Description: Optional[_string]
-    EMAIL: Optional[EmailMessageActivity]
-    Holdout: Optional[HoldoutActivity]
-    MultiCondition: Optional[MultiConditionalSplitActivity]
-    PUSH: Optional[PushMessageActivity]
-    RandomSplit: Optional[RandomSplitActivity]
-    SMS: Optional[SMSMessageActivity]
-    Wait: Optional[WaitActivity]
-    ContactCenter: Optional[ContactCenterActivity]
+    CUSTOM: CustomMessageActivity | None
+    ConditionalSplit: ConditionalSplitActivity | None
+    Description: _string | None
+    EMAIL: EmailMessageActivity | None
+    Holdout: HoldoutActivity | None
+    MultiCondition: MultiConditionalSplitActivity | None
+    PUSH: PushMessageActivity | None
+    RandomSplit: RandomSplitActivity | None
+    SMS: SMSMessageActivity | None
+    Wait: WaitActivity | None
+    ContactCenter: ContactCenterActivity | None
 
 
 class AddressConfiguration(TypedDict, total=False):
@@ -913,12 +913,12 @@ class AddressConfiguration(TypedDict, total=False):
     directly to an endpoint.
     """
 
-    BodyOverride: Optional[_string]
-    ChannelType: Optional[ChannelType]
-    Context: Optional[MapOf__string]
-    RawContent: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    TitleOverride: Optional[_string]
+    BodyOverride: _string | None
+    ChannelType: ChannelType | None
+    Context: MapOf__string | None
+    RawContent: _string | None
+    Substitutions: MapOfListOf__string | None
+    TitleOverride: _string | None
 
 
 class AndroidPushNotificationTemplate(TypedDict, total=False):
@@ -928,15 +928,15 @@ class AndroidPushNotificationTemplate(TypedDict, total=False):
     Cloud Messaging, formerly Google Cloud Messaging) channel.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    ImageIconUrl: Optional[_string]
-    ImageUrl: Optional[_string]
-    RawContent: Optional[_string]
-    SmallImageIconUrl: Optional[_string]
-    Sound: Optional[_string]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    ImageIconUrl: _string | None
+    ImageUrl: _string | None
+    RawContent: _string | None
+    SmallImageIconUrl: _string | None
+    Sound: _string | None
+    Title: _string | None
+    Url: _string | None
 
 
 _timestampIso8601 = datetime
@@ -953,7 +953,7 @@ class ResultRowValue(TypedDict, total=False):
     Value: _string
 
 
-ListOfResultRowValue = List[ResultRowValue]
+ListOfResultRowValue = list[ResultRowValue]
 
 
 class ResultRow(TypedDict, total=False):
@@ -965,7 +965,7 @@ class ResultRow(TypedDict, total=False):
     Values: ListOfResultRowValue
 
 
-ListOfResultRow = List[ResultRow]
+ListOfResultRow = list[ResultRow]
 
 
 class BaseKpiResult(TypedDict, total=False):
@@ -986,7 +986,7 @@ class ApplicationDateRangeKpiResponse(TypedDict, total=False):
     EndTime: _timestampIso8601
     KpiName: _string
     KpiResult: BaseKpiResult
-    NextToken: Optional[_string]
+    NextToken: _string | None
     StartTime: _timestampIso8601
 
 
@@ -996,8 +996,8 @@ class ApplicationResponse(TypedDict, total=False):
     Arn: _string
     Id: _string
     Name: _string
-    tags: Optional[MapOf__string]
-    CreationDate: Optional[_string]
+    tags: MapOf__string | None
+    CreationDate: _string | None
 
 
 class JourneyTimeframeCap(TypedDict, total=False):
@@ -1005,8 +1005,8 @@ class JourneyTimeframeCap(TypedDict, total=False):
     specified timeframe for all journeys.
     """
 
-    Cap: Optional[_integer]
-    Days: Optional[_integer]
+    Cap: _integer | None
+    Days: _integer | None
 
 
 class ApplicationSettingsJourneyLimits(TypedDict, total=False):
@@ -1015,9 +1015,9 @@ class ApplicationSettingsJourneyLimits(TypedDict, total=False):
     Journey resource.
     """
 
-    DailyCap: Optional[_integer]
-    TimeframeCap: Optional[JourneyTimeframeCap]
-    TotalCap: Optional[_integer]
+    DailyCap: _integer | None
+    TimeframeCap: JourneyTimeframeCap | None
+    TotalCap: _integer | None
 
 
 class QuietTime(TypedDict, total=False):
@@ -1025,8 +1025,8 @@ class QuietTime(TypedDict, total=False):
     aren't sent to endpoints.
     """
 
-    End: Optional[_string]
-    Start: Optional[_string]
+    End: _string | None
+    Start: _string | None
 
 
 class CampaignLimits(TypedDict, total=False):
@@ -1035,11 +1035,11 @@ class CampaignLimits(TypedDict, total=False):
     campaigns in the application can send.
     """
 
-    Daily: Optional[_integer]
-    MaximumDuration: Optional[_integer]
-    MessagesPerSecond: Optional[_integer]
-    Total: Optional[_integer]
-    Session: Optional[_integer]
+    Daily: _integer | None
+    MaximumDuration: _integer | None
+    MessagesPerSecond: _integer | None
+    Total: _integer | None
+    Session: _integer | None
 
 
 class CampaignHook(TypedDict, total=False):
@@ -1047,9 +1047,9 @@ class CampaignHook(TypedDict, total=False):
     segment for a campaign.
     """
 
-    LambdaFunctionName: Optional[_string]
-    Mode: Optional[Mode]
-    WebUrl: Optional[_string]
+    LambdaFunctionName: _string | None
+    Mode: Mode | None
+    WebUrl: _string | None
 
 
 class ApplicationSettingsResource(TypedDict, total=False):
@@ -1058,21 +1058,21 @@ class ApplicationSettingsResource(TypedDict, total=False):
     """
 
     ApplicationId: _string
-    CampaignHook: Optional[CampaignHook]
-    LastModifiedDate: Optional[_string]
-    Limits: Optional[CampaignLimits]
-    QuietTime: Optional[QuietTime]
-    JourneyLimits: Optional[ApplicationSettingsJourneyLimits]
+    CampaignHook: CampaignHook | None
+    LastModifiedDate: _string | None
+    Limits: CampaignLimits | None
+    QuietTime: QuietTime | None
+    JourneyLimits: ApplicationSettingsJourneyLimits | None
 
 
-ListOfApplicationResponse = List[ApplicationResponse]
+ListOfApplicationResponse = list[ApplicationResponse]
 
 
 class ApplicationsResponse(TypedDict, total=False):
     """Provides information about all of your applications."""
 
-    Item: Optional[ListOfApplicationResponse]
-    NextToken: Optional[_string]
+    Item: ListOfApplicationResponse | None
+    NextToken: _string | None
 
 
 class AttributesResource(TypedDict, total=False):
@@ -1083,7 +1083,7 @@ class AttributesResource(TypedDict, total=False):
 
     ApplicationId: _string
     AttributeType: _string
-    Attributes: Optional[ListOf__string]
+    Attributes: ListOf__string | None
 
 
 class BaiduChannelRequest(TypedDict, total=False):
@@ -1092,7 +1092,7 @@ class BaiduChannelRequest(TypedDict, total=False):
     """
 
     ApiKey: _string
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
     SecretKey: _string
 
 
@@ -1101,17 +1101,17 @@ class BaiduChannelResponse(TypedDict, total=False):
     Cloud Push) channel for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
     Credential: _string
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class BaiduMessage(TypedDict, total=False):
@@ -1119,20 +1119,20 @@ class BaiduMessage(TypedDict, total=False):
     endpoint through the Baidu (Baidu Cloud Push) channel.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    Data: Optional[MapOf__string]
-    IconReference: Optional[_string]
-    ImageIconUrl: Optional[_string]
-    ImageUrl: Optional[_string]
-    RawContent: Optional[_string]
-    SilentPush: Optional[_boolean]
-    SmallImageIconUrl: Optional[_string]
-    Sound: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    TimeToLive: Optional[_integer]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    Data: MapOf__string | None
+    IconReference: _string | None
+    ImageIconUrl: _string | None
+    ImageUrl: _string | None
+    RawContent: _string | None
+    SilentPush: _boolean | None
+    SmallImageIconUrl: _string | None
+    Sound: _string | None
+    Substitutions: MapOfListOf__string | None
+    TimeToLive: _integer | None
+    Title: _string | None
+    Url: _string | None
 
 
 class CampaignCustomMessage(TypedDict, total=False):
@@ -1140,7 +1140,7 @@ class CampaignCustomMessage(TypedDict, total=False):
     to recipients of a campaign.
     """
 
-    Data: Optional[_string]
+    Data: _string | None
 
 
 class CampaignDateRangeKpiResponse(TypedDict, total=False):
@@ -1154,7 +1154,7 @@ class CampaignDateRangeKpiResponse(TypedDict, total=False):
     EndTime: _timestampIso8601
     KpiName: _string
     KpiResult: BaseKpiResult
-    NextToken: Optional[_string]
+    NextToken: _string | None
     StartTime: _timestampIso8601
 
 
@@ -1164,11 +1164,11 @@ class MessageHeader(TypedDict, total=False):
     information such as the sender, receiver, route, or timestamp.
     """
 
-    Name: Optional[_string]
-    Value: Optional[_string]
+    Name: _string | None
+    Value: _string | None
 
 
-ListOfMessageHeader = List[MessageHeader]
+ListOfMessageHeader = list[MessageHeader]
 
 
 class CampaignEmailMessage(TypedDict, total=False):
@@ -1176,11 +1176,11 @@ class CampaignEmailMessage(TypedDict, total=False):
     sent to recipients of a campaign.
     """
 
-    Body: Optional[_string]
-    FromAddress: Optional[_string]
-    Headers: Optional[ListOfMessageHeader]
-    HtmlBody: Optional[_string]
-    Title: Optional[_string]
+    Body: _string | None
+    FromAddress: _string | None
+    Headers: ListOfMessageHeader | None
+    HtmlBody: _string | None
+    Title: _string | None
 
 
 class CampaignEventFilter(TypedDict, total=False):
@@ -1194,27 +1194,27 @@ class OverrideButtonConfiguration(TypedDict, total=False):
     """Override button configuration."""
 
     ButtonAction: ButtonAction
-    Link: Optional[_string]
+    Link: _string | None
 
 
 class DefaultButtonConfiguration(TypedDict, total=False):
     """Default button configuration."""
 
-    BackgroundColor: Optional[_string]
-    BorderRadius: Optional[_integer]
+    BackgroundColor: _string | None
+    BorderRadius: _integer | None
     ButtonAction: ButtonAction
-    Link: Optional[_string]
+    Link: _string | None
     Text: _string
-    TextColor: Optional[_string]
+    TextColor: _string | None
 
 
 class InAppMessageButton(TypedDict, total=False):
     """Button Config for an in-app message."""
 
-    Android: Optional[OverrideButtonConfiguration]
-    DefaultConfig: Optional[DefaultButtonConfiguration]
-    IOS: Optional[OverrideButtonConfiguration]
-    Web: Optional[OverrideButtonConfiguration]
+    Android: OverrideButtonConfiguration | None
+    DefaultConfig: DefaultButtonConfiguration | None
+    IOS: OverrideButtonConfiguration | None
+    Web: OverrideButtonConfiguration | None
 
 
 class InAppMessageHeaderConfig(TypedDict, total=False):
@@ -1236,24 +1236,24 @@ class InAppMessageBodyConfig(TypedDict, total=False):
 class InAppMessageContent(TypedDict, total=False):
     """The configuration for the message content."""
 
-    BackgroundColor: Optional[_string]
-    BodyConfig: Optional[InAppMessageBodyConfig]
-    HeaderConfig: Optional[InAppMessageHeaderConfig]
-    ImageUrl: Optional[_string]
-    PrimaryBtn: Optional[InAppMessageButton]
-    SecondaryBtn: Optional[InAppMessageButton]
+    BackgroundColor: _string | None
+    BodyConfig: InAppMessageBodyConfig | None
+    HeaderConfig: InAppMessageHeaderConfig | None
+    ImageUrl: _string | None
+    PrimaryBtn: InAppMessageButton | None
+    SecondaryBtn: InAppMessageButton | None
 
 
-ListOfInAppMessageContent = List[InAppMessageContent]
+ListOfInAppMessageContent = list[InAppMessageContent]
 
 
 class CampaignInAppMessage(TypedDict, total=False):
     """In-app message configuration."""
 
-    Body: Optional[_string]
-    Content: Optional[ListOfInAppMessageContent]
-    CustomConfig: Optional[MapOf__string]
-    Layout: Optional[Layout]
+    Body: _string | None
+    Content: ListOfInAppMessageContent | None
+    CustomConfig: MapOf__string | None
+    Layout: Layout | None
 
 
 class Template(TypedDict, total=False):
@@ -1261,8 +1261,8 @@ class Template(TypedDict, total=False):
     message.
     """
 
-    Name: Optional[_string]
-    Version: Optional[_string]
+    Name: _string | None
+    Version: _string | None
 
 
 class TemplateConfiguration(TypedDict, total=False):
@@ -1270,29 +1270,29 @@ class TemplateConfiguration(TypedDict, total=False):
     channel.
     """
 
-    EmailTemplate: Optional[Template]
-    PushTemplate: Optional[Template]
-    SMSTemplate: Optional[Template]
-    VoiceTemplate: Optional[Template]
-    InAppTemplate: Optional[Template]
+    EmailTemplate: Template | None
+    PushTemplate: Template | None
+    SMSTemplate: Template | None
+    VoiceTemplate: Template | None
+    InAppTemplate: Template | None
 
 
 class CampaignState(TypedDict, total=False):
     """Provides information about the status of a campaign."""
 
-    CampaignStatus: Optional[CampaignStatus]
+    CampaignStatus: CampaignStatus | None
 
 
 class Schedule(TypedDict, total=False):
     """Specifies the schedule settings for a campaign."""
 
-    EndTime: Optional[_string]
-    EventFilter: Optional[CampaignEventFilter]
-    Frequency: Optional[Frequency]
-    IsLocalTime: Optional[_boolean]
-    QuietTime: Optional[QuietTime]
+    EndTime: _string | None
+    EventFilter: CampaignEventFilter | None
+    Frequency: Frequency | None
+    IsLocalTime: _boolean | None
+    QuietTime: QuietTime | None
     StartTime: _string
-    Timezone: Optional[_string]
+    Timezone: _string | None
 
 
 class CampaignSmsMessage(TypedDict, total=False):
@@ -1300,12 +1300,12 @@ class CampaignSmsMessage(TypedDict, total=False):
     recipients of a campaign.
     """
 
-    Body: Optional[_string]
-    MessageType: Optional[MessageType]
-    OriginationNumber: Optional[_string]
-    SenderId: Optional[_string]
-    EntityId: Optional[_string]
-    TemplateId: Optional[_string]
+    Body: _string | None
+    MessageType: MessageType | None
+    OriginationNumber: _string | None
+    SenderId: _string | None
+    EntityId: _string | None
+    TemplateId: _string | None
 
 
 class Message(TypedDict, total=False):
@@ -1313,32 +1313,32 @@ class Message(TypedDict, total=False):
     to recipients of a campaign.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    ImageIconUrl: Optional[_string]
-    ImageSmallIconUrl: Optional[_string]
-    ImageUrl: Optional[_string]
-    JsonBody: Optional[_string]
-    MediaUrl: Optional[_string]
-    RawContent: Optional[_string]
-    SilentPush: Optional[_boolean]
-    TimeToLive: Optional[_integer]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    ImageIconUrl: _string | None
+    ImageSmallIconUrl: _string | None
+    ImageUrl: _string | None
+    JsonBody: _string | None
+    MediaUrl: _string | None
+    RawContent: _string | None
+    SilentPush: _boolean | None
+    TimeToLive: _integer | None
+    Title: _string | None
+    Url: _string | None
 
 
 class MessageConfiguration(TypedDict, total=False):
     """Specifies the message configuration settings for a campaign."""
 
-    ADMMessage: Optional[Message]
-    APNSMessage: Optional[Message]
-    BaiduMessage: Optional[Message]
-    CustomMessage: Optional[CampaignCustomMessage]
-    DefaultMessage: Optional[Message]
-    EmailMessage: Optional[CampaignEmailMessage]
-    GCMMessage: Optional[Message]
-    SMSMessage: Optional[CampaignSmsMessage]
-    InAppMessage: Optional[CampaignInAppMessage]
+    ADMMessage: Message | None
+    APNSMessage: Message | None
+    BaiduMessage: Message | None
+    CustomMessage: CampaignCustomMessage | None
+    DefaultMessage: Message | None
+    EmailMessage: CampaignEmailMessage | None
+    GCMMessage: Message | None
+    SMSMessage: CampaignSmsMessage | None
+    InAppMessage: CampaignInAppMessage | None
 
 
 class CustomDeliveryConfiguration(TypedDict, total=False):
@@ -1349,7 +1349,7 @@ class CustomDeliveryConfiguration(TypedDict, total=False):
     """
 
     DeliveryUri: _string
-    EndpointTypes: Optional[ListOf__EndpointTypesElement]
+    EndpointTypes: ListOf__EndpointTypesElement | None
 
 
 class TreatmentResource(TypedDict, total=False):
@@ -1357,18 +1357,18 @@ class TreatmentResource(TypedDict, total=False):
     variation of a campaign that's used for A/B testing of a campaign.
     """
 
-    CustomDeliveryConfiguration: Optional[CustomDeliveryConfiguration]
+    CustomDeliveryConfiguration: CustomDeliveryConfiguration | None
     Id: _string
-    MessageConfiguration: Optional[MessageConfiguration]
-    Schedule: Optional[Schedule]
+    MessageConfiguration: MessageConfiguration | None
+    Schedule: Schedule | None
     SizePercent: _integer
-    State: Optional[CampaignState]
-    TemplateConfiguration: Optional[TemplateConfiguration]
-    TreatmentDescription: Optional[_string]
-    TreatmentName: Optional[_string]
+    State: CampaignState | None
+    TemplateConfiguration: TemplateConfiguration | None
+    TreatmentDescription: _string | None
+    TreatmentName: _string | None
 
 
-ListOfTreatmentResource = List[TreatmentResource]
+ListOfTreatmentResource = list[TreatmentResource]
 
 
 class CampaignResponse(TypedDict, total=False):
@@ -1376,34 +1376,34 @@ class CampaignResponse(TypedDict, total=False):
     for a campaign.
     """
 
-    AdditionalTreatments: Optional[ListOfTreatmentResource]
+    AdditionalTreatments: ListOfTreatmentResource | None
     ApplicationId: _string
     Arn: _string
     CreationDate: _string
-    CustomDeliveryConfiguration: Optional[CustomDeliveryConfiguration]
-    DefaultState: Optional[CampaignState]
-    Description: Optional[_string]
-    HoldoutPercent: Optional[_integer]
-    Hook: Optional[CampaignHook]
+    CustomDeliveryConfiguration: CustomDeliveryConfiguration | None
+    DefaultState: CampaignState | None
+    Description: _string | None
+    HoldoutPercent: _integer | None
+    Hook: CampaignHook | None
     Id: _string
-    IsPaused: Optional[_boolean]
+    IsPaused: _boolean | None
     LastModifiedDate: _string
-    Limits: Optional[CampaignLimits]
-    MessageConfiguration: Optional[MessageConfiguration]
-    Name: Optional[_string]
-    Schedule: Optional[Schedule]
+    Limits: CampaignLimits | None
+    MessageConfiguration: MessageConfiguration | None
+    Name: _string | None
+    Schedule: Schedule | None
     SegmentId: _string
     SegmentVersion: _integer
-    State: Optional[CampaignState]
-    tags: Optional[MapOf__string]
-    TemplateConfiguration: Optional[TemplateConfiguration]
-    TreatmentDescription: Optional[_string]
-    TreatmentName: Optional[_string]
-    Version: Optional[_integer]
-    Priority: Optional[_integer]
+    State: CampaignState | None
+    tags: MapOf__string | None
+    TemplateConfiguration: TemplateConfiguration | None
+    TreatmentDescription: _string | None
+    TreatmentName: _string | None
+    Version: _integer | None
+    Priority: _integer | None
 
 
-ListOfCampaignResponse = List[CampaignResponse]
+ListOfCampaignResponse = list[CampaignResponse]
 
 
 class CampaignsResponse(TypedDict, total=False):
@@ -1412,7 +1412,7 @@ class CampaignsResponse(TypedDict, total=False):
     """
 
     Item: ListOfCampaignResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class ChannelResponse(TypedDict, total=False):
@@ -1420,18 +1420,18 @@ class ChannelResponse(TypedDict, total=False):
     for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
-    Version: Optional[_integer]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
+    Version: _integer | None
 
 
-MapOfChannelResponse = Dict[_string, ChannelResponse]
+MapOfChannelResponse = dict[_string, ChannelResponse]
 
 
 class ChannelsResponse(TypedDict, total=False):
@@ -1449,7 +1449,7 @@ class CreateApplicationRequest(TypedDict, total=False):
     """
 
     Name: _string
-    tags: Optional[MapOf__string]
+    tags: MapOf__string | None
 
 
 class CreateAppRequest(ServiceRequest):
@@ -1465,38 +1465,38 @@ class WriteTreatmentResource(TypedDict, total=False):
     variation of a campaign that's used for A/B testing of a campaign.
     """
 
-    CustomDeliveryConfiguration: Optional[CustomDeliveryConfiguration]
-    MessageConfiguration: Optional[MessageConfiguration]
-    Schedule: Optional[Schedule]
+    CustomDeliveryConfiguration: CustomDeliveryConfiguration | None
+    MessageConfiguration: MessageConfiguration | None
+    Schedule: Schedule | None
     SizePercent: _integer
-    TemplateConfiguration: Optional[TemplateConfiguration]
-    TreatmentDescription: Optional[_string]
-    TreatmentName: Optional[_string]
+    TemplateConfiguration: TemplateConfiguration | None
+    TreatmentDescription: _string | None
+    TreatmentName: _string | None
 
 
-ListOfWriteTreatmentResource = List[WriteTreatmentResource]
+ListOfWriteTreatmentResource = list[WriteTreatmentResource]
 
 
 class WriteCampaignRequest(TypedDict, total=False):
     """Specifies the configuration and other settings for a campaign."""
 
-    AdditionalTreatments: Optional[ListOfWriteTreatmentResource]
-    CustomDeliveryConfiguration: Optional[CustomDeliveryConfiguration]
-    Description: Optional[_string]
-    HoldoutPercent: Optional[_integer]
-    Hook: Optional[CampaignHook]
-    IsPaused: Optional[_boolean]
-    Limits: Optional[CampaignLimits]
-    MessageConfiguration: Optional[MessageConfiguration]
-    Name: Optional[_string]
-    Schedule: Optional[Schedule]
-    SegmentId: Optional[_string]
-    SegmentVersion: Optional[_integer]
-    tags: Optional[MapOf__string]
-    TemplateConfiguration: Optional[TemplateConfiguration]
-    TreatmentDescription: Optional[_string]
-    TreatmentName: Optional[_string]
-    Priority: Optional[_integer]
+    AdditionalTreatments: ListOfWriteTreatmentResource | None
+    CustomDeliveryConfiguration: CustomDeliveryConfiguration | None
+    Description: _string | None
+    HoldoutPercent: _integer | None
+    Hook: CampaignHook | None
+    IsPaused: _boolean | None
+    Limits: CampaignLimits | None
+    MessageConfiguration: MessageConfiguration | None
+    Name: _string | None
+    Schedule: Schedule | None
+    SegmentId: _string | None
+    SegmentVersion: _integer | None
+    tags: MapOf__string | None
+    TemplateConfiguration: TemplateConfiguration | None
+    TreatmentDescription: _string | None
+    TreatmentName: _string | None
+    Priority: _integer | None
 
 
 class CreateCampaignRequest(ServiceRequest):
@@ -1513,14 +1513,14 @@ class EmailTemplateRequest(TypedDict, total=False):
     used in messages that are sent through the email channel.
     """
 
-    DefaultSubstitutions: Optional[_string]
-    HtmlPart: Optional[_string]
-    RecommenderId: Optional[_string]
-    Subject: Optional[_string]
-    Headers: Optional[ListOfMessageHeader]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
-    TextPart: Optional[_string]
+    DefaultSubstitutions: _string | None
+    HtmlPart: _string | None
+    RecommenderId: _string | None
+    Subject: _string | None
+    Headers: ListOfMessageHeader | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
+    TextPart: _string | None
 
 
 class CreateEmailTemplateRequest(ServiceRequest):
@@ -1531,9 +1531,9 @@ class CreateEmailTemplateRequest(ServiceRequest):
 class CreateTemplateMessageBody(TypedDict, total=False):
     """Provides information about a request to create a message template."""
 
-    Arn: Optional[_string]
-    Message: Optional[_string]
-    RequestID: Optional[_string]
+    Arn: _string | None
+    Message: _string | None
+    RequestID: _string | None
 
 
 class CreateEmailTemplateResponse(TypedDict, total=False):
@@ -1547,8 +1547,8 @@ class ExportJobRequest(TypedDict, total=False):
 
     RoleArn: _string
     S3UrlPrefix: _string
-    SegmentId: Optional[_string]
-    SegmentVersion: Optional[_integer]
+    SegmentId: _string | None
+    SegmentVersion: _integer | None
 
 
 class CreateExportJobRequest(ServiceRequest):
@@ -1566,8 +1566,8 @@ class ExportJobResource(TypedDict, total=False):
 
     RoleArn: _string
     S3UrlPrefix: _string
-    SegmentId: Optional[_string]
-    SegmentVersion: Optional[_integer]
+    SegmentId: _string | None
+    SegmentVersion: _integer | None
 
 
 class ExportJobResponse(TypedDict, total=False):
@@ -1579,17 +1579,17 @@ class ExportJobResponse(TypedDict, total=False):
     """
 
     ApplicationId: _string
-    CompletedPieces: Optional[_integer]
-    CompletionDate: Optional[_string]
+    CompletedPieces: _integer | None
+    CompletionDate: _string | None
     CreationDate: _string
     Definition: ExportJobResource
-    FailedPieces: Optional[_integer]
-    Failures: Optional[ListOf__string]
+    FailedPieces: _integer | None
+    Failures: ListOf__string | None
     Id: _string
     JobStatus: JobStatus
-    TotalFailures: Optional[_integer]
-    TotalPieces: Optional[_integer]
-    TotalProcessed: Optional[_integer]
+    TotalFailures: _integer | None
+    TotalPieces: _integer | None
+    TotalProcessed: _integer | None
     Type: _string
 
 
@@ -1602,14 +1602,14 @@ class ImportJobRequest(TypedDict, total=False):
     an Amazon Simple Storage Service (Amazon S3) bucket.
     """
 
-    DefineSegment: Optional[_boolean]
-    ExternalId: Optional[_string]
+    DefineSegment: _boolean | None
+    ExternalId: _string | None
     Format: Format
-    RegisterEndpoints: Optional[_boolean]
+    RegisterEndpoints: _boolean | None
     RoleArn: _string
     S3Url: _string
-    SegmentId: Optional[_string]
-    SegmentName: Optional[_string]
+    SegmentId: _string | None
+    SegmentName: _string | None
 
 
 class CreateImportJobRequest(ServiceRequest):
@@ -1624,14 +1624,14 @@ class ImportJobResource(TypedDict, total=False):
     from a computer by using the Amazon Pinpoint console.
     """
 
-    DefineSegment: Optional[_boolean]
-    ExternalId: Optional[_string]
+    DefineSegment: _boolean | None
+    ExternalId: _string | None
     Format: Format
-    RegisterEndpoints: Optional[_boolean]
+    RegisterEndpoints: _boolean | None
     RoleArn: _string
     S3Url: _string
-    SegmentId: Optional[_string]
-    SegmentName: Optional[_string]
+    SegmentId: _string | None
+    SegmentName: _string | None
 
 
 class ImportJobResponse(TypedDict, total=False):
@@ -1642,17 +1642,17 @@ class ImportJobResponse(TypedDict, total=False):
     """
 
     ApplicationId: _string
-    CompletedPieces: Optional[_integer]
-    CompletionDate: Optional[_string]
+    CompletedPieces: _integer | None
+    CompletionDate: _string | None
     CreationDate: _string
     Definition: ImportJobResource
-    FailedPieces: Optional[_integer]
-    Failures: Optional[ListOf__string]
+    FailedPieces: _integer | None
+    Failures: ListOf__string | None
     Id: _string
     JobStatus: JobStatus
-    TotalFailures: Optional[_integer]
-    TotalPieces: Optional[_integer]
-    TotalProcessed: Optional[_integer]
+    TotalFailures: _integer | None
+    TotalPieces: _integer | None
+    TotalProcessed: _integer | None
     Type: _string
 
 
@@ -1663,11 +1663,11 @@ class CreateImportJobResponse(TypedDict, total=False):
 class InAppTemplateRequest(TypedDict, total=False):
     """InApp Template Request."""
 
-    Content: Optional[ListOfInAppMessageContent]
-    CustomConfig: Optional[MapOf__string]
-    Layout: Optional[Layout]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    Content: ListOfInAppMessageContent | None
+    CustomConfig: MapOf__string | None
+    Layout: Layout | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
 
 
 class CreateInAppTemplateRequest(ServiceRequest):
@@ -1678,27 +1678,27 @@ class CreateInAppTemplateRequest(ServiceRequest):
 class TemplateCreateMessageBody(TypedDict, total=False):
     """Provides information about a request to create a message template."""
 
-    Arn: Optional[_string]
-    Message: Optional[_string]
-    RequestID: Optional[_string]
+    Arn: _string | None
+    Message: _string | None
+    RequestID: _string | None
 
 
 class CreateInAppTemplateResponse(TypedDict, total=False):
     TemplateCreateMessageBody: TemplateCreateMessageBody
 
 
-ListOf__TimezoneEstimationMethodsElement = List[_TimezoneEstimationMethodsElement]
+ListOf__TimezoneEstimationMethodsElement = list[_TimezoneEstimationMethodsElement]
 
 
 class ClosedDaysRule(TypedDict, total=False):
     """Specifies the rule settings for when messages can't be sent."""
 
-    Name: Optional[_string]
-    StartDateTime: Optional[_string]
-    EndDateTime: Optional[_string]
+    Name: _string | None
+    StartDateTime: _string | None
+    EndDateTime: _string | None
 
 
-ListOfClosedDaysRules = List[ClosedDaysRule]
+ListOfClosedDaysRules = list[ClosedDaysRule]
 
 
 class ClosedDays(TypedDict, total=False):
@@ -1706,39 +1706,39 @@ class ClosedDays(TypedDict, total=False):
     configured first and SendingSchedule should be set to true.
     """
 
-    EMAIL: Optional[ListOfClosedDaysRules]
-    SMS: Optional[ListOfClosedDaysRules]
-    PUSH: Optional[ListOfClosedDaysRules]
-    VOICE: Optional[ListOfClosedDaysRules]
-    CUSTOM: Optional[ListOfClosedDaysRules]
+    EMAIL: ListOfClosedDaysRules | None
+    SMS: ListOfClosedDaysRules | None
+    PUSH: ListOfClosedDaysRules | None
+    VOICE: ListOfClosedDaysRules | None
+    CUSTOM: ListOfClosedDaysRules | None
 
 
 class OpenHoursRule(TypedDict, total=False):
     """Specifies the start and end time for OpenHours."""
 
-    StartTime: Optional[_string]
-    EndTime: Optional[_string]
+    StartTime: _string | None
+    EndTime: _string | None
 
 
-ListOfOpenHoursRules = List[OpenHoursRule]
-MapOfListOfOpenHoursRules = Dict[DayOfWeek, ListOfOpenHoursRules]
+ListOfOpenHoursRules = list[OpenHoursRule]
+MapOfListOfOpenHoursRules = dict[DayOfWeek, ListOfOpenHoursRules]
 
 
 class OpenHours(TypedDict, total=False):
     """Specifies the times when message are allowed to be sent to endpoints."""
 
-    EMAIL: Optional[MapOfListOfOpenHoursRules]
-    SMS: Optional[MapOfListOfOpenHoursRules]
-    PUSH: Optional[MapOfListOfOpenHoursRules]
-    VOICE: Optional[MapOfListOfOpenHoursRules]
-    CUSTOM: Optional[MapOfListOfOpenHoursRules]
+    EMAIL: MapOfListOfOpenHoursRules | None
+    SMS: MapOfListOfOpenHoursRules | None
+    PUSH: MapOfListOfOpenHoursRules | None
+    VOICE: MapOfListOfOpenHoursRules | None
+    CUSTOM: MapOfListOfOpenHoursRules | None
 
 
 class JourneyChannelSettings(TypedDict, total=False):
     """The channel-specific configurations for the journey."""
 
-    ConnectCampaignArn: Optional[_string]
-    ConnectCampaignExecutionRoleArn: Optional[_string]
+    ConnectCampaignArn: _string | None
+    ConnectCampaignExecutionRoleArn: _string | None
 
 
 class EventFilter(TypedDict, total=False):
@@ -1755,8 +1755,8 @@ class EventStartCondition(TypedDict, total=False):
     start.
     """
 
-    EventFilter: Optional[EventFilter]
-    SegmentId: Optional[_string]
+    EventFilter: EventFilter | None
+    SegmentId: _string | None
 
 
 class StartCondition(TypedDict, total=False):
@@ -1765,17 +1765,17 @@ class StartCondition(TypedDict, total=False):
     journey.
     """
 
-    Description: Optional[_string]
-    EventStartCondition: Optional[EventStartCondition]
-    SegmentStartCondition: Optional[SegmentCondition]
+    Description: _string | None
+    EventStartCondition: EventStartCondition | None
+    SegmentStartCondition: SegmentCondition | None
 
 
 class JourneySchedule(TypedDict, total=False):
     """Specifies the schedule settings for a journey."""
 
-    EndTime: Optional[_timestampIso8601]
-    StartTime: Optional[_timestampIso8601]
-    Timezone: Optional[_string]
+    EndTime: _timestampIso8601 | None
+    StartTime: _timestampIso8601 | None
+    Timezone: _string | None
 
 
 class JourneyLimits(TypedDict, total=False):
@@ -1783,39 +1783,39 @@ class JourneyLimits(TypedDict, total=False):
     of times participants can enter a journey.
     """
 
-    DailyCap: Optional[_integer]
-    EndpointReentryCap: Optional[_integer]
-    MessagesPerSecond: Optional[_integer]
-    EndpointReentryInterval: Optional[_string]
-    TimeframeCap: Optional[JourneyTimeframeCap]
-    TotalCap: Optional[_integer]
+    DailyCap: _integer | None
+    EndpointReentryCap: _integer | None
+    MessagesPerSecond: _integer | None
+    EndpointReentryInterval: _string | None
+    TimeframeCap: JourneyTimeframeCap | None
+    TotalCap: _integer | None
 
 
-MapOfActivity = Dict[_string, Activity]
+MapOfActivity = dict[_string, Activity]
 
 
 class WriteJourneyRequest(TypedDict, total=False):
     """Specifies the configuration and other settings for a journey."""
 
-    Activities: Optional[MapOfActivity]
-    CreationDate: Optional[_string]
-    LastModifiedDate: Optional[_string]
-    Limits: Optional[JourneyLimits]
-    LocalTime: Optional[_boolean]
+    Activities: MapOfActivity | None
+    CreationDate: _string | None
+    LastModifiedDate: _string | None
+    Limits: JourneyLimits | None
+    LocalTime: _boolean | None
     Name: _string
-    QuietTime: Optional[QuietTime]
-    RefreshFrequency: Optional[_string]
-    Schedule: Optional[JourneySchedule]
-    StartActivity: Optional[_string]
-    StartCondition: Optional[StartCondition]
-    State: Optional[State]
-    WaitForQuietTime: Optional[_boolean]
-    RefreshOnSegmentUpdate: Optional[_boolean]
-    JourneyChannelSettings: Optional[JourneyChannelSettings]
-    SendingSchedule: Optional[_boolean]
-    OpenHours: Optional[OpenHours]
-    ClosedDays: Optional[ClosedDays]
-    TimezoneEstimationMethods: Optional[ListOf__TimezoneEstimationMethodsElement]
+    QuietTime: QuietTime | None
+    RefreshFrequency: _string | None
+    Schedule: JourneySchedule | None
+    StartActivity: _string | None
+    StartCondition: StartCondition | None
+    State: State | None
+    WaitForQuietTime: _boolean | None
+    RefreshOnSegmentUpdate: _boolean | None
+    JourneyChannelSettings: JourneyChannelSettings | None
+    SendingSchedule: _boolean | None
+    OpenHours: OpenHours | None
+    ClosedDays: ClosedDays | None
+    TimezoneEstimationMethods: ListOf__TimezoneEstimationMethodsElement | None
 
 
 class CreateJourneyRequest(ServiceRequest):
@@ -1828,28 +1828,28 @@ class JourneyResponse(TypedDict, total=False):
     for a journey.
     """
 
-    Activities: Optional[MapOfActivity]
+    Activities: MapOfActivity | None
     ApplicationId: _string
-    CreationDate: Optional[_string]
+    CreationDate: _string | None
     Id: _string
-    LastModifiedDate: Optional[_string]
-    Limits: Optional[JourneyLimits]
-    LocalTime: Optional[_boolean]
+    LastModifiedDate: _string | None
+    Limits: JourneyLimits | None
+    LocalTime: _boolean | None
     Name: _string
-    QuietTime: Optional[QuietTime]
-    RefreshFrequency: Optional[_string]
-    Schedule: Optional[JourneySchedule]
-    StartActivity: Optional[_string]
-    StartCondition: Optional[StartCondition]
-    State: Optional[State]
-    tags: Optional[MapOf__string]
-    WaitForQuietTime: Optional[_boolean]
-    RefreshOnSegmentUpdate: Optional[_boolean]
-    JourneyChannelSettings: Optional[JourneyChannelSettings]
-    SendingSchedule: Optional[_boolean]
-    OpenHours: Optional[OpenHours]
-    ClosedDays: Optional[ClosedDays]
-    TimezoneEstimationMethods: Optional[ListOf__TimezoneEstimationMethodsElement]
+    QuietTime: QuietTime | None
+    RefreshFrequency: _string | None
+    Schedule: JourneySchedule | None
+    StartActivity: _string | None
+    StartCondition: StartCondition | None
+    State: State | None
+    tags: MapOf__string | None
+    WaitForQuietTime: _boolean | None
+    RefreshOnSegmentUpdate: _boolean | None
+    JourneyChannelSettings: JourneyChannelSettings | None
+    SendingSchedule: _boolean | None
+    OpenHours: OpenHours | None
+    ClosedDays: ClosedDays | None
+    TimezoneEstimationMethods: ListOf__TimezoneEstimationMethodsElement | None
 
 
 class CreateJourneyResponse(TypedDict, total=False):
@@ -1862,11 +1862,11 @@ class DefaultPushNotificationTemplate(TypedDict, total=False):
     channel.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    Sound: Optional[_string]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    Sound: _string | None
+    Title: _string | None
+    Url: _string | None
 
 
 class PushNotificationTemplateRequest(TypedDict, total=False):
@@ -1874,15 +1874,15 @@ class PushNotificationTemplateRequest(TypedDict, total=False):
     used in messages that are sent through a push notification channel.
     """
 
-    ADM: Optional[AndroidPushNotificationTemplate]
-    APNS: Optional[APNSPushNotificationTemplate]
-    Baidu: Optional[AndroidPushNotificationTemplate]
-    Default: Optional[DefaultPushNotificationTemplate]
-    DefaultSubstitutions: Optional[_string]
-    GCM: Optional[AndroidPushNotificationTemplate]
-    RecommenderId: Optional[_string]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    ADM: AndroidPushNotificationTemplate | None
+    APNS: APNSPushNotificationTemplate | None
+    Baidu: AndroidPushNotificationTemplate | None
+    Default: DefaultPushNotificationTemplate | None
+    DefaultSubstitutions: _string | None
+    GCM: AndroidPushNotificationTemplate | None
+    RecommenderId: _string | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
 
 
 class CreatePushTemplateRequest(ServiceRequest):
@@ -1899,15 +1899,15 @@ class CreateRecommenderConfiguration(TypedDict, total=False):
     processing recommendation data from a recommender model.
     """
 
-    Attributes: Optional[MapOf__string]
-    Description: Optional[_string]
-    Name: Optional[_string]
-    RecommendationProviderIdType: Optional[_string]
+    Attributes: MapOf__string | None
+    Description: _string | None
+    Name: _string | None
+    RecommendationProviderIdType: _string | None
     RecommendationProviderRoleArn: _string
     RecommendationProviderUri: _string
-    RecommendationTransformerUri: Optional[_string]
-    RecommendationsDisplayName: Optional[_string]
-    RecommendationsPerMessage: Optional[_integer]
+    RecommendationTransformerUri: _string | None
+    RecommendationsDisplayName: _string | None
+    RecommendationsPerMessage: _integer | None
 
 
 class CreateRecommenderConfigurationRequest(ServiceRequest):
@@ -1919,18 +1919,18 @@ class RecommenderConfigurationResponse(TypedDict, total=False):
     retrieving and processing data from a recommender model.
     """
 
-    Attributes: Optional[MapOf__string]
+    Attributes: MapOf__string | None
     CreationDate: _string
-    Description: Optional[_string]
+    Description: _string | None
     Id: _string
     LastModifiedDate: _string
-    Name: Optional[_string]
-    RecommendationProviderIdType: Optional[_string]
+    Name: _string | None
+    RecommendationProviderIdType: _string | None
     RecommendationProviderRoleArn: _string
     RecommendationProviderUri: _string
-    RecommendationTransformerUri: Optional[_string]
-    RecommendationsDisplayName: Optional[_string]
-    RecommendationsPerMessage: Optional[_integer]
+    RecommendationTransformerUri: _string | None
+    RecommendationsDisplayName: _string | None
+    RecommendationsPerMessage: _integer | None
 
 
 class CreateRecommenderConfigurationResponse(TypedDict, total=False):
@@ -1941,11 +1941,11 @@ class SegmentReference(TypedDict, total=False):
     """Specifies the segment identifier and version of a segment."""
 
     Id: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
-ListOfSegmentReference = List[SegmentReference]
-ListOfSegmentDimensions = List[SegmentDimensions]
+ListOfSegmentReference = list[SegmentReference]
+ListOfSegmentDimensions = list[SegmentDimensions]
 
 
 class SegmentGroup(TypedDict, total=False):
@@ -1953,13 +1953,13 @@ class SegmentGroup(TypedDict, total=False):
     relationships between these base segments and dimensions.
     """
 
-    Dimensions: Optional[ListOfSegmentDimensions]
-    SourceSegments: Optional[ListOfSegmentReference]
-    SourceType: Optional[SourceType]
-    Type: Optional[Type]
+    Dimensions: ListOfSegmentDimensions | None
+    SourceSegments: ListOfSegmentReference | None
+    SourceType: SourceType | None
+    Type: Type | None
 
 
-ListOfSegmentGroup = List[SegmentGroup]
+ListOfSegmentGroup = list[SegmentGroup]
 
 
 class SegmentGroupList(TypedDict, total=False):
@@ -1967,8 +1967,8 @@ class SegmentGroupList(TypedDict, total=False):
     groups for a segment.
     """
 
-    Groups: Optional[ListOfSegmentGroup]
-    Include: Optional[Include]
+    Groups: ListOfSegmentGroup | None
+    Include: Include | None
 
 
 class WriteSegmentRequest(TypedDict, total=False):
@@ -1977,10 +1977,10 @@ class WriteSegmentRequest(TypedDict, total=False):
     a SegmentGroups object, but not both.
     """
 
-    Dimensions: Optional[SegmentDimensions]
-    Name: Optional[_string]
-    SegmentGroups: Optional[SegmentGroupList]
-    tags: Optional[MapOf__string]
+    Dimensions: SegmentDimensions | None
+    Name: _string | None
+    SegmentGroups: SegmentGroupList | None
+    tags: MapOf__string | None
 
 
 class CreateSegmentRequest(ServiceRequest):
@@ -1988,7 +1988,7 @@ class CreateSegmentRequest(ServiceRequest):
     WriteSegmentRequest: WriteSegmentRequest
 
 
-MapOf__integer = Dict[_string, _integer]
+MapOf__integer = dict[_string, _integer]
 
 
 class SegmentImportResource(TypedDict, total=False):
@@ -1997,7 +1997,7 @@ class SegmentImportResource(TypedDict, total=False):
     definitions.
     """
 
-    ChannelCounts: Optional[MapOf__integer]
+    ChannelCounts: MapOf__integer | None
     ExternalId: _string
     Format: Format
     RoleArn: _string
@@ -2013,15 +2013,15 @@ class SegmentResponse(TypedDict, total=False):
     ApplicationId: _string
     Arn: _string
     CreationDate: _string
-    Dimensions: Optional[SegmentDimensions]
+    Dimensions: SegmentDimensions | None
     Id: _string
-    ImportDefinition: Optional[SegmentImportResource]
-    LastModifiedDate: Optional[_string]
-    Name: Optional[_string]
-    SegmentGroups: Optional[SegmentGroupList]
+    ImportDefinition: SegmentImportResource | None
+    LastModifiedDate: _string | None
+    Name: _string | None
+    SegmentGroups: SegmentGroupList | None
     SegmentType: SegmentType
-    tags: Optional[MapOf__string]
-    Version: Optional[_integer]
+    tags: MapOf__string | None
+    Version: _integer | None
 
 
 class CreateSegmentResponse(TypedDict, total=False):
@@ -2033,11 +2033,11 @@ class SMSTemplateRequest(TypedDict, total=False):
     used in text messages that are sent through the SMS channel.
     """
 
-    Body: Optional[_string]
-    DefaultSubstitutions: Optional[_string]
-    RecommenderId: Optional[_string]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    Body: _string | None
+    DefaultSubstitutions: _string | None
+    RecommenderId: _string | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
 
 
 class CreateSmsTemplateRequest(ServiceRequest):
@@ -2054,12 +2054,12 @@ class VoiceTemplateRequest(TypedDict, total=False):
     used in messages that are sent through the voice channel.
     """
 
-    Body: Optional[_string]
-    DefaultSubstitutions: Optional[_string]
-    LanguageCode: Optional[_string]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
-    VoiceId: Optional[_string]
+    Body: _string | None
+    DefaultSubstitutions: _string | None
+    LanguageCode: _string | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
+    VoiceId: _string | None
 
 
 class CreateVoiceTemplateRequest(ServiceRequest):
@@ -2074,8 +2074,8 @@ class CreateVoiceTemplateResponse(TypedDict, total=False):
 class DefaultMessage(TypedDict, total=False):
     """Specifies the default message for all channels."""
 
-    Body: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
+    Body: _string | None
+    Substitutions: MapOfListOf__string | None
 
 
 class DefaultPushNotificationMessage(TypedDict, total=False):
@@ -2083,13 +2083,13 @@ class DefaultPushNotificationMessage(TypedDict, total=False):
     that's sent directly to an endpoint.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    Data: Optional[MapOf__string]
-    SilentPush: Optional[_boolean]
-    Substitutions: Optional[MapOfListOf__string]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    Data: MapOf__string | None
+    SilentPush: _boolean | None
+    Substitutions: MapOfListOf__string | None
+    Title: _string | None
+    Url: _string | None
 
 
 class DeleteAdmChannelRequest(ServiceRequest):
@@ -2166,22 +2166,22 @@ class EmailChannelResponse(TypedDict, total=False):
     for an application.
     """
 
-    ApplicationId: Optional[_string]
-    ConfigurationSet: Optional[_string]
-    CreationDate: Optional[_string]
-    Enabled: Optional[_boolean]
-    FromAddress: Optional[_string]
-    HasCredential: Optional[_boolean]
-    Id: Optional[_string]
-    Identity: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
-    MessagesPerSecond: Optional[_integer]
+    ApplicationId: _string | None
+    ConfigurationSet: _string | None
+    CreationDate: _string | None
+    Enabled: _boolean | None
+    FromAddress: _string | None
+    HasCredential: _boolean | None
+    Id: _string | None
+    Identity: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
+    MessagesPerSecond: _integer | None
     Platform: _string
-    RoleArn: Optional[_string]
-    OrchestrationSendingRoleArn: Optional[_string]
-    Version: Optional[_integer]
+    RoleArn: _string | None
+    OrchestrationSendingRoleArn: _string | None
+    Version: _integer | None
 
 
 class DeleteEmailChannelResponse(TypedDict, total=False):
@@ -2190,14 +2190,14 @@ class DeleteEmailChannelResponse(TypedDict, total=False):
 
 class DeleteEmailTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class MessageBody(TypedDict, total=False):
     """Provides information about an API request or response."""
 
-    Message: Optional[_string]
-    RequestID: Optional[_string]
+    Message: _string | None
+    RequestID: _string | None
 
 
 class DeleteEmailTemplateResponse(TypedDict, total=False):
@@ -2214,22 +2214,22 @@ class EndpointUser(TypedDict, total=False):
     associated with an endpoint.
     """
 
-    UserAttributes: Optional[MapOfListOf__string]
-    UserId: Optional[_string]
+    UserAttributes: MapOfListOf__string | None
+    UserId: _string | None
 
 
-MapOf__double = Dict[_string, _double]
+MapOf__double = dict[_string, _double]
 
 
 class EndpointLocation(TypedDict, total=False):
     """Specifies geographic information about an endpoint."""
 
-    City: Optional[_string]
-    Country: Optional[_string]
-    Latitude: Optional[_double]
-    Longitude: Optional[_double]
-    PostalCode: Optional[_string]
-    Region: Optional[_string]
+    City: _string | None
+    Country: _string | None
+    Latitude: _double | None
+    Longitude: _double | None
+    PostalCode: _string | None
+    Region: _string | None
 
 
 class EndpointDemographic(TypedDict, total=False):
@@ -2237,14 +2237,14 @@ class EndpointDemographic(TypedDict, total=False):
     applicable time zone and platform.
     """
 
-    AppVersion: Optional[_string]
-    Locale: Optional[_string]
-    Make: Optional[_string]
-    Model: Optional[_string]
-    ModelVersion: Optional[_string]
-    Platform: Optional[_string]
-    PlatformVersion: Optional[_string]
-    Timezone: Optional[_string]
+    AppVersion: _string | None
+    Locale: _string | None
+    Make: _string | None
+    Model: _string | None
+    ModelVersion: _string | None
+    Platform: _string | None
+    PlatformVersion: _string | None
+    Timezone: _string | None
 
 
 class EndpointResponse(TypedDict, total=False):
@@ -2252,21 +2252,21 @@ class EndpointResponse(TypedDict, total=False):
     endpoint.
     """
 
-    Address: Optional[_string]
-    ApplicationId: Optional[_string]
-    Attributes: Optional[MapOfListOf__string]
-    ChannelType: Optional[ChannelType]
-    CohortId: Optional[_string]
-    CreationDate: Optional[_string]
-    Demographic: Optional[EndpointDemographic]
-    EffectiveDate: Optional[_string]
-    EndpointStatus: Optional[_string]
-    Id: Optional[_string]
-    Location: Optional[EndpointLocation]
-    Metrics: Optional[MapOf__double]
-    OptOut: Optional[_string]
-    RequestId: Optional[_string]
-    User: Optional[EndpointUser]
+    Address: _string | None
+    ApplicationId: _string | None
+    Attributes: MapOfListOf__string | None
+    ChannelType: ChannelType | None
+    CohortId: _string | None
+    CreationDate: _string | None
+    Demographic: EndpointDemographic | None
+    EffectiveDate: _string | None
+    EndpointStatus: _string | None
+    Id: _string | None
+    Location: EndpointLocation | None
+    Metrics: MapOf__double | None
+    OptOut: _string | None
+    RequestId: _string | None
+    User: EndpointUser | None
 
 
 class DeleteEndpointResponse(TypedDict, total=False):
@@ -2284,9 +2284,9 @@ class EventStream(TypedDict, total=False):
 
     ApplicationId: _string
     DestinationStreamArn: _string
-    ExternalId: Optional[_string]
-    LastModifiedDate: Optional[_string]
-    LastUpdatedBy: Optional[_string]
+    ExternalId: _string | None
+    LastModifiedDate: _string | None
+    LastUpdatedBy: _string | None
     RoleArn: _string
 
 
@@ -2305,19 +2305,19 @@ class GCMChannelResponse(TypedDict, total=False):
     Google Cloud Messaging (GCM), service.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    Credential: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    HasFcmServiceCredentials: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    Credential: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    HasFcmServiceCredentials: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class DeleteGcmChannelResponse(TypedDict, total=False):
@@ -2326,7 +2326,7 @@ class DeleteGcmChannelResponse(TypedDict, total=False):
 
 class DeleteInAppTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class DeleteInAppTemplateResponse(TypedDict, total=False):
@@ -2344,7 +2344,7 @@ class DeleteJourneyResponse(TypedDict, total=False):
 
 class DeletePushTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class DeletePushTemplateResponse(TypedDict, total=False):
@@ -2377,20 +2377,20 @@ class SMSChannelResponse(TypedDict, total=False):
     for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    PromotionalMessagesPerSecond: Optional[_integer]
-    SenderId: Optional[_string]
-    ShortCode: Optional[_string]
-    TransactionalMessagesPerSecond: Optional[_integer]
-    Version: Optional[_integer]
+    PromotionalMessagesPerSecond: _integer | None
+    SenderId: _string | None
+    ShortCode: _string | None
+    TransactionalMessagesPerSecond: _integer | None
+    Version: _integer | None
 
 
 class DeleteSmsChannelResponse(TypedDict, total=False):
@@ -2399,7 +2399,7 @@ class DeleteSmsChannelResponse(TypedDict, total=False):
 
 class DeleteSmsTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class DeleteSmsTemplateResponse(TypedDict, total=False):
@@ -2411,7 +2411,7 @@ class DeleteUserEndpointsRequest(ServiceRequest):
     UserId: _string
 
 
-ListOfEndpointResponse = List[EndpointResponse]
+ListOfEndpointResponse = list[EndpointResponse]
 
 
 class EndpointsResponse(TypedDict, total=False):
@@ -2435,16 +2435,16 @@ class VoiceChannelResponse(TypedDict, total=False):
     for an application.
     """
 
-    ApplicationId: Optional[_string]
-    CreationDate: Optional[_string]
-    Enabled: Optional[_boolean]
-    HasCredential: Optional[_boolean]
-    Id: Optional[_string]
-    IsArchived: Optional[_boolean]
-    LastModifiedBy: Optional[_string]
-    LastModifiedDate: Optional[_string]
+    ApplicationId: _string | None
+    CreationDate: _string | None
+    Enabled: _boolean | None
+    HasCredential: _boolean | None
+    Id: _string | None
+    IsArchived: _boolean | None
+    LastModifiedBy: _string | None
+    LastModifiedDate: _string | None
     Platform: _string
-    Version: Optional[_integer]
+    Version: _integer | None
 
 
 class DeleteVoiceChannelResponse(TypedDict, total=False):
@@ -2453,7 +2453,7 @@ class DeleteVoiceChannelResponse(TypedDict, total=False):
 
 class DeleteVoiceTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class DeleteVoiceTemplateResponse(TypedDict, total=False):
@@ -2465,11 +2465,11 @@ class VoiceMessage(TypedDict, total=False):
     to an endpoint through the voice channel.
     """
 
-    Body: Optional[_string]
-    LanguageCode: Optional[_string]
-    OriginationNumber: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    VoiceId: Optional[_string]
+    Body: _string | None
+    LanguageCode: _string | None
+    OriginationNumber: _string | None
+    Substitutions: MapOfListOf__string | None
+    VoiceId: _string | None
 
 
 class SMSMessage(TypedDict, total=False):
@@ -2477,15 +2477,15 @@ class SMSMessage(TypedDict, total=False):
     directly to an endpoint.
     """
 
-    Body: Optional[_string]
-    Keyword: Optional[_string]
-    MediaUrl: Optional[_string]
-    MessageType: Optional[MessageType]
-    OriginationNumber: Optional[_string]
-    SenderId: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    EntityId: Optional[_string]
-    TemplateId: Optional[_string]
+    Body: _string | None
+    Keyword: _string | None
+    MediaUrl: _string | None
+    MessageType: MessageType | None
+    OriginationNumber: _string | None
+    SenderId: _string | None
+    Substitutions: MapOfListOf__string | None
+    EntityId: _string | None
+    TemplateId: _string | None
 
 
 class GCMMessage(TypedDict, total=False):
@@ -2495,24 +2495,24 @@ class GCMMessage(TypedDict, total=False):
     formerly Google Cloud Messaging (GCM), service.
     """
 
-    Action: Optional[Action]
-    Body: Optional[_string]
-    CollapseKey: Optional[_string]
-    Data: Optional[MapOf__string]
-    IconReference: Optional[_string]
-    ImageIconUrl: Optional[_string]
-    ImageUrl: Optional[_string]
-    PreferredAuthenticationMethod: Optional[_string]
-    Priority: Optional[_string]
-    RawContent: Optional[_string]
-    RestrictedPackageName: Optional[_string]
-    SilentPush: Optional[_boolean]
-    SmallImageIconUrl: Optional[_string]
-    Sound: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    TimeToLive: Optional[_integer]
-    Title: Optional[_string]
-    Url: Optional[_string]
+    Action: Action | None
+    Body: _string | None
+    CollapseKey: _string | None
+    Data: MapOf__string | None
+    IconReference: _string | None
+    ImageIconUrl: _string | None
+    ImageUrl: _string | None
+    PreferredAuthenticationMethod: _string | None
+    Priority: _string | None
+    RawContent: _string | None
+    RestrictedPackageName: _string | None
+    SilentPush: _boolean | None
+    SmallImageIconUrl: _string | None
+    Sound: _string | None
+    Substitutions: MapOfListOf__string | None
+    TimeToLive: _integer | None
+    Title: _string | None
+    Url: _string | None
 
 
 class SimpleEmailPart(TypedDict, total=False):
@@ -2520,8 +2520,8 @@ class SimpleEmailPart(TypedDict, total=False):
     textual email data and the applicable character set.
     """
 
-    Charset: Optional[_string]
-    Data: Optional[_string]
+    Charset: _string | None
+    Data: _string | None
 
 
 class SimpleEmail(TypedDict, total=False):
@@ -2529,10 +2529,10 @@ class SimpleEmail(TypedDict, total=False):
     text part, and an HTML part.
     """
 
-    HtmlPart: Optional[SimpleEmailPart]
-    Subject: Optional[SimpleEmailPart]
-    TextPart: Optional[SimpleEmailPart]
-    Headers: Optional[ListOfMessageHeader]
+    HtmlPart: SimpleEmailPart | None
+    Subject: SimpleEmailPart | None
+    TextPart: SimpleEmailPart | None
+    Headers: ListOfMessageHeader | None
 
 
 _blob = bytes
@@ -2543,7 +2543,7 @@ class RawEmail(TypedDict, total=False):
     message.
     """
 
-    Data: Optional[_blob]
+    Data: _blob | None
 
 
 class EmailMessage(TypedDict, total=False):
@@ -2551,13 +2551,13 @@ class EmailMessage(TypedDict, total=False):
     that's sent directly to an endpoint.
     """
 
-    Body: Optional[_string]
-    FeedbackForwardingAddress: Optional[_string]
-    FromAddress: Optional[_string]
-    RawEmail: Optional[RawEmail]
-    ReplyToAddresses: Optional[ListOf__string]
-    SimpleEmail: Optional[SimpleEmail]
-    Substitutions: Optional[MapOfListOf__string]
+    Body: _string | None
+    FeedbackForwardingAddress: _string | None
+    FromAddress: _string | None
+    RawEmail: RawEmail | None
+    ReplyToAddresses: ListOf__string | None
+    SimpleEmail: SimpleEmail | None
+    Substitutions: MapOfListOf__string | None
 
 
 class DirectMessageConfiguration(TypedDict, total=False):
@@ -2565,15 +2565,15 @@ class DirectMessageConfiguration(TypedDict, total=False):
     default messages that you tailored for specific channels.
     """
 
-    ADMMessage: Optional[ADMMessage]
-    APNSMessage: Optional[APNSMessage]
-    BaiduMessage: Optional[BaiduMessage]
-    DefaultMessage: Optional[DefaultMessage]
-    DefaultPushNotificationMessage: Optional[DefaultPushNotificationMessage]
-    EmailMessage: Optional[EmailMessage]
-    GCMMessage: Optional[GCMMessage]
-    SMSMessage: Optional[SMSMessage]
-    VoiceMessage: Optional[VoiceMessage]
+    ADMMessage: ADMMessage | None
+    APNSMessage: APNSMessage | None
+    BaiduMessage: BaiduMessage | None
+    DefaultMessage: DefaultMessage | None
+    DefaultPushNotificationMessage: DefaultPushNotificationMessage | None
+    EmailMessage: EmailMessage | None
+    GCMMessage: GCMMessage | None
+    SMSMessage: SMSMessage | None
+    VoiceMessage: VoiceMessage | None
 
 
 class EmailChannelRequest(TypedDict, total=False):
@@ -2581,12 +2581,12 @@ class EmailChannelRequest(TypedDict, total=False):
     application.
     """
 
-    ConfigurationSet: Optional[_string]
-    Enabled: Optional[_boolean]
+    ConfigurationSet: _string | None
+    Enabled: _boolean | None
     FromAddress: _string
     Identity: _string
-    RoleArn: Optional[_string]
-    OrchestrationSendingRoleArn: Optional[_string]
+    RoleArn: _string | None
+    OrchestrationSendingRoleArn: _string | None
 
 
 class EmailTemplateResponse(TypedDict, total=False):
@@ -2595,20 +2595,20 @@ class EmailTemplateResponse(TypedDict, total=False):
     channel.
     """
 
-    Arn: Optional[_string]
+    Arn: _string | None
     CreationDate: _string
-    DefaultSubstitutions: Optional[_string]
-    HtmlPart: Optional[_string]
+    DefaultSubstitutions: _string | None
+    HtmlPart: _string | None
     LastModifiedDate: _string
-    RecommenderId: Optional[_string]
-    Subject: Optional[_string]
-    Headers: Optional[ListOfMessageHeader]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    RecommenderId: _string | None
+    Subject: _string | None
+    Headers: ListOfMessageHeader | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: TemplateType
-    TextPart: Optional[_string]
-    Version: Optional[_string]
+    TextPart: _string | None
+    Version: _string | None
 
 
 class EndpointBatchItem(TypedDict, total=False):
@@ -2616,21 +2616,21 @@ class EndpointBatchItem(TypedDict, total=False):
     attributes to set or change for the endpoint.
     """
 
-    Address: Optional[_string]
-    Attributes: Optional[MapOfListOf__string]
-    ChannelType: Optional[ChannelType]
-    Demographic: Optional[EndpointDemographic]
-    EffectiveDate: Optional[_string]
-    EndpointStatus: Optional[_string]
-    Id: Optional[_string]
-    Location: Optional[EndpointLocation]
-    Metrics: Optional[MapOf__double]
-    OptOut: Optional[_string]
-    RequestId: Optional[_string]
-    User: Optional[EndpointUser]
+    Address: _string | None
+    Attributes: MapOfListOf__string | None
+    ChannelType: ChannelType | None
+    Demographic: EndpointDemographic | None
+    EffectiveDate: _string | None
+    EndpointStatus: _string | None
+    Id: _string | None
+    Location: EndpointLocation | None
+    Metrics: MapOf__double | None
+    OptOut: _string | None
+    RequestId: _string | None
+    User: EndpointUser | None
 
 
-ListOfEndpointBatchItem = List[EndpointBatchItem]
+ListOfEndpointBatchItem = list[EndpointBatchItem]
 
 
 class EndpointBatchRequest(TypedDict, total=False):
@@ -2646,8 +2646,8 @@ class EndpointItemResponse(TypedDict, total=False):
     for an endpoint.
     """
 
-    Message: Optional[_string]
-    StatusCode: Optional[_integer]
+    Message: _string | None
+    StatusCode: _integer | None
 
 
 class EndpointMessageResult(TypedDict, total=False):
@@ -2655,28 +2655,28 @@ class EndpointMessageResult(TypedDict, total=False):
     message directly to an endpoint.
     """
 
-    Address: Optional[_string]
+    Address: _string | None
     DeliveryStatus: DeliveryStatus
-    MessageId: Optional[_string]
+    MessageId: _string | None
     StatusCode: _integer
-    StatusMessage: Optional[_string]
-    UpdatedToken: Optional[_string]
+    StatusMessage: _string | None
+    UpdatedToken: _string | None
 
 
 class EndpointRequest(TypedDict, total=False):
     """Specifies the channel type and other settings for an endpoint."""
 
-    Address: Optional[_string]
-    Attributes: Optional[MapOfListOf__string]
-    ChannelType: Optional[ChannelType]
-    Demographic: Optional[EndpointDemographic]
-    EffectiveDate: Optional[_string]
-    EndpointStatus: Optional[_string]
-    Location: Optional[EndpointLocation]
-    Metrics: Optional[MapOf__double]
-    OptOut: Optional[_string]
-    RequestId: Optional[_string]
-    User: Optional[EndpointUser]
+    Address: _string | None
+    Attributes: MapOfListOf__string | None
+    ChannelType: ChannelType | None
+    Demographic: EndpointDemographic | None
+    EffectiveDate: _string | None
+    EndpointStatus: _string | None
+    Location: EndpointLocation | None
+    Metrics: MapOf__double | None
+    OptOut: _string | None
+    RequestId: _string | None
+    User: EndpointUser | None
 
 
 class EndpointSendConfiguration(TypedDict, total=False):
@@ -2684,20 +2684,20 @@ class EndpointSendConfiguration(TypedDict, total=False):
     use in a message that's sent directly to an endpoint.
     """
 
-    BodyOverride: Optional[_string]
-    Context: Optional[MapOf__string]
-    RawContent: Optional[_string]
-    Substitutions: Optional[MapOfListOf__string]
-    TitleOverride: Optional[_string]
+    BodyOverride: _string | None
+    Context: MapOf__string | None
+    RawContent: _string | None
+    Substitutions: MapOfListOf__string | None
+    TitleOverride: _string | None
 
 
 class Session(TypedDict, total=False):
     """Provides information about a session."""
 
-    Duration: Optional[_integer]
+    Duration: _integer | None
     Id: _string
     StartTimestamp: _string
-    StopTimestamp: Optional[_string]
+    StopTimestamp: _string | None
 
 
 class Event(TypedDict, total=False):
@@ -2705,15 +2705,15 @@ class Event(TypedDict, total=False):
     Pinpoint.
     """
 
-    AppPackageName: Optional[_string]
-    AppTitle: Optional[_string]
-    AppVersionCode: Optional[_string]
-    Attributes: Optional[MapOf__string]
-    ClientSdkVersion: Optional[_string]
+    AppPackageName: _string | None
+    AppTitle: _string | None
+    AppVersionCode: _string | None
+    Attributes: MapOf__string | None
+    ClientSdkVersion: _string | None
     EventType: _string
-    Metrics: Optional[MapOf__double]
-    SdkName: Optional[_string]
-    Session: Optional[Session]
+    Metrics: MapOf__double | None
+    SdkName: _string | None
+    Session: Session | None
     Timestamp: _string
 
 
@@ -2722,11 +2722,11 @@ class EventItemResponse(TypedDict, total=False):
     event.
     """
 
-    Message: Optional[_string]
-    StatusCode: Optional[_integer]
+    Message: _string | None
+    StatusCode: _integer | None
 
 
-MapOfEvent = Dict[_string, Event]
+MapOfEvent = dict[_string, Event]
 
 
 class PublicEndpoint(TypedDict, total=False):
@@ -2734,17 +2734,17 @@ class PublicEndpoint(TypedDict, total=False):
     with an event.
     """
 
-    Address: Optional[_string]
-    Attributes: Optional[MapOfListOf__string]
-    ChannelType: Optional[ChannelType]
-    Demographic: Optional[EndpointDemographic]
-    EffectiveDate: Optional[_string]
-    EndpointStatus: Optional[_string]
-    Location: Optional[EndpointLocation]
-    Metrics: Optional[MapOf__double]
-    OptOut: Optional[_string]
-    RequestId: Optional[_string]
-    User: Optional[EndpointUser]
+    Address: _string | None
+    Attributes: MapOfListOf__string | None
+    ChannelType: ChannelType | None
+    Demographic: EndpointDemographic | None
+    EffectiveDate: _string | None
+    EndpointStatus: _string | None
+    Location: EndpointLocation | None
+    Metrics: MapOf__double | None
+    OptOut: _string | None
+    RequestId: _string | None
+    User: EndpointUser | None
 
 
 class EventsBatch(TypedDict, total=False):
@@ -2754,7 +2754,7 @@ class EventsBatch(TypedDict, total=False):
     Events: MapOfEvent
 
 
-MapOfEventsBatch = Dict[_string, EventsBatch]
+MapOfEventsBatch = dict[_string, EventsBatch]
 
 
 class EventsRequest(TypedDict, total=False):
@@ -2763,7 +2763,7 @@ class EventsRequest(TypedDict, total=False):
     BatchItem: MapOfEventsBatch
 
 
-MapOfEventItemResponse = Dict[_string, EventItemResponse]
+MapOfEventItemResponse = dict[_string, EventItemResponse]
 
 
 class ItemResponse(TypedDict, total=False):
@@ -2771,11 +2771,11 @@ class ItemResponse(TypedDict, total=False):
     an endpoint that's associated with an event.
     """
 
-    EndpointItemResponse: Optional[EndpointItemResponse]
-    EventsItemResponse: Optional[MapOfEventItemResponse]
+    EndpointItemResponse: EndpointItemResponse | None
+    EventsItemResponse: MapOfEventItemResponse | None
 
 
-MapOfItemResponse = Dict[_string, ItemResponse]
+MapOfItemResponse = dict[_string, ItemResponse]
 
 
 class EventsResponse(TypedDict, total=False):
@@ -2783,10 +2783,10 @@ class EventsResponse(TypedDict, total=False):
     associated with.
     """
 
-    Results: Optional[MapOfItemResponse]
+    Results: MapOfItemResponse | None
 
 
-ListOfExportJobResponse = List[ExportJobResponse]
+ListOfExportJobResponse = list[ExportJobResponse]
 
 
 class ExportJobsResponse(TypedDict, total=False):
@@ -2796,7 +2796,7 @@ class ExportJobsResponse(TypedDict, total=False):
     """
 
     Item: ListOfExportJobResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class GCMChannelRequest(TypedDict, total=False):
@@ -2806,10 +2806,10 @@ class GCMChannelRequest(TypedDict, total=False):
     (GCM), service.
     """
 
-    ApiKey: Optional[_string]
-    DefaultAuthenticationMethod: Optional[_string]
-    Enabled: Optional[_boolean]
-    ServiceJson: Optional[_string]
+    ApiKey: _string | None
+    DefaultAuthenticationMethod: _string | None
+    Enabled: _boolean | None
+    ServiceJson: _string | None
 
 
 class GetAdmChannelRequest(ServiceRequest):
@@ -2862,11 +2862,11 @@ class GetAppResponse(TypedDict, total=False):
 
 class GetApplicationDateRangeKpiRequest(ServiceRequest):
     ApplicationId: _string
-    EndTime: Optional[_timestampIso8601]
+    EndTime: _timestampIso8601 | None
     KpiName: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
-    StartTime: Optional[_timestampIso8601]
+    NextToken: _string | None
+    PageSize: _string | None
+    StartTime: _timestampIso8601 | None
 
 
 class GetApplicationDateRangeKpiResponse(TypedDict, total=False):
@@ -2882,8 +2882,8 @@ class GetApplicationSettingsResponse(TypedDict, total=False):
 
 
 class GetAppsRequest(ServiceRequest):
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class GetAppsResponse(TypedDict, total=False):
@@ -2901,8 +2901,8 @@ class GetBaiduChannelResponse(TypedDict, total=False):
 class GetCampaignActivitiesRequest(ServiceRequest):
     ApplicationId: _string
     CampaignId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class GetCampaignActivitiesResponse(TypedDict, total=False):
@@ -2912,11 +2912,11 @@ class GetCampaignActivitiesResponse(TypedDict, total=False):
 class GetCampaignDateRangeKpiRequest(ServiceRequest):
     ApplicationId: _string
     CampaignId: _string
-    EndTime: Optional[_timestampIso8601]
+    EndTime: _timestampIso8601 | None
     KpiName: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
-    StartTime: Optional[_timestampIso8601]
+    NextToken: _string | None
+    PageSize: _string | None
+    StartTime: _timestampIso8601 | None
 
 
 class GetCampaignDateRangeKpiResponse(TypedDict, total=False):
@@ -2945,8 +2945,8 @@ class GetCampaignVersionResponse(TypedDict, total=False):
 class GetCampaignVersionsRequest(ServiceRequest):
     ApplicationId: _string
     CampaignId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class GetCampaignVersionsResponse(TypedDict, total=False):
@@ -2955,8 +2955,8 @@ class GetCampaignVersionsResponse(TypedDict, total=False):
 
 class GetCampaignsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class GetCampaignsResponse(TypedDict, total=False):
@@ -2981,7 +2981,7 @@ class GetEmailChannelResponse(TypedDict, total=False):
 
 class GetEmailTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class GetEmailTemplateResponse(TypedDict, total=False):
@@ -3016,8 +3016,8 @@ class GetExportJobResponse(TypedDict, total=False):
 
 class GetExportJobsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class GetExportJobsResponse(TypedDict, total=False):
@@ -3043,11 +3043,11 @@ class GetImportJobResponse(TypedDict, total=False):
 
 class GetImportJobsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
-ListOfImportJobResponse = List[ImportJobResponse]
+ListOfImportJobResponse = list[ImportJobResponse]
 
 
 class ImportJobsResponse(TypedDict, total=False):
@@ -3057,7 +3057,7 @@ class ImportJobsResponse(TypedDict, total=False):
     """
 
     Item: ListOfImportJobResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class GetImportJobsResponse(TypedDict, total=False):
@@ -3072,39 +3072,39 @@ class GetInAppMessagesRequest(ServiceRequest):
 class InAppCampaignSchedule(TypedDict, total=False):
     """Schedule of the campaign."""
 
-    EndDate: Optional[_string]
-    EventFilter: Optional[CampaignEventFilter]
-    QuietTime: Optional[QuietTime]
+    EndDate: _string | None
+    EventFilter: CampaignEventFilter | None
+    QuietTime: QuietTime | None
 
 
 class InAppMessage(TypedDict, total=False):
     """Provides all fields required for building an in-app message."""
 
-    Content: Optional[ListOfInAppMessageContent]
-    CustomConfig: Optional[MapOf__string]
-    Layout: Optional[Layout]
+    Content: ListOfInAppMessageContent | None
+    CustomConfig: MapOf__string | None
+    Layout: Layout | None
 
 
 class InAppMessageCampaign(TypedDict, total=False):
     """Targeted in-app message campaign."""
 
-    CampaignId: Optional[_string]
-    DailyCap: Optional[_integer]
-    InAppMessage: Optional[InAppMessage]
-    Priority: Optional[_integer]
-    Schedule: Optional[InAppCampaignSchedule]
-    SessionCap: Optional[_integer]
-    TotalCap: Optional[_integer]
-    TreatmentId: Optional[_string]
+    CampaignId: _string | None
+    DailyCap: _integer | None
+    InAppMessage: InAppMessage | None
+    Priority: _integer | None
+    Schedule: InAppCampaignSchedule | None
+    SessionCap: _integer | None
+    TotalCap: _integer | None
+    TreatmentId: _string | None
 
 
-ListOfInAppMessageCampaign = List[InAppMessageCampaign]
+ListOfInAppMessageCampaign = list[InAppMessageCampaign]
 
 
 class InAppMessagesResponse(TypedDict, total=False):
     """Get in-app messages response object."""
 
-    InAppMessageCampaigns: Optional[ListOfInAppMessageCampaign]
+    InAppMessageCampaigns: ListOfInAppMessageCampaign | None
 
 
 class GetInAppMessagesResponse(TypedDict, total=False):
@@ -3113,23 +3113,23 @@ class GetInAppMessagesResponse(TypedDict, total=False):
 
 class GetInAppTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class InAppTemplateResponse(TypedDict, total=False):
     """In-App Template Response."""
 
-    Arn: Optional[_string]
-    Content: Optional[ListOfInAppMessageContent]
+    Arn: _string | None
+    Content: ListOfInAppMessageContent | None
     CreationDate: _string
-    CustomConfig: Optional[MapOf__string]
+    CustomConfig: MapOf__string | None
     LastModifiedDate: _string
-    Layout: Optional[Layout]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    Layout: Layout | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: TemplateType
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class GetInAppTemplateResponse(TypedDict, total=False):
@@ -3138,12 +3138,12 @@ class GetInAppTemplateResponse(TypedDict, total=False):
 
 class GetJourneyDateRangeKpiRequest(ServiceRequest):
     ApplicationId: _string
-    EndTime: Optional[_timestampIso8601]
+    EndTime: _timestampIso8601 | None
     JourneyId: _string
     KpiName: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
-    StartTime: Optional[_timestampIso8601]
+    NextToken: _string | None
+    PageSize: _string | None
+    StartTime: _timestampIso8601 | None
 
 
 class JourneyDateRangeKpiResponse(TypedDict, total=False):
@@ -3157,7 +3157,7 @@ class JourneyDateRangeKpiResponse(TypedDict, total=False):
     JourneyId: _string
     KpiName: _string
     KpiResult: BaseKpiResult
-    NextToken: Optional[_string]
+    NextToken: _string | None
     StartTime: _timestampIso8601
 
 
@@ -3169,8 +3169,8 @@ class GetJourneyExecutionActivityMetricsRequest(ServiceRequest):
     ApplicationId: _string
     JourneyActivityId: _string
     JourneyId: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
+    NextToken: _string | None
+    PageSize: _string | None
 
 
 class JourneyExecutionActivityMetricsResponse(TypedDict, total=False):
@@ -3194,8 +3194,8 @@ class GetJourneyExecutionActivityMetricsResponse(TypedDict, total=False):
 class GetJourneyExecutionMetricsRequest(ServiceRequest):
     ApplicationId: _string
     JourneyId: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
+    NextToken: _string | None
+    PageSize: _string | None
 
 
 class JourneyExecutionMetricsResponse(TypedDict, total=False):
@@ -3227,8 +3227,8 @@ class GetJourneyRunExecutionActivityMetricsRequest(ServiceRequest):
     ApplicationId: _string
     JourneyActivityId: _string
     JourneyId: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
+    NextToken: _string | None
+    PageSize: _string | None
     RunId: _string
 
 
@@ -3254,8 +3254,8 @@ class GetJourneyRunExecutionActivityMetricsResponse(TypedDict, total=False):
 class GetJourneyRunExecutionMetricsRequest(ServiceRequest):
     ApplicationId: _string
     JourneyId: _string
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
+    NextToken: _string | None
+    PageSize: _string | None
     RunId: _string
 
 
@@ -3279,8 +3279,8 @@ class GetJourneyRunExecutionMetricsResponse(TypedDict, total=False):
 class GetJourneyRunsRequest(ServiceRequest):
     ApplicationId: _string
     JourneyId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class JourneyRunResponse(TypedDict, total=False):
@@ -3292,14 +3292,14 @@ class JourneyRunResponse(TypedDict, total=False):
     Status: JourneyRunStatus
 
 
-ListOfJourneyRunResponse = List[JourneyRunResponse]
+ListOfJourneyRunResponse = list[JourneyRunResponse]
 
 
 class JourneyRunsResponse(TypedDict, total=False):
     """Provides information from all runs of a journey."""
 
     Item: ListOfJourneyRunResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class GetJourneyRunsResponse(TypedDict, total=False):
@@ -3308,7 +3308,7 @@ class GetJourneyRunsResponse(TypedDict, total=False):
 
 class GetPushTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class PushNotificationTemplateResponse(TypedDict, total=False):
@@ -3317,21 +3317,21 @@ class PushNotificationTemplateResponse(TypedDict, total=False):
     notification channel.
     """
 
-    ADM: Optional[AndroidPushNotificationTemplate]
-    APNS: Optional[APNSPushNotificationTemplate]
-    Arn: Optional[_string]
-    Baidu: Optional[AndroidPushNotificationTemplate]
+    ADM: AndroidPushNotificationTemplate | None
+    APNS: APNSPushNotificationTemplate | None
+    Arn: _string | None
+    Baidu: AndroidPushNotificationTemplate | None
     CreationDate: _string
-    Default: Optional[DefaultPushNotificationTemplate]
-    DefaultSubstitutions: Optional[_string]
-    GCM: Optional[AndroidPushNotificationTemplate]
+    Default: DefaultPushNotificationTemplate | None
+    DefaultSubstitutions: _string | None
+    GCM: AndroidPushNotificationTemplate | None
     LastModifiedDate: _string
-    RecommenderId: Optional[_string]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    RecommenderId: _string | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: TemplateType
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class GetPushTemplateResponse(TypedDict, total=False):
@@ -3347,11 +3347,11 @@ class GetRecommenderConfigurationResponse(TypedDict, total=False):
 
 
 class GetRecommenderConfigurationsRequest(ServiceRequest):
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
-ListOfRecommenderConfigurationResponse = List[RecommenderConfigurationResponse]
+ListOfRecommenderConfigurationResponse = list[RecommenderConfigurationResponse]
 
 
 class ListRecommenderConfigurationsResponse(TypedDict, total=False):
@@ -3360,7 +3360,7 @@ class ListRecommenderConfigurationsResponse(TypedDict, total=False):
     """
 
     Item: ListOfRecommenderConfigurationResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class GetRecommenderConfigurationsResponse(TypedDict, total=False):
@@ -3369,9 +3369,9 @@ class GetRecommenderConfigurationsResponse(TypedDict, total=False):
 
 class GetSegmentExportJobsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
+    PageSize: _string | None
     SegmentId: _string
-    Token: Optional[_string]
+    Token: _string | None
 
 
 class GetSegmentExportJobsResponse(TypedDict, total=False):
@@ -3380,9 +3380,9 @@ class GetSegmentExportJobsResponse(TypedDict, total=False):
 
 class GetSegmentImportJobsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
+    PageSize: _string | None
     SegmentId: _string
-    Token: Optional[_string]
+    Token: _string | None
 
 
 class GetSegmentImportJobsResponse(TypedDict, total=False):
@@ -3410,12 +3410,12 @@ class GetSegmentVersionResponse(TypedDict, total=False):
 
 class GetSegmentVersionsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
+    PageSize: _string | None
     SegmentId: _string
-    Token: Optional[_string]
+    Token: _string | None
 
 
-ListOfSegmentResponse = List[SegmentResponse]
+ListOfSegmentResponse = list[SegmentResponse]
 
 
 class SegmentsResponse(TypedDict, total=False):
@@ -3424,7 +3424,7 @@ class SegmentsResponse(TypedDict, total=False):
     """
 
     Item: ListOfSegmentResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class GetSegmentVersionsResponse(TypedDict, total=False):
@@ -3433,8 +3433,8 @@ class GetSegmentVersionsResponse(TypedDict, total=False):
 
 class GetSegmentsRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class GetSegmentsResponse(TypedDict, total=False):
@@ -3451,7 +3451,7 @@ class GetSmsChannelResponse(TypedDict, total=False):
 
 class GetSmsTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class SMSTemplateResponse(TypedDict, total=False):
@@ -3460,17 +3460,17 @@ class SMSTemplateResponse(TypedDict, total=False):
     channel.
     """
 
-    Arn: Optional[_string]
-    Body: Optional[_string]
+    Arn: _string | None
+    Body: _string | None
     CreationDate: _string
-    DefaultSubstitutions: Optional[_string]
+    DefaultSubstitutions: _string | None
     LastModifiedDate: _string
-    RecommenderId: Optional[_string]
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    RecommenderId: _string | None
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: TemplateType
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class GetSmsTemplateResponse(TypedDict, total=False):
@@ -3496,7 +3496,7 @@ class GetVoiceChannelResponse(TypedDict, total=False):
 
 class GetVoiceTemplateRequest(ServiceRequest):
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class VoiceTemplateResponse(TypedDict, total=False):
@@ -3505,18 +3505,18 @@ class VoiceTemplateResponse(TypedDict, total=False):
     channel.
     """
 
-    Arn: Optional[_string]
-    Body: Optional[_string]
+    Arn: _string | None
+    Body: _string | None
     CreationDate: _string
-    DefaultSubstitutions: Optional[_string]
-    LanguageCode: Optional[_string]
+    DefaultSubstitutions: _string | None
+    LanguageCode: _string | None
     LastModifiedDate: _string
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: TemplateType
-    Version: Optional[_string]
-    VoiceId: Optional[_string]
+    Version: _string | None
+    VoiceId: _string | None
 
 
 class GetVoiceTemplateResponse(TypedDict, total=False):
@@ -3526,10 +3526,10 @@ class GetVoiceTemplateResponse(TypedDict, total=False):
 class JourneyStateRequest(TypedDict, total=False):
     """Changes the status of a journey."""
 
-    State: Optional[State]
+    State: State | None
 
 
-ListOfJourneyResponse = List[JourneyResponse]
+ListOfJourneyResponse = list[JourneyResponse]
 
 
 class JourneysResponse(TypedDict, total=False):
@@ -3538,13 +3538,13 @@ class JourneysResponse(TypedDict, total=False):
     """
 
     Item: ListOfJourneyResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class ListJourneysRequest(ServiceRequest):
     ApplicationId: _string
-    PageSize: Optional[_string]
-    Token: Optional[_string]
+    PageSize: _string | None
+    Token: _string | None
 
 
 class ListJourneysResponse(TypedDict, total=False):
@@ -3568,8 +3568,8 @@ class ListTagsForResourceResponse(TypedDict, total=False):
 
 
 class ListTemplateVersionsRequest(ServiceRequest):
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
+    NextToken: _string | None
+    PageSize: _string | None
     TemplateName: _string
     TemplateType: _string
 
@@ -3578,15 +3578,15 @@ class TemplateVersionResponse(TypedDict, total=False):
     """Provides information about a specific version of a message template."""
 
     CreationDate: _string
-    DefaultSubstitutions: Optional[_string]
+    DefaultSubstitutions: _string | None
     LastModifiedDate: _string
-    TemplateDescription: Optional[_string]
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
-ListOfTemplateVersionResponse = List[TemplateVersionResponse]
+ListOfTemplateVersionResponse = list[TemplateVersionResponse]
 
 
 class TemplateVersionsResponse(TypedDict, total=False):
@@ -3595,9 +3595,9 @@ class TemplateVersionsResponse(TypedDict, total=False):
     """
 
     Item: ListOfTemplateVersionResponse
-    Message: Optional[_string]
-    NextToken: Optional[_string]
-    RequestID: Optional[_string]
+    Message: _string | None
+    NextToken: _string | None
+    RequestID: _string | None
 
 
 class ListTemplateVersionsResponse(TypedDict, total=False):
@@ -3605,10 +3605,10 @@ class ListTemplateVersionsResponse(TypedDict, total=False):
 
 
 class ListTemplatesRequest(ServiceRequest):
-    NextToken: Optional[_string]
-    PageSize: Optional[_string]
-    Prefix: Optional[_string]
-    TemplateType: Optional[_string]
+    NextToken: _string | None
+    PageSize: _string | None
+    Prefix: _string | None
+    TemplateType: _string | None
 
 
 class TemplateResponse(TypedDict, total=False):
@@ -3616,18 +3616,18 @@ class TemplateResponse(TypedDict, total=False):
     your Amazon Pinpoint account.
     """
 
-    Arn: Optional[_string]
+    Arn: _string | None
     CreationDate: _string
-    DefaultSubstitutions: Optional[_string]
+    DefaultSubstitutions: _string | None
     LastModifiedDate: _string
-    tags: Optional[MapOf__string]
-    TemplateDescription: Optional[_string]
+    tags: MapOf__string | None
+    TemplateDescription: _string | None
     TemplateName: _string
     TemplateType: TemplateType
-    Version: Optional[_string]
+    Version: _string | None
 
 
-ListOfTemplateResponse = List[TemplateResponse]
+ListOfTemplateResponse = list[TemplateResponse]
 
 
 class TemplatesResponse(TypedDict, total=False):
@@ -3636,26 +3636,26 @@ class TemplatesResponse(TypedDict, total=False):
     """
 
     Item: ListOfTemplateResponse
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 class ListTemplatesResponse(TypedDict, total=False):
     TemplatesResponse: TemplatesResponse
 
 
-MapOfEndpointSendConfiguration = Dict[_string, EndpointSendConfiguration]
-MapOfAddressConfiguration = Dict[_string, AddressConfiguration]
+MapOfEndpointSendConfiguration = dict[_string, EndpointSendConfiguration]
+MapOfAddressConfiguration = dict[_string, AddressConfiguration]
 
 
 class MessageRequest(TypedDict, total=False):
     """Specifies the configuration and other settings for a message."""
 
-    Addresses: Optional[MapOfAddressConfiguration]
-    Context: Optional[MapOf__string]
-    Endpoints: Optional[MapOfEndpointSendConfiguration]
+    Addresses: MapOfAddressConfiguration | None
+    Context: MapOf__string | None
+    Endpoints: MapOfEndpointSendConfiguration | None
     MessageConfiguration: DirectMessageConfiguration
-    TemplateConfiguration: Optional[TemplateConfiguration]
-    TraceId: Optional[_string]
+    TemplateConfiguration: TemplateConfiguration | None
+    TraceId: _string | None
 
 
 class MessageResult(TypedDict, total=False):
@@ -3664,14 +3664,14 @@ class MessageResult(TypedDict, total=False):
     """
 
     DeliveryStatus: DeliveryStatus
-    MessageId: Optional[_string]
+    MessageId: _string | None
     StatusCode: _integer
-    StatusMessage: Optional[_string]
-    UpdatedToken: Optional[_string]
+    StatusMessage: _string | None
+    UpdatedToken: _string | None
 
 
-MapOfMessageResult = Dict[_string, MessageResult]
-MapOfEndpointMessageResult = Dict[_string, EndpointMessageResult]
+MapOfMessageResult = dict[_string, MessageResult]
+MapOfEndpointMessageResult = dict[_string, EndpointMessageResult]
 
 
 class MessageResponse(TypedDict, total=False):
@@ -3680,35 +3680,35 @@ class MessageResponse(TypedDict, total=False):
     """
 
     ApplicationId: _string
-    EndpointResult: Optional[MapOfEndpointMessageResult]
-    RequestId: Optional[_string]
-    Result: Optional[MapOfMessageResult]
+    EndpointResult: MapOfEndpointMessageResult | None
+    RequestId: _string | None
+    Result: MapOfMessageResult | None
 
 
 class NumberValidateRequest(TypedDict, total=False):
     """Specifies a phone number to validate and retrieve information about."""
 
-    IsoCountryCode: Optional[_string]
-    PhoneNumber: Optional[_string]
+    IsoCountryCode: _string | None
+    PhoneNumber: _string | None
 
 
 class NumberValidateResponse(TypedDict, total=False):
     """Provides information about a phone number."""
 
-    Carrier: Optional[_string]
-    City: Optional[_string]
-    CleansedPhoneNumberE164: Optional[_string]
-    CleansedPhoneNumberNational: Optional[_string]
-    Country: Optional[_string]
-    CountryCodeIso2: Optional[_string]
-    CountryCodeNumeric: Optional[_string]
-    County: Optional[_string]
-    OriginalCountryCodeIso2: Optional[_string]
-    OriginalPhoneNumber: Optional[_string]
-    PhoneType: Optional[_string]
-    PhoneTypeCode: Optional[_integer]
-    Timezone: Optional[_string]
-    ZipCode: Optional[_string]
+    Carrier: _string | None
+    City: _string | None
+    CleansedPhoneNumberE164: _string | None
+    CleansedPhoneNumberNational: _string | None
+    Country: _string | None
+    CountryCodeIso2: _string | None
+    CountryCodeNumeric: _string | None
+    County: _string | None
+    OriginalCountryCodeIso2: _string | None
+    OriginalPhoneNumber: _string | None
+    PhoneType: _string | None
+    PhoneTypeCode: _integer | None
+    Timezone: _string | None
+    ZipCode: _string | None
 
 
 class PhoneNumberValidateRequest(ServiceRequest):
@@ -3752,7 +3752,7 @@ class UpdateAttributesRequest(TypedDict, total=False):
     are associated with an application.
     """
 
-    Blacklist: Optional[ListOf__string]
+    Blacklist: ListOf__string | None
 
 
 class RemoveAttributesRequest(ServiceRequest):
@@ -3768,9 +3768,9 @@ class RemoveAttributesResponse(TypedDict, total=False):
 class SMSChannelRequest(TypedDict, total=False):
     """Specifies the status and settings of the SMS channel for an application."""
 
-    Enabled: Optional[_boolean]
-    SenderId: Optional[_string]
-    ShortCode: Optional[_string]
+    Enabled: _boolean | None
+    SenderId: _string | None
+    ShortCode: _string | None
 
 
 class SendMessagesRequest(ServiceRequest):
@@ -3785,17 +3785,17 @@ class SendMessagesResponse(TypedDict, total=False):
 class SendOTPMessageRequestParameters(TypedDict, total=False):
     """Send OTP message request parameters."""
 
-    AllowedAttempts: Optional[_integer]
+    AllowedAttempts: _integer | None
     BrandName: _string
     Channel: _string
-    CodeLength: Optional[_integer]
+    CodeLength: _integer | None
     DestinationIdentity: _string
-    EntityId: Optional[_string]
-    Language: Optional[_string]
+    EntityId: _string | None
+    Language: _string | None
     OriginationIdentity: _string
     ReferenceId: _string
-    TemplateId: Optional[_string]
-    ValidityPeriod: Optional[_integer]
+    TemplateId: _string | None
+    ValidityPeriod: _integer | None
 
 
 class SendOTPMessageRequest(ServiceRequest):
@@ -3812,14 +3812,14 @@ class SendUsersMessageRequest(TypedDict, total=False):
     all the endpoints that are associated with a list of users.
     """
 
-    Context: Optional[MapOf__string]
+    Context: MapOf__string | None
     MessageConfiguration: DirectMessageConfiguration
-    TemplateConfiguration: Optional[TemplateConfiguration]
-    TraceId: Optional[_string]
+    TemplateConfiguration: TemplateConfiguration | None
+    TraceId: _string | None
     Users: MapOfEndpointSendConfiguration
 
 
-MapOfMapOfEndpointMessageResult = Dict[_string, MapOfEndpointMessageResult]
+MapOfMapOfEndpointMessageResult = dict[_string, MapOfEndpointMessageResult]
 
 
 class SendUsersMessageResponse(TypedDict, total=False):
@@ -3828,8 +3828,8 @@ class SendUsersMessageResponse(TypedDict, total=False):
     """
 
     ApplicationId: _string
-    RequestId: Optional[_string]
-    Result: Optional[MapOfMapOfEndpointMessageResult]
+    RequestId: _string | None
+    Result: MapOfMapOfEndpointMessageResult | None
 
 
 class SendUsersMessagesRequest(ServiceRequest):
@@ -3851,7 +3851,7 @@ class TemplateActiveVersionRequest(TypedDict, total=False):
     version of the template.
     """
 
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -3907,12 +3907,12 @@ class UpdateApnsVoipSandboxChannelResponse(TypedDict, total=False):
 class WriteApplicationSettingsRequest(TypedDict, total=False):
     """Specifies the default settings for an application."""
 
-    CampaignHook: Optional[CampaignHook]
-    CloudWatchMetricsEnabled: Optional[_boolean]
-    EventTaggingEnabled: Optional[_boolean]
-    Limits: Optional[CampaignLimits]
-    QuietTime: Optional[QuietTime]
-    JourneyLimits: Optional[ApplicationSettingsJourneyLimits]
+    CampaignHook: CampaignHook | None
+    CloudWatchMetricsEnabled: _boolean | None
+    EventTaggingEnabled: _boolean | None
+    Limits: CampaignLimits | None
+    QuietTime: QuietTime | None
+    JourneyLimits: ApplicationSettingsJourneyLimits | None
 
 
 class UpdateApplicationSettingsRequest(ServiceRequest):
@@ -3953,10 +3953,10 @@ class UpdateEmailChannelResponse(TypedDict, total=False):
 
 
 class UpdateEmailTemplateRequest(ServiceRequest):
-    CreateNewVersion: Optional[_boolean]
+    CreateNewVersion: _boolean | None
     EmailTemplateRequest: EmailTemplateRequest
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class UpdateEmailTemplateResponse(TypedDict, total=False):
@@ -3992,10 +3992,10 @@ class UpdateGcmChannelResponse(TypedDict, total=False):
 
 
 class UpdateInAppTemplateRequest(ServiceRequest):
-    CreateNewVersion: Optional[_boolean]
+    CreateNewVersion: _boolean | None
     InAppTemplateRequest: InAppTemplateRequest
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class UpdateInAppTemplateResponse(TypedDict, total=False):
@@ -4023,10 +4023,10 @@ class UpdateJourneyStateResponse(TypedDict, total=False):
 
 
 class UpdatePushTemplateRequest(ServiceRequest):
-    CreateNewVersion: Optional[_boolean]
+    CreateNewVersion: _boolean | None
     PushNotificationTemplateRequest: PushNotificationTemplateRequest
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class UpdatePushTemplateResponse(TypedDict, total=False):
@@ -4038,15 +4038,15 @@ class UpdateRecommenderConfiguration(TypedDict, total=False):
     processing recommendation data from a recommender model.
     """
 
-    Attributes: Optional[MapOf__string]
-    Description: Optional[_string]
-    Name: Optional[_string]
-    RecommendationProviderIdType: Optional[_string]
+    Attributes: MapOf__string | None
+    Description: _string | None
+    Name: _string | None
+    RecommendationProviderIdType: _string | None
     RecommendationProviderRoleArn: _string
     RecommendationProviderUri: _string
-    RecommendationTransformerUri: Optional[_string]
-    RecommendationsDisplayName: Optional[_string]
-    RecommendationsPerMessage: Optional[_integer]
+    RecommendationTransformerUri: _string | None
+    RecommendationsDisplayName: _string | None
+    RecommendationsPerMessage: _integer | None
 
 
 class UpdateRecommenderConfigurationRequest(ServiceRequest):
@@ -4078,10 +4078,10 @@ class UpdateSmsChannelResponse(TypedDict, total=False):
 
 
 class UpdateSmsTemplateRequest(ServiceRequest):
-    CreateNewVersion: Optional[_boolean]
+    CreateNewVersion: _boolean | None
     SMSTemplateRequest: SMSTemplateRequest
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
 
 
 class UpdateSmsTemplateResponse(TypedDict, total=False):
@@ -4103,7 +4103,7 @@ class VoiceChannelRequest(TypedDict, total=False):
     application.
     """
 
-    Enabled: Optional[_boolean]
+    Enabled: _boolean | None
 
 
 class UpdateVoiceChannelRequest(ServiceRequest):
@@ -4116,9 +4116,9 @@ class UpdateVoiceChannelResponse(TypedDict, total=False):
 
 
 class UpdateVoiceTemplateRequest(ServiceRequest):
-    CreateNewVersion: Optional[_boolean]
+    CreateNewVersion: _boolean | None
     TemplateName: _string
-    Version: Optional[_string]
+    Version: _string | None
     VoiceTemplateRequest: VoiceTemplateRequest
 
 
@@ -4129,7 +4129,7 @@ class UpdateVoiceTemplateResponse(TypedDict, total=False):
 class VerificationResponse(TypedDict, total=False):
     """Verify OTP Message Response."""
 
-    Valid: Optional[_boolean]
+    Valid: _boolean | None
 
 
 class VerifyOTPMessageRequestParameters(TypedDict, total=False):
@@ -4154,8 +4154,8 @@ _timestampUnix = datetime
 
 
 class PinpointApi:
-    service = "pinpoint"
-    version = "2016-12-01"
+    service: str = "pinpoint"
+    version: str = "2016-12-01"
 
     @handler("CreateApp")
     def create_app(

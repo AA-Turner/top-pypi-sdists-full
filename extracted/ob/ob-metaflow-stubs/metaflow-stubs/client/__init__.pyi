@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.676242                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.837830                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from .core import default_namespace as default_namespace
 from .core import metadata as metadata
 from .core import get_metadata as get_metadata
 from .core import default_metadata as default_metadata
+from .core import inspect_spin as inspect_spin
 from .core import Metaflow as Metaflow
 from .core import Flow as Flow
 from .core import Run as Run

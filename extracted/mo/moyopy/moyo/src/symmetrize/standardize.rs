@@ -1,5 +1,5 @@
 use itertools::{Itertools, iproduct};
-use log::debug;
+use log::{debug, warn};
 use nalgebra::linalg::{Cholesky, QR};
 use nalgebra::{Matrix3, Vector3, vector};
 use once_cell::sync::Lazy;
@@ -44,7 +44,6 @@ impl StandardizedCell {
     /// Standardize the input **primitive** cell.
     /// For triclinic space groups, Niggli reduction is performed.
     /// Basis vectors are rotated to be a upper triangular matrix.
-    /// TODO: option not to rotate basis vectors
     pub fn new(
         prim_cell: &Cell,
         prim_operations: &Operations,
@@ -52,6 +51,7 @@ impl StandardizedCell {
         space_group: &SpaceGroup,
         symprec: f64,
         epsilon: f64,
+        rotate_basis: bool,
     ) -> Result<Self, MoyoError> {
         let (
             prim_std_cell,
@@ -67,6 +67,7 @@ impl StandardizedCell {
             prim_permutations,
             space_group,
             epsilon,
+            rotate_basis,
         )?;
 
         let wyckoffs = Self::assign_wyckoffs(
@@ -99,6 +100,7 @@ impl StandardizedCell {
         prim_permutations: &[Permutation],
         space_group: &SpaceGroup,
         epsilon: f64,
+        rotate_basis: bool,
     ) -> Result<
         (
             Cell,
@@ -125,7 +127,7 @@ impl StandardizedCell {
             .lattice_system();
         let (prim_transformation, conv_trans_linear) = match lattice_system {
             LatticeSystem::Triclinic => (
-                standardize_triclinic_cell(&prim_cell.lattice),
+                standardize_triclinic_cell(&prim_cell.lattice, &space_group.transformation),
                 Linear::identity(),
             ),
             LatticeSystem::Monoclinic => {
@@ -159,6 +161,7 @@ impl StandardizedCell {
             &prim_std_cell_tmp,
             &prim_std_operations,
             &prim_std_permutations,
+            epsilon,
         );
 
         // Note: prim_transformation.transform_cell does not change the order of sites
@@ -172,23 +175,35 @@ impl StandardizedCell {
         let (std_cell, site_mapping) =
             Transformation::from_linear(conv_trans_linear).transform_cell(&prim_std_cell);
 
-        // Symmetrize lattice
-        let (_, rotation_matrix) =
-            symmetrize_lattice(&std_cell.lattice, &project_rotations(&conv_std_operations));
-
-        Ok((
-            prim_std_cell.rotate(&rotation_matrix),
-            prim_std_permutations,
-            prim_transformation.clone(),
-            std_cell.rotate(&rotation_matrix),
-            // prim_transformation * (conv_trans_linear, 0)
-            Transformation::new(
-                prim_transformation.linear * conv_trans_linear,
-                prim_transformation.origin_shift,
-            ),
-            rotation_matrix,
-            site_mapping,
-        ))
+        // prim_transformation * (conv_trans_linear, 0)
+        let transformation = Transformation::new(
+            prim_transformation.linear * conv_trans_linear,
+            prim_transformation.origin_shift,
+        );
+        if rotate_basis {
+            // Symmetrize lattice
+            let (_, rotation_matrix) =
+                symmetrize_lattice(&std_cell.lattice, &project_rotations(&conv_std_operations));
+            Ok((
+                prim_std_cell.rotate(&rotation_matrix),
+                prim_std_permutations,
+                prim_transformation.clone(),
+                std_cell.rotate(&rotation_matrix),
+                transformation,
+                rotation_matrix,
+                site_mapping,
+            ))
+        } else {
+            Ok((
+                prim_std_cell,
+                prim_std_permutations,
+                prim_transformation.clone(),
+                std_cell,
+                transformation,
+                Matrix3::identity(),
+                site_mapping,
+            ))
+        }
     }
 
     fn assign_wyckoffs(
@@ -287,9 +302,16 @@ pub fn orbits_in_cell(
 
 /// Niggli reduction for distorted triclinic lattice systems is numerically so challenging.
 /// Thus, we skip checking reduction condition.
-fn standardize_triclinic_cell(lattice: &Lattice) -> UnimodularTransformation {
-    let (_, linear) = lattice.unchecked_niggli_reduce();
-    UnimodularTransformation::from_linear(linear)
+fn standardize_triclinic_cell(
+    lattice: &Lattice,
+    transformation_to_prim_std: &UnimodularTransformation,
+) -> UnimodularTransformation {
+    let lattice_prim_std_tmp = transformation_to_prim_std.transform_lattice(lattice);
+    let (_, niggli_linear) = lattice_prim_std_tmp.unchecked_niggli_reduce();
+    UnimodularTransformation::new(
+        niggli_linear * transformation_to_prim_std.linear,
+        transformation_to_prim_std.origin_shift,
+    )
 }
 
 static UNIMODULAR3_RANGE1: Lazy<Vec<UnimodularTransformation>> = Lazy::new(|| {
@@ -412,7 +434,10 @@ fn symmetrize_positions(
     cell: &Cell,
     operations: &Operations,
     permutations: &[Permutation],
+    epsilon: f64,
 ) -> Vec<Position> {
+    // operations[k] maps site-i to site-permutations[k].apply(i)
+    // Thus, it maps site-`inverse_permutations[k].apply(i)` to site-i.
     let inverse_permutations = permutations
         .iter()
         .map(|permutation| permutation.inverse())
@@ -429,7 +454,14 @@ fn symmetrize_positions(
                 frac_displacements -= frac_displacements.map(|e| e.round()); // in [-0.5, 0.5]
                 acc += frac_displacements;
             }
-            cell.positions[i] + acc / (permutations.len() as f64)
+            acc /= permutations.len() as f64;
+            if acc.abs().max() > epsilon {
+                warn!(
+                    "Large displacement during symmetrization: {:?} for site {}",
+                    acc, i
+                )
+            }
+            cell.positions[i] + acc
         })
         .collect::<Vec<_>>()
 }
@@ -444,20 +476,29 @@ fn symmetrize_lattice(lattice: &Lattice, rotations: &Rotations) -> (Lattice, Mat
         .sum();
     symmetrized_metric_tensor /= rotations.len() as f64;
 
-    // upper-triangular basis
-    let tri_basis = Cholesky::new_unchecked(symmetrized_metric_tensor)
+    // Upper-triangular basis
+    let mut tri_basis = Cholesky::new_unchecked(symmetrized_metric_tensor)
         .l()
         .transpose();
-
-    // tri_basis \approx rotation_matrix * lattice.basis
-    // QR(tri_basis * lattice.basis^-1) = rotation_matrix * strain
-    let qr = QR::new(tri_basis * lattice.basis.try_inverse().unwrap());
-    let r = qr.r();
-    let signs =
-        Matrix3::<f64>::from_diagonal(&vector![sign(r[(0, 0)]), sign(r[(1, 1)]), sign(r[(2, 2)])]);
-    let mut rotation_matrix = QR::new(tri_basis * lattice.basis.try_inverse().unwrap()).q();
     // Remove axis-direction freedom
-    rotation_matrix *= signs;
+    let diagonal_signs = Matrix3::<f64>::from_diagonal(&vector![
+        sign(tri_basis[(0, 0)]),
+        sign(tri_basis[(1, 1)]),
+        sign(tri_basis[(2, 2)])
+    ]);
+    tri_basis *= diagonal_signs;
+    // Adjust handedness
+    if sign(lattice.basis.determinant()) * sign(tri_basis.determinant()) < 0.0 {
+        tri_basis *= Matrix3::<f64>::from_diagonal(&vector![1.0, 1.0, -1.0]);
+    }
+
+    // tri_basis \approx orthogonal_matrix * lattice.basis
+    // QR(tri_basis * lattice.basis^-1) = rotation_matrix * strain
+    let mut rotation_matrix = QR::new(tri_basis * lattice.basis.try_inverse().unwrap()).q();
+    if rotation_matrix.determinant() < 0.0 {
+        rotation_matrix *= -1.0;
+    }
+
     (Lattice::new(tri_basis.transpose()), rotation_matrix)
 }
 

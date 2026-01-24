@@ -132,8 +132,8 @@ class ImageRepositoryCollection(ImageRepositoryCollectionBase):
 class ImageRepositoryResource(ImageRepositoryResourceBase):
     """Represents a reference to a Snowflake image repository.
 
-    With this image repository reference, you can create and fetch information about image repositories, as well as
-    perform certain actions on them.
+    With this image repository reference, you can fetch information about an image repository,
+    as well as perform certain actions on it.
     """
 
     _plural_name = "image_repositories"

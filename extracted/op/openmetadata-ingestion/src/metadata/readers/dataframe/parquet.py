@@ -12,9 +12,10 @@
 """
 Generic Delimiter-Separated-Values implementation
 """
-from functools import singledispatchmethod
+from __future__ import annotations
 
-from pyarrow.parquet import ParquetFile
+from functools import singledispatchmethod
+from typing import TYPE_CHECKING
 
 from metadata.generated.schema.entity.services.connections.database.datalake.azureConfig import (
     AzureConfig,
@@ -38,6 +39,9 @@ from metadata.readers.dataframe.models import DatalakeColumnWrapper
 from metadata.readers.file.adls import AZURE_PATH, return_azure_storage_options
 from metadata.readers.models import ConfigSource
 from metadata.utils.logger import ingestion_logger
+
+if TYPE_CHECKING:
+    from pyarrow.parquet import ParquetFile
 
 logger = ingestion_logger()
 
@@ -145,6 +149,7 @@ class ParquetDataFrameReader(DataFrameReader):
         """
         # pylint: disable=import-outside-toplevel
         from gcsfs import GCSFileSystem
+        from pyarrow.parquet import ParquetFile
 
         gcs = GCSFileSystem()
         file_path = f"gs://{bucket_name}/{key}"
@@ -167,8 +172,12 @@ class ParquetDataFrameReader(DataFrameReader):
                 )
                 return dataframe_to_chunks(dataframe_response)
 
-        except Exception:
+        except Exception as exc:
             # Fallback to regular reading if size check fails
+            logger.warning(
+                f"Error reading parquet file from GCS '{file_path}': {exc}. "
+                f"Falling back to regular reading"
+            )
             file = gcs.open(file_path)
             parquet_file = ParquetFile(file)
             dataframe_response = parquet_file.read().to_pandas(
@@ -238,7 +247,9 @@ class ParquetDataFrameReader(DataFrameReader):
     @_read_parquet_dispatch.register
     def _(self, _: AzureConfig, key: str, bucket_name: str) -> DatalakeColumnWrapper:
         import pandas as pd  # pylint: disable=import-outside-toplevel
-        import pyarrow.fs as fs
+        from adlfs import AzureBlobFileSystem
+        from pyarrow.fs import FSSpecHandler, PyFileSystem
+        from pyarrow.parquet import ParquetFile
 
         storage_options = return_azure_storage_options(self.config_source)
         account_url = AZURE_PATH.format(
@@ -249,18 +260,18 @@ class ParquetDataFrameReader(DataFrameReader):
 
         # Check file size to determine reading strategy
         try:
-            # Try to get file size from Azure
-            azure_fs = fs.SubTreeFileSystem(
-                account_url, fs.AzureFileSystem(**storage_options)
+            # Use adlfs (fsspec-based) filesystem which supports service principal auth
+            adlfs_fs = AzureBlobFileSystem(
+                account_name=self.config_source.securityConfig.accountName,
+                **storage_options,
             )
-            file_info = azure_fs.get_file_info("/")
-            file_size = file_info.size if hasattr(file_info, "size") else 0
+            file_path = f"{bucket_name}/{key}"
+            file_info = adlfs_fs.info(file_path)
+            file_size = file_info.get("size", 0)
 
             if self._should_use_chunking(file_size):
-                # Use PyArrow ParquetFile for batched reading of large files
-                parquet_file = ParquetFile(
-                    account_url, filesystem=fs.AzureFileSystem(**storage_options)
-                )
+                pa_fs = PyFileSystem(FSSpecHandler(adlfs_fs))
+                parquet_file = ParquetFile(file_path, filesystem=pa_fs)
                 return self._read_parquet_in_batches(parquet_file)
             else:
                 # Use pandas for regular reading of smaller files
@@ -269,8 +280,12 @@ class ParquetDataFrameReader(DataFrameReader):
                 )
                 return dataframe_to_chunks(dataframe)
 
-        except Exception:
+        except Exception as exc:
             # Fallback to regular pandas reading if size check or batching fails
+            logger.warning(
+                f"Error reading parquet file from Azure '{account_url}': {exc}. "
+                f"Falling back to pandas reading"
+            )
             dataframe = pd.read_parquet(account_url, storage_options=storage_options)
             return dataframe_to_chunks(dataframe)
 
@@ -284,6 +299,7 @@ class ParquetDataFrameReader(DataFrameReader):
         import os
 
         import pandas as pd  # pylint: disable=import-outside-toplevel
+        from pyarrow.parquet import ParquetFile
 
         # Check file size to determine reading strategy
         try:
@@ -298,8 +314,12 @@ class ParquetDataFrameReader(DataFrameReader):
                 dataframe = pd.read_parquet(key)
                 return dataframe_to_chunks(dataframe)
 
-        except Exception:
+        except Exception as exc:
             # Fallback to regular pandas reading if size check fails
+            logger.warning(
+                f"Error reading parquet file from local path '{key}': {exc}. "
+                f"Falling back to pandas reading"
+            )
             dataframe = pd.read_parquet(key)
             return dataframe_to_chunks(dataframe)
 

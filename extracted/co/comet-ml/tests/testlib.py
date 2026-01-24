@@ -3,6 +3,7 @@ import json
 import os
 import os.path
 import re
+import socket
 import sys
 import time
 from contextlib import contextmanager
@@ -832,3 +833,41 @@ def print_loaded_modules():
     print("Modules currently loaded:")
     for name, module in sys.modules.items():
         print(f"- {name}")
+
+
+def is_port_available(port, host='127.0.0.1'):
+    """
+    Check if a specific port is available on the given host.
+
+    Args:
+        port (int): The port number to check
+        host (str): The host address to check (default: '127.0.0.1')
+
+    Returns:
+        bool: True if the port is available, False otherwise
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            result = sock.connect_ex((host, port))
+            return result != 0
+    except socket.error:
+        return False
+
+
+def find_available_port(start_port, end_port, host='127.0.0.1'):
+    """
+    Find the first available port in the given range.
+
+    Args:
+        start_port (int): The starting port number (inclusive)
+        end_port (int): The ending port number (inclusive)
+        host (str): The host address to check (default: '127.0.0.1')
+
+    Returns:
+        int or None: The first available port in the range, or None if no ports are available
+    """
+    for port in range(start_port, end_port + 1):
+        if is_port_available(port, host):
+            return port
+    return None

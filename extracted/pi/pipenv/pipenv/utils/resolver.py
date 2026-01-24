@@ -408,7 +408,6 @@ class Resolver:
             install_req_from_parsed_requirement(
                 c,
                 isolated=self.pip_options.build_isolation,
-                use_pep517=self.pip_options.use_pep517,
                 user_supplied=True,
             )
             for c in self.parsed_constraints
@@ -423,7 +422,7 @@ class Resolver:
         for c in possible_constraints_list:
             constraints_list.add(c)
 
-        # Only use default_constraints when installing dev-packages and setting allows
+        # Always use default_constraints when installing dev-packages
         if self.category != "default" and self.project.settings.get(
             "use_default_constraints", True
         ):
@@ -459,7 +458,6 @@ class Resolver:
                         ignore_requires_python=pip_options.ignore_requires_python,
                         force_reinstall=pip_options.force_reinstall,
                         upgrade_strategy="to-satisfy-only",
-                        use_pep517=pip_options.use_pep517,
                     )
                     yield resolver
 
@@ -824,21 +822,52 @@ def actually_resolve_deps(
 
 
 def resolve(cmd, st, project):
+    import threading
+
     from pipenv.cmdparse import Script
 
     c = subprocess_run(Script.parse(cmd).cmd_args, block=False, env=os.environ.copy())
     is_verbose = project.s.is_verbose()
-    errors = ""
-    for line in iter(c.stderr.readline, ""):
-        if not line.rstrip():
-            continue
-        errors += line
-        if is_verbose:
-            st.console.print(line.rstrip())
+
+    # Use threading to read from both stdout and stderr concurrently.
+    # This prevents deadlocks when the subprocess writes a lot of data to stdout,
+    # which would fill the pipe buffer and block if we only read stderr first.
+    # Threading works reliably on all platforms (Windows, Linux, macOS).
+    stdout_chunks = []
+    stderr_lines = []
+
+    def read_stdout():
+        """Read all stdout data in chunks."""
+        while True:
+            chunk = c.stdout.read(4096)
+            if not chunk:
+                break
+            stdout_chunks.append(chunk)
+
+    def read_stderr():
+        """Read stderr line by line, optionally printing in verbose mode."""
+        for line in iter(c.stderr.readline, ""):
+            if line.rstrip():
+                stderr_lines.append(line)
+                if is_verbose:
+                    st.console.print(line.rstrip())
+
+    # Start reader threads
+    stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+    stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+
+    # Wait for both threads to complete
+    stdout_thread.join()
+    stderr_thread.join()
 
     c.wait()
     returncode = c.poll()
-    out = c.stdout.read()
+
+    out = "".join(stdout_chunks)
+    errors = "".join(stderr_lines)
+
     if returncode != 0:
         st.console.print(environments.PIPENV_SPINNER_FAIL_TEXT.format("Locking Failed!"))
         if not is_verbose:
@@ -951,6 +980,7 @@ def venv_resolve_deps(
             deps = convert_deps_to_pip(
                 deps, project.pipfile_sources(), include_index=True
             )
+
             # Useful for debugging and hitting breakpoints in the resolver
             if project.s.PIPENV_RESOLVER_PARENT_PYTHON:
                 try:
@@ -999,8 +1029,10 @@ def venv_resolve_deps(
                 with tempfile.NamedTemporaryFile(
                     mode="w+", prefix="pipenv", suffix="constraints.txt", delete=False
                 ) as constraints_file:
+                    # Write the current category dependencies
                     for dep_name, pip_line in deps.items():
                         constraints_file.write(f"{dep_name}, {pip_line}\n")
+
                 cmd.append("--constraints-file")
                 cmd.append(constraints_file.name)
                 st.console.print("Resolving dependencies...")
@@ -1030,6 +1062,17 @@ def venv_resolve_deps(
                     )
                     err.print(f"Output: {c.stdout.strip()}")
                     err.print(f"Error: {c.stderr.strip()}")
+                    # Provide helpful hints for common build errors
+                    # See: https://github.com/pypa/pipenv/issues/6058
+                    combined_output = (c.stdout + c.stderr).lower()
+                    if "getting requirements to build wheel" in combined_output:
+                        err.print(
+                            "\n[cyan]Hint:[/cyan] The error 'Getting requirements to build wheel' often indicates:\n"
+                            "  • Invalid pyproject.toml syntax or configuration\n"
+                            "  • Encoding issues in files referenced by pyproject.toml (e.g., README.md with special characters)\n"
+                            "  • Missing or incompatible build dependencies\n"
+                            "Try running [yellow]$ pip install . -v[/yellow] in your project directory for more detailed error output."
+                        )
 
     # Cache the results for future use
     if results:

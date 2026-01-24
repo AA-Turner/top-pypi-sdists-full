@@ -188,6 +188,10 @@ class LlamaParse(BasePydanticReader):
         default=False,
         description="If set to true, LlamaParse will try to detect long table and adapt the output.",
     )
+    aggressive_table_extraction: Optional[bool] = Field(
+        default=False,
+        description="If set to true, LlamaParse will try to extract tables aggressively, may lead to false positives.",
+    )
     annotate_links: Optional[bool] = Field(
         default=False,
         description="Annotate links found in the document to extract their URL.",
@@ -281,7 +285,7 @@ class LlamaParse(BasePydanticReader):
         description="Note: Non compatible with gpt-4o. If set to true, the parser will use a faster mode to extract text from documents. This mode will skip OCR of images, and table/heading reconstruction.",
     )
 
-    guess_xlsx_sheet_names: Optional[bool] = Field(
+    guess_xlsx_sheet_name: Optional[bool] = Field(
         default=False,
         description="Whether to guess the sheet names of the xlsx file.",
     )
@@ -309,6 +313,10 @@ class LlamaParse(BasePydanticReader):
         default=False,
         description="If set to true, the parser will ignore document elements for layout detection and only rely on a vision model.",
     )
+    inline_images_in_markdown: Optional[bool] = Field(
+        default=False,
+        description="If set to true, the parser will inline images in the markdown output.",
+    )
     input_s3_region: Optional[str] = Field(
         default=None,
         description="The region of the input S3 bucket if input_s3_path is specified.",
@@ -324,6 +332,10 @@ class LlamaParse(BasePydanticReader):
     job_timeout_in_seconds: Optional[float] = Field(
         default=None,
         description="The maximum timeout in seconds to wait for the parsing to finish. Override default timeout of 30 minutes. Minimum is 120 seconds.",
+    )
+    keep_page_separator_when_merging_tables: Optional[bool] = Field(
+        default=False,
+        description="If set to true, the parser will keep the page separator when merging tables across pages.",
     )
     language: Optional[str] = Field(
         default="en", description="The language of the text to parse."
@@ -396,6 +408,10 @@ class LlamaParse(BasePydanticReader):
         default=False,
         description="If set, the parser will try to preserve very small text lines. This can be useful for documents containing vector graphics with very small text lines that may not be recognized by OCR or a vision model (such as in CAD drawings).",
     )
+    presentation_out_of_bounds_content: Optional[bool] = Field(
+        default=False,
+        description="If set to true, the parser will include out-of-bounds content in presentation files.",
+    )
     precise_bounding_box: Optional[bool] = Field(
         default=False,
         description="If set to true, the parser will use a more precise bounding box to extract text from documents. This will increase the accuracy of the parsing job, but reduce the speed.",
@@ -411,6 +427,14 @@ class LlamaParse(BasePydanticReader):
     replace_failed_page_with_error_message_suffix: Optional[str] = Field(
         default=None,
         description="A suffix to add after error message in failed pages. If not set, no suffix will be used.",
+    )
+    remove_hidden_text: Optional[bool] = Field(
+        default=False,
+        description="If set to true, the parser will remove hidden text from the document.",
+    )
+    save_images: Optional[bool] = Field(
+        default=True,
+        description="If set to true, the parser will save images extracted from the document.",
     )
     skip_diagonal_text: Optional[bool] = Field(
         default=False,
@@ -435,6 +459,10 @@ class LlamaParse(BasePydanticReader):
     specialized_chart_parsing_plus: Optional[bool] = Field(
         default=False,
         description="If set to true, the parser will use a specialized one-shot chart parsing model to extract data from charts. This model is able to understand the chart type and extract the data accordingly. It is more accurate than the efficient model, but also more expensive.",
+    )
+    specialized_image_parsing: Optional[bool] = Field(
+        default=False,
+        description="If set to true, the parser will use a specialized image parsing model to extract data from images.",
     )
     strict_mode_buggy_font: Optional[bool] = Field(
         default=False,
@@ -532,6 +560,21 @@ class LlamaParse(BasePydanticReader):
         default=None,
         description="A prefix to add to the page footer in the output markdown.",
     )
+    extract_printed_page_number: Optional[bool] = Field(
+        default=None,
+        description="Whether to extract the printed page numbers from pages in the document.",
+    )
+    line_level_bounding_box: Optional[bool] = Field(
+        default=False,
+        description="If set to true, the parser will include line-level bounding boxes in the result.",
+    )
+    tier: Optional[str] = Field(
+        default=None, description="The tier to use for the parsing job."
+    )
+    version: Optional[str] = Field(
+        default=None,
+        description="The version of the parser to use at the specified tier.",
+    )
 
     # Deprecated
     bounding_box: Optional[str] = Field(
@@ -575,6 +618,23 @@ class LlamaParse(BasePydanticReader):
         default=False,
         description="Automatically check for Python SDK updates.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_deprecated_params(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        # Handle deprecated guess_xlsx_sheet_names -> guess_xlsx_sheet_name
+        if "guess_xlsx_sheet_names" in data:
+            warnings.warn(
+                "The parameter 'guess_xlsx_sheet_names' is deprecated and will be removed in a future release. "
+                "Use 'guess_xlsx_sheet_name' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Only set the new parameter if it's not already explicitly set
+            if "guess_xlsx_sheet_name" not in data:
+                data["guess_xlsx_sheet_name"] = data["guess_xlsx_sheet_names"]
+            del data["guess_xlsx_sheet_names"]
+        return data
 
     @model_validator(mode="before")
     @classmethod
@@ -691,11 +751,9 @@ class LlamaParse(BasePydanticReader):
             file_path = str(file_input)
             file_ext = os.path.splitext(file_path)[1].lower()
             if file_ext not in SUPPORTED_FILE_TYPES:
-                raise Exception(
-                    f"Currently, only the following file types are supported: {SUPPORTED_FILE_TYPES}\n"
-                    f"Current file type: {file_ext}"
-                )
-            mime_type = mimetypes.guess_type(file_path)[0]
+                mime_type = "application/octet-stream"
+            else:
+                mime_type = mimetypes.guess_type(file_path)[0]
             # Open the file here for the duration of the async context
             # load data, set the mime type
             fs = fs or get_default_fs()
@@ -712,6 +770,9 @@ class LlamaParse(BasePydanticReader):
 
         if self.adaptive_long_table:
             data["adaptive_long_table"] = self.adaptive_long_table
+
+        if self.aggressive_table_extraction:
+            data["aggressive_table_extraction"] = self.aggressive_table_extraction
 
         if self.annotate_links:
             data["annotate_links"] = self.annotate_links
@@ -813,8 +874,8 @@ class LlamaParse(BasePydanticReader):
             )
             data["formatting_instruction"] = self.formatting_instruction
 
-        if self.guess_xlsx_sheet_names:
-            data["guess_xlsx_sheet_names"] = self.guess_xlsx_sheet_names
+        if self.guess_xlsx_sheet_name:
+            data["guess_xlsx_sheet_name"] = self.guess_xlsx_sheet_name
 
         if self.html_make_all_elements_visible:
             data["html_make_all_elements_visible"] = self.html_make_all_elements_visible
@@ -837,6 +898,9 @@ class LlamaParse(BasePydanticReader):
             data[
                 "ignore_document_elements_for_layout_detection"
             ] = self.ignore_document_elements_for_layout_detection
+
+        if self.inline_images_in_markdown:
+            data["inline_images_in_markdown"] = self.inline_images_in_markdown
 
         if input_url is not None:
             files = None
@@ -865,6 +929,11 @@ class LlamaParse(BasePydanticReader):
 
         if self.job_timeout_in_seconds is not None:
             data["job_timeout_in_seconds"] = self.job_timeout_in_seconds
+
+        if self.keep_page_separator_when_merging_tables:
+            data[
+                "keep_page_separator_when_merging_tables"
+            ] = self.keep_page_separator_when_merging_tables
 
         if self.language:
             data["language"] = self.language
@@ -944,6 +1013,11 @@ class LlamaParse(BasePydanticReader):
         if self.preserve_very_small_text:
             data["preserve_very_small_text"] = self.preserve_very_small_text
 
+        if self.presentation_out_of_bounds_content:
+            data[
+                "presentation_out_of_bounds_content"
+            ] = self.presentation_out_of_bounds_content
+
         if self.preset is not None:
             data["preset"] = self.preset
 
@@ -962,6 +1036,11 @@ class LlamaParse(BasePydanticReader):
             data[
                 "replace_failed_page_with_error_message_suffix"
             ] = self.replace_failed_page_with_error_message_suffix
+
+        if self.remove_hidden_text:
+            data["remove_hidden_text"] = self.remove_hidden_text
+
+        data["save_images"] = self.save_images
 
         if self.skip_diagonal_text:
             data["skip_diagonal_text"] = self.skip_diagonal_text
@@ -986,6 +1065,9 @@ class LlamaParse(BasePydanticReader):
 
         if self.specialized_chart_parsing_plus:
             data["specialized_chart_parsing_plus"] = self.specialized_chart_parsing_plus
+
+        if self.specialized_image_parsing:
+            data["specialized_image_parsing"] = self.specialized_image_parsing
 
         if self.strict_mode_buggy_font:
             data["strict_mode_buggy_font"] = self.strict_mode_buggy_font
@@ -1041,6 +1123,18 @@ class LlamaParse(BasePydanticReader):
             data[
                 "markdown_table_multiline_header_separator"
             ] = self.markdown_table_multiline_header_separator
+
+        if self.extract_printed_page_number is not None:
+            data["extract_printed_page_number"] = self.extract_printed_page_number
+
+        if self.line_level_bounding_box is not None:
+            data["line_level_bounding_box"] = self.line_level_bounding_box
+
+        if self.tier is not None:
+            data["tier"] = self.tier
+
+        if self.version is not None:
+            data["version"] = self.version
 
         # Deprecated
         if self.bounding_box is not None:
@@ -1139,6 +1233,25 @@ class LlamaParse(BasePydanticReader):
                     )
                 current_interval = self._calculate_backoff(current_interval)
 
+    async def _get_job_result_with_error_handling(
+        self, job_id: str, result_type: str, verbose: bool = False
+    ) -> Dict[str, Any]:
+        """Get job result with error handling based on ignore_errors setting."""
+        try:
+            return await self._get_job_result(job_id, result_type, verbose=verbose)
+        except JobFailedException as e:
+            if self.ignore_errors:
+                # Return error information when ignore_errors is True
+                return {
+                    "pages": [],
+                    "job_metadata": {},
+                    "error": f"{e.status}: {e.error_message or 'No error message'}",
+                    "error_code": e.error_code,
+                    "status": e.status,
+                }
+            else:
+                raise e
+
     async def _parse_one(
         self,
         file_path: FileInput,
@@ -1180,7 +1293,7 @@ class LlamaParse(BasePydanticReader):
         )
         if self.verbose:
             print("Started parsing the file under job_id %s" % job_id)
-        result = await self._get_job_result(
+        result = await self._get_job_result_with_error_handling(
             job_id, result_type or self.result_type.value, verbose=self.verbose
         )
         return job_id, result
@@ -1243,6 +1356,15 @@ class LlamaParse(BasePydanticReader):
                     result_type=ResultType.JSON.value,
                     partition_target_pages=f"{total}-{total + size - 1}",
                 )
+                # Check if the result is an error result (when ignore_errors=True)
+                if json_result.get("error_code") == "NO_DATA_FOUND_IN_FILE":
+                    raise JobFailedException(
+                        job_id=job_id,
+                        status=json_result.get("status", "ERROR"),
+                        error_code=json_result.get("error_code"),
+                        error_message=json_result.get("error"),
+                    )
+
                 result_type = result_type or self.result_type.value
                 if result_type == ResultType.JSON.value:
                     job_result = json_result
@@ -1768,7 +1890,7 @@ class LlamaParse(BasePydanticReader):
             JobResult object or list of JobResult objects if multiple job IDs were provided.
         """
         if isinstance(job_id, str):
-            result = await self._get_job_result(
+            result = await self._get_job_result_with_error_handling(
                 job_id, ResultType.JSON.value, verbose=self.verbose
             )
             return JobResult(
@@ -1783,7 +1905,9 @@ class LlamaParse(BasePydanticReader):
         elif isinstance(job_id, list):
             results = []
             jobs = [
-                self._get_job_result(id_, ResultType.JSON.value, verbose=self.verbose)
+                self._get_job_result_with_error_handling(
+                    id_, ResultType.JSON.value, verbose=self.verbose
+                )
                 for id_ in job_id
             ]
             results = await run_jobs(

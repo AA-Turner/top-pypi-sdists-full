@@ -202,6 +202,21 @@ class DestinationSameError(BadRequestError):
         )
 
 
+class DestinationSiteMismatchError(BadRequestError):
+    def __init__(
+        self,
+        message=None,
+        http_body=None,
+        http_status=None,
+        json_body=None,
+        headers=None,
+        code=None,
+    ):
+        super().__init__(
+            message, http_body, http_status, json_body, headers, code
+        )
+
+
 class DoesNotSupportSortingError(BadRequestError):
     def __init__(
         self,
@@ -233,6 +248,21 @@ class FolderMustNotBeAFileError(BadRequestError):
 
 
 class FoldersNotAllowedError(BadRequestError):
+    def __init__(
+        self,
+        message=None,
+        http_body=None,
+        http_status=None,
+        json_body=None,
+        headers=None,
+        code=None,
+    ):
+        super().__init__(
+            message, http_body, http_status, json_body, headers, code
+        )
+
+
+class InternalGeneralErrorError(BadRequestError):
     def __init__(
         self,
         message=None,
@@ -518,6 +548,21 @@ class InvalidUploadPartGapError(BadRequestError):
 
 
 class InvalidUploadPartSizeError(BadRequestError):
+    def __init__(
+        self,
+        message=None,
+        http_body=None,
+        http_status=None,
+        json_body=None,
+        headers=None,
+        code=None,
+    ):
+        super().__init__(
+            message, http_body, http_status, json_body, headers, code
+        )
+
+
+class InvalidWorkspaceIdHeaderError(BadRequestError):
     def __init__(
         self,
         message=None,
@@ -1957,6 +2002,21 @@ class BehaviorNotAllowedOnRemoteServerError(ProcessingFailureError):
         )
 
 
+class BufferedUploadDisabledForThisDestinationError(ProcessingFailureError):
+    def __init__(
+        self,
+        message=None,
+        http_body=None,
+        http_status=None,
+        json_body=None,
+        headers=None,
+        code=None,
+    ):
+        super().__init__(
+            message, http_body, http_status, json_body, headers, code
+        )
+
+
 class BundleOnlyAllowsPreviewsError(ProcessingFailureError):
     def __init__(
         self,
@@ -1973,6 +2033,21 @@ class BundleOnlyAllowsPreviewsError(ProcessingFailureError):
 
 
 class BundleOperationRequiresSubfolderError(ProcessingFailureError):
+    def __init__(
+        self,
+        message=None,
+        http_body=None,
+        http_status=None,
+        json_body=None,
+        headers=None,
+        code=None,
+    ):
+        super().__init__(
+            message, http_body, http_status, json_body, headers, code
+        )
+
+
+class ConfigurationLockedPathError(ProcessingFailureError):
     def __init__(
         self,
         message=None,

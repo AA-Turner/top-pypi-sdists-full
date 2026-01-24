@@ -2,7 +2,7 @@
 #
 #    Project: FabIO X-ray image reader
 #
-#    Copyright (C) 2010-2016 European Synchrotron Radiation Facility
+#    Copyright (C) 2010-2025 European Synchrotron Radiation Facility
 #                       Grenoble, France
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,28 +29,27 @@ FabIO class for dealing with JPEG 2000 images.
 """
 
 __authors__ = ["Valentin Valls"]
-__date__ = "06/04/2020"
+__date__ = "27/10/2025"
 __license__ = "MIT"
 __copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
 __status__ = "stable"
 
 import logging
-logger = logging.getLogger(__name__)
 
 try:
     import PIL
     import PIL.Image
 except ImportError:
     PIL = None
-
 try:
     import glymur
 except ImportError:
     glymur = None
-
 from .fabioimage import FabioImage
 from .fabioutils import OrderedDict
 from .utils import pilutils
+
+logger = logging.getLogger(__name__)
 
 
 class Jpeg2KImage(FabioImage):
@@ -59,6 +58,7 @@ class Jpeg2KImage(FabioImage):
 
     It uses PIL or glymur libraries.
     """
+
     DESCRIPTION = "JPEG 2000 format"
 
     DEFAULT_EXTENSIONS = ["jp2", "jpx", "j2k", "jpf", "jpg2"]
@@ -66,7 +66,7 @@ class Jpeg2KImage(FabioImage):
     _need_a_seek_to_read = True
 
     def __init__(self, *args, **kwds):
-        """ Tifimage constructor adds an nbits member attribute """
+        """Tifimage constructor adds an nbits member attribute"""
         self.nbits = None
         FabioImage.__init__(self, *args, **kwds)
         self.lib = ""
@@ -97,7 +97,7 @@ class Jpeg2KImage(FabioImage):
         version = tuple(int(i) for i in glymur.__version__.split(".")[:2])
         if version == (0, 7):
             image = glymur.Jp2k(filename=filename)
-        elif version >= (0,8):
+        elif version >= (0, 8):
             # inject a shape  to avoid calling the read function
             image = glymur.Jp2k(filename=filename, shape=(1, 1))
         else:
@@ -129,7 +129,10 @@ class Jpeg2KImage(FabioImage):
     def _readWithGlymur(self, filename, infile):
         """Read data using Glymur"""
         image = self._loadGlymurImage(filename, infile)
-        self.data = image.read()
+        if "_read" in dir(image):
+            self.data = image._read()
+        else:
+            self.data = image.read()
 
     def read(self, filename, frame=None):
         infile = self._open(filename, "rb")
@@ -145,7 +148,9 @@ class Jpeg2KImage(FabioImage):
             except IOError as e:
                 self.data = None
                 self.header = OrderedDict()
-                logger.debug("Error while using %s library: %s" % (name, e), exc_info=True)
+                logger.debug(
+                    "Error while using %s library: %s" % (name, e), exc_info=True
+                )
 
         if self.data is None:
             infile.seek(0)

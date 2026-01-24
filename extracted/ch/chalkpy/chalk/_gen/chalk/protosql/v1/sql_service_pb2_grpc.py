@@ -25,6 +25,11 @@ class SqlServiceStub(object):
             request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.FromString,
         )
+        self.PollSqlQuery = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/PollSqlQuery",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PollSqlQueryRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PollSqlQueryResponse.FromString,
+        )
         self.GetDbCatalogs = channel.unary_unary(
             "/chalk.protosql.v1.SqlService/GetDbCatalogs",
             request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetDbCatalogsRequest.SerializeToString,
@@ -53,6 +58,12 @@ class SqlServiceServicer(object):
 
     def PlanSqlQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def PollSqlQuery(self, request, context):
+        """Poll for the status and results of an asynchronous SQL query"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -87,6 +98,11 @@ def add_SqlServiceServicer_to_server(servicer, server):
             servicer.PlanSqlQuery,
             request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.FromString,
             response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.SerializeToString,
+        ),
+        "PollSqlQuery": grpc.unary_unary_rpc_method_handler(
+            servicer.PollSqlQuery,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PollSqlQueryRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PollSqlQueryResponse.SerializeToString,
         ),
         "GetDbCatalogs": grpc.unary_unary_rpc_method_handler(
             servicer.GetDbCatalogs,
@@ -160,6 +176,35 @@ class SqlService(object):
             "/chalk.protosql.v1.SqlService/PlanSqlQuery",
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.SerializeToString,
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PollSqlQuery(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/PollSqlQuery",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PollSqlQueryRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PollSqlQueryResponse.FromString,
             options,
             channel_credentials,
             insecure,

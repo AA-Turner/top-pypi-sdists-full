@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import pandas as pd
@@ -16,7 +16,7 @@ class Policies(WMLResource):
 
     def create(
         self, action: str, resource: str, subject: str, effect: str | None = None
-    ) -> None:
+    ) -> dict:
         """Create policy.
 
         :param action: action for policy
@@ -43,37 +43,28 @@ class Policies(WMLResource):
             json=request_json,
         )
 
-        self._handle_response(204, "policy creation", response, json_response=False)
+        if response.status_code in [200, 201]:
+            return self._handle_response(
+                response.status_code, "policy creation", response
+            )
+        else:
+            return self._handle_response(201, "policy creation", response)
 
-    def delete(
-        self, action: str, resource: str, subject: str, effect: str | None = None
-    ) -> str:
+    def delete(self, policy_id: str) -> str:
         """Delete policy.
 
-        :param action: action for policy
-        :type action: str
-
-        :param resource: resource for policy
-        :type resource: str
-
-        :param subject: subject for policy
-        :type subject: str
-
-        :param effect: effect for policy
-        :type effect: str, optional
+        :param policy_id: ID of policy
+        :type policy_id: str
 
         :return: status ("SUCCESS" if succeeded)
         :rtype: str
         """
-        request_json = {"action": action, "resource": resource, "subject": subject}
 
-        if effect:
-            request_json["effect"] = effect
-
-        response = self._client._session.delete(
-            self._client._href_definitions.get_gateway_policies_href(),
+        response = self._client.httpx_client.delete(
+            self._client._href_definitions.get_gateway_policies_href()
+            + "/"
+            + policy_id,
             headers=self._client._get_headers(),
-            json=request_json,
         )
 
         return self._handle_response(
@@ -102,12 +93,26 @@ class Policies(WMLResource):
         policies_details = self.get_details()["data"]
 
         policies_values = [
-            (m["resource"], m["action"], m["subject"], m.get("effect", ""))
+            (m["uuid"], m["resource"], m["action"], m["subject"], m.get("effect", ""))
             for m in policies_details
         ]
 
         table = self._list(
-            policies_values, ["RESOURCE", "ACTION", "SUBJECT", "EFFECT"], limit=None
+            policies_values,
+            ["ID", "RESOURCE", "ACTION", "SUBJECT", "EFFECT"],
+            limit=None,
         )
 
         return table
+
+    @staticmethod
+    def get_id(policy_details: dict) -> str:
+        """Get policy ID from policy details.
+
+        :param policy_details: details of the policy for asset registered in Model Gateway
+        :type policy_details: dict
+
+        :returns: unique policy ID
+        :rtype: str
+        """
+        return policy_details["uuid"]

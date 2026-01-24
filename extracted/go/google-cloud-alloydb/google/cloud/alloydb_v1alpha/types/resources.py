@@ -119,12 +119,18 @@ class DatabaseVersion(proto.Enum):
             The database version is Postgres 15.
         POSTGRES_16 (4):
             The database version is Postgres 16.
+        POSTGRES_17 (5):
+            The database version is Postgres 17.
+        POSTGRES_18 (6):
+            The database version is Postgres 18.
     """
     DATABASE_VERSION_UNSPECIFIED = 0
     POSTGRES_13 = 1
     POSTGRES_14 = 2
     POSTGRES_15 = 3
     POSTGRES_16 = 4
+    POSTGRES_17 = 5
+    POSTGRES_18 = 6
 
 
 class SubscriptionType(proto.Enum):
@@ -620,7 +626,7 @@ class BackupSource(proto.Message):
         backup_name (str):
             Required. The name of the backup resource with the format:
 
-            -  projects/{project}/locations/{region}/backups/{backup_id}
+            - projects/{project}/locations/{region}/backups/{backup_id}
     """
 
     backup_uid: str = proto.Field(
@@ -705,19 +711,19 @@ class MaintenanceUpdatePolicy(proto.Message):
             start_date (google.type.date_pb2.Date):
                 Deny period start date. This can be:
 
-                -  A full date, with non-zero year, month and day values OR
-                -  A month and day value, with a zero year for recurring
+                - A full date, with non-zero year, month and day values OR
+                - A month and day value, with a zero year for recurring
             end_date (google.type.date_pb2.Date):
                 Deny period end date. This can be:
 
-                -  A full date, with non-zero year, month and day values OR
-                -  A month and day value, with a zero year for recurring
+                - A full date, with non-zero year, month and day values OR
+                - A month and day value, with a zero year for recurring
             time (google.type.timeofday_pb2.TimeOfDay):
                 Time in UTC when the deny period starts on start_date and
                 ends on end_date. This can be:
 
-                -  Full time OR
-                -  All zeros for 00:00:00 UTC
+                - Full time OR
+                - All zeros for 00:00:00 UTC
         """
 
         start_date: date_pb2.Date = proto.Field(
@@ -803,12 +809,12 @@ class Cluster(proto.Message):
             Output only. The name of the cluster resource with the
             format:
 
-            -  projects/{project}/locations/{region}/clusters/{cluster_id}
-               where the cluster ID segment should satisfy the regex
-               expression ``[a-z0-9-]+``. For more details see
-               https://google.aip.dev/122. The prefix of the cluster
-               resource name is the name of the parent resource:
-            -  projects/{project}/locations/{region}
+            - projects/{project}/locations/{region}/clusters/{cluster_id}
+              where the cluster ID segment should satisfy the regex
+              expression ``[a-z0-9-]+``. For more details see
+              https://google.aip.dev/122. The prefix of the cluster
+              resource name is the name of the parent resource:
+            - projects/{project}/locations/{region}
         display_name (str):
             User-settable and human-readable display name
             for the Cluster.
@@ -935,11 +941,11 @@ class Cluster(proto.Message):
                "123/costCenter": "marketing".
         service_account_email (str):
             Output only. AlloyDB per-cluster service
-            agent email. This service account is created
+            account. This service account is created
             per-cluster per-project, and is different from
-            that of the primary service agent which is
-            created per-project. The service account naming
-            format is subject to change.
+            the per-project service account. The per-cluster
+            service account naming format is subject to
+            change.
     """
 
     class State(proto.Enum):
@@ -951,14 +957,9 @@ class Cluster(proto.Message):
             READY (1):
                 The cluster is active and running.
             STOPPED (2):
-                The cluster is stopped. All instances in the
-                cluster are stopped. Customers can start a
-                stopped cluster at any point and all their
-                instances will come back to life with same names
-                and IP resources. In this state, customer pays
-                for storage.
-                Associated backups could also be present in a
-                stopped cluster.
+                This is unused. Even when all instances in
+                the cluster are stopped, the cluster remains in
+                READY state.
             EMPTY (3):
                 The cluster is empty and has no associated
                 resources. All instances, associated storage and
@@ -1048,7 +1049,7 @@ class Cluster(proto.Message):
             primary_cluster_name (str):
                 The name of the primary cluster name with the format:
 
-                -  projects/{project}/locations/{region}/clusters/{cluster_id}
+                - projects/{project}/locations/{region}/clusters/{cluster_id}
         """
 
         primary_cluster_name: str = proto.Field(
@@ -1324,15 +1325,15 @@ class Instance(proto.Message):
             Output only. The name of the instance resource with the
             format:
 
-            -  projects/{project}/locations/{region}/clusters/{cluster_id}/instances/{instance_id}
-               where the cluster and instance ID segments should satisfy
-               the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
-               e.g. 1-63 characters of lowercase letters, numbers, and
-               dashes, starting with a letter, and ending with a letter
-               or number. For more details see
-               https://google.aip.dev/122. The prefix of the instance
-               resource name is the name of the parent resource:
-            -  projects/{project}/locations/{region}/clusters/{cluster_id}
+            - projects/{project}/locations/{region}/clusters/{cluster_id}/instances/{instance_id}
+              where the cluster and instance ID segments should satisfy
+              the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
+              e.g. 1-63 characters of lowercase letters, numbers, and
+              dashes, starting with a letter, and ending with a letter
+              or number. For more details see
+              https://google.aip.dev/122. The prefix of the instance
+              resource name is the name of the parent resource:
+            - projects/{project}/locations/{region}/clusters/{cluster_id}
         display_name (str):
             User-settable and human-readable display name
             for the Instance.
@@ -1527,10 +1528,10 @@ class Instance(proto.Message):
                 READ POOL instances support read operations only. Each read
                 pool instance consists of one or more homogeneous nodes.
 
-                -  Read pool of size 1 can only have zonal availability.
-                -  Read pools with node count of 2 or more can have regional
-                   availability (nodes are present in 2 or more zones in a
-                   region).
+                - Read pool of size 1 can only have zonal availability.
+                - Read pools with node count of 2 or more can have regional
+                  availability (nodes are present in 2 or more zones in a
+                  region).
             SECONDARY (3):
                 SECONDARY instances support read operations
                 only. SECONDARY instance is a cross-region read
@@ -2094,29 +2095,26 @@ class Instance(proto.Message):
             enabled (bool):
                 Optional. Whether to enable Managed
                 Connection Pool (MCP).
+            flags (MutableMapping[str, str]):
+                Optional. Connection Pool flags, as a list of
+                "key": "value" pairs.
+            pooler_count (int):
+                Output only. The number of running poolers
+                per instance.
         """
-
-        class PoolMode(proto.Enum):
-            r"""The pool mode. Defaults to ``POOL_MODE_TRANSACTION``.
-
-            Values:
-                POOL_MODE_UNSPECIFIED (0):
-                    The pool mode is not specified. Defaults to
-                    ``POOL_MODE_TRANSACTION``.
-                POOL_MODE_SESSION (1):
-                    Server is released back to pool after a
-                    client disconnects.
-                POOL_MODE_TRANSACTION (2):
-                    Server is released back to pool after a
-                    transaction finishes.
-            """
-            POOL_MODE_UNSPECIFIED = 0
-            POOL_MODE_SESSION = 1
-            POOL_MODE_TRANSACTION = 2
 
         enabled: bool = proto.Field(
             proto.BOOL,
             number=12,
+        )
+        flags: MutableMapping[str, str] = proto.MapField(
+            proto.STRING,
+            proto.STRING,
+            number=13,
+        )
+        pooler_count: int = proto.Field(
+            proto.INT32,
+            number=14,
         )
 
     name: str = proto.Field(
@@ -2287,7 +2285,7 @@ class ConnectionInfo(proto.Message):
     Attributes:
         name (str):
             The name of the ConnectionInfo singleton resource, e.g.:
-            projects/{project}/locations/{location}/clusters/\ */instances/*/connectionInfo
+            projects/{project}/locations/{location}/clusters/*/instances/*/connectionInfo
             This field currently has no semantic meaning.
         ip_address (str):
             Output only. The private network IP address for the
@@ -2344,15 +2342,15 @@ class Backup(proto.Message):
             Output only. The name of the backup resource with the
             format:
 
-            -  projects/{project}/locations/{region}/backups/{backup_id}
-               where the cluster and backup ID segments should satisfy
-               the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
-               e.g. 1-63 characters of lowercase letters, numbers, and
-               dashes, starting with a letter, and ending with a letter
-               or number. For more details see
-               https://google.aip.dev/122. The prefix of the backup
-               resource name is the name of the parent resource:
-            -  projects/{project}/locations/{region}
+            - projects/{project}/locations/{region}/backups/{backup_id}
+              where the cluster and backup ID segments should satisfy
+              the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
+              e.g. 1-63 characters of lowercase letters, numbers, and
+              dashes, starting with a letter, and ending with a letter
+              or number. For more details see
+              https://google.aip.dev/122. The prefix of the backup
+              resource name is the name of the parent resource:
+            - projects/{project}/locations/{region}
         display_name (str):
             User-settable and human-readable display name
             for the Backup.
@@ -2676,8 +2674,8 @@ class SupportedDatabaseFlag(proto.Message):
             The name of the flag resource, following Google Cloud
             conventions, e.g.:
 
-            -  projects/{project}/locations/{location}/flags/{flag} This
-               field currently has no semantic meaning.
+            - projects/{project}/locations/{location}/flags/{flag} This
+              field currently has no semantic meaning.
         flag_name (str):
             The name of the database flag, e.g. "max_allowed_packets".
             The is a possibly key for the Instance.database_flags map
@@ -2900,19 +2898,34 @@ class User(proto.Message):
 class Database(proto.Message):
     r"""Message describing Database object.
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         name (str):
             Identifier. Name of the resource in the form of
             ``projects/{project}/locations/{location}/clusters/{cluster}/databases/{database}``.
         charset (str):
-            Optional. Charset for the database. This field can contain
-            any PostgreSQL supported charset name. Example values
-            include "UTF8", "SQL_ASCII", etc.
+            Optional. Immutable. Charset for the database. This field
+            can contain any PostgreSQL supported charset name. Example
+            values include "UTF8", "SQL_ASCII", etc.
         collation (str):
-            Optional. Collation for the database.
-            Name of the custom or native collation for
-            postgres. Example values include "C", "POSIX",
-            etc
+            Optional. Immutable. lc_collate for the database. String
+            sort order. Example values include "C", "POSIX", etc.
+        character_type (str):
+            Optional. Immutable. lc_ctype for the database. Character
+            classification (What is a letter? The upper-case
+            equivalent?). Example values include "C", "POSIX", etc.
+        is_template (bool):
+            Optional. Whether the database is a template database.
+            Deprecated in favor of is_template_database.
+        database_template (str):
+            Input only. Immutable. Template of the
+            database to be used for creating a new database.
+        is_template_database (bool):
+            Optional. Whether the database is a template
+            database.
+
+            This field is a member of `oneof`_ ``_is_template_database``.
     """
 
     name: str = proto.Field(
@@ -2926,6 +2939,23 @@ class Database(proto.Message):
     collation: str = proto.Field(
         proto.STRING,
         number=3,
+    )
+    character_type: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    is_template: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+    )
+    database_template: str = proto.Field(
+        proto.STRING,
+        number=6,
+    )
+    is_template_database: bool = proto.Field(
+        proto.BOOL,
+        number=7,
+        optional=True,
     )
 
 

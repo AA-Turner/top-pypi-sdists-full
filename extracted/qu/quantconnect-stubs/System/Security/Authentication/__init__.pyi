@@ -1,10 +1,10 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import System
 import System.Security.Authentication
 
 
-class SslProtocols(Enum):
+class SslProtocols(IntEnum):
     """This class has no documentation."""
 
     NONE = 0
@@ -23,12 +23,9 @@ class SslProtocols(Enum):
 
     DEFAULT = ...
 
-    def __int__(self) -> int:
-        ...
 
-
-class ExchangeAlgorithmType(Enum):
-    """Obsoletions.TlsCipherAlgorithmEnumsMessage"""
+class ExchangeAlgorithmType(IntEnum):
+    """This class has no documentation."""
 
     NONE = 0
 
@@ -38,12 +35,9 @@ class ExchangeAlgorithmType(Enum):
 
     DIFFIE_HELLMAN = ...
 
-    def __int__(self) -> int:
-        ...
 
-
-class CipherAlgorithmType(Enum):
-    """Obsoletions.TlsCipherAlgorithmEnumsMessage"""
+class CipherAlgorithmType(IntEnum):
+    """This class has no documentation."""
 
     NONE = 0
 
@@ -65,12 +59,9 @@ class CipherAlgorithmType(Enum):
 
     NULL = ...
 
-    def __int__(self) -> int:
-        ...
 
-
-class HashAlgorithmType(Enum):
-    """Obsoletions.TlsCipherAlgorithmEnumsMessage"""
+class HashAlgorithmType(IntEnum):
+    """This class has no documentation."""
 
     NONE = 0
 
@@ -83,8 +74,5 @@ class HashAlgorithmType(Enum):
     SHA_384 = ...
 
     SHA_512 = ...
-
-    def __int__(self) -> int:
-        ...
 
 

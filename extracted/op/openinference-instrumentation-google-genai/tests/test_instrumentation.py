@@ -5,7 +5,16 @@ from typing import Any, Dict, Iterator
 
 import pytest
 from google import genai
-from google.genai.types import Content, FunctionDeclaration, GenerateContentConfig, Part, Tool
+from google.genai.types import (
+    Content,
+    FunctionCall,
+    FunctionDeclaration,
+    FunctionResponse,
+    GenerateContentConfig,
+    Part,
+    Tool,
+    ToolCodeExecution,
+)
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -63,10 +72,42 @@ def test_generate_content(
     client = genai.Client(api_key=api_key)
 
     # Create content for the request
-    content = Content(
-        role="user",
-        parts=[Part.from_text(text="What's the weather like?")],
-    )
+    contents = [
+        Content(
+            role="user",
+            parts=[
+                Part.from_text(text="What's the weather like?"),
+            ],
+        ),
+        Content(
+            role="model",
+            parts=[
+                Part(
+                    function_call=FunctionCall(
+                        name="get_weather", args={"location": "San Francisco"}, id="call_abc123"
+                    )
+                ),
+            ],
+        ),
+        Content(
+            role="user",
+            parts=[
+                Part(
+                    function_response=FunctionResponse(
+                        name="get_weather",
+                        response={
+                            "location": "San Francisco",
+                            "temperature": 65,
+                            "unit": "fahrenheit",
+                            "condition": "foggy",
+                            "humidity": "85%",
+                        },
+                        id="call_abc123",
+                    )
+                ),
+            ],
+        ),
+    ]
 
     # Create config
     config = GenerateContentConfig(
@@ -75,7 +116,7 @@ def test_generate_content(
 
     # Make the API call
     response = client.models.generate_content(
-        model="gemini-2.0-flash", contents=content, config=config
+        model="gemini-2.0-flash", contents=contents, config=config
     )
 
     # Get the spans
@@ -91,6 +132,23 @@ def test_generate_content(
         f"{SpanAttributes.LLM_INPUT_MESSAGES}.0.{MessageAttributes.MESSAGE_CONTENT}": "You are a helpful assistant that can answer questions and help with tasks.",
         f"{SpanAttributes.LLM_INPUT_MESSAGES}.1.{MessageAttributes.MESSAGE_ROLE}": "user",
         f"{SpanAttributes.LLM_INPUT_MESSAGES}.1.{MessageAttributes.MESSAGE_CONTENT}": "What's the weather like?",
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.2.{MessageAttributes.MESSAGE_ROLE}": "model",
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.2.{MessageAttributes.MESSAGE_TOOL_CALLS}.0.{ToolCallAttributes.TOOL_CALL_FUNCTION_NAME}": "get_weather",
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.2.{MessageAttributes.MESSAGE_TOOL_CALLS}.0.{ToolCallAttributes.TOOL_CALL_FUNCTION_ARGUMENTS_JSON}": json.dumps(
+            {"location": "San Francisco"}
+        ),
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.2.{MessageAttributes.MESSAGE_TOOL_CALLS}.0.{ToolCallAttributes.TOOL_CALL_ID}": "call_abc123",
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.3.{MessageAttributes.MESSAGE_TOOL_CALL_ID}": "call_abc123",
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.3.{MessageAttributes.MESSAGE_ROLE}": "user",
+        f"{SpanAttributes.LLM_INPUT_MESSAGES}.3.{MessageAttributes.MESSAGE_CONTENT}": json.dumps(
+            {
+                "location": "San Francisco",
+                "temperature": 65,
+                "unit": "fahrenheit",
+                "condition": "foggy",
+                "humidity": "85%",
+            }
+        ),
         SpanAttributes.OUTPUT_MIME_TYPE: "application/json",
         SpanAttributes.INPUT_MIME_TYPE: "application/json",
         SpanAttributes.LLM_MODEL_NAME: "gemini-2.0-flash",
@@ -1370,3 +1428,77 @@ def test_generate_content_with_automatic_tool_calling(
     # We may or may not see explicit tool call attributes in the span depending on
     # how Google GenAI implements it internally. The key difference is that we get
     # a complete text response that incorporates the function results.
+
+
+@pytest.mark.vcr(
+    decode_compressed_response=True,
+    before_record_request=lambda _: _.headers.clear() or _,
+    before_record_response=lambda _: {**_, "headers": {}},
+)
+def test_validate_token_counts(
+    in_memory_span_exporter: InMemorySpanExporter,
+    tracer_provider: TracerProvider,
+    setup_google_genai_instrumentation: None,
+) -> None:
+    client = genai.Client(api_key="GEMINI_API_KEY")
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents="What is the sum of the first 50 prime numbers? "
+        "Generate and run code for the calculation, and make sure you get all 50.",
+        config=GenerateContentConfig(tools=[Tool(code_execution=ToolCodeExecution)]),
+    )
+    assert response is not None
+    spans = in_memory_span_exporter.get_finished_spans()
+    assert len(spans) == 1, f"Expected 1 span, got {len(spans)}"
+    span = spans[0]
+    attributes = dict(span.attributes or {})
+
+    expected_attributes = {
+        SpanAttributes.LLM_TOKEN_COUNT_TOTAL: 1457,
+        SpanAttributes.LLM_TOKEN_COUNT_PROMPT: 767,
+        # Completion includes candidates (587) + thoughts/reasoning (103)
+        SpanAttributes.LLM_TOKEN_COUNT_COMPLETION: 690,
+        SpanAttributes.LLM_TOKEN_COUNT_COMPLETION_DETAILS_REASONING: 103,
+    }
+    for key, expected_value in expected_attributes.items():
+        assert attributes.get(key) == expected_value, (
+            f"Attribute {key} does not match expected value: got {attributes.get(key)}"
+        )
+
+
+@pytest.mark.vcr(
+    decode_compressed_response=True,
+    before_record_request=lambda _: _.headers.clear() or _,
+    before_record_response=lambda _: {**_, "headers": {}},
+)
+def test_validate_token_counts_stream(
+    in_memory_span_exporter: InMemorySpanExporter,
+    tracer_provider: TracerProvider,
+    setup_google_genai_instrumentation: None,
+) -> None:
+    client = genai.Client(api_key="GEMINI_API_KEY")
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents="What is the sum of the first 50 prime numbers? "
+        "Generate and run code for the calculation, and make sure you get all 50.",
+        config=GenerateContentConfig(tools=[Tool(code_execution=ToolCodeExecution)]),
+    )
+    for _ in response:
+        ...
+    assert response is not None
+    spans = in_memory_span_exporter.get_finished_spans()
+    assert len(spans) == 1, f"Expected 1 span, got {len(spans)}"
+    span = spans[0]
+    attributes = dict(span.attributes or {})
+
+    expected_attributes = {
+        SpanAttributes.LLM_TOKEN_COUNT_TOTAL: 1620,
+        SpanAttributes.LLM_TOKEN_COUNT_PROMPT: 850,
+        # Completion includes candidates (602) + thoughts/reasoning (168)
+        SpanAttributes.LLM_TOKEN_COUNT_COMPLETION: 770,
+        SpanAttributes.LLM_TOKEN_COUNT_COMPLETION_DETAILS_REASONING: 168,
+    }
+    for key, expected_value in expected_attributes.items():
+        assert attributes.get(key) == expected_value, (
+            f"Attribute {key} does not match expected value: got {attributes.get(key)}"
+        )

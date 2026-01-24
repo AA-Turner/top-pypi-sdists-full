@@ -28,9 +28,9 @@ impl OutputFormatter for JsonLinesFormatter {
                 "file": file_path,
                 "line": warning.line,
                 "column": warning.column,
-                "rule": warning.rule_name.unwrap_or("unknown"),
+                "rule": warning.rule_name.as_deref().unwrap_or("unknown"),
                 "message": warning.message,
-                "severity": "warning",
+                "severity": warning.severity,
                 "fixable": warning.fix.is_some()
             });
 
@@ -84,7 +84,7 @@ mod tests {
             column: 5,
             end_line: 10,
             end_column: 15,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Heading levels should only increment by one level at a time".to_string(),
             severity: Severity::Warning,
             fix: None,
@@ -114,7 +114,7 @@ mod tests {
             column: 5,
             end_line: 10,
             end_column: 15,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Heading levels should only increment by one level at a time".to_string(),
             severity: Severity::Warning,
             fix: Some(Fix {
@@ -139,7 +139,7 @@ mod tests {
                 column: 1,
                 end_line: 5,
                 end_column: 10,
-                rule_name: Some("MD001"),
+                rule_name: Some("MD001".to_string()),
                 message: "First warning".to_string(),
                 severity: Severity::Warning,
                 fix: None,
@@ -149,7 +149,7 @@ mod tests {
                 column: 3,
                 end_line: 10,
                 end_column: 20,
-                rule_name: Some("MD013"),
+                rule_name: Some("MD013".to_string()),
                 message: "Second warning".to_string(),
                 severity: Severity::Error,
                 fix: Some(Fix {
@@ -207,7 +207,7 @@ mod tests {
             column: 12345,
             end_line: 100000,
             end_column: 12350,
-            rule_name: Some("MD999"),
+            rule_name: Some("MD999".to_string()),
             message: "Edge case warning".to_string(),
             severity: Severity::Error,
             fix: None,
@@ -228,7 +228,7 @@ mod tests {
             column: 1,
             end_line: 1,
             end_column: 5,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Warning with \"quotes\" and 'apostrophes' and \n newline".to_string(),
             severity: Severity::Warning,
             fix: None,
@@ -252,7 +252,7 @@ mod tests {
             column: 1,
             end_line: 1,
             end_column: 5,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Test".to_string(),
             severity: Severity::Warning,
             fix: None,
@@ -273,7 +273,7 @@ mod tests {
                 column: 1,
                 end_line: 1,
                 end_column: 5,
-                rule_name: Some("MD001"),
+                rule_name: Some("MD001".to_string()),
                 message: "First".to_string(),
                 severity: Severity::Warning,
                 fix: None,
@@ -283,7 +283,7 @@ mod tests {
                 column: 1,
                 end_line: 2,
                 end_column: 5,
-                rule_name: Some("MD002"),
+                rule_name: Some("MD002".to_string()),
                 message: "Second".to_string(),
                 severity: Severity::Warning,
                 fix: None,
@@ -293,7 +293,7 @@ mod tests {
                 column: 1,
                 end_line: 3,
                 end_column: 5,
-                rule_name: Some("MD003"),
+                rule_name: Some("MD003".to_string()),
                 message: "Third".to_string(),
                 severity: Severity::Warning,
                 fix: None,
@@ -312,17 +312,17 @@ mod tests {
     }
 
     #[test]
-    fn test_severity_always_warning() {
+    fn test_severity_levels() {
         let formatter = JsonLinesFormatter::new();
 
-        // Test that all severities are output as "warning" in the JSON
+        // Test that all severity levels are correctly output
         let warnings = vec![
             LintWarning {
                 line: 1,
                 column: 1,
                 end_line: 1,
                 end_column: 5,
-                rule_name: Some("MD001"),
+                rule_name: Some("MD001".to_string()),
                 message: "Warning severity".to_string(),
                 severity: Severity::Warning,
                 fix: None,
@@ -332,19 +332,33 @@ mod tests {
                 column: 1,
                 end_line: 2,
                 end_column: 5,
-                rule_name: Some("MD002"),
+                rule_name: Some("MD002".to_string()),
                 message: "Error severity".to_string(),
                 severity: Severity::Error,
+                fix: None,
+            },
+            LintWarning {
+                line: 3,
+                column: 1,
+                end_line: 3,
+                end_column: 5,
+                rule_name: Some("MD003".to_string()),
+                message: "Info severity".to_string(),
+                severity: Severity::Info,
                 fix: None,
             },
         ];
 
         let output = formatter.format_warnings(&warnings, "test.md");
+        let lines: Vec<&str> = output.lines().collect();
 
-        for line in output.lines() {
-            let json: Value = serde_json::from_str(line).unwrap();
-            assert_eq!(json["severity"], "warning");
-        }
+        let json0: Value = serde_json::from_str(lines[0]).unwrap();
+        let json1: Value = serde_json::from_str(lines[1]).unwrap();
+        let json2: Value = serde_json::from_str(lines[2]).unwrap();
+
+        assert_eq!(json0["severity"], "warning");
+        assert_eq!(json1["severity"], "error");
+        assert_eq!(json2["severity"], "info");
     }
 
     #[test]
@@ -355,7 +369,7 @@ mod tests {
             column: 1,
             end_line: 1,
             end_column: 5,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Test".to_string(),
             severity: Severity::Warning,
             fix: None,
@@ -382,7 +396,7 @@ mod tests {
             column: 1,
             end_line: 1,
             end_column: 5,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Unicode: 你好 émoji 🎉".to_string(),
             severity: Severity::Warning,
             fix: None,

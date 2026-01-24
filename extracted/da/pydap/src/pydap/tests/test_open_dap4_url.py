@@ -27,16 +27,91 @@ def test_maps():
     print(data.array[:].data)
 
 
-def test_batch_mode_downloads():
+@pytest.mark.parametrize("protocol", ["dap4", "dap2"])
+def test_dap4_slices(cache_tmp_dir, protocol):
+    """Also tests dap2"""
+    url = "https://test.opendap.org/opendap/netcdf/examples/tos_O1_2001-2002.nc"
+    cache_name = cache_tmp_dir / "debug_dap4_slices"
+    session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_name},
+    )
+    pyds = open_url(url, protocol=protocol, session=session)
+    session.cache.clear()  # Clear cache before testing
+    lon = np.asarray(pyds["lon"][-1:].data)
+    assert lon.shape == (1,)
+
+    query_string = (
+        session.cache.urls()[0].split("lon")[-1].split("%5B")[1].split("%5D")[0]
+    )
+    assert query_string.replace("%3A", ":") == "179:1:179"
+    session.cache.clear()
+
+
+def test_dap4_unaligned_check_dims():
+    """ """
+    url = "dap4://test.opendap.org/opendap/dap4/unaligned_simple_datatree.nc.h5"
+    session = create_session()
+    pyds = open_url(url, session=session)
+    assert pyds.dimensions == {"lat": 1, "lon": 2}
+    assert pyds["Group1"].dimensions == {"lat": 1, "lon": 2}
+    assert pyds["Group1/subgroup1"].dimensions == {"lat": 2, "lon": 2}
+    assert pyds["root_variable"].dims == ["/lat", "/lon"]
+    assert pyds["/Group1/group_1_var"].dims == ["/lat", "/lon"]
+    assert pyds["/Group1/subgroup1/subgroup1_var"].dims == [
+        "/Group1/subgroup1/lat",
+        "/Group1/subgroup1/lon",
+    ]
+
+
+def test_dap4_unaligned2_check_dims():
+    """ """
+    url = "dap4://test.opendap.org/opendap/dap4/unaligned_simple_datatree2.nc.h5"
+    session = create_session()
+    pyds = open_url(url, session=session)
+
+    assert pyds.dimensions == {"lat": 1, "lon": 1}
+    assert pyds["Group1"].dimensions == {"lat": 1, "lon": 2}
+    assert pyds["Group1/SubGroup1"].dimensions == {"lat": 2, "lon": 2}
+    assert pyds["Group1/SubGroup2"].dimensions == {"lat": 3, "lon": 3}
+    assert pyds["Group2"].dimensions == {"lat": 2, "lon": 2}
+    assert pyds["Group2/SubGroup3"].dimensions == {"X": 1, "Y": 1}
+    assert pyds["Group2/SubGroup4"].dimensions == {"X": 2, "Y": 2}
+
+    assert pyds["root_variable"].dims == ["/lat", "/lon"]
+    assert pyds["/Group1/group_1_var"].dims == ["/Group1/lat", "/Group1/lon"]
+    assert pyds["/Group1/SubGroup1/subgroup1_var"].dims == [
+        "/Group1/SubGroup1/lat",
+        "/Group1/SubGroup1/lon",
+    ]
+    assert pyds["/Group1/SubGroup2/subgroup2_var"].dims == [
+        "/Group1/SubGroup2/lat",
+        "/Group1/SubGroup2/lon",
+    ]
+    assert pyds["/Group2/group_2_var"].dims == ["/Group2/lat", "/Group2/lon"]
+    assert pyds["/Group2/SubGroup3/subgroup3_var"].dims == [
+        "/Group2/SubGroup3/Y",
+        "/Group2/SubGroup3/X",
+    ]
+    assert pyds["/Group2/SubGroup4/subgroup4_var"].dims == [
+        "/Group2/SubGroup4/Y",
+        "/Group2/SubGroup4/X",
+    ]
+
+
+def test_batch_mode_downloads(cache_tmp_dir):
     """
     Test that batch mode downloads data correctly.
     """
-    session = create_session(use_cache=True, cache_kwargs={"cache_name": "debug"})
+    cache_name = cache_tmp_dir / "debug_batch_mode_downloads"
+    session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_name},
+    )
     session.cache.clear()  # Clear cache before testing
 
     url = "http://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5"
-    ds = open_url(url, session=session, protocol="dap4", checksums=True)
-    ds.enable_batch_mode()
+    ds = open_url(url, session=session, protocol="dap4", checksums=True, batch=True)
 
     # slash arrays to triger data download.
     # both salt and temp get downloaded with
@@ -52,35 +127,9 @@ def test_batch_mode_downloads():
     # check that the data is correct
     assert np.mean(salt) == 30.0
 
-    # check that cached urls are correct
-
     # Check that there is only 1 URL cached: the DMR. The DAP url us no longer cached
     assert len(session.cache.urls()) == 2
-
-    # # check dap url (assume it is the 0th one of the cached urls)
-    # cached_dap_url_query = session.cache.urls()[0].split("?dap4.ce=")[1]
-
-    # # Checksum query parameter was set to False (default)
-    # # but the currently always set to `checksum=true` when batching
-    # # this will change later
-
-    # data_requests, checksum_query = cached_dap_url_query.split("&")
-
-    # assert checksum_query == "dap4.checksum=true"
-
-    # Now take the rest, and check that the two variable data requests are correct
-
-    # # expected:
-    # expected_CE_temp = (
-    #     "%2FSimpleGroup%2FTemperature%5B0%3A1%3A0%5D%5B0%3A1%3A39%5D%5B0%3A1%3A39%5D"
-    # )
-    # expected_CE_salt = (
-    #     "%2FSimpleGroup%2FSalinity%5B0%3A1%3A0%5D%5B0%3A1%3A39%5D%5B0%3A1%3A39%5D"
-    # )
-
-    # observed_CEs = data_requests.split("%3B")  # `;` scaped is %3B
-
-    # assert set(observed_CEs) == set([expected_CE_temp, expected_CE_salt])
+    session.cache.clear()
 
 
 if __name__ == "__main__":

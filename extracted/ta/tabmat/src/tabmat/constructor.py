@@ -3,7 +3,7 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Optional, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
 import numpy.typing
 from formulaic import Formula, ModelSpec
@@ -182,7 +182,7 @@ def from_df(
     if dense_dfidx:
         matrices.append(
             DenseMatrix(
-                df[:, dense_dfidx].to_numpy().astype(dtype),
+                df[:, dense_dfidx].to_numpy().astype(dtype, copy=False),
                 column_names=np.asarray(df.columns)[dense_dfidx],
                 term_names=np.asarray(df.columns)[dense_dfidx],
             )

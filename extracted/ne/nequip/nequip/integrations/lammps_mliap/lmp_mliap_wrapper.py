@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from nequip.data import AtomicDataDict
+from nequip.data.transforms.neighborlist import NeighborListTransform
 from nequip.nn import graph_model
 from nequip.model.saved_models.load_utils import load_saved_model
 from nequip.model.modify_utils import get_all_modifiers, modify
@@ -59,6 +60,7 @@ class NequIPLAMMPSMLIAPWrapper(MLIAPUnified):
         self.tf32 = tf32
         self.model = None
         self.device = None
+        self.nl = None
 
         # to placate the interface
         self.nparams = 1
@@ -129,11 +131,17 @@ class NequIPLAMMPSMLIAPWrapper(MLIAPUnified):
         )
         model = prepare_model_for_compile(model, self.device)
 
-        # make the model an energy model so that we can rely on AOT Autograd for inference
-        # model is `GraphModel(StressForceOutput(EnergyModel))`
-        # we have to do it this way since `torch.compile` can't handle `x.requires_grad_(True)`
+        # make sure that derivative computation for forces, stresses is disabled
+        # such that the model is an energy model so that we can rely on AOT Autograd for inference
+        # since `torch.compile` can't handle `x.requires_grad_(True)`
         # we avoid using the `CompileGraphModel` because of potential batch dim issues, potential make_fx issues with the ghost exchange module, and because it was written specifically for train-time compile
-        model.model = model.model.func
+        if "disable_ForceStressOutput" in available_modifiers:
+            model = modify(model, [{"modifier": "disable_ForceStressOutput"}])
+        else:
+            # very bad hack, but left for backwards compatibility
+            # TODO: remove in the future as a breaking change
+            # assumes model is `GraphModel(StressForceOutput(EnergyModel))`
+            model.model = model.model.func
 
         if self.compile:
             # NOTE: it seems that we have to set `freezing` this way for constant folding
@@ -144,6 +152,17 @@ class NequIPLAMMPSMLIAPWrapper(MLIAPUnified):
             )
         else:
             self.model = model
+
+        # instantiate NeighborListTransform for per-edge-type cutoff pruning
+        per_edge_type_cutoff = model.metadata.get("per_edge_type_cutoff", None)
+        if per_edge_type_cutoff is not None:
+            self.nl = NeighborListTransform(
+                r_max=float(model.metadata[graph_model.R_MAX_KEY]),
+                per_edge_type_cutoff=per_edge_type_cutoff,
+                type_names=model.type_names,
+            )
+            self.nl._normalizer.to(self.device)
+            # ^ important to set to correct device (typically not needed for training context since data transforms are on CPU)
 
     def compute_forces(self, lmp_data):
         # === lazily load model ===
@@ -170,14 +189,10 @@ class NequIPLAMMPSMLIAPWrapper(MLIAPUnified):
         # - edge -> node scatter operations / nodewise operations (e.g. in `nequip/nn/interaction_block.py`)
         # - nodewise operations that involve `atom_types` (since `atom_types` is `num_local + num_ghost`), e.g. in `PerTypeScaleShift` and `ZBL`.
 
-        # TODO: we have yet to exploit per-edge-type cutoffs by pruning the edge vectors and neighborlist
-        # make sure edge vectors `requires_grad`
-        edge_vectors = torch.as_tensor(lmp_data.rij, dtype=torch.float64).to(
-            self.device
-        )
-        edge_vectors.requires_grad_(True)
         nequip_data_in = {
-            AtomicDataDict.EDGE_VECTORS_KEY: edge_vectors,
+            AtomicDataDict.EDGE_VECTORS_KEY: torch.as_tensor(
+                lmp_data.rij, dtype=torch.float64
+            ).to(self.device),
             AtomicDataDict.EDGE_INDEX_KEY: torch.vstack(
                 [
                     torch.as_tensor(lmp_data.pair_i, dtype=torch.int64).to(self.device),
@@ -193,9 +208,15 @@ class NequIPLAMMPSMLIAPWrapper(MLIAPUnified):
             ).to(self.device),
         }
 
+        # === apply per-edge-type cutoff pruning if available ===
+        if self.nl is not None:
+            nequip_data_in = self.nl._apply_per_edge_type_cutoffs(nequip_data_in)
+
         # === run model ===
+        # make sure edge vectors `requires_grad`
+        edge_vectors = nequip_data_in[AtomicDataDict.EDGE_VECTORS_KEY]
+        edge_vectors.requires_grad_(True)
         # run model and backwards for edge forces
-        nequip_data_in[AtomicDataDict.EDGE_VECTORS_KEY].requires_grad_(True)
         nequip_data_out = self.model(nequip_data_in)
         # correct sign convention for consistency with LAMMPS
         edge_forces = torch.autograd.grad(

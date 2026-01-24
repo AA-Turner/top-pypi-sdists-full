@@ -10,8 +10,6 @@ import time
 import tempfile
 from gettext import gettext as _
 
-from contextlib import suppress
-
 from django.conf import settings
 from django.db import connection, transaction, IntegrityError
 from django.db.models import Q
@@ -19,10 +17,7 @@ from django.utils import timezone
 from django_guid import set_guid
 from django_guid.utils import generate_guid
 from pulpcore.app.models import Artifact, Content, Task, TaskSchedule, ProfileArtifact
-from pulpcore.app.role_util import get_users_with_perms
 from pulpcore.app.util import (
-    set_current_user,
-    set_domain,
     configure_analytics,
     configure_cleanup,
     configure_periodic_telemetry,
@@ -99,39 +94,17 @@ def perform_task(task_pk, task_working_dir_rel_path):
     connection.connection = None
     # enc_args and enc_kwargs are deferred by default but we actually want them
     task = Task.objects.defer(None).select_related("pulp_domain").get(pk=task_pk)
-    # These queries were specifically constructed and ordered this way to ensure we have the highest
-    # chance of getting the user who dispatched the task since we don't have a user relation on the
-    # task model. The second query acts as a fallback to provide ZDU support. Future changes will
-    # require to keep these around till a breaking change release is planned (3.70 the earliest).
-    user = (
-        get_users_with_perms(
-            task,
-            only_with_perms_in=["core.add_task"],
-            with_group_users=False,
-            include_model_permissions=False,
-            include_domain_permissions=False,
-        ).first()
-        or get_users_with_perms(
-            task,
-            only_with_perms_in=["core.manage_roles_task"],
-            with_group_users=False,
-            include_model_permissions=False,
-            include_domain_permissions=False,
-        ).first()
-    )
     # Isolate from the parent asyncio.
     asyncio.set_event_loop(asyncio.new_event_loop())
     # Set current contexts
-    set_guid(task.logging_cid)
-    set_current_user(user)
-    set_domain(task.pulp_domain)
     os.chdir(task_working_dir_rel_path)
 
     if task.profile_options:
         profilers = set(task.profile_options) & set(settings.TASK_DIAGNOSTICS)
         if unavailable_profilers := set(task.profile_options) - set(settings.TASK_DIAGNOSTICS):
             _logger.warning(
-                "Requested task diagnostic profilers are not available: %s", unavailable_profilers
+                "Requested task diagnostic profilers are not available: %s",
+                unavailable_profilers,
             )
         _execute_task_and_profile(task, profilers)
     else:
@@ -167,12 +140,16 @@ def _memory_diagnostic_decorator(temp_dir, func):
 
         stop_event.set()
         artifact = Artifact.init_and_validate(mem_diagnostics_file_path)
-        with suppress(IntegrityError):
+        try:
+            # it is possible for the diagnostic artifact (memory report) to be identical to
+            # a previous report, in which case we need to handle the case where saving a new
+            # artifact fails.
             artifact.save()
-            ProfileArtifact.objects.get_or_create(
-                artifact=artifact, name="memory_profile", task=task
-            )
-            _logger.info("Created memory diagnostic data.")
+        except IntegrityError:
+            artifact = Artifact.objects.get(sha256=artifact.sha256)
+
+        ProfileArtifact.objects.get_or_create(artifact=artifact, name="memory_profile", task=task)
+        _logger.info("Created memory diagnostic data.")
 
     return __memory_diagnostic_decorator
 
@@ -191,12 +168,18 @@ def _pyinstrument_diagnostic_decorator(temp_dir, func):
                 f.flush()
 
             artifact = Artifact.init_and_validate(str(profile_file_path))
-            with suppress(IntegrityError):
+            try:
+                # it is possible for the diagnostic artifact (memory report) to be identical to
+                # a previous report, in which case we need to handle the case where saving a new
+                # artifact fails.
                 artifact.save()
-                ProfileArtifact.objects.get_or_create(
-                    artifact=artifact, name="pyinstrument_profile", task=task
-                )
-                _logger.info("Created pyinstrument profile data.")
+            except IntegrityError:
+                artifact = Artifact.objects.get(sha256=artifact.sha256)
+
+            ProfileArtifact.objects.get_or_create(
+                artifact=artifact, name="pyinstrument_profile", task=task
+            )
+            _logger.info("Created pyinstrument profile data.")
         else:
             func(task)
 
@@ -217,12 +200,18 @@ def _memray_diagnostic_decorator(temp_dir, func):
                 func(task)
 
             artifact = Artifact.init_and_validate(str(profile_file_path))
-            with suppress(IntegrityError):
+            try:
+                # it is possible for the diagnostic artifact (memory report) to be identical to
+                # a previous report, in which case we need to handle the case where saving a new
+                # artifact fails.
                 artifact.save()
-                ProfileArtifact.objects.get_or_create(
-                    artifact=artifact, name="memray_profile", task=task
-                )
-                _logger.info("Created memray memory profile data.")
+            except IntegrityError:
+                artifact = Artifact.objects.get(sha256=artifact.sha256)
+
+            ProfileArtifact.objects.get_or_create(
+                artifact=artifact, name="memray_profile", task=task
+            )
+            _logger.info("Created memray memory profile data.")
         else:
             func(task)
 

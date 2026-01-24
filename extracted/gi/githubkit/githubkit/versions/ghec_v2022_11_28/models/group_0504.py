@@ -9,6 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -16,45 +18,130 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class BillingUsageReportUser(GitHubModel):
-    """BillingUsageReportUser"""
+class RepositoryAdvisoryUpdate(GitHubModel):
+    """RepositoryAdvisoryUpdate"""
 
-    usage_items: Missing[list[BillingUsageReportUserPropUsageItemsItems]] = Field(
-        default=UNSET, alias="usageItems"
+    summary: Missing[str] = Field(
+        max_length=1024, default=UNSET, description="A short summary of the advisory."
+    )
+    description: Missing[str] = Field(
+        max_length=65535,
+        default=UNSET,
+        description="A detailed description of what the advisory impacts.",
+    )
+    cve_id: Missing[Union[str, None]] = Field(
+        default=UNSET, description="The Common Vulnerabilities and Exposures (CVE) ID."
+    )
+    vulnerabilities: Missing[list[RepositoryAdvisoryUpdatePropVulnerabilitiesItems]] = (
+        Field(
+            default=UNSET,
+            description="A product affected by the vulnerability detailed in a repository security advisory.",
+        )
+    )
+    cwe_ids: Missing[Union[list[str], None]] = Field(
+        default=UNSET, description="A list of Common Weakness Enumeration (CWE) IDs."
+    )
+    credits_: Missing[Union[list[RepositoryAdvisoryUpdatePropCreditsItems], None]] = (
+        Field(
+            default=UNSET,
+            alias="credits",
+            description="A list of users receiving credit for their participation in the security advisory.",
+        )
+    )
+    severity: Missing[Union[None, Literal["critical", "high", "medium", "low"]]] = (
+        Field(
+            default=UNSET,
+            description="The severity of the advisory. You must choose between setting this field or `cvss_vector_string`.",
+        )
+    )
+    cvss_vector_string: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The CVSS vector that calculates the severity of the advisory. You must choose between setting this field or `severity`.",
+    )
+    state: Missing[Literal["published", "closed", "draft"]] = Field(
+        default=UNSET, description="The state of the advisory."
+    )
+    collaborating_users: Missing[Union[list[str], None]] = Field(
+        default=UNSET,
+        description="A list of usernames who have been granted write access to the advisory.",
+    )
+    collaborating_teams: Missing[Union[list[str], None]] = Field(
+        default=UNSET,
+        description="A list of team slugs which have been granted write access to the advisory.",
     )
 
 
-class BillingUsageReportUserPropUsageItemsItems(GitHubModel):
-    """BillingUsageReportUserPropUsageItemsItems"""
+class RepositoryAdvisoryUpdatePropCreditsItems(GitHubModel):
+    """RepositoryAdvisoryUpdatePropCreditsItems"""
 
-    date: str = Field(description="Date of the usage line item.")
-    product: str = Field(description="Product name.")
-    sku: str = Field(description="SKU name.")
-    quantity: int = Field(description="Quantity of the usage line item.")
-    unit_type: str = Field(
-        alias="unitType", description="Unit type of the usage line item."
-    )
-    price_per_unit: float = Field(
-        alias="pricePerUnit", description="Price per unit of the usage line item."
-    )
-    gross_amount: float = Field(
-        alias="grossAmount", description="Gross amount of the usage line item."
-    )
-    discount_amount: float = Field(
-        alias="discountAmount", description="Discount amount of the usage line item."
-    )
-    net_amount: float = Field(
-        alias="netAmount", description="Net amount of the usage line item."
-    )
-    repository_name: Missing[str] = Field(
-        default=UNSET, alias="repositoryName", description="Name of the repository."
-    )
+    login: str = Field(description="The username of the user credited.")
+    type: Literal[
+        "analyst",
+        "finder",
+        "reporter",
+        "coordinator",
+        "remediation_developer",
+        "remediation_reviewer",
+        "remediation_verifier",
+        "tool",
+        "sponsor",
+        "other",
+    ] = Field(description="The type of credit the user is receiving.")
 
 
-model_rebuild(BillingUsageReportUser)
-model_rebuild(BillingUsageReportUserPropUsageItemsItems)
+class RepositoryAdvisoryUpdatePropVulnerabilitiesItems(GitHubModel):
+    """RepositoryAdvisoryUpdatePropVulnerabilitiesItems"""
+
+    package: RepositoryAdvisoryUpdatePropVulnerabilitiesItemsPropPackage = Field(
+        description="The name of the package affected by the vulnerability."
+    )
+    vulnerable_version_range: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The range of the package versions affected by the vulnerability.",
+    )
+    patched_versions: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The package version(s) that resolve the vulnerability.",
+    )
+    vulnerable_functions: Missing[Union[list[str], None]] = Field(
+        default=UNSET, description="The functions in the package that are affected."
+    )
+
+
+class RepositoryAdvisoryUpdatePropVulnerabilitiesItemsPropPackage(GitHubModel):
+    """RepositoryAdvisoryUpdatePropVulnerabilitiesItemsPropPackage
+
+    The name of the package affected by the vulnerability.
+    """
+
+    ecosystem: Literal[
+        "rubygems",
+        "npm",
+        "pip",
+        "maven",
+        "nuget",
+        "composer",
+        "go",
+        "rust",
+        "erlang",
+        "actions",
+        "pub",
+        "other",
+        "swift",
+    ] = Field(description="The package's language or package management ecosystem.")
+    name: Missing[Union[str, None]] = Field(
+        default=UNSET, description="The unique package name within its ecosystem."
+    )
+
+
+model_rebuild(RepositoryAdvisoryUpdate)
+model_rebuild(RepositoryAdvisoryUpdatePropCreditsItems)
+model_rebuild(RepositoryAdvisoryUpdatePropVulnerabilitiesItems)
+model_rebuild(RepositoryAdvisoryUpdatePropVulnerabilitiesItemsPropPackage)
 
 __all__ = (
-    "BillingUsageReportUser",
-    "BillingUsageReportUserPropUsageItemsItems",
+    "RepositoryAdvisoryUpdate",
+    "RepositoryAdvisoryUpdatePropCreditsItems",
+    "RepositoryAdvisoryUpdatePropVulnerabilitiesItems",
+    "RepositoryAdvisoryUpdatePropVulnerabilitiesItemsPropPackage",
 )

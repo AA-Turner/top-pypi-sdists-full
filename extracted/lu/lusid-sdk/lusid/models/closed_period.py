@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
 from lusid.models.link import Link
 from lusid.models.model_property import ModelProperty
 from lusid.models.post_close_activity import PostCloseActivity
@@ -32,16 +34,18 @@ class ClosedPeriod(BaseModel):
     closed_period_id:  Optional[StrictStr] = Field(None,alias="closedPeriodId", description="The unique Id of the Closed Period. The ClosedPeriodId, together with the Timeline Scope and Code, uniquely identifies a Closed Period") 
     display_name:  Optional[StrictStr] = Field(None,alias="displayName", description="The name of the Closed Period.") 
     description:  Optional[StrictStr] = Field(None,alias="description", description="A description for the Closed Period.") 
-    effective_start: Optional[datetime] = Field(None, alias="effectiveStart", description="The effective start of the Closed Period")
-    effective_end: Optional[datetime] = Field(None, alias="effectiveEnd", description="The effective end of the Closed Period")
-    as_at_closed: Optional[datetime] = Field(None, alias="asAtClosed", description="The asAt closed datetime for the Closed Period")
-    properties: Optional[Dict[str, ModelProperty]] = Field(None, description="The Closed Periods properties. These will be from the 'ClosedPeriod' domain.")
+    effective_start: Optional[datetime] = Field(default=None, description="The effective start of the Closed Period", alias="effectiveStart")
+    effective_end: Optional[datetime] = Field(default=None, description="The effective end of the Closed Period", alias="effectiveEnd")
+    as_at_closed: Optional[datetime] = Field(default=None, description="The asAt closed datetime for the Closed Period", alias="asAtClosed")
+    properties: Optional[Dict[str, ModelProperty]] = Field(default=None, description="The Closed Periods properties. These will be from the 'ClosedPeriod' domain.")
     version: Optional[Version] = None
-    post_close_activities: Optional[conlist(PostCloseActivity)] = Field(None, alias="postCloseActivities", description="All the post close activities for the closed period.")
-    holdings_as_at_closed_override: Optional[datetime] = Field(None, alias="holdingsAsAtClosedOverride", description="The optional AsAtClosed Override to use for building holdings in the Closed Period.If not specified, the AsAtClosed on the Closed Period will be used.")
+    post_close_activities: Optional[List[PostCloseActivity]] = Field(default=None, description="All the post close activities for the closed period.", alias="postCloseActivities")
+    holdings_as_at_closed_override: Optional[datetime] = Field(default=None, description="The optional AsAtClosed Override to use for building holdings in the Closed Period.If not specified, the AsAtClosed on the Closed Period will be used.", alias="holdingsAsAtClosedOverride")
+    valuation_as_at_closed_override: Optional[datetime] = Field(default=None, description="The optional AsAtClosed Override to use for performing valuations in the Closed Period.If not specified, the AsAtClosed on the Closed Period will be used.", alias="valuationAsAtClosedOverride")
+    branch_status:  Optional[StrictStr] = Field(None,alias="branchStatus", description="The branch status of the closed period, e.g. Confirmed/Unconfirmed.") 
     href:  Optional[StrictStr] = Field(None,alias="href", description="The specific Uniform Resource Identifier (URI) for this resource at the requested asAt datetime.") 
-    links: Optional[conlist(Link)] = None
-    __properties = ["closedPeriodId", "displayName", "description", "effectiveStart", "effectiveEnd", "asAtClosed", "properties", "version", "postCloseActivities", "holdingsAsAtClosedOverride", "href", "links"]
+    links: Optional[List[Link]] = None
+    __properties = ["closedPeriodId", "displayName", "description", "effectiveStart", "effectiveEnd", "asAtClosed", "properties", "version", "postCloseActivities", "holdingsAsAtClosedOverride", "valuationAsAtClosedOverride", "branchStatus", "href", "links"]
 
     class Config:
         """Pydantic configuration"""
@@ -129,6 +133,16 @@ class ClosedPeriod(BaseModel):
         if self.holdings_as_at_closed_override is None and "holdings_as_at_closed_override" in self.__fields_set__:
             _dict['holdingsAsAtClosedOverride'] = None
 
+        # set to None if valuation_as_at_closed_override (nullable) is None
+        # and __fields_set__ contains the field
+        if self.valuation_as_at_closed_override is None and "valuation_as_at_closed_override" in self.__fields_set__:
+            _dict['valuationAsAtClosedOverride'] = None
+
+        # set to None if branch_status (nullable) is None
+        # and __fields_set__ contains the field
+        if self.branch_status is None and "branch_status" in self.__fields_set__:
+            _dict['branchStatus'] = None
+
         # set to None if href (nullable) is None
         # and __fields_set__ contains the field
         if self.href is None and "href" in self.__fields_set__:
@@ -166,7 +180,11 @@ class ClosedPeriod(BaseModel):
             "version": Version.from_dict(obj.get("version")) if obj.get("version") is not None else None,
             "post_close_activities": [PostCloseActivity.from_dict(_item) for _item in obj.get("postCloseActivities")] if obj.get("postCloseActivities") is not None else None,
             "holdings_as_at_closed_override": obj.get("holdingsAsAtClosedOverride"),
+            "valuation_as_at_closed_override": obj.get("valuationAsAtClosedOverride"),
+            "branch_status": obj.get("branchStatus"),
             "href": obj.get("href"),
             "links": [Link.from_dict(_item) for _item in obj.get("links")] if obj.get("links") is not None else None
         })
         return _obj
+
+ClosedPeriod.update_forward_refs()

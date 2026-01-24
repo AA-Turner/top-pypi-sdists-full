@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 
 def format_number(number: float, decimals: int = 2):
@@ -11,6 +11,13 @@ def format_number(number: float, decimals: int = 2):
 
 
 def is_number(s: Any) -> bool:
+    # booleans inherit from int
+    #
+    # >>> a.__class__.__mro__
+    # (<class 'bool'>, <class 'int'>, <class 'object'>)
+    if s is False or s is True:
+        return False
+
     try:
         float(s)  # for int, long and float
         return True
@@ -18,7 +25,7 @@ def is_number(s: Any) -> bool:
         return False
 
 
-def to_number(s: Any) -> Union[int, float]:
+def to_number(s: Any) -> int | float:
     """Cast the string representation of the given object to a number (int or float), or raise ValueError."""
     try:
         return int(str(s))

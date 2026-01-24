@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -9,52 +9,40 @@ import re
 
 TRAINING_MODEL_HREF_PATTERN = "{}/v4/trainings/{}"
 TRAINING_MODELS_HREF_PATTERN = "{}/v4/trainings"
-REPO_MODELS_FRAMEWORKS_HREF_PATTERN = "{}/v3/models/frameworks"
 
-INSTANCE_ENDPOINT_HREF_PATTERN = "{}/v3/wml_instance"
-INSTANCE_BY_ID_ENDPOINT_HREF_PATTERN = "{}/v3/wml_instances/{}"
-TOKEN_ENDPOINT_HREF_PATTERN = "{}/v3/identity/token"
 CPD_TOKEN_ENDPOINT_HREF_PATTERN = "{}/icp4d-api/v1/authorize"
 CPD_BEDROCK_TOKEN_ENDPOINT_HREF_PATTERN = "{}/idprovider/v1/auth/identitytoken"
 CPD_VALIDATION_TOKEN_ENDPOINT_HREF_PATTERN = "{}/v1/preauth/validateAuth"
 CPD_PUBLIC_KEYS_ENDPOINT_HREF_PATTERN = "{}/auth/jwks"
 EXPERIMENTS_HREF_PATTERN = "{}/v4/experiments"
 EXPERIMENT_HREF_PATTERN = "{}/v4/experiments/{}"
-EXPERIMENT_RUNS_HREF_PATTERN = "{}/v3/experiments/{}/runs"
-EXPERIMENT_RUN_HREF_PATTERN = "{}/v3/experiments/{}/runs/{}"
 
 PUBLISHED_MODEL_HREF_PATTERN = "{}/v4/models/{}"
+PUBLISHED_MODEL_CONTENT_HREF_PATTERN = "{}/v4/models/{}/content"
 PUBLISHED_MODELS_HREF_PATTERN = "{}/v4/models"
-LEARNING_CONFIGURATION_HREF_PATTERN = (
-    "{}/v3/wml_instances/{}/published_models/{}/learning_configuration"
-)
-LEARNING_ITERATION_HREF_PATTERN = (
-    "{}/v3/wml_instances/{}/published_models/{}/learning_iterations/{}"
-)
-LEARNING_ITERATIONS_HREF_PATTERN = (
-    "{}/v3/wml_instances/{}/published_models/{}/learning_iterations"
-)
-EVALUATION_METRICS_HREF_PATTERN = (
-    "{}/v3/wml_instances/{}/published_models/{}/evaluation_metrics"
-)
-FEEDBACK_HREF_PATTERN = "{}/v3/wml_instances/{}/published_models/{}/feedback"
 
 DEPLOYMENTS_HREF_PATTERN = "{}/v4/deployments"
 DEPLOYMENT_HREF_PATTERN = "{}/v4/deployments/{}"
+DEPLOYMENT_PREDICTIONS_HREF_PATTERN = "{}/v4/deployments/{}/predictions"
+DEPLOYMENT_AI_SERVICE_HREF_PATTERN = "{}/v4/deployments/{}/ai_service"
+DEPLOYMENT_AI_SERVICE_STREAM_HREF_PATTERN = "{}/v4/deployments/{}/ai_service_stream"
 DEPLOYMENT_JOB_HREF_PATTERN = "{}/v4/deployment_jobs"
 DEPLOYMENT_JOBS_HREF_PATTERN = "{}/v4/deployment_jobs/{}"
 DEPLOYMENT_ENVS_HREF_PATTERN = "{}/v4/deployments/environments"
 DEPLOYMENT_ENV_HREF_PATTERN = "{}/v4/deployments/environments/{}"
 
 MODEL_LAST_VERSION_HREF_PATTERN = "{}/v4/models/{}"
-DEFINITION_HREF_PATTERN = "{}/v3/ml_assets/training_definitions/{}"
-DEFINITIONS_HREF_PATTERN = "{}/v3/ml_assets/training_definitions"
+MODEL_DOWNLOAD_HREF_PATTERN = "{}/v4/models/{}/download"
 
 FUNCTION_HREF_PATTERN = "{}/v4/functions/{}"
+FUNCTION_CODE_HREF_PATTERN = "{}/v4/functions/{}/code"
+FUNCTION_REVISIONS_HREF_PATTERN = "{}/v4/functions/{}/revisions"
 FUNCTION_LATEST_CONTENT_HREF_PATTERN = "{}/v4/functions/{}/content"
 FUNCTIONS_HREF_PATTERN = "{}/v4/functions"
 
 AI_SERVICE_HREF_PATTERN = "{}/v4/ai_services/{}"
+AI_SERVICE_CODE_HREF_PATTERN = "{}/v4/ai_services/{}/code"
+AI_SERVICE_REVISIONS_HREF_PATTERN = "{}/v4/ai_services/{}/revisions"
 AI_SERVICES_LATEST_CONTENT_HREF_PATTERN = "{}/v4/ai_services/{}/content"
 AI_SERVICES_HREF_PATTERN = "{}/v4/ai_services"
 
@@ -168,9 +156,13 @@ CONNECTIONS_FILES = "{}/v2/connections/files"
 CONNECTIONS_FILE = "{}/v2/connections/files/{}"
 SOFTWARE_SPECIFICATION = "{}/v2/software_specifications/{}"
 SOFTWARE_SPECIFICATIONS = "{}/v2/software_specifications"
+SOFTWARE_SPECIFICATION_PACKAGE_EXTENSION = (
+    "{}/v2/software_specifications/{}/package_extensions/{}"
+)
 HARDWARE_SPECIFICATION = "{}/v2/hardware_specifications/{}"
 HARDWARE_SPECIFICATIONS = "{}/v2/hardware_specifications"
 PACKAGE_EXTENSION = "{}/v2/package_extensions/{}"
+PACKAGE_EXTENSION_UPLOAD_COMPLETE = "{}/v2/package_extensions/{}/upload_complete"
 PACKAGE_EXTENSIONS = "{}/v2/package_extensions"
 PARAMETER_SET = "{}/v2/parameter_sets/{}"
 PARAMETER_SETS = "{}/v2/parameter_sets"
@@ -186,14 +178,11 @@ REMOTE_TRAINING_SYSTEM_ID = "{}/v4/remote_training_systems/{}"
 
 FM_CHAT = "{}/ml/v1/text/{}"
 FM_GENERATION = "{}/ml/v1/text/generation"
-FM_GENERATION_BETA = "{}/ml/v1-beta/generation/{}"  # Remove on CPD 5.0 release
 FM_GENERATION_STREAM = "{}/ml/v1/text/generation_stream"
 FM_GET_SPECS = "{}/ml/v1/foundation_model_specs"
-FM_GET_SPECS_BETA = "{}/ml/v1-beta/foundation_model_specs?version=2022-08-01"  # Remove on CPD 5.0 release
 FM_GET_CUSTOM_FOUNDATION_MODELS = "{}/ml/v4/custom_foundation_models"
 FM_GET_TASKS = "{}/ml/v1/foundation_model_tasks?limit={}"
 FM_TOKENIZE = "{}/ml/v1/text/tokenization"
-FM_TOKENIZE_BETA = "{}/ml/v1-beta/text/tokenization"  # Remove on CPD 5.0 release
 FM_EMBEDDINGS = "{}/ml/v1/text/embeddings"
 FM_TIME_SERIES = "{}/ml/v1/time_series/forecast"
 FM_AUDIO_TRANSCRIPTIONS = "{}/ml/v1/audio/transcriptions"
@@ -205,9 +194,6 @@ FM_DEPLOYMENT_GENERATION = "{}/ml/v1/deployments/{}/text/generation"
 FM_DEPLOYMENT_GENERATION_STREAM = "{}/ml/v1/deployments/{}/text/generation_stream"
 FM_DEPLOYMENT_CHAT = "{}/ml/v1/deployments/{}/text/chat"
 FM_DEPLOYMENT_CHAT_STREAM = "{}/ml/v1/deployments/{}/text/chat_stream"
-FM_DEPLOYMENT_GENERATION_BETA = (
-    "{}/ml/v1-beta/deployments/{}/generation/{}"  # Remove on CPD 5.0 release
-)
 FM_DEPLOYMENT_TIME_SERIES = "{}/ml/v1/deployments/{}/time_series/forecast"
 
 AI_SERVICES_DEPLOYMENT_GENERATION = "{}/ml/v4/deployments/{}/ai_service"
@@ -215,14 +201,18 @@ AI_SERVICES_DEPLOYMENT_GENERATION_STREAM = "{}/ml/v4/deployments/{}/ai_service_s
 FM_FINE_TUNING = "{}/ml/v1/fine_tunings/{}"
 FM_FINE_TUNINGS = "{}/ml/v1/fine_tunings"
 
-PROMPTS = "{}/wx/v1-beta/prompts"
-GA_PROMPTS = "{}/wx/v1/prompts"
+PROMPTS = "{}/wx/v1/prompts"
+PROMPT = "{}/wx/v1/prompts/{}"
+PROMPT_LOCK = "{}/wx/v1/prompts/{}/lock"
 PROMPTS_GET_ALL = "{}/v2/asset_types/wx_prompt/search"
 
 TEXT_DETECTION = "{}/ml/v1/text/detection"
 
 TEXT_EXTRACTIONS = "{}/ml/v1/text/extractions"
 TEXT_EXTRACTION = "{}/ml/v1/text/extractions/{}"
+
+TEXT_CLASSIFICATIONS = "{}/ml/v1/text/classifications"
+TEXT_CLASSIFICATION = "{}/ml/v1/text/classifications/{}"
 
 RERANK = "{}/ml/v1/text/rerank"
 
@@ -275,6 +265,8 @@ GATEWAY_POLICIES = "{}/ml/gateway/v1/policies"
 GATEWAY_EMBEDDINGS = "{}/ml/gateway/v1/embeddings"
 GATEWAY_TEXT_COMPLETIONS = "{}/ml/gateway/v1/completions"
 GATEWAY_CHAT_COMPLETIONS = "{}/ml/gateway/v1/chat/completions"
+GATEWAY_RATE_LIMITS = "{}/ml/gateway/v1/rate-limits"
+GATEWAY_RATE_LIMIT = "{}/ml/gateway/v1/rate-limits/{}"
 
 
 def is_url(s: str) -> bool:
@@ -298,7 +290,6 @@ class HrefDefinitions:
         cp4d_platform_spaces: bool,
         platform_url: str,
         project_type: str,
-        _use_fm_ga_api: bool,
     ):
         self.url = url
         self.instance_id = instance_id
@@ -308,7 +299,6 @@ class HrefDefinitions:
         self.cp4d_platform_spaces = cp4d_platform_spaces
         self.platform_url = platform_url
         self.project_type = project_type
-        self._use_fm_ga_api = _use_fm_ga_api
         self.prepend = "/ml"
 
     def _is_git_based_project(self) -> bool:
@@ -322,18 +312,6 @@ class HrefDefinitions:
 
     def get_trainings_href(self) -> str:
         return TRAINING_MODELS_HREF_PATTERN.format(self.url + self.prepend)
-
-    def get_repo_models_frameworks_href(self) -> str:
-        return REPO_MODELS_FRAMEWORKS_HREF_PATTERN.format(self.url + self.prepend)
-
-    def get_instance_endpoint_href(self) -> str:
-        return INSTANCE_ENDPOINT_HREF_PATTERN.format(self.url)
-
-    def get_instance_by_id_endpoint_href(self) -> str:
-        return INSTANCE_BY_ID_ENDPOINT_HREF_PATTERN.format(self.url, self.instance_id)
-
-    def get_token_endpoint_href(self) -> str:
-        return TOKEN_ENDPOINT_HREF_PATTERN.format(self.url)
 
     def get_cpd_token_endpoint_href(self) -> str:
         return CPD_TOKEN_ENDPOINT_HREF_PATTERN.format(
@@ -352,39 +330,21 @@ class HrefDefinitions:
     def get_published_model_href(self, model_id: str) -> str:
         return PUBLISHED_MODEL_HREF_PATTERN.format(self.url + self.prepend, model_id)
 
+    def get_published_model_content_href(self, model_id: str) -> str:
+        return PUBLISHED_MODEL_CONTENT_HREF_PATTERN.format(
+            self.url + self.prepend, model_id
+        )
+
     def get_published_models_href(self) -> str:
         return PUBLISHED_MODELS_HREF_PATTERN.format(self.url + self.prepend)
-
-    def get_learning_configuration_href(self, model_id: str) -> str:
-        return LEARNING_CONFIGURATION_HREF_PATTERN.format(
-            self.url, self.instance_id, model_id
-        )
-
-    def get_learning_iterations_href(self, model_id: str) -> str:
-        return LEARNING_ITERATIONS_HREF_PATTERN.format(
-            self.url, self.instance_id, model_id
-        )
-
-    def get_learning_iteration_href(self, model_id: str, iteration_id: str) -> str:
-        return LEARNING_ITERATION_HREF_PATTERN.format(
-            self.url,
-            self.instance_id,
-            model_id,
-            iteration_id,
-        )
-
-    def get_evaluation_metrics_href(self, model_id: str) -> str:
-        return EVALUATION_METRICS_HREF_PATTERN.format(
-            self.url, self.instance_id, model_id
-        )
-
-    def get_feedback_href(self, model_id: str) -> str:
-        return FEEDBACK_HREF_PATTERN.format(self.url, self.instance_id, model_id)
 
     def get_model_last_version_href(self, artifact_id: str) -> str:
         return MODEL_LAST_VERSION_HREF_PATTERN.format(
             self.url + self.prepend, artifact_id
         )
+
+    def get_model_download_href(self, artifact_id: str) -> str:
+        return MODEL_DOWNLOAD_HREF_PATTERN.format(self.url + self.prepend, artifact_id)
 
     def get_deployments_href(self) -> str:
         return DEPLOYMENTS_HREF_PATTERN.format(self.url + self.prepend)
@@ -395,27 +355,36 @@ class HrefDefinitions:
     def get_experiment_href(self, experiment_id: str) -> str:
         return EXPERIMENT_HREF_PATTERN.format(self.url + self.prepend, experiment_id)
 
-    def get_experiment_runs_href(self, experiment_id: str) -> str:
-        return EXPERIMENT_RUNS_HREF_PATTERN.format(self.url, experiment_id)
-
-    def get_experiment_run_href(
-        self, experiment_id: str, experiment_run_id: str
-    ) -> str:
-        return EXPERIMENT_RUN_HREF_PATTERN.format(
-            self.url, experiment_id, experiment_run_id
-        )
-
     def get_deployment_href(self, deployment_id: str) -> str:
         return DEPLOYMENT_HREF_PATTERN.format(self.url + self.prepend, deployment_id)
 
-    def get_definition_href(self, definition_id: str) -> str:
-        return DEFINITION_HREF_PATTERN.format(self.url, definition_id)
+    def get_deployment_predictions_href(self, deployment_id: str) -> str:
+        return DEPLOYMENT_PREDICTIONS_HREF_PATTERN.format(
+            self.url + self.prepend, deployment_id
+        )
 
-    def get_definitions_href(self) -> str:
-        return DEFINITIONS_HREF_PATTERN.format(self.url)
+    def get_deployment_ai_service_href(self, deployment_id: str) -> str:
+        return DEPLOYMENT_AI_SERVICE_HREF_PATTERN.format(
+            self.url + self.prepend, deployment_id
+        )
+
+    def get_deployment_ai_service_stream_href(self, deployment_id: str) -> str:
+        return DEPLOYMENT_AI_SERVICE_STREAM_HREF_PATTERN.format(
+            self.url + self.prepend, deployment_id
+        )
 
     def get_function_href(self, ai_function_id: str) -> str:
         return FUNCTION_HREF_PATTERN.format(self.url + self.prepend, ai_function_id)
+
+    def get_function_code_href(self, ai_function_id: str) -> str:
+        return FUNCTION_CODE_HREF_PATTERN.format(
+            self.url + self.prepend, ai_function_id
+        )
+
+    def get_function_revisions_href(self, ai_function_id: str) -> str:
+        return FUNCTION_REVISIONS_HREF_PATTERN.format(
+            self.url + self.prepend, ai_function_id
+        )
 
     def get_function_latest_revision_content_href(self, ai_function_id: str) -> str:
         return FUNCTION_LATEST_CONTENT_HREF_PATTERN.format(self.url, ai_function_id)
@@ -425,6 +394,16 @@ class HrefDefinitions:
 
     def get_ai_service_href(self, ai_service_id: str) -> str:
         return AI_SERVICE_HREF_PATTERN.format(self.url + self.prepend, ai_service_id)
+
+    def get_ai_service_code_href(self, ai_service_id: str) -> str:
+        return AI_SERVICE_CODE_HREF_PATTERN.format(
+            self.url + self.prepend, ai_service_id
+        )
+
+    def get_ai_service_revisions_href(self, ai_service_id: str) -> str:
+        return AI_SERVICE_REVISIONS_HREF_PATTERN.format(
+            self.url + self.prepend, ai_service_id
+        )
 
     def get_ai_services_latest_revision_content_href(self, ai_service_id: str) -> str:
         return AI_SERVICES_LATEST_CONTENT_HREF_PATTERN.format(self.url, ai_service_id)
@@ -481,7 +460,7 @@ class HrefDefinitions:
     def get_async_deployment_jobs_href(self, job_id: str) -> str:
         return DEPLOYMENT_JOBS_HREF_PATTERN.format(self.url + self.prepend, job_id)
 
-    def get_iam_token_api(self, apikey) -> str:
+    def get_iam_token_api(self, apikey: str) -> str:
         return IAM_TOKEN_API.format(apikey)
 
     def get_aws_token_url(self) -> str:
@@ -732,6 +711,11 @@ class HrefDefinitions:
     def get_sw_specs_href(self) -> str:
         return SOFTWARE_SPECIFICATIONS.format(self._get_platform_url_if_exists())
 
+    def get_sw_spec_pkg_extn_href(self, sw_spec_id: str, pkg_extn_id: str) -> str:
+        return SOFTWARE_SPECIFICATION_PACKAGE_EXTENSION.format(
+            self._get_platform_url_if_exists(), sw_spec_id, pkg_extn_id
+        )
+
     def get_hw_spec_href(self, hw_spec_id: str) -> str:
         return HARDWARE_SPECIFICATION.format(
             self._get_platform_url_if_exists(), hw_spec_id
@@ -742,6 +726,11 @@ class HrefDefinitions:
 
     def get_pkg_extn_href(self, pkg_extn_id: str) -> str:
         return PACKAGE_EXTENSION.format(self._get_platform_url_if_exists(), pkg_extn_id)
+
+    def get_pkg_extn_upload_complete_href(self, pkg_extn_id: str) -> str:
+        return PACKAGE_EXTENSION_UPLOAD_COMPLETE.format(
+            self._get_platform_url_if_exists(), pkg_extn_id
+        )
 
     def get_pkg_extns_href(self) -> str:
         return PACKAGE_EXTENSIONS.format(self._get_platform_url_if_exists())
@@ -806,17 +795,10 @@ class HrefDefinitions:
 
     def promote_asset_href(self, asset_id: str) -> str:
         if self.cloud_platform_spaces:
-            data_platform_url = self.platform_url.replace("api.", "")
-            return PROMOTE_ASSET.format(data_platform_url, asset_id)
+            url = self.platform_url.replace("api.", "")
         else:
-            promote_href = PROMOTE_ASSET.format(self.url, asset_id)
-            try:
-                # note: For CPD older than 4.0 we need to roll back to older endpoint.
-                if float(self.version) < 4.0:
-                    promote_href = promote_href.replace("/projects", "")
-                # --- end note
-            finally:
-                return promote_href
+            url = self.url
+        return PROMOTE_ASSET.format(url, asset_id)
 
     def get_wkc_model_register_href(self, model_id: str) -> str:
         return WKC_MODEL_REGISTER.format(self._get_platform_url_if_exists(), model_id)
@@ -841,10 +823,7 @@ class HrefDefinitions:
         return TASK_CREDENTIALS_ALL.format(self._get_platform_url_if_exists())
 
     def get_fm_specifications_href(self) -> str:
-        if self._use_fm_ga_api:
-            return FM_GET_SPECS.format(self.url)
-        else:
-            return FM_GET_SPECS_BETA.format(self.url)  # Remove on CPD 5.0 release
+        return FM_GET_SPECS.format(self.url)
 
     def get_fm_custom_foundation_models_href(self) -> str:
         return FM_GET_CUSTOM_FOUNDATION_MODELS.format(self.url)
@@ -856,31 +835,18 @@ class HrefDefinitions:
         return FM_CHAT.format(self.url, item)
 
     def get_fm_generation_href(self, item: str | None = None) -> str:
-        if self._use_fm_ga_api:
-            return FM_GENERATION.format(self.url)
-        else:
-            return FM_GENERATION_BETA.format(
-                self.url, item
-            )  # Remove on CPD 5.0 release
+        return FM_GENERATION.format(self.url)
 
     def get_fm_generation_stream_href(self) -> str:
         return FM_GENERATION_STREAM.format(self.url)
 
     def get_fm_tokenize_href(self) -> str:
-        if self._use_fm_ga_api:
-            return FM_TOKENIZE.format(self.url)
-        else:
-            return FM_TOKENIZE_BETA.format(self.url)  # Remove on CPD 5.0 release
+        return FM_TOKENIZE.format(self.url)
 
     def get_fm_deployment_generation_href(
         self, deployment_id: str, item: str | None = None
     ) -> str:
-        if self._use_fm_ga_api:
-            return FM_DEPLOYMENT_GENERATION.format(self.url, deployment_id)
-        else:
-            return FM_DEPLOYMENT_GENERATION_BETA.format(
-                self.url, deployment_id, item
-            )  # Remove on CPD 5.0 release
+        return FM_DEPLOYMENT_GENERATION.format(self.url, deployment_id)
 
     def get_fm_deployment_generation_stream_href(self, deployment_id: str) -> str:
         return FM_DEPLOYMENT_GENERATION_STREAM.format(self.url, deployment_id)
@@ -901,10 +867,14 @@ class HrefDefinitions:
     ) -> str:
         return AI_SERVICES_DEPLOYMENT_GENERATION_STREAM.format(self.url, deployment_id)
 
-    def get_prompts_href(self, ga_api: bool = True) -> str:
-        return (GA_PROMPTS if ga_api else PROMPTS).format(
-            self._get_platform_url_if_exists()
-        )
+    def get_prompts_href(self) -> str:
+        return PROMPTS.format(self._get_platform_url_if_exists())
+
+    def get_prompt_href(self, prompt_id: str) -> str:
+        return PROMPT.format(self._get_platform_url_if_exists(), prompt_id)
+
+    def get_prompt_lock_href(self, prompt_id: str) -> str:
+        return PROMPT_LOCK.format(self._get_platform_url_if_exists(), prompt_id)
 
     def get_text_detection_href(self) -> str:
         return TEXT_DETECTION.format(self.url)
@@ -914,6 +884,12 @@ class HrefDefinitions:
 
     def get_text_extraction_href(self, text_extraction_id: str) -> str:
         return TEXT_EXTRACTION.format(self.url, text_extraction_id)
+
+    def get_text_classifications_href(self) -> str:
+        return TEXT_CLASSIFICATIONS.format(self.url)
+
+    def get_text_classification_href(self, text_classification_id: str) -> str:
+        return TEXT_CLASSIFICATION.format(self.url, text_classification_id)
 
     def get_rerank_href(self) -> str:
         return RERANK.format(self.url)
@@ -937,19 +913,19 @@ class HrefDefinitions:
     def get_runtime_definitions_href(self) -> str:
         return RUNTIME_DEFINITIONS.format(self._get_platform_url_if_exists())
 
-    def get_fm_embeddings_href(self):
+    def get_fm_embeddings_href(self) -> str:
         return FM_EMBEDDINGS.format(self.url)
 
-    def get_fine_tuning_href(self, tuning_id: str):
+    def get_fine_tuning_href(self, tuning_id: str) -> str:
         return FM_FINE_TUNING.format(self.url, tuning_id)
 
-    def get_fine_tunings_href(self):
+    def get_fine_tunings_href(self) -> str:
         return FM_FINE_TUNINGS.format(self.url)
 
-    def get_autoai_rag_href(self):
+    def get_autoai_rag_href(self) -> str:
         return AUTOAI_RAG.format(self.url)
 
-    def get_autoai_rag_id_href(self, rag_id):
+    def get_autoai_rag_id_href(self, rag_id: str) -> str:
         return AUTOAI_RAG_ID.format(self.url, rag_id)
 
     def get_time_series_href(self) -> str:
@@ -967,71 +943,77 @@ class HrefDefinitions:
     def get_taxonomies_imports_href(self) -> str:
         return TAXONOMIES_IMPORTS.format(self.url)
 
-    def get_taxonomies_import_href(self, taxonomy_import_id: str):
+    def get_taxonomies_import_href(self, taxonomy_import_id: str) -> str:
         return TAXONOMIES_IMPORT.format(self.url, taxonomy_import_id)
 
-    def get_document_extractions_href(self):
+    def get_document_extractions_href(self) -> str:
         return DOCUMENT_EXTRACTIONS.format(self.url)
 
-    def get_document_extraction_href(self, document_extraction_id: str):
+    def get_document_extraction_href(self, document_extraction_id: str) -> str:
         return DOCUMENT_EXTRACTION.format(self.url, document_extraction_id)
 
-    def get_synthetic_data_generations_href(self):
+    def get_synthetic_data_generations_href(self) -> str:
         return SYNTHETIC_DATA_GENERATIONS.format(self.url)
 
-    def get_synthetic_data_generation_href(self, sdg_id: str):
+    def get_synthetic_data_generation_href(self, sdg_id: str) -> str:
         return SYNTHETIC_DATA_GENERATION.format(self.url, sdg_id)
 
-    def get_utility_agent_tools_href(self):
+    def get_utility_agent_tools_href(self) -> str:
         return UTILITY_AGENT_TOOLS_BETA.format(self._get_platform_url_if_exists())
 
-    def get_utility_agent_tools_run_href(self):
+    def get_utility_agent_tools_run_href(self) -> str:
         return UTILITY_AGENT_TOOLS_RUN_BETA.format(self._get_platform_url_if_exists())
 
-    def get_jobs_runs_href(self, job_id: str, run_id: str):
+    def get_jobs_runs_href(self, job_id: str, run_id: str) -> str:
         return JOBS_RUNS.format(self._get_platform_url_if_exists(), job_id, run_id)
 
-    def get_vector_indexes_href(self):
+    def get_vector_indexes_href(self) -> str:
         return VECTOR_INDEXES.format(self._get_platform_url_if_exists())
 
-    def get_vector_index_href(self, vector_index_id: str):
+    def get_vector_index_href(self, vector_index_id: str) -> str:
         return VECTOR_INDEX.format(self._get_platform_url_if_exists(), vector_index_id)
 
-    def get_vector_indexes_all_href(self):
+    def get_vector_indexes_all_href(self) -> str:
         return VECTOR_INDEXES_GET_ALL.format(self._get_platform_url_if_exists())
 
-    def get_gateway_tenant_href(self):
+    def get_gateway_tenant_href(self) -> str:
         return GATEWAY_TENANT.format(self.url)
 
-    def get_gateway_providers_href(self):
+    def get_gateway_providers_href(self) -> str:
         return GATEWAY_PROVIDERS.format(self.url)
 
-    def get_gateway_provider_href(self, provider_id):
+    def get_gateway_provider_href(self, provider_id: str) -> str:
         return GATEWAY_PROVIDER.format(self.url, provider_id)
 
-    def get_gateway_provider_available_models_href(self, provider_id):
+    def get_gateway_provider_available_models_href(self, provider_id: str) -> str:
         return GATEWAY_PROVIDER_AVAILABLE_MODELS.format(self.url, provider_id)
 
-    def get_gateway_update_provider_href(self, provider_id, provider):
+    def get_gateway_update_provider_href(self, provider_id: str, provider: str) -> str:
         return GATEWAY_UPDATE_PROVIDER.format(self.url, provider_id, provider)
 
-    def get_gateway_models_href(self, provider_id):
+    def get_gateway_models_href(self, provider_id: str) -> str:
         return GATEWAY_MODELS.format(self.url, provider_id)
 
-    def get_gateway_all_tenant_models_href(self):
+    def get_gateway_all_tenant_models_href(self) -> str:
         return GATEWAY_ALL_TENANT_MODELS.format(self.url)
 
     def get_gateway_model_href(self, model_id: str) -> str:
         return GATEWAY_MODEL.format(self.url, model_id)
 
-    def get_gateway_policies_href(self):
+    def get_gateway_policies_href(self) -> str:
         return GATEWAY_POLICIES.format(self.url)
 
-    def get_gateway_embeddings_href(self):
+    def get_gateway_embeddings_href(self) -> str:
         return GATEWAY_EMBEDDINGS.format(self.url)
 
-    def get_gateway_text_completions_href(self):
+    def get_gateway_text_completions_href(self) -> str:
         return GATEWAY_TEXT_COMPLETIONS.format(self.url)
 
-    def get_gateway_chat_completions_href(self):
+    def get_gateway_chat_completions_href(self) -> str:
         return GATEWAY_CHAT_COMPLETIONS.format(self.url)
+
+    def get_gateway_rate_limits_href(self) -> str:
+        return GATEWAY_RATE_LIMITS.format(self.url)
+
+    def get_gateway_rate_limit_href(self, rate_limit_id: str) -> str:
+        return GATEWAY_RATE_LIMIT.format(self.url, rate_limit_id)

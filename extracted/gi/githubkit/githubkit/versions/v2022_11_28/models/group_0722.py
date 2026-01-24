@@ -9,7 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Literal, Union
 
 from pydantic import Field
@@ -19,95 +18,99 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 from .group_0003 import SimpleUser
-from .group_0128 import ProjectsV2StatusUpdate
-from .group_0443 import SimpleInstallation
-from .group_0444 import OrganizationSimpleWebhooks
+from .group_0473 import EnterpriseWebhooks
+from .group_0474 import SimpleInstallation
+from .group_0475 import OrganizationSimpleWebhooks
+from .group_0476 import RepositoryWebhooks
 
 
-class WebhookProjectsV2StatusUpdateEdited(GitHubModel):
-    """Projects v2 Status Update Edited Event"""
+class WebhookPageBuild(GitHubModel):
+    """page_build event"""
 
-    action: Literal["edited"] = Field()
-    changes: Missing[WebhookProjectsV2StatusUpdateEditedPropChanges] = Field(
-        default=UNSET
+    build: WebhookPageBuildPropBuild = Field(
+        description="The [List GitHub Pages builds](https://docs.github.com/rest/pages/pages#list-github-pages-builds) itself."
     )
+    enterprise: Missing[EnterpriseWebhooks] = Field(
+        default=UNSET,
+        title="Enterprise",
+        description='An enterprise on GitHub. Webhook payloads contain the `enterprise` property when the webhook is configured\non an enterprise account or an organization that\'s part of an enterprise account. For more information,\nsee "[About enterprise accounts](https://docs.github.com/admin/overview/about-enterprise-accounts)."',
+    )
+    id: int = Field()
     installation: Missing[SimpleInstallation] = Field(
         default=UNSET,
         title="Simple Installation",
         description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
     )
-    organization: OrganizationSimpleWebhooks = Field(
+    organization: Missing[OrganizationSimpleWebhooks] = Field(
+        default=UNSET,
         title="Organization Simple",
         description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
     )
-    projects_v2_status_update: ProjectsV2StatusUpdate = Field(
-        title="Projects v2 Status Update",
-        description="An status update belonging to a project",
+    repository: RepositoryWebhooks = Field(
+        title="Repository",
+        description="The repository on GitHub where the event occurred. Webhook payloads contain the `repository` property\nwhen the event occurs from activity in a repository.",
     )
     sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
 
 
-class WebhookProjectsV2StatusUpdateEditedPropChanges(GitHubModel):
-    """WebhookProjectsV2StatusUpdateEditedPropChanges"""
+class WebhookPageBuildPropBuild(GitHubModel):
+    """WebhookPageBuildPropBuild
 
-    body: Missing[WebhookProjectsV2StatusUpdateEditedPropChangesPropBody] = Field(
-        default=UNSET
-    )
-    status: Missing[WebhookProjectsV2StatusUpdateEditedPropChangesPropStatus] = Field(
-        default=UNSET
-    )
-    start_date: Missing[WebhookProjectsV2StatusUpdateEditedPropChangesPropStartDate] = (
-        Field(default=UNSET)
-    )
-    target_date: Missing[
-        WebhookProjectsV2StatusUpdateEditedPropChangesPropTargetDate
-    ] = Field(default=UNSET)
+    The [List GitHub Pages builds](https://docs.github.com/rest/pages/pages#list-
+    github-pages-builds) itself.
+    """
 
-
-class WebhookProjectsV2StatusUpdateEditedPropChangesPropBody(GitHubModel):
-    """WebhookProjectsV2StatusUpdateEditedPropChangesPropBody"""
-
-    from_: Missing[Union[str, None]] = Field(default=UNSET, alias="from")
-    to: Missing[Union[str, None]] = Field(default=UNSET)
+    commit: Union[str, None] = Field()
+    created_at: str = Field()
+    duration: int = Field()
+    error: WebhookPageBuildPropBuildPropError = Field()
+    pusher: Union[WebhookPageBuildPropBuildPropPusher, None] = Field(title="User")
+    status: str = Field()
+    updated_at: str = Field()
+    url: str = Field()
 
 
-class WebhookProjectsV2StatusUpdateEditedPropChangesPropStatus(GitHubModel):
-    """WebhookProjectsV2StatusUpdateEditedPropChangesPropStatus"""
+class WebhookPageBuildPropBuildPropError(GitHubModel):
+    """WebhookPageBuildPropBuildPropError"""
 
-    from_: Missing[
-        Union[None, Literal["INACTIVE", "ON_TRACK", "AT_RISK", "OFF_TRACK", "COMPLETE"]]
-    ] = Field(default=UNSET, alias="from")
-    to: Missing[
-        Union[None, Literal["INACTIVE", "ON_TRACK", "AT_RISK", "OFF_TRACK", "COMPLETE"]]
-    ] = Field(default=UNSET)
+    message: Union[str, None] = Field()
 
 
-class WebhookProjectsV2StatusUpdateEditedPropChangesPropStartDate(GitHubModel):
-    """WebhookProjectsV2StatusUpdateEditedPropChangesPropStartDate"""
+class WebhookPageBuildPropBuildPropPusher(GitHubModel):
+    """User"""
 
-    from_: Missing[Union[date, None]] = Field(default=UNSET, alias="from")
-    to: Missing[Union[date, None]] = Field(default=UNSET)
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    id: int = Field()
+    login: str = Field()
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization"]] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
 
 
-class WebhookProjectsV2StatusUpdateEditedPropChangesPropTargetDate(GitHubModel):
-    """WebhookProjectsV2StatusUpdateEditedPropChangesPropTargetDate"""
-
-    from_: Missing[Union[date, None]] = Field(default=UNSET, alias="from")
-    to: Missing[Union[date, None]] = Field(default=UNSET)
-
-
-model_rebuild(WebhookProjectsV2StatusUpdateEdited)
-model_rebuild(WebhookProjectsV2StatusUpdateEditedPropChanges)
-model_rebuild(WebhookProjectsV2StatusUpdateEditedPropChangesPropBody)
-model_rebuild(WebhookProjectsV2StatusUpdateEditedPropChangesPropStatus)
-model_rebuild(WebhookProjectsV2StatusUpdateEditedPropChangesPropStartDate)
-model_rebuild(WebhookProjectsV2StatusUpdateEditedPropChangesPropTargetDate)
+model_rebuild(WebhookPageBuild)
+model_rebuild(WebhookPageBuildPropBuild)
+model_rebuild(WebhookPageBuildPropBuildPropError)
+model_rebuild(WebhookPageBuildPropBuildPropPusher)
 
 __all__ = (
-    "WebhookProjectsV2StatusUpdateEdited",
-    "WebhookProjectsV2StatusUpdateEditedPropChanges",
-    "WebhookProjectsV2StatusUpdateEditedPropChangesPropBody",
-    "WebhookProjectsV2StatusUpdateEditedPropChangesPropStartDate",
-    "WebhookProjectsV2StatusUpdateEditedPropChangesPropStatus",
-    "WebhookProjectsV2StatusUpdateEditedPropChangesPropTargetDate",
+    "WebhookPageBuild",
+    "WebhookPageBuildPropBuild",
+    "WebhookPageBuildPropBuildPropError",
+    "WebhookPageBuildPropBuildPropPusher",
 )

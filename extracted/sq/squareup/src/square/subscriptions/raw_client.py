@@ -7,7 +7,7 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
-from ..core.pagination import AsyncPager, BaseHttpResponse, SyncPager
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.unchecked_base_model import construct_type
@@ -98,7 +98,7 @@ class RawSubscriptionsClient:
             at the canceled date and the subscriber is sent a prorated invoice at the beginning of the canceled cycle.
 
             When the subscription plan of the newly created subscription has a fixed number of cycles and the `canceled_date`
-            occurs before the subscription plan expires, the specified `canceled_date` sets the date when the subscription
+            occurs before the subscription plan completes, the specified `canceled_date` sets the date when the subscription
             stops through the end of the last cycle.
 
         tax_percentage : typing.Optional[str]
@@ -602,7 +602,7 @@ class RawSubscriptionsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[SubscriptionEvent]:
+    ) -> SyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]:
         """
         Lists all [events](https://developer.squareup.com/docs/subscriptions-api/actions-events) for a specific subscription.
 
@@ -627,7 +627,7 @@ class RawSubscriptionsClient:
 
         Returns
         -------
-        SyncPager[SubscriptionEvent]
+        SyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]
             Success
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -657,9 +657,7 @@ class RawSubscriptionsClient:
                     limit=limit,
                     request_options=request_options,
                 )
-                return SyncPager(
-                    has_next=_has_next, items=_items, get_next=_get_next, response=BaseHttpResponse(response=_response)
-                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -934,7 +932,7 @@ class AsyncRawSubscriptionsClient:
             at the canceled date and the subscriber is sent a prorated invoice at the beginning of the canceled cycle.
 
             When the subscription plan of the newly created subscription has a fixed number of cycles and the `canceled_date`
-            occurs before the subscription plan expires, the specified `canceled_date` sets the date when the subscription
+            occurs before the subscription plan completes, the specified `canceled_date` sets the date when the subscription
             stops through the end of the last cycle.
 
         tax_percentage : typing.Optional[str]
@@ -1438,7 +1436,7 @@ class AsyncRawSubscriptionsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[SubscriptionEvent]:
+    ) -> AsyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]:
         """
         Lists all [events](https://developer.squareup.com/docs/subscriptions-api/actions-events) for a specific subscription.
 
@@ -1463,7 +1461,7 @@ class AsyncRawSubscriptionsClient:
 
         Returns
         -------
-        AsyncPager[SubscriptionEvent]
+        AsyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]
             Success
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -1496,9 +1494,7 @@ class AsyncRawSubscriptionsClient:
                         request_options=request_options,
                     )
 
-                return AsyncPager(
-                    has_next=_has_next, items=_items, get_next=_get_next, response=BaseHttpResponse(response=_response)
-                )
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

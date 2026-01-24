@@ -10,10 +10,21 @@ from localstack.aws.api.acm import (
     RequestCertificateResponse,
 )
 from localstack.services import moto
+from localstack.state import StateVisitor
 from localstack.utils.patch import patch
 
 # reduce the validation wait time from 60 (default) to 10 seconds
 moto_settings.ACM_VALIDATION_WAIT = min(10, moto_settings.ACM_VALIDATION_WAIT)
+
+
+@patch(acm_models.AWSCertificateManagerBackend.list_certificates)
+def list_certificates(list_certificates_orig, self, statuses, includes):
+    # Normalize keyTypes filter to match our describe() output format (hyphens)
+    if includes and "keyTypes" in includes:
+        includes["keyTypes"] = [
+            kt.replace("RSA_", "RSA-").replace("EC_", "EC-") for kt in includes["keyTypes"]
+        ]
+    return list_certificates_orig(self, statuses, includes)
 
 
 @patch(acm_models.CertBundle.describe)
@@ -70,8 +81,10 @@ def describe(describe_orig, self):
             cert[key] = value
     cert["Serial"] = str(cert.get("Serial") or "")
 
-    if cert.get("KeyAlgorithm") in ["RSA_1024", "RSA_2048"]:
+    if cert.get("KeyAlgorithm") in ["RSA_1024", "RSA_2048", "RSA_3072", "RSA_4096"]:
         cert["KeyAlgorithm"] = cert["KeyAlgorithm"].replace("RSA_", "RSA-")
+    if cert.get("KeyAlgorithm") in ["EC_prime256v1", "EC_secp384r1", "EC_secp521r1"]:
+        cert["KeyAlgorithm"] = cert["KeyAlgorithm"].replace("EC_", "EC-")
 
     # add subject alternative names
     if cert["DomainName"] not in sans:
@@ -100,6 +113,9 @@ def describe(describe_orig, self):
 
 
 class AcmProvider(AcmApi):
+    def accept_state_visitor(self, visitor: StateVisitor):
+        visitor.visit(acm_models.acm_backends)
+
     @handler("RequestCertificate", expand=False)
     def request_certificate(
         self,

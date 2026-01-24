@@ -2,7 +2,7 @@
  * Copyright (C) 2009 Jelmer Vernooij <jelmer@jelmer.uk>
  *
  * Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
- * General Public License as public by the Free Software Foundation; version 2.0
+ * General Public License as published by the Free Software Foundation; version 2.0
  * or (at your option) any later version. You can redistribute it and/or
  * modify it under the terms of either of these two licenses.
  *
@@ -28,7 +28,7 @@ use pyo3::types::{PyBytes, PyDict};
 import_exception!(dulwich.errors, ObjectFormatException);
 
 const S_IFDIR: u32 = 0o40000;
-const S_IFMT: u32 = 0o170000;  // File type mask
+const S_IFMT: u32 = 0o170000; // File type mask
 
 #[inline]
 fn bytehex(byte: u8) -> u8 {
@@ -39,7 +39,7 @@ fn bytehex(byte: u8) -> u8 {
     }
 }
 
-fn sha_to_pyhex(py: Python, sha: &[u8]) -> PyResult<PyObject> {
+fn sha_to_pyhex(py: Python, sha: &[u8]) -> PyResult<Py<PyAny>> {
     let mut hexsha = Vec::new();
     for c in sha {
         hexsha.push(bytehex((c & 0xF0) >> 4));
@@ -50,14 +50,16 @@ fn sha_to_pyhex(py: Python, sha: &[u8]) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (text, strict=None))]
+#[pyo3(signature = (text, sha_len, strict=None))]
 fn parse_tree(
     py: Python,
     mut text: &[u8],
+    sha_len: usize,
     strict: Option<bool>,
-) -> PyResult<Vec<(PyObject, u32, PyObject)>> {
-    let mut entries = Vec::new();
+) -> PyResult<Vec<(Py<PyAny>, u32, Py<PyAny>)>> {
     let strict = strict.unwrap_or(false);
+
+    let mut entries = Vec::new();
     while !text.is_empty() {
         let mode_end = memchr(b' ', text)
             .ok_or_else(|| ObjectFormatException::new_err(("Missing terminator for mode",)))?;
@@ -73,17 +75,22 @@ fn parse_tree(
         let namelen = memchr(b'\0', text)
             .ok_or_else(|| ObjectFormatException::new_err(("Missing trailing \\0",)))?;
         let name = &text[..namelen];
-        if namelen + 20 >= text.len() {
+
+        // Skip name and null terminator
+        text = &text[namelen + 1..];
+
+        // Check if we have enough bytes for the hash
+        if text.len() < sha_len {
             return Err(ObjectFormatException::new_err(("SHA truncated",)));
         }
-        text = &text[namelen + 1..];
-        let sha = &text[..20];
+
+        let sha = &text[..sha_len];
         entries.push((
             PyBytes::new(py, name).into_pyobject(py)?.unbind().into(),
             mode,
             sha_to_pyhex(py, sha)?,
         ));
-        text = &text[20..];
+        text = &text[sha_len..];
     }
     Ok(entries)
 }
@@ -119,7 +126,7 @@ fn sorted_tree_items(
     py: Python,
     entries: &Bound<PyDict>,
     name_order: bool,
-) -> PyResult<Vec<PyObject>> {
+) -> PyResult<Vec<Py<PyAny>>> {
     let mut qsort_entries = entries
         .iter()
         .map(|(name, value)| -> PyResult<(Vec<u8>, u32, Vec<u8>)> {
@@ -138,7 +145,7 @@ fn sorted_tree_items(
     let tree_entry_cls = objectsm.getattr("TreeEntry")?;
     qsort_entries
         .into_iter()
-        .map(|(name, mode, hexsha)| -> PyResult<PyObject> {
+        .map(|(name, mode, hexsha)| -> PyResult<Py<PyAny>> {
             Ok(tree_entry_cls
                 .call1((
                     PyBytes::new(py, name.as_slice())
@@ -151,10 +158,9 @@ fn sorted_tree_items(
                         .unbind()
                         .into_any(),
                 ))?
-                .unbind()
-                .into())
+                .unbind())
         })
-        .collect::<PyResult<Vec<PyObject>>>()
+        .collect::<PyResult<Vec<Py<PyAny>>>>()
 }
 
 #[pymodule]

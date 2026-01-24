@@ -9,7 +9,6 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .assistant_overrides import AssistantOverrides
 from .squad_member_dto_assistant_destinations_item import SquadMemberDtoAssistantDestinationsItem
 
 
@@ -17,17 +16,7 @@ class SquadMemberDto(UncheckedBaseModel):
     assistant_destinations: typing_extensions.Annotated[
         typing.Optional[typing.List[SquadMemberDtoAssistantDestinationsItem]],
         FieldMetadata(alias="assistantDestinations"),
-    ] = pydantic.Field(default=None)
-    """
-    These are the other assistants that this assistant can transfer or handoff to.
-    
-    Supports both:
-    - TransferDestinationAssistant: For transfer call tool (legacy)
-    - HandoffDestinationAssistant: For handoff tool (recommended)
-    
-    If the assistant already has transfer call or handoff tools, these destinations are just appended to existing ones.
-    """
-
+    ] = None
     assistant_id: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="assistantId")] = (
         pydantic.Field(default=None)
     )
@@ -41,7 +30,7 @@ class SquadMemberDto(UncheckedBaseModel):
     """
 
     assistant_overrides: typing_extensions.Annotated[
-        typing.Optional[AssistantOverrides], FieldMetadata(alias="assistantOverrides")
+        typing.Optional["AssistantOverrides"], FieldMetadata(alias="assistantOverrides")
     ] = pydantic.Field(default=None)
     """
     This can be used to override the assistant's settings and provide values for it's template variables.
@@ -59,6 +48,7 @@ class SquadMemberDto(UncheckedBaseModel):
 
 from .anthropic_model import AnthropicModel  # noqa: E402, F401, I001
 from .anyscale_model import AnyscaleModel  # noqa: E402, F401, I001
+from .assistant_overrides import AssistantOverrides  # noqa: E402, F401, I001
 from .call_hook_assistant_speech_interrupted import CallHookAssistantSpeechInterrupted  # noqa: E402, F401, I001
 from .call_hook_call_ending import CallHookCallEnding  # noqa: E402, F401, I001
 from .call_hook_customer_speech_interrupted import CallHookCustomerSpeechInterrupted  # noqa: E402, F401, I001

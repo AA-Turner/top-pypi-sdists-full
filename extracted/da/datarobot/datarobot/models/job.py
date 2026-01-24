@@ -34,6 +34,7 @@ and hence is implemented in AbstractSpecificJob.
 AbstractSpecificJob and AbstractJob should be non-public and may change. Users should only rely
 on the concrete classes.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple, Type, TypeVar
@@ -69,21 +70,19 @@ class AbstractJob:
 
     # Subclasses should not override any of this:
     _client = staticproperty(get_client)
-    _converter_common = t.Dict(
-        {
-            t.Key("id", optional=True): Int,
-            t.Key("status", optional=True): t.Enum(
-                QUEUE_STATUS.ABORTED,
-                QUEUE_STATUS.COMPLETED,
-                QUEUE_STATUS.ERROR,
-                QUEUE_STATUS.INPROGRESS,
-                QUEUE_STATUS.QUEUE,
-            ),
-            t.Key("project_id", optional=True): String,
-            t.Key("model_id", optional=True): String,
-            t.Key("is_blocked"): t.Bool,
-        }
-    )
+    _converter_common = t.Dict({
+        t.Key("id", optional=True): Int,
+        t.Key("status", optional=True): t.Enum(
+            QUEUE_STATUS.ABORTED,
+            QUEUE_STATUS.COMPLETED,
+            QUEUE_STATUS.ERROR,
+            QUEUE_STATUS.INPROGRESS,
+            QUEUE_STATUS.QUEUE,
+        ),
+        t.Key("project_id", optional=True): String,
+        t.Key("model_id", optional=True): String,
+        t.Key("is_blocked"): t.Bool,
+    })
 
     def __init__(self, data: Dict[str, Any], completed_resource_url: Optional[str] = None) -> None:
         # Importing here to dodge circular dependency
@@ -194,9 +193,7 @@ class AbstractJob:
             return server_data["featureImpacts"]
         elif self.job_type == JOB_TYPE.FEATURE_EFFECTS:
             use_insights_format = "count" in server_data
-            return FeatureEffects.from_server_data(
-                server_data, use_insights_format=use_insights_format
-            )
+            return FeatureEffects.from_server_data(server_data, use_insights_format=use_insights_format)
         elif self.job_type == JOB_TYPE.PRIME_RULESETS:
             return [Ruleset.from_server_data(ruleset_data) for ruleset_data in server_data]
         elif self.job_type == JOB_TYPE.PRIME_MODEL:
@@ -212,18 +209,14 @@ class AbstractJob:
         else:
             raise ValueError(f"Unrecognized job type {self.job_type}.")
 
-    def _make_result_from_location(
-        self, location, params=None
-    ):  # pylint: disable=missing-function-docstring
+    def _make_result_from_location(self, location, params=None):  # pylint: disable=missing-function-docstring
         if self.job_type == JOB_TYPE.TRAINING_PREDICTIONS:
             return TrainingPredictions.from_location(location)
 
         if self.job_type == JOB_TYPE.PREDICTION_EXPLANATIONS:
             head, tail = location.split("/predictionExplanations/", 1)
             project_id, prediction_expl_id = head.split("/")[-1], tail.split("/")[0]
-            return PredictionExplanations.get(
-                project_id=project_id, prediction_explanations_id=prediction_expl_id
-            )
+            return PredictionExplanations.get(project_id=project_id, prediction_explanations_id=prediction_expl_id)
 
         server_data = self._client.get(location, params=params).json()
         return self._make_result_from_json(server_data)
@@ -314,9 +307,7 @@ class Job(AbstractJob):
         if true, the job is blocked (cannot be executed) until its dependencies are resolved
     """
 
-    _converter_extra = t.Dict(
-        {t.Key("job_type", optional=True) >> "job_type": String, t.Key("url") >> "url": String}
-    )
+    _converter_extra = t.Dict({t.Key("job_type", optional=True) >> "job_type": String, t.Key("url") >> "url": String})
 
     def __init__(self, data: Dict[str, Any], completed_resource_url: Optional[str] = None) -> None:
         super().__init__(data, completed_resource_url=completed_resource_url)
@@ -381,9 +372,7 @@ class AbstractSpecificJob(AbstractJob):  # pylint: disable=missing-class-docstri
             return cls(data)
 
     @classmethod
-    def from_id(
-        cls: Type[TAbstractSpecificJob], project_id: str, job_id: str
-    ) -> TAbstractSpecificJob:
+    def from_id(cls: Type[TAbstractSpecificJob], project_id: str, job_id: str) -> TAbstractSpecificJob:
         url = cls._job_path(project_id, job_id)
         response = cls._client.get(url, allow_redirects=False)
         data = response.json()
@@ -552,8 +541,5 @@ def filter_feature_impact_result(data, with_metadata):
         A filtered data.
     """
     if not with_metadata:
-        return [
-            _filter_feature_impact_result(item, single_feature_impact_trafaret)
-            for item in data["featureImpacts"]
-        ]
+        return [_filter_feature_impact_result(item, single_feature_impact_trafaret) for item in data["featureImpacts"]]
     return _filter_feature_impact_result(data, feature_impact_trafaret)

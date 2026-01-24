@@ -328,7 +328,6 @@ SELECT DISTINCT ?x {
               var_bm25.fixed_datatype = 43
               var_bm25.bindings.append("bm25(fts_%s)" % fts_p)
               
-            #return "(%s.s=%s) AND (%s.o MATCH %s)" % (fts_table.name, "%s.s" % table.name, fts_table.name, query)
             return "(%s.s=%s) AND (%s.o=%s) AND (%s.o MATCH %s)" % (fts_table.name, "%s.s" % table.name, fts_table.name, "%s.o" % table.name, fts_table.name, query)
           
           elif func == "STRSTARTS":
@@ -402,7 +401,7 @@ SELECT DISTINCT ?x {
             e_type, ed = self.infer_expression_type(expression[2])
             return "IIF(TYPEOF(%s)='integer', %s, %s)" % (ed, ed, owlready2.rdf_langstring)
           elif func == "BOUND":
-            return "(%s!='o')" % self.parse_expression(expression[2])
+            return "(%s IS NOT NULL)" % self.parse_expression(expression[2])
           elif func == "YEAR":
             return "CAST(SUBSTR(%s, 1, 4) AS INTEGER)" % self.parse_expression(expression[2])
           elif func == "MONTH":
@@ -464,7 +463,6 @@ SELECT DISTINCT ?x {
         return "".join(self.parse_expression(i) for i in expression) 
     elif expression is None: pass
     elif expression.name  == "VAR":
-      #print(expression, self.parse_var(expression), self.parse_var(expression).get_binding(self))
       return self.parse_var(expression).get_binding(self)
     elif expression.name  == "PARAM":  return "?%s" % expression.number
     elif expression.value == "(":      return "("

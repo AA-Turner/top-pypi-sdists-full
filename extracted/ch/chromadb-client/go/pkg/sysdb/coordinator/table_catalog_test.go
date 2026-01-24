@@ -15,6 +15,7 @@ import (
 	"github.com/chroma-core/chroma/go/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -98,12 +99,14 @@ func TestCatalog_GetCollections(t *testing.T) {
 	testValue := "test_value"
 	dbId := types.NewUniqueID()
 	collectionConfigurationJsonStr := "{\"a\": \"param\", \"b\": \"param2\", \"3\": true}"
+	collectionSchemaStr := "{\"a\": \"param\", \"b\": \"param2\", \"3\": true}"
 	collectionAndMetadataList := []*dbmodel.CollectionAndMetadata{
 		{
 			Collection: &dbmodel.Collection{
 				ID:                   "00000000-0000-0000-0000-000000000001",
 				Name:                 &name,
 				ConfigurationJsonStr: &collectionConfigurationJsonStr,
+				SchemaStr:            &collectionSchemaStr,
 				Ts:                   types.Timestamp(1234567890),
 				DatabaseID:           dbId.String(),
 				UpdatedAt:            now,
@@ -138,6 +141,7 @@ func TestCatalog_GetCollections(t *testing.T) {
 			ID:                   types.MustParse("00000000-0000-0000-0000-000000000001"),
 			Name:                 "test_collection",
 			ConfigurationJsonStr: collectionConfigurationJsonStr,
+			SchemaStr:            &collectionSchemaStr,
 			Ts:                   types.Timestamp(1234567890),
 			Metadata:             metadata,
 			DatabaseId:           dbId,
@@ -162,6 +166,7 @@ func TestCatalog_GetCollectionByResourceName(t *testing.T) {
 	collectionID := "00000000-0000-0000-0000-000000000001"
 	collectionName := "test_collection"
 	configurationJson := "{test_config}"
+	schemaJson := "{test_schema}"
 	dim := int32(128)
 
 	mockCollectionEntry := &dbmodel.CollectionAndMetadata{
@@ -169,6 +174,7 @@ func TestCatalog_GetCollectionByResourceName(t *testing.T) {
 			ID:                   collectionID,
 			Name:                 &collectionName,
 			ConfigurationJsonStr: &configurationJson,
+			SchemaStr:            &schemaJson,
 			Dimension:            &dim,
 			DatabaseID:           databaseID,
 			Ts:                   types.Timestamp(0),
@@ -192,6 +198,7 @@ func TestCatalog_GetCollectionByResourceName(t *testing.T) {
 	assert.Equal(t, collectionID, result.ID.String())
 	assert.Equal(t, collectionName, result.Name)
 	assert.Equal(t, configurationJson, result.ConfigurationJsonStr)
+	assert.Equal(t, &schemaJson, result.SchemaStr)
 	assert.Equal(t, dim, *result.Dimension)
 	assert.Equal(t, databaseID, result.DatabaseId.String())
 
@@ -390,6 +397,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollection(t *testing.T) {
 
 	collectionName := "test_collection"
 	configurationJson := "{test_config}"
+	schemaJson := "{test_schema}"
 	dim := int32(128)
 
 	mockCollectionsAndMetadata := []*dbmodel.CollectionAndMetadata{
@@ -399,6 +407,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollection(t *testing.T) {
 				ID:                         collectionID.String(),
 				Name:                       &collectionName,
 				ConfigurationJsonStr:       &configurationJson,
+				SchemaStr:                  &schemaJson,
 				Dimension:                  &dim,
 				DatabaseID:                 dbId,
 				Ts:                         types.Timestamp(0),
@@ -461,6 +470,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollection(t *testing.T) {
 		uint64(1),
 		mock.Anything,
 		mock.Anything,
+		mock.Anything,
 	).Return(int64(1), nil)
 
 	mockTenantDb.On("UpdateTenantLastCompactionTime", tenantID, mock.Anything).Return(nil)
@@ -491,6 +501,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollection(t *testing.T) {
 		FlushSegmentCompactions:    flushSegment,
 		TotalRecordsPostCompaction: 1,
 		SizeBytesPostCompaction:    1,
+		SchemaStr:                  func() *string { s := "{}"; return &s }(),
 	}
 
 	// Execute test
@@ -595,6 +606,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollectionWithEmptyFilePat
 
 	collectionName := "test_collection"
 	configurationJson := "{test_config}"
+	schemaJson := "{test_schema}"
 	dim := int32(128)
 
 	mockCollectionsAndMetadata := []*dbmodel.CollectionAndMetadata{
@@ -604,6 +616,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollectionWithEmptyFilePat
 				ID:                         collectionID.String(),
 				Name:                       &collectionName,
 				ConfigurationJsonStr:       &configurationJson,
+				SchemaStr:                  &schemaJson,
 				Dimension:                  &dim,
 				DatabaseID:                 dbId,
 				Ts:                         types.Timestamp(0),
@@ -666,6 +679,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollectionWithEmptyFilePat
 		uint64(1),
 		mock.Anything,
 		mock.Anything,
+		mock.Anything,
 	).Return(int64(1), nil)
 
 	mockTenantDb.On("UpdateTenantLastCompactionTime", tenantID, mock.Anything).Return(nil)
@@ -688,6 +702,7 @@ func TestCatalog_FlushCollectionCompactionForVersionedCollectionWithEmptyFilePat
 		FlushSegmentCompactions:    flushSegment,
 		TotalRecordsPostCompaction: 1,
 		SizeBytesPostCompaction:    1,
+		SchemaStr:                  func() *string { s := "{}"; return &s }(),
 	}
 
 	// Execute test
@@ -1472,8 +1487,9 @@ func TestUpdateCollectionConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := catalog.updateCollectionConfiguration(
+			resultConfig, resultSchema, err := catalog.updateCollectionConfigurationAndSchema(
 				tt.existingConfigJson,
+				nil, // No schema in these tests
 				tt.updateConfigJson,
 				tt.collectionMetadata,
 			)
@@ -1484,11 +1500,12 @@ func TestUpdateCollectionConfiguration(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.NotNil(t, result)
+			assert.NotNil(t, resultConfig)
+			assert.Nil(t, resultSchema) // Schema should be nil when config is source of truth
 
 			// Parse the result to verify the configuration
 			var config model.InternalCollectionConfiguration
-			err = json.Unmarshal([]byte(*result), &config)
+			err = json.Unmarshal([]byte(*resultConfig), &config)
 			assert.NoError(t, err)
 
 			if tt.expectedHnswConfig != nil {
@@ -1500,6 +1517,262 @@ func TestUpdateCollectionConfiguration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateCollection_WithSchema(t *testing.T) {
+	mockTxImpl := &mocks.ITransaction{}
+	mockMetaDomain := &mocks.IMetaDomain{}
+	mockCollectionDb := &mocks.ICollectionDb{}
+
+	catalog := NewTableCatalog(mockTxImpl, mockMetaDomain, nil, false)
+
+	collectionID := types.MustParse("00000000-0000-0000-0000-000000000001")
+	tenantID := "test_tenant"
+	databaseName := "test_database"
+
+	// Initial schema with HNSW config
+	initialSchema := `{
+		"defaults": {
+			"string": {
+				"string_inverted_index": {
+					"enabled": true,
+					"config": {}
+				},
+				"fts_index": {
+					"enabled": false,
+					"config": {}
+				}
+			},
+			"int": {
+				"int_inverted_index": {
+					"enabled": true,
+					"config": {}
+				}
+			},
+			"float": {
+				"float_inverted_index": {
+					"enabled": true,
+					"config": {}
+				}
+			},
+			"bool": {
+				"bool_inverted_index": {
+					"enabled": true,
+					"config": {}
+				}
+			},
+			"float_list": {
+				"vector_index": {
+					"enabled": false,
+					"config": {
+						"space": "l2",
+						"hnsw": {
+							"ef_construction": 100,
+							"ef_search": 50,
+							"max_neighbors": 16,
+							"num_threads": 8,
+							"batch_size": 100,
+							"sync_threshold": 1000,
+							"resize_factor": 1.2
+						}
+					}
+				}
+			},
+			"sparse_vector": {
+				"sparse_vector_index": {
+					"enabled": false,
+					"config": {
+						"bm25": false
+					}
+				}
+			}
+		},
+		"keys": {
+			"#embedding": {
+				"float_list": {
+					"vector_index": {
+						"enabled": true,
+						"config": {
+							"space": "l2",
+							"hnsw": {
+								"ef_construction": 100,
+								"ef_search": 50,
+								"max_neighbors": 16,
+								"num_threads": 8,
+								"batch_size": 100,
+								"sync_threshold": 1000,
+								"resize_factor": 1.2
+							}
+						}
+					}
+				}
+			},
+			"#document": {
+				"string": {
+					"fts_index": {
+						"enabled": true,
+						"config": {}
+					},
+					"string_inverted_index": {
+						"enabled": false,
+						"config": {}
+					}
+				}
+			}
+		}
+	}`
+
+	// Update config - only updating ef_search
+	updateConfigJson := `{
+		"vector_index": {
+			"hnsw": {
+				"ef_search": 100
+			}
+		}
+	}`
+
+	collectionName := "test_collection"
+	databaseID := "00000000-0000-0000-0000-000000000002"
+	emptyConfig := "{}"
+	now := time.Now()
+	existingCollection := &dbmodel.CollectionAndMetadata{
+		Collection: &dbmodel.Collection{
+			ID:                   collectionID.String(),
+			Name:                 &collectionName,
+			ConfigurationJsonStr: &emptyConfig,
+			SchemaStr:            &initialSchema,
+			Ts:                   types.Timestamp(1234567890),
+			DatabaseID:           databaseID,
+			CreatedAt:            now,
+			UpdatedAt:            now,
+		},
+		CollectionMetadata: []*dbmodel.CollectionMetadata{},
+		TenantID:           tenantID,
+		DatabaseName:       databaseName,
+	}
+
+	updateCollection := &model.UpdateCollection{
+		ID:                      collectionID,
+		TenantID:                tenantID,
+		DatabaseName:            databaseName,
+		NewConfigurationJsonStr: &updateConfigJson,
+		Ts:                      types.Timestamp(1234567900),
+	}
+
+	// Setup mocks
+	mockMetaDomain.On("CollectionDb", mock.Anything).Return(mockCollectionDb)
+
+	// Mock getting existing collection
+	mockCollectionDb.On("GetCollections",
+		[]string{collectionID.String()},
+		mock.Anything,
+		tenantID,
+		databaseName,
+		mock.Anything,
+		mock.Anything,
+		false,
+	).Return([]*dbmodel.CollectionAndMetadata{existingCollection}, nil).Once()
+
+	// Mock the update - capture what's written to DB
+	var capturedCollection *dbmodel.Collection
+	mockCollectionDb.On("Update", mock.MatchedBy(func(c *dbmodel.Collection) bool {
+		capturedCollection = c
+		return true
+	})).Return(nil).Once()
+
+	// Mock getting updated collection - return collection with updated schema
+	mockCollectionDb.On("GetCollections",
+		[]string{collectionID.String()},
+		mock.Anything,
+		tenantID,
+		databaseName,
+		mock.Anything,
+		mock.Anything,
+		false,
+	).Return([]*dbmodel.CollectionAndMetadata{
+		{
+			Collection: &dbmodel.Collection{
+				ID:                   collectionID.String(),
+				Name:                 &collectionName,
+				ConfigurationJsonStr: &emptyConfig,
+				SchemaStr:            &initialSchema, // Will be updated in the assertion phase
+				Ts:                   types.Timestamp(1234567900),
+				DatabaseID:           databaseID,
+				CreatedAt:            now,
+				UpdatedAt:            now,
+			},
+			CollectionMetadata: []*dbmodel.CollectionMetadata{},
+			TenantID:           tenantID,
+			DatabaseName:       databaseName,
+		},
+	}, nil).Once()
+
+	// Mock transaction
+	mockTxImpl.On("Transaction", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		fn := args.Get(1).(func(context.Context) error)
+		fn(context.Background())
+	}).Return(nil)
+
+	// Execute the update
+	result, err := catalog.UpdateCollection(context.Background(), updateCollection, updateCollection.Ts)
+
+	// Verify no error
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Verify the captured collection was written to DB
+	require.NotNil(t, capturedCollection)
+
+	// Should have nil config (schema is source of truth)
+	assert.Nil(t, capturedCollection.ConfigurationJsonStr)
+
+	// Should have updated schema
+	require.NotNil(t, capturedCollection.SchemaStr)
+
+	// Verify the returned result has the proper config (DB returns {} for nil config)
+	assert.Equal(t, "{}", result.ConfigurationJsonStr)
+
+	// Parse and verify the schema was updated
+	var updatedSchema model.Schema
+	err = json.Unmarshal([]byte(*capturedCollection.SchemaStr), &updatedSchema)
+	require.NoError(t, err)
+
+	// Verify ef_search was updated to 100 in both locations
+	assert.Equal(t, 100, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.EfSearch)
+	assert.Equal(t, 100, *updatedSchema.Keys["#embedding"].FloatList.VectorIndex.Config.Hnsw.EfSearch)
+
+	// Verify other HNSW fields were preserved
+	assert.Equal(t, 100, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.EfConstruction)
+	assert.Equal(t, 16, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.MaxNeighbors)
+	assert.Equal(t, 8, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.NumThreads)
+	assert.Equal(t, 100, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.BatchSize)
+	assert.Equal(t, 1000, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.SyncThreshold)
+	assert.Equal(t, 1.2, *updatedSchema.Defaults.FloatList.VectorIndex.Config.Hnsw.ResizeFactor)
+
+	// Verify all other value types in defaults were not modified
+	assert.NotNil(t, updatedSchema.Defaults.String)
+	assert.True(t, updatedSchema.Defaults.String.StringInvertedIndex.Enabled)
+	assert.False(t, updatedSchema.Defaults.String.FtsIndex.Enabled)
+
+	assert.NotNil(t, updatedSchema.Defaults.Int)
+	assert.True(t, updatedSchema.Defaults.Int.IntInvertedIndex.Enabled)
+
+	assert.NotNil(t, updatedSchema.Defaults.Float)
+	assert.True(t, updatedSchema.Defaults.Float.FloatInvertedIndex.Enabled)
+
+	assert.NotNil(t, updatedSchema.Defaults.Boolean)
+	assert.True(t, updatedSchema.Defaults.Boolean.BoolInvertedIndex.Enabled)
+
+	assert.NotNil(t, updatedSchema.Defaults.SparseVector)
+	assert.False(t, updatedSchema.Defaults.SparseVector.SparseVectorIndex.Enabled)
+
+	// Verify #document key was preserved
+	assert.NotNil(t, updatedSchema.Keys["#document"])
+	assert.True(t, updatedSchema.Keys["#document"].String.FtsIndex.Enabled)
+	assert.False(t, updatedSchema.Keys["#document"].String.StringInvertedIndex.Enabled)
+
+	mockMetaDomain.AssertExpectations(t)
+	mockCollectionDb.AssertExpectations(t)
 }
 
 // Helper functions

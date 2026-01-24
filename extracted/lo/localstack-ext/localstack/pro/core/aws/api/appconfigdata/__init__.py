@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from enum import StrEnum
-from typing import IO, Dict, Iterable, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -31,10 +32,10 @@ class ResourceType(StrEnum):
 class InvalidParameterDetail(TypedDict, total=False):
     """Information about an invalid parameter."""
 
-    Problem: Optional[InvalidParameterProblem]
+    Problem: InvalidParameterProblem | None
 
 
-InvalidParameterMap = Dict[String, InvalidParameterDetail]
+InvalidParameterMap = dict[String, InvalidParameterDetail]
 
 
 class BadRequestDetails(TypedDict, total=False):
@@ -42,7 +43,7 @@ class BadRequestDetails(TypedDict, total=False):
     constraints specified by a call.
     """
 
-    InvalidParameters: Optional[InvalidParameterMap]
+    InvalidParameters: InvalidParameterMap | None
 
 
 class BadRequestException(ServiceException):
@@ -51,8 +52,8 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = True
     status_code: int = 400
-    Reason: Optional[BadRequestReason]
-    Details: Optional[BadRequestDetails]
+    Reason: BadRequestReason | None
+    Details: BadRequestDetails | None
 
 
 class InternalServerException(ServiceException):
@@ -63,7 +64,7 @@ class InternalServerException(ServiceException):
     status_code: int = 500
 
 
-StringMap = Dict[String, String]
+StringMap = dict[String, String]
 
 
 class ResourceNotFoundException(ServiceException):
@@ -72,8 +73,8 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = True
     status_code: int = 404
-    ResourceType: Optional[ResourceType]
-    ReferencedBy: Optional[StringMap]
+    ResourceType: ResourceType | None
+    ReferencedBy: StringMap | None
 
 
 class ThrottlingException(ServiceException):
@@ -92,27 +93,27 @@ SensitiveBlob = bytes
 
 
 class GetLatestConfigurationResponse(TypedDict, total=False):
-    Configuration: Optional[Union[SensitiveBlob, IO[SensitiveBlob], Iterable[SensitiveBlob]]]
-    NextPollConfigurationToken: Optional[Token]
-    NextPollIntervalInSeconds: Optional[Integer]
-    ContentType: Optional[String]
-    VersionLabel: Optional[String]
+    Configuration: SensitiveBlob | IO[SensitiveBlob] | Iterable[SensitiveBlob] | None
+    NextPollConfigurationToken: Token | None
+    NextPollIntervalInSeconds: Integer | None
+    ContentType: String | None
+    VersionLabel: String | None
 
 
 class StartConfigurationSessionRequest(ServiceRequest):
     ApplicationIdentifier: Identifier
     EnvironmentIdentifier: Identifier
     ConfigurationProfileIdentifier: Identifier
-    RequiredMinimumPollIntervalInSeconds: Optional[OptionalPollSeconds]
+    RequiredMinimumPollIntervalInSeconds: OptionalPollSeconds | None
 
 
 class StartConfigurationSessionResponse(TypedDict, total=False):
-    InitialConfigurationToken: Optional[Token]
+    InitialConfigurationToken: Token | None
 
 
 class AppconfigdataApi:
-    service = "appconfigdata"
-    version = "2021-11-11"
+    service: str = "appconfigdata"
+    version: str = "2021-11-11"
 
     @handler("GetLatestConfiguration")
     def get_latest_configuration(

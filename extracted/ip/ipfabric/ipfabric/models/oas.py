@@ -3,9 +3,8 @@ from collections import defaultdict
 from functools import cached_property
 from importlib.resources import files
 from typing import Optional, Any, Union
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin
 
-from httpx import URL
 from pydantic import BaseModel, PrivateAttr, TypeAdapter, Field, FilePath
 
 from ipfabric.tools.shared import raise_for_status
@@ -59,7 +58,8 @@ class Endpoint(BaseModel):
     tags: Optional[list[str]] = Field(default_factory=list)
     tag_groups: Optional[list[str]] = Field(default_factory=list)
     method: str
-    ui_columns: Optional[list[str]] = None
+    ui_columns: Optional[list[str]] = Field(default_factory=list)
+    sn_columns: Optional[list[str]] = Field(default_factory=list)
     api_scope_id: Optional[str] = None
     description: Optional[str] = None
     ipv4: Optional[Scan] = Field(default_factory=Scan)
@@ -69,9 +69,14 @@ class Endpoint(BaseModel):
     device_filters: list[str] = Field(default_factory=list)
     device_attribute_filters: bool = False
     attribute_filters: bool = False
+    api_versions: Optional[list[int]] = None
+    snapshot: Optional[bool] = None
 
     def __repr__(self):
         return f"({self.method}, {self.api_endpoint})"
+
+    def __hash__(self):
+        return hash(repr(self))
 
     @property
     def api_endpoint(self):
@@ -81,12 +86,12 @@ class Endpoint(BaseModel):
     def web_menu(self):
         return f"{self.tag_groups[0]} — {self.tags[0]}" if self.tag_groups and self.tags else None
 
-    def filter_url(self, filters: Union[str, dict], base_url: Union[URL, str]) -> Union[None, str]:
+    def filter_url(self, filters: Union[str, dict], base_url: str) -> Union[None, str]:
         if not self.web_endpoint:
             return None
         filters = json.loads(filters) if isinstance(filters, str) else filters
         filters = filters if "filters" in filters else {"filters": filters}
-        url = base_url.join(self.web_endpoint) if isinstance(base_url, URL) else URL(base_url).join(self.web_endpoint)
+        url = urljoin(base_url, self.web_endpoint)
         return f"{url}?options=" + quote_plus(json.dumps(filters, separators=(",", ":")))
 
 
@@ -132,7 +137,7 @@ class OAS(BaseModel):
 
     @cached_property
     def scope_to_api(self) -> dict[str, Endpoint]:
-        _ = dict()
+        _ = {}
         for methods in self._oas.values():
             for method in ["get", "put", "post", "patch", "delete"]:
                 m = getattr(methods, method, None)
@@ -149,7 +154,7 @@ class OAS(BaseModel):
             ]
             for k, v in columns.items():
                 col_type = v.get("type", None)
-                children = list()
+                children = []
                 if k in x_columns and isinstance(x_columns[k].get("filter", None), dict):
                     children = [
                         Column(
@@ -173,7 +178,14 @@ class OAS(BaseModel):
     def _post_logic(self, data: Endpoint, spec: dict):
         data.web_endpoint = spec.get("x-table", {}).get("webPath")
         data.title = spec.get("x-table", {}).get("title")
-        data.ui_columns = [_["key"] for _ in spec.get("x-table", {}).get("columns", [])]
+        sn_cols = set()
+        for _ in spec.get("x-table", {}).get("columns", []):
+            data.ui_columns.append(_["key"])
+            if _.get("isDeviceSn", False):
+                sn_cols.add(_["key"])
+            if _.get("snField", False):
+                sn_cols.add(_["snField"])
+        data.sn_columns = list(sn_cols)
         columns = set(
             spec.get("requestBody", {})
             .get("content", {})
@@ -184,7 +196,7 @@ class OAS(BaseModel):
             .get("items", {})
             .get("enum", [])
         )
-        data.columns = list(columns)
+        data.columns = data.ui_columns + [_ for _ in columns if _ not in data.ui_columns]
         return self._complex_columns(data, spec)
 
     def _complex_global_search(self, data: Endpoint) -> Endpoint:
@@ -233,27 +245,30 @@ class OAS(BaseModel):
                 data.mac.columns.append(Column(name=key, filter=filter_type))
         return self._complex_global_search(data)
 
+    @staticmethod
+    def _oas_api_version(ref: dict, spec: dict) -> Union[None, list[int]]:
+        # TODO: What if an endpoint has multiple version headers? Is it in Ref or the Endpoint?
+        for param in spec.get("parameters", []):
+            if param.get("$ref", None) == "#/components/parameters/TProductVersionHeader":
+                return ref.get("TProductVersionHeader", {}).get("schema", {}).get("enum", None)
+        return None
+
     def _parse_oas(self) -> dict[str, Methods]:
         if not self.local_oas or not self.local_oas_file:
-            url = self.client.base_url.join("/api/static/oas/openapi-internal.json")
-            oas = raise_for_status(self.client.get(url, follow_redirects=True)).json()
+            url = urljoin(self.client.base_url, "/api/static/oas/openapi-internal.json")
+            oas = raise_for_status(self.client.get(url)).json()
         elif isinstance(self.local_oas_file, dict):
             oas = self.local_oas_file
         else:
             with open(self.local_oas_file, "r") as f:
                 oas = json.load(f)
 
-        endpoints = dict()
+        endpoints = {}
         for endpoint, methods in oas["paths"].items():
             methods_obj = Methods(full_api_endpoint=endpoint)
             for method, spec in methods.items():
-                r_props = (
-                    spec.get("requestBody", {})
-                    .get("content", {})
-                    .get(CONTENT_TYPE, {})
-                    .get("schema", {})
-                    .get("properties", {})
-                )
+                r_body = spec.get("requestBody", {}).get("content", {}).get(CONTENT_TYPE, {}).get("schema", {})
+                r_props = r_body.get("properties", {})
                 filters = r_props.get("filters", {}).get("properties", {})
                 data = Endpoint(
                     full_api_endpoint=endpoint,
@@ -270,6 +285,10 @@ class OAS(BaseModel):
                     device_filters=[_ for _ in filters if _.startswith("device.")],
                     device_attribute_filters="device.attributes" in filters,
                     attribute_filters="attributeFilters" in r_props,
+                    api_versions=self._oas_api_version(oas["components"].get("parameters", {}), spec),
+                    snapshot=(
+                        False if hasattr(r_body, "required") and "snapshot" not in r_body.get("required", []) else None
+                    ),
                 )
                 if method == "post":
                     data = self._post_logic(data, spec)

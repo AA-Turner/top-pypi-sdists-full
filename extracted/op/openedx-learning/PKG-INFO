@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-learning
-Version: 0.28.0
+Version: 0.30.2
 Summary: Open edX Learning Core and Tagging.
 Home-page: https://github.com/openedx/openedx-learning
 Author: David Ormsbee
@@ -19,13 +19,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.11
 License-File: LICENSE.txt
-Requires-Dist: celery
-Requires-Dist: rules<4.0
-Requires-Dist: Django
-Requires-Dist: edx-drf-extensions
-Requires-Dist: tomlkit
 Requires-Dist: attrs
 Requires-Dist: djangorestframework<4.0
+Requires-Dist: edx-drf-extensions
+Requires-Dist: tomlkit
+Requires-Dist: celery
+Requires-Dist: Django
+Requires-Dist: rules<4.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -147,6 +147,15 @@ Every time you develop something in this repo
   git push
 
   # Open a PR and ask for review.
+
+Configuring Visual Studio Code
+------------------------------
+
+If you are using VS Code as your editor, you can enable the Testing bar by copying from the example configuration provided in the ``.vscode`` directory::
+
+    cd .vscode/
+    cp launch.json.example launch.json
+    cp settings.json.example settings.json
 
 License
 -------

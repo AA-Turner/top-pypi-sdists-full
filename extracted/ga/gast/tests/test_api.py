@@ -35,7 +35,7 @@ def foo(x=1, *args, **kwargs):
         self.assertEqual(gast.unparse(gast.parse(code)),
                          'def foo(x=1):\n    return x')
 
-    def test_dump(self):
+    def test_dump0(self):
         code = 'lambda x: x'
         tree = gast.parse(code, mode='eval')
         zdump = dump(tree)
@@ -46,6 +46,14 @@ def foo(x=1, *args, **kwargs):
                 "defaults=[]), body=Name(id='x', ctx=Load(), "
                 "annotation=None, type_comment=None)"
                 "))")
+        self.assertEqual(zdump, norm)
+
+    def test_dump1(self):
+        code = 'def func(): return 1'
+        tree = gast.parse(code)
+        node = tree.body[0]
+        zdump = gast.dump(node)
+        norm = "FunctionDef(name='func', args=arguments(vararg=None, kwarg=None), body=[Return(value=Constant(value=1, kind=None))], returns=None, type_comment=None)"
         self.assertEqual(zdump, norm)
 
     def test_walk(self):
@@ -74,12 +82,65 @@ def foo(x=1, *args, **kwargs):
         gast.increment_lineno(tree)
         self.assertEqual(tree.lineno, 2)
 
-    def test_get_docstring(self):
+    def test_get_source_segment(self):
+        code = 'x + 1'
+        tree = gast.parse(code)
+        source = gast.get_source_segment(code, tree.body[0].value.left)
+        if sys.version_info >= (3, 8):
+            self.assertEqual(source, 'x')
+        else:
+            self.assertEqual(source, None)
+
+
+    def test_get_source_segment_padded(self):
+        code = 'if 1:\n if 2:\n  3'
+        tree = gast.parse(code)
+        if_tree = tree.body[0].body[0]
+        source_nopadding = gast.get_source_segment(code, if_tree, padded=False)
+        if sys.version_info >= (3, 8):
+            self.assertEqual(source_nopadding, 'if 2:\n  3')
+        else:
+            self.assertEqual(source_nopadding, None)
+        source_padding = gast.get_source_segment(code, if_tree, padded=True)
+        if sys.version_info >= (3, 8):
+            self.assertEqual(source_padding, ' if 2:\n  3')
+        else:
+            self.assertEqual(source_padding, None)
+
+    def test_get_docstring_function(self):
         code = 'def foo(): "foo"'
         tree = gast.parse(code)
         func = tree.body[0]
         docs = gast.get_docstring(func)
         self.assertEqual(docs, "foo")
+
+    if sys.version_info >= (3, 5):
+        def test_get_docstring_asyncfunction(self):
+            code = 'async def foo(): "foo"'
+            tree = gast.parse(code)
+            func = tree.body[0]
+            docs = gast.get_docstring(func)
+            self.assertEqual(docs, "foo")
+
+    def test_get_docstring_module(self):
+        code = '"foo"'
+        tree = gast.parse(code)
+        docs = gast.get_docstring(tree)
+        self.assertEqual(docs, "foo")
+
+    def test_get_docstring_class(self):
+        code = 'class foo: "foo"'
+        tree = gast.parse(code)
+        cls = tree.body[0]
+        docs = gast.get_docstring(cls)
+        self.assertEqual(docs, "foo")
+
+    def test_get_docstring_expr(self):
+        code = '1'
+        tree = gast.parse(code)
+        func = tree
+        docs = gast.get_docstring(func)
+        self.assertEqual(docs, None)
 
     def test_copy_location(self):
         tree = gast.Constant(value=1, kind=None)
@@ -141,6 +202,30 @@ def foo(x=1, *args, **kwargs):
                               'random_field')
         for field in gast.Name._fields:
             self.assertEqual(getattr(node1, field), getattr(node2, field))
+
+    def test_IncompleteNodeConstructor(self):
+        afd = gast.FunctionDef(
+                    name="f",
+                    args=gast.arguments(
+                        args=[],
+                        posonlyargs=[],
+                        vararg=None,
+                        kwonlyargs=[],
+                        kw_defaults=[],
+                        kwarg=None,
+                        defaults=[],
+                        ),
+                    body=[],
+                    decorator_list=[],
+                    returns=None,
+                    type_comment=None,
+                    #type_params=[],
+                    )
+        # Should not fail even if type_params is not set
+        afd_ast = gast.gast_to_ast(afd)
+        self.assertEqual(afd_ast.name, "f")
+        if hasattr(afd_ast, "type_params"):
+            self.assertEqual(afd_ast.type_params, [])
 
 
 if __name__ == '__main__':

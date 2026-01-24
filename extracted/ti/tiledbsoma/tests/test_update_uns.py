@@ -18,7 +18,7 @@ from tests._util import Err, assert_uns_equal, make_pd_df, maybe_raises, verify_
 from tests.parametrize_cases import parametrize_cases
 from tests.test_basic_anndata_io import TEST_UNS, make_uns_adata
 
-ValidUpdates = Union[None, str, list[str], dict[str, "ValidUpdates"]]
+ValidUpdates = Union[str, list[str], dict[str, "ValidUpdates"], None]
 Logs = Union[list[str], None]
 
 
@@ -100,14 +100,14 @@ def case(
         strings=dict(
             aaa="AAA",
             nnn=111,
-        )
+        ),
     ),
     case(
         "Overwrite np.array inside collection (raise)",
         strings=dict(
            string_np_ndarray_1d=np.asarray(list("abc")),
         ),
-        err=r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']"
+        err=r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']",
     ),
     case(
         "Overwrite np.array inside collection (skip)",
@@ -116,7 +116,7 @@ def case(
         ),
         strict="info",
         valid_updates=[],
-        logs=[r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']"]
+        logs=[r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']"],
     ),
     case(
         "No partial updates inside collection",
@@ -124,7 +124,7 @@ def case(
             foo="FOO",
             string_np_ndarray_1d=np.asarray(list("abc")),
         ),
-        err=r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']"
+        err=r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']",
     ),
     case(
         "Partial update inside collection",
@@ -134,7 +134,7 @@ def case(
         ),
         strict="info",
         valid_updates={"strings": "foo"},
-        logs=[r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']"]
+        logs=[r"ms/RNA/uns/strings\[string_np_ndarray_1d]: already exists \(type DataFrame\), refusing to overwrite with \['a' 'b' 'c']"],
     ),
     case(
         "Overwrite scalar with DataFrame",
@@ -162,16 +162,15 @@ def case(
         int_scalar=22,
         pd_df_indexed=TEST_UNS["pd_df_indexed"].assign(column_1=list("ghi")),
         strict="info",
-        valid_updates=['int_scalar'],  # `int_scalar` is updated, `pd_df_indexed` is not ("info" msg logged below)
+        valid_updates=["int_scalar"],  # `int_scalar` is updated, `pd_df_indexed` is not ("info" msg logged below)
         logs=[
             r"ms/RNA/uns\[pd_df_indexed]: already exists \(type DataFrame\), refusing to overwrite with   column_1\n"
             r"0        g\n"
             r"1        h\n"
-            r"2        i"
+            r"2        i",
         ],
     ),
 ])
-# fmt: on
 def test_update_uns(
     caplog: LogCaptureFixture,
     tmp_path: Path,
@@ -181,12 +180,12 @@ def test_update_uns(
     valid_updates: ValidUpdates,
     logs: Logs,
 ):
+    # fmt: on
     caplog.set_level(logging.INFO)
-    soma_uri, adata = make_uns_adata(tmp_path)
+    soma_uri, _ = make_uns_adata(tmp_path)
 
-    with Experiment.open(soma_uri, "w") as exp:
-        with maybe_raises(err):
-            _update_uns(exp, uns_updates, measurement_name="RNA", strict=strict)
+    with Experiment.open(soma_uri, "w") as exp, maybe_raises(err):
+        _update_uns(exp, uns_updates, measurement_name="RNA", strict=strict)
 
     verify_logs(caplog, logs)
 

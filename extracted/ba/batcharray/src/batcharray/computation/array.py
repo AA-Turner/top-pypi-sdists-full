@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from batcharray.types import SortKind
 
 
-class ArrayComputationModel(BaseComputationModel[np.ndarray]):
+class ArrayComputationModel(BaseComputationModel[np.ndarray]):  # noqa: PLW1641
     r"""Implement a computation model for ``numpy.ndarray``s."""
 
     def __eq__(self, other: object) -> bool:

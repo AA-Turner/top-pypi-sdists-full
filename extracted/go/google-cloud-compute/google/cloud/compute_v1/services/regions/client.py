@@ -143,6 +143,34 @@ class RegionsClient(metaclass=RegionsClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -308,12 +336,8 @@ class RegionsClient(metaclass=RegionsClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = RegionsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -321,7 +345,7 @@ class RegionsClient(metaclass=RegionsClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -353,20 +377,14 @@ class RegionsClient(metaclass=RegionsClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = RegionsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -692,17 +710,19 @@ class RegionsClient(metaclass=RegionsClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Region:
-        r"""Returns the specified Region resource. To decrease latency for
-        this method, you can optionally omit any unneeded information
-        from the response by using a field mask. This practice is
-        especially recommended for unused quota information (the
-        ``quotas`` field). To exclude one or more fields, set your
-        request's ``fields`` query parameter to only include the fields
-        you need. For example, to only include the ``id`` and
-        ``selfLink`` fields, add the query parameter
-        ``?fields=id,selfLink`` to your request. This method fails if
-        the quota information is unavailable for the region and if the
-        organization policy constraint
+        r"""Returns the specified Region resource.
+
+        To decrease latency for this method, you can optionally omit any
+        unneeded information from the response by using a field mask.
+        This practice is especially recommended for unused quota
+        information (the ``quotas`` field). To exclude one or more
+        fields, set your request's ``fields`` query parameter to only
+        include the fields you need. For example, to only include the
+        ``id`` and ``selfLink`` fields, add the query parameter
+        ``?fields=id,selfLink`` to your request.
+
+        This method fails if the quota information is unavailable for
+        the region and if the organization policy constraint
         compute.requireBasicQuotaInResponse is enforced. This
         constraint, when enforced, disables the fail-open behaviour when
         quota information (the ``items.quotas`` field) is unavailable
@@ -763,10 +783,12 @@ class RegionsClient(metaclass=RegionsClientMeta):
 
         Returns:
             google.cloud.compute_v1.types.Region:
-                Represents a Region resource. A
-                region is a geographical area where a
+                Represents a Region resource.
+
+                A region is a geographical area where a
                 resource is located. For more
-                information, read Regions and Zones.
+                information, readRegions
+                and Zones.
 
         """
         # Create or coerce a protobuf request object.
@@ -832,16 +854,19 @@ class RegionsClient(metaclass=RegionsClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListPager:
         r"""Retrieves the list of region resources available to the
-        specified project. To decrease latency for this method, you can
-        optionally omit any unneeded information from the response by
-        using a field mask. This practice is especially recommended for
-        unused quota information (the ``items.quotas`` field). To
-        exclude one or more fields, set your request's ``fields`` query
-        parameter to only include the fields you need. For example, to
-        only include the ``id`` and ``selfLink`` fields, add the query
-        parameter ``?fields=id,selfLink`` to your request. This method
-        fails if the quota information is unavailable for the region and
-        if the organization policy constraint
+        specified project.
+
+        To decrease latency for this method, you can optionally omit any
+        unneeded information from the response by using a field mask.
+        This practice is especially recommended for unused quota
+        information (the ``items.quotas`` field). To exclude one or more
+        fields, set your request's ``fields`` query parameter to only
+        include the fields you need. For example, to only include the
+        ``id`` and ``selfLink`` fields, add the query parameter
+        ``?fields=id,selfLink`` to your request.
+
+        This method fails if the quota information is unavailable for
+        the region and if the organization policy constraint
         compute.requireBasicQuotaInResponse is enforced. This
         constraint, when enforced, disables the fail-open behaviour when
         quota information (the ``items.quotas`` field) is unavailable

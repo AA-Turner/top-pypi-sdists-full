@@ -1,18 +1,21 @@
 # built-in dependencies
-from typing import Any, Dict, List, Union, IO
+from typing import Any, Dict, List, Union, IO, cast, Tuple
 
 # 3rd party dependencies
 import numpy as np
+from numpy.typing import NDArray
 from tqdm import tqdm
 
 # project dependencies
 from deepface.modules import modeling, detection, preprocessing
 from deepface.models.demography import Gender, Race, Emotion
+from deepface.modules.exceptions import UnimplementedError, SpoofDetected
 
 
+# pylint: disable=too-many-positional-arguments
 def analyze(
-    img_path: Union[str, np.ndarray, IO[bytes], List[str], List[np.ndarray], List[IO[bytes]]],
-    actions: Union[tuple, list] = ("emotion", "age", "gender", "race"),
+    img_path: Union[str, NDArray[Any], IO[bytes], List[str], List[NDArray[Any]], List[IO[bytes]]],
+    actions: Union[Tuple[str, ...], List[str]] = ("emotion", "age", "gender", "race"),
     enforce_detection: bool = True,
     detector_backend: str = "opencv",
     align: bool = True,
@@ -35,7 +38,8 @@ def analyze(
             Set to False to avoid the exception for low-resolution images (default is True).
 
         detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
-            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'yolov11n', 'yolov11s', 'yolov11m',
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8n', 'yolov8m', 'yolov8l', 'yolov11n',
+            'yolov11s', 'yolov11m', 'yolov11l', 'yolov12n', 'yolov12s', 'yolov12m', 'yolov12l'
             'centerface' or 'skip' (default is opencv).
 
         distance_metric (string): Metric for measuring similarity. Options: 'cosine',
@@ -104,7 +108,7 @@ def analyze(
     if (isinstance(img_path, np.ndarray) and img_path.ndim == 4 and img_path.shape[0] > 1) or (
         isinstance(img_path, list)
     ):
-        batch_resp_obj = []
+        batch_resp_obj: List[List[Dict[str, Any]]] = []
         # Execute analysis for each image in the batch.
         for single_img in img_path:
             # Call the analyze function for each image in the batch.
@@ -118,6 +122,7 @@ def analyze(
                 silent=silent,
                 anti_spoofing=anti_spoofing,
             )
+            resp_obj = cast(List[Dict[str, Any]], resp_obj)
 
             # Append the response object to the batch response list.
             batch_resp_obj.append(resp_obj)
@@ -136,26 +141,29 @@ def analyze(
     # For each action, check if it is valid
     for action in actions:
         if action not in ("emotion", "age", "gender", "race"):
-            raise ValueError(
+            raise UnimplementedError(
                 f"Invalid action passed ({repr(action)})). "
                 "Valid actions are `emotion`, `age`, `gender`, `race`."
             )
     # ---------------------------------
     resp_objects = []
 
-    img_objs = detection.extract_faces(
-        img_path=img_path,
-        detector_backend=detector_backend,
-        enforce_detection=enforce_detection,
-        grayscale=False,
-        align=align,
-        expand_percentage=expand_percentage,
-        anti_spoofing=anti_spoofing,
+    img_objs: List[Dict[str, Any]] = cast(
+        List[Dict[str, Any]],
+        detection.extract_faces(
+            img_path=img_path,
+            detector_backend=detector_backend,
+            enforce_detection=enforce_detection,
+            grayscale=False,
+            align=align,
+            expand_percentage=expand_percentage,
+            anti_spoofing=anti_spoofing,
+        ),
     )
 
     for img_obj in img_objs:
         if anti_spoofing is True and img_obj.get("is_real", True) is False:
-            raise ValueError("Spoof detected in the given image.")
+            raise SpoofDetected("Spoof detected in the given image.")
 
         img_content = img_obj["face"]
         img_region = img_obj["facial_area"]
@@ -169,7 +177,7 @@ def analyze(
         # resize input image
         img_content = preprocessing.resize_image(img=img_content, target_size=(224, 224))
 
-        obj = {}
+        obj: Dict[str, Any] = {}
         # facial attribute analysis
         pbar = tqdm(
             range(0, len(actions)),

@@ -10,10 +10,11 @@ T = TypeVar("T", bound="FlowPreviewValueModulesItemMock")
 
 @_attrs_define
 class FlowPreviewValueModulesItemMock:
-    """
+    """Mock configuration for testing without executing the actual step
+
     Attributes:
-        enabled (Union[Unset, bool]):
-        return_value (Union[Unset, Any]):
+        enabled (Union[Unset, bool]): If true, return mock value instead of executing
+        return_value (Union[Unset, Any]): Value to return when mocked
     """
 
     enabled: Union[Unset, bool] = UNSET

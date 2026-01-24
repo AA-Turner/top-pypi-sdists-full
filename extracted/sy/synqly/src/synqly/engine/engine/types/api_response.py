@@ -2,12 +2,18 @@
 
 from ...core.unchecked_base_model import UncheckedBaseModel
 import typing
-from .meta_response import MetaResponse
+from .messages_response import MessagesResponse
 import pydantic
+from .meta_response import MetaResponse
 from ...core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class ApiResponse(UncheckedBaseModel):
+    messages: typing.Optional[MessagesResponse] = pydantic.Field(default=None)
+    """
+    Additional messages from the service response that may be helpful to the client.
+    """
+
     meta: typing.Optional[MetaResponse] = pydantic.Field(default=None)
     """
     Various metadata about the results organized by group, then type, then field.

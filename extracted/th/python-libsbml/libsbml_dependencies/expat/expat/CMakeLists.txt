@@ -39,7 +39,7 @@ cmake_minimum_required(VERSION 3.15.0)
 
 project(expat
     VERSION
-        2.7.1
+        2.7.3
     LANGUAGES
         C
 )
@@ -135,9 +135,6 @@ expat_shy_set(EXPAT_BUILD_DOCS ${_EXPAT_BUILD_DOCS_DEFAULT} CACHE BOOL "Build ma
 expat_shy_set(EXPAT_BUILD_FUZZERS OFF CACHE BOOL "Build fuzzers for the expat library")
 expat_shy_set(EXPAT_BUILD_PKGCONFIG ${_EXPAT_BUILD_PKGCONFIG_DEFAULT} CACHE BOOL "Build pkg-config file")
 expat_shy_set(EXPAT_OSSFUZZ_BUILD OFF CACHE BOOL "Build fuzzers via OSS-Fuzz for the expat library")
-if(UNIX OR _EXPAT_HELP)
-    expat_shy_set(EXPAT_WITH_LIBBSD OFF CACHE BOOL "Utilize libbsd (for arc4random_buf)")
-endif()
 expat_shy_set(EXPAT_ENABLE_INSTALL ON CACHE BOOL "Install expat files in cmake install target")
 expat_shy_set(EXPAT_CONTEXT_BYTES 1024 CACHE STRING "Define to specify how much context to retain around the current parse point, 0 to disable")
 mark_as_advanced(EXPAT_CONTEXT_BYTES)
@@ -190,23 +187,14 @@ if(EXPAT_DTD AND NOT EXPAT_GE)
     message(SEND_ERROR "Please either enable option EXPAT_GE (recommended) or disable EXPAT_DTD also.")
 endif()
 
-if(EXPAT_WITH_LIBBSD)
-    find_library(LIB_BSD NAMES bsd)
-    if(NOT LIB_BSD)
-        message(SEND_ERROR "EXPAT_WITH_LIBBSD option is enabled, but libbsd was not found")
-    else()
-        set(HAVE_LIBBSD TRUE)
-    endif()
-endif()
-
 if(MSVC)
     # For the three types of MSVC version values, please see:
     # - https://cmake.org/cmake/help/latest/variable/MSVC_VERSION.html
     # - https://sourceforge.net/p/predef/wiki/Compilers/
     # - https://en.wikipedia.org/wiki/Microsoft_Visual_Studio#History
     set(_EXPAT_MSVC_REQUIRED_INT 1800)  # i.e. 12.0/2013/1800; see PR #426
-    set(_EXPAT_MSVC_SUPPORTED_INT 1920)
-    set(_EXPAT_MSVC_SUPPORTED_DISPLAY "Visual Studio 16.0/2019/${_EXPAT_MSVC_SUPPORTED_INT}")
+    set(_EXPAT_MSVC_SUPPORTED_INT 1930)
+    set(_EXPAT_MSVC_SUPPORTED_DISPLAY "Visual Studio 17.0/2022/${_EXPAT_MSVC_SUPPORTED_INT}")
 
     if(MSVC_VERSION VERSION_LESS ${_EXPAT_MSVC_SUPPORTED_INT})
         if(MSVC_VERSION VERSION_LESS ${_EXPAT_MSVC_REQUIRED_INT})
@@ -315,8 +303,8 @@ expat_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/expat_config.h" DESTINATION ${C
 
 
 set(EXTRA_COMPILE_FLAGS)
-if(FLAG_NO_STRICT_ALIASING)
-    set(EXTRA_COMPILE_FLAGS "${EXTRA_COMPILE_FLAGS} -fno-strict-aliasing")
+if(FLAG_WSTRICT_ALIASING)
+    set(EXTRA_COMPILE_FLAGS "${EXTRA_COMPILE_FLAGS} -Wstrict-aliasing=3")
 endif()
 if(FLAG_VISIBILITY)
   if(EXPAT_SHARED_LIBS)
@@ -427,9 +415,6 @@ add_library(expat::expat ALIAS expat)
 if(_EXPAT_LIBM_FOUND)
     target_link_libraries(expat m)
 endif()
-if(EXPAT_WITH_LIBBSD)
-    target_link_libraries(expat ${LIB_BSD})
-endif()
 
 #
 # Library filename postfix
@@ -464,9 +449,9 @@ foreach(build_type_upper
     set_property(TARGET expat PROPERTY ${build_type_upper}_POSTFIX ${EXPAT_${build_type_upper}_POSTFIX})
 endforeach()
 
-set(LIBCURRENT 11)  # sync
-set(LIBREVISION 2)  # with
-set(LIBAGE 10)      # configure.ac!
+set(LIBCURRENT 12)  # sync
+set(LIBREVISION 1)  # with
+set(LIBAGE 11)      # configure.ac!
 math(EXPR LIBCURRENT_MINUS_AGE "${LIBCURRENT} - ${LIBAGE}")
 
 if(NOT WIN32)
@@ -682,10 +667,6 @@ if(EXPAT_BUILD_TESTS)
 
         if(_EXPAT_LIBM_FOUND)
             target_link_libraries(${_target} m)
-        endif()
-
-        if(EXPAT_WITH_LIBBSD)
-            target_link_libraries(${_target} ${LIB_BSD})
         endif()
     endforeach()
 
@@ -1012,7 +993,6 @@ if(WIN32)
 else()
     message(STATUS "    getrandom ................ ${HAVE_GETRANDOM}")
     message(STATUS "    syscall SYS_getrandom .... ${HAVE_SYSCALL_GETRANDOM}")
-    message(STATUS "    libbsd ................... ${EXPAT_WITH_LIBBSD}")
     message(STATUS "    /dev/random .............. ${EXPAT_DEV_URANDOM}")
 endif()
 message(STATUS "")

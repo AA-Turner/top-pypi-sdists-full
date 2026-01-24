@@ -22,7 +22,7 @@ from qiskit.compiler import transpile
 from qiskit import QuantumCircuit
 
 
-from qiskit_ibm_runtime import IBMBackend, RuntimeJob, SamplerV2 as Sampler
+from qiskit_ibm_runtime import IBMBackend, RuntimeJobV2, SamplerV2 as Sampler
 from qiskit_ibm_runtime.exceptions import IBMInputValueError
 from ..decorators import (
     IntegrationTestDependencies,
@@ -37,7 +37,7 @@ class TestIBMJobAttributes(IBMTestCase):
 
     sim_backend: IBMBackend
     bell: QuantumCircuit
-    sim_job: RuntimeJob
+    sim_job: RuntimeJobV2
     last_week: datetime
 
     @classmethod
@@ -100,6 +100,7 @@ class TestIBMJobAttributes(IBMTestCase):
         sampler = Sampler(mode=self.sim_backend)
         sampler.options.environment.job_tags = job_tags
         job = sampler.run([self.bell])
+        self.assertTrue(job.tags)
 
         no_rjobs_tags = [job_tags[0:1] + ["phantom_tags"], ["phantom_tag"]]
         for tags in no_rjobs_tags:
@@ -128,7 +129,7 @@ class TestIBMJobAttributes(IBMTestCase):
 
         tags_to_replace_subtests = [
             [],  # empty tags.
-            list("{}_new_tag_{}".format(uuid.uuid4().hex[:5], i) for i in range(2)),  # unique tags.
+            ["{}_new_tag_{}".format(uuid.uuid4().hex[:5], i) for i in range(2)],  # unique tags.
             initial_job_tags + ["foo"],
         ]
         for tags_to_replace in tags_to_replace_subtests:

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -30,12 +31,6 @@ from .literals import (
     PermissionsType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -83,7 +78,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -197,13 +192,13 @@ class DescribeEnvironmentStatusResultTypeDef(TypedDict):
 
 
 class ListEnvironmentsResultTypeDef(TypedDict):
-    environmentIds: List[str]
+    environmentIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -213,7 +208,7 @@ class CreateEnvironmentMembershipResultTypeDef(TypedDict):
 
 
 class DescribeEnvironmentMembershipsResultTypeDef(TypedDict):
-    memberships: List[EnvironmentMemberTypeDef]
+    memberships: list[EnvironmentMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -251,5 +246,5 @@ EnvironmentTypeDef = TypedDict(
 
 
 class DescribeEnvironmentsResultTypeDef(TypedDict):
-    environments: List[EnvironmentTypeDef]
+    environments: list[EnvironmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

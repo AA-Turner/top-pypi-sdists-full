@@ -154,9 +154,10 @@ class TranslationServiceGrpcTransport(TranslationServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -290,9 +291,10 @@ class TranslationServiceGrpcTransport(TranslationServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -648,6 +650,35 @@ class TranslationServiceGrpcTransport(TranslationServiceTransport):
                 response_deserializer=operations_pb2.Operation.FromString,
             )
         return self._stubs["delete_glossary"]
+
+    @property
+    def refine_text(
+        self,
+    ) -> Callable[
+        [translation_service.RefineTextRequest], translation_service.RefineTextResponse
+    ]:
+        r"""Return a callable for the refine text method over gRPC.
+
+        Refines the input translated text to improve the
+        quality.
+
+        Returns:
+            Callable[[~.RefineTextRequest],
+                    ~.RefineTextResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "refine_text" not in self._stubs:
+            self._stubs["refine_text"] = self._logged_channel.unary_unary(
+                "/google.cloud.translation.v3beta1.TranslationService/RefineText",
+                request_serializer=translation_service.RefineTextRequest.serialize,
+                response_deserializer=translation_service.RefineTextResponse.deserialize,
+            )
+        return self._stubs["refine_text"]
 
     def close(self):
         self._logged_channel.close()

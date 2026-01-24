@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hcloud
-Version: 2.6.0
+Version: 2.16.0
 Summary: Official Hetzner Cloud python library
 Home-page: https://github.com/hetznercloud/hcloud-python
 Author: Hetzner Cloud GmbH
@@ -15,27 +15,27 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python-dateutil>=2.7.5
 Requires-Dist: requests>=2.20
 Provides-Extra: docs
-Requires-Dist: sphinx<8.3,>=8; extra == "docs"
-Requires-Dist: sphinx-rtd-theme<3.1,>=3; extra == "docs"
-Requires-Dist: myst-parser<4.1,>=4; extra == "docs"
+Requires-Dist: sphinx<9.2,>=9; extra == "docs"
+Requires-Dist: sphinx-rtd-theme<3.2,>=3; extra == "docs"
+Requires-Dist: myst-parser<5.1,>=5; extra == "docs"
 Requires-Dist: watchdog<6.1,>=6; extra == "docs"
 Provides-Extra: test
-Requires-Dist: coverage<7.11,>=7.10; extra == "test"
-Requires-Dist: pylint<3.4,>=3; extra == "test"
-Requires-Dist: pytest<8.5,>=8; extra == "test"
-Requires-Dist: pytest-cov<6.4,>=6; extra == "test"
-Requires-Dist: mypy<1.18,>=1.17; extra == "test"
+Requires-Dist: coverage<7.14,>=7.13; extra == "test"
+Requires-Dist: pylint<4.1,>=4; extra == "test"
+Requires-Dist: pytest<9.1,>=9; extra == "test"
+Requires-Dist: pytest-cov<7.1,>=7; extra == "test"
+Requires-Dist: mypy<1.20,>=1.19; extra == "test"
 Requires-Dist: types-python-dateutil; extra == "test"
 Requires-Dist: types-requests; extra == "test"
 Dynamic: author
@@ -58,12 +58,12 @@ Dynamic: summary
 [![](https://github.com/hetznercloud/hcloud-python/actions/workflows/test.yml/badge.svg)](https://github.com/hetznercloud/hcloud-python/actions/workflows/test.yml)
 [![](https://github.com/hetznercloud/hcloud-python/actions/workflows/lint.yml/badge.svg)](https://github.com/hetznercloud/hcloud-python/actions/workflows/lint.yml)
 [![](https://codecov.io/github/hetznercloud/hcloud-python/graph/badge.svg?token=3YGRqB5t1L)](https://codecov.io/github/hetznercloud/hcloud-python/tree/main)
-[![](https://readthedocs.org/projects/hcloud-python/badge/?version=latest)](https://hcloud-python.readthedocs.io)
+[![](https://app.readthedocs.org/projects/hcloud-python/badge/?version=latest)](https://hcloud-python.readthedocs.io/en/stable/)
 [![](https://img.shields.io/pypi/pyversions/hcloud.svg)](https://pypi.org/project/hcloud/)
 
 Official Hetzner Cloud python library.
 
-The library's documentation is available at [hcloud-python.readthedocs.io](https://hcloud-python.readthedocs.io), the public API documentation is available at [docs.hetzner.cloud](https://docs.hetzner.cloud).
+The library's documentation is available at [hcloud-python.readthedocs.io](https://hcloud-python.readthedocs.io/en/stable/), the public API documentation is available at [docs.hetzner.cloud](https://docs.hetzner.cloud).
 
 > [!IMPORTANT]
 > Make sure to follow our API changelog available at
@@ -89,12 +89,16 @@ from hcloud import Client
 from hcloud.images import Image
 from hcloud.server_types import ServerType
 
-client = Client(token="{YOUR_API_TOKEN}")  # Please paste your API token here
+client = Client(
+    token="{YOUR_API_TOKEN}", # Please paste your API token here
+    application_name="my-app",
+    application_version="v1.0.0",
+)
 
 # Create a server named my-server
 response = client.servers.create(
     name="my-server",
-    server_type=ServerType(name="cx22"),
+    server_type=ServerType(name="cx23"),
     image=Image(name="ubuntu-22.04"),
 )
 server = response.server
@@ -121,12 +125,17 @@ Experimental features are published as part of our regular releases (e.g. a prod
 public beta). During an experimental phase, breaking changes on those features may occur
 within minor releases.
 
+The stability of experimental features is not related to the stability of its upstream API.
+
+Experimental features have different levels of maturity (e.g. experimental, alpha, beta)
+based on the maturity of the upstream API.
+
 While experimental features will be announced in the release notes, you can also find
 whether a python class or function is experimental in its docstring:
 
 ```
 Experimental:
-    $PRODUCT is experimental, breaking changes may occur within minor releases.
+    $PRODUCT is $MATURITY, breaking changes may occur within minor releases.
     See https://docs.hetzner.cloud/changelog#$SLUG for more details.
 ```
 
@@ -206,7 +215,7 @@ To publish experimental features as part of regular releases:
   ```py
   """
   Experimental:
-      $PRODUCT is experimental, breaking changes may occur within minor releases.
+      $PRODUCT is $MATURITY, breaking changes may occur within minor releases.
       See https://docs.hetzner.cloud/changelog#$SLUG for more details.
   """
   ```

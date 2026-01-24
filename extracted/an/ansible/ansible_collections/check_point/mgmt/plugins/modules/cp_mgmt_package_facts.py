@@ -45,6 +45,12 @@ options:
       - Object name.
         This parameter is relevant only for getting a specific object.
     type: str
+  show_installation_targets:
+    description:
+      - Indicates whether to calculate and show "installation-targets" field in reply.
+      - Available from R82 JHF management version.
+    type: bool
+    version_added: "6.5.0"
   details_level:
     description:
       - The level of detail for some of the fields in the response can vary from showing only the UID value of the object to a fully detailed
@@ -126,6 +132,7 @@ from ansible_collections.check_point.mgmt.plugins.module_utils.checkpoint import
 def main():
     argument_spec = dict(
         name=dict(type="str"),
+        show_installation_targets=dict(type="bool"),
         details_level=dict(type="str", choices=["uid", "standard", "full"]),
         filter=dict(type='str'),
         limit=dict(type="int"),

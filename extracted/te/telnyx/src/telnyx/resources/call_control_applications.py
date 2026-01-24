@@ -22,9 +22,10 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
+from ..pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.call_control_application import CallControlApplication
 from ..types.call_control_application_inbound_param import CallControlApplicationInboundParam
-from ..types.call_control_application_list_response import CallControlApplicationListResponse
 from ..types.call_control_application_outbound_param import CallControlApplicationOutboundParam
 from ..types.call_control_application_create_response import CallControlApplicationCreateResponse
 from ..types.call_control_application_delete_response import CallControlApplicationDeleteResponse
@@ -60,7 +61,19 @@ class CallControlApplicationsResource(SyncAPIResource):
         application_name: str,
         webhook_event_url: str,
         active: bool | Omit = omit,
-        anchorsite_override: Literal['"Latency"', '"Chicago, IL"', '"Ashburn, VA"', '"San Jose, CA"'] | Omit = omit,
+        anchorsite_override: Literal[
+            "Latency",
+            "Chicago, IL",
+            "Ashburn, VA",
+            "San Jose, CA",
+            "London, UK",
+            "Chennai, IN",
+            "Amsterdam, Netherlands",
+            "Toronto, Canada",
+            "Sydney, Australia",
+        ]
+        | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: Literal["RFC 2833", "Inband", "SIP INFO"] | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -92,6 +105,9 @@ class CallControlApplicationsResource(SyncAPIResource):
               lowest round-trip time to the user's connection. Telnyx calculates this time
               using ICMP ping messages. This can be disabled by specifying a site to handle
               all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this Call Control
+              Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -127,6 +143,7 @@ class CallControlApplicationsResource(SyncAPIResource):
                     "webhook_event_url": webhook_event_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -185,7 +202,19 @@ class CallControlApplicationsResource(SyncAPIResource):
         application_name: str,
         webhook_event_url: str,
         active: bool | Omit = omit,
-        anchorsite_override: Literal['"Latency"', '"Chicago, IL"', '"Ashburn, VA"', '"San Jose, CA"'] | Omit = omit,
+        anchorsite_override: Literal[
+            "Latency",
+            "Chicago, IL",
+            "Ashburn, VA",
+            "San Jose, CA",
+            "London, UK",
+            "Chennai, IN",
+            "Amsterdam, Netherlands",
+            "Toronto, Canada",
+            "Sydney, Australia",
+        ]
+        | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: Literal["RFC 2833", "Inband", "SIP INFO"] | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -218,6 +247,9 @@ class CallControlApplicationsResource(SyncAPIResource):
               lowest round-trip time to the user's connection. Telnyx calculates this time
               using ICMP ping messages. This can be disabled by specifying a site to handle
               all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this Call Control
+              Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -257,6 +289,7 @@ class CallControlApplicationsResource(SyncAPIResource):
                     "webhook_event_url": webhook_event_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -281,6 +314,8 @@ class CallControlApplicationsResource(SyncAPIResource):
         *,
         filter: call_control_application_list_params.Filter | Omit = omit,
         page: call_control_application_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -288,7 +323,7 @@ class CallControlApplicationsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> CallControlApplicationListResponse:
+    ) -> SyncDefaultFlatPagination[CallControlApplication]:
         """
         Return a list of call control applications.
 
@@ -326,8 +361,9 @@ class CallControlApplicationsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/call_control_applications",
+            page=SyncDefaultFlatPagination[CallControlApplication],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -337,12 +373,14 @@ class CallControlApplicationsResource(SyncAPIResource):
                     {
                         "filter": filter,
                         "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     call_control_application_list_params.CallControlApplicationListParams,
                 ),
             ),
-            cast_to=CallControlApplicationListResponse,
+            model=CallControlApplication,
         )
 
     def delete(
@@ -405,7 +443,19 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
         application_name: str,
         webhook_event_url: str,
         active: bool | Omit = omit,
-        anchorsite_override: Literal['"Latency"', '"Chicago, IL"', '"Ashburn, VA"', '"San Jose, CA"'] | Omit = omit,
+        anchorsite_override: Literal[
+            "Latency",
+            "Chicago, IL",
+            "Ashburn, VA",
+            "San Jose, CA",
+            "London, UK",
+            "Chennai, IN",
+            "Amsterdam, Netherlands",
+            "Toronto, Canada",
+            "Sydney, Australia",
+        ]
+        | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: Literal["RFC 2833", "Inband", "SIP INFO"] | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -437,6 +487,9 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
               lowest round-trip time to the user's connection. Telnyx calculates this time
               using ICMP ping messages. This can be disabled by specifying a site to handle
               all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this Call Control
+              Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -472,6 +525,7 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
                     "webhook_event_url": webhook_event_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -530,7 +584,19 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
         application_name: str,
         webhook_event_url: str,
         active: bool | Omit = omit,
-        anchorsite_override: Literal['"Latency"', '"Chicago, IL"', '"Ashburn, VA"', '"San Jose, CA"'] | Omit = omit,
+        anchorsite_override: Literal[
+            "Latency",
+            "Chicago, IL",
+            "Ashburn, VA",
+            "San Jose, CA",
+            "London, UK",
+            "Chennai, IN",
+            "Amsterdam, Netherlands",
+            "Toronto, Canada",
+            "Sydney, Australia",
+        ]
+        | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: Literal["RFC 2833", "Inband", "SIP INFO"] | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -563,6 +629,9 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
               lowest round-trip time to the user's connection. Telnyx calculates this time
               using ICMP ping messages. This can be disabled by specifying a site to handle
               all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this Call Control
+              Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -602,6 +671,7 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
                     "webhook_event_url": webhook_event_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -621,11 +691,13 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
             cast_to=CallControlApplicationUpdateResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
         filter: call_control_application_list_params.Filter | Omit = omit,
         page: call_control_application_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -633,7 +705,7 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> CallControlApplicationListResponse:
+    ) -> AsyncPaginator[CallControlApplication, AsyncDefaultFlatPagination[CallControlApplication]]:
         """
         Return a list of call control applications.
 
@@ -671,23 +743,26 @@ class AsyncCallControlApplicationsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/call_control_applications",
+            page=AsyncDefaultFlatPagination[CallControlApplication],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "filter": filter,
                         "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     call_control_application_list_params.CallControlApplicationListParams,
                 ),
             ),
-            cast_to=CallControlApplicationListResponse,
+            model=CallControlApplication,
         )
 
     async def delete(

@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
 
 from ase import Atoms
 from ase.build import surface
@@ -14,10 +14,10 @@ __all__ = ("CESlab",)
 
 
 def CESlab(
-    conventional_cell: Union[Atoms, str],
-    miller: Tuple[int],
+    conventional_cell: Atoms | str,
+    miller: tuple[int],
     concentration: Concentration,
-    size: Optional[Sequence[int]] = (1, 1, 1),
+    size: Sequence[int] | None = (1, 1, 1),
     **kwargs,
 ) -> ClusterExpansionSettings:
     """
@@ -48,7 +48,9 @@ def CESlab(
     prim = get_prim_slab_cell(conventional_cell, miller)
 
     # Slab should always have one cell vector along the z-axis
-    settings = ClusterExpansionSettings(prim, concentration, size=size, **kwargs)
+    settings = ClusterExpansionSettings(
+        prim, concentration, size=size, _allow_direct_instantiation=True, **kwargs
+    )
 
     dict_rep = conventional_cell.todict()
     for k, v in dict_rep.items():
@@ -66,7 +68,7 @@ def CESlab(
     return settings
 
 
-def get_prim_slab_cell(conventional_cell: Union[Atoms, str], miller: Tuple[int]) -> Atoms:
+def get_prim_slab_cell(conventional_cell: Atoms | str, miller: tuple[int]) -> Atoms:
     """
     Returns the primitive cell used for slab CE
 

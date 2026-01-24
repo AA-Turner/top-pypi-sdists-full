@@ -111,7 +111,12 @@ class core {
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
     void add_bounds();
 
+    bool refine_pseudo_linear();
+    bool is_pseudo_linear(monic const& m) const;    
+    void refine_pseudo_linear(monic const& m);
 
+    std::ostream& display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const;
+    std::ostream& display_declarations_smt(std::ostream& out) const;
 
 public:    
     // constructor
@@ -119,6 +124,8 @@ public:
     const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
+
+    void updt_params(params_ref const& p);
     
     const indexed_uint_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
@@ -224,6 +231,9 @@ public:
     bool check_monic(const monic& m) const;
    
 
+    std::ostream & display_row(std::ostream& out, lp::row_strip<lp::mpq> const& row) const;
+    std::ostream & display(std::ostream& out);
+    std::ostream& display_smt(std::ostream& out);
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
     std::ostream & print_monics(std::ostream & out) const;    

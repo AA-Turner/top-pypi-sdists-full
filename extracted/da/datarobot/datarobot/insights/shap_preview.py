@@ -25,23 +25,19 @@ class ShapPreview(BaseInsight):
     and retrieve: compute, create, list, get.
     """
 
-    SHAP_PREVIEW_VALUE = t.Dict(
-        {
-            t.Key("feature_rank"): t.Int(),
-            t.Key("feature_name"): t.String(),
-            t.Key("feature_value"): t.String(),
-            t.Key("shap_value"): t.Float(),
-        }
-    ).ignore_extra("*")
+    SHAP_PREVIEW_VALUE = t.Dict({
+        t.Key("feature_rank"): t.Int(),
+        t.Key("feature_name"): t.String(),
+        t.Key("feature_value"): t.String(),
+        t.Key("shap_value"): t.Float(),
+    }).ignore_extra("*")
 
-    SHAP_PREVIEW_ROW = t.Dict(
-        {
-            t.Key("row_index"): t.Int(),
-            t.Key("total_preview_features"): t.Int(),
-            t.Key("prediction_value"): t.Float(),
-            t.Key("preview_values"): t.List(SHAP_PREVIEW_VALUE),
-        }
-    )
+    SHAP_PREVIEW_ROW = t.Dict({
+        t.Key("row_index"): t.Int(),
+        t.Key("total_preview_features"): t.Int(),
+        t.Key("prediction_value"): t.Float(),
+        t.Key("preview_values"): t.List(SHAP_PREVIEW_VALUE),
+    })
 
     INSIGHT_NAME = "shapPreview"
     INSIGHT_DATA = {
@@ -133,6 +129,4 @@ class ShapPreview(BaseInsight):
         if feature_filter_name is not None:
             query_params["featureFilterName"] = feature_filter_name
 
-        return super().get(
-            entity_id=entity_id, source=source, quick_compute=quick_compute, **query_params
-        )
+        return super().get(entity_id=entity_id, source=source, quick_compute=quick_compute, **query_params)

@@ -1,85 +1,214 @@
 mod format;
 pub mod formatter;
+mod types;
 
 use format::Format;
-pub use formatter::definitions::FormatDefinitions;
 pub use formatter::Formatter;
+pub use formatter::definitions::FormatDefinitions;
 pub use tombi_config::FormatOptions;
 
-#[cfg(test)]
 #[macro_export]
 macro_rules! test_format {
-    (#[test] fn $name:ident($source:expr) -> Ok(source);) => {
-        $crate::test_format!(#[test] fn $name($source) -> Ok($source););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr) -> Ok(source);) => {
-        $crate::test_format!(#[test] fn $name($source, $toml_version) -> Ok($source););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr, $definition:expr) -> Ok(source);) => {
-        $crate::test_format!(#[test] fn $name($source, $toml_version, $definition) -> Ok($source););
-    };
-
-    (#[test] fn $name:ident($source:expr) -> Ok($expected:expr);) => {
-        $crate::test_format!(#[test] fn $name($source, tombi_config::TomlVersion::default()) -> Ok($expected););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr) -> Ok($expected:expr);) => {
-        $crate::test_format!(#[test] fn $name($source, $toml_version, &$crate::FormatDefinitions::default()) -> Ok($expected););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr, $definitions:expr) -> Ok($expected:expr);) => {
-        $crate::test_format!(#[test] fn $name($source, $toml_version, $definitions, &$crate::FormatOptions::default()) -> Ok($expected););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr, $definitions:expr, $options:expr) -> Ok($expected:expr);) => {
+    // Main entry point: Ok(source) means expected equals source
+    {
         #[tokio::test]
-        async fn $name() {
-            tombi_test_lib::init_tracing();
-
-            match $crate::Formatter::new(
-                $toml_version,
-                $definitions,
-                $options,
-                None,
-                &tombi_schema_store::SchemaStore::new()
-            ).format($source).await {
-                Ok(formatted_text) => {
-                    pretty_assertions::assert_eq!(formatted_text, textwrap::dedent($expected).trim().to_string() + "\n");
-                }
-                Err(errors) => {
-                    pretty_assertions::assert_eq!(errors, vec![]);
-                }
-            }
+        async fn $name:ident($source:expr $(, $arg:expr )* $(,)? ) -> Ok(source)
+    } => {
+        $crate::test_format! {
+            #[tokio::test]
+            async fn $name($source $(, $arg)*) -> Ok($source)
         }
     };
 
-    (#[test] fn $name:ident($source:expr) -> Err(_);) => {
-        $crate::test_format!(#[test] fn $name($source, tombi_config::TomlVersion::default()) -> Err(_););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr) -> Err(_);) => {
-        $crate::test_format!(#[test] fn $name($source, $toml_version, &$crate::FormatDefinitions::default()) -> Err(_););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr, $definitions:expr) -> Err(_);) => {
-        $crate::test_format!(#[test] fn $name($source, $toml_version, $definitions, &$crate::FormatOptions::default()) -> Err(_););
-    };
-
-    (#[test] fn $name:ident($source:expr, $toml_version:expr, $definitions:expr, $options:expr) -> Err(_);) => {
+    // Main entry point: Ok(expected) with custom expected value
+    {
+        #[tokio::test]
+        async fn $name:ident($source:expr $(, $arg:expr )* $(,)? ) -> Ok($expected:expr)
+    } => {
         #[tokio::test]
         async fn $name() {
+            use textwrap::dedent;
+            use tombi_schema_store::SchemaStore;
+            use tombi_config::{TomlVersion, FormatOptions};
+
+
             tombi_test_lib::init_tracing();
 
-            match $crate::Formatter::new(
-                $toml_version,
-                $definitions,
-                $options,
-                None,
-                &tombi_schema_store::SchemaStore::new()
-            ).format($source).await {
-                Ok(_) => panic!("expected an error"),
+            /// Test-time configuration overridden via `test_format!` arguments.
+            #[allow(unused)]
+            #[derive(Default)]
+            pub struct TestConfig {
+                pub toml_version: TomlVersion,
+                pub options: FormatOptions,
+                pub schema_path: Option<std::path::PathBuf>,
+            }
+
+            #[allow(unused)]
+            pub trait ApplyTestArg {
+                fn apply(self, config: &mut TestConfig);
+            }
+
+            impl ApplyTestArg for TomlVersion {
+                fn apply(self, config: &mut TestConfig) {
+                    config.toml_version = self;
+                }
+            }
+
+            impl ApplyTestArg for FormatOptions {
+                fn apply(self, config: &mut TestConfig) {
+                    config.options = self;
+                }
+            }
+
+            /// Set schema path for the test case.
+            #[allow(unused)]
+            pub struct SchemaPath(pub std::path::PathBuf);
+
+            impl ApplyTestArg for SchemaPath {
+                fn apply(self, config: &mut TestConfig) {
+                    config.schema_path = Some(self.0);
+                }
+            }
+
+            #[allow(unused_mut)]
+            let mut config = TestConfig::default();
+            $(
+                ApplyTestArg::apply($arg, &mut config);
+            )*
+
+            // Initialize schema store
+            let schema_store = SchemaStore::new();
+
+            if let Some(schema_path) = &config.schema_path {
+                let path = tombi_uri::Uri::from_file_path(schema_path.as_path())
+                    .unwrap()
+                    .to_string();
+                // Load schemas
+                schema_store
+                    .load_config_schemas(
+                        &[tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                            toml_version: None,
+                            path,
+                            include: vec!["*.toml".to_string()],
+                        })],
+                        None,
+                    )
+                    .await;
+            }
+
+            // Initialize formatter
+            let source_path = tombi_test_lib::project_root_path().join("test.toml");
+            let formatter = Formatter::new(
+                config.toml_version,
+                &config.options,
+                Some(itertools::Either::Right(source_path.as_path())),
+                &schema_store,
+            );
+
+            // Test that keys are reordered according to schema order
+            let source = dedent($source).to_string();
+            let mut expected = dedent($expected).trim().to_string();
+            if !source.trim().is_empty() {
+                expected.push('\n');
+            }
+
+            let formatted = formatter.format(&source).await.unwrap();
+            pretty_assertions::assert_eq!(
+                formatted,
+                expected,
+                "Formatting should be equal to expected"
+            );
+        }
+    };
+
+    // Main entry point: Err(_) for error cases
+    {
+        #[tokio::test]
+        async fn $name:ident($source:expr $(, $arg:expr )* $(,)? ) -> Err(_)
+    } => {
+        #[tokio::test]
+        async fn $name() {
+            use tombi_schema_store::SchemaStore;
+            use tombi_config::{FormatOptions, TomlVersion};
+
+
+            tombi_test_lib::init_tracing();
+
+            /// Test-time configuration overridden via `test_format!` arguments.
+            #[allow(unused)]
+            #[derive(Default)]
+            pub struct TestConfig {
+                pub toml_version: TomlVersion,
+                pub options: FormatOptions,
+                pub schema_path: Option<std::path::PathBuf>,
+            }
+
+            #[allow(unused)]
+            pub trait ApplyTestArg {
+                fn apply(self, config: &mut TestConfig);
+            }
+
+            impl ApplyTestArg for TomlVersion {
+                fn apply(self, config: &mut TestConfig) {
+                    config.toml_version = self;
+                }
+            }
+
+            impl ApplyTestArg for FormatOptions {
+                fn apply(self, config: &mut TestConfig) {
+                    config.options = self;
+                }
+            }
+
+            /// Set schema path for the test case.
+            #[allow(unused)]
+            pub struct SchemaPath(pub std::path::PathBuf);
+
+            impl ApplyTestArg for SchemaPath {
+                fn apply(self, config: &mut TestConfig) {
+                    config.schema_path = Some(self.0);
+                }
+            }
+
+            #[allow(unused_mut)]
+            let mut config = TestConfig::default();
+            $(
+                ApplyTestArg::apply($arg, &mut config);
+            )*
+
+            // Initialize schema store
+            let schema_store = SchemaStore::new();
+
+            if let Some(schema_path) = config.schema_path {
+                let path = tombi_uri::Uri::from_file_path(schema_path)
+                    .unwrap()
+                    .to_string();
+                // Load schemas
+                schema_store
+                    .load_config_schemas(
+                        &[tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                            toml_version: None,
+                            path,
+                            include: vec!["*.toml".to_string()],
+                            })],
+                        None,
+                    )
+                    .await;
+            }
+
+            // Initialize formatter
+            let source_path = tombi_test_lib::project_root_path().join("test.toml");
+            let formatter = Formatter::new(
+                config.toml_version,
+                &config.options,
+                Some(itertools::Either::Right(source_path.as_path())),
+                &schema_store,
+            );
+
+            // Test that keys are reordered according to schema order
+            let source = textwrap::dedent($source).trim().to_string();
+            match formatter.format(&source).await {
+                Ok(_) => panic!("Expected error, got success"),
                 Err(errors) => {
                     pretty_assertions::assert_ne!(errors, vec![]);
                 }
@@ -90,39 +219,28 @@ macro_rules! test_format {
 
 #[cfg(test)]
 mod test {
-    use tombi_config::{QuoteStyle, TomlVersion};
-
     use super::*;
-    use crate::FormatDefinitions;
+    use tombi_config::{StringQuoteStyle, format::FormatRules};
 
     test_format! {
-        #[test]
-        fn test_only_comment1(
-            r#"
-            # comment1
-            # comment2
-            "#,
+        #[tokio::test]
+        async fn test_empty(
+            r#""#,
             TomlVersion::V1_0_0
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn test_only_comment2(
-            r#"
-            # comment1
-            # comment2
-
-            # comment3
-            # comment4
-            "#,
+        #[tokio::test]
+        async fn test_whitespace(
+            r#"    "#,
             TomlVersion::V1_0_0
-        ) -> Ok(source);
+        ) -> Ok("")
     }
 
     test_format! {
-        #[test]
-        fn test_key_values(r#"
+        #[tokio::test]
+        async fn test_key_values(r#"
             array5 = [
               1,
               {
@@ -142,13 +260,13 @@ mod test {
               # comment
             ]
             "#,
-            TomlVersion::V1_1_0_Preview
-        ) -> Ok(source);
+            TomlVersion::V1_1_0
+        ) -> Ok(source)
     }
 
     test_format! {
-    #[test]
-    fn test_sample_toml(
+        #[tokio::test]
+        async fn test_sample_toml(
 r#"
 # key values begin dangling comment1
 # key values begin dangling comment2
@@ -287,10 +405,13 @@ b = 3
 # table key values end dangling comment3
 # table key values end dangling comment4
 "#,
-    TomlVersion::V1_1_0_Preview,
-    &FormatDefinitions{
-        quote_style: Some(QuoteStyle::Preserve),
-        ..Default::default()
-    }) -> Ok(source);
+        TomlVersion::V1_1_0,
+        FormatOptions {
+            rules: Some(FormatRules {
+                string_quote_style: Some(StringQuoteStyle::Preserve),
+                ..Default::default()
+            }),
+        }
+    ) -> Ok(source)
     }
 }

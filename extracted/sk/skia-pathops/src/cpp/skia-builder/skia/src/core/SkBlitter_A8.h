@@ -8,15 +8,21 @@
 #ifndef SkBlitter_A8_DEFINED
 #define SkBlitter_A8_DEFINED
 
+#include "include/core/SkColor.h"
 #include "include/core/SkPixmap.h"
 #include "include/core/SkRefCnt.h"
 #include "src/core/SkBlitter.h"
 
-class SkPaint;
-class SkMatrix;
+#include <cstdint>
+
 class SkArenaAlloc;
+class SkMatrix;
+class SkPaint;
 class SkShader;
 class SkSurfaceProps;
+struct SkIRect;
+struct SkMask;
+enum class SkDrawCoverage : bool;
 
 class SkA8_Coverage_Blitter : public SkBlitter {
 public:
@@ -26,18 +32,26 @@ public:
     void blitV(int x, int y, int height, SkAlpha alpha) override;
     void blitRect(int x, int y, int width, int height) override;
     void blitMask(const SkMask&, const SkIRect&) override;
-    const SkPixmap* justAnOpaqueColor(uint32_t*) override;
 
 private:
     const SkPixmap fDevice;
 };
 
+SkBlitter* SkChooseA8Blitter(const SkPixmap& dst,
+                             const SkMatrix& ctm,
+                             const SkPaint&,
+                             SkArenaAlloc*,
+                             SkDrawCoverage,
+                             sk_sp<SkShader> clipShader);
+
+// signature compatible with color version
 SkBlitter* SkA8Blitter_Choose(const SkPixmap& dst,
                               const SkMatrix& ctm,
                               const SkPaint& paint,
-                              SkArenaAlloc*,
-                              bool drawCoverage,
+                              SkArenaAlloc* alloc,
+                              SkDrawCoverage coverage,
                               sk_sp<SkShader> clipShader,
-                              const SkSurfaceProps&);
+                              const SkSurfaceProps& /*ignored*/,
+                              const SkRect& /*ignored*/);
 
 #endif // SkBlitter_A8_DEFINED

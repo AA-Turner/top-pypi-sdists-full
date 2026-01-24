@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import warnings
 from collections import defaultdict
 
@@ -9,7 +8,6 @@ from emmet.core.electronic_structure import (
     DOSProjectionType,
     ElectronicStructureDoc,
 )
-from monty.json import MontyDecoder
 from pymatgen.analysis.magnetism.analyzer import Ordering
 from pymatgen.core.periodic_table import Element
 from pymatgen.electronic_structure.core import OrbitalType, Spin
@@ -18,7 +16,7 @@ from mp_api.client.core import BaseRester, MPRestError
 from mp_api.client.core.utils import validate_ids
 
 
-class ElectronicStructureRester(BaseRester[ElectronicStructureDoc]):
+class ElectronicStructureRester(BaseRester):
     suffix = "materials/electronic_structure"
     document_model = ElectronicStructureDoc  # type: ignore
     primary_key = "material_id"
@@ -234,11 +232,9 @@ class BandStructureRester(BaseRester):
         Returns:
             bandstructure (BandStructure): BandStructure or BandStructureSymmLine object
         """
-        decoder = MontyDecoder().decode if self.monty_decode else json.loads
         result = self._query_open_data(
             bucket="materialsproject-parsed",
-            key=f"bandstructures/{task_id}.json.gz",
-            decoder=decoder,
+            key=f"bandstructures/{validate_ids([task_id])[0]}.json.gz",
         )[0]
 
         if result:
@@ -280,61 +276,47 @@ class BandStructureRester(BaseRester):
             if not bs_doc:
                 raise MPRestError("No electronic structure data found.")
 
-            bs_data = (
-                bs_doc[0].bandstructure  # type: ignore
-                if self.use_document_model
-                else bs_doc[0]["bandstructure"]  # type: ignore
+            if (bs_data := bs_doc[0]["bandstructure"]) is None:
+                raise MPRestError(
+                    f"No {path_type.value} band structure data found for {material_id}"
+                )
+
+            bs_data: dict = (
+                bs_data.model_dump() if self.use_document_model else bs_data  # type: ignore
             )
 
-            if bs_data is None:
+            if bs_data.get(path_type.value, None) is None:
                 raise MPRestError(
                     f"No {path_type.value} band structure data found for {material_id}"
                 )
-            else:
-                bs_data: dict = (
-                    bs_data.model_dump() if self.use_document_model else bs_data  # type: ignore
-                )
+            bs_task_id = bs_data[path_type.value]["task_id"]
 
-            if bs_data.get(path_type.value, None):
-                bs_task_id = bs_data[path_type.value]["task_id"]
-            else:
-                raise MPRestError(
-                    f"No {path_type.value} band structure data found for {material_id}"
-                )
         else:
-            bs_doc = es_rester.search(material_ids=material_id, fields=["dos"])
-
-            if not bs_doc:
+            if not (
+                bs_doc := es_rester.search(material_ids=material_id, fields=["dos"])
+            ):
                 raise MPRestError("No electronic structure data found.")
 
-            bs_data = (
-                bs_doc[0].dos  # type: ignore
-                if self.use_document_model
-                else bs_doc[0]["dos"]  # type: ignore
+            if (bs_data := bs_doc[0]["dos"]) is None:
+                raise MPRestError(
+                    f"No uniform band structure data found for {material_id}"
+                )
+
+            bs_data: dict = (
+                bs_data.model_dump() if self.use_document_model else bs_data  # type: ignore
             )
 
-            if bs_data is None:
+            if bs_data.get("total", None) is None:
                 raise MPRestError(
                     f"No uniform band structure data found for {material_id}"
                 )
-            else:
-                bs_data: dict = (
-                    bs_data.model_dump() if self.use_document_model else bs_data  # type: ignore
-                )
-
-            if bs_data.get("total", None):
-                bs_task_id = bs_data["total"]["1"]["task_id"]
-            else:
-                raise MPRestError(
-                    f"No uniform band structure data found for {material_id}"
-                )
+            bs_task_id = bs_data["total"]["1"]["task_id"]
 
         bs_obj = self.get_bandstructure_from_task_id(bs_task_id)
 
         if bs_obj:
             return bs_obj
-        else:
-            raise MPRestError("No band structure object found.")
+        raise MPRestError("No band structure object found.")
 
 
 class DosRester(BaseRester):
@@ -430,11 +412,9 @@ class DosRester(BaseRester):
         Returns:
             bandstructure (CompleteDos): CompleteDos object
         """
-        decoder = MontyDecoder().decode if self.monty_decode else json.loads
         result = self._query_open_data(
             bucket="materialsproject-parsed",
-            key=f"dos/{task_id}.json.gz",
-            decoder=decoder,
+            key=f"dos/{validate_ids([task_id])[0]}.json.gz",
         )[0]
 
         if result:
@@ -462,22 +442,16 @@ class DosRester(BaseRester):
             mute_progress_bars=self.mute_progress_bars,
         )
 
-        dos_doc = es_rester.search(material_ids=material_id, fields=["dos"])
-        if not dos_doc:
+        if not (dos_doc := es_rester.search(material_ids=material_id, fields=["dos"])):
             return None
 
-        dos_data: dict = (
-            dos_doc[0].model_dump() if self.use_document_model else dos_doc[0]  # type: ignore
-        )
-
-        if dos_data["dos"]:
-            dos_task_id = dos_data["dos"]["total"]["1"]["task_id"]
-        else:
+        if not (dos_data := dos_doc[0].get("dos")):
             raise MPRestError(f"No density of states data found for {material_id}")
 
-        dos_obj = self.get_dos_from_task_id(dos_task_id)
-
-        if dos_obj:
+        dos_task_id = (dos_data.model_dump() if self.use_document_model else dos_data)[
+            "total"
+        ]["1"]["task_id"]
+        if dos_obj := self.get_dos_from_task_id(dos_task_id):
             return dos_obj
-        else:
-            raise MPRestError("No density of states object found.")
+
+        raise MPRestError("No density of states object found.")

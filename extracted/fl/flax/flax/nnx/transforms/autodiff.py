@@ -27,11 +27,13 @@ from flax.nnx import (
 )
 from flax.nnx.statelib import State
 import jax
-import jax.core
-import jax.stages
 
 from flax.nnx.transforms import general
-from flax.nnx.transforms.transforms import resolve_kwargs
+from flax.nnx.transforms.transforms import (
+  resolve_kwargs,
+  _resolve_bound_callable,
+  _raise_bound_method_error,
+)
 from flax.typing import MISSING, Missing
 
 
@@ -58,6 +60,7 @@ AxisName = tp.Hashable
 class DiffState:
   argnum: int
   filter: filterlib.Filter
+
 
 
 @dataclasses.dataclass(eq=False)
@@ -139,7 +142,7 @@ def _grad_general(
     def _grad_split_fn(
       ctx: graph.SplitContext, path, prefix: DiffState | None, value
     ):
-      if prefix is None:
+      if prefix is None or (prefix.argnum == -1 and isinstance(value, variablelib.Variable)):
         nondiff_states.append(None)
         return extract.NodeStates.from_split(*ctx.split(value))
       else:
@@ -312,14 +315,22 @@ def grad(
       holomorphic=holomorphic,
       allow_int=allow_int,
     )
-  return _grad_general(
-    f,
+  # Detect bound nnx.Module methods and raise error.
+  f_unbound, _, was_bound = _resolve_bound_callable(f)
+
+  if was_bound:
+    _raise_bound_method_error('grad')
+
+  grad_fn = _grad_general(
+    f_unbound,
     argnums,
     has_aux,
     holomorphic,
     allow_int,
     return_value=False,
   )
+
+  return grad_fn
 
 
 @tp.overload
@@ -366,8 +377,14 @@ def value_and_grad(
       holomorphic=holomorphic,
       allow_int=allow_int,
     )
+  # Detect bound nnx.Module methods and raise error.
+  f_unbound, _, was_bound = _resolve_bound_callable(f)
+
+  if was_bound:
+    _raise_bound_method_error('value_and_grad')
+
   return _grad_general(
-    f,
+    f_unbound,
     argnums,
     has_aux,
     holomorphic,
@@ -751,8 +768,8 @@ def custom_vjp(
     ...   (m_updates_g,) = input_updates_g
     ...   m_g = jax.tree.map(lambda x: x, m_updates_g) # create copy
     ...
-    ...   m_g['x'].value = cos_x * out_g * m.y
-    ...   m_g['y'].value = sin_x * out_g
+    ...   m_g['x'][...] = cos_x * out_g * m.y
+    ...   m_g['y'][...] = sin_x * out_g
     ...   return (m_g,)
     ...
     >>> f.defvjp(f_fwd, f_bwd)
@@ -797,7 +814,7 @@ def custom_vjp(
     ...   (m_updates_g,) = input_updates_g
     ...   m_g = jax.tree.map(lambda x: x, m_updates_g) # create copy
     ...
-    ...   m_g.x.value = cos_x * out_g * m.y
+    ...   m_g.x[...] = cos_x * out_g * m.y
     ...   del m_g['y'] # y is not differentiable
     ...   return (m_g,)
 
@@ -829,7 +846,13 @@ def custom_vjp(
   """
   if isinstance(fun, Missing):
     return functools.partial(custom_vjp, nondiff_argnums=nondiff_argnums)
-  return CustomVjp(fun, nondiff_argnums)
+
+  # Detect bound nnx.Module methods and raise error.
+  fun_unbound, _, was_bound = _resolve_bound_callable(fun)
+  if was_bound:
+    _raise_bound_method_error('custom_vjp')
+
+  return CustomVjp(fun_unbound, nondiff_argnums)
 
 
 # -------------------------------
@@ -881,11 +904,18 @@ def remat(
       policy=policy,
     )  # type: ignore[return-value]
 
-  return resolve_kwargs()(
+  # Detect bound nnx.Module methods and raise error.
+  f_unbound, _, was_bound = _resolve_bound_callable(f)
+
+  if was_bound:
+    _raise_bound_method_error('remat')
+
+  # Unbound function path: preserve the concise composition used in NNX.
+  return resolve_kwargs()(  # type: ignore[return-value]
     graph.update_context('remat')(
       general.split_inputs(
         jax.checkpoint(
-          general.merge_inputs(f, ctxtag='remat'),
+          general.merge_inputs(f_unbound, ctxtag='remat'),
           prevent_cse=prevent_cse,
           static_argnums=static_argnums,
           policy=policy,

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -38,12 +39,6 @@ from .literals import (
     SnapshotStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -166,7 +161,7 @@ class CancelExportTaskInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -213,7 +208,7 @@ class DeletePrivateGraphEndpointInputTypeDef(TypedDict):
 
 class EdgeStructureTypeDef(TypedDict):
     count: NotRequired[int]
-    edgeProperties: NotRequired[List[str]]
+    edgeProperties: NotRequired[list[str]]
 
 
 class ExecuteQueryInputTypeDef(TypedDict):
@@ -305,8 +300,8 @@ class GetQueryInputTypeDef(TypedDict):
 
 class NodeStructureTypeDef(TypedDict):
     count: NotRequired[int]
-    nodeProperties: NotRequired[List[str]]
-    distinctOutgoingEdgeLabels: NotRequired[List[str]]
+    nodeProperties: NotRequired[list[str]]
+    distinctOutgoingEdgeLabels: NotRequired[list[str]]
 
 
 GraphSnapshotSummaryTypeDef = TypedDict(
@@ -395,7 +390,7 @@ class ListPrivateGraphEndpointsInputTypeDef(TypedDict):
 
 class PrivateGraphEndpointSummaryTypeDef(TypedDict):
     vpcId: str
-    subnetIds: List[str]
+    subnetIds: list[str]
     status: PrivateGraphEndpointStatusType
     vpcEndpointId: NotRequired[str]
 
@@ -507,7 +502,7 @@ CreateGraphSnapshotOutputTypeDef = TypedDict(
 
 class CreatePrivateGraphEndpointOutputTypeDef(TypedDict):
     vpcId: str
-    subnetIds: List[str]
+    subnetIds: list[str]
     status: PrivateGraphEndpointStatusType
     vpcEndpointId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -530,7 +525,7 @@ DeleteGraphSnapshotOutputTypeDef = TypedDict(
 
 class DeletePrivateGraphEndpointOutputTypeDef(TypedDict):
     vpcId: str
-    subnetIds: List[str]
+    subnetIds: list[str]
     status: PrivateGraphEndpointStatusType
     vpcEndpointId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -562,7 +557,7 @@ GetGraphSnapshotOutputTypeDef = TypedDict(
 
 class GetPrivateGraphEndpointOutputTypeDef(TypedDict):
     vpcId: str
-    subnetIds: List[str]
+    subnetIds: list[str]
     status: PrivateGraphEndpointStatusType
     vpcEndpointId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -582,7 +577,7 @@ GetQueryOutputTypeDef = TypedDict(
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -768,7 +763,7 @@ UpdateGraphOutputTypeDef = TypedDict(
 
 
 class ExportFilterElementOutputTypeDef(TypedDict):
-    properties: NotRequired[Dict[str, ExportFilterPropertyAttributesTypeDef]]
+    properties: NotRequired[dict[str, ExportFilterPropertyAttributesTypeDef]]
 
 
 class ExportFilterElementTypeDef(TypedDict):
@@ -776,7 +771,7 @@ class ExportFilterElementTypeDef(TypedDict):
 
 
 class ListExportTasksOutputTypeDef(TypedDict):
-    tasks: List[ExportTaskSummaryTypeDef]
+    tasks: list[ExportTaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -843,26 +838,26 @@ class GraphDataSummaryTypeDef(TypedDict):
     numEdges: NotRequired[int]
     numNodeLabels: NotRequired[int]
     numEdgeLabels: NotRequired[int]
-    nodeLabels: NotRequired[List[str]]
-    edgeLabels: NotRequired[List[str]]
+    nodeLabels: NotRequired[list[str]]
+    edgeLabels: NotRequired[list[str]]
     numNodeProperties: NotRequired[int]
     numEdgeProperties: NotRequired[int]
-    nodeProperties: NotRequired[List[Dict[str, int]]]
-    edgeProperties: NotRequired[List[Dict[str, int]]]
+    nodeProperties: NotRequired[list[dict[str, int]]]
+    edgeProperties: NotRequired[list[dict[str, int]]]
     totalNodePropertyValues: NotRequired[int]
     totalEdgePropertyValues: NotRequired[int]
-    nodeStructures: NotRequired[List[NodeStructureTypeDef]]
-    edgeStructures: NotRequired[List[EdgeStructureTypeDef]]
+    nodeStructures: NotRequired[list[NodeStructureTypeDef]]
+    edgeStructures: NotRequired[list[EdgeStructureTypeDef]]
 
 
 class ListGraphSnapshotsOutputTypeDef(TypedDict):
-    graphSnapshots: List[GraphSnapshotSummaryTypeDef]
+    graphSnapshots: list[GraphSnapshotSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListGraphsOutputTypeDef(TypedDict):
-    graphs: List[GraphSummaryTypeDef]
+    graphs: list[GraphSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -872,7 +867,7 @@ class ImportOptionsTypeDef(TypedDict):
 
 
 class ListImportTasksOutputTypeDef(TypedDict):
-    tasks: List[ImportTaskSummaryTypeDef]
+    tasks: list[ImportTaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -901,19 +896,19 @@ class ListPrivateGraphEndpointsInputPaginateTypeDef(TypedDict):
 
 
 class ListPrivateGraphEndpointsOutputTypeDef(TypedDict):
-    privateGraphEndpoints: List[PrivateGraphEndpointSummaryTypeDef]
+    privateGraphEndpoints: list[PrivateGraphEndpointSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListQueriesOutputTypeDef(TypedDict):
-    queries: List[QuerySummaryTypeDef]
+    queries: list[QuerySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ExportFilterOutputTypeDef(TypedDict):
-    vertexFilter: NotRequired[Dict[str, ExportFilterElementOutputTypeDef]]
-    edgeFilter: NotRequired[Dict[str, ExportFilterElementOutputTypeDef]]
+    vertexFilter: NotRequired[dict[str, ExportFilterElementOutputTypeDef]]
+    edgeFilter: NotRequired[dict[str, ExportFilterElementOutputTypeDef]]
 
 
 class ExportFilterTypeDef(TypedDict):

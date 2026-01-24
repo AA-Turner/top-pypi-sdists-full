@@ -1,18 +1,19 @@
 [package]
 name = "py-autosar-data"
-version = "0.12.0"
+version = "0.14.0"
 edition = "2024"
 description = "read, write and modify Autosar arxml data using Python"
 authors = ["Daniel Thaler <daniel@dthaler.de>"]
 license = "MIT OR Apache-2.0"
 keywords = ["arxml", "automotive", "file-format", "Autosar"]
+readme = "README.md"
 
 [lib]
 name = "_autosar_data"
 crate-type = ["cdylib"]
 
 [dependencies]
-autosar-data = {version = "0.20"}
-autosar-data-specification = {version = "0.20"}
-autosar-data-abstraction = {version = "0.6"}
-pyo3 = "0.25"
+autosar-data = {version = "0.21"}
+autosar-data-specification = {version = "0.21"}
+autosar-data-abstraction = {version = "0.10"}
+pyo3 = "0.27"

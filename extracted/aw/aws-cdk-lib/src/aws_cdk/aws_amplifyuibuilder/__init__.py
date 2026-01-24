@@ -66,1195 +66,17 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnComponentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "binding_properties": "bindingProperties",
-        "children": "children",
-        "collection_properties": "collectionProperties",
-        "component_type": "componentType",
-        "environment_name": "environmentName",
-        "events": "events",
-        "name": "name",
-        "overrides": "overrides",
-        "properties": "properties",
-        "schema_version": "schemaVersion",
-        "source_id": "sourceId",
-        "tags": "tags",
-        "variants": "variants",
-    },
+from ..interfaces.aws_amplifyuibuilder import (
+    ComponentReference as _ComponentReference_de75adcf,
+    FormReference as _FormReference_ebed8580,
+    IComponentRef as _IComponentRef_46f239bf,
+    IFormRef as _IFormRef_ee9b385d,
+    IThemeRef as _IThemeRef_92e58367,
+    ThemeReference as _ThemeReference_62247883,
 )
-class CfnComponentProps:
-    def __init__(
-        self,
-        *,
-        app_id: typing.Optional[builtins.str] = None,
-        binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        collection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        component_type: typing.Optional[builtins.str] = None,
-        environment_name: typing.Optional[builtins.str] = None,
-        events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        overrides: typing.Any = None,
-        properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        schema_version: typing.Optional[builtins.str] = None,
-        source_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnComponent``.
 
-        :param app_id: The unique ID of the Amplify app associated with the component.
-        :param binding_properties: The information to connect a component's properties to data at runtime. You can't specify ``tags`` as a valid property for ``bindingProperties`` .
-        :param children: A list of the component's ``ComponentChild`` instances.
-        :param collection_properties: The data binding configuration for the component's properties. Use this for a collection component. You can't specify ``tags`` as a valid property for ``collectionProperties`` .
-        :param component_type: The type of the component. This can be an Amplify custom UI component or another custom component.
-        :param environment_name: The name of the backend environment that is a part of the Amplify app.
-        :param events: Describes the events that can be raised on the component. Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
-        :param name: The name of the component.
-        :param overrides: Describes the component's properties that can be overriden in a customized instance of the component. You can't specify ``tags`` as a valid property for ``overrides`` .
-        :param properties: Describes the component's properties. You can't specify ``tags`` as a valid property for ``properties`` .
-        :param schema_version: The schema version of the component when it was imported.
-        :param source_id: The unique ID of the component in its original source system, such as Figma.
-        :param tags: One or more key-value pairs to use when tagging the component.
-        :param variants: A list of the component's variants. A variant is a unique style configuration of a main component.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
-            check_type(argname="argument children", value=children, expected_type=type_hints["children"])
-            check_type(argname="argument collection_properties", value=collection_properties, expected_type=type_hints["collection_properties"])
-            check_type(argname="argument component_type", value=component_type, expected_type=type_hints["component_type"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
-            check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
-            check_type(argname="argument schema_version", value=schema_version, expected_type=type_hints["schema_version"])
-            check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument variants", value=variants, expected_type=type_hints["variants"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if app_id is not None:
-            self._values["app_id"] = app_id
-        if binding_properties is not None:
-            self._values["binding_properties"] = binding_properties
-        if children is not None:
-            self._values["children"] = children
-        if collection_properties is not None:
-            self._values["collection_properties"] = collection_properties
-        if component_type is not None:
-            self._values["component_type"] = component_type
-        if environment_name is not None:
-            self._values["environment_name"] = environment_name
-        if events is not None:
-            self._values["events"] = events
-        if name is not None:
-            self._values["name"] = name
-        if overrides is not None:
-            self._values["overrides"] = overrides
-        if properties is not None:
-            self._values["properties"] = properties
-        if schema_version is not None:
-            self._values["schema_version"] = schema_version
-        if source_id is not None:
-            self._values["source_id"] = source_id
-        if tags is not None:
-            self._values["tags"] = tags
-        if variants is not None:
-            self._values["variants"] = variants
-
-    @builtins.property
-    def app_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the Amplify app associated with the component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-appid
-        '''
-        result = self._values.get("app_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def binding_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
-        '''The information to connect a component's properties to data at runtime.
-
-        You can't specify ``tags`` as a valid property for ``bindingProperties`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-bindingproperties
-        '''
-        result = self._values.get("binding_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], result)
-
-    @builtins.property
-    def children(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]]:
-        '''A list of the component's ``ComponentChild`` instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-children
-        '''
-        result = self._values.get("children")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]], result)
-
-    @builtins.property
-    def collection_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentDataConfigurationProperty"]]]]:
-        '''The data binding configuration for the component's properties.
-
-        Use this for a collection component. You can't specify ``tags`` as a valid property for ``collectionProperties`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-collectionproperties
-        '''
-        result = self._values.get("collection_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentDataConfigurationProperty"]]]], result)
-
-    @builtins.property
-    def component_type(self) -> typing.Optional[builtins.str]:
-        '''The type of the component.
-
-        This can be an Amplify custom UI component or another custom component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-componenttype
-        '''
-        result = self._values.get("component_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def environment_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the backend environment that is a part of the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-environmentname
-        '''
-        result = self._values.get("environment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def events(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]]:
-        '''Describes the events that can be raised on the component.
-
-        Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-events
-        '''
-        result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def overrides(self) -> typing.Any:
-        '''Describes the component's properties that can be overriden in a customized instance of the component.
-
-        You can't specify ``tags`` as a valid property for ``overrides`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-overrides
-        '''
-        result = self._values.get("overrides")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]]:
-        '''Describes the component's properties.
-
-        You can't specify ``tags`` as a valid property for ``properties`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-properties
-        '''
-        result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]], result)
-
-    @builtins.property
-    def schema_version(self) -> typing.Optional[builtins.str]:
-        '''The schema version of the component when it was imported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-schemaversion
-        '''
-        result = self._values.get("schema_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the component in its original source system, such as Figma.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-sourceid
-        '''
-        result = self._values.get("source_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''One or more key-value pairs to use when tagging the component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def variants(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentVariantProperty"]]]]:
-        '''A list of the component's variants.
-
-        A variant is a unique style configuration of a main component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-variants
-        '''
-        result = self._values.get("variants")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentVariantProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnComponentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnFormProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "cta": "cta",
-        "data_type": "dataType",
-        "environment_name": "environmentName",
-        "fields": "fields",
-        "form_action_type": "formActionType",
-        "label_decorator": "labelDecorator",
-        "name": "name",
-        "schema_version": "schemaVersion",
-        "sectional_elements": "sectionalElements",
-        "style": "style",
-        "tags": "tags",
-    },
-)
-class CfnFormProps:
-    def __init__(
-        self,
-        *,
-        app_id: typing.Optional[builtins.str] = None,
-        cta: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        environment_name: typing.Optional[builtins.str] = None,
-        fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        form_action_type: typing.Optional[builtins.str] = None,
-        label_decorator: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        schema_version: typing.Optional[builtins.str] = None,
-        sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnForm``.
-
-        :param app_id: The unique ID of the Amplify app associated with the form.
-        :param cta: The ``FormCTA`` object that stores the call to action configuration for the form.
-        :param data_type: The type of data source to use to create the form.
-        :param environment_name: The name of the backend environment that is a part of the Amplify app.
-        :param fields: The configuration information for the form's fields.
-        :param form_action_type: Specifies whether to perform a create or update action on the form.
-        :param label_decorator: Specifies an icon or decoration to display on the form.
-        :param name: The name of the form.
-        :param schema_version: The schema version of the form.
-        :param sectional_elements: The configuration information for the visual helper elements for the form. These elements are not associated with any data.
-        :param style: The configuration for the form's style.
-        :param tags: One or more key-value pairs to use when tagging the form data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
-            
-            # form_input_value_property_property_: amplifyuibuilder.CfnForm.FormInputValuePropertyProperty
-            
-            cfn_form_props = amplifyuibuilder.CfnFormProps(
-                app_id="appId",
-                cta=amplifyuibuilder.CfnForm.FormCTAProperty(
-                    cancel=amplifyuibuilder.CfnForm.FormButtonProperty(
-                        children="children",
-                        excluded=False,
-                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
-                            below="below",
-                            fixed="fixed",
-                            right_of="rightOf"
-                        )
-                    ),
-                    clear=amplifyuibuilder.CfnForm.FormButtonProperty(
-                        children="children",
-                        excluded=False,
-                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
-                            below="below",
-                            fixed="fixed",
-                            right_of="rightOf"
-                        )
-                    ),
-                    position="position",
-                    submit=amplifyuibuilder.CfnForm.FormButtonProperty(
-                        children="children",
-                        excluded=False,
-                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
-                            below="below",
-                            fixed="fixed",
-                            right_of="rightOf"
-                        )
-                    )
-                ),
-                data_type=amplifyuibuilder.CfnForm.FormDataTypeConfigProperty(
-                    data_source_type="dataSourceType",
-                    data_type_name="dataTypeName"
-                ),
-                environment_name="environmentName",
-                fields={
-                    "fields_key": amplifyuibuilder.CfnForm.FieldConfigProperty(
-                        excluded=False,
-                        input_type=amplifyuibuilder.CfnForm.FieldInputConfigProperty(
-                            type="type",
-            
-                            # the properties below are optional
-                            default_checked=False,
-                            default_country_code="defaultCountryCode",
-                            default_value="defaultValue",
-                            descriptive_text="descriptiveText",
-                            file_uploader_config=amplifyuibuilder.CfnForm.FileUploaderFieldConfigProperty(
-                                accepted_file_types=["acceptedFileTypes"],
-                                access_level="accessLevel",
-            
-                                # the properties below are optional
-                                is_resumable=False,
-                                max_file_count=123,
-                                max_size=123,
-                                show_thumbnails=False
-                            ),
-                            is_array=False,
-                            max_value=123,
-                            min_value=123,
-                            name="name",
-                            placeholder="placeholder",
-                            read_only=False,
-                            required=False,
-                            step=123,
-                            value="value",
-                            value_mappings=amplifyuibuilder.CfnForm.ValueMappingsProperty(
-                                values=[amplifyuibuilder.CfnForm.ValueMappingProperty(
-                                    value=amplifyuibuilder.CfnForm.FormInputValuePropertyProperty(
-                                        binding_properties=amplifyuibuilder.CfnForm.FormInputValuePropertyBindingPropertiesProperty(
-                                            property="property",
-            
-                                            # the properties below are optional
-                                            field="field"
-                                        ),
-                                        concat=[form_input_value_property_property_],
-                                        value="value"
-                                    ),
-            
-                                    # the properties below are optional
-                                    display_value=amplifyuibuilder.CfnForm.FormInputValuePropertyProperty(
-                                        binding_properties=amplifyuibuilder.CfnForm.FormInputValuePropertyBindingPropertiesProperty(
-                                            property="property",
-            
-                                            # the properties below are optional
-                                            field="field"
-                                        ),
-                                        concat=[form_input_value_property_property_],
-                                        value="value"
-                                    )
-                                )],
-            
-                                # the properties below are optional
-                                binding_properties={
-                                    "binding_properties_key": amplifyuibuilder.CfnForm.FormInputBindingPropertiesValueProperty(
-                                        binding_properties=amplifyuibuilder.CfnForm.FormInputBindingPropertiesValuePropertiesProperty(
-                                            model="model"
-                                        ),
-                                        type="type"
-                                    )
-                                }
-                            )
-                        ),
-                        label="label",
-                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
-                            below="below",
-                            fixed="fixed",
-                            right_of="rightOf"
-                        ),
-                        validations=[amplifyuibuilder.CfnForm.FieldValidationConfigurationProperty(
-                            type="type",
-            
-                            # the properties below are optional
-                            num_values=[123],
-                            str_values=["strValues"],
-                            validation_message="validationMessage"
-                        )]
-                    )
-                },
-                form_action_type="formActionType",
-                label_decorator="labelDecorator",
-                name="name",
-                schema_version="schemaVersion",
-                sectional_elements={
-                    "sectional_elements_key": amplifyuibuilder.CfnForm.SectionalElementProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        excluded=False,
-                        level=123,
-                        orientation="orientation",
-                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
-                            below="below",
-                            fixed="fixed",
-                            right_of="rightOf"
-                        ),
-                        text="text"
-                    )
-                },
-                style=amplifyuibuilder.CfnForm.FormStyleProperty(
-                    horizontal_gap=amplifyuibuilder.CfnForm.FormStyleConfigProperty(
-                        token_reference="tokenReference",
-                        value="value"
-                    ),
-                    outer_padding=amplifyuibuilder.CfnForm.FormStyleConfigProperty(
-                        token_reference="tokenReference",
-                        value="value"
-                    ),
-                    vertical_gap=amplifyuibuilder.CfnForm.FormStyleConfigProperty(
-                        token_reference="tokenReference",
-                        value="value"
-                    )
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument cta", value=cta, expected_type=type_hints["cta"])
-            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
-            check_type(argname="argument form_action_type", value=form_action_type, expected_type=type_hints["form_action_type"])
-            check_type(argname="argument label_decorator", value=label_decorator, expected_type=type_hints["label_decorator"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument schema_version", value=schema_version, expected_type=type_hints["schema_version"])
-            check_type(argname="argument sectional_elements", value=sectional_elements, expected_type=type_hints["sectional_elements"])
-            check_type(argname="argument style", value=style, expected_type=type_hints["style"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if app_id is not None:
-            self._values["app_id"] = app_id
-        if cta is not None:
-            self._values["cta"] = cta
-        if data_type is not None:
-            self._values["data_type"] = data_type
-        if environment_name is not None:
-            self._values["environment_name"] = environment_name
-        if fields is not None:
-            self._values["fields"] = fields
-        if form_action_type is not None:
-            self._values["form_action_type"] = form_action_type
-        if label_decorator is not None:
-            self._values["label_decorator"] = label_decorator
-        if name is not None:
-            self._values["name"] = name
-        if schema_version is not None:
-            self._values["schema_version"] = schema_version
-        if sectional_elements is not None:
-            self._values["sectional_elements"] = sectional_elements
-        if style is not None:
-            self._values["style"] = style
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def app_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the Amplify app associated with the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-appid
-        '''
-        result = self._values.get("app_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cta(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormCTAProperty"]]:
-        '''The ``FormCTA`` object that stores the call to action configuration for the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-cta
-        '''
-        result = self._values.get("cta")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormCTAProperty"]], result)
-
-    @builtins.property
-    def data_type(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormDataTypeConfigProperty"]]:
-        '''The type of data source to use to create the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-datatype
-        '''
-        result = self._values.get("data_type")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormDataTypeConfigProperty"]], result)
-
-    @builtins.property
-    def environment_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the backend environment that is a part of the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-environmentname
-        '''
-        result = self._values.get("environment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def fields(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FieldConfigProperty"]]]]:
-        '''The configuration information for the form's fields.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-fields
-        '''
-        result = self._values.get("fields")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FieldConfigProperty"]]]], result)
-
-    @builtins.property
-    def form_action_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether to perform a create or update action on the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-formactiontype
-        '''
-        result = self._values.get("form_action_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def label_decorator(self) -> typing.Optional[builtins.str]:
-        '''Specifies an icon or decoration to display on the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-labeldecorator
-        '''
-        result = self._values.get("label_decorator")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schema_version(self) -> typing.Optional[builtins.str]:
-        '''The schema version of the form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-schemaversion
-        '''
-        result = self._values.get("schema_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sectional_elements(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.SectionalElementProperty"]]]]:
-        '''The configuration information for the visual helper elements for the form.
-
-        These elements are not associated with any data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-sectionalelements
-        '''
-        result = self._values.get("sectional_elements")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.SectionalElementProperty"]]]], result)
-
-    @builtins.property
-    def style(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleProperty"]]:
-        '''The configuration for the form's style.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-style
-        '''
-        result = self._values.get("style")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''One or more key-value pairs to use when tagging the form data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFormProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnThemeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "environment_name": "environmentName",
-        "name": "name",
-        "overrides": "overrides",
-        "tags": "tags",
-        "values": "values",
-    },
-)
-class CfnThemeProps:
-    def __init__(
-        self,
-        *,
-        app_id: typing.Optional[builtins.str] = None,
-        environment_name: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTheme``.
-
-        :param app_id: The unique ID for the Amplify app associated with the theme.
-        :param environment_name: The name of the backend environment that is a part of the Amplify app.
-        :param name: The name of the theme.
-        :param overrides: Describes the properties that can be overriden to customize a theme.
-        :param tags: One or more key-value pairs to use when tagging the theme.
-        :param values: A list of key-value pairs that defines the properties of the theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
-            
-            # theme_values_property_: amplifyuibuilder.CfnTheme.ThemeValuesProperty
-            
-            cfn_theme_props = amplifyuibuilder.CfnThemeProps(
-                app_id="appId",
-                environment_name="environmentName",
-                name="name",
-                overrides=[amplifyuibuilder.CfnTheme.ThemeValuesProperty(
-                    key="key",
-                    value=amplifyuibuilder.CfnTheme.ThemeValueProperty(
-                        children=[theme_values_property_],
-                        value="value"
-                    )
-                )],
-                tags={
-                    "tags_key": "tags"
-                },
-                values=[amplifyuibuilder.CfnTheme.ThemeValuesProperty(
-                    key="key",
-                    value=amplifyuibuilder.CfnTheme.ThemeValueProperty(
-                        children=[theme_values_property_],
-                        value="value"
-                    )
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c121fb7bad)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if app_id is not None:
-            self._values["app_id"] = app_id
-        if environment_name is not None:
-            self._values["environment_name"] = environment_name
-        if name is not None:
-            self._values["name"] = name
-        if overrides is not None:
-            self._values["overrides"] = overrides
-        if tags is not None:
-            self._values["tags"] = tags
-        if values is not None:
-            self._values["values"] = values
-
-    @builtins.property
-    def app_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID for the Amplify app associated with the theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-appid
-        '''
-        result = self._values.get("app_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def environment_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the backend environment that is a part of the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-environmentname
-        '''
-        result = self._values.get("environment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def overrides(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]]:
-        '''Describes the properties that can be overriden to customize a theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-overrides
-        '''
-        result = self._values.get("overrides")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''One or more key-value pairs to use when tagging the theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def values(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]]:
-        '''A list of key-value pairs that defines the properties of the theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-values
-        '''
-        result = self._values.get("values")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThemeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.ComponentReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "component_id": "componentId",
-        "environment_name": "environmentName",
-    },
-)
-class ComponentReference:
-    def __init__(
-        self,
-        *,
-        app_id: builtins.str,
-        component_id: builtins.str,
-        environment_name: builtins.str,
-    ) -> None:
-        '''A reference to a Component resource.
-
-        :param app_id: The AppId of the Component resource.
-        :param component_id: The Id of the Component resource.
-        :param environment_name: The EnvironmentName of the Component resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
-            
-            component_reference = amplifyuibuilder.ComponentReference(
-                app_id="appId",
-                component_id="componentId",
-                environment_name="environmentName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2fb433afc752b01b610b7e0dd8ec8618587347c00d16c06eaaa684828df5559)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument component_id", value=component_id, expected_type=type_hints["component_id"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_id": app_id,
-            "component_id": component_id,
-            "environment_name": environment_name,
-        }
-
-    @builtins.property
-    def app_id(self) -> builtins.str:
-        '''The AppId of the Component resource.'''
-        result = self._values.get("app_id")
-        assert result is not None, "Required property 'app_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def component_id(self) -> builtins.str:
-        '''The Id of the Component resource.'''
-        result = self._values.get("component_id")
-        assert result is not None, "Required property 'component_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def environment_name(self) -> builtins.str:
-        '''The EnvironmentName of the Component resource.'''
-        result = self._values.get("environment_name")
-        assert result is not None, "Required property 'environment_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ComponentReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.FormReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "environment_name": "environmentName",
-        "form_id": "formId",
-    },
-)
-class FormReference:
-    def __init__(
-        self,
-        *,
-        app_id: builtins.str,
-        environment_name: builtins.str,
-        form_id: builtins.str,
-    ) -> None:
-        '''A reference to a Form resource.
-
-        :param app_id: The AppId of the Form resource.
-        :param environment_name: The EnvironmentName of the Form resource.
-        :param form_id: The Id of the Form resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
-            
-            form_reference = amplifyuibuilder.FormReference(
-                app_id="appId",
-                environment_name="environmentName",
-                form_id="formId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de95125e868bb914734fb07ea58b1d326fc8ecbb80eae7fbc55a5073b0351b6a)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-            check_type(argname="argument form_id", value=form_id, expected_type=type_hints["form_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_id": app_id,
-            "environment_name": environment_name,
-            "form_id": form_id,
-        }
-
-    @builtins.property
-    def app_id(self) -> builtins.str:
-        '''The AppId of the Form resource.'''
-        result = self._values.get("app_id")
-        assert result is not None, "Required property 'app_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def environment_name(self) -> builtins.str:
-        '''The EnvironmentName of the Form resource.'''
-        result = self._values.get("environment_name")
-        assert result is not None, "Required property 'environment_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def form_id(self) -> builtins.str:
-        '''The Id of the Form resource.'''
-        result = self._values.get("form_id")
-        assert result is not None, "Required property 'form_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FormReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_amplifyuibuilder.IComponentRef")
-class IComponentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Component.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="componentRef")
-    def component_ref(self) -> ComponentReference:
-        '''(experimental) A reference to a Component resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IComponentRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Component.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amplifyuibuilder.IComponentRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="componentRef")
-    def component_ref(self) -> ComponentReference:
-        '''(experimental) A reference to a Component resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ComponentReference, jsii.get(self, "componentRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IComponentRef).__jsii_proxy_class__ = lambda : _IComponentRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_amplifyuibuilder.IFormRef")
-class IFormRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Form.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="formRef")
-    def form_ref(self) -> FormReference:
-        '''(experimental) A reference to a Form resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IFormRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Form.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amplifyuibuilder.IFormRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="formRef")
-    def form_ref(self) -> FormReference:
-        '''(experimental) A reference to a Form resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(FormReference, jsii.get(self, "formRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IFormRef).__jsii_proxy_class__ = lambda : _IFormRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_amplifyuibuilder.IThemeRef")
-class IThemeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Theme.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="themeRef")
-    def theme_ref(self) -> "ThemeReference":
-        '''(experimental) A reference to a Theme resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IThemeRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Theme.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amplifyuibuilder.IThemeRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="themeRef")
-    def theme_ref(self) -> "ThemeReference":
-        '''(experimental) A reference to a Theme resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ThemeReference", jsii.get(self, "themeRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IThemeRef).__jsii_proxy_class__ = lambda : _IThemeRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.ThemeReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "environment_name": "environmentName",
-        "theme_id": "themeId",
-    },
-)
-class ThemeReference:
-    def __init__(
-        self,
-        *,
-        app_id: builtins.str,
-        environment_name: builtins.str,
-        theme_id: builtins.str,
-    ) -> None:
-        '''A reference to a Theme resource.
-
-        :param app_id: The AppId of the Theme resource.
-        :param environment_name: The EnvironmentName of the Theme resource.
-        :param theme_id: The Id of the Theme resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
-            
-            theme_reference = amplifyuibuilder.ThemeReference(
-                app_id="appId",
-                environment_name="environmentName",
-                theme_id="themeId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0b01235224af14c5b5e0f9435749970759ccce22338e7b286289cc76353cb97)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-            check_type(argname="argument theme_id", value=theme_id, expected_type=type_hints["theme_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_id": app_id,
-            "environment_name": environment_name,
-            "theme_id": theme_id,
-        }
-
-    @builtins.property
-    def app_id(self) -> builtins.str:
-        '''The AppId of the Theme resource.'''
-        result = self._values.get("app_id")
-        assert result is not None, "Required property 'app_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def environment_name(self) -> builtins.str:
-        '''The EnvironmentName of the Theme resource.'''
-        result = self._values.get("environment_name")
-        assert result is not None, "Required property 'environment_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def theme_id(self) -> builtins.str:
-        '''The Id of the Theme resource.'''
-        result = self._values.get("theme_id")
-        assert result is not None, "Required property 'theme_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ThemeReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IComponentRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IComponentRef_46f239bf, _ITaggable_36806126)
 class CfnComponent(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1275,25 +97,26 @@ class CfnComponent(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         app_id: typing.Optional[builtins.str] = None,
-        binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        collection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        collection_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         component_type: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         name: typing.Optional[builtins.str] = None,
         overrides: typing.Any = None,
-        properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         schema_version: typing.Optional[builtins.str] = None,
         source_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        variants: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AmplifyUIBuilder::Component``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param app_id: The unique ID of the Amplify app associated with the component.
@@ -1334,8 +157,20 @@ class CfnComponent(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnComponent")
+    @builtins.classmethod
+    def is_cfn_component(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnComponent.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f214773737826f95a87f369ff491c8d26997aee2dced4ead1ada5b19d1de7bf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnComponent", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1398,15 +233,15 @@ class CfnComponent(
 
     @builtins.property
     @jsii.member(jsii_name="componentRef")
-    def component_ref(self) -> ComponentReference:
+    def component_ref(self) -> "_ComponentReference_de75adcf":
         '''A reference to a Component resource.'''
-        return typing.cast(ComponentReference, jsii.get(self, "componentRef"))
+        return typing.cast("_ComponentReference_de75adcf", jsii.get(self, "componentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -1425,14 +260,14 @@ class CfnComponent(
     @jsii.member(jsii_name="bindingProperties")
     def binding_properties(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
         '''The information to connect a component's properties to data at runtime.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], jsii.get(self, "bindingProperties"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], jsii.get(self, "bindingProperties"))
 
     @binding_properties.setter
     def binding_properties(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValueProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4318ac16b5fec407f318eecf547fbef09f6a25d44eee663a0eb2d9d4cfb515c8)
@@ -1443,14 +278,14 @@ class CfnComponent(
     @jsii.member(jsii_name="children")
     def children(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]]:
         '''A list of the component's ``ComponentChild`` instances.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]], jsii.get(self, "children"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]], jsii.get(self, "children"))
 
     @children.setter
     def children(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cc8d6f7afd78df5a6542a7697bbb32d8d2c9e5a18e80e3386de082f4e2b7071)
@@ -1461,14 +296,14 @@ class CfnComponent(
     @jsii.member(jsii_name="collectionProperties")
     def collection_properties(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentDataConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]]:
         '''The data binding configuration for the component's properties.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentDataConfigurationProperty"]]]], jsii.get(self, "collectionProperties"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]], jsii.get(self, "collectionProperties"))
 
     @collection_properties.setter
     def collection_properties(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentDataConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ccd617dfcaf796edb26a70160a96d7ac3771afa99ba8a4500e7927f724ee8d2)
@@ -1505,14 +340,14 @@ class CfnComponent(
     @jsii.member(jsii_name="events")
     def events(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]]:
         '''Describes the events that can be raised on the component.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]], jsii.get(self, "events"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]], jsii.get(self, "events"))
 
     @events.setter
     def events(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__867f4afaa52290132593733e3be70d110a540505523ee1a4b0bea23f5a059f8c)
@@ -1549,14 +384,14 @@ class CfnComponent(
     @jsii.member(jsii_name="properties")
     def properties(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
         '''Describes the component's properties.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]], jsii.get(self, "properties"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], jsii.get(self, "properties"))
 
     @properties.setter
     def properties(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__996d9ae7924c5b47d79b0dc8a0bdd64fe013219ccbe4230a2423b7e9ad5aba37)
@@ -1609,14 +444,14 @@ class CfnComponent(
     @jsii.member(jsii_name="variants")
     def variants(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentVariantProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]]:
         '''A list of the component's variants.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentVariantProperty"]]]], jsii.get(self, "variants"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]], jsii.get(self, "variants"))
 
     @variants.setter
     def variants(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentVariantProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21622fc70206995803294c972e78d130850c0e1dde7f836f2646dd47d873fc48)
@@ -1642,15 +477,15 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            anchor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            global_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            anchor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            global_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model: typing.Optional[builtins.str] = None,
-            state: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.MutationActionSetStateParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            url: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            state: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.MutationActionSetStateParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            url: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the event action configuration for an element of a ``Component`` or ``ComponentChild`` .
 
@@ -2041,7 +876,7 @@ class CfnComponent(
         @builtins.property
         def anchor(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The HTML anchor link to the location to open.
 
             Specify this value for a navigation action.
@@ -2049,12 +884,12 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-anchor
             '''
             result = self._values.get("anchor")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def fields(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
             '''A dictionary of key-value pairs mapping Amplify Studio properties to fields in a data model.
 
             Use when the action performs an operation on an Amplify DataStore model.
@@ -2062,12 +897,12 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-fields
             '''
             result = self._values.get("fields")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], result)
 
         @builtins.property
         def global_(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''Specifies whether the user should be signed out globally.
 
             Specify this value for an auth sign out action.
@@ -2075,18 +910,18 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-global
             '''
             result = self._values.get("global_")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The unique ID of the component that the ``ActionParameters`` apply to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-id
             '''
             result = self._values.get("id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def model(self) -> typing.Optional[builtins.str]:
@@ -2102,29 +937,29 @@ class CfnComponent(
         @builtins.property
         def state(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.MutationActionSetStateParameterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.MutationActionSetStateParameterProperty"]]:
             '''A key-value pair that specifies the state property name and its initial value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-state
             '''
             result = self._values.get("state")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.MutationActionSetStateParameterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.MutationActionSetStateParameterProperty"]], result)
 
         @builtins.property
         def target(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The element within the same component to modify when the action occurs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-target
             '''
             result = self._values.get("target")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def type(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The type of navigation action.
 
             Valid values are ``url`` and ``anchor`` . This value is required for a navigation action.
@@ -2132,12 +967,12 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-type
             '''
             result = self._values.get("type")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def url(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The URL to the location to open.
 
             Specify this value for a navigation action.
@@ -2145,7 +980,7 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-actionparameters.html#cfn-amplifyuibuilder-component-actionparameters-url
             '''
             result = self._values.get("url")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2181,7 +1016,7 @@ class CfnComponent(
             field: typing.Optional[builtins.str] = None,
             key: typing.Optional[builtins.str] = None,
             model: typing.Optional[builtins.str] = None,
-            predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            predicates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             slot_name: typing.Optional[builtins.str] = None,
             user_attribute: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2303,13 +1138,13 @@ class CfnComponent(
         @builtins.property
         def predicates(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]]:
             '''A list of predicates for binding a component's properties to data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentbindingpropertiesvalueproperties.html#cfn-amplifyuibuilder-component-componentbindingpropertiesvalueproperties-predicates
             '''
             result = self._values.get("predicates")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]], result)
 
         @builtins.property
         def slot_name(self) -> typing.Optional[builtins.str]:
@@ -2353,7 +1188,7 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             default_value: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2414,13 +1249,13 @@ class CfnComponent(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]]:
             '''Describes the properties to customize with data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentbindingpropertiesvalue.html#cfn-amplifyuibuilder-component-componentbindingpropertiesvalue-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValuePropertiesProperty"]], result)
 
         @builtins.property
         def default_value(self) -> typing.Optional[builtins.str]:
@@ -2469,9 +1304,9 @@ class CfnComponent(
             *,
             component_type: builtins.str,
             name: builtins.str,
-            properties: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            properties: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             source_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``ComponentChild`` property specifies a nested UI configuration within a parent ``Component`` .
@@ -2924,7 +1759,7 @@ class CfnComponent(
         @builtins.property
         def properties(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]:
             '''Describes the properties of the child component.
 
             You can't specify ``tags`` as a valid property for ``properties`` .
@@ -2933,23 +1768,23 @@ class CfnComponent(
             '''
             result = self._values.get("properties")
             assert result is not None, "Required property 'properties' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]], result)
 
         @builtins.property
         def children(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]]:
             '''The list of ``ComponentChild`` instances for this component.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentchild.html#cfn-amplifyuibuilder-component-componentchild-children
             '''
             result = self._values.get("children")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentChildProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]], result)
 
         @builtins.property
         def events(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]]:
             '''Describes the events that can be raised on the child component.
 
             Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
@@ -2957,7 +1792,7 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentchild.html#cfn-amplifyuibuilder-component-componentchild-events
             '''
             result = self._values.get("events")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentEventProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]], result)
 
         @builtins.property
         def source_id(self) -> typing.Optional[builtins.str]:
@@ -2996,13 +1831,13 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            else_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            else_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             field: typing.Optional[builtins.str] = None,
             operand: typing.Optional[builtins.str] = None,
             operand_type: typing.Optional[builtins.str] = None,
             operator: typing.Optional[builtins.str] = None,
             property: typing.Optional[builtins.str] = None,
-            then: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            then: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ComponentConditionProperty`` property specifies a conditional expression for setting a component property.
 
@@ -3128,13 +1963,13 @@ class CfnComponent(
         @builtins.property
         def else_(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The value to assign to the property if the condition is not met.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentconditionproperty.html#cfn-amplifyuibuilder-component-componentconditionproperty-else
             '''
             result = self._values.get("else_")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         @builtins.property
         def field(self) -> typing.Optional[builtins.str]:
@@ -3186,13 +2021,13 @@ class CfnComponent(
         @builtins.property
         def then(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]:
             '''The value to assign to the property if the condition is met.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentconditionproperty.html#cfn-amplifyuibuilder-component-componentconditionproperty-then
             '''
             result = self._values.get("then")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3221,8 +2056,8 @@ class CfnComponent(
             *,
             model: builtins.str,
             identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-            predicate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sort: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.SortPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            predicate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sort: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.SortPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``ComponentDataConfiguration`` property specifies the configuration for binding a component's properties to data.
 
@@ -3301,7 +2136,7 @@ class CfnComponent(
         @builtins.property
         def predicate(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]:
             '''Represents the conditional logic to use when binding data to a component.
 
             Use this property to retrieve only a subset of the data in a collection.
@@ -3309,18 +2144,18 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentdataconfiguration.html#cfn-amplifyuibuilder-component-componentdataconfiguration-predicate
             '''
             result = self._values.get("predicate")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]], result)
 
         @builtins.property
         def sort(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.SortPropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.SortPropertyProperty"]]]]:
             '''Describes how to sort the component's properties.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentdataconfiguration.html#cfn-amplifyuibuilder-component-componentdataconfiguration-sort
             '''
             result = self._values.get("sort")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.SortPropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.SortPropertyProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3348,7 +2183,7 @@ class CfnComponent(
             *,
             action: typing.Optional[builtins.str] = None,
             binding_event: typing.Optional[builtins.str] = None,
-            parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ActionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ActionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ComponentEvent`` property specifies the configuration of an event.
 
@@ -3739,13 +2574,13 @@ class CfnComponent(
         @builtins.property
         def parameters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ActionParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ActionParametersProperty"]]:
             '''Describes information about the action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentevent.html#cfn-amplifyuibuilder-component-componentevent-parameters
             '''
             result = self._values.get("parameters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ActionParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ActionParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3858,13 +2693,13 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            bindings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.FormBindingElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            collection_binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bindings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.FormBindingElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            collection_binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             component_name: typing.Optional[builtins.str] = None,
-            concat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentConditionPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            configured: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            concat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentConditionPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            configured: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             default_value: typing.Optional[builtins.str] = None,
             event: typing.Optional[builtins.str] = None,
             imported_value: typing.Optional[builtins.str] = None,
@@ -3998,29 +2833,29 @@ class CfnComponent(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
             '''The information to bind the component property to data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
 
         @builtins.property
         def bindings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.FormBindingElementProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.FormBindingElementProperty"]]]]:
             '''The information to bind the component property to form data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-bindings
             '''
             result = self._values.get("bindings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponent.FormBindingElementProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.FormBindingElementProperty"]]]], result)
 
         @builtins.property
         def collection_binding_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]]:
             '''The information to bind the component property to data at runtime.
 
             Use this for collection components.
@@ -4028,7 +2863,7 @@ class CfnComponent(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-collectionbindingproperties
             '''
             result = self._values.get("collection_binding_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyBindingPropertiesProperty"]], result)
 
         @builtins.property
         def component_name(self) -> typing.Optional[builtins.str]:
@@ -4042,35 +2877,35 @@ class CfnComponent(
         @builtins.property
         def concat(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
             '''A list of component properties to concatenate to create the value to assign to this component property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-concat
             '''
             result = self._values.get("concat")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], result)
 
         @builtins.property
         def condition(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentConditionPropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentConditionPropertyProperty"]]:
             '''The conditional expression to use to assign a value to the component property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-condition
             '''
             result = self._values.get("condition")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentConditionPropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentConditionPropertyProperty"]], result)
 
         @builtins.property
         def configured(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether the user configured the property in Amplify Studio after importing it.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentproperty.html#cfn-amplifyuibuilder-component-componentproperty-configured
             '''
             result = self._values.get("configured")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def default_value(self) -> typing.Optional[builtins.str]:
@@ -4167,7 +3002,7 @@ class CfnComponent(
             self,
             *,
             overrides: typing.Any = None,
-            variant_values: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            variant_values: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The ``ComponentVariant`` property specifies the style configuration of a unique variation of a main component.
 
@@ -4216,13 +3051,13 @@ class CfnComponent(
         @builtins.property
         def variant_values(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''The combination of variants that comprise this variant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-componentvariant.html#cfn-amplifyuibuilder-component-componentvariant-variantvalues
             '''
             result = self._values.get("variant_values")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4316,7 +3151,7 @@ class CfnComponent(
             *,
             component_name: builtins.str,
             property: builtins.str,
-            set: typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]],
+            set: typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Represents the state configuration when an action modifies a property of another element within the same component.
 
@@ -4414,14 +3249,14 @@ class CfnComponent(
         @builtins.property
         def set(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]:
             '''The state configuration to assign to the property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-mutationactionsetstateparameter.html#cfn-amplifyuibuilder-component-mutationactionsetstateparameter-set
             '''
             result = self._values.get("set")
             assert result is not None, "Required property 'set' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnComponent.ComponentPropertyProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4450,12 +3285,12 @@ class CfnComponent(
         def __init__(
             self,
             *,
-            and_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            and_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             field: typing.Optional[builtins.str] = None,
             operand: typing.Optional[builtins.str] = None,
             operand_type: typing.Optional[builtins.str] = None,
             operator: typing.Optional[builtins.str] = None,
-            or_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            or_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``Predicate`` property specifies information for generating Amplify DataStore queries.
 
@@ -4513,13 +3348,13 @@ class CfnComponent(
         @builtins.property
         def and_(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]]:
             '''A list of predicates to combine logically.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-predicate.html#cfn-amplifyuibuilder-component-predicate-and
             '''
             result = self._values.get("and_")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]], result)
 
         @builtins.property
         def field(self) -> typing.Optional[builtins.str]:
@@ -4560,13 +3395,13 @@ class CfnComponent(
         @builtins.property
         def or_(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]]:
             '''A list of predicates to combine logically.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-component-predicate.html#cfn-amplifyuibuilder-component-predicate-or
             '''
             result = self._values.get("or_")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComponent.PredicateProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.PredicateProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4646,7 +3481,280 @@ class CfnComponent(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IFormRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnComponentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_id": "appId",
+        "binding_properties": "bindingProperties",
+        "children": "children",
+        "collection_properties": "collectionProperties",
+        "component_type": "componentType",
+        "environment_name": "environmentName",
+        "events": "events",
+        "name": "name",
+        "overrides": "overrides",
+        "properties": "properties",
+        "schema_version": "schemaVersion",
+        "source_id": "sourceId",
+        "tags": "tags",
+        "variants": "variants",
+    },
+)
+class CfnComponentProps:
+    def __init__(
+        self,
+        *,
+        app_id: typing.Optional[builtins.str] = None,
+        binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentChildProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        collection_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentDataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        component_type: typing.Optional[builtins.str] = None,
+        environment_name: typing.Optional[builtins.str] = None,
+        events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentEventProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        overrides: typing.Any = None,
+        properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        schema_version: typing.Optional[builtins.str] = None,
+        source_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        variants: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponent.ComponentVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnComponent``.
+
+        :param app_id: The unique ID of the Amplify app associated with the component.
+        :param binding_properties: The information to connect a component's properties to data at runtime. You can't specify ``tags`` as a valid property for ``bindingProperties`` .
+        :param children: A list of the component's ``ComponentChild`` instances.
+        :param collection_properties: The data binding configuration for the component's properties. Use this for a collection component. You can't specify ``tags`` as a valid property for ``collectionProperties`` .
+        :param component_type: The type of the component. This can be an Amplify custom UI component or another custom component.
+        :param environment_name: The name of the backend environment that is a part of the Amplify app.
+        :param events: Describes the events that can be raised on the component. Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
+        :param name: The name of the component.
+        :param overrides: Describes the component's properties that can be overriden in a customized instance of the component. You can't specify ``tags`` as a valid property for ``overrides`` .
+        :param properties: Describes the component's properties. You can't specify ``tags`` as a valid property for ``properties`` .
+        :param schema_version: The schema version of the component when it was imported.
+        :param source_id: The unique ID of the component in its original source system, such as Figma.
+        :param tags: One or more key-value pairs to use when tagging the component.
+        :param variants: A list of the component's variants. A variant is a unique style configuration of a main component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45)
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+            check_type(argname="argument binding_properties", value=binding_properties, expected_type=type_hints["binding_properties"])
+            check_type(argname="argument children", value=children, expected_type=type_hints["children"])
+            check_type(argname="argument collection_properties", value=collection_properties, expected_type=type_hints["collection_properties"])
+            check_type(argname="argument component_type", value=component_type, expected_type=type_hints["component_type"])
+            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
+            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
+            check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            check_type(argname="argument schema_version", value=schema_version, expected_type=type_hints["schema_version"])
+            check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument variants", value=variants, expected_type=type_hints["variants"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if app_id is not None:
+            self._values["app_id"] = app_id
+        if binding_properties is not None:
+            self._values["binding_properties"] = binding_properties
+        if children is not None:
+            self._values["children"] = children
+        if collection_properties is not None:
+            self._values["collection_properties"] = collection_properties
+        if component_type is not None:
+            self._values["component_type"] = component_type
+        if environment_name is not None:
+            self._values["environment_name"] = environment_name
+        if events is not None:
+            self._values["events"] = events
+        if name is not None:
+            self._values["name"] = name
+        if overrides is not None:
+            self._values["overrides"] = overrides
+        if properties is not None:
+            self._values["properties"] = properties
+        if schema_version is not None:
+            self._values["schema_version"] = schema_version
+        if source_id is not None:
+            self._values["source_id"] = source_id
+        if tags is not None:
+            self._values["tags"] = tags
+        if variants is not None:
+            self._values["variants"] = variants
+
+    @builtins.property
+    def app_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID of the Amplify app associated with the component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-appid
+        '''
+        result = self._values.get("app_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def binding_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]]:
+        '''The information to connect a component's properties to data at runtime.
+
+        You can't specify ``tags`` as a valid property for ``bindingProperties`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-bindingproperties
+        '''
+        result = self._values.get("binding_properties")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentBindingPropertiesValueProperty"]]]], result)
+
+    @builtins.property
+    def children(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]]:
+        '''A list of the component's ``ComponentChild`` instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-children
+        '''
+        result = self._values.get("children")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentChildProperty"]]]], result)
+
+    @builtins.property
+    def collection_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]]:
+        '''The data binding configuration for the component's properties.
+
+        Use this for a collection component. You can't specify ``tags`` as a valid property for ``collectionProperties`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-collectionproperties
+        '''
+        result = self._values.get("collection_properties")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentDataConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def component_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the component.
+
+        This can be an Amplify custom UI component or another custom component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-componenttype
+        '''
+        result = self._values.get("component_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the backend environment that is a part of the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-environmentname
+        '''
+        result = self._values.get("environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def events(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]]:
+        '''Describes the events that can be raised on the component.
+
+        Use for the workflow feature in Amplify Studio that allows you to bind events and actions to components.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-events
+        '''
+        result = self._values.get("events")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentEventProperty"]]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def overrides(self) -> typing.Any:
+        '''Describes the component's properties that can be overriden in a customized instance of the component.
+
+        You can't specify ``tags`` as a valid property for ``overrides`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-overrides
+        '''
+        result = self._values.get("overrides")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]]:
+        '''Describes the component's properties.
+
+        You can't specify ``tags`` as a valid property for ``properties`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-properties
+        '''
+        result = self._values.get("properties")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentPropertyProperty"]]]], result)
+
+    @builtins.property
+    def schema_version(self) -> typing.Optional[builtins.str]:
+        '''The schema version of the component when it was imported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-schemaversion
+        '''
+        result = self._values.get("schema_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID of the component in its original source system, such as Figma.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-sourceid
+        '''
+        result = self._values.get("source_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''One or more key-value pairs to use when tagging the component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def variants(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]]:
+        '''A list of the component's variants.
+
+        A variant is a unique style configuration of a main component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-component.html#cfn-amplifyuibuilder-component-variants
+        '''
+        result = self._values.get("variants")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponent.ComponentVariantProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnComponentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IFormRef_ee9b385d, _ITaggable_36806126)
 class CfnForm(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4828,23 +3936,24 @@ class CfnForm(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         app_id: typing.Optional[builtins.str] = None,
-        cta: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cta: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         form_action_type: typing.Optional[builtins.str] = None,
         label_decorator: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         schema_version: typing.Optional[builtins.str] = None,
-        sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sectional_elements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        style: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AmplifyUIBuilder::Form``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param app_id: The unique ID of the Amplify app associated with the form.
@@ -4881,8 +3990,20 @@ class CfnForm(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnForm")
+    @builtins.classmethod
+    def is_cfn_form(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnForm.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fae613d042dc611129667524c3ee417ce937c74d937d97183fec3270cc23398)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnForm", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4927,15 +4048,15 @@ class CfnForm(
 
     @builtins.property
     @jsii.member(jsii_name="formRef")
-    def form_ref(self) -> FormReference:
+    def form_ref(self) -> "_FormReference_ebed8580":
         '''A reference to a Form resource.'''
-        return typing.cast(FormReference, jsii.get(self, "formRef"))
+        return typing.cast("_FormReference_ebed8580", jsii.get(self, "formRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -4954,14 +4075,14 @@ class CfnForm(
     @jsii.member(jsii_name="cta")
     def cta(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormCTAProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]]:
         '''The ``FormCTA`` object that stores the call to action configuration for the form.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormCTAProperty"]], jsii.get(self, "cta"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]], jsii.get(self, "cta"))
 
     @cta.setter
     def cta(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormCTAProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dcc01bb0df0b0a573caa23a9628b8cbfe2eb86510e0e390b92156dd05d486862)
@@ -4972,14 +4093,14 @@ class CfnForm(
     @jsii.member(jsii_name="dataType")
     def data_type(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormDataTypeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]]:
         '''The type of data source to use to create the form.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormDataTypeConfigProperty"]], jsii.get(self, "dataType"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]], jsii.get(self, "dataType"))
 
     @data_type.setter
     def data_type(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormDataTypeConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7e19a017312460ae2a463321b8755f4cbb046f23e5b3f211bc3667291c8fc4c)
@@ -5003,14 +4124,14 @@ class CfnForm(
     @jsii.member(jsii_name="fields")
     def fields(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FieldConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]]:
         '''The configuration information for the form's fields.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FieldConfigProperty"]]]], jsii.get(self, "fields"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]], jsii.get(self, "fields"))
 
     @fields.setter
     def fields(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FieldConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9015687d91891d43612fe42019ff55cd0a88db183c4588c47c40ae844181ac0)
@@ -5073,14 +4194,14 @@ class CfnForm(
     @jsii.member(jsii_name="sectionalElements")
     def sectional_elements(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.SectionalElementProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]]:
         '''The configuration information for the visual helper elements for the form.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.SectionalElementProperty"]]]], jsii.get(self, "sectionalElements"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]], jsii.get(self, "sectionalElements"))
 
     @sectional_elements.setter
     def sectional_elements(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.SectionalElementProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85fa037be9d97ba3c80cd93837e11c8dbd4fe3a9d81a3b57bc62c3008fc0d045)
@@ -5091,14 +4212,14 @@ class CfnForm(
     @jsii.member(jsii_name="style")
     def style(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]]:
         '''The configuration for the form's style.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleProperty"]], jsii.get(self, "style"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]], jsii.get(self, "style"))
 
     @style.setter
     def style(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70860863c037915af307f857edb8d06dc079e810fc30f8a36441c45da0c1bed9)
@@ -5136,11 +4257,11 @@ class CfnForm(
         def __init__(
             self,
             *,
-            excluded: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            input_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldInputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            excluded: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            input_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldInputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             label: typing.Optional[builtins.str] = None,
-            position: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            validations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldValidationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            position: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldValidationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``FieldConfig`` property specifies the configuration information for a field in a table.
 
@@ -5265,24 +4386,24 @@ class CfnForm(
         @builtins.property
         def excluded(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether to hide a field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-excluded
             '''
             result = self._values.get("excluded")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def input_type(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldInputConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldInputConfigProperty"]]:
             '''Describes the configuration for the default input value to display for a field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-inputtype
             '''
             result = self._values.get("input_type")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldInputConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldInputConfigProperty"]], result)
 
         @builtins.property
         def label(self) -> typing.Optional[builtins.str]:
@@ -5296,24 +4417,24 @@ class CfnForm(
         @builtins.property
         def position(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldPositionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]]:
             '''Specifies the field position.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-position
             '''
             result = self._values.get("position")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldPositionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]], result)
 
         @builtins.property
         def validations(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldValidationConfigurationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldValidationConfigurationProperty"]]]]:
             '''The validations to perform on the value in the field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldconfig.html#cfn-amplifyuibuilder-form-fieldconfig-validations
             '''
             result = self._values.get("validations")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldValidationConfigurationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldValidationConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5353,21 +4474,21 @@ class CfnForm(
             self,
             *,
             type: builtins.str,
-            default_checked: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            default_checked: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             default_country_code: typing.Optional[builtins.str] = None,
             default_value: typing.Optional[builtins.str] = None,
             descriptive_text: typing.Optional[builtins.str] = None,
-            file_uploader_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FileUploaderFieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            is_array: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            file_uploader_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FileUploaderFieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_array: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_value: typing.Optional[jsii.Number] = None,
             min_value: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
             placeholder: typing.Optional[builtins.str] = None,
-            read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            read_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             step: typing.Optional[jsii.Number] = None,
             value: typing.Optional[builtins.str] = None,
-            value_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.ValueMappingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.ValueMappingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FieldInputConfig`` property specifies the configuration for the default input values to display for a field.
 
@@ -5529,13 +4650,13 @@ class CfnForm(
         @builtins.property
         def default_checked(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether a field has a default value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-defaultchecked
             '''
             result = self._values.get("default_checked")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def default_country_code(self) -> typing.Optional[builtins.str]:
@@ -5567,18 +4688,18 @@ class CfnForm(
         @builtins.property
         def file_uploader_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FileUploaderFieldConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FileUploaderFieldConfigProperty"]]:
             '''The configuration for the file uploader field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-fileuploaderconfig
             '''
             result = self._values.get("file_uploader_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FileUploaderFieldConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FileUploaderFieldConfigProperty"]], result)
 
         @builtins.property
         def is_array(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether to render the field as an array.
 
             This property is ignored if the ``dataSourceType`` for the form is a Data Store.
@@ -5586,7 +4707,7 @@ class CfnForm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-isarray
             '''
             result = self._values.get("is_array")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_value(self) -> typing.Optional[jsii.Number]:
@@ -5627,24 +4748,24 @@ class CfnForm(
         @builtins.property
         def read_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies a read only field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-readonly
             '''
             result = self._values.get("read_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def required(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies a field that requires input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-required
             '''
             result = self._values.get("required")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def step(self) -> typing.Optional[jsii.Number]:
@@ -5667,13 +4788,13 @@ class CfnForm(
         @builtins.property
         def value_mappings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.ValueMappingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingsProperty"]]:
             '''The information to use to customize the input fields with data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldinputconfig.html#cfn-amplifyuibuilder-form-fieldinputconfig-valuemappings
             '''
             result = self._values.get("value_mappings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.ValueMappingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5786,7 +4907,7 @@ class CfnForm(
             self,
             *,
             type: builtins.str,
-            num_values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+            num_values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
             str_values: typing.Optional[typing.Sequence[builtins.str]] = None,
             validation_message: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5846,13 +4967,13 @@ class CfnForm(
         @builtins.property
         def num_values(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''The validation to perform on a number value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fieldvalidationconfiguration.html#cfn-amplifyuibuilder-form-fieldvalidationconfiguration-numvalues
             '''
             result = self._values.get("num_values")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def str_values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5901,10 +5022,10 @@ class CfnForm(
             *,
             accepted_file_types: typing.Sequence[builtins.str],
             access_level: builtins.str,
-            is_resumable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            is_resumable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_file_count: typing.Optional[jsii.Number] = None,
             max_size: typing.Optional[jsii.Number] = None,
-            show_thumbnails: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            show_thumbnails: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Describes the configuration for the file uploader field.
 
@@ -5983,7 +5104,7 @@ class CfnForm(
         @builtins.property
         def is_resumable(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Allows the file upload operation to be paused and resumed. The default value is ``false`` .
 
             When ``isResumable`` is set to ``true`` , the file uploader uses a multipart upload to break the files into chunks before upload. The progress of the upload isn't continuous, because the file uploader uploads a chunk at a time.
@@ -5991,7 +5112,7 @@ class CfnForm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fileuploaderfieldconfig.html#cfn-amplifyuibuilder-form-fileuploaderfieldconfig-isresumable
             '''
             result = self._values.get("is_resumable")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_file_count(self) -> typing.Optional[jsii.Number]:
@@ -6018,7 +5139,7 @@ class CfnForm(
         @builtins.property
         def show_thumbnails(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether to display or hide the image preview after selecting a file for upload.
 
             The default value is ``true`` to display the image preview.
@@ -6026,7 +5147,7 @@ class CfnForm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-fileuploaderfieldconfig.html#cfn-amplifyuibuilder-form-fileuploaderfieldconfig-showthumbnails
             '''
             result = self._values.get("show_thumbnails")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6053,8 +5174,8 @@ class CfnForm(
             self,
             *,
             children: typing.Optional[builtins.str] = None,
-            excluded: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            position: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            excluded: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            position: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FormButton`` property specifies the configuration for a button UI element that is a part of a form.
 
@@ -6106,24 +5227,24 @@ class CfnForm(
         @builtins.property
         def excluded(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether the button is visible on the form.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formbutton.html#cfn-amplifyuibuilder-form-formbutton-excluded
             '''
             result = self._values.get("excluded")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def position(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldPositionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]]:
             '''The position of the button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formbutton.html#cfn-amplifyuibuilder-form-formbutton-position
             '''
             result = self._values.get("position")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldPositionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6150,10 +5271,10 @@ class CfnForm(
         def __init__(
             self,
             *,
-            cancel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            clear: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cancel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            clear: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             position: typing.Optional[builtins.str] = None,
-            submit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            submit: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormButtonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FormCTA`` property specifies the call to action button configuration for the form.
 
@@ -6221,24 +5342,24 @@ class CfnForm(
         @builtins.property
         def cancel(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormButtonProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]]:
             '''Displays a cancel button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formcta.html#cfn-amplifyuibuilder-form-formcta-cancel
             '''
             result = self._values.get("cancel")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormButtonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]], result)
 
         @builtins.property
         def clear(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormButtonProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]]:
             '''Displays a clear button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formcta.html#cfn-amplifyuibuilder-form-formcta-clear
             '''
             result = self._values.get("clear")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormButtonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]], result)
 
         @builtins.property
         def position(self) -> typing.Optional[builtins.str]:
@@ -6252,13 +5373,13 @@ class CfnForm(
         @builtins.property
         def submit(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormButtonProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]]:
             '''Displays a submit button.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formcta.html#cfn-amplifyuibuilder-form-formcta-submit
             '''
             result = self._values.get("submit")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormButtonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormButtonProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6407,7 +5528,7 @@ class CfnForm(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormInputBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputBindingPropertiesValuePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Represents the data binding configuration for a form's input fields at runtime.You can use ``FormInputBindingPropertiesValue`` to add exposed properties to a form to allow different values to be entered when a form is reused in different places in an app.
@@ -6444,13 +5565,13 @@ class CfnForm(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]]:
             '''Describes the properties to customize with data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-forminputbindingpropertiesvalue.html#cfn-amplifyuibuilder-form-forminputbindingpropertiesvalue-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValuePropertiesProperty"]], result)
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
@@ -6560,8 +5681,8 @@ class CfnForm(
         def __init__(
             self,
             *,
-            binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormInputValuePropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            concat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyBindingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            concat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``FormInputValueProperty`` property specifies the configuration for an input field on a form.
@@ -6610,24 +5731,24 @@ class CfnForm(
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]]:
             '''The information to bind fields to data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-forminputvalueproperty.html#cfn-amplifyuibuilder-form-forminputvalueproperty-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyBindingPropertiesProperty"]], result)
 
         @builtins.property
         def concat(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]]]]:
             '''A list of form properties to concatenate to create the value to assign to this field property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-forminputvalueproperty.html#cfn-amplifyuibuilder-form-forminputvalueproperty-concat
             '''
             result = self._values.get("concat")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]]]], result)
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
@@ -6732,9 +5853,9 @@ class CfnForm(
         def __init__(
             self,
             *,
-            horizontal_gap: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            outer_padding: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            vertical_gap: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            horizontal_gap: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            outer_padding: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vertical_gap: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``FormStyle`` property specifies the configuration for the form's style.
 
@@ -6782,35 +5903,35 @@ class CfnForm(
         @builtins.property
         def horizontal_gap(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]]:
             '''The spacing for the horizontal gap.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formstyle.html#cfn-amplifyuibuilder-form-formstyle-horizontalgap
             '''
             result = self._values.get("horizontal_gap")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]], result)
 
         @builtins.property
         def outer_padding(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]]:
             '''The size of the outer padding for the form.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formstyle.html#cfn-amplifyuibuilder-form-formstyle-outerpadding
             '''
             result = self._values.get("outer_padding")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]], result)
 
         @builtins.property
         def vertical_gap(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]]:
             '''The spacing for the vertical gap.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-formstyle.html#cfn-amplifyuibuilder-form-formstyle-verticalgap
             '''
             result = self._values.get("vertical_gap")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormStyleConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6840,10 +5961,10 @@ class CfnForm(
             self,
             *,
             type: builtins.str,
-            excluded: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            excluded: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             level: typing.Optional[jsii.Number] = None,
             orientation: typing.Optional[builtins.str] = None,
-            position: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            position: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldPositionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             text: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``SectionalElement`` property specifies the configuration information for a visual helper element for a form.
@@ -6918,13 +6039,13 @@ class CfnForm(
         @builtins.property
         def excluded(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Excludes a sectional element that was generated by default for a specified data model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-sectionalelement.html#cfn-amplifyuibuilder-form-sectionalelement-excluded
             '''
             result = self._values.get("excluded")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def level(self) -> typing.Optional[jsii.Number]:
@@ -6951,13 +6072,13 @@ class CfnForm(
         @builtins.property
         def position(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldPositionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]]:
             '''Specifies the position of the text in a field for a ``Text`` sectional element.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-sectionalelement.html#cfn-amplifyuibuilder-form-sectionalelement-position
             '''
             result = self._values.get("position")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FieldPositionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FieldPositionProperty"]], result)
 
         @builtins.property
         def text(self) -> typing.Optional[builtins.str]:
@@ -6988,8 +6109,8 @@ class CfnForm(
         def __init__(
             self,
             *,
-            value: typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]],
-            display_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]],
+            display_value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputValuePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ValueMapping`` property specifies the association between a complex object and a display value.
 
@@ -7047,25 +6168,25 @@ class CfnForm(
         @builtins.property
         def value(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]:
             '''The complex object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemapping.html#cfn-amplifyuibuilder-form-valuemapping-value
             '''
             result = self._values.get("value")
             assert result is not None, "Required property 'value' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"], result)
 
         @builtins.property
         def display_value(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]]:
             '''The value to display for the complex object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemapping.html#cfn-amplifyuibuilder-form-valuemapping-displayvalue
             '''
             result = self._values.get("display_value")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputValuePropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputValuePropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7087,8 +6208,8 @@ class CfnForm(
         def __init__(
             self,
             *,
-            values: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.ValueMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnForm.FormInputBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            values: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.ValueMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            binding_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormInputBindingPropertiesValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``ValueMappings`` property specifies the data binding configuration for a value map.
 
@@ -7156,25 +6277,25 @@ class CfnForm(
         @builtins.property
         def values(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnForm.ValueMappingProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingProperty"]]]:
             '''The value and display value pairs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemappings.html#cfn-amplifyuibuilder-form-valuemappings-values
             '''
             result = self._values.get("values")
             assert result is not None, "Required property 'values' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnForm.ValueMappingProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnForm.ValueMappingProperty"]]], result)
 
         @builtins.property
         def binding_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputBindingPropertiesValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValueProperty"]]]]:
             '''The information to bind fields to data at runtime.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-form-valuemappings.html#cfn-amplifyuibuilder-form-valuemappings-bindingproperties
             '''
             result = self._values.get("binding_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnForm.FormInputBindingPropertiesValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FormInputBindingPropertiesValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7188,7 +6309,399 @@ class CfnForm(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IThemeRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnFormProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_id": "appId",
+        "cta": "cta",
+        "data_type": "dataType",
+        "environment_name": "environmentName",
+        "fields": "fields",
+        "form_action_type": "formActionType",
+        "label_decorator": "labelDecorator",
+        "name": "name",
+        "schema_version": "schemaVersion",
+        "sectional_elements": "sectionalElements",
+        "style": "style",
+        "tags": "tags",
+    },
+)
+class CfnFormProps:
+    def __init__(
+        self,
+        *,
+        app_id: typing.Optional[builtins.str] = None,
+        cta: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormCTAProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormDataTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        environment_name: typing.Optional[builtins.str] = None,
+        fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FieldConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        form_action_type: typing.Optional[builtins.str] = None,
+        label_decorator: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        schema_version: typing.Optional[builtins.str] = None,
+        sectional_elements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.SectionalElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        style: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnForm.FormStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnForm``.
+
+        :param app_id: The unique ID of the Amplify app associated with the form.
+        :param cta: The ``FormCTA`` object that stores the call to action configuration for the form.
+        :param data_type: The type of data source to use to create the form.
+        :param environment_name: The name of the backend environment that is a part of the Amplify app.
+        :param fields: The configuration information for the form's fields.
+        :param form_action_type: Specifies whether to perform a create or update action on the form.
+        :param label_decorator: Specifies an icon or decoration to display on the form.
+        :param name: The name of the form.
+        :param schema_version: The schema version of the form.
+        :param sectional_elements: The configuration information for the visual helper elements for the form. These elements are not associated with any data.
+        :param style: The configuration for the form's style.
+        :param tags: One or more key-value pairs to use when tagging the form data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
+            
+            # form_input_value_property_property_: amplifyuibuilder.CfnForm.FormInputValuePropertyProperty
+            
+            cfn_form_props = amplifyuibuilder.CfnFormProps(
+                app_id="appId",
+                cta=amplifyuibuilder.CfnForm.FormCTAProperty(
+                    cancel=amplifyuibuilder.CfnForm.FormButtonProperty(
+                        children="children",
+                        excluded=False,
+                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
+                            below="below",
+                            fixed="fixed",
+                            right_of="rightOf"
+                        )
+                    ),
+                    clear=amplifyuibuilder.CfnForm.FormButtonProperty(
+                        children="children",
+                        excluded=False,
+                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
+                            below="below",
+                            fixed="fixed",
+                            right_of="rightOf"
+                        )
+                    ),
+                    position="position",
+                    submit=amplifyuibuilder.CfnForm.FormButtonProperty(
+                        children="children",
+                        excluded=False,
+                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
+                            below="below",
+                            fixed="fixed",
+                            right_of="rightOf"
+                        )
+                    )
+                ),
+                data_type=amplifyuibuilder.CfnForm.FormDataTypeConfigProperty(
+                    data_source_type="dataSourceType",
+                    data_type_name="dataTypeName"
+                ),
+                environment_name="environmentName",
+                fields={
+                    "fields_key": amplifyuibuilder.CfnForm.FieldConfigProperty(
+                        excluded=False,
+                        input_type=amplifyuibuilder.CfnForm.FieldInputConfigProperty(
+                            type="type",
+            
+                            # the properties below are optional
+                            default_checked=False,
+                            default_country_code="defaultCountryCode",
+                            default_value="defaultValue",
+                            descriptive_text="descriptiveText",
+                            file_uploader_config=amplifyuibuilder.CfnForm.FileUploaderFieldConfigProperty(
+                                accepted_file_types=["acceptedFileTypes"],
+                                access_level="accessLevel",
+            
+                                # the properties below are optional
+                                is_resumable=False,
+                                max_file_count=123,
+                                max_size=123,
+                                show_thumbnails=False
+                            ),
+                            is_array=False,
+                            max_value=123,
+                            min_value=123,
+                            name="name",
+                            placeholder="placeholder",
+                            read_only=False,
+                            required=False,
+                            step=123,
+                            value="value",
+                            value_mappings=amplifyuibuilder.CfnForm.ValueMappingsProperty(
+                                values=[amplifyuibuilder.CfnForm.ValueMappingProperty(
+                                    value=amplifyuibuilder.CfnForm.FormInputValuePropertyProperty(
+                                        binding_properties=amplifyuibuilder.CfnForm.FormInputValuePropertyBindingPropertiesProperty(
+                                            property="property",
+            
+                                            # the properties below are optional
+                                            field="field"
+                                        ),
+                                        concat=[form_input_value_property_property_],
+                                        value="value"
+                                    ),
+            
+                                    # the properties below are optional
+                                    display_value=amplifyuibuilder.CfnForm.FormInputValuePropertyProperty(
+                                        binding_properties=amplifyuibuilder.CfnForm.FormInputValuePropertyBindingPropertiesProperty(
+                                            property="property",
+            
+                                            # the properties below are optional
+                                            field="field"
+                                        ),
+                                        concat=[form_input_value_property_property_],
+                                        value="value"
+                                    )
+                                )],
+            
+                                # the properties below are optional
+                                binding_properties={
+                                    "binding_properties_key": amplifyuibuilder.CfnForm.FormInputBindingPropertiesValueProperty(
+                                        binding_properties=amplifyuibuilder.CfnForm.FormInputBindingPropertiesValuePropertiesProperty(
+                                            model="model"
+                                        ),
+                                        type="type"
+                                    )
+                                }
+                            )
+                        ),
+                        label="label",
+                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
+                            below="below",
+                            fixed="fixed",
+                            right_of="rightOf"
+                        ),
+                        validations=[amplifyuibuilder.CfnForm.FieldValidationConfigurationProperty(
+                            type="type",
+            
+                            # the properties below are optional
+                            num_values=[123],
+                            str_values=["strValues"],
+                            validation_message="validationMessage"
+                        )]
+                    )
+                },
+                form_action_type="formActionType",
+                label_decorator="labelDecorator",
+                name="name",
+                schema_version="schemaVersion",
+                sectional_elements={
+                    "sectional_elements_key": amplifyuibuilder.CfnForm.SectionalElementProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        excluded=False,
+                        level=123,
+                        orientation="orientation",
+                        position=amplifyuibuilder.CfnForm.FieldPositionProperty(
+                            below="below",
+                            fixed="fixed",
+                            right_of="rightOf"
+                        ),
+                        text="text"
+                    )
+                },
+                style=amplifyuibuilder.CfnForm.FormStyleProperty(
+                    horizontal_gap=amplifyuibuilder.CfnForm.FormStyleConfigProperty(
+                        token_reference="tokenReference",
+                        value="value"
+                    ),
+                    outer_padding=amplifyuibuilder.CfnForm.FormStyleConfigProperty(
+                        token_reference="tokenReference",
+                        value="value"
+                    ),
+                    vertical_gap=amplifyuibuilder.CfnForm.FormStyleConfigProperty(
+                        token_reference="tokenReference",
+                        value="value"
+                    )
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4)
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+            check_type(argname="argument cta", value=cta, expected_type=type_hints["cta"])
+            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
+            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+            check_type(argname="argument form_action_type", value=form_action_type, expected_type=type_hints["form_action_type"])
+            check_type(argname="argument label_decorator", value=label_decorator, expected_type=type_hints["label_decorator"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument schema_version", value=schema_version, expected_type=type_hints["schema_version"])
+            check_type(argname="argument sectional_elements", value=sectional_elements, expected_type=type_hints["sectional_elements"])
+            check_type(argname="argument style", value=style, expected_type=type_hints["style"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if app_id is not None:
+            self._values["app_id"] = app_id
+        if cta is not None:
+            self._values["cta"] = cta
+        if data_type is not None:
+            self._values["data_type"] = data_type
+        if environment_name is not None:
+            self._values["environment_name"] = environment_name
+        if fields is not None:
+            self._values["fields"] = fields
+        if form_action_type is not None:
+            self._values["form_action_type"] = form_action_type
+        if label_decorator is not None:
+            self._values["label_decorator"] = label_decorator
+        if name is not None:
+            self._values["name"] = name
+        if schema_version is not None:
+            self._values["schema_version"] = schema_version
+        if sectional_elements is not None:
+            self._values["sectional_elements"] = sectional_elements
+        if style is not None:
+            self._values["style"] = style
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID of the Amplify app associated with the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-appid
+        '''
+        result = self._values.get("app_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cta(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]]:
+        '''The ``FormCTA`` object that stores the call to action configuration for the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-cta
+        '''
+        result = self._values.get("cta")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormCTAProperty"]], result)
+
+    @builtins.property
+    def data_type(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]]:
+        '''The type of data source to use to create the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-datatype
+        '''
+        result = self._values.get("data_type")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormDataTypeConfigProperty"]], result)
+
+    @builtins.property
+    def environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the backend environment that is a part of the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-environmentname
+        '''
+        result = self._values.get("environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def fields(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]]:
+        '''The configuration information for the form's fields.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-fields
+        '''
+        result = self._values.get("fields")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.FieldConfigProperty"]]]], result)
+
+    @builtins.property
+    def form_action_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to perform a create or update action on the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-formactiontype
+        '''
+        result = self._values.get("form_action_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def label_decorator(self) -> typing.Optional[builtins.str]:
+        '''Specifies an icon or decoration to display on the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-labeldecorator
+        '''
+        result = self._values.get("label_decorator")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_version(self) -> typing.Optional[builtins.str]:
+        '''The schema version of the form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-schemaversion
+        '''
+        result = self._values.get("schema_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sectional_elements(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]]:
+        '''The configuration information for the visual helper elements for the form.
+
+        These elements are not associated with any data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-sectionalelements
+        '''
+        result = self._values.get("sectional_elements")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnForm.SectionalElementProperty"]]]], result)
+
+    @builtins.property
+    def style(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]]:
+        '''The configuration for the form's style.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-style
+        '''
+        result = self._values.get("style")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnForm.FormStyleProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''One or more key-value pairs to use when tagging the form data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-form.html#cfn-amplifyuibuilder-form-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFormProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IThemeRef_92e58367, _ITaggable_36806126)
 class CfnTheme(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7236,17 +6749,18 @@ class CfnTheme(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         app_id: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AmplifyUIBuilder::Theme``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param app_id: The unique ID for the Amplify app associated with the theme.
@@ -7271,8 +6785,20 @@ class CfnTheme(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnTheme")
+    @builtins.classmethod
+    def is_cfn_theme(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTheme.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f4f2ed41c61f998201f667a33b44d6af55dd606d9e8782e96599afa30b11040)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTheme", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7335,15 +6861,15 @@ class CfnTheme(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="themeRef")
-    def theme_ref(self) -> ThemeReference:
+    def theme_ref(self) -> "_ThemeReference_62247883":
         '''A reference to a Theme resource.'''
-        return typing.cast(ThemeReference, jsii.get(self, "themeRef"))
+        return typing.cast("_ThemeReference_62247883", jsii.get(self, "themeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -7388,14 +6914,14 @@ class CfnTheme(
     @jsii.member(jsii_name="overrides")
     def overrides(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
         '''Describes the properties that can be overriden to customize a theme.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "overrides"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "overrides"))
 
     @overrides.setter
     def overrides(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__447d8cae12df687b1981d85cd7ad953ecb265c415202fa332bdb6ac0bdbc8d7f)
@@ -7422,14 +6948,14 @@ class CfnTheme(
     @jsii.member(jsii_name="values")
     def values(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
         '''A list of key-value pairs that defines the properties of the theme.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "values"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], jsii.get(self, "values"))
 
     @values.setter
     def values(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb8701acac3d1216eee5ea6afa5963493d323823cf518c1ba70eebb677f169f7)
@@ -7445,7 +6971,7 @@ class CfnTheme(
         def __init__(
             self,
             *,
-            children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            children: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``ThemeValue`` property specifies the configuration of a theme's properties.
@@ -7485,13 +7011,13 @@ class CfnTheme(
         @builtins.property
         def children(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
             '''A list of key-value pairs that define the theme's properties.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-theme-themevalue.html#cfn-amplifyuibuilder-theme-themevalue-children
             '''
             result = self._values.get("children")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValuesProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], result)
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
@@ -7523,7 +7049,7 @@ class CfnTheme(
             self,
             *,
             key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTheme.ThemeValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``ThemeValues`` property specifies key-value pair that defines a property of a theme.
 
@@ -7571,13 +7097,13 @@ class CfnTheme(
         @builtins.property
         def value(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValueProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValueProperty"]]:
             '''The value of the property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplifyuibuilder-theme-themevalues.html#cfn-amplifyuibuilder-theme-themevalues-value
             '''
             result = self._values.get("value")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTheme.ThemeValueProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValueProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7591,6 +7117,164 @@ class CfnTheme(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplifyuibuilder.CfnThemeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_id": "appId",
+        "environment_name": "environmentName",
+        "name": "name",
+        "overrides": "overrides",
+        "tags": "tags",
+        "values": "values",
+    },
+)
+class CfnThemeProps:
+    def __init__(
+        self,
+        *,
+        app_id: typing.Optional[builtins.str] = None,
+        environment_name: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTheme.ThemeValuesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTheme``.
+
+        :param app_id: The unique ID for the Amplify app associated with the theme.
+        :param environment_name: The name of the backend environment that is a part of the Amplify app.
+        :param name: The name of the theme.
+        :param overrides: Describes the properties that can be overriden to customize a theme.
+        :param tags: One or more key-value pairs to use when tagging the theme.
+        :param values: A list of key-value pairs that defines the properties of the theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplifyuibuilder as amplifyuibuilder
+            
+            # theme_values_property_: amplifyuibuilder.CfnTheme.ThemeValuesProperty
+            
+            cfn_theme_props = amplifyuibuilder.CfnThemeProps(
+                app_id="appId",
+                environment_name="environmentName",
+                name="name",
+                overrides=[amplifyuibuilder.CfnTheme.ThemeValuesProperty(
+                    key="key",
+                    value=amplifyuibuilder.CfnTheme.ThemeValueProperty(
+                        children=[theme_values_property_],
+                        value="value"
+                    )
+                )],
+                tags={
+                    "tags_key": "tags"
+                },
+                values=[amplifyuibuilder.CfnTheme.ThemeValuesProperty(
+                    key="key",
+                    value=amplifyuibuilder.CfnTheme.ThemeValueProperty(
+                        children=[theme_values_property_],
+                        value="value"
+                    )
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c121fb7bad)
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if app_id is not None:
+            self._values["app_id"] = app_id
+        if environment_name is not None:
+            self._values["environment_name"] = environment_name
+        if name is not None:
+            self._values["name"] = name
+        if overrides is not None:
+            self._values["overrides"] = overrides
+        if tags is not None:
+            self._values["tags"] = tags
+        if values is not None:
+            self._values["values"] = values
+
+    @builtins.property
+    def app_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID for the Amplify app associated with the theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-appid
+        '''
+        result = self._values.get("app_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the backend environment that is a part of the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-environmentname
+        '''
+        result = self._values.get("environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def overrides(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+        '''Describes the properties that can be overriden to customize a theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-overrides
+        '''
+        result = self._values.get("overrides")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''One or more key-value pairs to use when tagging the theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def values(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]]:
+        '''A list of key-value pairs that defines the properties of the theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplifyuibuilder-theme.html#cfn-amplifyuibuilder-theme-values
+        '''
+        result = self._values.get("values")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTheme.ThemeValuesProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThemeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnComponent",
     "CfnComponentProps",
@@ -7598,92 +7282,9 @@ __all__ = [
     "CfnFormProps",
     "CfnTheme",
     "CfnThemeProps",
-    "ComponentReference",
-    "FormReference",
-    "IComponentRef",
-    "IFormRef",
-    "IThemeRef",
-    "ThemeReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45(
-    *,
-    app_id: typing.Optional[builtins.str] = None,
-    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    collection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentDataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    component_type: typing.Optional[builtins.str] = None,
-    environment_name: typing.Optional[builtins.str] = None,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    overrides: typing.Any = None,
-    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    schema_version: typing.Optional[builtins.str] = None,
-    source_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4(
-    *,
-    app_id: typing.Optional[builtins.str] = None,
-    cta: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormCTAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormDataTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    environment_name: typing.Optional[builtins.str] = None,
-    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    form_action_type: typing.Optional[builtins.str] = None,
-    label_decorator: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    schema_version: typing.Optional[builtins.str] = None,
-    sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c121fb7bad(
-    *,
-    app_id: typing.Optional[builtins.str] = None,
-    environment_name: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e2fb433afc752b01b610b7e0dd8ec8618587347c00d16c06eaaa684828df5559(
-    *,
-    app_id: builtins.str,
-    component_id: builtins.str,
-    environment_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__de95125e868bb914734fb07ea58b1d326fc8ecbb80eae7fbc55a5073b0351b6a(
-    *,
-    app_id: builtins.str,
-    environment_name: builtins.str,
-    form_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0b01235224af14c5b5e0f9435749970759ccce22338e7b286289cc76353cb97(
-    *,
-    app_id: builtins.str,
-    environment_name: builtins.str,
-    theme_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__fd7799829199faf127a94fa77781fc238076f764c5a29e3192b18302477d99ad(
     scope: _constructs_77d1e7e8.Construct,
@@ -7703,6 +7304,12 @@ def _typecheckingstub__fd7799829199faf127a94fa77781fc238076f764c5a29e3192b183024
     source_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f214773737826f95a87f369ff491c8d26997aee2dced4ead1ada5b19d1de7bf(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7959,6 +7566,26 @@ def _typecheckingstub__2e28aa12f1ac083d97c2507afcccfed6130be39825a273208c629b58a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f53200a7ca068c25e3052be6f1490d18f9816b65f2cfec3a854a23ba3d5e5f45(
+    *,
+    app_id: typing.Optional[builtins.str] = None,
+    binding_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentBindingPropertiesValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    children: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentChildProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    collection_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentDataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    component_type: typing.Optional[builtins.str] = None,
+    environment_name: typing.Optional[builtins.str] = None,
+    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentEventProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    overrides: typing.Any = None,
+    properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    schema_version: typing.Optional[builtins.str] = None,
+    source_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponent.ComponentVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d1e1e67668c27ec66bb2b6aa2fd792ed1f3347990281e8dd83ae2ac8e81aaac8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7975,6 +7602,12 @@ def _typecheckingstub__d1e1e67668c27ec66bb2b6aa2fd792ed1f3347990281e8dd83ae2ac8e
     sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fae613d042dc611129667524c3ee417ce937c74d937d97183fec3270cc23398(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8231,6 +7864,24 @@ def _typecheckingstub__d724ce98e4e33046526453a6db65965e6f336a8f4ff6e0f67b70823d8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4bb63d5cc6b32485abf45108b28446e1c750de14c1855dae86134a9765f5dbf4(
+    *,
+    app_id: typing.Optional[builtins.str] = None,
+    cta: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormCTAProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormDataTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment_name: typing.Optional[builtins.str] = None,
+    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FieldConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    form_action_type: typing.Optional[builtins.str] = None,
+    label_decorator: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    schema_version: typing.Optional[builtins.str] = None,
+    sectional_elements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.SectionalElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    style: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnForm.FormStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2279f682c519f8cd82b48b2513abcff891e39a55368285f7ff433a9378321040(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8241,6 +7892,12 @@ def _typecheckingstub__2279f682c519f8cd82b48b2513abcff891e39a55368285f7ff433a937
     overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f4f2ed41c61f998201f667a33b44d6af55dd606d9e8782e96599afa30b11040(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8305,6 +7962,18 @@ def _typecheckingstub__32916eb6e9dca0f7a126b89c19d4efd2943a6c491612af96a25d95ebb
     *,
     key: typing.Optional[builtins.str] = None,
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77360f99c7978648939d69b66977b92aefcb6819d200949e380c72c121fb7bad(
+    *,
+    app_id: typing.Optional[builtins.str] = None,
+    environment_name: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTheme.ThemeValuesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

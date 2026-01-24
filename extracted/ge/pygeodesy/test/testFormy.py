@@ -4,7 +4,7 @@
 # Test L{formy} module.
 
 __all__ = ('Tests',)
-__version__ = '24.11.14'
+__version__ = '26.01.05'
 
 from bases import TestsBase
 
@@ -74,7 +74,7 @@ class Tests(TestsBase):
         # same as flatLocal
         self.test('hubeny' + t, hubeny, flatLocal, nt=1)
 
-    def testFormy(self):
+    def testFormy(self):  # MCCABE 13
 
         t = angle2chord(Degrees(90))
         self.test('angle2chord', angle2chord(PI_2), t, prec=3)

@@ -5,7 +5,7 @@ from emmet.core._user_settings import UserSettingsDoc
 from mp_api.client.core import BaseRester
 
 
-class UserSettingsRester(BaseRester[UserSettingsDoc]):  # pragma: no cover
+class UserSettingsRester(BaseRester):  # pragma: no cover
     suffix = "_user_settings"
     document_model = UserSettingsDoc  # type: ignore
     primary_key = "consumer_id"
@@ -40,17 +40,18 @@ class UserSettingsRester(BaseRester[UserSettingsDoc]):  # pragma: no cover
             MPRestError.
         """
         body = dict()
+        valid_fields = [
+            "institution",
+            "sector",
+            "job_role",
+            "is_email_subscribed",
+            "agreed_terms",
+            "message_last_read",
+        ]
         for key in settings:
-            if key not in [
-                "institution",
-                "sector",
-                "job_role",
-                "is_email_subscribed",
-                "agreed_terms",
-            ]:
+            if key not in valid_fields:
                 raise ValueError(
-                    f"Invalid setting key {key}. Must be one of"
-                    "institution, sector, job_role, is_email_subscribed, agreed_terms"
+                    f"Invalid setting key {key}. Must be one of {valid_fields}"
                 )
             body[f"settings.{key}"] = settings[key]
 

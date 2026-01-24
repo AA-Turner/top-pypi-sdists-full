@@ -19,14 +19,12 @@ class AddTorus(_bpy_types.Operator, bpy_extras.object_utils.AddObjectHelper):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:

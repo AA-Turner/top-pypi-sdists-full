@@ -83,6 +83,7 @@ class SdlcAssetType(str, Enum):
     CHECKMARXSAST = 'CheckmarxSast'
     CHECKMARXSCA = 'CheckmarxSca'
     SERVICENOW = 'ServiceNow'
+    ASANA = 'Asana'
     BURPSUITE = 'Burpsuite'
     JIRASECRETSCANNING = 'JiraSecretScanning'
     COVERITY = 'Coverity'
@@ -141,6 +142,8 @@ class SdlcAssetType(str, Enum):
     HACKERONE = 'HackerOne'
     DYNATRACE = 'Dynatrace'
     FORTIFYSSC = 'FortifySsc'
+    PRISMACLOUDSECURITY = 'PrismaCloudSecurity'
+    CYTRIX = 'Cytrix'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

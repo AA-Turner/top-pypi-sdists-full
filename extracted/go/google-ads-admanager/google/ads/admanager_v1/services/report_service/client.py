@@ -68,7 +68,11 @@ from google.protobuf import field_mask_pb2  # type: ignore
 from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.ads.admanager_v1.services.report_service import pagers
-from google.ads.admanager_v1.types import report_messages, report_service
+from google.ads.admanager_v1.types import (
+    report_definition,
+    report_messages,
+    report_service,
+)
 
 from .transports.base import DEFAULT_CLIENT_INFO, ReportServiceTransport
 from .transports.rest import ReportServiceRestTransport
@@ -148,6 +152,34 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "admanager.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -346,12 +378,8 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = ReportServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -359,7 +387,7 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -391,20 +419,14 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = ReportServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -978,7 +1000,7 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
                 report = admanager_v1.Report()
                 report.report_definition.dimensions = ['CUSTOM_DIMENSION_9_VALUE']
                 report.report_definition.metrics = ['YIELD_GROUP_SUCCESSFUL_RESPONSES']
-                report.report_definition.report_type = "HISTORICAL"
+                report.report_definition.report_type = "AD_SPEED"
 
                 request = admanager_v1.CreateReportRequest(
                     parent="parent_value",
@@ -1097,7 +1119,7 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
                 report = admanager_v1.Report()
                 report.report_definition.dimensions = ['CUSTOM_DIMENSION_9_VALUE']
                 report.report_definition.metrics = ['YIELD_GROUP_SUCCESSFUL_RESPONSES']
-                report.report_definition.report_type = "HISTORICAL"
+                report.report_definition.report_type = "AD_SPEED"
 
                 request = admanager_v1.UpdateReportRequest(
                     report=report,
@@ -1196,7 +1218,7 @@ class ReportServiceClient(metaclass=ReportServiceClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> operation.Operation:
         r"""Initiates the execution of an existing report asynchronously.
-        Users can get the report by polling this operation via
+        Users can get the report by polling this operation using
         ``OperationsService.GetOperation``. Poll every 5 seconds
         initially, with an exponential backoff. Once a report is
         complete, the operation will contain a ``RunReportResponse`` in

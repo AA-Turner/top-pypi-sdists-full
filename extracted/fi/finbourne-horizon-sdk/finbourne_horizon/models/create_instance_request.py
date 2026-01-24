@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, conlist, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.lusid_property_definition_overrides_by_type import LusidPropertyDefinitionOverridesByType
 from finbourne_horizon.models.trigger import Trigger
 
@@ -27,13 +29,13 @@ class CreateInstanceRequest(BaseModel):
     """
     CreateInstanceRequest
     """
-    instance_optional_props: Optional[Dict[str, LusidPropertyDefinitionOverridesByType]] = Field(None, alias="instanceOptionalProps")
+    instance_optional_props: Optional[Dict[str, LusidPropertyDefinitionOverridesByType]] = Field(default=None, alias="instanceOptionalProps")
     integration_type:  StrictStr = Field(...,alias="integrationType") 
     name:  StrictStr = Field(...,alias="name") 
     description:  StrictStr = Field(...,alias="description") 
-    enabled: StrictBool = Field(...)
-    triggers: conlist(Trigger) = Field(...)
-    details: Dict[str, Any] = Field(...)
+    enabled: StrictBool
+    triggers: List[Trigger]
+    details: Dict[str, Any]
     __properties = ["instanceOptionalProps", "integrationType", "name", "description", "enabled", "triggers", "details"]
 
     class Config:
@@ -113,3 +115,5 @@ class CreateInstanceRequest(BaseModel):
             "details": obj.get("details")
         })
         return _obj
+
+CreateInstanceRequest.update_forward_refs()

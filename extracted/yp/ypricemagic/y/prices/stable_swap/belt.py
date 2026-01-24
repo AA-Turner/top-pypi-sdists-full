@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import a_sync
 from brownie import chain
@@ -42,7 +41,7 @@ def is_belt_lp(token: AnyAddressType) -> bool:
 
 
 @a_sync.a_sync(default="sync")
-async def get_price(token: AnyAddressType, block: Optional[Block] = None) -> UsdPrice:
+async def get_price(token: AnyAddressType, block: Block | None = None) -> UsdPrice:
     """Get the price of a Belt LP token in USD.
 
     This function retrieves the virtual price of a Belt LP token from its associated pool

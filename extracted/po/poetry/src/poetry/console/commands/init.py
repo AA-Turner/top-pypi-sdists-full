@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import ClassVar
-from typing import Union
 
 from cleo.helpers import option
 from packaging.utils import canonicalize_name
@@ -28,7 +27,7 @@ if TYPE_CHECKING:
 
     from poetry.repositories import RepositoryPool
 
-Requirements = dict[str, Union[str, Mapping[str, Any]]]
+Requirements = dict[str, str | Mapping[str, Any]]
 
 
 class InitCommand(Command):
@@ -253,7 +252,7 @@ The <c1>init</c1> command creates a basic <comment>pyproject.toml</> file in the
         if create_layout:
             layout_.create(project_path, with_pyproject=False)
 
-        content = layout_.generate_project_content()
+        content = layout_.generate_project_content(project_path)
         for section, item in content.items():
             pyproject.data.append(section, item)
 

@@ -1,0 +1,193 @@
+# Copyright 2025 © BeeAI a Series of LF Projects, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+import re
+from contextlib import asynccontextmanager
+from types import NoneType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
+
+import pydantic
+from a2a.server.agent_execution.context import RequestContext
+from a2a.types import Message as A2AMessage
+from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.client.streamable_http import streamablehttp_client
+from typing_extensions import override
+
+from agentstack_sdk.a2a.extensions.auth.oauth.oauth import OAuthExtensionServer
+from agentstack_sdk.a2a.extensions.base import BaseExtensionClient, BaseExtensionServer, BaseExtensionSpec
+from agentstack_sdk.a2a.extensions.services.platform import PlatformApiExtensionServer
+from agentstack_sdk.platform.client import get_platform_client
+from agentstack_sdk.util.logging import logger
+
+if TYPE_CHECKING:
+    from agentstack_sdk.server.context import RunContext
+
+_TRANSPORT_TYPES = Literal["streamable_http", "stdio"]
+
+_DEFAULT_DEMAND_NAME = "default"
+_DEFAULT_ALLOWED_TRANSPORTS: list[_TRANSPORT_TYPES] = ["streamable_http"]
+
+
+class StdioTransport(pydantic.BaseModel):
+    type: Literal["stdio"] = "stdio"
+
+    command: str
+    args: list[str]
+    env: dict[str, str] | None = None
+
+
+class StreamableHTTPTransport(pydantic.BaseModel):
+    type: Literal["streamable_http"] = "streamable_http"
+
+    url: str
+    headers: dict[str, str] | None = None
+
+
+MCPTransport = Annotated[StdioTransport | StreamableHTTPTransport, pydantic.Field(discriminator="type")]
+
+
+class MCPFulfillment(pydantic.BaseModel):
+    transport: MCPTransport
+
+
+class MCPDemand(pydantic.BaseModel):
+    description: str | None = None
+    """
+    Short description of how the server will be used, what tools should it contain, etc.
+    """
+
+    suggested: tuple[str, ...] = ()
+    """
+    Identifiers of servers recommended to be used. Usually corresponds to MCP StreamableHTTP URIs.
+    """
+
+    allowed_transports: list[_TRANSPORT_TYPES] = pydantic.Field(default_factory=lambda: _DEFAULT_ALLOWED_TRANSPORTS)
+    """
+    Transports allowed for the server. Specifying other transports will result in rejection.
+    """
+
+
+class MCPServiceExtensionParams(pydantic.BaseModel):
+    mcp_demands: dict[str, MCPDemand]
+    """Server requests that the agent requires to be provided by the client."""
+
+
+class MCPServiceExtensionSpec(BaseExtensionSpec[MCPServiceExtensionParams]):
+    URI: str = "https://a2a-extensions.agentstack.beeai.dev/services/mcp/v1"
+
+    @classmethod
+    def single_demand(
+        cls,
+        name: str = _DEFAULT_DEMAND_NAME,
+        description: str | None = None,
+        suggested: tuple[str, ...] = (),
+        allowed_transports: list[_TRANSPORT_TYPES] | None = None,
+    ) -> Self:
+        return cls(
+            params=MCPServiceExtensionParams(
+                mcp_demands={
+                    name: MCPDemand(
+                        description=description,
+                        suggested=suggested,
+                        allowed_transports=allowed_transports or _DEFAULT_ALLOWED_TRANSPORTS,
+                    )
+                }
+            )
+        )
+
+
+class MCPServiceExtensionMetadata(pydantic.BaseModel):
+    mcp_fulfillments: dict[str, MCPFulfillment] = {}
+    """Provided servers corresponding to the server requests."""
+
+
+class MCPServiceExtensionServer(BaseExtensionServer[MCPServiceExtensionSpec, MCPServiceExtensionMetadata]):
+    @override
+    def handle_incoming_message(self, message: A2AMessage, run_context: RunContext, request_context: RequestContext):
+        super().handle_incoming_message(message, run_context, request_context)
+        if not self.data:
+            return
+
+        platform_url = str(get_platform_client().base_url)
+        for fullfilment in self.data.mcp_fulfillments.values():
+            if fullfilment.transport.type == "streamable_http":
+                try:
+                    fullfilment.transport.url = re.sub("^{platform_url}", platform_url, str(fullfilment.transport.url))
+                except Exception:
+                    logger.warning("Platform URL substitution failed", exc_info=True)
+
+    @override
+    def parse_client_metadata(self, message: A2AMessage) -> MCPServiceExtensionMetadata | None:
+        metadata = super().parse_client_metadata(message)
+        if metadata:
+            for name, demand in self.spec.params.mcp_demands.items():
+                if not (fulfillment := metadata.mcp_fulfillments.get(name)):
+                    continue
+                if fulfillment.transport.type not in demand.allowed_transports:
+                    raise ValueError(f'Transport "{fulfillment.transport.type}" not allowed for demand "{name}"')
+        return metadata
+
+    def _get_oauth_server(self):
+        for dependency in self._dependencies.values():
+            if isinstance(dependency, OAuthExtensionServer):
+                return dependency
+        return None
+
+    def _get_platform_server(self):
+        for dependency in self._dependencies.values():
+            if isinstance(dependency, PlatformApiExtensionServer):
+                return dependency
+        return None
+
+    @asynccontextmanager
+    async def create_client(self, demand: str = _DEFAULT_DEMAND_NAME):
+        fulfillment = self.data.mcp_fulfillments.get(demand) if self.data else None
+
+        if not fulfillment:
+            yield None
+            return
+
+        transport = fulfillment.transport
+
+        if isinstance(transport, StdioTransport):
+            async with stdio_client(
+                server=StdioServerParameters(command=transport.command, args=transport.args, env=transport.env)
+            ) as (
+                read,
+                write,
+            ):
+                yield (read, write)
+        elif isinstance(transport, StreamableHTTPTransport):
+            async with streamablehttp_client(
+                url=transport.url,
+                headers=transport.headers,
+                auth=await self._create_auth(transport),
+            ) as (
+                read,
+                write,
+                _,
+            ):
+                yield (read, write)
+        else:
+            raise NotImplementedError("Unsupported transport")
+
+    async def _create_auth(self, transport: StreamableHTTPTransport):
+        platform = self._get_platform_server()
+        if (
+            platform
+            and platform.data
+            and platform.data.base_url
+            and transport.url.startswith(str(platform.data.base_url))
+        ):
+            return await platform.create_httpx_auth()
+        oauth = self._get_oauth_server()
+        if oauth:
+            return await oauth.create_httpx_auth(resource_url=pydantic.AnyUrl(transport.url))
+        return None
+
+
+class MCPServiceExtensionClient(BaseExtensionClient[MCPServiceExtensionSpec, NoneType]):
+    def fulfillment_metadata(self, *, mcp_fulfillments: dict[str, MCPFulfillment]) -> dict[str, Any]:
+        return {self.spec.URI: MCPServiceExtensionMetadata(mcp_fulfillments=mcp_fulfillments).model_dump(mode="json")}

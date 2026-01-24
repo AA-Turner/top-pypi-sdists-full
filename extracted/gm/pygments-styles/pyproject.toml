@@ -1,0 +1,88 @@
+[project]
+name = "pygments-styles"
+description = "A curated collection of Pygments styles based on VS Code themes."
+authors = [{name = "Hsiaoming Yang", email="me@lepture.com"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = [
+    "pygments",
+]
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Utilities",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Source = "https://github.com/lepture/pygments-styles"
+Homepage = "https://pygments-styles.org/"
+Sponsors = "https://github.com/sponsors/lepture"
+
+[project.entry-points."pygments.styles"]
+andromeeda = "pygments_styles.andromeeda:AndromeedaStyle"
+aurora-x = "pygments_styles.aurora_x:AuroraXStyle"
+ayu-light = "pygments_styles.ayu_light:AyuLightStyle"
+ayu-dark = "pygments_styles.ayu_dark:AyuDarkStyle"
+ayu-mirage = "pygments_styles.ayu_mirage:AyuMirageStyle"
+catppuccin-frappe = "pygments_styles.catppuccin_frappe:CatppuccinFrappeStyle"
+catppuccin-latte = "pygments_styles.catppuccin_latte:CatppuccinLatteStyle"
+catppuccin-macchiato = "pygments_styles.catppuccin_macchiato:CatppuccinMacchiatoStyle"
+catppuccin-mocha = "pygments_styles.catppuccin_mocha:CatppuccinMochaStyle"
+dark-plus = "pygments_styles.dark_plus:DarkPlusStyle"
+everforest-dark = "pygments_styles.everforest_dark:EverforestDarkStyle"
+everforest-light = "pygments_styles.everforest_light:EverforestLightStyle"
+github-dark-default = "pygments_styles.github_dark_default:GitHubDarkDefaultStyle"
+github-dark-dimmed = "pygments_styles.github_dark_dimmed:GitHubDarkDimmedStyle"
+github-dark-high-contrast = "pygments_styles.github_dark_high_contrast:GitHubDarkHighContrastStyle"
+github-light-default = "pygments_styles.github_light_default:GitHubLightDefaultStyle"
+github-light-high-contrast = "pygments_styles.github_light_high_contrast:GitHubLightHighContrastStyle"
+gruvbox-dark-hard = "pygments_styles.gruvbox_dark_hard:GruvboxDarkHardStyle"
+gruvbox-dark-medium = "pygments_styles.gruvbox_dark_medium:GruvboxDarkMediumStyle"
+gruvbox-dark-soft = "pygments_styles.gruvbox_dark_soft:GruvboxDarkSoftStyle"
+gruvbox-light-hard = "pygments_styles.gruvbox_light_hard:GruvboxLightHardStyle"
+gruvbox-light-medium = "pygments_styles.gruvbox_light_medium:GruvboxLightMediumStyle"
+gruvbox-light-soft = "pygments_styles.gruvbox_light_soft:GruvboxLightSoftStyle"
+laserwave = "pygments_styles.laserwave:LaserwaveStyle"
+laserwave-high-contrast = "pygments_styles.laserwave_high_contrast:LaserwaveHighContrastStyle"
+light-plus = "pygments_styles.light_plus:LightPlusStyle"
+min-dark = "pygments_styles.min_dark:MinDarkStyle"
+min-light = "pygments_styles.min_light:MinLightStyle"
+one-dark-pro = "pygments_styles.one_dark_pro:OneDarkProStyle"
+one-light = "pygments_styles.one_light:OneLightStyle"
+plastic = "pygments_styles.plastic:PlasticStyle"
+
+[tool.setuptools.dynamic]
+version = {attr = "pygments_styles.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[dependency-groups]
+dev = [
+    "requests>=2.32.5",
+    "shibuya>=2025.9.22",
+    "sphinx>=7.4.7",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.1",
+    "sphinx-iconify>=0.2.0",
+    "sphinx-sitemap>=2.8.0",
+]

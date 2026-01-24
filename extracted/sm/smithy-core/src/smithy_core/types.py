@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.utils import format_datetime, parsedate_to_datetime
 from enum import Enum
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
-from .exceptions import ExpectationNotMetException
+from .exceptions import ExpectationNotMetError
 from .interfaces import PropertyKey as _PropertyKey
 from .interfaces import TypedProperties as _TypedProperties
 from .utils import (
@@ -21,6 +21,9 @@ from .utils import (
     serialize_epoch_seconds,
     serialize_rfc3339,
 )
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeForm
 
 _GREEDY_LABEL_RE = re.compile(r"\{(\w+)\+\}")
 
@@ -113,7 +116,7 @@ class TimestampFormat(Enum):
                     try:
                         value = float(value)
                     except ValueError as e:
-                        raise ExpectationNotMetException from e
+                        raise ExpectationNotMetError from e
                 return epoch_seconds_to_datetime(value=value)
             case TimestampFormat.HTTP_DATE:
                 return ensure_utc(parsedate_to_datetime(expect_type(str, value)))
@@ -163,29 +166,21 @@ class PathPattern:
 class PropertyKey[T](_PropertyKey[T]):
     """A typed property key.
 
-    Note that unions and other special types cannot easily be used here due to being
-    incompatible with ``type[T]``. PEP747 proposes a fix to this case, but it has not
-    yet been accepted. In the meantime, there is a workaround. The PropertyKey must
-    be assigned to an explicitly typed variable, and the ``value_type`` parameter of
-    the constructor must have a ``# type: ignore`` comment, like so:
-
     .. code-block:: python
 
         UNION_PROPERTY: PropertyKey[str | int] = PropertyKey(
             key="union",
-            value_type=str | int,  # type: ignore
+            value_type=str | int,
         )
-
-    Type checkers will be able to use such a property as expected.
     """
 
     key: str
     """The string key used to access the value."""
 
-    value_type: type[T]
+    value_type: "TypeForm[T]"
     """The type of the associated value in the property bag."""
 
-    def __init__(self, *, key: str, value_type: type[T]) -> None:
+    def __init__(self, *, key: str, value_type: "TypeForm[T]") -> None:
         # Intern the key to speed up dict access
         object.__setattr__(self, "key", sys.intern(key))
         object.__setattr__(self, "value_type", value_type)

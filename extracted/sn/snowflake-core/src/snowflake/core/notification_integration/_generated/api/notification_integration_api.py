@@ -384,7 +384,7 @@ class NotificationIntegrationApi:
         # process the body parameter
         _body_params = None
 
-        if _params["notification_integration"]:
+        if _params["notification_integration"] is not None:
             _body_params = _params["notification_integration"]
 
         # set the HTTP header `Accept`

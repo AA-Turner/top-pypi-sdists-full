@@ -1,28 +1,54 @@
 #!/usr/bin/env python
-"""
-Copyright (C) 2020-2021 Jiri Borovec <...>
-"""
+"""Copyright (C) 2020-2023 Jiri Borovec <...>."""
+
 import os
+import re
+from importlib.util import module_from_spec, spec_from_file_location
 
 # Always prefer setuptools over distutils
 from setuptools import find_packages, setup
 
-import deprecate
-
-# https://packaging.python.org/guides/single-sourcing-package-version/
-# http://blog.ionelmc.ro/2014/05/25/python-packaging/
-
-_PATH_ROOT = os.path.dirname(__file__)
+_PATH_ROOT = os.path.realpath(os.path.dirname(__file__))
+_PATH_SOURCE = os.path.join(_PATH_ROOT, "src")
 
 
-def _load_long_description(path_dir: str, version: str) -> str:
+def _load_py_module(fname: str, pkg: str = "deprecate"):
+    spec = spec_from_file_location(os.path.join(pkg, fname), os.path.join(_PATH_SOURCE, pkg, fname))
+    py = module_from_spec(spec)
+    spec.loader.exec_module(py)
+    return py
+
+
+ABOUT = _load_py_module("__about__.py")
+
+
+def _load_readme_description(path_dir: str, codebase_url: str, version: str) -> str:
+    """Load readme as description.
+
+    >>> _load_readme_description(_PATH_ROOT, "",  "")
+    '# pyDeprecate...'
+
+    """
     path_readme = os.path.join(path_dir, "README.md")
-    text = open(path_readme, encoding="utf-8").read()
+    with open(path_readme, encoding="utf-8") as fp:
+        text = fp.read()
+
+    # https://github.com/Borda/pyDeprecate/raw/main/docs/source/_static/images/...png
+    github_source_url = os.path.join(codebase_url, "raw", version)
+    # replace relative repository path to absolute link to the release
+    #  do not replace all "docs" as in the readme we replace some other sources with particular path to docs
+    text = text.replace(".assets/", f"{os.path.join(github_source_url, '.assets/')}")
+    text = text.replace(".github/", f"{os.path.join(github_source_url, '.github/')}")
+
     # codecov badge
-    text = text.replace('/branch/main/graph/badge.svg', f'/release/{version}/graph/badge.svg')
+    text = text.replace("/branch/main/graph/badge.svg", f"/release/{version}/graph/badge.svg")
     # replace github badges for release ones
-    text = text.replace('badge.svg?branch=main&event=push', f'badge.svg?tag={version}')
-    return text
+    text = text.replace("badge.svg?branch=main&event=push", f"badge.svg?tag={version}")
+
+    skip_begin = r"<!-- following section will be skipped from PyPI description -->"
+    skip_end = r"<!-- end skipping PyPI description -->"
+    # todo: wrap content as commented description
+    return re.sub(rf"{skip_begin}.+?{skip_end}", "<!--  -->", text, flags=re.IGNORECASE + re.DOTALL)
 
 
 # https://packaging.python.org/discussions/install-requires-vs-requirements /
@@ -31,42 +57,47 @@ def _load_long_description(path_dir: str, version: str) -> str:
 # the goal of the project is simplicity for researchers, don't want to add too much
 # engineer specific practices
 setup(
-    name='pyDeprecate',
-    version=deprecate.__version__,
-    description=deprecate.__docs__,
-    author=deprecate.__author__,
-    author_email=deprecate.__author_email__,
-    url=deprecate.__homepage__,
-    license=deprecate.__license__,
-    packages=find_packages(exclude=['tests', 'docs']),
-    long_description=_load_long_description(_PATH_ROOT, version=deprecate.__version__),
-    long_description_content_type='text/markdown',
+    name="pyDeprecate",
+    version=ABOUT.__version__,
+    description=ABOUT.__docs__,
+    author=ABOUT.__author__,
+    author_email=ABOUT.__author_email__,
+    url=ABOUT.__homepage__,
+    license=ABOUT.__license__,
+    package_dir={"": "src"},
+    packages=find_packages(where="src"),
+    long_description=_load_readme_description(
+        _PATH_ROOT, codebase_url=ABOUT.__source_code__, version=f"v{ABOUT.__version__}"
+    ),
+    long_description_content_type="text/markdown",
     include_package_data=True,
     zip_safe=False,
-    keywords=['python', 'development', 'deprecation'],
-    python_requires='>=3.6',
+    keywords=["python", "development", "deprecation"],
+    python_requires=">=3.9",
     setup_requires=[],
     install_requires=[],
-    project_urls={
-        "Source Code": deprecate.__source_code__,
-    },
+    project_urls={"Source Code": ABOUT.__source_code__, "Home page": ABOUT.__homepage__},
     classifiers=[
-        'Environment :: Console',
-        'Natural Language :: English',
+        "Environment :: Console",
+        "Natural Language :: English",
         # How mature is this project? Common values are
         #   3 - Alpha, 4 - Beta, 5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        "Development Status :: 5 - Production/Stable",
         # Indicate who your project is intended for
-        'Intended Audience :: Developers',
+        "Intended Audience :: Developers",
         # Pick your license as you wish
         # 'License :: OSI Approved :: BSD License',
-        'Operating System :: OS Independent',
+        "Operating System :: OS Independent",
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Topic :: Software Development :: Libraries",
     ],
 )

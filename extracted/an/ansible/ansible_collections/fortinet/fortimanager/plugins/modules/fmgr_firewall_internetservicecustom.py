@@ -16,7 +16,6 @@ short_description: Configure custom Internet Services.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -224,7 +226,7 @@ EXAMPLES = '''
           selector: "firewall_internetservicecustom"
           params:
             adom: "ansible"
-            internet-service-custom: "your_value"
+            internet_service_custom: "your_value"
 '''
 
 RETURN = '''
@@ -281,28 +283,29 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_internetservicecustom': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
             'options': {
                 'comment': {'type': 'str'},
                 'disable-entry': {
-                    'v_range': [['6.0.0', '7.2.1']],
+                    'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'list',
                     'options': {
-                        'id': {'v_range': [['6.0.0', '7.2.1']], 'type': 'int'},
+                        'id': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'int'},
                         'ip-range': {
-                            'v_range': [['6.0.0', '7.2.1']],
+                            'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
                             'type': 'list',
                             'options': {
-                                'end-ip': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                                'id': {'v_range': [['6.0.0', '7.2.1']], 'type': 'int'},
-                                'start-ip': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'}
+                                'end-ip': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                                'id': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'int'},
+                                'start-ip': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'}
                             },
                             'elements': 'dict'
                         },
-                        'port': {'v_range': [['6.0.0', '7.2.1']], 'type': 'raw'},
-                        'protocol': {'v_range': [['6.0.0', '7.2.1']], 'type': 'int'}
+                        'port': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'raw'},
+                        'protocol': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'int'}
                     },
                     'elements': 'dict'
                 },
@@ -322,7 +325,7 @@ def main():
                     },
                     'elements': 'dict'
                 },
-                'master-service-id': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
+                'master-service-id': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
                 'name': {'required': True, 'type': 'str'},
                 'reputation': {'v_range': [['6.2.0', '']], 'type': 'int'},
                 'id': {'v_range': [['6.4.2', '']], 'type': 'int'}

@@ -865,8 +865,8 @@ def pixelate(x: np.ndarray, strength: float, xrange: tuple = None) -> np.ndarray
         x = (x - xrange[0]) / (xrange[1] - xrange[0]) * 255
 
     im = Image.fromarray(x.astype('uint8'), mode='RGB')
-    im = im.resize((int(rows * strength), int(cols * strength)), Image.BOX)
-    im = im.resize((rows, cols), Image.BOX)
+    im = im.resize((int(rows * strength), int(cols * strength)), Image.Resampling.BOX)
+    im = im.resize((rows, cols), Image.Resampling.BOX)
     x_pi = np.array(im, dtype=np.float32) / 255
     x_pi = x_pi * (xrange[1] - xrange[0]) + xrange[0]
     return x_pi
@@ -895,11 +895,11 @@ def jpeg_compression(x: np.ndarray, strength: float, xrange: tuple = None) -> np
     if xrange[0] != 0 or xrange[1] != 255:
         x = (x - xrange[0]) / (xrange[1] - xrange[0]) * 255
 
-    x = Image.fromarray(x.astype('uint8'), mode='RGB')
+    x = Image.fromarray(x.astype('uint8'), mode='RGB')  # type: ignore[assignment]
     output = BytesIO()
     x.save(output, 'JPEG', quality=strength)  # type: ignore[attr-defined] # TODO: allow redefinition
-    x = Image.open(output)
-    x_jpeg = np.array(x, dtype=np.float32) / 255
+    x_image = Image.open(output)
+    x_jpeg = np.array(x_image, dtype=np.float32) / 255
     x_jpeg = x_jpeg * (xrange[1] - xrange[0]) + xrange[0]
     return x_jpeg
 

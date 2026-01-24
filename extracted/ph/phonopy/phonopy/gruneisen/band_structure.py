@@ -34,6 +34,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import gzip
 import lzma
 import sys
@@ -196,7 +198,7 @@ class GruneisenBandStructure(GruneisenBase):
                     else:
                         i += 2
         text.append("reciprocal_lattice:")
-        for vec, axis in zip(rec_lattice.T, ("a*", "b*", "c*")):
+        for vec, axis in zip(rec_lattice.T, ("a*", "b*", "c*"), strict=True):
             text.append("- [ %12.8f, %12.8f, %12.8f ] # %2s" % (tuple(vec) + (axis,)))
         text.append("natom: %-7d" % (natom))
         text.append(str(self._cell))
@@ -217,11 +219,13 @@ class GruneisenBandStructure(GruneisenBase):
 
             text.append("- nqpoint: %d" % len(qpoints))
             text.append("  phonon:")
-            for q, d, gs, freqs in zip(qpoints, distances, gamma, frequencies):
+            for q, d, gs, freqs in zip(
+                qpoints, distances, gamma, frequencies, strict=True
+            ):
                 text.append("  - q-position: [ %10.7f, %10.7f, %10.7f ]" % tuple(q))
                 text.append("    distance: %10.7f" % d)
                 text.append("    band:")
-                for i, (g, freq) in enumerate(zip(gs, freqs)):
+                for i, (g, freq) in enumerate(zip(gs, freqs, strict=True)):
                     text.append("    - # %d" % (i + 1))
                     text.append("      gruneisen: %15.10f" % g)
                     text.append("      frequency: %15.10f" % freq)
@@ -239,7 +243,7 @@ class GruneisenBandStructure(GruneisenBase):
         else:
             w.write(text)
 
-    def plot(self, axarr, epsilon=None, color_scheme=None):
+    def plot(self, axarr, epsilon: float | None = None, color_scheme=None):
         """Return pyplot of band structure calculation results."""
         for band_structure in self._paths:
             self._plot(axarr, band_structure, epsilon, color_scheme)
@@ -258,7 +262,9 @@ class GruneisenBandStructure(GruneisenBase):
         n = len(gamma.T) - 1
         ax1, ax2 = axarr
 
-        for i, (curve, freqs) in enumerate(zip(gamma.T.copy(), frequencies.T)):
+        for i, (curve, freqs) in enumerate(
+            zip(gamma.T.copy(), frequencies.T, strict=True)
+        ):
             if epsilon is not None:
                 if np.linalg.norm(qpoints[0]) < epsilon:
                     cutoff_index = 0

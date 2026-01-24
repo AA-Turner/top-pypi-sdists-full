@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: groq
-Version: 0.31.1
+Version: 1.0.0
 Summary: The official Python library for the groq API
 Project-URL: Homepage, https://github.com/groq/groq-python
 Project-URL: Repository, https://github.com/groq/groq-python
@@ -13,15 +13,15 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
@@ -30,7 +30,7 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Groq Python API library
@@ -38,7 +38,7 @@ Description-Content-Type: text/markdown
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/groq.svg?label=pypi%20(stable))](https://pypi.org/project/groq/)
 
-The Groq Python library provides convenient access to the Groq REST API from any Python 3.8+
+The Groq Python library provides convenient access to the Groq REST API from any Python 3.9+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
@@ -130,6 +130,7 @@ pip install groq[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
+import os
 import asyncio
 from groq import DefaultAioHttpClient
 from groq import AsyncGroq
@@ -137,7 +138,7 @@ from groq import AsyncGroq
 
 async def main() -> None:
     async with AsyncGroq(
-        api_key="My API Key",
+        api_key=os.environ.get("GROQ_API_KEY"),  # This is the default and can be omitted
         http_client=DefaultAioHttpClient(),
     ) as client:
         chat_completion = await client.chat.completions.create(
@@ -512,7 +513,7 @@ print(groq.__version__)
 
 ## Requirements
 
-Python 3.8 or higher.
+Python 3.9 or higher.
 
 ## Contributing
 

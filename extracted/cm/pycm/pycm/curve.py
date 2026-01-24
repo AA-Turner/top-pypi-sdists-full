@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Curve module."""
 from __future__ import division
+from typing import List, Tuple, Dict, Optional, Union, Any
 from .errors import pycmCurveError, pycmPlotError
 from .utils import threshold_func, thresholds_calc, isfloat
 from .params import *
@@ -37,24 +38,19 @@ class Curve:
 
     def __init__(
             self,
-            actual_vector,
-            probs,
-            classes,
-            thresholds=None,
-            sample_weight=None):
+            actual_vector: Union[List[Any], numpy.ndarray],
+            probs: Union[List[float], numpy.ndarray],
+            classes: List[Any],
+            thresholds: Optional[Union[List[float], numpy.ndarray]]=None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]]=None) -> None:
         """
         Init method.
 
         :param actual_vector: actual vector
-        :type actual_vector: list or numpy array of any stringable objects
         :param probs: probabilities
-        :type probs: list or numpy array
         :param classes: ordered labels of classes
-        :type classes: list
         :param thresholds: thresholds list
-        :type thresholds: list or numpy array
         :param sample_weight: sample weights list
-        :type sample_weight: list or numpy array
         """
         self.data = {}
         self.thresholds = []
@@ -80,13 +76,11 @@ class Curve:
         self.plot_y_axis = "TPR"
         self.title = "{x_axis} per {y_axis}".format(x_axis=self.plot_x_axis, y_axis=self.plot_y_axis)
 
-    def area(self, method="trapezoidal"):
+    def area(self, method: str="trapezoidal") -> Dict[str, float]:
         """
         Compute Area Under Curve (AUC) using trapezoidal or midpoint numerical integral technique.
 
         :param method: numerical integral technique (trapezoidal or midpoint)
-        :type method: str
-        :return: Area Under Curve (AUC) values of all classes as dict
         """
         for c in self.classes:
             x = self.data[c][self.plot_x_axis]
@@ -108,28 +102,21 @@ class Curve:
 
     def plot(
             self,
-            classes=None,
-            area=False,
-            area_method="trapezoidal",
-            colors=None,
-            markers=None,
-            linewidth=1):
+            classes: Optional[List[Any]]=None,
+            area: bool=False,
+            area_method: str="trapezoidal",
+            colors: Optional[List[str]]=None,
+            markers: Optional[List[str]]=None,
+            linewidth: float=1) -> "matplotlib.pyplot.Axes":
         """
         Plot the given curve.
 
         :param classes: ordered labels of classes
-        :type classes: list
         :param area: area flag
-        :type area: bool
         :param area_method: numerical integral technique (trapezoidal or midpoint)
-        :type area_method: str
         :param colors: color for each class in plot
-        :type colors: list
         :param markers: plot marker
-        :type markers: list
         :param linewidth: plot line width
-        :type linewidth: float
-        :return: plot axes
         """
         fig, ax, classes = __plot_validation__(
             self, classes, area, area_method, colors, markers)
@@ -156,12 +143,8 @@ class Curve:
         ax.legend()
         return ax
 
-    def __repr__(self):
-        """
-        Representation method.
-
-        :return: representation as str
-        """
+    def __repr__(self) -> str:
+        """Representation method."""
         return "pycm.Curve(classes: " + str(self.classes) + ")"
 
 
@@ -178,16 +161,19 @@ class ROCCurve(Curve):
     0.75
     >>> auc_trp[2]
     0.75
+    >>> optimal_thr = crv.optimal_thresholds()
+    >>> optimal_thr[1]
+    0.35
+    >>> optimal_thr[2]
+    0.2
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: list, **kwargs: dict) -> None:
         """
         Init method.
 
         :param args: positional arguments
-        :type args: list
         :param kwargs: keyword arguments
-        :type kwargs: dict
         """
         super().__init__(*args, **kwargs)
         self.plot_x_axis = "FPR"
@@ -198,13 +184,26 @@ class ROCCurve(Curve):
             self.data[c][self.plot_x_axis].append(0)
             self.data[c][self.plot_y_axis].append(0)
 
-    def __repr__(self):
-        """
-        Representation method.
-
-        :return: representation as str
-        """
+    def __repr__(self) -> str:
+        """Representation method."""
         return "pycm.ROCCurve(classes: " + str(self.classes) + ")"
+
+    def optimal_thresholds(self) -> Dict[Any, float]:
+        """
+        Get optimal thresholds for each class.
+
+        The optimal threshold is calculated based on "Closest to (0,1)" criterion (also known as the Euclidean distance
+        method or Youden's J statistic equivalent). The formula for calculating the distance is:
+        $optimal_cut_point = argmin_c √[(1-TPR(c))² + (FPR(c))²]$
+        """
+        optimal_thresholds = {}
+        for c in self.classes:
+            fpr = numpy.array(self.data[c][self.plot_x_axis])
+            tpr = numpy.array(self.data[c][self.plot_y_axis])
+            distances = numpy.sqrt(fpr ** 2 + (1 - tpr) ** 2)
+            min_index = numpy.argmin(distances)
+            optimal_thresholds[c] = self.thresholds[min_index]
+        return optimal_thresholds
 
 
 class PRCurve(Curve):
@@ -222,14 +221,12 @@ class PRCurve(Curve):
     0.29166666666666663
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: list, **kwargs: dict) -> None:
         """
         Init method.
 
         :param args: positional arguments
-        :type args: list
         :param kwargs: keyword arguments
-        :type kwargs: dict
         """
         super().__init__(*args, **kwargs)
         self.plot_x_axis = "TPR"
@@ -237,26 +234,22 @@ class PRCurve(Curve):
         self.title = "PR Curve"
         __curve_data_filter__(self)
 
-    def __repr__(self):
-        """
-        Representation method.
-
-        :return: representation as str
-        """
+    def __repr__(self) -> str:
+        """Representation method."""
         return "pycm.PRCurve(classes: " + str(self.classes) + ")"
 
 
-def __curve_validation__(curve, actual_vector, probs):
+def __curve_validation__(curve: Curve,
+                         actual_vector: Union[List[Any],
+                                              numpy.ndarray],
+                         probs: Union[List[float],
+                                      numpy.ndarray]) -> None:
     """
     Curve input validation.
 
     :param curve: curve
-    :type curve: pycm.Curve object
     :param actual_vector: actual vector
-    :type actual_vector: list or numpy array of any stringable objects
     :param probs: probabilities
-    :type probs: list or numpy array
-    :return: None
     """
     for item in [actual_vector, probs]:
         if not isinstance(item, (list, numpy.ndarray)):
@@ -272,23 +265,23 @@ def __curve_validation__(curve, actual_vector, probs):
     curve.probs = probs
 
 
-def __plot_validation__(curve, classes, area, area_method, colors, markers):
+def __plot_validation__(curve: "Curve",
+                        classes: List[Any],
+                        area: bool,
+                        area_method: str,
+                        colors: List[str],
+                        markers: List[str]) -> Tuple["matplotlib.pyplot.Figure",
+                                                     "matplotlib.pyplot.Axes",
+                                                     List[str]]:
     """
     Plot input validation.
 
     :param curve: curve
-    :type curve: pycm.Curve object
     :param classes: ordered labels of classes
-    :type classes: list
     :param area: area flag
-    :type area: bool
     :param area_method: numerical integral technique (trapezoidal or midpoint)
-    :type area_method: str
     :param colors: color for each class in plot
-    :type colors: list
     :param markers: plot marker
-    :type markers: list
-    :return: figure, axis and classes
     """
     try:
         from matplotlib import pyplot as plt
@@ -306,15 +299,12 @@ def __plot_validation__(curve, classes, area, area_method, colors, markers):
     return fig, ax, classes
 
 
-def __curve_classes_handler__(curve, classes):
+def __curve_classes_handler__(curve: "Curve", classes: List[Any]) -> None:
     """
     Handle conditions for curve classes.
 
     :param curve: curve
-    :type curve: pycm.Curve object
     :param classes: ordered labels of classes
-    :type classes: list
-    :return: None
     """
     if not isinstance(classes, list):
         raise pycmCurveError(CLASSES_TYPE_ERROR)
@@ -333,15 +323,12 @@ def __curve_classes_handler__(curve, classes):
         curve.classes = list(map(str, curve.classes))
 
 
-def __curve_thresholds_handler__(curve, thresholds):
+def __curve_thresholds_handler__(curve: "Curve", thresholds: Union[List[float], numpy.ndarray]) -> None:
     """
     Handle conditions for thresholds.
 
     :param curve: curve
-    :type curve: pycm.Curve object
     :param thresholds: thresholds list
-    :type thresholds: list or numpy array
-    :return: None
     """
     if thresholds is None:
         curve.thresholds = thresholds_calc(curve.probs)
@@ -358,13 +345,11 @@ def __curve_thresholds_handler__(curve, thresholds):
         curve.thresholds = sorted(curve.thresholds)
 
 
-def __curve_data_filter__(curve):
+def __curve_data_filter__(curve: "Curve") -> None:
     """
     Eliminate and refine the points at which the curve is undefined.
 
     :param curve: curve
-    :type curve: pycm.Curve object
-    :return: None
     """
     none_warning = False
     for c in curve.classes:
@@ -382,15 +367,13 @@ def __curve_data_filter__(curve):
         warn(CURVE_NONE_WARNING, RuntimeWarning)
 
 
-def __trapezoidal_numeric_integral__(x, y):
+def __trapezoidal_numeric_integral__(x: Union[List[float], numpy.ndarray],
+                                     y: Union[List[float], numpy.ndarray]) -> float:
     """
     Compute numeric integral using the trapezoidal rule.
 
     :param x: the x coordinate of the curve
-    :type x: list or numpy array
     :param y: the y coordinate of the curve
-    :type y: list or numpy array
-    :return: numeric integral value as float
     """
     area = numpy.trapz(y, x)
     if isinstance(area, numpy.memmap):
@@ -398,15 +381,12 @@ def __trapezoidal_numeric_integral__(x, y):
     return abs(float(area))
 
 
-def __midpoint_numeric_integral__(x, y):
+def __midpoint_numeric_integral__(x: Union[List[float], numpy.ndarray], y: Union[List[float], numpy.ndarray]) -> float:
     """
     Compute numeric integral using the midpoint rule.
 
     :param x: The x coordinate of the curve
-    :type x: list or numpy array
     :param y: The y coordinate of the curve
-    :type y: list or numpy array
-    :return: numeric integral value as float
     """
     if not isinstance(y, numpy.ndarray):
         y = numpy.array(y)

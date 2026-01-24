@@ -1,12 +1,15 @@
 from uuid import UUID
 from typing import Any, Dict, List, cast
 
+from vellum.workflows.constants import VellumIntegrationProviderType
+from vellum.workflows.graph import Graph
 from vellum.workflows.inputs import BaseInputs
 from vellum.workflows.nodes import BaseNode, InlineSubworkflowNode
 from vellum.workflows.outputs.base import BaseOutputs
 from vellum.workflows.ports.port import Port
 from vellum.workflows.references.lazy import LazyReference
 from vellum.workflows.state import BaseState
+from vellum.workflows.triggers.integration import IntegrationTrigger
 from vellum.workflows.workflows.base import BaseWorkflow
 from vellum_ee.workflows.display.base import EdgeDisplay, WorkflowInputsDisplay
 from vellum_ee.workflows.display.editor.types import NodeDisplayData, NodeDisplayPosition
@@ -26,6 +29,7 @@ def test_base_workflow_display__serialize_empty_workflow():
     exec_config = display.serialize()
 
     # THEN it should return the expected config
+    # Note: autolayout is not applied since Display.layout is not set to "auto"
     assert exec_config == {
         "input_variables": [],
         "state_variables": [],
@@ -42,7 +46,7 @@ def test_base_workflow_display__serialize_empty_workflow():
                     "data": {"label": "Entrypoint Node", "source_handle_id": "0af025a4-3b25-457d-a7ae-e3a7ba15c86c"},
                     "base": None,
                     "definition": None,
-                    "display_data": {"position": {"x": 0.0, "y": -50.0}},
+                    "display_data": {"position": {"x": 0.0, "y": 0.0}},
                     "id": "3c41cdd9-999a-48b8-9088-f6dfa1369bfd",
                     "inputs": [],
                     "type": "ENTRYPOINT",
@@ -89,6 +93,7 @@ def test_vellum_workflow_display__serialize_input_variables_with_capitalized_var
             "default": None,
             "required": True,
             "extensions": {"color": None},
+            "schema": {"type": "string"},
         }
     ]
 
@@ -126,24 +131,19 @@ def test_vellum_workflow_display_serialize_valid_handle_ids_for_base_nodes():
     edge_source_handle_ids = {edge.get("source_handle_id") for edge in edges if isinstance(edge, dict)}
     edge_target_handle_ids = {edge.get("target_handle_id") for edge in edges if isinstance(edge, dict)}
 
-    for node in nodes:
-        assert isinstance(node, dict)
+    start_node = next(
+        node for node in nodes if isinstance(node, dict) and node["type"] == "GENERIC" and node["label"] == "Start Node"
+    )
+    end_node = next(
+        node for node in nodes if isinstance(node, dict) and node["type"] == "GENERIC" and node["label"] == "End Node"
+    )
 
-        if node["type"] in {"ENTRYPOINT", "TERMINAL"}:
-            continue
+    assert isinstance(start_node["ports"], list)
+    assert isinstance(start_node["ports"][0], dict)
+    assert start_node["ports"][0]["id"] in edge_source_handle_ids
 
-        ports = node.get("ports")
-        assert isinstance(ports, list)
-        for port in ports:
-            assert isinstance(port, dict)
-            assert (
-                port["id"] in edge_source_handle_ids
-            ), f"Port {port['id']} from node {node['label']} not found in edge source handle ids"
-
-        assert isinstance(node["trigger"], dict)
-        assert (
-            node["trigger"]["id"] in edge_target_handle_ids
-        ), f"Trigger {node['trigger']['id']} from node {node['label']} not found in edge target handle ids"
+    assert isinstance(end_node["trigger"], dict)
+    assert end_node["trigger"]["id"] in edge_target_handle_ids
 
 
 def test_vellum_workflow_display__serialize_with_unused_nodes_and_edges():
@@ -230,6 +230,7 @@ def test_vellum_workflow_display__serialize_with_parse_json_expression():
     from vellum.workflows.references.constant import ConstantValueReference
 
     class JsonNode(BaseNode):
+
         class Outputs(BaseNode.Outputs):
             json_result = ConstantValueReference('{"key": "value"}').parse_json()
 
@@ -273,9 +274,10 @@ def test_vellum_workflow_display__serialize_with_parse_json_expression():
             break
 
     assert json_result == {
-        "id": "44c7d94c-a76a-4151-9b95-85a31764f18f",
+        "id": "e73fd6b1-1109-4a97-8510-c9ba8e6f5dbe",
         "name": "json_result",
         "type": "JSON",
+        "schema": {},
         "value": {
             "type": "UNARY_EXPRESSION",
             "lhs": {
@@ -293,6 +295,7 @@ def test_vellum_workflow_display__serialize_with_parse_json_expression():
 def test_serialize__port_with_lazy_reference():
     # GIVEN a node with a lazy reference in a Port
     class MyNode(BaseNode):
+
         class Ports(BaseNode.Ports):
             foo = Port.on_if(LazyReference(lambda: MyNode.Outputs.bar))
 
@@ -320,7 +323,7 @@ def test_serialize__port_with_lazy_reference():
     assert isinstance(ports, list)
     assert ports == [
         {
-            "id": "6c26bc2b-6469-47c1-b858-d63f0d311ea6",
+            "id": "02e90580-e6b6-441c-a5d4-7cd083c11fc7",
             "name": "foo",
             "type": "IF",
             "expression": {
@@ -522,3 +525,299 @@ def test_serialize_workflow_with_node_icon_and_color():
     assert test_node is not None, "TestNode not found in serialized nodes"
     assert test_node["display_data"]["icon"] == "vellum:icon:cog"
     assert test_node["display_data"]["color"] == "navy"
+
+
+def test_base_workflow_display__graph_with_trigger_and_regular_node():
+    """
+    Tests that a workflow with both a trigger edge and a regular node edge serializes correctly.
+    """
+
+    # GIVEN a workflow with a trigger and regular nodes
+    class SlackMessageTrigger(IntegrationTrigger):
+        message: str
+
+        class Config(IntegrationTrigger.Config):
+            provider = VellumIntegrationProviderType.COMPOSIO
+            integration_name = "SLACK"
+            slug = "slack_message"
+
+    class TopNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            result: str
+
+    class BottomNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            final: str
+
+    class TestWorkflow(BaseWorkflow):
+        graph = {
+            Graph.from_node(TopNode),
+            SlackMessageTrigger >> BottomNode,
+        }
+
+    # WHEN we serialize the workflow
+    workflow_display = get_workflow_display(workflow_class=TestWorkflow)
+    exec_config = workflow_display.serialize()
+
+    # THEN the serialized workflow should have the expected structure
+    workflow_raw_data = exec_config["workflow_raw_data"]
+    assert isinstance(workflow_raw_data, dict)
+
+    nodes = workflow_raw_data["nodes"]
+    edges = workflow_raw_data["edges"]
+    triggers = exec_config["triggers"]
+
+    assert isinstance(nodes, list)
+    assert isinstance(edges, list)
+    assert isinstance(triggers, list)
+
+    assert len(triggers) == 1
+    trigger = triggers[0]
+    assert isinstance(trigger, dict)
+    trigger_id = trigger["id"]
+
+    entrypoint_nodes = [n for n in nodes if isinstance(n, dict) and n.get("type") == "ENTRYPOINT"]
+    assert len(entrypoint_nodes) == 1
+    entrypoint_node = entrypoint_nodes[0]
+    assert isinstance(entrypoint_node, dict)
+    entrypoint_node_id = entrypoint_node["id"]
+
+    top_node = next(
+        (
+            node
+            for node in nodes
+            if isinstance(node, dict)
+            and isinstance(node.get("definition"), dict)
+            and cast(Dict[str, Any], node.get("definition")).get("name") == "TopNode"
+        ),
+        None,
+    )
+    bottom_node = next(
+        (
+            node
+            for node in nodes
+            if isinstance(node, dict)
+            and isinstance(node.get("definition"), dict)
+            and cast(Dict[str, Any], node.get("definition")).get("name") == "BottomNode"
+        ),
+        None,
+    )
+
+    assert top_node is not None, "TopNode not found in serialized nodes"
+    assert bottom_node is not None, "BottomNode not found in serialized nodes"
+    top_node_id = top_node["id"]
+    bottom_node_id = bottom_node["id"]
+
+    entrypoint_edges = [e for e in edges if isinstance(e, dict) and e.get("source_node_id") == entrypoint_node_id]
+    assert len(entrypoint_edges) == 1, "Should have exactly one edge from the entrypoint node"
+
+    entrypoint_edge = entrypoint_edges[0]
+    assert isinstance(entrypoint_edge, dict)
+    assert entrypoint_edge["target_node_id"] == top_node_id, "Entrypoint edge should connect to TopNode"
+
+    trigger_edges = [e for e in edges if isinstance(e, dict) and e.get("source_node_id") == trigger_id]
+    assert len(trigger_edges) == 1, "Should have exactly one edge from the trigger"
+
+    trigger_edge = trigger_edges[0]
+    assert isinstance(trigger_edge, dict)
+    assert trigger_edge["target_node_id"] == bottom_node_id, "Trigger edge should connect to BottomNode"
+
+
+def test_serialize_subworkflow_output_reference_without_display():
+    """
+    Tests that a workflow with a subworkflow node followed by a generic node
+    that references the subworkflow output can be serialized correctly without a display directory.
+    """
+
+    # GIVEN a workflow module with a subworkflow node and a follow-on node
+    module_path = "tests.workflows.subworkflow_output_reference_without_display"
+
+    # WHEN we serialize the module
+    result = BaseWorkflowDisplay.serialize_module(module_path)
+
+    # THEN it should serialize successfully
+    assert hasattr(result, "exec_config")
+    assert isinstance(result.exec_config, dict)
+    assert "workflow_raw_data" in result.exec_config
+
+    # AND the workflow should have the expected nodes
+    workflow_raw_data = result.exec_config["workflow_raw_data"]
+    assert isinstance(workflow_raw_data, dict)
+    nodes = workflow_raw_data.get("nodes")
+    assert isinstance(nodes, list)
+
+    subworkflow_node = next(
+        (
+            node
+            for node in nodes
+            if isinstance(node, dict)
+            and isinstance(node.get("definition"), dict)
+            and node.get("definition", {}).get("name") == "SubworkflowNodeExample"
+        ),
+        None,
+    )
+    followon_node = next(
+        (
+            node
+            for node in nodes
+            if isinstance(node, dict)
+            and isinstance(node.get("definition"), dict)
+            and node.get("definition", {}).get("name") == "FollowOnNode"
+        ),
+        None,
+    )
+
+    assert subworkflow_node is not None, "SubworkflowNodeExample not found in serialized nodes"
+    assert followon_node is not None, "FollowOnNode not found in serialized nodes"
+
+    # AND the subworkflow node should have output variables
+    subworkflow_data = subworkflow_node.get("data", {})
+    subworkflow_outputs = subworkflow_data.get("output_variables", [])
+    assert len(subworkflow_outputs) > 0, "SubworkflowNodeExample should have output variables"
+
+    result_output = next((out for out in subworkflow_outputs if out.get("key") == "result"), None)
+    assert result_output is not None, "SubworkflowNodeExample should have 'result' output"
+    expected_output_id = result_output["id"]
+
+    # AND the follow-on node should have an attribute that references the subworkflow output
+    followon_attributes = followon_node.get("attributes", [])
+    assert len(followon_attributes) > 0, "FollowOnNode should have attributes"
+
+    input_value_attr = next(
+        (attr for attr in followon_attributes if isinstance(attr, dict) and attr.get("name") == "input_value"), None
+    )
+
+    assert input_value_attr is not None, "input_value attribute not found in FollowOnNode"
+
+    # AND the attribute value should reference the subworkflow node's output
+    value = input_value_attr.get("value")
+    assert isinstance(value, dict)
+    assert value.get("type") == "NODE_OUTPUT"
+    assert value.get("node_id") == subworkflow_node.get("id")
+
+    # AND the node_output_id should match the actual output ID from the subworkflow
+    actual_output_id = value.get("node_output_id")
+    assert actual_output_id == expected_output_id, (
+        f"node_output_id mismatch: expected {expected_output_id}, got {actual_output_id}. "
+        "The reference to the subworkflow output is broken."
+    )
+
+
+def test_serialize_workflow__auto_layout_applied_when_display_layout_is_auto():
+    """
+    Tests that autolayout is applied when Workflow.Display.layout is set to 'auto'.
+    """
+
+    # GIVEN a workflow with Display.layout = "auto" and nodes at position (0,0)
+    class StartNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            result: str
+
+    class EndNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            final: str
+
+    class TestWorkflow(BaseWorkflow):
+        graph = StartNode >> EndNode
+
+        class Display(BaseWorkflow.Display):
+            layout = "auto"
+
+        class Outputs(BaseWorkflow.Outputs):
+            final_result = EndNode.Outputs.final
+
+    # WHEN we serialize the workflow
+    display = get_workflow_display(workflow_class=TestWorkflow)
+    serialized_workflow = display.serialize()
+
+    # THEN the nodes should have non-zero positions due to autolayout
+    workflow_raw_data = cast(Dict[str, Any], serialized_workflow["workflow_raw_data"])
+    nodes = cast(List[Dict[str, Any]], workflow_raw_data["nodes"])
+
+    generic_nodes = [n for n in nodes if n.get("type") == "GENERIC"]
+    assert len(generic_nodes) == 2
+
+    # AND at least one node should have a non-zero position from autolayout
+    has_non_zero_position = any(
+        n.get("display_data", {}).get("position", {}).get("x", 0) != 0
+        or n.get("display_data", {}).get("position", {}).get("y", 0) != 0
+        for n in generic_nodes
+    )
+    assert has_non_zero_position, "Autolayout should have repositioned at least one node"
+
+
+def test_serialize_workflow__auto_layout_not_applied_when_display_layout_is_none():
+    """
+    Tests that autolayout is NOT applied when Workflow.Display.layout is None (default).
+    """
+
+    # GIVEN a workflow without Display.layout set (defaults to None)
+    class StartNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            result: str
+
+    class EndNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            final: str
+
+    class TestWorkflow(BaseWorkflow):
+        graph = StartNode >> EndNode
+
+        class Outputs(BaseWorkflow.Outputs):
+            final_result = EndNode.Outputs.final
+
+    # WHEN we serialize the workflow
+    display = get_workflow_display(workflow_class=TestWorkflow)
+    serialized_workflow = display.serialize()
+
+    # THEN the nodes should remain at position (0,0) since autolayout is not applied
+    workflow_raw_data = cast(Dict[str, Any], serialized_workflow["workflow_raw_data"])
+    nodes = cast(List[Dict[str, Any]], workflow_raw_data["nodes"])
+
+    generic_nodes = [n for n in nodes if n.get("type") == "GENERIC"]
+    assert len(generic_nodes) == 2
+
+    # AND all nodes should have position (0,0) since autolayout was not applied
+    for node in generic_nodes:
+        position = node.get("display_data", {}).get("position", {})
+        assert position.get("x", 0) == 0, f"Node should have x=0, got {position.get('x')}"
+        assert position.get("y", 0) == 0, f"Node should have y=0, got {position.get('y')}"
+
+
+def test_serialize_workflow__custom_display_class_without_layout_attribute():
+    """
+    Tests that serialization works when a workflow defines a custom Display class
+    without the layout attribute (backward compatibility).
+    """
+
+    # GIVEN a workflow with a custom Display class that doesn't have layout attribute
+    class StartNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            result: str
+
+    class TestWorkflow(BaseWorkflow):
+        graph = StartNode
+
+        class Display:
+            # Custom Display class without layout attribute
+            custom_attribute = "some_value"
+
+        class Outputs(BaseWorkflow.Outputs):
+            final_result = StartNode.Outputs.result
+
+    # WHEN we serialize the workflow
+    display = get_workflow_display(workflow_class=TestWorkflow)
+    serialized_workflow = display.serialize()
+
+    # THEN serialization should succeed without errors
+    workflow_raw_data = cast(Dict[str, Any], serialized_workflow["workflow_raw_data"])
+    nodes = cast(List[Dict[str, Any]], workflow_raw_data["nodes"])
+
+    # AND autolayout should not be applied (since layout attribute is missing)
+    generic_nodes = [n for n in nodes if n.get("type") == "GENERIC"]
+    assert len(generic_nodes) == 1
+
+    for node in generic_nodes:
+        position = node.get("display_data", {}).get("position", {})
+        assert position.get("x", 0) == 0, f"Node should have x=0, got {position.get('x')}"
+        assert position.get("y", 0) == 0, f"Node should have y=0, got {position.get('y')}"

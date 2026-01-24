@@ -137,7 +137,6 @@ def relative_path(self: Path, other: Path, walk_up: bool = True) -> Path:
     References:
         https://github.com/python/cpython/blob/8a2baedc4bcb606da937e4e066b4b3a18961cace/Lib/pathlib/_abc.py#L244-L270
     """
-    # pdb.set_trace()
     if not isinstance(other, Path):  # pragma: no cover - ripped from cpython
         other = Path(other)
     self_parts = self.parts

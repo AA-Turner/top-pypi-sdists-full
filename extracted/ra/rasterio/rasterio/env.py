@@ -258,7 +258,8 @@ class Env:
             # always override what comes back from self.session.get_credential_options()
             # b/c __init__ might have created a session from globally exported "AWS_*" os environ variables
             parent_context_creds = self.aws_creds_from_context_options()
-            if not parent_context_creds: return
+            if not parent_context_creds:
+                return
             self.options.update(**parent_context_creds)
             setenv(**parent_context_creds)
 
@@ -475,28 +476,31 @@ class GDALVersion:
 
     major = attr.ib(default=0, validator=attr.validators.instance_of(int))
     minor = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    patch = attr.ib(default=0, validator=attr.validators.instance_of(int))
 
     def __eq__(self, other):
-        return (self.major, self.minor) == tuple(other.major, other.minor)
+        return (self.major, self.minor, self.patch) == (other.major, other.minor, other.patch)
 
     def __lt__(self, other):
-        return (self.major, self.minor) < tuple(other.major, other.minor)
+        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
 
     def __repr__(self):
-        return f"GDALVersion(major={self.major}, minor={self.minor})"
+        return f"GDALVersion(major={self.major}, minor={self.minor}, patch={self.patch})"
 
     def __str__(self):
-        return f"{self.major}.{self.minor}"
+        return f"{self.major}.{self.minor}.{self.patch}"
 
     @classmethod
-    def parse(cls, input):
+    def parse(cls, input, include_patch=False):
         """
         Parses input tuple or string to GDALVersion. If input is a GDALVersion
         instance, it is returned.
 
         Parameters
         ----------
-        input: tuple of (major, minor), string, or instance of GDALVersion
+        input: tuple of (major, minor, patch), string, or instance of GDALVersion
+        include_patch: bool, optional
+            If True, patch version is included with comparisons.
 
         Returns
         -------
@@ -506,28 +510,39 @@ class GDALVersion:
         if isinstance(input, cls):
             return input
         if isinstance(input, tuple):
+            if not include_patch:
+                input = input[:2]
             return cls(*input)
         elif isinstance(input, str):
             # Extract major and minor version components.
             # alpha, beta, rc suffixes ignored
-            match = re.search(r'^\d+\.\d+', input)
+            match = re.search(r'^(?P<major>\d+)\.(?P<minor>\d+)(\.(?P<patch>\d+))?', input)
             if not match:
                 raise ValueError(
-                    "value does not appear to be a valid GDAL version "
-                    "number: {}".format(input))
-            major, minor = (int(c) for c in match.group().split('.'))
-            return cls(major=major, minor=minor)
+                    f"value does not appear to be a valid GDAL version number: {input}"
+                )
+            version = match.groupdict()
+            major = int(version["major"])
+            minor = int(version["minor"])
+            patch = int(version["patch"]) if include_patch and version["patch"] else 0
+            return cls(major=major, minor=minor, patch=patch)
 
         raise TypeError("GDALVersion can only be parsed from a string or tuple")
 
     @classmethod
-    def runtime(cls):
+    def runtime(cls, include_patch=False):
         """Return GDALVersion of current GDAL runtime"""
-        return cls.parse(gdal_version())
+        return cls.parse(gdal_version(), include_patch=include_patch)
 
-    def at_least(self, other):
-        other = self.__class__.parse(other)
+    def at_least(self, other, include_patch=False):
+        other = self.__class__.parse(other, include_patch=include_patch)
         return self >= other
+
+
+_GDAL_RUNTIME_VERSION = GDALVersion.runtime()
+_GDAL_AT_LEAST_3_10 = _GDAL_RUNTIME_VERSION.at_least("3.10")
+_GDAL_AT_LEAST_3_11 = _GDAL_RUNTIME_VERSION.at_least("3.11")
+_GDAL_AT_LEAST_3_12_1 = GDALVersion.runtime(include_patch=True).at_least("3.12.1", include_patch=True)
 
 
 def require_gdal_version(version, param=None, values=None, is_max_version=False,
@@ -596,7 +611,7 @@ def require_gdal_version(version, param=None, values=None, is_max_version=False,
                 'require_gdal_version: values must be a tuple, list, or set')
 
     version = GDALVersion.parse(version)
-    runtime = GDALVersion.runtime()
+    runtime = _GDAL_RUNTIME_VERSION
     inequality = ">=" if runtime < version else "<="
     reason = f"\n{reason}" if reason else reason
 

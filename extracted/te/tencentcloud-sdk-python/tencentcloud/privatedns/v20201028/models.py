@@ -587,6 +587,398 @@ class AuditLogInfo(AbstractModel):
         
 
 
+class CreateExtendEndpointRequest(AbstractModel):
+    r"""CreateExtendEndpoint请求参数结构体
+
+    """
+
+
+class CreateExtendEndpointResponse(AbstractModel):
+    r"""CreateExtendEndpoint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndpointId: 终端节点id
+        :type EndpointId: str
+        :param _EndpointName: 终端节点名称
+        :type EndpointName: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._EndpointId = None
+        self._EndpointName = None
+        self._RequestId = None
+
+    @property
+    def EndpointId(self):
+        r"""终端节点id
+        :rtype: str
+        """
+        return self._EndpointId
+
+    @EndpointId.setter
+    def EndpointId(self, EndpointId):
+        self._EndpointId = EndpointId
+
+    @property
+    def EndpointName(self):
+        r"""终端节点名称
+        :rtype: str
+        """
+        return self._EndpointName
+
+    @EndpointName.setter
+    def EndpointName(self, EndpointName):
+        self._EndpointName = EndpointName
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._EndpointId = params.get("EndpointId")
+        self._EndpointName = params.get("EndpointName")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateForwardRuleRequest(AbstractModel):
+    r"""CreateForwardRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RuleName: 转发规则名称
+        :type RuleName: str
+        :param _RuleType: 转发规则类型：云上到云下DOWN，云下到云上UP
+        :type RuleType: str
+        :param _ZoneId: 私有域ID，可在私有域列表页面查看
+        :type ZoneId: str
+        :param _EndPointId: 终端节点ID
+        :type EndPointId: str
+        """
+        self._RuleName = None
+        self._RuleType = None
+        self._ZoneId = None
+        self._EndPointId = None
+
+    @property
+    def RuleName(self):
+        r"""转发规则名称
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def RuleType(self):
+        r"""转发规则类型：云上到云下DOWN，云下到云上UP
+        :rtype: str
+        """
+        return self._RuleType
+
+    @RuleType.setter
+    def RuleType(self, RuleType):
+        self._RuleType = RuleType
+
+    @property
+    def ZoneId(self):
+        r"""私有域ID，可在私有域列表页面查看
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def EndPointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndPointId
+
+    @EndPointId.setter
+    def EndPointId(self, EndPointId):
+        self._EndPointId = EndPointId
+
+
+    def _deserialize(self, params):
+        self._RuleName = params.get("RuleName")
+        self._RuleType = params.get("RuleType")
+        self._ZoneId = params.get("ZoneId")
+        self._EndPointId = params.get("EndPointId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateForwardRuleResponse(AbstractModel):
+    r"""CreateForwardRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RuleId: 转发规则ID
+        :type RuleId: str
+        :param _RuleName: 转发规则名称
+        :type RuleName: str
+        :param _RuleType: 转发规则类型
+        :type RuleType: str
+        :param _ZoneId: 私有域ID
+        :type ZoneId: str
+        :param _EndPointId: 终端节点ID
+        :type EndPointId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RuleId = None
+        self._RuleName = None
+        self._RuleType = None
+        self._ZoneId = None
+        self._EndPointId = None
+        self._RequestId = None
+
+    @property
+    def RuleId(self):
+        r"""转发规则ID
+        :rtype: str
+        """
+        return self._RuleId
+
+    @RuleId.setter
+    def RuleId(self, RuleId):
+        self._RuleId = RuleId
+
+    @property
+    def RuleName(self):
+        r"""转发规则名称
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def RuleType(self):
+        r"""转发规则类型
+        :rtype: str
+        """
+        return self._RuleType
+
+    @RuleType.setter
+    def RuleType(self, RuleType):
+        self._RuleType = RuleType
+
+    @property
+    def ZoneId(self):
+        r"""私有域ID
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def EndPointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndPointId
+
+    @EndPointId.setter
+    def EndPointId(self, EndPointId):
+        self._EndPointId = EndPointId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RuleId = params.get("RuleId")
+        self._RuleName = params.get("RuleName")
+        self._RuleType = params.get("RuleType")
+        self._ZoneId = params.get("ZoneId")
+        self._EndPointId = params.get("EndPointId")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateInboundEndpointRequest(AbstractModel):
+    r"""CreateInboundEndpoint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndpointName: 名称
+        :type EndpointName: str
+        :param _EndpointRegion: 地域
+        :type EndpointRegion: str
+        :param _EndpointVpc: vpcid
+        :type EndpointVpc: str
+        :param _SubnetIp: 子网信息
+        :type SubnetIp: list of SubnetIpInfo
+        """
+        self._EndpointName = None
+        self._EndpointRegion = None
+        self._EndpointVpc = None
+        self._SubnetIp = None
+
+    @property
+    def EndpointName(self):
+        r"""名称
+        :rtype: str
+        """
+        return self._EndpointName
+
+    @EndpointName.setter
+    def EndpointName(self, EndpointName):
+        self._EndpointName = EndpointName
+
+    @property
+    def EndpointRegion(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._EndpointRegion
+
+    @EndpointRegion.setter
+    def EndpointRegion(self, EndpointRegion):
+        self._EndpointRegion = EndpointRegion
+
+    @property
+    def EndpointVpc(self):
+        r"""vpcid
+        :rtype: str
+        """
+        return self._EndpointVpc
+
+    @EndpointVpc.setter
+    def EndpointVpc(self, EndpointVpc):
+        self._EndpointVpc = EndpointVpc
+
+    @property
+    def SubnetIp(self):
+        r"""子网信息
+        :rtype: list of SubnetIpInfo
+        """
+        return self._SubnetIp
+
+    @SubnetIp.setter
+    def SubnetIp(self, SubnetIp):
+        self._SubnetIp = SubnetIp
+
+
+    def _deserialize(self, params):
+        self._EndpointName = params.get("EndpointName")
+        self._EndpointRegion = params.get("EndpointRegion")
+        self._EndpointVpc = params.get("EndpointVpc")
+        if params.get("SubnetIp") is not None:
+            self._SubnetIp = []
+            for item in params.get("SubnetIp"):
+                obj = SubnetIpInfo()
+                obj._deserialize(item)
+                self._SubnetIp.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateInboundEndpointResponse(AbstractModel):
+    r"""CreateInboundEndpoint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndpointId: 终端节点ID
+        :type EndpointId: str
+        :param _EndpointName: 名称
+        :type EndpointName: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._EndpointId = None
+        self._EndpointName = None
+        self._RequestId = None
+
+    @property
+    def EndpointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndpointId
+
+    @EndpointId.setter
+    def EndpointId(self, EndpointId):
+        self._EndpointId = EndpointId
+
+    @property
+    def EndpointName(self):
+        r"""名称
+        :rtype: str
+        """
+        return self._EndpointName
+
+    @EndpointName.setter
+    def EndpointName(self, EndpointName):
+        self._EndpointName = EndpointName
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._EndpointId = params.get("EndpointId")
+        self._EndpointName = params.get("EndpointName")
+        self._RequestId = params.get("RequestId")
+
+
 class CreatePrivateDNSAccountRequest(AbstractModel):
     r"""CreatePrivateDNSAccount请求参数结构体
 
@@ -594,14 +986,14 @@ class CreatePrivateDNSAccountRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Account: 私有域解析账号
+        :param _Account: 私有域解析账号，该账号不能与主账号一致且需要子账号授权
         :type Account: :class:`tencentcloud.privatedns.v20201028.models.PrivateDNSAccount`
         """
         self._Account = None
 
     @property
     def Account(self):
-        r"""私有域解析账号
+        r"""私有域解析账号，该账号不能与主账号一致且需要子账号授权
         :rtype: :class:`tencentcloud.privatedns.v20201028.models.PrivateDNSAccount`
         """
         return self._Account
@@ -627,6 +1019,154 @@ class CreatePrivateDNSAccountRequest(AbstractModel):
 
 class CreatePrivateDNSAccountResponse(AbstractModel):
     r"""CreatePrivateDNSAccount返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreatePrivateZoneListRequest(AbstractModel):
+    r"""CreatePrivateZoneList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Domains: 私有域域名数组，域名格式必须是标准的TLD
+        :type Domains: list of str
+        """
+        self._Domains = None
+
+    @property
+    def Domains(self):
+        r"""私有域域名数组，域名格式必须是标准的TLD
+        :rtype: list of str
+        """
+        return self._Domains
+
+    @Domains.setter
+    def Domains(self, Domains):
+        self._Domains = Domains
+
+
+    def _deserialize(self, params):
+        self._Domains = params.get("Domains")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreatePrivateZoneListResponse(AbstractModel):
+    r"""CreatePrivateZoneList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreatePrivateZoneRecordListRequest(AbstractModel):
+    r"""CreatePrivateZoneRecordList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneIds: 私有域ID数组
+        :type ZoneIds: list of str
+        :param _RecordsInfo: 私有域解析记录数据
+        :type RecordsInfo: list of RecordsInfo
+        """
+        self._ZoneIds = None
+        self._RecordsInfo = None
+
+    @property
+    def ZoneIds(self):
+        r"""私有域ID数组
+        :rtype: list of str
+        """
+        return self._ZoneIds
+
+    @ZoneIds.setter
+    def ZoneIds(self, ZoneIds):
+        self._ZoneIds = ZoneIds
+
+    @property
+    def RecordsInfo(self):
+        r"""私有域解析记录数据
+        :rtype: list of RecordsInfo
+        """
+        return self._RecordsInfo
+
+    @RecordsInfo.setter
+    def RecordsInfo(self, RecordsInfo):
+        self._RecordsInfo = RecordsInfo
+
+
+    def _deserialize(self, params):
+        self._ZoneIds = params.get("ZoneIds")
+        if params.get("RecordsInfo") is not None:
+            self._RecordsInfo = []
+            for item in params.get("RecordsInfo"):
+                obj = RecordsInfo()
+                obj._deserialize(item)
+                self._RecordsInfo.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreatePrivateZoneRecordListResponse(AbstractModel):
+    r"""CreatePrivateZoneRecordList返回参数结构体
 
     """
 
@@ -1109,6 +1649,198 @@ class DatePoint(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class DeleteEndPointRequest(AbstractModel):
+    r"""DeleteEndPoint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndPointId: 终端节点ID
+        :type EndPointId: str
+        """
+        self._EndPointId = None
+
+    @property
+    def EndPointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndPointId
+
+    @EndPointId.setter
+    def EndPointId(self, EndPointId):
+        self._EndPointId = EndPointId
+
+
+    def _deserialize(self, params):
+        self._EndPointId = params.get("EndPointId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteEndPointResponse(AbstractModel):
+    r"""DeleteEndPoint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteForwardRuleRequest(AbstractModel):
+    r"""DeleteForwardRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RuleIdSet: 转发规则ID数组
+        :type RuleIdSet: list of str
+        """
+        self._RuleIdSet = None
+
+    @property
+    def RuleIdSet(self):
+        r"""转发规则ID数组
+        :rtype: list of str
+        """
+        return self._RuleIdSet
+
+    @RuleIdSet.setter
+    def RuleIdSet(self, RuleIdSet):
+        self._RuleIdSet = RuleIdSet
+
+
+    def _deserialize(self, params):
+        self._RuleIdSet = params.get("RuleIdSet")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteForwardRuleResponse(AbstractModel):
+    r"""DeleteForwardRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteInboundEndpointRequest(AbstractModel):
+    r"""DeleteInboundEndpoint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndpointId: 终端节点ID
+        :type EndpointId: str
+        """
+        self._EndpointId = None
+
+    @property
+    def EndpointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndpointId
+
+    @EndpointId.setter
+    def EndpointId(self, EndpointId):
+        self._EndpointId = EndpointId
+
+
+    def _deserialize(self, params):
+        self._EndpointId = params.get("EndpointId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteInboundEndpointResponse(AbstractModel):
+    r"""DeleteInboundEndpoint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class DeletePrivateDNSAccountRequest(AbstractModel):
@@ -1632,9 +2364,9 @@ class DescribeAccountVpcListResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TotalCount: VPC数量
+        :param _TotalCount: 关联账号VPC数量
         :type TotalCount: int
-        :param _VpcSet: VPC 列表
+        :param _VpcSet: 关联账号VPC 列表
         :type VpcSet: list of AccountVpcInfoOut
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -1645,7 +2377,7 @@ class DescribeAccountVpcListResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""VPC数量
+        r"""关联账号VPC数量
         :rtype: int
         """
         return self._TotalCount
@@ -1656,7 +2388,7 @@ class DescribeAccountVpcListResponse(AbstractModel):
 
     @property
     def VpcSet(self):
-        r"""VPC 列表
+        r"""关联账号VPC 列表
         :rtype: list of AccountVpcInfoOut
         """
         return self._VpcSet
@@ -1837,6 +2569,198 @@ class DescribeAuditLogResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeCreateRecordListResultRequest(AbstractModel):
+    r"""DescribeCreateRecordListResult请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneIds: 私有域ID数组
+        :type ZoneIds: list of str
+        :param _RecordsInfo: 私有域解析记录数据
+        :type RecordsInfo: list of RecordsInfo
+        """
+        self._ZoneIds = None
+        self._RecordsInfo = None
+
+    @property
+    def ZoneIds(self):
+        r"""私有域ID数组
+        :rtype: list of str
+        """
+        return self._ZoneIds
+
+    @ZoneIds.setter
+    def ZoneIds(self, ZoneIds):
+        self._ZoneIds = ZoneIds
+
+    @property
+    def RecordsInfo(self):
+        r"""私有域解析记录数据
+        :rtype: list of RecordsInfo
+        """
+        return self._RecordsInfo
+
+    @RecordsInfo.setter
+    def RecordsInfo(self, RecordsInfo):
+        self._RecordsInfo = RecordsInfo
+
+
+    def _deserialize(self, params):
+        self._ZoneIds = params.get("ZoneIds")
+        if params.get("RecordsInfo") is not None:
+            self._RecordsInfo = []
+            for item in params.get("RecordsInfo"):
+                obj = RecordsInfo()
+                obj._deserialize(item)
+                self._RecordsInfo.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeCreateRecordListResultResponse(AbstractModel):
+    r"""DescribeCreateRecordListResult返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RecordsResult: 批量添加解析记录结果
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RecordsResult: list of RecordsInfoResult
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RecordsResult = None
+        self._RequestId = None
+
+    @property
+    def RecordsResult(self):
+        r"""批量添加解析记录结果
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of RecordsInfoResult
+        """
+        return self._RecordsResult
+
+    @RecordsResult.setter
+    def RecordsResult(self, RecordsResult):
+        self._RecordsResult = RecordsResult
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("RecordsResult") is not None:
+            self._RecordsResult = []
+            for item in params.get("RecordsResult"):
+                obj = RecordsInfoResult()
+                obj._deserialize(item)
+                self._RecordsResult.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeCreateZoneListResultRequest(AbstractModel):
+    r"""DescribeCreateZoneListResult请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Domains: 私有域域名数组，域名格式必须是标准的TLD
+        :type Domains: list of str
+        """
+        self._Domains = None
+
+    @property
+    def Domains(self):
+        r"""私有域域名数组，域名格式必须是标准的TLD
+        :rtype: list of str
+        """
+        return self._Domains
+
+    @Domains.setter
+    def Domains(self, Domains):
+        self._Domains = Domains
+
+
+    def _deserialize(self, params):
+        self._Domains = params.get("Domains")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeCreateZoneListResultResponse(AbstractModel):
+    r"""DescribeCreateZoneListResult返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZonesInfo: 私有域域名和zoneId
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ZonesInfo: list of ZoneInfo
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ZonesInfo = None
+        self._RequestId = None
+
+    @property
+    def ZonesInfo(self):
+        r"""私有域域名和zoneId
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of ZoneInfo
+        """
+        return self._ZonesInfo
+
+    @ZonesInfo.setter
+    def ZonesInfo(self, ZonesInfo):
+        self._ZonesInfo = ZonesInfo
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ZonesInfo") is not None:
+            self._ZonesInfo = []
+            for item in params.get("ZonesInfo"):
+                obj = ZoneInfo()
+                obj._deserialize(item)
+                self._ZonesInfo.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeDashboardRequest(AbstractModel):
     r"""DescribeDashboard请求参数结构体
 
@@ -1933,6 +2857,373 @@ class DescribeDashboardResponse(AbstractModel):
                 obj = FlowUsage()
                 obj._deserialize(item)
                 self._FlowUsage.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeExtendEndpointListRequest(AbstractModel):
+    r"""DescribeExtendEndpointList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 分页偏移量，从0开始
+        :type Offset: int
+        :param _Limit: 分页限制数目， 最大100，默认20
+        :type Limit: int
+        :param _Filters: 过滤参数，支持EndpointName,EndpointId
+        :type Filters: list of Filter
+        """
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""分页偏移量，从0开始
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""分页限制数目， 最大100，默认20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""过滤参数，支持EndpointName,EndpointId
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeExtendEndpointListResponse(AbstractModel):
+    r"""DescribeExtendEndpointList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeForwardRuleListRequest(AbstractModel):
+    r"""DescribeForwardRuleList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 分页偏移量，从0开始
+        :type Offset: int
+        :param _Limit: 分页限制数目， 最大100，默认20
+        :type Limit: int
+        :param _Filters: 过滤参数
+        :type Filters: list of Filter
+        """
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""分页偏移量，从0开始
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""分页限制数目， 最大100，默认20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""过滤参数
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeForwardRuleListResponse(AbstractModel):
+    r"""DescribeForwardRuleList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 私有域数量
+        :type TotalCount: int
+        :param _ForwardRuleSet: 私有域列表
+        :type ForwardRuleSet: list of ForwardRule
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._ForwardRuleSet = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""私有域数量
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def ForwardRuleSet(self):
+        r"""私有域列表
+        :rtype: list of ForwardRule
+        """
+        return self._ForwardRuleSet
+
+    @ForwardRuleSet.setter
+    def ForwardRuleSet(self, ForwardRuleSet):
+        self._ForwardRuleSet = ForwardRuleSet
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("ForwardRuleSet") is not None:
+            self._ForwardRuleSet = []
+            for item in params.get("ForwardRuleSet"):
+                obj = ForwardRule()
+                obj._deserialize(item)
+                self._ForwardRuleSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeInboundEndpointListRequest(AbstractModel):
+    r"""DescribeInboundEndpointList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 分页偏移量，从0开始
+        :type Offset: int
+        :param _Limit: 分页限制数目， 最大100，默认20
+        :type Limit: int
+        :param _Filters: 过滤参数，支持EndPointName，EndpointName，EndPointId
+        :type Filters: list of Filter
+        """
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""分页偏移量，从0开始
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""分页限制数目， 最大100，默认20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""过滤参数，支持EndPointName，EndpointName，EndPointId
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeInboundEndpointListResponse(AbstractModel):
+    r"""DescribeInboundEndpointList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 总数
+        :type TotalCount: int
+        :param _InboundEndpointSet: 终端节点信息
+        :type InboundEndpointSet: list of InboundEndpointSet
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._InboundEndpointSet = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def InboundEndpointSet(self):
+        r"""终端节点信息
+        :rtype: list of InboundEndpointSet
+        """
+        return self._InboundEndpointSet
+
+    @InboundEndpointSet.setter
+    def InboundEndpointSet(self, InboundEndpointSet):
+        self._InboundEndpointSet = InboundEndpointSet
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("InboundEndpointSet") is not None:
+            self._InboundEndpointSet = []
+            for item in params.get("InboundEndpointSet"):
+                obj = InboundEndpointSet()
+                obj._deserialize(item)
+                self._InboundEndpointSet.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -2794,6 +4085,117 @@ class DescribeRequestDataResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class EndPointServiceInfo(AbstractModel):
+    r"""终端节点信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndPointVip: ip
+        :type EndPointVip: str
+        :param _UniqSubnetId: 子网id
+        :type UniqSubnetId: str
+        :param _EndPointState: 网络侧状态，0 可用，1 待接受，3 拒绝
+        :type EndPointState: int
+        :param _EndPointStatus: 状态，1表示可用，0表示删除
+        :type EndPointStatus: int
+        :param _EndPointRemark: 备注信息
+        :type EndPointRemark: str
+        :param _EndPointIsolateFlag: 网络侧隔离状态，1：已隔离，0：未隔离
+        :type EndPointIsolateFlag: int
+        """
+        self._EndPointVip = None
+        self._UniqSubnetId = None
+        self._EndPointState = None
+        self._EndPointStatus = None
+        self._EndPointRemark = None
+        self._EndPointIsolateFlag = None
+
+    @property
+    def EndPointVip(self):
+        r"""ip
+        :rtype: str
+        """
+        return self._EndPointVip
+
+    @EndPointVip.setter
+    def EndPointVip(self, EndPointVip):
+        self._EndPointVip = EndPointVip
+
+    @property
+    def UniqSubnetId(self):
+        r"""子网id
+        :rtype: str
+        """
+        return self._UniqSubnetId
+
+    @UniqSubnetId.setter
+    def UniqSubnetId(self, UniqSubnetId):
+        self._UniqSubnetId = UniqSubnetId
+
+    @property
+    def EndPointState(self):
+        r"""网络侧状态，0 可用，1 待接受，3 拒绝
+        :rtype: int
+        """
+        return self._EndPointState
+
+    @EndPointState.setter
+    def EndPointState(self, EndPointState):
+        self._EndPointState = EndPointState
+
+    @property
+    def EndPointStatus(self):
+        r"""状态，1表示可用，0表示删除
+        :rtype: int
+        """
+        return self._EndPointStatus
+
+    @EndPointStatus.setter
+    def EndPointStatus(self, EndPointStatus):
+        self._EndPointStatus = EndPointStatus
+
+    @property
+    def EndPointRemark(self):
+        r"""备注信息
+        :rtype: str
+        """
+        return self._EndPointRemark
+
+    @EndPointRemark.setter
+    def EndPointRemark(self, EndPointRemark):
+        self._EndPointRemark = EndPointRemark
+
+    @property
+    def EndPointIsolateFlag(self):
+        r"""网络侧隔离状态，1：已隔离，0：未隔离
+        :rtype: int
+        """
+        return self._EndPointIsolateFlag
+
+    @EndPointIsolateFlag.setter
+    def EndPointIsolateFlag(self, EndPointIsolateFlag):
+        self._EndPointIsolateFlag = EndPointIsolateFlag
+
+
+    def _deserialize(self, params):
+        self._EndPointVip = params.get("EndPointVip")
+        self._UniqSubnetId = params.get("UniqSubnetId")
+        self._EndPointState = params.get("EndPointState")
+        self._EndPointStatus = params.get("EndPointStatus")
+        self._EndPointRemark = params.get("EndPointRemark")
+        self._EndPointIsolateFlag = params.get("EndPointIsolateFlag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class Filter(AbstractModel):
     r"""筛选参数
 
@@ -2911,6 +4313,333 @@ class FlowUsage(AbstractModel):
         
 
 
+class ForwardRule(AbstractModel):
+    r"""转发规则详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Domain: 私有域名
+        :type Domain: str
+        :param _RuleName: 转发规则名称
+        :type RuleName: str
+        :param _RuleId: 规则id
+        :type RuleId: str
+        :param _RuleType: 转发规则类型：云上到云下DOWN、云下到云上DOWN
+        :type RuleType: str
+        :param _CreatedAt: 创建时间
+        :type CreatedAt: str
+        :param _UpdatedAt: 更新时间
+        :type UpdatedAt: str
+        :param _EndPointName: 终端节点名称
+        :type EndPointName: str
+        :param _EndPointId: 终端节点ID
+        :type EndPointId: str
+        :param _ForwardAddress: 转发地址
+        :type ForwardAddress: list of str
+        :param _VpcSet: 私有域绑定的vpc列表
+        :type VpcSet: list of VpcInfo
+        :param _ZoneId: 绑定的私有域ID
+        :type ZoneId: str
+        :param _Tags: 标签
+        :type Tags: list of TagInfo
+        """
+        self._Domain = None
+        self._RuleName = None
+        self._RuleId = None
+        self._RuleType = None
+        self._CreatedAt = None
+        self._UpdatedAt = None
+        self._EndPointName = None
+        self._EndPointId = None
+        self._ForwardAddress = None
+        self._VpcSet = None
+        self._ZoneId = None
+        self._Tags = None
+
+    @property
+    def Domain(self):
+        r"""私有域名
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def RuleName(self):
+        r"""转发规则名称
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def RuleId(self):
+        r"""规则id
+        :rtype: str
+        """
+        return self._RuleId
+
+    @RuleId.setter
+    def RuleId(self, RuleId):
+        self._RuleId = RuleId
+
+    @property
+    def RuleType(self):
+        r"""转发规则类型：云上到云下DOWN、云下到云上DOWN
+        :rtype: str
+        """
+        return self._RuleType
+
+    @RuleType.setter
+    def RuleType(self, RuleType):
+        self._RuleType = RuleType
+
+    @property
+    def CreatedAt(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreatedAt
+
+    @CreatedAt.setter
+    def CreatedAt(self, CreatedAt):
+        self._CreatedAt = CreatedAt
+
+    @property
+    def UpdatedAt(self):
+        r"""更新时间
+        :rtype: str
+        """
+        return self._UpdatedAt
+
+    @UpdatedAt.setter
+    def UpdatedAt(self, UpdatedAt):
+        self._UpdatedAt = UpdatedAt
+
+    @property
+    def EndPointName(self):
+        r"""终端节点名称
+        :rtype: str
+        """
+        return self._EndPointName
+
+    @EndPointName.setter
+    def EndPointName(self, EndPointName):
+        self._EndPointName = EndPointName
+
+    @property
+    def EndPointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndPointId
+
+    @EndPointId.setter
+    def EndPointId(self, EndPointId):
+        self._EndPointId = EndPointId
+
+    @property
+    def ForwardAddress(self):
+        r"""转发地址
+        :rtype: list of str
+        """
+        return self._ForwardAddress
+
+    @ForwardAddress.setter
+    def ForwardAddress(self, ForwardAddress):
+        self._ForwardAddress = ForwardAddress
+
+    @property
+    def VpcSet(self):
+        r"""私有域绑定的vpc列表
+        :rtype: list of VpcInfo
+        """
+        return self._VpcSet
+
+    @VpcSet.setter
+    def VpcSet(self, VpcSet):
+        self._VpcSet = VpcSet
+
+    @property
+    def ZoneId(self):
+        r"""绑定的私有域ID
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Tags(self):
+        r"""标签
+        :rtype: list of TagInfo
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+
+    def _deserialize(self, params):
+        self._Domain = params.get("Domain")
+        self._RuleName = params.get("RuleName")
+        self._RuleId = params.get("RuleId")
+        self._RuleType = params.get("RuleType")
+        self._CreatedAt = params.get("CreatedAt")
+        self._UpdatedAt = params.get("UpdatedAt")
+        self._EndPointName = params.get("EndPointName")
+        self._EndPointId = params.get("EndPointId")
+        self._ForwardAddress = params.get("ForwardAddress")
+        if params.get("VpcSet") is not None:
+            self._VpcSet = []
+            for item in params.get("VpcSet"):
+                obj = VpcInfo()
+                obj._deserialize(item)
+                self._VpcSet.append(obj)
+        self._ZoneId = params.get("ZoneId")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = TagInfo()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class InboundEndpointSet(AbstractModel):
+    r"""终端节点信息列表
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndPointId: 终端节点ID
+        :type EndPointId: str
+        :param _EndPointName: 名称
+        :type EndPointName: str
+        :param _UniqVpcId: vpcid
+        :type UniqVpcId: str
+        :param _CreatedAt: 创建时间
+        :type CreatedAt: str
+        :param _UpdatedAt: 更新时间
+        :type UpdatedAt: str
+        :param _EndPointService: 终端节点信息
+        :type EndPointService: list of EndPointServiceInfo
+        """
+        self._EndPointId = None
+        self._EndPointName = None
+        self._UniqVpcId = None
+        self._CreatedAt = None
+        self._UpdatedAt = None
+        self._EndPointService = None
+
+    @property
+    def EndPointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndPointId
+
+    @EndPointId.setter
+    def EndPointId(self, EndPointId):
+        self._EndPointId = EndPointId
+
+    @property
+    def EndPointName(self):
+        r"""名称
+        :rtype: str
+        """
+        return self._EndPointName
+
+    @EndPointName.setter
+    def EndPointName(self, EndPointName):
+        self._EndPointName = EndPointName
+
+    @property
+    def UniqVpcId(self):
+        r"""vpcid
+        :rtype: str
+        """
+        return self._UniqVpcId
+
+    @UniqVpcId.setter
+    def UniqVpcId(self, UniqVpcId):
+        self._UniqVpcId = UniqVpcId
+
+    @property
+    def CreatedAt(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreatedAt
+
+    @CreatedAt.setter
+    def CreatedAt(self, CreatedAt):
+        self._CreatedAt = CreatedAt
+
+    @property
+    def UpdatedAt(self):
+        r"""更新时间
+        :rtype: str
+        """
+        return self._UpdatedAt
+
+    @UpdatedAt.setter
+    def UpdatedAt(self, UpdatedAt):
+        self._UpdatedAt = UpdatedAt
+
+    @property
+    def EndPointService(self):
+        r"""终端节点信息
+        :rtype: list of EndPointServiceInfo
+        """
+        return self._EndPointService
+
+    @EndPointService.setter
+    def EndPointService(self, EndPointService):
+        self._EndPointService = EndPointService
+
+
+    def _deserialize(self, params):
+        self._EndPointId = params.get("EndPointId")
+        self._EndPointName = params.get("EndPointName")
+        self._UniqVpcId = params.get("UniqVpcId")
+        self._CreatedAt = params.get("CreatedAt")
+        self._UpdatedAt = params.get("UpdatedAt")
+        if params.get("EndPointService") is not None:
+            self._EndPointService = []
+            for item in params.get("EndPointService"):
+                obj = EndPointServiceInfo()
+                obj._deserialize(item)
+                self._EndPointService.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class MetricData(AbstractModel):
     r"""统计数据表
 
@@ -2995,6 +4724,179 @@ class MetricData(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class ModifyForwardRuleRequest(AbstractModel):
+    r"""ModifyForwardRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RuleId: 转发规则ID
+        :type RuleId: str
+        :param _RuleName: 转发规则名称
+        :type RuleName: str
+        :param _EndPointId: 终端节点ID
+        :type EndPointId: str
+        """
+        self._RuleId = None
+        self._RuleName = None
+        self._EndPointId = None
+
+    @property
+    def RuleId(self):
+        r"""转发规则ID
+        :rtype: str
+        """
+        return self._RuleId
+
+    @RuleId.setter
+    def RuleId(self, RuleId):
+        self._RuleId = RuleId
+
+    @property
+    def RuleName(self):
+        r"""转发规则名称
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def EndPointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndPointId
+
+    @EndPointId.setter
+    def EndPointId(self, EndPointId):
+        self._EndPointId = EndPointId
+
+
+    def _deserialize(self, params):
+        self._RuleId = params.get("RuleId")
+        self._RuleName = params.get("RuleName")
+        self._EndPointId = params.get("EndPointId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyForwardRuleResponse(AbstractModel):
+    r"""ModifyForwardRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyInboundEndpointRequest(AbstractModel):
+    r"""ModifyInboundEndpoint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndpointId: 终端节点ID
+        :type EndpointId: str
+        :param _EndpointName: 终端节点名称
+        :type EndpointName: str
+        """
+        self._EndpointId = None
+        self._EndpointName = None
+
+    @property
+    def EndpointId(self):
+        r"""终端节点ID
+        :rtype: str
+        """
+        return self._EndpointId
+
+    @EndpointId.setter
+    def EndpointId(self, EndpointId):
+        self._EndpointId = EndpointId
+
+    @property
+    def EndpointName(self):
+        r"""终端节点名称
+        :rtype: str
+        """
+        return self._EndpointName
+
+    @EndpointName.setter
+    def EndpointName(self, EndpointName):
+        self._EndpointName = EndpointName
+
+
+    def _deserialize(self, params):
+        self._EndpointId = params.get("EndpointId")
+        self._EndpointName = params.get("EndpointName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyInboundEndpointResponse(AbstractModel):
+    r"""ModifyInboundEndpoint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class ModifyPrivateZoneRecordRequest(AbstractModel):
@@ -4518,6 +6420,413 @@ class RecordInfo(AbstractModel):
         
 
 
+class RecordsInfo(AbstractModel):
+    r"""私有域解析记录信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RecordType: 记录类型，可选的记录类型为："A", "AAAA", "CNAME", "MX", "TXT", "PTR"
+        :type RecordType: str
+        :param _SubDomain: 子域名，例如 "www", "m", "@"
+        :type SubDomain: str
+        :param _RecordValue: 记录值，例如 IP：192.168.10.2，CNAME：cname.qcloud.com.，MX：mail.qcloud.com.
+        :type RecordValue: str
+        :param _Weight: 记录权重，值为1-100
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Weight: int
+        :param _TTL: 记录缓存时间，数值越小生效越快，取值1-86400s, 默认 600
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TTL: int
+        :param _MX: MX优先级：记录类型为MX时必填。取值范围：5,10,15,20,30,40,50
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MX: int
+        """
+        self._RecordType = None
+        self._SubDomain = None
+        self._RecordValue = None
+        self._Weight = None
+        self._TTL = None
+        self._MX = None
+
+    @property
+    def RecordType(self):
+        r"""记录类型，可选的记录类型为："A", "AAAA", "CNAME", "MX", "TXT", "PTR"
+        :rtype: str
+        """
+        return self._RecordType
+
+    @RecordType.setter
+    def RecordType(self, RecordType):
+        self._RecordType = RecordType
+
+    @property
+    def SubDomain(self):
+        r"""子域名，例如 "www", "m", "@"
+        :rtype: str
+        """
+        return self._SubDomain
+
+    @SubDomain.setter
+    def SubDomain(self, SubDomain):
+        self._SubDomain = SubDomain
+
+    @property
+    def RecordValue(self):
+        r"""记录值，例如 IP：192.168.10.2，CNAME：cname.qcloud.com.，MX：mail.qcloud.com.
+        :rtype: str
+        """
+        return self._RecordValue
+
+    @RecordValue.setter
+    def RecordValue(self, RecordValue):
+        self._RecordValue = RecordValue
+
+    @property
+    def Weight(self):
+        r"""记录权重，值为1-100
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+    @property
+    def TTL(self):
+        r"""记录缓存时间，数值越小生效越快，取值1-86400s, 默认 600
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TTL
+
+    @TTL.setter
+    def TTL(self, TTL):
+        self._TTL = TTL
+
+    @property
+    def MX(self):
+        r"""MX优先级：记录类型为MX时必填。取值范围：5,10,15,20,30,40,50
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._MX
+
+    @MX.setter
+    def MX(self, MX):
+        self._MX = MX
+
+
+    def _deserialize(self, params):
+        self._RecordType = params.get("RecordType")
+        self._SubDomain = params.get("SubDomain")
+        self._RecordValue = params.get("RecordValue")
+        self._Weight = params.get("Weight")
+        self._TTL = params.get("TTL")
+        self._MX = params.get("MX")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RecordsInfoResult(AbstractModel):
+    r"""批量添加解析记录返回结果
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 私有域ID
+        :type ZoneId: str
+        :param _Domain: 私有域域名
+        :type Domain: str
+        :param _RecordsStatus: 私有域解析记录创建结果
+        :type RecordsStatus: list of RecordsInfoStatus
+        :param _Remark: 备注
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Remark: str
+        """
+        self._ZoneId = None
+        self._Domain = None
+        self._RecordsStatus = None
+        self._Remark = None
+
+    @property
+    def ZoneId(self):
+        r"""私有域ID
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Domain(self):
+        r"""私有域域名
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def RecordsStatus(self):
+        r"""私有域解析记录创建结果
+        :rtype: list of RecordsInfoStatus
+        """
+        return self._RecordsStatus
+
+    @RecordsStatus.setter
+    def RecordsStatus(self, RecordsStatus):
+        self._RecordsStatus = RecordsStatus
+
+    @property
+    def Remark(self):
+        r"""备注
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Remark
+
+    @Remark.setter
+    def Remark(self, Remark):
+        self._Remark = Remark
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Domain = params.get("Domain")
+        if params.get("RecordsStatus") is not None:
+            self._RecordsStatus = []
+            for item in params.get("RecordsStatus"):
+                obj = RecordsInfoStatus()
+                obj._deserialize(item)
+                self._RecordsStatus.append(obj)
+        self._Remark = params.get("Remark")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RecordsInfoStatus(AbstractModel):
+    r"""批量添加解析记录结果
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RecordType: 记录类型，可选的记录类型为："A", "AAAA", "CNAME", "MX", "TXT", "PTR"
+        :type RecordType: str
+        :param _SubDomain: 子域名，例如 "www", "m", "@"
+        :type SubDomain: str
+        :param _RecordValue: 记录值，例如 IP：192.168.10.2，CNAME：cname.qcloud.com.，MX：mail.qcloud.com.
+        :type RecordValue: str
+        :param _Weight: 记录权重，值为1-100
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Weight: int
+        :param _TTL: 记录缓存时间，数值越小生效越快，取值1-86400s, 默认 600
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TTL: int
+        :param _MX: MX优先级：记录类型为MX时必填。取值范围：5,10,15,20,30,40,50
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MX: int
+        :param _Status: 是否添加成功：0是失败，1是成功
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Status: int
+        :param _Message: 若status为0，则此处为失败原因描述
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Message: str
+        """
+        self._RecordType = None
+        self._SubDomain = None
+        self._RecordValue = None
+        self._Weight = None
+        self._TTL = None
+        self._MX = None
+        self._Status = None
+        self._Message = None
+
+    @property
+    def RecordType(self):
+        r"""记录类型，可选的记录类型为："A", "AAAA", "CNAME", "MX", "TXT", "PTR"
+        :rtype: str
+        """
+        return self._RecordType
+
+    @RecordType.setter
+    def RecordType(self, RecordType):
+        self._RecordType = RecordType
+
+    @property
+    def SubDomain(self):
+        r"""子域名，例如 "www", "m", "@"
+        :rtype: str
+        """
+        return self._SubDomain
+
+    @SubDomain.setter
+    def SubDomain(self, SubDomain):
+        self._SubDomain = SubDomain
+
+    @property
+    def RecordValue(self):
+        r"""记录值，例如 IP：192.168.10.2，CNAME：cname.qcloud.com.，MX：mail.qcloud.com.
+        :rtype: str
+        """
+        return self._RecordValue
+
+    @RecordValue.setter
+    def RecordValue(self, RecordValue):
+        self._RecordValue = RecordValue
+
+    @property
+    def Weight(self):
+        r"""记录权重，值为1-100
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+    @property
+    def TTL(self):
+        r"""记录缓存时间，数值越小生效越快，取值1-86400s, 默认 600
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TTL
+
+    @TTL.setter
+    def TTL(self, TTL):
+        self._TTL = TTL
+
+    @property
+    def MX(self):
+        r"""MX优先级：记录类型为MX时必填。取值范围：5,10,15,20,30,40,50
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._MX
+
+    @MX.setter
+    def MX(self, MX):
+        self._MX = MX
+
+    @property
+    def Status(self):
+        r"""是否添加成功：0是失败，1是成功
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Message(self):
+        r"""若status为0，则此处为失败原因描述
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+
+    def _deserialize(self, params):
+        self._RecordType = params.get("RecordType")
+        self._SubDomain = params.get("SubDomain")
+        self._RecordValue = params.get("RecordValue")
+        self._Weight = params.get("Weight")
+        self._TTL = params.get("TTL")
+        self._MX = params.get("MX")
+        self._Status = params.get("Status")
+        self._Message = params.get("Message")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SubnetIpInfo(AbstractModel):
+    r"""终端节点信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubnetId: 子网ID
+        :type SubnetId: str
+        :param _SubnetVip: ip
+        :type SubnetVip: str
+        """
+        self._SubnetId = None
+        self._SubnetVip = None
+
+    @property
+    def SubnetId(self):
+        r"""子网ID
+        :rtype: str
+        """
+        return self._SubnetId
+
+    @SubnetId.setter
+    def SubnetId(self, SubnetId):
+        self._SubnetId = SubnetId
+
+    @property
+    def SubnetVip(self):
+        r"""ip
+        :rtype: str
+        """
+        return self._SubnetVip
+
+    @SubnetVip.setter
+    def SubnetVip(self, SubnetVip):
+        self._SubnetVip = SubnetVip
+
+
+    def _deserialize(self, params):
+        self._SubnetId = params.get("SubnetId")
+        self._SubnetVip = params.get("SubnetVip")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class SubscribePrivateZoneServiceRequest(AbstractModel):
     r"""SubscribePrivateZoneService请求参数结构体
 
@@ -4740,6 +7049,76 @@ class VpcInfo(AbstractModel):
     def _deserialize(self, params):
         self._UniqVpcId = params.get("UniqVpcId")
         self._Region = params.get("Region")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ZoneInfo(AbstractModel):
+    r"""创建私有域成功后返回私有域信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 私有域ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ZoneId: str
+        :param _Domain: 私有域域名
+        :type Domain: str
+        :param _Reason: 失败原因
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Reason: str
+        """
+        self._ZoneId = None
+        self._Domain = None
+        self._Reason = None
+
+    @property
+    def ZoneId(self):
+        r"""私有域ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Domain(self):
+        r"""私有域域名
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def Reason(self):
+        r"""失败原因
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Domain = params.get("Domain")
+        self._Reason = params.get("Reason")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

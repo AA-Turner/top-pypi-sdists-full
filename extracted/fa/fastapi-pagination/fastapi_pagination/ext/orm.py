@@ -1,6 +1,6 @@
 __all__ = ["apaginate", "paginate"]
 
-from typing import Any, Optional
+from typing import Any
 
 from orm.models import QuerySet
 from typing_extensions import deprecated
@@ -15,11 +15,11 @@ from fastapi_pagination.types import AdditionalData, AsyncItemsTransformer
 
 async def apaginate(
     query: QuerySet,
-    params: Optional[AbstractParams] = None,
+    params: AbstractParams | None = None,
     *,
-    transformer: Optional[AsyncItemsTransformer] = None,
-    additional_data: Optional[AdditionalData] = None,
-    config: Optional[Config] = None,
+    transformer: AsyncItemsTransformer | None = None,
+    additional_data: AdditionalData | None = None,
+    config: Config | None = None,
 ) -> Any:
     return await run_async_flow(
         generic_flow(
@@ -34,14 +34,14 @@ async def apaginate(
     )
 
 
-@deprecated("Use `apaginate` instead. This function will be removed in v0.15.0")
+@deprecated("Use `apaginate` instead. This function will be removed in v0.16.0")
 async def paginate(
     query: QuerySet,
-    params: Optional[AbstractParams] = None,
+    params: AbstractParams | None = None,
     *,
-    transformer: Optional[AsyncItemsTransformer] = None,
-    additional_data: Optional[AdditionalData] = None,
-    config: Optional[Config] = None,
+    transformer: AsyncItemsTransformer | None = None,
+    additional_data: AdditionalData | None = None,
+    config: Config | None = None,
 ) -> Any:
     return await apaginate(
         query,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: edx-search
-Version: 4.3.0
+Version: 4.4.0
 Summary: Search and index routines for index access
 Home-page: https://github.com/openedx/edx-search
 Author: edX
@@ -25,11 +25,21 @@ Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: Django
 Requires-Dist: elasticsearch<8.0.0,>=7.8.0
-Requires-Dist: edx-toggles
 Requires-Dist: meilisearch
+Requires-Dist: edx-toggles
+Requires-Dist: Django
 Requires-Dist: event-tracking
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # edx-search [![Build Status](https://github.com/openedx/edx-search/workflows/Python%20CI/badge.svg?branch=master)](https://github.com/openedx/edx-search/actions?query=workflow%3A%22Python+CI%22) [![Coverage Status](https://coveralls.io/repos/edx/edx-search/badge.svg?branch=master&service=github)](https://coveralls.io/github/edx/edx-search?branch=master)
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyangbind
-Version: 0.8.6
+Version: 0.8.7
 Summary: PyangBind is a plugin for pyang which converts YANG data models into a Python class hierarchy, such that Python can be used to manipulate data that conforms with a YANG model.
 Home-page: https://github.com/robshakir/pyangbind
 Author: Rob Shakir
@@ -12,12 +12,12 @@ Classifier: Intended Audience :: Telecommunications Industry
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.7
@@ -27,6 +27,7 @@ Requires-Dist: pyang
 Requires-Dist: lxml
 Requires-Dist: regex
 Requires-Dist: enum34
+Dynamic: license-file
 
 PyangBind
 =========

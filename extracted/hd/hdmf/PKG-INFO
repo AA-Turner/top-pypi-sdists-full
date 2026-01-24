@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdmf
-Version: 4.1.0
+Version: 4.2.0
 Summary: A hierarchical data modeling framework for modern science data standards
 Project-URL: Homepage, https://github.com/hdmf-dev/hdmf
 Project-URL: Bug Tracker, https://github.com/hdmf-dev/hdmf/issues
@@ -26,6 +26,7 @@ Requires-Dist: pandas>=1.2.0
 Requires-Dist: ruamel-yaml>=0.16
 Provides-Extra: all
 Requires-Dist: codespell; extra == 'all'
+Requires-Dist: hdmf-zarr>=0.12.0; extra == 'all'
 Requires-Dist: linkml-runtime>=1.5.5; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
 Requires-Dist: numcodecs<0.16.0; extra == 'all'
@@ -78,6 +79,7 @@ Requires-Dist: tox; extra == 'test'
 Provides-Extra: tqdm
 Requires-Dist: tqdm>=4.41.0; extra == 'tqdm'
 Provides-Extra: zarr
+Requires-Dist: hdmf-zarr>=0.12.0; extra == 'zarr'
 Requires-Dist: numcodecs<0.16.0; extra == 'zarr'
 Requires-Dist: zarr<3,>=2.12.0; extra == 'zarr'
 Description-Content-Type: text/x-rst
@@ -101,6 +103,8 @@ Latest Release
 .. image:: https://anaconda.org/conda-forge/hdmf/badges/version.svg
      :target: https://anaconda.org/conda-forge/hdmf
 
+.. image:: https://zenodo.org/badge/167271700.svg
+  :target: https://doi.org/10.5281/zenodo.8034516
 
 Overall Health
 ==============
@@ -125,6 +129,9 @@ Overall Health
 
 .. image:: https://github.com/hdmf-dev/hdmf/actions/workflows/run_hdmf_zarr_tests.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf/actions/workflows/run_hdmf_zarr_tests.yml
+
+.. image:: https://github.com/hdmf-dev/hdmf/actions/workflows/run_nwb_extension_tests.yml/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf/actions/workflows/run_nwb_extension_tests.yml
 
 .. image:: https://github.com/hdmf-dev/hdmf/actions/workflows/run_all_tests.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf/actions/workflows/run_all_tests.yml

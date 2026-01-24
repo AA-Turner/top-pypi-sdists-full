@@ -1,7 +1,7 @@
 from seeq.sdk import ApiClient
 from seeq.sdk.api import UsersApi, UserGroupsApi, FormulasApi
-from seeq.sdk.models import PutScalarsInputV1, UserOutputV1, UserGroupOutputV1, AddOnToolInputV1
-from seeq.spy import _login
+from seeq.sdk.models import PutScalarsInputV1, UserOutputV1, UserGroupOutputV1, AddOnToolInputV1, WorkbookOutputV1
+from seeq.spy import _version
 
 
 def is_continuation_token_used() -> bool:
@@ -13,7 +13,7 @@ def is_continuation_token_used() -> bool:
     -------
     True if the SDK version is equal to or greater than 63.
     """
-    return _login.is_sdk_module_version_at_least(63)
+    return _version.is_sdk_module_version_at_least(63)
 
 
 def is_force_calculated_scalars_available() -> bool:
@@ -49,7 +49,30 @@ def is_compile_formula_and_parameters_available() -> bool:
     return hasattr(FormulasApi, 'compile_formula_and_parameters')
 
 
-def get_user(client: ApiClient, id: str, *, include_groups: bool = True) -> UserOutputV1:
+def is_vantage_supported() -> bool:
+    """
+    Check if Vantage is available in this server.
+
+    Returns
+    -------
+    True if Vantage is supported.
+    """
+    return _version.is_sdk_module_version_at_least(66, 30, 0)
+
+
+def are_vantage_rooms_as_workbooks_supported() -> bool:
+    """
+    Vantage Rooms used to be in their own weird database. Now they look like workbooks in the backend and have
+    an evidence_table_definition_id field.
+
+    Returns
+    -------
+    True if Vantage Rooms are backed by workbooks.
+    """
+    return 'evidence_table_definition_id' in WorkbookOutputV1.attribute_map
+
+
+def get_user(client: ApiClient, user_id: str, *, include_groups: bool = True) -> UserOutputV1:
     """
     Get a user
 
@@ -57,7 +80,7 @@ def get_user(client: ApiClient, id: str, *, include_groups: bool = True) -> User
     ----------
     client : ApiClient
         The api_client to use for the SDK call.
-    id : str
+    user_id : str
         ID of the user to get (required)
     include_groups : bool
         Include the groups of which the user is a member. Note that, depending on the version of Seeq, this parameter
@@ -65,9 +88,9 @@ def get_user(client: ApiClient, id: str, *, include_groups: bool = True) -> User
     """
     users_api = UsersApi(client)
     try:
-        return users_api.get_user(id=id, include_groups=include_groups)
+        return users_api.get_user(id=user_id, include_groups=include_groups)
     except TypeError:
-        return users_api.get_user(id=id)
+        return users_api.get_user(id=user_id)
 
 
 def get_user_group(client: ApiClient, user_group_id: str, *, include_members: bool = True) -> UserGroupOutputV1:

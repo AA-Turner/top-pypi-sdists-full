@@ -3,7 +3,7 @@ Type annotations for qconnect service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -42,6 +43,7 @@ from .paginator import (
     ListMessageTemplatesPaginator,
     ListMessageTemplateVersionsPaginator,
     ListQuickResponsesPaginator,
+    ListSpansPaginator,
     QueryAssistantPaginator,
     SearchContentPaginator,
     SearchMessageTemplatesPaginator,
@@ -162,6 +164,8 @@ from .type_defs import (
     ListMessageTemplateVersionsResponseTypeDef,
     ListQuickResponsesRequestTypeDef,
     ListQuickResponsesResponseTypeDef,
+    ListSpansRequestTypeDef,
+    ListSpansResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     NotifyRecommendationsReceivedRequestTypeDef,
@@ -174,6 +178,8 @@ from .type_defs import (
     RemoveKnowledgeBaseTemplateUriRequestTypeDef,
     RenderMessageTemplateRequestTypeDef,
     RenderMessageTemplateResponseTypeDef,
+    RetrieveRequestTypeDef,
+    RetrieveResponseTypeDef,
     SearchContentRequestTypeDef,
     SearchContentResponseTypeDef,
     SearchMessageTemplatesRequestTypeDef,
@@ -214,12 +220,6 @@ from .type_defs import (
     UpdateSessionResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -228,17 +228,19 @@ else:
 __all__ = ("QConnectClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    PreconditionFailedException: Type[BotocoreClientError]
-    RequestTimeoutException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DependencyFailedException: type[BotocoreClientError]
+    PreconditionFailedException: type[BotocoreClientError]
+    RequestTimeoutException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    UnprocessableContentException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class QConnectClient(BaseClient):
     """
@@ -460,7 +462,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#deactivate_message_template)
         """
 
-    def delete_ai_agent(self, **kwargs: Unpack[DeleteAIAgentRequestTypeDef]) -> Dict[str, Any]:
+    def delete_ai_agent(self, **kwargs: Unpack[DeleteAIAgentRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Q in Connect AI Agent.
 
@@ -470,7 +472,7 @@ class QConnectClient(BaseClient):
 
     def delete_ai_agent_version(
         self, **kwargs: Unpack[DeleteAIAgentVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q in Connect AI Agent Version.
 
@@ -480,7 +482,7 @@ class QConnectClient(BaseClient):
 
     def delete_ai_guardrail(
         self, **kwargs: Unpack[DeleteAIGuardrailRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q in Connect AI Guardrail.
 
@@ -490,7 +492,7 @@ class QConnectClient(BaseClient):
 
     def delete_ai_guardrail_version(
         self, **kwargs: Unpack[DeleteAIGuardrailVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete and Amazon Q in Connect AI Guardrail version.
 
@@ -498,7 +500,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#delete_ai_guardrail_version)
         """
 
-    def delete_ai_prompt(self, **kwargs: Unpack[DeleteAIPromptRequestTypeDef]) -> Dict[str, Any]:
+    def delete_ai_prompt(self, **kwargs: Unpack[DeleteAIPromptRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Q in Connect AI Prompt.
 
@@ -508,7 +510,7 @@ class QConnectClient(BaseClient):
 
     def delete_ai_prompt_version(
         self, **kwargs: Unpack[DeleteAIPromptVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete and Amazon Q in Connect AI Prompt version.
 
@@ -516,7 +518,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#delete_ai_prompt_version)
         """
 
-    def delete_assistant(self, **kwargs: Unpack[DeleteAssistantRequestTypeDef]) -> Dict[str, Any]:
+    def delete_assistant(self, **kwargs: Unpack[DeleteAssistantRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an assistant.
 
@@ -526,7 +528,7 @@ class QConnectClient(BaseClient):
 
     def delete_assistant_association(
         self, **kwargs: Unpack[DeleteAssistantAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an assistant association.
 
@@ -534,7 +536,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#delete_assistant_association)
         """
 
-    def delete_content(self, **kwargs: Unpack[DeleteContentRequestTypeDef]) -> Dict[str, Any]:
+    def delete_content(self, **kwargs: Unpack[DeleteContentRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the content.
 
@@ -544,7 +546,7 @@ class QConnectClient(BaseClient):
 
     def delete_content_association(
         self, **kwargs: Unpack[DeleteContentAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the content association.
 
@@ -552,7 +554,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#delete_content_association)
         """
 
-    def delete_import_job(self, **kwargs: Unpack[DeleteImportJobRequestTypeDef]) -> Dict[str, Any]:
+    def delete_import_job(self, **kwargs: Unpack[DeleteImportJobRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the quick response import job.
 
@@ -562,7 +564,7 @@ class QConnectClient(BaseClient):
 
     def delete_knowledge_base(
         self, **kwargs: Unpack[DeleteKnowledgeBaseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the knowledge base.
 
@@ -572,7 +574,7 @@ class QConnectClient(BaseClient):
 
     def delete_message_template(
         self, **kwargs: Unpack[DeleteMessageTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Q in Connect message template entirely or a specific version
         of the message template if version is supplied in the request.
@@ -583,7 +585,7 @@ class QConnectClient(BaseClient):
 
     def delete_message_template_attachment(
         self, **kwargs: Unpack[DeleteMessageTemplateAttachmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the attachment file from the Amazon Q in Connect message template that
         is referenced by <code>$LATEST</code> qualifier.
@@ -594,7 +596,7 @@ class QConnectClient(BaseClient):
 
     def delete_quick_response(
         self, **kwargs: Unpack[DeleteQuickResponseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a quick response.
 
@@ -908,6 +910,16 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#list_quick_responses)
         """
 
+    def list_spans(self, **kwargs: Unpack[ListSpansRequestTypeDef]) -> ListSpansResponseTypeDef:
+        """
+        Retrieves AI agent execution traces for a session, providing granular
+        visibility into agent orchestration flows, LLM interactions, and tool
+        invocations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/list_spans.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#list_spans)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -951,7 +963,7 @@ class QConnectClient(BaseClient):
 
     def remove_assistant_ai_agent(
         self, **kwargs: Unpack[RemoveAssistantAIAgentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the AI Agent that is set for use by default on an Amazon Q in Connect
         Assistant.
@@ -962,7 +974,7 @@ class QConnectClient(BaseClient):
 
     def remove_knowledge_base_template_uri(
         self, **kwargs: Unpack[RemoveKnowledgeBaseTemplateUriRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a URI template from a knowledge base.
 
@@ -979,6 +991,14 @@ class QConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/render_message_template.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#render_message_template)
+        """
+
+    def retrieve(self, **kwargs: Unpack[RetrieveRequestTypeDef]) -> RetrieveResponseTypeDef:
+        """
+        Retrieves content from knowledge sources based on a query.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/retrieve.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#retrieve)
         """
 
     def search_content(
@@ -1054,7 +1074,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#start_import_job)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -1062,7 +1082,7 @@ class QConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -1350,6 +1370,17 @@ class QConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_quick_responses"]
     ) -> ListQuickResponsesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_spans"]
+    ) -> ListSpansPaginator:
         """
         Create a paginator for an operation.
 

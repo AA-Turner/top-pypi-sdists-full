@@ -1,5 +1,6 @@
+from collections.abc import Sequence
 from functools import total_ordering
-from typing import Any, Dict, List, Sequence
+from typing import Any
 
 from ase import Atoms
 import attr
@@ -31,7 +32,7 @@ class Cluster(AttrSavable):
     equiv_sites: Sequence[Sequence[int]] = attr.field()
     group: int = attr.field()
 
-    info: Dict[str, Any] = attr.field(default=attr.Factory(dict))
+    info: dict[str, Any] = attr.field(default=attr.Factory(dict))
     # "indices" are the integer index representation of the Figures.
     # therefore, "indices" and "ref_indx" depend on the currently active template,
     # and are subject to mutation.
@@ -44,7 +45,7 @@ class Cluster(AttrSavable):
         for ii, v in enumerate(value):
             if not isinstance(v, Figure):
                 raise TypeError(
-                    f"All values must Figure type, got {value} " f"of type {type(v)} in index {ii}."
+                    f"All values must Figure type, got {value} of type {type(v)} in index {ii}."
                 )
 
     @property
@@ -89,7 +90,7 @@ class Cluster(AttrSavable):
         """Return a key representation of the figure (in index representation)."""
         return list2str(self._order_equiv_sites(figure))
 
-    def _order_equiv_sites(self, figure: Sequence[int]) -> List[int]:
+    def _order_equiv_sites(self, figure: Sequence[int]) -> list[int]:
         """Sort equivalent sites of a figure in index representation."""
         figure_cpy = list(figure)
         for eq_group in self.equiv_sites:
@@ -100,7 +101,7 @@ class Cluster(AttrSavable):
         return figure_cpy
 
     @property
-    def num_fig_occurences(self) -> Dict[str, int]:
+    def num_fig_occurences(self) -> dict[str, int]:
         """Number of ocurrences for each figures."""
         occ_count = {}
         for figure in self.indices:
@@ -113,7 +114,7 @@ class Cluster(AttrSavable):
         self,
         ref_indx: int,
         target_figure: Sequence[int],
-        trans_matrix: List[Dict[int, int]],
+        trans_matrix: list[dict[int, int]],
     ):
         """Find figures that correspond to another reference index.
 
@@ -138,11 +139,10 @@ class Cluster(AttrSavable):
                 return self._order_equiv_sites(figure)
 
         raise RuntimeError(
-            f"There are no matching figure for ref_indx: "
-            f"{ref_indx} and figure: {target_figure}!"
+            f"There are no matching figure for ref_indx: {ref_indx} and figure: {target_figure}!"
         )
 
-    def get_all_figure_keys(self) -> List[str]:
+    def get_all_figure_keys(self) -> list[str]:
         return [self.get_figure_key(fig) for fig in self.indices]
 
     @property

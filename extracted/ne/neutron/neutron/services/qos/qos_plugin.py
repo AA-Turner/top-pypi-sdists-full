@@ -197,11 +197,11 @@ class QoSPlugin(qos.QoSPluginBase):
                                   network_id, min_bw_rules=None,
                                   segments=None):
         request_group = {}
-        if not min_bw_rules:
+        if min_bw_rules is None:
             min_bw_rules = rule_object.QosMinimumBandwidthRule.get_objects(
                 context.get_admin_context(), qos_policy_id=qos_policy_id)
         min_bw_resources = QoSPlugin._get_min_bw_resources(min_bw_rules)
-        if not segments:
+        if segments is None:
             segments = network_object.NetworkSegment.get_objects(
                 context.get_admin_context(), network_id=network_id)
         min_bw_traits = QoSPlugin._get_min_bw_traits(vnic_type, segments)
@@ -218,7 +218,7 @@ class QoSPlugin(qos.QoSPluginBase):
     def _get_min_pps_request_group(qos_policy_id, port_id, vnic_type,
                                    min_pps_rules=None):
         request_group = {}
-        if not min_pps_rules:
+        if min_pps_rules is None:
             min_pps_rules = rule_object.QosMinimumPacketRateRule.get_objects(
                 context.get_admin_context(),
                 qos_policy_id=qos_policy_id)
@@ -296,20 +296,28 @@ class QoSPlugin(qos.QoSPluginBase):
                     context.get_admin_context(), qos_policy_id=qos_id)
                 min_bw_rules[qos_id] = rules
 
+            if qos_id not in min_pps_rules:
+                rules = rule_object.QosMinimumPacketRateRule.get_objects(
+                    context.get_admin_context(), qos_policy_id=qos_id)
+                min_pps_rules[qos_id] = rules
+
+            if not min_bw_rules[qos_id] and not min_pps_rules[qos_id]:
+                port_res['resource_request'] = None
+                continue
+
             if net_id not in net_segments:
                 segments = network_object.NetworkSegment.get_objects(
                     context.get_admin_context(),
                     network_id=net_id)
                 net_segments[net_id] = segments
 
-            min_bw_request_group = QoSPlugin._get_min_bw_request_group(
-                qos_id, port_id, vnic_type, net_id,
-                min_bw_rules[qos_id], net_segments[net_id])
+            min_bw_request_group = None
+            if net_segments[net_id]:
+                min_bw_request_group = QoSPlugin._get_min_bw_request_group(
+                    qos_id, port_id, vnic_type, net_id,
+                    min_bw_rules=min_bw_rules[qos_id],
+                    segments=net_segments[net_id])
 
-            if qos_id not in min_pps_rules:
-                rules = rule_object.QosMinimumPacketRateRule.get_objects(
-                    context.get_admin_context(), qos_policy_id=qos_id)
-                min_pps_rules[qos_id] = rules
             min_pps_request_group = QoSPlugin._get_min_pps_request_group(
                 qos_id, port_id, vnic_type, min_pps_rules[qos_id])
 
@@ -511,12 +519,12 @@ class QoSPlugin(qos.QoSPluginBase):
         # Filter out rules that can't have resources allocated in Placement
         original_rules = [
             r for r in original_rules
-            if (isinstance(r, (rule_object.QosMinimumBandwidthRule,
-                               rule_object.QosMinimumPacketRateRule)))]
+            if (isinstance(r, rule_object.QosMinimumBandwidthRule |
+                              rule_object.QosMinimumPacketRateRule))]
         desired_rules = [
             r for r in desired_rules
-            if (isinstance(r, (rule_object.QosMinimumBandwidthRule,
-                               rule_object.QosMinimumPacketRateRule)))]
+            if (isinstance(r, rule_object.QosMinimumBandwidthRule |
+                              rule_object.QosMinimumPacketRateRule))]
         if not original_rules and not desired_rules:
             return
 

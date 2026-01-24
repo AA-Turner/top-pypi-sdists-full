@@ -5,15 +5,19 @@ use super::run_block_generator::{
 };
 use crate::allocator::make_allocator;
 use crate::consensus_constants::TEST_CONSTANTS;
-use crate::flags::{COST_CONDITIONS, DONT_VALIDATE_SIGNATURE, MEMPOOL_MODE};
+use crate::flags::{COST_CONDITIONS, DONT_VALIDATE_SIGNATURE, MEMPOOL_MODE, SIMPLE_GENERATOR};
+use crate::run_block_generator::check_generator_node;
+use crate::validation_error::ErrorCode;
 use chia_bls::Signature;
 use chia_protocol::Program;
 use chia_protocol::{Bytes, Bytes48};
-use clvmr::allocator::NodePtr;
+use chia_puzzles::CHIALISP_DESERIALISATION;
 use clvmr::Allocator;
+use clvmr::allocator::NodePtr;
+use clvmr::serde::{node_from_bytes, node_from_bytes_backrefs};
 use std::iter::zip;
-use text_diff::diff;
 use text_diff::Difference;
+use text_diff::diff;
 
 use rstest::rstest;
 
@@ -170,6 +174,14 @@ pub(crate) fn print_diff(output: &str, expected: &str) {
 // in CI we run with the clvmr/debug-allocator feature enabled, which makes this
 // test use too much RAM (about 6.8 GB)
 //#[case("aa-million-messages")]
+#[case("single-coin-only-garbage")]
+#[case("many-coins-announcement-cap")]
+#[case("3000000-conditions-single-coin")]
+#[case("100000-remarks-prefab")]
+#[case("29500-remarks-procedural")]
+#[case("aa-million-message-spends")]
+#[case("puzzle-hash-stress-test")]
+#[case("puzzle-hash-stress-tree")]
 #[case("new-agg-sigs")]
 #[case("infinity-g1")]
 #[case("block-1ee588dc")]
@@ -220,6 +232,7 @@ pub(crate) fn print_diff(output: &str, expected: &str) {
 #[case("recursion-pairs")]
 #[case("unknown-condition")]
 #[case("duplicate-messages")]
+#[case("non-quote-0001-start")]
 fn run_generator(#[case] name: &str) {
     use std::fs::{read_to_string, write};
 
@@ -227,6 +240,18 @@ fn run_generator(#[case] name: &str) {
     // test cases to match. Make sure to carefully review the diff before
     // landing an automatic update of the test case.
     const UPDATE_TESTS: bool = false;
+
+    let run_generator_one: bool = ![
+        "single-coin-only-garbage",
+        "many-coins-announcement-cap",
+        "puzzle-hash-stress-test",
+        "puzzle-hash-stress-tree",
+        "aa-million-message-spends",
+        "29500-remarks-procedural",
+        "100000-remarks-prefab",
+        "3000000-conditions-single-coin",
+    ]
+    .contains(&name); // these could be stored in the case, but there's so few it's easier to look at here
 
     let filename = format!("../../generator-tests/{name}.txt");
     println!("file: {filename}");
@@ -252,10 +277,79 @@ fn run_generator(#[case] name: &str) {
 
     for (flags, expected) in zip(&[0, MEMPOOL_MODE], expected) {
         let mut flags = *flags;
-        if name == "aa-million-messages" {
+        if name == "aa-million-messages" || name == "aa-million-message-spends" {
             // this test requires running after hard fork 2, where the COST_CONDITIONS
             // flag is set
             flags |= COST_CONDITIONS;
+        }
+
+        // These are generators that are programs, not a simple list of spends
+        // when the SIMPLE_GENERATOR flag is set, these should fail
+        if [
+            "single-coin-only-garbage",
+            "many-coins-announcement-cap",
+            "puzzle-hash-stress-test",
+            "puzzle-hash-stress-tree",
+            "aa-million-message-spends",
+            "aa-million-messages",
+            "29500-remarks-procedural",
+            "100000-remarks-prefab",
+            "3000000-conditions-single-coin",
+            "block-4671894",
+            "block-225758",
+            "infinite-recursion1",
+            "infinite-recursion2",
+            "infinite-recursion3",
+            "infinite-recursion4",
+            "recursion-pairs",
+            "non-quote-0001-start", // this will fail the generator format check before it fails at runtime
+        ]
+        .contains(&name)
+        {
+            // lets test that the procedural generators are filtered with the flag
+            let mut a = make_allocator(flags);
+            let test_conds = run_block_generator2(
+                &mut a,
+                &generator,
+                &block_refs, // we're not allowed to pass in block references when SIMPLE_GENERATOR is set
+                11_000_000_000,
+                flags | DONT_VALIDATE_SIGNATURE | SIMPLE_GENERATOR,
+                &Signature::default(),
+                None,
+                &TEST_CONSTANTS,
+            );
+            assert_eq!(
+                test_conds.unwrap_err().1,
+                ErrorCode::ComplexGeneratorReceived
+            );
+
+            // now lets specifically check the node generator check
+            let program = node_from_bytes_backrefs(&mut a, generator.as_ref())
+                .expect("node_from_bytes_backref");
+            let res = check_generator_node(&a, program, flags | SIMPLE_GENERATOR);
+            assert_eq!(res.unwrap_err().1, ErrorCode::ComplexGeneratorReceived);
+        } else {
+            flags |= SIMPLE_GENERATOR;
+            // ensure SIMPLE_GENERATOR fails if there are any block references
+            // passed in. We pass in a dummy block reference
+            let mut a = make_allocator(flags);
+            let test_conds = run_block_generator2(
+                &mut a,
+                &generator,
+                &[&[0_u8, 1, 2, 3]],
+                11_000_000_000,
+                flags | DONT_VALIDATE_SIGNATURE,
+                &Signature::default(),
+                None,
+                &TEST_CONSTANTS,
+            );
+            assert_eq!(test_conds.unwrap_err().1, ErrorCode::TooManyGeneratorRefs);
+
+            // now lets specifically check the node generator check
+            let program = node_from_bytes_backrefs(&mut a, generator.as_ref())
+                .expect("node_from_bytes_backref");
+            let res = check_generator_node(&a, program, flags | SIMPLE_GENERATOR);
+            assert!(res.is_ok());
         }
 
         println!("flags: {flags:x}");
@@ -279,6 +373,20 @@ fn run_generator(#[case] name: &str) {
                 // the generator itself has execution cost. At least the cost of
                 // a quote
                 assert!(exe_cost <= conditions.execution_cost);
+
+                if (flags & SIMPLE_GENERATOR) != 0 {
+                    // when running generators with the SIMPLE_GENERATOR flag
+                    // set, we don't pass in the CLVM deserializer program. This
+                    // causes the atoms and pairs counters to be lower than
+                    // before (when the test cases were created). In order to
+                    // match the test cases, we increment those counters in
+                    // order to print compatible output.
+                    // these are the atoms and pairs that would have been
+                    // allocated by the deserializer program
+                    let _ =
+                        node_from_bytes(&mut a2, &CHIALISP_DESERIALISATION).expect("deserializer");
+                    a2.add_ghost_pair(2).expect("add_ghost_pair");
+                }
                 (conditions.cost, print_conditions(&a2, &conditions, &a2))
             }
             Err(code) => (0, format!("FAILED: {}\n", u32::from(code.1))),
@@ -294,54 +402,54 @@ fn run_generator(#[case] name: &str) {
                 write_back.push_str(&format!("{output}"));
             }
         }
-
-        let mut a1 = make_allocator(flags);
-        let conds1 = run_block_generator(
-            &mut a1,
-            &generator,
-            &block_refs,
-            11_000_000_000,
-            flags | DONT_VALIDATE_SIGNATURE,
-            &Signature::default(),
-            None,
-            &TEST_CONSTANTS,
-        );
-        let output_pre_hard_fork = match conds1 {
-            Ok(mut conditions) => {
-                // before the hard fork, the cost of running the genrator +
-                // puzzles should never be lower than after the hard-fork
-                // but it's likely higher.
-                assert!(conditions.cost >= expected_cost);
-                // pre-hard fork, we don't have access to per-puzzle costs, so
-                // set those to whatever run_block_generator2() produced, to
-                // make the check pass
-                if let Ok(ref conds2) = conds2 {
-                    // update the cost we print here, just to be compatible with
-                    // the test cases we have. We've already ensured the cost is
-                    // lower
-                    conditions.cost = conds2.cost;
-                    conditions.execution_cost = conds2.execution_cost;
-                    for s in &conds2.spends {
-                        for ms in conditions.spends.iter_mut() {
-                            if ms.coin_id == s.coin_id {
-                                ms.execution_cost = s.execution_cost;
-                                break;
+        if run_generator_one {
+            let mut a1 = make_allocator(flags);
+            let conds1 = run_block_generator(
+                &mut a1,
+                &generator,
+                &block_refs,
+                11_000_000_000,
+                flags | DONT_VALIDATE_SIGNATURE,
+                &Signature::default(),
+                None,
+                &TEST_CONSTANTS,
+            );
+            let output_pre_hard_fork = match conds1 {
+                Ok(mut conditions) => {
+                    // before the hard fork, the cost of running the genrator +
+                    // puzzles should never be lower than after the hard-fork
+                    // but it's likely higher.
+                    assert!(conditions.cost >= expected_cost);
+                    // pre-hard fork, we don't have access to per-puzzle costs, so
+                    // set those to whatever run_block_generator2() produced, to
+                    // make the check pass
+                    if let Ok(ref conds2) = conds2 {
+                        // update the cost we print here, just to be compatible with
+                        // the test cases we have. We've already ensured the cost is
+                        // lower
+                        conditions.cost = conds2.cost;
+                        conditions.execution_cost = conds2.execution_cost;
+                        for s in &conds2.spends {
+                            for ms in conditions.spends.iter_mut() {
+                                if ms.coin_id == s.coin_id {
+                                    ms.execution_cost = s.execution_cost;
+                                    break;
+                                }
                             }
                         }
                     }
+
+                    print_conditions(&a1, &conditions, &a2)
                 }
-
-                print_conditions(&a1, &conditions, &a2)
-            }
-            Err(code) => {
-                format!("FAILED: {}\n", u32::from(code.1))
-            }
-        };
-
-        if output != output_pre_hard_fork {
-            print_diff(&output, &output_pre_hard_fork);
-            if !UPDATE_TESTS {
-                panic!("run_block_generator 1 and 2 produced a different result!");
+                Err(code) => {
+                    format!("FAILED: {}\n", u32::from(code.1))
+                }
+            };
+            if output != output_pre_hard_fork {
+                print_diff(&output, &output_pre_hard_fork);
+                if !UPDATE_TESTS {
+                    panic!("run_block_generator 1 and 2 produced a different result!");
+                }
             }
         }
 
@@ -352,9 +460,7 @@ fn run_generator(#[case] name: &str) {
             }
         }
 
-        // now lets check get_coinspends_for_trusted_block
         let vec_of_slices: Vec<&[u8]> = block_refs.iter().map(std::vec::Vec::as_slice).collect();
-
         let result = get_coinspends_for_trusted_block(
             &TEST_CONSTANTS,
             &Program::new(generator.clone().into()),
@@ -369,43 +475,53 @@ fn run_generator(#[case] name: &str) {
             flags,
         );
 
+        // now lets check get_coinspends_for_trusted_block
+        // but only if we trust it not to do shenanigans
         if let Ok(ref conds) = conds2 {
             // if run_block_generator2 is OK then check we're equal
             let coinspends = result.expect("get_coinspends");
-            let coinspends2 = result2.expect("get_coinspends_with_conds");
-            for (i, spend) in conds.spends.iter().enumerate() {
-                let runnable = {
-                    let mut a = make_allocator(flags);
-                    coinspends[i]
-                        .puzzle_reveal
-                        .run(
-                            &mut a,
-                            flags,
-                            TEST_CONSTANTS.max_block_cost_clvm,
-                            &coinspends[i].solution,
-                        )
-                        .is_ok()
-                };
-                assert!(runnable);
-                let parent_id = a2.atom(spend.parent_id);
-                assert_eq!(
-                    parent_id.as_ref(),
-                    coinspends[i].coin.parent_coin_info.as_slice()
-                );
-                let puzhash = a2.atom(spend.puzzle_hash);
-                assert_eq!(puzhash.as_ref(), coinspends[i].coin.puzzle_hash.as_slice());
-                assert_eq!(spend.coin_amount, coinspends[i].coin.amount);
 
-                // check that we're getting the same info from get_coinspends_with_conditions_for_trusted_block
-                assert_eq!(
-                    parent_id.as_ref(),
-                    coinspends2[i].0.coin.parent_coin_info.as_slice()
-                );
-                assert_eq!(
-                    puzhash.as_ref(),
-                    coinspends2[i].0.coin.puzzle_hash.as_slice()
-                );
-                assert_eq!(spend.coin_amount, coinspends2[i].0.coin.amount);
+            // check that we're getting the same info from get_coinspends_with_conditions_for_trusted_block
+            let coinspends2 = result2.expect("get_coinspends_with_conds");
+
+            // get_coinspends_for_trusted_block skips certain attacking spends as it is required to
+            // return serialized puzzles, which may not be possible. We can ignore the comparison
+            // if it has skipped a spend for this reason
+            if coinspends.len() == conds.spends.len() {
+                for (i, spend) in conds.spends.iter().enumerate() {
+                    let runnable = {
+                        let mut a = make_allocator(flags);
+                        coinspends[i]
+                            .puzzle_reveal
+                            .run(
+                                &mut a,
+                                flags,
+                                TEST_CONSTANTS.max_block_cost_clvm,
+                                &coinspends[i].solution,
+                            )
+                            .is_ok()
+                    };
+                    assert!(runnable);
+                    let parent_id = a2.atom(spend.parent_id);
+                    assert_eq!(
+                        parent_id.as_ref(),
+                        coinspends[i].coin.parent_coin_info.as_slice()
+                    );
+                    let puzhash = a2.atom(spend.puzzle_hash);
+                    assert_eq!(puzhash.as_ref(), coinspends[i].coin.puzzle_hash.as_slice());
+                    assert_eq!(spend.coin_amount, coinspends[i].coin.amount);
+
+                    // test get_coinspends_with_conditions_for_trusted_block()
+                    assert_eq!(
+                        parent_id.as_ref(),
+                        coinspends2[i].0.coin.parent_coin_info.as_slice()
+                    );
+                    assert_eq!(
+                        puzhash.as_ref(),
+                        coinspends2[i].0.coin.puzzle_hash.as_slice()
+                    );
+                    assert_eq!(spend.coin_amount, coinspends2[i].0.coin.amount);
+                }
             }
         }
     }

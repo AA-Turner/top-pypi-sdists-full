@@ -8,7 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import Enum
-from itertools import product
+from functools import total_ordering
+from itertools import chain
+from itertools import product as cproduct
 from logging import getLogger
 from platform import machine as plat_machine
 from platform import system as plat_system
@@ -105,48 +107,16 @@ class BuildSearchOrder(Enum):
     DESC = 2
 
 
+@dataclass(eq=False, frozen=True)
+@total_ordering
 class BuildTask:
     """Class for storing TaskCluster build information"""
 
     TASKCLUSTER_API = "https://firefox-ci-tc.services.mozilla.com/api/%s/v1"
 
-    def __init__(
-        self,
-        build: str | None,
-        branch: str | None,
-        flags: BuildFlags | None,
-        platform: Platform | None = None,
-        simulated: str | None = None,
-        _blank: bool = False,
-    ) -> None:
-        """Retrieve the task JSON object
-
-        Requires first generating the task URL based on the specified build type and
-        platform
-        """
-        if _blank:
-            self.url: str | None = None
-            self.queue_server: str | None = None
-            self._data: dict[str, Any] = {}
-            return
-        assert build is not None
-        assert branch is not None
-        assert flags is not None
-        for obj in self.iterall(
-            build,
-            branch,
-            flags,
-            platform=platform,
-            simulated=simulated,
-        ):
-            self.url = obj.url
-            self.queue_server = obj.queue_server
-            self._data = obj._data  # pylint: disable=protected-access
-            break
-        else:
-            raise FetcherException(
-                f"Unable to find usable archive for {BuildTask._debug_str(build)}"
-            )
+    url: str
+    queue_server: str
+    _data: dict[str, Any]
 
     @staticmethod
     def _debug_str(build: str) -> str:
@@ -162,6 +132,7 @@ class BuildTask:
         build: str,
         branch: str,
         flags: BuildFlags,
+        product: Product,
         platform: Platform | None = None,
         simulated: str | None = None,
     ) -> Iterator[BuildTask]:
@@ -182,7 +153,7 @@ class BuildTask:
             task_template_paths: Iterable[tuple[str, str]] = tuple(
                 (template, f"{path}{flag_str}")
                 for (template, path) in cls._pushdate_template_paths(
-                    build_date_ns, branch, target_platform
+                    build_date_ns, branch, product, target_platform
                 )
                 if filt in path
             )
@@ -190,25 +161,28 @@ class BuildTask:
         elif is_rev(build):
             # If a short hash was supplied, resolve it to a long one.
             if len(build) == 12:
-                build = HgRevision(build, branch).hash
+                build = HgRevision(build, branch, product).hash
             flag_str = flags.build_string()
             task_paths = tuple(
                 f"{path}{flag_str}"
-                for path in cls._revision_paths(build.lower(), branch, target_platform)
+                for path in cls._revision_paths(
+                    build.lower(), branch, product, target_platform
+                )
             )
-            task_template_paths = product((cls.TASKCLUSTER_API,), task_paths)
+            task_template_paths = cproduct((cls.TASKCLUSTER_API,), task_paths)
 
         elif build == "latest":
-            if branch not in {"autoland", "try"}:
-                branch = f"mozilla-{branch}"
+            branch = product.prefix_branch(branch)
 
             namespaces = []
             if not any(flags):
                 # Opt builds are now indexed under 'shippable'
-                namespaces.append(f"gecko.v2.{branch}.shippable.latest")
-            namespaces.append(f"gecko.v2.{branch}.latest")
+                namespaces.append(f"{product.namespace}.v2.{branch}.shippable.latest")
+            namespaces.append(f"{product.namespace}.v2.{branch}.latest")
 
-            prod = "mobile" if "android" in target_platform else "firefox"
+            prod = "mobile" if "android" in target_platform else product.name
+            if prod is None:
+                raise AttributeError("no product name found for task path")
             suffix = f"{target_platform}{flags.build_string()}"
 
             def generate_task_paths(
@@ -225,14 +199,26 @@ class BuildTask:
                         yield f"/task/{namespace}.{prod_}.sm-{suffix_}"
 
             task_paths = tuple(generate_task_paths(namespaces, prod, suffix, simulated))
-            task_template_paths = product((cls.TASKCLUSTER_API,), task_paths)
+            task_template_paths = cproduct((cls.TASKCLUSTER_API,), task_paths)
 
         else:
             # try to use build argument directly as a namespace
             task_path = f"/task/{build}"
             task_template_paths = ((cls.TASKCLUSTER_API, task_path),)
 
-        for template_path, try_wo_opt in product(task_template_paths, (False, True)):
+        if target_platform == "linux":
+            old_template_paths = tuple(task_template_paths)
+            task_template_paths = tuple(
+                chain(
+                    old_template_paths,
+                    [
+                        (api, task_path.replace("linux-", "linux32-"))
+                        for (api, task_path) in old_template_paths
+                    ],
+                )
+            )
+
+        for template_path, try_wo_opt in cproduct(task_template_paths, (False, True)):
             template, path = template_path
 
             if try_wo_opt:
@@ -247,11 +233,7 @@ class BuildTask:
             except RequestException:
                 continue
 
-            obj = cls(None, None, None, _blank=True)
-            obj.url = url
-            obj.queue_server = template % ("queue",)
-            obj._data = data.json()  # pylint: disable=protected-access
-
+            obj = cls(url, template % ("queue",), data.json())
             LOG.debug("Found archive for %s", cls._debug_str(build))
             yield obj
 
@@ -262,22 +244,42 @@ class BuildTask:
             f"'{type(self).__name__}' object has no attribute '{name}'"
         )
 
+    @property
+    def rank_as_date(self) -> datetime:
+        """Return task rank as date object"""
+        result = timezone("EST").localize(datetime.fromtimestamp(self.rank))
+        assert isinstance(result, datetime)
+        return result
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, BuildTask):
+            return self.rank_as_date == other.rank_as_date
+        return False
+
+    def __lt__(self, other: Any) -> bool:
+        if isinstance(other, BuildTask):
+            return self.rank_as_date < other.rank_as_date
+        raise TypeError(
+            "'<' not supported between instances of "
+            f"'{type(self).__name__}' and '{type(other).__name__}'"
+        )
+
     @classmethod
     def _pushdate_template_paths(
         cls,
         pushdate: str,
         branch: str,
+        product: Product,
         target_platform: str,
     ) -> Iterator[tuple[str, str]]:
         """Multiple entries exist per push date. Iterate over all until a working entry
         is found
         """
-        if branch not in {"autoland", "try"}:
-            branch = f"mozilla-{branch}"
+        branch = product.prefix_branch(branch)
 
         paths = (
-            f"/namespaces/gecko.v2.{branch}.shippable.{pushdate}",
-            f"/namespaces/gecko.v2.{branch}.pushdate.{pushdate}",
+            f"/namespaces/{product.namespace}.v2.{branch}.shippable.{pushdate}",
+            f"/namespaces/{product.namespace}.v2.{branch}.pushdate.{pushdate}",
         )
 
         for path in paths:
@@ -289,33 +291,33 @@ class BuildTask:
             except RequestException:
                 continue
 
-            prod = "mobile" if "android" in target_platform else "firefox"
+            prod = "mobile" if "android" in target_platform else product.name
             json = base.json()
             for namespace in sorted(json["namespaces"], key=lambda x: str(x["name"])):
                 task_paths = (
                     f"/task/{namespace['namespace']}.{prod}.{target_platform}",
                     f"/task/{namespace['namespace']}.{prod}.sm-{target_platform}",
                 )
-                yield from product((cls.TASKCLUSTER_API,), task_paths)
+                yield from cproduct((cls.TASKCLUSTER_API,), task_paths)
 
     @classmethod
     def _revision_paths(
         cls,
         rev: str,
         branch: str,
+        product: Product,
         target_platform: str,
     ) -> Iterator[str]:
         """Retrieve the API path for revision based builds"""
-        if branch not in {"autoland", "try"}:
-            branch = f"mozilla-{branch}"
+        branch = product.prefix_branch(branch)
 
         namespaces = (
-            f"gecko.v2.{branch}.shippable.revision.{rev}",
-            f"gecko.v2.{branch}.revision.{rev}",
+            f"{product.namespace}.v2.{branch}.shippable.revision.{rev}",
+            f"{product.namespace}.v2.{branch}.revision.{rev}",
         )
 
         for namespace in namespaces:
-            prod = "mobile" if "android" in target_platform else "firefox"
+            prod = "mobile" if "android" in target_platform else product.name
             yield f"/task/{namespace}.{prod}.{target_platform}"
             yield f"/task/{namespace}.{prod}.sm-{target_platform}"
 
@@ -323,7 +325,7 @@ class BuildTask:
 class HgRevision:
     """Class representing a Mercurial revision."""
 
-    def __init__(self, revision: str, branch: str) -> None:
+    def __init__(self, revision: str, branch: str, product: Product) -> None:
         """Create a Mercurial revision object.
 
         Arguments:
@@ -334,11 +336,15 @@ class HgRevision:
             raise FetcherException(f"Can't lookup revision date for branch: {branch}")
 
         if branch == "autoland":
+            if product.name != "firefox":
+                raise FetcherException(
+                    f"Can't lookup autoland revision for product: {product}"
+                )
             branch = f"integration/{branch}"
         elif branch in {"release", "beta"} or branch.startswith("esr"):
-            branch = f"releases/mozilla-{branch}"
-        elif branch != "try":
-            branch = f"mozilla-{branch}"
+            branch = f"releases/{product.prefix}{branch}"
+        else:
+            branch = product.prefix_branch(branch)
         self._data = get_url(
             f"https://hg.mozilla.org/{branch}/json-rev/{revision}"
         ).json()
@@ -427,10 +433,14 @@ class Platform:
         match: list[str] = []
         for system, platform in cls.SUPPORTED.items():
             for machine, platform_guess in platform.items():
-                if platform_guess in build_string and (
-                    not match or len(match[2]) < len(platform_guess)
-                ):
-                    match = [system, machine, platform_guess]
+                platform_guesses = [platform_guess]
+                if platform_guess == "linux":
+                    platform_guesses.append("linux32")
+                for platform_guess in platform_guesses:
+                    if platform_guess in build_string and (
+                        not match or len(match[2]) < len(platform_guess)
+                    ):
+                        match = [system, machine, platform_guess]
         if match:
             return cls(match[0], match[1])
         raise FetcherException(f"Could not extract platform from {build_string}")
@@ -449,3 +459,48 @@ class Platform:
             "android-aarch64": "android-arm64",
         }.get(self.gecko_platform, self.gecko_platform)
         return f"{platform}-"
+
+
+class Product:
+    """Class representing relevant strings for target product (firefox/thunderbird)"""
+
+    PREFIXES = MappingProxyType(
+        {
+            "firefox": "mozilla-",
+            "thunderbird": "comm-",
+        }
+    )
+    NAMESPACES = MappingProxyType(
+        {
+            "firefox": "gecko",
+            "thunderbird": "comm",
+        }
+    )
+
+    def __init__(self, product: str):
+        assert self.PREFIXES.keys() == self.NAMESPACES.keys()
+        if product not in self.NAMESPACES:
+            raise FetcherException(f"Unknown product: {product}")
+        self.name = product
+        self.prefix = self.PREFIXES[product]
+        self.namespace = self.NAMESPACES[product]
+
+    def prefix_branch_short(self, branch: str) -> str:
+        """shorter version of `prefix_branch` for output naming (eg. m-c)"""
+        parts = []
+        for part in self.prefix_branch(branch).split("-"):
+            if part in {"autoland", "try"} or part.startswith("esr"):
+                parts.append(part)
+            else:
+                parts.append(part[0])
+        return "-".join(parts)
+
+    def prefix_branch(self, branch: str) -> str:
+        """add the appropriate prefix to the branch name (e.g., beta -> mozilla-beta)"""
+        if self.name == "firefox" and branch not in {"autoland", "try"}:
+            return f"{self.prefix}{branch}"
+        if self.name == "thunderbird":
+            if branch == "try":
+                return "try-comm-central"
+            return f"{self.prefix}{branch}"
+        return branch

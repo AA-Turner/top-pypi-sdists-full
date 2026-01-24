@@ -6,23 +6,20 @@ from typing import Literal, cast
 
 import numpy as np
 import scipy.linalg as scipy_linalg
-from numpy.exceptions import ComplexWarning
 from scipy.linalg import get_lapack_funcs
 
 import pytensor
 from pytensor import ifelse
 from pytensor import tensor as pt
-from pytensor.gradient import DisconnectedType
+from pytensor.gradient import DisconnectedType, disconnected_type
 from pytensor.graph.basic import Apply
 from pytensor.graph.op import Op
-from pytensor.raise_op import Assert
+from pytensor.raise_op import Assert, CheckAndRaise
 from pytensor.tensor import TensorLike
 from pytensor.tensor import basic as ptb
 from pytensor.tensor import math as ptm
 from pytensor.tensor.basic import as_tensor_variable, diagonal
 from pytensor.tensor.blockwise import Blockwise
-from pytensor.tensor.nlinalg import kron, matrix_dot
-from pytensor.tensor.shape import reshape
 from pytensor.tensor.type import matrix, tensor, vector
 from pytensor.tensor.variable import TensorVariable
 
@@ -33,22 +30,16 @@ logger = logging.getLogger(__name__)
 class Cholesky(Op):
     # TODO: LAPACK wrapper with in-place behavior, for solve also
 
-    __props__ = ("lower", "check_finite", "on_error", "overwrite_a")
+    __props__ = ("lower", "overwrite_a")
     gufunc_signature = "(m,m)->(m,m)"
 
     def __init__(
         self,
         *,
         lower: bool = True,
-        check_finite: bool = False,
-        on_error: Literal["raise", "nan"] = "raise",
         overwrite_a: bool = False,
     ):
         self.lower = lower
-        self.check_finite = check_finite
-        if on_error not in ("raise", "nan"):
-            raise ValueError('on_error must be one of "raise" or ""nan"')
-        self.on_error = on_error
         self.overwrite_a = overwrite_a
 
         if self.overwrite_a:
@@ -78,17 +69,10 @@ class Cholesky(Op):
             out[0] = np.empty_like(x, dtype=potrf.dtype)
             return
 
-        if self.check_finite and not np.isfinite(x).all():
-            if self.on_error == "nan":
-                out[0] = np.full(x.shape, np.nan, dtype=potrf.dtype)
-                return
-            else:
-                raise ValueError("array must not contain infs or NaNs")
-
         # Squareness check
         if x.shape[0] != x.shape[1]:
             raise ValueError(
-                "Input array is expected to be square but has " f"the shape: {x.shape}."
+                f"Input array is expected to be square but has the shape: {x.shape}."
             )
 
         # Scipy cholesky only makes use of overwrite_a when it is F_CONTIGUOUS
@@ -105,17 +89,8 @@ class Cholesky(Op):
         c, info = potrf(x, lower=lower, overwrite_a=overwrite_a, clean=True)
 
         if info != 0:
-            if self.on_error == "nan":
-                out[0] = np.full(x.shape, np.nan, dtype=node.outputs[0].type.dtype)
-            elif info > 0:
-                raise scipy_linalg.LinAlgError(
-                    f"{info}-th leading minor of the array is not positive definite"
-                )
-            elif info < 0:
-                raise ValueError(
-                    f"LAPACK reported an illegal value in {-info}-th argument "
-                    f'on entry to "POTRF".'
-                )
+            c[...] = np.nan
+            out[0] = c
         else:
             # Transpose result if input was transposed
             out[0] = c.T if c_contiguous_input else c
@@ -135,13 +110,6 @@ class Cholesky(Op):
 
         dz = gradients[0]
         chol_x = outputs[0]
-
-        # Replace the cholesky decomposition with 1 if there are nans
-        # or solve_upper_triangular will throw a ValueError.
-        if self.on_error == "nan":
-            ok = ~ptm.any(ptm.isnan(chol_x))
-            chol_x = ptb.switch(ok, chol_x, 1)
-            dz = ptb.switch(ok, dz, 1)
 
         # deal with upper triangular by converting to lower triangular
         if not self.lower:
@@ -166,10 +134,7 @@ class Cholesky(Op):
         else:
             grad = ptb.triu(s + s.T) - ptb.diag(ptb.diagonal(s))
 
-        if self.on_error == "nan":
-            return [ptb.switch(ok, grad, np.nan)]
-        else:
-            return [grad]
+        return [grad]
 
     def inplace_on_inputs(self, allowed_inplace_inputs: list[int]) -> "Op":
         if not allowed_inplace_inputs:
@@ -183,9 +148,9 @@ def cholesky(
     x: "TensorLike",
     lower: bool = True,
     *,
-    check_finite: bool = False,
+    check_finite: bool = True,
     overwrite_a: bool = False,
-    on_error: Literal["raise", "nan"] = "raise",
+    on_error: Literal["raise", "nan"] = "nan",
 ):
     """
     Return a triangular matrix square root of positive semi-definite `x`.
@@ -197,8 +162,8 @@ def cholesky(
     x: tensor_like
     lower : bool, default=True
         Whether to return the lower or upper cholesky factor
-    check_finite : bool, default=False
-        Whether to check that the input matrix contains only finite numbers.
+    check_finite : bool
+        Unused by PyTensor. PyTensor will return nan if the operation fails.
     overwrite_a: bool, ignored
         Whether to use the same memory for the output as `a`. This argument is ignored, and is present here only
         for consistency with scipy.linalg.cholesky.
@@ -229,10 +194,19 @@ def cholesky(
         assert np.allclose(L_value @ L_value.T, x_value)
 
     """
+    res = Blockwise(Cholesky(lower=lower))(x)
 
-    return Blockwise(
-        Cholesky(lower=lower, on_error=on_error, check_finite=check_finite)
-    )(x)
+    if on_error == "raise":
+        # For back-compatibility
+        warnings.warn(
+            'Cholesky on_raise == "raise" is deprecated. The operation will return nan when in fails. Setting this argument will fail in the future',
+            FutureWarning,
+        )
+        res = CheckAndRaise(np.linalg.LinAlgError, "Matrix is not positive definite")(
+            res, ~ptm.isnan(res).any()
+        )
+
+    return res
 
 
 class SolveBase(Op):
@@ -240,7 +214,6 @@ class SolveBase(Op):
 
     __props__: tuple[str, ...] = (
         "lower",
-        "check_finite",
         "b_ndim",
         "overwrite_a",
         "overwrite_b",
@@ -250,13 +223,11 @@ class SolveBase(Op):
         self,
         *,
         lower=False,
-        check_finite=True,
         b_ndim,
         overwrite_a=False,
         overwrite_b=False,
     ):
         self.lower = lower
-        self.check_finite = check_finite
 
         assert b_ndim in (1, 2)
         self.b_ndim = b_ndim
@@ -322,7 +293,7 @@ class SolveBase(Op):
           http://eprints.maths.ox.ac.uk/1079/
 
         """
-        A, b = inputs
+        A, _b = inputs
 
         c = outputs[0]
         # C is a scalar representing the entire graph
@@ -359,7 +330,6 @@ def _default_b_ndim(b, b_ndim):
 class CholeskySolve(SolveBase):
     __props__ = (
         "lower",
-        "check_finite",
         "b_ndim",
         "overwrite_b",
     )
@@ -367,7 +337,6 @@ class CholeskySolve(SolveBase):
     def __init__(self, **kwargs):
         if kwargs.get("overwrite_a", False):
             raise ValueError("overwrite_a is not supported for CholeskySolve")
-        kwargs.setdefault("lower", True)
         super().__init__(**kwargs)
 
     def make_node(self, *inputs):
@@ -384,15 +353,25 @@ class CholeskySolve(SolveBase):
         return Apply(self, [A, b], [out])
 
     def perform(self, node, inputs, output_storage):
-        C, b = inputs
-        rval = scipy_linalg.cho_solve(
-            (C, self.lower),
-            b,
-            check_finite=self.check_finite,
-            overwrite_b=self.overwrite_b,
-        )
+        c, b = inputs
 
-        output_storage[0][0] = rval
+        (potrs,) = get_lapack_funcs(("potrs",), (c, b))
+
+        if c.shape[0] != c.shape[1]:
+            raise ValueError("The factored matrix c is not square.")
+        if c.shape[1] != b.shape[0]:
+            raise ValueError(f"incompatible dimensions ({c.shape} and {b.shape})")
+
+        # Quick return for empty arrays
+        if b.size == 0:
+            output_storage[0][0] = np.empty_like(b, dtype=potrs.dtype)
+            return
+
+        x, info = potrs(c, b, lower=self.lower, overwrite_b=self.overwrite_b)
+        if info != 0:
+            x[...] = np.nan
+
+        output_storage[0][0] = x
 
     def L_op(self, *args, **kwargs):
         # TODO: Base impl should work, let's try it
@@ -411,7 +390,6 @@ def cho_solve(
     c_and_lower: tuple[TensorLike, bool],
     b: TensorLike,
     *,
-    check_finite: bool = True,
     b_ndim: int | None = None,
 ):
     """Solve the linear equations A x = b, given the Cholesky factorization of A.
@@ -422,33 +400,26 @@ def cho_solve(
         Cholesky factorization of a, as given by cho_factor
     b : TensorLike
         Right-hand side
-    check_finite : bool, optional
-        Whether to check that the input matrices contain only finite numbers.
-        Disabling may give a performance gain, but may result in problems
-        (crashes, non-termination) if the inputs do contain infinities or NaNs.
+    check_finite : bool
+        Unused by PyTensor. PyTensor will return nan if the operation fails.
     b_ndim : int
         Whether the core case of b is a vector (1) or matrix (2).
         This will influence how batched dimensions are interpreted.
     """
     A, lower = c_and_lower
     b_ndim = _default_b_ndim(b, b_ndim)
-    return Blockwise(
-        CholeskySolve(lower=lower, check_finite=check_finite, b_ndim=b_ndim)
-    )(A, b)
+    return Blockwise(CholeskySolve(lower=lower, b_ndim=b_ndim))(A, b)
 
 
 class LU(Op):
     """Decompose a matrix into lower and upper triangular matrices."""
 
-    __props__ = ("permute_l", "overwrite_a", "check_finite", "p_indices")
+    __props__ = ("permute_l", "overwrite_a", "p_indices")
 
-    def __init__(
-        self, *, permute_l=False, overwrite_a=False, check_finite=True, p_indices=False
-    ):
+    def __init__(self, *, permute_l=False, overwrite_a=False, p_indices=False):
         if permute_l and p_indices:
             raise ValueError("Only one of permute_l and p_indices can be True")
         self.permute_l = permute_l
-        self.check_finite = check_finite
         self.p_indices = p_indices
         self.overwrite_a = overwrite_a
 
@@ -479,20 +450,29 @@ class LU(Op):
                 f"LU only allowed on matrix (2-D) inputs, got {x.type.ndim}-D input"
             )
 
-        real_dtype = "f" if np.dtype(x.type.dtype).char in "fF" else "d"
-        p_dtype = "int32" if self.p_indices else np.dtype(real_dtype)
-
-        L = tensor(shape=x.type.shape, dtype=x.type.dtype)
-        U = tensor(shape=x.type.shape, dtype=x.type.dtype)
+        if x.type.numpy_dtype.kind in "ibu":
+            if x.type.numpy_dtype.itemsize <= 2:
+                out_dtype = "float32"
+            else:
+                out_dtype = "float64"
+        else:
+            out_dtype = x.type.dtype
+        L = tensor(shape=x.type.shape, dtype=out_dtype)
+        U = tensor(shape=x.type.shape, dtype=out_dtype)
 
         if self.permute_l:
             # In this case, L is actually P @ L
             return Apply(self, inputs=[x], outputs=[L, U])
         if self.p_indices:
-            p_indices = tensor(shape=(x.type.shape[0],), dtype=p_dtype)
+            p_indices = tensor(shape=(x.type.shape[0],), dtype="int32")
             return Apply(self, inputs=[x], outputs=[p_indices, L, U])
 
-        P = tensor(shape=x.type.shape, dtype=p_dtype)
+        if out_dtype.startswith("complex"):
+            P_dtype = "float64" if out_dtype == "complex128" else "float32"
+        else:
+            P_dtype = out_dtype
+
+        P = tensor(shape=x.type.shape, dtype=P_dtype)
         return Apply(self, inputs=[x], outputs=[P, L, U])
 
     def perform(self, node, inputs, outputs):
@@ -502,7 +482,6 @@ class LU(Op):
             A,
             permute_l=self.permute_l,
             overwrite_a=self.overwrite_a,
-            check_finite=self.check_finite,
             p_indices=self.p_indices,
         )
 
@@ -542,7 +521,7 @@ class LU(Op):
             # TODO: Rewrite into permute_l = False for graphs where we need to compute the gradient
             # We need L, not PL. It's not possible to recover it from PL, though. So we need to do a new forward pass
             P_or_indices, L, U = lu(  # type: ignore
-                A, permute_l=False, check_finite=self.check_finite, p_indices=False
+                A, permute_l=False, p_indices=False
             )
 
         else:
@@ -600,8 +579,8 @@ def lu(
     permute_l: bool
         If True, L is a product of permutation and unit lower triangular matrices. Only two values, PL and U, will
         be returned in this case, and PL will not be lower triangular.
-    check_finite: bool
-        Whether to check that the input matrix contains only finite numbers.
+    check_finite : bool
+        Unused by PyTensor. PyTensor will return nan if the operation fails.
     p_indices: bool
         If True, return integer matrix indices for the permutation matrix. Otherwise, return the permutation matrix
         itself.
@@ -619,9 +598,7 @@ def lu(
     return cast(
         tuple[TensorVariable, TensorVariable, TensorVariable]
         | tuple[TensorVariable, TensorVariable],
-        Blockwise(
-            LU(permute_l=permute_l, p_indices=p_indices, check_finite=check_finite)
-        )(a),
+        Blockwise(LU(permute_l=permute_l, p_indices=p_indices))(a),
     )
 
 
@@ -659,12 +636,11 @@ def pivot_to_permutation(p: TensorLike, inverse=False):
 
 
 class LUFactor(Op):
-    __props__ = ("overwrite_a", "check_finite")
+    __props__ = ("overwrite_a",)
     gufunc_signature = "(m,m)->(m,m),(m)"
 
-    def __init__(self, *, overwrite_a=False, check_finite=True):
+    def __init__(self, *, overwrite_a=False):
         self.overwrite_a = overwrite_a
-        self.check_finite = check_finite
 
         if self.overwrite_a:
             self.destroy_map = {1: [0]}
@@ -696,9 +672,16 @@ class LUFactor(Op):
     def perform(self, node, inputs, outputs):
         A = inputs[0]
 
-        LU, p = scipy_linalg.lu_factor(
-            A, overwrite_a=self.overwrite_a, check_finite=self.check_finite
-        )
+        # Quick return for empty arrays
+        if A.size == 0:
+            outputs[0][0] = np.empty_like(A)
+            outputs[1][0] = np.array([], dtype=np.int32)
+            return
+
+        (getrf,) = get_lapack_funcs(("getrf",), (A,))
+        LU, p, info = getrf(A, overwrite_a=self.overwrite_a)
+        if info != 0:
+            LU[...] = np.nan
 
         outputs[0][0] = LU
         outputs[1][0] = p
@@ -743,7 +726,7 @@ def lu_factor(
     a: TensorLike
         Matrix to be factorized
     check_finite: bool
-        Whether to check that the input matrix contains only finite numbers.
+        Unused by PyTensor. PyTensor will return nan if the operation fails.
     overwrite_a: bool
         Unused by PyTensor. PyTensor will always perform the operation in-place if possible.
 
@@ -757,7 +740,7 @@ def lu_factor(
 
     return cast(
         tuple[TensorVariable, TensorVariable],
-        Blockwise(LUFactor(check_finite=check_finite))(a),
+        Blockwise(LUFactor())(a),
     )
 
 
@@ -767,7 +750,6 @@ def _lu_solve(
     b: TensorLike,
     trans: bool = False,
     b_ndim: int | None = None,
-    check_finite: bool = True,
 ):
     b_ndim = _default_b_ndim(b, b_ndim)
 
@@ -785,7 +767,6 @@ def _lu_solve(
         unit_diagonal=not trans,
         trans=trans,
         b_ndim=b_ndim,
-        check_finite=check_finite,
     )
 
     x = solve_triangular(
@@ -795,7 +776,6 @@ def _lu_solve(
         unit_diagonal=trans,
         trans=trans,
         b_ndim=b_ndim,
-        check_finite=check_finite,
     )
 
     # TODO: Use PermuteRows(inverse=True) on x
@@ -828,7 +808,7 @@ def lu_solve(
         The number of core dimensions in b. Used to distinguish between a batch of vectors (b_ndim=1) and a matrix
         of vectors (b_ndim=2). Default is None, which will infer the number of core dimensions from the input.
     check_finite: bool
-        If True, check that the input matrices contain only finite numbers. Default is True.
+        Unused by PyTensor. PyTensor will return nan if the operation fails.
     overwrite_b: bool
         Ignored by Pytensor. Pytensor will always compute inplace when possible.
     """
@@ -837,9 +817,7 @@ def lu_solve(
         signature = "(m,m),(m),(m)->(m)"
     else:
         signature = "(m,m),(m),(m,n)->(m,n)"
-    partialled_func = partial(
-        _lu_solve, trans=trans, b_ndim=b_ndim, check_finite=check_finite
-    )
+    partialled_func = partial(_lu_solve, trans=trans, b_ndim=b_ndim)
     return pt.vectorize(partialled_func, signature=signature)(*LU_and_pivots, b)
 
 
@@ -849,7 +827,6 @@ class SolveTriangular(SolveBase):
     __props__ = (
         "unit_diagonal",
         "lower",
-        "check_finite",
         "b_ndim",
         "overwrite_b",
     )
@@ -865,15 +842,44 @@ class SolveTriangular(SolveBase):
 
     def perform(self, node, inputs, outputs):
         A, b = inputs
-        outputs[0][0] = scipy_linalg.solve_triangular(
-            A,
-            b,
-            lower=self.lower,
-            trans=0,
-            unit_diagonal=self.unit_diagonal,
-            check_finite=self.check_finite,
-            overwrite_b=self.overwrite_b,
-        )
+
+        if A.ndim != 2 or A.shape[0] != A.shape[1]:
+            raise ValueError("expected square matrix")
+
+        if A.shape[0] != b.shape[0]:
+            raise ValueError(f"shapes of a {A.shape} and b {b.shape} are incompatible")
+
+        (trtrs,) = get_lapack_funcs(("trtrs",), (A, b))
+
+        # Quick return for empty arrays
+        if b.size == 0:
+            outputs[0][0] = np.empty_like(b, dtype=trtrs.dtype)
+            return
+
+        if A.flags["F_CONTIGUOUS"]:
+            x, info = trtrs(
+                A,
+                b,
+                overwrite_b=self.overwrite_b,
+                lower=self.lower,
+                trans=0,
+                unitdiag=self.unit_diagonal,
+            )
+        else:
+            # transposed system is solved since trtrs expects Fortran ordering
+            x, info = trtrs(
+                A.T,
+                b,
+                overwrite_b=self.overwrite_b,
+                lower=not self.lower,
+                trans=1,
+                unitdiag=self.unit_diagonal,
+            )
+
+        if info != 0:
+            x[...] = np.nan
+
+        outputs[0][0] = x
 
     def L_op(self, inputs, outputs, output_gradients):
         res = super().L_op(inputs, outputs, output_gradients)
@@ -923,9 +929,7 @@ def solve_triangular(
     unit_diagonal: bool, optional
         If True, diagonal elements of `a` are assumed to be 1 and will not be referenced.
     check_finite : bool, optional
-        Whether to check that the input matrices contain only finite numbers.
-        Disabling may give a performance gain, but may result in problems
-        (crashes, non-termination) if the inputs do contain infinities or NaNs.
+        Unused by PyTensor. PyTensor will return nan if the operation fails.
     b_ndim : int
         Whether the core case of b is a vector (1) or matrix (2).
         This will influence how batched dimensions are interpreted.
@@ -943,7 +947,6 @@ def solve_triangular(
         SolveTriangular(
             lower=lower,
             unit_diagonal=unit_diagonal,
-            check_finite=check_finite,
             b_ndim=b_ndim,
         )
     )(a, b)
@@ -958,7 +961,6 @@ class Solve(SolveBase):
     __props__ = (
         "assume_a",
         "lower",
-        "check_finite",
         "b_ndim",
         "overwrite_a",
         "overwrite_b",
@@ -998,15 +1000,18 @@ class Solve(SolveBase):
 
     def perform(self, node, inputs, outputs):
         a, b = inputs
-        outputs[0][0] = scipy_linalg.solve(
-            a=a,
-            b=b,
-            lower=self.lower,
-            check_finite=self.check_finite,
-            assume_a=self.assume_a,
-            overwrite_a=self.overwrite_a,
-            overwrite_b=self.overwrite_b,
-        )
+        try:
+            outputs[0][0] = scipy_linalg.solve(
+                a=a,
+                b=b,
+                lower=self.lower,
+                check_finite=False,
+                assume_a=self.assume_a,
+                overwrite_a=self.overwrite_a,
+                overwrite_b=self.overwrite_b,
+            )
+        except np.linalg.LinAlgError:
+            outputs[0][0] = np.full(a.shape, np.nan, dtype=a.dtype)
 
     def inplace_on_inputs(self, allowed_inplace_inputs: list[int]) -> "Op":
         if not allowed_inplace_inputs:
@@ -1077,10 +1082,8 @@ def solve(
         Unused by PyTensor. PyTensor will always perform the operation in-place if possible.
     overwrite_b : bool
         Unused by PyTensor. PyTensor will always perform the operation in-place if possible.
-    check_finite : bool, optional
-        Whether to check that the input matrices contain only finite numbers.
-        Disabling may give a performance gain, but may result in problems
-        (crashes, non-termination) if the inputs do contain infinities or NaNs.
+    check_finite : bool
+        Unused by PyTensor. PyTensor returns nan if the operation fails.
     assume_a : str, optional
         Valid entries are explained above.
     transposed: bool, default False
@@ -1099,7 +1102,6 @@ def solve(
             b,
             lower=lower,
             trans=transposed,
-            check_finite=check_finite,
             b_ndim=b_ndim,
         )
 
@@ -1120,7 +1122,6 @@ def solve(
     return Blockwise(
         Solve(
             lower=lower,
-            check_finite=check_finite,
             assume_a=assume_a,
             b_ndim=b_ndim,
         )
@@ -1237,372 +1238,60 @@ def eigvalsh(a, b, lower=True):
 class Expm(Op):
     """
     Compute the matrix exponential of a square array.
-
     """
 
     __props__ = ()
+    gufunc_signature = "(m,m)->(m,m)"
 
     def make_node(self, A):
         A = as_tensor_variable(A)
         assert A.ndim == 2
-        expm = matrix(dtype=A.dtype)
-        return Apply(
-            self,
-            [
-                A,
-            ],
-            [
-                expm,
-            ],
-        )
+
+        expm = matrix(dtype=A.dtype, shape=A.type.shape)
+
+        return Apply(self, [A], [expm])
 
     def perform(self, node, inputs, outputs):
         (A,) = inputs
         (expm,) = outputs
         expm[0] = scipy_linalg.expm(A)
 
-    def grad(self, inputs, outputs):
-        (A,) = inputs
-        (g_out,) = outputs
-        return [ExpmGrad()(A, g_out)]
-
-    def infer_shape(self, fgraph, node, shapes):
-        return [shapes[0]]
-
-
-class ExpmGrad(Op):
-    """
-    Gradient of the matrix exponential of a square array.
-
-    """
-
-    __props__ = ()
-
-    def make_node(self, A, gw):
-        A = as_tensor_variable(A)
-        assert A.ndim == 2
-        out = matrix(dtype=A.dtype)
-        return Apply(
-            self,
-            [A, gw],
-            [
-                out,
-            ],
-        )
-
-    def infer_shape(self, fgraph, node, shapes):
-        return [shapes[0]]
-
-    def perform(self, node, inputs, outputs):
+    def L_op(self, inputs, outputs, output_grads):
         # Kalbfleisch and Lawless, J. Am. Stat. Assoc. 80 (1985) Equation 3.4
         # Kind of... You need to do some algebra from there to arrive at
         # this expression.
-        (A, gA) = inputs
-        (out,) = outputs
-        w, V = scipy_linalg.eig(A, right=True)
-        U = scipy_linalg.inv(V).T
+        (A,) = inputs
+        (_,) = outputs  # Outputs not used; included for signature consistency only
+        (A_bar,) = output_grads
 
-        exp_w = np.exp(w)
-        X = np.subtract.outer(exp_w, exp_w) / np.subtract.outer(w, w)
-        np.fill_diagonal(X, exp_w)
-        Y = U.dot(V.T.dot(gA).dot(U) * X).dot(V.T)
+        w, V = pt.linalg.eig(A)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", ComplexWarning)
-            out[0] = Y.astype(A.dtype)
+        exp_w = pt.exp(w)
+        numer = pt.sub.outer(exp_w, exp_w)
+        denom = pt.sub.outer(w, w)
 
+        # When w_i ≈ w_j, we have a removable singularity in the expression for X, because
+        # lim b->a (e^a - e^b) / (a - b) = e^a (derivation left for the motivated reader)
+        X = pt.where(pt.abs(denom) < 1e-8, exp_w, numer / denom)
 
-expm = Expm()
+        diag_idx = pt.arange(w.shape[0])
+        X = X[..., diag_idx, diag_idx].set(exp_w)
 
+        inner = solve(V, A_bar.T @ V).T
+        result = solve(V.T, inner * X) @ V.T
 
-class SolveContinuousLyapunov(Op):
-    """
-    Solves a continuous Lyapunov equation, :math:`AX + XA^H = B`, for :math:`X.
+        # At this point, result is always a complex dtype. If the input was real, the output should be
+        # real as well (and all the imaginary parts are numerical noise)
+        if A.dtype not in ("complex64", "complex128"):
+            return [result.real]
 
-    Continuous time Lyapunov equations are special cases of Sylvester equations, :math:`AX + XB = C`, and can be solved
-    efficiently using the Bartels-Stewart algorithm. For more details, see the docstring for
-    scipy.linalg.solve_continuous_lyapunov
-    """
-
-    __props__ = ()
-    gufunc_signature = "(m,m),(m,m)->(m,m)"
-
-    def make_node(self, A, B):
-        A = as_tensor_variable(A)
-        B = as_tensor_variable(B)
-
-        out_dtype = pytensor.scalar.upcast(A.dtype, B.dtype)
-        X = pytensor.tensor.matrix(dtype=out_dtype)
-
-        return pytensor.graph.basic.Apply(self, [A, B], [X])
-
-    def perform(self, node, inputs, output_storage):
-        (A, B) = inputs
-        X = output_storage[0]
-
-        out_dtype = node.outputs[0].type.dtype
-        X[0] = scipy_linalg.solve_continuous_lyapunov(A, B).astype(out_dtype)
+        return [result]
 
     def infer_shape(self, fgraph, node, shapes):
         return [shapes[0]]
 
-    def grad(self, inputs, output_grads):
-        # Gradient computations come from Kao and Hennequin (2020), https://arxiv.org/pdf/2011.11430.pdf
-        # Note that they write the equation as AX + XA.H + Q = 0, while scipy uses AX + XA^H = Q,
-        # so minor adjustments need to be made.
-        A, Q = inputs
-        (dX,) = output_grads
 
-        X = self(A, Q)
-        S = self(A.conj().T, -dX)  # Eq 31, adjusted
-
-        A_bar = S.dot(X.conj().T) + S.conj().T.dot(X)
-        Q_bar = -S  # Eq 29, adjusted
-
-        return [A_bar, Q_bar]
-
-
-_solve_continuous_lyapunov = Blockwise(SolveContinuousLyapunov())
-
-
-def solve_continuous_lyapunov(A: TensorLike, Q: TensorLike) -> TensorVariable:
-    """
-    Solve the continuous Lyapunov equation :math:`A X + X A^H + Q = 0`.
-
-    Parameters
-    ----------
-    A: TensorLike
-        Square matrix of shape ``N x N``.
-    Q: TensorLike
-        Square matrix of shape ``N x N``.
-
-    Returns
-    -------
-    X: TensorVariable
-        Square matrix of shape ``N x N``
-
-    """
-
-    return cast(TensorVariable, _solve_continuous_lyapunov(A, Q))
-
-
-class BilinearSolveDiscreteLyapunov(Op):
-    """
-    Solves a discrete lyapunov equation, :math:`AXA^H - X = Q`, for :math:`X.
-
-    The solution is computed by first transforming the discrete-time problem into a continuous-time form. The continuous
-    time lyapunov is a special case of a Sylvester equation, and can be efficiently solved. For more details, see the
-    docstring for scipy.linalg.solve_discrete_lyapunov
-    """
-
-    gufunc_signature = "(m,m),(m,m)->(m,m)"
-
-    def make_node(self, A, B):
-        A = as_tensor_variable(A)
-        B = as_tensor_variable(B)
-
-        out_dtype = pytensor.scalar.upcast(A.dtype, B.dtype)
-        X = pytensor.tensor.matrix(dtype=out_dtype)
-
-        return pytensor.graph.basic.Apply(self, [A, B], [X])
-
-    def perform(self, node, inputs, output_storage):
-        (A, B) = inputs
-        X = output_storage[0]
-
-        out_dtype = node.outputs[0].type.dtype
-        X[0] = scipy_linalg.solve_discrete_lyapunov(A, B, method="bilinear").astype(
-            out_dtype
-        )
-
-    def infer_shape(self, fgraph, node, shapes):
-        return [shapes[0]]
-
-    def grad(self, inputs, output_grads):
-        # Gradient computations come from Kao and Hennequin (2020), https://arxiv.org/pdf/2011.11430.pdf
-        A, Q = inputs
-        (dX,) = output_grads
-
-        X = self(A, Q)
-
-        # Eq 41, note that it is not written as a proper Lyapunov equation
-        S = self(A.conj().T, dX)
-
-        A_bar = pytensor.tensor.linalg.matrix_dot(
-            S, A, X.conj().T
-        ) + pytensor.tensor.linalg.matrix_dot(S.conj().T, A, X)
-        Q_bar = S
-        return [A_bar, Q_bar]
-
-
-_bilinear_solve_discrete_lyapunov = Blockwise(BilinearSolveDiscreteLyapunov())
-
-
-def _direct_solve_discrete_lyapunov(
-    A: TensorVariable, Q: TensorVariable
-) -> TensorVariable:
-    r"""
-    Directly solve the discrete Lyapunov equation :math:`A X A^H - X = Q` using the kronecker method of Magnus and
-    Neudecker.
-
-    This involves constructing and inverting an intermediate matrix :math:`A \otimes A`, with shape :math:`N^2 x N^2`.
-    As a result, this method scales poorly with the size of :math:`N`, and should be avoided for large :math:`N`.
-    """
-
-    if A.type.dtype.startswith("complex"):
-        AxA = kron(A, A.conj())
-    else:
-        AxA = kron(A, A)
-
-    eye = pt.eye(AxA.shape[-1])
-
-    vec_Q = Q.ravel()
-    vec_X = solve(eye - AxA, vec_Q, b_ndim=1)
-
-    return reshape(vec_X, A.shape)
-
-
-def solve_discrete_lyapunov(
-    A: TensorLike,
-    Q: TensorLike,
-    method: Literal["direct", "bilinear"] = "bilinear",
-) -> TensorVariable:
-    """Solve the discrete Lyapunov equation :math:`A X A^H - X = Q`.
-
-    Parameters
-    ----------
-    A: TensorLike
-        Square matrix of shape N x N
-    Q: TensorLike
-        Square matrix of shape N x N
-    method: str, one of ``"direct"`` or ``"bilinear"``
-        Solver method used, . ``"direct"`` solves the problem directly via matrix inversion.  This has a pure
-        PyTensor implementation and can thus be cross-compiled to supported backends, and should be preferred when
-         ``N`` is not large. The direct method scales poorly with the size of ``N``, and the bilinear can be
-        used in these cases.
-
-    Returns
-    -------
-    X: TensorVariable
-        Square matrix of shape ``N x N``. Solution to the Lyapunov equation
-
-    """
-    if method not in ["direct", "bilinear"]:
-        raise ValueError(
-            f'Parameter "method" must be one of "direct" or "bilinear", found {method}'
-        )
-
-    A = as_tensor_variable(A)
-    Q = as_tensor_variable(Q)
-
-    if method == "direct":
-        signature = BilinearSolveDiscreteLyapunov.gufunc_signature
-        X = pt.vectorize(_direct_solve_discrete_lyapunov, signature=signature)(A, Q)
-        return cast(TensorVariable, X)
-
-    elif method == "bilinear":
-        return cast(TensorVariable, _bilinear_solve_discrete_lyapunov(A, Q))
-
-    else:
-        raise ValueError(f"Unknown method {method}")
-
-
-class SolveDiscreteARE(Op):
-    __props__ = ("enforce_Q_symmetric",)
-    gufunc_signature = "(m,m),(m,n),(m,m),(n,n)->(m,m)"
-
-    def __init__(self, enforce_Q_symmetric: bool = False):
-        self.enforce_Q_symmetric = enforce_Q_symmetric
-
-    def make_node(self, A, B, Q, R):
-        A = as_tensor_variable(A)
-        B = as_tensor_variable(B)
-        Q = as_tensor_variable(Q)
-        R = as_tensor_variable(R)
-
-        out_dtype = pytensor.scalar.upcast(A.dtype, B.dtype, Q.dtype, R.dtype)
-        X = pytensor.tensor.matrix(dtype=out_dtype)
-
-        return pytensor.graph.basic.Apply(self, [A, B, Q, R], [X])
-
-    def perform(self, node, inputs, output_storage):
-        A, B, Q, R = inputs
-        X = output_storage[0]
-
-        if self.enforce_Q_symmetric:
-            Q = 0.5 * (Q + Q.T)
-
-        out_dtype = node.outputs[0].type.dtype
-        X[0] = scipy_linalg.solve_discrete_are(A, B, Q, R).astype(out_dtype)
-
-    def infer_shape(self, fgraph, node, shapes):
-        return [shapes[0]]
-
-    def grad(self, inputs, output_grads):
-        # Gradient computations come from Kao and Hennequin (2020), https://arxiv.org/pdf/2011.11430.pdf
-        A, B, Q, R = inputs
-
-        (dX,) = output_grads
-        X = self(A, B, Q, R)
-
-        K_inner = R + matrix_dot(B.T, X, B)
-
-        # K_inner is guaranteed to be symmetric, because X and R are symmetric
-        K_inner_inv_BT = solve(K_inner, B.T, assume_a="sym")
-        K = matrix_dot(K_inner_inv_BT, X, A)
-
-        A_tilde = A - B.dot(K)
-
-        dX_symm = 0.5 * (dX + dX.T)
-        S = solve_discrete_lyapunov(A_tilde, dX_symm)
-
-        A_bar = 2 * matrix_dot(X, A_tilde, S)
-        B_bar = -2 * matrix_dot(X, A_tilde, S, K.T)
-        Q_bar = S
-        R_bar = matrix_dot(K, S, K.T)
-
-        return [A_bar, B_bar, Q_bar, R_bar]
-
-
-def solve_discrete_are(
-    A: TensorLike,
-    B: TensorLike,
-    Q: TensorLike,
-    R: TensorLike,
-    enforce_Q_symmetric: bool = False,
-) -> TensorVariable:
-    """
-    Solve the discrete Algebraic Riccati equation :math:`A^TXA - X - (A^TXB)(R + B^TXB)^{-1}(B^TXA) + Q = 0`.
-
-    Discrete-time Algebraic Riccati equations arise in the context of optimal control and filtering problems, as the
-    solution to Linear-Quadratic Regulators (LQR), Linear-Quadratic-Guassian (LQG) control problems, and as the
-    steady-state covariance of the Kalman Filter.
-
-    Such problems typically have many solutions, but we are generally only interested in the unique *stabilizing*
-    solution. This stable solution, if it exists, will be returned by this function.
-
-    Parameters
-    ----------
-    A: TensorLike
-        Square matrix of shape M x M
-    B: TensorLike
-        Square matrix of shape M x M
-    Q: TensorLike
-        Symmetric square matrix of shape M x M
-    R: TensorLike
-        Square matrix of shape N x N
-    enforce_Q_symmetric: bool
-        If True, the provided Q matrix is transformed to 0.5 * (Q + Q.T) to ensure symmetry
-
-    Returns
-    -------
-    X: TensorVariable
-        Square matrix of shape M x M, representing the solution to the DARE
-    """
-
-    return cast(
-        TensorVariable, Blockwise(SolveDiscreteARE(enforce_Q_symmetric))(A, B, Q, R)
-    )
+expm = Blockwise(Expm())
 
 
 def _largest_common_dtype(tensors: Sequence[TensorVariable]) -> np.dtype:
@@ -1610,7 +1299,7 @@ def _largest_common_dtype(tensors: Sequence[TensorVariable]) -> np.dtype:
 
 
 class BaseBlockDiagonal(Op):
-    __props__ = ("n_inputs",)
+    __props__: tuple[str, ...] = ("n_inputs",)
 
     def __init__(self, n_inputs):
         input_sig = ",".join(f"(m{i},n{i})" for i in range(n_inputs))
@@ -1726,7 +1415,6 @@ class QR(Op):
         "overwrite_a",
         "mode",
         "pivoting",
-        "check_finite",
     )
 
     def __init__(
@@ -1734,12 +1422,10 @@ class QR(Op):
         mode: Literal["full", "r", "economic", "raw"] = "full",
         overwrite_a: bool = False,
         pivoting: bool = False,
-        check_finite: bool = False,
     ):
         self.mode = mode
         self.overwrite_a = overwrite_a
         self.pivoting = pivoting
-        self.check_finite = check_finite
 
         self.destroy_map = {}
 
@@ -1776,7 +1462,10 @@ class QR(Op):
             K = None
 
         in_dtype = x.type.numpy_dtype
-        out_dtype = np.dtype(f"f{in_dtype.itemsize}")
+        if in_dtype.kind in "ibu":
+            out_dtype = "float64" if in_dtype.itemsize > 2 else "float32"
+        else:
+            out_dtype = "float64" if in_dtype.itemsize > 4 else "float32"
 
         match self.mode:
             case "full":
@@ -1850,7 +1539,7 @@ class QR(Op):
 
     def _call_and_get_lwork(self, fn, *args, lwork, **kwargs):
         if lwork in [-1, None]:
-            *_, work, info = fn(*args, lwork=-1, **kwargs)
+            *_, work, _info = fn(*args, lwork=-1, **kwargs)
             lwork = work.item()
 
         return fn(*args, lwork=lwork, **kwargs)
@@ -1861,13 +1550,13 @@ class QR(Op):
 
         if self.pivoting:
             (geqp3,) = get_lapack_funcs(("geqp3",), (x,))
-            qr, jpvt, tau, *work_info = self._call_and_get_lwork(
+            qr, jpvt, tau, *_work_info = self._call_and_get_lwork(
                 geqp3, x, lwork=-1, overwrite_a=self.overwrite_a
             )
             jpvt -= 1  # geqp3 returns a 1-based index array, so subtract 1
         else:
             (geqrf,) = get_lapack_funcs(("geqrf",), (x,))
-            qr, tau, *work_info = self._call_and_get_lwork(
+            qr, tau, *_work_info = self._call_and_get_lwork(
                 geqrf, x, lwork=-1, overwrite_a=self.overwrite_a
             )
 
@@ -1901,11 +1590,11 @@ class QR(Op):
         (gor_un_gqr,) = get_lapack_funcs(("orgqr",), (qr,))
 
         if M < N:
-            Q, work, info = self._call_and_get_lwork(
+            Q, _work, _info = self._call_and_get_lwork(
                 gor_un_gqr, qr[:, :M], tau, lwork=-1, overwrite_a=1
             )
         elif self.mode == "economic":
-            Q, work, info = self._call_and_get_lwork(
+            Q, _work, _info = self._call_and_get_lwork(
                 gor_un_gqr, qr, tau, lwork=-1, overwrite_a=1
             )
         else:
@@ -1914,7 +1603,7 @@ class QR(Op):
             qqr[:, :N] = qr
 
             # Always overwite qqr -- it's a meaningless intermediate value
-            Q, work, info = self._call_and_get_lwork(
+            Q, _work, _info = self._call_and_get_lwork(
                 gor_un_gqr, qqr, tau, lwork=-1, overwrite_a=1
             )
 
@@ -1985,7 +1674,7 @@ class QR(Op):
             ]
             if all(is_disconnected):
                 # This should never be reached by Pytensor
-                return [DisconnectedType()()]  # pragma: no cover
+                return [disconnected_type()]  # pragma: no cover
 
             for disconnected, output_grad, output in zip(
                 is_disconnected, output_grads, [Q, R], strict=True
@@ -2087,19 +1776,226 @@ def qr(
     return Blockwise(QR(mode=mode, pivoting=pivoting, overwrite_a=False))(A)
 
 
-__all__ = [
-    "cholesky",
-    "solve",
-    "eigvalsh",
-    "expm",
-    "solve_discrete_lyapunov",
+class Schur(Op):
+    """
+    Schur Decomposition
+    """
+
+    __props__ = ("output", "overwrite_a", "sort")
+
+    def __init__(
+        self,
+        output: Literal["real", "complex"] = "real",
+        overwrite_a: bool = False,
+        sort: Literal["lhp", "rhp", "iuc", "ouc"] | None = None,
+    ):
+        self.output = output
+        self.gufunc_signature = "(m,m)->(m,m),(m,m)"
+        self.overwrite_a = overwrite_a
+        self.sort = sort
+        self.destroy_map = {0: [0]} if overwrite_a else {}
+
+        if output not in ["real", "complex"]:
+            raise ValueError("output must be 'real' or 'complex'")
+        if sort is not None and sort not in ("lhp", "rhp", "iuc", "ouc"):
+            raise ValueError("sort must be None or one of ('lhp', 'rhp', 'iuc', 'ouc')")
+
+    def make_sort_function(self):
+        sort = self.sort
+        sort_t = 1
+
+        match sort:
+            case None:
+                sort_t = 0
+
+                def sort_function(x, y=None):
+                    return None
+
+            case "lhp":
+
+                def sort_function(x, y=None):
+                    return x.real < 0.0
+
+            case "rhp":
+
+                def sort_function(x, y=None):
+                    return x.real >= 0.0
+            case "iuc":
+
+                def sort_function(x, y=None):
+                    z = x if y is None else x + y * 1j
+                    return abs(z) <= 1.0
+            case "ouc":
+
+                def sort_function(x, y=None):
+                    z = x if y is None else x + y * 1j
+                    return abs(z) > 1.0
+            case _:
+                raise ValueError(
+                    "sort must be None or one of ('lhp', 'rhp', 'iuc', 'ouc')"
+                )
+
+        return sort_function, sort_t
+
+    def make_node(self, A):
+        A = as_tensor_variable(A)
+        assert A.ndim == 2
+
+        out_dtype = A.dtype
+        complex_input = out_dtype in ("complex64", "complex128")
+
+        # Scipy behavior: output parameter only affects real inputs
+        # Complex inputs always return complex output
+        if self.output == "complex" and not complex_input:
+            out_dtype = "complex64" if A.dtype == "float32" else "complex128"
+
+        T = matrix(dtype=out_dtype, shape=A.type.shape)
+        Z = matrix(dtype=out_dtype, shape=A.type.shape)
+
+        return Apply(self, [A], [T, Z])
+
+    def perform(self, node, inputs, outputs):
+        (A,) = inputs
+        (T_out, Z_out) = outputs
+        overwrite_a = self.overwrite_a
+
+        A_work = A
+        if self.output == "complex" and not np.iscomplexobj(A):
+            overwrite_a = False
+            if A.dtype == np.float32:
+                A_work = A.astype(np.complex64)
+            else:
+                A_work = A.astype(np.complex128)
+
+        if self.output == "real" and np.iscomplexobj(A):
+            overwrite_a = False
+
+        (gees,) = scipy_linalg.get_lapack_funcs(("gees",), dtype=A_work.dtype)
+
+        if A_work.size == 0:
+            T_out[0] = np.empty_like(A_work, dtype=gees.dtype)
+            Z_out[0] = np.empty_like(A_work, dtype=gees.dtype)
+            return
+
+        if not np.isfinite(A_work).all():
+            T_out[0] = np.full(A_work.shape, np.nan, dtype=gees.dtype)
+            Z_out[0] = np.full(A_work.shape, np.nan, dtype=gees.dtype)
+            return
+
+        sort_function, sort_t = self.make_sort_function()
+
+        *_, work, _info = gees(
+            sort_function, A_work, lwork=-1, overwrite_a=False, sort_t=sort_t
+        )
+        lwork = int(work[0].real)
+
+        result = gees(
+            sort_function,
+            A_work,
+            lwork=lwork,
+            overwrite_a=overwrite_a,
+            sort_t=sort_t,
+        )
+
+        if np.iscomplexobj(A_work):
+            T, _sdim, _w, Z, _work, info = result
+        else:
+            T, _sdim, _wr, _wi, Z, _work, info = result
+
+        if info != 0:
+            T_out[0] = np.full(A_work.shape, np.nan, dtype=node.outputs[0].type.dtype)
+            Z_out[0] = np.full(A_work.shape, np.nan, dtype=node.outputs[1].type.dtype)
+        else:
+            T_out[0] = T
+            Z_out[0] = Z
+
+    def infer_shape(self, fgraph, node, shapes):
+        return [shapes[0], shapes[0]]
+
+    def inplace_on_inputs(self, allowed_inplace_inputs: list[int]) -> "Op":
+        if not allowed_inplace_inputs:
+            return self
+        new_props = self._props_dict()  # type: ignore
+        new_props["overwrite_a"] = True
+        return type(self)(**new_props)
+
+
+def schur(
+    A: TensorLike,
+    output: Literal["real", "complex"] = "real",
+    sort: Literal["lhp", "rhp", "iuc", "ouc"] | None = None,
+) -> tuple[TensorVariable, TensorVariable]:
+    """
+    Schur Decomposition of input matrix `A`.
+
+    The Schur decomposition of a matrix `A` is a factorization of the form :math:`A = Z T Z^H`,
+    where `Z` is a unitary matrix and `T` is either upper-triangular (for complex Schur form)
+    or quasi-upper-triangular (for real Schur form with output='real').
+
+    Parameters
+    ----------
+    A: TensorLike
+        Input square matrix of shape (M, M) to be decomposed.
+
+    output: str, one of "real" or "complex"
+        For real-valued `A`, if output='real', then the Schur form is quasi-upper-triangular.
+        If output='complex', the Schur form is upper-triangular. For complex-valued `A`,
+        the Schur form is always upper-triangular regardless of the output parameter.
+
+    sort: str or None, optional
+        Specifies whether the upper eigenvalues should be sorted. Available options:
+
+        - None (default): eigenvalues are not sorted
+        - 'lhp': left half-plane (real(λ) < 0)
+        - 'rhp': right half-plane (real(λ) >= 0)
+        - 'iuc': inside unit circle (abs(λ) <= 1)
+        - 'ouc': outside unit circle (abs(λ) > 1)
+
+    Returns
+    -------
+    T : TensorVariable
+        Schur form of A. An upper-triangular matrix (or quasi-upper-triangular if output='real').
+
+    Z : TensorVariable
+        Unitary Schur transformation matrix such that A = Z @ T @ Z.conj().T
+
+    """
+    return Blockwise(Schur(output=output, sort=sort))(A)  # type: ignore[return-value]
+
+
+_deprecated_names = {
     "solve_continuous_lyapunov",
     "solve_discrete_are",
-    "solve_triangular",
+    "solve_discrete_lyapunov",
+}
+
+
+def __getattr__(name):
+    if name in _deprecated_names:
+        warnings.warn(
+            f"{name} has been moved from tensor/slinalg.py as part of a reorganization "
+            "of linear algebra routines in Pytensor. Imports from slinalg.py will fail in Pytensor 3.0.\n"
+            f"Please use the stable user-facing linalg API: from pytensor.tensor.linalg import {name}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from pytensor.tensor._linalg.solve import linear_control
+
+        return getattr(linear_control, name)
+    raise AttributeError(f"module {__name__} has no attribute {name}")
+
+
+__all__ = [
     "block_diag",
     "cho_solve",
+    "cholesky",
+    "eigvalsh",
+    "expm",
     "lu",
     "lu_factor",
     "lu_solve",
     "qr",
+    "schur",
+    "solve",
+    "solve_triangular",
 ]

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -41,11 +42,6 @@ from .type_defs import (
     ListFragmentsOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -56,16 +52,16 @@ __all__ = ("KinesisVideoArchivedMediaClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ClientLimitExceededException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidCodecPrivateDataException: Type[BotocoreClientError]
-    InvalidMediaFrameException: Type[BotocoreClientError]
-    MissingCodecPrivateDataException: Type[BotocoreClientError]
-    NoDataRetentionException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    UnsupportedStreamMediaTypeException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientLimitExceededException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidCodecPrivateDataException: type[BotocoreClientError]
+    InvalidMediaFrameException: type[BotocoreClientError]
+    MissingCodecPrivateDataException: type[BotocoreClientError]
+    NoDataRetentionException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    UnsupportedStreamMediaTypeException: type[BotocoreClientError]
 
 
 class KinesisVideoArchivedMediaClient(BaseClient):

@@ -3,7 +3,7 @@ Type annotations for drs service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -127,12 +128,6 @@ from .type_defs import (
     UpdateReplicationConfigurationTemplateRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -143,15 +138,15 @@ __all__ = ("DrsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UninitializedAccountException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UninitializedAccountException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class DrsClient(AioBaseClient):
@@ -241,7 +236,7 @@ class DrsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/client/#create_source_network)
         """
 
-    async def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a single Job by ID.
 
@@ -251,7 +246,7 @@ class DrsClient(AioBaseClient):
 
     async def delete_launch_action(
         self, **kwargs: Unpack[DeleteLaunchActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource launch action.
 
@@ -261,7 +256,7 @@ class DrsClient(AioBaseClient):
 
     async def delete_launch_configuration_template(
         self, **kwargs: Unpack[DeleteLaunchConfigurationTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Launch Configuration Template by ID.
 
@@ -281,7 +276,7 @@ class DrsClient(AioBaseClient):
 
     async def delete_replication_configuration_template(
         self, **kwargs: Unpack[DeleteReplicationConfigurationTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Replication Configuration Template by ID.
 
@@ -291,7 +286,7 @@ class DrsClient(AioBaseClient):
 
     async def delete_source_network(
         self, **kwargs: Unpack[DeleteSourceNetworkRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete Source Network resource.
 
@@ -301,7 +296,7 @@ class DrsClient(AioBaseClient):
 
     async def delete_source_server(
         self, **kwargs: Unpack[DeleteSourceServerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Source Server by ID.
 
@@ -450,7 +445,7 @@ class DrsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/client/#get_replication_configuration)
         """
 
-    async def initialize_service(self) -> Dict[str, Any]:
+    async def initialize_service(self) -> dict[str, Any]:
         """
         Initialize Elastic Disaster Recovery.
 
@@ -826,7 +821,7 @@ class DrsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

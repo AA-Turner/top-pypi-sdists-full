@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Sequence
 from itertools import combinations_with_replacement as cwr
 import logging
 import sqlite3
-from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from ase.db import connect
 import numpy as np
@@ -78,14 +78,14 @@ class DataManager(ABC):
         self._target_name = None
 
     @abstractmethod
-    def get_data(self, select_cond: List[tuple]) -> Tuple[np.ndarray, np.ndarray]:
+    def get_data(self, select_cond: list[tuple]) -> tuple[np.ndarray, np.ndarray]:
         """
         Return the design matrix X and the target data y
         """
 
     def _get_data_from_getters(
-        self, select_cond: List[tuple], feature_getter: FeatureGetter, target_getter: TargetGetter
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self, select_cond: list[tuple], feature_getter: FeatureGetter, target_getter: TargetGetter
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Return the design matrix X and the target data y
 
@@ -173,7 +173,7 @@ class DataManager(ABC):
         np.savetxt(fname, data, delimiter=",", header=header)
         logger.info("Dataset exported to %s", fname)
 
-    def get_matching_names(self, pattern: str) -> List[str]:
+    def get_matching_names(self, pattern: str) -> list[str]:
         """
         Get names that matches pattern
 
@@ -186,7 +186,7 @@ class DataManager(ABC):
         """
         return [n for n in self._feat_names if pattern in n]
 
-    def get_cols(self, names: List[str]) -> np.ndarray:
+    def get_cols(self, names: list[str]) -> np.ndarray:
         """
         Get all columns corresponding to the names
 
@@ -196,7 +196,7 @@ class DataManager(ABC):
         indices = [name_idx[n] for n in names]
         return self._X[:, indices]
 
-    def groups(self) -> List[int]:
+    def groups(self) -> list[int]:
         """
         Returns the group of each item in the X matrix. In the top-level
         DataManager it is assumed that each row in the X matrix constitutes
@@ -227,7 +227,7 @@ class CorrFuncEnergyDataManager(DataManager):
         self,
         db_name: str,
         tab_name: str,
-        cf_names: Optional[List[str]] = None,
+        cf_names: list[str] | None = None,
         order: int = 1,
     ) -> None:
         super().__init__(db_name)
@@ -235,7 +235,7 @@ class CorrFuncEnergyDataManager(DataManager):
         self.cf_names = cf_names
         self.order = order
 
-    def get_data(self, select_cond: List[tuple]) -> Tuple[np.ndarray, np.ndarray]:
+    def get_data(self, select_cond: list[tuple]) -> tuple[np.ndarray, np.ndarray]:
         """
         Return X and y, where X is the design matrix containing correlation
         functions and y is the DFT energy per atom.
@@ -274,7 +274,7 @@ class CorrFuncPropertyDataManager(DataManager):
         prop: str,
         db_name: str,
         tab_name: str,
-        cf_names: Optional[List[str]] = None,
+        cf_names: list[str] | None = None,
         order: int = 1,
     ) -> None:
         super().__init__(db_name)
@@ -283,7 +283,7 @@ class CorrFuncPropertyDataManager(DataManager):
         self.order = order
         self.prop = prop
 
-    def get_data(self, select_cond: List[tuple]) -> Tuple[np.ndarray, np.ndarray]:
+    def get_data(self, select_cond: list[tuple]) -> tuple[np.ndarray, np.ndarray]:
         """
         Return X and y, where X is the design matrix containing correlation
         functions and y is the DFT energy per atom.
@@ -316,7 +316,7 @@ class CorrelationFunctionGetter(FeatureGetter):
     """
 
     def __init__(
-        self, db_name: str, tab_name: str, cf_names: Optional[List[str]] = None, order: int = 1
+        self, db_name: str, tab_name: str, cf_names: list[str] | None = None, order: int = 1
     ) -> None:
         super().__init__(db_name)
         self.tab_name = tab_name
@@ -337,12 +337,12 @@ class CorrelationFunctionGetter(FeatureGetter):
         return self.cf_names is None or name in self.cf_names
 
     @staticmethod
-    def _is_matrix_representable(id_cf_names: Dict[int, List[str]]) -> bool:
+    def _is_matrix_representable(id_cf_names: dict[int, list[str]]) -> bool:
         """
         Check if the extracted correlation functions can be represented as a
         matrix.
         """
-        reference = sorted(list(id_cf_names.values())[0])
+        reference = sorted(next(iter(id_cf_names.values())))
 
         # Check the names of the correlation functions is equal for
         # all rows
@@ -355,12 +355,12 @@ class CorrelationFunctionGetter(FeatureGetter):
         return True
 
     @staticmethod
-    def _minimum_common_cf_set(id_cf_names: Dict[int, List[str]]) -> Set[str]:
+    def _minimum_common_cf_set(id_cf_names: dict[int, list[str]]) -> set[str]:
         """
         Returns the minimum set of correlation functions that exists for all
         rows.
         """
-        common_cf = set(list(id_cf_names.values())[0])
+        common_cf = set(next(iter(id_cf_names.values())))
         for v in id_cf_names.values():
             common_cf = common_cf.intersection(v)
         return common_cf
@@ -648,7 +648,7 @@ class CorrFuncVolumeDataManager(DataManager):
         self,
         db_name: str,
         tab_name: str,
-        cf_names: Optional[List[str]] = None,
+        cf_names: list[str] | None = None,
         order: int = 1,
     ) -> None:
         super().__init__(db_name)
@@ -656,7 +656,7 @@ class CorrFuncVolumeDataManager(DataManager):
         self.cf_names = cf_names
         self.order = order
 
-    def get_data(self, select_cond: List[tuple]) -> Tuple[np.ndarray, np.ndarray]:
+    def get_data(self, select_cond: list[tuple]) -> tuple[np.ndarray, np.ndarray]:
         """
         Return X and y, where X is the design matrix containing correlation
         functions and y is the volume per atom.
@@ -674,7 +674,7 @@ class CorrFuncVolumeDataManager(DataManager):
         )
 
 
-def extract_num_atoms(cur: sqlite3.Cursor, ids: Set[int]) -> Dict[int, int]:
+def extract_num_atoms(cur: sqlite3.Cursor, ids: set[int]) -> dict[int, int]:
     """
     Extract the number of atoms for all ids
 
@@ -724,9 +724,9 @@ class CorrelationFunctionGetterVolDepECI(DataManager):
         self,
         db_name: str,
         tab_name: str,
-        cf_names: List[str],
-        order: Optional[int] = 0,
-        properties: Tuple[str] = ("energy", "pressure"),
+        cf_names: list[str],
+        order: int | None = 0,
+        properties: tuple[str] = ("energy", "pressure"),
         cf_order: int = 1,
     ) -> None:
         super().__init__(db_name)
@@ -737,7 +737,7 @@ class CorrelationFunctionGetterVolDepECI(DataManager):
         self.cf_order = cf_order
         self._groups = []
 
-    def build(self, ids: List[int]) -> np.ndarray:
+    def build(self, ids: list[int]) -> np.ndarray:
         """
         Construct the design matrix and the target value required to fit a
         cluster expansion model to all material properties in self.properties.
@@ -855,7 +855,7 @@ class CorrelationFunctionGetterVolDepECI(DataManager):
         self._y = np.array([x for values in target_values for x in values])
         self._target_name = "-".join(target_val_names)
 
-    def _extract_key(self, ids: Set[int], key: str) -> Dict[int, float]:
+    def _extract_key(self, ids: set[int], key: str) -> dict[int, float]:
         """
         Extract a key from the database for the ids in the passed set that
         has a bulk modlus entry. The function returns a dictionary where the
@@ -877,7 +877,7 @@ class CorrelationFunctionGetterVolDepECI(DataManager):
                     id_key[db_id] = value
         return id_key
 
-    def get_data(self, select_cond: List[tuple]) -> Tuple[np.ndarray, np.ndarray]:
+    def get_data(self, select_cond: list[tuple]) -> tuple[np.ndarray, np.ndarray]:
         """
         Return the design matrix and the target values for the entries
         corresponding to select_cond.
@@ -890,7 +890,7 @@ class CorrelationFunctionGetterVolDepECI(DataManager):
         self.build(ids)
         return self._X, self._y
 
-    def groups(self) -> List[int]:
+    def groups(self) -> list[int]:
         """
         Return the group of each rows.
         """

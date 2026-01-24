@@ -8,10 +8,45 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
+from .api_integration_webhook_overrides_output import ApiIntegrationWebhookOverridesOutput
 from .dynamic_variable_assignment import DynamicVariableAssignment
 from .dynamic_variables_config import DynamicVariablesConfig
 from .system_tool_config_output_params import SystemToolConfigOutputParams
+from .tool_call_sound_behavior import ToolCallSoundBehavior
+from .tool_call_sound_type import ToolCallSoundType
+from .tool_execution_mode import ToolExecutionMode
 from .webhook_tool_api_schema_config_output import WebhookToolApiSchemaConfigOutput
+
+
+class PromptAgentApiModelOutputToolsItem_ApiIntegrationWebhook(UncheckedBaseModel):
+    """
+    The type of tool
+    """
+
+    type: typing.Literal["api_integration_webhook"] = "api_integration_webhook"
+    name: str
+    description: str
+    response_timeout_secs: int
+    disable_interruptions: bool
+    force_pre_tool_speech: bool
+    assignments: typing.List[DynamicVariableAssignment]
+    tool_call_sound: typing.Optional[ToolCallSoundType] = None
+    tool_call_sound_behavior: ToolCallSoundBehavior
+    dynamic_variables: DynamicVariablesConfig
+    execution_mode: ToolExecutionMode
+    tool_version: str
+    api_integration_id: str
+    api_integration_connection_id: str
+    api_schema_overrides: typing.Optional[ApiIntegrationWebhookOverridesOutput] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
 
 
 class PromptAgentApiModelOutputToolsItem_Client(UncheckedBaseModel):
@@ -26,9 +61,12 @@ class PromptAgentApiModelOutputToolsItem_Client(UncheckedBaseModel):
     disable_interruptions: typing.Optional[bool] = None
     force_pre_tool_speech: typing.Optional[bool] = None
     assignments: typing.Optional[typing.List[DynamicVariableAssignment]] = None
+    tool_call_sound: typing.Optional[ToolCallSoundType] = None
+    tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = None
     parameters: typing.Optional["ObjectJsonSchemaPropertyOutput"] = None
     expects_response: typing.Optional[bool] = None
     dynamic_variables: typing.Optional[DynamicVariablesConfig] = None
+    execution_mode: typing.Optional[ToolExecutionMode] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -41,7 +79,7 @@ class PromptAgentApiModelOutputToolsItem_Client(UncheckedBaseModel):
 
 
 class PromptAgentApiModelOutputToolsItem_Mcp(UncheckedBaseModel):
-    value: typing.Optional[typing.Any] = None
+    value: typing.Any
     type: typing.Literal["mcp"] = "mcp"
 
     if IS_PYDANTIC_V2:
@@ -65,6 +103,8 @@ class PromptAgentApiModelOutputToolsItem_System(UncheckedBaseModel):
     disable_interruptions: typing.Optional[bool] = None
     force_pre_tool_speech: typing.Optional[bool] = None
     assignments: typing.Optional[typing.List[DynamicVariableAssignment]] = None
+    tool_call_sound: typing.Optional[ToolCallSoundType] = None
+    tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = None
     params: SystemToolConfigOutputParams
 
     if IS_PYDANTIC_V2:
@@ -89,8 +129,11 @@ class PromptAgentApiModelOutputToolsItem_Webhook(UncheckedBaseModel):
     disable_interruptions: typing.Optional[bool] = None
     force_pre_tool_speech: typing.Optional[bool] = None
     assignments: typing.Optional[typing.List[DynamicVariableAssignment]] = None
-    api_schema: WebhookToolApiSchemaConfigOutput
+    tool_call_sound: typing.Optional[ToolCallSoundType] = None
+    tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = None
     dynamic_variables: typing.Optional[DynamicVariablesConfig] = None
+    execution_mode: typing.Optional[ToolExecutionMode] = None
+    api_schema: WebhookToolApiSchemaConfigOutput
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -102,11 +145,11 @@ class PromptAgentApiModelOutputToolsItem_Webhook(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
-from .array_json_schema_property_output import ArrayJsonSchemaPropertyOutput  # noqa: E402, F401, I001
-from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, F401, I001
+from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, I001
 
 PromptAgentApiModelOutputToolsItem = typing_extensions.Annotated[
     typing.Union[
+        PromptAgentApiModelOutputToolsItem_ApiIntegrationWebhook,
         PromptAgentApiModelOutputToolsItem_Client,
         PromptAgentApiModelOutputToolsItem_Mcp,
         PromptAgentApiModelOutputToolsItem_System,
@@ -114,5 +157,6 @@ PromptAgentApiModelOutputToolsItem = typing_extensions.Annotated[
     ],
     UnionMetadata(discriminant="type"),
 ]
+update_forward_refs(PromptAgentApiModelOutputToolsItem_ApiIntegrationWebhook)
 update_forward_refs(PromptAgentApiModelOutputToolsItem_Client)
 update_forward_refs(PromptAgentApiModelOutputToolsItem_Webhook)

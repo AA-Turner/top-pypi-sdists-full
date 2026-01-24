@@ -152,10 +152,10 @@ class SecretManagerWrapperLayer(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lambda_architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        lambda_architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -174,11 +174,11 @@ class SecretManagerWrapperLayer(
 
     @builtins.property
     @jsii.member(jsii_name="layerVersion")
-    def layer_version(self) -> _aws_cdk_aws_lambda_ceddda9d.ILayerVersion:
+    def layer_version(self) -> "_aws_cdk_aws_lambda_ceddda9d.ILayerVersion":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.ILayerVersion, jsii.get(self, "layerVersion"))
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.ILayerVersion", jsii.get(self, "layerVersion"))
 
 
 @jsii.data_type(
@@ -190,7 +190,7 @@ class SecretManagerWrapperLayerProps:
     def __init__(
         self,
         *,
-        lambda_architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        lambda_architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
     ) -> None:
         '''
         :param lambda_architecture: (experimental) The architecture for the Lambda function that will use this layer.
@@ -207,13 +207,13 @@ class SecretManagerWrapperLayerProps:
     @builtins.property
     def lambda_architecture(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"]:
         '''(experimental) The architecture for the Lambda function that will use this layer.
 
         :stability: experimental
         '''
         result = self._values.get("lambda_architecture")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

@@ -73,7 +73,9 @@ class FastA2A(Starlette):
 
         # Setup
         self._agent_card_json_schema: bytes | None = None
-        self.router.add_route('/.well-known/agent.json', self._agent_card_endpoint, methods=['HEAD', 'GET', 'OPTIONS'])
+        self.router.add_route(
+            '/.well-known/agent-card.json', self._agent_card_endpoint, methods=['HEAD', 'GET', 'OPTIONS']
+        )
         self.router.add_route('/', self._agent_run_endpoint, methods=['POST'])
         self.router.add_route('/docs', self._docs_endpoint, methods=['GET'])
 
@@ -89,7 +91,7 @@ class FastA2A(Starlette):
                 description=self.description or 'An AI agent exposed as an A2A agent.',
                 url=self.url,
                 version=self.version,
-                protocol_version='0.2.5',
+                protocol_version='0.3.0',
                 skills=self.skills,
                 default_input_modes=self.default_input_modes,
                 default_output_modes=self.default_output_modes,
@@ -112,7 +114,7 @@ class FastA2A(Starlette):
 
         Although the specification allows freedom of choice and implementation, I'm pretty sure about some decisions.
 
-        1. The server will always either send a "submitted" or a "failed" on `tasks/send`.
+        1. The server will always either send a "submitted" or a "failed" on `message/send`.
             Never a "completed" on the first message.
         2. There are three possible ends for the task:
             2.1. The task was "completed" successfully.

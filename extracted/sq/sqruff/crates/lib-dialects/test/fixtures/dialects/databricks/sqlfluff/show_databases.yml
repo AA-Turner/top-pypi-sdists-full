@@ -1,0 +1,52 @@
+file:
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: DATABASES
+- statement_terminator: ;
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: DATABASES
+    - keyword: FROM
+    - object_reference:
+      - naked_identifier: userdb
+- statement_terminator: ;
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: DATABASES
+    - keyword: IN
+    - object_reference:
+      - naked_identifier: userdb
+- statement_terminator: ;
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: DATABASES
+    - keyword: FROM
+    - object_reference:
+      - naked_identifier: default
+    - keyword: LIKE
+    - quoted_literal: '''sam*'''
+- statement_terminator: ;
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: DATABASES
+    - keyword: FROM
+    - object_reference:
+      - naked_identifier: default
+    - quoted_literal: '''sam*'''
+- statement_terminator: ;
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: DATABASES
+    - quoted_literal: '''sam*|suj'''
+- statement_terminator: ;
+- statement:
+  - show_statement:
+    - keyword: SHOW
+    - keyword: SCHEMAS
+- statement_terminator: ;

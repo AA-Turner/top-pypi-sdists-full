@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: uipath-core
+Version: 0.1.10
+Summary: UiPath Core abstractions
+Project-URL: Homepage, https://uipath.com
+Project-URL: Repository, https://github.com/UiPath/uipath-core-python
+Project-URL: Documentation, https://uipath.github.io/uipath-python/
+Maintainer-email: Marius Cosareanu <marius.cosareanu@uipath.com>, Cristian Pufu <cristian.pufu@uipath.com>
+License-File: LICENSE
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: >=3.11
+Requires-Dist: opentelemetry-instrumentation<1.0.0,>=0.60b0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.39.0
+Requires-Dist: pydantic<3.0.0,>=2.12.5
+Description-Content-Type: text/markdown
+
+# UiPath Core
+
+Core abstractions and contracts for the UiPath Python SDK.

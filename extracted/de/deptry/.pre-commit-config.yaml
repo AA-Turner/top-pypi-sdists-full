@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: "v5.0.0"
+    rev: "v6.0.0"
     hooks:
       - id: check-case-conflict
       - id: check-merge-conflict
@@ -10,14 +10,24 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.12.5"
+    rev: "v0.14.4"
     hooks:
       - id: ruff
         args: [--exit-non-zero-on-fix]
       - id: ruff-format
 
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        exclude: ^tests/fixtures
+        entry: uv run mypy
+        language: system
+        types: [python]
+        require_serial: true
+
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: "0.8.3"
+    rev: "0.9.8"
     hooks:
       - id: uv-lock
         name: check uv lock file consistency
@@ -53,6 +63,6 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: "v1.11.0"
+    rev: "v1.16.3"
     hooks:
       - id: zizmor

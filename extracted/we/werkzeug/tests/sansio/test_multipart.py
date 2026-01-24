@@ -85,7 +85,9 @@ def test_decoder_data_start_with_different_newline_positions(
     # We want to check up to data start event
     while not isinstance(events[-1], Data):
         events.append(decoder.next_event())
+
     expected = data_start if data_end == b"" else data_start + b"\r\nBCDE"
+
     assert events == [
         Preamble(data=b""),
         File(

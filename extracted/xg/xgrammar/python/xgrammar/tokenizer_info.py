@@ -125,6 +125,32 @@ class TokenizerInfo(XGRObject):
         return has_tiktoken_encoding or filename_pattern
 
     @staticmethod
+    def _is_byte_level_tokenizer(tokenizer: PreTrainedTokenizerBase) -> bool:
+        """Checking whether the tokenizer has byte-level whitespace conversion.
+
+        Parameters
+        ----------
+        tokenizer : PreTrainedTokenizerBase
+            The huggingface tokenizer.
+
+        Returns
+        -------
+        is_byte_level : bool
+            The tokenizer has byte-level whitespace conversion.
+        """
+        if tiktoken is None:
+            return False
+
+        # check the tokenizer with r' ' encode
+        new_ids = tokenizer.encode(r" ")
+        if new_ids.__len__() < 1:
+            return False
+        new_tokens = tokenizer.convert_ids_to_tokens(new_ids)
+        token = new_tokens[0]
+        # the tokenizer has a BPE-like whitespace conversion
+        return token == "Ġ"
+
+    @staticmethod
     def _is_sentencepiece_tokenizer(tokenizer: PreTrainedTokenizerBase) -> bool:
         if sentencepiece is None:
             return False
@@ -138,6 +164,10 @@ class TokenizerInfo(XGRObject):
             hasattr(tokenizer, "tokenizer")
             and hasattr(tokenizer.tokenizer, "sp_model")
             and isinstance(tokenizer.tokenizer.sp_model, sentencepiece.SentencePieceProcessor)
+        ) or (
+            # Support Teuken-7B-instruct-v0.6
+            hasattr(tokenizer, "tok")
+            and isinstance(tokenizer.tok, sentencepiece.SentencePieceProcessor)
         )
 
         return has_sp_model_attr or has_nested_sp_model_attr
@@ -258,9 +288,15 @@ class TokenizerInfo(XGRObject):
                         "stop_token_ids is neither provided by user nor found from the tokenizer. "
                         "It will be automatically detected."
                     )
+            vocab_type = VocabType.RAW
+            if TokenizerInfo._is_byte_level_tokenizer(tokenizer):
+                # Some tiktoken tokenizers subclassed from PretrainedTokenizerBase
+                # also perform byte-level conversion.
+                # e.g. Kimi-K2-Instruct
+                vocab_type = VocabType.BYTE_LEVEL
             return TokenizerInfo(
                 encoded_vocab,
-                VocabType.RAW,
+                vocab_type,
                 vocab_size=vocab_size,
                 stop_token_ids=stop_token_ids,
                 add_prefix_space=False,
@@ -273,6 +309,8 @@ class TokenizerInfo(XGRObject):
                 sp_model = tokenizer.sp_model
             elif hasattr(tokenizer, "tokenizer") and hasattr(tokenizer.tokenizer, "sp_model"):
                 sp_model = tokenizer.tokenizer.sp_model
+            elif hasattr(tokenizer, "tok"):
+                sp_model = tokenizer.tok
 
             if stop_token_ids is None:
                 if hasattr(tokenizer, "eos_token_id") and tokenizer.eos_token_id is not None:

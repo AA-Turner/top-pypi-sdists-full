@@ -6,10 +6,13 @@ import uuid
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
-from globus_sdk import _guards, client, exc, utils
+from globus_sdk import client, exc
+from globus_sdk._internal.remarshal import commajoin
+from globus_sdk._missing import MISSING, MissingType
 from globus_sdk.authorizers import GlobusAuthorizer, NullAuthorizer
 from globus_sdk.response import GlobusHTTPResponse
 from globus_sdk.scopes import AuthScopes, Scope
+from globus_sdk.transport import RequestsTransport, RetryConfig
 
 from .._common import get_jwk_data, pem_decode_jwk_data
 from ..errors import AuthAPIError
@@ -50,14 +53,16 @@ class AuthLoginClient(client.BaseClient):
         base_url: str | None = None,
         authorizer: GlobusAuthorizer | None = None,
         app_name: str | None = None,
-        transport_params: dict[str, t.Any] | None = None,
+        transport: RequestsTransport | None = None,
+        retry_config: RetryConfig | None = None,
     ) -> None:
         super().__init__(
             environment=environment,
             base_url=base_url,
             authorizer=authorizer,
             app_name=app_name,
-            transport_params=transport_params,
+            transport=transport,
+            retry_config=retry_config,
         )
         self.client_id: str | None = str(client_id) if client_id is not None else None
         # an AuthClient may contain a GlobusOAuth2FlowManager in order to
@@ -95,7 +100,7 @@ class AuthLoginClient(client.BaseClient):
     @t.overload
     def get_jwk(
         self,
-        openid_configuration: None | GlobusHTTPResponse | dict[str, t.Any],
+        openid_configuration: GlobusHTTPResponse | dict[str, t.Any] | MissingType,
         *,
         as_pem: t.Literal[True],
     ) -> RSAPublicKey: ...
@@ -103,7 +108,7 @@ class AuthLoginClient(client.BaseClient):
     @t.overload
     def get_jwk(
         self,
-        openid_configuration: None | GlobusHTTPResponse | dict[str, t.Any],
+        openid_configuration: GlobusHTTPResponse | dict[str, t.Any] | MissingType,
         *,
         as_pem: t.Literal[False],
     ) -> dict[str, t.Any]: ...
@@ -117,7 +122,9 @@ class AuthLoginClient(client.BaseClient):
     # an AuthClient which it uses
     def get_jwk(
         self,
-        openid_configuration: None | GlobusHTTPResponse | dict[str, t.Any] = None,
+        openid_configuration: (
+            GlobusHTTPResponse | dict[str, t.Any] | MissingType
+        ) = MISSING,
         *,
         as_pem: bool = False,
     ) -> RSAPublicKey | dict[str, t.Any]:
@@ -130,7 +137,7 @@ class AuthLoginClient(client.BaseClient):
             When not provided, it will be fetched automatically.
         :param as_pem: Decode the JWK to an RSA PEM key, typically for JWT decoding
         """
-        if openid_configuration is None:
+        if openid_configuration is MISSING:
             log.debug("No OIDC Config provided, autofetching...")
             openid_configuration = self.get_openid_configuration()
         jwk_data = get_jwk_data(
@@ -142,15 +149,15 @@ class AuthLoginClient(client.BaseClient):
         self,
         *,
         session_required_identities: (
-            uuid.UUID | str | t.Iterable[uuid.UUID | str] | None
-        ) = None,
-        session_required_single_domain: str | t.Iterable[str] | None = None,
+            uuid.UUID | str | t.Iterable[uuid.UUID | str] | MissingType
+        ) = MISSING,
+        session_required_single_domain: str | t.Iterable[str] | MissingType = MISSING,
         session_required_policies: (
-            uuid.UUID | str | t.Iterable[uuid.UUID | str] | None
-        ) = None,
-        session_required_mfa: bool | None = None,
-        session_message: str | None = None,
-        prompt: t.Literal["login"] | None = None,
+            uuid.UUID | str | t.Iterable[uuid.UUID | str] | MissingType
+        ) = MISSING,
+        session_required_mfa: bool | MissingType = MISSING,
+        session_message: str | MissingType = MISSING,
+        prompt: t.Literal["login"] | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> str:
         """
@@ -183,26 +190,15 @@ class AuthLoginClient(client.BaseClient):
                 "Call the oauth2_start_flow() method on this "
                 "AuthClient to resolve"
             )
-        if query_params is None:
-            query_params = {}
-        if session_required_identities is not None:
-            query_params["session_required_identities"] = utils.commajoin(
-                session_required_identities
-            )
-        if session_required_single_domain is not None:
-            query_params["session_required_single_domain"] = utils.commajoin(
-                session_required_single_domain
-            )
-        if session_required_policies is not None:
-            query_params["session_required_policies"] = utils.commajoin(
-                session_required_policies
-            )
-        if session_required_mfa is not None:
-            query_params["session_required_mfa"] = session_required_mfa
-        if session_message is not None:
-            query_params["session_message"] = session_message
-        if prompt is not None:
-            query_params["prompt"] = prompt
+        query_params = {
+            "session_required_identities": commajoin(session_required_identities),
+            "session_required_single_domain": commajoin(session_required_single_domain),
+            "session_required_policies": commajoin(session_required_policies),
+            "session_required_mfa": session_required_mfa,
+            "session_message": session_message,
+            "prompt": prompt,
+            **(query_params or {}),
+        }
         auth_url = self.current_oauth2_flow_manager.get_authorize_url(
             query_params=query_params
         )
@@ -263,43 +259,6 @@ class AuthLoginClient(client.BaseClient):
             form_data, body_params=body_params, response_class=OAuthRefreshTokenResponse
         )
 
-    def oauth2_validate_token(
-        self,
-        token: str,
-        *,
-        body_params: dict[str, t.Any] | None = None,
-    ) -> GlobusHTTPResponse:
-        """
-        Deprecated. Because the validity of a token may be dependent on policies
-        enforced both by Globus Auth and the resource server, this method is not
-        considered a reliable way to check token validity.
-        Users are encouraged to treat tokens as valid until proven otherwise instead.
-
-        :param token: The token which should be validated. Can be a refresh token or an
-            access token
-        :param body_params: Additional parameters to include in the validation
-            body. Primarily for internal use
-        """
-        exc.warn_deprecated(
-            f"{self.__class__.__name__}.oauth2_validate_token() is deprecated. "
-            "This validation method gives non-definitive results. "
-            "Tokens should be treated as valid until they are used and their "
-            "validity can be assessed."
-        )
-        log.debug("Validating token")
-        body = {"token": token}
-
-        # if this client has no way of authenticating itself but
-        # it does have a client_id, we'll send that in the request
-        no_authentication = _guards.is_optional(self.authorizer, NullAuthorizer)
-        if no_authentication and self.client_id:
-            log.debug("Validating token with unauthenticated client")
-            body.update({"client_id": self.client_id})
-
-        if body_params:
-            body.update(body_params)
-        return self.post("/v2/oauth2/token/validate", data=body, encoding="form")
-
     def oauth2_revoke_token(
         self,
         token: str,
@@ -340,21 +299,19 @@ class AuthLoginClient(client.BaseClient):
         if no_authentication and self.client_id:
             log.debug("Revoking token with unauthenticated client")
             body.update({"client_id": self.client_id})
-
-        if body_params:
-            body.update(body_params)
+        body.update(body_params or {})
         return self.post("/v2/oauth2/token/revoke", data=body, encoding="form")
 
     @t.overload
     def oauth2_token(
         self,
-        form_data: dict[str, t.Any] | utils.PayloadWrapper,
+        form_data: dict[str, t.Any],
     ) -> OAuthTokenResponse: ...
 
     @t.overload
     def oauth2_token(
         self,
-        form_data: dict[str, t.Any] | utils.PayloadWrapper,
+        form_data: dict[str, t.Any],
         *,
         body_params: dict[str, t.Any] | None,
     ) -> OAuthTokenResponse: ...
@@ -362,7 +319,7 @@ class AuthLoginClient(client.BaseClient):
     @t.overload
     def oauth2_token(
         self,
-        form_data: dict[str, t.Any] | utils.PayloadWrapper,
+        form_data: dict[str, t.Any],
         *,
         response_class: type[RT],
     ) -> RT: ...
@@ -370,7 +327,7 @@ class AuthLoginClient(client.BaseClient):
     @t.overload
     def oauth2_token(
         self,
-        form_data: dict[str, t.Any] | utils.PayloadWrapper,
+        form_data: dict[str, t.Any],
         *,
         body_params: dict[str, t.Any] | None,
         response_class: type[RT],
@@ -378,7 +335,7 @@ class AuthLoginClient(client.BaseClient):
 
     def oauth2_token(
         self,
-        form_data: dict[str, t.Any] | utils.PayloadWrapper,
+        form_data: dict[str, t.Any],
         *,
         body_params: dict[str, t.Any] | None = None,
         response_class: type[OAuthTokenResponse] | type[RT] = OAuthTokenResponse,
@@ -406,9 +363,7 @@ class AuthLoginClient(client.BaseClient):
         log.debug("Fetching new token from Globus Auth")
         # use the fact that requests implicitly encodes the `data` parameter as
         # a form POST
-        data = dict(form_data)
-        if body_params:
-            data.update(body_params)
+        data = {**form_data, **(body_params or {})}
         return response_class(
             self.post(
                 "/v2/oauth2/token",

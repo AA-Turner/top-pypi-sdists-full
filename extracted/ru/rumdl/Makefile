@@ -1,4 +1,4 @@
-.PHONY: build test clean fmt check doc version-major version-minor version-patch build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version pre-release build-static-linux-x64 build-static-linux-arm64 build-static-all
+.PHONY: build test clean fmt check doc version-major version-minor version-patch build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version pre-release build-static-linux-x64 build-static-linux-arm64 build-static-all schema check-schema changelog-draft changelog-latest changelog-all changelog-help benchmark benchmark-run benchmark-chart lint-actions fuzz fuzz-long
 
 # Development environment setup
 setup-mise:
@@ -95,8 +95,8 @@ test-pre-commit:
 	cargo nextest run --profile pre-commit
 
 test-push:
-	@echo "Running full test suite (this may take a few minutes)..."
-	cargo nextest run
+	@echo "Running CI test suite (excludes performance tests)..."
+	cargo nextest run --profile ci
 
 test-ci:
 	cargo nextest run --profile ci
@@ -106,6 +106,20 @@ test-performance:
 	@echo "Tests run serially to reduce noise - be patient!"
 	cargo nextest run --profile performance
 
+test-complexity:
+	@echo "Running O(n²) complexity regression tests..."
+	@echo "These tests verify all rules maintain linear O(n) complexity."
+	cargo nextest run --profile performance -E 'test(linear_complexity)'
+
+# Fuzz testing (requires nightly Rust)
+fuzz:
+	@echo "Running fuzz test for fix idempotency (30 seconds)..."
+	cargo +nightly fuzz run fuzz_fix_idempotency -- -max_total_time=30
+
+fuzz-long:
+	@echo "Running extended fuzz test (5 minutes)..."
+	cargo +nightly fuzz run fuzz_fix_idempotency -- -max_total_time=300
+
 clean:
 	cargo clean
 
@@ -114,14 +128,30 @@ fmt:
 	cargo clippy --fix --allow-dirty --allow-staged -- -D clippy::uninlined_format_args
 	cargo fix --allow-dirty --allow-staged
 
+lint-actions:
+	actionlint
+
 lint:
+	CARGO_INCREMENTAL=1 cargo clippy --workspace --lib --bins --tests -- -D warnings -D clippy::uninlined_format_args
+	$(MAKE) lint-actions
+
+lint-all:
 	CARGO_INCREMENTAL=1 cargo clippy --all-targets --all-features -- -D warnings -D clippy::uninlined_format_args
+	$(MAKE) lint-actions
 
 lint-fast:
 	CARGO_INCREMENTAL=1 cargo clippy --workspace --lib --bins -- -D warnings -D clippy::uninlined_format_args
 
 check:
 	cargo check --all-targets --all-features
+
+# Generate JSON schema for rumdl.toml
+schema:
+	cargo run --bin rumdl -- schema generate
+
+# Check if JSON schema is up-to-date
+check-schema:
+	cargo run --bin rumdl -- schema check
 
 doc:
 	cargo doc --no-deps
@@ -155,6 +185,12 @@ update-cargo-version:
 	@echo "Updating Cargo.lock..."
 	@cargo update
 
+update-github-action-version:
+	@echo "Updating the companion Github Action to use version $(VERSION_NO_V)..."
+	@perl -i.bak -pe 's/^rumdl_version="[0-9]+\.[0-9]+\.[0-9]+"/rumdl_version="$(VERSION_NO_V)"/g' scripts/rumdl-action.sh
+	@rm -f scripts/rumdl-action.sh.bak 2>/dev/null || true
+	@echo "Companion Github Action updated to version $(VERSION_NO_V)"
+
 update-readme-version:
 	@echo "Updating README.md pre-commit rev to $(NEW_TAG)..."
 	@perl -i.bak -0777 -pe 's{(repo: https://github.com/rvben/rumdl\s+rev: )v\d+\.\d+\.\d+}{$$1$(NEW_TAG)}g' README.md
@@ -179,6 +215,36 @@ update-changelog:
 		echo "Warning: CHANGELOG.md not found"; \
 	fi
 
+# Changelog generation with git-cliff (from conventional commits)
+changelog-draft:
+	@echo "Generating changelog draft for unreleased commits..."
+	@mise exec -- git-cliff --unreleased
+
+changelog-latest:
+	@echo "Generating changelog for latest release..."
+	@mise exec -- git-cliff --latest
+
+changelog-all:
+	@echo "Generating full changelog..."
+	@mise exec -- git-cliff
+
+changelog-help:
+	@echo "Changelog generation targets:"
+	@echo "  make changelog-draft   - Preview unreleased changes (does not modify files)"
+	@echo "  make changelog-latest  - Show latest release changelog"
+	@echo "  make changelog-all     - Show full changelog"
+	@echo ""
+	@echo "Note: These targets generate drafts from conventional commits."
+	@echo "      Review and enhance with details before committing to CHANGELOG.md"
+	@echo ""
+	@echo "Conventional commit format:"
+	@echo "  feat(scope): description       -> Added section"
+	@echo "  fix(scope): description        -> Fixed section"
+	@echo "  perf(scope): description       -> Performance section"
+	@echo "  refactor(scope): description   -> Changed section"
+	@echo ""
+	@echo "Configuration: cliff.toml"
+
 version-major:
 	@echo "Creating new major version tag..."
 	$(eval CURRENT := $(shell git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0))
@@ -188,9 +254,10 @@ version-major:
 	$(eval VERSION_NO_V := $(NEW_MAJOR).0.0)
 	@echo "Current: $(CURRENT) -> New: $(NEW_TAG)"
 	@$(MAKE) update-cargo-version VERSION_NO_V=$(VERSION_NO_V)
+	@$(MAKE) update-github-action-version VERSION_NO_V=$(VERSION_NO_V)
 	@$(MAKE) update-all-docs-version NEW_TAG=$(NEW_TAG)
 	@$(MAKE) update-changelog NEW_TAG=$(NEW_TAG) VERSION_NO_V=$(VERSION_NO_V) CURRENT=$(CURRENT)
-	@git add Cargo.toml Cargo.lock README.md docs/global-settings.md CHANGELOG.md
+	@git add Cargo.toml Cargo.lock README.md docs/global-settings.md CHANGELOG.md scripts/rumdl-action.sh
 	@git commit -m "Bump version to $(NEW_TAG)"
 	@git tag -a $(NEW_TAG) -m "Release $(NEW_TAG)"
 	@echo "Version $(NEW_TAG) created and committed. Run 'git push && git push origin $(NEW_TAG)' to trigger release workflow."
@@ -205,9 +272,10 @@ version-minor:
 	$(eval VERSION_NO_V := $(MAJOR).$(NEW_MINOR).0)
 	@echo "Current: $(CURRENT) -> New: $(NEW_TAG)"
 	@$(MAKE) update-cargo-version VERSION_NO_V=$(VERSION_NO_V)
+	@$(MAKE) update-github-action-version VERSION_NO_V=$(VERSION_NO_V)
 	@$(MAKE) update-all-docs-version NEW_TAG=$(NEW_TAG)
 	@$(MAKE) update-changelog NEW_TAG=$(NEW_TAG) VERSION_NO_V=$(VERSION_NO_V) CURRENT=$(CURRENT)
-	@git add Cargo.toml Cargo.lock README.md docs/global-settings.md CHANGELOG.md
+	@git add Cargo.toml Cargo.lock README.md docs/global-settings.md CHANGELOG.md scripts/rumdl-action.sh
 	@git commit -m "Bump version to $(NEW_TAG)"
 	@git tag -a $(NEW_TAG) -m "Release $(NEW_TAG)"
 	@echo "Version $(NEW_TAG) created and committed. Run 'git push && git push origin $(NEW_TAG)' to trigger release workflow."
@@ -223,9 +291,10 @@ version-patch:
 	$(eval VERSION_NO_V := $(MAJOR).$(MINOR).$(NEW_PATCH))
 	@echo "Current: $(CURRENT) -> New: $(NEW_TAG)"
 	@$(MAKE) update-cargo-version VERSION_NO_V=$(VERSION_NO_V)
+	@$(MAKE) update-github-action-version VERSION_NO_V=$(VERSION_NO_V)
 	@$(MAKE) update-all-docs-version NEW_TAG=$(NEW_TAG)
 	@$(MAKE) update-changelog NEW_TAG=$(NEW_TAG) VERSION_NO_V=$(VERSION_NO_V) CURRENT=$(CURRENT)
-	@git add Cargo.toml Cargo.lock README.md docs/global-settings.md CHANGELOG.md
+	@git add Cargo.toml Cargo.lock README.md docs/global-settings.md CHANGELOG.md scripts/rumdl-action.sh
 	@git commit -m "Bump version to $(NEW_TAG)"
 	@git tag -a $(NEW_TAG) -m "Release $(NEW_TAG)"
 	@echo "Version $(NEW_TAG) created and committed. Run 'git push && git push origin $(NEW_TAG)' to trigger release workflow."
@@ -357,3 +426,18 @@ prepare-release:
 release-major-full: prepare-release version-major version-push
 release-minor-full: prepare-release version-minor version-push
 release-patch-full: prepare-release version-patch version-push
+
+# Benchmark targets
+benchmark: benchmark-run benchmark-chart
+
+benchmark-run:
+	@echo "Running cold start benchmarks..."
+	@python3 scripts/benchmark_cold_start.py
+
+benchmark-chart:
+	@echo "Generating benchmark chart..."
+	@uv run --with matplotlib python3 scripts/generate_benchmark_chart.py
+
+# Documentation validation
+test-doc-completeness:
+	cargo test --test config_documentation_completeness -- --nocapture

@@ -2,9 +2,10 @@ import asyncio
 import multiprocessing
 import sys
 import time
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from .._futures import _future_watcher_wrapper, _new_cbscheduler
 from .._granian import ASGIWorker, RSGIWorker, WorkerSignal
@@ -24,6 +25,7 @@ from .common import (
     HTTPModes,
     Interfaces,
     LogLevels,
+    SSLProtocols,
     TaskImpl,
     logger,
 )
@@ -95,34 +97,35 @@ class Server(AbstractServer[AsyncWorker]):
         target: Any,
         address: str = '127.0.0.1',
         port: int = 8000,
-        uds: Optional[Path] = None,
+        uds: Path | None = None,
         interface: Interfaces = Interfaces.RSGI,
-        blocking_threads: Optional[int] = None,
+        blocking_threads: int | None = None,
         blocking_threads_idle_timeout: int = 30,
         runtime_threads: int = 1,
-        runtime_blocking_threads: Optional[int] = None,
+        runtime_blocking_threads: int | None = None,
         task_impl: TaskImpl = TaskImpl.asyncio,
         http: HTTPModes = HTTPModes.auto,
         websockets: bool = True,
         backlog: int = 128,
-        backpressure: Optional[int] = None,
-        http1_settings: Optional[HTTP1Settings] = None,
-        http2_settings: Optional[HTTP2Settings] = None,
+        backpressure: int | None = None,
+        http1_settings: HTTP1Settings | None = None,
+        http2_settings: HTTP2Settings | None = None,
         log_enabled: bool = True,
         log_level: LogLevels = LogLevels.info,
-        log_dictconfig: Optional[Dict[str, Any]] = None,
+        log_dictconfig: dict[str, Any] | None = None,
         log_access: bool = False,
-        log_access_format: Optional[str] = None,
-        ssl_cert: Optional[Path] = None,
-        ssl_key: Optional[Path] = None,
-        ssl_key_password: Optional[str] = None,
-        ssl_ca: Optional[Path] = None,
-        ssl_crl: Optional[List[Path]] = None,
+        log_access_format: str | None = None,
+        ssl_cert: Path | None = None,
+        ssl_key: Path | None = None,
+        ssl_key_password: str | None = None,
+        ssl_protocol_min: SSLProtocols = SSLProtocols.tls13,
+        ssl_ca: Path | None = None,
+        ssl_crl: list[Path] | None = None,
         ssl_client_verify: bool = False,
-        url_path_prefix: Optional[str] = None,
+        url_path_prefix: str | None = None,
         factory: bool = False,
         static_path_route: str = '/static',
-        static_path_mount: Optional[Path] = None,
+        static_path_mount: Path | None = None,
         static_path_expires: int = 86400,
     ):
         super().__init__(
@@ -150,6 +153,7 @@ class Server(AbstractServer[AsyncWorker]):
             ssl_cert=ssl_cert,
             ssl_key=ssl_key,
             ssl_key_password=ssl_key_password,
+            ssl_protocol_min=ssl_protocol_min,
             ssl_ca=ssl_ca,
             ssl_crl=ssl_crl,
             ssl_client_verify=ssl_client_verify,
@@ -200,19 +204,19 @@ class Server(AbstractServer[AsyncWorker]):
         sock: Any,
         loop: Any,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, str]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         wcallback = _future_watcher_wrapper(_asgi_call_wrap(callback, scope_opts, {}, log_access_fmt))
 
@@ -244,19 +248,19 @@ class Server(AbstractServer[AsyncWorker]):
         sock: Any,
         loop: Any,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, str]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         lifespan_handler = LifespanProtocol(callback)
         wcallback = _future_watcher_wrapper(
@@ -297,19 +301,19 @@ class Server(AbstractServer[AsyncWorker]):
         sock: Any,
         loop: Any,
         runtime_threads: int,
-        runtime_blocking_threads: Optional[int],
+        runtime_blocking_threads: int | None,
         blocking_threads: int,
         blocking_threads_idle_timeout: int,
         backpressure: int,
         task_impl: TaskImpl,
         http_mode: HTTPModes,
-        http1_settings: Optional[HTTP1Settings],
-        http2_settings: Optional[HTTP2Settings],
+        http1_settings: HTTP1Settings | None,
+        http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: Optional[Tuple[str, str, str]],
-        log_access_fmt: Optional[str],
+        static_path: tuple[str, str, str] | None,
+        log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
-        scope_opts: Dict[str, Any],
+        scope_opts: dict[str, Any],
     ):
         callback, callback_init, callback_del = _rsgi_cbs_from_target(callback)
         wcallback = _future_watcher_wrapper(_rsgi_call_wrap(callback, log_access_fmt))
@@ -404,7 +408,7 @@ class Server(AbstractServer[AsyncWorker]):
         await self._serve_loop(spawn_target, target)
         await self.shutdown()
 
-    async def serve(self, spawn_target: Optional[Callable[..., None]] = None):
+    async def serve(self, spawn_target: Callable[..., None] | None = None):
         def target_loader(*args, **kwargs):
             if self.factory:
                 return self.target()
@@ -433,11 +437,9 @@ class Server(AbstractServer[AsyncWorker]):
         if not spawn_target:
             spawn_target = default_spawners[self.interface]
 
-        if self.bind_uds:
-            if sys.platform == 'win32':
-                logger.error('Unix Domain sockets are not available on Windows')
-                raise ConfigurationError('uds')
-            logger.warning('Unix Domain Sockets support is experimental!')
+        if self.bind_uds and sys.platform == 'win32':
+            logger.error('Unix Domain sockets are not available on Windows')
+            raise ConfigurationError('uds')
 
         if self.blocking_threads > 1:
             logger.error('Blocking threads > 1 is not supported on ASGI and RSGI')

@@ -1633,7 +1633,7 @@ class ModelResource(ModelObject):
         attribute, as if the attribute were not present.  When absent or un-declared, returns None."""
         return XmlUtil.ancestorOrSelfAttr(self, "{http://www.w3.org/XML/1998/namespace}lang") or None
 
-    def viewText(self, labelrole=None, lang=None):
+    def viewText(self, labelrole=None, lang=None) -> str:
         """(str) -- Text of contained (inner) text nodes except for any whose localName
         starts with URI, for label and reference parts displaying purposes.
         (Footnotes, which return serialized html content of footnote.)"""
@@ -1690,6 +1690,8 @@ class RelationStatus:
     INEFFECTIVE = 4
 
 arcCustAttrsExclusions = {XbrlConst.xlink, "use","priority","order","weight","preferredLabel"}
+modelObjectAttrs = frozenset(dir(ModelObject))
+DECIMAL_1_0 = decimal.Decimal('1.0')
 
 class ModelRelationship(ModelObject):
     """
@@ -1846,11 +1848,20 @@ class ModelRelationship(ModelObject):
 
     @property
     def orderDecimal(self):
-        """(decimal) -- Value of xlink:order attribute, NaN if not convertible to float, or None if not specified"""
+        """(decimal) -- Value of xlink:order attribute, NaN if not convertible to decimal, or 1.0 if not specified"""
         try:
-            return decimal.Decimal(self.order)
-        except decimal.InvalidOperation:
-            return decimal.Decimal("NaN")
+            return self.arcElement._orderDecimal
+        except AttributeError:
+            o = self.arcElement.get("order")
+            if o is None:
+                order = DECIMAL_1_0
+            else:
+                try:
+                    order = decimal.Decimal(o)
+                except decimal.InvalidOperation:
+                    order = decimal.Decimal("NaN")
+            self.arcElement._orderDecimal = order
+            return order
 
     @property
     def priority(self):
@@ -2014,6 +2025,7 @@ class ModelRelationship(ModelObject):
     @property
     def equivalenceHash(self): # not exact, use equivalenceKey if hashes are the same
         return hash((self.qname,
+                     self.arcrole,
                      self.linkQname,
                      self.linkrole,  # needed when linkrole=None merges multiple links
                      self.fromModelObject.objectIndex if isinstance(self.fromModelObject, ModelObject) else -1,
@@ -2027,6 +2039,7 @@ class ModelRelationship(ModelObject):
         """(tuple) -- Key to determine relationship equivalence per 2.1 spec"""
         # cannot be cached because this is unique per relationship
         return (self.qname,
+                self.arcrole,
                 self.linkQname,
                 self.linkrole,  # needed when linkrole=None merges multiple links
                 self.fromModelObject.objectIndex if isinstance(self.fromModelObject, ModelObject) else -1,
@@ -2085,6 +2098,11 @@ class ModelRelationship(ModelObject):
                         self.fromModelObject.qname if isinstance(self.fromModelObject, ModelObject) else "??",
                         self.toModelObject.qname if isinstance(self.toModelObject, ModelObject) else "??",
                         self.modelDocument.basename, self.sourceline))
+
+    def __dir__(self):
+        # Ignore ModelObject attributes because most relate to the underlying lxml element,
+        # which ModelRelationship does not have.
+        return [a for a in object.__dir__(self) if a.startswith('__') or a not in modelObjectAttrs]
 
     @property
     def viewConcept(self):

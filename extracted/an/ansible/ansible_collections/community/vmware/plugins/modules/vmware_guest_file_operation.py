@@ -154,7 +154,7 @@ options:
         version_added: '3.1.0'
 
 extends_documentation_fragment:
-- community.vmware.vmware.documentation
+- vmware.vmware.base_options
 
 '''
 
@@ -231,11 +231,11 @@ except ImportError:
 import os
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils import urls
-from ansible.module_utils._text import to_bytes, to_native
+from ansible.module_utils.common.text.converters import to_bytes, to_native
 from ansible_collections.community.vmware.plugins.module_utils.vmware import (
     PyVmomi, find_cluster_by_name, find_datacenter_by_name,
     find_vm_by_id)
-from ansible_collections.community.vmware.plugins.module_utils._argument_spec import base_argument_spec
+from ansible_collections.vmware.vmware.plugins.module_utils.argument_spec import base_argument_spec
 
 
 class VmwareGuestFileManager(PyVmomi):
@@ -368,7 +368,7 @@ class VmwareGuestFileManager(PyVmomi):
             fileTransferInfo = file_manager.InitiateFileTransferFromGuest(vm=self.vm, auth=creds,
                                                                           guestFilePath=src)
             url = fileTransferInfo.url
-            url = url.replace("*", hostname).replace("443", port)
+            url = url.replace("*", hostname).replace("443", str(port))
             resp, info = urls.fetch_url(self.module, url, method="GET", timeout=self.timeout)
             if info.get('status') != 200 or not resp:
                 self.module.fail_json(msg="Failed to fetch file : %s" % info.get('msg', ''), body=info.get('body', ''))
@@ -427,7 +427,7 @@ class VmwareGuestFileManager(PyVmomi):
             url = file_manager.InitiateFileTransferToGuest(vm=self.vm, auth=creds, guestFilePath=dest,
                                                            fileAttributes=file_attributes, overwrite=overwrite,
                                                            fileSize=file_size)
-            url = url.replace("*", hostname).replace("443", port)
+            url = url.replace("*", hostname).replace("443", str(port))
             resp, info = urls.fetch_url(self.module, url, data=data, method="PUT", timeout=self.timeout)
 
             status_code = info["status"]

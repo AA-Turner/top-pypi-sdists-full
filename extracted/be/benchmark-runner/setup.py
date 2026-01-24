@@ -1,10 +1,10 @@
-385
+
 from codecs import open
 from os import path
 from setuptools import setup, find_packages
 
 
-__version__ = '1.0.866'  # update also .bumpversion.cfg
+__version__ = '1.0.946'  # update also .bumpversion.cfg
 
 
 here = path.abspath(path.dirname(__file__))
@@ -29,11 +29,11 @@ setup(
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
 
     zip_safe=False,
@@ -62,7 +62,7 @@ setup(
         'paramiko==3.4.0',
         'PyGitHub==1.55',  # update secrets
         'PyYAML==6.0.1',
-        'setuptools',  # for python3.12
+        'setuptools',  # for python3.13
         'sphinx==5.0.0',  # readthedocs
         'sphinx-rtd-theme==1.0.0',  # readthedocs
         'tenacity==8.0.1',  # retry decorator

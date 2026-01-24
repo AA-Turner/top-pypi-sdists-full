@@ -3,7 +3,7 @@ Type annotations for freetier service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_freetier/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -29,12 +30,6 @@ from .literals import (
     MatchOptionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -97,7 +92,7 @@ class GetAccountActivityRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -147,7 +142,7 @@ class GetAccountPlanStateResponseTypeDef(TypedDict):
 
 
 class GetFreeTierUsageResponseTypeDef(TypedDict):
-    freeTierUsages: List[FreeTierUsageTypeDef]
+    freeTierUsages: list[FreeTierUsageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -204,6 +199,6 @@ GetFreeTierUsageRequestTypeDef = TypedDict(
 
 
 class ListAccountActivitiesResponseTypeDef(TypedDict):
-    activities: List[ActivitySummaryTypeDef]
+    activities: list[ActivitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

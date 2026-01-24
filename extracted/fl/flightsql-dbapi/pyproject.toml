@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling<=1.18.0"]  
+build-backend = "hatchling.build"
+
+[project]
+name = "flightsql-dbapi"
+version = "0.2.2"
+authors = [
+  { name="Brett Buddin", email="brett@buddin.org" },
+]
+description = "DB API 2 and SQLAlchemy adapter for Flight SQL"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "sqlalchemy<2.0",
+    "pyarrow>=14.0.1",
+    "protobuf>=4.21.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pandas>2.0",
+    "pytest",
+    "pytest-cov[all]"
+]
+lint = [
+    "black",
+    "flake8",
+    "isort>5.10.0",
+    "mypy>1.5.0",
+    "pyproject-flake8",
+    "toml-cli",
+    "types-protobuf",
+]
+dev = [
+    "build",
+    "pdoc",
+    "flightsql-dbapi[test,lint]"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/influxdata/flightsql-dbapi"
+
+[project.entry-points."sqlalchemy.dialects"]
+datafusion = "flightsql.sqlalchemy:DataFusionDialect"
+
+[tool.black]
+line-length = 120
+extend-exclude = "(.*_pb2.py|.*_pb2.pyi)"
+
+[tool.isort]
+profile = "black"
+extend_skip_glob = ["*_pb2.py", "*_pb2.pyi"]
+
+[tool.pyright]
+exclude = [
+    "**/__pycache__",
+    ".git",
+    "venv",
+    "build",
+    "flightsql/*_pb2.py",
+    "flightsql/*_pb2.pyi",
+]
+
+[tool.flake8]
+statistics = true
+exit-zero = true
+max-line-length = 140
+max-complexity = 15
+extend-ignore = ["E203"]
+exclude = """
+    .git
+    __pycache__
+    flightsql/*_pb2.py
+    build
+    dist
+    venv
+    test.py
+"""

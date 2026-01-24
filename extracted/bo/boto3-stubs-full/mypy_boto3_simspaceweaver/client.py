@@ -3,7 +3,7 @@ Type annotations for simspaceweaver service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -51,12 +52,6 @@ from .type_defs import (
     UntagResourceInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -67,14 +62,14 @@ __all__ = ("SimSpaceWeaverClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SimSpaceWeaverClient(BaseClient):
@@ -112,7 +107,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#generate_presigned_url)
         """
 
-    def create_snapshot(self, **kwargs: Unpack[CreateSnapshotInputTypeDef]) -> Dict[str, Any]:
+    def create_snapshot(self, **kwargs: Unpack[CreateSnapshotInputTypeDef]) -> dict[str, Any]:
         """
         Creates a snapshot of the specified simulation.
 
@@ -120,7 +115,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#create_snapshot)
         """
 
-    def delete_app(self, **kwargs: Unpack[DeleteAppInputTypeDef]) -> Dict[str, Any]:
+    def delete_app(self, **kwargs: Unpack[DeleteAppInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the instance of the given custom app.
 
@@ -128,7 +123,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#delete_app)
         """
 
-    def delete_simulation(self, **kwargs: Unpack[DeleteSimulationInputTypeDef]) -> Dict[str, Any]:
+    def delete_simulation(self, **kwargs: Unpack[DeleteSimulationInputTypeDef]) -> dict[str, Any]:
         """
         Deletes all SimSpace Weaver resources assigned to the given simulation.
 
@@ -191,7 +186,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#start_app)
         """
 
-    def start_clock(self, **kwargs: Unpack[StartClockInputTypeDef]) -> Dict[str, Any]:
+    def start_clock(self, **kwargs: Unpack[StartClockInputTypeDef]) -> dict[str, Any]:
         """
         Starts the simulation clock.
 
@@ -209,7 +204,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#start_simulation)
         """
 
-    def stop_app(self, **kwargs: Unpack[StopAppInputTypeDef]) -> Dict[str, Any]:
+    def stop_app(self, **kwargs: Unpack[StopAppInputTypeDef]) -> dict[str, Any]:
         """
         Stops the given custom app and shuts down all of its allocated compute
         resources.
@@ -218,7 +213,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#stop_app)
         """
 
-    def stop_clock(self, **kwargs: Unpack[StopClockInputTypeDef]) -> Dict[str, Any]:
+    def stop_clock(self, **kwargs: Unpack[StopClockInputTypeDef]) -> dict[str, Any]:
         """
         Stops the simulation clock.
 
@@ -226,7 +221,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#stop_clock)
         """
 
-    def stop_simulation(self, **kwargs: Unpack[StopSimulationInputTypeDef]) -> Dict[str, Any]:
+    def stop_simulation(self, **kwargs: Unpack[StopSimulationInputTypeDef]) -> dict[str, Any]:
         """
         Stops the given simulation.
 
@@ -234,7 +229,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#stop_simulation)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds tags to a SimSpace Weaver resource.
 
@@ -242,7 +237,7 @@ class SimSpaceWeaverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a SimSpace Weaver resource.
 

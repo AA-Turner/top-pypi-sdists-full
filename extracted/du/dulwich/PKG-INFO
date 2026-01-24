@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dulwich
-Version: 0.24.1
+Version: 1.0.0
 Summary: Python Git Library
 Author-email: Jelmer Vernooij <jelmer@jelmer.uk>
 License-Expression: Apache-2.0 OR GPL-2.0-or-later
@@ -9,26 +9,26 @@ Project-URL: Repository, https://www.dulwich.io/code/
 Project-URL: GitHub, https://github.com/dulwich/dulwich
 Project-URL: Bug Tracker, https://github.com/dulwich/dulwich/issues
 Keywords: vcs,git
-Classifier: Development Status :: 4 - Beta
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Software Development :: Version Control
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: urllib3>=1.25
-Requires-Dist: typing_extensions>=4.0; python_version < "3.11"
+Requires-Dist: urllib3>=2.2.2
+Requires-Dist: typing_extensions>=4.6.0; python_version < "3.12"
 Provides-Extra: fastimport
 Requires-Dist: fastimport; extra == "fastimport"
 Provides-Extra: https
-Requires-Dist: urllib3>=1.24.1; extra == "https"
+Requires-Dist: urllib3>=2.2.2; extra == "https"
 Provides-Extra: pgp
 Requires-Dist: gpg; extra == "pgp"
 Provides-Extra: paramiko
@@ -36,13 +36,18 @@ Requires-Dist: paramiko; extra == "paramiko"
 Provides-Extra: colordiff
 Requires-Dist: rich; extra == "colordiff"
 Provides-Extra: dev
-Requires-Dist: ruff==0.12.4; extra == "dev"
-Requires-Dist: mypy==1.17.0; extra == "dev"
+Requires-Dist: ruff==0.14.10; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
 Requires-Dist: dissolve>=0.1.1; extra == "dev"
+Requires-Dist: codespell==2.4.1; extra == "dev"
 Provides-Extra: merge
 Requires-Dist: merge3; extra == "merge"
 Provides-Extra: fuzzing
 Requires-Dist: atheris; extra == "fuzzing"
+Provides-Extra: patiencediff
+Requires-Dist: patiencediff; extra == "patiencediff"
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp; extra == "aiohttp"
 Dynamic: license-file
 
 Dulwich
@@ -142,7 +147,7 @@ mailing list.
 Contributing
 ------------
 
-For a full list of contributors, see the git logs or `AUTHORS <AUTHORS>`_.
+For a full list of contributors, see the git logs.
 
 If you'd like to contribute to Dulwich, see the `CONTRIBUTING <CONTRIBUTING.rst>`_
 file and `list of open issues <https://github.com/dulwich/dulwich/issues>`_.
@@ -150,5 +155,5 @@ file and `list of open issues <https://github.com/dulwich/dulwich/issues>`_.
 Supported versions of Python
 ----------------------------
 
-At the moment, Dulwich supports (and is tested on) CPython 3.9 and later and
+At the moment, Dulwich supports (and is tested on) CPython 3.10 and later and
 Pypy.

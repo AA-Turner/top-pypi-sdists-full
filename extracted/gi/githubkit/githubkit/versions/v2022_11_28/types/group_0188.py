@@ -9,17 +9,36 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
+from .group_0189 import (
+    RepositoryRuleUpdatePropParametersType,
+    RepositoryRuleUpdatePropParametersTypeForResponse,
+)
 
-class RepositoryRuleParamsRestrictedCommitsType(TypedDict):
-    """RestrictedCommits
 
-    Restricted commit
+class RepositoryRuleUpdateType(TypedDict):
+    """update
+
+    Only allow users with bypass permission to update matching refs.
     """
 
-    oid: str
-    reason: NotRequired[str]
+    type: Literal["update"]
+    parameters: NotRequired[RepositoryRuleUpdatePropParametersType]
 
 
-__all__ = ("RepositoryRuleParamsRestrictedCommitsType",)
+class RepositoryRuleUpdateTypeForResponse(TypedDict):
+    """update
+
+    Only allow users with bypass permission to update matching refs.
+    """
+
+    type: Literal["update"]
+    parameters: NotRequired[RepositoryRuleUpdatePropParametersTypeForResponse]
+
+
+__all__ = (
+    "RepositoryRuleUpdateType",
+    "RepositoryRuleUpdateTypeForResponse",
+)

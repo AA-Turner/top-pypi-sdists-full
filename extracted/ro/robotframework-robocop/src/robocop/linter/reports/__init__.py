@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import NoReturn
 
-from robocop import errors
+from robocop import exceptions
 from robocop.config import Config
 from robocop.linter.rules import RobocopImporter
 from robocop.linter.utils.misc import get_robocop_cache_directory
@@ -17,7 +17,7 @@ class Report:
     """
     Base class for report class.
 
-    Override `configure` method if you want to allow report configuration.
+    Override the ` configure ` method if you want to allow report configuration.
 
     Set class attribute `NO_ALL` to `False` if you don't want your report to be included in `all` reports.
     """
@@ -30,14 +30,14 @@ class Report:
         self.config = config
 
     def configure(self, name: str, value: str) -> None:  # noqa: ARG002
-        raise errors.ConfigurationError(f"Provided param '{name}' for report '{self.name}' does not exist")
+        raise exceptions.ConfigurationError(f"Provided param '{name}' for report '{self.name}' does not exist")
 
     def generate_report(self, **kwargs) -> NoReturn:
         raise NotImplementedError
 
 
 class JsonFileReport(Report):
-    """Base class for report that generates json-based file."""
+    """Base class for a report that generates a json-based file."""
 
     def __init__(self, output_path: str, config: Config) -> None:
         self.output_path = output_path
@@ -56,7 +56,7 @@ class JsonFileReport(Report):
             with open(output_path, "w") as fp:
                 json.dump(report, fp, indent=4)
         except OSError as err:
-            raise errors.FatalError(f"Failed to write {report_type} report to {output_path}: {err}") from None
+            raise exceptions.FatalError(f"Failed to write {report_type} report to {output_path}: {err}") from None
         print(f"Generated {report_type} report at {self.output_path}")
 
 
@@ -76,7 +76,7 @@ def load_reports(config: Config) -> dict[str, type[Report]]:
     """
     Load all valid reports.
 
-    Report is considered valid if it inherits from `Report` class
+    Report is considered valid if it inherits from the ` Report ` class
     and contains both `name` and `description` attributes.
     """
     reports = {}
@@ -95,9 +95,9 @@ def load_reports(config: Config) -> dict[str, type[Report]]:
 
 def get_reports(config: Config):
     """
-    Return dictionary with list of valid, enabled reports (listed in `configured_reports` set of str).
+    Return the dictionary with a list of valid, enabled reports (listed in `configured_reports` set of str).
 
-    If `configured_reports` contains `all` then all default reports are enabled.
+    If `configured_reports` contains `all`, then all default reports are enabled.
     """
     configured_reports = config.linter.reports
     configured_reports = [csv_report for report in configured_reports for csv_report in report.split(",")]
@@ -111,7 +111,7 @@ def get_reports(config: Config):
                 if report_class.NO_ALL and name not in enabled_reports:
                     enabled_reports[name] = report_class
         elif report not in reports:
-            raise errors.InvalidReportName(report, reports)
+            raise exceptions.InvalidReportName(report, reports)
         elif report not in enabled_reports:
             enabled_reports[report] = reports[report]
     for report, report_class in reports.items():
@@ -124,8 +124,8 @@ def print_reports(reports: dict[str, Report], only_enabled: bool | None) -> str:
     """
     Return description of reports.
 
-    The reports list is filtered and only public reports are provided. If the report is enabled in current
-    configuration it will have (enabled) suffix (and (disabled) if it is disabled).
+    The report list is filtered and only public reports are provided. If the report is enabled in the current
+    configuration, it will have (enabled) suffix (and (disabled) if it is disabled).
 
     Args:
         reports: Dictionary with loaded reports.
@@ -171,11 +171,11 @@ def load_reports_result_from_cache():
 
 def save_reports_result_to_cache(working_dir: str, report_results: dict) -> None:
     """
-    Save results from Robocop reports to json file.
+    Save results from Robocop reports to JSON file.
 
-    Result file contains results grouped using working directory.
+    The result file contains results grouped using a working directory.
     That's why we are loading previous results and overwriting only
-    the results for current working directory.
+    the results for the current working directory.
     """
     cache_dir = get_robocop_cache_directory(ensure_exists=True)
     cache_file = cache_dir / ROBOCOP_CACHE_FILE

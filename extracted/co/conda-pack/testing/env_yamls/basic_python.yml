@@ -1,0 +1,14 @@
+name: basic_python
+
+channels:
+    - ctools
+    - conda-forge
+
+dependencies:
+    - python=3.9
+    - conda_pack_test_lib1
+    - conda_pack_test_lib2
+    - toolz
+    - pip
+    - pip:
+        - pytest

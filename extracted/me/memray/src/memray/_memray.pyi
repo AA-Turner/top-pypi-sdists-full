@@ -1,5 +1,6 @@
 import enum
 from pathlib import Path
+from types import CodeType
 from types import FrameType
 from types import TracebackType
 from typing import Any
@@ -10,6 +11,7 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 from typing import Type
+from typing import TypedDict
 from typing import Union
 from typing import overload
 
@@ -65,6 +67,35 @@ class AllocationRecord:
     def __lt__(self, other: Any) -> Any: ...
     def __ne__(self, other: Any) -> Any: ...
 
+class TrackedObjectRecord:
+    @property
+    def tid(self) -> int: ...
+    @property
+    def address(self) -> int: ...
+    @property
+    def is_created(self) -> bool: ...
+    @property
+    def frame_index(self) -> int: ...
+    @property
+    def native_frame_id(self) -> int: ...
+    @property
+    def native_segment_generation(self) -> int: ...
+    def toPythonObject(self) -> Any: ...
+    def hybrid_stack_trace(
+        self,
+        max_stacks: Optional[int] = None,
+    ) -> List[Union[PythonStackElement, NativeStackElement]]: ...
+    def native_stack_trace(
+        self, max_stacks: Optional[int] = None
+    ) -> List[NativeStackElement]: ...
+    def stack_trace(
+        self, max_stacks: Optional[int] = None
+    ) -> List[PythonStackElement]: ...
+    def __eq__(self, other: Any) -> Any: ...
+    def __hash__(self) -> Any: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
 class Interval:
     def __init__(
         self,
@@ -107,21 +138,21 @@ class TemporalAllocationRecord:
     intervals: List[Interval]
 
 class AllocatorType(enum.IntEnum):
-    MALLOC = 1
-    FREE = 2
-    CALLOC = 3
-    REALLOC = 4
-    POSIX_MEMALIGN = 5
-    ALIGNED_ALLOC = 6
-    MEMALIGN = 7
-    VALLOC = 8
-    PVALLOC = 9
-    MMAP = 10
-    MUNMAP = 11
-    PYMALLOC_MALLOC = 12
-    PYMALLOC_CALLOC = 13
-    PYMALLOC_REALLOC = 14
-    PYMALLOC_FREE = 15
+    PYMALLOC_FREE = 1
+    PYMALLOC_MALLOC = 2
+    PYMALLOC_CALLOC = 3
+    PYMALLOC_REALLOC = 4
+    FREE = 5
+    MALLOC = 6
+    REALLOC = 7
+    CALLOC = 8
+    POSIX_MEMALIGN = 9
+    ALIGNED_ALLOC = 10
+    MEMALIGN = 11
+    VALLOC = 12
+    PVALLOC = 13
+    MMAP = 14
+    MUNMAP = 15
 
 class FileFormat(enum.IntEnum):
     ALL_ALLOCATIONS = 1
@@ -169,6 +200,9 @@ class FileReader:
     @property
     def closed(self) -> bool: ...
     def close(self) -> None: ...
+    def get_tracked_objects(
+        self, filter_objs: Optional[Iterable[Any]] = None
+    ) -> Iterable[TrackedObjectRecord]: ...
 
 def compute_statistics(
     file_name: Union[str, Path],
@@ -212,6 +246,7 @@ class Tracker:
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
         file_format: FileFormat = ...,
+        reference_tracking: bool = ...,
     ) -> None: ...
     @overload
     def __init__(
@@ -223,6 +258,7 @@ class Tracker:
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
         file_format: FileFormat = ...,
+        reference_tracking: bool = ...,
     ) -> None: ...
     def __enter__(self) -> Any: ...
     def __exit__(
@@ -281,3 +317,58 @@ class AllocationLifetimeAggregatorTestHarness:
     ) -> None: ...
     def capture_snapshot(self) -> None: ...
     def get_allocations(self) -> list[TemporalAllocationRecord]: ...
+
+class Segment(TypedDict):
+    vaddr: int
+    memsz: int
+
+class Mapping(TypedDict):
+    filename: str
+    addr: int
+    segments: list[Segment]
+
+class RecordWriterTestHarness:
+    def __init__(
+        self,
+        file_path: str,
+        native_traces: bool = False,
+        trace_python_allocators: bool = False,
+        file_format: FileFormat = FileFormat.ALL_ALLOCATIONS,
+        main_tid: int = 1,
+        skipped_frames: int = 0,
+        command_line: str = ...,
+    ) -> None: ...
+    def write_header(self, seek_to_start: bool) -> None: ...
+    def write_memory_record(self, ms_since_epoch: int, rss: int) -> bool: ...
+    def write_code_object(
+        self,
+        id: int,
+        function_name: str,
+        filename: str,
+        linetable: bytes,
+        firstlineno: int,
+    ) -> bool: ...
+    def write_unresolved_native_frame(self, ip: int, index: int) -> bool: ...
+    def write_allocation_record(
+        self,
+        tid: int,
+        address: int,
+        size: int,
+        allocator: int,
+        native_frame_id: int = 0,
+    ) -> bool: ...
+    def write_frame_push(
+        self,
+        tid: int,
+        code_object_id: int,
+        instruction_offset: int,
+        is_entry_frame: bool,
+    ) -> bool: ...
+    def write_frame_pop(self, tid: int, count: int) -> bool: ...
+    def write_thread_record(self, tid: int, name: str) -> bool: ...
+    def write_mappings(self, mappings: list[Mapping]) -> bool: ...
+    def write_trailer(self) -> bool: ...
+    @staticmethod
+    def get_linetable(code_object: CodeType) -> bytes: ...
+    @staticmethod
+    def get_lasti(frame_object: FrameType) -> int: ...

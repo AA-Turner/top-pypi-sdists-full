@@ -736,7 +736,7 @@
 },
 /* version.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.version = "3.8.0";
+    exports.version = "3.8.2";
 },
 /* embed/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -35154,8 +35154,6 @@
             str = content.html;
             has_html = true;
         }
-        // this handles the special case @$name, replacing it with an @var corresponding to special_vars.name
-        str = str.replace(/@\$name/g, (_match) => `@{${special_vars.name}}`);
         str = process_placeholders(str, (type, name, format, _, spec) => {
             const value = get_value(type, name, data_source, i, special_vars);
             // 'safe' format, return the value as-is
@@ -35205,12 +35203,12 @@
      * - full names: @{one two} (@{anything except curly brackets}
      * - optional formatting: $x{format}, ${x}{format}, @x{format}, @{one two}{format}
      */
-    const regex = /((?:[$@][\p{Letter}\p{Number}_]+)|(?:[$@]\{(?:[^{}]+)\}))(?:\{([^{}]+)\})?/gu;
+    const regex = /(@\$|@|\$)((?:[\p{Letter}\p{Number}_]+)|(?:\{(?:[^{}]+)\}))(?:\{([^{}]+)\})?/gu;
     function process_placeholders(text, fn) {
         let i = 0; // this var is used for testing purposes
-        return text.replace(regex, (_match, spec, format) => {
-            const type = spec[0];
-            const name = spec.substring(1).replace(/^{/, "").replace(/}$/, "").trim();
+        return text.replace(regex, (_match, type, content, format) => {
+            const name = content.replace(/^{/, "").replace(/}$/, "").trim();
+            const spec = `${type}${content}`;
             return fn(type, name, format, i++, spec) ?? exports.MISSING;
         });
     }

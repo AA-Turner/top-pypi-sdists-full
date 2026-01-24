@@ -13,12 +13,13 @@ import json
 import math
 import mimetypes
 import os
+import platform
 import secrets
 import sys
 import time
 import traceback
 import warnings
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from pathlib import Path
 from queue import Empty as EmptyQueue
 from typing import (
@@ -52,7 +53,6 @@ from fastapi.responses import (
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
-from fastapi.websockets import WebSocket, WebSocketDisconnect
 from gradio_client import utils as client_utils
 from gradio_client.documentation import document
 from gradio_client.utils import ServerMessage
@@ -63,7 +63,12 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.responses import RedirectResponse
 
 import gradio
-from gradio import ranged_response, route_utils, utils
+from gradio import (
+    ranged_response,
+    route_utils,
+    themes,
+    utils,
+)
 from gradio.brotli_middleware import BrotliMiddleware
 from gradio.context import Context
 from gradio.data_classes import (
@@ -72,6 +77,7 @@ from gradio.data_classes import (
     ComponentServerJSONBody,
     DataWithFiles,
     DeveloperPath,
+    JsonData,
     PredictBody,
     PredictBodyInternal,
     ResetBody,
@@ -96,6 +102,7 @@ from gradio.route_utils import (  # noqa: F401
     GradioMultiPartParser,
     GradioUploadFile,
     MultiPartException,
+    NodeProxyCache,
     Request,
     compare_passwords_securely,
     create_lifespan_handler,
@@ -112,6 +119,7 @@ from gradio.server_messages import (
     UnexpectedErrorMessage,
 )
 from gradio.state_holder import StateHolder
+from gradio.themes import ThemeClass as Theme
 from gradio.utils import (
     cancel_tasks,
     get_node_path,
@@ -165,16 +173,37 @@ DEFAULT_TEMP_DIR = os.environ.get("GRADIO_TEMP_DIR") or str(
     Path(tempfile.gettempdir()) / "gradio"
 )
 
+BUILT_IN_THEMES: dict[str, Theme] = {
+    t.name: t  # type: ignore
+    for t in [
+        themes.Base(),
+        themes.Default(),
+        themes.Monochrome(),
+        themes.Soft(),
+        themes.Glass(),
+        themes.Origin(),
+        themes.Citrus(),
+        themes.Ocean(),
+    ]
+    if t.name is not None
+}
+
 
 class ORJSONResponse(JSONResponse):
     media_type = "application/json"
+
+    @staticmethod
+    def default(content: Any) -> str:
+        if isinstance(content, JsonData):
+            return content.model_dump()
+        return str(content)
 
     @staticmethod
     def _render(content: Any) -> bytes:
         return orjson.dumps(
             content,
             option=orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_PASSTHROUGH_DATETIME,
-            default=str,
+            default=ORJSONResponse.default,
         )
 
     def render(self, content: Any) -> bytes:
@@ -254,10 +283,12 @@ class App(FastAPI):
     # We're not overriding any defaults here
 
     client = httpx.AsyncClient()
+    proxy_cache = NodeProxyCache(client)
 
     @staticmethod
     async def proxy_to_node(
         request: fastapi.Request,
+        app: App,
         server_name: str,
         node_port: int,
         python_port: int,
@@ -270,6 +301,12 @@ class App(FastAPI):
         if request.url.query:
             full_path += f"?{request.url.query}"
 
+        root_path = route_utils.get_root_url(
+            request=request,
+            route_path=request.url.path,
+            root_path=app.root_path,
+        )
+
         url = f"{scheme}://{server_name}:{node_port}{full_path}"
 
         server_url = f"{scheme}://{server_name}"
@@ -278,23 +315,25 @@ class App(FastAPI):
         if mounted_path:
             server_url += mounted_path
 
-        headers = dict(request.headers)
+        headers = {}  # Do not include arbitrary headers from original request so NodeProxyCache can be effective
         headers["x-gradio-server"] = server_url
         headers["x-gradio-port"] = str(python_port)
+        headers["x-gradio-mounted-path"] = mounted_path
+        headers["x-gradio-original-url"] = str(root_path)
 
         if os.getenv("GRADIO_LOCAL_DEV_MODE"):
             headers["x-gradio-local-dev-mode"] = "1"
 
-        new_request = App.client.build_request(
-            request.method, httpx.URL(url), headers=headers
-        )
-        node_response = await App.client.send(new_request, stream=True)
+        if (accept_language := request.headers.get("accept-language")) is not None:
+            headers["accept-language"] = accept_language
+
+        proxy_req = App.proxy_cache.ProxyReq(request.method, url, headers)
+        status, response_headers, aiter_raw = await App.proxy_cache.get(proxy_req)
 
         return StreamingResponse(
-            node_response.aiter_raw(),
-            status_code=node_response.status_code,
-            headers=node_response.headers,
-            background=BackgroundTask(node_response.aclose),
+            aiter_raw,
+            status_code=status,
+            headers=response_headers,
         )
 
     def configure_app(self, blocks: gradio.Blocks) -> None:
@@ -306,7 +345,6 @@ class App(FastAPI):
                 self.auth = auth
         else:
             self.auth = None
-
         self.blocks = blocks
         self.cwd = os.getcwd()
         self.favicon_path = blocks.favicon_path
@@ -331,8 +369,8 @@ class App(FastAPI):
             raise PermissionError("This URL cannot be proxied.")
         is_hf_url = url.host.endswith(".hf.space")
         headers = {}
-        if Context.hf_token is not None and is_hf_url:
-            headers["Authorization"] = f"Bearer {Context.hf_token}"
+        if Context.token is not None and is_hf_url:
+            headers["Authorization"] = f"Bearer {Context.token}"
         rp_req = client.build_request("GET", url, headers=headers)
         return rp_req
 
@@ -409,9 +447,9 @@ class App(FastAPI):
 
         app.configure_app(blocks)
 
-        app.add_middleware(CustomCORSMiddleware, strict_cors=strict_cors)
+        app.add_middleware(CustomCORSMiddleware, strict_cors=strict_cors)  # type: ignore
         app.add_middleware(
-            BrotliMiddleware,
+            BrotliMiddleware,  # type: ignore
             quality=4,
             excluded_handlers=[mcp_subpath],
         )
@@ -422,6 +460,7 @@ class App(FastAPI):
             async def conditional_routing_middleware(
                 request: fastapi.Request, call_next
             ):
+                blocks = app.get_blocks()
                 custom_mount_path = blocks.custom_mount_path
                 path = (
                     request.url.path.replace(blocks.custom_mount_path or "", "")
@@ -442,6 +481,7 @@ class App(FastAPI):
                     try:
                         return await App.proxy_to_node(
                             request,
+                            app,
                             blocks.node_server_name or "0.0.0.0",
                             blocks.node_port,
                             App.app_port,
@@ -522,7 +562,7 @@ class App(FastAPI):
 
         @app.post("/login")
         @app.post("/login/")
-        def login(
+        async def login(
             request: fastapi.Request, form_data: OAuth2PasswordRequestForm = Depends()
         ):
             username, password = form_data.username.strip(), form_data.password
@@ -537,7 +577,14 @@ class App(FastAPI):
                 not callable(app.auth)
                 and username in app.auth  # type: ignore
                 and compare_passwords_securely(password, app.auth[username])  # type: ignore
-            ) or (callable(app.auth) and app.auth.__call__(username, password)):  # type: ignore
+            ) or (
+                callable(app.auth)
+                and (
+                    await app.auth(username, password)
+                    if inspect.iscoroutinefunction(app.auth)
+                    else app.auth(username, password)
+                )
+            ):  # type: ignore
                 token = secrets.token_urlsafe(16)
                 app.tokens[token] = username
                 response = JSONResponse(content={"success": True})
@@ -609,13 +656,18 @@ class App(FastAPI):
 
         def attach_page(page):
             @app.get(f"/{page}", response_class=HTMLResponse)
-            @app.get(f"/{page}/", response_class=HTMLResponse)
             def page_route(
                 request: fastapi.Request,
                 user: str = Depends(get_current_user),
                 deep_link: str = "",
             ):
                 return main(request, user, page, deep_link)
+
+            @app.get(f"/{page}/")
+            def page_redirect():
+                return RedirectResponse(
+                    url=f"/{page}", status_code=status.HTTP_301_MOVED_PERMANENTLY
+                )
 
         for pageset in blocks.pages:
             page = pageset[0]
@@ -627,13 +679,13 @@ class App(FastAPI):
         ):
             components = config["components"]
             try:
-                path = (
-                    Path(app.uploaded_file_dir)
-                    / "deep_links"
-                    / deep_link
-                    / "state.json"
+                user_path = Path("deep_links") / deep_link / "state.json"
+                path = Path(
+                    routes_safe_join(
+                        DeveloperPath(app.uploaded_file_dir),
+                        UserProvidedPath(str(user_path)),
+                    )
                 )
-
                 if path.exists():
                     components = orjson.loads(path.read_bytes())
                     deep_link_state = "valid"
@@ -791,7 +843,7 @@ class App(FastAPI):
             }
 
             for endpoint_path, endpoint_info in info.get("named_endpoints", {}).items():  # type: ignore
-                if not endpoint_info.get("show_api", True):
+                if endpoint_info.get("api_visibility", "public") == "private":
                     continue
                 path_item = {
                     "post": {
@@ -821,9 +873,9 @@ class App(FastAPI):
                     }
                 }
 
-                request_properties = path_item["post"]["requestBody"]["content"][
+                request_properties = path_item["post"]["requestBody"]["content"][  # type: ignore
                     "application/json"
-                ]["schema"]["properties"]
+                ]["schema"]["properties"]  # type: ignore
                 for param in endpoint_info.get("parameters", []):
                     param_name = param["parameter_name"]
                     param_type = param.get("type", {})
@@ -836,25 +888,25 @@ class App(FastAPI):
                         param_type = dict(param_type)
                         param_type["type"] = "object"
 
-                    request_properties[param_name] = param_type
+                    request_properties[param_name] = param_type  # type: ignore
 
                     if "example_input" in param:
                         if (
                             "examples"
-                            not in path_item["post"]["requestBody"]["content"][
+                            not in path_item["post"]["requestBody"]["content"][  # type: ignore
                                 "application/json"
                             ]
                         ):
-                            path_item["post"]["requestBody"]["content"][
+                            path_item["post"]["requestBody"]["content"][  # type: ignore
                                 "application/json"
                             ]["examples"] = {"example1": {"value": {}}}
-                        path_item["post"]["requestBody"]["content"]["application/json"][
+                        path_item["post"]["requestBody"]["content"]["application/json"][  # type: ignore
                             "examples"
-                        ]["example1"]["value"][param_name] = param["example_input"]
+                        ]["example1"]["value"][param_name] = param["example_input"]  # type: ignore
 
-                response_properties = path_item["post"]["responses"]["200"]["content"][
+                response_properties = path_item["post"]["responses"]["200"]["content"][  # type: ignore
                     "application/json"
-                ]["schema"]["properties"]
+                ]["schema"]["properties"]  # type: ignore
                 for i, ret in enumerate(endpoint_info.get("returns", [])):
                     ret_name = f"output_{i}" if i > 0 else "output"
                     ret_type = ret.get("type", {})
@@ -867,9 +919,9 @@ class App(FastAPI):
                         ret_type = dict(ret_type)
                         ret_type["type"] = "object"
 
-                    response_properties[ret_name] = ret_type
+                    response_properties[ret_name] = ret_type  # type: ignore
 
-                schema["paths"][f"/run{endpoint_path}"] = path_item
+                schema["paths"][f"/run{endpoint_path}"] = path_item  # type: ignore
 
             return schema
 
@@ -1068,27 +1120,11 @@ class App(FastAPI):
             event.signal.set()
             return {"msg": "success"}
 
-        @router.websocket("/stream/{event_id}")
-        async def websocket_endpoint(websocket: WebSocket, event_id: str):
-            await websocket.accept()
-            try:
-                while True:
-                    data = await websocket.receive_json()
-                    body = PredictBody(**data)  # type: ignore
-                    event = app.get_blocks()._queue.event_ids_to_events[event_id]
-                    body_internal = PredictBodyInternal(  # type: ignore
-                        **body.model_dump(), request=None
-                    )
-                    event.data = body_internal
-                    event.signal.set()
-                    await websocket.send_json({"msg": "success"})
-            except WebSocketDisconnect:
-                pass
-
         @router.post("/stream/{event_id}/close")
         async def _(event_id: str):
             event = app.get_blocks()._queue.event_ids_to_events[event_id]
             event.run_time = math.inf
+            event.closed = True
             event.signal.set()
             return {"msg": "success"}
 
@@ -1448,7 +1484,7 @@ class App(FastAPI):
                             )
 
                         heartbeat_rate = 15
-                        check_rate = 0.05
+                        check_rate = 0.05 if platform.system() == "Windows" else 0.001
                         message = None
                         try:
                             messages = blocks._queue.pending_messages_per_session[
@@ -1530,7 +1566,6 @@ class App(FastAPI):
             request: fastapi.Request,
         ) -> Union[ComponentServerJSONBody, ComponentServerBlobBody]:
             content_type = request.headers.get("Content-Type")
-            print("content_type", content_type)
 
             if isinstance(content_type, str) and content_type.startswith(
                 "multipart/form-data"
@@ -1605,7 +1640,7 @@ class App(FastAPI):
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Function not found.",
                 )
-            processed_input, _, _ = special_args(
+            processed_input, *_ = special_args(
                 fn,
                 [body.data],
                 request,  # type: ignore
@@ -1791,8 +1826,8 @@ class App(FastAPI):
 
         @app.get("/manifest.json")
         def manifest_json():
-            if not blocks.pwa:
-                raise HTTPException(status_code=404)
+            # if not blocks.pwa:
+            #     raise HTTPException(status_code=404, detail="PWA not enabled.")
 
             favicon_path = blocks.favicon_path
             if isinstance(favicon_path, Path):
@@ -2005,6 +2040,61 @@ class App(FastAPI):
 
             return ""
 
+        control_token_re = re.compile(r"<\|[^>]*\|>")
+        final_start_re = re.compile(
+            r"<\|start\|>assistant<\|channel\|>final<\|message\|>", re.IGNORECASE
+        )
+        end_re = re.compile(r"<\|end\|>", re.IGNORECASE)
+        reasoning_block_re = re.compile(
+            r"<\s*reasoning\s*>\s*(?P<body>.*?)\s*<\s*/\s*reasoning\s*>",
+            re.IGNORECASE | re.DOTALL,
+        )
+        think_block_re = re.compile(
+            r"<\s*think\s*>.*?<\s*/\s*think\s*>", re.IGNORECASE | re.DOTALL
+        )
+
+        # Remove analysis and weird markers from gpt-oss
+        def clean_out_markers(raw: str) -> str:
+            if not raw:
+                return raw
+
+            m = final_start_re.search(raw)
+            if m:
+                text = raw[m.end() :]
+                m_end = end_re.search(text)
+                if m_end:
+                    text = text[: m_end.start()]
+                return text.strip()
+
+            text = control_token_re.sub("", raw)
+            return text.strip()
+
+        def strip_think_blocks(text: str) -> str:
+            """Remove any <think> ... </think> blocks entirely"""
+            return think_block_re.sub("", text)
+
+        def split_reasoning_code(text: str) -> tuple[str, str]:
+            """
+            Extract all <reasoning>...</reasoning> and code. If multiple, concatenate with blank lines, de-duping exact copies.
+            """
+            reasoning_chunks = []
+            seen = set()
+            for m in reasoning_block_re.finditer(text):
+                body = m.group("body").strip()
+                if body and body not in seen:
+                    reasoning_chunks.append(body)
+                    seen.add(body)
+
+            reasoning_text = "\n\n".join(reasoning_chunks).strip()
+            code_text = reasoning_block_re.sub("", text).strip()
+
+            return reasoning_text, code_text
+
+        if blocks.vibe_mode:
+            from huggingface_hub import InferenceClient
+
+            inference_client = InferenceClient()
+
         @router.post("/vibe-edit/")
         @router.post("/vibe-edit")
         async def vibe_edit(body: VibeEditBody):
@@ -2027,10 +2117,6 @@ class App(FastAPI):
 
             hash_to_chat_history[snapshot_hash] = chat_history["history"]
 
-            from huggingface_hub import InferenceClient
-
-            client = InferenceClient()
-
             content = ""
             limited_history = limit_chat_history(chat_history["history"])
 
@@ -2050,7 +2136,7 @@ History:
 
             system_prompt = load_system_prompt()
             content = (
-                client.chat_completion(
+                inference_client.chat_completion(
                     model="openai/gpt-oss-120b",
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -2065,38 +2151,12 @@ History:
             if content is None:
                 raise HTTPException(status_code=500, detail="Error generating code")
 
-            control_token_re = re.compile(r"<\|[^>]*\|>")
-            final_start_re = re.compile(
-                r"<\|start\|>assistant<\|channel\|>final<\|message\|>", re.IGNORECASE
-            )
-            end_re = re.compile(r"<\|end\|>", re.IGNORECASE)
-
-            # Remove analysis and weird markers from gpt-oss
-            def clean_out_markers(raw: str) -> str:
-                if not raw:
-                    return raw
-
-                m = final_start_re.search(raw)
-                if m:
-                    text = raw[m.end() :]
-                    m_end = end_re.search(text)
-                    if m_end:
-                        text = text[: m_end.start()]
-                    return text.strip()
-
-                text = control_token_re.sub("", raw)
-                return text.strip()
-
             content = clean_out_markers(content)
+            content = strip_think_blocks(content)
 
             chat_history["history"] += f"\nUser: {body.prompt}\nAssistant: {content}\n"
 
-            reasoning = None
-            if "<reasoning>" in content:
-                reasoning = content.split("<reasoning>")[1].split("</reasoning>")[0]
-                content = content.replace(
-                    f"<reasoning>{reasoning}</reasoning>", ""
-                ).strip()
+            reasoning, content = split_reasoning_code(content)
 
             if "```python\n" in content:
                 start = content.index("```python\n") + len("```python\n")
@@ -2199,6 +2259,54 @@ History:
                     status_code=500, detail=f"Error writing file: {str(e)}"
                 ) from e
 
+        @router.post("/vibe-starter-queries/")
+        @router.post("/vibe-starter-queries")
+        async def get_vibe_starter_queries():
+            if not blocks.vibe_mode:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Vibe editor is not enabled. Use --vibe flag to enable.",
+                )
+
+            from gradio.http_server import GRADIO_WATCH_DEMO_PATH
+
+            with open(GRADIO_WATCH_DEMO_PATH) as f:
+                code = f.read()
+
+            prompt = f"""
+You are a prompt generator for a gradio vibe editor. Given the following existing code, return a list of starter queries that can be used to generate a new code.
+Existing code:
+```python
+{code}
+```
+"""
+
+            system_prompt = load_system_prompt(starter_queries=True)
+            content = (
+                inference_client.chat_completion(
+                    model="openai/gpt-oss-120b",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    max_tokens=10000,
+                )
+                .choices[0]
+                .message.content
+            )
+
+            if content is None:
+                raise HTTPException(status_code=500, detail="Error generating code")
+
+            content = strip_think_blocks(content)
+            content = clean_out_markers(content)
+
+            starter_queries = content.split("\n")
+
+            return {
+                "starter_queries": starter_queries,
+            }
+
         def cleanup_files(files):
             for file in files:
                 try:
@@ -2216,7 +2324,7 @@ History:
 ########
 
 
-def load_system_prompt():
+def load_system_prompt(starter_queries: bool = False):
     prompt_rules = """Generate code for using the Gradio python library.
 
 The following RULES must be followed.  Whenever you are forming a response, ensure all rules have been followed otherwise start over.
@@ -2248,6 +2356,43 @@ demo = gr.Interface(fn=greet, inputs="textbox", outputs="textbox")
 
 demo.launch()
 """
+    if starter_queries:
+        prompt_rules = """
+        You are a prompt generator for a gradio vibe editor.
+
+        Given python code of a gradio app, return a list of starter queries that can be used to generate new code.
+        Make sure the queries are short, useful and actually possible with Gradio.
+        The queries should be really simple and easy to understand.
+        You should respond with at most three queries, each on a new line. Do not include any other text.
+        Make sure the features you suggest are actually supported by Gradio, and documented in the docs section below.
+        Never suggest a query with more than one gradio feature or concept.
+        You may suggest queries that are not related to Gradio, but they must be related to the existing code and app. Never suggest queries that require external packages or libraries other than gradio.
+        Don't suggest adding a clear button if the app is an Interface, because Interface already has a clear button.
+
+        Here's an example of a gradio app:
+
+        ```python
+        import gradio as gr
+
+        def greet(name):
+            return "Hello " + name + "!"
+
+        demo = gr.Interface(fn=greet, inputs="textbox", outputs="textbox")
+
+        demo.launch()
+        ```
+
+        Here's an example of a valid response:
+        Add a title to the app
+        Add examples
+        Rewrite this app using Blocks
+
+        Here's an example of another valid response:
+        Add another textbox for name
+        Change the theme
+        Greet the user in many languages
+
+        """
     try:
         with httpx.Client() as client:
             response = client.get("https://www.gradio.app/llms.txt")
@@ -2297,7 +2442,9 @@ def mount_gradio_app(
     path: str,
     server_name: str = "0.0.0.0",
     server_port: int = 7860,
-    show_api: bool | None = None,
+    footer_links: (
+        list[Literal["api", "gradio", "settings"] | dict[str, str]] | None
+    ) = None,
     app_kwargs: dict[str, Any] | None = None,
     *,
     auth: Callable | tuple[str, str] | list[tuple[str, str]] | None = None,
@@ -2316,6 +2463,12 @@ def mount_gradio_app(
     pwa: bool | None = None,
     i18n: I18n | None = None,
     mcp_server: bool | None = None,
+    theme: Theme | str | None = None,
+    css: str | None = None,
+    css_paths: str | Path | Sequence[str | Path] | None = None,
+    js: str | Literal[True] | None = None,
+    head: str | None = None,
+    head_paths: str | Path | Sequence[str | Path] | None = None,
 ) -> fastapi.FastAPI:
     """Mount a gradio.Blocks to an existing FastAPI application.
 
@@ -2335,12 +2488,18 @@ def mount_gradio_app(
         favicon_path: If a path to a file (.png, .gif, or .ico) is provided, it will be used as the favicon for this gradio app's page.
         show_error: If True, any errors in the gradio app will be displayed in an alert modal and printed in the browser console log. Otherwise, errors will only be visible in the terminal session running the Gradio app.
         max_file_size: The maximum file size in bytes that can be uploaded. Can be a string of the form "<value><unit>", where value is any positive integer and unit is one of "b", "kb", "mb", "gb", "tb". If None, no limit is set.
-        show_api: If False, hides the "Use via API" button on the Gradio interface.
+        footer_links: The links to display in the footer of the app. Accepts a list, where each element of the list must be one of "api", "gradio", or "settings" corresponding to the API docs, "built with Gradio", and settings pages respectively. If None, all three links will be shown in the footer. An empty list means that no footer is shown.
         ssr_mode: If True, the Gradio app will be rendered using server-side rendering mode, which is typically more performant and provides better SEO, but this requires Node 20+ to be installed on the system. If False, the app will be rendered using client-side rendering mode. If None, will use GRADIO_SSR_MODE environment variable or default to False.
         node_server_name: The name of the Node server to use for SSR. If None, will use GRADIO_NODE_SERVER_NAME environment variable or search for a node binary in the system.
         i18n: If provided, the i18n instance to use for this gradio app.
         node_port: The port on which the Node server should run. If None, will use GRADIO_NODE_SERVER_PORT environment variable or find a free port.
         mcp_server: If True, the MCP server will be launched on the gradio app. If None, will use GRADIO_MCP_SERVER environment variable or default to False.
+        theme: A Theme object or a string representing a theme. If a string, will look for a built-in theme with that name (e.g. "soft" or "default"), or will attempt to load a theme from the Hugging Face Hub (e.g. "gradio/monochrome"). If None, will use the Default theme.
+        css: Custom css as a code string. This css will be included in the demo webpage.
+        css_paths: Custom css as a pathlib.Path to a css file or a list of such paths. This css files will be read, concatenated, and included in the demo webpage. If the `css` parameter is also set, the css from `css` will be included first.
+        js: Custom js as a code string. The custom js should be in the form of a single js function. This function will automatically be executed when the page loads. For more flexibility, use the head parameter to insert js inside <script> tags.
+        head: Custom html code to insert into the head of the demo webpage. This can be used to add custom meta tags, multiple scripts, stylesheets, etc. to the page.
+        head_paths: Custom html code as a pathlib.Path to a html file or a list of such paths. This html files will be read, concatenated, and included in the head of the demo webpage. If the `head` parameter is also set, the html from `head` will be included first.
     Example:
         from fastapi import FastAPI
         import gradio as gr
@@ -2359,8 +2518,9 @@ def mount_gradio_app(
         )
 
     blocks.dev_mode = False
-    if show_api is not None:
-        blocks.show_api = show_api
+    if footer_links is None:
+        footer_links = ["api", "gradio", "settings"]
+    blocks.footer_links = footer_links
     blocks.max_file_size = utils._parse_file_size(max_file_size)
     blocks.config = blocks.get_config_file()
     blocks.validate_queue_settings()
@@ -2399,11 +2559,7 @@ def mount_gradio_app(
     if root_path is not None:
         blocks.root_path = root_path
 
-    blocks.ssr_mode = (
-        ssr_mode
-        if ssr_mode is not None
-        else os.getenv("GRADIO_SSR_MODE", "False").lower() == "true"
-    )
+    blocks.ssr_mode = blocks._resolve_ssr_mode(ssr_mode)
 
     if blocks.ssr_mode:
         blocks.node_path = os.environ.get("GRADIO_NODE_PATH", get_node_path())
@@ -2417,7 +2573,15 @@ def mount_gradio_app(
                 node_path=blocks.node_path,
             )
         )
+    blocks.theme = utils.get_theme(theme)
+    blocks.css = css or ""
+    blocks.js = js or ""
+    blocks.head = head or ""
+    blocks.head_paths = head_paths or []
+    blocks.css_paths = css_paths or []
+    blocks._set_html_css_theme_variables()
 
+    blocks.transpile_to_js()
     gradio_app = App.create_app(
         blocks,
         app_kwargs=app_kwargs,
@@ -2439,7 +2603,6 @@ def mount_gradio_app(
 
     app.router.lifespan_context = new_lifespan  # type: ignore
 
-    print("new", path)
     app.mount(path, gradio_app)
     return app
 

@@ -208,3 +208,79 @@ def test_split_go(sql, num):  # issue762
 def test_split_multiple_case_in_begin(load_file):  # issue784
     stmts = sqlparse.split(load_file('multiple_case_in_begin.sql'))
     assert len(stmts) == 1
+
+
+def test_split_if_exists_in_begin_end():  # issue812
+    # IF EXISTS should not be confused with control flow IF
+    sql = """CREATE TASK t1 AS
+BEGIN
+    CREATE OR REPLACE TABLE temp1;
+    DROP TABLE IF EXISTS temp1;
+END;
+EXECUTE TASK t1;"""
+    stmts = sqlparse.split(sql)
+    assert len(stmts) == 2
+    assert 'CREATE TASK' in stmts[0]
+    assert 'EXECUTE TASK' in stmts[1]
+
+
+def test_split_begin_end_semicolons():  # issue809
+    # Semicolons inside BEGIN...END blocks should not split statements
+    sql = """WITH
+FUNCTION meaning_of_life()
+  RETURNS tinyint
+  BEGIN
+    DECLARE a tinyint DEFAULT CAST(6 as tinyint);
+    DECLARE b tinyint DEFAULT CAST(7 as tinyint);
+    RETURN a * b;
+  END
+SELECT meaning_of_life();"""
+    stmts = sqlparse.split(sql)
+    assert len(stmts) == 1
+    assert 'WITH' in stmts[0]
+    assert 'SELECT meaning_of_life()' in stmts[0]
+
+
+def test_split_begin_end_procedure():  # issue809
+    # Test with CREATE PROCEDURE (BigQuery style)
+    sql = """CREATE OR REPLACE PROCEDURE mydataset.create_customer()
+BEGIN
+  DECLARE id STRING;
+  SET id = GENERATE_UUID();
+  INSERT INTO mydataset.customers (customer_id)
+    VALUES(id);
+  SELECT FORMAT("Created customer %s", id);
+END;"""
+    stmts = sqlparse.split(sql)
+    assert len(stmts) == 1
+    assert 'CREATE OR REPLACE PROCEDURE' in stmts[0]
+
+
+def test_split_begin_transaction():  # issue826
+    # BEGIN TRANSACTION should not be treated as a block start
+    sql = """BEGIN TRANSACTION;
+DELETE FROM "schema"."table_a" USING "table_a_temp" WHERE "schema"."table_a"."id" = "table_a_temp"."id";
+INSERT INTO "schema"."table_a" SELECT * FROM "table_a_temp";
+END TRANSACTION;"""
+    stmts = sqlparse.split(sql)
+    assert len(stmts) == 4
+    assert stmts[0] == 'BEGIN TRANSACTION;'
+    assert stmts[1].startswith('DELETE')
+    assert stmts[2].startswith('INSERT')
+    assert stmts[3] == 'END TRANSACTION;'
+
+
+def test_split_begin_transaction_formatted():  # issue826
+    # Test with formatted SQL (newlines between BEGIN and TRANSACTION)
+    sql = """BEGIN
+TRANSACTION;
+DELETE FROM "schema"."table_a" USING "table_a_temp" WHERE "schema"."table_a"."id" = "table_a_temp"."id";
+INSERT INTO "schema"."table_a" SELECT * FROM "table_a_temp";
+END
+TRANSACTION;"""
+    stmts = sqlparse.split(sql)
+    assert len(stmts) == 4
+    assert stmts[0] == 'BEGIN\nTRANSACTION;'
+    assert stmts[1].startswith('DELETE')
+    assert stmts[2].startswith('INSERT')
+    assert stmts[3] == 'END\nTRANSACTION;'

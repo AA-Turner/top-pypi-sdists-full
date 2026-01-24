@@ -5,14 +5,26 @@
  * found in the LICENSE file.
  */
 
-#include "include/gpu/GrRecordingContext.h"
+#include "include/core/SkRefCnt.h"
+#include "include/gpu/ganesh/GrContextThreadSafeProxy.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkNoncopyable.h"
+#include "include/private/base/SkTArray.h"
+#include "src/core/SkChecksum.h"
 #include "src/core/SkLRUCache.h"
 #include "src/gpu/ganesh/GrCaps.h"
-#include "src/gpu/ganesh/GrContextThreadSafeProxyPriv.h"
 #include "src/gpu/ganesh/GrProgramDesc.h"
-#include "src/gpu/ganesh/GrProgramInfo.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
-#include "src/gpu/ganesh/effects/GrSkSLFP.h"
+
+#include <cstdint>
+#include <memory>
+#include <utility>
+
+class GrProgramInfo;
+
+using namespace skia_private;
 
 /**
  * The DDL Context is the one in effect during DDL Recording. It isn't backed by a GrGPU and
@@ -40,11 +52,8 @@ private:
 
         const GrCaps* caps = this->caps();
 
-        if (this->backend() == GrBackendApi::kMetal ||
-            this->backend() == GrBackendApi::kDirect3D ||
-            this->backend() == GrBackendApi::kDawn) {
-            // Currently Metal, Direct3D, and Dawn require a live renderTarget to
-            // compute the key
+        if (this->backend() == GrBackendApi::kMetal || this->backend() == GrBackendApi::kDirect3D) {
+            // Currently Metal and Direct3D require a live renderTarget to compute the key
             return;
         }
 
@@ -56,7 +65,7 @@ private:
         fProgramInfoMap.add(desc, programInfo);
     }
 
-    void detachProgramData(SkTArray<ProgramData>* dst) final {
+    void detachProgramData(TArray<ProgramData>* dst) final {
         SkASSERT(dst->empty());
 
         fProgramInfoMap.toArray(dst);
@@ -87,7 +96,7 @@ private:
             fMap.insert(desc, programInfo);
         }
 
-        void toArray(SkTArray<ProgramData>* dst) {
+        void toArray(TArray<ProgramData>* dst) {
             fMap.foreach([dst](CacheKey* programDesc, CacheValue* programInfo) {
                              // TODO: remove this allocation once the program descs are stored
                              // in the record-time arena.
@@ -99,7 +108,7 @@ private:
     private:
         struct DescHash {
             uint32_t operator()(CacheKey& desc) const {
-                return SkOpts::hash_fn(desc.asKey(), desc.keyLength(), 0);
+                return SkChecksum::Hash32(desc.asKey(), desc.keyLength());
             }
         };
 

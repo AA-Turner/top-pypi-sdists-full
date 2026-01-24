@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -27,7 +27,7 @@ except ImportError:
         def __iter__(self) -> Iterator:
             yield from self.dataset
 
-    DataLoader = SimpleDataLoader  # type: ignore[misc, assignment]
+    DataLoader = SimpleDataLoader
 # --- end note
 
 
@@ -40,18 +40,22 @@ class ExperimentDataLoader(DataLoader):
     .. code-block:: python
 
         experiment_metadata = {
-            "prediction_column": 'species',
+            "prediction_column": "species",
             "prediction_type": "classification",
-            "project_id": os.environ.get('PROJECT_ID'),
-            'credentials': credentials
+            "project_id": os.environ.get("PROJECT_ID"),
+            "credentials": credentials,
         }
 
-        connection = DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')
+        connection = DataConnection(
+            data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2"
+        )
 
 
-        iterable_dataset = TabularIterableDataset(connection=connection,
-                                                     enable_sampling=False,
-                                                     experiment_metadata=experiment_metadata)
+        iterable_dataset = TabularIterableDataset(
+            connection=connection,
+            enable_sampling=False,
+            experiment_metadata=experiment_metadata,
+        )
 
         data_loader = ExperimentDataLoader(dataset=iterable_dataset)
 

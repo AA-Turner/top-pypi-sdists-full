@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 from xsdata.models.datatype import XmlDate
 
 __NAMESPACE__ = "urn:books"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BookForm:
     """
     Book Definition.
@@ -22,55 +23,49 @@ class BookForm:
         lang: Language ISO Code
     """
 
-    author: Optional[str] = field(
-        default=None,
+    author: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    title: Optional[str] = field(
-        default=None,
+    title: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    genre: Optional[str] = field(
-        default=None,
+    genre: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    price: Optional[float] = field(
-        default=None,
+    price: float = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    pub_date: Optional[XmlDate] = field(
-        default=None,
+    pub_date: XmlDate = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    review: Optional[str] = field(
-        default=None,
+    review: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    id: Optional[str] = field(
+    id: None | str = field(
         default=None,
         metadata={
             "type": "Attribute",
@@ -85,7 +80,7 @@ class BookForm:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BooksForm:
     book: list[BookForm] = field(
         default_factory=list,
@@ -96,7 +91,7 @@ class BooksForm:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Books(BooksForm):
     """
     Το βιβλίο.

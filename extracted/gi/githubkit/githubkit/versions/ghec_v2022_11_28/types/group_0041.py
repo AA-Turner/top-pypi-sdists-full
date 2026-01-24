@@ -9,16 +9,31 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
 
-class ActionsForkPrWorkflowsPrivateReposRequestType(TypedDict):
-    """ActionsForkPrWorkflowsPrivateReposRequest"""
+class ActionsEnterprisePermissionsType(TypedDict):
+    """ActionsEnterprisePermissions"""
 
-    run_workflows_from_fork_pull_requests: bool
-    send_write_tokens_to_workflows: NotRequired[bool]
-    send_secrets_and_variables: NotRequired[bool]
-    require_approval_for_fork_pr_workflows: NotRequired[bool]
+    enabled_organizations: Literal["all", "none", "selected"]
+    selected_organizations_url: NotRequired[str]
+    allowed_actions: NotRequired[Literal["all", "local_only", "selected"]]
+    selected_actions_url: NotRequired[str]
+    sha_pinning_required: NotRequired[bool]
 
 
-__all__ = ("ActionsForkPrWorkflowsPrivateReposRequestType",)
+class ActionsEnterprisePermissionsTypeForResponse(TypedDict):
+    """ActionsEnterprisePermissions"""
+
+    enabled_organizations: Literal["all", "none", "selected"]
+    selected_organizations_url: NotRequired[str]
+    allowed_actions: NotRequired[Literal["all", "local_only", "selected"]]
+    selected_actions_url: NotRequired[str]
+    sha_pinning_required: NotRequired[bool]
+
+
+__all__ = (
+    "ActionsEnterprisePermissionsType",
+    "ActionsEnterprisePermissionsTypeForResponse",
+)

@@ -19,11 +19,9 @@ import warnings
 from pydantic.v1 import validate_arguments, ValidationError
 from typing import overload, Optional, Union, Awaitable
 
-from typing_extensions import Annotated
-from pydantic.v1 import Field, StrictBool, StrictInt, constr, validator
-
+from pydantic.v1 import Field, StrictBool, StrictInt, StrictStr
 from typing import List, Optional
-
+from typing_extensions import Annotated
 from finbourne_horizon.models.allowed_parameter_value import AllowedParameterValue
 from finbourne_horizon.models.enrichment_response import EnrichmentResponse
 from finbourne_horizon.models.identifiers import Identifiers
@@ -683,15 +681,15 @@ class InstrumentApi:
 
 
     @overload
-    async def search_open_figi(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(..., description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, **kwargs) -> OpenFigiSearchResult:  # noqa: E501
+    async def search_open_figi(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, **kwargs) -> OpenFigiSearchResult:  # noqa: E501
         ...
 
     @overload
-    def search_open_figi(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(..., description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, async_req: Optional[bool]=True, **kwargs) -> OpenFigiSearchResult:  # noqa: E501
+    def search_open_figi(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, async_req: Optional[bool]=True, **kwargs) -> OpenFigiSearchResult:  # noqa: E501
         ...
 
     @validate_arguments
-    def search_open_figi(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(..., description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[OpenFigiSearchResult, Awaitable[OpenFigiSearchResult]]:  # noqa: E501
+    def search_open_figi(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[OpenFigiSearchResult, Awaitable[OpenFigiSearchResult]]:  # noqa: E501
         """[EARLY ACCESS] SearchOpenFigi: Search OpenFigi for instruments that match the specified terms.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -727,7 +725,7 @@ class InstrumentApi:
         return self.search_open_figi_with_http_info(query, use_perm_id, limit, market_sector, **kwargs)  # noqa: E501
 
     @validate_arguments
-    def search_open_figi_with_http_info(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(..., description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+    def search_open_figi_with_http_info(self, query : Annotated[StrictStr, Field(..., description="")], use_perm_id : Annotated[StrictBool, Field(description="Should also search PermId for additional information, defaults to `false`.")], limit : Annotated[Optional[StrictInt], Field(description="Only affects results rom OpenFigi general text search")] = None, market_sector : Annotated[Optional[StrictStr], Field( description="The market sector to search, defaults to `All`.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
         """[EARLY ACCESS] SearchOpenFigi: Search OpenFigi for instruments that match the specified terms.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an

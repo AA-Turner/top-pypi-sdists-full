@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.681864                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.843808                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,11 +9,12 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.client.core
-    import metaflow.runner.metaflow_runner
     import metaflow.runner.subprocess_manager
+    import metaflow.runner.metaflow_runner
+    import metaflow.client.core
 
 from ..client.core import Run as Run
+from ..client.core import Task as Task
 from ..plugins import get_runner_cli as get_runner_cli
 from .utils import temporary_fifo as temporary_fifo
 from .utils import handle_timeout as handle_timeout
@@ -24,27 +25,35 @@ from .subprocess_manager import SubprocessManager as SubprocessManager
 
 CLICK_API_PROCESS_CONFIG: bool
 
-class ExecutingRun(object, metaclass=type):
+class ExecutingProcess(object, metaclass=type):
     """
-    This class contains a reference to a `metaflow.Run` object representing
-    the currently executing or finished run, as well as metadata related
-    to the process.
+    This is a base class for `ExecutingRun` and `ExecutingTask` classes.
+    The `ExecutingRun` and `ExecutingTask` classes are returned by methods
+    in `Runner` and `NBRunner`, and they are subclasses of this class.
     
-    `ExecutingRun` is returned by methods in `Runner` and `NBRunner`. It is not
-    meant to be instantiated directly.
+    The `ExecutingRun` class for instance contains a reference to a `metaflow.Run`
+    object representing the currently executing or finished run, as well as the metadata
+    related to the process.
     
-    This class works as a context manager, allowing you to use a pattern like
+    Similarly, the `ExecutingTask` class contains a reference to a `metaflow.Task`
+    object representing the currently executing or finished task, as well as the metadata
+    related to the process.
+    
+    This class or its subclasses are not meant to be instantiated directly. The class
+    works as a context manager, allowing you to use a pattern like:
+    
     ```python
     with Runner(...).run() as running:
         ...
     ```
-    Note that you should use either this object as the context manager or
-    `Runner`, not both in a nested manner.
+    
+    Note that you should use either this object as the context manager or `Runner`, not both
+    in a nested manner.
     """
-    def __init__(self, runner: Runner, command_obj: metaflow.runner.subprocess_manager.CommandManager, run_obj: metaflow.client.core.Run):
+    def __init__(self, runner: Runner, command_obj: metaflow.runner.subprocess_manager.CommandManager):
         """
         Create a new ExecutingRun -- this should not be done by the user directly but
-        instead user Runner.run()
+        instead use Runner.run()
         
         Parameters
         ----------
@@ -56,11 +65,11 @@ class ExecutingRun(object, metaclass=type):
             Run object corresponding to this run.
         """
         ...
-    def __enter__(self) -> "ExecutingRun":
+    def __enter__(self) -> "ExecutingProcess":
         ...
     def __exit__(self, exc_type, exc_value, traceback):
         ...
-    def wait(self, timeout: typing.Optional[float] = None, stream: typing.Optional[str] = None) -> "ExecutingRun":
+    def wait(self, timeout: typing.Optional[float] = None, stream: typing.Optional[str] = None) -> "ExecutingProcess":
         """
         Wait for this run to finish, optionally with a timeout
         and optionally streaming its output.
@@ -79,7 +88,7 @@ class ExecutingRun(object, metaclass=type):
         
         Returns
         -------
-        ExecutingRun
+        ExecutingProcess
             This object, allowing you to chain calls.
         """
         ...
@@ -164,6 +173,68 @@ class ExecutingRun(object, metaclass=type):
         ...
     ...
 
+class ExecutingTask(ExecutingProcess, metaclass=type):
+    """
+    This class contains a reference to a `metaflow.Task` object representing
+    the currently executing or finished task, as well as metadata related
+    to the process.
+    `ExecutingTask` is returned by methods in `Runner` and `NBRunner`. It is not
+    meant to be instantiated directly.
+    This class works as a context manager, allowing you to use a pattern like
+    ```python
+    with Runner(...).spin() as running:
+        ...
+    ```
+    Note that you should use either this object as the context manager or
+    `Runner`, not both in a nested manner.
+    """
+    def __init__(self, runner: Runner, command_obj: metaflow.runner.subprocess_manager.CommandManager, task_obj: metaflow.client.core.Task):
+        """
+        Create a new ExecutingTask -- this should not be done by the user directly but
+        instead use Runner.spin()
+        Parameters
+        ----------
+        runner : Runner
+            Parent runner for this task.
+        command_obj : CommandManager
+            CommandManager containing the subprocess executing this task.
+        task_obj : Task
+            Task object corresponding to this task.
+        """
+        ...
+    ...
+
+class ExecutingRun(ExecutingProcess, metaclass=type):
+    """
+    This class contains a reference to a `metaflow.Run` object representing
+    the currently executing or finished run, as well as metadata related
+    to the process.
+    `ExecutingRun` is returned by methods in `Runner` and `NBRunner`. It is not
+    meant to be instantiated directly.
+    This class works as a context manager, allowing you to use a pattern like
+    ```python
+    with Runner(...).run() as running:
+        ...
+    ```
+    Note that you should use either this object as the context manager or
+    `Runner`, not both in a nested manner.
+    """
+    def __init__(self, runner: Runner, command_obj: metaflow.runner.subprocess_manager.CommandManager, run_obj: metaflow.client.core.Run):
+        """
+        Create a new ExecutingRun -- this should not be done by the user directly but
+        instead use Runner.run()
+        Parameters
+        ----------
+        runner : Runner
+            Parent runner for this run.
+        command_obj : CommandManager
+            CommandManager containing the subprocess executing this run.
+        run_obj : Run
+            Run object corresponding to this run.
+        """
+        ...
+    ...
+
 class RunnerMeta(type, metaclass=type):
     @staticmethod
     def __new__(mcs, name, bases, dct):
@@ -236,6 +307,27 @@ class Runner(object, metaclass=RunnerMeta):
             ExecutingRun containing the results of the run.
         """
         ...
+    def _Runner__get_executing_task(self, attribute_file_fd, command_obj):
+        ...
+    def _Runner__async_get_executing_task(self, attribute_file_fd, command_obj):
+        ...
+    def spin(self, pathspec, **kwargs) -> ExecutingTask:
+        """
+        Blocking spin execution of the run.
+        This method will wait until the spun run has completed execution.
+        Parameters
+        ----------
+        pathspec : str
+            The pathspec of the step/task to spin.
+        **kwargs : Any
+            Additional arguments that you would pass to `python ./myflow.py` after
+            the `spin` command.
+        Returns
+        -------
+        ExecutingTask
+            ExecutingTask containing the results of the spun task.
+        """
+        ...
     def resume(self, **kwargs) -> ExecutingRun:
         """
         Blocking resume execution of the run.
@@ -289,6 +381,27 @@ class Runner(object, metaclass=RunnerMeta):
         -------
         ExecutingRun
             ExecutingRun representing the resumed run that was started.
+        """
+        ...
+    def async_spin(self, pathspec, **kwargs) -> ExecutingTask:
+        """
+        Non-blocking spin execution of the run.
+        This method will return as soon as the spun task has launched.
+        
+        Note that this method is asynchronous and needs to be `await`ed.
+        
+        Parameters
+        ----------
+        pathspec : str
+            The pathspec of the step/task to spin.
+        **kwargs : Any
+            Additional arguments that you would pass to `python ./myflow.py` after
+            the `spin` command.
+        
+        Returns
+        -------
+        ExecutingTask
+            ExecutingTask representing the spun task that was started.
         """
         ...
     def __exit__(self, exc_type, exc_value, traceback):

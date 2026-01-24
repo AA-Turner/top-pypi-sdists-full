@@ -1,9 +1,0 @@
----
-upgrade:
-  - |
-    The following features are no longer supported. These have been disabled
-    unless EC2-API service is deployed, but EC2-API project was already
-    retired.
-
-    - Download EC2 credentials
-    - Recreate EC2 credentials

@@ -1,7 +1,10 @@
+import base64
+import json
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Union
+from typing import Any, Union
 
 
 @contextmanager
@@ -14,9 +17,32 @@ def changing_dir(directory: Union[str, Path]) -> Generator[None, None, None]:
         os.chdir(initial_dir)
 
 
+def build_logs_response(*logs: dict[str, Any]) -> str:
+    """Helper to create NDJSON build logs response."""
+    return "\n".join(json.dumps(log) for log in logs)
+
+
 class Keys:
     RIGHT_ARROW = "\x1b[C"
     DOWN_ARROW = "\x1b[B"
     ENTER = "\r"
     CTRL_C = "\x03"
     TAB = "\t"
+
+
+def create_jwt_token(payload: dict[str, Any]) -> str:
+    # Note: This creates a JWT with an invalid signature, but that's OK for our tests
+    # since we only parse the payload, not verify the signature.
+
+    header = {"alg": "HS256", "typ": "JWT"}
+    header_encoded = (
+        base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+    )
+
+    payload_encoded = (
+        base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    )
+
+    signature = base64.urlsafe_b64encode(b"signature").decode().rstrip("=")
+
+    return f"{header_encoded}.{payload_encoded}.{signature}"

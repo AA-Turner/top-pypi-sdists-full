@@ -3,7 +3,7 @@ Type annotations for braket service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,13 +19,19 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import SearchDevicesPaginator, SearchJobsPaginator, SearchQuantumTasksPaginator
+from .paginator import (
+    SearchDevicesPaginator,
+    SearchJobsPaginator,
+    SearchQuantumTasksPaginator,
+    SearchSpendingLimitsPaginator,
+)
 from .type_defs import (
     CancelJobRequestTypeDef,
     CancelJobResponseTypeDef,
@@ -35,6 +41,9 @@ from .type_defs import (
     CreateJobResponseTypeDef,
     CreateQuantumTaskRequestTypeDef,
     CreateQuantumTaskResponseTypeDef,
+    CreateSpendingLimitRequestTypeDef,
+    CreateSpendingLimitResponseTypeDef,
+    DeleteSpendingLimitRequestTypeDef,
     GetDeviceRequestTypeDef,
     GetDeviceResponseTypeDef,
     GetJobRequestTypeDef,
@@ -49,16 +58,13 @@ from .type_defs import (
     SearchJobsResponseTypeDef,
     SearchQuantumTasksRequestTypeDef,
     SearchQuantumTasksResponseTypeDef,
+    SearchSpendingLimitsRequestTypeDef,
+    SearchSpendingLimitsResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateSpendingLimitRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -67,16 +73,16 @@ else:
 __all__ = ("BraketClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DeviceOfflineException: Type[BotocoreClientError]
-    DeviceRetiredException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DeviceOfflineException: type[BotocoreClientError]
+    DeviceRetiredException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class BraketClient(BaseClient):
     """
@@ -149,6 +155,26 @@ class BraketClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#create_quantum_task)
         """
 
+    def create_spending_limit(
+        self, **kwargs: Unpack[CreateSpendingLimitRequestTypeDef]
+    ) -> CreateSpendingLimitResponseTypeDef:
+        """
+        Creates a spending limit for a specified quantum device.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/create_spending_limit.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#create_spending_limit)
+        """
+
+    def delete_spending_limit(
+        self, **kwargs: Unpack[DeleteSpendingLimitRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an existing spending limit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/delete_spending_limit.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#delete_spending_limit)
+        """
+
     def get_device(self, **kwargs: Unpack[GetDeviceRequestTypeDef]) -> GetDeviceResponseTypeDef:
         """
         Retrieves the devices available in Amazon Braket.
@@ -213,7 +239,17 @@ class BraketClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#search_quantum_tasks)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def search_spending_limits(
+        self, **kwargs: Unpack[SearchSpendingLimitsRequestTypeDef]
+    ) -> SearchSpendingLimitsResponseTypeDef:
+        """
+        Searches and lists spending limits based on specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/search_spending_limits.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#search_spending_limits)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add a tag to the specified resource.
 
@@ -221,12 +257,22 @@ class BraketClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove tags from a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#untag_resource)
+        """
+
+    def update_spending_limit(
+        self, **kwargs: Unpack[UpdateSpendingLimitRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates an existing spending limit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/update_spending_limit.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#update_spending_limit)
         """
 
     @overload  # type: ignore[override]
@@ -255,6 +301,17 @@ class BraketClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_quantum_tasks"]
     ) -> SearchQuantumTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_braket/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_spending_limits"]
+    ) -> SearchSpendingLimitsPaginator:
         """
         Create a paginator for an operation.
 

@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
-from msgspec import Struct
+from msgspec import UNSET, Struct, UnsetType
 
 
 class Model(Struct):
-    some_optional_property: Optional[str] = None
-    some_optional_typed_property: Optional[str] = None
+    some_optional_property: str | UnsetType = UNSET
+    some_optional_typed_property: str | UnsetType = UNSET

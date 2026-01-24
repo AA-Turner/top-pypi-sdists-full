@@ -493,6 +493,32 @@ class EmberStatus(basic.enum8):
     ADDRESS_TABLE_ENTRY_IS_ACTIVE = 0x76
     # An attempt was made to transmit during the suspend period.
     TRANSMISSION_SUSPENDED = 0x77
+
+    # Node ID discovery failed.
+    ID_DISCOVERY_FAILED = 0xC8
+    # Message was sent but no APS ACK received.
+    NO_APS_ACK = 0xC9
+    # APS message was canceled.
+    APS_MESSAGE_CANCELED = 0xCA
+    # Node ID discovery not enabled.
+    ID_DISCOVERY_NOT_ENABLED = 0xCB
+    # Message was not sent, Node ID discovery is underway.
+    ID_DISCOVERY_UNDERWAY = 0xCC
+    # The message was not sent because a route discovery is currently underway. There is
+    # no route to the target until the route discovery completes.
+    SEND_UNICAST_ROUTE_DISCOVERY_UNDERWAY = 0xCD
+    # Radius is 0 or message has been dropped because route request failed or failed to
+    # submit message to tx queue.
+    SEND_UNICAST_FAILURE = 0xCE
+    # No active route to the destination.
+    SEND_UNICAST_NO_ROUTE = 0xCF
+    # Broadcast message timeout while waiting for sleepy children to poll.
+    BROADCAST_TO_SLEEPY_CHILDREN_TIMEOUT = 0xD0
+    # Expected a neighbor to relay the message, but none did.
+    BROADCAST_RELAY_FAILED = 0xD1
+    # Transmit is incomplete.
+    TRANSMIT_INCOMPLETE = 0xD2
+
     # Security match.
     MATCH = 0x78
     # Drop frame.
@@ -1652,22 +1678,83 @@ SL_STATUS_MAP: dict[EzspStatus | EmberStatus, sl_Status] = {
         # Ember status
         (EmberStatus.SUCCESS, sl_Status.OK),
         (EmberStatus.ERR_FATAL, sl_Status.FAIL),
+        (EmberStatus.BAD_ARGUMENT, sl_Status.INVALID_PARAMETER),
+        (EmberStatus.INVALID_ENDPOINT, sl_Status.INVALID_PARAMETER),
         (EmberStatus.NOT_FOUND, sl_Status.NOT_FOUND),
+        (EmberStatus.INVALID_CALL, sl_Status.INVALID_STATE),
+        (EmberStatus.MESSAGE_TOO_LONG, sl_Status.MESSAGE_TOO_LONG),
         (EmberStatus.TABLE_ENTRY_ERASED, sl_Status.NOT_FOUND),
+        (EmberStatus.TABLE_FULL, sl_Status.FULL),
+        (EmberStatus.LIBRARY_NOT_PRESENT, sl_Status.NOT_AVAILABLE),
+        (EmberStatus.OPERATION_IN_PROGRESS, sl_Status.IN_PROGRESS),
         (EmberStatus.INDEX_OUT_OF_RANGE, sl_Status.INVALID_INDEX),
         (EmberStatus.NOT_JOINED, sl_Status.NOT_JOINED),
+        (EmberStatus.JOIN_FAILED, sl_Status.NOT_JOINED),
+        (EmberStatus.CANNOT_JOIN_AS_ROUTER, sl_Status.NOT_JOINED),
         (EmberStatus.NETWORK_UP, sl_Status.NETWORK_UP),
         (EmberStatus.NETWORK_DOWN, sl_Status.NETWORK_DOWN),
+        (EmberStatus.NO_BEACONS, sl_Status.NO_BEACONS),
+        (EmberStatus.MOVE_FAILED, sl_Status.ZIGBEE_MOVE_FAILED),
+        (EmberStatus.NODE_ID_CHANGED, sl_Status.ZIGBEE_NODE_ID_CHANGED),
+        (EmberStatus.PAN_ID_CHANGED, sl_Status.ZIGBEE_PAN_ID_CHANGED),
+        (EmberStatus.CHANNEL_CHANGED, sl_Status.ZIGBEE_CHANNEL_CHANGED),
         (EmberStatus.NETWORK_OPENED, sl_Status.ZIGBEE_NETWORK_OPENED),
         (EmberStatus.NETWORK_CLOSED, sl_Status.ZIGBEE_NETWORK_CLOSED),
-        # Network status codes
+        # MAC/PHY status codes
+        (EmberStatus.MAC_NO_DATA, sl_Status.MAC_NO_DATA),
+        (EmberStatus.MAC_NO_ACK_RECEIVED, sl_Status.MAC_NO_ACK_RECEIVED),
         (EmberStatus.MAC_INDIRECT_TIMEOUT, sl_Status.MAC_INDIRECT_TIMEOUT),
+        (EmberStatus.PHY_TX_BLOCKED, sl_Status.TRANSMIT_BLOCKED),
+        (EmberStatus.PHY_TX_SCHED_FAIL, sl_Status.TRANSMIT_SCHEDULER_FAIL),
+        (EmberStatus.PHY_TX_CCA_FAIL, sl_Status.CCA_FAILURE),
         (EmberStatus.SOURCE_ROUTE_FAILURE, sl_Status.ZIGBEE_SOURCE_ROUTE_FAILURE),
         (EmberStatus.MANY_TO_ONE_ROUTE_FAILURE, sl_Status.ZIGBEE_MANY_TO_ONE_ROUTE_FAILURE),
         (EmberStatus.MAX_MESSAGE_LIMIT_REACHED, sl_Status.ZIGBEE_MAX_MESSAGE_LIMIT_REACHED),
         (EmberStatus.NETWORK_BUSY, sl_Status.ZIGBEE_MAX_MESSAGE_LIMIT_REACHED),
         (EmberStatus.DELIVERY_FAILED, sl_Status.ZIGBEE_DELIVERY_FAILED),
-        (EmberStatus.NO_BUFFERS, sl_Status.ALLOCATION_FAILED),  # TODO: see what the actual mapping is
+        (EmberStatus.APS_ENCRYPTION_ERROR, sl_Status.ZIGBEE_APS_ENCRYPTION_ERROR),
+        (EmberStatus.RECEIVED_KEY_IN_THE_CLEAR, sl_Status.ZIGBEE_RECEIVED_KEY_IN_THE_CLEAR),
+        (EmberStatus.NO_NETWORK_KEY_RECEIVED, sl_Status.ZIGBEE_NO_NETWORK_KEY_RECEIVED),
+        (EmberStatus.NO_LINK_KEY_RECEIVED, sl_Status.ZIGBEE_NO_LINK_KEY_RECEIVED),
+        (EmberStatus.PRECONFIGURED_KEY_REQUIRED, sl_Status.ZIGBEE_PRECONFIGURED_KEY_REQUIRED),
+        (EmberStatus.TRUST_CENTER_EUI_HAS_CHANGED, sl_Status.ZIGBEE_TRUST_CENTER_SWAP_EUI_HAS_CHANGED),
+        (EmberStatus.SIGNATURE_VERIFY_FAILURE, sl_Status.ZIGBEE_SIGNATURE_VERIFY_FAILURE),
+        (EmberStatus.KEY_INVALID, sl_Status.INVALID_KEY),
+        (EmberStatus.BINDING_IS_ACTIVE, sl_Status.ZIGBEE_BINDING_IS_ACTIVE),
+        (EmberStatus.ADDRESS_TABLE_ENTRY_IS_ACTIVE, sl_Status.ZIGBEE_ADDRESS_TABLE_ENTRY_IS_ACTIVE),
+        (EmberStatus.ADDRESS_TABLE_INDEX_OUT_OF_RANGE, sl_Status.INVALID_RANGE),
+        (EmberStatus.INVALID_BINDING_INDEX, sl_Status.INVALID_INDEX),
+        (EmberStatus.NO_BUFFERS, sl_Status.ALLOCATION_FAILED),
+        (EmberStatus.SECURITY_CONFIGURATION_INVALID, sl_Status.INVALID_CONFIGURATION),
+        (EmberStatus.KEY_TABLE_INVALID_ADDRESS, sl_Status.INVALID_PARAMETER),
+        (EmberStatus.SECURITY_DATA_INVALID, sl_Status.INVALID_CONFIGURATION),
+        (EmberStatus.MAC_SCANNING, sl_Status.MAC_SCANNING),
+        (EmberStatus.MAC_INVALID_CHANNEL_MASK, sl_Status.INVALID_CHANNEL_MASK),
+        (EmberStatus.PHY_INVALID_CHANNEL, sl_Status.TRANSMIT_INVALID_CHANNEL),
+        (EmberStatus.SERIAL_INVALID_PORT, sl_Status.INVALID_PARAMETER),
+        (EmberStatus.SERIAL_RX_EMPTY, sl_Status.EMPTY),
+        (EmberStatus.INSUFFICIENT_RANDOM_DATA, sl_Status.ZIGBEE_INSUFFICIENT_RANDOM_DATA),
+        # Speculative
+        (EmberStatus.PACKET_HANDOFF_DROP_PACKET, sl_Status.ZIGBEE_PACKET_HANDOFF_DROPPED),
+        (EmberStatus.SECURITY_STATE_NOT_SET, sl_Status.ZIGBEE_SECURITY_STATE_NOT_SET),
+        (EmberStatus.KEY_NOT_AUTHORIZED, sl_Status.ZIGBEE_KEY_NOT_AUTHORIZED),
+        (EmberStatus.MAC_TRANSMIT_QUEUE_FULL, sl_Status.MAC_TRANSMIT_QUEUE_FULL),
+        (EmberStatus.STACK_AND_HARDWARE_MISMATCH, sl_Status.ZIGBEE_STACK_AND_HARDWARE_MISMATCH),
+        (EmberStatus.IEEE_ADDRESS_DISCOVERY_IN_PROGRESS, sl_Status.ZIGBEE_IEEE_ADDRESS_DISCOVERY_IN_PROGRESS),
+        (EmberStatus.TOO_SOON_FOR_SWITCH_KEY, sl_Status.ZIGBEE_TOO_SOON_FOR_SWITCH_KEY),
+        (EmberStatus.BINDING_HAS_CHANGED, sl_Status.ZIGBEE_BINDING_HAS_CHANGED),
+        (EmberStatus.INVALID_SECURITY_LEVEL, sl_Status.ZIGBEE_INVALID_SECURITY_LEVEL),
+        (EmberStatus.ID_DISCOVERY_FAILED, sl_Status.ZIGBEE_ID_DISCOVERY_FAILED),
+        (EmberStatus.NO_APS_ACK, sl_Status.ZIGBEE_NO_APS_ACK),
+        (EmberStatus.APS_MESSAGE_CANCELED, sl_Status.ZIGBEE_APS_MESSAGE_CANCELED),
+        (EmberStatus.ID_DISCOVERY_NOT_ENABLED, sl_Status.ZIGBEE_ID_DISCOVERY_NOT_ENABLED),
+        (EmberStatus.ID_DISCOVERY_UNDERWAY, sl_Status.ZIGBEE_ID_DISCOVERY_UNDERWAY),
+        (EmberStatus.SEND_UNICAST_ROUTE_DISCOVERY_UNDERWAY, sl_Status.ZIGBEE_SEND_UNICAST_ROUTE_DISCOVERY_UNDERWAY),
+        (EmberStatus.SEND_UNICAST_FAILURE, sl_Status.ZIGBEE_SEND_UNICAST_FAILURE),
+        (EmberStatus.SEND_UNICAST_NO_ROUTE, sl_Status.ZIGBEE_SEND_UNICAST_NO_ROUTE),
+        (EmberStatus.BROADCAST_TO_SLEEPY_CHILDREN_TIMEOUT, sl_Status.ZIGBEE_BROADCAST_TO_SLEEPY_CHILDREN_TIMEOUT),
+        (EmberStatus.BROADCAST_RELAY_FAILED, sl_Status.ZIGBEE_BROADCAST_RELAY_FAILED),
+        (EmberStatus.TRANSMIT_INCOMPLETE, sl_Status.TRANSMIT_INCOMPLETE),
     ]
 }
 # fmt: on
@@ -2769,3 +2856,31 @@ class SourceRouteDiscoveryMode(basic.enum8):
     OFF = 0
     ON = 1
     RESCHEDULE = 2
+
+
+class RouteRecordState(basic.enum8):
+    """Route record state for EmberRouteTableEntry."""
+
+    NO_LONGER_NEEDED = 0
+    SENT = 1
+    NEEDED = 2
+
+
+class RouteRecordStatus(basic.enum8):
+    """Route record status for EmberRouteTableEntry."""
+
+    ACTIVE_AGE_0 = 0x00
+    ACTIVE_AGE_1 = 0x40
+    ACTIVE_AGE_2 = 0x80
+
+    BEING_DISCOVERED = 0x01
+    UNUSED = 0x03
+    VALIDATING = 0x04
+
+
+class RouteRecordConcentratortype(basic.enum8):
+    """Route record concentrator type for EmberRouteTableEntry."""
+
+    NOT_A_CONCENTRATOR = 0
+    LOW_RAM = 1
+    HIGH_RAM = 2

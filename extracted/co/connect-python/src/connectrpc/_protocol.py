@@ -1,27 +1,32 @@
+from __future__ import annotations
+
 import json
 from base64 import b64decode, b64encode
-from collections.abc import Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import cast
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
-import httpx
 from google.protobuf.any_pb2 import Any
 
+from ._compression import Compression
 from .code import Code
 from .errors import ConnectError
 
-CONNECT_HEADER_PROTOCOL_VERSION = "connect-protocol-version"
-CONNECT_PROTOCOL_VERSION = "1"
-CONNECT_UNARY_CONTENT_TYPE_PREFIX = "application/"
-CONNECT_STREAMING_CONTENT_TYPE_PREFIX = "application/connect+"
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
 
-CONNECT_UNARY_HEADER_COMPRESSION = "content-encoding"
-CONNECT_UNARY_HEADER_ACCEPT_COMPRESSION = "accept-encoding"
-CONNECT_STREAMING_HEADER_COMPRESSION = "connect-content-encoding"
-CONNECT_STREAMING_HEADER_ACCEPT_COMPRESSION = "connect-accept-encoding"
+    from pyqwest import FullResponse
+    from pyqwest import Headers as HTTPHeaders
 
-CONNECT_HEADER_TIMEOUT = "connect-timeout-ms"
+    from ._codec import Codec
+    from ._compression import Compression
+    from ._envelope import EnvelopeReader, EnvelopeWriter
+    from .method import MethodInfo
+    from .request import Headers, RequestContext
+
+REQ = TypeVar("REQ")
+RES = TypeVar("RES")
+T = TypeVar("T")
 
 
 # Define a custom class for HTTP Status to allow adding 499 status code
@@ -31,7 +36,7 @@ class ExtendedHTTPStatus:
     reason: str
 
     @staticmethod
-    def from_http_status(status: HTTPStatus) -> "ExtendedHTTPStatus":
+    def from_http_status(status: HTTPStatus) -> ExtendedHTTPStatus:
         return ExtendedHTTPStatus(code=status.value, reason=status.phrase)
 
 
@@ -87,27 +92,25 @@ class ConnectWireError:
     details: Sequence[Any]
 
     @staticmethod
-    def from_exception(exc: Exception) -> "ConnectWireError":
+    def from_exception(exc: Exception) -> ConnectWireError:
         if isinstance(exc, ConnectError):
             return ConnectWireError(exc.code, exc.message, exc.details)
         return ConnectWireError(Code.UNKNOWN, str(exc), details=())
 
     @staticmethod
-    def from_response(response: httpx.Response) -> "ConnectWireError":
+    def from_response(response: FullResponse) -> ConnectWireError:
         try:
             data = response.json()
         except Exception:
             data = None
         if isinstance(data, dict):
-            return ConnectWireError.from_dict(
-                data, response.status_code, Code.UNAVAILABLE
-            )
-        return ConnectWireError.from_http_status(response.status_code)
+            return ConnectWireError.from_dict(data, response.status, Code.UNAVAILABLE)
+        return ConnectWireError.from_http_status(response.status)
 
     @staticmethod
     def from_dict(
         data: dict, http_status: int, unexpected_code: Code
-    ) -> "ConnectWireError":
+    ) -> ConnectWireError:
         code_str = data.get("code")
         if code_str:
             try:
@@ -136,7 +139,7 @@ class ConnectWireError:
         return ConnectWireError(code, message, details)
 
     @staticmethod
-    def from_http_status(status_code: int) -> "ConnectWireError":
+    def from_http_status(status_code: int) -> ConnectWireError:
         code = _http_status_code_to_error.get(status_code, Code.UNKNOWN)
         try:
             http_status = HTTPStatus(status_code)
@@ -174,22 +177,90 @@ class ConnectWireError:
         return json.dumps(self.to_dict()).encode("utf-8")
 
 
+class ServerProtocol(Protocol):
+    def create_request_context(
+        self, method: MethodInfo[REQ, RES], http_method: str, headers: Headers
+    ) -> RequestContext[REQ, RES]:
+        """Creates a RequestContext from the HTTP method and headers."""
+        ...
+
+    def create_envelope_writer(
+        self, codec: Codec[T, Any], compression: Compression | None
+    ) -> EnvelopeWriter[T]:
+        """Creates the EnvelopeWriter to write response messages."""
+        ...
+
+    def uses_trailers(self) -> bool:
+        """Returns whether the protocol uses trailers for status reporting."""
+        ...
+
+    def content_type(self, codec: Codec) -> str:
+        """Returns the content type for the given codec."""
+        ...
+
+    def compression_header_name(self) -> str:
+        """Returns the compression header name and value."""
+        ...
+
+    def codec_name_from_content_type(self, content_type: str, *, stream: bool) -> str:
+        """Extracts the codec name from the content type."""
+        ...
+
+    def negotiate_stream_compression(
+        self, headers: Headers
+    ) -> tuple[Compression | None, Compression]:
+        """Negotiates request and response compression based on headers."""
+        ...
+
+
+class ClientProtocol(Protocol):
+    def create_request_context(
+        self,
+        *,
+        method: MethodInfo[REQ, RES],
+        http_method: str,
+        user_headers: Headers | Mapping[str, str] | None,
+        timeout_ms: int | None,
+        codec: Codec,
+        stream: bool,
+        accept_compression: Iterable[str] | None,
+        send_compression: Compression | None,
+    ) -> RequestContext[REQ, RES]:
+        """Creates a RequestContext for the given method and headers."""
+        ...
+
+    def validate_response(
+        self, request_codec_name: str, status_code: int, response_content_type: str
+    ) -> None:
+        """Validates a unary response"""
+        ...
+
+    def validate_stream_response(
+        self, request_codec_name: str, response_content_type: str
+    ) -> None:
+        """Validates a streaming response"""
+        ...
+
+    def handle_response_compression(
+        self, headers: HTTPHeaders, *, stream: bool
+    ) -> Compression:
+        """Handles response compression based on the response headers."""
+        ...
+
+    def create_envelope_reader(
+        self,
+        message_class: type[RES],
+        codec: Codec,
+        compression: Compression,
+        read_max_bytes: int | None,
+    ) -> EnvelopeReader[RES]:
+        """Creates the EnvelopeReader to read response messages."""
+        ...
+
+
 class HTTPException(Exception):
     """An HTTP exception returned directly before starting the connect protocol."""
 
     def __init__(self, status: HTTPStatus, headers: list[tuple[str, str]]) -> None:
         self.status = status
         self.headers = headers
-
-
-def codec_name_from_content_type(content_type: str, *, stream: bool) -> str:
-    prefix = (
-        CONNECT_STREAMING_CONTENT_TYPE_PREFIX
-        if stream
-        else CONNECT_UNARY_CONTENT_TYPE_PREFIX
-    )
-    if content_type.startswith(prefix):
-        return content_type[len(prefix) :]
-    # Follow connect-go behavior for malformed content type. If the content type misses the prefix,
-    # it will still be coincidentally handled.
-    return content_type

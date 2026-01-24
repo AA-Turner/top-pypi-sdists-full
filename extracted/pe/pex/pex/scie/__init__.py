@@ -6,7 +6,7 @@ from __future__ import absolute_import
 import os.path
 from argparse import Namespace, _ActionsContainer
 
-from pex.argparse import HandleBoolAction
+from pex.argparse import HandleBoolAction, InjectArgAction, InjectEnvAction
 from pex.compatibility import urlparse
 from pex.dist_metadata import NamedEntryPoint
 from pex.fetcher import URLFetcher
@@ -15,6 +15,7 @@ from pex.pep_440 import Version
 from pex.scie import science
 from pex.scie.model import (
     BusyBoxEntryPoints,
+    Command,
     ConsoleScriptsManifest,
     File,
     InterpreterDistribution,
@@ -32,7 +33,7 @@ from pex.typing import TYPE_CHECKING, cast
 from pex.variables import ENV, Variables
 
 if TYPE_CHECKING:
-    from typing import Iterator, List, Optional, Text, Tuple, Union
+    from typing import Any, Dict, Iterator, List, Optional, Text, Tuple, Union
 
 __all__ = (
     "InterpreterDistribution",
@@ -48,12 +49,14 @@ __all__ = (
 )
 
 
-def register_options(parser):
-    # type: (_ActionsContainer) -> None
+def register_options(
+    parser,  # type: _ActionsContainer
+    style_option_names=(),  # type: Tuple[str, ...]
+):
+    # type: (...) -> None
 
-    parser.add_argument(
-        "--scie",
-        "--par",
+    scie_style_option_names = style_option_names or ("--scie", "--par")  # type: Tuple[str, ...]
+    argument_options = dict(
         dest="scie_style",
         default=None,
         type=ScieStyle.for_value,
@@ -81,7 +84,10 @@ def register_options(parser):
                 lazy=ScieStyle.LAZY, eager=ScieStyle.EAGER
             )
         ),
-    )
+    )  # type: Dict[str, Any]
+
+    parser.add_argument(*scie_style_option_names, **argument_options)
+
     parser.add_argument(
         "--scie-only",
         "--no-scie-only",
@@ -94,6 +100,19 @@ def register_options(parser):
             "Only output a scie. By default, both a PEX and a scie are output unless the "
             "`-o` / `--output-file` specified has no '.pex' extension or a platform suffix is "
             "included (see `--scie-name-platform`)."
+        ),
+    )
+    parser.add_argument(
+        "--scie-load-dotenv",
+        "--no-scie-load-dotenv",
+        dest="scie_load_dotenv",
+        default=False,
+        type=bool,
+        action=HandleBoolAction,
+        help=(
+            "Have the scie launcher load `.env` files and apply the loaded env vars to the PEX "
+            "scie environment. See the 'load_dotenv' docs here for more on the `.env` loading "
+            "specifics: https://github.com/a-scie/jump/blob/main/docs/packaging.md#optional-fields"
         ),
     )
     parser.add_argument(
@@ -115,6 +134,54 @@ def register_options(parser):
         ),
     )
     parser.add_argument(
+        "--scie-bind-resource-path",
+        dest="scie_bind_resource_paths",
+        default=[],
+        action=InjectEnvAction,
+        help=(
+            "Specifies an environment variable to bind the path of a resource in the PEX to in the "
+            "form `<env var name>=<resource rel path>`. For example "
+            "`WINDOWS_X64_CONSOLE_TRAMPOLINE=pex/windows/stubs/uv-trampoline-x86_64-console.exe` "
+            "would lookup the path of the `pex/windows/stubs/uv-trampoline-x86_64-console.exe` "
+            "file on the `sys.path` and bind its absolute path to the "
+            "WINDOWS_X64_CONSOLE_TRAMPOLINE environment variable. N.B.: resource paths must use "
+            "the Unix path separator of `/`. These will be converted to the runtime host path "
+            "separator as needed."
+        ),
+    )
+
+    entrypoints = parser.add_mutually_exclusive_group()
+    entrypoints.add_argument(
+        "--scie-exe",
+        dest="scie_exe",
+        help=(
+            "Specify a custom PEX scie entry point instead of using the PEX's entrypoint. When "
+            "specifying a custom entry point additional args can be set via `--scie-args` and "
+            "environment variables can be set via `--scie-env`. Scie placeholders can be used in "
+            "`--scie-exe`."
+        ),
+    )
+    parser.add_argument(
+        "--scie-args",
+        dest="scie_args",
+        default=[],
+        action=InjectArgAction,
+        help=(
+            "Additional arguments to pass to the custom `--scie-exe` entry point. Scie "
+            "placeholders can be used in `--scie-args`."
+        ),
+    )
+    parser.add_argument(
+        "--scie-env",
+        dest="scie_env",
+        default=[],
+        action=InjectEnvAction,
+        help=(
+            "Environment variables to set when executing the custom `--scie-exe` entry point. Scie "
+            "placeholders can be used in `--scie-env`."
+        ),
+    )
+    entrypoints.add_argument(
         "--scie-busybox",
         dest="scie_busybox",
         type=str,
@@ -143,19 +210,24 @@ def register_options(parser):
             "review the `install` command help."
         ),
     )
+
     parser.add_argument(
+        "--scie-pex-entrypoint-env-passthrough",
         "--scie-busybox-pex-entrypoint-env-passthrough",
+        "--no-scie-pex-entrypoint-env-passthrough",
         "--no-scie-busybox-pex-entrypoint-env-passthrough",
-        dest="scie_busybox_pex_entrypoint_env_passthrough",
-        default=False,
+        dest="scie_pex_entrypoint_env_passthrough",
+        default=None,
         type=bool,
         action=HandleBoolAction,
         help=(
-            "When creating a busybox, allow overriding the primary entrypoint at runtime via "
-            "PEX_INTERPRETER, PEX_SCRIPT and PEX_MODULE. Note that when using --venv this adds "
-            "modest startup overhead on the order of 10ms."
+            "Allow overriding the primary entrypoint at runtime via PEX_INTERPRETER, PEX_SCRIPT "
+            "and PEX_MODULE. Note that when using --venv with a script entrypoint this adds modest "
+            "startup overhead on the order of 10ms. Defaults to false for busybox scies and true "
+            "for single entrypoint scies."
         ),
     )
+
     parser.add_argument(
         "--scie-platform",
         dest="scie_platforms",
@@ -223,6 +295,32 @@ def register_options(parser):
         ),
     )
     parser.add_argument(
+        "--scie-pbs-free-threaded",
+        "--no-scie-pbs-free-threaded",
+        dest="scie_pbs_free_threaded",
+        default=False,
+        type=bool,
+        action=HandleBoolAction,
+        help=(
+            "Should the Python Standalone Builds CPython distributions be free-threaded. If left "
+            "unspecified or otherwise turned off, creating a scie from a PEX with free-threaded "
+            "abi wheels will automatically turn this option on. Note that this option is not "
+            "compatible with `--scie-pbs-stripped`."
+        ),
+    )
+    parser.add_argument(
+        "--scie-pbs-debug",
+        "--no-scie-pbs-debug",
+        dest="scie_pbs_debug",
+        default=False,
+        type=bool,
+        action=HandleBoolAction,
+        help=(
+            "Should the Python Standalone Builds CPython distributions be debug builds. Note that "
+            "this option is not compatible with `--scie-pbs-stripped`."
+        ),
+    )
+    parser.add_argument(
         "--scie-pbs-stripped",
         "--no-scie-pbs-stripped",
         dest="scie_pbs_stripped",
@@ -232,7 +330,8 @@ def register_options(parser):
         help=(
             "Should the Python Standalone Builds CPython distributions used be stripped of debug "
             "symbols or not. For Linux and Windows particularly, the stripped distributions are "
-            "less than half the size of the distributions that ship with debug symbols."
+            "less than half the size of the distributions that ship with debug symbols. Note that "
+            "this option is not compatible with `--scie-pbs-free-threaded` or `--scie-pbs-debug`."
         ),
     )
     parser.add_argument(
@@ -299,13 +398,30 @@ def render_options(options):
         args.append(str(options.naming_style))
     if options.scie_only:
         args.append("--scie-only")
+    if options.load_dotenv:
+        args.append("--scie-load-dotenv")
+    for name, value in options.bind_resource_paths:
+        args.append("--scie-bind-resource-path")
+        args.append("{name}={value}".format(name=name, value=value))
+    if options.custom_entrypoint:
+        args.append("--scie-exe")
+        args.append(options.custom_entrypoint.exe)
+        for arg in options.custom_entrypoint.args:
+            args.append("--scie-args")
+            args.append(arg)
+        for name, value in options.custom_entrypoint.env:
+            args.append("--scie-env")
+            args.append("{name}={value}".format(name=name, value=value))
     if options.busybox_entrypoints:
         args.append("--scie-busybox")
         entrypoints = list(options.busybox_entrypoints.console_scripts_manifest.iter_specs())
         entrypoints.extend(map(str, options.busybox_entrypoints.ad_hoc_entry_points))
         args.append(",".join(entrypoints))
-    if options.busybox_pex_entrypoint_env_passthrough:
-        args.append("--scie-busybox-pex-entrypoint-env-passthrough")
+    if options.pex_entrypoint_env_passthrough is not None:
+        if options.pex_entrypoint_env_passthrough:
+            args.append("--scie-busybox-pex-entrypoint-env-passthrough")
+        else:
+            args.append("--no-scie-pex-entrypoint-env-passthrough")
     for platform in options.platforms:
         args.append("--scie-platform")
         args.append(str(platform))
@@ -318,6 +434,10 @@ def render_options(options):
     if options.python_version:
         args.append("--scie-python-version")
         args.append(".".join(map(str, options.python_version)))
+    if options.pbs_free_threaded:
+        args.append("--scie-pbs-free-threaded")
+    if options.pbs_debug:
+        args.append("--scie-pbs-debug")
     if options.pbs_stripped:
         args.append("--scie-pbs-stripped")
     for hash_algorithm in options.hash_algorithms:
@@ -341,8 +461,13 @@ def extract_options(options):
     if not options.scie_style:
         return None
 
-    entry_points = None
-    if options.scie_busybox:
+    custom_entrypoint = None  # type: Optional[Command]
+    busybox_entrypoints = None  # type: Optional[BusyBoxEntryPoints]
+    if options.scie_exe:
+        custom_entrypoint = Command(
+            exe=options.scie_exe, args=tuple(options.scie_args), env=tuple(options.scie_env)
+        )
+    elif options.scie_busybox:
         eps = []  # type: List[str]
         for value in options.scie_busybox:
             eps.extend(ep.strip() for ep in value.split(","))
@@ -367,7 +492,7 @@ def extract_options(options):
                 "The following --scie-busybox entry point specifications were not understood:\n"
                 "{bad_entry_points}".format(bad_entry_points="\n".join(bad_entry_points))
             )
-        entry_points = BusyBoxEntryPoints(
+        busybox_entrypoints = BusyBoxEntryPoints(
             console_scripts_manifest=console_scripts_manifest,
             ad_hoc_entry_points=tuple(ad_hoc_entry_points),
         )
@@ -398,6 +523,12 @@ def extract_options(options):
                 )
             )
 
+    if options.scie_pbs_stripped and (options.scie_pbs_free_threaded or options.scie_pbs_debug):
+        raise ValueError(
+            "Python Standalone Builds does not release stripped distributions for debug or "
+            "free-threaded builds."
+        )
+
     science_binary = None  # type: Optional[Union[File, Url]]
     if options.scie_science_binary:
         url_info = urlparse.urlparse(options.scie_science_binary)
@@ -414,12 +545,17 @@ def extract_options(options):
         style=options.scie_style,
         naming_style=options.naming_style,
         scie_only=options.scie_only,
-        busybox_entrypoints=entry_points,
-        busybox_pex_entrypoint_env_passthrough=options.scie_busybox_pex_entrypoint_env_passthrough,
+        load_dotenv=options.scie_load_dotenv,
+        bind_resource_paths=tuple(options.scie_bind_resource_paths),
+        custom_entrypoint=custom_entrypoint,
+        busybox_entrypoints=busybox_entrypoints,
+        pex_entrypoint_env_passthrough=options.scie_pex_entrypoint_env_passthrough,
         platforms=tuple(OrderedSet(options.scie_platforms)),
         pbs_release=options.scie_pbs_release,
         pypy_release=options.scie_pypy_release,
         python_version=python_version,
+        pbs_free_threaded=options.scie_pbs_free_threaded,
+        pbs_debug=options.scie_pbs_debug,
         pbs_stripped=options.scie_pbs_stripped,
         hash_algorithms=tuple(options.scie_hash_algorithms),
         science_binary=science_binary,

@@ -64,7 +64,9 @@ class TestFakeBackends(IBMTestCase):
     @unpack
     def test_circuit_on_fake_backend_v2(self, backend, optimization_level):
         if not optionals.HAS_AER and backend.num_qubits > 20:
-            self.skipTest("Unable to run fake_backend %s without qiskit-aer" % backend.backend_name)
+            self.skipTest(
+                "Unable to run fake_backend {} without qiskit-aer".format(backend.backend_name)
+            )
         backend.set_options(seed_simulator=42)
         pm = generate_preset_pass_manager(backend=backend, optimization_level=optimization_level)
         isa_circuit = pm.run(self.circuit)
@@ -115,6 +117,11 @@ class TestFakeBackends(IBMTestCase):
                 self.assertLess(i, 1)
 
         self.assertIsInstance(configuration.to_dict(), dict)
+        # test unit/value consistency on roundtrip
+        if hasattr(configuration, "rep_times"):
+            config_dict = configuration.to_dict()
+            roundtrip_config = configuration.from_dict(config_dict)
+            self.assertEqual(configuration.rep_times, roundtrip_config.rep_times)
 
     def test_delay_circuit(self):
         backend = FakeMumbaiV2()
@@ -162,7 +169,7 @@ class TestRefreshFakeBackends(IBMIntegrationTestCase):
 
         with self.assertLogs("qiskit_ibm_runtime", level="INFO") as logs:
             old_backend.refresh(service)
-        self.assertIn("The backend fake_sherbrooke has been updated", logs.output[0])
+        self.assertIn("The backend fake_sherbrooke has been updated", logs.output[1])
 
         # to verify the refresh can't be done
         wrong_backend = FakeSherbrooke()

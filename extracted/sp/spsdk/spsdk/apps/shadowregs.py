@@ -4,7 +4,12 @@
 # Copyright 2021-2025 NXP
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""Main Debug Authentication Tool application."""
+"""SPSDK Shadow Registers management application.
+
+This module provides a command-line application for reading, writing, and managing
+shadow registers on NXP MCUs through debug probes. It includes functionality for
+register manipulation, configuration management, and fuse programming scripts.
+"""
 
 import contextlib
 import logging
@@ -62,7 +67,12 @@ def print_register_info(fuse_register: FuseRegister, rich: bool = False) -> None
 
 @dataclass
 class DebugProbeCfg:
-    """Debug probe configuration."""
+    """Debug probe configuration container.
+
+    This class holds configuration parameters for debug probe connections
+    including interface type, serial number, and additional probe-specific
+    parameters used for device communication and debugging operations.
+    """
 
     interface: Optional[str] = None
     serial_no: Optional[str] = None
@@ -91,7 +101,7 @@ def _open_debug_probe(debug_probe_cfg: DebugProbeCfg) -> Iterator[DebugProbe]:
         debug_probe_params=debug_probe_cfg.debug_probe_params,
         print_func=click.echo,
     ) as probe:
-        probe.connect()
+        probe.connect_safe()
         try:
             yield probe
         except SPSDKError as exc:
@@ -230,7 +240,9 @@ def load_config(pass_obj: dict, config: Config, verify: bool) -> None:
                     f"Verification is not possible on the {shadow_regs.family}, it won't be performed."
                 )
             shadow_regs.set_loaded_registers(verify)
-        click.echo(f"The Shadow registers has been loaded by configuration in {config} YAML file")
+        click.echo(
+            f"The Shadow registers has been loaded by configuration in {config.config_name} YAML file"
+        )
     except SPSDKError as exc:
         raise SPSDKError(f"Load configuration of Shadow registers failed ({str(exc)})!") from exc
 

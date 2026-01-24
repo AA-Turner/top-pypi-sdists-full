@@ -1,5 +1,5 @@
+import importlib.metadata
 import json
-import sys
 
 import pytest
 from marshmallow import Schema
@@ -13,6 +13,7 @@ from marshmallow.fields import (
     String,
     TimeDelta,
 )
+from packaging.version import Version
 
 from apispec import APISpec
 from apispec.exceptions import APISpecError
@@ -36,6 +37,8 @@ from .utils import (
     get_responses,
     get_schemas,
 )
+
+MA_VERSION = Version(importlib.metadata.version("marshmallow"))
 
 
 class TestDefinitionHelper:
@@ -1258,15 +1261,16 @@ class TestSelfReference:
 class TestFieldOrdering:
     def test_field_order_preserved(self, spec):
         class OrderedSchema(Schema):
+            if (MA_VERSION.major == 3) and (MA_VERSION.minor < 26):
+
+                class Meta:
+                    ordered = True
+
             field1 = Int()
             field2 = Int()
             field3 = Int()
             field4 = Int()
             field5 = Int()
-            if sys.version_info < (3, 10):
-
-                class Meta:
-                    ordered = True
 
         spec.components.schema("Ordered", schema=OrderedSchema)
         result = get_schemas(spec)["Ordered"]["properties"]

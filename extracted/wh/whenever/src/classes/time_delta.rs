@@ -1,8 +1,6 @@
 use core::ffi::{CStr, c_int, c_void};
 use pyo3_ffi::*;
-use std::fmt;
-use std::ops::Neg;
-use std::ptr::null_mut as NULL;
+use std::{fmt, ops::Neg, ptr::null_mut as NULL};
 
 use crate::{
     classes::{
@@ -178,7 +176,7 @@ impl TimeDelta {
     }
 }
 
-impl PyWrapped for TimeDelta {}
+impl PySimpleAlloc for TimeDelta {}
 
 impl Neg for TimeDelta {
     type Output = Self;
@@ -259,10 +257,12 @@ fn __new__(cls: HeapType<TimeDelta>, args: PyTuple, kwargs: Option<PyDict>) -> P
     } = cls.state();
 
     match (args.len(), nkwargs) {
+        (1, 0) => parse_iso(cls, args.iter().next().unwrap()),
         (0, 0) => TimeDelta {
             secs: DeltaSeconds::ZERO,
             subsec: SubSecNanos::MIN,
-        }, // FUTURE: return the singleton?
+        }
+        .to_obj(cls), // FUTURE: return the singleton?
         (0, _) => {
             handle_kwargs(
                 "TimeDelta",
@@ -288,7 +288,7 @@ fn __new__(cls: HeapType<TimeDelta>, args: PyTuple, kwargs: Option<PyDict>) -> P
                             handle_exact_unit(value, MAX_MICROSECONDS, "microseconds", 1_000_i128)?;
                     } else if eq(key, str_nanoseconds) {
                         nanos += value
-                            .cast::<PyInt>()
+                            .cast_allow_subclass::<PyInt>()
                             .ok_or_value_err("nanoseconds must be an integer")?
                             .to_i128()?;
                     } else {
@@ -297,11 +297,12 @@ fn __new__(cls: HeapType<TimeDelta>, args: PyTuple, kwargs: Option<PyDict>) -> P
                     Ok(true)
                 },
             )?;
-            TimeDelta::from_nanos(nanos).ok_or_value_err("TimeDelta out of range")?
+            TimeDelta::from_nanos(nanos)
+                .ok_or_value_err("TimeDelta out of range")?
+                .to_obj(cls)
         }
         _ => raise_type_err("TimeDelta() takes no positional arguments")?,
     }
-    .to_obj(cls)
 }
 
 pub(crate) fn hours(state: &State, arg: PyObj) -> PyReturn {
@@ -356,7 +357,7 @@ pub(crate) fn microseconds(state: &State, arg: PyObj) -> PyReturn {
 
 pub(crate) fn nanoseconds(state: &State, arg: PyObj) -> PyReturn {
     TimeDelta::from_nanos(
-        arg.cast::<PyInt>()
+        arg.cast_allow_subclass::<PyInt>()
             .ok_or_value_err("nanoseconds must be an integer")?
             .to_i128()?,
     )
@@ -395,21 +396,21 @@ extern "C" fn __bool__(slf: PyObj) -> c_int {
 }
 
 fn __repr__(_: PyType, slf: TimeDelta) -> PyReturn {
-    format!("TimeDelta({slf})").to_py()
+    format!("TimeDelta(\"{slf}\")").to_py()
 }
 
 fn __str__(cls: PyType, slf: TimeDelta) -> PyReturn {
-    format_common_iso(cls, slf)
+    format_iso(cls, slf)
 }
 
 fn __mul__(obj_a: PyObj, obj_b: PyObj) -> PyReturn {
-    if let Some(py_int) = obj_b.cast::<PyInt>() {
+    if let Some(py_int) = obj_b.cast_allow_subclass::<PyInt>() {
         _mul_int(obj_a, py_int.to_i128()?)
-    } else if let Some(py_int) = obj_a.cast::<PyInt>() {
+    } else if let Some(py_int) = obj_a.cast_allow_subclass::<PyInt>() {
         _mul_int(obj_b, py_int.to_i128()?)
-    } else if let Some(py_float) = obj_b.cast::<PyFloat>() {
+    } else if let Some(py_float) = obj_b.cast_allow_subclass::<PyFloat>() {
         _mul_float(obj_a, py_float.to_f64()?)
-    } else if let Some(py_float) = obj_a.cast::<PyFloat>() {
+    } else if let Some(py_float) = obj_a.cast_allow_subclass::<PyFloat>() {
         _mul_float(obj_b, py_float.to_f64()?)
     } else {
         not_implemented()
@@ -446,7 +447,7 @@ fn _mul_float(delta_obj: PyObj, factor: f64) -> PyReturn {
 }
 
 fn __truediv__(a_obj: PyObj, b_obj: PyObj) -> PyReturn {
-    if let Some(py_int) = b_obj.cast::<PyInt>() {
+    if let Some(py_int) = b_obj.cast_allow_subclass::<PyInt>() {
         let factor = py_int.to_i128()?;
         // SAFETY: one of the arguments is always the self type (the other is int)
         let (cls, delta) = unsafe { a_obj.assume_heaptype::<TimeDelta>() };
@@ -467,7 +468,7 @@ fn __truediv__(a_obj: PyObj, b_obj: PyObj) -> PyReturn {
             },
         )
         .to_obj(cls)
-    } else if let Some(py_float) = b_obj.cast::<PyFloat>() {
+    } else if let Some(py_float) = b_obj.cast_allow_subclass::<PyFloat>() {
         // SAFETY: one of the arguments is always the self type (the other is float)
         let (cls, delta) = unsafe { a_obj.assume_heaptype::<TimeDelta>() };
         let factor = py_float.to_f64()?;
@@ -665,7 +666,7 @@ fn __reduce__(cls: HeapType<TimeDelta>, slf: TimeDelta) -> PyResult<Owned<PyTupl
 
 pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
     let py_bytes = arg
-        .cast::<PyBytes>()
+        .cast_exact::<PyBytes>()
         .ok_or_type_err("Invalid pickle data")?;
     let mut data = py_bytes.as_bytes()?;
     if data.len() != 12 {
@@ -713,11 +714,12 @@ fn in_days_of_24h(_: PyType, slf: TimeDelta) -> PyReturn {
 }
 
 fn from_py_timedelta(cls: HeapType<TimeDelta>, arg: PyObj) -> PyReturn {
-    if let Some(d) = arg.cast::<PyTimeDelta>() {
+    if let Some(d) = arg.cast_exact::<PyTimeDelta>() {
         TimeDelta::from_py(d)
             .ok_or_value_err("TimeDelta out of range")?
             .to_obj(cls)
     } else {
+        // See docstring for why
         raise_type_err("Argument must be datetime.timedelta exactly")
     }
 }
@@ -760,8 +762,43 @@ fn in_hrs_mins_secs_nanos(_: PyType, slf: TimeDelta) -> PyResult<Owned<PyTuple>>
         .into_pytuple()
 }
 
-fn format_common_iso(_: PyType, slf: TimeDelta) -> PyReturn {
+fn format_iso(_: PyType, slf: TimeDelta) -> PyReturn {
     slf.fmt_iso().to_py()
+}
+
+fn parse_iso(cls: HeapType<TimeDelta>, arg: PyObj) -> PyReturn {
+    let py_str = arg
+        .cast_allow_subclass::<PyStr>()
+        // NOTE: this exception message also needs to make sense when
+        // called through the constructor
+        .ok_or_type_err("When parsing from ISO format, the argument must be str")?;
+    let s = &mut py_str.as_utf8()?;
+    let err = || format!("Invalid format: {arg}");
+
+    let sign = (s.len() >= 4)
+        .then(|| parse_prefix(s))
+        .flatten()
+        .ok_or_else_value_err(err)?;
+
+    let (nanos, is_empty) = parse_all_components(s).ok_or_else_value_err(err)?;
+
+    // i.e. there must be at least one component (`PT` alone is invalid)
+    if is_empty {
+        raise_value_err(err())?;
+    }
+    TimeDelta::from_nanos(nanos * sign)
+        .ok_or_value_err("Time delta out of range")?
+        .to_obj(cls)
+}
+
+fn format_common_iso(cls: PyType, slf: TimeDelta) -> PyReturn {
+    deprecation_warn(c"format_common_iso() has been renamed to format_iso()")?;
+    format_iso(cls, slf)
+}
+
+fn parse_common_iso(cls: HeapType<TimeDelta>, arg: PyObj) -> PyReturn {
+    deprecation_warn(c"parse_common_iso() has been renamed to parse_iso()")?;
+    parse_iso(cls, arg)
 }
 
 #[inline]
@@ -892,29 +929,6 @@ pub(crate) fn parse_all_components(s: &mut &[u8]) -> Option<(i128, bool)> {
     Some((nanos, prev_unit.is_none()))
 }
 
-fn parse_common_iso(cls: HeapType<TimeDelta>, arg: PyObj) -> PyReturn {
-    let py_str = arg
-        .cast::<PyStr>()
-        .ok_or_type_err("argument must be a string")?;
-    let s = &mut py_str.as_utf8()?;
-    let err = || format!("Invalid format: {arg}");
-
-    let sign = (s.len() >= 4)
-        .then(|| parse_prefix(s))
-        .flatten()
-        .ok_or_else_value_err(err)?;
-
-    let (nanos, is_empty) = parse_all_components(s).ok_or_else_value_err(err)?;
-
-    // i.e. there must be at least one component (`PT` alone is invalid)
-    if is_empty {
-        raise_value_err(err())?;
-    }
-    TimeDelta::from_nanos(nanos * sign)
-        .ok_or_value_err("Time delta out of range")?
-        .to_obj(cls)
-}
-
 fn round(
     cls: HeapType<TimeDelta>,
     slf: TimeDelta,
@@ -934,12 +948,10 @@ static mut METHODS: &[PyMethodDef] = &[
     method0!(TimeDelta, __copy__, c""),
     method1!(TimeDelta, __deepcopy__, c""),
     method0!(TimeDelta, __reduce__, c""),
-    method0!(
-        TimeDelta,
-        format_common_iso,
-        doc::TIMEDELTA_FORMAT_COMMON_ISO
-    ),
-    classmethod1!(TimeDelta, parse_common_iso, doc::TIMEDELTA_PARSE_COMMON_ISO),
+    method0!(TimeDelta, format_iso, doc::TIMEDELTA_FORMAT_ISO),
+    method0!(TimeDelta, format_common_iso, c""), // deprecated alias
+    classmethod1!(TimeDelta, parse_iso, doc::TIMEDELTA_PARSE_ISO),
+    classmethod1!(TimeDelta, parse_common_iso, c""), // deprecated alias
     method0!(TimeDelta, in_nanoseconds, doc::TIMEDELTA_IN_NANOSECONDS),
     method0!(TimeDelta, in_microseconds, doc::TIMEDELTA_IN_MICROSECONDS),
     method0!(TimeDelta, in_milliseconds, doc::TIMEDELTA_IN_MILLISECONDS),

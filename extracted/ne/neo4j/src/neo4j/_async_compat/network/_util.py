@@ -14,11 +14,18 @@
 # limitations under the License.
 
 
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import logging
 import socket
 
-from ... import addressing
+from ..._addressing import (
+    Address,
+    ResolvedAddress,
+)
+from ...exceptions import ServiceUnavailable
 from ..util import AsyncUtil
 
 
@@ -34,7 +41,24 @@ def _resolved_addresses_from_info(info, host_name):
             continue
         if addr not in resolved:
             resolved.append(addr)
-            yield addressing.ResolvedAddress(addr, host_name=host_name)
+            yield ResolvedAddress(addr, host_name=host_name)
+
+
+def _try_get_socket_attributes(*attrs):
+    for attr in attrs:
+        with contextlib.suppress(AttributeError):
+            yield getattr(socket, attr)
+
+
+_RETRYABLE_DNS_ERRNOS = set(
+    _try_get_socket_attributes(
+        "EAI_ADDRFAMILY",
+        "EAI_AGAIN",
+        "EAI_MEMORY",
+        "EAI_NODATA",
+    )
+)
+_EAI_NONAME = set(_try_get_socket_attributes("EAI_NONAME"))
 
 
 class AsyncNetworkUtil:
@@ -66,7 +90,19 @@ class AsyncNetworkUtil:
                 type=socket.SOCK_STREAM,
             )
         except OSError as e:
-            raise ValueError(f"Cannot resolve address {address}") from e
+            # note: on some systems like Windows, EAI_NONAME and EAI_NODATA
+            #       have the same error-code.
+            if e.errno in _EAI_NONAME and (
+                address.host is None and address.port is None
+            ):
+                err_cls = ValueError
+            elif e.errno in _RETRYABLE_DNS_ERRNOS or e.errno in _EAI_NONAME:
+                err_cls = ServiceUnavailable
+            else:
+                err_cls = ValueError
+            raise err_cls(
+                f"Failed to DNS resolve address {address}: {e}"
+            ) from e
         return list(_resolved_addresses_from_info(info, address._host_name))
 
     @staticmethod
@@ -85,18 +121,18 @@ class AsyncNetworkUtil:
 
         :param address: the Address to resolve
         :param family: optional address family to filter resolved
-                       addresses by (e.g. `socket.AF_INET6`)
+                       addresses by (e.g. ``socket.AF_INET6``)
         :param resolver: optional customer resolver function to be
                          called before regular DNS resolution
         """
-        if isinstance(address, addressing.ResolvedAddress):
+        if isinstance(address, ResolvedAddress):
             yield address
             return
 
         log.debug("[#0000]  _: <RESOLVE> in: %s", address)
         if resolver:
             addresses_resolved = map(
-                addressing.Address,
+                Address,
                 await AsyncUtil.callback(resolver, address),
             )
             for address_resolved in addresses_resolved:
@@ -148,7 +184,19 @@ class NetworkUtil:
                 type=socket.SOCK_STREAM,
             )
         except OSError as e:
-            raise ValueError(f"Cannot resolve address {address}") from e
+            # note: on some systems like Windows, EAI_NONAME and EAI_NODATA
+            #       have the same error-code.
+            if e.errno in _EAI_NONAME and (
+                address.host is None and address.port is None
+            ):
+                err_cls = ValueError
+            elif e.errno in _RETRYABLE_DNS_ERRNOS or e.errno in _EAI_NONAME:
+                err_cls = ServiceUnavailable
+            else:
+                err_cls = ValueError
+            raise err_cls(
+                f"Failed to DNS resolve address {address}: {e}"
+            ) from e
         return _resolved_addresses_from_info(info, address._host_name)
 
     @staticmethod
@@ -167,17 +215,17 @@ class NetworkUtil:
 
         :param address: the Address to resolve
         :param family: optional address family to filter resolved
-                       addresses by (e.g. `socket.AF_INET6`)
+                       addresses by (e.g. ``socket.AF_INET6``)
         :param resolver: optional customer resolver function to be
                          called before regular DNS resolution
         """
-        if isinstance(address, addressing.ResolvedAddress):
+        if isinstance(address, ResolvedAddress):
             yield address
             return
 
         log.debug("[#0000]  _: <RESOLVE> in: %s", address)
         if resolver:
-            addresses_resolved = map(addressing.Address, resolver(address))
+            addresses_resolved = map(Address, resolver(address))
             for address_resolved in addresses_resolved:
                 log.debug(
                     "[#0000]  _: <RESOLVE> custom resolver out: %s",

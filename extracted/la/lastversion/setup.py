@@ -10,18 +10,21 @@ lastversion
 import io
 import os
 import re
-from setuptools import find_packages, setup
 
+from setuptools import find_packages, setup
 
 _version_re = re.compile(r"__version__\s=\s\"(.*)\"")
 
 
 install_requires = [
-    # require at least requests==2.6.1 due to cachecontrol's bug:
-    # https://github.com/ionrock/cachecontrol/issues/137
-    "requests>=2.6.1",
+    "requests>=2.16.0",
     "packaging",
-    "cachecontrol[filecache]",
+    # cachecontrol 0.14+ requires Python 3.10+, use 0.12.x for older Python
+    # 0.12.6 is the minimum available in EL7 EPEL
+    'cachecontrol[filecache]>=0.12.6,<0.14; python_version<"3.10"',
+    'cachecontrol[filecache]>=0.14.0; python_version>="3.10"',
+    # urllib3 2.x requires Python 3.9+
+    'urllib3<2; python_version<"3.9"',
     "appdirs",
     "feedparser",
     "python-dateutil",
@@ -29,8 +32,6 @@ install_requires = [
     "tqdm",
     "beautifulsoup4",
     "distro",
-    # pin due to https://github.com/ionrock/cachecontrol/issues/292
-    "urllib3 < 2",
 ]
 tests_requires = [
     "pytest>=4.4.0",
@@ -52,9 +53,7 @@ with io.open("README.md", "r", encoding="utf-8") as fh:
 
 base_dir = os.path.join(os.path.dirname(__file__), "src")
 
-with open(
-    os.path.join(base_dir, "lastversion", "__about__.py"), "r", encoding="utf-8"
-) as f:
+with open(os.path.join(base_dir, "lastversion", "__about__.py"), "r", encoding="utf-8") as f:
     version = _version_re.search(f.read()).group(1)
 
 setup(
@@ -75,10 +74,13 @@ setup(
         "tests": install_requires + tests_requires,
         "docs": docs_requires,
         "build": install_requires + tests_requires + docs_requires,
+        "7z": ["py7zr"],
+        "truststore": ["truststore"],
+        "redis": ["redis>=3.0.0"],
     },
     tests_require=tests_requires,
     include_package_data=True,
-    entry_points={"console_scripts": ["lastversion = lastversion:main"]},
+    entry_points={"console_scripts": ["lastversion = lastversion.cli:main"]},
     classifiers=[
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",

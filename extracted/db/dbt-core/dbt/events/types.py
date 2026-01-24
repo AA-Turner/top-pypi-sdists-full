@@ -767,8 +767,17 @@ class MissingArgumentsPropertyInGenericTestDeprecation(WarnLevel):
         return "D039"
 
     def message(self) -> str:
-        description = f"Found top-level arguments to test `{self.test_name}`. Arguments to generic tests should be nested under the `arguments` property.`"
+        description = f"Found top-level arguments to test {self.test_name}. Arguments to generic tests should be nested under the `arguments` property."
         return line_wrap_message(deprecation_tag(description, self.__class__.__name__))
+
+
+class DuplicateNameDistinctNodeTypesDeprecation(WarnLevel):
+    def code(self) -> str:
+        return "D040"
+
+    def message(self) -> str:
+        description = f"Found resources with the same name '{self.resource_name}' in package '{self.package_name}': '{self.unique_id1}' and '{self.unique_id2}'. Please update one of the resources to have a unique name."
+        return line_wrap_message(deprecation_tag(description))
 
 
 # =======================================================
@@ -1260,6 +1269,19 @@ class InvalidMacroAnnotation(WarnLevel):
 
     def message(self) -> str:
         return self.msg
+
+
+class PackageNodeDependsOnRootProjectNode(WarnLevel):
+    def code(self) -> str:
+        return "I077"
+
+    def message(self) -> str:
+        msg = (
+            f"The node '{self.node_name}'in package '{self.package_name}' depends on the root project node '{self.root_project_unique_id}'."
+            "This may lead to unexpected cycles downstream. Please set the 'require_ref_prefers_node_package_to_root' behavior change flag to True to avoid this issue."
+            "For more information, see the documentation at https://docs.getdbt.com/reference/global-configs/behavior-changes#require_ref_prefers_node_package_to_root"
+        )
+        return warning_tag(msg)
 
 
 # =======================================================
@@ -2056,6 +2078,31 @@ class LogBatchResult(DynamicLevel):
             execution_time=self.execution_time,
         )
         return f"Batch {formatted}"
+
+
+class LogFunctionResult(DynamicLevel):
+    def code(self) -> str:
+        return "Q047"
+
+    def message(self) -> str:
+        if self.status == "error":
+            info = "ERROR creating"
+            status = red(self.status.upper())
+        elif self.status == "skipped":
+            info = "SKIP"
+            status = yellow(self.status.upper())
+        else:
+            info = "OK created"
+            status = green(self.status.upper())
+
+        msg = f"{info} {self.description}"
+        return format_fancy_output_line(
+            msg=msg,
+            status=status,
+            index=self.index,
+            total=self.total,
+            execution_time=self.execution_time,
+        )
 
 
 # =======================================================

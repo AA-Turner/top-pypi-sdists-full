@@ -11,7 +11,7 @@ from typing import List, Tuple
 import torch
 import torch.nn as nn
 from torch.nn import Module
-from torch import tensor, Tensor, int32
+from torch import tensor, Tensor, int32, tanh, atanh, clamp
 from torch.amp import autocast
 
 import einx
@@ -29,6 +29,9 @@ def default(*args):
         if exists(arg):
             return arg
     return None
+
+def identity(t):
+    return t
 
 def maybe(fn):
     @wraps(fn)
@@ -73,8 +76,11 @@ class FSQ(Module):
         force_quantization_f32 = True,
         preserve_symmetry = False,
         noise_dropout = 0.,
+        bound_hard_clamp = False # for residual fsq, if input is pre-softclamped to the right range
     ):
         super().__init__()
+
+        assert not (any([l == 2 for l in levels]) and not preserve_symmetry), 'turn on `preserve_symmetry` for using any levels == 2, or use a greater level'
 
         if isinstance(levels, tuple):
             levels = list(levels)
@@ -87,6 +93,7 @@ class FSQ(Module):
 
         self.scale = scale
 
+        assert not (noise_dropout > 0 and not preserve_symmetry)
         self.preserve_symmetry = preserve_symmetry
         self.noise_dropout = noise_dropout
 
@@ -121,44 +128,57 @@ class FSQ(Module):
         self.allowed_dtypes = allowed_dtypes
         self.force_quantization_f32 = force_quantization_f32
 
-    def bound(self, z, eps = 1e-3):
+        # allow for a hard clamp
+
+        self.bound_hard_clamp = bound_hard_clamp
+
+    def bound(self, z, eps = 1e-3, hard_clamp = False):
         """ Bound `z`, an array of shape (..., d). """
+        maybe_tanh = tanh if not hard_clamp else partial(clamp, min = -1., max = 1.)
+        maybe_atanh = atanh if not hard_clamp else identity
+
         half_l = (self._levels - 1) * (1 + eps) / 2
         offset = torch.where(self._levels % 2 == 0, 0.5, 0.0)
-        shift = (offset / half_l).atanh()
-        bounded_z = (z + shift).tanh() * half_l - offset
+        shift = maybe_atanh(offset / half_l)
+        bounded_z = maybe_tanh(z + shift) * half_l - offset
         half_width = self._levels // 2
         return round_ste(bounded_z) / half_width
 
     # symmetry-preserving and noise-approximated quantization, section 3.2 in https://arxiv.org/abs/2411.19842
     
-    def symmetry_preserving_bound(self, z):
+    def symmetry_preserving_bound(self, z, hard_clamp = False):
         """ QL(x) = 2 / (L - 1) * [(L - 1) * (tanh(x) + 1) / 2 + 0.5] - 1 """
+        maybe_tanh = tanh if not hard_clamp else partial(clamp, min = -1., max = 1.)
+
         levels_minus_1 = (self._levels - 1)
         scale = 2. / levels_minus_1
-        bracket = (levels_minus_1 * (z.tanh() + 1) / 2.) + 0.5
+        bracket = (levels_minus_1 * (maybe_tanh(z) + 1) / 2.) + 0.5
         bracket = floor_ste(bracket)
         return scale * bracket - 1.
 
     def quantize(self, z):
         """ Quantizes z, returns quantized zhat, same shape as z. """
 
-        shape, device, noise_dropout, preserve_symmetry = z.shape[0], z.device, self.noise_dropout, self.preserve_symmetry
+        shape, device, preserve_symmetry = z.shape[0], z.device, self.preserve_symmetry
         bound_fn = self.symmetry_preserving_bound if preserve_symmetry else self.bound
 
-        bounded_z = bound_fn(z)
+        return bound_fn(z, hard_clamp = self.bound_hard_clamp)
 
-        # determine where to add a random offset elementwise
-        # if using noise dropout
+    def maybe_apply_noise(self, bounded_z):
+        noise_dropout = self.noise_dropout
 
         if not self.training or noise_dropout == 0.:
             return bounded_z
 
-        offset_mask = torch.bernoulli(torch.full_like(bounded_z, noise_dropout)).bool()
+        # determine where to add a random offset elementwise
+        # if using noise dropout
+
+        offset_mask = torch.full_like(bounded_z, noise_dropout).bernoulli_().bool()
         offset = torch.rand_like(bounded_z) - 0.5
+
         bounded_z = torch.where(offset_mask, bounded_z + offset, bounded_z)
 
-        return bounded_z
+        return bounded_z.clamp(-1., 1.)
 
     def _scale_and_shift(self, zhat_normalized):
         if self.preserve_symmetry:
@@ -252,6 +272,8 @@ class FSQ(Module):
 
             if self.return_indices:
                 indices = self.codes_to_indices(codes)
+
+            codes = self.maybe_apply_noise(codes)
 
             codes = rearrange(codes, 'b n c d -> b n (c d)')
 

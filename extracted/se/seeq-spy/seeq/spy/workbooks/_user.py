@@ -11,6 +11,7 @@ from seeq.spy._errors import *
 from seeq.spy._redaction import request_safely, safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
+from seeq.spy.workbooks._context import WorkbookPushContext
 from seeq.spy.workbooks._data import StoredItem
 from seeq.spy.workbooks._item import Item, ItemMap
 
@@ -19,7 +20,8 @@ FORCE_ME_AS_OWNER = '__me__'
 
 
 class ItemWithOwnerAndAcl(Item):
-    def decide_owner(self, session: Session, datasource_maps, item_map: ItemMap, *, owner=None, current_owner_id=None):
+    def decide_owner(self, context: WorkbookPushContext, item_map: ItemMap, *, owner=None, current_owner_id=None):
+        session = context.session
         requires_admin = True
         if _common.is_guid(owner):
             owner_id = owner
@@ -31,8 +33,7 @@ class ItemWithOwnerAndAcl(Item):
                 owner_id = current_owner_id
         elif owner == ORIGINAL_OWNER:
             if _common.get(self, 'Owner'):
-                owner_id = Identity.find_identity(session, self['Owner'], datasource_maps=datasource_maps,
-                                                  item_map=item_map)
+                owner_id = Identity.find_identity(context, self['Owner'], item_map=item_map)
             else:
                 # There is no original owner so make it the current user as a placeholder
                 owner_id = session.user.id
@@ -90,25 +91,39 @@ class ItemWithOwnerAndAcl(Item):
         maybe_acl = _request_acl(self['ID'])
         self.definition['Access Control'] = list() if maybe_acl is None else maybe_acl
 
-    @staticmethod
-    def _push_owner_and_location(session: Session, item_output, owner_id, folder_id, status):
+    def _push_owner_and_location(self, session: Session, item_output, owner_id, folder_id, status: Status, *,
+                                 dry_run: bool = False):
         items_api = ItemsApi(session.client)
         folders_api = FoldersApi(session.client)
 
         if item_output.owner.id != owner_id:
-            safely(lambda: items_api.change_owner(item_id=item_output.id, new_owner_id=owner_id),
-                   action_description=f'change owner of {item_output.id} to {owner_id}',
-                   status=status)
+            if not dry_run:
+                Status.log_if(status, f'Changing owner of {item_output.id} to {owner_id}')
+                safely(lambda: items_api.change_owner(item_id=item_output.id, new_owner_id=owner_id),
+                       action_description=f'change owner of {item_output.id} to {owner_id}',
+                       status=status)
+            else:
+                Status.log_if(status, f'[Dry Run] Would change owner of {item_output.id} to {owner_id}')
 
-        if folder_id:
-            safely(lambda: folders_api.move_item_to_folder(folder_id=folder_id, item_id=item_output.id),
-                   action_description=f'change Folder of {item_output.id} to {folder_id}',
-                   status=status)
+        if folder_id is not None and getattr(item_output, 'parent_folder_id') != folder_id:
+            if not dry_run:
+                Status.log_if(status,
+                              f'Moving {self.type} "{item_output.name}" ({item_output.id}) to folder {folder_id}')
+                safely(lambda: folders_api.move_item_to_folder(folder_id=folder_id, item_id=item_output.id),
+                       action_description=f'change Folder of {item_output.id} to {folder_id}',
+                       status=status)
+            else:
+                Status.log_if(
+                    status,
+                    f'[Dry Run] Would move  {self.type} "{item_output.name}" ({item_output.id}) to folder {folder_id}')
 
-    def _push_acl(self, session: Session, pushed_id, datasource_maps, item_map: ItemMap, access_control):
-        replace, strict = ItemWithOwnerAndAcl.parse_access_control_str(access_control)
+    def _push_acl(self, context: WorkbookPushContext, pushed_id, item_map: ItemMap):
+        session = context.session
+        status = context.status
+        replace, strict = ItemWithOwnerAndAcl.parse_access_control_str(context.access_control)
 
         if 'Access Control' not in self:
+            status.log(f'No Access Control to push for item {pushed_id}')
             return
 
         acl_df = pd.DataFrame({
@@ -120,11 +135,13 @@ class ItemWithOwnerAndAcl(Item):
 
         for acl_to_push in self['Access Control']:
             try:
-                identity_id = Identity.find_identity(session, acl_to_push['Identity'], datasource_maps, item_map)
+                identity_id = Identity.find_identity(context, acl_to_push['Identity'], item_map)
             except SPyDependencyNotFound:
                 if strict:
                     raise
 
+                status.log(f'Skipping ACL entry for missing identity {acl_to_push["Identity"]} '
+                           f"on item {pushed_id} because access_control='strict' not specified")
                 continue
 
             acl_df = pd.concat([acl_df, pd.DataFrame([{
@@ -134,7 +151,7 @@ class ItemWithOwnerAndAcl(Item):
                 'Manage': acl_to_push['Permissions']['Manage']
             }])], ignore_index=True)
 
-        _metadata.push_access_control(session, pushed_id, acl_df, replace)
+        _metadata.push_access_control(session, pushed_id, acl_df, replace, status=status, dry_run=context.dry_run)
 
     @staticmethod
     def parse_access_control_str(access_control):
@@ -217,7 +234,7 @@ class ItemWithOwnerAndAcl(Item):
 
 class Identity(StoredItem):
     @staticmethod
-    def find_identity(session: Session, identity_dict, datasource_maps, item_map: ItemMap) -> str:
+    def find_identity(context: WorkbookPushContext, identity_dict, item_map: ItemMap) -> str:
         if _common.get(identity_dict, 'ID') in item_map:
             return item_map[identity_dict['ID']]
 
@@ -226,8 +243,7 @@ class Identity(StoredItem):
         else:
             identity = UserGroup(identity_dict)
 
-        pushed_identity = identity._lookup(session, datasource_maps=datasource_maps, datasource_output=None,
-                                           item_map=item_map)
+        pushed_identity = identity._lookup(context, datasource_output=None, item_map=item_map)
 
         return pushed_identity.id
 
@@ -276,7 +292,7 @@ class User(Identity):
     def pull(item_id, *, allowed_types=None, status: Status = None, session: Optional[Session] = None):
         session = Session.validate(session)
 
-        user_output = safely(lambda: _compatibility.get_user(session.client, id=item_id, include_groups=False),
+        user_output = safely(lambda: _compatibility.get_user(session.client, user_id=item_id, include_groups=False),
                              action_description=f'get User {item_id}',
                              status=status)  # type: UserOutputV1
         if user_output is None:

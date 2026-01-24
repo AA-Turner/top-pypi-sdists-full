@@ -29,14 +29,40 @@ def query(dataset_repo: str):
     client = ctx.get_client()
 
     parsed_ds_name = dataset_repo.replace("/", ",")
-    data_dict = client.get_api().get_dataset_files(
-        dataset_name=parsed_ds_name, needContent=True, auth=False
-    )
+    
+    rprint("Fetching the list of files...")
+    get_payload = {}
+    
+    # Pagination parameters with cursor-based approach
+    after = None
+    limit = 1000
+    all_files = []
+    has_more = True
+    
+    # Get all pages of files using cursor pagination
+    while has_more:
+        data_dict = client.get_api().get_dataset_files(
+            dataset_name=parsed_ds_name, 
+            payload=get_payload,
+            after=after,
+            limit=limit
+        )
+        
+        # Add current page files to all_files list
+        current_files = data_dict['list']
+        all_files.extend(current_files)
+        
+        # Check if there are more pages using hasNext flag
+        has_more = data_dict.get('hasNext', False)
+        # Update after cursor for next page if available
+        if has_more:
+            after = data_dict.get('after')
+    
     # track
     client.get_api().track_query_dataset_files(dataset_name=parsed_ds_name)
     object_info_dict = {}
     total_size = 0
-    for info in data_dict['list']:
+    for info in all_files:
         object_info_dict[info['path']] = bytes2human(info['size'], format='%(value).2f%(symbol)s')
         total_size += info['size']
     if len(object_info_dict) == 0:

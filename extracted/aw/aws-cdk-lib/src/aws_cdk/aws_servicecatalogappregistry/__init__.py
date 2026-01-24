@@ -70,210 +70,276 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.ApplicationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_arn": "applicationArn",
-        "application_id": "applicationId",
-    },
+from ..interfaces.aws_servicecatalogappregistry import (
+    ApplicationReference as _ApplicationReference_24c0faac,
+    AttributeGroupAssociationReference as _AttributeGroupAssociationReference_263d8802,
+    AttributeGroupReference as _AttributeGroupReference_b27be7cf,
+    IApplicationRef as _IApplicationRef_5ddf8623,
+    IAttributeGroupAssociationRef as _IAttributeGroupAssociationRef_d01e35bd,
+    IAttributeGroupRef as _IAttributeGroupRef_1973b6d2,
+    IResourceAssociationRef as _IResourceAssociationRef_5d36fff5,
+    ResourceAssociationReference as _ResourceAssociationReference_0e9ec1ac,
 )
-class ApplicationReference:
+
+
+@jsii.implements(_IInspectable_c2943556, _IApplicationRef_5ddf8623, _ITaggable_36806126)
+class CfnApplication(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnApplication",
+):
+    '''Represents a AWS Service Catalog AppRegistry application that is the top-level node in a hierarchy of related cloud resource abstractions.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-application.html
+    :cloudformationResource: AWS::ServiceCatalogAppRegistry::Application
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
+        
+        cfn_application = servicecatalogappregistry.CfnApplication(self, "MyCfnApplication",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
     def __init__(
         self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
         *,
-        application_arn: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ServiceCatalogAppRegistry::Application``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the application. The name must be unique in the region in which you are creating the application.
+        :param description: The description of the application.
+        :param tags: Key-value pairs you can use to associate with the application.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d257c52b2b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApplicationProps(name=name, description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForApplication")
+    @builtins.classmethod
+    def arn_for_application(cls, resource: "_IApplicationRef_5ddf8623") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42a4b3272549596111990267ab471f85d4650980689eb241b994d4f5332b317d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
+
+    @jsii.member(jsii_name="fromApplicationArn")
+    @builtins.classmethod
+    def from_application_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IApplicationRef_5ddf8623":
+        '''Creates a new IApplicationRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__955a2e8ef9349aa04e3db911200984b604b9a25a10f842542d8fedf3bbd11c5b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IApplicationRef_5ddf8623", jsii.sinvoke(cls, "fromApplicationArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromApplicationId")
+    @builtins.classmethod
+    def from_application_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
         application_id: builtins.str,
-    ) -> None:
-        '''A reference to a Application resource.
+    ) -> "_IApplicationRef_5ddf8623":
+        '''Creates a new IApplicationRef from a applicationId.
 
-        :param application_arn: The ARN of the Application resource.
-        :param application_id: The Id of the Application resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-            
-            application_reference = servicecatalogappregistry.ApplicationReference(
-                application_arn="applicationArn",
-                application_id="applicationId"
-            )
+        :param scope: -
+        :param id: -
+        :param application_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11faaeab606859a816ef388fcd98b23ba863ff84e3eb03e81f1cfd6092b8de4a)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            type_hints = typing.get_type_hints(_typecheckingstub__c856b19bc43eda16caf59ab994b1bd9cf310ba6ac9f9888cae037aa1fd3b0144)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-            "application_id": application_id,
-        }
+        return typing.cast("_IApplicationRef_5ddf8623", jsii.sinvoke(cls, "fromApplicationId", [scope, id, application_id]))
 
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The ARN of the Application resource.'''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="isCfnApplication")
+    @builtins.classmethod
+    def is_cfn_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplication.
 
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The Id of the Application resource.'''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.AttributeGroupAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_arn": "applicationArn",
-        "attribute_group_arn": "attributeGroupArn",
-    },
-)
-class AttributeGroupAssociationReference:
-    def __init__(
-        self,
-        *,
-        application_arn: builtins.str,
-        attribute_group_arn: builtins.str,
-    ) -> None:
-        '''A reference to a AttributeGroupAssociation resource.
-
-        :param application_arn: The ApplicationArn of the AttributeGroupAssociation resource.
-        :param attribute_group_arn: The AttributeGroupArn of the AttributeGroupAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-            
-            attribute_group_association_reference = servicecatalogappregistry.AttributeGroupAssociationReference(
-                application_arn="applicationArn",
-                attribute_group_arn="attributeGroupArn"
-            )
+        :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4825482edae2c6cc2777f78d6ee6f0c04839009862adf135845b22e3e9d860fc)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument attribute_group_arn", value=attribute_group_arn, expected_type=type_hints["attribute_group_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-            "attribute_group_arn": attribute_group_arn,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__62f831f4a48c2b57e7eef54587f582b5d13e24153daf537a6069d0f9fe08aa34)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
 
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The ApplicationArn of the AttributeGroupAssociation resource.'''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
 
-    @builtins.property
-    def attribute_group_arn(self) -> builtins.str:
-        '''The AttributeGroupArn of the AttributeGroupAssociation resource.'''
-        result = self._values.get("attribute_group_arn")
-        assert result is not None, "Required property 'attribute_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AttributeGroupAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.AttributeGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "attribute_group_arn": "attributeGroupArn",
-        "attribute_group_id": "attributeGroupId",
-    },
-)
-class AttributeGroupReference:
-    def __init__(
-        self,
-        *,
-        attribute_group_arn: builtins.str,
-        attribute_group_id: builtins.str,
-    ) -> None:
-        '''A reference to a AttributeGroup resource.
-
-        :param attribute_group_arn: The ARN of the AttributeGroup resource.
-        :param attribute_group_id: The Id of the AttributeGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-            
-            attribute_group_reference = servicecatalogappregistry.AttributeGroupReference(
-                attribute_group_arn="attributeGroupArn",
-                attribute_group_id="attributeGroupId"
-            )
+        :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d59a553f0015f71eb872e4846fda719db732ed680c68e65cbd881658ed17f1c9)
-            check_type(argname="argument attribute_group_arn", value=attribute_group_arn, expected_type=type_hints["attribute_group_arn"])
-            check_type(argname="argument attribute_group_id", value=attribute_group_id, expected_type=type_hints["attribute_group_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "attribute_group_arn": attribute_group_arn,
-            "attribute_group_id": attribute_group_id,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__6be1bb8c9136b473debe566d21e0967713957428516c09e09b72630210e7c453)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a0dc04c323f63ef3f1767ffc001f7e8bcd6bb5a608576ab06b2b42e6e3c52d0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def attribute_group_arn(self) -> builtins.str:
-        '''The ARN of the AttributeGroup resource.'''
-        result = self._values.get("attribute_group_arn")
-        assert result is not None, "Required property 'attribute_group_arn' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> "_ApplicationReference_24c0faac":
+        '''A reference to a Application resource.'''
+        return typing.cast("_ApplicationReference_24c0faac", jsii.get(self, "applicationRef"))
 
     @builtins.property
-    def attribute_group_id(self) -> builtins.str:
-        '''The Id of the AttributeGroup resource.'''
-        result = self._values.get("attribute_group_id")
-        assert result is not None, "Required property 'attribute_group_id' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="attrApplicationName")
+    def attr_application_name(self) -> builtins.str:
+        '''The name of the application.
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+        The name must be unique in the region in which you are creating the application.
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+        :cloudformationAttribute: ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationName"))
 
-    def __repr__(self) -> str:
-        return "AttributeGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationTagKey")
+    def attr_application_tag_key(self) -> builtins.str:
+        '''The key of the AWS application tag, which is ``awsApplication`` .
+
+        Applications created before 11/13/2023 or applications without the ``AppTag`` linked resource group return no value.
+
+        :cloudformationAttribute: ApplicationTagKey
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationTagKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationTagValue")
+    def attr_application_tag_value(self) -> builtins.str:
+        '''The value of the AWS application tag, which is the identifier of an associated resource.
+
+        Applications created before 11/13/2023 or applications without the ``AppTag`` linked resource group return no value.
+
+        :cloudformationAttribute: ApplicationTagValue
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationTagValue"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) that specifies the application across services.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The identifier of the application.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0041f6504a07717907a92f42d747a3d1aa0f539b2a1ecdf80b125f338b78906d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55268a05c6f23a49877d2f4a30f1f0ac0655466839a0024c21c50a7ee4e8004e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Key-value pairs you can use to associate with the application.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d738392fdb0411d2781c364cf531b3537b932b3addc8efa2cf2cab3df6d828f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -367,6 +433,417 @@ class CfnApplicationProps:
         return "CfnApplicationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IAttributeGroupRef_1973b6d2, _ITaggable_36806126)
+class CfnAttributeGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnAttributeGroup",
+):
+    '''Creates a new attribute group as a container for user-defined attributes.
+
+    This feature enables users to have full control over their cloud application's metadata in a rich machine-readable format to facilitate integration with automated workflows and third-party tools.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-attributegroup.html
+    :cloudformationResource: AWS::ServiceCatalogAppRegistry::AttributeGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
+        
+        # attributes: Any
+        
+        cfn_attribute_group = servicecatalogappregistry.CfnAttributeGroup(self, "MyCfnAttributeGroup",
+            attributes=attributes,
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        attributes: typing.Any,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ServiceCatalogAppRegistry::AttributeGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param attributes: A nested object in a JSON or YAML template that supports arbitrary definitions. Represents the attributes in an attribute group that describes an application and its components.
+        :param name: The name of the attribute group.
+        :param description: The description of the attribute group that the user provides.
+        :param tags: Key-value pairs you can use to associate with the attribute group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8ddd07ec)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAttributeGroupProps(
+            attributes=attributes, name=name, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAttributeGroup")
+    @builtins.classmethod
+    def arn_for_attribute_group(
+        cls,
+        resource: "_IAttributeGroupRef_1973b6d2",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73edb5d13fc8dbe494bad56745f548eb0fd69b4dc41a1ced45631c543cfcc7f9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAttributeGroup", [resource]))
+
+    @jsii.member(jsii_name="fromAttributeGroupArn")
+    @builtins.classmethod
+    def from_attribute_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IAttributeGroupRef_1973b6d2":
+        '''Creates a new IAttributeGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af4bda4ff0ff6c60024477e288e493dcc0130f0d394de6e34fa6396c49a74c92)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IAttributeGroupRef_1973b6d2", jsii.sinvoke(cls, "fromAttributeGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromAttributeGroupId")
+    @builtins.classmethod
+    def from_attribute_group_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        attribute_group_id: builtins.str,
+    ) -> "_IAttributeGroupRef_1973b6d2":
+        '''Creates a new IAttributeGroupRef from a attributeGroupId.
+
+        :param scope: -
+        :param id: -
+        :param attribute_group_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f72c219f00d2f2ceb6ddda988187c930677404d7a861ad884a3a3ac9cbfc16f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument attribute_group_id", value=attribute_group_id, expected_type=type_hints["attribute_group_id"])
+        return typing.cast("_IAttributeGroupRef_1973b6d2", jsii.sinvoke(cls, "fromAttributeGroupId", [scope, id, attribute_group_id]))
+
+    @jsii.member(jsii_name="isCfnAttributeGroup")
+    @builtins.classmethod
+    def is_cfn_attribute_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAttributeGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c10dd947c0d5d201238240077cf0666388f8cd1effae99f28db0f8c432234f8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAttributeGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8aeccce963693b654c1717c2e0421d969367b8759138483e8a26cb5b5cc59967)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d01ddb1769a51acf2737a039c28c192b439bb0da7ff8d3f907b498a96f1d8595)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) that specifies the attribute group across services.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeGroupRef")
+    def attribute_group_ref(self) -> "_AttributeGroupReference_b27be7cf":
+        '''A reference to a AttributeGroup resource.'''
+        return typing.cast("_AttributeGroupReference_b27be7cf", jsii.get(self, "attributeGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The globally unique attribute group identifier of the attribute group.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attributes")
+    def attributes(self) -> typing.Any:
+        '''A nested object in a JSON or YAML template that supports arbitrary definitions.'''
+        return typing.cast(typing.Any, jsii.get(self, "attributes"))
+
+    @attributes.setter
+    def attributes(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a2f96f05d594a402248524030b8d191f517c4913d39b9c578042fc48d1f296d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the attribute group.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c79e54c986e546259770e9f368834b1a0d490f97d9efdb4179a508978416d088)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the attribute group that the user provides.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81b54714c6bc59a508196bdad758e50d0672b75af3febd676a171d1a8d53fddb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Key-value pairs you can use to associate with the attribute group.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9abf6529ea7ca031cb70f77316b557e2e8580a8689b73fbc81b7e6ed74760ff0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, _IAttributeGroupAssociationRef_d01e35bd)
+class CfnAttributeGroupAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnAttributeGroupAssociation",
+):
+    '''Associates an attribute group with an application to augment the application's metadata with the group's attributes.
+
+    This feature enables applications to be described with user-defined details that are machine-readable, such as third-party integrations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-attributegroupassociation.html
+    :cloudformationResource: AWS::ServiceCatalogAppRegistry::AttributeGroupAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
+        
+        cfn_attribute_group_association = servicecatalogappregistry.CfnAttributeGroupAssociation(self, "MyCfnAttributeGroupAssociation",
+            application="application",
+            attribute_group="attributeGroup"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        application: builtins.str,
+        attribute_group: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::ServiceCatalogAppRegistry::AttributeGroupAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application: The name or ID of the application.
+        :param attribute_group: The name or ID of the attribute group which holds the attributes that describe the application.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93941f322e2bbedf82a8dca84459e31dea9fd78e4d73310c50641bccace2f3b5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAttributeGroupAssociationProps(
+            application=application, attribute_group=attribute_group
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnAttributeGroupAssociation")
+    @builtins.classmethod
+    def is_cfn_attribute_group_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAttributeGroupAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39006ed546d9e1867e25d1cd65f6e8608a77b4e38b7c79c93d6c553b017321ba)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAttributeGroupAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5b9a700c119d44e1a6f06b8f15bd237433599339288845123fa3c38786576f85)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6c8bd014f7946c1e529f9a6c785fa2cf6604508ec07d0c94c127fb434347426)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationArn")
+    def attr_application_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) of the application that was augmented with attributes.
+
+        :cloudformationAttribute: ApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAttributeGroupArn")
+    def attr_attribute_group_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) of the attribute group which contains the application's new attributes.
+
+        :cloudformationAttribute: AttributeGroupArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAttributeGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeGroupAssociationRef")
+    def attribute_group_association_ref(
+        self,
+    ) -> "_AttributeGroupAssociationReference_263d8802":
+        '''A reference to a AttributeGroupAssociation resource.'''
+        return typing.cast("_AttributeGroupAssociationReference_263d8802", jsii.get(self, "attributeGroupAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="application")
+    def application(self) -> builtins.str:
+        '''The name or ID of the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "application"))
+
+    @application.setter
+    def application(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45fdca1a29bf1875f081813166da4a2502873704aaffb2c01f1ddc8031c379d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeGroup")
+    def attribute_group(self) -> builtins.str:
+        '''The name or ID of the attribute group which holds the attributes that describe the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "attributeGroup"))
+
+    @attribute_group.setter
+    def attribute_group(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71b977ea671921d9f3f11176fdd9e42bb1b2150b879f10457c76ccf8542892d7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeGroup", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -556,6 +1033,179 @@ class CfnAttributeGroupProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IResourceAssociationRef_5d36fff5)
+class CfnResourceAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnResourceAssociation",
+):
+    '''Associates a resource with an application.
+
+    Both the resource and the application can be specified either by ID or name.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-resourceassociation.html
+    :cloudformationResource: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
+        
+        cfn_resource_association = servicecatalogappregistry.CfnResourceAssociation(self, "MyCfnResourceAssociation",
+            application="application",
+            resource="resource",
+            resource_type="resourceType"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        application: builtins.str,
+        resource: builtins.str,
+        resource_type: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::ServiceCatalogAppRegistry::ResourceAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application: The name or ID of the application.
+        :param resource: The name or ID of the resource of which the application will be associated.
+        :param resource_type: The type of resource of which the application will be associated.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0009cb27b56dc07e5f7a0405d05313b88a831b57b7d2fd8fb22d208bf5ddebd2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourceAssociationProps(
+            application=application, resource=resource, resource_type=resource_type
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnResourceAssociation")
+    @builtins.classmethod
+    def is_cfn_resource_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourceAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b50c63d8e27581fbb5ee6271dd99824687ab37ad1f3f9c45429df8b2eeeb3225)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9fefade3b4ab875bdecf63569437fed26cac92b0144b5d392af6a5bdbacdcba)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90028d0b5da4974f627e45d84a61fa48f2674ef8fa3fe3c200f6cbdfd6c84299)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationArn")
+    def attr_application_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) that specifies the application.
+
+        :cloudformationAttribute: ApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) that specifies the resource.
+
+        :cloudformationAttribute: ResourceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceAssociationRef")
+    def resource_association_ref(self) -> "_ResourceAssociationReference_0e9ec1ac":
+        '''A reference to a ResourceAssociation resource.'''
+        return typing.cast("_ResourceAssociationReference_0e9ec1ac", jsii.get(self, "resourceAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="application")
+    def application(self) -> builtins.str:
+        '''The name or ID of the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "application"))
+
+    @application.setter
+    def application(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f31353404de98b748053b5f9606b7fddb581ae7b7dc388d68fa175d2952110f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def resource(self) -> builtins.str:
+        '''The name or ID of the resource of which the application will be associated.'''
+        return typing.cast(builtins.str, jsii.get(self, "resource"))
+
+    @resource.setter
+    def resource(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9178b0f451079d67b9c6d01b7768b818483cb63792b0bbe5aa0fe37997c4044c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceType")
+    def resource_type(self) -> builtins.str:
+        '''The type of resource of which the application will be associated.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceType"))
+
+    @resource_type.setter
+    def resource_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36678484e7b565b88daa9f607f7e9e1fa6095b6f49abef3b957fe2df0b16de7e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnResourceAssociationProps",
     jsii_struct_bases=[],
@@ -647,944 +1297,7 @@ class CfnResourceAssociationProps:
         )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.IApplicationRef")
-class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalogappregistry.IApplicationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.IAttributeGroupAssociationRef"
-)
-class IAttributeGroupAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a AttributeGroupAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroupAssociationRef")
-    def attribute_group_association_ref(self) -> AttributeGroupAssociationReference:
-        '''(experimental) A reference to a AttributeGroupAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAttributeGroupAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AttributeGroupAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalogappregistry.IAttributeGroupAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroupAssociationRef")
-    def attribute_group_association_ref(self) -> AttributeGroupAssociationReference:
-        '''(experimental) A reference to a AttributeGroupAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AttributeGroupAssociationReference, jsii.get(self, "attributeGroupAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAttributeGroupAssociationRef).__jsii_proxy_class__ = lambda : _IAttributeGroupAssociationRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.IAttributeGroupRef"
-)
-class IAttributeGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a AttributeGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroupRef")
-    def attribute_group_ref(self) -> AttributeGroupReference:
-        '''(experimental) A reference to a AttributeGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAttributeGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AttributeGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalogappregistry.IAttributeGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroupRef")
-    def attribute_group_ref(self) -> AttributeGroupReference:
-        '''(experimental) A reference to a AttributeGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AttributeGroupReference, jsii.get(self, "attributeGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAttributeGroupRef).__jsii_proxy_class__ = lambda : _IAttributeGroupRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.IResourceAssociationRef"
-)
-class IResourceAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceAssociationRef")
-    def resource_association_ref(self) -> "ResourceAssociationReference":
-        '''(experimental) A reference to a ResourceAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourceAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalogappregistry.IResourceAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceAssociationRef")
-    def resource_association_ref(self) -> "ResourceAssociationReference":
-        '''(experimental) A reference to a ResourceAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourceAssociationReference", jsii.get(self, "resourceAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourceAssociationRef).__jsii_proxy_class__ = lambda : _IResourceAssociationRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.ResourceAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_arn": "applicationArn",
-        "resource_arn": "resourceArn",
-        "resource_type": "resourceType",
-    },
-)
-class ResourceAssociationReference:
-    def __init__(
-        self,
-        *,
-        application_arn: builtins.str,
-        resource_arn: builtins.str,
-        resource_type: builtins.str,
-    ) -> None:
-        '''A reference to a ResourceAssociation resource.
-
-        :param application_arn: The ApplicationArn of the ResourceAssociation resource.
-        :param resource_arn: The ResourceArn of the ResourceAssociation resource.
-        :param resource_type: The ResourceType of the ResourceAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-            
-            resource_association_reference = servicecatalogappregistry.ResourceAssociationReference(
-                application_arn="applicationArn",
-                resource_arn="resourceArn",
-                resource_type="resourceType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf23d08fc4fa70e9cfc0001c4bad1a8ed5cf66169815456feb55abb1656ad36)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-            "resource_arn": resource_arn,
-            "resource_type": resource_type,
-        }
-
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The ApplicationArn of the ResourceAssociation resource.'''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The ResourceArn of the ResourceAssociation resource.'''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_type(self) -> builtins.str:
-        '''The ResourceType of the ResourceAssociation resource.'''
-        result = self._values.get("resource_type")
-        assert result is not None, "Required property 'resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourceAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
-class CfnApplication(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnApplication",
-):
-    '''Represents a AWS Service Catalog AppRegistry application that is the top-level node in a hierarchy of related cloud resource abstractions.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-application.html
-    :cloudformationResource: AWS::ServiceCatalogAppRegistry::Application
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-        
-        cfn_application = servicecatalogappregistry.CfnApplication(self, "MyCfnApplication",
-            name="name",
-        
-            # the properties below are optional
-            description="description",
-            tags={
-                "tags_key": "tags"
-            }
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the application. The name must be unique in the region in which you are creating the application.
-        :param description: The description of the application.
-        :param tags: Key-value pairs you can use to associate with the application.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d257c52b2b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnApplicationProps(name=name, description=description, tags=tags)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6be1bb8c9136b473debe566d21e0967713957428516c09e09b72630210e7c453)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a0dc04c323f63ef3f1767ffc001f7e8bcd6bb5a608576ab06b2b42e6e3c52d0)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''A reference to a Application resource.'''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrApplicationName")
-    def attr_application_name(self) -> builtins.str:
-        '''The name of the application.
-
-        The name must be unique in the region in which you are creating the application.
-
-        :cloudformationAttribute: ApplicationName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrApplicationName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrApplicationTagKey")
-    def attr_application_tag_key(self) -> builtins.str:
-        '''The key of the AWS application tag, which is ``awsApplication`` .
-
-        Applications created before 11/13/2023 or applications without the ``AppTag`` linked resource group return no value.
-
-        :cloudformationAttribute: ApplicationTagKey
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrApplicationTagKey"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrApplicationTagValue")
-    def attr_application_tag_value(self) -> builtins.str:
-        '''The value of the AWS application tag, which is the identifier of an associated resource.
-
-        Applications created before 11/13/2023 or applications without the ``AppTag`` linked resource group return no value.
-
-        :cloudformationAttribute: ApplicationTagValue
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrApplicationTagValue"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) that specifies the application across services.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The identifier of the application.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the application.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0041f6504a07717907a92f42d747a3d1aa0f539b2a1ecdf80b125f338b78906d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55268a05c6f23a49877d2f4a30f1f0ac0655466839a0024c21c50a7ee4e8004e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Key-value pairs you can use to associate with the application.'''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d738392fdb0411d2781c364cf531b3537b932b3addc8efa2cf2cab3df6d828f6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IAttributeGroupRef, _ITaggable_36806126)
-class CfnAttributeGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnAttributeGroup",
-):
-    '''Creates a new attribute group as a container for user-defined attributes.
-
-    This feature enables users to have full control over their cloud application's metadata in a rich machine-readable format to facilitate integration with automated workflows and third-party tools.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-attributegroup.html
-    :cloudformationResource: AWS::ServiceCatalogAppRegistry::AttributeGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-        
-        # attributes: Any
-        
-        cfn_attribute_group = servicecatalogappregistry.CfnAttributeGroup(self, "MyCfnAttributeGroup",
-            attributes=attributes,
-            name="name",
-        
-            # the properties below are optional
-            description="description",
-            tags={
-                "tags_key": "tags"
-            }
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        attributes: typing.Any,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param attributes: A nested object in a JSON or YAML template that supports arbitrary definitions. Represents the attributes in an attribute group that describes an application and its components.
-        :param name: The name of the attribute group.
-        :param description: The description of the attribute group that the user provides.
-        :param tags: Key-value pairs you can use to associate with the attribute group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8ddd07ec)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAttributeGroupProps(
-            attributes=attributes, name=name, description=description, tags=tags
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8aeccce963693b654c1717c2e0421d969367b8759138483e8a26cb5b5cc59967)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d01ddb1769a51acf2737a039c28c192b439bb0da7ff8d3f907b498a96f1d8595)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) that specifies the attribute group across services.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroupRef")
-    def attribute_group_ref(self) -> AttributeGroupReference:
-        '''A reference to a AttributeGroup resource.'''
-        return typing.cast(AttributeGroupReference, jsii.get(self, "attributeGroupRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The globally unique attribute group identifier of the attribute group.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attributes")
-    def attributes(self) -> typing.Any:
-        '''A nested object in a JSON or YAML template that supports arbitrary definitions.'''
-        return typing.cast(typing.Any, jsii.get(self, "attributes"))
-
-    @attributes.setter
-    def attributes(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2f96f05d594a402248524030b8d191f517c4913d39b9c578042fc48d1f296d3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the attribute group.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c79e54c986e546259770e9f368834b1a0d490f97d9efdb4179a508978416d088)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the attribute group that the user provides.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81b54714c6bc59a508196bdad758e50d0672b75af3febd676a171d1a8d53fddb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Key-value pairs you can use to associate with the attribute group.'''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9abf6529ea7ca031cb70f77316b557e2e8580a8689b73fbc81b7e6ed74760ff0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IAttributeGroupAssociationRef)
-class CfnAttributeGroupAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnAttributeGroupAssociation",
-):
-    '''Associates an attribute group with an application to augment the application's metadata with the group's attributes.
-
-    This feature enables applications to be described with user-defined details that are machine-readable, such as third-party integrations.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-attributegroupassociation.html
-    :cloudformationResource: AWS::ServiceCatalogAppRegistry::AttributeGroupAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-        
-        cfn_attribute_group_association = servicecatalogappregistry.CfnAttributeGroupAssociation(self, "MyCfnAttributeGroupAssociation",
-            application="application",
-            attribute_group="attributeGroup"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application: builtins.str,
-        attribute_group: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application: The name or ID of the application.
-        :param attribute_group: The name or ID of the attribute group which holds the attributes that describe the application.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93941f322e2bbedf82a8dca84459e31dea9fd78e4d73310c50641bccace2f3b5)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAttributeGroupAssociationProps(
-            application=application, attribute_group=attribute_group
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b9a700c119d44e1a6f06b8f15bd237433599339288845123fa3c38786576f85)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6c8bd014f7946c1e529f9a6c785fa2cf6604508ec07d0c94c127fb434347426)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrApplicationArn")
-    def attr_application_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) of the application that was augmented with attributes.
-
-        :cloudformationAttribute: ApplicationArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrApplicationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAttributeGroupArn")
-    def attr_attribute_group_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) of the attribute group which contains the application's new attributes.
-
-        :cloudformationAttribute: AttributeGroupArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAttributeGroupArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroupAssociationRef")
-    def attribute_group_association_ref(self) -> AttributeGroupAssociationReference:
-        '''A reference to a AttributeGroupAssociation resource.'''
-        return typing.cast(AttributeGroupAssociationReference, jsii.get(self, "attributeGroupAssociationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="application")
-    def application(self) -> builtins.str:
-        '''The name or ID of the application.'''
-        return typing.cast(builtins.str, jsii.get(self, "application"))
-
-    @application.setter
-    def application(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45fdca1a29bf1875f081813166da4a2502873704aaffb2c01f1ddc8031c379d2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeGroup")
-    def attribute_group(self) -> builtins.str:
-        '''The name or ID of the attribute group which holds the attributes that describe the application.'''
-        return typing.cast(builtins.str, jsii.get(self, "attributeGroup"))
-
-    @attribute_group.setter
-    def attribute_group(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71b977ea671921d9f3f11176fdd9e42bb1b2150b879f10457c76ccf8542892d7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeGroup", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IResourceAssociationRef)
-class CfnResourceAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalogappregistry.CfnResourceAssociation",
-):
-    '''Associates a resource with an application.
-
-    Both the resource and the application can be specified either by ID or name.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalogappregistry-resourceassociation.html
-    :cloudformationResource: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalogappregistry as servicecatalogappregistry
-        
-        cfn_resource_association = servicecatalogappregistry.CfnResourceAssociation(self, "MyCfnResourceAssociation",
-            application="application",
-            resource="resource",
-            resource_type="resourceType"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application: builtins.str,
-        resource: builtins.str,
-        resource_type: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application: The name or ID of the application.
-        :param resource: The name or ID of the resource of which the application will be associated.
-        :param resource_type: The type of resource of which the application will be associated.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0009cb27b56dc07e5f7a0405d05313b88a831b57b7d2fd8fb22d208bf5ddebd2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnResourceAssociationProps(
-            application=application, resource=resource, resource_type=resource_type
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9fefade3b4ab875bdecf63569437fed26cac92b0144b5d392af6a5bdbacdcba)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90028d0b5da4974f627e45d84a61fa48f2674ef8fa3fe3c200f6cbdfd6c84299)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrApplicationArn")
-    def attr_application_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) that specifies the application.
-
-        :cloudformationAttribute: ApplicationArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrApplicationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrResourceArn")
-    def attr_resource_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) that specifies the resource.
-
-        :cloudformationAttribute: ResourceArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceAssociationRef")
-    def resource_association_ref(self) -> ResourceAssociationReference:
-        '''A reference to a ResourceAssociation resource.'''
-        return typing.cast(ResourceAssociationReference, jsii.get(self, "resourceAssociationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="application")
-    def application(self) -> builtins.str:
-        '''The name or ID of the application.'''
-        return typing.cast(builtins.str, jsii.get(self, "application"))
-
-    @application.setter
-    def application(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f31353404de98b748053b5f9606b7fddb581ae7b7dc388d68fa175d2952110f7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resource")
-    def resource(self) -> builtins.str:
-        '''The name or ID of the resource of which the application will be associated.'''
-        return typing.cast(builtins.str, jsii.get(self, "resource"))
-
-    @resource.setter
-    def resource(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9178b0f451079d67b9c6d01b7768b818483cb63792b0bbe5aa0fe37997c4044c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceType")
-    def resource_type(self) -> builtins.str:
-        '''The type of resource of which the application will be associated.'''
-        return typing.cast(builtins.str, jsii.get(self, "resourceType"))
-
-    @resource_type.setter
-    def resource_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36678484e7b565b88daa9f607f7e9e1fa6095b6f49abef3b957fe2df0b16de7e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
-
-
 __all__ = [
-    "ApplicationReference",
-    "AttributeGroupAssociationReference",
-    "AttributeGroupReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnAttributeGroup",
@@ -1593,83 +1306,9 @@ __all__ = [
     "CfnAttributeGroupProps",
     "CfnResourceAssociation",
     "CfnResourceAssociationProps",
-    "IApplicationRef",
-    "IAttributeGroupAssociationRef",
-    "IAttributeGroupRef",
-    "IResourceAssociationRef",
-    "ResourceAssociationReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__11faaeab606859a816ef388fcd98b23ba863ff84e3eb03e81f1cfd6092b8de4a(
-    *,
-    application_arn: builtins.str,
-    application_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4825482edae2c6cc2777f78d6ee6f0c04839009862adf135845b22e3e9d860fc(
-    *,
-    application_arn: builtins.str,
-    attribute_group_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d59a553f0015f71eb872e4846fda719db732ed680c68e65cbd881658ed17f1c9(
-    *,
-    attribute_group_arn: builtins.str,
-    attribute_group_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d13e7d7a6c30df56af917d7a1945af3d16034d2339c18c7792b8ca5ced371ee(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__66b14250caf2db1778ab37d372521dbbb9e379a2416a220081749162b8e0bbb9(
-    *,
-    application: builtins.str,
-    attribute_group: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b156c4d3e0f6ed186534a8637a91a9bed154fe2ca5da91d845d7067c4bb22c2(
-    *,
-    attributes: typing.Any,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__45d1cc9b77fca46f4794951f8c00ddf4a34162a641dda1697bc57106afa7902b(
-    *,
-    application: builtins.str,
-    resource: builtins.str,
-    resource_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cf23d08fc4fa70e9cfc0001c4bad1a8ed5cf66169815456feb55abb1656ad36(
-    *,
-    application_arn: builtins.str,
-    resource_arn: builtins.str,
-    resource_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d257c52b2b(
     scope: _constructs_77d1e7e8.Construct,
@@ -1678,6 +1317,34 @@ def _typecheckingstub__91487768dfb6dbf9a0c92291ea29984fa2e03a14eb546f250cf397d25
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42a4b3272549596111990267ab471f85d4650980689eb241b994d4f5332b317d(
+    resource: _IApplicationRef_5ddf8623,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__955a2e8ef9349aa04e3db911200984b604b9a25a10f842542d8fedf3bbd11c5b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c856b19bc43eda16caf59ab994b1bd9cf310ba6ac9f9888cae037aa1fd3b0144(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    application_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62f831f4a48c2b57e7eef54587f582b5d13e24153daf537a6069d0f9fe08aa34(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1712,6 +1379,15 @@ def _typecheckingstub__d738392fdb0411d2781c364cf531b3537b932b3addc8efa2cf2cab3df
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1d13e7d7a6c30df56af917d7a1945af3d16034d2339c18c7792b8ca5ced371ee(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8ddd07ec(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1720,6 +1396,34 @@ def _typecheckingstub__0d30783c939e9f88ec79a761d7c3f519f2a0838afdc04bd3644e3b2f8
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73edb5d13fc8dbe494bad56745f548eb0fd69b4dc41a1ced45631c543cfcc7f9(
+    resource: _IAttributeGroupRef_1973b6d2,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af4bda4ff0ff6c60024477e288e493dcc0130f0d394de6e34fa6396c49a74c92(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f72c219f00d2f2ceb6ddda988187c930677404d7a861ad884a3a3ac9cbfc16f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    attribute_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c10dd947c0d5d201238240077cf0666388f8cd1effae99f28db0f8c432234f8(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1770,6 +1474,12 @@ def _typecheckingstub__93941f322e2bbedf82a8dca84459e31dea9fd78e4d73310c50641bcca
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__39006ed546d9e1867e25d1cd65f6e8608a77b4e38b7c79c93d6c553b017321ba(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5b9a700c119d44e1a6f06b8f15bd237433599339288845123fa3c38786576f85(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -1794,6 +1504,24 @@ def _typecheckingstub__71b977ea671921d9f3f11176fdd9e42bb1b2150b879f10457c76ccf85
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__66b14250caf2db1778ab37d372521dbbb9e379a2416a220081749162b8e0bbb9(
+    *,
+    application: builtins.str,
+    attribute_group: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b156c4d3e0f6ed186534a8637a91a9bed154fe2ca5da91d845d7067c4bb22c2(
+    *,
+    attributes: typing.Any,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0009cb27b56dc07e5f7a0405d05313b88a831b57b7d2fd8fb22d208bf5ddebd2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1801,6 +1529,12 @@ def _typecheckingstub__0009cb27b56dc07e5f7a0405d05313b88a831b57b7d2fd8fb22d208bf
     application: builtins.str,
     resource: builtins.str,
     resource_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b50c63d8e27581fbb5ee6271dd99824687ab37ad1f3f9c45429df8b2eeeb3225(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1831,6 +1565,15 @@ def _typecheckingstub__9178b0f451079d67b9c6d01b7768b818483cb63792b0bbe5aa0fe3799
 
 def _typecheckingstub__36678484e7b565b88daa9f607f7e9e1fa6095b6f49abef3b957fe2df0b16de7e(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45d1cc9b77fca46f4794951f8c00ddf4a34162a641dda1697bc57106afa7902b(
+    *,
+    application: builtins.str,
+    resource: builtins.str,
+    resource_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

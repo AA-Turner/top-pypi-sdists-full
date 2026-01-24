@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import base64
 import functools
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import replace
 from http import HTTPStatus
 from typing import TYPE_CHECKING, TypeVar
@@ -19,15 +20,13 @@ from ._interceptor_sync import (
     ServerStreamInterceptorSync,
     UnaryInterceptorSync,
 )
-from ._protocol import (
-    CONNECT_STREAMING_CONTENT_TYPE_PREFIX,
-    CONNECT_STREAMING_HEADER_ACCEPT_COMPRESSION,
-    CONNECT_STREAMING_HEADER_COMPRESSION,
+from ._protocol import ConnectWireError, HTTPException, ServerProtocol
+from ._protocol_connect import (
     CONNECT_UNARY_CONTENT_TYPE_PREFIX,
-    ConnectWireError,
-    HTTPException,
+    ConnectServerProtocol,
     codec_name_from_content_type,
 )
+from ._protocol_server import negotiate_server_protocol
 from ._server_shared import (
     EndpointBidiStreamSync,
     EndpointClientStreamSync,
@@ -40,6 +39,7 @@ from .request import Headers, RequestContext
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from io import BytesIO
 
     if sys.version_info >= (3, 11):
@@ -115,6 +115,34 @@ def prepare_response_headers(
     return headers
 
 
+def _read_body_with_content_length(
+    environ: WSGIEnvironment, content_length: int
+) -> bytes:
+    input_stream: BytesIO = environ["wsgi.input"]
+
+    # Many app servers buffer the entire request before executing the app
+    # so do an optimistic read before looping.
+    chunk = input_stream.read(content_length)
+    if len(chunk) == content_length:
+        return chunk
+
+    bytes_read = len(chunk)
+    chunks = [chunk]
+    while bytes_read < content_length:
+        to_read = content_length - bytes_read
+        chunk = input_stream.read(to_read)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        bytes_read += len(chunk)
+    if bytes_read < content_length:
+        raise ConnectError(
+            Code.INVALID_ARGUMENT,
+            f"request truncated, expected {content_length} bytes but only received {bytes_read} bytes",
+        )
+    return b"".join(chunks)
+
+
 def _read_body(environ: WSGIEnvironment) -> Iterator[bytes]:
     input_stream: BytesIO = environ["wsgi.input"]
     while True:
@@ -174,25 +202,29 @@ class ConnectWSGIApplication(ABC):
             http_method = environ["REQUEST_METHOD"]
             headers = _process_headers(_normalize_wsgi_headers(environ))
 
-            ctx = _server_shared.create_request_context(
-                endpoint.method, http_method, headers
+            content_type = headers.get("content-type", "")
+            protocol = negotiate_server_protocol(content_type)
+            send_trailers: Callable[[list[tuple[str, str]]], None] | None = None
+
+            if protocol.uses_trailers():
+                send_trailers = environ.get("wsgi.ext.http.send_trailers")
+                if not send_trailers:
+                    msg = f"WSGI server does not support WSGI trailers extension but protocol for content-type '{content_type}' requires trailers"
+                    raise RuntimeError(msg)
+            ctx = protocol.create_request_context(endpoint.method, http_method, headers)
+
+            if isinstance(endpoint, EndpointUnarySync) and isinstance(
+                protocol, ConnectServerProtocol
+            ):
+                return self._handle_unary(
+                    environ, start_response, http_method, endpoint, ctx, headers
+                )
+            return self._handle_stream(
+                environ, start_response, send_trailers, protocol, headers, endpoint, ctx
             )
 
-            match endpoint:
-                case EndpointUnarySync():
-                    return self._handle_unary(
-                        environ, start_response, http_method, endpoint, ctx, headers
-                    )
-                case (
-                    EndpointClientStreamSync()
-                    | EndpointServerStreamSync()
-                    | EndpointBidiStreamSync()
-                ):
-                    return self._handle_stream(
-                        environ, start_response, headers, endpoint, ctx
-                    )
-
         except Exception as e:
+            _drain_request_body(environ)
             return self._handle_error(e, ctx, start_response)
 
     def _handle_unary(
@@ -257,7 +289,7 @@ class ConnectWSGIApplication(ABC):
             content_length = environ.get("CONTENT_LENGTH")
             content_length = 0 if not content_length else int(content_length)
             if content_length > 0:
-                req_body = environ["wsgi.input"].read(content_length)
+                req_body = _read_body_with_content_length(environ, content_length)
             else:
                 req_body = b"".join(_read_body(environ))
 
@@ -364,18 +396,17 @@ class ConnectWSGIApplication(ABC):
         self,
         environ: WSGIEnvironment,
         start_response: StartResponse,
+        send_trailers: Callable[[list[tuple[str, str]]], None] | None,
+        protocol: ServerProtocol,
         headers: Headers,
-        endpoint: EndpointClientStreamSync[_REQ, _RES]
-        | EndpointServerStreamSync[_REQ, _RES]
-        | EndpointBidiStreamSync[_REQ, _RES],
+        endpoint: EndpointSync[_REQ, _RES],
         ctx: RequestContext[_REQ, _RES],
     ) -> Iterable[bytes]:
-        accept_compression = headers.get(
-            CONNECT_STREAMING_HEADER_ACCEPT_COMPRESSION, ""
+        req_compression, resp_compression = protocol.negotiate_stream_compression(
+            headers
         )
-        response_compression = _compression.negotiate_compression(accept_compression)
 
-        codec_name = codec_name_from_content_type(
+        codec_name = protocol.codec_name_from_content_type(
             headers.get("content-type", ""), stream=True
         )
         codec = get_codec(codec_name)
@@ -389,19 +420,24 @@ class ConnectWSGIApplication(ABC):
                     )
                 ],
             )
-        req_compression_name = headers.get(
-            CONNECT_STREAMING_HEADER_COMPRESSION, "identity"
-        )
-        req_compression = (
-            _compression.get_compression(req_compression_name)
-            or _compression.IdentityCompression()
-        )
-        request_stream = _request_stream(
-            environ, endpoint.method.input, codec, req_compression, self._read_max_bytes
-        )
-        writer = EnvelopeWriter(codec, response_compression)
+        writer = protocol.create_envelope_writer(codec, resp_compression)
         try:
+            if not req_compression:
+                raise ConnectError(
+                    Code.UNIMPLEMENTED, "Unrecognized request compression"
+                )
+            request_stream = _request_stream(
+                environ,
+                endpoint.method.input,
+                codec,
+                req_compression,
+                self._read_max_bytes,
+            )
             match endpoint:
+                case _server_shared.EndpointUnarySync():
+                    request = _consume_single_request(request_stream)
+                    response = endpoint.function(request, ctx)
+                    response_stream = iter([response])
                 case _server_shared.EndpointClientStreamSync():
                     response = endpoint.function(request_stream, ctx)
                     response_stream = iter([response])
@@ -416,28 +452,40 @@ class ConnectWSGIApplication(ABC):
             # Response headers set before the first message should be set to the context and
             # we can send them.
             _send_stream_response_headers(
-                start_response, codec, response_compression.name(), ctx
+                start_response, protocol, codec, resp_compression.name(), ctx
             )
             if first_response is None:
                 # It's valid for a service method to return no messages, finish the response
                 # without error.
-                return [writer.end(ctx.response_trailers(), None)]
+                return [
+                    _end_response(
+                        writer.end(ctx.response_trailers(), None), send_trailers
+                    )
+                ]
 
             # WSGI requires start_response to be called before returning the body iterator.
             # This means we cannot call yield in this function since the function would not
             # run at all until the iterator is consumed, meaning start_response wouldn't have
             # been called in time. So we return the response stream as a separate generator
             # function. This means some duplication of error handling.
-            return _response_stream(first_response, response_stream, writer, ctx)
+            return _response_stream(
+                first_response, environ, response_stream, writer, send_trailers, ctx
+            )
         except Exception as e:
             # Exception before any response message was returned. An error after the first
             # response message will be handled by _response_stream, so here we have a
             # full error-only response.
+            _drain_request_body(environ)
             _send_stream_response_headers(
-                start_response, codec, response_compression.name(), ctx
+                start_response, protocol, codec, resp_compression.name(), ctx
             )
             return [
-                writer.end(ctx.response_trailers(), ConnectWireError.from_exception(e))
+                _end_response(
+                    writer.end(
+                        ctx.response_trailers(), ConnectWireError.from_exception(e)
+                    ),
+                    send_trailers,
+                )
             ]
 
     def _handle_error(
@@ -465,6 +513,17 @@ class ConnectWSGIApplication(ABC):
         return body
 
 
+def _end_response(
+    message: bytes | Headers,
+    send_trailers: Callable[[list[tuple[str, str]]], None] | None,
+) -> bytes:
+    if isinstance(message, bytes):
+        return message
+    assert send_trailers is not None  # noqa: S101
+    send_trailers(list(message.allitems()))
+    return b""
+
+
 def _add_context_headers(headers: list[tuple[str, str]], ctx: RequestContext) -> None:
     headers.extend((key, value) for key, value in ctx.response_headers().allitems())
     headers.extend(
@@ -474,13 +533,14 @@ def _add_context_headers(headers: list[tuple[str, str]], ctx: RequestContext) ->
 
 def _send_stream_response_headers(
     start_response: StartResponse,
+    protocol: ServerProtocol,
     codec: Codec,
     compression_name: str,
     ctx: RequestContext,
 ) -> None:
     response_headers = [
-        ("content-type", f"{CONNECT_STREAMING_CONTENT_TYPE_PREFIX}{codec.name()}"),
-        (CONNECT_STREAMING_HEADER_COMPRESSION, compression_name),
+        ("content-type", protocol.content_type(codec)),
+        (protocol.compression_header_name(), compression_name),
     ]
     response_headers.extend(
         (key, value) for key, value in ctx.response_headers().allitems()
@@ -502,8 +562,10 @@ def _request_stream(
 
 def _response_stream(
     first_response: _RES,
+    environ: WSGIEnvironment,
     response_stream: Iterator[_RES],
     writer: EnvelopeWriter,
+    send_trailers: Callable[[list[tuple[str, str]]], None] | None,
     ctx: RequestContext,
 ) -> Iterable[bytes]:
     error: Exception | None = None
@@ -515,11 +577,15 @@ def _response_stream(
             yield body
     except Exception as e:
         error = e
-    finally:
-        yield writer.end(
+        _drain_request_body(environ)
+
+    yield _end_response(
+        writer.end(
             ctx.response_trailers(),
             ConnectWireError.from_exception(error) if error else None,
-        )
+        ),
+        send_trailers,
+    )
 
 
 def _consume_single_request(stream: Iterator[_REQ]) -> _REQ:
@@ -567,3 +633,12 @@ def _apply_interceptors(
                     continue
                 func = functools.partial(interceptor.intercept_bidi_stream_sync, func)
             return replace(endpoint, function=func)
+
+
+def _drain_request_body(environ: WSGIEnvironment) -> None:
+    if environ.get("SERVER_PROTOCOL", "").startswith("HTTP/1"):
+        # In HTTP/1, the request body should be drained before returning. Generally it's
+        # best for the application server to handle this, but gunicorn is a famous
+        # server that doesn't do so, so we go ahead and do it ourselves.
+        for _ in _read_body(environ):
+            pass

@@ -2,10 +2,9 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
+from __future__ import annotations
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 name: ansible_type
 short_description: Validate input type
 version_added: "9.2.0"
@@ -24,9 +23,9 @@ options:
     description: Data type aliases.
     default: {}
     type: dictionary
-'''
+"""
 
-EXAMPLES = '''
+EXAMPLES = """
 # Substitution converts str to AnsibleUnicode or _AnsibleTaggedStr
 # ----------------------------------------------------------------
 
@@ -215,26 +214,29 @@ dtype: number
 data: 123.45
 result: '{{ data is community.general.ansible_type(dtype, alias) }}'
 # result => true
-'''
+"""
 
-RETURN = '''
+RETURN = """
 _value:
   description: Whether the data type is valid.
   type: bool
-'''
+"""
+
+import typing as t
+from collections.abc import Callable, Sequence
 
 from ansible.errors import AnsibleFilterError
-from ansible.module_utils.six.moves.collections_abc import Sequence
 from ansible_collections.community.general.plugins.plugin_utils.ansible_type import _ansible_type
 
 
-def ansible_type(data, dtype, alias=None):
+def ansible_type(data: t.Any, dtype: t.Any, alias: t.Any = None) -> bool:
     """Validates data type"""
 
     if not isinstance(dtype, Sequence):
-        msg = "The argument dtype must be a string or a list. dtype is %s."
-        raise AnsibleFilterError(msg % (dtype, type(dtype)))
+        msg = f"The argument dtype must be a string or a list. dtype is {dtype!r} of type {type(dtype)}."
+        raise AnsibleFilterError(msg)
 
+    data_types: Sequence
     if isinstance(dtype, str):
         data_types = [dtype]
     else:
@@ -244,9 +246,6 @@ def ansible_type(data, dtype, alias=None):
     return _ansible_type(data, alias) in data_types
 
 
-class TestModule(object):
-
-    def tests(self):
-        return {
-            'ansible_type': ansible_type
-        }
+class TestModule:
+    def tests(self) -> dict[str, Callable]:
+        return {"ansible_type": ansible_type}

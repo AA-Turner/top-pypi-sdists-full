@@ -20,6 +20,7 @@ from semdep.matchers.base import PatternManifestStaticLockfileMatcher
 from semdep.matchers.base import SubprojectMatcher
 from semdep.matchers.gradle import GradleMatcher
 from semdep.matchers.pip_requirements import PipRequirementsMatcher
+from semgrep.simple_profiling import simple_profiling
 from semgrep.types import Target
 
 # NOTE: the order that these matchers are defined in matters. In find_subprojects, we
@@ -195,7 +196,18 @@ MATCHERS: List[SubprojectMatcher] = [
         manifest_name="setup.py",
         ecosystem=out.Ecosystem(out.Pypi()),
     ),
+    # SBT
+    ExactManifestOnlyMatcher(
+        manifest_kind=out.ManifestKind(out.BuildSbt()),
+        manifest_name="build.sbt",
+        ecosystem=out.Ecosystem(out.Maven()),
+    ),
 ]
+
+
+def get_all_subproject_identifying_glob_filters() -> FrozenSet[str]:
+    nested_sets = [matcher.subproject_identifying_glob_filters for matcher in MATCHERS]
+    return frozenset(pat for pats in nested_sets for pat in pats)
 
 
 def filter_dependency_source_files(candidates: FrozenSet[Target]) -> FrozenSet[Target]:
@@ -205,6 +217,7 @@ def filter_dependency_source_files(candidates: FrozenSet[Target]) -> FrozenSet[T
     return frozenset(path for path in candidates if _is_dependency_source_file(path))
 
 
+@simple_profiling
 def _is_dependency_source_file(path: Target) -> bool:
     """
     Check if a path is a valid dependency source file (lockfile, manifest, SBOM, etc)

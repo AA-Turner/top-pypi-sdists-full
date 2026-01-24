@@ -111,12 +111,12 @@ class BtStreamFormatter(logging.Formatter):
         """
         Override formatTime to add milliseconds.
 
-        Args:
-            record (logging.LogRecord): The log record.
-            datefmt (Optional[str]): The date format string.
+        Parameters:
+            record: The log record.
+            datefmt: The date format string.
 
         Returns:
-            s (str): The formatted time string with milliseconds.
+            The formatted time string with milliseconds.
         """
 
         created = self.converter(record.created)
@@ -134,15 +134,15 @@ class BtStreamFormatter(logging.Formatter):
         This method saves the original format, applies custom formatting based on the log level and trace flag, replaces
         text with emojis and colors, and then returns the formatted log record.
 
-        Args:
-            record (logging.LogRecord): The log record.
+        Parameters:
+            record: The log record.
 
         Returns:
-            result (str): The formatted log record.
+            The formatted log record.
         """
 
         format_orig = self._style._fmt
-        record.levelname = f"{record.levelname:^16}"
+        record.levelname = f"{record.levelname:^8}"
 
         if record.levelno not in LOG_FORMATS:
             self._style._fmt = (
@@ -184,12 +184,12 @@ class BtFileFormatter(logging.Formatter):
         """
         Override formatTime to add milliseconds.
 
-        Args:
-            record (logging.LogRecord): The log record.
-            datefmt (Optional[str]): The date format string.
+        Parameters:
+            record: The log record.
+            datefmt: The date format string.
 
         Returns:
-            s (str): The formatted time string with milliseconds.
+            The formatted time string with milliseconds.
         """
 
         created = self.converter(record.created)
@@ -204,11 +204,11 @@ class BtFileFormatter(logging.Formatter):
         """
         Override format to center the level name.
 
-        Args:
-            record (logging.LogRecord): The log record.
+        Parameters:
+            record: The log record.
 
         Returns:
-            formatted record (str): The formatted log record.
+            The formatted log record.
         """
         record.levelname = f"{record.levelname:^10}"
         return super().format(record)

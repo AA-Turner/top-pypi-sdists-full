@@ -38,12 +38,7 @@ use crate::{InMemoryIndex, Options};
 #[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
     #[error("Failed to resolve dependencies for package `{1}=={2}`")]
-    Dependencies(
-        #[source] Box<ResolveError>,
-        PackageName,
-        Version,
-        DerivationChain,
-    ),
+    Dependencies(#[source] Box<Self>, PackageName, Version, DerivationChain),
 
     #[error(transparent)]
     Client(#[from] uv_client::Error),
@@ -578,7 +573,7 @@ fn display_tree_inner(
     lines: &mut Vec<String>,
     depth: usize,
 ) {
-    let prefix = "  ".repeat(depth).to_string();
+    let prefix = "  ".repeat(depth);
     match error {
         DerivationTree::Derived(derived) => {
             display_tree_inner(&derived.cause1, lines, depth + 1);

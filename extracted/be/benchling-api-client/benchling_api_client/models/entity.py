@@ -1,11 +1,23 @@
 from typing import Union
 
 from ..extensions import UnknownType
-from ..models.aa_sequence import AaSequence
-from ..models.custom_entity import CustomEntity
-from ..models.dna_oligo import DnaOligo
-from ..models.dna_sequence import DnaSequence
-from ..models.mixture import Mixture
-from ..models.rna_oligo import RnaOligo
+from ..models.aa_sequence_with_entity_type import AaSequenceWithEntityType
+from ..models.custom_entity_with_entity_type import CustomEntityWithEntityType
+from ..models.dna_oligo_with_entity_type import DnaOligoWithEntityType
+from ..models.dna_sequence_with_entity_type import DnaSequenceWithEntityType
+from ..models.mixture_with_entity_type import MixtureWithEntityType
+from ..models.molecule_with_entity_type import MoleculeWithEntityType
+from ..models.rna_oligo_with_entity_type import RnaOligoWithEntityType
+from ..models.rna_sequence_with_entity_type import RnaSequenceWithEntityType
 
-Entity = Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType]
+Entity = Union[
+    DnaSequenceWithEntityType,
+    RnaSequenceWithEntityType,
+    AaSequenceWithEntityType,
+    MixtureWithEntityType,
+    DnaOligoWithEntityType,
+    RnaOligoWithEntityType,
+    MoleculeWithEntityType,
+    CustomEntityWithEntityType,
+    UnknownType,
+]

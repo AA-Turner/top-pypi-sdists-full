@@ -18,10 +18,12 @@ import hashlib
 import inspect
 from abc import abstractmethod
 from collections import defaultdict
+from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
+    Generator,
     List,
     Mapping,
     Optional,
@@ -30,7 +32,9 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -43,7 +47,8 @@ from zenml.constants import (
     ENV_ZENML_RUN_SINGLE_STEPS_WITHOUT_STACK,
     handle_bool_env_var,
 )
-from zenml.exceptions import StepInterfaceError
+from zenml.enums import StepRuntime
+from zenml.exceptions import SourceValidationException, StepInterfaceError
 from zenml.logger import get_logger
 from zenml.materializers.base_materializer import BaseMaterializer
 from zenml.materializers.materializer_registry import materializer_registry
@@ -90,6 +95,16 @@ if TYPE_CHECKING:
         Mapping[str, Sequence["MaterializerClassOrSource"]],
     ]
 
+    from zenml.execution.pipeline.dynamic.outputs import (
+        AnyStepRunFuture,
+        MapResultsFuture,
+        StepRunOutputsFuture,
+    )
+    from zenml.pipelines.compilation_context import (
+        PipelineCompilationContext,
+    )
+
+
 logger = get_logger(__name__)
 
 T = TypeVar("T", bound="BaseStep")
@@ -111,6 +126,8 @@ class BaseStep:
         output_materializers: Optional[
             "OutputMaterializersSpecification"
         ] = None,
+        environment: Optional[Dict[str, Any]] = None,
+        secrets: Optional[List[Union[str, UUID]]] = None,
         settings: Optional[Mapping[str, "SettingsOrDict"]] = None,
         extra: Optional[Dict[str, Any]] = None,
         on_failure: Optional["HookSpecification"] = None,
@@ -119,6 +136,8 @@ class BaseStep:
         retry: Optional[StepRetryConfig] = None,
         substitutions: Optional[Dict[str, str]] = None,
         cache_policy: Optional[CachePolicyOrString] = None,
+        runtime: Optional[StepRuntime] = None,
+        heartbeat_healthy_threshold: Optional[int] = None,
     ) -> None:
         """Initializes a step.
 
@@ -137,7 +156,10 @@ class BaseStep:
                 given as a dict, the keys must be a subset of the output names
                 of this step. If a single value (type or string) is given, the
                 materializer will be used for all outputs.
-            settings: settings for this step.
+            environment: Environment variables to set when running this step.
+            secrets: Secrets to set as environment variables when running this
+                step.
+            settings: Settings for this step.
             extra: Extra configurations for this step.
             on_failure: Callback function in event of failure of the step. Can
                 be a function with a single argument of type `BaseException`, or
@@ -147,8 +169,16 @@ class BaseStep:
                 function (e.g. `module.my_function`).
             model: configuration of the model version in the Model Control Plane.
             retry: Configuration for retrying the step in case of failure.
-            substitutions: Extra placeholders to use in the name template.
+            substitutions: Extra substitutions for model and artifact name
+                placeholders.
             cache_policy: Cache policy for this step.
+            runtime: The step runtime. If not configured, the step will
+                run inline unless a step operator or docker/resource settings
+                are configured. This is only applicable for dynamic
+                pipelines.
+            heartbeat_healthy_threshold: The amount of time (in minutes) that a
+                running step has not received heartbeat and is considered healthy.
+                By default, set to 30 minutes.",
         """
         from zenml.config.step_configurations import PartialStepConfiguration
 
@@ -157,6 +187,7 @@ class BaseStep:
             reserved_arguments=["after", "id"],
         )
 
+        self._static_id = id(self)
         name = name or self.__class__.__name__
 
         logger.debug(
@@ -191,18 +222,21 @@ class BaseStep:
                 },
             )
 
-        self._configuration = PartialStepConfiguration(
-            name=name,
+        self._configuration = PartialStepConfiguration(name=name)
+        self._dynamic_configuration: Optional["StepConfigurationUpdate"] = None
+        self._capture_dynamic_configuration = True
+
+        self.configure(
             enable_cache=enable_cache,
             enable_artifact_metadata=enable_artifact_metadata,
             enable_artifact_visualization=enable_artifact_visualization,
             enable_step_logs=enable_step_logs,
-        )
-        self.configure(
             experiment_tracker=experiment_tracker,
             step_operator=step_operator,
             output_materializers=output_materializers,
             parameters=parameters,
+            environment=environment,
+            secrets=secrets,
             settings=settings,
             extra=extra,
             on_failure=on_failure,
@@ -211,6 +245,8 @@ class BaseStep:
             retry=retry,
             substitutions=substitutions,
             cache_policy=cache_policy,
+            runtime=runtime,
+            heartbeat_healthy_threshold=heartbeat_healthy_threshold,
         )
 
         notebook_utils.try_to_save_notebook_cell_code(self.source_object)
@@ -324,7 +360,7 @@ class BaseStep:
     def _parse_call_args(
         self, *args: Any, **kwargs: Any
     ) -> Tuple[
-        Dict[str, "StepArtifact"],
+        Dict[str, List["StepArtifact"]],
         Dict[str, Union["ExternalArtifact", "ArtifactVersionResponse"]],
         Dict[str, "ModelVersionDataLazyLoader"],
         Dict[str, "ClientLazyLoader"],
@@ -373,6 +409,18 @@ class BaseStep:
             self.entrypoint_definition.validate_input(key=key, value=value)
 
             if isinstance(value, StepArtifact):
+                artifacts[key] = [value]
+                if key in self.configuration.parameters:
+                    logger.warning(
+                        "Got duplicate value for step input %s, using value "
+                        "provided as artifact.",
+                        key,
+                    )
+            elif (
+                isinstance(value, list)
+                and value
+                and all(isinstance(item, StepArtifact) for item in value)
+            ):
                 artifacts[key] = value
                 if key in self.configuration.parameters:
                     logger.warning(
@@ -441,12 +489,90 @@ class BaseStep:
             default_parameters,
         )
 
+    def _handle_call_during_compilation(
+        self,
+        compilation_context: "PipelineCompilationContext",
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any],
+        id: Optional[str] = None,
+        after: Union[
+            str,
+            StepArtifact,
+            Sequence[Union[str, StepArtifact]],
+            None,
+        ] = None,
+    ) -> Union[StepArtifact, List[StepArtifact]]:
+        """Handles a call during compilation of the step.
+
+        Args:
+            compilation_context: The compilation context.
+            args: The arguments passed to the step.
+            kwargs: The keyword arguments passed to the step.
+            id: The ID of the step invocation.
+            after: The upstream steps for the invocation
+
+        Returns:
+            The outputs of the step invocation.
+        """
+        (
+            input_artifacts,
+            external_artifacts,
+            model_artifacts_or_metadata,
+            client_lazy_loaders,
+            parameters,
+            default_parameters,
+        ) = self._parse_call_args(*args, **kwargs)
+
+        upstream_steps = {
+            artifact.invocation_id
+            for artifact_list in input_artifacts.values()
+            for artifact in artifact_list
+        }
+        if isinstance(after, str):
+            upstream_steps.add(after)
+        elif isinstance(after, StepArtifact):
+            upstream_steps.add(after.invocation_id)
+        elif isinstance(after, Sequence):
+            for item in after:
+                if isinstance(item, str):
+                    upstream_steps.add(item)
+                elif isinstance(item, StepArtifact):
+                    upstream_steps.add(item.invocation_id)
+
+        invocation_id = compilation_context.pipeline.add_step_invocation(
+            step=self,
+            input_artifacts=input_artifacts,
+            external_artifacts=external_artifacts,
+            model_artifacts_or_metadata=model_artifacts_or_metadata,
+            client_lazy_loaders=client_lazy_loaders,
+            parameters=parameters,
+            default_parameters=default_parameters,
+            upstream_steps=upstream_steps,
+            custom_id=id,
+            allow_id_suffix=not id,
+        )
+
+        outputs = []
+        for key, annotation in self.entrypoint_definition.outputs.items():
+            output = StepArtifact(
+                invocation_id=invocation_id,
+                output_name=key,
+                annotation=annotation,
+                pipeline=compilation_context.pipeline,
+            )
+            outputs.append(output)
+        return outputs[0] if len(outputs) == 1 else outputs
+
     def __call__(
         self,
         *args: Any,
         id: Optional[str] = None,
         after: Union[
-            str, StepArtifact, Sequence[Union[str, StepArtifact]], None
+            str,
+            StepArtifact,
+            "AnyStepRunFuture",
+            Sequence[Union[str, StepArtifact, "AnyStepRunFuture"]],
+            None,
         ] = None,
         **kwargs: Any,
     ) -> Any:
@@ -466,84 +592,80 @@ class BaseStep:
         Returns:
             The outputs of the entrypoint function call.
         """
-        from zenml.pipelines.pipeline_definition import Pipeline
-
-        if not Pipeline.ACTIVE_PIPELINE:
-            from zenml import constants, get_step_context
-
-            # If the environment variable was set to explicitly not run on the
-            # stack, we do that.
-            run_without_stack = handle_bool_env_var(
-                ENV_ZENML_RUN_SINGLE_STEPS_WITHOUT_STACK, default=False
-            )
-            if run_without_stack:
-                return self.call_entrypoint(*args, **kwargs)
-
-            try:
-                get_step_context()
-            except RuntimeError:
-                pass
-            else:
-                # We're currently inside the execution of a different step
-                # -> We don't want to launch another single step pipeline here,
-                # but instead just call the step function
-                return self.call_entrypoint(*args, **kwargs)
-
-            if constants.SHOULD_PREVENT_PIPELINE_EXECUTION:
-                logger.info(
-                    "Preventing execution of step '%s'.",
-                    self.name,
-                )
-                return
-
-            return run_as_single_step_pipeline(self, *args, **kwargs)
-
-        (
-            input_artifacts,
-            external_artifacts,
-            model_artifacts_or_metadata,
-            client_lazy_loaders,
-            parameters,
-            default_parameters,
-        ) = self._parse_call_args(*args, **kwargs)
-
-        upstream_steps = {
-            artifact.invocation_id for artifact in input_artifacts.values()
-        }
-        if isinstance(after, str):
-            upstream_steps.add(after)
-        elif isinstance(after, StepArtifact):
-            upstream_steps.add(after.invocation_id)
-        elif isinstance(after, Sequence):
-            for item in after:
-                if isinstance(item, str):
-                    upstream_steps.add(item)
-                elif isinstance(item, StepArtifact):
-                    upstream_steps.add(item.invocation_id)
-
-        invocation_id = Pipeline.ACTIVE_PIPELINE.add_step_invocation(
-            step=self,
-            input_artifacts=input_artifacts,
-            external_artifacts=external_artifacts,
-            model_artifacts_or_metadata=model_artifacts_or_metadata,
-            client_lazy_loaders=client_lazy_loaders,
-            parameters=parameters,
-            default_parameters=default_parameters,
-            upstream_steps=upstream_steps,
-            custom_id=id,
-            allow_id_suffix=not id,
+        from zenml import get_step_context
+        from zenml.execution.pipeline.dynamic.run_context import (
+            DynamicPipelineRunContext,
+        )
+        from zenml.execution.pipeline.utils import (
+            should_prevent_pipeline_execution,
+        )
+        from zenml.pipelines.compilation_context import (
+            PipelineCompilationContext,
         )
 
-        outputs = []
-        for key, annotation in self.entrypoint_definition.outputs.items():
-            output = StepArtifact(
-                invocation_id=invocation_id,
-                output_name=key,
-                annotation=annotation,
-                pipeline=Pipeline.ACTIVE_PIPELINE,
+        compilation_context = PipelineCompilationContext.get()
+        if compilation_context:
+            # We're currently compiling a static pipeline, which we want to
+            # allow even while inside a running step.
+            after = cast(
+                Union[
+                    str,
+                    "StepArtifact",
+                    Sequence[Union[str, "StepArtifact"]],
+                    None,
+                ],
+                after,
             )
-            outputs.append(output)
-        return outputs[0] if len(outputs) == 1 else outputs
+            return self._handle_call_during_compilation(
+                compilation_context=compilation_context,
+                args=args,
+                kwargs=kwargs,
+                id=id,
+                after=after,
+            )
+
+        try:
+            step_context = get_step_context()
+        except RuntimeError:
+            step_context = None
+
+        if step_context:
+            # We're currently inside the execution of a different step
+            # -> We don't want to launch another single step pipeline here,
+            # but instead just call the step function
+            return self.call_entrypoint(*args, **kwargs)
+
+        if run_context := DynamicPipelineRunContext.get():
+            after = cast(
+                Union[
+                    "AnyStepRunFuture",
+                    Sequence["AnyStepRunFuture"],
+                    None,
+                ],
+                after,
+            )
+            return run_context.runner.launch_step(
+                step=self,
+                id=id,
+                args=args,
+                kwargs=kwargs,
+                after=after,
+                concurrent=False,
+            )
+
+        # If the environment variable was set to explicitly not run on the
+        # stack, we do that.
+        run_without_stack = handle_bool_env_var(
+            ENV_ZENML_RUN_SINGLE_STEPS_WITHOUT_STACK, default=False
+        )
+        if run_without_stack:
+            return self.call_entrypoint(*args, **kwargs)
+
+        if should_prevent_pipeline_execution():
+            logger.info("Preventing execution of step '%s'.", self.name)
+            return
+
+        return run_as_single_step_pipeline(self, *args, **kwargs)
 
     def call_entrypoint(self, *args: Any, **kwargs: Any) -> Any:
         """Calls the entrypoint function of the step.
@@ -573,6 +695,194 @@ class BaseStep:
             ) from e
 
         return self.entrypoint(**validated_args)
+
+    def submit(
+        self,
+        *args: Any,
+        id: Optional[str] = None,
+        after: Union[
+            "AnyStepRunFuture", Sequence["AnyStepRunFuture"], None
+        ] = None,
+        **kwargs: Any,
+    ) -> "StepRunOutputsFuture":
+        """Submit the step to run concurrently in a separate thread.
+
+        Args:
+            *args: The arguments to pass to the step function.
+            id: The invocation ID of the step.
+            after: The step run output futures to wait for before executing the
+                step.
+            **kwargs: The keyword arguments to pass to the step function.
+
+        Raises:
+            RuntimeError: If this method is called outside of a dynamic
+                pipeline.
+
+        Returns:
+            The step run output future.
+        """
+        from zenml.execution.pipeline.dynamic.run_context import (
+            DynamicPipelineRunContext,
+        )
+
+        context = DynamicPipelineRunContext.get()
+        if not context:
+            raise RuntimeError(
+                "Submitting a step is only possible within a dynamic pipeline."
+            )
+
+        return context.runner.launch_step(
+            step=self,
+            id=id,
+            args=args,
+            kwargs=kwargs,
+            after=after,
+            concurrent=True,
+        )
+
+    def map(
+        self,
+        *args: Any,
+        after: Union[
+            "AnyStepRunFuture", Sequence["AnyStepRunFuture"], None
+        ] = None,
+        **kwargs: Any,
+    ) -> "MapResultsFuture":
+        """Map over step inputs.
+
+        This method will launch separate steps for each chunk of the input
+        artifacts. This currently is only supported for inputs that are outputs
+        from upstream steps in the same pipeline.
+
+        Example:
+        The following code will launch 2 `do_something` steps, which will
+        receive the inputs `(1, "a")` and `(2, "b")`.
+
+        ```python
+        from zenml import pipeline, step
+
+        @step
+        def create_int_list() -> list[int]:
+            return [1, 2]
+
+        @step
+        def create_str_list() -> list[str]:
+            return ["a", "b"]
+
+        @step
+        def do_something(a: int, b: str) -> None:
+            ...
+
+        @pipeline
+        def map_pipeline():
+            int_list = create_int_list()
+            str_list = create_str_list()
+            do_something.map(a=int_list, b=str_list)
+        ```
+
+        Args:
+            *args: The arguments to pass to the step function.
+            after: The step run output futures to wait for before executing the
+                steps.
+            **kwargs: The keyword arguments to pass to the step function.
+
+        Raises:
+            RuntimeError: If this method is called outside of a dynamic
+                pipeline.
+
+        Returns:
+            A future that represents the map results.
+        """
+        from zenml.execution.pipeline.dynamic.run_context import (
+            DynamicPipelineRunContext,
+        )
+
+        context = DynamicPipelineRunContext.get()
+        if not context:
+            raise RuntimeError(
+                "Mapping over step inputs is only possible within a dynamic "
+                "pipeline."
+            )
+
+        return context.runner.map(
+            step=self,
+            args=args,
+            kwargs=kwargs,
+            after=after,
+            product=False,
+        )
+
+    def product(
+        self,
+        *args: Any,
+        after: Union[
+            "AnyStepRunFuture", Sequence["AnyStepRunFuture"], None
+        ] = None,
+        **kwargs: Any,
+    ) -> "MapResultsFuture":
+        """Map over step inputs using a cartesian product of the mapped inputs.
+
+        This method will launch separate steps for each combination of the
+        iteams of the input artifacts. This currently is only supported for
+        inputs that are outputs from upstream steps in the same pipeline.
+
+        Example:
+        The following code will launch 4 `do_something` steps, which will
+        receive the inputs `(1, "a")`, `(1, "b")`, `(2, "a")`, `(2, "b")`.
+
+        ```python
+        from zenml import pipeline, step
+
+        @step
+        def create_int_list() -> list[int]:
+            return [1, 2]
+
+        @step
+        def create_str_list() -> list[str]:
+            return ["a", "b"]
+
+        @step
+        def do_something(a: int, b: str) -> None:
+            ...
+
+        @pipeline
+        def map_pipeline():
+            int_list = create_int_list()
+            str_list = create_str_list()
+            do_something.product(a=int_list, b=str_list)
+        ```
+
+        Args:
+            *args: The arguments to pass to the step function.
+            after: The step run output futures to wait for before executing the
+                steps.
+            **kwargs: The keyword arguments to pass to the step function.
+
+        Raises:
+            RuntimeError: If this method is called outside of a dynamic
+                pipeline.
+
+        Returns:
+            A future that represents the map results.
+        """
+        from zenml.execution.pipeline.dynamic.run_context import (
+            DynamicPipelineRunContext,
+        )
+
+        context = DynamicPipelineRunContext.get()
+        if not context:
+            raise RuntimeError(
+                "Mapping over step inputs is only possible within a dynamic "
+                "pipeline."
+            )
+
+        return context.runner.map(
+            step=self,
+            args=args,
+            kwargs=kwargs,
+            after=after,
+            product=True,
+        )
 
     @property
     def name(self) -> str:
@@ -613,6 +923,8 @@ class BaseStep:
         output_materializers: Optional[
             "OutputMaterializersSpecification"
         ] = None,
+        environment: Optional[Dict[str, Any]] = None,
+        secrets: Optional[Sequence[Union[str, UUID]]] = None,
         settings: Optional[Mapping[str, "SettingsOrDict"]] = None,
         extra: Optional[Dict[str, Any]] = None,
         on_failure: Optional["HookSpecification"] = None,
@@ -621,7 +933,9 @@ class BaseStep:
         retry: Optional[StepRetryConfig] = None,
         substitutions: Optional[Dict[str, str]] = None,
         cache_policy: Optional[CachePolicyOrString] = None,
+        runtime: Optional[StepRuntime] = None,
         merge: bool = True,
+        heartbeat_healthy_threshold: Optional[int] = None,
     ) -> T:
         """Configures the step.
 
@@ -649,7 +963,10 @@ class BaseStep:
                 given as a dict, the keys must be a subset of the output names
                 of this step. If a single value (type or string) is given, the
                 materializer will be used for all outputs.
-            settings: settings for this step.
+            environment: Environment variables to set when running this step.
+            secrets: Secrets to set as environment variables when running this
+                step.
+            settings: Settings for this step.
             extra: Extra configurations for this step.
             on_failure: Callback function in event of failure of the step. Can
                 be a function with a single argument of type `BaseException`, or
@@ -659,13 +976,19 @@ class BaseStep:
                 function (e.g. `module.my_function`).
             model: Model to use for this step.
             retry: Configuration for retrying the step in case of failure.
-            substitutions: Extra placeholders to use in the name template.
+            substitutions: Extra substitutions for model and artifact name
+                placeholders.
             cache_policy: Cache policy for this step.
+            runtime: The step runtime. This is only applicable for dynamic
+                pipelines.
             merge: If `True`, will merge the given dictionary configurations
                 like `parameters` and `settings` with existing
                 configurations. If `False` the given configurations will
                 overwrite all existing ones. See the general description of this
                 method for an example.
+            heartbeat_healthy_threshold: The amount of time (in minutes) that a
+                running step has not received heartbeat and is considered healthy.
+                By default, set to 30 minutes.",
 
         Returns:
             The step instance that this method was called on.
@@ -707,12 +1030,17 @@ class BaseStep:
         failure_hook_source = None
         if on_failure:
             # string of on_failure hook function to be used for this step
-            failure_hook_source = resolve_and_validate_hook(on_failure)
+            failure_hook_source, _ = resolve_and_validate_hook(
+                on_failure, allow_exception_arg=True
+            )
 
         success_hook_source = None
         if on_success:
             # string of on_success hook function to be used for this step
-            success_hook_source = resolve_and_validate_hook(on_success)
+            success_hook_source, _ = resolve_and_validate_hook(on_success)
+
+        if merge and secrets and self._configuration.secrets:
+            secrets = self._configuration.secrets + list(secrets)
 
         values = dict_utils.remove_none_values(
             {
@@ -723,6 +1051,8 @@ class BaseStep:
                 "experiment_tracker": experiment_tracker,
                 "step_operator": step_operator,
                 "parameters": parameters,
+                "environment": environment,
+                "secrets": secrets,
                 "settings": settings,
                 "outputs": outputs or None,
                 "extra": extra,
@@ -732,6 +1062,8 @@ class BaseStep:
                 "retry": retry,
                 "substitutions": substitutions,
                 "cache_policy": cache_policy,
+                "runtime": runtime,
+                "heartbeat_healthy_threshold": heartbeat_healthy_threshold,
             }
         )
         config = StepConfigurationUpdate(**values)
@@ -750,6 +1082,8 @@ class BaseStep:
         output_materializers: Optional[
             "OutputMaterializersSpecification"
         ] = None,
+        environment: Optional[Dict[str, Any]] = None,
+        secrets: Optional[List[Union[str, UUID]]] = None,
         settings: Optional[Mapping[str, "SettingsOrDict"]] = None,
         extra: Optional[Dict[str, Any]] = None,
         on_failure: Optional["HookSpecification"] = None,
@@ -758,6 +1092,8 @@ class BaseStep:
         retry: Optional[StepRetryConfig] = None,
         substitutions: Optional[Dict[str, str]] = None,
         cache_policy: Optional[CachePolicyOrString] = None,
+        runtime: Optional[StepRuntime] = None,
+        heartbeat_healthy_threshold: Optional[int] = None,
         merge: bool = True,
     ) -> "BaseStep":
         """Copies the step and applies the given configurations.
@@ -776,7 +1112,10 @@ class BaseStep:
                 given as a dict, the keys must be a subset of the output names
                 of this step. If a single value (type or string) is given, the
                 materializer will be used for all outputs.
-            settings: settings for this step.
+            environment: Environment variables to set when running this step.
+            secrets: Secrets to set as environment variables when running this
+                step.
+            settings: Settings for this step.
             extra: Extra configurations for this step.
             on_failure: Callback function in event of failure of the step. Can
                 be a function with a single argument of type `BaseException`, or
@@ -786,8 +1125,14 @@ class BaseStep:
                 function (e.g. `module.my_function`).
             model: Model to use for this step.
             retry: Configuration for retrying the step in case of failure.
-            substitutions: Extra placeholders for the step name.
+            substitutions: Extra substitutions for model and artifact name
+                placeholders.
             cache_policy: Cache policy for this step.
+            runtime: The step runtime. This is only applicable for dynamic
+                pipelines.
+            heartbeat_healthy_threshold: The amount of time (in minutes) that a
+                running step has not received heartbeat and is considered healthy.
+                By default, set to 30 minutes.",
             merge: If `True`, will merge the given dictionary configurations
                 like `parameters` and `settings` with existing
                 configurations. If `False` the given configurations will
@@ -807,6 +1152,8 @@ class BaseStep:
             step_operator=step_operator,
             parameters=parameters,
             output_materializers=output_materializers,
+            environment=environment,
+            secrets=secrets,
             settings=settings,
             extra=extra,
             on_failure=on_failure,
@@ -815,6 +1162,8 @@ class BaseStep:
             retry=retry,
             substitutions=substitutions,
             cache_policy=cache_policy,
+            runtime=runtime,
+            heartbeat_healthy_threshold=heartbeat_healthy_threshold,
             merge=merge,
         )
         return step_copy
@@ -825,7 +1174,32 @@ class BaseStep:
         Returns:
             The step copy.
         """
-        return copy.deepcopy(self)
+        from zenml.execution.pipeline.dynamic.run_context import (
+            DynamicPipelineRunContext,
+        )
+
+        step_copy = copy.deepcopy(self)
+
+        if not DynamicPipelineRunContext.is_active():
+            # If we're not in a dynamic pipeline, we generate a new static ID
+            # for the step copy
+            step_copy._static_id = id(step_copy)
+
+        return step_copy
+
+    @contextmanager
+    def _suspend_dynamic_configuration(self) -> Generator[None, None, None]:
+        """Context manager to suspend applying to the dynamic configuration.
+
+        Yields:
+            None.
+        """
+        previous_value = self._capture_dynamic_configuration
+        self._capture_dynamic_configuration = False
+        try:
+            yield
+        finally:
+            self._capture_dynamic_configuration = previous_value
 
     def _apply_configuration(
         self,
@@ -842,7 +1216,23 @@ class BaseStep:
                 or not. See the `BaseStep.configure(...)` method for a detailed
                 explanation.
         """
+        from zenml.execution.pipeline.dynamic.run_context import (
+            DynamicPipelineRunContext,
+        )
+
         self._validate_configuration(config, runtime_parameters)
+
+        if (
+            self._capture_dynamic_configuration
+            and DynamicPipelineRunContext.is_active()
+        ):
+            if self._dynamic_configuration is None:
+                self._dynamic_configuration = config
+            else:
+                self._dynamic_configuration = pydantic_utils.update_model(
+                    self._dynamic_configuration, update=config, recursive=merge
+                )
+            return
 
         self._configuration = pydantic_utils.update_model(
             self._configuration, update=config, recursive=merge
@@ -850,6 +1240,15 @@ class BaseStep:
 
         logger.debug("Updated step configuration:")
         logger.debug(self._configuration)
+
+    def _merge_dynamic_configuration(self) -> None:
+        """Merges the dynamic configuration into the static configuration."""
+        if self._dynamic_configuration:
+            with self._suspend_dynamic_configuration():
+                self._apply_configuration(
+                    config=self._dynamic_configuration, merge=True
+                )
+            logger.debug("Merged dynamic configuration.")
 
     def _validate_configuration(
         self,
@@ -955,18 +1354,20 @@ To avoid this consider setting step parameters only in one place (config or code
 
             if output.materializer_source:
                 for source in output.materializer_source:
-                    if not source_utils.validate_source_class(
-                        source, expected_class=BaseMaterializer
-                    ):
+                    try:
+                        source_utils.validate_source_class(
+                            source, expected_class=BaseMaterializer
+                        )
+                    except SourceValidationException as e:
                         raise StepInterfaceError(
                             f"Materializer source `{source}` "
                             f"for output '{output_name}' of step '{self.name}' "
                             "does not resolve to a `BaseMaterializer` subclass."
-                        )
+                        ) from e
 
     def _validate_inputs(
         self,
-        input_artifacts: Dict[str, "StepArtifact"],
+        input_artifacts: Dict[str, List["StepArtifact"]],
         external_artifacts: Dict[str, "ExternalArtifactConfiguration"],
         model_artifacts_or_metadata: Dict[str, "ModelVersionDataLazyLoader"],
         client_lazy_loaders: Dict[str, "ClientLazyLoader"],
@@ -1000,10 +1401,11 @@ To avoid this consider setting step parameters only in one place (config or code
 
     def _finalize_configuration(
         self,
-        input_artifacts: Dict[str, "StepArtifact"],
+        input_artifacts: Dict[str, List["StepArtifact"]],
         external_artifacts: Dict[str, "ExternalArtifactConfiguration"],
         model_artifacts_or_metadata: Dict[str, "ModelVersionDataLazyLoader"],
         client_lazy_loaders: Dict[str, "ClientLazyLoader"],
+        skip_input_validation: bool = False,
     ) -> "StepConfiguration":
         """Finalizes the configuration after the step was called.
 
@@ -1018,6 +1420,7 @@ To avoid this consider setting step parameters only in one place (config or code
             model_artifacts_or_metadata: The model artifacts or metadata of
                 this step.
             client_lazy_loaders: The client lazy loaders of this step.
+            skip_input_validation: If True, will skip the input validation.
 
         Raises:
             StepInterfaceError: If explicit materializers were specified for an
@@ -1107,12 +1510,13 @@ To avoid this consider setting step parameters only in one place (config or code
 
         parameters = self._finalize_parameters()
         self.configure(parameters=parameters, merge=False)
-        self._validate_inputs(
-            input_artifacts=input_artifacts,
-            external_artifacts=external_artifacts,
-            model_artifacts_or_metadata=model_artifacts_or_metadata,
-            client_lazy_loaders=client_lazy_loaders,
-        )
+        if not skip_input_validation:
+            self._validate_inputs(
+                input_artifacts=input_artifacts,
+                external_artifacts=external_artifacts,
+                model_artifacts_or_metadata=model_artifacts_or_metadata,
+                client_lazy_loaders=client_lazy_loaders,
+            )
 
         values = dict_utils.remove_none_values({"outputs": outputs or None})
         config = StepConfigurationUpdate(**values)

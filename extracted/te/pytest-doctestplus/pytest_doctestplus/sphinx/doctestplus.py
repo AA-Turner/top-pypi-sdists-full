@@ -10,28 +10,29 @@ centrally managed from py.test and Sphinx is not used for running
 tests.
 """
 import re
-from docutils.nodes import literal_block
 from docutils.parsers.rst import Directive
+from sphinx.util.docutils import SphinxDirective
+
+class NoRunDirective(Directive):
+    def run(self):
+        # Simply do not add any content when this directive is encountered
+        return []
 
 
-class DoctestSkipDirective(Directive):
+class DoctestSkipDirective(SphinxDirective):
     has_content = True
 
     def run(self):
         # Check if there is any valid argument, and skip it. Currently only
         # 'win32' is supported.
-        if re.match('win32', self.content[0]):
+        if len(self.content) > 0 and re.match("win32", self.content[0]):
             self.content = self.content[2:]
-        code = '\n'.join(self.content)
-        return [literal_block(code, code)]
 
+        nodes = self.parse_content_to_nodes()
+        return nodes
 
-class DoctestOmitDirective(Directive):
+class DoctestOmitDirective(NoRunDirective):
     has_content = True
-
-    def run(self):
-        # Simply do not add any content when this directive is encountered
-        return []
 
 
 class DoctestRequiresDirective(DoctestSkipDirective):
@@ -40,15 +41,20 @@ class DoctestRequiresDirective(DoctestSkipDirective):
     optional_arguments = 64
 
 
+class DoctestAllDirective(NoRunDirective):
+    optional_arguments = 64
+    has_content = False
+
+
 def setup(app):
 
     app.add_directive('doctest-requires', DoctestRequiresDirective)
-    app.add_directive('doctest-requires-all', DoctestRequiresDirective)
+    app.add_directive('doctest-requires-all', DoctestAllDirective)
     app.add_directive('doctest-skip', DoctestSkipDirective)
-    app.add_directive('doctest-skip-all', DoctestSkipDirective)
+    app.add_directive('doctest-skip-all', DoctestAllDirective)
     app.add_directive('doctest', DoctestSkipDirective, override=True)
     app.add_directive('doctest-remote-data', DoctestSkipDirective)
-    app.add_directive('doctest-remote-data-all', DoctestSkipDirective)
+    app.add_directive('doctest-remote-data-all', DoctestAllDirective)
     # Code blocks that use this directive will not appear in the generated
     # documentation. This is intended to hide boilerplate code that is only
     # useful for testing documentation using doctest, but does not actually

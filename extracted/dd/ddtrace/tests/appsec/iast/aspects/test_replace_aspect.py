@@ -8,11 +8,10 @@ from ddtrace.appsec._iast._taint_tracking import OriginType
 from ddtrace.appsec._iast._taint_tracking import Source
 from ddtrace.appsec._iast._taint_tracking import TaintRange
 from ddtrace.appsec._iast._taint_tracking import as_formatted_evidence
-from ddtrace.appsec._iast._taint_tracking import set_ranges
 from ddtrace.appsec._iast._taint_tracking._taint_objects import taint_pyobject
+from ddtrace.appsec._iast._taint_tracking._taint_objects import taint_pyobject_with_ranges
 from ddtrace.appsec._iast._taint_tracking._taint_objects_base import is_pyobject_tainted
 import ddtrace.appsec._iast._taint_tracking.aspects as ddtrace_aspects
-from ddtrace.internal.compat import PYTHON_VERSION_INFO
 
 
 def _build_sample_range(start, end, name):  # type: (int, int) -> TaintRange
@@ -669,7 +668,7 @@ def test_replace_tainted_orig_and_repl(origstr, substr, replstr, maxcount, forma
     ],
 )
 def test_replace_tainted_results_in_no_tainted(origstr, substr, replstr, maxcount, formatted):
-    set_ranges(
+    taint_pyobject_with_ranges(
         origstr,
         (_build_sample_range(0, 1, "name"), _build_sample_range(2, 2, "name"), _build_sample_range(6, 3, "name")),
     )
@@ -736,7 +735,7 @@ def test_replace_tainted_results_in_no_tainted_django(origstr, formatted):
     ],
 )
 def test_replace_tainted_shrinking_ranges(origstr, substr, replstr, maxcount, formatted):
-    set_ranges(
+    taint_pyobject_with_ranges(
         origstr,
         (_build_sample_range(0, 3, "name"), _build_sample_range(4, 3, "name"), _build_sample_range(10, 3, "name")),
     )
@@ -757,8 +756,8 @@ def test_replace_tainted_shrinking_ranges(origstr, substr, replstr, maxcount, fo
         ("abcd", 3, "", "_", None, "_:+-<name>a<name>-+:_:+-<name>b<name>-+:_:+-<name>c<name>-+:_d_"),
         ("abcd", 3, "", "_", 1, "_:+-<name>abc<name>-+:d"),
         ("abcd", 3, "", "_", 2, "_:+-<name>a<name>-+:_:+-<name>bc<name>-+:d"),
-        ("", 0, "", "_", 1, "" if PYTHON_VERSION_INFO < (3, 9) else "_"),
-        ("", 0, "", "_", 2, "" if PYTHON_VERSION_INFO < (3, 9) else "_"),
+        ("", 0, "", "_", 1, "_"),
+        ("", 0, "", "_", 2, "_"),
         ("a", 1, "", "_", 1, "_:+-<name>a<name>-+:"),
         ("a", 1, "", "_", 2, "_:+-<name>a<name>-+:_"),
         ("a", 1, "", "_", 0, ":+-<name>a<name>-+:"),
@@ -769,8 +768,8 @@ def test_replace_tainted_shrinking_ranges(origstr, substr, replstr, maxcount, fo
         (b"abcd", 3, b"", b"_", 5, b"_:+-<name>a<name>-+:_:+-<name>b<name>-+:_:+-<name>c<name>-+:_d_"),
         (b"abcd", 3, b"", b"_", 1, b"_:+-<name>abc<name>-+:d"),
         (b"abcd", 3, b"", b"_", 2, b"_:+-<name>a<name>-+:_:+-<name>bc<name>-+:d"),
-        (b"", 0, b"", b"_", 1, b"" if PYTHON_VERSION_INFO < (3, 9) else b"_"),
-        (b"", 0, b"", b"_", 2, b"" if PYTHON_VERSION_INFO < (3, 9) else b"_"),
+        (b"", 0, b"", b"_", 1, b"_"),
+        (b"", 0, b"", b"_", 2, b"_"),
         (b"a", 1, b"", b"_", 1, b"_:+-<name>a<name>-+:"),
         (b"a", 1, b"", b"_", 2, b"_:+-<name>a<name>-+:_"),
         (b"a", 1, b"", b"_", 0, b":+-<name>a<name>-+:"),
@@ -784,8 +783,8 @@ def test_replace_tainted_shrinking_ranges(origstr, substr, replstr, maxcount, fo
         ),
         (bytearray(b"abcd"), 3, b"", b"_", 1, bytearray(b"_:+-<name>abc<name>-+:d")),
         (bytearray(b"abcd"), 3, b"", b"_", 2, bytearray(b"_:+-<name>a<name>-+:_:+-<name>bc<name>-+:d")),
-        (bytearray(b""), 0, b"", b"_", 1, bytearray(b"") if PYTHON_VERSION_INFO < (3, 9) else bytearray(b"_")),
-        (bytearray(b""), 0, b"", b"_", 2, bytearray(b"") if PYTHON_VERSION_INFO < (3, 9) else bytearray(b"_")),
+        (bytearray(b""), 0, b"", b"_", 1, bytearray(b"_")),
+        (bytearray(b""), 0, b"", b"_", 2, bytearray(b"_")),
         (bytearray(b"a"), 1, b"", b"_", 1, bytearray(b"_:+-<name>a<name>-+:")),
         (bytearray(b"a"), 1, b"", b"_", 2, bytearray(b"_:+-<name>a<name>-+:_")),
         (bytearray(b"a"), 1, b"", b"_", 0, bytearray(b":+-<name>a<name>-+:")),
@@ -793,7 +792,7 @@ def test_replace_tainted_shrinking_ranges(origstr, substr, replstr, maxcount, fo
 )
 def test_replace_aspect_more(origstr, taint_len, substr, replstr, maxcount, formatted):
     if taint_len > 0:
-        set_ranges(
+        taint_pyobject_with_ranges(
             origstr,
             (_build_sample_range(0, taint_len, "name"),),
         )

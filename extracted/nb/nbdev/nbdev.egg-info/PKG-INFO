@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbdev
-Version: 2.4.5
+Version: 2.4.14
 Summary: Create delightful software with Jupyter Notebooks
 Home-page: https://github.com/AnswerDotAI/nbdev
 Author: Jeremy Howard and Hamel Husain
@@ -20,7 +20,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: packaging
-Requires-Dist: fastcore>=1.8.0
+Requires-Dist: fastcore>=1.12.3
 Requires-Dist: execnb>=0.1.12
 Requires-Dist: astunparse
 Requires-Dist: ghapi>=1.0.3
@@ -28,6 +28,7 @@ Requires-Dist: watchdog
 Requires-Dist: asttokens
 Requires-Dist: setuptools
 Requires-Dist: build
+Requires-Dist: fastgit
 Requires-Dist: PyYAML
 Provides-Extra: dev
 Requires-Dist: ipywidgets; extra == "dev"

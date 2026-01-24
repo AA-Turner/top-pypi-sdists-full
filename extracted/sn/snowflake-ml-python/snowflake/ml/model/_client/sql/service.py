@@ -1,8 +1,11 @@
+import contextlib
 import dataclasses
 import enum
 import logging
 import textwrap
-from typing import Any, Optional
+from typing import Any, Generator, Optional, cast
+
+import yaml
 
 from snowflake import snowpark
 from snowflake.ml._internal.utils import (
@@ -18,6 +21,20 @@ from snowflake.snowpark._internal import utils as snowpark_utils
 logger = logging.getLogger(__name__)
 
 
+def _format_param_value(value: Any) -> str:
+    if isinstance(value, str):
+        return f"'{snowpark_utils.escape_single_quotes(value)}'"  # type: ignore[no-untyped-call]
+    elif value is None:
+        return "NULL"
+    return str(value)
+
+
+# Using this token instead of '?' to avoid escaping issues
+# After quotes are escaped, we replace this token with '|| ? ||'
+QMARK_RESERVED_TOKEN = "<QMARK_RESERVED_TOKEN>"
+QMARK_PARAMETER_TOKEN = "'|| ? ||'"
+
+
 class ServiceStatus(enum.Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -30,22 +47,6 @@ class ServiceStatus(enum.Enum):
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
-class InstanceStatus(enum.Enum):
-    PENDING = "PENDING"
-    READY = "READY"
-    FAILED = "FAILED"
-    TERMINATING = "TERMINATING"
-    SUCCEEDED = "SUCCEEDED"
-
-
-class ContainerStatus(enum.Enum):
-    PENDING = "PENDING"
-    READY = "READY"
-    DONE = "DONE"
-    FAILED = "FAILED"
-    UNKNOWN = "UNKNOWN"
-
-
 @dataclasses.dataclass
 class ServiceStatusInfo:
     """
@@ -55,13 +56,14 @@ class ServiceStatusInfo:
 
     service_status: ServiceStatus
     instance_id: Optional[int] = None
-    instance_status: Optional[InstanceStatus] = None
-    container_status: Optional[ContainerStatus] = None
+    instance_status: Optional[str] = None
+    container_status: Optional[str] = None
     message: Optional[str] = None
 
 
 class ServiceSQLClient(_base._BaseSQLClient):
     MODEL_INFERENCE_SERVICE_ENDPOINT_NAME_COL_NAME = "name"
+    MODEL_INFERENCE_SERVICE_ENDPOINT_PORT_COL_NAME = "port"
     MODEL_INFERENCE_SERVICE_ENDPOINT_INGRESS_URL_COL_NAME = "ingress_url"
     MODEL_INFERENCE_SERVICE_ENDPOINT_PRIVATELINK_INGRESS_URL_COL_NAME = "privatelink_ingress_url"
     SERVICE_STATUS = "service_status"
@@ -69,6 +71,25 @@ class ServiceSQLClient(_base._BaseSQLClient):
     INSTANCE_STATUS = "instance_status"
     CONTAINER_STATUS = "status"
     MESSAGE = "message"
+    DESC_SERVICE_INTERNAL_DNS_COL_NAME = "dns_name"
+    DESC_SERVICE_SPEC_COL_NAME = "spec"
+    DESC_SERVICE_CONTAINERS_SPEC_NAME = "containers"
+    DESC_SERVICE_NAME_SPEC_NAME = "name"
+    DESC_SERVICE_ENV_SPEC_NAME = "env"
+    MODEL_INFERENCE_AUTOCAPTURE_ENV_NAME = "SPCS_MODEL_INFERENCE_SERVER__AUTOCAPTURE_ENABLED"
+
+    @contextlib.contextmanager
+    def _qmark_paramstyle(self) -> Generator[None, None, None]:
+        """Context manager that temporarily changes paramstyle to qmark and restores original value on exit."""
+        if not hasattr(self._session, "_options"):
+            yield
+        else:
+            original_paramstyle = self._session._options["paramstyle"]
+            try:
+                self._session._options["paramstyle"] = "qmark"
+                yield
+            finally:
+                self._session._options["paramstyle"] = original_paramstyle
 
     def deploy_model(
         self,
@@ -76,6 +97,7 @@ class ServiceSQLClient(_base._BaseSQLClient):
         stage_path: Optional[str] = None,
         model_deployment_spec_yaml_str: Optional[str] = None,
         model_deployment_spec_file_rel_path: Optional[str] = None,
+        query_params: Optional[list[Any]] = None,
         statement_params: Optional[dict[str, Any]] = None,
     ) -> tuple[str, snowpark.AsyncJob]:
         assert model_deployment_spec_yaml_str or model_deployment_spec_file_rel_path
@@ -83,11 +105,18 @@ class ServiceSQLClient(_base._BaseSQLClient):
             model_deployment_spec_yaml_str = snowpark_utils.escape_single_quotes(
                 model_deployment_spec_yaml_str
             )  # type: ignore[no-untyped-call]
+            model_deployment_spec_yaml_str = model_deployment_spec_yaml_str.replace(  # type: ignore[union-attr]
+                QMARK_RESERVED_TOKEN, QMARK_PARAMETER_TOKEN
+            )
             logger.info(f"Deploying model with spec={model_deployment_spec_yaml_str}")
             sql_str = f"CALL SYSTEM$DEPLOY_MODEL('{model_deployment_spec_yaml_str}')"
         else:
             sql_str = f"CALL SYSTEM$DEPLOY_MODEL('@{stage_path}/{model_deployment_spec_file_rel_path}')"
-        async_job = self._session.sql(sql_str).collect(block=False, statement_params=statement_params)
+        with self._qmark_paramstyle():
+            async_job = self._session.sql(
+                sql_str,
+                params=query_params if query_params else None,
+            ).collect(block=False, statement_params=statement_params)
         assert isinstance(async_job, snowpark.AsyncJob)
         return async_job.query_id, async_job
 
@@ -102,6 +131,7 @@ class ServiceSQLClient(_base._BaseSQLClient):
         input_args: list[sql_identifier.SqlIdentifier],
         returns: list[tuple[str, spt.DataType, sql_identifier.SqlIdentifier]],
         statement_params: Optional[dict[str, Any]] = None,
+        params: Optional[list[tuple[sql_identifier.SqlIdentifier, Any]]] = None,
     ) -> dataframe.DataFrame:
         with_statements = []
         actual_database_name = database_name or self._database_name
@@ -132,10 +162,17 @@ class ServiceSQLClient(_base._BaseSQLClient):
             args_sql_list.append(input_arg_value)
         args_sql = ", ".join(args_sql_list)
 
-        wide_input = len(input_args) > constants.SNOWPARK_UDF_INPUT_COL_LIMIT
+        if params:
+            param_sql = ", ".join(_format_param_value(val) for _, val in params)
+            args_sql = f"{args_sql}, {param_sql}" if args_sql else param_sql
+
+        total_args = len(input_args) + (len(params) if params else 0)
+        wide_input = total_args > constants.SNOWPARK_UDF_INPUT_COL_LIMIT
         if wide_input:
-            input_args_sql = ", ".join(f"'{arg}', {arg.identifier()}" for arg in input_args)
-            args_sql = f"object_construct_keep_null({input_args_sql})"
+            parts = [f"'{arg}', {arg.identifier()}" for arg in input_args]
+            if params:
+                parts.extend(f"'{name}', {_format_param_value(val)}" for name, val in params)
+            args_sql = f"object_construct_keep_null({', '.join(parts)})"
 
         fully_qualified_service_name = self.fully_qualified_object_name(
             actual_database_name, actual_schema_name, service_name
@@ -206,24 +243,73 @@ class ServiceSQLClient(_base._BaseSQLClient):
     ) -> list[ServiceStatusInfo]:
         fully_qualified_object_name = self.fully_qualified_object_name(database_name, schema_name, service_name)
         query = f"SHOW SERVICE CONTAINERS IN SERVICE {fully_qualified_object_name}"
-        rows = self._session.sql(query).collect(statement_params=statement_params)
+        rows = (
+            query_result_checker.SqlResultValidator(self._session, query, statement_params=statement_params)
+            .has_column(ServiceSQLClient.INSTANCE_STATUS)
+            .has_column(ServiceSQLClient.CONTAINER_STATUS)
+            .has_column(ServiceSQLClient.SERVICE_STATUS)
+            .has_column(ServiceSQLClient.INSTANCE_ID)
+            .has_column(ServiceSQLClient.MESSAGE)
+            .validate()
+        )
         statuses = []
         for r in rows:
-            instance_status, container_status = None, None
-            if r[ServiceSQLClient.INSTANCE_STATUS] is not None:
-                instance_status = InstanceStatus(r[ServiceSQLClient.INSTANCE_STATUS])
-            if r[ServiceSQLClient.CONTAINER_STATUS] is not None:
-                container_status = ContainerStatus(r[ServiceSQLClient.CONTAINER_STATUS])
             statuses.append(
                 ServiceStatusInfo(
                     service_status=ServiceStatus(r[ServiceSQLClient.SERVICE_STATUS]),
                     instance_id=r[ServiceSQLClient.INSTANCE_ID],
-                    instance_status=instance_status,
-                    container_status=container_status,
+                    instance_status=r[ServiceSQLClient.INSTANCE_STATUS],
+                    container_status=r[ServiceSQLClient.CONTAINER_STATUS],
                     message=r[ServiceSQLClient.MESSAGE] if include_message else None,
                 )
             )
         return statuses
+
+    def describe_service(
+        self,
+        *,
+        database_name: Optional[sql_identifier.SqlIdentifier],
+        schema_name: Optional[sql_identifier.SqlIdentifier],
+        service_name: sql_identifier.SqlIdentifier,
+        statement_params: Optional[dict[str, Any]] = None,
+    ) -> row.Row:
+        fully_qualified_object_name = self.fully_qualified_object_name(database_name, schema_name, service_name)
+        query = f"DESCRIBE SERVICE {fully_qualified_object_name}"
+        rows = (
+            query_result_checker.SqlResultValidator(self._session, query, statement_params=statement_params)
+            .has_dimensions(expected_rows=1)
+            .has_column(ServiceSQLClient.DESC_SERVICE_INTERNAL_DNS_COL_NAME)
+            .validate()
+        )
+        return rows[0]
+
+    def is_autocapture_enabled(self, row: row.Row) -> bool:
+        """Extract whether service has autocapture enabled in any container from service spec.
+
+        Args:
+            row: A row.Row object from DESCRIBE SERVICE containing the service YAML spec.
+
+        Returns:
+            True if autocapture is enabled in any container.
+            False if autocapture is disabled or not set in any container.
+        """
+        spec_yaml = row.as_dict().get(ServiceSQLClient.DESC_SERVICE_SPEC_COL_NAME)
+        if spec_yaml is None:
+            return False
+        spec_raw = yaml.safe_load(spec_yaml)
+        if spec_raw is None:
+            return False
+        spec = cast(dict[str, Any], spec_raw)
+
+        containers = spec[ServiceSQLClient.DESC_SERVICE_SPEC_COL_NAME][
+            ServiceSQLClient.DESC_SERVICE_CONTAINERS_SPEC_NAME
+        ]
+        for container in containers:
+            env = container.get(ServiceSQLClient.DESC_SERVICE_ENV_SPEC_NAME, {})
+            autocapture_enabled = env.get(ServiceSQLClient.MODEL_INFERENCE_AUTOCAPTURE_ENV_NAME, "false")
+            if str(autocapture_enabled).lower() == "true":
+                return True
+        return False
 
     def drop_service(
         self,
@@ -255,6 +341,7 @@ class ServiceSQLClient(_base._BaseSQLClient):
                 statement_params=statement_params,
             )
             .has_column(ServiceSQLClient.MODEL_INFERENCE_SERVICE_ENDPOINT_NAME_COL_NAME, allow_empty=True)
+            .has_column(ServiceSQLClient.MODEL_INFERENCE_SERVICE_ENDPOINT_PORT_COL_NAME, allow_empty=True)
             .has_column(ServiceSQLClient.MODEL_INFERENCE_SERVICE_ENDPOINT_INGRESS_URL_COL_NAME, allow_empty=True)
         )
 

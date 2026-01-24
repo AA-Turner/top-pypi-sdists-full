@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
 use tombi_comment_directive::value::CommonLintRules;
+use tombi_document_tree::ValueImpl;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::CurrentSchema;
+
+use crate::validate::{handle_deprecated, not_schema::validate_not};
 
 use super::Validate;
 
@@ -12,17 +15,18 @@ pub fn validate_all_of<'a: 'b, 'b, T>(
     all_of_schema: &'a tombi_schema_store::AllOfSchema,
     current_schema: &'a CurrentSchema<'a>,
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
-
-    _common_rules: Option<&'a CommonLintRules>,
-) -> BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>>
+    comment_directives: Option<&'a [tombi_ast::TombiValueCommentDirective]>,
+    common_rules: Option<&'a CommonLintRules>,
+) -> BoxFuture<'b, Result<(), crate::Error>>
 where
-    T: Validate + Sync + Send + Debug,
+    T: Validate + ValueImpl + Sync + Send + Debug,
 {
     tracing::trace!("value = {:?}", value);
     tracing::trace!("all_of_schema = {:?}", all_of_schema);
 
     async move {
-        let mut diagnostics = vec![];
+        let mut total_diagnostics = vec![];
+        let mut total_score = 0;
 
         let mut schemas = all_of_schema.schemas.write().await;
         for referable_schema in schemas.iter_mut() {
@@ -40,19 +44,48 @@ where
                 continue;
             };
 
-            match value
+            if let Err(crate::Error { diagnostics, score }) = value
                 .validate(accessors, Some(&current_schema), schema_context)
                 .await
             {
-                Ok(()) => {}
-                Err(mut schema_diagnostics) => diagnostics.append(&mut schema_diagnostics),
+                total_diagnostics.extend(diagnostics);
+                total_score += score;
             }
         }
 
-        if diagnostics.is_empty() {
+        if total_diagnostics.is_empty() {
+            handle_deprecated(
+                &mut total_diagnostics,
+                all_of_schema.deprecated,
+                accessors,
+                value,
+                comment_directives,
+                common_rules,
+            );
+        }
+
+        if let Some(not_schema) = all_of_schema.not.as_ref()
+            && let Err(error) = validate_not(
+                value,
+                accessors,
+                not_schema,
+                current_schema,
+                schema_context,
+                comment_directives,
+                common_rules,
+            )
+            .await
+        {
+            total_diagnostics.extend(error.diagnostics);
+        }
+
+        if total_diagnostics.is_empty() {
             Ok(())
         } else {
-            Err(diagnostics)
+            Err(crate::Error {
+                score: total_score,
+                diagnostics: total_diagnostics,
+            })
         }
     }
     .boxed()

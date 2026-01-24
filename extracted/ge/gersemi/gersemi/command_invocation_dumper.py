@@ -1,11 +1,14 @@
-import collections.abc
+from collections import ChainMap
 from contextlib import contextmanager
 from functools import lru_cache
 from gersemi.base_command_invocation_dumper import BaseCommandInvocationDumper
+from gersemi.builtin_commands import _builtin_commands
+from gersemi.configuration import OutcomeConfiguration
 from gersemi.specializations.preserving_command_invocation_dumper import (
     PreservingCommandInvocationDumper,
 )
 from gersemi.specializations.standard_command_dumper import (
+    create_specialized_dumper,
     create_standard_dumper,
 )
 
@@ -21,6 +24,10 @@ def create_patch(patch, old_class):
 class CommandInvocationDumper(
     PreservingCommandInvocationDumper, BaseCommandInvocationDumper
 ):
+    def __init__(self, configuration: OutcomeConfiguration, known_definitions):
+        self.known_definitions = ChainMap(known_definitions, _builtin_commands)
+        super().__init__(configuration)
+
     @contextmanager
     def patched(self, patch):
         old_class = type(self)
@@ -33,10 +40,14 @@ class CommandInvocationDumper(
 
     def _get_patch(self, raw_command_name):
         command = self.known_definitions.get(raw_command_name.lower(), None)
-        if isinstance(command, collections.abc.Mapping):
+        if command is None:
+            return None
+
+        impl = command.get("__impl", None)
+        if impl is None:
             return create_standard_dumper(command)
 
-        return command
+        return create_specialized_dumper(command)
 
     def command_invocation(self, tree):
         command_name, _ = tree.children

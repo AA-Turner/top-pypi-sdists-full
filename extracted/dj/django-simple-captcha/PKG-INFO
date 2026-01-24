@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-simple-captcha
-Version: 0.6.2
+Version: 0.6.3
 Summary: A very simple, yet powerful, Django captcha application
 Home-page: https://github.com/mbi/django-simple-captcha
 Author: Marco Bonetti
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Security
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Django
@@ -31,6 +32,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary

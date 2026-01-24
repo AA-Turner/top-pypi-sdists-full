@@ -91,6 +91,9 @@ void MixtureFugacityTP::getGibbs_RT(double* grt) const
 
 void MixtureFugacityTP::getPureGibbs(double* g) const
 {
+    warn_deprecated("MixtureFugacityTP::getPureGibbs",
+        "To be removed after Cantera 3.2. Use getStandardChemPotentials instead.");
+
     scale(m_g0_RT.begin(), m_g0_RT.end(), g, RT());
     double tmp = log(pressure() / refPressure()) * RT();
     for (size_t k = 0; k < m_kk; k++) {
@@ -171,7 +174,6 @@ bool MixtureFugacityTP::addSpecies(shared_ptr<Species> spec)
         m_cp0_R.push_back(0.0);
         m_g0_RT.push_back(0.0);
         m_s0_R.push_back(0.0);
-        m_tmpV.push_back(0.0);
     }
     return added;
 }

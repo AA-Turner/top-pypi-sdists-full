@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: python-docs-theme
-Version: 2025.9.2
+Version: 2025.12
 Summary: The Sphinx theme for the CPython docs and related projects
-Author-email: PyPA <distutils-sig@python.org>
+Author: Python Docs Sphinx Theme maintainers
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-Expression: PSF-2.0
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 License-File: LICENSE
@@ -47,6 +48,13 @@ To use this theme, add the following to `conf.py`:
 - `html_theme = 'python_docs_theme'`
 
 - `html_sidebars`, defaults taken from https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_sidebars
+
+
+## Translation
+
+This theme supports localization. For more information see the [Python Developer's
+Guide](https://devguide.python.org/documentation/translations/translating/#how-do-i-translate-the-python-docs-sphinx-theme).
+
 
 ## Preview
 

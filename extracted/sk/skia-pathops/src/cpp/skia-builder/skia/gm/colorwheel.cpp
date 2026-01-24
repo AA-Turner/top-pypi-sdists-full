@@ -16,11 +16,14 @@
 #include "include/core/SkScalar.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTypes.h"
+#include "tools/DecodeUtils.h"
+#include "tools/GpuToolUtils.h"
 #include "tools/Resources.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 static void draw_image(SkCanvas* canvas, const char* resource, int x, int y) {
-    sk_sp<SkImage> image(GetResourceAsImage(resource));
+    sk_sp<SkImage> image(ToolUtils::GetResourceAsImage(resource));
     if (image) {
         canvas->drawImage(image, SkIntToScalar(x), SkIntToScalar(y));
     } else {
@@ -38,16 +41,19 @@ static void draw_image(SkCanvas* canvas, const char* resource, int x, int y) {
   background (rendered as a checkerboard).  The JPEG image has a grey
   background and compression artifacts.
  */
-DEF_SIMPLE_GM(colorwheel, canvas, 256, 256) {
+DEF_SIMPLE_GM(colorwheel, canvas, 384, 256) {
     ToolUtils::draw_checkerboard(canvas);
     draw_image(canvas, "images/color_wheel.png", 0, 0);  // top left
-    draw_image(canvas, "images/color_wheel.gif", 128, 0);  // top right
+    draw_image(canvas, "images/color_wheel.gif", 128, 0);  // top middle
     draw_image(canvas, "images/color_wheel.webp", 0, 128);  // bottom left
-    draw_image(canvas, "images/color_wheel.jpg", 128, 128);  // bottom right
+    draw_image(canvas, "images/color_wheel.jpg", 128, 128);  // bottom middle
+#if defined(SK_CODEC_DECODES_AVIF)
+    draw_image(canvas, "images/color_wheel.avif", 256, 0);  // top right
+#endif
 }
 
 DEF_SIMPLE_GM(colorwheelnative, canvas, 128, 28) {
-    SkFont font(ToolUtils::create_portable_typeface("sans-serif", SkFontStyle::Bold()), 18);
+    SkFont font(ToolUtils::CreatePortableTypeface("sans-serif", SkFontStyle::Bold()), 18);
     font.setEdging(SkFont::Edging::kAlias);
 
     canvas->clear(SK_ColorLTGRAY);
@@ -68,12 +74,10 @@ DEF_SIMPLE_GM(colorwheel_alphatypes, canvas, 256, 128) {
 
     sk_sp<SkData> imgData = GetResourceAsData("images/color_wheel.png");
 
-    auto pmImg = ToolUtils::MakeTextureImage(canvas,
-                                             SkImage::MakeFromEncoded(imgData,
-                                                                      kPremul_SkAlphaType));
-    auto upmImg = ToolUtils::MakeTextureImage(canvas,
-                                              SkImage::MakeFromEncoded(imgData,
-                                                                       kUnpremul_SkAlphaType));
+    auto pmImg = ToolUtils::MakeTextureImage(
+            canvas, SkImages::DeferredFromEncodedData(imgData, kPremul_SkAlphaType));
+    auto upmImg = ToolUtils::MakeTextureImage(
+            canvas, SkImages::DeferredFromEncodedData(imgData, kUnpremul_SkAlphaType));
 
     SkSamplingOptions linear{SkFilterMode::kLinear};
 

@@ -11,6 +11,7 @@ from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .tool_rejection_plan import ToolRejectionPlan
 from .transfer_cancel_tool_user_editable_messages_item import TransferCancelToolUserEditableMessagesItem
+from .transfer_cancel_tool_user_editable_type import TransferCancelToolUserEditableType
 
 
 class TransferCancelToolUserEditable(UncheckedBaseModel):
@@ -21,7 +22,7 @@ class TransferCancelToolUserEditable(UncheckedBaseModel):
     For some tools, this is auto-filled based on special fields like `tool.destinations`. For others like the function tool, these can be custom configured.
     """
 
-    type: typing.Literal["transferCancel"] = pydantic.Field(default="transferCancel")
+    type: TransferCancelToolUserEditableType = pydantic.Field()
     """
     The type of tool. "transferCancel" for Transfer Cancel tool. This tool can only be used during warm-transfer-experimental by the transfer assistant to cancel an ongoing transfer and return the call back to the original assistant when the transfer cannot be completed.
     """
@@ -37,7 +38,7 @@ class TransferCancelToolUserEditable(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '(?i)\\b(bye|goodbye|farewell|see you later|take care)\\b',
+        regex: '(?i)\\\\b(bye|goodbye|farewell|see you later|take care)\\\\b',
         target: { position: -1, role: 'user' },
         negate: true  // Reject if pattern does NOT match
       }]
@@ -49,7 +50,7 @@ class TransferCancelToolUserEditable(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '\\?',
+        regex: '\\\\?',
         target: { position: -1, role: 'user' }
       }]
     }

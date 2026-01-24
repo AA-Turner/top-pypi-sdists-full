@@ -8,6 +8,8 @@
 # or in the "LICENSE.txt" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 # OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions and
 # limitations under the License.
+# FIXME
+# pylint: disable=invalid-name
 from enum import Enum
 
 PCLUSTER_NAME_MAX_LENGTH = 60
@@ -26,7 +28,6 @@ SCHEDULERS_SUPPORTING_IMDS_SECURED = ["slurm"]
 SUPPORTED_OSES = [
     "alinux2",
     "alinux2023",
-    "ubuntu2004",
     "ubuntu2204",
     "ubuntu2404",
     "rhel8",
@@ -35,9 +36,12 @@ SUPPORTED_OSES = [
     "rocky9",
 ]
 SUPPORTED_OSES_FOR_SCHEDULER = {"slurm": SUPPORTED_OSES, "awsbatch": ["alinux2", "alinux2023"]}
-UNSUPPORTED_OSES_FOR_MICRO_NANO = ["ubuntu2004", "ubuntu2204", "ubuntu2404", "rhel8", "rocky8", "rhel9", "rocky9"]
-UNSUPPORTED_OSES_FOR_DCV = ["alinux2023"]
-UNSUPPORTED_ARM_OSES_FOR_DCV = ["ubuntu2004"]
+UNSUPPORTED_OSES_FOR_MICRO_NANO = ["ubuntu2204", "ubuntu2404", "rhel8", "rocky8", "rhel9", "rocky9"]
+UNSUPPORTED_OSES_FOR_P6E_GB200 = ["rhel8", "rocky8", "alinux2", "rhel9"]
+SUPPORTED_OSES_FOR_P6E_GB200 = list(set(SUPPORTED_OSES) - set(UNSUPPORTED_OSES_FOR_P6E_GB200))
+UNSUPPORTED_OSES_FOR_DCV = []
+UNSUPPORTED_OSES_FOR_NON_GPU_DCV = ["rocky9", "rhel9"]
+UNSUPPORTED_ARM_OSES_FOR_DCV = []
 UNSUPPORTED_OSES_FOR_LUSTRE = []
 DELETE_POLICY = "Delete"
 RETAIN_POLICY = "Retain"
@@ -49,10 +53,26 @@ NVIDIA_OPENRM_UNSUPPORTED_INSTANCE_TYPES = ["p3", "p3dn", "p2", "g3", "g3s", "g2
 SLURM = "slurm"
 AWSBATCH = "awsbatch"
 
+
+#  Capacity Reservation Platform types we support.
+CR_PLATFORM_LINUX_UNIX = "Linux/UNIX"
+CR_PLATFORM_RHEL = "Red Hat Enterprise Linux"
+
+
+CAPACITY_RESERVATION_OS_MAP = {
+    "alinux2": CR_PLATFORM_LINUX_UNIX,
+    "alinux2023": CR_PLATFORM_LINUX_UNIX,
+    "ubuntu2204": CR_PLATFORM_LINUX_UNIX,
+    "ubuntu2404": CR_PLATFORM_LINUX_UNIX,
+    "rhel8": CR_PLATFORM_RHEL,
+    "rocky8": CR_PLATFORM_LINUX_UNIX,
+    "rhel9": CR_PLATFORM_RHEL,
+    "rocky9": CR_PLATFORM_LINUX_UNIX,
+}
+
 OS_MAPPING = {
     "alinux2": {"user": "ec2-user"},
     "alinux2023": {"user": "ec2-user"},
-    "ubuntu2004": {"user": "ubuntu"},
     "ubuntu2204": {"user": "ubuntu"},
     "ubuntu2404": {"user": "ubuntu"},
     "rhel8": {"user": "ec2-user"},
@@ -64,7 +84,6 @@ OS_MAPPING = {
 OS_TO_IMAGE_NAME_PART_MAP = {
     "alinux2": "amzn2-hvm",
     "alinux2023": "amzn2023-hvm",
-    "ubuntu2004": "ubuntu-2004-lts-hvm",
     "ubuntu2204": "ubuntu-2204-lts-hvm",
     "ubuntu2404": "ubuntu-2404-lts-hvm",
     "rhel8": "rhel8-hvm",
@@ -148,10 +167,9 @@ MAX_NEW_STORAGE_COUNT = {"efs": 1, "fsx": 1, "raid": 1}
 MAX_EXISTING_STORAGE_COUNT = {"efs": 20, "fsx": 20, "raid": 0}
 
 COOKBOOK_PACKAGES_VERSIONS = {
-    "parallelcluster": "3.13.2",
-    "cookbook": "aws-parallelcluster-cookbook-3.13.2",
+    "parallelcluster": "3.14.1",
+    "cookbook": "aws-parallelcluster-cookbook-3.14.1",
     "chef": "18.4.12",
-    "berkshelf": "8.0.7",
     "ami": "dev",
 }
 
@@ -322,3 +340,17 @@ IAM_POLICY_REGEX = "^arn:.*:policy/"
 PCLUSTER_BUCKET_PROTECTED_FOLDER = "parallelcluster"
 PCLUSTER_BUCKET_PROTECTED_PREFIX = f"{PCLUSTER_BUCKET_PROTECTED_FOLDER}/"
 PCLUSTER_BUCKET_REQUIRED_BOOTSTRAP_FEATURES = ["basic", "export-logs"]
+
+PCLUSTER_BUILD_IMAGE_CLEANUP_ROLE_PREFIX = "PClusterBuildImageCleanupRole"
+# Tag key & expected revision (increment when policy widens)
+PCLUSTER_BUILD_IMAGE_CLEANUP_ROLE_REVISION = 2
+PCLUSTER_BUILD_IMAGE_CLEANUP_ROLE_BOOTSTRAP_TAG_KEY = "parallelcluster:build-image-cleanup-role-bootstrapped"
+
+P6E_GB200 = "p6e-gb200"
+ULTRASERVER_INSTANCE_PREFIX_LIST = [P6E_GB200]
+# Dictionary mapping ultraserver instance prefixes to their allowed capacity block sizes
+ULTRASERVER_CAPACITY_BLOCK_ALLOWED_SIZE_DICT = {
+    P6E_GB200: [9, 18],  # Allowed sizes for p6e-gb200 ultraserver instances
+}
+# Capacity Block states that are considered inactive (cannot check health status)
+CAPACITY_BLOCK_INACTIVE_STATES = ["scheduled", "payment-pending", "assessing", "delayed"]

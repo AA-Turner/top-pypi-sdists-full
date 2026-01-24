@@ -218,6 +218,12 @@ class BaseLoader(ABC):
             default="",
             help="unit",
         )
+        group.add_argument(
+            "--tooltip-template",
+            dest="tooltip_template",
+            default="",
+            help="format string for tooltip, supports {date}, {value}, {unit}, {type}",
+        )
         # is_cn here
         group.add_argument(
             "--cn",

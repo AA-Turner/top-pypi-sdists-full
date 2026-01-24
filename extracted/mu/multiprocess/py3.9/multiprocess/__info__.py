@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
-# Copyright (c) 2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/multiprocess/blob/master/LICENSE
 '''
@@ -69,9 +69,9 @@ Requirements
 
 ``multiprocess`` requires:
 
-    - ``python`` (or ``pypy``), **>=3.8**
+    - ``python`` (or ``pypy``), **>=3.9**
     - ``setuptools``, **>=42**
-    - ``dill``, **>=0.4.0**
+    - ``dill``, **>=0.4.1**
 
 
 Basic Usage
@@ -176,12 +176,12 @@ http://arxiv.org/pdf/1202.1056 for further information.
 '''
 
 __all__ = []
-__version__ = '0.70.18'
+__version__ = '0.70.19'
 __author__ = 'Mike McKerns'
 
 __license__ = '''
 Copyright (c) 2008-2016 California Institute of Technology.
-Copyright (c) 2016-2025 The Uncertainty Quantification Foundation.
+Copyright (c) 2016-2026 The Uncertainty Quantification Foundation.
 All rights reserved.
 
 This software forks the python package "multiprocessing". Licence and

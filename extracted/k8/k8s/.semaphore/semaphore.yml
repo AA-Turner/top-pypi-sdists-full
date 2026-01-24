@@ -1,0 +1,57 @@
+
+# Copyright 2017-2019 The FIAAS Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version: v1.0
+name: Build k8s library
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu2004
+blocks:
+  - name: Run tests
+    task:
+      secrets:
+        - name: codacy_api_token
+      env_vars:
+        - name: PIP_CACHE_DIR
+          value: .pip_cache
+      prologue:
+        commands:
+          - export PATH="${HOME}/.local/bin":"${PATH}"
+          - checkout
+          - mkdir "${PIP_CACHE_DIR}"
+          - cache restore "setup-${SEMAPHORE_GIT_BRANCH}-$(checksum setup.py)","setup-${SEMAPHORE_GIT_BRANCH}",setup-master
+          - pip install --upgrade pip
+          - pip install --user tox
+      jobs:
+        - name: Tests
+          commands:
+            - tox
+          matrix:
+            - env_var: TOXENV
+              values: ["py39", "py310", "py311", "py312"]
+        - name: Gather coverage data
+          commands:
+            - CODACY_PROJECT_TOKEN=$CODACY_K8S_API_TOKEN tox -e coverage
+      epilogue:
+        commands:
+          - cache store "setup-${SEMAPHORE_GIT_BRANCH}-$(checksum setup.py)" "${PIP_CACHE_DIR}"
+promotions:
+  - name: Make release
+    pipeline_file: make-release.yml
+    auto_promote_on:
+      - result: passed
+        branch:
+          - ^refs/tags/v\d+\.\d+\.\d+$

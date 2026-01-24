@@ -1,16 +1,24 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
+import asyncio
 import time
-from typing import TYPE_CHECKING, Any, Literal
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Generator,
+    Literal,
+    cast,
+    overload,
+)
 
 from cachetools import TTLCache, cached
 
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import (
     MemberMetaNames,
@@ -47,7 +55,6 @@ class Spaces(WMLResource):
 
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
-        self._client = client
 
     def _get_resources(
         self, url: str, op_name: str, params: dict | None = None
@@ -59,8 +66,8 @@ class Spaces(WMLResource):
                 raise WMLClientError("Limit cannot be larger than 1000.")
 
         if params is not None and len(params) > 0:
-            response_get = requests.get(
-                url, headers=self._client._get_headers(), params=params
+            response_get = self._client.httpx_client.get(
+                url=url, headers=self._client._get_headers(), params=params
             )
 
             return self._handle_response(200, op_name, response_get)
@@ -68,7 +75,9 @@ class Spaces(WMLResource):
             resources = []
 
             while True:
-                response_get = requests.get(url, headers=self._client._get_headers())
+                response_get = self._client.httpx_client.get(
+                    url=url, headers=self._client._get_headers()
+                )
 
                 result = self._handle_response(200, op_name, response_get)
                 resources.extend(result["resources"])
@@ -87,8 +96,8 @@ class Spaces(WMLResource):
         :raises WMLClientError: raised when connection is unauthorized
         """
         href = self._client._href_definitions.get_platform_spaces_href()
-        response_get = self._client._session.get(
-            href, headers=self._client._get_headers(), params={"limit": 1}
+        response_get = self._client.httpx_client.get(
+            url=href, headers=self._client._get_headers(), params={"limit": 1}
         )
         if response_get.status_code == 401:
             raise WMLClientError(
@@ -123,58 +132,34 @@ class Spaces(WMLResource):
             metadata = {
                 client.spaces.ConfigurationMetaNames.NAME: "my_space",
                 client.spaces.ConfigurationMetaNames.DESCRIPTION: "spaces",
-                client.spaces.ConfigurationMetaNames.STORAGE: {"resource_crn": "provide crn of the COS storage"},
-                client.spaces.ConfigurationMetaNames.COMPUTE: {"name": "test_instance",
-                                                               "crn": "provide crn of the instance"},
-                client.spaces.ConfigurationMetaNames.STAGE: {"production": True,
-                                                             "name": "stage_name"},
-                client.spaces.ConfigurationMetaNames.TAGS: ["sample_tag_1", "sample_tag_2"],
+                client.spaces.ConfigurationMetaNames.STORAGE: {
+                    "resource_crn": "provide crn of the COS storage"
+                },
+                client.spaces.ConfigurationMetaNames.COMPUTE: {
+                    "name": "test_instance",
+                    "crn": "provide crn of the instance",
+                },
+                client.spaces.ConfigurationMetaNames.STAGE: {
+                    "production": True,
+                    "name": "stage_name",
+                },
+                client.spaces.ConfigurationMetaNames.TAGS: [
+                    "sample_tag_1",
+                    "sample_tag_2",
+                ],
                 client.spaces.ConfigurationMetaNames.TYPE: "cpd",
             }
             spaces_details = client.spaces.store(meta_props=metadata)
         """
         # quick support for COS credentials instead of local path
         # TODO add error handling and cleaning (remove the file)
-        Spaces._validate_type(meta_props, "meta_props", dict, True)
+        self._validate_store_meta_props(meta_props)
+        payload = self._prepare_store_payload(meta_props)
 
-        if (
-            "compute" in meta_props or "storage" in meta_props
-        ) and self._client.ICP_PLATFORM_SPACES:
-            raise WMLClientError(
-                "'STORAGE' and 'COMPUTE' meta props are not applicable on "
-                "IBM Cloud Pak® for Data. If using any of these, remove and retry"
-            )
-
-        if "storage" not in meta_props and self._client.CLOUD_PLATFORM_SPACES:
-            raise WMLClientError("'STORAGE' is mandatory for cloud")
-
-        if "compute" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
-            if (
-                "name" not in meta_props["compute"]
-                or "crn" not in meta_props["compute"]
-            ):
-                raise WMLClientError("'name' and 'crn' is mandatory for 'COMPUTE'")
-
-            if "type" not in meta_props["compute"]:
-                meta_props["compute"]["type"] = "machine_learning"
-
-        if "stage" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
-            if not isinstance(meta_props["stage"]["production"], bool):
-                raise WMLClientError("'production' for 'STAGE' must be boolean")
-
-        space_meta = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props, with_validation=True, client=self._client
-        )
-
-        if "compute" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
-            payload_compute = []
-            payload_compute.append(space_meta["compute"])
-            space_meta["compute"] = payload_compute
-
-        creation_response = requests.post(
-            self._client._href_definitions.get_platform_spaces_href(),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_platform_spaces_href(),
             headers=self._client._get_headers(),
-            json=space_meta,
+            json=payload,
         )
 
         spaces_details = self._handle_response(
@@ -202,39 +187,187 @@ class Spaces(WMLResource):
             )
             return spaces_details
 
+        # note: monitor space status
+        space_id = self.get_id(spaces_details)
+        print_text_header_h1(
+            "Synchronous space creation with id: '{}' started".format(space_id)
+        )
+
+        status = spaces_details["entity"]["status"].get("state")
+
+        with StatusLogger(status) as status_logger:
+            while status not in {
+                "failed",
+                "error",
+                "completed",
+                "canceled",
+                "active",
+            }:
+                time.sleep(10)
+                spaces_details = self.get_details(space_id)
+                status = spaces_details["entity"]["status"].get("state")
+                status_logger.log_state(status)
+        # --- end note
+
+        if "active" in status:
+            print_text_header_h2(
+                "\nCreating space  '{}' finished successfully.".format(space_id)
+            )
         else:
-            # note: monitor space status
-            space_id = self.get_id(spaces_details)
-            print_text_header_h1(
-                "Synchronous space creation with id: '{}' started".format(space_id)
+            raise WMLClientError(
+                f"Space {space_id} creation failed with status: {spaces_details['entity']['status']}"
             )
 
-            status = spaces_details["entity"]["status"].get("state")
+        return spaces_details
 
-            with StatusLogger(status) as status_logger:
-                while status not in [
-                    "failed",
-                    "error",
-                    "completed",
-                    "canceled",
-                    "active",
-                ]:
-                    time.sleep(10)
-                    spaces_details = self.get_details(space_id)
-                    status = spaces_details["entity"]["status"].get("state")
-                    status_logger.log_state(status)
-            # --- end note
+    async def astore(self, meta_props: dict, background_mode: bool = True) -> dict:
+        """Create a space asynchronously. The instance associated with the space via COMPUTE will be used for billing purposes on
+        the cloud. Note that STORAGE and COMPUTE are applicable only for cloud.
 
-            if "active" in status:
-                print_text_header_h2(
-                    "\nCreating space  '{}' finished successfully.".format(space_id)
-                )
-            else:
-                raise WMLClientError(
-                    f"Space {space_id} creation failed with status: {spaces_details['entity']['status']}"
-                )
+        :param meta_props: metadata of the space configuration. To see available meta names, use:
 
+            .. code-block:: python
+
+                client.spaces.ConfigurationMetaNames.get()
+
+        :type meta_props: dict
+
+        :param background_mode: indicator if astore() method will run in background (async) or (sync)
+        :type background_mode: bool, optional
+
+        :return: metadata of the stored space
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            metadata = {
+                client.spaces.ConfigurationMetaNames.NAME: "my_space",
+                client.spaces.ConfigurationMetaNames.DESCRIPTION: "spaces",
+                client.spaces.ConfigurationMetaNames.STORAGE: {
+                    "resource_crn": "provide crn of the COS storage"
+                },
+                client.spaces.ConfigurationMetaNames.COMPUTE: {
+                    "name": "test_instance",
+                    "crn": "provide crn of the instance",
+                },
+                client.spaces.ConfigurationMetaNames.STAGE: {
+                    "production": True,
+                    "name": "stage_name",
+                },
+                client.spaces.ConfigurationMetaNames.TAGS: [
+                    "sample_tag_1",
+                    "sample_tag_2",
+                ],
+                client.spaces.ConfigurationMetaNames.TYPE: "cpd",
+            }
+            spaces_details = await client.spaces.astore(meta_props=metadata)
+        """
+        self._validate_store_meta_props(meta_props)
+        payload = self._prepare_store_payload(meta_props)
+
+        creation_response = await self._client.async_httpx_client.post(
+            url=self._client._href_definitions.get_platform_spaces_href(),
+            headers=await self._client._aget_headers(),
+            json=payload,
+        )
+
+        spaces_details = self._handle_response(
+            202, "creating new spaces", creation_response, _silent_response_logging=True
+        )
+
+        # Cloud Convergence: Set self._client.credentials.instance_id to instance_id
+        # during client.set.default_space since that's where space is associated with client
+        # and also in client.set.default_project
+
+        if (
+            "compute" in spaces_details["entity"].keys()
+            and self._client.CLOUD_PLATFORM_SPACES
+        ):
+            instance_id = spaces_details["entity"]["compute"][0]["guid"]
+            self._client.service_instance = ServiceInstance(self._client)
+            self._client.service_instance._instance_id = instance_id
+
+        if background_mode:
+            print(
+                "Space has been created. However some background setup activities might still be on-going. "
+                "Check for 'status' field in the response. It has to show 'active' before space can be used. "
+                "If it's not 'active', you can monitor the state with a call to spaces.aget_details(space_id). "
+                "Alternatively, use background_mode=False when calling client.spaces.astore()."
+            )
             return spaces_details
+
+        # note: monitor space status
+        space_id = self.get_id(spaces_details)
+        print_text_header_h1(
+            "Synchronous space creation with id: '{}' started".format(space_id)
+        )
+
+        status = spaces_details["entity"]["status"].get("state")
+
+        with StatusLogger(status) as status_logger:
+            while status not in {
+                "failed",
+                "error",
+                "completed",
+                "canceled",
+                "active",
+            }:
+                await asyncio.sleep(10)
+                spaces_details = await self.aget_details(space_id)
+                status = spaces_details["entity"]["status"].get("state")
+                status_logger.log_state(status)
+        # --- end note
+
+        if "active" in status:
+            print_text_header_h2(
+                "\nCreating space  '{}' finished successfully.".format(space_id)
+            )
+        else:
+            raise WMLClientError(
+                f"Space {space_id} creation failed with status: {spaces_details['entity']['status']}"
+            )
+
+        return spaces_details
+
+    def _validate_store_meta_props(self, meta_props: dict) -> None:
+        Spaces._validate_type(meta_props, "meta_props", dict, True)
+
+        if (
+            any(prop in meta_props for prop in {"compute", "storage"})
+            and self._client.ICP_PLATFORM_SPACES
+        ):
+            raise WMLClientError(
+                "'STORAGE' and 'COMPUTE' meta props are not applicable on "
+                "IBM Cloud Pak® for Data. If using any of these, remove and retry"
+            )
+
+        if "storage" not in meta_props and self._client.CLOUD_PLATFORM_SPACES:
+            raise WMLClientError("'STORAGE' is mandatory for cloud")
+
+        if "compute" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
+            if any(prop not in meta_props["compute"] for prop in {"name", "crn"}):
+                raise WMLClientError("'name' and 'crn' is mandatory for 'COMPUTE'")
+
+            if "type" not in meta_props["compute"]:
+                meta_props["compute"]["type"] = "machine_learning"
+
+        if "stage" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
+            if not isinstance(meta_props["stage"]["production"], bool):
+                raise WMLClientError("'production' for 'STAGE' must be boolean")
+
+    def _prepare_store_payload(self, meta_props: dict) -> dict[str, Any]:
+        space_meta = self.ConfigurationMetaNames._generate_resource_metadata(
+            meta_props, with_validation=True, client=self._client
+        )
+
+        if "compute" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
+            payload_compute = []
+            payload_compute.append(space_meta["compute"])
+            space_meta["compute"] = payload_compute
+
+        return space_meta
 
     @staticmethod
     def get_id(space_details: dict) -> str:
@@ -257,7 +390,7 @@ class Spaces(WMLResource):
         Spaces._validate_type(space_details, "space_details", object, True)
 
         return WMLResource._get_required_element_from_dict(
-            space_details, "space_details", ["metadata", "id"]
+            space_details, "space_details", ["metadata", "id"], str
         )
 
     def get_id_by_name(self, space_name: str) -> str:
@@ -319,6 +452,8 @@ class Spaces(WMLResource):
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
 
+        :raises WMLClientError: if deletion failed
+
         **Example:**
 
         .. code-block:: python
@@ -331,35 +466,104 @@ class Spaces(WMLResource):
             space_id
         )
 
-        response_delete = requests.delete(
-            space_endpoint, headers=self._client._get_headers()
+        response_delete = self._client.httpx_client.delete(
+            url=space_endpoint, headers=self._client._get_headers()
         )
 
-        response = self._handle_response(202, "space deletion", response_delete, False)
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(202, "space deletion", response_delete, False),
+        )
 
-        print("DELETED")
+    async def adelete(self, space_id: str) -> Literal["SUCCESS"]:
+        """Delete a stored space asynchronously.
 
-        return response
+        :param space_id: ID of the space
+        :type space_id: str
+
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
+
+        **Example:**
+
+        .. code-block:: python
+
+            await client.spaces.adelete(space_id)
+        """
+        Spaces._validate_type(space_id, "space_id", str, True)
+
+        space_endpoint = self._client._href_definitions.get_platform_space_href(
+            space_id
+        )
+
+        response_delete = await self._client.async_httpx_client.delete(
+            url=space_endpoint, headers=await self._client._aget_headers()
+        )
+
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(202, "space deletion", response_delete, False),
+        )
+
+    @overload
+    def get_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        *,
+        asynchronous: Literal[True],
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> Generator: ...
+
+    @overload
+    def get_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: Literal[False] = False,
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    def get_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | Generator: ...
 
     def get_details(
         self,
         space_id: str | None = None,
         limit: int | None = None,
-        asynchronous: bool | None = False,
-        get_all: bool | None = False,
+        asynchronous: bool = False,
+        get_all: bool = False,
         space_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any] | Generator:
         """Get metadata of stored space(s). The method uses TTL cache.
 
         :param space_id: ID of the space
         :type space_id: str, optional
+
         :param limit: applicable when `space_id` is not provided, otherwise `limit` will be ignored
         :type limit: int, optional
+
         :param asynchronous: if `True`, it will work as a generator
         :type asynchronous: bool, optional
+
         :param get_all:  if `True`, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
+
         :param space_name: name of the stored space, can be used only when `space_id` is None
         :type space_name: str, optional
 
@@ -377,21 +581,24 @@ class Spaces(WMLResource):
             space_details = client.spaces.get_details(limit=100)
             space_details = client.spaces.get_details(limit=100, get_all=True)
             space_details = []
-            for entry in client.spaces.get_details(limit=100, asynchronous=True, get_all=True):
+            for entry in client.spaces.get_details(
+                limit=100, asynchronous=True, get_all=True
+            ):
                 space_details.extend(entry)
 
         """
 
         Spaces._validate_type(space_id, "space_id", str, False)
 
-        href = self._client._href_definitions.get_platform_space_href(space_id)
         query_params = {}
         if include := kwargs.get("include"):
             query_params["include"] = include
 
         if space_id is not None:
-            response_get = requests.get(
-                href, headers=self._client._get_headers(), params=query_params
+            response_get = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_platform_space_href(space_id),
+                headers=self._client._get_headers(),
+                params=query_params,
             )
 
             return self._handle_response(
@@ -399,9 +606,125 @@ class Spaces(WMLResource):
             )
 
         if space_name:
-            query_params.update({"name": space_name})
+            query_params["name"] = space_name
 
         return self._get_with_or_without_limit(
+            self._client._href_definitions.get_platform_spaces_href(),
+            limit,
+            "spaces",
+            summary=False,
+            pre_defined=False,
+            skip_space_project_chk=True,
+            query_params=query_params,
+            _async=asynchronous,
+            _all=get_all,
+            _silent_response_logging=True,
+        )
+
+    @overload
+    async def aget_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        *,
+        asynchronous: Literal[True],
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator: ...
+
+    @overload
+    async def aget_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: Literal[False] = False,
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    async def aget_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | AsyncGenerator: ...
+
+    async def aget_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | AsyncGenerator:
+        """Get metadata of stored space(s) asynchronously. The method uses TTL cache.
+
+        :param space_id: ID of the space
+        :type space_id: str, optional
+
+        :param limit: applicable when `space_id` is not provided, otherwise `limit` will be ignored
+        :type limit: int, optional
+
+        :param asynchronous: if `True`, it will work as a generator
+        :type asynchronous: bool, optional
+
+        :param get_all:  if `True`, it will get all entries in 'limited' chunks
+        :type get_all: bool, optional
+
+        :param space_name: name of the stored space, can be used only when `space_id` is None
+        :type space_name: str, optional
+
+        :return: metadata of stored space(s)
+        :rtype:
+            - **dict** - if space_id is not None
+            - **{"resources": [dict]}** - if space_id is None
+
+        **Example:**
+
+        .. code-block:: python
+
+            space_details = await client.spaces.aget_details(space_id)
+            space_details = await client.spaces.aget_details(space_name)
+            space_details = await client.spaces.aget_details(limit=100)
+            space_details = await client.spaces.aget_details(
+                limit=100, get_all=True
+            )
+            space_details = []
+            for entry in await client.spaces.aget_details(
+                limit=100, asynchronous=True, get_all=True
+            ):
+                space_details.extend(entry)
+
+        """
+
+        Spaces._validate_type(space_id, "space_id", str, False)
+
+        query_params = {}
+        if include := kwargs.get("include"):
+            query_params["include"] = include
+
+        if space_id is not None:
+            response_get = await self._client.async_httpx_client.get(
+                url=self._client._href_definitions.get_platform_space_href(space_id),
+                headers=await self._client._aget_headers(),
+                params=query_params,
+            )
+
+            return self._handle_response(
+                200, "Get space", response_get, _silent_response_logging=True
+            )
+
+        if space_name:
+            query_params["name"] = space_name
+
+        return await self._aget_with_or_without_limit(
             self._client._href_definitions.get_platform_spaces_href(),
             limit,
             "spaces",
@@ -419,11 +742,11 @@ class Spaces(WMLResource):
         self,
         space_id: str | None = None,
         limit: int | None = None,
-        asynchronous: bool | None = False,
-        get_all: bool | None = False,
+        asynchronous: bool = False,
+        get_all: bool = False,
         space_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any] | Generator:
         """Get metadata of stored space(s) with caching. It's dedicated for internal usage."""
         return self.get_details(
             space_id=space_id,
@@ -445,13 +768,16 @@ class Spaces(WMLResource):
 
         :param limit: limit number of fetched records
         :type limit: int, optional
+
         :param member: filters the result list, only includes spaces where the user with a matching user ID
             is a member
         :type member: str, optional
+
         :param roles: a list of comma-separated space roles to use to filter the query results,
             must be used in conjunction with the "member" query parameter,
             available values : `admin`, `editor`, `viewer`
         :type roles: str, optional
+
         :param space_type: filter spaces by their type, available types are 'wx', 'cpd', and 'wca'
         :type space_type: str, optional
 
@@ -516,6 +842,7 @@ class Spaces(WMLResource):
 
         :param space_id: ID of the space with the definition to be updated
         :type space_id: str
+
         :param changes: elements to be changed, where keys are ConfigurationMetaNames
         :type changes: dict
 
@@ -527,16 +854,18 @@ class Spaces(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.spaces.ConfigurationMetaNames.NAME:"updated_space",
-                client.spaces.ConfigurationMetaNames.COMPUTE: {"name": "test_instance",
-                                                               "crn": "v1:staging:public:pm-20-dev:us-south:a/09796a1b4cddfcc9f7fe17824a68a0f8:f1026e4b-77cf-4703-843d-c9984eac7272::"
-                }
+                client.spaces.ConfigurationMetaNames.NAME: "updated_space",
+                client.spaces.ConfigurationMetaNames.COMPUTE: {
+                    "name": "test_instance",
+                    "crn": "v1:staging:public:pm-20-dev:us-south:a/09796a1b4cddfcc9f7fe17824a68a0f8:f1026e4b-77cf-4703-843d-c9984eac7272::",
+                },
             }
             space_details = client.spaces.update(space_id, changes=metadata)
         """
         if (
-            "compute" in changes or "storage" in changes
-        ) and self._client.ICP_PLATFORM_SPACES:
+            any(prop in changes for prop in {"compute", "storage"})
+            and self._client.ICP_PLATFORM_SPACES
+        ):
             raise WMLClientError(
                 "'STORAGE' and 'COMPUTE' meta props are not applicable on"
                 "IBM Cloud Pak® for Data. If using any of these, remove and retry"
@@ -563,8 +892,83 @@ class Spaces(WMLResource):
 
         href = self._client._href_definitions.get_platform_space_href(space_id)
 
-        response = requests.patch(
-            href, json=patch_payload, headers=self._client._get_headers()
+        response = self._client.httpx_client.patch(
+            url=href, json=patch_payload, headers=self._client._get_headers()
+        )
+
+        updated_details = self._handle_response(
+            200, "spaces patch", response, _silent_response_logging=True
+        )
+
+        # Cloud Convergence
+        if (
+            "compute" in updated_details["entity"].keys()
+            and self._client.CLOUD_PLATFORM_SPACES
+        ):
+            instance_id = updated_details["entity"]["compute"][0]["guid"]
+            self._client.service_instance = ServiceInstance(self._client)
+            self._client.service_instance._instance_id = instance_id
+
+        return updated_details
+
+    async def aupdate(self, space_id: str, changes: dict) -> dict:
+        """Update existing space metadata asynchronously. 'STORAGE' cannot be updated.
+        STORAGE and COMPUTE are applicable only for cloud.
+
+        :param space_id: ID of the space with the definition to be updated
+        :type space_id: str
+
+        :param changes: elements to be changed, where keys are ConfigurationMetaNames
+        :type changes: dict
+
+        :return: metadata of the updated space
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            metadata = {
+                client.spaces.ConfigurationMetaNames.NAME: "updated_space",
+                client.spaces.ConfigurationMetaNames.COMPUTE: {
+                    "name": "test_instance",
+                    "crn": "v1:staging:public:pm-20-dev:us-south:a/09796a1b4cddfcc9f7fe17824a68a0f8:f1026e4b-77cf-4703-843d-c9984eac7272::",
+                },
+            }
+            space_details = await client.spaces.aupdate(space_id, changes=metadata)
+        """
+        if (
+            any(prop in changes for prop in {"compute", "storage"})
+            and self._client.ICP_PLATFORM_SPACES
+        ):
+            raise WMLClientError(
+                "'STORAGE' and 'COMPUTE' meta props are not applicable on"
+                "IBM Cloud Pak® for Data. If using any of these, remove and retry"
+            )
+
+        if "storage" in changes:
+            raise WMLClientError("STORAGE cannot be updated")
+
+        self._validate_type(space_id, "space_id", str, True)
+        self._validate_type(changes, "changes", dict, True)
+
+        details = await self.aget_details(space_id)
+
+        if "compute" in changes and self._client.CLOUD_PLATFORM_SPACES:
+            changes["compute"]["type"] = "machine_learning"
+
+            payload_compute = []
+            payload_compute.append(changes["compute"])
+            changes["compute"] = payload_compute
+
+        patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
+            details["entity"], changes
+        )
+
+        href = self._client._href_definitions.get_platform_space_href(space_id)
+
+        response = await self._client.async_httpx_client.patch(
+            url=href, json=patch_payload, headers=await self._client._aget_headers()
         )
 
         updated_details = self._handle_response(
@@ -589,6 +993,7 @@ class Spaces(WMLResource):
 
         :param space_id: ID of the space with the definition to be updated
         :type space_id: str
+
         :param meta_props: metadata of the member configuration. To see available meta names, use:
 
             .. code-block:: python
@@ -610,20 +1015,28 @@ class Spaces(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.spaces.MemberMetaNames.MEMBERS: [{"id":"IBMid-100000DK0B",
-                                                         "type": "user",
-                                                         "role": "admin" }]
+                client.spaces.MemberMetaNames.MEMBERS: [
+                    {"id": "IBMid-100000DK0B", "type": "user", "role": "admin"}
+                ]
             }
-            members_details = client.spaces.create_member(space_id=space_id, meta_props=metadata)
+            members_details = client.spaces.create_member(
+                space_id=space_id, meta_props=metadata
+            )
 
         .. code-block:: python
 
             metadata = {
-                client.spaces.MemberMetaNames.MEMBERS: [{"id":"iam-ServiceId-5a216e59-6592-43b9-8669-625d341aca71",
-                                                         "type": "service",
-                                                         "role": "admin" }]
+                client.spaces.MemberMetaNames.MEMBERS: [
+                    {
+                        "id": "iam-ServiceId-5a216e59-6592-43b9-8669-625d341aca71",
+                        "type": "service",
+                        "role": "admin",
+                    }
+                ]
             }
-            members_details = client.spaces.create_member(space_id=space_id, meta_props=metadata)
+            members_details = client.spaces.create_member(
+                space_id=space_id, meta_props=metadata
+            )
         """
         self._validate_type(space_id, "space_id", str, True)
 
@@ -643,9 +1056,93 @@ class Spaces(WMLResource):
             meta, with_validation=True, client=self._client
         )
 
-        creation_response = requests.post(
-            self._client._href_definitions.get_platform_spaces_members_href(space_id),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_platform_spaces_members_href(
+                space_id
+            ),
             headers=self._client._get_headers(),
+            json=space_meta,
+        )
+
+        members_details = self._handle_response(
+            200, "creating new members", creation_response
+        )
+
+        return members_details
+
+    async def acreate_member(self, space_id: str, meta_props: dict) -> dict:
+        """Create a member within a space asynchronously.
+
+        :param space_id: ID of the space with the definition to be updated
+        :type space_id: str
+
+        :param meta_props: metadata of the member configuration. To see available meta names, use:
+
+            .. code-block:: python
+
+                client.spaces.MemberMetaNames.get()
+
+        :type meta_props: dict
+
+        :return: metadata of the stored member
+        :rtype: dict
+
+        .. note::
+            * `role` can be any one of the following: "viewer", "editor", "admin"
+            * `type` can be any one of the following: "user", "service"
+            * `id` can be one of the following: service-ID or IAM-userID
+
+        **Examples**
+
+        .. code-block:: python
+
+            metadata = {
+                client.spaces.MemberMetaNames.MEMBERS: [
+                    {"id": "IBMid-100000DK0B", "type": "user", "role": "admin"}
+                ]
+            }
+            members_details = await client.spaces.acreate_member(
+                space_id=space_id, meta_props=metadata
+            )
+
+        .. code-block:: python
+
+            metadata = {
+                client.spaces.MemberMetaNames.MEMBERS: [
+                    {
+                        "id": "iam-ServiceId-5a216e59-6592-43b9-8669-625d341aca71",
+                        "type": "service",
+                        "role": "admin",
+                    }
+                ]
+            }
+            members_details = await client.spaces.acreate_member(
+                space_id=space_id, meta_props=metadata
+            )
+        """
+        self._validate_type(space_id, "space_id", str, True)
+
+        Spaces._validate_type(meta_props, "meta_props", dict, True)
+
+        meta = {}
+
+        if "members" in meta_props:
+            meta = meta_props
+        elif "member" in meta_props:
+            dictionary = meta_props["member"]
+            payload = []
+            payload.append(dictionary)
+            meta["members"] = payload
+
+        space_meta = self.MemberMetaNames._generate_resource_metadata(
+            meta, with_validation=True, client=self._client
+        )
+
+        creation_response = await self._client.async_httpx_client.post(
+            url=self._client._href_definitions.get_platform_spaces_members_href(
+                space_id
+            ),
+            headers=await self._client._aget_headers(),
             json=space_meta,
         )
 
@@ -660,6 +1157,7 @@ class Spaces(WMLResource):
 
         :param space_id: ID of that space with the definition to be updated
         :type space_id: str
+
         :param member_id: ID of the member
         :type member_id: str
 
@@ -670,36 +1168,73 @@ class Spaces(WMLResource):
 
         .. code-block:: python
 
-            member_details = client.spaces.get_member_details(space_id,member_id)
+            member_details = client.spaces.get_member_details(space_id, member_id)
         """
         Spaces._validate_type(space_id, "space_id", str, True)
-
         Spaces._validate_type(member_id, "member_id", str, True)
 
         href = self._client._href_definitions.get_platform_spaces_member_href(
             space_id, member_id
         )
 
-        response_get = requests.get(href, headers=self._client._get_headers())
+        response_get = self._client.httpx_client.get(
+            url=href, headers=self._client._get_headers()
+        )
 
         return self._handle_response(200, "Get space member", response_get)
 
-    def delete_member(self, space_id: str, member_id: str) -> str:
-        """Delete a member associated with a space.
+    async def aget_member_details(self, space_id: str, member_id: str) -> dict:
+        """Get metadata of a member associated with a space asynchronously.
 
-        :param space_id: ID of the space
+        :param space_id: ID of that space with the definition to be updated
         :type space_id: str
+
         :param member_id: ID of the member
         :type member_id: str
 
-        :return: status ("SUCCESS" or "FAILED")
-        :rtype: str
+        :return: metadata of the space member
+        :rtype: dict
 
         **Example:**
 
         .. code-block:: python
 
-            client.spaces.delete_member(space_id,member_id)
+            member_details = await client.spaces.aget_member_details(
+                space_id, member_id
+            )
+        """
+        Spaces._validate_type(space_id, "space_id", str, True)
+        Spaces._validate_type(member_id, "member_id", str, True)
+
+        href = self._client._href_definitions.get_platform_spaces_member_href(
+            space_id, member_id
+        )
+
+        response_get = await self._client.async_httpx_client.get(
+            url=href, headers=await self._client._aget_headers()
+        )
+
+        return self._handle_response(200, "Get space member", response_get)
+
+    def delete_member(self, space_id: str, member_id: str) -> Literal["SUCCESS"]:
+        """Delete a member associated with a space.
+
+        :param space_id: ID of the space
+        :type space_id: str
+
+        :param member_id: ID of the member
+        :type member_id: str
+
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
+
+        **Example:**
+
+        .. code-block:: python
+
+            client.spaces.delete_member(space_id, member_id)
         """
         Spaces._validate_type(space_id, "space_id", str, True)
         Spaces._validate_type(member_id, "member_id", str, True)
@@ -710,14 +1245,51 @@ class Spaces(WMLResource):
             )
         )
 
-        response_delete = requests.delete(
-            member_endpoint, headers=self._client._get_headers()
+        response_delete = self._client.httpx_client.delete(
+            url=member_endpoint, headers=self._client._get_headers()
         )
 
-        print("DELETED")
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(204, "space member deletion", response_delete, False),
+        )
 
-        return self._handle_response(
-            204, "space member deletion", response_delete, False
+    async def adelete_member(self, space_id: str, member_id: str) -> Literal["SUCCESS"]:
+        """Delete a member associated with a space asynchronously.
+
+        :param space_id: ID of the space
+        :type space_id: str
+
+        :param member_id: ID of the member
+        :type member_id: str
+
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
+
+        **Example:**
+
+        .. code-block:: python
+
+            await client.spaces.adelete_member(space_id, member_id)
+        """
+        Spaces._validate_type(space_id, "space_id", str, True)
+        Spaces._validate_type(member_id, "member_id", str, True)
+
+        member_endpoint = (
+            self._client._href_definitions.get_platform_spaces_member_href(
+                space_id, member_id
+            )
+        )
+
+        response_delete = await self._client.async_httpx_client.delete(
+            url=member_endpoint, headers=await self._client._aget_headers()
+        )
+
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(204, "space member deletion", response_delete, False),
         )
 
     def update_member(self, space_id: str, member_id: str, changes: dict) -> dict:
@@ -725,8 +1297,10 @@ class Spaces(WMLResource):
 
         :param space_id: ID of the space
         :type space_id: str
+
         :param member_id: ID of the member to be updated
         :type member_id: str
+
         :param changes: elements to be changed, where keys are ConfigurationMetaNames
         :type changes: dict
 
@@ -737,14 +1311,13 @@ class Spaces(WMLResource):
 
         .. code-block:: python
 
-            metadata = {
-                client.spaces.MemberMetaNames.MEMBER: {"role": "editor"}
-            }
-            member_details = client.spaces.update_member(space_id, member_id, changes=metadata)
+            metadata = {client.spaces.MemberMetaNames.MEMBER: {"role": "editor"}}
+            member_details = client.spaces.update_member(
+                space_id, member_id, changes=metadata
+            )
         """
         self._validate_type(space_id, "space_id", str, True)
         self._validate_type(member_id, "member_id", str, True)
-
         self._validate_type(changes, "changes", dict, True)
 
         details = self.get_member_details(space_id, member_id)
@@ -781,8 +1354,80 @@ class Spaces(WMLResource):
             space_id, member_id
         )
 
-        response = requests.patch(
-            href, json=patch_payload, headers=self._client._get_headers()
+        response = self._client.httpx_client.patch(
+            url=href, json=patch_payload, headers=self._client._get_headers()
+        )
+
+        updated_details = self._handle_response(200, "members patch", response)
+
+        return updated_details
+
+    async def aupdate_member(
+        self, space_id: str, member_id: str, changes: dict
+    ) -> dict:
+        """Update the metadata of an existing member asynchronously.
+
+        :param space_id: ID of the space
+        :type space_id: str
+
+        :param member_id: ID of the member to be updated
+        :type member_id: str
+
+        :param changes: elements to be changed, where keys are ConfigurationMetaNames
+        :type changes: dict
+
+        :return: metadata of the updated member
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            metadata = {client.spaces.MemberMetaNames.MEMBER: {"role": "editor"}}
+            member_details = await client.spaces.aupdate_member(
+                space_id, member_id, changes=metadata
+            )
+        """
+        self._validate_type(space_id, "space_id", str, True)
+        self._validate_type(member_id, "member_id", str, True)
+        self._validate_type(changes, "changes", dict, True)
+
+        details = await self.aget_member_details(space_id, member_id)
+
+        # The member record is a bit different than most other type of records we deal w.r.t patch
+        # There is no encapsulating object for the fields. We need to be consistent with the way we
+        # provide the meta in create/patch. When we give with .MEMBER, _generate_patch_payload
+        # will generate with /member patch. So, separate logic for member patch inline here
+        changes1 = changes["member"]
+
+        # Union of two dictionaries. The one in changes1 will override existent ones in current meta
+        details.update(changes1)
+
+        role_str = {}
+        state_str = {}
+
+        if "role" in details:
+            role_str["op"] = "replace"
+            role_str["path"] = "/role"
+            role_str["value"] = details["role"]
+        if "state" in details:
+            state_str["op"] = "replace"
+            state_str["path"] = "/state"
+            state_str["value"] = details["state"]
+
+        patch_payload = []
+
+        if role_str:
+            patch_payload.append(role_str)
+        if state_str:
+            patch_payload.append(state_str)
+
+        href = self._client._href_definitions.get_platform_spaces_member_href(
+            space_id, member_id
+        )
+
+        response = await self._client.async_httpx_client.patch(
+            url=href, json=patch_payload, headers=await self._client._aget_headers()
         )
 
         updated_details = self._handle_response(200, "members patch", response)
@@ -801,12 +1446,16 @@ class Spaces(WMLResource):
 
         :param space_id: ID of the space
         :type space_id: str
+
         :param limit: limit number of fetched records
         :type limit: int, optional
+
         :param identity_type: filter the members by type
         :type identity_type: str, optional
+
         :param role: filter the members by role
         :type role: str, optional
+
         :param state: filter the members by state
         :type state: str, optional
 
@@ -881,11 +1530,25 @@ class Spaces(WMLResource):
 
         .. code-block:: python
 
-            promoted_asset_id = client.spaces.promote(asset_id, source_project_id=project_id, target_space_id=space_id)
-            promoted_model_id = client.spaces.promote(model_id, source_project_id=project_id, target_space_id=space_id)
-            promoted_function_id = client.spaces.promote(function_id, source_project_id=project_id, target_space_id=space_id)
-            promoted_data_asset_id = client.spaces.promote(data_asset_id, source_project_id=project_id, target_space_id=space_id)
-            promoted_connection_asset_id = client.spaces.promote(connection_id, source_project_id=project_id, target_space_id=space_id)
+            promoted_asset_id = client.spaces.promote(
+                asset_id, source_project_id=project_id, target_space_id=space_id
+            )
+            promoted_model_id = client.spaces.promote(
+                model_id, source_project_id=project_id, target_space_id=space_id
+            )
+            promoted_function_id = client.spaces.promote(
+                function_id, source_project_id=project_id, target_space_id=space_id
+            )
+            promoted_data_asset_id = client.spaces.promote(
+                data_asset_id,
+                source_project_id=project_id,
+                target_space_id=space_id,
+            )
+            promoted_connection_asset_id = client.spaces.promote(
+                connection_id,
+                source_project_id=project_id,
+                target_space_id=space_id,
+            )
         """
         promote_payload = {
             "spaceId": target_space_id,
@@ -897,8 +1560,8 @@ class Spaces(WMLResource):
             promote_payload["revisionId"] = rev_id
 
         promote_href = self._client._href_definitions.promote_asset_href(asset_id)
-        response = requests.post(
-            promote_href, headers=self._client._get_headers(), json=promote_payload
+        response = self._client.httpx_client.post(
+            url=promote_href, headers=self._client._get_headers(), json=promote_payload
         )
         promotion_details = self._client.repository._handle_response(
             200, "promote asset", response
@@ -908,7 +1571,89 @@ class Spaces(WMLResource):
             promoted_asset_id = promotion_details["promotedAsset"]["asset_id"]
         except KeyError as key_err:
             raise PromotionFailed(
-                source_project_id, target_space_id, promotion_details, reason=key_err
+                source_project_id,
+                target_space_id,
+                promotion_details,
+                reason=str(key_err),
+            )
+
+        return promoted_asset_id
+
+    async def apromote(
+        self,
+        asset_id: str,
+        source_project_id: str,
+        target_space_id: str,
+        rev_id: str | None = None,
+    ) -> str:
+        """Promote an asset from a project to a space asynchronously.
+
+        :param asset_id: ID of the stored asset
+        :type asset_id: str
+
+        :param source_project_id: source project, from which the asset is promoted
+        :type source_project_id: str
+
+        :param target_space_id: target space, where the asset is promoted
+        :type target_space_id: str
+
+        :param rev_id: revision ID of the promoted asset
+        :type rev_id: str, optional
+
+        :return: ID of the promoted asset
+        :rtype: str
+
+        **Examples**
+
+        .. code-block:: python
+
+            promoted_asset_id = await client.spaces.apromote(
+                asset_id, source_project_id=project_id, target_space_id=space_id
+            )
+            promoted_model_id = await client.spaces.apromote(
+                model_id, source_project_id=project_id, target_space_id=space_id
+            )
+            promoted_function_id = await client.spaces.apromote(
+                function_id, source_project_id=project_id, target_space_id=space_id
+            )
+            promoted_data_asset_id = await client.spaces.apromote(
+                data_asset_id,
+                source_project_id=project_id,
+                target_space_id=space_id,
+            )
+            promoted_connection_asset_id = await client.spaces.apromote(
+                connection_id,
+                source_project_id=project_id,
+                target_space_id=space_id,
+            )
+        """
+        promote_payload = {
+            "spaceId": target_space_id,
+            "projectId": source_project_id,
+            "assetDescription": "Asset promoted by ibm_wml client",
+        }
+
+        if rev_id:
+            promote_payload["revisionId"] = rev_id
+
+        promote_href = self._client._href_definitions.promote_asset_href(asset_id)
+        response = await self._client.async_httpx_client.post(
+            url=promote_href,
+            headers=await self._client._aget_headers(),
+            json=promote_payload,
+        )
+        promotion_details = self._client.repository._handle_response(
+            200, "promote asset", response
+        )
+
+        try:
+            promoted_asset_id = promotion_details["promotedAsset"]["asset_id"]
+        except KeyError as key_err:
+            raise PromotionFailed(
+                source_project_id,
+                target_space_id,
+                promotion_details,
+                reason=str(key_err),
             )
 
         return promoted_asset_id

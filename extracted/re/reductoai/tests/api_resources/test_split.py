@@ -22,7 +22,7 @@ class TestSplit:
     @parametrize
     def test_method_run(self, client: Reducto) -> None:
         split = client.split.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -36,7 +36,7 @@ class TestSplit:
     @parametrize
     def test_method_run_with_all_params(self, client: Reducto) -> None:
         split = client.split.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -44,78 +44,57 @@ class TestSplit:
                     "partition_key": "partition_key",
                 }
             ],
-            advanced_options={
-                "add_page_markers": True,
-                "continue_hierarchy": True,
-                "document_password": "document_password",
-                "enable_change_tracking": True,
-                "enable_highlight_detection": True,
-                "exclude_hidden_rows_cols": True,
-                "exclude_hidden_sheets": True,
-                "filter_line_numbers": True,
-                "force_file_extension": "force_file_extension",
-                "include_color_information": True,
-                "include_formula_information": True,
-                "keep_line_breaks": True,
-                "large_table_chunking": {
-                    "enabled": True,
-                    "size": 0,
+            parsing={
+                "enhance": {
+                    "agentic": [
+                        {
+                            "scope": "table",
+                            "prompt": "prompt",
+                        }
+                    ],
+                    "summarize_figures": True,
                 },
-                "merge_tables": True,
-                "ocr_system": "highres",
-                "page_range": {
-                    "end": 0,
-                    "start": 0,
+                "formatting": {
+                    "add_page_markers": True,
+                    "include": ["change_tracking"],
+                    "merge_tables": True,
+                    "table_output_format": "html",
                 },
-                "persist_results": True,
-                "read_comments": True,
-                "remove_text_formatting": True,
-                "return_ocr_data": True,
-                "spreadsheet_table_clustering": "default",
-                "table_output_format": "html",
-            },
-            experimental_options={
-                "danger_filter_wide_boxes": True,
-                "detect_signatures": True,
-                "embed_text_metadata_pdf": True,
-                "enable_checkboxes": True,
-                "enable_equations": True,
-                "enable_scripts": True,
-                "enrich": {
-                    "enabled": True,
-                    "mode": "standard",
-                    "prompt": "prompt",
+                "retrieval": {
+                    "chunking": {
+                        "chunk_mode": "variable",
+                        "chunk_size": 0,
+                    },
+                    "embedding_optimized": True,
+                    "filter_blocks": ["Header"],
                 },
-                "layout_model": "default",
-                "native_office_conversion": True,
-                "numerical_parse_confidence": True,
-                "return_figure_images": True,
-                "return_table_images": True,
-                "rotate_figures": True,
-                "rotate_pages": True,
-                "user_specified_timeout_seconds": 0,
-            },
-            options={
-                "chunking": {
-                    "chunk_mode": "variable",
-                    "chunk_size": 0,
+                "settings": {
+                    "document_password": "document_password",
+                    "embed_pdf_metadata": True,
+                    "extraction_mode": "ocr",
+                    "force_file_extension": "force_file_extension",
+                    "force_url_result": True,
+                    "ocr_system": "standard",
+                    "page_range": {
+                        "end": 0,
+                        "start": 0,
+                    },
+                    "persist_results": True,
+                    "return_images": ["figure"],
+                    "return_ocr_data": True,
+                    "timeout": 0,
                 },
-                "extraction_mode": "ocr",
-                "figure_summary": {
-                    "enabled": True,
-                    "override": True,
-                    "prompt": "prompt",
-                },
-                "filter_blocks": ["Header"],
-                "force_url_result": True,
-                "ocr_mode": "standard",
-                "table_summary": {
-                    "enabled": True,
-                    "prompt": "prompt",
+                "spreadsheet": {
+                    "clustering": "accurate",
+                    "exclude": ["hidden_sheets"],
+                    "include": ["cell_colors"],
+                    "split_large_tables": {
+                        "enabled": True,
+                        "size": 0,
+                    },
                 },
             },
-            priority=True,
-            split_options={"table_cutoff": "truncate"},
+            settings={"table_cutoff": "truncate"},
             split_rules="split_rules",
         )
         assert_matches_type(SplitResponse, split, path=["response"])
@@ -124,7 +103,7 @@ class TestSplit:
     @parametrize
     def test_raw_response_run(self, client: Reducto) -> None:
         response = client.split.with_raw_response.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -142,7 +121,7 @@ class TestSplit:
     @parametrize
     def test_streaming_response_run(self, client: Reducto) -> None:
         with client.split.with_streaming_response.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -162,7 +141,7 @@ class TestSplit:
     @parametrize
     def test_method_run_job(self, client: Reducto) -> None:
         split = client.split.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -176,7 +155,7 @@ class TestSplit:
     @parametrize
     def test_method_run_job_with_all_params(self, client: Reducto) -> None:
         split = client.split.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -184,85 +163,66 @@ class TestSplit:
                     "partition_key": "partition_key",
                 }
             ],
-            advanced_options={
-                "add_page_markers": True,
-                "continue_hierarchy": True,
-                "document_password": "document_password",
-                "enable_change_tracking": True,
-                "enable_highlight_detection": True,
-                "exclude_hidden_rows_cols": True,
-                "exclude_hidden_sheets": True,
-                "filter_line_numbers": True,
-                "force_file_extension": "force_file_extension",
-                "include_color_information": True,
-                "include_formula_information": True,
-                "keep_line_breaks": True,
-                "large_table_chunking": {
-                    "enabled": True,
-                    "size": 0,
-                },
-                "merge_tables": True,
-                "ocr_system": "highres",
-                "page_range": {
-                    "end": 0,
-                    "start": 0,
-                },
-                "persist_results": True,
-                "read_comments": True,
-                "remove_text_formatting": True,
-                "return_ocr_data": True,
-                "spreadsheet_table_clustering": "default",
-                "table_output_format": "html",
-            },
-            experimental_options={
-                "danger_filter_wide_boxes": True,
-                "detect_signatures": True,
-                "embed_text_metadata_pdf": True,
-                "enable_checkboxes": True,
-                "enable_equations": True,
-                "enable_scripts": True,
-                "enrich": {
-                    "enabled": True,
-                    "mode": "standard",
-                    "prompt": "prompt",
-                },
-                "layout_model": "default",
-                "native_office_conversion": True,
-                "numerical_parse_confidence": True,
-                "return_figure_images": True,
-                "return_table_images": True,
-                "rotate_figures": True,
-                "rotate_pages": True,
-                "user_specified_timeout_seconds": 0,
-            },
-            options={
-                "chunking": {
-                    "chunk_mode": "variable",
-                    "chunk_size": 0,
-                },
-                "extraction_mode": "ocr",
-                "figure_summary": {
-                    "enabled": True,
-                    "override": True,
-                    "prompt": "prompt",
-                },
-                "filter_blocks": ["Header"],
-                "force_url_result": True,
-                "ocr_mode": "standard",
-                "table_summary": {
-                    "enabled": True,
-                    "prompt": "prompt",
-                },
-            },
-            priority=True,
-            split_options={"table_cutoff": "truncate"},
-            split_rules="split_rules",
-            webhook={
-                "channels": ["string"],
+            async_={
                 "metadata": {},
-                "mode": "disabled",
-                "url": "url",
+                "priority": True,
+                "webhook": {
+                    "channels": ["string"],
+                    "mode": "svix",
+                },
             },
+            parsing={
+                "enhance": {
+                    "agentic": [
+                        {
+                            "scope": "table",
+                            "prompt": "prompt",
+                        }
+                    ],
+                    "summarize_figures": True,
+                },
+                "formatting": {
+                    "add_page_markers": True,
+                    "include": ["change_tracking"],
+                    "merge_tables": True,
+                    "table_output_format": "html",
+                },
+                "retrieval": {
+                    "chunking": {
+                        "chunk_mode": "variable",
+                        "chunk_size": 0,
+                    },
+                    "embedding_optimized": True,
+                    "filter_blocks": ["Header"],
+                },
+                "settings": {
+                    "document_password": "document_password",
+                    "embed_pdf_metadata": True,
+                    "extraction_mode": "ocr",
+                    "force_file_extension": "force_file_extension",
+                    "force_url_result": True,
+                    "ocr_system": "standard",
+                    "page_range": {
+                        "end": 0,
+                        "start": 0,
+                    },
+                    "persist_results": True,
+                    "return_images": ["figure"],
+                    "return_ocr_data": True,
+                    "timeout": 0,
+                },
+                "spreadsheet": {
+                    "clustering": "accurate",
+                    "exclude": ["hidden_sheets"],
+                    "include": ["cell_colors"],
+                    "split_large_tables": {
+                        "enabled": True,
+                        "size": 0,
+                    },
+                },
+            },
+            settings={"table_cutoff": "truncate"},
+            split_rules="split_rules",
         )
         assert_matches_type(SplitRunJobResponse, split, path=["response"])
 
@@ -270,7 +230,7 @@ class TestSplit:
     @parametrize
     def test_raw_response_run_job(self, client: Reducto) -> None:
         response = client.split.with_raw_response.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -288,7 +248,7 @@ class TestSplit:
     @parametrize
     def test_streaming_response_run_job(self, client: Reducto) -> None:
         with client.split.with_streaming_response.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -314,7 +274,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_method_run(self, async_client: AsyncReducto) -> None:
         split = await async_client.split.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -328,7 +288,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_method_run_with_all_params(self, async_client: AsyncReducto) -> None:
         split = await async_client.split.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -336,78 +296,57 @@ class TestAsyncSplit:
                     "partition_key": "partition_key",
                 }
             ],
-            advanced_options={
-                "add_page_markers": True,
-                "continue_hierarchy": True,
-                "document_password": "document_password",
-                "enable_change_tracking": True,
-                "enable_highlight_detection": True,
-                "exclude_hidden_rows_cols": True,
-                "exclude_hidden_sheets": True,
-                "filter_line_numbers": True,
-                "force_file_extension": "force_file_extension",
-                "include_color_information": True,
-                "include_formula_information": True,
-                "keep_line_breaks": True,
-                "large_table_chunking": {
-                    "enabled": True,
-                    "size": 0,
+            parsing={
+                "enhance": {
+                    "agentic": [
+                        {
+                            "scope": "table",
+                            "prompt": "prompt",
+                        }
+                    ],
+                    "summarize_figures": True,
                 },
-                "merge_tables": True,
-                "ocr_system": "highres",
-                "page_range": {
-                    "end": 0,
-                    "start": 0,
+                "formatting": {
+                    "add_page_markers": True,
+                    "include": ["change_tracking"],
+                    "merge_tables": True,
+                    "table_output_format": "html",
                 },
-                "persist_results": True,
-                "read_comments": True,
-                "remove_text_formatting": True,
-                "return_ocr_data": True,
-                "spreadsheet_table_clustering": "default",
-                "table_output_format": "html",
-            },
-            experimental_options={
-                "danger_filter_wide_boxes": True,
-                "detect_signatures": True,
-                "embed_text_metadata_pdf": True,
-                "enable_checkboxes": True,
-                "enable_equations": True,
-                "enable_scripts": True,
-                "enrich": {
-                    "enabled": True,
-                    "mode": "standard",
-                    "prompt": "prompt",
+                "retrieval": {
+                    "chunking": {
+                        "chunk_mode": "variable",
+                        "chunk_size": 0,
+                    },
+                    "embedding_optimized": True,
+                    "filter_blocks": ["Header"],
                 },
-                "layout_model": "default",
-                "native_office_conversion": True,
-                "numerical_parse_confidence": True,
-                "return_figure_images": True,
-                "return_table_images": True,
-                "rotate_figures": True,
-                "rotate_pages": True,
-                "user_specified_timeout_seconds": 0,
-            },
-            options={
-                "chunking": {
-                    "chunk_mode": "variable",
-                    "chunk_size": 0,
+                "settings": {
+                    "document_password": "document_password",
+                    "embed_pdf_metadata": True,
+                    "extraction_mode": "ocr",
+                    "force_file_extension": "force_file_extension",
+                    "force_url_result": True,
+                    "ocr_system": "standard",
+                    "page_range": {
+                        "end": 0,
+                        "start": 0,
+                    },
+                    "persist_results": True,
+                    "return_images": ["figure"],
+                    "return_ocr_data": True,
+                    "timeout": 0,
                 },
-                "extraction_mode": "ocr",
-                "figure_summary": {
-                    "enabled": True,
-                    "override": True,
-                    "prompt": "prompt",
-                },
-                "filter_blocks": ["Header"],
-                "force_url_result": True,
-                "ocr_mode": "standard",
-                "table_summary": {
-                    "enabled": True,
-                    "prompt": "prompt",
+                "spreadsheet": {
+                    "clustering": "accurate",
+                    "exclude": ["hidden_sheets"],
+                    "include": ["cell_colors"],
+                    "split_large_tables": {
+                        "enabled": True,
+                        "size": 0,
+                    },
                 },
             },
-            priority=True,
-            split_options={"table_cutoff": "truncate"},
+            settings={"table_cutoff": "truncate"},
             split_rules="split_rules",
         )
         assert_matches_type(SplitResponse, split, path=["response"])
@@ -416,7 +355,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_raw_response_run(self, async_client: AsyncReducto) -> None:
         response = await async_client.split.with_raw_response.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -434,7 +373,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_streaming_response_run(self, async_client: AsyncReducto) -> None:
         async with async_client.split.with_streaming_response.run(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -454,7 +393,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_method_run_job(self, async_client: AsyncReducto) -> None:
         split = await async_client.split.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -468,7 +407,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_method_run_job_with_all_params(self, async_client: AsyncReducto) -> None:
         split = await async_client.split.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -476,85 +415,66 @@ class TestAsyncSplit:
                     "partition_key": "partition_key",
                 }
             ],
-            advanced_options={
-                "add_page_markers": True,
-                "continue_hierarchy": True,
-                "document_password": "document_password",
-                "enable_change_tracking": True,
-                "enable_highlight_detection": True,
-                "exclude_hidden_rows_cols": True,
-                "exclude_hidden_sheets": True,
-                "filter_line_numbers": True,
-                "force_file_extension": "force_file_extension",
-                "include_color_information": True,
-                "include_formula_information": True,
-                "keep_line_breaks": True,
-                "large_table_chunking": {
-                    "enabled": True,
-                    "size": 0,
-                },
-                "merge_tables": True,
-                "ocr_system": "highres",
-                "page_range": {
-                    "end": 0,
-                    "start": 0,
-                },
-                "persist_results": True,
-                "read_comments": True,
-                "remove_text_formatting": True,
-                "return_ocr_data": True,
-                "spreadsheet_table_clustering": "default",
-                "table_output_format": "html",
-            },
-            experimental_options={
-                "danger_filter_wide_boxes": True,
-                "detect_signatures": True,
-                "embed_text_metadata_pdf": True,
-                "enable_checkboxes": True,
-                "enable_equations": True,
-                "enable_scripts": True,
-                "enrich": {
-                    "enabled": True,
-                    "mode": "standard",
-                    "prompt": "prompt",
-                },
-                "layout_model": "default",
-                "native_office_conversion": True,
-                "numerical_parse_confidence": True,
-                "return_figure_images": True,
-                "return_table_images": True,
-                "rotate_figures": True,
-                "rotate_pages": True,
-                "user_specified_timeout_seconds": 0,
-            },
-            options={
-                "chunking": {
-                    "chunk_mode": "variable",
-                    "chunk_size": 0,
-                },
-                "extraction_mode": "ocr",
-                "figure_summary": {
-                    "enabled": True,
-                    "override": True,
-                    "prompt": "prompt",
-                },
-                "filter_blocks": ["Header"],
-                "force_url_result": True,
-                "ocr_mode": "standard",
-                "table_summary": {
-                    "enabled": True,
-                    "prompt": "prompt",
-                },
-            },
-            priority=True,
-            split_options={"table_cutoff": "truncate"},
-            split_rules="split_rules",
-            webhook={
-                "channels": ["string"],
+            async_={
                 "metadata": {},
-                "mode": "disabled",
-                "url": "url",
+                "priority": True,
+                "webhook": {
+                    "channels": ["string"],
+                    "mode": "svix",
+                },
             },
+            parsing={
+                "enhance": {
+                    "agentic": [
+                        {
+                            "scope": "table",
+                            "prompt": "prompt",
+                        }
+                    ],
+                    "summarize_figures": True,
+                },
+                "formatting": {
+                    "add_page_markers": True,
+                    "include": ["change_tracking"],
+                    "merge_tables": True,
+                    "table_output_format": "html",
+                },
+                "retrieval": {
+                    "chunking": {
+                        "chunk_mode": "variable",
+                        "chunk_size": 0,
+                    },
+                    "embedding_optimized": True,
+                    "filter_blocks": ["Header"],
+                },
+                "settings": {
+                    "document_password": "document_password",
+                    "embed_pdf_metadata": True,
+                    "extraction_mode": "ocr",
+                    "force_file_extension": "force_file_extension",
+                    "force_url_result": True,
+                    "ocr_system": "standard",
+                    "page_range": {
+                        "end": 0,
+                        "start": 0,
+                    },
+                    "persist_results": True,
+                    "return_images": ["figure"],
+                    "return_ocr_data": True,
+                    "timeout": 0,
+                },
+                "spreadsheet": {
+                    "clustering": "accurate",
+                    "exclude": ["hidden_sheets"],
+                    "include": ["cell_colors"],
+                    "split_large_tables": {
+                        "enabled": True,
+                        "size": 0,
+                    },
+                },
+            },
+            settings={"table_cutoff": "truncate"},
+            split_rules="split_rules",
         )
         assert_matches_type(SplitRunJobResponse, split, path=["response"])
 
@@ -562,7 +482,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_raw_response_run_job(self, async_client: AsyncReducto) -> None:
         response = await async_client.split.with_raw_response.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",
@@ -580,7 +500,7 @@ class TestAsyncSplit:
     @parametrize
     async def test_streaming_response_run_job(self, async_client: AsyncReducto) -> None:
         async with async_client.split.with_streaming_response.run_job(
-            document_url="string",
+            input="string",
             split_description=[
                 {
                     "description": "description",

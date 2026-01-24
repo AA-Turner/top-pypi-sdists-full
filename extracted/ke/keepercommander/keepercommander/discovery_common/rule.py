@@ -1,10 +1,10 @@
 from __future__ import annotations
-from .constants import DIS_RULES_GRAPH_ID
 from .types import (RuleTypeEnum, RuleItem, ActionRuleSet, ActionRuleItem, ScheduleRuleSet, ComplexityRuleSet,
                     Statement, RuleActionEnum)
 from .utils import value_to_boolean, get_connection, make_agent
 from ..keeper_dag import DAG, EdgeType
 from ..keeper_dag.exceptions import DAGException
+from ..keeper_dag.types import PamGraphId
 from time import time
 import base64
 import os
@@ -57,6 +57,9 @@ class Rules:
         "domainName": {"type": str},
         "directoryId": {"type": str},
         "directoryType": {"type": str},
+
+        # Progmatically added
+        "ip": {"type": str},
     }
 
     BREAK_OUT = {
@@ -66,6 +69,7 @@ class Rules:
         }
     }
 
+    # If creating an ignore role, these fields are used in the rule.
     RECORD_FIELD = {
         "pamMachine": ["pamHostname"],
         "pamDatabase": ["pamHostname", "databaseType"],
@@ -99,13 +103,19 @@ class Rules:
 
             # Turn auto_save on after the DAG has been created.
             # No need to call it six times in a row to initialize it.
-            self._dag = DAG(conn=self.conn, record=self.record, graph_id=DIS_RULES_GRAPH_ID, auto_save=False,
-                            logger=self.logger, debug_level=self.debug_level, fail_on_corrupt=self.fail_on_corrupt,
+            self._dag = DAG(conn=self.conn,
+                            record=self.record,
+                            # endpoint=PamEndpoints.DISCOVERY_RULES,
+                            graph_id=PamGraphId.DISCOVERY_RULES,
+                            auto_save=False,
+                            logger=self.logger,
+                            debug_level=self.debug_level,
+                            fail_on_corrupt=self.fail_on_corrupt,
                             agent=self.agent)
             self._dag.load()
 
             # Has the status been initialized?
-            if self._dag.has_graph is False:
+            if not self._dag.has_graph:
                 for rule_type_enum in Rules.RULE_TYPE_TO_SET_MAP:
                     rules = self._dag.add_vertex()
                     rules.belongs_to_root(
@@ -121,6 +131,38 @@ class Rules:
             # The graph exists now, turn on the auto_save.
             self._dag.auto_save = True
         return self._dag
+
+    def close(self):
+        """
+        Clean up resources held by this Rules instance.
+        Releases the DAG instance and connection to prevent memory leaks.
+        """
+
+        try:
+            if hasattr(self, "_dag"):
+                self.conn = None
+                del self._dag
+            if hasattr(self, "conn"):
+                self.conn = None
+                del self.conn
+            if hasattr(self, "record"):
+                self.conn = None
+                del self.conn
+        except (Exception,):
+            pass
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures cleanup."""
+        self.close()
+        return False
+
+    def __del__(self):
+        self.close()
+
 
     @staticmethod
     def data_path(rule_type: RuleTypeEnum):
@@ -210,6 +252,23 @@ class Rules:
             func=_remove_rule
         )
 
+    def remove_all(self, rule_type: RuleTypeEnum):
+
+        def _remove_all_rules(r: Any, rs: List[RuleItem]):
+            return []
+
+        # _rule_transaction determines the graph vertex from Rule class type
+        fake_rule = None
+        if rule_type == RuleTypeEnum.ACTION:
+            fake_rule = ActionRuleItem(statement=[])
+        else:
+            raise ValueError("rule type not supported with remove_all")
+
+        self._rule_transaction(
+            rule=fake_rule,
+            func=_remove_all_rules
+        )
+
     def rule_list(self, rule_type: RuleTypeEnum, search: Optional[str] = None) -> List[RuleItem]:
         rule_list = []
         for rule_item in self.get_ruleset(rule_type).rules:
@@ -244,7 +303,7 @@ class Rules:
         for field_label in record_fields:
             if field_label in Rules.OBJ_ATTR:
                 attr = Rules.OBJ_ATTR[field_label]
-                if hasattr(content, attr) is False:
+                if not hasattr(content, attr):
                     raise Exception(f"Discovery object is missing attribute {attr}")
                 value = getattr(content, attr)
                 statements.append(
@@ -275,7 +334,7 @@ class Rules:
                         )
 
         return ActionRuleItem(
-            enabeld=True,
+            enabled=True,
             priority=priority,
             case_sensitive=case_sensitive,
             statement=statements,
@@ -293,18 +352,32 @@ class Rules:
             field_type = Rules.RULE_FIELDS.get(item.field).get("type")
             if field_type is None:
                 raise ValueError("Unknown field in rule")
-            if field_type is str:
-                statement_str += f"'{item.value}'"
-            elif field_type is bool:
-                if value_to_boolean(item.value) is True:
-                    statement_str += "true"
+
+            values = item.value
+            new_values = []
+            if item.operator != "in":
+                values = [values]
+
+            for value in values:
+                if field_type is str:
+                    new_value = f"'{value}'"
+                elif field_type is bool:
+                    if value_to_boolean(value) is True:
+                        new_value = "true"
+                    else:
+                        new_value = "false"
+                elif field_type is float:
+                    if int(value) == value:
+                        new_value = str(int(value))
+                    else:
+                        new_value = str(value)
                 else:
-                    statement_str += "false"
-            elif field_type is float:
-                if int(item.value) == item.value:
-                    statement_str += str(int(item.value))
-                else:
-                    statement_str += str(item.value)
+                    raise ValueError("Cannot determine the field type for rule statement.")
+
+                new_values.append(new_value)
+
+            if item.operator == "in":
+                statement_str += "[" + ", ".join(new_values) + "]"
             else:
-                raise ValueError("Cannot determine the field type for rule statement.")
+                statement_str += new_values[0]
         return statement_str

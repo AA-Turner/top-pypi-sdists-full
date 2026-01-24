@@ -23,6 +23,7 @@ from spyder.plugins.updatemanager.widgets.update import (
     CHECKING,
     DOWNLOAD_FINISHED,
     DOWNLOADING_INSTALLER,
+    UPDATING_UPDATER,
     INSTALL_ON_CLOSE,
     NO_STATUS,
     PENDING
@@ -37,22 +38,16 @@ logger = logging.getLogger(__name__)
 class UpdateManagerStatus(StatusBarWidget):
     """Status bar widget for update manager."""
     ID = 'update_manager_status'
+    INTERACT_ON_CLICK = True
 
     sig_check_update = Signal()
     """Signal to request checking for updates."""
 
     sig_start_update = Signal()
-    """Signal to start the update process"""
+    """Signal to start the update process."""
 
-    sig_show_progress_dialog = Signal(bool)
-    """
-    Signal to show the progress dialog.
-
-    Parameters
-    ----------
-    show: bool
-        True to show, False to hide.
-    """
+    sig_show_progress_dialog = Signal()
+    """Signal to show the progress dialog."""
 
     CUSTOM_WIDGET_CLASS = QLabel
 
@@ -88,6 +83,10 @@ class UpdateManagerStatus(StatusBarWidget):
             self.tooltip = value
             self.custom_widget.hide()
             self.show()
+        elif value == UPDATING_UPDATER:
+            self.tooltip = value
+            self.custom_widget.hide()
+            self.show()
         else:
             self.tooltip = ""
             if self.custom_widget:
@@ -107,7 +106,7 @@ class UpdateManagerStatus(StatusBarWidget):
         return self.tooltip
 
     def get_icon(self):
-        return ima.icon('spyder_about')
+        return ima.icon('update')
 
     def set_download_progress(self, percent_progress):
         """Set download progress in status bar"""
@@ -116,7 +115,7 @@ class UpdateManagerStatus(StatusBarWidget):
     @Slot()
     def show_dialog_or_menu(self):
         """Show download dialog or status bar menu."""
-        if self.value == DOWNLOADING_INSTALLER:
-            self.sig_show_progress_dialog.emit(True)
+        if self.value in (DOWNLOADING_INSTALLER, UPDATING_UPDATER):
+            self.sig_show_progress_dialog.emit()
         elif self.value in (PENDING, DOWNLOAD_FINISHED, INSTALL_ON_CLOSE):
             self.sig_start_update.emit()

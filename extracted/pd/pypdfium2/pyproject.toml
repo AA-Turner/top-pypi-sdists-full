@@ -1,4 +1,5 @@
-# SPDX-FileCopyrightText: 2024 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
+# SPDX-FileContributor: 2025 wojiushixiaobai <296015668@qq.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 [build-system]
@@ -6,6 +7,149 @@ build-backend = "setuptools.build_meta"
 requires = [
     "setuptools",
     "packaging",
+    # XXX dependence on wheel is historical, with setuptools >= v70.1.0 this is not needed anymore
     "wheel !=0.38.0, !=0.38.1",
-    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@ebd495b1733b60132151154d6358fd1eb336a36a",
+    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@b561360fad763b4a64e2d8ef8f7ddf354670dbb7",
 ]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+test-command = [
+    "python -m pypdfium2 --version",
+    "python {project}/conda/raw/minitest.py",
+]
+
+[[tool.cibuildwheel.overrides]]
+# run actual test suite on platforms that have pillow and numpy prebuilds on PyPI
+select = "*-manylinux_{x86_64,aarch64} *-macosx_{x86_64,arm64} *-win_amd64"
+test-requires = ["pytest", "pillow", "numpy"]
+inherit.test-command = "append"
+test-command = [
+    "python -m pytest {project}/tests",
+]
+
+# NOTE For most targets, dependency libs are now vendored, so the install blocks below may be shortened in the future.
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_*"
+before-all = [
+    "dnf clean all && dnf makecache --refresh",
+    "dnf -y install ninja-build freetype-devel lcms2-devel libjpeg-devel openjpeg2-devel libpng-devel libtiff-devel zlib-devel glib2-devel",
+    "sh -c 'dnf -y install gn || true'",  # not manylinux_{i686,riscv64,loongarch64}
+]
+
+# manylinux_armv7l uses a Ubuntu-based image, for lack of an RHEL-based one
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_armv7l"
+before-all = [
+    "apt-get update",
+    "apt-get install -y generate-ninja ninja-build libfreetype-dev liblcms2-dev libjpeg-dev libopenjp2-7-dev libpng-dev zlib1g-dev libicu-dev libtiff-dev libglib2.0-dev",
+]
+manylinux-armv7l-image = "ghcr.io/mayeut/manylinux_2_35:2025.11.03-1"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux_*"
+inherit.before-all = "append"
+before-all = [
+    "apk add gn ninja-build freetype-dev lcms2-dev jpeg-dev openjpeg-dev libpng-dev tiff-dev zlib-dev glib-dev",
+]
+
+# For i686, no GN prebuilds seem to be available at the usual places.
+# Emulation is reasonably fast for this target, so let's try to bootstrap it.
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_i686"
+inherit.before-all = "append"
+before-all = [
+    "python3 {project}/utils/bootstrap_gn.py /usr/local/bin",
+]
+
+# NOTE: gcc is not actually used for ppc64le,riscv64,loongarch64 anymore (see the clang block below)
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_{aarch64,loongarch64}"
+inherit.before-all = "append"
+before-all = ["export GCC_ROOT=/opt/rh/gcc-toolset-14/root"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_riscv64 *-musllinux_{aarch64,armv7l,riscv64,loongarch64}"
+inherit.before-all = "append"
+before-all = ["export GCC_ROOT=/usr"]
+
+[[tool.cibuildwheel.overrides]]
+# this select must be a union of the above two selects
+select = "*-*linux_{aarch64,riscv64,loongarch64} *-musllinux_armv7l"
+inherit.before-all = "append"
+before-all = [
+    "export PREFIX=$(python {package}/utils/get_gcc_prefix.py)",
+    "ln -s $GCC_ROOT/bin/gcc $GCC_ROOT/bin/$PREFIX-gcc",
+    "ln -s $GCC_ROOT/bin/g++ $GCC_ROOT/bin/$PREFIX-g++",
+    "ln -s $GCC_ROOT/bin/nm $GCC_ROOT/bin/$PREFIX-nm",
+    "ln -s $GCC_ROOT/bin/readelf $GCC_ROOT/bin/$PREFIX-readelf",
+    "ln -s $GCC_ROOT/bin/ar $GCC_ROOT/bin/$PREFIX-ar",
+    "unset PREFIX GCC_ROOT",
+]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_loongarch64"
+inherit.before-all = "append"
+before-all = [
+    "curl -L 'https://github.com/loong64/gn/releases/download/2024.12/gn-linux-loong64.tar.gz' | tar xz -C /usr/local/bin",
+]
+
+# We're in luck, Google actually serves GN binaries for riscv64
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_riscv64"
+inherit.before-all = "append"
+before-all = [
+    "export GN_ARCHIVE='./gn-linux-riscv64.zip'",
+    "curl -L -o '$GN_ARCHIVE' 'https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-riscv64/+/latest'",
+    "unzip -j '$GN_ARCHIVE' gn -d /usr/local/bin",
+    "unlink '$GN_ARCHIVE'",
+]
+
+[tool.cibuildwheel.linux.environment]
+PDFIUM_PLATFORM = "sourcebuild-native"
+BUILD_PARAMS = "--vendor all --no-vendor libc++"
+
+[[tool.cibuildwheel.overrides]]
+# s390x (manylinux and musllinux) is broken with clang-cross, perpetually freezes during test phase.
+# It works when built using emulated gcc, however.
+select = "*-*linux_{ppc64le,riscv64,loongarch64}"
+environment-pass = ["RUNNER_ARCH"]
+inherit.before-all = "prepend"
+before-all = [
+    "bash ./utils/install-static-clang.sh",
+    "export CLANG_PREFIX=/opt/clang",
+    "ln -s $CLANG_PREFIX/bin/readelf $CLANG_PREFIX/bin/llvm-readelf",
+]
+inherit.environment = "append"
+environment.BUILD_PARAMS = "--compiler clang --clang-path /opt/clang --no-libclang-rt --vendor all --no-vendor libc++"
+
+[[tool.cibuildwheel.overrides]]
+# Vendoring all dependencies is too costly with an emulated compiler, so vendor only ICU for smaller wheel size.
+select = "*-*linux_s390x"
+inherit.environment = "append"
+environment.BUILD_PARAMS = "--vendor icu --compat"
+
+[tool.cibuildwheel.macos.environment]
+PDFIUM_PLATFORM = "sourcebuild-toolchained"
+# The deployment target is actually defined in the build script's GN config
+# But need to set it again here for auditwheel
+MACOSX_DEPLOYMENT_TARGET = "11.0.0"
+# Make sure the OS yields its real version
+SYSTEM_VERSION_COMPAT = 0
+
+[tool.cibuildwheel.windows.environment]
+PDFIUM_PLATFORM = "sourcebuild-toolchained"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-win_arm64"
+inherit.environment = "append"
+environment.BUILD_PARAMS = "--target-cpu arm64"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-win32"
+inherit.environment = "append"
+environment.BUILD_PARAMS = "--target-cpu x86"
+
+# TODO android

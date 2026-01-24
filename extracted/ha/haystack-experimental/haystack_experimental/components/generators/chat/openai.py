@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import replace
-from typing import Any, Optional, Union
+from typing import Any
 
 from haystack import component
 from haystack.components.generators.chat.openai import OpenAIChatGenerator as BaseOpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, StreamingCallbackT
-from haystack.tools import Tool, Toolset
+from haystack.tools import ToolsType
 
 from haystack_experimental.utils.hallucination_risk_calculator.dataclasses import HallucinationScoreConfig
 from haystack_experimental.utils.hallucination_risk_calculator.openai_planner import calculate_hallucination_metrics
@@ -56,12 +56,12 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     def run(
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
+        streaming_callback: StreamingCallbackT | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
         *,
-        tools: Optional[Union[list[Tool], Toolset]] = None,
-        tools_strict: Optional[bool] = None,
-        hallucination_score_config: Optional[HallucinationScoreConfig] = None,
+        tools: ToolsType | None = None,
+        tools_strict: bool | None = None,
+        hallucination_score_config: HallucinationScoreConfig | None = None,
     ) -> dict[str, list[ChatMessage]]:
         """
         Invokes chat completion based on the provided messages and generation parameters.
@@ -75,9 +75,8 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
             override the parameters passed during component initialization.
             For details on OpenAI API parameters, see [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create).
         :param tools:
-            A list of tools or a Toolset for which the model can prepare calls. If set, it will override the
-            `tools` parameter set during component initialization. This parameter can accept either a list of
-            `Tool` objects or a `Toolset` instance.
+            A list of Tool and/or Toolset objects, or a single Toolset for which the model can prepare calls.
+            If set, it will override the `tools` parameter provided during initialization.
         :param tools_strict:
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
@@ -124,12 +123,12 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     async def run_async(
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
+        streaming_callback: StreamingCallbackT | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
         *,
-        tools: Optional[Union[list[Tool], Toolset]] = None,
-        tools_strict: Optional[bool] = None,
-        hallucination_score_config: Optional[HallucinationScoreConfig] = None,
+        tools: ToolsType | None = None,
+        tools_strict: bool | None = None,
+        hallucination_score_config: HallucinationScoreConfig | None = None,
     ) -> dict[str, list[ChatMessage]]:
         """
         Asynchronously invokes chat completion based on the provided messages and generation parameters.
@@ -147,9 +146,8 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
             override the parameters passed during component initialization.
             For details on OpenAI API parameters, see [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create).
         :param tools:
-            A list of tools or a Toolset for which the model can prepare calls. If set, it will override the
-            `tools` parameter set during component initialization. This parameter can accept either a list of
-            `Tool` objects or a `Toolset` instance.
+            A list of Tool and/or Toolset objects, or a single Toolset for which the model can prepare calls.
+            If set, it will override the `tools` parameter provided during initialization.
         :param tools_strict:
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.

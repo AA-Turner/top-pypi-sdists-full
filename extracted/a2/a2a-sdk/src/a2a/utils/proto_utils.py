@@ -57,7 +57,7 @@ def make_dict_serializable(value: Any) -> Any:
     Returns:
         A serializable value.
     """
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, str | int | float | bool) or value is None:
         return value
     if isinstance(value, dict):
         return {k: make_dict_serializable(v) for k, v in value.items()}
@@ -140,6 +140,7 @@ class ToProto:
             task_id=message.task_id or '',
             role=cls.role(message.role),
             metadata=cls.metadata(message.metadata),
+            extensions=message.extensions or [],
         )
 
     @classmethod
@@ -202,6 +203,7 @@ class ToProto:
                 if task.history
                 else None
             ),
+            metadata=cls.metadata(task.metadata),
         )
 
     @classmethod
@@ -239,6 +241,7 @@ class ToProto:
             metadata=cls.metadata(artifact.metadata),
             name=artifact.name,
             parts=[cls.part(p) for p in artifact.parts],
+            extensions=artifact.extensions or [],
         )
 
     @classmethod
@@ -393,6 +396,21 @@ class ToProto:
                 cls.agent_interface(x) for x in card.additional_interfaces
             ]
             if card.additional_interfaces
+            else None,
+            signatures=[cls.agent_card_signature(x) for x in card.signatures]
+            if card.signatures
+            else None,
+        )
+
+    @classmethod
+    def agent_card_signature(
+        cls, signature: types.AgentCardSignature
+    ) -> a2a_pb2.AgentCardSignature:
+        return a2a_pb2.AgentCardSignature(
+            protected=signature.protected,
+            signature=signature.signature,
+            header=dict_to_struct(signature.header)
+            if signature.header is not None
             else None,
         )
 
@@ -579,6 +597,7 @@ class FromProto:
             task_id=message.task_id or None,
             role=cls.role(message.role),
             metadata=cls.metadata(message.metadata),
+            extensions=list(message.extensions) or None,
         )
 
     @classmethod
@@ -657,6 +676,7 @@ class FromProto:
             status=cls.task_status(task.status),
             artifacts=[cls.artifact(a) for a in task.artifacts],
             history=[cls.message(h) for h in task.history],
+            metadata=cls.metadata(task.metadata),
         )
 
     @classmethod
@@ -694,6 +714,7 @@ class FromProto:
             metadata=cls.metadata(artifact.metadata),
             name=artifact.name,
             parts=[cls.part(p) for p in artifact.parts],
+            extensions=artifact.extensions or None,
         )
 
     @classmethod
@@ -859,6 +880,19 @@ class FromProto:
             ]
             if card.additional_interfaces
             else None,
+            signatures=[cls.agent_card_signature(x) for x in card.signatures]
+            if card.signatures
+            else None,
+        )
+
+    @classmethod
+    def agent_card_signature(
+        cls, signature: a2a_pb2.AgentCardSignature
+    ) -> types.AgentCardSignature:
+        return types.AgentCardSignature(
+            protected=signature.protected,
+            signature=signature.signature,
+            header=json_format.MessageToDict(signature.header),
         )
 
     @classmethod

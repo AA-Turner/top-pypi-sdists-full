@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trendspy"
+version = "0.1.6"
+description = "A Python library for accessing Google Trends data"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+authors = [
+    {name = "SDil"},
+]
+dependencies = [
+    "requests>=2.25.0",
+    "pandas>=1.2.0",
+    "numpy>=1.19.0",
+    "python-dateutil>=2.8.0"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+keywords = ["google-trends", "trends", "analytics", "data-analysis"]
+
+[project.urls]
+Homepage = "https://github.com/sdil87/trendspy"
+Repository = "https://github.com/sdil87/trendspy.git"
+Issues = "https://github.com/sdil87/trendspy/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trendspy"]

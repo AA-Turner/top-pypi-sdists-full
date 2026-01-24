@@ -1,16 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.718737                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.885444                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
+import abc
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.datastore.content_addressed_store
     import metaflow.exception
+    import metaflow.datastore.flow_datastore
+    import abc
+    import metaflow.datastore.content_addressed_store
 
 from ..exception import MetaflowException as MetaflowException
 
@@ -19,8 +22,6 @@ CLIENT_CACHE_PATH: str
 CLIENT_CACHE_MAX_SIZE: int
 
 CLIENT_CACHE_MAX_FLOWDATASTORE_COUNT: int
-
-CLIENT_CACHE_MAX_TASKDATASTORE_COUNT: int
 
 DATASTORES: list
 
@@ -69,6 +70,21 @@ class FileCache(object, metaclass=type):
     def create_file(self, path, value):
         ...
     def read_file(self, path):
+        ...
+    @staticmethod
+    def flow_ds_id(ds_type, ds_root, flow_name):
+        ...
+    @staticmethod
+    def task_ds_id(ds_type, ds_root, flow_name, run_id, step_name, task_id, attempt):
+        ...
+    ...
+
+class TaskMetadataCache(metaflow.datastore.flow_datastore.MetadataCache, metaclass=abc.ABCMeta):
+    def __init__(self, filecache, ds_type, ds_root, flow_name):
+        ...
+    def load_metadata(self, run_id, step_name, task_id, attempt):
+        ...
+    def store_metadata(self, run_id, step_name, task_id, attempt, metadata_dict):
         ...
     ...
 

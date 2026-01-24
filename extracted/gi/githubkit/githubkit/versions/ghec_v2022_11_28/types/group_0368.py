@@ -9,81 +9,50 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Union
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class GitCommitType(TypedDict):
-    """Git Commit
+class CodeScanningCodeqlDatabaseType(TypedDict):
+    """CodeQL Database
 
-    Low-level Git commit operations within a repository
+    A CodeQL database.
     """
 
-    sha: str
-    node_id: str
-    url: str
-    author: GitCommitPropAuthorType
-    committer: GitCommitPropCommitterType
-    message: str
-    tree: GitCommitPropTreeType
-    parents: list[GitCommitPropParentsItemsType]
-    verification: GitCommitPropVerificationType
-    html_url: str
-
-
-class GitCommitPropAuthorType(TypedDict):
-    """GitCommitPropAuthor
-
-    Identifying information for the git-user
-    """
-
-    date: datetime
-    email: str
+    id: int
     name: str
+    language: str
+    uploader: SimpleUserType
+    content_type: str
+    size: int
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    url: str
+    commit_oid: NotRequired[Union[str, None]]
 
 
-class GitCommitPropCommitterType(TypedDict):
-    """GitCommitPropCommitter
+class CodeScanningCodeqlDatabaseTypeForResponse(TypedDict):
+    """CodeQL Database
 
-    Identifying information for the git-user
+    A CodeQL database.
     """
 
-    date: datetime
-    email: str
+    id: int
     name: str
-
-
-class GitCommitPropTreeType(TypedDict):
-    """GitCommitPropTree"""
-
-    sha: str
+    language: str
+    uploader: SimpleUserTypeForResponse
+    content_type: str
+    size: int
+    created_at: str
+    updated_at: str
     url: str
-
-
-class GitCommitPropParentsItemsType(TypedDict):
-    """GitCommitPropParentsItems"""
-
-    sha: str
-    url: str
-    html_url: str
-
-
-class GitCommitPropVerificationType(TypedDict):
-    """GitCommitPropVerification"""
-
-    verified: bool
-    reason: str
-    signature: Union[str, None]
-    payload: Union[str, None]
-    verified_at: Union[str, None]
+    commit_oid: NotRequired[Union[str, None]]
 
 
 __all__ = (
-    "GitCommitPropAuthorType",
-    "GitCommitPropCommitterType",
-    "GitCommitPropParentsItemsType",
-    "GitCommitPropTreeType",
-    "GitCommitPropVerificationType",
-    "GitCommitType",
+    "CodeScanningCodeqlDatabaseType",
+    "CodeScanningCodeqlDatabaseTypeForResponse",
 )

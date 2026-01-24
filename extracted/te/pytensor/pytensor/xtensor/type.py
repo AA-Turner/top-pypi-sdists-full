@@ -308,9 +308,6 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
     def __mul__(self, other):
         return px.math.mul(self, other)
 
-    def __div__(self, other):
-        return px.math.div(self, other)
-
     def __pow__(self, other):
         return px.math.pow(self, other)
 
@@ -340,9 +337,6 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
 
     def __rmul__(self, other):
         return px.math.mul(other, self)
-
-    def __rdiv__(self, other):
-        return px.math.div_proxy(other, self)
 
     def __rmod__(self, other):
         return px.math.mod(other, self)
@@ -651,10 +645,10 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
                 )
             else:
                 # Default to 5 for head and tail
-                indexers = {dim: 5 for dim in self.type.dims}
+                indexers = dict.fromkeys(self.type.dims, 5)
 
         elif not isinstance(indexers, dict):
-            indexers = {dim: indexers for dim in self.type.dims}
+            indexers = dict.fromkeys(self.type.dims, indexers)
 
         if kind == "head":
             indices = {dim: slice(None, value) for dim, value in indexers.items()}

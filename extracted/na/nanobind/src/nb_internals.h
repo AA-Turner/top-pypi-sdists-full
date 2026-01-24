@@ -42,7 +42,7 @@ NAMESPACE_BEGIN(detail)
 #endif
 
 /// Nanobind function metadata (overloads, etc.)
-struct func_data : func_data_prelim<0> {
+struct func_data : func_data_prelim_base {
     arg_data *args;
     char *signature;
 };
@@ -56,7 +56,7 @@ struct nb_inst { // usually: 24 bytes
 
     /// State of the C++ object this instance points to: is it constructed?
     /// can we use it?
-    uint32_t state : 2;
+    uint8_t state : 2;
 
     // Values for `state`. Note that the numeric values of these are relied upon
     // for an optimization in `nb_type_get()`.
@@ -70,25 +70,27 @@ struct nb_inst { // usually: 24 bytes
      * relative offset to a pointer that must be dereferenced to get to the
      * instance data. 'direct' is 'true' in the former case.
      */
-    uint32_t direct : 1;
+    uint8_t direct : 1;
 
     /// Is the instance data co-located with the Python object?
-    uint32_t internal : 1;
+    uint8_t internal : 1;
 
     /// Should the destructor be called when this instance is GCed?
-    uint32_t destruct : 1;
+    uint8_t destruct : 1;
 
     /// Should nanobind call 'operator delete' when this instance is GCed?
-    uint32_t cpp_delete : 1;
-
-    /// Does this instance hold references to others? (via internals.keep_alive)
-    uint32_t clear_keep_alive : 1;
+    uint8_t cpp_delete : 1;
 
     /// Does this instance use intrusive reference counting?
-    uint32_t intrusive : 1;
+    uint8_t intrusive : 1;
+
+    /// Does this instance hold references to others? (via internals.keep_alive)
+    /// This may be accessed concurrently to 'state', so it must not be in
+    /// the same bitfield as 'state'.
+    uint8_t clear_keep_alive;
 
     // That's a lot of unused space. I wonder if there is a good use for it..
-    uint32_t unused : 24;
+    uint16_t unused;
 };
 
 static_assert(sizeof(nb_inst) == sizeof(PyObject) + sizeof(uint32_t) * 2);
@@ -420,6 +422,32 @@ struct nb_internals {
     size_t shard_count = 1;
 };
 
+// Names for the PyObject* entries in the per-module state array.
+// These names are scoped, but will implicitly convert to int.
+struct pyobj_name {
+    enum : int {
+        value_str = 0,      // string "value"
+        copy_str,           // string "copy"
+        clone_str,          // string "clone"
+        array_str,          // string "array"
+        from_dlpack_str,    // string "from_dlpack"
+        dunder_dlpack_str,  // string "__dlpack__"
+        max_version_str,    // string "max_version"
+        dl_device_str,      // string "dl_device"
+        string_count,
+
+        copy_tpl = string_count,  // tuple ("copy")
+        max_version_tpl, // tuple ("max_version")
+        dl_cpu_tpl,      // tuple (1, 0), which corresponds to nb::device::cpu
+        dl_version_tpl,  // tuple (dlpack::major_version, dlpack::minor_version)
+        total_count
+    };
+};
+
+static_assert(pyobj_name::total_count * sizeof(PyObject*) == NB_MOD_STATE_SIZE);
+
+extern PyObject **static_pyobjects;
+
 /// Convenience macro to potentially access cached functions
 #if defined(Py_LIMITED_API)
 #  define NB_SLOT(type, name) internals->type##_##name
@@ -466,10 +494,12 @@ inline void *inst_ptr(nb_inst *self) {
 }
 
 template <typename T> struct scoped_pymalloc {
-    scoped_pymalloc(size_t size = 1) {
-        ptr = (T *) PyMem_Malloc(size * sizeof(T));
+    scoped_pymalloc(size_t size = 1, size_t extra_bytes = 0) {
+        // Tip: construct objects in the extra bytes using placement new.
+        ptr = (T *) PyMem_Malloc(size * sizeof(T) + extra_bytes);
         if (!ptr)
-            fail("scoped_pymalloc(): could not allocate %zu bytes of memory!", size);
+            fail("scoped_pymalloc(): could not allocate %llu bytes of memory!",
+                 (unsigned long long) (size * sizeof(T) + extra_bytes));
     }
     ~scoped_pymalloc() { PyMem_Free(ptr); }
     T *release() {

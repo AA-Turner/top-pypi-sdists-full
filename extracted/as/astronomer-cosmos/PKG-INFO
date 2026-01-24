@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-cosmos
-Version: 1.10.2
+Version: 1.12.1
 Summary: Orchestrate your dbt projects in Airflow
 Project-URL: Homepage, https://github.com/astronomer/astronomer-cosmos
 Project-URL: Documentation, https://astronomer.github.io/astronomer-cosmos
@@ -18,17 +18,18 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Requires-Dist: aenum
-Requires-Dist: apache-airflow>=2.4.0
+Requires-Dist: apache-airflow>=2.6.0
 Requires-Dist: attrs
 Requires-Dist: deprecation
 Requires-Dist: jinja2>=3.0.0
 Requires-Dist: msgpack
+Requires-Dist: openlineage-integration-common
 Requires-Dist: packaging>=22.0
 Requires-Dist: pydantic>=1.10.0
 Requires-Dist: virtualenv
@@ -43,11 +44,13 @@ Requires-Dist: dbt-clickhouse; extra == 'all'
 Requires-Dist: dbt-databricks!=1.9.0; extra == 'all'
 Requires-Dist: dbt-duckdb; extra == 'all'
 Requires-Dist: dbt-exasol; extra == 'all'
+Requires-Dist: dbt-mysql; extra == 'all'
 Requires-Dist: dbt-oracle; extra == 'all'
 Requires-Dist: dbt-postgres; extra == 'all'
 Requires-Dist: dbt-redshift; extra == 'all'
 Requires-Dist: dbt-snowflake; extra == 'all'
 Requires-Dist: dbt-spark; extra == 'all'
+Requires-Dist: dbt-sqlserver; extra == 'all'
 Requires-Dist: dbt-teradata; extra == 'all'
 Requires-Dist: dbt-vertica; extra == 'all'
 Requires-Dist: gcsfs<2025.3.0; extra == 'all'
@@ -68,11 +71,13 @@ Requires-Dist: dbt-clickhouse; extra == 'dbt-all'
 Requires-Dist: dbt-databricks!=1.9.0; extra == 'dbt-all'
 Requires-Dist: dbt-duckdb; extra == 'dbt-all'
 Requires-Dist: dbt-exasol; extra == 'dbt-all'
+Requires-Dist: dbt-mysql; extra == 'dbt-all'
 Requires-Dist: dbt-oracle; extra == 'dbt-all'
 Requires-Dist: dbt-postgres; extra == 'dbt-all'
 Requires-Dist: dbt-redshift; extra == 'dbt-all'
 Requires-Dist: dbt-snowflake; extra == 'dbt-all'
 Requires-Dist: dbt-spark; extra == 'dbt-all'
+Requires-Dist: dbt-sqlserver; extra == 'dbt-all'
 Requires-Dist: dbt-teradata; extra == 'dbt-all'
 Requires-Dist: dbt-vertica; extra == 'dbt-all'
 Provides-Extra: dbt-athena
@@ -89,6 +94,8 @@ Requires-Dist: airflow-provider-duckdb>=0.2.0; extra == 'dbt-duckdb'
 Requires-Dist: dbt-duckdb; extra == 'dbt-duckdb'
 Provides-Extra: dbt-exasol
 Requires-Dist: dbt-exasol; extra == 'dbt-exasol'
+Provides-Extra: dbt-mysql
+Requires-Dist: dbt-mysql; extra == 'dbt-mysql'
 Provides-Extra: dbt-oracle
 Requires-Dist: dbt-oracle; extra == 'dbt-oracle'
 Provides-Extra: dbt-postgres
@@ -99,6 +106,8 @@ Provides-Extra: dbt-snowflake
 Requires-Dist: dbt-snowflake; extra == 'dbt-snowflake'
 Provides-Extra: dbt-spark
 Requires-Dist: dbt-spark; extra == 'dbt-spark'
+Provides-Extra: dbt-sqlserver
+Requires-Dist: dbt-sqlserver; extra == 'dbt-sqlserver'
 Provides-Extra: dbt-teradata
 Requires-Dist: dbt-teradata; extra == 'dbt-teradata'
 Provides-Extra: dbt-vertica
@@ -131,8 +140,8 @@ Description-Content-Type: text/x-rst
 .. |ossrank| image:: https://img.shields.io/endpoint?url=https://ossrank.com/shield/2121
     :target: https://ossrank.com/p/2121-astronomer-cosmos
 
-.. |downloads| image:: https://img.shields.io/pypi/dm/astronomer-cosmos.svg
-    :target: https://img.shields.io/pypi/dm/astronomer-cosmos
+.. |downloads| image:: https://pepy.tech/badge/astronomer-cosmos/month
+    :target: https://pepy.tech/project/astronomer-cosmos
 
 .. |pre-commit| image:: https://results.pre-commit.ci/badge/github/astronomer/astronomer-cosmos/main.svg
    :target: https://results.pre-commit.ci/latest/github/astronomer/astronomer-cosmos/main

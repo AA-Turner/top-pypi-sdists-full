@@ -23,9 +23,9 @@ from ._base import NamespacedClient
 from .utils import (
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
 )
 
 
@@ -101,7 +101,7 @@ class FleetClient(NamespacedClient):
     @_rewrite_parameters(
         body_name="searches",
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def msearch(
         self,
         *,
@@ -292,7 +292,7 @@ class FleetClient(NamespacedClient):
             "from": "from_",
         },
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def search(
         self,
         *,
@@ -644,11 +644,7 @@ class FleetClient(NamespacedClient):
                 __body["track_total_hits"] = track_total_hits
             if version is not None:
                 __body["version"] = version
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,

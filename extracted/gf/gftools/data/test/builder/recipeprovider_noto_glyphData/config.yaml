@@ -1,7 +1,0 @@
-sources:
-  - TestFamily.glyphs
-familyName: Test Family
-recipeProvider: noto
-googleFonts: true
-glyphData:
-  - GlyphData.xml

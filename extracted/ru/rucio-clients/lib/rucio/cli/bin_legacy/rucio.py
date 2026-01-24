@@ -449,7 +449,6 @@ def list_dids(args, client, logger, console, spinner):
     """
 
     filters = {}
-    type_ = 'collection'
     table_data = []
 
     try:
@@ -482,19 +481,17 @@ def list_dids(args, client, logger, console, spinner):
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
-    if cli_config == 'rich':
-        if args.short:
-            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
-        else:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
-        spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+    if args.short:
+        for did, _ in table_data:
+            print(did)
     else:
-        if args.short:
-            for did, _ in table_data:
-                print(did)
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
     return SUCCESS
 
 
@@ -657,19 +654,17 @@ def list_content(args, client, logger, console, spinner):
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
-    if cli_config == 'rich':
-        if args.short:
-            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
-        else:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
-        spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+    if args.short:
+        for did, dummy in table_data:
+            print(did)
     else:
-        if args.short:
-            for did, dummy in table_data:
-                print(did)
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
     return SUCCESS
 
 
@@ -1011,6 +1006,8 @@ def download(args, client, logger, console, spinner):
         items = []
         if args.dids:
             for did in args.dids:
+                if args.scope:
+                    did = f"{args.scope}:{did}"
                 item = {'did': did}
                 item.update(item_defaults)
                 items.append(item)
@@ -1043,9 +1040,15 @@ def download(args, client, logger, console, spinner):
         item_defaults['did'] = did_str
         if args.rses is None:
             logger.warning("No RSE was given, selecting one.")
+            if not args.scope:
+                scope = did_str.split(':')[0]
+                did = did_str.split(':')[-1]
+            else:
+                scope = args.scope
+                did = did_str.split(':')[-1]
 
             replicas = client.list_replicas(
-                [{"scope": did_str.split(':')[0], "name": did_str.split(':')[-1]}],
+                [{"scope": scope, "name": did}],
                 schemes=args.protocol,
                 ignore_availability=False,
                 client_location=detect_client_location(),
@@ -2030,18 +2033,18 @@ def get_parser():
     oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
     oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
     oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
-                         + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
-                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
+                         + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '
+                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')
     oparser.add_argument('--oidc-audience', dest='oidc_audience', default=None, help='Defines which audience are tokens requested for.')
     oparser.add_argument('--oidc-auto', dest='oidc_auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and users will be given a URL '
-                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')  # NOQA: W503
+                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')
     oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
-                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')  # NOQA: W503
+                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
-                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
+                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
                          help='Defines which Identity Provider is going to be used. The issuer string must correspond '
-                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
+                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file for x509 Authentication.')
@@ -2473,7 +2476,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--trace_taskid', '--trace-taskid', new_option_string='--trace-taskid', dest='trace_taskid', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_usrdn', '--trace-usrdn', new_option_string='--trace-usrdn', dest='trace_usrdn', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--filter', dest='filter', action='store', help='Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.')
-        selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
+        selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope to use as a filter or to use with DID names.')
         selected_parser.add_argument('--metalink', dest='metalink_file', action='store', help='Path to a metalink file.')
         selected_parser.add_argument('--deactivate-file-download-exceptions', dest='deactivate_file_download_exceptions', action='store_true', help='Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.')  # NOQA: E501
         selected_parser.add_argument('--replica-selection', dest='sort', action='store', help='Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).')

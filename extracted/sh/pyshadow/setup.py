@@ -5,19 +5,19 @@ from setuptools import setup
 setup(
     name='pyshadow',
     description='Selenium plugin to manage shadow DOM elements on web page.',
-    version='0.0.5',
-    long_description=open("README.md").read(),
+    version='0.0.6',
+    long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     license="Apache License 2",
     author='Sushil Gupta',
     author_email='sushil106768@gmail.com',
     url='https://github.com/sukgu/pyshadow/',
-    install_requires=['multipledispatch>=0.6.0', 'selenium>=3.141.0', 'webdriver-manager>=2.5.3'],
+    install_requires=['multipledispatch>=1.0.0', 'selenium>=4.15.1', 'webdriver-manager>=4.0.2'],
     python_requires='>=3.7',
     packages=setuptools.find_packages(),
     package_data={
         # And include any *.dat files found in the "data" subdirectory
-        # of the "mypkg" package, also:
+        # of the "pyshadow" package, also:
         "pyshadow": ["resources/test/*", "resources/*"],
     },
     classifiers=[

@@ -26,12 +26,12 @@ class EntityLinkListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by EntityLinkParser#nameOrFQN.
-    def enterNameOrFQN(self, ctx:EntityLinkParser.NameOrFQNContext):
+    # Enter a parse tree produced by EntityLinkParser#nameOrFqn.
+    def enterNameOrFqn(self, ctx:EntityLinkParser.NameOrFqnContext):
         pass
 
-    # Exit a parse tree produced by EntityLinkParser#nameOrFQN.
-    def exitNameOrFQN(self, ctx:EntityLinkParser.NameOrFQNContext):
+    # Exit a parse tree produced by EntityLinkParser#nameOrFqn.
+    def exitNameOrFqn(self, ctx:EntityLinkParser.NameOrFqnContext):
         pass
 
 

@@ -1,23 +1,18 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .spark_pipeline_reader import SparkPipelineReader
-from ibm_watsonx_ai.libs.repo.mlrepository import MetaNames, MetaProps
-from ibm_watsonx_ai.libs.repo.mlrepository import ModelArtifact
-from ibm_watsonx_ai.libs.repo.util import SparkUtil,Json2ObjectMapper
-from .version_helper import VersionHelper
-from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 from ibm_watsonx_ai.libs.repo.base_constants import *
+from ibm_watsonx_ai.libs.repo.mlrepository import MetaNames, MetaProps, ModelArtifact
+from ibm_watsonx_ai.libs.repo.util import Json2ObjectMapper, SparkUtil
+from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
+
+from .spark_pipeline_reader import SparkPipelineReader
 from .spark_version import SparkVersion
+from .version_helper import VersionHelper
 
 lib_checker = LibraryChecker()
-if lib_checker.installed_libs[PYSPARK]:
-    from pyspark.ml.pipeline import Pipeline, PipelineModel
-    from pyspark.sql import DataFrame
-    import json
-    from pyspark.sql.types import *
 
 class SparkPipelineModelArtifact(ModelArtifact):
     """
@@ -33,9 +28,13 @@ class SparkPipelineModelArtifact(ModelArtifact):
     def __init__(self, ml_pipeline_model, training_data, uid=None, name=None, pipeline_artifact=None, meta_props=MetaProps({})):
         super(SparkPipelineModelArtifact, self).__init__(uid, name, meta_props)
 
+        lib_checker.check_lib(PYSPARK)
+        from pyspark.ml.pipeline import PipelineModel
+        from pyspark.sql import DataFrame, types
+
         type_identified = False
         type_sparkmodel = False
-        lib_checker.check_lib(PYSPARK)
+
         if issubclass(type(ml_pipeline_model), PipelineModel):
             type_identified = True
             type_sparkmodel = True
@@ -121,31 +120,31 @@ class SparkPipelineModelArtifact(ModelArtifact):
                     output_schema = meta_props.prop(MetaNames.OUTPUT_DATA_SCHEMA)
             else:
                  inputfields = Json2ObjectMapper.to_dict(meta_props.prop(MetaNames.OUTPUT_DATA_SCHEMA))
-                 output_schema = StructType(inputfields)
+                 output_schema = types.StructType(inputfields)
 
         else:
-            output_schema = StructType()
+            output_schema = types.StructType()
             inputfields = filter(lambda f: f['name'] != meta_props.prop(MetaNames.LABEL_FIELD),
                                  meta_props.prop(MetaNames.TRAINING_DATA_SCHEMA)['fields'])
             # based on the meta props set, update output_data_schema
         if meta_props.prop(MetaNames.PREDICTION_FIELD) is not None and (
             self._found_field(inputfields, 'prediction') == False):
-            output_schema.add(meta_props.prop(MetaNames.PREDICTION_FIELD), DoubleType(), False,
+            output_schema.add(meta_props.prop(MetaNames.PREDICTION_FIELD), types.DoubleType(), False,
                               {'modeling_role': 'prediction'})
             output_schema_present = True
         if meta_props.prop(MetaNames.PROBABILITY_FIELD) is not None and (
             self._found_field(inputfields, 'probability') == False):
-            output_schema.add(meta_props.prop(MetaNames.PROBABILITY_FIELD), ArrayType(DoubleType(), True), False,
+            output_schema.add(meta_props.prop(MetaNames.PROBABILITY_FIELD), types.ArrayType(types.DoubleType(), True), False,
                               {'modeling_role': 'probability'})
             output_schema_present = True
         if meta_props.prop(MetaNames.TRANSFORMED_LABEL_FIELD) is not None and (
             self._found_field(inputfields, 'transformed-target') == False):
-            output_schema.add(meta_props.prop(MetaNames.TRANSFORMED_LABEL_FIELD), DoubleType(), False,
+            output_schema.add(meta_props.prop(MetaNames.TRANSFORMED_LABEL_FIELD), types.DoubleType(), False,
                               {'modeling_role': 'transformed-target'})
             output_schema_present = True
         if meta_props.prop(MetaNames.DECODED_LABEL) is not None and (
             self._found_field(inputfields, 'decoded-target') == False):
-            output_schema.add(meta_props.prop(MetaNames.DECODED_LABEL), DoubleType(), False,
+            output_schema.add(meta_props.prop(MetaNames.DECODED_LABEL), types.DoubleType(), False,
                               {'modeling_role': 'decoded-target', 'values': meta_props.prop(MetaNames.LABEL_VALUES)})
             output_schema_present = True
 

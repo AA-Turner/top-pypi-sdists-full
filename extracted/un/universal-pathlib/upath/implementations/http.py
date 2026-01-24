@@ -1,64 +1,72 @@
 from __future__ import annotations
 
-import os
+import sys
 import warnings
+from collections.abc import Iterator
 from itertools import chain
+from typing import TYPE_CHECKING
 from typing import Any
+from urllib.parse import urlsplit
 
 from fsspec.asyn import sync
 
-from upath._compat import FSSpecAccessorShim as _FSSpecAccessorShim
+from upath import UnsupportedOperation
 from upath._stat import UPathStatResult
 from upath.core import UPath
+from upath.types import JoinablePathLike
+from upath.types import StatResultType
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+        from typing import Unpack
+    else:
+        from typing_extensions import Self
+        from typing_extensions import Unpack
+
+    from upath._chain import FSSpecChainParser
+    from upath.types.storage_options import HTTPStorageOptions
 
 __all__ = ["HTTPPath"]
 
-# accessors are deprecated
-_HTTPAccessor = _FSSpecAccessorShim
-
 
 class HTTPPath(UPath):
+    __slots__ = ()
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *args: JoinablePathLike,
+            protocol: Literal["http", "https"] | None = ...,
+            chain_parser: FSSpecChainParser = ...,
+            **storage_options: Unpack[HTTPStorageOptions],
+        ) -> None: ...
 
     @classmethod
     def _transform_init_args(
         cls,
-        args: tuple[str | os.PathLike, ...],
+        args: tuple[JoinablePathLike, ...],
         protocol: str,
         storage_options: dict[str, Any],
-    ) -> tuple[tuple[str | os.PathLike, ...], str, dict[str, Any]]:
+    ) -> tuple[tuple[JoinablePathLike, ...], str, dict[str, Any]]:
         # allow initialization via a path argument and protocol keyword
         if args and not str(args[0]).startswith(protocol):
             args = (f"{protocol}://{str(args[0]).lstrip('/')}", *args[1:])
         return args, protocol, storage_options
 
+    def __str__(self) -> str:
+        sr = urlsplit(super().__str__())
+        return sr._replace(path=sr.path or "/").geturl()
+
     @property
-    def root(self) -> str:  # type: ignore[override]
-        return super().root or "/"
+    def path(self) -> str:
+        sr = urlsplit(super().path)
+        return sr._replace(path=sr.path or "/").geturl()
 
-    def __str__(self):
-        return super(UPath, self).__str__()
-
-    def is_file(self):
-        try:
-            next(super().iterdir())
-        except (StopIteration, NotADirectoryError):
-            return True
-        except FileNotFoundError:
-            return False
-        else:
-            return False
-
-    def is_dir(self):
-        try:
-            next(super().iterdir())
-        except (StopIteration, NotADirectoryError):
-            return False
-        except FileNotFoundError:
-            return False
-        else:
-            return True
-
-    def stat(self, follow_symlinks: bool = True):
+    def stat(self, follow_symlinks: bool = True) -> StatResultType:
         if not follow_symlinks:
             warnings.warn(
                 f"{type(self).__name__}.stat(follow_symlinks=False):"
@@ -71,33 +79,34 @@ class HTTPPath(UPath):
             info["type"] = "directory" if info["url"].endswith("/") else "file"
         return UPathStatResult.from_info(info)
 
-    def iterdir(self):
-        if self.parts[-1:] == ("",):
-            yield from self.parent.iterdir()
+    def iterdir(self) -> Iterator[Self]:
+        it = iter(super().iterdir())
+        try:
+            item0 = next(it)
+        except (StopIteration, NotADirectoryError):
+            raise NotADirectoryError(str(self))
+        except FileNotFoundError:
+            raise FileNotFoundError(str(self))
         else:
-            it = iter(super().iterdir())
-            try:
-                item0 = next(it)
-            except (StopIteration, NotADirectoryError):
-                raise NotADirectoryError(str(self))
-            except FileNotFoundError:
-                raise FileNotFoundError(str(self))
-            else:
-                yield from chain([item0], it)
+            yield from chain([item0], it)
 
     def resolve(
-        self: HTTPPath,
+        self,
         strict: bool = False,
         follow_redirects: bool = True,
-    ) -> HTTPPath:
+    ) -> Self:
         """Normalize the path and resolve redirects."""
-        # Normalise the path
-        resolved_path = super().resolve(strict=strict)
-        # if the last part is "..", then it's a directory
-        if self.parts[-1:] == ("..",):
-            resolved_path = resolved_path.joinpath("")
+        # special handling of trailing slash behaviour
+        parts = list(self.parts)
+        if parts[-1:] == ["."]:
+            parts[-1:] = [""]
+        if parts[-2:] == ["", ".."]:
+            parts[-2:] = [""]
+        pth = self.with_segments(*parts)
+        resolved_path = super(HTTPPath, pth).resolve(strict=strict)
 
         if follow_redirects:
+            cls = type(self)
             # Get the fsspec fs
             fs = self.fs
             url = str(self)
@@ -112,7 +121,33 @@ class HTTPPath(UPath):
                     if method == session.get:
                         raise FileNotFoundError(self) from exc
                 else:
-                    resolved_path = HTTPPath(str(r.url))
+                    resolved_path = cls(str(r.url))
                     break
 
         return resolved_path
+
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        raise UnsupportedOperation
+
+    def mkdir(
+        self,
+        mode: int = 0o777,
+        parents: bool = False,
+        exist_ok: bool = False,
+    ) -> None:
+        raise UnsupportedOperation
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        raise UnsupportedOperation
+
+    def write_bytes(self, data: bytes) -> int:
+        raise UnsupportedOperation("DataPath does not support writing")
+
+    def write_text(
+        self,
+        data: str,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> int:
+        raise UnsupportedOperation("DataPath does not support writing")

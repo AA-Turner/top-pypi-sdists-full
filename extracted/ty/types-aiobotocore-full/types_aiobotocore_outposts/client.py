@@ -3,7 +3,7 @@ Type annotations for outposts service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -94,6 +95,8 @@ from .type_defs import (
     StartCapacityTaskOutputTypeDef,
     StartConnectionRequestTypeDef,
     StartConnectionResponseTypeDef,
+    StartOutpostDecommissionInputTypeDef,
+    StartOutpostDecommissionOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateOutpostInputTypeDef,
@@ -106,12 +109,6 @@ from .type_defs import (
     UpdateSiteRackPhysicalPropertiesOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -122,13 +119,13 @@ __all__ = ("OutpostsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OutpostsClient(AioBaseClient):
@@ -168,7 +165,7 @@ class OutpostsClient(AioBaseClient):
 
     async def cancel_capacity_task(
         self, **kwargs: Unpack[CancelCapacityTaskInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the capacity task.
 
@@ -176,7 +173,7 @@ class OutpostsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#cancel_capacity_task)
         """
 
-    async def cancel_order(self, **kwargs: Unpack[CancelOrderInputTypeDef]) -> Dict[str, Any]:
+    async def cancel_order(self, **kwargs: Unpack[CancelOrderInputTypeDef]) -> dict[str, Any]:
         """
         Cancels the specified order for an Outpost.
 
@@ -214,7 +211,7 @@ class OutpostsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#create_site)
         """
 
-    async def delete_outpost(self, **kwargs: Unpack[DeleteOutpostInputTypeDef]) -> Dict[str, Any]:
+    async def delete_outpost(self, **kwargs: Unpack[DeleteOutpostInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified Outpost.
 
@@ -222,7 +219,7 @@ class OutpostsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#delete_outpost)
         """
 
-    async def delete_site(self, **kwargs: Unpack[DeleteSiteInputTypeDef]) -> Dict[str, Any]:
+    async def delete_site(self, **kwargs: Unpack[DeleteSiteInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified site.
 
@@ -437,7 +434,17 @@ class OutpostsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#start_connection)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def start_outpost_decommission(
+        self, **kwargs: Unpack[StartOutpostDecommissionInputTypeDef]
+    ) -> StartOutpostDecommissionOutputTypeDef:
+        """
+        Starts the decommission process to return the Outposts racks or servers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/start_outpost_decommission.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#start_outpost_decommission)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to the specified resource.
 
@@ -445,7 +452,7 @@ class OutpostsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified resource.
 
@@ -622,7 +629,7 @@ class OutpostsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

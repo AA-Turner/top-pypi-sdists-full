@@ -3,7 +3,20 @@ import os
 import psycopg
 from psycopg.sql import SQL, Identifier
 
+from eventsourcing.dcb.postgres_tt import (
+    DB_FUNCTION_NAME_DCB_CONDITIONAL_APPEND_TT,
+    DB_FUNCTION_NAME_DCB_UNCONDITIONAL_APPEND_TT,
+    DB_TYPE_NAME_DCB_EVENT_TT,
+    DB_TYPE_NAME_DCB_QUERY_ITEM_TT,
+)
 from eventsourcing.postgres import PostgresDatastore
+from examples.dcb_enrolment_with_basic_objects.postgres_ts import (
+    PG_FUNCTION_NAME_DCB_CHECK_APPEND_CONDITION_TS,
+    PG_FUNCTION_NAME_DCB_INSERT_EVENTS_TS,
+    PG_FUNCTION_NAME_DCB_SELECT_EVENTS_TS,
+    PG_PROCEDURE_NAME_DCB_APPEND_EVENTS_TS,
+    PG_TYPE_NAME_DCB_EVENT_TS,
+)
 
 
 def pg_close_all_connections(
@@ -64,8 +77,55 @@ def drop_tables() -> None:
             for row in fetchall:
                 table_name = row["table_name"]
                 # print(f"Dropping table '{table_name}' in schema '{schema}'")
-                statement = SQL("DROP TABLE IF EXISTS {0}.{1}").format(
+                statement = SQL("DROP TABLE IF EXISTS {0}.{1} CASCADE").format(
                     Identifier(datastore.schema), Identifier(table_name)
                 )
                 curs.execute(statement, prepare=False)
                 # print(f"Dropped table '{table_name}' in schema '{schema}'")
+
+            # Also drop composite types.
+            composite_types = [
+                "stored_event_uuid",
+                "stored_event_text",
+                PG_TYPE_NAME_DCB_EVENT_TS,
+                DB_TYPE_NAME_DCB_EVENT_TT,
+                DB_TYPE_NAME_DCB_QUERY_ITEM_TT,
+            ]
+            for name in composite_types:
+                statement = SQL("DROP TYPE IF EXISTS {schema}.{name} CASCADE").format(
+                    schema=Identifier(datastore.schema),
+                    name=Identifier(name),
+                )
+                curs.execute(statement, prepare=False)
+
+            # Also drop functions.
+            functions = [
+                "es_insert_events_uuid",
+                "es_insert_events_text",
+                PG_FUNCTION_NAME_DCB_INSERT_EVENTS_TS,
+                PG_FUNCTION_NAME_DCB_SELECT_EVENTS_TS,
+                PG_FUNCTION_NAME_DCB_CHECK_APPEND_CONDITION_TS,
+                DB_FUNCTION_NAME_DCB_UNCONDITIONAL_APPEND_TT,
+                DB_FUNCTION_NAME_DCB_CONDITIONAL_APPEND_TT,
+            ]
+            for name in functions:
+                statement = SQL(
+                    "DROP FUNCTION IF EXISTS {schema}.{name} CASCADE"
+                ).format(
+                    schema=Identifier(datastore.schema),
+                    name=Identifier(name),
+                )
+                curs.execute(statement, prepare=False)
+
+            # Also drop procedures.
+            procedures = [
+                PG_PROCEDURE_NAME_DCB_APPEND_EVENTS_TS,
+            ]
+            for name in procedures:
+                statement = SQL(
+                    "DROP PROCEDURE IF EXISTS {schema}.{name} CASCADE"
+                ).format(
+                    schema=Identifier(datastore.schema),
+                    name=Identifier(name),
+                )
+                curs.execute(statement, prepare=False)

@@ -4,9 +4,8 @@ import os
 import boto3
 import json
 
-from typing import Optional, List, Dict
+from typing import Any, Optional, List, Dict, Callable
 from pathlib import Path
-from dataclasses import asdict
 
 from deadline.job_attachments.api._utils import _read_manifests
 from deadline.job_attachments.asset_manifests.base_manifest import BaseAssetManifest
@@ -19,7 +18,7 @@ from deadline.job_attachments.models import (
 )
 from deadline.job_attachments.progress_tracker import DownloadSummaryStatistics
 from deadline.job_attachments.upload import S3AssetUploader
-from deadline.client.cli._groups.click_logger import ClickLogger
+
 from deadline.client.config import config_file
 from deadline.client.exceptions import NonValidInputError
 
@@ -29,9 +28,9 @@ def _attachment_download(
     s3_root_uri: str,
     boto3_session: boto3.Session,
     path_mapping_rules: Optional[str] = None,
-    logger: ClickLogger = ClickLogger(False),
+    print_function_callback: Callable[[Any], None] = lambda msg: None,
     conflict_resolution: FileConflictResolution = FileConflictResolution.CREATE_COPY,
-):
+) -> DownloadSummaryStatistics:
     """
     BETA API - This API is still evolving.
 
@@ -43,7 +42,7 @@ def _attachment_download(
         s3_root_uri (str): S3 root uri including bucket name and root prefix.
         boto3_session (boto3.Session): Boto3 session for interacting with customer s3.
         path_mapping_rules (Optional[str], optional): Optional file path to a JSON file contains list of path mapping. Defaults to None.
-        logger (ClickLogger, optional): Logger to provide visibility. Defaults to ClickLogger(False).
+        print_function_callback (Callable[[str], None], optional): Callback function to provide visibility. Defaults to lambda msg: None.
 
     Raises:
         NonValidInputError: raise when any of the input is not valid.
@@ -56,39 +55,6 @@ def _attachment_download(
     path_mapping_rule_list: List[PathMappingRule] = _process_path_mapping(
         path_mapping_rules=path_mapping_rules
     )
-
-    _attachment_download_with_root_manifests(
-        boto3_session,
-        file_name_manifest_dict,
-        s3_root_uri,
-        conflict_resolution,
-        path_mapping_rule_list,
-        logger,
-    )
-
-
-def _attachment_download_with_root_manifests(
-    boto3_session: boto3.Session,
-    file_name_manifest_dict: Dict[str, BaseAssetManifest],
-    s3_root_uri: str,
-    conflict_resolution: FileConflictResolution,
-    path_mapping_rule_list: Optional[List[PathMappingRule]] = None,
-    logger: ClickLogger = ClickLogger(False),
-):
-    """
-    Function to use for attachment download when the caller has manifests and path mapping rule list,
-    instead of reading these from input files.
-    We should make this the default API Interface eventually to make it flexible
-
-    :param boto3_session: boto3 session
-    :param file_name_manifest_dict: Dictionary mapping manifest file names to their
-                                   corresponding manifest objects.
-    :param s3_root_uri: root uri for s3
-    :param conflict_resolution: conflict resolution method for repeated files
-    :param path_mapping_rule_list: path mapping rule list to map paths
-    :param logger: logger
-    :return:
-    """
 
     merged_manifests_by_root: Dict[str, BaseAssetManifest] = dict()
     for file_name, manifest in file_name_manifest_dict.items():
@@ -113,15 +79,13 @@ def _attachment_download_with_root_manifests(
 
     # Given manifests and S3 bucket + root, downloads all files from a CAS in each manifest.
     s3_settings: JobAttachmentS3Settings = JobAttachmentS3Settings.from_s3_root_uri(s3_root_uri)
-    download_summary: DownloadSummaryStatistics = download_files_from_manifests(
+    return download_files_from_manifests(
         s3_bucket=s3_settings.s3BucketName,
         manifests_by_root=merged_manifests_by_root,
         cas_prefix=s3_settings.full_cas_prefix(),
         session=boto3_session,
         conflict_resolution=conflict_resolution,
     )
-    logger.echo(download_summary)
-    logger.json(asdict(download_summary.convert_to_summary_statistics()))
 
 
 def _attachment_upload(
@@ -132,7 +96,7 @@ def _attachment_upload(
     path_mapping_rules: Optional[str] = None,
     manifest_path_mapping: Optional[Dict[str, str]] = None,
     upload_manifest_path: Optional[str] = None,
-    logger: ClickLogger = ClickLogger(False),
+    print_function_callback: Callable[[Any], None] = lambda msg: None,
 ) -> List[UploadManifestInfo]:
     """
     BETA API - This API is still evolving.
@@ -147,7 +111,7 @@ def _attachment_upload(
         root_dirs (List[str]): List of root directories holding attachments. Defaults to empty.
         path_mapping_rules (Optional[str], optional): Optional file path to a JSON file contains list of path mapping. Defaults to None.
         upload_manifest_path (Optional[str], optional): Optional path prefix for uploading given manifests. Defaults to None.
-        logger (ClickLogger, optional): Logger to provide visibility. Defaults to ClickLogger(False).
+        print_function_callback (Callable[[str], None], optional): Callback function to provide visibility. Defaults to lambda msg: None.
 
     Returns:
         List[UploadManifestInfo]: A list of UploadManifestInfo objects corresponding to the input manifests
@@ -220,7 +184,7 @@ def _attachment_upload(
             asset_root=Path(rule.destination_path),
             s3_check_cache_dir=config_file.get_cache_directory(),
         )
-        logger.echo(
+        print_function_callback(
             f"Uploaded assets from {rule.destination_path}, to {s3_settings.to_s3_root_uri()}/Manifests/{key}, hashed data {data}"
         )
 

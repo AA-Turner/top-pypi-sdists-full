@@ -2,27 +2,17 @@
 
 import inspect
 
-from pytorch_forecasting.utils._dependencies import _safe_import
-
-_SkbaseBaseObject = _safe_import("skbase.base.BaseObject", pkg_name="scikit-base")
+from pytorch_forecasting.base._base_object import _BaseObject
 
 
-class _BaseObject(_SkbaseBaseObject):
-    pass
-
-
-class _BasePtForecaster(_BaseObject):
+class _BasePtForecaster_Common(_BaseObject):
     """Base class for all PyTorch Forecasting forecaster packages.
 
     This class points to model objects and contains metadata as tags.
     """
 
-    _tags = {
-        "object_type": "forecaster_pytorch",
-    }
-
     @classmethod
-    def get_model_cls(cls):
+    def get_cls(cls):
         """Get model class."""
         raise NotImplementedError
 
@@ -90,7 +80,7 @@ class _BasePtForecaster(_BaseObject):
             param_list = cls.get_test_params()
 
         objs = []
-        if not isinstance(param_list, (dict, list)):
+        if not isinstance(param_list, dict | list):
             raise RuntimeError(
                 f"Error in {cls.__name__}.get_test_params, "
                 "return must be param dict for class, or list thereof"
@@ -112,3 +102,19 @@ class _BasePtForecaster(_BaseObject):
             names = [cls.__name__]
 
         return objs, names
+
+
+class _BasePtForecaster(_BasePtForecaster_Common):
+    """Base class for PyTorch Forecasting v1 forecasters."""
+
+    _tags = {
+        "object_type": ["forecaster_pytorch", "forecaster_pytorch_v1"],
+    }
+
+
+class _BasePtForecasterV2(_BasePtForecaster_Common):
+    """Base class for PyTorch Forecasting v2 forecasters."""
+
+    _tags = {
+        "object_type": "forecaster_pytorch_v2",
+    }

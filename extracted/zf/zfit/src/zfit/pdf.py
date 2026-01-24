@@ -13,6 +13,7 @@ __all__ = [
     "BaseFunctor",
     "BasePDF",
     "Bernstein",
+    "Beta",
     "BifurGauss",
     "BinnedFromUnbinnedPDF",
     "BinnedSumPDF",
@@ -25,6 +26,7 @@ __all__ = [
     "ConditionalPDFV1",
     "CrystalBall",
     "DoubleCB",
+    "ExpModGauss",
     "Exponential",
     "FFTConvPDFV1",
     "Gamma",
@@ -71,9 +73,11 @@ from .models.cache import CachedPDF
 from .models.conditional import ConditionalPDFV1
 from .models.convolution import FFTConvPDFV1
 from .models.dist_tfp import (
+    Beta,
     BifurGauss,
     Cauchy,
     ChiSquared,
+    ExpModGauss,
     Gamma,
     Gauss,
     GeneralizedGauss,

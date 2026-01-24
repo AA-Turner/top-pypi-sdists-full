@@ -1,20 +1,20 @@
-import sys
-from typing import Final, Literal, Protocol, overload
+from typing import (
+    Final,
+    Literal,
+    Protocol,
+    overload,
+    type_check_only,
+)
 
 from ._types import Unused, _ElementOrTree
 from .etree import LxmlSyntaxError, _Element
 
-if sys.version_info >= (3, 11):
-    from typing import LiteralString
-else:
-    from typing_extensions import LiteralString
-
 # exported constants
-XINCLUDE: Final[LiteralString]
-XINCLUDE_INCLUDE: Final[LiteralString]
-XINCLUDE_FALLBACK: Final[LiteralString]
-XINCLUDE_ITER_TAG: Final[LiteralString]
-DEFAULT_MAX_INCLUSION_DEPTH: Final[int]
+XINCLUDE: Final[Literal["{http://www.w3.org/2001/XInclude}"]]
+XINCLUDE_INCLUDE: Final[Literal["{http://www.w3.org/2001/XInclude}include"]]
+XINCLUDE_FALLBACK: Final[Literal["{http://www.w3.org/2001/XInclude}fallback"]]
+XINCLUDE_ITER_TAG: Final[Literal["{http://www.w3.org/2001/XInclude}*"]]
+DEFAULT_MAX_INCLUSION_DEPTH: Final[Literal[6]]
 
 class FatalIncludeError(LxmlSyntaxError): ...
 class LimitedRecursiveIncludeError(FatalIncludeError): ...
@@ -22,7 +22,8 @@ class LimitedRecursiveIncludeError(FatalIncludeError): ...
 # The default_loader() in lxml.ElementInclude is completely
 # retired (lxml uses its own internal loader)
 
-class LoaderProtocol(Protocol):
+@type_check_only
+class _LoaderProtocol(Protocol):
     """Protocol for loader func argument in `ElementInclude.include()`
 
     Annotation
@@ -54,7 +55,7 @@ class LoaderProtocol(Protocol):
 
 def include(
     elem: _ElementOrTree,
-    loader: LoaderProtocol | None = None,
+    loader: _LoaderProtocol | None = None,
     base_url: str | None = None,
     max_depth: int = 6,
 ) -> None:
@@ -64,7 +65,7 @@ def include(
     ----------
     - Source documentation above `include()` is outdated; this function
     does not return at all.
-    - Try using `from lxml.ElementInclude import LoaderProtocol` from
+    - Try using `from lxml.ElementInclude import _LoaderProtocol` from
     within IDEs to lookup its purpose and usage. This is annotation
     only and doesn't exist in lxml source.
     """

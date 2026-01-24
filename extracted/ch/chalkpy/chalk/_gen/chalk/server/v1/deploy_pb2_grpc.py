@@ -55,6 +55,11 @@ class DeployServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.TagDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.TagDeploymentResponse.FromString,
         )
+        self.GetDeploymentSource = channel.unary_unary(
+            "/chalk.server.v1.DeployService/GetDeploymentSource",
+            request_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.GetDeploymentSourceRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.GetDeploymentSourceResponse.FromString,
+        )
 
 
 class DeployServiceServicer(object):
@@ -108,6 +113,12 @@ class DeployServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetDeploymentSource(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DeployServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -150,6 +161,11 @@ def add_DeployServiceServicer_to_server(servicer, server):
             servicer.TagDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.TagDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.TagDeploymentResponse.SerializeToString,
+        ),
+        "GetDeploymentSource": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDeploymentSource,
+            request_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.GetDeploymentSourceRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.GetDeploymentSourceResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.DeployService", rpc_method_handlers)
@@ -382,6 +398,35 @@ class DeployService(object):
             "/chalk.server.v1.DeployService/TagDeployment",
             chalk_dot_server_dot_v1_dot_deploy__pb2.TagDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_deploy__pb2.TagDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDeploymentSource(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DeployService/GetDeploymentSource",
+            chalk_dot_server_dot_v1_dot_deploy__pb2.GetDeploymentSourceRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_deploy__pb2.GetDeploymentSourceResponse.FromString,
             options,
             channel_credentials,
             insecure,

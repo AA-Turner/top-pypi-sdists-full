@@ -2,44 +2,49 @@
 Converters and structure hooks for various data types.
 """
 
+from __future__ import annotations
+
 import collections.abc
+import contextlib
 import dataclasses
 import re
-from collections.abc import Iterable, Mapping, Sequence
+import warnings
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from types import MappingProxyType
+from types import MappingProxyType, UnionType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Optional,
+    Literal,
     Protocol,
+    TypeVar,
     Union,
     get_args,
     get_origin,
 )
 
-from ._compat import PY_310, PY_311
+from ._compat import PY_311
 
-
-if PY_310:
-    from types import UnionType
-else:
-    from typing import Union as UnionType  # type: ignore
 
 if PY_311:
     from enum import IntEnum, StrEnum
 else:
     IntEnum = StrEnum = None  # type: ignore
 
-from .types import ET, T
+from .types import ET, Secret, T
 
 
 if TYPE_CHECKING:
     import cattrs
     import pydantic
+
+
+#: A TypeVar for :class:`~pathlib.Path` types
+TPath = TypeVar("TPath", bound=Path)
+#: A TypeVar for :class:`~typed_settings.types.Secret` types
+TSecret = TypeVar("TSecret", bound=Secret)
 
 
 class Converter(Protocol):
@@ -52,18 +57,20 @@ class Converter(Protocol):
     .. versionadded:: 23.1.0
     """
 
-    def structure(self, value: Any, cls: type[T]) -> T:
+    def structure(self, obj: Any, cl: type[T]) -> T:
         """
-        Convert *value* to an instance of *cls* and return it.
+        Convert *obj* to an instance of *cl* and return it.
 
         Args:
-            value: The data to be converted.
-            cls: The type to convert *value* to.
+            obj: The data to be converted.
+            cl: The type to convert *obj* to.
 
         Return:
-            An instance of *cls* for *value*.
+            An instance of *cl* for *obj*.
         """
         ...
+
+    def get_structure_hook(self, cl: type[T]) -> Callable[[Any, type[T]], T]: ...
 
 
 class TSConverter:
@@ -77,10 +84,10 @@ class TSConverter:
     def __init__(
         self,
         resolve_paths: bool = True,
-        strlist_sep: Union[str, Callable[[str], list], None] = ":",
+        strlist_sep: str | Callable[[str], list] | None = ":",
     ) -> None:
         if strlist_sep is None:
-            self.strlist_hook: Optional[Callable[[str], list]] = None
+            self.strlist_hook: Callable[[str], list] | None = None
         elif isinstance(strlist_sep, str):
             self.strlist_hook = lambda v: v.split(strlist_sep)  # type: ignore
         else:
@@ -104,7 +111,8 @@ class TSConverter:
             datetime: to_datetime,
             date: to_date,  # Must come after "datetime" b/c of subclassing!
             timedelta: to_timedelta,
-            Path: to_resolved_path if resolve_paths else to_path,
+            Path: PathConverter(resolve_paths),
+            re.Pattern: to_pattern,
         }
         try:
             import pydantic
@@ -121,39 +129,44 @@ class TSConverter:
             MappingProxyTypeHookFactory,
             SetHookFactory,
             FrozenSetHookFactory,
+            LiteralHookFactory,
             UnionHookFactory,
             AttrsHookFactory,
             DataclassesHookFactory,
             PydanticHookFactory,
+            SecretHookFactory,
         ]
 
-    def structure(self, value: Any, cls: type[T]) -> T:
+    def get_structure_hook(self, cl: type[T]) -> Callable[[Any, type[T]], T]:
+        return self.scalar_converters[cl]
+
+    def structure(self, obj: Any, cl: type[T]) -> T:
         """
-        Convert *value* to an instance of *cls* and return it.
+        Convert *obj* to an instance of *cl* and return it.
 
         Args:
-            value: The data to be converted.
-            cls: The type to convert *value* to.
+            obj: The data to be converted.
+            cl: The type to convert *obj* to.
 
         Return:
-            An instance of *cls* for *value*.
+            An instance of *cl* for *obj*.
         """
         for ctype, convert in self.scalar_converters.items():
-            if cls is ctype or (
-                ctype is not Any and isinstance(cls, type) and issubclass(cls, ctype)
+            if cl is ctype or (
+                ctype is not Any and isinstance(cl, type) and issubclass(cl, ctype)
             ):
-                return convert(value, cls)
+                return convert(obj, cl)
 
-        origin = get_origin(cls)
-        args = get_args(cls)
+        origin = get_origin(cl)
+        args = get_args(cl)
         for hook in self.composite_hook_factories:
-            if hook.match(cls, origin, args):
-                convert = hook.get_structure_hook(self, cls, origin, args)
-                return convert(value, cls)
+            if hook.match(cl, origin, args):
+                convert = hook.get_structure_hook(self, cl, origin, args)
+                return convert(obj, cl)
 
-        raise TypeError(f"Cannot create converter for generic type: {cls}")
+        raise TypeError(f"Cannot create converter for generic type: {cl}")
 
-    def maybe_apply_strlist_hook(self, value: T) -> Union[list, T]:
+    def maybe_apply_strlist_hook(self, value: T) -> list | T:
         """
         Apply the string list hook to *value* if one is defined and if *value* is a
         string.
@@ -183,10 +196,14 @@ def default_converter(*, resolve_paths: bool = True) -> Converter:
         - :class:`datetime.datetime` (see :func:`to_datetime()`)
         - :class:`datetime.date` (see :func:`to_date()`)
         - :class:`datetime.timedelta` (see :func:`to_timedelta()`)
-        - :class:`enum.Enum` using (see :func:`to_enum_by_name()`)
-        - :class:`enum.IntEnum` using (see :func:`to_enum_by_value()`)
-        - :class:`enum.StrEnum` using (see :func:`to_enum_by_value()`)
-        - :class:`pathlib.Path` (see :func:`to_path()` and :func:`to_resolved_path()`)
+        - :class:`enum.Enum` (see :func:`to_enum_by_name()`)
+        - :class:`enum.IntEnum` (see :func:`to_enum_by_value()`)
+        - :class:`enum.StrEnum` (see :func:`to_enum_by_value()`)
+        - :class:`pathlib.Path` (see :class:`PathConverter`)
+        - :class:`re.Pattern` (via :func:`re.compile()`)
+        - :class:`typing.Literal` (for CLI generation, all values must be `str`).
+        - :class:`typed_settings.types.Secret`
+        - :class:`typed_settings.types.SecretStr`
         - :class:`list`
         - :class:`tuple`
         - :class:`dict`
@@ -195,7 +212,7 @@ def default_converter(*, resolve_paths: bool = True) -> Converter:
         - :class:`set`
         - :class:`frozenset`
         - :data:`typing.Optional`
-        - :data:`typing.Union` (depending on the converter, only to a certain degree,
+        - :class:`typing.Union` (depending on the converter, only to a certain degree,
           but this should not be relevant for settings with clearly defined types)
         - :mod:`attrs` classes (from instances and dicts)
 
@@ -220,7 +237,7 @@ def default_converter(*, resolve_paths: bool = True) -> Converter:
         return get_default_cattrs_converter(resolve_paths=resolve_paths)
 
 
-def get_default_ts_converter(resolve_paths: bool = True) -> "TSConverter":
+def get_default_ts_converter(resolve_paths: bool = True) -> TSConverter:
     """
     Return a :class:`TSConverter` with default settings
     (see :func:`default_converter()` for argument and return value description).
@@ -234,7 +251,7 @@ def get_default_ts_converter(resolve_paths: bool = True) -> "TSConverter":
     return TSConverter(resolve_paths=resolve_paths)
 
 
-def get_default_cattrs_converter(resolve_paths: bool = True) -> "cattrs.Converter":
+def get_default_cattrs_converter(resolve_paths: bool = True) -> cattrs.Converter:
     """
     Return a :class:`cattrs.Converter` with default settings
     (see :func:`default_converter()` for argument and return value description).
@@ -262,9 +279,26 @@ def get_default_cattrs_converter(resolve_paths: bool = True) -> "cattrs.Converte
     register_dataclasses_hook_factory(converter)
     register_pydantic_hook_factory(converter)
     register_strlist_hook(converter, ":")
+    register_secret_hook(converter)
     for t, h in get_default_structure_hooks(resolve_paths=resolve_paths):
         converter.register_structure_hook(t, h)  # type: ignore
     return converter
+
+
+def get_path_converter_from(converter: Converter) -> PathConverter:
+    """
+    Extract the converter / structure hook for :class:`pathlib.Path` from *converter*.
+
+    Return a dummy :class:`PathConverter` if *converter* does not use one.
+    """
+    try:
+        path_converter = converter.get_structure_hook(Path)
+        if not isinstance(path_converter, PathConverter):
+            raise TypeError("Not a PathConverter")
+    except Exception:
+        # Fallback for the case, users define their own converter for paths.
+        path_converter = PathConverter()
+    return path_converter
 
 
 def get_default_structure_hooks(
@@ -281,7 +315,6 @@ def get_default_structure_hooks(
         A list of tuples that can be used as args for
         :meth:`cattrs.BaseConverter.register_structure_hook()`.
     """
-    path_hook = to_resolved_path if resolve_paths else to_path
     hooks: list[tuple[type, Callable[[Any, type], Any]]] = [
         *(
             [
@@ -296,7 +329,8 @@ def get_default_structure_hooks(
         (datetime, to_datetime),
         (date, to_date),
         (timedelta, to_timedelta),
-        (Path, path_hook),
+        (Path, PathConverter(resolve_paths=resolve_paths)),
+        (re.Pattern, to_pattern),
     ]
     try:
         import pydantic
@@ -308,7 +342,7 @@ def get_default_structure_hooks(
     return hooks
 
 
-def register_attrs_hook_factory(converter: "cattrs.Converter") -> None:
+def register_attrs_hook_factory(converter: cattrs.Converter) -> None:
     """
     Register a hook factory that allows using instances of :program:`attrs` classes
     where :program:`cattrs` would normally expect a dictionary.
@@ -323,7 +357,20 @@ def register_attrs_hook_factory(converter: "cattrs.Converter") -> None:
         def structure_attrs(val, _):  # type: ignore[no-untyped-def]
             if isinstance(val, typ):
                 return val
-            return converter.structure_attrs_fromdict(val, typ)
+
+            # Like structure_attrs_fromdict but using aliases instead of names. This is
+            # used instead of the `use_alias` argument as that only works with functions
+            # generated using `make_dict_structure_fn`, which is not used here.
+            conv_obj = {}  # Start with a fresh dict, to ignore extra keys.
+            for a in attrs.fields(typ):
+                try:
+                    _val = val[a.alias]
+                except KeyError:
+                    continue
+
+                conv_obj[a.alias] = converter._structure_attribute(a, _val)
+
+            return typ(**conv_obj)
 
         return structure_attrs
 
@@ -332,7 +379,7 @@ def register_attrs_hook_factory(converter: "cattrs.Converter") -> None:
     converter.register_structure_hook_factory(attrs.has, allow_attrs_instances)
 
 
-def register_dataclasses_hook_factory(converter: "cattrs.Converter") -> None:
+def register_dataclasses_hook_factory(converter: cattrs.Converter) -> None:
     """
     Register a hook factory that allows using instances of :mod:`dataclasses` classes
     where :program:`cattrs` would normally expect a dictionary.
@@ -356,7 +403,7 @@ def register_dataclasses_hook_factory(converter: "cattrs.Converter") -> None:
     )
 
 
-def register_pydantic_hook_factory(converter: "cattrs.Converter") -> None:
+def register_pydantic_hook_factory(converter: cattrs.Converter) -> None:
     """
     Register a hook factory that allows using instances of :mod:`dataclasses` classes
     where :program:`cattrs` would normally expect a dictionary.
@@ -385,7 +432,7 @@ def register_pydantic_hook_factory(converter: "cattrs.Converter") -> None:
     converter.register_structure_hook_factory(check, to_pydantic)
 
 
-def register_mappingproxy_hook(converter: "cattrs.Converter") -> None:
+def register_mappingproxy_hook(converter: cattrs.Converter) -> None:
     """
     Register a hook factory for converting data to :class:`types.MappingProxyType`
     instances.
@@ -411,9 +458,9 @@ def register_mappingproxy_hook(converter: "cattrs.Converter") -> None:
 
 
 def register_strlist_hook(
-    converter: "cattrs.Converter",
-    sep: Optional[str] = None,
-    fn: Optional[Callable[[str], list]] = None,
+    converter: cattrs.Converter,
+    sep: str | None = None,
+    fn: Callable[[str], list] | None = None,
 ) -> None:
     """
     Register a hook factory with *converter* that allows structuring lists,
@@ -462,6 +509,33 @@ def register_strlist_hook(
     for check, structure_func_factory in collection_types:
         hook_factory = _generate_hook_factory(structure_func_factory, fn)
         converter.register_structure_hook_factory(check, hook_factory)
+
+
+def register_secret_hook(converter: cattrs.Converter) -> None:
+    """
+    Register a hook factory for converting data to :class:`typed_settings.types.Secret`
+    instances.
+
+    Args:
+        converter: The :class:`cattrs.Converter` to register the hook at.
+    """
+
+    def check(cls: type) -> bool:
+        origin = get_origin(cls)
+        return (isinstance(cls, type) and issubclass(cls, Secret)) or (
+            origin is not None and issubclass(origin, Secret)
+        )
+
+    def convert(val: T | Any, cls: type[TSecret]) -> TSecret:
+        origin = get_origin(cls)
+        if isinstance(val, cls if origin is None else origin):
+            val = val.get_secret_value()  # type: ignore[union-attr]
+        args = get_args(cls)
+        if args:
+            val = converter.structure(val, args[0])
+        return cls(val)
+
+    converter.register_structure_hook_func(check, convert)
 
 
 def _generate_hook_factory(structure_func_factory, fn):  # type: ignore[no-untyped-def]
@@ -532,7 +606,7 @@ def to_bool(value: Any, _cls: type = bool) -> bool:
     raise ValueError(f"Cannot convert value to bool: {value}")
 
 
-def to_date(value: Union[datetime, str], cls: type[date] = date) -> date:
+def to_date(value: datetime | str, cls: type[date] = date) -> date:
     """
     Convert an ISO formatted string to :class:`datetime.date`.  Leave the input
     untouched if it is already a date.
@@ -561,9 +635,7 @@ def to_date(value: Union[datetime, str], cls: type[date] = date) -> date:
     return value
 
 
-def to_datetime(
-    value: Union[datetime, str], cls: type[datetime] = datetime
-) -> datetime:
+def to_datetime(value: datetime | str, cls: type[datetime] = datetime) -> datetime:
     """
     Convert an ISO formatted string to :class:`datetime.datetime`.  Leave the input
     untouched if it is already a datetime.
@@ -623,7 +695,7 @@ RE_TIMEDELTA_ISO = re.compile(
 
 
 def to_timedelta(
-    value: Union[timedelta, int, float, str], cls: type[timedelta]
+    value: timedelta | int | float | str, cls: type[timedelta]
 ) -> timedelta:
     """
     Convert *value* to a :class:`datetime.timedelta`.
@@ -783,38 +855,132 @@ def to_enum_by_value(value: Any, cls: type[ET]) -> ET:
     return cls(value)
 
 
-def to_path(value: Union[Path, str], _cls: type) -> Path:
+class PathConverter:
     """
-    Convert *value* to :class:`~pathlib.Path`.
+    Converter class that converts values to a path type.
+
+    It can optionally resolve relative paths.  It does so by prefixing them with a
+    base directory which you can set with the :meth:`chdir()` context manager.
+
+    Args:
+        resolve_paths: Whether or not to resolve relative paths or leave them as they
+            are.
+        base_dir: Directory to prepend to relative paths.  It defaults to the current
+            working directory.
+    """
+
+    def __init__(self, resolve_paths: bool = True) -> None:
+        self._resolve_paths = resolve_paths
+        self._base_dir = Path.cwd()
+
+    def __call__(self, value: Path | str, cls: type[TPath]) -> TPath:
+        """
+        Convert *value* to a path type.
+
+        Args:
+            value: The input data
+            cls: The :class:`~pathlib.Path` type.
+
+        Return:
+            An instance of a (possibly) resolved :class:`~pathlib.Path`
+
+        Raise:
+            TypeError: If *value* cannot be converted to a path.
+        """
+        value = cls(value)
+        if self._resolve_paths:
+            if not value.is_absolute():
+                value = cls(self._base_dir, value)
+            value = value.resolve()
+        return value
+
+    @contextlib.contextmanager
+    def chdir(self, path: Path) -> Generator[None, None, None]:
+        """
+        **Context manager** that changes the converter's base directory to *path*.
+
+        When paths are resolved, relative paths are then prefixed with this.
+        """
+        old_dir = self._base_dir
+        self._base_dir = path
+        try:
+            yield
+        finally:
+            self._base_dir = old_dir
+
+
+def to_path(value: Path | str, cls: type[TPath]) -> TPath:  # pragma: no cover
+    """
+    Convert *value* to a path type.
 
     Args:
         value: The input data
-        _cls: (ignored)
+        cls: The :class:`~pathlib.Path` type.
 
     Return:
         An instance of :class:`~pathlib.Path`
 
     Raise:
         TypeError: If *value* cannot be converted to a path.
+
+    .. deprecated:: 25.2.0
+       Use :class:`PathConverter` instead.
+
+    .. versionremoved:: 26.0.0
     """
-    return Path(value)
+    warnings.warn(
+        "Function will be removed in v26.0.  Use 'PathConverter' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return cls(value)
 
 
-def to_resolved_path(value: Union[Path, str], _cls: type) -> Path:
+def to_resolved_path(value: Path | str, cls: type[TPath]) -> TPath:  # pragma: no cover
     """
-    Convert *value* to :class:`~pathlib.Path` and resolve it.
+    Convert *value* to a path type and resolve it.
 
     Args:
         value: The input data
-        _cls: (ignored)
+        cls: The :class:`~pathlib.Path` type.
 
     Return:
         A resolved instance of :class:`~pathlib.Path`
 
     Raise:
         TypeError: If *value* cannot be converted to a path.
+
+    .. deprecated:: 25.2.0
+       Use :class:`PathConverter` instead.
+
+    .. versionremoved:: 26.0.0
     """
-    return Path(value).resolve()
+    warnings.warn(
+        "Function will be removed in v26.0.  Use 'PathConverter' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return cls(value)
+
+
+def to_pattern(value: re.Pattern | str, cls: type[re.Pattern]) -> re.Pattern:
+    """
+    Compile *value* to :class:`re.Pattern`.
+
+    Args:
+        value: The input data.
+        cls: The :class:`re.Pattern` type.
+
+    Return:
+        The result of :func:`re.compile()`.
+
+    Raise:
+        TypeError: If *value* is not a string or already a pattern.
+        re.PatternError: If *value* ist not a valid regular expression.
+    """
+    if isinstance(value, re.Pattern):
+        return value
+    return re.compile(value)
 
 
 def to_type(value: Any, cls: type[T]) -> T:
@@ -836,8 +1002,8 @@ def to_type(value: Any, cls: type[T]) -> T:
 
 
 def to_pydantic_secretbytes(
-    value: Any, _cls: "type[pydantic.SecretBytes]"
-) -> "pydantic.SecretBytes":
+    value: Any, _cls: type[pydantic.SecretBytes]
+) -> pydantic.SecretBytes:
     """
     Convert *value* to :class:`pydantic.SecretStr`.
 
@@ -857,8 +1023,8 @@ def to_pydantic_secretbytes(
 
 
 def to_pydantic_secretstr(
-    value: Any, _cls: "type[pydantic.SecretStr]"
-) -> "pydantic.SecretStr":
+    value: Any, _cls: type[pydantic.SecretStr]
+) -> pydantic.SecretStr:
     """
     Convert *value* to :class:`pydantic.SecretStr`.
 
@@ -887,7 +1053,7 @@ class HookFactory(Protocol):
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         """
         Check whether this class can handle the given type *cls*.
 
@@ -903,7 +1069,7 @@ class HookFactory(Protocol):
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Any, type[T]], T]:
         """
         Return a structure hook for the given type/class.
@@ -931,7 +1097,7 @@ class AttrsHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         try:
             import attrs
         except ImportError:
@@ -941,11 +1107,11 @@ class AttrsHookFactory:
 
     @staticmethod
     def get_structure_hook(
-        converter: Converter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
-    ) -> Callable[[Union[dict, T], type[T]], T]:
+        converter: Converter, cls: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> Callable[[dict | T, type[T]], T]:
         import attrs
 
-        def convert(value: Union[dict, T], cls: type[T]) -> T:
+        def convert(value: dict | T, cls: type[T]) -> T:
             if isinstance(value, cls):
                 return value
 
@@ -955,7 +1121,7 @@ class AttrsHookFactory:
                     f'"{cls.__name__}" or "dict".'
                 )
 
-            fields = attrs.fields_dict(cls)  # type: ignore[arg-type]
+            fields = {field.alias: field for field in attrs.fields(cls)}  # type: ignore[arg-type]
             values = {
                 n: converter.structure(v, fields[n].type)  # type: ignore[arg-type]
                 for n, v in value.items()
@@ -973,14 +1139,14 @@ class DataclassesHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return dataclasses.is_dataclass(cls)
 
     @staticmethod
     def get_structure_hook(
-        converter: Converter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
-    ) -> Callable[[Union[dict, T], type[T]], T]:
-        def convert(value: Union[dict, T], cls: type[T]) -> T:
+        converter: Converter, cls: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> Callable[[dict | T, type[T]], T]:
+        def convert(value: dict | T, cls: type[T]) -> T:
             if isinstance(value, cls):
                 return value
 
@@ -1008,18 +1174,18 @@ class PydanticHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         try:
             import pydantic
         except ImportError:
             return False
-        return issubclass(cls, pydantic.BaseModel)
+        return isinstance(cls, type) and issubclass(cls, pydantic.BaseModel)
 
     @staticmethod
     def get_structure_hook(
-        converter: Converter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
-    ) -> Callable[[Union[dict, T], type[T]], T]:
-        def convert(value: Union[dict, T], cls: type[T]) -> T:
+        converter: Converter, cls: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> Callable[[dict | T, type[T]], T]:
+        def convert(value: dict | T, cls: type[T]) -> T:
             if isinstance(value, cls):
                 return value
 
@@ -1040,12 +1206,12 @@ class ListHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return cls is list or origin is list
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Iterable, type[T]], T]:
         if not args:
             args = (Any,)
@@ -1065,20 +1231,17 @@ class TupleHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return cls is tuple or origin is tuple
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
-    ) -> Union[Callable[[Iterable, type[T]], T], Callable[[Sequence, type[T]], T]]:
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> Callable[[Iterable, type[T]], T] | Callable[[Sequence, type[T]], T]:
         if not args:
             args = (Any, ...)
 
-        convert: Union[
-            Callable[[Iterable, type[T]], T],  # For list-like tuples
-            Callable[[Sequence, type[T]], T],  # For struct-like tuples
-        ]
+        convert: Callable[[Iterable, type[T]], T] | Callable[[Sequence, type[T]], T]
         if len(args) == 2 and args[1] == ...:
             item_type = args[0]
 
@@ -1095,7 +1258,9 @@ class TupleHookFactory:
                     raise TypeError(
                         f"Value must have {len(args)} items but has: {len(value)}"
                     )
-                values = [converter.structure(v, t) for v, t in zip(value, args)]
+                values = [
+                    converter.structure(v, t) for v, t in zip(value, args, strict=True)
+                ]
                 return tuple(values)  # type: ignore[return-value]
 
         return convert
@@ -1107,12 +1272,12 @@ class DictHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return cls is dict or origin is dict
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Mapping, type[T]], T]:
         if not args:
             args = (Any, Any)
@@ -1134,7 +1299,7 @@ class MappingProxyTypeHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         mapping_types = (MappingProxyType, Mapping, collections.abc.Mapping)
 
         for type_ in (cls, origin):
@@ -1145,7 +1310,7 @@ class MappingProxyTypeHookFactory:
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Any, type[T]], T]:
         if not args:
             args = (Any, Any)
@@ -1167,12 +1332,12 @@ class SetHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return cls is set or origin is set
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Any, type[T]], T]:
         if not args:
             args = (Any,)
@@ -1192,12 +1357,12 @@ class FrozenSetHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return cls is frozenset or origin is frozenset
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Any, type[T]], T]:
         if not args:
             args = (Any,)
@@ -1211,9 +1376,59 @@ class FrozenSetHookFactory:
         return convert
 
 
+class SecretHookFactory:
+    """
+    A :class:`HookFactory` for :class:`typed_settings.types.Secret`.
+
+    If the input is already a secret, it will be returned as-is.
+    """
+
+    @staticmethod
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
+        return (isinstance(cls, type) and issubclass(cls, Secret)) or (
+            isinstance(origin, type) and issubclass(origin, Secret)
+        )
+
+    @staticmethod
+    def get_structure_hook(
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> Callable[[Any, type[T]], T]:
+        def convert(value: Any, cls: type[T]) -> T:
+            if isinstance(value, Secret):
+                value = value.get_secret_value()
+            if args:
+                value = converter.structure(value, args[0])
+            return cls(value)  # type: ignore[call-arg]
+
+        return convert
+
+
+class LiteralHookFactory:
+    """
+    A :class:`HookFactory` for :data:`typing.Literal`.
+
+    Only accepts valid literals and otherwise raises a :exc:`ValueError`.
+    """
+
+    @staticmethod
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
+        return origin is Literal
+
+    @staticmethod
+    def get_structure_hook(
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
+    ) -> Callable[[Any, type[T]], T]:
+        def convert(value: Any, cls: type[T]) -> T:
+            if value not in args:
+                raise ValueError(f"Value is not in literals {args!r}: {value}")
+            return value
+
+        return convert
+
+
 class UnionHookFactory:
     """
-    A :class:`HookFactory` for :data:`typing.Optional` and :data:`typing.Union`.
+    A :class:`HookFactory` for :data:`typing.Optional` and :class:`typing.Union`.
 
     If the input data already has one of the uniton types, it will be returned without
     further processing.  Otherwise, converters for all union types will be tried until
@@ -1221,12 +1436,12 @@ class UnionHookFactory:
     """
 
     @staticmethod
-    def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
+    def match(cls: type, origin: Any | None, args: tuple[Any, ...]) -> bool:
         return origin in (Union, UnionType)
 
     @staticmethod
     def get_structure_hook(
-        converter: TSConverter, cls: type, origin: Optional[Any], args: tuple[Any, ...]
+        converter: TSConverter, cls: type, origin: Any | None, args: tuple[Any, ...]
     ) -> Callable[[Any, type[T]], T]:
         def convert(value: Any, cls: type[T]) -> T:
             if type(value) in args:

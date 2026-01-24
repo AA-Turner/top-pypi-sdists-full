@@ -7,12 +7,19 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import gpu.types
 
-def active_framebuffer_get(enable) -> None:
-    """Return the active frame-buffer in context."""
+def active_framebuffer_get() -> gpu.types.GPUFrameBuffer:
+    """Return the active frame-buffer in context.
 
-def blend_get() -> None:
-    """Current blending equation."""
+    :return: The active framebuffer.
+    """
+
+def blend_get() -> str:
+    """Current blending equation.
+
+    :return: The current blend mode.
+    """
 
 def blend_set(mode: str) -> None:
     """Defines the fixed pipeline blending equation.
@@ -34,59 +41,73 @@ def blend_set(mode: str) -> None:
     SUBTRACT The original color channels are subtracted by the corresponding ones.
 
     INVERT The original color channels are replaced by its complementary color.
-        :type mode: str
     """
 
 def clip_distances_set(distances_enabled: int) -> None:
     """Sets the number of gl_ClipDistance planes used for clip geometry.
 
     :param distances_enabled: Number of clip distances enabled.
-    :type distances_enabled: int
     """
 
-def color_mask_set(r: bool, g, b, a) -> None:
+def color_mask_set(r: bool, g: bool, b: bool, a: bool) -> None:
     """Enable or disable writing of frame buffer color components.
 
-    :param r: components red, green, blue, and alpha.
-    :type r: bool
+    :param r: Red component.
+    :param g: Green component.
+    :param b: Blue component.
+    :param a: Alpha component.
     """
 
-def depth_mask_get() -> None:
-    """Writing status in the depth component."""
+def depth_mask_get() -> bool:
+    """Writing status in the depth component.
 
-def depth_mask_set(value) -> None:
+    :return: True if writing to the depth component is enabled.
+    """
+
+def depth_mask_set(value: bool) -> None:
     """Write to depth component.
 
     :param value: True for writing to the depth component.
     """
 
-def depth_test_get() -> None:
-    """Current depth_test equation."""
+def depth_test_get() -> str:
+    """Current depth_test equation.
+
+    :return: The current depth test mode.
+    """
 
 def depth_test_set(mode: str) -> None:
     """Defines the depth_test equation.
 
         :param mode: The depth test equation name.
     Possible values are NONE, ALWAYS, LESS, LESS_EQUAL, EQUAL, GREATER and GREATER_EQUAL.
-        :type mode: str
     """
 
-def face_culling_set(culling) -> None:
-    """Specify whether none, front-facing or back-facing facets can be culled."""
+def face_culling_set(culling: str) -> None:
+    """Specify whether none, front-facing or back-facing facets can be culled.
 
-def front_facing_set(invert) -> None:
+    :param culling: NONE, FRONT or BACK.
+    """
+
+def front_facing_set(invert: bool) -> None:
     """Specifies the orientation of front-facing polygons.
 
     :param invert: True for clockwise polygons as front-facing.
     """
 
-def line_width_get() -> None:
-    """Current width of rasterized lines."""
+def line_width_get() -> float:
+    """Current width of rasterized lines.
 
-def line_width_set(width) -> None:
-    """Specify the width of rasterized lines."""
+    :return: The current line width.
+    """
 
-def point_size_set(size) -> None:
+def line_width_set(width: float) -> None:
+    """Specify the width of rasterized lines.
+
+    :param width: New width.
+    """
+
+def point_size_set(size: float) -> None:
     """Specify the diameter of rasterized points.
 
     :param size: New diameter.
@@ -96,7 +117,6 @@ def program_point_size_set(enable: bool) -> None:
     """If enabled, the derived point size is taken from the (potentially clipped) shader builtin gl_PointSize.
 
     :param enable: True for shader builtin gl_PointSize.
-    :type enable: bool
     """
 
 def scissor_get() -> tuple[int, int, int, int]:
@@ -107,17 +127,16 @@ def scissor_get() -> tuple[int, int, int, int]:
     (x, y, xsize, ysize).
     x, y: lower left corner of the scissor rectangle, in pixels.
     xsize, ysize: width and height of the scissor rectangle.
-        :rtype: tuple[int, int, int, int]
     """
 
-def scissor_set(x: int, y, xsize: int, ysize) -> None:
+def scissor_set(x: int, y: int, xsize: int, ysize: int) -> None:
     """Specifies the scissor area of the active framebuffer.
     Note: The scissor state is not saved upon framebuffer rebind.
 
-        :param x: lower left corner of the scissor rectangle, in pixels.
-        :type x: int
-        :param xsize: width and height of the scissor rectangle.
-        :type xsize: int
+        :param x: Lower left corner x coordinate, in pixels.
+        :param y: Lower left corner y coordinate, in pixels.
+        :param xsize: Width of the scissor rectangle.
+        :param ysize: Height of the scissor rectangle.
     """
 
 def scissor_test_set(enable: bool) -> None:
@@ -125,18 +144,20 @@ def scissor_test_set(enable: bool) -> None:
 
         :param enable: True - enable scissor testing.
     False - disable scissor testing.
-        :type enable: bool
     """
 
-def viewport_get() -> None:
-    """Viewport of the active framebuffer."""
+def viewport_get() -> tuple[int, int, int, int]:
+    """Viewport of the active framebuffer.
 
-def viewport_set(x: int, y, xsize: int, ysize) -> None:
+    :return: The viewport as a tuple (x, y, xsize, ysize).
+    """
+
+def viewport_set(x: int, y: int, xsize: int, ysize: int) -> None:
     """Specifies the viewport of the active framebuffer.
     Note: The viewport state is not saved upon framebuffer rebind.
 
-        :param x: lower left corner of the viewport_set rectangle, in pixels.
-        :type x: int
-        :param xsize: width and height of the viewport_set.
-        :type xsize: int
+        :param x: Lower left corner x coordinate, in pixels.
+        :param y: Lower left corner y coordinate, in pixels.
+        :param xsize: Width of the viewport.
+        :param ysize: Height of the viewport.
     """

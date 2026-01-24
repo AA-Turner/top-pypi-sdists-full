@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: jaconv
-Version: 0.4.0
+Version: 0.4.1
 Summary: Pure-Python Japanese character interconverter for Hiragana, Katakana, Hankaku, Zenkaku and more
 Home-page: https://github.com/ikegami-yukino/jaconv
 Author: Yukino Ikegami
@@ -11,15 +11,15 @@ Platform: POSIX
 Platform: Windows
 Platform: Unix
 Platform: MacOS
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: Japanese
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.4
 Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
@@ -29,12 +29,18 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing
+Classifier: Topic :: Text Processing :: General
 License-File: LICENSE
+Dynamic: description
+Dynamic: license-file
+Dynamic: summary
 
 jaconv
 ==========
-|coveralls| |pyversion| |version| |license| |download|
+|pyversion| |version| |license| |download| |nowar| |nonuke|
 
 jaconv (Japanese Converter) is interconverter for Hiragana, Katakana, Hankaku (half-width character) and Zenkaku (full-width character)
 
@@ -174,13 +180,9 @@ jaconv.normalize method expand unicodedata.normalize for Japanese language proce
     '─' => 'ー'
 
 
-
-
-.. |coveralls| image:: https://coveralls.io/repos/ikegami-yukino/jaconv/badge.svg?branch=master&service=github
-    :target: https://coveralls.io/github/ikegami-yukino/jaconv?branch=master
-    :alt: coveralls.io
-
 .. |pyversion| image:: https://img.shields.io/pypi/pyversions/jaconv.svg
+    :target: http://pypi.python.org/pypi/jaconv/
+    :alt: Python version
 
 .. |version| image:: https://img.shields.io/pypi/v/jaconv.svg
     :target: http://pypi.python.org/pypi/jaconv/
@@ -190,16 +192,29 @@ jaconv.normalize method expand unicodedata.normalize for Japanese language proce
     :target: http://pypi.python.org/pypi/jaconv/
     :alt: license
 
-.. |download| image:: https://static.pepy.tech/personalized-badge/neologdn?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
-    :target: https://pepy.tech/project/neologdn
+.. |download| image:: https://static.pepy.tech/personalized-badge/jaconv?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
+    :target: https://pepy.tech/project/jaconv
     :alt: download
+
+.. |nowar| image:: https://img.shields.io/badge/%F0%9F%A4%9D%20NO%20WAR-FF0000?style=plastic
+    :alt: NO WAR budge
+
+.. |nonuke| image:: https://img.shields.io/badge/%E2%98%A2%20NO%20NUKE-FFFF00?style=plastic
+    :alt: NO NUKE budge
 
 
 CHANGES
 =======
 
+0.4.1 (2025-11-30)
+-------------------
+- port static configs to setup.cfg (thanks @eli-schwartz)
+- migrate testsuite to pytest (thanks @eli-schwartz)
+- Support Python 3.13 and 3.14
+
 0.4.0 (2024-7-26)
 -------------------
+- Support Python 3.12
 - Add stub files according to PEP 561 for mypy (thanks @ernix)
 
 0.3.4 (2023-2-18)

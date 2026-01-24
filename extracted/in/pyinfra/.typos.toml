@@ -1,0 +1,21 @@
+[files]
+extend-exclude = [
+    "tests/facts/apt.SimulateOperationWillChange/upgrade.json",
+    "tests/facts/opkg.OpkgPackages/opkg_packages.json",
+    "tests/words.txt",
+]
+
+[default]
+extend-ignore-re = [
+    "shell\\('uptim'\\)",
+    '"fpr:::::::::',
+    '== "fpr":',
+    "00740ba1",
+    "forr something in",
+    "unknown tag 'forr'",
+    "nd6 options=",
+    "4Ue1", # Ignore false positive in test_sshuserclient.py (EXAMPLE_KEY_1)
+]
+
+[default.extend-words]
+datas = "datas"

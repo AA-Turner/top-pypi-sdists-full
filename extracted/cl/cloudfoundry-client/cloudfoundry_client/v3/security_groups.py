@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING
 
 from cloudfoundry_client.v3.entities import EntityManager, ToManyRelationship, Entity, ToOneRelationship
 
@@ -22,43 +22,43 @@ class RuleProtocol(Enum):
 class Rule:
     protocol: RuleProtocol
     destination: str
-    ports: Optional[str] = None
-    type: Optional[int] = None
-    code: Optional[int] = None
-    description: Optional[str] = None
-    log: Optional[bool] = None
+    ports: str | None = None
+    type: int | None = None
+    code: int | None = None
+    description: str | None = None
+    log: bool | None = None
 
 
 @dataclass
 class GloballyEnabled:
-    running: Optional[bool] = None
-    staging: Optional[bool] = None
+    running: bool | None = None
+    staging: bool | None = None
 
 
-class SecurityGroupManager(EntityManager):
+class SecurityGroupManager(EntityManager[Entity]):
     def __init__(self, target_endpoint: str, client: "CloudFoundryClient"):
-        super(SecurityGroupManager, self).__init__(target_endpoint, client, "/v3/security_groups")
+        super().__init__(target_endpoint, client, "/v3/security_groups")
 
     def create(self,
                name: str,
-               rules: Optional[List[Rule]] = None,
-               globally_enabled: Optional[GloballyEnabled] = None,
-               staging_spaces: Optional[ToManyRelationship] = None,
-               running_spaces: Optional[ToManyRelationship] = None) -> Entity:
+               rules: list[Rule] | None = None,
+               globally_enabled: GloballyEnabled | None = None,
+               staging_spaces: ToManyRelationship | None = None,
+               running_spaces: ToManyRelationship | None = None) -> Entity:
         payload = self._generate_payload(name, rules, globally_enabled, staging_spaces, running_spaces)
         return super()._create(payload)
 
     def update(self,
                security_group_id: str,
-               name: Optional[str] = None,
-               rules: Optional[List[Rule]] = None,
-               globally_enabled: Optional[GloballyEnabled] = None,
-               staging_spaces: Optional[ToManyRelationship] = None,
-               running_spaces: Optional[ToManyRelationship] = None) -> Entity:
+               name: str | None = None,
+               rules: list[Rule] | None = None,
+               globally_enabled: GloballyEnabled | None = None,
+               staging_spaces: ToManyRelationship | None = None,
+               running_spaces: ToManyRelationship | None = None) -> Entity:
         payload = self._generate_payload(name, rules, globally_enabled, staging_spaces, running_spaces)
         return super()._update(security_group_id, payload)
 
-    def remove(self, security_group_id: str, asynchronous: bool = True) -> Optional[str]:
+    def remove(self, security_group_id: str, asynchronous: bool = True) -> str | None:
         return super()._remove(security_group_id, asynchronous)
 
     def bind_running_security_group_to_spaces(self, security_group_id: str, space_guids: ToManyRelationship) \
@@ -82,7 +82,7 @@ class SecurityGroupManager(EntityManager):
     def _bind_spaces(self, security_group_id: str, space_guids: ToManyRelationship, relationship: str) \
             -> ToManyRelationship:
         url = "%s%s/%s/relationships/%s" % (self.target_endpoint, self.entity_uri, security_group_id, relationship)
-        return ToManyRelationship.from_json_object(super()._post(url, space_guids))
+        return ToManyRelationship.from_json_object(super()._post(url, data=space_guids))
 
     def _unbind_space(self, security_group_id: str, space_guid: ToOneRelationship, relationship: str):
         url = "%s%s/%s/relationships/%s/%s" \
@@ -90,11 +90,11 @@ class SecurityGroupManager(EntityManager):
         super()._delete(url)
 
     @staticmethod
-    def _generate_payload(name: Optional[str],
-                          rules: Optional[List[Rule]],
-                          globally_enabled: Optional[GloballyEnabled],
-                          staging_spaces: Optional[ToManyRelationship],
-                          running_spaces: Optional[ToManyRelationship]):
+    def _generate_payload(name: str | None,
+                          rules: list[Rule] | None,
+                          globally_enabled: GloballyEnabled | None,
+                          staging_spaces: ToManyRelationship | None,
+                          running_spaces: ToManyRelationship | None):
         payload = {}
         if name:
             payload["name"] = name

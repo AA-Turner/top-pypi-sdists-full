@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytest-playwright
-Version: 0.7.1
+Version: 0.7.2
 Summary: A pytest wrapper with fixtures for Playwright to automate web browsers
 Author: Microsoft
 License:                                  Apache License
@@ -208,7 +208,6 @@ License:                                  Apache License
         
 Project-URL: homepage, https://github.com/microsoft/playwright-pytest
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -216,11 +215,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Framework :: Pytest
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: playwright>=1.18
-Requires-Dist: pytest<9.0.0,>=6.2.4
+Requires-Dist: pytest<10.0.0,>=6.2.4
 Requires-Dist: pytest-base-url<3.0.0,>=1.0.0
 Requires-Dist: python-slugify<9.0.0,>=6.0.0
 

@@ -1,7 +1,8 @@
 # -*- encoding: utf-8 -*-
-from ddtrace.internal import periodic
+import typing
+
 from ddtrace.internal import service
-from ddtrace.settings.profiling import config
+from ddtrace.internal.settings.profiling import config
 
 
 class CollectorError(Exception):
@@ -15,26 +16,12 @@ class CollectorUnavailable(CollectorError):
 class Collector(service.Service):
     """A profile collector."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)
 
     @staticmethod
-    def snapshot():
+    def snapshot() -> None:
         """Take a snapshot of collected data, to be exported."""
-
-
-class PeriodicCollector(Collector, periodic.PeriodicService):
-    """A collector that needs to run periodically."""
-
-    __slots__ = ()
-
-    def periodic(self):
-        # This is to simply override periodic.PeriodicService.periodic()
-        self.collect()
-
-    def collect(self):
-        """Collect the actual data."""
-        raise NotImplementedError
 
 
 class CaptureSampler(object):
@@ -44,15 +31,15 @@ class CaptureSampler(object):
         if capture_pct < 0 or capture_pct > 100:
             raise ValueError("Capture percentage should be between 0 and 100 included")
         self.capture_pct: float = capture_pct
-        self._counter: int = 0
+        self._counter: float = 0
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         class_name = self.__class__.__name__
         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
         attrs_str = ", ".join(f"{k}={v!r}" for k, v in attrs.items())
         return f"{class_name}({attrs_str})"
 
-    def capture(self):
+    def capture(self) -> bool:
         self._counter += self.capture_pct
         if self._counter >= 100:
             self._counter -= 100
@@ -61,7 +48,7 @@ class CaptureSampler(object):
 
 
 class CaptureSamplerCollector(Collector):
-    def __init__(self, capture_pct=config.capture_pct, *args, **kwargs):
+    def __init__(self, capture_pct: float = config.capture_pct, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)
         self.capture_pct = capture_pct
         self._capture_sampler = CaptureSampler(self.capture_pct)

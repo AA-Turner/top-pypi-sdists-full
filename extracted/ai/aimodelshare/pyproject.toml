@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aimodelshare"
+dynamic = ["version"]
+description = "Deploy locally saved machine learning models to a live REST API and integrated dashboard."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael Parrott", email = "mikedparrott@modelshare.ai" }]
+keywords = ["machine-learning", "deployment", "api", "onnx", "tensorflow", "pytorch"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent"
+]
+requires-python = ">=3.10"
+# Core dependencies (expanded to include ONNX and sklearn-related packages)
+dependencies = [
+  "numpy>=1.23.0",
+  "pandas>=1.5.0",
+  "requests",
+  "urllib3",
+  "boto3",
+  "onnx",
+  "onnxmltools",
+  "onnxruntime",
+  "skl2onnx",
+  "tf2onnx",
+  "scikit-learn>=1.2.0",
+  "scikeras",
+  "shortuuid",
+  "Pympler",
+  "wget",
+  # Old: "PyJWT<2.0",
+  "PyJWT[crypto]>=2.8,<3",
+  "pydot",
+  "regex",
+  "psutil",
+  "dill",
+  "IPython"
+]
+
+[project.optional-dependencies]
+visual = ["graphviz"]
+tensorflow = ["tensorflow==2.19.0", "keras2onnx"]  # Update to match Colab version
+pytorch = ["torch"]
+ui = ["gradio>=4.0.0"]
+full = [
+  "tensorflow==2.19.0", "keras2onnx",
+  "torch",
+  "graphviz",
+  "gradio>=4.0.0"
+]
+test = ["pytest", "pytest-cov"]
+
+[tool.setuptools.packages.find]
+include = ["aimodelshare*"]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "node-and-date"
+fallback_version = "0.0.0"

@@ -15,6 +15,7 @@ use chroma_cache::AysncPartitionedMutex;
 use chroma_error::ChromaError;
 use chroma_error::ErrorCodes;
 use chroma_storage::admissioncontrolleds3::StorageRequestPriority;
+use chroma_types::Cmek;
 use futures::future::{join_all, try_join_all};
 use futures::{Stream, StreamExt, TryStreamExt};
 use parking_lot::{Mutex, RwLock};
@@ -34,6 +35,7 @@ pub struct ArrowUnorderedBlockfileWriter {
     root: RootWriter,
     id: Uuid,
     deltas_mutex: Arc<AysncPartitionedMutex<Uuid>>,
+    cmek: Option<Cmek>,
 }
 // TODO: method visibility should not be pub(crate)
 
@@ -64,6 +66,7 @@ impl ArrowUnorderedBlockfileWriter {
         block_manager: BlockManager,
         root_manager: RootManager,
         max_block_size_bytes: usize,
+        cmek: Option<Cmek>,
     ) -> Self {
         let initial_block = block_manager.create::<K, V, UnorderedBlockDelta>();
         let sparse_index = SparseIndexWriter::new(initial_block.id);
@@ -88,6 +91,7 @@ impl ArrowUnorderedBlockfileWriter {
             root: root_writer,
             id,
             deltas_mutex: Arc::new(AysncPartitionedMutex::new(())),
+            cmek,
         }
     }
 
@@ -96,6 +100,7 @@ impl ArrowUnorderedBlockfileWriter {
         block_manager: BlockManager,
         root_manager: RootManager,
         new_root: RootWriter,
+        cmek: Option<Cmek>,
     ) -> Self {
         tracing::debug!("Constructed blockfile writer from existing root {:?}", id);
         let block_deltas = Arc::new(Mutex::new(HashMap::new()));
@@ -107,6 +112,7 @@ impl ArrowUnorderedBlockfileWriter {
             root: new_root,
             id,
             deltas_mutex: Arc::new(AysncPartitionedMutex::new(())),
+            cmek,
         }
     }
 
@@ -161,6 +167,7 @@ impl ArrowUnorderedBlockfileWriter {
             self.root,
             self.id,
             count,
+            self.cmek,
         );
 
         Ok(flusher)
@@ -526,7 +533,7 @@ impl<'me, K: ArrowReadableKey<'me> + Into<KeyWrapper>, V: ArrowReadableValue<'me
             if !self.block_manager.cached(block_id).await
                 && !self.loaded_blocks.read().contains_key(block_id)
             {
-                futures.push(self.get_block(*block_id, StorageRequestPriority::P1));
+                futures.push(self.get_block(*block_id, StorageRequestPriority::P0));
             }
         }
         join_all(futures).await;
@@ -572,6 +579,42 @@ impl<'me, K: ArrowReadableKey<'me> + Into<KeyWrapper>, V: ArrowReadableValue<'me
             }
             Err(e) => Err(Box::new(e)),
         }
+    }
+
+    /// Get all key-value pairs for a specific prefix
+    /// Optimized for retrieving all entries under a single prefix
+    pub(crate) async fn get_prefix(
+        &'me self,
+        prefix: &str,
+    ) -> Result<impl Iterator<Item = (K, V)>, Box<dyn ChromaError>> {
+        // Get all block IDs that might contain this prefix
+        let block_ids = self.root.sparse_index.get_block_ids_range(prefix..=prefix);
+
+        if block_ids.is_empty() {
+            return Ok(Vec::new().into_iter().flatten());
+        }
+
+        // Fetch blocks AND extract prefix data in parallel
+        let block_futures = block_ids.into_iter().map(|block_id| {
+            async move {
+                match self.get_block(block_id, StorageRequestPriority::P0).await {
+                    Ok(Some(block)) => {
+                        // Extract prefix data while we're in the async context
+                        let prefix_data = block.get_prefix::<K, V>(prefix);
+                        Ok(prefix_data)
+                    }
+                    Ok(None) => {
+                        Err(Box::new(ArrowBlockfileError::BlockNotFound) as Box<dyn ChromaError>)
+                    }
+                    Err(e) => Err(Box::new(e) as Box<dyn ChromaError>),
+                }
+            }
+            .instrument(Span::current())
+        });
+
+        let block_iters = try_join_all(block_futures).await?;
+
+        Ok(block_iters.into_iter().flatten())
     }
 
     // Returns all Arrow records in the specified range.
@@ -2266,6 +2309,7 @@ mod tests {
             root: root_writer,
             id: Uuid::new_v4(),
             deltas_mutex: Arc::new(AysncPartitionedMutex::new(())),
+            cmek: None,
         };
 
         let n = 2000;
@@ -2355,14 +2399,17 @@ mod tests {
         let old_block_2_record_batch = old_block_delta_2.finish::<&str, String>(None);
         let old_block_2 = Block::from_record_batch(old_block_id_2, old_block_2_record_batch);
         block_manager
-            .flush(&old_block_1, prefix_path)
+            .flush(&old_block_1, prefix_path, None)
             .await
             .unwrap();
         block_manager
-            .flush(&old_block_2, prefix_path)
+            .flush(&old_block_2, prefix_path, None)
             .await
             .unwrap();
-        root_manager.flush::<&str>(&old_root_writer).await.unwrap();
+        root_manager
+            .flush::<&str>(&old_root_writer, None)
+            .await
+            .unwrap();
 
         // We now have a v1 blockfile with 2 blocks and no counts in the root
 
@@ -2520,14 +2567,17 @@ mod tests {
         let old_block_2_record_batch = old_block_delta_2.finish::<&str, String>(None);
         let old_block_2 = Block::from_record_batch(old_block_id_2, old_block_2_record_batch);
         block_manager
-            .flush(&old_block_1, prefix_path)
+            .flush(&old_block_1, prefix_path, None)
             .await
             .unwrap();
         block_manager
-            .flush(&old_block_2, prefix_path)
+            .flush(&old_block_2, prefix_path, None)
             .await
             .unwrap();
-        root_manager.flush::<&str>(&old_root_writer).await.unwrap();
+        root_manager
+            .flush::<&str>(&old_root_writer, None)
+            .await
+            .unwrap();
 
         // We now have a v1.1 blockfile with 2 blocks.
 
@@ -2746,14 +2796,17 @@ mod tests {
         let old_block_2_record_batch = old_block_delta_2.finish::<&str, String>(None);
         let old_block_2 = Block::from_record_batch(old_block_id_2, old_block_2_record_batch);
         block_manager
-            .flush(&old_block_1, prefix_path)
+            .flush(&old_block_1, prefix_path, None)
             .await
             .unwrap();
         block_manager
-            .flush(&old_block_2, prefix_path)
+            .flush(&old_block_2, prefix_path, None)
             .await
             .unwrap();
-        root_manager.flush::<&str>(&old_root_writer).await.unwrap();
+        root_manager
+            .flush::<&str>(&old_root_writer, None)
+            .await
+            .unwrap();
 
         // We now have a v1 blockfile with 2 blocks.
 

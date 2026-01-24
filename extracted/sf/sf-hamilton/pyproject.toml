@@ -1,24 +1,43 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 [build-system]
-requires = ["setuptools>=72.1"]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core >=3.11,<4"]
+build-backend = "flit_core.buildapi"
 
 [project]
 name = "sf-hamilton"
-dynamic = ["version"]
+version = "1.89.0"  # NOTE: keep this in sync with hamilton/version.py
+# TODO: flip back to dynamic once hamilton version is a string. Flit doesn't handle tuples.
+# dynamic = ["version"]
 description = "Hamilton, the micro-framework for creating dataframes."
 readme = "README.md"
-requires-python = ">=3.8, <4"
-license = {text = "BSD-3-Clause"}
+requires-python = ">=3.8.1, <4"
+license = {text = "Apache-2.0"}
 keywords = ["hamilton"]
 authors = [
-    { name = "Stefan Krawczyk", email = "stefan@dagworks.io" },
+    { name = "Stefan Krawczyk", email = "stefank@cs.stanford.edu" },
     { name = "Elijah ben Izzy", email = "elijah@dagworks.io" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Natural Language :: English",
-    "License :: OSI Approved :: BSD License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -37,21 +56,87 @@ dependencies = [
 cli = ["typer"]
 dask = ["dask[complete]"]  # commonly you'll want everything.
 dask-array = ["dask[array]"]
-dask-core = ["dask-core"]
 dask-dataframe = ["dask[dataframe]"]
 dask-diagnostics = ["dask[diagnostics]"]
 dask-distributed = ["dask[distributed]"]
 datadog = ["ddtrace<3.0"]  # Temporary pin until h_ddog.py import is fixed for >3.0 version
+diskcache = ["diskcache"]
+experiments = [
+  "fastapi",
+  "fastui",
+  "uvicorn",
+]
+lsp = ["sf-hamilton-lsp"]
+openlineage = ["openlineage-python"]
+pandera = ["pandera"]
+pydantic = ["pydantic>=2.0"]
+pyspark = [
+  # we have to run these dependencies because Spark does not check to ensure the right target was called
+  "pyspark[pandas_on_spark,sql]",
+]
+ray = ["ray>=2.0.0", "pyarrow"]
+rich = ["rich"]
+sdk = ["sf-hamilton-sdk"]
+slack = ["slack-sdk"]
+
+tqdm = ["tqdm"]
+ui = ["sf-hamilton-ui"]
+
+# vaex -- on >=py3.11 only core part available https://github.com/vaexio/vaex/pull/2331#issuecomment-2437198176
+vaex = [
+  "vaex; python_version <= '3.10'"
+  ]
+visualization = ["graphviz", "networkx"]
+
+[dependency-groups]
 dev = [
   "pre-commit",
   "ruff==0.5.7", # this should match `.pre-commit-config.yaml`
 ]
-diskcache = ["diskcache"]
+test = [
+  "connectorx<=0.3.2; python_version=='3.8'",
+  "connectorx; python_version!='3.8'",
+  "dask[complete]",
+  "dask-expr>=1.1.14; python_version >= '3.10'", # Bugfix only available after py3.10 https://github.com/dask/dask-expr/pull/1150
+  "datasets>=2.18.0", # huggingface datasets -- https://github.com/huggingface/datasets/issues/6737#issuecomment-2107336816
+  "diskcache",
+  "dlt",
+  "fsspec",
+  "graphviz",
+  "kaleido",
+  "kedro",
+  "lancedb",
+  "lightgbm",
+  "lxml",
+  "lz4",
+  "matplotlib",
+  "mlflow",
+  "networkx",
+  "openpyxl", # for excel data loader
+  "pandera[dask]",
+  "plotly",
+  "polars",
+  "pyarrow",
+  "pydantic >=2.0",
+  "pyreadstat<1.2.8; python_version <= '3.9'", # for SPSS data loader
+  "pyreadstat; python_version > '3.9'", # for SPSS data loader
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "PyYAML",
+  "scikit-learn",
+  "sqlalchemy==1.4.49; python_version == '3.7.*'",
+  "sqlalchemy; python_version >= '3.8'",
+  "typer",
+  "xgboost",
+  "xlsx2csv", # for excel data loader
+  "xlsxwriter",  # Excel export requires 'xlsxwriter'
+]
 docs = [
-  "sf-hamilton[dev]",
+  {include-group = "dev"},
   "alabaster>=0.7,<0.8,!=0.7.5", # read the docs pins
   "commonmark==0.9.1", # read the docs pins
-  "dask-expr; python_version == '3.9'",
+  "dask-expr>=1.1.14; python_version >= '3.10'", # Bugfix only available after py3.10 https://github.com/dask/dask-expr/pull/1150
   "dask[distributed]",
   "ddtrace<3.0",
   "diskcache",
@@ -68,6 +153,7 @@ docs = [
   "myst-nb",
   "narwhals",
   "numpy < 2.0.0",
+  "packaging",
   "pandera",
   "pillow",
   "polars",
@@ -89,69 +175,8 @@ docs = [
   "tqdm",
   "xgboost",
 ]
-experiments = [
-  "fastapi",
-  "fastui",
-  "uvicorn",
-]
-lsp = ["sf-hamilton-lsp"]
-openlineage = ["openlineage-python"]
-packaging = [
-  "build",
-]
-pandera = ["pandera"]
-pydantic = ["pydantic>=2.0"]
-pyspark = [
-  # we have to run these dependencies because Spark does not check to ensure the right target was called
-  "pyspark[pandas_on_spark,sql]"
-]
-ray = ["ray>=2.0.0", "pyarrow"]
-rich = ["rich"]
-sdk = ["sf-hamilton-sdk"]
-slack = ["slack-sdk"]
-test = [
-  "connectorx",
-  "dask[complete]",
-  "dask-expr; python_version == '3.9'",
-  "datasets", # huggingface datasets
-  "diskcache",
-  "dlt",
-  "fsspec",
-  "graphviz",
-  "kaleido",
-  "kedro",
-  "lancedb",
-  "lightgbm",
-  "lxml",
-  "lz4",
-  "matplotlib",
-  "mlflow",
-  "networkx",
-  "openpyxl", # for excel data loader
-  "pandera[dask]",
-  "plotly",
-  "polars",
-  "pyarrow",
-  "pydantic >=2.0",
-  "pyreadstat", # for SPSS data loader
-  "pytest",
-  "pytest-asyncio",
-  "pytest-cov",
-  "PyYAML",
-  "scikit-learn",
-  "sqlalchemy==1.4.49; python_version == '3.7.*'",
-  "sqlalchemy; python_version >= '3.8'",
-  "typer",
-  "xgboost",
-  "xlsx2csv", # for excel data loader
-  "xlsxwriter",  # Excel export requires 'xlsxwriter'
-]
-tqdm = ["tqdm"]
-ui = ["sf-hamilton-ui"]
-vaex = ["vaex"]
-visualization = ["graphviz", "networkx"]
 
-[project.entry-points.console_scripts]
+[project.scripts]
 h_experiments = "hamilton.plugins.h_experiments.__main__:main"
 hamilton = "hamilton.cli.__main__:cli"
 hamilton-admin-build-ui = "hamilton.admin:build_ui"
@@ -161,10 +186,10 @@ hamilton-enable-autoload-extensions = "hamilton.registry:config_enable_autoload"
 
 [project.urls]
 homepage = "https://www.tryhamilton.dev/"
-documentation = "https://hamilton.dagworks.io/en/latest/"
-changelog = "https://github.com/DAGWorks-Inc/hamilton/releases"
-issues = "https://github.com/dagworks-inc/hamilton/issues"
-source = "https://github.com/dagworks-inc/hamilton"
+documentation = "https://hamilton.apache.org/en/latest/"
+changelog = "https://github.com/apache/hamilton/releases"
+issues = "https://github.com/apache/hamilton/issues"
+source = "https://github.com/apache/hamilton"
 slack = "https://join.slack.com/t/hamilton-opensource/shared_invite/zt-2niepkra8-DGKGf_tTYhXuJWBTXtIs4g"
 
 #[tool.mypy]
@@ -249,3 +274,10 @@ exclude = ["*tests*"]
 
 [tool.setuptools.package-data]
 hamilton = ["*.json", "*.md", "*.txt"]
+
+[tool.flit.module]
+name = "hamilton"
+
+[tool.flit.sdist]
+include = ["LICENSE", "NOTICE", "DISCLAIMER"]
+exclude = []

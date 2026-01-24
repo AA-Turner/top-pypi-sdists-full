@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar
-Version: 2.17.0
+Version: 2.19.0
 Summary: Litestar - A production-ready, highly performant, extensible ASGI API Framework
 Project-URL: Blog, https://blog.litestar.dev
 Project-URL: Changelog, https://github.com/litestar-org/litestar/releases/
@@ -14,7 +14,7 @@ Project-URL: Reddit, https://www.reddit.com/r/LitestarAPI
 Project-URL: Repository, https://github.com/litestar-org/litestar
 Project-URL: Twitter, https://twitter.com/LitestarAPI
 Author-email: Cody Fincher <cody@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Na'aman Hirschfeld <nhirschfeld@gmail.com>, Peter Schutt <peter@litestar.dev>
-Maintainer-email: Litestar Developers <hello@litestar.dev>, Cody Fincher <cody@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Visakh Unnikrishnan <guacs@litestar.dev>, Julien Courtes <julien@litestar.dev>
+Maintainer-email: Litestar Developers <hello@litestar.dev>, Cody Fincher <cody@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Julien Courtes <julien@litestar.dev>
 License: MIT
 License-File: LICENSE
 Keywords: api,asgi,litestar,rest,starlite
@@ -57,6 +57,7 @@ Requires-Dist: polyfactory>=2.6.3
 Requires-Dist: pyyaml
 Requires-Dist: rich-click
 Requires-Dist: rich>=13.0.0
+Requires-Dist: sniffio>=1.3.1
 Requires-Dist: typing-extensions
 Provides-Extra: annotated-types
 Requires-Dist: annotated-types; extra == 'annotated-types'
@@ -67,7 +68,6 @@ Requires-Dist: brotli; extra == 'brotli'
 Provides-Extra: cli
 Requires-Dist: jsbeautifier; extra == 'cli'
 Requires-Dist: uvicorn[standard]; extra == 'cli'
-Requires-Dist: uvloop>=0.18.0; (sys_platform != 'win32') and extra == 'cli'
 Provides-Extra: cryptography
 Requires-Dist: cryptography; extra == 'cryptography'
 Provides-Extra: full
@@ -94,7 +94,6 @@ Requires-Dist: pyjwt>=2.9.0; extra == 'full'
 Requires-Dist: redis[hiredis]<5.3,>=4.4.4; extra == 'full'
 Requires-Dist: structlog; extra == 'full'
 Requires-Dist: uvicorn[standard]; extra == 'full'
-Requires-Dist: uvloop>=0.18.0; (sys_platform != 'win32') and extra == 'full'
 Requires-Dist: valkey[libvalkey]>=6.0.2; extra == 'full'
 Provides-Extra: jinja
 Requires-Dist: jinja2>=3.1.2; extra == 'jinja'
@@ -127,7 +126,6 @@ Requires-Dist: fast-query-parsers>=1.0.2; extra == 'standard'
 Requires-Dist: jinja2; extra == 'standard'
 Requires-Dist: jsbeautifier; extra == 'standard'
 Requires-Dist: uvicorn[standard]; extra == 'standard'
-Requires-Dist: uvloop>=0.18.0; (sys_platform != 'win32') and extra == 'standard'
 Provides-Extra: structlog
 Requires-Dist: structlog; extra == 'structlog'
 Provides-Extra: valkey
@@ -229,7 +227,6 @@ litestar run
 - [Life Cycle Hooks](#request-life-cycle-hooks)
 - [Route Guards based Authorization](#route-guards)
 - Support for `dataclasses`, `TypedDict`, [`msgspec`](https://jcristharif.com/msgspec/), [pydantic version 1 and version 2 (even within the same application)](https://docs.pydantic.dev/latest/) and [(c)attrs](https://catt.rs/en/stable/)
-  [msgspec](https://github.com/jcrist/msgspec) and [attrs](https://www.attrs.org/en/stable/)
 - Layered parameter declaration
 - Support for [RFC 9457](https://datatracker.ietf.org/doc/html/rfc9457) standardized "Problem Detail" error responses
 - [Automatic API documentation with](#redoc-swagger-ui-and-stoplight-elements-api-documentation):
@@ -266,7 +263,7 @@ A **huge** thanks to our sponsors:
 <a href="https://github.com/scalar/scalar/?utm_source=litestar&utm_medium=website&utm_campaign=main-badge" target="_blank" title="Scalar.com - Document, Discover and Test APIs with Scalar."><img src="https://raw.githubusercontent.com/litestar-org/branding/main/assets/sponsors/scalar.svg" width="180" alt="Scalar.com"></a>
 <a href="https://telemetrysports.com/" title="Telemetry Sports - Changing the way data influences the sports experience"><img src="https://raw.githubusercontent.com/litestar-org/branding/main/assets/sponsors/telemetry-sports/unofficial-telemetry-whitebg.svg" width="150" alt="Telemetry Sports"></a>
 
-<a href="https://docs.litestar.dev/dev/#sponsors" class="external-link" target="_blank">Check out our sponsors in the docs</a>
+<a href="https://docs.litestar.dev/latest/#sponsors" class="external-link" target="_blank">Check out our sponsors in the docs</a>
 
 If you would like to support the work that we do please consider [becoming a sponsor][sponsor-polar]
 via [Polar.sh][sponsor-polar] (preferred), [GitHub][sponsor-github] or [Open Collective][sponsor-oc].

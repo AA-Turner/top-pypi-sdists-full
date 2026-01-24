@@ -734,7 +734,8 @@ class ThankYouView(generic.DetailView):
                 kwargs["number"] = self.request.GET["order_number"]
             elif "order_id" in self.request.GET:
                 kwargs["id"] = self.request.GET["order_id"]
-            order = Order._default_manager.filter(**kwargs).first()
+            if any(kwargs):
+                order = Order._default_manager.filter(**kwargs).first()
 
         if not order:
             if "checkout_order_id" in self.request.session:
@@ -747,10 +748,10 @@ class ThankYouView(generic.DetailView):
         ctx = super().get_context_data(*args, **kwargs)
         # Remember whether this view has been loaded.
         # Only send tracking information on the first load.
-        key = "order_{}_thankyou_viewed".format(ctx["order"].pk)
-        if not self.request.session.get(key, False):
-            self.request.session[key] = True
+        if not ctx["order"].analytics_tracked:
             ctx["send_analytics_event"] = True
+            ctx["order"].analytics_tracked = True
+            ctx["order"].save(update_fields=["analytics_tracked"])
         else:
             ctx["send_analytics_event"] = False
 

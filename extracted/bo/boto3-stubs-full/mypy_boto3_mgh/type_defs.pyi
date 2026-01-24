@@ -3,7 +3,7 @@ Type annotations for mgh service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgh/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import ApplicationStatusType, ResourceAttributeTypeType, StatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -118,7 +113,7 @@ class DescribeApplicationStateRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -242,22 +237,22 @@ class DescribeApplicationStateResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationStatesResultTypeDef(TypedDict):
-    ApplicationStateList: List[ApplicationStateTypeDef]
+    ApplicationStateList: list[ApplicationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCreatedArtifactsResultTypeDef(TypedDict):
-    CreatedArtifactList: List[CreatedArtifactTypeDef]
+    CreatedArtifactList: list[CreatedArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListDiscoveredResourcesResultTypeDef(TypedDict):
-    DiscoveredResourceList: List[DiscoveredResourceTypeDef]
+    DiscoveredResourceList: list[DiscoveredResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListSourceResourcesResultTypeDef(TypedDict):
-    SourceResourceList: List[SourceResourceTypeDef]
+    SourceResourceList: list[SourceResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -293,12 +288,12 @@ class ListSourceResourcesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMigrationTasksResultTypeDef(TypedDict):
-    MigrationTaskSummaryList: List[MigrationTaskSummaryTypeDef]
+    MigrationTaskSummaryList: list[MigrationTaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListProgressUpdateStreamsResultTypeDef(TypedDict):
-    ProgressUpdateStreamSummaryList: List[ProgressUpdateStreamSummaryTypeDef]
+    ProgressUpdateStreamSummaryList: list[ProgressUpdateStreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -313,7 +308,7 @@ class MigrationTaskTypeDef(TypedDict):
     MigrationTaskName: NotRequired[str]
     Task: NotRequired[TaskTypeDef]
     UpdateDateTime: NotRequired[datetime]
-    ResourceAttributeList: NotRequired[List[ResourceAttributeTypeDef]]
+    ResourceAttributeList: NotRequired[list[ResourceAttributeTypeDef]]
 
 class MigrationTaskUpdateTypeDef(TypedDict):
     UpdateDateTime: NotRequired[datetime]
@@ -339,6 +334,6 @@ class DescribeMigrationTaskResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListMigrationTaskUpdatesResultTypeDef(TypedDict):
-    MigrationTaskUpdateList: List[MigrationTaskUpdateTypeDef]
+    MigrationTaskUpdateList: list[MigrationTaskUpdateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip-licenses-cli
-Version: 2.0.0
+Version: 3.0.1
 Summary: Dump the software license list of Python packages installed with pip.
 Author-email: raimon <raimon49@hotmail.com>
 Maintainer: stefan6419846
@@ -19,15 +19,15 @@ Classifier: Typing :: Typed
 Requires-Python: <4,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pip-licenses-lib>=0.5.0
+Requires-Dist: pip-licenses-lib>=1.0.0
 Requires-Dist: prettytable>=3.13.0
 Requires-Dist: tomli>=2; python_version < "3.11"
 Provides-Extra: spdx
 Requires-Dist: license-expression; extra == "spdx"
 Provides-Extra: dev
 Requires-Dist: pip-licenses-cli[spdx]; extra == "dev"
-Requires-Dist: autopep8; extra == "dev"
 Requires-Dist: black; extra == "dev"
+Requires-Dist: coverage[toml]; extra == "dev"
 Requires-Dist: cryptography>=45.0.3; extra == "dev"
 Requires-Dist: docutils; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
@@ -35,15 +35,9 @@ Requires-Dist: flake8-bugbear; extra == "dev"
 Requires-Dist: isort; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pep8-naming; extra == "dev"
-Requires-Dist: pip-tools; extra == "dev"
-Requires-Dist: pypandoc; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: tomli-w; extra == "dev"
-Requires-Dist: types-colorama; extra == "dev"
 Requires-Dist: types-docutils; extra == "dev"
-Requires-Dist: types-pexpect; extra == "dev"
-Requires-Dist: types-pygments; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Dynamic: license-file
 
@@ -60,6 +54,9 @@ https://getcomposer.org/doc/03-cli.md#licenses
 
 This is a fork of the original [pip-licenses](https://github.com/raimon49/pip-licenses) project. While `pip-licenses-cli` provides a CLI,
 [pip-licenses-lib](https://github.com/stefan6419846/pip-licenses-lib) provides the library functionality. The CLI builds upon the library.
+
+`pip-licenses-cli` is usable as a drop-in replacement for `pip-licenses<=5.0.0`. More recent versions might be compatible, but use a
+partially different code base and possibly other/additional parameters for example.
 
 ## Installation
 

@@ -14,7 +14,6 @@ from django.shortcuts import redirect, render
 from django.urls import path
 from django.utils.translation import gettext_lazy as _
 
-from .content_type.admin import ContentTypeModelAdmin  # noqa: F401
 from .forms import NonrelatedInlineFormSet, nonrelated_inlineformset_factory
 from .markdown.admin import AssetModelAdmin  # noqa: F401
 from .models import AppliedPreset, FrontendUserConfiguration, Preset

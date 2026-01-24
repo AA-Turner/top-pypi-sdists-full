@@ -7,7 +7,12 @@
 
 #include "fuzz/Fuzz.h"
 #include "fuzz/FuzzCommon.h"
+#include "include/core/SkColorFilter.h"
+#include "include/core/SkData.h"
+#include "include/effects/SkBlenders.h"
 #include "src/core/SkPathPriv.h"
+
+using namespace skia_private;
 
 // We don't always want to test NaNs and infinities.
 static void fuzz_nice_float(Fuzz* fuzz, float* f) {
@@ -29,7 +34,7 @@ static void fuzz_nice_rect(Fuzz* fuzz, SkRect* r) {
 }
 
 // allows some float values for path points
-void FuzzNicePath(Fuzz* fuzz, SkPath* path, int maxOps) {
+void FuzzNicePath(Fuzz* fuzz, SkPathBuilder* path, int maxOps) {
     if (maxOps <= 0 || fuzz->exhausted() || path->countPoints() > 100000) {
         return;
     }
@@ -45,11 +50,11 @@ void FuzzNicePath(Fuzz* fuzz, SkPath* path, int maxOps) {
             return;
         }
         // How many items in the switch statement below.
-        constexpr uint8_t MAX_PATH_OPERATION = 32;
+        constexpr uint8_t MAX_PATH_OPERATION = 31;
         uint8_t op;
         fuzz->nextRange(&op, 0, MAX_PATH_OPERATION);
         bool test;
-        SkPath p;
+        SkPathBuilder p;
         SkMatrix m;
         SkRRect rr;
         SkRect r;
@@ -63,7 +68,7 @@ void FuzzNicePath(Fuzz* fuzz, SkPath* path, int maxOps) {
                 break;
             case 1:
                 fuzz_nice_float(fuzz, &a, &b);
-                path->rMoveTo(a, b);
+                path->rMoveTo({a, b});
                 break;
             case 2:
                 fuzz_nice_float(fuzz, &a, &b);
@@ -99,7 +104,7 @@ void FuzzNicePath(Fuzz* fuzz, SkPath* path, int maxOps) {
                 break;
             case 10:
                 fuzz_nice_float(fuzz, &a, &b, &c, &d, &e);
-                path->arcTo(a, b, c, d, e);
+                path->arcTo({a, b}, {c, d}, e);
                 break;
             case 11:
                 fuzz_nice_float(fuzz, &a, &b);
@@ -152,7 +157,7 @@ void FuzzNicePath(Fuzz* fuzz, SkPath* path, int maxOps) {
                 fuzz_nice_rect(fuzz, &r);
                 fuzz->nextRange(&ui, 0, 1);
                 dir = static_cast<SkPathDirection>(ui);
-                path->addRoundRect(r, a, b, dir);
+                path->addRRect(SkRRect::MakeRectXY(r, a, b), dir);
                 break;
             case 20:
                 FuzzNiceRRect(fuzz, &rr);
@@ -171,65 +176,64 @@ void FuzzNicePath(Fuzz* fuzz, SkPath* path, int maxOps) {
                 SkPath::AddPathMode mode = static_cast<SkPath::AddPathMode>(ui);
                 FuzzNiceMatrix(fuzz, &m);
                 FuzzNicePath(fuzz, &p, maxOps-1);
-                path->addPath(p, m, mode);
+                path->addPath(p.snapshot(), m, mode);
                 break;
             }
             case 23: {
                 fuzz->nextRange(&ui, 0, 1);
                 SkPath::AddPathMode mode = static_cast<SkPath::AddPathMode>(ui);
                 FuzzNiceMatrix(fuzz, &m);
-                path->addPath(*path, m, mode);
+                path->addPath(path->snapshot(), m, mode);
                 break;
             }
             case 24:
                 FuzzNicePath(fuzz, &p, maxOps-1);
-                path->reverseAddPath(p);
+                SkPathPriv::ReverseAddPath(path, p.snapshot());
                 break;
             case 25:
-                path->addPath(*path);
+                path->addPath(path->snapshot());
                 break;
             case 26:
-                path->reverseAddPath(*path);
+                SkPathPriv::ReverseAddPath(path, path->snapshot());
                 break;
             case 27:
                 fuzz_nice_float(fuzz, &a, &b);
-                path->offset(a, b, path);
+                path->offset(a, b);
                 break;
             case 28:
                 FuzzNicePath(fuzz, &p, maxOps-1);
                 fuzz_nice_float(fuzz, &a, &b);
-                p.offset(a, b, path);
+                *path = p;
+                path->offset(a, b);
                 break;
             case 29:
                 FuzzNiceMatrix(fuzz, &m);
-                path->transform(m, path);
+                path->transform(m);
                 break;
             case 30:
                 FuzzNicePath(fuzz, &p, maxOps-1);
                 // transform can explode path sizes so skip this op if p too big
                 if (p.countPoints() <= 100000) {
                     FuzzNiceMatrix(fuzz, &m);
-                    p.transform(m, path);
+                    *path = p;
+                    path->transform(m);
                 }
                 break;
             case 31:
                 fuzz_nice_float(fuzz, &a, &b);
                 path->setLastPt(a, b);
                 break;
-            case MAX_PATH_OPERATION:
-                SkPathPriv::ShrinkToFit(path);
-                break;
-
             default:
                 SkASSERT(false);
                 break;
         }
-        SkASSERTF(       path->isValid(),        "path->isValid() failed at op %d, case %d", i, op);
+        SkASSERTF(path->snapshot().isValid(),        "path->isValid() failed at op %d, case %d", i, op);
     }
 }
 
 // allows all float values for path points
-void FuzzEvilPath(Fuzz* fuzz, SkPath* path, int last_verb) {
+SkPath FuzzEvilPath(Fuzz* fuzz, int last_verb) {
+  SkPathBuilder builder;
   while (!fuzz->exhausted()) {
     // Use a uint8_t to conserve bytes.  This makes our "fuzzed bytes footprint"
     // smaller, which leads to more efficient fuzzing.
@@ -240,38 +244,39 @@ void FuzzEvilPath(Fuzz* fuzz, SkPath* path, int last_verb) {
     switch (operation % (last_verb + 1)) {
       case SkPath::Verb::kMove_Verb:
         fuzz->next(&a, &b);
-        path->moveTo(a, b);
+        builder.moveTo(a, b);
         break;
 
       case SkPath::Verb::kLine_Verb:
         fuzz->next(&a, &b);
-        path->lineTo(a, b);
+        builder.lineTo(a, b);
         break;
 
       case SkPath::Verb::kQuad_Verb:
         fuzz->next(&a, &b, &c, &d);
-        path->quadTo(a, b, c, d);
+        builder.quadTo(a, b, c, d);
         break;
 
       case SkPath::Verb::kConic_Verb:
         fuzz->next(&a, &b, &c, &d, &e);
-        path->conicTo(a, b, c, d, e);
+        builder.conicTo(a, b, c, d, e);
         break;
 
       case SkPath::Verb::kCubic_Verb:
         fuzz->next(&a, &b, &c, &d, &e, &f);
-        path->cubicTo(a, b, c, d, e, f);
+        builder.cubicTo(a, b, c, d, e, f);
         break;
 
       case SkPath::Verb::kClose_Verb:
-        path->close();
+        builder.close();
         break;
 
       case SkPath::Verb::kDone_Verb:
         // In this case, simply exit.
-        return;
+        return builder.detach();
     }
   }
+  return builder.detach();
 }
 
 void FuzzNiceRRect(Fuzz* fuzz, SkRRect* rr) {
@@ -340,6 +345,57 @@ void FuzzNiceRegion(Fuzz* fuzz, SkRegion* region, int maxN) {
         fuzz->nextEnum(&op, SkRegion::kLastOp);
         if (!region->op(r, op)) {
             return;
+        }
+    }
+}
+
+void FuzzCreateValidInputsForRuntimeEffect(SkRuntimeEffect* effect,
+                                           sk_sp<SkData>& uniformBytes,
+                                           TArray<SkRuntimeEffect::ChildPtr>& children) {
+    // Create storage for our uniforms.
+    uniformBytes = SkData::MakeZeroInitialized(effect->uniformSize());
+    void* uniformData = uniformBytes->writable_data();
+
+    for (const SkRuntimeEffect::Uniform& u : effect->uniforms()) {
+        // We treat scalars, vectors, matrices and arrays the same. We just figure out how many
+        // uniform slots need to be filled, and write consecutive numbers into those slots.
+        static_assert(sizeof(int) == 4 && sizeof(float) == 4);
+        size_t numFields = u.sizeInBytes() / 4;
+
+        if (u.type == SkRuntimeEffect::Uniform::Type::kInt ||
+            u.type == SkRuntimeEffect::Uniform::Type::kInt2 ||
+            u.type == SkRuntimeEffect::Uniform::Type::kInt3 ||
+            u.type == SkRuntimeEffect::Uniform::Type::kInt4) {
+            int intVal = 0;
+            while (numFields--) {
+                // Assign increasing integer values to each slot (0, 1, 2, ...).
+                *static_cast<int*>(uniformData) = intVal++;
+                uniformData = static_cast<int*>(uniformData) + 1;
+            }
+        } else {
+            float floatVal = 0.0f;
+            while (numFields--) {
+                // Assign increasing float values to each slot (0.0, 1.0, 2.0, ...).
+                *static_cast<float*>(uniformData) = floatVal++;
+                uniformData = static_cast<float*>(uniformData) + 1;
+            }
+        }
+    }
+
+    // Create valid children for any requested child effects.
+    children.clear();
+    children.reserve(effect->children().size());
+    for (const SkRuntimeEffect::Child& c : effect->children()) {
+        switch (c.type) {
+            case SkRuntimeEffect::ChildType::kShader:
+                children.push_back(SkShaders::Color(SK_ColorRED));
+                break;
+            case SkRuntimeEffect::ChildType::kColorFilter:
+                children.push_back(SkColorFilters::Blend(SK_ColorBLUE, SkBlendMode::kModulate));
+                break;
+            case SkRuntimeEffect::ChildType::kBlender:
+                children.push_back(SkBlenders::Arithmetic(0.50f, 0.25f, 0.10f, 0.05f, false));
+                break;
         }
     }
 }

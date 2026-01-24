@@ -45,6 +45,7 @@ from weave.integrations.patcher import Patcher
 from weave.trace.call import Call
 from weave.trace.context import call_context
 from weave.trace.context import weave_client_context as weave_client_context
+from weave.trace.op_protocol import OpKind
 
 import_failed = False
 
@@ -58,7 +59,7 @@ except ImportError:
     import_failed = True
 
 from collections.abc import Generator
-from typing import Any, Optional
+from typing import Any
 
 RUNNABLE_SEQUENCE_NAME = "RunnableSequence"
 
@@ -109,7 +110,7 @@ if not import_failed:
                 )
 
             self._call_map: dict[str, Call] = {}
-            self.latest_run: Optional[Run] = None
+            self.latest_run: Run | None = None
             super().__init__()
 
         def _persist_run(self, run: Run) -> None:
@@ -162,7 +163,7 @@ if not import_failed:
             `RunnableSequence1` popped onto the stack. To solve for this, we need to send
             `False` as the `parent_id`, telling the system: "trust me, this is a root".
             """
-            parent_run: Optional[Call] = None
+            parent_run: Call | None = None
             lc_parent_run_id = (
                 str(run.parent_run_id) if run.parent_run_id is not None else None
             )
@@ -211,6 +212,16 @@ if not import_failed:
             fn_name = make_pythonic_function_name(run.name)
             complete_op_name = f"langchain.{run.run_type.capitalize()}.{fn_name}"
             complete_op_name = truncate_op_name(complete_op_name)
+
+            # Map LangChain run_type to Weave OpKind
+            run_type_to_kind: dict[str, OpKind] = {
+                "llm": "llm",
+                "chat_model": "llm",
+                "tool": "tool",
+                "retriever": "search",
+            }
+            kind = run_type_to_kind.get(run.run_type)
+
             call_attrs = call_context.call_attributes.get()
             call_attrs.update(
                 {
@@ -219,6 +230,10 @@ if not import_failed:
                     "lc_name": run.name,
                 }
             )
+            # Add kind to weave attributes if applicable
+            if kind:
+                call_attrs.setdefault("weave", {})["kind"] = kind
+
             call = self.wc.create_call(
                 # Make sure to add the run name once the UI issue is figured out
                 complete_op_name,
@@ -259,10 +274,10 @@ if not import_failed:
             messages: list[list[BaseMessage]],
             *,
             run_id: UUID,
-            tags: Optional[list[str]] = None,
-            parent_run_id: Optional[UUID] = None,
-            metadata: Optional[dict[str, Any]] = None,
-            name: Optional[str] = None,
+            tags: list[str] | None = None,
+            parent_run_id: UUID | None = None,
+            metadata: dict[str, Any] | None = None,
+            name: str | None = None,
             **kwargs: Any,
         ) -> Run:
             """Start a trace for an LLM run."""
@@ -368,7 +383,7 @@ else:
         pass
 
 
-weave_tracing_callback_var: ContextVar[Optional[WeaveTracer]] = ContextVar(
+weave_tracing_callback_var: ContextVar[WeaveTracer | None] = ContextVar(
     "tracing_weave_callback", default=None
 )
 

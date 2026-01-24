@@ -27,8 +27,11 @@ try:
 except ImportError:
     HAS_ARGCOMPLETE = False
 
-import twiggy  # type: ignore[import]
-from antsibull_core.logging import initialize_app_logging, log
+from antsibull_core.logging import (
+    configure_logger,
+    get_module_logger,
+    initialize_app_logging,
+)
 
 initialize_app_logging()
 
@@ -58,7 +61,7 @@ from ..schemas.app_context import DocsAppContext  # noqa: E402
 # pylint: enable=wrong-import-position
 
 
-mlog = log.fields(mod=__name__)
+mlog = get_module_logger(__name__)
 
 
 def _create_loader(module: str, function: str) -> Callable[[], Callable[[], int]]:
@@ -734,12 +737,20 @@ def parse_args(program_name: str, args: list[str]) -> argparse.Namespace:
         ' to add an entry `"key": "value",`.',
     )
 
+    message_format_parser = argparse.ArgumentParser(add_help=False)
+    message_format_parser.add_argument(
+        "--message-format",
+        default="default",
+        choices=["default", "json"],
+        help="Output format for the linting messages.",
+    )
+
     #
     # Lint collection docs
     #
     lint_collection_docs_parser = subparsers.add_parser(
         "lint-collection-docs",
-        parents=[output_format_parser],
+        parents=[output_format_parser, message_format_parser],
         description="Collection extra docs linter for inclusion in docsite",
     )
 
@@ -811,6 +822,7 @@ def parse_args(program_name: str, args: list[str]) -> argparse.Namespace:
     #
     lint_core_docs_parser = subparsers.add_parser(
         "lint-core-docs",
+        parents=[message_format_parser],
         description="Collection extra docs linter for inclusion in docsite",
     )
 
@@ -949,7 +961,7 @@ def run(args: list[str]) -> int:
         args=parsed_args, cfg=cfg, app_context_model=DocsAppContext
     )
     with app_context.app_and_lib_context(context_data) as (app_ctx, dummy_):
-        twiggy.dict_config(app_ctx.logging_cfg.model_dump())
+        configure_logger(app_ctx)
         flog.debug("Set logging config")
 
         flog.fields(command=parsed_args.command).info("Action")

@@ -1,4 +1,5 @@
-import os
+"""Cerebras provider for the aisuite."""
+
 import cerebras.cloud.sdk as cerebras
 from aisuite.provider import Provider, LLMError
 from aisuite.providers.message_converter import OpenAICompliantMessageConverter
@@ -9,10 +10,11 @@ class CerebrasMessageConverter(OpenAICompliantMessageConverter):
     Cerebras-specific message converter if needed.
     """
 
-    pass
 
-
+# pylint: disable=too-few-public-methods
 class CerebrasProvider(Provider):
+    """Provider for Cerebras."""
+
     def __init__(self, **config):
         self.client = cerebras.Cerebras(**config)
         self.transformer = CerebrasMessageConverter()
@@ -30,13 +32,13 @@ class CerebrasProvider(Provider):
             return self.transformer.convert_response(response.model_dump())
 
         # Re-raise Cerebras API-specific exceptions.
-        except cerebras.cloud.sdk.PermissionDeniedError as e:
+        except cerebras.PermissionDeniedError:
             raise
-        except cerebras.cloud.sdk.AuthenticationError as e:
+        except cerebras.AuthenticationError:
             raise
-        except cerebras.cloud.sdk.RateLimitError as e:
+        except cerebras.RateLimitError:
             raise
 
         # Wrap all other exceptions in LLMError.
         except Exception as e:
-            raise LLMError(f"An error occurred: {e}")
+            raise LLMError(f"An error occurred: {e}") from e

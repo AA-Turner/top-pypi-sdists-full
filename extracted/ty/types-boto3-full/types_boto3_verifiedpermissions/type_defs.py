@@ -3,7 +3,7 @@ Type annotations for verifiedpermissions service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -30,12 +31,6 @@ from .literals import (
     ValidationModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -64,6 +59,7 @@ __all__ = (
     "BatchIsAuthorizedWithTokenInputTypeDef",
     "BatchIsAuthorizedWithTokenOutputItemTypeDef",
     "BatchIsAuthorizedWithTokenOutputTypeDef",
+    "CedarTagValueTypeDef",
     "CognitoGroupConfigurationDetailTypeDef",
     "CognitoGroupConfigurationItemTypeDef",
     "CognitoGroupConfigurationTypeDef",
@@ -89,6 +85,8 @@ __all__ = (
     "DeletePolicyStoreInputTypeDef",
     "DeletePolicyTemplateInputTypeDef",
     "DeterminingPolicyItemTypeDef",
+    "EncryptionSettingsTypeDef",
+    "EncryptionStateTypeDef",
     "EntitiesDefinitionTypeDef",
     "EntityIdentifierTypeDef",
     "EntityItemTypeDef",
@@ -112,6 +110,8 @@ __all__ = (
     "IsAuthorizedOutputTypeDef",
     "IsAuthorizedWithTokenInputTypeDef",
     "IsAuthorizedWithTokenOutputTypeDef",
+    "KmsEncryptionSettingsTypeDef",
+    "KmsEncryptionStateTypeDef",
     "ListIdentitySourcesInputPaginateTypeDef",
     "ListIdentitySourcesInputTypeDef",
     "ListIdentitySourcesOutputTypeDef",
@@ -208,7 +208,7 @@ class BatchGetPolicyInputItemTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -263,13 +263,23 @@ class DeletePolicyTemplateInputTypeDef(TypedDict):
     policyTemplateId: str
 
 
+class KmsEncryptionSettingsTypeDef(TypedDict):
+    key: str
+    encryptionContext: NotRequired[Mapping[str, str]]
+
+
+class KmsEncryptionStateTypeDef(TypedDict):
+    key: str
+    encryptionContext: dict[str, str]
+
+
 class GetIdentitySourceInputTypeDef(TypedDict):
     policyStoreId: str
     identitySourceId: str
 
 
 class IdentitySourceDetailsTypeDef(TypedDict):
-    clientIds: NotRequired[List[str]]
+    clientIds: NotRequired[list[str]]
     userPoolArn: NotRequired[str]
     discoveryUrl: NotRequired[str]
     openIdIssuer: NotRequired[Literal["COGNITO"]]
@@ -299,7 +309,7 @@ class IdentitySourceFilterTypeDef(TypedDict):
 
 
 class IdentitySourceItemDetailsTypeDef(TypedDict):
-    clientIds: NotRequired[List[str]]
+    clientIds: NotRequired[list[str]]
     userPoolArn: NotRequired[str]
     discoveryUrl: NotRequired[str]
     openIdIssuer: NotRequired[Literal["COGNITO"]]
@@ -344,12 +354,12 @@ class ListTagsForResourceInputTypeDef(TypedDict):
 
 class OpenIdConnectAccessTokenConfigurationDetailTypeDef(TypedDict):
     principalIdClaim: NotRequired[str]
-    audiences: NotRequired[List[str]]
+    audiences: NotRequired[list[str]]
 
 
 class OpenIdConnectAccessTokenConfigurationItemTypeDef(TypedDict):
     principalIdClaim: NotRequired[str]
-    audiences: NotRequired[List[str]]
+    audiences: NotRequired[list[str]]
 
 
 class OpenIdConnectAccessTokenConfigurationTypeDef(TypedDict):
@@ -374,12 +384,12 @@ class OpenIdConnectGroupConfigurationTypeDef(TypedDict):
 
 class OpenIdConnectIdentityTokenConfigurationDetailTypeDef(TypedDict):
     principalIdClaim: NotRequired[str]
-    clientIds: NotRequired[List[str]]
+    clientIds: NotRequired[list[str]]
 
 
 class OpenIdConnectIdentityTokenConfigurationItemTypeDef(TypedDict):
     principalIdClaim: NotRequired[str]
-    clientIds: NotRequired[List[str]]
+    clientIds: NotRequired[list[str]]
 
 
 class OpenIdConnectIdentityTokenConfigurationTypeDef(TypedDict):
@@ -453,8 +463,8 @@ AttributeValueOutputTypeDef = TypedDict(
         "entityIdentifier": NotRequired[EntityIdentifierTypeDef],
         "long": NotRequired[int],
         "string": NotRequired[str],
-        "set": NotRequired[List[Dict[str, Any]]],
-        "record": NotRequired[Dict[str, Dict[str, Any]]],
+        "set": NotRequired[list[dict[str, Any]]],
+        "record": NotRequired[dict[str, dict[str, Any]]],
         "ipaddr": NotRequired[str],
         "decimal": NotRequired[str],
         "datetime": NotRequired[str],
@@ -463,6 +473,21 @@ AttributeValueOutputTypeDef = TypedDict(
 )
 AttributeValueTypeDef = TypedDict(
     "AttributeValueTypeDef",
+    {
+        "boolean": NotRequired[bool],
+        "entityIdentifier": NotRequired[EntityIdentifierTypeDef],
+        "long": NotRequired[int],
+        "string": NotRequired[str],
+        "set": NotRequired[Sequence[Mapping[str, Any]]],
+        "record": NotRequired[Mapping[str, Mapping[str, Any]]],
+        "ipaddr": NotRequired[str],
+        "decimal": NotRequired[str],
+        "datetime": NotRequired[str],
+        "duration": NotRequired[str],
+    },
+)
+CedarTagValueTypeDef = TypedDict(
+    "CedarTagValueTypeDef",
     {
         "boolean": NotRequired[bool],
         "entityIdentifier": NotRequired[EntityIdentifierTypeDef],
@@ -519,7 +544,7 @@ class CreatePolicyOutputTypeDef(TypedDict):
     policyType: PolicyTypeType
     principal: EntityIdentifierTypeDef
     resource: EntityIdentifierTypeDef
-    actions: List[ActionIdentifierTypeDef]
+    actions: list[ActionIdentifierTypeDef]
     createdDate: datetime
     lastUpdatedDate: datetime
     effect: PolicyEffectType
@@ -557,18 +582,18 @@ class GetSchemaOutputTypeDef(TypedDict):
     schema: str
     createdDate: datetime
     lastUpdatedDate: datetime
-    namespaces: List[str]
+    namespaces: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutSchemaOutputTypeDef(TypedDict):
     policyStoreId: str
-    namespaces: List[str]
+    namespaces: list[str]
     createdDate: datetime
     lastUpdatedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -588,7 +613,7 @@ class UpdatePolicyOutputTypeDef(TypedDict):
     policyType: PolicyTypeType
     principal: EntityIdentifierTypeDef
     resource: EntityIdentifierTypeDef
-    actions: List[ActionIdentifierTypeDef]
+    actions: list[ActionIdentifierTypeDef]
     createdDate: datetime
     lastUpdatedDate: datetime
     effect: PolicyEffectType
@@ -613,29 +638,29 @@ class UpdatePolicyTemplateOutputTypeDef(TypedDict):
 
 class IsAuthorizedOutputTypeDef(TypedDict):
     decision: DecisionType
-    determiningPolicies: List[DeterminingPolicyItemTypeDef]
-    errors: List[EvaluationErrorItemTypeDef]
+    determiningPolicies: list[DeterminingPolicyItemTypeDef]
+    errors: list[EvaluationErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class IsAuthorizedWithTokenOutputTypeDef(TypedDict):
     decision: DecisionType
-    determiningPolicies: List[DeterminingPolicyItemTypeDef]
-    errors: List[EvaluationErrorItemTypeDef]
+    determiningPolicies: list[DeterminingPolicyItemTypeDef]
+    errors: list[EvaluationErrorItemTypeDef]
     principal: EntityIdentifierTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CognitoUserPoolConfigurationDetailTypeDef(TypedDict):
     userPoolArn: str
-    clientIds: List[str]
+    clientIds: list[str]
     issuer: str
     groupConfiguration: NotRequired[CognitoGroupConfigurationDetailTypeDef]
 
 
 class CognitoUserPoolConfigurationItemTypeDef(TypedDict):
     userPoolArn: str
-    clientIds: List[str]
+    clientIds: list[str]
     issuer: str
     groupConfiguration: NotRequired[CognitoGroupConfigurationItemTypeDef]
 
@@ -646,32 +671,21 @@ class CognitoUserPoolConfigurationTypeDef(TypedDict):
     groupConfiguration: NotRequired[CognitoGroupConfigurationTypeDef]
 
 
-class CreatePolicyStoreInputTypeDef(TypedDict):
-    validationSettings: ValidationSettingsTypeDef
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    deletionProtection: NotRequired[DeletionProtectionType]
-    tags: NotRequired[Mapping[str, str]]
-
-
-class GetPolicyStoreOutputTypeDef(TypedDict):
-    policyStoreId: str
-    arn: str
-    validationSettings: ValidationSettingsTypeDef
-    createdDate: datetime
-    lastUpdatedDate: datetime
-    description: str
-    deletionProtection: DeletionProtectionType
-    cedarVersion: CedarVersionType
-    tags: Dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class UpdatePolicyStoreInputTypeDef(TypedDict):
     policyStoreId: str
     validationSettings: ValidationSettingsTypeDef
     deletionProtection: NotRequired[DeletionProtectionType]
     description: NotRequired[str]
+
+
+class EncryptionSettingsTypeDef(TypedDict):
+    kmsEncryptionSettings: NotRequired[KmsEncryptionSettingsTypeDef]
+    default: NotRequired[Mapping[str, Any]]
+
+
+class EncryptionStateTypeDef(TypedDict):
+    kmsEncryptionState: NotRequired[KmsEncryptionStateTypeDef]
+    default: NotRequired[dict[str, Any]]
 
 
 class ListIdentitySourcesInputTypeDef(TypedDict):
@@ -697,13 +711,13 @@ class ListPolicyTemplatesInputPaginateTypeDef(TypedDict):
 
 
 class ListPolicyStoresOutputTypeDef(TypedDict):
-    policyStores: List[PolicyStoreItemTypeDef]
+    policyStores: list[PolicyStoreItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPolicyTemplatesOutputTypeDef(TypedDict):
-    policyTemplates: List[PolicyTemplateItemTypeDef]
+    policyTemplates: list[PolicyTemplateItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -744,7 +758,7 @@ class UpdatePolicyDefinitionTypeDef(TypedDict):
 
 
 class ContextDefinitionOutputTypeDef(TypedDict):
-    contextMap: NotRequired[Dict[str, AttributeValueOutputTypeDef]]
+    contextMap: NotRequired[dict[str, AttributeValueOutputTypeDef]]
     cedarJson: NotRequired[str]
 
 
@@ -771,6 +785,29 @@ class PolicyDefinitionItemTypeDef(TypedDict):
 class PolicyDefinitionTypeDef(TypedDict):
     static: NotRequired[StaticPolicyDefinitionTypeDef]
     templateLinked: NotRequired[TemplateLinkedPolicyDefinitionTypeDef]
+
+
+class CreatePolicyStoreInputTypeDef(TypedDict):
+    validationSettings: ValidationSettingsTypeDef
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    deletionProtection: NotRequired[DeletionProtectionType]
+    encryptionSettings: NotRequired[EncryptionSettingsTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class GetPolicyStoreOutputTypeDef(TypedDict):
+    policyStoreId: str
+    arn: str
+    validationSettings: ValidationSettingsTypeDef
+    createdDate: datetime
+    lastUpdatedDate: datetime
+    description: str
+    deletionProtection: DeletionProtectionType
+    encryptionState: EncryptionStateTypeDef
+    cedarVersion: CedarVersionType
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class OpenIdConnectConfigurationDetailTypeDef(TypedDict):
@@ -804,7 +841,7 @@ class UpdateOpenIdConnectConfigurationTypeDef(TypedDict):
 class UpdatePolicyInputTypeDef(TypedDict):
     policyStoreId: str
     policyId: str
-    definition: UpdatePolicyDefinitionTypeDef
+    definition: NotRequired[UpdatePolicyDefinitionTypeDef]
 
 
 class BatchIsAuthorizedInputItemOutputTypeDef(TypedDict):
@@ -829,6 +866,7 @@ class EntityItemTypeDef(TypedDict):
     identifier: EntityIdentifierTypeDef
     attributes: NotRequired[Mapping[str, AttributeValueUnionTypeDef]]
     parents: NotRequired[Sequence[EntityIdentifierTypeDef]]
+    tags: NotRequired[Mapping[str, CedarTagValueTypeDef]]
 
 
 ListPoliciesInputPaginateTypeDef = TypedDict(
@@ -865,7 +903,7 @@ class GetPolicyOutputTypeDef(TypedDict):
     policyType: PolicyTypeType
     principal: EntityIdentifierTypeDef
     resource: EntityIdentifierTypeDef
-    actions: List[ActionIdentifierTypeDef]
+    actions: list[ActionIdentifierTypeDef]
     definition: PolicyDefinitionDetailTypeDef
     createdDate: datetime
     lastUpdatedDate: datetime
@@ -882,7 +920,7 @@ class PolicyItemTypeDef(TypedDict):
     lastUpdatedDate: datetime
     principal: NotRequired[EntityIdentifierTypeDef]
     resource: NotRequired[EntityIdentifierTypeDef]
-    actions: NotRequired[List[ActionIdentifierTypeDef]]
+    actions: NotRequired[list[ActionIdentifierTypeDef]]
     effect: NotRequired[PolicyEffectType]
 
 
@@ -915,15 +953,15 @@ class UpdateConfigurationTypeDef(TypedDict):
 class BatchIsAuthorizedOutputItemTypeDef(TypedDict):
     request: BatchIsAuthorizedInputItemOutputTypeDef
     decision: DecisionType
-    determiningPolicies: List[DeterminingPolicyItemTypeDef]
-    errors: List[EvaluationErrorItemTypeDef]
+    determiningPolicies: list[DeterminingPolicyItemTypeDef]
+    errors: list[EvaluationErrorItemTypeDef]
 
 
 class BatchIsAuthorizedWithTokenOutputItemTypeDef(TypedDict):
     request: BatchIsAuthorizedWithTokenInputItemOutputTypeDef
     decision: DecisionType
-    determiningPolicies: List[DeterminingPolicyItemTypeDef]
-    errors: List[EvaluationErrorItemTypeDef]
+    determiningPolicies: list[DeterminingPolicyItemTypeDef]
+    errors: list[EvaluationErrorItemTypeDef]
 
 
 ContextDefinitionUnionTypeDef = Union[ContextDefinitionTypeDef, ContextDefinitionOutputTypeDef]
@@ -935,13 +973,13 @@ class EntitiesDefinitionTypeDef(TypedDict):
 
 
 class BatchGetPolicyOutputTypeDef(TypedDict):
-    results: List[BatchGetPolicyOutputItemTypeDef]
-    errors: List[BatchGetPolicyErrorItemTypeDef]
+    results: list[BatchGetPolicyOutputItemTypeDef]
+    errors: list[BatchGetPolicyErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListPoliciesOutputTypeDef(TypedDict):
-    policies: List[PolicyItemTypeDef]
+    policies: list[PolicyItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -982,13 +1020,13 @@ class UpdateIdentitySourceInputTypeDef(TypedDict):
 
 
 class BatchIsAuthorizedOutputTypeDef(TypedDict):
-    results: List[BatchIsAuthorizedOutputItemTypeDef]
+    results: list[BatchIsAuthorizedOutputItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchIsAuthorizedWithTokenOutputTypeDef(TypedDict):
     principal: EntityIdentifierTypeDef
-    results: List[BatchIsAuthorizedWithTokenOutputItemTypeDef]
+    results: list[BatchIsAuthorizedWithTokenOutputItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1025,7 +1063,7 @@ class IsAuthorizedWithTokenInputTypeDef(TypedDict):
 
 
 class ListIdentitySourcesOutputTypeDef(TypedDict):
-    identitySources: List[IdentitySourceItemTypeDef]
+    identitySources: list[IdentitySourceItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

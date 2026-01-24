@@ -1,7 +1,8 @@
 """Class containing a manager for creating template atoms."""
+
+from collections.abc import Iterator
 from contextlib import contextmanager
 from itertools import product
-from typing import Iterator, List, Optional, Union
 
 import ase
 from ase.build.tools import niggli_reduce_cell
@@ -55,7 +56,7 @@ class TemplateAtoms:
         self.prim_cell = prim_cell
 
     @property
-    def size(self) -> Union[None, np.ndarray]:
+    def size(self) -> None | np.ndarray:
         return self._size
 
     @size.setter
@@ -69,11 +70,11 @@ class TemplateAtoms:
         self._size = value
 
     @property
-    def supercell_factor(self) -> Union[int, None]:
+    def supercell_factor(self) -> int | None:
         return self._supercell_factor
 
     @supercell_factor.setter
-    def supercell_factor(self, value: Optional[int]) -> None:
+    def supercell_factor(self, value: int | None) -> None:
         if value is not None:
             # Unset the size, since we provided a value for supercell_factor
             self.size = None
@@ -239,11 +240,11 @@ class TemplateAtoms:
             f"{size_factor}"
         )
 
-    def get_all_templates(self) -> List[ase.Atoms]:
+    def get_all_templates(self) -> list[ase.Atoms]:
         """Return a list with all templates."""
         return list(self.iterate_all_templates())
 
-    def iterate_all_templates(self, max_per_size: Optional[int] = None) -> Iterator[ase.Atoms]:
+    def iterate_all_templates(self, max_per_size: int | None = None) -> Iterator[ase.Atoms]:
         """Get all possible templates in an iterator.
 
         :param max_per_size: Maximum number of iterations per size.
@@ -411,7 +412,7 @@ def is_3x3_matrix(array) -> bool:
     return np.array(array).shape == (3, 3)
 
 
-def _to_3x3_matrix(size: Union[List[int], List[List[int]], np.ndarray]) -> np.ndarray:
+def _to_3x3_matrix(size: list[int] | list[list[int]] | np.ndarray) -> np.ndarray:
     """Convert a list of ints (1D) or list of list of ints (2D) into a
     3x3 transformation matrix, if possible."""
     size = np.array(size)

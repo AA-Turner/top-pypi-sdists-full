@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cma
-Version: 4.4.0
+Version: 4.4.2
 Summary: CMA-ES, Covariance Matrix Adaptation Evolution Strategy for non-linear numerical optimization in Python
 Author: Nikolaus Hansen, Youhei Akimoto, Petr Baudis
 Maintainer-email: Nikolaus Hansen <authors_firstname.lastname@inria.fr>

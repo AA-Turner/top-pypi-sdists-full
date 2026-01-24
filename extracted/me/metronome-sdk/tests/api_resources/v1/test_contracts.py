@@ -186,7 +186,10 @@ class TestContracts:
                 "parent": {
                     "contract_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "customer_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                }
+                },
+                "parent_behavior": {"invoice_consolidation_type": "CONCATENATE"},
+                "payer": "SELF",
+                "usage_statement_behavior": "CONSOLIDATE",
             },
             multiplier_override_prioritization="LOWEST_MULTIPLIER",
             name="name",
@@ -393,6 +396,11 @@ class TestContracts:
                     "reseller_contract_value": 0,
                 }
             ],
+            revenue_system_configuration={
+                "delivery_method": "direct_to_billing_provider",
+                "provider": "netsuite",
+                "revenue_system_configuration_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            },
             salesforce_opportunity_id="salesforce_opportunity_id",
             scheduled_charges=[
                 {
@@ -462,6 +470,11 @@ class TestContracts:
                     "initial_quantity": 0,
                     "name": "name",
                     "quantity_management_mode": "SEAT_BASED",
+                    "seat_config": {
+                        "initial_seat_ids": ["string"],
+                        "seat_group_key": "seat_group_key",
+                        "initial_unassigned_seats": 0,
+                    },
                     "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "temporary_id": "temporary_id",
                 }
@@ -620,6 +633,7 @@ class TestContracts:
             reason="Reason for entry",
             segment_id="66368e29-3f97-4d15-a6e9-120897f0070a",
             contract_id="d7abd0cd-4ae9-4db7-8676-e986a4ebd8dc",
+            per_group_amounts={"foo": 0},
             timestamp=parse_datetime("2019-12-27T18:11:19.117Z"),
         )
         assert contract is None
@@ -1077,6 +1091,7 @@ class TestContracts:
             id="6162d87b-e5db-4a33-b7f2-76ce6ead4e85",
             covering_date=parse_datetime("2019-12-27T18:11:19.117Z"),
             effective_before=parse_datetime("2019-12-27T18:11:19.117Z"),
+            exclude_zero_balances=True,
             include_archived=True,
             include_balance=True,
             include_contract_balances=True,
@@ -1516,7 +1531,10 @@ class TestAsyncContracts:
                 "parent": {
                     "contract_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "customer_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                }
+                },
+                "parent_behavior": {"invoice_consolidation_type": "CONCATENATE"},
+                "payer": "SELF",
+                "usage_statement_behavior": "CONSOLIDATE",
             },
             multiplier_override_prioritization="LOWEST_MULTIPLIER",
             name="name",
@@ -1723,6 +1741,11 @@ class TestAsyncContracts:
                     "reseller_contract_value": 0,
                 }
             ],
+            revenue_system_configuration={
+                "delivery_method": "direct_to_billing_provider",
+                "provider": "netsuite",
+                "revenue_system_configuration_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            },
             salesforce_opportunity_id="salesforce_opportunity_id",
             scheduled_charges=[
                 {
@@ -1792,6 +1815,11 @@ class TestAsyncContracts:
                     "initial_quantity": 0,
                     "name": "name",
                     "quantity_management_mode": "SEAT_BASED",
+                    "seat_config": {
+                        "initial_seat_ids": ["string"],
+                        "seat_group_key": "seat_group_key",
+                        "initial_unassigned_seats": 0,
+                    },
                     "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "temporary_id": "temporary_id",
                 }
@@ -1950,6 +1978,7 @@ class TestAsyncContracts:
             reason="Reason for entry",
             segment_id="66368e29-3f97-4d15-a6e9-120897f0070a",
             contract_id="d7abd0cd-4ae9-4db7-8676-e986a4ebd8dc",
+            per_group_amounts={"foo": 0},
             timestamp=parse_datetime("2019-12-27T18:11:19.117Z"),
         )
         assert contract is None
@@ -2407,6 +2436,7 @@ class TestAsyncContracts:
             id="6162d87b-e5db-4a33-b7f2-76ce6ead4e85",
             covering_date=parse_datetime("2019-12-27T18:11:19.117Z"),
             effective_before=parse_datetime("2019-12-27T18:11:19.117Z"),
+            exclude_zero_balances=True,
             include_archived=True,
             include_balance=True,
             include_contract_balances=True,

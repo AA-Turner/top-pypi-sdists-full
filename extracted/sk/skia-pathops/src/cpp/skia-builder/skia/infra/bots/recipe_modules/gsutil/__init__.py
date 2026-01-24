@@ -2,12 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-PYTHON_VERSION_COMPATIBILITY = "PY3"
+
+from . import api as _api
 
 DEPS = [
   'recipe_engine/context',
-  'recipe_engine/python',
   'recipe_engine/step',
   'run',
   'vars',
 ]
+
+API = _api.GSUtilApi

@@ -1,11 +1,12 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: snowfakery
-Version: 4.0.0
+Version: 4.2.1
 Summary: Snowfakery is a tool for generating fake data that has relations between tables. Every row is faked data, but also unique and random, like a snowflake.
 Project-URL: Homepage, https://github.com/SFDO-Tooling/Snowfakery
 Project-URL: Bug Tracker, https://github.com/SFDO-Tooling/Snowfakery/issues
 Author-email: Paul Prescod <pprescod@salesforce.com>, "Salesforce.org" <sfdo-mrbelvedere@salesforce.com>
 License: BSD 3-Clause License
+License-File: LICENSE
 Keywords: data generation,fake data,salesforce,snowfakery
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -22,7 +23,7 @@ Requires-Dist: faker-edu
 Requires-Dist: faker-nonprofit
 Requires-Dist: gvgen
 Requires-Dist: jinja2
-Requires-Dist: pydantic<2.0.0
+Requires-Dist: pydantic<3,>=2
 Requires-Dist: python-baseconv
 Requires-Dist: python-dateutil
 Requires-Dist: pyyaml

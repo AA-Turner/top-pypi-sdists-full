@@ -10,6 +10,7 @@ from ...types.create_device_code_response import CreateDeviceCodeResponse
 from ...types.device_code import DeviceCode
 from ...types.device_code_status import DeviceCodeStatus
 from ...types.get_device_code_response import GetDeviceCodeResponse
+from ...types.list_device_codes_response import ListDeviceCodesResponse
 from ...types.product_type import ProductType
 from .raw_client import AsyncRawCodesClient, RawCodesClient
 
@@ -40,7 +41,7 @@ class CodesClient:
         product_type: typing.Optional[ProductType] = None,
         status: typing.Optional[DeviceCodeStatus] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[DeviceCode]:
+    ) -> SyncPager[DeviceCode, ListDeviceCodesResponse]:
         """
         Lists all DeviceCodes associated with the merchant.
 
@@ -69,7 +70,7 @@ class CodesClient:
 
         Returns
         -------
-        SyncPager[DeviceCode]
+        SyncPager[DeviceCode, ListDeviceCodesResponse]
             Success
 
         Examples
@@ -79,7 +80,11 @@ class CodesClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.devices.codes.list()
+        response = client.devices.codes.list(
+            cursor="cursor",
+            location_id="location_id",
+            status="UNKNOWN",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -200,7 +205,7 @@ class AsyncCodesClient:
         product_type: typing.Optional[ProductType] = None,
         status: typing.Optional[DeviceCodeStatus] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[DeviceCode]:
+    ) -> AsyncPager[DeviceCode, ListDeviceCodesResponse]:
         """
         Lists all DeviceCodes associated with the merchant.
 
@@ -229,7 +234,7 @@ class AsyncCodesClient:
 
         Returns
         -------
-        AsyncPager[DeviceCode]
+        AsyncPager[DeviceCode, ListDeviceCodesResponse]
             Success
 
         Examples
@@ -244,7 +249,11 @@ class AsyncCodesClient:
 
 
         async def main() -> None:
-            response = await client.devices.codes.list()
+            response = await client.devices.codes.list(
+                cursor="cursor",
+                location_id="location_id",
+                status="UNKNOWN",
+            )
             async for item in response:
                 yield item
 

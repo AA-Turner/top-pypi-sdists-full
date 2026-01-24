@@ -3,8 +3,6 @@ from collections import namedtuple
 from json import JSONEncoder
 from typing import Optional
 
-from typing_extensions import override
-
 
 class MyJSONEncoder(JSONEncoder):
     # def default(self, in_obj):
@@ -55,10 +53,6 @@ class DataUnitTest:
 
     def __str__(self):
         return json.dumps(dict(self), ensure_ascii=False)
-
-    @override
-    def __dict__(self):
-        return dict(self)
 
     def __repr__(self):
         return self.__str__()

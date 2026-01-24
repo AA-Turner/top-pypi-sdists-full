@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "pysigma-backend-splunk"
+version = "2.0.0"
+description = "pySigma Splunk backend"
+readme = "README.md"
+authors = ["Thomas Patzke <thomas@patzke.org>"]
+license = "LGPL-2.1-only"
+repository = "https://github.com/SigmaHQ/pySigma-backend-splunk"
+packages = [
+    { include = "sigma" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pysigma = "^1.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.11"
+pre-commit = "^4.5"
+pytest = "^9.0"
+pytest-cov = "^7.0"
+defusedxml = "^0.7.1"
+
+[build-system]
+requires = ["poetry-core>=1.8.1"]
+build-backend = "poetry.core.masonry.api"

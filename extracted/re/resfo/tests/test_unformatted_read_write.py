@@ -9,7 +9,6 @@ from resfo._unformatted.write import unformatted_write
 
 @pytest.mark.filterwarnings("ignore:casting")
 @pytest.mark.filterwarnings("ignore:downcasting")
-@pytest.mark.parametrize("container", [dict, lambda x: x])
 @pytest.mark.parametrize(
     "data",
     [
@@ -31,9 +30,9 @@ from resfo._unformatted.write import unformatted_write
         ],
     ],
 )
-def test_unformatted_write(container, data):
+def test_unformatted_write(data):
     buf = io.BytesIO()
-    unformatted_write(buf, container(data))
+    unformatted_write(buf, data)
     buf.seek(0)
     out_records = list(UnformattedResArray.parse(buf))
     out_keywords = [r.read_keyword() for r in out_records]
@@ -42,10 +41,10 @@ def test_unformatted_write(container, data):
 
     assert out_lengths == [len(arr) for arr in out_arrays]
 
-    for (kw, arr), okw, oarr in zip(data, out_keywords, out_arrays):
+    for (kw, arr), okw, oarr in zip(data, out_keywords, out_arrays, strict=True):
         assert kw == okw
         if isinstance(arr[0], str):
-            for el, elo in zip(arr, oarr):
+            for el, elo in zip(arr, oarr, strict=True):
                 elo = elo.decode("ascii")
                 assert elo.startswith(el)
                 assert all(c.isspace() for c in elo[len(el) :])

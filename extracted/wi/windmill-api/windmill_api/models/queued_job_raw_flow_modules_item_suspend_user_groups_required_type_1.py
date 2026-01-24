@@ -12,10 +12,13 @@ T = TypeVar("T", bound="QueuedJobRawFlowModulesItemSuspendUserGroupsRequiredType
 
 @_attrs_define
 class QueuedJobRawFlowModulesItemSuspendUserGroupsRequiredType1:
-    """
-    Attributes:
-        expr (str):
-        type (QueuedJobRawFlowModulesItemSuspendUserGroupsRequiredType1Type):
+    """JavaScript expression evaluated at runtime. Can reference previous step results via 'results.step_id' or flow inputs
+    via 'flow_input.property'. Inside loops, use 'flow_input.iter.value' for the current iteration value
+
+        Attributes:
+            expr (str): JavaScript expression returning the value. Available variables - results (object with all previous
+                step results), flow_input (flow inputs), flow_input.iter (in loops)
+            type (QueuedJobRawFlowModulesItemSuspendUserGroupsRequiredType1Type):
     """
 
     expr: str

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: colcon-core
-Version: 0.20.0
+Version: 0.20.1
 Summary: Command line tool to build sets of software packages.
 Home-page: https://colcon.readthedocs.io
 Author: Dirk Thomas

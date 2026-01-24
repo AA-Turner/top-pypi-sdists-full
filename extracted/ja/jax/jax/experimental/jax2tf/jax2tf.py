@@ -140,7 +140,7 @@ def get_thread_local_state_call_tf_concrete_function_list() -> (
 @partial(api_util.api_hook, tag="jax2tf_convert")
 def convert(fun_jax: Callable,
             *,
-            polymorphic_shapes: str | None = None,
+            polymorphic_shapes: str | PolyShape | None | Sequence[str | PolyShape | None] = None,
             polymorphic_constraints: Sequence[str] = (),
             with_gradient: bool = True,
             enable_xla: bool = DEFAULT_NATIVE_SERIALIZATION,  # type: ignore
@@ -381,6 +381,9 @@ class NativeSerializationImpl:
     return _export._get_vjp_fun(self.fun_jax,
                                 in_tree=self.exported.in_tree,
                                 in_avals=self.exported.in_avals,
+                                has_named_shardings=self.exported._has_named_shardings,
+                                in_named_shardings=self.exported._in_named_shardings,
+                                out_named_shardings=self.exported._out_named_shardings,
                                 in_shardings_hlo=self.exported.in_shardings_hlo,
                                 out_avals=self.exported.out_avals,
                                 out_shardings_hlo=self.exported.out_shardings_hlo,

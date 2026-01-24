@@ -90,7 +90,7 @@ def test_with_scenario(mocker, sess, client):
     data = {
         "site_id": site.id,
         "scenario_id": scenario.id,
-        "compression": False,
+        "uncompressed": True,
     }
 
     response = client.post("/reports/247", data=data)
@@ -117,11 +117,11 @@ def test_do_post_without_scenario(mocker, sess, client):
     mocker.patch("chellow.reports.report_247.utc_datetime_now", return_value=now)
 
     data = {
-        "compression": False,
         "finish_year": 2009,
         "finish_month": 8,
         "months": 1,
         "site_codes": "",
+        "uncompressed": True,
     }
 
     response = client.post("/reports/247", data=data)
@@ -146,7 +146,6 @@ def test_do_post_error(mocker, sess, client):
     mocker.patch("chellow.reports.report_247.utc_datetime_now", return_value=now)
 
     data = {
-        "compression": False,
         "finish_year": 2009,
         "finish_month": 8,
         "months": 1,
@@ -311,9 +310,7 @@ def virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -617,9 +614,7 @@ def virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -829,9 +824,7 @@ def virtual_bill(ds):
         utc_datetime(2000, 1, 31, 23, 30),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -854,7 +847,7 @@ def virtual_bill(ds):
     )
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -868,6 +861,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        utc_datetime(2009, 7, 10),
+        utc_datetime(2009, 7, 10),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -1142,8 +1143,6 @@ def virtual_bill(ds):
 def test_bill_after_end_supply_and_after_month(mocker, sess):
     vf = to_utc(ct_datetime(1996, 1, 1))
     site = Site.insert(sess, "CI017", "Water Works")
-    start_date = utc_datetime(2009, 7, 31, 23, 00)
-    months = 1
 
     market_role_Z = MarketRole.insert(sess, "Z", "Non-core")
     participant = Participant.insert(sess, "CALB", "AK Industries")
@@ -1293,9 +1292,7 @@ def virtual_bill(ds):
         to_utc(ct_datetime(2009, 8, 31, 23, 30)),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -1318,11 +1315,11 @@ def virtual_bill(ds):
     )
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
-        start_date,
+        utc_datetime(2009, 7, 31, 23, 00),
         to_utc(ct_datetime(2009, 7, 30, 23, 30)),
         to_utc(ct_datetime(2009, 9, 30, 23, 30)),
         Decimal("10.00"),
@@ -1333,6 +1330,14 @@ def virtual_bill(ds):
         {},
         supply,
     )
+    bill.insert_element(
+        sess,
+        "nrg",
+        to_utc(ct_datetime(2009, 7, 30, 23, 30)),
+        to_utc(ct_datetime(2009, 9, 30, 23, 30)),
+        Decimal("10.00"),
+        {},
+    )
 
     editor = UserRole.insert(sess, "editor")
     user = User.insert(sess, "admin@example.com", "xxx", editor, None)
@@ -1341,9 +1346,10 @@ def virtual_bill(ds):
 
     sess.commit()
 
+    months = 1
     scenario_props = {
-        "scenario_start_year": start_date.year,
-        "scenario_start_month": start_date.month,
+        "scenario_start_year": 2009,
+        "scenario_start_month": 7,
         "scenario_duration": months,
         "by_hh": False,
         "site_codes": [site_code],
@@ -1869,9 +1875,7 @@ def virtual_bill(ds):
         utc_datetime(2000, 1, 31, 23, 30),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -1894,7 +1898,7 @@ def virtual_bill(ds):
     )
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -1908,6 +1912,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        utc_datetime(2009, 7, 10),
+        utc_datetime(2009, 7, 10),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -2209,9 +2221,7 @@ def virtual_bill(ds):
         utc_datetime(2000, 1, 31, 23, 30),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -2236,7 +2246,7 @@ def virtual_bill(ds):
     era.attach_site(sess, site_2, True)
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -2250,6 +2260,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        utc_datetime(2000, 1, 1),
+        utc_datetime(2000, 1, 31),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -2557,9 +2575,7 @@ def virtual_bill(ds):
         utc_datetime(2000, 1, 25, 23, 30),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -2583,7 +2599,7 @@ def virtual_bill(ds):
     supply.insert_era_at(sess, utc_datetime(2000, 1, 15))
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -2597,6 +2613,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        utc_datetime(2000, 1, 1),
+        utc_datetime(2000, 1, 31),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -3228,9 +3252,7 @@ def virtual_bill(ds):
         utc_datetime(2000, 1, 31, 23, 30),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -3253,7 +3275,7 @@ def virtual_bill(ds):
     )
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -3267,6 +3289,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        utc_datetime(1999, 12, 10),
+        utc_datetime(1999, 12, 15),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -3711,9 +3741,7 @@ def virtual_bill(ds):
         utc_datetime(2000, 1, 31, 23, 30),
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -3736,7 +3764,7 @@ def virtual_bill(ds):
     )
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -3750,6 +3778,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        utc_datetime(2000, 1, 1),
+        utc_datetime(2000, 1, 30),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -4071,9 +4107,7 @@ def displaced_virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -4103,9 +4137,7 @@ def displaced_virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -4457,15 +4489,15 @@ def displaced_virtual_bill(ds):
             0.0,
             0.0,
             0.0,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             0.0,
             0.0,
             None,
@@ -4725,9 +4757,7 @@ def virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -4750,7 +4780,7 @@ def virtual_bill(ds):
     )
     insert_bill_types(sess)
     bill_type = sess.execute(select(BillType).where(BillType.code == "N")).scalar_one()
-    batch.insert_bill(
+    bill = batch.insert_bill(
         sess,
         "dd",
         "hjk",
@@ -4764,6 +4794,14 @@ def virtual_bill(ds):
         bill_type,
         {},
         supply,
+    )
+    bill.insert_element(
+        sess,
+        "nrg",
+        to_utc(ct_datetime(2009, 8, 1)),
+        to_utc(ct_datetime(2009, 8, 31, 23, 30)),
+        Decimal("10.00"),
+        {},
     )
 
     editor = UserRole.insert(sess, "editor")
@@ -5207,9 +5245,7 @@ def virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,

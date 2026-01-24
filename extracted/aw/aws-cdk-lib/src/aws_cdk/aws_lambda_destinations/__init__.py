@@ -221,7 +221,10 @@ class EventBridgeDestination(
         event_bridge_destination = lambda_destinations.EventBridgeDestination(event_bus)
     '''
 
-    def __init__(self, event_bus: typing.Optional[_IEventBus_88d13111] = None) -> None:
+    def __init__(
+        self,
+        event_bus: typing.Optional["_IEventBus_88d13111"] = None,
+    ) -> None:
         '''
         :param event_bus: -
 
@@ -235,11 +238,11 @@ class EventBridgeDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        fn: _IFunction_6adb0ab8,
+        _scope: "_constructs_77d1e7e8.Construct",
+        fn: "_IFunction_6adb0ab8",
         *,
-        type: _DestinationType_2872235c,
-    ) -> _DestinationConfig_6f7459c3:
+        type: "_DestinationType_2872235c",
+    ) -> "_DestinationConfig_6f7459c3":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -252,7 +255,7 @@ class EventBridgeDestination(
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         _options = _DestinationOptions_3f2abf0e(type=type)
 
-        return typing.cast(_DestinationConfig_6f7459c3, jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
 @jsii.implements(_IDestination_40f19de4)
@@ -283,7 +286,7 @@ class LambdaDestination(
 
     def __init__(
         self,
-        fn: _IFunction_6adb0ab8,
+        fn: "_IFunction_6adb0ab8",
         *,
         response_only: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -301,11 +304,11 @@ class LambdaDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        fn: _IFunction_6adb0ab8,
+        scope: "_constructs_77d1e7e8.Construct",
+        fn: "_IFunction_6adb0ab8",
         *,
-        type: _DestinationType_2872235c,
-    ) -> _DestinationConfig_6f7459c3:
+        type: "_DestinationType_2872235c",
+    ) -> "_DestinationConfig_6f7459c3":
         '''Returns a destination configuration.
 
         :param scope: -
@@ -318,7 +321,7 @@ class LambdaDestination(
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         options = _DestinationOptions_3f2abf0e(type=type)
 
-        return typing.cast(_DestinationConfig_6f7459c3, jsii.invoke(self, "bind", [scope, fn, options]))
+        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [scope, fn, options]))
 
 
 @jsii.data_type(
@@ -407,7 +410,7 @@ class S3Destination(
         s3_destination = lambda_destinations.S3Destination(bucket)
     '''
 
-    def __init__(self, bucket: _IBucket_42e086fd) -> None:
+    def __init__(self, bucket: "_IBucket_42e086fd") -> None:
         '''
         :param bucket: -
         '''
@@ -419,11 +422,11 @@ class S3Destination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        fn: _IFunction_6adb0ab8,
+        _scope: "_constructs_77d1e7e8.Construct",
+        fn: "_IFunction_6adb0ab8",
         *,
-        type: _DestinationType_2872235c,
-    ) -> _DestinationConfig_6f7459c3:
+        type: "_DestinationType_2872235c",
+    ) -> "_DestinationConfig_6f7459c3":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -436,7 +439,7 @@ class S3Destination(
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         _options = _DestinationOptions_3f2abf0e(type=type)
 
-        return typing.cast(_DestinationConfig_6f7459c3, jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
 @jsii.implements(_IDestination_40f19de4)
@@ -465,7 +468,7 @@ class SnsDestination(
         )
     '''
 
-    def __init__(self, topic: _ITopic_9eca4852) -> None:
+    def __init__(self, topic: "_ITopic_9eca4852") -> None:
         '''
         :param topic: -
         '''
@@ -477,11 +480,11 @@ class SnsDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        fn: _IFunction_6adb0ab8,
+        _scope: "_constructs_77d1e7e8.Construct",
+        fn: "_IFunction_6adb0ab8",
         *,
-        type: _DestinationType_2872235c,
-    ) -> _DestinationConfig_6f7459c3:
+        type: "_DestinationType_2872235c",
+    ) -> "_DestinationConfig_6f7459c3":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -494,7 +497,7 @@ class SnsDestination(
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         _options = _DestinationOptions_3f2abf0e(type=type)
 
-        return typing.cast(_DestinationConfig_6f7459c3, jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
 @jsii.implements(_IDestination_40f19de4)
@@ -523,7 +526,7 @@ class SqsDestination(
         )
     '''
 
-    def __init__(self, queue: _IQueue_7ed6f679) -> None:
+    def __init__(self, queue: "_IQueue_7ed6f679") -> None:
         '''
         :param queue: -
         '''
@@ -535,11 +538,11 @@ class SqsDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        fn: _IFunction_6adb0ab8,
+        _scope: "_constructs_77d1e7e8.Construct",
+        fn: "_IFunction_6adb0ab8",
         *,
-        type: _DestinationType_2872235c,
-    ) -> _DestinationConfig_6f7459c3:
+        type: "_DestinationType_2872235c",
+    ) -> "_DestinationConfig_6f7459c3":
         '''Returns a destination configuration.
 
         :param _scope: -
@@ -552,7 +555,7 @@ class SqsDestination(
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
         _options = _DestinationOptions_3f2abf0e(type=type)
 
-        return typing.cast(_DestinationConfig_6f7459c3, jsii.invoke(self, "bind", [_scope, fn, _options]))
+        return typing.cast("_DestinationConfig_6f7459c3", jsii.invoke(self, "bind", [_scope, fn, _options]))
 
 
 __all__ = [

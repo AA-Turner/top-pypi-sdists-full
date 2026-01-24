@@ -1,9 +1,13 @@
 import importlib.util
 import os
 import urllib.parse
-from typing import Any
+from typing import Any, List, Literal, Optional, TYPE_CHECKING
 
 import pyarrow as pa
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
 from pyarrow import ArrowException
 
 from influxdb_client_3.exceptions import InfluxDB3ClientQueryError
@@ -25,6 +29,9 @@ INFLUX_PRECISION = "INFLUX_PRECISION"
 INFLUX_AUTH_SCHEME = "INFLUX_AUTH_SCHEME"
 INFLUX_GZIP_THRESHOLD = "INFLUX_GZIP_THRESHOLD"
 INFLUX_WRITE_NO_SYNC = "INFLUX_WRITE_NO_SYNC"
+INFLUX_WRITE_TIMEOUT = "INFLUX_WRITE_TIMEOUT"
+INFLUX_QUERY_TIMEOUT = "INFLUX_QUERY_TIMEOUT"
+INFLUX_DISABLE_GRPC_COMPRESSION = "INFLUX_DISABLE_GRPC_COMPRESSION"
 
 
 def write_client_options(**kwargs):
@@ -97,7 +104,7 @@ def _merge_options(defaults, exclude_keys=None, custom=None):
     return _deep_merge(defaults, {key: value for key, value in custom.items() if key not in exclude_keys})
 
 
-def _parse_precision(precision):
+def _parse_precision(precision: str) -> WritePrecision:
     """
     Parses the precision value and ensures it is valid.
 
@@ -124,7 +131,7 @@ def _parse_precision(precision):
     raise ValueError(f"Invalid precision value: {precision}")
 
 
-def _parse_gzip_threshold(threshold):
+def _parse_gzip_threshold(threshold: str) -> int:
     """
     Parses and validates the provided threshold value.
 
@@ -148,7 +155,7 @@ def _parse_gzip_threshold(threshold):
     return threshold
 
 
-def _parse_write_no_sync(write_no_sync):
+def _parse_write_no_sync(write_no_sync: str):
     """
     Parses and validates the provided write no sync value.
 
@@ -163,6 +170,16 @@ def _parse_write_no_sync(write_no_sync):
     return write_no_sync.strip().lower() in ['true', '1', 't', 'y', 'yes']
 
 
+def _parse_timeout(to: str) -> int:
+    try:
+        timeout = int(to)
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid timeout value: {to}. Must be a number.")
+    if timeout < 0:
+        raise ValueError(f"Invalid timeout value: {to}. Must be non-negative.")
+    return timeout
+
+
 class InfluxDBClient3:
     def __init__(
             self,
@@ -174,6 +191,7 @@ class InfluxDBClient3:
             flight_client_options=None,
             write_port_overwrite=None,
             query_port_overwrite=None,
+            disable_grpc_compression=False,
             **kwargs):
         """
         Initialize an InfluxDB client.
@@ -186,10 +204,12 @@ class InfluxDBClient3:
         :type database: str
         :param token: The authentication token for accessing the InfluxDB server.
         :type token: str
-        :param write_client_options: Function for providing additional arguments for the WriteApi client.
-        :type write_client_options: callable
-        :param flight_client_options: Function for providing additional arguments for the FlightClient.
-        :type flight_client_options: callable
+        :param write_client_options: dictionary for providing additional arguments for the WriteApi client.
+        :type write_client_options: dict[str, any]
+        :param flight_client_options: dictionary for providing additional arguments for the FlightClient.
+        :type flight_client_options: dict[str, any]
+        :param disable_grpc_compression: Disable gRPC compression for Flight query responses. Default is False.
+        :type disable_grpc_compression: bool
         :key auth_scheme: token authentication scheme. Set to "Bearer" for Edge.
         :key bool verify_ssl: Set this to false to skip verifying SSL certificate when calling API from https server.
         :key str ssl_ca_cert: Set this to customize the certificate file to verify the peer.
@@ -211,20 +231,29 @@ class InfluxDBClient3:
                               (defaults to false, don't set to true when talking to InfluxDB 2)
         :key str username: ``username`` to authenticate via username and password credentials to the InfluxDB 2.x
         :key str password: ``password`` to authenticate via username and password credentials to the InfluxDB 2.x
+        :key str query_timeout: int value used to set the client query API timeout in milliseconds.
+        :key str write_timeout: int value used to set the client write API timeout in milliseconds.
         :key list[str] profilers: list of enabled Flux profilers
         """
         self._org = org if org is not None else "default"
         self._database = database
         self._token = token
+        kw_keys = kwargs.keys()
 
         write_type = DefaultWriteOptions.write_type.value
         write_precision = DefaultWriteOptions.write_precision.value
         write_no_sync = DefaultWriteOptions.no_sync.value
+        write_timeout = DefaultWriteOptions.timeout.value
+
         if isinstance(write_client_options, dict) and write_client_options.get('write_options') is not None:
             write_opts = write_client_options['write_options']
             write_type = getattr(write_opts, 'write_type', write_type)
             write_precision = getattr(write_opts, 'write_precision', write_precision)
             write_no_sync = getattr(write_opts, 'no_sync', write_no_sync)
+            write_timeout = getattr(write_opts, 'timeout', write_timeout)
+
+        if kw_keys.__contains__('write_timeout'):
+            write_timeout = kwargs.get('write_timeout')
 
         write_options = WriteOptions(
             write_type=write_type,
@@ -253,6 +282,7 @@ class InfluxDBClient3:
             url=f"{scheme}://{hostname}:{port}",
             token=self._token,
             org=self._org,
+            timeout=write_timeout,
             **kwargs)
 
         self._write_api = _WriteApi(influxdb_client=self._client, **self._write_client_options)
@@ -265,13 +295,17 @@ class InfluxDBClient3:
             connection_string = f"grpc+tcp://{hostname}:{port}"
 
         q_opts_builder = QueryApiOptionsBuilder()
-        kw_keys = kwargs.keys()
+        if disable_grpc_compression:
+            q_opts_builder.disable_grpc_compression(True)
         if kw_keys.__contains__('ssl_ca_cert'):
             q_opts_builder.root_certs(kwargs.get('ssl_ca_cert', None))
         if kw_keys.__contains__('verify_ssl'):
             q_opts_builder.tls_verify(kwargs.get('verify_ssl', True))
         if kw_keys.__contains__('proxy'):
             q_opts_builder.proxy(kwargs.get('proxy', None))
+        if kw_keys.__contains__('query_timeout'):
+            query_timeout_float = float(kwargs.get('query_timeout'))
+            q_opts_builder.timeout(query_timeout_float / 1000.0)
         self._query_api = _QueryApi(connection_string=connection_string, token=token,
                                     flight_client_options=flight_client_options,
                                     proxy=kwargs.get("proxy", None), options=q_opts_builder.build())
@@ -319,10 +353,25 @@ class InfluxDBClient3:
         if precision is not None:
             write_options.write_precision = _parse_precision(precision)
 
+        write_timeout = os.getenv(INFLUX_WRITE_TIMEOUT)
+        if write_timeout is not None:
+            # N.B. write_options value has precedent over kwargs['write_timeout'] above
+            write_options.timeout = _parse_timeout(write_timeout)
+
+        query_timeout = os.getenv(INFLUX_QUERY_TIMEOUT)
+        if query_timeout is not None:
+            kwargs['query_timeout'] = _parse_timeout(query_timeout)
+
         write_client_option = {'write_options': write_options}
 
         if os.getenv(INFLUX_AUTH_SCHEME) is not None:
             kwargs['auth_scheme'] = os.getenv(INFLUX_AUTH_SCHEME)
+
+        disable_grpc_compression = os.getenv(INFLUX_DISABLE_GRPC_COMPRESSION)
+        if disable_grpc_compression is not None:
+            disable_grpc_compression = disable_grpc_compression.strip().lower() in ['true', '1', 't', 'y', 'yes']
+        else:
+            disable_grpc_compression = False
 
         org = os.getenv(INFLUX_ORG, "default")
         return InfluxDBClient3(
@@ -331,6 +380,7 @@ class InfluxDBClient3:
             database=required_vars[INFLUX_DATABASE],
             write_client_options=write_client_option,
             org=org,
+            disable_grpc_compression=disable_grpc_compression,
             **kwargs
         )
 
@@ -348,7 +398,78 @@ class InfluxDBClient3:
             database = self._database
 
         try:
-            self._write_api.write(bucket=database, record=record, **kwargs)
+            return self._write_api.write(bucket=database, record=record, **kwargs)
+        except InfluxDBError as e:
+            raise e
+
+    def write_dataframe(
+        self,
+        df: "pd.DataFrame | pl.DataFrame",
+        measurement: str,
+        timestamp_column: str,
+        tags: Optional[List[str]] = None,
+        timestamp_timezone: Optional[str] = None,
+        database: Optional[str] = None,
+        **kwargs
+    ):
+        """
+        Write a DataFrame to InfluxDB.
+
+        This method supports both pandas and polars DataFrames, automatically detecting
+        the DataFrame type and using the appropriate serializer.
+
+        :param df: The DataFrame to write. Can be a pandas or polars DataFrame.
+        :type df: pandas.DataFrame or polars.DataFrame
+        :param measurement: The name of the measurement to write to.
+        :type measurement: str
+        :param timestamp_column: The name of the column containing timestamps.
+                                 This parameter is required for consistency between pandas and polars.
+        :type timestamp_column: str
+        :param tags: List of column names to use as tags. Remaining columns will be fields.
+        :type tags: list[str], optional
+        :param timestamp_timezone: Timezone for the timestamp column (e.g., 'UTC', 'America/New_York').
+        :type timestamp_timezone: str, optional
+        :param database: The database to write to. If not provided, uses the database from initialization.
+        :type database: str, optional
+        :param kwargs: Additional arguments to pass to the write API.
+        :raises TypeError: If df is not a pandas or polars DataFrame.
+        :raises InfluxDBError: If there is an error writing to the database.
+
+        Example:
+            >>> import pandas as pd
+            >>> df = pd.DataFrame({
+            ...     'time': pd.to_datetime(['2024-01-01', '2024-01-02']),
+            ...     'city': ['London', 'Paris'],
+            ...     'temperature': [15.0, 18.0]
+            ... })
+            >>> client.write_dataframe(
+            ...     df,
+            ...     measurement='weather',
+            ...     timestamp_column='time',
+            ...     tags=['city']
+            ... )
+        """
+        if database is None:
+            database = self._database
+
+        # Detect DataFrame type
+        df_type = str(type(df))
+        if 'pandas' not in df_type and 'polars' not in df_type:
+            raise TypeError(
+                f"Expected a pandas or polars DataFrame, but got {type(df).__name__}. "
+                "Please pass a valid DataFrame object."
+            )
+
+        try:
+            return self._write_api.write(
+                bucket=database,
+                record=df,
+                data_frame_measurement_name=measurement,
+                data_frame_tag_columns=tags or [],
+                data_frame_timestamp_column=timestamp_column,
+                data_frame_timestamp_timezone=timestamp_timezone,
+                **kwargs
+            )
         except InfluxDBError as e:
             raise e
 
@@ -434,6 +555,51 @@ class InfluxDBClient3:
         except ArrowException as e:
             raise InfluxDB3ClientQueryError(f"Error while executing query: {e}")
 
+    def query_dataframe(
+        self,
+        query: str,
+        language: str = "sql",
+        database: Optional[str] = None,
+        frame_type: Literal["pandas", "polars"] = "pandas",
+        **kwargs
+    ) -> "pd.DataFrame | pl.DataFrame":
+        """
+        Query data from InfluxDB and return as a DataFrame.
+
+        This is a convenience method that wraps query() and returns the result
+        directly as a pandas or polars DataFrame.
+
+        :param query: The query to execute on the database.
+        :type query: str
+        :param language: The query language to use. Should be "sql" or "influxql". Defaults to "sql".
+        :type language: str
+        :param database: The database to query from. If not provided, uses the database from initialization.
+        :type database: str, optional
+        :param frame_type: The type of DataFrame to return. Either "pandas" or "polars". Defaults to "pandas".
+        :type frame_type: Literal["pandas", "polars"]
+        :param kwargs: Additional arguments to pass to the query API.
+        :keyword query_parameters: Query parameters as a dictionary of key-value pairs.
+        :return: Query result as a pandas or polars DataFrame.
+        :rtype: pandas.DataFrame or polars.DataFrame
+        :raises ImportError: If polars is requested but not installed.
+
+        Example:
+            >>> # Query and get a pandas DataFrame
+            >>> df = client.query_dataframe("SELECT * FROM weather WHERE city = 'London'")
+            >>>
+            >>> # Query and get a polars DataFrame
+            >>> df = client.query_dataframe(
+            ...     "SELECT * FROM weather",
+            ...     frame_type="polars"
+            ... )
+        """
+        if frame_type == "polars" and polars is False:
+            raise ImportError(
+                "Polars is not installed. Please install it with `pip install polars`."
+            )
+
+        return self.query(query=query, language=language, mode=frame_type, database=database, **kwargs)
+
     async def query_async(self, query: str, language: str = "sql", mode: str = "all", database: str = None, **kwargs):
         """Query data from InfluxDB asynchronously.
 
@@ -493,6 +659,19 @@ class InfluxDBClient3:
             version = resp_body['version']
 
         return version
+
+    def flush(self):
+        """
+        Flush any buffered writes to InfluxDB without closing the client.
+
+        This method immediately sends all buffered data points to the server
+        when using batching write mode. After flushing, the client remains
+        open and ready for more writes.
+
+        For synchronous write mode, this is a no-op since data is written
+        immediately.
+        """
+        self._write_api.flush()
 
     def close(self):
         """Close the client and clean up resources."""

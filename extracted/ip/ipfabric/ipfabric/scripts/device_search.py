@@ -190,7 +190,7 @@ Number Operators:
 
 
 def query_ipf(args: argparse.Namespace, column: str, search: str, operator: str, columns: list):
-    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth)
+    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth, verify=(not args.insecure))
     ipf._client.headers["user-agent"] += "; ipf_device_search"
     if args.attribute:
         results = attribute_search(ipf, column, search, operator, columns)
@@ -229,7 +229,7 @@ def attribute_search(ipf: IPFClient, name: str, value: str, operator: str, colum
     cols = columns.copy()
     if "sn" not in cols:
         cols.append("sn")
-    results = dict()
+    results = {}
     for key, value in filters.items():
         f = {key: list(value)}
         LOGGER.info(f"Querying using Attribute Filter: {f}.")

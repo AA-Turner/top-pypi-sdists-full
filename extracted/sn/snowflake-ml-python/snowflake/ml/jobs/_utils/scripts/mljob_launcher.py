@@ -6,22 +6,36 @@ import logging
 import math
 import os
 import runpy
+import shutil
+import subprocess
 import sys
 import time
 import traceback
-import warnings
+import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
-import cloudpickle
+# Ensure payload directory is in sys.path for module imports before importing other modules
+# This is needed to support relative imports in user scripts and to allow overriding
+# modules using modules in the payload directory
+# TODO: Inject the environment variable names at job submission time
+STAGE_MOUNT_PATH = os.environ.get("MLRS_STAGE_MOUNT_PATH", "/mnt/job_stage")
+JOB_RESULT_PATH = os.environ.get("MLRS_RESULT_PATH", "output/mljob_result.pkl")
+PAYLOAD_PATH = os.environ.get("MLRS_PAYLOAD_DIR")
 
-from snowflake.ml.jobs._utils import constants
-from snowflake.snowpark import Session
+if PAYLOAD_PATH and not os.path.isabs(PAYLOAD_PATH):
+    PAYLOAD_PATH = os.path.join(STAGE_MOUNT_PATH, PAYLOAD_PATH)
 
-try:
-    from snowflake.ml._internal.utils.connection_params import SnowflakeLoginOptions
-except ImportError:
-    from snowflake.ml.utils.connection_params import SnowflakeLoginOptions
+if PAYLOAD_PATH:
+    if PAYLOAD_PATH not in sys.path:
+        sys.path.insert(0, PAYLOAD_PATH)
+    for zip_file in Path(PAYLOAD_PATH).rglob("*.zip"):
+        fpath = str(zip_file)
+        if fpath not in sys.path and zipfile.is_zipfile(fpath):
+            sys.path.insert(0, fpath)
+# Imports below must come after sys.path modification to support module overrides
+import snowflake.ml.jobs._utils.constants  # noqa: E402
+import snowflake.snowpark  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -33,47 +47,143 @@ logger = logging.getLogger(__name__)
 # not have the latest version of the code
 # Log start and end messages
 LOG_START_MSG = getattr(
-    constants,
+    snowflake.ml.jobs._utils.constants,
     "LOG_START_MSG",
     "--------------------------------\nML job started\n--------------------------------",
 )
 LOG_END_MSG = getattr(
-    constants,
+    snowflake.ml.jobs._utils.constants,
     "LOG_END_MSG",
     "--------------------------------\nML job finished\n--------------------------------",
 )
+MIN_INSTANCES_ENV_VAR = getattr(
+    snowflake.ml.jobs._utils.constants,
+    "MIN_INSTANCES_ENV_VAR",
+    "MLRS_MIN_INSTANCES",
+)
+TARGET_INSTANCES_ENV_VAR = getattr(
+    snowflake.ml.jobs._utils.constants,
+    "TARGET_INSTANCES_ENV_VAR",
+    "SNOWFLAKE_JOBS_COUNT",
+)
+INSTANCES_MIN_WAIT_ENV_VAR = getattr(
+    snowflake.ml.jobs._utils.constants,
+    "INSTANCES_MIN_WAIT_ENV_VAR",
+    "MLRS_INSTANCES_MIN_WAIT",
+)
+INSTANCES_TIMEOUT_ENV_VAR = getattr(
+    snowflake.ml.jobs._utils.constants,
+    "INSTANCES_TIMEOUT_ENV_VAR",
+    "MLRS_INSTANCES_TIMEOUT",
+)
+INSTANCES_CHECK_INTERVAL_ENV_VAR = getattr(
+    snowflake.ml.jobs._utils.constants,
+    "INSTANCES_CHECK_INTERVAL_ENV_VAR",
+    "MLRS_INSTANCES_CHECK_INTERVAL",
+)
 
-# min_instances environment variable name
-MIN_INSTANCES_ENV_VAR = getattr(constants, "MIN_INSTANCES_ENV_VAR", "MLRS_MIN_INSTANCES")
-TARGET_INSTANCES_ENV_VAR = getattr(constants, "TARGET_INSTANCES_ENV_VAR", "SNOWFLAKE_JOBS_COUNT")
-
-# Fallbacks in case of SnowML version mismatch
-STAGE_MOUNT_PATH_ENV_VAR = getattr(constants, "STAGE_MOUNT_PATH_ENV_VAR", "MLRS_STAGE_MOUNT_PATH")
-RESULT_PATH_ENV_VAR = getattr(constants, "RESULT_PATH_ENV_VAR", "MLRS_RESULT_PATH")
-PAYLOAD_DIR_ENV_VAR = getattr(constants, "PAYLOAD_DIR_ENV_VAR", "MLRS_PAYLOAD_DIR")
 
 # Constants for the wait_for_instances function
-MIN_WAIT_TIME = float(os.getenv("MLRS_INSTANCES_MIN_WAIT") or -1)  # seconds
-TIMEOUT = float(os.getenv("MLRS_INSTANCES_TIMEOUT") or 720)  # seconds
-CHECK_INTERVAL = float(os.getenv("MLRS_INSTANCES_CHECK_INTERVAL") or 10)  # seconds
+MIN_INSTANCES = int(os.environ.get(MIN_INSTANCES_ENV_VAR) or "1")
+TARGET_INSTANCES = int(os.environ.get(TARGET_INSTANCES_ENV_VAR) or MIN_INSTANCES)
+MIN_WAIT_TIME = float(os.getenv(INSTANCES_MIN_WAIT_ENV_VAR) or -1)  # seconds
+TIMEOUT = float(os.getenv(INSTANCES_TIMEOUT_ENV_VAR) or 720)  # seconds
+CHECK_INTERVAL = float(os.getenv(INSTANCES_CHECK_INTERVAL_ENV_VAR) or 10)  # seconds
 
-STAGE_MOUNT_PATH = os.environ.get(STAGE_MOUNT_PATH_ENV_VAR, "/mnt/job_stage")
-JOB_RESULT_PATH = os.environ.get(RESULT_PATH_ENV_VAR, "output/mljob_result.pkl")
+
+def is_python_script(file_path: str) -> bool:
+    """Check if a file is a Python script by examining its shebang.
+
+    Args:
+        file_path: Path to the file to check.
+
+    Returns:
+        True if the file has a shebang line containing 'python', False otherwise.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            first_line = f.readline()
+            if first_line.startswith(b"#!"):
+                shebang = first_line.decode("utf-8", errors="ignore").lower()
+                return "python" in shebang
+    except OSError:
+        pass
+    return False
 
 
-try:
-    from snowflake.ml.jobs._utils.interop_utils import ExecutionResult
-except ImportError:
+def resolve_entrypoint(entrypoint: str) -> tuple[str, bool]:
+    """Resolve the entrypoint to determine how to execute it.
+
+    Args:
+        entrypoint: The entrypoint string (file path or command name).
+
+    Returns:
+        A tuple of (resolved_path, is_python):
+        - resolved_path: The path to the executable/script.
+        - is_python: True if this should be run as a Python script.
+    """
+    # Check if entrypoint is an existing file
+    if os.path.isfile(entrypoint):
+        # Always run as Python script for backward compatibility
+        return entrypoint, True
+
+    # Try to resolve as a command using shutil.which
+    resolved_path = shutil.which(entrypoint)
+    if resolved_path:
+        if is_python_script(resolved_path):
+            return resolved_path, True
+        else:
+            # Assume it's meant to be used as a command and not a Python script
+            return entrypoint, False
+
+    # If we can't resolve it, assume it's meant to be a Python script path
+    # (this preserves backwards compatibility and will fail with a clear error)
+    return entrypoint, True
+
+
+def run_command(command: str, *args: Any) -> None:
+    """Execute a command as a subprocess, streaming output and raising an exception if it fails.
+
+    Args:
+        command: Path to the executable.
+        args: Arguments to pass to the command.
+
+    Raises:
+        CalledProcessError: If the subprocess exits with a non-zero return code.
+    """
+    cmd = [command, *[str(arg) for arg in args]]
+    logger.debug(f"Running subprocess: {' '.join(cmd)}")
+
+    # Run subprocess without capturing output - let stdout/stderr flow directly to console
+    result = subprocess.run(cmd)
+
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd)
+
+
+def save_mljob_result_v2(value: Any, is_error: bool, path: str) -> None:
+    from snowflake.ml.jobs._interop import (
+        results as interop_result,
+        utils as interop_utils,
+    )
+
+    result_obj = interop_result.ExecutionResult(success=not is_error, value=value)
+    interop_utils.save_result(result_obj, path)
+
+
+def save_mljob_result_v1(value: Any, is_error: bool, path: str) -> None:
     from dataclasses import dataclass
 
+    import cloudpickle
+
+    # Directly in-line the ExecutionResult class since the legacy type
+    # instead of attempting to import the to-be-deprecated
+    # snowflake.ml.jobs._utils.interop module
+    # Eventually, this entire function will be removed in favor of v2
     @dataclass(frozen=True)
-    class ExecutionResult:  # type: ignore[no-redef]
+    class ExecutionResult:
         result: Optional[Any] = None
         exception: Optional[BaseException] = None
-
-        @property
-        def success(self) -> bool:
-            return self.exception is None
 
         def to_dict(self) -> dict[str, Any]:
             """Return the serializable dictionary."""
@@ -91,14 +201,45 @@ except ImportError:
                 "result": self.result,
             }
 
+    # Create a custom JSON encoder that converts non-serializable types to strings
+    class SimpleJSONEncoder(json.JSONEncoder):
+        def default(self, obj: Any) -> Any:
+            try:
+                return super().default(obj)
+            except TypeError:
+                return f"Unserializable object: {repr(obj)}"
 
-# Create a custom JSON encoder that converts non-serializable types to strings
-class SimpleJSONEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
-        try:
-            return super().default(obj)
-        except TypeError:
-            return f"Unserializable object: {repr(obj)}"
+    result_obj = ExecutionResult(result=None if is_error else value, exception=value if is_error else None)
+    result_dict = result_obj.to_dict()
+    try:
+        # Serialize result using cloudpickle
+        result_pickle_path = path
+        with open(result_pickle_path, "wb") as f:
+            cloudpickle.dump(result_dict, f)  # Pickle dictionary form for compatibility
+    except Exception as pkl_exc:
+        logger.warning(f"Failed to pickle result to {result_pickle_path}: {pkl_exc}")
+
+    try:
+        # Serialize result to JSON as fallback path in case of cross version incompatibility
+        result_json_path = os.path.splitext(path)[0] + ".json"
+        with open(result_json_path, "w") as f:
+            json.dump(result_dict, f, indent=2, cls=SimpleJSONEncoder)
+    except Exception as json_exc:
+        logger.warning(f"Failed to serialize JSON result to {result_json_path}: {json_exc}")
+
+
+def save_mljob_result(result_obj: Any, is_error: bool, path: str) -> None:
+    """Saves the result or error message to a file in the stage mount path.
+
+    Args:
+        result_obj: The result object to save, either the return value or the exception.
+        is_error: Whether the result_obj is a raised exception.
+        path: The file path to save the result to.
+    """
+    try:
+        save_mljob_result_v2(result_obj, is_error, path)
+    except ImportError:
+        save_mljob_result_v1(result_obj, is_error, path)
 
 
 def wait_for_instances(
@@ -225,20 +366,10 @@ def run_script(script_path: str, *script_args: Any, main_func: Optional[str] = N
     original_argv = sys.argv
     sys.argv = [script_path, *script_args]
 
-    # Ensure payload directory is in sys.path for module imports
-    # This is needed because mljob_launcher.py is now in /mnt/job_stage/system
-    # but user scripts are in the payload directory and may import from each other
-    payload_dir = os.environ.get(PAYLOAD_DIR_ENV_VAR)
-    if payload_dir and not os.path.isabs(payload_dir):
-        payload_dir = os.path.join(STAGE_MOUNT_PATH, payload_dir)
-    if payload_dir and payload_dir not in sys.path:
-        sys.path.insert(0, payload_dir)
-
     try:
-
         if main_func:
             # Use importlib for scripts with a main function defined
-            module_name = Path(script_path).stem
+            module_name = os.path.splitext(os.path.basename(script_path))[0]
             spec = importlib.util.spec_from_file_location(module_name, script_path)
             assert spec is not None
             assert spec.loader is not None
@@ -262,64 +393,69 @@ def run_script(script_path: str, *script_args: Any, main_func: Optional[str] = N
         sys.argv = original_argv
 
 
-def main(script_path: str, *script_args: Any, script_main_func: Optional[str] = None) -> ExecutionResult:
+def main(entrypoint: str, *script_args: Any, script_main_func: Optional[str] = None) -> Any:
     """Executes a Python script and serializes the result to JOB_RESULT_PATH.
 
     Args:
-        script_path (str): Path to the Python script to execute.
+        entrypoint (str): The job payload entrypoint to execute.
         script_args (Any): Arguments to pass to the script.
         script_main_func (str, optional): The name of the function to call in the script (if any).
 
     Returns:
-        ExecutionResult: Object containing execution results.
+        Any: The result of the script execution.
 
     Raises:
         Exception: Re-raises any exception caught during script execution.
     """
-    # Ensure the output directory exists before trying to write result files.
-    result_abs_path = (
-        JOB_RESULT_PATH if os.path.isabs(JOB_RESULT_PATH) else os.path.join(STAGE_MOUNT_PATH, JOB_RESULT_PATH)
-    )
-    output_dir = os.path.dirname(result_abs_path)
-    os.makedirs(output_dir, exist_ok=True)
+    try:
+        from snowflake.ml._internal.utils.connection_params import SnowflakeLoginOptions
+    except ImportError:
+        from snowflake.ml.utils.connection_params import SnowflakeLoginOptions
 
+    # Initialize Ray if available
     try:
         import ray
 
         ray.init(address="auto")
     except ModuleNotFoundError:
-        warnings.warn("Ray is not installed, skipping Ray initialization", ImportWarning, stacklevel=1)
+        logger.debug("Ray is not installed, skipping Ray initialization")
 
     # Create a Snowpark session before starting
     # Session can be retrieved from using snowflake.snowpark.context.get_active_session()
     config = SnowflakeLoginOptions()
     config["client_session_keep_alive"] = "True"
-    session = Session.builder.configs(config).create()  # noqa: F841
+    session = snowflake.snowpark.Session.builder.configs(config).create()  # noqa: F841
 
+    execution_result_is_error = False
+    execution_result_value = None
     try:
-        # Wait for minimum required instances if specified
-        min_instances_str = os.environ.get(MIN_INSTANCES_ENV_VAR) or "1"
-        target_instances_str = os.environ.get(TARGET_INSTANCES_ENV_VAR) or min_instances_str
-        if target_instances_str and int(target_instances_str) > 1:
-            wait_for_instances(
-                int(min_instances_str),
-                int(target_instances_str),
-                min_wait_time=MIN_WAIT_TIME,
-                timeout=TIMEOUT,
-                check_interval=CHECK_INTERVAL,
-            )
+        # Wait for minimum required instances before starting user script execution
+        wait_for_instances(
+            MIN_INSTANCES,
+            TARGET_INSTANCES,
+            min_wait_time=MIN_WAIT_TIME,
+            timeout=TIMEOUT,
+            check_interval=CHECK_INTERVAL,
+        )
 
-        # Log start marker for user script execution
+        # Log start marker before starting user script execution
         print(LOG_START_MSG)  # noqa: T201
 
-        # Run the script with the specified arguments
-        result = run_script(script_path, *script_args, main_func=script_main_func)
+        # Resolve entrypoint to determine execution method
+        resolved_entrypoint, is_python = resolve_entrypoint(entrypoint)
+
+        if is_python:
+            # Run as Python script
+            execution_result_value = run_script(resolved_entrypoint, *script_args, main_func=script_main_func)
+        else:
+            # Run as subprocess
+            run_command(resolved_entrypoint, *script_args)
 
         # Log end marker for user script execution
         print(LOG_END_MSG)  # noqa: T201
 
-        result_obj = ExecutionResult(result=result)
-        return result_obj
+        return execution_result_value
+
     except Exception as e:
         tb = e.__traceback__
         skip_files = {__file__, runpy.__file__}
@@ -328,37 +464,25 @@ def main(script_path: str, *script_args: Any, script_main_func: Optional[str] = 
             tb = tb.tb_next
         cleaned_ex = copy.copy(e)  # Need to create a mutable copy of exception to set __traceback__
         cleaned_ex = cleaned_ex.with_traceback(tb)
-        result_obj = ExecutionResult(exception=cleaned_ex)
+        execution_result_value = cleaned_ex
+        execution_result_is_error = True
         raise
     finally:
-        result_dict = result_obj.to_dict()
-        try:
-            # Serialize result using cloudpickle
-            result_pickle_path = result_abs_path
-            with open(result_pickle_path, "wb") as f:
-                cloudpickle.dump(result_dict, f)  # Pickle dictionary form for compatibility
-        except Exception as pkl_exc:
-            warnings.warn(f"Failed to pickle result to {result_pickle_path}: {pkl_exc}", RuntimeWarning, stacklevel=1)
+        # Ensure the output directory exists before trying to write result files.
+        result_abs_path = (
+            JOB_RESULT_PATH if os.path.isabs(JOB_RESULT_PATH) else os.path.join(STAGE_MOUNT_PATH, JOB_RESULT_PATH)
+        )
+        output_dir = os.path.dirname(result_abs_path)
+        os.makedirs(output_dir, exist_ok=True)
 
-        try:
-            # Serialize result to JSON as fallback path in case of cross version incompatibility
-            # TODO: Manually convert non-serializable types to strings
-            result_json_path = os.path.splitext(result_abs_path)[0] + ".json"
-            with open(result_json_path, "w") as f:
-                json.dump(result_dict, f, indent=2, cls=SimpleJSONEncoder)
-        except Exception as json_exc:
-            warnings.warn(
-                f"Failed to serialize JSON result to {result_json_path}: {json_exc}", RuntimeWarning, stacklevel=1
-            )
-
-        # Close the session after serializing the result
+        # Save the result before closing the session
+        save_mljob_result(execution_result_value, execution_result_is_error, result_abs_path)
         session.close()
 
 
 if __name__ == "__main__":
-    # Parse command line arguments
     parser = argparse.ArgumentParser(description="Launch a Python script and save the result")
-    parser.add_argument("script_path", help="Path to the Python script to execute")
+    parser.add_argument("entrypoint", help="The job payload entrypoint to execute")
     parser.add_argument("script_args", nargs="*", help="Arguments to pass to the script")
     parser.add_argument(
         "--script_main_func", required=False, help="The name of the main function to call in the script"
@@ -366,7 +490,7 @@ if __name__ == "__main__":
     args, unknown_args = parser.parse_known_args()
 
     main(
-        args.script_path,
+        args.entrypoint,
         *args.script_args,
         *unknown_args,
         script_main_func=args.script_main_func,

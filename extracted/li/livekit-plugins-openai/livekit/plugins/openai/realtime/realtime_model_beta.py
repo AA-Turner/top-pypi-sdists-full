@@ -18,13 +18,8 @@ from pydantic import BaseModel, ValidationError
 
 from livekit import rtc
 from livekit.agents import APIConnectionError, APIError, io, llm, utils
-from livekit.agents.llm.tool_context import (
-    get_function_info,
-    get_raw_function_info,
-    is_function_tool,
-    is_raw_function_tool,
-)
 from livekit.agents.metrics import RealtimeModelMetrics
+from livekit.agents.metrics.base import Metadata
 from livekit.agents.types import (
     DEFAULT_API_CONNECT_OPTIONS,
     NOT_GIVEN,
@@ -397,6 +392,12 @@ class RealtimeModelBeta(llm.RealtimeModel):
     def model(self) -> str:
         return self._opts.model
 
+    @property
+    def provider(self) -> str:
+        from urllib.parse import urlparse
+
+        return urlparse(self._opts.base_url).netloc
+
     def update_options(
         self,
         *,
@@ -575,8 +576,9 @@ class RealtimeSessionBeta(
                 exclude_function_call=True,
                 exclude_instructions=True,
                 exclude_empty_message=True,
+                exclude_handoff=True,
             )
-            old_chat_ctx_copy = copy.deepcopy(self._remote_chat_ctx)
+            old_chat_ctx = self._remote_chat_ctx
             self._remote_chat_ctx = llm.remote_chat_context.RemoteChatContext()
             events.extend(self._create_update_chat_ctx_events(chat_ctx))
 
@@ -586,7 +588,7 @@ class RealtimeSessionBeta(
                     self.emit("openai_client_event_queued", msg)
                     await ws_conn.send_str(json.dumps(msg))
             except Exception as e:
-                self._remote_chat_ctx = old_chat_ctx_copy  # restore the old chat context
+                self._remote_chat_ctx = old_chat_ctx  # restore the old chat context
                 raise APIConnectionError(
                     message=(
                         "Failed to send message to OpenAI Realtime API during session re-connection"
@@ -662,6 +664,8 @@ class RealtimeSessionBeta(
                 self._realtime_model._ensure_http_session().ws_connect(url=url, headers=headers),
                 self._realtime_model._opts.conn_options.timeout,
             )
+        except aiohttp.ClientError as e:
+            raise APIConnectionError("OpenAI Realtime API client connection error") from e
         except asyncio.TimeoutError as e:
             raise APIConnectionError(
                 message="OpenAI Realtime API connection timed out",
@@ -1019,9 +1023,13 @@ class RealtimeSessionBeta(
 
         return events
 
-    async def update_tools(self, tools: list[llm.FunctionTool | llm.RawFunctionTool]) -> None:
+    async def update_tools(self, tools: list[llm.Tool]) -> None:
         async with self._update_fnc_ctx_lock:
-            ev = self._create_tools_update_event(tools)
+            # beta API doesn't support ProviderTools
+            filtered_tools = [
+                t for t in tools if isinstance(t, (llm.FunctionTool, llm.RawFunctionTool))
+            ]
+            ev = self._create_tools_update_event(filtered_tools)
             self.send_event(ev)
 
             assert ev.session.tools is not None
@@ -1029,10 +1037,9 @@ class RealtimeSessionBeta(
             retained_tools = [
                 tool
                 for tool in tools
-                if (is_function_tool(tool) and get_function_info(tool).name in retained_tool_names)
-                or (
-                    is_raw_function_tool(tool)
-                    and get_raw_function_info(tool).name in retained_tool_names
+                if (
+                    isinstance(tool, (llm.FunctionTool, llm.RawFunctionTool))
+                    and tool.info.name in retained_tool_names
                 )
             ]
             self._tools = llm.ToolContext(retained_tools)
@@ -1044,11 +1051,10 @@ class RealtimeSessionBeta(
         retained_tools: list[llm.FunctionTool | llm.RawFunctionTool] = []
 
         for tool in tools:
-            if is_function_tool(tool):
+            if isinstance(tool, llm.FunctionTool):
                 tool_desc = llm.utils.build_legacy_openai_schema(tool, internally_tagged=True)
-            elif is_raw_function_tool(tool):
-                tool_info = get_raw_function_info(tool)
-                tool_desc = tool_info.raw_schema
+            elif isinstance(tool, llm.RawFunctionTool):
+                tool_desc = tool.info.raw_schema
                 tool_desc.pop("meta", None)  # meta is not supported by OpenAI Realtime API
                 tool_desc["type"] = "function"  # internally tagged
             else:
@@ -1161,7 +1167,9 @@ class RealtimeSessionBeta(
             )
         elif utils.is_given(audio_transcript):
             # sync the forwarded text to the remote chat ctx
-            chat_ctx = self.chat_ctx.copy()
+            chat_ctx = self.chat_ctx.copy(
+                exclude_handoff=True,
+            )
             if (idx := chat_ctx.index_by_id(message_id)) is not None:
                 new_item = copy.copy(chat_ctx.items[idx])
                 assert new_item.type == "message"
@@ -1337,6 +1345,12 @@ class RealtimeSessionBeta(
     def _handle_response_text_delta(self, event: ResponseTextDeltaEvent) -> None:
         assert self._current_generation is not None, "current_generation is None"
         item_generation = self._current_generation.messages[event.item_id]
+        if (
+            item_generation.audio_ch.closed
+            and self._current_generation._first_token_timestamp is None
+        ):
+            # only if audio is not available
+            self._current_generation._first_token_timestamp = time.time()
 
         item_generation.text_ch.send_nowait(event.delta)
         item_generation.audio_transcript += event.delta
@@ -1360,6 +1374,8 @@ class RealtimeSessionBeta(
     def _handle_response_audio_delta(self, event: ResponseAudioDeltaEvent) -> None:
         assert self._current_generation is not None, "current_generation is None"
         item_generation = self._current_generation.messages[event.item_id]
+        if self._current_generation._first_token_timestamp is None:
+            self._current_generation._first_token_timestamp = time.time()
 
         if not item_generation.modalities.done():
             item_generation.modalities.set_result(["audio", "text"])
@@ -1449,11 +1465,10 @@ class RealtimeSessionBeta(
             duration=duration,
             cancelled=event.response.status == "cancelled",
             label=self._realtime_model.label,
-            model=self._realtime_model.model,
             input_tokens=usage.get("input_tokens", 0),
             output_tokens=usage.get("output_tokens", 0),
             total_tokens=usage.get("total_tokens", 0),
-            tokens_per_second=usage.get("output_tokens", 0) / duration,
+            tokens_per_second=usage.get("output_tokens", 0) / duration if duration > 0 else 0,
             input_token_details=RealtimeModelMetrics.InputTokenDetails(
                 audio_tokens=usage.get("input_token_details", {}).get("audio_tokens", 0),
                 cached_tokens=usage.get("input_token_details", {}).get("cached_tokens", 0),
@@ -1469,12 +1484,16 @@ class RealtimeSessionBeta(
                     .get("cached_tokens_details", {})
                     .get("image_tokens", 0),
                 ),
-                image_tokens=0,
+                image_tokens=usage.get("input_token_details", {}).get("image_tokens", 0),
             ),
             output_token_details=RealtimeModelMetrics.OutputTokenDetails(
                 text_tokens=usage.get("output_token_details", {}).get("text_tokens", 0),
                 audio_tokens=usage.get("output_token_details", {}).get("audio_tokens", 0),
-                image_tokens=0,
+                image_tokens=usage.get("output_token_details", {}).get("image_tokens", 0),
+            ),
+            metadata=Metadata(
+                model_name=self._realtime_model.model,
+                model_provider=self._realtime_model.provider,
             ),
         )
         self.emit("metrics_collected", metrics)

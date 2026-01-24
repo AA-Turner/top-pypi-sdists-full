@@ -1,6 +1,13 @@
-from pathlib import Path
 import shutil
-import toml
+import sys
+from pathlib import Path
+
+import tomli_w
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 current_dir = Path.cwd()
 
@@ -10,7 +17,7 @@ lint_pyproject_requirements = ["tool.ruff", "tool.ruff.format", "tool.ruff.lint"
 
 # Requirements and configurations for testing tools and coverage reporting
 test_requirements = (  # For requirements.txt
-    "pytest-cov~=3.0\npytest-mock>=1.7.1, <2.0\npytest~=7.2"
+    "pytest-cov>=3,<7\npytest-mock>=1.7.1, <2.0\npytest~=7.2"
 )
 test_pyproject_requirements = [  # For pyproject.toml
     "tool.pytest.ini_options",
@@ -84,15 +91,15 @@ def _remove_from_toml(file_path: Path, sections_to_remove: list) -> None:
         sections_to_remove (list): A list of section keys to remove from the TOML file.
     """
     # Load the TOML file
-    with open(file_path) as file:
-        data = toml.load(file)
+    with open(file_path, "rb") as file:
+        data = tomllib.load(file)
 
     # Remove the specified sections
     for section in sections_to_remove:
         _remove_nested_section(data, section)
 
-    with open(file_path, "w") as file:
-        toml.dump(data, file)
+    with open(file_path, "wb") as file:
+        tomli_w.dump(data, file)
 
 
 def _remove_dir(path: Path) -> None:

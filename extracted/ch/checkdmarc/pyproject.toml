@@ -9,6 +9,7 @@ name = "checkdmarc"
 dynamic = [
     "version",
 ]
+python_requires = ">=3.9"
 description = "A Python module and command line parser for SPF and DMARC records"
 readme = "README.md"
 license = "Apache-2.0"
@@ -31,7 +32,7 @@ classifiers = [
 ]
 dependencies = [
     "dnspython>=2.0.0",
-    "cryptography~=45.0",
+    "cryptography>=45.0,<47.0",
     "pyopenssl>=24.2.1",
     "pem>=23.1.0",
     "expiringdict>=1.1.4",

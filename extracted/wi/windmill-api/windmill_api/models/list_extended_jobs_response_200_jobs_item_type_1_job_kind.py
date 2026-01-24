@@ -16,7 +16,10 @@ class ListExtendedJobsResponse200JobsItemType1JobKind(str, Enum):
     PREVIEW = "preview"
     SCRIPT = "script"
     SCRIPT_HUB = "script_hub"
-    SINGLESCRIPTFLOW = "singlescriptflow"
+    SINGLESTEPFLOW = "singlestepflow"
+    UNASSIGNED_FLOW = "unassigned_flow"
+    UNASSIGNED_SCRIPT = "unassigned_script"
+    UNASSIGNED_SINGLESTEPFLOW = "unassigned_singlestepflow"
 
     def __str__(self) -> str:
         return str(self.value)

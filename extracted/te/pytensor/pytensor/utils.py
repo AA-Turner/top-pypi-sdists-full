@@ -10,16 +10,20 @@ from collections.abc import Iterable, Sequence
 from functools import partial
 from pathlib import Path
 
+import numpy as np
+
 
 __all__ = [
-    "get_unbound_function",
-    "maybe_add_to_os_environ_pathlist",
-    "subprocess_Popen",
-    "call_subprocess_Popen",
-    "output_subprocess_Popen",
     "LOCAL_BITWIDTH",
+    "NDARRAY_C_VERSION",
+    "NPY_RAVEL_AXIS",
     "PYTHON_INT_BITWIDTH",
     "NoDuplicateOptWarningFilter",
+    "call_subprocess_Popen",
+    "get_unbound_function",
+    "maybe_add_to_os_environ_pathlist",
+    "output_subprocess_Popen",
+    "subprocess_Popen",
 ]
 
 
@@ -34,7 +38,6 @@ By "architecture", we mean the size of memory pointers (size_t in C),
 
 Note that according to Python documentation, `platform.architecture()` is
 not reliable on OS X with universal binaries.
-Also, sys.maxsize does not exist in Python < 2.6.
 'P' denotes a void*, and the size is expressed in bytes.
 """
 
@@ -45,6 +48,13 @@ The bit width of Python int (C long int).
 Note that it can be different from the size of a memory pointer.
 'l' denotes a C long int, and the size is expressed in bytes.
 """
+
+NPY_RAVEL_AXIS = np.iinfo(np.int32).min
+"""
+The value of the numpy C API NPY_RAVEL_AXIS.
+"""
+
+NDARRAY_C_VERSION = np._core._multiarray_umath._get_ndarray_c_version()  # type: ignore[attr-defined]
 
 
 def __call_excepthooks(type, value, trace):
@@ -191,9 +201,8 @@ def hash_from_code(msg: str | bytes) -> str:
     # but Python 3 (unicode) strings don't.
     if isinstance(msg, str):
         msg = msg.encode()
-    # Python 3 does not like module names that start with
-    # a digit.
-    return "m" + hashlib.sha256(msg).hexdigest()
+    # Python 3 does not like module names that start with a digit.
+    return f"m{hashlib.sha256(msg).hexdigest()}"
 
 
 def uniq(seq: Sequence) -> list:

@@ -12,9 +12,9 @@ def dictfetchall[T](cursor: "CursorWrapper", dict_type: type[T] = dict) -> Itera
     columns = get_columns(cursor)
     for row in cursor.fetchall():
         # The spec for TypedDict is not compliant with the sepc for dict
-        yield dict_type(zip(columns, row))  # type: ignore
+        yield dict_type(zip(columns, row, strict=False))  # type: ignore
 
 
 def dictfetchone(cursor: "CursorWrapper") -> dict:
     columns = get_columns(cursor)
-    return dict(zip(columns, cursor.fetchone() or []))
+    return dict(zip(columns, cursor.fetchone() or [], strict=False))

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -125,38 +125,38 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
-SqlList = List[StatementString]
+SqlList = list[StatementString]
 
 
 class BatchExecuteStatementInput(ServiceRequest):
-    ClientToken: Optional[ClientToken]
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    Database: Optional[String]
-    DbUser: Optional[String]
-    ResultFormat: Optional[ResultFormatString]
-    SecretArn: Optional[SecretArn]
-    SessionId: Optional[UUID]
-    SessionKeepAliveSeconds: Optional[SessionAliveSeconds]
     Sqls: SqlList
-    StatementName: Optional[StatementNameString]
-    WithEvent: Optional[Boolean]
-    WorkgroupName: Optional[WorkgroupNameString]
+    ClusterIdentifier: ClusterIdentifierString | None
+    SecretArn: SecretArn | None
+    DbUser: String | None
+    Database: String | None
+    WithEvent: Boolean | None
+    StatementName: StatementNameString | None
+    WorkgroupName: WorkgroupNameString | None
+    ClientToken: ClientToken | None
+    ResultFormat: ResultFormatString | None
+    SessionKeepAliveSeconds: SessionAliveSeconds | None
+    SessionId: UUID | None
 
 
-DbGroupList = List[String]
+DbGroupList = list[String]
 Timestamp = datetime
 
 
 class BatchExecuteStatementOutput(TypedDict, total=False):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    CreatedAt: Optional[Timestamp]
-    Database: Optional[String]
-    DbGroups: Optional[DbGroupList]
-    DbUser: Optional[String]
-    Id: Optional[UUID]
-    SecretArn: Optional[SecretArn]
-    SessionId: Optional[UUID]
-    WorkgroupName: Optional[WorkgroupNameString]
+    Id: UUID | None
+    CreatedAt: Timestamp | None
+    ClusterIdentifier: ClusterIdentifierString | None
+    DbUser: String | None
+    DbGroups: DbGroupList | None
+    Database: String | None
+    SecretArn: SecretArn | None
+    WorkgroupName: WorkgroupNameString | None
+    SessionId: UUID | None
 
 
 Blob = bytes
@@ -168,30 +168,30 @@ class CancelStatementRequest(ServiceRequest):
 
 
 class CancelStatementResponse(TypedDict, total=False):
-    Status: Optional[Boolean]
+    Status: Boolean | None
 
 
 class ColumnMetadata(TypedDict, total=False):
     """The properties (metadata) of a column."""
 
-    columnDefault: Optional[String]
-    isCaseSensitive: Optional[bool]
-    isCurrency: Optional[bool]
-    isSigned: Optional[bool]
-    label: Optional[String]
-    length: Optional[Integer]
-    name: Optional[String]
-    nullable: Optional[Integer]
-    precision: Optional[Integer]
-    scale: Optional[Integer]
-    schemaName: Optional[String]
-    tableName: Optional[String]
-    typeName: Optional[String]
+    isCaseSensitive: bool | None
+    isCurrency: bool | None
+    isSigned: bool | None
+    label: String | None
+    name: String | None
+    nullable: Integer | None
+    precision: Integer | None
+    scale: Integer | None
+    schemaName: String | None
+    tableName: String | None
+    typeName: String | None
+    length: Integer | None
+    columnDefault: String | None
 
 
-ColumnList = List[ColumnMetadata]
-ColumnMetadataList = List[ColumnMetadata]
-DatabaseList = List[String]
+ColumnList = list[ColumnMetadata]
+ColumnMetadataList = list[ColumnMetadata]
+DatabaseList = list[String]
 
 
 class DescribeStatementRequest(ServiceRequest):
@@ -204,20 +204,20 @@ Long = int
 class SubStatementData(TypedDict, total=False):
     """Information about an SQL statement."""
 
-    CreatedAt: Optional[Timestamp]
-    Duration: Optional[Long]
-    Error: Optional[String]
-    HasResultSet: Optional[Boolean]
     Id: UUID
-    QueryString: Optional[StatementString]
-    RedshiftQueryId: Optional[Long]
-    ResultRows: Optional[Long]
-    ResultSize: Optional[Long]
-    Status: Optional[StatementStatusString]
-    UpdatedAt: Optional[Timestamp]
+    Duration: Long | None
+    Error: String | None
+    Status: StatementStatusString | None
+    CreatedAt: Timestamp | None
+    UpdatedAt: Timestamp | None
+    QueryString: StatementString | None
+    ResultRows: Long | None
+    ResultSize: Long | None
+    RedshiftQueryId: Long | None
+    HasResultSet: Boolean | None
 
 
-SubStatementList = List[SubStatementData]
+SubStatementList = list[SubStatementData]
 
 
 class SqlParameter(TypedDict, total=False):
@@ -227,252 +227,252 @@ class SqlParameter(TypedDict, total=False):
     value: ParameterValue
 
 
-SqlParametersList = List[SqlParameter]
+SqlParametersList = list[SqlParameter]
 
 
 class DescribeStatementResponse(TypedDict, total=False):
-    ClusterIdentifier: Optional[String]
-    CreatedAt: Optional[Timestamp]
-    Database: Optional[String]
-    DbUser: Optional[String]
-    Duration: Optional[Long]
-    Error: Optional[String]
-    HasResultSet: Optional[Boolean]
     Id: UUID
-    QueryParameters: Optional[SqlParametersList]
-    QueryString: Optional[StatementString]
-    RedshiftPid: Optional[Long]
-    RedshiftQueryId: Optional[Long]
-    ResultFormat: Optional[ResultFormatString]
-    ResultRows: Optional[Long]
-    ResultSize: Optional[Long]
-    SecretArn: Optional[SecretArn]
-    SessionId: Optional[String]
-    Status: Optional[StatusString]
-    SubStatements: Optional[SubStatementList]
-    UpdatedAt: Optional[Timestamp]
-    WorkgroupName: Optional[WorkgroupNameString]
+    SecretArn: SecretArn | None
+    DbUser: String | None
+    Database: String | None
+    ClusterIdentifier: String | None
+    Duration: Long | None
+    Error: String | None
+    Status: StatusString | None
+    CreatedAt: Timestamp | None
+    UpdatedAt: Timestamp | None
+    RedshiftPid: Long | None
+    HasResultSet: Boolean | None
+    QueryString: StatementString | None
+    ResultRows: Long | None
+    ResultSize: Long | None
+    RedshiftQueryId: Long | None
+    QueryParameters: SqlParametersList | None
+    SubStatements: SubStatementList | None
+    WorkgroupName: WorkgroupNameString | None
+    ResultFormat: ResultFormatString | None
+    SessionId: String | None
 
 
 class DescribeTableRequest(ServiceRequest):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    ConnectedDatabase: Optional[String]
+    ClusterIdentifier: ClusterIdentifierString | None
+    SecretArn: SecretArn | None
+    DbUser: String | None
     Database: String
-    DbUser: Optional[String]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[String]
-    Schema: Optional[String]
-    SecretArn: Optional[SecretArn]
-    Table: Optional[String]
-    WorkgroupName: Optional[WorkgroupNameString]
+    ConnectedDatabase: String | None
+    Schema: String | None
+    Table: String | None
+    NextToken: String | None
+    MaxResults: PageSize | None
+    WorkgroupName: WorkgroupNameString | None
 
 
 class DescribeTableResponse(TypedDict, total=False):
-    ColumnList: Optional[ColumnList]
-    NextToken: Optional[String]
-    TableName: Optional[String]
+    TableName: String | None
+    ColumnList: ColumnList | None
+    NextToken: String | None
 
 
 class ExecuteStatementInput(ServiceRequest):
-    ClientToken: Optional[ClientToken]
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    Database: Optional[String]
-    DbUser: Optional[String]
-    Parameters: Optional[SqlParametersList]
-    ResultFormat: Optional[ResultFormatString]
-    SecretArn: Optional[SecretArn]
-    SessionId: Optional[UUID]
-    SessionKeepAliveSeconds: Optional[SessionAliveSeconds]
     Sql: StatementString
-    StatementName: Optional[StatementNameString]
-    WithEvent: Optional[Boolean]
-    WorkgroupName: Optional[WorkgroupNameString]
+    ClusterIdentifier: ClusterIdentifierString | None
+    SecretArn: SecretArn | None
+    DbUser: String | None
+    Database: String | None
+    WithEvent: Boolean | None
+    StatementName: StatementNameString | None
+    Parameters: SqlParametersList | None
+    WorkgroupName: WorkgroupNameString | None
+    ClientToken: ClientToken | None
+    ResultFormat: ResultFormatString | None
+    SessionKeepAliveSeconds: SessionAliveSeconds | None
+    SessionId: UUID | None
 
 
 class ExecuteStatementOutput(TypedDict, total=False):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    CreatedAt: Optional[Timestamp]
-    Database: Optional[String]
-    DbGroups: Optional[DbGroupList]
-    DbUser: Optional[String]
-    Id: Optional[UUID]
-    SecretArn: Optional[SecretArn]
-    SessionId: Optional[UUID]
-    WorkgroupName: Optional[WorkgroupNameString]
+    Id: UUID | None
+    CreatedAt: Timestamp | None
+    ClusterIdentifier: ClusterIdentifierString | None
+    DbUser: String | None
+    DbGroups: DbGroupList | None
+    Database: String | None
+    SecretArn: SecretArn | None
+    WorkgroupName: WorkgroupNameString | None
+    SessionId: UUID | None
 
 
 class Field(TypedDict, total=False):
     """A data value in a column."""
 
-    blobValue: Optional[Blob]
-    booleanValue: Optional[BoxedBoolean]
-    doubleValue: Optional[BoxedDouble]
-    isNull: Optional[BoxedBoolean]
-    longValue: Optional[BoxedLong]
-    stringValue: Optional[String]
+    isNull: BoxedBoolean | None
+    booleanValue: BoxedBoolean | None
+    longValue: BoxedLong | None
+    doubleValue: BoxedDouble | None
+    stringValue: String | None
+    blobValue: Blob | None
 
 
-FieldList = List[Field]
+FieldList = list[Field]
 
 
 class QueryRecords(TypedDict, total=False):
     """The results of the SQL statement."""
 
-    CSVRecords: Optional[String]
+    CSVRecords: String | None
 
 
-FormattedSqlRecords = List[QueryRecords]
+FormattedSqlRecords = list[QueryRecords]
 
 
 class GetStatementResultRequest(ServiceRequest):
     Id: UUID
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
-SqlRecords = List[FieldList]
+SqlRecords = list[FieldList]
 
 
 class GetStatementResultResponse(TypedDict, total=False):
-    ColumnMetadata: Optional[ColumnMetadataList]
-    NextToken: Optional[String]
     Records: SqlRecords
-    TotalNumRows: Optional[Long]
+    ColumnMetadata: ColumnMetadataList | None
+    TotalNumRows: Long | None
+    NextToken: String | None
 
 
 class GetStatementResultV2Request(ServiceRequest):
     Id: UUID
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class GetStatementResultV2Response(TypedDict, total=False):
-    ColumnMetadata: Optional[ColumnMetadataList]
-    NextToken: Optional[String]
     Records: FormattedSqlRecords
-    ResultFormat: Optional[ResultFormatString]
-    TotalNumRows: Optional[Long]
+    ColumnMetadata: ColumnMetadataList | None
+    TotalNumRows: Long | None
+    ResultFormat: ResultFormatString | None
+    NextToken: String | None
 
 
 class ListDatabasesRequest(ServiceRequest):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
+    ClusterIdentifier: ClusterIdentifierString | None
     Database: String
-    DbUser: Optional[String]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[String]
-    SecretArn: Optional[SecretArn]
-    WorkgroupName: Optional[WorkgroupNameString]
+    SecretArn: SecretArn | None
+    DbUser: String | None
+    NextToken: String | None
+    MaxResults: PageSize | None
+    WorkgroupName: WorkgroupNameString | None
 
 
 class ListDatabasesResponse(TypedDict, total=False):
-    Databases: Optional[DatabaseList]
-    NextToken: Optional[String]
+    Databases: DatabaseList | None
+    NextToken: String | None
 
 
 class ListSchemasRequest(ServiceRequest):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    ConnectedDatabase: Optional[String]
+    ClusterIdentifier: ClusterIdentifierString | None
+    SecretArn: SecretArn | None
+    DbUser: String | None
     Database: String
-    DbUser: Optional[String]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[String]
-    SchemaPattern: Optional[String]
-    SecretArn: Optional[SecretArn]
-    WorkgroupName: Optional[WorkgroupNameString]
+    ConnectedDatabase: String | None
+    SchemaPattern: String | None
+    NextToken: String | None
+    MaxResults: PageSize | None
+    WorkgroupName: WorkgroupNameString | None
 
 
-SchemaList = List[String]
+SchemaList = list[String]
 
 
 class ListSchemasResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Schemas: Optional[SchemaList]
+    Schemas: SchemaList | None
+    NextToken: String | None
 
 
 class ListStatementsRequest(ServiceRequest):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    Database: Optional[String]
-    MaxResults: Optional[ListStatementsLimit]
-    NextToken: Optional[String]
-    RoleLevel: Optional[Boolean]
-    StatementName: Optional[StatementNameString]
-    Status: Optional[StatusString]
-    WorkgroupName: Optional[WorkgroupNameString]
+    NextToken: String | None
+    MaxResults: ListStatementsLimit | None
+    StatementName: StatementNameString | None
+    Status: StatusString | None
+    RoleLevel: Boolean | None
+    Database: String | None
+    ClusterIdentifier: ClusterIdentifierString | None
+    WorkgroupName: WorkgroupNameString | None
 
 
-StatementStringList = List[StatementString]
+StatementStringList = list[StatementString]
 
 
 class StatementData(TypedDict, total=False):
     """The SQL statement to run."""
 
-    CreatedAt: Optional[Timestamp]
     Id: UUID
-    IsBatchStatement: Optional[Boolean]
-    QueryParameters: Optional[SqlParametersList]
-    QueryString: Optional[StatementString]
-    QueryStrings: Optional[StatementStringList]
-    ResultFormat: Optional[ResultFormatString]
-    SecretArn: Optional[SecretArn]
-    SessionId: Optional[UUID]
-    StatementName: Optional[StatementNameString]
-    Status: Optional[StatusString]
-    UpdatedAt: Optional[Timestamp]
+    QueryString: StatementString | None
+    QueryStrings: StatementStringList | None
+    SecretArn: SecretArn | None
+    Status: StatusString | None
+    StatementName: StatementNameString | None
+    CreatedAt: Timestamp | None
+    UpdatedAt: Timestamp | None
+    QueryParameters: SqlParametersList | None
+    IsBatchStatement: Boolean | None
+    ResultFormat: ResultFormatString | None
+    SessionId: UUID | None
 
 
-StatementList = List[StatementData]
+StatementList = list[StatementData]
 
 
 class ListStatementsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
     Statements: StatementList
+    NextToken: String | None
 
 
 class ListTablesRequest(ServiceRequest):
-    ClusterIdentifier: Optional[ClusterIdentifierString]
-    ConnectedDatabase: Optional[String]
+    ClusterIdentifier: ClusterIdentifierString | None
+    SecretArn: SecretArn | None
+    DbUser: String | None
     Database: String
-    DbUser: Optional[String]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[String]
-    SchemaPattern: Optional[String]
-    SecretArn: Optional[SecretArn]
-    TablePattern: Optional[String]
-    WorkgroupName: Optional[WorkgroupNameString]
+    ConnectedDatabase: String | None
+    SchemaPattern: String | None
+    TablePattern: String | None
+    NextToken: String | None
+    MaxResults: PageSize | None
+    WorkgroupName: WorkgroupNameString | None
 
 
 class TableMember(TypedDict, total=False):
-    name: Optional[String]
-    schema: Optional[String]
-    type: Optional[String]
+    name: String | None
+    type: String | None
+    schema: String | None
 
 
-TableList = List[TableMember]
+TableList = list[TableMember]
 
 
 class ListTablesResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Tables: Optional[TableList]
+    Tables: TableList | None
+    NextToken: String | None
 
 
 class RedshiftDataApi:
-    service = "redshift-data"
-    version = "2019-12-20"
+    service: str = "redshift-data"
+    version: str = "2019-12-20"
 
     @handler("BatchExecuteStatement")
     def batch_execute_statement(
         self,
         context: RequestContext,
         sqls: SqlList,
-        client_token: ClientToken | None = None,
         cluster_identifier: ClusterIdentifierString | None = None,
-        database: String | None = None,
-        db_user: String | None = None,
-        result_format: ResultFormatString | None = None,
         secret_arn: SecretArn | None = None,
-        session_id: UUID | None = None,
-        session_keep_alive_seconds: SessionAliveSeconds | None = None,
-        statement_name: StatementNameString | None = None,
+        db_user: String | None = None,
+        database: String | None = None,
         with_event: Boolean | None = None,
+        statement_name: StatementNameString | None = None,
         workgroup_name: WorkgroupNameString | None = None,
+        client_token: ClientToken | None = None,
+        result_format: ResultFormatString | None = None,
+        session_keep_alive_seconds: SessionAliveSeconds | None = None,
+        session_id: UUID | None = None,
         **kwargs,
     ) -> BatchExecuteStatementOutput:
         """Runs one or more SQL statements, which can be data manipulation language
@@ -515,23 +515,24 @@ class RedshiftDataApi:
         in the *Amazon Redshift Management Guide*.
 
         :param sqls: One or more SQL statements to run.
-        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
         :param cluster_identifier: The cluster identifier.
-        :param database: The name of the database.
-        :param db_user: The database user name.
-        :param result_format: The data format of the result of the SQL statement.
         :param secret_arn: The name or ARN of the secret that enables access to the database.
-        :param session_id: The session identifier of the query.
-        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query
-        finishes.
-        :param statement_name: The name of the SQL statements.
+        :param db_user: The database user name.
+        :param database: The name of the database.
         :param with_event: A value that indicates whether to send an event to the Amazon
         EventBridge event bus after the SQL statements run.
+        :param statement_name: The name of the SQL statements.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
+        idempotency of the request.
+        :param result_format: The data format of the result of the SQL statement.
+        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query
+        finishes.
+        :param session_id: The session identifier of the query.
         :returns: BatchExecuteStatementOutput
         :raises ValidationException:
         :raises ActiveSessionsExceededException:
+        :raises ResourceNotFoundException:
         :raises ActiveStatementsExceededException:
         :raises BatchExecuteStatementException:
         :raises InternalServerException:
@@ -553,6 +554,7 @@ class RedshiftDataApi:
         :returns: CancelStatementResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
+        :raises QueryTimeoutException:
         :raises InternalServerException:
         :raises DatabaseConnectionException:
         """
@@ -586,13 +588,13 @@ class RedshiftDataApi:
         context: RequestContext,
         database: String,
         cluster_identifier: ClusterIdentifierString | None = None,
-        connected_database: String | None = None,
-        db_user: String | None = None,
-        max_results: PageSize | None = None,
-        next_token: String | None = None,
-        schema: String | None = None,
         secret_arn: SecretArn | None = None,
+        db_user: String | None = None,
+        connected_database: String | None = None,
+        schema: String | None = None,
         table: String | None = None,
+        next_token: String | None = None,
+        max_results: PageSize | None = None,
         workgroup_name: WorkgroupNameString | None = None,
         **kwargs,
     ) -> DescribeTableResponse:
@@ -638,17 +640,18 @@ class RedshiftDataApi:
 
         :param database: The name of the database that contains the tables to be described.
         :param cluster_identifier: The cluster identifier.
-        :param connected_database: A database name.
+        :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
-        :param max_results: The maximum number of tables to return in the response.
+        :param connected_database: A database name.
+        :param schema: The schema that contains the table.
+        :param table: The table name.
         :param next_token: A value that indicates the starting point for the next set of response
         records in a subsequent request.
-        :param schema: The schema that contains the table.
-        :param secret_arn: The name or ARN of the secret that enables access to the database.
-        :param table: The table name.
+        :param max_results: The maximum number of tables to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: DescribeTableResponse
         :raises ValidationException:
+        :raises ResourceNotFoundException:
         :raises QueryTimeoutException:
         :raises InternalServerException:
         :raises DatabaseConnectionException:
@@ -660,18 +663,18 @@ class RedshiftDataApi:
         self,
         context: RequestContext,
         sql: StatementString,
-        client_token: ClientToken | None = None,
         cluster_identifier: ClusterIdentifierString | None = None,
-        database: String | None = None,
-        db_user: String | None = None,
-        parameters: SqlParametersList | None = None,
-        result_format: ResultFormatString | None = None,
         secret_arn: SecretArn | None = None,
-        session_id: UUID | None = None,
-        session_keep_alive_seconds: SessionAliveSeconds | None = None,
-        statement_name: StatementNameString | None = None,
+        db_user: String | None = None,
+        database: String | None = None,
         with_event: Boolean | None = None,
+        statement_name: StatementNameString | None = None,
+        parameters: SqlParametersList | None = None,
         workgroup_name: WorkgroupNameString | None = None,
+        client_token: ClientToken | None = None,
+        result_format: ResultFormatString | None = None,
+        session_keep_alive_seconds: SessionAliveSeconds | None = None,
+        session_id: UUID | None = None,
         **kwargs,
     ) -> ExecuteStatementOutput:
         """Runs an SQL statement, which can be data manipulation language (DML) or
@@ -715,24 +718,25 @@ class RedshiftDataApi:
         in the *Amazon Redshift Management Guide*.
 
         :param sql: The SQL statement text to run.
-        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
         :param cluster_identifier: The cluster identifier.
-        :param database: The name of the database.
-        :param db_user: The database user name.
-        :param parameters: The parameters for the SQL statement.
-        :param result_format: The data format of the result of the SQL statement.
         :param secret_arn: The name or ARN of the secret that enables access to the database.
-        :param session_id: The session identifier of the query.
-        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query
-        finishes.
-        :param statement_name: The name of the SQL statement.
+        :param db_user: The database user name.
+        :param database: The name of the database.
         :param with_event: A value that indicates whether to send an event to the Amazon
         EventBridge event bus after the SQL statement runs.
+        :param statement_name: The name of the SQL statement.
+        :param parameters: The parameters for the SQL statement.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
+        idempotency of the request.
+        :param result_format: The data format of the result of the SQL statement.
+        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query
+        finishes.
+        :param session_id: The session identifier of the query.
         :returns: ExecuteStatementOutput
         :raises ValidationException:
         :raises ActiveSessionsExceededException:
+        :raises ResourceNotFoundException:
         :raises ExecuteStatementException:
         :raises ActiveStatementsExceededException:
         :raises InternalServerException:
@@ -794,10 +798,10 @@ class RedshiftDataApi:
         context: RequestContext,
         database: String,
         cluster_identifier: ClusterIdentifierString | None = None,
-        db_user: String | None = None,
-        max_results: PageSize | None = None,
-        next_token: String | None = None,
         secret_arn: SecretArn | None = None,
+        db_user: String | None = None,
+        next_token: String | None = None,
+        max_results: PageSize | None = None,
         workgroup_name: WorkgroupNameString | None = None,
         **kwargs,
     ) -> ListDatabasesResponse:
@@ -842,14 +846,15 @@ class RedshiftDataApi:
 
         :param database: The name of the database.
         :param cluster_identifier: The cluster identifier.
+        :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
-        :param max_results: The maximum number of databases to return in the response.
         :param next_token: A value that indicates the starting point for the next set of response
         records in a subsequent request.
-        :param secret_arn: The name or ARN of the secret that enables access to the database.
+        :param max_results: The maximum number of databases to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListDatabasesResponse
         :raises ValidationException:
+        :raises ResourceNotFoundException:
         :raises QueryTimeoutException:
         :raises InternalServerException:
         :raises DatabaseConnectionException:
@@ -862,12 +867,12 @@ class RedshiftDataApi:
         context: RequestContext,
         database: String,
         cluster_identifier: ClusterIdentifierString | None = None,
-        connected_database: String | None = None,
-        db_user: String | None = None,
-        max_results: PageSize | None = None,
-        next_token: String | None = None,
-        schema_pattern: String | None = None,
         secret_arn: SecretArn | None = None,
+        db_user: String | None = None,
+        connected_database: String | None = None,
+        schema_pattern: String | None = None,
+        next_token: String | None = None,
+        max_results: PageSize | None = None,
         workgroup_name: WorkgroupNameString | None = None,
         **kwargs,
     ) -> ListSchemasResponse:
@@ -912,16 +917,17 @@ class RedshiftDataApi:
 
         :param database: The name of the database that contains the schemas to list.
         :param cluster_identifier: The cluster identifier.
-        :param connected_database: A database name.
+        :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
-        :param max_results: The maximum number of schemas to return in the response.
+        :param connected_database: A database name.
+        :param schema_pattern: A pattern to filter results by schema name.
         :param next_token: A value that indicates the starting point for the next set of response
         records in a subsequent request.
-        :param schema_pattern: A pattern to filter results by schema name.
-        :param secret_arn: The name or ARN of the secret that enables access to the database.
+        :param max_results: The maximum number of schemas to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListSchemasResponse
         :raises ValidationException:
+        :raises ResourceNotFoundException:
         :raises QueryTimeoutException:
         :raises InternalServerException:
         :raises DatabaseConnectionException:
@@ -932,13 +938,13 @@ class RedshiftDataApi:
     def list_statements(
         self,
         context: RequestContext,
-        cluster_identifier: ClusterIdentifierString | None = None,
-        database: String | None = None,
-        max_results: ListStatementsLimit | None = None,
         next_token: String | None = None,
-        role_level: Boolean | None = None,
+        max_results: ListStatementsLimit | None = None,
         statement_name: StatementNameString | None = None,
         status: StatusString | None = None,
+        role_level: Boolean | None = None,
+        database: String | None = None,
+        cluster_identifier: ClusterIdentifierString | None = None,
         workgroup_name: WorkgroupNameString | None = None,
         **kwargs,
     ) -> ListStatementsResponse:
@@ -957,19 +963,20 @@ class RedshiftDataApi:
         API <https://docs.aws.amazon.com/redshift/latest/mgmt/data-api.html>`__
         in the *Amazon Redshift Management Guide*.
 
-        :param cluster_identifier: The cluster identifier.
-        :param database: The name of the database when listing statements run against a
-        ``ClusterIdentifier`` or ``WorkgroupName``.
-        :param max_results: The maximum number of SQL statements to return in the response.
         :param next_token: A value that indicates the starting point for the next set of response
         records in a subsequent request.
-        :param role_level: A value that filters which statements to return in the response.
+        :param max_results: The maximum number of SQL statements to return in the response.
         :param statement_name: The name of the SQL statement specified as input to
         ``BatchExecuteStatement`` or ``ExecuteStatement`` to identify the query.
         :param status: The status of the SQL statement to list.
+        :param role_level: A value that filters which statements to return in the response.
+        :param database: The name of the database when listing statements run against a
+        ``ClusterIdentifier`` or ``WorkgroupName``.
+        :param cluster_identifier: The cluster identifier.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListStatementsResponse
         :raises ValidationException:
+        :raises ResourceNotFoundException:
         :raises InternalServerException:
         """
         raise NotImplementedError
@@ -980,13 +987,13 @@ class RedshiftDataApi:
         context: RequestContext,
         database: String,
         cluster_identifier: ClusterIdentifierString | None = None,
-        connected_database: String | None = None,
-        db_user: String | None = None,
-        max_results: PageSize | None = None,
-        next_token: String | None = None,
-        schema_pattern: String | None = None,
         secret_arn: SecretArn | None = None,
+        db_user: String | None = None,
+        connected_database: String | None = None,
+        schema_pattern: String | None = None,
         table_pattern: String | None = None,
+        next_token: String | None = None,
+        max_results: PageSize | None = None,
         workgroup_name: WorkgroupNameString | None = None,
         **kwargs,
     ) -> ListTablesResponse:
@@ -1033,17 +1040,18 @@ class RedshiftDataApi:
 
         :param database: The name of the database that contains the tables to list.
         :param cluster_identifier: The cluster identifier.
-        :param connected_database: A database name.
+        :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
-        :param max_results: The maximum number of tables to return in the response.
+        :param connected_database: A database name.
+        :param schema_pattern: A pattern to filter results by schema name.
+        :param table_pattern: A pattern to filter results by table name.
         :param next_token: A value that indicates the starting point for the next set of response
         records in a subsequent request.
-        :param schema_pattern: A pattern to filter results by schema name.
-        :param secret_arn: The name or ARN of the secret that enables access to the database.
-        :param table_pattern: A pattern to filter results by table name.
+        :param max_results: The maximum number of tables to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListTablesResponse
         :raises ValidationException:
+        :raises ResourceNotFoundException:
         :raises QueryTimeoutException:
         :raises InternalServerException:
         :raises DatabaseConnectionException:

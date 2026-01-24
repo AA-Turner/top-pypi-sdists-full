@@ -8,13 +8,7 @@ from montecarlodata.config import Config
 from montecarlodata.errors import manage_errors, prompt_connection
 from montecarlodata.integrations.onboarding.base import BaseOnboardingService
 from montecarlodata.integrations.onboarding.fields import (
-    CLICKHOUSE_DATABASE_TYPE,
-    DREMIO_DATABASE_TYPE,
-    MYSQL_DB_TYPE,
-    ORACLE_DB_TYPE,
-    SALESFORCE_CRM_DATABASE_TYPE,
-    SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
-    TERADATA_DB_TYPE,
+    PROMOTED_TRANSACTIONAL_DB_SUBTYPES,
     TRANSACTIONAL_CONNECTION_TYPE,
     TRANSACTIONAL_WAREHOUSE_TYPE,
 )
@@ -36,18 +30,7 @@ class TransactionalOnboardingService(CollectorValidationService, BaseOnboardingS
         kwargs["connection_type"] = TRANSACTIONAL_CONNECTION_TYPE
         kwargs["warehouse_type"] = TRANSACTIONAL_WAREHOUSE_TYPE
 
-        # These dbTypes have been promoted to their own connection type,
-        # instead of being a 'transactional-db' connection type
-        promoted_subtypes = [
-            TERADATA_DB_TYPE,
-            DREMIO_DATABASE_TYPE,
-            ORACLE_DB_TYPE,
-            MYSQL_DB_TYPE,
-            SALESFORCE_CRM_DATABASE_TYPE,
-            SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
-            CLICKHOUSE_DATABASE_TYPE,
-        ]
-        if kwargs.get("dbType") in promoted_subtypes:
+        if kwargs.get("dbType") in PROMOTED_TRANSACTIONAL_DB_SUBTYPES:
             kwargs["connection_type"] = kwargs.get("dbType")
             kwargs["warehouse_type"] = kwargs.get("dbType")
 
@@ -78,12 +61,15 @@ class TransactionalOnboardingService(CollectorValidationService, BaseOnboardingS
         """
         ssl_options = self.load_ssl_options(options=kwargs)
 
-        # Remove empty or null inputs. Also remove all ssl_* keys as these
-        # will be passed under the 'ssl_options' dict.
+        # Remove empty or null inputs. Also remove all ssl_* keys and skip_cert_verification
+        # as these will be passed under the 'ssl_options' dict.
         changes = {
             key: value
             for key, value in kwargs.items()
-            if value is not None and value != {} and not key.startswith("ssl_")
+            if value is not None
+            and value != {}
+            and not key.startswith("ssl_")
+            and key != "skip_cert_verification"
         }
 
         if ssl_options:

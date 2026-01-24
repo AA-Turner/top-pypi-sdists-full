@@ -174,7 +174,7 @@ def mark_page_fetch_complete(page_number: int) -> None:
 
         # Calculate duration
         start_time = _page_fetch_start_time.get()
-        if start_time is None:
+        if start_time is None:  # noqa: SIM108 - comment explains fallback reasoning
             # Fallback if timing wasn't started properly
             duration_ms = 0.0
         else:
@@ -291,7 +291,7 @@ def mark_command_complete() -> None:
         # Calculate duration from the click context if available
         # For interactive commands, we want the time up to this point
         start_time = getattr(ctx, "telemetry_start_time", None)
-        if start_time is None:
+        if start_time is None:  # noqa: SIM108 - comment explains fallback reasoning
             # Fallback: use a minimal duration
             duration_ms = 0.0
         else:
@@ -330,7 +330,9 @@ def _emit_telemetry(body: CLIUsagePayload) -> None:
 
         def _worker():
             try:
-                from anyscale.authenticate import get_auth_api_client
+                from anyscale.authenticate import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid auth client setup unless telemetry emits")
+                    get_auth_api_client,
+                )
 
                 if traceparent:
                     _trace_id_var.set(body.trace_id)

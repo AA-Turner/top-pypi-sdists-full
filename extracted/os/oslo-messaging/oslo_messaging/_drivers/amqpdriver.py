@@ -70,7 +70,13 @@ class QManager:
         # parse start time (in jiffies) since system boot
         #
         # https://www.man7.org/linux/man-pages//man5/proc_pid_stat.5.html
-        with open(f'/proc/{self.pg}/stat') as f:
+        #
+        # We fallback to process id here when process group id is 0, as /proc/0
+        # does not exist. This is only hit in an edge case with the crun
+        # container runtime (default for podman), see issue for more details:
+        # https://github.com/containers/crun/issues/1642
+        proc_id = self.pg or os.getpid()
+        with open(f'/proc/{proc_id}/stat') as f:
             self.start_time = int(f.read().split()[21])
 
     def get(self):
@@ -118,7 +124,7 @@ class MessageOperationsHandler:
     """
 
     def __init__(self, name):
-        self.name = "{} ({})".format(name, hex(id(self)))
+        self.name = f"{name} ({hex(id(self))})"
         self._tasks = queue.Queue()
 
         self._shutdown = eventletutils.Event()
@@ -771,7 +777,7 @@ class AMQPDriverBase(base.BaseDriver):
                     topic = target.topic
                     exchange = self._get_exchange(target)
                     if target.server:
-                        topic = '{}.{}'.format(target.topic, target.server)
+                        topic = f'{target.topic}.{target.server}'
                     LOG.debug(log_msg + "exchange '%(exchange)s'"
                               " topic '%(topic)s'", {'exchange': exchange,
                                                      'topic': topic})
@@ -824,7 +830,7 @@ class AMQPDriverBase(base.BaseDriver):
         for target, priority in targets_and_priorities:
             conn.declare_topic_consumer(
                 exchange_name=self._get_exchange(target),
-                topic='{}.{}'.format(target.topic, priority),
+                topic=f'{target.topic}.{priority}',
                 callback=listener, queue_name=pool)
         return base.PollStyleListenerAdapter(listener, batch_size,
                                              batch_timeout)

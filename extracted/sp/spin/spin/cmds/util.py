@@ -3,6 +3,7 @@ from __future__ import (
 )
 
 import copy
+import enum
 import os
 import shlex
 import shutil
@@ -127,7 +128,14 @@ def extend_command(
         Command to extend.
     doc : str
         Replacement docstring.
-        The wrapped function's docstring is also appended.
+        The decorated function's docstring is also appended.
+        This is done so that two modes of documenting are enabled:
+
+        1. Extend original command documentation.
+           Do this by providing a docstring on the decorated function.
+        2. Replace the original command's documentation.
+           Do this either by setting ``doc`` to a docstring, or by
+           setting ``doc=''`` and adding a docstring to the decorated function.
     remove_args : tuple of str
         List of arguments to remove from the parent command.
         These arguments can still be set explicitly by calling
@@ -151,6 +159,14 @@ def extend_command(
 
     """
     my_cmd = copy.copy(cmd)
+
+    # This patch is to work around an enum deepcopy bug in Python 3.10.
+    if not hasattr(enum.Enum, "__deepcopy__"):
+
+        def __deepcopy__(self, memo):
+            return self
+
+        enum.Enum.__deepcopy__ = __deepcopy__  # type: ignore[method-assign]
 
     # This is necessary to ensure that added options do not leak
     # to the original command

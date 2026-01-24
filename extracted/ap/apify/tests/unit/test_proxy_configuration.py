@@ -6,8 +6,8 @@ import asyncio
 import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
-import httpx
 import pytest
 
 from apify_client import ApifyClientAsync
@@ -16,7 +16,8 @@ from apify_shared.consts import ApifyEnvVars
 from apify._proxy_configuration import ProxyConfiguration, is_url
 
 if TYPE_CHECKING:
-    from respx import MockRouter
+    from pytest_httpserver import HTTPServer
+    from werkzeug import Request, Response
 
     from .conftest import ApifyClientAsyncPatcher
 
@@ -74,26 +75,32 @@ def test_invalid_arguments() -> None:
         (['abc', 'DEF', 'geh$'], 2),
         ([111, 'DEF', 'geh$'], 2),
     ]:
-        with pytest.raises(ValueError, match=re.escape(str(invalid_groups[bad_group_index]))):  # type: ignore[index]
+        bad_group = str(invalid_groups[bad_group_index])  # type: ignore[index]
+
+        # Match the actual error message pattern that includes the value and argument name
+        match_pattern = f'Value {re.escape(bad_group)} of argument groups does not match pattern'
+
+        with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(groups=invalid_groups)  # type: ignore[arg-type]
 
     for invalid_country_code in ['CZE', 'aa', 'DDDD', 1111]:
-        with pytest.raises(ValueError, match=re.escape(str(invalid_country_code))):
+        match_pattern = f'Value {re.escape(str(invalid_country_code))} of argument country_code does not match pattern'
+        with pytest.raises(ValueError, match=match_pattern):
             ProxyConfiguration(country_code=invalid_country_code)  # type: ignore[arg-type]
 
-    with pytest.raises(ValueError, match='Exactly one of .* must be specified'):
+    with pytest.raises(ValueError, match=r'Exactly one of .* must be specified'):
         ProxyConfiguration(
             proxy_urls=['http://proxy.com:1111'],
             new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222',
         )
 
-    with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
+    with pytest.raises(ValueError, match=r'Cannot combine custom proxies with Apify Proxy'):
         ProxyConfiguration(proxy_urls=['http://proxy.com:1111'], groups=['GROUP1'])
 
     with pytest.raises(ValueError, match=re.escape('bad-url')):
         ProxyConfiguration(proxy_urls=['bad-url'])
 
-    with pytest.raises(ValueError, match='Cannot combine custom proxies with Apify Proxy'):
+    with pytest.raises(ValueError, match=r'Cannot combine custom proxies with Apify Proxy'):
         ProxyConfiguration(
             new_url_function=lambda session_id=None, request=None: 'http://proxy.com:2222', groups=['GROUP1']
         )
@@ -165,7 +172,7 @@ async def test_rotating_custom_urls() -> None:
 
 
 async def test_rotating_custom_urls_with_sessions() -> None:
-    sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
+    sessions = ['session_01', 'session_02', 'session_03', 'session_04', 'session_05', 'session_06']
     proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
@@ -234,7 +241,7 @@ async def test_invalid_custom_new_url_function() -> None:
 
     proxy_configuration = ProxyConfiguration(new_url_function=custom_new_url_function)
 
-    with pytest.raises(ValueError, match='The provided "new_url_function" did not return a valid URL'):
+    with pytest.raises(ValueError, match=r'The provided "new_url_function" did not return a valid URL'):
         await proxy_configuration.new_url()
 
 
@@ -321,7 +328,7 @@ async def test_new_proxy_info_rotating_urls() -> None:
 
 
 async def test_new_proxy_info_rotating_urls_with_sessions() -> None:
-    sessions = ['sesssion_01', 'sesssion_02', 'sesssion_03', 'sesssion_04', 'sesssion_05', 'sesssion_06']
+    sessions = ['session_01', 'session_02', 'session_03', 'session_04', 'session_05', 'session_06']
     proxy_urls: list[str | None] = ['http://proxy.com:1111', 'http://proxy.com:2222', 'http://proxy.com:3333']
 
     proxy_configuration = ProxyConfiguration(proxy_urls=proxy_urls)
@@ -370,25 +377,29 @@ async def test_new_proxy_info_rotating_urls_with_sessions() -> None:
     assert proxy_info.url == proxy_urls[0]
 
 
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_with_valid_configuration(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    route = respx_mock.get(dummy_proxy_status_url)
-    route.mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': True,
-            },
-        )
+    call_mock = Mock()
+
+    def request_handler(request: Request, response: Response) -> Response:
+        call_mock(request.url)
+        return response
+
+    httpserver.expect_oneshot_request('/').with_post_hook(request_handler).respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': True,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
@@ -399,29 +410,28 @@ async def test_initialize_with_valid_configuration(
     assert proxy_configuration.is_man_in_the_middle is True
 
     assert len(patched_apify_client.calls['user']['get']) == 1  # type: ignore[attr-defined]
-    assert len(route.calls) == 1
+    assert call_mock.call_count == 1
 
 
 async def test_initialize_without_password_or_token() -> None:
     proxy_configuration = ProxyConfiguration()
 
-    with pytest.raises(ValueError, match='Apify Proxy password must be provided'):
+    with pytest.raises(ValueError, match=r'Apify Proxy password must be provided'):
         await proxy_configuration.initialize()
 
 
-async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, respx_mock: MockRouter) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+@pytest.mark.usefixtures('patched_impit_client')
+async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': False,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': False,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
@@ -432,24 +442,23 @@ async def test_initialize_with_manual_password(monkeypatch: pytest.MonkeyPatch, 
     assert proxy_configuration.is_man_in_the_middle is False
 
 
-async def test_initialize_prefering_password_from_env_over_calling_api(
+@pytest.mark.usefixtures('patched_impit_client')
+async def test_initialize_preferring_password_from_env_over_calling_api(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
     monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD.value, DUMMY_PASSWORD)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': False,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': False,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration()
@@ -462,28 +471,25 @@ async def test_initialize_prefering_password_from_env_over_calling_api(
     assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
 
 
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
+@pytest.mark.usefixtures('patched_impit_client')
 async def test_initialize_with_manual_password_different_than_user_one(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     different_dummy_password = 'DIFFERENT_DUMMY_PASSWORD'
     monkeypatch.setenv(ApifyEnvVars.TOKEN.value, 'DUMMY_TOKEN')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
     monkeypatch.setenv(ApifyEnvVars.PROXY_PASSWORD.value, different_dummy_password)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': True,
-                'connectionError': None,
-                'isManInTheMiddle': True,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': True,
+            'connectionError': None,
+            'isManInTheMiddle': True,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(_apify_client=patched_apify_client)
@@ -493,24 +499,19 @@ async def test_initialize_with_manual_password_different_than_user_one(
     assert proxy_configuration._password == different_dummy_password
     assert proxy_configuration.is_man_in_the_middle is True
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'WARNING'
-    assert 'The Apify Proxy password you provided belongs to a different user' in caplog.records[0].message
 
-
-async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, respx_mock: MockRouter) -> None:
+@pytest.mark.usefixtures('patched_impit_client')
+async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer) -> None:
     dummy_connection_error = 'DUMMY_CONNECTION_ERROR'
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    respx_mock.get(dummy_proxy_status_url).mock(
-        httpx.Response(
-            200,
-            json={
-                'connected': False,
-                'connectionError': dummy_connection_error,
-            },
-        )
+    httpserver.expect_oneshot_request('/').respond_with_json(
+        {
+            'connected': False,
+            'connectionError': dummy_connection_error,
+        },
+        status=200,
     )
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
@@ -519,43 +520,47 @@ async def test_initialize_when_not_connected(monkeypatch: pytest.MonkeyPatch, re
         await proxy_configuration.initialize()
 
 
-@pytest.mark.skip(reason='There are issues with log propagation to caplog, see issue #462.')
 async def test_initialize_when_status_page_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    respx_mock: MockRouter,
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, httpserver: HTTPServer
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    caplog.set_level('WARNING')
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    respx_mock.get(dummy_proxy_status_url).mock(httpx.Response(500))
+    httpserver.expect_oneshot_request('/').respond_with_data(status=500)
 
     proxy_configuration = ProxyConfiguration(password=DUMMY_PASSWORD)
 
     await proxy_configuration.initialize()
 
-    assert len(caplog.records) == 1
-    assert caplog.records[0].levelname == 'WARNING'
-    assert 'Apify Proxy access check timed out' in caplog.records[0].message
+    assert (
+        'Apify Proxy access check timed out. Watch out for errors with status code 407. If you see some, it most likely'
+        ' means you do not have access to either all or some of the proxies you are trying to use.'
+    ) in caplog.messages
 
 
 async def test_initialize_with_non_apify_proxy(
     monkeypatch: pytest.MonkeyPatch,
-    respx_mock: MockRouter,
+    httpserver: HTTPServer,
     patched_apify_client: ApifyClientAsync,
 ) -> None:
-    dummy_proxy_status_url = 'http://dummy-proxy-status-url.com'
+    dummy_proxy_status_url = str(httpserver.url_for('/')).removesuffix('/')
     monkeypatch.setenv(ApifyEnvVars.PROXY_STATUS_URL.value, dummy_proxy_status_url)
 
-    route = respx_mock.get(dummy_proxy_status_url)
-    route.mock(httpx.Response(200))
+    call_mock = Mock()
+
+    def request_handler(request: Request, response: Response) -> Response:
+        call_mock(request.url)
+        return response
+
+    httpserver.expect_oneshot_request('/').with_post_hook(request_handler).respond_with_data(status=200)
 
     proxy_configuration = ProxyConfiguration(proxy_urls=['http://dummy-proxy.com:8000'])
 
     await proxy_configuration.initialize()
 
     assert len(patched_apify_client.calls['user']['get']) == 0  # type: ignore[attr-defined]
-    assert len(route.calls) == 0
+    assert call_mock.call_count == 0
 
 
 def test_is_url_validation() -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: esp-test-utils
-Version: 0.2.0
+Version: 0.3.1
 Summary: ESP Test Utils
 Author-email: Chen Yudong <chenyudong@espressif.com>
 License:                              Apache License
@@ -228,7 +228,11 @@ Requires-Dist: pyserial
 Requires-Dist: PyYAML
 Requires-Dist: pexpect
 Requires-Dist: pyusb
+Requires-Dist: pyudev
+Requires-Dist: esptool
 Requires-Dist: packaging
+Requires-Dist: rich
+Requires-Dist: sqlalchemy
 Requires-Dist: typing_extensions; python_version < "3.11"
 Provides-Extra: idfci
 Requires-Dist: pyecharts; extra == "idfci"

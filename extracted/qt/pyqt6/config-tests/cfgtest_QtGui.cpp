@@ -41,6 +41,14 @@ int main(int argc, char **argv)
     out << "PyQt_SessionManager\n";
 #endif
 
+#if !QT_CONFIG(xcb)
+    out << "PyQt_XCB\n";
+#endif
+
+#if !QT_CONFIG(wayland)
+    out << "PyQt_Wayland\n";
+#endif
+
 #if !QT_CONFIG(vulkan) || !__has_include(<vulkan/vulkan.h>)
     out << "PyQt_Vulkan\n";
 #endif

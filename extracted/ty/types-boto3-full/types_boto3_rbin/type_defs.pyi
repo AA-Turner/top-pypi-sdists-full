@@ -3,7 +3,7 @@ Type annotations for rbin service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_rbin/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import LockStateType, ResourceTypeType, RuleStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -76,7 +71,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -133,7 +128,7 @@ class TagResourceRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateRuleResponseTypeDef(TypedDict):
@@ -141,12 +136,12 @@ class UpdateRuleResponseTypeDef(TypedDict):
     RetentionPeriod: RetentionPeriodTypeDef
     Description: str
     ResourceType: ResourceTypeType
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     Status: RuleStatusType
     LockState: LockStateType
     LockEndTime: datetime
     RuleArn: str
-    ExcludeResourceTags: List[ResourceTagTypeDef]
+    ExcludeResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRulesRequestPaginateTypeDef(TypedDict):
@@ -160,7 +155,7 @@ class LockConfigurationTypeDef(TypedDict):
     UnlockDelay: UnlockDelayTypeDef
 
 class ListRulesResponseTypeDef(TypedDict):
-    Rules: List[RuleSummaryTypeDef]
+    Rules: list[RuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -177,14 +172,14 @@ class CreateRuleResponseTypeDef(TypedDict):
     Identifier: str
     RetentionPeriod: RetentionPeriodTypeDef
     Description: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResourceType: ResourceTypeType
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     Status: RuleStatusType
     LockConfiguration: LockConfigurationTypeDef
     LockState: LockStateType
     RuleArn: str
-    ExcludeResourceTags: List[ResourceTagTypeDef]
+    ExcludeResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRuleResponseTypeDef(TypedDict):
@@ -192,13 +187,13 @@ class GetRuleResponseTypeDef(TypedDict):
     Description: str
     ResourceType: ResourceTypeType
     RetentionPeriod: RetentionPeriodTypeDef
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     Status: RuleStatusType
     LockConfiguration: LockConfigurationTypeDef
     LockState: LockStateType
     LockEndTime: datetime
     RuleArn: str
-    ExcludeResourceTags: List[ResourceTagTypeDef]
+    ExcludeResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class LockRuleRequestTypeDef(TypedDict):
@@ -210,12 +205,12 @@ class LockRuleResponseTypeDef(TypedDict):
     Description: str
     ResourceType: ResourceTypeType
     RetentionPeriod: RetentionPeriodTypeDef
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     Status: RuleStatusType
     LockConfiguration: LockConfigurationTypeDef
     LockState: LockStateType
     RuleArn: str
-    ExcludeResourceTags: List[ResourceTagTypeDef]
+    ExcludeResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UnlockRuleResponseTypeDef(TypedDict):
@@ -223,11 +218,11 @@ class UnlockRuleResponseTypeDef(TypedDict):
     Description: str
     ResourceType: ResourceTypeType
     RetentionPeriod: RetentionPeriodTypeDef
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     Status: RuleStatusType
     LockConfiguration: LockConfigurationTypeDef
     LockState: LockStateType
     LockEndTime: datetime
     RuleArn: str
-    ExcludeResourceTags: List[ResourceTagTypeDef]
+    ExcludeResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

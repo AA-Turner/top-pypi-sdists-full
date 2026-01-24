@@ -1,5 +1,3 @@
-from typing import Union
-
 from . import xdr as stellar_xdr
 from .keypair import Keypair
 from .muxed_account import MuxedAccount
@@ -13,7 +11,7 @@ class FeeBumpTransaction:
     """The :class:`FeeBumpTransaction` object, which represents a fee bump transaction
     on Stellar's network.
 
-    See `Fee-Bump Transactions <https://developers.stellar.org/docs/glossary/fee-bumps/>`__ for more information.
+    See `Fee-Bump Transactions <https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions>`__ for more information.
     See `CAP-0015 <https://github.com/stellar/stellar-protocol/blob/master/core/cap-0015.md>`__ for more information.
 
     :param fee_source: The account paying for the transaction.
@@ -23,7 +21,7 @@ class FeeBumpTransaction:
 
     def __init__(
         self,
-        fee_source: Union[MuxedAccount, Keypair, str],
+        fee_source: MuxedAccount | Keypair | str,
         fee: int,
         inner_transaction_envelope: TransactionEnvelope,
     ) -> None:

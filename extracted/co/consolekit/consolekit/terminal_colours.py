@@ -99,7 +99,7 @@ __all__ = (
 		"BEL",
 		)
 
-try:
+try:  # pragma: no cover
 	# 3rd party
 	import colorama  # type: ignore[import]
 	colorama.init()
@@ -213,21 +213,39 @@ class Colour(str):
 	:type stack: :class:`~typing.List`\[:class:`str`\]
 	:param reset: The escape sequence to reset the style.
 	:type reset: :class:`str`
+	:param name: A friendly name for the style.
+	:type name: :class:`str`
 
+	.. versionchanged:: 1.10.0  Added ``name`` parameter.
 	.. autosummary-widths:: 7/16
 	"""
 
-	__slots__ = ("style", "reset", "stack")
+	__slots__ = ("style", "reset", "stack", "name")
 
 	style: str
 	reset: str
 	stack: Union[Deque[str], List[str]]
+	name: str
 
-	def __new__(cls, style: str, stack: Union[Deque[str], List[str]], reset: str) -> "Colour":  # noqa: D102
+	def __repr__(self) -> str:
+		if self.name:
+			return f"<Colour({super().__repr__()}, name={self.name!r})>"
+		else:
+			return f"<Colour({super().__repr__()})>"
+
+	def __new__(  # noqa: D102
+		cls,
+		style: str,
+		stack: Union[Deque[str], List[str]],
+		reset: str,
+		*,
+		name: Optional[str] = None,
+	) -> "Colour":
 		self = super().__new__(cls, style)  # type: ignore[import]
 		self.style = style
 		self.stack = stack
 		self.reset = reset
+		self.name = name  # Friendly name
 
 		return self
 
@@ -243,6 +261,8 @@ class Colour(str):
 	def __call__(self, text) -> str:  # noqa: MAN001
 		"""
 		Returns the given text in this colour.
+
+		:param text: Any object that can be converted to string (but typically a :class:`str` or perhaps :class:`int` or :class:`float`).
 		"""
 
 		return f"{self}{text}{self.reset}"
@@ -317,7 +337,7 @@ class Colour(str):
 			r: Union[str, int],
 			g: Union[str, int],
 			b: Union[str, int],
-			background: bool = False
+			background: bool = False,
 			) -> _C:
 		"""
 		Returns a :class:`~.Colour` to create 24-bit coloured text.
@@ -418,13 +438,13 @@ def print_256_colour_testpattern() -> None:
 				echo(Colour.from_256_code(code, background=True)(str(code).center(block_size)) + ' ')
 			click.echo(
 					Colour.from_256_code(values[-1], background=True)(str(values[-1]).center(block_size).rstrip()),
-					color=colour
+					color=colour,
 					)
 
 	print_heading(
 			"Standard Colours".center((9 * 8) - 1, '-') + ' ' + "High-Intensity Colours".center((9 * 8) - 1, '-'),
 			block_size=8,
-			n_blocks=16
+			n_blocks=16,
 			)
 
 	print_line(range(16), block_size=8)
@@ -447,7 +467,7 @@ class AnsiCodes(ABC):
 	_stack: Union[Deque[str], List[str]]
 	_reset: str
 
-	def __init_subclass__(cls, **kwargs) -> None:
+	def __init_subclass__(cls, **kwargs) -> None:  # noqa: PRM002
 		"""
 		The subclasses declare class attributes which are numbers.
 
@@ -458,7 +478,7 @@ class AnsiCodes(ABC):
 		for name in dir(cls):
 			if not name.startswith('_'):
 				value = getattr(cls, name)
-				setattr(cls, name, Colour(code_to_chars(value), cls._stack, cls._reset))
+				setattr(cls, name, Colour(code_to_chars(value), cls._stack, cls._reset, name=name))
 
 	def __new__(cls: Type[_AC], *args, **kwargs) -> Type[_AC]:  # noqa: D102
 		return cls

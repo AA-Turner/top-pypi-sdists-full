@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -18,15 +18,23 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 from .group_0003 import SimpleUser
-from .group_0505 import EnterpriseWebhooks
-from .group_0506 import SimpleInstallation
-from .group_0507 import OrganizationSimpleWebhooks
-from .group_0508 import RepositoryWebhooks
+from .group_0554 import EnterpriseWebhooks
+from .group_0555 import SimpleInstallation
+from .group_0556 import OrganizationSimpleWebhooks
+from .group_0557 import RepositoryWebhooks
+from .group_0632 import WebhookCodeScanningAlertFixedPropAlert
 
 
-class WebhookGollum(GitHubModel):
-    """gollum event"""
+class WebhookCodeScanningAlertFixed(GitHubModel):
+    """code_scanning_alert fixed event"""
 
+    action: Literal["fixed"] = Field()
+    alert: WebhookCodeScanningAlertFixedPropAlert = Field(
+        description="The code scanning alert involved in the event."
+    )
+    commit_oid: str = Field(
+        description="The commit SHA of the code scanning alert. When the action is `reopened_by_user` or `closed_by_user`, the event was triggered by the `sender` and this value will be empty."
+    )
     enterprise: Missing[EnterpriseWebhooks] = Field(
         default=UNSET,
         title="Enterprise",
@@ -42,8 +50,8 @@ class WebhookGollum(GitHubModel):
         title="Organization Simple",
         description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
     )
-    pages: list[WebhookGollumPropPagesItems] = Field(
-        description="The pages that were updated."
+    ref: str = Field(
+        description="The Git reference of the code scanning alert. When the action is `reopened_by_user` or `closed_by_user`, the event was triggered by the `sender` and this value will be empty."
     )
     repository: RepositoryWebhooks = Field(
         title="Repository",
@@ -52,23 +60,6 @@ class WebhookGollum(GitHubModel):
     sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
 
 
-class WebhookGollumPropPagesItems(GitHubModel):
-    """WebhookGollumPropPagesItems"""
+model_rebuild(WebhookCodeScanningAlertFixed)
 
-    action: Literal["created", "edited"] = Field(
-        description="The action that was performed on the page. Can be `created` or `edited`."
-    )
-    html_url: str = Field(description="Points to the HTML wiki page.")
-    page_name: str = Field(description="The name of the page.")
-    sha: str = Field(description="The latest commit SHA of the page.")
-    summary: Union[str, None] = Field()
-    title: str = Field(description="The current page title.")
-
-
-model_rebuild(WebhookGollum)
-model_rebuild(WebhookGollumPropPagesItems)
-
-__all__ = (
-    "WebhookGollum",
-    "WebhookGollumPropPagesItems",
-)
+__all__ = ("WebhookCodeScanningAlertFixed",)

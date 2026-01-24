@@ -9,30 +9,63 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0008 import Enterprise
 
-class RepositoryRulesetConditionsRepositoryNameTargetPropRepositoryName(GitHubModel):
-    """RepositoryRulesetConditionsRepositoryNameTargetPropRepositoryName"""
 
-    include: Missing[list[str]] = Field(
+class EnterpriseRole(GitHubModel):
+    """Enterprise Role
+
+    Enterprise custom roles
+    """
+
+    id: int = Field(description="The unique identifier of the role.")
+    name: str = Field(description="The name of the role.")
+    description: Missing[Union[str, None]] = Field(
         default=UNSET,
-        description="Array of repository names or patterns to include. One of these patterns must match for the condition to pass. Also accepts `~ALL` to include all repositories.",
+        description="A short description about who this role is for or what permissions it grants.",
     )
-    exclude: Missing[list[str]] = Field(
+    source: Missing[Union[None, Literal["Enterprise", "Predefined"]]] = Field(
         default=UNSET,
-        description="Array of repository names or patterns to exclude. The condition will not pass if any of these patterns match.",
+        description='Source answers the question, "where did this role come from?"',
     )
-    protected: Missing[bool] = Field(
+    permissions: list[str] = Field(
+        description="A list of permissions included in this role."
+    )
+    enterprise: Union[None, Enterprise] = Field()
+    created_at: _dt.datetime = Field(
+        description="The date and time the role was created."
+    )
+    updated_at: _dt.datetime = Field(
+        description="The date and time the role was last updated."
+    )
+
+
+class EnterprisesEnterpriseEnterpriseRolesGetResponse200(GitHubModel):
+    """EnterprisesEnterpriseEnterpriseRolesGetResponse200"""
+
+    total_count: Missing[int] = Field(
         default=UNSET,
-        description="Whether renaming of target repositories is prevented.",
+        description="The total number of enterprise roles available to the enterprise.",
+    )
+    roles: Missing[list[EnterpriseRole]] = Field(
+        default=UNSET,
+        description="The list of enterprise roles available to the enterprise.",
     )
 
 
-model_rebuild(RepositoryRulesetConditionsRepositoryNameTargetPropRepositoryName)
+model_rebuild(EnterpriseRole)
+model_rebuild(EnterprisesEnterpriseEnterpriseRolesGetResponse200)
 
-__all__ = ("RepositoryRulesetConditionsRepositoryNameTargetPropRepositoryName",)
+__all__ = (
+    "EnterpriseRole",
+    "EnterprisesEnterpriseEnterpriseRolesGetResponse200",
+)

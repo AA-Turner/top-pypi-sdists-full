@@ -23,6 +23,26 @@
 
 """Repo implementation atop OpenStack SWIFT."""
 
+__all__ = [
+    "PackInfoMissingObjectFinder",
+    "SwiftConnector",
+    "SwiftException",
+    "SwiftInfoRefsContainer",
+    "SwiftObjectStore",
+    "SwiftPack",
+    "SwiftPackData",
+    "SwiftPackReader",
+    "SwiftRepo",
+    "SwiftSystemBackend",
+    "cmd_daemon",
+    "cmd_init",
+    "load_conf",
+    "load_pack_info",
+    "main",
+    "pack_info_create",
+    "swift_load_pack_index",
+]
+
 # TODO: Refactor to share more code with dulwich/repo.py.
 # TODO(fbo): Second attempt to _send() must be notified via real log
 # TODO(fbo): More logs for operations
@@ -36,18 +56,22 @@ import sys
 import tempfile
 import urllib.parse as urlparse
 import zlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from configparser import ConfigParser
 from io import BytesIO
-from typing import BinaryIO, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
+
+if TYPE_CHECKING:
+    from dulwich.object_format import ObjectFormat
 
 from geventhttpclient import HTTPClient
 
-from ..greenthreads import GreenThreadsMissingObjectFinder
+from ..file import _GitFile
 from ..lru_cache import LRUSizeCache
-from ..object_store import INFODIR, PACKDIR, ObjectContainer, PackBasedObjectStore
-from ..objects import S_ISGITLINK, Blob, Commit, Tag, Tree
+from ..object_store import INFODIR, PACKDIR, PackBasedObjectStore
+from ..objects import S_ISGITLINK, Blob, Commit, ObjectID, Tag, Tree
 from ..pack import (
+    ObjectContainer,
     Pack,
     PackData,
     PackIndex,
@@ -63,10 +87,11 @@ from ..pack import (
     write_pack_index_v2,
     write_pack_object,
 )
-from ..protocol import TCP_GIT_PORT
-from ..refs import InfoRefsContainer, read_info_refs, split_peeled_refs, write_info_refs
+from ..protocol import TCP_GIT_PORT, split_peeled_refs, write_info_refs
+from ..refs import HEADREF, Ref, RefsContainer, read_info_refs
 from ..repo import OBJECTDIR, BaseRepo
 from ..server import Backend, BackendRepo, TCPGitServer
+from .greenthreads import GreenThreadsMissingObjectFinder
 
 """
 # Configuration file sample
@@ -97,7 +122,14 @@ cache_length = 20
 
 
 class PackInfoMissingObjectFinder(GreenThreadsMissingObjectFinder):
-    def next(self) -> Optional[tuple[bytes, int, Union[bytes, None]]]:
+    """Find missing objects required for pack generation."""
+
+    def next(self) -> tuple[bytes, int, bytes | None] | None:
+        """Get the next missing object.
+
+        Returns:
+          Tuple of (sha, pack_type_num, name) or None if no more objects
+        """
         while True:
             if not self.objects_to_send:
                 return None
@@ -115,11 +147,14 @@ class PackInfoMissingObjectFinder(GreenThreadsMissingObjectFinder):
                             item.sha,
                             item.path
                             if isinstance(item.path, bytes)
-                            else item.path.encode("utf-8"),
+                            else item.path.encode("utf-8")
+                            if item.path is not None
+                            else b"",
                             None,
                             False,
                         )
                         for item in obj.items()
+                        if item.sha is not None
                     ]
                     self.add_todo(tree_items)
                 elif isinstance(obj, Tag):
@@ -129,7 +164,7 @@ class PackInfoMissingObjectFinder(GreenThreadsMissingObjectFinder):
             except KeyError:
                 pass
         self.sha_done.add(sha)
-        self.progress(f"counting objects: {len(self.sha_done)}\r")
+        self.progress(f"counting objects: {len(self.sha_done)}\r".encode())
         return (
             sha,
             0,
@@ -137,7 +172,7 @@ class PackInfoMissingObjectFinder(GreenThreadsMissingObjectFinder):
         )
 
 
-def load_conf(path: Optional[str] = None, file: Optional[str] = None) -> ConfigParser:
+def load_conf(path: str | None = None, file: str | None = None) -> ConfigParser:
     """Load configuration in global var CONF.
 
     Args:
@@ -162,12 +197,15 @@ def load_conf(path: Optional[str] = None, file: Optional[str] = None) -> ConfigP
     return conf
 
 
-def swift_load_pack_index(scon: "SwiftConnector", filename: str) -> "PackIndex":
+def swift_load_pack_index(
+    scon: "SwiftConnector", filename: str, object_format: ObjectFormat
+) -> "PackIndex":
     """Read a pack index file from Swift.
 
     Args:
       scon: a `SwiftConnector` instance
       filename: Path to the index file objectise
+      object_format: Object format for this pack
     Returns: a `PackIndexer` instance
     """
     f = scon.get_object(filename)
@@ -175,12 +213,21 @@ def swift_load_pack_index(scon: "SwiftConnector", filename: str) -> "PackIndex":
         raise Exception(f"Could not retrieve index file {filename}")
     if isinstance(f, bytes):
         f = BytesIO(f)
-    return load_pack_index_file(filename, f)
+    return load_pack_index_file(filename, f, object_format)
 
 
 def pack_info_create(pack_data: "PackData", pack_index: "PackIndex") -> bytes:
+    """Create pack info file contents.
+
+    Args:
+      pack_data: The pack data object
+      pack_index: The pack index object
+
+    Returns:
+      Compressed JSON bytes containing pack information
+    """
     pack = Pack.from_objects(pack_data, pack_index)
-    info: dict = {}
+    info: dict[bytes, Any] = {}
     for obj in pack.iterobjects():
         # Commit
         if obj.type_num == Commit.type_num:
@@ -194,7 +241,7 @@ def pack_info_create(pack_data: "PackData", pack_index: "PackIndex") -> bytes:
             shas = [
                 (s, n, not stat.S_ISDIR(m))
                 for n, m, s in tree_obj.items()
-                if not S_ISGITLINK(m)
+                if m is not None and not S_ISGITLINK(m)
             ]
             info[obj.id] = (obj.type_num, shas)
         # Blob
@@ -210,9 +257,19 @@ def pack_info_create(pack_data: "PackData", pack_index: "PackIndex") -> bytes:
 
 def load_pack_info(
     filename: str,
-    scon: Optional["SwiftConnector"] = None,
-    file: Optional[BinaryIO] = None,
-) -> Optional[dict]:
+    scon: "SwiftConnector | None" = None,
+    file: BinaryIO | None = None,
+) -> dict[str, Any] | None:
+    """Load pack info from Swift or file.
+
+    Args:
+      filename: The pack info filename
+      scon: Optional Swift connector to use for loading
+      file: Optional file object to read from instead
+
+    Returns:
+      Dictionary containing pack information or None if not found
+    """
     if not file:
         if scon is None:
             return None
@@ -220,20 +277,20 @@ def load_pack_info(
         if obj is None:
             return None
         if isinstance(obj, bytes):
-            return json.loads(zlib.decompress(obj))
+            return cast(dict[str, Any], json.loads(zlib.decompress(obj)))
         else:
             f: BinaryIO = obj
     else:
         f = file
     try:
-        return json.loads(zlib.decompress(f.read()))
+        return cast(dict[str, Any], json.loads(zlib.decompress(f.read())))
     finally:
         if hasattr(f, "close"):
             f.close()
 
 
 class SwiftException(Exception):
-    pass
+    """Exception raised for Swift-related errors."""
 
 
 class SwiftConnector:
@@ -281,6 +338,14 @@ class SwiftConnector:
         )
 
     def swift_auth_v1(self) -> tuple[str, str]:
+        """Authenticate with Swift using v1 authentication.
+
+        Returns:
+          Tuple of (storage_url, auth_token)
+
+        Raises:
+          SwiftException: If authentication fails
+        """
         self.user = self.user.replace(";", ":")
         auth_httpclient = HTTPClient.from_url(
             self.auth_url,
@@ -304,6 +369,14 @@ class SwiftConnector:
         return storage_url, token
 
     def swift_auth_v2(self) -> tuple[str, str]:
+        """Authenticate with Swift using v2 authentication.
+
+        Returns:
+          Tuple of (storage_url, auth_token)
+
+        Raises:
+          SwiftException: If authentication fails
+        """
         self.tenant, self.user = self.user.split(";")
         auth_dict = {}
         auth_dict["auth"] = {
@@ -342,7 +415,7 @@ class SwiftConnector:
         )
         return endpoint[self.endpoint_type], token
 
-    def test_root_exists(self) -> Optional[bool]:
+    def test_root_exists(self) -> bool | None:
         """Check that Swift container exist.
 
         Returns: True if exist or None it not
@@ -369,7 +442,7 @@ class SwiftConnector:
                     f"PUT request failed with error code {ret.status_code}"
                 )
 
-    def get_container_objects(self) -> Optional[list[dict]]:
+    def get_container_objects(self) -> list[dict[str, Any]] | None:
         """Retrieve objects list in a container.
 
         Returns: A list of dict that describe objects
@@ -385,9 +458,9 @@ class SwiftConnector:
                 f"GET request failed with error code {ret.status_code}"
             )
         content = ret.read()
-        return json.loads(content)
+        return cast(list[dict[str, Any]], json.loads(content))
 
-    def get_object_stat(self, name: str) -> Optional[dict]:
+    def get_object_stat(self, name: str) -> dict[str, Any] | None:
         """Retrieve object stat.
 
         Args:
@@ -438,9 +511,7 @@ class SwiftConnector:
                 f"PUT request failed with error code {ret.status_code}"  # type: ignore
             )
 
-    def get_object(
-        self, name: str, range: Optional[str] = None
-    ) -> Optional[Union[bytes, BytesIO]]:
+    def get_object(self, name: str, range: str | None = None) -> bytes | BytesIO | None:
         """Retrieve an object.
 
         Args:
@@ -461,7 +532,7 @@ class SwiftConnector:
             raise SwiftException(
                 f"GET request failed with error code {ret.status_code}"
             )
-        content = ret.read()
+        content = cast(bytes, ret.read())
 
         if range:
             return content
@@ -590,13 +661,31 @@ class SwiftPackData(PackData):
     using the Range header feature of Swift.
     """
 
-    def __init__(self, scon: SwiftConnector, filename: Union[str, os.PathLike]) -> None:
+    def __init__(
+        self,
+        scon: SwiftConnector,
+        filename: str | os.PathLike[str],
+        object_format: "ObjectFormat | None" = None,
+    ) -> None:
         """Initialize a SwiftPackReader.
 
         Args:
           scon: a `SwiftConnector` instance
           filename: the pack filename
+          object_format: Object format for this pack
         """
+        from dulwich.object_format import DEFAULT_OBJECT_FORMAT
+
+        if object_format is None:
+            import warnings
+
+            warnings.warn(
+                "SwiftPackData() should be called with object_format parameter",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            object_format = DEFAULT_OBJECT_FORMAT
+        self.object_format = object_format
         self.scon = scon
         self._filename = filename
         self._header_size = 12
@@ -605,7 +694,7 @@ class SwiftPackData(PackData):
             raise Exception(f"Could not get stats for {self._filename}")
         self.pack_length = int(headers["content-length"])
         pack_reader = SwiftPackReader(self.scon, str(self._filename), self.pack_length)
-        (version, self._num_objects) = read_pack_header(pack_reader.read)
+        (_version, self._num_objects) = read_pack_header(pack_reader.read)
         self._offset_cache = LRUSizeCache(
             1024 * 1024 * self.scon.cache_length,
             compute_size=_compute_object_size,
@@ -614,22 +703,35 @@ class SwiftPackData(PackData):
 
     def get_object_at(
         self, offset: int
-    ) -> tuple[int, Union[tuple[Union[bytes, int], list[bytes]], list[bytes]]]:
+    ) -> tuple[int, tuple[bytes | int, list[bytes]] | list[bytes]]:
+        """Get the object at a specific offset in the pack.
+
+        Args:
+          offset: The offset in the pack file
+
+        Returns:
+          Tuple of (pack_type_num, object_data)
+        """
         if offset in self._offset_cache:
             return self._offset_cache[offset]
         assert offset >= self._header_size
         pack_reader = SwiftPackReader(self.scon, str(self._filename), self.pack_length)
         pack_reader.seek(offset)
-        unpacked, _ = unpack_object(pack_reader.read)
+        unpacked, _ = unpack_object(pack_reader.read, self.object_format.hash_func)
         obj_data = unpacked._obj()
         return (unpacked.pack_type_num, obj_data)
 
     def get_stored_checksum(self) -> bytes:
+        """Get the stored checksum for this pack.
+
+        Returns:
+          The pack checksum as bytes
+        """
         pack_reader = SwiftPackReader(self.scon, str(self._filename), self.pack_length)
         return pack_reader.read_checksum()
 
     def close(self) -> None:
-        pass
+        """Close the pack data (no-op for Swift)."""
 
 
 class SwiftPack(Pack):
@@ -641,17 +743,27 @@ class SwiftPack(Pack):
     """
 
     def __init__(self, *args: object, **kwargs: object) -> None:
-        self.scon = kwargs["scon"]
+        """Initialize SwiftPack.
+
+        Args:
+          *args: Arguments to pass to parent class
+          **kwargs: Keyword arguments, must include 'scon' (SwiftConnector)
+        """
+        self.scon: SwiftConnector = kwargs["scon"]  # type: ignore
         del kwargs["scon"]
         super().__init__(*args, **kwargs)  # type: ignore
         self._pack_info_path = self._basename + ".info"
-        self._pack_info: Optional[dict] = None
-        self._pack_info_load = lambda: load_pack_info(self._pack_info_path, self.scon)  # type: ignore
-        self._idx_load = lambda: swift_load_pack_index(self.scon, self._idx_path)  # type: ignore
-        self._data_load = lambda: SwiftPackData(self.scon, self._data_path)  # type: ignore
+        self._pack_info: dict[str, Any] | None = None
+        self._pack_info_load: Callable[[], dict[str, Any] | None] = (
+            lambda: load_pack_info(self._pack_info_path, self.scon)
+        )
+        self._idx_load = lambda: swift_load_pack_index(
+            self.scon, self._idx_path, self.object_format
+        )
+        self._data_load = lambda: SwiftPackData(self.scon, self._data_path)
 
     @property
-    def pack_info(self) -> Optional[dict]:
+    def pack_info(self) -> dict[str, Any] | None:
         """The pack data object being used."""
         if self._pack_info is None:
             self._pack_info = self._pack_info_load()
@@ -677,7 +789,7 @@ class SwiftObjectStore(PackBasedObjectStore):
         self.pack_dir = posixpath.join(OBJECTDIR, PACKDIR)
         self._alternates = None
 
-    def _update_pack_cache(self) -> list:
+    def _update_pack_cache(self) -> list[Any]:
         objects = self.scon.get_container_objects()
         if objects is None:
             return []
@@ -688,38 +800,46 @@ class SwiftObjectStore(PackBasedObjectStore):
         ]
         ret = []
         for basename in pack_files:
-            pack = SwiftPack(basename, scon=self.scon)
+            pack = SwiftPack(basename, object_format=self.object_format, scon=self.scon)
             self._pack_cache[basename] = pack
             ret.append(pack)
         return ret
 
-    def _iter_loose_objects(self) -> Iterator:
+    def _iter_loose_objects(self) -> Iterator[Any]:
         """Loose objects are not supported by this repository."""
         return iter([])
 
-    def pack_info_get(self, sha: bytes) -> Optional[tuple]:
+    def pack_info_get(self, sha: ObjectID) -> tuple[Any, ...] | None:
+        """Get pack info for a specific SHA.
+
+        Args:
+          sha: The SHA to look up
+
+        Returns:
+          Pack info tuple or None if not found
+        """
         for pack in self.packs:
             if sha in pack:
                 if hasattr(pack, "pack_info"):
                     pack_info = pack.pack_info
                     if pack_info is not None:
-                        return pack_info.get(sha)
+                        return cast(tuple[Any, ...] | None, pack_info.get(sha))
         return None
 
     def _collect_ancestors(
-        self, heads: list, common: Optional[set] = None
-    ) -> tuple[set, set]:
+        self, heads: list[Any], common: set[Any] | None = None
+    ) -> tuple[set[Any], set[Any]]:
         if common is None:
             common = set()
 
-        def _find_parents(commit: bytes) -> list:
+        def _find_parents(commit: ObjectID) -> list[Any]:
             for pack in self.packs:
                 if commit in pack:
                     try:
                         if hasattr(pack, "pack_info"):
                             pack_info = pack.pack_info
                             if pack_info is not None:
-                                return pack_info[commit][1]
+                                return cast(list[Any], pack_info[commit][1])
                     except KeyError:
                         # Seems to have no parents
                         return []
@@ -739,7 +859,7 @@ class SwiftObjectStore(PackBasedObjectStore):
                 queue.extend(parents)
         return (commits, bases)
 
-    def add_pack(self) -> tuple[BytesIO, Callable, Callable]:
+    def add_pack(self) -> tuple[BytesIO, Callable[[], None], Callable[[], None]]:
         """Add a new pack to this object store.
 
         Returns: Fileobject to write to and a commit function to
@@ -747,9 +867,20 @@ class SwiftObjectStore(PackBasedObjectStore):
         """
         f = BytesIO()
 
-        def commit() -> Optional["SwiftPack"]:
+        def commit() -> "SwiftPack | None":
+            """Commit the pack to Swift storage.
+
+            Returns:
+              The created SwiftPack or None if empty
+            """
             f.seek(0)
-            pack = PackData(file=f, filename="")
+            from typing import cast
+
+            from ..file import _GitFile
+
+            pack = PackData(
+                file=cast(_GitFile, f), filename="", object_format=self.object_format
+            )
             entries = pack.sorted_entries()
             if entries:
                 basename = posixpath.join(
@@ -762,7 +893,9 @@ class SwiftObjectStore(PackBasedObjectStore):
                 f.close()
                 self.scon.put_object(basename + ".idx", index)
                 index.close()
-                final_pack = SwiftPack(basename, scon=self.scon)
+                final_pack = SwiftPack(
+                    basename, object_format=self.object_format, scon=self.scon
+                )
                 final_pack.check_length_and_checksum()
                 self._add_cached_pack(basename, final_pack)
                 return final_pack
@@ -770,11 +903,20 @@ class SwiftObjectStore(PackBasedObjectStore):
                 return None
 
         def abort() -> None:
-            pass
+            """Abort the pack operation (no-op)."""
 
-        return f, commit, abort
+        def commit_wrapper() -> None:
+            """Wrapper that discards the return value."""
+            commit()
+
+        return f, commit_wrapper, abort
 
     def add_object(self, obj: object) -> None:
+        """Add a single object to the store.
+
+        Args:
+          obj: The object to add
+        """
         self.add_objects(
             [
                 (obj, None),  # type: ignore
@@ -787,7 +929,9 @@ class SwiftObjectStore(PackBasedObjectStore):
     def _get_loose_object(self, sha: bytes) -> None:
         return None
 
-    def add_thin_pack(self, read_all: Callable, read_some: Callable) -> "SwiftPack":
+    def add_thin_pack(
+        self, read_all: Callable[[int], bytes], read_some: Callable[[int], bytes]
+    ) -> "SwiftPack":
         """Read a thin pack.
 
         Read it from a stream and complete it in a temporary file.
@@ -796,8 +940,17 @@ class SwiftObjectStore(PackBasedObjectStore):
         fd, path = tempfile.mkstemp(prefix="tmp_pack_")
         f = os.fdopen(fd, "w+b")
         try:
-            indexer = PackIndexer(f, resolve_ext_ref=None)
-            copier = PackStreamCopier(read_all, read_some, f, delta_iter=indexer)
+            pack_data = PackData(
+                file=cast(_GitFile, f), filename=path, object_format=self.object_format
+            )
+            indexer = PackIndexer(
+                cast(BinaryIO, pack_data._file),
+                self.object_format.hash_func,
+                resolve_ext_ref=None,
+            )
+            copier = PackStreamCopier(
+                self.object_format.hash_func, read_all, read_some, f, delta_iter=None
+            )
             copier.verify()
             return self._complete_thin_pack(f, path, copier, indexer)
         finally:
@@ -817,14 +970,18 @@ class SwiftObjectStore(PackBasedObjectStore):
         f.flush()
 
         # Rescan the rest of the pack, computing the SHA with the new header.
-        new_sha = compute_file_sha(f, end_ofs=-20)
+        new_sha = compute_file_sha(
+            f,
+            hash_func=self.object_format.hash_func,
+            end_ofs=-self.object_format.oid_length,
+        )
 
         # Must reposition before writing (http://bugs.python.org/issue3207)
         f.seek(0, os.SEEK_CUR)
 
         # Complete the pack.
         for ext_sha in indexer.ext_refs():  # type: ignore
-            assert len(ext_sha) == 20
+            assert len(ext_sha) in (20, 32)  # SHA-1 or SHA-256
             type_num, data = self.get_raw(ext_sha)
             offset = f.tell()
             crc32 = write_pack_object(f, type_num, data, sha=new_sha)  # type: ignore
@@ -849,9 +1006,11 @@ class SwiftObjectStore(PackBasedObjectStore):
 
         # Write pack info.
         f.seek(0)
-        pack_data = PackData(filename="", file=f)
+        pack_data = PackData(
+            filename="", file=cast(_GitFile, f), object_format=self.object_format
+        )
         index_file.seek(0)
-        pack_index = load_pack_index_file("", index_file)
+        pack_index = load_pack_index_file("", index_file, self.object_format)
         serialized_pack_info = pack_info_create(pack_data, pack_index)
         f.close()
         index_file.close()
@@ -861,16 +1020,24 @@ class SwiftObjectStore(PackBasedObjectStore):
         pack_info_file.close()
 
         # Add the pack to the store and return it.
-        final_pack = SwiftPack(pack_base_name, scon=self.scon)
+        final_pack = SwiftPack(
+            pack_base_name, object_format=self.object_format, scon=self.scon
+        )
         final_pack.check_length_and_checksum()
         self._add_cached_pack(pack_base_name, final_pack)
         return final_pack
 
 
-class SwiftInfoRefsContainer(InfoRefsContainer):
+class SwiftInfoRefsContainer(RefsContainer):
     """Manage references in info/refs object."""
 
     def __init__(self, scon: SwiftConnector, store: object) -> None:
+        """Initialize SwiftInfoRefsContainer.
+
+        Args:
+          scon: Swift connector instance
+          store: Object store instance
+        """
         self.scon = scon
         self.filename = "info/refs"
         self.store = store
@@ -879,11 +1046,16 @@ class SwiftInfoRefsContainer(InfoRefsContainer):
             f = BytesIO(b"")
         elif isinstance(f, bytes):
             f = BytesIO(f)
-        super().__init__(f)
+
+        # Initialize refs from info/refs file
+        self._refs: dict[Ref, ObjectID] = {}
+        self._peeled: dict[Ref, ObjectID] = {}
+        refs = read_info_refs(f)
+        (self._refs, self._peeled) = split_peeled_refs(refs)
 
     def _load_check_ref(
-        self, name: bytes, old_ref: Optional[bytes]
-    ) -> Union[dict, bool]:
+        self, name: Ref, old_ref: ObjectID | None
+    ) -> dict[Ref, ObjectID] | bool:
         self._check_refname(name)
         obj = self.scon.get_object(self.filename)
         if not obj:
@@ -893,29 +1065,29 @@ class SwiftInfoRefsContainer(InfoRefsContainer):
         else:
             f = obj
         refs = read_info_refs(f)
-        (refs, peeled) = split_peeled_refs(refs)
+        (refs, _peeled) = split_peeled_refs(refs)
         if old_ref is not None:
             if refs[name] != old_ref:
                 return False
         return refs
 
-    def _write_refs(self, refs: dict) -> None:
+    def _write_refs(self, refs: Mapping[Ref, ObjectID]) -> None:
         f = BytesIO()
         f.writelines(write_info_refs(refs, cast("ObjectContainer", self.store)))
         self.scon.put_object(self.filename, f)
 
     def set_if_equals(
         self,
-        name: bytes,
-        old_ref: Optional[bytes],
-        new_ref: bytes,
-        committer: Optional[bytes] = None,
-        timestamp: Optional[float] = None,
-        timezone: Optional[int] = None,
-        message: Optional[bytes] = None,
+        name: Ref,
+        old_ref: ObjectID | None,
+        new_ref: ObjectID,
+        committer: bytes | None = None,
+        timestamp: float | None = None,
+        timezone: int | None = None,
+        message: bytes | None = None,
     ) -> bool:
         """Set a refname to new_ref only if it currently equals old_ref."""
-        if name == "HEAD":
+        if name == HEADREF:
             return True
         refs = self._load_check_ref(name, old_ref)
         if not isinstance(refs, dict):
@@ -927,15 +1099,15 @@ class SwiftInfoRefsContainer(InfoRefsContainer):
 
     def remove_if_equals(
         self,
-        name: bytes,
-        old_ref: Optional[bytes],
+        name: Ref,
+        old_ref: ObjectID | None,
         committer: object = None,
         timestamp: object = None,
         timezone: object = None,
         message: object = None,
     ) -> bool:
         """Remove a refname only if it currently equals old_ref."""
-        if name == "HEAD":
+        if name == HEADREF:
             return True
         refs = self._load_check_ref(name, old_ref)
         if not isinstance(refs, dict):
@@ -945,15 +1117,41 @@ class SwiftInfoRefsContainer(InfoRefsContainer):
         del self._refs[name]
         return True
 
-    def allkeys(self) -> Iterator[bytes]:
+    def read_loose_ref(self, name: Ref) -> bytes | None:
+        """Read a loose reference."""
+        return self._refs.get(name, None)
+
+    def get_packed_refs(self) -> dict[Ref, ObjectID]:
+        """Get packed references."""
+        return {}
+
+    def get_peeled(self, name: Ref) -> ObjectID | None:
+        """Get peeled version of a reference."""
         try:
-            self._refs[b"HEAD"] = self._refs[b"refs/heads/master"]
+            return self._peeled[name]
+        except KeyError:
+            ref_value = self._refs.get(name)
+            # Only return if it's an ObjectID (not a symref)
+            if isinstance(ref_value, bytes) and len(ref_value) == 40:
+                return ObjectID(ref_value)
+            return None
+
+    def allkeys(self) -> set[Ref]:
+        """Get all reference names.
+
+        Returns:
+          Set of reference names as Ref
+        """
+        try:
+            self._refs[HEADREF] = self._refs[Ref(b"refs/heads/master")]
         except KeyError:
             pass
-        return iter(self._refs.keys())
+        return set(self._refs.keys())
 
 
 class SwiftRepo(BaseRepo):
+    """A Git repository backed by Swift object storage."""
+
     def __init__(self, root: str, conf: ConfigParser) -> None:
         """Init a Git bare Repository on top of a Swift container.
 
@@ -971,8 +1169,8 @@ class SwiftRepo(BaseRepo):
         objects = self.scon.get_container_objects()
         if not objects:
             raise Exception(f"There is not any GIT repo here : {self.root}")
-        objects = [o["name"].split("/")[0] for o in objects]
-        if OBJECTDIR not in objects:
+        object_names = [o["name"].split("/")[0] for o in objects]
+        if OBJECTDIR not in object_names:
             raise Exception(f"This repository ({self.root}) is not bare.")
         self.bare = True
         self._controldir = self.root
@@ -1020,17 +1218,37 @@ class SwiftRepo(BaseRepo):
 
 
 class SwiftSystemBackend(Backend):
+    """Backend for serving Git repositories from Swift."""
+
     def __init__(self, logger: "logging.Logger", conf: ConfigParser) -> None:
+        """Initialize SwiftSystemBackend.
+
+        Args:
+          logger: Logger instance
+          conf: Configuration parser instance
+        """
         self.conf = conf
         self.logger = logger
 
     def open_repository(self, path: str) -> "BackendRepo":
+        """Open a repository at the given path.
+
+        Args:
+          path: Path to the repository in Swift
+
+        Returns:
+          SwiftRepo instance
+        """
         self.logger.info("opening repository at %s", path)
         return cast("BackendRepo", SwiftRepo(path, self.conf))
 
 
-def cmd_daemon(args: list) -> None:
-    """Entry point for starting a TCP git server."""
+def cmd_daemon(args: list[str]) -> None:
+    """Start a TCP git server for Swift repositories.
+
+    Args:
+      args: Command line arguments
+    """
     import optparse
 
     parser = optparse.OptionParser()
@@ -1081,7 +1299,12 @@ def cmd_daemon(args: list) -> None:
     server.serve_forever()
 
 
-def cmd_init(args: list) -> None:
+def cmd_init(args: list[str]) -> None:
+    """Initialize a new Git repository in Swift.
+
+    Args:
+      args: Command line arguments
+    """
     import optparse
 
     parser = optparse.OptionParser()
@@ -1102,23 +1325,26 @@ def cmd_init(args: list) -> None:
     SwiftRepo.init_bare(scon, conf)
 
 
-def main(argv: list = sys.argv) -> None:
+def main(argv: list[str] = sys.argv) -> None:
+    """Main entry point for Swift Git command line interface.
+
+    Args:
+      argv: Command line arguments
+    """
     commands = {
         "init": cmd_init,
         "daemon": cmd_daemon,
     }
 
-    if len(sys.argv) < 2:
-        print(
-            "Usage: {} <{}> [OPTIONS...]".format(sys.argv[0], "|".join(commands.keys()))
-        )
+    if len(argv) < 2:
+        print("Usage: {} <{}> [OPTIONS...]".format(argv[0], "|".join(commands.keys())))
         sys.exit(1)
 
-    cmd = sys.argv[1]
+    cmd = argv[1]
     if cmd not in commands:
         print(f"No such subcommand: {cmd}")
         sys.exit(1)
-    commands[cmd](sys.argv[2:])
+    commands[cmd](argv[2:])
 
 
 if __name__ == "__main__":

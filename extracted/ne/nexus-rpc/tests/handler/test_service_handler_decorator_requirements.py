@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any
 
 import pytest
+from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc._util import get_service_definition
@@ -14,9 +15,14 @@ from nexusrpc.handler._core import ServiceHandler
 from nexusrpc.handler._decorators import operation_handler
 
 
-class _DecoratorValidationTestCase:
-    UserService: Type[Any]
-    UserServiceHandler: Type[Any]
+@dataclass_transform()
+class _TestCase:
+    pass
+
+
+class _DecoratorValidationTestCase(_TestCase):
+    UserService: type[Any]
+    UserServiceHandler: type[Any]
     expected_error_message_pattern: str
 
 
@@ -65,8 +71,8 @@ def test_decorator_validates_definition_compliance(
         service_handler(service=test_case.UserService)(test_case.UserServiceHandler)
 
 
-class _ServiceHandlerInheritanceTestCase:
-    UserServiceHandler: Type[Any]
+class _ServiceHandlerInheritanceTestCase(_TestCase):
+    UserServiceHandler: type[Any]
     expected_operations: set[str]
 
 
@@ -122,11 +128,14 @@ def test_service_implementation_inheritance(
     service_handler = ServiceHandler.from_user_instance(test_case.UserServiceHandler())
 
     assert set(service_handler.operation_handlers) == test_case.expected_operations
-    assert set(service_handler.service.operations) == test_case.expected_operations
+    assert (
+        set(service_handler.service.operation_definitions)
+        == test_case.expected_operations
+    )
 
 
-class _ServiceDefinitionInheritanceTestCase:
-    UserService: Type[Any]
+class _ServiceDefinitionInheritanceTestCase(_TestCase):
+    UserService: type[Any]
     expected_ops: set[str]
 
 
@@ -163,7 +172,7 @@ def test_service_definition_inheritance_behavior(
         "__nexus_service__ is not a nexusrpc.ServiceDefinition instance."
     )
 
-    assert set(service_defn.operations) == test_case.expected_ops
+    assert set(service_defn.operation_definitions) == test_case.expected_ops
 
     with pytest.raises(
         TypeError,
@@ -176,3 +185,5 @@ def test_service_definition_inheritance_behavior(
             def op_from_base_definition(
                 self,
             ) -> OperationHandler[int, str]: ...
+
+        _ = HandlerMissingChildOp

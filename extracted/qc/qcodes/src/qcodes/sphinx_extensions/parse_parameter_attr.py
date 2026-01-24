@@ -10,13 +10,12 @@ import inspect
 from typing import Any
 
 import parso
-import parso.python
 import parso.python.tree
 import parso.tree
 from sphinx.util import logging
 from sphinx.util.inspect import safe_getattr
 
-from qcodes.instrument.base import InstrumentBase
+from qcodes.instrument import InstrumentBase
 
 LOGGER = logging.getLogger(__name__)
 

@@ -9,6 +9,7 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPoint.h"
 #include "include/core/SkScalar.h"
 #include "include/core/SkSize.h"
@@ -32,14 +33,9 @@ public:
     StringArtGM() : fNumSteps(kMaxNumSteps) {}
 
 protected:
+    SkString getName() const override { return SkString("stringart"); }
 
-    SkString onShortName() override {
-        return SkString("stringart");
-    }
-
-    SkISize onISize() override {
-        return SkISize::Make(kWidth, kHeight);
-    }
+    SkISize getISize() override { return SkISize::Make(kWidth, kHeight); }
 
     void onDraw(SkCanvas* canvas) override {
         SkScalar angle = kAngle*SK_ScalarPI + SkScalarHalf(SK_ScalarPI);
@@ -48,13 +44,13 @@ protected:
         SkScalar length = 5;
         SkScalar step = angle;
 
-        SkPath path;
-        path.moveTo(center);
+        SkPathBuilder builder;
+        builder.moveTo(center);
 
         for (int i = 0; i < fNumSteps && length < (SkScalarHalf(size) - 10.f); ++i) {
             SkPoint rp = SkPoint::Make(length*SkScalarCos(step) + center.fX,
                                        length*SkScalarSin(step) + center.fY);
-            path.lineTo(rp);
+            builder.lineTo(rp);
             length += angle / SkScalarHalf(SK_ScalarPI);
             step += angle;
         }
@@ -64,7 +60,7 @@ protected:
         paint.setStyle(SkPaint::kStroke_Style);
         paint.setColor(ToolUtils::color_to_565(0xFF007700));
 
-        canvas->drawPath(path, paint);
+        canvas->drawPath(builder.detach(), paint);
     }
 
     bool onAnimate(double nanos) override {
@@ -89,75 +85,3 @@ private:
 };
 
 DEF_GM( return new StringArtGM; )
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if 0
-#include "modules/skottie/include/Skottie.h"
-
-class SkottieGM : public skiagm::GM {
-    enum {
-        kWidth = 800,
-        kHeight = 600,
-    };
-
-    enum {
-        N = 100,
-    };
-    skottie::Animation* fAnims[N];
-    SkRect              fRects[N];
-    SkScalar            fDur;
-
-public:
-    SkottieGM() {
-        sk_bzero(fAnims, sizeof(fAnims));
-    }
-    ~SkottieGM() override {
-        for (auto anim : fAnims) {
-            SkSafeUnref(anim);
-        }
-    }
-
-protected:
-
-    SkString onShortName() override { return SkString("skottie"); }
-
-    SkISize onISize() override { return SkISize::Make(kWidth, kHeight); }
-
-    void init() {
-        SkRandom rand;
-        auto data = SkData::MakeFromFileName("/Users/reed/Downloads/maps_pinlet.json");
-   //     for (;;) skottie::Animation::Make((const char*)data->data(), data->size());
-        for (int i = 0; i < N; ++i) {
-            fAnims[i] = skottie::Animation::Make((const char*)data->data(), data->size()).release();
-            SkScalar x = rand.nextF() * kWidth;
-            SkScalar y = rand.nextF() * kHeight;
-            fRects[i].setXYWH(x, y, 400, 400);
-        }
-        fDur = fAnims[0]->duration();
-    }
-
-    void onDraw(SkCanvas* canvas) override {
-        if (!fAnims[0]) {
-            this->init();
-        }
-        canvas->drawColor(0xFFBBBBBB);
-        for (int i = 0; i < N; ++i) {
-            fAnims[0]->render(canvas, &fRects[i]);
-        }
-    }
-
-    bool onAnimate(double nanos) override {
-        SkScalar time = (float)(fmod(1e-9 * nanos, fDur) / fDur);
-        for (auto anim : fAnims) {
-            anim->seek(time);
-        }
-        return true;
-    }
-
-private:
-    using INHERITED = GM;
-};
-DEF_GM( return new SkottieGM; )
-#endif
-

@@ -16,15 +16,17 @@ from typing import Optional, Union
 import trafaret as t
 
 from datarobot.models.api_object import APIObject
-from datarobot.models.genai.llm_blueprint import LLMSettingsCommonDict, LLMSettingsCustomModelDict
+from datarobot.models.genai.llm_blueprint import (
+    LLMSettingsAgenticWorkflowCustomModelDict,
+    LLMSettingsCommonDict,
+    LLMSettingsCustomModelDict,
+)
 
-synthetic_dataset_generation_response_trafaret = t.Dict(
-    {
-        t.Key("dataset_id"): t.String,
-        t.Key("prompt_column_name"): t.String,
-        t.Key("response_column_name"): t.String,
-    }
-).ignore_extra("*")
+synthetic_dataset_generation_response_trafaret = t.Dict({
+    t.Key("dataset_id"): t.String,
+    t.Key("prompt_column_name"): t.String,
+    t.Key("response_column_name"): t.String,
+}).ignore_extra("*")
 
 
 class SyntheticEvaluationDataset(APIObject):
@@ -51,7 +53,9 @@ class SyntheticEvaluationDataset(APIObject):
         cls,
         llm_id: str,
         vector_database_id: str,
-        llm_settings: Optional[Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict]] = None,
+        llm_settings: Optional[
+            Union[LLMSettingsCommonDict, LLMSettingsCustomModelDict, LLMSettingsAgenticWorkflowCustomModelDict]
+        ] = None,
         dataset_name: Optional[str] = None,
         language: Optional[str] = None,
     ) -> SyntheticEvaluationDataset:

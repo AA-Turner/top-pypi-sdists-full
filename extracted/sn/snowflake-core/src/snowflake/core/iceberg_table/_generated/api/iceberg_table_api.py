@@ -507,7 +507,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table"]:
+        if _params["iceberg_table"] is not None:
             _body_params = _params["iceberg_table"]
 
         # set the HTTP header `Accept`
@@ -879,7 +879,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_as_select"]:
+        if _params["iceberg_table_as_select"] is not None:
             _body_params = _params["iceberg_table_as_select"]
 
         # set the HTTP header `Accept`
@@ -1322,7 +1322,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_like"]:
+        if _params["iceberg_table_like"] is not None:
             _body_params = _params["iceberg_table_like"]
 
         # set the HTTP header `Accept`
@@ -1645,7 +1645,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_from_aws_glue_catalog"]:
+        if _params["iceberg_table_from_aws_glue_catalog"] is not None:
             _body_params = _params["iceberg_table_from_aws_glue_catalog"]
 
         # set the HTTP header `Accept`
@@ -1967,7 +1967,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_from_delta"]:
+        if _params["iceberg_table_from_delta"] is not None:
             _body_params = _params["iceberg_table_from_delta"]
 
         # set the HTTP header `Accept`
@@ -2290,7 +2290,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_from_iceberg_files"]:
+        if _params["iceberg_table_from_iceberg_files"] is not None:
             _body_params = _params["iceberg_table_from_iceberg_files"]
 
         # set the HTTP header `Accept`
@@ -2613,7 +2613,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_from_iceberg_rest"]:
+        if _params["iceberg_table_from_iceberg_rest"] is not None:
             _body_params = _params["iceberg_table_from_iceberg_rest"]
 
         # set the HTTP header `Accept`
@@ -3056,7 +3056,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["iceberg_table_clone"]:
+        if _params["iceberg_table_clone"] is not None:
             _body_params = _params["iceberg_table_clone"]
 
         # set the HTTP header `Accept`
@@ -3390,7 +3390,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["convert_to_managed_iceberg_table_request"]:
+        if _params["convert_to_managed_iceberg_table_request"] is not None:
             _body_params = _params["convert_to_managed_iceberg_table_request"]
 
         # set the HTTP header `Accept`
@@ -4762,7 +4762,7 @@ class IcebergTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["refresh_iceberg_table_request"]:
+        if _params["refresh_iceberg_table_request"] is not None:
             _body_params = _params["refresh_iceberg_table_request"]
 
         # set the HTTP header `Accept`

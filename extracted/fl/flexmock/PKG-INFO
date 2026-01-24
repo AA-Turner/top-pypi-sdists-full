@@ -1,24 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flexmock
-Version: 0.12.2
+Version: 0.13.0
 Summary: flexmock is a testing library for Python that makes it easy to create mocks, stubs and fakes.
-Home-page: https://github.com/flexmock/flexmock
 License: BSD-2-Clause
+License-File: LICENSE
 Keywords: mock,testing,test,unittest,pytest
 Author: Slavek Kabrda
 Maintainer: Adarsh Krishnan
 Maintainer-email: adarshk7@gmail.com
-Requires-Python: >=3.8.0,<4.0.0
+Requires-Python: >=3.10.0,<4.0.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
@@ -70,7 +69,7 @@ Flexmock is a testing library for Python that makes it easy to create mocks, stu
 - **Simple and intuitive**: Declarations are structured to read more like English sentences than API calls, so they are easy to learn and use.
 - **Fully type annotated**: External API is fully type annotated so it works great with static analysis tools and editor auto-completion.
 - **Integrations with test runners**: Integrates seamlessly with all major test runners like unittest, doctest, and pytest.
-- **Python 3.8+ and PyPy3**: Extensively tested to work with latest Python versions.
+- **Python 3.10+ and PyPy3**: Extensively tested to work with latest Python versions.
 
 ## Installation
 

@@ -7,67 +7,41 @@
 
 #include "src/gpu/ganesh/vk/GrVkSamplerYcbcrConversion.h"
 
+#include "include/gpu/vk/VulkanTypes.h"
+#include "include/private/base/SkAssert.h"
+#include "src/gpu/ganesh/vk/GrVkCaps.h"
 #include "src/gpu/ganesh/vk/GrVkGpu.h"
+#include "src/gpu/ganesh/vk/GrVkUtil.h"
+#include "src/gpu/vk/VulkanUtilsPriv.h"
 
 GrVkSamplerYcbcrConversion* GrVkSamplerYcbcrConversion::Create(
-        GrVkGpu* gpu, const GrVkYcbcrConversionInfo& info) {
+        GrVkGpu* gpu, const skgpu::VulkanYcbcrConversionInfo& info) {
     if (!gpu->vkCaps().supportsYcbcrConversion()) {
         return nullptr;
     }
 
-#ifdef SK_DEBUG
-    const VkFormatFeatureFlags& featureFlags = info.fFormatFeatures;
-    if (info.fXChromaOffset == VK_CHROMA_LOCATION_MIDPOINT ||
-        info.fYChromaOffset == VK_CHROMA_LOCATION_MIDPOINT) {
-        SkASSERT(featureFlags & VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT);
-    }
-    if (info.fXChromaOffset == VK_CHROMA_LOCATION_COSITED_EVEN ||
-        info.fYChromaOffset == VK_CHROMA_LOCATION_COSITED_EVEN) {
-        SkASSERT(featureFlags & VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT);
-    }
-    if (info.fChromaFilter == VK_FILTER_LINEAR) {
-        SkASSERT(featureFlags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT);
-    }
-    if (info.fForceExplicitReconstruction) {
-        SkASSERT(featureFlags &
-                 VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT);
-    }
-#endif
-
-
     VkSamplerYcbcrConversionCreateInfo ycbcrCreateInfo;
-    ycbcrCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO;
-    ycbcrCreateInfo.pNext = nullptr;
-    ycbcrCreateInfo.format = info.fFormat;
-    ycbcrCreateInfo.ycbcrModel = info.fYcbcrModel;
-    ycbcrCreateInfo.ycbcrRange = info.fYcbcrRange;
-
-    // Components is ignored for external format conversions. For all other formats identity swizzle
-    // is used. It can be added to GrVkYcbcrConversionInfo if necessary.
-    ycbcrCreateInfo.components = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
-                                  VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
-    ycbcrCreateInfo.xChromaOffset = info.fXChromaOffset;
-    ycbcrCreateInfo.yChromaOffset = info.fYChromaOffset;
-    ycbcrCreateInfo.chromaFilter = info.fChromaFilter;
-    ycbcrCreateInfo.forceExplicitReconstruction = info.fForceExplicitReconstruction;
+    std::optional<VkFilter> requiredSamplerFilter;
+    info.toVkSamplerYcbcrConversionCreateInfo(&ycbcrCreateInfo, &requiredSamplerFilter);
 
 #ifdef SK_BUILD_FOR_ANDROID
     VkExternalFormatANDROID externalFormat;
-    if (info.fExternalFormat) {
+    if (info.hasExternalFormat()) {
         // Format must not be specified for external images.
-        SkASSERT(info.fFormat == VK_FORMAT_UNDEFINED);
+        SkASSERT(info.format() == VK_FORMAT_UNDEFINED);
         externalFormat.sType = VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID;
         externalFormat.pNext = nullptr;
-        externalFormat.externalFormat = info.fExternalFormat;
+        externalFormat.externalFormat = info.externalFormat();
+        SkASSERT(ycbcrCreateInfo.pNext == nullptr);
         ycbcrCreateInfo.pNext = &externalFormat;
     }
 #else
-    // External images are supported only on Android;
-    SkASSERT(!info.fExternalFormat);
+    // External images are supported only on Android.
+    SkASSERT(!info.hasExternalFormat());
 #endif
 
-    if (!info.fExternalFormat) {
-        SkASSERT(info.fFormat != VK_FORMAT_UNDEFINED);
+    if (!info.hasExternalFormat()) {
+        SkASSERT(info.format() != VK_FORMAT_UNDEFINED);
     }
 
     VkSamplerYcbcrConversion conversion;
@@ -78,7 +52,8 @@ GrVkSamplerYcbcrConversion* GrVkSamplerYcbcrConversion::Create(
         return nullptr;
     }
 
-    return new GrVkSamplerYcbcrConversion(gpu, conversion, GenerateKey(info));
+    return new GrVkSamplerYcbcrConversion(
+            gpu, conversion, requiredSamplerFilter, GenerateKey(info));
 }
 
 void GrVkSamplerYcbcrConversion::freeGPUData() const {
@@ -88,26 +63,38 @@ void GrVkSamplerYcbcrConversion::freeGPUData() const {
 }
 
 GrVkSamplerYcbcrConversion::Key GrVkSamplerYcbcrConversion::GenerateKey(
-        const GrVkYcbcrConversionInfo& ycbcrInfo) {
-    SkASSERT(static_cast<int>(ycbcrInfo.fYcbcrModel <= 7));
+        const skgpu::VulkanYcbcrConversionInfo& ycbcrInfo) {
+    SkASSERT(static_cast<int>(ycbcrInfo.model() <= 7));
     static const int kRangeShift = 3;
-    SkASSERT(static_cast<int>(ycbcrInfo.fYcbcrRange) <= 1);
+    SkASSERT(static_cast<int>(ycbcrInfo.range()) <= 1);
     static const int kXChromaOffsetShift = kRangeShift + 1;
-    SkASSERT(static_cast<int>(ycbcrInfo.fXChromaOffset) <= 1);
+    SkASSERT(static_cast<int>(ycbcrInfo.xChromaOffset()) <= 1);
     static const int kYChromaOffsetShift = kXChromaOffsetShift + 1;
-    SkASSERT(static_cast<int>(ycbcrInfo.fXChromaOffset) <= 1);
+    SkASSERT(static_cast<int>(ycbcrInfo.yChromaOffset()) <= 1);
     static const int kChromaFilterShift = kYChromaOffsetShift + 1;
-    SkASSERT(static_cast<int>(ycbcrInfo.fChromaFilter) <= 1);
+    SkASSERT(static_cast<int>(ycbcrInfo.chromaFilter()) <= 1);
     static const int kReconShift = kChromaFilterShift + 1;
-    SkASSERT(static_cast<int>(ycbcrInfo.fForceExplicitReconstruction) <= 1);
-    static_assert(kReconShift <= 7);
+    SkASSERT(static_cast<int>(ycbcrInfo.forceExplicitReconstruction()) <= 1);
+    static const int kCompRShift = kReconShift + 1;
+    static const int kCompGShift = kCompRShift + 3;
+    static const int kCompBShift = kCompGShift + 3;
+    static const int kCompAShift = kCompBShift + 3;
+    SkASSERT(static_cast<int>(ycbcrInfo.components().r <= 6) &&
+             static_cast<int>(ycbcrInfo.components().g <= 6) &&
+             static_cast<int>(ycbcrInfo.components().b <= 6) &&
+             static_cast<int>(ycbcrInfo.components().a <= 6));
+    static_assert(kCompAShift <= 17);
 
-    uint8_t ycbcrKey = static_cast<uint8_t>(ycbcrInfo.fYcbcrModel);
-    ycbcrKey |= (static_cast<uint8_t>(ycbcrInfo.fYcbcrRange) << kRangeShift);
-    ycbcrKey |= (static_cast<uint8_t>(ycbcrInfo.fXChromaOffset) << kXChromaOffsetShift);
-    ycbcrKey |= (static_cast<uint8_t>(ycbcrInfo.fYChromaOffset) << kYChromaOffsetShift);
-    ycbcrKey |= (static_cast<uint8_t>(ycbcrInfo.fChromaFilter) << kChromaFilterShift);
-    ycbcrKey |= (static_cast<uint8_t>(ycbcrInfo.fForceExplicitReconstruction) << kReconShift);
+    uint32_t ycbcrKey = static_cast<uint32_t>(ycbcrInfo.model());
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.range()) << kRangeShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.xChromaOffset()) << kXChromaOffsetShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.yChromaOffset()) << kYChromaOffsetShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.chromaFilter()) << kChromaFilterShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.forceExplicitReconstruction()) << kReconShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.components().r) << kCompRShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.components().g) << kCompGShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.components().b) << kCompBShift);
+    ycbcrKey |= (static_cast<uint32_t>(ycbcrInfo.components().a) << kCompAShift);
 
-    return Key{ycbcrInfo.fFormat, ycbcrInfo.fExternalFormat, ycbcrKey};
+    return Key{ycbcrInfo.format(), ycbcrInfo.externalFormat(), ycbcrKey};
 }

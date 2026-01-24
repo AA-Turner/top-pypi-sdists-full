@@ -1,10 +1,13 @@
+#![allow(deprecated, reason = "arrow2 migration")]
 mod batch;
+mod batch_file_writer;
+mod csv_writer;
 mod file;
 mod ipc;
 mod json_writer;
 mod parquet_writer;
 mod partition;
-mod physical;
+pub mod physical;
 mod storage_backend;
 #[cfg(test)]
 mod test;
@@ -49,6 +52,11 @@ pub use sink::make_data_sink_writer_factory;
 
 pub const RETURN_PATHS_COLUMN_NAME: &str = "path";
 
+pub struct WriteResult {
+    pub bytes_written: usize,
+    pub rows_written: usize,
+}
+
 /// This trait is used to abstract the writing of data to a file.
 ///
 /// The `Input` type is the type of data that will be written to the file.
@@ -59,7 +67,7 @@ pub trait AsyncFileWriter: Send + Sync {
     type Result;
 
     /// Write data to the file, returning the number of bytes written.
-    async fn write(&mut self, data: Self::Input) -> DaftResult<usize>;
+    async fn write(&mut self, data: Self::Input) -> DaftResult<WriteResult>;
 
     /// Close the file and return the result. The caller should NOT write to the file after calling this method.
     async fn close(&mut self) -> DaftResult<Self::Result>;
@@ -180,8 +188,8 @@ pub fn make_ipc_writer(
     compression: Option<&str>,
 ) -> DaftResult<Box<dyn AsyncFileWriter<Input = Arc<MicroPartition>, Result = Vec<RecordBatch>>>> {
     let compression = match compression {
-        Some("lz4") => Some(arrow2::io::ipc::write::Compression::LZ4),
-        Some("zstd") => Some(arrow2::io::ipc::write::Compression::ZSTD),
+        Some("lz4") => Some(arrow_ipc::CompressionType::LZ4_FRAME),
+        Some("zstd") => Some(arrow_ipc::CompressionType::ZSTD),
         Some(c) => {
             return Err(DaftError::ValueError(format!(
                 "Unsupported compression for ipc writer: {}, only lz4 and zstd are supported",

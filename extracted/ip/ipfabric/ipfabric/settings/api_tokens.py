@@ -49,7 +49,7 @@ class APIToken(BaseModel):
     def _check_roles(self, role_ids: list, role_names: list):
         if not role_names and not role_ids:
             raise SyntaxError("No Role Ids or Names provided.")
-        checked_roles = list()
+        checked_roles = []
         for role in role_ids:
             if str(role) in self.client.settings.roles.roles_by_id:
                 checked_roles.append(str(role))
@@ -69,11 +69,11 @@ class APIToken(BaseModel):
         role_names: Optional[list] = None,
         expires: Optional[Union[str, int]] = None,
     ):
-        payload = dict(
-            description=descr,
-            expires=int(date_parser(expires).timestamp() * 1000) if expires else None,
-            roleIds=self._check_roles(role_ids or list(), role_names or list()),
-        )
+        payload = {
+            "description": descr,
+            "expires": int(date_parser(expires).timestamp() * 1000) if expires else None,
+            "roleIds": self._check_roles(role_ids or [], role_names or []),
+        }
         res = raise_for_status(self.client.post("api-tokens", json=payload))
         return Token(**res.json())
 

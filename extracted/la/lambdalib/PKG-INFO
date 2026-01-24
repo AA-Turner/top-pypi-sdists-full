@@ -1,0 +1,104 @@
+Metadata-Version: 2.4
+Name: lambdalib
+Version: 0.8.0
+Summary: Standardized ASIC design libraries
+Author: Zero ASIC
+License: MIT License
+        
+        Copyright (c) 2023 Zero ASIC Corporation
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Project-URL: Homepage, https://github.com/siliconcompiler/lambdalib
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: siliconcompiler>=0.35.0
+Requires-Dist: Jinja2>=3.1.3
+Provides-Extra: test
+Requires-Dist: pytest==9.0.2; extra == "test"
+Requires-Dist: pytest-xdist==3.8.0; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: cocotb==2.0.1; extra == "test"
+Requires-Dist: cocotb-bus==0.3.0; extra == "test"
+Provides-Extra: cocotb
+Requires-Dist: cocotb==2.0.1; extra == "cocotb"
+Requires-Dist: cocotb-bus==0.3.0; extra == "cocotb"
+Provides-Extra: lint
+Requires-Dist: flake8==7.3.0; extra == "lint"
+Requires-Dist: codespell==2.4.1; extra == "lint"
+Dynamic: license-file
+
+# Lambdalib Introduction
+
+Lambdalib is a modular hardware abstraction library which decouples design from the manufacturing target. The project was inspired by the `Lambda` concept invented during the [1978 VLSI revolution by Mead and Conway](https://en.wikipedia.org/wiki/Mead%E2%80%93Conway_VLSI_chip_design_revolution).
+
+The original single value Lambda approach no longer applies to modern CMOS manufacturing, so Lambdalib has raised the abstraction level to the cell/block level to enable automated porting between compilation targets.
+
+Lambdalib abstracts away technology specific design modules that cannot be cleanly expressed in technology agnostic RTL Verilog code (eg. synchronizers, analog circuits, io cells, etc.)
+
+The table below summarizes the categories of cells available.
+
+| Category                        | Description                           |
+|---------------------------------|---------------------------------------|
+|[stdlib](lambdalib/stdlib)       | Standard cells (inv, nand, ff, ...)
+|[auxlib](lambdalib/auxlib)       | Special cells (antenna, decap, clkmux,...)
+|[ramlib](lambdalib/ramlib)       | Memory (single port, dual port, fifo, ...)
+|[iolib](lambdalib/iolib)         | IO cells (bidir, vdd, clamp,...)
+|[padring](lambdalib/padring)     | Padring generator
+|[veclib](lambdalib/veclib)       | Vectorized datapath cells (mux, buf,..)
+|[fpgalib](lambdalib/fpgalib)     | FPGA cells (lut4, ble, clb)
+
+The [Lambdapdk](https://github.com/siliconcompiler/lambdapdk) repository demonstrates implementation of the Lambdalib interfaces across a number of open source process technologies.
+
+Lambdalib has been successfully used in multiple tapeouts using [SiliconCompiler](https://github.com/siliconcompiler/siliconcompiler).
+
+# Installation
+
+```bash
+git clone https://github.com/zeroasiccorp/lambdalib
+cd lambdalib
+pip install --upgrade pip
+pip install -e .
+```
+
+# Examples
+
+## Instantiating a Lambdalib module
+
+This example shows how to instantiate the Padring module in a top level chip design.
+We could have chosen any module to instantiate (inverter, flip flop, dual port ram...).
+
+
+```python
+```
+
+To convert the design into a gate level netlist using yosys, just run python script
+in the examples folder. A file `chip.vg` will be written to disk in the run directory.
+
+```bash
+$ python examples/padring/make.py
+```
+
+## Using SiliconCompiler to target a technology
+
+```python
+```
+
+
+# Project Methodology
+
+- One verilog module per RTL file
+- One Python module per reusable module
+- Class names are RTL module names with "la_" removed and capitalized
+
+# License
+
+[MIT](LICENSE)
+
+# Issues / Bugs
+
+We use [GitHub Issues](https://github.com/siliconcompiler/lambdalib/issues) for tracking requests and bugs.

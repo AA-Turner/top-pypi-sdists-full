@@ -1,0 +1,208 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "testarchiver"
+dynamic = []
+description = "Tools for serialising test results to SQL database"
+authors = [
+    { name = "Tommi Oinonen", email = "tommi.oinonen@siili.com" },
+]
+dependencies = [
+    "psycopg2-binary>=2.8.5",
+]
+requires-python = ">=3.9"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Testing",
+]
+version = "4.1.0"
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Homepage = "https://github.com/salabs/TestArchiver"
+Repository = "https://github.com/salabs/TestArchiver"
+Issues = "https://github.com/salabs/TestArchiver/issues"
+
+[project.scripts]
+testarchiver = "test_archiver.output_parser:main"
+testarchive_schematool = "test_archiver.database:main"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.version]
+source = "scm"
+write_to = "test_archiver/version.txt"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pylint>=3.2.7",
+    "setuptools>=75.3.2",
+    "pytest-cov>=6.2.1",
+    "robotframework==7.*",
+]
+
+[tool.pdm.scripts]
+lint = "pylint src/"
+
+[tool.pdm.scripts.echo]
+help = "Echo some message"
+cmd = "echo"
+
+[tool.pdm.scripts.utest]
+help = "Run unit tests"
+cmd = [
+    "pytest",
+    "--cov-report=term",
+    "--cov=test_archiver",
+    "tests/unit/",
+    "--junit-xml=unittest_output.xml",
+]
+
+[tool.pdm.scripts.itest]
+help = "Run integration tests parsing results to databases"
+cmd = "pytest tests/integration/"
+
+[tool.pdm.scripts.check_code]
+composite = [
+    "lint",
+    "utest",
+    "echo 'All code validations passed'",
+]
+
+[tool.pdm.scripts.check_fixture_config]
+help = "Check fixture config json works"
+cmd = "testarchive_schematool --config {args:fixture_config_sqlite.json}"
+
+[tool.pdm.scripts.robot_fixture_run_with_listener]
+help = "Populate robot fixture archive using RobotListener"
+cmd = [
+    "robot",
+    "--listener",
+    "test_archiver.ArchiverRobotListener:{args:fixture_config_sqlite.json}",
+    "--pythonpath",
+    "robot_tests/libraries:robot_tests/resources:src/",
+    "--outputdir",
+    "robot_tests/listener",
+    "--metadata",
+    "team:TestArchiver",
+    "--metadata",
+    "series:RobotListener",
+    "--metadata",
+    "series2:Fixture",
+    "--include=variables",
+    "--exclude",
+    "sleep",
+    "--nostatusrc",
+    "--console=none",
+    "robot_tests/tests",
+]
+
+[tool.pdm.scripts.robot_listener_parse]
+help = "Populate robot fixture archive by parsing last fixture suite output"
+cmd = [
+    "testarchiver",
+    "robot_tests/listener/output.xml",
+    "--config {args:fixture_config_sqlite.json}",
+    "--repository",
+    "TestArchiver",
+    "--team",
+    "TestArchiver",
+    "--series",
+    "Parser",
+    "--series",
+    "Fixture",
+]
+
+[tool.pdm.scripts.robot_fixture_run]
+help = "Run robot fixture suite"
+cmd = [
+    "robot",
+    "--console=none",
+    "--pythonpath",
+    "robot_tests/libraries:robot_tests/resources",
+    "--outputdir",
+    "robot_tests/normal",
+    "--exclude",
+    "sleep",
+    "--nostatusrc",
+    "robot_tests/tests",
+]
+
+[tool.pdm.scripts.robot_fixture_parse]
+help = "Populate robot fixture archive by parsing last fixture suite output"
+cmd = [
+    "testarchiver",
+    "robot_tests/normal/output.xml",
+    "--config {args:fixture_config_sqlite.json}",
+    "--repository",
+    "TestArchiver",
+    "--team",
+    "TestArchiver",
+    "--series",
+    "Parser",
+    "--series",
+    "Fixture",
+]
+
+[tool.pdm.scripts.robot_fixture_populate]
+help = "Populate full robot fixture archive with 10 builds"
+composite = [
+    "check_fixture_config {args:fixture_config_sqlite.json}",
+    "robot_fixture_run_with_listener {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "robot_fixture_run",
+    "robot_fixture_parse {args:fixture_config_sqlite.json}",
+    "echo 'Fixture archive populated'",
+]
+
+[tool.pdm.scripts.pytest_fixture_run]
+help = "Run pytest fixture"
+cmd = "python pytest/fixture_runner.py"
+
+[tool.pdm.scripts.pytest_fixture_parse]
+help = "Parse pytest fixture output"
+cmd = [
+    "testarchiver",
+    "pytest/pytest_fixture_output.xml",
+    "--format",
+    "pytest-junit",
+    "--config {args:fixture_config_sqlite.json}",
+    "--repository",
+    "pytest",
+    "--team",
+    "TestArchiver",
+    "--series",
+    "pytest",
+]
+
+[tool.pdm.scripts.pytest_fixture_populate]
+help = "Populate pytest fixture archive"
+composite = [
+    "pytest_fixture_run",
+    "pytest_fixture_parse {args:fixture_config_sqlite.json}",
+]

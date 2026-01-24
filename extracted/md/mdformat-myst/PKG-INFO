@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: mdformat_myst
-Version: 0.2.2
+Version: 0.3.0
 Summary: Mdformat plugin for MyST compatibility.
 Home-page: https://github.com/hukkinj1/mdformat-myst
 Keywords: mdformat,markdown,formatter,gfm
 Author: Taneli Hukkinen
 Maintainer: Executable Book Project
 Maintainer-email: executablebooks@gmail.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License: MIT
 Classifier: Intended Audience :: Developers
@@ -17,14 +17,13 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
 Requires-Dist: mdformat >=0.7.0
 Requires-Dist: mdit-py-plugins >=0.3.0
-Requires-Dist: mdformat-tables >=0.4.0
-Requires-Dist: mdformat-frontmatter >=0.3.2
+Requires-Dist: mdformat-front-matters >= 1.0.0
 Requires-Dist: mdformat-footnote >=0.1.1
+Requires-Dist: mdformat-gfm >=1.0.0
 Requires-Dist: ruamel.yaml >=0.16.0
 Requires-Dist: pre-commit ; extra == "dev"
-Requires-Dist: pytest ; extra == "test"
-Requires-Dist: coverage ; extra == "test"
-Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: pytest>=8.0.0 ; extra == "test"
+Requires-Dist: pytest-cov>=7.0.0 ; extra == "test"
 Provides-Extra: dev
 Provides-Extra: test
 
@@ -68,7 +67,7 @@ pip install mdformat-myst
 mdformat <filename>
 ```
 
-[ci-badge]: https://github.com/executablebooks/mdformat-myst/workflows/Tests/badge.svg?branch=master
+[ci-badge]: https://github.com/executablebooks/mdformat-myst/actions/workflows/tests.yml/badge.svg?branch=master
 [ci-link]: https://github.com/executablebooks/mdformat-myst/actions?query=workflow%3ATest+branch%3Amaster+event%3Apush
 [codecov-badge]: https://codecov.io/gh/executablebooks/mdformat-myst/branch/master/graph/badge.svg
 [codecov-link]: https://codecov.io/gh/executablebooks/mdformat-myst

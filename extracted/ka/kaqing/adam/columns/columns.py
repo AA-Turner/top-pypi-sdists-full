@@ -1,6 +1,7 @@
 from adam.columns.column import Column
 from adam.columns.compactions import Compactions
 from adam.columns.cpu import Cpu
+from adam.columns.cpu_metrics import CpuMetrics
 from adam.columns.dir_data import DataDir
 from adam.columns.dir_snapshots import SnapshotsDir
 from adam.columns.gossip import Gossip
@@ -23,7 +24,7 @@ class Columns:
     COLUMNS_BY_NAME = None
 
     def all_columns():
-        return [Compactions(), Cpu(), DataDir(), SnapshotsDir(), Gossip(), HostId(), Memory(),
+        return [Compactions(), Cpu(), CpuMetrics(), DataDir(), SnapshotsDir(), Gossip(), HostId(), Memory(),
                 NodeAddress(), NodeLoad(), NodeOwns(), NodeStatus(),NodeTokens(), PodName(), CassandraVolume(), RootVolume()]
 
     def columns_by_name():
@@ -38,6 +39,7 @@ class Columns:
             name = name.strip(' ')
             if not name in Columns.COLUMNS_BY_NAME:
                 return None
+
             cols.append(Columns.COLUMNS_BY_NAME[name]())
 
         return cols

@@ -1,10 +1,10 @@
 Metadata-Version: 2.3
 Name: diff_cover
-Version: 9.7.0
+Version: 10.2.0
 Summary: Run coverage and linting reports on diffs
 License: Apache-2.0
 Author: See Contributors
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -12,11 +12,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
@@ -87,7 +87,7 @@ To install the latest release:
 
 .. code:: bash
 
-    pip install diff_cover
+    pip install diff-cover
 
 
 To install the development version:
@@ -250,6 +250,18 @@ You can then run ``diff-cover`` with the diff file as an argument:
 .. code:: bash
 
     diff-cover coverage.xml --diff-file=diff.txt
+
+Total Percent Formatting
+------------------------
+
+By default, ``diff-cover`` and ``diff-quality`` round the total coverage/quality
+percentage to an integer. To keep up to two decimal places, use
+``--total-percent-float``:
+
+.. code:: bash
+
+    diff-cover coverage.xml --total-percent-float
+    diff-quality --violations=pycodestyle --total-percent-float
 
 Fail Under
 ----------

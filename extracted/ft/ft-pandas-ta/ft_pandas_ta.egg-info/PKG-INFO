@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ft-pandas-ta
-Version: 0.3.15
+Version: 0.3.16
 Summary: An easy to use Python 3 Pandas Extension with 130+ Technical Analysis Indicators. Can be called from a Pandas DataFrame or standalone like TA-Lib. Correlation tested with TA-Lib.
 Home-page: https://github.com/freqtrade/pandas-ta
 Download-URL: https://github.com/freqtrade/pandas-ta.git

@@ -1,91 +1,87 @@
-[tool.poetry]
-name = "langchain-astradb"
-version = "0.6.1"
-description = "An integration package connecting Astra DB and LangChain"
-authors = []
-readme = "README.md"
-repository = "https://github.com/langchain-ai/langchain-datastax"
-license = "MIT"
-
-[tool.poetry.urls]
-"Source Code" = "https://github.com/langchain-ai/langchain-datastax/tree/main/libs/astradb"
-
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-langchain-core = ">=0.3.74,<1.0.0"
-numpy = [
-  { version = ">=1.21", python = ">=3.10,<3.12" },
-  { version = ">=1.26", python = ">=3.12,<3.13" },
-  { version = ">=2.1.0", python = ">=3.13" },
-  { version = ">=1.21,<2.1.0", python = "<3.10" },
+[build-system]
+requires = [
+    "pdm-backend",
 ]
-astrapy = ">=2.0.1,<3.0.0"
+build-backend = "pdm.backend"
 
-[tool.poetry.group.test]
-optional = true
+[project]
+authors = []
+requires-python = ">=3.10.0,<4.0.0"
+dependencies = [
+    "langchain-core<2.0.0,>=0.3.74",
+    "astrapy>=2.0.1,<3.0.0",
+    "numpy>=1.21",
+    "numpy>=1.26; python_version>='3.12'",
+    "numpy>=2.1.0; python_version>='3.13'",
+]
+name = "langchain-astradb"
+version = "1.0.0"
+description = "An integration package connecting Astra DB and LangChain"
+readme = "README.md"
 
-[tool.poetry.group.test.dependencies]
-pytest = "^7.3.0"
-pytest-httpserver = "~1.0.8"
-pytest-dotenv = "^0.5.2"
-freezegun = "^1.2.2"
-pytest-mock = "^3.10.0"
-syrupy = "^4.0.2"
-pytest-watcher = "^0.3.4"
-pytest-asyncio = "^0.21.1"
-langchain = "^0.3.21"
-langchain-tests = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/standard-tests" }
-blockbuster = "^1.2.0"
+[project.license]
+text = "MIT"
 
-[tool.poetry.group.codespell]
-optional = true
+[project.urls]
+"Source Code" = "https://github.com/langchain-ai/langchain-datastax/tree/main/libs/astradb"
+repository = "https://github.com/langchain-ai/langchain-datastax"
 
-[tool.poetry.group.codespell.dependencies]
-codespell = "^2.2.0"
+[dependency-groups]
+lint = [
+    "ruff<0.13,>=0.12.10",
+]
+typing = [
+    "mypy<1.18,>=1.17.1",
+    "simsimd<7.0.0,>=6.5.1",
+]
+test = [
+    "pytest<9,>=8",
+    "pytest-httpserver<1.1,>=1.0.8",
+    "pytest-dotenv<1.0.0,>=0.5.2",
+    "freezegun<2.0.0,>=1.2.2",
+    "pytest-mock<4.0.0,>=3.10.0",
+    "syrupy<5.0.0,>=4.0.2",
+    "pytest-watcher<1.0.0,>=0.3.4",
+    "pytest-asyncio<1.0.0,>=0.21.1",
+    "blockbuster<1.6.0,>=1.5.25",
+]
+test_integration = [
+    "langchain-tests<2.0.0,>=0.3.21",
+]
+codespell = [
+    "codespell<3.0.0,>=2.2.0",
+]
 
-[tool.poetry.group.test_integration]
-optional = true
-
-[tool.poetry.group.test_integration.dependencies]
-
-[tool.poetry.group.lint]
-optional = true
-
-[tool.poetry.group.lint.dependencies]
-ruff = "<0.13,>=0.12.10"
-
-[tool.poetry.group.typing.dependencies]
-mypy = "~=1.17.1"
-simsimd = "^6.5.1"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
-
-[tool.ruff]
-target-version = "py39"
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.ruff.lint]
-pydocstyle.convention = "google"
-pep8-naming.classmethod-decorators = [
-    "langchain_core.pydantic_v1.validator",
+select = [
+    "ALL",
 ]
-flake8-annotations.allow-star-arg-any = true
-flake8-annotations.mypy-init-return = true
-select = ["ALL"]
 ignore = [
-    "COM812", # Messes with the formatter
-    "CPY", # No copyright
-    "D101", # We prefer using the __init__ docstring to document the class
-    "ERA001", # Do we want to activate (no commented code) ?
-    "FIX002", # Accept TODOs
-    "ISC001", # Messes with the formatter
-    "PLR09", # TODO: do we enforce these ones (complexity) ?
-    "TD002", # We have TODOs authors by git
+    "COM812",
+    "CPY",
+    "D101",
+    "ERA001",
+    "FIX002",
+    "ISC001",
+    "PLR09",
+    "TD002",
     "TD003",
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+    "langchain_core.pydantic_v1.validator",
+]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+mypy-init-return = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
@@ -105,39 +101,25 @@ ignore = [
 ]
 
 [tool.mypy]
-plugins = ["pydantic.mypy"]
+plugins = [
+    "pydantic.mypy",
+]
 strict = true
 enable_error_code = "deprecated"
 warn_unreachable = true
-
-# TODO: activate for 'strict' checking
 disallow_any_generics = false
 
-
 [tool.coverage.run]
-omit = ["tests/*"]
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+omit = [
+    "tests/*",
+]
 
 [tool.pytest.ini_options]
-# --strict-markers will raise errors on unknown marks.
-# https://docs.pytest.org/en/7.1.x/how-to/mark.html#raising-errors-on-unknown-marks
-#
-# https://docs.pytest.org/en/7.1.x/reference/reference.html
-# --strict-config       any warnings encountered while parsing the `pytest`
-#                       section of the configuration file raise errors.
-#
-# https://github.com/tophat/syrupy
-# --snapshot-warn-unused    Prints a warning on unused snapshots rather than fail the test suite.
 addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5 -vv"
-# Registering custom markers.
-# https://docs.pytest.org/en/7.1.x/example/markers.html#registering-markers
 markers = [
-  "requires: mark tests as requiring a specific library",
-  "asyncio: mark tests as requiring asyncio",
-  "compile: mark placeholder test used to compile integration tests without running them",
+    "requires: mark tests as requiring a specific library",
+    "asyncio: mark tests as requiring asyncio",
+    "compile: mark placeholder test used to compile integration tests without running them",
 ]
 asyncio_mode = "auto"
 filterwarnings = "ignore::pytest.PytestUnraisableExceptionWarning"

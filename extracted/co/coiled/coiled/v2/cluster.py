@@ -210,6 +210,7 @@ class ClusterKwargs(TypedDict, total=False):
     scheduler_sidecars: list[dict] | None
     worker_sidecars: list[dict] | None
     pause_on_exit: bool | None
+    filestores_to_attach: list[dict] | None
 
 
 class Cluster(DistributedCluster, Generic[IsAsynchronous]):
@@ -478,6 +479,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         Like ``scheduler_sidecars``, but run on worker VMs instead of scheduler.
     pause_on_exit
         Pause the cluster instead of shutting it down when exiting.
+    filestores_to_attach
+        List of filestores to attach (specified as ``{"id": id, "input": True, "output": True}``, not name).
     """
 
     _instances = weakref.WeakSet()
@@ -495,7 +498,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         worker_vm_types: list | None = None,
         worker_cpu: Union[int, List[int]] | None = None,
         worker_memory: Union[str, List[str]] | None = None,
-        worker_disk_size: Union[int, str] | None = None,
+        worker_disk_size: int | str | None = None,
         worker_disk_throughput: int | None = None,
         worker_disk_config: dict | None = None,
         worker_gpu: Union[int, bool] | None = None,
@@ -504,7 +507,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         scheduler_vm_types: list | None = None,
         scheduler_cpu: Union[int, List[int]] | None = None,
         scheduler_memory: Union[str, List[str]] | None = None,
-        scheduler_disk_size: int | None = None,
+        scheduler_disk_size: int | str | None = None,
         scheduler_disk_config: dict | None = None,
         scheduler_gpu: bool | None = None,
         asynchronous: bool = False,
@@ -563,6 +566,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         scheduler_sidecars: list[dict] | None = None,
         worker_sidecars: list[dict] | None = None,
         pause_on_exit: bool | None = None,
+        filestores_to_attach: list[dict] | None = None,
     ):
         self.pause_on_exit = pause_on_exit
         self.init_time = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -707,7 +711,6 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                 "distributed",
                 "msgpack-python",
                 "msgpack",
-                "pip",
                 "python",
                 "tornado",
             ))
@@ -1006,6 +1009,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         self.no_client_timeout = (
             no_client_timeout if no_client_timeout != NO_CLIENT_DEFAULT else (idle_timeout or "2 minutes")
         )
+
+        self.filestores_to_attach = filestores_to_attach
 
         if not self.asynchronous:
             # If we don't close the cluster, the user's ipython session gets spammed with
@@ -1617,6 +1622,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     worker_sidecars=self.worker_sidecars,
                     host_setup_script_content=self.host_setup_script_content,
                     pause_on_exit=self.pause_on_exit,
+                    filestores_to_attach=self.filestores_to_attach,
                     cluster_timeout_seconds=self.cluster_timeout_seconds,
                 )
                 cluster_created = not cluster_existed

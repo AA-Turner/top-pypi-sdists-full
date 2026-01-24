@@ -1,37 +1,27 @@
 Metadata-Version: 2.4
-Name: pandas_flavor
-Version: 0.7.0
-Summary: The easy way to write your own Pandas flavor.
-Home-page: https://github.com/Zsailer/pandas_flavor
-Author: Zach Sailer
-Author-email: zachsailer@gmail.com
+Name: pandas-flavor
+Version: 0.8.1
+Summary: The easy way to write your own Pandas flavor
+Author-email: Zach Sailer <zachsailer@gmail.com>
 License: MIT
+Project-URL: Homepage, https://github.com/pyjanitor-devs/pandas_flavor
+Project-URL: Repository, https://github.com/pyjanitor-devs/pandas_flavor
+Project-URL: Issues, https://github.com/pyjanitor-devs/pandas_flavor/issues
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pandas>=0.23
 Requires-Dist: xarray
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
-
 
 # Pandas Flavor
 **The easy way to write your own flavor of Pandas**
@@ -58,7 +48,7 @@ Maybe you want to add new write methods to the Pandas DataFrame? Maybe you want 
 
 ## Register accessors
 
-Accessors (in pandas) are objects attached to a attribute on the Pandas DataFrame/Series
+Accessors (in pandas) are objects attached to an attribute on the Pandas DataFrame/Series
 that provide extra, specific functionality. For example, `pandas.DataFrame.plot` is an
 accessor that provides plotting functionality.
 
@@ -96,7 +86,7 @@ df = pd.DataFrame(data={
 # Print DataFrame
 print(df)
 
-# x  y
+#     x  y
 # 0  10  0
 # 1  20  2
 # 2  25  5
@@ -143,7 +133,7 @@ df = pd.DataFrame(data={
 # Print DataFrame
 print(df)
 
-# x  y
+#     x  y
 # 0  10  0
 # 1  20  2
 # 2  25  5

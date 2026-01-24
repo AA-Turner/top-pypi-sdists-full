@@ -47,8 +47,6 @@ def test_serialize_workflow():
 
     # AND its raw data should be what we expect
     workflow_raw_data = serialized_workflow["workflow_raw_data"]
-    assert len(workflow_raw_data["edges"]) == 3
-    assert len(workflow_raw_data["nodes"]) == 4
 
     # AND each node should be serialized correctly
     entrypoint_node = workflow_raw_data["nodes"][0]
@@ -63,12 +61,12 @@ def test_serialize_workflow():
             "source_handle_id": "04da0bb6-5b42-4dd1-a4e4-08f3ab03e1a3",
         },
         "display_data": {
-            "position": {"x": 0.0, "y": -50.0},
+            "position": {"x": 0.0, "y": 0.0},
         },
     }
 
     try_node = workflow_raw_data["nodes"][1]
-    assert try_node["id"] == "1381c078-efa2-4255-89a1-7b4cb742c7fc"
+    assert try_node["id"] == "25cb9a9f-a046-4efc-931f-00248240a02e"
 
 
 def test_serialize_workflow__standalone():

@@ -6,8 +6,9 @@ Copyright 2025 Vlad Emelianov
 
 import logging
 import multiprocessing
+from collections.abc import Generator, Mapping
 from queue import Queue
-from typing import Any, Callable, Generator, Mapping, NamedTuple, TypeVar
+from typing import Any, Callable, NamedTuple, TypeVar
 
 from botocore.client import BaseClient
 from s3transfer.compat import MAXINT as MAXINT
@@ -49,7 +50,7 @@ class GetObjectJob(NamedTuple):
     offset: int
     filename: str
 
-def ignore_ctrl_c() -> Generator[None, None, None]: ...
+def ignore_ctrl_c() -> Generator[None]: ...
 
 class ProcessTransferConfig:
     multipart_threshold: int

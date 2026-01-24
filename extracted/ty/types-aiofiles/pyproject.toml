@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-aiofiles"
-version = "24.1.0.20250822"
+version = "25.1.0.20251011"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for aiofiles"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`aiofiles`](https://github.com/Tinche/aiofiles) package. It can be used by type checkers
 to check code that uses `aiofiles`. This version of
 `types-aiofiles` aims to provide accurate annotations for
-`aiofiles==24.1.*`.
+`aiofiles==25.1.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.404
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.406
 
 It was generated from typeshed commit
-[`ca44e4c45dc40fb47602dc79a3145ba61879add8`](https://github.com/python/typeshed/commit/ca44e4c45dc40fb47602dc79a3145ba61879add8).
+[`d7cf36970fd3433fe821f982591c56043c75a5ba`](https://github.com/python/typeshed/commit/d7cf36970fd3433fe821f982591c56043c75a5ba).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

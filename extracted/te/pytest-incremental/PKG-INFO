@@ -1,0 +1,61 @@
+Metadata-Version: 1.1
+Name: pytest-incremental
+Version: 0.6.0
+Summary: an incremental test runner (pytest plugin)
+Home-page: https://pytest-incremental.readthedocs.io
+Author: Eduardo Naufel Schettino
+Author-email: schettino72@gmail.com
+License: MIT
+Description: .. image:: https://img.shields.io/pypi/v/pytest-incremental.svg
+           :target: https://pypi.python.org/pypi/pytest-incremental
+        
+        .. image:: https://img.shields.io/pypi/pyversions/pytest-incremental.svg
+           :target: https://pypi.python.org/pypi/pytest-incremental
+        
+        .. image:: https://github.com/pytest-dev/pytest-incremental/workflows/test/badge.svg
+           :target: https://github.com/pytest-dev/pytest-incremental/actions?query=workflow%3Atest
+        
+        
+        pytest-incremental
+        ====================
+        
+        an incremental test runner (pytest plug-in)
+        
+        *pytest-incremental* analyses your project structure and file
+        modifications between test-runs
+        to modify the order tests are executed and de-select tests.
+        This allows a much faster feedback for interactive test execution.
+        
+        
+        Project Details
+        ===============
+        
+         - Website & docs - https://pytest-incremental.readthedocs.io
+         - Project code + issue track on github - https://github.com/pytest-dev/pytest-incremental
+         - PyPI - https://pypi.python.org/pypi/pytest-incremental
+         - Discussion group - http://groups.google.co.in/group/python-doit
+        
+        
+        license
+        =======
+        
+        The MIT License
+        Copyright (c) 2015-2021 Eduardo Naufel Schettino
+        
+        see LICENSE file
+        
+Keywords: pytest unittest test
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Testing

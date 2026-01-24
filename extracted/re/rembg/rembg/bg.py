@@ -4,21 +4,28 @@ from enum import Enum
 from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
-import onnxruntime as ort
-from cv2 import (
-    BORDER_DEFAULT,
-    MORPH_ELLIPSE,
-    MORPH_OPEN,
-    GaussianBlur,
-    getStructuringElement,
-    morphologyEx,
-)
+
+try:
+    import onnxruntime as ort  # type: ignore[import-untyped]
+except ImportError:
+    print("No onnxruntime backend found.")
+    print("Please install rembg with CPU or GPU support:")
+    print()
+    print('    pip install "rembg[cpu]"  # for CPU')
+    print('    pip install "rembg[gpu]"  # for NVIDIA/CUDA GPU')
+    print()
+    print(
+        "For more information, see: https://github.com/danielgatis/rembg#installation"
+    )
+    sys.exit(1)
+
 from PIL import Image, ImageOps
 from PIL.Image import Image as PILImage
 from pymatting.alpha.estimate_alpha_cf import estimate_alpha_cf
 from pymatting.foreground.estimate_foreground_ml import estimate_foreground_ml
 from pymatting.util.util import stack_images
-from scipy.ndimage import binary_erosion
+from scipy.ndimage import binary_erosion, gaussian_filter
+from skimage.morphology import disk, opening
 
 from .session_factory import new_session
 from .sessions import sessions, sessions_names
@@ -26,7 +33,7 @@ from .sessions.base import BaseSession
 
 ort.set_default_logger_severity(3)
 
-kernel = getStructuringElement(MORPH_ELLIPSE, (3, 3))
+kernel = disk(1)
 
 
 class ReturnType(Enum):
@@ -159,9 +166,9 @@ def post_process(mask: np.ndarray) -> np.ndarray:
     args:
         mask: Binary Numpy Mask
     """
-    mask = morphologyEx(mask, MORPH_OPEN, kernel)
-    mask = GaussianBlur(mask, (5, 5), sigmaX=2, sigmaY=2, borderType=BORDER_DEFAULT)
-    mask = np.where(mask < 127, 0, 255).astype(np.uint8)  # type: ignore
+    mask = opening(mask, kernel)
+    mask = gaussian_filter(mask.astype(np.float64), sigma=2)
+    mask = np.where(mask < 127, 0, 255).astype(np.uint8)
     return mask
 
 

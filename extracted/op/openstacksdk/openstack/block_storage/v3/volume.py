@@ -49,6 +49,9 @@ class Volume(resource.Resource, metadata.MetadataMixin):
     attachments = resource.Body("attachments", type=list)
     #: The availability zone.
     availability_zone = resource.Body("availability_zone")
+    #: To create a volume from an existing backup, specify the ID of
+    #: the existing volume backup. (since 3.47)
+    backup_id = resource.Body("backup_id")
     #: ID of the consistency group.
     consistency_group_id = resource.Body("consistencygroup_id")
     #: Whether this resource consumes quota or not. Resources that not counted
@@ -109,7 +112,7 @@ class Volume(resource.Resource, metadata.MetadataMixin):
     #: locks, and null means to always use locks. Look at os-brick's
     #: guard_connection context manager. Default=True. (since 3.48)
     shared_targets = resource.Body("shared_targets", type=bool)
-    #: The size of the volume, in GBs.
+    #: The size of the volume, in gibibytes (GiB).
     size = resource.Body("size", type=int)
     #: To create a volume from an existing snapshot, specify the ID of
     #: the existing volume snapshot. If specified, the volume is created

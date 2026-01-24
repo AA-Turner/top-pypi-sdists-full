@@ -97,11 +97,30 @@ class ClusterSpec(SingleBaseClass):
 
     config_file_location: Optional[str] = None
     refresh: Optional[bool] = False
-    export_file_type: Optional[str] = "normal"
+    export_file_type: Optional[str] = None
     node_id: Optional[str] = None
     node_name: Optional[str] = None
+    machine_image_id: Optional[str] = None
+    template_s3_url: Optional[str] = None
+    vm_configuration_file_s3_uri: Optional[str] = None
+    is_capacity_balancing_enabled: Optional[bool] = None
+    controller_id: Optional[str] = None
+    no_of_drives: Optional[int] = None
+    should_recover_single_node: Optional[bool] = False
+    system_requirement_file: Optional[str] = None
+
+    force: Optional[bool] = False
+    reboot: Optional[bool] = False
+    config_parameter_setting_mode: Optional[bool] = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if "storage_nodes" in kwargs and kwargs.get("storage_nodes") is not None:
             self.storage_nodes = [StorageNodeSpec(**x) for x in self.storage_nodes]
+        self.__post_init__()
+
+    def __post_init__(self):
+        if self.export_file_type is not None:
+            self.export_file_type = "".join(
+                word.title() for word in self.export_file_type.split("_")
+            )

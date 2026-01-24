@@ -151,7 +151,7 @@ class EncryptionSpec(pulumi.CustomResource):
 
         To get more information about EncryptionSpec, see:
 
-        * [API documentation](https://cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.locations.encryptionSpec)
+        * [API documentation](https://docs.cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.locations.encryptionSpec)
         * How-to Guides
             * [Official CX Documentation](https://cloud.google.com/dialogflow/cx/docs)
             * [Official ES Documentation](https://cloud.google.com/dialogflow/es/docs)
@@ -164,7 +164,7 @@ class EncryptionSpec(pulumi.CustomResource):
         import pulumi
         import pulumi_gcp as gcp
         import pulumi_std as std
-        import pulumi_time as time
+        import pulumiverse_time as time
 
         project = gcp.organizations.Project("project",
             project_id="my-proj",
@@ -178,7 +178,7 @@ class EncryptionSpec(pulumi.CustomResource):
         dialogflow = gcp.projects.Service("dialogflow",
             project=project.project_id,
             service="dialogflow.googleapis.com")
-        wait_enable_service_api = time.index.Sleep("wait_enable_service_api", create_duration=30s,
+        wait_enable_service_api = time.Sleep("wait_enable_service_api", create_duration="30s",
         opts = pulumi.ResourceOptions(depends_on=[
                 cloudkms,
                 dialogflow,
@@ -187,7 +187,7 @@ class EncryptionSpec(pulumi.CustomResource):
             service="dialogflow.googleapis.com",
             project=project.project_id,
             opts = pulumi.ResourceOptions(depends_on=[wait_enable_service_api]))
-        wait_create_sa = time.index.Sleep("wait_create_sa", create_duration=30s,
+        wait_create_sa = time.Sleep("wait_create_sa", create_duration="30s",
         opts = pulumi.ResourceOptions(depends_on=[gcp_sa]))
         keyring = gcp.kms.KeyRing("keyring",
             name="my-keyring",
@@ -237,7 +237,7 @@ class EncryptionSpec(pulumi.CustomResource):
 
         To get more information about EncryptionSpec, see:
 
-        * [API documentation](https://cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.locations.encryptionSpec)
+        * [API documentation](https://docs.cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.locations.encryptionSpec)
         * How-to Guides
             * [Official CX Documentation](https://cloud.google.com/dialogflow/cx/docs)
             * [Official ES Documentation](https://cloud.google.com/dialogflow/es/docs)
@@ -250,7 +250,7 @@ class EncryptionSpec(pulumi.CustomResource):
         import pulumi
         import pulumi_gcp as gcp
         import pulumi_std as std
-        import pulumi_time as time
+        import pulumiverse_time as time
 
         project = gcp.organizations.Project("project",
             project_id="my-proj",
@@ -264,7 +264,7 @@ class EncryptionSpec(pulumi.CustomResource):
         dialogflow = gcp.projects.Service("dialogflow",
             project=project.project_id,
             service="dialogflow.googleapis.com")
-        wait_enable_service_api = time.index.Sleep("wait_enable_service_api", create_duration=30s,
+        wait_enable_service_api = time.Sleep("wait_enable_service_api", create_duration="30s",
         opts = pulumi.ResourceOptions(depends_on=[
                 cloudkms,
                 dialogflow,
@@ -273,7 +273,7 @@ class EncryptionSpec(pulumi.CustomResource):
             service="dialogflow.googleapis.com",
             project=project.project_id,
             opts = pulumi.ResourceOptions(depends_on=[wait_enable_service_api]))
-        wait_create_sa = time.index.Sleep("wait_create_sa", create_duration=30s,
+        wait_create_sa = time.Sleep("wait_create_sa", create_duration="30s",
         opts = pulumi.ResourceOptions(depends_on=[gcp_sa]))
         keyring = gcp.kms.KeyRing("keyring",
             name="my-keyring",

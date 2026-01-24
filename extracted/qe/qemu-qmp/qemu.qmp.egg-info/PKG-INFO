@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: qemu.qmp
-Version: 0.0.3
+Version: 0.0.5
 Summary: QEMU Monitor Protocol library
 Home-page: https://gitlab.com/qemu-project/python-qemu-qmp
 Author: QEMU Project
@@ -19,30 +19,50 @@ Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Emulators
 Classifier: Typing :: Typed
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
-Provides-Extra: devel
-Provides-Extra: tui
 License-File: LICENSE
 License-File: LICENSE_GPL2
+Provides-Extra: devel
+Requires-Dist: pytest>=5.2.1; extra == "devel"
+Requires-Dist: coverage>=6.1.0; extra == "devel"
+Requires-Dist: flake8>=5.0.4; extra == "devel"
+Requires-Dist: isort>=5.1.2; extra == "devel"
+Requires-Dist: mypy>=1.4.0; extra == "devel"
+Requires-Dist: pylint>=2.17.3; extra == "devel"
+Requires-Dist: setuptools>=66.1.0; python_version >= "3.12" and extra == "devel"
+Requires-Dist: tox>=3.18.0; extra == "devel"
+Requires-Dist: urwid>=2.1.2; extra == "devel"
+Requires-Dist: urwid-readline>=0.13; extra == "devel"
+Requires-Dist: Pygments>=2.9.0; extra == "devel"
+Provides-Extra: tui
+Requires-Dist: urwid>=2.1.2; extra == "tui"
+Requires-Dist: urwid-readline>=0.13; extra == "tui"
+Requires-Dist: Pygments>=2.9.0; extra == "tui"
+Provides-Extra: build-docs
+Requires-Dist: sphinx>=5.3.0; extra == "build-docs"
+Requires-Dist: sphinx_rtd_theme>=1.1.1; extra == "build-docs"
+Requires-Dist: setuptools_scm>=8.0.0; extra == "build-docs"
+Dynamic: license-file
 
 qemu.qmp: QEMU Monitor Protocol Library
 =======================================
 
 Welcome! ``qemu.qmp`` is a `QEMU Monitor Protocol
-<https://gitlab.com/qemu-project/qemu/-/blob/master/docs/interop/qmp-intro.txt>`_
+<https://www.qemu.org/docs/master/interop/qmp-spec.html>`_
 (“QMP”) library written in Python, using `asyncio
 <https://docs.python.org/3/library/asyncio.html>`_. It is used to send
 QMP messages to running `QEMU <https://www.qemu.org/>`_ emulators. It
-requires Python 3.7+ and has no mandatory dependencies.
+requires Python 3.8+ and has no mandatory dependencies.
 
 This library can be used to communicate with QEMU emulators, the `QEMU
 Guest Agent
@@ -50,7 +70,7 @@ Guest Agent
 the `QEMU Storage Daemon
 <https://qemu.readthedocs.io/en/latest/tools/qemu-storage-daemon.html>`_
 (QSD), or any other utility or application that `speaks QMP
-<https://gitlab.com/qemu-project/qemu/-/blob/master/docs/interop/qmp-intro.txt>`_.
+<https://www.qemu.org/docs/master/interop/qmp-spec.html>`_.
 
 This library makes as few assumptions as possible about the actual
 version or what type of endpoint it will be communicating with;
@@ -219,6 +239,51 @@ backwards compatible feature changes.
 
 Changelog
 ---------
+
+0.0.5 (2025-10-02)
+^^^^^^^^^^^^^^^^^^
+
+This is a small point release to fix packaging issues against Fedora
+Rawhide. There are no code changes from v0.0.4.
+
+0.0.4 (2025-10-01)
+^^^^^^^^^^^^^^^^^^
+
+This release primarily adds support for Python 3.14, drops support for
+Python 3.7, and replaces the avocado testing framework with
+pytest. There are some backwards incompatible changes in the synchronous
+legacy API.
+
+- `!41 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/41>`_:
+  Python 3.7 support was dropped, Python 3.14 support formally added.
+
+- `!40 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/40>`_:
+  Calls utilizing the deprecated behavior of asyncio.get_event_loop()
+  have been removed where applicable and replaced with new calls to
+  util.get_or_create_event_loop()
+
+- `!34 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/34>`_:
+  The default read buffer limit is now runtime configurable to
+  accommodate QMP commands with large payloads, as might occur with QEMU
+  guest agent file transfer commands. See also `!37
+  <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/37>`_. (Contributed
+  by Adam Dorsey)
+
+- `!30 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/30>`_:
+  ``legacy.QEMUMonitorProtocol.cmd()`` was renamed to ``cmd_raw()``, and
+  ``legacy.QEMUMonitorProtocol.command()`` was renamed to ``cmd()``. The
+  ``cmd_id`` argument was removed from ``cmd_raw()``. These changes have
+  been backported from the integrated synchronous library in the QEMU
+  tree. (Contributed by Vladimir Sementsov-Ogievskiy)
+
+- `!31 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/31>`_,
+  `!32 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/32>`_,
+  `!33 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/33>`_,
+  `!35 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/35>`_,
+  `!36 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/36>`_,
+  `!38 <https://gitlab.com/qemu-project/python-qemu-qmp/-/merge_requests/38>`_:
+  Miscellaneous packaging and testing fixes for newer versions of
+  pylint, sphinx, setuptools, readthedocs, Python, etc.
 
 0.0.3 (2023-07-10)
 ^^^^^^^^^^^^^^^^^^

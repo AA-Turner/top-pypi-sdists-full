@@ -2,7 +2,7 @@ import copy
 import functools
 from contextlib import suppress
 from dataclasses import replace
-from typing import Any, Optional
+from typing import Any
 
 from xsdata.exceptions import ParserError
 from xsdata.formats.dataclass.context import XmlContext
@@ -75,7 +75,7 @@ class UnionNode(XmlNode):
 
         return list(filter(fixed_attribute, candidates))
 
-    def filter_fixed_attrs(self, candidate: type, parent_ns: Optional[str]) -> bool:
+    def filter_fixed_attrs(self, candidate: type, parent_ns: str | None) -> bool:
         """Return whether the node attrs are incompatible with fixed attrs.
 
         Args:
@@ -119,8 +119,8 @@ class UnionNode(XmlNode):
     def bind(
         self,
         qname: str,
-        text: Optional[str],
-        tail: Optional[str],
+        text: str | None,
+        tail: str | None,
         objects: list,
     ) -> bool:
         """Bind the parsed data into an object for the ending element.
@@ -157,7 +157,7 @@ class UnionNode(XmlNode):
         config = replace(self.config, fail_on_converter_warnings=True)
 
         for candidate in self.candidates:
-            result = None
+            result: Any = None
             with suppress(Exception):
                 if self.context.class_type.is_model(candidate):
                     self.context.build(candidate, parent_ns=parent_namespace)

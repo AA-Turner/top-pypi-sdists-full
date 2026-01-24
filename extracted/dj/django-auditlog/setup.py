@@ -10,11 +10,13 @@ setup(
     name="django-auditlog",
     use_scm_version={"version_scheme": "post-release"},
     setup_requires=["setuptools_scm"],
+    include_package_data=True,
     packages=[
         "auditlog",
         "auditlog.migrations",
         "auditlog.management",
         "auditlog.management.commands",
+        "auditlog.templatetags",
     ],
     url="https://github.com/jazzband/django-auditlog",
     project_urls={
@@ -27,12 +29,11 @@ setup(
     description="Audit log app for Django",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=["Django>=4.2", "python-dateutil>=2.7.0"],
     zip_safe=False,
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

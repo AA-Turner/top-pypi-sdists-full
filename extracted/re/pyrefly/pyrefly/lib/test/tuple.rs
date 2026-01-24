@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -88,7 +89,7 @@ class Base4(tuple[str, int]): ...
 class Child1(Base1, Base2): ...
 class Child2(Base1, Base3): ...
 class Child3(Base3, Base4): ...  # E: Cannot extend multiple incompatible tuples
-class Child4(Base2, Base3): ...  # E: Cannot extend multiple incompatible tuples 
+class Child4(Base2, Base3): ...  # E: Cannot extend multiple incompatible tuples
 "#,
 );
 
@@ -323,8 +324,10 @@ testcase!(
     test_unpacked_tuple_subtype,
     r#"
 from typing import Sequence
-def test(x: tuple[int, *tuple[str, ...]]) -> None:
-    y: Sequence[int | str] = x
+def test[*Ts](x1: tuple[int, *tuple[str, ...]], x2: tuple[*Ts]) -> None:
+    y1: Sequence[int | str] = x1
+    y2: tuple[int | str, ...] = x1
+    y3: tuple[object, ...] = x2
 "#,
 );
 
@@ -365,7 +368,7 @@ def test() -> None:
     x: tuple[object, ...] = (1,)
     x += (2, "y")
     y: tuple[int, ...] = (1,)
-    y += (2, "y")  # E: Augmented assignment produces a value of type `tuple[*tuple[int, ...], Literal[2], Literal['y']]`, which is not assignable to `tuple[int, ...]`
+    y += (2, "y")  # E: Augmented assignment result `tuple[*tuple[int, ...], Literal[2], Literal['y']]` is not assignable to `tuple[int, ...]`
 "#,
 );
 
@@ -396,7 +399,6 @@ def test(x: tuple[int] | tuple[str]) -> None:
 );
 
 testcase!(
-    bug = "Pyrefly hangs on this example if we uncomment the second definition of f",
     test_unpack_tuple_with_double_def,
     r#"
 from typing import Unpack, Any
@@ -422,6 +424,18 @@ def g(x):
 "#,
 );
 
+#[test]
+fn test_tuple_concat_large_union_no_crash() -> anyhow::Result<()> {
+    let code = r#"
+a: int | list[int] | tuple[int, ...] | bool
+a + (a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
+"#;
+    let (state, handle_fn) = TestEnv::one("main", code).to_state();
+    let handle = handle_fn("main");
+    state.transaction().get_errors(&[handle]);
+    Ok(())
+}
+
 testcase!(
     test_tuple_class_type,
     r#"
@@ -429,5 +443,52 @@ from typing import Any
 
 def f(x: type[tuple[Any, ...]]):
     return x() # Ok
+    "#,
+);
+
+testcase!(
+    test_bad_tuple_index,
+    r#"
+def f(x: tuple[int, int], y: tuple[int, ...]):
+    x[(1, 2)]  # E: No matching overload found for function `tuple.__getitem__`
+    y[(1, 2)]  # E: No matching overload found for function `tuple.__getitem__`
+    "#,
+);
+
+testcase!(
+    test_typevartuple_subclass_index,
+    r#"
+from typing import assert_type, TypeVarTuple
+Ts = TypeVarTuple('Ts')
+class TupleChild(tuple[*Ts]): ...
+def f(x: TupleChild[int, str]):
+    assert_type(x[0], int)
+    assert_type(x[1], str)
+    x[2]  # E: Index 2 out of range for tuple with 2 elements
+    "#,
+);
+
+testcase!(
+    test_starred_empty_tuple_no_panic,
+    r#"
+(),*()
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/273
+// https://discuss.python.org/t/unbounded-tuple-unions/92472
+testcase!(
+    test_union_empty_tuple_and_variadic_tuple,
+    r#"
+type Eq0 = tuple[()]
+type Eq1 = tuple[int]
+type Ge0 = tuple[int, ...]
+type Ge1 = tuple[int, *Ge0]
+
+def test(eq0: Eq0, eq1: Eq1, ge0: Ge0, ge1: Ge1) -> None:
+    eq0_ge1__eq0: Eq0 | Ge1 = eq0
+    eq0_ge1__eq1: Eq0 | Ge1 = eq1
+    eq0_ge1__ge0: Eq0 | Ge1 = ge0
+    eq0_ge1__ge1: Eq0 | Ge1 = ge1
     "#,
 );

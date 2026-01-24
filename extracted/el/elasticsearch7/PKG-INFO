@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: elasticsearch7
-Version: 7.17.12
+Version: 7.17.13
 Summary: Python client for Elasticsearch
 Home-page: https://github.com/elastic/elasticsearch-py
 Author: Honza Král, Nick Lang
@@ -25,13 +25,19 @@ Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: urllib3<2,>=1.21.1
+Requires-Dist: urllib3<2,>=1.21.1; python_version < "3.10"
+Requires-Dist: urllib3<3,>=1.21.1; python_version >= "3.10"
 Requires-Dist: certifi
 Provides-Extra: develop
 Requires-Dist: requests<3.0.0,>=2.0.0; extra == "develop"
@@ -51,6 +57,21 @@ Provides-Extra: requests
 Requires-Dist: requests<3.0.0,>=2.4.0; extra == "requests"
 Provides-Extra: async
 Requires-Dist: aiohttp<4,>=3; extra == "async"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 

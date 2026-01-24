@@ -7,7 +7,6 @@
 #include "cantera/oneD/Boundary1D.h"
 #include "cantera/oneD/Flow1D.h"
 #include "cantera/oneD/IonFlow.h"
-#include "cantera/oneD/StFlow.h"
 #include "cantera/transport/Transport.h"
 
 namespace Cantera
@@ -41,9 +40,6 @@ DomainFactory::DomainFactory()
     });
     reg("gas-flow", [](shared_ptr<Solution> solution, const string& id) {
         return new Flow1D(solution, id);
-    });
-    reg("legacy-flow", [](shared_ptr<Solution> solution, const string& id) {
-        return new StFlow(solution, id);
     });
     reg("ion-flow", [](shared_ptr<Solution> solution, const string& id) {
         return new IonFlow(solution, id);
@@ -94,6 +90,18 @@ void DomainFactory::deleteFactory()
     std::unique_lock<std::mutex> lock(domain_mutex);
     delete s_factory;
     s_factory = 0;
+}
+
+shared_ptr<Boundary1D> newBoundary1D(
+    const string& domainType, shared_ptr<Solution> solution, const string& id)
+{
+    return newDomain<Boundary1D>(domainType, solution, id);
+}
+
+shared_ptr<Flow1D> newFlow1D(
+    const string& domainType, shared_ptr<Solution> solution, const string& id)
+{
+    return newDomain<Flow1D>(domainType, solution, id);
 }
 
 }

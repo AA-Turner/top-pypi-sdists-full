@@ -359,6 +359,7 @@ class ContextType(object):
         'encoding': 'auto',
         'endian': 'little',
         'gdbinit': "",
+        'gdb_binary': "",
         'kernel': None,
         'local_libcdb': "/var/lib/libc-database",
         'log_level': logging.INFO,
@@ -594,9 +595,9 @@ class ContextType(object):
             ...         log.debug("DEBUG")
             ...         log.info("INFO")
             ...         log.warn("WARN")
-            [DEBUG] DEBUG
-            [*] INFO
-            [!] WARN
+            [...] DEBUG
+            [...] INFO
+            [...] WARN
         """
         level = 'error'
         if context.log_level <= logging.DEBUG:
@@ -664,7 +665,7 @@ class ContextType(object):
             information is printed.
 
             >>> with context.verbose: func()
-            [DEBUG] Hello
+            [...] Hello
 
         """
         return self.local(log_level='debug')
@@ -1377,9 +1378,9 @@ class ContextType(object):
     def cache_dir_base(self, new_base):
         """Base directory to use for caching content.
 
-        Changing this to a different value will clear the `cache_dir` path
+        Changing this to a different value will clear the :attr:`cache_dir` path
         stored in TLS since a new path will need to be generated to respect the
-        new `cache_dir_base` value.
+        new :attr:`cache_dir_base` value.
         """
 
         if new_base != self.cache_dir_base:
@@ -1394,6 +1395,9 @@ class ContextType(object):
 
         Note:
             May be either a path string, or :const:`None`.
+            Set to :const:`None` to disable caching.
+            Set to :const:`True` to generate the default cache directory path
+            based on :attr:`cache_dir_base` again.
 
         Example:
 
@@ -1401,11 +1405,17 @@ class ContextType(object):
             >>> cache_dir is not None
             True
             >>> os.chmod(cache_dir, 0o000)
-            >>> del context._tls['cache_dir']
+            >>> context.cache_dir = True
             >>> context.cache_dir is None
             True
             >>> os.chmod(cache_dir, 0o755)
             >>> cache_dir == context.cache_dir
+            True
+            >>> context.cache_dir = None
+            >>> context.cache_dir is None
+            True
+            >>> context.cache_dir = True
+            >>> context.cache_dir is not None
             True
         """
         try:
@@ -1451,7 +1461,9 @@ class ContextType(object):
 
     @cache_dir.setter
     def cache_dir(self, v):
-        if os.access(v, os.W_OK):
+        if v is True:
+            del self._tls["cache_dir"]
+        elif v is None or os.access(v, os.W_OK):
             # Stash this in TLS for later reuse
             self._tls["cache_dir"] = v
 
@@ -1523,6 +1535,20 @@ class ContextType(object):
         the necessary requirements for the gdbinit.
 
         If set to an empty string, GDB will use the default `~/.gdbinit`.
+
+        Default value is ``""``.
+        """
+        return str(value)
+
+    @_validator
+    def gdb_binary(self, value):
+        """Path to the binary that is used when running GDB locally.
+
+        This is useful when you have multiple versions of gdb installed or the gdb binary is
+        called something different.
+
+        If set to an empty string, pwntools will try to search for a reasonable gdb binary from 
+        the path.
 
         Default value is ``""``.
         """

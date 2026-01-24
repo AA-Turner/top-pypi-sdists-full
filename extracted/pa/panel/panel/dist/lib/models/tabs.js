@@ -7,10 +7,14 @@ import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 function show(element) {
     element.style.visibility = "";
     element.style.opacity = "";
+    element.style.pointerEvents = "auto";
+    element.removeAttribute("aria-hidden");
 }
 function hide(element) {
     element.style.visibility = "hidden";
     element.style.opacity = "0";
+    element.style.pointerEvents = "none";
+    element.setAttribute("aria-hidden", "true");
 }
 export class TabsView extends BkTabsView {
     static __name__ = "TabsView";

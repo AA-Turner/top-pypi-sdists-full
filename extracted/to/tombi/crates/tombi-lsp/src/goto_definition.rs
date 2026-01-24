@@ -3,6 +3,7 @@ use std::str::FromStr;
 use ahash::AHashMap;
 use itertools::Itertools;
 use tombi_schema_store::get_tombi_schemastore_content;
+use tombi_text::IntoLsp;
 use tower_lsp::lsp_types::{
     CreateFile, CreateFileOptions, DocumentChangeOperation, DocumentChanges,
     GotoDefinitionResponse, OneOf, OptionalVersionedTextDocumentIdentifier, ResourceOp,
@@ -26,27 +27,32 @@ pub async fn into_definition_locations(
         }
     }
 
-    let definitions = definitions
+    let document_sources = backend.document_sources.read().await;
+
+    let locations = definitions
         .into_iter()
         .map(|mut definition| {
             if let Some(remote_uri) = uri_set.get(&definition.uri) {
                 definition.uri = remote_uri.clone();
             }
-            definition
+            let range = if let Some(document_source) = document_sources.get(&definition.uri) {
+                definition.range.into_lsp(document_source.line_index())
+            } else {
+                tombi_text::convert_range_to_lsp(definition.range)
+            };
+            tower_lsp::lsp_types::Location {
+                uri: definition.uri.into(),
+                range,
+            }
         })
         .collect_vec();
 
-    match definitions.len() {
+    match locations.len() {
         0 => Ok(None),
         1 => Ok(Some(GotoDefinitionResponse::Scalar(
-            definitions.into_iter().next().unwrap().into(),
+            locations.into_iter().next().unwrap(),
         ))),
-        _ => Ok(Some(GotoDefinitionResponse::Array(
-            definitions
-                .into_iter()
-                .map(|definition| definition.into())
-                .collect(),
-        ))),
+        _ => Ok(Some(GotoDefinitionResponse::Array(locations))),
     }
 }
 
@@ -56,6 +62,13 @@ pub async fn open_remote_file(
 ) -> Result<Option<tombi_uri::Uri>, tower_lsp::jsonrpc::Error> {
     match uri.scheme() {
         "http" | "https" => {
+            // Check if cache file exists
+            if let Some(cache_path) = tombi_cache::get_cache_file_path(uri).await
+                && cache_path.is_file()
+                && let Ok(cached_uri) = tombi_uri::Uri::from_file_path(&cache_path)
+            {
+                return Ok(Some(cached_uri));
+            }
             let remote_uri =
                 tombi_uri::Uri::from_str(&format!("untitled://{}", uri.path())).unwrap();
             let content = fetch_remote_content(uri).await?;
@@ -137,7 +150,7 @@ async fn insert_content(
             version: Some(0),
         },
         edits: vec![OneOf::Left(TextEdit {
-            range: tombi_text::Range::default().into(),
+            range: Default::default(),
             new_text: content.into(),
         })],
     };

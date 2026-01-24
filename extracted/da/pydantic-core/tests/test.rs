@@ -7,7 +7,7 @@ mod tests {
 
     #[test]
     fn test_build_schema_serializer() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // 'type': 'typed-dict',
             //     'fields': {
             //         'root': {
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn test_literal_schema() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let code = c_str!(
                 r#"
 schema = {
@@ -78,7 +78,7 @@ json_input = '{"a": "something"}'
             let json_input = locals.get_item("json_input").unwrap().unwrap();
             let binding = SchemaValidator::py_new(py, &schema, None)
                 .unwrap()
-                .validate_json(py, &json_input, None, None, None, false.into(), None, None)
+                .validate_json(py, &json_input, None, None, None, None, false.into(), None, None)
                 .unwrap();
             let validation_result: Bound<'_, PyAny> = binding.extract(py).unwrap();
             let repr = format!("{}", validation_result.repr().unwrap());
@@ -88,7 +88,7 @@ json_input = '{"a": "something"}'
 
     #[test]
     fn test_segfault_for_recursive_schemas() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let code = c_str!(
                 r"
 schema = {

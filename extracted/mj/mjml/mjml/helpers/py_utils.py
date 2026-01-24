@@ -1,6 +1,7 @@
-
 import re
+from collections.abc import Sequence
 from decimal import Decimal
+from typing import Any, Optional, Union
 
 
 __all__ = [
@@ -15,7 +16,8 @@ __all__ = [
     'strip_unit',
 ]
 
-def omit(attributes, keys):
+
+def omit(attributes, keys: Union[str, Sequence[str]]) -> dict:
     if isinstance(keys, str):
         keys = (keys, )
     _attrs = dict(attributes)
@@ -24,36 +26,57 @@ def omit(attributes, keys):
             _attrs.pop(key)
     return _attrs
 
-def parse_float(value_str):
-    match = re.search(r'^([-+]?\d+(.\d+)?)*', value_str)
+def parse_float(value: str) -> float:
+    if (match := re.search(r'^([-+]?\d+(.\d+)?)*', value)) is None:
+        raise ValueError(f"could not parse float from '{value}'")
     return float(match.group(1))
 
-def parse_int(value_str):
-    if isinstance(value_str, int):
-        return value_str
-    match = re.search(r'^([-+]?\d+)*', value_str)
+def parse_int(value: Union[str, int]) -> int:
+    if isinstance(value, int):
+        return value
+    if (match := re.search(r'^([-+]?\d+)*', value)) is None:
+        raise ValueError(f"could not parse int from '{value}'")
     return int(match.group(1))
 
-def parse_percentage(value_str):
-    match = re.search(r'^(\d+(\.\d+)?)%$', value_str)
+def parse_percentage(value: str) -> Decimal:
+    if (match := re.search(r'^(\d+(\.\d+)?)%$', value)) is None:
+        raise ValueError(f"could not parse decimal from '{value}'")
     return Decimal(match.group(1))
 
-def strip_unit(value_str):
-    match = re.search(r'^(\d+).*', value_str)
-    return int(match.group(1))
+def strip_unit(value_str: Union[str, int, float]) -> Union[int, float]:
+    """
+    Extract numeric value from a CSS value string like "600px" or "33.33%".
 
-def is_nil(v):
+    Mimics JavaScript parseInt() behavior: returns an integer when the value
+    is a whole number, otherwise returns a float.
+
+    Examples:
+        strip_unit("600px") → 600
+        strip_unit("33.33%") → 33.33
+        strip_unit("600.0px") → 600
+    """
+    match = re.search(r'^(-?\d+(?:\.\d+)?)', str(value_str))
+    if not match:
+        return 0
+    num = float(match.group(1))
+    # Return int for whole numbers (like JS parseInt for "600px")
+    return int(num) if num == int(num) else num
+
+def is_nil(v: Optional[Any]) -> bool:
     return (v is None)
 
-def is_not_nil(v):
+def is_not_nil(v: Optional[Any]) -> bool:
     return not is_nil(v)
 
-def is_empty(v):
+def is_empty(v: Optional[Sequence[Any]]) -> bool:
     if v is None:
         return True
     elif hasattr(v, 'strip'):
         return not bool(v.strip())
+    elif isinstance(v, (int, float)):
+        # Numeric zero is a valid CSS value (e.g. line-height: 0)
+        return False
     return not bool(v)
 
-def is_not_empty(v):
+def is_not_empty(v: Optional[Sequence[Any]]) -> bool:
     return not is_empty(v)

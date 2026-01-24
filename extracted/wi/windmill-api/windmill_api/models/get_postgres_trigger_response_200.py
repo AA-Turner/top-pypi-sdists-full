@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.get_postgres_trigger_response_200_mode import GetPostgresTriggerResponse200Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -22,7 +23,6 @@ T = TypeVar("T", bound="GetPostgresTriggerResponse200")
 class GetPostgresTriggerResponse200:
     """
     Attributes:
-        enabled (bool):
         postgres_resource_path (str):
         publication_name (str):
         replication_slot_name (str):
@@ -34,16 +34,16 @@ class GetPostgresTriggerResponse200:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (GetPostgresTriggerResponse200Mode): job trigger mode
         server_id (Union[Unset, str]):
         error (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GetPostgresTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, GetPostgresTriggerResponse200Retry]):
+        retry (Union[Unset, GetPostgresTriggerResponse200Retry]): Retry configuration for failed module executions
     """
 
-    enabled: bool
     postgres_resource_path: str
     publication_name: str
     replication_slot_name: str
@@ -55,6 +55,7 @@ class GetPostgresTriggerResponse200:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: GetPostgresTriggerResponse200Mode
     server_id: Union[Unset, str] = UNSET
     error: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -64,7 +65,6 @@ class GetPostgresTriggerResponse200:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        enabled = self.enabled
         postgres_resource_path = self.postgres_resource_path
         publication_name = self.publication_name
         replication_slot_name = self.replication_slot_name
@@ -78,6 +78,8 @@ class GetPostgresTriggerResponse200:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         server_id = self.server_id
         error = self.error
         last_server_ping: Union[Unset, str] = UNSET
@@ -97,7 +99,6 @@ class GetPostgresTriggerResponse200:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "enabled": enabled,
                 "postgres_resource_path": postgres_resource_path,
                 "publication_name": publication_name,
                 "replication_slot_name": replication_slot_name,
@@ -109,6 +110,7 @@ class GetPostgresTriggerResponse200:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if server_id is not UNSET:
@@ -135,8 +137,6 @@ class GetPostgresTriggerResponse200:
         from ..models.get_postgres_trigger_response_200_retry import GetPostgresTriggerResponse200Retry
 
         d = src_dict.copy()
-        enabled = d.pop("enabled")
-
         postgres_resource_path = d.pop("postgres_resource_path")
 
         publication_name = d.pop("publication_name")
@@ -158,6 +158,8 @@ class GetPostgresTriggerResponse200:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = GetPostgresTriggerResponse200Mode(d.pop("mode"))
 
         server_id = d.pop("server_id", UNSET)
 
@@ -187,7 +189,6 @@ class GetPostgresTriggerResponse200:
             retry = GetPostgresTriggerResponse200Retry.from_dict(_retry)
 
         get_postgres_trigger_response_200 = cls(
-            enabled=enabled,
             postgres_resource_path=postgres_resource_path,
             publication_name=publication_name,
             replication_slot_name=replication_slot_name,
@@ -199,6 +200,7 @@ class GetPostgresTriggerResponse200:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             server_id=server_id,
             error=error,
             last_server_ping=last_server_ping,

@@ -1,7 +1,7 @@
 r'''
 # `aws_transfer_connector`
 
-Refer to the Terraform Registry for docs: [`aws_transfer_connector`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector).
+Refer to the Terraform Registry for docs: [`aws_transfer_connector`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TransferConnector(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transferConnector.TransferConnector",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector aws_transfer_connector}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector aws_transfer_connector}.'''
 
     def __init__(
         self,
@@ -52,8 +52,8 @@ class TransferConnector(
         id_: builtins.str,
         *,
         access_role: builtins.str,
-        url: builtins.str,
         as2_config: typing.Optional[typing.Union["TransferConnectorAs2Config", typing.Dict[builtins.str, typing.Any]]] = None,
+        egress_config: typing.Optional[typing.Union["TransferConnectorEgressConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
         logging_role: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
@@ -61,6 +61,8 @@ class TransferConnector(
         sftp_config: typing.Optional[typing.Union["TransferConnectorSftpConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        timeouts: typing.Optional[typing.Union["TransferConnectorTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        url: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -69,20 +71,22 @@ class TransferConnector(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector aws_transfer_connector} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector aws_transfer_connector} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#url TransferConnector#url}.
-        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#region TransferConnector#region}
-        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
-        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#tags TransferConnector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
+        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
+        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
+        :param egress_config: egress_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#egress_config TransferConnector#egress_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#region TransferConnector#region}
+        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
+        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#tags TransferConnector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#timeouts TransferConnector#timeouts}
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#url TransferConnector#url}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -97,8 +101,8 @@ class TransferConnector(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = TransferConnectorConfig(
             access_role=access_role,
-            url=url,
             as2_config=as2_config,
+            egress_config=egress_config,
             id=id,
             logging_role=logging_role,
             region=region,
@@ -106,6 +110,8 @@ class TransferConnector(
             sftp_config=sftp_config,
             tags=tags,
             tags_all=tags_all,
+            timeouts=timeouts,
+            url=url,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -130,7 +136,7 @@ class TransferConnector(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TransferConnector to import.
-        :param import_from_id: The id of the existing TransferConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TransferConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TransferConnector to import is found.
         '''
         if __debug__:
@@ -155,14 +161,14 @@ class TransferConnector(
         message_subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#compression TransferConnector#compression}.
-        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
-        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
-        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
-        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
-        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
-        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
-        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#compression TransferConnector#compression}.
+        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
+        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
+        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
+        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
+        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
+        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
+        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
         '''
         value = TransferConnectorAs2Config(
             compression=compression,
@@ -177,6 +183,19 @@ class TransferConnector(
 
         return typing.cast(None, jsii.invoke(self, "putAs2Config", [value]))
 
+    @jsii.member(jsii_name="putEgressConfig")
+    def put_egress_config(
+        self,
+        *,
+        vpc_lattice: typing.Optional[typing.Union["TransferConnectorEgressConfigVpcLattice", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param vpc_lattice: vpc_lattice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#vpc_lattice TransferConnector#vpc_lattice}
+        '''
+        value = TransferConnectorEgressConfig(vpc_lattice=vpc_lattice)
+
+        return typing.cast(None, jsii.invoke(self, "putEgressConfig", [value]))
+
     @jsii.member(jsii_name="putSftpConfig")
     def put_sftp_config(
         self,
@@ -185,8 +204,8 @@ class TransferConnector(
         user_secret_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
-        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
+        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
+        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
         '''
         value = TransferConnectorSftpConfig(
             trusted_host_keys=trusted_host_keys, user_secret_id=user_secret_id
@@ -194,9 +213,30 @@ class TransferConnector(
 
         return typing.cast(None, jsii.invoke(self, "putSftpConfig", [value]))
 
+    @jsii.member(jsii_name="putTimeouts")
+    def put_timeouts(
+        self,
+        *,
+        create: typing.Optional[builtins.str] = None,
+        delete: typing.Optional[builtins.str] = None,
+        update: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#create TransferConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#delete TransferConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#update TransferConnector#update}.
+        '''
+        value = TransferConnectorTimeouts(create=create, delete=delete, update=update)
+
+        return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
     @jsii.member(jsii_name="resetAs2Config")
     def reset_as2_config(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAs2Config", []))
+
+    @jsii.member(jsii_name="resetEgressConfig")
+    def reset_egress_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEgressConfig", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -225,6 +265,14 @@ class TransferConnector(
     @jsii.member(jsii_name="resetTagsAll")
     def reset_tags_all(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTagsAll", []))
+
+    @jsii.member(jsii_name="resetTimeouts")
+    def reset_timeouts(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTimeouts", []))
+
+    @jsii.member(jsii_name="resetUrl")
+    def reset_url(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUrl", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -255,9 +303,19 @@ class TransferConnector(
         return typing.cast(builtins.str, jsii.get(self, "connectorId"))
 
     @builtins.property
+    @jsii.member(jsii_name="egressConfig")
+    def egress_config(self) -> "TransferConnectorEgressConfigOutputReference":
+        return typing.cast("TransferConnectorEgressConfigOutputReference", jsii.get(self, "egressConfig"))
+
+    @builtins.property
     @jsii.member(jsii_name="sftpConfig")
     def sftp_config(self) -> "TransferConnectorSftpConfigOutputReference":
         return typing.cast("TransferConnectorSftpConfigOutputReference", jsii.get(self, "sftpConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="timeouts")
+    def timeouts(self) -> "TransferConnectorTimeoutsOutputReference":
+        return typing.cast("TransferConnectorTimeoutsOutputReference", jsii.get(self, "timeouts"))
 
     @builtins.property
     @jsii.member(jsii_name="accessRoleInput")
@@ -268,6 +326,11 @@ class TransferConnector(
     @jsii.member(jsii_name="as2ConfigInput")
     def as2_config_input(self) -> typing.Optional["TransferConnectorAs2Config"]:
         return typing.cast(typing.Optional["TransferConnectorAs2Config"], jsii.get(self, "as2ConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="egressConfigInput")
+    def egress_config_input(self) -> typing.Optional["TransferConnectorEgressConfig"]:
+        return typing.cast(typing.Optional["TransferConnectorEgressConfig"], jsii.get(self, "egressConfigInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -305,6 +368,13 @@ class TransferConnector(
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="timeoutsInput")
+    def timeouts_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "TransferConnectorTimeouts"]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "TransferConnectorTimeouts"]], jsii.get(self, "timeoutsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="urlInput")
@@ -436,14 +506,14 @@ class TransferConnectorAs2Config:
         message_subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#compression TransferConnector#compression}.
-        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
-        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
-        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
-        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
-        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
-        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
-        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#compression TransferConnector#compression}.
+        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
+        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
+        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
+        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
+        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
+        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
+        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26c0f80590f8bd58e3c9c26f029020edc326448199cf237d5d92e6b01c87d8d0)
@@ -470,55 +540,55 @@ class TransferConnectorAs2Config:
 
     @builtins.property
     def compression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#compression TransferConnector#compression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#compression TransferConnector#compression}.'''
         result = self._values.get("compression")
         assert result is not None, "Required property 'compression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def encryption_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.'''
         result = self._values.get("encryption_algorithm")
         assert result is not None, "Required property 'encryption_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def local_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.'''
         result = self._values.get("local_profile_id")
         assert result is not None, "Required property 'local_profile_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mdn_response(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.'''
         result = self._values.get("mdn_response")
         assert result is not None, "Required property 'mdn_response' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partner_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.'''
         result = self._values.get("partner_profile_id")
         assert result is not None, "Required property 'partner_profile_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def signing_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.'''
         result = self._values.get("signing_algorithm")
         assert result is not None, "Required property 'signing_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mdn_signing_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.'''
         result = self._values.get("mdn_signing_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def message_subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.'''
         result = self._values.get("message_subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -726,8 +796,8 @@ class TransferConnectorAs2ConfigOutputReference(
         "provider": "provider",
         "provisioners": "provisioners",
         "access_role": "accessRole",
-        "url": "url",
         "as2_config": "as2Config",
+        "egress_config": "egressConfig",
         "id": "id",
         "logging_role": "loggingRole",
         "region": "region",
@@ -735,6 +805,8 @@ class TransferConnectorAs2ConfigOutputReference(
         "sftp_config": "sftpConfig",
         "tags": "tags",
         "tags_all": "tagsAll",
+        "timeouts": "timeouts",
+        "url": "url",
     },
 )
 class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -749,8 +821,8 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         access_role: builtins.str,
-        url: builtins.str,
         as2_config: typing.Optional[typing.Union[TransferConnectorAs2Config, typing.Dict[builtins.str, typing.Any]]] = None,
+        egress_config: typing.Optional[typing.Union["TransferConnectorEgressConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
         logging_role: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
@@ -758,6 +830,8 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         sftp_config: typing.Optional[typing.Union["TransferConnectorSftpConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        timeouts: typing.Optional[typing.Union["TransferConnectorTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -767,23 +841,29 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#url TransferConnector#url}.
-        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#region TransferConnector#region}
-        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
-        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#tags TransferConnector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
+        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
+        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
+        :param egress_config: egress_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#egress_config TransferConnector#egress_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#region TransferConnector#region}
+        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
+        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#tags TransferConnector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#timeouts TransferConnector#timeouts}
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#url TransferConnector#url}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
         if isinstance(as2_config, dict):
             as2_config = TransferConnectorAs2Config(**as2_config)
+        if isinstance(egress_config, dict):
+            egress_config = TransferConnectorEgressConfig(**egress_config)
         if isinstance(sftp_config, dict):
             sftp_config = TransferConnectorSftpConfig(**sftp_config)
+        if isinstance(timeouts, dict):
+            timeouts = TransferConnectorTimeouts(**timeouts)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb771b25dd768720e0320cd8f19721bb55f4e97f27f1e26535fd26da45b63173)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -794,8 +874,8 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument access_role", value=access_role, expected_type=type_hints["access_role"])
-            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument as2_config", value=as2_config, expected_type=type_hints["as2_config"])
+            check_type(argname="argument egress_config", value=egress_config, expected_type=type_hints["egress_config"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -803,9 +883,10 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument sftp_config", value=sftp_config, expected_type=type_hints["sftp_config"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
+            check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_role": access_role,
-            "url": url,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -823,6 +904,8 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if as2_config is not None:
             self._values["as2_config"] = as2_config
+        if egress_config is not None:
+            self._values["egress_config"] = egress_config
         if id is not None:
             self._values["id"] = id
         if logging_role is not None:
@@ -837,6 +920,10 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["tags"] = tags
         if tags_all is not None:
             self._values["tags_all"] = tags_all
+        if timeouts is not None:
+            self._values["timeouts"] = timeouts
+        if url is not None:
+            self._values["url"] = url
 
     @builtins.property
     def connection(
@@ -904,30 +991,32 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def access_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#access_role TransferConnector#access_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.'''
         result = self._values.get("access_role")
         assert result is not None, "Required property 'access_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#url TransferConnector#url}.'''
-        result = self._values.get("url")
-        assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def as2_config(self) -> typing.Optional[TransferConnectorAs2Config]:
         '''as2_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
         '''
         result = self._values.get("as2_config")
         return typing.cast(typing.Optional[TransferConnectorAs2Config], result)
 
     @builtins.property
+    def egress_config(self) -> typing.Optional["TransferConnectorEgressConfig"]:
+        '''egress_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#egress_config TransferConnector#egress_config}
+        '''
+        result = self._values.get("egress_config")
+        return typing.cast(typing.Optional["TransferConnectorEgressConfig"], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#id TransferConnector#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#id TransferConnector#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -937,7 +1026,7 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def logging_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.'''
         result = self._values.get("logging_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -945,14 +1034,14 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#region TransferConnector#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#region TransferConnector#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_policy_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.'''
         result = self._values.get("security_policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -960,22 +1049,37 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sftp_config(self) -> typing.Optional["TransferConnectorSftpConfig"]:
         '''sftp_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
         '''
         result = self._values.get("sftp_config")
         return typing.cast(typing.Optional["TransferConnectorSftpConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#tags TransferConnector#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#tags TransferConnector#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def timeouts(self) -> typing.Optional["TransferConnectorTimeouts"]:
+        '''timeouts block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#timeouts TransferConnector#timeouts}
+        '''
+        result = self._values.get("timeouts")
+        return typing.cast(typing.Optional["TransferConnectorTimeouts"], result)
+
+    @builtins.property
+    def url(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#url TransferConnector#url}.'''
+        result = self._values.get("url")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -987,6 +1091,250 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return "TransferConnectorConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.transferConnector.TransferConnectorEgressConfig",
+    jsii_struct_bases=[],
+    name_mapping={"vpc_lattice": "vpcLattice"},
+)
+class TransferConnectorEgressConfig:
+    def __init__(
+        self,
+        *,
+        vpc_lattice: typing.Optional[typing.Union["TransferConnectorEgressConfigVpcLattice", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param vpc_lattice: vpc_lattice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#vpc_lattice TransferConnector#vpc_lattice}
+        '''
+        if isinstance(vpc_lattice, dict):
+            vpc_lattice = TransferConnectorEgressConfigVpcLattice(**vpc_lattice)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baf833017e1d188427f08b2b1b54cfd0bc0f42e588dac995cfbc9f67f1f85eb9)
+            check_type(argname="argument vpc_lattice", value=vpc_lattice, expected_type=type_hints["vpc_lattice"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if vpc_lattice is not None:
+            self._values["vpc_lattice"] = vpc_lattice
+
+    @builtins.property
+    def vpc_lattice(self) -> typing.Optional["TransferConnectorEgressConfigVpcLattice"]:
+        '''vpc_lattice block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#vpc_lattice TransferConnector#vpc_lattice}
+        '''
+        result = self._values.get("vpc_lattice")
+        return typing.cast(typing.Optional["TransferConnectorEgressConfigVpcLattice"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransferConnectorEgressConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class TransferConnectorEgressConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.transferConnector.TransferConnectorEgressConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7a512cfd9fc8b00a2b2ce860e38c6461d1382b6ff21dceb4c32e2245b3c5fbb)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putVpcLattice")
+    def put_vpc_lattice(
+        self,
+        *,
+        resource_configuration_arn: builtins.str,
+        port_number: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param resource_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#resource_configuration_arn TransferConnector#resource_configuration_arn}.
+        :param port_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#port_number TransferConnector#port_number}.
+        '''
+        value = TransferConnectorEgressConfigVpcLattice(
+            resource_configuration_arn=resource_configuration_arn,
+            port_number=port_number,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putVpcLattice", [value]))
+
+    @jsii.member(jsii_name="resetVpcLattice")
+    def reset_vpc_lattice(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetVpcLattice", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcLattice")
+    def vpc_lattice(self) -> "TransferConnectorEgressConfigVpcLatticeOutputReference":
+        return typing.cast("TransferConnectorEgressConfigVpcLatticeOutputReference", jsii.get(self, "vpcLattice"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcLatticeInput")
+    def vpc_lattice_input(
+        self,
+    ) -> typing.Optional["TransferConnectorEgressConfigVpcLattice"]:
+        return typing.cast(typing.Optional["TransferConnectorEgressConfigVpcLattice"], jsii.get(self, "vpcLatticeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[TransferConnectorEgressConfig]:
+        return typing.cast(typing.Optional[TransferConnectorEgressConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[TransferConnectorEgressConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58bec009192a471a30251896d5c460588ab3437aede2122b2bea082627abdd92)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.transferConnector.TransferConnectorEgressConfigVpcLattice",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_configuration_arn": "resourceConfigurationArn",
+        "port_number": "portNumber",
+    },
+)
+class TransferConnectorEgressConfigVpcLattice:
+    def __init__(
+        self,
+        *,
+        resource_configuration_arn: builtins.str,
+        port_number: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param resource_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#resource_configuration_arn TransferConnector#resource_configuration_arn}.
+        :param port_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#port_number TransferConnector#port_number}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0db096cb634aa04fb440f02e3e7a8d4c18ea411aae7e777f55aaac31f3325d8)
+            check_type(argname="argument resource_configuration_arn", value=resource_configuration_arn, expected_type=type_hints["resource_configuration_arn"])
+            check_type(argname="argument port_number", value=port_number, expected_type=type_hints["port_number"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_configuration_arn": resource_configuration_arn,
+        }
+        if port_number is not None:
+            self._values["port_number"] = port_number
+
+    @builtins.property
+    def resource_configuration_arn(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#resource_configuration_arn TransferConnector#resource_configuration_arn}.'''
+        result = self._values.get("resource_configuration_arn")
+        assert result is not None, "Required property 'resource_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def port_number(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#port_number TransferConnector#port_number}.'''
+        result = self._values.get("port_number")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransferConnectorEgressConfigVpcLattice(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class TransferConnectorEgressConfigVpcLatticeOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.transferConnector.TransferConnectorEgressConfigVpcLatticeOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__452f1e8043e8b30d8959c4b425e68d0f048401c804b8cbc3ee4711d0037757f0)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetPortNumber")
+    def reset_port_number(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPortNumber", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="portNumberInput")
+    def port_number_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "portNumberInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConfigurationArnInput")
+    def resource_configuration_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceConfigurationArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portNumber")
+    def port_number(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "portNumber"))
+
+    @port_number.setter
+    def port_number(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64a97da6451fea455c69988c3807b45d45c3f1e6bea021bbd9a2f3915a22b566)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portNumber", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConfigurationArn")
+    def resource_configuration_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "resourceConfigurationArn"))
+
+    @resource_configuration_arn.setter
+    def resource_configuration_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59ff95dafa92a38d6b7eaa9293e8695964948705b3d51ccaa688e401018eea82)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceConfigurationArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[TransferConnectorEgressConfigVpcLattice]:
+        return typing.cast(typing.Optional[TransferConnectorEgressConfigVpcLattice], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[TransferConnectorEgressConfigVpcLattice],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__074a0e1edeb0cb13e5d2ad82ad75faf2a9acf5b5c13d3d6c89ad84d695de6fed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1005,8 +1353,8 @@ class TransferConnectorSftpConfig:
         user_secret_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
-        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
+        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
+        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__465816d9fa093d439128cce499af83ca014d8f583001b5326212ee0d2a6a4c87)
@@ -1020,13 +1368,13 @@ class TransferConnectorSftpConfig:
 
     @builtins.property
     def trusted_host_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.'''
         result = self._values.get("trusted_host_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def user_secret_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.'''
         result = self._values.get("user_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1120,13 +1468,181 @@ class TransferConnectorSftpConfigOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.transferConnector.TransferConnectorTimeouts",
+    jsii_struct_bases=[],
+    name_mapping={"create": "create", "delete": "delete", "update": "update"},
+)
+class TransferConnectorTimeouts:
+    def __init__(
+        self,
+        *,
+        create: typing.Optional[builtins.str] = None,
+        delete: typing.Optional[builtins.str] = None,
+        update: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#create TransferConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#delete TransferConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#update TransferConnector#update}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c51ac2fe6fba214d242122ff08d56292f80ad83568419afdae5df975c06cf2eb)
+            check_type(argname="argument create", value=create, expected_type=type_hints["create"])
+            check_type(argname="argument delete", value=delete, expected_type=type_hints["delete"])
+            check_type(argname="argument update", value=update, expected_type=type_hints["update"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if create is not None:
+            self._values["create"] = create
+        if delete is not None:
+            self._values["delete"] = delete
+        if update is not None:
+            self._values["update"] = update
+
+    @builtins.property
+    def create(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#create TransferConnector#create}.'''
+        result = self._values.get("create")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#delete TransferConnector#delete}.'''
+        result = self._values.get("delete")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def update(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/transfer_connector#update TransferConnector#update}.'''
+        result = self._values.get("update")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransferConnectorTimeouts(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class TransferConnectorTimeoutsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.transferConnector.TransferConnectorTimeoutsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5836c814fb13393a6f965d513c8d3425f87f22bff0367fb11447713499e4d6dd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetCreate")
+    def reset_create(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCreate", []))
+
+    @jsii.member(jsii_name="resetDelete")
+    def reset_delete(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDelete", []))
+
+    @jsii.member(jsii_name="resetUpdate")
+    def reset_update(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUpdate", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="createInput")
+    def create_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteInput")
+    def delete_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deleteInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updateInput")
+    def update_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updateInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="create")
+    def create(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "create"))
+
+    @create.setter
+    def create(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57eeb89b479578f3acb6616976f450fb9c9731cf5a606c29d903c486e6dac679)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "create", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="delete")
+    def delete(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "delete"))
+
+    @delete.setter
+    def delete(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5062f3a07b60a720b3e6a83171ccd236b607be8ff6fdfd1118839274d5ec03a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "delete", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="update")
+    def update(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "update"))
+
+    @update.setter
+    def update(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64b82077794cb165b9c3bed907439eb0508e9b673ba32a9d7b6319a5709e5627)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "update", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, TransferConnectorTimeouts]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, TransferConnectorTimeouts]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, TransferConnectorTimeouts]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14d496a06d1ad6d37767d041b28c9b52459fed00ee3b1f9d50b6293ec36dbb50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "TransferConnector",
     "TransferConnectorAs2Config",
     "TransferConnectorAs2ConfigOutputReference",
     "TransferConnectorConfig",
+    "TransferConnectorEgressConfig",
+    "TransferConnectorEgressConfigOutputReference",
+    "TransferConnectorEgressConfigVpcLattice",
+    "TransferConnectorEgressConfigVpcLatticeOutputReference",
     "TransferConnectorSftpConfig",
     "TransferConnectorSftpConfigOutputReference",
+    "TransferConnectorTimeouts",
+    "TransferConnectorTimeoutsOutputReference",
 ]
 
 publication.publish()
@@ -1136,8 +1652,8 @@ def _typecheckingstub__4ec6565a91f0fae136aae65a3710e64f2840d824d3d7dfdb95d7c998d
     id_: builtins.str,
     *,
     access_role: builtins.str,
-    url: builtins.str,
     as2_config: typing.Optional[typing.Union[TransferConnectorAs2Config, typing.Dict[builtins.str, typing.Any]]] = None,
+    egress_config: typing.Optional[typing.Union[TransferConnectorEgressConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
     logging_role: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
@@ -1145,6 +1661,8 @@ def _typecheckingstub__4ec6565a91f0fae136aae65a3710e64f2840d824d3d7dfdb95d7c998d
     sftp_config: typing.Optional[typing.Union[TransferConnectorSftpConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timeouts: typing.Optional[typing.Union[TransferConnectorTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    url: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -1298,8 +1816,8 @@ def _typecheckingstub__eb771b25dd768720e0320cd8f19721bb55f4e97f27f1e26535fd26da4
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     access_role: builtins.str,
-    url: builtins.str,
     as2_config: typing.Optional[typing.Union[TransferConnectorAs2Config, typing.Dict[builtins.str, typing.Any]]] = None,
+    egress_config: typing.Optional[typing.Union[TransferConnectorEgressConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
     logging_role: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
@@ -1307,6 +1825,61 @@ def _typecheckingstub__eb771b25dd768720e0320cd8f19721bb55f4e97f27f1e26535fd26da4
     sftp_config: typing.Optional[typing.Union[TransferConnectorSftpConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timeouts: typing.Optional[typing.Union[TransferConnectorTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__baf833017e1d188427f08b2b1b54cfd0bc0f42e588dac995cfbc9f67f1f85eb9(
+    *,
+    vpc_lattice: typing.Optional[typing.Union[TransferConnectorEgressConfigVpcLattice, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7a512cfd9fc8b00a2b2ce860e38c6461d1382b6ff21dceb4c32e2245b3c5fbb(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58bec009192a471a30251896d5c460588ab3437aede2122b2bea082627abdd92(
+    value: typing.Optional[TransferConnectorEgressConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0db096cb634aa04fb440f02e3e7a8d4c18ea411aae7e777f55aaac31f3325d8(
+    *,
+    resource_configuration_arn: builtins.str,
+    port_number: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__452f1e8043e8b30d8959c4b425e68d0f048401c804b8cbc3ee4711d0037757f0(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64a97da6451fea455c69988c3807b45d45c3f1e6bea021bbd9a2f3915a22b566(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59ff95dafa92a38d6b7eaa9293e8695964948705b3d51ccaa688e401018eea82(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__074a0e1edeb0cb13e5d2ad82ad75faf2a9acf5b5c13d3d6c89ad84d695de6fed(
+    value: typing.Optional[TransferConnectorEgressConfigVpcLattice],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1340,6 +1913,46 @@ def _typecheckingstub__c52c8fa01e015fdd8c4ac03b4aedeab98e902fdefd2a66bafff302583
 
 def _typecheckingstub__28cef99d0d3105593f846571d22a937522b8c934271e133d27b839446ca23f00(
     value: typing.Optional[TransferConnectorSftpConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c51ac2fe6fba214d242122ff08d56292f80ad83568419afdae5df975c06cf2eb(
+    *,
+    create: typing.Optional[builtins.str] = None,
+    delete: typing.Optional[builtins.str] = None,
+    update: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5836c814fb13393a6f965d513c8d3425f87f22bff0367fb11447713499e4d6dd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57eeb89b479578f3acb6616976f450fb9c9731cf5a606c29d903c486e6dac679(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5062f3a07b60a720b3e6a83171ccd236b607be8ff6fdfd1118839274d5ec03a1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64b82077794cb165b9c3bed907439eb0508e9b673ba32a9d7b6319a5709e5627(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14d496a06d1ad6d37767d041b28c9b52459fed00ee3b1f9d50b6293ec36dbb50(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, TransferConnectorTimeouts]],
 ) -> None:
     """Type checking stubs"""
     pass

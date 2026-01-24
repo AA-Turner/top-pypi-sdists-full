@@ -5,20 +5,19 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import math
 import secrets
 import struct
-import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from enum import StrEnum
+from typing import Any, Protocol, TypeVar, overload
 
-from roborock.containers import RRiot
-from roborock.exceptions import RoborockException
+from roborock.data import RoborockBase, RRiot
+from roborock.exceptions import RoborockException, RoborockInvalidStatus, RoborockUnsupportedFeature
 from roborock.protocol import Utils
 from roborock.roborock_message import RoborockMessage, RoborockMessageProtocol
 from roborock.roborock_typing import RoborockCommand
-from roborock.util import get_next_int
+from roborock.util import get_next_int, get_timestamp
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,10 +25,18 @@ __all__ = [
     "SecurityData",
     "create_security_data",
     "decode_rpc_response",
+    "V1RpcChannel",
 ]
 
 CommandType = RoborockCommand | str
 ParamsType = list | dict | int | None
+
+
+class LocalProtocolVersion(StrEnum):
+    """Supported local protocol versions. Different from vacuum protocol versions."""
+
+    L01 = "L01"
+    V1 = "1.0"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -61,18 +68,21 @@ class RequestMessage:
 
     method: RoborockCommand | str
     params: ParamsType
-    timestamp: int = field(default_factory=lambda: math.floor(time.time()))
+    timestamp: int = field(default_factory=lambda: get_timestamp())
     request_id: int = field(default_factory=lambda: get_next_int(10000, 32767))
 
     def encode_message(
-        self, protocol: RoborockMessageProtocol, security_data: SecurityData | None = None, version: str = "1.0"
+        self,
+        protocol: RoborockMessageProtocol,
+        security_data: SecurityData | None = None,
+        version: LocalProtocolVersion = LocalProtocolVersion.V1,
     ) -> RoborockMessage:
         """Convert the request message to a RoborockMessage."""
         return RoborockMessage(
             timestamp=self.timestamp,
             protocol=protocol,
             payload=self._as_payload(security_data=security_data),
-            version=version.encode(),
+            version=version.value.encode(),
         )
 
     def _as_payload(self, security_data: SecurityData | None) -> bytes:
@@ -95,6 +105,24 @@ class RequestMessage:
 
 
 ResponseData = dict[str, Any] | list | int
+
+# V1 RPC error code mappings to specific exception types
+_V1_ERROR_CODE_EXCEPTIONS: dict[int, type[RoborockException]] = {
+    -10007: RoborockInvalidStatus,  # "invalid status" - device action locked
+}
+
+
+def _create_api_error(error: Any) -> RoborockException:
+    """Create an appropriate exception for a V1 RPC error response.
+
+    Maps known error codes to specific exception types for easier handling
+    at higher levels.
+    """
+    if isinstance(error, dict):
+        code = error.get("code")
+        if isinstance(code, int) and (exc_type := _V1_ERROR_CODE_EXCEPTIONS.get(code)):
+            return exc_type(error)
+    return RoborockException(error)
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -123,7 +151,7 @@ def decode_rpc_response(message: RoborockMessage) -> ResponseMessage:
         return ResponseMessage(request_id=message.seq, data={})
     try:
         payload = json.loads(message.payload.decode())
-    except (json.JSONDecodeError, TypeError) as e:
+    except (json.JSONDecodeError, TypeError, UnicodeDecodeError) as e:
         raise RoborockException(f"Invalid V1 message payload: {e} for {message.payload!r}") from e
 
     _LOGGER.debug("Decoded V1 message payload: %s", payload)
@@ -144,26 +172,38 @@ def decode_rpc_response(message: RoborockMessage) -> ResponseMessage:
         ) from e
 
     request_id: int | None = data_point_response.get("id")
-    exc: RoborockException | None = None
+    api_error: RoborockException | None = None
     if error := data_point_response.get("error"):
-        exc = RoborockException(error)
-    if not (result := data_point_response.get("result")):
-        exc = RoborockException(f"Invalid V1 message format: missing 'result' in data point for {message.payload!r}")
+        api_error = _create_api_error(error)
+
+    if (result := data_point_response.get("result")) is None:
+        # Some firmware versions return an error-only response (no "result" key).
+        # Preserve that error instead of overwriting it with a parsing exception.
+        if api_error is None:
+            api_error = RoborockException(
+                f"Invalid V1 message format: missing 'result' in data point for {message.payload!r}"
+            )
+        result = {}
     else:
         _LOGGER.debug("Decoded V1 message result: %s", result)
         if isinstance(result, str):
             if result == "unknown_method":
-                exc = RoborockException("The method called is not recognized by the device.")
+                api_error = RoborockUnsupportedFeature("The method called is not recognized by the device.")
             elif result != "ok":
-                exc = RoborockException(f"Unexpected API Result: {result}")
+                api_error = RoborockException(f"Unexpected API Result: {result}")
             result = {}
-        if not isinstance(result, (dict, list, int)):
-            raise RoborockException(
-                f"Invalid V1 message format: 'result' was unexpected type {type(result)}. {message.payload!r}"
-            )
-    if not request_id and exc:
-        raise exc
-    return ResponseMessage(request_id=request_id, data=result, api_error=exc)
+        if not isinstance(result, dict | list | int):
+            # If we already have an API error, prefer returning a response object
+            # rather than failing to decode the message entirely.
+            if api_error is None:
+                raise RoborockException(
+                    f"Invalid V1 message format: 'result' was unexpected type {type(result)}. {message.payload!r}"
+                )
+            result = {}
+
+    if not request_id and api_error:
+        raise api_error
+    return ResponseMessage(request_id=request_id, data=result, api_error=api_error)
 
 
 @dataclass
@@ -187,7 +227,7 @@ def create_map_response_decoder(security_data: SecurityData) -> Callable[[Roboro
         header, body = message.payload[:24], message.payload[24:]
         [endpoint, _, request_id, _] = struct.unpack("<8s8sH6s", header)
         if not endpoint.decode().startswith(security_data.endpoint):
-            _LOGGER.debug("Received map response requested not made by this device, ignoring.")
+            _LOGGER.debug("Received map response not requested by this device, ignoring.")
             return None
         try:
             decrypted = Utils.decrypt_cbc(body, security_data.nonce)
@@ -197,3 +237,35 @@ def create_map_response_decoder(security_data: SecurityData) -> Callable[[Roboro
         return MapResponse(request_id=request_id, data=decompressed)
 
     return _decode_map_response
+
+
+_T = TypeVar("_T", bound=RoborockBase)
+
+
+class V1RpcChannel(Protocol):
+    """Protocol for V1 RPC channels.
+
+    This is a wrapper around a raw channel that provides a high-level interface
+    for sending commands and receiving responses.
+    """
+
+    @overload
+    async def send_command(
+        self,
+        method: CommandType,
+        *,
+        params: ParamsType = None,
+    ) -> Any:
+        """Send a command and return a decoded response."""
+        ...
+
+    @overload
+    async def send_command(
+        self,
+        method: CommandType,
+        *,
+        response_type: type[_T],
+        params: ParamsType = None,
+    ) -> _T:
+        """Send a command and return a parsed response RoborockBase type."""
+        ...

@@ -34,6 +34,7 @@ class Settings:
         }
 
 
+apps_re = re.compile(r"(^|[\\/])apps\.py$")
 admin_re = re.compile(r"(\b|_)admin(\b|_)")
 commands_re = re.compile(r"(^|[\\/])management[\\/]commands[\\/]")
 dunder_init_re = re.compile(r"(^|[\\/])__init__\.py$")

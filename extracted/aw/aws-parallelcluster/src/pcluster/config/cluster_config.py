@@ -16,9 +16,8 @@ import logging
 from abc import abstractmethod
 from collections import defaultdict
 from enum import Enum
+from importlib.resources import files  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
 from typing import Dict, List, Union
-
-import pkg_resources
 
 from pcluster.aws.aws_api import AWSApi
 from pcluster.aws.aws_resources import InstanceTypeInfo
@@ -34,6 +33,7 @@ from pcluster.config.common import (
 from pcluster.config.common import Imds as TopLevelImds
 from pcluster.config.common import (
     Resource,
+    SharedStorageType,
 )
 from pcluster.constants import (
     CIDR_ALL_IPS,
@@ -63,9 +63,14 @@ from pcluster.constants import (
     NODE_BOOTSTRAP_TIMEOUT,
     ONTAP,
     OPENZFS,
+    ULTRASERVER_INSTANCE_PREFIX_LIST,
     Feature,
 )
-from pcluster.utils import get_partition, get_resource_name_from_resource_arn, to_snake_case
+from pcluster.utils import (
+    get_partition,
+    get_resource_name_from_resource_arn,
+    to_snake_case,
+)
 from pcluster.validators.awsbatch_validators import (
     AwsBatchComputeInstanceTypeValidator,
     AwsBatchComputeResourceSizeValidator,
@@ -115,6 +120,7 @@ from pcluster.validators.cluster_validators import (
     SchedulerValidator,
     SharedEbsPerformanceBottleNeckValidator,
     SharedFileCacheNotHomeValidator,
+    SharedStorageEfsSettingsValidator,
     SharedStorageMountDirValidator,
     SharedStorageNameValidator,
     UnmanagedFsxMultiAzValidator,
@@ -140,6 +146,7 @@ from pcluster.validators.ebs_validators import (
 )
 from pcluster.validators.ec2_validators import (
     AmiOsCompatibleValidator,
+    CapacityBlockHealthStatusValidator,
     CapacityReservationResourceGroupValidator,
     CapacityReservationSizeValidator,
     CapacityReservationValidator,
@@ -154,6 +161,7 @@ from pcluster.validators.ec2_validators import (
     PlacementGroupCapacityReservationValidator,
     PlacementGroupCapacityTypeValidator,
     PlacementGroupNamingValidator,
+    UltraserverCapacityBlockSizeValidator,
 )
 from pcluster.validators.efs_validators import EfsAccessPointOptionsValidator, EfsMountOptionsValidator
 from pcluster.validators.feature_validators import FeatureRegionValidator
@@ -182,6 +190,7 @@ from pcluster.validators.instances_validators import (
     InstancesNetworkingValidator,
 )
 from pcluster.validators.kms_validators import KmsKeyIdEncryptedValidator, KmsKeyValidator
+from pcluster.validators.login_nodes_validators import LoginNodesSshKeyNameDeprecatedValidator
 from pcluster.validators.monitoring_validators import DetailedMonitoringValidator, LogRotationValidator
 from pcluster.validators.networking_validators import (
     ElasticIpValidator,
@@ -290,15 +299,6 @@ class LocalStorage(Resource):
         super().__init__(**kwargs)
         self.root_volume = root_volume or RootVolume(implied=True)
         self.ephemeral_volume = ephemeral_volume
-
-
-class SharedStorageType(Enum):
-    """Define storage types to be used as shared storage."""
-
-    EBS = "ebs"
-    RAID = "raid"
-    EFS = "efs"
-    FSX = "fsx"
 
 
 class SharedEbs(Ebs):
@@ -846,10 +846,29 @@ class LoginNodesSsh(_BaseSsh):
     """Represent the SSH configuration for LoginNodes."""
 
     def __init__(self, allowed_ips: str = None, **kwargs):
+        key_name_explicitly_set = kwargs.pop("key_name_explicitly_set", False)
         super().__init__(**kwargs)
         # If AllowedIPs is not specified for the login node pool, then allowed_ips will default to the same settings
         # in the HeadNode to restrict SSH access from a specific CIDR or prefix-list.
         self.allowed_ips = Resource.init_param(allowed_ips)
+        # Track whether the key_name was explicitly set in the configuration.
+        self._key_name_explicitly_set = key_name_explicitly_set
+
+    def _register_validators(self, context=None):
+        super()._register_validators(context)
+        self._register_validator(
+            LoginNodesSshKeyNameDeprecatedValidator,
+            key_name=self.key_name,
+            key_name_explicitly_set=self._key_name_explicitly_set,
+        )
+
+
+class SharedStorageEfsSettings(Resource):
+    """Represent the settings of Efs shared storage used by HeadNode."""
+
+    def __init__(self, encrypted: bool = False):
+        super().__init__()
+        self.encrypted = encrypted
 
 
 class Dcv(Resource):
@@ -1342,7 +1361,7 @@ class LoginNodesNetworking(_BaseNetworking, SubnetsMixin):
     @property
     def is_subnet_public(self):
         """Get if the subnet is public or private."""
-        return AWSApi.instance().ec2.is_subnet_public(self.subnet_ids[0])
+        return AWSApi.instance().ec2.is_subnet_public(self.subnet_ids[0])  # pylint: disable=unsubscriptable-object
 
 
 class LoginNodesPool(Resource):
@@ -1435,6 +1454,7 @@ class HeadNode(Resource):
         disable_simultaneous_multithreading: bool = None,
         local_storage: LocalStorage = None,
         shared_storage_type: str = None,
+        shared_storage_efs_settings: SharedStorageEfsSettings = None,
         dcv: Dcv = None,
         custom_actions: CustomActions = None,
         iam: Iam = None,
@@ -1453,6 +1473,7 @@ class HeadNode(Resource):
             shared_storage_type,
             default="Ebs",
         )
+        self.shared_storage_efs_settings = shared_storage_efs_settings
         self.dcv = dcv
         self.custom_actions = custom_actions
         self.iam = iam or Iam(implied=True)
@@ -1462,6 +1483,11 @@ class HeadNode(Resource):
 
     def _register_validators(self, context: ValidatorContext = None):  # noqa: D102 #pylint: disable=unused-argument
         self._register_validator(InstanceTypeValidator, instance_type=self.instance_type)
+        self._register_validator(
+            SharedStorageEfsSettingsValidator,
+            shared_storage_type=self.shared_storage_type,
+            shared_storage_efs_settings=self.shared_storage_efs_settings,
+        )
 
     @property
     def architecture(self) -> str:
@@ -2192,7 +2218,7 @@ class AwsBatchClusterConfig(BaseClusterConfig):
     @property
     def scheduler_resources(self):
         """Return scheduler specific resources."""
-        return pkg_resources.resource_filename(__name__, "../resources/batch")
+        return str(files(__package__).parent / "resources" / "batch")
 
 
 class _BaseSlurmComputeResource(BaseComputeResource):
@@ -2402,7 +2428,16 @@ class SlurmComputeResource(_BaseSlurmComputeResource):
     def instance_type(self):
         """Instance type of this compute resource."""
         if not self._instance_type:
-            self._instance_type = Resource.init_param(self._instance_type_from_capacity_reservation())
+            capacity_reservation_id = (
+                self.capacity_reservation_target.capacity_reservation_id if self.capacity_reservation_target else None
+            )
+            (
+                instance_type_from_capacity_reservation,
+                _,
+            ) = AWSApi.instance().ec2.get_instance_type_and_reservation_type_from_capacity_reservation(
+                capacity_reservation_id
+            )
+            self._instance_type = Resource.init_param(instance_type_from_capacity_reservation)
         return self._instance_type
 
     def _register_validators(self, context: ValidatorContext = None):
@@ -2445,18 +2480,6 @@ class SlurmComputeResource(_BaseSlurmComputeResource):
     def disable_simultaneous_multithreading_manually(self) -> bool:
         """Return true if simultaneous multithreading must be disabled with a cookbook script."""
         return self.disable_simultaneous_multithreading and self._instance_type_info.default_threads_per_core() > 1
-
-    def _instance_type_from_capacity_reservation(self):
-        """Return the instance type from the configured CapacityReservationId, if any."""
-        instance_type = None
-        capacity_reservation_id = (
-            self.capacity_reservation_target.capacity_reservation_id if self.capacity_reservation_target else None
-        )
-        if capacity_reservation_id:
-            capacity_reservations = AWSApi.instance().ec2.describe_capacity_reservations([capacity_reservation_id])
-            if capacity_reservations:
-                instance_type = capacity_reservations[0].instance_type()
-        return instance_type
 
 
 class _CommonQueue(BaseQueue):
@@ -2578,6 +2601,8 @@ class AllocationStrategy(Enum):
     LOWEST_PRICE = "lowest-price"
     CAPACITY_OPTIMIZED = "capacity-optimized"
     PRICE_CAPACITY_OPTIMIZED = "price-capacity-optimized"
+    PRIORITIZED = "prioritized"
+    CAPACITY_OPTIMIZED_PRIORITIZED = "capacity-optimized-prioritized"
 
 
 class SlurmQueue(_CommonQueue):
@@ -2914,14 +2939,20 @@ class SlurmClusterConfig(BaseClusterConfig):
                 # If there's no customer ssh key for LoginNodes pool, set a default value as HeadNode's ssh key
                 if pool.ssh and not pool.ssh.key_name:
                     pool.ssh.key_name = self.head_node.ssh.key_name
+                    # Mark that this key was not explicitly set by the user
+                    pool.ssh._key_name_explicitly_set = False
                 elif not pool.ssh:
-                    pool.ssh = LoginNodesSsh(key_name=self.head_node.ssh.key_name)
+                    pool.ssh = LoginNodesSsh(key_name=self.head_node.ssh.key_name, key_name_explicitly_set=False)
+                else:
+                    # SSH config exists and has a key_name, mark it as explicitly set
+                    pool.ssh._key_name_explicitly_set = True
                 # If the login node pool allowed IPs is not specified, forces the source allowed IP for the
                 # SSH connection to the one defined in the HeadNode
                 if not pool.ssh.allowed_ips:
                     pool.ssh.allowed_ips = self.head_node.ssh.allowed_ips
 
         self.__image_dict = None
+        self.__ultraserver_capacity_block_dict = None
         # Cache capacity reservations information together to reduce number of boto3 calls.
         # Since this cache is only used for validation, if AWSClientError happens
         # (e.g insufficient IAM permissions to describe the capacity reservations), we catch the exception to avoid
@@ -2976,6 +3007,53 @@ class SlurmClusterConfig(BaseClusterConfig):
             for subnet_id in pool.networking.subnet_ids:
                 subnet_ids_set.add(subnet_id)
         return list(subnet_ids_set)
+
+    @property
+    def ultraserver_capacity_block_dict(self):
+        """
+        Return a dictionary mapping ultraserver instance prefixes to their capacity block reservation IDs.
+
+        This property collects all capacity block reservations used by ultraserver instances
+        (e.g., p6e-gb200) across all queues and compute resources in the cluster configuration.
+
+        Returns:
+            dict: A dictionary where keys are ultraserver instance prefixes (e.g., 'p6e-gb200')
+                  and values are lists of capacity reservation IDs for that instance type.
+
+        Example:
+            {
+                'p6e-gb200': ['cr-123456', 'cr-789012']
+            }
+        """
+        if self.__ultraserver_capacity_block_dict:
+            return self.__ultraserver_capacity_block_dict
+
+        self.__ultraserver_capacity_block_dict = {}
+
+        # Initialize empty lists for each supported ultraserver instance prefix
+        for ultraserver_instance_prefix in ULTRASERVER_INSTANCE_PREFIX_LIST:
+            self.__ultraserver_capacity_block_dict[ultraserver_instance_prefix] = []
+
+        # Iterate through all queues and compute resources to find ultraserver capacity blocks
+        for queue in self.scheduling.queues:
+            for compute_resource in queue.compute_resources:
+                cr_target = compute_resource.capacity_reservation_target or queue.capacity_reservation_target
+                if cr_target and cr_target.capacity_reservation_id:
+                    # Get instance type and reservation type from the capacity reservation
+                    (
+                        instance_type,
+                        reservation_type,
+                    ) = AWSApi.instance().ec2.get_instance_type_and_reservation_type_from_capacity_reservation(
+                        cr_target.capacity_reservation_id
+                    )
+                    # Extract instance prefix (e.g., 'p6e-gb200' from 'p6e-gb200.36xlarge')
+                    instance_prefix = instance_type.split(".")[0]
+                    # Only collect capacity blocks for ultraserver instances
+                    if reservation_type == "capacity-block" and instance_prefix in ULTRASERVER_INSTANCE_PREFIX_LIST:
+                        self.__ultraserver_capacity_block_dict.get(instance_prefix).append(
+                            cr_target.capacity_reservation_id
+                        )
+        return self.__ultraserver_capacity_block_dict
 
     def _register_login_node_validators(self):
         """Register all login node validators to ensure that the resource parameters are valid."""
@@ -3114,6 +3192,7 @@ class SlurmClusterConfig(BaseClusterConfig):
                         is_flexible=compute_resource.is_flexible(),
                         subnet=queue.networking.subnet_ids[0],
                         capacity_type=queue.capacity_type,
+                        os=self.image.os,
                     )
                     self._register_validator(
                         CapacityReservationResourceGroupValidator,
@@ -3211,6 +3290,20 @@ class SlurmClusterConfig(BaseClusterConfig):
                 CapacityReservationSizeValidator,
                 capacity_reservation_id=capacity_reservation_id,
                 num_of_instances=num_of_instances,
+            )
+
+        for ultraserver_instance_prefix in ULTRASERVER_INSTANCE_PREFIX_LIST:
+            if self.ultraserver_capacity_block_dict.get(ultraserver_instance_prefix):
+                self._register_validator(
+                    CapacityBlockHealthStatusValidator,
+                    capacity_reservation_ids=self.ultraserver_capacity_block_dict.get(ultraserver_instance_prefix),
+                )
+
+        # Validate ultraserver capacity block sizes
+        if any(self.ultraserver_capacity_block_dict.get(prefix) for prefix in ULTRASERVER_INSTANCE_PREFIX_LIST):
+            self._register_validator(
+                UltraserverCapacityBlockSizeValidator,
+                cluster_ultraserver_capacity_block_dict=self.ultraserver_capacity_block_dict,
             )
 
     @property

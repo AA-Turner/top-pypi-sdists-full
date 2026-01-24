@@ -1,15 +1,15 @@
-from __future__ import annotations
-
 import sys
-from http.client import HTTPResponse
-from typing import (
+from collections.abc import (
     Callable,
     Collection,
     Iterable,
     Iterator,
-    Literal,
     MutableMapping,
     MutableSet,
+)
+from http.client import HTTPResponse
+from typing import (
+    Literal,
     TypeVar,
     overload,
 )
@@ -24,7 +24,7 @@ from ._element import HtmlElement
 
 _T = TypeVar("_T")
 
-_AnyInputElement = InputElement | SelectElement | TextareaElement  # noqa: F821
+_AnyInputElement = InputElement | SelectElement | TextareaElement  # noqa: F821  # ty: ignore[unresolved-reference]
 
 class FormElement(HtmlElement):
     @property
@@ -51,9 +51,9 @@ class FieldsDict(MutableMapping[str, str]):
     def __init__(self, inputs: InputGetter) -> None: ...
     def __getitem__(self, __k: str) -> str: ...
     def __setitem__(self, __k: str, __v: str) -> None: ...
-    # Use Never for argument to issue early warning that
-    # __delitem__ can't be used
-    def __delitem__(self, __k: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    # Use Never for argument to issue early warning that __delitem__ can't be used
+    # pyrefly: ignore[bad-override]
+    def __delitem__(self, key: Never, /) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     def __iter__(self) -> Iterator[str]: ...
     def __len__(self) -> int: ...
 
@@ -120,13 +120,16 @@ class MultipleSelectOptions(MutableSet[str]):
     def __contains__(self, x: object) -> bool: ...
     def __iter__(self) -> Iterator[str]: ...
     def __len__(self) -> int: ...
-    def add(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def add(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self, item: str
     ) -> None: ...
-    def remove(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def remove(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self, item: str
     ) -> None: ...
-    def discard(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def discard(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self, item: str
     ) -> None: ...
 
@@ -152,7 +155,8 @@ class CheckboxValues(MutableSet[str]):
     def __iter__(self) -> Iterator[str]: ...
     def __len__(self) -> int: ...
     def add(self, value: str) -> None: ...
-    def discard(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def discard(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self, item: str
     ) -> None: ...
 

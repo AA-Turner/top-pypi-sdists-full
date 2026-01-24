@@ -39,7 +39,7 @@ def get_secure_connector(
     return SecureTCPConnector
 
 
-async def request(
+async def request(  # noqa: PLR0913
     url: str,
     *,
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -49,10 +49,10 @@ async def request(
     dns_rebind_protection: bool = True,
     enforce_sanitization: bool = False,
     headers: dict[str, str] | None = None,
-    json: Any | None = None,
+    json: Any | None = None,  # noqa: ANN401
     ports: list[int] | None = None,
     schemes: list[str] | None = None,
-    timeout: int = 10,
+    timeout: int = 10,  # noqa: ASYNC109
 ) -> aiohttp.ClientResponse:
     validate_url(
         url,
@@ -73,16 +73,18 @@ async def request(
         ssl=ssl.create_default_context(cafile=certifi.where()),
     )
 
-    async with aiohttp.ClientSession(
-        connector=connection,
-        headers=headers,
-    ) as session:
-        async with session.request(
+    async with (
+        aiohttp.ClientSession(
+            connector=connection,
+            headers=headers,
+        ) as session,
+        session.request(
             method,
             url,
             allow_redirects=not dns_rebind_protection,
             json=json,
             timeout=aiohttp.ClientTimeout(total=timeout),
-        ) as response:
-            await response.read()
-            return response
+        ) as response,
+    ):
+        await response.read()
+        return response

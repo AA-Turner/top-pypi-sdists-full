@@ -3,7 +3,7 @@ Type annotations for identitystore service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -70,12 +71,6 @@ from .type_defs import (
     UpdateUserRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -86,14 +81,14 @@ __all__ = ("IdentityStoreClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class IdentityStoreClient(AioBaseClient):
@@ -161,7 +156,7 @@ class IdentityStoreClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#create_user)
         """
 
-    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Delete a group within an identity store given <code>GroupId</code>.
 
@@ -171,7 +166,7 @@ class IdentityStoreClient(AioBaseClient):
 
     async def delete_group_membership(
         self, **kwargs: Unpack[DeleteGroupMembershipRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a membership within a group given <code>MembershipId</code>.
 
@@ -179,7 +174,7 @@ class IdentityStoreClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#delete_group_membership)
         """
 
-    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a user within an identity store given <code>UserId</code>.
 
@@ -266,7 +261,8 @@ class IdentityStoreClient(AioBaseClient):
     ) -> ListGroupMembershipsResponseTypeDef:
         """
         For the specified group in the specified identity store, returns the list of
-        all <code>GroupMembership</code> objects and returns results in paginated form.
+        all <code> GroupMembership</code> objects and returns results in paginated
+        form.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/list_group_memberships.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#list_group_memberships)
@@ -277,7 +273,8 @@ class IdentityStoreClient(AioBaseClient):
     ) -> ListGroupMembershipsForMemberResponseTypeDef:
         """
         For the specified member in the specified identity store, returns the list of
-        all <code>GroupMembership</code> objects and returns results in paginated form.
+        all <code> GroupMembership</code> objects and returns results in paginated
+        form.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/list_group_memberships_for_member.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#list_group_memberships_for_member)
@@ -303,19 +300,19 @@ class IdentityStoreClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#list_users)
         """
 
-    async def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> dict[str, Any]:
         """
-        For the specified group in the specified identity store, updates the group
-        metadata and attributes.
+        Updates the specified group metadata and attributes in the specified identity
+        store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/update_group.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#update_group)
         """
 
-    async def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> dict[str, Any]:
         """
-        For the specified user in the specified identity store, updates the user
-        metadata and attributes.
+        Updates the specified user metadata and attributes in the specified identity
+        store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/update_user.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/client/#update_user)
@@ -373,7 +370,7 @@ class IdentityStoreClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

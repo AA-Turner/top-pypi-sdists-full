@@ -1,10 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import json
 from configparser import ConfigParser
+from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
@@ -16,22 +17,24 @@ __all__ = [
 ]
 
 
-def get_credentials_from_config(env_name, credentials_name, config_path="./config.ini"):
+def get_credentials_from_config(
+    env_name: str, credentials_name: str, config_path: str | Path = "./config.ini"
+):
     """Load credentials from the config file.
 
     ::
 
         [DEV_LC]
 
-        credentials = { }
-        cos_credentials = { }
+        credentials = {}
+        cos_credentials = {}
 
     :param env_name: name of [ENV] defined in the config file
     :type env_name: str
     :param credentials_name: name of credentials
     :type credentials_name: str
     :param config_path: path to the config file
-    :type config_path: str
+    :type config_path: str | Path
     :return: loaded credentials
     :rtype: dict
 
@@ -39,9 +42,14 @@ def get_credentials_from_config(env_name, credentials_name, config_path="./confi
 
     .. code-block:: python
 
-        get_credentials_from_config(env_name='DEV_LC', credentials_name='credentials')
+        get_credentials_from_config(
+            env_name="DEV_LC", credentials_name="credentials"
+        )
 
     """
+    if isinstance(config_path, str):
+        config_path = Path(config_path)
+
     config = ConfigParser()
     config.read(config_path)
 
@@ -63,8 +71,6 @@ def pipeline_to_script(pipeline) -> Union["str", "HTML"]:
 
         pipeline_to_script(pipeline=best_pipeline)
     """
-    import os
-
     from lale.helpers import import_from_sklearn_pipeline
     from sklearn.pipeline import Pipeline
 
@@ -81,7 +87,7 @@ def pipeline_to_script(pipeline) -> Union["str", "HTML"]:
     with open(script_name, "w") as f:
         f.write(script)
 
-    script_location = f"{os.path.abspath('.')}/{script_name}"
+    script_location = Path(".").resolve() / script_name
 
     if is_ipython():
         return create_download_link(script_location)

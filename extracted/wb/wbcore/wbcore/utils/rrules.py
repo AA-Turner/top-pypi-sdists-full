@@ -48,7 +48,7 @@ def humanize_rrule(rrule_str: rrule) -> str:
     Returns:
         A humanized version of the rrule
     """
-    if not rrule_str._freq:
+    if rrule_str._freq is None:
         raise ValueError("We do no support humanization of rrule without frequency yet")
     text = "Every "
     freq = rrule.FREQNAMES[rrule_str._freq]

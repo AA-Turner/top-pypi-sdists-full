@@ -1,7 +1,7 @@
 import csv
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 from dataclasses_json import LetterCase, dataclass_json
@@ -27,6 +27,7 @@ class CollectionBlock:
 class ManagementService:
     _LIST_PII_PREFERENCES_HEADERS = ["Status", "Fail Mode"]
     _COLLECTION_BLOCK_LIST_HEADERS = ["Resource", "Project", "Dataset"]
+    _ASSET_COLLECTION_PREFERENCES_HEADERS = ["Resource", "Asset Type", "Default Effect", "Rules"]
     _mutation_add_to_block_list = """
         mutation addToCollectionBlockList($collectionBlocks: [CollectionBlockInput]!) {
             addToCollectionBlockList(collectionBlocks: $collectionBlocks) {
@@ -217,3 +218,131 @@ class ManagementService:
                 ).to_dict()  # type: ignore
             )
         return collection_blocks
+
+    @manage_errors
+    def get_asset_collection_preferences(
+        self,
+        resource_name: Optional[str] = None,
+        asset_type: Optional[str] = None,
+        limit: int = DEFAULT_COLLECTION_BLOCK_LIST_PAGE_SIZE,
+        headers: str = "firstrow",
+        table_format: str = "fancy_grid",
+    ) -> None:
+        table = [self._ASSET_COLLECTION_PREFERENCES_HEADERS]
+
+        variables: dict = {"first": limit}
+        if resource_name:
+            resource_id = self._user_service.all_resource_identifiers.get(resource_name)
+            if not resource_id:
+                sys.exit(f"No existing resources with name '{resource_name}'.")
+            variables["resource_id"] = resource_id
+        if asset_type:
+            variables["asset_type"] = asset_type
+
+        while True:  # loop through each page of results
+            query = Query()
+            op: Any = query.get_asset_collection_preferences(**variables)
+            op.edges.node.__fields__("asset_type", "default_effect")
+            op.edges.node.rules.__fields__("effect")
+            op.edges.node.resource.__fields__("uuid", "name")
+            op.page_info()
+
+            result = self._mc_client(
+                query,
+                additional_headers={
+                    "x-mcd-telemetry-reason": "cli",
+                    "x-mcd-telemetry-service": "management_service",
+                    "x-mcd-telemetry-command": self._command_name,
+                },
+            )
+            preferences_connection = result.get_asset_collection_preferences
+            if not preferences_connection.edges:
+                click.echo("No asset collection preferences found.")
+                return
+            for edge in preferences_connection.edges:
+                rules_summary = ""
+                if edge.node.rules:  # type: ignore
+                    rules_summary = f"{len(edge.node.rules)} rule(s)"  # type: ignore
+                table.append(
+                    [
+                        edge.node.resource.name or edge.node.resource.uuid,  # type: ignore
+                        edge.node.asset_type or "",  # type: ignore
+                        edge.node.default_effect or "",  # type: ignore
+                        rules_summary,
+                    ]
+                )
+            if not preferences_connection.page_info.has_next_page:
+                break
+            variables["after"] = preferences_connection.page_info.end_cursor
+
+        click.echo(tabulate(table, headers=headers, tablefmt=table_format, maxcolwidths=100))
+
+    @manage_errors
+    def set_asset_collection_preferences(
+        self,
+        resource_name: str,
+        asset_type: str,
+        default_effect: Optional[str] = None,
+        rules: Optional[List[dict]] = None,
+    ) -> None:
+        resource_id = self._user_service.all_resource_identifiers.get(resource_name)
+        if not resource_id:
+            complain_and_abort(f"No existing resources with name '{resource_name}'.")
+
+        variables = {
+            "resource_id": resource_id,
+            "asset_type": asset_type,
+        }
+        if default_effect:
+            variables["default_effect"] = default_effect
+
+        if rules:
+            variables["rules"] = rules
+
+        mutation = Mutation()
+        op = mutation.set_asset_collection_preferences(**variables)
+        op.success()  # type: ignore
+        result = self._mc_client(
+            mutation,
+            additional_headers={
+                "x-mcd-telemetry-reason": "cli",
+                "x-mcd-telemetry-service": "management_service",
+                "x-mcd-telemetry-command": self._command_name,
+            },
+        ).set_asset_collection_preferences
+
+        if result.success:
+            click.echo("Asset collection preferences have been updated!")
+
+    @manage_errors
+    def delete_asset_collection_preferences(
+        self,
+        resource_name: str,
+        asset_type: str,
+    ) -> None:
+        resource_id = self._user_service.all_resource_identifiers.get(resource_name)
+        if not resource_id:
+            complain_and_abort(f"No existing resources with name '{resource_name}'.")
+
+        variables = {
+            "resource_id": resource_id,
+            "asset_type": asset_type,
+        }
+
+        mutation = Mutation()
+        op = mutation.delete_asset_collection_preferences(**variables)
+        op.success()  # type: ignore
+        result = self._mc_client(
+            mutation,
+            additional_headers={
+                "x-mcd-telemetry-reason": "cli",
+                "x-mcd-telemetry-service": "management_service",
+                "x-mcd-telemetry-command": self._command_name,
+            },
+        ).delete_asset_collection_preferences
+
+        if result.success:
+            click.echo(
+                f"Asset collection preferences for '{asset_type}' on resource '{resource_name}' "
+                "have been deleted!"
+            )

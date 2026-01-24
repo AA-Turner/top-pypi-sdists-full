@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -52,7 +52,7 @@ class BasePromptTemplate(BasePrompt):
         return self._prompt_version
 
     @template_version.setter
-    def template_version(self, value: str) -> None:
+    def template_version(self, value: str | None) -> None:
         self._prompt_version = value
 
     @abstractmethod

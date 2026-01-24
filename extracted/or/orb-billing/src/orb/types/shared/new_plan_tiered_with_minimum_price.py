@@ -21,17 +21,19 @@ __all__ = [
 
 
 class TieredWithMinimumConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     minimum_amount: str
-    """Minimum amount"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class TieredWithMinimumConfig(BaseModel):
+    """Configuration for tiered_with_minimum pricing"""
+
     tiers: List[TieredWithMinimumConfigTier]
     """Tiered pricing with a minimum amount dependent on the volume tier.
 

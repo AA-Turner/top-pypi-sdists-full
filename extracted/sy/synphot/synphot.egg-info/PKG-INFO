@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: synphot
-Version: 1.6.0
+Version: 1.6.1
 Summary: Synthetic photometry
 Home-page: https://www.github.com/spacetelescope/synphot_refactor
 Author: STScI
-Author-email: help@stsci.edu
 License: BSD
 Keywords: astronomy,astrophysics,synthetic,photometry
 Classifier: Intended Audience :: Science/Research

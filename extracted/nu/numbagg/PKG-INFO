@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numbagg
-Version: 0.9.2
+Version: 0.9.4
 Summary: Fast N-dimensional aggregation functions with Numba
 Author-email: Stephan Hoyer <shoyer@gmail.com>, Maximilian Roos <m@maxroos.com>
 License: License
@@ -76,14 +76,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy

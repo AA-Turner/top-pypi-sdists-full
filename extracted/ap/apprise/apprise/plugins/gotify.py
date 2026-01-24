@@ -102,7 +102,7 @@ class NotifyGotify(NotifyBase):
     secure_protocol = "gotifys"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_gotify"
+    setup_url = "https://appriseit.com/services/gotify/"
 
     # Disable throttle rate
     request_rate_per_sec = 0
@@ -251,7 +251,8 @@ class NotifyGotify(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Mark our failure
                 return False

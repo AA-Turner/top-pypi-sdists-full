@@ -1,3 +1,4 @@
+import warnings
 from typing import Annotated, Any, Dict, List, Optional
 
 from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
@@ -83,12 +84,19 @@ class MongoDBAtlasHybridSearchRetriever(BaseRetriever):
         pipeline: List[Any] = []
 
         # Get the appropriate value for k.
-        default_k = self.top_k if self.top_k is not None else self.k
-        k = kwargs.get("k", default_k)
+        is_top_k_set = False
+        with warnings.catch_warnings():
+            # Ignore warning raised by checking the value of top_k.
+            warnings.simplefilter("ignore", DeprecationWarning)
+            if self.top_k is not None:
+                is_top_k_set = True
+        default_k = self.k if not is_top_k_set else self.top_k
+        k: int = kwargs.get("k", default_k)  # type:ignore[assignment]
 
         # First we build up the aggregation pipeline,
         # then it is passed to the server to execute
         # Vector Search stage
+        assert self.vectorstore._embedding_key is not None
         vector_pipeline = [
             vector_search_stage(
                 query_vector=query_vector,

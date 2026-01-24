@@ -12,8 +12,20 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-jigsaw = jigsawstack.JigsawStack(api_key=os.getenv("JIGSAWSTACK_API_KEY"))
-async_jigsaw = jigsawstack.AsyncJigsawStack(api_key=os.getenv("JIGSAWSTACK_API_KEY"))
+jigsaw = jigsawstack.JigsawStack(
+    base_url=os.getenv("JIGSAWSTACK_BASE_URL") + "/api"
+    if os.getenv("JIGSAWSTACK_BASE_URL")
+    else "https://api.jigsawstack.com",
+    api_key=os.getenv("JIGSAWSTACK_API_KEY"),
+    headers={"x-jigsaw-skip-cache": "true"},
+)
+async_jigsaw = jigsawstack.AsyncJigsawStack(
+    base_url=os.getenv("JIGSAWSTACK_BASE_URL") + "/api"
+    if os.getenv("JIGSAWSTACK_BASE_URL")
+    else "https://api.jigsawstack.com",
+    api_key=os.getenv("JIGSAWSTACK_API_KEY"),
+    headers={"x-jigsaw-skip-cache": "true"},
+)
 
 URL = "https://jigsawstack.com"
 
@@ -65,14 +77,16 @@ AI_SCRAPE_TEST_CASES = [
             "is_mobile": True,
         },
     },
-    {
-        "name": "scrape_with_cookies",
-        "params": {
-            "url": URL,
-            "element_prompts": ["user data"],
-            "cookies": [{"name": "session", "value": "test123", "domain": "example.com"}],
-        },
-    },
+    # {
+    #     "name": "scrape_with_cookies",
+    #     "params": {
+    #         "url": URL,
+    #         "element_prompts": ["user data"],
+    #         "cookies": [
+    #             {"name": "session", "value": "test123", "domain": "example.com"}
+    #         ],
+    #     },
+    # },
     {
         "name": "scrape_with_advance_config",
         "params": {

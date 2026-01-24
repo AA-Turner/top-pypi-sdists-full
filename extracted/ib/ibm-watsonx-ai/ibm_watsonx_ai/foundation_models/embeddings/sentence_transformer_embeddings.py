@@ -1,16 +1,17 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from warnings import warn
 
 from ibm_watsonx_ai.foundation_models.embeddings.base_embeddings import BaseEmbeddings
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 
 class SentenceTransformerEmbeddings(BaseEmbeddings):
-    """Embedding that utilizes sentence transformer, compatibile with ``RAGPattern``.
+    """Embedding that utilizes sentence transformer, compatible with ``RAGPattern``.
 
     Requires sentence_transformers to be installed by pip.
 
@@ -38,10 +39,11 @@ class SentenceTransformerEmbeddings(BaseEmbeddings):
         warn(sentence_transformer_class_deprecated_warning, category=DeprecationWarning)
 
         super().__init__()
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError:
-            raise MissingExtension("sentence_transformers")
+        if not is_lib_installed(ext := "sentence-transformers"):
+            raise MissingExtension(ext)
+
+        from sentence_transformers import SentenceTransformer
+
         self.model_name = model_name
         self.model_params = model_params or {}
         self.encode_params = encode_params or {}

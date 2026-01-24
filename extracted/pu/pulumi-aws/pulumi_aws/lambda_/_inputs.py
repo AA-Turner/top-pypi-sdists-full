@@ -18,12 +18,30 @@ from ._enums import *
 __all__ = [
     'AliasRoutingConfigArgs',
     'AliasRoutingConfigArgsDict',
+    'CapacityProviderCapacityProviderScalingConfigArgs',
+    'CapacityProviderCapacityProviderScalingConfigArgsDict',
+    'CapacityProviderCapacityProviderScalingConfigScalingPolicyArgs',
+    'CapacityProviderCapacityProviderScalingConfigScalingPolicyArgsDict',
+    'CapacityProviderInstanceRequirementArgs',
+    'CapacityProviderInstanceRequirementArgsDict',
+    'CapacityProviderPermissionsConfigArgs',
+    'CapacityProviderPermissionsConfigArgsDict',
+    'CapacityProviderTimeoutsArgs',
+    'CapacityProviderTimeoutsArgsDict',
+    'CapacityProviderVpcConfigArgs',
+    'CapacityProviderVpcConfigArgsDict',
     'CodeSigningConfigAllowedPublishersArgs',
     'CodeSigningConfigAllowedPublishersArgsDict',
     'CodeSigningConfigPoliciesArgs',
     'CodeSigningConfigPoliciesArgsDict',
     'EventSourceMappingAmazonManagedKafkaEventSourceConfigArgs',
     'EventSourceMappingAmazonManagedKafkaEventSourceConfigArgsDict',
+    'EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgs',
+    'EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict',
+    'EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs',
+    'EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict',
+    'EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs',
+    'EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict',
     'EventSourceMappingDestinationConfigArgs',
     'EventSourceMappingDestinationConfigArgsDict',
     'EventSourceMappingDestinationConfigOnFailureArgs',
@@ -44,10 +62,22 @@ __all__ = [
     'EventSourceMappingSelfManagedEventSourceArgsDict',
     'EventSourceMappingSelfManagedKafkaEventSourceConfigArgs',
     'EventSourceMappingSelfManagedKafkaEventSourceConfigArgsDict',
+    'EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgs',
+    'EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict',
+    'EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs',
+    'EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict',
+    'EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs',
+    'EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict',
     'EventSourceMappingSourceAccessConfigurationArgs',
     'EventSourceMappingSourceAccessConfigurationArgsDict',
+    'FunctionCapacityProviderConfigArgs',
+    'FunctionCapacityProviderConfigArgsDict',
+    'FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgs',
+    'FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgsDict',
     'FunctionDeadLetterConfigArgs',
     'FunctionDeadLetterConfigArgsDict',
+    'FunctionDurableConfigArgs',
+    'FunctionDurableConfigArgsDict',
     'FunctionEnvironmentArgs',
     'FunctionEnvironmentArgsDict',
     'FunctionEphemeralStorageArgs',
@@ -66,6 +96,8 @@ __all__ = [
     'FunctionLoggingConfigArgsDict',
     'FunctionSnapStartArgs',
     'FunctionSnapStartArgsDict',
+    'FunctionTenancyConfigArgs',
+    'FunctionTenancyConfigArgsDict',
     'FunctionTracingConfigArgs',
     'FunctionTracingConfigArgsDict',
     'FunctionUrlCorsArgs',
@@ -106,6 +138,340 @@ class AliasRoutingConfigArgs:
     @additional_version_weights.setter
     def additional_version_weights(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.float]]]]):
         pulumi.set(self, "additional_version_weights", value)
+
+
+if not MYPY:
+    class CapacityProviderCapacityProviderScalingConfigArgsDict(TypedDict):
+        max_vcpu_count: pulumi.Input[_builtins.int]
+        scaling_mode: pulumi.Input[_builtins.str]
+        """
+        The scaling mode for the Capacity Provider. Valid values are `AUTO` and `MANUAL`. Defaults to `AUTO`.
+        """
+        scaling_policies: pulumi.Input[Sequence[pulumi.Input['CapacityProviderCapacityProviderScalingConfigScalingPolicyArgsDict']]]
+        """
+        List of scaling policies. See Scaling Policies below.
+        """
+elif False:
+    CapacityProviderCapacityProviderScalingConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CapacityProviderCapacityProviderScalingConfigArgs:
+    def __init__(__self__, *,
+                 max_vcpu_count: pulumi.Input[_builtins.int],
+                 scaling_mode: pulumi.Input[_builtins.str],
+                 scaling_policies: pulumi.Input[Sequence[pulumi.Input['CapacityProviderCapacityProviderScalingConfigScalingPolicyArgs']]]):
+        """
+        :param pulumi.Input[_builtins.str] scaling_mode: The scaling mode for the Capacity Provider. Valid values are `AUTO` and `MANUAL`. Defaults to `AUTO`.
+        :param pulumi.Input[Sequence[pulumi.Input['CapacityProviderCapacityProviderScalingConfigScalingPolicyArgs']]] scaling_policies: List of scaling policies. See Scaling Policies below.
+        """
+        pulumi.set(__self__, "max_vcpu_count", max_vcpu_count)
+        pulumi.set(__self__, "scaling_mode", scaling_mode)
+        pulumi.set(__self__, "scaling_policies", scaling_policies)
+
+    @_builtins.property
+    @pulumi.getter(name="maxVcpuCount")
+    def max_vcpu_count(self) -> pulumi.Input[_builtins.int]:
+        return pulumi.get(self, "max_vcpu_count")
+
+    @max_vcpu_count.setter
+    def max_vcpu_count(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "max_vcpu_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="scalingMode")
+    def scaling_mode(self) -> pulumi.Input[_builtins.str]:
+        """
+        The scaling mode for the Capacity Provider. Valid values are `AUTO` and `MANUAL`. Defaults to `AUTO`.
+        """
+        return pulumi.get(self, "scaling_mode")
+
+    @scaling_mode.setter
+    def scaling_mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "scaling_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="scalingPolicies")
+    def scaling_policies(self) -> pulumi.Input[Sequence[pulumi.Input['CapacityProviderCapacityProviderScalingConfigScalingPolicyArgs']]]:
+        """
+        List of scaling policies. See Scaling Policies below.
+        """
+        return pulumi.get(self, "scaling_policies")
+
+    @scaling_policies.setter
+    def scaling_policies(self, value: pulumi.Input[Sequence[pulumi.Input['CapacityProviderCapacityProviderScalingConfigScalingPolicyArgs']]]):
+        pulumi.set(self, "scaling_policies", value)
+
+
+if not MYPY:
+    class CapacityProviderCapacityProviderScalingConfigScalingPolicyArgsDict(TypedDict):
+        predefined_metric_type: pulumi.Input[_builtins.str]
+        """
+        The predefined metric type for the scaling policy. Valid values are `LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION`.
+        """
+        target_value: pulumi.Input[_builtins.float]
+        """
+        The target value for the scaling policy.
+        """
+elif False:
+    CapacityProviderCapacityProviderScalingConfigScalingPolicyArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CapacityProviderCapacityProviderScalingConfigScalingPolicyArgs:
+    def __init__(__self__, *,
+                 predefined_metric_type: pulumi.Input[_builtins.str],
+                 target_value: pulumi.Input[_builtins.float]):
+        """
+        :param pulumi.Input[_builtins.str] predefined_metric_type: The predefined metric type for the scaling policy. Valid values are `LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION`.
+        :param pulumi.Input[_builtins.float] target_value: The target value for the scaling policy.
+        """
+        pulumi.set(__self__, "predefined_metric_type", predefined_metric_type)
+        pulumi.set(__self__, "target_value", target_value)
+
+    @_builtins.property
+    @pulumi.getter(name="predefinedMetricType")
+    def predefined_metric_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        The predefined metric type for the scaling policy. Valid values are `LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION`.
+        """
+        return pulumi.get(self, "predefined_metric_type")
+
+    @predefined_metric_type.setter
+    def predefined_metric_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "predefined_metric_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetValue")
+    def target_value(self) -> pulumi.Input[_builtins.float]:
+        """
+        The target value for the scaling policy.
+        """
+        return pulumi.get(self, "target_value")
+
+    @target_value.setter
+    def target_value(self, value: pulumi.Input[_builtins.float]):
+        pulumi.set(self, "target_value", value)
+
+
+if not MYPY:
+    class CapacityProviderInstanceRequirementArgsDict(TypedDict):
+        allowed_instance_types: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of allowed instance types.
+        """
+        architectures: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of CPU architectures. Valid values are `X86_64` and `ARM64`.
+        """
+        excluded_instance_types: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of excluded instance types.
+        """
+elif False:
+    CapacityProviderInstanceRequirementArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CapacityProviderInstanceRequirementArgs:
+    def __init__(__self__, *,
+                 allowed_instance_types: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
+                 architectures: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
+                 excluded_instance_types: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_instance_types: List of allowed instance types.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] architectures: List of CPU architectures. Valid values are `X86_64` and `ARM64`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] excluded_instance_types: List of excluded instance types.
+        """
+        pulumi.set(__self__, "allowed_instance_types", allowed_instance_types)
+        pulumi.set(__self__, "architectures", architectures)
+        pulumi.set(__self__, "excluded_instance_types", excluded_instance_types)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedInstanceTypes")
+    def allowed_instance_types(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of allowed instance types.
+        """
+        return pulumi.get(self, "allowed_instance_types")
+
+    @allowed_instance_types.setter
+    def allowed_instance_types(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "allowed_instance_types", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def architectures(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of CPU architectures. Valid values are `X86_64` and `ARM64`.
+        """
+        return pulumi.get(self, "architectures")
+
+    @architectures.setter
+    def architectures(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "architectures", value)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedInstanceTypes")
+    def excluded_instance_types(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of excluded instance types.
+        """
+        return pulumi.get(self, "excluded_instance_types")
+
+    @excluded_instance_types.setter
+    def excluded_instance_types(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "excluded_instance_types", value)
+
+
+if not MYPY:
+    class CapacityProviderPermissionsConfigArgsDict(TypedDict):
+        capacity_provider_operator_role_arn: pulumi.Input[_builtins.str]
+        """
+        The ARN of the IAM role that allows Lambda to manage the Capacity Provider.
+        """
+elif False:
+    CapacityProviderPermissionsConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CapacityProviderPermissionsConfigArgs:
+    def __init__(__self__, *,
+                 capacity_provider_operator_role_arn: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] capacity_provider_operator_role_arn: The ARN of the IAM role that allows Lambda to manage the Capacity Provider.
+        """
+        pulumi.set(__self__, "capacity_provider_operator_role_arn", capacity_provider_operator_role_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityProviderOperatorRoleArn")
+    def capacity_provider_operator_role_arn(self) -> pulumi.Input[_builtins.str]:
+        """
+        The ARN of the IAM role that allows Lambda to manage the Capacity Provider.
+        """
+        return pulumi.get(self, "capacity_provider_operator_role_arn")
+
+    @capacity_provider_operator_role_arn.setter
+    def capacity_provider_operator_role_arn(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "capacity_provider_operator_role_arn", value)
+
+
+if not MYPY:
+    class CapacityProviderTimeoutsArgsDict(TypedDict):
+        create: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        delete: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        update: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+elif False:
+    CapacityProviderTimeoutsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CapacityProviderTimeoutsArgs:
+    def __init__(__self__, *,
+                 create: Optional[pulumi.Input[_builtins.str]] = None,
+                 delete: Optional[pulumi.Input[_builtins.str]] = None,
+                 update: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] create: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        :param pulumi.Input[_builtins.str] delete: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        :param pulumi.Input[_builtins.str] update: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        if create is not None:
+            pulumi.set(__self__, "create", create)
+        if delete is not None:
+            pulumi.set(__self__, "delete", delete)
+        if update is not None:
+            pulumi.set(__self__, "update", update)
+
+    @_builtins.property
+    @pulumi.getter
+    def create(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "create")
+
+    @create.setter
+    def create(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "create", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delete(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        return pulumi.get(self, "delete")
+
+    @delete.setter
+    def delete(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "delete", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def update(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "update")
+
+    @update.setter
+    def update(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "update", value)
+
+
+if not MYPY:
+    class CapacityProviderVpcConfigArgsDict(TypedDict):
+        security_group_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of security group IDs for the VPC.
+        """
+        subnet_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+        """
+        List of subnet IDs for the VPC.
+        """
+elif False:
+    CapacityProviderVpcConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CapacityProviderVpcConfigArgs:
+    def __init__(__self__, *,
+                 security_group_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
+                 subnet_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] security_group_ids: List of security group IDs for the VPC.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] subnet_ids: List of subnet IDs for the VPC.
+        """
+        pulumi.set(__self__, "security_group_ids", security_group_ids)
+        pulumi.set(__self__, "subnet_ids", subnet_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="securityGroupIds")
+    def security_group_ids(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of security group IDs for the VPC.
+        """
+        return pulumi.get(self, "security_group_ids")
+
+    @security_group_ids.setter
+    def security_group_ids(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "security_group_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetIds")
+    def subnet_ids(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        List of subnet IDs for the VPC.
+        """
+        return pulumi.get(self, "subnet_ids")
+
+    @subnet_ids.setter
+    def subnet_ids(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        pulumi.set(self, "subnet_ids", value)
 
 
 if not MYPY:
@@ -176,18 +542,26 @@ if not MYPY:
         """
         Kafka consumer group ID between 1 and 200 characters for use when creating this event source mapping. If one is not specified, this value will be automatically generated. See [AmazonManagedKafkaEventSourceConfig Syntax](https://docs.aws.amazon.com/lambda/latest/dg/API_AmazonManagedKafkaEventSourceConfig.html).
         """
+        schema_registry_config: NotRequired[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict']]
+        """
+        Block for a Kafka schema registry setting. See below.
+        """
 elif False:
     EventSourceMappingAmazonManagedKafkaEventSourceConfigArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class EventSourceMappingAmazonManagedKafkaEventSourceConfigArgs:
     def __init__(__self__, *,
-                 consumer_group_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 consumer_group_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 schema_registry_config: Optional[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] consumer_group_id: Kafka consumer group ID between 1 and 200 characters for use when creating this event source mapping. If one is not specified, this value will be automatically generated. See [AmazonManagedKafkaEventSourceConfig Syntax](https://docs.aws.amazon.com/lambda/latest/dg/API_AmazonManagedKafkaEventSourceConfig.html).
+        :param pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgs'] schema_registry_config: Block for a Kafka schema registry setting. See below.
         """
         if consumer_group_id is not None:
             pulumi.set(__self__, "consumer_group_id", consumer_group_id)
+        if schema_registry_config is not None:
+            pulumi.set(__self__, "schema_registry_config", schema_registry_config)
 
     @_builtins.property
     @pulumi.getter(name="consumerGroupId")
@@ -200,6 +574,194 @@ class EventSourceMappingAmazonManagedKafkaEventSourceConfigArgs:
     @consumer_group_id.setter
     def consumer_group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "consumer_group_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaRegistryConfig")
+    def schema_registry_config(self) -> Optional[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgs']]:
+        """
+        Block for a Kafka schema registry setting. See below.
+        """
+        return pulumi.get(self, "schema_registry_config")
+
+    @schema_registry_config.setter
+    def schema_registry_config(self, value: Optional[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgs']]):
+        pulumi.set(self, "schema_registry_config", value)
+
+
+if not MYPY:
+    class EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict(TypedDict):
+        access_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict']]]]
+        """
+        Configuration block for authentication Lambda uses to access the schema registry.
+        """
+        event_record_format: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Record format that Lambda delivers to the function after schema validation. Valid values: `JSON`, `SOURCE`.
+        """
+        schema_registry_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        URI of the schema registry. For AWS Glue schema registries, use the ARN of the registry. For Confluent schema registries, use the registry URL.
+        """
+        schema_validation_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict']]]]
+        """
+        Repeatable block that defines schema validation settings. These specify the message attributes that Lambda should validate and filter using the schema registry.
+        """
+elif False:
+    EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigArgs:
+    def __init__(__self__, *,
+                 access_configs: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]]] = None,
+                 event_record_format: Optional[pulumi.Input[_builtins.str]] = None,
+                 schema_registry_uri: Optional[pulumi.Input[_builtins.str]] = None,
+                 schema_validation_configs: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]] access_configs: Configuration block for authentication Lambda uses to access the schema registry.
+        :param pulumi.Input[_builtins.str] event_record_format: Record format that Lambda delivers to the function after schema validation. Valid values: `JSON`, `SOURCE`.
+        :param pulumi.Input[_builtins.str] schema_registry_uri: URI of the schema registry. For AWS Glue schema registries, use the ARN of the registry. For Confluent schema registries, use the registry URL.
+        :param pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]] schema_validation_configs: Repeatable block that defines schema validation settings. These specify the message attributes that Lambda should validate and filter using the schema registry.
+        """
+        if access_configs is not None:
+            pulumi.set(__self__, "access_configs", access_configs)
+        if event_record_format is not None:
+            pulumi.set(__self__, "event_record_format", event_record_format)
+        if schema_registry_uri is not None:
+            pulumi.set(__self__, "schema_registry_uri", schema_registry_uri)
+        if schema_validation_configs is not None:
+            pulumi.set(__self__, "schema_validation_configs", schema_validation_configs)
+
+    @_builtins.property
+    @pulumi.getter(name="accessConfigs")
+    def access_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]]]:
+        """
+        Configuration block for authentication Lambda uses to access the schema registry.
+        """
+        return pulumi.get(self, "access_configs")
+
+    @access_configs.setter
+    def access_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]]]):
+        pulumi.set(self, "access_configs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="eventRecordFormat")
+    def event_record_format(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Record format that Lambda delivers to the function after schema validation. Valid values: `JSON`, `SOURCE`.
+        """
+        return pulumi.get(self, "event_record_format")
+
+    @event_record_format.setter
+    def event_record_format(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "event_record_format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaRegistryUri")
+    def schema_registry_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        URI of the schema registry. For AWS Glue schema registries, use the ARN of the registry. For Confluent schema registries, use the registry URL.
+        """
+        return pulumi.get(self, "schema_registry_uri")
+
+    @schema_registry_uri.setter
+    def schema_registry_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "schema_registry_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaValidationConfigs")
+    def schema_validation_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]]]:
+        """
+        Repeatable block that defines schema validation settings. These specify the message attributes that Lambda should validate and filter using the schema registry.
+        """
+        return pulumi.get(self, "schema_validation_configs")
+
+    @schema_validation_configs.setter
+    def schema_validation_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]]]):
+        pulumi.set(self, "schema_validation_configs", value)
+
+
+if not MYPY:
+    class EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict(TypedDict):
+        type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Authentication type Lambda uses to access the schema registry.
+        """
+        uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        URI of the secret (Secrets Manager secret ARN) used to authenticate with the schema registry.
+        """
+elif False:
+    EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs:
+    def __init__(__self__, *,
+                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 uri: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] type: Authentication type Lambda uses to access the schema registry.
+        :param pulumi.Input[_builtins.str] uri: URI of the secret (Secrets Manager secret ARN) used to authenticate with the schema registry.
+        """
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if uri is not None:
+            pulumi.set(__self__, "uri", uri)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Authentication type Lambda uses to access the schema registry.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "type", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        URI of the secret (Secrets Manager secret ARN) used to authenticate with the schema registry.
+        """
+        return pulumi.get(self, "uri")
+
+    @uri.setter
+    def uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "uri", value)
+
+
+if not MYPY:
+    class EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict(TypedDict):
+        attribute: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Message attribute to validate. Valid values: `KEY`, `VALUE`.
+        """
+elif False:
+    EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs:
+    def __init__(__self__, *,
+                 attribute: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] attribute: Message attribute to validate. Valid values: `KEY`, `VALUE`.
+        """
+        if attribute is not None:
+            pulumi.set(__self__, "attribute", attribute)
+
+    @_builtins.property
+    @pulumi.getter
+    def attribute(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Message attribute to validate. Valid values: `KEY`, `VALUE`.
+        """
+        return pulumi.get(self, "attribute")
+
+    @attribute.setter
+    def attribute(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "attribute", value)
 
 
 if not MYPY:
@@ -238,7 +800,7 @@ if not MYPY:
     class EventSourceMappingDestinationConfigOnFailureArgsDict(TypedDict):
         destination_arn: pulumi.Input[_builtins.str]
         """
-        ARN of the destination resource.
+        ARN of the destination resource, or `kafka://your-topic-name` for Amazon MSK and self-managed Apache Kafka destinations.
         """
 elif False:
     EventSourceMappingDestinationConfigOnFailureArgsDict: TypeAlias = Mapping[str, Any]
@@ -248,7 +810,7 @@ class EventSourceMappingDestinationConfigOnFailureArgs:
     def __init__(__self__, *,
                  destination_arn: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] destination_arn: ARN of the destination resource.
+        :param pulumi.Input[_builtins.str] destination_arn: ARN of the destination resource, or `kafka://your-topic-name` for Amazon MSK and self-managed Apache Kafka destinations.
         """
         pulumi.set(__self__, "destination_arn", destination_arn)
 
@@ -256,7 +818,7 @@ class EventSourceMappingDestinationConfigOnFailureArgs:
     @pulumi.getter(name="destinationArn")
     def destination_arn(self) -> pulumi.Input[_builtins.str]:
         """
-        ARN of the destination resource.
+        ARN of the destination resource, or `kafka://your-topic-name` for Amazon MSK and self-managed Apache Kafka destinations.
         """
         return pulumi.get(self, "destination_arn")
 
@@ -441,6 +1003,10 @@ if not MYPY:
         """
         Minimum number of event pollers this event source can scale down to. The range is between 1 and 200.
         """
+        poller_group_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the provisioned poller group used to group multiple ESMs within the event source's VPC to share Event Poller Unit (EPU) capacity. You can use this option to optimize Provisioned mode costs for your ESMs. You can group up to 100 ESMs per poller group and aggregate maximum pollers across all ESMs in a group cannot exceed 2000.
+        """
 elif False:
     EventSourceMappingProvisionedPollerConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -448,15 +1014,19 @@ elif False:
 class EventSourceMappingProvisionedPollerConfigArgs:
     def __init__(__self__, *,
                  maximum_pollers: Optional[pulumi.Input[_builtins.int]] = None,
-                 minimum_pollers: Optional[pulumi.Input[_builtins.int]] = None):
+                 minimum_pollers: Optional[pulumi.Input[_builtins.int]] = None,
+                 poller_group_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.int] maximum_pollers: Maximum number of event pollers this event source can scale up to. The range is between 1 and 2000.
         :param pulumi.Input[_builtins.int] minimum_pollers: Minimum number of event pollers this event source can scale down to. The range is between 1 and 200.
+        :param pulumi.Input[_builtins.str] poller_group_name: The name of the provisioned poller group used to group multiple ESMs within the event source's VPC to share Event Poller Unit (EPU) capacity. You can use this option to optimize Provisioned mode costs for your ESMs. You can group up to 100 ESMs per poller group and aggregate maximum pollers across all ESMs in a group cannot exceed 2000.
         """
         if maximum_pollers is not None:
             pulumi.set(__self__, "maximum_pollers", maximum_pollers)
         if minimum_pollers is not None:
             pulumi.set(__self__, "minimum_pollers", minimum_pollers)
+        if poller_group_name is not None:
+            pulumi.set(__self__, "poller_group_name", poller_group_name)
 
     @_builtins.property
     @pulumi.getter(name="maximumPollers")
@@ -481,6 +1051,18 @@ class EventSourceMappingProvisionedPollerConfigArgs:
     @minimum_pollers.setter
     def minimum_pollers(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "minimum_pollers", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pollerGroupName")
+    def poller_group_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the provisioned poller group used to group multiple ESMs within the event source's VPC to share Event Poller Unit (EPU) capacity. You can use this option to optimize Provisioned mode costs for your ESMs. You can group up to 100 ESMs per poller group and aggregate maximum pollers across all ESMs in a group cannot exceed 2000.
+        """
+        return pulumi.get(self, "poller_group_name")
+
+    @poller_group_name.setter
+    def poller_group_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "poller_group_name", value)
 
 
 if not MYPY:
@@ -552,18 +1134,26 @@ if not MYPY:
         """
         Kafka consumer group ID between 1 and 200 characters for use when creating this event source mapping. If one is not specified, this value will be automatically generated. See [SelfManagedKafkaEventSourceConfig Syntax](https://docs.aws.amazon.com/lambda/latest/dg/API_SelfManagedKafkaEventSourceConfig.html).
         """
+        schema_registry_config: NotRequired[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict']]
+        """
+        Block for a Kafka schema registry setting. See below.
+        """
 elif False:
     EventSourceMappingSelfManagedKafkaEventSourceConfigArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class EventSourceMappingSelfManagedKafkaEventSourceConfigArgs:
     def __init__(__self__, *,
-                 consumer_group_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 consumer_group_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 schema_registry_config: Optional[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] consumer_group_id: Kafka consumer group ID between 1 and 200 characters for use when creating this event source mapping. If one is not specified, this value will be automatically generated. See [SelfManagedKafkaEventSourceConfig Syntax](https://docs.aws.amazon.com/lambda/latest/dg/API_SelfManagedKafkaEventSourceConfig.html).
+        :param pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgs'] schema_registry_config: Block for a Kafka schema registry setting. See below.
         """
         if consumer_group_id is not None:
             pulumi.set(__self__, "consumer_group_id", consumer_group_id)
+        if schema_registry_config is not None:
+            pulumi.set(__self__, "schema_registry_config", schema_registry_config)
 
     @_builtins.property
     @pulumi.getter(name="consumerGroupId")
@@ -576,6 +1166,194 @@ class EventSourceMappingSelfManagedKafkaEventSourceConfigArgs:
     @consumer_group_id.setter
     def consumer_group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "consumer_group_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaRegistryConfig")
+    def schema_registry_config(self) -> Optional[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgs']]:
+        """
+        Block for a Kafka schema registry setting. See below.
+        """
+        return pulumi.get(self, "schema_registry_config")
+
+    @schema_registry_config.setter
+    def schema_registry_config(self, value: Optional[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgs']]):
+        pulumi.set(self, "schema_registry_config", value)
+
+
+if not MYPY:
+    class EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict(TypedDict):
+        access_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict']]]]
+        """
+        Configuration block for authentication Lambda uses to access the schema registry.
+        """
+        event_record_format: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Record format that Lambda delivers to the function after schema validation. Valid values: `JSON`, `SOURCE`.
+        """
+        schema_registry_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        URI of the schema registry. For AWS Glue schema registries, use the ARN of the registry. For Confluent schema registries, use the registry URL.
+        """
+        schema_validation_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict']]]]
+        """
+        Repeatable block that defines schema validation settings. These specify the message attributes that Lambda should validate and filter using the schema registry.
+        """
+elif False:
+    EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigArgs:
+    def __init__(__self__, *,
+                 access_configs: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]]] = None,
+                 event_record_format: Optional[pulumi.Input[_builtins.str]] = None,
+                 schema_registry_uri: Optional[pulumi.Input[_builtins.str]] = None,
+                 schema_validation_configs: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]] access_configs: Configuration block for authentication Lambda uses to access the schema registry.
+        :param pulumi.Input[_builtins.str] event_record_format: Record format that Lambda delivers to the function after schema validation. Valid values: `JSON`, `SOURCE`.
+        :param pulumi.Input[_builtins.str] schema_registry_uri: URI of the schema registry. For AWS Glue schema registries, use the ARN of the registry. For Confluent schema registries, use the registry URL.
+        :param pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]] schema_validation_configs: Repeatable block that defines schema validation settings. These specify the message attributes that Lambda should validate and filter using the schema registry.
+        """
+        if access_configs is not None:
+            pulumi.set(__self__, "access_configs", access_configs)
+        if event_record_format is not None:
+            pulumi.set(__self__, "event_record_format", event_record_format)
+        if schema_registry_uri is not None:
+            pulumi.set(__self__, "schema_registry_uri", schema_registry_uri)
+        if schema_validation_configs is not None:
+            pulumi.set(__self__, "schema_validation_configs", schema_validation_configs)
+
+    @_builtins.property
+    @pulumi.getter(name="accessConfigs")
+    def access_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]]]:
+        """
+        Configuration block for authentication Lambda uses to access the schema registry.
+        """
+        return pulumi.get(self, "access_configs")
+
+    @access_configs.setter
+    def access_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs']]]]):
+        pulumi.set(self, "access_configs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="eventRecordFormat")
+    def event_record_format(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Record format that Lambda delivers to the function after schema validation. Valid values: `JSON`, `SOURCE`.
+        """
+        return pulumi.get(self, "event_record_format")
+
+    @event_record_format.setter
+    def event_record_format(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "event_record_format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaRegistryUri")
+    def schema_registry_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        URI of the schema registry. For AWS Glue schema registries, use the ARN of the registry. For Confluent schema registries, use the registry URL.
+        """
+        return pulumi.get(self, "schema_registry_uri")
+
+    @schema_registry_uri.setter
+    def schema_registry_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "schema_registry_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaValidationConfigs")
+    def schema_validation_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]]]:
+        """
+        Repeatable block that defines schema validation settings. These specify the message attributes that Lambda should validate and filter using the schema registry.
+        """
+        return pulumi.get(self, "schema_validation_configs")
+
+    @schema_validation_configs.setter
+    def schema_validation_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs']]]]):
+        pulumi.set(self, "schema_validation_configs", value)
+
+
+if not MYPY:
+    class EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict(TypedDict):
+        type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Authentication type Lambda uses to access the schema registry.
+        """
+        uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        URI of the secret (Secrets Manager secret ARN) used to authenticate with the schema registry.
+        """
+elif False:
+    EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigArgs:
+    def __init__(__self__, *,
+                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 uri: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] type: Authentication type Lambda uses to access the schema registry.
+        :param pulumi.Input[_builtins.str] uri: URI of the secret (Secrets Manager secret ARN) used to authenticate with the schema registry.
+        """
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if uri is not None:
+            pulumi.set(__self__, "uri", uri)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Authentication type Lambda uses to access the schema registry.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "type", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        URI of the secret (Secrets Manager secret ARN) used to authenticate with the schema registry.
+        """
+        return pulumi.get(self, "uri")
+
+    @uri.setter
+    def uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "uri", value)
+
+
+if not MYPY:
+    class EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict(TypedDict):
+        attribute: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Message attribute to validate. Valid values: `KEY`, `VALUE`.
+        """
+elif False:
+    EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigArgs:
+    def __init__(__self__, *,
+                 attribute: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] attribute: Message attribute to validate. Valid values: `KEY`, `VALUE`.
+        """
+        if attribute is not None:
+            pulumi.set(__self__, "attribute", attribute)
+
+    @_builtins.property
+    @pulumi.getter
+    def attribute(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Message attribute to validate. Valid values: `KEY`, `VALUE`.
+        """
+        return pulumi.get(self, "attribute")
+
+    @attribute.setter
+    def attribute(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "attribute", value)
 
 
 if not MYPY:
@@ -629,6 +1407,108 @@ class EventSourceMappingSourceAccessConfigurationArgs:
 
 
 if not MYPY:
+    class FunctionCapacityProviderConfigArgsDict(TypedDict):
+        lambda_managed_instances_capacity_provider_config: pulumi.Input['FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgsDict']
+        """
+        Configuration block for Lambda Managed Instances Capacity Provider. See below.
+        """
+elif False:
+    FunctionCapacityProviderConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class FunctionCapacityProviderConfigArgs:
+    def __init__(__self__, *,
+                 lambda_managed_instances_capacity_provider_config: pulumi.Input['FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgs']):
+        """
+        :param pulumi.Input['FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgs'] lambda_managed_instances_capacity_provider_config: Configuration block for Lambda Managed Instances Capacity Provider. See below.
+        """
+        pulumi.set(__self__, "lambda_managed_instances_capacity_provider_config", lambda_managed_instances_capacity_provider_config)
+
+    @_builtins.property
+    @pulumi.getter(name="lambdaManagedInstancesCapacityProviderConfig")
+    def lambda_managed_instances_capacity_provider_config(self) -> pulumi.Input['FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgs']:
+        """
+        Configuration block for Lambda Managed Instances Capacity Provider. See below.
+        """
+        return pulumi.get(self, "lambda_managed_instances_capacity_provider_config")
+
+    @lambda_managed_instances_capacity_provider_config.setter
+    def lambda_managed_instances_capacity_provider_config(self, value: pulumi.Input['FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgs']):
+        pulumi.set(self, "lambda_managed_instances_capacity_provider_config", value)
+
+
+if not MYPY:
+    class FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgsDict(TypedDict):
+        capacity_provider_arn: pulumi.Input[_builtins.str]
+        """
+        ARN of the Capacity Provider.
+        """
+        execution_environment_memory_gib_per_vcpu: NotRequired[pulumi.Input[_builtins.float]]
+        """
+        Memory GiB per vCPU for the execution environment.
+        """
+        per_execution_environment_max_concurrency: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Maximum concurrency per execution environment.
+        """
+elif False:
+    FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class FunctionCapacityProviderConfigLambdaManagedInstancesCapacityProviderConfigArgs:
+    def __init__(__self__, *,
+                 capacity_provider_arn: pulumi.Input[_builtins.str],
+                 execution_environment_memory_gib_per_vcpu: Optional[pulumi.Input[_builtins.float]] = None,
+                 per_execution_environment_max_concurrency: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] capacity_provider_arn: ARN of the Capacity Provider.
+        :param pulumi.Input[_builtins.float] execution_environment_memory_gib_per_vcpu: Memory GiB per vCPU for the execution environment.
+        :param pulumi.Input[_builtins.int] per_execution_environment_max_concurrency: Maximum concurrency per execution environment.
+        """
+        pulumi.set(__self__, "capacity_provider_arn", capacity_provider_arn)
+        if execution_environment_memory_gib_per_vcpu is not None:
+            pulumi.set(__self__, "execution_environment_memory_gib_per_vcpu", execution_environment_memory_gib_per_vcpu)
+        if per_execution_environment_max_concurrency is not None:
+            pulumi.set(__self__, "per_execution_environment_max_concurrency", per_execution_environment_max_concurrency)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityProviderArn")
+    def capacity_provider_arn(self) -> pulumi.Input[_builtins.str]:
+        """
+        ARN of the Capacity Provider.
+        """
+        return pulumi.get(self, "capacity_provider_arn")
+
+    @capacity_provider_arn.setter
+    def capacity_provider_arn(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "capacity_provider_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="executionEnvironmentMemoryGibPerVcpu")
+    def execution_environment_memory_gib_per_vcpu(self) -> Optional[pulumi.Input[_builtins.float]]:
+        """
+        Memory GiB per vCPU for the execution environment.
+        """
+        return pulumi.get(self, "execution_environment_memory_gib_per_vcpu")
+
+    @execution_environment_memory_gib_per_vcpu.setter
+    def execution_environment_memory_gib_per_vcpu(self, value: Optional[pulumi.Input[_builtins.float]]):
+        pulumi.set(self, "execution_environment_memory_gib_per_vcpu", value)
+
+    @_builtins.property
+    @pulumi.getter(name="perExecutionEnvironmentMaxConcurrency")
+    def per_execution_environment_max_concurrency(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Maximum concurrency per execution environment.
+        """
+        return pulumi.get(self, "per_execution_environment_max_concurrency")
+
+    @per_execution_environment_max_concurrency.setter
+    def per_execution_environment_max_concurrency(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "per_execution_environment_max_concurrency", value)
+
+
+if not MYPY:
     class FunctionDeadLetterConfigArgsDict(TypedDict):
         target_arn: pulumi.Input[_builtins.str]
         """
@@ -657,6 +1537,57 @@ class FunctionDeadLetterConfigArgs:
     @target_arn.setter
     def target_arn(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "target_arn", value)
+
+
+if not MYPY:
+    class FunctionDurableConfigArgsDict(TypedDict):
+        execution_timeout: pulumi.Input[_builtins.int]
+        """
+        Maximum execution time in seconds for the durable function. Valid value between 1 and 31622400 (366 days).
+        """
+        retention_period: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Number of days to retain the function's execution state. Valid value between 1 and 90. If not specified, the function's execution state is not retained. Defaults to 14.
+        """
+elif False:
+    FunctionDurableConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class FunctionDurableConfigArgs:
+    def __init__(__self__, *,
+                 execution_timeout: pulumi.Input[_builtins.int],
+                 retention_period: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] execution_timeout: Maximum execution time in seconds for the durable function. Valid value between 1 and 31622400 (366 days).
+        :param pulumi.Input[_builtins.int] retention_period: Number of days to retain the function's execution state. Valid value between 1 and 90. If not specified, the function's execution state is not retained. Defaults to 14.
+        """
+        pulumi.set(__self__, "execution_timeout", execution_timeout)
+        if retention_period is not None:
+            pulumi.set(__self__, "retention_period", retention_period)
+
+    @_builtins.property
+    @pulumi.getter(name="executionTimeout")
+    def execution_timeout(self) -> pulumi.Input[_builtins.int]:
+        """
+        Maximum execution time in seconds for the durable function. Valid value between 1 and 31622400 (366 days).
+        """
+        return pulumi.get(self, "execution_timeout")
+
+    @execution_timeout.setter
+    def execution_timeout(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "execution_timeout", value)
+
+    @_builtins.property
+    @pulumi.getter(name="retentionPeriod")
+    def retention_period(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of days to retain the function's execution state. Valid value between 1 and 90. If not specified, the function's execution state is not retained. Defaults to 14.
+        """
+        return pulumi.get(self, "retention_period")
+
+    @retention_period.setter
+    def retention_period(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "retention_period", value)
 
 
 if not MYPY:
@@ -1099,6 +2030,37 @@ class FunctionSnapStartArgs:
     @optimization_status.setter
     def optimization_status(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "optimization_status", value)
+
+
+if not MYPY:
+    class FunctionTenancyConfigArgsDict(TypedDict):
+        tenant_isolation_mode: pulumi.Input[_builtins.str]
+        """
+        Tenant Isolation Mode. Valid values: `PER_TENANT`.
+        """
+elif False:
+    FunctionTenancyConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class FunctionTenancyConfigArgs:
+    def __init__(__self__, *,
+                 tenant_isolation_mode: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] tenant_isolation_mode: Tenant Isolation Mode. Valid values: `PER_TENANT`.
+        """
+        pulumi.set(__self__, "tenant_isolation_mode", tenant_isolation_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="tenantIsolationMode")
+    def tenant_isolation_mode(self) -> pulumi.Input[_builtins.str]:
+        """
+        Tenant Isolation Mode. Valid values: `PER_TENANT`.
+        """
+        return pulumi.get(self, "tenant_isolation_mode")
+
+    @tenant_isolation_mode.setter
+    def tenant_isolation_mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "tenant_isolation_mode", value)
 
 
 if not MYPY:

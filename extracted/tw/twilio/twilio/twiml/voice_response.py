@@ -947,6 +947,49 @@ class Start(TwiML):
             )
         )
 
+    def recording(
+        self,
+        recording_status_callback=None,
+        recording_status_callback_method=None,
+        recording_status_callback_event=None,
+        trim=None,
+        track=None,
+        channels=None,
+        **kwargs
+    ):
+        """
+        Create a <Recording> element
+
+        :param recording_status_callback: Recording Status Callback URL
+        :param recording_status_callback_method: Recording Status Callback URL method
+        :param recording_status_callback_event: Recording Status Callback Events
+        :param trim: Trim the recording
+        :param track: To indicate which audio track should be recorded
+        :param channels: The recording channels for the final recording
+        :param kwargs: additional attributes
+
+        :returns: <Recording> element
+        """
+        return self.nest(
+            Recording(
+                recording_status_callback=recording_status_callback,
+                recording_status_callback_method=recording_status_callback_method,
+                recording_status_callback_event=recording_status_callback_event,
+                trim=trim,
+                track=track,
+                channels=channels,
+                **kwargs
+            )
+        )
+
+
+class Recording(TwiML):
+    """<Recording> TwiML Noun"""
+
+    def __init__(self, **kwargs):
+        super(Recording, self).__init__(**kwargs)
+        self.name = "Recording"
+
 
 class Prompt(TwiML):
     """<Prompt> Twiml Verb"""
@@ -2354,7 +2397,7 @@ class Dial(TwiML):
 
     def sip(
         self,
-        sip_url,
+        sip_url=None,
         username=None,
         password=None,
         url=None,
@@ -2395,7 +2438,7 @@ class Dial(TwiML):
         """
         return self.nest(
             Sip(
-                sip_url,
+                sip_url=sip_url,
                 username=username,
                 password=password,
                 url=url,
@@ -2545,10 +2588,93 @@ class ApplicationSid(TwiML):
 class Sip(TwiML):
     """<Sip> TwiML Noun"""
 
-    def __init__(self, sip_url, **kwargs):
+    def __init__(self, sip_url=None, **kwargs):
         super(Sip, self).__init__(**kwargs)
         self.name = "Sip"
-        self.value = sip_url
+        if sip_url:
+            self.value = sip_url
+
+    def uri(
+        self,
+        sip_url=None,
+        priority=None,
+        weight=None,
+        username=None,
+        password=None,
+        **kwargs
+    ):
+        """
+        Create a <Uri> element
+
+        :param sip_url: The SIP URI
+        :param priority: The priority of this SIP URI
+        :param weight: The weight of this SIP URI
+        :param username: The username for authentication
+        :param password: The password for authentication
+        :param kwargs: additional attributes
+
+        :returns: <Uri> element
+        """
+        return self.nest(
+            SipUri(
+                sip_url=sip_url,
+                priority=priority,
+                weight=weight,
+                username=username,
+                password=password,
+                **kwargs
+            )
+        )
+
+    def headers(self, **kwargs):
+        """
+        Create a <Headers> element
+
+        :param kwargs: additional attributes
+
+        :returns: <Headers> element
+        """
+        return self.nest(Headers(**kwargs))
+
+
+class Headers(TwiML):
+    """The SIP headers to include in the request"""
+
+    def __init__(self, **kwargs):
+        super(Headers, self).__init__(**kwargs)
+        self.name = "Headers"
+
+    def header(self, name=None, value=None, **kwargs):
+        """
+        Create a <Header> element
+
+        :param name: The name of the custom header
+        :param value: The value of the custom header
+        :param kwargs: additional attributes
+
+        :returns: <Header> element
+        """
+        return self.nest(Header(name=name, value=value, **kwargs))
+
+
+class Header(TwiML):
+    """A custom SIP header to include in the request"""
+
+    def __init__(self, **kwargs):
+        super(Header, self).__init__(**kwargs)
+        self.name = "Header"
+
+
+class SipUri(TwiML):
+    """The SIP URI to dial. Multiple Uri elements can be provided, in which
+    case they will be attempted in priority order. URIs with the same priority
+    will be selected proportionally based on its weight."""
+
+    def __init__(self, sip_url=None, **kwargs):
+        super(SipUri, self).__init__(**kwargs)
+        self.name = "Uri"
+        if sip_url:
+            self.value = sip_url
 
 
 class Sim(TwiML):
@@ -2955,6 +3081,34 @@ class Connect(TwiML):
                 **kwargs
             )
         )
+
+    def conversation_relay_session(
+        self, connector=None, session_configuration=None, **kwargs
+    ):
+        """
+        Create a <ConversationRelaySession> element
+
+        :param connector: The unique name or installed add-on sid that identifies the installed addon resource for the ConversationRelaySession Connector
+        :param session_configuration: The unique name or id of the ConversationRelaySession  Configuration resource.
+        :param kwargs: additional attributes
+
+        :returns: <ConversationRelaySession> element
+        """
+        return self.nest(
+            ConversationRelaySession(
+                connector=connector,
+                session_configuration=session_configuration,
+                **kwargs
+            )
+        )
+
+
+class ConversationRelaySession(TwiML):
+    """<ConversationRelaySession> TwiML Noun"""
+
+    def __init__(self, **kwargs):
+        super(ConversationRelaySession, self).__init__(**kwargs)
+        self.name = "ConversationRelaySession"
 
 
 class AiSession(TwiML):

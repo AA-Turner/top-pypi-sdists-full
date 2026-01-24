@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Tuple
 
 import a_sync
 
@@ -48,8 +47,8 @@ async def is_popsicle_lp(token_address: AnyAddressType) -> bool:
 
 @a_sync.a_sync(default="sync")
 async def get_price(
-    token: AnyAddressType, block: Optional[Block] = None, *, skip_cache: bool = ENVS.SKIP_CACHE
-) -> Optional[UsdPrice]:
+    token: AnyAddressType, block: Block | None = None, *, skip_cache: bool = ENVS.SKIP_CACHE
+) -> UsdPrice | None:
     """
     Calculates the price of a Popsicle Finance LP token.
 
@@ -81,9 +80,9 @@ async def get_price(
 @a_sync.a_sync(default="sync")
 async def get_tvl(
     token: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
-) -> Optional[UsdValue]:
+) -> UsdValue | None:
     """
     Calculates the total value locked (TVL) in a Popsicle Finance LP token.
 
@@ -104,7 +103,7 @@ async def get_tvl(
         - :func:`get_price`
         - :func:`get_balances`
     """
-    balances: Tuple[WeiBalance, WeiBalance]
+    balances: tuple[WeiBalance, WeiBalance]
     balances = await get_balances(
         token, block, skip_cache=skip_cache, _async_balance_objects=True, sync=False
     )
@@ -114,10 +113,10 @@ async def get_tvl(
 @a_sync.a_sync(default="sync")
 async def get_balances(
     token: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
     _async_balance_objects: bool = False,
-) -> Optional[Tuple[WeiBalance, WeiBalance]]:
+) -> tuple[WeiBalance, WeiBalance] | None:
     """
     Retrieves the balances of the underlying tokens in a Popsicle Finance LP token.
 

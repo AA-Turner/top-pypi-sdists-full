@@ -12,6 +12,9 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .go_high_level_calendar_event_create_tool_with_tool_call_messages_item import (
     GoHighLevelCalendarEventCreateToolWithToolCallMessagesItem,
 )
+from .go_high_level_calendar_event_create_tool_with_tool_call_type import (
+    GoHighLevelCalendarEventCreateToolWithToolCallType,
+)
 from .tool_call import ToolCall
 from .tool_rejection_plan import ToolRejectionPlan
 
@@ -26,9 +29,7 @@ class GoHighLevelCalendarEventCreateToolWithToolCall(UncheckedBaseModel):
     For some tools, this is auto-filled based on special fields like `tool.destinations`. For others like the function tool, these can be custom configured.
     """
 
-    type: typing.Literal["gohighlevel.calendar.event.create"] = pydantic.Field(
-        default="gohighlevel.calendar.event.create"
-    )
+    type: GoHighLevelCalendarEventCreateToolWithToolCallType = pydantic.Field()
     """
     The type of tool. "gohighlevel.calendar.event.create" for GoHighLevel Calendar Event Create tool.
     """
@@ -45,7 +46,7 @@ class GoHighLevelCalendarEventCreateToolWithToolCall(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '(?i)\\b(bye|goodbye|farewell|see you later|take care)\\b',
+        regex: '(?i)\\\\b(bye|goodbye|farewell|see you later|take care)\\\\b',
         target: { position: -1, role: 'user' },
         negate: true  // Reject if pattern does NOT match
       }]
@@ -57,7 +58,7 @@ class GoHighLevelCalendarEventCreateToolWithToolCall(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '\\?',
+        regex: '\\\\?',
         target: { position: -1, role: 'user' }
       }]
     }

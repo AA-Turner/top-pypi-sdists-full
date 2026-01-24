@@ -1,0 +1,441 @@
+
+- case: upath_types_joinablepath_upath
+  disable_cache: false
+  main: |
+    from upath import UPath
+    from upath.types import JoinablePath
+
+    a: JoinablePath = UPath()
+
+- case: upath_types_joinablepathlike
+  disable_cache: false
+  main: |
+    from pathlib import PurePath
+    from pathlib import Path
+    from upath import UPath
+    from upath.types import JoinablePathLike
+
+    a: JoinablePathLike = "abc"
+    b: JoinablePathLike = PurePath()
+    c: JoinablePathLike = Path()
+    d: JoinablePathLike = UPath()
+
+- case: get_upath_class_fsspec_protocols
+  disable_cache: false
+  parametrized:
+    - cls_fqn: upath.implementations.cached.SimpleCachePath
+      protocol: simplecache
+    - cls_fqn: upath.implementations.cloud.S3Path
+      protocol: s3
+    - cls_fqn: upath.implementations.cloud.GCSPath
+      protocol: gcs
+    - cls_fqn: upath.implementations.cloud.AzurePath
+      protocol: abfs
+    - cls_fqn: upath.implementations.cloud.HfPath
+      protocol: hf
+    - cls_fqn: upath.implementations.data.DataPath
+      protocol: data
+    - cls_fqn: upath.implementations.ftp.FTPPath
+      protocol: ftp
+    - cls_fqn: upath.implementations.github.GitHubPath
+      protocol: github
+    - cls_fqn: upath.implementations.hdfs.HDFSPath
+      protocol: hdfs
+    - cls_fqn: upath.implementations.http.HTTPPath
+      protocol: http
+    - cls_fqn: upath.implementations.local.FilePath
+      protocol: file
+    - cls_fqn: upath.implementations.memory.MemoryPath
+      protocol: memory
+    - cls_fqn: upath.implementations.sftp.SFTPPath
+      protocol: sftp
+    - cls_fqn: upath.implementations.smb.SMBPath
+      protocol: smb
+    - cls_fqn: upath.implementations.tar.TarPath
+      protocol: tar
+    - cls_fqn: upath.implementations.webdav.WebdavPath
+      protocol: webdav
+    - cls_fqn: upath.implementations.zip.ZipPath
+      protocol: zip
+  main: |
+    from upath.registry import get_upath_class
+
+    path_cls = get_upath_class("{{ protocol }}")
+    reveal_type(path_cls)  # N: Revealed type is "type[{{ cls_fqn }}]"
+
+- case: get_upath_class_pathlib_unix
+  disable_cache: false
+  skip: sys.platform == "win32"
+  main: |
+    from upath.registry import get_upath_class
+
+    path_cls = get_upath_class("")
+    reveal_type(path_cls)  # N: Revealed type is "type[upath.implementations.local.PosixUPath]"
+
+- case: get_upath_class_pathlib_win
+  disable_cache: false
+  skip: sys.platform != "win32"
+  main: |
+    from upath.registry import get_upath_class
+
+    path_cls = get_upath_class("")
+    reveal_type(path_cls)  # N: Revealed type is "type[upath.implementations.local.WindowsUPath]"
+
+- case: get_upath_class_unknown_protocol_py39
+  disable_cache: false
+  skip: sys.version_info >= (3, 10)
+  main: |
+    from upath.registry import get_upath_class
+
+    path_cls = get_upath_class("some-unknown-protocol")
+    reveal_type(path_cls)  # N: Revealed type is "Union[type[upath.core.UPath], None]"
+
+- case: get_upath_class_unknown_protocol_py310plus
+  disable_cache: false
+  skip: sys.version_info < (3, 10)
+  main: |
+    from upath.registry import get_upath_class
+
+    path_cls = get_upath_class("some-unknown-protocol")
+    reveal_type(path_cls)  # N: Revealed type is "type[upath.core.UPath] | None"
+
+- case: upath__new__fsspec_protocols
+  disable_cache: false
+  parametrized:
+    - cls_fqn: upath.implementations.cached.SimpleCachePath
+      protocol: simplecache
+    - cls_fqn: upath.implementations.cloud.S3Path
+      protocol: s3
+    - cls_fqn: upath.implementations.cloud.GCSPath
+      protocol: gcs
+    - cls_fqn: upath.implementations.cloud.AzurePath
+      protocol: abfs
+    - cls_fqn: upath.implementations.cloud.HfPath
+      protocol: hf
+    - cls_fqn: upath.implementations.data.DataPath
+      protocol: data
+    - cls_fqn: upath.implementations.ftp.FTPPath
+      protocol: ftp
+    - cls_fqn: upath.implementations.github.GitHubPath
+      protocol: github
+    - cls_fqn: upath.implementations.hdfs.HDFSPath
+      protocol: hdfs
+    - cls_fqn: upath.implementations.http.HTTPPath
+      protocol: http
+    - cls_fqn: upath.implementations.local.FilePath
+      protocol: file
+    - cls_fqn: upath.implementations.memory.MemoryPath
+      protocol: memory
+    - cls_fqn: upath.implementations.sftp.SFTPPath
+      protocol: sftp
+    - cls_fqn: upath.implementations.smb.SMBPath
+      protocol: smb
+    - cls_fqn: upath.implementations.tar.TarPath
+      protocol: tar
+    - cls_fqn: upath.implementations.webdav.WebdavPath
+      protocol: webdav
+    - cls_fqn: upath.implementations.zip.ZipPath
+      protocol: zip
+    - cls_fqn: upath.core.UPath
+      protocol: unknown-protocol
+  main: |
+    import upath
+
+    p = upath.UPath(".", protocol="{{ protocol }}")
+    reveal_type(p)  # N: Revealed type is "{{ cls_fqn }}"
+
+- case: upath__new__empty_protocol
+  disable_cache: false
+  skip: sys.platform == "win32"
+  main: |
+    from upath.core import UPath
+
+    p = UPath("asd", protocol="")
+    reveal_type(p)  # N: Revealed type is "upath.implementations.local.PosixUPath"
+
+- case: get_upath_class_pathlib_win
+  disable_cache: false
+  skip: sys.platform != "win32"
+  main: |
+    from upath.core import UPath
+
+    p = UPath("", protocol="")
+    reveal_type(p)  # N: Revealed type is "upath.implementations.local.WindowsUPath"
+
+- case: upath_constructor_sopts_correct_type
+  disable_cache: false
+  parametrized:
+    - module: upath.implementations.cached
+      cls: SimpleCachePath
+      supported_example_name: check_files
+      supported_example_value: True
+    - module: upath.implementations.cloud
+      cls: GCSPath
+      supported_example_name: project
+      supported_example_value: '"my-project"'
+    - module: upath.implementations.cloud
+      cls: S3Path
+      supported_example_name: anon
+      supported_example_value: True
+    - module: upath.implementations.cloud
+      cls: AzurePath
+      supported_example_name: account_name
+      supported_example_value: '"myaccount"'
+    - module: upath.implementations.cloud
+      cls: HfPath
+      supported_example_name: token
+      supported_example_value: '"abcd1234"'
+    - module: upath.implementations.data
+      cls: DataPath
+      supported_example_name: use_listings_cache
+      supported_example_value: False
+    - module: upath.implementations.ftp
+      cls: FTPPath
+      supported_example_name: host
+      supported_example_value: '"ftp.example.com"'
+    - module: upath.implementations.github
+      cls: GitHubPath
+      supported_example_name: org
+      supported_example_value: '"fsspec"'
+    - module: upath.implementations.hdfs
+      cls: HDFSPath
+      supported_example_name: host
+      supported_example_value: '"localhost"'
+    - module: upath.implementations.http
+      cls: HTTPPath
+      supported_example_name: simple_links
+      supported_example_value: True
+    - module: upath.implementations.local
+      cls: FilePath
+      supported_example_name: auto_mkdir
+      supported_example_value: True
+    - module: upath.implementations.memory
+      cls: MemoryPath
+      supported_example_name: use_listings_cache
+      supported_example_value: True
+    - module: upath.implementations.sftp
+      cls: SFTPPath
+      supported_example_name: host
+      supported_example_value: '"sftp.example.com"'
+    - module: upath.implementations.smb
+      cls: SMBPath
+      supported_example_name: timeout
+      supported_example_value: 60
+    - module: upath.implementations.tar
+      cls: TarPath
+      supported_example_name: compression
+      supported_example_value: '"gzip"'
+    - module: upath.implementations.webdav
+      cls: WebdavPath
+      supported_example_name: base_url
+      supported_example_value: '"https://webdav.example.com"'
+    - module: upath.implementations.zip
+      cls: ZipPath
+      supported_example_name: compression
+      supported_example_value: 9
+  main: |
+    from {{ module }} import {{ cls }}
+
+    p = {{ cls }}(".", {{ supported_example_name }}={{ supported_example_value }})
+    reveal_type(p)  # N: Revealed type is "{{ module }}.{{ cls }}"
+
+- case: upath_constructor_sopts_incorrect_type
+  disable_cache: false
+  parametrized:
+    - module: upath.implementations.cached
+      cls: SimpleCachePath
+      supported_example_name: check_files
+      unsupported_example_value: '"blub"'
+    - module: upath.implementations.cloud
+      cls: GCSPath
+      supported_example_name: version_aware
+      unsupported_example_value: '"yes"'
+    - module: upath.implementations.cloud
+      cls: S3Path
+      supported_example_name: anon
+      unsupported_example_value: '"blah"'
+    - module: upath.implementations.cloud
+      cls: AzurePath
+      supported_example_name: account_name
+      unsupported_example_value: '123'
+    - module: upath.implementations.cloud
+      cls: HfPath
+      supported_example_name: endpoint
+      unsupported_example_value: '123'
+    - module: upath.implementations.data
+      cls: DataPath
+      supported_example_name: use_listings_cache
+      unsupported_example_value: '"blub"'
+    - module: upath.implementations.ftp
+      cls: FTPPath
+      supported_example_name: host
+      unsupported_example_value: '123'
+    - module: upath.implementations.github
+      cls: GitHubPath
+      supported_example_name: repo
+      unsupported_example_value: 'True'
+    - module: upath.implementations.hdfs
+      cls: HDFSPath
+      supported_example_name: host
+      unsupported_example_value: '8020'
+    - module: upath.implementations.http
+      cls: HTTPPath
+      supported_example_name: simple_links
+      unsupported_example_value: '"no"'
+    - module: upath.implementations.local
+      cls: FilePath
+      supported_example_name: auto_mkdir
+      unsupported_example_value: '"abc"'
+    - module: upath.implementations.memory
+      cls: MemoryPath
+      supported_example_name: use_listings_cache
+      unsupported_example_value: '{}'
+    - module: upath.implementations.sftp
+      cls: SFTPPath
+      supported_example_name: host
+      unsupported_example_value: '[]'
+    - module: upath.implementations.smb
+      cls: SMBPath
+      supported_example_name: host
+      unsupported_example_value: 'False'
+    - module: upath.implementations.tar
+      cls: TarPath
+      supported_example_name: compression
+      unsupported_example_value: '[]'
+    - module: upath.implementations.webdav
+      cls: WebdavPath
+      supported_example_name: base_url
+      unsupported_example_value: '123'
+    - module: upath.implementations.zip
+      cls: ZipPath
+      supported_example_name: compression
+      unsupported_example_value: '"hello"'
+  main: |
+    from {{ module }} import {{ cls }}
+
+    p = {{ cls }}(".", {{ supported_example_name }}={{ unsupported_example_value }})  # ER: Argument "{{ supported_example_name }}" to "{{ cls }}" has incompatible type.*
+
+- case: upath_constructor_sopts_via_dict
+  disable_cache: false
+  parametrized:
+    - module: upath.implementations.cached
+      cls: SimpleCachePath
+    - module: upath.implementations.cloud
+      cls: GCSPath
+    - module: upath.implementations.cloud
+      cls: S3Path
+    - module: upath.implementations.cloud
+      cls: AzurePath
+    - module: upath.implementations.cloud
+      cls: HfPath
+    - module: upath.implementations.data
+      cls: DataPath
+    - module: upath.implementations.ftp
+      cls: FTPPath
+    - module: upath.implementations.github
+      cls: GitHubPath
+    - module: upath.implementations.hdfs
+      cls: HDFSPath
+    - module: upath.implementations.http
+      cls: HTTPPath
+    - module: upath.implementations.local
+      cls: FilePath
+    - module: upath.implementations.memory
+      cls: MemoryPath
+    - module: upath.implementations.sftp
+      cls: SFTPPath
+    - module: upath.implementations.smb
+      cls: SMBPath
+    - module: upath.implementations.tar
+      cls: TarPath
+    - module: upath.implementations.webdav
+      cls: WebdavPath
+    - module: upath.implementations.zip
+      cls: ZipPath
+  main: |
+    from typing import Any
+    from {{ module }} import {{ cls }}
+
+    kw: dict[str, Any] = {}
+    p = {{ cls }}(".", **kw)
+    reveal_type(p)  # N: Revealed type is "{{ module }}.{{ cls }}"
+
+- case: upath_constructor_sopts_via_typed_dict
+  disable_cache: false
+  parametrized:
+    - module: upath.implementations.cached
+      cls: SimpleCachePath
+      td: SimpleCacheStorageOptions
+    - module: upath.implementations.cloud
+      cls: GCSPath
+      td: GCSStorageOptions
+    - module: upath.implementations.cloud
+      cls: S3Path
+      td: S3StorageOptions
+    - module: upath.implementations.cloud
+      cls: AzurePath
+      td: AzureStorageOptions
+    - module: upath.implementations.cloud
+      cls: HfPath
+      td: HfStorageOptions
+    - module: upath.implementations.data
+      cls: DataPath
+      td: DataStorageOptions
+    - module: upath.implementations.ftp
+      cls: FTPPath
+      td: FTPStorageOptions
+    - module: upath.implementations.github
+      cls: GitHubPath
+      td: GitHubStorageOptions
+    - module: upath.implementations.hdfs
+      cls: HDFSPath
+      td: HDFSStorageOptions
+    - module: upath.implementations.http
+      cls: HTTPPath
+      td: HTTPStorageOptions
+    - module: upath.implementations.local
+      cls: FilePath
+      td: FileStorageOptions
+    - module: upath.implementations.memory
+      cls: MemoryPath
+      td: MemoryStorageOptions
+    - module: upath.implementations.sftp
+      cls: SFTPPath
+      td: SFTPStorageOptions
+    - module: upath.implementations.smb
+      cls: SMBPath
+      td: SMBStorageOptions
+    - module: upath.implementations.tar
+      cls: TarPath
+      td: TarStorageOptions
+    - module: upath.implementations.webdav
+      cls: WebdavPath
+      td: WebdavStorageOptions
+    - module: upath.implementations.zip
+      cls: ZipPath
+      td: ZipStorageOptions
+  main: |
+    from {{ module }} import {{ cls }}
+    from upath.types.storage_options import {{ td }}
+
+    kw: {{ td }} = {{ td }}()
+    p = {{ cls }}(".", **kw)
+    reveal_type(p)  # N: Revealed type is "{{ module }}.{{ cls }}"
+
+# FIXME: mypy emits a 'defined here' note when emitting the error below.
+#        seems to be a limitation/bug in pytest-mypy-plugins that I can't match it
+#
+# - case: upath_constructor_sopts_incorrect_name
+#   disable_cache: false
+#   regex: yes
+#   parametrized:
+#     - module: upath.implementations.cached
+#       cls: SimpleCachePath
+#       unsupported_example_name: idontexist
+#   main: |
+#     from {{ module }} import {{ cls }}
+#
+#     p = {{ cls }}(".", {{ unsupported_example_name }}=1)
+#   out: |
+#     \\.\\..*
+#     main:3: error: Unexpected keyword argument "idontexist" to "{{ cls }}".*

@@ -11,6 +11,7 @@ BRANDS = {
     "vaillant": "Vaillant",
     "sdbg": "Saunier Duval",
     "bulex": "Bulex",
+    "glow-worm": "Glow-worm",
 }
 DEFAULT_BRAND = "vaillant"
 COUNTRIES = {
@@ -18,6 +19,7 @@ COUNTRIES = {
         "albania": "Albania",
         "austria": "Austria",
         "belgium": "Belgium",
+        "bosnia": "Bosnia & Herzegovina",
         "bulgaria": "Bulgaria",
         "croatia": "Croatia",
         "cyprus": "Cyprus",
@@ -36,7 +38,10 @@ COUNTRIES = {
         "latvia": "Latvia",
         "lithuania": "Lithuania",
         "luxembourg": "Luxembourg",
+        "moldavia": "Moldova",
         "netherlands": "Netherlands",
+        "new-zealand": "New Zealand",
+        "north-macedonia": "North Macedonia",
         "norway": "Norway",
         "poland": "Poland",
         "portugal": "Portugal",
@@ -69,7 +74,9 @@ COUNTRIES = {
         "spain": "Spain",
     },
 }
+
 ALL_COUNTRIES = {c: n for d in COUNTRIES.values() for c, n in d.items()}
 DEFAULT_HOLIDAY_DURATION = 365  # in days
 DEFAULT_QUICK_VETO_DURATION = 3.0  # in hours
 DEFAULT_CONTROL_IDENTIFIER = "tli"
+CACHE_TTL = 60 * 60 * 12  # in seconds

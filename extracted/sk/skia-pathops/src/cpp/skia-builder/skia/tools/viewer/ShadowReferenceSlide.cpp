@@ -11,6 +11,7 @@
 #include "include/core/SkPoint3.h"
 #include "include/core/SkRRect.h"
 #include "include/utils/SkShadowUtils.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
 #include "tools/viewer/Slide.h"
 
@@ -36,8 +37,8 @@ public:
     }
 
     void load(SkScalar w, SkScalar h) override {
-        fRRectPath.addRRect(SkRRect::MakeRectXY(SkRect::MakeXYWH(-130, -128.5, 130, 128.5), 4, 4));
-        fReferenceImage = GetResourceAsImage("images/shadowreference.png");
+        fRRectPath = SkPath::RRect(SkRRect::MakeRectXY(SkRect::MakeXYWH(-130, -128.5, 130, 128.5), 4, 4));
+        fReferenceImage = ToolUtils::GetResourceAsImage("images/shadowreference.png");
     }
 
     bool onChar(SkUnichar uni) override {

@@ -5,10 +5,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "mdformat-toc"
-version = "0.3.0"  # DO NOT EDIT THIS LINE MANUALLY. LET bump2version UTILITY DO IT
-authors = ["Taneli Hukkinen <hukkinj1@users.noreply.github.com>"]
+version = "0.5.0"  # DO NOT EDIT THIS LINE MANUALLY. LET bump2version UTILITY DO IT
+authors = ["Taneli Hukkinen <hukkin@users.noreply.github.com>"]
 description = "Mdformat plugin to generate table of contents"
-repository = "https://github.com/hukkinj1/mdformat-toc"
+repository = "https://github.com/hukkin/mdformat-toc"
 readme = "README.md"
 license = "MIT"
 classifiers = [
@@ -24,14 +24,14 @@ packages = [
 #include = ["mdformat_toc/py.typed"]
 
 #[tool.poetry.urls]
-#"Changelog" = "https://github.com/hukkinj1/mdformat-toc/blob/master/CHANGELOG.md"
+#"Changelog" = "https://github.com/hukkin/mdformat-toc/blob/master/CHANGELOG.md"
 
 [tool.poetry.plugins."mdformat.parser_extension"]
 "toc" = "mdformat_toc.plugin"
 
 [tool.poetry.dependencies]
-python = "^3.7"
-mdformat = ">=0.7.1,<0.8.0"
+python = ">=3.9"
+mdformat = ">=0.7.5"
 
 [tool.poetry.dev-dependencies]
 # Tests
@@ -42,6 +42,9 @@ pytest-randomly = "*"
 pre-commit = "*"
 mypy = "*"
 bump2version = "*"
+
+[tool.poetry.build]
+generate-setup-file = false
 
 
 [tool.isort]
@@ -60,3 +63,26 @@ profile = "black"
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config"
 xfail_strict = true
+
+
+[tool.mypy]
+show_error_codes = true
+warn_unreachable = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+# Disabling incremental mode is required for `warn_unused_configs = true` to work
+incremental = false
+disallow_untyped_defs = true
+check_untyped_defs = true
+strict_equality = true
+implicit_reexport = false
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "markdown_it.*"
+implicit_reexport = true

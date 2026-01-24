@@ -31,9 +31,7 @@ from pinecone_plugins.assistant.evaluation.core.client.exceptions import Pinecon
 
 
 def lazy_import():
-    from pinecone_plugins.assistant.evaluation.core.client.model.entailment import Entailment
     from pinecone_plugins.assistant.evaluation.core.client.model.fact import Fact
-    globals()['Entailment'] = Entailment
     globals()['Fact'] = Fact
 
 
@@ -84,7 +82,7 @@ class EvaluatedFact(ModelNormal):
         lazy_import()
         return {
             'fact': (Fact,),  # noqa: E501
-            'entailment': (Entailment,),  # noqa: E501
+            'entailment': (str,),  # noqa: E501
         }
 
     @cached_property
@@ -109,7 +107,7 @@ class EvaluatedFact(ModelNormal):
 
         Args:
             fact (Fact):
-            entailment (Entailment):
+            entailment (str): The entailment of a fact.
 
         Keyword Args:
             _check_type (bool): if True, values for parameters in openapi_types
@@ -196,7 +194,7 @@ class EvaluatedFact(ModelNormal):
 
         Args:
             fact (Fact):
-            entailment (Entailment):
+            entailment (str): The entailment of a fact.
 
         Keyword Args:
             _check_type (bool): if True, values for parameters in openapi_types

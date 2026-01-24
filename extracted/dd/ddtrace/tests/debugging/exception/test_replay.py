@@ -8,10 +8,46 @@ import ddtrace
 from ddtrace.debugging._exception import replay
 from ddtrace.internal.packages import _third_party_packages
 from ddtrace.internal.rate_limiter import BudgetRateLimiterWithJitter as RateLimiter
-from ddtrace.settings.exception_replay import ExceptionReplayConfig
+from ddtrace.internal.settings.exception_replay import ExceptionReplayConfig
 from tests.debugging.mocking import exception_replay
 from tests.utils import TracerTestCase
 from tests.utils import override_third_party_packages
+
+
+def test_tb_frames_from_exception_chain():
+    def a(v, d=None):
+        if not v:
+            raise ValueError("hello", v)
+
+    def b(bar):
+        m = 4
+        try:
+            a(bar % m)
+        except ValueError:
+            raise KeyError("chain it")
+
+    def c(foo=42):
+        sh = 3
+        b(foo << sh)
+
+    try:
+        c()
+    except Exception as e:
+        chain, _ = replay.unwind_exception_chain(e, e.__traceback__)
+        frames = list(replay.get_tb_frames_from_exception_chain(chain))
+        # There are two tracebacks in the chain: one for KeyError and one for
+        # ValueError. The innermost goes from the call to a in b up to the point
+        # where the exception is raised in a. The outermost goes from the call
+        # in this test function up to the point in b where the exception from a
+        # is caught and the the KeyError is raised.
+        assert len(frames) == 2 + 3
+        assert [(n, f.tb_frame.f_code.co_name) for n, f in frames] == [
+            (2, "a"),
+            (1, "b"),
+            (5, "b"),
+            (4, "c"),
+            (3, "test_tb_frames_from_exception_chain"),
+        ]
 
 
 def test_exception_replay_config_enabled(monkeypatch):
@@ -19,18 +55,6 @@ def test_exception_replay_config_enabled(monkeypatch):
 
     er_config = ExceptionReplayConfig()
     assert er_config.enabled
-
-
-def test_exception_replay_config_enabled_deprecated(monkeypatch):
-    monkeypatch.setenv("DD_EXCEPTION_DEBUGGING_ENABLED", "1")
-
-    er_config = ExceptionReplayConfig()
-    assert er_config.enabled
-
-    monkeypatch.setenv("DD_EXCEPTION_REPLAY_ENABLED", "false")
-
-    er_config = ExceptionReplayConfig()
-    assert not er_config.enabled
 
 
 def test_exception_chain_ident():
@@ -132,7 +156,7 @@ class ExceptionReplayTestCase(TracerTestCase):
                     fn = info[i]
 
                     # Check that we have all the tags for each snapshot
-                    assert span.get_tag("_dd.debug.error.%d.snapshot_id" % i) in snapshots
+                    assert span.get_tag("_dd.debug.error.%d.snapshot_id" % i) in snapshots, span._meta
                     assert span.get_tag("_dd.debug.error.%d.file" % i) == __file__.replace(".pyc", ".py"), span.get_tag(
                         "_dd.debug.error.%d.file" % i
                     )
@@ -355,7 +379,15 @@ class ExceptionReplayTestCase(TracerTestCase):
             n = uploader.collector.queue
             assert len(n) == config.max_frames
 
+            assert root is not None
             assert root.get_metric(replay.SNAPSHOT_COUNT_TAG) == config.max_frames
+
+            # Get all the function names attached to the root span
+            fs = {v for k, v in root.get_tags().items() if k.startswith("_dd.debug.error.") and k.endswith(".function")}
+
+            # The recursion has saturated the max frames so we should have
+            # only the function 'r' in the snapshots
+            assert fs == {"r"}, fs
 
     def test_debugger_exception_replay_single_non_user_snapshot(self):
         def a(v, d=None):
@@ -394,3 +426,77 @@ class ExceptionReplayTestCase(TracerTestCase):
             assert span.get_tag("_dd.debug.error.1.file") == __file__.replace(".pyc", ".py")
             assert span.get_tag("_dd.debug.error.1.function") == "a"
             assert span.get_tag("_dd.debug.error.1.line")
+
+
+def test_replay_functions_benchmark(benchmark):
+    """Benchmark replay.py functions directly without tracer overhead."""
+    import uuid
+
+    from ddtrace.trace import Span
+
+    def create_chained_exception(depth):
+        """Create a chain of exceptions with specified depth."""
+        try:
+            if depth == 0:
+                raise ValueError(uuid.uuid4())
+            else:
+                create_chained_exception(depth - 1)
+        except Exception:
+            raise RuntimeError(f"level {depth}") from None
+
+    def get_exception_with_traceback(depth):
+        """Capture an exception with its traceback."""
+        try:
+            create_chained_exception(depth)
+        except RuntimeError as e:
+            return e, e.__traceback__
+        return None, None
+
+    # Pre-create exceptions to benchmark just the replay functions
+    with exception_replay() as uploader:
+        handler = replay.SpanExceptionHandler()
+        handler.__uploader__ = uploader.collector
+        exc, tb = get_exception_with_traceback(100)
+        span = Span("test")
+
+        def run_replay_functions():
+            # This benchmarks just unwind_exception_chain and get_tb_frames_from_exception_chain
+            chain, exc_id = replay.unwind_exception_chain(exc, tb)
+            # Consume the generator fully to measure its cost
+            frames = list(replay.get_tb_frames_from_exception_chain(chain))
+
+            called = False
+            if tb is not None and exc_id is not None:
+                called = True
+                for _, _tb in frames:
+                    handler._attach_tb_frame_snapshot_to_span(span, _tb, exc_id, only_user_code=False)
+
+            assert len(frames) > 0
+            assert called
+
+        benchmark(run_replay_functions)
+
+
+def test_unwind_exception_chain_circular_reference():
+    """Test that unwind_exception_chain handles circular exception chains."""
+    import signal
+
+    exc1 = ValueError("first")
+    exc2 = RuntimeError("second")
+    exc1.__cause__ = exc2
+    exc2.__cause__ = exc1
+
+    def timeout_handler(signum, frame):
+        raise TimeoutError("unwind_exception_chain stuck in infinite loop")
+
+    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(2)
+
+    try:
+        chain, exc_id = replay.unwind_exception_chain(exc1, exc1.__traceback__)
+        assert len(chain) <= 2
+    except TimeoutError:
+        pytest.fail("unwind_exception_chain entered an infinite loop on circular __cause__ chain")
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)

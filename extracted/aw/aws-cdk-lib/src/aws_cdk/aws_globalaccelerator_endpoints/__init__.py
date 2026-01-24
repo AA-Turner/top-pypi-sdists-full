@@ -76,7 +76,7 @@ class ApplicationLoadBalancerEndpoint(
 
     def __init__(
         self,
-        load_balancer: _IApplicationLoadBalancer_4cbd50ab,
+        load_balancer: "_IApplicationLoadBalancer_4cbd50ab",
         *,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         weight: typing.Optional[jsii.Number] = None,
@@ -218,7 +218,7 @@ class CfnEipEndpoint(
 
     def __init__(
         self,
-        eip: _CfnEIP_f7fb6536,
+        eip: "_CfnEIP_f7fb6536",
         *,
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -332,7 +332,7 @@ class InstanceEndpoint(
 
     def __init__(
         self,
-        instance: _IInstance_ab239e7c,
+        instance: "_IInstance_ab239e7c",
         *,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         weight: typing.Optional[jsii.Number] = None,
@@ -490,7 +490,7 @@ class NetworkLoadBalancerEndpoint(
 
     def __init__(
         self,
-        load_balancer: _INetworkLoadBalancer_96e17101,
+        load_balancer: "_INetworkLoadBalancer_96e17101",
         *,
         preserve_client_ip: typing.Optional[builtins.bool] = None,
         weight: typing.Optional[jsii.Number] = None,

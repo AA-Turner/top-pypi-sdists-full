@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as pydt
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from hypothesis import strategies as st
 
@@ -9,39 +9,6 @@ import ry
 
 if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
-# unsigned ──────────────────────────────────────────────────────────
-_MIN_U8: Final = 0
-_MAX_U8: Final = (1 << 8) - 1  # 255
-
-_MIN_U16: Final = 0
-_MAX_U16: Final = (1 << 16) - 1  # 65_535
-
-_MIN_U32: Final = 0
-_MAX_U32: Final = (1 << 32) - 1  # 4_294_967_295
-
-_MIN_U64: Final = 0
-_MAX_U64: Final = (1 << 64) - 1  # 18_446_744_073_709_551_615
-
-_MIN_U128: Final = 0
-_MAX_U128: Final = (
-    1 << 128
-) - 1  # 340_282_366_841_710_656_408_393_487_639_999_999_999_999_999_999_999_999_999_999
-
-# signed ────────────────────────────────────────────────────────────
-_MIN_I8: Final = -(1 << 7)  # -128
-_MAX_I8: Final = (1 << 7) - 1  # 127
-
-_MIN_I16: Final = -(1 << 15)  # -32_768
-_MAX_I16: Final = (1 << 15) - 1  # 32_767
-
-_MIN_I32: Final = -(1 << 31)  # -2_147_483_648
-_MAX_I32: Final = (1 << 31) - 1  # 2_147_483_647
-
-_MIN_I64: Final = -(1 << 63)  # -9_223_372_036_854_775_808
-_MAX_I64: Final = (1 << 63) - 1  # 9_223_372_036_854_775_807
-
-_MIN_I128: Final = -(1 << 127)  # -170_141_183_460_469_231_731_687_303_715_884_105_728
-_MAX_I128: Final = (1 << 127) - 1  # 170_141_183_460_469_231_731_687_303_715_884_105_727
 
 date_strategy = st.dates(
     min_value=pydt.date(1, 1, 1), max_value=pydt.date(9999, 12, 31)
@@ -83,7 +50,6 @@ timedelta_out_of_range_strategy = st.one_of(
     st.timedeltas(min_value=pydt.timedelta(days=7304484)),
 )
 
-
 # Define strategies for generating test data
 date_tuple_strategy = st.builds(
     # make build tuple
@@ -121,7 +87,6 @@ timezone_strategy = st.sampled_from([
     "Europe/Berlin",
     "Africa/Cairo",
     "America/Los_Angeles",
-    # Add more timezones as needed
 ])
 
 duration_strategy = st.builds(
@@ -130,38 +95,79 @@ duration_strategy = st.builds(
     nanos=st.integers(min_value=-999_999_999, max_value=999_999_999),
 )
 
-
 # unsigned ────────────────────────────────────────────────────────────
-def st_signed_duration_args() -> SearchStrategy[tuple[int, int]]:
-    """Strategy for `ry.Duration` constructor arguments"""
-    return st.tuples(
-        st.integers(min_value=-(1 << 63), max_value=(1 << 63) - 1),
-        st.integers(min_value=-999_999_999, max_value=999_999_999),
-    )
 
 
-def st_signed_duration(
+def st_signed_durations(
     *,
-    min_value: ry.SignedDuration | None = None,
-    max_value: ry.SignedDuration | None = None,
+    min_value: ry.SignedDuration = ry.SignedDuration.MIN,
+    max_value: ry.SignedDuration = ry.SignedDuration.MAX,
 ) -> SearchStrategy[ry.SignedDuration]:
-    """Strategy for `ry.SignedDuration` instances"""
-    st_nanos = st.integers(min_value=-999_999_999, max_value=999_999_999)
-    st_seconds = st.integers(min_value=-(1 << 63), max_value=(1 << 63) - 1)
-    if min_value is None and max_value is None:
-        return st.builds(ry.SignedDuration, st_seconds, st_nanos)
-
-    _min_val = min_value if min_value is not None else ry.SignedDuration.MIN
-    _max_val = max_value if max_value is not None else ry.SignedDuration.MAX
-    assert isinstance(_min_val, ry.SignedDuration), (
-        "min_value must be ry.SignedDuration or None"
-    )
-    assert isinstance(_max_val, ry.SignedDuration), (
-        "max_value must be ry.SignedDuration or None"
-    )
-
+    """Strategy for `ry.Duration` instances"""
+    if not isinstance(min_value, ry.SignedDuration):
+        msg = f"min_value must be a ry.SignedDuration, got {type(min_value)}"
+        raise TypeError(msg)
+    if not isinstance(max_value, ry.SignedDuration):
+        msg = f"max_value must be a ry.SignedDuration, got {type(max_value)}"
+        raise TypeError(msg)
+    if min_value > max_value:
+        emsg = f"min_value {min_value} must be <= max_value {max_value}"
+        raise ValueError(emsg)
+    if min_value == max_value:
+        return st.just(min_value)
+    if min_value == ry.SignedDuration.MIN and max_value == ry.SignedDuration.MAX:
+        return st.builds(
+            ry.SignedDuration,
+            st.integers(min_value=ry.I64_MIN, max_value=ry.I64_MAX),
+            st.integers(min_value=-999_999_999, max_value=999_999_999),
+        )
     return st.builds(
         ry.SignedDuration,
-        st.integers(min_value=_min_val.secs, max_value=_max_val.secs),
+        st.integers(min_value=ry.I64_MIN, max_value=ry.I64_MAX),
         st.integers(min_value=-999_999_999, max_value=999_999_999),
-    ).filter(lambda d: (_min_val <= d <= _max_val))
+    ).filter(lambda d: min_value <= d <= max_value)
+
+
+def st_offsets(
+    min_value: ry.Offset = ry.Offset.MIN, max_value: ry.Offset = ry.Offset.MAX
+) -> SearchStrategy[ry.Offset]:
+    """Strategy for `ry.Offset` instances"""
+    if not isinstance(min_value, ry.Offset):
+        msg = f"min_value must be a ry.Offset, got {type(min_value)}"
+        raise TypeError(msg)
+    if not isinstance(max_value, ry.Offset):
+        msg = f"max_value must be a ry.Offset, got {type(max_value)}"
+        raise TypeError(msg)
+    if min_value > max_value:
+        emsg = f"min_value {min_value} must be <= max_value {max_value}"
+        raise ValueError(emsg)
+
+    return st.builds(
+        ry.Offset.from_seconds,
+        st.integers(min_value=min_value.seconds, max_value=max_value.seconds),
+    )
+
+
+def st_timestamps(
+    *,
+    min_value: ry.Timestamp = ry.Timestamp.MIN,
+    max_value: ry.Timestamp = ry.Timestamp.MAX,
+) -> SearchStrategy[ry.Timestamp]:
+    """Strategy for `ry.Timestamp` instances"""
+    if not isinstance(min_value, ry.Timestamp):
+        msg = f"min_value must be a ry.Timestamp, got {type(min_value)}"
+        raise TypeError(msg)
+    if not isinstance(max_value, ry.Timestamp):
+        msg = f"max_value must be a ry.Timestamp, got {type(max_value)}"
+        raise TypeError(msg)
+    if min_value > max_value:
+        emsg = f"min_value {min_value} must be <= max_value {max_value}"
+        raise ValueError(emsg)
+    if min_value == max_value:
+        return st.just(min_value)
+
+    return st.builds(
+        ry.Timestamp,
+        st.integers(min_value=min_value.second, max_value=max_value.second),
+        st.integers(min_value=0, max_value=999_999_999),
+    )

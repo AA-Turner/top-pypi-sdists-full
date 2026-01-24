@@ -3,7 +3,7 @@ Type annotations for chime-sdk-meetings service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime_sdk_meetings/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,10 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import (
     ContentResolutionType,
     MediaCapabilitiesType,
+    MediaPlacementNetworkTypeType,
     MeetingFeatureStatusType,
     TranscribeLanguageCodeType,
     TranscribeMedicalRegionType,
@@ -32,12 +34,6 @@ from .literals import (
     VideoResolutionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -119,7 +115,7 @@ class CreateAttendeeErrorTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -258,7 +254,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -280,8 +276,8 @@ class MeetingFeaturesConfigurationTypeDef(TypedDict):
 
 
 class BatchCreateAttendeeResponseTypeDef(TypedDict):
-    Attendees: List[AttendeeTypeDef]
-    Errors: List[CreateAttendeeErrorTypeDef]
+    Attendees: list[AttendeeTypeDef]
+    Errors: list[CreateAttendeeErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -296,7 +292,7 @@ class GetAttendeeResponseTypeDef(TypedDict):
 
 
 class ListAttendeesResponseTypeDef(TypedDict):
-    Attendees: List[AttendeeTypeDef]
+    Attendees: list[AttendeeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -326,6 +322,7 @@ class CreateMeetingRequestTypeDef(TypedDict):
     PrimaryMeetingId: NotRequired[str]
     TenantIds: NotRequired[Sequence[str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    MediaPlacementNetworkType: NotRequired[MediaPlacementNetworkTypeType]
 
 
 class CreateMeetingWithAttendeesRequestTypeDef(TypedDict):
@@ -339,6 +336,7 @@ class CreateMeetingWithAttendeesRequestTypeDef(TypedDict):
     PrimaryMeetingId: NotRequired[str]
     TenantIds: NotRequired[Sequence[str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    MediaPlacementNetworkType: NotRequired[MediaPlacementNetworkTypeType]
 
 
 class MeetingTypeDef(TypedDict):
@@ -349,7 +347,7 @@ class MeetingTypeDef(TypedDict):
     MediaPlacement: NotRequired[MediaPlacementTypeDef]
     MeetingFeatures: NotRequired[MeetingFeaturesConfigurationTypeDef]
     PrimaryMeetingId: NotRequired[str]
-    TenantIds: NotRequired[List[str]]
+    TenantIds: NotRequired[list[str]]
     MeetingArn: NotRequired[str]
 
 
@@ -360,8 +358,8 @@ class CreateMeetingResponseTypeDef(TypedDict):
 
 class CreateMeetingWithAttendeesResponseTypeDef(TypedDict):
     Meeting: MeetingTypeDef
-    Attendees: List[AttendeeTypeDef]
-    Errors: List[CreateAttendeeErrorTypeDef]
+    Attendees: list[AttendeeTypeDef]
+    Errors: list[CreateAttendeeErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

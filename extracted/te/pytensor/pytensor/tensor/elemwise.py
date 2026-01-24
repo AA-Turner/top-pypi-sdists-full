@@ -4,6 +4,7 @@ from textwrap import dedent
 from typing import Literal
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_tuple
 
 import pytensor.tensor.basic
 from pytensor.configdefaults import config
@@ -16,11 +17,10 @@ from pytensor.link.c.basic import failure_code
 from pytensor.link.c.op import COp, ExternalCOp, OpenMPOp
 from pytensor.link.c.params_type import ParamsType
 from pytensor.misc.frozendict import frozendict
-from pytensor.npy_2_compat import normalize_axis_tuple
 from pytensor.printing import Printer, pprint
 from pytensor.scalar import get_scalar_type
 from pytensor.scalar.basic import identity as scalar_identity
-from pytensor.scalar.basic import int64, transfer_type, upcast
+from pytensor.scalar.basic import int64, upcast
 from pytensor.tensor import elemwise_cgen as cgen
 from pytensor.tensor import get_vector_length
 from pytensor.tensor.basic import _get_vector_length, as_tensor_variable
@@ -707,7 +707,8 @@ class Elemwise(OpenMPOp):
 
             nout = ufunc.nout
 
-        variables = ufunc(*ufunc_args, **ufunc_kwargs)
+        with np.errstate(all="ignore"):
+            variables = ufunc(*ufunc_args, **ufunc_kwargs)
 
         if nout == 1:
             variables = [variables]
@@ -821,7 +822,7 @@ class Elemwise(OpenMPOp):
         # for each input:
         # same as range(ndim), but with 'x' at all broadcastable positions
         orders = [
-            [s == 1 and "x" or i for i, s in enumerate(input.type.shape)]
+            [(s == 1 and "x") or i for i, s in enumerate(input.type.shape)]
             for input in inputs
         ]
 
@@ -1098,7 +1099,7 @@ class Elemwise(OpenMPOp):
         return support_code
 
     def c_code_cache_version_apply(self, node):
-        version = [15]  # the version corresponding to the c code in this Op
+        version = [17]  # the version corresponding to the c code in this Op
 
         # now we insert versions for the ops on which we depend...
         scalar_node = Apply(
@@ -1390,7 +1391,10 @@ class CAReduce(COp):
             return f"axes={list(axis)}"
 
     def __str__(self):
-        return f"{type(self).__name__}{{{self.scalar_op}, {self._axis_str()}}}"
+        if self.acc_dtype != self.dtype:
+            return f"{type(self).__name__}{{{self.scalar_op}, {self._axis_str()}, acc={self.acc_dtype}}}"
+        else:
+            return f"{type(self).__name__}{{{self.scalar_op}, {self._axis_str()}}}"
 
     def perform(self, node, inp, out):
         (input,) = inp
@@ -1589,7 +1593,7 @@ class CAReduce(COp):
 
     def c_code_cache_version_apply(self, node):
         # the version corresponding to the c code in this Op
-        version = [10]
+        version = [11]
 
         # now we insert versions for the ops on which we depend...
         scalar_node = Apply(
@@ -1633,17 +1637,12 @@ def scalar_elemwise(*symbol, nfunc=None, nin=None, nout=None, symbolname=None):
         symbolname = symbolname or symbol.__name__
 
         if symbolname.endswith("_inplace"):
-            base_symbol_name = symbolname[: -len("_inplace")]
-            scalar_op = getattr(scalar, base_symbol_name)
-            inplace_scalar_op = scalar_op.__class__(transfer_type(0))
-            rval = Elemwise(
-                inplace_scalar_op,
-                {0: 0},
-                nfunc_spec=(nfunc and (nfunc, nin, nout)),
+            raise ValueError(
+                "Creation of automatic inplace elemwise operations deprecated"
             )
-        else:
-            scalar_op = getattr(scalar, symbolname)
-            rval = Elemwise(scalar_op, nfunc_spec=(nfunc and (nfunc, nin, nout)))
+
+        scalar_op = getattr(scalar, symbolname)
+        rval = Elemwise(scalar_op, nfunc_spec=(nfunc and (nfunc, nin, nout)))
 
         if getattr(symbol, "__doc__"):
             rval.__doc__ = symbol.__doc__

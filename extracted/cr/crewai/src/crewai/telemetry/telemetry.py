@@ -9,13 +9,15 @@ data is collected. Users can opt-in to share more complete data using the
 from __future__ import annotations
 
 import asyncio
+import atexit
+from collections.abc import Callable
+from importlib.metadata import version
 import json
 import logging
 import os
 import platform
+import signal
 import threading
-from collections.abc import Callable
-from importlib.metadata import version
 from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
@@ -29,7 +31,16 @@ from opentelemetry.sdk.trace.export import (
     SpanExportResult,
 )
 from opentelemetry.trace import Span
+from typing_extensions import Self
 
+from crewai.events.event_bus import crewai_event_bus
+from crewai.events.types.system_events import (
+    SigContEvent,
+    SigHupEvent,
+    SigIntEvent,
+    SigTStpEvent,
+    SigTermEvent,
+)
 from crewai.telemetry.constants import (
     CREWAI_TELEMETRY_BASE_URL,
     CREWAI_TELEMETRY_SERVICE_NAME,
@@ -41,6 +52,7 @@ from crewai.telemetry.utils import (
     close_span,
 )
 from crewai.utilities.logger_utils import suppress_warnings
+
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +97,7 @@ class Telemetry:
     _instance = None
     _lock = threading.Lock()
 
-    def __new__(cls):
+    def __new__(cls) -> Self:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -119,6 +131,7 @@ class Telemetry:
             )
 
             self.provider.add_span_processor(processor)
+            self._register_shutdown_handlers()
             self.ready = True
         except Exception as e:
             if isinstance(
@@ -153,19 +166,92 @@ class Telemetry:
                 self.ready = False
                 self.trace_set = False
 
-    def _safe_telemetry_operation(self, operation: Callable[[], Any]) -> None:
+    def _register_shutdown_handlers(self) -> None:
+        """Register handlers for graceful shutdown on process exit and signals."""
+        atexit.register(self._shutdown)
+
+        self._original_handlers: dict[int, Any] = {}
+
+        self._register_signal_handler(signal.SIGTERM, SigTermEvent, shutdown=True)
+        self._register_signal_handler(signal.SIGINT, SigIntEvent, shutdown=True)
+        if hasattr(signal, "SIGHUP"):
+            self._register_signal_handler(signal.SIGHUP, SigHupEvent, shutdown=False)
+        if hasattr(signal, "SIGTSTP"):
+            self._register_signal_handler(signal.SIGTSTP, SigTStpEvent, shutdown=False)
+        if hasattr(signal, "SIGCONT"):
+            self._register_signal_handler(signal.SIGCONT, SigContEvent, shutdown=False)
+
+    def _register_signal_handler(
+        self,
+        sig: signal.Signals,
+        event_class: type,
+        shutdown: bool = False,
+    ) -> None:
+        """Register a signal handler that emits an event.
+
+        Args:
+            sig: The signal to handle.
+            event_class: The event class to instantiate and emit.
+            shutdown: Whether to trigger shutdown on this signal.
+        """
+        try:
+            original_handler = signal.getsignal(sig)
+            self._original_handlers[sig] = original_handler
+
+            def handler(signum: int, frame: Any) -> None:
+                crewai_event_bus.emit(self, event_class())
+
+                if shutdown:
+                    self._shutdown()
+
+                if original_handler not in (signal.SIG_DFL, signal.SIG_IGN, None):
+                    if callable(original_handler):
+                        original_handler(signum, frame)
+                elif shutdown:
+                    raise SystemExit(0)
+
+            signal.signal(sig, handler)
+        except ValueError as e:
+            logger.warning(
+                f"Cannot register {sig.name} handler: not running in main thread",
+                exc_info=e,
+            )
+        except OSError as e:
+            logger.warning(f"Cannot register {sig.name} handler: {e}", exc_info=e)
+
+    def _shutdown(self) -> None:
+        """Flush and shutdown the telemetry provider on process exit.
+
+        Uses a short timeout to avoid blocking process shutdown.
+        """
+        if not self.ready:
+            return
+
+        try:
+            self.provider.force_flush(timeout_millis=5000)
+            self.provider.shutdown()
+            self.ready = False
+        except Exception as e:
+            logger.debug(f"Telemetry shutdown failed: {e}")
+
+    def _safe_telemetry_operation(
+        self, operation: Callable[[], Span | None]
+    ) -> Span | None:
         """Execute telemetry operation safely, checking both readiness and environment variables.
 
         Args:
-            operation: A callable that performs telemetry operations. May return any value,
-                      but the return value is not used by this method.
+            operation: A callable that performs telemetry operations.
+
+        Returns:
+            The return value from the operation, or None if telemetry is disabled or fails.
         """
         if not self._should_execute_telemetry():
-            return
+            return None
         try:
-            operation()
+            return operation()
         except Exception as e:
             logger.debug(f"Telemetry operation failed: {e}")
+            return None
 
     def crew_creation(self, crew: Crew, inputs: dict[str, Any] | None) -> None:
         """Records the creation of a crew.
@@ -175,7 +261,7 @@ class Telemetry:
             inputs: Optional input parameters for the crew.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Crew Created")
             self._add_attribute(
@@ -309,9 +395,7 @@ class Telemetry:
                 self._add_attribute(span, "platform_system", platform.system())
                 self._add_attribute(span, "platform_version", platform.version())
                 self._add_attribute(span, "cpus", os.cpu_count())
-                self._add_attribute(
-                    span, "crew_inputs", json.dumps(inputs) if inputs else None
-                )
+                self._add_attribute(span, "crew_inputs", json.dumps(inputs or {}))
             else:
                 self._add_attribute(
                     span,
@@ -385,7 +469,7 @@ class Telemetry:
             The span tracking the task execution, or None if telemetry is disabled.
         """
 
-        def _operation():
+        def _operation() -> Span:
             tracer = trace.get_tracer("crewai.telemetry")
 
             created_span = tracer.start_span("Task Created")
@@ -444,11 +528,7 @@ class Telemetry:
 
             return span
 
-        if not self._should_execute_telemetry():
-            return None
-
-        self._safe_telemetry_operation(_operation)
-        return _operation()
+        return self._safe_telemetry_operation(_operation)
 
     def task_ended(self, span: Span, task: Task, crew: Crew) -> None:
         """Records the completion of a task execution in a crew.
@@ -462,7 +542,7 @@ class Telemetry:
             If share_crew is enabled, this will also record the task output.
         """
 
-        def _operation():
+        def _operation() -> None:
             # Ensure fingerprint data is present on completion span
             if hasattr(task, "fingerprint") and task.fingerprint:
                 self._add_attribute(span, "task_fingerprint", task.fingerprint.uuid_str)
@@ -487,7 +567,7 @@ class Telemetry:
             attempts: Number of attempts made with this tool.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Tool Repeated Usage")
             self._add_attribute(
@@ -515,7 +595,7 @@ class Telemetry:
             agent: The agent using the tool.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Tool Usage")
             self._add_attribute(
@@ -545,7 +625,7 @@ class Telemetry:
             tool_name: Name of the tool that caused the error.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Tool Usage Error")
             self._add_attribute(
@@ -577,7 +657,7 @@ class Telemetry:
             model_name: Name of the model used.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Crew Individual Test Result")
 
@@ -612,7 +692,7 @@ class Telemetry:
             model_name: Name of the model used in testing.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Crew Test Execution")
 
@@ -628,9 +708,7 @@ class Telemetry:
             self._add_attribute(span, "model_name", model_name)
 
             if crew.share_crew:
-                self._add_attribute(
-                    span, "inputs", json.dumps(inputs) if inputs else None
-                )
+                self._add_attribute(span, "inputs", json.dumps(inputs or {}))
 
             close_span(span)
 
@@ -639,7 +717,7 @@ class Telemetry:
     def deploy_signup_error_span(self) -> None:
         """Records when an error occurs during the deployment signup process."""
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Deploy Signup Error")
             close_span(span)
@@ -653,7 +731,7 @@ class Telemetry:
             uuid: Unique identifier for the deployment.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Start Deployment")
             if uuid:
@@ -665,7 +743,7 @@ class Telemetry:
     def create_crew_deployment_span(self) -> None:
         """Records the creation of a new crew deployment."""
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Create Crew Deployment")
             close_span(span)
@@ -682,7 +760,7 @@ class Telemetry:
             log_type: Type of logs being retrieved. Defaults to "deployment".
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Get Crew Logs")
             self._add_attribute(span, "log_type", log_type)
@@ -699,7 +777,7 @@ class Telemetry:
             uuid: Unique identifier for the crew being removed.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Remove Crew")
             if uuid:
@@ -724,7 +802,7 @@ class Telemetry:
         """
         self.crew_creation(crew, inputs)
 
-        def _operation():
+        def _operation() -> Span:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Crew Execution")
             self._add_attribute(
@@ -735,9 +813,7 @@ class Telemetry:
             add_crew_attributes(
                 span, crew, self._add_attribute, include_fingerprint=False
             )
-            self._add_attribute(
-                span, "crew_inputs", json.dumps(inputs) if inputs else None
-            )
+            self._add_attribute(span, "crew_inputs", json.dumps(inputs or {}))
             self._add_attribute(
                 span,
                 "crew_agents",
@@ -792,8 +868,7 @@ class Telemetry:
             return span
 
         if crew.share_crew:
-            self._safe_telemetry_operation(_operation)
-            return _operation()
+            return self._safe_telemetry_operation(_operation)
         return None
 
     def end_crew(self, crew: Any, final_string_output: str) -> None:
@@ -804,7 +879,7 @@ class Telemetry:
             final_string_output: The final output from the crew.
         """
 
-        def _operation():
+        def _operation() -> None:
             self._add_attribute(
                 crew._execution_span,
                 "crewai_version",
@@ -841,7 +916,7 @@ class Telemetry:
             value: The attribute value.
         """
 
-        def _operation():
+        def _operation() -> None:
             return span.set_attribute(key, value)
 
         self._safe_telemetry_operation(_operation)
@@ -853,7 +928,7 @@ class Telemetry:
             flow_name: Name of the flow being created.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Flow Creation")
             self._add_attribute(span, "flow_name", flow_name)
@@ -869,7 +944,7 @@ class Telemetry:
             node_names: List of node names in the flow.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Flow Plotting")
             self._add_attribute(span, "flow_name", flow_name)
@@ -886,11 +961,43 @@ class Telemetry:
             node_names: List of nodes being executed in the flow.
         """
 
-        def _operation():
+        def _operation() -> None:
             tracer = trace.get_tracer("crewai.telemetry")
             span = tracer.start_span("Flow Execution")
             self._add_attribute(span, "flow_name", flow_name)
             self._add_attribute(span, "node_names", json.dumps(node_names))
+            close_span(span)
+
+        self._safe_telemetry_operation(_operation)
+
+    def human_feedback_span(
+        self,
+        event_type: str,
+        has_routing: bool,
+        num_outcomes: int = 0,
+        feedback_provided: bool | None = None,
+        outcome: str | None = None,
+    ) -> None:
+        """Records human feedback feature usage.
+
+        Args:
+            event_type: Type of event - "requested" or "received".
+            has_routing: Whether emit options were configured for routing.
+            num_outcomes: Number of possible outcomes if routing is used.
+            feedback_provided: Whether user provided feedback or skipped (None if requested).
+            outcome: The collapsed outcome string if routing was used.
+        """
+
+        def _operation() -> None:
+            tracer = trace.get_tracer("crewai.telemetry")
+            span = tracer.start_span("Human Feedback")
+            self._add_attribute(span, "event_type", event_type)
+            self._add_attribute(span, "has_routing", has_routing)
+            self._add_attribute(span, "num_outcomes", num_outcomes)
+            if feedback_provided is not None:
+                self._add_attribute(span, "feedback_provided", feedback_provided)
+            if outcome is not None:
+                self._add_attribute(span, "outcome", outcome)
             close_span(span)
 
         self._safe_telemetry_operation(_operation)

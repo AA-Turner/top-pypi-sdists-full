@@ -1,6 +1,6 @@
 [package]
 name = "mkdocs-minify-html-plugin"
-version = "0.3.4"
+version = "0.3.9"
 edition = "2024"
 license = "MIT"
 include = [
@@ -13,14 +13,15 @@ include = [
   "/README.md",
 ]
 publish = false
+readme = "README.md"
 
 [lib]
 name = "_minify_html"
 crate-type = ["cdylib"]
 
 [dependencies]
-minify-html = "=0.16.4"
-pyo3 = { version = "=0.25.1", features = ["extension-module"] }
+minify-html = "=0.18.0"
+pyo3 = { version = "=0.27.1", features = ["extension-module"] }
 
 [profile.release]
 strip = true

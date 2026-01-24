@@ -1,10 +1,19 @@
 import sys
-from typing import Any, Iterable, Literal, MutableMapping, overload
+from collections.abc import (
+    Iterable,
+    MutableMapping,
+)
+from typing import (
+    Any,
+    Literal,
+    overload,
+)
 
 from .. import etree
 from .._types import (
     Unused,
     _FileReadSource,
+    _TextArg,
 )
 from ._element import HtmlElement
 
@@ -31,6 +40,23 @@ class HTMLParser(etree.HTMLParser[HtmlElement]):
     --------
     - [API Documentation](https://lxml.de/apidoc/lxml.html.html#lxml.html.HTMLParser)
     """
+    # HACK: Suppress superclass __new__(), otherwise pyright thinks
+    # this class always generate etree.HTMLParser instances (#100)
+    def __new__(
+        cls,
+        *,
+        encoding: _TextArg | None = None,
+        remove_blank_text: bool = False,
+        remove_comments: bool = False,
+        remove_pis: bool = False,
+        no_network: bool = True,
+        schema: etree.XMLSchema | None = None,
+        recover: bool = True,
+        compact: bool = True,
+        default_doctype: bool = True,
+        collect_ids: bool = True,
+        huge_tree: bool = False,
+    ) -> HTMLParser: ...
 
 class XHTMLParser(etree.XMLParser[HtmlElement]):
     """An XML parser configured to return `lxml.html` Element objects.
@@ -46,6 +72,28 @@ class XHTMLParser(etree.XMLParser[HtmlElement]):
     --------
     - [API Documentation](https://lxml.de/apidoc/lxml.html.html#lxml.html.XHTMLParser)
     """
+    # HACK: Suppress superclass __new__(), otherwise pyright thinks
+    # this class always generate etree.XMLParser instances (#100)
+    def __new__(
+        cls,
+        *,
+        encoding: _TextArg | None = None,
+        attribute_defaults: bool = False,
+        dtd_validation: bool = False,
+        load_dtd: bool = False,
+        no_network: bool = True,
+        ns_clean: bool = False,
+        recover: bool = False,
+        schema: etree.XMLSchema | None = None,
+        huge_tree: bool = False,
+        remove_blank_text: bool = False,
+        resolve_entities: bool | Literal["internal"] = "internal",
+        remove_comments: bool = False,
+        remove_pis: bool = False,
+        strip_cdata: bool = True,
+        collect_ids: bool = True,
+        compact: bool = True,
+    ) -> XHTMLParser: ...
 
 html_parser: HTMLParser
 xhtml_parser: XHTMLParser
@@ -64,7 +112,7 @@ def document_fromstring(
     base_url: str | None = None,
 ) -> HtmlElement: ...
 @overload
-def fragments_fromstring(  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]_parse
+def fragments_fromstring(  # pyright: ignore[reportOverlappingOverload]
     html: str | bytes,
     no_leading_text: Literal[True],
     base_url: str | None = None,
@@ -107,7 +155,8 @@ class HtmlElementClassLookup(etree.CustomElementClassLookup):
         # docstring says mixins is mapping, but implementation says otherwise
         mixins: Iterable[tuple[str, type[HtmlElement]]] | None = None,
     ) -> None: ...
-    def lookup(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def lookup(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
         node_type: Literal["element", "comment", "PI", "entity"] | None,
         document: Unused,

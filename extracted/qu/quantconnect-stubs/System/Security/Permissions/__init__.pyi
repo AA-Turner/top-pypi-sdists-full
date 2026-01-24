@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 
 import System
@@ -7,8 +7,71 @@ import System.Security
 import System.Security.Permissions
 
 
-class SecurityPermissionFlag(Enum):
-    """Obsoletions.CodeAccessSecurityMessage"""
+class PermissionState(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    UNRESTRICTED = 1
+
+
+class SecurityAction(IntEnum):
+    """This class has no documentation."""
+
+    ASSERT = 3
+
+    DEMAND = 2
+
+    DENY = 4
+
+    INHERITANCE_DEMAND = 7
+
+    LINK_DEMAND = 6
+
+    PERMIT_ONLY = 5
+
+    REQUEST_MINIMUM = 8
+
+    REQUEST_OPTIONAL = 9
+
+    REQUEST_REFUSE = 10
+
+
+class SecurityAttribute(System.Attribute, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def action(self) -> System.Security.Permissions.SecurityAction:
+        ...
+
+    @action.setter
+    def action(self, value: System.Security.Permissions.SecurityAction) -> None:
+        ...
+
+    @property
+    def unrestricted(self) -> bool:
+        ...
+
+    @unrestricted.setter
+    def unrestricted(self, value: bool) -> None:
+        ...
+
+    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
+        ...
+
+    def create_permission(self) -> System.Security.IPermission:
+        ...
+
+
+class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
+        ...
+
+
+class SecurityPermissionFlag(IntEnum):
+    """This class has no documentation."""
 
     ALL_FLAGS = 16383
 
@@ -42,72 +105,9 @@ class SecurityPermissionFlag(Enum):
 
     UNMANAGED_CODE = 2
 
-    def __int__(self) -> int:
-        ...
-
-
-class SecurityAction(Enum):
-    """Obsoletions.CodeAccessSecurityMessage"""
-
-    ASSERT = 3
-
-    DEMAND = 2
-
-    DENY = 4
-
-    INHERITANCE_DEMAND = 7
-
-    LINK_DEMAND = 6
-
-    PERMIT_ONLY = 5
-
-    REQUEST_MINIMUM = 8
-
-    REQUEST_OPTIONAL = 9
-
-    REQUEST_REFUSE = 10
-
-    def __int__(self) -> int:
-        ...
-
-
-class SecurityAttribute(System.Attribute, metaclass=abc.ABCMeta):
-    """Obsoletions.CodeAccessSecurityMessage"""
-
-    @property
-    def action(self) -> System.Security.Permissions.SecurityAction:
-        ...
-
-    @action.setter
-    def action(self, value: System.Security.Permissions.SecurityAction) -> None:
-        ...
-
-    @property
-    def unrestricted(self) -> bool:
-        ...
-
-    @unrestricted.setter
-    def unrestricted(self, value: bool) -> None:
-        ...
-
-    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
-        """This method is protected."""
-        ...
-
-    def create_permission(self) -> System.Security.IPermission:
-        ...
-
-
-class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute, metaclass=abc.ABCMeta):
-    """Obsoletions.CodeAccessSecurityMessage"""
-
-    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
-        """This method is protected."""
-        ...
-
 
 class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurityAttribute):
-    """Obsoletions.CodeAccessSecurityMessage"""
+    """This class has no documentation."""
 
     @property
     def assertion(self) -> bool:
@@ -233,17 +233,6 @@ class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurity
         ...
 
     def create_permission(self) -> System.Security.IPermission:
-        ...
-
-
-class PermissionState(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    UNRESTRICTED = 1
-
-    def __int__(self) -> int:
         ...
 
 

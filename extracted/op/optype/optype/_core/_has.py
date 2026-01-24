@@ -60,7 +60,11 @@ _DictT = TypeVar("_DictT", bound=__AnyMapping, default=__AnyDict)
 _DictT_co = TypeVar("_DictT_co", bound=__AnyMapping, default=__AnyDict, covariant=True)
 
 _NameT = TypeVar("_NameT", bound=str, default=str)
-_QualNameT = TypeVar("_QualNameT", bound=str, default=_NameT)
+_QualNameT = TypeVar(
+    "_QualNameT",
+    bound=str,
+    default=_NameT,  # pyrefly: ignore[invalid-type-var]
+)
 _StrT_co = TypeVar("_StrT_co", bound=str, default=str, covariant=True)
 
 
@@ -125,7 +129,7 @@ class HasClass(Protocol[_TypeT]):
 
     @property  # type: ignore[override]  # mypy bug
     @override
-    def __class__(self) -> _TypeT: ...
+    def __class__(self) -> _TypeT: ...  # pyrefly: ignore[bad-override]
     @__class__.setter
     @override
     def __class__(self, __class__: _TypeT, /) -> None: ...
@@ -133,7 +137,7 @@ class HasClass(Protocol[_TypeT]):
 
 @runtime_checkable
 class HasModule(Protocol[_StrT_co]):
-    __module__: _StrT_co
+    __module__: _StrT_co  # pyrefly: ignore[bad-override])
 
 
 @runtime_checkable
@@ -160,7 +164,7 @@ class HasNames(  # pyright: ignore[reportIncompatibleVariableOverride, reportInv
 @runtime_checkable
 class HasDoc(Protocol[_StrT_co]):
     # note that docstrings are stripped if ran with e.g. `python -OO`
-    __doc__: _StrT_co | None
+    __doc__: _StrT_co | None  # pyrefly: ignore[bad-override]
 
 
 @runtime_checkable

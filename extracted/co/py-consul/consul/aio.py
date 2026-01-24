@@ -1,4 +1,4 @@
-from typing import Optional
+import ssl
 
 import aiohttp
 
@@ -16,7 +16,17 @@ class HTTPClient(base.HTTPClient):
         connector_kwargs = {}
         if connections_limit:
             connector_kwargs["limit"] = connections_limit
-        connector = aiohttp.TCPConnector(loop=self.loop, verify_ssl=self.verify, **connector_kwargs)
+        if self.verify:
+            ssl_context = ssl.create_default_context()
+            if self.cert:
+                if isinstance(self.cert, tuple):
+                    ssl_context.load_cert_chain(*self.cert)
+                else:
+                    ssl_context.load_cert_chain(self.cert)
+            if isinstance(self.verify, str):
+                ssl_context.load_verify_locations(self.verify)
+            connector_kwargs["ssl_context"] = ssl_context
+        connector = aiohttp.TCPConnector(loop=self.loop, verify_ssl=bool(self.verify), **connector_kwargs)
         session_kwargs = {}
         if connections_timeout:
             timeout = aiohttp.ClientTimeout(total=connections_timeout)
@@ -24,7 +34,7 @@ class HTTPClient(base.HTTPClient):
         self._session = aiohttp.ClientSession(connector=connector, **session_kwargs)  # type: ignore
 
     async def _request(
-        self, callback, method, uri, headers: Optional[dict[str, str]], data=None, connections_timeout=None
+        self, callback, method, uri, headers: dict[str, str] | None, data=None, connections_timeout=None
     ):
         session_kwargs = {}
         if connections_timeout:
@@ -37,7 +47,7 @@ class HTTPClient(base.HTTPClient):
         r = base.Response(resp.status, resp.headers, body)
         return callback(r)
 
-    def get(self, callback, path, params=None, headers: Optional[dict[str, str]] = None, connections_timeout=None):
+    def get(self, callback, path, params=None, headers: dict[str, str] | None = None, connections_timeout=None):
         uri = self.uri(path, params)
         return self._request(callback, "GET", uri, headers=headers, connections_timeout=connections_timeout)
 
@@ -47,13 +57,13 @@ class HTTPClient(base.HTTPClient):
         path,
         params=None,
         data: str = "",
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         connections_timeout=None,
     ):
         uri = self.uri(path, params)
         return self._request(callback, "PUT", uri, headers=headers, data=data, connections_timeout=connections_timeout)
 
-    def delete(self, callback, path, params=None, headers: Optional[dict[str, str]] = None, connections_timeout=None):
+    def delete(self, callback, path, params=None, headers: dict[str, str] | None = None, connections_timeout=None):
         uri = self.uri(path, params)
         return self._request(callback, "DELETE", uri, headers=headers, connections_timeout=connections_timeout)
 
@@ -63,7 +73,7 @@ class HTTPClient(base.HTTPClient):
         path,
         params=None,
         data: str = "",
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         connections_timeout=None,
     ):
         uri = self.uri(path, params)
@@ -80,7 +90,7 @@ class Consul(base.Consul):
         self.connections_timeout = connections_timeout
         super().__init__(*args, **kwargs)
 
-    def http_connect(self, host: str, port: int, scheme, verify: bool = True, cert=None):
+    def http_connect(self, host: str, port: int, scheme, verify: bool | str = True, cert=None):
         return HTTPClient(
             host,
             port,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,11 +184,11 @@ class SearchOrganizationsRequest(proto.Message):
             by ``domain``, where the domain is a G Suite domain, for
             example:
 
-            -  Query ``directorycustomerid:123456789`` returns
-               Organization resources with
-               ``owner.directory_customer_id`` equal to ``123456789``.
-            -  Query ``domain:google.com`` returns Organization
-               resources corresponding to the domain ``google.com``.
+            - Query ``directorycustomerid:123456789`` returns
+              Organization resources with
+              ``owner.directory_customer_id`` equal to ``123456789``.
+            - Query ``domain:google.com`` returns Organization resources
+              corresponding to the domain ``google.com``.
     """
 
     page_size: int = proto.Field(

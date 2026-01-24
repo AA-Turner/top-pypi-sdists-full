@@ -3,6 +3,7 @@ from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 import attr
 
 from ..extensions import NotPresentError
+from ..models.archive_record import ArchiveRecord
 from ..models.creation_origin import CreationOrigin
 from ..models.fields import Fields
 from ..models.workflow_output_summary import WorkflowOutputSummary
@@ -17,6 +18,7 @@ T = TypeVar("T", bound="WorkflowOutput")
 class WorkflowOutput:
     """  """
 
+    _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
     _created_at: Union[Unset, str] = UNSET
     _creation_origin: Union[Unset, CreationOrigin] = UNSET
     _fields: Union[Unset, Fields] = UNSET
@@ -34,6 +36,7 @@ class WorkflowOutput:
 
     def __repr__(self):
         fields = []
+        fields.append("archive_record={}".format(repr(self._archive_record)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("creation_origin={}".format(repr(self._creation_origin)))
         fields.append("fields={}".format(repr(self._fields)))
@@ -51,6 +54,10 @@ class WorkflowOutput:
         return "WorkflowOutput({})".format(", ".join(fields))
 
     def to_dict(self) -> Dict[str, Any]:
+        archive_record: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self._archive_record, Unset):
+            archive_record = self._archive_record.to_dict() if self._archive_record else None
+
         created_at = self._created_at
         creation_origin: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._creation_origin, Unset):
@@ -108,6 +115,8 @@ class WorkflowOutput:
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
+        if archive_record is not UNSET:
+            field_dict["archiveRecord"] = archive_record
         if created_at is not UNSET:
             field_dict["createdAt"] = created_at
         if creation_origin is not UNSET:
@@ -140,6 +149,22 @@ class WorkflowOutput:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any], strict: bool = False) -> T:
         d = src_dict.copy()
+
+        def get_archive_record() -> Union[Unset, None, ArchiveRecord]:
+            archive_record = None
+            _archive_record = d.pop("archiveRecord")
+
+            if _archive_record is not None and not isinstance(_archive_record, Unset):
+                archive_record = ArchiveRecord.from_dict(_archive_record)
+
+            return archive_record
+
+        try:
+            archive_record = get_archive_record()
+        except KeyError:
+            if strict:
+                raise
+            archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
 
         def get_created_at() -> Union[Unset, str]:
             created_at = d.pop("createdAt")
@@ -329,6 +354,7 @@ class WorkflowOutput:
             id = cast(Union[Unset, str], UNSET)
 
         workflow_output = cls(
+            archive_record=archive_record,
             created_at=created_at,
             creation_origin=creation_origin,
             fields=fields,
@@ -365,6 +391,20 @@ class WorkflowOutput:
 
     def get(self, key, default=None) -> Optional[Any]:
         return self.additional_properties.get(key, default)
+
+    @property
+    def archive_record(self) -> Optional[ArchiveRecord]:
+        if isinstance(self._archive_record, Unset):
+            raise NotPresentError(self, "archive_record")
+        return self._archive_record
+
+    @archive_record.setter
+    def archive_record(self, value: Optional[ArchiveRecord]) -> None:
+        self._archive_record = value
+
+    @archive_record.deleter
+    def archive_record(self) -> None:
+        self._archive_record = UNSET
 
     @property
     def created_at(self) -> str:

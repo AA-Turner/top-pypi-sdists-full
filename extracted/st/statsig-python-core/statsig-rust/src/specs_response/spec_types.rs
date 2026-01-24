@@ -6,11 +6,11 @@ use serde_with::skip_serializing_none;
 
 use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::{dynamic_returnable::DynamicReturnable, evaluator_value::EvaluatorValue};
-use crate::event_logging::exposable_string::ExposableString;
 use crate::interned_string::InternedString;
+use crate::specs_response::explicit_params::ExplicitParameters;
+use crate::specs_response::specs_hash_map::SpecsHashMap;
 use crate::DynamicValue;
 
-use super::spec_directory::SpecDirectory;
 use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
 
 // DO_NOT_CLONE: Please do not add the Clone trait to this struct. We intentionally
@@ -20,6 +20,7 @@ use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
 #[derive(Serialize, Deserialize, PartialEq, Debug)] /* DO_NOT_CLONE */
 #[serde(rename_all = "camelCase")]
 pub struct Spec {
+    pub checksum: Option<InternedString>,
     #[serde(rename = "type")]
     pub _type: InternedString,
     pub salt: InternedString,
@@ -27,7 +28,7 @@ pub struct Spec {
     pub enabled: bool,
     pub rules: Vec<Rule>,
     pub id_type: InternedString,
-    pub explicit_parameters: Option<Vec<InternedString>>,
+    pub explicit_parameters: Option<ExplicitParameters>,
     pub entity: InternedString,
     pub has_shared_params: Option<bool>,
     pub is_active: Option<bool>,
@@ -36,6 +37,7 @@ pub struct Spec {
     pub target_app_ids: Option<Vec<InternedString>>,
     pub forward_all_exposures: Option<bool>,
     pub fields_used: Option<Vec<InternedString>>,
+    pub use_new_layer_eval: Option<bool>,
 }
 
 #[skip_serializing_none]
@@ -45,7 +47,7 @@ pub struct Rule {
     pub name: InternedString,
     pub pass_percentage: f64,
     pub return_value: DynamicReturnable,
-    pub id: ExposableString,
+    pub id: InternedString,
     pub salt: Option<InternedString>,
     pub conditions: Vec<InternedString>,
     pub id_type: DynamicString,
@@ -55,7 +57,7 @@ pub struct Rule {
     pub sampling_rate: Option<u64>,
 }
 
-#[derive(Serialize, PartialEq, Debug)] /* DO_NOT_CLONE */
+#[derive(Serialize, PartialEq, Debug, Clone /* TEMP: Make this an Arc */)] /* DO_NOT_CLONE */
 #[serde(rename_all = "camelCase")]
 pub struct Condition {
     #[serde(rename = "type")]
@@ -65,6 +67,7 @@ pub struct Condition {
     pub field: Option<DynamicString>,
     pub additional_values: Option<HashMap<InternedString, InternedString>>,
     pub id_type: DynamicString,
+    pub checksum: Option<InternedString>,
 }
 
 #[skip_serializing_none]
@@ -77,7 +80,7 @@ pub struct OverrideRule {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, PartialEq, Debug)] /* DO_NOT_CLONE */
 pub struct ConfigMapping {
-    pub new_config_name: String,
+    pub new_config_name: InternedString,
     pub rules: Vec<OverrideRule>,
 }
 
@@ -99,13 +102,21 @@ pub struct SessionReplayInfo {
     pub session_recording_exposure_triggers: Option<HashMap<String, SessionReplayTrigger>>,
 }
 
+#[derive(Deserialize)]
+pub struct SpecsResponsePartial {
+    pub experiment_to_layer: HashMap<String, String>,
+    pub session_replay_info: Option<SessionReplayInfo>,
+    pub diagnostics: Option<HashMap<String, f64>>,
+    pub sdk_configs: Option<HashMap<String, DynamicValue>>,
+}
+
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, PartialEq, Debug, Default)] /* DO_NOT_CLONE */
 pub struct SpecsResponseFull {
     pub company_id: Option<String>,
-    pub feature_gates: SpecDirectory,
-    pub dynamic_configs: SpecDirectory,
-    pub layer_configs: SpecDirectory,
+    pub feature_gates: SpecsHashMap,
+    pub dynamic_configs: SpecsHashMap,
+    pub layer_configs: SpecsHashMap,
     pub condition_map: AHashMap<InternedString, Condition>,
     pub experiment_to_layer: HashMap<String, String>,
     pub has_updates: bool,
@@ -116,14 +127,30 @@ pub struct SpecsResponseFull {
     pub sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
     pub hashed_sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
     pub diagnostics: Option<HashMap<String, f64>>,
-    pub param_stores: Option<HashMap<String, ParameterStore>>,
+    pub param_stores: Option<HashMap<InternedString, ParameterStore>>,
     pub sdk_configs: Option<HashMap<String, DynamicValue>>,
+    pub sdk_flags: Option<HashMap<String, bool>>,
     pub cmab_configs: Option<HashMap<String, CMABConfig>>,
     pub overrides: Option<HashMap<String, Vec<ConfigMapping>>>,
     pub override_rules: Option<HashMap<String, Rule>>,
     pub id_lists: Option<HashMap<String, bool>>,
     pub response_format: Option<String>,
     pub session_replay_info: Option<SessionReplayInfo>,
+}
+
+impl SpecsResponseFull {
+    pub fn reset(&mut self) {
+        *self = SpecsResponseFull::default();
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.checksum.is_none()
+            && self.feature_gates.len() == 0
+            && self.dynamic_configs.len() == 0
+            && self.layer_configs.len() == 0
+            && self.condition_map.len() == 0
+            && self.time == 0
+    }
 }
 
 #[skip_serializing_none]
@@ -166,6 +193,7 @@ impl<'de> Deserialize<'de> for Condition {
             field: internal.field,
             additional_values: internal.additional_values,
             id_type: internal.id_type,
+            checksum: None,
         })
     }
 }

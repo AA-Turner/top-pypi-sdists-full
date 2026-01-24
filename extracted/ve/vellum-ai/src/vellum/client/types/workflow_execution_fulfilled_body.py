@@ -10,6 +10,9 @@ from .vellum_code_resource_definition import VellumCodeResourceDefinition
 class WorkflowExecutionFulfilledBody(UniversalBaseModel):
     workflow_definition: VellumCodeResourceDefinition
     outputs: typing.Dict[str, typing.Optional[typing.Any]]
+    final_state: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
+    server_metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
+    redacted: typing.Optional[bool] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -29,9 +29,6 @@
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
 #include "include/private/base/SkMalloc.h"
 #include "include/private/base/SkMutex.h"
 #include "include/private/chromium/SkChromeRemoteGlyphCache.h"
@@ -43,16 +40,24 @@
 #include "src/core/SkTHash.h"
 #include "src/core/SkTypeface_remote.h"
 #include "src/core/SkWriteBuffer.h"
-#include "src/gpu/ganesh/GrCaps.h"
-#include "src/gpu/ganesh/GrDirectContextPriv.h"
-#include "src/gpu/ganesh/GrRecordingContextPriv.h"
-#include "src/gpu/ganesh/GrShaderCaps.h"
-#include "src/text/gpu/SDFTControl.h"
+#include "src/text/gpu/SubRunControl.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
 #include "tools/Resources.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 #include "tools/fonts/TestEmptyTypeface.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "src/gpu/ganesh/GrCaps.h"
+#include "src/gpu/ganesh/GrDirectContextPriv.h"
+#include "src/gpu/ganesh/GrRecordingContextPriv.h"
+#include "src/gpu/ganesh/GrShaderCaps.h"
+#endif
 
 #include <cmath>
 #include <cstdint>
@@ -62,6 +67,7 @@
 #include <optional>
 #include <vector>
 
+using namespace skia_private;
 using Slug = sktext::gpu::Slug;
 
 class DiscardableManager : public SkStrikeServer::DiscardableHandleManager,
@@ -115,7 +121,7 @@ public:
         fLockedHandles.reset();
         fLastDeletedHandleId = fNextHandleId;
     }
-    const SkTHashSet<SkDiscardableHandleId>& lockedHandles() const {
+    const THashSet<SkDiscardableHandleId>& lockedHandles() const {
         SkAutoMutexExclusive l(fMutex);
 
         return fLockedHandles;
@@ -151,12 +157,13 @@ private:
 
     SkDiscardableHandleId fNextHandleId = 0u;
     SkDiscardableHandleId fLastDeletedHandleId = 0u;
-    SkTHashSet<SkDiscardableHandleId> fLockedHandles;
+    THashSet<SkDiscardableHandleId> fLockedHandles;
     int fCacheMissCount[SkStrikeClient::CacheMissType::kLast + 1u];
 };
 
 sk_sp<SkTextBlob> buildTextBlob(sk_sp<SkTypeface> tf, int glyphCount, int textSize = 1) {
     SkFont font;
+    SkASSERT(tf);
     font.setTypeface(tf);
     font.setHinting(SkFontHinting::kNormal);
     font.setSize(textSize);
@@ -176,6 +183,7 @@ sk_sp<SkTextBlob> buildTextBlob(sk_sp<SkTypeface> tf, int glyphCount, int textSi
     return builder.make();
 }
 
+#if defined(SK_GANESH)
 static void compare_blobs(const SkBitmap& expected, const SkBitmap& actual,
                           skiatest::Reporter* reporter, int tolerance = 0) {
     SkASSERT(expected.width() == actual.width());
@@ -200,7 +208,7 @@ static void compare_blobs(const SkBitmap& expected, const SkBitmap& actual,
 sk_sp<SkSurface> MakeSurface(int width, int height, GrRecordingContext* rContext) {
     const SkImageInfo info =
             SkImageInfo::Make(width, height, kN32_SkColorType, kPremul_SkAlphaType);
-    return SkSurface::MakeRenderTarget(rContext, skgpu::Budgeted::kNo, info);
+    return SkSurfaces::RenderTarget(rContext, skgpu::Budgeted::kNo, info);
 }
 
 SkSurfaceProps FindSurfaceProps(GrRecordingContext* rContext) {
@@ -231,7 +239,7 @@ SkBitmap RasterBlobThroughSlug(sk_sp<SkTextBlob> blob, int width, int height, co
     }
     auto canvas = surface->getCanvas();
     auto slug = Slug::ConvertBlob(canvas, *blob, {x, height/2.0f}, paint);
-    slug->draw(canvas);
+    slug->draw(canvas, paint);
     SkBitmap bitmap;
     bitmap.allocN32Pixels(width, height);
     surface->readPixels(bitmap, 0, 0);
@@ -246,7 +254,7 @@ SkBitmap RasterSlug(sk_sp<Slug> slug, int width, int height, const SkPaint& pain
     if (matrix) {
         canvas->concat(*matrix);
     }
-    slug->draw(canvas);
+    slug->draw(canvas, paint);
     SkBitmap bitmap;
     bitmap.allocN32Pixels(width, height);
     surface->readPixels(bitmap, 0, 0);
@@ -264,7 +272,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_StrikeSerialization,
     const SkPaint paint;
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -295,7 +303,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_StrikeSerialization,
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -304,7 +312,7 @@ static void use_padding_options(GrContextOptions* options) {
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_StrikeSerializationSlug,
-                             sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              use_padding_options,
@@ -316,7 +324,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_StrikeSerializationSlug,
     const SkPaint paint;
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -343,12 +351,12 @@ DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_StrikeSerializationSlug,
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_StrikeSerializationSlugForcePath,
-                             sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              use_padding_options,
@@ -360,7 +368,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_StrikeSerializationSlugForcePath
     const SkPaint paint;
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -387,12 +395,12 @@ DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_StrikeSerializationSlugForcePath
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_SlugSerialization,
-                             sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              use_padding_options,
@@ -404,7 +412,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_SlugSerialization,
     const SkPaint paint;
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
 
     int glyphCount = 10;
     auto serverBlob = buildTextBlob(serverTypeface, glyphCount);
@@ -431,7 +439,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(SkRemoteGlyphCache_SlugSerialization,
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -463,16 +471,17 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_ReleaseTypeFace,
     }
     REPORTER_ASSERT(reporter, serverTypeface->unique());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
+#endif
 
 DEF_TEST(SkRemoteGlyphCache_StrikeLockingServer, reporter) {
     sk_sp<DiscardableManager> discardableManager = sk_make_sp<DiscardableManager>();
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, false);
 
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     int glyphCount = 10;
     auto serverBlob = buildTextBlob(serverTypeface, glyphCount);
 
@@ -497,7 +506,7 @@ DEF_TEST(SkRemoteGlyphCache_StrikeLockingServer, reporter) {
     REPORTER_ASSERT(reporter, discardableManager->handleCount() == 1u);
     REPORTER_ASSERT(reporter, discardableManager->lockedHandles().count() == 1u);
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -506,7 +515,7 @@ DEF_TEST(SkRemoteGlyphCache_StrikeDeletionServer, reporter) {
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, false);
 
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     int glyphCount = 10;
     auto serverBlob = buildTextBlob(serverTypeface, glyphCount);
 
@@ -532,7 +541,7 @@ DEF_TEST(SkRemoteGlyphCache_StrikeDeletionServer, reporter) {
     cache_diff_canvas->drawTextBlob(serverBlob.get(), 0, 0, paint);
     REPORTER_ASSERT(reporter, discardableManager->handleCount() == 2u);
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -542,7 +551,7 @@ DEF_TEST(SkRemoteGlyphCache_StrikePinningClient, reporter) {
     SkStrikeClient client(discardableManager, false);
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -572,7 +581,7 @@ DEF_TEST(SkRemoteGlyphCache_StrikePinningClient, reporter) {
     SkGraphics::PurgeFontCache();
     REPORTER_ASSERT(reporter, clientTypeface->unique());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -582,7 +591,7 @@ DEF_TEST(SkRemoteGlyphCache_ClientMemoryAccounting, reporter) {
     SkStrikeClient client(discardableManager, false);
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
 
     int glyphCount = 10;
     auto serverBlob = buildTextBlob(serverTypeface, glyphCount);
@@ -600,7 +609,7 @@ DEF_TEST(SkRemoteGlyphCache_ClientMemoryAccounting, reporter) {
     REPORTER_ASSERT(reporter,
                     client.readStrikeData(serverStrikeData.data(), serverStrikeData.size()));
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -611,7 +620,7 @@ DEF_TEST(SkRemoteGlyphCache_PurgesServerEntries, reporter) {
     SkStrikeClient client(discardableManager, false);
 
     {
-        auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+        auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
         int glyphCount = 10;
         auto serverBlob = buildTextBlob(serverTypeface, glyphCount);
 
@@ -633,7 +642,7 @@ DEF_TEST(SkRemoteGlyphCache_PurgesServerEntries, reporter) {
     // Use a different typeface. Creating a new strike should evict the previous
     // one.
     {
-        auto serverTypeface = SkTypeface::MakeFromName("Georgia", SkFontStyle());
+        auto serverTypeface = ToolUtils::CreateTestTypeface("Georgia", SkFontStyle());
         int glyphCount = 10;
         auto serverBlob = buildTextBlob(serverTypeface, glyphCount);
 
@@ -646,10 +655,11 @@ DEF_TEST(SkRemoteGlyphCache_PurgesServerEntries, reporter) {
         REPORTER_ASSERT(reporter, server.remoteStrikeMapSizeForTesting() == 1u);
     }
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
+#if defined(SK_GANESH)
 DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsPath,
                                        reporter,
                                        ctxInfo,
@@ -661,11 +671,12 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsPath,
     SkPaint paint;
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setStrokeWidth(0);
+    SkFont font = ToolUtils::DefaultFont();
     REPORTER_ASSERT(reporter,
-            SkStrikeSpec::ShouldDrawAsPath(paint, SkFont(), SkMatrix::I()));
+            SkStrikeSpec::ShouldDrawAsPath(paint, font, SkMatrix::I()));
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -690,13 +701,13 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsPath,
     compare_blobs(expected, actual, reporter, 1);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
 sk_sp<SkTextBlob> make_blob_causing_fallback(
         sk_sp<SkTypeface> targetTf, const SkTypeface* glyphTf, skiatest::Reporter* reporter) {
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
     font.setSubpixel(true);
     font.setSize(96);
     font.setHinting(SkFontHinting::kNormal);
@@ -715,10 +726,9 @@ sk_sp<SkTextBlob> make_blob_causing_fallback(
     SkASSERT(runBuffer.clusters == nullptr);
 
     SkFont(sk_ref_sp(glyphTf)).textToGlyphs(s, strlen(s), SkTextEncoding::kUTF8,
-                                            runBuffer.glyphs, runSize);
+                                            {runBuffer.glyphs, runSize});
 
-    SkRect glyphBounds;
-    font.getWidths(runBuffer.glyphs, 1, nullptr, &glyphBounds);
+    SkRect glyphBounds = font.getBounds(runBuffer.glyphs[0], nullptr);
 
     REPORTER_ASSERT(reporter, glyphBounds.width() > SkGlyphDigest::kSkSideTooBigForAtlas);
 
@@ -740,7 +750,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsMaskWithPath
 
     SkPaint paint;
 
-    auto serverTypeface = MakeResourceAsTypeface("fonts/HangingS.ttf");
+    auto serverTypeface = ToolUtils::CreateTypefaceFromResource("fonts/HangingS.ttf");
     // TODO: when the cq bots can handle this font remove the check.
     if (serverTypeface == nullptr) {
         return;
@@ -769,7 +779,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsMaskWithPath
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -785,7 +795,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextXY,
     paint.setAntiAlias(true);
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -810,7 +820,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextXY,
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -827,18 +837,18 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsDFT,
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, false);
     SkPaint paint;
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
 
     // A scale transform forces fallback to dft.
     SkMatrix matrix = SkMatrix::Scale(16, 16);
-    sktext::gpu::SDFTControl control =
-            direct->priv().asRecordingContext()->priv().getSDFTControl(true);
+    sktext::gpu::SubRunControl control =
+            direct->priv().asRecordingContext()->priv().getSubRunControl(true);
     SkScalar approximateDeviceTextSize = SkFontPriv::ApproximateTransformedTextSize(font, matrix,
                                                                                     {0, 0});
     REPORTER_ASSERT(reporter, control.isSDFT(approximateDeviceTextSize, paint, matrix));
 
     // Server.
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     int glyphCount = 10;
@@ -864,7 +874,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_DrawTextAsDFT,
     compare_blobs(expected, actual, reporter);
     REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 #endif // !defined(SK_DISABLE_SDF_TEXT)
@@ -877,11 +887,12 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_CacheMissReporting,
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, false);
 
-    auto serverTypeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto serverTypeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
+    REPORTER_ASSERT(reporter, serverTypeface);
 
     // Create the clientTypeface proxy directly from the serverTypeface.
     auto clientTypeface = sk_make_sp<SkTypefaceProxy>(
-            SkTypeface::UniqueID(serverTypeface.get()),
+            serverTypeface->uniqueID(),
             serverTypeface->countGlyphs(),
             serverTypeface->fontStyle(),
             serverTypeface->isFixedPitch(),
@@ -907,17 +918,17 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_CacheMissReporting,
     REPORTER_ASSERT(reporter, discardableManager->cacheMissCount(SkStrikeClient::kGlyphImage) == 0);
     REPORTER_ASSERT(reporter, discardableManager->cacheMissCount(SkStrikeClient::kGlyphPath) == 0);
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
 sk_sp<SkTextBlob> MakeEmojiBlob(sk_sp<SkTypeface> serverTf, SkScalar textSize,
                                 sk_sp<SkTypeface> clientTf = nullptr) {
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
     font.setTypeface(serverTf);
     font.setSize(textSize);
 
-    const char* text = ToolUtils::emoji_sample_text();
+    const char* text = ToolUtils::EmojiSample().sampleText;
     auto blob = SkTextBlob::MakeFromText(text, strlen(text), font);
     if (clientTf == nullptr) return blob;
 
@@ -944,7 +955,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_TypefaceWithNoPaths,
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, false);
 
-    auto serverTypeface = ToolUtils::emoji_typeface();
+    auto serverTypeface = ToolUtils::EmojiSample().typeface;
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     auto props = FindSurfaceProps(direct);
@@ -973,7 +984,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_TypefaceWithNoPaths,
         discardableManager->resetCacheMissCounts();
     }
 
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -982,7 +993,7 @@ class SkRemoteGlyphCacheTest {
     static sk_sp<SkTextBlob> MakeNormalBlob(SkPaint* paint,
                                             sk_sp<SkTypeface> serverTf, bool asPaths, SkScalar textSize,
                                             sk_sp<SkTypeface> clientTf = nullptr) {
-        SkFont font;
+        SkFont font = ToolUtils::DefaultFont();
         font.setTypeface(serverTf);
         font.setSize(textSize);
 
@@ -1019,7 +1030,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_TypefaceWithPaths_Mask
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, true);
 
-    auto serverTypeface = ToolUtils::create_portable_typeface();
+    auto serverTypeface = ToolUtils::DefaultPortableTypeface();
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     auto props = FindSurfaceProps(direct);
@@ -1065,7 +1076,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_TypefaceWithPaths_Mask
         REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
         discardableManager->resetCacheMissCounts();
     }
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
 
@@ -1078,7 +1089,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_TypefaceWithPaths_Path
     SkStrikeServer server(discardableManager.get());
     SkStrikeClient client(discardableManager, true);
 
-    auto serverTypeface = ToolUtils::create_portable_typeface();
+    auto serverTypeface = ToolUtils::DefaultPortableTypeface();
     const SkTypefaceID serverTypefaceID = serverTypeface->uniqueID();
 
     auto props = FindSurfaceProps(direct);
@@ -1124,16 +1135,17 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkRemoteGlyphCache_TypefaceWithPaths_Path
         REPORTER_ASSERT(reporter, !discardableManager->hasCacheMiss());
         discardableManager->resetCacheMissCounts();
     }
-    // Must unlock everything on termination, otherwise valgrind complains about memory leaks.
+    // Must unlock everything on termination, otherwise memory leaks can be reported.
     discardableManager->unlockAndDeleteAll();
 }
+#endif
 
 DEF_TEST(SkTypefaceProxy_Basic_Serial, reporter) {
-    auto typeface = SkTypeface::MakeFromName("monospace", SkFontStyle());
+    auto typeface = ToolUtils::CreateTestTypeface("monospace", SkFontStyle());
     sk_sp<DiscardableManager> discardableManager = sk_make_sp<DiscardableManager>();
     SkTypefaceProxyPrototype srcProto{*typeface};
 
-    SkBinaryWriteBuffer writeBuffer;
+    SkBinaryWriteBuffer writeBuffer({});
     srcProto.flatten(writeBuffer);
 
     auto data = writeBuffer.snapshotAsData();
@@ -1154,4 +1166,15 @@ DEF_TEST(SkTypefaceProxy_Basic_Serial, reporter) {
     std::optional<SkTypefaceProxyPrototype> brokenProto =
             SkTypefaceProxyPrototype::MakeFromBuffer(brokenBuffer);
     REPORTER_ASSERT(reporter, !brokenProto.has_value());
+}
+
+DEF_TEST(SkGraphics_Limits, reporter) {
+    const auto prev1 = SkGraphics::GetTypefaceCacheCountLimit();
+
+    auto prev2 = SkGraphics::SetTypefaceCacheCountLimit(prev1 + 1);
+    REPORTER_ASSERT(reporter, prev1 == prev2);
+    prev2 = SkGraphics::GetTypefaceCacheCountLimit();
+    REPORTER_ASSERT(reporter, prev2 == prev1 + 1);
+
+    SkGraphics::SetTypefaceCacheCountLimit(prev1);  // restore orig
 }

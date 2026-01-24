@@ -649,7 +649,7 @@ class SubstitutionEnvironment:
            args - filename strings or nodes to convert; nodes are just
               added to the list without further processing.
            node_factory - optional factory to create the nodes; if not
-              specified, will use this environment's ``fs.File method.
+              specified, will use this environment's ``fs.File`` method.
            lookup_list - optional list of lookup functions to call to
               attempt to find the file referenced by each *args*.
            kw - keyword arguments that represent additional nodes to add.
@@ -1295,14 +1295,31 @@ class Base(SubstitutionEnvironment):
         if parse_flags:
             self.MergeFlags(parse_flags)
 
+    def __getattr__(self, name):
+        """Handle missing attribute in an environment.
+
+        Assume this is a builder that's not instantiated, becasue that has
+        been a common failure mode. Could also  be a typo. Emit a
+        message about this to try to help. We can't get too clever,
+        other parts of SCons depend on seeing the :exc:`AttributeError` that
+        triggers this call, so all we do is produce our own message.
+
+        .. versionadded:: 4.10.0
+        """
+        raise AttributeError(
+            f"Builder or other environment method {name!r} not found.\n"
+            "Check spelling, check external program exists in env['ENV']['PATH'],\n"
+            "and check that a suitable tool is being loaded"
+       ) from None
+
+
     #######################################################################
     # Utility methods that are primarily for internal use by SCons.
     # These begin with lower-case letters.
     #######################################################################
 
     def get_builder(self, name):
-        """Fetch the builder with the specified name from the environment.
-        """
+        """Fetch the builder with the specified name from the environment."""
         try:
             return self._dict['BUILDERS'][name]
         except KeyError:
@@ -1755,8 +1772,8 @@ class Base(SubstitutionEnvironment):
         (pretty-print) or ``<<non-serializable: function>>`` (JSON).
 
         Args:
-           key: if omitted, format the whole dict of variables,
-              else format *key*(s) with the corresponding values.
+           key: variables to format together with their values.
+             If omitted, format the whole dict of variables,
            format: specify the format to serialize to. ``"pretty"`` generates
              a pretty-printed string, ``"json"`` a JSON-formatted string.
 

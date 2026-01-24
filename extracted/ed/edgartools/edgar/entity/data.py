@@ -15,7 +15,7 @@ from edgar.core import listify, log
 from edgar.dates import InvalidDateException
 from edgar.entity.filings import EntityFilings
 from edgar.filtering import filter_by_date, filter_by_form, filter_by_year_quarter
-from edgar.formatting import reverse_name
+from edgar.display.formatting import reverse_name
 from edgar.storage import is_using_local_storage
 
 # Module-level import cache for lazy imports
@@ -276,7 +276,7 @@ class Address:
         # Simplified representation that avoids unnecessary string operations
         return f'Address(street1="{self.street1}", street2="{self.street2}", city="{self.city}", zipcode="{self.zipcode}")'
 
-    def to_json(self) -> Dict[str, str]:
+    def to_json(self) -> Dict[str, Optional[str]]:
         """Convert the address to a JSON-serializable dict."""
         # Direct dictionary creation is faster than multiple assignments
         return {
@@ -368,9 +368,10 @@ class EntityData:
         download_json = lazy_import('edgar.httprequests.download_json')
 
         # Load additional filings from the SEC
+        from edgar.config import SEC_DATA_URL
         filing_tables = [self.filings.data]
         for file in self._files:
-            submissions = download_json("https://data.sec.gov/submissions/" + file['name'])
+            submissions = download_json(f"{SEC_DATA_URL}/submissions/" + file['name'])
             filing_table = extract_company_filings_table(submissions)
             filing_tables.append(filing_table)
 
@@ -382,19 +383,19 @@ class EntityData:
         self.filings = EntityFilings(combined_tables, cik=self.cik, company_name=self.name)
 
     def get_filings(self,
-                    year: Union[int, List[int]] = None,
-                    quarter: Union[int, List[int]] = None,
-                    form: Union[str, List] = None,
-                    accession_number: Union[str, List] = None,
-                    file_number: Union[str, List] = None,
-                    filing_date: Union[str, Tuple[str, str]] = None,
-                    date: Union[str, Tuple[str, str]] = None,
+                    year: Optional[Union[int, List[int]]] = None,
+                    quarter: Optional[Union[int, List[int]]] = None,
+                    form: Optional[Union[str, List]] = None,
+                    accession_number: Optional[Union[str, List]] = None,
+                    file_number: Optional[Union[str, List]] = None,
+                    filing_date: Optional[Union[str, Tuple[str, str]]] = None,
+                    date: Optional[Union[str, Tuple[str, str]]] = None,
                     amendments: bool = True,
-                    is_xbrl: bool = None,
-                    is_inline_xbrl: bool = None,
-                    sort_by: Union[str, List[Tuple[str, str]]] = None,
+                    is_xbrl: Optional[bool] = None,
+                    is_inline_xbrl: Optional[bool] = None,
+                    sort_by: Optional[Union[str, List[Tuple[str, str]]]] = None,
                     trigger_full_load: bool = True
-                    ) -> EntityFilings:
+                    ) -> Optional[EntityFilings]:
         """
         Get entity filings with lazy loading behavior.
 
@@ -505,6 +506,25 @@ class EntityData:
         else:
             return False
 
+    @cached_property
+    def is_bdc(self) -> bool:
+        """
+        Check if this entity is a Business Development Company.
+
+        BDCs are identified by having an 814-* file number in their filings.
+        The 814- prefix indicates registration under the Investment Company
+        Act of 1940 as a BDC.
+
+        Returns:
+            True if any filing has an 814-* file number, False otherwise.
+        """
+        file_numbers = self.filings.data['fileNumber']
+        for fn in file_numbers:
+            fn_str = fn.as_py()
+            if fn_str and fn_str.startswith('814-'):
+                return True
+        return False
+
     def __str__(self):
         return f"EntityData({self.name} [{self.cik}])"
 
@@ -524,7 +544,7 @@ class EntityData:
         Text = lazy_import('rich.text.Text')
         find_ticker = lazy_import('edgar.reference.tickers.find_ticker')
         zip_longest = lazy_import('itertools.zip_longest')
-        datefmt = lazy_import('edgar.formatting.datefmt')
+        datefmt = lazy_import('edgar.display.formatting.datefmt')
 
         # Primary entity identification section
         if self.is_company:

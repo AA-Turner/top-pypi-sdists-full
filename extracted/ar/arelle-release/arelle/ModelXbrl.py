@@ -26,6 +26,7 @@ from arelle.UrlUtil import isHttpUrl
 from arelle.ValidateXbrlDimensions import isFactDimensionallyValid
 from arelle.XbrlConst import standardLabel
 from arelle.XbrlUtil import sEqual
+from arelle.utils.validate.Validation import Validation
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -70,8 +71,6 @@ def load(modelManager: ModelManager, url: str | FileSourceClass, nextaction: str
    """
     if nextaction is None: nextaction = _("loading")
     modelXbrl = create(modelManager, errorCaptureLevel=errorCaptureLevel)
-    if "errors" in kwargs: # pre-load errors, such as from taxonomy package validation
-        modelXbrl.errors.extend(cast(str, kwargs.get("errors")))
     supplementalUrls = None
     if useFileSource is not None:
         modelXbrl.fileSource = useFileSource
@@ -318,7 +317,7 @@ class ModelXbrl:
         self.uuid: str = uuid.uuid1().urn
         self.namespaceDocs: defaultdict[str, list[ModelDocumentClass]] = defaultdict(list)
         self.urlDocs: dict[str, ModelDocumentClass] = {}
-        self.urlUnloadableDocs: dict[bool, str] = {}  # if entry is True, entry is blocked and unloadable, False means loadable but warned
+        self.urlUnloadableDocs: dict[str, bool] = {}  # if entry is True, entry is blocked and unloadable, False means loadable but warned
         self.errorCaptureLevel: int = (errorCaptureLevel or logging._checkLevel("INCONSISTENCY"))  # type: ignore[attr-defined]
         self.errorManager = ErrorManager(self.modelManager, self.errorCaptureLevel)
         self.arcroleTypes: defaultdict[str, list[ModelRoleType]] = defaultdict(list)
@@ -603,7 +602,7 @@ class ModelXbrl:
                         all([cDim.isEqualTo(dims[cDimQn]) for cDimQn, cDim in c.qnameDims.items()]))) and
                  # OCCs match for either dimensional or non-dimensional modle
                  all(
-                   all([sEqual(self, cOCCs[i], mOCCs[i]) for i in range(len(mOCCs))])  # type: ignore[arg-type]
+                   all([sEqual(self, cOCCs[i], mOCCs[i]) for i in range(len(mOCCs))])
                      if len(cOCCs) == len(mOCCs) else False
                         for cOCCs,mOCCs in ((c.nonDimValues(segAspect),segOCCs),
                                             (c.nonDimValues(scenAspect),scenOCCs)))
@@ -1042,6 +1041,11 @@ class ModelXbrl:
         """
         """@messageCatalog=[]"""
         self.log('WARNING', codes, msg, **args)
+
+    def validation(self, val: Validation) -> None:
+        """Same as log, but parameters passed in from Validation object
+        """
+        self.log(level=val.level.name, codes=val.codes, msg=val.msg, **val.args)
 
     def log(self, level: str, codes: Any, msg: str, **args: Any) -> None:
         """Same as error(), but level passed in as argument

@@ -225,6 +225,8 @@ _BQ_DATASET_NAME = "BQ_DATASET"
 _BQ_PROJECT_NAME = "BQ_PROJECT"
 _BQ_CREDENTIALS_BASE64_NAME = "BQ_CREDENTIALS_BASE64"
 _BQ_CREDENTIALS_PATH_NAME = "BQ_CREDENTIALS_PATH"
+_BQ_TEMP_PROJECT_NAME = "BQ_TEMP_PROJECT"
+_BQ_TEMP_DATASET_NAME = "BQ_TEMP_DATASET"
 
 
 class BigQuerySourceImpl(BaseSQLSource):
@@ -239,6 +241,8 @@ class BigQuerySourceImpl(BaseSQLSource):
         location: Optional[str] = None,
         credentials_base64: Optional[str] = None,
         credentials_path: Optional[str] = None,
+        temp_project: Optional[str] = None,
+        temp_dataset: Optional[str] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
@@ -266,6 +270,12 @@ class BigQuerySourceImpl(BaseSQLSource):
         )
         self.credentials_path = credentials_path or load_integration_variable(
             integration_name=name, name=_BQ_CREDENTIALS_PATH_NAME, override=integration_variable_override
+        )
+        self.temp_project = temp_project or load_integration_variable(
+            integration_name=name, name=_BQ_TEMP_PROJECT_NAME, override=integration_variable_override
+        )
+        self.temp_dataset = temp_dataset or load_integration_variable(
+            integration_name=name, name=_BQ_TEMP_DATASET_NAME, override=integration_variable_override
         )
         BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args={})
 
@@ -397,6 +407,10 @@ class BigQuerySourceImpl(BaseSQLSource):
         except ModuleNotFoundError:
             raise missing_dependency_exception("chalkpy[bigquery]")
 
+        # Use temp_project/temp_dataset if specified, otherwise fall back to main project/dataset
+        temp_project = self.temp_project or self.project
+        temp_dataset = self.temp_dataset or self.dataset
+
         create_table_sql = create_temp_table.compile(dialect=self.get_sqlalchemy_dialect()).string
         create_table_sql = create_table_sql.replace("TEMPORARY", "", 1)
         chalk_logger.info(f"Creating temporary table {temp_table.name} in BigQuery {session_id=}: {create_table_sql}")
@@ -412,9 +426,10 @@ class BigQuerySourceImpl(BaseSQLSource):
             job_config=job_config,
         ).result()
         try:
+            temp_table_fqn = f"{temp_project}.{temp_dataset}.{temp_table.name}"
             connection.load_table_from_dataframe(
                 temp_value.to_pandas(),
-                f"{self.project}.{self.dataset}.{temp_table.name}",
+                temp_table_fqn,
                 job_config=google.cloud.bigquery.LoadJobConfig(connection_properties=connection_properties),
             ).result()
             yield
@@ -433,7 +448,10 @@ class BigQuerySourceImpl(BaseSQLSource):
     def _bigquery_output_table(self, client: google.cloud.bigquery.Client) -> Iterator[str]:
         destination_table_name = f"temp_output_{str(uuid4()).replace('-', '_')}"
 
-        destination = f"{client.project}.{self.dataset}.{destination_table_name}"
+        # Use temp_project/temp_dataset if specified, otherwise fall back to main project/dataset
+        temp_project = self.temp_project or self.project
+        temp_dataset = self.temp_dataset or self.dataset
+        destination = f"{temp_project}.{temp_dataset}.{destination_table_name}"
 
         try:
             yield destination
@@ -639,6 +657,8 @@ class BigQuerySourceImpl(BaseSQLSource):
                 create_integration_variable(_BQ_PROJECT_NAME, self.name, self.project),
                 create_integration_variable(_BQ_CREDENTIALS_BASE64_NAME, self.name, self.credentials_base64),
                 create_integration_variable(_BQ_CREDENTIALS_PATH_NAME, self.name, self.credentials_path),
+                create_integration_variable(_BQ_TEMP_PROJECT_NAME, self.name, self.temp_project),
+                create_integration_variable(_BQ_TEMP_DATASET_NAME, self.name, self.temp_dataset),
             ]
             if v is not None
         }

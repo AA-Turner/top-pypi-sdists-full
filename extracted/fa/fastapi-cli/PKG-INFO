@@ -1,9 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fastapi-cli
-Version: 0.0.13
+Version: 0.0.20
 Summary: Run and manage FastAPI apps from the command line with FastAPI CLI. 🚀
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
@@ -17,28 +18,30 @@ Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: FastAPI
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/fastapi/fastapi-cli
 Project-URL: Documentation, https://fastapi.tiangolo.com/fastapi-cli/
 Project-URL: Repository, https://github.com/fastapi/fastapi-cli
 Project-URL: Issues, https://github.com/fastapi/fastapi-cli/issues
 Project-URL: Changelog, https://github.com/fastapi/fastapi-cli/blob/main/release-notes.md
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: typer>=0.15.1
 Requires-Dist: uvicorn[standard]>=0.15.0
 Requires-Dist: rich-toolkit>=0.14.8
+Requires-Dist: tomli>=2.0.0; python_version < "3.11"
 Provides-Extra: standard
 Requires-Dist: uvicorn[standard]>=0.15.0; extra == "standard"
 Requires-Dist: fastapi-cloud-cli>=0.1.1; extra == "standard"
 Provides-Extra: standard-no-fastapi-cloud-cli
 Requires-Dist: uvicorn[standard]>=0.15.0; extra == "standard-no-fastapi-cloud-cli"
+Provides-Extra: new
+Requires-Dist: fastapi-new>=0.0.2; python_version >= "3.10" and extra == "new"
 Description-Content-Type: text/markdown
 
 # FastAPI CLI

@@ -1,10 +1,9 @@
 use std::{fmt, marker::PhantomData};
 
 use crate::{
-    cursor,
+    Direction, Language, NodeOrToken, cursor,
     green::{GreenNode, GreenToken, GreenTokenData},
     red::{RedElement, RedNode},
-    Direction, Language, NodeOrToken,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -15,13 +14,7 @@ pub struct RedToken<L: Language> {
 
 impl<L: Language> fmt::Debug for RedToken<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?} @{:?} @{:?}",
-            self.kind(),
-            self.span(),
-            self.range()
-        )?;
+        write!(f, "{:?} @{} @{}", self.kind(), self.span(), self.range())?;
         if self.text().len() < 25 {
             return write!(f, " {:?}", self.text());
         }
@@ -79,13 +72,7 @@ impl<L: Language> RedToken<L> {
     }
 
     /// Iterator over all the ancestors of this token excluding itself.
-    #[deprecated = "use `SyntaxToken::parent_ancestors` instead"]
-    pub fn ancestors(&self) -> impl Iterator<Item = RedNode<L>> {
-        self.parent_ancestors()
-    }
-
-    /// Iterator over all the ancestors of this token excluding itself.
-    pub fn parent_ancestors(&self) -> impl Iterator<Item = RedNode<L>> {
+    pub fn parent_ancestors(&self) -> impl Iterator<Item = RedNode<L>> + use<'_, L> {
         self.raw.ancestors().map(RedNode::from)
     }
 

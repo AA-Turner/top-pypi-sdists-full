@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-import sys
 import warnings
+from importlib import metadata
 from itertools import zip_longest
 from typing import (
     TYPE_CHECKING,
@@ -14,11 +14,6 @@ from typing import (
     runtime_checkable,
 )
 
-if sys.version_info >= (3, 10):
-    from importlib import metadata
-else:
-    import importlib_metadata as metadata
-
 from packaging.version import InvalidVersion  # noqa: F401 (expose the common exception)
 from packaging.version import Version as _BaseVersion
 
@@ -26,11 +21,8 @@ from commitizen.defaults import MAJOR, MINOR, PATCH, Settings
 from commitizen.exceptions import VersionSchemeUnknown
 
 if TYPE_CHECKING:
-    # TypeAlias is Python 3.10+ but backported in typing-extensions
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing_extensions import TypeAlias
+    import sys
+    from typing import TypeAlias
 
     # Self is Python 3.11+ but backported in typing-extensions
     if sys.version_info < (3, 11):
@@ -277,7 +269,7 @@ class BaseVersion(_BaseVersion):
         current_base = ".".join(str(part) for part in release)
 
         pre_version = (
-            self if base == current_base else cast(BaseVersion, self.scheme(base))
+            self if base == current_base else cast("BaseVersion", self.scheme(base))
         ).generate_prerelease(prerelease, offset=prerelease_offset)
 
         # TODO: post version
@@ -410,7 +402,9 @@ KNOWN_SCHEMES = [ep.name for ep in metadata.entry_points(group=SCHEMES_ENTRYPOIN
 def get_version_scheme(settings: Settings, name: str | None = None) -> VersionScheme:
     """
     Get the version scheme as defined in the configuration
-    or from an overridden `name`
+    or from an overridden `name`.
+
+
 
     :raises VersionSchemeUnknown: if the version scheme is not found.
     """
@@ -431,7 +425,7 @@ def get_version_scheme(settings: Settings, name: str | None = None) -> VersionSc
         (ep,) = metadata.entry_points(name=name, group=SCHEMES_ENTRYPOINT)
     except ValueError:
         raise VersionSchemeUnknown(f'Version scheme "{name}" unknown.')
-    scheme = cast(VersionScheme, ep.load())
+    scheme = cast("VersionScheme", ep.load())
 
     if not isinstance(scheme, VersionProtocol):
         warnings.warn(f"Version scheme {name} does not implement the VersionProtocol")

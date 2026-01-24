@@ -1,8 +1,10 @@
-import os
-import sys
+import contextlib
 import unittest
+from pathlib import Path
 
-from dune_client.file.base import CSVFile, NDJSONFile, JSONFile
+import pytest
+
+from dune_client.file.base import CSVFile, JSONFile, NDJSONFile
 from dune_client.file.interface import FileIO
 
 TEST_FILE = "test"
@@ -17,10 +19,8 @@ FILE_WRITERS = [
 
 def cleanup():
     for writer in FILE_WRITERS:
-        try:
-            os.remove(writer.filepath)
-        except FileNotFoundError:
-            pass
+        with contextlib.suppress(FileNotFoundError):
+            Path(writer.filepath).unlink()
 
 
 def cleanup_files(func):
@@ -51,9 +51,7 @@ class TestFileIO(unittest.TestCase):
         for writer in self.file_writers:
             self.file_manager._write(self.dune_records, writer, True)
             loaded_records = self.file_manager._load(writer)
-            self.assertEqual(
-                self.dune_records, loaded_records, f"test invertible failed on {writer}"
-            )
+            assert self.dune_records == loaded_records, f"test invertible failed on {writer}"
 
     def test_append_ok(self):
         for writer in self.file_writers:
@@ -61,7 +59,7 @@ class TestFileIO(unittest.TestCase):
             self.file_manager._append(self.dune_records, writer, True)
             loaded_records = self.file_manager._load(writer)
             expected = self.dune_records + self.dune_records
-            self.assertEqual(expected, loaded_records, f"append failed on {writer}")
+            assert expected == loaded_records, f"append failed on {writer}"
 
     def test_append_calls_write_on_new_file(self):
         for writer in self.file_writers:
@@ -72,7 +70,7 @@ class TestFileIO(unittest.TestCase):
         invalid_records = [{}]  # Empty dict has different keys than self.dune_records
         for writer in self.file_writers:
             self.file_manager._write(self.dune_records, writer, True)
-            with self.assertRaises(AssertionError):
+            with pytest.raises(AssertionError):
                 self.file_manager._append(invalid_records, writer, True)
 
     def test_load_singleton(self):
@@ -81,32 +79,16 @@ class TestFileIO(unittest.TestCase):
             entry_0 = self.file_manager.load_singleton(
                 name="Doesn't matter is in the writer", ftype=writer
             )
-            entry_1 = self.file_manager.load_singleton(
-                "Doesn't matter is in the writer", writer, 1
-            )
-            self.assertEqual(
-                self.dune_records[0], entry_0, f"failed on {writer} at index 0"
-            )
-            self.assertEqual(
-                self.dune_records[1], entry_1, f"failed on {writer} at index 1"
-            )
+            entry_1 = self.file_manager.load_singleton("Doesn't matter is in the writer", writer, 1)
+            assert self.dune_records[0] == entry_0, f"failed on {writer} at index 0"
+            assert self.dune_records[1] == entry_1, f"failed on {writer} at index 1"
 
         for extension in [".csv", ".json", ".ndjson"]:
             # Files were already written above.
             entry_0 = self.file_manager.load_singleton(TEST_FILE + extension, extension)
-            entry_1 = self.file_manager.load_singleton(
-                TEST_FILE + extension, extension, 1
-            )
-            self.assertEqual(
-                self.dune_records[0],
-                entry_0,
-                f"failed on {extension} (extension) at index 0",
-            )
-            self.assertEqual(
-                self.dune_records[1],
-                entry_1,
-                f"failed on {extension} (extension) at index 1",
-            )
+            entry_1 = self.file_manager.load_singleton(TEST_FILE + extension, extension, 1)
+            assert self.dune_records[0] == entry_0, f"failed on {extension} (extension) at index 0"
+            assert self.dune_records[1] == entry_1, f"failed on {extension} (extension) at index 1"
 
     def test_write_any_format_with_arbitrary_extension(self):
         weird_name = "weird_file.ext"
@@ -120,29 +102,19 @@ class TestFileIO(unittest.TestCase):
             "json",
             "csv",
         ]
-        for weird_file, ext in zip(weird_files, extensions):
+        for weird_file, ext in zip(weird_files, extensions, strict=False):
             self.file_manager._write(self.dune_records, weird_file, True)
             self.file_manager._load(weird_file)
             entry_0 = self.file_manager.load_singleton(weird_name, ext)
-            entry_1 = self.file_manager.load_singleton(
-                "meaningless string", weird_file, 1
-            )
-            self.assertEqual(
-                self.dune_records[0],
-                entry_0,
-                f"failed on {weird_file} at index 0",
-            )
-            self.assertEqual(
-                self.dune_records[1],
-                entry_1,
-                f"failed on {weird_file} at index 1",
-            )
+            entry_1 = self.file_manager.load_singleton("meaningless string", weird_file, 1)
+            assert self.dune_records[0] == entry_0, f"failed on {weird_file} at index 0"
+            assert self.dune_records[1] == entry_1, f"failed on {weird_file} at index 1"
 
     def test_skip_empty_write(self):
         for writer in self.file_writers:
             with self.assertLogs():
                 self.file_manager._write([], writer, True)
-            with self.assertRaises(FileNotFoundError):
+            with pytest.raises(FileNotFoundError):
                 self.file_manager._load(writer)
 
     def test_not_skip_empty_when_specified(self):
@@ -152,17 +124,8 @@ class TestFileIO(unittest.TestCase):
                     # CSV empty files won't have any headers!
                     self.file_manager._write([], writer, False)
             else:
-                if sys.version_info < (3, 10):
-                    with self.assertRaises(FileNotFoundError):
-                        self.file_manager._load(writer)
-                    # assertNoLogs didn't exist till python 3.10, but we still support lower versions.
-                    # This is a bit of a hack, we write and then load to ensure the empty file was written.
+                with self.assertNoLogs():
                     self.file_manager._write([], writer, False)
-                    # _load would return FileNotFoundError if it hadn't been written
-                    self.assertEqual(0, len(self.file_manager._load(writer)))
-                else:
-                    with self.assertNoLogs():
-                        self.file_manager._write([], writer, False)
 
             self.file_manager._load(writer)
 
@@ -170,8 +133,6 @@ class TestFileIO(unittest.TestCase):
         for writer in self.file_writers:
             self.file_manager._write(self.dune_records, writer, True)
             self.file_manager._write(self.dune_records, writer, True)
-            self.assertEqual(
-                self.dune_records,
-                self.file_manager._load(writer),
-                f"idempotent write failed on {writer}",
+            assert self.dune_records == self.file_manager._load(writer), (
+                f"idempotent write failed on {writer}"
             )

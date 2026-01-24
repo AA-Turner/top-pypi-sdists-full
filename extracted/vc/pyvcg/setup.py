@@ -35,7 +35,7 @@ project_urls = {
 }
 
 setuptools.setup(
-    name="PyVCG",
+    name="pyvcg",
     version=version.PYVCG_VERSION,
     author="Florian Schanda",
     author_email="florian@schanda.org.uk",
@@ -47,7 +47,7 @@ setuptools.setup(
     license="GNU General Public License v3",
     packages=["pyvcg", "pyvcg.driver"],
     extras_require={
-        "api": ["cvc5==1.3.0"],
+        "api": ["cvc5==1.3.2"],
     },
     python_requires=">=3.8",
     classifiers=[

@@ -3,9 +3,10 @@ from __future__ import annotations
 import enum
 import json
 import re
+from collections.abc import Mapping
 from os import PathLike
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Mapping
+from typing import IO, TYPE_CHECKING, Any
 
 from schemathesis.config import SchemathesisConfig
 from schemathesis.core import media_types
@@ -16,10 +17,10 @@ from schemathesis.hooks import HookContext, dispatch
 from schemathesis.python import asgi, wsgi
 
 if TYPE_CHECKING:
-    from schemathesis.specs.openapi.schemas import BaseOpenAPISchema
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 
-def from_asgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, **kwargs: Any) -> BaseOpenAPISchema:
+def from_asgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, **kwargs: Any) -> OpenApiSchema:
     """Load OpenAPI schema from an ASGI application.
 
     Args:
@@ -49,7 +50,7 @@ def from_asgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, 
     return loaded
 
 
-def from_wsgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, **kwargs: Any) -> BaseOpenAPISchema:
+def from_wsgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, **kwargs: Any) -> OpenApiSchema:
     """Load OpenAPI schema from a WSGI application.
 
     Args:
@@ -83,7 +84,7 @@ def from_wsgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, 
 
 def from_url(
     url: str, *, config: SchemathesisConfig | None = None, wait_for_schema: float | None = None, **kwargs: Any
-) -> BaseOpenAPISchema:
+) -> OpenApiSchema:
     """Load OpenAPI schema from a URL.
 
     Args:
@@ -111,6 +112,11 @@ def from_url(
     """
     import requests
 
+    if wait_for_schema is None:
+        if config is None:
+            config = SchemathesisConfig.discover()
+        wait_for_schema = config.wait_for_schema
+
     response = load_from_url(requests.get, url=url, wait_for_schema=wait_for_schema, **kwargs)
     content_type = detect_content_type(headers=response.headers, path=url)
     schema = load_content(response.text, content_type)
@@ -121,7 +127,7 @@ def from_url(
 
 def from_path(
     path: PathLike | str, *, config: SchemathesisConfig | None = None, encoding: str = "utf-8"
-) -> BaseOpenAPISchema:
+) -> OpenApiSchema:
     """Load OpenAPI schema from a filesystem path.
 
     Args:
@@ -149,7 +155,7 @@ def from_path(
     return loaded
 
 
-def from_file(file: IO[str] | str, *, config: SchemathesisConfig | None = None) -> BaseOpenAPISchema:
+def from_file(file: IO[str] | str, *, config: SchemathesisConfig | None = None) -> OpenApiSchema:
     """Load OpenAPI schema from a file-like object or string.
 
     Args:
@@ -181,7 +187,7 @@ def from_file(file: IO[str] | str, *, config: SchemathesisConfig | None = None) 
     return from_dict(schema, config=config)
 
 
-def from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None = None) -> BaseOpenAPISchema:
+def from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None = None) -> OpenApiSchema:
     """Load OpenAPI schema from a dictionary.
 
     Args:
@@ -202,8 +208,6 @@ def from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None = Non
         ```
 
     """
-    from schemathesis.specs.openapi.schemas import OpenApi30, SwaggerV20
-
     if not isinstance(schema, dict):
         raise LoaderError(LoaderErrorKind.OPEN_API_INVALID_SCHEMA, SCHEMA_INVALID_ERROR)
     hook_context = HookContext()
@@ -213,21 +217,20 @@ def from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None = Non
         config = SchemathesisConfig.discover()
     project_config = config.projects.get(schema)
 
-    if "swagger" in schema:
-        instance = SwaggerV20(raw_schema=schema, config=project_config)
-    elif "openapi" in schema:
-        version = schema["openapi"]
-        if not OPENAPI_VERSION_RE.match(version):
-            raise LoaderError(
-                LoaderErrorKind.OPEN_API_UNSUPPORTED_VERSION,
-                f"The provided schema uses Open API {version}, which is currently not supported.",
-            )
-        instance = OpenApi30(raw_schema=schema, config=project_config)
-    else:
+    version = schema.get("openapi")
+    if version is not None and not OPENAPI_VERSION_RE.match(version):
+        raise LoaderError(
+            LoaderErrorKind.OPEN_API_UNSUPPORTED_VERSION,
+            f"The provided schema uses Open API {version}, which is currently not supported.",
+        )
+    if version is None and "swagger" not in schema:
         raise LoaderError(
             LoaderErrorKind.OPEN_API_UNSPECIFIED_VERSION,
             "Unable to determine the Open API version as it's not specified in the document.",
         )
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
+
+    instance = OpenApiSchema(raw_schema=schema, config=project_config)
     instance.filter_set = project_config.operations.filter_set_with(include=instance.filter_set)
     dispatch("after_load_schema", hook_context, instance)
     return instance
@@ -303,12 +306,13 @@ def _load_yaml(content: str) -> dict[str, Any]:
     try:
         return deserialize_yaml(content)
     except yaml.YAMLError as exc:
-        kind = LoaderErrorKind.SYNTAX_ERROR
-        message = SCHEMA_SYNTAX_ERROR
-        extras = [entry for entry in str(exc).splitlines() if entry]
-        raise LoaderError(kind, message, extras=extras) from exc
+        raise LoaderError(
+            LoaderErrorKind.SYNTAX_ERROR,
+            SCHEMA_SYNTAX_ERROR,
+            extras=[entry for entry in str(exc).splitlines() if entry],
+        ) from exc
 
 
 SCHEMA_INVALID_ERROR = "The provided API schema does not appear to be a valid OpenAPI schema"
 SCHEMA_SYNTAX_ERROR = "API schema does not appear syntactically valid"
-OPENAPI_VERSION_RE = re.compile(r"^3\.[01]\.[0-9](-.+)?$")
+OPENAPI_VERSION_RE = re.compile(r"^3\.[0-2]\.[0-9]+(-.+)?$")

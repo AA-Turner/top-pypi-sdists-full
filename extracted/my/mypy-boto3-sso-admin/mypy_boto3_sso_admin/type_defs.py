@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -37,12 +38,6 @@ from .literals import (
     UserBackgroundSessionApplicationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -253,7 +248,7 @@ __all__ = (
 
 
 class AccessControlAttributeValueOutputTypeDef(TypedDict):
-    Source: List[str]
+    Source: list[str]
 
 
 class AccessControlAttributeValueTypeDef(TypedDict):
@@ -327,7 +322,7 @@ class AttachedManagedPolicyTypeDef(TypedDict):
 
 
 class IamAuthenticationMethodOutputTypeDef(TypedDict):
-    ActorPolicy: Dict[str, Any]
+    ActorPolicy: dict[str, Any]
 
 
 class IamAuthenticationMethodTypeDef(TypedDict):
@@ -335,7 +330,7 @@ class IamAuthenticationMethodTypeDef(TypedDict):
 
 
 class AuthorizationCodeGrantOutputTypeDef(TypedDict):
-    RedirectUris: NotRequired[List[str]]
+    RedirectUris: NotRequired[list[str]]
 
 
 class AuthorizationCodeGrantTypeDef(TypedDict):
@@ -344,7 +339,7 @@ class AuthorizationCodeGrantTypeDef(TypedDict):
 
 class AuthorizedTokenIssuerOutputTypeDef(TypedDict):
     TrustedTokenIssuerArn: NotRequired[str]
-    AuthorizedAudiences: NotRequired[List[str]]
+    AuthorizedAudiences: NotRequired[list[str]]
 
 
 class AuthorizedTokenIssuerTypeDef(TypedDict):
@@ -364,7 +359,7 @@ class CreateAccountAssignmentRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -604,7 +599,7 @@ class ListApplicationAccessScopesRequestTypeDef(TypedDict):
 
 class ScopeDetailsTypeDef(TypedDict):
     Scope: str
-    AuthorizedTargets: NotRequired[List[str]]
+    AuthorizedTargets: NotRequired[list[str]]
 
 
 class ListApplicationAssignmentsFilterTypeDef(TypedDict):
@@ -796,7 +791,7 @@ class AuthenticationMethodTypeDef(TypedDict):
 
 
 class JwtBearerGrantOutputTypeDef(TypedDict):
-    AuthorizedTokenIssuers: NotRequired[List[AuthorizedTokenIssuerOutputTypeDef]]
+    AuthorizedTokenIssuers: NotRequired[list[AuthorizedTokenIssuerOutputTypeDef]]
 
 
 class JwtBearerGrantTypeDef(TypedDict):
@@ -851,7 +846,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class GetApplicationAccessScopeResponseTypeDef(TypedDict):
     Scope: str
-    AuthorizedTargets: List[str]
+    AuthorizedTargets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -871,67 +866,67 @@ class GetInlinePolicyForPermissionSetResponseTypeDef(TypedDict):
 
 
 class ListAccountAssignmentCreationStatusResponseTypeDef(TypedDict):
-    AccountAssignmentsCreationStatus: List[AccountAssignmentOperationStatusMetadataTypeDef]
+    AccountAssignmentsCreationStatus: list[AccountAssignmentOperationStatusMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountAssignmentDeletionStatusResponseTypeDef(TypedDict):
-    AccountAssignmentsDeletionStatus: List[AccountAssignmentOperationStatusMetadataTypeDef]
+    AccountAssignmentsDeletionStatus: list[AccountAssignmentOperationStatusMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountAssignmentsForPrincipalResponseTypeDef(TypedDict):
-    AccountAssignments: List[AccountAssignmentForPrincipalTypeDef]
+    AccountAssignments: list[AccountAssignmentForPrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountAssignmentsResponseTypeDef(TypedDict):
-    AccountAssignments: List[AccountAssignmentTypeDef]
+    AccountAssignments: list[AccountAssignmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountsForProvisionedPermissionSetResponseTypeDef(TypedDict):
-    AccountIds: List[str]
+    AccountIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListApplicationAssignmentsForPrincipalResponseTypeDef(TypedDict):
-    ApplicationAssignments: List[ApplicationAssignmentForPrincipalTypeDef]
+    ApplicationAssignments: list[ApplicationAssignmentForPrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListApplicationAssignmentsResponseTypeDef(TypedDict):
-    ApplicationAssignments: List[ApplicationAssignmentTypeDef]
+    ApplicationAssignments: list[ApplicationAssignmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCustomerManagedPolicyReferencesInPermissionSetResponseTypeDef(TypedDict):
-    CustomerManagedPolicyReferences: List[CustomerManagedPolicyReferenceTypeDef]
+    CustomerManagedPolicyReferences: list[CustomerManagedPolicyReferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListManagedPoliciesInPermissionSetResponseTypeDef(TypedDict):
-    AttachedManagedPolicies: List[AttachedManagedPolicyTypeDef]
+    AttachedManagedPolicies: list[AttachedManagedPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPermissionSetsProvisionedToAccountResponseTypeDef(TypedDict):
-    PermissionSets: List[str]
+    PermissionSets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPermissionSetsResponseTypeDef(TypedDict):
-    PermissionSets: List[str]
+    PermissionSets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -952,7 +947,7 @@ class CreatePermissionSetRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1002,7 +997,7 @@ class UpdateInstanceRequestTypeDef(TypedDict):
 
 
 class ListInstancesResponseTypeDef(TypedDict):
-    Instances: List[InstanceMetadataTypeDef]
+    Instances: list[InstanceMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1141,7 +1136,7 @@ class ListAccountAssignmentsForPrincipalRequestTypeDef(TypedDict):
 
 
 class ListApplicationAccessScopesResponseTypeDef(TypedDict):
-    Scopes: List[ScopeDetailsTypeDef]
+    Scopes: list[ScopeDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1177,13 +1172,13 @@ class ListApplicationsRequestTypeDef(TypedDict):
 
 
 class ListPermissionSetProvisioningStatusResponseTypeDef(TypedDict):
-    PermissionSetsProvisioningStatus: List[PermissionSetProvisioningStatusMetadataTypeDef]
+    PermissionSetsProvisioningStatus: list[PermissionSetProvisioningStatusMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTrustedTokenIssuersResponseTypeDef(TypedDict):
-    TrustedTokenIssuers: List[TrustedTokenIssuerMetadataTypeDef]
+    TrustedTokenIssuers: list[TrustedTokenIssuerMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1206,11 +1201,11 @@ class UpdateApplicationPortalOptionsTypeDef(TypedDict):
 
 
 class ResourceServerConfigTypeDef(TypedDict):
-    Scopes: NotRequired[Dict[str, ResourceServerScopeDetailsTypeDef]]
+    Scopes: NotRequired[dict[str, ResourceServerScopeDetailsTypeDef]]
 
 
 class InstanceAccessControlAttributeConfigurationOutputTypeDef(TypedDict):
-    AccessControlAttributes: List[AccessControlAttributeOutputTypeDef]
+    AccessControlAttributes: list[AccessControlAttributeOutputTypeDef]
 
 
 class InstanceAccessControlAttributeConfigurationTypeDef(TypedDict):
@@ -1246,8 +1241,8 @@ AuthenticationMethodUnionTypeDef = Union[
 class GrantOutputTypeDef(TypedDict):
     AuthorizationCode: NotRequired[AuthorizationCodeGrantOutputTypeDef]
     JwtBearer: NotRequired[JwtBearerGrantOutputTypeDef]
-    RefreshToken: NotRequired[Dict[str, Any]]
-    TokenExchange: NotRequired[Dict[str, Any]]
+    RefreshToken: NotRequired[dict[str, Any]]
+    TokenExchange: NotRequired[dict[str, Any]]
 
 
 class GrantTypeDef(TypedDict):
@@ -1355,7 +1350,7 @@ InstanceAccessControlAttributeConfigurationUnionTypeDef = Union[
 
 
 class ListApplicationAuthenticationMethodsResponseTypeDef(TypedDict):
-    AuthenticationMethods: List[AuthenticationMethodItemTypeDef]
+    AuthenticationMethods: list[AuthenticationMethodItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1380,13 +1375,13 @@ GrantUnionTypeDef = Union[GrantTypeDef, GrantOutputTypeDef]
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    Applications: List[ApplicationTypeDef]
+    Applications: list[ApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListApplicationProvidersResponseTypeDef(TypedDict):
-    ApplicationProviders: List[ApplicationProviderTypeDef]
+    ApplicationProviders: list[ApplicationProviderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1406,7 +1401,7 @@ class UpdateInstanceAccessControlAttributeConfigurationRequestTypeDef(TypedDict)
 
 
 class ListApplicationGrantsResponseTypeDef(TypedDict):
-    Grants: List[GrantItemTypeDef]
+    Grants: list[GrantItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

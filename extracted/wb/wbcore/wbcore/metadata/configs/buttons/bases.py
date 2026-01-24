@@ -11,7 +11,6 @@ class ButtonConfig:
     label: Optional[str] = None
     icon: Optional[str] = None
     title: Optional[str] = None
-    style: Optional[dict] = None
     color: ButtonDefaultColor | str = ButtonDefaultColor.PRIMARY
     weight: int = 100
     disabled: bool = False
@@ -24,23 +23,19 @@ class ButtonConfig:
     def __post_init__(self):
         if post_init := getattr(super(), "__post_init__", None):
             post_init()
-
-        assert self.label or self.icon, "Either label or icon has to be defined."
+        if not self.label and not self.icon:
+            raise ValueError("No label or icon specified")
 
     def __iter__(self):
         if iter := getattr(super(), "__iter__", None):
             yield from iter()
 
-        for key in ["label", "icon", "title", "style"]:
+        for key in ["label", "icon", "title"]:
             value = getattr(self, key, None)
             if value:
                 yield key, value
         color = getattr(self.color, "value", self.color)
         yield "color", color
-        yield (
-            "level",
-            color,
-        )  # TODO: we return level for backward compatibility reason. to be removed once we move to frontend version 2
         yield "disabled", self.disabled  # set to True if you want to set the css "disabled" property to that button
         yield "always_render", self.always_render  # set to True the button always needs to be rendered (even if empty)
         yield "placeholder", self.placeholder  # set to a valid string if a placeholder is needed onhover
@@ -57,8 +52,8 @@ class ButtonTypeMixin:
     def __post_init__(self):
         if post_init := getattr(super(), "__post_init__", None):
             post_init()
-
-        assert hasattr(self, "button_type"), "button_type cannot be None."
+        if not hasattr(self, "button_type"):
+            raise TypeError("button_type cannot be None.")
 
     def __iter__(self):
         if iter := getattr(super(), "__iter__", None):
@@ -82,8 +77,8 @@ class ButtonUrlMixin:
     def __post_init__(self):
         if post_init := getattr(super(), "__post_init__", None):
             post_init()
-
-        assert bool(self.key) != bool(self.endpoint), "Either key or endpoint has to be defined. (Not both)"
+        if bool(self.key) == bool(self.endpoint):
+            raise ValueError("Either key or endpoint has to be defined. (Not both)")
 
     def __iter__(self):
         if iter := getattr(super(), "__iter__", None):

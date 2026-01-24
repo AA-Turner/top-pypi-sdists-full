@@ -66,12 +66,8 @@ pub struct ConsensusConstants {
     min_plot_size_v1: u8,
     max_plot_size_v1: u8,
 
-    /// The smallest and largest allowed plot size for the the new plot
-    /// format, v2. These are the K-values for the plots. In addition to these
-    /// constraints, v2 plot sizes must be even numbers. The new plot format
-    /// was introduced in Chia-3.0.
-    min_plot_size_v2: u8,
-    max_plot_size_v2: u8,
+    /// v2 plots only support a single k-value, specified by this constant.
+    plot_size_v2: u8,
 
     /// The target number of seconds per sub-slot.
     sub_slot_time_target: u16,
@@ -128,8 +124,6 @@ pub struct ConsensusConstants {
 
     blocks_cache_size: u32,
 
-    max_generator_size: u32,
-
     max_generator_ref_list_size: u32,
 
     pool_sub_slot_iters: u64,
@@ -143,9 +137,14 @@ pub struct ConsensusConstants {
     /// is valid
     hard_fork2_height: u32,
 
+    /// 2.5.8 softfork
+    soft_fork8_height: u32,
+
     /// Once hard fork 2 activates, we'll start phasing out v1 plots. This is
-    /// the number blocks they will be phased-out over
-    plot_v1_phase_out: u32,
+    /// the log2 of the number of epochs they will be phased-out over. i.e. the
+    /// number of epochs is (1 << plot_v1_phase_out_epoch_bits).
+    /// This is not allowed to be > 8.
+    plot_v1_phase_out_epoch_bits: u8,
 
     /// The 128 plot filter adjustment height.
     /// This affects the plot filter for original plots
@@ -159,17 +158,14 @@ pub struct ConsensusConstants {
     /// This affects the plot filter for original plots
     plot_filter_32_height: u32,
 
-    /// initial plot strength for the v2 plot format.
-    plot_strength_initial: u8,
+    /// minimum and maximum plot strength for v2 plots. Proofs using strength
+    /// outside of these limits are not considered valid.
+    min_plot_strength: u8,
+    max_plot_strength: u8,
 
-    /// Plot strength is a feature of the new plot format, v2 (introduced in Chia 3.0)
-    /// The plot strength will increase at these block heights. The new
-    /// strength will be 4, 5, 6, 7 and 8 respectively.
-    plot_strength_4_height: u32,
-    plot_strength_5_height: u32,
-    plot_strength_6_height: u32,
-    plot_strength_7_height: u32,
-    plot_strength_8_height: u32,
+    plot_filter_v2_first_adjustment_height: u32,
+    plot_filter_v2_second_adjustment_height: u32,
+    plot_filter_v2_third_adjustment_height: u32,
 }
 
 pub const TEST_CONSTANTS: ConsensusConstants = ConsensusConstants {
@@ -186,11 +182,10 @@ pub const TEST_CONSTANTS: ConsensusConstants = ConsensusConstants {
     significant_bits: 8,
     discriminant_size_bits: 1024,
     number_zero_bits_plot_filter_v1: 9,
-    number_zero_bits_plot_filter_v2: 9, // placeholder
+    number_zero_bits_plot_filter_v2: 5,
     min_plot_size_v1: 32,
     max_plot_size_v1: 50,
-    min_plot_size_v2: 28,
-    max_plot_size_v2: 32,
+    plot_size_v2: 28,
     sub_slot_time_target: 600,
     num_sp_intervals_extra: 3,
     max_future_time2: 2 * 60,
@@ -234,21 +229,20 @@ pub const TEST_CONSTANTS: ConsensusConstants = ConsensusConstants {
     blocks_cache_size: 4608 + (128 * 4),
     weight_proof_recent_blocks: 1000,
     max_block_count_per_requests: 32,
-    max_generator_size: 1_000_000,
     max_generator_ref_list_size: 512,
     pool_sub_slot_iters: 37_600_000_000,
     hard_fork_height: 5_496_000,
     hard_fork2_height: 0xffff_ffff, // placeholder
-    plot_v1_phase_out: 920_000,
+    soft_fork8_height: 8_655_000,
+    plot_v1_phase_out_epoch_bits: 8,
     plot_filter_128_height: 10_542_000,
     plot_filter_64_height: 15_592_000,
     plot_filter_32_height: 20_643_000,
 
-    // placeholder values
-    plot_strength_initial: 2,
-    plot_strength_4_height: 0xffff_ffff,
-    plot_strength_5_height: 0xffff_ffff,
-    plot_strength_6_height: 0xffff_ffff,
-    plot_strength_7_height: 0xffff_ffff,
-    plot_strength_8_height: 0xffff_ffff,
+    min_plot_strength: 2,
+    max_plot_strength: 32,
+
+    plot_filter_v2_first_adjustment_height: 0xffff_ffff, // placeholder
+    plot_filter_v2_second_adjustment_height: 0xffff_ffff, // placeholder
+    plot_filter_v2_third_adjustment_height: 0xffff_ffff, // placeholder
 };

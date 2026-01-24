@@ -7,22 +7,11 @@ from __future__ import annotations
 from ._typing import assert_never
 from .common import UNDEFINED
 from .session import get_requests_session
+from collections.abc import Collection, Mapping, Sequence
 from http import HTTPStatus
 from requests import Response
 from requests_toolbelt import MultipartEncoder  # type: ignore
-from typing import (
-    Any,
-    BinaryIO,
-    Callable,
-    Collection,
-    Final,
-    Literal,
-    Mapping,
-    NamedTuple,
-    Sequence,
-    TYPE_CHECKING,
-    TypedDict,
-)
+from typing import Any, BinaryIO, Callable, Final, Literal, NamedTuple, TYPE_CHECKING, TypedDict
 from urllib.parse import quote
 
 import datetime
@@ -711,7 +700,8 @@ class AivenClient(AivenClientBase):
         remote_storage_enable: bool | None = None,
         local_retention_ms: int | None = None,
         local_retention_bytes: int | None = None,
-        inkless_enable: bool | None = None,
+        diskless_enable: bool | None = None,
+        unclean_leader_election_enable: bool | None = None,
         tags: Sequence[Tag] | None = None,
     ) -> Mapping:
         body: dict[str, Any] = {
@@ -732,8 +722,10 @@ class AivenClient(AivenClientBase):
             config["local_retention_ms"] = local_retention_ms
         if local_retention_bytes is not None:
             config["local_retention_bytes"] = local_retention_bytes
-        if inkless_enable is not None:
-            config["inkless_enable"] = inkless_enable
+        if diskless_enable is not None:
+            config["diskless_enable"] = diskless_enable
+        if unclean_leader_election_enable is not None:
+            config["unclean_leader_election_enable"] = unclean_leader_election_enable
         if config:
             body["config"] = config
 
@@ -759,7 +751,8 @@ class AivenClient(AivenClientBase):
         local_retention_ms: int | None = None,
         local_retention_bytes: int | None = None,
         replication: int | None = None,
-        inkless_enable: bool | None = None,
+        diskless_enable: bool | None = None,
+        unclean_leader_election_enable: bool | None = None,
         tags: Sequence[str] | None = None,
     ) -> Mapping:
         body: dict[str, Any] = {
@@ -778,8 +771,10 @@ class AivenClient(AivenClientBase):
             config["local_retention_ms"] = local_retention_ms
         if local_retention_bytes is not None:
             config["local_retention_bytes"] = local_retention_bytes
-        if inkless_enable is not None:
-            config["inkless_enable"] = inkless_enable
+        if diskless_enable is not None:
+            config["diskless_enable"] = diskless_enable
+        if unclean_leader_election_enable is not None:
+            config["unclean_leader_election_enable"] = unclean_leader_election_enable
         if config:
             body["config"] = config
 
@@ -1004,6 +999,18 @@ class AivenClient(AivenClientBase):
             "connectors",
             connector_name,
             "pause",
+        )
+        return self.verify(self.post, path)
+
+    def stop_kafka_connector(self, project: str, service: str, connector_name: str) -> Mapping:
+        path = self.build_path(
+            "project",
+            project,
+            "service",
+            service,
+            "connectors",
+            connector_name,
+            "stop",
         )
         return self.verify(self.post, path)
 
@@ -1472,6 +1479,7 @@ class AivenClient(AivenClientBase):
         termination_protection: bool | None = None,
         project_vpc_id: object | str = UNDEFINED,
         schema_registry_authorization: bool | None = None,
+        disaster_recovery_role: str | None = None,
     ) -> Mapping:
         user_config = user_config or {}
         body: dict[str, Any] = {}
@@ -1495,6 +1503,8 @@ class AivenClient(AivenClientBase):
             body["termination_protection"] = termination_protection
         if schema_registry_authorization is not None:
             body["schema_registry_authz"] = schema_registry_authorization
+        if disaster_recovery_role is not None:
+            body["disaster_recovery_role"] = disaster_recovery_role
         path = self.build_path("project", project, "service", service)
         return self.verify(self.put, path, body=body, result_key="service")
 

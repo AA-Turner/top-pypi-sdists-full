@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace import (
 )
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import (
+    NoOpTracer,
     NoOpTracerProvider,
     ProxyTracerProvider,
     get_tracer_provider,
@@ -39,6 +40,9 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         tracer = _get_tracer(__name__)
+        if isinstance(tracer, NoOpTracer):
+            return
+
         tracer.span_processor.on_start(span, parent_context)
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(span, trace_id)
@@ -121,6 +125,11 @@ def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
 
 
 def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
+    # Strands agents contain complete token usage information in the AGENT span
+    # We don't need to set token usage for the AGENT span to avoid double counting
+    if mlflow_span.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.AGENT:
+        return
+
     usage = {}
     if (v := span.attributes.get("gen_ai.usage.input_tokens")) is not None:
         usage[TokenUsageKey.INPUT_TOKENS] = v

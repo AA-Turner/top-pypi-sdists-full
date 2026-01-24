@@ -3,7 +3,7 @@ Type annotations for networkmanager service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -59,9 +59,12 @@ __all__ = (
     "GlobalNetworkStateType",
     "LinkAssociationStateType",
     "LinkStateType",
+    "ListAttachmentRoutingPolicyAssociationsPaginatorName",
     "ListAttachmentsPaginatorName",
     "ListConnectPeersPaginatorName",
     "ListCoreNetworkPolicyVersionsPaginatorName",
+    "ListCoreNetworkPrefixListAssociationsPaginatorName",
+    "ListCoreNetworkRoutingInformationPaginatorName",
     "ListCoreNetworksPaginatorName",
     "ListPeeringsPaginatorName",
     "NetworkManagerServiceName",
@@ -76,6 +79,7 @@ __all__ = (
     "RouteStateType",
     "RouteTableTypeType",
     "RouteTypeType",
+    "RoutingPolicyDirectionType",
     "SegmentActionServiceInsertionType",
     "SendViaModeType",
     "ServiceName",
@@ -97,7 +101,9 @@ AttachmentErrorCodeType = Literal[
     "SUBNET_NO_IPV6_CIDRS",
     "SUBNET_UNSUPPORTED_AVAILABILITY_ZONE",
     "VPC_NOT_FOUND",
+    "VPC_UNSUPPORTED_FEATURES",
     "VPN_CONNECTION_NOT_FOUND",
+    "VPN_EXISTING_ASSOCIATIONS",
 ]
 AttachmentStateType = Literal[
     "AVAILABLE",
@@ -132,6 +138,10 @@ ChangeTypeType = Literal[
     "CORE_NETWORK_EDGE",
     "CORE_NETWORK_SEGMENT",
     "NETWORK_FUNCTION_GROUP",
+    "ROUTING_POLICY",
+    "ROUTING_POLICY_ATTACHMENT_ASSOCIATION",
+    "ROUTING_POLICY_EDGE_ASSOCIATION",
+    "ROUTING_POLICY_SEGMENT_ASSOCIATION",
     "SEGMENTS_CONFIGURATION",
     "SEGMENT_ACTIONS_CONFIGURATION",
 ]
@@ -173,9 +183,16 @@ GetTransitGatewayRegistrationsPaginatorName = Literal["get_transit_gateway_regis
 GlobalNetworkStateType = Literal["AVAILABLE", "DELETING", "PENDING", "UPDATING"]
 LinkAssociationStateType = Literal["AVAILABLE", "DELETED", "DELETING", "PENDING"]
 LinkStateType = Literal["AVAILABLE", "DELETING", "PENDING", "UPDATING"]
+ListAttachmentRoutingPolicyAssociationsPaginatorName = Literal[
+    "list_attachment_routing_policy_associations"
+]
 ListAttachmentsPaginatorName = Literal["list_attachments"]
 ListConnectPeersPaginatorName = Literal["list_connect_peers"]
 ListCoreNetworkPolicyVersionsPaginatorName = Literal["list_core_network_policy_versions"]
+ListCoreNetworkPrefixListAssociationsPaginatorName = Literal[
+    "list_core_network_prefix_list_associations"
+]
+ListCoreNetworkRoutingInformationPaginatorName = Literal["list_core_network_routing_information"]
 ListCoreNetworksPaginatorName = Literal["list_core_networks"]
 ListPeeringsPaginatorName = Literal["list_peerings"]
 PeeringErrorCodeType = Literal[
@@ -208,6 +225,7 @@ RouteTableTypeType = Literal[
     "CORE_NETWORK_SEGMENT", "NETWORK_FUNCTION_GROUP", "TRANSIT_GATEWAY_ROUTE_TABLE"
 ]
 RouteTypeType = Literal["PROPAGATED", "STATIC"]
+RoutingPolicyDirectionType = Literal["inbound", "outbound"]
 SegmentActionServiceInsertionType = Literal["send-to", "send-via"]
 SendViaModeType = Literal["dual-hop", "single-hop"]
 SiteStateType = Literal["AVAILABLE", "DELETING", "PENDING", "UPDATING"]
@@ -245,7 +263,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -315,6 +332,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -360,7 +378,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -413,7 +430,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -452,8 +468,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -488,6 +502,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -497,6 +512,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -507,6 +523,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -528,8 +547,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -544,15 +561,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -583,6 +601,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -623,6 +642,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -653,9 +673,12 @@ PaginatorName = Literal[
     "get_sites",
     "get_transit_gateway_connect_peer_associations",
     "get_transit_gateway_registrations",
+    "list_attachment_routing_policy_associations",
     "list_attachments",
     "list_connect_peers",
     "list_core_network_policy_versions",
+    "list_core_network_prefix_list_associations",
+    "list_core_network_routing_information",
     "list_core_networks",
     "list_peerings",
 ]

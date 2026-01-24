@@ -4,19 +4,28 @@ from functools import partial
 from typing import Literal, cast
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_tuple
 
 from pytensor import scalar as ps
 from pytensor.compile.builders import OpFromGraph
-from pytensor.gradient import DisconnectedType
+from pytensor.gradient import DisconnectedType, disconnected_type
 from pytensor.graph.basic import Apply
 from pytensor.graph.op import Op
-from pytensor.npy_2_compat import normalize_axis_tuple
 from pytensor.tensor import TensorLike
 from pytensor.tensor import basic as ptb
 from pytensor.tensor import math as ptm
 from pytensor.tensor.basic import as_tensor_variable, diagonal
 from pytensor.tensor.blockwise import Blockwise
-from pytensor.tensor.type import Variable, dvector, lscalar, matrix, scalar, vector
+from pytensor.tensor.type import (
+    Variable,
+    dmatrix,
+    dvector,
+    iscalar,
+    matrix,
+    scalar,
+    tensor,
+    vector,
+)
 
 
 class MatrixPinv(Op):
@@ -29,12 +38,16 @@ class MatrixPinv(Op):
     def make_node(self, x):
         x = as_tensor_variable(x)
         assert x.ndim == 2
-        return Apply(self, [x], [x.type()])
+        if x.type.numpy_dtype.kind in "ibu":
+            out_dtype = "float64"
+        else:
+            out_dtype = x.dtype
+        return Apply(self, [x], [matrix(shape=x.type.shape, dtype=out_dtype)])
 
     def perform(self, node, inputs, outputs):
         (x,) = inputs
         (z,) = outputs
-        z[0] = np.linalg.pinv(x, hermitian=self.hermitian).astype(x.dtype)
+        z[0] = np.linalg.pinv(x, hermitian=self.hermitian)
 
     def L_op(self, inputs, outputs, g_outputs):
         r"""The gradient function should return
@@ -109,12 +122,16 @@ class MatrixInverse(Op):
     def make_node(self, x):
         x = as_tensor_variable(x)
         assert x.ndim == 2
-        return Apply(self, [x], [x.type()])
+        if x.type.numpy_dtype.kind in "ibu":
+            out_dtype = "float64"
+        else:
+            out_dtype = x.dtype
+        return Apply(self, [x], [matrix(shape=x.type.shape, dtype=out_dtype)])
 
     def perform(self, node, inputs, outputs):
         (x,) = inputs
         (z,) = outputs
-        z[0] = np.linalg.inv(x).astype(x.dtype)
+        z[0] = np.linalg.inv(x)
 
     def grad(self, inputs, g_outputs):
         r"""The gradient function should return
@@ -208,14 +225,18 @@ class Det(Op):
             raise ValueError(
                 f"Determinant not defined for non-square matrix inputs. Shape received is {x.type.shape}"
             )
-        o = scalar(dtype=x.dtype)
+        if x.type.numpy_dtype.kind in "ibu":
+            out_dtype = "float64"
+        else:
+            out_dtype = x.dtype
+        o = scalar(dtype=out_dtype)
         return Apply(self, [x], [o])
 
     def perform(self, node, inputs, outputs):
         (x,) = inputs
         (z,) = outputs
         try:
-            z[0] = np.asarray(np.linalg.det(x), dtype=x.dtype)
+            z[0] = np.asarray(np.linalg.det(x))
         except Exception as e:
             raise ValueError("Failed to compute determinant", x) from e
 
@@ -246,15 +267,19 @@ class SLogDet(Op):
     def make_node(self, x):
         x = as_tensor_variable(x)
         assert x.ndim == 2
-        sign = scalar(dtype=x.dtype)
-        det = scalar(dtype=x.dtype)
+        if x.type.numpy_dtype.kind in "ibu":
+            out_dtype = "float64"
+        else:
+            out_dtype = x.dtype
+        sign = scalar(dtype=out_dtype)
+        det = scalar(dtype=out_dtype)
         return Apply(self, [x], [sign, det])
 
     def perform(self, node, inputs, outputs):
         (x,) = inputs
         (sign, det) = outputs
         try:
-            sign[0], det[0] = (np.array(z, dtype=x.dtype) for z in np.linalg.slogdet(x))
+            sign[0], det[0] = (np.array(z) for z in np.linalg.slogdet(x))
         except Exception as e:
             raise ValueError("Failed to compute determinant", x) from e
 
@@ -297,37 +322,79 @@ def slogdet(x: TensorLike) -> tuple[ptb.TensorVariable, ptb.TensorVariable]:
 class Eig(Op):
     """
     Compute the eigenvalues and right eigenvectors of a square array.
-
     """
 
     __props__: tuple[str, ...] = ()
+    # Can't use numpy directly in Blockwise, because of the dynamic dtype
+    # gufunc_spec = ("numpy.linalg.eig", 1, 2)
     gufunc_signature = "(m,m)->(m),(m,m)"
-    gufunc_spec = ("numpy.linalg.eig", 1, 2)
 
     def make_node(self, x):
         x = as_tensor_variable(x)
         assert x.ndim == 2
-        w = vector(dtype=x.dtype)
-        v = matrix(dtype=x.dtype)
+
+        M, N = x.type.shape
+
+        if M is not None and N is not None and M != N:
+            raise ValueError(
+                f"Input to Eig must be a square matrix, got static shape: ({M}, {N})"
+            )
+
+        dtype = np.promote_types(x.dtype, np.complex64)
+
+        w = tensor(dtype=dtype, shape=(M,))
+        v = tensor(dtype=dtype, shape=(M, N))
+
         return Apply(self, [x], [w, v])
 
     def perform(self, node, inputs, outputs):
         (x,) = inputs
-        (w, v) = outputs
-        w[0], v[0] = (z.astype(x.dtype) for z in np.linalg.eig(x))
+        dtype = np.promote_types(x.dtype, np.complex64)
+
+        w, v = np.linalg.eig(x)
+
+        # If the imaginary part of the eigenvalues is zero, numpy automatically casts them to real. We require
+        # a statically known return dtype, so we have to cast back to complex to avoid dtype mismatch.
+        outputs[0][0] = w.astype(dtype, copy=False)
+        outputs[1][0] = v.astype(dtype, copy=False)
 
     def infer_shape(self, fgraph, node, shapes):
-        n = shapes[0][0]
+        (x_shapes,) = shapes
+        n, _ = x_shapes
+
         return [(n,), (n, n)]
 
+    def L_op(self, inputs, outputs, output_grads):
+        raise NotImplementedError(
+            "Gradients for Eig is not implemented because it always returns complex values, "
+            "for which autodiff is not yet supported in PyTensor (PRs welcome :) ).\n"
+            "If you know that your input has strictly real-valued eigenvalues (e.g. it is a "
+            "symmetric matrix), use pt.linalg.eigh instead."
+        )
 
-eig = Blockwise(Eig())
+
+def eig(x: TensorLike):
+    """
+    Return the eigenvalues and right eigenvectors of a square array.
+
+    Note that regardless of the input dtype, the eigenvalues and eigenvectors are returned as complex numbers. As a
+    result, the gradient of this operation is not implemented (because PyTensor does not support autodiff for complex
+    values yet).
+
+    If you know that your input has strictly real-valued eigenvalues (e.g. it is a symmetric matrix), use
+    `pytensor.tensor.linalg.eigh` instead.
+
+    Parameters
+    ----------
+    x: TensorLike
+        Square matrix, or array of such matrices
+    """
+    return Blockwise(Eig())(x)
 
 
 class Eigh(Eig):
     """
     Return the eigenvalues and eigenvectors of a Hermitian or symmetric matrix.
-
     """
 
     __props__ = ("UPLO",)
@@ -354,7 +421,7 @@ class Eigh(Eig):
         (w, v) = outputs
         w[0], v[0] = np.linalg.eigh(x, self.UPLO)
 
-    def grad(self, inputs, g_outputs):
+    def L_op(self, inputs, outputs, output_grads):
         r"""The gradient function should return
 
            .. math:: \sum_n\left(W_n\frac{\partial\,w_n}
@@ -378,10 +445,9 @@ class Eigh(Eig):
 
         """
         (x,) = inputs
-        w, v = self(x)
-        # Replace gradients wrt disconnected variables with
-        # zeros. This is a work-around for issue #1063.
-        gw, gv = _zero_disconnected([w, v], g_outputs)
+        w, v = outputs
+        gw, gv = _zero_disconnected([w, v], output_grads)
+
         return [EighGrad(self.UPLO)(x, w, v, gw, gv)]
 
 
@@ -586,8 +652,8 @@ class SVD(Op):
             ]
             if all(is_disconnected):
                 # This should never actually be reached by Pytensor -- the SVD Op should be pruned from the gradient
-                # graph if its fully disconnected. It is included for completeness.
-                return [DisconnectedType()()]  # pragma: no cover
+                # graph if it's fully disconnected. It is included for completeness.
+                return [disconnected_type()]  # pragma: no cover
 
             elif is_disconnected == [True, False, True]:
                 # This is the same as the compute_uv = False, so we can drop back to that simpler computation, without
@@ -687,9 +753,9 @@ class Lstsq(Op):
             self,
             [x, y, rcond],
             [
-                matrix(),
+                dmatrix(),
                 dvector(),
-                lscalar(),
+                iscalar(),
                 dvector(),
             ],
         )
@@ -698,7 +764,7 @@ class Lstsq(Op):
         zz = np.linalg.lstsq(inputs[0], inputs[1], inputs[2])
         outputs[0][0] = zz[0]
         outputs[1][0] = zz[1]
-        outputs[2][0] = np.array(zz[2])
+        outputs[2][0] = np.asarray(zz[2])
         outputs[3][0] = zz[3]
 
 
@@ -1114,19 +1180,19 @@ def kron(a, b):
 
 
 __all__ = [
-    "pinv",
-    "inv",
-    "trace",
-    "matrix_dot",
     "det",
     "eig",
     "eigh",
-    "svd",
+    "inv",
+    "kron",
     "lstsq",
+    "matrix_dot",
     "matrix_power",
     "norm",
+    "pinv",
     "slogdet",
+    "svd",
     "tensorinv",
     "tensorsolve",
-    "kron",
+    "trace",
 ]

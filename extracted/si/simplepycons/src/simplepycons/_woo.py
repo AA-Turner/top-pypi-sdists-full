@@ -1,0 +1,90 @@
+#
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2026 Carsten Igel.
+#
+# This file is part of simplepycons
+# (see https://github.com/carstencodes/simplepycons).
+#
+# This file is published using the MIT license.
+# Refer to LICENSE for more information
+#
+""""""
+# pylint: disable=C0302
+# Justification: Code is generated
+
+from typing import TYPE_CHECKING
+
+from .base_icon import Icon
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+
+class WooIcon(Icon):
+    """"""
+    @property
+    def name(self) -> "str":
+        return "woo"
+
+    @property
+    def original_file_name(self) -> "str":
+        return "woo.svg"
+
+    @property
+    def title(self) -> "str":
+        return "Woo"
+
+    @property
+    def primary_color(self) -> "str":
+        return "#873EFF"
+
+    @property
+    def raw_svg(self) -> "str":
+        return ''' <svg xmlns="http://www.w3.org/2000/svg"
+ role="img" viewBox="0 0 24 24">
+    <title>Woo</title>
+     <path d="M10.118 8.895c-.562 0-.928.183-1.255.797l-1.49
+ 2.811v-2.496c0-.745-.353-1.111-1.007-1.111s-.928.222-1.255.85l-1.412
+ 2.757v-2.47c0-.797-.327-1.137-1.124-1.137H.954C.34 8.895 0 9.183 0
+ 9.706s.327.837.928.837h.667v3.15c0 .889.601 1.412 1.464
+ 1.412s1.255-.34 1.686-1.137l.941-1.765v1.49c0 .876.575 1.412 1.451
+ 1.412s1.203-.301
+ 1.699-1.137l2.17-3.66c.471-.798.144-1.413-.901-1.413zm4.078 0c-1.778
+ 0-3.124 1.321-3.124 3.112s1.359 3.098 3.124 3.098 3.111-1.32
+ 3.124-3.098c0-1.791-1.359-3.112-3.124-3.112m0 4.301c-.667
+ 0-1.124-.497-1.124-1.19s.458-1.203 1.124-1.203 1.124.51 1.124
+ 1.203-.444 1.19-1.124 1.19m6.68-4.301c-1.765 0-3.124 1.32-3.124
+ 3.111s1.359 3.098 3.124 3.098S24 13.784 24
+ 12.006s-1.359-3.111-3.124-3.111m0 4.301c-.68
+ 0-1.111-.497-1.111-1.19s.444-1.203 1.111-1.203S22 11.313 22
+ 12.006s-.444 1.19-1.124 1.19" />
+</svg>'''
+
+    @property
+    def guidelines_url(self) -> "str | None":
+        _value: "str" = '''https://woocommerce.com/brand-and-logo-guidel'''
+        if len(_value) > 0:
+            return _value
+        return None
+
+    @property
+    def source(self) -> "str":
+        return ''''''
+
+    @property
+    def license(self) -> "tuple[str | None, str | None]":
+        _type: "str | None" = ''''''
+        _url: "str | None" = ''''''
+
+        if _type is not None and len(_type) == 0:
+            _type = None
+
+        if _url is not None and len(_url) == 0:
+            _url = None
+
+        return _type, _url
+
+    @property
+    def aliases(self) -> "Iterable[str]":
+        yield from []

@@ -21,21 +21,23 @@ __all__ = [
 
 
 class MaxGroupTieredPackageConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class MaxGroupTieredPackageConfig(BaseModel):
+    """Configuration for max_group_tiered_package pricing"""
+
     grouping_key: str
     """
     The event property used to group before tiering the group with the highest value
     """
 
     package_size: str
-    """Package size"""
 
     tiers: List[MaxGroupTieredPackageConfigTier]
     """Apply tiered pricing to the largest group after grouping with the provided key."""

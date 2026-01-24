@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yamlloader
-Version: 1.5.2
+Version: 1.6.0
 Summary: Ordered YAML loader and dumper for PyYAML.
 Project-URL: Documentation, https://yamlloader.readthedocs.io/
 Project-URL: Homepage, https://github.com/Phynix/yamlloader
@@ -60,20 +60,21 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Requires-Dist: pyyaml
 Provides-Extra: dev
 Requires-Dist: coverage; extra == 'dev'
 Requires-Dist: hypothesis; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: sphinx; extra == 'dev'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme; extra == 'dev'
@@ -86,6 +87,7 @@ Requires-Dist: sphinxcontrib-apidoc; extra == 'doc'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: hypothesis; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
 Description-Content-Type: text/x-rst
 
 
@@ -104,7 +106,7 @@ yamlloader
 
 This module provides loaders and dumpers for PyYAML. Currently, an OrderedDict loader/dumper is
 implemented, allowing to keep items order
-when loading resp. dumping a file from/to an OrderedDict (Python 3.7+: Also regular dicts are supported and are the default items to be loaded to. As of Python 3.7 preservation of insertion order is a language feature of regular dicts.)
+when loading resp. dumping a file from/to an OrderedDict (Python 3.8+: Also regular dicts are supported and are the default items to be loaded to. As of Python 3.7 preservation of insertion order is a language feature of regular dicts.)
 
 This project was originally mirrored from
 `yamlordereddict <https://github.com/fmenabe/python-yamlordereddictloader>`_

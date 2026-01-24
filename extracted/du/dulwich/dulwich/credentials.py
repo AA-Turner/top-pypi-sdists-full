@@ -26,15 +26,29 @@ https://git-scm.com/book/en/v2/Git-Tools-Credential-Storage
 
 """
 
+__all__ = [
+    "match_partial_url",
+    "match_urls",
+    "urlmatch_credential_sections",
+]
+
 import sys
 from collections.abc import Iterator
-from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
 from .config import ConfigDict, SectionLike
 
 
 def match_urls(url: ParseResult, url_prefix: ParseResult) -> bool:
+    """Check if a URL matches a URL prefix.
+
+    Args:
+      url: Parsed URL to check
+      url_prefix: Parsed URL prefix to match against
+
+    Returns:
+      True if url matches the prefix
+    """
     base_match = (
         url.scheme == url_prefix.scheme
         and url.hostname == url_prefix.hostname
@@ -68,7 +82,7 @@ def match_partial_url(valid_url: ParseResult, partial_url: str) -> bool:
 
 
 def urlmatch_credential_sections(
-    config: ConfigDict, url: Optional[str]
+    config: ConfigDict, url: str | None
 ) -> Iterator[SectionLike]:
     """Returns credential sections from the config which match the given URL."""
     encoding = config.encoding or sys.getdefaultencoding()

@@ -6,6 +6,7 @@ from wbcore.contrib.example_app.models import Player, SportPerson
 class SportPersonFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SportPerson
+        skip_postgeneration_save = True
 
     profile = factory.SubFactory("wbcore.contrib.directory.factories.PersonFactory")
     profile_image = factory.django.ImageField(filename="image_profile.jpeg")

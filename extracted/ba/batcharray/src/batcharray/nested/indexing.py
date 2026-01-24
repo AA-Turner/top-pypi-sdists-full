@@ -15,8 +15,9 @@ __all__ = [
 from functools import partial
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from coola.recursive import recursive_apply
+
 from batcharray import array
-from batcharray.recursive import recursive_apply
 
 if TYPE_CHECKING:
     import numpy as np
@@ -43,24 +44,22 @@ def index_select_along_batch(data: Any, indices: np.ndarray) -> Any:
     Returns:
         The indexed arrays along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import index_select_along_batch
+        >>> arrays = {
+        ...     "a": np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]),
+        ...     "b": np.array([4, 3, 2, 1, 0]),
+        ... }
+        >>> out = index_select_along_batch(arrays, np.array([2, 4]))
+        >>> out
+        {'a': array([[4, 5], [8, 9]]), 'b': array([2, 0])}
+        >>> out = index_select_along_batch(arrays, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        {'a': array([[8, 9], [6, 7], [4, 5], [2, 3], [0, 1]]), 'b': array([0, 1, 2, 3, 4])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import index_select_along_batch
-    >>> arrays = {
-    ...     "a": np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]),
-    ...     "b": np.array([4, 3, 2, 1, 0]),
-    ... }
-    >>> out = index_select_along_batch(arrays, np.array([2, 4]))
-    >>> out
-    {'a': array([[4, 5], [8, 9]]), 'b': array([2, 0])}
-    >>> out = index_select_along_batch(arrays, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    {'a': array([[8, 9], [6, 7], [4, 5], [2, 3], [0, 1]]), 'b': array([0, 1, 2, 3, 4])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(array.index_select_along_batch, indices=indices))
 
@@ -84,24 +83,22 @@ def index_select_along_seq(data: Any, indices: np.ndarray) -> Any:
     Returns:
         The indexed arrays along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import index_select_along_seq
+        >>> arrays = {
+        ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
+        ...     "b": np.array([[4, 3, 2, 1, 0]]),
+        ... }
+        >>> out = index_select_along_seq(arrays, np.array([2, 4]))
+        >>> out
+        {'a': array([[2, 4], [7, 9]]), 'b': array([[2, 0]])}
+        >>> out = index_select_along_seq(arrays, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        {'a': array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]), 'b': array([[0, 1, 2, 3, 4]])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import index_select_along_seq
-    >>> arrays = {
-    ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
-    ...     "b": np.array([[4, 3, 2, 1, 0]]),
-    ... }
-    >>> out = index_select_along_seq(arrays, np.array([2, 4]))
-    >>> out
-    {'a': array([[2, 4], [7, 9]]), 'b': array([[2, 0]])}
-    >>> out = index_select_along_seq(arrays, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    {'a': array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]), 'b': array([[0, 1, 2, 3, 4]])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(array.index_select_along_seq, indices=indices))
 
@@ -122,21 +119,19 @@ def masked_select_along_batch(data: Any, mask: np.ndarray) -> Any:
     Returns:
         The indexed arrays along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import masked_select_along_batch
+        >>> arrays = {
+        ...     "a": np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]),
+        ...     "b": np.array([4, 3, 2, 1, 0]),
+        ... }
+        >>> out = masked_select_along_batch(arrays, np.array([False, False, True, False, True]))
+        >>> out
+        {'a': array([[4, 5], [8, 9]]), 'b': array([2, 0])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import masked_select_along_batch
-    >>> arrays = {
-    ...     "a": np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]),
-    ...     "b": np.array([4, 3, 2, 1, 0]),
-    ... }
-    >>> out = masked_select_along_batch(arrays, np.array([False, False, True, False, True]))
-    >>> out
-    {'a': array([[4, 5], [8, 9]]), 'b': array([2, 0])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(array.masked_select_along_batch, mask=mask))
 
@@ -157,21 +152,19 @@ def masked_select_along_seq(data: Any, mask: np.ndarray) -> Any:
     Returns:
         The indexed arrays along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import masked_select_along_seq
+        >>> arrays = {
+        ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
+        ...     "b": np.array([[4, 3, 2, 1, 0]]),
+        ... }
+        >>> out = masked_select_along_seq(arrays, np.array([False, False, True, False, True]))
+        >>> out
+        {'a': array([[2, 4], [7, 9]]), 'b': array([[2, 0]])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import masked_select_along_seq
-    >>> arrays = {
-    ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
-    ...     "b": np.array([[4, 3, 2, 1, 0]]),
-    ... }
-    >>> out = masked_select_along_seq(arrays, np.array([False, False, True, False, True]))
-    >>> out
-    {'a': array([[2, 4], [7, 9]]), 'b': array([[2, 0]])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(array.masked_select_along_seq, mask=mask))
 
@@ -195,24 +188,22 @@ def take_along_batch(data: Any, indices: np.ndarray) -> Any:
     Returns:
         The indexed arrays along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import take_along_batch
+        >>> arrays = {
+        ...     "a": np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]),
+        ...     "b": np.array([4, 3, 2, 1, 0]),
+        ... }
+        >>> out = take_along_batch(arrays, np.array([2, 4]))
+        >>> out
+        {'a': array([[4, 5], [8, 9]]), 'b': array([2, 0])}
+        >>> out = take_along_batch(arrays, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        {'a': array([[8, 9], [6, 7], [4, 5], [2, 3], [0, 1]]), 'b': array([0, 1, 2, 3, 4])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import take_along_batch
-    >>> arrays = {
-    ...     "a": np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]),
-    ...     "b": np.array([4, 3, 2, 1, 0]),
-    ... }
-    >>> out = take_along_batch(arrays, np.array([2, 4]))
-    >>> out
-    {'a': array([[4, 5], [8, 9]]), 'b': array([2, 0])}
-    >>> out = take_along_batch(arrays, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    {'a': array([[8, 9], [6, 7], [4, 5], [2, 3], [0, 1]]), 'b': array([0, 1, 2, 3, 4])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(array.take_along_batch, indices=indices))
 
@@ -236,23 +227,21 @@ def take_along_seq(data: Any, indices: np.ndarray) -> Any:
     Returns:
         The indexed arrays along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import take_along_seq
+        >>> arrays = {
+        ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
+        ...     "b": np.array([[4, 3, 2, 1, 0]]),
+        ... }
+        >>> out = take_along_seq(arrays, np.array([2, 4]))
+        >>> out
+        {'a': array([[2, 4], [7, 9]]), 'b': array([[2, 0]])}
+        >>> out = take_along_seq(arrays, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        {'a': array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]), 'b': array([[0, 1, 2, 3, 4]])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import take_along_seq
-    >>> arrays = {
-    ...     "a": np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]),
-    ...     "b": np.array([[4, 3, 2, 1, 0]]),
-    ... }
-    >>> out = take_along_seq(arrays, np.array([2, 4]))
-    >>> out
-    {'a': array([[2, 4], [7, 9]]), 'b': array([[2, 0]])}
-    >>> out = take_along_seq(arrays, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    {'a': array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]), 'b': array([[0, 1, 2, 3, 4]])}
-
-    ```
+        ```
     """
     return recursive_apply(data, partial(array.take_along_seq, indices=indices))

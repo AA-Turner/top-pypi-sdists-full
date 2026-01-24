@@ -38,13 +38,15 @@ class UpdateScheduleJsonBody:
         on_success_extra_args (Union[Unset, UpdateScheduleJsonBodyOnSuccessExtraArgs]): The arguments to pass to the
             script or flow
         ws_error_handler_muted (Union[Unset, bool]): Whether the WebSocket error handler is muted
-        retry (Union[Unset, UpdateScheduleJsonBodyRetry]): The retry configuration for the schedule
+        retry (Union[Unset, UpdateScheduleJsonBodyRetry]): Retry configuration for failed module executions
         no_flow_overlap (Union[Unset, bool]): Whether the schedule should not run if a flow is already running
         summary (Union[Unset, str]): The summary of the schedule
         description (Union[Unset, str]): The description of the schedule
         tag (Union[Unset, str]): The tag of the schedule
         paused_until (Union[Unset, datetime.datetime]): The date and time the schedule will be paused until
         cron_version (Union[Unset, str]): The version of the cron schedule to use (last is v2)
+        dynamic_skip (Union[Unset, str]): Path to a script that validates scheduled datetimes. Receives scheduled_for
+            datetime and returns boolean.
     """
 
     schedule: str
@@ -67,6 +69,7 @@ class UpdateScheduleJsonBody:
     tag: Union[Unset, str] = UNSET
     paused_until: Union[Unset, datetime.datetime] = UNSET
     cron_version: Union[Unset, str] = UNSET
+    dynamic_skip: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -106,6 +109,7 @@ class UpdateScheduleJsonBody:
             paused_until = self.paused_until.isoformat()
 
         cron_version = self.cron_version
+        dynamic_skip = self.dynamic_skip
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -150,6 +154,8 @@ class UpdateScheduleJsonBody:
             field_dict["paused_until"] = paused_until
         if cron_version is not UNSET:
             field_dict["cron_version"] = cron_version
+        if dynamic_skip is not UNSET:
+            field_dict["dynamic_skip"] = dynamic_skip
 
         return field_dict
 
@@ -227,6 +233,8 @@ class UpdateScheduleJsonBody:
 
         cron_version = d.pop("cron_version", UNSET)
 
+        dynamic_skip = d.pop("dynamic_skip", UNSET)
+
         update_schedule_json_body = cls(
             schedule=schedule,
             timezone=timezone,
@@ -248,6 +256,7 @@ class UpdateScheduleJsonBody:
             tag=tag,
             paused_until=paused_until,
             cron_version=cron_version,
+            dynamic_skip=dynamic_skip,
         )
 
         update_schedule_json_body.additional_properties = d

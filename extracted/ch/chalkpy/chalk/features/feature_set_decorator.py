@@ -22,7 +22,7 @@ from chalk.features import is_features_cls
 from chalk.features._class_property import classproperty, classproperty_support
 from chalk.features._encoding.pyarrow import pyarrow_to_primitive
 from chalk.features.dataframe._impl import DataFrameMeta
-from chalk.features.feature_field import CacheStrategy, Feature, VersionInfo
+from chalk.features.feature_field import Feature, VersionInfo
 from chalk.features.feature_set import ClassSource, Features, CURRENT_FEATURE_REGISTRY
 from chalk.features.feature_time import feature_time
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
@@ -37,6 +37,15 @@ from chalk.utils.collections import ensure_tuple
 from chalk.utils.duration import Duration, parse_chalk_duration, parse_chalk_duration_s
 from chalk.utils.metaprogramming import MISSING, set_new_attribute
 from chalk.utils.string import to_snake_case
+from chalk.stores.online_store_config import OnlineStoreConfig
+
+from chalk.features.feature_cache_strategy import (
+    CacheStrategy,
+    CacheNullsType,
+    CacheDefaultsType,
+    get_cache_settings_from_strategy,
+    get_cache_strategy_from_cache_settings,
+)
 
 T = TypeVar("T")
 
@@ -54,6 +63,8 @@ def features(
     max_staleness: Optional[Duration] = None,
     name: Optional[str] = None,
     singleton: bool = False,
+    cache_nulls: CacheNullsType = True,
+    cache_defaults: CacheDefaultsType = True,
 ) -> Callable[[Type[T]], Type[T]]: ...
 
 
@@ -70,6 +81,9 @@ def features(
     max_staleness: Optional[Duration] = None,
     name: Optional[str] = None,
     singleton: bool = False,
+    online_store_config: Optional[OnlineStoreConfig] = None,
+    cache_nulls: CacheNullsType = True,
+    cache_defaults: CacheDefaultsType = True,
 ) -> Union[Callable[[Type[T]], Type[T]], Type[T]]:
     """Chalk lets you spell out your features directly in Python.
 
@@ -100,6 +114,33 @@ def features(
         value needs to have been computed to be returned without re-running a resolver.
         Assigning a `max_staleness` to the feature class assigns it to all features on the
         class which do not explicitly specify a `max_staleness` value of their own.
+    cache_nulls
+        When `True` (default), Chalk will cache all values, including nulls.
+        When `False`, Chalk will not update the null entry in the cache.
+        When `"evict_nulls"`, Chalk will evict the entry that would have been
+        null from the cache, if it exists.
+
+        Concretely, suppose the current state of a database is `{a: 1, b: 2}`,
+        and you write a row `{a: 2, b: None}`. Here is the expected result in the db:
+            - `{a: 2, b: None}` when `cache_nulls=True` (default)
+            - `{a: 2, b: 2}` when `cache_nulls=False`
+            - `{a: 2}` when `cache_nulls="evict_nulls"`
+    cache_defaults
+        When `True` (default), Chalk will cache all values, including default values.
+        When `False`, Chalk will not update the default entry in the cache.
+        When `"evict_defaults"`, Chalk will evict the entry that would have been
+        a default value from the cache, if it exists.
+
+        Concretely, suppose the current state of a database is `{a: 1, b: 2}`,
+        and you write a row `{a: 2, b: "default"}`, and the default value for feature b is `"default"`.
+        Here is the expected result in the db:
+            - `{a: 2, b: "default"}` when `cache_defaults=True`
+            - `{a: 2, b: 2}` when `cache_defaults=False`
+            - `{a: 2}` when `cache_defaults="evict_defaults"`
+
+        The `cache_nulls` and `cache_defaults` options can be used together on the same feature with the
+        following exceptions: if `cache_nulls=False`, then `cache_defaults` cannot be `"evict_defaults"`, and if
+        `cache_nulls="evict_defaults"`, then `cache_defaults` cannot be `False`.
 
     Other Parameters
     ----------------
@@ -180,6 +221,12 @@ def features(
                     raise_error=ValueError,
                     code="13",
                 )
+
+        cache_strategy = get_cache_strategy_from_cache_settings(
+            cache_nulls=cache_nulls,
+            cache_defaults=cache_defaults
+        )
+
         registry = CURRENT_FEATURE_REGISTRY.get()
         registry_features = registry.get_feature_sets()
         previous_features_class = registry_features.get(namespace, None)
@@ -225,8 +272,10 @@ def features(
             tags=ensure_tuple(tags),
             etl_offline_to_online=etl_offline_to_online,
             max_staleness=max_staleness,
+            cache_strategy=cache_strategy,
             namespace=namespace,
             singleton=singleton,
+            online_store_config=online_store_config,
         )
         assert is_features_cls(updated_class)
 
@@ -335,10 +384,22 @@ def _init_fn(
         ts_feature_name = self.__chalk_ts__.attribute_name
 
         for k, v in kwargs.items():
-            cls_field = getattr(self.__class__, k, None)
-            if type(cls_field) is not FeatureWrapper and k not in additional_inits and k != ts_feature_name:
+            actual_key = k
+            if "@" in k:
+                base_name, version_str = k.rsplit("@", 1)
+                try:
+                    version = int(version_str)
+                    actual_key = f"{base_name}_v{version}"
+                    if not hasattr(self.__class__, actual_key):
+                        actual_key = base_name
+                except ValueError:
+                    pass
+
+            cls_field = getattr(self.__class__, actual_key, None)
+            if type(cls_field) is not FeatureWrapper and actual_key not in additional_inits and actual_key != ts_feature_name:
                 raise TypeError(f"{self.__class__.__name__}.__init__() got an unexpected keyword argument '{k}'")
-            setattr(self, k, v)
+
+            setattr(self, actual_key, v)
 
     _init.__name__ = "__init__"
     return _init
@@ -361,6 +422,7 @@ def _get_field(
     class_max_staleness: timedelta,
     namespace: str,
     is_singleton: bool,
+    class_cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Feature:
     # Return a Field object for this field name and type.  ClassVars and
     # InitVars are also returned, but marked as such (see f._field_type).
@@ -443,6 +505,7 @@ def _get_field(
 
     # Only at this point do we know the name and the type.  Set them.
     f.namespace = namespace
+
     if not f.is_typ_set():
         f.typ = ParsedAnnotation(cls, annotation_name)
 
@@ -451,6 +514,7 @@ def _get_field(
     if not hasattr(f, "name"):
         f.name = annotation_name
     f.is_singleton = is_singleton
+
     _process_field(
         f=f,
         comments=comments,
@@ -458,6 +522,7 @@ def _get_field(
         class_tags=class_tags,
         class_etl_offline_to_online=class_etl_offline_to_online,
         class_max_staleness=class_max_staleness,
+        class_cache_strategy=class_cache_strategy,
         error_builder=error_builder,
     )
     return f
@@ -471,6 +536,7 @@ def _process_field(
     class_etl_offline_to_online: bool,
     class_max_staleness: timedelta,
     error_builder: FeatureClassErrorBuilder,
+    class_cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Feature:
     comment_for_feature = comments.get(f.attribute_name)
     comment_based_description = None
@@ -530,6 +596,14 @@ def _process_field(
     # The attribute is not defined if the feature intends to use the class default
     if not hasattr(f, "max_staleness"):
         f.max_staleness = class_max_staleness
+
+    f_cache_nulls, f_cache_defaults = get_cache_settings_from_strategy(f.cache_strategy)
+    class_cache_nulls, class_cache_defaults =  get_cache_settings_from_strategy(class_cache_strategy)
+
+    f.cache_strategy = get_cache_strategy_from_cache_settings(
+        cache_nulls= f_cache_nulls if f_cache_nulls is not None else class_cache_nulls,
+        cache_defaults= f_cache_defaults if f_cache_defaults is not None else class_cache_defaults,
+    )
 
     # Using the private variable because the etl_offline_to_online is a read-only property
     if not hasattr(f, "etl_offline_to_online"):
@@ -729,6 +803,8 @@ def _process_class(
     max_staleness: timedelta,
     namespace: str,
     singleton: bool,
+    online_store_config: Optional[OnlineStoreConfig],
+    cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Type[T]:
     raw_cls_annotations = cls.__dict__.get("__annotations__", {})
 
@@ -739,6 +815,10 @@ def _process_class(
     group_by_materialized_windows: list[Feature] = []
     expression_windows: List[Feature] = []
     cls_annotations: Dict[str, Any] = {}
+
+    if online_store_config is not None:
+        online_store_config.feature_set_namespaces.add(namespace)
+
     for name, annotation in raw_cls_annotations.items():
         if name in ("features", "namespace", "items", "is_near"):
             error_builder.add_diagnostic(
@@ -1015,6 +1095,9 @@ def _process_class(
     del cls_annotations  # unused; set cls.__annotations__ directly
 
     set_new_attribute(cls=cls, name="__chalk_is_singleton__", value=singleton)
+    set_new_attribute(
+        cls=cls, name="__chalk_online_store_config__", value=(online_store_config and online_store_config.id)
+    )
     set_new_attribute(cls=cls, name="__chalk_error_builder__", value=error_builder)
     set_new_attribute(cls=cls, name="__chalk_source_info__", value=source_info)
     set_new_attribute(cls=cls, name="__chalk_materialized_windows__", value=materialized_windows)
@@ -1024,6 +1107,14 @@ def _process_class(
     cls_fields: List[Feature] = []
 
     if singleton:
+        if online_store_config is not None:
+            error_builder.add_diagnostic(
+                message="Singleton feature sets cannot be stored in an online store.",
+                label="invalid online store",
+                range=error_builder.decorator_kwarg_value_range("online_store_config"),
+                raise_error=ValueError,
+                code="74",
+            )
         f = Feature(
             primary=True,
             attribute_name="__chalk_singleton_id__",
@@ -1033,6 +1124,7 @@ def _process_class(
             typ=int,
             pyarrow_dtype=pa.uint8(),
             max_staleness=None,
+            cache_strategy=CacheStrategy.ALL,
             etl_offline_to_online=False,
             is_autogenerated=True,
             no_display=True,
@@ -1104,6 +1196,7 @@ def _process_class(
         ts_feature.features_cls = cls
         ts_feature.is_autogenerated = True
         cls.__annotations__[GENERATED_OBSERVED_AT_NAME] = datetime
+
         _process_field(
             f=ts_feature,
             error_builder=error_builder,
@@ -1112,6 +1205,7 @@ def _process_class(
             class_tags=tuple(cls.__chalk_tags__),
             class_etl_offline_to_online=cls.__chalk_etl_offline_to_online__,
             class_max_staleness=cls.__chalk_max_staleness__,
+            class_cache_strategy=cls.__chalk_cache_strategy__,
         )
 
         return FeatureWrapper(ts_feature)
@@ -1144,6 +1238,7 @@ def _process_class(
     set_new_attribute(cls=cls, name="__chalk_owner__", value=owner)
     set_new_attribute(cls=cls, name="__chalk_tags__", value=list(tags))
     set_new_attribute(cls=cls, name="__chalk_max_staleness__", value=max_staleness)
+    set_new_attribute(cls=cls, name="__chalk_cache_strategy__", value=cache_strategy)
     set_new_attribute(cls=cls, name="__is_features__", value=True)
     set_new_attribute(cls=cls, name="__len__", value=_len_fn)
     set_new_attribute(cls=cls, name="__getattribute__", value=_getattribute_fn)
@@ -1153,6 +1248,8 @@ def _process_class(
         name="__chalk_etl_offline_to_online__",
         value=etl_offline_to_online,
     )
+
+
     # Moving this line lower causes all kinds of problems.
     cls = classproperty_support(cls)
 
@@ -1174,6 +1271,7 @@ def _process_class(
             class_tags=tags,
             class_etl_offline_to_online=etl_offline_to_online,
             class_max_staleness=max_staleness,
+            class_cache_strategy=cache_strategy,
             namespace=namespace,
             is_singleton=singleton,
         )
@@ -1213,7 +1311,7 @@ def _process_class(
                 )
                 cls_cast = cast(Type, cls)
                 if not f_i.is_typ_set():
-                    f_i.typ = ParsedAnnotation(cls_cast, f.name)
+                    f_i.typ = ParsedAnnotation(cls_cast, f.attribute_name)
 
                 f_i.features_cls = cls_cast
                 f_i.attribute_name = f"{f.attribute_name}_v{i}"
@@ -1228,11 +1326,21 @@ def _process_class(
                     class_tags=tags,
                     class_etl_offline_to_online=etl_offline_to_online,
                     class_max_staleness=max_staleness,
+                    class_cache_strategy=cache_strategy,
                     error_builder=error_builder,
                 )
+
+                # copy over expressions for default version
+                if i == f.version.default:
+                    if f.underscore_expression is None and f_i.underscore_expression is not None:
+                        f.underscore_expression = f_i.underscore_expression
+                    if f.offline_underscore_expression is None and f_i.offline_underscore_expression is not None:
+                        f.offline_underscore_expression = f_i.offline_underscore_expression
+
                 f.version.reference[i] = f_i
                 # The default feature already exists.
                 f_i.no_display = i == f.version.default
+                cls_fields.append(f_i)
             continue
 
         for i in range(1, f.version.maximum + 1):
@@ -1295,6 +1403,7 @@ def _process_class(
 
         if f.hook:
             f.hook(cast(Type[Features], cls))
+
     set_new_attribute(cls=cls, name="__chalk_feature_set__", value=True)
     return cls
 
@@ -1433,6 +1542,7 @@ def _class_setattr(
         class_tags=tuple(cls.__chalk_tags__),
         class_etl_offline_to_online=cls.__chalk_etl_offline_to_online__,
         class_max_staleness=cls.__chalk_max_staleness__,
+        class_cache_strategy=cls.__chalk_cache_strategy__,
     )
     if existing_feature is not None:
         cls.features.remove(existing_feature)

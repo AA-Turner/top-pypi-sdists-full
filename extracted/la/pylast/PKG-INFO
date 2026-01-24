@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylast
-Version: 5.5.0
+Version: 7.0.2
 Summary: A Python interface to Last.fm and Libre.fm
 Project-URL: Changelog, https://github.com/pylast/pylast/releases
 Project-URL: Homepage, https://github.com/pylast/pylast
@@ -12,25 +12,26 @@ License-File: LICENSE.txt
 Keywords: Last.fm,music,scrobble,scrobbling
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: httpx
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.26
 Provides-Extra: tests
 Requires-Dist: flaky; extra == 'tests'
-Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
 Requires-Dist: pytest-random-order; extra == 'tests'
+Requires-Dist: pytest-recording; extra == 'tests'
+Requires-Dist: pytest>=9; extra == 'tests'
 Requires-Dist: pyyaml; extra == 'tests'
 Description-Content-Type: text/markdown
 
@@ -69,24 +70,6 @@ Or from requirements.txt:
 ```txt
 -e https://github.com/pylast/pylast.git#egg=pylast
 ```
-
-Note:
-
-- pyLast 5.4+ supports Python 3.9-3.14.
-- pyLast 5.3 supports Python 3.8-3.13.
-- pyLast 5.2 supports Python 3.8-3.12.
-- pyLast 5.1 supports Python 3.7-3.11.
-- pyLast 5.0 supports Python 3.7-3.10.
-- pyLast 4.3 - 4.5 supports Python 3.6-3.10.
-- pyLast 4.0 - 4.2 supports Python 3.6-3.9.
-- pyLast 3.2 - 3.3 supports Python 3.5-3.8.
-- pyLast 3.0 - 3.1 supports Python 3.5-3.7.
-- pyLast 2.2 - 2.4 supports Python 2.7.10+, 3.4-3.7.
-- pyLast 2.0 - 2.1 supports Python 2.7.10+, 3.4-3.6.
-- pyLast 1.7 - 1.9 supports Python 2.7, 3.3-3.6.
-- pyLast 1.0 - 1.6 supports Python 2.7, 3.3-3.4.
-- pyLast 0.5 supports Python 2, 3.
-- pyLast < 0.5 supports Python 2.
 
 ## Features
 

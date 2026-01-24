@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: scipp
+Version: 25.12.0
+Summary: Multi-dimensional data arrays with labeled dimensions
+Author: Scipp contributors (https://github.com/scipp)
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Scientific/Engineering
+Classifier: Typing :: Typed
+Project-URL: Documentation, https://scipp.github.io/
+Project-URL: Source, https://github.com/scipp/scipp
+Project-URL: Bug Tracker, https://github.com/scipp/scipp/issues
+Requires-Python: >=3.11
+Requires-Dist: numpy>=2
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: matplotlib; extra == "test"
+Requires-Dist: beautifulsoup4; extra == "test"
+Requires-Dist: ipython; extra == "test"
+Provides-Extra: extra
+Requires-Dist: h5py; extra == "extra"
+Requires-Dist: scipy>=1.7.0; extra == "extra"
+Requires-Dist: graphviz; extra == "extra"
+Requires-Dist: pooch; extra == "extra"
+Requires-Dist: plopp; extra == "extra"
+Requires-Dist: matplotlib; extra == "extra"
+Provides-Extra: all
+Requires-Dist: scipp[extra]; extra == "all"
+Requires-Dist: ipympl; extra == "all"
+Requires-Dist: ipython; extra == "all"
+Requires-Dist: ipywidgets; extra == "all"
+Requires-Dist: jupyterlab; extra == "all"
+Requires-Dist: jupyterlab-widgets; extra == "all"
+Requires-Dist: jupyter_nbextensions_configurator; extra == "all"
+Requires-Dist: nodejs; extra == "all"
+Requires-Dist: pythreejs; extra == "all"
+Description-Content-Type: text/markdown
+
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![PyPI badge](https://img.shields.io/pypi/v/scipp.svg)](https://pypi.python.org/pypi/scipp)
+[![Anaconda-Server Badge](https://anaconda.org/scipp/scipp/badges/version.svg)](https://anaconda.org/scipp/scipp)
+[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4019/badge)](https://bestpractices.coreinfrastructure.org/projects/4019)
+[![DOI](https://zenodo.org/badge/147631466.svg)](https://zenodo.org/badge/latestdoi/147631466)
+
+# Scipp
+
+See https://scipp.github.io/ for project context and how to use and install the **scipp** Python module.
+
+Bug reports or feature requests should be submitted by opening an [issue](https://github.com/scipp/scipp/issues).
+For general discussions, or questions about how to achieve something with Scipp, start a new [discussion](https://github.com/scipp/scipp/discussions).
+
+## Development
+
+If you are interested in developing Scipp, please see the [developer getting started guide](https://scipp.github.io/development/getting-started.html).
+
+### Links
+
+- [Performance benchmarks](https://scipp.github.io/scipp-benchmarks/)
+- [Code coverage](https://scipp.github.io/scipp-coverage/)
+
+## Contributing Organizations
+
+The following organizations have made major contributions to the development of scipp, and other developments in the [scipp ecosystem](../../../):
+
+* [European Spallation Source ERIC](https://europeanspallationsource.se/), Sweden
+* [Science and Technology Facilities Council](https://www.ukri.org/councils/stfc/), UK
+
+See individual [releases](https://github.com/scipp/scipp/releases) for the individual contributors to each release.

@@ -13,13 +13,23 @@ from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class CodeScanningOptionsType(TypedDict):
-    """CodeScanningOptions
+class CodeScanningAnalysisToolType(TypedDict):
+    """CodeScanningAnalysisTool"""
 
-    Security Configuration feature options for code scanning
-    """
+    name: NotRequired[str]
+    version: NotRequired[Union[str, None]]
+    guid: NotRequired[Union[str, None]]
 
-    allow_advanced: NotRequired[Union[bool, None]]
+
+class CodeScanningAnalysisToolTypeForResponse(TypedDict):
+    """CodeScanningAnalysisTool"""
+
+    name: NotRequired[str]
+    version: NotRequired[Union[str, None]]
+    guid: NotRequired[Union[str, None]]
 
 
-__all__ = ("CodeScanningOptionsType",)
+__all__ = (
+    "CodeScanningAnalysisToolType",
+    "CodeScanningAnalysisToolTypeForResponse",
+)

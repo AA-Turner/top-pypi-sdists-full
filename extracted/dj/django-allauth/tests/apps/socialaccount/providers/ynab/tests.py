@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from requests.exceptions import HTTPError
 
 from django.test import TestCase
@@ -22,7 +23,7 @@ class YNABTests(OAuth2TestsMixin, TestCase):
 
     def get_mocked_response(self):
         return MockedResponse(
-            200,
+            HTTPStatus.OK,
             """
               {"data": {
         "user":{
@@ -41,18 +42,18 @@ class YNABTests(OAuth2TestsMixin, TestCase):
 
         class LessMockedResponse(MockedResponse):
             def raise_for_status(self):
-                if self.status_code != 200:
+                if self.status_code != HTTPStatus.OK:
                     raise HTTPError(None)
 
         request = RequestFactory().get(
-            reverse(self.provider.id + "_login"), dict(process="login")
+            reverse(f"{self.provider.id}_login"), dict(process="login")
         )
 
         adapter = YNABOAuth2Adapter(request)
         app = adapter.get_provider().app
         token = SocialToken(token="some_token")
         response_with_401 = LessMockedResponse(
-            401,
+            HTTPStatus.UNAUTHORIZED,
             """
             {"error": {
               "errors": [{

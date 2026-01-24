@@ -1305,9 +1305,37 @@ class DomainsUserDbCredential(pulumi.CustomResource):
                  user: Optional[pulumi.Input[Union['DomainsUserDbCredentialUserArgs', 'DomainsUserDbCredentialUserArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the User Db Credential resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's database (DB) credentials.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_user_db_credential = oci.identity.DomainsUserDbCredential("test_user_db_credential",
+            db_password=user_db_credential_db_password,
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:UserDbCredentials"],
+            attribute_sets=[],
+            attributes="",
+            authorization=user_db_credential_authorization,
+            description=user_db_credential_description,
+            expires_on=user_db_credential_expires_on,
+            id=user_db_credential_id,
+            ocid=user_db_credential_ocid,
+            resource_type_schema_version=user_db_credential_resource_type_schema_version,
+            status=user_db_credential_status,
+            tags=[{
+                "key": user_db_credential_tags_key,
+                "value": user_db_credential_tags_value,
+            }],
+            urnietfparamsscimschemasoracleidcsextensionself_change_user={
+                "allow_self_change": user_db_credential_urnietfparamsscimschemasoracleidcsextensionself_change_user_allow_self_change,
+            },
+            user={
+                "value": test_user["id"],
+                "ocid": test_user["ocid"],
+            })
+        ```
 
         ## Import
 
@@ -1421,9 +1449,37 @@ class DomainsUserDbCredential(pulumi.CustomResource):
                  args: DomainsUserDbCredentialArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the User Db Credential resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's database (DB) credentials.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_user_db_credential = oci.identity.DomainsUserDbCredential("test_user_db_credential",
+            db_password=user_db_credential_db_password,
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:UserDbCredentials"],
+            attribute_sets=[],
+            attributes="",
+            authorization=user_db_credential_authorization,
+            description=user_db_credential_description,
+            expires_on=user_db_credential_expires_on,
+            id=user_db_credential_id,
+            ocid=user_db_credential_ocid,
+            resource_type_schema_version=user_db_credential_resource_type_schema_version,
+            status=user_db_credential_status,
+            tags=[{
+                "key": user_db_credential_tags_key,
+                "value": user_db_credential_tags_value,
+            }],
+            urnietfparamsscimschemasoracleidcsextensionself_change_user={
+                "allow_self_change": user_db_credential_urnietfparamsscimschemasoracleidcsextensionself_change_user_allow_self_change,
+            },
+            user={
+                "value": test_user["id"],
+                "ocid": test_user["ocid"],
+            })
+        ```
 
         ## Import
 

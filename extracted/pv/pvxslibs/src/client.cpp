@@ -310,16 +310,17 @@ void ResultWaiter::complete(Result&& result, bool interrupt)
     notify.signal();
 }
 
-OperationBase::OperationBase(operation_t op, const evbase& loop)
+OperationBase::OperationBase(operation_t op, const evbase& loop, const std::string &name)
     :Operation(op)
     ,loop(loop)
+    ,channelName(name)
 {}
 
 OperationBase::~OperationBase() {}
 
 const std::string& OperationBase::name()
 {
-    return chan->name;
+    return channelName;
 }
 
 Value OperationBase::wait(double timeout)
@@ -605,6 +606,9 @@ ContextImpl::ContextImpl(const Config& conf, const evbase& tcp_loop)
         log_info_printf(io, "Searching to TCP %s\n", saddr.tostring().c_str());
         nameServers.emplace_back(saddr, nullptr);
     }
+
+    if(searchDest.empty() && nameServers.empty())
+        log_err_printf(setup, "Client context created with no search destinations.  Nothing much will happen now%s", "\n");
 
     const auto cb([this](const UDPManager::Beacon& msg) {
         onBeacon(msg);

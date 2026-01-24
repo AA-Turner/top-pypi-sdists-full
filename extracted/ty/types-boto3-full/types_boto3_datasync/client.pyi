@@ -3,7 +3,7 @@ Type annotations for datasync service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -121,12 +122,6 @@ from .type_defs import (
     UpdateTaskRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -135,9 +130,9 @@ else:
 __all__ = ("DataSyncClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
 
 class DataSyncClient(BaseClient):
     """
@@ -176,7 +171,7 @@ class DataSyncClient(BaseClient):
 
     def cancel_task_execution(
         self, **kwargs: Unpack[CancelTaskExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an DataSync task execution that's in progress.
 
@@ -315,7 +310,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#create_task)
         """
 
-    def delete_agent(self, **kwargs: Unpack[DeleteAgentRequestTypeDef]) -> Dict[str, Any]:
+    def delete_agent(self, **kwargs: Unpack[DeleteAgentRequestTypeDef]) -> dict[str, Any]:
         """
         Removes an DataSync agent resource from your Amazon Web Services account.
 
@@ -323,7 +318,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#delete_agent)
         """
 
-    def delete_location(self, **kwargs: Unpack[DeleteLocationRequestTypeDef]) -> Dict[str, Any]:
+    def delete_location(self, **kwargs: Unpack[DeleteLocationRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a transfer location resource from DataSync.
 
@@ -331,7 +326,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#delete_location)
         """
 
-    def delete_task(self, **kwargs: Unpack[DeleteTaskRequestTypeDef]) -> Dict[str, Any]:
+    def delete_task(self, **kwargs: Unpack[DeleteTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a transfer task resource from DataSync.
 
@@ -549,7 +544,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#start_task_execution)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies a <i>tag</i> to an Amazon Web Services resource.
 
@@ -557,7 +552,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from an Amazon Web Services resource.
 
@@ -565,7 +560,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#untag_resource)
         """
 
-    def update_agent(self, **kwargs: Unpack[UpdateAgentRequestTypeDef]) -> Dict[str, Any]:
+    def update_agent(self, **kwargs: Unpack[UpdateAgentRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the name of an DataSync agent.
 
@@ -575,7 +570,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_azure_blob(
         self, **kwargs: Unpack[UpdateLocationAzureBlobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configurations of the Microsoft Azure Blob Storage
         transfer location that you're using with DataSync.
@@ -586,7 +581,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_efs(
         self, **kwargs: Unpack[UpdateLocationEfsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Amazon EFS transfer
         location that you're using with DataSync.
@@ -597,7 +592,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_fsx_lustre(
         self, **kwargs: Unpack[UpdateLocationFsxLustreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Amazon FSx for Lustre
         transfer location that you're using with DataSync.
@@ -608,7 +603,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_fsx_ontap(
         self, **kwargs: Unpack[UpdateLocationFsxOntapRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Amazon FSx for NetApp
         ONTAP transfer location that you're using with DataSync.
@@ -619,7 +614,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_fsx_open_zfs(
         self, **kwargs: Unpack[UpdateLocationFsxOpenZfsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Amazon FSx for OpenZFS
         transfer location that you're using with DataSync.
@@ -630,7 +625,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_fsx_windows(
         self, **kwargs: Unpack[UpdateLocationFsxWindowsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Amazon FSx for Windows
         File Server transfer location that you're using with DataSync.
@@ -641,7 +636,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_hdfs(
         self, **kwargs: Unpack[UpdateLocationHdfsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Hadoop Distributed File
         System (HDFS) transfer location that you're using with DataSync.
@@ -652,7 +647,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_nfs(
         self, **kwargs: Unpack[UpdateLocationNfsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Network File System
         (NFS) transfer location that you're using with DataSync.
@@ -663,7 +658,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_object_storage(
         self, **kwargs: Unpack[UpdateLocationObjectStorageRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the object storage transfer
         location that you're using with DataSync.
@@ -674,7 +669,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_s3(
         self, **kwargs: Unpack[UpdateLocationS3RequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Amazon S3 transfer
         location that you're using with DataSync.
@@ -685,7 +680,7 @@ class DataSyncClient(BaseClient):
 
     def update_location_smb(
         self, **kwargs: Unpack[UpdateLocationSmbRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies the following configuration parameters of the Server Message Block
         (SMB) transfer location that you're using with DataSync.
@@ -694,7 +689,7 @@ class DataSyncClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datasync/client/#update_location_smb)
         """
 
-    def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> Dict[str, Any]:
+    def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the configuration of a <i>task</i>, which defines where and how
         DataSync transfers your data.
@@ -705,7 +700,7 @@ class DataSyncClient(BaseClient):
 
     def update_task_execution(
         self, **kwargs: Unpack[UpdateTaskExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of a running DataSync task execution.
 

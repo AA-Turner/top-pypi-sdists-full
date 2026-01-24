@@ -1,0 +1,29 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables: 
+  - group: 'dev-toolkit-credentials'
+
+
+
+jobs:
+  - job: build_modules
+    displayName: 'Deploy Dry Run'
+    pool:
+      vmImage: 'ubuntu-latest'
+    container: 
+      image: 'cognite/toolkit:0.0.0'
+      env:
+        CDF_CLUSTER: $(CDF_CLUSTER)
+        CDF_PROJECT: $(CDF_PROJECT)
+        IDP_CLIENT_ID: $(IDP_CLIENT_ID)
+        IDP_CLIENT_SECRET: $(IDP_CLIENT_SECRET) # Make sure this is stored as a secret in Azure DevOps
+        IDP_TENANT_ID: $(IDP_TENANT_ID)
+    steps:
+      - checkout: self
+      - script: cdf build
+        displayName: 'Build the modules'
+      - script: cdf deploy
+        displayName: 'Deploy the modules'

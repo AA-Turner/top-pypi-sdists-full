@@ -1,7 +1,7 @@
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.query import QuerySet
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.contrib.notifications.models.notification_types import (
     NotificationTypeSetting,
 )
@@ -29,7 +29,7 @@ class NotificationUserToken(models.Model):
         WEB = "WEB", "Web"
         MOBILE = "MOBILE", "Mobile"
 
-    user = models.ForeignKey(to=get_user_model(), related_name="notifications_tokens", on_delete=models.CASCADE)
+    user = models.ForeignKey(to=User, related_name="notifications_tokens", on_delete=models.CASCADE)
     token = models.CharField(max_length=256)
     device_type = models.CharField(max_length=16, choices=NotificationDeviceType.choices)
 

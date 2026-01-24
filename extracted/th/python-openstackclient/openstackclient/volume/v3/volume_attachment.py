@@ -11,13 +11,14 @@
 # under the License.
 
 import logging
+import typing as ty
 
 from openstack import utils as sdk_utils
 from osc_lib.cli import format_columns
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.common import envvars
 from openstackclient.common import pagination
 from openstackclient.i18n import _
@@ -56,12 +57,12 @@ def _format_attachment(attachment):
     # VolumeAttachmentManager.create returns a dict while everything else
     # returns a VolumeAttachment object
     if isinstance(attachment, dict):
-        data = []
+        data: tuple[ty.Any, ...] = ()
         for column in columns:
             if column == 'connection_info':
-                data.append(format_columns.DictColumn(attachment[column]))
+                data += (format_columns.DictColumn(attachment[column]),)
                 continue
-            data.append(attachment[column])
+            data += (attachment[column],)
     else:
         data = utils.get_item_properties(
             attachment,
@@ -458,7 +459,7 @@ class ListVolumeAttachment(command.Lister):
         }
         # Update search option with `filters`
         # if AppendFilters.filters:
-        #     search_opts.update(shell_utils.extract_filters(AppendFilters.filters))
+        #     search_opts.update(shell_utils.extract_filters(AppendFilters.filters))  # noqa: E501
 
         # TODO(stephenfin): Implement sorting
         attachments = volume_client.attachments(

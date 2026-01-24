@@ -19,7 +19,9 @@ use chroma_index::sparse::reader::SparseReader;
 use chroma_index::sparse::types::DEFAULT_BLOCK_SIZE;
 use chroma_index::sparse::writer::SparseFlusher;
 use chroma_index::sparse::writer::SparseWriter;
+use chroma_types::Cmek;
 use chroma_types::DatabaseUuid;
+use chroma_types::Schema;
 use chroma_types::SegmentType;
 use chroma_types::BOOL_METADATA;
 use chroma_types::F32_METADATA;
@@ -112,6 +114,7 @@ impl<'me> MetadataSegmentWriter<'me> {
         database_id: &DatabaseUuid,
         segment: &Segment,
         blockfile_provider: &BlockfileProvider,
+        cmek: Option<Cmek>,
     ) -> Result<MetadataSegmentWriter<'me>, MetadataSegmentError> {
         if segment.r#type != SegmentType::BlockfileMetadata {
             return Err(MetadataSegmentError::InvalidSegmentType);
@@ -136,26 +139,32 @@ impl<'me> MetadataSegmentWriter<'me> {
                     let (prefix, pls_uuid) = Segment::extract_prefix_and_id(pls_path)
                         .map_err(|_| MetadataSegmentError::UuidParseError(pls_path.to_string()))?;
 
-                    blockfile_provider
-                        .write::<u32, Vec<u32>>(
-                            BlockfileWriterOptions::new(prefix.to_string())
-                                .fork(pls_uuid)
-                                .ordered_mutations(),
-                        )
-                        .await
-                        .map_err(|e| MetadataSegmentError::BlockfileError(*e))?
+                    {
+                        let mut options = BlockfileWriterOptions::new(prefix.to_string())
+                            .fork(pls_uuid)
+                            .ordered_mutations();
+                        if let Some(cmek) = &cmek {
+                            options = options.with_cmek(cmek.clone());
+                        }
+                        blockfile_provider
+                            .write::<u32, Vec<u32>>(options)
+                            .await
+                            .map_err(|e| MetadataSegmentError::BlockfileError(*e))?
+                    }
                 }
                 None => return Err(MetadataSegmentError::EmptyPathVector),
             },
-            None => match blockfile_provider
-                .write::<u32, Vec<u32>>(
-                    BlockfileWriterOptions::new(prefix_path.clone()).ordered_mutations(),
-                )
-                .await
-            {
-                Ok(writer) => writer,
-                Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
-            },
+            None => {
+                let mut options =
+                    BlockfileWriterOptions::new(prefix_path.clone()).ordered_mutations();
+                if let Some(cmek) = &cmek {
+                    options = options.with_cmek(cmek.clone());
+                }
+                match blockfile_provider.write::<u32, Vec<u32>>(options).await {
+                    Ok(writer) => writer,
+                    Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                }
+            }
         };
 
         let full_text_writer_tokenizer = NgramTokenizer::new(3, 3, false).unwrap();
@@ -172,15 +181,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                         Segment::extract_prefix_and_id(string_metadata_path).map_err(|_| {
                             MetadataSegmentError::UuidParseError(string_metadata_path.to_string())
                         })?;
-                    let string_metadata_writer = match blockfile_provider
-                        .write::<&str, RoaringBitmap>(
-                            BlockfileWriterOptions::new(prefix.to_string())
-                                .fork(string_metadata_uuid),
-                        )
-                        .await
-                    {
-                        Ok(writer) => writer,
-                        Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                    let string_metadata_writer = {
+                        let mut options = BlockfileWriterOptions::new(prefix.to_string())
+                            .fork(string_metadata_uuid);
+                        if let Some(cmek) = &cmek {
+                            options = options.with_cmek(cmek.clone());
+                        }
+                        match blockfile_provider
+                            .write::<&str, RoaringBitmap>(options)
+                            .await
+                        {
+                            Ok(writer) => writer,
+                            Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                        }
                     };
                     let read_options =
                         BlockfileReaderOptions::new(string_metadata_uuid, prefix.to_string());
@@ -195,13 +208,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                 }
                 None => return Err(MetadataSegmentError::EmptyPathVector),
             },
-            None => match blockfile_provider
-                .write::<&str, RoaringBitmap>(BlockfileWriterOptions::new(prefix_path.clone()))
-                .await
-            {
-                Ok(writer) => (writer, None),
-                Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
-            },
+            None => {
+                let mut options = BlockfileWriterOptions::new(prefix_path.clone());
+                if let Some(cmek) = &cmek {
+                    options = options.with_cmek(cmek.clone());
+                }
+                match blockfile_provider
+                    .write::<&str, RoaringBitmap>(options)
+                    .await
+                {
+                    Ok(writer) => (writer, None),
+                    Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                }
+            }
         };
         let string_metadata_index_writer =
             MetadataIndexWriter::new_string(string_metadata_writer, string_metadata_index_reader);
@@ -214,15 +233,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                             Segment::extract_prefix_and_id(bool_metadata_path).map_err(|_| {
                                 MetadataSegmentError::UuidParseError(bool_metadata_path.to_string())
                             })?;
-                        let bool_metadata_writer = match blockfile_provider
-                            .write::<bool, RoaringBitmap>(
-                                BlockfileWriterOptions::new(prefix.to_string())
-                                    .fork(bool_metadata_uuid),
-                            )
-                            .await
-                        {
-                            Ok(writer) => writer,
-                            Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                        let bool_metadata_writer = {
+                            let mut options = BlockfileWriterOptions::new(prefix.to_string())
+                                .fork(bool_metadata_uuid);
+                            if let Some(cmek) = &cmek {
+                                options = options.with_cmek(cmek.clone());
+                            }
+                            match blockfile_provider
+                                .write::<bool, RoaringBitmap>(options)
+                                .await
+                            {
+                                Ok(writer) => writer,
+                                Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                            }
                         };
                         let read_options =
                             BlockfileReaderOptions::new(bool_metadata_uuid, prefix.to_string());
@@ -237,13 +260,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                     }
                     None => return Err(MetadataSegmentError::EmptyPathVector),
                 },
-                None => match blockfile_provider
-                    .write::<bool, RoaringBitmap>(BlockfileWriterOptions::new(prefix_path.clone()))
-                    .await
-                {
-                    Ok(writer) => (writer, None),
-                    Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
-                },
+                None => {
+                    let mut options = BlockfileWriterOptions::new(prefix_path.clone());
+                    if let Some(cmek) = &cmek {
+                        options = options.with_cmek(cmek.clone());
+                    }
+                    match blockfile_provider
+                        .write::<bool, RoaringBitmap>(options)
+                        .await
+                    {
+                        Ok(writer) => (writer, None),
+                        Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                    }
+                }
             };
         let bool_metadata_index_writer =
             MetadataIndexWriter::new_bool(bool_metadata_writer, bool_metadata_index_reader);
@@ -256,15 +285,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                             Segment::extract_prefix_and_id(f32_metadata_path).map_err(|_| {
                                 MetadataSegmentError::UuidParseError(f32_metadata_path.to_string())
                             })?;
-                        let f32_metadata_writer = match blockfile_provider
-                            .write::<f32, RoaringBitmap>(
-                                BlockfileWriterOptions::new(prefix.to_string())
-                                    .fork(f32_metadata_uuid),
-                            )
-                            .await
-                        {
-                            Ok(writer) => writer,
-                            Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                        let f32_metadata_writer = {
+                            let mut options = BlockfileWriterOptions::new(prefix.to_string())
+                                .fork(f32_metadata_uuid);
+                            if let Some(cmek) = &cmek {
+                                options = options.with_cmek(cmek.clone());
+                            }
+                            match blockfile_provider
+                                .write::<f32, RoaringBitmap>(options)
+                                .await
+                            {
+                                Ok(writer) => writer,
+                                Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                            }
                         };
                         let read_options =
                             BlockfileReaderOptions::new(f32_metadata_uuid, prefix.to_string());
@@ -279,13 +312,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                     }
                     None => return Err(MetadataSegmentError::EmptyPathVector),
                 },
-                None => match blockfile_provider
-                    .write::<f32, RoaringBitmap>(BlockfileWriterOptions::new(prefix_path.clone()))
-                    .await
-                {
-                    Ok(writer) => (writer, None),
-                    Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
-                },
+                None => {
+                    let mut options = BlockfileWriterOptions::new(prefix_path.clone());
+                    if let Some(cmek) = &cmek {
+                        options = options.with_cmek(cmek.clone());
+                    }
+                    match blockfile_provider
+                        .write::<f32, RoaringBitmap>(options)
+                        .await
+                    {
+                        Ok(writer) => (writer, None),
+                        Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                    }
+                }
             };
         let f32_metadata_index_writer =
             MetadataIndexWriter::new_f32(f32_metadata_writer, f32_metadata_index_reader);
@@ -298,15 +337,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                             Segment::extract_prefix_and_id(u32_metadata_path).map_err(|_| {
                                 MetadataSegmentError::UuidParseError(u32_metadata_path.to_string())
                             })?;
-                        let u32_metadata_writer = match blockfile_provider
-                            .write::<u32, RoaringBitmap>(
-                                BlockfileWriterOptions::new(prefix.to_string())
-                                    .fork(u32_metadata_uuid),
-                            )
-                            .await
-                        {
-                            Ok(writer) => writer,
-                            Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                        let u32_metadata_writer = {
+                            let mut options = BlockfileWriterOptions::new(prefix.to_string())
+                                .fork(u32_metadata_uuid);
+                            if let Some(cmek) = &cmek {
+                                options = options.with_cmek(cmek.clone());
+                            }
+                            match blockfile_provider
+                                .write::<u32, RoaringBitmap>(options)
+                                .await
+                            {
+                                Ok(writer) => writer,
+                                Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                            }
                         };
                         let read_options =
                             BlockfileReaderOptions::new(u32_metadata_uuid, prefix.to_string());
@@ -321,13 +364,19 @@ impl<'me> MetadataSegmentWriter<'me> {
                     }
                     None => return Err(MetadataSegmentError::EmptyPathVector),
                 },
-                None => match blockfile_provider
-                    .write::<u32, RoaringBitmap>(BlockfileWriterOptions::new(prefix_path.clone()))
-                    .await
-                {
-                    Ok(writer) => (writer, None),
-                    Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
-                },
+                None => {
+                    let mut options = BlockfileWriterOptions::new(prefix_path.clone());
+                    if let Some(cmek) = &cmek {
+                        options = options.with_cmek(cmek.clone());
+                    }
+                    match blockfile_provider
+                        .write::<u32, RoaringBitmap>(options)
+                        .await
+                    {
+                        Ok(writer) => (writer, None),
+                        Err(e) => return Err(MetadataSegmentError::BlockfileError(*e)),
+                    }
+                }
             };
         let u32_metadata_index_writer =
             MetadataIndexWriter::new_u32(u32_metadata_writer, u32_metadata_index_reader);
@@ -352,12 +401,17 @@ impl<'me> MetadataSegmentWriter<'me> {
                 ))
                 .await
                 .map_err(|e| MetadataSegmentError::BlockfileOpenError(*e))?;
-            let max_writer = blockfile_provider
-                .write::<u32, f32>(
-                    BlockfileWriterOptions::new(max_prefix.to_string()).fork(max_uuid),
-                )
-                .await
-                .map_err(|e| MetadataSegmentError::BlockfileError(*e))?;
+            let max_writer = {
+                let mut options =
+                    BlockfileWriterOptions::new(max_prefix.to_string()).fork(max_uuid);
+                if let Some(cmek) = &cmek {
+                    options = options.with_cmek(cmek.clone());
+                }
+                blockfile_provider
+                    .write::<u32, f32>(options)
+                    .await
+                    .map_err(|e| MetadataSegmentError::BlockfileError(*e))?
+            };
             let (offset_value_prefix, offset_value_uuid) =
                 Segment::extract_prefix_and_id(offset_value_file_path).map_err(|_| {
                     MetadataSegmentError::UuidParseError(offset_value_file_path.to_string())
@@ -369,13 +423,17 @@ impl<'me> MetadataSegmentWriter<'me> {
                 ))
                 .await
                 .map_err(|e| MetadataSegmentError::BlockfileOpenError(*e))?;
-            let offset_value_writer = blockfile_provider
-                .write::<u32, f32>(
-                    BlockfileWriterOptions::new(offset_value_prefix.to_string())
-                        .fork(offset_value_uuid),
-                )
-                .await
-                .map_err(|e| MetadataSegmentError::BlockfileError(*e))?;
+            let offset_value_writer = {
+                let mut options = BlockfileWriterOptions::new(offset_value_prefix.to_string())
+                    .fork(offset_value_uuid);
+                if let Some(cmek) = &cmek {
+                    options = options.with_cmek(cmek.clone());
+                }
+                blockfile_provider
+                    .write::<u32, f32>(options)
+                    .await
+                    .map_err(|e| MetadataSegmentError::BlockfileError(*e))?
+            };
             Some(SparseWriter::new(
                 DEFAULT_BLOCK_SIZE,
                 max_writer,
@@ -383,14 +441,26 @@ impl<'me> MetadataSegmentWriter<'me> {
                 Some(SparseReader::new(max_reader, offset_value_reader)),
             ))
         } else {
-            let max_writer = blockfile_provider
-                .write::<u32, f32>(BlockfileWriterOptions::new(prefix_path.clone()))
-                .await
-                .map_err(|e| MetadataSegmentError::BlockfileError(*e))?;
-            let offset_value_writer = blockfile_provider
-                .write::<u32, f32>(BlockfileWriterOptions::new(prefix_path.clone()))
-                .await
-                .map_err(|e| MetadataSegmentError::BlockfileError(*e))?;
+            let max_writer = {
+                let mut options = BlockfileWriterOptions::new(prefix_path.clone());
+                if let Some(cmek) = &cmek {
+                    options = options.with_cmek(cmek.clone());
+                }
+                blockfile_provider
+                    .write::<u32, f32>(options)
+                    .await
+                    .map_err(|e| MetadataSegmentError::BlockfileError(*e))?
+            };
+            let offset_value_writer = {
+                let mut options = BlockfileWriterOptions::new(prefix_path.clone());
+                if let Some(cmek) = &cmek {
+                    options = options.with_cmek(cmek.clone());
+                }
+                blockfile_provider
+                    .write::<u32, f32>(options)
+                    .await
+                    .map_err(|e| MetadataSegmentError::BlockfileError(*e))?
+            };
             Some(SparseWriter::new(
                 DEFAULT_BLOCK_SIZE,
                 max_writer,
@@ -575,8 +645,11 @@ impl<'me> MetadataSegmentWriter<'me> {
         &self,
         record_segment_reader: &Option<RecordSegmentReader<'_>>,
         materialized: &MaterializeLogsResult,
-    ) -> Result<(), ApplyMaterializedLogError> {
+        schema: Option<Schema>,
+    ) -> Result<Option<Schema>, ApplyMaterializedLogError> {
         let mut count = 0u64;
+        let mut schema = schema;
+        let mut schema_modified = false;
 
         let mut full_text_writer_batch = vec![];
         for record in materialized {
@@ -634,57 +707,124 @@ impl<'me> MetadataSegmentWriter<'me> {
                 .await
                 .map_err(ApplyMaterializedLogError::Materialization)?;
             let segment_offset_id = record.get_offset_id();
+
             match record.get_operation() {
                 MaterializedLogOperation::AddNew => {
                     // We can ignore record.0.metadata_to_be_deleted
                     // for fresh adds. TODO on whether to propagate error.
                     if let Some(metadata) = record.get_metadata_to_be_merged() {
+                        for (key, value) in metadata.iter() {
+                            if let Some(schema_mut) = schema.as_mut() {
+                                if schema_mut.ensure_key_from_metadata(key, value.value_type()) {
+                                    schema_modified = true;
+                                }
+                                if !schema_mut.is_metadata_type_index_enabled(key, value.value_type())? {
+                                    continue;
+                                }
+                            }
+                            match self.set_metadata(key, value, segment_offset_id).await {
+                                Ok(()) => {}
+                                Err(_) => {
+                                    return Err(ApplyMaterializedLogError::BlockfileSet);
+                                }
+                            }
+                        }
+                    }
+                }
+                MaterializedLogOperation::DeleteExisting => match record.get_data_record() {
+                    Some(data_record) => {
+                        if let Some(metadata) = &data_record.metadata {
                             for (key, value) in metadata.iter() {
-                                match self.set_metadata(key, value, segment_offset_id).await {
+                                if let Some(ref schema) = schema {
+                                    if !schema.is_metadata_type_index_enabled(key, value.value_type())? {
+                                        continue;
+                                    }
+                                }
+                                match self.delete_metadata(key, value, segment_offset_id).await
+                                {
+                                    Ok(()) => {}
+                                    Err(_) => {
+                                        return Err(
+                                            ApplyMaterializedLogError::BlockfileDelete,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    None => panic!("Invariant violation. Data record should be set by materializer in case of Deletes")
+                },
+                MaterializedLogOperation::UpdateExisting => {
+                    let metadata_delta = record.compute_metadata_delta();
+
+                    // Metadata updates.
+                    for (update_key, (old_value, new_value)) in metadata_delta.metadata_to_update {
+                        if let Some(schema_mut) = schema.as_mut() {
+                            if schema_mut.ensure_key_from_metadata(update_key, new_value.value_type()) {
+                                schema_modified = true;
+                            }
+                            // theres basically 4 cases:
+                            // 1.old value & new value are not indexed -> noop
+                            // 2.old value is indexed & new value is not indexed -> delete old value
+                            // 3.old value is not indexed & new value is indexed -> insert new value
+                            // 4.old value is indexed & new value is indexed -> update old value
+                            let old_is_indexed = schema_mut.is_metadata_type_index_enabled(update_key, old_value.value_type())?;
+                            let new_is_indexed = schema_mut.is_metadata_type_index_enabled(update_key, new_value.value_type())?;
+                            if !old_is_indexed && !new_is_indexed {
+                                continue;
+                            }
+                            else if old_is_indexed && !new_is_indexed {
+                                match self.delete_metadata(update_key, old_value, segment_offset_id).await {
+                                    Ok(()) => {}
+                                    Err(_) => {
+                                        return Err(ApplyMaterializedLogError::BlockfileDelete);
+                                    }
+                                }
+                            }
+                            else if !old_is_indexed && new_is_indexed {
+                                match self.set_metadata(update_key, new_value, segment_offset_id).await {
                                     Ok(()) => {}
                                     Err(_) => {
                                         return Err(ApplyMaterializedLogError::BlockfileSet);
                                     }
                                 }
                             }
-                        }
-
-                }
-                MaterializedLogOperation::DeleteExisting => match record.get_data_record() {
-                    Some(data_record) => {
-                        if let Some(metadata) = &data_record.metadata {
-                                for (key, value) in metadata.iter() {
-                                    match self.delete_metadata(key, value, segment_offset_id).await
-                                    {
-                                        Ok(()) => {}
-                                        Err(_) => {
-                                            return Err(
-                                                ApplyMaterializedLogError::BlockfileDelete,
-                                            );
-                                        }
+                            else if old_is_indexed && new_is_indexed {
+                                match self.update_metadata(update_key, old_value, new_value, segment_offset_id).await {
+                                    Ok(()) => {}
+                                    Err(_) => {
+                                        return Err(ApplyMaterializedLogError::BlockfileUpdate);
                                     }
                                 }
                             }
-
-                    }
-                    None => panic!("Invariant violation. Data record should be set by materializer in case of Deletes")
-                },
-                MaterializedLogOperation::UpdateExisting => {
-                    let metadata_delta = record.compute_metadata_delta();
-                    // Metadata updates.
-                    for (update_key, (old_value, new_value)) in metadata_delta.metadata_to_update {
-                        match self
-                            .update_metadata(update_key, old_value, new_value, segment_offset_id)
-                            .await
-                        {
-                            Ok(()) => {}
-                            Err(_) => {
-                                return Err(ApplyMaterializedLogError::BlockfileUpdate);
+                        } else {
+                            match self
+                                .update_metadata(
+                                    update_key,
+                                    old_value,
+                                    new_value,
+                                    segment_offset_id,
+                                )
+                                .await
+                            {
+                                Ok(()) => {}
+                                Err(_) => {
+                                    return Err(ApplyMaterializedLogError::BlockfileUpdate);
+                                }
                             }
                         }
                     }
+
                     // Metadata inserts.
                     for (insert_key, new_value) in metadata_delta.metadata_to_insert {
+                        if let Some(schema_mut) = schema.as_mut() {
+                            if schema_mut.ensure_key_from_metadata(insert_key, new_value.value_type()) {
+                                schema_modified = true;
+                            }
+                            if !schema_mut.is_metadata_type_index_enabled(insert_key, new_value.value_type())? {
+                                continue;
+                            }
+                        }
                         match self
                             .set_metadata(insert_key, new_value, segment_offset_id)
                             .await
@@ -695,8 +835,14 @@ impl<'me> MetadataSegmentWriter<'me> {
                             }
                         }
                     }
+
                     // Metadata deletes.
                     for (delete_key, old_value) in metadata_delta.metadata_to_delete {
+                        if let Some(ref schema) = schema {
+                            if !schema.is_metadata_type_index_enabled(delete_key, old_value.value_type())? {
+                                continue;
+                            }
+                        }
                         match self
                             .delete_metadata(delete_key, old_value, segment_offset_id)
                             .await
@@ -714,40 +860,53 @@ impl<'me> MetadataSegmentWriter<'me> {
                     match record.get_data_record() {
                         Some(data_record) => {
                             if let Some(metadata) = &data_record.metadata {
-                                    for (key, value) in metadata.iter() {
-                                        match self.delete_metadata(key, value, segment_offset_id).await
-                                        {
-                                            Ok(()) => {}
-                                            Err(_) => {
-                                                return Err(
-                                                    ApplyMaterializedLogError::BlockfileDelete,
-                                                );
-                                            }
+                                for (key, value) in metadata.iter() {
+                                    if let Some(ref schema) = schema {
+                                        if !schema.is_metadata_type_index_enabled(key, value.value_type())? {
+                                            continue;
+                                        }
+                                    }
+                                    match self.delete_metadata(key, value, segment_offset_id).await
+                                    {
+                                        Ok(()) => {}
+                                        Err(_) => {
+                                            return Err(
+                                                ApplyMaterializedLogError::BlockfileDelete,
+                                            );
                                         }
                                     }
                                 }
-
+                            }
                         },
                         None => panic!("Invariant violation. Data record should be set by materializer in case of Deletes")
                     };
+
                     // Add new.
                     if let Some(metadata) = record.get_metadata_to_be_merged() {
-                            for (key, value) in metadata.iter() {
-                                match self.set_metadata(key, value, segment_offset_id).await {
-                                    Ok(()) => {}
-                                    Err(_) => {
-                                        return Err(ApplyMaterializedLogError::BlockfileSet);
-                                    }
+                        for (key, value) in metadata.iter() {
+                            if let Some(schema_mut) = schema.as_mut() {
+                                if schema_mut.ensure_key_from_metadata(key, value.value_type()) {
+                                    schema_modified = true;
+                                }
+                                if !schema_mut.is_metadata_type_index_enabled(key, value.value_type())? {
+                                    continue;
+                                }
+                            }
+                            match self.set_metadata(key, value, segment_offset_id).await {
+                                Ok(()) => {}
+                                Err(_) => {
+                                    return Err(ApplyMaterializedLogError::BlockfileSet);
                                 }
                             }
                         }
-
+                    }
                 },
                 MaterializedLogOperation::Initial => panic!("Not expected mat records in the initial state")
             }
         }
         tracing::info!("Applied {} records to metadata segment", count,);
-        Ok(())
+        // return the schema only if it was modified (so will not affect legacy paths)
+        Ok(if schema_modified { schema } else { None })
     }
 
     pub async fn finish(&mut self) -> Result<(), Box<dyn ChromaError>> {
@@ -1198,6 +1357,7 @@ mod test {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1206,6 +1366,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1276,7 +1437,7 @@ mod test {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1337,6 +1498,7 @@ mod test {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1345,6 +1507,7 @@ mod test {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1353,7 +1516,7 @@ mod test {
             .await
             .expect("Log materialization failed");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &mat_records)
+            .apply_materialized_log_chunk(&some_reader, &mat_records, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -1427,6 +1590,7 @@ mod test {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1435,6 +1599,7 @@ mod test {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1443,7 +1608,7 @@ mod test {
             .await
             .expect("Log materialization failed");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &mat_records)
+            .apply_materialized_log_chunk(&some_reader, &mat_records, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -1524,6 +1689,7 @@ mod test {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1532,6 +1698,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1598,7 +1765,7 @@ mod test {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1666,6 +1833,7 @@ mod test {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1674,6 +1842,7 @@ mod test {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1682,7 +1851,7 @@ mod test {
             .await
             .expect("Log materialization failed");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &mat_records)
+            .apply_materialized_log_chunk(&some_reader, &mat_records, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -1796,6 +1965,7 @@ mod test {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1804,6 +1974,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1861,7 +2032,7 @@ mod test {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1911,6 +2082,7 @@ mod test {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1919,6 +2091,7 @@ mod test {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1927,7 +2100,7 @@ mod test {
             .await
             .expect("Log materialization failed");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &mat_records)
+            .apply_materialized_log_chunk(&some_reader, &mat_records, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -2037,6 +2210,7 @@ mod test {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2045,6 +2219,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2093,7 +2268,7 @@ mod test {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -2141,6 +2316,7 @@ mod test {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -2149,6 +2325,7 @@ mod test {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -2157,7 +2334,7 @@ mod test {
             .await
             .expect("Log materialization failed");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &mat_records)
+            .apply_materialized_log_chunk(&some_reader, &mat_records, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -2266,6 +2443,7 @@ mod test {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2274,6 +2452,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2335,7 +2514,7 @@ mod test {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -2553,6 +2732,7 @@ mod test {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2562,6 +2742,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2576,10 +2757,10 @@ mod test {
             let mut update_metadata1 = HashMap::new();
             update_metadata1.insert(
                 String::from("sparse_vec"),
-                UpdateMetadataValue::SparseVector(chroma_types::SparseVector::new(
-                    vec![0, 5, 10],
-                    vec![0.1, 0.5, 0.9],
-                )),
+                UpdateMetadataValue::SparseVector(
+                    chroma_types::SparseVector::new(vec![0, 5, 10], vec![0.1, 0.5, 0.9])
+                        .expect("valid sparse vector"),
+                ),
             );
             update_metadata1.insert(
                 String::from("category"),
@@ -2621,7 +2802,7 @@ mod test {
                 .await
                 .expect("Error applying materialized log chunk");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &materialized_logs)
+                .apply_materialized_log_chunk(&record_segment_reader, &materialized_logs, None)
                 .await
                 .expect("Error applying materialized log chunk");
 
@@ -2710,6 +2891,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating metadata writer");
@@ -2758,6 +2940,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating metadata writer");
@@ -2837,6 +3020,7 @@ mod test {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating metadata writer");

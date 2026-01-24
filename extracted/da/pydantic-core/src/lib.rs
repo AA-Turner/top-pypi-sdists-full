@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use jiter::{map_json_error, FloatMode, PartialMode, PythonParse, StringCacheMode};
 use pyo3::exceptions::PyTypeError;
-use pyo3::{prelude::*, sync::GILOnceCell};
+use pyo3::{prelude::*, sync::PyOnceLock};
 use serializers::BytesMode;
 use validators::ValBytesMode;
 
@@ -84,7 +84,7 @@ pub fn get_pydantic_core_version() -> &'static str {
 
 /// Returns the installed version of pydantic.
 fn get_pydantic_version(py: Python<'_>) -> Option<&'static str> {
-    static PYDANTIC_VERSION: GILOnceCell<Option<String>> = GILOnceCell::new();
+    static PYDANTIC_VERSION: PyOnceLock<Option<String>> = PyOnceLock::new();
 
     PYDANTIC_VERSION
         .get_or_init(py, || {
@@ -107,7 +107,7 @@ pub fn build_info() -> String {
 }
 
 #[pymodule(gil_used = false)]
-mod _pydantic_core {
+pub mod _pydantic_core {
     #[allow(clippy::wildcard_imports)]
     use super::*;
 
@@ -125,7 +125,7 @@ mod _pydantic_core {
         m.add("build_profile", env!("PROFILE"))?;
         m.add("build_info", build_info())?;
         m.add("_recursion_limit", recursion_guard::RECURSION_GUARD_LIMIT)?;
-        m.add("PydanticUndefined", PydanticUndefinedType::new(m.py()))?;
+        m.add("PydanticUndefined", PydanticUndefinedType::get(m.py()))?;
         Ok(())
     }
 }

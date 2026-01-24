@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -30,12 +31,6 @@ from .literals import (
     SchemaType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -151,7 +146,7 @@ class BatchGetUserAccessTasksRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -306,7 +301,7 @@ class GetAppBundleResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAppBundlesResponseTypeDef(TypedDict):
-    appBundleSummaryList: List[AppBundleSummaryTypeDef]
+    appBundleSummaryList: list[AppBundleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -324,7 +319,7 @@ class CreateIngestionRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -348,12 +343,12 @@ class DestinationTypeDef(TypedDict):
     firehoseStream: NotRequired[FirehoseStreamTypeDef]
 
 class ListIngestionDestinationsResponseTypeDef(TypedDict):
-    ingestionDestinations: List[IngestionDestinationSummaryTypeDef]
+    ingestionDestinations: list[IngestionDestinationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListIngestionsResponseTypeDef(TypedDict):
-    ingestions: List[IngestionSummaryTypeDef]
+    ingestions: list[IngestionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -398,7 +393,7 @@ class ConnectAppAuthorizationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAppAuthorizationsResponseTypeDef(TypedDict):
-    appAuthorizationSummaryList: List[AppAuthorizationSummaryTypeDef]
+    appAuthorizationSummaryList: list[AppAuthorizationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -433,11 +428,11 @@ class AuditLogDestinationConfigurationTypeDef(TypedDict):
     destination: DestinationTypeDef
 
 class BatchGetUserAccessTasksResponseTypeDef(TypedDict):
-    userAccessResultsList: List[UserAccessResultItemTypeDef]
+    userAccessResultsList: list[UserAccessResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartUserAccessTasksResponseTypeDef(TypedDict):
-    userAccessTasksList: List[UserAccessTaskItemTypeDef]
+    userAccessTasksList: list[UserAccessTaskItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DestinationConfigurationTypeDef(TypedDict):

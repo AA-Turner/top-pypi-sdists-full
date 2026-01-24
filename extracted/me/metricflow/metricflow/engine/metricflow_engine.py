@@ -14,7 +14,6 @@ from dbt_semantic_interfaces.naming.keywords import METRIC_TIME_ELEMENT_NAME
 from dbt_semantic_interfaces.references import (
     DimensionReference,
     EntityReference,
-    MeasureReference,
     MetricReference,
     SemanticModelElementReference,
 )
@@ -22,16 +21,16 @@ from dbt_semantic_interfaces.type_enums import DimensionType
 from metricflow_semantics.collection_helpers.syntactic_sugar import mf_first_item
 from metricflow_semantics.dag.sequential_id import SequentialIdGenerator
 from metricflow_semantics.errors.error_classes import ExecutionException, InvalidQueryException, UnknownMetricError
-from metricflow_semantics.experimental.metricflow_exception import MetricflowInternalError
+from metricflow_semantics.experimental.metricflow_exception import MetricFlowInternalError
 from metricflow_semantics.filters.time_constraint import TimeRangeConstraint
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.runtime import log_block_runtime
-from metricflow_semantics.model.linkable_element_property import LinkableElementProperty
+from metricflow_semantics.model.linkable_element_property import GroupByItemProperty
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.model.semantic_model_derivation import SemanticModelDerivation
-from metricflow_semantics.model.semantics.element_filter import LinkableElementFilter
+from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.model.semantics.linkable_element import LinkableElementType
-from metricflow_semantics.model.semantics.linkable_element_set_base import AnnotatedSpec, BaseLinkableElementSet
+from metricflow_semantics.model.semantics.linkable_element_set_base import AnnotatedSpec, BaseGroupByItemSet
 from metricflow_semantics.model.semantics.semantic_model_helper import SemanticModelHelper
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.protocols.query_parameter import (
@@ -61,7 +60,7 @@ from metricflow.dataflow.optimizer.dataflow_optimizer_factory import DataflowPla
 from metricflow.dataset.convert_semantic_model import SemanticModelToDataSetConverter
 from metricflow.dataset.dataset_classes import DataSet
 from metricflow.dataset.semantic_model_adapter import SemanticModelDataSet
-from metricflow.engine.models import Dimension, Entity, Measure, Metric, SavedQuery, SearchableElement
+from metricflow.engine.models import Dimension, Entity, Metric, SavedQuery, SearchableElement
 from metricflow.engine.time_source import ServerTimeSource
 from metricflow.execution.convert_to_execution_plan import ConvertToExecutionPlanResult
 from metricflow.execution.dataflow_to_execution import (
@@ -80,14 +79,14 @@ logger = logging.getLogger(__name__)
 _telemetry_reporter = TelemetryReporter(report_levels_higher_or_equal_to=TelemetryLevel.USAGE)
 _telemetry_reporter.add_python_log_handler()
 
-SIMPLE_DIMENSIONS_WITHOUT_ANY_PROPERTIES: Set[LinkableElementProperty] = {
-    LinkableElementProperty.ENTITY,
-    LinkableElementProperty.DERIVED_TIME_GRANULARITY,
-    LinkableElementProperty.DATE_PART,
-    LinkableElementProperty.LOCAL_LINKED,
-    LinkableElementProperty.METRIC,
+SIMPLE_DIMENSIONS_WITHOUT_ANY_PROPERTIES: Set[GroupByItemProperty] = {
+    GroupByItemProperty.ENTITY,
+    GroupByItemProperty.DERIVED_TIME_GRANULARITY,
+    GroupByItemProperty.DATE_PART,
+    GroupByItemProperty.LOCAL_LINKED,
+    GroupByItemProperty.METRIC,
 }
-ENTITY_WITH_ANY_PROPERTIES: Set[LinkableElementProperty] = {LinkableElementProperty.ENTITY}
+ENTITY_WITH_ANY_PROPERTIES: Set[GroupByItemProperty] = {GroupByItemProperty.ENTITY}
 
 SearchableElementGeneric = TypeVar("SearchableElementGeneric", bound=SearchableElement)
 
@@ -96,7 +95,7 @@ class GroupByOrderByAttribute(Enum):
     """Supported dimension attributes to order them by."""
 
     SEMANTIC_MODEL_NAME = "semantic_model_name"
-    QUALIFIED_NAME = "qualified_name"
+    DUNDER_NAME = "dunder_name"
 
 
 @dataclass(frozen=True)
@@ -271,7 +270,7 @@ class AbstractMetricFlowEngine(ABC):
     def simple_dimensions_for_metrics(
         self,
         metric_names: List[str],
-        without_any_property: Sequence[LinkableElementProperty],
+        without_any_property: Sequence[GroupByItemProperty],
     ) -> List[Dimension]:
         """Retrieves a list of all common dimensions for metric_names.
 
@@ -364,7 +363,7 @@ class AbstractMetricFlowEngine(ABC):
         self,
         metric_names: Optional[List[str]] = None,
         include_derived_time_granularities: bool = False,
-        order_by: GroupByOrderByAttribute = GroupByOrderByAttribute.QUALIFIED_NAME,
+        order_by: GroupByOrderByAttribute = GroupByOrderByAttribute.DUNDER_NAME,
     ) -> List[Entity | Dimension]:
         """List all group bys in the semantic manifest, with optional filters."""
         pass
@@ -427,13 +426,15 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
             semantic_manifest_lookup.semantic_manifest
         )
         self._source_data_sets: List[SemanticModelDataSet] = []
-        converter = SemanticModelToDataSetConverter(column_association_resolver=self._column_association_resolver)
-        for semantic_model in sorted(
-            self._semantic_manifest_lookup.semantic_manifest.semantic_models, key=lambda model: model.name
-        ):
-            data_set = converter.create_sql_source_data_set(semantic_model)
+        converter = SemanticModelToDataSetConverter(
+            column_association_resolver=self._column_association_resolver,
+            manifest_lookup=self._semantic_manifest_lookup,
+        )
+        model_lookup = semantic_manifest_lookup.semantic_model_lookup
+        for model_reference, semantic_model in model_lookup.model_reference_to_model.items():
+            data_set = converter.create_sql_source_data_set(model_reference)
             self._source_data_sets.append(data_set)
-            logger.debug(LazyFormat(lambda: f"Created source dataset from semantic model '{semantic_model.name}'"))
+            logger.debug(LazyFormat("Created source dataset from semantic model", model_reference=model_reference))
 
         source_node_builder = SourceNodeBuilder(
             column_association_resolver=self._column_association_resolver,
@@ -615,43 +616,16 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
         with log_block_runtime("explain"):
             return self._create_execution_plan(mf_request)
 
-    def get_measures_for_metrics(self, metric_names: List[str]) -> List[Measure]:  # noqa: D102
-        metrics = self._semantic_manifest_lookup.metric_lookup.get_metrics(
-            metric_references=[MetricReference(element_name=metric_name) for metric_name in metric_names]
-        )
-        semantic_model_lookup = self._semantic_manifest_lookup.semantic_model_lookup
-
-        measures = set()
-        for metric in metrics:
-            for input_measure in metric.input_measures:
-                measure_reference = MeasureReference(element_name=input_measure.name)
-                # populate new obj
-                measure = semantic_model_lookup.measure_lookup.get_measure(measure_reference=measure_reference)
-                measures.add(
-                    Measure(
-                        name=measure.name,
-                        agg=measure.agg,
-                        agg_time_dimension=semantic_model_lookup.measure_lookup.get_properties(
-                            measure_reference=measure_reference
-                        ).agg_time_dimension_reference.element_name,
-                        description=measure.description,
-                        expr=measure.expr,
-                        agg_params=measure.agg_params,
-                        config=measure.config,
-                    )
-                )
-        return list(measures)
-
     def _build_metric_time_dimension(self, time_grain: Optional[ExpandedTimeGranularity]) -> Dimension:
         metric_time_name = DataSet.metric_time_dimension_name()
 
         return Dimension(
             name=metric_time_name,
-            qualified_name=StructuredLinkableSpecName(
+            dunder_name=StructuredLinkableSpecName(
                 element_name=metric_time_name,
                 entity_link_names=(),
                 time_granularity_name=(time_grain.name if time_grain is not None else None),
-            ).qualified_name,
+            ).dunder_name,
             entity_links=(),
             description="Event time for metrics.",
             metadata=None,
@@ -681,29 +655,29 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
     def simple_dimensions_for_metrics(  # noqa: D102
         self,
         metric_names: List[str],
-        without_any_property: Sequence[LinkableElementProperty] = tuple(SIMPLE_DIMENSIONS_WITHOUT_ANY_PROPERTIES),
+        without_any_property: Sequence[GroupByItemProperty] = tuple(SIMPLE_DIMENSIONS_WITHOUT_ANY_PROPERTIES),
     ) -> List[Dimension]:
         self._check_metric_names(metric_names)
 
-        linkable_element_set = self._semantic_manifest_lookup.metric_lookup.linkable_elements_for_metrics(
+        group_by_item_set = self._semantic_manifest_lookup.metric_lookup.get_common_group_by_items(
             metric_references=tuple(MetricReference(element_name=mname) for mname in metric_names),
-            element_set_filter=LinkableElementFilter(
-                without_any_of=frozenset(without_any_property),
+            set_filter=GroupByItemSetFilter.create(
+                any_properties_denylist=without_any_property,
             ),
         )
-        return self._filter_simple_linkable_dimensions(linkable_element_set=linkable_element_set)
+        return self._filter_simple_linkable_dimensions(group_by_item_set=group_by_item_set)
 
-    def _filter_simple_linkable_dimensions(self, linkable_element_set: BaseLinkableElementSet) -> List[Dimension]:
+    def _filter_simple_linkable_dimensions(self, group_by_item_set: BaseGroupByItemSet) -> List[Dimension]:
         dimensions: List[Dimension] = []
 
-        for annotated_spec in linkable_element_set.annotated_specs:
+        for annotated_spec in group_by_item_set.annotated_specs:
             properties = annotated_spec.property_set
             element_type = annotated_spec.element_type
             if element_type is LinkableElementType.TIME_DIMENSION:
                 # Simple dimensions shouldn't show date part items.
-                if LinkableElementProperty.DATE_PART in properties:
+                if GroupByItemProperty.DATE_PART in properties:
                     continue
-                if LinkableElementProperty.METRIC_TIME in properties:
+                if GroupByItemProperty.METRIC_TIME in properties:
                     dimensions.append(self._build_metric_time_dimension(time_grain=annotated_spec.time_grain))
                 else:
                     dimensions.extend(self._create_dimension_from_spec(annotated_spec))
@@ -726,7 +700,7 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
                 origin_semantic_model_reference
             )
             if semantic_model is None:
-                raise MetricflowInternalError(
+                raise MetricFlowInternalError(
                     LazyFormat(
                         "Unable to find the semantic model associated with a spec",
                         spec=annotated_spec.spec,
@@ -750,7 +724,7 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
     def list_dimensions(
         self,
         metric_names: Optional[List[str]] = None,
-        order_by: GroupByOrderByAttribute = GroupByOrderByAttribute.QUALIFIED_NAME,
+        order_by: GroupByOrderByAttribute = GroupByOrderByAttribute.DUNDER_NAME,
     ) -> List[Dimension]:
         """Get full dimension object for all dimensions in the semantic manifest."""
         dimensions: List[Dimension] = []
@@ -770,8 +744,8 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
                     dimensions.append(dimension)
 
         def sort_dimensions(dimension: Dimension) -> Tuple[str, ...]:
-            if order_by == GroupByOrderByAttribute.QUALIFIED_NAME:
-                return (dimension.qualified_name,)
+            if order_by == GroupByOrderByAttribute.DUNDER_NAME:
+                return (dimension.dunder_name,)
             elif order_by == GroupByOrderByAttribute.SEMANTIC_MODEL_NAME:
                 return (
                     (
@@ -779,7 +753,7 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
                         if dimension.semantic_model_reference
                         else ""
                     ),
-                    dimension.qualified_name,
+                    dimension.dunder_name,
                 )
             else:
                 assert_values_exhausted(order_by)
@@ -787,20 +761,20 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
         return sorted(set(dimensions), key=sort_dimensions)
 
     def entities_for_metrics(self, metric_names: List[str]) -> List[Entity]:  # noqa: D102
-        linkable_element_set = self._semantic_manifest_lookup.metric_lookup.linkable_elements_for_metrics(
+        group_by_item_set = self._semantic_manifest_lookup.metric_lookup.get_common_group_by_items(
             metric_references=tuple(MetricReference(element_name=mname) for mname in metric_names),
-            element_set_filter=LinkableElementFilter(
-                with_any_of=frozenset(ENTITY_WITH_ANY_PROPERTIES),
+            set_filter=GroupByItemSetFilter.create(
+                any_properties_allowlist=ENTITY_WITH_ANY_PROPERTIES,
             ),
         )
 
-        entities = self._filter_linkable_entities(linkable_element_set=linkable_element_set)
+        entities = self._filter_linkable_entities(group_by_item_set=group_by_item_set)
         return sorted(set(entities), key=lambda x: x.default_search_and_sort_attribute)
 
-    def _filter_linkable_entities(self, linkable_element_set: BaseLinkableElementSet) -> List[Entity]:
+    def _filter_linkable_entities(self, group_by_item_set: BaseGroupByItemSet) -> List[Entity]:
         entities: List[Entity] = []
 
-        for annotated_spec in linkable_element_set.annotated_specs:
+        for annotated_spec in group_by_item_set.annotated_specs:
             element_type = annotated_spec.element_type
             if element_type is LinkableElementType.ENTITY:
                 semantic_model = self._semantic_manifest_lookup.semantic_model_lookup.get_by_reference(
@@ -839,22 +813,19 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
         metric_lookup = self._semantic_manifest_lookup.metric_lookup
         metrics: List[Metric] = []
         for pydantic_metric in metric_lookup.get_metrics(metric_lookup.metric_references):
-            semantic_models = []
-            for measure in pydantic_metric.input_measures:
-                semantic_model_reference = (
-                    self._semantic_manifest_lookup.semantic_model_lookup.measure_lookup.get_properties(
-                        measure_reference=measure.measure_reference
-                    ).model_reference
-                )
-                if semantic_model_reference not in semantic_models:
-                    semantic_models.append(semantic_model_reference)
+            if pydantic_metric.type_params.is_private:
+                continue
             metric = Metric.from_pydantic(
                 pydantic_metric=pydantic_metric,
                 dimensions=self.simple_dimensions_for_metrics([pydantic_metric.name]) if include_dimensions else [],
-                semantic_models=semantic_models,
+                semantic_models=list(
+                    self._semantic_manifest_lookup.metric_lookup.get_derived_from_semantic_models(
+                        MetricReference(pydantic_metric.name)
+                    )
+                ),
             )
             metrics.append(metric)
-        return sorted(metrics, key=lambda x: x.default_search_and_sort_attribute)
+        return sorted(metrics, key=lambda m: m.default_search_and_sort_attribute)
 
     @log_call(module_name=__name__, telemetry_reporter=_telemetry_reporter)
     def list_saved_queries(self) -> List[SavedQuery]:  # noqa: D102
@@ -919,29 +890,29 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
         self,
         metric_names: Optional[List[str]] = None,
         include_derived_time_granularities: bool = False,
-        order_by: GroupByOrderByAttribute = GroupByOrderByAttribute.QUALIFIED_NAME,
+        order_by: GroupByOrderByAttribute = GroupByOrderByAttribute.DUNDER_NAME,
     ) -> List[Entity | Dimension]:
         """List all possible group bys, or all group bys allowed for the selected metrics."""
         if metric_names:
             without_any_of = SIMPLE_DIMENSIONS_WITHOUT_ANY_PROPERTIES - ENTITY_WITH_ANY_PROPERTIES
             if include_derived_time_granularities:
-                without_any_of = without_any_of - {LinkableElementProperty.DERIVED_TIME_GRANULARITY}
-            linkable_element_set = self._semantic_manifest_lookup.metric_lookup.linkable_elements_for_metrics(
+                without_any_of = without_any_of - {GroupByItemProperty.DERIVED_TIME_GRANULARITY}
+            group_by_item_set = self._semantic_manifest_lookup.metric_lookup.get_common_group_by_items(
                 metric_references=tuple(MetricReference(element_name=mname) for mname in metric_names),
-                element_set_filter=LinkableElementFilter(
-                    without_any_of=frozenset(without_any_of),
+                set_filter=GroupByItemSetFilter.create(
+                    any_properties_denylist=without_any_of,
                 ),
             )
             group_bys: Sequence = self._filter_linkable_entities(
-                linkable_element_set=linkable_element_set
-            ) + self._filter_simple_linkable_dimensions(linkable_element_set=linkable_element_set)
+                group_by_item_set=group_by_item_set
+            ) + self._filter_simple_linkable_dimensions(group_by_item_set=group_by_item_set)
         else:
             # TODO: better support for querying entities without metrics; include entities here at that time
             group_bys = self.list_dimensions()
 
         def sort_group_bys(group_by: Entity | Dimension) -> Tuple[str, ...]:
-            name_attr = group_by.qualified_name if isinstance(group_by, Dimension) else group_by.name
-            if order_by == GroupByOrderByAttribute.QUALIFIED_NAME:
+            name_attr = group_by.dunder_name if isinstance(group_by, Dimension) else group_by.name
+            if order_by == GroupByOrderByAttribute.DUNDER_NAME:
                 return (name_attr,)
             elif order_by == GroupByOrderByAttribute.SEMANTIC_MODEL_NAME:
                 return (
@@ -959,12 +930,12 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
 
     def group_by_exists(self, structured_name: StructuredLinkableSpecName) -> bool:
         """Check if a group by exists in the semantic manifest by its element name."""
-        qualified_name = structured_name.granularity_free_qualified_name
+        qualified_name = structured_name.granularity_free_dunder_name
         return (
             qualified_name == METRIC_TIME_ELEMENT_NAME
             or (
                 qualified_name
-                in self._semantic_manifest_lookup.semantic_model_lookup.dimension_lookup.dimensions_by_qualified_name
+                in self._semantic_manifest_lookup.semantic_model_lookup.dimension_lookup.dimensions_by_dunder_name
             )
             or (
                 EntityReference(structured_name.element_name)

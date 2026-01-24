@@ -55,39 +55,76 @@ options:
     suboptions:
       primary_volume_id:
         description: Primary volume id.
-        type: int
+          Required for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Create and auto-split a ShadowImage pair
+          /Create ShadowImage pair for an existing secondary volume for migration tasks.
+          Optional for the Split a ShadowImage pair
+          /Resync ShadowImage pair
+          /Restore a ShadowImage pair
+          /Delete ShadowImage pair
+          /Delete ShadowImage pair with force delete
+          /Create ShadowImage pair for non-existing secondary volume for migration tasks.
+        type: str
         required: false
       secondary_volume_id:
         description: Secondary volume id.
-        type: int
+          Required for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Create and auto-split a ShadowImage pair
+          /Create ShadowImage pair for an existing secondary volume for migration tasks.
+          Optional for the Split a ShadowImage pair
+          /Resync ShadowImage pair
+          /Restore a ShadowImage pair
+          /Delete ShadowImage pair
+          /Delete ShadowImage pair with force delete tasks.
+        type: str
         required: false
       secondary_pool_id:
         description: Secondary storage pool id.
+          Optional for the Create ShadowImage pair for non-existing secondary volume for migration task.
         type: int
         required: false
       auto_split:
         description: Auto split.
+          Optional for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume tasks.
         type: bool
         required: false
       allocate_new_consistency_group:
         description: New consistency group.
+          Optional for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Create and auto-split a ShadowImage pair tasks.
         type: bool
         required: false
       consistency_group_id:
         description: Consistency group id.
+          Optional for the Create and auto-split a ShadowImage pair task.
         type: int
         required: false
       copy_pace_track_size:
         description: Copy pace track size.
+          Optional for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Resync ShadowImage pair
+          /Create and auto-split a ShadowImage pair
+          /Restore a ShadowImage pair tasks.
         type: str
         required: false
         choices: ['SLOW', 'MEDIUM', 'FAST']
       enable_quick_mode:
         description: Enable quick mode.
+          Optional for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Split a ShadowImage pair
+          /Resync ShadowImage pair
+          /Restore a ShadowImage pair tasks.
         type: bool
         required: false
       enable_read_write:
         description: Enable read write.
+          Optional for the Split a ShadowImage pair task.
         type: bool
         required: false
       pair_id:
@@ -100,30 +137,66 @@ options:
         required: false
       copy_group_name:
         description: Copy group name.
+          Required for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volum
+          /Split a ShadowImage pair
+          /Resync ShadowImage pair
+          /Create and auto-split a ShadowImage pair
+          /Restore a ShadowImage pair
+          /Migrate ShadowImage pair
+          /Cancel Migration of ShadowImage Pair
+          /Delete ShadowImage pair
+          /Delete ShadowImage pair with force delete
+          /Create ShadowImage pair for an existing secondary volume for migration
+          /Create ShadowImage pair for non-existing secondary volume for migration tasks.
         type: str
         required: false
       copy_pair_name:
         description: Copy pair name.
+          Required for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Split a ShadowImage pair
+          /Resync ShadowImage pair
+          /Create and auto-split a ShadowImage pair
+          /Restore a ShadowImage pair
+          /Migrate ShadowImage pair
+          /Cancel Migration of ShadowImage Pair
+          /Delete ShadowImage pair
+          /Delete ShadowImage pair with force delete
+          /Create ShadowImage pair for an existing secondary volume for migration
+          /Create ShadowImage pair for non-existing secondary volume for migration tasks.
         type: str
         required: false
       primary_volume_device_group_name:
         description: Primary volume device name.
+          Optional for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Create ShadowImage pair for an existing secondary volume for migration
+          /Create ShadowImage pair for non-existing secondary volume for migration tasks.
         type: str
         required: false
       secondary_volume_device_group_name:
         description: Secondary volume device name.
+          Optional for the Create a ShadowImage pair for an existing secondary volume
+          /Create ShadowImage pair for non-existing secondary volume
+          /Create ShadowImage pair for an existing secondary volume for migration
+          /Create ShadowImage pair for non-existing secondary volume for migration tasks.
         type: str
         required: false
       should_delete_svol:
-        description: Specify to delete SVOL from hostgroup, iSCSI Target, and NVM Subsystem.
+        description: Specify to delete SVOL from host group, iSCSI Target, and NVM Subsystem.
+          Required for the Delete ShadowImage pair with force delete task.
         type: bool
         required: false
       should_force_split:
         description: Specify to force split.
+          Optional for the Cancel Migration of ShadowImage Pair task.
         type: bool
         required: false
       create_for_migration:
         description: Specify to create shadow image pair for migration.
+          Required for the Create ShadowImage pair for an existing secondary volume for migration
+          /Create ShadowImage pair for non-existing secondary volume for migration tasks.
         type: bool
         required: false
 """
@@ -159,10 +232,18 @@ data:
       description: Consistency group id.
       type: int
       sample: -1
+    copy_group_name:
+      description: Copy group name.
+      type: str
+      sample: "SI172"
     copy_pace_track_size:
       description: Copy pace track size.
       type: str
-      sample: "MEDIUM"
+      sample: ""
+    copy_pair_name:
+      description: Copy pair name.
+      type: str
+      sample: "CPTest"
     copy_rate:
       description: Copy rate.
       type: int
@@ -170,27 +251,41 @@ data:
     mirror_unit_id:
       description: Mirror unit id.
       type: int
-      sample: -1
-    primary_hex_volume_id:
-      description: Primary hex volume id.
-      type: str
-      sample: "00:01:12"
+      sample: 0
     primary_volume_id:
       description: Primary volume id.
       type: int
-      sample: 274
-    resource_id:
-      description: Resource id.
+      sample: 172
+    primary_volume_id_hex:
+      description: Primary hex volume id.
       type: str
-      sample: "localpair-2749fed78e8d23a61ed17a8af71c85f8"
-    secondary_hex_volume_id:
-      description: Secondary hex volume id.
+      sample: "00:00:AC"
+    pvol_host_groups:
+      description: Primary volume host groups.
+      type: list
+      elements: dict
+      sample:
+        - host_group_name: "hostserver1153"
+          host_group_number: 189
+          lun: 0
+          port_id: "CL2-B"
+    pvol_iscsi_targets:
+      description: Primary volume iSCSI targets.
+      type: list
+      elements: dict
+      sample: []
+    pvol_nvm_subsystem_name:
+      description: Primary volume's nvm subsystem name.
       type: str
-      sample: "00:01:17"
+      sample: ""
     secondary_volume_id:
       description: Secondary volume id.
       type: int
-      sample: 279
+      sample: 173
+    secondary_volume_id_hex:
+      description: Secondary hex volume id.
+      type: str
+      sample: "00:00:AD"
     status:
       description: Status.
       type: str
@@ -198,15 +293,25 @@ data:
     storage_serial_number:
       description: Storage serial number.
       type: str
-      sample: "811150"
-    pvol_nvm_subsystem_name:
-      description: Primary volume's nvm subsystem name.
-      type: str
-      sample: "smrha-3950276934"
+      sample: "810050"
+    svol_host_groups:
+      description: Secondary volume host groups.
+      type: list
+      elements: dict
+      sample:
+        - host_group_name: "hostserver1153"
+          host_group_number: 189
+          lun: 1
+          port_id: "CL2-B"
+    svol_iscsi_targets:
+      description: Secondary volume iSCSI targets.
+      type: list
+      elements: dict
+      sample: []
     svol_nvm_subsystem_name:
       description: Secondary volume's nvm subsystem name.
       type: str
-      sample: "smrha-3950276934"
+      sample: ""
 """
 
 from ansible.module_utils.basic import AnsibleModule

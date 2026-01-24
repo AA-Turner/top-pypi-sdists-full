@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
+
+from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class BaseEnum(Enum):
@@ -35,15 +40,12 @@ class BaseEnum(Enum):
         # Expect subclasses to define UNKNOWN
         try:
             return cls["UNKNOWN"]
-        except Exception as e:
-            for m in cls:
-                if m.name.upper() == "UNKNOWN":
-                    return m
+        except KeyError as e:
             raise AttributeError(f"{cls.__name__} must define an UNKNOWN member") from e
 
     @classmethod
     def _missing_(cls, value: Any):
-        for member in cls:  # type: ignore
+        for member in cls:
             mv = member.value
             if member.name == "UNKNOWN":
                 continue
@@ -56,3 +58,10 @@ class BaseEnum(Enum):
             f"mapped to UNKNOWN. Please check the enum definition and include the member if necessary."
         )
         return cls._unknown_member()
+
+    @classmethod
+    def valid_members(cls) -> Iterator[Self]:
+        """Return an iterator over all enum members except `UNKNOWN`."""
+        for m in cls:
+            if m.name != "UNKNOWN":
+                yield m

@@ -154,30 +154,24 @@ def _enable_blockbuster():
 
     ls_env.get_runtime_environment()  # this gets cached
     bb = BlockBuster(excluded_modules=[])
-    for module, func in (
-        # Note, we've cached this call in langsmith==0.3.21 so it shouldn't raise anyway
-        # but we don't want to raise teh minbound just for that.
-        ("langsmith/client.py", "_default_retry_config"),
-        # Only triggers in python 3.11 for getting subgraphs
-        # Will be unnecessary once we cache the assistant schemas
-        ("langgraph/pregel/utils.py", "get_function_nonlocals"),
-        ("importlib/metadata/__init__.py", "metadata"),
-        ("importlib/metadata/__init__.py", "read_text"),
-    ):
-        bb.functions["io.TextIOWrapper.read"].can_block_in(module, func)
 
     bb.functions["os.path.abspath"].can_block_in("inspect.py", "getmodule")
+    for fn in (
+        "os.access",
+        "os.getcwd",
+        "os.unlink",
+        "os.write",
+    ):
+        bb.functions[fn].can_block_in(
+            "langgraph_api/api/profile.py", "_profile_with_pyspy"
+        )
 
     for module, func in (
         ("memory/__init__.py", "sync"),
         ("memory/__init__.py", "load"),
         ("memory/__init__.py", "dump"),
+        ("pydantic/main.py", "__init__"),
     ):
-        bb.functions["io.TextIOWrapper.read"].can_block_in(module, func)
-        bb.functions["io.TextIOWrapper.write"].can_block_in(module, func)
-        bb.functions["io.BufferedWriter.write"].can_block_in(module, func)
-        bb.functions["io.BufferedReader.read"].can_block_in(module, func)
-
         bb.functions["os.remove"].can_block_in(module, func)
         bb.functions["os.rename"].can_block_in(module, func)
 
@@ -199,6 +193,12 @@ def _enable_blockbuster():
         # as well as importlib.metadata.
         "os.listdir",
         "os.remove",
+        # We used to block the IO things but people use them so often that
+        # we've decided to just let people make bad decisions for themselves.
+        "io.BufferedReader.read",
+        "io.BufferedWriter.write",
+        "io.TextIOWrapper.read",
+        "io.TextIOWrapper.write",
         # If people are using threadpoolexecutor, etc. they'd be using this.
         "threading.Lock.acquire",
     ]

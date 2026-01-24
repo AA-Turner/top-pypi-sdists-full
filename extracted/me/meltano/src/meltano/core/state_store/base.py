@@ -12,7 +12,6 @@ from meltano.core.utils import merge
 
 if t.TYPE_CHECKING:
     from collections.abc import Generator, Iterable
-    from io import TextIOWrapper
 
 
 class UnsupportedStateBackendURIError(Exception):
@@ -27,7 +26,7 @@ class StateIDLockedError(Exception):
     """A job attempted to acquire a lock on an already-locked state ID."""
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class MeltanoState:
     """State object."""
 
@@ -54,7 +53,7 @@ class MeltanoState:
         )
 
     @classmethod
-    def from_file(cls, state_id: str, file_obj: TextIOWrapper) -> MeltanoState:
+    def from_file(cls, state_id: str, file_obj: t.TextIO) -> MeltanoState:
         """Create MeltanoState from a file-like object containing state json.
 
         Args:

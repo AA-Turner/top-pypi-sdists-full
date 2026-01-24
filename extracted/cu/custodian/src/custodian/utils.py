@@ -20,10 +20,20 @@ def backup(filenames, prefix="error", directory="./") -> None:
             series of error.1.tar.gz, error.2.tar.gz, ... will be generated.
         directory (str): directory where the files exist
     """
-    num = max([0] + [int(file.split(".")[-3]) for file in glob(os.path.join(directory, f"{prefix}.*.tar.gz"))])
+    backup_files = glob(os.path.join(directory, f"{prefix}.*.tar*"))
+    nums = [0]
+    for file in backup_files:
+        try:
+            if file.endswith(".tar.gz"):
+                nums.append(int(file.split(".")[-3]))
+            elif file.endswith(".tar"):
+                nums.append(int(file.split(".")[-2]))
+        except (ValueError, IndexError):
+            continue
+    num = max(nums)
     prefix = f"{prefix}.{num + 1}"
     filename = os.path.join(directory, f"{prefix}.tar.gz")
-    logging.info(f"Backing up run to {filename}.")
+    logging.info(f"Backing up run to {filename}")
     with tarfile.open(filename, "w:gz") as tar:
         for fname in filenames:
             for file in glob(os.path.join(directory, fname)):
@@ -62,7 +72,7 @@ class tracked_lru_cache:
     Allows Custodian to clear the cache after all the checks have been performed.
     """
 
-    cached_functions: ClassVar = set()
+    cached_functions: ClassVar[set] = set()
 
     def __init__(self, func) -> None:
         """

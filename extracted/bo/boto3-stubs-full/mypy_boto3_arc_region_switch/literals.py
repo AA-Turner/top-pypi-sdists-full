@@ -3,7 +3,7 @@ Type annotations for arc-region-switch service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_arc_region_switch/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -27,6 +27,8 @@ __all__ = (
     "AlarmConditionType",
     "AlarmTypeType",
     "ApprovalType",
+    "DocumentDbDefaultBehaviorType",
+    "DocumentDbUngracefulBehaviorType",
     "Ec2AsgCapacityMonitoringApproachType",
     "EcsCapacityMonitoringApproachType",
     "EksCapacityMonitoringApproachType",
@@ -36,6 +38,7 @@ __all__ = (
     "ExecutionEventTypeType",
     "ExecutionModeType",
     "ExecutionStateType",
+    "FailedReportErrorCodeType",
     "GetPlanEvaluationStatusPaginatorName",
     "GetPlanExecutionPaginatorName",
     "GlobalAuroraDefaultBehaviorType",
@@ -45,6 +48,7 @@ __all__ = (
     "ListPlanExecutionsPaginatorName",
     "ListPlansInRegionPaginatorName",
     "ListPlansPaginatorName",
+    "ListRoute53HealthChecksInRegionPaginatorName",
     "ListRoute53HealthChecksPaginatorName",
     "PaginatorName",
     "PlanEvaluationStatusPassedWaiterName",
@@ -53,6 +57,7 @@ __all__ = (
     "RegionToRunInType",
     "ResourceServiceName",
     "ResourceWarningStatusType",
+    "Route53HealthCheckStatusType",
     "RoutingControlStateChangeType",
     "ServiceName",
     "StepStatusType",
@@ -66,6 +71,8 @@ __all__ = (
 AlarmConditionType = Literal["green", "red"]
 AlarmTypeType = Literal["applicationHealth", "trigger"]
 ApprovalType = Literal["approve", "decline"]
+DocumentDbDefaultBehaviorType = Literal["failover", "switchoverOnly"]
+DocumentDbUngracefulBehaviorType = Literal["failover"]
 Ec2AsgCapacityMonitoringApproachType = Literal[
     "autoscalingMaxInLast24Hours", "sampledMaxInLast24Hours"
 ]
@@ -80,6 +87,7 @@ ExecutionBlockTypeType = Literal[
     "ARCRoutingControl",
     "AuroraGlobalDatabase",
     "CustomActionLambda",
+    "DocumentDb",
     "EC2AutoScaling",
     "ECSServiceScaling",
     "EKSResourceScaling",
@@ -101,6 +109,7 @@ ExecutionEventTypeType = Literal[
     "executionStarted",
     "executionSucceeded",
     "executionSuccessMonitoringApplicationHealth",
+    "planEvaluationWarning",
     "stepCanceled",
     "stepExecutionBehaviorChangedToUngraceful",
     "stepFailed",
@@ -128,6 +137,9 @@ ExecutionStateType = Literal[
     "pendingManualApproval",
     "planExecutionTimedOut",
 ]
+FailedReportErrorCodeType = Literal[
+    "configurationError", "insufficientPermissions", "invalidResource"
+]
 GetPlanEvaluationStatusPaginatorName = Literal["get_plan_evaluation_status"]
 GetPlanExecutionPaginatorName = Literal["get_plan_execution"]
 GlobalAuroraDefaultBehaviorType = Literal["failover", "switchoverOnly"]
@@ -137,12 +149,14 @@ ListPlanExecutionEventsPaginatorName = Literal["list_plan_execution_events"]
 ListPlanExecutionsPaginatorName = Literal["list_plan_executions"]
 ListPlansInRegionPaginatorName = Literal["list_plans_in_region"]
 ListPlansPaginatorName = Literal["list_plans"]
+ListRoute53HealthChecksInRegionPaginatorName = Literal["list_route53_health_checks_in_region"]
 ListRoute53HealthChecksPaginatorName = Literal["list_route53_health_checks"]
 PlanEvaluationStatusPassedWaiterName = Literal["plan_evaluation_status_passed"]
 PlanExecutionCompletedWaiterName = Literal["plan_execution_completed"]
 RecoveryApproachType = Literal["activeActive", "activePassive"]
 RegionToRunInType = Literal["activatingRegion", "deactivatingRegion"]
 ResourceWarningStatusType = Literal["active", "resolved"]
+Route53HealthCheckStatusType = Literal["healthy", "unhealthy", "unknown"]
 RoutingControlStateChangeType = Literal["Off", "On"]
 StepStatusType = Literal[
     "canceled", "completed", "failed", "notStarted", "pendingApproval", "running", "skipped"
@@ -177,7 +191,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -247,6 +260,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -292,7 +306,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -345,7 +358,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -384,8 +396,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -420,6 +430,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -429,6 +440,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -439,6 +451,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -460,8 +475,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -476,15 +489,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -515,6 +529,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -555,6 +570,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -576,5 +592,6 @@ PaginatorName = Literal[
     "list_plans",
     "list_plans_in_region",
     "list_route53_health_checks",
+    "list_route53_health_checks_in_region",
 ]
 WaiterName = Literal["plan_evaluation_status_passed", "plan_execution_completed"]

@@ -17,9 +17,9 @@ from pygeodesy.basics import isbool, isidentifier, iskeyword, isstr, itemsorted,
                              len2, _xcopy, _xdup, _xinstanceof, _xsubclassof, _zip
 # from pygeodesy.ecef import EcefKarney  # _MODS
 from pygeodesy.errors import _AssertionError, _AttributeError, _ImmutableError, \
-                             _incompatible, _IndexError, _KeyError, LenError, \
-                             _NameError, _NotImplementedError, _TypeError, \
-                             _TypesError, _UnexpectedError, UnitError, _ValueError, \
+                             _incompatible, _KeyError, LenError, _NameError, \
+                             _NotImplementedError, _TypeError, _TypesError, \
+                             _UnexpectedError, UnitError, _ValueError, \
                              _xattr, _xkwds, _xkwds_item2, _xkwds_pop2
 from pygeodesy.internals import _caller3, _envPYGEODESY, _isPyPy, _sizeof, \
                                  typename, _under
@@ -35,7 +35,7 @@ from pygeodesy.streprs import attrs, Fmt, lrstrip, pairs, reprs, unstr
 # from pygeodesy.units import _toUnit  # _MODS
 
 __all__ = _ALL_LAZY.named
-__version__ = '25.09.04'
+__version__ = '26.01.14'
 
 _COMMANL_           = _COMMA_ + _NL_
 _COMMASPACEDOT_     = _COMMASPACE_ + _DOT_
@@ -658,17 +658,23 @@ class _NamedEnum(_NamedDict):
         '''(INTERNAL) Check attribute name against given, registered name.
         '''
         pypy = _isPyPy()
-        _isa =  isinstance
         for n, v in kwds.items():
-            if _isa(v, _LazyNamedEnumItem):  # property
+            if isinstance(v, _LazyNamedEnumItem):  # property
                 assert (n == v.name) if pypy else (n is v.name)
                 # assert not hasattr(self.__class__, n)
                 setattr(self.__class__, n, v)
-            elif _isa(v, self._item_Classes):  # PYCHOK no cover
+            elif isinstance(v, self._item_Classes):  # PYCHOK no cover
                 assert self[n] is v and getattr(self, n) \
                                     and self.find(v) == n
             else:
                 raise _TypeError(v, name=n)
+
+    def _asserts(self):  # in .triaxials.triaxial3
+        '''(INTERNAL) Yield all asserted items.
+        '''
+        for n, p in tuple(type(self).__dict__.items()):
+            if isinstance(p, _LazyNamedEnumItem):
+                yield n, p
 
     def find(self, item, dflt=None, all=False):
         '''Find a registered item.
@@ -707,10 +713,8 @@ class _NamedEnum(_NamedDict):
                            case-insensitive} order (C{bool}).
         '''
         if all:  # instantiate any remaining L{_LazyNamedEnumItem}
-            _isa = isinstance
-            for n, p in tuple(type(self).__dict__.items()):
-                if _isa(p, _LazyNamedEnumItem):
-                    _ = getattr(self, n)
+            for n, _ in self._asserts():
+                _ = getattr(self, n)
         return itemsorted(self) if asorted else ADict.items(self)
 
     def keys(self, **all_asorted):
@@ -857,7 +861,7 @@ def _lazyNamedEnumItem(name, *args, **kwds):
 
 
 class _NamedEnumItem(_NamedBase):
-    '''(INTERNAL) Base class for items in a C{_NamedEnum} registery.
+    '''(INTERNAL) Base class for items in a C{_NamedEnum} registry.
     '''
     _enum = None
 
@@ -987,10 +991,14 @@ class _NamedTuple(tuple, _Named):
         '''
         try:
             return tuple.__getitem__(self, self._Names_.index(name))
-        except IndexError as x:
-            raise _IndexError(self._DOT_(name), cause=x)
+        except IndexError:  # as x:
+            pass  # raise _IndexError(self._DOT_(name), cause=x)
         except ValueError:  # e.g. _iteration
-            return tuple.__getattr__(self, name)  # __getattribute__
+            try:  # tuple has no __getattr__?
+                return tuple.__getattr__(self, name)  # __getattribute__?
+            except AttributeError:
+                pass
+        raise _AttributeError(self._DOT_(name), txt=repr(self))
 
 #   def __getitem__(self, index):  # index, slice, etc.
 #       '''Get the item(s) at an B{C{index}} or slice.
@@ -1103,7 +1111,8 @@ class _NamedTuple(tuple, _Named):
 
            @return: Tuple items (C{str}).
         '''
-        return Fmt.PAREN(sep.join(reprs(self, prec=prec, fmt=fmt)))
+        t = reprs(self, prec=prec, fmt=fmt)
+        return Fmt.PAREN(sep.join(t)) if sep else t
 
     def toUnits(self, Error=UnitError, **name):  # overloaded in .frechet, .hausdorff
         '''Return a copy of this C{Named-Tuple} with each item value wrapped
@@ -1183,7 +1192,7 @@ def callername(up=1, dflt=NN, source=False, underOK=False):
 
        @return: The callable name (C{str}) or B{C{dflt}} if none found.
     '''
-    try:  # see .lazily._caller3
+    try:  # see .internals._caller3
         for u in range(up, up + 32):
             n, f, s = _caller3(u)
             if n and (underOK or n.startswith(_DUNDER_) or
@@ -1247,7 +1256,7 @@ def modulename(clas, prefixed=None):  # in .basics._xversion
     '''Return the class name optionally prefixed with the
        module name.
 
-       @arg clas: The class (any C{class}).
+       @arg clas: The class (any C{class} or C{str}).
        @kwarg prefixed: Include the module name (C{bool}), see
                         function C{classnaming}.
 
@@ -1468,7 +1477,7 @@ __all__ += _ALL_DOCS(_Named,
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

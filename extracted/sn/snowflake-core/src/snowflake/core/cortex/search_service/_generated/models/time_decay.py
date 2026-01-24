@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt, StrictStr
 
 
 class TimeDecay(BaseModel):
@@ -49,9 +49,10 @@ class TimeDecay(BaseModel):
 
     __properties = ["column", "weight", "limit_hours", "now"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -76,7 +77,7 @@ class TimeDecay(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -91,9 +92,9 @@ class TimeDecay(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return TimeDecay.parse_obj(obj)
+            return TimeDecay.model_validate(obj)
 
-        _obj = TimeDecay.parse_obj(
+        _obj = TimeDecay.model_validate(
             {
                 "column": obj.get("column"),
                 "weight": obj.get("weight"),

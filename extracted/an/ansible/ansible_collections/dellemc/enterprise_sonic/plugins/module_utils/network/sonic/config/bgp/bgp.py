@@ -1,6 +1,6 @@
 #
 # -*- coding: utf-8 -*-
-# Copyright 2019 Red Hat
+# Copyright 2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 """
@@ -98,6 +98,7 @@ class Bgp(ConfigBase):
     log_neighbor_changes_path = 'logging-options/config/log-neighbor-state-changes'
     holdtime_path = 'config/hold-time'
     keepalive_path = 'config/keepalive-interval'
+    graceful_restart_path = 'graceful-restart/config'
 
     def __init__(self, module):
         super(Bgp, self).__init__(module)
@@ -253,7 +254,6 @@ class Bgp(ConfigBase):
             for command in add_commands:
                 as_val = command['bgp_as']
                 vrf_name = command['vrf_name']
-
                 # max_med -> on_startup options are modified or deleted at once.
                 # Diff will not reflect the correct commands if only one of
                 # them is modified. So, update the command with want value.
@@ -298,6 +298,7 @@ class Bgp(ConfigBase):
         global is_delete_all
         is_delete_all = False
         # if want is none, then delete all the bgps
+
         if not want:
             commands = have
             is_delete_all = True
@@ -364,6 +365,11 @@ class Bgp(ConfigBase):
             if as_path.get('multipath_relax_as_set', None) is not None and match_as_path.get('multipath_relax_as_set', None):
                 requests.append({'path': multi_paths_del_path + "as-set", 'method': DELETE})
 
+        match_bandwidth = match_bestpath.get('bandwidth', None)
+        bandwidth = bestpath.get('bandwidth', None)
+        if bandwidth and match_bandwidth and bandwidth == match_bandwidth:
+            requests.append({'path': route_selection_del_path + "compare-linkbw", 'method': DELETE})
+
         match_med = match_bestpath.get('med', None)
         med = bestpath.get('med', None)
         if med and match_med:
@@ -375,6 +381,24 @@ class Bgp(ConfigBase):
                 requests.append({'path': route_selection_del_path + "always-compare-med", 'method': DELETE})
             if med.get('max_med_val', None) is not None and match_med.get('max_med_val', None):
                 requests.append({'path': generic_del_path + "max-med/config/admin-max-med-val", 'method': DELETE})
+
+        return requests
+
+    def get_delete_graceful_restart_requests(self, vrf_name, graceful_restart, match):
+        requests = []
+        graceful_restart_del_path = '%s=%s/%s/global/graceful-restart/config/' % (self.network_instance_path, vrf_name, self.protocol_bgp_path)
+        match_graceful_restart = match.get('graceful_restart', None)
+
+        if graceful_restart and match_graceful_restart:
+            if graceful_restart.get('enabled') and graceful_restart['enabled'] == match_graceful_restart.get('enabled'):
+                requests.append({'path': graceful_restart_del_path + "enabled", 'method': DELETE})
+            if graceful_restart.get('restart_time') is not None and graceful_restart['restart_time'] == match_graceful_restart.get('restart_time'):
+                requests.append({'path': graceful_restart_del_path + "restart-time", 'method': DELETE})
+            if graceful_restart.get('stale_routes_time') is not None and \
+                    graceful_restart['stale_routes_time'] == match_graceful_restart.get('stale_routes_time'):
+                requests.append({'path': graceful_restart_del_path + "stale-routes-time", 'method': DELETE})
+            if graceful_restart.get('preserve_fw_state') and graceful_restart['preserve_fw_state'] == match_graceful_restart.get('preserve_fw_state'):
+                requests.append({'path': graceful_restart_del_path + "preserve-fw-state", 'method': DELETE})
 
         return requests
 
@@ -435,6 +459,11 @@ class Bgp(ConfigBase):
         if max_med_del_reqs:
             requests.extend(max_med_del_reqs)
 
+        graceful_restart = command.get('graceful_restart', None)
+        graceful_restart_del_reqs = self.get_delete_graceful_restart_requests(vrf_name, graceful_restart, match)
+        if graceful_restart_del_reqs:
+            requests.extend(graceful_restart_del_reqs)
+
         return requests
 
     def get_delete_bgp_requests(self, commands, have, is_delete_all):
@@ -451,7 +480,7 @@ class Bgp(ConfigBase):
                     continue
                 # if there is specific parameters to delete then delete those alone
                 if cmd.get('router_id', None) or cmd.get('as_notation', None) or cmd.get('log_neighbor_changes', None) or cmd.get('bestpath', None) \
-                        or cmd.get('rt_delay', None):
+                        or cmd.get('rt_delay', None) or cmd.get('graceful_restart', None):
                     requests.extend(self.get_delete_specific_bgp_param_request(cmd, match))
                 else:
                     # delete entire bgp
@@ -495,9 +524,9 @@ class Bgp(ConfigBase):
 
         return request
 
-    def get_modify_route_selection_req(self, vrf_name, compare_routerid, as_path, med):
+    def get_modify_route_selection_req(self, vrf_name, compare_routerid, as_path, med, bandwidth):
         requests = []
-        if compare_routerid is None and not as_path and not med:
+        if compare_routerid is None and not as_path and not med and not bandwidth:
             return requests
 
         route_selection_cfg = {}
@@ -519,6 +548,11 @@ class Bgp(ConfigBase):
                 route_selection_cfg['compare-confed-as-path'] = as_path_confed
             if as_path_ignore is not None:
                 route_selection_cfg['ignore-as-path-length'] = as_path_ignore
+
+        if bandwidth:
+            # Do the translation for the values here from cli format to REST format
+            bandwidth = bandwidth.replace("default_weight", "DEFAULT_WT").replace("ignore_weight", "IGNORE_LB").replace("skip_missing", "SKIP_MISSING")
+            route_selection_cfg['compare-linkbw'] = bandwidth
 
         if med:
             med_confed = med.get('confed', None)
@@ -547,12 +581,12 @@ class Bgp(ConfigBase):
 
         compare_routerid = bestpath.get('compare_routerid', None)
         as_path = bestpath.get('as_path', None)
+        bandwidth = bestpath.get('bandwidth', None)
         med = bestpath.get('med', None)
 
-        route_selection_req = self.get_modify_route_selection_req(vrf_name, compare_routerid, as_path, med)
+        route_selection_req = self.get_modify_route_selection_req(vrf_name, compare_routerid, as_path, med, bandwidth)
         if route_selection_req:
             requests.extend(route_selection_req)
-
         multi_paths_req = self.get_modify_multi_paths_req(vrf_name, as_path)
         if multi_paths_req:
             requests.append(multi_paths_req)
@@ -676,6 +710,17 @@ class Bgp(ConfigBase):
 
         return request
 
+    def get_modify_graceful_restart_request(self, vrf_name, graceful_restart):
+        request = None
+        method = PATCH
+
+        if graceful_restart:
+            payload = {'openconfig-network-instance:config': {k.replace('_', '-'): v for k, v in graceful_restart.items()}}
+            url = '%s=%s/%s/global/%s' % (self.network_instance_path, vrf_name, self.protocol_bgp_path, self.graceful_restart_path)
+            request = {"path": url, "method": method, "data": payload}
+
+        return request
+
     def get_modify_bgp_requests(self, commands, have):
         requests = []
         if not commands:
@@ -693,6 +738,7 @@ class Bgp(ConfigBase):
             keepalive_interval = None
             rt_delay = None
             as_notation = None
+            graceful_restart = None
 
             if 'bgp_as' in conf:
                 as_val = conf['bgp_as']
@@ -713,6 +759,8 @@ class Bgp(ConfigBase):
                     keepalive_interval = conf['timers']['keepalive_interval']
             if 'as_notation' in conf:
                 as_notation = conf['as_notation']
+            if 'graceful_restart' in conf:
+                graceful_restart = conf['graceful_restart']
 
             if not any(cfg for cfg in have if cfg['vrf_name'] == vrf_name and (cfg['bgp_as'] == as_val)):
                 new_bgp_req = self.get_new_bgp_request(vrf_name, as_val, as_notation)
@@ -737,13 +785,20 @@ class Bgp(ConfigBase):
                 if keepalive_req:
                     requests.append(keepalive_req)
 
-            bestpath_reqs = self.get_modify_bestpath_requests(vrf_name, bestpath)
-            if bestpath_reqs:
-                requests.extend(bestpath_reqs)
+            if bestpath:
+                bestpath_reqs = self.get_modify_bestpath_requests(vrf_name, bestpath)
+                if bestpath_reqs:
+                    requests.extend(bestpath_reqs)
+
             if max_med:
                 max_med_reqs = self.get_modify_max_med_requests(vrf_name, max_med)
                 if max_med_reqs:
                     requests.extend(max_med_reqs)
+
+            if graceful_restart:
+                graceful_restart_req = self.get_modify_graceful_restart_request(vrf_name, graceful_restart)
+                if graceful_restart_req:
+                    requests.append(graceful_restart_req)
 
         return requests
 
@@ -821,6 +876,9 @@ class Bgp(ConfigBase):
                     if as_path_command:
                         bestpath_command['as_path'] = as_path_command
 
+                if bestpath.get('bandwidth') and match_bestpath.get('bandwidth') is None:
+                    bestpath_command['bandwidth'] = bestpath.get("bandwidth")
+
                 if bestpath.get('compare_routerid') and match_bestpath.get('compare_routerid') is None:
                     bestpath_command['compare_routerid'] = True
 
@@ -837,6 +895,22 @@ class Bgp(ConfigBase):
 
                 if bestpath_command:
                     command['bestpath'] = bestpath_command
+
+            if conf.get('graceful_restart'):
+                gr_command = {}
+                conf_gr = conf['graceful_restart']
+                match_gr = match_cfg.get('graceful_restart', {})
+                if conf_gr.get('enabled') and match_gr.get('enabled') is None:
+                    gr_command['enabled'] = True
+                if conf_gr.get('restart_time') and match_gr.get('restart_time') is None:
+                    gr_command['restart_time'] = conf_gr['restart_time']
+                if conf_gr.get('stale_routes_time') and match_gr.get('stale_routes_time') is None:
+                    gr_command['stale_routes_time'] = conf_gr['stale_routes_time']
+                if conf_gr.get('preserve_fw_state') and match_gr.get('preserve_fw_state') is None:
+                    gr_command['preserve_fw_state'] = True
+
+                if gr_command:
+                    command['graceful_restart'] = gr_command
 
             if command:
                 command['bgp_as'] = as_val

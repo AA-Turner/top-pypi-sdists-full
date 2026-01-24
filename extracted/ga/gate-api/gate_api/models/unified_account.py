@@ -50,6 +50,7 @@ class UnifiedAccount(object):
         'unified_account_total_equity': 'str',
         'leverage': 'str',
         'spot_order_loss': 'str',
+        'options_order_loss': 'str',
         'spot_hedge': 'bool',
         'use_funding': 'bool',
         'is_all_collateral': 'bool'
@@ -73,13 +74,14 @@ class UnifiedAccount(object):
         'unified_account_total_equity': 'unified_account_total_equity',
         'leverage': 'leverage',
         'spot_order_loss': 'spot_order_loss',
+        'options_order_loss': 'options_order_loss',
         'spot_hedge': 'spot_hedge',
         'use_funding': 'use_funding',
         'is_all_collateral': 'is_all_collateral'
     }
 
-    def __init__(self, user_id=None, refresh_time=None, locked=None, balances=None, total=None, borrowed=None, total_initial_margin=None, total_margin_balance=None, total_maintenance_margin=None, total_initial_margin_rate=None, total_maintenance_margin_rate=None, total_available_margin=None, unified_account_total=None, unified_account_total_liab=None, unified_account_total_equity=None, leverage=None, spot_order_loss=None, spot_hedge=None, use_funding=None, is_all_collateral=None, local_vars_configuration=None):  # noqa: E501
-        # type: (int, int, bool, dict(str, UnifiedBalance), str, str, str, str, str, str, str, str, str, str, str, str, str, bool, bool, bool, Configuration) -> None
+    def __init__(self, user_id=None, refresh_time=None, locked=None, balances=None, total=None, borrowed=None, total_initial_margin=None, total_margin_balance=None, total_maintenance_margin=None, total_initial_margin_rate=None, total_maintenance_margin_rate=None, total_available_margin=None, unified_account_total=None, unified_account_total_liab=None, unified_account_total_equity=None, leverage=None, spot_order_loss=None, options_order_loss=None, spot_hedge=None, use_funding=None, is_all_collateral=None, local_vars_configuration=None):  # noqa: E501
+        # type: (int, int, bool, dict(str, UnifiedBalance), str, str, str, str, str, str, str, str, str, str, str, str, str, str, bool, bool, bool, Configuration) -> None
         """UnifiedAccount - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -102,6 +104,7 @@ class UnifiedAccount(object):
         self._unified_account_total_equity = None
         self._leverage = None
         self._spot_order_loss = None
+        self._options_order_loss = None
         self._spot_hedge = None
         self._use_funding = None
         self._is_all_collateral = None
@@ -141,6 +144,8 @@ class UnifiedAccount(object):
             self.leverage = leverage
         if spot_order_loss is not None:
             self.spot_order_loss = spot_order_loss
+        if options_order_loss is not None:
+            self.options_order_loss = options_order_loss
         if spot_hedge is not None:
             self.spot_hedge = spot_hedge
         if use_funding is not None:
@@ -518,7 +523,7 @@ class UnifiedAccount(object):
     def spot_order_loss(self):
         """Gets the spot_order_loss of this UnifiedAccount.  # noqa: E501
 
-        Total pending order loss, in USDT, valid in cross-currency margin/combined margin mode, 0 in other modes such as single-currency margin mode  # noqa: E501
+        Spot Pending Order Loss, in USDT, effective only in Cross-Currency Margin Mode and Portfolio Margin Mode.  # noqa: E501
 
         :return: The spot_order_loss of this UnifiedAccount.  # noqa: E501
         :rtype: str
@@ -529,13 +534,36 @@ class UnifiedAccount(object):
     def spot_order_loss(self, spot_order_loss):
         """Sets the spot_order_loss of this UnifiedAccount.
 
-        Total pending order loss, in USDT, valid in cross-currency margin/combined margin mode, 0 in other modes such as single-currency margin mode  # noqa: E501
+        Spot Pending Order Loss, in USDT, effective only in Cross-Currency Margin Mode and Portfolio Margin Mode.  # noqa: E501
 
         :param spot_order_loss: The spot_order_loss of this UnifiedAccount.  # noqa: E501
         :type: str
         """
 
         self._spot_order_loss = spot_order_loss
+
+    @property
+    def options_order_loss(self):
+        """Gets the options_order_loss of this UnifiedAccount.  # noqa: E501
+
+        Option Pending Order Loss, in USDT, effective only in Portfolio Margin Mode.  # noqa: E501
+
+        :return: The options_order_loss of this UnifiedAccount.  # noqa: E501
+        :rtype: str
+        """
+        return self._options_order_loss
+
+    @options_order_loss.setter
+    def options_order_loss(self, options_order_loss):
+        """Sets the options_order_loss of this UnifiedAccount.
+
+        Option Pending Order Loss, in USDT, effective only in Portfolio Margin Mode.  # noqa: E501
+
+        :param options_order_loss: The options_order_loss of this UnifiedAccount.  # noqa: E501
+        :type: str
+        """
+
+        self._options_order_loss = options_order_loss
 
     @property
     def spot_hedge(self):

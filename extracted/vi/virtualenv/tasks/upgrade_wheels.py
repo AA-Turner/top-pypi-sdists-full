@@ -15,7 +15,7 @@ from threading import Thread
 STRICT = "UPGRADE_ADVISORY" not in os.environ
 
 BUNDLED = ["pip", "setuptools", "wheel"]
-SUPPORT = [(3, i) for i in range(8, 15)]
+SUPPORT = [(3, i) for i in range(8, 16)]
 DEST = Path(__file__).resolve().parents[1] / "src" / "virtualenv" / "seed" / "wheels" / "embed"
 
 
@@ -23,6 +23,8 @@ def download(ver, dest, package):
     subprocess.call(
         [
             sys.executable,
+            "-W",
+            "ignore::EncodingWarning",
             "-m",
             "pip",
             "--disable-pip-version-check",

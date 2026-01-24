@@ -1,10 +1,4 @@
-"""Development related tasks to be run with 'invoke'.
-
-Make sure you satisfy the following Python module requirements if you are trying to publish a release to PyPI:
-    - twine >= 1.11.0
-    - wheel >= 0.31.0
-    - setuptools >= 39.1.0
-"""
+"""Development related tasks to be run with 'invoke'."""
 
 import contextlib
 import os
@@ -12,21 +6,16 @@ import pathlib
 import re
 import shutil
 import sys
-from typing import Union
 
 import invoke
 from invoke.context import Context
-
-from plugins import (
-    tasks as plugin_tasks,
-)
 
 TASK_ROOT = pathlib.Path(__file__).resolve().parent
 TASK_ROOT_STR = str(TASK_ROOT)
 
 
 # shared function
-def rmrf(items: Union[str, list[str], set[str]], verbose: bool = True) -> None:
+def rmrf(items: str | list[str] | set[str], verbose: bool = True) -> None:
     """Silently remove a list of directories or files."""
     if isinstance(items, str):
         items = [items]
@@ -41,7 +30,7 @@ def rmrf(items: Union[str, list[str], set[str]], verbose: bool = True) -> None:
 
 
 # create namespaces
-namespace = invoke.Collection(plugin=plugin_tasks)
+namespace = invoke.Collection()
 namespace_clean = invoke.Collection('clean')
 namespace.add_collection(namespace_clean, 'clean')
 
@@ -53,34 +42,24 @@ namespace.add_collection(namespace_clean, 'clean')
 
 
 @invoke.task()
-def pytest(context: Context, junit: bool = False, pty: bool = True, base: bool = False, isolated: bool = False) -> None:
+def pytest(context: Context, junit: bool = False, pty: bool = True) -> None:
     """Run tests and code coverage using pytest."""
     with context.cd(TASK_ROOT_STR):
         command_str = 'pytest '
         command_str += ' --cov=cmd2 '
         command_str += ' --cov-append --cov-report=term --cov-report=html '
 
-        if not base and not isolated:
-            base = True
-            isolated = True
-
         if junit:
             command_str += ' --junitxml=junit/test-results.xml '
 
-        if base:
-            tests_cmd = command_str + ' tests'
-            context.run(tests_cmd, pty=pty)
-        if isolated:
-            for _root, dirnames, _ in os.walk(str(TASK_ROOT / 'tests_isolated')):
-                for dir_name in dirnames:
-                    if dir_name.startswith('test_'):
-                        context.run(command_str + ' tests_isolated/' + dir_name)
+        tests_cmd = command_str + ' tests'
+        context.run(tests_cmd, pty=pty)
 
 
 namespace.add_task(pytest)
 
 
-@invoke.task(post=[plugin_tasks.pytest_clean])
+@invoke.task()
 def pytest_clean(context: Context) -> None:
     """Remove pytest cache and code coverage files and directories."""
     # pylint: disable=unused-argument
@@ -121,7 +100,6 @@ namespace_clean.add_task(mypy_clean, 'mypy')
 #
 #####
 DOCS_BUILDDIR = 'build'
-MKDOCS_OPTS = '-nvWT'  # Be nitpicky, verbose, and treat warnings as errors
 
 
 @invoke.task()
@@ -164,7 +142,7 @@ BUILDDIR = 'build'
 DISTDIR = 'dist'
 
 
-@invoke.task(post=[plugin_tasks.build_clean])
+@invoke.task()
 def build_clean(context: Context) -> None:
     """Remove the build directory."""
     # pylint: disable=unused-argument
@@ -175,7 +153,7 @@ def build_clean(context: Context) -> None:
 namespace_clean.add_task(build_clean, 'build')
 
 
-@invoke.task(post=[plugin_tasks.dist_clean])
+@invoke.task()
 def dist_clean(context: Context) -> None:
     """Remove the dist directory."""
     # pylint: disable=unused-argument
@@ -254,7 +232,6 @@ namespace_clean.add_task(ruff_clean, 'ruff')
 #
 # make a dummy clean task which runs all the tasks in the clean namespace
 clean_tasks = list(namespace_clean.tasks.values())
-clean_tasks.append(plugin_tasks.clean_all)
 
 
 @invoke.task(pre=clean_tasks, default=True)
@@ -286,9 +263,9 @@ def validatetag(context: Context) -> None:
     git_tag = result.stdout.rstrip()
 
     # Validate that the Git tag appears to be a valid version number
-    ver_regex = re.compile(r'(\d+)\.(\d+)\.(\d+)')
-    match = ver_regex.fullmatch(git_tag)
-    if match is None:
+    ver_regex = re.compile(r'(\d+)\.(\d+)\.(\d+)((a|b|rc)(\d+))?')
+    found = ver_regex.fullmatch(git_tag)
+    if found is None:
         print(f'Tag {git_tag!r} does not appear to be a valid version number')
         sys.exit(-1)
     else:
@@ -296,43 +273,3 @@ def validatetag(context: Context) -> None:
 
 
 namespace.add_task(validatetag)
-
-
-@invoke.task(pre=[clean_all], post=[plugin_tasks.sdist])
-def sdist(context: Context) -> None:
-    """Create a source distribution."""
-    with context.cd(TASK_ROOT_STR):
-        context.run('python -m build --sdist')
-
-
-namespace.add_task(sdist)
-
-
-@invoke.task(pre=[clean_all], post=[plugin_tasks.wheel])
-def wheel(context: Context) -> None:
-    """Build a wheel distribution."""
-    with context.cd(TASK_ROOT_STR):
-        context.run('python -m build --wheel')
-
-
-namespace.add_task(wheel)
-
-
-@invoke.task(pre=[validatetag, sdist, wheel])
-def pypi(context: Context) -> None:
-    """Build and upload a distribution to pypi."""
-    with context.cd(TASK_ROOT_STR):
-        context.run('twine upload dist/*')
-
-
-namespace.add_task(pypi)
-
-
-@invoke.task(pre=[validatetag, sdist, wheel])
-def pypi_test(context: Context) -> None:
-    """Build and upload a distribution to https://test.pypi.org."""
-    with context.cd(TASK_ROOT_STR):
-        context.run('twine upload --repository testpypi dist/*')
-
-
-namespace.add_task(pypi_test)

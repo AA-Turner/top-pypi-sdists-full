@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyogrio
-Version: 0.11.1
+Version: 0.12.1
 Summary: Vectorized spatial vector file format I/O using GDAL/OGR
 Author: pyogrio contributors
 Author-email: "Brendan C. Ward" <bcward@astutespruce.com>
@@ -35,14 +35,15 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: certifi
 Requires-Dist: numpy
 Requires-Dist: packaging
 Provides-Extra: dev
-Requires-Dist: cython; extra == "dev"
+Requires-Dist: cython>=3.1; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -51,6 +52,11 @@ Requires-Dist: pytest-benchmark; extra == "benchmark"
 Provides-Extra: geopandas
 Requires-Dist: geopandas; extra == "geopandas"
 Dynamic: license-file
+
+[![pypi](https://img.shields.io/pypi/v/pyogrio.svg)](https://pypi.python.org/pypi/pyogrio/)
+[![Conda version](https://anaconda.org/conda-forge/pyogrio/badges/version.svg)](https://anaconda.org/conda-forge/pyogrio)
+[![Actions Status](https://github.com/geopandas/pyogrio/actions/workflows/tests-conda.yml/badge.svg?branch=main)](https://github.com/geopandas/pyogrio/actions?branch=main)
+[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
 
 # pyogrio - bulk-oriented spatial vector file I/O using GDAL/OGR
 
@@ -80,7 +86,7 @@ Read the documentation for more information:
 
 ## Requirements
 
-Supports Python 3.9 - 3.13 and GDAL 3.4.x - 3.9.x.
+Supports Python 3.10 - 3.14 and GDAL 3.6.x - 3.11.x.
 
 Reading to GeoDataFrames requires `geopandas>=0.12` with `shapely>=2`.
 

@@ -5,7 +5,7 @@ In this file:
 - All compiled regexes are suffixed by _RE
 """
 
-from functools import lru_cache
+from functools import cache
 
 import regex as re
 
@@ -61,7 +61,10 @@ OPENERS = (
 # fmt: off
 DIRECTIVES_CONTAINING_RST = [
     # standard docutils ones
-    'admonition', 'attention', 'caution', 'class', 'compound', 'container',
+    'admonition', 'attention',
+    'c:data', 'c:enum', 'c:enumerator', 'c:func', 'c:macro', 'c:member',
+    'c:struct', 'c:type', 'c:union', 'c:var',
+    'caution', 'class', 'compound', 'container',
     'danger', 'epigraph', 'error', 'figure', 'footer', 'header', 'highlights',
     'hint', 'image', 'important', 'include', 'line-block', 'list-table', 'meta',
     'note', 'parsed-literal', 'pull-quote', 'replace', 'sidebar', 'tip', 'topic',
@@ -153,7 +156,7 @@ ASCII_ALLOWED_AFTER_INLINE_MARKUP = r"""-.,:;!?/'")\]}>"""
 UNICODE_ALLOWED_AFTER_INLINE_MARKUP = r"\p{Pe}\p{Pi}\p{Pf}\p{Pd}\p{Po}"
 
 
-@lru_cache(maxsize=None)
+@cache
 def inline_markup_gen(start_string, end_string, extra_allowed_before=""):
     """Generate a regex matching an inline markup.
 
@@ -249,6 +252,13 @@ THREE_DOT_DIRECTIVE_RE = re.compile(rf"\.\.\. {ALL_DIRECTIVES}::")
 # :const:`None`
 DOUBLE_BACKTICK_ROLE_RE = re.compile(rf"(?<!``){ROLE_HEAD}``")
 
+# Find roles with extra backtick like:
+# :mod:`!cgi`` (extra backtick at the end)
+# :mod:``!cgi` (extra backtick at the beginning)
+ROLE_WITH_EXTRA_BACKTICK_RE = re.compile(
+    rf"({ROLE_HEAD}(?:``[^`\s]+`(?!\S)|`[^`\s]+``))(?!`)"
+)
+
 START_STRING_PREFIX = f"(^|(?<=\\s|[{OPENERS}{DELIMITERS}|]))"
 END_STRING_SUFFIX = f"($|(?=\\s|[\x00{CLOSING_DELIMITERS}{DELIMITERS}{CLOSERS}|]))"
 
@@ -270,8 +280,7 @@ ROLE_WITH_NO_BACKTICKS_RE = re.compile(rf"(^|\s):{SIMPLENAME}:(?![`:])[^\s`]+(\s
 #    The :issue`123` is ...
 ROLE_MISSING_RIGHT_COLON_RE = re.compile(rf"(^|\s):{SIMPLENAME}`(?!`)")
 
-
-SEEMS_HYPERLINK_RE = re.compile(r"`[^`]+?(\s?)<https?://[^`]+>`(_?)")
+SEEMS_HYPERLINK_RE = re.compile(r"(:download:)?`[^`]+?(\s?)<https?://[^`]+>`(_?)")
 
 LEAKED_MARKUP_RE = re.compile(r"[a-z]::\s|`|\.\.\s*\w+:")
 
@@ -282,3 +291,5 @@ TRIPLE_BACKTICKS_RE = re.compile(
 ROLE_MISSING_CLOSING_BACKTICK_RE = re.compile(rf"({ROLE_HEAD}`[^`]+?)[^`]*$")
 
 ROLE_WITH_UNNECESSARY_PARENTHESES_RE = re.compile(r"(^|\s):(func|meth):`[^`]+\(\)`")
+
+ROLE_WITH_EXCLAMATION_AND_TILDE_RE = re.compile(rf"{ROLE_HEAD}`[!~]{{2}}[^`]*`")

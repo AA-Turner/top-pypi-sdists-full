@@ -41,13 +41,12 @@ typedef uint32_t CGRGBPixel;
 
 class SkScalerContext_Mac : public SkScalerContext {
 public:
-    SkScalerContext_Mac(sk_sp<SkTypeface_Mac>, const SkScalerContextEffects&, const SkDescriptor*);
+    SkScalerContext_Mac(SkTypeface_Mac&, const SkScalerContextEffects&, const SkDescriptor*);
 
 protected:
-    bool generateAdvance(SkGlyph* glyph) override;
-    void generateMetrics(SkGlyph* glyph, SkArenaAlloc*) override;
-    void generateImage(const SkGlyph& glyph) override;
-    bool generatePath(const SkGlyph& glyph, SkPath* path) override;
+    GlyphMetrics generateMetrics(const SkGlyph&, SkArenaAlloc*) override;
+    void generateImage(const SkGlyph&, void*) override;
+    std::optional<GeneratedPath> generatePath(const SkGlyph&) override;
     void generateFontMetrics(SkFontMetrics*) override;
 
 private:

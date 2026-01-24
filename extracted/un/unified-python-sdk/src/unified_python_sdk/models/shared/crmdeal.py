@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 from .crmmetadata import CrmMetadata, CrmMetadataTypedDict
+from .crmreference import CrmReference, CrmReferenceTypedDict
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CrmDealTypedDict(TypedDict):
@@ -13,6 +15,7 @@ class CrmDealTypedDict(TypedDict):
 
     amount: NotRequired[float]
     closed_at: NotRequired[datetime]
+    closing_at: NotRequired[datetime]
     company_ids: NotRequired[List[str]]
     contact_ids: NotRequired[List[str]]
     created_at: NotRequired[datetime]
@@ -23,11 +26,13 @@ class CrmDealTypedDict(TypedDict):
     name: NotRequired[str]
     pipeline: NotRequired[str]
     pipeline_id: NotRequired[str]
+    pipelines: NotRequired[List[CrmReferenceTypedDict]]
     probability: NotRequired[float]
     raw: NotRequired[Dict[str, Any]]
     source: NotRequired[str]
     stage: NotRequired[str]
     stage_id: NotRequired[str]
+    stages: NotRequired[List[CrmReferenceTypedDict]]
     tags: NotRequired[List[str]]
     updated_at: NotRequired[datetime]
     user_id: NotRequired[str]
@@ -40,6 +45,8 @@ class CrmDeal(BaseModel):
     amount: Optional[float] = None
 
     closed_at: Optional[datetime] = None
+
+    closing_at: Optional[datetime] = None
 
     company_ids: Optional[List[str]] = None
 
@@ -61,6 +68,8 @@ class CrmDeal(BaseModel):
 
     pipeline_id: Optional[str] = None
 
+    pipelines: Optional[List[CrmReference]] = None
+
     probability: Optional[float] = None
 
     raw: Optional[Dict[str, Any]] = None
@@ -71,6 +80,8 @@ class CrmDeal(BaseModel):
 
     stage_id: Optional[str] = None
 
+    stages: Optional[List[CrmReference]] = None
+
     tags: Optional[List[str]] = None
 
     updated_at: Optional[datetime] = None
@@ -78,3 +89,46 @@ class CrmDeal(BaseModel):
     user_id: Optional[str] = None
 
     won_reason: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "amount",
+                "closed_at",
+                "closing_at",
+                "company_ids",
+                "contact_ids",
+                "created_at",
+                "currency",
+                "id",
+                "lost_reason",
+                "metadata",
+                "name",
+                "pipeline",
+                "pipeline_id",
+                "pipelines",
+                "probability",
+                "raw",
+                "source",
+                "stage",
+                "stage_id",
+                "stages",
+                "tags",
+                "updated_at",
+                "user_id",
+                "won_reason",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

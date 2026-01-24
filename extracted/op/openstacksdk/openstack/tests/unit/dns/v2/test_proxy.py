@@ -11,9 +11,12 @@
 # under the License.
 
 from openstack.dns.v2 import _proxy
+from openstack.dns.v2 import blacklist
 from openstack.dns.v2 import floating_ip
+from openstack.dns.v2 import quota
 from openstack.dns.v2 import recordset
 from openstack.dns.v2 import service_status
+from openstack.dns.v2 import tld
 from openstack.dns.v2 import tsigkey
 from openstack.dns.v2 import zone
 from openstack.dns.v2 import zone_export
@@ -363,3 +366,89 @@ class TestDnsTsigKey(TestDnsProxy):
 
     def test_tesigkeys(self):
         self.verify_list(self.proxy.tsigkeys, tsigkey.TSIGKey)
+
+
+class TestDnsBlacklist(TestDnsProxy):
+    def test_blacklist_create(self):
+        self.verify_create(
+            self.proxy.create_blacklist,
+            blacklist.Blacklist,
+            method_kwargs={'pattern': r'.*\.example\.com'},
+            expected_kwargs={
+                'pattern': r'.*\.example\.com',
+                'prepend_key': False,
+            },
+        )
+
+    def test_blacklist_delete(self):
+        self.verify_delete(
+            self.proxy.delete_blacklist,
+            blacklist.Blacklist,
+            ignore_missing=True,
+        )
+
+    def test_blacklist_update(self):
+        self.verify_update(self.proxy.update_blacklist, blacklist.Blacklist)
+
+    def test_blacklist_get(self):
+        self.verify_get(self.proxy.get_blacklist, blacklist.Blacklist)
+
+    def test_blacklists(self):
+        self.verify_list(self.proxy.blacklists, blacklist.Blacklist)
+
+
+class TestDnsTLD(TestDnsProxy):
+    def test_tld_create(self):
+        self.verify_create(
+            self.proxy.create_tld,
+            tld.TLD,
+            method_kwargs={"name": "id"},
+            expected_kwargs={"name": "id", "prepend_key": False},
+        )
+
+    def test_tld_delete(self):
+        self.verify_delete(
+            self.proxy.delete_tld,
+            tld.TLD,
+            True,
+            expected_kwargs={"ignore_missing": True},
+        )
+
+    def test_tld_find(self):
+        self.verify_find(self.proxy.find_tld, tld.TLD)
+
+    def test_tld_get(self):
+        self.verify_get(self.proxy.get_tld, tld.TLD)
+
+    def test_tlds(self):
+        self.verify_list(self.proxy.tlds, tld.TLD)
+
+    def test_tld_update(self):
+        self.verify_update(self.proxy.update_tld, tld.TLD)
+
+
+class TestDnsQuota(TestDnsProxy):
+    def test_quotas(self):
+        self.verify_list(self.proxy.quotas, quota.Quota)
+
+    def test_quota_get(self):
+        self.verify_get(self.proxy.get_quota, quota.Quota)
+
+    def test_quota_update(self):
+        self.verify_update(self.proxy.update_quota, quota.Quota)
+
+    def test_quota_delete(self):
+        self.verify_delete(
+            self.proxy.delete_quota,
+            quota.Quota,
+            False,
+            expected_kwargs={'ignore_missing': False},
+        )
+
+    def test_quota_delete_ignore(self):
+        self.verify_delete(
+            self.proxy.delete_quota,
+            quota.Quota,
+            True,
+            expected_kwargs={'ignore_missing': True},
+        )

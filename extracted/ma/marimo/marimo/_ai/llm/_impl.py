@@ -1,8 +1,22 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
+import dataclasses
 import os
-from typing import Callable, Optional, cast
+import re
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+
+from marimo import _loggers
+from marimo._ai._pydantic_ai_utils import generate_id
+from marimo._plugins.utils import remove_none_values
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Generator
+
+    from pydantic_ai import Agent
+    from pydantic_ai.settings import ModelSettings
+    from pydantic_ai.ui.vercel_ai.request_types import UIMessage
+    from pydantic_ai.ui.vercel_ai.response_types import BaseChunk
 
 from marimo._ai._convert import (
     convert_to_anthropic_messages,
@@ -17,9 +31,21 @@ from marimo._ai._types import (
 )
 from marimo._dependencies.dependencies import DependencyManager
 
+LOGGER = _loggers.marimo_logger()
+
 DEFAULT_SYSTEM_MESSAGE = (
     "You are a helpful assistant specializing in data science."
 )
+
+
+def _looks_like_streaming_error(e: Exception) -> bool:
+    """Check if an exception appears to be related to streaming not being supported."""
+    error_msg = str(e).lower()
+    # Use word boundaries to match whole words only (not substrings like "downstream")
+    return bool(
+        re.search(r"\bstreaming\b", error_msg)
+        or re.search(r"\bstream\b", error_msg)
+    )
 
 
 class simple(ChatModel):
@@ -96,6 +122,18 @@ class openai(ChatModel):
             "set OPENAI_API_KEY as an environment variable"
         )
 
+    def _stream_response(self, response: Any) -> Generator[str, None, None]:
+        """Helper method for streaming - yields delta chunks.
+
+        Each yield is a new piece of content (delta) to be accumulated
+        by the consumer. This follows the standard OpenAI streaming pattern.
+        """
+        for chunk in response:
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+
     def __call__(
         self, messages: list[ChatMessage], config: ChatModelConfig
     ) -> object:
@@ -135,20 +173,36 @@ class openai(ChatModel):
             [ChatMessage(role="system", content=self.system_message)]
             + messages
         )
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=openai_messages,
-            max_completion_tokens=config.max_tokens,
-            temperature=config.temperature,
-            top_p=config.top_p,
-            frequency_penalty=config.frequency_penalty,
-            presence_penalty=config.presence_penalty,
-            stream=False,
-        )
 
-        choice = response.choices[0]
-        content = choice.message.content
-        return content or ""
+        # Try streaming first, fall back to non-streaming on error
+        try:
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=openai_messages,
+                max_completion_tokens=config.max_tokens,
+                temperature=config.temperature,
+                top_p=config.top_p,
+                frequency_penalty=config.frequency_penalty,
+                presence_penalty=config.presence_penalty,
+                stream=True,
+            )
+            return self._stream_response(response)
+        except Exception as e:
+            # Some models (like o1-preview) don't support streaming
+            # Fall back to non-streaming mode
+            if _looks_like_streaming_error(e):
+                non_stream_response = client.chat.completions.create(
+                    model=self.model,
+                    messages=openai_messages,
+                    max_completion_tokens=config.max_tokens,
+                    temperature=config.temperature,
+                    top_p=config.top_p,
+                    frequency_penalty=config.frequency_penalty,
+                    presence_penalty=config.presence_penalty,
+                    stream=False,
+                )
+                return non_stream_response.choices[0].message.content or ""
+            raise
 
 
 class anthropic(ChatModel):
@@ -165,6 +219,10 @@ class anthropic(ChatModel):
             or the user's config.
         base_url: The base URL to use
     """
+
+    def supports_temperature(self, model: str) -> bool:
+        # Reasoning models (>4.0) don't support temperature
+        return model.startswith("claude-3")
 
     def __init__(
         self,
@@ -205,16 +263,24 @@ class anthropic(ChatModel):
             "set ANTHROPIC_API_KEY as an environment variable"
         )
 
+    def _stream_response(
+        self, client: Any, params: Any
+    ) -> Generator[str, None, None]:
+        """Helper method for streaming - yields delta chunks.
+
+        Each yield is a new piece of content (delta) to be accumulated
+        by the consumer. This follows the standard Anthropic streaming pattern.
+        """
+        with client.messages.stream(**params) as stream:
+            yield from stream.text_stream
+
     def __call__(
         self, messages: list[ChatMessage], config: ChatModelConfig
     ) -> object:
         DependencyManager.anthropic.require(
             "chat model requires anthropic. `pip install anthropic`"
         )
-        from anthropic import (  # type: ignore[import-not-found]
-            NOT_GIVEN,
-            Anthropic,
-        )
+        from anthropic import Anthropic
 
         client = Anthropic(
             api_key=self._require_api_key,
@@ -222,26 +288,32 @@ class anthropic(ChatModel):
         )
 
         anthropic_messages = convert_to_anthropic_messages(messages)
-        response = client.messages.create(
-            model=self.model,
-            system=self.system_message,
-            max_tokens=config.max_tokens or 4096,
-            messages=anthropic_messages,
-            top_p=config.top_p if config.top_p is not None else NOT_GIVEN,
-            top_k=config.top_k if config.top_k is not None else NOT_GIVEN,
-            stream=False,
-            temperature=config.temperature
-            if config.temperature is not None
-            else NOT_GIVEN,
-        )
+        params: dict[str, Any] = {
+            "model": self.model,
+            "system": self.system_message,
+            "max_tokens": config.max_tokens or 4096,
+            "messages": anthropic_messages,
+        }
+        if config.top_p is not None:
+            params["top_p"] = config.top_p
+        if config.top_k is not None:
+            params["top_k"] = config.top_k
+        if config.temperature is not None and self.supports_temperature(
+            self.model
+        ):
+            params["temperature"] = config.temperature
 
-        content = response.content
-        if len(content) > 0:
-            if content[0].type == "text":
-                return content[0].text
-            elif content[0].type == "tool_use":
-                return content
-        return ""
+        # Try streaming first, fall back to non-streaming on error
+        try:
+            # Note: client.messages.stream() doesn't take a 'stream' parameter
+            # It's already a streaming method
+            return self._stream_response(client, params)
+        except Exception as e:
+            # Fall back to non-streaming mode if streaming fails
+            if _looks_like_streaming_error(e):
+                response = client.messages.create(**params)
+                return response.content[0].text
+            raise
 
 
 class google(ChatModel):
@@ -295,6 +367,23 @@ class google(ChatModel):
             "set GOOGLE_AI_API_KEY as an environment variable"
         )
 
+    def _stream_response(
+        self, client: Any, google_messages: Any, generation_config: Any
+    ) -> Generator[str, None, None]:
+        """Helper method for streaming - yields delta chunks.
+
+        Each yield is a new piece of content (delta) to be accumulated
+        by the consumer. This follows the standard Google AI streaming pattern.
+        """
+        response = client.models.generate_content_stream(
+            model=self.model,
+            contents=google_messages,
+            config=generation_config,
+        )
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
+
     def __call__(
         self, messages: list[ChatMessage], config: ChatModelConfig
     ) -> object:
@@ -306,22 +395,33 @@ class google(ChatModel):
         client = genai.Client(api_key=self._require_api_key)
 
         google_messages = convert_to_google_messages(messages)
-        response = client.models.generate_content(
-            model=self.model,
-            contents=google_messages,
-            config={
-                "system_instruction": self.system_message,
-                "max_output_tokens": config.max_tokens,
-                "temperature": config.temperature,
-                "top_p": config.top_p,
-                "top_k": config.top_k,
-                "frequency_penalty": config.frequency_penalty,
-                "presence_penalty": config.presence_penalty,
-            },
-        )
 
-        content = response.text
-        return content or ""
+        # Build config once to avoid duplication
+        generation_config = {
+            "system_instruction": self.system_message,
+            "max_output_tokens": config.max_tokens,
+            "temperature": config.temperature,
+            "top_p": config.top_p,
+            "top_k": config.top_k,
+            "frequency_penalty": config.frequency_penalty,
+            "presence_penalty": config.presence_penalty,
+        }
+
+        # Try streaming first, fall back to non-streaming on error
+        try:
+            return self._stream_response(
+                client, google_messages, generation_config
+            )
+        except Exception as e:
+            # Fall back to non-streaming mode if streaming fails
+            if _looks_like_streaming_error(e):
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=google_messages,
+                    config=generation_config,  # type: ignore[arg-type]
+                )
+                return response.text
+            raise
 
 
 class groq(ChatModel):
@@ -378,6 +478,30 @@ class groq(ChatModel):
             "set GROQ_API_KEY as an environment variable"
         )
 
+    def _stream_response(
+        self, client: Any, groq_messages: Any, config: ChatModelConfig
+    ) -> Generator[str, None, None]:
+        """Helper method for streaming - yields delta chunks.
+
+        Each yield is a new piece of content (delta) to be accumulated
+        by the consumer. This follows the standard Groq streaming pattern.
+        """
+        stream = client.chat.completions.create(
+            model=self.model,
+            messages=groq_messages,
+            max_tokens=config.max_tokens,
+            temperature=config.temperature,
+            top_p=config.top_p,
+            stop=None,
+            stream=True,
+        )
+
+        for chunk in stream:
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+
     def __call__(
         self, messages: list[ChatMessage], config: ChatModelConfig
     ) -> object:
@@ -392,19 +516,24 @@ class groq(ChatModel):
             [ChatMessage(role="system", content=self.system_message)]
             + messages
         )
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=groq_messages,
-            max_tokens=config.max_tokens,
-            temperature=config.temperature,
-            top_p=config.top_p,
-            stop=None,
-            stream=False,
-        )
 
-        choice = response.choices[0]
-        content = choice.message.content
-        return content or ""
+        # Try streaming first, fall back to non-streaming on error
+        try:
+            return self._stream_response(client, groq_messages, config)
+        except Exception as e:
+            # Fall back to non-streaming mode if streaming fails
+            if _looks_like_streaming_error(e):
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=groq_messages,
+                    max_tokens=config.max_tokens,
+                    temperature=config.temperature,
+                    top_p=config.top_p,
+                    stop=None,
+                    stream=False,
+                )
+                return response.choices[0].message.content or ""
+            raise
 
 
 class bedrock(ChatModel):
@@ -452,6 +581,36 @@ class bedrock(ChatModel):
         else:
             pass  # Use default credential chain
 
+    def _stream_response(
+        self, messages: list[ChatMessage], config: ChatModelConfig
+    ) -> Generator[str, None, None]:
+        """Helper method for streaming - yields delta chunks.
+
+        Each yield is a new piece of content (delta) to be accumulated
+        by the consumer. This follows the standard AWS Bedrock streaming pattern.
+        """
+        from litellm import completion as litellm_completion
+
+        response = litellm_completion(
+            model=self.model,
+            messages=convert_to_openai_messages(
+                [ChatMessage(role="system", content=self.system_message)]
+                + messages
+            ),
+            max_tokens=config.max_tokens,
+            temperature=config.temperature,
+            top_p=config.top_p,
+            frequency_penalty=config.frequency_penalty,
+            presence_penalty=config.presence_penalty,
+            stream=True,
+        )
+
+        for chunk in response:
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+
     def __call__(
         self, messages: list[ChatMessage], config: ChatModelConfig
     ) -> object:
@@ -461,28 +620,37 @@ class bedrock(ChatModel):
         DependencyManager.litellm.require(
             "bedrock chat model requires litellm. `pip install litellm`"
         )
-        from litellm import completion as litellm_completion
-
         self._setup_credentials()
 
         try:
-            # Make API call
-            response = litellm_completion(
-                model=self.model,
-                messages=convert_to_openai_messages(
-                    [ChatMessage(role="system", content=self.system_message)]
-                    + messages
-                ),
-                max_tokens=config.max_tokens,
-                temperature=config.temperature,
-                top_p=config.top_p,
-                frequency_penalty=config.frequency_penalty,
-                presence_penalty=config.presence_penalty,
-                stream=False,
-            )
+            # Try streaming first, fall back to non-streaming on error
+            try:
+                return self._stream_response(messages, config)
+            except Exception as stream_error:
+                # Fall back to non-streaming if streaming fails
+                if _looks_like_streaming_error(stream_error):
+                    from litellm import completion as litellm_completion
 
-            return response.choices[0].message.content
-
+                    response = litellm_completion(
+                        model=self.model,
+                        messages=convert_to_openai_messages(
+                            [
+                                ChatMessage(
+                                    role="system",
+                                    content=self.system_message,
+                                )
+                            ]
+                            + messages
+                        ),
+                        max_tokens=config.max_tokens,
+                        temperature=config.temperature,
+                        top_p=config.top_p,
+                        frequency_penalty=config.frequency_penalty,
+                        presence_penalty=config.presence_penalty,
+                        stream=False,
+                    )
+                    return response.choices[0].message.content or ""
+                raise
         except Exception as e:
             # Handle common AWS exceptions with helpful messages
             error_msg = str(e)
@@ -508,3 +676,186 @@ class bedrock(ChatModel):
             else:
                 # Re-raise original exception if not handled
                 raise
+
+
+class pydantic_ai(ChatModel):
+    """
+    [Pydantic AI](https://ai.pydantic.dev/) ChatModel
+
+    Args:
+        agent: A pydantic_ai Agent instance. [See docs](https://ai.pydantic.dev/agents/)
+
+    Example:
+        ```python
+        from pydantic_ai import Agent
+
+        agent = Agent(
+            model="gpt-5", system_prompt="You are a helpful assistant."
+        )
+        chatbot = mo.ui.chat(
+            mo.ai.llm.pydantic_ai(agent),
+            prompts=["What is the capital of France?", "What is marimo?"],
+        )
+        chatbot
+        ```
+    """
+
+    def __init__(self, agent: Agent[Any, Any]):
+        DependencyManager.pydantic_ai.require(
+            "pydantic-ai chat model requires pydantic-ai. `pip install pydantic-ai`"
+        )
+        self.agent = agent
+
+    def __call__(
+        self, messages: list[ChatMessage], config: ChatModelConfig
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        return self._stream_response(messages, config)
+
+    def _get_model_settings(self, config: ChatModelConfig) -> ModelSettings:
+        model_settings: ModelSettings = {}
+        if config.max_tokens is not None:
+            model_settings["max_tokens"] = config.max_tokens
+        if config.temperature is not None:
+            model_settings["temperature"] = config.temperature
+        if config.top_p is not None:
+            model_settings["top_p"] = config.top_p
+        if config.frequency_penalty is not None:
+            model_settings["frequency_penalty"] = config.frequency_penalty
+        if config.presence_penalty is not None:
+            model_settings["presence_penalty"] = config.presence_penalty
+        return model_settings
+
+    def _build_ui_messages(
+        self, messages: list[ChatMessage]
+    ) -> list[UIMessage]:
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            TextUIPart,
+            UIMessage,
+            UIMessagePart,
+        )
+
+        ui_messages: list[UIMessage] = []
+
+        for message in messages:
+            message_id = message.id or generate_id("message")
+
+            if not message.id:
+                LOGGER.warning("Message %s has no id", message)
+
+            parts: list[UIMessagePart] = []
+            if message.parts:
+                parts = cast(
+                    list[UIMessagePart],
+                    [
+                        self._remove_none_values(
+                            dataclasses.asdict(part)
+                            if dataclasses.is_dataclass(part)
+                            else part
+                        )
+                        for part in message.parts
+                    ],
+                )
+            if not parts:
+                if message.content is not None:
+                    LOGGER.warning(
+                        "Message %s has no valid parts, using content instead",
+                        message,
+                    )
+                    parts = [TextUIPart(text=str(message.content))]
+                else:
+                    LOGGER.error(
+                        "Message %s has no parts and no content, skipping",
+                        message,
+                    )
+                    continue
+
+            ui_messages.append(
+                UIMessage(
+                    id=message_id,
+                    role=message.role,
+                    parts=parts,
+                    metadata=message.metadata,
+                )
+            )
+        return ui_messages
+
+    def _remove_none_values(self, obj: dict[str, Any]) -> dict[str, Any]:
+        if isinstance(obj, dict) and hasattr(obj, "items"):
+            return remove_none_values(obj)
+        return obj
+
+    def _serialize_vercel_ai_chunk(
+        self, chunk: BaseChunk
+    ) -> dict[str, Any] | None:
+        """
+        Serialize vercel ai chunk to a dictionary. Skip "done" chunks - not part of Vercel AI SDK schema.
+
+        by_alias=True: Use camelCase keys expected by Vercel AI SDK.
+        exclude_none=True: Remove null values which cause validation errors.
+        """
+        try:
+            serialized = chunk.model_dump(
+                mode="json", by_alias=True, exclude_none=True
+            )
+        except Exception as e:
+            LOGGER.error("Error serializing vercel ai chunk: %s", e)
+            return None
+        else:
+            if serialized.get("type") == "done":
+                return None
+            return serialized
+
+    async def _stream_response(
+        self, messages: list[ChatMessage], config: ChatModelConfig
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Streams back Vercel AI events.
+
+        Args:
+            messages: The messages to send to the model.
+            config: The model configuration.
+
+        Returns:
+            An asynchronous generator of serialized Vercel AI events.
+        """
+        from pydantic_ai.ui.vercel_ai import VercelAIAdapter
+        from pydantic_ai.ui.vercel_ai.request_types import SubmitMessage
+
+        ui_messages = self._build_ui_messages(messages)
+        model_settings = self._get_model_settings(config)
+        run_input = SubmitMessage(
+            id=generate_id("submit-message"),
+            trigger="submit-message",
+            messages=ui_messages,
+        )
+
+        adapter = VercelAIAdapter(agent=self.agent, run_input=run_input)
+        event_stream = adapter.run_stream(model_settings=model_settings)
+        async for event in event_stream:
+            if serialized := self._serialize_vercel_ai_chunk(event):
+                yield serialized
+
+    async def _stream_text(
+        self, messages: list[ChatMessage], config: ChatModelConfig
+    ) -> AsyncGenerator[str, None]:
+        """Streams back text from the model.
+
+        Args:
+            messages: The messages to send to the model.
+            config: The model configuration.
+
+        Returns:
+            An asynchronous generator of text.
+        """
+        from pydantic_ai.ui.vercel_ai import VercelAIAdapter
+
+        ui_messages = self._build_ui_messages(messages)
+        pydantic_model_messages = VercelAIAdapter.load_messages(ui_messages)
+        model_settings = self._get_model_settings(config)
+
+        async with self.agent.run_stream(
+            user_prompt=None,
+            message_history=pydantic_model_messages,
+            model_settings=model_settings,
+        ) as result:
+            async for text in result.stream_text(delta=True):
+                yield text

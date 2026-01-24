@@ -25,7 +25,7 @@ class ZeroTrustGatewaySettingsArgs:
                  settings: Optional[pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs']] = None):
         """
         The set of arguments for constructing a ZeroTrustGatewaySettings resource.
-        :param pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs'] settings: Account settings.
+        :param pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs'] settings: Specify account settings.
         """
         pulumi.set(__self__, "account_id", account_id)
         if settings is not None:
@@ -44,7 +44,7 @@ class ZeroTrustGatewaySettingsArgs:
     @pulumi.getter
     def settings(self) -> Optional[pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs']]:
         """
-        Account settings.
+        Specify account settings.
         """
         return pulumi.get(self, "settings")
 
@@ -62,7 +62,7 @@ class _ZeroTrustGatewaySettingsState:
                  updated_at: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ZeroTrustGatewaySettings resources.
-        :param pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs'] settings: Account settings.
+        :param pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs'] settings: Specify account settings.
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -95,7 +95,7 @@ class _ZeroTrustGatewaySettingsState:
     @pulumi.getter
     def settings(self) -> Optional[pulumi.Input['ZeroTrustGatewaySettingsSettingsArgs']]:
         """
-        Account settings.
+        Specify account settings.
         """
         return pulumi.get(self, "settings")
 
@@ -125,6 +125,80 @@ class ZeroTrustGatewaySettings(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_gateway_settings = cloudflare.ZeroTrustGatewaySettings("example_zero_trust_gateway_settings",
+            account_id="699d98642c564d2e855e9661899b7252",
+            settings={
+                "activity_log": {
+                    "enabled": True,
+                },
+                "antivirus": {
+                    "enabled_download_phase": False,
+                    "enabled_upload_phase": False,
+                    "fail_closed": False,
+                    "notification_settings": {
+                        "enabled": True,
+                        "include_context": True,
+                        "msg": "msg",
+                        "support_url": "support_url",
+                    },
+                },
+                "block_page": {
+                    "background_color": "background_color",
+                    "enabled": True,
+                    "footer_text": "--footer--",
+                    "header_text": "--header--",
+                    "include_context": True,
+                    "logo_path": "https://logos.com/a.png",
+                    "mailto_address": "admin@example.com",
+                    "mailto_subject": "Blocked User Inquiry",
+                    "mode": "",
+                    "name": "Cloudflare",
+                    "suppress_footer": False,
+                    "target_uri": "https://example.com",
+                },
+                "body_scanning": {
+                    "inspection_mode": "deep",
+                },
+                "browser_isolation": {
+                    "non_identity_enabled": True,
+                    "url_browser_isolation_enabled": True,
+                },
+                "certificate": {
+                    "id": "d1b364c5-1311-466e-a194-f0e943e0799f",
+                },
+                "custom_certificate": {
+                    "enabled": True,
+                    "id": "d1b364c5-1311-466e-a194-f0e943e0799f",
+                },
+                "extended_email_matching": {
+                    "enabled": True,
+                },
+                "fips": {
+                    "tls": True,
+                },
+                "host_selector": {
+                    "enabled": False,
+                },
+                "inspection": {
+                    "mode": "static",
+                },
+                "protocol_detection": {
+                    "enabled": True,
+                },
+                "sandbox": {
+                    "enabled": True,
+                    "fallback_action": "allow",
+                },
+                "tls_decrypt": {
+                    "enabled": True,
+                },
+            })
+        ```
+
         ## Import
 
         ```sh
@@ -133,7 +207,7 @@ class ZeroTrustGatewaySettings(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['ZeroTrustGatewaySettingsSettingsArgs', 'ZeroTrustGatewaySettingsSettingsArgsDict']] settings: Account settings.
+        :param pulumi.Input[Union['ZeroTrustGatewaySettingsSettingsArgs', 'ZeroTrustGatewaySettingsSettingsArgsDict']] settings: Specify account settings.
         """
         ...
     @overload
@@ -143,6 +217,80 @@ class ZeroTrustGatewaySettings(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_gateway_settings = cloudflare.ZeroTrustGatewaySettings("example_zero_trust_gateway_settings",
+            account_id="699d98642c564d2e855e9661899b7252",
+            settings={
+                "activity_log": {
+                    "enabled": True,
+                },
+                "antivirus": {
+                    "enabled_download_phase": False,
+                    "enabled_upload_phase": False,
+                    "fail_closed": False,
+                    "notification_settings": {
+                        "enabled": True,
+                        "include_context": True,
+                        "msg": "msg",
+                        "support_url": "support_url",
+                    },
+                },
+                "block_page": {
+                    "background_color": "background_color",
+                    "enabled": True,
+                    "footer_text": "--footer--",
+                    "header_text": "--header--",
+                    "include_context": True,
+                    "logo_path": "https://logos.com/a.png",
+                    "mailto_address": "admin@example.com",
+                    "mailto_subject": "Blocked User Inquiry",
+                    "mode": "",
+                    "name": "Cloudflare",
+                    "suppress_footer": False,
+                    "target_uri": "https://example.com",
+                },
+                "body_scanning": {
+                    "inspection_mode": "deep",
+                },
+                "browser_isolation": {
+                    "non_identity_enabled": True,
+                    "url_browser_isolation_enabled": True,
+                },
+                "certificate": {
+                    "id": "d1b364c5-1311-466e-a194-f0e943e0799f",
+                },
+                "custom_certificate": {
+                    "enabled": True,
+                    "id": "d1b364c5-1311-466e-a194-f0e943e0799f",
+                },
+                "extended_email_matching": {
+                    "enabled": True,
+                },
+                "fips": {
+                    "tls": True,
+                },
+                "host_selector": {
+                    "enabled": False,
+                },
+                "inspection": {
+                    "mode": "static",
+                },
+                "protocol_detection": {
+                    "enabled": True,
+                },
+                "sandbox": {
+                    "enabled": True,
+                    "fallback_action": "allow",
+                },
+                "tls_decrypt": {
+                    "enabled": True,
+                },
+            })
+        ```
 
         ## Import
 
@@ -205,7 +353,7 @@ class ZeroTrustGatewaySettings(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['ZeroTrustGatewaySettingsSettingsArgs', 'ZeroTrustGatewaySettingsSettingsArgsDict']] settings: Account settings.
+        :param pulumi.Input[Union['ZeroTrustGatewaySettingsSettingsArgs', 'ZeroTrustGatewaySettingsSettingsArgsDict']] settings: Specify account settings.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -231,7 +379,7 @@ class ZeroTrustGatewaySettings(pulumi.CustomResource):
     @pulumi.getter
     def settings(self) -> pulumi.Output[Optional['outputs.ZeroTrustGatewaySettingsSettings']]:
         """
-        Account settings.
+        Specify account settings.
         """
         return pulumi.get(self, "settings")
 

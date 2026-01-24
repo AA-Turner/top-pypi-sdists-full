@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlassian-doc-builder
-Version: 0.5.1
+Version: 0.5.2
 Summary: Creating Atlassian Document in a programmatic way.
 Author-email: khwong-c <kin.hin.wong.c@gmail.com>
 License: MIT License
@@ -26,7 +26,7 @@ License: MIT License
         SOFTWARE.
         
 Project-URL: Repository, https://github.com/khwong-c/atlassian-doc-builder
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

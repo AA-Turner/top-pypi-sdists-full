@@ -14,6 +14,7 @@
 // TODO https://github.com/eclipse-zenoh/zenoh-python/pull/235#discussion_r1644498390
 // mod logging;
 mod bytes;
+mod cancellation;
 mod config;
 #[cfg(feature = "zenoh-ext")]
 mod ext;
@@ -28,6 +29,8 @@ mod query;
 mod sample;
 mod scouting;
 mod session;
+#[cfg(feature = "shared-memory")]
+mod shm;
 mod time;
 mod utils;
 
@@ -35,6 +38,7 @@ use pyo3::prelude::*;
 
 pyo3::create_exception!(zenoh, ZError, pyo3::exceptions::PyException);
 // must be defined here or exporting doesn't work
+#[cfg(feature = "zenoh-ext")]
 pyo3::create_exception!(zenoh, ZDeserializeError, pyo3::exceptions::PyException);
 
 #[pymodule]
@@ -54,6 +58,7 @@ pub(crate) mod zenoh {
     #[pymodule_export]
     use crate::{
         bytes::{Encoding, ZBytes},
+        cancellation::CancellationToken,
         config::{Config, WhatAmI, WhatAmIMatcher, ZenohId},
         handlers::Handler,
         key_expr::{KeyExpr, SetIntersectionLevel},
@@ -65,10 +70,10 @@ pub(crate) mod zenoh {
             ConsolidationMode, Parameters, Querier, Query, QueryConsolidation, QueryTarget,
             Queryable, Reply, ReplyError, Selector,
         },
-        sample::{Locality, Sample, SampleKind},
+        sample::{Locality, Sample, SampleKind, SourceInfo},
         scouting::{scout, Hello, Scout},
         session::{open, EntityGlobalId, Session, SessionInfo},
-        time::{Timestamp, TimestampId},
+        time::{Timestamp, TimestampId, NTP64},
         ZError,
     };
 
@@ -82,13 +87,24 @@ pub(crate) mod zenoh {
     #[pymodule]
     mod _ext {
         #[pymodule_export]
-        use crate::ext::{
-            declare_advanced_publisher, declare_advanced_subscriber, z_deserialize, z_serialize,
-            AdvancedPublisher, AdvancedSubscriber, CacheConfig, HistoryConfig, Miss,
-            MissDetectionConfig, RecoveryConfig, RepliesConfig, SampleMissListener,
+        use crate::{
+            ext::{
+                declare_advanced_publisher, declare_advanced_subscriber, z_deserialize,
+                z_serialize, AdvancedPublisher, AdvancedSubscriber, CacheConfig, HistoryConfig,
+                Miss, MissDetectionConfig, RecoveryConfig, RepliesConfig, SampleMissListener,
+            },
+            ZDeserializeError,
         };
+    }
+
+    #[cfg(feature = "shared-memory")]
+    #[pymodule]
+    mod shm {
         #[pymodule_export]
-        use crate::ZDeserializeError;
+        use crate::shm::{
+            AllocAlignment, BlockOn, Deallocate, Defragment, GarbageCollect, JustAlloc,
+            MemoryLayout, ShmProvider, ZShm, ZShmMut,
+        };
     }
 
     #[pymodule_init]
@@ -97,6 +113,8 @@ pub(crate) mod zenoh {
         sys_modules.set_item("zenoh.handlers", m.getattr("handlers")?)?;
         #[cfg(feature = "zenoh-ext")]
         sys_modules.set_item("zenoh._ext", m.getattr("_ext")?)?;
+        #[cfg(feature = "shared-memory")]
+        sys_modules.set_item("zenoh.shm", m.getattr("shm")?)?;
         // TODO
         // crate::logging::init_logger(m.py())?;
         Ok(())

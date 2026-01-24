@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pastel import Pastel
@@ -71,16 +71,12 @@ class PoeIO:
             self._baseline_verbosity = (
                 baseline_verbosity
                 if baseline_verbosity is not None
-                else parent._baseline_verbosity
-                if parent
-                else 0
+                else parent._baseline_verbosity if parent else 0
             )
             self._verbosity_offset = (
                 verbosity_offset
                 if verbosity_offset is not None
-                else parent._verbosity_offset
-                if parent
-                else None
+                else parent._verbosity_offset if parent else None
             )
 
         if parent:
@@ -149,29 +145,38 @@ class PoeIO:
     def print(
         self,
         message: str,
+        *values: Any,
         message_verbosity: int = 0,
         end: str = "\n",
     ):
         if self._check_verbosity(message_verbosity):
+            if values:
+                message = message % values
             self.write_out(message, end=end)
 
     def print_warning(
         self,
         message: str,
+        *values: Any,
         message_verbosity: int = -1,
         prefix: str = "<warning>Warning:</warning> ",
         end: str = "\n",
     ):
         if self._check_verbosity(message_verbosity):
+            if values:
+                message = message % values
             self.write_err(prefix + message)
 
     def print_error(
         self,
         message: str,
+        *values: Any,
         message_verbosity: int = -2,
         end: str = "\n",
     ):
         if self._check_verbosity(message_verbosity):
+            if values:
+                message = message % values
             self.write_err(message, end=end)
 
     def print_poe_action(
@@ -186,10 +191,13 @@ class PoeIO:
     def print_debug(
         self,
         message: str,
+        *values: Any,
         message_verbosity: int = 3,
         end: str = "\n",
     ):
         if self._check_verbosity(message_verbosity):
+            if values:
+                message = message % values
             self.write_err(message, end=end)
 
     def is_debug_enabled(self) -> bool:

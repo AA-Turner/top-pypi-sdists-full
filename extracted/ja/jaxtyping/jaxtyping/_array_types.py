@@ -37,6 +37,14 @@ from typing import (
     Union,
 )
 
+from ._errors import AnnotationError
+from ._storage import (
+    get_shape_memo,
+    get_treeflatten_memo,
+    get_treepath_memo,
+    set_shape_memo,
+)
+
 
 # Bit of a hack, but jaxtyping provides nicer error messages than typeguard. This means
 # we sometimes want to use it as our runtime type checker everywhere, even in non-array
@@ -46,16 +54,18 @@ from typing import (
 # messages and (c) the import hook that places the checker on the bottom of the
 # decorator stack.) And resist the urge to write our own runtime type-checker, I really
 # don't want to have to keep that up-to-date with changes in the Python typing spec...
-if importlib.util.find_spec("numpy") is not None:
+IS_NUMPY_INSTALLED = importlib.util.find_spec("numpy") is not None
+if IS_NUMPY_INSTALLED:
     import numpy as np
+    import numpy.typing as npt
 
-from ._errors import AnnotationError
-from ._storage import (
-    get_shape_memo,
-    get_treeflatten_memo,
-    get_treepath_memo,
-    set_shape_memo,
-)
+
+if sys.version_info >= (3, 12):
+    from typing import TypeAliasType
+else:
+    # Dummy
+    class TypeAliasType:
+        pass
 
 
 _array_name_format = "dtype_and_shape"
@@ -169,7 +179,11 @@ def _check_dims(
 
 
 def _dtype_is_numpy_struct_array(dtype):
-    return dtype.type.__name__ == "void" and dtype is not np.dtype(np.void)
+    return (
+        IS_NUMPY_INSTALLED
+        and (dtype.type.__name__ == "void")
+        and (dtype is not np.dtype(np.void))
+    )
 
 
 class _MetaAbstractArray(type):
@@ -343,10 +357,7 @@ def _check_scalar(dtype, dtypes, dims):
 
 class AbstractArray(metaclass=_MetaAbstractArray):
     """This is the base class of all shape-and-dtype-specified arrays, e.g. it's a base
-    class for `Float32[Array, "foo"]`.
-
-    This might be useful if you're trying to inspect type annotations yourself, e.g.
-    you can check `issubclass(annotation, jaxtyping.AbstractArray)`.
+    class for `Float32[jax.Array, "foo"]`.
     """
 
     # This is what it was defined with.
@@ -397,8 +408,7 @@ def _make_array_cached(array_type, dim_str, dtypes, name):
         if "..." in elem:
             if elem != "...":
                 raise ValueError(
-                    "Anonymous multiple axes '...' must be used on its own; "
-                    f"got {elem}"
+                    f"Anonymous multiple axes '...' must be used on its own; got {elem}"
                 )
             broadcastable = False
             variadic = True
@@ -448,7 +458,7 @@ def _make_array_cached(array_type, dim_str, dtypes, name):
                     treepath = True
                     elem = elem[1:]
                 # Allow e.g. `foo=4` as an alternate syntax for just `4`, so that one
-                # can write e.g. `Float[Array, "rows=3 cols=4"]`
+                # can write e.g. `Float[jax.Array, "rows=3 cols=4"]`
                 elif elem.count("=") == 1:
                     _, elem = elem.split("=")
                 else:
@@ -466,8 +476,7 @@ def _make_array_cached(array_type, dim_str, dtypes, name):
         if variadic:
             if index_variadic is not None:
                 raise ValueError(
-                    "Cannot use variadic specifiers (`*name` or `...`) "
-                    "more than once."
+                    "Cannot use variadic specifiers (`*name` or `...`) more than once."
                 )
             index_variadic = index
 
@@ -512,8 +521,7 @@ def _make_array_cached(array_type, dim_str, dtypes, name):
                 )
             if variadic:
                 raise ValueError(
-                    "Cannot have symbolic multiple-axes, e.g. "
-                    "`*foo+bar` is not allowed"
+                    "Cannot have symbolic multiple-axes, e.g. `*foo+bar` is not allowed"
                 )
             if treepath:
                 raise ValueError(
@@ -550,12 +558,12 @@ def _make_array_cached(array_type, dim_str, dtypes, name):
             return array_type
         else:
             return _not_made
-    elif array_type is np.bool_:
+    elif IS_NUMPY_INSTALLED and array_type is np.bool_:
         if _check_scalar("bool", dtypes, dims):
             return array_type
         else:
             return _not_made
-    elif array_type is np.generic or array_type is np.number:
+    elif IS_NUMPY_INSTALLED and (array_type is np.generic or array_type is np.number):
         if _check_scalar("", dtypes, dims):
             return array_type
         else:
@@ -568,8 +576,8 @@ def _make_array_cached(array_type, dim_str, dtypes, name):
             if len(dtypes) == 0:
                 raise ValueError(
                     "A jaxtyping annotation cannot be extended with no overlapping "
-                    "dtypes. For example, `Bool[Float[Array, 'dim1'], 'dim2']` is an "
-                    "error. You probably want to make the outer wrapper be `Shaped`."
+                    "dtypes. For example, `Bool[Float[jax.Array, 'dim1'], 'dim2']` is "
+                    "an error. You probably want to make the outer wrapper be `Shaped`."
                 )
         if array_type.index_variadic is not None:
             if index_variadic is None:
@@ -634,8 +642,8 @@ class _MetaAbstractDtype(type):
         if not isinstance(item, tuple) or len(item) != 2:
             raise ValueError(
                 "As of jaxtyping v0.2.0, type annotations must now include both an "
-                "array type and a shape. For example `Float[Array, 'foo bar']`.\n"
-                "Ellipsis can be used to accept any shape: `Float[Array, '...']`."
+                "array type and a shape. For example `Float[jax.Array, 'foo bar']`.\n"
+                "Ellipsis can be used to accept any shape: `Float[jax.Array, '...']`."
             )
         array_type, dim_str = item
         dim_str = dim_str.strip()
@@ -649,6 +657,12 @@ class _MetaAbstractDtype(type):
                     array_type = Union[constraints]
             else:
                 array_type = bound
+        if isinstance(array_type, TypeAliasType):
+            array_type = array_type.__value__
+        if IS_NUMPY_INSTALLED and item[0] is npt.ArrayLike:
+            # Work around https://github.com/numpy/numpy/commit/1041f940f91660c91770679c60f6e63539581c72
+            # which removes `bool`/`int`/`float` from the union.
+            array_type = Union[(*get_args(array_type), bool, int, float, complex)]
         del item
         if get_origin(array_type) in _union_types:
             out = [_make_array(x, dim_str, cls) for x in get_args(array_type)]
@@ -684,11 +698,11 @@ class AbstractDtype(metaclass=_MetaAbstractDtype):
         class UInt8or16(AbstractDtype):
             dtypes = ["uint8", "uint16"]
 
-        UInt8or16[Array, "shape"]
+        UInt8or16[jax.Array, "shape"]
         ```
         which is essentially equivalent to
         ```python
-        Union[UInt8[Array, "shape"], UInt16[Array, "shape"]]
+        UInt8[jax.Array, "shape"] | UInt16[jax.Array, "shape"]
         ```
     """
 
@@ -697,7 +711,7 @@ class AbstractDtype(metaclass=_MetaAbstractDtype):
     def __init__(self, *args, **kwargs):
         raise RuntimeError(
             "AbstractDtype cannot be instantiated. Perhaps you wrote e.g. "
-            '`Float32("shape")` when you mean `Float32[jnp.ndarray, "shape"]`?'
+            '`Float32("shape")` when you mean `Float32[jax.Array, "shape"]`?'
         )
 
     def __init_subclass__(cls, **kwargs):
@@ -726,6 +740,8 @@ _int8 = "int8"
 _int16 = "int16"
 _int32 = "int32"
 _int64 = "int64"
+# fp4 types exposed in Jax, see https://github.com/jax-ml/jax/blob/main/jax/_src/dtypes.py#L111-L114
+_float4_e2m1fn = "float4_e2m1fn"
 # fp8 types exposed in Jax, see https://github.com/jax-ml/jax/blob/main/jax/_src/dtypes.py#L92-L97
 _float8_e4m3b11fnuz = "float8_e4m3b11fnuz"
 _float8_e4m3fn = "float8_e4m3fn"
@@ -765,6 +781,7 @@ Int8 = _make_dtype(_int8, "Int8")
 Int16 = _make_dtype(_int16, "Int16")
 Int32 = _make_dtype(_int32, "Int32")
 Int64 = _make_dtype(_int64, "Int64")
+Float4e2m1fn = _make_dtype(_float4_e2m1fn, "Float4e2m1fn")
 Float8e4m3b11fnuz = _make_dtype(_float8_e4m3b11fnuz, "Float8e4m3b11fnuz")
 Float8e4m3fn = _make_dtype(_float8_e4m3fn, "Float8e4m3fn")
 Float8e4m3fnuz = _make_dtype(_float8_e4m3fnuz, "Float8e4m3fnuz")
@@ -787,7 +804,7 @@ float8 = [
     _float8_e5m2,
     _float8_e5m2fnuz,
 ]
-floats = float8 + [_bfloat16, _float16, _float32, _float64]
+floats = [_float4_e2m1fn] + float8 + [_bfloat16, _float16, _float32, _float64]
 complexes = [_complex64, _complex128]
 
 # We match NumPy's type hierarachy in what types to provide. See the diagram at
@@ -835,6 +852,10 @@ def make_numpy_struct_dtype(dtype: "np.dtype", name: str):
     A type annotation with classname `name` that matches exactly `dtype` when used like
     any other [`jaxtyping.AbstractDtype`][].
     """
-    if not (isinstance(dtype, np.dtype) and _dtype_is_numpy_struct_array(dtype)):
+    if not (
+        IS_NUMPY_INSTALLED
+        and isinstance(dtype, np.dtype)
+        and _dtype_is_numpy_struct_array(dtype)
+    ):
         raise ValueError(f"Expecting a numpy structured array dtype, not {dtype}")
     return _make_dtype(str(dtype), name)

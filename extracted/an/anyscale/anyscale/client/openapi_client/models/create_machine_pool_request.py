@@ -33,28 +33,23 @@ class CreateMachinePoolRequest(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'machine_pool_name': 'str',
-        'enable_rootless_dataplane_config': 'bool'
+        'machine_pool_name': 'str'
     }
 
     attribute_map = {
-        'machine_pool_name': 'machine_pool_name',
-        'enable_rootless_dataplane_config': 'enable_rootless_dataplane_config'
+        'machine_pool_name': 'machine_pool_name'
     }
 
-    def __init__(self, machine_pool_name=None, enable_rootless_dataplane_config=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, machine_pool_name=None, local_vars_configuration=None):  # noqa: E501
         """CreateMachinePoolRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._machine_pool_name = None
-        self._enable_rootless_dataplane_config = None
         self.discriminator = None
 
         self.machine_pool_name = machine_pool_name
-        if enable_rootless_dataplane_config is not None:
-            self.enable_rootless_dataplane_config = enable_rootless_dataplane_config
 
     @property
     def machine_pool_name(self):
@@ -80,29 +75,6 @@ class CreateMachinePoolRequest(object):
             raise ValueError("Invalid value for `machine_pool_name`, must not be `None`")  # noqa: E501
 
         self._machine_pool_name = machine_pool_name
-
-    @property
-    def enable_rootless_dataplane_config(self):
-        """Gets the enable_rootless_dataplane_config of this CreateMachinePoolRequest.  # noqa: E501
-
-        Whether to enable rootless dataplane config nodes running under this machine pool.  # noqa: E501
-
-        :return: The enable_rootless_dataplane_config of this CreateMachinePoolRequest.  # noqa: E501
-        :rtype: bool
-        """
-        return self._enable_rootless_dataplane_config
-
-    @enable_rootless_dataplane_config.setter
-    def enable_rootless_dataplane_config(self, enable_rootless_dataplane_config):
-        """Sets the enable_rootless_dataplane_config of this CreateMachinePoolRequest.
-
-        Whether to enable rootless dataplane config nodes running under this machine pool.  # noqa: E501
-
-        :param enable_rootless_dataplane_config: The enable_rootless_dataplane_config of this CreateMachinePoolRequest.  # noqa: E501
-        :type: bool
-        """
-
-        self._enable_rootless_dataplane_config = enable_rootless_dataplane_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

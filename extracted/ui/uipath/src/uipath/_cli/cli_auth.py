@@ -1,8 +1,5 @@
-from typing import Optional
-
 import click
 
-from ..telemetry import track
 from ._auth._auth_service import AuthService
 from ._utils._common import environment_options
 from ._utils._console import ConsoleLogger
@@ -36,19 +33,24 @@ console = ConsoleLogger()
     help="Base URL for the UiPath tenant instance (required for client credentials)",
 )
 @click.option(
+    "--tenant",
+    required=False,
+    help="Tenant name within UiPath Automation Cloud",
+)
+@click.option(
     "--scope",
     required=False,
     default="OR.Execution",
     help="Space-separated list of OAuth scopes to request (e.g., 'OR.Execution OR.Queues'). Defaults to 'OR.Execution'",
 )
-@track
 def auth(
-    domain,
+    environment: str,
     force: bool = False,
-    client_id: Optional[str] = None,
-    client_secret: Optional[str] = None,
-    base_url: Optional[str] = None,
-    scope: Optional[str] = None,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    base_url: str | None = None,
+    tenant: str | None = None,
+    scope: str | None = None,
 ):
     """Authenticate with UiPath Cloud Platform.
 
@@ -64,11 +66,12 @@ def auth(
     - Set UIPATH_DISABLE_SSL_VERIFY to disable SSL verification (not recommended)
     """
     auth_service = AuthService(
-        domain,
+        environment=environment,
         force=force,
         client_id=client_id,
         client_secret=client_secret,
         base_url=base_url,
+        tenant=tenant,
         scope=scope,
     )
     with console.spinner("Authenticating with UiPath ..."):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import os
 
 import pytest
@@ -35,7 +34,7 @@ def clear_lru_cache() -> Generator[Any, None, None]:
     """
     yield
     # Clear the cache after each test
-    termcolor._can_do_colour.cache_clear()
+    termcolor.can_colorize.cache_clear()
 
 
 def test_basic(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,6 +152,7 @@ def test_on_color(
     [
         ("bold", "\x1b[1mtext\x1b[0m"),
         ("dark", "\x1b[2mtext\x1b[0m"),
+        ("italic", "\x1b[3mtext\x1b[0m"),
         ("underline", "\x1b[4mtext\x1b[0m"),
         ("blink", "\x1b[5mtext\x1b[0m"),
         ("reverse", "\x1b[7mtext\x1b[0m"),
@@ -272,7 +272,7 @@ def test_environment_variables(
         monkeypatch.setenv(name, value)
 
     assert (
-        termcolor._can_do_colour(no_color=test_no_color, force_color=test_force_color)
+        termcolor.can_colorize(no_color=test_no_color, force_color=test_force_color)
         == expected
     )
 
@@ -287,23 +287,23 @@ def test_cached_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
     # Act / Assert
     assert colored("text") == "text\x1b[0m"
     assert colored("text") == "text\x1b[0m"
-    assert termcolor._can_do_colour.cache_info().hits == 1
-    assert termcolor._can_do_colour.cache_info().misses == 1
-    assert termcolor._can_do_colour.cache_info().currsize == 1
+    assert termcolor.can_colorize.cache_info().hits == 1
+    assert termcolor.can_colorize.cache_info().misses == 1
+    assert termcolor.can_colorize.cache_info().currsize == 1
 
     # Different function signature passed to underlying function, adds to cache
     assert colored("text", force_color=True) == "text\x1b[0m"
     assert colored("text", no_color=True) == "text"
-    assert termcolor._can_do_colour.cache_info().hits == 1
-    assert termcolor._can_do_colour.cache_info().misses == 3
-    assert termcolor._can_do_colour.cache_info().currsize == 3
+    assert termcolor.can_colorize.cache_info().hits == 1
+    assert termcolor.can_colorize.cache_info().misses == 3
+    assert termcolor.can_colorize.cache_info().currsize == 3
 
     # Changing text or color should not add to cache
     assert colored("text", color="red") == "\x1b[31mtext\x1b[0m"
     assert colored("other", color="blue") == "\x1b[34mother\x1b[0m"
-    assert termcolor._can_do_colour.cache_info().hits == 3
-    assert termcolor._can_do_colour.cache_info().misses == 3
-    assert termcolor._can_do_colour.cache_info().currsize == 3
+    assert termcolor.can_colorize.cache_info().hits == 3
+    assert termcolor.can_colorize.cache_info().misses == 3
+    assert termcolor.can_colorize.cache_info().currsize == 3
 
 
 @pytest.mark.parametrize(
@@ -348,7 +348,7 @@ def test_unsupported_operation(
     # Arrange
     class MockStdout:
         def fileno(self) -> None:
-            raise io.UnsupportedOperation()
+            raise OSError
 
         def isatty(self) -> bool:
             return test_isatty

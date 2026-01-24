@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.699193                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.864825                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class MultipleTuple(metaflow._vendor.click.types.Tuple, metaclass=type):
     ...
 
 class ConfigInput(object, metaclass=type):
-    def __init__(self, req_configs: typing.List[str], defaults: typing.Dict[str, typing.Tuple[typing.Union[str, typing.Dict[typing.Any, typing.Any]], bool]], parsers: typing.Dict[str, typing.Union[str, typing.Callable[[str], typing.Dict[typing.Any, typing.Any]]]]):
+    def __init__(self, req_configs: typing.List[str], defaults: typing.Dict[str, typing.Tuple[typing.Union[str, typing.Dict[typing.Any, typing.Any]], bool]], parsers: typing.Dict[str, typing.Tuple[typing.Union[str, typing.Callable[[str], typing.Dict[typing.Any, typing.Any]]], bool]]):
         ...
     @staticmethod
     def make_key_name(name: str) -> str:

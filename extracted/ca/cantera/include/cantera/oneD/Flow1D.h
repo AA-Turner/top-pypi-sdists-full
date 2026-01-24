@@ -7,6 +7,7 @@
 #define CT_FLOW1D_H
 
 #include "Domain1D.h"
+#include "OneDim.h"
 #include "cantera/base/Array.h"
 #include "cantera/base/Solution.h"
 #include "cantera/thermo/ThermoPhase.h"
@@ -54,20 +55,30 @@ public:
     //!     to evaluate all thermodynamic, kinetic, and transport properties.
     //! @param nsp  Number of species.
     //! @param points  Initial number of grid points
+    //! @deprecated To be removed after %Cantera 3.2. Use constructor using Solution
+    //!     instead.
     Flow1D(ThermoPhase* ph = 0, size_t nsp = 1, size_t points = 1);
 
     //! Delegating constructor
+    //! @deprecated To be removed after %Cantera 3.2. Use constructor using Solution
+    //!     instead.
     Flow1D(shared_ptr<ThermoPhase> th, size_t nsp = 1, size_t points = 1);
 
     //! Create a new flow domain.
-    //! @param sol  Solution object used to evaluate all thermodynamic, kinetic, and
+    //! @param phase  Solution object used to evaluate all thermodynamic, kinetic, and
     //!     transport properties
     //! @param id  name of flow domain
     //! @param points  initial number of grid points
-    Flow1D(shared_ptr<Solution> sol, const string& id="", size_t points=1);
+    Flow1D(shared_ptr<Solution> phase, const string& id="", size_t points=1);
 
     ~Flow1D();
 
+private:
+    //! Initialize arrays.
+    //! @todo Consolidate once legacy constructors are removed after %Cantera 3.2.
+    void _init(ThermoPhase* ph, size_t nsp, size_t points);
+
+public:
     string domainType() const override;
 
     //! @name Problem Specification
@@ -95,9 +106,15 @@ public:
     //! Set the transport manager used for transport property calculations
     void setTransport(shared_ptr<Transport> trans) override;
 
-    //! Set the transport model
+protected:
+    void _setKinetics(shared_ptr<Kinetics> kin) override;
+    void _setTransport(shared_ptr<Transport> trans) override;
+
+public:
+    //! Set transport model by name.
+    //! @param model  String specifying model name.
     //! @since New in %Cantera 3.0.
-    void setTransportModel(const string& trans);
+    void setTransportModel(const string& model) override;
 
     //! Retrieve transport model
     //! @since New in %Cantera 3.0.
@@ -149,10 +166,16 @@ public:
 
     void _finalize(const double* x) override;
 
-    //! Sometimes it is desired to carry out the simulation using a specified
-    //! temperature profile, rather than computing it by solving the energy
-    //! equation. This method specifies this profile.
-    void setFixedTempProfile(vector<double>& zfixed, vector<double>& tfixed) {
+    /**
+     * Set fixed temperature profile.
+     * Sometimes it is desired to carry out the simulation using a specified
+     * temperature profile, rather than computing it by solving the energy
+     * equation.
+     * @param zfixed  Vector containing locations where profile is specified.
+     * @param tfixed  Vector containing specified temperatures.
+     */
+    void setFixedTempProfile(const vector<double>& zfixed,
+                             const vector<double>& tfixed) {
         m_zfix = zfixed;
         m_tfix = tfixed;
     }
@@ -175,15 +198,25 @@ public:
 
     string componentName(size_t n) const override;
 
-    size_t componentIndex(const string& name) const override;
+    size_t componentIndex(const string& name, bool checkAlias=true) const override;
+
+    bool hasComponent(const string& name, bool checkAlias=true) const override;
 
     //! Returns true if the specified component is an active part of the solver state
     virtual bool componentActive(size_t n) const;
 
+    void updateState(size_t loc) override;
     void show(const double* x) override;
 
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
-    void fromArray(SolutionArray& arr, double* soln) override;
+    void getValues(const string& component, vector<double>& values) const override;
+    void setValues(const string& component, const vector<double>& values) override;
+    void getResiduals(const string& component, vector<double>& values) const override;
+    void setProfile(const string& component,
+                    const vector<double>& pos, const vector<double>& values) override;
+    void setFlatProfile(const string& component, double value) override;
+
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
+    void fromArray(const shared_ptr<SolutionArray>& arr) override;
 
     //! Set flow configuration for freely-propagating flames, using an internal point
     //! with a fixed temperature as the condition to determine the inlet mass flux.
@@ -214,25 +247,67 @@ public:
     //! @param j  Point at which to enable the energy equation. `npos` means all points.
     void solveEnergyEqn(size_t j=npos);
 
+    /**
+     * Check if energy is enabled for entire domain.
+     * @todo Should be simplified by removing the ability of solving the energy equation
+     *      at some arbitrary subset of grid points while holding it fixed at others.
+     * @since New in %Cantera 3.2
+     */
+    bool allOfEnergyEnabled() {
+        return std::all_of(m_do_energy.begin(), m_do_energy.end(),
+                           [](bool v) { return v; });
+    }
+
+    /**
+     * Check if energy is disabled for entire domain.
+     * @todo Should be simplified by removing the ability of solving the energy equation
+     *      at some arbitrary subset of grid points while holding it fixed at others.
+     * @since New in %Cantera 3.2
+     */
+    bool noneOfEnergyEnabled() {
+        return std::none_of(m_do_energy.begin(), m_do_energy.end(),
+                            [](bool v) { return v; });
+    }
+
+    /**
+     * Set energy enabled flag for entire domain.
+     * @since New in %Cantera 3.2
+     */
+    void setEnergyEnabled(bool flag) {
+        if (flag) {
+            solveEnergyEqn();
+        } else {
+            fixTemperature();
+        }
+    }
+
     //! Get the solving stage (used by IonFlow specialization)
     //! @since New in %Cantera 3.0
+    //! @deprecated To be removed after %Cantera 3.2. Use doElectricField() instead.
     virtual size_t getSolvingStage() const;
 
     //! Solving stage mode for handling ionized species (used by IonFlow specialization)
     //! - @c stage=1: the fluxes of charged species are set to zero
     //! - @c stage=2: the electric field equation is solved, and the drift flux for
     //!     ionized species is evaluated
+    //! @deprecated To be removed after %Cantera 3.2. Use solveElectricField() instead.
     virtual void setSolvingStage(const size_t stage);
 
     //! Set to solve electric field in a point (used by IonFlow specialization)
+    //! @deprecated After %Cantera 3.2, the argument will be removed; the option of
+    //!     solving the electric field applies to the whole domain.
     virtual void solveElectricField(size_t j=npos);
 
     //! Set to fix voltage in a point (used by IonFlow specialization)
+    //! @deprecated After %Cantera 3.2, the argument will be removed; the option of
+    //!     solving the electric field applies to the whole domain.
     virtual void fixElectricField(size_t j=npos);
 
     //! Retrieve flag indicating whether electric field is solved or not (used by
     //! IonFlow specialization)
-    virtual bool doElectricField(size_t j) const;
+    //! @deprecated After %Cantera 3.2, the argument will be removed; the option of
+    //!     solving the electric field applies to the whole domain.
+    virtual bool doElectricField(size_t j=npos) const;
 
     //! Turn radiation on / off.
     void enableRadiation(bool doRadiation) {
@@ -540,15 +615,15 @@ protected:
                               double rdt, size_t jmin, size_t jmax);
 
     /**
-     * Evaluate the lambda equation residual.
+     * Evaluate the radial pressure gradient equation residual.
      *
      * @f[
      *    \frac{d\Lambda}{dz} = 0
      * @f]
      *
-     * The lambda equation serves as an eigenvalue that allows the momentum
-     * equation and continuity equations to be simultaneously satisfied in
-     * axisymmetric flows. The lambda equation propagates information from
+     * The radial pressure gradient @f$ \Lambda @f$ serves as an eigenvalue that allows
+     * the momentum and continuity equations to be simultaneously satisfied in
+     * axisymmetric flows. This equation propagates information from
      * left-to-right. The default boundary condition is @f$ \Lambda = 0 @f$
      * at the left boundary. The equation is first order and so only one
      * boundary condition is needed.
@@ -563,7 +638,7 @@ protected:
      *
      * @f[
      *   \rho c_p u \frac{dT}{dz} =
-     *   \frac{d}{dz}\left( \lambda \frac{dT}{dz} \right)
+     *   \frac{d}{dz}\left( \Lambda \frac{dT}{dz} \right)
      *   - \sum_k h_kW_k\dot{\omega}_k
      *   - \sum_k  j_k \frac{dh_k}{dz}
      * @f]
@@ -607,12 +682,6 @@ protected:
                                    double rdt, size_t jmin, size_t jmax);
 
     //! @} End of Governing Equations
-
-    //! Alternate version of evalContinuity with legacy signature.
-    //! Implemented by StFlow; included here to prevent compiler warnings about shadowed
-    //! virtual functions.
-    //! @deprecated To be removed after %Cantera 3.1.
-    virtual void evalContinuity(size_t j, double* x, double* r, int* diag, double rdt);
 
     /**
      * Evaluate the oxidizer axial velocity equation residual.
@@ -672,7 +741,12 @@ protected:
 
     //! Get the radial pressure gradient [N/m⁴] at point `j` from the local state vector
     //! `x`
-    double lambda(const double* x, size_t j) const {
+    //! @deprecated To be removed after %Cantera 3.2. Renamed to Lambda().
+    double lambda(const double* x, size_t j) const;
+
+    //! Get the radial pressure gradient [N/m⁴] at point `j` from the local state vector
+    //! `x`
+    double Lambda(const double* x, size_t j) const {
         return x[index(c_offset_L, j)];
     }
 
@@ -846,8 +920,6 @@ protected:
     //---------------------------------------------------------
     //             member data
     //---------------------------------------------------------
-
-    double m_press = -1.0; //!< pressure [Pa]
 
     //! Grid spacing. Element `j` holds the value of `z(j+1) - z(j)`.
     vector<double> m_dz;

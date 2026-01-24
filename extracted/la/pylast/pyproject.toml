@@ -19,16 +19,16 @@ license = "Apache-2.0"
 license-files = [ "LICENSE.txt" ]
 maintainers = [ { name = "Hugo van Kemenade" } ]
 authors = [ { name = "Amr Hassan <amr.hassan@gmail.com> and Contributors", email = "amr.hassan@gmail.com" } ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Internet",
@@ -38,13 +38,14 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-  "httpx",
+  "httpx>=0.26",
 ]
 optional-dependencies.tests = [
   "flaky",
-  "pytest",
+  "pytest>=9",
   "pytest-cov",
   "pytest-random-order",
+  "pytest-recording",
   "pyyaml",
 ]
 urls.Changelog = "https://github.com/pylast/pylast/releases"
@@ -75,6 +76,7 @@ lint.select = [
   "PGH",    # pygrep-hooks
   "PIE",    # flake8-pie
   "PT",     # flake8-pytest-style
+  "PYI",    # flake8-pyi
   "RUF022", # unsorted-dunder-all
   "RUF100", # unused noqa (yesqa)
   "UP",     # pyupgrade
@@ -86,8 +88,7 @@ lint.ignore = [
   "E221",   # Multiple spaces before operator
   "E226",   # Missing whitespace around arithmetic operator
   "E241",   # Multiple spaces after ','
-  "PIE790", # flake8-pie: unnecessary-placeholder
-  "UP038",  # Makes code slower and more verbose
+  "PIE790", # Unnecessary pass statement
 ]
 lint.flake8-import-conventions.aliases.datetime = "dt"
 lint.flake8-import-conventions.banned-from = [ "datetime" ]
@@ -96,11 +97,17 @@ lint.isort.known-first-party = [ "pylast" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.14"
+max_supported_python = "3.15"
 
-[tool.pytest.ini_options]
+[tool.pytest]
+minversion = "9.0"
 filterwarnings = [
-  # Python <= 3.11
-  "ignore:sys.monitoring isn't available, using default core:coverage.exceptions.CoverageWarning",
+  "once::DeprecationWarning",
+  "once::PendingDeprecationWarning",
 ]
 testpaths = [ "tests" ]
+xfail_strict = true
+
+[tool.mypy]
+pretty = true
+show_error_codes = true

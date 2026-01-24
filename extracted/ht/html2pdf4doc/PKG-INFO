@@ -1,0 +1,102 @@
+Metadata-Version: 2.4
+Name: html2pdf4doc
+Version: 0.0.31
+Summary: Python client for HTML2PDF4Doc JavaScript library.
+Project-URL: Changelog, https://github.com/mettta/html2pdf_python/releases/
+Project-URL: Homepage, https://github.com/mettta/html2pdf_python/
+Project-URL: Source, https://github.com/mettta/html2pdf_python/
+Author-email: Stanislav Pankevich <s.pankevich@gmail.com>, Maryna Balioura <mettta@gmail.com>
+License: Apache-2.0
+License-File: LICENSE
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.8
+Requires-Dist: pypdf>=3.9.0
+Requires-Dist: requests
+Requires-Dist: selenium
+Requires-Dist: webdriver-manager
+Provides-Extra: development
+Requires-Dist: invoke>=1.4.1; extra == 'development'
+Requires-Dist: tox>=4.4.8; extra == 'development'
+Description-Content-Type: text/markdown
+
+# html2pdf4doc_python
+
+html2pdf4doc_python is the Python wrapper/CLI for the
+[html2pdf4doc](https://github.com/mettta/html2pdf) JavaScript
+library that prints HTML pages into PDFs using Chrome/Chromedriver.
+
+This repository focuses strictly on the Python-side automation layer. The
+rendering logic remains in the JS core.
+
+## Installation
+
+1. Install Google Chrome (or Chrome for Testing) on the machine that will run the CLI.
+
+2. Install the package from PyPI:
+
+```bash
+pip install html2pdf4doc
+```
+
+Python 3.8+ is required.
+
+See also: the Ubuntu-based container `Dockerfile` and the GitHub CI files found
+in the `.github/workflows` folder.
+
+## Usage
+
+TBD
+
+## Developer guide
+
+### Getting started
+
+1\. (Optional) Create and activate a virtual environment 
+
+```
+python -m venv .venv && source .venv/bin/activate
+```
+
+2\. Install the dependencies
+
+```
+git clone https://github.com/strictdoc-project/html2pdf4doc_python.git
+cd html2pdf4doc_python
+
+# Bootstrap minimal Python dependencies: Invoke and TOML.
+pip install invoke toml
+
+# Install all Python dependencies and update the submodule with the html2pdf4doc.js.
+invoke bootstrap
+```
+
+3\. The JS library is maintained in a Git submodule `submodules/html2pdf`.
+
+When the submodule is updated after a release or during the development, rebuild
+the JS library, i.e., regenerate the `html2pdf4doc.min.js`:
+
+```
+invoke build
+```
+
+4\. To validate changes, use the following commands:
+
+```
+invoke lint
+invoke test  # Normal tests.
+invoke test-fuzz  # More robust testing.
+```
+
+## License
+
+The project is distributed under the Apache License 2.0 (see `LICENSE`).

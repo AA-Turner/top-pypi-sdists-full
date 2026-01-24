@@ -1,26 +1,8 @@
 """Shared utilities for project module."""
 
+from __future__ import annotations
+
 import random
-import string
-import uuid
-
-
-def create_nano_id(size=12):
-    """Create a short, URL-safe unique identifier."""
-    # Define characters to use (alphanumeric)
-    alphabet = string.ascii_letters + string.digits
-
-    # Generate UUID and convert to int
-    uuid_int = uuid.uuid4().int
-
-    # Convert to base62
-    result = ""
-    while uuid_int:
-        uuid_int, remainder = divmod(uuid_int, len(alphabet))
-        result = alphabet[remainder] + result
-
-    # Pad if necessary and return desired length
-    return result[:size]
 
 
 class MemorableNames:

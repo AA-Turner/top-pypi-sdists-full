@@ -49,7 +49,8 @@ options:
     type: str
   gateway:
     description:
-      - IPv4 or IPv6 address of subnet gateway.
+    - IPv4 or IPv6 address of subnet gateway.
+    - To clear the gateway enter "0.0.0.0" or "::" depending on IP type
     required: false
     type: str
   mtu:
@@ -120,7 +121,6 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.purefa impo
 
 def _get_subnet(module, array):
     """Return subnet or None"""
-    subnet = {}
     res = array.get_subnets(names=[module.params["name"]])
     if res.status_code == 200:
         return list(res.items)[0]
@@ -132,13 +132,11 @@ def update_subnet(module, array, subnet):
     changed = False
     current_state = {
         "mtu": subnet.mtu,
-        "vlan": subnet.vlan,
+        "vlan": getattr(subnet, "vlan", 0),
         "prefix": subnet.prefix,
-        "gateway": subnet.gateway,
+        "gateway": getattr(subnet, "gateway", None),
     }
     address = str(subnet.prefix.split("/", 1)[0])
-    if not current_state["vlan"]:
-        current_state["vlan"] = 0
     if not current_state["gateway"]:
         if valid_ipv4(address):
             current_state["gateway"] = "0.0.0.0"
@@ -225,7 +223,7 @@ def update_subnet(module, array, subnet):
                         subnet.name, res.errors[0].message
                     )
                 )
-                module.exit_json(changed=changed)
+    module.exit_json(changed=changed)
 
 
 def create_subnet(module, array):

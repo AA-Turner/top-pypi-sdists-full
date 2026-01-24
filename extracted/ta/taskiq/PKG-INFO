@@ -1,56 +1,60 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: taskiq
-Version: 0.11.18
+Version: 0.12.1
 Summary: Distributed task queue with full async support
-License: LICENSE
 Keywords: taskiq,tasks,distributed,async
 Author: Pavel Kirilin
-Author-email: win10@list.ru
-Maintainer: Pavel Kirilin
-Maintainer-email: win10@list.ru
-Requires-Python: >=3.9,<4.0
-Classifier: Development Status :: 3 - Alpha
-Classifier: Intended Audience :: Developers
-Classifier: License :: Other/Proprietary License
-Classifier: Operating System :: OS Independent
+Author-email: Pavel Kirilin <<win10@list.ru>>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Typing :: Typed
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
 Classifier: Topic :: System :: Networking
-Classifier: Typing :: Typed
+Classifier: Development Status :: 3 - Alpha
+Requires-Dist: typing-extensions>=3.10.0.0 ; python_full_version < '3.11'
+Requires-Dist: pydantic>=1.0,<=3.0
+Requires-Dist: pycron>=3.0.0
+Requires-Dist: taskiq-dependencies>=1.3.1,<2
+Requires-Dist: anyio>=4
+Requires-Dist: packaging>=19
+Requires-Dist: izulu==0.50.0
+Requires-Dist: aiohttp>=3
+Requires-Dist: cbor2>=5 ; extra == 'cbor'
+Requires-Dist: prometheus-client>=0 ; extra == 'metrics'
+Requires-Dist: msgpack>=1.0.7 ; extra == 'msgpack'
+Requires-Dist: opentelemetry-api>=1.38.0,<2.0.0 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-instrumentation>=0.59b0,<1 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-semantic-conventions>=0.59b0,<1 ; extra == 'opentelemetry'
+Requires-Dist: orjson>=3 ; extra == 'orjson'
+Requires-Dist: watchdog>=4 ; extra == 'reload'
+Requires-Dist: gitignore-parser>=0 ; extra == 'reload'
+Requires-Dist: uvloop>=0.16.0,<1 ; sys_platform != 'win32' and extra == 'uv'
+Requires-Dist: pyzmq>=26 ; extra == 'zmq'
+Maintainer: Pavel Kirilin
+Maintainer-email: Pavel Kirilin <<win10@list.ru>>
+Requires-Python: >=3.10, <4
+Project-URL: Bug Tracker, https://github.com/taskiq-python/taskiq/issues
+Project-URL: Changelog, https://github.com/taskiq-python/taskiq/releases
+Project-URL: Documentation, https://taskiq-python.github.io/
+Project-URL: Homepage, https://taskiq-python.github.io/
+Project-URL: Repository, https://github.com/taskiq-python/taskiq
 Provides-Extra: cbor
 Provides-Extra: metrics
 Provides-Extra: msgpack
+Provides-Extra: opentelemetry
 Provides-Extra: orjson
 Provides-Extra: reload
 Provides-Extra: uv
 Provides-Extra: zmq
-Requires-Dist: anyio (>=3)
-Requires-Dist: cbor2 (>=5,<6) ; extra == "cbor"
-Requires-Dist: gitignore-parser (>=0,<1) ; extra == "reload"
-Requires-Dist: importlib-metadata
-Requires-Dist: izulu (==0.50.0)
-Requires-Dist: msgpack (>=1.0.7,<2.0.0) ; extra == "msgpack"
-Requires-Dist: orjson (>=3,<4) ; extra == "orjson"
-Requires-Dist: packaging (>=19)
-Requires-Dist: prometheus_client (>=0,<1) ; extra == "metrics"
-Requires-Dist: pycron (>=3.0.0,<4.0.0)
-Requires-Dist: pydantic (>=1.0,<=3.0)
-Requires-Dist: pytz
-Requires-Dist: pyzmq (>=26,<27) ; extra == "zmq"
-Requires-Dist: taskiq_dependencies (>=1.3.1,<2)
-Requires-Dist: typing-extensions (>=3.10.0.0)
-Requires-Dist: uvloop (>=0.16.0,<1) ; (sys_platform != "win32") and (extra == "uv")
-Requires-Dist: watchdog (>=4,<5) ; extra == "reload"
-Project-URL: Documentation, https://taskiq-python.github.io/
-Project-URL: Homepage, https://taskiq-python.github.io/
-Project-URL: Repository, https://github.com/taskiq-python/taskiq
 Description-Content-Type: text/markdown
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/taskiq?style=for-the-badge)](https://pypi.org/project/taskiq/)
@@ -186,4 +190,3 @@ After that you can set up a docs server by running:
 ```
 yarn docs:dev
 ```
-

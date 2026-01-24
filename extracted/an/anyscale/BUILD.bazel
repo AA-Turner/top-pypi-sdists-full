@@ -45,6 +45,7 @@ py_library(
         requirement("GitPython"),
         requirement("jsonpatch"),
         requirement("jsonschema"),
+        requirement("kubernetes"),
         requirement("log_symbols"),
         requirement("packaging"),
         requirement("pathspec"),
@@ -77,7 +78,6 @@ py_binary(
     srcs = [
         "anyscale/scripts.py",
     ],
-    exec_compatible_with = ["//:run_in_hermetic_python"],
     main = "anyscale/scripts.py",
     deps = [
         ":anyscale",

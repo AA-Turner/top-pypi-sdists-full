@@ -32,6 +32,10 @@ class HANAError(DBAPIError):
         )
 
 
+class HANAConnectionError(HANAError):
+    """Error when there is a problem with the connection."""
+
+
 class SequenceCacheTimeoutError(HANAError):
     """Exception raised when the sequence cache times out."""
 
@@ -52,7 +56,7 @@ class LockAcquisitionError(HANAError):
     """Exception raised when a lock acquisition fails."""
 
 
-class DatabaseConnectNotPossibleError(HANAError):
+class DatabaseConnectNotPossibleError(HANAConnectionError):
     """Exception raised when the database is unavailable."""
 
 
@@ -86,6 +90,18 @@ class TransactionCancelledError(HANAError):
 
 class InvalidObjectNameError(HANAError):
     """Error when an invalid object name is referenced."""
+
+
+class SessionContextError(HANAConnectionError):
+    """Error when there is a problem with the session context."""
+
+
+class NumberOfTransactionsExceededError(HANAError):
+    """Exception raised when the number of allowed transactions is exceeded."""
+
+
+class DistributedTransactionCommitFailureError(StatementExecutionError):
+    """Exception raised when a distributed transaction commit fails."""
 
 
 def convert_dbapi_error(dbapi_error: DBAPIError) -> DBAPIError:
@@ -143,17 +159,19 @@ def convert_dbapi_error(dbapi_error: DBAPIError) -> DBAPIError:
             and "Error GBA503: Service is unavailable" in error.errortext
         )
         or error.errortext
-        in [
+        in {
             "HANA Cloud region is in maintenance window",
             "HANA Database instance upgrade in progress",
-        ]
+        }
         # ERR_URS_INSTANCE_NOT_AVAILABLE: HANA Database service is not available
         or error.errorcode == 1888
+        # HANA is current starting
+        or "TransactionManager is not yet fully initialized" in error.errortext
     ):
         return DatabaseConnectNotPossibleError.from_dbapi_error(dbapi_error)
     if (
         # 129 -> ERR_TX_ROLLBACK: transaction rolled back by an internal error
-        error.errorcode in [129, 145]
+        error.errorcode in {129, 145}
         or "An error occurred while opening the channel" in error.errortext
         or "Exception in executor plan" in error.errortext
         or "DTX commit(first phase commit) failed" in error.errortext
@@ -167,6 +185,17 @@ def convert_dbapi_error(dbapi_error: DBAPIError) -> DBAPIError:
         "feature not supported: writable statement not allowed in read-enabled replication"
     ):
         return WriteInReadOnlyReplicationError.from_dbapi_error(dbapi_error)
+    if error.errorcode == 597:
+        return SessionContextError.from_dbapi_error(dbapi_error)
+    # 128 -> ERR_TX: Transaction error
+    if (
+        error.errorcode == 128
+        and "exceed maximum number of transactions" in error.errortext
+    ):
+        return NumberOfTransactionsExceededError.from_dbapi_error(dbapi_error)
+    # 149 -> ERR_TX_DIST_2PC_FAILURE
+    if error.errorcode == 149:
+        return DistributedTransactionCommitFailureError.from_dbapi_error(dbapi_error)
     return dbapi_error
 
 
@@ -176,12 +205,15 @@ __all__ = (
     "DatabaseOutOfMemoryError",
     "DatabaseOverloadedError",
     "DeadlockError",
+    "HANAConnectionError",
     "HANAError",
     "InvalidObjectNameError",
     "LockAcquisitionError",
     "LockWaitTimeoutError",
+    "NumberOfTransactionsExceededError",
     "SequenceCacheTimeoutError",
     "SequenceLockTimeoutError",
+    "SessionContextError",
     "StatementExecutionError",
     "WriteInReadOnlyReplicationError",
     "convert_dbapi_error",

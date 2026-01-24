@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bt-decode
-Version: 0.6.0
+Version: 0.8.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
@@ -13,7 +13,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: toml==0.10.0
+Requires-Dist: toml>=0.10.0
 Requires-Dist: black==23.7.0 ; extra == 'dev'
 Requires-Dist: maturin ; extra == 'dev'
 Requires-Dist: ruff==0.4.7 ; extra == 'dev'

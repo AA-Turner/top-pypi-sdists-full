@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: z3c.rml
-Version: 5.0
+Version: 5.0.1
 Summary: An alternative implementation of RML
 Home-page: https://github.com/zopefoundation/z3c.rml
 Author: Stephan Richter and the Zope Community
@@ -143,6 +143,13 @@ Codewise you can do::
 =======
 CHANGES
 =======
+
+5.0.1 (2025-10-08)
+------------------
+
+- Do not delete ``importlib.metadata`` as it might break other packages.
+  (`#135 <https://github.com/zopefoundation/z3c.rml/issues/135>_`)
+
 
 5.0 (2025-04-14)
 ----------------

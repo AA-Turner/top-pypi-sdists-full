@@ -1,30 +1,33 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: aiosonic
-Version: 0.25.0
+Version: 0.30.1
 Summary: Async HTTP/WebSocket client
+Home-page: https://aiosonic.readthedocs.io/en/latest/
 License: MIT
 Author: Johanderson Mogollon
 Author-email: johander1822@gmail.com
-Requires-Python: >=3.8.0,<3.14
+Requires-Python: >=3.10.0,<3.15
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
 Requires-Dist: charset-normalizer (>=2.0.0,<4.0.0)
 Requires-Dist: h2 (>=4.1.0,<5.0.0)
-Requires-Dist: onecache (>=0.7.0,<0.8.0)
-Project-URL: Homepage, https://aiosonic.readthedocs.io/en/latest/
+Requires-Dist: onecache (>=0.8.0,<0.9.0)
 Project-URL: Repository, https://github.com/sonic182/aiosonic
 Description-Content-Type: text/markdown
 
@@ -32,7 +35,6 @@ Description-Content-Type: text/markdown
 [![Coverage Status](https://coveralls.io/repos/github/sonic182/aiosonic/badge.svg?branch=master)](https://coveralls.io/github/sonic182/aiosonic?branch=master)
 [![PyPI version](https://badge.fury.io/py/aiosonic.svg)](https://badge.fury.io/py/aiosonic)
 [![Documentation Status](https://readthedocs.org/projects/aiosonic/badge/?version=latest)](https://aiosonic.readthedocs.io/en/latest/?badge=latest)
-[![Discord](https://img.shields.io/discord/898929656969965648)](https://discord.gg/e7tBnYSRjj)
 
 # aiosonic - lightweight Python asyncio HTTP/WebSocket client
 
@@ -52,12 +54,15 @@ For full documentation, please see [aiosonic docs](https://aiosonic.readthedocs.
 - Automatic redirect following
 - Fully type-annotated
 - WebSocket support
+- HTTP proxy support
+- Sessions with cookie persistence
+- Elegant key/value cookies
 - (Nearly) 100% test coverage
 - HTTP/2 (BETA; enabled with a flag)
 
 ## Requirements
 
-- Python >= 3.8 (or PyPy 3.8+)
+- Python >= 3.10 (or PyPy 3.11+)
 
 ## Installation
 
@@ -152,14 +157,14 @@ if __name__ == "__main__":
 
 ## Api Wrapping
 
-You can easily wrap apis with `AioSonicBaseClient` class
+You can easily wrap APIs with `BaseClient` and override its hooks to customize the response handling.
 
 ```python
 import asyncio
 import json
-from aiosonic.base_client import AioSonicBaseClient
+from aiosonic import BaseClient
 
-class GitHubAPI(AioSonicBaseClient):
+class GitHubAPI(BaseClient):
     base_url = "https://api.github.com"
     default_headers = {
         "Accept": "application/vnd.github+json",
@@ -167,8 +172,11 @@ class GitHubAPI(AioSonicBaseClient):
         # "Authorization": "Bearer YOUR_GITHUB_TOKEN",
     }
 
+    async def process_response(self, response):
+        body = await response.text()
+        return json.loads(body)
+
     async def users(self, username: str, **kwargs):
-        # base_url and headers are applied internally.
         return await self.get(f"/users/{username}", **kwargs)
     
     async def update_repo(self, owner: str, repo: str, description: str):
@@ -181,7 +189,7 @@ class GitHubAPI(AioSonicBaseClient):
 
 async def main():
     # You can pass an existing aiosonic.HTTPClient() instance in the constructor.
-    # If not provided, AioSonicBaseClient will create a new instance automatically.
+    # If not provided, BaseClient will create a new instance automatically.
     github = GitHubAPI()
     # Call the custom 'users' method to get data for user "sonic182"
     user_data = await github.users("sonic182")
@@ -203,7 +211,7 @@ class SingletonMixin:
             cls._instances[cls] = super().__new__(cls)
         return cls._instances[cls]
 
-class GitHubAPI(AioSonicBaseClient, SingletonMixin):
+class GitHubAPI(BaseClient, SingletonMixin):
     base_url = "https://api.github.com"
     # ... the rest of the code
 
@@ -219,23 +227,23 @@ gh == gh2
 A simple performance benchmark script is included in the `tests` folder. For example:
 
 ```bash
-python tests/performance.py
+python scripts/performance.py
 ```
 
 Example output:
 
 ```json
-doing tests...
 {
- "aiosonic": "1000 requests in 105.53 ms",
- "aiosonic cyclic": "1000 requests in 104.08 ms",
- "aiohttp": "1000 requests in 184.51 ms",
- "requests": "1000 requests in 1644.21 ms"
+  "aiohttp": "5000 requests in 558.31 ms",
+  "aiosonic": "5000 requests in 563.95 ms",
+  "requests": "5000 requests in 10306.90 ms",
+  "aiosonic_cyclic": "5000 requests in 642.15 ms",
+  "httpx": "5000 requests in 7920.04 ms"
 }
-aiosonic is 74.84% faster than aiohttp
+```
+
 aiosonic is 1457.99% faster than requests
 aiosonic is -1.38% faster than aiosonic cyclic
-```
 
 > **Note:**  
 > These benchmarks are basic and machine-dependent. They are intended as a rough comparison.
@@ -243,15 +251,10 @@ aiosonic is -1.38% faster than aiosonic cyclic
 ## [TODO's](https://github.com/sonic182/aiosonic/projects/1)
 
 - **HTTP/2:**
-  - [x] GET requests
-  - [x] Requests with data sending
   - [ ] Stable HTTP/2 release
 - Better documentation
 - International domains and URLs (IDNA + cache)
 - Basic/Digest authentication
-- [x] HTTP proxy support
-- [x] Sessions with cookie persistence
-- [x] Elegant key/value cookies
 
 ## Development
 

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: antsibull-docs
-Version: 2.21.0
+Version: 2.24.0
 Summary: Tools for building Ansible documentation
-Project-URL: Documentation, https://ansible.readthedocs.io/projects/antsibull-docs/
+Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-docs/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs
-Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html
+Project-URL: Code of Conduct, https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
 Project-URL: Bug tracker, https://github.com/ansible-community/antsibull-docs/issues
 Project-URL: Changelog, https://github.com/ansible-community/antsibull-docs/tree/main/CHANGELOG.md
 Author-email: Toshio Kuratomi <a.badger@gmail.com>, Felix Fontein <felix@fontein.de>
@@ -20,12 +20,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: aiohttp>=3.0.0
 Requires-Dist: ansible-pygments
 Requires-Dist: antsibull-changelog>=0.24.0
-Requires-Dist: antsibull-core<4.0.0,>=3.4.0
+Requires-Dist: antsibull-core<4.0.0,>=3.5.0
 Requires-Dist: antsibull-docs-parser<2.0.0,>=1.1.0
 Requires-Dist: antsibull-docutils<2.0.0,>=1.3.0
 Requires-Dist: antsibull-fileutils<2.0.0,>=1.3.0
@@ -38,7 +39,6 @@ Requires-Dist: pyyaml
 Requires-Dist: rstcheck<7.0.0,>=3.0.0
 Requires-Dist: semantic-version
 Requires-Dist: sphinx
-Requires-Dist: twiggy
 Provides-Extra: codeqa
 Requires-Dist: flake8>=3.8.0; extra == 'codeqa'
 Requires-Dist: pylint>=2.17.2; extra == 'codeqa'
@@ -62,6 +62,7 @@ Requires-Dist: pytest-error-for-skips; extra == 'dev'
 Requires-Dist: reuse; extra == 'dev'
 Requires-Dist: types-aiofiles; extra == 'dev'
 Requires-Dist: types-docutils; extra == 'dev'
+Requires-Dist: types-html5lib; extra == 'dev'
 Requires-Dist: types-pyyaml; extra == 'dev'
 Provides-Extra: formatters
 Requires-Dist: black>=24; extra == 'formatters'
@@ -76,8 +77,10 @@ Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-error-for-skips; extra == 'test'
 Provides-Extra: typing
 Requires-Dist: mypy; extra == 'typing'
+Requires-Dist: pytest; extra == 'typing'
 Requires-Dist: types-aiofiles; extra == 'typing'
 Requires-Dist: types-docutils; extra == 'typing'
+Requires-Dist: types-html5lib; extra == 'typing'
 Requires-Dist: types-pyyaml; extra == 'typing'
 Description-Content-Type: text/markdown
 
@@ -88,7 +91,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # antsibull-docs -- Ansible Documentation Build Scripts
-[![Documentation](https://img.shields.io/badge/docs-brightgreen.svg)](https://ansible.readthedocs.io/projects/antsibull-docs/)
+[![Documentation](https://img.shields.io/badge/docs-brightgreen.svg)](https://docs.ansible.com/projects/antsibull-docs/)
 [![Discuss on Matrix at #antsibull:ansible.com](https://img.shields.io/matrix/antsibull:ansible.com.svg?server_fqdn=ansible-accounts.ems.host&label=Discuss%20on%20Matrix%20at%20%23antsibull:ansible.com&logo=matrix)](https://matrix.to/#/#antsibull:ansible.com)
 [![Discuss on Matrix at #docs:ansible.com](https://img.shields.io/matrix/docs:ansible.com.svg?server_fqdn=ansible-accounts.ems.host&label=Discuss%20on%20Matrix%20at%20%23docs:ansible.com&logo=matrix)](https://matrix.to/#/#docs:ansible.com)
 [![Nox badge](https://github.com/ansible-community/antsibull-docs/actions/workflows/nox.yml/badge.svg)](https://github.com/ansible-community/antsibull-docs/actions/workflows/nox.yml)
@@ -97,15 +100,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
 [![Codecov badge](https://img.shields.io/codecov/c/github/ansible-community/antsibull-docs)](https://codecov.io/gh/ansible-community/antsibull-docs)
 [![REUSE status](https://api.reuse.software/badge/github.com/ansible-community/antsibull-docs)](https://api.reuse.software/info/github.com/ansible-community/antsibull-docs)
 
-Tooling for building Ansible documentation. This is mainly the `antsibull-docs` command and the [Sphinx extension](https://www.sphinx-doc.org/en/master/), ``sphinx_antsibull_ext``. Please check out the [documentation](https://ansible.readthedocs.io/projects/antsibull-docs/) for more information.
+Tooling for building Ansible documentation. This is mainly the `antsibull-docs` command and the [Sphinx extension](https://www.sphinx-doc.org/en/master/), ``sphinx_antsibull_ext``. Please check out the [documentation](https://docs.ansible.com/projects/antsibull-docs/) for more information.
 
-You can find a list of changes in [the antsibull-docs changelog](https://ansible.readthedocs.io/projects/antsibull-docs/changelog/).
+You can find a list of changes in [the antsibull-docs changelog](https://docs.ansible.com/projects/antsibull-docs/changelog/).
 
-antsibull-docs is covered by the [Ansible Code of Conduct](https://docs.ansible.com/ansible/latest/community/code_of_conduct.html).
+antsibull-docs is covered by the [Ansible Code of Conduct](https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html).
 
 ## Community
 
-Need help or want to discuss the project? See our [Community guide](https://ansible.readthedocs.io/projects/antsibull-docs/community/) to learn how to join the conversation!
+Need help or want to discuss the project? See our [Community guide](https://docs.ansible.com/projects/antsibull-docs/community/) to learn how to join the conversation!
 
 ## Versioning and compatibility
 

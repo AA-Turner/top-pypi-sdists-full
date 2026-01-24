@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: voluptuous
-Version: 0.15.2
+Version: 0.16.0
 Summary: Python data validation library
 Home-page: https://github.com/alecthomas/voluptuous
 Download-URL: https://pypi.python.org/pypi/voluptuous

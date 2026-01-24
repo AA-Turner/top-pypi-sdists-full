@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: schema
-Version: 0.7.7
+Version: 0.7.8
 Summary: Simple data validation library
 Home-page: https://github.com/keleshev/schema
 Author: Vladimir Keleshev
 Author-email: vladimir@keleshev.com
 License: MIT
 Keywords: schema json validation
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Topic :: Utilities
 Classifier: Programming Language :: Python :: 3.6
@@ -20,6 +19,18 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: MIT License
 Description-Content-Type: text/x-rst
 License-File: LICENSE-MIT
+Requires-Dist: contextlib2>=0.5.5; python_version < "3.3"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Schema validation just got Pythonic 
 ===============================================================================
@@ -1085,5 +1096,3 @@ It produces a JSON schema that is more difficult to read by humans.
         "$id": "https://example.com/my-schema.json",
         "$schema": "http://json-schema.org/draft-07/schema#"
     }
-
-

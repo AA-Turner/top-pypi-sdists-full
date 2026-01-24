@@ -1,9 +1,10 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 0.60.0
+Version: 1.3.0
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
+Project-URL: Documentation, https://runloopai.github.io/api-client-python/
 Author-email: Runloop <support@runloop.ai>
 License: MIT
 Classifier: Intended Audience :: Developers
@@ -13,24 +14,25 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
-Requires-Dist: pydantic<3,>=1.9.0
+Requires-Dist: pydantic<3,>=2.0
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: uuid-utils>=0.11.0
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Runloop Python API library
@@ -38,7 +40,7 @@ Description-Content-Type: text/markdown
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/runloop_api_client.svg?label=pypi%20(stable))](https://pypi.org/project/runloop_api_client/)
 
-The Runloop Python library provides convenient access to the Runloop REST API from any Python 3.8+
+The Runloop Python library provides convenient access to the Runloop REST API from any Python 3.9+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
@@ -46,7 +48,9 @@ It is generated with [Stainless](https://www.stainless.com/).
 
 ## Documentation
 
-The REST API documentation can be found on [runloop.ai](https://runloop.ai). The full API of this library can be found in [api.md](https://github.com/runloopai/api-client-python/tree/main/api.md).
+The REST API documentation can be found on
+[runloop.ai](https://runloop.ai). The full API of this library can be found in
+[api.md](https://github.com/runloopai/api-client-python/blob/main/api.md).
 
 ## Installation
 
@@ -57,7 +61,28 @@ pip install runloop_api_client
 
 ## Usage
 
-The full API of this library can be found in [api.md](https://github.com/runloopai/api-client-python/tree/main/api.md).
+The full API of this library can be found in [api.md](api.md).
+
+### Object-Oriented SDK
+
+For a higher-level, Pythonic interface, check out the new [`RunloopSDK`](README-SDK.md) which layers an object-oriented API on top of the generated client (including synchronous and asynchronous variants).
+
+```python
+from runloop_api_client import RunloopSDK
+
+runloop = RunloopSDK()  # Uses RUNLOOP_API_KEY environment variable by default
+
+# Create a devbox and execute commands with a clean, object-oriented interface
+with runloop.devbox.create(name="my-devbox") as devbox:
+    result = devbox.cmd.exec("echo 'Hello from Runloop!'")
+    print(result.stdout())
+```
+
+**See the [SDK documentation](README-SDK.md) for complete examples and API reference.**
+
+### REST API Client
+
+Alternatively, you can use the generated REST API client directly:
 
 ```python
 import os
@@ -114,6 +139,7 @@ pip install runloop_api_client[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
+import os
 import asyncio
 from runloop_api_client import DefaultAioHttpClient
 from runloop_api_client import AsyncRunloop
@@ -121,7 +147,7 @@ from runloop_api_client import AsyncRunloop
 
 async def main() -> None:
     async with AsyncRunloop(
-        bearer_token="My Bearer Token",
+        bearer_token=os.environ.get("RUNLOOP_API_KEY"),  # This is the default and can be omitted
         http_client=DefaultAioHttpClient(),
     ) as client:
         devbox_view = await client.devboxes.create()
@@ -325,7 +351,7 @@ client.with_options(timeout=5.0).devboxes.create()
 
 On timeout, an `APITimeoutError` is thrown.
 
-Note that requests that time out are [retried twice by default](https://github.com/runloopai/api-client-python/tree/main/#retries).
+Note that requests that time out are [retried twice by default](#retries).
 
 ## Advanced
 
@@ -489,8 +515,8 @@ print(runloop_api_client.__version__)
 
 ## Requirements
 
-Python 3.8 or higher.
+Python 3.9 or higher.
 
 ## Contributing
 
-See [the contributing documentation](https://github.com/runloopai/api-client-python/tree/main/./CONTRIBUTING.md).
+See [the contributing documentation](./CONTRIBUTING.md).

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlette-admin
-Version: 0.15.1
+Version: 0.16.0
 Summary: Fast, beautiful and extensible administrative interface framework for Starlette/FastApi applications
 Project-URL: Homepage, https://github.com/jowilf/starlette-admin
 Project-URL: Documentation, https://jowilf.github.io/starlette-admin
@@ -46,13 +46,13 @@ Requires-Dist: arrow<1.4.0,>=1.2.3; extra == 'test'
 Requires-Dist: asyncpg<0.31.0,>=0.27.0; extra == 'test'
 Requires-Dist: backports-zoneinfo; (python_version < '3.9') and extra == 'test'
 Requires-Dist: beanie<2.0.0; extra == 'test'
-Requires-Dist: black==25.1.0; extra == 'test'
+Requires-Dist: black==25.11.0; extra == 'test'
 Requires-Dist: colour<0.2.0,>=0.1.5; extra == 'test'
 Requires-Dist: fasteners==0.19; extra == 'test'
 Requires-Dist: httpx<0.29.0,>=0.23.3; extra == 'test'
 Requires-Dist: itsdangerous<2.3.0,>=2.2.0; extra == 'test'
 Requires-Dist: mongoengine<0.30.0,>=0.25.0; extra == 'test'
-Requires-Dist: mypy==1.15.0; extra == 'test'
+Requires-Dist: mypy==1.19.0; extra == 'test'
 Requires-Dist: passlib<1.8.0,>=1.7.4; extra == 'test'
 Requires-Dist: phonenumbers<8.14.0,>=8.13.3; extra == 'test'
 Requires-Dist: pillow<11.1.0,>=9.4.0; extra == 'test'
@@ -61,7 +61,7 @@ Requires-Dist: pydantic[email]<2.10.0,>=1.10.2; extra == 'test'
 Requires-Dist: pymysql[rsa]<1.2.0,>=1.0.2; extra == 'test'
 Requires-Dist: pytest-asyncio<0.25.0,>=0.24.0; extra == 'test'
 Requires-Dist: pytest<8.4.0,>=8.3.0; extra == 'test'
-Requires-Dist: ruff==0.11.9; extra == 'test'
+Requires-Dist: ruff==0.14.7; extra == 'test'
 Requires-Dist: sqlalchemy-file<0.7.0,>=0.5.0; extra == 'test'
 Requires-Dist: sqlalchemy-utils<0.42.0,>=0.40.0; extra == 'test'
 Requires-Dist: sqlmodel<0.1.0,>=0.0.11; extra == 'test'

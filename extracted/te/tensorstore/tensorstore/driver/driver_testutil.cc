@@ -108,7 +108,9 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
+using ::testing::HasSubstr;
 
 void TestMinimalSpecRoundTrips(
     Context context, const TestTensorStoreDriverSpecRoundtripOptions& options,
@@ -171,9 +173,13 @@ void TestTensorStoreDriverSpecRoundtrip(
     ReplaceStringInJson(options.full_base_spec, tempdir_key, tempdir->path());
 
     // For the URL, the tempdir path must begin with a leading slash.
+    // Generate the replacement url and strip off the "file://" prefix.
+    static constexpr size_t kFileUriPrefixLen =
+        std::string_view("file://").size();
+    auto file_uri = internal::OsPathToFileUri(tempdir->path());
+    TENSORSTORE_ASSERT_OK(file_uri.status());
     options.url = absl::StrReplaceAll(
-        options.url,
-        {{tempdir_key, internal::OsPathToUriPath(tempdir->path())}});
+        options.url, {{tempdir_key, file_uri->substr(kFileUriPrefixLen)}});
   }
   Transaction transaction(mode);
   auto context = Context::Default();
@@ -504,13 +510,13 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     }
     ASSERT_FALSE(transaction.commit_started());
     EXPECT_THAT(store | no_transaction,
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Cannot rebind transaction when existing "
-                              "transaction is uncommitted"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Cannot rebind transaction when existing "
+                                   "transaction is uncommitted")));
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync().result());
     EXPECT_THAT(Read(store).result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Transaction not open"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Transaction not open")));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto non_transactional_store,
         tensorstore::Open(options.create_spec, context,
@@ -1436,8 +1442,8 @@ void TestTensorStoreRepeatableRead(
     auto read_result = read_future.result();
     if (params.repeatable && params.value_changes &&
         params.fully_overwritten == RepeatableReadParams::kNever) {
-      EXPECT_THAT(read_result, MatchesStatus(absl::StatusCode::kAborted,
-                                             ".*: Generation mismatch"));
+      EXPECT_THAT(read_result, StatusIs(absl::StatusCode::kAborted,
+                                        HasSubstr("Generation mismatch")));
     } else {
       EXPECT_THAT(read_result,
                   ::testing::Optional(MatchesArrayIdentically(expected_value)));
@@ -1492,7 +1498,7 @@ void TestTensorStoreRepeatableRead(
   } else {
     EXPECT_THAT(
         commit_future.result(),
-        MatchesStatus(absl::StatusCode::kAborted, ".*: Generation mismatch"));
+        StatusIs(absl::StatusCode::kAborted, HasSubstr("Generation mismatch")));
   }
 }
 

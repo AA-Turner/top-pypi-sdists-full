@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from commitizen import factory, git, out
-from commitizen.config import BaseConfig
 from commitizen.exceptions import (
     InvalidCommandArgumentError,
     InvalidCommitMessageError,
     NoCommitsFoundError,
 )
+
+if TYPE_CHECKING:
+    from commitizen.config import BaseConfig
 
 
 class CheckArgs(TypedDict, total=False):
@@ -18,7 +20,7 @@ class CheckArgs(TypedDict, total=False):
     commit_msg: str
     rev_range: str
     allow_abort: bool
-    message_length_limit: int
+    message_length_limit: int | None
     allowed_prefixes: list[str]
     message: str
     use_default_range: bool
@@ -41,8 +43,11 @@ class Check:
         self.allow_abort = bool(
             arguments.get("allow_abort", config.settings["allow_abort"])
         )
+
         self.use_default_range = bool(arguments.get("use_default_range"))
-        self.max_msg_length = arguments.get("message_length_limit", 0)
+        self.max_msg_length = arguments.get(
+            "message_length_limit", config.settings.get("message_length_limit", None)
+        )
 
         # we need to distinguish between None and [], which is a valid value
         allowed_prefixes = arguments.get("allowed_prefixes")
@@ -71,32 +76,38 @@ class Check:
             self.commit_msg = sys.stdin.read()
 
         self.config: BaseConfig = config
-        self.encoding = config.settings["encoding"]
         self.cz = factory.committer_factory(self.config)
 
     def __call__(self) -> None:
         """Validate if commit messages follows the conventional pattern.
 
         Raises:
-            InvalidCommitMessageError: if the commit provided not follows the conventional pattern
+            InvalidCommitMessageError: if the commit provided does not follow the conventional pattern
+            NoCommitsFoundError: if no commit is found with the given range
         """
         commits = self._get_commits()
         if not commits:
             raise NoCommitsFoundError(f"No commit found with range: '{self.rev_range}'")
 
         pattern = re.compile(self.cz.schema_pattern())
-        invalid_msgs_content = "\n".join(
-            f'commit "{commit.rev}": "{commit.message}"'
+        invalid_commits = [
+            (commit, check.errors)
             for commit in commits
-            if not self._validate_commit_message(commit.message, pattern)
-        )
-        if invalid_msgs_content:
-            # TODO: capitalize the first letter of the error message for consistency in v5
+            if not (
+                check := self.cz.validate_commit_message(
+                    commit_msg=commit.message,
+                    pattern=pattern,
+                    allow_abort=self.allow_abort,
+                    allowed_prefixes=self.allowed_prefixes,
+                    max_msg_length=self.max_msg_length,
+                    commit_hash=commit.rev,
+                )
+            ).is_valid
+        ]
+
+        if invalid_commits:
             raise InvalidCommitMessageError(
-                "commit validation: failed!\n"
-                "please enter a commit message in the commitizen format.\n"
-                f"{invalid_msgs_content}\n"
-                f"pattern: {pattern.pattern}"
+                self.cz.format_exception_message(invalid_commits)
             )
         out.success("Commit validation: successful!")
 
@@ -105,7 +116,9 @@ class Check:
             # Get commit message from command line (--message)
             return self.commit_msg
 
-        with open(self.commit_msg_file, encoding=self.encoding) as commit_file:
+        with open(
+            self.commit_msg_file, encoding=self.config.settings["encoding"]
+        ) as commit_file:
             # Get commit message from file (--commit-msg-file)
             return commit_file.read()
 
@@ -149,19 +162,3 @@ class Check:
             if not line.startswith("#"):
                 lines.append(line)
         return "\n".join(lines)
-
-    def _validate_commit_message(
-        self, commit_msg: str, pattern: re.Pattern[str]
-    ) -> bool:
-        if not commit_msg:
-            return self.allow_abort
-
-        if any(map(commit_msg.startswith, self.allowed_prefixes)):
-            return True
-
-        if self.max_msg_length:
-            msg_len = len(commit_msg.partition("\n")[0].strip())
-            if msg_len > self.max_msg_length:
-                return False
-
-        return bool(pattern.match(commit_msg))

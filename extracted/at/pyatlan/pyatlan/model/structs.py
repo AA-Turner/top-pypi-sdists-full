@@ -10,13 +10,14 @@ from pydantic.v1 import BaseModel, Extra, Field, root_validator
 
 from pyatlan.model.enums import (
     AppWorkflowRunStatus,
+    AssetSmusMetadataFormStatus,
     AtlanConnectorType,
     BadgeComparisonOperator,
     BadgeConditionColor,
+    DataQualityRuleThresholdUnit,
     FormFieldDimension,
     FormFieldType,
     SourceCostUnitType,
-    alpha_DQRuleThresholdUnit,
 )
 from pyatlan.model.utils import to_camel_case
 from pyatlan.utils import select_optional_set_fields, validate_required_fields
@@ -47,6 +48,41 @@ class AtlanObject(BaseModel):
         attributes = values.pop("attributes", {})
         values = {**values, **attributes}
         return values
+
+
+class AssetExternalDQMetadata(AtlanObject):
+    """Description"""
+
+    asset_external_d_q_system_name: Optional[str] = Field(default=None, description="")
+    asset_external_d_q_source_logo: Optional[str] = Field(default=None, description="")
+    asset_external_d_q_source_url: Optional[str] = Field(default=None, description="")
+    asset_external_d_q_last_sync_run_at: Optional[datetime] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_entity_name: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_total_count: Optional[int] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_last_run_success_count: Optional[int] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_last_run_failure_count: Optional[int] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_overall_score_value: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_overall_score_type: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_score_dimensions: Optional[
+        List[AssetExternalDQScoreBreakdownByDimension]
+    ] = Field(default=None, description="")
+    asset_external_d_q_tests: Optional[List[AssetExternalDQTestDetails]] = Field(
+        default=None, description=""
+    )
 
 
 class MCRuleSchedule(AtlanObject):
@@ -101,11 +137,42 @@ class Histogram(AtlanObject):
     frequencies: Set[float] = Field(description="")
 
 
+class AssetExternalDQTestRunHistory(AtlanObject):
+    """Description"""
+
+    asset_external_d_q_test_run_started_at: Optional[datetime] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_run_ended_at: Optional[datetime] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_run_status: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_metric_info: Optional[AssetExternalDQTestMetric] = Field(
+        default=None, description=""
+    )
+
+
 class ColumnValueFrequencyMap(AtlanObject):
     """Description"""
 
     column_value: Optional[str] = Field(default=None, description="")
     column_value_frequency: Optional[int] = Field(default=None, description="")
+
+
+class AssetExternalDQTestMetric(AtlanObject):
+    """Description"""
+
+    asset_external_d_q_test_metric_observed_value: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_metric_upper_bound: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_metric_lower_bound: Optional[str] = Field(
+        default=None, description=""
+    )
 
 
 class BadgeCondition(AtlanObject):
@@ -147,44 +214,6 @@ class SourceTagAttachmentValue(AtlanObject):
     tag_attachment_value: Optional[str] = Field(default=None, description="")
 
 
-class alpha_DQRuleTemplateConfig(AtlanObject):
-    """Description"""
-
-    alpha_dq_rule_template_config_base_dataset_qualified_name: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_base_column_qualified_name: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_reference_dataset_qualified_names: Optional[str] = (
-        Field(default=None, description="")
-    )
-    alpha_dq_rule_template_config_reference_column_qualified_names: Optional[str] = (
-        Field(default=None, description="")
-    )
-    alpha_dq_rule_template_config_threshold_object: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_display_name: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_custom_s_q_l: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_dimension: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_user_description: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_config_rule_conditions: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_template_advanced_settings: Optional[str] = Field(
-        default=None, description=""
-    )
-
-
 class StarredDetails(AtlanObject):
     """Description"""
 
@@ -204,6 +233,25 @@ class GoogleTag(AtlanObject):
 
     google_tag_key: str = Field(description="")
     google_tag_value: str = Field(description="")
+
+
+class AssetExternalDQTestDetails(AtlanObject):
+    """Description"""
+
+    asset_external_d_q_test_name: Optional[str] = Field(default=None, description="")
+    asset_external_d_q_test_id: Optional[str] = Field(default=None, description="")
+    asset_external_d_q_test_description: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_schedule_type: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_last_run_status: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_test_runs: Optional[List[AssetExternalDQTestRunHistory]] = Field(
+        default=None, description=""
+    )
 
 
 class BusinessPolicyRule(AtlanObject):
@@ -255,6 +303,38 @@ class FormField(AtlanObject):
     form_field_options: Optional[Dict[str, str]] = Field(default=None, description="")
 
 
+class DbtInputContext(AtlanObject):
+    """Description"""
+
+    dbt_input_context_name: Optional[str] = Field(default=None, description="")
+    dbt_input_context_qualified_name: Optional[str] = Field(
+        default=None, description=""
+    )
+    dbt_input_context_type: Optional[str] = Field(default=None, description="")
+    dbt_input_context_alias: Optional[str] = Field(default=None, description="")
+    dbt_input_context_filter: Optional[str] = Field(default=None, description="")
+    dbt_input_context_offset_window: Optional[str] = Field(default=None, description="")
+    dbt_input_context_offset_to_grain: Optional[str] = Field(
+        default=None, description=""
+    )
+
+
+class AssetSmusMetadataFormDetails(AtlanObject):
+    """Description"""
+
+    asset_metadata_form_name: Optional[str] = Field(default=None, description="")
+    asset_metadata_form_description: Optional[str] = Field(default=None, description="")
+    asset_metadata_form_domain_id: Optional[str] = Field(default=None, description="")
+    asset_metadata_form_project_id: Optional[str] = Field(default=None, description="")
+    asset_metadata_form_status: Optional[AssetSmusMetadataFormStatus] = Field(
+        default=None, description=""
+    )
+    asset_metadata_form_revision: Optional[str] = Field(default=None, description="")
+    asset_metadata_form_fields: Optional[List[Dict[str, str]]] = Field(
+        default=None, description=""
+    )
+
+
 class DatabricksAIModelVersionMetric(AtlanObject):
     """Description"""
 
@@ -279,6 +359,22 @@ class KafkaTopicConsumption(AtlanObject):
     topic_partition: Optional[str] = Field(default=None, description="")
     topic_lag: Optional[int] = Field(default=None, description="")
     topic_current_offset: Optional[int] = Field(default=None, description="")
+
+
+class SQLProcedureReturn(AtlanObject):
+    """Description"""
+
+    sql_return_type: Optional[str] = Field(default=None, description="")
+    sql_return_character_maximum_length: Optional[int] = Field(
+        default=None, description=""
+    )
+    sql_return_character_octet_length: Optional[int] = Field(
+        default=None, description=""
+    )
+    sql_return_numeric_precision: Optional[int] = Field(default=None, description="")
+    sql_return_numeric_precision_radix: Optional[int] = Field(
+        default=None, description=""
+    )
 
 
 class SourceTagAttachment(AtlanObject):
@@ -473,11 +569,45 @@ class AzureTag(AtlanObject):
     azure_tag_value: str = Field(description="")
 
 
+class AssetExternalDQScoreBreakdownByDimension(AtlanObject):
+    """Description"""
+
+    asset_external_d_q_score_dimension_name: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_score_dimension_description: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_score_dimension_score_value: Optional[str] = Field(
+        default=None, description=""
+    )
+    asset_external_d_q_score_dimension_score_type: Optional[str] = Field(
+        default=None, description=""
+    )
+
+
 class AuthPolicyCondition(AtlanObject):
     """Description"""
 
     policy_condition_type: str = Field(description="")
     policy_condition_values: Set[str] = Field(description="")
+
+
+class DataQualityRuleConfigArguments(AtlanObject):
+    """Description"""
+
+    dq_rule_threshold_object: Optional[DataQualityRuleThresholdObject] = Field(
+        default=None, description=""
+    )
+    dq_rule_config_arguments_raw: Optional[str] = Field(default=None, description="")
+    dq_rule_config_rule_conditions: Optional[str] = Field(default=None, description="")
+
+
+class SQLProcedureArgument(AtlanObject):
+    """Description"""
+
+    sql_argument_name: Optional[str] = Field(default=None, description="")
+    sql_argument_type: Optional[str] = Field(default=None, description="")
 
 
 class DbtMetricFilter(AtlanObject):
@@ -502,28 +632,43 @@ class AssetHistogram(AtlanObject):
     )
 
 
-class alpha_DQRuleConfigArguments(AtlanObject):
+class DataQualityRuleTemplateConfig(AtlanObject):
     """Description"""
 
-    alpha_dq_rule_threshold_object: Optional[alpha_DQRuleThresholdObject] = Field(
+    dq_rule_template_config_base_dataset_qualified_name: Optional[str] = Field(
         default=None, description=""
     )
-    alpha_dq_rule_config_arguments_raw: Optional[str] = Field(
+    dq_rule_template_config_base_column_qualified_name: Optional[str] = Field(
         default=None, description=""
     )
-    alpha_dq_rule_config_rule_conditions: Optional[str] = Field(
+    dq_rule_template_config_reference_dataset_qualified_names: Optional[str] = Field(
         default=None, description=""
     )
-
-
-class alpha_DQRuleRangeForTesting(AtlanObject):
-    """Description"""
-
-    alpha_dq_rule_range_operator: Optional[str] = Field(default=None, description="")
-    alpha_dq_rule_lower_bound_for_testing: Optional[str] = Field(
+    dq_rule_template_config_reference_column_qualified_names: Optional[str] = Field(
         default=None, description=""
     )
-    alpha_dq_rule_upper_bound_for_testing: Optional[str] = Field(
+    dq_rule_template_config_threshold_object: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_display_name: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_custom_s_q_l: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_dimension: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_user_description: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_advanced_settings: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_rule_conditions: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_template_config_preflight_check: Optional[str] = Field(
         default=None, description=""
     )
 
@@ -567,23 +712,23 @@ class MCRuleComparison(AtlanObject):
     )
 
 
+class DataQualityRuleThresholdObject(AtlanObject):
+    """Description"""
+
+    dq_rule_threshold_compare_operator: Optional[str] = Field(
+        default=None, description=""
+    )
+    dq_rule_threshold_value: Optional[float] = Field(default=None, description="")
+    dq_rule_threshold_unit: Optional[DataQualityRuleThresholdUnit] = Field(
+        default=None, description=""
+    )
+
+
 class GoogleLabel(AtlanObject):
     """Description"""
 
     google_label_key: str = Field(description="")
     google_label_value: str = Field(description="")
-
-
-class alpha_DQRuleThresholdObject(AtlanObject):
-    """Description"""
-
-    alpha_dq_rule_threshold_compare_operator: Optional[str] = Field(
-        default=None, description=""
-    )
-    alpha_dq_rule_threshold_value: Optional[float] = Field(default=None, description="")
-    alpha_dq_rule_threshold_unit: Optional[alpha_DQRuleThresholdUnit] = Field(
-        default=None, description=""
-    )
 
 
 class PopularityInsights(AtlanObject):
@@ -613,6 +758,8 @@ class SourceTagAttribute(AtlanObject):
     )
 
 
+AssetExternalDQMetadata.update_forward_refs()
+
 MCRuleSchedule.update_forward_refs()
 
 DbtJobRun.update_forward_refs()
@@ -623,13 +770,15 @@ Action.update_forward_refs()
 
 Histogram.update_forward_refs()
 
+AssetExternalDQTestRunHistory.update_forward_refs()
+
 ColumnValueFrequencyMap.update_forward_refs()
+
+AssetExternalDQTestMetric.update_forward_refs()
 
 BadgeCondition.update_forward_refs()
 
 SourceTagAttachmentValue.update_forward_refs()
-
-alpha_DQRuleTemplateConfig.update_forward_refs()
 
 StarredDetails.update_forward_refs()
 
@@ -637,41 +786,51 @@ AwsTag.update_forward_refs()
 
 GoogleTag.update_forward_refs()
 
+AssetExternalDQTestDetails.update_forward_refs()
+
 BusinessPolicyRule.update_forward_refs()
 
 ResponseValue.update_forward_refs()
 
 FormField.update_forward_refs()
 
+DbtInputContext.update_forward_refs()
+
+AssetSmusMetadataFormDetails.update_forward_refs()
+
 DatabricksAIModelVersionMetric.update_forward_refs()
 
 KafkaTopicConsumption.update_forward_refs()
+
+SQLProcedureReturn.update_forward_refs()
 
 SourceTagAttachment.update_forward_refs()
 
 AzureTag.update_forward_refs()
 
+AssetExternalDQScoreBreakdownByDimension.update_forward_refs()
+
 AuthPolicyCondition.update_forward_refs()
+
+DataQualityRuleConfigArguments.update_forward_refs()
+
+SQLProcedureArgument.update_forward_refs()
 
 DbtMetricFilter.update_forward_refs()
 
 AssetHistogram.update_forward_refs()
 
+DataQualityRuleTemplateConfig.update_forward_refs()
+
 AppWorkflowRunStep.update_forward_refs()
-
-alpha_DQRuleConfigArguments.update_forward_refs()
-
-alpha_DQRuleRangeForTesting.update_forward_refs()
-
-DbtMetricFilter.update_forward_refs()
 
 AuthPolicyValiditySchedule.update_forward_refs()
 
 MCRuleComparison.update_forward_refs()
 
-GoogleLabel.update_forward_refs()
+DataQualityRuleThresholdObject.update_forward_refs()
 
-alpha_DQRuleThresholdObject.update_forward_refs()
+GoogleLabel.update_forward_refs()
 
 PopularityInsights.update_forward_refs()
 

@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AccessEndpointTypeType",
     "ActionType",
+    "AgentSoftwareVersionType",
     "AppBlockBuilderAttributeType",
     "AppBlockBuilderPlatformTypeType",
     "AppBlockBuilderStateChangeReasonCodeType",
@@ -44,6 +45,7 @@ __all__ = (
     "DescribeUserStackAssociationsPaginatorName",
     "DescribeUsersPaginatorName",
     "DynamicAppProvidersEnabledType",
+    "ExportImageTaskStateType",
     "FleetAttributeType",
     "FleetErrorCodeType",
     "FleetStartedWaiterName",
@@ -55,6 +57,7 @@ __all__ = (
     "ImageSharedWithOthersType",
     "ImageStateChangeReasonCodeType",
     "ImageStateType",
+    "ImageTypeType",
     "LatestAppstreamAgentVersionType",
     "ListAssociatedFleetsPaginatorName",
     "ListAssociatedStacksPaginatorName",
@@ -69,6 +72,7 @@ __all__ = (
     "ServiceName",
     "SessionConnectionStateType",
     "SessionStateType",
+    "SoftwareDeploymentStatusType",
     "StackAttributeType",
     "StackErrorCodeType",
     "StorageConnectorTypeType",
@@ -95,6 +99,7 @@ ActionType = Literal[
     "FILE_UPLOAD",
     "PRINTING_TO_LOCAL_DEVICE",
 ]
+AgentSoftwareVersionType = Literal["ALWAYS_LATEST", "CURRENT_LATEST"]
 AppBlockBuilderAttributeType = Literal[
     "ACCESS_ENDPOINTS", "IAM_ROLE_ARN", "VPC_CONFIGURATION_SECURITY_GROUP_IDS"
 ]
@@ -117,12 +122,14 @@ DescribeStacksPaginatorName = Literal["describe_stacks"]
 DescribeUserStackAssociationsPaginatorName = Literal["describe_user_stack_associations"]
 DescribeUsersPaginatorName = Literal["describe_users"]
 DynamicAppProvidersEnabledType = Literal["DISABLED", "ENABLED"]
+ExportImageTaskStateType = Literal["COMPLETED", "EXPORTING", "FAILED"]
 FleetAttributeType = Literal[
     "DOMAIN_JOIN_INFO",
     "IAM_ROLE_ARN",
     "MAX_SESSIONS_PER_INSTANCE",
     "SESSION_SCRIPT_S3_LOCATION",
     "USB_DEVICE_FILTER_STRINGS",
+    "VOLUME_CONFIGURATION",
     "VPC_CONFIGURATION",
     "VPC_CONFIGURATION_SECURITY_GROUP_IDS",
 ]
@@ -157,6 +164,7 @@ FleetErrorCodeType = Literal[
     "STS_DISABLED_IN_REGION",
     "SUBNET_HAS_INSUFFICIENT_IP_ADDRESSES",
     "SUBNET_NOT_FOUND",
+    "VALIDATION_ERROR",
 ]
 FleetStartedWaiterName = Literal["fleet_started"]
 FleetStateType = Literal["RUNNING", "STARTING", "STOPPED", "STOPPING"]
@@ -167,22 +175,30 @@ ImageBuilderStateType = Literal[
     "DELETING",
     "FAILED",
     "PENDING",
+    "PENDING_IMAGE_IMPORT",
     "PENDING_QUALIFICATION",
+    "PENDING_SYNCING_APPS",
     "REBOOTING",
     "RUNNING",
     "SNAPSHOTTING",
     "STOPPED",
     "STOPPING",
+    "SYNCING_APPS",
     "UPDATING",
     "UPDATING_AGENT",
 ]
 ImageSharedWithOthersType = Literal["FALSE", "TRUE"]
 ImageStateChangeReasonCodeType = Literal[
-    "IMAGE_BUILDER_NOT_AVAILABLE", "IMAGE_COPY_FAILURE", "INTERNAL_ERROR"
+    "IMAGE_BUILDER_NOT_AVAILABLE",
+    "IMAGE_COPY_FAILURE",
+    "IMAGE_IMPORT_FAILURE",
+    "IMAGE_UPDATE_FAILURE",
+    "INTERNAL_ERROR",
 ]
 ImageStateType = Literal[
-    "AVAILABLE", "COPYING", "CREATING", "DELETING", "FAILED", "IMPORTING", "PENDING"
+    "AVAILABLE", "COPYING", "CREATING", "DELETING", "FAILED", "IMPORTING", "PENDING", "VALIDATING"
 ]
+ImageTypeType = Literal["CUSTOM", "NATIVE"]
 LatestAppstreamAgentVersionType = Literal["FALSE", "TRUE"]
 ListAssociatedFleetsPaginatorName = Literal["list_associated_fleets"]
 ListAssociatedStacksPaginatorName = Literal["list_associated_stacks"]
@@ -193,14 +209,25 @@ PlatformTypeType = Literal[
     "AMAZON_LINUX2",
     "RHEL8",
     "ROCKY_LINUX8",
+    "UBUNTU_PRO_2404",
     "WINDOWS",
     "WINDOWS_SERVER_2016",
     "WINDOWS_SERVER_2019",
     "WINDOWS_SERVER_2022",
+    "WINDOWS_SERVER_2025",
 ]
 PreferredProtocolType = Literal["TCP", "UDP"]
 SessionConnectionStateType = Literal["CONNECTED", "NOT_CONNECTED"]
 SessionStateType = Literal["ACTIVE", "EXPIRED", "PENDING"]
+SoftwareDeploymentStatusType = Literal[
+    "FAILED_TO_INSTALL",
+    "FAILED_TO_UNINSTALL",
+    "INSTALLED",
+    "PENDING_INSTALLATION",
+    "PENDING_UNINSTALLATION",
+    "STAGED_FOR_INSTALLATION",
+    "STAGED_FOR_UNINSTALLATION",
+]
 StackAttributeType = Literal[
     "ACCESS_ENDPOINTS",
     "EMBED_HOST_DOMAINS",
@@ -256,7 +283,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -269,8 +295,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -324,6 +352,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -422,7 +451,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -461,8 +489,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -497,6 +523,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -506,18 +533,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -539,8 +568,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -555,15 +582,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -594,8 +622,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -646,16 +674,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_directory_configs",
@@ -676,11 +695,15 @@ RegionName = Literal[
     "ap-south-1",
     "ap-southeast-1",
     "ap-southeast-2",
+    "ap-southeast-5",
     "ca-central-1",
     "eu-central-1",
+    "eu-south-1",
+    "eu-south-2",
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "il-central-1",
     "sa-east-1",
     "us-east-1",
     "us-east-2",

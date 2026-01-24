@@ -1,0 +1,2579 @@
+# THIS FILE IS PART OF THE CYLC WORKFLOW ENGINE.
+# Copyright (C) NIWA & British Crown (Met Office) & Contributors.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Wrangle task proxies to manage the workflow."""
+
+from collections import Counter
+from contextlib import suppress
+import json
+import logging
+from textwrap import indent
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
+
+from cylc.flow import LOG
+from cylc.flow.cycling.loader import (
+    get_point,
+    standardise_point_string,
+)
+from cylc.flow.exceptions import (
+    PlatformLookupError,
+    PointParsingError,
+    WorkflowConfigError,
+)
+import cylc.flow.flags
+from cylc.flow.flow_mgr import (
+    FLOW_NONE,
+    repr_flow_nums,
+)
+from cylc.flow.id import (
+    TaskTokens,
+    Tokens,
+    quick_relative_id,
+)
+from cylc.flow.id_match import id_match
+from cylc.flow.platforms import get_platform
+from cylc.flow.prerequisite import PrereqTuple
+from cylc.flow.run_modes import RunMode
+from cylc.flow.run_modes.skip import process_outputs as get_skip_mode_outputs
+from cylc.flow.task_action_timer import (
+    TaskActionTimer,
+    TimerFlags,
+)
+from cylc.flow.task_events_mgr import (
+    CustomTaskEventHandlerContext,
+    EventKey,
+    TaskEventMailContext,
+    TaskJobLogsRetrieveContext,
+)
+from cylc.flow.task_id import TaskID
+from cylc.flow.task_outputs import (
+    TASK_OUTPUT_EXPIRED,
+    TASK_OUTPUT_FAILED,
+    TASK_OUTPUT_SUBMIT_FAILED,
+    TASK_OUTPUT_SUCCEEDED,
+)
+from cylc.flow.task_proxy import TaskProxy
+from cylc.flow.task_queues.independent import IndepQueueManager
+from cylc.flow.task_state import (
+    TASK_STATUS_EXPIRED,
+    TASK_STATUS_FAILED,
+    TASK_STATUS_PREPARING,
+    TASK_STATUS_RUNNING,
+    TASK_STATUS_SUBMITTED,
+    TASK_STATUS_SUCCEEDED,
+    TASK_STATUS_WAITING,
+    TASK_STATUSES_ACTIVE,
+    TASK_STATUSES_FINAL,
+    status_geq,
+)
+from cylc.flow.task_trigger import TaskTrigger
+from cylc.flow.util import deserialise_set
+from cylc.flow.workflow_status import StopMode
+from cylc.flow.scripts.set import XTRIGGER_PREREQ_PREFIX
+
+if TYPE_CHECKING:
+    from cylc.flow.config import WorkflowConfig
+    from cylc.flow.cycling import (
+        IntervalBase,
+        PointBase,
+    )
+    from cylc.flow.data_store_mgr import DataStoreMgr
+    from cylc.flow.flow_mgr import (
+        FlowMgr,
+        FlowNums,
+    )
+    from cylc.flow.prerequisite import SatisfiedState
+    from cylc.flow.task_events_mgr import TaskEventsManager
+    from cylc.flow.taskdef import TaskDef
+    from cylc.flow.workflow_db_mgr import WorkflowDatabaseManager
+    from cylc.flow.xtrigger_mgr import XtriggerManager
+
+
+Pool = Dict['PointBase', Dict[str, TaskProxy]]
+
+
+def _get_xtrig_prereqs(
+    prereqs: 'Iterable[str]'
+) -> 'Dict[str, bool]':
+    """Extract xtriggers from user prerequisite input.
+
+    Weed out any task prerequisites.
+
+    Command validation has handled output suffixes and defaults.
+
+    Args:
+        prereqs: prerequisites and xtriggers in string form:
+            <cycle>/<task>:<output>
+            xtrigger/<xtrigger>[:succeeded]
+            xtrigger/all[:succeeded]
+
+    Returns: {<xtrigger> or "all": satisfied}
+
+    Examples:
+        >>> _get_xtrig_prereqs(["1/foo:started"])
+        {}
+
+        >>> _get_xtrig_prereqs({"1/foo:started", "xtrigger/x1:succeeded"})
+        {'x1': True}
+
+        (No need to test "all" - it just looks like an xtrigger label.)
+
+    """
+    _xtrigs = {}
+    for prereq in prereqs:
+        pre = Tokens(prereq, relative=True)
+
+        if pre['cycle'] != XTRIGGER_PREREQ_PREFIX:
+            # weed out task prerequisites
+            continue
+
+        # requested state to set:
+        _xtrigs[pre['task']] = (pre['task_sel'] == TASK_OUTPUT_SUCCEEDED)
+    return _xtrigs
+
+
+class TaskPool:
+    """Task pool of a workflow."""
+
+    ERR_TMPL_NO_TASKID_MATCH = "No matching tasks found: {0}"
+    ERR_PREFIX_TASK_NOT_ON_SEQUENCE = "Invalid cycle point for task: {0}, {1}"
+    SUICIDE_MSG = "suicide trigger"
+    REMOVED_BY_PREREQ = "prerequisite task(s) removed"
+
+    def __init__(
+        self,
+        tokens: 'Tokens',
+        config: 'WorkflowConfig',
+        workflow_db_mgr: 'WorkflowDatabaseManager',
+        task_events_mgr: 'TaskEventsManager',
+        xtrigger_mgr: 'XtriggerManager',
+        data_store_mgr: 'DataStoreMgr',
+        flow_mgr: 'FlowMgr'
+    ) -> None:
+        self.tokens = tokens
+        self.config: 'WorkflowConfig' = config
+        self.stop_point = config.stop_point or config.final_point
+        self.workflow_db_mgr: 'WorkflowDatabaseManager' = workflow_db_mgr
+        self.task_events_mgr: 'TaskEventsManager' = task_events_mgr
+        self.task_events_mgr.spawn_func = self.spawn_on_output
+        self.xtrigger_mgr: 'XtriggerManager' = xtrigger_mgr
+        self.xtrigger_mgr.add_xtriggers(self.config.xtrigger_collator)
+        self.data_store_mgr: 'DataStoreMgr' = data_store_mgr
+        self.flow_mgr: 'FlowMgr' = flow_mgr
+
+        self.max_future_offset: Optional['IntervalBase'] = None
+        self._prev_runahead_base_point: Optional['PointBase'] = None
+        self._prev_runahead_sequence_points: Optional[Set['PointBase']] = None
+        self.runahead_limit_point: Optional['PointBase'] = None
+
+        # Tasks in the active window of the workflow.
+        self.active_tasks: Pool = {}
+        self._active_tasks_list: List[TaskProxy] = []
+        self.active_tasks_changed = False
+        self.tasks_removed = False
+
+        self.hold_point: Optional['PointBase'] = None
+        self.abs_outputs_done: Set[Tuple[str, str, str]] = set()
+
+        self.stop_task_id: Optional[str] = None
+        self.stop_task_finished = False
+        self.abort_task_failed = False
+        self.expected_failed_tasks = self.config.get_expected_failed_tasks()
+
+        self.task_name_list = self.config.get_task_name_list()
+        self.task_queue_mgr = IndepQueueManager(
+            self.config.cfg['scheduling']['queues'],
+            self.task_name_list,
+            self.config.runtime['descendants']
+        )
+
+        self.tasks_to_hold: set[tuple[str, 'PointBase']] = set()
+        self.tasks_to_trigger_now: set['TaskProxy'] = set()
+        self.pre_start_tasks_to_trigger: set[tuple[str, 'PointBase']] = set()
+
+    def set_stop_task(self, task_id):
+        """Set stop after a task."""
+        tokens = Tokens(task_id, relative=True)
+        name = tokens['task']
+        if name in self.config.taskdefs:
+            task_id = TaskID.get_standardised_taskid(task_id)
+            LOG.info("Setting stop task: " + task_id)
+            self.stop_task_id = task_id
+            self.stop_task_finished = False
+            self.workflow_db_mgr.put_workflow_stop_task(task_id)
+        else:
+            LOG.warning("Requested stop task name does not exist: %s" % name)
+
+    def stop_task_done(self):
+        """Return True if stop task has succeeded."""
+        if self.stop_task_id is not None and self.stop_task_finished:
+            LOG.info("Stop task %s finished" % self.stop_task_id)
+            self.stop_task_id = None
+            self.stop_task_finished = False
+            self.workflow_db_mgr.put_workflow_stop_task(None)
+            return True
+        return False
+
+    def _swap_out(self, itask):
+        """Swap old task for new, during reload."""
+        if itask.identity in self.active_tasks.get(itask.point, set()):
+            self.active_tasks[itask.point][itask.identity] = itask
+            self.active_tasks_changed = True
+
+    def load_from_point(self):
+        """Load the task pool for the workflow start point.
+
+        Add every parentless task out to the runahead limit.
+        """
+        flow_num = self.flow_mgr.get_flow(
+            meta=f"original flow from {self.config.start_point}")
+        self.compute_runahead()
+        for name in self.task_name_list:
+            tdef = self.config.get_taskdef(name)
+            point = tdef.first_point(self.config.start_point)
+            self.spawn_to_rh_limit(tdef, point, {flow_num})
+
+    def db_add_new_flow_rows(self, itask: TaskProxy) -> None:
+        """Add new rows to DB task tables that record flow_nums.
+
+        Call when a new task is spawned or a flow merge occurs.
+        """
+        # Add row to task_states table.
+        self.workflow_db_mgr.put_insert_task_states(itask)
+        # Add row to task_outputs table:
+        self.workflow_db_mgr.put_insert_task_outputs(itask)
+
+    def add_to_pool(self, itask) -> None:
+        """Add a task to the pool."""
+
+        self.active_tasks.setdefault(itask.point, {})
+        self.active_tasks[itask.point][itask.identity] = itask
+        self.active_tasks_changed = True
+        LOG.debug(f"[{itask}] added to the n=0 window")
+
+        self.create_data_store_elements(itask)
+
+        if itask.tdef.max_future_prereq_offset is not None:
+            # (Must do this once added to the pool).
+            self.set_max_future_offset()
+
+    def create_data_store_elements(self, itask):
+        """Create the node window elements about given task proxy."""
+        # Register pool node reference
+        self.data_store_mgr.add_pool_node(itask.tdef.name, itask.point)
+        # Create new data-store n-distance graph window about this task
+        self.data_store_mgr.increment_graph_window(
+            itask.tokens,
+            itask.point,
+            is_manual_submit=itask.is_manual_submit,
+            itask=itask
+        )
+        self.data_store_mgr.delta_task_state(itask)
+
+    def release_runahead_tasks(self):
+        """Release tasks below the runahead limit.
+
+        Return True if any tasks are released, else False.
+        Call when RH limit changes.
+        """
+        if not self.active_tasks or not self.runahead_limit_point:
+            # (At start-up task pool might not exist yet)
+            return False
+
+        released = False
+
+        # An intermediate list is needed here: auto-spawning of parentless
+        # tasks can cause the task pool to change size during iteration.
+        release_me = [
+            itask
+            for point, itask_id_map in self.active_tasks.items()
+            for itask in itask_id_map.values()
+            if point <= self.runahead_limit_point
+            if itask.state.is_runahead
+        ]
+
+        for itask in release_me:
+            self.rh_release_and_queue(itask)
+            if itask.flow_nums and not itask.is_xtrigger_sequential:
+                self.spawn_to_rh_limit(
+                    itask.tdef,
+                    itask.tdef.next_point(itask.point),
+                    itask.flow_nums
+                )
+            released = True
+
+        return released
+
+    def compute_runahead(self, force=False) -> bool:
+        """Compute the runahead limit; return True if it changed.
+
+        To be called if:
+        * The runahead base point might have changed:
+           - a task completed expected outputs, or expired
+           - (Cylc7 back compat: a task succeeded or failed)
+        * The max future offset might have changed.
+        * The runahead limit config or task pool might have changed (reload).
+
+        This is a collective task pool computation. Call it once at the end
+        of a group operation such as removal of multiple tasks (not after
+        every individual task operation).
+
+        Start from earliest point with unfinished tasks. Partially satisfied
+        and incomplete tasks count too because they still need to run.
+
+        The limit itself is limited by workflow stop point, if there is one,
+        and adjusted upward on the fly if tasks with future offsets appear.
+
+        With force=True we recompute the limit even if the base point has not
+        changed (needed if max_future_offset changed, or on reload).
+
+        """
+        limit = self.config.runahead_limit  # e.g. P2 or P2D
+        count_cycles = False
+        with suppress(TypeError):
+            # Count cycles (integer cycling, and optional for datetime too).
+            ilimit = int(limit)  # type: ignore
+            count_cycles = True
+
+        base_point: Optional['PointBase'] = None
+
+        # First get the runahead base point.
+        if not self.active_tasks:
+            # Find the earliest sequence point beyond the workflow start point.
+            base_point = min(
+                (
+                    point
+                    for point in {
+                        seq.get_first_point(self.config.start_point)
+                        for seq in self.config.sequences
+                    }
+                    if point is not None
+                ),
+                default=None,
+            )
+        else:
+            # Find the earliest point with incomplete tasks.
+            for point, itasks in sorted(self.get_tasks_by_point().items()):
+                # All n=0 tasks are incomplete by definition, but Cylc 7
+                # ignores failed ones (it does not ignore submit-failed!).
+                if (
+                    cylc.flow.flags.cylc7_back_compat and
+                    all(
+                        itask.state(TASK_STATUS_FAILED)
+                        for itask in itasks
+                    )
+                ):
+                    continue
+                base_point = point
+                break
+
+        if base_point is None:
+            return False
+
+        LOG.debug(f"Runahead: base point {base_point}")
+
+        if self._prev_runahead_base_point is None:
+            self._prev_runahead_base_point = base_point
+
+        if (
+            not force
+            and self.runahead_limit_point is not None
+            and (
+                base_point == self._prev_runahead_base_point
+                or self.runahead_limit_point == self.stop_point
+            )
+        ):
+            # No need to recompute the list of points if the base point did not
+            # change or the runahead limit is already at stop point.
+            return False
+
+        # Now generate all possible cycle points from the base point and stop
+        # at the runahead limit point. Note both cycle count and time interval
+        # limits involve all possible cycles, not just active cycles.
+        sequence_points: Set['PointBase'] = set()
+        if (
+            not force
+            and self._prev_runahead_sequence_points
+            and base_point == self._prev_runahead_base_point
+        ):
+            # Cache for speed.
+            sequence_points = self._prev_runahead_sequence_points
+        else:
+            # Recompute possible points.
+            for sequence in self.config.sequences:
+                seq_point = sequence.get_first_point(base_point)
+                count = 1
+                while seq_point is not None:
+                    if count_cycles:
+                        # P0 allows only the base cycle point to run.
+                        if count > 1 + ilimit:
+                            # this point may be beyond the runahead limit
+                            break
+                    else:
+                        # PT0H allows only the base cycle point to run.
+                        if seq_point > base_point + limit:
+                            # this point can not be beyond the runahead limit
+                            break
+                    count += 1
+                    sequence_points.add(seq_point)
+                    seq_point = sequence.get_next_point(seq_point)
+            self._prev_runahead_sequence_points = sequence_points
+            self._prev_runahead_base_point = base_point
+
+        if not sequence_points:
+            limit_point = base_point
+        elif count_cycles:
+            # (len(list) may be less than ilimit due to sequence end)
+            limit_point = sorted(sequence_points)[:ilimit + 1][-1]
+        else:
+            limit_point = max(sequence_points)
+
+        # Adjust for future offset and stop point.
+        pre_adj_limit = limit_point
+        if self.max_future_offset is not None:
+            limit_point += self.max_future_offset
+            LOG.debug(
+                "Runahead (future trigger adjust):"
+                f" {pre_adj_limit} -> {limit_point}"
+            )
+        if self.stop_point and limit_point > self.stop_point:
+            limit_point = self.stop_point
+            LOG.debug(
+                "Runahead (stop point adjust):"
+                f" {pre_adj_limit} -> {limit_point} (stop point)"
+            )
+
+        LOG.debug(f"Runahead limit: {limit_point}")
+        self.runahead_limit_point = limit_point
+        return True
+
+    def update_flow_mgr(self):
+        flow_nums_seen = set()
+        for itask in self.get_tasks():
+            flow_nums_seen.update(itask.flow_nums)
+        self.flow_mgr.load_from_db(flow_nums_seen)
+
+    def load_abs_outputs_for_restart(self, row_idx, row):
+        cycle, name, output = row
+        self.abs_outputs_done.add((cycle, name, output))
+
+    def check_task_output(
+        self,
+        cycle: str,
+        task: str,
+        output_msg: str,
+        flow_nums: 'FlowNums',
+    ) -> 'SatisfiedState':
+        """Returns truthy if the specified output is satisfied in the DB.
+
+        Args:
+            cycle: Cycle point of the task whose output is being checked.
+            task: Name of the task whose output is being checked.
+            output_msg: The output message to check for.
+            flow_nums: Flow numbers of the task whose output is being
+                checked. If this is empty it means 'none'; will return False.
+        """
+        if not flow_nums:
+            return False
+
+        for task_outputs, task_flow_nums in (
+            self.workflow_db_mgr.pri_dao.select_task_outputs(task, cycle)
+        ).items():
+            # loop through matching tasks
+            # (if task_flow_nums is empty, it means the 'none' flow)
+            if flow_nums.intersection(task_flow_nums):
+                # BACK COMPAT: In Cylc >8.0.0,<8.3.0, only the task
+                #   messages were stored in the DB as a list.
+                # from: 8.0.0
+                # to: 8.3.0
+                outputs: Union[
+                    Dict[str, str], List[str]
+                ] = json.loads(task_outputs)
+                messages = (
+                    outputs.values() if isinstance(outputs, dict)
+                    else outputs
+                )
+                return (
+                    'satisfied from database'
+                    if output_msg in messages
+                    else False
+                )
+        else:
+            # no matching entries
+            return False
+
+    def load_db_task_pool_for_restart(self, row_idx, row):
+        """Load tasks from DB task pool/states/jobs tables.
+
+        Output completion status is loaded from the DB, and tasks recorded
+        as submitted or running are polled to confirm their true status.
+        Tasks are added to queues again on release from runahead pool.
+
+        Returns:
+            Names of platform if attempting to look up that platform
+            has led to a PlatformNotFoundError.
+        """
+        if row_idx == 0:
+            LOG.info("LOADING task proxies")
+        # Create a task proxy corresponding to this DB entry.
+        (cycle, name, flow_nums, flow_wait, is_manual_submit, is_late, status,
+         is_held, submit_num, _, platform_name, time_submit, time_run, timeout,
+         outputs_str) = row
+        try:
+            itask = TaskProxy(
+                self.tokens,
+                self.config.get_taskdef(name),
+                get_point(cycle),
+                deserialise_set(flow_nums),
+                status=status,
+                is_held=is_held,
+                submit_num=submit_num,
+                is_late=bool(is_late),
+                flow_wait=bool(flow_wait),
+                is_manual_submit=bool(is_manual_submit),
+                sequential_xtrigger_labels=(
+                    self.xtrigger_mgr.xtriggers.sequential_xtrigger_labels
+                ),
+            )
+
+        except WorkflowConfigError:
+            LOG.exception(
+                f'ignoring task {name} from the workflow run database\n'
+                '(its task definition has probably been deleted).')
+        except Exception:
+            LOG.exception(f'could not load task {name}')
+        else:
+            if status in (
+                    TASK_STATUS_SUBMITTED,
+                    TASK_STATUS_RUNNING,
+                    TASK_STATUS_FAILED,
+                    TASK_STATUS_SUCCEEDED
+            ):
+                # update the task proxy with platform
+                # If we get a failure from the platform selection function
+                # set task status to submit-failed.
+                try:
+                    itask.platform = get_platform(platform_name)
+                except PlatformLookupError:
+                    return platform_name
+
+                if time_submit:
+                    itask.set_summary_time('submitted', time_submit)
+                if time_run:
+                    itask.set_summary_time('started', time_run)
+                if timeout is not None:
+                    itask.timeout = timeout
+            elif status == TASK_STATUS_PREPARING:
+                # put back to be readied again.
+                status = TASK_STATUS_WAITING
+                # Re-prepare same submit.
+                itask.submit_num -= 1
+
+            # Running or finished task can have completed custom outputs.
+            if itask.state(
+                    TASK_STATUS_RUNNING,
+                    TASK_STATUS_FAILED,
+                    TASK_STATUS_SUCCEEDED
+            ):
+                for message in json.loads(outputs_str):
+                    itask.state.outputs.set_message_complete(message)
+                    self.data_store_mgr.delta_task_output(itask, message)
+
+            if platform_name and status != TASK_STATUS_WAITING:
+                itask.summary['platforms_used'][
+                    int(submit_num)] = platform_name
+            LOG.info(
+                f"+ {cycle}/{name} {status}{' (held)' if is_held else ''}")
+
+            # Update prerequisite satisfaction status from DB
+            sat = {}
+            for prereq_name, prereq_cycle, prereq_output_msg, satisfied in (
+                self.workflow_db_mgr.pri_dao.select_task_prerequisites(
+                    cycle, name, flow_nums,
+                )
+            ):
+                # Prereq satisfaction as recorded in the DB.
+                sat[
+                    (prereq_cycle, prereq_name, prereq_output_msg)
+                ] = satisfied if satisfied != '0' else False
+
+            for itask_prereq in itask.state.prerequisites:
+                for key in itask_prereq:
+                    if key in sat:
+                        itask_prereq[key] = sat[key]
+                    else:
+                        # This prereq is not in the DB: new dependencies
+                        # added to an already-spawned task before restart.
+                        # Look through task outputs to see if is has been
+                        # satisfied
+                        prereq_cycle, prereq_task, prereq_output_msg = key
+                        itask_prereq[key] = (
+                            self.check_task_output(
+                                prereq_cycle,
+                                prereq_task,
+                                prereq_output_msg,
+                                itask.flow_nums,
+                            )
+                        )
+            for xtrigger_label in itask.state.xtriggers:
+                if ("xtrigger", xtrigger_label, TASK_OUTPUT_SUCCEEDED) in sat:
+                    itask.state.xtriggers[xtrigger_label] = True
+
+            if itask.state_reset(status, is_runahead=True):
+                self.data_store_mgr.delta_task_state(itask)
+            self.add_to_pool(itask)
+
+            # All tasks load as runahead-limited, but finished and manually
+            # triggered tasks (incl. --start-task's) can be released now.
+            if (
+                itask.state(
+                    TASK_STATUS_FAILED,
+                    TASK_STATUS_SUCCEEDED,
+                    TASK_STATUS_EXPIRED
+                )
+                or itask.is_manual_submit
+            ):
+                self.rh_release_and_queue(itask)
+
+            self.compute_runahead()
+            self.release_runahead_tasks()
+
+    def load_db_task_action_timers(self, row_idx: int, row: Iterable) -> None:
+        """Load a task action timer, e.g. event handlers, retry states."""
+        if row_idx == 0:
+            LOG.debug("LOADING task action timers")
+        (cycle, name, ctx_key_raw, ctx_raw, delays_raw, num, delay,
+         timeout) = row
+        tokens = Tokens(
+            cycle=cycle,
+            task=name,
+        )
+        id_ = tokens.relative_id
+        try:
+            # Extract type namedtuple variables from JSON strings
+            ctx_key = json.loads(str(ctx_key_raw))
+            ctx_data = json.loads(str(ctx_raw))
+            known_cls: Type[NamedTuple]
+            for known_cls in (
+                CustomTaskEventHandlerContext,
+                TaskEventMailContext,
+                TaskJobLogsRetrieveContext
+            ):
+                if ctx_data and ctx_data[0] == known_cls.__name__:
+                    ctx_args: list = ctx_data[1]
+                    if len(ctx_args) > len(known_cls._fields):
+                        # BACK COMPAT: no-longer used ctx_type arg
+                        # from: Cylc 7
+                        # to: 8.3.0
+                        ctx_args.pop(1)
+                    ctx: tuple = known_cls(*ctx_args)
+                    break
+            else:  # no break
+                ctx = ctx_data
+                if ctx is not None:
+                    ctx = tuple(ctx)
+            delays = json.loads(str(delays_raw))
+        except ValueError:
+            LOG.exception(
+                "%(id)s: skip action timer %(ctx_key)s" %
+                {"id": id_, "ctx_key": ctx_key_raw})
+            return
+        LOG.debug("+ %s/%s %s" % (cycle, name, ctx_key))
+        if ctx_key == "poll_timer":
+            itask = self._get_task_by_id(id_)
+            if itask is None:
+                return
+            itask.poll_timer = TaskActionTimer(
+                ctx, delays, num, delay, timeout)
+        elif ctx_key[0] == "try_timers":
+            itask = self._get_task_by_id(id_)
+            if itask is None:
+                return
+            if 'retrying' in ctx_key[1]:
+                if 'submit' in ctx_key[1]:
+                    submit = True
+                    ctx_key[1] = TimerFlags.SUBMISSION_RETRY
+                else:
+                    submit = False
+                    ctx_key[1] = TimerFlags.EXECUTION_RETRY
+
+                if timeout:
+                    LOG.debug(
+                        f'  (upgrading retrying state for {itask.identity})')
+                    self.task_events_mgr._retry_task(
+                        itask,
+                        float(timeout),
+                        submit_retry=submit
+                    )
+            itask.try_timers[ctx_key[1]] = TaskActionTimer(
+                ctx, delays, num, delay, timeout)
+        elif ctx:
+            (handler, event), submit_num = ctx_key
+            self.task_events_mgr.add_event_timer(
+                EventKey(
+                    handler,
+                    event,
+                    # NOTE: the event "message" is not preserved in the DB so
+                    # we use the event as a placeholder
+                    event,
+                    tokens.duplicate(job=submit_num),
+                ),
+                TaskActionTimer(
+                    ctx, delays, num, delay, timeout
+                )
+            )
+        else:
+            LOG.exception(
+                "%(id)s: skip action timer %(ctx_key)s" %
+                {"id": id_, "ctx_key": ctx_key_raw})
+            return
+
+    def load_db_tasks_to_hold(self):
+        """Update the tasks_to_hold set with the tasks stored in the
+        database."""
+        self.tasks_to_hold.update(
+            (name, get_point(cycle)) for name, cycle in
+            self.workflow_db_mgr.pri_dao.select_tasks_to_hold()
+        )
+
+    def rh_release_and_queue(self, itask) -> None:
+        """Release a task from runahead limiting, and queue it if ready.
+
+        Check the task against the RH limit before calling this method (in
+        forced triggering we need to release even if beyond the limit).
+        """
+        if itask.state_reset(is_runahead=False):
+            self.data_store_mgr.delta_task_state(itask)
+        if itask.is_ready_to_run():
+            # (otherwise waiting on xtriggers etc.)
+            self.queue_task(itask)
+
+    def get_or_spawn_task(
+        self,
+        point: 'PointBase',
+        tdef: 'TaskDef',
+        flow_nums: 'FlowNums',
+        flow_wait: bool = False
+    ) -> 'Tuple[Optional[TaskProxy], bool, bool]':
+        """Return new or existing task point/name with merged flow_nums.
+
+        Returns:
+            tuple - (itask, is_in_pool, is_xtrig_sequential)
+
+            itask:
+                The requested task proxy, or None if task does not
+                exist or cannot spawn.
+            is_in_pool:
+                Was the task found in a pool.
+            is_xtrig_sequential:
+                Is the next task occurrence spawned on xtrigger satisfaction,
+                or do all occurrence spawn out to the runahead limit.
+
+        It does not add a spawned task proxy to the pool.
+        """
+        ntask = self.get_task(point, tdef.name)
+        is_in_pool = False
+        is_xtrig_sequential = False
+        if ntask is None:
+            # ntask does not exist: spawn it in the flow.
+            ntask = self.spawn_task(
+                tdef.name, point, flow_nums, flow_wait=flow_wait
+            )
+            # if the task was found set xtrigger checking type.
+            # otherwise find the xtrigger type if it can't spawn
+            # for whatever reason.
+            if ntask is not None:
+                is_xtrig_sequential = ntask.is_xtrigger_sequential
+            elif any(
+                xtrig_label in (
+                    self.xtrigger_mgr.xtriggers.sequential_xtrigger_labels)
+                for sequence, xtrig_labels in tdef.xtrig_labels.items()
+                for xtrig_label in xtrig_labels
+                if sequence.is_valid(point)
+            ):
+                is_xtrig_sequential = True
+        else:
+            # ntask already exists (n=0): merge flows.
+            is_in_pool = True
+            self.merge_flows(ntask, flow_nums)
+            is_xtrig_sequential = ntask.is_xtrigger_sequential
+        # ntask may still be None
+        return ntask, is_in_pool, is_xtrig_sequential
+
+    def spawn_to_rh_limit(
+        self,
+        tdef: 'TaskDef',
+        point: Optional['PointBase'],
+        flow_nums: 'FlowNums',
+    ) -> None:
+        """Spawn parentless task instances from point to runahead limit.
+
+        Sequentially checked xtriggers will spawn the next occurrence of their
+        corresponding tasks. These tasks will keep spawning until they depend
+        on any unsatisfied xtrigger of the same sequential behavior, are no
+        longer parentless, and/or hit the runahead limit.
+
+        """
+        if (
+            not flow_nums  # Force-triggered no-flow task
+            or point is None  # Reached end of sequence?
+            or point < self.config.start_point  # Warm start
+        ):
+            return
+        if self.runahead_limit_point is None:
+            self.compute_runahead()
+            if self.runahead_limit_point is None:
+                return
+
+        is_xtrig_sequential = False
+        while point is not None and (point <= self.runahead_limit_point):
+            if tdef.is_parentless(point, cutoff=self.config.start_point):
+                ntask, is_in_pool, is_xtrig_sequential = (
+                    self.get_or_spawn_task(point, tdef, flow_nums)
+                )
+                if ntask is not None:
+                    if not is_in_pool:
+                        self.add_to_pool(ntask)
+                    self.rh_release_and_queue(ntask)
+                if is_xtrig_sequential:
+                    break
+            point = tdef.next_point(point)
+
+        # Once more for the runahead-limited task (don't release it).
+        if not is_xtrig_sequential:
+            self.spawn_if_parentless(tdef, point, flow_nums)
+
+    def spawn_if_parentless(self, tdef, point, flow_nums):
+        """Spawn a task if parentless, regardless of runahead limit."""
+        if (
+            flow_nums
+            and point is not None
+            and tdef.is_parentless(point, cutoff=self.config.start_point)
+        ):
+            ntask, is_in_pool, _ = self.get_or_spawn_task(
+                point, tdef, flow_nums
+            )
+            if ntask is not None and not is_in_pool:
+                self.add_to_pool(ntask)
+
+    def remove(self, itask: 'TaskProxy', reason: Optional[str] = None) -> None:
+        """Remove a task from the pool."""
+        # the held state is no longer relevant -> remove it
+        self.release_held_active_task(itask)
+
+        # xtriggers are no longer relevant -> remove them
+        self.xtrigger_mgr.force_satisfy_all(itask, log=False)
+
+        if itask.state.is_runahead and itask.flow_nums:
+            # If removing a parentless runahead-limited task
+            # auto-spawn its next instance first.
+            self.spawn_if_parentless(
+                itask.tdef,
+                itask.tdef.next_point(itask.point),
+                itask.flow_nums
+            )
+
+        msg = f"removed from the n=0 window: {reason or 'completed'}"
+
+        # Mark as transient in case itask is still processed in other contexts.
+        itask.transient = True
+
+        if itask.is_xtrigger_sequential:
+            self.xtrigger_mgr.sequential_has_spawned_next.discard(
+                itask.identity
+            )
+
+        try:
+            del self.active_tasks[itask.point][itask.identity]
+        except KeyError:
+            pass
+        else:
+            self.tasks_to_trigger_now.discard(itask)
+            self.pre_start_tasks_to_trigger.discard(
+                (itask.tdef.name, itask.point)
+            )
+            self.tasks_removed = True
+            self.active_tasks_changed = True
+            if not self.active_tasks[itask.point]:
+                del self.active_tasks[itask.point]
+            self.task_queue_mgr.remove_task(itask)
+            if itask.tdef.max_future_prereq_offset is not None:
+                self.set_max_future_offset()
+
+            # Notify the data-store manager of their removal
+            # (the manager uses window boundary tracking for pruning).
+            self.data_store_mgr.remove_pool_node(itask.tdef.name, itask.point)
+            # Event-driven final update of task_states table.
+            # TODO: same for datastore (still updated by scheduler loop)
+            self.workflow_db_mgr.put_update_task_state(itask)
+
+            level = logging.DEBUG
+            if itask.state(
+                TASK_STATUS_PREPARING,
+                TASK_STATUS_SUBMITTED,
+                TASK_STATUS_RUNNING,
+            ):
+                level = logging.WARNING
+                msg += " - active job orphaned"
+            elif reason == self.REMOVED_BY_PREREQ:
+                level = logging.INFO
+
+            LOG.log(level, f"[{itask}] {msg}")
+
+            # ensure this task is written to the DB before moving on
+            # https://github.com/cylc/cylc-flow/issues/6315
+            self.workflow_db_mgr.process_queued_ops()
+
+            del itask
+
+            # removing this task could nudge the runahead limit forward
+            if self.compute_runahead():
+                self.release_runahead_tasks()
+
+    def get_tasks(self) -> List[TaskProxy]:
+        """Return a list of task proxies in the task pool."""
+        # Cached list only for use internally in this method.
+        if self.active_tasks_changed:
+            self.active_tasks_changed = False
+            self._active_tasks_list = [
+                itask
+                for itask_id_map in self.active_tasks.values()
+                for itask in itask_id_map.values()
+            ]
+        return self._active_tasks_list
+
+    def get_task_ids(self) -> Set[str]:
+        """Return a list of task IDs in the task pool."""
+        return {itask.identity for itask in self.get_tasks()}
+
+    def get_tasks_by_point(self) -> 'Dict[PointBase, List[TaskProxy]]':
+        """Return a map of task proxies by cycle point."""
+        return {
+            point: list(itask_id_map.values())
+            for point, itask_id_map in self.active_tasks.items()
+        }
+
+    def get_task(self, point: 'PointBase', name: str) -> Optional[TaskProxy]:
+        """Retrieve a task from the pool."""
+        rel_id = f'{point}/{name}'
+        tasks = self.active_tasks.get(point)
+        if tasks:
+            return tasks.get(rel_id)
+        return None
+
+    def _get_task_by_id(self, id_: str) -> Optional[TaskProxy]:
+        """Return pool task by ID if it exists, or None."""
+        for itask_ids in self.active_tasks.values():
+            if id_ in itask_ids:
+                return itask_ids[id_]
+        return None
+
+    def get_itasks(self, ids: 'Iterable[Tokens]') -> List[TaskProxy]:
+        """Return a list of itasks matching the IDs provided.
+
+        Args:
+            ids: The exact IDs to match (no globs, families, etc supported).
+
+        Returns:
+            A list of an active tasks matching these IDs.
+
+        """
+        return [
+            itasks[id_]
+            for itasks in self.active_tasks.values()
+            for id_ in itasks.keys() & {id_.relative_id for id_ in ids}
+        ]
+
+    def queue_task(self, itask: TaskProxy) -> None:
+        """Queue a task that is ready to run.
+
+        If it is already queued, do nothing.
+        """
+        if itask.state_reset(is_queued=True):
+            self.data_store_mgr.delta_task_state(itask)
+            self.task_queue_mgr.push_task(itask)
+
+    def unqueue_task(self, itask: TaskProxy) -> None:
+        """Un-queue a task that is no longer ready to run.
+
+        If it is not queued, do nothing.
+        """
+        if itask.state_reset(is_queued=False):
+            self.data_store_mgr.delta_task_state(itask)
+            self.task_queue_mgr.remove_task(itask)
+
+    def count_active_tasks(self):
+        """Count active tasks and identify pre-prep tasks."""
+
+        # count active tasks by name
+        # {task_name: number_of_active_instances, ...}
+        active_task_counter = Counter()
+
+        # tasks which have entered the submission pipeline but have not yet
+        # entered the PREPARING state
+        pre_prep_tasks = []
+
+        for itask in self.get_tasks():
+            # populate active_task_counter and pre_prep_tasks together to
+            # avoid iterating the task pool twice
+            if itask.waiting_on_job_prep:
+                # a task which has entered the submission pipeline
+                # for the purposes of queue limiting this should be treated
+                # the same as an active task
+                active_task_counter.update([itask.tdef.name])
+                pre_prep_tasks.append(itask)
+            elif itask.state(
+                TASK_STATUS_PREPARING,
+                TASK_STATUS_SUBMITTED,
+                TASK_STATUS_RUNNING,
+            ):
+                # an active task
+                active_task_counter.update([itask.tdef.name])
+
+        return active_task_counter, pre_prep_tasks
+
+    def release_queued_tasks(self) -> set['TaskProxy']:
+        """Return list of queue-released tasks awaiting job prep.
+
+        Note:
+            Tasks can hang about for a while between being released and
+            entering the PREPARING state for various reasons. This method
+            returns tasks which are awaiting job prep irrespective of whether
+            they have been previously returned.
+
+        """
+        active_task_counter, pre_prep_tasks = self.count_active_tasks()
+
+        # release queued tasks
+        released = self.task_queue_mgr.release_tasks(active_task_counter)
+
+        for itask in released:
+            itask.state_reset(is_queued=False)
+            self.data_store_mgr.delta_task_state(itask)
+            itask.waiting_on_job_prep = True
+
+            if cylc.flow.flags.cylc7_back_compat:
+                # Cylc 7 Back Compat: spawn downstream to cause Cylc 7 style
+                # stalls - with unsatisfied waiting tasks - even with single
+                # prerequisites (which result in incomplete tasks in Cylc 8).
+                # We do it here (rather than at runhead release) to avoid
+                # pre-spawning out to the runahead limit.
+                self.spawn_on_all_outputs(itask)
+
+        # Note: released and pre_prep_tasks can overlap
+        return set(released + pre_prep_tasks)
+
+    def get_min_point(self):
+        """Return the minimum cycle point currently in the pool."""
+        cycles = list(self.active_tasks)
+        minc = None
+        if cycles:
+            minc = min(cycles)
+        return minc
+
+    def set_max_future_offset(self):
+        """Calculate the latest required future trigger offset."""
+        orig = self.max_future_offset
+        max_offset = None
+        for itask in self.get_tasks():
+            if (
+                itask.tdef.max_future_prereq_offset is not None
+                and (
+                    max_offset is None or
+                    itask.tdef.max_future_prereq_offset > max_offset
+                )
+            ):
+                max_offset = itask.tdef.max_future_prereq_offset
+        self.max_future_offset = max_offset
+        if max_offset != orig and self.compute_runahead(force=True):
+            self.release_runahead_tasks()
+
+    def reload(self, config: 'WorkflowConfig') -> None:
+        self.config = config   # store the updated config
+        self.xtrigger_mgr.add_xtriggers(
+            self.config.xtrigger_collator, reload=True)
+        self._reload_taskdefs()
+
+    def _reload_taskdefs(self) -> None:
+        """Reload the definitions of task proxies in the pool.
+
+        Orphaned tasks (whose definitions were removed from the workflow):
+        - remove if not active yet
+        - if active, leave them but prevent them from spawning children on
+          subsequent outputs
+
+        Otherwise: replace task definitions but copy over existing outputs etc.
+
+        self.config should already be updated for the reload.
+        """
+        self.stop_point = self.config.stop_point or self.config.final_point
+
+        # find any old tasks that have been removed from the workflow
+        old_task_name_list = self.task_name_list
+        self.task_name_list = self.config.get_task_name_list()
+        orphans = [
+            task
+            for task in old_task_name_list
+            if task not in self.task_name_list
+        ]
+
+        # adjust the new workflow config to handle the orphans
+        self.config.adopt_orphans(orphans)
+
+        LOG.info("Reloading task definitions.")
+        tasks = self.get_tasks()
+        # Log tasks orphaned by a reload but not currently in the task pool.
+        for name in orphans:
+            if name not in (itask.tdef.name for itask in tasks):
+                LOG.info("Removed task: '%s'", name)
+        # Store lists of tasks which were active before reload.
+        warn_tasks: List[str] = []
+        _warn_tasks: List[str] = []
+
+        for itask in tasks:
+            if itask.tdef.name in orphans:
+                if (
+                    itask.state(TASK_STATUS_WAITING)
+                    or itask.state.is_held
+                    or itask.state.is_queued
+                ):
+                    # Remove orphaned task if it hasn't started running yet.
+                    self.remove(itask, 'task definition removed')
+                else:
+                    # Keep active orphaned task, but stop it from spawning.
+                    itask.graph_children = {}
+                    LOG.info(
+                        f"[{itask}] will not spawn children "
+                        "- task definition removed"
+                    )
+            else:
+                new_task = TaskProxy(
+                    self.tokens,
+                    self.config.get_taskdef(itask.tdef.name),
+                    itask.point,
+                    itask.flow_nums,
+                    itask.state.status,
+                    sequential_xtrigger_labels=(
+                        self.xtrigger_mgr.xtriggers.sequential_xtrigger_labels
+                    ),
+                )
+                itask.copy_to_reload_successor(
+                    new_task,
+                    self.check_task_output,
+                )
+                self._swap_out(new_task)
+                self.data_store_mgr.delta_task_prerequisite(new_task)
+                LOG.info(f"[{itask}] reloaded task definition")
+
+                if itask.state(*TASK_STATUSES_ACTIVE):
+                    warn_tasks.append(str(itask))
+                elif itask.state(TASK_STATUS_PREPARING):
+                    # Job file might have been written at this point?
+                    _warn_tasks.append(str(itask))
+
+        for may, tasks in (('', warn_tasks), ('may be', _warn_tasks)):
+            if tasks:
+                _tasks = "\n * ".join(tasks)
+                LOG.info(
+                    f"Tasks {may} active with pre-reload settings:\n{_tasks}")
+
+        # Reassign live tasks to the internal queue
+        del self.task_queue_mgr
+        self.task_queue_mgr = IndepQueueManager(
+            self.config.cfg['scheduling']['queues'],
+            self.task_name_list,
+            self.config.runtime['descendants']
+        )
+
+        if self.compute_runahead():
+            self.release_runahead_tasks()
+
+        # Now queue all tasks that are ready to run
+        for itask in self.get_tasks():
+            # Recreate data store elements from task pool.
+            self.create_data_store_elements(itask)
+            if itask.state.is_queued:
+                # Already queued
+                continue
+            if itask.is_ready_to_run() and not itask.state.is_runahead:
+                self.queue_task(itask)
+
+    def set_stop_point(self, stop_point: 'PointBase') -> bool:
+        """Set the workflow stop cycle point.
+
+        And reset the runahead limit if less than the stop point.
+        """
+        if self.stop_point == stop_point:
+            LOG.info(f"Stop point unchanged: {stop_point}")
+            return False
+
+        LOG.info(f"Setting stop point: {stop_point}")
+        self.stop_point = stop_point
+
+        if (
+            self.runahead_limit_point is not None
+            and self.runahead_limit_point > stop_point
+        ):
+            self.runahead_limit_point = stop_point
+            # Now handle existing waiting tasks (e.g. xtriggered).
+            for itask in self.get_tasks():
+                if (
+                    itask.point > stop_point
+                    and itask.state(TASK_STATUS_WAITING)
+                    and itask.state_reset(is_runahead=True)
+                ):
+                    self.data_store_mgr.delta_task_state(itask)
+        return True
+
+    def can_stop(self, stop_mode):
+        """Return True if workflow can stop.
+
+        A task is considered active if:
+        * It is in the active state and not marked with a kill failure.
+        * It has pending event handlers.
+        """
+        if stop_mode is None:
+            return False
+        if stop_mode == StopMode.REQUEST_NOW_NOW:
+            return True
+        if self.task_events_mgr._event_timers:
+            return False
+
+        return not any(
+            (
+                stop_mode in [StopMode.REQUEST_CLEAN, StopMode.REQUEST_KILL]
+                and itask.state(*TASK_STATUSES_ACTIVE)
+                and not itask.state.kill_failed
+            )
+            # preparing tasks get reset to waiting on restart
+            for itask in self.get_tasks()
+        )
+
+    def warn_stop_orphans(self) -> None:
+        """Log (warning) orphaned tasks on workflow stop."""
+        orphans = []
+        orphans_kill_failed = []
+        for itask in self.get_tasks():
+            if itask.state(*TASK_STATUSES_ACTIVE):
+                if itask.state.kill_failed:
+                    orphans_kill_failed.append(itask)
+                else:
+                    orphans.append(itask)
+
+        for orphanlist, extra_text in (
+            (orphans_kill_failed, ' (kill failed)'),
+            (orphans, '')
+        ):
+            if orphanlist:
+                LOG.warning(
+                    f"Orphaned tasks{extra_text}:\n"
+                    + "\n".join(
+                        f"* {itask.identity} ({itask.state.status})"
+                        for itask in orphanlist)
+                )
+
+        for id_key in self.task_events_mgr._event_timers:
+            LOG.warning(
+                f"{id_key.tokens.relative_id}:"
+                " incomplete task event handler"
+                f" {(id_key.handler, id_key.event)}"
+            )
+
+    def log_incomplete_tasks(self) -> bool:
+        """Log finished but incomplete tasks; return True if there any."""
+        incomplete = []
+        for itask in self.get_tasks():
+            if not itask.state(*TASK_STATUSES_FINAL):
+                continue
+            if not itask.state.outputs.is_complete():
+                incomplete.append(
+                    (
+                        itask.identity,
+                        itask.state.outputs.format_completion_status(
+                            ansimarkup=1
+                        ),
+                    )
+                )
+
+        if incomplete:
+            LOG.error(
+                "Incomplete tasks:\n"
+                + "\n".join(
+                    f"* {id_} did not complete the required outputs:"
+                    f"\n{indent(outputs, '  ')}"
+                    for id_, outputs in incomplete
+                )
+            )
+            return True
+        return False
+
+    def log_unsatisfied_prereqs(self) -> bool:
+        """Log unsatisfied prerequisites in the pool.
+
+        Return True if any, ignoring:
+            - prerequisites beyond the stop point
+            - dependence on tasks beyond the stop point
+            (can be caused by future triggers)
+        """
+        unsat: Dict[str, List[str]] = {}
+        for itask in self.get_tasks():
+            task_point = itask.point
+            if self.stop_point and task_point > self.stop_point:
+                continue
+            for pr in itask.state.get_unsatisfied_prerequisites():
+                if self.stop_point and get_point(pr.point) > self.stop_point:
+                    continue
+                if itask.identity not in unsat:
+                    unsat[itask.identity] = []
+                unsat[itask.identity].append(
+                    f"{pr.get_id()}:"
+                    f"{self.config.get_taskdef(pr.task).get_output(pr.output)}"
+                )
+        if unsat:
+            LOG.warning(
+                "Partially satisfied prerequisites:\n"
+                + "\n".join(
+                    f"  * {id_} is waiting on {sorted(others)}"
+                    for id_, others in unsat.items()
+                )
+            )
+            return True
+        return False
+
+    def is_stalled(self) -> bool:
+        """Return whether the workflow is stalled.
+
+        Is stalled if not paused and contains only:
+          - incomplete tasks
+          - partially satisfied prerequisites (below stop point)
+          - runahead-limited tasks (held back by the above)
+        """
+        if any(
+            itask.state(
+                *TASK_STATUSES_ACTIVE,
+                TASK_STATUS_PREPARING
+            ) or (
+                itask.state(TASK_STATUS_WAITING)
+                and not itask.state.is_runahead
+                # (avoid waiting pre-spawned absolute-triggered tasks:)
+                and itask.prereqs_are_satisfied()
+            ) for itask in self.get_tasks()
+        ):
+            return False
+
+        incomplete = self.log_incomplete_tasks()
+        unsatisfied = self.log_unsatisfied_prereqs()
+        return (incomplete or unsatisfied)
+
+    def hold_active_task(self, itask: TaskProxy) -> None:
+        if itask.state_reset(is_held=True):
+            self.data_store_mgr.delta_task_state(itask)
+        self.tasks_to_hold.add((itask.tdef.name, itask.point))
+        self.workflow_db_mgr.put_tasks_to_hold(self.tasks_to_hold)
+
+    def release_held_active_task(self, itask: TaskProxy) -> None:
+        if itask.state_reset(is_held=False):
+            self.data_store_mgr.delta_task_state(itask)
+            if (not itask.state.is_runahead) and itask.is_ready_to_run():
+                self.queue_task(itask)
+        self.tasks_to_hold.discard((itask.tdef.name, itask.point))
+        self.workflow_db_mgr.put_tasks_to_hold(self.tasks_to_hold)
+
+    def set_hold_point(self, point: 'PointBase') -> None:
+        """Set the point after which all tasks must be held."""
+        self.hold_point = point
+        for itask in self.get_tasks():
+            if itask.point > point:
+                self.hold_active_task(itask)
+        self.workflow_db_mgr.put_workflow_hold_cycle_point(point)
+
+    def hold_tasks(self, items: Set[TaskTokens]) -> int:
+        """Hold tasks with IDs matching the specified items."""
+        matched, unmatched = self.id_match(items)
+        for id_ in matched:
+            itask = self._get_task_by_id(id_.relative_id)
+            if itask:
+                # hold active task
+                self.hold_active_task(itask)
+            else:
+                # hold inactive task
+                icycle = get_point(id_['cycle'])
+                self.data_store_mgr.delta_task_held(id_['task'], icycle, True)
+                self.tasks_to_hold.add((id_['task'], icycle))
+
+        self.workflow_db_mgr.put_tasks_to_hold(self.tasks_to_hold)
+        LOG.debug(f"Tasks to hold: {self.tasks_to_hold}")
+        return len(unmatched)
+
+    def release_held_tasks(self, items: Set[TaskTokens]) -> int:
+        """Release held tasks with IDs matching any specified items."""
+        matched, unmatched = id_match(
+            self.config,
+            {
+                # only match held tasks
+                TaskTokens(cycle=str(cycle), task=task)
+                for task, cycle in self.tasks_to_hold
+            },
+            items,
+            # only match tasks within the held task list
+            only_match_pool=True,
+        )
+        for id_ in matched:
+            itask = self._get_task_by_id(id_.relative_id)
+            if itask:
+                # release active task
+                self.release_held_active_task(itask)
+            else:
+                # release inactive task
+                self.data_store_mgr.delta_task_held(
+                    id_['task'], get_point(id_['cycle']), False
+                )
+                self.tasks_to_hold.discard(
+                    (id_['task'], get_point(id_['cycle']))
+                )
+        self.workflow_db_mgr.put_tasks_to_hold(self.tasks_to_hold)
+        LOG.debug(f"Tasks to hold: {self.tasks_to_hold}")
+        return len(unmatched)
+
+    def release_hold_point(self) -> None:
+        """Unset the workflow hold point and release all held active tasks."""
+        self.hold_point = None
+        for itask in self.get_tasks():
+            self.release_held_active_task(itask)
+        self.tasks_to_hold.clear()
+        self.workflow_db_mgr.put_tasks_to_hold(self.tasks_to_hold)
+        self.workflow_db_mgr.put_workflow_hold_cycle_point(None)
+
+    def check_abort_on_task_fails(self):
+        """Check whether workflow should abort on task failure.
+
+        Return True if a task failed and `--abort-if-any-task-fails` was given.
+        """
+        return self.abort_task_failed
+
+    def spawn_on_output(self, itask: TaskProxy, output: str) -> None:
+        """Spawn child-tasks of given output, into the pool.
+
+        Remove the parent task from the pool if complete.
+
+        Called by task event manager on receiving output messages, and after
+        forced setting of task outputs (in this case the parent task could
+        be transient, i.e. not in the pool).
+
+        Also set the abort-on-task-failed flag if necessary.
+
+        If not flowing on, update existing children but don't spawn new ones
+        (unless manually forced to spawn with no flow number).
+
+        If an absolute output is completed update the store of completed abs
+        outputs, and update the prerequisites of every instance of the child
+        in the pool. (The self.spawn method uses the store of completed abs
+        outputs to satisfy any tasks with absolute prerequisites).
+
+        Args:
+            output: output to spawn on.
+
+        """
+        if (
+            output == TASK_OUTPUT_FAILED
+            and self.expected_failed_tasks is not None
+            and itask.identity not in self.expected_failed_tasks
+        ):
+            self.abort_task_failed = True
+
+        children = []
+        if itask.flow_nums:
+            with suppress(KeyError):
+                children = itask.graph_children[output]
+
+        if itask.flow_wait and children:
+            LOG.warning(
+                f"[{itask}] not spawning on {output}: flow wait requested")
+            self.remove_if_complete(itask, output)
+            return
+
+        if status_geq(itask.state.status, TASK_STATUS_PREPARING):
+            # task has begun submission -> clear all xtriggers
+            self.xtrigger_mgr.force_satisfy_all(itask, log=False)
+
+        suicide = []
+        for c_name, c_point, is_abs in children:
+            if is_abs:
+                self.abs_outputs_done.add(
+                    (str(itask.point), itask.tdef.name, output))
+                self.workflow_db_mgr.put_insert_abs_output(
+                    str(itask.point), itask.tdef.name, output)
+                self.workflow_db_mgr.process_queued_ops()
+
+            c_task = self._get_task_by_id(quick_relative_id(c_point, c_name))
+            in_pool = c_task is not None
+
+            if c_task is not None and c_task != itask:
+                # (Avoid self-suicide: A => !A)
+                self.merge_flows(c_task, itask.flow_nums)
+            elif c_task is None and itask.flow_nums:
+                # If child is not in the pool already, and parent belongs to a
+                # flow (so it can spawn children), and parent is not waiting
+                # for an upcoming flow merge before spawning ... then spawn it.
+                c_task = self.spawn_task(c_name, c_point, itask.flow_nums)
+
+            tasks: List[TaskProxy]
+            if c_task is not None:
+                # Have child task, update its prerequisites.
+                if is_abs:
+                    matched, _unmatched = self.id_match(
+                        {TaskTokens(cycle='*', task=c_name)}
+                    )
+                    tasks = self.get_itasks(matched)
+                    if c_task not in tasks:
+                        tasks.append(c_task)
+                else:
+                    tasks = [c_task]
+
+                for t in tasks:
+                    t.satisfy_me(
+                        [itask.tokens.duplicate(task_sel=output)],
+                        mode=itask.run_mode
+                    )
+                    self.data_store_mgr.delta_task_prerequisite(t)
+                    if not in_pool:
+                        self.add_to_pool(t)
+
+                    if (
+                        self.runahead_limit_point is not None
+                        and t.point <= self.runahead_limit_point
+                    ):
+                        self.rh_release_and_queue(t)
+
+                    # Event-driven suicide.
+                    if (
+                        t.state.suicide_prerequisites and
+                        t.state.suicide_prerequisites_all_satisfied()
+                    ):
+                        suicide.append(t)
+
+        for c_task in suicide:
+            if self.config.experimental.expire_triggers:
+                self.task_queue_mgr.remove_task(c_task)
+                self.task_events_mgr.process_message(
+                    c_task, logging.WARNING, TASK_OUTPUT_EXPIRED
+                )
+            else:
+                self.remove(c_task, self.__class__.SUICIDE_MSG)
+
+        if suicide:
+            # Update DB now in case of very quick respawn attempt.
+            # See https://github.com/cylc/cylc-flow/issues/6066
+            self.workflow_db_mgr.process_queued_ops()
+
+        self.remove_if_complete(itask, output)
+
+    def remove_if_complete(
+        self, itask: TaskProxy, output: Optional[str] = None
+    ) -> bool:
+        """Remove a finished task if required outputs are complete.
+
+        Return True if removed else False.
+
+        Cylc 8:
+            - if complete:
+              - remove task and recompute runahead
+            - else (incomplete):
+              - retain
+
+        Cylc 7 back compat:
+            - if succeeded:
+                - remove task and recompute runahead
+            else (failed):
+                - retain and recompute runahead
+                  (C7 failed tasks don't count toward runahead limit)
+
+        """
+        if not itask.state(*TASK_STATUSES_FINAL):
+            # can't be complete
+            return False
+
+        if itask.identity == self.stop_task_id:
+            self.stop_task_finished = True
+
+        if cylc.flow.flags.cylc7_back_compat:
+            ret = False
+            if not itask.state(TASK_STATUS_FAILED, TASK_OUTPUT_SUBMIT_FAILED):
+                self.remove(itask)
+                ret = True
+            # Recompute runahead either way; failed tasks don't count in C7.
+            if self.compute_runahead():
+                self.release_runahead_tasks()
+            return ret
+
+        if not itask.state.outputs.is_complete():
+            # Keep incomplete tasks in the pool.
+            if output in TASK_STATUSES_FINAL:
+                # Log based on the output, not the state, to avoid warnings
+                # due to use of "cylc set" to set internal outputs on an
+                # already-finished task.
+                LOG.warning(
+                    f"[{itask}] did not complete the required outputs:\n"
+                    + itask.state.outputs.format_completion_status(
+                        ansimarkup=1
+                    )
+                )
+            return False
+
+        self.remove(itask)
+        if self.compute_runahead():
+            self.release_runahead_tasks()
+        return True
+
+    def spawn_on_all_outputs(
+        self, itask: TaskProxy, completed_only: bool = False
+    ) -> None:
+        """Spawn on all (or all completed) task outputs.
+
+        If completed_only is False:
+           Used in Cylc 7 Back Compat mode for pre-spawning waiting tasks. Do
+           not set the associated prerequisites of spawned children satisfied.
+
+        If completed_only is True:
+           Used to retroactively spawn on already-completed outputs when a flow
+           merges into a force-triggered no-flow task. In this case, do set the
+           associated prerequisites of spawned children to satisfied.
+
+        """
+        if not itask.flow_nums:
+            return
+
+        for _trigger, message, is_completed in itask.state.outputs:
+            if completed_only and not is_completed:
+                continue
+            try:
+                children = itask.graph_children[message]
+            except KeyError:
+                continue
+
+            for c_name, c_point, _ in children:
+                c_taskid = Tokens(
+                    cycle=str(c_point),
+                    task=c_name,
+                ).relative_id
+                c_task = self._get_task_by_id(c_taskid)
+                if c_task is not None:
+                    # already spawned
+                    continue
+
+                c_task = self.spawn_task(c_name, c_point, itask.flow_nums)
+                if c_task is None:
+                    # not spawnable
+                    continue
+                if completed_only:
+                    c_task.satisfy_me(
+                        [itask.tokens.duplicate(task_sel=message)],
+                        mode=itask.run_mode
+                    )
+                    self.data_store_mgr.delta_task_prerequisite(c_task)
+                self.add_to_pool(c_task)
+                if (
+                    self.runahead_limit_point is not None
+                    and c_task.point <= self.runahead_limit_point
+                ):
+                    self.rh_release_and_queue(c_task)
+
+    def can_be_spawned(self, name: str, point: 'PointBase') -> bool:
+        """Return True if a point/name is within graph bounds."""
+
+        if name not in self.config.taskdefs:
+            LOG.debug('No task definition %s', name)
+            return False
+
+        # Don't spawn outside of graph limits.
+        # TODO: is it possible for initial_point to not be defined??
+        # (see also the similar check + log message in scheduler.py)
+        if self.config.initial_point and point < self.config.initial_point:
+            # Attempted manual trigger prior to FCP
+            # or future triggers like foo[+P1] => bar, with foo at ICP.
+            LOG.debug(
+                'Not spawning %s/%s: before initial cycle point', point, name)
+            return False
+
+        if self.config.final_point and point > self.config.final_point:
+            # Only happens on manual trigger beyond FCP
+            LOG.debug(
+                'Not spawning %s/%s: beyond final cycle point', point, name)
+            return False
+
+        # Is it on-sequence and within recurrence bounds.
+        if not self.config.get_taskdef(name).is_valid_point(point):
+            LOG.warning(
+                self.ERR_PREFIX_TASK_NOT_ON_SEQUENCE.format(
+                    name, point
+                )
+            )
+            return False
+
+        return True
+
+    def _get_task_history(
+        self, name: str, point: 'PointBase', flow_nums: 'FlowNums'
+    ) -> tuple[int, str | None, bool]:
+        """Get submit_num, status, flow_wait for point/name in flow_nums.
+
+        Args:
+            name: task name
+            point: task cycle point
+            flow_nums: task flow numbers
+
+        Returns:
+           (submit_num, status, flow_wait)
+           If no matching history, status will be None
+
+        """
+        submit_num: int = 0
+        status: Optional[str] = None
+        flow_wait = False
+
+        info = self.workflow_db_mgr.pri_dao.select_prev_instances(
+            name, str(point)
+        )
+        with suppress(ValueError):
+            submit_num = max(s[0] for s in info)
+
+        for _snum, f_wait, old_fnums, old_status in info:
+            if set.intersection(flow_nums, old_fnums):
+                # matching flows
+                status = old_status
+                flow_wait = f_wait
+                if status in TASK_STATUSES_FINAL:
+                    # task finished
+                    break
+                # Else continue: there may be multiple entries with flow
+                # overlap due to merges (they'll have have same snum and
+                # f_wait); keep going to find the finished one, if any.
+
+        return submit_num, status, flow_wait
+
+    def _load_historical_outputs(self, itask: 'TaskProxy') -> None:
+        """Load a task's historical outputs from the DB.
+
+        NOTE this creates a task_states/task_outputs DB entry if not present.
+        """
+        info = self.workflow_db_mgr.pri_dao.select_task_outputs(
+            itask.tdef.name, str(itask.point))
+        if not info:
+            # task never ran before
+            self.db_add_new_flow_rows(itask)
+        else:
+            flow_seen = False
+            for outputs_str, fnums in info.items():
+                # (if fnums is empty, it means the 'none' flow)
+                if itask.flow_nums.intersection(fnums):
+                    # DB row has overlap with itask's flows
+                    flow_seen = True
+                    # BACK COMPAT: In Cylc >8.0.0,<8.3.0, only the task
+                    #   messages were stored in the DB as a list.
+                    # from: 8.0.0
+                    # to: 8.3.0
+                    outputs: Union[
+                        Dict[str, str], List[str]
+                    ] = json.loads(outputs_str)
+                    if isinstance(outputs, dict):
+                        # {trigger: message} - match triggers, not messages.
+                        # DB may record forced completion rather than message.
+                        for trigger in outputs.keys():
+                            itask.state.outputs.set_trigger_complete(trigger)
+                    else:
+                        # [message] - always the full task message
+                        for msg in outputs:
+                            itask.state.outputs.set_message_complete(msg)
+            if not flow_seen:
+                # itask never ran before in its assigned flows
+                self.db_add_new_flow_rows(itask)
+
+    def spawn_task(
+        self,
+        name: str,
+        point: 'PointBase',
+        flow_nums: 'FlowNums',
+        flow_wait: bool = False,
+    ) -> TaskProxy | None:
+        """Return a new task proxy for the given flow if possible.
+
+        We need to hit the DB for:
+        - submit number
+        - task status
+        - flow-wait
+        - completed outputs (e.g. via "cylc set")
+
+        If history records a final task status (for this flow):
+        - if not flow wait, don't spawn (return None)
+        - if flow wait, don't spawn (return None) but do spawn children
+        - if outputs are incomplete, don't auto-rerun it (return None)
+
+        Otherwise, spawn the task and load any completed outputs.
+
+        """
+        submit_num, prev_status, prev_flow_wait = (
+            self._get_task_history(name, point, flow_nums)
+        )
+
+        if (
+            not prev_status
+            and point < self.config.start_point
+            and flow_nums.issuperset({1})
+            # Warm start - treat pre-startcp tasks as already run in flow=1,
+            # unless manually triggered:
+            and (name, point) not in self.pre_start_tasks_to_trigger
+        ):
+            return None
+
+        # Create the task proxy with any completed outputs loaded.
+        itask = self._load_db_task_proxy(
+            point,
+            self.config.get_taskdef(name),
+            flow_nums,
+            status=prev_status or TASK_STATUS_WAITING,
+            submit_num=submit_num,
+            flow_wait=flow_wait,
+        )
+        if itask is None:
+            return None
+
+        if (
+            prev_status is not None
+            and not itask.state.outputs.get_completed_outputs()
+        ):
+            # If itask has any history in this flow but no completed outputs
+            # we can infer it has just been deliberately removed (N.B. not
+            # by `cylc remove`), so don't immediately respawn it.
+            # TODO (follow-up work):
+            # - this logic fails if task removed after some outputs completed
+            LOG.info(f"Not respawning {point}/{name} - task was removed")
+            return None
+
+        if prev_status in TASK_STATUSES_FINAL:
+            # Task finished previously.
+            if itask.is_complete():
+                msg = "and completed"
+                itask.transient = True
+            else:
+                # revive as incomplete.
+                msg = "incomplete"
+
+            if LOG.level <= logging.DEBUG:
+                # avoid unnecessary compute when we are not in debug mode
+                id_ = itask.tokens.duplicate(
+                    task_sel=prev_status
+                ).relative_id_with_selectors
+                LOG.debug(
+                    f"[{id_}] already finished {msg}"
+                    f" {repr_flow_nums(flow_nums, full=True)})"
+                )
+            if prev_flow_wait:
+                self._spawn_after_flow_wait(itask)
+
+            if itask.transient:
+                return None
+
+        if not itask.transient:
+            if (name, point) in self.tasks_to_hold:
+                LOG.info(f"[{itask}] holding (as requested earlier)")
+                self.hold_active_task(itask)
+            elif self.hold_point and itask.point > self.hold_point:
+                # Hold if beyond the workflow hold point
+                LOG.info(
+                    f"[{itask}] holding (beyond workflow "
+                    f"hold point: {self.hold_point})"
+                )
+                self.hold_active_task(itask)
+
+            # Don't add to pool if it depends on a task beyond the stop point.
+            #   "foo; foo[+P1] & bar => baz"
+            # Here, in the final cycle bar wants to spawn baz, but that would
+            # stall because baz also depends on foo after the final point.
+            if self.stop_point and itask.point <= self.stop_point:
+                for pct in itask.state.prerequisites_get_target_points():
+                    if pct > self.stop_point:
+                        LOG.warning(
+                            f"[{itask}] not spawned: a prerequisite is beyond"
+                            f" the workflow stop point ({self.stop_point})"
+                        )
+                        return None
+
+            # Satisfy any absolute triggers.
+            if (
+                itask.tdef.has_abs_triggers
+                and itask.state.prerequisites_are_not_all_satisfied()
+            ):
+                itask.satisfy_me([
+                    Tokens(cycle=cycle, task=task, task_sel=output)
+                    for cycle, task, output in self.abs_outputs_done
+                ])
+
+        if prev_status is None:
+            # only add new flow rows if this task has not run before
+            # see https://github.com/cylc/cylc-flow/pull/6821
+            self.db_add_new_flow_rows(itask)
+
+        return itask
+
+    def _spawn_after_flow_wait(self, itask: TaskProxy) -> None:
+        LOG.info(f"[{itask}] spawning outputs after flow-wait")
+        self.spawn_on_all_outputs(itask, completed_only=True)
+        # update flow wait status in the DB
+        itask.flow_wait = False
+        # itask.flow_nums = orig_fnums
+        self.workflow_db_mgr.put_update_task_flow_wait(itask)
+        return None
+
+    def _load_db_task_proxy(
+        self,
+        point: 'PointBase',
+        taskdef: 'TaskDef',
+        flow_nums: 'FlowNums',
+        status: str = TASK_STATUS_WAITING,
+        flow_wait: bool = False,
+        transient: bool = False,
+        is_manual_submit: bool = False,
+        submit_num: int = 0,
+    ) -> 'TaskProxy | None':
+        """Spawn a task, update outputs from DB.
+
+        NOTE this creates a task_states/task_outputs DB entry if not present.
+        """
+
+        if not self.can_be_spawned(taskdef.name, point):
+            return None
+
+        itask = TaskProxy(
+            self.tokens,
+            taskdef,
+            point,
+            flow_nums,
+            status=status,
+            flow_wait=flow_wait,
+            submit_num=submit_num,
+            transient=transient,
+            is_manual_submit=is_manual_submit,
+            sequential_xtrigger_labels=(
+                self.xtrigger_mgr.xtriggers.sequential_xtrigger_labels
+            ),
+        )
+        # Update it with outputs that were already completed.
+        self._load_historical_outputs(itask)
+        return itask
+
+    def _standardise_prereqs(
+        self, prereqs: 'Iterable[str]'
+    ) -> 'Set[PrereqTuple]':
+        """Extract task prerequisites from user input and standardise.
+
+        Weed out any xtrigger prerequisites.
+
+        Command validation has handled output suffixes and defaults.
+
+        Args:
+            prereqs: prerequisites and xtriggers in string form:
+                <cycle>/<task>:<output>
+                xtrigger/<xtrigger>[:succeeded]
+                xtrigger/all[:succeeded]
+
+        Returns: {prerequisite-tokens}
+
+        """
+        _prereqs = set()
+        for prereq in prereqs:
+            pre = Tokens(prereq, relative=True)
+            if pre['cycle'] == XTRIGGER_PREREQ_PREFIX:
+                # weed out xtrigger prerequisites
+                continue
+            output = TaskTrigger.standardise_name(
+                pre['task_sel'] or TASK_OUTPUT_SUCCEEDED)
+            # Convert outputs to task messages.
+            try:
+                msg = self.config.get_taskdef(
+                    str(pre['task'])
+                ).outputs[output][0]
+                cycle = standardise_point_string(pre['cycle'])
+            except KeyError:
+                LOG.warning(
+                    f"Output {pre.relative_id_with_selectors} not found")
+                continue
+            except WorkflowConfigError as exc:
+                LOG.warning(
+                    f'Invalid prerequisite task name:\n{exc.args[0]}')
+            except PointParsingError as exc:
+                LOG.warning(
+                    f'Invalid prerequisite cycle point:\n{exc.args[0]}')
+            else:
+                _prereqs.add(PrereqTuple(str(cycle), str(pre['task']), msg))
+        return _prereqs
+
+    def _standardise_outputs(
+        self, point: 'PointBase', tdef: 'TaskDef', outputs: Iterable[str]
+    ) -> List[str]:
+        """Convert task output triggers to task messages."""
+        _outputs = []
+        for out in outputs:
+            # convert "succeed" to "succeeded" etc.
+            output = TaskTrigger.standardise_name(out)
+            try:
+                msg = tdef.outputs[output][0]
+            except KeyError:
+                LOG.warning(
+                    f"Output {point}/{tdef.name}:{output} not found")
+                continue
+            _outputs.append(msg)
+        return _outputs
+
+    def set_prereqs_and_outputs(
+        self,
+        items: 'Set[TaskTokens]',
+        outputs: List[str],
+        prereqs: List[str],
+        flow: List[str],
+        flow_wait: bool = False,
+        flow_descr: Optional[str] = None,
+    ):
+        """Complete outputs and satisfy prerequisites, via "cylc set" command.
+
+        Default to completing all required outputs.
+
+        On setting prerequisites:
+        - spawn the task into n=0.
+        - prerequisite validity is checked via the taskdef prior to spawning
+          so we can back out it if no valid prerequisites are given
+
+        On setting outputs:
+        - update task outputs in the DB
+        - (implied outputs are handled by the event manager)
+        - spawn children of the outputs, with those prerequisites satisfied
+
+        Transient task proxies are used to spawn the children of outputs. Even
+        if the parent was previously spawned in this flow its children might
+        not have been. ("Transient" just means not intended for the task pool,
+        just a convient way to use TaskProxy methods).
+
+        A forced output cannot cause a state change to submitted or running,
+        but it can complete a task so that it doesn't need to run.
+
+        Args:
+            items: Parsed task ID patterns.
+            prereqs: Prerequisites to satisfy.
+            outputs: Outputs to complete.
+            flow: Flow numbers for spawned or merged tasks.
+            flow_wait: Wait for flows to catch up before continuing.
+            flow_descr: Description of new flow.
+
+        """
+        matched, _unmatched = self.id_match(set(items))
+
+        no_op = True
+
+        # Clean and separate requested prerequisite and xtrigger specs.
+        if prereqs != ['all']:
+            set_all = False
+            clean_pre = self._standardise_prereqs(prereqs)
+            clean_xtr = _get_xtrig_prereqs(prereqs)
+        else:
+            set_all = True
+            clean_pre = set()
+            clean_xtr = {}
+
+        if prereqs and not (set_all or clean_pre or clean_xtr):
+            # Nothing to do!
+            return
+
+        # Get integer flow numbers from CLI inputs.
+        flow_nums = self.flow_mgr.cli_to_flow_nums(flow, flow_descr)
+
+        # Here, empty flow_nums means either no-flow or all active flows.
+        if flow != [FLOW_NONE] and not flow_nums:
+            flow_nums = self._get_active_flow_nums()
+
+        # Set active tasks.
+        warnings_flow_none = []
+        for id_ in matched:
+            itask = self._get_task_by_id(id_.relative_id)
+            if itask:
+                # set active task
+                if flow == [FLOW_NONE] and itask.flow_nums:
+                    # Exclude --flow=none for active tasks.
+                    warnings_flow_none.append(
+                        f"{itask.identity}: "
+                        f"{repr_flow_nums(itask.flow_nums, full=True)}"
+                    )
+                    continue
+
+                if prereqs:
+                    valid_prereqs = self._get_valid_prereqs(
+                        clean_pre, itask.tdef, itask.point)
+                    valid_xtrigs = self._get_valid_xtrigs(
+                        clean_xtr, itask.tdef, itask.point)
+                    if not (set_all or valid_prereqs or valid_xtrigs):
+                        continue
+
+                    self.merge_flows(itask, flow_nums)
+                    self._set_prereqs_itask(
+                        itask, valid_prereqs, valid_xtrigs, set_all)
+                    no_op = False
+                else:
+                    # Outputs (may be empty list)
+                    # Spawn as if seq xtrig of parentless task was satisfied,
+                    # with associated task producing these outputs.
+                    self.merge_flows(itask, flow_nums)
+                    self.check_spawn_psx_task(itask)
+                    self._set_outputs_itask(itask, outputs)
+                    no_op = False
+
+            else:
+                # set inactive task
+                tdef = self.config.taskdefs[id_['task']]
+                icycle = get_point(id_['cycle'])
+                if prereqs:
+                    valid_prereqs = self._get_valid_prereqs(
+                        clean_pre, tdef, icycle)
+                    valid_xtrigs = self._get_valid_xtrigs(
+                        clean_xtr, tdef, icycle)
+                    if not (set_all or valid_prereqs or valid_xtrigs):
+                        continue
+
+                    self._set_prereqs_tdef(
+                        icycle, tdef, valid_prereqs, valid_xtrigs, flow_nums,
+                        flow_wait, set_all)
+                    no_op = False
+                else:
+                    # Outputs (may be empty list)
+                    trans = self._load_db_task_proxy(
+                        icycle, tdef, flow_nums,
+                        flow_wait=flow_wait, transient=True
+                    )
+                    if trans and self._set_outputs_itask(trans, outputs):
+                        no_op = False
+
+        if warnings_flow_none:
+            msg = '\n  * '.join(warnings_flow_none)
+            LOG.warning(f"Already active - ignoring no-flow set: \n  * {msg}")
+
+        if not no_op:
+            # for "cylc play --start-tasks" compute runahead after spawning
+            self.compute_runahead()
+            self.release_runahead_tasks()
+
+    def _get_valid_prereqs(
+        self, prereqs: Set[PrereqTuple], tdef: 'TaskDef', point: 'PointBase'
+    ) -> 'Set[PrereqTuple]':
+        """Weed out prerequisites not valid for this task.
+
+        And convert outputs to messages, for satisfying task prerequisites.
+
+        """
+        # Valid prerequisites as tokens (outputs as task messages).
+        valid_pre = {
+            PrereqTuple(key.point, key.task, key.output)
+            for pre in tdef.get_prereqs(point)
+            for key in pre.keys()
+        }
+
+        # standardise and weed out xtrigger prerequisites
+        invalid = prereqs - valid_pre
+
+        if invalid:
+            task = quick_relative_id(point, tdef.name)
+            for prereq in invalid:
+                # But log bad ones with triggers, not messages.
+                trg = self.config.get_taskdef(
+                    prereq.task
+                ).get_output(prereq.output)
+                LOG.warning(
+                    f'{task} does not depend on'
+                    f' "{quick_relative_id(prereq.point, prereq.task, trg)}"'
+                )
+
+        return valid_pre & prereqs
+
+    def _get_valid_xtrigs(
+        self, xtrigs: Dict[str, bool], tdef: 'TaskDef', point: 'PointBase'
+    ) -> 'Dict[str, bool]':
+        """Weed out xtriggers not valid for this task."""
+
+        valid_x_labels = tdef.get_xtrigs(point)
+
+        # And allow any dynamically xtriggers, such as retries.
+        itask = self.get_task(point, tdef.name)
+        if itask is not None:
+            valid_x_labels.update(itask.state.xtriggers.keys())
+
+        invalid = set(xtrigs.keys()) - valid_x_labels
+
+        if invalid:
+            task = quick_relative_id(point, tdef.name)
+            for xtrig in invalid:
+                if xtrig != "all":
+                    LOG.warning(
+                        f'{task} does not depend on xtrigger "{xtrig}"')
+
+        return {
+            k: v for k, v in xtrigs.items()
+            if k in valid_x_labels or k == "all"
+        }
+
+    def _set_outputs_itask(
+        self,
+        itask: 'TaskProxy',
+        outputs: Iterable[str],
+    ) -> bool:
+        """Manually set requested outputs on a task proxy and spawn children.
+
+        If no outputs were specified and the task has no required outputs to
+        set, set the "success pathway" outputs in the same way that skip mode
+        does.
+
+        Designated flows should already be merged to the task proxy.
+
+        Returns:
+            True if any outputs were set, else False.
+
+        """
+        no_op = True
+        outputs = set(outputs)
+
+        if not outputs:
+            outputs = set(
+                # Set required outputs by default
+                itask.state.outputs.iter_required_messages()
+            ) or (
+                # Set success pathway outputs
+                get_skip_mode_outputs(itask)
+            )
+        else:
+            # --out=skip sets all the outputs that skip mode would.
+            skips: Set[str] = set()
+            if RunMode.SKIP.value in outputs:
+                # Check for broadcasts to task:
+                outputs.remove(RunMode.SKIP.value)
+                bc_mgr = self.task_events_mgr.broadcast_mgr
+                rtconfig = bc_mgr.get_updated_rtconfig(itask)
+                skips = get_skip_mode_outputs(itask, rtconfig)
+                itask.run_mode = RunMode.SKIP
+            outputs = set(
+                self._standardise_outputs(itask.point, itask.tdef, outputs)
+            ).union(skips)
+
+        for output in sorted(outputs, key=itask.state.outputs.output_sort_key):
+            if itask.state.outputs.is_message_complete(output):
+                LOG.info(f"output {itask.identity}:{output} completed already")
+                continue
+            self.task_events_mgr.process_message(
+                itask, logging.INFO, output, forced=True
+            )
+            no_op = False
+
+        if not itask.state(TASK_STATUS_WAITING):
+            # Can't be runahead limited or queued.
+            itask.state_reset(is_runahead=False, is_queued=False)
+            self.task_queue_mgr.remove_task(itask)
+
+        if no_op:
+            return False
+
+        self.data_store_mgr.delta_task_state(itask)
+        self.data_store_mgr.delta_task_outputs(itask)
+        self.workflow_db_mgr.put_update_task_state(itask)
+        self.workflow_db_mgr.put_update_task_outputs(itask)
+        self.workflow_db_mgr.process_queued_ops()
+        return True
+
+    def _set_prereqs_itask(
+        self,
+        itask: 'TaskProxy',
+        prereqs: 'Iterable[PrereqTuple]',
+        xtrigs: 'Dict[str, bool]',
+        set_all: bool
+    ) -> None:
+        """Set prerequisites on a task proxy.
+
+        Designated flows should already be merged to the task proxy.
+        """
+        # task prerequisites
+        itask.force_satisfy(prereqs, set_all)
+        # xtriggers, including "all"
+        self.xtrigger_mgr.force_satisfy(itask, xtrigs)
+
+        if (
+            itask.state.is_runahead
+            and self.runahead_limit_point is not None
+            and itask.point <= self.runahead_limit_point
+        ):
+            self.spawn_to_rh_limit(
+                itask.tdef,
+                itask.tdef.next_point(itask.point),
+                itask.flow_nums
+            )
+
+    def _set_prereqs_tdef(
+        self,
+        point: 'PointBase',
+        taskdef: 'TaskDef',
+        prereqs: 'Iterable[PrereqTuple]',
+        xtrigs: 'Dict[str, bool]',
+        flow_nums: 'FlowNums',
+        flow_wait: bool,
+        set_all: bool
+    ) -> Optional[TaskProxy]:
+        """Spawn an inactive task and set prerequisites on it."""
+        itask = self.spawn_task(
+            taskdef.name, point, flow_nums, flow_wait=flow_wait
+        )
+        if itask is None:
+            return None
+
+        self.db_add_new_flow_rows(itask)
+        self._set_prereqs_itask(itask, prereqs, xtrigs, set_all)
+        self.add_to_pool(itask)
+        return itask
+
+    def _get_active_flow_nums(self) -> 'FlowNums':
+        """Return all active flow numbers.
+
+        If there are no active flows (e.g. on restarting a completed workflow)
+        return the most recent active flows.
+        Or, if there are no flows in the workflow history (e.g. after
+        `cylc remove`), return flow=1.
+
+        """
+        return (
+            set().union(*(itask.flow_nums for itask in self.get_tasks()))
+            or self.workflow_db_mgr.pri_dao.select_latest_flow_nums()
+            or {1}
+        )
+
+    def queue_or_trigger(self, itask: 'TaskProxy'):
+        """Handle state, queues, and runahead for a manually triggered task.
+
+        Triggering a non-queued task:
+          - queue it, if the queue is full
+          - run it, if the queue is not full
+
+        Triggering a queued task:
+          - run it, regardless of the queue limit
+
+        If ready, add itask to the tasks_to_trigger_now list.
+
+        Assumes the task is in the pool.
+
+        Note manual trigger now works by satisfying prerequisites so
+        this method should only be called for fully satisfied tasks.
+
+        """
+        itask.is_manual_submit = True
+        itask.reset_try_timers()
+        self.data_store_mgr.delta_task_prerequisite(itask)
+
+        if itask.state_reset(TASK_STATUS_WAITING):
+            # (could also be unhandled failed)
+            self.data_store_mgr.delta_task_state(itask)
+
+        if itask.state_reset(is_runahead=False):
+            # Can force trigger runahead-limited tasks.
+            self.data_store_mgr.delta_task_state(itask)
+            self.spawn_to_rh_limit(
+                itask.tdef,
+                itask.tdef.next_point(itask.point),
+                itask.flow_nums
+            )
+
+        if not itask.state.is_queued:
+            # queue it if limiting
+            active, _ = self.count_active_tasks()
+            if self.task_queue_mgr.push_task_if_limited(itask, active):
+                itask.state_reset(is_queued=True)
+                self.data_store_mgr.delta_task_state(itask)
+
+        elif self.task_queue_mgr.remove_task(itask):
+            # else release it from the queue to run now
+            itask.state_reset(is_queued=False)
+            self.data_store_mgr.delta_task_state(itask)
+
+        if not itask.state.is_queued:
+            # If not queued now, record the task as ready to run.
+            itask.waiting_on_job_prep = True
+            self.tasks_to_trigger_now.add(itask)
+
+        # Task may be set running before xtrigger is satisfied,
+        # if so check/spawn if xtrigger sequential.
+        self.check_spawn_psx_task(itask)
+
+    def check_spawn_psx_task(self, itask: 'TaskProxy') -> None:
+        """Check and spawn parentless sequential xtriggered task (psx)."""
+        # Will spawn out to RH limit or next parentless clock trigger
+        # or non-parentless.
+        if (
+            itask.is_xtrigger_sequential
+            and (
+                itask.identity not in
+                self.xtrigger_mgr.sequential_has_spawned_next
+            )
+        ):
+            self.xtrigger_mgr.sequential_has_spawned_next.add(
+                itask.identity
+            )
+            self.spawn_to_rh_limit(
+                itask.tdef,
+                itask.tdef.next_point(itask.point),
+                itask.flow_nums
+            )
+
+    def clock_expire_tasks(self):
+        """Expire any tasks past their clock-expiry time."""
+        for itask in self.get_tasks():
+            if (
+                # force triggered tasks can not clock-expire
+                # see proposal point 10:
+                # https://cylc.github.io/cylc-admin/proposal-optional-output-extension.html#proposal
+                not itask.is_manual_submit
+
+                # only waiting tasks can clock-expire
+                # see https://github.com/cylc/cylc-flow/issues/6025
+                # (note retrying tasks will be in the waiting state)
+                and itask.state(TASK_STATUS_WAITING)
+
+                # check if this task is clock expired
+                and itask.clock_expire()
+            ):
+                self.task_queue_mgr.remove_task(itask)
+                self.task_events_mgr.process_message(
+                    itask,
+                    logging.WARNING,
+                    TASK_OUTPUT_EXPIRED,
+                )
+
+    def task_succeeded(self, id_):
+        """Return True if task with id_ is in the succeeded state."""
+        return any(
+            (
+                itask.identity == id_
+                and itask.state(TASK_STATUS_SUCCEEDED)
+            )
+            for itask in self.get_tasks()
+        )
+
+    def stop_flow(self, flow_num):
+        """Stop a given flow from spawning any further.
+
+        Remove the flow number from every task in the pool, and remove any task
+        with no remaining flow numbers if it is not already active.
+        """
+        for itask in self.get_tasks():
+            try:
+                itask.flow_nums.remove(flow_num)
+            except KeyError:
+                continue
+            else:
+                if (
+                    not itask.state(
+                        *TASK_STATUSES_ACTIVE, TASK_STATUS_PREPARING)
+                    and not itask.flow_nums
+                ):
+                    # Don't spawn successor if the task is parentless.
+                    self.remove(itask, "flow stopped")
+
+        if self.compute_runahead():
+            self.release_runahead_tasks()
+
+    def log_task_pool(self, log_lvl=logging.DEBUG):
+        """Log content of task pool, for debugging."""
+        LOG.log(
+            log_lvl,
+            "\n".join(
+                f"* {itask}" for itask in self.get_tasks()
+            )
+        )
+
+    def id_match(
+        self,
+        ids: Set[TaskTokens],
+        only_match_pool: bool = False,
+    ) -> Tuple[Set[TaskTokens], Set[TaskTokens]]:
+        """Match IDs against active tasks in the pool."""
+        active_task_ids: Set[TaskTokens] = {
+            TaskTokens(
+                cycle=itask.tokens['cycle'],
+                task=itask.tokens['task'],
+                task_sel=itask.state.status,
+            )
+            for itasks in self.active_tasks.values()
+            for itask in itasks.values()
+        }
+
+        return id_match(
+            self.config,
+            active_task_ids,
+            ids,
+            only_match_pool=only_match_pool,
+        )
+
+    def merge_flows(self, itask: TaskProxy, flow_nums: 'FlowNums') -> None:
+        """Merge flow_nums into itask.flow_nums, for existing itask.
+
+        This is required when we try to spawn a task instance that already
+        exists in the pool (i.e., with the same name and cycle point).
+
+        This also performs required spawning / state changing for edge cases.
+        """
+        if not flow_nums or (flow_nums == itask.flow_nums):
+            # Don't do anything if:
+            # 1. merging from a no-flow task, or
+            # 2. same flow (no merge needed); can arise
+            # downstream of an AND trigger (if "A & B => C"
+            # and A spawns C first, B will find C is already in the pool),
+            # and via suicide triggers ("A =>!A": A tries to spawn itself).
+            return
+
+        merge_with_no_flow = not itask.flow_nums
+
+        itask.merge_flows(flow_nums)
+        self.data_store_mgr.delta_task_flow_nums(itask)
+
+        # Merged tasks get a new row in the db task_states table.
+        self.db_add_new_flow_rows(itask)
+
+        if (
+            itask.state(*TASK_STATUSES_FINAL)
+            and not itask.state.outputs.is_complete()
+        ):
+            # Re-queue incomplete task to run again in the merged flow.
+            LOG.info(f"[{itask}] incomplete task absorbed by new flow.")
+            itask.state_reset(TASK_STATUS_WAITING)
+            self.queue_task(itask)
+            self.data_store_mgr.delta_task_state(itask)
+
+        elif merge_with_no_flow or itask.flow_wait:
+            # 2. Retro-spawn on completed outputs and continue as merged flow.
+            LOG.info(f"[{itask}] spawning on pre-merge outputs")
+            itask.flow_wait = False
+            self.spawn_on_all_outputs(itask, completed_only=True)
+            self.spawn_to_rh_limit(
+                itask.tdef, itask.next_point(), itask.flow_nums)

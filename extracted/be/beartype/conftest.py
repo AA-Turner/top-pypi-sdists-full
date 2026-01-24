@@ -9,18 +9,17 @@ run by :mod:`pytest` *before* passed command-line arguments are parsed) for
 this test suite.
 
 Caveats
-----------
-For safety, this configuration should contain *only* early-time hooks
-absolutely required by :mod:`pytest` design to be defined in this
-configuration. Hooks for which this is the case (e.g.,
-:func:`pytest_addoption`) are explicitly annotated as such in official
-:mod:`pytest` documentation with a note resembling:
+-------
+For safety, this configuration should contain *only* early-time hooks absolutely
+required by :mod:`pytest` design to be defined in this configuration. Hooks for
+which this is the case (e.g., :func:`pytest_addoption`) are explicitly annotated
+as such in official :mod:`pytest` documentation with a note resembling:
 
     Note
 
-    This function should be implemented only in plugins or ``conftest.py``
-    files situated at the tests root directory due to how pytest discovers
-    plugins during startup.
+    This function should be implemented only in plugins or ``conftest.py`` files
+    situated at the tests root directory due to how pytest discovers plugins
+    during startup.
 
 This file is the aforementioned ``conftest.py`` file "...situated at the tests
 root directory."
@@ -32,9 +31,10 @@ from pytest import Function
 from typing import Optional
 
 # ....................{ HOOKS ~ ini                        }....................
-def pytest_configure(config) -> None:
+def pytest_configure(config: 'pytest.Config') -> None:
     '''
-    Hook programmatically configuring the top-level ``"pytest.ini"`` file.
+    Hook programmatically configuring both the ``pytest`` comand-line interface
+    (CLI) *and* top-level ``"pytest.ini"`` file.
     '''
 
     # Programmatically add our custom "run_in_subprocess" mark, enabling tests
@@ -191,7 +191,7 @@ def _test_func_in_subprocess(test_func: Callable) -> object:
 
     # Monkey-patch the unbuffered standard error and output streams of this
     # subprocess with buffered equivalents, ensuring that pytest will reliably
-    # capture *all* standard error and output emitted by running this test.
+    # capture *ALL* standard error and output emitted by running this test.
     sys.stderr = _UnbufferedOutputStream(sys.stderr)
     sys.stdout = _UnbufferedOutputStream(sys.stdout)
 

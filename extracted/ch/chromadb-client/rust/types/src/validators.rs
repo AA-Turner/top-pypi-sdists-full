@@ -1,6 +1,8 @@
 use crate::{
-    operator::{Rank, RankExpr},
-    CollectionMetadataUpdate, Metadata, MetadataValue, UpdateMetadata, UpdateMetadataValue,
+    execution::plan::SearchPayload,
+    operator::{Aggregate, GroupBy, QueryVector, Rank},
+    CollectionMetadataUpdate, Metadata, MetadataValue, Schema, UpdateMetadata, UpdateMetadataValue,
+    DOCUMENT_KEY, EMBEDDING_KEY,
 };
 use regex::Regex;
 use std::collections::HashMap;
@@ -142,38 +144,225 @@ pub fn validate_optional_metadata(metadata: &Metadata) -> Result<(), ValidationE
 
 /// Validate rank operator for sparse vectors
 pub fn validate_rank(rank: &Rank) -> Result<(), ValidationError> {
-    if let Some(expr) = &rank.expr {
-        validate_rank_expr(expr)?;
+    for knn in rank.knn_queries() {
+        if let QueryVector::Sparse(sv) = &knn.query {
+            sv.validate().map_err(|e| {
+                ValidationError::new("sparse_vector")
+                    .with_message(format!("Invalid sparse vector in KNN query: {}", e).into())
+            })?;
+        }
     }
     Ok(())
 }
 
-fn validate_rank_expr(expr: &RankExpr) -> Result<(), ValidationError> {
-    match expr {
-        RankExpr::Knn { query, .. } => {
-            if let crate::operator::QueryVector::Sparse(sv) = query {
-                sv.validate().map_err(|e| {
-                    ValidationError::new("sparse_vector")
-                        .with_message(format!("Invalid sparse vector in KNN query: {}", e).into())
-                })?;
+/// Validate group_by operator
+pub fn validate_group_by(group_by: &GroupBy) -> Result<(), ValidationError> {
+    let has_keys = !group_by.keys.is_empty();
+    let has_aggregate = group_by.aggregate.is_some();
+
+    if has_keys != has_aggregate {
+        return Err(ValidationError::new("group_by").with_message(
+            "group_by keys and aggregate must both be specified or both be omitted".into(),
+        ));
+    }
+
+    // Validate group_by keys: only metadata fields are allowed
+    for key in &group_by.keys {
+        match key {
+            crate::operator::Key::MetadataField(_) => {}
+            _ => {
+                return Err(ValidationError::new("group_by").with_message(
+                    "group_by keys must be metadata fields (cannot use #score, #document, #embedding, or #metadata)".into(),
+                ));
             }
         }
-        RankExpr::Absolute(inner)
-        | RankExpr::Exponentiation(inner)
-        | RankExpr::Logarithm(inner) => validate_rank_expr(inner)?,
-        RankExpr::Division { left, right } | RankExpr::Subtraction { left, right } => {
-            validate_rank_expr(left)?;
-            validate_rank_expr(right)?;
-        }
-        RankExpr::Maximum(exprs)
-        | RankExpr::Minimum(exprs)
-        | RankExpr::Multiplication(exprs)
-        | RankExpr::Summation(exprs) => {
-            for expr in exprs {
-                validate_rank_expr(expr)?;
+    }
+
+    match &group_by.aggregate {
+        Some(Aggregate::MinK { keys, k }) | Some(Aggregate::MaxK { keys, k }) => {
+            if keys.is_empty() {
+                return Err(ValidationError::new("group_by")
+                    .with_message("aggregate keys must not be empty".into()));
+            }
+            if *k == 0 {
+                return Err(ValidationError::new("group_by")
+                    .with_message("aggregate k must be greater than 0".into()));
+            }
+            // Validate aggregate keys: only metadata fields and score are allowed
+            for key in keys {
+                match key {
+                    crate::operator::Key::MetadataField(_) | crate::operator::Key::Score => {}
+                    _ => {
+                        return Err(ValidationError::new("group_by").with_message(
+                            "aggregate keys must be metadata fields or #score (cannot use #document, #embedding, or #metadata)".into(),
+                        ));
+                    }
+                }
             }
         }
-        RankExpr::Value(_) => {}
+        None => {}
+    }
+
+    Ok(())
+}
+
+/// Validate SearchPayload
+pub fn validate_search_payload(payload: &SearchPayload) -> Result<(), ValidationError> {
+    if !payload.group_by.keys.is_empty() && payload.rank.expr.is_none() {
+        return Err(ValidationError::new("group_by")
+            .with_message("group_by requires rank expression to be specified".into()));
+    }
+    Ok(())
+}
+
+/// Validate schema
+pub fn validate_schema(schema: &Schema) -> Result<(), ValidationError> {
+    // Prevent users from setting source_attached_function_id - only the system can set this
+    if schema.source_attached_function_id.is_some() {
+        return Err(ValidationError::new("schema").with_message(
+            "Cannot set source_attached_function_id. This field is reserved for system use.".into(),
+        ));
+    }
+
+    let mut sparse_index_keys = Vec::new();
+    if schema
+        .defaults
+        .float_list
+        .as_ref()
+        .is_some_and(|vt| vt.vector_index.as_ref().is_some_and(|it| it.enabled))
+    {
+        return Err(ValidationError::new("schema").with_message("Vector index cannot be enabled by default. It can only be enabled on #embedding field.".into()));
+    }
+    if schema.defaults.float_list.as_ref().is_some_and(|vt| {
+        vt.vector_index
+            .as_ref()
+            .is_some_and(|it| it.config.hnsw.is_some() && it.config.spann.is_some())
+    }) {
+        return Err(ValidationError::new("schema").with_message(
+            "Both spann and hnsw config cannot be present at the same time.".into(),
+        ));
+    }
+    if schema
+        .defaults
+        .sparse_vector
+        .as_ref()
+        .is_some_and(|vt| vt.sparse_vector_index.as_ref().is_some_and(|it| it.enabled))
+    {
+        return Err(ValidationError::new("schema").with_message("Sparse vector index cannot be enabled by default. Please enable sparse vector index on specific keys. At most one sparse vector index is allowed for the collection.".into()));
+    }
+    if schema
+        .defaults
+        .string
+        .as_ref()
+        .is_some_and(|vt| vt.fts_index.as_ref().is_some_and(|it| it.enabled))
+    {
+        return Err(ValidationError::new("schema").with_message("Full text search / regular expression index cannot be enabled by default. It can only be enabled on #document field.".into()));
+    }
+    for (key, config) in &schema.keys {
+        // Validate that keys cannot start with # (except system keys)
+        if key.starts_with('#') && key != DOCUMENT_KEY && key != EMBEDDING_KEY {
+            return Err(ValidationError::new("schema").with_message(
+                format!("key cannot begin with '#'. Keys starting with '#' are reserved for system use: {key}")
+                    .into(),
+            ));
+        }
+
+        if key == DOCUMENT_KEY
+            && (config.boolean.is_some()
+                || config.float.is_some()
+                || config.int.is_some()
+                || config.float_list.is_some()
+                || config.sparse_vector.is_some())
+        {
+            return Err(ValidationError::new("schema").with_message(
+                format!("Document field cannot have any value types other than string: {key}")
+                    .into(),
+            ));
+        }
+        if key == EMBEDDING_KEY
+            && (config.boolean.is_some()
+                || config.float.is_some()
+                || config.int.is_some()
+                || config.string.is_some()
+                || config.sparse_vector.is_some())
+        {
+            return Err(ValidationError::new("schema").with_message(
+                format!("Embedding field cannot have any value types other than float_list: {key}")
+                    .into(),
+            ));
+        }
+        if let Some(vit) = config
+            .float_list
+            .as_ref()
+            .and_then(|vt| vt.vector_index.as_ref())
+        {
+            if vit.enabled && key != EMBEDDING_KEY {
+                return Err(ValidationError::new("schema").with_message(
+                    format!("Vector index can only be enabled on #embedding field: {key}").into(),
+                ));
+            }
+            if vit
+                .config
+                .source_key
+                .as_ref()
+                .is_some_and(|key| key != DOCUMENT_KEY)
+            {
+                return Err(ValidationError::new("schema")
+                    .with_message("Vector index can only source from #document".into()));
+            }
+        }
+        if let Some(svit) = config
+            .sparse_vector
+            .as_ref()
+            .and_then(|vt| vt.sparse_vector_index.as_ref())
+        {
+            if svit.enabled {
+                sparse_index_keys.push(key);
+                if sparse_index_keys.len() > 1 {
+                    return Err(ValidationError::new("schema").with_message(
+                        format!("At most one sparse vector index is allowed for the collection: {sparse_index_keys:?}")
+                            .into(),
+                    ));
+                }
+                if svit.config.source_key.is_some() && svit.config.embedding_function.is_none() {
+                    return Err(ValidationError::new("schema").with_message(
+                        "If source_key is provided then embedding_function must also be provided since there is no default embedding function.".into(),
+                    ));
+                }
+            }
+            // Validate source_key for sparse vector index
+            if let Some(source_key) = &svit.config.source_key {
+                if source_key.starts_with('#') && source_key != DOCUMENT_KEY {
+                    return Err(ValidationError::new("schema").with_message(
+                        "source_key cannot begin with '#'. The only valid key starting with '#' is Key.DOCUMENT or '#document'.".into(),
+                    ));
+                }
+            }
+        }
+        if config
+            .string
+            .as_ref()
+            .is_some_and(|vt| vt.fts_index.as_ref().is_some_and(|it| it.enabled))
+            && key != DOCUMENT_KEY
+        {
+            return Err(ValidationError::new("schema").with_message(format!("Full text search / regular expression index can only be enabled on #document field: {key}").into()));
+        }
+        if config.string.as_ref().is_some_and(|vt| {
+            vt.string_inverted_index
+                .as_ref()
+                .is_some_and(|it| it.enabled)
+        }) && key == DOCUMENT_KEY
+        {
+            return Err(ValidationError::new("schema").with_message(
+                format!("String inverted index can not be enabled on #document key: {key}").into(),
+            ));
+        }
+    }
+    if let Some(cmek) = &schema.cmek {
+        if !cmek.validate_pattern() {
+            return Err(ValidationError::new("schema")
+                .with_message(format!("CMEK does not match expected pattern: {cmek:?}").into()));
+        }
     }
     Ok(())
 }
@@ -181,6 +370,7 @@ fn validate_rank_expr(expr: &RankExpr) -> Result<(), ValidationError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::operator::Key;
     use crate::{MetadataValue, SparseVector};
 
     #[test]
@@ -188,9 +378,14 @@ mod tests {
         // Valid metadata
         let mut metadata = Metadata::new();
         metadata.insert("valid_key".to_string(), MetadataValue::Int(42));
-        let sparse = SparseVector::new(vec![1, 2, 3], vec![0.1, 0.2, 0.3]);
+        let sparse = SparseVector::new(vec![1, 2, 3], vec![0.1, 0.2, 0.3]).unwrap();
         metadata.insert("embedding".to_string(), MetadataValue::SparseVector(sparse));
         assert!(validate_metadata(&metadata).is_ok());
+
+        // Invalid key starting with #
+        let mut metadata = Metadata::new();
+        metadata.insert("#embedding".to_string(), MetadataValue::Int(42));
+        assert!(validate_metadata(&metadata).is_err());
 
         // Invalid key starting with #
         let mut metadata = Metadata::new();
@@ -209,11 +404,159 @@ mod tests {
 
         // Invalid sparse vector (length mismatch)
         let mut metadata = Metadata::new();
-        let invalid_sparse = SparseVector::new(vec![1, 2], vec![0.1, 0.2, 0.3]);
+        let invalid_sparse = SparseVector {
+            indices: vec![1, 2],
+            values: vec![0.1, 0.2, 0.3],
+            tokens: None,
+        };
         metadata.insert(
             "embedding".to_string(),
             MetadataValue::SparseVector(invalid_sparse),
         );
         assert!(validate_metadata(&metadata).is_err());
+    }
+
+    #[test]
+    fn test_validate_group_by() {
+        // Valid: both keys and aggregate present
+        let group_by = GroupBy {
+            keys: vec![Key::field("category")],
+            aggregate: Some(Aggregate::MinK {
+                keys: vec![Key::Score],
+                k: 3,
+            }),
+        };
+        assert!(validate_group_by(&group_by).is_ok());
+
+        // Valid: both empty
+        let group_by = GroupBy {
+            keys: vec![],
+            aggregate: None,
+        };
+        assert!(validate_group_by(&group_by).is_ok());
+
+        // Invalid: keys present, aggregate missing
+        let group_by = GroupBy {
+            keys: vec![Key::field("category")],
+            aggregate: None,
+        };
+        assert!(validate_group_by(&group_by).is_err());
+
+        // Invalid: aggregate present, keys missing
+        let group_by = GroupBy {
+            keys: vec![],
+            aggregate: Some(Aggregate::MinK {
+                keys: vec![Key::Score],
+                k: 3,
+            }),
+        };
+        assert!(validate_group_by(&group_by).is_err());
+
+        // Invalid: aggregate k = 0
+        let group_by = GroupBy {
+            keys: vec![Key::field("category")],
+            aggregate: Some(Aggregate::MinK {
+                keys: vec![Key::Score],
+                k: 0,
+            }),
+        };
+        assert!(validate_group_by(&group_by).is_err());
+
+        // Invalid: aggregate keys empty
+        let group_by = GroupBy {
+            keys: vec![Key::field("category")],
+            aggregate: Some(Aggregate::MaxK { keys: vec![], k: 5 }),
+        };
+        assert!(validate_group_by(&group_by).is_err());
+
+        // Invalid: group_by key must be metadata field (not #score)
+        let group_by = GroupBy {
+            keys: vec![Key::Score],
+            aggregate: Some(Aggregate::MinK {
+                keys: vec![Key::Score],
+                k: 3,
+            }),
+        };
+        assert!(validate_group_by(&group_by).is_err());
+
+        // Invalid: aggregate key cannot be #document
+        let group_by = GroupBy {
+            keys: vec![Key::field("category")],
+            aggregate: Some(Aggregate::MinK {
+                keys: vec![Key::Document],
+                k: 3,
+            }),
+        };
+        assert!(validate_group_by(&group_by).is_err());
+
+        // Valid: aggregate key can be metadata field
+        let group_by = GroupBy {
+            keys: vec![Key::field("category")],
+            aggregate: Some(Aggregate::MinK {
+                keys: vec![Key::field("date"), Key::Score],
+                k: 3,
+            }),
+        };
+        assert!(validate_group_by(&group_by).is_ok());
+    }
+
+    #[test]
+    fn test_validate_search_payload() {
+        use crate::operator::{QueryVector, RankExpr};
+
+        // Valid: group_by with rank expression
+        let payload = SearchPayload {
+            rank: Rank {
+                expr: Some(RankExpr::Knn {
+                    query: QueryVector::Dense(vec![0.1, 0.2, 0.3]),
+                    key: Key::Embedding,
+                    limit: 100,
+                    default: None,
+                    return_rank: false,
+                }),
+            },
+            group_by: GroupBy {
+                keys: vec![Key::field("category")],
+                aggregate: Some(Aggregate::MinK {
+                    keys: vec![Key::Score],
+                    k: 3,
+                }),
+            },
+            ..Default::default()
+        };
+        assert!(validate_search_payload(&payload).is_ok());
+
+        // Valid: no group_by, no rank
+        let payload = SearchPayload::default();
+        assert!(validate_search_payload(&payload).is_ok());
+
+        // Valid: rank without group_by
+        let payload = SearchPayload {
+            rank: Rank {
+                expr: Some(RankExpr::Knn {
+                    query: QueryVector::Dense(vec![0.1, 0.2, 0.3]),
+                    key: Key::Embedding,
+                    limit: 100,
+                    default: None,
+                    return_rank: false,
+                }),
+            },
+            ..Default::default()
+        };
+        assert!(validate_search_payload(&payload).is_ok());
+
+        // Invalid: group_by without rank expression
+        let payload = SearchPayload {
+            rank: Rank { expr: None },
+            group_by: GroupBy {
+                keys: vec![Key::field("category")],
+                aggregate: Some(Aggregate::MinK {
+                    keys: vec![Key::Score],
+                    k: 3,
+                }),
+            },
+            ..Default::default()
+        };
+        assert!(validate_search_payload(&payload).is_err());
     }
 }

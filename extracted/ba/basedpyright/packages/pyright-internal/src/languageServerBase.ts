@@ -52,6 +52,7 @@ import {
     ExecuteCommandParams,
     HandlerResult,
     HoverParams,
+    ImplementationParams,
     InitializeParams,
     InitializeResult,
     LSPObject,
@@ -72,7 +73,8 @@ import {
     TextDocumentSyncKind,
     WorkDoneProgressReporter,
     WorkspaceDiagnosticParams,
-    WorkspaceDocumentDiagnosticReport,
+    WorkspaceDiagnosticReport,
+    WorkspaceDiagnosticReportPartialResult,
     WorkspaceEdit,
     WorkspaceFoldersChangeEvent,
     WorkspaceSymbol,
@@ -98,7 +100,7 @@ import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgro
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, LibraryReanalysisTimeProvider, getNextServiceId } from './analyzer/service';
-import { IPythonMode, SourceFile } from './analyzer/sourceFile';
+import { IPythonMode } from './analyzer/sourceFile';
 import type { IBackgroundAnalysis } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter } from './common/cancellationUtils';
@@ -131,7 +133,7 @@ import { fromLSPAny, isNullProgressReporter } from './common/lspUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
 import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
-import { Position, Range } from './common/textRange';
+import { Position, Range, TextRange } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
@@ -146,6 +148,7 @@ import { FileWatcherDynamicFeature } from './languageService/fileWatcherDynamicF
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
+import { ImplementationProvider } from './languageService/implementationProvider';
 import { RenameProvider } from './languageService/renameProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
@@ -159,6 +162,7 @@ import {
     Workspace,
     WorkspaceFactory,
 } from './workspaceFactory';
+import { PullDiagnosticsDynamicFeature } from './languageService/pullDiagnosticsDynamicFeature';
 import { website } from './constants';
 import { SemanticTokensProvider, SemanticTokensProviderLegend } from './languageService/semanticTokensProvider';
 import { RenameUsageFinder } from './analyzer/renameUsageFinder';
@@ -172,9 +176,35 @@ import { StringTokenFlags } from './parser/tokenizerTypes';
 
 const UncomputedDiagnosticsVersion = -1;
 
+export function wrapProgressReporter(reporter: WorkDoneProgressReporter): ProgressReporter {
+    let isDisplayingProgress = false;
+    return {
+        isDisplayingProgress: () => {
+            return isDisplayingProgress;
+        },
+        isEnabled: () => {
+            return true;
+        },
+        begin: () => {
+            isDisplayingProgress = true;
+            reporter.begin('', /* percentage */ undefined, /* message */ undefined, /* cancellable */ false);
+        },
+        report: (message) => {
+            reporter.report(message);
+        },
+        end: () => {
+            isDisplayingProgress = false;
+            reporter.done();
+        },
+    };
+}
+
 export abstract class LanguageServerBase implements LanguageServerInterface, Disposable {
     // We support running only one "find all reference" at a time.
     private _pendingFindAllRefsCancellationSource: AbstractCancellationTokenSource | undefined;
+
+    // We support running only one "find all implementations" at a time.
+    private _pendingFindAllImpsCancellationSource: AbstractCancellationTokenSource | undefined;
 
     // We support running only one command at a time.
     private _pendingCommandCancellationSource: AbstractCancellationTokenSource | undefined;
@@ -186,6 +216,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     private _initialized = false;
     private _workspaceFoldersChangedDisposable: Disposable | undefined;
+    private _workspaceDiagnosticsReporter: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult> | undefined;
+    private _workspaceDiagnosticsProgressReporter: ProgressReporter | undefined;
+    private _workspaceDiagnosticsResolve: ((value: WorkspaceDiagnosticReport) => void) | undefined;
 
     protected client: ClientCapabilities = {
         hasConfigurationCapability: false,
@@ -315,11 +348,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             libraryReanalysisTimeProvider,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
-            usingPullDiagnostics: this.client.supportsPullDiagnostics,
             onInvalidated: (reason) => {
-                if (this.client.supportsPullDiagnostics) {
-                    this.connection.sendRequest(DiagnosticRefreshRequest.type);
+                // If we're in openFilesOnly mode and the client supports pull diagnostics, request a refresh. In
+                // workspace mode we just use the 'push' notification to respond to the workspace diagnostics
+                if (this.client.supportsPullDiagnostics && service.checkOnlyOpenFiles) {
+                    void this.connection.sendRequest(DiagnosticRefreshRequest.type);
                 }
+            },
+            shouldRunAnalysis: () => {
+                // We should run analysis if:
+                // The client doesn't support pull diagnostics (meaning we have to run analysis ourselves)
+                // or
+                // We have a workspace partial result callback (meaning in pull mode, we're waiting for workspace results)
+                return !this.client.supportsPullDiagnostics || this._workspaceDiagnosticsReporter !== undefined;
             },
         });
 
@@ -387,6 +428,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
             this.dynamicFeatures.update(serverSettings);
 
+            // If the workspace mode has changed, we may need to resolve the workspace diagnostics promise.
+            if (serverSettings.openFilesOnly && this._workspaceDiagnosticsResolve) {
+                this._workspaceDiagnosticsResolve({ items: [] });
+                this._workspaceDiagnosticsResolve = undefined;
+            }
+
             // Then use the updated settings to restart the service.
             this.updateOptionsAndRestartService(workspace, serverSettings);
 
@@ -397,6 +444,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             workspace.useTypingExtensions = serverSettings.useTypingExtensions ?? false;
             workspace.fileEnumerationTimeoutInSec = serverSettings.fileEnumerationTimeoutInSec ?? 10;
             workspace.autoFormatStrings = serverSettings.autoFormatStrings ?? true;
+            workspace.baselineMode = serverSettings.baselineMode ?? 'auto';
         } finally {
             // Don't use workspace.isInitialized directly since it might have been
             // reset due to pending config change event.
@@ -429,6 +477,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
         return fs.getOriginalUri(uri).toString();
     };
+
+    protected get workspaceDiagnosticsReporter() {
+        return this._workspaceDiagnosticsReporter;
+    }
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 
@@ -549,6 +601,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             this.onReferences(params, token, workDoneReporter, resultReporter)
         );
 
+        this.connection.onImplementation(async (params, token, workDoneReporter, resultReporter) =>
+            this.onImplementation(params, token, workDoneReporter, resultReporter)
+        );
+
         this.connection.onDocumentSymbol(async (params, token) => this.onDocumentSymbol(params, token));
         this.connection.onWorkspaceSymbol(async (params, token, _, resultReporter) =>
             this.onWorkspaceSymbol(params, token, resultReporter)
@@ -594,8 +650,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.connection.onDocumentOnTypeFormatting(this.onTypeFormatting);
 
         this.connection.languages.diagnostics.on(async (params, token) => this.onDiagnostics(params, token));
-        this.connection.languages.diagnostics.onWorkspace(async (params, token) =>
-            this.onWorkspaceDiagnostics(params, token)
+        this.connection.languages.diagnostics.onWorkspace(async (params, token, progress, reporter) =>
+            this.onWorkspaceDiagnostics(params, token, progress, reporter)
         );
         this.connection.onExecuteCommand(async (params, token, reporter) =>
             this.onExecuteCommand(params, token, reporter)
@@ -653,11 +709,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.client.completionItemResolveSupportsTags = completionResolveProperties.includes('tags');
         this.client.supportsPullDiagnostics =
             !!capabilities.textDocument?.diagnostic?.dynamicRegistration &&
-            initializationOptions?.diagnosticMode !== 'workspace' &&
             initializationOptions?.disablePullDiagnostics !== true;
         this.client.requiresPullRelatedInformationCapability =
             !!capabilities.textDocument?.diagnostic?.relatedInformation &&
-            initializationOptions?.diagnosticMode !== 'workspace' &&
             initializationOptions?.disablePullDiagnostics !== true;
         this.client.onTypeFormatting = capabilities.textDocument?.onTypeFormatting !== undefined;
 
@@ -690,6 +744,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 declarationProvider: { workDoneProgress: true },
                 typeDefinitionProvider: { workDoneProgress: true },
                 referencesProvider: { workDoneProgress: true },
+                implementationProvider: { workDoneProgress: true },
                 documentSymbolProvider: { workDoneProgress: true },
                 workspaceSymbolProvider: { workDoneProgress: true },
                 hoverProvider: { workDoneProgress: true },
@@ -739,12 +794,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         };
 
         if (this.client.supportsPullDiagnostics) {
-            result.capabilities.diagnosticProvider = {
-                identifier: 'pyright',
-                documentSelector: null,
-                interFileDependencies: true,
-                workspaceDiagnostics: false, // Workspace wide are not pull diagnostics.
-            };
+            this.addDynamicFeature(new PullDiagnosticsDynamicFeature(this.connection, this.serverOptions.productName));
         }
 
         return result;
@@ -898,6 +948,61 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                     createDocumentRange,
                     convertToLocation
                 ).reportReferences(uri, params.position, params.context.includeDeclaration, resultReporter);
+            }, token);
+        } finally {
+            progress.reporter.done();
+            source.dispose();
+        }
+    }
+
+    protected async onImplementation(
+        params: ImplementationParams,
+        token: CancellationToken,
+        workDoneReporter: WorkDoneProgressReporter,
+        resultReporter: ResultProgressReporter<Location[]> | undefined,
+        createDocumentRange?: (uri: Uri, range: TextRange, parseResults: ParseFileResults) => DocumentRange,
+        convertToLocation?: (
+            ls: LanguageServerInterface,
+            fs: ReadOnlyFileSystem,
+            ranges: DocumentRange
+        ) => Location | undefined
+    ): Promise<Location[] | null | undefined> {
+        if (this._pendingFindAllImpsCancellationSource) {
+            this._pendingFindAllImpsCancellationSource.cancel();
+            this._pendingFindAllImpsCancellationSource = undefined;
+        }
+
+        // // VS Code doesn't support cancellation of "find all references".
+        // ^ this comment copied from onReferences
+        // I don't know whether VS Code supports cancellation of "find all implementations".
+
+        // We provide a progress bar a cancellation button so the user can cancel
+        // any long-running actions.
+        const progress = await this.getProgressReporter(
+            workDoneReporter,
+            Localizer.CodeAction.findingImplementations(),
+            token
+        );
+
+        const source = progress.source;
+        this._pendingFindAllImpsCancellationSource = source;
+
+        try {
+            const uri = this.convertLspUriStringToUri(params.textDocument.uri);
+
+            const workspace = await this.getWorkspaceForFile(uri);
+            if (workspace.disableLanguageServices) {
+                return;
+            }
+
+            return workspace.service.run((program) => {
+                return new ImplementationProvider(
+                    this,
+                    program,
+                    source.token,
+                    createDocumentRange,
+                    convertToLocation
+                ).reportImplementations(uri, params.position, resultReporter);
             }, token);
         } finally {
             progress.reporter.done();
@@ -1499,20 +1604,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                         ? undefined
                         : diagnosticsVersionAfter.toString();
                 result.items = lspDiagnostics;
+                if (sourceFile) {
+                    this.documentsWithDiagnostics[uri.toString()] = {
+                        reason: 'analysis',
+                        fileUri: uri,
+                        cell: sourceFile.getCellIndex(),
+                        diagnostics: serverDiagnostics,
+                        version: diagnosticsVersion,
+                    };
+                }
             } else {
                 (result as any).kind = 'unchanged';
                 result.resultId =
                     diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
                 delete (result as any).items;
-            }
-            if (sourceFile) {
-                this.documentsWithDiagnostics[uri.toString()] = {
-                    reason: 'analysis',
-                    fileUri: uri,
-                    cell: sourceFile.getCellIndex(),
-                    diagnostics: serverDiagnostics,
-                    version: diagnosticsVersion,
-                };
             }
         } finally {
             this.decrementAnalysisProgress();
@@ -1521,23 +1626,33 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return result;
     }
 
-    protected async onWorkspaceDiagnostics(params: WorkspaceDiagnosticParams, token: CancellationToken) {
-        const workspaces = await this.getWorkspaces();
-        const promises: Promise<WorkspaceDocumentDiagnosticReport>[] = [];
-        workspaces.forEach((workspace) => {
-            if (!workspace.disableLanguageServices) {
-                const files = workspace.service.getOwnedFiles();
-                files.forEach((file) => {
-                    const sourceFile = workspace.service.getSourceFile(file)!;
-                    if (canNavigateToFile(workspace.service.fs, sourceFile.getUri())) {
-                        promises.push(this._getWorkspaceDocumentDiagnostics(params, sourceFile, workspace, token));
-                    }
-                });
-            }
+    protected async onWorkspaceDiagnostics(
+        params: WorkspaceDiagnosticParams,
+        token: CancellationToken,
+        workDoneProgress: WorkDoneProgressReporter,
+        resultReporter?: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult>
+    ) {
+        // Resolve any pending workspace diagnostics. We only allow one at a time.
+        this._workspaceDiagnosticsResolve?.({ items: [] });
+        this._workspaceDiagnosticsResolve = undefined;
+
+        // Save the progress reporters and force a refresh of analysis.
+        this._workspaceDiagnosticsProgressReporter = !isNullProgressReporter(workDoneProgress)
+            ? wrapProgressReporter(workDoneProgress)
+            : undefined;
+        this._workspaceDiagnosticsReporter = resultReporter;
+        this.workspaceFactory.getNonDefaultWorkspaces().forEach((workspace) => {
+            workspace.service.invalidateAndScheduleReanalysis(InvalidatedReason.Reanalyzed);
         });
-        return {
-            items: await Promise.all(promises),
-        };
+
+        return new Promise<WorkspaceDiagnosticReport>((resolve, reject) => {
+            // We never resolve as this should be a continually occurring process. Scheduling analysis
+            // should cause a new workspace diagnostic to be generated.
+
+            // Save the resolve callback to be used during shutdown so that tests don't crash
+            // on the unresolved promise for the workspace diagnostics.
+            this._workspaceDiagnosticsResolve = resolve;
+        });
     }
 
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
@@ -1631,8 +1746,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             // other string types that can't be used with f-strings
             !(node.d.token.flags & (StringTokenFlags.Bytes | StringTokenFlags.Unicode | StringTokenFlags.Template))
         ) {
-            const position = convertOffsetToPosition(node?.start, parseResults.tokenizerOutput.lines);
-            return [{ range: { start: position, end: position }, newText: 'f' }];
+            // don't do it if the previous characters are "\N{" because the user is likely trying to use a named unicode character, not an f-string
+            const dontConvertToFstringIfPrefix = '\\N{';
+            const positionInString = offset - node.start - node.d.token.quoteMarkLength;
+            if (
+                node.d.token.escapedValue.slice(
+                    positionInString - dontConvertToFstringIfPrefix.length,
+                    positionInString
+                ) !== dontConvertToFstringIfPrefix
+            ) {
+                const position = convertOffsetToPosition(node?.start, parseResults.tokenizerOutput.lines);
+                return [{ range: { start: position, end: position }, newText: 'f' }];
+            }
         }
         return;
     };
@@ -1695,6 +1820,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected onShutdown(token: CancellationToken) {
         // Shutdown remaining workspaces.
+        this._workspaceDiagnosticsResolve?.({ items: [] });
         this.workspaceFactory.clear();
 
         // Stop tracking all open files.
@@ -1743,11 +1869,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             filesRequiringBaselineUpdate.get(workspace)!.push(fileDiagnostics);
         }
         for (const [workspace, files] of filesRequiringBaselineUpdate.entries()) {
-            if (!workspace.rootUri) {
+            if (!workspace.rootUri || workspace.baselineMode === 'discard') {
                 continue;
             }
-            const baseline = workspace.service.backgroundAnalysisProgram.program.baselineHandler;
-            const baselineDiffSummary = baseline.write(false, false, files)?.getSummaryMessage();
+            const baselineDiffSummary = workspace.service.backgroundAnalysisProgram.writeBaseline(
+                workspace.baselineMode,
+                false,
+                files
+            );
             if (baselineDiffSummary) {
                 this.console.info(
                     `${baselineDiffSummary}. files: ${files.map((file) => file.fileUri.toString()).join(', ')}`
@@ -1758,10 +1887,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     };
 
     protected async onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): Promise<void> {
-        // If we're in pull mode, disregard any 'tracking' results. They're not necessary.
-        if (this.client.supportsPullDiagnostics && results.reason === 'tracking') {
-            return;
-        }
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
             if (!this.canNavigateToFile(fileDiag.fileUri, fs)) {
@@ -1782,17 +1907,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             this.updateBaselineFileIfNeeded();
         }
 
-        if (!this._progressReporter.isEnabled(results)) {
+        const reporter = this.getAnalysisProgressReporter();
+        if (!reporter.isEnabled(results)) {
             // Make sure to disable progress bar if it is currently active.
             // This can happen if a user changes typeCheckingMode in the middle
             // of analysis.
             // end() is noop if there is no active progress bar.
-            this._progressReporter.end();
+            reporter.end();
             return;
         }
 
         // Update progress.
-        this.sendProgressMessage(results.requiringAnalysisCount.files);
+        this.sendProgressMessage(results.requiringAnalysisCount.files, results.requiringAnalysisCount.cells);
     }
 
     protected incrementAnalysisProgress() {
@@ -1808,9 +1934,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.sendProgressMessage(this._progressReportCounter);
     }
 
-    protected sendProgressMessage(fileCount: number) {
+    protected getAnalysisProgressReporter(): ProgressReporter {
+        if (this._workspaceDiagnosticsProgressReporter) {
+            return this._workspaceDiagnosticsProgressReporter;
+        }
+        return this._progressReporter;
+    }
+
+    protected sendProgressMessage(fileCount: number, cellCount?: number) {
+        const reporter = this.getAnalysisProgressReporter();
         if (fileCount <= 0) {
-            this._progressReporter.end();
+            reporter.end();
             return;
         }
         const progressMessage =
@@ -1821,10 +1955,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                   });
 
         // Update progress.
-        if (!this._progressReporter.isDisplayingProgess()) {
-            this._progressReporter.begin();
+        if (!reporter.isDisplayingProgress()) {
+            reporter.begin();
         }
-        this._progressReporter.report(progressMessage);
+        reporter.report(progressMessage);
     }
 
     protected onWorkspaceCreated(workspace: Workspace) {
@@ -1928,7 +2062,24 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     ) {
         const key = fileWithDiagnostics.fileUri.toString();
         this.documentsWithDiagnostics[key] = fileWithDiagnostics;
-        this.connection.sendDiagnostics(await this.convertDiagnostics(fs, fileWithDiagnostics));
+        const convertedDiagnostics = await this.convertDiagnostics(fs, fileWithDiagnostics);
+        // If we're waiting for a pending workspace diagnostic, send a partial result.
+        if (this._workspaceDiagnosticsReporter) {
+            // Skip storing previous result ids, just send new results every time.
+            this._workspaceDiagnosticsReporter.report({
+                items: [
+                    {
+                        ...convertedDiagnostics,
+                        kind: 'full',
+                        version: convertedDiagnostics.version || null,
+                        items: convertedDiagnostics.diagnostics,
+                    },
+                ],
+            });
+        } else {
+            // Otherwise send a publish diagnostic notification.
+            this.connection.sendDiagnostics(convertedDiagnostics);
+        }
     }
 
     protected addDynamicFeature(feature: DynamicFeature) {
@@ -1995,33 +2146,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         return MarkupKind.PlainText;
     }
-    private async _getWorkspaceDocumentDiagnostics(
-        params: WorkspaceDiagnosticParams,
-        sourceFile: SourceFile,
-        workspace: Workspace,
-        token: CancellationToken
-    ) {
-        const originalUri = workspace.service.fs.getOriginalUri(sourceFile.getUri());
-        const result: WorkspaceDocumentDiagnosticReport = {
-            uri: originalUri.toString(),
-            version: sourceFile.getClientVersion() ?? null,
-            kind: 'full',
-            items: [],
-        };
-        const previousId = params.previousResultIds.find((x) => x.uri === originalUri.toString());
-        const documentResult = await this.onDiagnostics(
-            { previousResultId: previousId?.value, textDocument: { uri: result.uri } },
-            token
-        );
-        if (documentResult.kind === 'full') {
-            result.items = documentResult.items;
-        } else {
-            (result as any).kind = documentResult.kind;
-            delete (result as any).items;
-        }
-        return result;
-    }
-
     private _convertDiagnostics(fs: FileSystem, diags: AnalyzerDiagnostic[]): Diagnostic[] {
         const convertedDiags: Diagnostic[] = [];
         diags.forEach((diag) => {
@@ -2029,6 +2153,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             const rule = diag.getRule() as DiagnosticRule;
             const code = this.getDiagCode(diag, rule);
             const vsDiag = Diagnostic.create(diag.range, diag.message, severity, code, this.serverOptions.productName);
+
+            // Save all of the actions in the data.
+            const actions = diag.getActions();
+            if (actions?.length) {
+                vsDiag.data = { ...vsDiag.data, actions: actions };
+            }
 
             if (diag.category === DiagnosticCategory.TaskItem) {
                 // TaskItem is not supported.
@@ -2045,6 +2175,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 vsDiag.tags = [DiagnosticTag.Deprecated];
             } else if ([...unreachableDiagnosticRules(), ...unusedDiagnosticRules()].includes(rule)) {
                 vsDiag.tags = [DiagnosticTag.Unnecessary];
+                vsDiag.data = { ...vsDiag.data, category: diag.category, rule: rule };
             }
             if (rule) {
                 const ruleDocUrl = this.getDocumentationUrlForDiagnostic(diag);

@@ -76,6 +76,24 @@ class BaseVlmPageModel(BasePageModel, BaseVlmModel):
     vlm_options: InlineVlmOptions
     processor: Any
 
+    def _build_prompt_safe(self, page: Page) -> str:
+        """Build prompt with backward compatibility for user overrides.
+
+        Tries to call build_prompt with _internal_page parameter (for layout-aware
+        pipelines). Falls back to basic call if user override doesn't accept it.
+
+        Args:
+            page: The full Page object with layout predictions and parsed_page.
+
+        Returns:
+            The formatted prompt string.
+        """
+        try:
+            return self.vlm_options.build_prompt(page.parsed_page, _internal_page=page)
+        except TypeError:
+            # User override doesn't accept _internal_page - fall back to basic call
+            return self.vlm_options.build_prompt(page.parsed_page)
+
     @abstractmethod
     def __call__(
         self, conv_res: ConversionResult, page_batch: Iterable[Page]
@@ -88,7 +106,8 @@ class BaseVlmPageModel(BasePageModel, BaseVlmModel):
 
         if self.vlm_options.transformers_prompt_style == TransformersPromptStyle.RAW:
             return user_prompt
-
+        elif self.vlm_options.transformers_prompt_style == TransformersPromptStyle.NONE:
+            return ""
         elif self.vlm_options.repo_id == "microsoft/Phi-4-multimodal-instruct":
             _log.debug("Using specialized prompt for Phi-4")
             # Note: This might need adjustment for VLLM vs transformers
@@ -172,11 +191,11 @@ class BaseItemAndImageEnrichmentModel(
         assert isinstance(element, DocItem)
 
         # Allow the case of documents without page images but embedded images (e.g. Word and HTML docs)
-        if len(element.prov) == 0 and isinstance(element, PictureItem):
+        if isinstance(element, PictureItem):
             embedded_im = element.get_image(conv_res.document)
             if embedded_im is not None:
                 return ItemAndImageEnrichmentElement(item=element, image=embedded_im)
-            else:
+            elif len(element.prov) == 0:
                 return None
 
         # Crop the image form the page
@@ -194,7 +213,7 @@ class BaseItemAndImageEnrichmentModel(
             coord_origin=bbox.coord_origin,
         )
 
-        page_ix = element_prov.page_no - conv_res.pages[0].page_no - 1
+        page_ix = element_prov.page_no - conv_res.pages[0].page_no
         cropped_image = conv_res.pages[page_ix].get_image(
             scale=self.images_scale, cropbox=expanded_bbox
         )

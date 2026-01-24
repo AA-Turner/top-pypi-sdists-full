@@ -4,15 +4,17 @@ import logging
 import typing as t
 import uuid
 
-from globus_sdk import _guards, client, exc, response
+from globus_sdk import client, exc, response
+from globus_sdk._internal import guards
 from globus_sdk.scopes import (
-    GCSCollectionScopeBuilder,
+    GCSCollectionScopes,
     Scope,
+    SpecificFlowScopes,
     TimersScopes,
     TransferScopes,
 )
 
-from .data import TimerJob, TransferTimer
+from .data import FlowTimer, TimerJob, TransferTimer
 from .errors import TimersAPIError
 
 log = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ class TimersClient(client.BaseClient):
     error_class = TimersAPIError
     service_name = "timer"
     scopes = TimersScopes
-    default_scope_requirements = [Scope(TimersScopes.timer)]
+    default_scope_requirements = [TimersScopes.timer]
 
     def add_app_transfer_data_access_scope(
         self, collection_ids: uuid.UUID | str | t.Iterable[uuid.UUID | str]
@@ -66,9 +68,7 @@ class TimersClient(client.BaseClient):
                     app = UserApp("myapp", client_id=NATIVE_APP_CLIENT_ID)
                     client = TimersClient(app=app).add_app_transfer_data_access_scope(COLLECTION_ID)
 
-                    transfer_data = TransferData(
-                        source_endpoint=COLLECTION_ID, destination_endpoint=COLLECTION_ID
-                    )
+                    transfer_data = TransferData(COLLECTION_ID, COLLECTION_ID)
                     transfer_data.add_item("/staging/", "/active/")
 
                     daily_timer = TransferTimer(
@@ -78,25 +78,78 @@ class TimersClient(client.BaseClient):
                     client.create_timer(daily_timer)
         """  # noqa: E501
         if isinstance(collection_ids, (str, uuid.UUID)):
-            _guards.validators.uuidlike("collection_ids", collection_ids)
+            guards.validators.uuidlike("collection_ids", collection_ids)
             # wrap the collection_ids input in a list for consistent iteration below
             collection_ids_ = [collection_ids]
         else:
             # copy to a list so that ephemeral iterables can be iterated multiple times
             collection_ids_ = list(collection_ids)
             for i, c in enumerate(collection_ids_):
-                _guards.validators.uuidlike(f"collection_ids[{i}]", c)
+                guards.validators.uuidlike(f"collection_ids[{i}]", c)
 
-        transfer_scope = Scope(TransferScopes.all)
+        dependencies: list[Scope] = []
         for coll_id in collection_ids_:
-            data_access_scope = Scope(
-                GCSCollectionScopeBuilder(str(coll_id)).data_access,
-                optional=True,
-            )
-            transfer_scope.add_dependency(data_access_scope)
+            data_access_scope = GCSCollectionScopes(
+                str(coll_id)
+            ).data_access.with_optional(True)
+            dependencies.append(data_access_scope)
+        transfer_scope = TransferScopes.all.with_dependencies(dependencies)
 
-        timers_scope = Scope(TimersScopes.timer)
-        timers_scope.add_dependency(transfer_scope)
+        timers_scope = TimersScopes.timer.with_dependency(transfer_scope)
+        self.add_app_scope(timers_scope)
+        return self
+
+    def add_app_flow_user_scope(
+        self, flow_ids: uuid.UUID | str | t.Iterable[uuid.UUID | str]
+    ) -> TimersClient:
+        """
+        Add a dependent flow ``user`` scope for one or more given ``flow_ids``
+        to this client's ``GlobusApp``, under the Timers ``timer`` scope.
+        Needed to prevent ``ConsentRequired`` errors when creating flow timers.
+
+        Returns ``self`` for chaining.
+
+        Raises ``GlobusSDKUsageError`` if this client was not initialized with an app.
+
+        :param flow_ids: a flow ID or an iterable of IDs.
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    app = UserApp("myapp", client_id=NATIVE_APP_CLIENT_ID)
+                    client = TimersClient(app=app)
+                    client.add_app_flow_user_scope(FLOW_ID)
+
+                    flow_timer = FlowTimer(
+                        name="my flow timer",
+                        flow_id=FLOW_ID,
+                        schedule=RecurringTimerSchedule(24 * 60 * 60),
+                        body={
+                            "body": {
+                                "input_key": "input_value",
+                            },
+                        },
+                    )
+
+                    client.create_timer(flow_timer)
+        """  # noqa: E501
+        if isinstance(flow_ids, (str, uuid.UUID)):
+            guards.validators.uuidlike("flow_ids", flow_ids)
+            # wrap the flow_ids input in a list for consistent iteration below
+            flow_ids_ = [flow_ids]
+        else:
+            # copy to a list so that ephemeral iterables can be iterated multiple times
+            flow_ids_ = list(flow_ids)
+            for i, c in enumerate(flow_ids_):
+                guards.validators.uuidlike(f"flow_ids[{i}]", c)
+
+        dependencies: list[Scope] = [
+            SpecificFlowScopes(flow_id).user for flow_id in flow_ids_
+        ]
+        timers_scope = TimersScopes.timer.with_dependencies(dependencies)
         self.add_app_scope(timers_scope)
         return self
 
@@ -138,7 +191,7 @@ class TimersClient(client.BaseClient):
         return self.get(f"/jobs/{job_id}", query_params=query_params)
 
     def create_timer(
-        self, timer: dict[str, t.Any] | TransferTimer
+        self, timer: dict[str, t.Any] | TransferTimer | FlowTimer
     ) -> response.GlobusHTTPResponse:
         """
         :param timer: a document defining the new timer
@@ -154,15 +207,14 @@ class TimersClient(client.BaseClient):
 
                 .. code-block:: pycon
 
-                    >>> transfer_client = TransferClient(...)
-                    >>> transfer_data = TransferData(transfer_client, ...)
-                    >>> timer_client = globus_sdk.TimersClient(...)
+                    >>> transfer_data = TransferData(...)
+                    >>> timers_client = globus_sdk.TimersClient(...)
                     >>> create_doc = globus_sdk.TransferTimer(
                     ...     name="my-timer",
                     ...     schedule={"type": "recurring", "interval": 1800},
                     ...     body=transfer_data,
                     ... )
-                    >>> response = timer_client.create_timer(timer=create_doc)
+                    >>> response = timers_client.create_timer(timer=create_doc)
 
             .. tab-item:: Example Response Data
 
@@ -191,16 +243,17 @@ class TimersClient(client.BaseClient):
         **Examples**
 
         >>> from datetime import datetime, timedelta, timezone
-        >>> transfer_client = TransferClient(...)
-        >>> transfer_data = TransferData(transfer_client, ...)
+        >>> callback_url = ...
+        >>> data = ...
         >>> timer_client = globus_sdk.TimersClient(...)
-        >>> job = TimerJob.from_transfer_data(
-        ...     transfer_data,
+        >>> job = TimerJob(
+        ...     callback_url,
+        ...     data,
         ...     datetime.now(tz=timezone.utc).replace(tzinfo=None),
         ...     timedelta(days=14),
         ...     name="my-timer-job"
         ... )
-        >>> timer_result = timer_client.create_job(job)
+        >>> timer_result = timers_client.create_job(job)
         """
         if isinstance(data, TransferTimer):
             raise exc.GlobusSDKUsageError(

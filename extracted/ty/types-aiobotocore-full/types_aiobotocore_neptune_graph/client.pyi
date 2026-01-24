@@ -3,7 +3,7 @@ Type annotations for neptune-graph service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -92,8 +93,12 @@ from .type_defs import (
     RestoreGraphFromSnapshotOutputTypeDef,
     StartExportTaskInputTypeDef,
     StartExportTaskOutputTypeDef,
+    StartGraphInputTypeDef,
+    StartGraphOutputTypeDef,
     StartImportTaskInputTypeDef,
     StartImportTaskOutputTypeDef,
+    StopGraphInputTypeDef,
+    StopGraphOutputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateGraphInputTypeDef,
@@ -106,18 +111,13 @@ from .waiter import (
     GraphDeletedWaiter,
     GraphSnapshotAvailableWaiter,
     GraphSnapshotDeletedWaiter,
+    GraphStoppedWaiter,
     ImportTaskCancelledWaiter,
     ImportTaskSuccessfulWaiter,
     PrivateGraphEndpointAvailableWaiter,
     PrivateGraphEndpointDeletedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -126,15 +126,15 @@ else:
 __all__ = ("NeptuneGraphClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnprocessableException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnprocessableException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class NeptuneGraphClient(AioBaseClient):
     """
@@ -450,6 +450,16 @@ class NeptuneGraphClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#start_export_task)
         """
 
+    async def start_graph(
+        self, **kwargs: Unpack[StartGraphInputTypeDef]
+    ) -> StartGraphOutputTypeDef:
+        """
+        Starts the specific graph.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/start_graph.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#start_graph)
+        """
+
     async def start_import_task(
         self, **kwargs: Unpack[StartImportTaskInputTypeDef]
     ) -> StartImportTaskOutputTypeDef:
@@ -461,7 +471,15 @@ class NeptuneGraphClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#start_import_task)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def stop_graph(self, **kwargs: Unpack[StopGraphInputTypeDef]) -> StopGraphOutputTypeDef:
+        """
+        Stops the specific graph.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/stop_graph.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#stop_graph)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds tags to the specified resource.
 
@@ -469,7 +487,7 @@ class NeptuneGraphClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -610,6 +628,17 @@ class NeptuneGraphClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["graph_stopped"]
+    ) -> GraphStoppedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["import_task_cancelled"]
     ) -> ImportTaskCancelledWaiter:
         """
@@ -660,7 +689,7 @@ class NeptuneGraphClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Q, UniqueConstraint
 from django.db.models.signals import post_delete, post_save
@@ -7,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from django_fsm import FSMField, transition
 from slugify import slugify
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.contrib.icons import WBIcon
 from wbcore.contrib.notifications.dispatch import send_notification
 from wbcore.contrib.notifications.utils import create_notification_type
@@ -307,8 +307,8 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
     def approveremoval(self, by=None, description=None, **kwargs):
         pass
 
-    def is_not_primary(instance):
-        return not instance.primary
+    def is_not_primary(self):
+        return not self.primary
 
     @transition(
         field=status,
@@ -331,10 +331,10 @@ class ClientManagerRelationship(ComplexToStringMixin, PrimaryMixin, WBModel):
     def makeprimary(self, by=None, description=None, **kwargs):
         self.primary = True
 
-    def last_primary(instance):
-        return not instance.primary and (
-            ClientManagerRelationship.objects.exclude(id=instance.id)
-            .filter(status=ClientManagerRelationship.Status.APPROVED, client=instance.client, primary=True)
+    def last_primary(self):
+        return not self.primary and (
+            ClientManagerRelationship.objects.exclude(id=self.id)
+            .filter(status=ClientManagerRelationship.Status.APPROVED, client=self.client, primary=True)
             .exists()
         )
 
@@ -424,14 +424,10 @@ def post_save_client_manager_relationship(sender, instance, created, **kwargs):
         ClientManagerRelationship.Status.PENDINGADD.name,
         ClientManagerRelationship.Status.PENDINGREMOVE.name,
     ]:
-        user_qs = (
-            get_user_model()
-            .objects.filter(
-                models.Q(groups__permissions__codename="can_administer_entry_in_charge_request")
-                | models.Q(user_permissions__codename="can_administer_entry_in_charge_request")
-            )
-            .distinct()
-        )
+        user_qs = User.objects.filter(
+            models.Q(groups__permissions__codename="can_administer_entry_in_charge_request")
+            | models.Q(user_permissions__codename="can_administer_entry_in_charge_request")
+        ).distinct()
         if instance.status == ClientManagerRelationship.Status.PENDINGADD.name:
             for user in user_qs.all():
                 send_notification(
@@ -555,6 +551,7 @@ class EmployerEmployeeRelationship(PrimaryMixin):
     def get_representation_value_key(cls):
         return "id"
 
+    @classmethod
     def representation_label_key(cls):
         return "{{position_name}}"
 

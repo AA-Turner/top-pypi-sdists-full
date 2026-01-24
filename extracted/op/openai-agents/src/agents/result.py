@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import weakref
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from typing_extensions import TypeVar
 
@@ -31,6 +32,7 @@ from .util._pretty_print import (
 if TYPE_CHECKING:
     from ._run_impl import QueueCompleteSentinel
     from .agent import Agent
+    from .tool_guardrails import ToolInputGuardrailResult, ToolOutputGuardrailResult
 
 T = TypeVar("T")
 
@@ -59,6 +61,12 @@ class RunResultBase(abc.ABC):
     output_guardrail_results: list[OutputGuardrailResult]
     """Guardrail results for the final output of the agent."""
 
+    tool_input_guardrail_results: list[ToolInputGuardrailResult]
+    """Tool input guardrail results from all tools executed during the run."""
+
+    tool_output_guardrail_results: list[ToolOutputGuardrailResult]
+    """Tool output guardrail results from all tools executed during the run."""
+
     context_wrapper: RunContextWrapper[Any]
     """The context wrapper for the agent run."""
 
@@ -66,6 +74,35 @@ class RunResultBase(abc.ABC):
     @abc.abstractmethod
     def last_agent(self) -> Agent[Any]:
         """The last agent that was run."""
+
+    def release_agents(self, *, release_new_items: bool = True) -> None:
+        """
+        Release strong references to agents held by this result. After calling this method,
+        accessing `item.agent` or `last_agent` may return `None` if the agent has been garbage
+        collected. Callers can use this when they are done inspecting the result and want to
+        eagerly drop any associated agent graph.
+        """
+        if release_new_items:
+            for item in self.new_items:
+                release = getattr(item, "release_agent", None)
+                if callable(release):
+                    release()
+        self._release_last_agent_reference()
+
+    def __del__(self) -> None:
+        try:
+            # Fall back to releasing agents automatically in case the caller never invoked
+            # `release_agents()` explicitly so GC of the RunResult drops the last strong reference.
+            # We pass `release_new_items=False` so RunItems that the user intentionally keeps
+            # continue exposing their originating agent until that agent itself is collected.
+            self.release_agents(release_new_items=False)
+        except Exception:
+            # Avoid raising from __del__.
+            pass
+
+    @abc.abstractmethod
+    def _release_last_agent_reference(self) -> None:
+        """Release stored agent reference specific to the concrete result type."""
 
     def final_output_as(self, cls: type[T], raise_if_incorrect_type: bool = False) -> T:
         """A convenience method to cast the final output to a specific type. By default, the cast
@@ -104,11 +141,34 @@ class RunResultBase(abc.ABC):
 @dataclass
 class RunResult(RunResultBase):
     _last_agent: Agent[Any]
+    _last_agent_ref: weakref.ReferenceType[Agent[Any]] | None = field(
+        init=False,
+        repr=False,
+        default=None,
+    )
+
+    def __post_init__(self) -> None:
+        self._last_agent_ref = weakref.ref(self._last_agent)
 
     @property
     def last_agent(self) -> Agent[Any]:
         """The last agent that was run."""
-        return self._last_agent
+        agent = cast("Agent[Any] | None", self.__dict__.get("_last_agent"))
+        if agent is not None:
+            return agent
+        if self._last_agent_ref:
+            agent = self._last_agent_ref()
+            if agent is not None:
+                return agent
+        raise AgentsException("Last agent reference is no longer available.")
+
+    def _release_last_agent_reference(self) -> None:
+        agent = cast("Agent[Any] | None", self.__dict__.get("_last_agent"))
+        if agent is None:
+            return
+        self._last_agent_ref = weakref.ref(agent)
+        # Preserve dataclass field so repr/asdict continue to succeed.
+        self.__dict__["_last_agent"] = None
 
     def __str__(self) -> str:
         return pretty_print_result(self)
@@ -143,6 +203,15 @@ class RunResultStreaming(RunResultBase):
     is_complete: bool = False
     """Whether the agent has finished running."""
 
+    _current_agent_ref: weakref.ReferenceType[Agent[Any]] | None = field(
+        init=False,
+        repr=False,
+        default=None,
+    )
+
+    _model_input_items: list[RunItem] = field(default_factory=list, repr=False)
+    """Filtered items used to build model input between streaming turns."""
+
     # Queues that the background run_loop writes to
     _event_queue: asyncio.Queue[StreamEvent | QueueCompleteSentinel] = field(
         default_factory=asyncio.Queue, repr=False
@@ -157,24 +226,79 @@ class RunResultStreaming(RunResultBase):
     _output_guardrails_task: asyncio.Task[Any] | None = field(default=None, repr=False)
     _stored_exception: Exception | None = field(default=None, repr=False)
 
+    # Soft cancel state
+    _cancel_mode: Literal["none", "immediate", "after_turn"] = field(default="none", repr=False)
+
+    def __post_init__(self) -> None:
+        self._current_agent_ref = weakref.ref(self.current_agent)
+
     @property
     def last_agent(self) -> Agent[Any]:
         """The last agent that was run. Updates as the agent run progresses, so the true last agent
         is only available after the agent run is complete.
         """
-        return self.current_agent
+        agent = cast("Agent[Any] | None", self.__dict__.get("current_agent"))
+        if agent is not None:
+            return agent
+        if self._current_agent_ref:
+            agent = self._current_agent_ref()
+            if agent is not None:
+                return agent
+        raise AgentsException("Last agent reference is no longer available.")
 
-    def cancel(self) -> None:
-        """Cancels the streaming run, stopping all background tasks and marking the run as
-        complete."""
-        self._cleanup_tasks()  # Cancel all running tasks
-        self.is_complete = True  # Mark the run as complete to stop event streaming
+    def _release_last_agent_reference(self) -> None:
+        agent = cast("Agent[Any] | None", self.__dict__.get("current_agent"))
+        if agent is None:
+            return
+        self._current_agent_ref = weakref.ref(agent)
+        # Preserve dataclass field so repr/asdict continue to succeed.
+        self.__dict__["current_agent"] = None
 
-        # Optionally, clear the event queue to prevent processing stale events
-        while not self._event_queue.empty():
-            self._event_queue.get_nowait()
-        while not self._input_guardrail_queue.empty():
-            self._input_guardrail_queue.get_nowait()
+    def cancel(self, mode: Literal["immediate", "after_turn"] = "immediate") -> None:
+        """Cancel the streaming run.
+
+        Args:
+            mode: Cancellation strategy:
+                - "immediate": Stop immediately, cancel all tasks, clear queues (default)
+                - "after_turn": Complete current turn gracefully before stopping
+                    * Allows LLM response to finish
+                    * Executes pending tool calls
+                    * Saves session state properly
+                    * Tracks usage accurately
+                    * Stops before next turn begins
+
+        Example:
+            ```python
+            result = Runner.run_streamed(agent, "Task", session=session)
+
+            async for event in result.stream_events():
+                if user_interrupted():
+                    result.cancel(mode="after_turn")  # Graceful
+                    # result.cancel()  # Immediate (default)
+            ```
+
+        Note: After calling cancel(), you should continue consuming stream_events()
+        to allow the cancellation to complete properly.
+        """
+        # Store the cancel mode for the background task to check
+        self._cancel_mode = mode
+
+        if mode == "immediate":
+            # Existing behavior - immediate shutdown
+            self._cleanup_tasks()  # Cancel all running tasks
+            self.is_complete = True  # Mark the run as complete to stop event streaming
+
+            # Optionally, clear the event queue to prevent processing stale events
+            while not self._event_queue.empty():
+                self._event_queue.get_nowait()
+            while not self._input_guardrail_queue.empty():
+                self._input_guardrail_queue.get_nowait()
+
+        elif mode == "after_turn":
+            # Soft cancel - just set the flag
+            # The streaming loop will check this and stop gracefully
+            # Don't call _cleanup_tasks() or clear queues yet
+            pass
 
     async def stream_events(self) -> AsyncIterator[StreamEvent]:
         """Stream deltas for new items as they are generated. We're using the types from the
@@ -185,6 +309,7 @@ class RunResultStreaming(RunResultBase):
         - A MaxTurnsExceeded exception if the agent exceeds the max_turns limit.
         - A GuardrailTripwireTriggered exception if a guardrail is tripped.
         """
+        cancelled = False
         try:
             while True:
                 self._check_errors()
@@ -199,7 +324,9 @@ class RunResultStreaming(RunResultBase):
                 try:
                     item = await self._event_queue.get()
                 except asyncio.CancelledError:
-                    break
+                    cancelled = True
+                    self.cancel()
+                    raise
 
                 if isinstance(item, QueueCompleteSentinel):
                     # Await input guardrails if they are still running, so late
@@ -216,11 +343,16 @@ class RunResultStreaming(RunResultBase):
                 yield item
                 self._event_queue.task_done()
         finally:
-            # Ensure main execution completes before cleanup to avoid race conditions
-            # with session operations
-            await self._await_task_safely(self._run_impl_task)
-            # Safely terminate all background tasks after main execution has finished
-            self._cleanup_tasks()
+            if cancelled:
+                # Cancellation should return promptly, so avoid waiting on long-running tasks.
+                # Tasks have already been cancelled above.
+                self._cleanup_tasks()
+            else:
+                # Ensure main execution completes before cleanup to avoid race conditions
+                # with session operations
+                await self._await_task_safely(self._run_impl_task)
+                # Safely terminate all background tasks after main execution has finished
+                self._cleanup_tasks()
 
         if self._stored_exception:
             raise self._stored_exception

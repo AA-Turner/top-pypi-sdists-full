@@ -8,16 +8,16 @@ import os
 import typing as t
 
 from ddtrace.internal.logger import get_logger
+from ddtrace.internal.settings._agent import config as agent_config
+from ddtrace.internal.settings._core import FLEET_CONFIG
+from ddtrace.internal.settings._core import FLEET_CONFIG_IDS
+from ddtrace.internal.settings._core import LOCAL_CONFIG
+from ddtrace.internal.settings._core import DDConfig
+from ddtrace.internal.settings._otel_remapper import ENV_VAR_MAPPINGS
+from ddtrace.internal.settings._otel_remapper import SUPPORTED_OTEL_ENV_VARS
+from ddtrace.internal.settings._otel_remapper import parse_otel_env
 from ddtrace.internal.telemetry.constants import TELEMETRY_NAMESPACE
 from ddtrace.internal.utils.formats import asbool
-from ddtrace.settings._agent import config as agent_config
-from ddtrace.settings._core import FLEET_CONFIG
-from ddtrace.settings._core import FLEET_CONFIG_IDS
-from ddtrace.settings._core import LOCAL_CONFIG
-from ddtrace.settings._core import DDConfig
-from ddtrace.settings._otel_remapper import ENV_VAR_MAPPINGS
-from ddtrace.settings._otel_remapper import SUPPORTED_OTEL_ENV_VARS
-from ddtrace.settings._otel_remapper import parse_otel_env
 
 
 log = get_logger(__name__)
@@ -168,6 +168,25 @@ def validate_otel_envs():
                 _invalid_otel_config(otel_env)
             # TODO: Separate from validation
             telemetry_writer.add_configuration(otel_env, otel_value, "env_var")
+        elif otel_env == "OTEL_METRICS_EXPORTER":
+            # defer validation to validate_and_report_otel_metrics_exporter_enabled
+            pass
+
+
+def validate_and_report_otel_metrics_exporter_enabled():
+    metrics_exporter_enabled = True
+    user_envs = {key.upper(): value for key, value in os.environ.items()}
+    if "OTEL_METRICS_EXPORTER" in user_envs:
+        otel_value = os.environ.get("OTEL_METRICS_EXPORTER", "otlp").lower()
+        if otel_value == "none":
+            metrics_exporter_enabled = False
+        elif otel_value != "otlp":
+            _invalid_otel_config("OTEL_METRICS_EXPORTER")
+
+        # Report to configuration telemetry
+        telemetry_writer.add_configuration("OTEL_METRICS_EXPORTER", otel_value, "env_var")
+
+    return metrics_exporter_enabled
 
 
 def _hiding_otel_config(otel_env, dd_env):

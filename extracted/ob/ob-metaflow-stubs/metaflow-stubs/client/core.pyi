@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.680728                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.842334                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.events
-    import tarfile
     import tempfile
-    import typing
     import datetime
+    import tarfile
+    import typing
     import metaflow.client.core
 
 from ..metaflow_current import current as current
@@ -168,6 +168,18 @@ def default_namespace() -> str:
     -------
     str
         The result of get_namespace() after the namespace has been reset.
+    """
+    ...
+
+def inspect_spin(datastore_root: str = '.'):
+    """
+    Set metadata provider to spin metadata so that users can inspect spin
+    steps, tasks, and artifacts.
+    
+    Parameters
+    ----------
+    datastore_root : str, default "."
+        The root path to the spin datastore.
     """
     ...
 
@@ -672,7 +684,27 @@ class Task(MetaflowObject, metaclass=type):
     environment_info : Dict[str, str]
         Information about the execution environment.
     """
-    def __init__(self, *args, **kwargs):
+    @property
+    def parent_task_pathspecs(self) -> typing.Iterator[str]:
+        """
+        Yields pathspecs of all parent tasks of the current task.
+        
+        Yields
+        ------
+        str
+            Pathspec of the parent task of the current task
+        """
+        ...
+    @property
+    def child_task_pathspecs(self) -> typing.Iterator[str]:
+        """
+        Yields pathspecs of all child tasks of the current task.
+        
+        Yields
+        ------
+        str
+            Pathspec of the child task of the current task
+        """
         ...
     @property
     def parent_tasks(self) -> typing.Iterator["Task"]:
@@ -688,7 +720,7 @@ class Task(MetaflowObject, metaclass=type):
     @property
     def child_tasks(self) -> typing.Iterator["Task"]:
         """
-        Yield all child tasks of the current task if one exists.
+        Yields all child tasks of the current task if one exists.
         
         Yields
         ------

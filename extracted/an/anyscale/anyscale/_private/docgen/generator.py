@@ -3,6 +3,7 @@ from dataclasses import dataclass, fields
 from datetime import datetime
 import inspect
 import os
+import re
 import typing
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
@@ -54,18 +55,75 @@ CUSTOMER_HOSTED_QUALIFIER = (
 )
 
 
-def _escape_mdx_content(text: str) -> str:
+def _escape_mdx_content(text: Optional[str]) -> str:
     """Escape content for MDX compatibility.
 
-    This function escapes angle brackets that could be interpreted as HTML tags
-    by MDX, converting them to escaped versions.
+    This function escapes special characters that could be interpreted as JSX/MDX
+    by converting them to escaped versions.
+    - Angle brackets that look like HTML tags
+    - Curly braces that could be interpreted as JSX expressions
     """
-    import re
+    if not text:
+        return ""
 
     # Escape angle brackets that look like HTML tags but are meant as literal text
     # This pattern matches <word> or <word-with-hyphens> but not actual markdown/HTML
     text = re.sub(r"<([a-zA-Z][a-zA-Z0-9\-]*?)>", r"\\<\1\\>", text)
+
+    # Escape curly braces to prevent MDX from interpreting them as JSX expressions
+    # Only escape if they're not already escaped
+    text = re.sub(r"(?<!\\)\{", r"\{", text)
+    text = re.sub(r"(?<!\\)\}", r"\}", text)
+
     return text
+
+
+def strip_sphinx_docstring(text: Optional[str]) -> str:
+    """Strip sphinx/reStructuredText-style documentation from docstrings.
+
+    Removes lines starting with :param, :type, :return, :rtype, :raises, etc.
+    This prevents these from appearing in the generated documentation where
+    parameters are already documented separately.
+    """
+    if not text:
+        return ""
+
+    lines = text.split("\n")
+    filtered_lines = []
+    in_sphinx_block = False
+    base_indent = None
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Check if line starts with sphinx-style documentation markers
+        if re.match(r"^:[a-z]+(\s+\w+)?:", stripped):
+            in_sphinx_block = True
+            # Calculate base indentation for continuation lines
+            base_indent = len(line) - len(line.lstrip())
+            continue
+
+        # If we're in a sphinx block
+        if in_sphinx_block:
+            # base_indent is always set when entering a sphinx block
+            assert base_indent is not None
+            # Check if this is a continuation line (more indented than the sphinx marker)
+            current_indent = len(line) - len(line.lstrip()) if line.strip() else 0
+            # If line is empty or is indented more than base, it's a continuation
+            if not stripped or (stripped and current_indent > base_indent):
+                continue
+            else:
+                # This line is not part of the sphinx block
+                in_sphinx_block = False
+                base_indent = None
+
+        filtered_lines.append(line)
+
+    # Remove trailing empty lines
+    while filtered_lines and not filtered_lines[-1].strip():
+        filtered_lines.pop()
+
+    return "\n".join(filtered_lines)
 
 
 @dataclass
@@ -106,11 +164,9 @@ class MarkdownGenerator:
 
         Returns a dictionary of filename to generated file contents.
 
-        Each module will contain three to four sections:
-            - Models
-            - CLI
-            - SDK
-            - CLI (legacy)
+        Each module will generate two files:
+        - Main file: contains current Models, CLI, and SDK
+        - Legacy file (in legacy/ subfolder): contains legacy CLI, SDK, and Models
         """
 
         output_files: Dict[str, str] = {}
@@ -119,6 +175,7 @@ class MarkdownGenerator:
             os.path.join(os.path.dirname(__file__), "models.md"),
         )
         for m in self._modules:
+            # Generate main (current) documentation
             output = "import Tabs from '@theme/Tabs';\n"
             output += "import TabItem from '@theme/TabItem';\n\n"
             output += f"# {m.title} API Reference\n\n"
@@ -127,11 +184,16 @@ class MarkdownGenerator:
             output += self._generate_clis(m)
             output += self._generate_sdks(m)
             output += self._generate_models(m)
-            output += self._generate_legacy_clis(m)
-            output += self._generate_legacy_sdks(m, legacy_sdks)
-            output += self._generate_legacy_models(m, legacy_models)
 
             output_files[m.filename] = output
+
+            # Generate legacy documentation if any legacy content exists
+            legacy_content = self._generate_legacy_content(
+                m, legacy_sdks, legacy_models
+            )
+            if legacy_content:
+                legacy_filename = f"legacy/{m.filename}"
+                output_files[legacy_filename] = legacy_content
 
         return output_files
 
@@ -146,15 +208,23 @@ class MarkdownGenerator:
 
         return output
 
-    def _generate_legacy_sdks(self, m: Module, legacy_sdks: List[LegacySDK]) -> str:
+    def _generate_legacy_sdks(
+        self, m: Module, legacy_sdks: List[LegacySDK], for_legacy_file: bool = False
+    ) -> str:
         if not m.legacy_sdk_commands:
             return ""
-        output = f"## {m.legacy_title or m.title} SDK <span class='label-h2 label-legacy'>Legacy</span>\n"
+        if for_legacy_file:
+            output = f"## {m.legacy_title or m.title} SDK\n"
+        else:
+            output = f"## {m.legacy_title or m.title} SDK <span class='label-h2 label-legacy'>Legacy</span>\n"
         output += ANYSCALE_SDK_INTRO + "\n"
         for legacy_sdk_str, new_sdk in m.legacy_sdk_commands.items():
             legacy_sdk = next(sdk for sdk in legacy_sdks if sdk.name == legacy_sdk_str)
             output += "\n" + self._gen_markdown_for_legacy_sdk_command(
-                legacy_sdk, new_sdk, sdk_prefix=m.sdk_prefix
+                legacy_sdk,
+                new_sdk,
+                sdk_prefix=m.sdk_prefix,
+                for_legacy_file=for_legacy_file,
             )
 
         return output
@@ -170,21 +240,28 @@ class MarkdownGenerator:
         return output
 
     def _generate_legacy_models(
-        self, m: Module, legacy_models: List[LegacyModel]
+        self, m: Module, legacy_models: List[LegacyModel], for_legacy_file: bool = False
     ) -> str:
         """Generate documentation for a list of legacy models."""
         if not m.legacy_sdk_models:
             return ""
-        output = f"## {m.legacy_title or m.title} Models <span class='label-h2 label-legacy'>Legacy</span>\n"
+        if for_legacy_file:
+            output = f"## {m.legacy_title or m.title} Models\n"
+        else:
+            output = f"## {m.legacy_title or m.title} Models <span class='label-h2 label-legacy'>Legacy</span>\n"
         for model_str in m.legacy_sdk_models:
             legacy_model = next(
                 model for model in legacy_models if model.name == model_str
             )
-            output += "\n" + self._gen_markdown_for_legacy_model(legacy_model)
+            output += "\n" + self._gen_markdown_for_legacy_model(
+                legacy_model, for_legacy_file
+            )
 
         return output
 
-    def _generate_clis(self, m: Module, is_legacy_cli: bool = False) -> str:
+    def _generate_clis(
+        self, m: Module, is_legacy_cli: bool = False, for_legacy_file: bool = False
+    ) -> str:
         """Generate CLI documentation for a module.
 
         Returns a tuple of CLI and legacy CLI documentation.
@@ -196,7 +273,10 @@ class MarkdownGenerator:
             return ""
 
         if is_legacy_cli:
-            output = f'## {m.legacy_title or m.title} CLI <span class="label-h2 label-legacy">Legacy</span>\n'
+            if for_legacy_file:
+                output = f"## {m.legacy_title or m.title} CLI\n"
+            else:
+                output = f'## {m.legacy_title or m.title} CLI <span class="label-h2 label-legacy">Legacy</span>\n'
         else:
             output = f"## {m.title} CLI\n"
 
@@ -210,8 +290,58 @@ class MarkdownGenerator:
 
         return output
 
-    def _generate_legacy_clis(self, m: Module) -> str:
-        return self._generate_clis(m, is_legacy_cli=True)
+    def _generate_legacy_clis(self, m: Module, for_legacy_file: bool = False) -> str:
+        return self._generate_clis(
+            m, is_legacy_cli=True, for_legacy_file=for_legacy_file
+        )
+
+    def _generate_legacy_content(
+        self, m: Module, legacy_sdks: List[LegacySDK], legacy_models: List[LegacyModel]
+    ) -> str:
+        """Generate legacy documentation content for a module.
+
+        Returns empty string if no legacy content exists.
+        """
+        legacy_cli = self._generate_legacy_clis(m, for_legacy_file=True)
+        legacy_sdk = self._generate_legacy_sdks(m, legacy_sdks, for_legacy_file=True)
+        legacy_model = self._generate_legacy_models(
+            m, legacy_models, for_legacy_file=True
+        )
+
+        # If no legacy content exists, return empty string
+        if not (legacy_cli or legacy_sdk or legacy_model):
+            return ""
+
+        # Build legacy documentation
+        output = "import Tabs from '@theme/Tabs';\n"
+        output += "import TabItem from '@theme/TabItem';\n\n"
+        output += f"# {m.legacy_title or m.title} API Reference (Legacy)\n\n"
+        output += ":::warning\n"
+        output += (
+            "These APIs are legacy and deprecated. Please use the [current APIs](../"
+            + m.filename
+            + ") instead.\n"
+        )
+        output += ":::\n\n"
+
+        output += legacy_cli
+        output += legacy_sdk
+        output += legacy_model
+
+        return output
+
+    def _transform_links_for_legacy_file(self, text: str) -> str:
+        """Transform links in legacy content for use in legacy files.
+
+        This removes -legacy suffixes and adjusts cross-module references.
+        """
+        # Remove -legacy suffix from local anchors
+        text = re.sub(r"\(#([a-z]+)-legacy\)", r"(#\1)", text)
+
+        # Transform cross-module references from file.md#anchor-legacy to file.md#anchor
+        text = re.sub(r"\(([a-z-]+\.md)#([a-z]+)-legacy\)", r"(\1#\2)", text)
+
+        return text
 
     def _get_anchor(self, t: ModelType):
         """Get a markdown anchor (link) to the given type's docs."""
@@ -269,7 +399,7 @@ class MarkdownGenerator:
             return "bytes"
         if t is datetime:
             return "datetime"
-        if t is type(None):
+        if t is None or t is type(None):
             return "None"
         if typing.get_origin(t) is not None:
             return self._type_container_to_string(t)
@@ -382,7 +512,7 @@ class MarkdownGenerator:
 
         md = f"### `{t.__name__}`"
         assert isinstance(t.__doc__, str)
-        md += "\n\n" + t.__doc__ + "\n\n"
+        md += "\n\n" + _escape_mdx_content(strip_sphinx_docstring(t.__doc__)) + "\n\n"
 
         if isinstance(t, ModelBaseType):
             md += "#### Fields\n\n"
@@ -493,7 +623,7 @@ class MarkdownGenerator:
 
         md += "**Usage**\n\n"
         md += f"`{cli_prefix} {c.name} {usage_str}`\n\n"
-        md += info_dict["help"] + "\n\n"
+        md += _escape_mdx_content(strip_sphinx_docstring(info_dict["help"])) + "\n\n"
 
         options = [
             param
@@ -511,7 +641,7 @@ class MarkdownGenerator:
                 assert (
                     help_str
                 ), f"Missing help string for option '{name}' in command '{c.name}'"
-                md += f"- **`{name}`**: {help_str}\n"
+                md += f"- **`{name}`**: {_escape_mdx_content(help_str)}\n"
             md += "\n"
 
         should_have_example = not (
@@ -538,7 +668,7 @@ class MarkdownGenerator:
                 f"SDK command '{sdk_prefix}.{c.__name__}' is missing a docstring."
             )
 
-        md += c.__doc__ + "\n"
+        md += _escape_mdx_content(strip_sphinx_docstring(c.__doc__)) + "\n"
 
         signature = inspect.signature(c)
         if len(signature.parameters) > 0:
@@ -562,7 +692,7 @@ class MarkdownGenerator:
                         f"SDK command '{sdk_prefix}.{c.__name__}' is missing a docstring for argument '{name}'"
                     )
 
-                md += f"- **`{name}` {type_str}**: {arg_docs}"
+                md += f"- **`{name}` {type_str}**: {_escape_mdx_content(arg_docs)}"
                 md += "\n"
             md += "\n"
 
@@ -575,7 +705,11 @@ class MarkdownGenerator:
         return md
 
     def _gen_markdown_for_legacy_sdk_command(
-        self, legacy_sdk: LegacySDK, new_sdk: Optional[Callable], sdk_prefix: str
+        self,
+        legacy_sdk: LegacySDK,
+        new_sdk: Optional[Callable],
+        sdk_prefix: str,
+        for_legacy_file: bool = False,
     ) -> str:
         """Generate a markdown section for a legacy SDK command.
 
@@ -584,29 +718,44 @@ class MarkdownGenerator:
             - Arguments (docstrings pulled from __arg_docstrings__ magic attribute)
             - Returns (if the return type annotation is not None)
         """
-        md = f"### `{legacy_sdk.name}` <span class='label-h3 label-legacy'>Legacy</span>\n"
-        if new_sdk:
-            md += ":::warning\n"
-            md += f"This command is deprecated. Upgrade to [{sdk_prefix}.{new_sdk.__name__}]({self._get_sdk_anchor(new_sdk, sdk_prefix)}). \n"
-        elif sdk_prefix == CLUSTER_SDK_PREFIX:
-            # Cluster SDK commands have special handling.
-            md += ":::warning[Upgrade recommended]\n"
-            md += "Cluster commands are deprecated. Use [workspaces](./workspaces.md), [jobs](./job-api.md), or [services](./service-api.md) APIs based on your specific needs.\n"
+        if for_legacy_file:
+            md = f"### `{legacy_sdk.name}`\n"
+            docstring = self._transform_links_for_legacy_file(legacy_sdk.docstring)
+            md += _escape_mdx_content(docstring) + "\n"
         else:
-            md += ":::warning[Limited support]\n"
-            md += "This command is not actively maintained. Use with caution.\n"
-        md += ":::\n"
-        md += _escape_mdx_content(legacy_sdk.docstring) + "\n"
+            md = f"### `{legacy_sdk.name}` <span class='label-h3 label-legacy'>Legacy</span>\n"
+            if new_sdk:
+                md += ":::warning\n"
+                md += f"This command is deprecated. Upgrade to [{sdk_prefix}.{new_sdk.__name__}]({self._get_sdk_anchor(new_sdk, sdk_prefix)}). \n"
+            elif sdk_prefix == CLUSTER_SDK_PREFIX:
+                # Cluster SDK commands have special handling.
+                md += ":::warning[Upgrade recommended]\n"
+                md += "Cluster commands are deprecated. Use [workspaces](./workspaces.md), [jobs](./job-api.md), or [services](./service-api.md) APIs based on your specific needs.\n"
+            else:
+                md += ":::warning[Limited support]\n"
+                md += "This command is not actively maintained. Use with caution.\n"
+            md += ":::\n"
+            md += _escape_mdx_content(legacy_sdk.docstring) + "\n"
 
         return md
 
-    def _gen_markdown_for_legacy_model(self, legacy_model: LegacyModel) -> str:
+    def _gen_markdown_for_legacy_model(
+        self, legacy_model: LegacyModel, for_legacy_file: bool = False
+    ) -> str:
         """Generate a markdown section for a legacy model.
 
         The sections will be:
             - All fields and their types
         """
-        md = f"### `{legacy_model.name}` <span class='label-h3 label-legacy'>Legacy</span> {{#{legacy_model.name.lower()}-legacy}}\n"
-        md += _escape_mdx_content(legacy_model.docstring) + "\n"
+        if for_legacy_file:
+            # In legacy files, don't use -legacy suffix for anchors
+            md = f"### `{legacy_model.name}` {{#{legacy_model.name.lower()}}}\n"
+            # Transform the docstring to remove -legacy suffixes from links
+            docstring = self._transform_links_for_legacy_file(legacy_model.docstring)
+            md += _escape_mdx_content(docstring) + "\n"
+        else:
+            # In main files, use -legacy suffix
+            md = f"### `{legacy_model.name}` <span class='label-h3 label-legacy'>Legacy</span> {{#{legacy_model.name.lower()}-legacy}}\n"
+            md += _escape_mdx_content(legacy_model.docstring) + "\n"
 
         return md

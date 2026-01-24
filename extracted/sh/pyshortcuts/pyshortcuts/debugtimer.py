@@ -2,7 +2,7 @@
 """
 debug timer: measure run times of code, display results
 """
-import time
+from time import time, perf_counter
 from datetime import datetime
 
 def isotime(dtime=None, sep=' '):
@@ -10,6 +10,12 @@ def isotime(dtime=None, sep=' '):
     if dtime is None:
         dtime = datetime.now()
     return datetime.isoformat(dtime, sep=sep)
+
+def sleep(duration):
+    "more accurate sleep()"
+    end = perf_counter() + duration
+    while perf_counter() < end:
+        pass
 
 class DebugTimer():
     '''
@@ -34,7 +40,7 @@ class DebugTimer():
 
     def add(self, msg):
         "add message point to debugtimer"
-        self.data.append((msg, time.perf_counter()))
+        self.data.append((msg, perf_counter()))
         if self.verbose:
             print(msg)
 
@@ -110,7 +116,7 @@ def debugtimer(title=None, precision=4, verbose=False):
 if __name__ == '__main__':
     import numpy as np
     dtimer = debugtimer('test timer')
-    time.sleep(1.1010)
+    sleep(1.1010)
     dtimer.add('slept for 1.101 seconds')
     nx = 10_000_000
     x = np.arange(nx, dtype='float64')/3.0

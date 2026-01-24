@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.graph_pb2 import (
+    ApplyGraphUpdatesRequest,
+    ApplyGraphUpdatesResponse,
     GetCodegenFeaturesFromGraphRequest,
     GetCodegenFeaturesFromGraphResponse,
     GetFeatureSQLRequest,
@@ -16,6 +18,8 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     GetFeaturesMetadataResponse,
     GetGraphRequest,
     GetGraphResponse,
+    TestGraphMutationsRequest,
+    TestGraphMutationsResponse,
     UpdateGraphRequest,
     UpdateGraphResponse,
 )
@@ -51,6 +55,18 @@ class GraphServiceStub:
         GetCodegenFeaturesFromGraphResponse,
     ]
     """GetCodegenFeaturesFromGraph returns Chalk features generated from the protograph"""
+    ApplyGraphUpdates: UnaryUnaryMultiCallable[
+        ApplyGraphUpdatesRequest,
+        ApplyGraphUpdatesResponse,
+    ]
+    """ApplyGraphUpdates applies a series of mutations to a deployment's graph"""
+    TestGraphMutations: UnaryUnaryMultiCallable[
+        TestGraphMutationsRequest,
+        TestGraphMutationsResponse,
+    ]
+    """TestGraphMutations applies a series of mutations to a deployment's graph without persisting state
+    This allows testing graph updates before actually applying them
+    """
 
 class GraphServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -86,5 +102,21 @@ class GraphServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetCodegenFeaturesFromGraphResponse:
         """GetCodegenFeaturesFromGraph returns Chalk features generated from the protograph"""
+    @abstractmethod
+    def ApplyGraphUpdates(
+        self,
+        request: ApplyGraphUpdatesRequest,
+        context: ServicerContext,
+    ) -> ApplyGraphUpdatesResponse:
+        """ApplyGraphUpdates applies a series of mutations to a deployment's graph"""
+    @abstractmethod
+    def TestGraphMutations(
+        self,
+        request: TestGraphMutationsRequest,
+        context: ServicerContext,
+    ) -> TestGraphMutationsResponse:
+        """TestGraphMutations applies a series of mutations to a deployment's graph without persisting state
+        This allows testing graph updates before actually applying them
+        """
 
 def add_GraphServiceServicer_to_server(servicer: GraphServiceServicer, server: Server) -> None: ...

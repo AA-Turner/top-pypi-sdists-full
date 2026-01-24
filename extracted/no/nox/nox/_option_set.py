@@ -19,7 +19,6 @@ and surfaced in documentation."""
 from __future__ import annotations
 
 import argparse
-import collections
 import functools
 import os
 from argparse import ArgumentError, ArgumentParser, Namespace
@@ -61,11 +60,14 @@ av_bool = av.instance_of(bool)
 @attrs.define(slots=True, kw_only=True)
 class NoxOptions:
     default_venv_backend: None | str = attrs.field(validator=av_opt_str)
+    download_python: None | Literal["auto", "never", "always"] = attrs.field(
+        default=None, validator=av.optional(av.in_(["auto", "never", "always"]))
+    )
     envdir: None | str | os.PathLike[str] = attrs.field(validator=av_opt_path)
     error_on_external_run: bool = attrs.field(validator=av_bool)
     error_on_missing_interpreters: bool = attrs.field(validator=av_bool)
     force_venv_backend: None | str = attrs.field(validator=av_opt_str)
-    keywords: None | Sequence[str] = attrs.field(validator=av_opt_list_str)
+    keywords: None | str = attrs.field(validator=av_opt_str)
     pythons: None | Sequence[str] = attrs.field(validator=av_opt_list_str)
     report: None | str = attrs.field(validator=av_opt_str)
     reuse_existing_virtualenvs: bool = attrs.field(validator=av_bool)
@@ -163,7 +165,7 @@ class Option:
 
 def flag_pair_merge_func(
     enable_name: str,
-    enable_default: bool | Callable[[], bool],
+    enable_default: bool | Callable[[], bool],  # noqa: FBT001
     disable_name: str,
     command_args: Namespace,
     noxfile_args: NoxOptions,
@@ -254,10 +256,8 @@ class OptionSet:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.parser_args = args
         self.parser_kwargs = kwargs
-        self.options: collections.OrderedDict[str, Option] = collections.OrderedDict()
-        self.groups: collections.OrderedDict[str, OptionGroup] = (
-            collections.OrderedDict()
-        )
+        self.options: dict[str, Option] = {}
+        self.groups: dict[str, OptionGroup] = {}
 
     def add_options(self, *args: Option) -> None:
         """Adds a sequence of Options to the OptionSet.
@@ -283,7 +283,8 @@ class OptionSet:
         Generally, you won't use this directly. Instead, use
         :func:`parse_args`.
         """
-        parser = argparse.ArgumentParser(*self.parser_args, **self.parser_kwargs)
+        parser_kwargs = {"allow_abbrev": False, **self.parser_kwargs}
+        parser = argparse.ArgumentParser(*self.parser_args, **parser_kwargs)
 
         groups = {
             name: parser.add_argument_group(*option_group.args, **option_group.kwargs)

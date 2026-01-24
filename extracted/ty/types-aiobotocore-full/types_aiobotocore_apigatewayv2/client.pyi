@@ -3,7 +3,7 @@ Type annotations for apigatewayv2 service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -39,6 +40,10 @@ from .paginator import (
     GetRouteResponsesPaginator,
     GetRoutesPaginator,
     GetStagesPaginator,
+    ListPortalProductsPaginator,
+    ListPortalsPaginator,
+    ListProductPagesPaginator,
+    ListProductRestEndpointPagesPaginator,
     ListRoutingRulesPaginator,
 )
 from .type_defs import (
@@ -58,6 +63,14 @@ from .type_defs import (
     CreateIntegrationResultTypeDef,
     CreateModelRequestTypeDef,
     CreateModelResponseTypeDef,
+    CreatePortalProductRequestTypeDef,
+    CreatePortalProductResponseTypeDef,
+    CreatePortalRequestTypeDef,
+    CreatePortalResponseTypeDef,
+    CreateProductPageRequestTypeDef,
+    CreateProductPageResponseTypeDef,
+    CreateProductRestEndpointPageRequestTypeDef,
+    CreateProductRestEndpointPageResponseTypeDef,
     CreateRouteRequestTypeDef,
     CreateRouteResponseRequestTypeDef,
     CreateRouteResponseResponseTypeDef,
@@ -78,6 +91,11 @@ from .type_defs import (
     DeleteIntegrationRequestTypeDef,
     DeleteIntegrationResponseRequestTypeDef,
     DeleteModelRequestTypeDef,
+    DeletePortalProductRequestTypeDef,
+    DeletePortalProductSharingPolicyRequestTypeDef,
+    DeletePortalRequestTypeDef,
+    DeleteProductPageRequestTypeDef,
+    DeleteProductRestEndpointPageRequestTypeDef,
     DeleteRouteRequestParameterRequestTypeDef,
     DeleteRouteRequestTypeDef,
     DeleteRouteResponseRequestTypeDef,
@@ -85,6 +103,7 @@ from .type_defs import (
     DeleteRoutingRuleRequestTypeDef,
     DeleteStageRequestTypeDef,
     DeleteVpcLinkRequestTypeDef,
+    DisablePortalRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     ExportApiRequestTypeDef,
     ExportApiResponseTypeDef,
@@ -122,6 +141,16 @@ from .type_defs import (
     GetModelsResponseTypeDef,
     GetModelTemplateRequestTypeDef,
     GetModelTemplateResponseTypeDef,
+    GetPortalProductRequestTypeDef,
+    GetPortalProductResponseTypeDef,
+    GetPortalProductSharingPolicyRequestTypeDef,
+    GetPortalProductSharingPolicyResponseTypeDef,
+    GetPortalRequestTypeDef,
+    GetPortalResponseTypeDef,
+    GetProductPageRequestTypeDef,
+    GetProductPageResponseTypeDef,
+    GetProductRestEndpointPageRequestTypeDef,
+    GetProductRestEndpointPageResponseTypeDef,
     GetRouteRequestTypeDef,
     GetRouteResponseRequestTypeDef,
     GetRouteResponseResponseTypeDef,
@@ -144,8 +173,19 @@ from .type_defs import (
     GetVpcLinksResponseTypeDef,
     ImportApiRequestTypeDef,
     ImportApiResponseTypeDef,
+    ListPortalProductsRequestTypeDef,
+    ListPortalProductsResponseTypeDef,
+    ListPortalsRequestTypeDef,
+    ListPortalsResponseTypeDef,
+    ListProductPagesRequestTypeDef,
+    ListProductPagesResponseTypeDef,
+    ListProductRestEndpointPagesRequestTypeDef,
+    ListProductRestEndpointPagesResponseTypeDef,
     ListRoutingRulesRequestTypeDef,
     ListRoutingRulesResponseTypeDef,
+    PreviewPortalRequestTypeDef,
+    PublishPortalRequestTypeDef,
+    PutPortalProductSharingPolicyRequestTypeDef,
     PutRoutingRuleRequestTypeDef,
     PutRoutingRuleResponseTypeDef,
     ReimportApiRequestTypeDef,
@@ -169,6 +209,14 @@ from .type_defs import (
     UpdateIntegrationResultTypeDef,
     UpdateModelRequestTypeDef,
     UpdateModelResponseTypeDef,
+    UpdatePortalProductRequestTypeDef,
+    UpdatePortalProductResponseTypeDef,
+    UpdatePortalRequestTypeDef,
+    UpdatePortalResponseTypeDef,
+    UpdateProductPageRequestTypeDef,
+    UpdateProductPageResponseTypeDef,
+    UpdateProductRestEndpointPageRequestTypeDef,
+    UpdateProductRestEndpointPageResponseTypeDef,
     UpdateRouteRequestTypeDef,
     UpdateRouteResponseRequestTypeDef,
     UpdateRouteResponseResponseTypeDef,
@@ -179,12 +227,6 @@ from .type_defs import (
     UpdateVpcLinkResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -193,12 +235,12 @@ else:
 __all__ = ("ApiGatewayV2Client",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class ApiGatewayV2Client(AioBaseClient):
     """
@@ -313,6 +355,46 @@ class ApiGatewayV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/create_model.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_model)
+        """
+
+    async def create_portal(
+        self, **kwargs: Unpack[CreatePortalRequestTypeDef]
+    ) -> CreatePortalResponseTypeDef:
+        """
+        Creates a portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/create_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_portal)
+        """
+
+    async def create_portal_product(
+        self, **kwargs: Unpack[CreatePortalProductRequestTypeDef]
+    ) -> CreatePortalProductResponseTypeDef:
+        """
+        Creates a new portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/create_portal_product.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_portal_product)
+        """
+
+    async def create_product_page(
+        self, **kwargs: Unpack[CreateProductPageRequestTypeDef]
+    ) -> CreateProductPageResponseTypeDef:
+        """
+        Creates a new product page for a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/create_product_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_product_page)
+        """
+
+    async def create_product_rest_endpoint_page(
+        self, **kwargs: Unpack[CreateProductRestEndpointPageRequestTypeDef]
+    ) -> CreateProductRestEndpointPageResponseTypeDef:
+        """
+        Creates a product REST endpoint page for a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/create_product_rest_endpoint_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_product_rest_endpoint_page)
         """
 
     async def create_route(
@@ -465,6 +547,56 @@ class ApiGatewayV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_model)
         """
 
+    async def delete_portal(
+        self, **kwargs: Unpack[DeletePortalRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_portal)
+        """
+
+    async def delete_portal_product(
+        self, **kwargs: Unpack[DeletePortalProductRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_portal_product.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_portal_product)
+        """
+
+    async def delete_portal_product_sharing_policy(
+        self, **kwargs: Unpack[DeletePortalProductSharingPolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the sharing policy for a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_portal_product_sharing_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_portal_product_sharing_policy)
+        """
+
+    async def delete_product_page(
+        self, **kwargs: Unpack[DeleteProductPageRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a product page of a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_product_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_product_page)
+        """
+
+    async def delete_product_rest_endpoint_page(
+        self, **kwargs: Unpack[DeleteProductRestEndpointPageRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a product REST endpoint page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_product_rest_endpoint_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_product_rest_endpoint_page)
+        """
+
     async def delete_route(
         self, **kwargs: Unpack[DeleteRouteRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -527,7 +659,7 @@ class ApiGatewayV2Client(AioBaseClient):
 
     async def delete_vpc_link(
         self, **kwargs: Unpack[DeleteVpcLinkRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a VPC link.
 
@@ -541,6 +673,16 @@ class ApiGatewayV2Client(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/export_api.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#export_api)
+        """
+
+    async def disable_portal(
+        self, **kwargs: Unpack[DisablePortalRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the publication of a portal portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/disable_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#disable_portal)
         """
 
     async def reset_authorizers_cache(
@@ -717,6 +859,56 @@ class ApiGatewayV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_models)
         """
 
+    async def get_portal(
+        self, **kwargs: Unpack[GetPortalRequestTypeDef]
+    ) -> GetPortalResponseTypeDef:
+        """
+        Gets a portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_portal)
+        """
+
+    async def get_portal_product(
+        self, **kwargs: Unpack[GetPortalProductRequestTypeDef]
+    ) -> GetPortalProductResponseTypeDef:
+        """
+        Gets a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_portal_product.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_portal_product)
+        """
+
+    async def get_portal_product_sharing_policy(
+        self, **kwargs: Unpack[GetPortalProductSharingPolicyRequestTypeDef]
+    ) -> GetPortalProductSharingPolicyResponseTypeDef:
+        """
+        Gets the sharing policy for a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_portal_product_sharing_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_portal_product_sharing_policy)
+        """
+
+    async def get_product_page(
+        self, **kwargs: Unpack[GetProductPageRequestTypeDef]
+    ) -> GetProductPageResponseTypeDef:
+        """
+        Gets a product page of a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_product_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_product_page)
+        """
+
+    async def get_product_rest_endpoint_page(
+        self, **kwargs: Unpack[GetProductRestEndpointPageRequestTypeDef]
+    ) -> GetProductRestEndpointPageResponseTypeDef:
+        """
+        Gets a product REST endpoint page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_product_rest_endpoint_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_product_rest_endpoint_page)
+        """
+
     async def get_route(self, **kwargs: Unpack[GetRouteRequestTypeDef]) -> GetRouteResultTypeDef:
         """
         Gets a Route.
@@ -831,6 +1023,72 @@ class ApiGatewayV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#import_api)
         """
 
+    async def list_portal_products(
+        self, **kwargs: Unpack[ListPortalProductsRequestTypeDef]
+    ) -> ListPortalProductsResponseTypeDef:
+        """
+        Lists portal products.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/list_portal_products.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#list_portal_products)
+        """
+
+    async def list_portals(
+        self, **kwargs: Unpack[ListPortalsRequestTypeDef]
+    ) -> ListPortalsResponseTypeDef:
+        """
+        Lists portals.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/list_portals.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#list_portals)
+        """
+
+    async def list_product_pages(
+        self, **kwargs: Unpack[ListProductPagesRequestTypeDef]
+    ) -> ListProductPagesResponseTypeDef:
+        """
+        Lists the product pages for a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/list_product_pages.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#list_product_pages)
+        """
+
+    async def list_product_rest_endpoint_pages(
+        self, **kwargs: Unpack[ListProductRestEndpointPagesRequestTypeDef]
+    ) -> ListProductRestEndpointPagesResponseTypeDef:
+        """
+        Lists the product REST endpoint pages of a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/list_product_rest_endpoint_pages.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#list_product_rest_endpoint_pages)
+        """
+
+    async def preview_portal(self, **kwargs: Unpack[PreviewPortalRequestTypeDef]) -> dict[str, Any]:
+        """
+        Creates a portal preview.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/preview_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#preview_portal)
+        """
+
+    async def publish_portal(self, **kwargs: Unpack[PublishPortalRequestTypeDef]) -> dict[str, Any]:
+        """
+        Publishes a portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/publish_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#publish_portal)
+        """
+
+    async def put_portal_product_sharing_policy(
+        self, **kwargs: Unpack[PutPortalProductSharingPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the sharing policy for a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/put_portal_product_sharing_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#put_portal_product_sharing_policy)
+        """
+
     async def put_routing_rule(
         self, **kwargs: Unpack[PutRoutingRuleRequestTypeDef]
     ) -> PutRoutingRuleResponseTypeDef:
@@ -851,7 +1109,7 @@ class ApiGatewayV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#reimport_api)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a new Tag resource to represent a tag.
 
@@ -947,6 +1205,46 @@ class ApiGatewayV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/update_model.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#update_model)
+        """
+
+    async def update_portal(
+        self, **kwargs: Unpack[UpdatePortalRequestTypeDef]
+    ) -> UpdatePortalResponseTypeDef:
+        """
+        Updates a portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/update_portal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#update_portal)
+        """
+
+    async def update_portal_product(
+        self, **kwargs: Unpack[UpdatePortalProductRequestTypeDef]
+    ) -> UpdatePortalProductResponseTypeDef:
+        """
+        Updates the portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/update_portal_product.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#update_portal_product)
+        """
+
+    async def update_product_page(
+        self, **kwargs: Unpack[UpdateProductPageRequestTypeDef]
+    ) -> UpdateProductPageResponseTypeDef:
+        """
+        Updates a product page of a portal product.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/update_product_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#update_product_page)
+        """
+
+    async def update_product_rest_endpoint_page(
+        self, **kwargs: Unpack[UpdateProductRestEndpointPageRequestTypeDef]
+    ) -> UpdateProductRestEndpointPageResponseTypeDef:
+        """
+        Updates a product REST endpoint page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/update_product_rest_endpoint_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#update_product_rest_endpoint_page)
         """
 
     async def update_route(
@@ -1101,6 +1399,50 @@ class ApiGatewayV2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_portal_products"]
+    ) -> ListPortalProductsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_portals"]
+    ) -> ListPortalsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_product_pages"]
+    ) -> ListProductPagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_product_rest_endpoint_pages"]
+    ) -> ListProductRestEndpointPagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_routing_rules"]
     ) -> ListRoutingRulesPaginator:
         """
@@ -1118,7 +1460,7 @@ class ApiGatewayV2Client(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

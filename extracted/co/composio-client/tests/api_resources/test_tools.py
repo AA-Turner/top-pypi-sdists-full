@@ -81,7 +81,7 @@ class TestTools:
     @parametrize
     def test_method_list_with_all_params(self, client: Composio) -> None:
         tool = client.tools.list(
-            auth_config_ids=["string"],
+            auth_config_ids="string",
             cursor="cursor",
             important="true",
             include_deprecated=True,
@@ -188,6 +188,7 @@ class TestTools:
                     "your_domain": "your-domain",
                 },
             },
+            entity_id="repo-123",
             text="Trigger the main workflow in the octocat/Hello-World repository on the main branch for the production environment",
             user_id="user-123",
             version="latest",
@@ -291,6 +292,10 @@ class TestTools:
         tool = client.tools.proxy(
             endpoint="/api/v1/resources",
             method="GET",
+            binary_body={
+                "url": "https://example.com",
+                "content_type": "content_type",
+            },
             body={
                 "name": "New Resource",
                 "description": "This is a new resource",
@@ -466,7 +471,7 @@ class TestAsyncTools:
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncComposio) -> None:
         tool = await async_client.tools.list(
-            auth_config_ids=["string"],
+            auth_config_ids="string",
             cursor="cursor",
             important="true",
             include_deprecated=True,
@@ -573,6 +578,7 @@ class TestAsyncTools:
                     "your_domain": "your-domain",
                 },
             },
+            entity_id="repo-123",
             text="Trigger the main workflow in the octocat/Hello-World repository on the main branch for the production environment",
             user_id="user-123",
             version="latest",
@@ -676,6 +682,10 @@ class TestAsyncTools:
         tool = await async_client.tools.proxy(
             endpoint="/api/v1/resources",
             method="GET",
+            binary_body={
+                "url": "https://example.com",
+                "content_type": "content_type",
+            },
             body={
                 "name": "New Resource",
                 "description": "This is a new resource",

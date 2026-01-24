@@ -32,6 +32,8 @@ __protobuf__ = proto.module(
         "CustomPronunciationParams",
         "CustomPronunciations",
         "MultiSpeakerMarkup",
+        "MultispeakerPrebuiltVoice",
+        "MultiSpeakerVoiceConfig",
         "SynthesisInput",
         "VoiceSelectionParams",
         "AudioConfig",
@@ -214,12 +216,22 @@ class AdvancedVoiceOptions(proto.Message):
             latency.
 
             This field is a member of `oneof`_ ``_low_latency_journey_synthesis``.
+        relax_safety_filters (bool):
+            Optional. Input only. If true, relaxes safety filters for
+            Gemini TTS. Only supported for accounts linked to Invoiced
+            (Offline) Cloud billing accounts. Otherwise, will return
+            result
+            [google.rpc.Code.INVALID_ARGUMENT][google.rpc.Code.INVALID_ARGUMENT].
     """
 
     low_latency_journey_synthesis: bool = proto.Field(
         proto.BOOL,
         number=1,
         optional=True,
+    )
+    relax_safety_filters: bool = proto.Field(
+        proto.BOOL,
+        number=8,
     )
 
 
@@ -431,6 +443,53 @@ class MultiSpeakerMarkup(proto.Message):
     )
 
 
+class MultispeakerPrebuiltVoice(proto.Message):
+    r"""Configuration for a single speaker in a Gemini TTS
+    multi-speaker setup. Enables dialogue between two speakers.
+
+    Attributes:
+        speaker_alias (str):
+            Required. The speaker alias of the voice.
+            This is the user-chosen speaker name that is
+            used in the multispeaker text input, such as
+            "Speaker1".
+        speaker_id (str):
+            Required. The speaker ID of the voice. See
+            https://cloud.google.com/text-to-speech/docs/gemini-tts#voice_options
+            for available values.
+    """
+
+    speaker_alias: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    speaker_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
+class MultiSpeakerVoiceConfig(proto.Message):
+    r"""Configuration for a multi-speaker text-to-speech setup.
+    Enables the use of up to two distinct voices in a single
+    synthesis request.
+
+    Attributes:
+        speaker_voice_configs (MutableSequence[google.cloud.texttospeech_v1beta1.types.MultispeakerPrebuiltVoice]):
+            Required. A list of configurations for the
+            voices of the speakers. Exactly two speaker
+            voice configurations must be provided.
+    """
+
+    speaker_voice_configs: MutableSequence[
+        "MultispeakerPrebuiltVoice"
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=2,
+        message="MultispeakerPrebuiltVoice",
+    )
+
+
 class SynthesisInput(proto.Message):
     r"""Contains text input to be synthesized. Either ``text`` or ``ssml``
     must be supplied. Supplying both or neither returns
@@ -569,6 +628,11 @@ class VoiceSelectionParams(proto.Message):
             Optional. The name of the model. If set, the
             service will choose the model matching the
             specified configuration.
+        multi_speaker_voice_config (google.cloud.texttospeech_v1beta1.types.MultiSpeakerVoiceConfig):
+            Optional. The configuration for a Gemini
+            multi-speaker text-to-speech setup. Enables the
+            use of two distinct voices in a single synthesis
+            request.
     """
 
     language_code: str = proto.Field(
@@ -597,6 +661,11 @@ class VoiceSelectionParams(proto.Message):
     model_name: str = proto.Field(
         proto.STRING,
         number=6,
+    )
+    multi_speaker_voice_config: "MultiSpeakerVoiceConfig" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message="MultiSpeakerVoiceConfig",
     )
 
 
@@ -894,6 +963,11 @@ class StreamingSynthesisInput(proto.Message):
             may not be used with any other voices.
 
             This field is a member of `oneof`_ ``input_source``.
+        multi_speaker_markup (google.cloud.texttospeech_v1beta1.types.MultiSpeakerMarkup):
+            Multi-speaker markup for Gemini TTS. This
+            field may not be used with any other voices.
+
+            This field is a member of `oneof`_ ``input_source``.
         prompt (str):
             This is system instruction supported only for
             controllable voice models.
@@ -910,6 +984,12 @@ class StreamingSynthesisInput(proto.Message):
         proto.STRING,
         number=5,
         oneof="input_source",
+    )
+    multi_speaker_markup: "MultiSpeakerMarkup" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        oneof="input_source",
+        message="MultiSpeakerMarkup",
     )
     prompt: str = proto.Field(
         proto.STRING,

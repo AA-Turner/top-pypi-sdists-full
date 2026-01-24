@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import array
 import gc
 import io
@@ -7,6 +8,7 @@ import random
 import sys
 import tempfile
 import unittest
+import warnings
 
 from io import BytesIO
 from math import ceil
@@ -25,10 +27,23 @@ from pyzstd import (
     ZstdError,
     ZstdFile
 )
-from pyzstd import PYZSTD_CONFIG # type: ignore
 from pyzstd._seekable_zstdfile import _SeekTable
 
-BIT_BUILD = PYZSTD_CONFIG[0]
+@contextmanager
+def _check_deprecated(testcase):
+    with warnings.catch_warnings(record=True) as warns:
+        yield
+    testcase.assertEqual(len(warns), 1)
+    warn = warns[0]
+    testcase.assertEqual(warn.category, DeprecationWarning)
+    testcase.assertIn(
+        str(warn.message),
+        [
+            "pyzstd.SeekableZstdFile()'s read_size parameter is deprecated",
+            "pyzstd.SeekableZstdFile()'s write_size parameter is deprecated",
+        ]
+    )
+
 DECOMPRESSED = b'1234567890'
 assert len(DECOMPRESSED) == 10
 COMPRESSED = compress(DECOMPRESSED)
@@ -36,7 +51,7 @@ DICT = ZstdDict(b'a'*1024, is_raw=True)
 
 class SeekTableCase(unittest.TestCase):
     def create_table(self, sizes_lst, read_mode=True):
-        table = _SeekTable(read_mode)
+        table = _SeekTable(read_mode=read_mode)
         for item in sizes_lst:
             table.append_entry(*item)
         return table
@@ -524,7 +539,6 @@ class SeekTableCase(unittest.TestCase):
                                     'cumulated compressed size'):
             t.load_seek_table(b, seek_to_0=True)
 
-    @unittest.skipIf(BIT_BUILD == 32, 'skip in 32-bit build')
     def test_write_table(self):
         class MockError(Exception):
             pass
@@ -693,7 +707,7 @@ class SeekableZstdFileCase(unittest.TestCase):
             os.remove(filename)
 
     def test_init_bad_mode(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             SeekableZstdFile(BytesIO(COMPRESSED), (3, "x"))
         with self.assertRaises(ValueError):
             SeekableZstdFile(BytesIO(COMPRESSED), "")
@@ -728,19 +742,19 @@ class SeekableZstdFileCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             SeekableZstdFile(BytesIO(), "w", level_or_option='asd')
         # CHECK_UNKNOWN and anything above CHECK_ID_MAX should be invalid.
-        with self.assertRaises(ZstdError):
+        with self.assertRaises(ValueError):
             SeekableZstdFile(BytesIO(), "w", level_or_option={999:9999})
-        with self.assertRaises(ZstdError):
+        with self.assertRaises(ValueError):
             SeekableZstdFile(BytesIO(), "w", level_or_option={CParameter.windowLog:99})
 
         with self.assertRaises(TypeError):
             SeekableZstdFile(BytesIO(self.two_frames), "r", level_or_option=33)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(OverflowError):
             SeekableZstdFile(BytesIO(self.two_frames),
                              level_or_option={DParameter.windowLogMax:2**31})
 
-        with self.assertRaises(ZstdError):
+        with self.assertRaises(ValueError):
             SeekableZstdFile(BytesIO(self.two_frames),
                              level_or_option={444:333})
 
@@ -787,27 +801,37 @@ class SeekableZstdFileCase(unittest.TestCase):
             SeekableZstdFile(b, 'r', max_frame_content_size=100)
 
     def test_init_sizes_arg(self):
-        with SeekableZstdFile(BytesIO(), 'r', read_size=1):
-            pass
-        with self.assertRaises(ValueError):
-            SeekableZstdFile(BytesIO(), 'r', read_size=0)
-        with self.assertRaises(ValueError):
-            SeekableZstdFile(BytesIO(), 'r', read_size=-1)
-        with self.assertRaises(TypeError):
-            SeekableZstdFile(BytesIO(), 'r', read_size=(10,))
-        with self.assertRaisesRegex(ValueError, 'read_size'):
-            SeekableZstdFile(BytesIO(), 'w', read_size=10)
+        with _check_deprecated(self):
+            with SeekableZstdFile(BytesIO(), 'r', read_size=1):
+                pass
+        with _check_deprecated(self):
+            with self.assertRaises(ValueError):
+                SeekableZstdFile(BytesIO(), 'r', read_size=0)
+        with _check_deprecated(self):
+            with self.assertRaises(ValueError):
+                SeekableZstdFile(BytesIO(), 'r', read_size=-1)
+        with _check_deprecated(self):
+            with self.assertRaises(TypeError):
+                SeekableZstdFile(BytesIO(), 'r', read_size=(10,))
+        with _check_deprecated(self):
+            with self.assertRaisesRegex(ValueError, 'read_size'):
+                SeekableZstdFile(BytesIO(), 'w', read_size=10)
 
-        with SeekableZstdFile(BytesIO(), 'w', write_size=1):
-            pass
-        with self.assertRaises(ValueError):
-            SeekableZstdFile(BytesIO(), 'w', write_size=0)
-        with self.assertRaises(ValueError):
-            SeekableZstdFile(BytesIO(), 'w', write_size=-1)
-        with self.assertRaises(TypeError):
-            SeekableZstdFile(BytesIO(), 'w', write_size=(10,))
-        with self.assertRaisesRegex(ValueError, 'write_size'):
-            SeekableZstdFile(BytesIO(), 'r', write_size=10)
+        with _check_deprecated(self):
+            with SeekableZstdFile(BytesIO(), 'w', write_size=1):
+                pass
+        with _check_deprecated(self):
+            with self.assertRaises(ValueError):
+                SeekableZstdFile(BytesIO(), 'w', write_size=0)
+        with _check_deprecated(self):
+            with self.assertRaises(ValueError):
+                SeekableZstdFile(BytesIO(), 'w', write_size=-1)
+        with _check_deprecated(self):
+            with self.assertRaises(TypeError):
+                SeekableZstdFile(BytesIO(), 'w', write_size=(10,))
+        with _check_deprecated(self):
+            with self.assertRaisesRegex(ValueError, 'write_size'):
+                SeekableZstdFile(BytesIO(), 'r', write_size=10)
 
     def test_init_append_fail(self):
         # get a temp file name
@@ -832,7 +856,7 @@ class SeekableZstdFileCase(unittest.TestCase):
             return get_file
 
         # test .close() method
-        with patch("io.open", mock_open(io.open)):
+        with patch("builtins.open", mock_open(io.open)):
             with self.assertRaisesRegex(OSError, 'xyz'):
                 SeekableZstdFile(filename, 'ab')
 
@@ -1383,7 +1407,7 @@ class SeekableZstdFileCase(unittest.TestCase):
             return get_file
 
         # append 1
-        with patch("io.open", mock_open(io.open)):
+        with patch("builtins.open", mock_open(io.open)):
             with self.assertWarnsRegex(RuntimeWarning,
                                        (r"at the end of the file "
                                         r"can't be overwritten"
@@ -1395,7 +1419,7 @@ class SeekableZstdFileCase(unittest.TestCase):
             f.close()
 
         # append 2
-        with patch("io.open", mock_open(io.open)):
+        with patch("builtins.open", mock_open(io.open)):
             with self.assertWarnsRegex(RuntimeWarning,
                                        (r"at the end of the file "
                                         r"can't be overwritten"
@@ -1441,7 +1465,7 @@ class SeekableZstdFileCase(unittest.TestCase):
             return get_file
 
         # append
-        with patch("io.open", mock_open(io.open)):
+        with patch("builtins.open", mock_open(io.open)):
             with self.assertRaisesRegex(
                     TypeError,
                     (r"In SeekableZstdFile's append mode \('a', 'ab'\),"

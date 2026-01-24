@@ -1,7 +1,9 @@
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Tuple, TypeVar, Union, cast
+from inspect import isfunction, ismethod
+from os import linesep
+from typing import TYPE_CHECKING, Any, Callable, List, Tuple, TypeVar, Union, cast
 
-__all__ = ("params",)
+__all__ = ("params", "CasesType",)
 
 F = TypeVar("F", bound=Callable[..., Any])
 ItemType = Union[
@@ -37,11 +39,48 @@ class Parameterized:
 
         :param fn: The function to which parameters and decorators are applied.
         :return: The updated function with parameters and decorators applied.
+        :raises TypeError: If the argument is not a function or method.
         """
+        if not (isfunction(fn) or ismethod(fn)):
+            raise TypeError(_format_params_usage_error(fn))
+
         if not hasattr(fn, "__vedro__params__"):
             setattr(fn, "__vedro__params__", [])
         getattr(fn, "__vedro__params__").append((self._args, self._kwargs, self._decorators))
-        return fn
+
+        return cast(F, fn)  # for mypy
+
+
+def _format_params_usage_error(fn: F) -> str:
+    """
+    Format an error message explaining correct usage of the @params decorator.
+
+    :param fn: The object that was incorrectly decorated.
+    :return: A usage error message with examples for both class-based and function-based scenarios.
+    """
+    return linesep.join([
+        f"Decorator @params can only be applied to functions or methods, got {type(fn)}.",
+        "",
+        "cls-based:",
+        "    class Scenario(vedro.Scenario):",
+        "        subject = 'get status'",
+        "",
+        "        @params(200)",
+        "        @params(404)",
+        "        def __init__(self, status):",
+        "            self.status = status",
+        "",
+        "fn-based:",
+        "    @scenario([",
+        "        params(200),",
+        "        params(404),",
+        "    ])",
+        "    def get_status(status):",
+        "        ...",
+        "",
+        "View usage guide:",
+        "https://vedro.io/docs/features/parameterized-scenarios",
+    ])
 
 
 class Params:
@@ -110,7 +149,7 @@ else:  # pragma: no cover
         to ensure correct usage and type inference.
         """
 
-        def __call__(self, *args: Any, **kwargs: Any) -> Callable[[_T], _T]:
+        def __call__(self, *args: Any, **kwargs: Any) -> Params:
             """
             Apply parameters to a function during static type checking.
 
@@ -118,15 +157,21 @@ else:  # pragma: no cover
             :param kwargs: Keyword arguments for the parameterized test.
             :return: A callable representing the parameterized function.
             """
-            return cast(Callable[[_T], _T], ...)
+            return cast(Params, ...)
 
-        def __getitem__(self, item: ItemType[F]) -> Callable[..., Callable[[_T], _T]]:
+        def __getitem__(self, item: ItemType[F]) -> Callable[..., Params]:
             """
             Create a wrapped parameterized instance with decorators during static type checking.
 
             :param item: A single decorator or a tuple of decorators to be applied.
             :return: A callable that creates a parameterized function.
             """
-            return cast(Callable[..., Callable[[_T], _T]], ...)
+            return cast(Callable[..., Params], ...)
 
     params = TypedParams()
+
+
+CasesType = Union[
+    List[Params],
+    Tuple[Params, ...]
+]

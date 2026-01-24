@@ -1,9 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use kornia_image::Image;
 use kornia_imgproc::{
-    color::gray_from_rgb_u8, features::*, interpolation::InterpolationMode, resize::resize_fast,
+    color::gray_from_rgb_u8, features::*, interpolation::InterpolationMode, resize::resize_fast_rgb,
 };
 use kornia_io::functional as io;
+use kornia_tensor::CpuAllocator;
 use rand::Rng;
 
 fn bench_fast_corner_detect(c: &mut Criterion) {
@@ -12,10 +13,10 @@ fn bench_fast_corner_detect(c: &mut Criterion) {
     let img_rgb8 = io::read_image_any_rgb8("/home/edgar/Downloads/kodim08_grayscale.png").unwrap();
 
     let new_size = [1920, 1080].into();
-    let mut img_resized = Image::from_size_val(new_size, 0).unwrap();
-    resize_fast(&img_rgb8, &mut img_resized, InterpolationMode::Bilinear).unwrap();
+    let mut img_resized = Image::from_size_val(new_size, 0, CpuAllocator).unwrap();
+    resize_fast_rgb(&img_rgb8, &mut img_resized, InterpolationMode::Bilinear).unwrap();
 
-    let mut img_gray8 = Image::from_size_val(new_size, 0).unwrap();
+    let mut img_gray8 = Image::from_size_val(new_size, 0, CpuAllocator).unwrap();
     gray_from_rgb_u8(&img_resized, &mut img_gray8).unwrap();
 
     let parameter_string = format!("{}x{}", new_size.width, new_size.height);
@@ -26,7 +27,7 @@ fn bench_fast_corner_detect(c: &mut Criterion) {
         |b, i| {
             let src = i.clone();
             b.iter(|| {
-                let _res = black_box(fast_feature_detector(&src, 60, 9)).unwrap();
+                let _res = std::hint::black_box(fast_feature_detector(&src, 60, 9)).unwrap();
             })
         },
     );
@@ -34,23 +35,24 @@ fn bench_fast_corner_detect(c: &mut Criterion) {
 
 fn bench_harris_response(c: &mut Criterion) {
     let mut group = c.benchmark_group("Features");
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for (width, height) in [(224, 224), (1920, 1080)].iter() {
         group.throughput(criterion::Throughput::Elements((*width * *height) as u64));
 
-        let parameter_string = format!("{}x{}", width, height);
+        let parameter_string = format!("{width}x{height}");
 
         // input image
         let image_data: Vec<f32> = (0..(*width * *height))
-            .map(|_| rng.gen_range(0.0..1.0))
+            .map(|_| rng.random_range(0.0..1.0))
             .collect();
         let image_size = [*width, *height].into();
 
-        let image_f32: Image<f32, 1> = Image::new(image_size, image_data).unwrap();
+        let image_f32: Image<f32, 1, _> = Image::new(image_size, image_data, CpuAllocator).unwrap();
 
         // output image
-        let response_f32: Image<f32, 1> = Image::from_size_val(image_size, 0.0).unwrap();
+        let response_f32: Image<f32, 1, _> =
+            Image::from_size_val(image_size, 0.0, CpuAllocator).unwrap();
         let mut harris_response = HarrisResponse::new(image_size);
 
         group.bench_with_input(
@@ -58,7 +60,7 @@ fn bench_harris_response(c: &mut Criterion) {
             &(&image_f32, &response_f32),
             |b, i| {
                 let (src, mut dst) = (i.0, i.1.clone());
-                b.iter(|| black_box(harris_response.compute(src, &mut dst)))
+                b.iter(|| std::hint::black_box(harris_response.compute(src, &mut dst)))
             },
         );
     }
@@ -73,20 +75,22 @@ fn bench_dog_response(c: &mut Criterion) {
     for (width, height) in test_sizes.iter() {
         group.throughput(criterion::Throughput::Elements((*width * *height) as u64));
 
-        let src = Image::<f32, 1>::from_size_val([*width, *height].into(), 1.0).unwrap();
-        let mut dst = Image::<f32, 1>::from_size_val([*width, *height].into(), 0.0).unwrap();
+        let src =
+            Image::<f32, 1, _>::from_size_val([*width, *height].into(), 1.0, CpuAllocator).unwrap();
+        let mut dst =
+            Image::<f32, 1, _>::from_size_val([*width, *height].into(), 0.0, CpuAllocator).unwrap();
 
         // Benchmark DoG response (serial version)
         group.bench_with_input(
-            BenchmarkId::new("dog_response", format!("{}x{}", width, height)),
+            BenchmarkId::new("dog_response", format!("{width}x{height}")),
             &(width, height),
             |b, _| {
                 b.iter(|| {
                     dog_response(
-                        black_box(&src),
-                        black_box(&mut dst),
-                        black_box(0.5),
-                        black_box(1.0),
+                        std::hint::black_box(&src),
+                        std::hint::black_box(&mut dst),
+                        std::hint::black_box(0.5),
+                        std::hint::black_box(1.0),
                     )
                     .unwrap()
                 })

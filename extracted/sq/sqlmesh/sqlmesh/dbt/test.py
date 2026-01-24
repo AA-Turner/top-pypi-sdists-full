@@ -8,6 +8,7 @@ from pathlib import Path
 from pydantic import Field
 import sqlmesh.core.dialect as d
 from sqlmesh.core.audit import Audit, ModelAudit, StandaloneAudit
+from sqlmesh.core.node import DbtNodeInfo
 from sqlmesh.dbt.common import (
     Dependencies,
     GeneralConfig,
@@ -79,8 +80,10 @@ class TestConfig(GeneralConfig):
     dialect_: t.Optional[str] = Field(None, alias="dialect")
 
     # dbt fields
+    unique_id: str = ""
     package_name: str = ""
     alias: t.Optional[str] = None
+    fqn: t.List[str] = []
     schema_: t.Optional[str] = Field("", alias="schema")
     database: t.Optional[str] = None
     severity: Severity = Severity.ERROR
@@ -107,6 +110,10 @@ class TestConfig(GeneralConfig):
         return v.lower()
 
     @property
+    def canonical_name(self) -> str:
+        return f"{self.package_name}.{self.name}".lower() if self.package_name else self.name
+
+    @property
     def is_standalone(self) -> bool:
         # A test is standalone if:
         # 1. It has no model_name (already standalone), OR
@@ -115,7 +122,14 @@ class TestConfig(GeneralConfig):
             return True
 
         # Check if test has references to other models
-        other_refs = {ref for ref in self.dependencies.refs if ref != self.model_name}
+        # For versioned models, refs include version (e.g., "model_name_v1") but model_name may not
+        self_refs = {self.model_name}
+        for ref in self.dependencies.refs:
+            # versioned models end in _vX
+            if ref.startswith(f"{self.model_name}_v"):
+                self_refs.add(ref)
+
+        other_refs = {ref for ref in self.dependencies.refs if ref not in self_refs}
         return bool(other_refs)
 
     @property
@@ -155,6 +169,7 @@ class TestConfig(GeneralConfig):
             jinja_macros.add_globals({"this": self.relation_info})
             audit = StandaloneAudit(
                 name=self.name,
+                dbt_node_info=self.node_info,
                 dialect=self.dialect(context),
                 skip=skip,
                 query=query,
@@ -171,6 +186,7 @@ class TestConfig(GeneralConfig):
         else:
             audit = ModelAudit(
                 name=self.name,
+                dbt_node_info=self.node_info,
                 dialect=self.dialect(context),
                 skip=skip,
                 blocking=blocking,
@@ -212,6 +228,12 @@ class TestConfig(GeneralConfig):
                 "type": None,
                 "quote_policy": AttributeDict(),
             }
+        )
+
+    @property
+    def node_info(self) -> DbtNodeInfo:
+        return DbtNodeInfo(
+            unique_id=self.unique_id, name=self.name, fqn=".".join(self.fqn), alias=self.alias
         )
 
 

@@ -88,8 +88,7 @@ def dust(
       (int) discard components smaller than this in voxels
       (tuple/list) discard components outside this range [lower, upper)
     connectivity: A cc3d connectivity to use.
-    in_place: Whether to modify the input image or perform
-      dust .
+    in_place: Whether to modify the input image or perform dust.
     precomputed_ccl: For performance, avoid computing a CCL
       pass since the input is already a CCL output from this
       library.
@@ -208,22 +207,22 @@ def largest_k(
 ) -> Union[NDArray[Union[np.bool_,np.uint16,np.uint32,np.uint64]],tuple[NDArray[Union[np.bool_,np.uint16,np.uint32,np.uint64]], int]]:
   """Returns the k largest connected components in the image.
 
-  NOTE: Performance may increase if you have the fastremap
+  NOTE:
+    Performance may increase if you have the `fastremap`
     library installed. This may also change the numbering
     of the output.
 
   Args:
     k: The number of components to return (>= 0).
     connectivity: 
-      (2d) 4 [edges], 8 [edges+corners] 
-      (3d) 6 [faces], 18 [faces+edges], or 26 [faces+edges+corners]
+      (2d) 4 [edges], 8 [edges + corners] 
+      (3d) 6 [faces], 18 [faces + edges], or 26 [faces + edges + corners]
     delta: If using a continuous image, the allowed difference
       in adjacent voxel values.
     return_N: Change return value to (image, N).
     binary_image: Treat the input image as a binary image.
-    precomputed_ccl: For performance, avoid computing a CCL
-      pass since the input is already a CCL output from this
-      library.
+    precomputed_ccl: For performance, avoid computing a CCL pass since the input
+      is already a CCL output from this library.
   """
   assert k >= 0
 
@@ -263,7 +262,7 @@ def largest_k(
   try:
     import fastremap  # type: ignore[import-not-found]
     cc_out = fastremap.mask_except(cc_labels, preserve_list, in_place=True)
-    fastremap.renumber(cc_out, in_place=True)
+    cc_out, _ = fastremap.renumber(cc_out, in_place=True)
   except ImportError:
     shape, dtype = cc_labels.shape, cc_labels.dtype
     rns = fastcc3d.runs(cc_labels)
@@ -327,7 +326,6 @@ def connected_components_stack(
   connectivity:Literal[6,26] = 26,
   *,
   return_N:Literal[False] = False,
-  out_dtype:DTypeLike = None,
   binary_image:bool = False,
 ) -> CrackleArray: ...
 @overload
@@ -335,7 +333,6 @@ def connected_components_stack(
   stacked_images:typing.Iterable[NDArray[typing.Any]], 
   connectivity:Literal[6,26] = 26,
   return_N:Literal[False] = False,
-  out_dtype:DTypeLike = None,
   binary_image:bool = False,
 ) -> CrackleArray: ...
 @overload
@@ -344,7 +341,6 @@ def connected_components_stack(
   connectivity:Literal[6,26] = 26,
   *,
   return_N:Literal[True],
-  out_dtype:DTypeLike = None,
   binary_image:bool = False,
 ) -> tuple[CrackleArray,int]: ...
 @overload
@@ -352,23 +348,21 @@ def connected_components_stack(
   stacked_images:typing.Iterable[NDArray[typing.Any]], 
   connectivity:Literal[6,26],
   return_N:Literal[True],
-  out_dtype:DTypeLike = None,
   binary_image:bool = False,
 ) -> tuple[CrackleArray,int]: ...
 def connected_components_stack(
   stacked_images:typing.Iterable[NDArray[typing.Any]], 
   connectivity:Literal[6,26] = 26,
   return_N:bool = False,
-  out_dtype:DTypeLike = None,
   binary_image:bool = False,
 ) -> Union[CrackleArray,tuple[CrackleArray,int]]:
   """This is for performing connected component labeling on an array larger than RAM.
 
   stacked_images is a sequence of 3D images that are of equal
-  width and height (x,y) and arbitrary depth (z). For example,
+  width and height (x, y) and arbitrary depth (z). For example,
   you might define a generator that produces a tenth of your
   data at a time. The data must be sequenced in z order from
-  z = 0 to z = depth - 1.
+  `z = 0` to `z = depth - 1`.
 
   Each 3D image will have CCL run on it and then compressed
   into crackle format (https://github.com/seung-lab/crackle)
@@ -380,17 +374,15 @@ def connected_components_stack(
 
   The final output will be a CrackleArray. You
   can access parts of the image using standard array
-  operations, write the array data to disk using arr.binary
-  or fully decompressing the array using arr.decompress()
+  operations, write the array data to disk using `arr.binary`
+  or fully decompressing the array using `arr.decompress()`
   to obtain a numpy array (but presumably this will blow
   out your RAM since the image is so big).
 
   Args:
     stacked_images: A sequence of images to process.
-    connectivity: 
-      (2d) 6 [faces], 26 [faces+edges+corners]
+    connectivity: (2d) 6 [faces], 26 [faces + edges + corners]
     return_N: Change return value to (CrackleArray, N).
-    out_dtype: The output dtype.
     binary_image: Treat the input images as binary images.
 
   Returns:
@@ -418,7 +410,7 @@ def connected_components_stack(
       return_N=True, out_dtype=np.uint64,
       binary_image=bool(binary_image),
     )
-    cc_labels[cc_labels != 0] += offset
+    np.add(cc_labels, offset, out=cc_labels, where=(cc_labels != 0))
     offset += N
     binary = crackle.compress(cc_labels)
 
@@ -453,6 +445,14 @@ def connected_components_stack(
       for y in range(image.shape[1]):
         for x in range(image.shape[0]):
           if bottom_cc_labels[x,y] == 0:
+            continue
+
+          if ((not binary_image and bottom_cc_img[x,y] == image[x,y,0])
+                or (binary_image and bottom_cc_img[x,y] and image[x,y,0])):
+
+            equivalences.union(
+              bottom_cc_labels[x,y], top_cc_labels[x,y]
+            )
             continue
 
           for y0 in range(max(y - 1, 0), min(y + 1, image.shape[1] - 1) + 1):
@@ -491,8 +491,12 @@ def connected_components_stack(
   full_binary, mapping = crackle.renumber(full_binary, start=start)
   arr = crackle.CrackleArray(full_binary).refit()
 
+  N = arr.num_labels()
+  if start == 0:
+    N -= 1
+
   if return_N:
-    return arr, arr.num_labels()
+    return arr, N
   else:
     return arr
 

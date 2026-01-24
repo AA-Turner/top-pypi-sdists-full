@@ -1,16 +1,18 @@
 import inspect
-import warnings
 from contextlib import contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Tuple, cast
 
 from django.http import HttpRequest, HttpResponse
+from typing_extensions import deprecated
 
+from ninja_extra.constants import ROUTE_OBJECT_FUNCTION
 from ninja_extra.context import (
     RouteContext,
     get_route_execution_context,
 )
 from ninja_extra.dependency_resolver import get_injector, service_resolver
+from ninja_extra.reflect import reflect
 
 if TYPE_CHECKING:  # pragma: no cover
     from ninja_extra.controllers.base import APIController, ControllerBase
@@ -27,15 +29,15 @@ class RouteFunctionContext:
 
 
 class RouteFunction(object):
-    def __init__(
-        self, route: "Route", api_controller: Optional["APIController"] = None
-    ):
+    def __init__(self, route: "Route", api_controller: "APIController"):
         self.route = route
         self.operation: Optional["Operation"] = None
         self.has_request_param = False
-        self.api_controller = api_controller
+        self._api_controller = api_controller
         self.as_view = wraps(route.view_func)(self.get_view_function())
         self._resolve_api_func_signature_(self.as_view)
+        # Store route function metadata
+        reflect.define_metadata(ROUTE_OBJECT_FUNCTION, self, route)
 
     def __call__(
         self,
@@ -66,7 +68,14 @@ class RouteFunction(object):
                 self.has_request_param = True
         return sig_inspect, sig_parameter
 
-    def get_api_controller(self) -> "APIController":
+    @property
+    def api_controller(self) -> "APIController":
+        return self._api_controller
+
+    @deprecated(
+        "get_api_controller() is deprecated, use api_controller property instead."
+    )
+    def get_api_controller(self) -> "APIController":  # pragma: no cover
         assert self.api_controller, "APIController is required"
         return self.api_controller
 
@@ -104,33 +113,15 @@ class RouteFunction(object):
         as_view.get_route_function = lambda: self  # type:ignore
         return as_view
 
-    def _process_view_function_result(self, result: Any) -> Any:
-        """
-        This process any a returned value from view_func
-        and creates an api response if a result is ControllerResponseSchema
-
-        deprecated:: 0.21.5
-           This method is deprecated and will be removed in a future version.
-           The result processing should be handled by the response handlers.
-        """
-        warnings.warn(
-            "_process_view_function_result() is deprecated and will be removed in a future version. "
-            "The result processing should be handled by the response handlers.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return result
-
     def _get_controller_instance(self) -> "ControllerBase":
         from ninja_extra.controllers.base import ModelControllerBase
 
         injector = get_injector()
-        _api_controller = self.get_api_controller()
         additional_kwargs = {}
 
-        if issubclass(_api_controller.controller_class, ModelControllerBase):
+        if issubclass(self.api_controller.controller_class, ModelControllerBase):
             controller_klass = cast(
-                ModelControllerBase, _api_controller.controller_class
+                ModelControllerBase, self.api_controller.controller_class
             )
             # make sure model_config is not None
             if controller_klass.model_config is not None:
@@ -141,31 +132,10 @@ class RouteFunction(object):
                 additional_kwargs.update({"service": service})
 
         controller_instance = injector.create_object(
-            _api_controller.controller_class, additional_kwargs=additional_kwargs
+            self.api_controller.controller_class, additional_kwargs=additional_kwargs
         )
 
         return controller_instance
-
-    def get_route_execution_context(
-        self, request: HttpRequest, *args: Any, **kwargs: Any
-    ) -> RouteContext:
-        warnings.warn(
-            "get_route_execution_context() is deprecated in favor of "
-            "ninja_extra.controllers.route.context.get_route_execution_context()",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        _api_controller = self.get_api_controller()
-
-        init_kwargs = {
-            "permission_classes": self.route.permissions
-            or _api_controller.permission_classes,
-            "request": request,
-            "kwargs": kwargs,
-            "args": args,
-        }
-        context = RouteContext(**init_kwargs)  # type:ignore[arg-type]
-        return context
 
     @contextmanager
     def _prep_controller_route_execution(
@@ -241,11 +211,10 @@ class AsyncRouteFunction(RouteFunction):
         *args: Any,
         **kwargs: Any,
     ) -> Any:
-        _api_controller = self.get_api_controller()
         context = get_route_execution_context(
             request,
             temporal_response,
-            self.route.permissions or _api_controller.permission_classes,  # type:ignore[arg-type]
+            self.route.permissions or self.api_controller.permission_classes,  # type:ignore[arg-type]
             *args,
             **kwargs,
         )

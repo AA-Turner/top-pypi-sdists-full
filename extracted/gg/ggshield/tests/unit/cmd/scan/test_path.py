@@ -236,10 +236,15 @@ secret:
 
     @pytest.mark.parametrize("position", [0, 1, 2, 3, 4])
     def test_ssl_verify(self, cli_fs_runner, position):
+        """
+        GIVEN the --insecure flag
+        WHEN running the path scan command
+        THEN SSL verification is disabled
+        """
         self.create_files()
 
         cmd = ["secret", "scan", "path", "file1"]
-        cmd.insert(position, "--allow-self-signed")
+        cmd.insert(position, "--insecure")
 
         with patch("ggshield.core.client.GGClient") as client_mock:
             cli_fs_runner.invoke(cli, cmd)
@@ -550,5 +555,58 @@ class TestScanDirectory:
         assert any(
             isinstance(arg, dict)
             and arg.get("GGShield-Repository-URL") == "github.com/owner/repository"
+            for arg in scan_mock.call_args[0]
+        )
+
+    @patch("pygitguardian.GGClient.multi_content_scan")
+    @my_vcr.use_cassette("test_scan_context_repository.yaml")
+    def test_scan_path_with_fallback_repository_url(
+        self,
+        scan_mock: Mock,
+        tmp_path: Path,
+        cli_fs_runner: CliRunner,
+    ) -> None:
+        """
+        GIVEN a repository without a remote url
+        WHEN executing a scan with GITGUARDIAN_GIT_REMOTE_FALLBACK_URL set
+        THEN the environment variable value is sent in the headers
+        """
+        local_repo = Repository.create(tmp_path)
+
+        file = local_repo.path / "file_secret"
+        write_text(file, "Hello")
+        local_repo.add(file)
+        local_repo.create_commit()
+
+        scan_result = MultiScanResult([])
+        scan_result.status_code = 200
+        scan_mock.return_value = scan_result
+
+        fallback_url = "https://github.com/fallback/repository.git"
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "GITGUARDIAN_API_KEY": os.environ.get("GITGUARDIAN_API_KEY", ""),
+            "GITGUARDIAN_GIT_REMOTE_FALLBACK_URL": fallback_url,
+            # Preserve home directory env vars (USERPROFILE for Windows, HOME for Unix)
+            # needed by Path.home() and platformdirs
+            "HOME": os.environ.get("HOME", ""),
+            "USERPROFILE": os.environ.get("USERPROFILE", ""),
+        }
+        with patch.dict(os.environ, env, clear=True):
+            result = cli_fs_runner.invoke(
+                cli,
+                [
+                    "secret",
+                    "scan",
+                    "path",
+                    str(file),
+                ],
+            )
+        assert_invoke_ok(result)
+
+        scan_mock.assert_called_once()
+        assert any(
+            isinstance(arg, dict)
+            and arg.get("GGShield-Repository-URL") == "github.com/fallback/repository"
             for arg in scan_mock.call_args[0]
         )

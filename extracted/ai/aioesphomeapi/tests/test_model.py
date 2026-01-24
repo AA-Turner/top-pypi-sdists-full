@@ -21,9 +21,11 @@ from aioesphomeapi.api_pb2 import (
     DeviceInfo as SubDeviceInfoProto,
     DeviceInfoResponse,
     EventResponse,
+    ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanStateResponse,
     HomeassistantActionRequest,
     HomeassistantServiceMap,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
     LightStateResponse,
     ListEntitiesAlarmControlPanelResponse,
     ListEntitiesBinarySensorResponse,
@@ -47,6 +49,7 @@ from aioesphomeapi.api_pb2 import (
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     MediaPlayerSupportedFormat,
@@ -56,12 +59,14 @@ from aioesphomeapi.api_pb2 import (
     SensorStateResponse,
     ServiceArgType,
     SirenStateResponse,
+    SupportsResponseType as SupportsResponseTypePb,
     SwitchStateResponse,
     TextSensorStateResponse,
     TextStateResponse,
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    WaterHeaterStateResponse,
     ZWaveProxyFrame as ZWaveProxyFramePb,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
@@ -83,6 +88,7 @@ from aioesphomeapi.model import (
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
+    ClimateFeature,
     ClimateInfo,
     ClimatePreset,
     ClimateState,
@@ -97,9 +103,13 @@ from aioesphomeapi.model import (
     EntityState,
     Event,
     EventInfo,
+    ExecuteServiceResponse,
     FanInfo,
     FanState,
     HomeassistantServiceCall,
+    InfraredCapability,
+    InfraredInfo,
+    InfraredRFReceiveEvent,
     LegacyCoverState,
     LightColorCapability,
     LightInfo,
@@ -119,6 +129,7 @@ from aioesphomeapi.model import (
     SirenInfo,
     SirenState,
     SubDeviceInfo,
+    SupportsResponseType,
     SwitchInfo,
     SwitchState,
     TextInfo,
@@ -137,6 +148,8 @@ from aioesphomeapi.model import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantFeature,
     VoiceAssistantWakeWord,
+    WaterHeaterInfo,
+    WaterHeaterState,
     ZWaveProxyFeature,
     ZWaveProxyFrame,
     ZWaveProxyRequest,
@@ -315,6 +328,9 @@ def test_api_version_ord():
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
         (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
+        (ExecuteServiceResponse, ExecuteServiceResponsePb),
+        (WaterHeaterInfo, ListEntitiesWaterHeaterResponse),
+        (WaterHeaterState, WaterHeaterStateResponse),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -333,6 +349,45 @@ def test_basic_pb_conversions(model, pb):
 )
 def test_cover_state_legacy_state(state, version, out):
     assert state.is_closed(APIVersion(*version)) is out
+
+
+@pytest.mark.parametrize(
+    "state, version, out",
+    [
+        (
+            ClimateInfo(supports_current_temperature=True),
+            (1, 12),
+            ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE,
+        ),
+        (
+            ClimateInfo(supports_two_point_target_temperature=True),
+            (1, 12),
+            ClimateFeature.REQUIRES_TWO_POINT_TARGET_TEMPERATURE,
+        ),
+        (
+            ClimateInfo(supports_current_humidity=True),
+            (1, 12),
+            ClimateFeature.SUPPORTS_CURRENT_HUMIDITY,
+        ),
+        (
+            ClimateInfo(supports_target_humidity=True),
+            (1, 12),
+            ClimateFeature.SUPPORTS_TARGET_HUMIDITY,
+        ),
+        (ClimateInfo(supports_action=True), (1, 12), ClimateFeature.SUPPORTS_ACTION),
+        (
+            ClimateInfo(
+                feature_flags=ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+                | ClimateFeature.SUPPORTS_ACTION
+            ),
+            (1, 13),
+            ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+            | ClimateFeature.SUPPORTS_ACTION,
+        ),
+    ],
+)
+def test_climate_info_supported_feature_flags_compat(state, version, out):
+    assert state.supported_feature_flags_compat(APIVersion(*version)) == out
 
 
 @pytest.mark.parametrize(
@@ -432,11 +487,21 @@ def test_user_service_conversion():
         AlarmControlPanelInfo,
         TextInfo,
         TimeInfo,
+        WaterHeaterInfo,
     ],
 )
 def test_build_unique_id(model):
-    obj = model(object_id="id")
+    obj = model(object_id="id", name="My Sensor")
+    # Version 1 (default): uses object_id
     assert build_unique_id("mac", obj) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+    assert (
+        build_unique_id("mac", obj, version=1) == f"mac-{_TYPE_TO_NAME[type(obj)]}-id"
+    )
+    # Version 2: uses name directly (preserves spaces, Unicode, etc.)
+    assert (
+        build_unique_id("mac", obj, version=2)
+        == f"mac-{_TYPE_TO_NAME[type(obj)]}-My Sensor"
+    )
 
 
 @pytest.mark.parametrize(
@@ -538,11 +603,13 @@ def test_zwave_proxy_request_type_enum() -> None:
     """Test ZWaveProxyRequestType enum values."""
     assert ZWaveProxyRequestType.SUBSCRIBE == 0
     assert ZWaveProxyRequestType.UNSUBSCRIBE == 1
+    assert ZWaveProxyRequestType.HOME_ID_CHANGE == 2
 
     # Test conversion
     assert ZWaveProxyRequestType.convert(0) == ZWaveProxyRequestType.SUBSCRIBE
     assert ZWaveProxyRequestType.convert(1) == ZWaveProxyRequestType.UNSUBSCRIBE
-    assert ZWaveProxyRequestType.convert(2) is None
+    assert ZWaveProxyRequestType.convert(2) == ZWaveProxyRequestType.HOME_ID_CHANGE
+    assert ZWaveProxyRequestType.convert(3) is None
     assert ZWaveProxyRequestType.convert(-1) is None
 
 
@@ -558,9 +625,15 @@ def test_zwave_proxy_request_conversion() -> None:
     request_unsub = ZWaveProxyRequest.from_pb(pb_request_unsub)
     assert request_unsub.type == ZWaveProxyRequestType.UNSUBSCRIBE
 
+    # Test with HOME_ID_CHANGE
+    pb_request_home_id_change = ZWaveProxyRequestPb(type=2, data=b"1,2,3,4")
+    request_home_id_change = ZWaveProxyRequest.from_pb(pb_request_home_id_change)
+    assert request_home_id_change.type == ZWaveProxyRequestType.HOME_ID_CHANGE
+
     # Test to_dict
-    assert request.to_dict() == {"type": 0}
-    assert request_unsub.to_dict() == {"type": 1}
+    assert request.to_dict() == {"type": 0, "data": b""}
+    assert request_unsub.to_dict() == {"type": 1, "data": b""}
+    assert request_home_id_change.to_dict() == {"type": 2, "data": b"1,2,3,4"}
 
     # Test from_dict
     request_from_dict = ZWaveProxyRequest.from_dict({"type": 1})
@@ -1603,6 +1676,7 @@ STATE_RESPONSE_DEVICE_ID_TEST_DATA = [
     (ValveStateResponse, ValveState, {"position": 0.75}),
     (DateTimeStateResponse, DateTimeState, {"epoch_seconds": 1737000000}),
     (UpdateStateResponse, UpdateState, {"current_version": "1.0.0"}),
+    (WaterHeaterStateResponse, WaterHeaterState, {"current_temperature": 60.0}),
 ]
 
 
@@ -1721,3 +1795,182 @@ def test_event_entity_state_device_id():
     assert event_from_dict.key == 102
     assert event_from_dict.event_type == "door_opened"
     assert event_from_dict.device_id == 99
+
+
+@pytest.mark.parametrize(
+    "input, output",
+    [
+        (0, SupportsResponseType.NONE),
+        (1, SupportsResponseType.OPTIONAL),
+        (2, SupportsResponseType.ONLY),
+        (100, SupportsResponseType.STATUS),
+        (999, None),  # Unknown value
+    ],
+)
+def test_supports_response_type_convert(input, output):
+    assert SupportsResponseType.convert(input) == output
+
+
+def test_supports_response_type_values():
+    """Test that SupportsResponseType enum has expected values."""
+    assert SupportsResponseType.NONE == 0
+    assert SupportsResponseType.OPTIONAL == 1
+    assert SupportsResponseType.ONLY == 2
+    assert SupportsResponseType.STATUS == 100
+
+
+def test_user_service_with_supports_response():
+    """Test UserService model with supports_response field."""
+    # Test from protobuf with supports_response
+    pb = ListEntitiesServicesResponse(
+        name="test_service",
+        key=123,
+        supports_response=SupportsResponseTypePb.SUPPORTS_RESPONSE_OPTIONAL,
+    )
+    service = UserService.from_pb(pb)
+    assert service.name == "test_service"
+    assert service.key == 123
+    assert service.supports_response == SupportsResponseType.OPTIONAL
+    assert service.args == []
+
+    # Test with STATUS response type
+    pb_status = ListEntitiesServicesResponse(
+        name="status_service",
+        key=456,
+        supports_response=SupportsResponseTypePb.SUPPORTS_RESPONSE_STATUS,
+    )
+    service_status = UserService.from_pb(pb_status)
+    assert service_status.supports_response == SupportsResponseType.STATUS
+
+    # Test default value (NONE)
+    pb_default = ListEntitiesServicesResponse(name="default_service", key=789)
+    service_default = UserService.from_pb(pb_default)
+    assert service_default.supports_response == SupportsResponseType.NONE
+
+    # Test from_dict
+    service_dict = UserService.from_dict(
+        {
+            "name": "dict_service",
+            "key": 111,
+            "supports_response": 2,  # ONLY
+        }
+    )
+    assert service_dict.supports_response == SupportsResponseType.ONLY
+
+    # Test to_dict
+    service_to_dict = UserService(
+        name="to_dict_service",
+        key=222,
+        supports_response=SupportsResponseType.OPTIONAL,
+    )
+    result = service_to_dict.to_dict()
+    assert result["supports_response"] == 1
+
+
+def test_execute_service_response():
+    """Test ExecuteServiceResponse model."""
+    # Test from protobuf with all fields
+    pb = ExecuteServiceResponsePb(
+        call_id=12345,
+        success=True,
+        error_message="",
+        response_data=b'{"result": "ok"}',
+    )
+    response = ExecuteServiceResponse.from_pb(pb)
+    assert response.call_id == 12345
+    assert response.success is True
+    assert response.error_message == ""
+    assert response.response_data == b'{"result": "ok"}'
+
+    # Test error response
+    pb_error = ExecuteServiceResponsePb(
+        call_id=67890,
+        success=False,
+        error_message="Service execution failed",
+        response_data=b"",
+    )
+    response_error = ExecuteServiceResponse.from_pb(pb_error)
+    assert response_error.call_id == 67890
+    assert response_error.success is False
+    assert response_error.error_message == "Service execution failed"
+    assert response_error.response_data == b""
+
+    # Test default values
+    pb_default = ExecuteServiceResponsePb()
+    response_default = ExecuteServiceResponse.from_pb(pb_default)
+    assert response_default.call_id == 0
+    assert response_default.success is False
+    assert response_default.error_message == ""
+    assert response_default.response_data == b""
+
+    # Test from_dict
+    response_dict = ExecuteServiceResponse.from_dict(
+        {
+            "call_id": 99999,
+            "success": True,
+            "error_message": "test",
+            "response_data": b"data",
+        }
+    )
+    assert response_dict.call_id == 99999
+    assert response_dict.success is True
+    assert response_dict.error_message == "test"
+    assert response_dict.response_data == b"data"
+
+    # Test to_dict
+    response_to_dict = ExecuteServiceResponse(
+        call_id=11111,
+        success=True,
+        error_message="",
+        response_data=b"test_data",
+    )
+    result = response_to_dict.to_dict()
+    assert result["call_id"] == 11111
+    assert result["success"] is True
+    assert result["error_message"] == ""
+    assert result["response_data"] == b"test_data"
+
+
+def test_infrared_capability_enum() -> None:
+    """Test InfraredCapability enum values."""
+    assert InfraredCapability.TRANSMITTER == 1
+    assert InfraredCapability.RECEIVER == 2
+
+
+def test_infrared_rf_receive_event_conversion() -> None:
+    """Test InfraredRFReceiveEvent conversion from protobuf."""
+    # Test with empty timings
+    pb_event = InfraredRFReceiveEventPb(key=123, device_id=0)
+    event = InfraredRFReceiveEvent.from_pb(pb_event)
+    assert event.key == 123
+    assert event.device_id == 0
+    assert event.timings == []
+
+    # Test with actual timings
+    pb_event_with_timings = InfraredRFReceiveEventPb(
+        key=456, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
+    )
+    event_with_timings = InfraredRFReceiveEvent.from_pb(pb_event_with_timings)
+    assert event_with_timings.key == 456
+    assert event_with_timings.device_id == 5
+    assert event_with_timings.timings == [9000, -4500, 560, -560, 560, -1690]
+
+    # Test to_dict
+    event_dict = event_with_timings.to_dict()
+    assert event_dict["key"] == 456
+    assert event_dict["device_id"] == 5
+    assert event_dict["timings"] == [9000, -4500, 560, -560, 560, -1690]
+
+    # Test from_dict
+    event_from_dict = InfraredRFReceiveEvent.from_dict(
+        {"key": 789, "device_id": 3, "timings": [1000, -2000, 3000, -4000]}
+    )
+    assert event_from_dict.key == 789
+    assert event_from_dict.device_id == 3
+    assert event_from_dict.timings == [1000, -2000, 3000, -4000]
+
+
+def test_infrared_info_in_type_to_name() -> None:
+    """Test that InfraredInfo is registered in _TYPE_TO_NAME."""
+    assert InfraredInfo in _TYPE_TO_NAME
+    assert _TYPE_TO_NAME[InfraredInfo] == "infrared"

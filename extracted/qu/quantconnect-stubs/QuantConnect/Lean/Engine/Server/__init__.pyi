@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 
 import QuantConnect.Data.UniverseSelection
@@ -57,7 +57,8 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         """
         The current algorithm
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -70,7 +71,8 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         """
         The system handlers
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -83,7 +85,8 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         """
         The algorithm handlers
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -130,7 +133,8 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         """
         Set the command handler to use, protected for testing purposes
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 

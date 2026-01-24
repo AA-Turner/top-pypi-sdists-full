@@ -1,8 +1,8 @@
+from collections.abc import Callable, Iterator, Sequence
 from copy import deepcopy
 import functools
 from itertools import product
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple
 
 import ase
 import numpy as np
@@ -31,7 +31,7 @@ class ClusterManager:
         Primitive cell
     """
 
-    def __init__(self, prim_cell: ase.Atoms, background_syms: Optional[Set[str]] = None):
+    def __init__(self, prim_cell: ase.Atoms, background_syms: set[str] | None = None):
         self._background_syms = background_syms or set()
 
         primitive_filtered = self._filter_background(prim_cell)
@@ -51,7 +51,7 @@ class ClusterManager:
         return self.generator.prim
 
     @property
-    def background_syms(self) -> Set[str]:
+    def background_syms(self) -> set[str]:
         """The symbols which are considered background."""
         return self._background_syms
 
@@ -112,8 +112,8 @@ class ClusterManager:
         # is the number of atoms in the primitive,
         # possibly without the background atoms.
         num_lattices = range(len(self.prim))
-        all_fps: List[ClusterFingerprint] = []
-        all_figures: List[List[Figure]] = []
+        all_fps: list[ClusterFingerprint] = []
+        all_figures: list[list[Figure]] = []
         lattices = []
 
         for ref_lattice, (indx, diameter) in product(num_lattices, enumerate(max_cluster_dia)):
@@ -226,7 +226,7 @@ class ClusterManager:
                 cluster.indices = self.generator.to_atom_index(cluster, lut)
         return template_cluster_list
 
-    def unique_four_vectors(self) -> Set[FourVector]:
+    def unique_four_vectors(self) -> set[FourVector]:
         """
         Return a list with all unique 4-vectors which are
         represented in any figure in all of the clusters.
@@ -242,13 +242,13 @@ class ClusterManager:
                     unique.add(fv)
         return unique
 
-    def get_figures(self) -> List[ase.Atoms]:
+    def get_figures(self) -> list[ase.Atoms]:
         """
         Return a list of atoms object representing the clusters
         """
         return self.clusters.get_figures(self.generator)
 
-    def make_all_four_vectors(self, atoms: ase.Atoms) -> Tuple[np.ndarray, List[FourVector]]:
+    def make_all_four_vectors(self, atoms: ase.Atoms) -> tuple[np.ndarray, list[FourVector]]:
         """Construct the FourVector to every site which is not a background site.
 
         Returns an array of indices and a list with the corresponding FourVectors.
@@ -263,7 +263,7 @@ class ClusterManager:
         four_vectors = self.generator.many_to_four_vector(pos, tags)
         return indices, four_vectors
 
-    def create_four_vector_lut(self, template: ase.Atoms) -> Dict[FourVector, int]:
+    def create_four_vector_lut(self, template: ase.Atoms) -> dict[FourVector, int]:
         """
         Construct a lookup table (LUT) for the index in template given the
         wrapped vector
@@ -279,7 +279,7 @@ class ClusterManager:
 
     def fourvec_to_indx(
         self, template: ase.Atoms, unique: Sequence[FourVector]
-    ) -> Dict[FourVector, int]:
+    ) -> dict[FourVector, int]:
         """Translate a set of unique FourVectors into their corresponding index
         in a template atoms object."""
         # Translate the four-vectors onto the corresponding index, by wrapping
@@ -295,7 +295,7 @@ class ClusterManager:
             unique_indices.append(np.argmin(diff_sq))
         return dict(zip(unique, unique_indices))
 
-    def translation_matrix(self, template: ase.Atoms) -> List[Dict[int, int]]:
+    def translation_matrix(self, template: ase.Atoms) -> list[dict[int, int]]:
         """
         Construct the translation matrix.
 
@@ -323,7 +323,7 @@ class ClusterManager:
         # Background atoms will be missing in this table.
         idx_to_fv = {idx: fv for fv, idx in lut.items()}
 
-        def _make_site_mapping(index: int) -> Dict[int, int]:
+        def _make_site_mapping(index: int) -> dict[int, int]:
             """Helper function to calculate the translation mapping for each
             atomic site."""
             try:
@@ -385,7 +385,7 @@ class ClusterManager:
         self,
         translation_vector: FourVector,
         unique_xyz: np.ndarray,
-        sublattices: List[int],
+        sublattices: list[int],
         rep_arr: np.ndarray,
     ) -> Iterator[FourVector]:
         """Wrap FourVectors using the trivial shift+modulo operation"""
@@ -400,7 +400,7 @@ class ClusterManager:
         translation_vector: FourVector,
         unique: Sequence[FourVector],
         cell: np.ndarray,
-        cell_T_inv: Optional[np.ndarray] = None,
+        cell_T_inv: np.ndarray | None = None,
     ) -> Iterator[FourVector]:
         """Generalized FourVector wrapping function."""
         # Translate the (x, y, z) components of the unique four-vectors
@@ -420,8 +420,8 @@ class ClusterManager:
         self,
         template_atoms: ase.Atoms,
         max_cluster_dia: Sequence[float],
-        index_by_sublattice: List[List[int]],
-    ) -> Tuple[ClusterList, TransMatrix]:
+        index_by_sublattice: list[list[int]],
+    ) -> tuple[ClusterList, TransMatrix]:
         """Create a ClusterList and a TransMatrix object, and calculate the norm factors."""
         # Ensure that we have built the clusters for the cutoff
         self.build(max_cluster_dia)
@@ -441,7 +441,7 @@ class ClusterManager:
 
 
 def _set_norm_factors(
-    index_by_sublattice: List[List[int]],
+    index_by_sublattice: list[list[int]],
     trans_matrix: TransMatrix,
     cluster_list: ClusterList,
 ) -> None:

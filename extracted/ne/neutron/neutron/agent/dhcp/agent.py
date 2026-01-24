@@ -14,17 +14,17 @@
 #    under the License.
 
 import collections
+from concurrent import futures
 import functools
 import os
 import threading
+import time
 
-import eventlet
 from neutron_lib.agent import constants as agent_consts
 from neutron_lib.agent import topics
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions
-from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -50,8 +50,7 @@ _SYNC_STATE_LOCK = threading.RLock()
 
 DEFAULT_PRIORITY = 255
 
-DHCP_PROCESS_GREENLET_MAX = 32
-DHCP_PROCESS_GREENLET_MIN = 8
+DHCP_PROCESS_THREADS = 32
 DELETED_PORT_MAX_AGE = 86400
 
 DHCP_READY_PORTS_SYNC_MAX = 64
@@ -122,21 +121,17 @@ class DhcpAgent(manager.Manager):
                 opt_value=self.conf.resync_throttle)
         self._periodic_resync_event = threading.Event()
         self.cache = NetworkCache()
-        self.dhcp_driver_cls = importutils.import_class(self.conf.dhcp_driver)
-        self.plugin_rpc = DhcpPluginApi(topics.PLUGIN, self.conf.host)
         # create dhcp dir to store dhcp info
         dhcp_dir = os.path.dirname("/%s/dhcp/" % self.conf.state_path)
         fileutils.ensure_tree(dhcp_dir, mode=0o755)
-        self.dhcp_version = self.dhcp_driver_cls.check_version()
-        self._populate_networks_cache()
         # keep track of mappings between networks and routers for
         # metadata processing
         self._metadata_routers = {}  # {network_id: router_id}
         self._process_monitor = external_process.ProcessMonitor(
             config=self.conf,
             resource_type='dhcp')
-        self._pool_size = DHCP_PROCESS_GREENLET_MIN
-        self._pool = eventlet.GreenPool(size=self._pool_size)
+        self._pool = utils.ThreadPoolExecutorWithBlock(
+            max_workers=DHCP_PROCESS_THREADS)
         self._queue = queue.ResourceProcessingQueue()
         self._network_bulk_allocations = {}
         # Each dhcp-agent restart should trigger a restart of all
@@ -154,6 +149,12 @@ class DhcpAgent(manager.Manager):
         self.restarted_metadata_proxy_set = set()
 
     def init_host(self):
+        super().init_host()
+
+        self.dhcp_driver_cls = importutils.import_class(self.conf.dhcp_driver)
+        self.plugin_rpc = DhcpPluginApi(topics.PLUGIN, self.conf.host)
+        self.dhcp_version = self.dhcp_driver_cls.check_version()
+        self._populate_networks_cache()
         self.sync_state()
 
     def _populate_networks_cache(self):
@@ -180,9 +181,12 @@ class DhcpAgent(manager.Manager):
         """Activate the DHCP agent."""
         self.periodic_resync()
         self.start_ready_ports_loop()
-        eventlet.spawn_n(self._process_loop)
+        pr_loop_thread = threading.Thread(target=self._process_loop)
+        pr_loop_thread.start()
         if self.conf.bulk_reload_interval:
-            eventlet.spawn_n(self._reload_bulk_allocations)
+            bulk_thread = threading.Thread(
+                target=self._reload_bulk_allocations)
+            bulk_thread.start()
 
     def _reload_bulk_allocations(self):
         while True:
@@ -195,7 +199,7 @@ class DhcpAgent(manager.Manager):
                 network = self.cache.get_network_by_id(network_id)
                 if network is not None:
                     self.call_driver('bulk_reload_allocations', network)
-            eventlet.greenthread.sleep(self.conf.bulk_reload_interval)
+            time.sleep(self.conf.bulk_reload_interval)
 
     def call_driver(self, action, network, **action_kwargs):
         sid_segment = {}
@@ -292,7 +296,7 @@ class DhcpAgent(manager.Manager):
         # This helps prevent one thread from acquiring the same lock over and
         # over again, in which case no other threads waiting on the
         # "dhcp-agent" lock would make any progress.
-        eventlet.greenthread.sleep(0)
+        time.sleep(0)
 
     @_sync_lock
     def sync_state(self, networks=None):
@@ -301,7 +305,6 @@ class DhcpAgent(manager.Manager):
         """
         only_nets = set([] if (not networks or None in networks) else networks)
         LOG.info('Synchronizing state')
-        pool = eventlet.GreenPool(self.conf.num_sync_threads)
         known_network_ids = set(self.cache.get_network_ids())
 
         try:
@@ -317,12 +320,19 @@ class DhcpAgent(manager.Manager):
                     LOG.exception('Unable to sync network state on '
                                   'deleted network %s', deleted_id)
 
-            for network in active_networks:
-                if (not only_nets or  # specifically resync all
-                        network.id not in known_network_ids or  # missing net
-                        network.id in only_nets):  # specific network to sync
-                    pool.spawn(self.safe_configure_dhcp_for_network, network)
-            pool.waitall()
+            with utils.ThreadPoolExecutorWithBlock(
+                    max_workers=self.conf.num_sync_threads) as pool:
+                fs = []
+                for network in active_networks:
+                    if (not only_nets or  # specifically resync all
+                            # missing net
+                            network.id not in known_network_ids or
+                            # specific network to sync
+                            network.id in only_nets):
+                        fs.append(pool.submit(
+                            self.safe_configure_dhcp_for_network, network)
+                        )
+                futures.wait(fs)
             # we notify all ports in case some were created while the agent
             # was down
             self.dhcp_ready_ports |= set(self.cache.get_port_ids(only_nets))
@@ -368,12 +378,13 @@ class DhcpAgent(manager.Manager):
                 self.dhcp_ready_ports |= ports_to_send
 
         while True:
-            eventlet.sleep(0.2)
+            time.sleep(0.2)
             dhcp_ready_ports_loop()
 
     def start_ready_ports_loop(self):
         """Spawn a thread to push changed ports to server."""
-        eventlet.spawn(self._dhcp_ready_ports_loop)
+        # TODO(lajoskatona): check the usage of ThreadPoolExecutor
+        threading.Thread(target=self._dhcp_ready_ports_loop).start()
 
     @utils.exception_logger()
     def _periodic_resync_helper(self):
@@ -405,7 +416,8 @@ class DhcpAgent(manager.Manager):
 
     def periodic_resync(self):
         """Spawn a thread to periodically resync the dhcp state."""
-        eventlet.spawn(self._periodic_resync_helper)
+        resync_thread = threading.Thread(target=self._periodic_resync_helper)
+        resync_thread.start()
 
     def safe_get_network_info(self, network_id):
         try:
@@ -448,8 +460,6 @@ class DhcpAgent(manager.Manager):
             # created before enabling dhcp can be updated.
             self.dhcp_ready_ports |= {p.id for p in network.ports}
 
-        self._resize_process_pool()
-
     def disable_dhcp_helper(self, network_id):
         """Disable DHCP for a network known to the agent."""
         network = self.cache.get_network_by_id(network_id)
@@ -464,8 +474,6 @@ class DhcpAgent(manager.Manager):
             self.disable_isolated_metadata_proxy(network)
             if self.call_driver('disable', network):
                 self.cache.remove(network)
-
-        self._resize_process_pool()
 
     def refresh_dhcp_helper(self, network_id):
         """Refresh or disable DHCP for a network depending on the current state
@@ -580,26 +588,19 @@ class DhcpAgent(manager.Manager):
             return
         self.refresh_dhcp_helper(network.id)
 
-    @lockutils.synchronized('resize_greenpool')
-    def _resize_process_pool(self):
-        num_nets = len(self.cache.get_network_ids())
-        pool_size = max([DHCP_PROCESS_GREENLET_MIN,
-                         min([DHCP_PROCESS_GREENLET_MAX, num_nets])])
-        if pool_size == self._pool_size:
-            return
-        LOG.info("Resizing dhcp processing queue green pool size to: %d",
-                 pool_size)
-        self._pool.resize(pool_size)
-        self._pool_size = pool_size
-
     def _process_loop(self):
         LOG.debug("Starting _process_loop")
 
         while True:
-            self._pool.spawn_n(self._process_resource_update)
+            self._pool.submit(self._process_resource_update)
 
     def _process_resource_update(self):
         for tmp, update in self._queue.each_update_to_next_resource():
+            LOG.debug("Starting processing update %s, action %s, priority %s, "
+                      "update_id %s. Wait time elapsed: %.3f",
+                      update.id, update.action, update.priority,
+                      update.update_id,
+                      update.time_elapsed_since_create)
             method = getattr(self, update.action)
             method(update.resource)
             LOG.debug('Pending events to be processed: %s', self._queue.qsize)
@@ -948,7 +949,7 @@ class NetworkCache:
         self._deleted_ports = set()
         self._deleted_ports_ts = []
         self.cleanup_loop = loopingcall.FixedIntervalLoopingCall(
-            self.cleanup_deleted_ports)
+            f=self.cleanup_deleted_ports)
         self.cleanup_loop.start(DELETED_PORT_MAX_AGE,
                                 initial_delay=DELETED_PORT_MAX_AGE)
 
@@ -1071,11 +1072,15 @@ class NetworkCache:
 class DhcpAgentWithStateReport(DhcpAgent):
     def __init__(self, host=None, conf=None):
         super().__init__(host=host, conf=conf)
+        self.host = host
+
+    def init_host(self):
+        super().init_host()
         self.state_rpc = agent_rpc.PluginReportStateAPI(topics.REPORTS)
         self.failed_report_state = False
         self.agent_state = {
             'binary': constants.AGENT_PROCESS_DHCP,
-            'host': host,
+            'host': self.host,
             'availability_zone': self.conf.AGENT.availability_zone,
             'topic': topics.DHCP_AGENT,
             'configurations': {
@@ -1087,7 +1092,7 @@ class DhcpAgentWithStateReport(DhcpAgent):
         report_interval = self.conf.AGENT.report_interval
         if report_interval:
             self.heartbeat = loopingcall.FixedIntervalLoopingCall(
-                self._report_state)
+                f=self._report_state)
             self.heartbeat.start(interval=report_interval)
 
     def _report_state(self):

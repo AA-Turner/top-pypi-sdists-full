@@ -248,7 +248,7 @@ class VariableWidget(urwid.Widget):
     value_str: str | None
     id_path: IdPath
     attr_prefix: str
-    watch_expr: str | None
+    watch_expr: WatchExpression | None
     wrap: bool
 
     def __init__(self,
@@ -257,7 +257,7 @@ class VariableWidget(urwid.Widget):
                 value_str: str | None,
                 id_path: IdPath,
                 attr_prefix: str | None = None,
-                watch_expr: str | None = None,
+                watch_expr: WatchExpression | None = None,
                 iinfo: InspectInfo | None = None
             ):
         super().__init__()
@@ -813,7 +813,7 @@ class FrameVarInfoKeeper:
     def get_frame_var_info(self, read_only, ssid=None):
         if ssid is None:
             # self.debugger set by subclass
-            ssid = self.debugger.get_stack_situation_id()  # pylint: disable=no-member
+            ssid = self.debugger.get_stack_situation_id()
         if read_only:
             return self.frame_var_info.get(ssid, FrameVarInfo())
         else:

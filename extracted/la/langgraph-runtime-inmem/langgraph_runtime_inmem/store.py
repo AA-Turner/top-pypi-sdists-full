@@ -10,25 +10,27 @@ from langgraph.store.base import BaseStore, Op, Result
 from langgraph.store.base.batch import AsyncBatchedBaseStore
 from langgraph.store.memory import InMemoryStore
 
+from langgraph_runtime_inmem import _persistence
+
 _STORE_CONFIG = None
-DISABLE_FILE_PERSISTENCE = (
-    os.getenv("LANGGRAPH_DISABLE_FILE_PERSISTENCE", "false").lower() == "true"
-)
 
 
 class DiskBackedInMemStore(InMemoryStore):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        if not DISABLE_FILE_PERSISTENCE:
+        if not _persistence.DISABLE_FILE_PERSISTENCE:
             self._data = PersistentDict(dict, filename=_STORE_FILE)
             self._vectors = PersistentDict(
                 lambda: defaultdict(dict), filename=_VECTOR_FILE
             )
+            _persistence.register_persistent_dict(self._data)
+            _persistence.register_persistent_dict(self._vectors)
+            self._load_data(self._data, which="data")
+            self._load_data(self._vectors, which="vectors")
         else:
-            self._data = InMemoryStore._data
-            self._vectors = InMemoryStore._vectors
-        self._load_data(self._data, which="data")
-        self._load_data(self._vectors, which="vectors")
+            self._data = defaultdict(dict)
+            # [ns][key][path]
+            self._vectors = defaultdict(lambda: defaultdict(dict))
 
     def _load_data(self, container: PersistentDict, which: str) -> None:
         if not container.filename:
@@ -54,8 +56,10 @@ class DiskBackedInMemStore(InMemoryStore):
         return asyncio.create_task(asyncio.sleep(0))
 
     def close(self) -> None:
-        self._data.close()
-        self._vectors.close()
+        if isinstance(self._data, PersistentDict):
+            self._data.close()
+        if isinstance(self._vectors, PersistentDict):
+            self._vectors.close()
 
 
 class BatchedStore(AsyncBatchedBaseStore):

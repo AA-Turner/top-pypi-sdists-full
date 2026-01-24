@@ -9,27 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
-
-from .group_0003 import SimpleUserType
-from .group_0442 import EnterpriseWebhooksType
-from .group_0443 import SimpleInstallationType
-from .group_0444 import OrganizationSimpleWebhooksType
-from .group_0445 import RepositoryWebhooksType
-from .group_0449 import WebhooksDeployKeyType
+from typing_extensions import TypedDict
 
 
-class WebhookDeployKeyDeletedType(TypedDict):
-    """deploy_key deleted event"""
+class WebhookCheckRunCreatedFormEncodedType(TypedDict):
+    """Check Run Created Event
 
-    action: Literal["deleted"]
-    enterprise: NotRequired[EnterpriseWebhooksType]
-    installation: NotRequired[SimpleInstallationType]
-    key: WebhooksDeployKeyType
-    organization: NotRequired[OrganizationSimpleWebhooksType]
-    repository: RepositoryWebhooksType
-    sender: SimpleUserType
+    The check_run.created webhook encoded with URL encoding
+    """
+
+    payload: str
 
 
-__all__ = ("WebhookDeployKeyDeletedType",)
+class WebhookCheckRunCreatedFormEncodedTypeForResponse(TypedDict):
+    """Check Run Created Event
+
+    The check_run.created webhook encoded with URL encoding
+    """
+
+    payload: str
+
+
+__all__ = (
+    "WebhookCheckRunCreatedFormEncodedType",
+    "WebhookCheckRunCreatedFormEncodedTypeForResponse",
+)

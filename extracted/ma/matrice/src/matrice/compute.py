@@ -1,6 +1,6 @@
 """Module providing compute functionality."""
 
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 from datetime import datetime
 from collections import OrderedDict
 

@@ -1,63 +1,203 @@
-from siliconcompiler import Chip, Library
-from lambdapdk import register_data_source
+import argparse
+import math
+
+import os.path
+
+from pathlib import Path
+
+from typing import Dict, Tuple
+
+from lambdalib import LambalibTechLibrary
+from lambdapdk import LambdaLibrary, _LambdaPath
+from lambdalib.ramlib import Spram, RAMTechLib
+from lambdapdk.gf180 import GF180_3LM_1TM_6K_7t, \
+    GF180_3LM_1TM_6K_9t, \
+    GF180_3LM_1TM_9K_7t, \
+    GF180_3LM_1TM_9K_9t, \
+    GF180_3LM_1TM_11K_7t, \
+    GF180_3LM_1TM_11K_9t, \
+    GF180_3LM_1TM_30K_7t, \
+    GF180_3LM_1TM_30K_9t, \
+    GF180_4LM_1TM_6K_7t, \
+    GF180_4LM_1TM_6K_9t, \
+    GF180_4LM_1TM_9K_7t, \
+    GF180_4LM_1TM_9K_9t, \
+    GF180_4LM_1TM_11K_7t, \
+    GF180_4LM_1TM_11K_9t, \
+    GF180_4LM_1TM_30K_7t, \
+    GF180_4LM_1TM_30K_9t, \
+    GF180_5LM_1TM_9K_7t, \
+    GF180_5LM_1TM_9K_9t, \
+    GF180_5LM_1TM_11K_7t, \
+    GF180_5LM_1TM_11K_9t, \
+    GF180_6LM_1TM_9K_7t, \
+    GF180_6LM_1TM_9K_9t
+from lambdapdk.utils import format_verilog
 
 
-def setup():
-    libs = []
+class _GF180SRAMLibrary(LambdaLibrary, RAMTechLib):
+    def __init__(self, config):
+        super().__init__()
+        self.set_name(f"gf180mcu_fd_ip_sram__sram{config}m8wm1")
 
-    for config in ('64x8', '128x8', '256x8', '512x8'):
-        mem_name = f'gf180mcu_fd_ip_sram__sram{config}m8wm1'
-        lib = Library(mem_name, package='lambdapdk')
-        register_data_source(lib)
+        self.add_asic_pdk(GF180_3LM_1TM_6K_7t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_6K_9t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_9K_7t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_9K_9t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_11K_7t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_11K_9t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_30K_7t(), default=False)
+        self.add_asic_pdk(GF180_3LM_1TM_30K_9t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_6K_7t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_6K_9t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_9K_7t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_9K_9t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_11K_7t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_11K_9t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_30K_7t(), default=False)
+        self.add_asic_pdk(GF180_4LM_1TM_30K_9t(), default=False)
+        self.add_asic_pdk(GF180_5LM_1TM_9K_7t(), default=False)
+        self.add_asic_pdk(GF180_5LM_1TM_9K_9t(), default=False)
+        self.add_asic_pdk(GF180_5LM_1TM_11K_7t(), default=False)
+        self.add_asic_pdk(GF180_5LM_1TM_11K_9t(), default=False)
+        self.add_asic_pdk(GF180_6LM_1TM_9K_7t(), default=False)
+        self.add_asic_pdk(GF180_6LM_1TM_9K_9t(), default=False)
 
-        path_base = 'lambdapdk/gf180/libs/gf180mcu_fd_ip_sram'
+        path_base = Path("lambdapdk", "gf180", "libs", "gf180mcu_fd_ip_sram")
 
-        for stackup in ("3LM_1TM_6K",
-                        "3LM_1TM_9K",
-                        "3LM_1TM_11K",
-                        "3LM_1TM_30K",
-                        "4LM_1TM_6K",
-                        "4LM_1TM_9K",
-                        "4LM_1TM_11K",
-                        "4LM_1TM_30K",
-                        "5LM_1TM_9K",
-                        "5LM_1TM_11K",
-                        "6LM_1TM_9K"):
-            lib.add('output', stackup, 'lef', f'{path_base}/lef/{mem_name}.lef')
-            lib.add('output', stackup, 'gds', f'{path_base}/gds/{mem_name}.gds.gz')
-            lib.add('output', stackup, 'cdl', f'{path_base}/cdl/{mem_name}.cdl')
+        with self.active_dataroot("lambdapdk"):
+            with self.active_fileset("models.physical"):
+                self.add_file(path_base / "lef" / f"{self.name}.lef")
+                self.add_file(path_base / "gds" / f"{self.name}.gds.gz")
+                self.add_asic_aprfileset()
 
-        lib.add('output', 'slow', 'nldm',
-                f'{path_base}/nldm/{mem_name}__ss_125C_4v50.lib.gz')
-        lib.add('output', 'typical', 'nldm',
-                f'{path_base}/nldm/{mem_name}__tt_025C_5v00.lib.gz')
-        lib.add('output', 'fast', 'nldm',
-                f'{path_base}/nldm/{mem_name}__ff_n40C_5v50.lib.gz')
+            with self.active_fileset("models.lvs"):
+                self.add_file(path_base / "cdl" / f"{self.name}.cdl")
+                self.add_asic_aprfileset()
 
-        for corner in ('slow', 'typical', 'fast'):
-            lib.add('output', corner, 'spice',
-                    f'{path_base}/spice/{mem_name}.spice')
+            for corner_name, filename in [
+                    ('slow', f'{self.name}__ss_125C_4v50.lib.gz'),
+                    ('typical', f'{self.name}__tt_025C_5v00.lib.gz'),
+                    ('fast', f'{self.name}__ff_n40C_5v50.lib.gz')]:
+                with self.active_fileset(f"models.timing.nldm.{corner_name}"):
+                    self.add_file(path_base / "nldm" / filename)
+                    self.add_asic_libcornerfileset(corner_name, "nldm")
 
-        lib.set('option', 'file', 'openroad_pdngen',
-                f'{path_base}/apr/openroad/pdngen.tcl')
-        lib.set('option', 'file', 'openroad_global_connect',
-                f'{path_base}/apr/openroad/global_connect.tcl')
+            with self.active_fileset("models.spice"):
+                self.add_file(path_base / "spice" / f"{self.name}.spice")
 
-        libs.append(lib)
+            with self.active_fileset("openroad.powergrid"):
+                self.add_file(path_base / "apr" / "openroad" / "pdngen.tcl")
+                self.add_openroad_powergridfileset()
+            with self.active_fileset("openroad.globalconnect"):
+                self.add_file(path_base / "apr" / "openroad" / "global_connect.tcl")
 
-    lambda_lib = Library('lambdalib_gf180sram', package='lambdapdk')
-    register_data_source(lambda_lib)
-    lambda_lib.add('option', 'ydir', 'lambdapdk/gf180/libs/gf180mcu_fd_ip_sram/lambda')
-    for lib in libs:
-        lambda_lib.use(lib)
-        lambda_lib.add('asic', 'macrolib', lib.design)
+    def __ram_props(self) -> Tuple[int, int]:
+        """Returns the RAM properties (width, depth) based on the configuration."""
+        size = self.name.split('_')[-1][4:-5]
+        width = int(size.split('x')[1])
+        depth = int(size.split('x')[0])
+        return width, depth
 
-    libs.append(lambda_lib)
+    def get_ram_width(self) -> int:
+        """Returns the width of the RAM cell.
 
-    return libs
+        Returns:
+            int: The width of the RAM cell.
+        """
+        width, _ = self.__ram_props()
+        return width
+
+    def get_ram_depth(self) -> int:
+        """Returns the depth of the RAM cell.
+
+        Returns:
+            int: The depth of the RAM cell.
+        """
+        _, depth = self.__ram_props()
+        return int(math.log2(depth))
+
+    def get_ram_ports(self) -> Dict[str, str]:
+        """Returns the port mapping for the RAM cell.
+
+        Returns:
+            Dict[str, str]: A dictionary mapping port names to their expressions.
+        """
+        return {
+            "CLK": "clk",
+            "CEN": "~ce_in",
+            "GWEN": "~we_in",
+            "WEN": "~mem_wmask",
+            "A": "mem_addr",
+            "D": "mem_din",
+            "Q": "mem_dout"
+        }
+
+    def get_ram_libcell(self) -> str:
+        """Returns the name of the RAM library cell.
+
+        Returns:
+            str: The name of the RAM library cell.
+        """
+        return self.name
 
 
-#########################
+class GF180_SRAM_64x8(_GF180SRAMLibrary):
+    def __init__(self):
+        super().__init__("64x8")
+
+
+class GF180_SRAM_128x8(_GF180SRAMLibrary):
+    def __init__(self):
+        super().__init__("128x8")
+
+
+class GF180_SRAM_256x8(_GF180SRAMLibrary):
+    def __init__(self):
+        super().__init__("256x8")
+
+
+class GF180_SRAM_512x8(_GF180SRAMLibrary):
+    def __init__(self):
+        super().__init__("512x8")
+
+
+class GF180Lambdalib_SinglePort(LambalibTechLibrary, _LambdaPath):
+    def __init__(self):
+        super().__init__("la_spram", [
+            GF180_SRAM_64x8,
+            GF180_SRAM_128x8,
+            GF180_SRAM_256x8,
+            GF180_SRAM_512x8])
+        self.set_name("gf180_la_spram")
+
+        # version
+        self.package.set_version("v1")
+
+        lib_path = Path("lambdapdk", "gf180", "libs", "gf180mcu_fd_ip_sram")
+
+        with self.active_dataroot("lambdapdk"):
+            with self.active_fileset("rtl"):
+                self.add_file(lib_path / "lambda" / "la_spram.v")
+                self.add_depfileset(Spram(), "rtl.impl")
+
+
 if __name__ == "__main__":
-    for lib in setup(Chip('<lib>')):
-        lib.write_manifest(f'{lib.top()}.json')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--verible_bin',
+                        metavar='<verible>',
+                        required=True,
+                        help='path to verible-verilog-format')
+    args = parser.parse_args()
+
+    files = []
+
+    spram = Spram()
+    files.append(os.path.join(os.path.dirname(__file__), "gf180mcu_fd_ip_sram",
+                              "lambda", f"{spram.name}.v"))
+    spram.write_lambdalib(
+        files[-1],
+        GF180Lambdalib_SinglePort().techlibs)
+
+    for f in files:
+        format_verilog(f, args.verible_bin)

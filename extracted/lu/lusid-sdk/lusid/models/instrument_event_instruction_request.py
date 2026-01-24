@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt, StrictStr, constr 
 from lusid.models.quantity_instructed import QuantityInstructed
 
 class InstrumentEventInstructionRequest(BaseModel):
@@ -28,12 +30,14 @@ class InstrumentEventInstructionRequest(BaseModel):
     """
     instrument_event_instruction_id:  StrictStr = Field(...,alias="instrumentEventInstructionId", description="The unique identifier for this instruction") 
     instrument_event_id:  StrictStr = Field(...,alias="instrumentEventId", description="The identifier of the instrument event being instructed") 
-    instruction_type:  StrictStr = Field(...,alias="instructionType", description="The type of instruction (Ignore, ElectForPortfolio, ElectForHolding)") 
+    instruction_type:  StrictStr = Field(...,alias="instructionType", description="The type of instruction (Ignore, ElectForPortfolio, ElectForHolding, ElectForLoanFacilityHolding)") 
     election_key:  Optional[StrictStr] = Field(None,alias="electionKey", description="For elected instructions, the key to be chosen") 
-    holding_id: Optional[StrictInt] = Field(None, alias="holdingId", description="For holding instructions, the id of the holding for which the instruction will apply")
-    entitlement_date_instructed: Optional[datetime] = Field(None, alias="entitlementDateInstructed", description="The instructed entitlement date for the event (where none is set on the event itself)")
-    quantity_instructed: Optional[QuantityInstructed] = Field(None, alias="quantityInstructed")
-    __properties = ["instrumentEventInstructionId", "instrumentEventId", "instructionType", "electionKey", "holdingId", "entitlementDateInstructed", "quantityInstructed"]
+    holding_id: Optional[StrictInt] = Field(default=None, description="For holding instructions, the id of the holding for which the instruction will apply", alias="holdingId")
+    entitlement_date_instructed: Optional[datetime] = Field(default=None, description="The instructed entitlement date for the event (where none is set on the event itself)", alias="entitlementDateInstructed")
+    quantity_instructed: Optional[QuantityInstructed] = Field(default=None, alias="quantityInstructed")
+    tax_lot_id:  Optional[StrictStr] = Field(None,alias="taxLotId", description="For loan facility holding instructions, the tax lot id of the holding for which the instruction will apply") 
+    ignore_cost_impact: Optional[StrictBool] = Field(default=None, description="For loan facility holding instructions, set this flag to 'true' if you want the event to not impact cost. If you want to use this option, do not add multiple instructions to the same tax lot or you will get undefined behaviour.", alias="ignoreCostImpact")
+    __properties = ["instrumentEventInstructionId", "instrumentEventId", "instructionType", "electionKey", "holdingId", "entitlementDateInstructed", "quantityInstructed", "taxLotId", "ignoreCostImpact"]
 
     class Config:
         """Pydantic configuration"""
@@ -85,6 +89,11 @@ class InstrumentEventInstructionRequest(BaseModel):
         if self.entitlement_date_instructed is None and "entitlement_date_instructed" in self.__fields_set__:
             _dict['entitlementDateInstructed'] = None
 
+        # set to None if tax_lot_id (nullable) is None
+        # and __fields_set__ contains the field
+        if self.tax_lot_id is None and "tax_lot_id" in self.__fields_set__:
+            _dict['taxLotId'] = None
+
         return _dict
 
     @classmethod
@@ -103,6 +112,10 @@ class InstrumentEventInstructionRequest(BaseModel):
             "election_key": obj.get("electionKey"),
             "holding_id": obj.get("holdingId"),
             "entitlement_date_instructed": obj.get("entitlementDateInstructed"),
-            "quantity_instructed": QuantityInstructed.from_dict(obj.get("quantityInstructed")) if obj.get("quantityInstructed") is not None else None
+            "quantity_instructed": QuantityInstructed.from_dict(obj.get("quantityInstructed")) if obj.get("quantityInstructed") is not None else None,
+            "tax_lot_id": obj.get("taxLotId"),
+            "ignore_cost_impact": obj.get("ignoreCostImpact")
         })
         return _obj
+
+InstrumentEventInstructionRequest.update_forward_refs()

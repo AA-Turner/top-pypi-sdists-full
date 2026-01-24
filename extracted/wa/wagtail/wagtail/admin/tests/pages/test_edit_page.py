@@ -32,6 +32,7 @@ from wagtail.test.testapp.models import (
     EVENT_AUDIENCE_CHOICES,
     Advert,
     AdvertPlacement,
+    CommentableJSONPage,
     CustomPermissionPage,
     EventCategory,
     EventPage,
@@ -883,7 +884,7 @@ class TestPageEdit(WagtailTestUtils, TestCase):
         self.assertFormError(
             response.context["form"],
             "expire_at",
-            "Expiry date/time must be in the future",
+            "Expiry date/time must be in the future.",
         )
 
         self.assertContains(
@@ -1749,7 +1750,7 @@ class TestPageEdit(WagtailTestUtils, TestCase):
         self.assertFormError(
             response.context["form"],
             "slug",
-            "The slug 'hello-world' is already in use within the parent page",
+            "The slug 'hello-world' is already in use within the parent page.",
         )
 
     def test_preview_on_edit(self):
@@ -2986,12 +2987,31 @@ class TestValidationErrorMessages(WagtailTestUtils, TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-        self.assertContains(
-            response, "The page could not be saved due to validation errors"
+        soup = self.get_soup(response.content)
+
+        header_messages = soup.css.select(".messages[role='status'] ul > li")
+
+        # the top level message should indicate that the page could not be saved
+        self.assertEqual(len(header_messages), 1)
+        message = header_messages[0]
+        self.assertIn(
+            "The page could not be saved due to validation errors", message.get_text()
         )
+
+        # the top level message should provide a go to error button
+        buttons = message.find_all("button")
+        self.assertEqual(len(buttons), 1)
+        self.assertEqual(buttons[0].attrs["data-controller"], "w-count w-focus")
+        self.assertIn("Go to the first error", buttons[0].get_text())
+
         # the error should only appear once: against the field, not in the header message
-        self.assertContains(response, "error-message", count=1)
-        self.assertContains(response, "This field is required", count=1)
+        error_messages = soup.css.select(".error-message")
+        self.assertEqual(len(error_messages), 1)
+        error_message = error_messages[0]
+        self.assertEqual(
+            error_message.parent["id"], "panel-child-content-child-title-errors"
+        )
+        self.assertIn("This field is required", error_message.get_text())
 
     def test_non_field_error(self):
         """Non-field errors should be shown in the header message"""
@@ -3070,19 +3090,43 @@ class TestValidationErrorMessages(WagtailTestUtils, TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-        self.assertContains(
-            response, "The page could not be saved due to validation errors"
+        soup = self.get_soup(response.content)
+
+        # there should be top level messages should indicate that the page could not be saved alongside other messages
+        header_messages = soup.css.select(".messages[role='status'] ul > li")
+        self.assertEqual(len(header_messages), 3)
+
+        # the first header message should indicate that the page could not be saved & contain a go to error button
+        self.assertIn(
+            "The page could not be saved due to validation errors",
+            header_messages[0].get_text(),
         )
-        self.assertContains(
-            response, "<li>The end date must be after the start date</li>", count=1
+        buttons = header_messages[0].find_all("button")
+        self.assertEqual(len(buttons), 1)
+        self.assertEqual(buttons[0].attrs["data-controller"], "w-count w-focus")
+        self.assertIn("Go to the first error", buttons[0].get_text())
+
+        # the second should be a general message about the title, no go to error button
+        self.assertIn(
+            "Title: This field is required",
+            header_messages[1].get_text(),
+        )
+        self.assertEqual(len(header_messages[1].find_all("button")), 0)
+
+        # the third header message should be the non-field error
+        self.assertIn(
+            "The end date must be after the start date",
+            header_messages[2].get_text(),
         )
 
         # Error on title shown against the title field
-        self.assertContains(response, "error-message", count=1)
-        # Error on title shown in the header message
-        self.assertContains(
-            response, "<li>Title: This field is required.</li>", count=1
+        error_messages = soup.css.select(".error-message")
+        self.assertEqual(len(error_messages), 1)
+        error_message = error_messages[0]
+        self.assertEqual(
+            error_message.parent["id"], "panel-child-content-child-title-errors"
         )
+        self.assertIn("This field is required.", error_message.get_text())
 
 
 class TestNestedInlinePanel(WagtailTestUtils, TestCase):
@@ -4107,3 +4151,73 @@ class TestCommentOutput(WagtailTestUtils, TestCase):
         comment_text = [comment["text"] for comment in comments_data["comments"]]
         comment_text.sort()
         self.assertEqual(comment_text, ["A test comment", "This is quite expensive"])
+
+    def test_comments_with_deep_contentpath_on_custom_fields(self):
+        page = CommentableJSONPage(
+            title="Commentable JSON Page",
+            slug="commentable-json-page",
+            commentable_body={
+                "header": {
+                    "title": "Comments are Welcome",
+                },
+            },
+            uncommentable_body={
+                "title": "No feedback here",
+            },
+            stream_body=[
+                {
+                    "id": "1",
+                    "type": "text",
+                    "value": "This allows comments",
+                }
+            ],
+        )
+        self.root_page.add_child(instance=page)
+
+        Comment.objects.create(
+            page=page,
+            user=self.user,
+            text="1. Comment on an existing JSON path in commentable JSONField",
+            contentpath="commentable_body.header.title",
+        )
+        Comment.objects.create(
+            page=page,
+            user=self.user,
+            text="2. Comment on a non-existing JSON path in commentable JSONField",
+            contentpath="commentable_body.header.not_valid",
+        )
+        Comment.objects.create(
+            page=page,
+            user=self.user,
+            text="3. Comment on an existing JSON path in base JSONField",
+            contentpath="uncommentable_body.title",
+        )
+        Comment.objects.create(
+            page=page,
+            user=self.user,
+            text="4. Comment on a non-existing JSON path in base JSONField",
+            contentpath="uncommentable_body.not_valid",
+        )
+        Comment.objects.create(
+            page=page,
+            user=self.user,
+            text="5. Comment on the top-level of a base JSONField",
+            contentpath="uncommentable_body",
+        )
+
+        response = self.client.get(reverse("wagtailadmin_pages:edit", args=[page.id]))
+        soup = self.get_soup(response.content)
+        comments_data_json = soup.select_one("#comments-data").string
+        comments_data = json.loads(comments_data_json)
+        comment_text = [comment["text"] for comment in comments_data["comments"]]
+        comment_text.sort()
+
+        self.assertEqual(
+            comment_text,
+            [
+                # Custom fields can define which paths are valid for comments
+                "1. Comment on an existing JSON path in commentable JSONField",
+                # Comments directly on the top-level (the field itself) are always valid
+                "5. Comment on the top-level of a base JSONField",
+            ],
+        )

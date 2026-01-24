@@ -3,7 +3,7 @@ Type annotations for auditmanager service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_auditmanager/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -48,12 +49,6 @@ from .literals import (
     SourceTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -392,7 +387,7 @@ class BatchAssociateAssessmentReportEvidenceRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -788,8 +783,8 @@ class ValidateAssessmentReportIntegrityRequestTypeDef(TypedDict):
 
 
 class ScopeOutputTypeDef(TypedDict):
-    awsAccounts: NotRequired[List[AWSAccountTypeDef]]
-    awsServices: NotRequired[List[AWSServiceTypeDef]]
+    awsAccounts: NotRequired[list[AWSAccountTypeDef]]
+    awsServices: NotRequired[list[AWSServiceTypeDef]]
 
 
 class ScopeTypeDef(TypedDict):
@@ -804,8 +799,8 @@ AssessmentMetadataItemTypeDef = TypedDict(
         "id": NotRequired[str],
         "complianceType": NotRequired[str],
         "status": NotRequired[AssessmentStatusType],
-        "roles": NotRequired[List[RoleTypeDef]],
-        "delegations": NotRequired[List[DelegationTypeDef]],
+        "roles": NotRequired[list[RoleTypeDef]],
+        "delegations": NotRequired[list[DelegationTypeDef]],
         "creationTime": NotRequired[datetime],
         "lastUpdated": NotRequired[datetime],
     },
@@ -818,8 +813,8 @@ AssessmentControlTypeDef = TypedDict(
         "description": NotRequired[str],
         "status": NotRequired[ControlStatusType],
         "response": NotRequired[ControlResponseType],
-        "comments": NotRequired[List[ControlCommentTypeDef]],
-        "evidenceSources": NotRequired[List[str]],
+        "comments": NotRequired[list[ControlCommentTypeDef]],
+        "evidenceSources": NotRequired[list[str]],
         "evidenceCount": NotRequired[int],
         "assessmentReportEvidenceCount": NotRequired[int],
     },
@@ -827,14 +822,14 @@ AssessmentControlTypeDef = TypedDict(
 
 
 class BatchAssociateAssessmentReportEvidenceResponseTypeDef(TypedDict):
-    evidenceIds: List[str]
-    errors: List[AssessmentReportEvidenceErrorTypeDef]
+    evidenceIds: list[str]
+    errors: list[AssessmentReportEvidenceErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDisassociateAssessmentReportEvidenceResponseTypeDef(TypedDict):
-    evidenceIds: List[str]
-    errors: List[AssessmentReportEvidenceErrorTypeDef]
+    evidenceIds: list[str]
+    errors: list[AssessmentReportEvidenceErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -865,13 +860,13 @@ class GetEvidenceFolderResponseTypeDef(TypedDict):
 
 
 class GetEvidenceFoldersByAssessmentControlResponseTypeDef(TypedDict):
-    evidenceFolders: List[AssessmentEvidenceFolderTypeDef]
+    evidenceFolders: list[AssessmentEvidenceFolderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class GetEvidenceFoldersByAssessmentResponseTypeDef(TypedDict):
-    evidenceFolders: List[AssessmentEvidenceFolderTypeDef]
+    evidenceFolders: list[AssessmentEvidenceFolderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -883,31 +878,31 @@ class GetOrganizationAdminAccountResponseTypeDef(TypedDict):
 
 
 class ListAssessmentFrameworkShareRequestsResponseTypeDef(TypedDict):
-    assessmentFrameworkShareRequests: List[AssessmentFrameworkShareRequestTypeDef]
+    assessmentFrameworkShareRequests: list[AssessmentFrameworkShareRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAssessmentFrameworksResponseTypeDef(TypedDict):
-    frameworkMetadataList: List[AssessmentFrameworkMetadataTypeDef]
+    frameworkMetadataList: list[AssessmentFrameworkMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAssessmentReportsResponseTypeDef(TypedDict):
-    assessmentReports: List[AssessmentReportMetadataTypeDef]
+    assessmentReports: list[AssessmentReportMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListKeywordsForDataSourceResponseTypeDef(TypedDict):
-    keywords: List[str]
+    keywords: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -937,7 +932,7 @@ class ValidateAssessmentReportIntegrityResponseTypeDef(TypedDict):
     signatureAlgorithm: str
     signatureDateTime: str
     signatureKeyId: str
-    validationErrors: List[str]
+    validationErrors: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -953,7 +948,7 @@ class BatchCreateDelegationByAssessmentRequestTypeDef(TypedDict):
 
 
 class BatchDeleteDelegationByAssessmentResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteDelegationByAssessmentErrorTypeDef]
+    errors: list[BatchDeleteDelegationByAssessmentErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -971,7 +966,7 @@ class BatchImportEvidenceToAssessmentControlRequestTypeDef(TypedDict):
 
 
 class GetChangeLogsResponseTypeDef(TypedDict):
-    changeLogs: List[ChangeLogTypeDef]
+    changeLogs: list[ChangeLogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1030,7 +1025,7 @@ class CreateControlMappingSourceTypeDef(TypedDict):
 
 
 class ListControlsResponseTypeDef(TypedDict):
-    controlMetadataList: List[ControlMetadataTypeDef]
+    controlMetadataList: list[ControlMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1051,7 +1046,7 @@ UpdateAssessmentFrameworkControlSetTypeDef = TypedDict(
 
 
 class GetDelegationsResponseTypeDef(TypedDict):
-    delegations: List[DelegationMetadataTypeDef]
+    delegations: list[DelegationMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1070,7 +1065,7 @@ class SettingsTypeDef(TypedDict):
     isAwsOrgEnabled: NotRequired[bool]
     snsTopic: NotRequired[str]
     defaultAssessmentReportsDestination: NotRequired[AssessmentReportsDestinationTypeDef]
-    defaultProcessOwners: NotRequired[List[RoleTypeDef]]
+    defaultProcessOwners: NotRequired[list[RoleTypeDef]]
     kmsKey: NotRequired[str]
     evidenceFinderEnablement: NotRequired[EvidenceFinderEnablementTypeDef]
     deregistrationPolicy: NotRequired[DeregistrationPolicyTypeDef]
@@ -1086,8 +1081,8 @@ EvidenceTypeDef = TypedDict(
         "eventSource": NotRequired[str],
         "eventName": NotRequired[str],
         "evidenceByType": NotRequired[str],
-        "resourcesIncluded": NotRequired[List[ResourceTypeDef]],
-        "attributes": NotRequired[Dict[str, str]],
+        "resourcesIncluded": NotRequired[list[ResourceTypeDef]],
+        "attributes": NotRequired[dict[str, str]],
         "iamId": NotRequired[str],
         "complianceCheck": NotRequired[str],
         "awsOrganization": NotRequired[str],
@@ -1115,12 +1110,12 @@ class GetInsightsResponseTypeDef(TypedDict):
 
 
 class GetServicesInScopeResponseTypeDef(TypedDict):
-    serviceMetadata: List[ServiceMetadataTypeDef]
+    serviceMetadata: list[ServiceMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListNotificationsResponseTypeDef(TypedDict):
-    notifications: List[NotificationTypeDef]
+    notifications: list[NotificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1135,8 +1130,8 @@ AssessmentMetadataTypeDef = TypedDict(
         "status": NotRequired[AssessmentStatusType],
         "assessmentReportsDestination": NotRequired[AssessmentReportsDestinationTypeDef],
         "scope": NotRequired[ScopeOutputTypeDef],
-        "roles": NotRequired[List[RoleTypeDef]],
-        "delegations": NotRequired[List[DelegationTypeDef]],
+        "roles": NotRequired[list[RoleTypeDef]],
+        "delegations": NotRequired[list[DelegationTypeDef]],
         "creationTime": NotRequired[datetime],
         "lastUpdated": NotRequired[datetime],
     },
@@ -1145,7 +1140,7 @@ ScopeUnionTypeDef = Union[ScopeTypeDef, ScopeOutputTypeDef]
 
 
 class ListAssessmentsResponseTypeDef(TypedDict):
-    assessmentMetadata: List[AssessmentMetadataItemTypeDef]
+    assessmentMetadata: list[AssessmentMetadataItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1156,9 +1151,9 @@ AssessmentControlSetTypeDef = TypedDict(
         "id": NotRequired[str],
         "description": NotRequired[str],
         "status": NotRequired[ControlSetStatusType],
-        "roles": NotRequired[List[RoleTypeDef]],
-        "controls": NotRequired[List[AssessmentControlTypeDef]],
-        "delegations": NotRequired[List[DelegationTypeDef]],
+        "roles": NotRequired[list[RoleTypeDef]],
+        "controls": NotRequired[list[AssessmentControlTypeDef]],
+        "delegations": NotRequired[list[DelegationTypeDef]],
         "systemEvidenceCount": NotRequired[int],
         "manualEvidenceCount": NotRequired[int],
     },
@@ -1171,36 +1166,36 @@ class UpdateAssessmentControlResponseTypeDef(TypedDict):
 
 
 class BatchCreateDelegationByAssessmentResponseTypeDef(TypedDict):
-    delegations: List[DelegationTypeDef]
-    errors: List[BatchCreateDelegationByAssessmentErrorTypeDef]
+    delegations: list[DelegationTypeDef]
+    errors: list[BatchCreateDelegationByAssessmentErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchImportEvidenceToAssessmentControlResponseTypeDef(TypedDict):
-    errors: List[BatchImportEvidenceToAssessmentControlErrorTypeDef]
+    errors: list[BatchImportEvidenceToAssessmentControlErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListControlDomainInsightsByAssessmentResponseTypeDef(TypedDict):
-    controlDomainInsights: List[ControlDomainInsightsTypeDef]
+    controlDomainInsights: list[ControlDomainInsightsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListControlDomainInsightsResponseTypeDef(TypedDict):
-    controlDomainInsights: List[ControlDomainInsightsTypeDef]
+    controlDomainInsights: list[ControlDomainInsightsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAssessmentControlInsightsByControlDomainResponseTypeDef(TypedDict):
-    controlInsightsByAssessment: List[ControlInsightsMetadataByAssessmentItemTypeDef]
+    controlInsightsByAssessment: list[ControlInsightsMetadataByAssessmentItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListControlInsightsByControlDomainResponseTypeDef(TypedDict):
-    controlInsightsMetadata: List[ControlInsightsMetadataItemTypeDef]
+    controlInsightsMetadata: list[ControlInsightsMetadataItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1217,12 +1212,12 @@ ControlTypeDef = TypedDict(
         "actionPlanTitle": NotRequired[str],
         "actionPlanInstructions": NotRequired[str],
         "controlSources": NotRequired[str],
-        "controlMappingSources": NotRequired[List[ControlMappingSourceTypeDef]],
+        "controlMappingSources": NotRequired[list[ControlMappingSourceTypeDef]],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
         "lastUpdatedBy": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "state": NotRequired[ControlStateType],
     },
 )
@@ -1275,7 +1270,7 @@ class UpdateSettingsResponseTypeDef(TypedDict):
 
 
 class GetEvidenceByEvidenceFolderResponseTypeDef(TypedDict):
-    evidence: List[EvidenceTypeDef]
+    evidence: list[EvidenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1310,7 +1305,7 @@ AssessmentFrameworkTypeDef = TypedDict(
         "id": NotRequired[str],
         "arn": NotRequired[str],
         "metadata": NotRequired[FrameworkMetadataTypeDef],
-        "controlSets": NotRequired[List[AssessmentControlSetTypeDef]],
+        "controlSets": NotRequired[list[AssessmentControlSetTypeDef]],
     },
 )
 
@@ -1325,7 +1320,7 @@ ControlSetTypeDef = TypedDict(
     {
         "id": NotRequired[str],
         "name": NotRequired[str],
-        "controls": NotRequired[List[ControlTypeDef]],
+        "controls": NotRequired[list[ControlTypeDef]],
     },
 )
 
@@ -1350,7 +1345,7 @@ class AssessmentTypeDef(TypedDict):
     awsAccount: NotRequired[AWSAccountTypeDef]
     metadata: NotRequired[AssessmentMetadataTypeDef]
     framework: NotRequired[AssessmentFrameworkTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 FrameworkTypeDef = TypedDict(
@@ -1364,12 +1359,12 @@ FrameworkTypeDef = TypedDict(
         "description": NotRequired[str],
         "logo": NotRequired[str],
         "controlSources": NotRequired[str],
-        "controlSets": NotRequired[List[ControlSetTypeDef]],
+        "controlSets": NotRequired[list[ControlSetTypeDef]],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
         "lastUpdatedBy": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 

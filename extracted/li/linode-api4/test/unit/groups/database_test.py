@@ -54,13 +54,16 @@ class DatabaseTest(ClientBaseCase):
             "lin-123-456-mysql-mysql-primary.servers.linodedb.net",
         )
         self.assertEqual(
-            dbs[0].hosts.secondary,
+            dbs[0].hosts.standby,
             "lin-123-456-mysql-primary-private.servers.linodedb.net",
         )
         self.assertEqual(dbs[0].id, 123)
         self.assertEqual(dbs[0].region, "us-east")
         self.assertEqual(dbs[0].updates.duration, 3)
         self.assertEqual(dbs[0].version, "8.0.26")
+        self.assertEqual(dbs[0].private_network.vpc_id, 1234)
+        self.assertEqual(dbs[0].private_network.subnet_id, 5678)
+        self.assertEqual(dbs[0].private_network.public_access, True)
 
     def test_database_instance(self):
         """
@@ -1277,7 +1280,7 @@ class DatabaseTest(ClientBaseCase):
             "lin-123-456-mysql-mysql-primary.servers.linodedb.net",
         )
         self.assertEqual(
-            dbs[0].hosts.secondary,
+            dbs[0].hosts.standby,
             "lin-123-456-mysql-primary-private.servers.linodedb.net",
         )
         self.assertEqual(dbs[0].id, 123)
@@ -1338,6 +1341,10 @@ class DatabaseTest(ClientBaseCase):
         self.assertEqual(dbs[0].engine_config.mysql.tmp_table_size, 16777216)
         self.assertEqual(dbs[0].engine_config.mysql.wait_timeout, 28800)
 
+        self.assertEqual(dbs[0].private_network.vpc_id, 1234)
+        self.assertEqual(dbs[0].private_network.subnet_id, 5678)
+        self.assertEqual(dbs[0].private_network.public_access, True)
+
     def test_get_postgresql_instances(self):
         """
         Test that postgresql instances can be retrieved properly
@@ -1354,7 +1361,7 @@ class DatabaseTest(ClientBaseCase):
             "lin-0000-000-pgsql-primary.servers.linodedb.net",
         )
         self.assertEqual(
-            dbs[0].hosts.secondary,
+            dbs[0].hosts.standby,
             "lin-0000-000-pgsql-primary-private.servers.linodedb.net",
         )
         self.assertEqual(dbs[0].id, 123)
@@ -1452,3 +1459,7 @@ class DatabaseTest(ClientBaseCase):
         self.assertEqual(dbs[0].engine_config.pg.track_io_timing, "off")
         self.assertEqual(dbs[0].engine_config.pg.wal_sender_timeout, 60000)
         self.assertEqual(dbs[0].engine_config.pg.wal_writer_delay, 50)
+
+        self.assertEqual(dbs[0].private_network.vpc_id, 1234)
+        self.assertEqual(dbs[0].private_network.subnet_id, 5678)
+        self.assertEqual(dbs[0].private_network.public_access, True)

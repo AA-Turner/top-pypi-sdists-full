@@ -1,3 +1,4 @@
+import json
 from logging import getLogger
 from typing import Any, Callable
 
@@ -10,7 +11,11 @@ from openai import (
     NotGiven,
 )
 from openai._types import NOT_GIVEN
-from openai.types.responses import Response, ResponseFormatTextJSONSchemaConfigParam
+from openai.types.responses import (
+    Response,
+    ResponseFormatTextJSONSchemaConfigParam,
+    ToolParam,
+)
 from tenacity import (
     retry,
     retry_if_exception,
@@ -46,6 +51,23 @@ from .util.hooks import HttpxHooks
 logger = getLogger(__name__)
 
 
+def _fix_function_tool_parameters(response: Response) -> None:
+    """Fix string parameters in FunctionTool objects.
+
+    Some OpenAI-compatible providers (e.g., xAI) return FunctionTool.parameters
+    as JSON strings instead of dicts. This causes Pydantic serialization warnings.
+    This function parses those strings to dicts in-place.
+    """
+    from openai.types.responses import FunctionTool
+
+    for tool in response.tools:
+        if isinstance(tool, FunctionTool) and isinstance(tool.parameters, str):
+            try:
+                tool.parameters = json.loads(tool.parameters)
+            except json.JSONDecodeError:
+                pass  # Leave as-is if not valid JSON
+
+
 async def generate_responses(
     client: AsyncAzureOpenAI | AsyncOpenAI,
     http_hooks: HttpxHooks,
@@ -57,6 +79,7 @@ async def generate_responses(
     background: bool | None,
     service_tier: str | None,
     prompt_cache_key: str | NotGiven,
+    prompt_cache_retention: str | NotGiven,
     safety_identifier: str | NotGiven,
     responses_store: bool | None,
     model_info: ResponsesModelInfo,
@@ -64,13 +87,13 @@ async def generate_responses(
     handle_bad_request: Callable[[APIStatusError], ModelOutput | Exception]
     | None = None,
 ) -> ModelOutput | tuple[ModelOutput | Exception, ModelCall]:
-    # batch mode and background are incompatible
-    if batcher:
-        background = False
-
     # background in extra_body should be applied
     if background is None and config.extra_body:
         background = config.extra_body.pop("background", None)
+
+    # batch mode and background are incompatible
+    if batcher:
+        background = None
 
     # allocate request_id (so we can see it from ModelCall)
     request_id = http_hooks.start_request()
@@ -107,9 +130,11 @@ async def generate_responses(
             config=config,
             service_tier=service_tier,
             prompt_cache_key=prompt_cache_key,
+            prompt_cache_retention=prompt_cache_retention,
             safety_identifier=safety_identifier,
             responses_store=responses_store,
             tools=len(tools) > 0,
+            tool_params=[] if isinstance(tool_params, NotGiven) else tool_params,
         ),
     )
     if isinstance(background, bool):
@@ -137,6 +162,7 @@ async def generate_responses(
             )
 
         # save response for model_call
+        _fix_function_tool_parameters(model_response)
         response = model_response.model_dump()
 
         # parse out choices
@@ -146,25 +172,29 @@ async def generate_responses(
         return ModelOutput(
             model=model_response.model,
             choices=choices,
-            usage=(
-                ModelUsage(
-                    input_tokens=model_response.usage.input_tokens,
-                    output_tokens=model_response.usage.output_tokens,
-                    input_tokens_cache_read=(
-                        model_response.usage.input_tokens_details.cached_tokens
-                    ),
-                    reasoning_tokens=model_response.usage.output_tokens_details.reasoning_tokens,
-                    total_tokens=model_response.usage.total_tokens,
-                )
-                if model_response.usage
-                else None
-            ),
+            usage=model_usage_from_response(model_response),
         ), model_call()
     except BadRequestError as e:
         if handle_bad_request:
             return handle_bad_request(e), model_call()
         else:
             return openai_handle_bad_request(model_name, e), model_call()
+
+
+def model_usage_from_response(model_response: Response) -> ModelUsage | None:
+    return (
+        ModelUsage(
+            input_tokens=model_response.usage.input_tokens,
+            output_tokens=model_response.usage.output_tokens,
+            input_tokens_cache_read=(
+                model_response.usage.input_tokens_details.cached_tokens
+            ),
+            reasoning_tokens=model_response.usage.output_tokens_details.reasoning_tokens,
+            total_tokens=model_response.usage.total_tokens,
+        )
+        if model_response.usage
+        else None
+    )
 
 
 async def wait_for_background_response(
@@ -210,9 +240,11 @@ def completion_params_responses(
     config: GenerateConfig,
     service_tier: str | None,
     prompt_cache_key: str | NotGiven,
+    prompt_cache_retention: str | NotGiven,
     safety_identifier: str | NotGiven,
     responses_store: bool | None,
     tools: bool,
+    tool_params: list[ToolParam],
 ) -> dict[str, Any]:
     # TODO: we'll need a computer_use_preview bool for the 'include'
     # and 'reasoning' parameters
@@ -222,11 +254,13 @@ def completion_params_responses(
             f"OpenAI Responses API does not support the '{param}' parameter.",
         )
 
-    params: dict[str, Any] = dict(model=model_name)
+    params: dict[str, Any] = dict(model=model_name, include=[])
     if service_tier is not None:
         params["service_tier"] = service_tier
     if isinstance(prompt_cache_key, str):
         params["prompt_cache_key"] = prompt_cache_key
+    if isinstance(prompt_cache_retention, str):
+        params["prompt_cache_retention"] = prompt_cache_retention
     if isinstance(safety_identifier, str):
         params["safety_identifier"] = safety_identifier
     if model_info.is_computer_use_preview():
@@ -234,16 +268,13 @@ def completion_params_responses(
 
     # responses_store may have been specified in config.extra_body
     # (e.g. by a client talking to us through the agent bridge)
-    if config.extra_body and "store" in config.extra_body:
+    if responses_store is None and config.extra_body and "store" in config.extra_body:
         responses_store = config.extra_body["store"]
 
-    if responses_store is False:
-        if model_info.is_computer_use_preview():
-            raise RuntimeError(
-                "OpenAI computer use model requires responses store=True"
-            )
+    if responses_store is not True:
         params["store"] = False
-        params["include"] = ["reasoning.encrypted_content"]
+        if model_info.has_reasoning_options() or model_info.is_computer_use_preview():
+            params["include"].append("reasoning.encrypted_content")
 
     if config.max_tokens is not None:
         params["max_output_tokens"] = config.max_tokens
@@ -257,28 +288,50 @@ def completion_params_responses(
         unsupported_warning("logit_bias")
     if config.seed is not None:
         unsupported_warning("seed")
+
+    # models with reasoning enabled don't do sampling params
+    reasoning_enabled = (
+        model_info.is_o_series()
+        or (model_info.is_gpt_5() and not model_info.is_gpt_5_plus())
+        or (
+            model_info.is_gpt_5_plus() and config.reasoning_effort not in [None, "none"]
+        )
+    )
+
     if config.temperature is not None:
-        if model_info.is_o_series() or model_info.is_gpt_5():
+        if reasoning_enabled:
             warn_once(
                 logger,
-                "gpt-5 and o-series models do not support the 'temperature' parameter (temperature is always 1).",
+                "Models with reasoning enabled do not support the 'temperature' parameter (temperature is always 1).",
             )
         else:
             params["temperature"] = config.temperature
     if config.top_p is not None:
-        if model_info.is_o_series() or model_info.is_gpt_5():
+        if reasoning_enabled:
             warn_once(
                 logger,
-                "gpt-5 and o-series models do not support the 'top_p' parameter.",
+                "Models with reasoning enabled do not support the 'top_p' parameter.",
             )
         else:
             params["top_p"] = config.top_p
     if config.num_choices is not None:
         unsupported_warning("num_choices")
     if config.logprobs is not None:
-        unsupported_warning("logprobs")
+        if reasoning_enabled:
+            warn_once(
+                logger,
+                "Models with reasoning enabled do not support the 'logprobs' parameter.",
+            )
+        else:
+            params["include"].append("message.output_text.logprobs")
     if config.top_logprobs is not None:
-        unsupported_warning("top_logprobs")
+        if reasoning_enabled:
+            warn_once(
+                logger,
+                "Models with reasoning enabled do not support the 'top_logprobs' parameter.",
+            )
+        else:
+            params["top_logprobs"] = config.top_logprobs
     if (
         tools
         and config.parallel_tool_calls is not None
@@ -290,8 +343,8 @@ def completion_params_responses(
         reasoning: dict[str, str] = {}
         if config.reasoning_effort is not None:
             reasoning["effort"] = config.reasoning_effort
-        if config.reasoning_summary is not None:
-            reasoning["summary"] = config.reasoning_summary
+        if config.reasoning_summary != "none":
+            reasoning["summary"] = config.reasoning_summary or "auto"
         if len(reasoning) > 0:
             params["reasoning"] = reasoning
     if config.response_schema is not None:
@@ -305,11 +358,22 @@ def completion_params_responses(
                 strict=config.response_schema.strict,
             )
         )
+    if config.verbosity is not None:
+        if "text" not in params:
+            params["text"] = {}
+        params["text"]["verbosity"] = config.verbosity
+
+    if any(tp.get("type") == "code_interpreter" for tp in tool_params):
+        params["include"].append("code_interpreter_call.outputs")
 
     # look for any of our native fields not in GenerateConfig in extra_body
     if config.extra_body is not None:
         for field in responses_extra_body_fields():
             if field in config.extra_body and field not in params:
                 params[field] = config.extra_body[field]
+
+    # remove metadata if store is true
+    if responses_store is True:
+        params.pop("metadata", None)
 
     return params

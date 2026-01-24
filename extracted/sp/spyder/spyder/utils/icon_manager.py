@@ -222,7 +222,9 @@ class IconManager():
             'collapse_row':            [('mdi.arrow-collapse-vertical',), {'color': self.MAIN_FG_COLOR}],
             'delete_row':              [('mdi.table-row-remove',), {'color': self.MAIN_FG_COLOR}],
             'delete_column':           [('mdi.table-column-remove',), {'color': self.MAIN_FG_COLOR}],
-            'edit_remove':             [('mdi.minus',), {'color': self.MAIN_FG_COLOR}],
+            # Although this icon is not used in Spyder, it can be in other plugins
+            # because it's the opposite of edit_add. So, don't remove it.
+            'edit_remove':             [('mdi.minus-box',), {'color': self.MAIN_FG_COLOR}],
             'format_float':            [('mdi.decimal-increase',), {'color': self.MAIN_FG_COLOR}],
             'background_color':        [('mdi.format-color-fill',), {'color': self.MAIN_FG_COLOR}],
             'browse_tab':              [('mdi.tab',), {'color': self.MAIN_FG_COLOR}],
@@ -290,10 +292,13 @@ class IconManager():
             '1uparrow':                [('mdi.arrow-up',), {'color': self.MAIN_FG_COLOR}],
             '2downarrow':              [('mdi.arrow-collapse-down',), {'color': self.MAIN_FG_COLOR}],
             '1downarrow':              [('mdi.arrow-down',), {'color': self.MAIN_FG_COLOR}],
+            'prepend':                 [('mdi.arrow-collapse-left',), {'color': self.MAIN_FG_COLOR}],
+            'append':                  [('mdi.arrow-collapse-right',), {'color': self.MAIN_FG_COLOR}],
             'undock':                  [('mdi.open-in-new',), {'color': self.MAIN_FG_COLOR}],
             'close_pane':              [('mdi.window-close',), {'color': self.MAIN_FG_COLOR}],
             'toolbar_ext_button':      [('mdi.dots-horizontal',), {'color': self.MAIN_FG_COLOR}],
             'inapp_appeal':            [('mdi6.heart',), {'color': SpyderPalette.COLOR_HEART}],
+            'update':                  [('mdi6.tray-arrow-down',), {'color': self.MAIN_FG_COLOR}],
             # --- Autocompletion/document symbol type icons --------------
             'completions':             [('mdi.code-tags-check',), {'color': self.MAIN_FG_COLOR}],
             'keyword':                 [('mdi.alpha-k-box',), {'color': SpyderPalette.GROUP_9, 'scale_factor': self.BIG_ATTR_FACTOR}],
@@ -343,12 +348,15 @@ class IconManager():
             'tour.previous':           [('mdi.skip-previous',), {'color': self.MAIN_FG_COLOR}],
             'tour.next':               [('mdi.skip-next',), {'color': self.MAIN_FG_COLOR}],
             'tour.end':                [('mdi.skip-forward',), {'color': self.MAIN_FG_COLOR}],
-            # --- Third party plugins ------------------------------------------------
-            'profiler':                [('mdi.timer-outline',), {'color': self.MAIN_FG_COLOR}],
-            'condapackages':           [('mdi.archive',), {'color': self.MAIN_FG_COLOR}],
+            # --- Profiler ------------------------------------------------
+            'hide':                    [('mdi.eye-off',), {'color': self.MAIN_FG_COLOR}],
+            'slow':                    [('mdi.speedometer-slow',), {'color': self.MAIN_FG_COLOR}],
+            'stop_profile':            [('mdi.stop',), {'color': SpyderPalette.ICON_7}],
+            'callers_or_callees':      [('mdi6.call-made', 'mdi6.call-received'), {'options': [{'color': self.MAIN_FG_COLOR, 'offset': (-0.2, -0.2)}, {'color': self.MAIN_FG_COLOR, 'offset': (0.2, 0.2)}]}],
+            'callers':                 [('mdi6.call-received',), {'color': self.MAIN_FG_COLOR}],
+            'callees':                 [('mdi6.call-made',), {'color': self.MAIN_FG_COLOR}],
+            # --- Other ------------------------------------------------
             'spyder.example':          [('mdi.eye',), {'color': self.MAIN_FG_COLOR}],
-            'spyder.autopep8':         [('mdi.eye',), {'color': self.MAIN_FG_COLOR}],
-            'spyder.memory_profiler':  [('mdi.eye',), {'color': self.MAIN_FG_COLOR}],
             'spyder.line_profiler':    [('mdi.eye',), {'color': self.MAIN_FG_COLOR}],
             'symbol_find':             [('mdi.at',), {'color': self.MAIN_FG_COLOR}],
             'folding.arrow_right':     [('mdi.chevron-right',), {'color': self.MAIN_FG_COLOR}],

@@ -164,7 +164,7 @@ class Circleci(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         jobs: typing.Optional[typing.Sequence[typing.Union["Job", typing.Dict[builtins.str, typing.Any]]]] = None,
         orbs: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -234,12 +234,12 @@ class Circleci(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _YamlFile_909731b0:
+    def file(self) -> "_YamlFile_909731b0":
         '''(experimental) The yaml file for the Circleci pipeline.
 
         :stability: experimental
         '''
-        return typing.cast(_YamlFile_909731b0, jsii.get(self, "file"))
+        return typing.cast("_YamlFile_909731b0", jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -555,7 +555,7 @@ class Job:
         *,
         identifier: builtins.str,
         circleci_ip_ranges: typing.Optional[builtins.bool] = None,
-        docker: typing.Optional[typing.Sequence[typing.Union[Docker, typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker: typing.Optional[typing.Sequence[typing.Union["Docker", typing.Dict[builtins.str, typing.Any]]]] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool]]] = None,
         machine: typing.Optional[typing.Union["Machine", typing.Dict[builtins.str, typing.Any]]] = None,
         macos: typing.Optional[typing.Union["Macos", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -653,12 +653,12 @@ class Job:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def docker(self) -> typing.Optional[typing.List[Docker]]:
+    def docker(self) -> typing.Optional[typing.List["Docker"]]:
         '''
         :stability: experimental
         '''
         result = self._values.get("docker")
-        return typing.cast(typing.Optional[typing.List[Docker]], result)
+        return typing.cast(typing.Optional[typing.List["Docker"]], result)
 
     @builtins.property
     def environment(
@@ -1278,7 +1278,7 @@ class Schedule:
     def __init__(
         self,
         *,
-        filters: typing.Union[Filter, typing.Dict[builtins.str, typing.Any]],
+        filters: typing.Union["Filter", typing.Dict[builtins.str, typing.Any]],
         cron: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) A workflow may have a schedule indicating it runs at a certain time.
@@ -1302,13 +1302,13 @@ class Schedule:
             self._values["cron"] = cron
 
     @builtins.property
-    def filters(self) -> Filter:
+    def filters(self) -> "Filter":
         '''
         :stability: experimental
         '''
         result = self._values.get("filters")
         assert result is not None, "Required property 'filters' is missing"
-        return typing.cast(Filter, result)
+        return typing.cast("Filter", result)
 
     @builtins.property
     def cron(self) -> typing.Optional[builtins.str]:
@@ -1340,7 +1340,7 @@ class StepRun:
     def __init__(
         self,
         *,
-        run: typing.Optional[typing.Union[Run, typing.Dict[builtins.str, typing.Any]]] = None,
+        run: typing.Optional[typing.Union["Run", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Execution steps for Job.
 
@@ -1359,12 +1359,12 @@ class StepRun:
             self._values["run"] = run
 
     @builtins.property
-    def run(self) -> typing.Optional[Run]:
+    def run(self) -> typing.Optional["Run"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("run")
-        return typing.cast(typing.Optional[Run], result)
+        return typing.cast(typing.Optional["Run"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1387,7 +1387,7 @@ class Triggers:
     def __init__(
         self,
         *,
-        schedule: typing.Optional[typing.Union[Schedule, typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional[typing.Union["Schedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Specifies which triggers will cause this workflow to be executed.
 
@@ -1408,12 +1408,12 @@ class Triggers:
             self._values["schedule"] = schedule
 
     @builtins.property
-    def schedule(self) -> typing.Optional[Schedule]:
+    def schedule(self) -> typing.Optional["Schedule"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("schedule")
-        return typing.cast(typing.Optional[Schedule], result)
+        return typing.cast(typing.Optional["Schedule"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1443,7 +1443,7 @@ class Workflow:
         *,
         identifier: builtins.str,
         jobs: typing.Optional[typing.Sequence[typing.Union["WorkflowJob", typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Sequence[typing.Union[Triggers, typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Sequence[typing.Union["Triggers", typing.Dict[builtins.str, typing.Any]]]] = None,
         when: typing.Any = None,
     ) -> None:
         '''(experimental) Used for orchestrating all jobs.
@@ -1495,12 +1495,12 @@ class Workflow:
         return typing.cast(typing.Optional[typing.List["WorkflowJob"]], result)
 
     @builtins.property
-    def triggers(self) -> typing.Optional[typing.List[Triggers]]:
+    def triggers(self) -> typing.Optional[typing.List["Triggers"]]:
         '''
         :stability: experimental
         '''
         result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.List[Triggers]], result)
+        return typing.cast(typing.Optional[typing.List["Triggers"]], result)
 
     @builtins.property
     def when(self) -> typing.Any:
@@ -1546,12 +1546,12 @@ class WorkflowJob:
         *,
         identifier: builtins.str,
         context: typing.Optional[typing.Sequence[builtins.str]] = None,
-        filters: typing.Optional[typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]] = None,
-        matrix: typing.Optional[typing.Union[Matrix, typing.Dict[builtins.str, typing.Any]]] = None,
+        filters: typing.Optional[typing.Union["Filter", typing.Dict[builtins.str, typing.Any]]] = None,
+        matrix: typing.Optional[typing.Union["Matrix", typing.Dict[builtins.str, typing.Any]]] = None,
         name: typing.Optional[builtins.str] = None,
         orb_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool]]] = None,
         requires: typing.Optional[typing.Sequence[builtins.str]] = None,
-        type: typing.Optional[JobType] = None,
+        type: typing.Optional["JobType"] = None,
     ) -> None:
         '''(experimental) A Job is part of Workflow.
 
@@ -1623,21 +1623,21 @@ class WorkflowJob:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def filters(self) -> typing.Optional[Filter]:
+    def filters(self) -> typing.Optional["Filter"]:
         '''(experimental) Job Filters can have the key branches or tags.
 
         :stability: experimental
         '''
         result = self._values.get("filters")
-        return typing.cast(typing.Optional[Filter], result)
+        return typing.cast(typing.Optional["Filter"], result)
 
     @builtins.property
-    def matrix(self) -> typing.Optional[Matrix]:
+    def matrix(self) -> typing.Optional["Matrix"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("matrix")
-        return typing.cast(typing.Optional[Matrix], result)
+        return typing.cast(typing.Optional["Matrix"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1671,13 +1671,13 @@ class WorkflowJob:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def type(self) -> typing.Optional[JobType]:
+    def type(self) -> typing.Optional["JobType"]:
         '''(experimental) A job may have a type of approval indicating it must be manually approved before downstream jobs may proceed.
 
         :stability: experimental
         '''
         result = self._values.get("type")
-        return typing.cast(typing.Optional[JobType], result)
+        return typing.cast(typing.Optional["JobType"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

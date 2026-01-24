@@ -1,2 +1,0 @@
-class ShylockException(Exception):
-    pass

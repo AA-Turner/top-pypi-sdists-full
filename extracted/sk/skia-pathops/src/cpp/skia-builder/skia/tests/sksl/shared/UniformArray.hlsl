@@ -1,8 +1,8 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float _10_testArray[5] : packoffset(c0);
-    float4 _10_colorGreen : packoffset(c5);
-    float4 _10_colorRed : packoffset(c6);
+    float _11_testArray[5] : packoffset(c0);
+    float4 _11_colorGreen : packoffset(c5);
+    float4 _11_colorRed : packoffset(c6);
 };
 
 
@@ -17,12 +17,12 @@ float4 main(float2 _27)
 {
     for (int index = 0; index < 5; index++)
     {
-        if (_10_testArray[index] != float(index + 1))
+        if (_11_testArray[index] != float(index + 1))
         {
-            return _10_colorRed;
+            return _11_colorRed;
         }
     }
-    return _10_colorGreen;
+    return _11_colorGreen;
 }
 
 void frag_main()

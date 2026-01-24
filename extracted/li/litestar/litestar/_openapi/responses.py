@@ -122,7 +122,7 @@ class ResponseFactory:
             response = OpenAPIResponse(content=None, description=self.create_description())
         elif self.field_definition.is_subclass_of(Redirect):
             response = self.create_redirect_response()
-        elif self.field_definition.is_subclass_of((File, Stream)):
+        elif self.field_definition.is_subclass_of(File):
             response = self.create_file_response()
         else:
             media_type = self.route_handler.media_type
@@ -306,7 +306,7 @@ def create_error_responses(exceptions: list[type[HTTPException]]) -> Iterator[tu
                     examples=[{"status_code": status_code, "detail": example_detail, "extra": {}}],
                 )
             )
-        if len(exceptions_schemas) > 1:  # noqa: SIM108
+        if len(exceptions_schemas) > 1:
             schema = Schema(one_of=exceptions_schemas)
         else:
             schema = exceptions_schemas[0]

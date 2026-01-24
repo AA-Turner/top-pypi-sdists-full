@@ -3,11 +3,13 @@
 # Copyright 2019-Present Datadog, Inc.
 from __future__ import annotations
 
-from typing import List, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING
 
 from datadog_api_client.model_utils import (
     ModelNormal,
     cached_property,
+    unset,
+    UnsetType,
 )
 
 
@@ -31,32 +33,43 @@ class ObservabilityPipelineRenameFieldsProcessor(ModelNormal):
         )
 
         return {
+            "display_name": (str,),
+            "enabled": (bool,),
             "fields": ([ObservabilityPipelineRenameFieldsProcessorField],),
             "id": (str,),
             "include": (str,),
-            "inputs": ([str],),
             "type": (ObservabilityPipelineRenameFieldsProcessorType,),
         }
 
     attribute_map = {
+        "display_name": "display_name",
+        "enabled": "enabled",
         "fields": "fields",
         "id": "id",
         "include": "include",
-        "inputs": "inputs",
         "type": "type",
     }
 
     def __init__(
         self_,
+        enabled: bool,
         fields: List[ObservabilityPipelineRenameFieldsProcessorField],
         id: str,
         include: str,
-        inputs: List[str],
         type: ObservabilityPipelineRenameFieldsProcessorType,
+        display_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``rename_fields`` processor changes field names.
+
+        **Supported pipeline types:** logs
+
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
 
         :param fields: A list of rename rules specifying which fields to rename in the event, what to rename them to, and whether to preserve the original fields.
         :type fields: [ObservabilityPipelineRenameFieldsProcessorField]
@@ -67,16 +80,15 @@ class ObservabilityPipelineRenameFieldsProcessor(ModelNormal):
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
 
-        :param inputs: A list of component IDs whose output is used as the ``input`` for this component.
-        :type inputs: [str]
-
         :param type: The processor type. The value should always be ``rename_fields``.
         :type type: ObservabilityPipelineRenameFieldsProcessorType
         """
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
         super().__init__(kwargs)
 
+        self_.enabled = enabled
         self_.fields = fields
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.type = type

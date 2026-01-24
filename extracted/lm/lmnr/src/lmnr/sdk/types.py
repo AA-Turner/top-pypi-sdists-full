@@ -3,8 +3,7 @@ from __future__ import annotations  # For "Self" | str | ... type hint
 import json
 import logging
 import datetime
-import pydantic
-import pydantic.alias_generators
+from pydantic import BaseModel, Field
 import uuid
 
 from enum import Enum
@@ -12,7 +11,7 @@ from opentelemetry.trace import SpanContext, TraceFlags
 from typing import Any, Awaitable, Callable, Literal, Optional
 from typing_extensions import TypedDict  # compatibility with python < 3.12
 
-from .utils import serialize
+from .utils import serialize, json_dumps
 
 DEFAULT_DATAPOINT_MAX_DATA_LENGTH = 16_000_000  # 16MB
 
@@ -26,12 +25,24 @@ EvaluationDatapointMetadata = Any | None  # must be JSON-serializable
 
 
 # EvaluationDatapoint is a single data point in the evaluation
-class Datapoint(pydantic.BaseModel):
+class Datapoint(BaseModel):
     # input to the executor function.
     data: EvaluationDatapointData
     # input to the evaluator function (alongside the executor output).
-    target: EvaluationDatapointTarget = pydantic.Field(default=None)
-    metadata: EvaluationDatapointMetadata = pydantic.Field(default=None)
+    target: EvaluationDatapointTarget = Field(default_factory=dict)
+    metadata: EvaluationDatapointMetadata = Field(default_factory=dict)
+    id: uuid.UUID | None = Field(default=None)
+    created_at: datetime.datetime | None = Field(default=None, alias="createdAt")
+
+
+class Dataset(BaseModel):
+    id: uuid.UUID = Field()
+    name: str = Field()
+    created_at: datetime.datetime = Field(alias="createdAt")
+
+
+class PushDatapointsResponse(BaseModel):
+    dataset_id: uuid.UUID = Field(alias="datasetId")
 
 
 ExecutorFunctionReturnType = Any
@@ -57,11 +68,11 @@ class HumanEvaluatorOptionsEntry(TypedDict):
     value: float
 
 
-class HumanEvaluator(pydantic.BaseModel):
-    options: list[HumanEvaluatorOptionsEntry] = pydantic.Field(default=[])
+class HumanEvaluator(BaseModel):
+    options: list[HumanEvaluatorOptionsEntry] = Field(default_factory=list)
 
 
-class InitEvaluationResponse(pydantic.BaseModel):
+class InitEvaluationResponse(BaseModel):
     id: uuid.UUID
     createdAt: datetime.datetime
     groupId: str
@@ -69,23 +80,35 @@ class InitEvaluationResponse(pydantic.BaseModel):
     projectId: uuid.UUID
 
 
-class PartialEvaluationDatapoint(pydantic.BaseModel):
+class EvaluationDatapointDatasetLink(BaseModel):
+    dataset_id: uuid.UUID
+    datapoint_id: uuid.UUID
+    created_at: datetime.datetime
+
+    def to_dict(self):
+        return {
+            "datasetId": str(self.dataset_id),
+            "datapointId": str(self.datapoint_id),
+            "createdAt": self.created_at.isoformat(),
+        }
+
+
+class PartialEvaluationDatapoint(BaseModel):
     id: uuid.UUID
     data: EvaluationDatapointData
     target: EvaluationDatapointTarget
     index: int
     trace_id: uuid.UUID
     executor_span_id: uuid.UUID
-    metadata: EvaluationDatapointMetadata = pydantic.Field(default=None)
+    metadata: EvaluationDatapointMetadata = Field(default=None)
+    dataset_link: EvaluationDatapointDatasetLink | None = Field(default=None)
 
     # uuid is not serializable by default, so we need to convert it to a string
     def to_dict(self, max_data_length: int = DEFAULT_DATAPOINT_MAX_DATA_LENGTH):
         serialized_data = serialize(self.data)
         serialized_target = serialize(self.target)
-        # TODO: use json_dumps instead of json.dumps once we
-        # move it to utils so we can avoid circular imports
-        str_data = json.dumps(serialized_data)
-        str_target = json.dumps(serialized_target)
+        str_data = json_dumps(serialized_data)
+        str_target = json_dumps(serialized_target)
         try:
             return {
                 "id": str(self.id),
@@ -105,12 +128,17 @@ class PartialEvaluationDatapoint(pydantic.BaseModel):
                 "metadata": (
                     serialize(self.metadata) if self.metadata is not None else {}
                 ),
+                "datasetLink": (
+                    self.dataset_link.to_dict()
+                    if self.dataset_link is not None
+                    else None
+                ),
             }
         except Exception as e:
             raise ValueError(f"Error serializing PartialEvaluationDatapoint: {e}")
 
 
-class EvaluationResultDatapoint(pydantic.BaseModel):
+class EvaluationResultDatapoint(BaseModel):
     id: uuid.UUID
     index: int
     data: EvaluationDatapointData
@@ -119,7 +147,8 @@ class EvaluationResultDatapoint(pydantic.BaseModel):
     scores: dict[str, Optional[Numeric]]
     trace_id: uuid.UUID
     executor_span_id: uuid.UUID
-    metadata: EvaluationDatapointMetadata = pydantic.Field(default=None)
+    metadata: EvaluationDatapointMetadata = Field(default=None)
+    dataset_link: EvaluationDatapointDatasetLink | None = Field(default=None)
 
     # uuid is not serializable by default, so we need to convert it to a string
     def to_dict(self, max_data_length: int = DEFAULT_DATAPOINT_MAX_DATA_LENGTH):
@@ -156,6 +185,11 @@ class EvaluationResultDatapoint(pydantic.BaseModel):
                 "metadata": (
                     serialize(self.metadata) if self.metadata is not None else {}
                 ),
+                "datasetLink": (
+                    self.dataset_link.to_dict()
+                    if self.dataset_link is not None
+                    else None
+                ),
             }
         except Exception as e:
             raise ValueError(f"Error serializing EvaluationResultDatapoint: {e}")
@@ -176,18 +210,17 @@ class TraceType(Enum):
     EVALUATION = "EVALUATION"
 
 
-class GetDatapointsResponse(pydantic.BaseModel):
+class GetDatapointsResponse(BaseModel):
     items: list[Datapoint]
-    totalCount: int
+    total_count: int = Field(alias="totalCount")
 
 
-class LaminarSpanContext(pydantic.BaseModel):
+class LaminarSpanContext(BaseModel):
     """
     A span context that can be used to continue a trace across services. This
     is a slightly modified version of the OpenTelemetry span context. For
-    usage examples, see `Laminar.get_laminar_span_context_dict`,
-    `Laminar.get_laminar_span_context_str`, `Laminar.get_span_context`, and
-    `Laminar.deserialize_laminar_span_context`.
+    usage examples, see `Laminar.serialize_span_context`,
+    `Laminar.get_span_context`, and `Laminar.deserialize_laminar_span_context`.
 
     The difference between this and the OpenTelemetry span context is that
     the `trace_id` and `span_id` are stored as UUIDs instead of integers for
@@ -196,9 +229,13 @@ class LaminarSpanContext(pydantic.BaseModel):
 
     trace_id: uuid.UUID
     span_id: uuid.UUID
-    is_remote: bool = pydantic.Field(default=False)
-    span_path: list[str] = pydantic.Field(default=[])
-    span_ids_path: list[str] = pydantic.Field(default=[])  # stringified UUIDs
+    is_remote: bool = Field(default=False)
+    span_path: list[str] = Field(default=[])
+    span_ids_path: list[str] = Field(default=[])  # stringified UUIDs
+    user_id: str | None = Field(default=None)
+    session_id: str | None = Field(default=None)
+    trace_type: TraceType | None = Field(default=None)
+    metadata: dict[str, Any] | None = Field(default=None)
 
     def __str__(self) -> str:
         return self.model_dump_json()
@@ -254,6 +291,10 @@ class LaminarSpanContext(pydantic.BaseModel):
                 "span_path": data.get("span_path") or data.get("spanPath", []),
                 "span_ids_path": data.get("span_ids_path")
                 or data.get("spanIdsPath", []),
+                "user_id": data.get("user_id") or data.get("userId"),
+                "session_id": data.get("session_id") or data.get("sessionId"),
+                "trace_type": data.get("trace_type") or data.get("traceType"),
+                "metadata": data.get("metadata") or data.get("metadata", {}),
             }
             return cls.model_validate(converted_data)
         elif isinstance(data, str):
@@ -269,118 +310,6 @@ class ModelProvider(str, Enum):
     GEMINI = "gemini"
 
 
-class RunAgentRequest(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel,
-        populate_by_name=True,
-    )
-    prompt: str
-    storage_state: str | None = pydantic.Field(default=None)
-    agent_state: str | None = pydantic.Field(default=None)
-    parent_span_context: str | None = pydantic.Field(default=None)
-    model_provider: ModelProvider | None = pydantic.Field(default=None)
-    model: str | None = pydantic.Field(default=None)
-    stream: bool = pydantic.Field(default=False)
-    enable_thinking: bool = pydantic.Field(default=True)
-    cdp_url: str | None = pydantic.Field(default=None)
-    return_screenshots: bool = pydantic.Field(default=False)
-    return_storage_state: bool = pydantic.Field(default=False)
-    return_agent_state: bool = pydantic.Field(default=False)
-    timeout: int | None = pydantic.Field(default=None)
-    max_steps: int | None = pydantic.Field(default=None)
-    thinking_token_budget: int | None = pydantic.Field(default=None)
-    start_url: str | None = pydantic.Field(default=None)
-    disable_give_control: bool = pydantic.Field(default=False)
-    user_agent: str | None = pydantic.Field(default=None)
-
-
-class ActionResult(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel
-    )
-    is_done: bool = pydantic.Field(default=False)
-    content: str | None = pydantic.Field(default=None)
-    error: str | None = pydantic.Field(default=None)
-
-
-class AgentOutput(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel
-    )
-    result: ActionResult = pydantic.Field(default_factory=ActionResult)
-    # Browser state with data related to auth, such as cookies.
-    # A stringified JSON object.
-    # Only returned if return_storage_state is True.
-    # CAUTION: This object may become large. It also may contain sensitive data.
-    storage_state: str | None = pydantic.Field(default=None)
-    # Agent state with data related to the agent's state, such as the chat history.
-    # A stringified JSON object.
-    # Only returned if return_agent_state is True.
-    # CAUTION: This object is large.
-    agent_state: str | None = pydantic.Field(default=None)
-
-
-class StepChunkContent(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel
-    )
-    chunk_type: Literal["step"] = pydantic.Field(default="step")
-    message_id: uuid.UUID = pydantic.Field()
-    action_result: ActionResult = pydantic.Field()
-    summary: str = pydantic.Field()
-    screenshot: str | None = pydantic.Field(default=None)
-
-
-class TimeoutChunkContent(pydantic.BaseModel):
-    """Chunk content to indicate that timeout has been hit. The only difference from a regular step
-    is the chunk type. This is the last chunk in the stream.
-    """
-
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel
-    )
-    chunk_type: Literal["timeout"] = pydantic.Field(default="timeout")
-    message_id: uuid.UUID = pydantic.Field()
-    summary: str = pydantic.Field()
-    screenshot: str | None = pydantic.Field(default=None)
-
-
-class FinalOutputChunkContent(pydantic.BaseModel):
-    """Chunk content to indicate that the agent has finished executing. This
-    is the last chunk in the stream.
-    """
-
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel
-    )
-
-    chunk_type: Literal["finalOutput"] = pydantic.Field(default="finalOutput")
-    message_id: uuid.UUID = pydantic.Field()
-    content: AgentOutput = pydantic.Field()
-
-
-class ErrorChunkContent(pydantic.BaseModel):
-    """Chunk content to indicate that an error has occurred. Typically, this
-    is the last chunk in the stream.
-    """
-
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel
-    )
-    chunk_type: Literal["error"] = pydantic.Field(default="error")
-    message_id: uuid.UUID = pydantic.Field()
-    error: str = pydantic.Field()
-
-
-class RunAgentResponseChunk(pydantic.RootModel):
-    root: (
-        StepChunkContent
-        | FinalOutputChunkContent
-        | ErrorChunkContent
-        | TimeoutChunkContent
-    )
-
-
 class MaskInputOptions(TypedDict):
     textarea: bool | None
     text: bool | None
@@ -392,3 +321,76 @@ class MaskInputOptions(TypedDict):
 
 class SessionRecordingOptions(TypedDict):
     mask_input_options: MaskInputOptions | None
+
+
+class RolloutParam(TypedDict, total=False):
+    """
+    Parameter metadata for rollout functions.
+
+    Used to describe function parameters for the rollout UI.
+
+    Attributes:
+        name: The parameter name
+        type: The Python type of the parameter (e.g., "str", "int", "dict")
+        required: Whether the parameter is required (has no default value)
+        nested: For nested/structured parameters, contains nested parameter definitions
+        default: The default value of the parameter, if specified
+    """
+
+    name: str  # Required field
+    type: str
+    required: bool
+    nested: list["RolloutParam"]
+    default: str
+
+
+class RolloutToolOverride(TypedDict, total=False):
+    """Tool definition override for rollout."""
+
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+
+class RolloutLLMTextBlock(TypedDict, total=False):
+    """LLM text block for rollout."""
+
+    type: Literal["text"]
+    text: str
+
+
+class RolloutPathOverride(TypedDict, total=False):
+    """Override parameters for a specific path in rollout."""
+
+    system: str | list[RolloutLLMTextBlock]
+    tools: list[RolloutToolOverride]
+
+
+class RolloutRunEventData(TypedDict, total=False):
+    """Data payload for a rollout run event."""
+
+    trace_id: str
+    path_to_count: dict[str, int]
+    args: dict[str, Any] | list[Any]
+    overrides: dict[str, RolloutPathOverride]
+
+
+class RolloutRunEvent(TypedDict):
+    """Rollout run event from SSE stream."""
+
+    event_type: str  # Should be "run"
+    data: RolloutRunEventData
+
+
+class RolloutHandshakeEventData(TypedDict):
+    """Data payload for a rollout handshake event."""
+
+    project_id: str
+    session_id: str
+
+
+class RolloutHandshakeEvent(TypedDict):
+    """Rollout handshake event from SSE stream."""
+
+    event_type: str  # Should be "handshake"
+    data: RolloutHandshakeEventData

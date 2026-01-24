@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvclive
-Version: 3.48.5
+Version: 3.49.0
 Summary: Experiments logger for ML projects.
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -51,10 +53,6 @@ Requires-Dist: pytest_voluptuous; extra == "tests"
 Requires-Dist: dpath; extra == "tests"
 Requires-Dist: transformers[torch]; extra == "tests"
 Requires-Dist: tf-keras; extra == "tests"
-Provides-Extra: dev
-Requires-Dist: dvclive[all,tests]; extra == "dev"
-Requires-Dist: mypy==1.17.1; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
 Provides-Extra: mmcv
 Requires-Dist: mmcv; extra == "mmcv"
 Provides-Extra: tf
@@ -76,6 +74,10 @@ Provides-Extra: optuna
 Requires-Dist: optuna; extra == "optuna"
 Provides-Extra: all
 Requires-Dist: dvclive[fastai,huggingface,image,lgbm,lightning,markdown,mmcv,optuna,plots,tf,xgb]; extra == "all"
+Provides-Extra: dev
+Requires-Dist: dvclive[fastai,huggingface,image,lgbm,lightning,markdown,optuna,plots,tests,tf,xgb]; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
 Dynamic: license-file
 
 # DVCLive

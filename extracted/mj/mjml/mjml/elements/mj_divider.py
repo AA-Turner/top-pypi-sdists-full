@@ -63,7 +63,10 @@ class MjDivider(BodyComponent):
         parsedWidth, unit = widthParser(width)
 
         if unit == '%':
-            px = (parse_int(containerWidth) * parse_int(parsedWidth)) / 100 - paddingSize
+            px = (parse_int(containerWidth) * parsedWidth) / 100 - paddingSize
+            # we want to render the number as string without decimal digits if possible
+            if px == int(px):
+                px = int(px)
             return f'{px}px'
         elif unit == 'px':
             return width

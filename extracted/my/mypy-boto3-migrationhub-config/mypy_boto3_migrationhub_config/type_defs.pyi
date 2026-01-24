@@ -19,11 +19,6 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -52,7 +47,7 @@ TargetTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -86,6 +81,6 @@ class CreateHomeRegionControlResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeHomeRegionControlsResultTypeDef(TypedDict):
-    HomeRegionControls: List[HomeRegionControlTypeDef]
+    HomeRegionControls: list[HomeRegionControlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

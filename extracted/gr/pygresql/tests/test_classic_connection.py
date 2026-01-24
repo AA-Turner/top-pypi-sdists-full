@@ -121,24 +121,26 @@ class TestConnectObject(unittest.TestCase):
         self.assertTrue(r.startswith('<pg.Connection object'), r)
 
     def test_all_connect_attributes(self):
-        attributes = '''backend_pid db error host options port
-            protocol_version server_version socket
-            ssl_attributes ssl_in_use status user'''.split()
+        attributes = [
+            'backend_pid', 'db', 'error', 'host', 'options',
+            'port', 'protocol_version', 'server_version',
+            'socket', 'ssl_attributes', 'ssl_in_use', 'status', 'user']
         connection_attributes = [
             a for a in dir(self.connection)
             if not a.startswith('__') and not self.is_method(a)]
         self.assertEqual(attributes, connection_attributes)
 
     def test_all_connect_methods(self):
-        methods = '''
-            cancel close date_format describe_prepared endcopy
-            escape_bytea escape_identifier escape_literal escape_string
-            fileno get_cast_hook get_notice_receiver getline getlo getnotify
-            inserttable is_non_blocking locreate loimport parameter poll
-            prepare putline query query_prepared reset send_query
-            set_cast_hook set_non_blocking set_notice_receiver
-            source transaction
-            '''.split()
+        methods = [
+            'cancel', 'close', 'date_format', 'describe_prepared',
+            'endcopy', 'escape_bytea', 'escape_identifier',
+            'escape_literal', 'escape_string', 'fileno', 'get_cast_hook',
+            'get_notice_receiver', 'getline', 'getlo', 'getnotify',
+            'inserttable', 'is_non_blocking', 'locreate', 'loimport',
+            'parameter', 'poll', 'prepare', 'putline',
+            'query', 'query_prepared', 'reset', 'send_query',
+            'set_cast_hook', 'set_non_blocking', 'set_notice_receiver',
+            'source', 'transaction']
         connection_methods = [
             a for a in dir(self.connection)
             if not a.startswith('__') and self.is_method(a)]
@@ -174,8 +176,8 @@ class TestConnectObject(unittest.TestCase):
     def test_attribute_server_version(self):
         server_version = self.connection.server_version
         self.assertIsInstance(server_version, int)
-        self.assertGreaterEqual(server_version, 100000)  # >= 10.0
-        self.assertLess(server_version, 190000)  # < 20.0
+        self.assertGreaterEqual(server_version, 120000)  # >= 12.0
+        self.assertLess(server_version, 200000)  # < 20.0
 
     def test_attribute_socket(self):
         socket = self.connection.socket
@@ -267,12 +269,12 @@ class TestConnectObject(unittest.TestCase):
 
     def test_all_query_members(self):
         query = self.connection.query("select true where false")
-        members = '''
-            dictiter dictresult fieldinfo fieldname fieldnum getresult
-            listfields memsize namediter namedresult
-            one onedict onenamed onescalar scalariter scalarresult
-            single singledict singlenamed singlescalar
-            '''.split()
+        members = [
+            'dictiter', 'dictresult', 'fieldinfo', 'fieldname', 'fieldnum',
+            'getresult', 'listfields', 'memsize', 'namediter', 'namedresult',
+            'one', 'onedict', 'onenamed', 'onescalar',
+            'scalariter', 'scalarresult',
+            'single', 'singledict', 'singlenamed', 'singlescalar']
         # noinspection PyUnresolvedReferences
         if pg.get_pqlib_version() < 120000:
             members.remove('memsize')
@@ -1965,9 +1967,9 @@ class TestInserttable(unittest.TestCase):
         cols = ['very_long_column_name'] * 2000
         # Should raise a value error because the column does not exist
         self.assertRaises(ValueError, self.c.inserttable, 'test', data, cols)
-        # double the size, should catch buffer overflow and raise memory error
+        # double the size, should not overflow buffer nor raise memory error
         cols *= 2
-        self.assertRaises(MemoryError, self.c.inserttable, 'test', data, cols)
+        self.assertRaises(ValueError, self.c.inserttable, 'test', data, cols)
 
     def test_inserttable_with_out_of_range_data(self):
         # try inserting data out of range for the column type
@@ -2093,16 +2095,12 @@ class TestInserttable(unittest.TestCase):
             self.c.query('select t from test').getresult(), [(s,)] * 3)
 
     def test_insert_table_big_row_size(self):
-        # inserting rows with a size of up to 64k bytes should work
-        t = '*' * 50000
+        # inserting rows with a size exceeding 64k bytes should work
+        t = '*' * 75000
         data = [(t,)]
         self.c.inserttable('test', data, ['t'])
         self.assertEqual(
             self.c.query('select t from test').getresult(), data)
-        # double the size, should catch buffer overflow and raise memory error
-        t *= 2
-        data = [(t,)]
-        self.assertRaises(MemoryError, self.c.inserttable, 'test', data, ['t'])
 
     def test_insert_table_small_int_overflow(self):
         rest_row = self.data[2][1:]
@@ -2116,7 +2114,28 @@ class TestInserttable(unittest.TestCase):
             self.assertIn(
                 'value "33000" is out of range for type smallint', str(e))
         else:
-            self.assertFalse('expected an error')
+            self.assertFalse('expected an error since value is out of range')
+
+    def test_insert_table_with_freeze_false(self):
+        data = self.data
+        self.c.inserttable('test', data, freeze=False)
+        self.assertEqual(self.get_back(), data)
+
+    def test_insert_table_with_freeze_true_without_truncate(self):
+        try:
+            self.c.inserttable('test', self.data, freeze=True)
+        except ValueError as e:
+            self.assertIn('cannot perform COPY FREEZE', str(e))
+        else:
+            self.assertFalse('expected an error since table was not truncated')
+
+    def test_insert_table_with_freeze_true_with_truncate(self):
+        data = self.data
+        self.c.query("begin")
+        self.c.query('truncate table test')
+        self.c.inserttable('test', data, freeze=True)
+        self.c.query('commit')
+        self.assertEqual(self.get_back(), data)
 
 
 class TestDirectSocketAccess(unittest.TestCase):
@@ -2150,7 +2169,7 @@ class TestDirectSocketAccess(unittest.TestCase):
     def test_putline(self):
         putline = self.c.putline
         query = self.c.query
-        data = list(enumerate("apple pear plum cherry banana".split()))
+        data = list(enumerate(["apple", "pear", "plum", "cherry", "banana"]))
         query("copy test from stdin")
         try:
             for i, v in data:
@@ -2179,7 +2198,8 @@ class TestDirectSocketAccess(unittest.TestCase):
     def test_getline(self):
         getline = self.c.getline
         query = self.c.query
-        data = list(enumerate("apple banana pear plum strawberry".split()))
+        data = list(enumerate([
+            "apple", "banana", "pear", "plum", "strawberry"]))
         n = len(data)
         self.c.inserttable('test', data)
         query("copy test to stdout")

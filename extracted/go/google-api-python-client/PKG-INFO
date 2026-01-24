@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-api-python-client
-Version: 2.183.0
+Version: 2.188.0
 Summary: Google API Client Library for Python
 Home-page: https://github.com/googleapis/google-api-python-client/
 Author: Google LLC
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -140,7 +141,7 @@ virtualenv <your-env>
 
 ## Supported Python Versions
 
-Python 3.7, 3.8, 3.9, 3.10, 3.11, 3.12 and 3.13 are fully supported and tested. This library may work on later versions of 3, but we do not currently run tests against those versions.
+Python 3.7, 3.8, 3.9, 3.10, 3.11, 3.12 and 3.13, 3.14 are fully supported and tested. This library may work on later versions of 3, but we do not currently run tests against those versions.
 
 ## Unsupported Python Versions
 

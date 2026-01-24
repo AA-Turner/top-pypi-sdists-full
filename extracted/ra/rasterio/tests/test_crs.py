@@ -75,7 +75,7 @@ def test_read_epsg():
 def test_read_compdcs():
     """Expect no match for a single EPSG for this COMPDCS"""
     with rasterio.open('zip://tests/data/ak-compdcs.zip!test.tif') as src:
-        assert src.crs.to_epsg() == None
+        assert src.crs.to_epsg() is None
 
 
 def test_read_no_crs():
@@ -198,6 +198,15 @@ def test_equality_from_dict(epsg_code):
         init=f"epsg:{epsg_code}"
     )
 
+def test_crs_equals():
+    crs1 = CRS({'init': 'epsg:4326'})
+    assert CRS({'init': 'epsg:4326'}).equals(crs1)
+
+
+def test_crs_equals__ignore_axis_order():
+    crs1 = CRS({'init': 'epsg:4326'})
+    assert CRS({'init': 'epsg:4326'}).equals(crs1, ignore_axis_order=True)
+
 
 def test_is_same_crs():
     # Make sure that same projection with different parameter are not equal
@@ -283,6 +292,14 @@ def test_epsg__no_code_available():
     lcc_crs = CRS.from_string('+lon_0=-95 +ellps=GRS80 +y_0=0 +no_defs=True +proj=lcc '
                               '+x_0=0 +units=m +lat_2=77 +lat_1=49 +lat_0=0')
     assert lcc_crs.to_epsg() is None
+
+
+def test_crs_4326_if_equivalent_crs84():
+    crs1 = CRS.from_epsg(4326)
+    crs2 = CRS.from_string("OGC:CRS84")
+    assert not crs1.equals(crs2, ignore_axis_order=False)
+    assert crs1.equals(crs2, ignore_axis_order=True)
+    assert not crs1 == crs2
 
 
 def test_crs_OSR_equivalence():
@@ -660,13 +677,29 @@ def test_crs_compound_epsg():
     assert CRS.from_string("EPSG:4326+3855").to_wkt().startswith("COMPD")
 
 
+@pytest.mark.parametrize(
+    'crs_obj,geod_crs',
+    [
+        (CRS.from_epsg(4087), CRS.from_epsg(4326)),
+        (CRS.from_epsg(3995), CRS.from_epsg(4326)),
+        (CRS.from_epsg(3031), CRS.from_epsg(4326)),
+        (CRS.from_user_input("ESRI:102004"), CRS.from_user_input("EPSG:4269")),
+        (CRS.from_user_input("IAU_2015:49910"), CRS.from_user_input("IAU_2015:49900")),
+        (CRS.from_user_input("IAU_2015:49911"), CRS.from_user_input("IAU_2015:49901"))
+    ]
+)
+def test_construct_geodetic_crs(crs_obj, geod_crs):
+    """Test if CRS geodetic CRS matches expectations."""
+    assert crs_obj.geodetic_crs == geod_crs
+
+
 @pytest.mark.parametrize("crs", [CRS.from_epsg(4326), CRS.from_string("EPSG:4326")])
 def test_epsg_4326_ogc_crs84(crs):
     """EPSG:4326 not equivalent to OGC:CRS84."""
     assert CRS.from_string("OGC:CRS84") != crs
 
 
-def test_to_authority_x():
+def test_to_authority():
     crs = CRS.from_epsg(32618)
     assert crs.to_authority() == ("EPSG", "32618")
 

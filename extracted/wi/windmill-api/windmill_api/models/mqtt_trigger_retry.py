@@ -16,11 +16,13 @@ T = TypeVar("T", bound="MqttTriggerRetry")
 
 @_attrs_define
 class MqttTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, MqttTriggerRetryConstant]):
-        exponential (Union[Unset, MqttTriggerRetryExponential]):
-        retry_if (Union[Unset, MqttTriggerRetryRetryIf]):
+        constant (Union[Unset, MqttTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, MqttTriggerRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, MqttTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "MqttTriggerRetryConstant"] = UNSET

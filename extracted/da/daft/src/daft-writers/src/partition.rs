@@ -2,22 +2,24 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use common_error::DaftResult;
-use daft_core::{array::ops::as_arrow::AsArrow, utils::identity_hash_set::IndexHash};
+use common_runtime::JoinSet;
+use daft_core::utils::identity_hash_set::{IdentityBuildHasher, IndexHash};
 use daft_dsl::expr::bound_expr::BoundExpr;
-use daft_io::IOStatsContext;
 use daft_micropartition::MicroPartition;
 use daft_recordbatch::RecordBatch;
 use hashbrown::{HashMap, hash_map::RawEntryMut};
 
-use crate::{AsyncFileWriter, WriterFactory};
+use crate::{AsyncFileWriter, WriteResult, WriterFactory};
 
 /// PartitionedWriter is a writer that partitions the input data by a set of columns, and writes each partition
 /// to a separate file. It uses a map to keep track of the writers for each partition.
 struct PartitionedWriter {
     // TODO: Figure out a way to NOT use the IndexHash + RawEntryMut pattern here. Ideally we want to store ScalarValues, aka. single Rows of the partition values as keys for the hashmap.
+    #[allow(clippy::type_complexity)]
     per_partition_writers: HashMap<
         IndexHash,
         Box<dyn AsyncFileWriter<Input = Arc<MicroPartition>, Result = Vec<RecordBatch>>>,
+        IdentityBuildHasher,
     >,
     saved_partition_values: Vec<RecordBatch>,
     writer_factory: Arc<dyn WriterFactory<Input = Arc<MicroPartition>, Result = Vec<RecordBatch>>>,
@@ -33,7 +35,10 @@ impl PartitionedWriter {
         partition_by: Vec<BoundExpr>,
     ) -> Self {
         Self {
-            per_partition_writers: HashMap::new(),
+            per_partition_writers: HashMap::with_capacity_and_hasher(
+                64,
+                IdentityBuildHasher::default(),
+            ),
             saved_partition_values: vec![],
             writer_factory,
             partition_by,
@@ -45,9 +50,7 @@ impl PartitionedWriter {
         partition_cols: &[BoundExpr],
         data: Arc<MicroPartition>,
     ) -> DaftResult<(Vec<RecordBatch>, RecordBatch)> {
-        let data = data.concat_or_get(IOStatsContext::new("MicroPartition::partition_by_value"))?;
-        let table = data.unwrap();
-
+        let table = data.concat_or_get()?.unwrap();
         let (split_tables, partition_values) = table.partition_by_value(partition_cols)?;
         Ok((split_tables, partition_values))
     }
@@ -58,22 +61,35 @@ impl AsyncFileWriter for PartitionedWriter {
     type Input = Arc<MicroPartition>;
     type Result = Vec<RecordBatch>;
 
-    async fn write(&mut self, input: Arc<MicroPartition>) -> DaftResult<usize> {
+    async fn write(&mut self, input: Arc<MicroPartition>) -> DaftResult<WriteResult> {
         assert!(
             !self.is_closed,
             "Cannot write to a closed PartitionedWriter"
         );
         if input.is_empty() {
-            return Ok(0);
+            return Ok(WriteResult {
+                bytes_written: 0,
+                rows_written: 0,
+            });
         }
 
         let (split_tables, partition_values) =
             Self::partition(self.partition_by.as_slice(), input)?;
         let partition_values_hash = partition_values.hash_rows()?;
-        let mut bytes_written = 0;
+
+        // Spawn tasks on compute runtime for writing each table
+        let mut joinset: JoinSet<
+            DaftResult<(
+                IndexHash,
+                Box<dyn AsyncFileWriter<Input = Arc<MicroPartition>, Result = Vec<RecordBatch>>>,
+                WriteResult,
+                RecordBatch,
+            )>,
+        > = JoinSet::new();
+
         for (idx, (table, partition_value_hash)) in split_tables
             .into_iter()
-            .zip(partition_values_hash.as_arrow().values_iter())
+            .zip(partition_values_hash.values().iter())
             .enumerate()
         {
             let partition_value_row = partition_values.slice(idx, idx + 1)?;
@@ -87,41 +103,73 @@ impl AsyncFileWriter for PartitionedWriter {
                     }
                 },
             );
+
+            let table_data = Arc::new(MicroPartition::new_loaded(
+                table.schema.clone(),
+                vec![table].into(),
+                None,
+            ));
+
             match entry {
-                RawEntryMut::Vacant(entry) => {
+                RawEntryMut::Vacant(_entry) => {
                     let mut writer = self
                         .writer_factory
                         .create_writer(0, Some(partition_value_row.as_ref()))?;
-                    bytes_written += writer
-                        .write(Arc::new(MicroPartition::new_loaded(
-                            table.schema.clone(),
-                            vec![table].into(),
-                            None,
-                        )))
-                        .await?;
-                    entry.insert_hashed_nocheck(
-                        *partition_value_hash,
-                        IndexHash {
-                            idx: self.saved_partition_values.len() as u64,
-                            hash: *partition_value_hash,
-                        },
-                        writer,
-                    );
-                    self.saved_partition_values.push(partition_value_row);
+                    let index_hash = IndexHash {
+                        idx: self.saved_partition_values.len() as u64,
+                        hash: *partition_value_hash,
+                    };
+                    self.saved_partition_values
+                        .push(partition_value_row.clone());
+
+                    // Spawn task on compute runtime for writing
+                    joinset.spawn(async move {
+                        let write_result = writer.write(table_data).await?;
+                        Ok((index_hash, writer, write_result, partition_value_row))
+                    });
                 }
-                RawEntryMut::Occupied(mut entry) => {
-                    let writer = entry.get_mut();
-                    bytes_written += writer
-                        .write(Arc::new(MicroPartition::new_loaded(
-                            table.schema.clone(),
-                            vec![table].into(),
-                            None,
-                        )))
-                        .await?;
+                RawEntryMut::Occupied(entry) => {
+                    let (index_hash, mut writer) = entry.remove_entry();
+
+                    // Spawn task on compute runtime for writing
+                    joinset.spawn(async move {
+                        let write_result = writer.write(table_data).await?;
+                        Ok((index_hash, writer, write_result, partition_value_row))
+                    });
                 }
             }
         }
-        Ok(bytes_written)
+
+        // Await all write tasks, put writers back, and aggregate results
+        let mut bytes_written = 0;
+        let mut rows_written = 0;
+        while let Some(result) = joinset.join_next().await {
+            let (index_hash, writer, write_result, partition_value_row) = result??;
+            bytes_written += write_result.bytes_written;
+            rows_written += write_result.rows_written;
+            match self
+                .per_partition_writers
+                .raw_entry_mut()
+                .from_hash(index_hash.hash, |other| {
+                    (index_hash.hash == other.hash) && {
+                        let other_table =
+                            self.saved_partition_values.get(other.idx as usize).unwrap();
+                        other_table == &partition_value_row
+                    }
+                }) {
+                RawEntryMut::Vacant(entry) => {
+                    entry.insert_hashed_nocheck(index_hash.hash, index_hash, writer);
+                }
+                RawEntryMut::Occupied(_) => {
+                    unreachable!("Should not have occupied entry here")
+                }
+            }
+        }
+
+        Ok(WriteResult {
+            bytes_written,
+            rows_written,
+        })
     }
 
     fn bytes_written(&self) -> usize {

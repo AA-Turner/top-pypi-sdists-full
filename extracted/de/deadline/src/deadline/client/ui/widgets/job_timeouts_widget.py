@@ -6,7 +6,7 @@ A UI Widget containing the timeout settings widget.
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 from datetime import timedelta
 
 from qtpy.QtWidgets import (  # type: ignore
@@ -19,6 +19,7 @@ from qtpy.QtWidgets import (  # type: ignore
     QWidget,
 )
 from qtpy.QtCore import Signal
+from .._utils import tr
 from ..dataclasses.timeouts import TimeoutTableEntries
 
 # UI Constants
@@ -212,8 +213,8 @@ class TimeoutTableWidget(QGroupBox):
         parent (QWidget, optional): Parent widget. Defaults to None.
     """
 
-    def __init__(self, *, timeouts: TimeoutTableEntries, parent=None):
-        super().__init__("Timeouts", parent=parent)
+    def __init__(self, *, timeouts: TimeoutTableEntries, parent: Optional[QWidget] = None):
+        super().__init__(tr("Timeouts"), parent=parent)
         self.timeout_rows: Dict[str, TimeoutEntryWidget] = {}
         self._build_ui(timeouts)
         self.refresh_ui(timeouts)
@@ -257,7 +258,7 @@ class TimeoutTableWidget(QGroupBox):
         """
         label = QLabel()
         label.setStyleSheet(f"""
-            QLabel {{ 
+            QLabel {{
                 background-color: {bg_color};
                 color: black;
                 padding: 5px;
@@ -282,7 +283,7 @@ class TimeoutTableWidget(QGroupBox):
             row.get_timeout_seconds() == 0 and row.checkbox.isChecked()
             for row in self.timeout_rows.values()
         )
-        self.error_label.setText("Error: Timeout cannot be set to zero." if any_zero else "")
+        self.error_label.setText(tr("Error: Timeout cannot be set to zero.") if any_zero else "")
         self.error_label.setVisible(any_zero)
 
     def _update_warning_states(self):
@@ -303,7 +304,7 @@ class TimeoutTableWidget(QGroupBox):
         Refreshes all UI elements to reflect the current timeout settings.
 
         Args:
-            entries: List of TimeoutEntry objects containing the current settings
+            timeouts: List of TimeoutEntry objects containing the current settings
         """
         for label, entry in timeouts.entries.items():
             if label in self.timeout_rows:

@@ -1206,9 +1206,32 @@ class DomainsMyUserDbCredential(pulumi.CustomResource):
                  user: Optional[pulumi.Input[Union['DomainsMyUserDbCredentialUserArgs', 'DomainsMyUserDbCredentialUserArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the My User Db Credential resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's own database (DB) credential.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_my_user_db_credential = oci.identity.DomainsMyUserDbCredential("test_my_user_db_credential",
+            db_password=my_user_db_credential_db_password,
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:UserDbCredentials"],
+            authorization=my_user_db_credential_authorization,
+            description=my_user_db_credential_description,
+            expires_on=my_user_db_credential_expires_on,
+            id=my_user_db_credential_id,
+            ocid=my_user_db_credential_ocid,
+            resource_type_schema_version=my_user_db_credential_resource_type_schema_version,
+            status=my_user_db_credential_status,
+            tags=[{
+                "key": my_user_db_credential_tags_key,
+                "value": my_user_db_credential_tags_value,
+            }],
+            user={
+                "value": my_user_db_credential_user_value,
+                "ocid": my_user_db_credential_user_ocid,
+            })
+        ```
 
         ## Import
 
@@ -1319,9 +1342,32 @@ class DomainsMyUserDbCredential(pulumi.CustomResource):
                  args: DomainsMyUserDbCredentialArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the My User Db Credential resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's own database (DB) credential.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_my_user_db_credential = oci.identity.DomainsMyUserDbCredential("test_my_user_db_credential",
+            db_password=my_user_db_credential_db_password,
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:UserDbCredentials"],
+            authorization=my_user_db_credential_authorization,
+            description=my_user_db_credential_description,
+            expires_on=my_user_db_credential_expires_on,
+            id=my_user_db_credential_id,
+            ocid=my_user_db_credential_ocid,
+            resource_type_schema_version=my_user_db_credential_resource_type_schema_version,
+            status=my_user_db_credential_status,
+            tags=[{
+                "key": my_user_db_credential_tags_key,
+                "value": my_user_db_credential_tags_value,
+            }],
+            user={
+                "value": my_user_db_credential_user_value,
+                "ocid": my_user_db_credential_user_ocid,
+            })
+        ```
 
         ## Import
 

@@ -145,6 +145,24 @@ def test_basic_valid_requirement_parsing(
     assert req.marker == (Marker(marker.format(ws="")) if marker else None)
 
 
+@pytest.mark.parametrize(
+    ("input_req", "norm_req"),
+    [
+        (
+            'mariadb>=1.0.1; extra == "mariadb_connector"',
+            'mariadb>=1.0.1; extra == "mariadb-connector"',
+        ),
+        (
+            'mariadb>=1.0.1; python_version >= "3" and extra == "mariadb_connector"',
+            'mariadb>=1.0.1; python_version >= "3" and extra == "mariadb-connector"',
+        ),
+    ],
+)
+def test_normalized_requirements(input_req: str, norm_req: str) -> None:
+    req = Requirement(input_req)
+    assert str(req) == norm_req
+
+
 class TestRequirementParsing:
     @pytest.mark.parametrize(
         "marker",
@@ -373,7 +391,7 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after URL and whitespace)\n"
+            "Expected semicolon (after URL and whitespace) or end\n"
             "    name @ https://example.com/; extra == 'example'\n"
             "           ~~~~~~~~~~~~~~~~~~~~~~^"
         )
@@ -521,7 +539,8 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after version specifier)\n"
+            "Expected comma (within version specifier), "
+            "semicolon (after version specifier) or end\n"
             "    name==1.0.org1\n"
             "        ~~~~~^"
         )
@@ -537,7 +556,7 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after name and no valid version specifier)\n"
+            "Expected semicolon (after name with no version specifier) or end\n"
             "    name==\n"
             "        ^"
         )
@@ -553,7 +572,7 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after name and no valid version specifier)\n"
+            "Expected semicolon (after name with no version specifier) or end\n"
             "    name 1.0\n"
             "         ^"
         )
@@ -569,8 +588,26 @@ class TestRequirementParsing:
         # THEN
         assert ctx.exconly() == (
             "packaging.requirements.InvalidRequirement: "
-            "Expected end or semicolon (after version specifier)\n"
+            "Expected comma (within version specifier), "
+            "semicolon (after version specifier) or end\n"
             "    name >= 1.0 #\n"
+            "         ~~~~~~~^"
+        )
+
+    def test_error_on_missing_comma_in_specifier(self) -> None:
+        # GIVEN
+        to_parse = "name >= 1.0 <= 2.0"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            "Expected comma (within version specifier), "
+            "semicolon (after version specifier) or end\n"
+            "    name >= 1.0 <= 2.0\n"
             "         ~~~~~~~^"
         )
 
@@ -614,7 +651,7 @@ class TestRequirementBehaviour:
 
     @pytest.mark.parametrize(
         "url_or_specifier",
-        ["", "@ https://url ", "!=2.0", "==2.*"],
+        ["", " @ https://url ", "!=2.0", "==2.*"],
     )
     @pytest.mark.parametrize("extras", ["", "[a]", "[a,b]", "[a1,b1,b2]"])
     @pytest.mark.parametrize(
@@ -634,7 +671,7 @@ class TestRequirementBehaviour:
         assert str(req) == to_parse.strip()
         assert repr(req) == f"<Requirement({to_parse.strip()!r})>"
 
-    @pytest.mark.parametrize("dep1, dep2", EQUAL_DEPENDENCIES)
+    @pytest.mark.parametrize(("dep1", "dep2"), EQUAL_DEPENDENCIES)
     def test_equal_reqs_equal_hashes(self, dep1: str, dep2: str) -> None:
         """Requirement objects created from equal strings should be equal."""
         # GIVEN / WHEN
@@ -643,7 +680,7 @@ class TestRequirementBehaviour:
         assert req1 == req2
         assert hash(req1) == hash(req2)
 
-    @pytest.mark.parametrize("dep1, dep2", EQUIVALENT_DEPENDENCIES)
+    @pytest.mark.parametrize(("dep1", "dep2"), EQUIVALENT_DEPENDENCIES)
     def test_equivalent_reqs_equal_hashes_unequal_strings(
         self, dep1: str, dep2: str
     ) -> None:
@@ -656,7 +693,7 @@ class TestRequirementBehaviour:
         assert hash(req1) == hash(req2)
         assert str(req1) != str(req2)
 
-    @pytest.mark.parametrize("dep1, dep2", DIFFERENT_DEPENDENCIES)
+    @pytest.mark.parametrize(("dep1", "dep2"), DIFFERENT_DEPENDENCIES)
     def test_different_reqs_different_hashes(self, dep1: str, dep2: str) -> None:
         """Requirement objects created from non-equivalent strings should differ."""
         # GIVEN / WHEN

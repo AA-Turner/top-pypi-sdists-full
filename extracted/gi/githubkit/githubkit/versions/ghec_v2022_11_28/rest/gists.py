@@ -17,10 +17,10 @@ from pydantic import BaseModel
 
 from githubkit.compat import model_dump, type_validate_python
 from githubkit.typing import Missing, UnsetType
-from githubkit.utils import UNSET, exclude_unset
+from githubkit.utils import UNSET, exclude_unset, parse_query_params
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    import datetime as _dt
     from typing import Literal, Union
 
     from githubkit import GitHubCore
@@ -30,14 +30,14 @@ if TYPE_CHECKING:
 
     from ..models import BaseGist, GistComment, GistCommit, GistSimple
     from ..types import (
-        BaseGistType,
-        GistCommentType,
-        GistCommitType,
+        BaseGistTypeForResponse,
+        GistCommentTypeForResponse,
+        GistCommitTypeForResponse,
         GistsGistIdCommentsCommentIdPatchBodyType,
         GistsGistIdCommentsPostBodyType,
         GistsGistIdPatchBodyPropFilesType,
         GistsGistIdPatchBodyType,
-        GistSimpleType,
+        GistSimpleTypeForResponse,
         GistsPostBodyPropFilesType,
         GistsPostBodyType,
     )
@@ -61,12 +61,12 @@ class GistsClient:
     def list(
         self,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list
 
         GET /gists
@@ -91,7 +91,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -103,12 +103,12 @@ class GistsClient:
     async def async_list(
         self,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list
 
         GET /gists
@@ -133,7 +133,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -149,7 +149,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: GistsPostBodyType,
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     @overload
     def create(
@@ -161,7 +161,7 @@ class GistsClient:
         description: Missing[str] = UNSET,
         files: GistsPostBodyPropFilesType,
         public: Missing[Union[bool, Literal["true", "false"]]] = UNSET,
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     def create(
         self,
@@ -170,7 +170,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[GistsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/create
 
         POST /gists
@@ -219,7 +219,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: GistsPostBodyType,
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     @overload
     async def async_create(
@@ -231,7 +231,7 @@ class GistsClient:
         description: Missing[str] = UNSET,
         files: GistsPostBodyPropFilesType,
         public: Missing[Union[bool, Literal["true", "false"]]] = UNSET,
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     async def async_create(
         self,
@@ -240,7 +240,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[GistsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/create
 
         POST /gists
@@ -285,12 +285,12 @@ class GistsClient:
     def list_public(
         self,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list-public
 
         GET /gists/public
@@ -317,7 +317,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -330,12 +330,12 @@ class GistsClient:
     async def async_list_public(
         self,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list-public
 
         GET /gists/public
@@ -362,7 +362,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -375,12 +375,12 @@ class GistsClient:
     def list_starred(
         self,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list-starred
 
         GET /gists/starred
@@ -405,7 +405,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -418,12 +418,12 @@ class GistsClient:
     async def async_list_starred(
         self,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list-starred
 
         GET /gists/starred
@@ -448,7 +448,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -464,7 +464,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/get
 
         GET /gists/{gist_id}
@@ -503,7 +503,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/get
 
         GET /gists/{gist_id}
@@ -606,7 +606,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: Union[GistsGistIdPatchBodyType, None],
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     @overload
     def update(
@@ -618,7 +618,7 @@ class GistsClient:
         stream: bool = False,
         description: Missing[str] = UNSET,
         files: Missing[GistsGistIdPatchBodyPropFilesType] = UNSET,
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     def update(
         self,
@@ -628,7 +628,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[Union[GistsGistIdPatchBodyType, None]] = UNSET,
         **kwargs,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/update
 
         PATCH /gists/{gist_id}
@@ -690,7 +690,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: Union[GistsGistIdPatchBodyType, None],
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     @overload
     async def async_update(
@@ -702,7 +702,7 @@ class GistsClient:
         stream: bool = False,
         description: Missing[str] = UNSET,
         files: Missing[GistsGistIdPatchBodyPropFilesType] = UNSET,
-    ) -> Response[GistSimple, GistSimpleType]: ...
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]: ...
 
     async def async_update(
         self,
@@ -712,7 +712,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[Union[GistsGistIdPatchBodyType, None]] = UNSET,
         **kwargs,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/update
 
         PATCH /gists/{gist_id}
@@ -774,7 +774,7 @@ class GistsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[GistComment], list[GistCommentType]]:
+    ) -> Response[list[GistComment], list[GistCommentTypeForResponse]]:
         """gists/list-comments
 
         GET /gists/{gist_id}/comments
@@ -803,7 +803,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[GistComment],
@@ -821,7 +821,7 @@ class GistsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[GistComment], list[GistCommentType]]:
+    ) -> Response[list[GistComment], list[GistCommentTypeForResponse]]:
         """gists/list-comments
 
         GET /gists/{gist_id}/comments
@@ -850,7 +850,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[GistComment],
@@ -868,7 +868,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: GistsGistIdCommentsPostBodyType,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     @overload
     def create_comment(
@@ -879,7 +879,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         body: str,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     def create_comment(
         self,
@@ -889,7 +889,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[GistsGistIdCommentsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[GistComment, GistCommentType]:
+    ) -> Response[GistComment, GistCommentTypeForResponse]:
         """gists/create-comment
 
         POST /gists/{gist_id}/comments
@@ -940,7 +940,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: GistsGistIdCommentsPostBodyType,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     @overload
     async def async_create_comment(
@@ -951,7 +951,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         body: str,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     async def async_create_comment(
         self,
@@ -961,7 +961,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[GistsGistIdCommentsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[GistComment, GistCommentType]:
+    ) -> Response[GistComment, GistCommentTypeForResponse]:
         """gists/create-comment
 
         POST /gists/{gist_id}/comments
@@ -1011,7 +1011,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[GistComment, GistCommentType]:
+    ) -> Response[GistComment, GistCommentTypeForResponse]:
         """gists/get-comment
 
         GET /gists/{gist_id}/comments/{comment_id}
@@ -1051,7 +1051,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[GistComment, GistCommentType]:
+    ) -> Response[GistComment, GistCommentTypeForResponse]:
         """gists/get-comment
 
         GET /gists/{gist_id}/comments/{comment_id}
@@ -1157,7 +1157,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: GistsGistIdCommentsCommentIdPatchBodyType,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     @overload
     def update_comment(
@@ -1169,7 +1169,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         body: str,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     def update_comment(
         self,
@@ -1180,7 +1180,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[GistsGistIdCommentsCommentIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[GistComment, GistCommentType]:
+    ) -> Response[GistComment, GistCommentTypeForResponse]:
         """gists/update-comment
 
         PATCH /gists/{gist_id}/comments/{comment_id}
@@ -1235,7 +1235,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: GistsGistIdCommentsCommentIdPatchBodyType,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     @overload
     async def async_update_comment(
@@ -1247,7 +1247,7 @@ class GistsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         body: str,
-    ) -> Response[GistComment, GistCommentType]: ...
+    ) -> Response[GistComment, GistCommentTypeForResponse]: ...
 
     async def async_update_comment(
         self,
@@ -1258,7 +1258,7 @@ class GistsClient:
         stream: bool = False,
         data: Missing[GistsGistIdCommentsCommentIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[GistComment, GistCommentType]:
+    ) -> Response[GistComment, GistCommentTypeForResponse]:
         """gists/update-comment
 
         PATCH /gists/{gist_id}/comments/{comment_id}
@@ -1312,7 +1312,7 @@ class GistsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[GistCommit], list[GistCommitType]]:
+    ) -> Response[list[GistCommit], list[GistCommitTypeForResponse]]:
         """gists/list-commits
 
         GET /gists/{gist_id}/commits
@@ -1334,7 +1334,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[GistCommit],
@@ -1352,7 +1352,7 @@ class GistsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[GistCommit], list[GistCommitType]]:
+    ) -> Response[list[GistCommit], list[GistCommitTypeForResponse]]:
         """gists/list-commits
 
         GET /gists/{gist_id}/commits
@@ -1374,7 +1374,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[GistCommit],
@@ -1392,7 +1392,7 @@ class GistsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[GistSimple], list[GistSimpleType]]:
+    ) -> Response[list[GistSimple], list[GistSimpleTypeForResponse]]:
         """gists/list-forks
 
         GET /gists/{gist_id}/forks
@@ -1414,7 +1414,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[GistSimple],
@@ -1432,7 +1432,7 @@ class GistsClient:
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[GistSimple], list[GistSimpleType]]:
+    ) -> Response[list[GistSimple], list[GistSimpleTypeForResponse]]:
         """gists/list-forks
 
         GET /gists/{gist_id}/forks
@@ -1454,7 +1454,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[GistSimple],
@@ -1470,7 +1470,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[BaseGist, BaseGistType]:
+    ) -> Response[BaseGist, BaseGistTypeForResponse]:
         """gists/fork
 
         POST /gists/{gist_id}/forks
@@ -1503,7 +1503,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[BaseGist, BaseGistType]:
+    ) -> Response[BaseGist, BaseGistTypeForResponse]:
         """gists/fork
 
         POST /gists/{gist_id}/forks
@@ -1727,7 +1727,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/get-revision
 
         GET /gists/{gist_id}/{sha}
@@ -1768,7 +1768,7 @@ class GistsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[GistSimple, GistSimpleType]:
+    ) -> Response[GistSimple, GistSimpleTypeForResponse]:
         """gists/get-revision
 
         GET /gists/{gist_id}/{sha}
@@ -1806,12 +1806,12 @@ class GistsClient:
         self,
         username: str,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list-for-user
 
         GET /users/{username}/gists
@@ -1836,7 +1836,7 @@ class GistsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],
@@ -1849,12 +1849,12 @@ class GistsClient:
         self,
         username: str,
         *,
-        since: Missing[datetime] = UNSET,
+        since: Missing[_dt.datetime] = UNSET,
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[BaseGist], list[BaseGistType]]:
+    ) -> Response[list[BaseGist], list[BaseGistTypeForResponse]]:
         """gists/list-for-user
 
         GET /users/{username}/gists
@@ -1879,7 +1879,7 @@ class GistsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[BaseGist],

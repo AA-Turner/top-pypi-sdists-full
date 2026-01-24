@@ -1,34 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-quota
-Version: 2.0.0
+Version: 3.0.1
 Summary: Microsoft Azure Quota Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Quota Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -87,8 +85,64 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 3.0.1 (2025-10-09)
+
+### Bugs Fixed
+
+- Exclude `generated_samples` and `generated_tests` from wheel
+
+## 3.0.0 (2025-09-22)
+
+### Features Added
+
+  - Model `QuotaMgmtClient` added parameter `cloud_setting` in method `__init__`
+  - Client `QuotaMgmtClient` added method `send_request`
+  - Client `QuotaMgmtClient` added operation group `group_quota_usages`
+  - Client `QuotaMgmtClient` added operation group `group_quota_location_settings`
+  - Model `CurrentQuotaLimitBase` added property `system_data`
+  - Model `CurrentUsagesBase` added property `system_data`
+  - Model `GroupQuotasEntityBase` added property `group_type`
+  - Model `GroupQuotasEntityProperties` added property `group_type`
+  - Model `QuotaRequestDetails` added property `system_data`
+  - Enum `RequestState` added member `ESCALATED`
+  - Added enum `EnforcementState`
+  - Added model `ExtensionResource`
+  - Added model `GroupQuotasEnforcementStatus`
+  - Added model `GroupQuotasEnforcementStatusProperties`
+  - Added enum `GroupType`
+  - Added operation group `GroupQuotaLocationSettingsOperations`
+  - Added operation group `GroupQuotaUsagesOperations`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. And please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Deleted or renamed model `CommonResourceProperties`
+  - Deleted or renamed model `CreateGenericQuotaRequestParameters`
+  - Deleted or renamed model `GroupQuotaList`
+  - Deleted or renamed model `GroupQuotaSubscriptionIdList`
+  - Deleted or renamed model `GroupQuotaSubscriptionRequestStatusList`
+  - Deleted or renamed model `LROResponse`
+  - Deleted or renamed model `LROResponseProperties`
+  - Deleted or renamed model `OperationList`
+  - Deleted or renamed model `QuotaAllocationRequestStatusList`
+  - Deleted or renamed model `QuotaLimits`
+  - Deleted or renamed model `QuotaLimitsResponse`
+  - Deleted or renamed model `QuotaRequestDetailsList`
+  - Deleted or renamed model `QuotaRequestOneResourceProperties`
+  - Deleted or renamed model `QuotaRequestOneResourceSubmitResponse`
+  - Deleted or renamed model `QuotaRequestStatusDetails`
+  - Deleted or renamed model `QuotaRequestSubmitResponse`
+  - Deleted or renamed model `QuotaRequestSubmitResponse202`
+  - Deleted or renamed model `ResourceBaseRequest`
+  - Deleted or renamed model `ResourceUsageList`
+  - Deleted or renamed model `SubmittedResourceRequestStatusList`
+  - Deleted or renamed model `SubscriptionGroupQuotaAssignment`
+  - Deleted or renamed model `SubscriptionQuotaAllocationRequestList`
+  - Deleted or renamed model `SubscriptionQuotaAllocationsStatusList`
+  - Deleted or renamed model `UsagesLimits`
+  - Method `QuotaRequestStatusOperations.list` changed its parameter `skiptoken` from `positional_or_keyword` to `keyword_only`
 
 ## 2.0.0 (2025-02-26)
 

@@ -1,20 +1,37 @@
 # Copyright Modal Labs 2024
 import importlib
+import inspect
+import os
+import signal
+import sys
 import typing
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Generator, Optional, Sequence
 
 import modal._object
 import modal._runtime.container_io_manager
 import modal.cls
+import modal.server
 from modal import Function
 from modal._functions import _Function
+from modal._partial_function import (
+    _find_callables_for_obj,
+    _PartialFunctionFlags,
+)
+from modal._runtime.user_code_event_loop import UserCodeEventLoop
 from modal._utils.async_utils import synchronizer
-from modal._utils.function_utils import LocalFunctionError, is_async as get_is_async, is_global_object
+from modal._utils.function_utils import (
+    LocalFunctionError,
+    callable_has_non_self_params,
+    is_async as get_is_async,
+    is_global_object,
+)
 from modal.app import _App
 from modal.config import logger
 from modal.exception import ExecutionError, InvalidError
+from modal.experimental.flash import _FlashContainerEntry
 from modal_proto import api_pb2
 
 if typing.TYPE_CHECKING:
@@ -29,8 +46,70 @@ class FinalizedFunction:
     callable: Callable[..., Any]
     is_async: bool
     is_generator: bool
-    data_format: int  # api_pb2.DataFormat
+    supported_output_formats: Sequence["api_pb2.DataFormat.ValueType"]
     lifespan_manager: Optional["LifespanManager"] = None
+
+
+def call_lifecycle_functions(
+    event_loop: UserCodeEventLoop,
+    container_io_manager: Any,
+    funcs: Sequence[Callable[..., Any]],
+) -> None:
+    """Call function(s), can be sync or async, but any return values are ignored."""
+    with container_io_manager.handle_user_exception():
+        for func in funcs:
+            # We are deprecating parametrized exit methods but want to gracefully handle old code.
+            args = (None, None, None) if callable_has_non_self_params(func) else ()
+            res = func(*args)
+            if inspect.iscoroutine(res):
+                event_loop.run(res)
+
+
+@contextmanager
+def lifecycle_asgi(
+    event_loop: UserCodeEventLoop,
+    container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    finalized_functions: dict[str, FinalizedFunction],
+) -> Generator[None, None, None]:
+    lifespan_background_tasks = []
+    try:
+        for finalized_function in finalized_functions.values():
+            if finalized_function.lifespan_manager:
+                lifespan_background_tasks.append(
+                    event_loop.create_task(finalized_function.lifespan_manager.background_task())
+                )
+                with container_io_manager.handle_user_exception():
+                    event_loop.run(finalized_function.lifespan_manager.lifespan_startup())
+        yield
+    finally:
+        try:
+            # run lifespan shutdown for asgi apps
+            for finalized_function in finalized_functions.values():
+                if finalized_function.lifespan_manager:
+                    with container_io_manager.handle_user_exception():
+                        event_loop.run(finalized_function.lifespan_manager.lifespan_shutdown())
+        finally:
+            # no need to keep the lifespan asgi call around - we send it no more messages
+            for task in lifespan_background_tasks:
+                task.cancel()
+
+
+def disable_signals():
+    int_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    usr1_handler = signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+    return int_handler, usr1_handler
+
+
+def try_enable_signals(int_handler, usr1_handler):
+    if int_handler is not None and usr1_handler is not None:
+        signal.signal(signal.SIGINT, int_handler)
+        signal.signal(signal.SIGUSR1, usr1_handler)
+
+
+def volume_commit(
+    container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager", function_def: api_pb2.Function
+):
+    container_io_manager.volume_commit([v.volume_id for v in function_def.volume_mounts if v.allow_background_commits])
 
 
 class Service(metaclass=ABCMeta):
@@ -44,11 +123,75 @@ class Service(metaclass=ABCMeta):
     user_cls_instance: Any
     app: "modal.app._App"
     service_deps: Optional[Sequence["modal._object._Object"]]
+    function_def: api_pb2.Function
 
     @abstractmethod
     def get_finalized_functions(
         self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
     ) -> dict[str, "FinalizedFunction"]: ...
+
+    @contextmanager
+    def lifecycle_presnapshot(
+        self,
+        event_loop: UserCodeEventLoop,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    ) -> Generator[None, None, None]:
+        # Default no-op implementation for services without pre-snapshot lifecycle handling
+        yield
+
+    @contextmanager
+    def lifecycle_postsnapshot(
+        self,
+        event_loop: UserCodeEventLoop,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    ) -> Generator[None, None, None]:
+        # Default no-op implementation for services without post-snapshot lifecycle handling
+        yield
+
+    @contextmanager
+    def execution_context(
+        self,
+        event_loop: UserCodeEventLoop,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    ) -> Generator[dict[str, "FinalizedFunction"], None, None]:
+        """
+        Manages the lifecycle of the user code:
+        1. Runs pre-snapshot 'enter' methods
+        2. Calls maybe_snapshot(container_io_manager, function_def)
+        3. Creates breakpoint wrapper
+        4. Runs post-snapshot 'enter' methods
+        5. Initializes finalized functions (and ASGI/WSGI lifespan)
+        6. Yield finalized_functions for execution
+        7. Handles cleanup (lifespan shutdown, 'exit' methods)
+        """
+        int_handler, usr1_handler = None, None
+        try:
+            # 1. Pre-snapshot Enter
+            with self.lifecycle_presnapshot(event_loop, container_io_manager):
+                # 2. Snapshot -- If this container is being used to create a checkpoint, checkpoint the container after
+                # global imports and initialization. Checkpointed containers run from this point onwards.
+                maybe_snapshot(container_io_manager, self.function_def)
+                # 3. Breakpoint wrapper
+                create_breakpoint_wrapper(container_io_manager)
+                # 4. Post-snapshot Enter
+                with self.lifecycle_postsnapshot(event_loop, container_io_manager):
+                    # Get Functions
+                    with container_io_manager.handle_user_exception():
+                        finalized_functions = self.get_finalized_functions(self.function_def, container_io_manager)
+                    # 5. Start ASGI lifespan
+                    with lifecycle_asgi(event_loop, container_io_manager, finalized_functions):
+                        # 6. Yield Finalized Functions
+                        try:
+                            yield finalized_functions
+                        finally:
+                            int_handler, usr1_handler = disable_signals()
+        finally:
+            # 9. Volume commit - runs OUTSIDE all lifecycle managers so exit handlers
+            # have a chance to write to disk before we commit volumes
+            try:
+                volume_commit(container_io_manager, self.function_def)
+            finally:
+                try_enable_signals(int_handler, usr1_handler)
 
 
 def construct_webhook_callable(
@@ -91,11 +234,36 @@ def construct_webhook_callable(
         raise InvalidError(f"Unrecognized web endpoint type {webhook_config.type}")
 
 
+def maybe_snapshot(
+    container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager", function_def: api_pb2.Function
+):
+    if function_def.is_checkpointing_function and os.environ.get("MODAL_ENABLE_SNAP_RESTORE") == "1":
+        container_io_manager.memory_snapshot()
+
+
+def create_breakpoint_wrapper(container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"):
+    # Install hooks for interactive functions.
+    def breakpoint_wrapper():
+        # note: it would be nice to not have breakpoint_wrapper() included in the backtrace
+        container_io_manager.interact(from_breakpoint=True)
+        import pdb  # noqa: T100
+
+        current_frame = inspect.currentframe()
+        if current_frame is not None:
+            frame = current_frame.f_back
+            pdb.Pdb().set_trace(frame)
+        else:
+            raise RuntimeError("No current frame found")
+
+    sys.breakpointhook = breakpoint_wrapper
+
+
 @dataclass
 class ImportedFunction(Service):
-    user_cls_instance: Any
     app: modal.app._App
     service_deps: Optional[Sequence["modal._object._Object"]]
+    user_cls_instance = None
+    function_def: api_pb2.Function
 
     _user_defined_callable: Callable[..., Any]
 
@@ -108,6 +276,7 @@ class ImportedFunction(Service):
         is_generator = fun_def.function_type == api_pb2.Function.FUNCTION_TYPE_GENERATOR
 
         webhook_config = fun_def.webhook_config
+
         if not webhook_config.type:
             # for non-webhooks, the runnable is straight forward:
             return {
@@ -115,7 +284,10 @@ class ImportedFunction(Service):
                     callable=self._user_defined_callable,
                     is_async=is_async,
                     is_generator=is_generator,
-                    data_format=api_pb2.DATA_FORMAT_PICKLE,
+                    supported_output_formats=fun_def.supported_output_formats
+                    # FIXME (elias): the following `or [api_pb2.DATA_FORMAT_PICKLE, api_pb2.DATA_FORMAT_CBOR]` is only
+                    # needed for tests
+                    or [api_pb2.DATA_FORMAT_PICKLE, api_pb2.DATA_FORMAT_CBOR],
                 )
             }
 
@@ -129,18 +301,67 @@ class ImportedFunction(Service):
                 lifespan_manager=lifespan_manager,
                 is_async=True,
                 is_generator=True,
-                data_format=api_pb2.DATA_FORMAT_ASGI,
+                # FIXME (elias): the following `or [api_pb2.DATA_FORMAT_ASGI]` is only needed for tests
+                supported_output_formats=fun_def.supported_output_formats or [api_pb2.DATA_FORMAT_ASGI],
             )
         }
 
 
+class _LifecycleManager:
+    """Lifecycle manager for class-based services (Cls and Server).
+
+    Handles pre snapshot, post snapshot, and exit lifecycle handling
+    """
+
+    user_cls_instance: Any
+    function_def: api_pb2.Function
+
+    @contextmanager
+    def lifecycle_presnapshot(
+        self,
+        event_loop: UserCodeEventLoop,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    ):
+        # Identify all "enter" methods that need to run before we snapshot.
+        if not self.function_def.is_auto_snapshot:
+            pre_snapshot_methods = _find_callables_for_obj(
+                self.user_cls_instance, _PartialFunctionFlags.ENTER_PRE_SNAPSHOT
+            )
+            call_lifecycle_functions(event_loop, container_io_manager, list(pre_snapshot_methods.values()))
+        yield
+
+    @contextmanager
+    def lifecycle_postsnapshot(
+        self,
+        event_loop: UserCodeEventLoop,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    ):
+        # Identify the "enter" methods to run after resuming from a snapshot.
+        flash_entry = _FlashContainerEntry(self.function_def.http_config)
+        if not self.function_def.is_auto_snapshot:
+            post_snapshot_methods = _find_callables_for_obj(
+                self.user_cls_instance, _PartialFunctionFlags.ENTER_POST_SNAPSHOT
+            )
+            call_lifecycle_functions(event_loop, container_io_manager, list(post_snapshot_methods.values()))
+            flash_entry.enter()
+        try:
+            yield
+        finally:
+            if not self.function_def.is_auto_snapshot:
+                flash_entry.stop()
+                exit_methods = _find_callables_for_obj(self.user_cls_instance, _PartialFunctionFlags.EXIT)
+                call_lifecycle_functions(event_loop, container_io_manager, list(exit_methods.values()))
+                flash_entry.close()
+
+
 @dataclass
-class ImportedClass(Service):
+class ImportedClass(_LifecycleManager, Service):
     user_cls_instance: Any
     app: "modal.app._App"
     service_deps: Optional[Sequence["modal._object._Object"]]
 
     _partial_functions: dict[str, "modal._partial_function._PartialFunction"]
+    function_def: api_pb2.Function
 
     def get_finalized_functions(
         self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
@@ -154,6 +375,7 @@ class ImportedClass(Service):
             # Use the function definition for whether this is a generator (overriden by webhooks)
             is_generator = _partial.params.is_generator
             webhook_config = _partial.params.webhook_config
+            method_def = fun_def.method_definitions[method_name]
 
             bound_func = user_func.__get__(self.user_cls_instance)
 
@@ -163,7 +385,10 @@ class ImportedClass(Service):
                     callable=bound_func,
                     is_async=is_async,
                     is_generator=bool(is_generator),
-                    data_format=api_pb2.DATA_FORMAT_PICKLE,
+                    # FIXME (elias): the following `or [api_pb2.DATA_FORMAT_PICKLE, api_pb2.DATA_FORMAT_CBOR]` is only
+                    # needed for tests
+                    supported_output_formats=method_def.supported_output_formats
+                    or [api_pb2.DATA_FORMAT_PICKLE, api_pb2.DATA_FORMAT_CBOR],
                 )
             else:
                 web_callable, lifespan_manager = construct_webhook_callable(
@@ -174,10 +399,24 @@ class ImportedClass(Service):
                     lifespan_manager=lifespan_manager,
                     is_async=True,
                     is_generator=True,
-                    data_format=api_pb2.DATA_FORMAT_ASGI,
+                    # FIXME (elias): the following `or [api_pb2.DATA_FORMAT_ASGI]` is only needed for tests
+                    supported_output_formats=method_def.supported_output_formats or [api_pb2.DATA_FORMAT_ASGI],
                 )
             finalized_functions[method_name] = finalized_function
         return finalized_functions
+
+
+@dataclass
+class ImportedServer(_LifecycleManager, Service):
+    user_cls_instance: Any
+    app: "modal.app._App"
+    service_deps: Optional[Sequence["modal._object._Object"]]
+    function_def: api_pb2.Function
+
+    def get_finalized_functions(
+        self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
+    ) -> dict[str, "FinalizedFunction"]:
+        return {}
 
 
 def get_user_class_instance(_cls: modal.cls._Cls, args: tuple[Any, ...], kwargs: dict[str, Any]) -> typing.Any:
@@ -199,7 +438,6 @@ def get_user_class_instance(_cls: modal.cls._Cls, args: tuple[Any, ...], kwargs:
 
 def import_single_function_service(
     function_def: api_pb2.Function,
-    ser_cls: Optional[type],  # used only for @build functions
     ser_fun: Optional[Callable[..., Any]],
 ) -> Service:
     """Imports a function dynamically, and locates the app.
@@ -228,78 +466,71 @@ def import_single_function_service(
     service_deps: Optional[Sequence["modal._object._Object"]] = None
     active_app: modal.app._App
 
-    user_cls_or_cls: typing.Union[None, type, modal.cls.Cls]
-    user_cls_instance = None
-
     if ser_fun is not None:
         # This is a serialized function we already fetched from the server
-        user_cls_or_cls, user_defined_callable = ser_cls, ser_fun
+        user_defined_callable = ser_fun
         active_app = get_active_app_fallback(function_def)
     else:
         # Load the module dynamically
         module = importlib.import_module(function_def.module_name)
-        qual_name: str = function_def.function_name
+
+        # Fall back to function_name just to be safe around the migration
+        # Going forward, implementation_name should always be set
+        qual_name: str = function_def.implementation_name or function_def.function_name
 
         if not is_global_object(qual_name):
             raise LocalFunctionError("Attempted to load a function defined in a function scope")
 
         parts = qual_name.split(".")
-        if len(parts) == 1:
-            # This is a function
-            user_cls_or_cls = None
-            f = getattr(module, qual_name)
-            if isinstance(f, Function):
-                _function: modal._functions._Function[Any, Any, Any] = synchronizer._translate_in(f)  # type: ignore
-                service_deps = _function.deps(only_explicit_mounts=True)
-                user_defined_callable = _function.get_raw_f()
-                assert _function._app  # app should always be set on a decorated function
-                active_app = _function._app
-            else:
-                user_defined_callable = f
-                active_app = get_active_app_fallback(function_def)
-
-        elif len(parts) == 2:
-            # This path should only be triggered by @build class builder methods and can be removed
-            # once @build is deprecated.
-            assert not function_def.use_method_name  # new "placeholder methods" should not be invoked directly!
-            assert function_def.is_builder_function
-            cls_name, fun_name = parts
-            user_cls_or_cls = getattr(module, cls_name)
-            if isinstance(user_cls_or_cls, modal.cls.Cls):
-                # The cls decorator is in global scope
-                _cls = typing.cast(modal.cls._Cls, synchronizer._translate_in(user_cls_or_cls))
-                user_defined_callable = _cls._callables[fun_name]
-                # Intentionally not including these, since @build functions don't actually
-                # forward the information from their parent class.
-                # service_deps = _cls._get_class_service_function().deps(only_explicit_mounts=True)
-                assert _cls._app
-                active_app = _cls._app
-            else:
-                # This is non-decorated class
-                user_defined_callable = getattr(user_cls_or_cls, fun_name)  # unbound method
-                active_app = get_active_app_fallback(function_def)
-        else:
+        if len(parts) != 1:
             raise InvalidError(f"Invalid function qualname {qual_name}")
 
-    # Instantiate the class if it's defined
-    if user_cls_or_cls:
-        if isinstance(user_cls_or_cls, modal.cls.Cls):
-            # This code is only used for @build methods on classes
-            _cls = typing.cast(modal.cls._Cls, user_cls_or_cls)
-            user_cls_instance = get_user_class_instance(_cls, (), {})
-            # Bind the unbound method to the instance as self (using the descriptor protocol!)
+        f = getattr(module, qual_name)
+        if isinstance(f, Function):
+            _function: modal._functions._Function[Any, Any, Any] = synchronizer._translate_in(f)  # type: ignore
+            service_deps = _function.deps(only_explicit_mounts=True)
+            user_defined_callable = _function.get_raw_f()
+            assert _function._app  # app should always be set on a decorated function
+            active_app = _function._app
         else:
-            # serialized=True or "undecorated"
-            user_cls_instance = user_cls_or_cls()
-
-        user_defined_callable = user_defined_callable.__get__(user_cls_instance)
+            # function isn't decorated in global scope
+            user_defined_callable = f
+            active_app = get_active_app_fallback(function_def)
 
     return ImportedFunction(
-        user_cls_instance,
-        active_app,
-        service_deps,
-        user_defined_callable,
+        app=active_app,
+        service_deps=service_deps,
+        function_def=function_def,
+        _user_defined_callable=user_defined_callable,
     )
+
+
+def _get_cls_or_user_cls(
+    function_def: api_pb2.Function,
+    ser_user_cls: Optional[type],
+) -> typing.Union[type, modal.cls.Cls, modal.server.Server]:
+    if function_def.definition_type == api_pb2.Function.DEFINITION_TYPE_SERIALIZED:
+        assert ser_user_cls is not None
+        cls_or_user_cls = ser_user_cls
+    else:
+        # Load the module dynamically for non-serialized class.
+        module = importlib.import_module(function_def.module_name)
+        qual_name: str = function_def.function_name
+
+        if not is_global_object(qual_name):
+            raise LocalFunctionError("Attempted to load a class defined in a function scope")
+
+        parts = qual_name.split(".")
+        # Class service functions have pattern "ClassName.*", servers use "ClassName"
+        if not (len(parts) == 1 or (len(parts) == 2 and parts[1] == "*")):
+            raise ExecutionError(
+                f"Internal error: Invalid 'service function' identifier {qual_name}. Please contact Modal support"
+            )
+
+        assert not function_def.use_method_name  # new "placeholder methods" should not be invoked directly!
+        cls_name = parts[0]
+        cls_or_user_cls = getattr(module, cls_name)
+    return cls_or_user_cls
 
 
 def import_class_service(
@@ -320,28 +551,10 @@ def import_class_service(
     service_deps: Optional[Sequence["modal._object._Object"]]
     cls_or_user_cls: typing.Union[type, modal.cls.Cls]
 
-    if function_def.definition_type == api_pb2.Function.DEFINITION_TYPE_SERIALIZED:
-        assert ser_user_cls is not None
-        cls_or_user_cls = ser_user_cls
-    else:
-        # Load the module dynamically
-        module = importlib.import_module(function_def.module_name)
-        qual_name: str = function_def.function_name
-
-        if not is_global_object(qual_name):
-            raise LocalFunctionError("Attempted to load a class defined in a function scope")
-
-        parts = qual_name.split(".")
-        if not (
-            len(parts) == 2 and parts[1] == "*"
-        ):  # the "function name" of a class service "function placeholder" is expected to be "ClassName.*"
-            raise ExecutionError(
-                f"Internal error: Invalid 'service function' identifier {qual_name}. Please contact Modal support"
-            )
-
-        assert not function_def.use_method_name  # new "placeholder methods" should not be invoked directly!
-        cls_name = parts[0]
-        cls_or_user_cls = getattr(module, cls_name)
+    cls_or_user_cls = typing.cast(
+        typing.Union[type, modal.cls.Cls],
+        _get_cls_or_user_cls(function_def, ser_user_cls),
+    )
 
     if isinstance(cls_or_user_cls, modal.cls.Cls):
         _cls = typing.cast(modal.cls._Cls, synchronizer._translate_in(cls_or_user_cls))
@@ -368,11 +581,62 @@ def import_class_service(
     user_cls_instance = get_user_class_instance(_cls, cls_args, cls_kwargs)
 
     return ImportedClass(
-        user_cls_instance,
-        active_app,
-        service_deps,
+        user_cls_instance=user_cls_instance,
+        app=active_app,
+        service_deps=service_deps,
         # TODO (elias/deven): instead of using method_partials here we should use a set of api_pb2.MethodDefinition
-        method_partials,
+        _partial_functions=method_partials,
+        function_def=function_def,
+    )
+
+
+def import_server_service(
+    function_def: api_pb2.Function,
+    service_function_hydration_data: api_pb2.Object,
+    client: "modal.client.Client",
+    ser_user_cls: Optional[type],
+) -> Service:
+    """
+    This imports a class as a server to server HTTP requests.
+
+    See import_function.
+    """
+    active_app: Optional["modal.app._App"]
+    service_deps: Optional[Sequence["modal._object._Object"]]
+    cls_or_user_cls: typing.Union[type, modal.server.Server]
+
+    cls_or_user_cls = typing.cast(
+        typing.Union[type, modal.server.Server],
+        _get_cls_or_user_cls(function_def, ser_user_cls),
+    )
+
+    if isinstance(cls_or_user_cls, modal.server.Server):
+        _server = typing.cast(modal._server._Server, synchronizer._translate_in(cls_or_user_cls))
+        server_service_function: _Function = _server._get_service_function()
+        service_deps = server_service_function.deps(only_explicit_mounts=True)
+        active_app = _server._get_app()
+
+    else:
+        # Undecorated user class (serialized or local scope-decoration).
+        service_deps = None  # we can't infer service deps for now
+        active_app = get_active_app_fallback(function_def)
+        _client = typing.cast("modal.client._Client", synchronizer._translate_in(client))
+        _service_function: modal._functions._Function[Any, Any, Any] = modal._functions._Function._new_hydrated(
+            service_function_hydration_data.object_id,
+            _client,
+            service_function_hydration_data.function_handle_metadata,
+            is_another_app=True,  # this skips re-loading the function, which is required since it doesn't have a loader
+        )
+
+        _server = modal._server._Server._from_local(cls_or_user_cls, active_app, _service_function)
+
+    user_cls = _server._get_user_cls()
+    # Create server object with lifecycle methods registered.
+    return ImportedServer(
+        user_cls_instance=user_cls(),
+        app=active_app,
+        service_deps=service_deps,
+        function_def=function_def,
     )
 
 

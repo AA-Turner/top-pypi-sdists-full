@@ -18,14 +18,16 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class ExternalLogRecord(BaseModel):
     """
     ExternalLogRecord
     """
-    logid: StrictInt = Field(...)
+    logid: StrictInt
     parentlogid: Optional[StrictInt] = None
     loglevel:  StrictStr = Field(...,alias="loglevel") 
     logstatus:  StrictStr = Field(...,alias="logstatus") 
@@ -151,3 +153,5 @@ class ExternalLogRecord(BaseModel):
             "timestamp": obj.get("timestamp")
         })
         return _obj
+
+ExternalLogRecord.update_forward_refs()

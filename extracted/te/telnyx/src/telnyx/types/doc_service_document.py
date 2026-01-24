@@ -9,6 +9,8 @@ __all__ = ["DocServiceDocument", "Size"]
 
 
 class Size(BaseModel):
+    """Indicates the document's filesize"""
+
     amount: Optional[int] = None
     """The number of bytes"""
 
@@ -19,6 +21,9 @@ class Size(BaseModel):
 class DocServiceDocument(BaseModel):
     id: Optional[str] = None
     """Identifies the resource."""
+
+    av_scan_status: Optional[Literal["scanned", "infected", "pending_scan", "not_scanned"]] = None
+    """The antivirus scan status of the document."""
 
     content_type: Optional[str] = None
     """The document's content_type."""

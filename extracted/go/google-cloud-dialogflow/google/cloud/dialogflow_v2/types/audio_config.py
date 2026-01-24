@@ -33,6 +33,7 @@ __protobuf__ = proto.module(
         "InputAudioConfig",
         "VoiceSelectionParams",
         "SynthesizeSpeechConfig",
+        "CustomPronunciationParams",
         "OutputAudioConfig",
         "TelephonyDtmfEvents",
         "SpeechToTextConfig",
@@ -77,7 +78,7 @@ class TelephonyDtmf(proto.Enum):
         DTMF_D (14):
             Letter: 'D'.
         DTMF_STAR (15):
-            Asterisk/star: '*'.
+            Asterisk/star: '\*'.
         DTMF_POUND (16):
             Pound/diamond/hash/square/gate/octothorpe:
             '#'.
@@ -195,19 +196,19 @@ class SpeechModelVariant(proto.Enum):
         USE_ENHANCED (3):
             Use an enhanced model variant:
 
-            -  If an enhanced variant does not exist for the given
-               [model][google.cloud.dialogflow.v2.InputAudioConfig.model]
-               and request language, Dialogflow falls back to the
-               standard variant.
+            - If an enhanced variant does not exist for the given
+              [model][google.cloud.dialogflow.v2.InputAudioConfig.model]
+              and request language, Dialogflow falls back to the
+              standard variant.
 
-               The `Cloud Speech
-               documentation <https://cloud.google.com/speech-to-text/docs/enhanced-models>`__
-               describes which models have enhanced variants.
+              The `Cloud Speech
+              documentation <https://cloud.google.com/speech-to-text/docs/enhanced-models>`__
+              describes which models have enhanced variants.
 
-            -  If the API caller isn't eligible for enhanced models,
-               Dialogflow returns an error. Please see the `Dialogflow
-               docs <https://cloud.google.com/dialogflow/docs/data-logging>`__
-               for how to make your project eligible.
+            - If the API caller isn't eligible for enhanced models,
+              Dialogflow returns an error. Please see the `Dialogflow
+              docs <https://cloud.google.com/dialogflow/docs/data-logging>`__
+              for how to make your project eligible.
     """
     SPEECH_MODEL_VARIANT_UNSPECIFIED = 0
     USE_BEST_AVAILABLE = 1
@@ -286,11 +287,10 @@ class SpeechContext(proto.Message):
 
             This list can be used to:
 
-            -  improve accuracy for words and phrases you expect the
-               user to say, e.g. typical commands for your Dialogflow
-               agent
-            -  add additional words to the speech recognizer vocabulary
-            -  ...
+            - improve accuracy for words and phrases you expect the user
+              to say, e.g. typical commands for your Dialogflow agent
+            - add additional words to the speech recognizer vocabulary
+            - ...
 
             See the `Cloud Speech
             documentation <https://cloud.google.com/speech-to-text/quotas>`__
@@ -298,11 +298,11 @@ class SpeechContext(proto.Message):
         boost (float):
             Optional. Boost for this context compared to other contexts:
 
-            -  If the boost is positive, Dialogflow will increase the
-               probability that the phrases in this context are
-               recognized over similar sounding phrases.
-            -  If the boost is unspecified or non-positive, Dialogflow
-               will not apply any boost.
+            - If the boost is positive, Dialogflow will increase the
+              probability that the phrases in this context are
+              recognized over similar sounding phrases.
+            - If the boost is unspecified or non-positive, Dialogflow
+              will not apply any boost.
 
             Dialogflow recommends that you use boosts in the range (0,
             20] and that you find a value that fits your use case with
@@ -387,7 +387,9 @@ class InputAudioConfig(proto.Message):
             Support <https://cloud.google.com/dialogflow/docs/reference/language>`__
             for a list of the currently supported language codes. Note
             that queries in the same session do not necessarily need to
-            specify the same language.
+            specify the same language. If not set, the language is
+            inferred from the
+            [ConversationProfile.stt_config][google.cloud.dialogflow.v2.ConversationProfile.stt_config].
         enable_word_info (bool):
             If ``true``, Dialogflow returns
             [SpeechWordInfo][google.cloud.dialogflow.v2.SpeechWordInfo]
@@ -577,6 +579,9 @@ class SynthesizeSpeechConfig(proto.Message):
         voice (google.cloud.dialogflow_v2.types.VoiceSelectionParams):
             Optional. The desired voice of the
             synthesized audio.
+        pronunciations (MutableSequence[google.cloud.dialogflow_v2.types.CustomPronunciationParams]):
+            Optional. The custom pronunciations for the
+            synthesized audio.
     """
 
     speaking_rate: float = proto.Field(
@@ -599,6 +604,59 @@ class SynthesizeSpeechConfig(proto.Message):
         proto.MESSAGE,
         number=4,
         message="VoiceSelectionParams",
+    )
+    pronunciations: MutableSequence["CustomPronunciationParams"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=6,
+        message="CustomPronunciationParams",
+    )
+
+
+class CustomPronunciationParams(proto.Message):
+    r"""Pronunciation customization for a phrase.
+
+    Attributes:
+        phrase (str):
+            The phrase to which the customization is
+            applied. The phrase can be multiple words, such
+            as proper nouns, but shouldn't span the length
+            of the sentence.
+        phonetic_encoding (google.cloud.dialogflow_v2.types.CustomPronunciationParams.PhoneticEncoding):
+            The phonetic encoding of the phrase.
+        pronunciation (str):
+            The pronunciation of the phrase. This must be
+            in the phonetic encoding specified above.
+    """
+
+    class PhoneticEncoding(proto.Enum):
+        r"""The phonetic encoding of the phrase.
+
+        Values:
+            PHONETIC_ENCODING_UNSPECIFIED (0):
+                Not specified.
+            PHONETIC_ENCODING_IPA (1):
+                IPA, such as apple -> ˈæpəl.
+                https://en.wikipedia.org/wiki/International_Phonetic_Alphabet
+            PHONETIC_ENCODING_X_SAMPA (2):
+                X-SAMPA, such as apple -> "{p@l".
+                https://en.wikipedia.org/wiki/X-SAMPA
+        """
+        PHONETIC_ENCODING_UNSPECIFIED = 0
+        PHONETIC_ENCODING_IPA = 1
+        PHONETIC_ENCODING_X_SAMPA = 2
+
+    phrase: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    phonetic_encoding: PhoneticEncoding = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=PhoneticEncoding,
+    )
+    pronunciation: str = proto.Field(
+        proto.STRING,
+        number=3,
     )
 
 
@@ -686,9 +744,9 @@ class SpeechToTextConfig(proto.Message):
             for more details. If you specify a model, the following
             models typically have the best performance:
 
-            -  phone_call (best for Agent Assist and telephony)
-            -  latest_short (best for Dialogflow non-telephony)
-            -  command_and_search
+            - phone_call (best for Agent Assist and telephony)
+            - latest_short (best for Dialogflow non-telephony)
+            - command_and_search
 
             Leave this field unspecified to use `Agent Speech
             settings <https://cloud.google.com/dialogflow/cx/docs/concept/agent#settings-speech>`__
@@ -712,7 +770,10 @@ class SpeechToTextConfig(proto.Message):
             Support <https://cloud.google.com/dialogflow/docs/reference/language>`__
             for a list of the currently supported language codes. Note
             that queries in the same session do not necessarily need to
-            specify the same language.
+            specify the same language. If not specified, the default
+            language configured at
+            [ConversationProfile][google.cloud.dialogflow.v2.ConversationProfile]
+            is used.
         enable_word_info (bool):
             If ``true``, Dialogflow returns
             [SpeechWordInfo][google.cloud.dialogflow.v2.SpeechWordInfo]

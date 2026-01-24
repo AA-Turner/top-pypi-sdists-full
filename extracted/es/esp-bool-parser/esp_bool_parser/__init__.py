@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 """Tools for building ESP-IDF related apps."""
 
-__version__ = '0.1.4'
+__version__ = '0.2.2'
 
 import importlib
 

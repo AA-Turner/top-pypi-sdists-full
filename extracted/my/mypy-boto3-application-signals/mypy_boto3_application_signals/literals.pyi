@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_application_signals.literals import DurationUnitType
+    from mypy_boto3_application_signals.literals import ChangeEventTypeType
 
-    data: DurationUnitType = "DAY"
+    data: ChangeEventTypeType = "CONFIGURATION"
     ```
 """
 
@@ -22,14 +22,19 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ChangeEventTypeType",
     "CloudWatchApplicationSignalsServiceName",
+    "ConnectionTypeType",
+    "DetailLevelType",
     "DurationUnitType",
     "EvaluationTypeType",
+    "ListEntityEventsPaginatorName",
     "ListServiceDependenciesPaginatorName",
     "ListServiceDependentsPaginatorName",
     "ListServiceLevelObjectiveExclusionWindowsPaginatorName",
     "ListServiceLevelObjectivesPaginatorName",
     "ListServiceOperationsPaginatorName",
+    "ListServiceStatesPaginatorName",
     "ListServicesPaginatorName",
     "MetricSourceTypeType",
     "PaginatorName",
@@ -38,11 +43,16 @@ __all__ = (
     "ServiceLevelIndicatorMetricTypeType",
     "ServiceLevelObjectiveBudgetStatusType",
     "ServiceName",
+    "SeverityType",
     "StandardUnitType",
 )
 
+ChangeEventTypeType = Literal["CONFIGURATION", "DEPLOYMENT"]
+ConnectionTypeType = Literal["DIRECT", "INDIRECT"]
+DetailLevelType = Literal["BRIEF", "DETAILED"]
 DurationUnitType = Literal["DAY", "HOUR", "MINUTE", "MONTH"]
 EvaluationTypeType = Literal["PeriodBased", "RequestBased"]
+ListEntityEventsPaginatorName = Literal["list_entity_events"]
 ListServiceDependenciesPaginatorName = Literal["list_service_dependencies"]
 ListServiceDependentsPaginatorName = Literal["list_service_dependents"]
 ListServiceLevelObjectiveExclusionWindowsPaginatorName = Literal[
@@ -50,6 +60,7 @@ ListServiceLevelObjectiveExclusionWindowsPaginatorName = Literal[
 ]
 ListServiceLevelObjectivesPaginatorName = Literal["list_service_level_objectives"]
 ListServiceOperationsPaginatorName = Literal["list_service_operations"]
+ListServiceStatesPaginatorName = Literal["list_service_states"]
 ListServicesPaginatorName = Literal["list_services"]
 MetricSourceTypeType = Literal["CloudWatchMetric", "ServiceDependency", "ServiceOperation"]
 ServiceLevelIndicatorComparisonOperatorType = Literal[
@@ -57,6 +68,7 @@ ServiceLevelIndicatorComparisonOperatorType = Literal[
 ]
 ServiceLevelIndicatorMetricTypeType = Literal["AVAILABILITY", "LATENCY"]
 ServiceLevelObjectiveBudgetStatusType = Literal["BREACHED", "INSUFFICIENT_DATA", "OK", "WARNING"]
+SeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM", "NONE"]
 StandardUnitType = Literal[
     "Bits",
     "Bits/Second",
@@ -113,7 +125,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -125,8 +137,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -180,6 +194,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -278,7 +293,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -317,8 +331,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -353,6 +365,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -362,18 +375,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -395,8 +410,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -411,15 +424,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -450,8 +464,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -502,22 +516,15 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_entity_events",
     "list_service_dependencies",
     "list_service_dependents",
     "list_service_level_objective_exclusion_windows",
     "list_service_level_objectives",
     "list_service_operations",
+    "list_service_states",
     "list_services",
 ]

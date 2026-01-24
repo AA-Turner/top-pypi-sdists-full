@@ -76,496 +76,12 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "execution_role": "executionRole",
-        "name": "name",
-        "recovery_approach": "recoveryApproach",
-        "regions": "regions",
-        "workflows": "workflows",
-        "associated_alarms": "associatedAlarms",
-        "description": "description",
-        "primary_region": "primaryRegion",
-        "recovery_time_objective_minutes": "recoveryTimeObjectiveMinutes",
-        "tags": "tags",
-        "triggers": "triggers",
-    },
+from ..interfaces.aws_arcregionswitch import (
+    IPlanRef as _IPlanRef_4ff27154, PlanReference as _PlanReference_4d820d4f
 )
-class CfnPlanProps:
-    def __init__(
-        self,
-        *,
-        execution_role: builtins.str,
-        name: builtins.str,
-        recovery_approach: builtins.str,
-        regions: typing.Sequence[builtins.str],
-        workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.WorkflowProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.AssociatedAlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        primary_region: typing.Optional[builtins.str] = None,
-        recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPlan``.
-
-        :param execution_role: The execution role for a plan.
-        :param name: The name for a plan.
-        :param recovery_approach: The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
-        :param regions: The AWS Regions for a plan.
-        :param workflows: The workflows for a plan.
-        :param associated_alarms: The associated application health alarms for a plan.
-        :param description: The description for a plan.
-        :param primary_region: The primary Region for a plan.
-        :param recovery_time_objective_minutes: The recovery time objective for a plan.
-        :param tags: 
-        :param triggers: The triggers for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_arcregionswitch as arcregionswitch
-            
-            # step_property_: arcregionswitch.CfnPlan.StepProperty
-            
-            cfn_plan_props = arcregionswitch.CfnPlanProps(
-                execution_role="executionRole",
-                name="name",
-                recovery_approach="recoveryApproach",
-                regions=["regions"],
-                workflows=[arcregionswitch.CfnPlan.WorkflowProperty(
-                    workflow_target_action="workflowTargetAction",
-            
-                    # the properties below are optional
-                    steps=[arcregionswitch.CfnPlan.StepProperty(
-                        execution_block_configuration=arcregionswitch.CfnPlan.ExecutionBlockConfigurationProperty(
-                            arc_routing_control_config=arcregionswitch.CfnPlan.ArcRoutingControlConfigurationProperty(
-                                region_and_routing_controls={
-                                    "region_and_routing_controls_key": [arcregionswitch.CfnPlan.ArcRoutingControlStateProperty(
-                                        routing_control_arn="routingControlArn",
-                                        state="state"
-                                    )]
-                                },
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId",
-                                timeout_minutes=123
-                            ),
-                            custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
-                                lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
-                                    arn="arn",
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId"
-                                )],
-                                region_to_run="regionToRun",
-                                retry_interval_minutes=123,
-            
-                                # the properties below are optional
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
-                                    behavior="behavior"
-                                )
-                            ),
-                            ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
-                                asgs=[arcregionswitch.CfnPlan.AsgProperty(
-                                    arn="arn",
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId"
-                                )],
-            
-                                # the properties below are optional
-                                capacity_monitoring_approach="capacityMonitoringApproach",
-                                target_percent=123,
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
-                                    minimum_success_percentage=123
-                                )
-                            ),
-                            ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
-                                services=[arcregionswitch.CfnPlan.ServiceProperty(
-                                    cluster_arn="clusterArn",
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId",
-                                    service_arn="serviceArn"
-                                )],
-            
-                                # the properties below are optional
-                                capacity_monitoring_approach="capacityMonitoringApproach",
-                                target_percent=123,
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
-                                    minimum_success_percentage=123
-                                )
-                            ),
-                            eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
-                                kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
-                                    api_version="apiVersion",
-                                    kind="kind"
-                                ),
-            
-                                # the properties below are optional
-                                capacity_monitoring_approach="capacityMonitoringApproach",
-                                eks_clusters=[arcregionswitch.CfnPlan.EksClusterProperty(
-                                    cluster_arn="clusterArn",
-            
-                                    # the properties below are optional
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId"
-                                )],
-                                scaling_resources=[{
-                                    "scaling_resources_key": {
-                                        "scaling_resources_key": arcregionswitch.CfnPlan.KubernetesScalingResourceProperty(
-                                            name="name",
-                                            namespace="namespace",
-            
-                                            # the properties below are optional
-                                            hpa_name="hpaName"
-                                        )
-                                    }
-                                }],
-                                target_percent=123,
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.EksResourceScalingUngracefulProperty(
-                                    minimum_success_percentage=123
-                                )
-                            ),
-                            execution_approval_config=arcregionswitch.CfnPlan.ExecutionApprovalConfigurationProperty(
-                                approval_role="approvalRole",
-            
-                                # the properties below are optional
-                                timeout_minutes=123
-                            ),
-                            global_aurora_config=arcregionswitch.CfnPlan.GlobalAuroraConfigurationProperty(
-                                behavior="behavior",
-                                database_cluster_arns=["databaseClusterArns"],
-                                global_cluster_identifier="globalClusterIdentifier",
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId",
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.GlobalAuroraUngracefulProperty(
-                                    ungraceful="ungraceful"
-                                )
-                            ),
-                            parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
-                                steps=[step_property_]
-                            ),
-                            region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
-                                arn="arn",
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId"
-                            ),
-                            route53_health_check_config=arcregionswitch.CfnPlan.Route53HealthCheckConfigurationProperty(
-                                hosted_zone_id="hostedZoneId",
-                                record_name="recordName",
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId",
-                                record_sets=[arcregionswitch.CfnPlan.Route53ResourceRecordSetProperty(
-                                    record_set_identifier="recordSetIdentifier",
-                                    region="region"
-                                )],
-                                timeout_minutes=123
-                            )
-                        ),
-                        execution_block_type="executionBlockType",
-                        name="name",
-            
-                        # the properties below are optional
-                        description="description"
-                    )],
-                    workflow_description="workflowDescription",
-                    workflow_target_region="workflowTargetRegion"
-                )],
-            
-                # the properties below are optional
-                associated_alarms={
-                    "associated_alarms_key": arcregionswitch.CfnPlan.AssociatedAlarmProperty(
-                        alarm_type="alarmType",
-                        resource_identifier="resourceIdentifier",
-            
-                        # the properties below are optional
-                        cross_account_role="crossAccountRole",
-                        external_id="externalId"
-                    )
-                },
-                description="description",
-                primary_region="primaryRegion",
-                recovery_time_objective_minutes=123,
-                tags={
-                    "tags_key": "tags"
-                },
-                triggers=[arcregionswitch.CfnPlan.TriggerProperty(
-                    action="action",
-                    conditions=[arcregionswitch.CfnPlan.TriggerConditionProperty(
-                        associated_alarm_name="associatedAlarmName",
-                        condition="condition"
-                    )],
-                    min_delay_minutes_between_executions=123,
-                    target_region="targetRegion",
-            
-                    # the properties below are optional
-                    description="description"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141)
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument recovery_approach", value=recovery_approach, expected_type=type_hints["recovery_approach"])
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
-            check_type(argname="argument associated_alarms", value=associated_alarms, expected_type=type_hints["associated_alarms"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument primary_region", value=primary_region, expected_type=type_hints["primary_region"])
-            check_type(argname="argument recovery_time_objective_minutes", value=recovery_time_objective_minutes, expected_type=type_hints["recovery_time_objective_minutes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "execution_role": execution_role,
-            "name": name,
-            "recovery_approach": recovery_approach,
-            "regions": regions,
-            "workflows": workflows,
-        }
-        if associated_alarms is not None:
-            self._values["associated_alarms"] = associated_alarms
-        if description is not None:
-            self._values["description"] = description
-        if primary_region is not None:
-            self._values["primary_region"] = primary_region
-        if recovery_time_objective_minutes is not None:
-            self._values["recovery_time_objective_minutes"] = recovery_time_objective_minutes
-        if tags is not None:
-            self._values["tags"] = tags
-        if triggers is not None:
-            self._values["triggers"] = triggers
-
-    @builtins.property
-    def execution_role(self) -> builtins.str:
-        '''The execution role for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-executionrole
-        '''
-        result = self._values.get("execution_role")
-        assert result is not None, "Required property 'execution_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def recovery_approach(self) -> builtins.str:
-        '''The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoveryapproach
-        '''
-        result = self._values.get("recovery_approach")
-        assert result is not None, "Required property 'recovery_approach' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regions(self) -> typing.List[builtins.str]:
-        '''The AWS Regions for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-regions
-        '''
-        result = self._values.get("regions")
-        assert result is not None, "Required property 'regions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def workflows(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]]:
-        '''The workflows for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-workflows
-        '''
-        result = self._values.get("workflows")
-        assert result is not None, "Required property 'workflows' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]], result)
-
-    @builtins.property
-    def associated_alarms(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]]:
-        '''The associated application health alarms for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-associatedalarms
-        '''
-        result = self._values.get("associated_alarms")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def primary_region(self) -> typing.Optional[builtins.str]:
-        '''The primary Region for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-primaryregion
-        '''
-        result = self._values.get("primary_region")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recovery_time_objective_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The recovery time objective for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoverytimeobjectiveminutes
-        '''
-        result = self._values.get("recovery_time_objective_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def triggers(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]]:
-        '''The triggers for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-triggers
-        '''
-        result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_arcregionswitch.IPlanRef")
-class IPlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Plan.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="planRef")
-    def plan_ref(self) -> "PlanReference":
-        '''(experimental) A reference to a Plan resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPlanRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Plan.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_arcregionswitch.IPlanRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="planRef")
-    def plan_ref(self) -> "PlanReference":
-        '''(experimental) A reference to a Plan resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PlanReference", jsii.get(self, "planRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPlanRef).__jsii_proxy_class__ = lambda : _IPlanRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_arcregionswitch.PlanReference",
-    jsii_struct_bases=[],
-    name_mapping={"plan_arn": "planArn"},
-)
-class PlanReference:
-    def __init__(self, *, plan_arn: builtins.str) -> None:
-        '''A reference to a Plan resource.
-
-        :param plan_arn: The Arn of the Plan resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_arcregionswitch as arcregionswitch
-            
-            plan_reference = arcregionswitch.PlanReference(
-                plan_arn="planArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b161eda9868bf1a2b3eaa5a8cb35aaf0afc2af702fbbfca3a6dfc9136031023)
-            check_type(argname="argument plan_arn", value=plan_arn, expected_type=type_hints["plan_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "plan_arn": plan_arn,
-        }
-
-    @builtins.property
-    def plan_arn(self) -> builtins.str:
-        '''The Arn of the Plan resource.'''
-        result = self._values.get("plan_arn")
-        assert result is not None, "Required property 'plan_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PlanReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IPlanRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IPlanRef_4ff27154, _ITaggableV2_4e6798f8)
 class CfnPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -624,6 +140,19 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
                                 behavior="behavior"
+                            )
+                        ),
+                        document_db_config=arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                            behavior="behavior",
+                            database_cluster_arns=["databaseClusterArns"],
+                            global_cluster_identifier="globalClusterIdentifier",
+        
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                                ungraceful="ungraceful"
                             )
                         ),
                         ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
@@ -756,6 +285,14 @@ class CfnPlan(
             description="description",
             primary_region="primaryRegion",
             recovery_time_objective_minutes=123,
+            report_configuration=arcregionswitch.CfnPlan.ReportConfigurationProperty(
+                report_output=[arcregionswitch.CfnPlan.ReportOutputConfigurationProperty(
+                    s3_configuration=arcregionswitch.CfnPlan.S3ReportOutputConfigurationProperty(
+                        bucket_owner="bucketOwner",
+                        bucket_path="bucketPath"
+                    )
+                )]
+            ),
             tags={
                 "tags_key": "tags"
             },
@@ -776,22 +313,24 @@ class CfnPlan(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         execution_role: builtins.str,
         name: builtins.str,
         recovery_approach: builtins.str,
         regions: typing.Sequence[builtins.str],
-        workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.WorkflowProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.AssociatedAlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        workflows: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.WorkflowProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        associated_alarms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.AssociatedAlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         primary_region: typing.Optional[builtins.str] = None,
         recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
+        report_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ReportConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ARCRegionSwitch::Plan``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param execution_role: The execution role for a plan.
@@ -803,6 +342,7 @@ class CfnPlan(
         :param description: The description for a plan.
         :param primary_region: The primary Region for a plan.
         :param recovery_time_objective_minutes: The recovery time objective for a plan.
+        :param report_configuration: The report configuration for a plan.
         :param tags: 
         :param triggers: The triggers for a plan.
         '''
@@ -820,14 +360,38 @@ class CfnPlan(
             description=description,
             primary_region=primary_region,
             recovery_time_objective_minutes=recovery_time_objective_minutes,
+            report_configuration=report_configuration,
             tags=tags,
             triggers=triggers,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForPlan")
+    @builtins.classmethod
+    def arn_for_plan(cls, resource: "_IPlanRef_4ff27154") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cec92ab4557dc4cd37d3ca4b382260919de526e4ba9d724549af0454cfde2e6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPlan", [resource]))
+
+    @jsii.member(jsii_name="isCfnPlan")
+    @builtins.classmethod
+    def is_cfn_plan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPlan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6177665eb7b38c2d31b691192b8de50fad33011080f365b3771eb547de8115ad)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPlan", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -867,14 +431,11 @@ class CfnPlan(
 
     @builtins.property
     @jsii.member(jsii_name="attrHealthChecksForPlan")
-    def attr_health_checks_for_plan(self) -> _IResolvable_da3f097b:
-        '''Represents a Region switch plan.
-
-        A plan defines the steps required to shift traffic from one AWS Region to another.
-
+    def attr_health_checks_for_plan(self) -> "_IResolvable_da3f097b":
+        '''
         :cloudformationAttribute: HealthChecksForPlan
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrHealthChecksForPlan"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrHealthChecksForPlan"))
 
     @builtins.property
     @jsii.member(jsii_name="attrOwner")
@@ -886,12 +447,20 @@ class CfnPlan(
         return typing.cast(builtins.str, jsii.get(self, "attrOwner"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrPlanHealthChecks")
+    def attr_plan_health_checks(self) -> typing.List[builtins.str]:
+        '''
+        :cloudformationAttribute: PlanHealthChecks
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrPlanHealthChecks"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrRoute53HealthChecks")
-    def attr_route53_health_checks(self) -> _IResolvable_da3f097b:
+    def attr_route53_health_checks(self) -> "_IResolvable_da3f097b":
         '''
         :cloudformationAttribute: Route53HealthChecks
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrRoute53HealthChecks"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRoute53HealthChecks"))
 
     @builtins.property
     @jsii.member(jsii_name="attrVersion")
@@ -904,9 +473,9 @@ class CfnPlan(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -915,9 +484,9 @@ class CfnPlan(
 
     @builtins.property
     @jsii.member(jsii_name="planRef")
-    def plan_ref(self) -> PlanReference:
+    def plan_ref(self) -> "_PlanReference_4d820d4f":
         '''A reference to a Plan resource.'''
-        return typing.cast(PlanReference, jsii.get(self, "planRef"))
+        return typing.cast("_PlanReference_4d820d4f", jsii.get(self, "planRef"))
 
     @builtins.property
     @jsii.member(jsii_name="executionRole")
@@ -975,14 +544,14 @@ class CfnPlan(
     @jsii.member(jsii_name="workflows")
     def workflows(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.WorkflowProperty"]]]:
         '''The workflows for a plan.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]], jsii.get(self, "workflows"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.WorkflowProperty"]]], jsii.get(self, "workflows"))
 
     @workflows.setter
     def workflows(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.WorkflowProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e3eb77d0273786a3c83aa4e78160b5d7bac7f5e82e5339e9439e014d076344f)
@@ -993,14 +562,14 @@ class CfnPlan(
     @jsii.member(jsii_name="associatedAlarms")
     def associated_alarms(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.AssociatedAlarmProperty"]]]]:
         '''The associated application health alarms for a plan.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]], jsii.get(self, "associatedAlarms"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.AssociatedAlarmProperty"]]]], jsii.get(self, "associatedAlarms"))
 
     @associated_alarms.setter
     def associated_alarms(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.AssociatedAlarmProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__012a0bc7fbb902a59abbec88920455e0cd4d3ab3f0f86ab6b04d32154ed0cc71)
@@ -1050,6 +619,24 @@ class CfnPlan(
         jsii.set(self, "recoveryTimeObjectiveMinutes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="reportConfiguration")
+    def report_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportConfigurationProperty"]]:
+        '''The report configuration for a plan.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportConfigurationProperty"]], jsii.get(self, "reportConfiguration"))
+
+    @report_configuration.setter
+    def report_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07bb03a21758741944d3c7cdc502b195014dac1b694c214f8edbaa987271c6d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
@@ -1068,14 +655,14 @@ class CfnPlan(
     @jsii.member(jsii_name="triggers")
     def triggers(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerProperty"]]]]:
         '''The triggers for a plan.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]], jsii.get(self, "triggers"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerProperty"]]]], jsii.get(self, "triggers"))
 
     @triggers.setter
     def triggers(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__085b11c9fd7fb03e86d812a265c47665ac981e51ecdfda2e79624700d0acde6d)
@@ -1096,7 +683,7 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            region_and_routing_controls: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.ArcRoutingControlStateProperty", typing.Dict[builtins.str, typing.Any]]]]]]],
+            region_and_routing_controls: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ArcRoutingControlStateProperty", typing.Dict[builtins.str, typing.Any]]]]]]],
             cross_account_role: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -1152,14 +739,14 @@ class CfnPlan(
         @builtins.property
         def region_and_routing_controls(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.ArcRoutingControlStateProperty"]]]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.ArcRoutingControlStateProperty"]]]]]:
             '''The Region and ARC routing controls for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-arcroutingcontrolconfiguration.html#cfn-arcregionswitch-plan-arcroutingcontrolconfiguration-regionandroutingcontrols
             '''
             result = self._values.get("region_and_routing_controls")
             assert result is not None, "Required property 'region_and_routing_controls' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.ArcRoutingControlStateProperty"]]]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.ArcRoutingControlStateProperty"]]]]], result)
 
         @builtins.property
         def cross_account_role(self) -> typing.Optional[builtins.str]:
@@ -1485,11 +1072,11 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            lambdas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.LambdasProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            lambdas: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.LambdasProperty", typing.Dict[builtins.str, typing.Any]]]]],
             region_to_run: builtins.str,
             retry_interval_minutes: jsii.Number,
             timeout_minutes: typing.Optional[jsii.Number] = None,
-            ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.LambdaUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.LambdaUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for AWS Lambda functions that perform custom actions during a Region switch.
 
@@ -1544,14 +1131,14 @@ class CfnPlan(
         @builtins.property
         def lambdas(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.LambdasProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdasProperty"]]]:
             '''The AWS Lambda functions for the execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-customactionlambdaconfiguration.html#cfn-arcregionswitch-plan-customactionlambdaconfiguration-lambdas
             '''
             result = self._values.get("lambdas")
             assert result is not None, "Required property 'lambdas' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.LambdasProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdasProperty"]]], result)
 
         @builtins.property
         def region_to_run(self) -> builtins.str:
@@ -1587,13 +1174,13 @@ class CfnPlan(
         @builtins.property
         def ungraceful(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.LambdaUngracefulProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaUngracefulProperty"]]:
             '''The settings for ungraceful execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-customactionlambdaconfiguration.html#cfn-arcregionswitch-plan-customactionlambdaconfiguration-ungraceful
             '''
             result = self._values.get("ungraceful")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.LambdaUngracefulProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaUngracefulProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1603,6 +1190,219 @@ class CfnPlan(
 
         def __repr__(self) -> str:
             return "CustomActionLambdaConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.DocumentDbConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "behavior": "behavior",
+            "database_cluster_arns": "databaseClusterArns",
+            "global_cluster_identifier": "globalClusterIdentifier",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+            "timeout_minutes": "timeoutMinutes",
+            "ungraceful": "ungraceful",
+        },
+    )
+    class DocumentDbConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            behavior: builtins.str,
+            database_cluster_arns: typing.Sequence[builtins.str],
+            global_cluster_identifier: builtins.str,
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.DocumentDbUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for Amazon DocumentDB global clusters used in a Region switch plan.
+
+            :param behavior: The behavior for a global cluster, that is, only allow switchover or also allow failover.
+            :param database_cluster_arns: The database cluster Amazon Resource Names (ARNs) for a DocumentDB global cluster.
+            :param global_cluster_identifier: The global cluster identifier for a DocumentDB global cluster.
+            :param cross_account_role: The cross account role for the configuration.
+            :param external_id: The external ID (secret key) for the configuration.
+            :param timeout_minutes: The timeout value specified for the configuration. Default: - 60
+            :param ungraceful: The settings for ungraceful execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                document_db_configuration_property = arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                    behavior="behavior",
+                    database_cluster_arns=["databaseClusterArns"],
+                    global_cluster_identifier="globalClusterIdentifier",
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId",
+                    timeout_minutes=123,
+                    ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                        ungraceful="ungraceful"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cfd04fd3e10254dfad223fdde189e133f5e4e7b16ff32e8639eed107f217c023)
+                check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
+                check_type(argname="argument database_cluster_arns", value=database_cluster_arns, expected_type=type_hints["database_cluster_arns"])
+                check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+                check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "behavior": behavior,
+                "database_cluster_arns": database_cluster_arns,
+                "global_cluster_identifier": global_cluster_identifier,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+            if ungraceful is not None:
+                self._values["ungraceful"] = ungraceful
+
+        @builtins.property
+        def behavior(self) -> builtins.str:
+            '''The behavior for a global cluster, that is, only allow switchover or also allow failover.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-behavior
+            '''
+            result = self._values.get("behavior")
+            assert result is not None, "Required property 'behavior' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def database_cluster_arns(self) -> typing.List[builtins.str]:
+            '''The database cluster Amazon Resource Names (ARNs) for a DocumentDB global cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-databaseclusterarns
+            '''
+            result = self._values.get("database_cluster_arns")
+            assert result is not None, "Required property 'database_cluster_arns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def global_cluster_identifier(self) -> builtins.str:
+            '''The global cluster identifier for a DocumentDB global cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-globalclusteridentifier
+            '''
+            result = self._values.get("global_cluster_identifier")
+            assert result is not None, "Required property 'global_cluster_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''The cross account role for the configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''The external ID (secret key) for the configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''The timeout value specified for the configuration.
+
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ungraceful(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.DocumentDbUngracefulProperty"]]:
+            '''The settings for ungraceful execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbconfiguration.html#cfn-arcregionswitch-plan-documentdbconfiguration-ungraceful
+            '''
+            result = self._values.get("ungraceful")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.DocumentDbUngracefulProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DocumentDbConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.DocumentDbUngracefulProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ungraceful": "ungraceful"},
+    )
+    class DocumentDbUngracefulProperty:
+        def __init__(self, *, ungraceful: typing.Optional[builtins.str] = None) -> None:
+            '''Configuration for handling failures when performing operations on DocumentDB global clusters.
+
+            :param ungraceful: The settings for ungraceful execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbungraceful.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                document_db_ungraceful_property = arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                    ungraceful="ungraceful"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2a55d46cef7029dd0e2c81f833b4dc70c1d6e1cd16eb60f786d709edda7d09f0)
+                check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ungraceful is not None:
+                self._values["ungraceful"] = ungraceful
+
+        @builtins.property
+        def ungraceful(self) -> typing.Optional[builtins.str]:
+            '''The settings for ungraceful execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-documentdbungraceful.html#cfn-arcregionswitch-plan-documentdbungraceful-ungraceful
+            '''
+            result = self._values.get("ungraceful")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DocumentDbUngracefulProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1621,11 +1421,11 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            asgs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.AsgProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            asgs: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.AsgProperty", typing.Dict[builtins.str, typing.Any]]]]],
             capacity_monitoring_approach: typing.Optional[builtins.str] = None,
             target_percent: typing.Optional[jsii.Number] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
-            ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.Ec2UngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.Ec2UngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for increasing the capacity of Amazon EC2 Auto Scaling groups during a Region switch.
 
@@ -1682,14 +1482,14 @@ class CfnPlan(
         @builtins.property
         def asgs(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.AsgProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.AsgProperty"]]]:
             '''The EC2 Auto Scaling groups for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration.html#cfn-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration-asgs
             '''
             result = self._values.get("asgs")
             assert result is not None, "Required property 'asgs' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.AsgProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.AsgProperty"]]], result)
 
         @builtins.property
         def capacity_monitoring_approach(self) -> typing.Optional[builtins.str]:
@@ -1725,13 +1525,13 @@ class CfnPlan(
         @builtins.property
         def ungraceful(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.Ec2UngracefulProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.Ec2UngracefulProperty"]]:
             '''The settings for ungraceful execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration.html#cfn-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration-ungraceful
             '''
             result = self._values.get("ungraceful")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.Ec2UngracefulProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.Ec2UngracefulProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1811,11 +1611,11 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            services: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.ServiceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            services: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ServiceProperty", typing.Dict[builtins.str, typing.Any]]]]],
             capacity_monitoring_approach: typing.Optional[builtins.str] = None,
             target_percent: typing.Optional[jsii.Number] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
-            ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.EcsUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EcsUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for an AWS ECS capacity increase.
 
@@ -1873,14 +1673,14 @@ class CfnPlan(
         @builtins.property
         def services(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.ServiceProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.ServiceProperty"]]]:
             '''The services specified for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ecscapacityincreaseconfiguration.html#cfn-arcregionswitch-plan-ecscapacityincreaseconfiguration-services
             '''
             result = self._values.get("services")
             assert result is not None, "Required property 'services' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.ServiceProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.ServiceProperty"]]], result)
 
         @builtins.property
         def capacity_monitoring_approach(self) -> typing.Optional[builtins.str]:
@@ -1916,13 +1716,13 @@ class CfnPlan(
         @builtins.property
         def ungraceful(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EcsUngracefulProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EcsUngracefulProperty"]]:
             '''The settings for ungraceful execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ecscapacityincreaseconfiguration.html#cfn-arcregionswitch-plan-ecscapacityincreaseconfiguration-ungraceful
             '''
             result = self._values.get("ungraceful")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EcsUngracefulProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EcsUngracefulProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2096,13 +1896,13 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            kubernetes_resource_type: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.KubernetesResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            kubernetes_resource_type: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.KubernetesResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity_monitoring_approach: typing.Optional[builtins.str] = None,
-            eks_clusters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.EksClusterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            scaling_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.KubernetesScalingResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]]]]]] = None,
+            eks_clusters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EksClusterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            scaling_resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.KubernetesScalingResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]]]]]] = None,
             target_percent: typing.Optional[jsii.Number] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
-            ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.EksResourceScalingUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EksResourceScalingUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The AWS EKS resource scaling configuration.
 
@@ -2184,14 +1984,14 @@ class CfnPlan(
         @builtins.property
         def kubernetes_resource_type(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnPlan.KubernetesResourceTypeProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPlan.KubernetesResourceTypeProperty"]:
             '''The Kubernetes resource type for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eksresourcescalingconfiguration.html#cfn-arcregionswitch-plan-eksresourcescalingconfiguration-kubernetesresourcetype
             '''
             result = self._values.get("kubernetes_resource_type")
             assert result is not None, "Required property 'kubernetes_resource_type' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPlan.KubernetesResourceTypeProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPlan.KubernetesResourceTypeProperty"], result)
 
         @builtins.property
         def capacity_monitoring_approach(self) -> typing.Optional[builtins.str]:
@@ -2205,24 +2005,24 @@ class CfnPlan(
         @builtins.property
         def eks_clusters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.EksClusterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.EksClusterProperty"]]]]:
             '''The clusters for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eksresourcescalingconfiguration.html#cfn-arcregionswitch-plan-eksresourcescalingconfiguration-eksclusters
             '''
             result = self._values.get("eks_clusters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.EksClusterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.EksClusterProperty"]]]], result)
 
         @builtins.property
         def scaling_resources(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.KubernetesScalingResourceProperty"]]]]]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.KubernetesScalingResourceProperty"]]]]]]]]:
             '''The scaling resources for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eksresourcescalingconfiguration.html#cfn-arcregionswitch-plan-eksresourcescalingconfiguration-scalingresources
             '''
             result = self._values.get("scaling_resources")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.KubernetesScalingResourceProperty"]]]]]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.KubernetesScalingResourceProperty"]]]]]]]], result)
 
         @builtins.property
         def target_percent(self) -> typing.Optional[jsii.Number]:
@@ -2249,13 +2049,13 @@ class CfnPlan(
         @builtins.property
         def ungraceful(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EksResourceScalingUngracefulProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EksResourceScalingUngracefulProperty"]]:
             '''The settings for ungraceful execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eksresourcescalingconfiguration.html#cfn-arcregionswitch-plan-eksresourcescalingconfiguration-ungraceful
             '''
             result = self._values.get("ungraceful")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EksResourceScalingUngracefulProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EksResourceScalingUngracefulProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2406,6 +2206,7 @@ class CfnPlan(
         name_mapping={
             "arc_routing_control_config": "arcRoutingControlConfig",
             "custom_action_lambda_config": "customActionLambdaConfig",
+            "document_db_config": "documentDbConfig",
             "ec2_asg_capacity_increase_config": "ec2AsgCapacityIncreaseConfig",
             "ecs_capacity_increase_config": "ecsCapacityIncreaseConfig",
             "eks_resource_scaling_config": "eksResourceScalingConfig",
@@ -2420,16 +2221,17 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            arc_routing_control_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.ArcRoutingControlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom_action_lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.CustomActionLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ec2_asg_capacity_increase_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ecs_capacity_increase_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.EcsCapacityIncreaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            eks_resource_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.EksResourceScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            execution_approval_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.ExecutionApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            global_aurora_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.GlobalAuroraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            parallel_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.ParallelExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            region_switch_plan_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.RegionSwitchPlanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            route53_health_check_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.Route53HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            arc_routing_control_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ArcRoutingControlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_action_lambda_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.CustomActionLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            document_db_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.DocumentDbConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ec2_asg_capacity_increase_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ecs_capacity_increase_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EcsCapacityIncreaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            eks_resource_scaling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EksResourceScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            execution_approval_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ExecutionApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            global_aurora_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.GlobalAuroraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parallel_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ParallelExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            region_switch_plan_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RegionSwitchPlanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            route53_health_check_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.Route53HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Execution block configurations for a workflow in a Region switch plan.
 
@@ -2437,6 +2239,7 @@ class CfnPlan(
 
             :param arc_routing_control_config: An ARC routing control execution block.
             :param custom_action_lambda_config: An AWS Lambda execution block.
+            :param document_db_config: 
             :param ec2_asg_capacity_increase_config: An EC2 Auto Scaling group execution block.
             :param ecs_capacity_increase_config: The capacity increase specified for the configuration.
             :param eks_resource_scaling_config: An AWS EKS resource scaling execution block.
@@ -2484,6 +2287,19 @@ class CfnPlan(
                         timeout_minutes=123,
                         ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
                             behavior="behavior"
+                        )
+                    ),
+                    document_db_config=arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                        behavior="behavior",
+                        database_cluster_arns=["databaseClusterArns"],
+                        global_cluster_identifier="globalClusterIdentifier",
+                
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId",
+                        timeout_minutes=123,
+                        ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                            ungraceful="ungraceful"
                         )
                     ),
                     ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
@@ -2604,6 +2420,7 @@ class CfnPlan(
                 type_hints = typing.get_type_hints(_typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c98c02098)
                 check_type(argname="argument arc_routing_control_config", value=arc_routing_control_config, expected_type=type_hints["arc_routing_control_config"])
                 check_type(argname="argument custom_action_lambda_config", value=custom_action_lambda_config, expected_type=type_hints["custom_action_lambda_config"])
+                check_type(argname="argument document_db_config", value=document_db_config, expected_type=type_hints["document_db_config"])
                 check_type(argname="argument ec2_asg_capacity_increase_config", value=ec2_asg_capacity_increase_config, expected_type=type_hints["ec2_asg_capacity_increase_config"])
                 check_type(argname="argument ecs_capacity_increase_config", value=ecs_capacity_increase_config, expected_type=type_hints["ecs_capacity_increase_config"])
                 check_type(argname="argument eks_resource_scaling_config", value=eks_resource_scaling_config, expected_type=type_hints["eks_resource_scaling_config"])
@@ -2617,6 +2434,8 @@ class CfnPlan(
                 self._values["arc_routing_control_config"] = arc_routing_control_config
             if custom_action_lambda_config is not None:
                 self._values["custom_action_lambda_config"] = custom_action_lambda_config
+            if document_db_config is not None:
+                self._values["document_db_config"] = document_db_config
             if ec2_asg_capacity_increase_config is not None:
                 self._values["ec2_asg_capacity_increase_config"] = ec2_asg_capacity_increase_config
             if ecs_capacity_increase_config is not None:
@@ -2637,112 +2456,122 @@ class CfnPlan(
         @builtins.property
         def arc_routing_control_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.ArcRoutingControlConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ArcRoutingControlConfigurationProperty"]]:
             '''An ARC routing control execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-arcroutingcontrolconfig
             '''
             result = self._values.get("arc_routing_control_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.ArcRoutingControlConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ArcRoutingControlConfigurationProperty"]], result)
 
         @builtins.property
         def custom_action_lambda_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.CustomActionLambdaConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.CustomActionLambdaConfigurationProperty"]]:
             '''An AWS Lambda execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-customactionlambdaconfig
             '''
             result = self._values.get("custom_action_lambda_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.CustomActionLambdaConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.CustomActionLambdaConfigurationProperty"]], result)
+
+        @builtins.property
+        def document_db_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.DocumentDbConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-documentdbconfig
+            '''
+            result = self._values.get("document_db_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.DocumentDbConfigurationProperty"]], result)
 
         @builtins.property
         def ec2_asg_capacity_increase_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty"]]:
             '''An EC2 Auto Scaling group execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-ec2asgcapacityincreaseconfig
             '''
             result = self._values.get("ec2_asg_capacity_increase_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty"]], result)
 
         @builtins.property
         def ecs_capacity_increase_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EcsCapacityIncreaseConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EcsCapacityIncreaseConfigurationProperty"]]:
             '''The capacity increase specified for the configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-ecscapacityincreaseconfig
             '''
             result = self._values.get("ecs_capacity_increase_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EcsCapacityIncreaseConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EcsCapacityIncreaseConfigurationProperty"]], result)
 
         @builtins.property
         def eks_resource_scaling_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EksResourceScalingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EksResourceScalingConfigurationProperty"]]:
             '''An AWS EKS resource scaling execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-eksresourcescalingconfig
             '''
             result = self._values.get("eks_resource_scaling_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.EksResourceScalingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.EksResourceScalingConfigurationProperty"]], result)
 
         @builtins.property
         def execution_approval_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.ExecutionApprovalConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ExecutionApprovalConfigurationProperty"]]:
             '''A manual approval execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-executionapprovalconfig
             '''
             result = self._values.get("execution_approval_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.ExecutionApprovalConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ExecutionApprovalConfigurationProperty"]], result)
 
         @builtins.property
         def global_aurora_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.GlobalAuroraConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.GlobalAuroraConfigurationProperty"]]:
             '''An Aurora Global Database execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-globalauroraconfig
             '''
             result = self._values.get("global_aurora_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.GlobalAuroraConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.GlobalAuroraConfigurationProperty"]], result)
 
         @builtins.property
         def parallel_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.ParallelExecutionBlockConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ParallelExecutionBlockConfigurationProperty"]]:
             '''A parallel configuration execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-parallelconfig
             '''
             result = self._values.get("parallel_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.ParallelExecutionBlockConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ParallelExecutionBlockConfigurationProperty"]], result)
 
         @builtins.property
         def region_switch_plan_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.RegionSwitchPlanConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.RegionSwitchPlanConfigurationProperty"]]:
             '''A Region switch plan execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-regionswitchplanconfig
             '''
             result = self._values.get("region_switch_plan_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.RegionSwitchPlanConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.RegionSwitchPlanConfigurationProperty"]], result)
 
         @builtins.property
         def route53_health_check_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.Route53HealthCheckConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.Route53HealthCheckConfigurationProperty"]]:
             '''The Amazon Route 53 health check configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-route53healthcheckconfig
             '''
             result = self._values.get("route53_health_check_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.Route53HealthCheckConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.Route53HealthCheckConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2778,7 +2607,7 @@ class CfnPlan(
             cross_account_role: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
-            ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.GlobalAuroraUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.GlobalAuroraUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for Amazon Aurora global databases used in a Region switch plan.
 
@@ -2898,13 +2727,13 @@ class CfnPlan(
         @builtins.property
         def ungraceful(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.GlobalAuroraUngracefulProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.GlobalAuroraUngracefulProperty"]]:
             '''The settings for ungraceful execution.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-globalauroraconfiguration.html#cfn-arcregionswitch-plan-globalauroraconfiguration-ungraceful
             '''
             result = self._values.get("ungraceful")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlan.GlobalAuroraUngracefulProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.GlobalAuroraUngracefulProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3338,7 +3167,7 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.StepProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            steps: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.StepProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Configuration for steps that should be executed in parallel during a Region switch.
 
@@ -3384,6 +3213,19 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
                                     behavior="behavior"
+                                )
+                            ),
+                            document_db_config=arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                                behavior="behavior",
+                                database_cluster_arns=["databaseClusterArns"],
+                                global_cluster_identifier="globalClusterIdentifier",
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                                    ungraceful="ungraceful"
                                 )
                             ),
                             ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
@@ -3508,14 +3350,14 @@ class CfnPlan(
         @builtins.property
         def steps(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.StepProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StepProperty"]]]:
             '''The steps for a parallel execution block.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-parallelexecutionblockconfiguration.html#cfn-arcregionswitch-plan-parallelexecutionblockconfiguration-steps
             '''
             result = self._values.get("steps")
             assert result is not None, "Required property 'steps' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.StepProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StepProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3623,6 +3465,131 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.ReportConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"report_output": "reportOutput"},
+    )
+    class ReportConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            report_output: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ReportOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Configuration for automatic report generation for plan executions.
+
+            When configured, Region switch automatically generates a report after each plan execution that includes execution events, plan configuration, and CloudWatch alarm states.
+
+            :param report_output: The output configuration for the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-reportconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                report_configuration_property = arcregionswitch.CfnPlan.ReportConfigurationProperty(
+                    report_output=[arcregionswitch.CfnPlan.ReportOutputConfigurationProperty(
+                        s3_configuration=arcregionswitch.CfnPlan.S3ReportOutputConfigurationProperty(
+                            bucket_owner="bucketOwner",
+                            bucket_path="bucketPath"
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__907c3fe47030aa03714ecc4a574ec5b3cc04e995dfcef3461e41387c08f6973f)
+                check_type(argname="argument report_output", value=report_output, expected_type=type_hints["report_output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if report_output is not None:
+                self._values["report_output"] = report_output
+
+        @builtins.property
+        def report_output(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportOutputConfigurationProperty"]]]]:
+            '''The output configuration for the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-reportconfiguration.html#cfn-arcregionswitch-plan-reportconfiguration-reportoutput
+            '''
+            result = self._values.get("report_output")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportOutputConfigurationProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReportConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.ReportOutputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_configuration": "s3Configuration"},
+    )
+    class ReportOutputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.S3ReportOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Configuration for report output destinations used in a Region switch plan.
+
+            :param s3_configuration: Configuration for delivering reports to an Amazon S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-reportoutputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                report_output_configuration_property = arcregionswitch.CfnPlan.ReportOutputConfigurationProperty(
+                    s3_configuration=arcregionswitch.CfnPlan.S3ReportOutputConfigurationProperty(
+                        bucket_owner="bucketOwner",
+                        bucket_path="bucketPath"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a11d9a14cf9d1eceec87ddb296c1ff6057994bf91c8b132c2a747ab074e17a16)
+                check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_configuration": s3_configuration,
+            }
+
+        @builtins.property
+        def s3_configuration(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPlan.S3ReportOutputConfigurationProperty"]:
+            '''Configuration for delivering reports to an Amazon S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-reportoutputconfiguration.html#cfn-arcregionswitch-plan-reportoutputconfiguration-s3configuration
+            '''
+            result = self._values.get("s3_configuration")
+            assert result is not None, "Required property 's3_configuration' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPlan.S3ReportOutputConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReportOutputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.Route53HealthCheckConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -3642,7 +3609,7 @@ class CfnPlan(
             record_name: builtins.str,
             cross_account_role: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
-            record_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.Route53ResourceRecordSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            record_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.Route53ResourceRecordSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The Amazon Route 53 health check configuration.
@@ -3739,13 +3706,13 @@ class CfnPlan(
         @builtins.property
         def record_sets(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.Route53ResourceRecordSetProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.Route53ResourceRecordSetProperty"]]]]:
             '''The Amazon Route 53 health check configuration record sets.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-route53healthcheckconfiguration.html#cfn-arcregionswitch-plan-route53healthcheckconfiguration-recordsets
             '''
             result = self._values.get("record_sets")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.Route53ResourceRecordSetProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.Route53ResourceRecordSetProperty"]]]], result)
 
         @builtins.property
         def timeout_minutes(self) -> typing.Optional[jsii.Number]:
@@ -3943,6 +3910,80 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.S3ReportOutputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket_owner": "bucketOwner", "bucket_path": "bucketPath"},
+    )
+    class S3ReportOutputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_owner: typing.Optional[builtins.str] = None,
+            bucket_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for delivering generated reports to an Amazon S3 bucket.
+
+            :param bucket_owner: The AWS account ID that owns the S3 bucket. Required to ensure the bucket is still owned by the same expected owner at generation time.
+            :param bucket_path: The S3 bucket name and optional prefix where reports are stored. Format: bucket-name or bucket-name/prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-s3reportoutputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                s3_report_output_configuration_property = arcregionswitch.CfnPlan.S3ReportOutputConfigurationProperty(
+                    bucket_owner="bucketOwner",
+                    bucket_path="bucketPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a6a6753a0f46ba40757d200ff9ea0f1f7b7b8db3eb0ec1e52bd2e87f3dc39abe)
+                check_type(argname="argument bucket_owner", value=bucket_owner, expected_type=type_hints["bucket_owner"])
+                check_type(argname="argument bucket_path", value=bucket_path, expected_type=type_hints["bucket_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bucket_owner is not None:
+                self._values["bucket_owner"] = bucket_owner
+            if bucket_path is not None:
+                self._values["bucket_path"] = bucket_path
+
+        @builtins.property
+        def bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''The AWS account ID that owns the S3 bucket.
+
+            Required to ensure the bucket is still owned by the same expected owner at generation time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-s3reportoutputconfiguration.html#cfn-arcregionswitch-plan-s3reportoutputconfiguration-bucketowner
+            '''
+            result = self._values.get("bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def bucket_path(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket name and optional prefix where reports are stored.
+
+            Format: bucket-name or bucket-name/prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-s3reportoutputconfiguration.html#cfn-arcregionswitch-plan-s3reportoutputconfiguration-bucketpath
+            '''
+            result = self._values.get("bucket_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3ReportOutputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.ServiceProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4061,7 +4102,7 @@ class CfnPlan(
         def __init__(
             self,
             *,
-            execution_block_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.ExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            execution_block_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             execution_block_type: builtins.str,
             name: builtins.str,
             description: typing.Optional[builtins.str] = None,
@@ -4114,6 +4155,19 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
                                 behavior="behavior"
+                            )
+                        ),
+                        document_db_config=arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                            behavior="behavior",
+                            database_cluster_arns=["databaseClusterArns"],
+                            global_cluster_identifier="globalClusterIdentifier",
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                                ungraceful="ungraceful"
                             )
                         ),
                         ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
@@ -4246,14 +4300,14 @@ class CfnPlan(
         @builtins.property
         def execution_block_configuration(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnPlan.ExecutionBlockConfigurationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPlan.ExecutionBlockConfigurationProperty"]:
             '''The configuration for an execution block in a workflow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-step.html#cfn-arcregionswitch-plan-step-executionblockconfiguration
             '''
             result = self._values.get("execution_block_configuration")
             assert result is not None, "Required property 'execution_block_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPlan.ExecutionBlockConfigurationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPlan.ExecutionBlockConfigurationProperty"], result)
 
         @builtins.property
         def execution_block_type(self) -> builtins.str:
@@ -4387,7 +4441,7 @@ class CfnPlan(
             self,
             *,
             action: builtins.str,
-            conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.TriggerConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.TriggerConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             min_delay_minutes_between_executions: jsii.Number,
             target_region: builtins.str,
             description: typing.Optional[builtins.str] = None,
@@ -4453,14 +4507,14 @@ class CfnPlan(
         @builtins.property
         def conditions(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerConditionProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerConditionProperty"]]]:
             '''The conditions that must be met for the trigger to fire.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-trigger.html#cfn-arcregionswitch-plan-trigger-conditions
             '''
             result = self._values.get("conditions")
             assert result is not None, "Required property 'conditions' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerConditionProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerConditionProperty"]]], result)
 
         @builtins.property
         def min_delay_minutes_between_executions(self) -> jsii.Number:
@@ -4517,7 +4571,7 @@ class CfnPlan(
             self,
             *,
             workflow_target_action: builtins.str,
-            steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.StepProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            steps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.StepProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             workflow_description: typing.Optional[builtins.str] = None,
             workflow_target_region: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4573,6 +4627,19 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
                                     behavior="behavior"
+                                )
+                            ),
+                            document_db_config=arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                                behavior="behavior",
+                                database_cluster_arns=["databaseClusterArns"],
+                                global_cluster_identifier="globalClusterIdentifier",
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                                    ungraceful="ungraceful"
                                 )
                             ),
                             ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
@@ -4722,13 +4789,13 @@ class CfnPlan(
         @builtins.property
         def steps(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.StepProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StepProperty"]]]]:
             '''The steps that make up the workflow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-workflow.html#cfn-arcregionswitch-plan-workflow-steps
             '''
             result = self._values.get("steps")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.StepProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.StepProperty"]]]], result)
 
         @builtins.property
         def workflow_description(self) -> typing.Optional[builtins.str]:
@@ -4760,38 +4827,448 @@ class CfnPlan(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_role": "executionRole",
+        "name": "name",
+        "recovery_approach": "recoveryApproach",
+        "regions": "regions",
+        "workflows": "workflows",
+        "associated_alarms": "associatedAlarms",
+        "description": "description",
+        "primary_region": "primaryRegion",
+        "recovery_time_objective_minutes": "recoveryTimeObjectiveMinutes",
+        "report_configuration": "reportConfiguration",
+        "tags": "tags",
+        "triggers": "triggers",
+    },
+)
+class CfnPlanProps:
+    def __init__(
+        self,
+        *,
+        execution_role: builtins.str,
+        name: builtins.str,
+        recovery_approach: builtins.str,
+        regions: typing.Sequence[builtins.str],
+        workflows: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.WorkflowProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        associated_alarms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.AssociatedAlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        primary_region: typing.Optional[builtins.str] = None,
+        recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
+        report_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ReportConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        triggers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPlan``.
+
+        :param execution_role: The execution role for a plan.
+        :param name: The name for a plan.
+        :param recovery_approach: The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
+        :param regions: The AWS Regions for a plan.
+        :param workflows: The workflows for a plan.
+        :param associated_alarms: The associated application health alarms for a plan.
+        :param description: The description for a plan.
+        :param primary_region: The primary Region for a plan.
+        :param recovery_time_objective_minutes: The recovery time objective for a plan.
+        :param report_configuration: The report configuration for a plan.
+        :param tags: 
+        :param triggers: The triggers for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_arcregionswitch as arcregionswitch
+            
+            # step_property_: arcregionswitch.CfnPlan.StepProperty
+            
+            cfn_plan_props = arcregionswitch.CfnPlanProps(
+                execution_role="executionRole",
+                name="name",
+                recovery_approach="recoveryApproach",
+                regions=["regions"],
+                workflows=[arcregionswitch.CfnPlan.WorkflowProperty(
+                    workflow_target_action="workflowTargetAction",
+            
+                    # the properties below are optional
+                    steps=[arcregionswitch.CfnPlan.StepProperty(
+                        execution_block_configuration=arcregionswitch.CfnPlan.ExecutionBlockConfigurationProperty(
+                            arc_routing_control_config=arcregionswitch.CfnPlan.ArcRoutingControlConfigurationProperty(
+                                region_and_routing_controls={
+                                    "region_and_routing_controls_key": [arcregionswitch.CfnPlan.ArcRoutingControlStateProperty(
+                                        routing_control_arn="routingControlArn",
+                                        state="state"
+                                    )]
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
+                                lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
+                                    arn="arn",
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )],
+                                region_to_run="regionToRun",
+                                retry_interval_minutes=123,
+            
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
+                                    behavior="behavior"
+                                )
+                            ),
+                            document_db_config=arcregionswitch.CfnPlan.DocumentDbConfigurationProperty(
+                                behavior="behavior",
+                                database_cluster_arns=["databaseClusterArns"],
+                                global_cluster_identifier="globalClusterIdentifier",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.DocumentDbUngracefulProperty(
+                                    ungraceful="ungraceful"
+                                )
+                            ),
+                            ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
+                                asgs=[arcregionswitch.CfnPlan.AsgProperty(
+                                    arn="arn",
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )],
+            
+                                # the properties below are optional
+                                capacity_monitoring_approach="capacityMonitoringApproach",
+                                target_percent=123,
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
+                                    minimum_success_percentage=123
+                                )
+                            ),
+                            ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
+                                services=[arcregionswitch.CfnPlan.ServiceProperty(
+                                    cluster_arn="clusterArn",
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId",
+                                    service_arn="serviceArn"
+                                )],
+            
+                                # the properties below are optional
+                                capacity_monitoring_approach="capacityMonitoringApproach",
+                                target_percent=123,
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
+                                    minimum_success_percentage=123
+                                )
+                            ),
+                            eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
+                                kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
+                                    api_version="apiVersion",
+                                    kind="kind"
+                                ),
+            
+                                # the properties below are optional
+                                capacity_monitoring_approach="capacityMonitoringApproach",
+                                eks_clusters=[arcregionswitch.CfnPlan.EksClusterProperty(
+                                    cluster_arn="clusterArn",
+            
+                                    # the properties below are optional
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )],
+                                scaling_resources=[{
+                                    "scaling_resources_key": {
+                                        "scaling_resources_key": arcregionswitch.CfnPlan.KubernetesScalingResourceProperty(
+                                            name="name",
+                                            namespace="namespace",
+            
+                                            # the properties below are optional
+                                            hpa_name="hpaName"
+                                        )
+                                    }
+                                }],
+                                target_percent=123,
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.EksResourceScalingUngracefulProperty(
+                                    minimum_success_percentage=123
+                                )
+                            ),
+                            execution_approval_config=arcregionswitch.CfnPlan.ExecutionApprovalConfigurationProperty(
+                                approval_role="approvalRole",
+            
+                                # the properties below are optional
+                                timeout_minutes=123
+                            ),
+                            global_aurora_config=arcregionswitch.CfnPlan.GlobalAuroraConfigurationProperty(
+                                behavior="behavior",
+                                database_cluster_arns=["databaseClusterArns"],
+                                global_cluster_identifier="globalClusterIdentifier",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.GlobalAuroraUngracefulProperty(
+                                    ungraceful="ungraceful"
+                                )
+                            ),
+                            parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
+                                steps=[step_property_]
+                            ),
+                            region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
+                                arn="arn",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId"
+                            ),
+                            route53_health_check_config=arcregionswitch.CfnPlan.Route53HealthCheckConfigurationProperty(
+                                hosted_zone_id="hostedZoneId",
+                                record_name="recordName",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                record_sets=[arcregionswitch.CfnPlan.Route53ResourceRecordSetProperty(
+                                    record_set_identifier="recordSetIdentifier",
+                                    region="region"
+                                )],
+                                timeout_minutes=123
+                            )
+                        ),
+                        execution_block_type="executionBlockType",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description"
+                    )],
+                    workflow_description="workflowDescription",
+                    workflow_target_region="workflowTargetRegion"
+                )],
+            
+                # the properties below are optional
+                associated_alarms={
+                    "associated_alarms_key": arcregionswitch.CfnPlan.AssociatedAlarmProperty(
+                        alarm_type="alarmType",
+                        resource_identifier="resourceIdentifier",
+            
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId"
+                    )
+                },
+                description="description",
+                primary_region="primaryRegion",
+                recovery_time_objective_minutes=123,
+                report_configuration=arcregionswitch.CfnPlan.ReportConfigurationProperty(
+                    report_output=[arcregionswitch.CfnPlan.ReportOutputConfigurationProperty(
+                        s3_configuration=arcregionswitch.CfnPlan.S3ReportOutputConfigurationProperty(
+                            bucket_owner="bucketOwner",
+                            bucket_path="bucketPath"
+                        )
+                    )]
+                ),
+                tags={
+                    "tags_key": "tags"
+                },
+                triggers=[arcregionswitch.CfnPlan.TriggerProperty(
+                    action="action",
+                    conditions=[arcregionswitch.CfnPlan.TriggerConditionProperty(
+                        associated_alarm_name="associatedAlarmName",
+                        condition="condition"
+                    )],
+                    min_delay_minutes_between_executions=123,
+                    target_region="targetRegion",
+            
+                    # the properties below are optional
+                    description="description"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141)
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument recovery_approach", value=recovery_approach, expected_type=type_hints["recovery_approach"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
+            check_type(argname="argument associated_alarms", value=associated_alarms, expected_type=type_hints["associated_alarms"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument primary_region", value=primary_region, expected_type=type_hints["primary_region"])
+            check_type(argname="argument recovery_time_objective_minutes", value=recovery_time_objective_minutes, expected_type=type_hints["recovery_time_objective_minutes"])
+            check_type(argname="argument report_configuration", value=report_configuration, expected_type=type_hints["report_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_role": execution_role,
+            "name": name,
+            "recovery_approach": recovery_approach,
+            "regions": regions,
+            "workflows": workflows,
+        }
+        if associated_alarms is not None:
+            self._values["associated_alarms"] = associated_alarms
+        if description is not None:
+            self._values["description"] = description
+        if primary_region is not None:
+            self._values["primary_region"] = primary_region
+        if recovery_time_objective_minutes is not None:
+            self._values["recovery_time_objective_minutes"] = recovery_time_objective_minutes
+        if report_configuration is not None:
+            self._values["report_configuration"] = report_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if triggers is not None:
+            self._values["triggers"] = triggers
+
+    @builtins.property
+    def execution_role(self) -> builtins.str:
+        '''The execution role for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-executionrole
+        '''
+        result = self._values.get("execution_role")
+        assert result is not None, "Required property 'execution_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recovery_approach(self) -> builtins.str:
+        '''The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoveryapproach
+        '''
+        result = self._values.get("recovery_approach")
+        assert result is not None, "Required property 'recovery_approach' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def regions(self) -> typing.List[builtins.str]:
+        '''The AWS Regions for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-regions
+        '''
+        result = self._values.get("regions")
+        assert result is not None, "Required property 'regions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def workflows(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.WorkflowProperty"]]]:
+        '''The workflows for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-workflows
+        '''
+        result = self._values.get("workflows")
+        assert result is not None, "Required property 'workflows' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.WorkflowProperty"]]], result)
+
+    @builtins.property
+    def associated_alarms(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.AssociatedAlarmProperty"]]]]:
+        '''The associated application health alarms for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-associatedalarms
+        '''
+        result = self._values.get("associated_alarms")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.AssociatedAlarmProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def primary_region(self) -> typing.Optional[builtins.str]:
+        '''The primary Region for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-primaryregion
+        '''
+        result = self._values.get("primary_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recovery_time_objective_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The recovery time objective for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoverytimeobjectiveminutes
+        '''
+        result = self._values.get("recovery_time_objective_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def report_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportConfigurationProperty"]]:
+        '''The report configuration for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-reportconfiguration
+        '''
+        result = self._values.get("report_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ReportConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def triggers(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerProperty"]]]]:
+        '''The triggers for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-triggers
+        '''
+        result = self._values.get("triggers")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPlan.TriggerProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnPlan",
     "CfnPlanProps",
-    "IPlanRef",
-    "PlanReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141(
-    *,
-    execution_role: builtins.str,
-    name: builtins.str,
-    recovery_approach: builtins.str,
-    regions: typing.Sequence[builtins.str],
-    workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.WorkflowProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AssociatedAlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    primary_region: typing.Optional[builtins.str] = None,
-    recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b161eda9868bf1a2b3eaa5a8cb35aaf0afc2af702fbbfca3a6dfc9136031023(
-    *,
-    plan_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__717f8fc7634107cdad75ab8dc89a21d48c1d0f596f5095c671ae6741ed5ac35c(
     scope: _constructs_77d1e7e8.Construct,
@@ -4806,8 +5283,21 @@ def _typecheckingstub__717f8fc7634107cdad75ab8dc89a21d48c1d0f596f5095c671ae6741e
     description: typing.Optional[builtins.str] = None,
     primary_region: typing.Optional[builtins.str] = None,
     recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
+    report_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cec92ab4557dc4cd37d3ca4b382260919de526e4ba9d724549af0454cfde2e6(
+    resource: _IPlanRef_4ff27154,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6177665eb7b38c2d31b691192b8de50fad33011080f365b3771eb547de8115ad(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4878,6 +5368,12 @@ def _typecheckingstub__a158461aabcc0fceebbed61f515ca1629dd0e6cb63d8ba2e7a2f6c8e4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__07bb03a21758741944d3c7cdc502b195014dac1b694c214f8edbaa987271c6d4(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlan.ReportConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c3c41bc2a28d77b19e855bf7c198670838a0dfb959e579501a5539e1a4eda62a(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
@@ -4934,6 +5430,26 @@ def _typecheckingstub__677cc1e3776f9941a3e383511e2b156b9b18584e59ab2742e9aeb2a06
     retry_interval_minutes: jsii.Number,
     timeout_minutes: typing.Optional[jsii.Number] = None,
     ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.LambdaUngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfd04fd3e10254dfad223fdde189e133f5e4e7b16ff32e8639eed107f217c023(
+    *,
+    behavior: builtins.str,
+    database_cluster_arns: typing.Sequence[builtins.str],
+    global_cluster_identifier: builtins.str,
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.DocumentDbUngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a55d46cef7029dd0e2c81f833b4dc70c1d6e1cd16eb60f786d709edda7d09f0(
+    *,
+    ungraceful: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5015,6 +5531,7 @@ def _typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c9
     *,
     arc_routing_control_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ArcRoutingControlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_action_lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.CustomActionLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    document_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.DocumentDbConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ec2_asg_capacity_increase_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ecs_capacity_increase_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.EcsCapacityIncreaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     eks_resource_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.EksResourceScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5104,6 +5621,20 @@ def _typecheckingstub__c7f4d6ccde8e09198d4b7a9cf491066654de4ce1eae2ba3efd23e437a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__907c3fe47030aa03714ecc4a574ec5b3cc04e995dfcef3461e41387c08f6973f(
+    *,
+    report_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ReportOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a11d9a14cf9d1eceec87ddb296c1ff6057994bf91c8b132c2a747ab074e17a16(
+    *,
+    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.S3ReportOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dafd3d15027013dc86ea477c0cc06ceb95b9df4585b699565ae5446c3cbc6845(
     *,
     hosted_zone_id: builtins.str,
@@ -5130,6 +5661,14 @@ def _typecheckingstub__0e8634f5bf0466b7e8441b8a091ba90aa68f8785fca863c7422c0f356
     *,
     record_set_identifier: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6a6753a0f46ba40757d200ff9ea0f1f7b7b8db3eb0ec1e52bd2e87f3dc39abe(
+    *,
+    bucket_owner: typing.Optional[builtins.str] = None,
+    bucket_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5179,6 +5718,24 @@ def _typecheckingstub__20a30ca206bf2a7483e5517778a6e2e160f345026b4773019a9189cc9
     steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.StepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     workflow_description: typing.Optional[builtins.str] = None,
     workflow_target_region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141(
+    *,
+    execution_role: builtins.str,
+    name: builtins.str,
+    recovery_approach: builtins.str,
+    regions: typing.Sequence[builtins.str],
+    workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.WorkflowProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AssociatedAlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    primary_region: typing.Optional[builtins.str] = None,
+    recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
+    report_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

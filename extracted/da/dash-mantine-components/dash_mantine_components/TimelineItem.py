@@ -250,7 +250,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['title', 'bullet']
+    _children_props: typing.List[str] = ['title', 'bullet']
     _base_nodes = ['title', 'bullet', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'TimelineItem'

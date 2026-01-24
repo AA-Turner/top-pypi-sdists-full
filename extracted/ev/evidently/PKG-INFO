@@ -1,23 +1,91 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: evidently
-Version: 0.7.14
+Version: 0.7.20
 Summary: Open-source tools to analyze, monitor, and debug machine learning model in production.
-Home-page: https://github.com/evidentlyai/evidently
-Author: Emeli Dral
-Author-email: emeli.dral@gmail.com
-License: UNKNOWN
-Platform: Linux
-Platform: Mac OS X
-Platform: Windows
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-Provides-Extra: dev
-Provides-Extra: llm
-Provides-Extra: spark
-Provides-Extra: fsspec
-Provides-Extra: s3
-Provides-Extra: gcs
+Project-URL: Homepage, https://github.com/evidentlyai/evidently
+Author-email: Emeli Dral <emeli.dral@gmail.com>
+License: Apache License 2.0
 License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Requires-Dist: certifi>=2024.7.4
+Requires-Dist: cryptography>=43.0.1
+Requires-Dist: deprecation>=2.1.0
+Requires-Dist: dynaconf>=3.2.4
+Requires-Dist: fsspec>=2024.9.0
+Requires-Dist: iterative-telemetry>=0.0.5
+Requires-Dist: litestar>=2.19.0
+Requires-Dist: nltk>=3.6.7
+Requires-Dist: numpy>=1.22.0
+Requires-Dist: opentelemetry-proto>=1.25.0
+Requires-Dist: pandas[parquet]>=1.3.5
+Requires-Dist: plotly<6,>=5.10.0
+Requires-Dist: pydantic>=1.10.16
+Requires-Dist: pyyaml>=5.4
+Requires-Dist: requests>=2.32.0
+Requires-Dist: rich>=13
+Requires-Dist: scikit-learn>=1.1.1
+Requires-Dist: scipy>=1.10.0
+Requires-Dist: statsmodels>=0.12.2
+Requires-Dist: typer>=0.3
+Requires-Dist: typing-inspect>=0.9.0
+Requires-Dist: ujson>=5.4.0
+Requires-Dist: urllib3>=1.26.19
+Requires-Dist: uuid6>=2024.7.10
+Requires-Dist: uvicorn[standard]>=0.22.0
+Requires-Dist: watchdog>=3.0.0
+Provides-Extra: dev
+Requires-Dist: httpx==0.27.0; extra == 'dev'
+Requires-Dist: jupyter==1.0.0; extra == 'dev'
+Requires-Dist: mypy==1.1.1; extra == 'dev'
+Requires-Dist: pandas-stubs>=1.3.5; extra == 'dev'
+Requires-Dist: pillow>=11.3.0; extra == 'dev'
+Requires-Dist: pip-audit>=2.7.2; extra == 'dev'
+Requires-Dist: pre-commit==3.5.0; extra == 'dev'
+Requires-Dist: pytest-asyncio==0.23.7; extra == 'dev'
+Requires-Dist: pytest-mock==3.14.0; extra == 'dev'
+Requires-Dist: pytest==7.4.4; extra == 'dev'
+Requires-Dist: ruff==0.3.7; extra == 'dev'
+Requires-Dist: setuptools==65.5.1; (python_version < '3.12') and extra == 'dev'
+Requires-Dist: setuptools==68.2.2; (python_version >= '3.12') and extra == 'dev'
+Requires-Dist: tracely>=0.2.11; extra == 'dev'
+Requires-Dist: types-dataclasses==0.6; extra == 'dev'
+Requires-Dist: types-python-dateutil==2.8.19; extra == 'dev'
+Requires-Dist: types-pyyaml==6.0.1; extra == 'dev'
+Requires-Dist: types-requests==2.26.0; extra == 'dev'
+Requires-Dist: types-ujson>=5.4.0; extra == 'dev'
+Requires-Dist: wheel==0.38.1; extra == 'dev'
+Provides-Extra: fsspec
+Requires-Dist: gcsfs>=2024.9.0; extra == 'fsspec'
+Requires-Dist: s3fs>=2024.9.0; extra == 'fsspec'
+Provides-Extra: gcs
+Requires-Dist: gcsfs>=2024.9.0; extra == 'gcs'
+Provides-Extra: llm
+Requires-Dist: evaluate>=0.4.1; extra == 'llm'
+Requires-Dist: faiss-cpu>=1.8.0; extra == 'llm'
+Requires-Dist: litellm>=1.74.3; extra == 'llm'
+Requires-Dist: llama-index>=0.10; extra == 'llm'
+Requires-Dist: openai>=1.16.2; extra == 'llm'
+Requires-Dist: sentence-transformers>=2.7.0; extra == 'llm'
+Requires-Dist: sqlvalidator>=0.0.20; extra == 'llm'
+Requires-Dist: transformers[torch]>=4.39.3; extra == 'llm'
+Provides-Extra: s3
+Requires-Dist: s3fs>=2024.9.0; extra == 's3'
+Provides-Extra: spark
+Requires-Dist: pyspark<4,>=3.4.0; extra == 'spark'
+Provides-Extra: sql
+Requires-Dist: alembic>=1.13.0; extra == 'sql'
+Requires-Dist: psycopg2-binary>=2.9.0; extra == 'sql'
+Requires-Dist: sqlalchemy>=2.0.0; extra == 'sql'
+Description-Content-Type: text/markdown
 
 <h1 align="center">Evidently</h1>
 
@@ -93,7 +161,7 @@ To install from PyPI:
 ```sh
 pip install evidently
 ```
-To install Evidently using conda installer, run:
+To install Evidently using the Conda installer, run:
 
 ```sh
 conda install -c conda-forge evidently
@@ -198,7 +266,7 @@ To get the output as JSON or Python dictionary:
 my_eval.json()
 # my_eval.dict()
 ```
-You can choose other Presets, create Reports from indiviudal Metrics and configure pass/fail conditions.
+You can choose other Presets, create Reports from individual Metrics and configure pass/fail conditions.
 
 ## Monitoring dashboard
 
@@ -210,7 +278,7 @@ if you have [uv](https://docs.astral.sh/uv/) you can run Evidently UI with a sin
 uv run --with evidently evidently ui --demo-projects all
 ```
 
-If you haven't, create a virtual environment using the standard approach.
+If you haven’t installed `uv`, create a virtual environment using the standard approach.
 ```
 pip install virtualenv
 virtualenv venv
@@ -246,9 +314,7 @@ Here are examples of things you can check:
 We welcome contributions! Read the [Guide](CONTRIBUTING.md) to learn more.
 
 # :books: Documentation
-For more examples, refer to a complete <a href="https://docs.evidentlyai.com">Documentation</a>.
+For more examples, refer to the complete <a href="https://docs.evidentlyai.com">Documentation</a>.
 
 # :white_check_mark: Discord Community
 If you want to chat and connect, join our [Discord community](https://discord.gg/xZjKRaNp8b)!
-
-

@@ -6,6 +6,7 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
 from ...requests.workweek_config import WorkweekConfigParams
+from ...types.list_workweek_configs_response import ListWorkweekConfigsResponse
 from ...types.update_workweek_config_response import UpdateWorkweekConfigResponse
 from ...types.workweek_config import WorkweekConfig
 from .raw_client import AsyncRawWorkweekConfigsClient, RawWorkweekConfigsClient
@@ -35,7 +36,7 @@ class WorkweekConfigsClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[WorkweekConfig]:
+    ) -> SyncPager[WorkweekConfig, ListWorkweekConfigsResponse]:
         """
         Returns a list of `WorkweekConfig` instances for a business.
 
@@ -52,7 +53,7 @@ class WorkweekConfigsClient:
 
         Returns
         -------
-        SyncPager[WorkweekConfig]
+        SyncPager[WorkweekConfig, ListWorkweekConfigsResponse]
             Success
 
         Examples
@@ -62,7 +63,10 @@ class WorkweekConfigsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.labor.workweek_configs.list()
+        response = client.labor.workweek_configs.list(
+            limit=1,
+            cursor="cursor",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -134,7 +138,7 @@ class AsyncWorkweekConfigsClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[WorkweekConfig]:
+    ) -> AsyncPager[WorkweekConfig, ListWorkweekConfigsResponse]:
         """
         Returns a list of `WorkweekConfig` instances for a business.
 
@@ -151,7 +155,7 @@ class AsyncWorkweekConfigsClient:
 
         Returns
         -------
-        AsyncPager[WorkweekConfig]
+        AsyncPager[WorkweekConfig, ListWorkweekConfigsResponse]
             Success
 
         Examples
@@ -166,7 +170,10 @@ class AsyncWorkweekConfigsClient:
 
 
         async def main() -> None:
-            response = await client.labor.workweek_configs.list()
+            response = await client.labor.workweek_configs.list(
+                limit=1,
+                cursor="cursor",
+            )
             async for item in response:
                 yield item
 

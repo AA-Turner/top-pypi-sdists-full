@@ -9,11 +9,11 @@ from crawlee._utils.docs import docs_group
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
-    from ._types import BlockRequestsFunction
+    from ._types import BlockRequestsFunction, GotoOptions
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
+@docs_group('Crawling contexts')
 class PlaywrightPreNavCrawlingContext(BasicCrawlingContext):
     """The pre navigation crawling context used by the `PlaywrightCrawler`.
 
@@ -25,6 +25,9 @@ class PlaywrightPreNavCrawlingContext(BasicCrawlingContext):
 
     block_requests: BlockRequestsFunction
     """Blocks network requests matching specified URL patterns."""
+
+    goto_options: GotoOptions
+    """Additional options to pass to Playwright's `Page.goto()` method. The `timeout` option is not supported."""
 
     async def get_snapshot(self) -> PageSnapshot:
         """Get snapshot of crawled page."""

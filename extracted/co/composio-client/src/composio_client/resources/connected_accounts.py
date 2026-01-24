@@ -59,6 +59,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         *,
         auth_config: connected_account_create_params.AuthConfig,
         connection: connected_account_create_params.Connection,
+        validate_credentials: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -70,6 +71,9 @@ class ConnectedAccountsResource(SyncAPIResource):
         Create a new connected account
 
         Args:
+          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
+              API Key Auth scheme
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -84,6 +88,7 @@ class ConnectedAccountsResource(SyncAPIResource):
                 {
                     "auth_config": auth_config,
                     "connection": connection,
+                    "validate_credentials": validate_credentials,
                 },
                 connected_account_create_params.ConnectedAccountCreateParams,
             ),
@@ -133,7 +138,6 @@ class ConnectedAccountsResource(SyncAPIResource):
         auth_config_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         connected_account_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         cursor: Optional[str] | Omit = omit,
-        labels: Optional[SequenceNotStr[str]] | Omit = omit,
         limit: Optional[float] | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
@@ -157,8 +161,6 @@ class ConnectedAccountsResource(SyncAPIResource):
           connected_account_ids: The connected account ids to filter by
 
           cursor: The cursor to paginate through the connected accounts
-
-          labels: The labels of the connected accounts
 
           limit: The limit of the connected accounts to return
 
@@ -192,7 +194,6 @@ class ConnectedAccountsResource(SyncAPIResource):
                         "auth_config_ids": auth_config_ids,
                         "connected_account_ids": connected_account_ids,
                         "cursor": cursor,
-                        "labels": labels,
                         "limit": limit,
                         "order_by": order_by,
                         "order_direction": order_direction,
@@ -248,6 +249,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         *,
         query_redirect_url: str | Omit = omit,
         body_redirect_url: str | Omit = omit,
+        validate_credentials: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -261,6 +263,9 @@ class ConnectedAccountsResource(SyncAPIResource):
         OAuth flows or refresh tokens for other auth schemes.
 
         Args:
+          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
+              API Key Auth scheme
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -274,7 +279,11 @@ class ConnectedAccountsResource(SyncAPIResource):
         return self._post(
             f"/api/v3/connected_accounts/{nanoid}/refresh",
             body=maybe_transform(
-                {"body_redirect_url": body_redirect_url}, connected_account_refresh_params.ConnectedAccountRefreshParams
+                {
+                    "body_redirect_url": body_redirect_url,
+                    "validate_credentials": validate_credentials,
+                },
+                connected_account_refresh_params.ConnectedAccountRefreshParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -356,6 +365,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         *,
         auth_config: connected_account_create_params.AuthConfig,
         connection: connected_account_create_params.Connection,
+        validate_credentials: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -367,6 +377,9 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         Create a new connected account
 
         Args:
+          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
+              API Key Auth scheme
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -381,6 +394,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
                 {
                     "auth_config": auth_config,
                     "connection": connection,
+                    "validate_credentials": validate_credentials,
                 },
                 connected_account_create_params.ConnectedAccountCreateParams,
             ),
@@ -430,7 +444,6 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         auth_config_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         connected_account_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         cursor: Optional[str] | Omit = omit,
-        labels: Optional[SequenceNotStr[str]] | Omit = omit,
         limit: Optional[float] | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
@@ -454,8 +467,6 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
           connected_account_ids: The connected account ids to filter by
 
           cursor: The cursor to paginate through the connected accounts
-
-          labels: The labels of the connected accounts
 
           limit: The limit of the connected accounts to return
 
@@ -489,7 +500,6 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
                         "auth_config_ids": auth_config_ids,
                         "connected_account_ids": connected_account_ids,
                         "cursor": cursor,
-                        "labels": labels,
                         "limit": limit,
                         "order_by": order_by,
                         "order_direction": order_direction,
@@ -545,6 +555,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         *,
         query_redirect_url: str | Omit = omit,
         body_redirect_url: str | Omit = omit,
+        validate_credentials: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -558,6 +569,9 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         OAuth flows or refresh tokens for other auth schemes.
 
         Args:
+          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
+              API Key Auth scheme
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -571,7 +585,11 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         return await self._post(
             f"/api/v3/connected_accounts/{nanoid}/refresh",
             body=await async_maybe_transform(
-                {"body_redirect_url": body_redirect_url}, connected_account_refresh_params.ConnectedAccountRefreshParams
+                {
+                    "body_redirect_url": body_redirect_url,
+                    "validate_credentials": validate_credentials,
+                },
+                connected_account_refresh_params.ConnectedAccountRefreshParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,

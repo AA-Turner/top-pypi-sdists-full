@@ -30,10 +30,20 @@ class CloudAccountCredentialsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.CreateCloudCredentialsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.CreateCloudCredentialsResponse.FromString,
         )
+        self.UpdateCloudCredentials = channel.unary_unary(
+            "/chalk.server.v1.CloudAccountCredentialsService/UpdateCloudCredentials",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.UpdateCloudCredentialsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.UpdateCloudCredentialsResponse.FromString,
+        )
         self.DeleteCloudCredentials = channel.unary_unary(
             "/chalk.server.v1.CloudAccountCredentialsService/DeleteCloudCredentials",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.DeleteCloudCredentialsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.DeleteCloudCredentialsResponse.FromString,
+        )
+        self.TestCloudCredentials = channel.unary_unary(
+            "/chalk.server.v1.CloudAccountCredentialsService/TestCloudCredentials",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsResponse.FromString,
         )
 
 
@@ -58,7 +68,19 @@ class CloudAccountCredentialsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def UpdateCloudCredentials(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteCloudCredentials(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def TestCloudCredentials(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -82,10 +104,20 @@ def add_CloudAccountCredentialsServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.CreateCloudCredentialsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.CreateCloudCredentialsResponse.SerializeToString,
         ),
+        "UpdateCloudCredentials": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateCloudCredentials,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.UpdateCloudCredentialsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.UpdateCloudCredentialsResponse.SerializeToString,
+        ),
         "DeleteCloudCredentials": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteCloudCredentials,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.DeleteCloudCredentialsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.DeleteCloudCredentialsResponse.SerializeToString,
+        ),
+        "TestCloudCredentials": grpc.unary_unary_rpc_method_handler(
+            servicer.TestCloudCredentials,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -186,6 +218,35 @@ class CloudAccountCredentialsService(object):
         )
 
     @staticmethod
+    def UpdateCloudCredentials(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudAccountCredentialsService/UpdateCloudCredentials",
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.UpdateCloudCredentialsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.UpdateCloudCredentialsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def DeleteCloudCredentials(
         request,
         target,
@@ -204,6 +265,35 @@ class CloudAccountCredentialsService(object):
             "/chalk.server.v1.CloudAccountCredentialsService/DeleteCloudCredentials",
             chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.DeleteCloudCredentialsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.DeleteCloudCredentialsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def TestCloudCredentials(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudAccountCredentialsService/TestCloudCredentials",
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -9,25 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class CombinedBillingUsage(GitHubModel):
-    """CombinedBillingUsage"""
+class RepositoryRuleTagNamePatternPropParameters(GitHubModel):
+    """RepositoryRuleTagNamePatternPropParameters"""
 
-    days_left_in_billing_cycle: int = Field(
-        description="Numbers of days left in billing cycle."
+    name: Missing[str] = Field(
+        default=UNSET, description="How this rule will appear to users."
     )
-    estimated_paid_storage_for_month: int = Field(
-        description="Estimated storage space (GB) used in billing cycle."
+    negate: Missing[bool] = Field(
+        default=UNSET, description="If true, the rule will fail if the pattern matches."
     )
-    estimated_storage_for_month: int = Field(
-        description="Estimated sum of free and paid storage space (GB) used in billing cycle."
+    operator: Literal["starts_with", "ends_with", "contains", "regex"] = Field(
+        description="The operator to use for matching."
     )
+    pattern: str = Field(description="The pattern to match with.")
 
 
-model_rebuild(CombinedBillingUsage)
+model_rebuild(RepositoryRuleTagNamePatternPropParameters)
 
-__all__ = ("CombinedBillingUsage",)
+__all__ = ("RepositoryRuleTagNamePatternPropParameters",)

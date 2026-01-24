@@ -7,10 +7,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pikepdf"
-version = "9.11.0"
+version = "10.2.0"
 description = "Read and write PDFs with Python, powered by qpdf"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["PDF"]
 authors = [{ name = "James R. Barlow", email = "james@purplerock.ca" }]
 license = "MPL-2.0"
@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Multimedia :: Graphics",
   "Topic :: Software Development :: Libraries",
+  "Programming Language :: Python :: Free Threading :: 1 - Unstable",
 ]
 dependencies = ["Pillow>=10.0.1", "Deprecated", "lxml>=4.8", "packaging"]
 
@@ -55,7 +56,7 @@ test = [
   "pytest-timeout>=2.1.0",
   "pytest-xdist>=2.5.0",
   "python-dateutil>=2.8.1",
-  "python-xmp-toolkit>=2.0.1; os_name != 'nt' and platform_machine == 'x86_64'",
+  "python-xmp-toolkit>=2.0.1,<2.1.0; os_name != 'nt' and platform_machine == 'x86_64'",
   "tomli; python_version < '3.11'",
 ]
 
@@ -80,7 +81,7 @@ skip = [
 build-frontend = "build[uv]"
 
 [tool.cibuildwheel.environment]
-QPDF_MIN_VERSION = "11.9.0"
+QPDF_MIN_VERSION = "12.2.0"
 QPDF_VERSION = "12.2.0"
 QPDF_PATTERN = "https://github.com/qpdf/qpdf/releases/download/vVERSION/qpdf-VERSION.tar.gz"
 
@@ -137,12 +138,11 @@ before-all = [
 ] # Use 'brew whatever || true' workaround until https://github.com/actions/setup-python/issues/9966 is fixed
 
 [[tool.cibuildwheel.overrides]]
+# macOS has many complex considerations.
+# See (and update) build_process.md.
 select = "*-macosx*x86_64"
 inherit.environment = "append"
-environment.MACOSX_DEPLOYMENT_TARGET = "13.0"
-# When MACOSX_DEPLOYMENT_TARGET is >= 11.0, set this to 0
-# to ensure that pip/auditwheel generate the correct version stamp.
-environment.SYSTEM_VERSION_COMPAT = 0
+environment.MACOSX_DEPLOYMENT_TARGET = "15.0"
 
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx*arm64"
@@ -197,7 +197,7 @@ directory = "coverage/pycov"
 
 [tool.ruff]
 src = ["src/pikepdf"]
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -244,4 +244,4 @@ convention = "google"
 quote-style = "preserve"
 
 [dependency-groups]
-dev = ["ruff>=0.12.9"]
+dev = ["ruff>=0.12.9", "setuptools>=80.9.0"]

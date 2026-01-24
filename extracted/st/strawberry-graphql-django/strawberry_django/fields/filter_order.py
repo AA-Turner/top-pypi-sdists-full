@@ -95,7 +95,7 @@ class FilterOrderFieldResolver(StrawberryResolver):
 
                 annotation = ordering.Ordering
 
-            return StrawberryAnnotation(Optional[annotation])
+            return StrawberryAnnotation(Optional[annotation])  # noqa: UP045
 
         return None
 

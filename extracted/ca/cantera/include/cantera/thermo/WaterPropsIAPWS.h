@@ -253,6 +253,7 @@ public:
      * @param rhoguess    guessed density of the water; -1.0: no guessed density
      * @returns the density. If an error is encountered in the calculation the
      *     value of -1.0 is returned.
+     * @deprecated To be removed after %Cantera 3.1.
      */
     double density_const(double pressure, int phase = -1, double rhoguess = -1.0) const;
 
@@ -341,6 +342,7 @@ public:
     //! liquid side) for the current temperature.
     /*!
      * @returns the density with units of kg m-3
+     * @deprecated To be removed after %Cantera 3.1.
      */
     double densSpinodalWater() const;
 
@@ -348,6 +350,7 @@ public:
     //! side) for the current temperature.
     /*!
      * @returns the density with units of kg m-3
+     * @deprecated To be removed after %Cantera 3.1.
      */
     double densSpinodalSteam() const;
 
@@ -407,17 +410,6 @@ private:
      */
     void corr(double temperature, double pressure, double& densLiq,
               double& densGas, double& delGRT);
-
-    //! Utility routine in the calculation of the saturation pressure
-    /*!
-     * @param temperature    temperature (kelvin)
-     * @param pressure       pressure (Pascal)
-     * @param densLiq        Output density of liquid
-     * @param densGas        output Density of gas
-     * @param pcorr          output corrected pressure
-     */
-    void corr1(double temperature, double pressure, double& densLiq,
-               double& densGas, double& pcorr);
 
     //! pointer to the underlying object that does the calculations.
     mutable WaterPropsIAPWSphi m_phi;

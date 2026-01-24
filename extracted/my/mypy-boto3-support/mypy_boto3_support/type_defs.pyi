@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -97,7 +92,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -218,7 +213,7 @@ TrustedAdvisorCheckDescriptionTypeDef = TypedDict(
         "name": str,
         "description": str,
         "category": str,
-        "metadata": List[str],
+        "metadata": list[str],
     },
 )
 
@@ -235,7 +230,7 @@ class TrustedAdvisorCostOptimizingSummaryTypeDef(TypedDict):
 class TrustedAdvisorResourceDetailTypeDef(TypedDict):
     status: str
     resourceId: str
-    metadata: List[str]
+    metadata: list[str]
     region: NotRequired[str]
     isSuppressed: NotRequired[bool]
 
@@ -268,7 +263,7 @@ class CommunicationTypeDef(TypedDict):
     body: NotRequired[str]
     submittedBy: NotRequired[str]
     timeCreated: NotRequired[str]
-    attachmentSet: NotRequired[List[AttachmentDetailsTypeDef]]
+    attachmentSet: NotRequired[list[AttachmentDetailsTypeDef]]
 
 class DescribeAttachmentResponseTypeDef(TypedDict):
     attachment: AttachmentOutputTypeDef
@@ -281,14 +276,14 @@ class AttachmentTypeDef(TypedDict):
 class ServiceTypeDef(TypedDict):
     code: NotRequired[str]
     name: NotRequired[str]
-    categories: NotRequired[List[CategoryTypeDef]]
+    categories: NotRequired[list[CategoryTypeDef]]
 
 CommunicationTypeOptionsTypeDef = TypedDict(
     "CommunicationTypeOptionsTypeDef",
     {
         "type": NotRequired[str],
-        "supportedHours": NotRequired[List[SupportedHourTypeDef]],
-        "datesWithoutSupport": NotRequired[List[DateIntervalTypeDef]],
+        "supportedHours": NotRequired[list[SupportedHourTypeDef]],
+        "datesWithoutSupport": NotRequired[list[DateIntervalTypeDef]],
     },
 )
 
@@ -309,15 +304,15 @@ class DescribeCommunicationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeSeverityLevelsResponseTypeDef(TypedDict):
-    severityLevels: List[SeverityLevelTypeDef]
+    severityLevels: list[SeverityLevelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeSupportedLanguagesResponseTypeDef(TypedDict):
-    supportedLanguages: List[SupportedLanguageTypeDef]
+    supportedLanguages: list[SupportedLanguageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrustedAdvisorCheckRefreshStatusesResponseTypeDef(TypedDict):
-    statuses: List[TrustedAdvisorCheckRefreshStatusTypeDef]
+    statuses: list[TrustedAdvisorCheckRefreshStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RefreshTrustedAdvisorCheckResponseTypeDef(TypedDict):
@@ -325,30 +320,30 @@ class RefreshTrustedAdvisorCheckResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrustedAdvisorChecksResponseTypeDef(TypedDict):
-    checks: List[TrustedAdvisorCheckDescriptionTypeDef]
+    checks: list[TrustedAdvisorCheckDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TrustedAdvisorCategorySpecificSummaryTypeDef(TypedDict):
     costOptimizing: NotRequired[TrustedAdvisorCostOptimizingSummaryTypeDef]
 
 class DescribeCommunicationsResponseTypeDef(TypedDict):
-    communications: List[CommunicationTypeDef]
+    communications: list[CommunicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class RecentCaseCommunicationsTypeDef(TypedDict):
-    communications: NotRequired[List[CommunicationTypeDef]]
+    communications: NotRequired[list[CommunicationTypeDef]]
     nextToken: NotRequired[str]
 
 AttachmentUnionTypeDef = Union[AttachmentTypeDef, AttachmentOutputTypeDef]
 
 class DescribeServicesResponseTypeDef(TypedDict):
-    services: List[ServiceTypeDef]
+    services: list[ServiceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeCreateCaseOptionsResponseTypeDef(TypedDict):
     languageAvailability: str
-    communicationTypes: List[CommunicationTypeOptionsTypeDef]
+    communicationTypes: list[CommunicationTypeOptionsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TrustedAdvisorCheckResultTypeDef(TypedDict):
@@ -357,7 +352,7 @@ class TrustedAdvisorCheckResultTypeDef(TypedDict):
     status: str
     resourcesSummary: TrustedAdvisorResourcesSummaryTypeDef
     categorySpecificSummary: TrustedAdvisorCategorySpecificSummaryTypeDef
-    flaggedResources: List[TrustedAdvisorResourceDetailTypeDef]
+    flaggedResources: list[TrustedAdvisorResourceDetailTypeDef]
 
 class TrustedAdvisorCheckSummaryTypeDef(TypedDict):
     checkId: str
@@ -378,7 +373,7 @@ class CaseDetailsTypeDef(TypedDict):
     submittedBy: NotRequired[str]
     timeCreated: NotRequired[str]
     recentCommunications: NotRequired[RecentCaseCommunicationsTypeDef]
-    ccEmailAddresses: NotRequired[List[str]]
+    ccEmailAddresses: NotRequired[list[str]]
     language: NotRequired[str]
 
 class AddAttachmentsToSetRequestTypeDef(TypedDict):
@@ -390,10 +385,10 @@ class DescribeTrustedAdvisorCheckResultResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrustedAdvisorCheckSummariesResponseTypeDef(TypedDict):
-    summaries: List[TrustedAdvisorCheckSummaryTypeDef]
+    summaries: list[TrustedAdvisorCheckSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeCasesResponseTypeDef(TypedDict):
-    cases: List[CaseDetailsTypeDef]
+    cases: list[CaseDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

@@ -8,6 +8,7 @@
 import copy
 import functools
 import inspect
+import time
 import types
 import typing
 import warnings
@@ -16,7 +17,9 @@ from types import SimpleNamespace
 
 from sklearn.base import BaseEstimator
 from sklearn.base import clone as skl_clone
+from sklearn.utils import check_random_state
 
+from .._utils import short_repr
 from . import _choosing
 from ._data_ops import (
     Apply,
@@ -59,13 +62,29 @@ class _Computation:
     # >>> d['oops!'] = d
     # >>> skrub.as_data_op(d).skb.eval()
 
-    def __init__(self, target, generator):
-        self.target_id = id(target)
+    def __init__(self, target_id, generator):
+        self.target_id = target_id
         self.generator = generator
 
 
 class CircularReferenceError(ValueError):
-    pass
+    """Error raised when the DataOp computation graph contains a cycle."""
+
+
+class _CurrentNodeDuration:
+    """
+    How much time has been spent evaluating the current node.
+
+    A `_DataOpTraversal.handle_*()` method can yield an instance of this class
+    to obtain the time that has been spent so far on the node that it is
+    handling.
+
+    The result counts the time (in seconds) spent on the node itself, excluding
+    any time spent on evaluating its children, since the start of the
+    `_DataOpTraversal.run()` call.
+
+    The result is the value of the `yield _CurrentNodeDuration()` expression.
+    """
 
 
 class _DataOpTraversal:
@@ -100,54 +119,89 @@ class _DataOpTraversal:
         stack = [data_op]
         last_result = None
 
-        def push(handler):
-            top = stack.pop()
+        # IDs of nodes that are the target of a _Computation currently on the stack.
+        # Used to detect circular references.
+        running = set()
+
+        # Total time spent evaluating each node (not counting time spent
+        # evaluating its children)
+        node_durations = defaultdict(float)
+
+        def push_computation(handler):
+            "Replace the top of stack (tos) with a _Computation wrapping handler(tos)."
+            top = pop()
+            top_id = id(top)
+            if top_id in running:
+                # If 2 computations targeting the same node are on the stack
+                # this node is a descendant of itself: we have a cycle in the
+                # computation graph. We raise an exception to avoid an infinite
+                # loop.
+                raise CircularReferenceError(
+                    "Skrub DataOps cannot contain circular references. "
+                    f"A cycle was found in this object: {top}"
+                )
             generator = handler(top)
-            stack.append(_Computation(top, generator))
+            stack.append(_Computation(top_id, generator))
+            running.add(top_id)
+
+        def pop():
+            "Pop an item off the stack."
+            top = stack.pop()
+            if isinstance(top, _Computation):
+                running.remove(top.target_id)
+            return top
+
+        def step():
+            "Send the last result into the generator at the top of the stack."
+            nonlocal last_result
+            top = stack[-1]
+            try:
+                start = time.monotonic()
+                try:
+                    new_top = top.generator.send(last_result)
+                finally:
+                    node_durations[top.target_id] += time.monotonic() - start
+            except StopIteration as e:
+                # The generator returned. The returned value is in the `value`
+                # attribute of the `StopIteration`. We store the result and
+                # discard the exhausted generator.
+                last_result = e.value
+                pop()
+            else:
+                # The generator yielded a new item to evaluate, we push it on
+                # the stack.
+                stack.append(new_top)
+                last_result = None
 
         while stack:
             top = stack[-1]
-            try:
-                if isinstance(top, _Computation):
-                    new_top = top.generator.send(last_result)
-                    if id(new_top) in {
-                        c.target_id for c in stack if isinstance(c, _Computation)
-                    }:
-                        # If 2 computations targeting the same object are on
-                        # the stack this node is a descendant of itself: we
-                        # have a circular reference. As there is no use case
-                        # for handling such cases we raise an exception to
-                        # avoid an infinite loop.
-                        raise CircularReferenceError(
-                            "Skrub DataOps cannot contain circular references. "
-                            f"A circular reference was found in this object: {new_top}"
-                        )
-                    stack.append(new_top)
-                    last_result = None
-                elif isinstance(top, DataOp):
-                    push(self.handle_data_op)
-                elif isinstance(top, _BUILTIN_MAP):
-                    push(self.handle_mapping)
-                elif isinstance(top, _BUILTIN_SEQ):
-                    push(self.handle_seq)
-                elif isinstance(top, slice):
-                    push(self.handle_slice)
-                elif isinstance(top, _choosing.BaseChoice):
-                    push(self.handle_choice)
-                elif isinstance(top, _choosing.Match):
-                    push(self.handle_choice_match)
-                elif isinstance(top, BaseEstimator):
-                    push(self.handle_estimator)
-                else:
-                    push(self.handle_value)
-            except StopIteration as e:
-                # The generator returned, the returned value is in the
-                # `StopIteration`'s `value` attribute.
-                # See the python documentation (eg
-                # https://docs.python.org/3/reference/expressions.html#yield-expressions
-                # and PEPs linked within) for a refresher on generators
-                last_result = e.value
-                stack.pop()
+            if isinstance(top, _Computation):
+                step()
+            elif isinstance(top, _CurrentNodeDuration):
+                pop()
+                last_result = node_durations[stack[-1].target_id]
+            elif isinstance(top, DataOp):
+                push_computation(self.handle_data_op)
+
+            # We recurse into built-in collections but not their subclasses (we
+            # would not know how to reconstruct a collection from the items'
+            # values). Thus we compare types directly rather than using isinstance.
+            elif type(top) in _BUILTIN_MAP:
+                push_computation(self.handle_mapping)
+            elif type(top) in _BUILTIN_SEQ:
+                push_computation(self.handle_seq)
+            elif type(top) is slice:
+                push_computation(self.handle_slice)
+
+            elif isinstance(top, _choosing.BaseChoice):
+                push_computation(self.handle_choice)
+            elif isinstance(top, _choosing.Match):
+                push_computation(self.handle_choice_match)
+            elif isinstance(top, BaseEstimator):
+                push_computation(self.handle_estimator)
+            else:
+                push_computation(self.handle_value)
+
         return last_result
 
     def handle_data_op(self, data_op):
@@ -251,9 +305,11 @@ class _Evaluator(_DataOpTraversal):
             return self.environment[impl.name]
         return impl.results[self.mode]
 
-    def _store(self, data_op, result):
+    def _store(self, data_op, result, duration):
         """Store a result in the cache."""
         data_op._skrub_impl.results[self.mode] = result
+        metadata = data_op._skrub_impl.metadata.setdefault(self.mode, {})
+        metadata["eval_duration"] = duration
 
     def handle_data_op(self, data_op):
         try:
@@ -261,7 +317,8 @@ class _Evaluator(_DataOpTraversal):
         except KeyError:
             pass
         result = yield from self._eval_data_op(data_op)
-        self._store(data_op, result)
+        duration = yield _CurrentNodeDuration()
+        self._store(data_op, result, duration)
         for cb in self.callbacks:
             cb(data_op, result)
         return result
@@ -382,8 +439,6 @@ def evaluate(data_op, mode="preview", environment=None, clear=False, callbacks=(
         The signature is callback(data_op, result) where data_op is the DataOp
         that was just evaluated and result is the resulting value.
     """
-    requested_mode = mode
-    mode = "fit_transform" if requested_mode == "fit" else requested_mode
     _check_environment(environment)
     if clear:
         callbacks = (_cache_pruner(data_op, mode),) + tuple(callbacks)
@@ -391,10 +446,9 @@ def evaluate(data_op, mode="preview", environment=None, clear=False, callbacks=(
     else:
         callbacks = ()
     try:
-        result = _Evaluator(
-            mode=mode, environment=environment, callbacks=callbacks
-        ).run(data_op)
-        return data_op if requested_mode == "fit" else result
+        return _Evaluator(mode=mode, environment=environment, callbacks=callbacks).run(
+            data_op
+        )
     finally:
         if clear:
             clear_results(data_op, mode=mode)
@@ -609,9 +663,11 @@ def clear_results(data_op, mode=None):
         if mode is None:
             n._skrub_impl.results = {}
             n._skrub_impl.errors = {}
+            n._skrub_impl.metadata = {}
         else:
             n._skrub_impl.results.pop(mode, None)
             n._skrub_impl.errors.pop(mode, None)
+            n._skrub_impl.metadata.pop(mode, None)
 
 
 def _choice_display_names(choices):
@@ -642,7 +698,7 @@ def _choice_display_names(choices):
     add(c_id for (c_id, c) in choices.items() if c.name is not None)
     add(c_id for (c_id, c) in choices.items() if c.name is None)
     # keep the same order as in choices
-    return {c_id: names[c_id] for c_id in choices.keys()}
+    return {c_id: names[c_id] for c_id in choices}
 
 
 class _ChoiceGraph(_DataOpTraversal):
@@ -896,39 +952,97 @@ def set_params(data_op, params):
             target.chosen_outcome = v
 
 
-class _ChosenOrDefaultOutcomes(_DataOpTraversal):
-    """Helper for `chosen_or_default_outcomes`."""
+def choice_default(choice_id, display_name, choice):
+    if isinstance(choice, _choosing.Choice):
+        return choice.chosen_outcome_idx or 0
+    else:
+        return choice.chosen_outcome_or_default()
 
-    def run(self, data_op):
+
+def random_choice(random_state):
+    """Create a policy for eval_choices() that picks random choice outcomes."""
+    random_state = check_random_state(random_state)
+
+    def policy(choice_id, display_name, choice):
+        if hasattr(choice, "rvs"):
+            return choice.rvs(random_state=random_state)
+        return int(random_state.randint(len(choice.outcomes)))
+
+    return policy
+
+
+def optuna_suggestion(trial):
+    """
+    Create a policy for eval_choices() that picks choice outcomes by calling the
+    optuna Trial's 'suggest_*' methods.
+    """
+
+    def policy(choice_id, display_name, choice):
+        name = f"{choice_id}:{display_name}"
+        if isinstance(choice, _choosing.BaseNumericChoice):
+            if choice.to_int:
+                func = trial.suggest_int
+                default_step = 1
+            else:
+                func = trial.suggest_float
+                default_step = None
+            return func(
+                name,
+                choice.low,
+                choice.high,
+                log=choice.log,
+                step=getattr(choice, "step", default_step),
+            )
+        if choice.outcome_names is None:
+            outcome_names = list(map(short_repr, choice.outcomes))
+        else:
+            outcome_names = choice.outcome_names
+        outcome_names = [f"{i}:{n}" for i, n in enumerate(outcome_names)]
+        result = trial.suggest_categorical(name, outcome_names)
+        return int(result.split(":", 1)[0])
+
+    return policy
+
+
+class _ChoiceEvaluator(_DataOpTraversal):
+    """Helper for `eval_choices`."""
+
+    def run(self, data_op, policy):
+        graph = choice_graph(data_op)
+        data_op_choices = graph["choices"]
+        self.display_names = graph["choice_display_names"]
+        self.choice_ids = {id(c): k for k, c in data_op_choices.items()}
+        self.Xy_choices = graph["Xy_choices"]
+        self.policy = policy
         self.chosen = {}
         self.results = {}
         _ = super().run(data_op)
         return self.chosen
 
     def handle_choice(self, choice):
-        if id(choice) in self.results:
-            return self.results[id(choice)]
-        if not isinstance(choice, _choosing.Choice):
-            # We have a NumericChoice, the outcome is simply a number
-            outcome = choice.chosen_outcome_or_default()
-            self.chosen[id(choice)] = outcome
-            self.results[id(choice)] = outcome
-            return outcome
-        # We have a Choice and need to visit the chosen outcome (it may contain
-        # further choices).
-        idx = choice.chosen_outcome_idx or 0
-        self.chosen[id(choice)] = idx
-        outcome = choice.outcomes[idx]
-        result = yield outcome
-        self.results[id(choice)] = result
-        return result
+        c_id = self.choice_ids[id(choice)]
+        if c_id in self.results:
+            return self.results[c_id]
+        display_name = self.display_names[c_id]
+        if c_id in self.Xy_choices:
+            # Clamp to default if ancestor of X or y
+            param = choice_default(c_id, display_name, choice)
+        else:
+            param = self.policy(c_id, display_name, choice)
+        if isinstance(choice, _choosing.Choice):
+            value = yield choice.outcomes[param]
+        else:
+            value = param
+        self.chosen[c_id] = param
+        self.results[c_id] = value
+        return value
 
     def handle_choice_match(self, choice_match):
         outcome = yield choice_match.choice
         return (yield choice_match.outcome_mapping[outcome])
 
 
-def chosen_or_default_outcomes(data_op):
+def eval_choices(data_op, policy=choice_default):
     """Get the selected or default outcomes for choices in the DataOp.
 
     Return a mapping from the choice's ID (0, 1, ... -- see `choice_graph`) to
@@ -946,7 +1060,7 @@ def chosen_or_default_outcomes(data_op):
     >>> from sklearn.linear_model import Ridge
     >>> from sklearn.dummy import DummyRegressor
     >>> from skrub import choose_from, choose_float
-    >>> from skrub._data_ops._evaluation import chosen_or_default_outcomes, choices
+    >>> from skrub._data_ops._evaluation import eval_choices, choices
 
     >>> e = choose_from(
     ...     [DummyRegressor(), Ridge(alpha=choose_float(0.1, 1.0, name="alpha"))],
@@ -962,18 +1076,15 @@ def chosen_or_default_outcomes(data_op):
 
     In the default configuration, the 'regressor' chooses the DummyRegressor. So the
     'alpha' choice is not used. It does not appear in the
-    `chosen_or_default_outcomes` result:
+    `eval_choices` result:
 
-    >>> pprint(chosen_or_default_outcomes(e))
+    >>> pprint(eval_choices(e))
     {1: 0}
 
     Here we only see that choice 'regressor' (ID 1) in chooses its first outcome
     (index 0), and the choice 'alpha' (ID 0) does not appear.
     """  # noqa: E501
-    data_op_choices = choices(data_op)
-    short_ids = {id(c): k for k, c in data_op_choices.items()}
-    outcomes = _ChosenOrDefaultOutcomes().run(data_op)
-    return {short_ids[k]: v for k, v in outcomes.items()}
+    return _ChoiceEvaluator().run(data_op, policy=policy)
 
 
 class _Found(Exception):
@@ -1186,5 +1297,5 @@ def supported_modes(data_op):
     """The evaluation modes that the final estimator supports."""
     first = find_first_apply(data_op)
     if first is None:
-        return ["preview", "fit_transform", "transform"]
+        return ["preview", "fit", "fit_transform", "transform"]
     return first._skrub_impl.supported_modes()

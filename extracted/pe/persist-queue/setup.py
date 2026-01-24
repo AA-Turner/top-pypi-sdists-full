@@ -6,7 +6,11 @@ from setuptools import setup, find_packages
 
 def get_extras():
     return {
-        "extra": open("extra-requirements.txt").read().splitlines()
+        "extra": open("extra-requirements.txt").read().splitlines(),
+        "async": [
+            "aiofiles>=0.8.0",
+            "aiosqlite>=0.17.0"
+        ]
     }
 
 
@@ -40,7 +44,9 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Topic :: Software Development :: Libraries'
     ],
-    package_date={'persistqueue': ['py.typed']}
+    package_data={'persistqueue': ['py.typed']}
 )

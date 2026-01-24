@@ -2,22 +2,15 @@ from __future__ import annotations
 
 from operator import truediv
 from typing import TYPE_CHECKING
-from warnings import warn
 
 import numba
 import numpy as np
+from fast_array_utils import stats
 
 from .. import logging as logg
-from .._compat import CSBase, CSCBase, CSRBase, DaskArray, njit, old_positionals
-from .._utils import axis_mul_or_truediv, axis_sum, dematrix, view_to_actual
+from .._compat import CSBase, CSCBase, CSRBase, DaskArray, njit, old_positionals, warn
+from .._utils import axis_mul_or_truediv, dematrix, view_to_actual
 from ..get import _get_obs_rep, _set_obs_rep
-
-try:
-    import dask
-    import dask.array as da
-except ImportError:
-    da = None
-    dask = None
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -34,9 +27,7 @@ def _compute_nnz_median(counts: np.ndarray | DaskArray) -> np.floating:
 
 @njit
 def _normalize_csr(
-    indptr,
-    indices,
-    data,
+    mat: CSRBase,
     *,
     rows,
     columns,
@@ -45,11 +36,11 @@ def _normalize_csr(
     n_threads: int = 10,
 ):
     """For sparse CSR matrix, compute the normalization factors."""
-    counts_per_cell = np.zeros(rows, dtype=data.dtype)
+    counts_per_cell = np.zeros(rows, dtype=mat.data.dtype)
     for i in numba.prange(rows):
         count = 0.0
-        for j in range(indptr[i], indptr[i + 1]):
-            count += data[j]
+        for j in range(mat.indptr[i], mat.indptr[i + 1]):
+            count += mat.data[j]
         counts_per_cell[i] = count
     if exclude_highly_expressed:
         counts_per_cols_t = np.zeros((n_threads, columns), dtype=np.int32)
@@ -57,18 +48,18 @@ def _normalize_csr(
 
         for i in numba.prange(n_threads):
             for r in range(i, rows, n_threads):
-                for j in range(indptr[r], indptr[r + 1]):
-                    if data[j] > max_fraction * counts_per_cell[r]:
-                        minor_index = indices[j]
+                for j in range(mat.indptr[r], mat.indptr[r + 1]):
+                    if mat.data[j] > max_fraction * counts_per_cell[r]:
+                        minor_index = mat.indices[j]
                         counts_per_cols_t[i, minor_index] += 1
         for c in numba.prange(columns):
             counts_per_cols[c] = counts_per_cols_t[:, c].sum()
 
         for i in numba.prange(rows):
             count = 0.0
-            for j in range(indptr[i], indptr[i + 1]):
-                if counts_per_cols[indices[j]] == 0:
-                    count += data[j]
+            for j in range(mat.indptr[i], mat.indptr[i + 1]):
+                if counts_per_cols[mat.indices[j]] == 0:
+                    count += mat.data[j]
             counts_per_cell[i] = count
 
     return counts_per_cell, counts_per_cols
@@ -102,9 +93,7 @@ def _normalize_total_helper(
     if isinstance(x, CSRBase):
         n_threads = numba.get_num_threads()
         counts_per_cell, counts_per_cols = _normalize_csr(
-            x.indptr,
-            x.indices,
-            x.data,
+            x,
             rows=x.shape[0],
             columns=x.shape[1],
             exclude_highly_expressed=exclude_highly_expressed,
@@ -116,22 +105,22 @@ def _normalize_total_helper(
         if exclude_highly_expressed:
             gene_subset = ~np.where(counts_per_cols)[0]
     else:
-        counts_per_cell = axis_sum(x, axis=1)
+        counts_per_cell = stats.sum(x, axis=1)
         if exclude_highly_expressed:
             # at least one cell as more than max_fraction of counts per cell
             hi_exp = dematrix(x > counts_per_cell[:, None] * max_fraction)
-            gene_subset = axis_sum(hi_exp, axis=0) == 0
+            gene_subset = stats.sum(hi_exp, axis=0) == 0
 
-            counts_per_cell = axis_sum(x[:, gene_subset], axis=1)
+            counts_per_cell = stats.sum(x[:, gene_subset], axis=1)
         if target_sum is None:
             target_sum = _compute_nnz_median(counts_per_cell)
 
     counts_per_cell = counts_per_cell / target_sum
     out = x if isinstance(x, np.ndarray | CSBase) else None
-    X = axis_mul_or_truediv(
+    x = axis_mul_or_truediv(
         x, counts_per_cell, op=truediv, out=out, allow_divide_by_zero=False, axis=0
     )
-    return X, counts_per_cell, gene_subset
+    return x, counts_per_cell, gene_subset
 
 
 @old_positionals(
@@ -151,6 +140,7 @@ def normalize_total(  # noqa: PLR0912
     max_fraction: float = 0.05,
     key_added: str | None = None,
     layer: str | None = None,
+    obsm: str | None = None,
     inplace: bool = True,
     copy: bool = False,
 ) -> AnnData | dict[str, np.ndarray] | None:
@@ -168,13 +158,15 @@ def normalize_total(  # noqa: PLR0912
     Similar functions are used, for example, by Seurat :cite:p:`Satija2015`, Cell Ranger
     :cite:p:`Zheng2017` or SPRING :cite:p:`Weinreb2017`.
 
+    .. array-support:: pp.normalize_total
+
     .. note::
         When used with a :class:`~dask.array.Array` in `adata.X`, this function will have to
         call functions that trigger `.compute()` on the :class:`~dask.array.Array` if `exclude_highly_expressed`
         is `True`, `layer_norm` is not `None`, or if `key_added` is not `None`.
 
-    Params
-    ------
+    Parameters
+    ----------
     adata
         The annotated data matrix of shape `n_obs` × `n_vars`.
         Rows correspond to cells and columns to genes.
@@ -197,7 +189,9 @@ def normalize_total(  # noqa: PLR0912
         Name of the field in `adata.obs` where the normalization factor is
         stored.
     layer
-        Layer to normalize instead of `X`. If `None`, `X` is normalized.
+        Layer to normalize instead of `X`.
+    obsm
+        Array to normalize instead of `X`.
     inplace
         Whether to update `adata` or return dictionary with normalized copies of
         `adata.X` and `adata.layers`.
@@ -268,10 +262,7 @@ def normalize_total(  # noqa: PLR0912
 
     view_to_actual(adata)
 
-    x = _get_obs_rep(adata, layer=layer)
-    if x is None:
-        msg = f"Layer {layer!r} not found in adata."
-        raise ValueError(msg)
+    x = _get_obs_rep(adata, layer=layer, obsm=obsm)
     if isinstance(x, CSCBase):
         x = x.tocsr()
     if not inplace:
@@ -281,7 +272,7 @@ def normalize_total(  # noqa: PLR0912
 
     start = logg.info("normalizing counts per cell")
 
-    X, counts_per_cell, gene_subset = _normalize_total_helper(
+    x, counts_per_cell, gene_subset = _normalize_total_helper(
         x,
         exclude_highly_expressed=exclude_highly_expressed,
         max_fraction=max_fraction,
@@ -296,16 +287,16 @@ def normalize_total(  # noqa: PLR0912
 
     cell_subset = counts_per_cell > 0
     if not isinstance(cell_subset, DaskArray) and not np.all(cell_subset):
-        warn("Some cells have zero counts", UserWarning, stacklevel=2)
+        warn("Some cells have zero counts", UserWarning)
 
     dat = dict(
-        X=X,
+        X=x,
         norm_factor=counts_per_cell,
     )
     if inplace:
         if key_added is not None:
             adata.obs[key_added] = dat["norm_factor"]
-        _set_obs_rep(adata, dat["X"], layer=layer)
+        _set_obs_rep(adata, dat["X"], layer=layer, obsm=obsm)
 
     logg.info(
         "    finished ({time_passed})",

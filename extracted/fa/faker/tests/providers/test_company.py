@@ -116,6 +116,54 @@ class TestFrFr:
             assert len(siret) == 17
             assert luhn_checksum(siret.replace(" ", "")) == 0
 
+    def test_company_vat(self, faker, num_samples):
+        for _ in range(num_samples):
+            vat_number = faker.company_vat()
+            assert isinstance(vat_number, str)
+            match = re.fullmatch(r"FR (?P<checksum>\d\d) (?P<siren>\d{3} \d{3} \d{3})", vat_number)
+            assert match
+            generated_checksum = int(match.group("checksum"))
+            siren = match.group("siren")
+            siren_int = int("".join(c for c in siren if c.isdigit()))
+            checksum = (12 + 3 * (siren_int % 97)) % 97
+            assert generated_checksum == checksum
+
+            vat_number = faker.company_vat(siren="123 456 789")
+            assert vat_number == "FR 32 123 456 789"
+
+    APE_GENERIC_PATTERN = re.compile(r"^\d{2}\.\d{2}[A-Z]$")
+    APE_2003_PATTERN = re.compile(r"^\d{2}\.\d{2}[A-FZ]$")
+    APE_2025_PATTERN = re.compile(r"^\d{2}\.\d{2}[YGHJKL]$")
+
+    def test_ape_code(self, faker, num_samples):
+        for _ in range(num_samples):
+            # default version is "naf-2003"
+            code = faker.ape_code()
+            assert isinstance(code, str)
+            assert self.APE_2003_PATTERN.fullmatch(code), f"Invalid NAF 2003 APE code format: {code}"
+            # version naf-2003
+            code = faker.ape_code(version="naf-2003")
+            assert isinstance(code, str)
+            assert self.APE_2003_PATTERN.fullmatch(code), f"Invalid NAF 2003 APE code format: {code}"
+            # version naf-2025
+            code = faker.ape_code(version="naf-2025")
+            assert isinstance(code, str)
+            assert self.APE_2025_PATTERN.fullmatch(code), f"Invalid NAF 2025 APE code format: {code}"
+            # Possibly invalid numbers
+            code = faker.ape_code(version=None)
+            assert isinstance(code, str)
+            assert self.APE_GENERIC_PATTERN.fullmatch(code), f"Invalid APE code format: {code}"
+        with pytest.raises(ValueError):
+            faker.ape_code(version="naf-1984")
+
+    def test_rcs_number(self, faker, num_samples):
+        for _ in range(num_samples):
+            rcs_number = faker.rcs_number()
+            assert isinstance(rcs_number, str)
+            assert re.fullmatch(r"RCS .+ [AB] \d{3} \d{3} \d{3}", rcs_number)
+            rcs_number = faker.rcs_number(city="nom de ville", letter="B", siren="test")
+            assert rcs_number == "RCS nom de ville B test"
+
 
 class TestHyAm:
     """Test hy_AM company provider methods"""

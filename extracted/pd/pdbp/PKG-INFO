@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdbp
-Version: 1.7.1
+Version: 1.8.2
 Summary: pdbp (Pdb+): A drop-in replacement for pdb and pdbpp.
 Home-page: https://github.com/mdmintz/pdbp
 Author: Michael Mintz
@@ -21,7 +21,6 @@ Classifier: Environment :: Console
 Classifier: Environment :: MacOS X
 Classifier: Environment :: Win32 (MS Windows)
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Python Software Foundation License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux

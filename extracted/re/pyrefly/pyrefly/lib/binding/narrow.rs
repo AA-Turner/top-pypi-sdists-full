@@ -7,6 +7,7 @@
 
 use std::fmt;
 
+use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
 use pyrefly_util::assert_words;
 use pyrefly_util::display::DisplayWith;
@@ -31,20 +32,24 @@ use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::binding::binding::Binding;
+use crate::binding::binding::Key;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::scope::NameReadInfo;
 use crate::export::special::SpecialExport;
 use crate::module::module_info::ModuleInfo;
-use crate::types::facet::FacetChain;
-use crate::types::facet::FacetKind;
+use crate::types::facet::UnresolvedFacetChain;
+use crate::types::facet::UnresolvedFacetKind;
 use crate::types::types::Type;
 
 assert_words!(AtomicNarrowOp, 11);
-assert_words!(NarrowOp, 12);
+assert_words!(NarrowOp, 13);
 
 #[derive(Clone, Debug)]
 pub enum AtomicNarrowOp {
@@ -69,6 +74,11 @@ pub enum AtomicNarrowOp {
     TypeNotEq(Expr),
     In(Expr),
     NotIn(Expr),
+    /// Unlike `In`, which models `<value> in <container>`, this tracks a `'key' in <subject>`
+    /// guard where `<subject>` is the dict-like name/facet being narrowed.
+    HasKey(Name),
+    /// The negated version of `HasKey`, representing `'key' not in <subject>`.
+    NotHasKey(Name),
     /// Used to narrow tuple types based on length
     LenEq(Expr),
     LenNotEq(Expr),
@@ -76,6 +86,10 @@ pub enum AtomicNarrowOp {
     LenGte(Expr),
     LenLt(Expr),
     LenLte(Expr),
+    /// Narrowing for sequence pattern matching - confirms the subject is a sequence type
+    IsSequence,
+    /// Negation of IsSequence - confirms the subject is NOT a sequence type
+    IsNotSequence,
     /// (func, args) for a function call that may narrow the type of its first argument.
     Call(Box<Expr>, Arguments),
     NotCall(Box<Expr>, Arguments),
@@ -92,7 +106,7 @@ pub enum AtomicNarrowOp {
 
 #[derive(Clone, Debug)]
 pub enum NarrowOp {
-    Atomic(Option<FacetChain>, AtomicNarrowOp),
+    Atomic(Option<FacetSubject>, AtomicNarrowOp),
     And(Vec<NarrowOp>),
     Or(Vec<NarrowOp>),
 }
@@ -146,12 +160,16 @@ impl DisplayWith<ModuleInfo> for AtomicNarrowOp {
             AtomicNarrowOp::TypeNotEq(expr) => write!(f, "TypeNotEq({})", expr.display_with(ctx)),
             AtomicNarrowOp::In(expr) => write!(f, "In({})", expr.display_with(ctx)),
             AtomicNarrowOp::NotIn(expr) => write!(f, "NotIn({})", expr.display_with(ctx)),
+            AtomicNarrowOp::HasKey(key) => write!(f, "HasKey({key})"),
+            AtomicNarrowOp::NotHasKey(key) => write!(f, "NotHasKey({key})"),
             AtomicNarrowOp::LenEq(expr) => write!(f, "LenEq({})", expr.display_with(ctx)),
             AtomicNarrowOp::LenNotEq(expr) => write!(f, "LenNotEq({})", expr.display_with(ctx)),
             AtomicNarrowOp::LenGt(expr) => write!(f, "LenGt({})", expr.display_with(ctx)),
             AtomicNarrowOp::LenGte(expr) => write!(f, "LenGte({})", expr.display_with(ctx)),
             AtomicNarrowOp::LenLt(expr) => write!(f, "LenLt({})", expr.display_with(ctx)),
             AtomicNarrowOp::LenLte(expr) => write!(f, "LenLte({})", expr.display_with(ctx)),
+            AtomicNarrowOp::IsSequence => write!(f, "IsSequence"),
+            AtomicNarrowOp::IsNotSequence => write!(f, "IsNotSequence"),
             AtomicNarrowOp::Call(expr, arguments) => write!(
                 f,
                 "Call({}, {})",
@@ -176,7 +194,7 @@ impl DisplayWith<ModuleInfo> for NarrowOp {
         match self {
             Self::Atomic(prop, op) => match prop {
                 None => write!(f, "{}", op.display_with(ctx)),
-                Some(prop) => write!(f, "[{prop}] {}", op.display_with(ctx)),
+                Some(prop) => write!(f, "[{}] {}", prop.chain, op.display_with(ctx)),
             },
             Self::And(ops) => {
                 write!(
@@ -213,12 +231,16 @@ impl AtomicNarrowOp {
             Self::NotEq(v) => Self::Eq(v.clone()),
             Self::In(v) => Self::NotIn(v.clone()),
             Self::NotIn(v) => Self::In(v.clone()),
+            Self::HasKey(k) => Self::NotHasKey(k.clone()),
+            Self::NotHasKey(k) => Self::HasKey(k.clone()),
             Self::LenEq(v) => Self::LenNotEq(v.clone()),
             Self::LenGt(v) => Self::LenLte(v.clone()),
             Self::LenGte(v) => Self::LenLt(v.clone()),
             Self::LenLte(v) => Self::LenGt(v.clone()),
             Self::LenLt(v) => Self::LenGte(v.clone()),
             Self::LenNotEq(v) => Self::LenEq(v.clone()),
+            Self::IsSequence => Self::IsNotSequence,
+            Self::IsNotSequence => Self::IsSequence,
             Self::TypeGuard(ty, args) => Self::NotTypeGuard(ty.clone(), args.clone()),
             Self::NotTypeGuard(ty, args) => Self::TypeGuard(ty.clone(), args.clone()),
             Self::TypeIs(ty, args) => Self::NotTypeIs(ty.clone(), args.clone()),
@@ -234,19 +256,51 @@ impl AtomicNarrowOp {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FacetOrigin {
+    // This facet is a direct access, like `x.y`, `x[0]`, `x["key"]`
+    Direct,
+    // This facet came from a call to a `get` method, like `x.get("key")`
+    GetMethod,
+}
+
+#[derive(Clone, Debug)]
+pub struct FacetSubject {
+    pub chain: UnresolvedFacetChain,
+    pub origin: FacetOrigin,
+}
+
 #[derive(Clone, Debug)]
 pub enum NarrowingSubject {
     Name(Name),
-    Facets(Name, FacetChain),
+    Facets(Name, FacetSubject),
 }
 
 impl NarrowingSubject {
-    pub fn with_facet(&self, prop: FacetKind) -> Self {
+    pub fn name(&self) -> &Name {
         match self {
-            Self::Name(name) => Self::Facets(name.clone(), FacetChain::new(Vec1::new(prop))),
-            Self::Facets(name, props) => {
-                let props = Vec1::from_vec_push(props.facets().to_vec(), prop);
-                Self::Facets(name.clone(), FacetChain::new(props))
+            Self::Name(name) | Self::Facets(name, _) => name,
+        }
+    }
+
+    pub fn with_facet(&self, prop: UnresolvedFacetKind) -> Self {
+        match self {
+            Self::Name(name) => Self::Facets(
+                name.clone(),
+                FacetSubject {
+                    chain: UnresolvedFacetChain::new(Vec1::new(prop)),
+                    origin: FacetOrigin::Direct,
+                },
+            ),
+            Self::Facets(name, facets) => {
+                let props = Vec1::from_vec_push(facets.chain.facets().to_vec(), prop);
+                Self::Facets(
+                    name.clone(),
+                    FacetSubject {
+                        chain: UnresolvedFacetChain::new(props),
+                        origin: facets.origin,
+                    },
+                )
             }
         }
     }
@@ -274,6 +328,49 @@ impl NarrowOp {
             _ => *self = Self::Or(vec![self.clone(), other]),
         }
     }
+
+    /// Transforms this narrowing operation to apply to a different subject.
+    ///
+    /// Used when a match pattern creates an alias (e.g., `case Foo() as x:`) and we need
+    /// to mirror the narrowing from the alias back to the original match subject. The
+    /// transformation merges facet chains: if the new subject has facets (e.g., `obj.attr`)
+    /// and this operation has facets, they are concatenated.
+    pub fn for_subject(&self, subject: &NarrowingSubject) -> Self {
+        fn merge_facet_subjects(base: &FacetSubject, extra: &FacetSubject) -> FacetSubject {
+            let mut chain = base.chain.facets().clone();
+            chain.extend(extra.chain.facets().clone());
+            let origin = match (base.origin, extra.origin) {
+                (FacetOrigin::GetMethod, _) | (_, FacetOrigin::GetMethod) => FacetOrigin::GetMethod,
+                _ => FacetOrigin::Direct,
+            };
+            FacetSubject {
+                chain: UnresolvedFacetChain::new(chain),
+                origin,
+            }
+        }
+
+        fn for_facet_subject(
+            subject: &NarrowingSubject,
+            prop: Option<&FacetSubject>,
+        ) -> Option<FacetSubject> {
+            match (subject, prop) {
+                (NarrowingSubject::Name(_), None) => None,
+                (NarrowingSubject::Name(_), Some(facet)) => Some(facet.clone()),
+                (NarrowingSubject::Facets(_, base_facet), None) => Some(base_facet.clone()),
+                (NarrowingSubject::Facets(_, base_facet), Some(facet)) => {
+                    Some(merge_facet_subjects(base_facet, facet))
+                }
+            }
+        }
+
+        match self {
+            Self::Atomic(prop, op) => {
+                Self::Atomic(for_facet_subject(subject, prop.as_ref()), op.clone())
+            }
+            Self::And(ops) => Self::And(ops.map(|op| op.for_subject(subject))),
+            Self::Or(ops) => Self::Or(ops.map(|op| op.for_subject(subject))),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -282,6 +379,24 @@ pub struct NarrowOps(pub SmallMap<Name, (NarrowOp, TextRange)>);
 impl NarrowOps {
     pub fn new() -> Self {
         Self(SmallMap::new())
+    }
+
+    /// Adds or merges a narrowing operation for the given subject.
+    ///
+    /// If the subject's name already has a narrowing operation, combines them with AND.
+    /// Otherwise, inserts a new entry. Used when rebasing alias narrowing operations
+    /// back onto the original match subject.
+    pub fn and_for_subject(&mut self, subject: &NarrowingSubject, op: NarrowOp, range: TextRange) {
+        let name = subject.name().clone();
+        match self.0.entry(name) {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().0.and(op);
+                entry.get_mut().1 = range;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert((op, range));
+            }
+        }
     }
 
     pub fn negate(&self) -> Self {
@@ -312,7 +427,8 @@ impl NarrowOps {
             seen.insert(name.clone());
             self.and(name, op, range);
         }
-        // For names present in `self` but not `other`, `And` their narrows with a placeholder
+        // For names present in `self` but not `other`, `And` their narrows with a placeholder.
+        // This ensures that if a sub-pattern can't prove something, we don't claim we proved it.
         let unmerged_names: Vec<_> = self
             .0
             .keys()
@@ -372,7 +488,7 @@ impl NarrowOps {
         for subject in expr_to_subjects(left) {
             let (name, prop) = match subject {
                 NarrowingSubject::Name(name) => (name, None),
-                NarrowingSubject::Facets(name, prop) => (name, Some(prop)),
+                NarrowingSubject::Facets(name, facets) => (name, Some(facets)),
             };
             if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
                 existing.and(NarrowOp::Atomic(prop, op.clone()));
@@ -393,7 +509,7 @@ impl NarrowOps {
         let mut narrow_ops = Self::new();
         let (name, prop) = match subject {
             NarrowingSubject::Name(name) => (name, None),
-            NarrowingSubject::Facets(name, prop) => (name, Some(prop)),
+            NarrowingSubject::Facets(name, facets) => (name, Some(facets)),
         };
         if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
             existing.and(NarrowOp::Atomic(prop, op.clone()));
@@ -406,14 +522,25 @@ impl NarrowOps {
     }
 
     pub fn from_expr(builder: &BindingsBuilder, test: Option<&Expr>) -> Self {
+        Self::from_expr_helper(builder, test, SmallSet::new())
+    }
+
+    fn from_expr_helper<'a>(
+        builder: &BindingsBuilder,
+        test: Option<&'a Expr>,
+        mut seen: SmallSet<&'a Name>,
+    ) -> Self {
+        let Some(test) = test else {
+            return Self::new();
+        };
         match test {
-            Some(Expr::Compare(ExprCompare {
+            Expr::Compare(ExprCompare {
                 node_index: _,
                 range: _,
                 left,
                 ops: cmp_ops,
                 comparators,
-            })) => {
+            }) => {
                 // If the left expression is a call to `len()` or `getattr()`, we're narrowing the first argument
                 let mut left = &**left;
                 // If the left expression is a call to `getattr()` we store attribute name and default
@@ -428,7 +555,7 @@ impl NarrowOps {
                     special_export = builder.as_special_export(func);
                     if matches!(
                         special_export,
-                        Some(SpecialExport::Len | SpecialExport::Type)
+                        Some(SpecialExport::Len | SpecialExport::BuiltinsType)
                     ) {
                         left = &arguments.args[0];
                     }
@@ -450,16 +577,22 @@ impl NarrowOps {
                         getattr_name = Some(Name::new(value.to_string()));
                     }
                 }
+                // This represents the LHS of whatever comparison operation we're currently on
+                // For `a <= b < c`, this will be `b` for `b < c`
+                let mut curr_left = left;
+                // Generated narrows normally apply to the leftmost expression of the comparison
+                // Narrows that affect other expressions are stored here
+                let mut rhs_narrows = Vec::new();
                 let mut ops = cmp_ops
                     .iter()
                     .zip(comparators)
                     .filter_map(|(cmp_op, right)| {
                         let range = right.range();
                         let op = match (cmp_op, special_export) {
-                            (CmpOp::Is | CmpOp::Eq, Some(SpecialExport::Type)) => {
+                            (CmpOp::Is | CmpOp::Eq, Some(SpecialExport::BuiltinsType)) => {
                                 AtomicNarrowOp::TypeEq(right.clone())
                             }
-                            (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::Type)) => {
+                            (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::BuiltinsType)) => {
                                 AtomicNarrowOp::TypeNotEq(right.clone())
                             }
                             (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::GetAttr))
@@ -493,65 +626,111 @@ impl NarrowOps {
                             }
                             (CmpOp::Eq, _) => AtomicNarrowOp::Eq(right.clone()),
                             (CmpOp::NotEq, _) => AtomicNarrowOp::NotEq(right.clone()),
-                            (CmpOp::In, None) => AtomicNarrowOp::In(right.clone()),
-                            (CmpOp::NotIn, None) => AtomicNarrowOp::NotIn(right.clone()),
+                            (CmpOp::In, None) => {
+                                if let Expr::StringLiteral(ExprStringLiteral {
+                                    value: key, ..
+                                }) = curr_left
+                                {
+                                    let rhs_narrow = NarrowOps::from_single_narrow_op(
+                                        right,
+                                        AtomicNarrowOp::HasKey(Name::new(key.to_string())),
+                                        range,
+                                    );
+                                    rhs_narrows.push(rhs_narrow);
+                                    return None;
+                                }
+                                AtomicNarrowOp::In(right.clone())
+                            }
+                            (CmpOp::NotIn, None) => {
+                                if let Expr::StringLiteral(ExprStringLiteral {
+                                    value: key, ..
+                                }) = curr_left
+                                {
+                                    let rhs_narrow = NarrowOps::from_single_narrow_op(
+                                        right,
+                                        AtomicNarrowOp::NotHasKey(Name::new(key.to_string())),
+                                        range,
+                                    );
+                                    rhs_narrows.push(rhs_narrow);
+                                    return None;
+                                }
+                                AtomicNarrowOp::NotIn(right.clone())
+                            }
                             _ => {
                                 return None;
                             }
                         };
+                        curr_left = right;
                         Some((op, range))
                     });
                 match ops.next() {
-                    None => Self::new(),
+                    None => {
+                        let mut rhs_narrows = rhs_narrows.iter();
+                        if let Some(first) = rhs_narrows.next() {
+                            let mut narrow_ops = first.clone();
+                            for rhs_narrow in rhs_narrows {
+                                narrow_ops.and_all(rhs_narrow.clone());
+                            }
+                            narrow_ops
+                        } else {
+                            Self::new()
+                        }
+                    }
                     Some((op, range)) => {
                         let mut narrow_ops = NarrowOps::from_single_narrow_op(left, op, range);
                         for (op, range) in ops {
                             narrow_ops.and_all(NarrowOps::from_single_narrow_op(left, op, range));
                         }
+                        for rhs_narrow in rhs_narrows {
+                            narrow_ops.and_all(rhs_narrow);
+                        }
                         narrow_ops
                     }
                 }
             }
-            Some(Expr::BoolOp(ExprBoolOp {
+            Expr::BoolOp(ExprBoolOp {
                 node_index: _,
                 range: _,
                 op,
                 values,
-            })) => {
+            }) => {
                 let extend = match op {
                     BoolOp::And => NarrowOps::and_all,
                     BoolOp::Or => NarrowOps::or_all,
                 };
                 let mut exprs = values.iter();
-                let mut narrow_ops = Self::from_expr(builder, exprs.next());
+                let mut narrow_ops = Self::from_expr_helper(builder, exprs.next(), seen.clone());
                 for next_val in exprs {
-                    extend(&mut narrow_ops, Self::from_expr(builder, Some(next_val)))
+                    extend(
+                        &mut narrow_ops,
+                        Self::from_expr_helper(builder, Some(next_val), seen.clone()),
+                    )
                 }
                 narrow_ops
             }
-            Some(Expr::UnaryOp(ExprUnaryOp {
+            Expr::UnaryOp(ExprUnaryOp {
                 node_index: _,
                 range: _,
                 op: UnaryOp::Not,
                 operand: e,
-            })) => Self::from_expr(builder, Some(e)).negate(),
-            Some(Expr::Call(ExprCall {
+            }) => Self::from_expr_helper(builder, Some(e), seen).negate(),
+            Expr::Call(ExprCall {
                 node_index: _,
                 range,
                 func,
                 arguments,
-            })) if builder.as_special_export(func) == Some(SpecialExport::Bool)
+            }) if builder.as_special_export(func) == Some(SpecialExport::Bool)
                 && arguments.args.len() == 1
                 && arguments.keywords.is_empty() =>
             {
                 Self::from_single_narrow_op(&arguments.args[0], AtomicNarrowOp::IsTruthy, *range)
             }
-            Some(Expr::Call(ExprCall {
+            Expr::Call(ExprCall {
                 node_index: _,
                 range,
                 func,
                 arguments,
-            })) if builder.as_special_export(func) == Some(SpecialExport::HasAttr)
+            }) if builder.as_special_export(func) == Some(SpecialExport::HasAttr)
                 && arguments.args.len() == 2
                 && arguments.keywords.is_empty()
                 && let Expr::StringLiteral(ExprStringLiteral { value, .. }) =
@@ -563,12 +742,12 @@ impl NarrowOps {
                     *range,
                 )
             }
-            Some(Expr::Call(ExprCall {
+            Expr::Call(ExprCall {
                 node_index: _,
                 range,
                 func,
                 arguments,
-            })) if builder.as_special_export(func) == Some(SpecialExport::GetAttr)
+            }) if builder.as_special_export(func) == Some(SpecialExport::GetAttr)
                 && (arguments.args.len() == 2 || arguments.args.len() == 3)
                 && arguments.keywords.is_empty()
                 && let Expr::StringLiteral(ExprStringLiteral { value, .. }) =
@@ -587,12 +766,18 @@ impl NarrowOps {
                     *range,
                 )
             }
-            Some(Expr::Call(ExprCall {
+            e @ Expr::Call(call) if dict_get_subject_for_call_expr(call).is_some() => {
+                // When the guard is something like `x.get("key")`, we narrow it like `x["key"]` if `x` resolves to a dict
+                // in the answers step.
+                // This cannot be a TypeGuard/TypeIs function call, since the first argument is a string literal
+                Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range())
+            }
+            Expr::Call(ExprCall {
                 node_index: _,
                 range,
                 func,
                 arguments: args @ Arguments { args: posargs, .. },
-            })) if !posargs.is_empty() => {
+            }) if !posargs.is_empty() => {
                 // This may be a function call that narrows the type of its first argument. Record
                 // it as a possible narrowing operation that we'll resolve in the answers phase.
                 Self::from_single_narrow_op(
@@ -601,13 +786,14 @@ impl NarrowOps {
                     *range,
                 )
             }
-            Some(Expr::Named(named)) => {
+            Expr::Named(named) => {
                 let mut target_narrow = Self::from_single_narrow_op(
                     &named.target,
                     AtomicNarrowOp::IsTruthy,
                     named.target.range(),
                 );
-                let value_narrow = Self::from_expr(builder, Some(*named.value.clone()).as_ref());
+                let value_narrow =
+                    Self::from_expr_helper(builder, Some(*named.value.clone()).as_ref(), seen);
                 // Merge the entries from the two `NarrowOps`
                 // We don't use `and_all` because it always generates placeholders when the entry is not present.
                 // This causes `Or` ops to be generated when the narrowing is negated, which is correct for
@@ -625,8 +811,98 @@ impl NarrowOps {
                 }
                 target_narrow
             }
-            Some(e) => Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range()),
-            None => Self::new(),
+            e @ Expr::Name(name) => {
+                if !seen.insert(name.id()) {
+                    Self::new()
+                } else {
+                    // Look up the definition of `name`.
+                    let original_expr = match Self::get_original_binding(builder, &name.id) {
+                        Some((
+                            _,
+                            Some(Binding::NameAssign {
+                                expr: original_expr,
+                                ..
+                            }),
+                        )) => Some(&**original_expr),
+                        _ => None,
+                    };
+                    let mut ops = Self::from_expr_helper(builder, original_expr, seen);
+                    ops.0.retain(|name, (op, op_range)| {
+                        Self::op_is_still_valid(builder, name, op, *op_range)
+                    });
+                    // Merge the narrow ops from the original definition with IsTruthy(name).
+                    ops.0.insert(
+                        name.id.clone(),
+                        (NarrowOp::Atomic(None, AtomicNarrowOp::IsTruthy), e.range()),
+                    );
+                    ops
+                }
+            }
+            e => Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range()),
+        }
+    }
+
+    fn get_original_binding<'a>(
+        builder: &'a BindingsBuilder,
+        name: &Name,
+    ) -> Option<(Idx<Key>, Option<&'a Binding>)> {
+        let name_read_info = builder.scopes.look_up_name_for_read(Hashed::new(name));
+        match name_read_info {
+            NameReadInfo::Flow { idx, .. } => builder.get_original_binding(idx),
+            _ => None,
+        }
+    }
+
+    fn op_is_still_valid(
+        builder: &BindingsBuilder,
+        name: &Name,
+        op: &NarrowOp,
+        op_range: TextRange,
+    ) -> bool {
+        // Check (1) if `op` checks a property of `name` that can't be invalidated without
+        // reassigning `name` and (2) whether `name` is reassigned after `op` is computed.
+        match op {
+            NarrowOp::And(ops) | NarrowOp::Or(ops) => ops
+                .iter()
+                .all(|op| Self::op_is_still_valid(builder, name, op, op_range)),
+            // A non-None facet subject means we're narrowing something like an attribute or a dict item.
+            NarrowOp::Atomic(Some(_), _) => false,
+            NarrowOp::Atomic(None, op) => match op {
+                AtomicNarrowOp::Is(..)
+                | AtomicNarrowOp::IsNot(..)
+                | AtomicNarrowOp::Eq(..)
+                | AtomicNarrowOp::NotEq(..)
+                // Technically the `__class__` attribute can be mutated, but code that does that
+                // probably isn't statically analyzable anyway.
+                | AtomicNarrowOp::IsInstance(..)
+                | AtomicNarrowOp::IsNotInstance(..)
+                | AtomicNarrowOp::IsSubclass(..)
+                | AtomicNarrowOp::IsNotSubclass(..)
+                | AtomicNarrowOp::TypeEq(..)
+                | AtomicNarrowOp::TypeNotEq(..)
+                // The len ops are only applied to tuples, which are immutable.
+                | AtomicNarrowOp::LenEq(..)
+                | AtomicNarrowOp::LenNotEq(..)
+                | AtomicNarrowOp::LenGt(..)
+                | AtomicNarrowOp::LenGte(..)
+                | AtomicNarrowOp::LenLt(..)
+                | AtomicNarrowOp::LenLte(..)
+                // This is technically unsafe, because it marks arbitrary TypeGuard/TypeIs results
+                // as still valid, but we need to allow this for `isinstance` and friends to work.
+                | AtomicNarrowOp::Call(..)
+                | AtomicNarrowOp::NotCall(..)
+                // The only objects that have different truthy and falsy types
+                // (True vs. False, empty vs. non-empty tuple, etc.) are immutable.
+                | AtomicNarrowOp::IsTruthy
+                | AtomicNarrowOp::IsFalsy
+                | AtomicNarrowOp::Placeholder => match builder.scopes.binding_idx_for_name(name) {
+                    // Make sure the last definition of `name` is before the narrowing operation,
+                    // so we know that `name` hasn't been redefined post-narrowing.
+                    Some((idx, _)) => builder.idx_to_key(idx).range().end() <= op_range.start(),
+                    None => true,
+                },
+                _ => false,
+            },
         }
     }
 }
@@ -634,21 +910,26 @@ impl NarrowOps {
 /// Given an expression, determine whether it is a chain of properties (attribute/concrete index) rooted at a name,
 /// and if so, return the name and the chain of properties.
 /// For example: x.y.[0].z
-pub fn identifier_and_chain_for_expr(expr: &Expr) -> Option<(Identifier, FacetChain)> {
-    fn f(expr: &Expr, mut rev_chain: Vec<FacetKind>) -> Option<(Identifier, FacetChain)> {
+pub fn identifier_and_chain_for_expr(expr: &Expr) -> Option<(Identifier, UnresolvedFacetChain)> {
+    fn f(
+        expr: &Expr,
+        mut rev_chain: Vec<UnresolvedFacetKind>,
+    ) -> Option<(Identifier, UnresolvedFacetChain)> {
         if let Expr::Attribute(attr) = expr {
             match &*attr.value {
                 Expr::Name(name) => {
-                    let mut final_chain =
-                        Vec1::from_vec_push(rev_chain, FacetKind::Attribute(attr.attr.id.clone()));
+                    let mut final_chain = Vec1::from_vec_push(
+                        rev_chain,
+                        UnresolvedFacetKind::Attribute(attr.attr.id.clone()),
+                    );
                     final_chain.reverse();
                     Some((
                         Ast::expr_name_identifier(name.clone()),
-                        FacetChain::new(final_chain),
+                        UnresolvedFacetChain::new(final_chain),
                     ))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_chain.push(FacetKind::Attribute(attr.attr.id.clone()));
+                    rev_chain.push(UnresolvedFacetKind::Attribute(attr.attr.id.clone()));
                     f(parent, rev_chain)
                 }
                 _ => None,
@@ -662,15 +943,39 @@ pub fn identifier_and_chain_for_expr(expr: &Expr) -> Option<(Identifier, FacetCh
         {
             match &*subscript.value {
                 Expr::Name(name) => {
-                    let mut final_chain = Vec1::from_vec_push(rev_chain, FacetKind::Index(idx));
+                    let mut final_chain =
+                        Vec1::from_vec_push(rev_chain, UnresolvedFacetKind::Index(idx));
                     final_chain.reverse();
                     Some((
                         Ast::expr_name_identifier(name.clone()),
-                        FacetChain::new(final_chain),
+                        UnresolvedFacetChain::new(final_chain),
                     ))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_chain.push(FacetKind::Index(idx));
+                    rev_chain.push(UnresolvedFacetKind::Index(idx));
+                    f(parent, rev_chain)
+                }
+                _ => None,
+            }
+        } else if let Expr::Subscript(subscript @ ExprSubscript { slice, .. }) = expr
+            && let Expr::Name(var) = &**slice
+        {
+            // The subscript slice is a variable which can have an arbitrary type
+            // the type gets resolved later
+            match &*subscript.value {
+                Expr::Name(name) => {
+                    let mut final_chain = Vec1::from_vec_push(
+                        rev_chain,
+                        UnresolvedFacetKind::VariableSubscript(var.clone()),
+                    );
+                    final_chain.reverse();
+                    Some((
+                        Ast::expr_name_identifier(name.clone()),
+                        UnresolvedFacetChain::new(final_chain),
+                    ))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_chain.push(UnresolvedFacetKind::VariableSubscript(var.clone()));
                     f(parent, rev_chain)
                 }
                 _ => None,
@@ -681,15 +986,15 @@ pub fn identifier_and_chain_for_expr(expr: &Expr) -> Option<(Identifier, FacetCh
             match &*subscript.value {
                 Expr::Name(name) => {
                     let mut final_chain =
-                        Vec1::from_vec_push(rev_chain, FacetKind::Key(key.to_string()));
+                        Vec1::from_vec_push(rev_chain, UnresolvedFacetKind::Key(key.to_string()));
                     final_chain.reverse();
                     Some((
                         Ast::expr_name_identifier(name.clone()),
-                        FacetChain::new(final_chain),
+                        UnresolvedFacetChain::new(final_chain),
                     ))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_chain.push(FacetKind::Key(key.to_string()));
+                    rev_chain.push(UnresolvedFacetKind::Key(key.to_string()));
                     f(parent, rev_chain)
                 }
                 _ => None,
@@ -704,17 +1009,22 @@ pub fn identifier_and_chain_for_expr(expr: &Expr) -> Option<(Identifier, FacetCh
 /// Similar to identifier_and_chain_for_expr, except if we encounter a non-concrete subscript in the chain
 /// we only return the prefix before that location.
 /// For example: w.x[y].z -> w.x
-pub fn identifier_and_chain_prefix_for_expr(expr: &Expr) -> Option<(Identifier, Vec<FacetKind>)> {
-    fn f(expr: &Expr, mut rev_chain: Vec<FacetKind>) -> Option<(Identifier, Vec<FacetKind>)> {
+pub fn identifier_and_chain_prefix_for_expr(
+    expr: &Expr,
+) -> Option<(Identifier, Vec<UnresolvedFacetKind>)> {
+    fn f(
+        expr: &Expr,
+        mut rev_chain: Vec<UnresolvedFacetKind>,
+    ) -> Option<(Identifier, Vec<UnresolvedFacetKind>)> {
         if let Expr::Attribute(attr) = expr {
             match &*attr.value {
                 Expr::Name(name) => {
-                    rev_chain.push(FacetKind::Attribute(attr.attr.id.clone()));
+                    rev_chain.push(UnresolvedFacetKind::Attribute(attr.attr.id.clone()));
                     rev_chain.reverse();
                     Some((Ast::expr_name_identifier(name.clone()), rev_chain))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_chain.push(FacetKind::Attribute(attr.attr.id.clone()));
+                    rev_chain.push(UnresolvedFacetKind::Attribute(attr.attr.id.clone()));
                     f(parent, rev_chain)
                 }
                 _ => None,
@@ -728,12 +1038,29 @@ pub fn identifier_and_chain_prefix_for_expr(expr: &Expr) -> Option<(Identifier, 
         {
             match &*subscript.value {
                 Expr::Name(name) => {
-                    rev_chain.push(FacetKind::Index(idx));
+                    rev_chain.push(UnresolvedFacetKind::Index(idx));
                     rev_chain.reverse();
                     Some((Ast::expr_name_identifier(name.clone()), rev_chain))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_chain.push(FacetKind::Index(idx));
+                    rev_chain.push(UnresolvedFacetKind::Index(idx));
+                    f(parent, rev_chain)
+                }
+                _ => None,
+            }
+        } else if let Expr::Subscript(subscript @ ExprSubscript { slice, .. }) = expr
+            && let Expr::Name(var) = &**slice
+        {
+            // The subscript slice is a variable which can have an arbitrary type
+            // the type gets resolved later
+            match &*subscript.value {
+                Expr::Name(name) => {
+                    rev_chain.push(UnresolvedFacetKind::VariableSubscript(var.clone()));
+                    rev_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_chain))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_chain.push(UnresolvedFacetKind::VariableSubscript(var.clone()));
                     f(parent, rev_chain)
                 }
                 _ => None,
@@ -743,12 +1070,12 @@ pub fn identifier_and_chain_prefix_for_expr(expr: &Expr) -> Option<(Identifier, 
         {
             match &*subscript.value {
                 Expr::Name(name) => {
-                    rev_chain.push(FacetKind::Key(key.to_string()));
+                    rev_chain.push(UnresolvedFacetKind::Key(key.to_string()));
                     rev_chain.reverse();
                     Some((Ast::expr_name_identifier(name.clone()), rev_chain))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_chain.push(FacetKind::Key(key.to_string()));
+                    rev_chain.push(UnresolvedFacetKind::Key(key.to_string()));
                     f(parent, rev_chain)
                 }
                 _ => None,
@@ -770,16 +1097,66 @@ pub fn identifier_and_chain_prefix_for_expr(expr: &Expr) -> Option<(Identifier, 
     f(expr, Vec::new())
 }
 
-fn subject_for_expr(expr: &Expr) -> Option<NarrowingSubject> {
-    identifier_and_chain_for_expr(expr)
-        .map(|(identifier, attr)| NarrowingSubject::Facets(identifier.id, attr))
+// Handle narrowing on `dict.get("key")`. During solving, if the resolved
+// type of the object is not a subtype of `dict`, we will not perform any narrowing.
+fn dict_get_subject_for_call_expr(call_expr: &ExprCall) -> Option<NarrowingSubject> {
+    let func = &call_expr.func;
+    let arguments = &call_expr.arguments;
+    if arguments.keywords.is_empty()
+        && arguments.args.len() == 1
+        && let Some(first_arg) = arguments.args.first()
+        && let Expr::Attribute(attr) = &**func
+        && attr.attr.id.as_str() == "get"
+        && let Expr::StringLiteral(ExprStringLiteral { value, .. }) = first_arg
+    {
+        let key = value.to_string();
+        if let Some((identifier, facets)) = identifier_and_chain_for_expr(&attr.value) {
+            // x.y.z.get("key")
+            let props = Vec1::from_vec_push(
+                facets.facets().to_vec(),
+                UnresolvedFacetKind::Key(key.clone()),
+            );
+            return Some(NarrowingSubject::Facets(
+                identifier.id,
+                FacetSubject {
+                    chain: UnresolvedFacetChain::new(props),
+                    origin: FacetOrigin::GetMethod,
+                },
+            ));
+        } else if let Expr::Name(name) = &*attr.value {
+            // x.get("key")
+            return Some(NarrowingSubject::Facets(
+                name.id.clone(),
+                FacetSubject {
+                    chain: UnresolvedFacetChain::new(Vec1::new(UnresolvedFacetKind::Key(key))),
+                    origin: FacetOrigin::GetMethod,
+                },
+            ));
+        }
+    }
+    None
 }
 
 pub fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
     fn f(expr: &Expr, res: &mut Vec<NarrowingSubject>) {
         match expr {
             Expr::Name(name) => res.push(NarrowingSubject::Name(name.id.clone())),
-            Expr::Attribute(_) | Expr::Subscript(_) => res.extend(subject_for_expr(expr)),
+            Expr::Attribute(_) | Expr::Subscript(_) => {
+                if let Some((identifier, facets)) = identifier_and_chain_for_expr(expr) {
+                    res.push(NarrowingSubject::Facets(
+                        identifier.id,
+                        FacetSubject {
+                            chain: facets,
+                            origin: FacetOrigin::Direct,
+                        },
+                    ));
+                }
+            }
+            Expr::Call(call) => {
+                if let Some(subject) = dict_get_subject_for_call_expr(call) {
+                    res.push(subject);
+                }
+            }
             Expr::Named(ExprNamed { target, value, .. }) => {
                 f(target, res);
                 f(value, res);

@@ -1,11 +1,25 @@
-import pdb
-import pprint
-import pytest
-from pyscipopt import Model, Variable, log, exp, cos, sin, sqrt
-from pyscipopt import Expr, MatrixExpr, MatrixVariable, MatrixExprCons, MatrixConstraint, ExprCons
+import operator
 from time import time
 
 import numpy as np
+import pytest
+
+from pyscipopt import (
+    Expr,
+    ExprCons,
+    MatrixConstraint,
+    MatrixExpr,
+    MatrixExprCons,
+    MatrixVariable,
+    Model,
+    Variable,
+    cos,
+    exp,
+    log,
+    sin,
+    sqrt,
+)
+from pyscipopt.scip import GenExpr
 
 
 def test_catching_errors():
@@ -15,12 +29,15 @@ def test_catching_errors():
     y = m.addMatrixVar(shape=(3, 3))
     rhs = np.ones((2, 1))
 
-    with pytest.raises(Exception):
-        m.addMatrixCons(x <= 1)
-
+    # require ExprCons
     with pytest.raises(Exception):
         m.addCons(y <= 3)
 
+    # require MatrixExprCons or ExprCons
+    with pytest.raises(Exception):
+        m.addMatrixCons(x)
+
+    # test shape mismatch
     with pytest.raises(Exception):
         m.addMatrixCons(y <= rhs)
 
@@ -163,6 +180,53 @@ def test_expr_from_matrix_vars():
         expr_list = list(expr.terms.items())
         for term, coeff in expr_list:
             assert len(term) == 3
+
+def test_matrix_sum_argument():
+    m = Model()
+
+    # Return a array when axis isn't None
+    res = m.addMatrixVar((3, 1)).sum(axis=0)
+    assert isinstance(res, MatrixExpr) and res.shape == (1,)
+
+    # compare the result of summing 2d array to a scalar with a scalar
+    x = m.addMatrixVar((2, 3), "x", "I", ub=4)
+    m.addMatrixCons(x.sum() == 24)
+
+    # compare the result of summing 2d array to 1d array
+    y = m.addMatrixVar((2, 4), "y", "I", ub=4)
+    m.addMatrixCons(x.sum(axis=1) == y.sum(axis=1))
+
+    # compare the result of summing 3d array to a 2d array with a 2d array
+    z = m.addMatrixVar((2, 3, 4), "z", "I", ub=4)
+    m.addMatrixCons(z.sum(axis=2) == x)
+    m.addMatrixCons(z.sum(axis=1) == y)
+
+    # to fix the element values
+    m.addMatrixCons(z == np.ones((2, 3, 4)))
+
+    m.setObjective(x.sum() + y.sum() + z.sum(), "maximize")
+    m.optimize()
+
+    assert (m.getVal(x) == np.full((2, 3), 4)).all().all()
+    assert (m.getVal(y) == np.full((2, 4), 3)).all().all()
+
+
+@pytest.mark.parametrize("n", [50, 100, 200])
+def test_sum_performance(n):
+    model = Model()
+    x = model.addMatrixVar((n, n))
+
+    # Original sum via `np.ndarray.sum`, `np.sum` will call subclass method
+    start_orig = time()
+    np.ndarray.sum(x)
+    end_orig = time()
+
+    # Optimized sum via `quicksum`
+    start_matrix = time()
+    x.sum()
+    end_matrix = time()
+
+    assert model.isGT(end_orig - start_orig, end_matrix - start_matrix)
 
 
 def test_add_cons_matrixVar():
@@ -312,7 +376,7 @@ def test_MatrixVariable_attributes():
     assert x.varMayRound().tolist() == [[True, True], [True, True]]
 
 @pytest.mark.skip(reason="Performance test")
-def test_performance():
+def test_add_cons_performance():
     start_orig = time()
     m = Model()
     x = {}
@@ -336,3 +400,135 @@ def test_performance():
     orig_time = end_orig - start_orig
 
     assert m.isGT(orig_time, matrix_time)
+
+
+def test_matrix_cons_indicator():
+    m = Model()
+    x = m.addMatrixVar((2, 3), vtype="I", ub=10)
+    y = m.addMatrixVar(x.shape, vtype="I", ub=10)
+    is_equal = m.addMatrixVar((1, 2), vtype="B")
+
+    # shape of cons is not equal to shape of is_equal
+    with pytest.raises(Exception):
+        m.addMatrixConsIndicator(x >= y, is_equal)
+
+    # require MatrixExprCons or ExprCons
+    with pytest.raises(TypeError):
+        m.addMatrixConsIndicator(x)
+
+    # test MatrixExprCons
+    for i in range(2):
+        m.addMatrixConsIndicator(x[i] >= y[i], is_equal[0, i])
+        m.addMatrixConsIndicator(x[i] <= y[i], is_equal[0, i])
+
+        m.addMatrixConsIndicator(x[i] >= 5, is_equal[0, i])
+        m.addMatrixConsIndicator(y[i] <= 5, is_equal[0, i])
+
+    for i in range(3):
+        m.addMatrixConsIndicator(x[:, i] >= y[:, i], is_equal[0])
+        m.addMatrixConsIndicator(x[:, i] <= y[:, i], is_equal[0])
+
+    # test ExprCons
+    z = m.addVar(vtype="B")
+    binvar = m.addVar(vtype="B")
+    m.addMatrixConsIndicator(z >= 1, binvar, activeone=True)
+    m.addMatrixConsIndicator(z <= 0, binvar, activeone=False)
+
+    m.setObjective(is_equal.sum() + binvar, "maximize")
+    m.optimize()
+
+    assert m.getVal(is_equal).sum() == 2
+    assert (m.getVal(x) == m.getVal(y)).all().all()
+    assert (m.getVal(x) == np.array([[5, 5, 5], [5, 5, 5]])).all().all()
+    assert m.getVal(z) == 1
+
+
+def test_matrix_compare_with_expr():
+    m = Model()
+    var = m.addVar(vtype="B", ub=0)
+
+    # test "<=" and ">=" operator
+    x = m.addMatrixVar(3)
+    m.addMatrixCons(x <= var + 1)
+    m.addMatrixCons(x >= var + 1)
+
+    # test "==" operator
+    y = m.addMatrixVar(3)
+    m.addMatrixCons(y == var + 1)
+
+    m.setObjective(x.sum() + y.sum())
+    m.optimize()
+
+    assert (m.getVal(x) == np.ones(3)).all()
+    assert (m.getVal(y) == np.ones(3)).all()
+
+
+def test_ranged_matrix_cons_with_expr():
+    m = Model()
+    x = m.addMatrixVar(3)
+    var = m.addVar(vtype="B", ub=0)
+
+    # test MatrixExprCons vs Variable
+    with pytest.raises(TypeError):
+        m.addMatrixCons((x <= 1) >= var)
+
+    # test "==" operator
+    with pytest.raises(NotImplementedError):
+        m.addMatrixCons((x <= 1) == 1)
+
+    # test "<=" and ">=" operator
+    m.addMatrixCons((x <= 1) >= 1)
+
+    m.setObjective(x.sum())
+    m.optimize()
+
+    assert (m.getVal(x) == np.ones(3)).all()
+
+
+_binop_model = Model()
+
+def var():
+    return _binop_model.addVar()
+
+def genexpr():
+    return _binop_model.addVar() ** 0.6
+
+def matvar():
+    return _binop_model.addMatrixVar((1,))
+
+@pytest.mark.parametrize("right", [var(), genexpr(), matvar()], ids=["var", "genexpr", "matvar"])
+@pytest.mark.parametrize("left", [var(), genexpr(), matvar()], ids=["var", "genexpr", "matvar"])
+@pytest.mark.parametrize("op", [operator.add, operator.sub, operator.mul, operator.truediv])
+def test_binop(op, left, right):
+    res = op(left, right)
+    assert isinstance(res, (Expr, GenExpr, MatrixExpr))
+
+
+def test_matrix_matmul_return_type():
+    # test #1058, require returning type is MatrixExpr not MatrixVariable
+    m = Model()
+
+    # test 1D @ 1D → 0D
+    x = m.addMatrixVar(3)
+    assert type(x @ x) is MatrixExpr
+
+    # test 1D @ 1D → 2D
+    assert type(x[:, None] @ x[None, :]) is MatrixExpr
+
+    # test 2D @ 2D → 2D
+    y = m.addMatrixVar((2, 3))
+    z = m.addMatrixVar((3, 4))
+    assert type(y @ z) is MatrixExpr
+
+
+def test_broadcast():
+    # test #1065
+    m = Model()
+    x = m.addMatrixVar((2, 3), ub=10)
+
+    m.addMatrixCons(x == np.zeros((2, 1)))
+
+    m.setObjective(x.sum(), "maximize")
+    m.optimize()
+
+    assert (m.getVal(x) == np.zeros((2, 3))).all()

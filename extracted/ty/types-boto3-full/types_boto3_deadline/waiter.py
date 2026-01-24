@@ -3,7 +3,7 @@ Type annotations for deadline service client waiters.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/waiters/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,7 +13,9 @@ Usage::
     from types_boto3_deadline.client import DeadlineCloudClient
     from types_boto3_deadline.waiter import (
         FleetActiveWaiter,
+        JobCompleteWaiter,
         JobCreateCompleteWaiter,
+        JobSucceededWaiter,
         LicenseEndpointDeletedWaiter,
         LicenseEndpointValidWaiter,
         QueueFleetAssociationStoppedWaiter,
@@ -26,7 +28,9 @@ Usage::
     client: DeadlineCloudClient = session.client("deadline")
 
     fleet_active_waiter: FleetActiveWaiter = client.get_waiter("fleet_active")
+    job_complete_waiter: JobCompleteWaiter = client.get_waiter("job_complete")
     job_create_complete_waiter: JobCreateCompleteWaiter = client.get_waiter("job_create_complete")
+    job_succeeded_waiter: JobSucceededWaiter = client.get_waiter("job_succeeded")
     license_endpoint_deleted_waiter: LicenseEndpointDeletedWaiter = client.get_waiter("license_endpoint_deleted")
     license_endpoint_valid_waiter: LicenseEndpointValidWaiter = client.get_waiter("license_endpoint_valid")
     queue_fleet_association_stopped_waiter: QueueFleetAssociationStoppedWaiter = client.get_waiter("queue_fleet_association_stopped")
@@ -44,6 +48,8 @@ from botocore.waiter import Waiter
 
 from .type_defs import (
     GetFleetRequestWaitTypeDef,
+    GetJobRequestWaitExtraExtraTypeDef,
+    GetJobRequestWaitExtraTypeDef,
     GetJobRequestWaitTypeDef,
     GetLicenseEndpointRequestWaitExtraTypeDef,
     GetLicenseEndpointRequestWaitTypeDef,
@@ -61,7 +67,9 @@ else:
 
 __all__ = (
     "FleetActiveWaiter",
+    "JobCompleteWaiter",
     "JobCreateCompleteWaiter",
+    "JobSucceededWaiter",
     "LicenseEndpointDeletedWaiter",
     "LicenseEndpointValidWaiter",
     "QueueFleetAssociationStoppedWaiter",
@@ -86,6 +94,21 @@ class FleetActiveWaiter(Waiter):
         """
 
 
+class JobCompleteWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/waiter/JobComplete.html#DeadlineCloud.Waiter.JobComplete)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/waiters/#jobcompletewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetJobRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/waiter/JobComplete.html#DeadlineCloud.Waiter.JobComplete.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/waiters/#jobcompletewaiter)
+        """
+
+
 class JobCreateCompleteWaiter(Waiter):
     """
     [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/waiter/JobCreateComplete.html#DeadlineCloud.Waiter.JobCreateComplete)
@@ -93,11 +116,26 @@ class JobCreateCompleteWaiter(Waiter):
     """
 
     def wait(  # type: ignore[override]
-        self, **kwargs: Unpack[GetJobRequestWaitTypeDef]
+        self, **kwargs: Unpack[GetJobRequestWaitExtraTypeDef]
     ) -> None:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/waiter/JobCreateComplete.html#DeadlineCloud.Waiter.JobCreateComplete.wait)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/waiters/#jobcreatecompletewaiter)
+        """
+
+
+class JobSucceededWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/waiter/JobSucceeded.html#DeadlineCloud.Waiter.JobSucceeded)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/waiters/#jobsucceededwaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetJobRequestWaitExtraExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/waiter/JobSucceeded.html#DeadlineCloud.Waiter.JobSucceeded.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/waiters/#jobsucceededwaiter)
         """
 
 

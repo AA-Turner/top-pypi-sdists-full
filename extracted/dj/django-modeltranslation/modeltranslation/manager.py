@@ -24,6 +24,7 @@ from django.db.models.query import QuerySet, ValuesIterable
 from django.db.models.utils import create_namedtuple_class
 from django.utils.tree import Node
 
+from modeltranslation._compat import _django_version
 from modeltranslation._typing import Self, AutoPopulate
 from modeltranslation.fields import TranslationField
 from modeltranslation.thread_context import auto_populate_mode
@@ -117,7 +118,7 @@ def append_lookup_key(model: type[Model], lookup_key: str) -> set[str]:
             rest = append_lookup_key(transmodel, pieces[1])
             fields = {"__".join(pr) for pr in itertools.product(fields, rest)}
         else:
-            fields = {"%s__%s" % (f, pieces[1]) for f in fields}
+            fields = {"{}__{}".format(f, pieces[1]) for f in fields}
     return fields
 
 
@@ -169,7 +170,7 @@ def get_field_by_colum_name(model: type[Model], col: str) -> Field:
             return field
     except FieldDoesNotExist:
         pass
-    field = _C2F_CACHE.get((model, col), None)  # type: ignore[arg-type]
+    field = _C2F_CACHE.get((model, col), None)  # type: ignore[assignment]
     if field:
         return field
     # D'oh, need to search through all of them.
@@ -252,7 +253,7 @@ class MultilingualQuerySet(QuerySet[_T]):
                 new_args.append(None)
             else:
                 new_args.append(rewrite_lookup_key(self.model, key))
-        return super().select_related(*new_args, **kwargs)
+        return super().select_related(*new_args, **kwargs)  # type: ignore[arg-type]
 
     # This method was not present in django-linguo
     def _rewrite_col(self, col: Col) -> None:
@@ -277,11 +278,12 @@ class MultilingualQuerySet(QuerySet[_T]):
             self._rewrite_col(q.lhs)
         if isinstance(q, Node):
             for child in q.children:
-                self._rewrite_where(child)
+                self._rewrite_where(child)  # type: ignore[arg-type]
 
     def _rewrite_order(self) -> None:
         self.query.order_by = [
-            rewrite_order_lookup_key(self.model, field_name) for field_name in self.query.order_by
+            rewrite_order_lookup_key(self.model, field_name)  # type: ignore[arg-type]
+            for field_name in self.query.order_by
         ]
 
     def _rewrite_select_related(self) -> None:
@@ -297,7 +299,7 @@ class MultilingualQuerySet(QuerySet[_T]):
         if isinstance(q, tuple) and len(q) == 2:
             return rewrite_lookup_key(self.model, q[0]), q[1]
         if isinstance(q, Node):
-            q.children = list(map(self._rewrite_q, q.children))
+            q.children = list(map(self._rewrite_q, q.children))  # type: ignore[arg-type]
         return q
 
     # This method was not present in django-linguo
@@ -309,7 +311,7 @@ class MultilingualQuerySet(QuerySet[_T]):
             q.name = rewrite_lookup_key(self.model, q.name)
             return q
         if isinstance(q, Node):
-            q.children = list(map(self._rewrite_f, q.children))
+            q.children = list(map(self._rewrite_f, q.children))  # type: ignore[arg-type]
         # Django >= 1.8
         if hasattr(q, "lhs"):
             q.lhs = self._rewrite_f(q.lhs)
@@ -374,7 +376,9 @@ class MultilingualQuerySet(QuerySet[_T]):
 
     update.alters_data = True
 
-    def _update(self, values: list[tuple[Field, type[Model] | None, Any]]) -> CursorWrapper:
+    def _update(
+        self, values: list[tuple[Field, type[Model] | None, Any]], returning_fields=None
+    ) -> CursorWrapper:
         """
         This method is called in .save() method to update an existing record.
         Here we force to update translation fields as well if the original
@@ -393,7 +397,11 @@ class MultilingualQuerySet(QuerySet[_T]):
                 translation_values.append((translatable_field, model, value))
 
         values += translation_values
-        return super()._update(values)
+
+        if _django_version < (6, 0):
+            return super()._update(values)
+
+        return super()._update(values, returning_fields)
 
     # This method was not present in django-linguo
     @property

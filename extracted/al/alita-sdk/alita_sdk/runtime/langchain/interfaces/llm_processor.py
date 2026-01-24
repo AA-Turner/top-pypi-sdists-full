@@ -15,8 +15,6 @@
 import importlib
 from json import dumps
 from traceback import format_exc
-from langchain.chains.llm import LLMChain
-
 from langchain_community.llms import __getattr__ as get_llm, __all__ as llms  # pylint: disable=E0401
 from langchain_community.chat_models import __all__ as chat_models  # pylint: disable=E0401
 
@@ -25,9 +23,8 @@ from langchain_community.embeddings import __all__ as embeddings  # pylint: disa
 from langchain_community.vectorstores import __all__ as vectorstores  # pylint: disable=E0401
 from langchain_community.vectorstores import __getattr__ as get_vectorstore_cls  # pylint: disable=E0401
 
-from langchain.prompts import PromptTemplate  # pylint: disable=E0401
-
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from ...llms.preloaded import PreloadedEmbeddings, PreloadedChatModel  # pylint: disable=E0401
 from ..retrievers.AlitaRetriever import AlitaRetriever
@@ -100,16 +97,17 @@ def summarize(llmodel, document, summorization_prompt, metadata_key='document_su
 
 
 def llm_predict(llmodel, prompt, content):
+    """Run LLM prediction using LCEL (LangChain Expression Language) pattern."""
+    from langchain_core.output_parsers import StrOutputParser
+
     file_summary_prompt = PromptTemplate.from_template(prompt, template_format='jinja2')
-    llm = LLMChain(
-        llm=llmodel,
-        prompt=file_summary_prompt,
-        verbose=True,
-    )
+    # Use LCEL chain pattern instead of deprecated LLMChain
+    chain = file_summary_prompt | llmodel | StrOutputParser()
+
     content_length = len(content)
     print_log(f"Querying content length: {content_length}")
     try:
-        result = llm.predict(content=content)
+        result = chain.invoke({"content": content})
         return result
     except:  # pylint: disable=W0702
         print_log("Failed to generate summary: ", format_exc())
@@ -173,7 +171,7 @@ def get_vectorstore(vectorstore_type, vectorstore_params, embedding_func=None):
     #
     raise RuntimeError(f"Unknown VectorStore type: {vectorstore_type}")
 
-def add_documents(vectorstore, documents):
+def add_documents(vectorstore, documents, ids = None) -> list[str]:
     """ Add documents to vectorstore """
     if vectorstore is None:
         return None
@@ -189,7 +187,7 @@ def add_documents(vectorstore, documents):
             if isinstance(document.metadata[key], dict):
                 document.metadata[key] = dumps(document.metadata[key])
         metadata.append(document.metadata)
-    vectorstore.add_texts(texts, metadatas=metadata)
+    return vectorstore.add_texts(texts, metadatas=metadata, ids=ids)
 
 
 def generateResponse(

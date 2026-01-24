@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tach
-Version: 0.29.0
+Version: 0.33.1
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -8,50 +8,30 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Dist: pyyaml~=6.0
 Requires-Dist: tomli>=1.2.2
 Requires-Dist: tomli-w~=1.0
-Requires-Dist: rich~=13.0
+Requires-Dist: rich>=13.0
 Requires-Dist: prompt-toolkit~=3.0
 Requires-Dist: gitpython~=3.1
 Requires-Dist: networkx>=2.6,<4.0
-Requires-Dist: pydot>=2,<4
+Requires-Dist: pydot>=2,<5
 Requires-Dist: stdlib-list>=0.10.0 ; python_full_version < '3.10'
-Requires-Dist: importlib-metadata>=6.0 ; python_full_version == '3.7.*'
-Requires-Dist: rich==13.8.1 ; extra == 'dev'
-Requires-Dist: prompt-toolkit==3.0.47 ; extra == 'dev'
-Requires-Dist: pip==24.0 ; extra == 'dev'
-Requires-Dist: pyright==1.1.389 ; extra == 'dev'
-Requires-Dist: ruff==0.11.5 ; extra == 'dev'
-Requires-Dist: setuptools==69.5.1 ; python_full_version >= '3.8' and extra == 'dev'
-Requires-Dist: twine==5.1.1 ; python_full_version >= '3.8' and extra == 'dev'
-Requires-Dist: build==1.2.1 ; python_full_version >= '3.8' and extra == 'dev'
-Requires-Dist: pytest==8.2.2 ; python_full_version >= '3.8' and extra == 'dev'
-Requires-Dist: pytest-mock==3.14.0 ; python_full_version >= '3.8' and extra == 'dev'
-Requires-Dist: coverage==7.6.0 ; python_full_version >= '3.8' and extra == 'dev'
-Requires-Dist: maturin==1.7.1 ; extra == 'dev'
-Requires-Dist: setuptools==47.1.0 ; python_full_version == '3.7.*' and extra == 'dev'
-Requires-Dist: twine==4.0.2 ; python_full_version == '3.7.*' and extra == 'dev'
-Requires-Dist: build==1.1.1 ; python_full_version == '3.7.*' and extra == 'dev'
-Requires-Dist: pytest==7.4.4 ; python_full_version == '3.7.*' and extra == 'dev'
-Requires-Dist: pytest-mock==3.11.1 ; python_full_version == '3.7.*' and extra == 'dev'
-Requires-Dist: coverage==7.2.7 ; python_full_version == '3.7.*' and extra == 'dev'
-Provides-Extra: dev
 License-File: LICENSE
 Summary: A Python tool to maintain a modular package architecture.
 Keywords: python,module,package,guard,enforcement,boundary,enforcer,domain,architecture
 Author-email: Caelean Barnes <caeleanb@gmail.com>, Evan Doyle <evanmdoyle@gmail.com>
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/gauge-sh/tach
 Project-URL: Issues, https://github.com/gauge-sh/tach/issues
@@ -63,7 +43,7 @@ Project-URL: Issues, https://github.com/gauge-sh/tach/issues
 [![license](https://img.shields.io/pypi/l/tach.svg)](https://pypi.Python.org/pypi/tach)
 [![python](https://img.shields.io/pypi/pyversions/tach.svg)](https://pypi.Python.org/pypi/tach)
 [![ci](https://github.com/gauge-sh/tach/actions/workflows/ci.yml/badge.svg)](https://github.com/gauge-sh/tach/actions/workflows/ci.yml)
-[![pyright](https://microsoft.github.io/pyright/img/pyright_badge.svg)](https://microsoft.github.io/pyright/)
+[![basedpyright - checked](https://img.shields.io/badge/basedpyright-checked-ffc000)](https://docs.basedpyright.com)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Tach is a Python tool to enforce dependencies and interfaces, written in Rust.
@@ -71,8 +51,6 @@ Tach is a Python tool to enforce dependencies and interfaces, written in Rust.
 Tach is inspired by the [modular monolith](https://www.milanjovanovic.tech/blog/what-is-a-modular-monolith) architecture.
 
 [Docs](https://docs.gauge.sh)
-
-[Discord](https://discord.gg/Kz2TnszerR)
 
 <div align="center">
     <img src="docs/assets/light_logo.png" alt="gauge-logo" width="30%"  style="border-radius: 50%; padding-bottom: 20px"/>
@@ -149,7 +127,7 @@ Give both a try and run `tach check` again. This will generate an error:
 
 Each error indicates an import which violates your dependencies. If your terminal supports hyperlinks, click on the file path to go directly to the error.
 
-When an error is detected, `tach check` will exit with a non-zero code. It can be easily integrated with CI/CD, [Pre-commit hooks](https://docs.gauge.sh/usage/commands#tach-install), and [VS Code](https://marketplace.visualstudio.com/items?itemName=Gauge.tach), and more!
+When an error is detected, `tach check` will exit with a non-zero code. It can be easily integrated with CI/CD, [Pre-commit hooks](https://docs.gauge.sh/usage/commands#tach-install), and [VS Code](https://marketplace.visualstudio.com/items?itemName=detachhead.dtach), and more!
 
 ### Extras
 
@@ -202,10 +180,9 @@ Tach also supports:
 - [Inline 'ignore' comments](https://docs.gauge.sh/usage/tach-ignore)
 - [Pre-commit hooks](https://docs.gauge.sh/usage/commands#tach-install)
 
-More info in the [docs](https://docs.gauge.sh/). Tach logs anonymized usage statistics which can be [opted out](https://docs.gauge.sh/usage/faq/) of.
-If you have any feedback, we'd love to talk!
+More info in the [docs](https://docs.gauge.sh/). If you have any feedback, we'd love to talk!
 
-If you have any questions or run into any issues, let us know by either reaching out on [Discord](https://discord.gg/Kz2TnszerR) or submitting a [Github Issue](https://github.com/gauge-sh/tach/issues)!
+If you have any questions or run into any issues, let us know by submitting a [Github Issue](https://github.com/gauge-sh/tach/issues)!
 
 ---
 

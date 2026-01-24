@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: asdf
-Version: 5.0.0
+Version: 5.1.0
 Summary: Python implementation of the ASDF Standard
-Author-email: The ASDF Developers <help@stsci.edu>
+Author: The ASDF Developers
 Project-URL: documentation, https://asdf.readthedocs.io/en/stable/
 Project-URL: repository, https://github.com/asdf-format/asdf
 Project-URL: tracker, https://github.com/asdf-format/asdf/issues

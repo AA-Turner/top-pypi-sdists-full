@@ -1,4 +1,5 @@
 import agilicus
+from . import apps
 from . import context
 from .input_helpers import get_org_from_input_or_ctx
 from .output.table import (
@@ -59,6 +60,8 @@ def replace(
     application_service_id=None,
     bind_address=None,
     protocol=None,
+    port_range=None,
+    source_port_override=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -89,6 +92,15 @@ def replace(
     if protocol:
         forwarder.spec.protocol = protocol
 
+    if port_range is not None:
+        forwarder.spec.config = apps.configure_port(forwarder.spec.config, port_range)
+
+    if source_port_override is not None:
+        if forwarder.spec.config is None:
+            forwarder.spec.config = agilicus.NetworkServiceConfig()
+        forwarder.spec.config.source_port_override = apps.parse_ports(
+            source_port_override
+        )
     return apiclient.app_services_api.replace_service_forwarder(
         id, service_forwarder=forwarder
     )

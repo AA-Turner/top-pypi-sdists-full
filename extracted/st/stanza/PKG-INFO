@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stanza
-Version: 1.10.1
+Version: 1.11.0
 Summary: A Python NLP Library for Many Human Languages, by the Stanford NLP Group
 Home-page: https://github.com/stanfordnlp/stanza
 Author: Stanford Natural Language Processing Group
@@ -19,12 +19,12 @@ Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: emoji
@@ -33,7 +33,7 @@ Requires-Dist: protobuf>=3.15.0
 Requires-Dist: requests
 Requires-Dist: networkx
 Requires-Dist: tomli; python_version < "3.11"
-Requires-Dist: torch>=1.3.0
+Requires-Dist: torch>=1.13.0
 Requires-Dist: tqdm
 Provides-Extra: dev
 Requires-Dist: check-manifest; extra == "dev"
@@ -56,6 +56,19 @@ Provides-Extra: visualization
 Requires-Dist: spacy; extra == "visualization"
 Requires-Dist: streamlit; extra == "visualization"
 Requires-Dist: ipython; extra == "visualization"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <div align="center"><img src="https://github.com/stanfordnlp/stanza/raw/dev/images/stanza-logo.png" height="100px"/></div>
 
@@ -177,13 +190,13 @@ pip install -e .
 
 ### Getting Started with the neural pipeline
 
-To run your first Stanza pipeline, simply following these steps in your Python interactive interpreter:
+To run your first Stanza pipeline, simply follow these steps in your Python interactive interpreter:
 
 ```python
 >>> import stanza
->>> stanza.download('en')       # This downloads the English models for the neural pipeline
+>>> stanza.download('en')       # Optional: pre-download English models (Pipeline can auto-download if needed)
 >>> nlp = stanza.Pipeline('en') # This sets up a default neural pipeline in English
->>> doc = nlp("Barack Obama was born in Hawaii.  He was elected president in 2008.")
+>>> doc = nlp("Barack Obama was born in Hawaii. He was elected president in 2008.")
 >>> doc.sentences[0].print_dependencies()
 ```
 
@@ -192,9 +205,9 @@ If you encounter `requests.exceptions.ConnectionError`, please try to use a prox
 ```python
 >>> import stanza
 >>> proxies = {'http': 'http://ip:port', 'https': 'http://ip:port'}
->>> stanza.download('en', proxies=proxies)  # This downloads the English models for the neural pipeline
+>>> stanza.download('en', proxies=proxies)  # Optional: pre-download English models (Pipeline can auto-download if needed)
 >>> nlp = stanza.Pipeline('en')             # This sets up a default neural pipeline in English
->>> doc = nlp("Barack Obama was born in Hawaii.  He was elected president in 2008.")
+>>> doc = nlp("Barack Obama was born in Hawaii. He was elected president in 2008.")
 >>> doc.sentences[0].print_dependencies()
 ```
 

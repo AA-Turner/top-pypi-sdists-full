@@ -56,9 +56,12 @@ class ConversationFlowResource(SyncAPIResource):
         model_choice: conversation_flow_create_params.ModelChoice,
         nodes: Iterable[conversation_flow_create_params.Node],
         start_speaker: Literal["user", "agent"],
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_tag_display_position: Optional[conversation_flow_create_params.BeginTagDisplayPosition] | Omit = omit,
+        components: Optional[Iterable[conversation_flow_create_params.Component]] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         global_prompt: Optional[str] | Omit = omit,
+        is_transfer_llm: Optional[bool] | Omit = omit,
         kb_config: conversation_flow_create_params.KBConfig | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         mcps: Optional[Iterable[conversation_flow_create_params.Mcp]] | Omit = omit,
@@ -85,12 +88,21 @@ class ConversationFlowResource(SyncAPIResource):
 
           start_speaker: Who starts the conversation - user or agent.
 
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
+
           begin_tag_display_position: Display position for the begin tag in the frontend.
+
+          components: Local components embedded within the conversation flow.
 
           default_dynamic_variables: Default dynamic variables that can be referenced throughout the conversation
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          is_transfer_llm: Whether this conversation flow is used for transfer LLM.
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
@@ -103,8 +115,8 @@ class ConversationFlowResource(SyncAPIResource):
 
           start_node_id: ID of the start node in the conversation flow.
 
-          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using structured
-              output models.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
           tools: Tools available in the conversation flow.
 
@@ -123,9 +135,12 @@ class ConversationFlowResource(SyncAPIResource):
                     "model_choice": model_choice,
                     "nodes": nodes,
                     "start_speaker": start_speaker,
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_tag_display_position": begin_tag_display_position,
+                    "components": components,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "is_transfer_llm": is_transfer_llm,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
@@ -146,7 +161,7 @@ class ConversationFlowResource(SyncAPIResource):
         self,
         conversation_flow_id: str,
         *,
-        version: str | Omit = omit,
+        version: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -158,6 +173,9 @@ class ConversationFlowResource(SyncAPIResource):
         Retrieve details of a specific Conversation Flow
 
         Args:
+          version: Optional version of the conversation flow to retrieve. Default to latest
+              version.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -188,10 +206,13 @@ class ConversationFlowResource(SyncAPIResource):
         self,
         conversation_flow_id: str,
         *,
-        version: str | Omit = omit,
+        version: int | Omit = omit,
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_tag_display_position: Optional[conversation_flow_update_params.BeginTagDisplayPosition] | Omit = omit,
+        components: Optional[Iterable[conversation_flow_update_params.Component]] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         global_prompt: Optional[str] | Omit = omit,
+        is_transfer_llm: Optional[bool] | Omit = omit,
         kb_config: conversation_flow_update_params.KBConfig | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         mcps: Optional[Iterable[conversation_flow_update_params.Mcp]] | Omit = omit,
@@ -213,14 +234,23 @@ class ConversationFlowResource(SyncAPIResource):
         Update an existing conversation flow
 
         Args:
-          version: Version of the conversation flow to update
+          version: Optional version of the conversation flow to update. Default to latest version.
+
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
 
           begin_tag_display_position: Display position for the begin tag in the frontend.
+
+          components: Local components embedded within the conversation flow.
 
           default_dynamic_variables: Default dynamic variables that can be referenced throughout the conversation
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          is_transfer_llm: Whether this conversation flow is used for transfer LLM.
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
@@ -239,8 +269,8 @@ class ConversationFlowResource(SyncAPIResource):
 
           start_speaker: Who starts the conversation - user or agent.
 
-          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using structured
-              output models.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
           tools: Tools available in the conversation flow.
 
@@ -260,9 +290,12 @@ class ConversationFlowResource(SyncAPIResource):
             f"/update-conversation-flow/{conversation_flow_id}",
             body=maybe_transform(
                 {
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_tag_display_position": begin_tag_display_position,
+                    "components": components,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "is_transfer_llm": is_transfer_llm,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
@@ -408,9 +441,12 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         model_choice: conversation_flow_create_params.ModelChoice,
         nodes: Iterable[conversation_flow_create_params.Node],
         start_speaker: Literal["user", "agent"],
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_tag_display_position: Optional[conversation_flow_create_params.BeginTagDisplayPosition] | Omit = omit,
+        components: Optional[Iterable[conversation_flow_create_params.Component]] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         global_prompt: Optional[str] | Omit = omit,
+        is_transfer_llm: Optional[bool] | Omit = omit,
         kb_config: conversation_flow_create_params.KBConfig | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         mcps: Optional[Iterable[conversation_flow_create_params.Mcp]] | Omit = omit,
@@ -437,12 +473,21 @@ class AsyncConversationFlowResource(AsyncAPIResource):
 
           start_speaker: Who starts the conversation - user or agent.
 
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
+
           begin_tag_display_position: Display position for the begin tag in the frontend.
+
+          components: Local components embedded within the conversation flow.
 
           default_dynamic_variables: Default dynamic variables that can be referenced throughout the conversation
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          is_transfer_llm: Whether this conversation flow is used for transfer LLM.
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
@@ -455,8 +500,8 @@ class AsyncConversationFlowResource(AsyncAPIResource):
 
           start_node_id: ID of the start node in the conversation flow.
 
-          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using structured
-              output models.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
           tools: Tools available in the conversation flow.
 
@@ -475,9 +520,12 @@ class AsyncConversationFlowResource(AsyncAPIResource):
                     "model_choice": model_choice,
                     "nodes": nodes,
                     "start_speaker": start_speaker,
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_tag_display_position": begin_tag_display_position,
+                    "components": components,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "is_transfer_llm": is_transfer_llm,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,
@@ -498,7 +546,7 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         self,
         conversation_flow_id: str,
         *,
-        version: str | Omit = omit,
+        version: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -510,6 +558,9 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         Retrieve details of a specific Conversation Flow
 
         Args:
+          version: Optional version of the conversation flow to retrieve. Default to latest
+              version.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -540,10 +591,13 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         self,
         conversation_flow_id: str,
         *,
-        version: str | Omit = omit,
+        version: int | Omit = omit,
+        begin_after_user_silence_ms: Optional[int] | Omit = omit,
         begin_tag_display_position: Optional[conversation_flow_update_params.BeginTagDisplayPosition] | Omit = omit,
+        components: Optional[Iterable[conversation_flow_update_params.Component]] | Omit = omit,
         default_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
         global_prompt: Optional[str] | Omit = omit,
+        is_transfer_llm: Optional[bool] | Omit = omit,
         kb_config: conversation_flow_update_params.KBConfig | Omit = omit,
         knowledge_base_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         mcps: Optional[Iterable[conversation_flow_update_params.Mcp]] | Omit = omit,
@@ -565,14 +619,23 @@ class AsyncConversationFlowResource(AsyncAPIResource):
         Update an existing conversation flow
 
         Args:
-          version: Version of the conversation flow to update
+          version: Optional version of the conversation flow to update. Default to latest version.
+
+          begin_after_user_silence_ms: If set, the AI will begin the conversation after waiting for the user for the
+              duration (in milliseconds) specified by this attribute. This only applies if the
+              agent is configured to wait for the user to speak first. If not set, the agent
+              will wait indefinitely for the user to speak.
 
           begin_tag_display_position: Display position for the begin tag in the frontend.
+
+          components: Local components embedded within the conversation flow.
 
           default_dynamic_variables: Default dynamic variables that can be referenced throughout the conversation
               flow.
 
           global_prompt: Global prompt used in every node of the conversation flow.
+
+          is_transfer_llm: Whether this conversation flow is used for transfer LLM.
 
           kb_config: Knowledge base configuration for RAG retrieval.
 
@@ -591,8 +654,8 @@ class AsyncConversationFlowResource(AsyncAPIResource):
 
           start_speaker: Who starts the conversation - user or agent.
 
-          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using structured
-              output models.
+          tool_call_strict_mode: Whether to use strict mode for tool calls. Only applicable when using certain
+              supported models.
 
           tools: Tools available in the conversation flow.
 
@@ -612,9 +675,12 @@ class AsyncConversationFlowResource(AsyncAPIResource):
             f"/update-conversation-flow/{conversation_flow_id}",
             body=await async_maybe_transform(
                 {
+                    "begin_after_user_silence_ms": begin_after_user_silence_ms,
                     "begin_tag_display_position": begin_tag_display_position,
+                    "components": components,
                     "default_dynamic_variables": default_dynamic_variables,
                     "global_prompt": global_prompt,
+                    "is_transfer_llm": is_transfer_llm,
                     "kb_config": kb_config,
                     "knowledge_base_ids": knowledge_base_ids,
                     "mcps": mcps,

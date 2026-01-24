@@ -1,7 +1,7 @@
 r'''
 # `aws_kms_ciphertext`
 
-Refer to the Terraform Registry for docs: [`aws_kms_ciphertext`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext).
+Refer to the Terraform Registry for docs: [`aws_kms_ciphertext`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KmsCiphertext(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kmsCiphertext.KmsCiphertext",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext aws_kms_ciphertext}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext aws_kms_ciphertext}.'''
 
     def __init__(
         self,
@@ -52,9 +52,11 @@ class KmsCiphertext(
         id_: builtins.str,
         *,
         key_id: builtins.str,
-        plaintext: builtins.str,
         context: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
+        plaintext: typing.Optional[builtins.str] = None,
+        plaintext_wo: typing.Optional[builtins.str] = None,
+        plaintext_wo_version: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -64,15 +66,17 @@ class KmsCiphertext(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext aws_kms_ciphertext} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext aws_kms_ciphertext} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#key_id KmsCiphertext#key_id}.
-        :param plaintext: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#plaintext KmsCiphertext#plaintext}.
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#context KmsCiphertext#context}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#id KmsCiphertext#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#region KmsCiphertext#region}
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#key_id KmsCiphertext#key_id}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#context KmsCiphertext#context}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#id KmsCiphertext#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param plaintext: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext KmsCiphertext#plaintext}.
+        :param plaintext_wo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext_wo KmsCiphertext#plaintext_wo}.
+        :param plaintext_wo_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext_wo_version KmsCiphertext#plaintext_wo_version}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#region KmsCiphertext#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -87,9 +91,11 @@ class KmsCiphertext(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = KmsCiphertextConfig(
             key_id=key_id,
-            plaintext=plaintext,
             context=context,
             id=id,
+            plaintext=plaintext,
+            plaintext_wo=plaintext_wo,
+            plaintext_wo_version=plaintext_wo_version,
             region=region,
             connection=connection,
             count=count,
@@ -115,7 +121,7 @@ class KmsCiphertext(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KmsCiphertext to import.
-        :param import_from_id: The id of the existing KmsCiphertext that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KmsCiphertext that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KmsCiphertext to import is found.
         '''
         if __debug__:
@@ -133,6 +139,18 @@ class KmsCiphertext(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetPlaintext")
+    def reset_plaintext(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPlaintext", []))
+
+    @jsii.member(jsii_name="resetPlaintextWo")
+    def reset_plaintext_wo(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPlaintextWo", []))
+
+    @jsii.member(jsii_name="resetPlaintextWoVersion")
+    def reset_plaintext_wo_version(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPlaintextWoVersion", []))
 
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
@@ -177,6 +195,16 @@ class KmsCiphertext(
     @jsii.member(jsii_name="plaintextInput")
     def plaintext_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "plaintextInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="plaintextWoInput")
+    def plaintext_wo_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "plaintextWoInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="plaintextWoVersionInput")
+    def plaintext_wo_version_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "plaintextWoVersionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="regionInput")
@@ -232,6 +260,30 @@ class KmsCiphertext(
         jsii.set(self, "plaintext", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="plaintextWo")
+    def plaintext_wo(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "plaintextWo"))
+
+    @plaintext_wo.setter
+    def plaintext_wo(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22085d3fe8dc998ada4564edf2200c890e61dc825b44c3c65ab6fbc79722f10b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "plaintextWo", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="plaintextWoVersion")
+    def plaintext_wo_version(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "plaintextWoVersion"))
+
+    @plaintext_wo_version.setter
+    def plaintext_wo_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85cee8864262309c8c68e83d9cb78d9b06bb3557533128eabee4f830aa3eba2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "plaintextWoVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="region")
     def region(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "region"))
@@ -256,9 +308,11 @@ class KmsCiphertext(
         "provider": "provider",
         "provisioners": "provisioners",
         "key_id": "keyId",
-        "plaintext": "plaintext",
         "context": "context",
         "id": "id",
+        "plaintext": "plaintext",
+        "plaintext_wo": "plaintextWo",
+        "plaintext_wo_version": "plaintextWoVersion",
         "region": "region",
     },
 )
@@ -274,9 +328,11 @@ class KmsCiphertextConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         key_id: builtins.str,
-        plaintext: builtins.str,
         context: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
+        plaintext: typing.Optional[builtins.str] = None,
+        plaintext_wo: typing.Optional[builtins.str] = None,
+        plaintext_wo_version: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -287,11 +343,13 @@ class KmsCiphertextConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#key_id KmsCiphertext#key_id}.
-        :param plaintext: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#plaintext KmsCiphertext#plaintext}.
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#context KmsCiphertext#context}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#id KmsCiphertext#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#region KmsCiphertext#region}
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#key_id KmsCiphertext#key_id}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#context KmsCiphertext#context}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#id KmsCiphertext#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param plaintext: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext KmsCiphertext#plaintext}.
+        :param plaintext_wo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext_wo KmsCiphertext#plaintext_wo}.
+        :param plaintext_wo_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext_wo_version KmsCiphertext#plaintext_wo_version}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#region KmsCiphertext#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -305,13 +363,14 @@ class KmsCiphertextConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
-            check_type(argname="argument plaintext", value=plaintext, expected_type=type_hints["plaintext"])
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument plaintext", value=plaintext, expected_type=type_hints["plaintext"])
+            check_type(argname="argument plaintext_wo", value=plaintext_wo, expected_type=type_hints["plaintext_wo"])
+            check_type(argname="argument plaintext_wo_version", value=plaintext_wo_version, expected_type=type_hints["plaintext_wo_version"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "key_id": key_id,
-            "plaintext": plaintext,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -331,6 +390,12 @@ class KmsCiphertextConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["context"] = context
         if id is not None:
             self._values["id"] = id
+        if plaintext is not None:
+            self._values["plaintext"] = plaintext
+        if plaintext_wo is not None:
+            self._values["plaintext_wo"] = plaintext_wo
+        if plaintext_wo_version is not None:
+            self._values["plaintext_wo_version"] = plaintext_wo_version
         if region is not None:
             self._values["region"] = region
 
@@ -400,27 +465,20 @@ class KmsCiphertextConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#key_id KmsCiphertext#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#key_id KmsCiphertext#key_id}.'''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def plaintext(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#plaintext KmsCiphertext#plaintext}.'''
-        result = self._values.get("plaintext")
-        assert result is not None, "Required property 'plaintext' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def context(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#context KmsCiphertext#context}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#context KmsCiphertext#context}.'''
         result = self._values.get("context")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#id KmsCiphertext#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#id KmsCiphertext#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -429,10 +487,28 @@ class KmsCiphertextConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def plaintext(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext KmsCiphertext#plaintext}.'''
+        result = self._values.get("plaintext")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def plaintext_wo(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext_wo KmsCiphertext#plaintext_wo}.'''
+        result = self._values.get("plaintext_wo")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def plaintext_wo_version(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#plaintext_wo_version KmsCiphertext#plaintext_wo_version}.'''
+        result = self._values.get("plaintext_wo_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/kms_ciphertext#region KmsCiphertext#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_ciphertext#region KmsCiphertext#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -461,9 +537,11 @@ def _typecheckingstub__c10f0498d18faa9004832ca3b3e402bb9bf0aae04680b27619c0386b9
     id_: builtins.str,
     *,
     key_id: builtins.str,
-    plaintext: builtins.str,
     context: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
+    plaintext: typing.Optional[builtins.str] = None,
+    plaintext_wo: typing.Optional[builtins.str] = None,
+    plaintext_wo_version: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -509,6 +587,18 @@ def _typecheckingstub__b7ee4ab6a9c6c6f2ee0899c84a300cb74c436a20e664785d8e806e5ad
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__22085d3fe8dc998ada4564edf2200c890e61dc825b44c3c65ab6fbc79722f10b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85cee8864262309c8c68e83d9cb78d9b06bb3557533128eabee4f830aa3eba2b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b4f91738354f53f59e1886636fba81958e4146048dc88dba24db7865ef070855(
     value: builtins.str,
 ) -> None:
@@ -525,9 +615,11 @@ def _typecheckingstub__0fee3d929e58cca801e997035b9d93ddfe482f1b8518ad63b9b6cc7b9
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     key_id: builtins.str,
-    plaintext: builtins.str,
     context: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
+    plaintext: typing.Optional[builtins.str] = None,
+    plaintext_wo: typing.Optional[builtins.str] = None,
+    plaintext_wo_version: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

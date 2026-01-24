@@ -36,11 +36,10 @@ from finbourne_horizon.exceptions import ApiException
 from finbourne_horizon.models.allowed_parameter_value import AllowedParameterValue
 from finbourne_horizon.models.audit_complete_request import AuditCompleteRequest
 from finbourne_horizon.models.audit_complete_response import AuditCompleteResponse
-from finbourne_horizon.models.audit_complete_status import AuditCompleteStatus
 from finbourne_horizon.models.audit_file_details import AuditFileDetails
-from finbourne_horizon.models.audit_file_type import AuditFileType
 from finbourne_horizon.models.audit_update_request import AuditUpdateRequest
 from finbourne_horizon.models.audit_update_response import AuditUpdateResponse
+from finbourne_horizon.models.cancel_run_request import CancelRunRequest
 from finbourne_horizon.models.create_instance_request import CreateInstanceRequest
 from finbourne_horizon.models.enrichment_response import EnrichmentResponse
 from finbourne_horizon.models.execute_instance_response import ExecuteInstanceResponse
@@ -48,12 +47,16 @@ from finbourne_horizon.models.external_log_insertion_request import ExternalLogI
 from finbourne_horizon.models.external_log_record import ExternalLogRecord
 from finbourne_horizon.models.field_mapping import FieldMapping
 from finbourne_horizon.models.file_details import FileDetails
+from finbourne_horizon.models.i_field_mapping import IFieldMapping
 from finbourne_horizon.models.i_integration_log_response import IIntegrationLogResponse
+from finbourne_horizon.models.i_property_mapping import IPropertyMapping
 from finbourne_horizon.models.identifiers import Identifiers
 from finbourne_horizon.models.instance_execution_reference_id import InstanceExecutionReferenceId
 from finbourne_horizon.models.instance_identifier import InstanceIdentifier
+from finbourne_horizon.models.integration_cancellation_response import IntegrationCancellationResponse
 from finbourne_horizon.models.integration_description import IntegrationDescription
 from finbourne_horizon.models.integration_instance import IntegrationInstance
+from finbourne_horizon.models.integration_instance_response import IntegrationInstanceResponse
 from finbourne_horizon.models.integration_log_activity import IntegrationLogActivity
 from finbourne_horizon.models.integration_log_record import IntegrationLogRecord
 from finbourne_horizon.models.integration_log_target_record import IntegrationLogTargetRecord
@@ -82,8 +85,9 @@ from finbourne_horizon.models.open_figi_data import OpenFigiData
 from finbourne_horizon.models.open_figi_parameter_option_name import OpenFigiParameterOptionName
 from finbourne_horizon.models.open_figi_perm_id_result import OpenFigiPermIdResult
 from finbourne_horizon.models.open_figi_search_result import OpenFigiSearchResult
-from finbourne_horizon.models.optionality import Optionality
+from finbourne_horizon.models.paged_resource_list_of_i_field_mapping import PagedResourceListOfIFieldMapping
 from finbourne_horizon.models.paged_resource_list_of_i_integration_log_response import PagedResourceListOfIIntegrationLogResponse
+from finbourne_horizon.models.paged_resource_list_of_i_property_mapping import PagedResourceListOfIPropertyMapping
 from finbourne_horizon.models.paged_resource_list_of_integration_run_response import PagedResourceListOfIntegrationRunResponse
 from finbourne_horizon.models.paged_resource_list_of_process_information import PagedResourceListOfProcessInformation
 from finbourne_horizon.models.paged_resource_list_of_process_update_result import PagedResourceListOfProcessUpdateResult
@@ -125,11 +129,10 @@ __all__ = [
     "AllowedParameterValue",
     "AuditCompleteRequest",
     "AuditCompleteResponse",
-    "AuditCompleteStatus",
     "AuditFileDetails",
-    "AuditFileType",
     "AuditUpdateRequest",
     "AuditUpdateResponse",
+    "CancelRunRequest",
     "CreateInstanceRequest",
     "EnrichmentResponse",
     "ExecuteInstanceResponse",
@@ -137,12 +140,16 @@ __all__ = [
     "ExternalLogRecord",
     "FieldMapping",
     "FileDetails",
+    "IFieldMapping",
     "IIntegrationLogResponse",
+    "IPropertyMapping",
     "Identifiers",
     "InstanceExecutionReferenceId",
     "InstanceIdentifier",
+    "IntegrationCancellationResponse",
     "IntegrationDescription",
     "IntegrationInstance",
+    "IntegrationInstanceResponse",
     "IntegrationLogActivity",
     "IntegrationLogRecord",
     "IntegrationLogTargetRecord",
@@ -171,8 +178,9 @@ __all__ = [
     "OpenFigiParameterOptionName",
     "OpenFigiPermIdResult",
     "OpenFigiSearchResult",
-    "Optionality",
+    "PagedResourceListOfIFieldMapping",
     "PagedResourceListOfIIntegrationLogResponse",
+    "PagedResourceListOfIPropertyMapping",
     "PagedResourceListOfIntegrationRunResponse",
     "PagedResourceListOfProcessInformation",
     "PagedResourceListOfProcessUpdateResult",

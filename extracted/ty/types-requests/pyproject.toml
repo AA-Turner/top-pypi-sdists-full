@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-requests"
-version = "2.32.4.20250913"
+version = "2.32.4.20260107"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for requests"
@@ -27,11 +27,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
 
 It was generated from typeshed commit
-[`59c36c8bf960b1b7609af5eee3b17ecde6c48864`](https://github.com/python/typeshed/commit/59c36c8bf960b1b7609af5eee3b17ecde6c48864).
+[`a68aa254d9e6641f58a7c4f45ab20782226fbfc2`](https://github.com/python/typeshed/commit/a68aa254d9e6641f58a7c4f45ab20782226fbfc2).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

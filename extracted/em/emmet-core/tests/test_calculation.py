@@ -1,6 +1,7 @@
 import pytest
 
-from tests.conftest import assert_schemas_equal, get_test_object
+from emmet.core.testing_utils import assert_schemas_equal, DataArchive
+from tests.conftest import get_test_object
 
 
 def test_init():
@@ -39,10 +40,13 @@ def test_calculation_input(test_dir, object_name, task_name):
     from emmet.core.vasp.calculation import CalculationInput
 
     test_object = get_test_object(object_name)
-    vasprun_file = test_dir / "vasp" / test_object.folder
-    vasprun_file /= test_object.task_files[task_name]["vasprun_file"]
-    test_doc = CalculationInput.from_vasprun(Vasprun(vasprun_file))
-    valid_doc = test_object.task_doc["calcs_reversed"][0]["input"]
+
+    with DataArchive.extract(
+        test_dir / "vasp" / f"{test_object.folder}.json.gz"
+    ) as dir_name:
+        vasprun_file = dir_name / test_object.task_files[task_name]["vasprun_file"]
+        test_doc = CalculationInput.from_vasprun(Vasprun(vasprun_file))
+        valid_doc = test_object.task_doc["calcs_reversed"][0]["input"]
     assert_schemas_equal(test_doc, valid_doc)
 
     # test document can be jsanitized
@@ -67,13 +71,14 @@ def test_calculation_output(test_dir, object_name, task_name):
     from emmet.core.vasp.calculation import CalculationOutput
 
     test_object = get_test_object(object_name)
-    folder = test_dir / "vasp" / test_object.folder
-    vasprun_file = folder / test_object.task_files[task_name]["vasprun_file"]
-    outcar_file = folder / test_object.task_files[task_name]["outcar_file"]
-    contcar_file = folder / test_object.task_files[task_name]["contcar_file"]
-    vasprun = Vasprun(vasprun_file)
-    outcar = Outcar(outcar_file)
-    contcar = Poscar.from_file(contcar_file)
+    with DataArchive.extract(
+        test_dir / "vasp" / f"{test_object.folder}.json.gz"
+    ) as dir_name:
+        vasprun = Vasprun(dir_name / test_object.task_files[task_name]["vasprun_file"])
+        outcar = Outcar(dir_name / test_object.task_files[task_name]["outcar_file"])
+        contcar = Poscar.from_file(
+            dir_name / test_object.task_files[task_name]["contcar_file"]
+        )
     test_doc = CalculationOutput.from_vasp_outputs(vasprun, outcar, contcar)
     valid_doc = test_object.task_doc["calcs_reversed"][0]["output"]
     assert_schemas_equal(test_doc, valid_doc)
@@ -92,12 +97,12 @@ def test_mag_calculation_output(test_dir):
     from emmet.core.vasp.calculation import CalculationOutput
 
     # Test magnetic properties
-    dir_name = test_dir / "vasp" / "magnetic_run"
-    d = CalculationOutput.from_vasp_outputs(
-        Vasprun(dir_name / "vasprun.xml.gz"),
-        Outcar(dir_name / "OUTCAR.gz"),
-        Poscar.from_file(dir_name / "CONTCAR.gz"),
-    )
+    with DataArchive.extract(test_dir / "vasp" / "magnetic_run.json.gz") as dir_name:
+        d = CalculationOutput.from_vasp_outputs(
+            Vasprun(dir_name / "vasprun.xml.gz"),
+            Outcar(dir_name / "OUTCAR.gz"),
+            Poscar.from_file(dir_name / "CONTCAR.gz"),
+        )
     assert d.model_dump()["mag_density"] == pytest.approx(0.19384725901794095)
 
 
@@ -116,9 +121,12 @@ def test_run_statistics(test_dir, object_name, task_name):
     from emmet.core.vasp.calculation import RunStatistics
 
     test_object = get_test_object(object_name)
-    folder = test_dir / "vasp" / test_object.folder
-    outcar_file = folder / test_object.task_files[task_name]["outcar_file"]
-    outcar = Outcar(outcar_file)
+
+    outcar = DataArchive.extract_obj(
+        test_dir / "vasp" / f"{test_object.folder}.json.gz",
+        test_object.task_files[task_name]["outcar_file"],
+        Outcar,
+    )
     test_doc = RunStatistics.from_outcar(outcar)
     valid_doc = test_object.task_doc["calcs_reversed"][0]["output"]["run_stats"]
     assert_schemas_equal(test_doc, valid_doc)
@@ -144,10 +152,13 @@ def test_calculation(test_dir, object_name, task_name):
     from emmet.core.vasp.calculation import Calculation
 
     test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
     files = test_object.task_files[task_name]
 
-    test_doc, objects = Calculation.from_vasp_files(dir_name, task_name, **files)
+    with DataArchive.extract(
+        test_dir / "vasp" / f"{test_object.folder}.json.gz"
+    ) as dir_name:
+
+        test_doc, objects = Calculation.from_vasp_files(dir_name, task_name, **files)
     valid_doc = test_object.task_doc["calcs_reversed"][0]
     assert_schemas_equal(test_doc, valid_doc)
     assert set(objects.keys()) == set(test_object.objects[task_name])
@@ -163,20 +174,62 @@ def test_calculation(test_dir, object_name, task_name):
     MontyDecoder().process_decoded(d)
 
 
-def test_calculation_run_type_metagga(test_dir):
+@pytest.mark.parametrize("use_emmet_models", [True, False])
+def test_calculation_run_type_metagga(test_dir, use_emmet_models):
     # Test to ensure that meta-GGA calculations are correctly identified
     # The VASP files were kindly provided by @Andrew-S-Rosen in issue #960
-    from emmet.core.vasp.calculation import Calculation
+    import numpy as np
 
-    calc_input, _ = Calculation.from_vasp_files(
-        dir_name=test_dir / "vasp" / "r2scan_relax",
-        task_name="relax",
-        vasprun_file="vasprun.xml.gz",
-        outcar_file="OUTCAR.gz",
-        contcar_file="CONTCAR.gz",
+    from emmet.core.vasp.calculation import Calculation
+    from emmet.core.tasks import OutputDoc
+
+    with DataArchive.extract(test_dir / "vasp" / "r2scan_relax.json.gz") as dir_name:
+        calc, vasp_objects = Calculation.from_vasp_files(
+            dir_name=dir_name,
+            task_name="relax",
+            vasprun_file="vasprun.xml.gz",
+            outcar_file="OUTCAR.gz",
+            contcar_file="CONTCAR.gz",
+            parse_bandstructure=True,
+            parse_dos=True,
+            store_trajectory="full",
+            use_emmet_models=use_emmet_models,
+        )
+    assert "r2SCAN" in repr(calc.run_type)
+    assert "r2SCAN" in repr(calc.calc_type)
+
+    if use_emmet_models:
+        from emmet.core.trajectory import RelaxTrajectory
+        from emmet.core.band_theory import ElectronicBS, ElectronicDos
+
+        assert isinstance(vasp_objects["trajectory"], RelaxTrajectory)
+        assert isinstance(vasp_objects["bandstructure"], ElectronicBS)
+        assert isinstance(vasp_objects["dos"], ElectronicDos)
+
+    else:
+        from pymatgen.core.trajectory import Trajectory
+        from pymatgen.electronic_structure.bandstructure import BandStructure
+        from pymatgen.electronic_structure.dos import CompleteDos
+
+        assert isinstance(vasp_objects["trajectory"], Trajectory)
+        assert isinstance(vasp_objects["bandstructure"], BandStructure)
+        assert isinstance(vasp_objects["dos"], CompleteDos)
+
+    # ensure parsing of forces and stress from trajectory rather than
+    # ionic steps works correctly regardless of models used
+    calc.output.ionic_steps = None
+    output_calc = OutputDoc.from_vasp_calc_doc(
+        calc, trajectory=vasp_objects["trajectory"]
     )
-    assert "r2SCAN" in repr(calc_input.run_type)
-    assert "r2SCAN" in repr(calc_input.calc_type)
+    for k in ("forces", "stress"):
+        assert np.allclose(
+            getattr(output_calc, k),
+            (
+                getattr(vasp_objects["trajectory"], k)[-1]
+                if use_emmet_models
+                else vasp_objects["trajectory"].frame_properties[-1].get(k)
+            ),
+        )
 
 
 def test_PotcarSpec(test_dir):
@@ -188,7 +241,7 @@ def test_PotcarSpec(test_dir):
         potcar = PotcarSingle.from_symbol_and_functional(symbol="Si", functional="PBE")
         ps_spec = PotcarSpec.from_potcar_single(potcar_single=potcar)
 
-        assert ps_spec.titel == potcar.symbol
+        assert ps_spec.titel.split("")[1] == potcar.symbol
         assert ps_spec.hash == potcar.md5_header_hash
         assert ps_spec.summary_stats == potcar._summary_stats
 

@@ -49,6 +49,23 @@ class Trail(google.protobuf.message.Message):
     DELETED: Trail.Status.ValueType  # 3
     """The trail is being deleted"""
 
+    class _Codec:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _CodecEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Trail._Codec.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        CODEC_UNSPECIFIED: Trail._Codec.ValueType  # 0
+        RAW: Trail._Codec.ValueType  # 1
+        GZIP: Trail._Codec.ValueType  # 2
+        ZSTD: Trail._Codec.ValueType  # 3
+
+    class Codec(_Codec, metaclass=_CodecEnumTypeWrapper): ...
+    CODEC_UNSPECIFIED: Trail.Codec.ValueType  # 0
+    RAW: Trail.Codec.ValueType  # 1
+    GZIP: Trail.Codec.ValueType  # 2
+    ZSTD: Trail.Codec.ValueType  # 3
+
     class _EventCategoryFilter:
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
@@ -184,17 +201,21 @@ class Trail(google.protobuf.message.Message):
 
         DATABASE_ID_FIELD_NUMBER: builtins.int
         STREAM_NAME_FIELD_NUMBER: builtins.int
+        CODEC_FIELD_NUMBER: builtins.int
         database_id: builtins.str
         """ID of the database hosting the destination YDS"""
         stream_name: builtins.str
         """Name of the destination YDS"""
+        codec: global___Trail.Codec.ValueType
+        """Codec for compressing events"""
         def __init__(
             self,
             *,
             database_id: builtins.str = ...,
             stream_name: builtins.str = ...,
+            codec: global___Trail.Codec.ValueType = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["database_id", b"database_id", "stream_name", b"stream_name"]) -> None: ...
+        def ClearField(self, field_name: typing.Literal["codec", b"codec", "database_id", b"database_id", "stream_name", b"stream_name"]) -> None: ...
 
     @typing.final
     class EventRouter(google.protobuf.message.Message):
@@ -511,19 +532,15 @@ class Trail(google.protobuf.message.Message):
     class DnsDataEventsFilter(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-        ONLY_RECURSIVE_QUERIES_FIELD_NUMBER: builtins.int
         INCLUDE_NONRECURSIVE_QUERIES_FIELD_NUMBER: builtins.int
-        only_recursive_queries: builtins.bool
-        """deprecated: use all_dns_queries instead"""
         include_nonrecursive_queries: builtins.bool
         """Not only recursive queries will be delivered"""
         def __init__(
             self,
             *,
-            only_recursive_queries: builtins.bool = ...,
             include_nonrecursive_queries: builtins.bool = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["include_nonrecursive_queries", b"include_nonrecursive_queries", "only_recursive_queries", b"only_recursive_queries"]) -> None: ...
+        def ClearField(self, field_name: typing.Literal["include_nonrecursive_queries", b"include_nonrecursive_queries"]) -> None: ...
 
     ID_FIELD_NUMBER: builtins.int
     FOLDER_ID_FIELD_NUMBER: builtins.int

@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import partial
 import logging
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 from google.protobuf import message
 
@@ -45,9 +45,13 @@ from .api_pb2 import (  # type: ignore
     DeviceInfoResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse,
     FanCommandRequest,
     HomeassistantActionRequest,
+    HomeassistantActionResponse,
     HomeAssistantStateResponse,
+    InfraredRFReceiveEvent,
+    InfraredRFTransmitRawTimingsRequest,
     LightCommandRequest,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
@@ -81,10 +85,13 @@ from .api_pb2 import (  # type: ignore
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
+    WaterHeaterCommandRequest,
+    ZWaveProxyRequest,
 )
 from .client_base import (
     APIClientBase,
@@ -95,9 +102,11 @@ from .client_base import (
     on_bluetooth_le_advertising_response,
     on_bluetooth_message_types,
     on_bluetooth_scanner_state_response,
-    on_home_assistant_service_response,
+    on_home_assistant_action_request,
+    on_infrared_rf_receive_event,
     on_state_msg,
     on_subscribe_home_assistant_state_response,
+    on_zwave_proxy_request_message,
 )
 from .connection import APIConnection, ConnectionParams, handle_timeout  # noqa: F401
 from .core import (
@@ -130,9 +139,11 @@ from .model import (
     EntityInfo,
     EntityState,
     ESPHomeBluetoothGATTServices,
+    ExecuteServiceResponse as ExecuteServiceResponseModel,
     FanDirection,
     FanSpeed,
     HomeassistantServiceCall,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventModel,
     LegacyCoverCommand,
     LockCommand,
     LogLevel,
@@ -147,20 +158,41 @@ from .model import (
     VoiceAssistantCommand,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantSubscriptionFlag,
     VoiceAssistantTimerEventType,
+    WaterHeaterCommandField,
+    WaterHeaterStateFlag,
+    ZWaveProxyRequest as ZWaveProxyRequestModel,
     message_types_to_names,
 )
 from .model_conversions import (
     LIST_ENTITIES_SERVICES_RESPONSE_TYPES,
     SUBSCRIBE_STATES_RESPONSE_TYPES,
 )
+from .object_id import fill_missing_object_ids
 from .util import create_eager_task
 
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_BLE_TIMEOUT = 30.0
 DEFAULT_BLE_DISCONNECT_TIMEOUT = 20.0
+DEFAULT_EXECUTE_SERVICE_TIMEOUT = 30.0
+
+# API version 1.14+ may omit object_id to reduce protocol overhead
+MIN_VERSION_OBJECT_ID_OPTIONAL = APIVersion(1, 14)
+
+
+def _fill_object_ids_if_needed(
+    api_version: APIVersion,
+    entities: list[EntityInfo],
+    device_info: DeviceInfo,
+) -> list[EntityInfo]:
+    """Fill in missing object_id values if API version supports omitting them."""
+    if api_version >= MIN_VERSION_OBJECT_ID_OPTIONAL:
+        return fill_missing_object_ids(entities, device_info)
+    return entities
+
 
 SUBSCRIBE_STATES_MSG_TYPES = (*SUBSCRIBE_STATES_RESPONSE_TYPES, CameraImageResponse)
 
@@ -185,7 +217,7 @@ USER_SERVICE_MAP_SINGLE = {
 
 
 ExecuteServiceDataType = dict[
-    str, Union[bool, int, float, str, list[bool], list[int], list[float], list[str]]
+    str, bool | int | float | str | list[bool] | list[int] | list[float] | list[str]
 ]
 
 
@@ -218,6 +250,7 @@ class APIClient(APIClientBase):
     ) -> None:
         # Hook into on_stop handler to clear connection when stopped
         self._connection = None
+        self._cached_device_info = None
         if on_stop:
             self._create_background_task(on_stop(expected_disconnect))
 
@@ -282,11 +315,17 @@ class APIClient(APIClientBase):
         )
         info = DeviceInfo.from_pb(resp)
         self._set_name_from_device(info.name)
+        self._cached_device_info = info
         return info
 
     async def list_entities_services(
         self,
     ) -> tuple[list[EntityInfo], list[UserService]]:
+        # If device_info is not cached, use combined call for efficiency
+        # (sends both requests in a single packet)
+        if (device_info := self._cached_device_info) is None:
+            _, ents, svcs = await self.device_info_and_list_entities()
+            return ents, svcs
         msgs = await self._get_connection().send_messages_await_response_complex(
             (ListEntitiesRequest(),),
             lambda msg: type(msg) is not ListEntitiesDoneResponse,
@@ -304,7 +343,10 @@ class APIClient(APIClientBase):
                 continue
             if cls := response_types[msg_type]:
                 entities.append(cls.from_pb(msg))
-        return entities, services
+        # Fill in missing object_id values using cached device_info
+        api_version = self.api_version
+        assert api_version is not None
+        return _fill_object_ids_if_needed(api_version, entities, device_info), services
 
     async def device_info_and_list_entities(
         self,
@@ -358,7 +400,15 @@ class APIClient(APIClientBase):
                 entities.append(cls.from_pb(msg))
 
         assert device_info is not None
-        return device_info, entities, services
+        self._cached_device_info = device_info
+        # Fill in missing object_id values for entities that don't have them
+        api_version = self.api_version
+        assert api_version is not None
+        return (
+            device_info,
+            _fill_object_ids_if_needed(api_version, entities, device_info),
+            services,
+        )
 
     def subscribe_states(self, on_state: Callable[[EntityState], None]) -> None:
         """Subscribe to state updates."""
@@ -400,9 +450,52 @@ class APIClient(APIClientBase):
     ) -> None:
         self._get_connection().send_message_callback_response(
             SubscribeHomeassistantServicesRequest(),
-            partial(on_home_assistant_service_response, on_service_call),
+            partial(on_home_assistant_action_request, on_service_call),
             (HomeassistantActionRequest,),
         )
+
+    def subscribe_zwave_proxy_request(
+        self,
+        on_zwave_proxy_request: Callable[[ZWaveProxyRequestModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to Z-Wave Proxy Request messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_zwave_proxy_request_message,
+                on_zwave_proxy_request,
+            ),
+            (ZWaveProxyRequest,),
+        )
+
+    def subscribe_infrared_rf_receive(
+        self,
+        on_infrared_rf_receive: Callable[[InfraredRFReceiveEventModel], None],
+    ) -> Callable[[], None]:
+        """Subscribe to Infrared/RF Receive Event messages."""
+        return self._get_connection().add_message_callback(
+            partial(
+                on_infrared_rf_receive_event,
+                on_infrared_rf_receive,
+            ),
+            (InfraredRFReceiveEvent,),
+        )
+
+    def infrared_rf_transmit_raw_timings(
+        self,
+        key: int,
+        carrier_frequency: int,
+        timings: list[int],
+        repeat_count: int = 1,
+        device_id: int = 0,
+    ) -> None:
+        """Send an infrared/RF raw timings transmit request."""
+        req = InfraredRFTransmitRawTimingsRequest()
+        req.device_id = device_id
+        req.key = key
+        req.carrier_frequency = carrier_frequency
+        req.repeat_count = repeat_count
+        req.timings.extend(timings)
+        self._get_connection().send_message(req)
 
     async def _send_bluetooth_message_await_response(
         self,
@@ -941,7 +1034,7 @@ class APIClient(APIClientBase):
             SUBSCRIBE_STATES_MSG_TYPES,
         )
         connection.add_message_callback(
-            partial(on_home_assistant_service_response, on_service_call),
+            partial(on_home_assistant_action_request, on_service_call),
             (HomeassistantActionRequest,),
         )
         connection.add_message_callback(
@@ -1255,6 +1348,47 @@ class APIClient(APIClientBase):
             req.stop = stop
         self._get_connection().send_message(req)
 
+    def water_heater_command(
+        self,
+        key: int,
+        *,
+        mode: int | None = None,
+        target_temperature: float | None = None,
+        target_temperature_low: float | None = None,
+        target_temperature_high: float | None = None,
+        away: bool | None = None,
+        on: bool | None = None,
+        device_id: int = 0,
+    ) -> None:
+        req = WaterHeaterCommandRequest(key=key, device_id=device_id)
+
+        if mode is not None:
+            req.has_fields |= WaterHeaterCommandField.MODE
+            req.mode = mode
+
+        if target_temperature is not None:
+            req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE
+            req.target_temperature = target_temperature
+
+        if away is not None or on is not None:
+            req.has_fields |= WaterHeaterCommandField.STATE
+            state = WaterHeaterStateFlag(0)
+            if away:
+                state |= WaterHeaterStateFlag.AWAY
+            if on:
+                state |= WaterHeaterStateFlag.ON
+            req.state = state
+
+        if target_temperature_low is not None:
+            req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE_LOW
+            req.target_temperature_low = target_temperature_low
+
+        if target_temperature_high is not None:
+            req.has_fields |= WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH
+            req.target_temperature_high = target_temperature_high
+
+        self._get_connection().send_message(req)
+
     def media_player_command(
         self,
         key: int,
@@ -1292,11 +1426,22 @@ class APIClient(APIClientBase):
             UpdateCommandRequest(key=key, command=command, device_id=device_id)
         )
 
-    def execute_service(
-        self, service: UserService, data: ExecuteServiceDataType
-    ) -> None:
+    async def execute_service(
+        self,
+        service: UserService,
+        data: ExecuteServiceDataType,
+        *,
+        return_response: bool | None = None,
+        timeout: float = DEFAULT_EXECUTE_SERVICE_TIMEOUT,
+    ) -> ExecuteServiceResponseModel | None:
         connection = self._get_connection()
-        req = ExecuteServiceRequest(key=service.key)
+        # Generate call_id when response callback is provided
+        call_id = next(self._call_id_counter) if return_response is not None else 0
+        req = ExecuteServiceRequest(
+            key=service.key,
+            call_id=call_id,
+            return_response=return_response,
+        )
         args = []
         apiv = self.api_version
         if TYPE_CHECKING:
@@ -1320,7 +1465,32 @@ class APIClient(APIClientBase):
         # pylint: disable=no-member
         req.args.extend(args)
 
-        connection.send_message(req)
+        # Register callback for response if provided
+        if return_response is not None:
+            response_event = asyncio.Event()
+            response_msg: ExecuteServiceResponseModel | None = None
+
+            def _on_response(msg: ExecuteServiceResponse) -> None:
+                nonlocal response_msg
+                if msg.call_id == call_id:
+                    response_msg = ExecuteServiceResponseModel.from_pb(msg)
+                    response_event.set()
+
+            unsub = connection.add_message_callback(
+                _on_response,
+                (ExecuteServiceResponse,),
+            )
+
+            try:
+                connection.send_message(req)
+                await asyncio.wait_for(response_event.wait(), timeout=timeout)
+                return response_msg
+            finally:
+                unsub()
+        else:
+            connection.send_message(req)
+
+        return None
 
     def _request_image(self, *, single: bool = False, stream: bool = False) -> None:
         self._get_connection().send_message(
@@ -1518,10 +1688,28 @@ class APIClient(APIClientBase):
         return VoiceAssistantAnnounceFinishedModel.from_pb(resp)
 
     async def get_voice_assistant_configuration(
-        self, timeout: float
+        self,
+        timeout: float,
+        external_wake_words: list[VoiceAssistantExternalWakeWordModel] | None = None,
     ) -> VoiceAssistantConfigurationResponseModel:
+        if external_wake_words is None:
+            external_wake_words = []
+
         resp = await self._get_connection().send_message_await_response(
-            VoiceAssistantConfigurationRequest(),
+            VoiceAssistantConfigurationRequest(
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWord(
+                        id=ex_ww.id,
+                        wake_word=ex_ww.wake_word,
+                        trained_languages=ex_ww.trained_languages,
+                        model_type=ex_ww.model_type,
+                        model_size=ex_ww.model_size,
+                        model_hash=ex_ww.model_hash,
+                        url=ex_ww.url,
+                    )
+                    for ex_ww in external_wake_words
+                ]
+            ),
             VoiceAssistantConfigurationResponse,
             timeout,
         )
@@ -1557,3 +1745,18 @@ class APIClient(APIClientBase):
             req, NoiseEncryptionSetKeyResponse
         )
         return NoiseEncryptionSetKeyResponseModel.from_pb(resp).success
+
+    def send_homeassistant_action_response(
+        self,
+        call_id: int,
+        success: bool = True,
+        error_message: str = "",
+        response_data: bytes = b"",
+    ) -> None:
+        """Send a service call response back to ESPHome."""
+        req = HomeassistantActionResponse()
+        req.call_id = call_id
+        req.success = success
+        req.error_message = error_message
+        req.response_data = response_data
+        self._get_connection().send_message(req)

@@ -9,7 +9,6 @@ the top-level package.
 from __future__ import annotations
 
 import dataclasses
-import pathlib
 import re
 import typing
 
@@ -18,6 +17,7 @@ import packaging.requirements
 from .errors import ErrorCollector
 
 if typing.TYPE_CHECKING:
+    import pathlib
     from collections.abc import Generator, Iterable, Sequence
 
     from packaging.requirements import Requirement
@@ -81,8 +81,10 @@ class PyProjectReader(ErrorCollector):
         self.config_error(msg, key=key, got_type=type(value))
         return None
 
-    def ensure_list(self, val: list[T], key: str) -> list[T] | None:
+    def ensure_list(self, val: list[T] | None, key: str) -> list[T] | None:
         """Ensure that a value is a list of strings."""
+        if val is None:
+            return None
         if not isinstance(val, list):
             msg = "Field {key} has an invalid type, expecting a list of strings"
             self.config_error(msg, key=key, got_type=type(val))
@@ -299,7 +301,6 @@ class PyProjectReader(ErrorCollector):
 
     def get_dependencies(self, project: ProjectTable) -> list[Requirement]:
         """Get the dependencies from the project table."""
-
         requirement_strings: list[str] | None = None
         requirement_strings_raw = project.get("dependencies")
         if requirement_strings_raw is not None:
@@ -310,13 +311,13 @@ class PyProjectReader(ErrorCollector):
             return []
 
         requirements: list[Requirement] = []
-        for req in requirement_strings:
-            try:
+        try:
+            for req in requirement_strings:
                 requirements.append(packaging.requirements.Requirement(req))
-            except packaging.requirements.InvalidRequirement as e:
-                msg = "Field {key} contains an invalid PEP 508 requirement string {req!r} ({error!r})"
-                self.config_error(msg, key="project.dependencies", req=req, error=e)
-                return []
+        except packaging.requirements.InvalidRequirement as e:
+            msg = "Field {key} contains an invalid PEP 508 requirement string {req!r} ({error!r})"
+            self.config_error(msg, key="project.dependencies", req=req, error=e)
+            return []
         return requirements
 
     def get_optional_dependencies(
@@ -324,7 +325,6 @@ class PyProjectReader(ErrorCollector):
         project: ProjectTable,
     ) -> dict[str, list[Requirement]]:
         """Get the optional dependencies from the project table."""
-
         val = project.get("optional-dependencies")
         if not val:
             return {}
@@ -376,7 +376,6 @@ class PyProjectReader(ErrorCollector):
 
     def get_entrypoints(self, project: ProjectTable) -> dict[str, dict[str, str]]:
         """Get the entrypoints from the project table."""
-
         val = project.get("entry-points", None)
         if val is None:
             return {}
@@ -435,7 +434,6 @@ class PyProjectReader(ErrorCollector):
         self, project_dir: pathlib.Path, globs: Iterable[str]
     ) -> Generator[pathlib.Path, None, None]:
         """Given a list of globs, get files that match."""
-
         for glob in globs:
             if glob.startswith(("..", "/")):
                 msg = "{glob!r} is an invalid {key} glob: the pattern must match files within the project directory"

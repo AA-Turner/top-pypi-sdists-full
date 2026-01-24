@@ -15,6 +15,8 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
+#include "include/encode/SkWebpEncoder.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
 
 namespace skiagm {
@@ -35,6 +37,7 @@ static sk_sp<SkImage> make_image(SkColorType colorType, SkAlphaType alphaType) {
         case kRGB_888x_SkColorType:
         case kRGB_101010x_SkColorType:
         case kBGR_101010x_SkColorType:
+        case kRGB_F16F16F16x_SkColorType:
             if (alphaType != kOpaque_SkAlphaType) {
                 return nullptr;
             }
@@ -46,13 +49,13 @@ static sk_sp<SkImage> make_image(SkColorType colorType, SkAlphaType alphaType) {
             break;
     }
 
-    auto image = GetResourceAsImage(resource);
+    auto image = ToolUtils::GetResourceAsImage(resource);
     if (!image) {
         return nullptr;
     }
 
-    auto surface = SkSurface::MakeRaster(SkImageInfo::Make(image->width(), image->height(),
-            colorType, alphaType, image->refColorSpace()));
+    auto surface = SkSurfaces::Raster(SkImageInfo::Make(
+            image->width(), image->height(), colorType, alphaType, image->refColorSpace()));
     surface->getCanvas()->drawImage(image, 0, 0);
     return surface->makeImageSnapshot();
 }
@@ -81,14 +84,14 @@ public:
     {}
 
 protected:
-    SkString onShortName() override {
+    SkString getName() const override {
         const char* variant = fVariant == Variant::kOpaque ? "opaque-":
                               fVariant == Variant::kGray   ? "gray-"  :
                                                              ""       ;
         return SkStringPrintf("encode-%scolor-types-%s", variant, fName);
     }
 
-    SkISize onISize() override {
+    SkISize getISize() override {
         const int width = fVariant == Variant::kNormal ? imageWidth * 7 : imageWidth * 2;
         return SkISize::Make(width, imageHeight);
     }
@@ -102,9 +105,10 @@ protected:
                 }
                 break;
             case Variant::kOpaque:
-                if (colorType != kRGB_565_SkColorType     &&
-                    colorType != kRGB_888x_SkColorType    &&
-                    colorType != kRGB_101010x_SkColorType &&
+                if (colorType != kRGB_565_SkColorType         &&
+                    colorType != kRGB_888x_SkColorType        &&
+                    colorType != kRGB_101010x_SkColorType     &&
+                    colorType != kRGB_F16F16F16x_SkColorType  &&
                     colorType != kBGR_101010x_SkColorType)
                 {
                     return DrawResult::kSkip;
@@ -130,9 +134,24 @@ protected:
 
         for (SkAlphaType alphaType : alphaTypes) {
             auto src = make_image(colorType, alphaType);
-            auto decoded = src ? SkImage::MakeFromEncoded(src->encodeToData(fFormat, fQuality))
-                               : nullptr;
-            if (!src || !decoded) {
+            if (!src) {
+                break;
+            }
+            SkASSERT_RELEASE(fFormat == SkEncodedImageFormat::kWEBP);
+            SkWebpEncoder::Options options;
+            if (fQuality < 100) {
+                options.fCompression = SkWebpEncoder::Compression::kLossy;
+                options.fQuality = fQuality;
+            } else {
+                options.fCompression = SkWebpEncoder::Compression::kLossless;
+                // in lossless mode, this is effort. 70 is the default effort in SkImageEncoder,
+                // which follows Blink and WebPConfigInit.
+                options.fQuality = 70;
+            }
+            auto data = SkWebpEncoder::Encode(nullptr, src.get(), options);
+            SkASSERT(data);
+            auto decoded = SkImages::DeferredFromEncodedData(data);
+            if (!decoded) {
                 break;
             }
 
@@ -161,10 +180,10 @@ private:
                     return new EncodeColorTypesGM(format, quality, Variant::variant, name);\
                 }());});
 
-#define DEF_VARIANTS(format, quality, name)         \
-    DEF_ENCODE_GM(format, quality, kNormal, name);  \
-    DEF_ENCODE_GM(format, quality, kOpaque, name);  \
-    DEF_ENCODE_GM(format, quality, kGray, name);
+#define DEF_VARIANTS(format, quality, name)        \
+    DEF_ENCODE_GM(format, quality, kNormal, name)  \
+    DEF_ENCODE_GM(format, quality, kOpaque, name)  \
+    DEF_ENCODE_GM(format, quality, kGray, name)
 
 DEF_VARIANTS(SkEncodedImageFormat::kWEBP, 100, "webp-lossless")
 DEF_VARIANTS(SkEncodedImageFormat::kWEBP,  80, "webp-lossy")

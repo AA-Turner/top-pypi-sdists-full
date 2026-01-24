@@ -1,0 +1,42 @@
+# Configuration for 'repo_helper' (https://github.com/repo-helper/repo_helper)
+---
+modname: 'notify-rs'
+copyright_years: '2025'
+author: 'Dominic Davis-Foster'
+email: 'dominic@davis-foster.co.uk'
+username: 'domdfcoding'
+version: '0.6.1'
+license: 'MIT'
+short_desc: 'Wrapper around notify-rust to show desktop notifications.'
+
+enable_conda: false
+enable_tests: false
+use_maturin: true
+
+python_versions:
+  - 3.8
+  - 3.9
+  - '3.10'
+  - '3.11'
+  - '3.12'
+  - '3.13'
+
+classifiers:
+  - "Programming Language :: Rust"
+
+extra_lint_paths:
+  - test.py
+  - python/notify_rs
+
+exclude_files:
+ - actions
+
+tox_unmanaged:
+  - testenv:build
+
+extra_sphinx_extensions:
+  - variable_no_docstring
+  - sphinx_toolbox.more_autosummary.column_widths
+
+sphinx_conf_epilogue:
+  - nitpicky = True

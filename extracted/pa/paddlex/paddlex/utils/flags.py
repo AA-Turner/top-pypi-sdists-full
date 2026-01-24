@@ -29,6 +29,7 @@ __all__ = [
     "USE_PIR_TRT",
     "DISABLE_DEV_MODEL_WL",
     "DISABLE_CINN_MODEL_WL",
+    "DISABLE_DEVICE_FALLBACK",
 ]
 
 
@@ -60,8 +61,14 @@ LOCAL_FONT_FILE_PATH = get_flag_from_env_var("PADDLE_PDX_LOCAL_FONT_FILE_PATH", 
 ENABLE_MKLDNN_BYDEFAULT = get_flag_from_env_var(
     "PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", True
 )
+DISABLE_DEVICE_FALLBACK = get_flag_from_env_var(
+    "PADDLE_PDX_DISABLE_DEVICE_FALLBACK", False
+)
 
 MODEL_SOURCE = os.environ.get("PADDLE_PDX_MODEL_SOURCE", "huggingface").lower()
+DISABLE_MODEL_SOURCE_CHECK = os.environ.get(
+    "PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", False
+)
 
 
 # Inference Benchmark

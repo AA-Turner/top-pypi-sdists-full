@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddapm-test-agent
-Version: 1.34.0
+Version: 1.39.0
 Summary: Test agent for Datadog APM client libraries
 Home-page: https://github.com/Datadog/dd-apm-test-agent
 Author: Kyle Verhoog
@@ -20,15 +20,18 @@ Requires-Dist: msgpack
 Requires-Dist: requests
 Requires-Dist: typing_extensions
 Requires-Dist: yarl
-Requires-Dist: vcrpy
 Requires-Dist: requests-aws4auth
+Requires-Dist: jinja2>=3.0.0
+Requires-Dist: pyyaml
 Requires-Dist: opentelemetry-proto<1.37.0,>1.33.0
 Requires-Dist: protobuf>=3.19.0
 Requires-Dist: grpcio<2.0,>=1.66.2
+Requires-Dist: pywin32; sys_platform == "win32"
 Provides-Extra: testing
-Requires-Dist: ddtrace==3.11.0; extra == "testing"
+Requires-Dist: ddtrace==3.15.0; extra == "testing"
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: riot==0.20.1; extra == "testing"
+Requires-Dist: PyYAML==6.0.3; extra == "testing"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -65,8 +68,8 @@ The test agent can be installed from PyPI:
 
     pip install ddapm-test-agent
 
-    # HTTP on port 8126, OTLP HTTP on port 4318, OTLP GRPC on port 4317
-    ddapm-test-agent --port=8126 --otlp-http-port=4318 --otlp-grpc-port=4317
+    # HTTP on port 8126, OTLP HTTP on port 4318, OTLP GRPC on port 4317, with the web-ui enabled
+    ddapm-test-agent --port=8126 --otlp-http-port=4318 --otlp-grpc-port=4317 --web-ui-port=8080
 
 or from Docker:
 
@@ -169,6 +172,15 @@ The traces are normalized and output in JSON to a file. The following transforma
 - The span meta and metrics maps if empty are excluded.
 
 
+#### Web UI
+
+The test agent includes an optional and **experimental** Web UI that provides a dashboard for inspecting agent configuration, viewing received requests, exploring traces and snapshots, and managing tracer-flare and remote configuration.
+
+The UI can be enabled with the `--web-ui-port PORT` command-line argument or by setting the `WEB_UI_PORT` environment variable.
+Once enabled, the Web UI can be accessed at `http://localhost:PORT` (default port is `8080`).
+
+There is also a maximum number of requests to store in memory to display in the UI, which can be configured with the `--max-requests` command-line argument or by setting the `MAX_REQUESTS` environment variable (default is `200` requests).
+
 ### Recording 3rd party API requests
 
 The test agent can be configured to proxy requests to select provider API endpoints, capturing real requests to
@@ -183,7 +195,33 @@ The cassettes are matched based on the path, method, and body of the request. To
             -v $PWD/vcr-cassettes:/vcr-cassettes
             ghcr.io/datadog/dd-apm-test-agent/ddapm-test-agent:latest
 
-Optionally specifying whatever mounted path is used for the cassettes directory. The test agent comes with a default set of cassettes for OpenAI, Azure OpenAI, and DeepSeek.
+Optionally specifying whatever mounted path is used for the cassettes directory. The test agent comes with a default set of cassettes for OpenAI, Azure OpenAI, DeepSeek, Anthropic, Google GenAI, and AWS Bedrock Runtime.
+
+#### Custom 3rd Party Providers
+
+The test agent can be configured to also register custom 3rd party providers. This is done by setting the `VCR_PROVIDER_MAP` environment variable or the `--vcr-provider-map` command-line option to a comma-separated list of provider names and their corresponding base URLs.
+
+```shell
+VCR_PROVIDER_MAP="provider1=http://provider1.com/,provider2=http://provider2.com/"
+```
+
+or
+
+```shell
+--vcr-provider-map="provider1=http://provider1.com/,provider2=http://provider2.com/"
+```
+
+The provider names are used to match the provider name in the request path, and the base URLs are used to proxy the request to the corresponding provider API endpoint.
+
+With this configuration set, you can make the following request to the test agent without error:
+
+```shell
+curl -X POST 'http://127.0.0.1:9126/vcr/provider1/some/path'
+```
+
+#### Ignoring Headers in Recorded Cassettes
+
+To ignore headers in recorded cassettes, you can use the `--vcr-ignore-headers` flag or `VCR_IGNORE_HEADERS` environment variable. The list should take the form of `header1,header2,header3`, and will be omitted from the recorded cassettes.
 
 #### AWS Services
 AWS service proxying, specifically recording cassettes for the first time, requires a `AWS_SECRET_ACCESS_KEY` environment variable to be set for the container running the test agent. This is used to recalculate the AWS signature for the request, as the one generated client-side likely used `{test-agent-host}:{test-agent-port}/vcr/{aws-service}` as the host, and the signature will mismatch that on the actual AWS service.

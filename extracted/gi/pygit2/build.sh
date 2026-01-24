@@ -22,14 +22,14 @@
 #
 #   sh build.sh
 #
-# Build libgit2 1.9.0 (will use libssh2 if available), then build pygit2
+# Build libgit2 1.9.2 (will use libssh2 if available), then build pygit2
 # inplace:
 #
-#   LIBGIT2_VERSION=1.9.0 sh build.sh
+#   LIBGIT2_VERSION=1.9.2 sh build.sh
 #
-# Build libssh2 1.11.1 and libgit2 1.9.0, then build pygit2 inplace:
+# Build libssh2 1.11.1 and libgit2 1.9.2, then build pygit2 inplace:
 #
-#   LIBSSH2_VERSION=1.11.1 LIBGIT2_VERSION=1.9.0 sh build.sh
+#   LIBSSH2_VERSION=1.11.1 LIBGIT2_VERSION=1.9.2 sh build.sh
 #
 # Build inplace and run the tests:
 #
@@ -62,6 +62,8 @@ if [ "$CIBUILDWHEEL" = "1" ]; then
         apt-get install wget -y
         if [ -z "$OPENSSL_VERSION" ]; then
             apt-get install libssl-dev -y
+        else
+            apt-get install libtime-piece-perl -y
         fi
     elif [ -f /usr/bin/yum ]; then
         yum install wget zlib-devel -y
@@ -70,11 +72,14 @@ if [ "$CIBUILDWHEEL" = "1" ]; then
         else
             yum install perl-IPC-Cmd -y
             yum install perl-Pod-Html -y
+            yum install perl-Time-Piece -y
         fi
     elif [ -f /sbin/apk ]; then
         apk add wget
         if [ -z "$OPENSSL_VERSION" ]; then
-            apk add openssl-dev
+            apk add --no-cache openssl-dev
+        else
+            apk add --no-cache perl
         fi
     fi
     rm -rf ci
@@ -134,7 +139,7 @@ if [ -n "$OPENSSL_VERSION" ]; then
         # Linux
         tar xf $FILENAME.tar.gz
         cd $FILENAME
-        ./Configure shared --prefix=$PREFIX --libdir=$PREFIX/lib
+        ./Configure shared no-apps no-docs no-tests --prefix=$PREFIX --libdir=$PREFIX/lib
         make
         make install
         OPENSSL_PREFIX=$(pwd)
@@ -268,7 +273,7 @@ if [ "$1" = "mypy" ]; then
     if [ -n "$WHEELDIR" ]; then
         $PREFIX/bin/pip install $WHEELDIR/pygit2*-$PYTHON_TAG-*.whl
     fi
-    $PREFIX/bin/pip install -r requirements-test.txt
+    $PREFIX/bin/pip install -r requirements-test.txt -r requirements-typing.txt
     $PREFIX/bin/mypy pygit2 test
 fi
 

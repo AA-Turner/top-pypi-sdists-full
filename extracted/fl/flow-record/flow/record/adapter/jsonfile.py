@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING, BinaryIO
 from flow import record
 from flow.record import JsonRecordPacker
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.selector import make_selector
-from flow.record.utils import is_stdout
+from flow.record.utils import boolean_argument, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -33,7 +34,7 @@ class JsonfileWriter(AbstractWriter):
     def __init__(
         self, path: str | Path | BinaryIO, indent: str | int | None = None, descriptors: bool = True, **kwargs
     ):
-        self.descriptors = str(descriptors).lower() in ("true", "1")
+        self.descriptors = boolean_argument(descriptors)
         self.fp = record.open_path_or_stream(path, "w")
         if isinstance(indent, str):
             indent = int(indent)
@@ -75,10 +76,12 @@ class JsonfileReader(AbstractReader):
         self.fp = None
 
     def __iter__(self) -> Iterator[Record]:
+        ctx = get_app_context()
+        selector = self.selector
         for line in self.fp:
             obj = self.packer.unpack(line)
             if isinstance(obj, record.Record):
-                if not self.selector or self.selector.match(obj):
+                if match_record_with_context(obj, selector, ctx):
                     yield obj
             elif isinstance(obj, record.RecordDescriptor):
                 pass
@@ -90,5 +93,5 @@ class JsonfileReader(AbstractReader):
                 ]
                 desc = record.RecordDescriptor("json/record", fields)
                 obj = desc(**jd)
-                if not self.selector or self.selector.match(obj):
+                if match_record_with_context(obj, selector, ctx):
                     yield obj

@@ -104,3 +104,11 @@ class FrenchPhoneOwner(models.Model):
 
 class TestModelRegionAR(models.Model):
     phone = PhoneNumberField(region="AR", blank=True, null=True)
+
+
+class PhoneNumberWithMaxLengthDefault(models.Model):
+    phone = PhoneNumberField(max_length=12, blank=True, default="")
+
+
+class PhoneNumberWithMaxLengthNullable(models.Model):
+    phone = PhoneNumberField(max_length=12, blank=True, null=True)

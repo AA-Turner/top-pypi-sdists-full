@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.763599                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.931148                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -22,6 +22,10 @@ STORAGE_INJECTIONS_SINGLE_FILE_SAVE: dict
 STORAGE_INJECTIONS_MULTIPLE_FILE_SAVE: dict
 
 STORAGE_INJECTIONS_LOAD_FILES: dict
+
+STORAGE_INJECTIONS_DELETE: dict
+
+STORAGE_INJECTIONS_DELETE_PREFIX: dict
 
 class DatastoreBlob(tuple, metaclass=type):
     """
@@ -139,6 +143,39 @@ class ObjectStorage(object, metaclass=type):
     def list_paths(self, keys, recursive = False) -> typing.Iterator[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core.ListPathResult]:
         """
         List all objects in the datastore's `keys` index.
+        """
+        ...
+    def delete(self, key: str) -> bool:
+        """
+        Delete a single object by key.
+        
+        Parameters
+        ----------
+        key : str
+            The key of the object to delete (relative to this store's path).
+        
+        Returns
+        -------
+        bool
+            True if deletion was successful, False otherwise.
+        """
+        ...
+    def delete_prefix(self, key_prefix: str) -> bool:
+        """
+        Delete all objects under a key prefix.
+        
+        This is used for deleting checkpoint/model artifacts that may consist
+        of multiple files stored under a common prefix.
+        
+        Parameters
+        ----------
+        key_prefix : str
+            The key prefix to delete (relative to this store's path).
+        
+        Returns
+        -------
+        bool
+            True if deletion was successful, False otherwise.
         """
         ...
     def __str__(self) -> str:

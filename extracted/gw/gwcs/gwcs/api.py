@@ -66,7 +66,7 @@ class GWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
         return tuple(unit.to_string(format="vounit") for unit in self.output_frame.unit)
 
     def _remove_quantity_output(self, result, frame):
-        if self.forward_transform.uses_quantity:
+        if frame is not None:
             if frame.naxes == 1:
                 result = [result]
 
@@ -76,7 +76,11 @@ class GWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
             )
 
         # If we only have one output axes, we shouldn't return a tuple.
-        if self.output_frame.naxes == 1 and isinstance(result, tuple):
+        if (
+            self.output_frame is not None
+            and self.output_frame.naxes == 1
+            and isinstance(result, tuple)
+        ):
             return result[0]
         return result
 
@@ -93,8 +97,7 @@ class GWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
         order, where for an image, ``x`` is the horizontal coordinate and ``y``
         is the vertical coordinate.
         """
-        result = self._call_forward(*pixel_arrays)
-
+        result = self(*pixel_arrays)
         return self._remove_quantity_output(result, self.output_frame)
 
     def array_index_to_world_values(self, *index_arrays):
@@ -120,7 +123,7 @@ class GWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
         be returned in the ``(x, y)`` order, where for an image, ``x`` is the
         horizontal coordinate and ``y`` is the vertical coordinate.
         """
-        result = self._call_backward(*world_arrays)
+        result = self.invert(*world_arrays)
 
         return self._remove_quantity_output(result, self.input_frame)
 
@@ -136,7 +139,7 @@ class GWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
         results = self.world_to_pixel_values(*world_arrays)
         results = (results,) if self.pixel_n_dim == 1 else results[::-1]
 
-        results = tuple(utils._toindex(result) for result in results)
+        results = tuple(utils.to_index(result) for result in results)
         return results[0] if self.pixel_n_dim == 1 else results
 
     @property
@@ -245,6 +248,9 @@ class GWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
 
     @property
     def world_axis_object_classes(self):
+        if self.output_frame is None:
+            return None
+
         return self.output_frame.world_axis_object_classes
 
     @property

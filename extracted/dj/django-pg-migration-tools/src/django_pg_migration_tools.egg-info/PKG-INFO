@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: django_pg_migration_tools
+Version: 0.1.24
+Summary: Tools for making Django migrations safer and more scalable.
+License: BSD 3-Clause License
+        
+        Copyright (c) 2024, Kraken Technologies Limited
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: repository, https://github.com/kraken-tech/django-pg-migration-tools
+Project-URL: changelog, https://github.com/kraken-tech/django-pg-migration-tools/blob/main/CHANGELOG.md
+Project-URL: docs, https://django-pg-migration-tools.readthedocs.io/
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: pytest-in-nox-base
+Requires-Dist: coverage>=7.6.1; extra == "pytest-in-nox-base"
+Requires-Dist: dj-database-url>=2.1.0; extra == "pytest-in-nox-base"
+Requires-Dist: django-stubs>=5.0.0; extra == "pytest-in-nox-base"
+Requires-Dist: environs>=11.0.0; extra == "pytest-in-nox-base"
+Requires-Dist: nox>=2024.4.15; extra == "pytest-in-nox-base"
+Requires-Dist: pytest-django>=4.8.0; extra == "pytest-in-nox-base"
+Requires-Dist: pytest>=8.2.0; extra == "pytest-in-nox-base"
+Provides-Extra: pytest-in-nox-psycopg3
+Requires-Dist: django_pg_migration_tools[pytest-in-nox-base]; extra == "pytest-in-nox-psycopg3"
+Requires-Dist: psycopg[binary]>=3.1.18; extra == "pytest-in-nox-psycopg3"
+Provides-Extra: pytest-in-nox-psycopg2
+Requires-Dist: django_pg_migration_tools[pytest-in-nox-base]; extra == "pytest-in-nox-psycopg2"
+Requires-Dist: psycopg2-binary>=2.9.9; extra == "pytest-in-nox-psycopg2"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.4.7; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>=2.0.0; extra == "docs"
+Requires-Dist: sphinx_lint>=0.9.1; extra == "docs"
+Requires-Dist: sphinx_design>=0.6.1; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: django_pg_migration_tools[pytest-in-nox-psycopg3]; extra == "dev"
+Requires-Dist: django_pg_migration_tools[docs]; extra == "dev"
+Requires-Dist: django>=4.2.0; extra == "dev"
+Requires-Dist: ruff>=0.5.2; extra == "dev"
+Requires-Dist: mypy>=1.10.1; extra == "dev"
+Requires-Dist: pre-commit>=3.7.1; extra == "dev"
+Requires-Dist: types-psycopg2>=2.9.21.20241019; extra == "dev"
+Requires-Dist: build>=1.2.1; extra == "dev"
+Requires-Dist: bump-my-version>=1.1.2; extra == "dev"
+Dynamic: license-file
+
+# Django Postgres Migration Tools
+
+Tools to make Django migrations safer and more scalable.
+
+## Documentation
+
+[Full documentation](https://django-pg-migration-tools.readthedocs.io/en/latest/).
+
+## Main Features
+
+- **Safer migration operations for**:
+  - [Adding unique constraints](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferAddUniqueConstraint)
+  - [Removing unique constraints](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferRemoveUniqueConstraint)
+  - [Adding check constraints](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferAddCheckConstraint)
+  - [Removing check constraints](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferRemoveCheckConstraint)
+  - [Adding indexes (concurrently)](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferAddIndexConcurrently)
+  - [Removing indexes (concurrently)](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferRemoveIndexConcurrently)
+  - [Setting a column to NOT NULL](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferAlterFieldSetNotNull)
+  - [Adding foreign keys](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferAddFieldForeignKey)
+  - [Removing foreign keys](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferRemoveFieldForeignKey)
+  - [Adding one to one fields](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/operations.html#SaferAddFieldOneToOne)
+
+- **Database timeouts**:
+  - A context manager to apply `statement_timeout` and/or `lock_timeout` to
+    either a transaction or a Postgres session. See [apply_timeouts](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/timeouts.html#timeouts.apply_timeouts)
+
+- **Management commands**:
+  - Run migrations with `statement_timeout` and `lock_timeout` by using
+    [migrate_with_timeouts](https://django-pg-migration-tools.readthedocs.io/en/latest/usage/management_commands.html#migrate-with-timeouts)

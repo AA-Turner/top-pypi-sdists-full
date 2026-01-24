@@ -4,9 +4,17 @@ from typing import TYPE_CHECKING, TypedDict
 from databricks.bundles.core._transform import _transform
 from databricks.bundles.core._transform_to_json import _transform_to_json_value
 from databricks.bundles.core._variable import VariableOrList, VariableOrOptional
+from databricks.bundles.pipelines._models.auto_full_refresh_policy import (
+    AutoFullRefreshPolicy,
+    AutoFullRefreshPolicyParam,
+)
 from databricks.bundles.pipelines._models.ingestion_pipeline_definition_table_specific_config_query_based_connector_config import (
     IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfig,
     IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfigParam,
+)
+from databricks.bundles.pipelines._models.ingestion_pipeline_definition_workday_report_parameters import (
+    IngestionPipelineDefinitionWorkdayReportParameters,
+    IngestionPipelineDefinitionWorkdayReportParametersParam,
 )
 from databricks.bundles.pipelines._models.table_specific_config_scd_type import (
     TableSpecificConfigScdType,
@@ -20,6 +28,21 @@ if TYPE_CHECKING:
 @dataclass(kw_only=True)
 class TableSpecificConfig:
     """"""
+
+    auto_full_refresh_policy: VariableOrOptional[AutoFullRefreshPolicy] = None
+    """
+    (Optional, Mutable) Policy for auto full refresh, if enabled pipeline will automatically try
+    to fix issues by doing a full refresh on the table in the retry run. auto_full_refresh_policy
+    in table configuration will override the above level auto_full_refresh_policy.
+    For example,
+    {
+    "auto_full_refresh_policy": {
+    "enabled": true,
+    "min_interval_hours": 23,
+    }
+    }
+    If unspecified, auto full refresh is disabled.
+    """
 
     exclude_columns: VariableOrList[str] = field(default_factory=list)
     """
@@ -52,6 +75,15 @@ class TableSpecificConfig:
     Configurations that are only applicable for query-based ingestion connectors.
     """
 
+    row_filter: VariableOrOptional[str] = None
+    """
+    :meta private: [EXPERIMENTAL]
+    
+    (Optional, Immutable) The row filter condition to be applied to the table.
+    It must not contain the WHERE keyword, only the actual filter condition.
+    It must be in DBSQL format.
+    """
+
     salesforce_include_formula_fields: VariableOrOptional[bool] = None
     """
     :meta private: [EXPERIMENTAL]
@@ -68,7 +100,14 @@ class TableSpecificConfig:
 
     sequence_by: VariableOrList[str] = field(default_factory=list)
     """
-    The column names specifying the logical order of events in the source data. Delta Live Tables uses this sequencing to handle change events that arrive out of order.
+    The column names specifying the logical order of events in the source data. Spark Declarative Pipelines uses this sequencing to handle change events that arrive out of order.
+    """
+
+    workday_report_parameters: VariableOrOptional[
+        IngestionPipelineDefinitionWorkdayReportParameters
+    ] = None
+    """
+    :meta private: [EXPERIMENTAL]
     """
 
     @classmethod
@@ -81,6 +120,21 @@ class TableSpecificConfig:
 
 class TableSpecificConfigDict(TypedDict, total=False):
     """"""
+
+    auto_full_refresh_policy: VariableOrOptional[AutoFullRefreshPolicyParam]
+    """
+    (Optional, Mutable) Policy for auto full refresh, if enabled pipeline will automatically try
+    to fix issues by doing a full refresh on the table in the retry run. auto_full_refresh_policy
+    in table configuration will override the above level auto_full_refresh_policy.
+    For example,
+    {
+    "auto_full_refresh_policy": {
+    "enabled": true,
+    "min_interval_hours": 23,
+    }
+    }
+    If unspecified, auto full refresh is disabled.
+    """
 
     exclude_columns: VariableOrList[str]
     """
@@ -113,6 +167,15 @@ class TableSpecificConfigDict(TypedDict, total=False):
     Configurations that are only applicable for query-based ingestion connectors.
     """
 
+    row_filter: VariableOrOptional[str]
+    """
+    :meta private: [EXPERIMENTAL]
+    
+    (Optional, Immutable) The row filter condition to be applied to the table.
+    It must not contain the WHERE keyword, only the actual filter condition.
+    It must be in DBSQL format.
+    """
+
     salesforce_include_formula_fields: VariableOrOptional[bool]
     """
     :meta private: [EXPERIMENTAL]
@@ -129,7 +192,14 @@ class TableSpecificConfigDict(TypedDict, total=False):
 
     sequence_by: VariableOrList[str]
     """
-    The column names specifying the logical order of events in the source data. Delta Live Tables uses this sequencing to handle change events that arrive out of order.
+    The column names specifying the logical order of events in the source data. Spark Declarative Pipelines uses this sequencing to handle change events that arrive out of order.
+    """
+
+    workday_report_parameters: VariableOrOptional[
+        IngestionPipelineDefinitionWorkdayReportParametersParam
+    ]
+    """
+    :meta private: [EXPERIMENTAL]
     """
 
 

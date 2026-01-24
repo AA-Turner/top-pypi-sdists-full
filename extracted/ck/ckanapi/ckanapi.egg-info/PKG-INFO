@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ckanapi
-Version: 4.8
+Version: 4.9
 Summary: A command line interface and Python module for accessing the CKAN Action API
 Home-page: https://github.com/ckan/ckanapi
 Author: Ian Ward
@@ -17,3 +17,11 @@ Requires-Dist: six<2.0,>=1.9
 Requires-Dist: simplejson
 Provides-Extra: testing
 Requires-Dist: pyfakefs==5.3.5; extra == "testing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary

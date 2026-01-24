@@ -100,7 +100,7 @@ class RequestScope(InjectorScope):
 
     async def clear_key(self, key: uuid.UUID) -> None:
         """Clear the cache for a given request key."""
-        stack: AsyncExitStack = self.cache[key].get(AsyncExitStack, None)
+        stack: AsyncExitStack | None = self.cache[key].get(AsyncExitStack, None)
         if stack:
             await stack.aclose()
         del self.cache[key]
@@ -119,7 +119,8 @@ class RequestScope(InjectorScope):
         # thread blocks
         try:
             asyncio.get_running_loop()
-        except RuntimeError:  # 'RuntimeError: There is no current event loop...'
+        except RuntimeError:  # pragma: no cover
+            # 'RuntimeError: There is no current event loop...'
             # Starting new event loop
             asyncio.run(stack.enter_async_context(obj))
         else:

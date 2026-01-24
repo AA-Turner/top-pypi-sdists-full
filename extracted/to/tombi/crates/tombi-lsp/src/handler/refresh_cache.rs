@@ -25,6 +25,7 @@ pub async fn handle_refresh_cache(
             tracing::error!("Failed to refresh cache: {err}");
             Err(tower_lsp::jsonrpc::Error {
                 code: tower_lsp::jsonrpc::ErrorCode::InternalError,
+
                 message: Cow::Owned(format!("Failed to refresh cache: {err}")),
                 data: None,
             })

@@ -30,6 +30,7 @@ If parsing succeeds, it returns a [`Gtin`][biip.gtin.Gtin] object.
         company_prefix=GS1CompanyPrefix(
             value='703206'
         ),
+        item_reference='980498',
         payload='703206980498',
         check_digit=8
     )
@@ -55,9 +56,10 @@ from enum import IntEnum
 from typing import TYPE_CHECKING, Any
 
 from biip import EncodeError, ParseError
-from biip._parser import ParseConfig
+from biip._config import ParseConfig
+from biip._typing import assert_never
 from biip.checksums import gs1_standard_check_digit
-from biip.gs1_prefixes import GS1CompanyPrefix, GS1Prefix
+from biip.gs1_prefixes import GS1CompanyPrefix, GS1Prefix, GS18Prefix
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -112,8 +114,11 @@ class Gtin:
     Classification is done after stripping leading zeros.
     """
 
-    prefix: GS1Prefix | None
+    prefix: GS1Prefix | GS18Prefix | None
     """The [GS1 Prefix][biip.gs1_prefixes.GS1Prefix].
+
+    When parsing GTIN-8, this will be a [GS1-8
+    Prefix][biip.gs1_prefixes.GS18Prefix] instead.
 
     Indicating what GS1 country organization that assigned
     code range.
@@ -123,6 +128,21 @@ class Gtin:
     """The [GS1 Company Prefix][biip.gs1_prefixes.GS1CompanyPrefix].
 
     Identifying the company that issued the GTIN.
+    """
+
+    item_reference: str | None
+    """The item reference part of the GTIN.
+
+    For GTIN-12/13/14, this is the part of the payload that is assigned by the
+    company that owns the company prefix. It is only set if the company prefix
+    is known.
+
+    For GTIN-8, this is the part of the payload after the GS1-8 Prefix.
+
+    For company RCNs, this is the part of the payload after the GS1 Prefix.
+
+    For geographical RCNs, this is a part of the payload, depending on the
+    geographical region's RCN parsing rules.
     """
 
     payload: str
@@ -144,7 +164,7 @@ class Gtin:
     """
 
     @classmethod
-    def parse(
+    def parse(  # noqa: C901, PLR0912, PLR0915
         cls,
         value: str,
         *,
@@ -169,8 +189,6 @@ class Gtin:
         if config is None:
             config = ParseConfig()
 
-        from biip.rcn import Rcn
-
         value = value.strip()
 
         if len(value) not in (8, 12, 13, 14):
@@ -185,27 +203,8 @@ class Gtin:
             raise ParseError(msg)
 
         stripped_value = _strip_leading_zeros(value)
-        assert len(stripped_value) in (8, 12, 13, 14)
-
-        num_significant_digits = len(stripped_value)
-        gtin_format = GtinFormat(num_significant_digits)
-
         payload = stripped_value[:-1]
         check_digit = int(stripped_value[-1])
-
-        packaging_level: int | None = None
-        prefix_value = stripped_value
-        if gtin_format == GtinFormat.GTIN_14:
-            packaging_level = int(stripped_value[0])
-            prefix_value = stripped_value[1:]
-        elif gtin_format == GtinFormat.GTIN_12:
-            # Add a zero to convert U.P.C. Company Prefix to GS1 Company Prefix
-            prefix_value = stripped_value.zfill(13)
-        elif gtin_format == GtinFormat.GTIN_8:
-            prefix_value = stripped_value.zfill(12)
-
-        prefix = GS1Prefix.extract(prefix_value)
-        company_prefix = GS1CompanyPrefix.extract(prefix_value)
 
         calculated_check_digit = gs1_standard_check_digit(payload)
         if check_digit != calculated_check_digit:
@@ -215,33 +214,89 @@ class Gtin:
             )
             raise ParseError(msg)
 
-        gtin_type: type[Gtin | Rcn]
-        if (
-            gtin_format <= GtinFormat.GTIN_13
-            and prefix is not None
-            and "Restricted Circulation Number" in prefix.usage
-        ):
-            gtin_type = Rcn
-        else:
-            gtin_type = Gtin
+        num_significant_digits = len(stripped_value)
+        assert num_significant_digits in (8, 12, 13, 14)
+        gtin_format = GtinFormat(num_significant_digits)
 
-        result = gtin_type(
+        packaging_level: int | None = None
+        prefixed_value: str
+        match gtin_format:
+            case GtinFormat.GTIN_8 | GtinFormat.GTIN_13:
+                prefixed_value = payload
+            case GtinFormat.GTIN_12:
+                # Add a zero to convert U.P.C. Company Prefix to GS1 Company Prefix
+                prefixed_value = f"0{payload}"
+            case GtinFormat.GTIN_14:
+                packaging_level = int(payload[0])
+                prefixed_value = payload[1:]
+            case _:  # pyright: ignore[reportUnnecessaryComparison]  # pragma: no cover
+                assert_never()  # coverage.py cannot detect that all cases are covered
+
+        prefix: GS1Prefix | GS18Prefix | None
+        company_prefix: GS1CompanyPrefix | None
+        match gtin_format:
+            case GtinFormat.GTIN_8:
+                prefix = GS18Prefix.extract(prefixed_value)
+                company_prefix = None
+            case GtinFormat.GTIN_12 | GtinFormat.GTIN_13 | GtinFormat.GTIN_14:
+                prefix = GS1Prefix.extract(prefixed_value)
+                company_prefix = GS1CompanyPrefix.extract(prefixed_value)
+            case _:  # pyright: ignore[reportUnnecessaryComparison]  # pragma: no cover
+                assert_never()  # coverage.py cannot detect that all cases are covered
+
+        from biip.rcn import Rcn, RcnUsage
+
+        rcn_usage = (
+            RcnUsage._from_prefix(prefix)  # noqa: SLF001
+            if gtin_format != GtinFormat.GTIN_14 and prefix is not None
+            else None
+        )
+
+        item_reference: str | None
+        match gtin_format:
+            case GtinFormat.GTIN_8 if rcn_usage == RcnUsage.COMPANY:
+                item_reference = prefixed_value[1:]
+            case GtinFormat.GTIN_8:
+                item_reference = prefixed_value[len(prefix.value) :] if prefix else None
+            case GtinFormat.GTIN_12 | GtinFormat.GTIN_13 if (
+                rcn_usage == RcnUsage.COMPANY
+            ):
+                item_reference = prefixed_value[2:]
+            case GtinFormat.GTIN_12 | GtinFormat.GTIN_13 | GtinFormat.GTIN_14:
+                item_reference = (
+                    prefixed_value[len(company_prefix.value) :]
+                    if company_prefix
+                    else None
+                )
+            case _:  # pyright: ignore[reportUnnecessaryComparison]  # pragma: no cover
+                assert_never()  # coverage.py cannot detect that all cases are covered
+
+        if rcn_usage:
+            result = Rcn(
+                value=value,
+                format=gtin_format,
+                prefix=prefix,
+                company_prefix=company_prefix,
+                item_reference=item_reference,
+                payload=payload,
+                check_digit=check_digit,
+                packaging_level=packaging_level,
+                usage=rcn_usage,
+            )
+            return result._parsed_with_regional_rules(  # noqa: SLF001
+                config=config
+            )
+
+        return Gtin(
             value=value,
             format=gtin_format,
             prefix=prefix,
             company_prefix=company_prefix,
+            item_reference=item_reference,
             payload=payload,
             check_digit=check_digit,
             packaging_level=packaging_level,
         )
-
-        if isinstance(result, Rcn):
-            result = result._with_usage()  # noqa: SLF001
-            result = result._parsed_with_regional_rules(  # noqa: SLF001
-                config=config
-            )
-
-        return result
 
     def __rich_repr__(self) -> Iterator[tuple[str, Any] | tuple[str, Any, Any]]:  # noqa: D105
         # Skip printing fields with default values
@@ -249,6 +304,7 @@ class Gtin:
         yield "format", self.format
         yield "prefix", self.prefix
         yield "company_prefix", self.company_prefix
+        yield "item_reference", self.item_reference
         yield "payload", self.payload
         yield "check_digit", self.check_digit
         yield "packaging_level", self.packaging_level, None

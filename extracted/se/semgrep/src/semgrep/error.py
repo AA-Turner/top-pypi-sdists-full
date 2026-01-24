@@ -212,6 +212,31 @@ class SemgrepCoreError(SemgrepError):
         """
         return isinstance(self.core.error_type.value, out.Timeout)
 
+    def is_scan_failure(self) -> bool:
+        """
+        Returns True if this error prevented complete file scanning.
+
+        These error types indicate the file was detected but could not be
+        fully scanned, so findings from this file should not be marked as fixed.
+
+        Note: The authoritative source for scan failure error types is
+        semgrep_output_v1.atd (error_type variants). If new failure types
+        are added to semgrep-core (e.g., new interfile variants), they may
+        need to be added here as well.
+        """
+        error_type = self.core.error_type.value
+        return isinstance(
+            error_type,
+            (
+                out.Timeout,
+                out.OutOfMemory,
+                out.StackOverflow,
+                out.FixpointTimeout,
+                out.TimeoutDuringInterfile,
+                out.OutOfMemoryDuringInterfile,
+            ),
+        )
+
     def is_missing_plugin(self) -> bool:
         """
         Return if this error is due to a missing plugin
@@ -523,6 +548,7 @@ class DependencyResolutionSemgrepError(SemgrepError):
         super().__init__(*args, code=code, level=level)
 
     def __str__(self) -> str:
+        # duplicated mostly in scan_report.py in _print_sca_resolution_error
         def print_resolution_error(err: out.ResolutionErrorKind) -> str:
             if isinstance(err.value, out.UnsupportedManifest):
                 return "Unsupported Manifest"
@@ -530,6 +556,8 @@ class DependencyResolutionSemgrepError(SemgrepError):
                 return f"Missing Requirement ({err.value.value})"
             elif isinstance(err.value, out.ResolutionCmdFailed_):
                 return f"Resolution Command Failed (command: {err.value.value.command}) (result: {err.value.value.message})"
+            elif isinstance(err.value, out.ResourceInaccessible_):
+                return f"Resource Inaccessible (command: {err.value.value.command}) (registry_url: {err.value.value.registry_url}) (message: {err.value.value.message})"
             else:
                 return f"Parsing dependency output failed ({err.value.value})"
 

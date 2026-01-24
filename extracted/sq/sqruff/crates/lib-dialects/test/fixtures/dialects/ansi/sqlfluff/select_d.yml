@@ -1,0 +1,48 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - column_reference:
+          - naked_identifier: col_a
+      - comma: ','
+      - select_clause_element:
+        - column_reference:
+          - naked_identifier: col_b
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: some_table
+    - where_clause:
+      - keyword: WHERE
+      - expression:
+        - column_reference:
+          - naked_identifier: col_a
+        - keyword: IS
+        - keyword: NOT
+        - null_literal: 'NULL'
+        - binary_operator: AND
+        - column_reference:
+          - naked_identifier: col_b
+        - keyword: NOT
+        - keyword: IN
+        - bracketed:
+          - start_bracket: (
+          - select_statement:
+            - select_clause:
+              - keyword: SELECT
+              - select_clause_element:
+                - column_reference:
+                  - naked_identifier: c
+            - from_clause:
+              - keyword: FROM
+              - from_expression:
+                - from_expression_element:
+                  - table_expression:
+                    - table_reference:
+                      - naked_identifier: another_table
+          - end_bracket: )

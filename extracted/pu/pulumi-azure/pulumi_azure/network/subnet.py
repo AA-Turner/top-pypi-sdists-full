@@ -31,14 +31,13 @@ class SubnetArgs:
                  private_endpoint_network_policies: Optional[pulumi.Input[_builtins.str]] = None,
                  private_link_service_network_policies_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  service_endpoint_policy_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 service_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 service_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 sharing_scope: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Subnet resource.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group in which to create the subnet. This must be the resource group that the virtual network resides in. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] virtual_network_name: The name of the virtual network to which to attach the subnet. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] address_prefixes: The address prefixes to use for the subnet.
-               
-               > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
                
                > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         :param pulumi.Input[_builtins.bool] default_outbound_access_enabled: Enable default outbound access to the internet for the subnet. Defaults to `true`.
@@ -61,6 +60,11 @@ class SubnetArgs:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] service_endpoints: The list of Service endpoints to associate with the subnet. Possible values include: `Microsoft.AzureActiveDirectory`, `Microsoft.AzureCosmosDB`, `Microsoft.ContainerRegistry`, `Microsoft.EventHub`, `Microsoft.KeyVault`, `Microsoft.ServiceBus`, `Microsoft.Sql`, `Microsoft.Storage`, `Microsoft.Storage.Global` and `Microsoft.Web`.
                
                > **NOTE:** In order to use `Microsoft.Storage.Global` service endpoint (which allows access to virtual networks in other regions), you must enable the `AllowGlobalTagsForStorage` feature in your subscription. This is currently a preview feature, please see the [official documentation](https://learn.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-cli#enabling-access-to-virtual-networks-in-other-regions-preview) for more information.
+        :param pulumi.Input[_builtins.str] sharing_scope: The sharing scope of the subnet. Possible value is `Tenant`.
+               
+               > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+               
+               !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
         """
         pulumi.set(__self__, "resource_group_name", resource_group_name)
         pulumi.set(__self__, "virtual_network_name", virtual_network_name)
@@ -82,6 +86,8 @@ class SubnetArgs:
             pulumi.set(__self__, "service_endpoint_policy_ids", service_endpoint_policy_ids)
         if service_endpoints is not None:
             pulumi.set(__self__, "service_endpoints", service_endpoints)
+        if sharing_scope is not None:
+            pulumi.set(__self__, "sharing_scope", sharing_scope)
 
     @_builtins.property
     @pulumi.getter(name="resourceGroupName")
@@ -112,8 +118,6 @@ class SubnetArgs:
     def address_prefixes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The address prefixes to use for the subnet.
-
-        > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
 
         > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         """
@@ -231,6 +235,22 @@ class SubnetArgs:
     def service_endpoints(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "service_endpoints", value)
 
+    @_builtins.property
+    @pulumi.getter(name="sharingScope")
+    def sharing_scope(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The sharing scope of the subnet. Possible value is `Tenant`.
+
+        > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+
+        !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
+        """
+        return pulumi.get(self, "sharing_scope")
+
+    @sharing_scope.setter
+    def sharing_scope(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "sharing_scope", value)
+
 
 @pulumi.input_type
 class _SubnetState:
@@ -245,12 +265,11 @@ class _SubnetState:
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  service_endpoint_policy_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  service_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 sharing_scope: Optional[pulumi.Input[_builtins.str]] = None,
                  virtual_network_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Subnet resources.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] address_prefixes: The address prefixes to use for the subnet.
-               
-               > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
                
                > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         :param pulumi.Input[_builtins.bool] default_outbound_access_enabled: Enable default outbound access to the internet for the subnet. Defaults to `true`.
@@ -274,6 +293,11 @@ class _SubnetState:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] service_endpoints: The list of Service endpoints to associate with the subnet. Possible values include: `Microsoft.AzureActiveDirectory`, `Microsoft.AzureCosmosDB`, `Microsoft.ContainerRegistry`, `Microsoft.EventHub`, `Microsoft.KeyVault`, `Microsoft.ServiceBus`, `Microsoft.Sql`, `Microsoft.Storage`, `Microsoft.Storage.Global` and `Microsoft.Web`.
                
                > **NOTE:** In order to use `Microsoft.Storage.Global` service endpoint (which allows access to virtual networks in other regions), you must enable the `AllowGlobalTagsForStorage` feature in your subscription. This is currently a preview feature, please see the [official documentation](https://learn.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-cli#enabling-access-to-virtual-networks-in-other-regions-preview) for more information.
+        :param pulumi.Input[_builtins.str] sharing_scope: The sharing scope of the subnet. Possible value is `Tenant`.
+               
+               > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+               
+               !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
         :param pulumi.Input[_builtins.str] virtual_network_name: The name of the virtual network to which to attach the subnet. Changing this forces a new resource to be created.
         """
         if address_prefixes is not None:
@@ -296,6 +320,8 @@ class _SubnetState:
             pulumi.set(__self__, "service_endpoint_policy_ids", service_endpoint_policy_ids)
         if service_endpoints is not None:
             pulumi.set(__self__, "service_endpoints", service_endpoints)
+        if sharing_scope is not None:
+            pulumi.set(__self__, "sharing_scope", sharing_scope)
         if virtual_network_name is not None:
             pulumi.set(__self__, "virtual_network_name", virtual_network_name)
 
@@ -304,8 +330,6 @@ class _SubnetState:
     def address_prefixes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The address prefixes to use for the subnet.
-
-        > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
 
         > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         """
@@ -436,6 +460,22 @@ class _SubnetState:
         pulumi.set(self, "service_endpoints", value)
 
     @_builtins.property
+    @pulumi.getter(name="sharingScope")
+    def sharing_scope(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The sharing scope of the subnet. Possible value is `Tenant`.
+
+        > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+
+        !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
+        """
+        return pulumi.get(self, "sharing_scope")
+
+    @sharing_scope.setter
+    def sharing_scope(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "sharing_scope", value)
+
+    @_builtins.property
     @pulumi.getter(name="virtualNetworkName")
     def virtual_network_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -464,6 +504,7 @@ class Subnet(pulumi.CustomResource):
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  service_endpoint_policy_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  service_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 sharing_scope: Optional[pulumi.Input[_builtins.str]] = None,
                  virtual_network_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
@@ -509,7 +550,7 @@ class Subnet(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Network` - 2024-05-01
+        * `Microsoft.Network` - 2025-01-01
 
         ## Import
 
@@ -522,8 +563,6 @@ class Subnet(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] address_prefixes: The address prefixes to use for the subnet.
-               
-               > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
                
                > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         :param pulumi.Input[_builtins.bool] default_outbound_access_enabled: Enable default outbound access to the internet for the subnet. Defaults to `true`.
@@ -547,6 +586,11 @@ class Subnet(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] service_endpoints: The list of Service endpoints to associate with the subnet. Possible values include: `Microsoft.AzureActiveDirectory`, `Microsoft.AzureCosmosDB`, `Microsoft.ContainerRegistry`, `Microsoft.EventHub`, `Microsoft.KeyVault`, `Microsoft.ServiceBus`, `Microsoft.Sql`, `Microsoft.Storage`, `Microsoft.Storage.Global` and `Microsoft.Web`.
                
                > **NOTE:** In order to use `Microsoft.Storage.Global` service endpoint (which allows access to virtual networks in other regions), you must enable the `AllowGlobalTagsForStorage` feature in your subscription. This is currently a preview feature, please see the [official documentation](https://learn.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-cli#enabling-access-to-virtual-networks-in-other-regions-preview) for more information.
+        :param pulumi.Input[_builtins.str] sharing_scope: The sharing scope of the subnet. Possible value is `Tenant`.
+               
+               > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+               
+               !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
         :param pulumi.Input[_builtins.str] virtual_network_name: The name of the virtual network to which to attach the subnet. Changing this forces a new resource to be created.
         """
         ...
@@ -598,7 +642,7 @@ class Subnet(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Network` - 2024-05-01
+        * `Microsoft.Network` - 2025-01-01
 
         ## Import
 
@@ -633,6 +677,7 @@ class Subnet(pulumi.CustomResource):
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  service_endpoint_policy_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  service_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 sharing_scope: Optional[pulumi.Input[_builtins.str]] = None,
                  virtual_network_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -655,6 +700,7 @@ class Subnet(pulumi.CustomResource):
             __props__.__dict__["resource_group_name"] = resource_group_name
             __props__.__dict__["service_endpoint_policy_ids"] = service_endpoint_policy_ids
             __props__.__dict__["service_endpoints"] = service_endpoints
+            __props__.__dict__["sharing_scope"] = sharing_scope
             if virtual_network_name is None and not opts.urn:
                 raise TypeError("Missing required property 'virtual_network_name'")
             __props__.__dict__["virtual_network_name"] = virtual_network_name
@@ -678,6 +724,7 @@ class Subnet(pulumi.CustomResource):
             resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
             service_endpoint_policy_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             service_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            sharing_scope: Optional[pulumi.Input[_builtins.str]] = None,
             virtual_network_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'Subnet':
         """
         Get an existing Subnet resource's state with the given name, id, and optional extra
@@ -687,8 +734,6 @@ class Subnet(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] address_prefixes: The address prefixes to use for the subnet.
-               
-               > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
                
                > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         :param pulumi.Input[_builtins.bool] default_outbound_access_enabled: Enable default outbound access to the internet for the subnet. Defaults to `true`.
@@ -712,6 +757,11 @@ class Subnet(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] service_endpoints: The list of Service endpoints to associate with the subnet. Possible values include: `Microsoft.AzureActiveDirectory`, `Microsoft.AzureCosmosDB`, `Microsoft.ContainerRegistry`, `Microsoft.EventHub`, `Microsoft.KeyVault`, `Microsoft.ServiceBus`, `Microsoft.Sql`, `Microsoft.Storage`, `Microsoft.Storage.Global` and `Microsoft.Web`.
                
                > **NOTE:** In order to use `Microsoft.Storage.Global` service endpoint (which allows access to virtual networks in other regions), you must enable the `AllowGlobalTagsForStorage` feature in your subscription. This is currently a preview feature, please see the [official documentation](https://learn.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-cli#enabling-access-to-virtual-networks-in-other-regions-preview) for more information.
+        :param pulumi.Input[_builtins.str] sharing_scope: The sharing scope of the subnet. Possible value is `Tenant`.
+               
+               > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+               
+               !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
         :param pulumi.Input[_builtins.str] virtual_network_name: The name of the virtual network to which to attach the subnet. Changing this forces a new resource to be created.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -728,6 +778,7 @@ class Subnet(pulumi.CustomResource):
         __props__.__dict__["resource_group_name"] = resource_group_name
         __props__.__dict__["service_endpoint_policy_ids"] = service_endpoint_policy_ids
         __props__.__dict__["service_endpoints"] = service_endpoints
+        __props__.__dict__["sharing_scope"] = sharing_scope
         __props__.__dict__["virtual_network_name"] = virtual_network_name
         return Subnet(resource_name, opts=opts, __props__=__props__)
 
@@ -736,8 +787,6 @@ class Subnet(pulumi.CustomResource):
     def address_prefixes(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
         The address prefixes to use for the subnet.
-
-        > **NOTE:** Currently only a single address prefix can be set as the [Multiple Subnet Address Prefixes Feature](https://github.com/Azure/azure-cli/issues/18194#issuecomment-880484269) is not yet in public preview or general availability.
 
         > **Note:** Exactly one of `address_prefixes` or `ip_address_pool` must be specified.
         """
@@ -826,6 +875,18 @@ class Subnet(pulumi.CustomResource):
         > **NOTE:** In order to use `Microsoft.Storage.Global` service endpoint (which allows access to virtual networks in other regions), you must enable the `AllowGlobalTagsForStorage` feature in your subscription. This is currently a preview feature, please see the [official documentation](https://learn.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-cli#enabling-access-to-virtual-networks-in-other-regions-preview) for more information.
         """
         return pulumi.get(self, "service_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="sharingScope")
+    def sharing_scope(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The sharing scope of the subnet. Possible value is `Tenant`.
+
+        > **Note:** This property cannot be set if `default_outbound_access_enabled` is set to `true`.
+
+        !> **Note:** The `sharing_scope` property is only available to users who have been explicitly registered and granted access by the Azure Networking Product Group.
+        """
+        return pulumi.get(self, "sharing_scope")
 
     @_builtins.property
     @pulumi.getter(name="virtualNetworkName")

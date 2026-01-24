@@ -9,7 +9,7 @@ from anyscale.aggregated_instance_usage._private.aggregated_instance_usage_sdk i
 from anyscale.aggregated_instance_usage.commands import (
     _DOWNLOAD_ARG_DOCSTRINGS,
     _DOWNLOAD_CSV_EXAMPLE,
-    download_csv,
+    download_csv as download_csv,
 )
 from anyscale.aggregated_instance_usage.models import DownloadCSVFilters
 from anyscale.cli_logger import BlockLogger

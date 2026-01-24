@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Literal, Union
 
 from pydantic import Field
@@ -19,34 +19,54 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class WebhooksAlert(GitHubModel):
-    """Repository Vulnerability Alert Alert
+class WebhooksAnswer(GitHubModel):
+    """WebhooksAnswer"""
 
-    The security alert of the vulnerable dependency.
-    """
-
-    affected_package_name: str = Field()
-    affected_range: str = Field()
-    created_at: str = Field()
-    dismiss_reason: Missing[str] = Field(default=UNSET)
-    dismissed_at: Missing[str] = Field(default=UNSET)
-    dismisser: Missing[Union[WebhooksAlertPropDismisser, None]] = Field(
-        default=UNSET, title="User"
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ] = Field(
+        title="AuthorAssociation",
+        description="How the author is associated with the repository.",
     )
-    external_identifier: str = Field()
-    external_reference: Union[str, None] = Field()
-    fix_reason: Missing[str] = Field(default=UNSET)
-    fixed_at: Missing[datetime] = Field(default=UNSET)
-    fixed_in: Missing[str] = Field(default=UNSET)
-    ghsa_id: str = Field()
+    body: str = Field()
+    child_comment_count: int = Field()
+    created_at: _dt.datetime = Field()
+    discussion_id: int = Field()
+    html_url: str = Field()
     id: int = Field()
     node_id: str = Field()
-    number: int = Field()
-    severity: str = Field()
-    state: Literal["open"] = Field()
+    parent_id: Union[int, None] = Field()
+    reactions: Missing[WebhooksAnswerPropReactions] = Field(
+        default=UNSET, title="Reactions"
+    )
+    repository_url: str = Field()
+    updated_at: _dt.datetime = Field()
+    user: Union[WebhooksAnswerPropUser, None] = Field(title="User")
 
 
-class WebhooksAlertPropDismisser(GitHubModel):
+class WebhooksAnswerPropReactions(GitHubModel):
+    """Reactions"""
+
+    plus_one: int = Field(alias="+1")
+    minus_one: int = Field(alias="-1")
+    confused: int = Field()
+    eyes: int = Field()
+    heart: int = Field()
+    hooray: int = Field()
+    laugh: int = Field()
+    rocket: int = Field()
+    total_count: int = Field()
+    url: str = Field()
+
+
+class WebhooksAnswerPropUser(GitHubModel):
     """User"""
 
     avatar_url: Missing[str] = Field(default=UNSET)
@@ -70,12 +90,15 @@ class WebhooksAlertPropDismisser(GitHubModel):
     subscriptions_url: Missing[str] = Field(default=UNSET)
     type: Missing[Literal["Bot", "User", "Organization"]] = Field(default=UNSET)
     url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(WebhooksAlert)
-model_rebuild(WebhooksAlertPropDismisser)
+model_rebuild(WebhooksAnswer)
+model_rebuild(WebhooksAnswerPropReactions)
+model_rebuild(WebhooksAnswerPropUser)
 
 __all__ = (
-    "WebhooksAlert",
-    "WebhooksAlertPropDismisser",
+    "WebhooksAnswer",
+    "WebhooksAnswerPropReactions",
+    "WebhooksAnswerPropUser",
 )

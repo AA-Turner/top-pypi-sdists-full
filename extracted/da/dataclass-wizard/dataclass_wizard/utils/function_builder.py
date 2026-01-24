@@ -1,4 +1,5 @@
 from dataclasses import MISSING
+from typing import Any
 
 from ..log import LOG
 
@@ -32,6 +33,7 @@ class FunctionBuilder:
 
         """
         self.functions |= other.functions
+        self.globals |= other.globals
         return self
 
     def __enter__(self):
@@ -66,7 +68,7 @@ class FunctionBuilder:
     def _with_new_block(self,
                         name: str,
                         condition: 'str | None' = None,
-                        comment: str = '') -> 'FunctionBuilder':
+                        comment: Any = '') -> 'FunctionBuilder':
         """Creates a new block. Used with a context manager (with)."""
         indent = '  ' * self.indent_level
 
@@ -96,7 +98,7 @@ class FunctionBuilder:
         """
         return self._with_new_block('for', condition)
 
-    def if_(self, condition: str, comment: str = '') -> 'FunctionBuilder':
+    def if_(self, condition: str, comment: Any = '') -> 'FunctionBuilder':
         """Equivalent to the `if` statement in Python.
 
         Sample Usage:

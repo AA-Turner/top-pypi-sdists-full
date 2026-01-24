@@ -3,7 +3,7 @@ Type annotations for stepfunctions service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_stepfunctions/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -30,6 +31,7 @@ from .literals import (
     InspectionLevelType,
     LogLevelType,
     MapRunStatusType,
+    MockResponseValidationModeType,
     StateMachineStatusType,
     StateMachineTypeType,
     SyncExecutionStatusType,
@@ -38,12 +40,6 @@ from .literals import (
     ValidateStateMachineDefinitionSeverityType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -103,6 +99,7 @@ __all__ = (
     "InspectionDataRequestTypeDef",
     "InspectionDataResponseTypeDef",
     "InspectionDataTypeDef",
+    "InspectionErrorDetailsTypeDef",
     "LambdaFunctionFailedEventDetailsTypeDef",
     "LambdaFunctionScheduleFailedEventDetailsTypeDef",
     "LambdaFunctionScheduledEventDetailsTypeDef",
@@ -139,6 +136,8 @@ __all__ = (
     "MapRunRedrivenEventDetailsTypeDef",
     "MapRunStartedEventDetailsTypeDef",
     "MapStateStartedEventDetailsTypeDef",
+    "MockErrorOutputTypeDef",
+    "MockInputTypeDef",
     "PaginatorConfigTypeDef",
     "PublishStateMachineVersionInputTypeDef",
     "PublishStateMachineVersionOutputTypeDef",
@@ -171,6 +170,7 @@ __all__ = (
     "TaskSubmittedEventDetailsTypeDef",
     "TaskSucceededEventDetailsTypeDef",
     "TaskTimedOutEventDetailsTypeDef",
+    "TestStateConfigurationTypeDef",
     "TestStateInputTypeDef",
     "TestStateOutputTypeDef",
     "TracingConfigurationTypeDef",
@@ -250,7 +250,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -485,6 +485,12 @@ class InspectionDataResponseTypeDef(TypedDict):
     body: NotRequired[str]
 
 
+class InspectionErrorDetailsTypeDef(TypedDict):
+    catchIndex: NotRequired[int]
+    retryIndex: NotRequired[int]
+    retryBackoffIntervalSeconds: NotRequired[int]
+
+
 class TaskCredentialsTypeDef(TypedDict):
     roleArn: NotRequired[str]
 
@@ -559,6 +565,11 @@ class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
 
 
+class MockErrorOutputTypeDef(TypedDict):
+    error: NotRequired[str]
+    cause: NotRequired[str]
+
+
 class PublishStateMachineVersionInputTypeDef(TypedDict):
     stateMachineArn: str
     revisionId: NotRequired[str]
@@ -612,17 +623,11 @@ class StopExecutionInputTypeDef(TypedDict):
     cause: NotRequired[str]
 
 
-TestStateInputTypeDef = TypedDict(
-    "TestStateInputTypeDef",
-    {
-        "definition": str,
-        "roleArn": NotRequired[str],
-        "input": NotRequired[str],
-        "inspectionLevel": NotRequired[InspectionLevelType],
-        "revealSecrets": NotRequired[bool],
-        "variables": NotRequired[str],
-    },
-)
+class TestStateConfigurationTypeDef(TypedDict):
+    retrierRetryCount: NotRequired[int]
+    errorCausedByState: NotRequired[str]
+    mapIterationFailureCount: NotRequired[int]
+    mapItemReaderData: NotRequired[str]
 
 
 class UntagResourceInputTypeDef(TypedDict):
@@ -720,7 +725,7 @@ class StateExitedEventDetailsTypeDef(TypedDict):
     name: str
     output: NotRequired[str]
     outputDetails: NotRequired[HistoryEventExecutionDataDetailsTypeDef]
-    assignedVariables: NotRequired[Dict[str, str]]
+    assignedVariables: NotRequired[dict[str, str]]
     assignedVariablesDetails: NotRequired[AssignedVariablesDetailsTypeDef]
 
 
@@ -803,13 +808,13 @@ GetActivityTaskOutputTypeDef = TypedDict(
 
 
 class ListActivitiesOutputTypeDef(TypedDict):
-    activities: List[ActivityListItemTypeDef]
+    activities: list[ActivityListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -879,7 +884,7 @@ class DescribeStateMachineAliasOutputTypeDef(TypedDict):
     stateMachineAliasArn: str
     name: str
     description: str
-    routingConfiguration: List[RoutingConfigurationListItemTypeDef]
+    routingConfiguration: list[RoutingConfigurationListItemTypeDef]
     creationDate: datetime
     updateDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -908,7 +913,7 @@ class DescribeMapRunOutputTypeDef(TypedDict):
 
 
 class ListExecutionsOutputTypeDef(TypedDict):
-    executions: List[ExecutionListItemTypeDef]
+    executions: list[ExecutionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -954,6 +959,14 @@ InspectionDataTypeDef = TypedDict(
         "request": NotRequired[InspectionDataRequestTypeDef],
         "response": NotRequired[InspectionDataResponseTypeDef],
         "variables": NotRequired[str],
+        "errorDetails": NotRequired[InspectionErrorDetailsTypeDef],
+        "afterItemsPath": NotRequired[str],
+        "afterItemSelector": NotRequired[str],
+        "afterItemBatcher": NotRequired[str],
+        "afterItemsPointer": NotRequired[str],
+        "toleratedFailureCount": NotRequired[int],
+        "toleratedFailurePercentage": NotRequired[float],
+        "maxConcurrency": NotRequired[int],
     },
 )
 LambdaFunctionScheduledEventDetailsTypeDef = TypedDict(
@@ -979,32 +992,38 @@ class TaskScheduledEventDetailsTypeDef(TypedDict):
 
 
 class ListMapRunsOutputTypeDef(TypedDict):
-    mapRuns: List[MapRunListItemTypeDef]
+    mapRuns: list[MapRunListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStateMachineAliasesOutputTypeDef(TypedDict):
-    stateMachineAliases: List[StateMachineAliasListItemTypeDef]
+    stateMachineAliases: list[StateMachineAliasListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStateMachineVersionsOutputTypeDef(TypedDict):
-    stateMachineVersions: List[StateMachineVersionListItemTypeDef]
+    stateMachineVersions: list[StateMachineVersionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStateMachinesOutputTypeDef(TypedDict):
-    stateMachines: List[StateMachineListItemTypeDef]
+    stateMachines: list[StateMachineListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
+class MockInputTypeDef(TypedDict):
+    result: NotRequired[str]
+    errorOutput: NotRequired[MockErrorOutputTypeDef]
+    fieldValidationMode: NotRequired[MockResponseValidationModeType]
+
+
 class ValidateStateMachineDefinitionOutputTypeDef(TypedDict):
     result: ValidateStateMachineDefinitionResultCodeType
-    diagnostics: List[ValidateStateMachineDefinitionDiagnosticTypeDef]
+    diagnostics: list[ValidateStateMachineDefinitionDiagnosticTypeDef]
     truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1012,7 +1031,7 @@ class ValidateStateMachineDefinitionOutputTypeDef(TypedDict):
 class LoggingConfigurationOutputTypeDef(TypedDict):
     level: NotRequired[LogLevelType]
     includeExecutionData: NotRequired[bool]
-    destinations: NotRequired[List[LogDestinationTypeDef]]
+    destinations: NotRequired[list[LogDestinationTypeDef]]
 
 
 class LoggingConfigurationTypeDef(TypedDict):
@@ -1089,6 +1108,21 @@ HistoryEventTypeDef = TypedDict(
         "evaluationFailedEventDetails": NotRequired[EvaluationFailedEventDetailsTypeDef],
     },
 )
+TestStateInputTypeDef = TypedDict(
+    "TestStateInputTypeDef",
+    {
+        "definition": str,
+        "roleArn": NotRequired[str],
+        "input": NotRequired[str],
+        "inspectionLevel": NotRequired[InspectionLevelType],
+        "revealSecrets": NotRequired[bool],
+        "variables": NotRequired[str],
+        "stateName": NotRequired[str],
+        "mock": NotRequired[MockInputTypeDef],
+        "context": NotRequired[str],
+        "stateConfiguration": NotRequired[TestStateConfigurationTypeDef],
+    },
+)
 
 
 class DescribeStateMachineForExecutionOutputTypeDef(TypedDict):
@@ -1103,7 +1137,7 @@ class DescribeStateMachineForExecutionOutputTypeDef(TypedDict):
     label: str
     revisionId: str
     encryptionConfiguration: EncryptionConfigurationTypeDef
-    variableReferences: Dict[str, List[str]]
+    variableReferences: dict[str, list[str]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1123,7 +1157,7 @@ DescribeStateMachineOutputTypeDef = TypedDict(
         "revisionId": str,
         "description": str,
         "encryptionConfiguration": EncryptionConfigurationTypeDef,
-        "variableReferences": Dict[str, List[str]],
+        "variableReferences": dict[str, list[str]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1133,7 +1167,7 @@ LoggingConfigurationUnionTypeDef = Union[
 
 
 class GetExecutionHistoryOutputTypeDef(TypedDict):
-    events: List[HistoryEventTypeDef]
+    events: list[HistoryEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

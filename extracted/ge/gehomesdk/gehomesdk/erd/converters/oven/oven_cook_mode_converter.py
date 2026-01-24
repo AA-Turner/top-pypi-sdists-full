@@ -1,10 +1,8 @@
 import logging
 from datetime import timedelta
-from gehomesdk.erd.values.advantium.advantium_enums import CookMode
-from gehomesdk.erd.values.oven.oven_cook_mode import OvenCookMode
 from ..abstract import ErdReadWriteConverter
 from ..primitives import *
-from gehomesdk.erd.values.oven import OvenCookSetting, ErdOvenCookMode, OVEN_COOK_MODE_MAP
+from ...values.oven import OvenCookSetting, ErdOvenCookMode, OVEN_COOK_MODE_MAP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,11 +16,11 @@ class OvenCookModeConverter(ErdReadWriteConverter[OvenCookSetting]):
             return OvenCookSetting (
                 cook_mode=OVEN_COOK_MODE_MAP[cook_mode], 
                 temperature=erd_decode_int(value[2:6]), 
-                cook_time=erd_decode_timespan(value[6:10]),
+                cook_time=erd_decode_timespan(value[6:10]) or timedelta(0),
                 probe_temperature=erd_decode_int(value[10:14]),
-                delay_time=erd_decode_timespan(value[14:18]),
+                delay_time=erd_decode_timespan(value[14:18]) or timedelta(0),
                 two_temp_cook_temperature=erd_decode_int(value[18:22]),
-                two_temp_cook_time=erd_decode_timespan(value[22:26]),
+                two_temp_cook_time=erd_decode_timespan(value[22:26]) or timedelta(0),
                 raw_string=value)
         except:
             _LOGGER.error(f"Could not decode oven mode {erd_decode_int(value[0:2])}, raw value {value}")

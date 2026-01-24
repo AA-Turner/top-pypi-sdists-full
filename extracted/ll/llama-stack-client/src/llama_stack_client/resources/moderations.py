@@ -1,13 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import List, Union
+from typing import Union, Optional
 
 import httpx
 
 from ..types import moderation_create_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -46,24 +52,21 @@ class ModerationsResource(SyncAPIResource):
     def create(
         self,
         *,
-        input: Union[str, List[str]],
-        model: str,
+        input: Union[str, SequenceNotStr[str]],
+        model: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CreateResponse:
         """
+        Create moderation.
+
         Classifies if text and/or image inputs are potentially harmful.
 
         Args:
-          input: Input (or inputs) to classify. Can be a single string, an array of strings, or
-              an array of multi-modal input objects similar to other models.
-
-          model: The content moderation model you would like to use.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -73,7 +76,7 @@ class ModerationsResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._post(
-            "/v1/openai/v1/moderations",
+            "/v1/moderations",
             body=maybe_transform(
                 {
                     "input": input,
@@ -111,24 +114,21 @@ class AsyncModerationsResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        input: Union[str, List[str]],
-        model: str,
+        input: Union[str, SequenceNotStr[str]],
+        model: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CreateResponse:
         """
+        Create moderation.
+
         Classifies if text and/or image inputs are potentially harmful.
 
         Args:
-          input: Input (or inputs) to classify. Can be a single string, an array of strings, or
-              an array of multi-modal input objects similar to other models.
-
-          model: The content moderation model you would like to use.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -138,7 +138,7 @@ class AsyncModerationsResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._post(
-            "/v1/openai/v1/moderations",
+            "/v1/moderations",
             body=await async_maybe_transform(
                 {
                     "input": input,

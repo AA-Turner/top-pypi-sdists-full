@@ -7,6 +7,7 @@ import logging
 import time
 import weakref
 from collections import namedtuple
+from pathlib import Path
 from typing import (
     Awaitable,
     Callable,
@@ -523,6 +524,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         architecture: ArchitectureTypesEnum = ArchitectureTypesEnum.X86_64,
         region_name: str | None = None,
         use_uv_installer: bool = True,
+        lockfile_path: str | Path | None = None,
     ) -> SoftwareEnvironmentAlias:
         workspace = workspace or self.default_workspace
         prepared_packages: List[PackageSchema] = []
@@ -547,12 +549,20 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
                 "client_version": pkg["client_version"],
                 "file": file_id,
             })
-        with simple_progress("Requesting package sync build", progress=progress):
+        lockfile_content = None
+        if lockfile_path:
+            lockfile_path = Path(lockfile_path)
+            lockfile_content = lockfile_path.read_text()
+        with simple_progress(
+            "Requesting package sync build" if not lockfile_path else "Creating software environment", progress=progress
+        ):
             result = await self._create_software_environment_v2(
                 senv={
                     "packages": prepared_packages,
                     "raw_pip": None,
                     "raw_conda": None,
+                    "lockfile_name": str(lockfile_path.name) if lockfile_path else None,
+                    "lockfile_content": lockfile_content,
                 },
                 workspace=workspace,
                 architecture=architecture,
@@ -643,6 +653,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         host_setup_script_content: str | None = None,
         pause_on_exit: bool | None = None,
         cluster_timeout_seconds: int | None = None,
+        filestores_to_attach: list[dict] | None = None,
     ) -> Tuple[int, bool]:
         # TODO (Declarative): support these args, or decide not to
         # https://gitlab.com/coiled/cloud/-/issues/4305
@@ -683,6 +694,8 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
             "host_setup_script": host_setup_script_content,
             "pause_on_exit": pause_on_exit,
             "cluster_timeout_seconds": cluster_timeout_seconds,
+            "coiled_cloud_env_image": dask.config.get("coiled.cloud-env-image", None),
+            "filestores_to_attach": filestores_to_attach,
         }
 
         try:

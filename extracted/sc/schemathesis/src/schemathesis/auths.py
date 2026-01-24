@@ -4,23 +4,24 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
     Protocol,
     TypeVar,
-    Union,
     overload,
     runtime_checkable,
 )
 
-from schemathesis.core.errors import IncorrectUsage
+from schemathesis.core.errors import AuthenticationError, IncorrectUsage
 from schemathesis.core.marks import Mark
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.filters import FilterSet, FilterValue, MatcherFunc, attach_filter_chain
 from schemathesis.generation.case import Case
+from schemathesis.generation.meta import CoveragePhaseData, FuzzingPhaseData, StatefulPhaseData
 
 if TYPE_CHECKING:
     import requests.auth
@@ -64,7 +65,7 @@ class AuthContext:
     __slots__ = ("operation", "app")
 
 
-CacheKeyFunction = Callable[["Case", "AuthContext"], Union[str, int]]
+CacheKeyFunction = Callable[["Case", "AuthContext"], str | int]
 
 
 @runtime_checkable
@@ -128,6 +129,7 @@ class CachingAuthProvider(Generic[Auth]):
 
     def get(self, case: Case, context: AuthContext) -> Auth | None:
         """Get cached auth value."""
+        __tracebackhide__ = True
         cache_entry = self._get_cache_entry(case, context)
         if cache_entry is None or self.timer() >= cache_entry.expires:
             with self._refresh_lock:
@@ -136,7 +138,11 @@ class CachingAuthProvider(Generic[Auth]):
                     # Another thread updated the cache
                     return cache_entry.data
                 # We know that optional auth is possible only inside a higher-level wrapper
-                data: Auth = self.provider.get(case, context)  # type: ignore[assignment]
+                try:
+                    data: Auth = self.provider.get(case, context)  # type: ignore[assignment]
+                except Exception as exc:
+                    provider_name = self.provider.__class__.__name__
+                    raise AuthenticationError(provider_name, "get", str(exc)) from exc
                 self._set_cache_entry(data, case, context)
                 return data
         return cache_entry.data
@@ -270,11 +276,25 @@ class SelectiveAuthProvider(Generic[Auth]):
     filter_set: FilterSet
 
     def get(self, case: Case, context: AuthContext) -> Auth | None:
+        __tracebackhide__ = True
         if self.filter_set.match(context):
-            return self.provider.get(case, context)
+            try:
+                return self.provider.get(case, context)
+            except AuthenticationError:
+                # Already wrapped, re-raise as-is
+                raise
+            except Exception as exc:
+                # Need to unwrap to get the actual provider class name
+                provider = self.provider
+                # Unwrap caching providers
+                while isinstance(provider, CachingAuthProvider | KeyedCachingAuthProvider):
+                    provider = provider.provider
+                provider_name = provider.__class__.__name__
+                raise AuthenticationError(provider_name, "get", str(exc)) from exc
         return None
 
     def set(self, case: Case, data: Auth, context: AuthContext) -> None:
+        __tracebackhide__ = True
         self.provider.set(case, data, context)
 
 
@@ -418,6 +438,7 @@ class AuthStorage(Generic[Auth]):
 
     def set(self, case: Case, context: AuthContext) -> None:
         """Set authentication data on a generated test case."""
+        __tracebackhide__ = True
         if not self.is_defined:
             raise IncorrectUsage("No auth provider is defined.")
         for provider in self.providers:
@@ -428,16 +449,69 @@ class AuthStorage(Generic[Auth]):
                 break
 
 
+def apply_basic_auth(case: Case, username: str, password: str) -> None:
+    """Apply HTTP Basic authentication to a case.
+
+    Args:
+        case: Test case to apply authentication to
+        username: Username for basic auth
+        password: Password for basic auth
+
+    """
+    from requests.auth import _basic_auth_str
+
+    case.headers["Authorization"] = _basic_auth_str(username, password)
+    case._has_explicit_auth = True
+
+
+def _should_skip_auth_for_negative_testing(case: Case, param_name: str, param_location: ParameterLocation) -> bool:
+    """Check if auth should be skipped because the parameter was intentionally removed for testing."""
+    meta = case.meta
+    if not meta or not meta.generation.mode.is_negative:
+        return False
+
+    phase_data = meta.phase.data
+    if not isinstance(phase_data, FuzzingPhaseData | CoveragePhaseData | StatefulPhaseData):
+        return False
+
+    return phase_data.parameter == param_name and phase_data.parameter_location == param_location
+
+
 def set_on_case(case: Case, context: AuthContext, auth_storage: AuthStorage | None) -> None:
     """Set authentication data on this case.
 
+    Precedence order (highest to lowest):
+    1. Programmatic auth (@schemathesis.auth())
+    2. Generic auth (--auth CLI or [auth.basic] config)
+    3. Spec-specific auth (OpenAPI-aware [auth.openapi.*])
+    4. Global auth
+
     If there is no auth defined, then this function is no-op.
     """
+    __tracebackhide__ = True
+    # 1. Programmatic auth (highest priority)
     if auth_storage is not None:
         auth_storage.set(case, context)
-    elif case.operation.schema.auth.is_defined:
+        return
+
+    # 2. Generic auth (CLI overrides or config - applies to all operations)
+    basic_auth = case.operation.schema.config.auth_for(operation=case.operation)
+    if basic_auth is not None:
+        # Don't apply auth if Authorization was intentionally removed for negative testing
+        if not _should_skip_auth_for_negative_testing(case, "Authorization", ParameterLocation.HEADER):
+            apply_basic_auth(case, *basic_auth)
+        return
+
+    if case.operation.schema.auth.is_defined:
         case.operation.schema.auth.set(case, context)
-    elif GLOBAL_AUTH_STORAGE.is_defined:
+        return
+
+    # 3. Spec-specific auth (OpenAPI-aware, more targeted)
+    if case.operation.schema.apply_auth(case, context):
+        return
+
+    # 4. Global auth (fallback)
+    if GLOBAL_AUTH_STORAGE.is_defined:
         GLOBAL_AUTH_STORAGE.set(case, context)
 
 

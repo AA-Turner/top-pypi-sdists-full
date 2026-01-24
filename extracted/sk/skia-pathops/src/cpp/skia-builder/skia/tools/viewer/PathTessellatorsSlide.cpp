@@ -11,7 +11,9 @@
 
 #if defined(SK_GANESH)
 
+#include "include/core/SkFont.h"
 #include "src/core/SkCanvasPriv.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrOpFlushState.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
@@ -23,6 +25,7 @@
 #include "src/gpu/ganesh/tessellate/PathTessellator.h"
 #include "src/gpu/tessellate/AffineMatrix.h"
 #include "src/gpu/tessellate/MiddleOutPolygonTriangulator.h"
+#include "tools/fonts/FontToolUtils.h"
 
 namespace skgpu::ganesh {
 
@@ -163,11 +166,13 @@ public:
         fPath.transform(SkMatrix::Scale(200, 200));
         fPath.transform(SkMatrix::Translate(300, 300));
 #else
-        fPath.moveTo(100, 500);
-        fPath.cubicTo(300, 400, -100, 300, 100, 200);
-        fPath.quadTo(250, 0, 400, 200);
-        fPath.conicTo(600, 350, 400, 500, fConicWeight);
-        fPath.close();
+        fPath = SkPathBuilder()
+                .moveTo(100, 500)
+                .cubicTo(300, 400, -100, 300, 100, 200)
+                .quadTo(250, 0, 400, 200)
+                .conicTo(600, 350, 400, 500, fConicWeight)
+                .close()
+                .detach();
 #endif
         fName = "PathTessellators";
     }
@@ -193,7 +198,7 @@ void PathTessellatorsSlide::draw(SkCanvas* canvas) {
     canvas->clear(SK_ColorBLACK);
 
     auto ctx = canvas->recordingContext();
-    auto sdc = SkCanvasPriv::TopDeviceSurfaceDrawContext(canvas);
+    auto sdc = skgpu::ganesh::TopDeviceSurfaceDrawContext(canvas);
 
     SkString error;
     if (!sdc || !ctx) {
@@ -203,7 +208,7 @@ void PathTessellatorsSlide::draw(SkCanvas* canvas) {
     }
     if (!error.isEmpty()) {
         canvas->clear(SK_ColorRED);
-        SkFont font(nullptr, 20);
+        SkFont font(ToolUtils::DefaultTypeface(), 20);
         SkPaint captionPaint;
         captionPaint.setColor(SK_ColorWHITE);
         canvas->drawString(error.c_str(), 10, 30, font, captionPaint);
@@ -219,19 +224,17 @@ void PathTessellatorsSlide::draw(SkCanvas* canvas) {
     SkPaint pointsPaint;
     pointsPaint.setColor(SK_ColorBLUE);
     pointsPaint.setStrokeWidth(8);
-    SkPath devPath = fPath;
-    devPath.transform(canvas->getTotalMatrix());
+    SkPath devPath = fPath.makeTransform(canvas->getTotalMatrix());
     {
         SkAutoCanvasRestore acr(canvas, true);
         canvas->setMatrix(SkMatrix::I());
         SkString caption(ModeName(fMode));
         caption.appendf(" (w=%g)", fConicWeight);
-        SkFont font(nullptr, 20);
+        SkFont font(ToolUtils::DefaultTypeface(), 20);
         SkPaint captionPaint;
         captionPaint.setColor(SK_ColorWHITE);
         canvas->drawString(caption, 10, 30, font, captionPaint);
-        canvas->drawPoints(SkCanvas::kPoints_PointMode, devPath.countPoints(),
-                           SkPathPriv::PointData(devPath), pointsPaint);
+        canvas->drawPoints(SkCanvas::kPoints_PointMode, devPath.points(), pointsPaint);
     }
 }
 
@@ -240,8 +243,10 @@ public:
     Click(int ptIdx) : fPtIdx(ptIdx) {}
 
     void doClick(SkPath* path) {
-        SkPoint pt = path->getPoint(fPtIdx);
-        SkPathPriv::UpdatePathPoint(path, fPtIdx, pt + fCurr - fPrev);
+        SkPoint pt = path->points()[fPtIdx];
+        SkPathBuilder builder(*path);
+        builder.setPoint(fPtIdx, pt + fCurr - fPrev);
+        *path = builder.detach();
     }
 
 private:
@@ -250,7 +255,7 @@ private:
 
 ClickHandlerSlide::Click* PathTessellatorsSlide::onFindClickHandler(SkScalar x, SkScalar y,
                                                                     skui::ModifierKey) {
-    const SkPoint* pts = SkPathPriv::PointData(fPath);
+    SkSpan<const SkPoint> pts = fPath.points();
     float fuzz = 30;
     for (int i = 0; i < fPath.countPoints(); ++i) {
         if (fabs(x - pts[i].x()) < fuzz && fabsf(y - pts[i].y()) < fuzz) {
@@ -267,7 +272,7 @@ bool PathTessellatorsSlide::onClick(ClickHandlerSlide::Click* click) {
 }
 
 static SkPath update_weight(const SkPath& path, float w) {
-    SkPath path_;
+    SkPathBuilder path_;
     for (auto [verb, pts, _] : SkPathPriv::Iterate(path)) {
         switch (verb) {
             case SkPathVerb::kMove:
@@ -289,7 +294,7 @@ static SkPath update_weight(const SkPath& path, float w) {
                 break;
         }
     }
-    return path_;
+    return path_.detach();
 }
 
 bool PathTessellatorsSlide::onChar(SkUnichar unichar) {

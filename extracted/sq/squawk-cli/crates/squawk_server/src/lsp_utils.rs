@@ -1,7 +1,9 @@
-use std::ops::Range;
+use std::{collections::HashMap, ops::Range};
 
 use line_index::{LineIndex, TextRange, TextSize};
 use log::warn;
+use lsp_types::{CodeAction, CodeActionKind, Url, WorkspaceEdit};
+use squawk_ide::code_actions::ActionKind;
 
 fn text_range(index: &LineIndex, range: lsp_types::Range) -> Option<TextRange> {
     let start = offset(index, range.start)?;
@@ -17,7 +19,8 @@ fn text_range(index: &LineIndex, range: lsp_types::Range) -> Option<TextRange> {
         None
     }
 }
-fn offset(index: &LineIndex, position: lsp_types::Position) -> Option<TextSize> {
+
+pub(crate) fn offset(index: &LineIndex, position: lsp_types::Position) -> Option<TextSize> {
     let line_range = index.line(position.line)?;
 
     let col = TextSize::from(position.character);
@@ -33,6 +36,97 @@ fn offset(index: &LineIndex, position: lsp_types::Position) -> Option<TextSize> 
     }
 
     Some(line_range.start() + clamped_len)
+}
+
+pub(crate) fn code_action(
+    line_index: &LineIndex,
+    uri: Url,
+    action: squawk_ide::code_actions::CodeAction,
+) -> lsp_types::CodeAction {
+    let kind = match action.kind {
+        ActionKind::QuickFix => CodeActionKind::QUICKFIX,
+        ActionKind::RefactorRewrite => CodeActionKind::REFACTOR_REWRITE,
+    };
+
+    CodeAction {
+        title: action.title,
+        kind: Some(kind),
+        diagnostics: None,
+        edit: Some(WorkspaceEdit {
+            changes: Some({
+                let mut changes = HashMap::new();
+                let edits = action
+                    .edits
+                    .into_iter()
+                    .map(|edit| lsp_types::TextEdit {
+                        range: range(line_index, edit.text_range),
+                        new_text: edit.text.unwrap_or_default(),
+                    })
+                    .collect();
+                changes.insert(uri, edits);
+                changes
+            }),
+            ..Default::default()
+        }),
+        command: None,
+        is_preferred: Some(true),
+        disabled: None,
+        data: None,
+    }
+}
+
+pub(crate) fn completion_item(
+    item: squawk_ide::completion::CompletionItem,
+) -> lsp_types::CompletionItem {
+    use squawk_ide::completion::{CompletionInsertTextFormat, CompletionItemKind};
+
+    let kind = match item.kind {
+        CompletionItemKind::Schema => lsp_types::CompletionItemKind::MODULE,
+        CompletionItemKind::Keyword => lsp_types::CompletionItemKind::KEYWORD,
+        CompletionItemKind::Table => lsp_types::CompletionItemKind::STRUCT,
+        CompletionItemKind::Column => lsp_types::CompletionItemKind::FIELD,
+        CompletionItemKind::Function => lsp_types::CompletionItemKind::FUNCTION,
+        CompletionItemKind::Type => lsp_types::CompletionItemKind::CLASS,
+        CompletionItemKind::Snippet => lsp_types::CompletionItemKind::SNIPPET,
+    };
+
+    let sort_text = Some(item.sort_text());
+
+    let insert_text_format = item.insert_text_format.map(|x| match x {
+        CompletionInsertTextFormat::PlainText => lsp_types::InsertTextFormat::PLAIN_TEXT,
+        CompletionInsertTextFormat::Snippet => lsp_types::InsertTextFormat::SNIPPET,
+    });
+
+    let command = if item.trigger_completion_after_insert {
+        Some(lsp_types::Command {
+            title: "Trigger Completion".to_owned(),
+            command: "editor.action.triggerSuggest".to_owned(),
+            arguments: None,
+        })
+    } else {
+        None
+    };
+
+    lsp_types::CompletionItem {
+        label: item.label,
+        kind: Some(kind),
+        detail: item.detail,
+        insert_text: item.insert_text,
+        insert_text_format,
+        sort_text,
+        command,
+        ..Default::default()
+    }
+}
+
+pub(crate) fn range(line_index: &LineIndex, range: TextRange) -> lsp_types::Range {
+    let start = line_index.line_col(range.start());
+    let end = line_index.line_col(range.end());
+
+    lsp_types::Range::new(
+        lsp_types::Position::new(start.line, start.col),
+        lsp_types::Position::new(end.line, end.col),
+    )
 }
 
 // base on rust-analyzer's

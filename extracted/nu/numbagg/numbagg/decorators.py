@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import abc
 import functools
+import importlib
 import logging
 import os
+import sys
 import threading
 import warnings
 from collections.abc import Callable, Iterable
 from functools import cache, cached_property
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypeVar, cast
 
 import numba
 import numpy as np
@@ -321,7 +323,12 @@ class ndmove(NumbaBaseSimple):
         if not 0 < window <= arr[0].shape[axis]:
             raise ValueError(f"window not in valid range: {window}")
         gufunc = self.gufunc(target=self.target)
-        return gufunc(*arr, window, min_count, axis=axis, **kwargs)
+        # TODO: moving window functions raise warnings here for the default test
+        # fixtures; I can't figure out where it's coming from, and can't reproduce it
+        # locally. So I'm ignoring so that we can still raise errors on other
+        # warnings.
+        with np.errstate(invalid="ignore"):
+            return gufunc(*arr, window, min_count, axis=axis, **kwargs)
 
 
 class ndmoveexp(NumbaBaseSimple):
@@ -397,17 +404,53 @@ class ndmoveexp(NumbaBaseSimple):
             return gufunc(*arr, alpha, min_weight, axes=axes, **kwargs)
 
 
-class ndfill(NumbaBaseSimple):
+class ndfill(NumbaBase):
+    """Dynamic compilation fill decorator - compiles on-demand based on input dtype."""
+
     def __init__(
         self,
         func: Callable[..., Any],
-        signature: list[NumbaTypes] = [
-            (numba.float32[:], numba.int32, numba.float32[:]),
-            (numba.float64[:], numba.int64, numba.float64[:]),
-        ],
         **kwargs,
     ) -> None:
-        super().__init__(func, signature, **kwargs)
+        super().__init__(func=func, **kwargs)
+
+    @cache
+    def gufunc(self, dtype: np.dtype, *, target: Targets) -> GUFunc:
+        """
+        Dynamically compile a gufunc for the given dtype.
+        This method is cached, so each dtype is only compiled once.
+        """
+        # Convert numpy dtype to numba type
+        numba_type = numba.from_dtype(dtype)
+
+        # For fill functions: (array, limit) -> out_array
+        # The limit parameter type depends on the array type
+        if np.issubdtype(dtype, np.integer):
+            # For integer arrays, use matching integer type for limit
+            if dtype == np.int32:
+                limit_type = numba.int32
+            else:
+                limit_type = numba.int64
+        else:
+            # For float arrays, use int64 for limit (more general)
+            limit_type = numba.int64
+
+        signature = [(numba_type[:], limit_type, numba_type[:])]
+
+        # Generate gufunc signature string: "(n),()->(n)"
+        gufunc_sig = "(n),()->(n)"
+
+        # Compile the function with numba.guvectorize
+        vectorize = numba.guvectorize(
+            signature,
+            gufunc_sig,
+            nopython=True,
+            target=target,
+            cache=self.cache,
+            fastmath=_FASTMATH,
+        )
+
+        return vectorize(self.func)
 
     def __call__(
         self,
@@ -417,16 +460,51 @@ class ndfill(NumbaBaseSimple):
         axis: int = -1,
         **kwargs,
     ) -> A:
+        """Call the dynamically compiled function."""
         if limit is None:
             limit = arr.shape[axis]
         if limit < 0:
             raise ValueError(f"`limit` must be positive: {limit}")
-        gufunc = self.gufunc(target=self.target)
+
+        # Check if dtype is supported (numeric types only)
+        if not np.issubdtype(arr.dtype, np.number):
+            raise TypeError(f"Unsupported dtype for fill operation: {arr.dtype}")
+
+        # Get or compile the gufunc for this dtype
+        gufunc = self.gufunc(arr.dtype, target=self.target)
+
+        # Call the compiled function
         return gufunc(arr, limit, axis=axis, **kwargs)
 
 
 class groupndreduce(NumbaBase):
-    """Create an N-dimensional grouped aggregation function."""
+    """Create an N-dimensional grouped aggregation function.
+
+    This decorator supports three axis modes that determine how labels are shaped
+    relative to values:
+
+    1. ``axis=int``: Labels are 1D with length ``values.shape[axis]``.
+       The specified axis is reduced, other dimensions are preserved.
+       This is the most common case, used by xarray/flox.
+
+    2. ``axis=tuple``: Labels have shape matching the specified axes.
+       E.g., ``axis=(1, 2)`` with values ``(time, lat, lon)`` requires
+       labels of shape ``(lat, lon)``. Multiple axes are reduced together.
+
+    3. ``axis=None``: Labels must have the same shape as values.
+       The entire array is treated as flat for grouping purposes.
+       Useful for scipy.ndimage-style labeled region operations.
+
+    Note: xarray/flox always uses ``axis=-1`` after flattening any multi-dimensional
+    groupby into a single dimension. The ``axis=tuple`` and ``axis=None`` modes
+    exist for direct numbagg users doing element-wise grouping (e.g., image
+    segmentation, spatial analysis with labeled regions).
+
+    Implementation requirement: The wrapped function receives values and labels
+    with ``core_ndim`` dimensions (1 for ``axis=int``, ``len(axis)`` for tuple,
+    ``values.ndim`` for None). Functions must iterate using ``np.ndindex(values.shape)``
+    to correctly handle all dimensionality modes.
+    """
 
     def __init__(
         self,
@@ -502,6 +580,11 @@ class groupndreduce(NumbaBase):
             labels = labels.astype(dtype)
 
         if values.dtype == np.bool_:
+            if not self.supports_bool:
+                raise TypeError(
+                    f"{self.func.__name__} does not support boolean input. "
+                    "Convert to a numeric type first."
+                )
             values = values.astype(np.int32)
 
         if num_labels is None:
@@ -509,14 +592,9 @@ class groupndreduce(NumbaBase):
 
         target = self.target
 
-        # Use a float type. But TODO: I'm not confident when exactly numba will coerce
-        # vs. raise an error. If this is important we should decide + add tests
-        # (currently tests skip these cases, and IIUC the behavior changed when we added
-        # our own pre-type caching).
-        if (not self.supports_ints and np.issubdtype(values.dtype, np.integer)) or (
-            not self.supports_bool and values.dtype == np.bool_
-        ):
-            values_dtype = values.dtype
+        # Use a float type when the function doesn't support the input type.
+        if not self.supports_ints and np.issubdtype(values.dtype, np.integer):
+            values_dtype = np.dtype(np.float64)
             result_dtype: np.dtype = np.dtype(np.float64)
         else:
             values_dtype = values.dtype
@@ -995,31 +1073,75 @@ class ndmoveexpmatrix(NumbaBase):
         return vectorize(self.func)
 
 
+# Layer categories and which backends they allow
+_LAYER_CATEGORIES = {
+    "default": {"tbb", "omp", "workqueue"},
+    "safe": {"tbb"},
+    "threadsafe": {"tbb", "omp"},
+    # OpenMP is not fork-safe on Linux, but is on other platforms
+    "forksafe": {"tbb", "workqueue", "omp"}
+    if sys.platform != "linux"
+    else {"tbb", "workqueue"},
+}
+
+
 def _is_in_unsafe_thread_pool() -> bool:
+    """
+    Check if we're running in a ThreadPoolExecutor with a non-thread-safe
+    numba backend.
+
+    This is important because running parallel numba code with workqueue
+    backend inside a ThreadPoolExecutor can cause deadlocks or other issues.
+    """
     current_thread = threading.current_thread()
     # ThreadPoolExecutor threads typically have names like 'ThreadPoolExecutor-0_1'
-    return current_thread.name.startswith(
-        "ThreadPoolExecutor"
-    ) and _thread_backend() in {"workqueue", None}
+    in_thread_pool = current_thread.name.startswith("ThreadPoolExecutor")
+
+    if not in_thread_pool:
+        return False
+
+    # We're in a thread pool - check if the backend is safe for this
+    return not _is_threading_layer_threadsafe()
 
 
 @cache
-def _thread_backend() -> str | None:
-    # Note that `importlib.util.find_spec` doesn't work for these; it will falsely
-    # return True
+def _thread_backend() -> str:
+    """
+    Get the numba threading backend that will be used, properly respecting
+    user configuration in THREADING_LAYER and THREADING_LAYER_PRIORITY.
 
-    try:
-        from numba.np.ufunc import tbbpool  # noqa
+    Returns the backend name: "tbb", "omp", or "workqueue".
+    """
+    layer_choice = cast(str, numba.config.THREADING_LAYER)
 
-        return "tbb"
-    except ImportError:
-        pass
+    # Direct backend name (not a category)
+    if layer_choice not in _LAYER_CATEGORIES:
+        return layer_choice if _is_backend_available(layer_choice) else "workqueue"
 
-    try:
-        from numba.np.ufunc import omppool  # noqa
+    # Category like "default", "safe", "threadsafe", "forksafe"
+    allowed_backends = _LAYER_CATEGORIES[layer_choice]
 
-        return "omp"
-    except ImportError:
-        pass
+    for backend in cast(list[str], numba.config.THREADING_LAYER_PRIORITY):
+        if backend in allowed_backends and _is_backend_available(backend):
+            return backend
 
+    # Shouldn't happen as workqueue is usually in allowed backends
     return "workqueue"
+
+
+def _is_backend_available(backend: str) -> bool:
+    """Check if a threading backend is available."""
+    if backend == "workqueue":
+        return True  # Always available (built-in)
+
+    try:
+        importlib.import_module(f"numba.np.ufunc.{backend}pool")
+        return True
+    except ImportError:
+        return False
+
+
+def _is_threading_layer_threadsafe() -> bool:
+    """Check if the current numba threading layer is thread-safe."""
+    layer = _thread_backend()
+    return layer in _LAYER_CATEGORIES["threadsafe"]

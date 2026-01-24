@@ -1,30 +1,44 @@
 pub mod config;
 pub mod exit_codes;
+pub mod filtered_lines;
+pub mod fix_coordinator;
 pub mod inline_config;
 pub mod lint_context;
-pub mod lsp;
 pub mod markdownlint_config;
-pub mod output;
-pub mod parallel;
-pub mod performance;
 pub mod profiling;
 pub mod rule;
+#[cfg(feature = "native")]
 pub mod vscode;
+pub mod workspace_index;
 #[macro_use]
 pub mod rule_config;
 #[macro_use]
 pub mod rule_config_serde;
 pub mod rules;
+pub mod types;
 pub mod utils;
 
-#[cfg(feature = "python")]
-pub mod python;
+// Native-only modules (require tokio, tower-lsp, etc.)
+#[cfg(feature = "native")]
+pub mod lsp;
+#[cfg(feature = "native")]
+pub mod output;
+#[cfg(feature = "native")]
+pub mod parallel;
+#[cfg(feature = "native")]
+pub mod performance;
+
+// WASM module
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+pub mod wasm;
 
 pub use rules::heading_utils::{Heading, HeadingStyle};
 pub use rules::*;
 
 pub use crate::lint_context::{LineInfo, LintContext, ListItemInfo};
 use crate::rule::{LintResult, Rule, RuleCategory};
+use crate::utils::element_cache::ElementCache;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 /// Content characteristics for efficient rule filtering
@@ -39,6 +53,12 @@ struct ContentCharacteristics {
     has_tables: bool,      // | pipes
     has_blockquotes: bool, // > markers
     has_images: bool,      // ![alt](url)
+}
+
+/// Check if a line has enough leading whitespace to be an indented code block.
+/// Indented code blocks require 4+ columns of leading whitespace (with proper tab expansion).
+fn has_potential_indented_code_indent(line: &str) -> bool {
+    ElementCache::calculate_indentation_width_default(line) >= 4
 }
 
 impl ContentCharacteristics {
@@ -61,24 +81,41 @@ impl ContentCharacteristics {
             }
 
             // Quick character-based detection (more efficient than regex)
-            if !chars.has_lists && (line.contains("* ") || line.contains("- ") || line.contains("+ ")) {
+            // Include patterns without spaces to enable user-intention detection (MD030)
+            if !chars.has_lists
+                && (line.contains("* ")
+                    || line.contains("- ")
+                    || line.contains("+ ")
+                    || trimmed.starts_with("* ")
+                    || trimmed.starts_with("- ")
+                    || trimmed.starts_with("+ ")
+                    || trimmed.starts_with('*')
+                    || trimmed.starts_with('-')
+                    || trimmed.starts_with('+'))
+            {
                 chars.has_lists = true;
             }
-            if !chars.has_lists && line.chars().next().is_some_and(|c| c.is_ascii_digit()) && line.contains(". ") {
+            if !chars.has_lists
+                && line.chars().next().is_some_and(|c| c.is_ascii_digit())
+                && (line.contains(". ") || line.contains('.'))
+            {
                 chars.has_lists = true;
             }
             if !chars.has_links
                 && (line.contains('[')
                     || line.contains("http://")
                     || line.contains("https://")
-                    || line.contains("ftp://"))
+                    || line.contains("ftp://")
+                    || line.contains("www."))
             {
                 chars.has_links = true;
             }
             if !chars.has_images && line.contains("![") {
                 chars.has_images = true;
             }
-            if !chars.has_code && (line.contains('`') || line.contains("~~~")) {
+            if !chars.has_code
+                && (line.contains('`') || line.contains("~~~") || has_potential_indented_code_indent(line))
+            {
                 chars.has_code = true;
             }
             if !chars.has_emphasis && (line.contains('*') || line.contains('_')) {
@@ -117,25 +154,108 @@ impl ContentCharacteristics {
     }
 }
 
+/// Compute content hash for incremental indexing change detection
+///
+/// Uses blake3 for native builds (fast, cryptographic-strength hash)
+/// Falls back to std::hash for WASM builds
+#[cfg(feature = "native")]
+fn compute_content_hash(content: &str) -> String {
+    blake3::hash(content.as_bytes()).to_hex().to_string()
+}
+
+/// Compute content hash for WASM builds using std::hash
+#[cfg(not(feature = "native"))]
+fn compute_content_hash(content: &str) -> String {
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    content.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
 /// Lint a file against the given rules with intelligent rule filtering
 /// Assumes the provided `rules` vector contains the final,
 /// configured, and filtered set of rules to be executed.
 pub fn lint(
     content: &str,
     rules: &[Box<dyn Rule>],
+    verbose: bool,
+    flavor: crate::config::MarkdownFlavor,
+    config: Option<&crate::config::Config>,
+) -> LintResult {
+    // Use lint_and_index but discard the FileIndex for backward compatibility
+    let (result, _file_index) = lint_and_index(content, rules, verbose, flavor, None, config);
+    result
+}
+
+/// Build FileIndex only (no linting) for cross-file analysis on cache hits
+///
+/// This is a lightweight function that only builds the FileIndex without running
+/// any rules. Used when we have a cache hit but still need the FileIndex for
+/// cross-file validation.
+///
+/// This avoids the overhead of re-running all rules when only the index data is needed.
+pub fn build_file_index_only(
+    content: &str,
+    rules: &[Box<dyn Rule>],
+    flavor: crate::config::MarkdownFlavor,
+) -> crate::workspace_index::FileIndex {
+    // Compute content hash for change detection
+    let content_hash = compute_content_hash(content);
+    let mut file_index = crate::workspace_index::FileIndex::with_hash(content_hash);
+
+    // Early return for empty content
+    if content.is_empty() {
+        return file_index;
+    }
+
+    // Parse LintContext once with the provided flavor
+    let lint_ctx = crate::lint_context::LintContext::new(content, flavor, None);
+
+    // Only call contribute_to_index for cross-file rules (no rule checking!)
+    for rule in rules {
+        if rule.cross_file_scope() == crate::rule::CrossFileScope::Workspace {
+            rule.contribute_to_index(&lint_ctx, &mut file_index);
+        }
+    }
+
+    file_index
+}
+
+/// Lint a file and contribute to workspace index for cross-file analysis
+///
+/// This variant performs linting and optionally populates a `FileIndex` with data
+/// needed for cross-file validation. The FileIndex is populated during linting,
+/// avoiding duplicate parsing.
+///
+/// Returns: (warnings, FileIndex) - the FileIndex contains headings/links for cross-file rules
+pub fn lint_and_index(
+    content: &str,
+    rules: &[Box<dyn Rule>],
     _verbose: bool,
     flavor: crate::config::MarkdownFlavor,
-) -> LintResult {
+    source_file: Option<std::path::PathBuf>,
+    config: Option<&crate::config::Config>,
+) -> (LintResult, crate::workspace_index::FileIndex) {
     let mut warnings = Vec::new();
+    // Compute content hash for change detection
+    let content_hash = compute_content_hash(content);
+    let mut file_index = crate::workspace_index::FileIndex::with_hash(content_hash);
+
+    #[cfg(not(target_arch = "wasm32"))]
     let _overall_start = Instant::now();
 
     // Early return for empty content
     if content.is_empty() {
-        return Ok(warnings);
+        return (Ok(warnings), file_index);
     }
 
     // Parse inline configuration comments once
     let inline_config = crate::inline_config::InlineConfig::from_content(content);
+
+    // Export inline config data to FileIndex for cross-file rule filtering
+    let (file_disabled, line_disabled) = inline_config.export_for_file_index();
+    file_index.file_disabled_rules = file_disabled;
+    file_index.line_disabled_rules = line_disabled;
 
     // Analyze content characteristics for rule filtering
     let characteristics = ContentCharacteristics::analyze(content);
@@ -150,35 +270,20 @@ pub fn lint(
     let _total_rules = rules.len();
     let _applicable_count = applicable_rules.len();
 
-    // Parse AST once for rules that can benefit from it
-    let ast_rules_count = applicable_rules.iter().filter(|rule| rule.uses_ast()).count();
-    let ast = if ast_rules_count > 0 {
-        Some(crate::utils::ast_utils::get_cached_ast(content))
-    } else {
-        None
-    };
+    // Parse LintContext once with the provided flavor
+    let lint_ctx = crate::lint_context::LintContext::new(content, flavor, source_file);
 
-    // Parse LintContext once (migration step) with the provided flavor
-    let lint_ctx = crate::lint_context::LintContext::new(content, flavor);
+    #[cfg(not(target_arch = "wasm32"))]
+    let profile_rules = std::env::var("RUMDL_PROFILE_RULES").is_ok();
+    #[cfg(target_arch = "wasm32")]
+    let profile_rules = false;
 
-    for rule in applicable_rules {
+    for rule in &applicable_rules {
+        #[cfg(not(target_arch = "wasm32"))]
         let _rule_start = Instant::now();
 
-        // Try optimized paths in order of preference
-        let result = if rule.uses_ast() {
-            if let Some(ref ast_ref) = ast {
-                // 1. AST-based path
-                rule.as_maybe_ast()
-                    .and_then(|ext| ext.check_with_ast_opt(&lint_ctx, ast_ref))
-                    .unwrap_or_else(|| rule.check_with_ast(&lint_ctx, ast_ref))
-            } else {
-                // Fallback to regular check if no AST
-                rule.check(&lint_ctx)
-            }
-        } else {
-            // 2. Regular check path
-            rule.check(&lint_ctx)
-        };
+        // Run single-file check
+        let result = rule.check(&lint_ctx);
 
         match result {
             Ok(rule_warnings) => {
@@ -187,7 +292,7 @@ pub fn lint(
                     .into_iter()
                     .filter(|warning| {
                         // Use the warning's rule_name if available, otherwise use the rule's name
-                        let rule_name_to_check = warning.rule_name.unwrap_or(rule.name());
+                        let rule_name_to_check = warning.rule_name.as_deref().unwrap_or(rule.name());
 
                         // Extract the base rule name for sub-rules like "MD029-style" -> "MD029"
                         let base_rule_name = if let Some(dash_pos) = rule_name_to_check.find('-') {
@@ -201,21 +306,48 @@ pub fn lint(
                             warning.line, // Already 1-indexed
                         )
                     })
+                    .map(|mut warning| {
+                        // Apply severity override from config if present
+                        if let Some(cfg) = config {
+                            let rule_name_to_check = warning.rule_name.as_deref().unwrap_or(rule.name());
+                            if let Some(override_severity) = cfg.get_rule_severity(rule_name_to_check) {
+                                warning.severity = override_severity;
+                            }
+                        }
+                        warning
+                    })
                     .collect();
                 warnings.extend(filtered_warnings);
             }
             Err(e) => {
                 log::error!("Error checking rule {}: {}", rule.name(), e);
-                return Err(e);
+                return (Err(e), file_index);
             }
         }
 
-        #[cfg(not(test))]
-        if _verbose {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
             let rule_duration = _rule_start.elapsed();
-            if rule_duration.as_millis() > 500 {
+            if profile_rules {
+                eprintln!("[RULE] {:6} {:?}", rule.name(), rule_duration);
+            }
+
+            #[cfg(not(test))]
+            if _verbose && rule_duration.as_millis() > 500 {
                 log::debug!("Rule {} took {:?}", rule.name(), rule_duration);
             }
+        }
+    }
+
+    // Contribute to index for cross-file rules (done after all rules checked)
+    // NOTE: We iterate over ALL rules (not just applicable_rules) because cross-file
+    // rules need to extract data from every file in the workspace, regardless of whether
+    // that file has content that would trigger the rule. For example, MD051 needs to
+    // index headings from files that have no links (like target.md) so that links
+    // FROM other files TO those headings can be validated.
+    for rule in rules {
+        if rule.cross_file_scope() == crate::rule::CrossFileScope::Workspace {
+            rule.contribute_to_index(&lint_ctx, &mut file_index);
         }
     }
 
@@ -225,8 +357,62 @@ pub fn lint(
         if skipped_rules > 0 {
             log::debug!("Skipped {skipped_rules} of {_total_rules} rules based on content analysis");
         }
-        if ast.is_some() {
-            log::debug!("Used shared AST for {ast_rules_count} rules");
+    }
+
+    (Ok(warnings), file_index)
+}
+
+/// Run cross-file checks for rules that need workspace-wide validation
+///
+/// This should be called after all files have been linted and the WorkspaceIndex
+/// has been built from the accumulated FileIndex data.
+///
+/// Note: This takes the FileIndex instead of content to avoid re-parsing each file.
+/// The FileIndex was already populated during contribute_to_index in the linting phase.
+///
+/// Rules can use workspace_index methods for cross-file validation:
+/// - `get_file(path)` - to look up headings in target files (for MD051)
+///
+/// Returns additional warnings from cross-file validation.
+pub fn run_cross_file_checks(
+    file_path: &std::path::Path,
+    file_index: &crate::workspace_index::FileIndex,
+    rules: &[Box<dyn Rule>],
+    workspace_index: &crate::workspace_index::WorkspaceIndex,
+    config: Option<&crate::config::Config>,
+) -> LintResult {
+    use crate::rule::CrossFileScope;
+
+    let mut warnings = Vec::new();
+
+    // Only check rules that need cross-file analysis
+    for rule in rules {
+        if rule.cross_file_scope() != CrossFileScope::Workspace {
+            continue;
+        }
+
+        match rule.cross_file_check(file_path, file_index, workspace_index) {
+            Ok(rule_warnings) => {
+                // Filter cross-file warnings based on inline config stored in file_index
+                let filtered: Vec<_> = rule_warnings
+                    .into_iter()
+                    .filter(|w| !file_index.is_rule_disabled_at_line(rule.name(), w.line))
+                    .map(|mut warning| {
+                        // Apply severity override from config if present
+                        if let Some(cfg) = config
+                            && let Some(override_severity) = cfg.get_rule_severity(rule.name())
+                        {
+                            warning.severity = override_severity;
+                        }
+                        warning
+                    })
+                    .collect();
+                warnings.extend(filtered);
+            }
+            Err(e) => {
+                log::error!("Error in cross-file check for rule {}: {}", rule.name(), e);
+                return Err(e);
+            }
         }
     }
 
@@ -248,80 +434,11 @@ pub fn get_regex_cache_stats() -> std::collections::HashMap<String, u64> {
     crate::utils::regex_cache::get_cache_stats()
 }
 
-/// Get AST cache statistics for performance monitoring
-pub fn get_ast_cache_stats() -> std::collections::HashMap<u64, u64> {
-    crate::utils::ast_utils::get_ast_cache_stats()
-}
-
-/// Clear all caches (useful for testing and memory management)
-pub fn clear_all_caches() {
-    crate::utils::ast_utils::clear_ast_cache();
-    // Note: Regex cache is intentionally not cleared as it's global and shared
-}
-
-/// Get comprehensive cache performance report
-pub fn get_cache_performance_report() -> String {
-    let regex_stats = get_regex_cache_stats();
-    let ast_stats = get_ast_cache_stats();
-
-    let mut report = String::new();
-
-    report.push_str("=== Cache Performance Report ===\n\n");
-
-    // Regex cache statistics
-    report.push_str("Regex Cache:\n");
-    if regex_stats.is_empty() {
-        report.push_str("  No regex patterns cached\n");
-    } else {
-        let total_usage: u64 = regex_stats.values().sum();
-        report.push_str(&format!("  Total patterns: {}\n", regex_stats.len()));
-        report.push_str(&format!("  Total usage: {total_usage}\n"));
-
-        // Show top 5 most used patterns
-        let mut sorted_patterns: Vec<_> = regex_stats.iter().collect();
-        sorted_patterns.sort_by(|a, b| b.1.cmp(a.1));
-
-        report.push_str("  Top patterns by usage:\n");
-        for (pattern, count) in sorted_patterns.iter().take(5) {
-            let truncated_pattern = if pattern.len() > 50 {
-                format!("{}...", &pattern[..47])
-            } else {
-                pattern.to_string()
-            };
-            report.push_str(&format!(
-                "    {} ({}x): {}\n",
-                count,
-                pattern.len().min(50),
-                truncated_pattern
-            ));
-        }
-    }
-
-    report.push('\n');
-
-    // AST cache statistics
-    report.push_str("AST Cache:\n");
-    if ast_stats.is_empty() {
-        report.push_str("  No AST nodes cached\n");
-    } else {
-        let total_usage: u64 = ast_stats.values().sum();
-        report.push_str(&format!("  Total ASTs: {}\n", ast_stats.len()));
-        report.push_str(&format!("  Total usage: {total_usage}\n"));
-
-        if total_usage > ast_stats.len() as u64 {
-            let cache_hit_rate = ((total_usage - ast_stats.len() as u64) as f64 / total_usage as f64) * 100.0;
-            report.push_str(&format!("  Cache hit rate: {cache_hit_rate:.1}%\n"));
-        }
-    }
-
-    report
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::rule::Rule;
-    use crate::rules::{MD001HeadingIncrement, MD009TrailingSpaces, MD012NoMultipleBlanks};
+    use crate::rules::{MD001HeadingIncrement, MD009TrailingSpaces};
 
     #[test]
     fn test_content_characteristics_analyze() {
@@ -372,6 +489,22 @@ mod tests {
         let chars = ContentCharacteristics::analyze("~~~\ncode block\n~~~");
         assert!(chars.has_code);
 
+        // Test indented code blocks (4 spaces)
+        let chars = ContentCharacteristics::analyze("Text\n\n    indented code\n\nMore text");
+        assert!(chars.has_code);
+
+        // Test tab-indented code blocks
+        let chars = ContentCharacteristics::analyze("Text\n\n\ttab indented code\n\nMore text");
+        assert!(chars.has_code);
+
+        // Test mixed whitespace indented code (2 spaces + tab = 4 columns)
+        let chars = ContentCharacteristics::analyze("Text\n\n  \tmixed indent code\n\nMore text");
+        assert!(chars.has_code);
+
+        // Test 1 space + tab (also 4 columns due to tab expansion)
+        let chars = ContentCharacteristics::analyze("Text\n\n \ttab after space\n\nMore text");
+        assert!(chars.has_code);
+
         // Test emphasis
         let chars = ContentCharacteristics::analyze("*emphasis* and _more_");
         assert!(chars.has_emphasis);
@@ -417,7 +550,7 @@ mod tests {
         };
 
         // Create test rules for different categories
-        let heading_rule = MD001HeadingIncrement;
+        let heading_rule = MD001HeadingIncrement::default();
         assert!(!chars.should_skip_rule(&heading_rule));
 
         let trailing_spaces_rule = MD009TrailingSpaces::new(2, false);
@@ -433,9 +566,9 @@ mod tests {
 
     #[test]
     fn test_lint_empty_content() {
-        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD001HeadingIncrement)];
+        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD001HeadingIncrement::default())];
 
-        let result = lint("", &rules, false, crate::config::MarkdownFlavor::Standard);
+        let result = lint("", &rules, false, crate::config::MarkdownFlavor::Standard, None);
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
     }
@@ -443,22 +576,22 @@ mod tests {
     #[test]
     fn test_lint_with_violations() {
         let content = "## Level 2\n#### Level 4"; // Skips level 3
-        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD001HeadingIncrement)];
+        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD001HeadingIncrement::default())];
 
-        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard);
+        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard, None);
         assert!(result.is_ok());
         let warnings = result.unwrap();
         assert!(!warnings.is_empty());
         // Check the rule field of LintWarning struct
-        assert_eq!(warnings[0].rule_name, Some("MD001"));
+        assert_eq!(warnings[0].rule_name.as_deref(), Some("MD001"));
     }
 
     #[test]
     fn test_lint_with_inline_disable() {
         let content = "<!-- rumdl-disable MD001 -->\n## Level 2\n#### Level 4";
-        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD001HeadingIncrement)];
+        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD001HeadingIncrement::default())];
 
-        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard);
+        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard, None);
         assert!(result.is_ok());
         let warnings = result.unwrap();
         assert!(warnings.is_empty()); // Should be disabled by inline comment
@@ -469,11 +602,11 @@ mod tests {
         // Content with no lists
         let content = "# Heading\nJust text";
         let rules: Vec<Box<dyn Rule>> = vec![
-            Box::new(MD001HeadingIncrement),
+            Box::new(MD001HeadingIncrement::default()),
             // A list-related rule would be skipped
         ];
 
-        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard);
+        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard, None);
         assert!(result.is_ok());
     }
 
@@ -508,53 +641,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_ast_cache_stats() {
-        let stats = get_ast_cache_stats();
-        // Stats should be a valid HashMap (might be empty)
-        assert!(stats.is_empty() || !stats.is_empty());
-
-        // If not empty, all values should be positive
-        for count in stats.values() {
-            assert!(*count > 0);
-        }
-    }
-
-    #[test]
-    fn test_clear_all_caches() {
-        // Test that clear_all_caches doesn't panic
-        clear_all_caches();
-
-        // After clearing, AST cache should be empty
-        let ast_stats = get_ast_cache_stats();
-        assert!(ast_stats.is_empty());
-    }
-
-    #[test]
-    fn test_get_cache_performance_report() {
-        let report = get_cache_performance_report();
-
-        // Report should contain expected sections
-        assert!(report.contains("Cache Performance Report"));
-        assert!(report.contains("Regex Cache:"));
-        assert!(report.contains("AST Cache:"));
-
-        // Test with empty caches
-        clear_all_caches();
-        let report_empty = get_cache_performance_report();
-        assert!(report_empty.contains("No AST nodes cached"));
-    }
-
-    #[test]
-    fn test_lint_with_ast_rules() {
-        // Create content that would benefit from AST parsing
-        let content = "# Heading\n\nParagraph with **bold** text.";
-        let rules: Vec<Box<dyn Rule>> = vec![Box::new(MD012NoMultipleBlanks::new(1))];
-
-        let result = lint(content, &rules, false, crate::config::MarkdownFlavor::Standard);
-        assert!(result.is_ok());
-    }
-
-    #[test]
     fn test_content_characteristics_edge_cases() {
         // Test setext heading edge case
         let chars = ContentCharacteristics::analyze("-"); // Single dash, not a heading
@@ -563,29 +649,16 @@ mod tests {
         let chars = ContentCharacteristics::analyze("--"); // Two dashes, valid setext
         assert!(chars.has_headings);
 
-        // Test list detection edge cases
-        let chars = ContentCharacteristics::analyze("*emphasis*"); // Not a list
-        assert!(!chars.has_lists);
+        // Test list detection - we now include potential list patterns (with or without space)
+        // to support user-intention detection in MD030
+        let chars = ContentCharacteristics::analyze("*emphasis*"); // Could be list or emphasis
+        assert!(chars.has_lists); // Run list rules to be safe
 
-        let chars = ContentCharacteristics::analyze("1.Item"); // No space after period
-        assert!(!chars.has_lists);
+        let chars = ContentCharacteristics::analyze("1.Item"); // Could be list without space
+        assert!(chars.has_lists); // Run list rules for user-intention detection
 
         // Test blockquote must be at start of line
         let chars = ContentCharacteristics::analyze("text > not a quote");
         assert!(!chars.has_blockquotes);
-    }
-
-    #[test]
-    fn test_cache_performance_report_formatting() {
-        // Add some data to caches to test formatting
-        // (Would require actual usage of the caches, which happens during linting)
-
-        let report = get_cache_performance_report();
-
-        // Test truncation of long patterns
-        // Since we can't easily add a long pattern to the cache in this test,
-        // we'll just verify the report structure is correct
-        assert!(!report.is_empty());
-        assert!(report.lines().count() > 3); // Should have multiple lines
     }
 }

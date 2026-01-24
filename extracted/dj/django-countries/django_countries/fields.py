@@ -1,12 +1,17 @@
 import re
 import sys
-from typing import Any, Iterable, Optional, Tuple, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple, Type, Union, cast
 from urllib import parse as urlparse
+
+if TYPE_CHECKING:
+    from typing import overload
+
+    from typing_extensions import Self
 
 import django
 from django import forms
 from django.contrib.admin.filters import FieldListFilter
-from django.core import checks, exceptions
+from django.core import exceptions
 from django.db.models import lookups
 from django.db.models.fields import BLANK_CHOICE_DASH, CharField
 from django.utils.encoding import force_str
@@ -28,8 +33,8 @@ try:
         _entry_points = importlib.metadata.entry_points().get(
             "django_countries.Country", []
         )
-except ImportError:  # Python <3.8
-    import pkg_resources
+except ImportError:  # Python <3.8  # pragma: no cover
+    import pkg_resources  # type: ignore
 
     _entry_points = pkg_resources.iter_entry_points("django_countries.Country")
 
@@ -39,17 +44,17 @@ EXTENSIONS = {ep.name: ep.load() for ep in _entry_points}  # type: ignore
 class TemporaryEscape:
     __slots__ = ["country", "original_escape"]
 
-    def __init__(self, country):
+    def __init__(self, country: "Country") -> None:
         self.country = country
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.country._escape
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.original_escape = self.country._escape
         self.country._escape = True
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type: Any, value: Any, traceback: Any) -> None:
         self.country._escape = self.original_escape
 
 
@@ -103,7 +108,7 @@ class Country:
         return self.custom_countries or countries
 
     @property
-    def escape(self):
+    def escape(self) -> TemporaryEscape:
         return TemporaryEscape(self)
 
     def maybe_escape(self, text) -> str:
@@ -131,7 +136,9 @@ class Country:
             return ""
         flag_url = self.flag_url
         if flag_url is None:
-            flag_url = settings.COUNTRIES_FLAG_URL
+            # Check if there's a custom flag_url for this country code
+            custom_flag_url = self.countries.flag_url(self.code)
+            flag_url = custom_flag_url or settings.COUNTRIES_FLAG_URL
         url = flag_url.format(code_upper=self.code, code=self.code.lower())
         if not url:
             return ""
@@ -177,7 +184,9 @@ class Country:
         return chr(points[0]) + chr(points[1])
 
     @staticmethod
-    def country_from_ioc(ioc_code, flag_url=""):
+    def country_from_ioc(
+        ioc_code: str, flag_url: Optional[str] = None
+    ) -> Optional["Country"]:
         code = ioc_data.IOC_TO_ISO.get(ioc_code, "")
         if code == "":
             return None
@@ -190,7 +199,74 @@ class Country:
     def __getattr__(self, attr):
         if attr in EXTENSIONS:
             return EXTENSIONS[attr](self)
-        raise AttributeError()
+        raise AttributeError
+
+
+class MultipleCountriesDescriptor:
+    """
+    A list-like wrapper that provides proper string representation for Django admin.
+
+    This makes CountryField(multiple=True) work correctly in admin list_display
+    and readonly_fields by providing a comma-separated string of country names.
+
+    Note: This does NOT inherit from list to avoid Django admin's special handling
+    of list/tuple types in display_for_value, which would show codes instead of names.
+    """
+
+    def __init__(self, countries_iter):
+        self._countries = list(countries_iter)
+
+    def __str__(self):
+        """Return comma-separated country names for admin display."""
+        if not self._countries:
+            return ""
+        return ", ".join(str(country.name) for country in self._countries)
+
+    def __repr__(self):
+        """Maintain list representation for debugging."""
+        return f"[{', '.join(repr(country) for country in self._countries)}]"
+
+    def __iter__(self):
+        """Allow iteration over countries."""
+        return iter(self._countries)
+
+    def __getitem__(self, index):
+        """Allow indexing."""
+        return self._countries[index]
+
+    def __len__(self):
+        """Return number of countries."""
+        return len(self._countries)
+
+    def __bool__(self):
+        """Return True if there are countries."""
+        return bool(self._countries)
+
+    def __eq__(self, other):
+        """Check equality."""
+        if isinstance(other, MultipleCountriesDescriptor):
+            return self._countries == other._countries
+        return self._countries == other
+
+    def __contains__(self, item):
+        """
+        Check if a country code or Country object is in the descriptor.
+
+        This is essential for Django form widgets (especially SelectMultiple) to
+        correctly mark options as selected. The widget checks if each option value
+        (a string country code) is in the list of selected values.
+        """
+        return any(country == item for country in self._countries)
+
+    def __add__(self, other):
+        """
+        Implement the + operator.
+
+        Accepts country codes (strings) or Country objects. Validation and
+        normalization is handled later by the field's get_clean_value() method
+        when the result is assigned via __set__.
+        """
+        return MultipleCountriesDescriptor(self._countries + other)
 
 
 class CountryDescriptor:
@@ -208,8 +284,21 @@ class CountryDescriptor:
         '/static/flags/nz.gif'
     """
 
-    def __init__(self, field):
+    field: "CountryField"
+
+    def __init__(self, field: "CountryField") -> None:
         self.field = field
+
+    # Type-only overloads for descriptor protocol
+    if TYPE_CHECKING:
+
+        @overload
+        def __get__(self, instance: None, owner: Any) -> "Self": ...
+
+        @overload
+        def __get__(
+            self, instance: Any, owner: Any
+        ) -> Union[Country, MultipleCountriesDescriptor]: ...
 
     def __get__(self, instance=None, owner=None):
         if instance is None:
@@ -219,7 +308,10 @@ class CountryDescriptor:
             instance.refresh_from_db(fields=[self.field.name])
         value = instance.__dict__[self.field.name]
         if self.field.multiple:
-            return [self.country(code) for code in value]
+            # Return None for NULL values on nullable multiple fields
+            if value is None:
+                return None
+            return MultipleCountriesDescriptor(self.country(code) for code in value)
         return self.country(value)
 
     def country(self, code):
@@ -236,6 +328,8 @@ class CountryDescriptor:
 
 
 class LazyChoicesMixin(widgets.LazyChoicesMixin):
+    widget: Type[forms.widgets.ChoiceWidget]
+
     if django.VERSION < (5, 0):
 
         def _set_choices(self, value):
@@ -243,7 +337,7 @@ class LazyChoicesMixin(widgets.LazyChoicesMixin):
             Also update the widget's choices.
             """
             super()._set_choices(value)
-            self.widget.choices = value
+            self.widget.choices = value  # type: ignore
 
 
 _Choice = Tuple[Any, str]
@@ -268,6 +362,26 @@ class LazyTypedMultipleChoiceField(LazyChoicesMixin, forms.TypedMultipleChoiceFi
     choices: Any
     widget = widgets.LazySelectMultiple
 
+    def prepare_value(self, value):
+        """
+        Convert Country objects or MultipleCountriesDescriptor to a list of codes.
+
+        This is essential for form widgets to correctly mark options as selected
+        when the form is initialized from a model instance (issue #480).
+
+        The widget expects a list of strings (country codes), but when a form is
+        initialized from an instance, CountryField(multiple=True) returns a
+        MultipleCountriesDescriptor containing Country objects.
+        """
+        if value is None:
+            return []
+        # Handle MultipleCountriesDescriptor or any iterable of Country objects
+        if hasattr(value, "__iter__") and not isinstance(value, str):
+            # Convert each item to a string (Country objects use __str__
+            # which returns the code)
+            return [force_str(v) for v in value]
+        return super().prepare_value(value)
+
 
 class CountryField(CharField):
     """
@@ -287,10 +401,15 @@ class CountryField(CharField):
         self.multiple = kwargs.pop("multiple", None)
         self.multiple_unique = kwargs.pop("multiple_unique", True)
         self.multiple_sort = kwargs.pop("multiple_sort", True)
+        # Django 5.0+ supports callable choices for lazy evaluation. We use
+        # a lambda wrapper to defer choice evaluation until access time, allowing
+        # choices to respect the current language and settings. With per-language
+        # caching in Countries.__iter__() (issue #454), this is now performant.
         if django.VERSION >= (5, 0):
-            # Use new lazy callable support
+            # Use callable to enable lazy evaluation with per-language caching
             kwargs["choices"] = lambda: self.countries
         else:
+            # Django < 5.0: direct assignment (evaluated once at field init)
             kwargs["choices"] = self.countries
         if "max_length" not in kwargs:
             # Allow explicit max_length so migrations can correctly identify
@@ -298,7 +417,7 @@ class CountryField(CharField):
             # added to the available countries dictionary.
             if self.multiple:
                 kwargs["max_length"] = (
-                    len(self.countries)
+                    len(self.countries.countries)
                     - 1
                     + sum(len(code) for code in self.countries.countries)
                 )
@@ -307,29 +426,6 @@ class CountryField(CharField):
                     len(code) for code in self.countries.countries
                 )
         super().__init__(*args, **kwargs)
-
-    def check(self, **kwargs):
-        errors = super().check(**kwargs)
-        errors.extend(self._check_multiple())
-        return errors
-
-    def _check_multiple(self):
-        if not self.multiple or not self.null:
-            return []
-
-        hint = "Remove null=True argument on the field"
-        if not self.blank:
-            hint += " (just add blank=True if you want to allow no selection)"
-        hint += "."
-
-        return [
-            checks.Error(
-                "Field specifies multiple=True, so should not be null.",
-                obj=self,
-                id="django_countries.E100",
-                hint=hint,
-            )
-        ]
 
     def get_internal_type(self):
         return "CharField"
@@ -349,6 +445,20 @@ class CountryField(CharField):
         if self.multiple:
             value = ",".join(value) if value else ""
         return super(CharField, self).get_prep_value(value)
+
+    @property
+    def flatchoices(self):
+        """
+        Override flatchoices to prevent admin choice lookups for multiple fields.
+
+        For multiple=True fields, Django admin's display_for_field tries to
+        look up the value in flatchoices. Since the value is a
+        MultipleCountriesDescriptor, we return None so Django skips the
+        choice lookup and uses str() instead.
+        """
+        if self.multiple:
+            return None
+        return super().flatchoices
 
     def country_to_text(self, value):
         if hasattr(value, "code"):
@@ -433,7 +543,7 @@ class CountryField(CharField):
 
     else:
 
-        def get_choices(  # type: ignore [misc]
+        def _get_choices_legacy(
             self, include_blank=True, blank_choice=None, *args, **kwargs
         ):
             if blank_choice is None:
@@ -444,19 +554,66 @@ class CountryField(CharField):
             if self.multiple:
                 include_blank = False
             return super().get_choices(
-                include_blank=include_blank, blank_choice=blank_choice, *args, **kwargs
+                *args, include_blank=include_blank, blank_choice=blank_choice, **kwargs
             )
 
-        get_choices = lazy(get_choices, list)
+        get_choices = lazy(_get_choices_legacy, list)
 
-    def formfield(self, **kwargs):
-        kwargs.setdefault(
-            "choices_form_class",
-            LazyTypedMultipleChoiceField if self.multiple else LazyTypedChoiceField,
-        )
+    def formfield(
+        self,
+        form_class: Optional[Type[forms.Field]] = None,
+        choices_form_class: Optional[Type[forms.ChoiceField]] = None,
+        **kwargs: Any,
+    ) -> Optional[forms.Field]:
+        """
+        Return a form field for this model field.
+
+        Args:
+            form_class: The form field class to use (passed to parent).
+            choices_form_class: The choice field class to use (passed to parent).
+            **kwargs: Additional arguments passed to the parent formfield method.
+                     Accepts an extra 'empty_label' keyword argument to customize
+                     the blank choice label when blank=True. Pass an empty string
+                     "" to show no label, or a custom string like "Select a country".
+                     If not provided, uses Django's default "---------" label.
+
+        Returns:
+            A form field (LazyTypedChoiceField or LazyTypedMultipleChoiceField).
+        """
+        # Extract empty_label from kwargs (not part of parent signature)
+        empty_label: Optional[str] = kwargs.pop("empty_label", None)
+
+        if choices_form_class is None:
+            choices_form_class = cast(
+                "Type[forms.ChoiceField]",
+                LazyTypedMultipleChoiceField if self.multiple else LazyTypedChoiceField,
+            )
         if "coerce" not in kwargs:
             kwargs["coerce"] = super().to_python
-        return super().formfield(**kwargs)
+
+        form_field = super().formfield(
+            form_class=form_class, choices_form_class=choices_form_class, **kwargs
+        )
+
+        # Apply custom empty_label if provided and field has blank choice
+        if (
+            empty_label is not None
+            and self.blank
+            and form_field is not None
+            and hasattr(form_field, "choices")
+        ):
+            # Get the choices - could be lazy, so we need to handle that
+            choices = form_field.choices  # type: ignore[attr-defined]
+            # Convert lazy choices to list to modify them
+            base_choices = getattr(choices, "_choices", list(choices))
+
+            # Check if first choice is the blank choice
+            if base_choices and base_choices[0][0] == "":
+                # Replace the blank choice with custom label
+                base_choices = [("", empty_label), *base_choices[1:]]
+                form_field.choices = base_choices  # type: ignore[attr-defined]
+
+        return form_field
 
     def to_python(self, value):
         if not self.multiple:
@@ -465,10 +622,10 @@ class CountryField(CharField):
             return value
         if isinstance(value, str):
             value = value.split(",")
-        output = []
-        for item in value:
-            output.append(super().to_python(item))
-        return output
+        # Store reference to parent's to_python for use in list comprehension
+        # (super() doesn't work in comprehensions in Python 3.8)
+        parent_to_python = super().to_python
+        return [parent_to_python(v) for v in value if v]
 
     def validate(self, value, model_instance):
         """
@@ -479,9 +636,9 @@ class CountryField(CharField):
 
         if not self.editable:
             # Skip validation for non-editable fields.
-            return
+            return None
 
-        if value:
+        if value and self.choices is not None:
             choices = [option_key for option_key, option_value in self.choices]
             for single_value in value:
                 if single_value not in choices:
@@ -493,6 +650,7 @@ class CountryField(CharField):
 
         if not self.blank and value in self.empty_values:
             raise exceptions.ValidationError(self.error_messages["blank"], code="blank")
+        return None
 
     def value_to_string(self, obj):
         """
@@ -524,7 +682,7 @@ class ExactNameLookup(lookups.Exact):
     insensitive: bool = False
 
     def get_prep_lookup(self):
-        return cast(CountryField, self.lhs.output_field).countries.by_name(
+        return cast("CountryField", self.lhs.output_field).countries.by_name(
             force_str(self.rhs), insensitive=self.insensitive
         )
 
@@ -548,7 +706,7 @@ class FullNameLookup(lookups.In):
             value = self.expr.format(
                 text=re.escape(self.rhs) if self.escape_regex else self.rhs
             )
-            options = cast(CountryField, self.lhs.output_field).countries.by_name(
+            options = cast("CountryField", self.lhs.output_field).countries.by_name(
                 value, regex=True, insensitive=self.insensitive
             )
             if len(self.rhs) == 2 and (

@@ -1,6 +1,6 @@
 import sys
 import warnings
-from typing import Generic, Optional, TypeVar, Union, cast
+from typing import Generic, TypeVar, cast
 
 import strawberry
 from django.db import DEFAULT_DB_ALIAS
@@ -24,10 +24,54 @@ _QS = TypeVar("_QS", bound=QuerySet)
 PAGINATION_ARG = "pagination"
 
 
+def _resolve_limit(
+    limit: int | UnsetType | None,
+    *,
+    max_results: int | None = None,
+) -> int | None:
+    """Calculate the effective limit to apply.
+
+    Args:
+    ----
+        limit: The requested limit (can be UNSET, None, or an explicit value).
+        max_results: Override for default limit (used by relay pagination).
+
+    Returns:
+    -------
+        The effective limit to apply, or None for unlimited.
+
+    """
+    settings = strawberry_django_settings()
+    default_limit = (
+        max_results if max_results is not None else settings["PAGINATION_DEFAULT_LIMIT"]
+    )
+    max_limit = settings["PAGINATION_MAX_LIMIT"]
+
+    effective_limit: int | None
+    if limit is UNSET or limit is None:
+        effective_limit = default_limit
+    else:
+        effective_limit = cast("int", limit)
+
+    if max_limit is not None:
+        if max_limit < 0:
+            raise ValueError(
+                f"PAGINATION_MAX_LIMIT must be non-negative, got {max_limit}"
+            )
+        if (
+            effective_limit is None
+            or effective_limit < 0
+            or effective_limit > max_limit
+        ):
+            effective_limit = max_limit
+
+    return effective_limit
+
+
 @strawberry.type
 class OffsetPaginationInfo:
     offset: int = 0
-    limit: Optional[int] = UNSET
+    limit: int | None = UNSET
 
 
 @strawberry.input
@@ -36,13 +80,13 @@ class OffsetPaginationInput(OffsetPaginationInfo): ...
 
 @strawberry.type
 class OffsetPaginated(Generic[NodeType]):
-    queryset: strawberry.Private[Optional[QuerySet]]
+    queryset: strawberry.Private[QuerySet | None]
     pagination: strawberry.Private[OffsetPaginationInput]
 
     @strawberry.field
     def page_info(self) -> OffsetPaginationInfo:
         return OffsetPaginationInfo(
-            limit=self.pagination.limit,
+            limit=_resolve_limit(self.pagination.limit),
             offset=self.pagination.offset,
         )
 
@@ -67,7 +111,7 @@ class OffsetPaginated(Generic[NodeType]):
         queryset: QuerySet,
         *,
         info: Info,
-        pagination: Optional[OffsetPaginationInput] = None,
+        pagination: OffsetPaginationInput | None = None,
         **kwargs,
     ) -> Self:
         """Resolve the paginated queryset.
@@ -91,7 +135,7 @@ class OffsetPaginated(Generic[NodeType]):
         """Retrieve tht total count of the queryset without pagination."""
         return get_total_count(self.queryset) if self.queryset is not None else 0
 
-    def get_paginated_queryset(self) -> Optional[QuerySet]:
+    def get_paginated_queryset(self) -> QuerySet | None:
         """Retrieve the queryset with pagination applied.
 
         This will apply the paginated arguments to the queryset and return it.
@@ -110,10 +154,10 @@ class OffsetPaginated(Generic[NodeType]):
 
 
 def apply(
-    pagination: Optional[object],
+    pagination: object | None,
     queryset: _QS,
     *,
-    related_field_id: Optional[str] = None,
+    related_field_id: str | None = None,
 ) -> _QS:
     """Apply pagination to a queryset.
 
@@ -142,10 +186,7 @@ def apply(
         )
     else:
         start = pagination.offset
-        limit = pagination.limit
-        if limit is UNSET:
-            settings = strawberry_django_settings()
-            limit = settings["PAGINATION_DEFAULT_LIMIT"]
+        limit = _resolve_limit(pagination.limit)
 
         if limit is not None and limit >= 0:
             stop = start + limit
@@ -170,8 +211,8 @@ def apply_window_pagination(
     *,
     related_field_id: str,
     offset: int = 0,
-    limit: Optional[int] = UNSET,
-    max_results: Optional[int] = None,
+    limit: int | None = UNSET,
+    max_results: int | None = None,
     reverse: bool = False,
 ) -> _QS:
     """Apply pagination using window functions.
@@ -190,13 +231,7 @@ def apply_window_pagination(
         reverse: The need to reverse queryset ordering for backwards relay pagination
 
     """
-    if limit is UNSET:
-        settings = strawberry_django_settings()
-        limit = (
-            max_results
-            if max_results is not None
-            else settings["PAGINATION_DEFAULT_LIMIT"]
-        )
+    limit = _resolve_limit(limit, max_results=max_results)
 
     order_by = [
         expr
@@ -223,7 +258,8 @@ def apply_window_pagination(
     if reverse:
         order_by_reverse = [
             expr
-            for expr, _ in queryset.reverse()
+            for expr, _ in queryset
+            .reverse()
             .query.get_compiler(
                 using=queryset._db or DEFAULT_DB_ALIAS  # type: ignore
             )
@@ -249,8 +285,8 @@ def apply_window_pagination(
 def remove_window_pagination(queryset: _QS) -> _QS:
     """Remove pagination window functions from a queryset.
 
-    Utility function to remove the pagination `WHERE` clause added by
-    the `apply_window_pagination` function.
+    Utility function to remove the pagination `WHERE` clause and annotations
+    added by the `apply_window_pagination` function.
 
     Args:
     ----
@@ -263,6 +299,11 @@ def remove_window_pagination(queryset: _QS) -> _QS:
         for child in queryset.query.where.children
         if (not hasattr(child, "lhs") or not isinstance(child.lhs, _PaginationWindow))
     ]
+    queryset.query.annotations = {  # type: ignore
+        key: value
+        for key, value in queryset.query.annotations.items()
+        if not isinstance(value, _PaginationWindow)
+    }
     return queryset
 
 
@@ -278,6 +319,13 @@ def get_total_count(queryset: QuerySet) -> int:
         results = queryset._result_cache  # type: ignore
 
         if results:
+            # If the queryset has DISTINCT enabled, the _strawberry_total_count
+            # annotation won't be accurate because window functions are evaluated
+            # before DISTINCT in SQL. Fall back to queryset.count() instead.
+            if queryset.query.distinct:
+                queryset = remove_window_pagination(queryset)
+                return queryset.count()
+
             try:
                 return results[0]._strawberry_total_count
             except AttributeError:
@@ -299,7 +347,7 @@ def get_total_count(queryset: QuerySet) -> int:
 
 
 class StrawberryDjangoPagination(StrawberryDjangoFieldBase):
-    def __init__(self, pagination: Union[bool, UnsetType] = UNSET, **kwargs):
+    def __init__(self, pagination: bool | UnsetType = UNSET, **kwargs):
         self.pagination = pagination
         super().__init__(**kwargs)
 
@@ -343,15 +391,15 @@ class StrawberryDjangoPagination(StrawberryDjangoFieldBase):
         args_prop = super(StrawberryDjangoPagination, self.__class__).arguments
         return args_prop.fset(self, value)  # type: ignore
 
-    def get_pagination(self) -> Optional[type]:
+    def get_pagination(self) -> type | None:
         return OffsetPaginationInput if self._has_pagination() else None
 
     def apply_pagination(
         self,
         queryset: _QS,
-        pagination: Optional[object] = None,
+        pagination: object | None = None,
         *,
-        related_field_id: Optional[str] = None,
+        related_field_id: str | None = None,
     ) -> _QS:
         return apply(pagination, queryset, related_field_id=related_field_id)
 
@@ -360,8 +408,8 @@ class StrawberryDjangoPagination(StrawberryDjangoFieldBase):
         queryset: _QS,
         info: Info,
         *,
-        pagination: Optional[OffsetPaginationInput] = None,
-        _strawberry_related_field_id: Optional[str] = None,
+        pagination: OffsetPaginationInput | None = None,
+        _strawberry_related_field_id: str | None = None,
         **kwargs,
     ) -> _QS:
         queryset = super().get_queryset(queryset, info, **kwargs)

@@ -32,8 +32,8 @@ bool local_variable_hides_struct_b()
 
 bool local_struct_variable_hides_struct_type_b()
 {
-    S _44 = { 1 };
-    S S_1 = _44;
+    S _45 = { 1 };
+    S S_1 = _45;
     return S_1.i == 1;
 }
 
@@ -43,55 +43,55 @@ bool local_variable_hides_global_variable_b()
     return true;
 }
 
-float4 main(float2 _53)
+float4 main(float2 _54)
 {
     glob = 2;
-    bool _59 = false;
+    bool _60 = false;
     if (true)
     {
-        _59 = block_variable_hides_global_variable_b();
+        _60 = block_variable_hides_global_variable_b();
     }
     else
     {
-        _59 = false;
+        _60 = false;
     }
-    bool _63 = false;
-    if (_59)
+    bool _64 = false;
+    if (_60)
     {
-        _63 = local_variable_hides_struct_b();
+        _64 = local_variable_hides_struct_b();
     }
     else
     {
-        _63 = false;
+        _64 = false;
     }
-    bool _67 = false;
-    if (_63)
+    bool _68 = false;
+    if (_64)
     {
-        _67 = local_struct_variable_hides_struct_type_b();
+        _68 = local_struct_variable_hides_struct_type_b();
     }
     else
     {
-        _67 = false;
+        _68 = false;
     }
-    bool _71 = false;
-    if (_67)
+    bool _72 = false;
+    if (_68)
     {
-        _71 = local_variable_hides_global_variable_b();
+        _72 = local_variable_hides_global_variable_b();
     }
     else
     {
-        _71 = false;
+        _72 = false;
     }
-    float4 _72 = 0.0f.xxxx;
-    if (_71)
+    float4 _73 = 0.0f.xxxx;
+    if (_72)
     {
-        _72 = _17_colorGreen;
+        _73 = _17_colorGreen;
     }
     else
     {
-        _72 = _17_colorRed;
+        _73 = _17_colorRed;
     }
-    return _72;
+    return _73;
 }
 
 void frag_main()

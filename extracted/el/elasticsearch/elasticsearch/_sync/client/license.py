@@ -104,8 +104,10 @@ class LicenseClient(NamespacedClient):
             license types. If `false`, this parameter returns platinum for both platinum
             and enterprise license types. This behavior is maintained for backwards compatibility.
             This parameter is deprecated and will always be set to true in 8.x.
-        :param local: Specifies whether to retrieve local information. The default value
-            is `false`, which means the information is retrieved from the master node.
+        :param local: Specifies whether to retrieve local information. From 9.2 onwards
+            the default value is `true`, which means the information is retrieved from
+            the responding node. In earlier versions the default is `false`, which means
+            the information is retrieved from the elected master node.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_license"
@@ -310,8 +312,7 @@ class LicenseClient(NamespacedClient):
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-post-start-basic>`_
 
-        :param acknowledge: whether the user has acknowledged acknowledge messages (default:
-            false)
+        :param acknowledge: Whether the user has acknowledged acknowledge messages
         :param master_timeout: Period to wait for a connection to the master node.
         :param timeout: Period to wait for a response. If no response is received before
             the timeout expires, the request fails and returns an error.
@@ -358,8 +359,8 @@ class LicenseClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Start a trial.
-          Start a 30-day trial, which gives access to all subscription features.</p>
+          <p>Start a trial.</p>
+          <p>Start a 30-day trial, which gives access to all subscription features.</p>
           <p>NOTE: You are allowed to start a trial only if your cluster has not already activated a trial for the current major product version.
           For example, if you have already activated a trial for v8.0, you cannot start a new trial until v9.0. You can, however, request an extended trial at <a href="https://www.elastic.co/trialextension">https://www.elastic.co/trialextension</a>.</p>
           <p>To check the status of your trial, use the get trial status API.</p>
@@ -367,10 +368,9 @@ class LicenseClient(NamespacedClient):
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-post-start-trial>`_
 
-        :param acknowledge: whether the user has acknowledged acknowledge messages (default:
-            false)
+        :param acknowledge: Whether the user has acknowledged acknowledge messages
         :param master_timeout: Period to wait for a connection to the master node.
-        :param type: The type of trial license to generate (default: "trial")
+        :param type: The type of trial license to generate
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_license/start_trial"

@@ -68,2270 +68,25 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CampaignReference",
-    jsii_struct_bases=[],
-    name_mapping={"campaign_arn": "campaignArn", "campaign_name": "campaignName"},
+from ..interfaces.aws_iotfleetwise import (
+    CampaignReference as _CampaignReference_9a8f5f98,
+    DecoderManifestReference as _DecoderManifestReference_7a284aa6,
+    FleetReference as _FleetReference_69cf4cd9,
+    ICampaignRef as _ICampaignRef_030980d3,
+    IDecoderManifestRef as _IDecoderManifestRef_479753bf,
+    IFleetRef as _IFleetRef_204c4594,
+    IModelManifestRef as _IModelManifestRef_8f6a3086,
+    ISignalCatalogRef as _ISignalCatalogRef_16c8a20e,
+    IStateTemplateRef as _IStateTemplateRef_97119241,
+    IVehicleRef as _IVehicleRef_dea699b2,
+    ModelManifestReference as _ModelManifestReference_0770b7b5,
+    SignalCatalogReference as _SignalCatalogReference_58330223,
+    StateTemplateReference as _StateTemplateReference_a51db8f9,
+    VehicleReference as _VehicleReference_856ec27a,
 )
-class CampaignReference:
-    def __init__(
-        self,
-        *,
-        campaign_arn: builtins.str,
-        campaign_name: builtins.str,
-    ) -> None:
-        '''A reference to a Campaign resource.
 
-        :param campaign_arn: The ARN of the Campaign resource.
-        :param campaign_name: The Name of the Campaign resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            campaign_reference = iotfleetwise.CampaignReference(
-                campaign_arn="campaignArn",
-                campaign_name="campaignName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f065332f6f49751c8a780c89cd8237cdfc5cb2f472c990fdded2e33f8e3f450)
-            check_type(argname="argument campaign_arn", value=campaign_arn, expected_type=type_hints["campaign_arn"])
-            check_type(argname="argument campaign_name", value=campaign_name, expected_type=type_hints["campaign_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "campaign_arn": campaign_arn,
-            "campaign_name": campaign_name,
-        }
-
-    @builtins.property
-    def campaign_arn(self) -> builtins.str:
-        '''The ARN of the Campaign resource.'''
-        result = self._values.get("campaign_arn")
-        assert result is not None, "Required property 'campaign_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def campaign_name(self) -> builtins.str:
-        '''The Name of the Campaign resource.'''
-        result = self._values.get("campaign_name")
-        assert result is not None, "Required property 'campaign_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CampaignReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnCampaignProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "collection_scheme": "collectionScheme",
-        "name": "name",
-        "signal_catalog_arn": "signalCatalogArn",
-        "target_arn": "targetArn",
-        "action": "action",
-        "compression": "compression",
-        "data_destination_configs": "dataDestinationConfigs",
-        "data_extra_dimensions": "dataExtraDimensions",
-        "data_partitions": "dataPartitions",
-        "description": "description",
-        "diagnostics_mode": "diagnosticsMode",
-        "expiry_time": "expiryTime",
-        "post_trigger_collection_duration": "postTriggerCollectionDuration",
-        "priority": "priority",
-        "signals_to_collect": "signalsToCollect",
-        "signals_to_fetch": "signalsToFetch",
-        "spooling_mode": "spoolingMode",
-        "start_time": "startTime",
-        "tags": "tags",
-    },
-)
-class CfnCampaignProps:
-    def __init__(
-        self,
-        *,
-        collection_scheme: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        signal_catalog_arn: builtins.str,
-        target_arn: builtins.str,
-        action: typing.Optional[builtins.str] = None,
-        compression: typing.Optional[builtins.str] = None,
-        data_destination_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        data_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        diagnostics_mode: typing.Optional[builtins.str] = None,
-        expiry_time: typing.Optional[builtins.str] = None,
-        post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
-        priority: typing.Optional[jsii.Number] = None,
-        signals_to_collect: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signals_to_fetch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        spooling_mode: typing.Optional[builtins.str] = None,
-        start_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCampaign``.
-
-        :param collection_scheme: The data collection scheme associated with the campaign. You can specify a scheme that collects data based on time or an event.
-        :param name: The name of a campaign.
-        :param signal_catalog_arn: The Amazon Resource Name (ARN) of the signal catalog associated with the campaign.
-        :param target_arn: The Amazon Resource Name (ARN) of a vehicle or fleet to which the campaign is deployed.
-        :param action: Specifies how to update a campaign. The action can be one of the following:. - ``APPROVE`` - To approve delivering a data collection scheme to vehicles. - ``SUSPEND`` - To suspend collecting signal data. The campaign is deleted from vehicles and all vehicles in the suspended campaign will stop sending data. - ``RESUME`` - To reactivate the ``SUSPEND`` campaign. The campaign is redeployed to all vehicles and the vehicles will resume sending data. - ``UPDATE`` - To update a campaign.
-        :param compression: Whether to compress signals before transmitting data to AWS IoT FleetWise . If you don't want to compress the signals, use ``OFF`` . If it's not specified, ``SNAPPY`` is used. Default: ``SNAPPY`` Default: - "OFF"
-        :param data_destination_configs: The destination where the campaign sends data. You can choose to send data to be stored in Amazon S3 or Amazon Timestream . Amazon S3 optimizes the cost of data storage and provides additional mechanisms to use vehicle data, such as data lakes, centralized data storage, data processing pipelines, and analytics. AWS IoT FleetWise supports at-least-once file delivery to S3. Your vehicle data is stored on multiple AWS IoT FleetWise servers for redundancy and high availability. You can use Amazon Timestream to access and analyze time series data, and Timestream to query vehicle data so that you can identify trends and patterns.
-        :param data_extra_dimensions: A list of vehicle attributes to associate with a campaign. Enrich the data with specified vehicle attributes. For example, add ``make`` and ``model`` to the campaign, and AWS IoT FleetWise will associate the data with those attributes as dimensions in Amazon Timestream . You can then query the data against ``make`` and ``model`` . Default: An empty array
-        :param data_partitions: The data partitions associated with the signals collected from the vehicle.
-        :param description: The description of the campaign.
-        :param diagnostics_mode: Option for a vehicle to send diagnostic trouble codes to AWS IoT FleetWise . If you want to send diagnostic trouble codes, use ``SEND_ACTIVE_DTCS`` . If it's not specified, ``OFF`` is used. Default: ``OFF`` Default: - "OFF"
-        :param expiry_time: The time the campaign expires, in seconds since epoch (January 1, 1970 at midnight UTC time). Vehicle data isn't collected after the campaign expires. Default: 253402214400 (December 31, 9999, 00:00:00 UTC) Default: - "253402214400"
-        :param post_trigger_collection_duration: How long (in milliseconds) to collect raw data after a triggering event initiates the collection. If it's not specified, ``0`` is used. Default: ``0`` Default: - 0
-        :param priority: A number indicating the priority of one campaign over another campaign for a certain vehicle or fleet. A campaign with the lowest value is deployed to vehicles before any other campaigns. If it's not specified, ``0`` is used. Default: ``0`` Default: - 0
-        :param signals_to_collect: A list of information about signals to collect.
-        :param signals_to_fetch: A list of information about signals to fetch.
-        :param spooling_mode: Whether to store collected data after a vehicle lost a connection with the cloud. After a connection is re-established, the data is automatically forwarded to AWS IoT FleetWise . If you want to store collected data when a vehicle loses connection with the cloud, use ``TO_DISK`` . If it's not specified, ``OFF`` is used. Default: ``OFF`` Default: - "OFF"
-        :param start_time: The time, in milliseconds, to deliver a campaign after it was approved. If it's not specified, ``0`` is used. Default: ``0`` Default: - "0"
-        :param tags: Metadata that can be used to manage the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            cfn_campaign_props = iotfleetwise.CfnCampaignProps(
-                collection_scheme=iotfleetwise.CfnCampaign.CollectionSchemeProperty(
-                    condition_based_collection_scheme=iotfleetwise.CfnCampaign.ConditionBasedCollectionSchemeProperty(
-                        expression="expression",
-            
-                        # the properties below are optional
-                        condition_language_version=123,
-                        minimum_trigger_interval_ms=123,
-                        trigger_mode="triggerMode"
-                    ),
-                    time_based_collection_scheme=iotfleetwise.CfnCampaign.TimeBasedCollectionSchemeProperty(
-                        period_ms=123
-                    )
-                ),
-                name="name",
-                signal_catalog_arn="signalCatalogArn",
-                target_arn="targetArn",
-            
-                # the properties below are optional
-                action="action",
-                compression="compression",
-                data_destination_configs=[iotfleetwise.CfnCampaign.DataDestinationConfigProperty(
-                    mqtt_topic_config=iotfleetwise.CfnCampaign.MqttTopicConfigProperty(
-                        execution_role_arn="executionRoleArn",
-                        mqtt_topic_arn="mqttTopicArn"
-                    ),
-                    s3_config=iotfleetwise.CfnCampaign.S3ConfigProperty(
-                        bucket_arn="bucketArn",
-            
-                        # the properties below are optional
-                        data_format="dataFormat",
-                        prefix="prefix",
-                        storage_compression_format="storageCompressionFormat"
-                    ),
-                    timestream_config=iotfleetwise.CfnCampaign.TimestreamConfigProperty(
-                        execution_role_arn="executionRoleArn",
-                        timestream_table_arn="timestreamTableArn"
-                    )
-                )],
-                data_extra_dimensions=["dataExtraDimensions"],
-                data_partitions=[iotfleetwise.CfnCampaign.DataPartitionProperty(
-                    id="id",
-                    storage_options=iotfleetwise.CfnCampaign.DataPartitionStorageOptionsProperty(
-                        maximum_size=iotfleetwise.CfnCampaign.StorageMaximumSizeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        minimum_time_to_live=iotfleetwise.CfnCampaign.StorageMinimumTimeToLiveProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        storage_location="storageLocation"
-                    ),
-            
-                    # the properties below are optional
-                    upload_options=iotfleetwise.CfnCampaign.DataPartitionUploadOptionsProperty(
-                        expression="expression",
-            
-                        # the properties below are optional
-                        condition_language_version=123
-                    )
-                )],
-                description="description",
-                diagnostics_mode="diagnosticsMode",
-                expiry_time="expiryTime",
-                post_trigger_collection_duration=123,
-                priority=123,
-                signals_to_collect=[iotfleetwise.CfnCampaign.SignalInformationProperty(
-                    name="name",
-            
-                    # the properties below are optional
-                    data_partition_id="dataPartitionId",
-                    max_sample_count=123,
-                    minimum_sampling_interval_ms=123
-                )],
-                signals_to_fetch=[iotfleetwise.CfnCampaign.SignalFetchInformationProperty(
-                    actions=["actions"],
-                    fully_qualified_name="fullyQualifiedName",
-                    signal_fetch_config=iotfleetwise.CfnCampaign.SignalFetchConfigProperty(
-                        condition_based=iotfleetwise.CfnCampaign.ConditionBasedSignalFetchConfigProperty(
-                            condition_expression="conditionExpression",
-                            trigger_mode="triggerMode"
-                        ),
-                        time_based=iotfleetwise.CfnCampaign.TimeBasedSignalFetchConfigProperty(
-                            execution_frequency_ms=123
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    condition_language_version=123
-                )],
-                spooling_mode="spoolingMode",
-                start_time="startTime",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71)
-            check_type(argname="argument collection_scheme", value=collection_scheme, expected_type=type_hints["collection_scheme"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
-            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
-            check_type(argname="argument data_destination_configs", value=data_destination_configs, expected_type=type_hints["data_destination_configs"])
-            check_type(argname="argument data_extra_dimensions", value=data_extra_dimensions, expected_type=type_hints["data_extra_dimensions"])
-            check_type(argname="argument data_partitions", value=data_partitions, expected_type=type_hints["data_partitions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument diagnostics_mode", value=diagnostics_mode, expected_type=type_hints["diagnostics_mode"])
-            check_type(argname="argument expiry_time", value=expiry_time, expected_type=type_hints["expiry_time"])
-            check_type(argname="argument post_trigger_collection_duration", value=post_trigger_collection_duration, expected_type=type_hints["post_trigger_collection_duration"])
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument signals_to_collect", value=signals_to_collect, expected_type=type_hints["signals_to_collect"])
-            check_type(argname="argument signals_to_fetch", value=signals_to_fetch, expected_type=type_hints["signals_to_fetch"])
-            check_type(argname="argument spooling_mode", value=spooling_mode, expected_type=type_hints["spooling_mode"])
-            check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "collection_scheme": collection_scheme,
-            "name": name,
-            "signal_catalog_arn": signal_catalog_arn,
-            "target_arn": target_arn,
-        }
-        if action is not None:
-            self._values["action"] = action
-        if compression is not None:
-            self._values["compression"] = compression
-        if data_destination_configs is not None:
-            self._values["data_destination_configs"] = data_destination_configs
-        if data_extra_dimensions is not None:
-            self._values["data_extra_dimensions"] = data_extra_dimensions
-        if data_partitions is not None:
-            self._values["data_partitions"] = data_partitions
-        if description is not None:
-            self._values["description"] = description
-        if diagnostics_mode is not None:
-            self._values["diagnostics_mode"] = diagnostics_mode
-        if expiry_time is not None:
-            self._values["expiry_time"] = expiry_time
-        if post_trigger_collection_duration is not None:
-            self._values["post_trigger_collection_duration"] = post_trigger_collection_duration
-        if priority is not None:
-            self._values["priority"] = priority
-        if signals_to_collect is not None:
-            self._values["signals_to_collect"] = signals_to_collect
-        if signals_to_fetch is not None:
-            self._values["signals_to_fetch"] = signals_to_fetch
-        if spooling_mode is not None:
-            self._values["spooling_mode"] = spooling_mode
-        if start_time is not None:
-            self._values["start_time"] = start_time
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def collection_scheme(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.CollectionSchemeProperty"]:
-        '''The data collection scheme associated with the campaign.
-
-        You can specify a scheme that collects data based on time or an event.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-collectionscheme
-        '''
-        result = self._values.get("collection_scheme")
-        assert result is not None, "Required property 'collection_scheme' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.CollectionSchemeProperty"], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of a campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signal_catalog_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the signal catalog associated with the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalcatalogarn
-        '''
-        result = self._values.get("signal_catalog_arn")
-        assert result is not None, "Required property 'signal_catalog_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a vehicle or fleet to which the campaign is deployed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-targetarn
-        '''
-        result = self._values.get("target_arn")
-        assert result is not None, "Required property 'target_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action(self) -> typing.Optional[builtins.str]:
-        '''Specifies how to update a campaign. The action can be one of the following:.
-
-        - ``APPROVE`` - To approve delivering a data collection scheme to vehicles.
-        - ``SUSPEND`` - To suspend collecting signal data. The campaign is deleted from vehicles and all vehicles in the suspended campaign will stop sending data.
-        - ``RESUME`` - To reactivate the ``SUSPEND`` campaign. The campaign is redeployed to all vehicles and the vehicles will resume sending data.
-        - ``UPDATE`` - To update a campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-action
-        '''
-        result = self._values.get("action")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def compression(self) -> typing.Optional[builtins.str]:
-        '''Whether to compress signals before transmitting data to AWS IoT FleetWise .
-
-        If you don't want to compress the signals, use ``OFF`` . If it's not specified, ``SNAPPY`` is used.
-
-        Default: ``SNAPPY``
-
-        :default: - "OFF"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-compression
-        '''
-        result = self._values.get("compression")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_destination_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataDestinationConfigProperty"]]]]:
-        '''The destination where the campaign sends data.
-
-        You can choose to send data to be stored in Amazon S3 or Amazon Timestream .
-
-        Amazon S3 optimizes the cost of data storage and provides additional mechanisms to use vehicle data, such as data lakes, centralized data storage, data processing pipelines, and analytics. AWS IoT FleetWise supports at-least-once file delivery to S3. Your vehicle data is stored on multiple AWS IoT FleetWise servers for redundancy and high availability.
-
-        You can use Amazon Timestream to access and analyze time series data, and Timestream to query vehicle data so that you can identify trends and patterns.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-datadestinationconfigs
-        '''
-        result = self._values.get("data_destination_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataDestinationConfigProperty"]]]], result)
-
-    @builtins.property
-    def data_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of vehicle attributes to associate with a campaign.
-
-        Enrich the data with specified vehicle attributes. For example, add ``make`` and ``model`` to the campaign, and AWS IoT FleetWise will associate the data with those attributes as dimensions in Amazon Timestream . You can then query the data against ``make`` and ``model`` .
-
-        Default: An empty array
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-dataextradimensions
-        '''
-        result = self._values.get("data_extra_dimensions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def data_partitions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionProperty"]]]]:
-        '''The data partitions associated with the signals collected from the vehicle.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-datapartitions
-        '''
-        result = self._values.get("data_partitions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionProperty"]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def diagnostics_mode(self) -> typing.Optional[builtins.str]:
-        '''Option for a vehicle to send diagnostic trouble codes to AWS IoT FleetWise .
-
-        If you want to send diagnostic trouble codes, use ``SEND_ACTIVE_DTCS`` . If it's not specified, ``OFF`` is used.
-
-        Default: ``OFF``
-
-        :default: - "OFF"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-diagnosticsmode
-        '''
-        result = self._values.get("diagnostics_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expiry_time(self) -> typing.Optional[builtins.str]:
-        '''The time the campaign expires, in seconds since epoch (January 1, 1970 at midnight UTC time).
-
-        Vehicle data isn't collected after the campaign expires.
-
-        Default: 253402214400 (December 31, 9999, 00:00:00 UTC)
-
-        :default: - "253402214400"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-expirytime
-        '''
-        result = self._values.get("expiry_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_trigger_collection_duration(self) -> typing.Optional[jsii.Number]:
-        '''How long (in milliseconds) to collect raw data after a triggering event initiates the collection.
-
-        If it's not specified, ``0`` is used.
-
-        Default: ``0``
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-posttriggercollectionduration
-        '''
-        result = self._values.get("post_trigger_collection_duration")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def priority(self) -> typing.Optional[jsii.Number]:
-        '''A number indicating the priority of one campaign over another campaign for a certain vehicle or fleet.
-
-        A campaign with the lowest value is deployed to vehicles before any other campaigns. If it's not specified, ``0`` is used.
-
-        Default: ``0``
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-priority
-        '''
-        result = self._values.get("priority")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def signals_to_collect(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalInformationProperty"]]]]:
-        '''A list of information about signals to collect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalstocollect
-        '''
-        result = self._values.get("signals_to_collect")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalInformationProperty"]]]], result)
-
-    @builtins.property
-    def signals_to_fetch(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchInformationProperty"]]]]:
-        '''A list of information about signals to fetch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalstofetch
-        '''
-        result = self._values.get("signals_to_fetch")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchInformationProperty"]]]], result)
-
-    @builtins.property
-    def spooling_mode(self) -> typing.Optional[builtins.str]:
-        '''Whether to store collected data after a vehicle lost a connection with the cloud.
-
-        After a connection is re-established, the data is automatically forwarded to AWS IoT FleetWise . If you want to store collected data when a vehicle loses connection with the cloud, use ``TO_DISK`` . If it's not specified, ``OFF`` is used.
-
-        Default: ``OFF``
-
-        :default: - "OFF"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-spoolingmode
-        '''
-        result = self._values.get("spooling_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_time(self) -> typing.Optional[builtins.str]:
-        '''The time, in milliseconds, to deliver a campaign after it was approved. If it's not specified, ``0`` is used.
-
-        Default: ``0``
-
-        :default: - "0"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-starttime
-        '''
-        result = self._values.get("start_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCampaignProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnDecoderManifestProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "model_manifest_arn": "modelManifestArn",
-        "name": "name",
-        "default_for_unmapped_signals": "defaultForUnmappedSignals",
-        "description": "description",
-        "network_interfaces": "networkInterfaces",
-        "signal_decoders": "signalDecoders",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnDecoderManifestProps:
-    def __init__(
-        self,
-        *,
-        model_manifest_arn: builtins.str,
-        name: builtins.str,
-        default_for_unmapped_signals: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDecoderManifest``.
-
-        :param model_manifest_arn: The Amazon Resource Name (ARN) of a vehicle model (model manifest) associated with the decoder manifest.
-        :param name: The name of the decoder manifest.
-        :param default_for_unmapped_signals: Use default decoders for all unmapped signals in the model. You don't need to provide any detailed decoding information.
-        :param description: A brief description of the decoder manifest.
-        :param network_interfaces: A list of information about available network interfaces.
-        :param signal_decoders: A list of information about signal decoders.
-        :param status: The state of the decoder manifest. If the status is ``ACTIVE`` , the decoder manifest can't be edited. If the status is marked ``DRAFT`` , you can edit the decoder manifest. Default: - "DRAFT"
-        :param tags: Metadata that can be used to manage the decoder manifest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            cfn_decoder_manifest_props = iotfleetwise.CfnDecoderManifestProps(
-                model_manifest_arn="modelManifestArn",
-                name="name",
-            
-                # the properties below are optional
-                default_for_unmapped_signals="defaultForUnmappedSignals",
-                description="description",
-                network_interfaces=[iotfleetwise.CfnDecoderManifest.NetworkInterfacesItemsProperty(
-                    interface_id="interfaceId",
-                    type="type",
-            
-                    # the properties below are optional
-                    can_interface=iotfleetwise.CfnDecoderManifest.CanInterfaceProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        protocol_name="protocolName",
-                        protocol_version="protocolVersion"
-                    ),
-                    obd_interface=iotfleetwise.CfnDecoderManifest.ObdInterfaceProperty(
-                        name="name",
-                        request_message_id="requestMessageId",
-            
-                        # the properties below are optional
-                        dtc_request_interval_seconds="dtcRequestIntervalSeconds",
-                        has_transmission_ecu="hasTransmissionEcu",
-                        obd_standard="obdStandard",
-                        pid_request_interval_seconds="pidRequestIntervalSeconds",
-                        use_extended_ids="useExtendedIds"
-                    )
-                )],
-                signal_decoders=[iotfleetwise.CfnDecoderManifest.SignalDecodersItemsProperty(
-                    fully_qualified_name="fullyQualifiedName",
-                    interface_id="interfaceId",
-                    type="type",
-            
-                    # the properties below are optional
-                    can_signal=iotfleetwise.CfnDecoderManifest.CanSignalProperty(
-                        factor="factor",
-                        is_big_endian="isBigEndian",
-                        is_signed="isSigned",
-                        length="length",
-                        message_id="messageId",
-                        offset="offset",
-                        start_bit="startBit",
-            
-                        # the properties below are optional
-                        name="name",
-                        signal_value_type="signalValueType"
-                    ),
-                    obd_signal=iotfleetwise.CfnDecoderManifest.ObdSignalProperty(
-                        byte_length="byteLength",
-                        offset="offset",
-                        pid="pid",
-                        pid_response_length="pidResponseLength",
-                        scaling="scaling",
-                        service_mode="serviceMode",
-                        start_byte="startByte",
-            
-                        # the properties below are optional
-                        bit_mask_length="bitMaskLength",
-                        bit_right_shift="bitRightShift",
-                        is_signed="isSigned",
-                        signal_value_type="signalValueType"
-                    )
-                )],
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af4d89e2c)
-            check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument default_for_unmapped_signals", value=default_for_unmapped_signals, expected_type=type_hints["default_for_unmapped_signals"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument network_interfaces", value=network_interfaces, expected_type=type_hints["network_interfaces"])
-            check_type(argname="argument signal_decoders", value=signal_decoders, expected_type=type_hints["signal_decoders"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_manifest_arn": model_manifest_arn,
-            "name": name,
-        }
-        if default_for_unmapped_signals is not None:
-            self._values["default_for_unmapped_signals"] = default_for_unmapped_signals
-        if description is not None:
-            self._values["description"] = description
-        if network_interfaces is not None:
-            self._values["network_interfaces"] = network_interfaces
-        if signal_decoders is not None:
-            self._values["signal_decoders"] = signal_decoders
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def model_manifest_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a vehicle model (model manifest) associated with the decoder manifest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-modelmanifestarn
-        '''
-        result = self._values.get("model_manifest_arn")
-        assert result is not None, "Required property 'model_manifest_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the decoder manifest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_for_unmapped_signals(self) -> typing.Optional[builtins.str]:
-        '''Use default decoders for all unmapped signals in the model.
-
-        You don't need to provide any detailed decoding information.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-defaultforunmappedsignals
-        '''
-        result = self._values.get("default_for_unmapped_signals")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the decoder manifest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_interfaces(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
-        '''A list of information about available network interfaces.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-networkinterfaces
-        '''
-        result = self._values.get("network_interfaces")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], result)
-
-    @builtins.property
-    def signal_decoders(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
-        '''A list of information about signal decoders.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-signaldecoders
-        '''
-        result = self._values.get("signal_decoders")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The state of the decoder manifest.
-
-        If the status is ``ACTIVE`` , the decoder manifest can't be edited. If the status is marked ``DRAFT`` , you can edit the decoder manifest.
-
-        :default: - "DRAFT"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the decoder manifest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDecoderManifestProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnFleetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "id": "id",
-        "signal_catalog_arn": "signalCatalogArn",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnFleetProps:
-    def __init__(
-        self,
-        *,
-        id: builtins.str,
-        signal_catalog_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFleet``.
-
-        :param id: The unique ID of the fleet.
-        :param signal_catalog_arn: The ARN of the signal catalog associated with the fleet.
-        :param description: A brief description of the fleet.
-        :param tags: Metadata that can be used to manage the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            cfn_fleet_props = iotfleetwise.CfnFleetProps(
-                id="id",
-                signal_catalog_arn="signalCatalogArn",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0974c3d8)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "id": id,
-            "signal_catalog_arn": signal_catalog_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def id(self) -> builtins.str:
-        '''The unique ID of the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-id
-        '''
-        result = self._values.get("id")
-        assert result is not None, "Required property 'id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signal_catalog_arn(self) -> builtins.str:
-        '''The ARN of the signal catalog associated with the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-signalcatalogarn
-        '''
-        result = self._values.get("signal_catalog_arn")
-        assert result is not None, "Required property 'signal_catalog_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFleetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnModelManifestProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "signal_catalog_arn": "signalCatalogArn",
-        "description": "description",
-        "nodes": "nodes",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnModelManifestProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        signal_catalog_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnModelManifest``.
-
-        :param name: The name of the vehicle model.
-        :param signal_catalog_arn: The Amazon Resource Name (ARN) of the signal catalog associated with the vehicle model.
-        :param description: A brief description of the vehicle model.
-        :param nodes: A list of nodes, which are a general abstraction of signals.
-        :param status: The state of the vehicle model. If the status is ``ACTIVE`` , the vehicle model can't be edited. If the status is ``DRAFT`` , you can edit the vehicle model. Default: - "DRAFT"
-        :param tags: Metadata that can be used to manage the vehicle model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            cfn_model_manifest_props = iotfleetwise.CfnModelManifestProps(
-                name="name",
-                signal_catalog_arn="signalCatalogArn",
-            
-                # the properties below are optional
-                description="description",
-                nodes=["nodes"],
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a92786260)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument nodes", value=nodes, expected_type=type_hints["nodes"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "signal_catalog_arn": signal_catalog_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if nodes is not None:
-            self._values["nodes"] = nodes
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the vehicle model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signal_catalog_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the signal catalog associated with the vehicle model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-signalcatalogarn
-        '''
-        result = self._values.get("signal_catalog_arn")
-        assert result is not None, "Required property 'signal_catalog_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the vehicle model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def nodes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of nodes, which are a general abstraction of signals.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-nodes
-        '''
-        result = self._values.get("nodes")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The state of the vehicle model.
-
-        If the status is ``ACTIVE`` , the vehicle model can't be edited. If the status is ``DRAFT`` , you can edit the vehicle model.
-
-        :default: - "DRAFT"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the vehicle model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnModelManifestProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnSignalCatalogProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "name": "name",
-        "node_counts": "nodeCounts",
-        "nodes": "nodes",
-        "tags": "tags",
-    },
-)
-class CfnSignalCatalogProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSignalCatalog``.
-
-        :param description: A brief description of the signal catalog.
-        :param name: The name of the signal catalog.
-        :param node_counts: Information about the number of nodes and node types in a vehicle network.
-        :param nodes: A list of information about nodes, which are a general abstraction of signals.
-        :param tags: Metadata that can be used to manage the signal catalog.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            cfn_signal_catalog_props = iotfleetwise.CfnSignalCatalogProps(
-                description="description",
-                name="name",
-                node_counts=iotfleetwise.CfnSignalCatalog.NodeCountsProperty(
-                    total_actuators=123,
-                    total_attributes=123,
-                    total_branches=123,
-                    total_nodes=123,
-                    total_sensors=123
-                ),
-                nodes=[iotfleetwise.CfnSignalCatalog.NodeProperty(
-                    actuator=iotfleetwise.CfnSignalCatalog.ActuatorProperty(
-                        data_type="dataType",
-                        fully_qualified_name="fullyQualifiedName",
-            
-                        # the properties below are optional
-                        allowed_values=["allowedValues"],
-                        assigned_value="assignedValue",
-                        description="description",
-                        max=123,
-                        min=123,
-                        unit="unit"
-                    ),
-                    attribute=iotfleetwise.CfnSignalCatalog.AttributeProperty(
-                        data_type="dataType",
-                        fully_qualified_name="fullyQualifiedName",
-            
-                        # the properties below are optional
-                        allowed_values=["allowedValues"],
-                        assigned_value="assignedValue",
-                        default_value="defaultValue",
-                        description="description",
-                        max=123,
-                        min=123,
-                        unit="unit"
-                    ),
-                    branch=iotfleetwise.CfnSignalCatalog.BranchProperty(
-                        fully_qualified_name="fullyQualifiedName",
-            
-                        # the properties below are optional
-                        description="description"
-                    ),
-                    sensor=iotfleetwise.CfnSignalCatalog.SensorProperty(
-                        data_type="dataType",
-                        fully_qualified_name="fullyQualifiedName",
-            
-                        # the properties below are optional
-                        allowed_values=["allowedValues"],
-                        description="description",
-                        max=123,
-                        min=123,
-                        unit="unit"
-                    )
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae2097ba03dd)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument node_counts", value=node_counts, expected_type=type_hints["node_counts"])
-            check_type(argname="argument nodes", value=nodes, expected_type=type_hints["nodes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if node_counts is not None:
-            self._values["node_counts"] = node_counts
-        if nodes is not None:
-            self._values["nodes"] = nodes
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the signal catalog.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the signal catalog.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def node_counts(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeCountsProperty"]]:
-        '''Information about the number of nodes and node types in a vehicle network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-nodecounts
-        '''
-        result = self._values.get("node_counts")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeCountsProperty"]], result)
-
-    @builtins.property
-    def nodes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeProperty"]]]]:
-        '''A list of information about nodes, which are a general abstraction of signals.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-nodes
-        '''
-        result = self._values.get("nodes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the signal catalog.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSignalCatalogProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnStateTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "signal_catalog_arn": "signalCatalogArn",
-        "state_template_properties": "stateTemplateProperties",
-        "data_extra_dimensions": "dataExtraDimensions",
-        "description": "description",
-        "metadata_extra_dimensions": "metadataExtraDimensions",
-        "tags": "tags",
-    },
-)
-class CfnStateTemplateProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        signal_catalog_arn: builtins.str,
-        state_template_properties: typing.Sequence[builtins.str],
-        data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStateTemplate``.
-
-        :param name: The unique alias of the state template.
-        :param signal_catalog_arn: The Amazon Resource Name (ARN) of the signal catalog associated with the state template.
-        :param state_template_properties: A list of signals from which data is collected. The state template properties contain the fully qualified names of the signals.
-        :param data_extra_dimensions: A list of vehicle attributes associated with the payload published on the state template's MQTT topic.
-        :param description: A brief description of the state template.
-        :param metadata_extra_dimensions: A list of vehicle attributes to associate with the user properties of the messages published on the state template's MQTT topic. For example, if you add ``Vehicle.Attributes.Make`` and ``Vehicle.Attributes.Model`` attributes, these attributes are included as user properties with the MQTT message.
-        :param tags: Metadata that can be used to manage the state template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            cfn_state_template_props = iotfleetwise.CfnStateTemplateProps(
-                name="name",
-                signal_catalog_arn="signalCatalogArn",
-                state_template_properties=["stateTemplateProperties"],
-            
-                # the properties below are optional
-                data_extra_dimensions=["dataExtraDimensions"],
-                description="description",
-                metadata_extra_dimensions=["metadataExtraDimensions"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0e684be4)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
-            check_type(argname="argument state_template_properties", value=state_template_properties, expected_type=type_hints["state_template_properties"])
-            check_type(argname="argument data_extra_dimensions", value=data_extra_dimensions, expected_type=type_hints["data_extra_dimensions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument metadata_extra_dimensions", value=metadata_extra_dimensions, expected_type=type_hints["metadata_extra_dimensions"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "signal_catalog_arn": signal_catalog_arn,
-            "state_template_properties": state_template_properties,
-        }
-        if data_extra_dimensions is not None:
-            self._values["data_extra_dimensions"] = data_extra_dimensions
-        if description is not None:
-            self._values["description"] = description
-        if metadata_extra_dimensions is not None:
-            self._values["metadata_extra_dimensions"] = metadata_extra_dimensions
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique alias of the state template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signal_catalog_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the signal catalog associated with the state template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-signalcatalogarn
-        '''
-        result = self._values.get("signal_catalog_arn")
-        assert result is not None, "Required property 'signal_catalog_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def state_template_properties(self) -> typing.List[builtins.str]:
-        '''A list of signals from which data is collected.
-
-        The state template properties contain the fully qualified names of the signals.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-statetemplateproperties
-        '''
-        result = self._values.get("state_template_properties")
-        assert result is not None, "Required property 'state_template_properties' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def data_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of vehicle attributes associated with the payload published on the state template's MQTT topic.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-dataextradimensions
-        '''
-        result = self._values.get("data_extra_dimensions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the state template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def metadata_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of vehicle attributes to associate with the user properties of the messages published on the state template's MQTT topic.
-
-        For example, if you add ``Vehicle.Attributes.Make`` and ``Vehicle.Attributes.Model`` attributes, these attributes are included as user properties with the MQTT message.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-metadataextradimensions
-        '''
-        result = self._values.get("metadata_extra_dimensions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the state template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStateTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnVehicleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "decoder_manifest_arn": "decoderManifestArn",
-        "model_manifest_arn": "modelManifestArn",
-        "name": "name",
-        "association_behavior": "associationBehavior",
-        "attributes": "attributes",
-        "state_templates": "stateTemplates",
-        "tags": "tags",
-    },
-)
-class CfnVehicleProps:
-    def __init__(
-        self,
-        *,
-        decoder_manifest_arn: builtins.str,
-        model_manifest_arn: builtins.str,
-        name: builtins.str,
-        association_behavior: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVehicle``.
-
-        :param decoder_manifest_arn: The Amazon Resource Name (ARN) of a decoder manifest associated with the vehicle to create.
-        :param model_manifest_arn: The Amazon Resource Name (ARN) of the vehicle model (model manifest) to create the vehicle from.
-        :param name: The unique ID of the vehicle.
-        :param association_behavior: An option to create a new AWS IoT thing when creating a vehicle, or to validate an existing thing as a vehicle.
-        :param attributes: Static information about a vehicle in a key-value pair. For example: ``"engine Type"`` : ``"v6"``
-        :param state_templates: Associate state templates to track the state of the vehicle. State templates determine which signal updates the vehicle sends to the cloud.
-        :param tags: Metadata which can be used to manage the vehicle.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            # on_change: Any
-            
-            cfn_vehicle_props = iotfleetwise.CfnVehicleProps(
-                decoder_manifest_arn="decoderManifestArn",
-                model_manifest_arn="modelManifestArn",
-                name="name",
-            
-                # the properties below are optional
-                association_behavior="associationBehavior",
-                attributes={
-                    "attributes_key": "attributes"
-                },
-                state_templates=[iotfleetwise.CfnVehicle.StateTemplateAssociationProperty(
-                    identifier="identifier",
-                    state_template_update_strategy=iotfleetwise.CfnVehicle.StateTemplateUpdateStrategyProperty(
-                        on_change=on_change,
-                        periodic=iotfleetwise.CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty(
-                            state_template_update_rate=iotfleetwise.CfnVehicle.TimePeriodProperty(
-                                unit="unit",
-                                value=123
-                            )
-                        )
-                    )
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58b89a826)
-            check_type(argname="argument decoder_manifest_arn", value=decoder_manifest_arn, expected_type=type_hints["decoder_manifest_arn"])
-            check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument association_behavior", value=association_behavior, expected_type=type_hints["association_behavior"])
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument state_templates", value=state_templates, expected_type=type_hints["state_templates"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "decoder_manifest_arn": decoder_manifest_arn,
-            "model_manifest_arn": model_manifest_arn,
-            "name": name,
-        }
-        if association_behavior is not None:
-            self._values["association_behavior"] = association_behavior
-        if attributes is not None:
-            self._values["attributes"] = attributes
-        if state_templates is not None:
-            self._values["state_templates"] = state_templates
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def decoder_manifest_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a decoder manifest associated with the vehicle to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-decodermanifestarn
-        '''
-        result = self._values.get("decoder_manifest_arn")
-        assert result is not None, "Required property 'decoder_manifest_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def model_manifest_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the vehicle model (model manifest) to create the vehicle from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-modelmanifestarn
-        '''
-        result = self._values.get("model_manifest_arn")
-        assert result is not None, "Required property 'model_manifest_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique ID of the vehicle.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def association_behavior(self) -> typing.Optional[builtins.str]:
-        '''An option to create a new AWS IoT thing when creating a vehicle, or to validate an existing thing as a vehicle.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-associationbehavior
-        '''
-        result = self._values.get("association_behavior")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Static information about a vehicle in a key-value pair.
-
-        For example: ``"engine Type"`` : ``"v6"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-attributes
-        '''
-        result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def state_templates(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateAssociationProperty"]]]]:
-        '''Associate state templates to track the state of the vehicle.
-
-        State templates determine which signal updates the vehicle sends to the cloud.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-statetemplates
-        '''
-        result = self._values.get("state_templates")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateAssociationProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the vehicle.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVehicleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.DecoderManifestReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "decoder_manifest_arn": "decoderManifestArn",
-        "decoder_manifest_name": "decoderManifestName",
-    },
-)
-class DecoderManifestReference:
-    def __init__(
-        self,
-        *,
-        decoder_manifest_arn: builtins.str,
-        decoder_manifest_name: builtins.str,
-    ) -> None:
-        '''A reference to a DecoderManifest resource.
-
-        :param decoder_manifest_arn: The ARN of the DecoderManifest resource.
-        :param decoder_manifest_name: The Name of the DecoderManifest resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            decoder_manifest_reference = iotfleetwise.DecoderManifestReference(
-                decoder_manifest_arn="decoderManifestArn",
-                decoder_manifest_name="decoderManifestName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46354aaef1cb3bf371e3aae33d07b4372f956711f075c7f9317f013544431635)
-            check_type(argname="argument decoder_manifest_arn", value=decoder_manifest_arn, expected_type=type_hints["decoder_manifest_arn"])
-            check_type(argname="argument decoder_manifest_name", value=decoder_manifest_name, expected_type=type_hints["decoder_manifest_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "decoder_manifest_arn": decoder_manifest_arn,
-            "decoder_manifest_name": decoder_manifest_name,
-        }
-
-    @builtins.property
-    def decoder_manifest_arn(self) -> builtins.str:
-        '''The ARN of the DecoderManifest resource.'''
-        result = self._values.get("decoder_manifest_arn")
-        assert result is not None, "Required property 'decoder_manifest_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def decoder_manifest_name(self) -> builtins.str:
-        '''The Name of the DecoderManifest resource.'''
-        result = self._values.get("decoder_manifest_name")
-        assert result is not None, "Required property 'decoder_manifest_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DecoderManifestReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.FleetReference",
-    jsii_struct_bases=[],
-    name_mapping={"fleet_arn": "fleetArn", "fleet_id": "fleetId"},
-)
-class FleetReference:
-    def __init__(self, *, fleet_arn: builtins.str, fleet_id: builtins.str) -> None:
-        '''A reference to a Fleet resource.
-
-        :param fleet_arn: The ARN of the Fleet resource.
-        :param fleet_id: The Id of the Fleet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            fleet_reference = iotfleetwise.FleetReference(
-                fleet_arn="fleetArn",
-                fleet_id="fleetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9693db3e8bbd228a09d1c9fd9575e324cce41d0bee495e04f8123f69a147c158)
-            check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
-            check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "fleet_arn": fleet_arn,
-            "fleet_id": fleet_id,
-        }
-
-    @builtins.property
-    def fleet_arn(self) -> builtins.str:
-        '''The ARN of the Fleet resource.'''
-        result = self._values.get("fleet_arn")
-        assert result is not None, "Required property 'fleet_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def fleet_id(self) -> builtins.str:
-        '''The Id of the Fleet resource.'''
-        result = self._values.get("fleet_id")
-        assert result is not None, "Required property 'fleet_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FleetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.ICampaignRef")
-class ICampaignRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Campaign.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="campaignRef")
-    def campaign_ref(self) -> CampaignReference:
-        '''(experimental) A reference to a Campaign resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICampaignRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Campaign.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.ICampaignRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="campaignRef")
-    def campaign_ref(self) -> CampaignReference:
-        '''(experimental) A reference to a Campaign resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CampaignReference, jsii.get(self, "campaignRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICampaignRef).__jsii_proxy_class__ = lambda : _ICampaignRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.IDecoderManifestRef")
-class IDecoderManifestRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DecoderManifest.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="decoderManifestRef")
-    def decoder_manifest_ref(self) -> DecoderManifestReference:
-        '''(experimental) A reference to a DecoderManifest resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDecoderManifestRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DecoderManifest.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.IDecoderManifestRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="decoderManifestRef")
-    def decoder_manifest_ref(self) -> DecoderManifestReference:
-        '''(experimental) A reference to a DecoderManifest resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DecoderManifestReference, jsii.get(self, "decoderManifestRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDecoderManifestRef).__jsii_proxy_class__ = lambda : _IDecoderManifestRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.IFleetRef")
-class IFleetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Fleet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="fleetRef")
-    def fleet_ref(self) -> FleetReference:
-        '''(experimental) A reference to a Fleet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IFleetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Fleet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.IFleetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="fleetRef")
-    def fleet_ref(self) -> FleetReference:
-        '''(experimental) A reference to a Fleet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(FleetReference, jsii.get(self, "fleetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.IModelManifestRef")
-class IModelManifestRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ModelManifest.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="modelManifestRef")
-    def model_manifest_ref(self) -> "ModelManifestReference":
-        '''(experimental) A reference to a ModelManifest resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IModelManifestRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ModelManifest.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.IModelManifestRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="modelManifestRef")
-    def model_manifest_ref(self) -> "ModelManifestReference":
-        '''(experimental) A reference to a ModelManifest resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ModelManifestReference", jsii.get(self, "modelManifestRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IModelManifestRef).__jsii_proxy_class__ = lambda : _IModelManifestRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.ISignalCatalogRef")
-class ISignalCatalogRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SignalCatalog.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="signalCatalogRef")
-    def signal_catalog_ref(self) -> "SignalCatalogReference":
-        '''(experimental) A reference to a SignalCatalog resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISignalCatalogRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SignalCatalog.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.ISignalCatalogRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="signalCatalogRef")
-    def signal_catalog_ref(self) -> "SignalCatalogReference":
-        '''(experimental) A reference to a SignalCatalog resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SignalCatalogReference", jsii.get(self, "signalCatalogRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISignalCatalogRef).__jsii_proxy_class__ = lambda : _ISignalCatalogRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.IStateTemplateRef")
-class IStateTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a StateTemplate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="stateTemplateRef")
-    def state_template_ref(self) -> "StateTemplateReference":
-        '''(experimental) A reference to a StateTemplate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IStateTemplateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a StateTemplate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.IStateTemplateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="stateTemplateRef")
-    def state_template_ref(self) -> "StateTemplateReference":
-        '''(experimental) A reference to a StateTemplate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("StateTemplateReference", jsii.get(self, "stateTemplateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IStateTemplateRef).__jsii_proxy_class__ = lambda : _IStateTemplateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleetwise.IVehicleRef")
-class IVehicleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Vehicle.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="vehicleRef")
-    def vehicle_ref(self) -> "VehicleReference":
-        '''(experimental) A reference to a Vehicle resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IVehicleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Vehicle.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleetwise.IVehicleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="vehicleRef")
-    def vehicle_ref(self) -> "VehicleReference":
-        '''(experimental) A reference to a Vehicle resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("VehicleReference", jsii.get(self, "vehicleRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVehicleRef).__jsii_proxy_class__ = lambda : _IVehicleRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.ModelManifestReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "model_manifest_arn": "modelManifestArn",
-        "model_manifest_name": "modelManifestName",
-    },
-)
-class ModelManifestReference:
-    def __init__(
-        self,
-        *,
-        model_manifest_arn: builtins.str,
-        model_manifest_name: builtins.str,
-    ) -> None:
-        '''A reference to a ModelManifest resource.
-
-        :param model_manifest_arn: The ARN of the ModelManifest resource.
-        :param model_manifest_name: The Name of the ModelManifest resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            model_manifest_reference = iotfleetwise.ModelManifestReference(
-                model_manifest_arn="modelManifestArn",
-                model_manifest_name="modelManifestName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fbd63d70aeed9fda230cde79eba6e81dafb8fd4db29677899d6fbc008aabce1)
-            check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
-            check_type(argname="argument model_manifest_name", value=model_manifest_name, expected_type=type_hints["model_manifest_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_manifest_arn": model_manifest_arn,
-            "model_manifest_name": model_manifest_name,
-        }
-
-    @builtins.property
-    def model_manifest_arn(self) -> builtins.str:
-        '''The ARN of the ModelManifest resource.'''
-        result = self._values.get("model_manifest_arn")
-        assert result is not None, "Required property 'model_manifest_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def model_manifest_name(self) -> builtins.str:
-        '''The Name of the ModelManifest resource.'''
-        result = self._values.get("model_manifest_name")
-        assert result is not None, "Required property 'model_manifest_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ModelManifestReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.SignalCatalogReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "signal_catalog_arn": "signalCatalogArn",
-        "signal_catalog_name": "signalCatalogName",
-    },
-)
-class SignalCatalogReference:
-    def __init__(
-        self,
-        *,
-        signal_catalog_arn: builtins.str,
-        signal_catalog_name: builtins.str,
-    ) -> None:
-        '''A reference to a SignalCatalog resource.
-
-        :param signal_catalog_arn: The ARN of the SignalCatalog resource.
-        :param signal_catalog_name: The Name of the SignalCatalog resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            signal_catalog_reference = iotfleetwise.SignalCatalogReference(
-                signal_catalog_arn="signalCatalogArn",
-                signal_catalog_name="signalCatalogName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6c111e9877705ec1381e4f558f59a596a866036cebfa37ce8fdca366ef8ed24)
-            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
-            check_type(argname="argument signal_catalog_name", value=signal_catalog_name, expected_type=type_hints["signal_catalog_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "signal_catalog_arn": signal_catalog_arn,
-            "signal_catalog_name": signal_catalog_name,
-        }
-
-    @builtins.property
-    def signal_catalog_arn(self) -> builtins.str:
-        '''The ARN of the SignalCatalog resource.'''
-        result = self._values.get("signal_catalog_arn")
-        assert result is not None, "Required property 'signal_catalog_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signal_catalog_name(self) -> builtins.str:
-        '''The Name of the SignalCatalog resource.'''
-        result = self._values.get("signal_catalog_name")
-        assert result is not None, "Required property 'signal_catalog_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SignalCatalogReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.StateTemplateReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "state_template_arn": "stateTemplateArn",
-        "state_template_name": "stateTemplateName",
-    },
-)
-class StateTemplateReference:
-    def __init__(
-        self,
-        *,
-        state_template_arn: builtins.str,
-        state_template_name: builtins.str,
-    ) -> None:
-        '''A reference to a StateTemplate resource.
-
-        :param state_template_arn: The ARN of the StateTemplate resource.
-        :param state_template_name: The Name of the StateTemplate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            state_template_reference = iotfleetwise.StateTemplateReference(
-                state_template_arn="stateTemplateArn",
-                state_template_name="stateTemplateName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a8020bbe112c20bf6dcf19d5c389ae70d7516a1c8d45a6371bda48d7d78d33e)
-            check_type(argname="argument state_template_arn", value=state_template_arn, expected_type=type_hints["state_template_arn"])
-            check_type(argname="argument state_template_name", value=state_template_name, expected_type=type_hints["state_template_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "state_template_arn": state_template_arn,
-            "state_template_name": state_template_name,
-        }
-
-    @builtins.property
-    def state_template_arn(self) -> builtins.str:
-        '''The ARN of the StateTemplate resource.'''
-        result = self._values.get("state_template_arn")
-        assert result is not None, "Required property 'state_template_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def state_template_name(self) -> builtins.str:
-        '''The Name of the StateTemplate resource.'''
-        result = self._values.get("state_template_name")
-        assert result is not None, "Required property 'state_template_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StateTemplateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleetwise.VehicleReference",
-    jsii_struct_bases=[],
-    name_mapping={"vehicle_arn": "vehicleArn", "vehicle_name": "vehicleName"},
-)
-class VehicleReference:
-    def __init__(
-        self,
-        *,
-        vehicle_arn: builtins.str,
-        vehicle_name: builtins.str,
-    ) -> None:
-        '''A reference to a Vehicle resource.
-
-        :param vehicle_arn: The ARN of the Vehicle resource.
-        :param vehicle_name: The Name of the Vehicle resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleetwise as iotfleetwise
-            
-            vehicle_reference = iotfleetwise.VehicleReference(
-                vehicle_arn="vehicleArn",
-                vehicle_name="vehicleName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2101419df51d866bb9bba6de9fb1cab7f3821a8565a6a3b36f1e392060af723)
-            check_type(argname="argument vehicle_arn", value=vehicle_arn, expected_type=type_hints["vehicle_arn"])
-            check_type(argname="argument vehicle_name", value=vehicle_name, expected_type=type_hints["vehicle_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "vehicle_arn": vehicle_arn,
-            "vehicle_name": vehicle_name,
-        }
-
-    @builtins.property
-    def vehicle_arn(self) -> builtins.str:
-        '''The ARN of the Vehicle resource.'''
-        result = self._values.get("vehicle_arn")
-        assert result is not None, "Required property 'vehicle_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vehicle_name(self) -> builtins.str:
-        '''The Name of the Vehicle resource.'''
-        result = self._values.get("vehicle_name")
-        assert result is not None, "Required property 'vehicle_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VehicleReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ICampaignRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _ICampaignRef_030980d3, _ITaggable_36806126)
 class CfnCampaign(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2352,6 +107,7 @@ class CfnCampaign(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -2458,30 +214,31 @@ class CfnCampaign(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        collection_scheme: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
+        collection_scheme: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         signal_catalog_arn: builtins.str,
         target_arn: builtins.str,
         action: typing.Optional[builtins.str] = None,
         compression: typing.Optional[builtins.str] = None,
-        data_destination_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_destination_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        data_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_partitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         diagnostics_mode: typing.Optional[builtins.str] = None,
         expiry_time: typing.Optional[builtins.str] = None,
         post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
         priority: typing.Optional[jsii.Number] = None,
-        signals_to_collect: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signals_to_fetch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_collect: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_fetch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         spooling_mode: typing.Optional[builtins.str] = None,
         start_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::Campaign``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param collection_scheme: The data collection scheme associated with the campaign. You can specify a scheme that collects data based on time or an event.
@@ -2532,8 +289,73 @@ class CfnCampaign(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCampaign")
+    @builtins.classmethod
+    def arn_for_campaign(cls, resource: "_ICampaignRef_030980d3") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d61ab81a2d8f001cd2baeb04e6f0f8c94ddb4121bd3eea71d4d230d9960f8b2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCampaign", [resource]))
+
+    @jsii.member(jsii_name="fromCampaignArn")
+    @builtins.classmethod
+    def from_campaign_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_ICampaignRef_030980d3":
+        '''Creates a new ICampaignRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c51ab85405ba663d7d52a30e3c3b34e16806ad52f1c92f929d00fbb7ff2dfcf8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_ICampaignRef_030980d3", jsii.sinvoke(cls, "fromCampaignArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromCampaignName")
+    @builtins.classmethod
+    def from_campaign_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        campaign_name: builtins.str,
+    ) -> "_ICampaignRef_030980d3":
+        '''Creates a new ICampaignRef from a campaignName.
+
+        :param scope: -
+        :param id: -
+        :param campaign_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae2c2e2ec2c5152f8ac3315300b27b15147bc728c8312a967a15c3fb997d60ec)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument campaign_name", value=campaign_name, expected_type=type_hints["campaign_name"])
+        return typing.cast("_ICampaignRef_030980d3", jsii.sinvoke(cls, "fromCampaignName", [scope, id, campaign_name]))
+
+    @jsii.member(jsii_name="isCfnCampaign")
+    @builtins.classmethod
+    def is_cfn_campaign(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCampaign.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b42aa9a0e2b886846904d45eb71ed6ebe3540cefb5483ddf62d418485db90386)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCampaign", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2602,9 +424,9 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="campaignRef")
-    def campaign_ref(self) -> CampaignReference:
+    def campaign_ref(self) -> "_CampaignReference_9a8f5f98":
         '''A reference to a Campaign resource.'''
-        return typing.cast(CampaignReference, jsii.get(self, "campaignRef"))
+        return typing.cast("_CampaignReference_9a8f5f98", jsii.get(self, "campaignRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2613,22 +435,22 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="collectionScheme")
     def collection_scheme(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.CollectionSchemeProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"]:
         '''The data collection scheme associated with the campaign.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.CollectionSchemeProperty"], jsii.get(self, "collectionScheme"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"], jsii.get(self, "collectionScheme"))
 
     @collection_scheme.setter
     def collection_scheme(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCampaign.CollectionSchemeProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__868a9ff35e32583e37d3c029fdca22ea031055a38c7dd0dcbfa1f30846ee551d)
@@ -2707,14 +529,14 @@ class CfnCampaign(
     @jsii.member(jsii_name="dataDestinationConfigs")
     def data_destination_configs(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataDestinationConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]]:
         '''The destination where the campaign sends data.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataDestinationConfigProperty"]]]], jsii.get(self, "dataDestinationConfigs"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]], jsii.get(self, "dataDestinationConfigs"))
 
     @data_destination_configs.setter
     def data_destination_configs(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataDestinationConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82921435d923d6321ee61688fc07b3aa8e4790a3f86fff3b232ba9bb71993646)
@@ -2741,14 +563,14 @@ class CfnCampaign(
     @jsii.member(jsii_name="dataPartitions")
     def data_partitions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]]:
         '''The data partitions associated with the signals collected from the vehicle.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionProperty"]]]], jsii.get(self, "dataPartitions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]], jsii.get(self, "dataPartitions"))
 
     @data_partitions.setter
     def data_partitions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e28c8d41eff51a2c0a71a4106b83d99272cca3ed1db06bf167cc4f519354dd1)
@@ -2827,14 +649,14 @@ class CfnCampaign(
     @jsii.member(jsii_name="signalsToCollect")
     def signals_to_collect(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalInformationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]]:
         '''A list of information about signals to collect.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalInformationProperty"]]]], jsii.get(self, "signalsToCollect"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]], jsii.get(self, "signalsToCollect"))
 
     @signals_to_collect.setter
     def signals_to_collect(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalInformationProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49e9a686748dfc74bfa8ee7c7e9c87ccd64dc236b6b72144f22cebb87065a3d7)
@@ -2845,14 +667,14 @@ class CfnCampaign(
     @jsii.member(jsii_name="signalsToFetch")
     def signals_to_fetch(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchInformationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]]:
         '''A list of information about signals to fetch.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchInformationProperty"]]]], jsii.get(self, "signalsToFetch"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]], jsii.get(self, "signalsToFetch"))
 
     @signals_to_fetch.setter
     def signals_to_fetch(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchInformationProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da949c7830745c6406e29a86a584eac30d385afd88a7608bc2c36f6371ab5b8b)
@@ -2890,12 +712,12 @@ class CfnCampaign(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the campaign.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3493674fad7a8f212642ff0171f2ddf22e133359a2aee9ae22d9b3da5be4a8b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2913,8 +735,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            condition_based_collection_scheme: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.ConditionBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            time_based_collection_scheme: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.TimeBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            condition_based_collection_scheme: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ConditionBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_based_collection_scheme: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeBasedCollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies what data to collect and how often or when to collect it.
 
@@ -2957,24 +779,24 @@ class CfnCampaign(
         @builtins.property
         def condition_based_collection_scheme(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.ConditionBasedCollectionSchemeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedCollectionSchemeProperty"]]:
             '''Information about a collection scheme that uses a simple logical expression to recognize what data to collect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-collectionscheme.html#cfn-iotfleetwise-campaign-collectionscheme-conditionbasedcollectionscheme
             '''
             result = self._values.get("condition_based_collection_scheme")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.ConditionBasedCollectionSchemeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedCollectionSchemeProperty"]], result)
 
         @builtins.property
         def time_based_collection_scheme(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TimeBasedCollectionSchemeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedCollectionSchemeProperty"]]:
             '''Information about a collection scheme that uses a time period to decide how often to collect data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-collectionscheme.html#cfn-iotfleetwise-campaign-collectionscheme-timebasedcollectionscheme
             '''
             result = self._values.get("time_based_collection_scheme")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TimeBasedCollectionSchemeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedCollectionSchemeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3190,9 +1012,9 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            mqtt_topic_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.MqttTopicConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timestream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.TimestreamConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mqtt_topic_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.MqttTopicConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timestream_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimestreamConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The destination where the AWS IoT FleetWise campaign sends data.
 
@@ -3246,7 +1068,7 @@ class CfnCampaign(
         @builtins.property
         def mqtt_topic_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.MqttTopicConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.MqttTopicConfigProperty"]]:
             '''The MQTT topic to which the AWS IoT FleetWise campaign routes data.
 
             .. epigraph::
@@ -3256,29 +1078,29 @@ class CfnCampaign(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datadestinationconfig.html#cfn-iotfleetwise-campaign-datadestinationconfig-mqtttopicconfig
             '''
             result = self._values.get("mqtt_topic_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.MqttTopicConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.MqttTopicConfigProperty"]], result)
 
         @builtins.property
         def s3_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.S3ConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.S3ConfigProperty"]]:
             '''The Amazon S3 bucket where the AWS IoT FleetWise campaign sends data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datadestinationconfig.html#cfn-iotfleetwise-campaign-datadestinationconfig-s3config
             '''
             result = self._values.get("s3_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.S3ConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.S3ConfigProperty"]], result)
 
         @builtins.property
         def timestream_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TimestreamConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimestreamConfigProperty"]]:
             '''The Amazon Timestream table where the campaign sends data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datadestinationconfig.html#cfn-iotfleetwise-campaign-datadestinationconfig-timestreamconfig
             '''
             result = self._values.get("timestream_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TimestreamConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimestreamConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3305,8 +1127,8 @@ class CfnCampaign(
             self,
             *,
             id: builtins.str,
-            storage_options: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.DataPartitionStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
-            upload_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.DataPartitionUploadOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            storage_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            upload_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionUploadOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for signal data storage and upload options.
 
@@ -3378,25 +1200,25 @@ class CfnCampaign(
         @builtins.property
         def storage_options(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionStorageOptionsProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionStorageOptionsProperty"]:
             '''The storage options for a data partition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datapartition.html#cfn-iotfleetwise-campaign-datapartition-storageoptions
             '''
             result = self._values.get("storage_options")
             assert result is not None, "Required property 'storage_options' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionStorageOptionsProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionStorageOptionsProperty"], result)
 
         @builtins.property
         def upload_options(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionUploadOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionUploadOptionsProperty"]]:
             '''The upload options for the data partition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-datapartition.html#cfn-iotfleetwise-campaign-datapartition-uploadoptions
             '''
             result = self._values.get("upload_options")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.DataPartitionUploadOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionUploadOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3422,8 +1244,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            maximum_size: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.StorageMaximumSizeProperty", typing.Dict[builtins.str, typing.Any]]],
-            minimum_time_to_live: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.StorageMinimumTimeToLiveProperty", typing.Dict[builtins.str, typing.Any]]],
+            maximum_size: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.StorageMaximumSizeProperty", typing.Dict[builtins.str, typing.Any]]],
+            minimum_time_to_live: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.StorageMinimumTimeToLiveProperty", typing.Dict[builtins.str, typing.Any]]],
             storage_location: builtins.str,
         ) -> None:
             '''Size, time, and location options for the data partition.
@@ -3467,7 +1289,7 @@ class CfnCampaign(
         @builtins.property
         def maximum_size(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.StorageMaximumSizeProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMaximumSizeProperty"]:
             '''The maximum storage size of the data stored in the data partition.
 
             .. epigraph::
@@ -3478,12 +1300,12 @@ class CfnCampaign(
             '''
             result = self._values.get("maximum_size")
             assert result is not None, "Required property 'maximum_size' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.StorageMaximumSizeProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMaximumSizeProperty"], result)
 
         @builtins.property
         def minimum_time_to_live(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.StorageMinimumTimeToLiveProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMinimumTimeToLiveProperty"]:
             '''The amount of time that data in this partition will be kept on disk.
 
             - After the designated amount of time passes, the data can be removed, but it's not guaranteed to be removed.
@@ -3494,7 +1316,7 @@ class CfnCampaign(
             '''
             result = self._values.get("minimum_time_to_live")
             assert result is not None, "Required property 'minimum_time_to_live' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.StorageMinimumTimeToLiveProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.StorageMinimumTimeToLiveProperty"], result)
 
         @builtins.property
         def storage_location(self) -> builtins.str:
@@ -3809,8 +1631,8 @@ class CfnCampaign(
         def __init__(
             self,
             *,
-            condition_based: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.ConditionBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            time_based: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.TimeBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            condition_based: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.ConditionBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_based: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.TimeBasedSignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the signal fetch operation.
 
@@ -3853,24 +1675,24 @@ class CfnCampaign(
         @builtins.property
         def condition_based(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]]:
             '''The configuration of a condition-based signal fetch operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-signalfetchconfig.html#cfn-iotfleetwise-campaign-signalfetchconfig-conditionbased
             '''
             result = self._values.get("condition_based")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.ConditionBasedSignalFetchConfigProperty"]], result)
 
         @builtins.property
         def time_based(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TimeBasedSignalFetchConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedSignalFetchConfigProperty"]]:
             '''The configuration of a time-based signal fetch operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-signalfetchconfig.html#cfn-iotfleetwise-campaign-signalfetchconfig-timebased
             '''
             result = self._values.get("time_based")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TimeBasedSignalFetchConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCampaign.TimeBasedSignalFetchConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3899,7 +1721,7 @@ class CfnCampaign(
             *,
             actions: typing.Sequence[builtins.str],
             fully_qualified_name: builtins.str,
-            signal_fetch_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.SignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            signal_fetch_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalFetchConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             condition_language_version: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Information about the signal to be fetched.
@@ -3976,14 +1798,14 @@ class CfnCampaign(
         @builtins.property
         def signal_fetch_config(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchConfigProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchConfigProperty"]:
             '''The configuration of the signal fetch operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-campaign-signalfetchinformation.html#cfn-iotfleetwise-campaign-signalfetchinformation-signalfetchconfig
             '''
             result = self._values.get("signal_fetch_config")
             assert result is not None, "Required property 'signal_fetch_config' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.SignalFetchConfigProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchConfigProperty"], result)
 
         @builtins.property
         def condition_language_version(self) -> typing.Optional[jsii.Number]:
@@ -4445,7 +2267,499 @@ class CfnCampaign(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IDecoderManifestRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnCampaignProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collection_scheme": "collectionScheme",
+        "name": "name",
+        "signal_catalog_arn": "signalCatalogArn",
+        "target_arn": "targetArn",
+        "action": "action",
+        "compression": "compression",
+        "data_destination_configs": "dataDestinationConfigs",
+        "data_extra_dimensions": "dataExtraDimensions",
+        "data_partitions": "dataPartitions",
+        "description": "description",
+        "diagnostics_mode": "diagnosticsMode",
+        "expiry_time": "expiryTime",
+        "post_trigger_collection_duration": "postTriggerCollectionDuration",
+        "priority": "priority",
+        "signals_to_collect": "signalsToCollect",
+        "signals_to_fetch": "signalsToFetch",
+        "spooling_mode": "spoolingMode",
+        "start_time": "startTime",
+        "tags": "tags",
+    },
+)
+class CfnCampaignProps:
+    def __init__(
+        self,
+        *,
+        collection_scheme: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.CollectionSchemeProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        signal_catalog_arn: builtins.str,
+        target_arn: builtins.str,
+        action: typing.Optional[builtins.str] = None,
+        compression: typing.Optional[builtins.str] = None,
+        data_destination_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        data_partitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.DataPartitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        diagnostics_mode: typing.Optional[builtins.str] = None,
+        expiry_time: typing.Optional[builtins.str] = None,
+        post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        signals_to_collect: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signals_to_fetch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCampaign.SignalFetchInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        spooling_mode: typing.Optional[builtins.str] = None,
+        start_time: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCampaign``.
+
+        :param collection_scheme: The data collection scheme associated with the campaign. You can specify a scheme that collects data based on time or an event.
+        :param name: The name of a campaign.
+        :param signal_catalog_arn: The Amazon Resource Name (ARN) of the signal catalog associated with the campaign.
+        :param target_arn: The Amazon Resource Name (ARN) of a vehicle or fleet to which the campaign is deployed.
+        :param action: Specifies how to update a campaign. The action can be one of the following:. - ``APPROVE`` - To approve delivering a data collection scheme to vehicles. - ``SUSPEND`` - To suspend collecting signal data. The campaign is deleted from vehicles and all vehicles in the suspended campaign will stop sending data. - ``RESUME`` - To reactivate the ``SUSPEND`` campaign. The campaign is redeployed to all vehicles and the vehicles will resume sending data. - ``UPDATE`` - To update a campaign.
+        :param compression: Whether to compress signals before transmitting data to AWS IoT FleetWise . If you don't want to compress the signals, use ``OFF`` . If it's not specified, ``SNAPPY`` is used. Default: ``SNAPPY`` Default: - "OFF"
+        :param data_destination_configs: The destination where the campaign sends data. You can choose to send data to be stored in Amazon S3 or Amazon Timestream . Amazon S3 optimizes the cost of data storage and provides additional mechanisms to use vehicle data, such as data lakes, centralized data storage, data processing pipelines, and analytics. AWS IoT FleetWise supports at-least-once file delivery to S3. Your vehicle data is stored on multiple AWS IoT FleetWise servers for redundancy and high availability. You can use Amazon Timestream to access and analyze time series data, and Timestream to query vehicle data so that you can identify trends and patterns.
+        :param data_extra_dimensions: A list of vehicle attributes to associate with a campaign. Enrich the data with specified vehicle attributes. For example, add ``make`` and ``model`` to the campaign, and AWS IoT FleetWise will associate the data with those attributes as dimensions in Amazon Timestream . You can then query the data against ``make`` and ``model`` . Default: An empty array
+        :param data_partitions: The data partitions associated with the signals collected from the vehicle.
+        :param description: The description of the campaign.
+        :param diagnostics_mode: Option for a vehicle to send diagnostic trouble codes to AWS IoT FleetWise . If you want to send diagnostic trouble codes, use ``SEND_ACTIVE_DTCS`` . If it's not specified, ``OFF`` is used. Default: ``OFF`` Default: - "OFF"
+        :param expiry_time: The time the campaign expires, in seconds since epoch (January 1, 1970 at midnight UTC time). Vehicle data isn't collected after the campaign expires. Default: 253402214400 (December 31, 9999, 00:00:00 UTC) Default: - "253402214400"
+        :param post_trigger_collection_duration: How long (in milliseconds) to collect raw data after a triggering event initiates the collection. If it's not specified, ``0`` is used. Default: ``0`` Default: - 0
+        :param priority: A number indicating the priority of one campaign over another campaign for a certain vehicle or fleet. A campaign with the lowest value is deployed to vehicles before any other campaigns. If it's not specified, ``0`` is used. Default: ``0`` Default: - 0
+        :param signals_to_collect: A list of information about signals to collect.
+        :param signals_to_fetch: A list of information about signals to fetch.
+        :param spooling_mode: Whether to store collected data after a vehicle lost a connection with the cloud. After a connection is re-established, the data is automatically forwarded to AWS IoT FleetWise . If you want to store collected data when a vehicle loses connection with the cloud, use ``TO_DISK`` . If it's not specified, ``OFF`` is used. Default: ``OFF`` Default: - "OFF"
+        :param start_time: The time, in milliseconds, to deliver a campaign after it was approved. If it's not specified, ``0`` is used. Default: ``0`` Default: - "0"
+        :param tags: Metadata that can be used to manage the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            cfn_campaign_props = iotfleetwise.CfnCampaignProps(
+                collection_scheme=iotfleetwise.CfnCampaign.CollectionSchemeProperty(
+                    condition_based_collection_scheme=iotfleetwise.CfnCampaign.ConditionBasedCollectionSchemeProperty(
+                        expression="expression",
+            
+                        # the properties below are optional
+                        condition_language_version=123,
+                        minimum_trigger_interval_ms=123,
+                        trigger_mode="triggerMode"
+                    ),
+                    time_based_collection_scheme=iotfleetwise.CfnCampaign.TimeBasedCollectionSchemeProperty(
+                        period_ms=123
+                    )
+                ),
+                name="name",
+                signal_catalog_arn="signalCatalogArn",
+                target_arn="targetArn",
+            
+                # the properties below are optional
+                action="action",
+                compression="compression",
+                data_destination_configs=[iotfleetwise.CfnCampaign.DataDestinationConfigProperty(
+                    mqtt_topic_config=iotfleetwise.CfnCampaign.MqttTopicConfigProperty(
+                        execution_role_arn="executionRoleArn",
+                        mqtt_topic_arn="mqttTopicArn"
+                    ),
+                    s3_config=iotfleetwise.CfnCampaign.S3ConfigProperty(
+                        bucket_arn="bucketArn",
+            
+                        # the properties below are optional
+                        data_format="dataFormat",
+                        prefix="prefix",
+                        storage_compression_format="storageCompressionFormat"
+                    ),
+                    timestream_config=iotfleetwise.CfnCampaign.TimestreamConfigProperty(
+                        execution_role_arn="executionRoleArn",
+                        timestream_table_arn="timestreamTableArn"
+                    )
+                )],
+                data_extra_dimensions=["dataExtraDimensions"],
+                data_partitions=[iotfleetwise.CfnCampaign.DataPartitionProperty(
+                    id="id",
+                    storage_options=iotfleetwise.CfnCampaign.DataPartitionStorageOptionsProperty(
+                        maximum_size=iotfleetwise.CfnCampaign.StorageMaximumSizeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        minimum_time_to_live=iotfleetwise.CfnCampaign.StorageMinimumTimeToLiveProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        storage_location="storageLocation"
+                    ),
+            
+                    # the properties below are optional
+                    upload_options=iotfleetwise.CfnCampaign.DataPartitionUploadOptionsProperty(
+                        expression="expression",
+            
+                        # the properties below are optional
+                        condition_language_version=123
+                    )
+                )],
+                description="description",
+                diagnostics_mode="diagnosticsMode",
+                expiry_time="expiryTime",
+                post_trigger_collection_duration=123,
+                priority=123,
+                signals_to_collect=[iotfleetwise.CfnCampaign.SignalInformationProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    data_partition_id="dataPartitionId",
+                    max_sample_count=123,
+                    minimum_sampling_interval_ms=123
+                )],
+                signals_to_fetch=[iotfleetwise.CfnCampaign.SignalFetchInformationProperty(
+                    actions=["actions"],
+                    fully_qualified_name="fullyQualifiedName",
+                    signal_fetch_config=iotfleetwise.CfnCampaign.SignalFetchConfigProperty(
+                        condition_based=iotfleetwise.CfnCampaign.ConditionBasedSignalFetchConfigProperty(
+                            condition_expression="conditionExpression",
+                            trigger_mode="triggerMode"
+                        ),
+                        time_based=iotfleetwise.CfnCampaign.TimeBasedSignalFetchConfigProperty(
+                            execution_frequency_ms=123
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    condition_language_version=123
+                )],
+                spooling_mode="spoolingMode",
+                start_time="startTime",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71)
+            check_type(argname="argument collection_scheme", value=collection_scheme, expected_type=type_hints["collection_scheme"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
+            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
+            check_type(argname="argument data_destination_configs", value=data_destination_configs, expected_type=type_hints["data_destination_configs"])
+            check_type(argname="argument data_extra_dimensions", value=data_extra_dimensions, expected_type=type_hints["data_extra_dimensions"])
+            check_type(argname="argument data_partitions", value=data_partitions, expected_type=type_hints["data_partitions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument diagnostics_mode", value=diagnostics_mode, expected_type=type_hints["diagnostics_mode"])
+            check_type(argname="argument expiry_time", value=expiry_time, expected_type=type_hints["expiry_time"])
+            check_type(argname="argument post_trigger_collection_duration", value=post_trigger_collection_duration, expected_type=type_hints["post_trigger_collection_duration"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument signals_to_collect", value=signals_to_collect, expected_type=type_hints["signals_to_collect"])
+            check_type(argname="argument signals_to_fetch", value=signals_to_fetch, expected_type=type_hints["signals_to_fetch"])
+            check_type(argname="argument spooling_mode", value=spooling_mode, expected_type=type_hints["spooling_mode"])
+            check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_scheme": collection_scheme,
+            "name": name,
+            "signal_catalog_arn": signal_catalog_arn,
+            "target_arn": target_arn,
+        }
+        if action is not None:
+            self._values["action"] = action
+        if compression is not None:
+            self._values["compression"] = compression
+        if data_destination_configs is not None:
+            self._values["data_destination_configs"] = data_destination_configs
+        if data_extra_dimensions is not None:
+            self._values["data_extra_dimensions"] = data_extra_dimensions
+        if data_partitions is not None:
+            self._values["data_partitions"] = data_partitions
+        if description is not None:
+            self._values["description"] = description
+        if diagnostics_mode is not None:
+            self._values["diagnostics_mode"] = diagnostics_mode
+        if expiry_time is not None:
+            self._values["expiry_time"] = expiry_time
+        if post_trigger_collection_duration is not None:
+            self._values["post_trigger_collection_duration"] = post_trigger_collection_duration
+        if priority is not None:
+            self._values["priority"] = priority
+        if signals_to_collect is not None:
+            self._values["signals_to_collect"] = signals_to_collect
+        if signals_to_fetch is not None:
+            self._values["signals_to_fetch"] = signals_to_fetch
+        if spooling_mode is not None:
+            self._values["spooling_mode"] = spooling_mode
+        if start_time is not None:
+            self._values["start_time"] = start_time
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def collection_scheme(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"]:
+        '''The data collection scheme associated with the campaign.
+
+        You can specify a scheme that collects data based on time or an event.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-collectionscheme
+        '''
+        result = self._values.get("collection_scheme")
+        assert result is not None, "Required property 'collection_scheme' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCampaign.CollectionSchemeProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of a campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signal_catalog_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the signal catalog associated with the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalcatalogarn
+        '''
+        result = self._values.get("signal_catalog_arn")
+        assert result is not None, "Required property 'signal_catalog_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a vehicle or fleet to which the campaign is deployed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-targetarn
+        '''
+        result = self._values.get("target_arn")
+        assert result is not None, "Required property 'target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action(self) -> typing.Optional[builtins.str]:
+        '''Specifies how to update a campaign. The action can be one of the following:.
+
+        - ``APPROVE`` - To approve delivering a data collection scheme to vehicles.
+        - ``SUSPEND`` - To suspend collecting signal data. The campaign is deleted from vehicles and all vehicles in the suspended campaign will stop sending data.
+        - ``RESUME`` - To reactivate the ``SUSPEND`` campaign. The campaign is redeployed to all vehicles and the vehicles will resume sending data.
+        - ``UPDATE`` - To update a campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-action
+        '''
+        result = self._values.get("action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def compression(self) -> typing.Optional[builtins.str]:
+        '''Whether to compress signals before transmitting data to AWS IoT FleetWise .
+
+        If you don't want to compress the signals, use ``OFF`` . If it's not specified, ``SNAPPY`` is used.
+
+        Default: ``SNAPPY``
+
+        :default: - "OFF"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-compression
+        '''
+        result = self._values.get("compression")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_destination_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]]:
+        '''The destination where the campaign sends data.
+
+        You can choose to send data to be stored in Amazon S3 or Amazon Timestream .
+
+        Amazon S3 optimizes the cost of data storage and provides additional mechanisms to use vehicle data, such as data lakes, centralized data storage, data processing pipelines, and analytics. AWS IoT FleetWise supports at-least-once file delivery to S3. Your vehicle data is stored on multiple AWS IoT FleetWise servers for redundancy and high availability.
+
+        You can use Amazon Timestream to access and analyze time series data, and Timestream to query vehicle data so that you can identify trends and patterns.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-datadestinationconfigs
+        '''
+        result = self._values.get("data_destination_configs")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataDestinationConfigProperty"]]]], result)
+
+    @builtins.property
+    def data_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of vehicle attributes to associate with a campaign.
+
+        Enrich the data with specified vehicle attributes. For example, add ``make`` and ``model`` to the campaign, and AWS IoT FleetWise will associate the data with those attributes as dimensions in Amazon Timestream . You can then query the data against ``make`` and ``model`` .
+
+        Default: An empty array
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-dataextradimensions
+        '''
+        result = self._values.get("data_extra_dimensions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def data_partitions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]]:
+        '''The data partitions associated with the signals collected from the vehicle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-datapartitions
+        '''
+        result = self._values.get("data_partitions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.DataPartitionProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def diagnostics_mode(self) -> typing.Optional[builtins.str]:
+        '''Option for a vehicle to send diagnostic trouble codes to AWS IoT FleetWise .
+
+        If you want to send diagnostic trouble codes, use ``SEND_ACTIVE_DTCS`` . If it's not specified, ``OFF`` is used.
+
+        Default: ``OFF``
+
+        :default: - "OFF"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-diagnosticsmode
+        '''
+        result = self._values.get("diagnostics_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expiry_time(self) -> typing.Optional[builtins.str]:
+        '''The time the campaign expires, in seconds since epoch (January 1, 1970 at midnight UTC time).
+
+        Vehicle data isn't collected after the campaign expires.
+
+        Default: 253402214400 (December 31, 9999, 00:00:00 UTC)
+
+        :default: - "253402214400"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-expirytime
+        '''
+        result = self._values.get("expiry_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def post_trigger_collection_duration(self) -> typing.Optional[jsii.Number]:
+        '''How long (in milliseconds) to collect raw data after a triggering event initiates the collection.
+
+        If it's not specified, ``0`` is used.
+
+        Default: ``0``
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-posttriggercollectionduration
+        '''
+        result = self._values.get("post_trigger_collection_duration")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''A number indicating the priority of one campaign over another campaign for a certain vehicle or fleet.
+
+        A campaign with the lowest value is deployed to vehicles before any other campaigns. If it's not specified, ``0`` is used.
+
+        Default: ``0``
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def signals_to_collect(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]]:
+        '''A list of information about signals to collect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalstocollect
+        '''
+        result = self._values.get("signals_to_collect")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalInformationProperty"]]]], result)
+
+    @builtins.property
+    def signals_to_fetch(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]]:
+        '''A list of information about signals to fetch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-signalstofetch
+        '''
+        result = self._values.get("signals_to_fetch")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCampaign.SignalFetchInformationProperty"]]]], result)
+
+    @builtins.property
+    def spooling_mode(self) -> typing.Optional[builtins.str]:
+        '''Whether to store collected data after a vehicle lost a connection with the cloud.
+
+        After a connection is re-established, the data is automatically forwarded to AWS IoT FleetWise . If you want to store collected data when a vehicle loses connection with the cloud, use ``TO_DISK`` . If it's not specified, ``OFF`` is used.
+
+        Default: ``OFF``
+
+        :default: - "OFF"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-spoolingmode
+        '''
+        result = self._values.get("spooling_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_time(self) -> typing.Optional[builtins.str]:
+        '''The time, in milliseconds, to deliver a campaign after it was approved. If it's not specified, ``0`` is used.
+
+        Default: ``0``
+
+        :default: - "0"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-starttime
+        '''
+        result = self._values.get("start_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata that can be used to manage the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-campaign.html#cfn-iotfleetwise-campaign-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCampaignProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDecoderManifestRef_479753bf, _ITaggable_36806126)
 class CfnDecoderManifest(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4469,6 +2783,7 @@ class CfnDecoderManifest(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -4549,19 +2864,20 @@ class CfnDecoderManifest(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         model_manifest_arn: builtins.str,
         name: builtins.str,
         default_for_unmapped_signals: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        network_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signal_decoders: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::DecoderManifest``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param model_manifest_arn: The Amazon Resource Name (ARN) of a vehicle model (model manifest) associated with the decoder manifest.
@@ -4590,8 +2906,34 @@ class CfnDecoderManifest(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDecoderManifest")
+    @builtins.classmethod
+    def arn_for_decoder_manifest(
+        cls,
+        resource: "_IDecoderManifestRef_479753bf",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70015e1b3ea9ebb01dadbe7d995a8467cb2ecc6fa1868933b5d3e1c25ee6d86c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDecoderManifest", [resource]))
+
+    @jsii.member(jsii_name="isCfnDecoderManifest")
+    @builtins.classmethod
+    def is_cfn_decoder_manifest(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDecoderManifest.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfbb7e114a77fe6528edc35ec9781cbfce93a3fdd6a8f9a57b52063ce2e48a84)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDecoderManifest", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4654,15 +2996,15 @@ class CfnDecoderManifest(
 
     @builtins.property
     @jsii.member(jsii_name="decoderManifestRef")
-    def decoder_manifest_ref(self) -> DecoderManifestReference:
+    def decoder_manifest_ref(self) -> "_DecoderManifestReference_7a284aa6":
         '''A reference to a DecoderManifest resource.'''
-        return typing.cast(DecoderManifestReference, jsii.get(self, "decoderManifestRef"))
+        return typing.cast("_DecoderManifestReference_7a284aa6", jsii.get(self, "decoderManifestRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="modelManifestArn")
@@ -4723,14 +3065,14 @@ class CfnDecoderManifest(
     @jsii.member(jsii_name="networkInterfaces")
     def network_interfaces(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
         '''A list of information about available network interfaces.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], jsii.get(self, "networkInterfaces"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], jsii.get(self, "networkInterfaces"))
 
     @network_interfaces.setter
     def network_interfaces(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4059f7868b58b43acd642cd2537b59a16c939681bb626ef560a6efbc8d7cda5)
@@ -4741,14 +3083,14 @@ class CfnDecoderManifest(
     @jsii.member(jsii_name="signalDecoders")
     def signal_decoders(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
         '''A list of information about signal decoders.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], jsii.get(self, "signalDecoders"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], jsii.get(self, "signalDecoders"))
 
     @signal_decoders.setter
     def signal_decoders(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.SignalDecodersItemsProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32a124503ae0a9be522e3691aef89b61eb023aea0d8b57342dcef4a708073af0)
@@ -4770,12 +3112,12 @@ class CfnDecoderManifest(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the decoder manifest.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7589d4cace83e702bf125b3cef9c6977200de03aea448dca5adc0790c282933)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4886,7 +3228,7 @@ class CfnDecoderManifest(
         def __init__(
             self,
             *,
-            can_interface: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
+            can_interface: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
             interface_id: builtins.str,
             type: builtins.str,
         ) -> None:
@@ -4935,14 +3277,14 @@ class CfnDecoderManifest(
         @builtins.property
         def can_interface(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanInterfaceProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"]:
             '''Information about a network interface specified by the Controller Area Network (CAN) protocol.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-cannetworkinterface.html#cfn-iotfleetwise-decodermanifest-cannetworkinterface-caninterface
             '''
             result = self._values.get("can_interface")
             assert result is not None, "Required property 'can_interface' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanInterfaceProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"], result)
 
         @builtins.property
         def interface_id(self) -> builtins.str:
@@ -4991,7 +3333,7 @@ class CfnDecoderManifest(
         def __init__(
             self,
             *,
-            can_signal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]],
+            can_signal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]],
             fully_qualified_name: builtins.str,
             interface_id: builtins.str,
             type: builtins.str,
@@ -5047,14 +3389,14 @@ class CfnDecoderManifest(
         @builtins.property
         def can_signal(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanSignalProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"]:
             '''Information about a single controller area network (CAN) signal and the messages it receives and transmits.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-cansignaldecoder.html#cfn-iotfleetwise-decodermanifest-cansignaldecoder-cansignal
             '''
             result = self._values.get("can_signal")
             assert result is not None, "Required property 'can_signal' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanSignalProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"], result)
 
         @builtins.property
         def fully_qualified_name(self) -> builtins.str:
@@ -5307,8 +3649,8 @@ class CfnDecoderManifest(
             *,
             interface_id: builtins.str,
             type: builtins.str,
-            can_interface: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            obd_interface: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            can_interface: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            obd_interface: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A list of information about available network interfaces.
 
@@ -5387,22 +3729,22 @@ class CfnDecoderManifest(
         @builtins.property
         def can_interface(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanInterfaceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-networkinterfacesitems.html#cfn-iotfleetwise-decodermanifest-networkinterfacesitems-caninterface
             '''
             result = self._values.get("can_interface")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanInterfaceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanInterfaceProperty"]], result)
 
         @builtins.property
         def obd_interface(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdInterfaceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-networkinterfacesitems.html#cfn-iotfleetwise-decodermanifest-networkinterfacesitems-obdinterface
             '''
             result = self._values.get("obd_interface")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdInterfaceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5585,7 +3927,7 @@ class CfnDecoderManifest(
             self,
             *,
             interface_id: builtins.str,
-            obd_interface: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
+            obd_interface: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdInterfaceProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''Information about a network interface specified by the On-board diagnostic (OBD) II protocol.
@@ -5643,14 +3985,14 @@ class CfnDecoderManifest(
         @builtins.property
         def obd_interface(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdInterfaceProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"]:
             '''Information about a network interface specified by the On-board diagnostic (OBD) II protocol.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-obdnetworkinterface.html#cfn-iotfleetwise-decodermanifest-obdnetworkinterface-obdinterface
             '''
             result = self._values.get("obd_interface")
             assert result is not None, "Required property 'obd_interface' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdInterfaceProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdInterfaceProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -5691,7 +4033,7 @@ class CfnDecoderManifest(
             *,
             fully_qualified_name: builtins.str,
             interface_id: builtins.str,
-            obd_signal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]],
+            obd_signal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''A list of information about signal decoders.
@@ -5767,14 +4109,14 @@ class CfnDecoderManifest(
         @builtins.property
         def obd_signal(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdSignalProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"]:
             '''Information about signal messages using the on-board diagnostics (OBD) II protocol in a vehicle.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-obdsignaldecoder.html#cfn-iotfleetwise-decodermanifest-obdsignaldecoder-obdsignal
             '''
             result = self._values.get("obd_signal")
             assert result is not None, "Required property 'obd_signal' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdSignalProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -5829,7 +4171,7 @@ class CfnDecoderManifest(
             start_byte: builtins.str,
             bit_mask_length: typing.Optional[builtins.str] = None,
             bit_right_shift: typing.Optional[builtins.str] = None,
-            is_signed: typing.Optional[typing.Union[builtins.str, builtins.bool, _IResolvable_da3f097b]] = None,
+            is_signed: typing.Optional[typing.Union[builtins.str, builtins.bool, "_IResolvable_da3f097b"]] = None,
             signal_value_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Information about signal messages using the on-board diagnostics (OBD) II protocol in a vehicle.
@@ -5995,7 +4337,7 @@ class CfnDecoderManifest(
         @builtins.property
         def is_signed(
             self,
-        ) -> typing.Optional[typing.Union[builtins.str, builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.str, builtins.bool, "_IResolvable_da3f097b"]]:
             '''Determines whether the message is signed ( ``true`` ) or not ( ``false`` ).
 
             If it's signed, the message can represent both positive and negative numbers. The ``isSigned`` parameter only applies to the ``INTEGER`` raw signal type, and it doesn't affect the ``FLOATING_POINT`` raw signal type. The default value is ``false`` .
@@ -6003,7 +4345,7 @@ class CfnDecoderManifest(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-obdsignal.html#cfn-iotfleetwise-decodermanifest-obdsignal-issigned
             '''
             result = self._values.get("is_signed")
-            return typing.cast(typing.Optional[typing.Union[builtins.str, builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.str, builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def signal_value_type(self) -> typing.Optional[builtins.str]:
@@ -6045,8 +4387,8 @@ class CfnDecoderManifest(
             fully_qualified_name: builtins.str,
             interface_id: builtins.str,
             type: builtins.str,
-            can_signal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            obd_signal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            can_signal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.CanSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            obd_signal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.ObdSignalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about a signal decoder.
 
@@ -6148,22 +4490,22 @@ class CfnDecoderManifest(
         @builtins.property
         def can_signal(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanSignalProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-signaldecodersitems.html#cfn-iotfleetwise-decodermanifest-signaldecodersitems-cansignal
             '''
             result = self._values.get("can_signal")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.CanSignalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.CanSignalProperty"]], result)
 
         @builtins.property
         def obd_signal(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdSignalProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-decodermanifest-signaldecodersitems.html#cfn-iotfleetwise-decodermanifest-signaldecodersitems-obdsignal
             '''
             result = self._values.get("obd_signal")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDecoderManifest.ObdSignalProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.ObdSignalProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6177,7 +4519,251 @@ class CfnDecoderManifest(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IFleetRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnDecoderManifestProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "model_manifest_arn": "modelManifestArn",
+        "name": "name",
+        "default_for_unmapped_signals": "defaultForUnmappedSignals",
+        "description": "description",
+        "network_interfaces": "networkInterfaces",
+        "signal_decoders": "signalDecoders",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnDecoderManifestProps:
+    def __init__(
+        self,
+        *,
+        model_manifest_arn: builtins.str,
+        name: builtins.str,
+        default_for_unmapped_signals: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        network_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.NetworkInterfacesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        signal_decoders: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDecoderManifest.SignalDecodersItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDecoderManifest``.
+
+        :param model_manifest_arn: The Amazon Resource Name (ARN) of a vehicle model (model manifest) associated with the decoder manifest.
+        :param name: The name of the decoder manifest.
+        :param default_for_unmapped_signals: Use default decoders for all unmapped signals in the model. You don't need to provide any detailed decoding information.
+        :param description: A brief description of the decoder manifest.
+        :param network_interfaces: A list of information about available network interfaces.
+        :param signal_decoders: A list of information about signal decoders.
+        :param status: The state of the decoder manifest. If the status is ``ACTIVE`` , the decoder manifest can't be edited. If the status is marked ``DRAFT`` , you can edit the decoder manifest. Default: - "DRAFT"
+        :param tags: Metadata that can be used to manage the decoder manifest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            cfn_decoder_manifest_props = iotfleetwise.CfnDecoderManifestProps(
+                model_manifest_arn="modelManifestArn",
+                name="name",
+            
+                # the properties below are optional
+                default_for_unmapped_signals="defaultForUnmappedSignals",
+                description="description",
+                network_interfaces=[iotfleetwise.CfnDecoderManifest.NetworkInterfacesItemsProperty(
+                    interface_id="interfaceId",
+                    type="type",
+            
+                    # the properties below are optional
+                    can_interface=iotfleetwise.CfnDecoderManifest.CanInterfaceProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        protocol_name="protocolName",
+                        protocol_version="protocolVersion"
+                    ),
+                    obd_interface=iotfleetwise.CfnDecoderManifest.ObdInterfaceProperty(
+                        name="name",
+                        request_message_id="requestMessageId",
+            
+                        # the properties below are optional
+                        dtc_request_interval_seconds="dtcRequestIntervalSeconds",
+                        has_transmission_ecu="hasTransmissionEcu",
+                        obd_standard="obdStandard",
+                        pid_request_interval_seconds="pidRequestIntervalSeconds",
+                        use_extended_ids="useExtendedIds"
+                    )
+                )],
+                signal_decoders=[iotfleetwise.CfnDecoderManifest.SignalDecodersItemsProperty(
+                    fully_qualified_name="fullyQualifiedName",
+                    interface_id="interfaceId",
+                    type="type",
+            
+                    # the properties below are optional
+                    can_signal=iotfleetwise.CfnDecoderManifest.CanSignalProperty(
+                        factor="factor",
+                        is_big_endian="isBigEndian",
+                        is_signed="isSigned",
+                        length="length",
+                        message_id="messageId",
+                        offset="offset",
+                        start_bit="startBit",
+            
+                        # the properties below are optional
+                        name="name",
+                        signal_value_type="signalValueType"
+                    ),
+                    obd_signal=iotfleetwise.CfnDecoderManifest.ObdSignalProperty(
+                        byte_length="byteLength",
+                        offset="offset",
+                        pid="pid",
+                        pid_response_length="pidResponseLength",
+                        scaling="scaling",
+                        service_mode="serviceMode",
+                        start_byte="startByte",
+            
+                        # the properties below are optional
+                        bit_mask_length="bitMaskLength",
+                        bit_right_shift="bitRightShift",
+                        is_signed="isSigned",
+                        signal_value_type="signalValueType"
+                    )
+                )],
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af4d89e2c)
+            check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument default_for_unmapped_signals", value=default_for_unmapped_signals, expected_type=type_hints["default_for_unmapped_signals"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument network_interfaces", value=network_interfaces, expected_type=type_hints["network_interfaces"])
+            check_type(argname="argument signal_decoders", value=signal_decoders, expected_type=type_hints["signal_decoders"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "model_manifest_arn": model_manifest_arn,
+            "name": name,
+        }
+        if default_for_unmapped_signals is not None:
+            self._values["default_for_unmapped_signals"] = default_for_unmapped_signals
+        if description is not None:
+            self._values["description"] = description
+        if network_interfaces is not None:
+            self._values["network_interfaces"] = network_interfaces
+        if signal_decoders is not None:
+            self._values["signal_decoders"] = signal_decoders
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def model_manifest_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a vehicle model (model manifest) associated with the decoder manifest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-modelmanifestarn
+        '''
+        result = self._values.get("model_manifest_arn")
+        assert result is not None, "Required property 'model_manifest_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the decoder manifest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_for_unmapped_signals(self) -> typing.Optional[builtins.str]:
+        '''Use default decoders for all unmapped signals in the model.
+
+        You don't need to provide any detailed decoding information.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-defaultforunmappedsignals
+        '''
+        result = self._values.get("default_for_unmapped_signals")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the decoder manifest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_interfaces(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]]:
+        '''A list of information about available network interfaces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-networkinterfaces
+        '''
+        result = self._values.get("network_interfaces")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.NetworkInterfacesItemsProperty"]]]], result)
+
+    @builtins.property
+    def signal_decoders(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]]:
+        '''A list of information about signal decoders.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-signaldecoders
+        '''
+        result = self._values.get("signal_decoders")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDecoderManifest.SignalDecodersItemsProperty"]]]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The state of the decoder manifest.
+
+        If the status is ``ACTIVE`` , the decoder manifest can't be edited. If the status is marked ``DRAFT`` , you can edit the decoder manifest.
+
+        :default: - "DRAFT"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata that can be used to manage the decoder manifest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-decodermanifest.html#cfn-iotfleetwise-decodermanifest-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDecoderManifestProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IFleetRef_204c4594, _ITaggable_36806126)
 class CfnFleet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6197,6 +4783,7 @@ class CfnFleet(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -6216,15 +4803,16 @@ class CfnFleet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id_: builtins.str,
         *,
         id: builtins.str,
         signal_catalog_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::Fleet``.
+
         :param scope: Scope in which this resource is defined.
         :param id_: Construct identifier for this resource (unique in its scope).
         :param id: The unique ID of the fleet.
@@ -6245,8 +4833,73 @@ class CfnFleet(
 
         jsii.create(self.__class__, self, [scope, id_, props])
 
+    @jsii.member(jsii_name="arnForFleet")
+    @builtins.classmethod
+    def arn_for_fleet(cls, resource: "_IFleetRef_204c4594") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37144edf60e3806842f78ed86053c7d81858f021606a38932ef6845e07a2d909)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFleet", [resource]))
+
+    @jsii.member(jsii_name="fromFleetArn")
+    @builtins.classmethod
+    def from_fleet_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IFleetRef_204c4594":
+        '''Creates a new IFleetRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d7fcef721ba4c089f7301c5aef8c2013b79b8c192a29a9b67a9c0276b6d819a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IFleetRef_204c4594", jsii.sinvoke(cls, "fromFleetArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromFleetId")
+    @builtins.classmethod
+    def from_fleet_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        fleet_id: builtins.str,
+    ) -> "_IFleetRef_204c4594":
+        '''Creates a new IFleetRef from a fleetId.
+
+        :param scope: -
+        :param id: -
+        :param fleet_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19c86fa181d292c4885e8803f1244f1e6377b8ff0a96227ec1c732e3f5334b5e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
+        return typing.cast("_IFleetRef_204c4594", jsii.sinvoke(cls, "fromFleetId", [scope, id, fleet_id]))
+
+    @jsii.member(jsii_name="isCfnFleet")
+    @builtins.classmethod
+    def is_cfn_fleet(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFleet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ffa9ce0725e9deb8e8a6a91ce8b72fd09e5dc3e75952c0b9e7665d5003a1b86a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFleet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6309,15 +4962,15 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="fleetRef")
-    def fleet_ref(self) -> FleetReference:
+    def fleet_ref(self) -> "_FleetReference_69cf4cd9":
         '''A reference to a Fleet resource.'''
-        return typing.cast(FleetReference, jsii.get(self, "fleetRef"))
+        return typing.cast("_FleetReference_69cf4cd9", jsii.get(self, "fleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -6360,19 +5013,132 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the fleet.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b778328780cd48e8666cfdebbdaa84f93e4dd8ae56fc24f3ac40fb8baa31791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IModelManifestRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnFleetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "id": "id",
+        "signal_catalog_arn": "signalCatalogArn",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnFleetProps:
+    def __init__(
+        self,
+        *,
+        id: builtins.str,
+        signal_catalog_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFleet``.
+
+        :param id: The unique ID of the fleet.
+        :param signal_catalog_arn: The ARN of the signal catalog associated with the fleet.
+        :param description: A brief description of the fleet.
+        :param tags: Metadata that can be used to manage the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            cfn_fleet_props = iotfleetwise.CfnFleetProps(
+                id="id",
+                signal_catalog_arn="signalCatalogArn",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0974c3d8)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "id": id,
+            "signal_catalog_arn": signal_catalog_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def id(self) -> builtins.str:
+        '''The unique ID of the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-id
+        '''
+        result = self._values.get("id")
+        assert result is not None, "Required property 'id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signal_catalog_arn(self) -> builtins.str:
+        '''The ARN of the signal catalog associated with the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-signalcatalogarn
+        '''
+        result = self._values.get("signal_catalog_arn")
+        assert result is not None, "Required property 'signal_catalog_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata that can be used to manage the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-fleet.html#cfn-iotfleetwise-fleet-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFleetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IModelManifestRef_8f6a3086, _ITaggable_36806126)
 class CfnModelManifest(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6388,6 +5154,7 @@ class CfnModelManifest(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -6409,7 +5176,7 @@ class CfnModelManifest(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
@@ -6417,9 +5184,10 @@ class CfnModelManifest(
         description: typing.Optional[builtins.str] = None,
         nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::ModelManifest``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the vehicle model.
@@ -6444,8 +5212,34 @@ class CfnModelManifest(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForModelManifest")
+    @builtins.classmethod
+    def arn_for_model_manifest(
+        cls,
+        resource: "_IModelManifestRef_8f6a3086",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5523f499ffc777818e6ce55c505d402f379c8c63b417377d35e586bc6843b5fc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForModelManifest", [resource]))
+
+    @jsii.member(jsii_name="isCfnModelManifest")
+    @builtins.classmethod
+    def is_cfn_model_manifest(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnModelManifest.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fca7491951ba6d52de10a54491f2bf5108cbdc7aa475ad971144147db4ff6b5d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnModelManifest", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6508,15 +5302,15 @@ class CfnModelManifest(
 
     @builtins.property
     @jsii.member(jsii_name="modelManifestRef")
-    def model_manifest_ref(self) -> ModelManifestReference:
+    def model_manifest_ref(self) -> "_ModelManifestReference_0770b7b5":
         '''A reference to a ModelManifest resource.'''
-        return typing.cast(ModelManifestReference, jsii.get(self, "modelManifestRef"))
+        return typing.cast("_ModelManifestReference_0770b7b5", jsii.get(self, "modelManifestRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6585,19 +5379,168 @@ class CfnModelManifest(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the vehicle model.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0971ec828be6bb2e46ba031c824132b8b86c7ad424636cd3dd01983d63fc1adc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ISignalCatalogRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnModelManifestProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "signal_catalog_arn": "signalCatalogArn",
+        "description": "description",
+        "nodes": "nodes",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnModelManifestProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        signal_catalog_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnModelManifest``.
+
+        :param name: The name of the vehicle model.
+        :param signal_catalog_arn: The Amazon Resource Name (ARN) of the signal catalog associated with the vehicle model.
+        :param description: A brief description of the vehicle model.
+        :param nodes: A list of nodes, which are a general abstraction of signals.
+        :param status: The state of the vehicle model. If the status is ``ACTIVE`` , the vehicle model can't be edited. If the status is ``DRAFT`` , you can edit the vehicle model. Default: - "DRAFT"
+        :param tags: Metadata that can be used to manage the vehicle model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            cfn_model_manifest_props = iotfleetwise.CfnModelManifestProps(
+                name="name",
+                signal_catalog_arn="signalCatalogArn",
+            
+                # the properties below are optional
+                description="description",
+                nodes=["nodes"],
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a92786260)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument nodes", value=nodes, expected_type=type_hints["nodes"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "signal_catalog_arn": signal_catalog_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if nodes is not None:
+            self._values["nodes"] = nodes
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the vehicle model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signal_catalog_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the signal catalog associated with the vehicle model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-signalcatalogarn
+        '''
+        result = self._values.get("signal_catalog_arn")
+        assert result is not None, "Required property 'signal_catalog_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the vehicle model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of nodes, which are a general abstraction of signals.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-nodes
+        '''
+        result = self._values.get("nodes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The state of the vehicle model.
+
+        If the status is ``ACTIVE`` , the vehicle model can't be edited. If the status is ``DRAFT`` , you can edit the vehicle model.
+
+        :default: - "DRAFT"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata that can be used to manage the vehicle model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-modelmanifest.html#cfn-iotfleetwise-modelmanifest-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnModelManifestProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISignalCatalogRef_16c8a20e, _ITaggable_36806126)
 class CfnSignalCatalog(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6613,6 +5556,7 @@ class CfnSignalCatalog(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -6680,16 +5624,17 @@ class CfnSignalCatalog(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        node_counts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nodes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::SignalCatalog``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: A brief description of the signal catalog.
@@ -6712,8 +5657,34 @@ class CfnSignalCatalog(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSignalCatalog")
+    @builtins.classmethod
+    def arn_for_signal_catalog(
+        cls,
+        resource: "_ISignalCatalogRef_16c8a20e",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75bc510396f9a3e66dbb9d8b50eba09d181c43c4cb892f2c72f2adb74a14883b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSignalCatalog", [resource]))
+
+    @jsii.member(jsii_name="isCfnSignalCatalog")
+    @builtins.classmethod
+    def is_cfn_signal_catalog(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSignalCatalog.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8b9b881b100540328cdf49c69ac498a0a23062caca138c194de964283d3cce3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSignalCatalog", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6771,48 +5742,48 @@ class CfnSignalCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalActuators")
-    def attr_node_counts_total_actuators(self) -> _IResolvable_da3f097b:
+    def attr_node_counts_total_actuators(self) -> "_IResolvable_da3f097b":
         '''The total number of nodes in a vehicle network that represent actuators.
 
         :cloudformationAttribute: NodeCounts.TotalActuators
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrNodeCountsTotalActuators"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalActuators"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalAttributes")
-    def attr_node_counts_total_attributes(self) -> _IResolvable_da3f097b:
+    def attr_node_counts_total_attributes(self) -> "_IResolvable_da3f097b":
         '''The total number of nodes in a vehicle network that represent attributes.
 
         :cloudformationAttribute: NodeCounts.TotalAttributes
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrNodeCountsTotalAttributes"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalAttributes"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalBranches")
-    def attr_node_counts_total_branches(self) -> _IResolvable_da3f097b:
+    def attr_node_counts_total_branches(self) -> "_IResolvable_da3f097b":
         '''The total number of nodes in a vehicle network that represent branches.
 
         :cloudformationAttribute: NodeCounts.TotalBranches
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrNodeCountsTotalBranches"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalBranches"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalNodes")
-    def attr_node_counts_total_nodes(self) -> _IResolvable_da3f097b:
+    def attr_node_counts_total_nodes(self) -> "_IResolvable_da3f097b":
         '''The total number of nodes in a vehicle network.
 
         :cloudformationAttribute: NodeCounts.TotalNodes
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrNodeCountsTotalNodes"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalNodes"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNodeCountsTotalSensors")
-    def attr_node_counts_total_sensors(self) -> _IResolvable_da3f097b:
+    def attr_node_counts_total_sensors(self) -> "_IResolvable_da3f097b":
         '''The total number of nodes in a vehicle network that represent sensors.
 
         :cloudformationAttribute: NodeCounts.TotalSensors
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrNodeCountsTotalSensors"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNodeCountsTotalSensors"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6821,15 +5792,15 @@ class CfnSignalCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="signalCatalogRef")
-    def signal_catalog_ref(self) -> SignalCatalogReference:
+    def signal_catalog_ref(self) -> "_SignalCatalogReference_58330223":
         '''A reference to a SignalCatalog resource.'''
-        return typing.cast(SignalCatalogReference, jsii.get(self, "signalCatalogRef"))
+        return typing.cast("_SignalCatalogReference_58330223", jsii.get(self, "signalCatalogRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -6861,14 +5832,14 @@ class CfnSignalCatalog(
     @jsii.member(jsii_name="nodeCounts")
     def node_counts(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeCountsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]]:
         '''Information about the number of nodes and node types in a vehicle network.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeCountsProperty"]], jsii.get(self, "nodeCounts"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]], jsii.get(self, "nodeCounts"))
 
     @node_counts.setter
     def node_counts(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeCountsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f8c5daca018b1e857e68a1c38c2d8c8ad48c3e10d76e27f1b88db531cc7800d)
@@ -6879,14 +5850,14 @@ class CfnSignalCatalog(
     @jsii.member(jsii_name="nodes")
     def nodes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]]:
         '''A list of information about nodes, which are a general abstraction of signals.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeProperty"]]]], jsii.get(self, "nodes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]], jsii.get(self, "nodes"))
 
     @nodes.setter
     def nodes(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.NodeProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__017bfa378203e76812e9cd13928c4c7498a8ed198568cb4d309d165dee01a3b3)
@@ -6895,12 +5866,12 @@ class CfnSignalCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the signal catalog.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da7834679bb5499c36909d22cd0d467aafe0c8ddde54a7ee3e9dda5f794b7bbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -7488,10 +6459,10 @@ class CfnSignalCatalog(
         def __init__(
             self,
             *,
-            actuator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.ActuatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            attribute: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            branch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.BranchProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sensor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalCatalog.SensorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            actuator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.ActuatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            attribute: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            branch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.BranchProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sensor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.SensorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A general abstraction of a signal.
 
@@ -7575,7 +6546,7 @@ class CfnSignalCatalog(
         @builtins.property
         def actuator(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.ActuatorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.ActuatorProperty"]]:
             '''Information about a node specified as an actuator.
 
             .. epigraph::
@@ -7585,12 +6556,12 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-actuator
             '''
             result = self._values.get("actuator")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.ActuatorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.ActuatorProperty"]], result)
 
         @builtins.property
         def attribute(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.AttributeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.AttributeProperty"]]:
             '''Information about a node specified as an attribute.
 
             .. epigraph::
@@ -7600,12 +6571,12 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-attribute
             '''
             result = self._values.get("attribute")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.AttributeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.AttributeProperty"]], result)
 
         @builtins.property
         def branch(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.BranchProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.BranchProperty"]]:
             '''Information about a node specified as a branch.
 
             .. epigraph::
@@ -7615,12 +6586,12 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-branch
             '''
             result = self._values.get("branch")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.BranchProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.BranchProperty"]], result)
 
         @builtins.property
         def sensor(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.SensorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.SensorProperty"]]:
             '''An input component that reports the environmental condition of a vehicle.
 
             .. epigraph::
@@ -7630,7 +6601,7 @@ class CfnSignalCatalog(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-signalcatalog-node.html#cfn-iotfleetwise-signalcatalog-node-sensor
             '''
             result = self._values.get("sensor")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSignalCatalog.SensorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.SensorProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7806,7 +6777,186 @@ class CfnSignalCatalog(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IStateTemplateRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnSignalCatalogProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "name": "name",
+        "node_counts": "nodeCounts",
+        "nodes": "nodes",
+        "tags": "tags",
+    },
+)
+class CfnSignalCatalogProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        node_counts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeCountsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nodes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalCatalog.NodeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSignalCatalog``.
+
+        :param description: A brief description of the signal catalog.
+        :param name: The name of the signal catalog.
+        :param node_counts: Information about the number of nodes and node types in a vehicle network.
+        :param nodes: A list of information about nodes, which are a general abstraction of signals.
+        :param tags: Metadata that can be used to manage the signal catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            cfn_signal_catalog_props = iotfleetwise.CfnSignalCatalogProps(
+                description="description",
+                name="name",
+                node_counts=iotfleetwise.CfnSignalCatalog.NodeCountsProperty(
+                    total_actuators=123,
+                    total_attributes=123,
+                    total_branches=123,
+                    total_nodes=123,
+                    total_sensors=123
+                ),
+                nodes=[iotfleetwise.CfnSignalCatalog.NodeProperty(
+                    actuator=iotfleetwise.CfnSignalCatalog.ActuatorProperty(
+                        data_type="dataType",
+                        fully_qualified_name="fullyQualifiedName",
+            
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        assigned_value="assignedValue",
+                        description="description",
+                        max=123,
+                        min=123,
+                        unit="unit"
+                    ),
+                    attribute=iotfleetwise.CfnSignalCatalog.AttributeProperty(
+                        data_type="dataType",
+                        fully_qualified_name="fullyQualifiedName",
+            
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        assigned_value="assignedValue",
+                        default_value="defaultValue",
+                        description="description",
+                        max=123,
+                        min=123,
+                        unit="unit"
+                    ),
+                    branch=iotfleetwise.CfnSignalCatalog.BranchProperty(
+                        fully_qualified_name="fullyQualifiedName",
+            
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    sensor=iotfleetwise.CfnSignalCatalog.SensorProperty(
+                        data_type="dataType",
+                        fully_qualified_name="fullyQualifiedName",
+            
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        description="description",
+                        max=123,
+                        min=123,
+                        unit="unit"
+                    )
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae2097ba03dd)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument node_counts", value=node_counts, expected_type=type_hints["node_counts"])
+            check_type(argname="argument nodes", value=nodes, expected_type=type_hints["nodes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if node_counts is not None:
+            self._values["node_counts"] = node_counts
+        if nodes is not None:
+            self._values["nodes"] = nodes
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the signal catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the signal catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def node_counts(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]]:
+        '''Information about the number of nodes and node types in a vehicle network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-nodecounts
+        '''
+        result = self._values.get("node_counts")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeCountsProperty"]], result)
+
+    @builtins.property
+    def nodes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]]:
+        '''A list of information about nodes, which are a general abstraction of signals.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-nodes
+        '''
+        result = self._values.get("nodes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalCatalog.NodeProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata that can be used to manage the signal catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-signalcatalog.html#cfn-iotfleetwise-signalcatalog-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSignalCatalogProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IStateTemplateRef_97119241, _ITaggableV2_4e6798f8)
 class CfnStateTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7827,6 +6977,7 @@ class CfnStateTemplate(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -7849,7 +7000,7 @@ class CfnStateTemplate(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
@@ -7858,9 +7009,10 @@ class CfnStateTemplate(
         data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::StateTemplate``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The unique alias of the state template.
@@ -7887,8 +7039,34 @@ class CfnStateTemplate(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForStateTemplate")
+    @builtins.classmethod
+    def arn_for_state_template(
+        cls,
+        resource: "_IStateTemplateRef_97119241",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0df7d59d58fa8dbbf6986d371147fd02f522314bc2814556113ca0d387da593d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStateTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnStateTemplate")
+    @builtins.classmethod
+    def is_cfn_state_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnStateTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a6bc74fb224ac1a82c94332c26ba77e513320bae8f885744778e5b0f698be27)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStateTemplate", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7955,9 +7133,9 @@ class CfnStateTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7966,9 +7144,9 @@ class CfnStateTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="stateTemplateRef")
-    def state_template_ref(self) -> StateTemplateReference:
+    def state_template_ref(self) -> "_StateTemplateReference_a51db8f9":
         '''A reference to a StateTemplate resource.'''
-        return typing.cast(StateTemplateReference, jsii.get(self, "stateTemplateRef"))
+        return typing.cast("_StateTemplateReference_a51db8f9", jsii.get(self, "stateTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -8056,19 +7234,184 @@ class CfnStateTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the state template.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ef4f2ac55a1c6e0b59ca37f1b5ee09c02856c397d9352b10181d8135c6c0f1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IVehicleRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnStateTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "signal_catalog_arn": "signalCatalogArn",
+        "state_template_properties": "stateTemplateProperties",
+        "data_extra_dimensions": "dataExtraDimensions",
+        "description": "description",
+        "metadata_extra_dimensions": "metadataExtraDimensions",
+        "tags": "tags",
+    },
+)
+class CfnStateTemplateProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        signal_catalog_arn: builtins.str,
+        state_template_properties: typing.Sequence[builtins.str],
+        data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStateTemplate``.
+
+        :param name: The unique alias of the state template.
+        :param signal_catalog_arn: The Amazon Resource Name (ARN) of the signal catalog associated with the state template.
+        :param state_template_properties: A list of signals from which data is collected. The state template properties contain the fully qualified names of the signals.
+        :param data_extra_dimensions: A list of vehicle attributes associated with the payload published on the state template's MQTT topic.
+        :param description: A brief description of the state template.
+        :param metadata_extra_dimensions: A list of vehicle attributes to associate with the user properties of the messages published on the state template's MQTT topic. For example, if you add ``Vehicle.Attributes.Make`` and ``Vehicle.Attributes.Model`` attributes, these attributes are included as user properties with the MQTT message.
+        :param tags: Metadata that can be used to manage the state template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            cfn_state_template_props = iotfleetwise.CfnStateTemplateProps(
+                name="name",
+                signal_catalog_arn="signalCatalogArn",
+                state_template_properties=["stateTemplateProperties"],
+            
+                # the properties below are optional
+                data_extra_dimensions=["dataExtraDimensions"],
+                description="description",
+                metadata_extra_dimensions=["metadataExtraDimensions"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0e684be4)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument signal_catalog_arn", value=signal_catalog_arn, expected_type=type_hints["signal_catalog_arn"])
+            check_type(argname="argument state_template_properties", value=state_template_properties, expected_type=type_hints["state_template_properties"])
+            check_type(argname="argument data_extra_dimensions", value=data_extra_dimensions, expected_type=type_hints["data_extra_dimensions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metadata_extra_dimensions", value=metadata_extra_dimensions, expected_type=type_hints["metadata_extra_dimensions"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "signal_catalog_arn": signal_catalog_arn,
+            "state_template_properties": state_template_properties,
+        }
+        if data_extra_dimensions is not None:
+            self._values["data_extra_dimensions"] = data_extra_dimensions
+        if description is not None:
+            self._values["description"] = description
+        if metadata_extra_dimensions is not None:
+            self._values["metadata_extra_dimensions"] = metadata_extra_dimensions
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique alias of the state template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signal_catalog_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the signal catalog associated with the state template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-signalcatalogarn
+        '''
+        result = self._values.get("signal_catalog_arn")
+        assert result is not None, "Required property 'signal_catalog_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def state_template_properties(self) -> typing.List[builtins.str]:
+        '''A list of signals from which data is collected.
+
+        The state template properties contain the fully qualified names of the signals.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-statetemplateproperties
+        '''
+        result = self._values.get("state_template_properties")
+        assert result is not None, "Required property 'state_template_properties' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def data_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of vehicle attributes associated with the payload published on the state template's MQTT topic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-dataextradimensions
+        '''
+        result = self._values.get("data_extra_dimensions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the state template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metadata_extra_dimensions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of vehicle attributes to associate with the user properties of the messages published on the state template's MQTT topic.
+
+        For example, if you add ``Vehicle.Attributes.Make`` and ``Vehicle.Attributes.Model`` attributes, these attributes are included as user properties with the MQTT message.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-metadataextradimensions
+        '''
+        result = self._values.get("metadata_extra_dimensions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata that can be used to manage the state template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-statetemplate.html#cfn-iotfleetwise-statetemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStateTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IVehicleRef_dea699b2, _ITaggable_36806126)
 class CfnVehicle(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8089,6 +7432,7 @@ class CfnVehicle(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleetwise as iotfleetwise
@@ -8126,18 +7470,19 @@ class CfnVehicle(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         decoder_manifest_arn: builtins.str,
         model_manifest_arn: builtins.str,
         name: builtins.str,
         association_behavior: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        state_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetWise::Vehicle``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param decoder_manifest_arn: The Amazon Resource Name (ARN) of a decoder manifest associated with the vehicle to create.
@@ -8164,8 +7509,31 @@ class CfnVehicle(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVehicle")
+    @builtins.classmethod
+    def arn_for_vehicle(cls, resource: "_IVehicleRef_dea699b2") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef0ac32134f164c3a90e00ff5f38a5384223115f37b4608aabc6d611adc97cb6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVehicle", [resource]))
+
+    @jsii.member(jsii_name="isCfnVehicle")
+    @builtins.classmethod
+    def is_cfn_vehicle(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVehicle.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__052ebc0e1e858fd5290315e85abd264a36720bc86fc30a74fa12c314adf7b5a5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVehicle", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8228,15 +7596,15 @@ class CfnVehicle(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vehicleRef")
-    def vehicle_ref(self) -> VehicleReference:
+    def vehicle_ref(self) -> "_VehicleReference_856ec27a":
         '''A reference to a Vehicle resource.'''
-        return typing.cast(VehicleReference, jsii.get(self, "vehicleRef"))
+        return typing.cast("_VehicleReference_856ec27a", jsii.get(self, "vehicleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="decoderManifestArn")
@@ -8294,14 +7662,14 @@ class CfnVehicle(
     @jsii.member(jsii_name="attributes")
     def attributes(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
         '''Static information about a vehicle in a key-value pair.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "attributes"))
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "attributes"))
 
     @attributes.setter
     def attributes(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58c16f565864833e1b877bedd4f136bed80dfb02ea2ee4627d0b77770775cf1c)
@@ -8312,14 +7680,14 @@ class CfnVehicle(
     @jsii.member(jsii_name="stateTemplates")
     def state_templates(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateAssociationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]]:
         '''Associate state templates to track the state of the vehicle.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateAssociationProperty"]]]], jsii.get(self, "stateTemplates"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]], jsii.get(self, "stateTemplates"))
 
     @state_templates.setter
     def state_templates(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateAssociationProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92c142edd55adbf21fcff6129d9010d853e2d127a9eab1465ddcc3ba243e83c9)
@@ -8328,12 +7696,12 @@ class CfnVehicle(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata which can be used to manage the vehicle.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__289b2e31ff1b98481910d4cc38b6e283cbc14d5b0abe0266ffe3aff2d0287c48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8348,7 +7716,7 @@ class CfnVehicle(
         def __init__(
             self,
             *,
-            state_template_update_rate: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVehicle.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+            state_template_update_rate: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.TimePeriodProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Vehicles associated with the state template will stream telemetry data during a specified time period.
 
@@ -8380,13 +7748,13 @@ class CfnVehicle(
         @builtins.property
         def state_template_update_rate(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnVehicle.TimePeriodProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnVehicle.TimePeriodProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-vehicle-periodicstatetemplateupdatestrategy.html#cfn-iotfleetwise-vehicle-periodicstatetemplateupdatestrategy-statetemplateupdaterate
             '''
             result = self._values.get("state_template_update_rate")
             assert result is not None, "Required property 'state_template_update_rate' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVehicle.TimePeriodProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVehicle.TimePeriodProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8412,7 +7780,7 @@ class CfnVehicle(
             self,
             *,
             identifier: builtins.str,
-            state_template_update_strategy: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVehicle.StateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+            state_template_update_strategy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.StateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The state template associated with a vehicle.
 
@@ -8470,13 +7838,13 @@ class CfnVehicle(
         @builtins.property
         def state_template_update_strategy(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateUpdateStrategyProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateUpdateStrategyProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-vehicle-statetemplateassociation.html#cfn-iotfleetwise-vehicle-statetemplateassociation-statetemplateupdatestrategy
             '''
             result = self._values.get("state_template_update_strategy")
             assert result is not None, "Required property 'state_template_update_strategy' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVehicle.StateTemplateUpdateStrategyProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateUpdateStrategyProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8499,7 +7867,7 @@ class CfnVehicle(
             self,
             *,
             on_change: typing.Any = None,
-            periodic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            periodic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The update strategy for the state template.
 
@@ -8553,12 +7921,12 @@ class CfnVehicle(
         @builtins.property
         def periodic(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotfleetwise-vehicle-statetemplateupdatestrategy.html#cfn-iotfleetwise-vehicle-statetemplateupdatestrategy-periodic
             '''
             result = self._values.get("periodic")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8638,8 +8006,191 @@ class CfnVehicle(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleetwise.CfnVehicleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "decoder_manifest_arn": "decoderManifestArn",
+        "model_manifest_arn": "modelManifestArn",
+        "name": "name",
+        "association_behavior": "associationBehavior",
+        "attributes": "attributes",
+        "state_templates": "stateTemplates",
+        "tags": "tags",
+    },
+)
+class CfnVehicleProps:
+    def __init__(
+        self,
+        *,
+        decoder_manifest_arn: builtins.str,
+        model_manifest_arn: builtins.str,
+        name: builtins.str,
+        association_behavior: typing.Optional[builtins.str] = None,
+        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        state_templates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVehicle.StateTemplateAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVehicle``.
+
+        :param decoder_manifest_arn: The Amazon Resource Name (ARN) of a decoder manifest associated with the vehicle to create.
+        :param model_manifest_arn: The Amazon Resource Name (ARN) of the vehicle model (model manifest) to create the vehicle from.
+        :param name: The unique ID of the vehicle.
+        :param association_behavior: An option to create a new AWS IoT thing when creating a vehicle, or to validate an existing thing as a vehicle.
+        :param attributes: Static information about a vehicle in a key-value pair. For example: ``"engine Type"`` : ``"v6"``
+        :param state_templates: Associate state templates to track the state of the vehicle. State templates determine which signal updates the vehicle sends to the cloud.
+        :param tags: Metadata which can be used to manage the vehicle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleetwise as iotfleetwise
+            
+            # on_change: Any
+            
+            cfn_vehicle_props = iotfleetwise.CfnVehicleProps(
+                decoder_manifest_arn="decoderManifestArn",
+                model_manifest_arn="modelManifestArn",
+                name="name",
+            
+                # the properties below are optional
+                association_behavior="associationBehavior",
+                attributes={
+                    "attributes_key": "attributes"
+                },
+                state_templates=[iotfleetwise.CfnVehicle.StateTemplateAssociationProperty(
+                    identifier="identifier",
+                    state_template_update_strategy=iotfleetwise.CfnVehicle.StateTemplateUpdateStrategyProperty(
+                        on_change=on_change,
+                        periodic=iotfleetwise.CfnVehicle.PeriodicStateTemplateUpdateStrategyProperty(
+                            state_template_update_rate=iotfleetwise.CfnVehicle.TimePeriodProperty(
+                                unit="unit",
+                                value=123
+                            )
+                        )
+                    )
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58b89a826)
+            check_type(argname="argument decoder_manifest_arn", value=decoder_manifest_arn, expected_type=type_hints["decoder_manifest_arn"])
+            check_type(argname="argument model_manifest_arn", value=model_manifest_arn, expected_type=type_hints["model_manifest_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument association_behavior", value=association_behavior, expected_type=type_hints["association_behavior"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument state_templates", value=state_templates, expected_type=type_hints["state_templates"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "decoder_manifest_arn": decoder_manifest_arn,
+            "model_manifest_arn": model_manifest_arn,
+            "name": name,
+        }
+        if association_behavior is not None:
+            self._values["association_behavior"] = association_behavior
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if state_templates is not None:
+            self._values["state_templates"] = state_templates
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def decoder_manifest_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a decoder manifest associated with the vehicle to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-decodermanifestarn
+        '''
+        result = self._values.get("decoder_manifest_arn")
+        assert result is not None, "Required property 'decoder_manifest_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_manifest_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the vehicle model (model manifest) to create the vehicle from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-modelmanifestarn
+        '''
+        result = self._values.get("model_manifest_arn")
+        assert result is not None, "Required property 'model_manifest_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique ID of the vehicle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def association_behavior(self) -> typing.Optional[builtins.str]:
+        '''An option to create a new AWS IoT thing when creating a vehicle, or to validate an existing thing as a vehicle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-associationbehavior
+        '''
+        result = self._values.get("association_behavior")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        '''Static information about a vehicle in a key-value pair.
+
+        For example: ``"engine Type"`` : ``"v6"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def state_templates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]]:
+        '''Associate state templates to track the state of the vehicle.
+
+        State templates determine which signal updates the vehicle sends to the cloud.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-statetemplates
+        '''
+        result = self._values.get("state_templates")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVehicle.StateTemplateAssociationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Metadata which can be used to manage the vehicle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleetwise-vehicle.html#cfn-iotfleetwise-vehicle-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVehicleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "CampaignReference",
     "CfnCampaign",
     "CfnCampaignProps",
     "CfnDecoderManifest",
@@ -8654,176 +8205,9 @@ __all__ = [
     "CfnStateTemplateProps",
     "CfnVehicle",
     "CfnVehicleProps",
-    "DecoderManifestReference",
-    "FleetReference",
-    "ICampaignRef",
-    "IDecoderManifestRef",
-    "IFleetRef",
-    "IModelManifestRef",
-    "ISignalCatalogRef",
-    "IStateTemplateRef",
-    "IVehicleRef",
-    "ModelManifestReference",
-    "SignalCatalogReference",
-    "StateTemplateReference",
-    "VehicleReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__4f065332f6f49751c8a780c89cd8237cdfc5cb2f472c990fdded2e33f8e3f450(
-    *,
-    campaign_arn: builtins.str,
-    campaign_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71(
-    *,
-    collection_scheme: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    signal_catalog_arn: builtins.str,
-    target_arn: builtins.str,
-    action: typing.Optional[builtins.str] = None,
-    compression: typing.Optional[builtins.str] = None,
-    data_destination_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    data_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataPartitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    diagnostics_mode: typing.Optional[builtins.str] = None,
-    expiry_time: typing.Optional[builtins.str] = None,
-    post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
-    priority: typing.Optional[jsii.Number] = None,
-    signals_to_collect: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    signals_to_fetch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalFetchInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    spooling_mode: typing.Optional[builtins.str] = None,
-    start_time: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af4d89e2c(
-    *,
-    model_manifest_arn: builtins.str,
-    name: builtins.str,
-    default_for_unmapped_signals: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.NetworkInterfacesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0974c3d8(
-    *,
-    id: builtins.str,
-    signal_catalog_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a92786260(
-    *,
-    name: builtins.str,
-    signal_catalog_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae2097ba03dd(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0e684be4(
-    *,
-    name: builtins.str,
-    signal_catalog_arn: builtins.str,
-    state_template_properties: typing.Sequence[builtins.str],
-    data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58b89a826(
-    *,
-    decoder_manifest_arn: builtins.str,
-    model_manifest_arn: builtins.str,
-    name: builtins.str,
-    association_behavior: typing.Optional[builtins.str] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__46354aaef1cb3bf371e3aae33d07b4372f956711f075c7f9317f013544431635(
-    *,
-    decoder_manifest_arn: builtins.str,
-    decoder_manifest_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9693db3e8bbd228a09d1c9fd9575e324cce41d0bee495e04f8123f69a147c158(
-    *,
-    fleet_arn: builtins.str,
-    fleet_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8fbd63d70aeed9fda230cde79eba6e81dafb8fd4db29677899d6fbc008aabce1(
-    *,
-    model_manifest_arn: builtins.str,
-    model_manifest_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b6c111e9877705ec1381e4f558f59a596a866036cebfa37ce8fdca366ef8ed24(
-    *,
-    signal_catalog_arn: builtins.str,
-    signal_catalog_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4a8020bbe112c20bf6dcf19d5c389ae70d7516a1c8d45a6371bda48d7d78d33e(
-    *,
-    state_template_arn: builtins.str,
-    state_template_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2101419df51d866bb9bba6de9fb1cab7f3821a8565a6a3b36f1e392060af723(
-    *,
-    vehicle_arn: builtins.str,
-    vehicle_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__f7abc45d2046b48ec3bc5807ec2826a784930a5009b41b194dd6e4bed2413f8d(
     scope: _constructs_77d1e7e8.Construct,
@@ -8848,6 +8232,34 @@ def _typecheckingstub__f7abc45d2046b48ec3bc5807ec2826a784930a5009b41b194dd6e4bed
     spooling_mode: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d61ab81a2d8f001cd2baeb04e6f0f8c94ddb4121bd3eea71d4d230d9960f8b2(
+    resource: _ICampaignRef_030980d3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c51ab85405ba663d7d52a30e3c3b34e16806ad52f1c92f929d00fbb7ff2dfcf8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae2c2e2ec2c5152f8ac3315300b27b15147bc728c8312a967a15c3fb997d60ec(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    campaign_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b42aa9a0e2b886846904d45eb71ed6ebe3540cefb5483ddf62d418485db90386(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9123,6 +8535,31 @@ def _typecheckingstub__5788ae222c7e21aaed8bd9dbed72cfbc09a7c423d494e8aa4ae9d7a22
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__54c45792d3f0c102d3358acf678401b9616a7fee4b70882083776c5f9635cf71(
+    *,
+    collection_scheme: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CollectionSchemeProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    signal_catalog_arn: builtins.str,
+    target_arn: builtins.str,
+    action: typing.Optional[builtins.str] = None,
+    compression: typing.Optional[builtins.str] = None,
+    data_destination_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataDestinationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    data_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.DataPartitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    diagnostics_mode: typing.Optional[builtins.str] = None,
+    expiry_time: typing.Optional[builtins.str] = None,
+    post_trigger_collection_duration: typing.Optional[jsii.Number] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    signals_to_collect: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signals_to_fetch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.SignalFetchInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    spooling_mode: typing.Optional[builtins.str] = None,
+    start_time: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bd0d8efce6baca0fa606fb0cf95bebcdeda196fcde2fb7e18542334332eb8ba4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9135,6 +8572,18 @@ def _typecheckingstub__bd0d8efce6baca0fa606fb0cf95bebcdeda196fcde2fb7e1854233433
     signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70015e1b3ea9ebb01dadbe7d995a8467cb2ecc6fa1868933b5d3e1c25ee6d86c(
+    resource: _IDecoderManifestRef_479753bf,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfbb7e114a77fe6528edc35ec9781cbfce93a3fdd6a8f9a57b52063ce2e48a84(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9312,6 +8761,20 @@ def _typecheckingstub__5832121c7c16050419993147c157e7f5739fca1dc1afba25d1f52da2d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1be5cfb3ca0441a2fdb0856303c08c4449592f7472588f5c0659c42af4d89e2c(
+    *,
+    model_manifest_arn: builtins.str,
+    name: builtins.str,
+    default_for_unmapped_signals: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    network_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.NetworkInterfacesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    signal_decoders: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDecoderManifest.SignalDecodersItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__be2399a288ba3f0fe4eba6c31d42082d31eac165febede18736a759d92f2120d(
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
@@ -9320,6 +8783,34 @@ def _typecheckingstub__be2399a288ba3f0fe4eba6c31d42082d31eac165febede18736a759d9
     signal_catalog_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37144edf60e3806842f78ed86053c7d81858f021606a38932ef6845e07a2d909(
+    resource: _IFleetRef_204c4594,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d7fcef721ba4c089f7301c5aef8c2013b79b8c192a29a9b67a9c0276b6d819a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19c86fa181d292c4885e8803f1244f1e6377b8ff0a96227ec1c732e3f5334b5e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    fleet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffa9ce0725e9deb8e8a6a91ce8b72fd09e5dc3e75952c0b9e7665d5003a1b86a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9360,6 +8851,16 @@ def _typecheckingstub__5b778328780cd48e8666cfdebbdaa84f93e4dd8ae56fc24f3ac40fb8b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__06c4343c5d692e914e7c2c900c5e4f0c5bed9b41e2c90ff1efc672ba0974c3d8(
+    *,
+    id: builtins.str,
+    signal_catalog_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f0e03fe14f53de97f2e7071c7f10132492e794782f840695921dc42cd286a81(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9370,6 +8871,18 @@ def _typecheckingstub__2f0e03fe14f53de97f2e7071c7f10132492e794782f840695921dc42c
     nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5523f499ffc777818e6ce55c505d402f379c8c63b417377d35e586bc6843b5fc(
+    resource: _IModelManifestRef_8f6a3086,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fca7491951ba6d52de10a54491f2bf5108cbdc7aa475ad971144147db4ff6b5d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9422,6 +8935,18 @@ def _typecheckingstub__0971ec828be6bb2e46ba031c824132b8b86c7ad424636cd3dd01983d6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1235282929965217b607172340e97ee502a13c24469f00158a042c2a92786260(
+    *,
+    name: builtins.str,
+    signal_catalog_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__00a926b4b26fd9efc933b63c5d4e497e8bfeceb8f4fb16790d18152e0fd2e282(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9431,6 +8956,18 @@ def _typecheckingstub__00a926b4b26fd9efc933b63c5d4e497e8bfeceb8f4fb16790d18152e0
     node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75bc510396f9a3e66dbb9d8b50eba09d181c43c4cb892f2c72f2adb74a14883b(
+    resource: _ISignalCatalogRef_16c8a20e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8b9b881b100540328cdf49c69ac498a0a23062caca138c194de964283d3cce3(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9548,6 +9085,17 @@ def _typecheckingstub__94596961b895ad256763fda2e339ce98264b2f53e8048d34957d691a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9bd41091fa8f71325a3bfb8a9da99b2637a4ed068a31b5c7427bae2097ba03dd(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    node_counts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeCountsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nodes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSignalCatalog.NodeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__abb7c39bd72174c6927a0144336547ba8eb6d6e1a1e3b03c36137d528cc0517e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9559,6 +9107,18 @@ def _typecheckingstub__abb7c39bd72174c6927a0144336547ba8eb6d6e1a1e3b03c36137d528
     description: typing.Optional[builtins.str] = None,
     metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0df7d59d58fa8dbbf6986d371147fd02f522314bc2814556113ca0d387da593d(
+    resource: _IStateTemplateRef_97119241,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a6bc74fb224ac1a82c94332c26ba77e513320bae8f885744778e5b0f698be27(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9617,6 +9177,19 @@ def _typecheckingstub__5ef4f2ac55a1c6e0b59ca37f1b5ee09c02856c397d9352b10181d8135
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d460b80d8ef556736d4731940c4f3633bb3bc5319ff699845840b25f0e684be4(
+    *,
+    name: builtins.str,
+    signal_catalog_arn: builtins.str,
+    state_template_properties: typing.Sequence[builtins.str],
+    data_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    metadata_extra_dimensions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c7269c48709f71a558e1053c22bd1ef391024711944714eff09133981d39ff54(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9628,6 +9201,18 @@ def _typecheckingstub__c7269c48709f71a558e1053c22bd1ef391024711944714eff09133981
     attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef0ac32134f164c3a90e00ff5f38a5384223115f37b4608aabc6d611adc97cb6(
+    resource: _IVehicleRef_dea699b2,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__052ebc0e1e858fd5290315e85abd264a36720bc86fc30a74fa12c314adf7b5a5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9713,6 +9298,19 @@ def _typecheckingstub__9b611088881b0facef1ec2b4be3ae8a9434e0cbd3be7d744ebbf90a96
     *,
     unit: builtins.str,
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24066091b85e61810110bf13ed6c1606f4b16a2637a0ea85ffb516d58b89a826(
+    *,
+    decoder_manifest_arn: builtins.str,
+    model_manifest_arn: builtins.str,
+    name: builtins.str,
+    association_behavior: typing.Optional[builtins.str] = None,
+    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    state_templates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVehicle.StateTemplateAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

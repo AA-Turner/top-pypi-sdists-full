@@ -3,7 +3,7 @@ Type annotations for mwaa service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mwaa/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -49,12 +50,6 @@ from .type_defs import (
     UpdateEnvironmentOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -65,13 +60,13 @@ __all__ = ("MWAAClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    RestApiClientException: Type[BotocoreClientError]
-    RestApiServerException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    RestApiClientException: type[BotocoreClientError]
+    RestApiServerException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class MWAAClient(BaseClient):
@@ -140,7 +135,7 @@ class MWAAClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mwaa/client/#create_web_login_token)
         """
 
-    def delete_environment(self, **kwargs: Unpack[DeleteEnvironmentInputTypeDef]) -> Dict[str, Any]:
+    def delete_environment(self, **kwargs: Unpack[DeleteEnvironmentInputTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Managed Workflows for Apache Airflow (Amazon MWAA)
         environment.
@@ -190,7 +185,7 @@ class MWAAClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mwaa/client/#list_tags_for_resource)
         """
 
-    def publish_metrics(self, **kwargs: Unpack[PublishMetricsInputTypeDef]) -> Dict[str, Any]:
+    def publish_metrics(self, **kwargs: Unpack[PublishMetricsInputTypeDef]) -> dict[str, Any]:
         """
         <b>Internal only</b>.
 
@@ -198,7 +193,7 @@ class MWAAClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mwaa/client/#publish_metrics)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Associates key-value tag pairs to your Amazon Managed Workflows for Apache
         Airflow (MWAA) environment.
@@ -207,7 +202,7 @@ class MWAAClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mwaa/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes key-value tag pairs associated to your Amazon Managed Workflows for
         Apache Airflow (MWAA) environment.

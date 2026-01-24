@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """LCOV reporting for coverage.py."""
 
@@ -8,13 +8,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import sys
-from collections.abc import Iterable
 from typing import IO, TYPE_CHECKING
 
 from coverage.plugin import FileReporter
 from coverage.report_core import get_analysis_to_report
 from coverage.results import Analysis, AnalysisNarrower, Numbers
-from coverage.types import TMorf
+from coverage.types import TMorfs
 
 if TYPE_CHECKING:
     from coverage import Coverage
@@ -162,7 +161,7 @@ class LcovReporter:
         self.config = coverage.config
         self.total = Numbers(self.coverage.config.precision)
 
-    def report(self, morfs: Iterable[TMorf] | None, outfile: IO[str]) -> float:
+    def report(self, morfs: TMorfs, outfile: IO[str]) -> float:
         """Renders the full lcov report.
 
         `morfs` is a list of modules or filenames

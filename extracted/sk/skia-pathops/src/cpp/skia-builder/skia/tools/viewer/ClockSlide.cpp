@@ -6,10 +6,14 @@
  */
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkRRect.h"
-#include "include/core/SkTime.h"
+#include "include/private/base/SkAssert.h"
 #include "src/base/SkRandom.h"
 #include "tools/viewer/Slide.h"
+
+#include <chrono>
+#include <ctime>
 
 // Implementation in C++ of Mozilla Canvas2D benchmark Canvas Clock Test
 // See https://code.google.com/p/skia/issues/detail?id=1626
@@ -50,9 +54,7 @@ public:
         for (int i=0;i<12;i++){
             canvas->rotate(180.f/6.f);
 #ifdef USE_PATH
-            path.reset();
-            path.moveTo(200,0);
-            path.lineTo(240,0);
+            path = SkPath::Line({200,0}, {240,0});
             canvas->drawPath(path, paintStroke);
 #else
             canvas->drawRRect(rrect, paintFill);
@@ -78,9 +80,7 @@ public:
                 continue;
             }
 #ifdef USE_PATH
-            path.reset();
-            path.moveTo(234,0);
-            path.lineTo(240,0);
+            path = SkPath::Line({234,0}, {240,0});
             canvas->drawPath(path, paintStroke);
 #else
             canvas->drawRRect(rrect, paintFill);
@@ -89,20 +89,19 @@ public:
         }
         canvas->restore();
 
-        SkTime::DateTime time;
-        SkTime::GetDateTime(&time);
-        time.fHour = time.fHour >= 12 ? time.fHour-12 : time.fHour;
+        const auto  time  = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        const auto* ltime = std::localtime(&time);  // not thread safe, but should be ok for slides
+
         paintFill.setColor(SK_ColorBLACK);
 
         // Write hours
         canvas->save();
-        canvas->rotate(time.fHour*(180.f/6.f) + time.fMinute*(180.f/360.f)
-                       + time.fSecond*(180.f/21600.f) );
+        canvas->rotate(ltime->tm_hour * (180.f / 6) +
+                       ltime->tm_min  * (180.f / 360) +
+                       ltime->tm_sec  * (180.f / 21600));
 #ifdef USE_PATH
         paintStroke.setStrokeWidth(14);
-        path.reset();
-        path.moveTo(-20,0);
-        path.lineTo(80,0);
+        path = SkPath::Line({-20,0}, {80,0});
         canvas->drawPath(path, paintStroke);
 #else
         rect = SkRect::MakeLTRB(-20-7, -7, 80+7, 7);
@@ -117,13 +116,11 @@ public:
 
         // Write minutes
         canvas->save();
-        canvas->rotate(time.fMinute*(180.f/30.f)
-                       + time.fSecond*(180.f/1800.f) );
+        canvas->rotate(ltime->tm_min * (180.f / 30) +
+                       ltime->tm_sec * (180.f / 1800));
 #ifdef USE_PATH
         paintStroke.setStrokeWidth(10);
-        path.reset();
-        path.moveTo(-56,0);
-        path.lineTo(224,0);
+        path = SkPath::Line({-56,0}, {224,0});
         canvas->drawPath(path, paintStroke);
 #else
         rect = SkRect::MakeLTRB(-56-5, -5, 224+5, 5);
@@ -138,14 +135,12 @@ public:
 
         // Write seconds
         canvas->save();
-        canvas->rotate(time.fSecond*(180.f/30.f));
+        canvas->rotate(ltime->tm_sec * (180.f / 30));
         paintFill.setColor(0xffd40000);
         paintStroke.setColor(0xffd40000);
         paintStroke.setStrokeWidth(6);
 #ifdef USE_PATH
-        path.reset();
-        path.moveTo(-60,0);
-        path.lineTo(166,0);
+        path = SkPath::Line({-60,0}, {166,0});
         canvas->drawPath(path, paintStroke);
 #else
         rect = SkRect::MakeLTRB(-60-3, -3, 166+3, 3);
@@ -158,20 +153,22 @@ public:
 #endif
         rect = SkRect::MakeLTRB(-20, -20, 20, 20);
 #ifdef USE_PATH
-        path.reset();
-        path.arcTo(rect, 0, 0, false);
-        path.addOval(rect, SkPathDirection::kCCW);
-        path.arcTo(rect, 360, 0, true);
+        path = SkPathBuilder()
+               .arcTo(rect, 0, 0, false)
+               .addOval(rect, SkPathDirection::kCCW)
+               .arcTo(rect, 360, 0, true)
+               .detach();
         canvas->drawPath(path, paintFill);
 #else
         canvas->drawOval(rect, paintFill);
 #endif
         rect = SkRect::MakeLTRB(-20+190, -20, 20+190, 20);
 #ifdef USE_PATH
-        path.reset();
-        path.arcTo(rect, 0, 0, false);
-        path.addOval(rect, SkPathDirection::kCCW);
-        path.arcTo(rect, 360, 0, true);
+        path = SkPathBuilder()
+               .arcTo(rect, 0, 0, false)
+               .addOval(rect, SkPathDirection::kCCW)
+               .arcTo(rect, 360, 0, true)
+               .detach();
         canvas->drawPath(path, paintStroke);
 #else
         canvas->drawOval(rect, paintStroke);
@@ -179,9 +176,11 @@ public:
         paintFill.setColor(0xff505050);
 #ifdef USE_PATH
         rect = SkRect::MakeLTRB(-6, -6, 6, 6);
-        path.arcTo(rect, 0, 0, false);
-        path.addOval(rect, SkPathDirection::kCCW);
-        path.arcTo(rect, 360, 0, true);
+        path = SkPathBuilder(path)
+                .arcTo(rect, 0, 0, false)
+                .addOval(rect, SkPathDirection::kCCW)
+                .arcTo(rect, 360, 0, true)
+                .detach();
         canvas->drawPath(path, paintFill);
 #else
         canvas->drawOval(rect, paintFill);
@@ -194,10 +193,11 @@ public:
         paintStroke.setColor(0xff325FA2);
         rect = SkRect::MakeLTRB(-284, -284, 284, 284);
 #ifdef USE_PATH
-        path.reset();
-        path.arcTo(rect, 0, 0, false);
-        path.addOval(rect, SkPathDirection::kCCW);
-        path.arcTo(rect, 360, 0, true);
+        path = SkPathBuilder()
+               .arcTo(rect, 0, 0, false)
+               .addOval(rect, SkPathDirection::kCCW)
+               .arcTo(rect, 360, 0, true)
+               .detach();
         canvas->drawPath(path, paintStroke);
 #else
         canvas->drawOval(rect, paintStroke);

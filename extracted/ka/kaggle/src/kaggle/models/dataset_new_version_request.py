@@ -33,27 +33,37 @@ class DatasetNewVersionRequest(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
+
     project_types = {
-        'version_notes': 'str',
-        'subtitle': 'str',
-        'description': 'str',
-        'files': 'list[UploadFile]',
-        'convert_to_csv': 'bool',
-        'category_ids': 'list[str]',
-        'delete_old_versions': 'bool'
+        "version_notes": "str",
+        "subtitle": "str",
+        "description": "str",
+        "files": "list[UploadFile]",
+        "convert_to_csv": "bool",
+        "category_ids": "list[str]",
+        "delete_old_versions": "bool",
     }
 
     attribute_map = {
-        'version_notes': 'versionNotes',
-        'subtitle': 'subtitle',
-        'description': 'description',
-        'files': 'files',
-        'convert_to_csv': 'convertToCsv',
-        'category_ids': 'categoryIds',
-        'delete_old_versions': 'deleteOldVersions'
+        "version_notes": "versionNotes",
+        "subtitle": "subtitle",
+        "description": "description",
+        "files": "files",
+        "convert_to_csv": "convertToCsv",
+        "category_ids": "categoryIds",
+        "delete_old_versions": "deleteOldVersions",
     }
 
-    def __init__(self, version_notes=None, subtitle=None, description=None, files=None, convert_to_csv=True, category_ids=None, delete_old_versions=False):  # noqa: E501
+    def __init__(
+        self,
+        version_notes=None,
+        subtitle=None,
+        description=None,
+        files=None,
+        convert_to_csv=True,
+        category_ids=None,
+        delete_old_versions=False,
+    ):  # noqa: E501
 
         self._version_notes = None
         self._subtitle = None
@@ -274,18 +284,16 @@ class DatasetNewVersionRequest(object):
         for attr, _ in six.iteritems(self.project_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value))
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (item[0], item[1].to_dict()) if hasattr(item[1], "to_dict") else item,
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
@@ -309,4 +317,3 @@ class DatasetNewVersionRequest(object):
     def __ne__(self, other):
         """Returns true if both objects are not equal."""
         return not self == other
-

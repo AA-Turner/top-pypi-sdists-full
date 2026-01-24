@@ -1,18 +1,18 @@
 Metadata-Version: 2.4
 Name: tavern
-Version: 2.17.0
+Version: 3.1.0
 Summary: Simple testing of RESTful APIs
 Keywords: testing,pytest
 Author: Michael Boulton
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Framework :: Pytest
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Testing
 Classifier: License :: OSI Approved :: MIT License
@@ -20,70 +20,49 @@ License-File: LICENSE
 Requires-Dist: PyYAML>=6.0.1,<7
 Requires-Dist: jmespath>=1,<2
 Requires-Dist: jsonschema>=4,<5
-Requires-Dist: paho-mqtt>=1.3.1,<=1.6.1
 Requires-Dist: pyjwt>=2.5.0,<3
 Requires-Dist: pykwalify>=1.8.0,<2
-Requires-Dist: pytest>=7,<7.3
+Requires-Dist: pytest>=8,<10
 Requires-Dist: python-box>=6,<7
 Requires-Dist: requests>=2.22.0,<3
 Requires-Dist: simpleeval>=1.0.3
 Requires-Dist: stevedore>=4,<5
-Requires-Dist: Faker ; extra == "dev"
-Requires-Dist: allure-pytest ; extra == "dev"
-Requires-Dist: colorlog ; extra == "dev"
-Requires-Dist: flask>=3,<4 ; extra == "dev"
-Requires-Dist: fluent-logger ; extra == "dev"
-Requires-Dist: itsdangerous ; extra == "dev"
-Requires-Dist: coverage[toml] ; extra == "dev"
-Requires-Dist: flit >=3.2,<4 ; extra == "dev"
-Requires-Dist: wheel ; extra == "dev"
-Requires-Dist: pre-commit ; extra == "dev"
-Requires-Dist: pytest-cov ; extra == "dev"
-Requires-Dist: pytest-xdist ; extra == "dev"
-Requires-Dist: py ; extra == "dev"
-Requires-Dist: tox>=4,<5 ; extra == "dev"
-Requires-Dist: ruff~=0.9.10 ; extra == "dev"
-Requires-Dist: uv ; extra == "dev"
-Requires-Dist: types-PyYAML ; extra == "dev"
-Requires-Dist: types-protobuf>=4,<5 ; extra == "dev"
-Requires-Dist: types-requests ; extra == "dev"
-Requires-Dist: types-jsonschema ; extra == "dev"
-Requires-Dist: types-paho-mqtt ; extra == "dev"
-Requires-Dist: types-jmespath ; extra == "dev"
-Requires-Dist: sphinx>=7,<8 ; extra == "dev"
-Requires-Dist: sphinx_rtd_theme ; extra == "dev"
-Requires-Dist: recommonmark ; extra == "dev"
-Requires-Dist: commonmark ; extra == "dev"
-Requires-Dist: docutils ; extra == "dev"
-Requires-Dist: pygments ; extra == "dev"
-Requires-Dist: sphinx-markdown-tables ; extra == "dev"
-Requires-Dist: grpc-interceptor ; extra == "dev"
-Requires-Dist: exceptiongroup ; extra == "dev"
-Requires-Dist: tomli ; extra == "dev"
-Requires-Dist: tbump>=6.10.0 ; extra == "dev"
+Requires-Dist: aiohttp ; extra == "graphql"
+Requires-Dist: websockets ; extra == "graphql"
+Requires-Dist: gql>=4.0.0 ; extra == "graphql"
 Requires-Dist: grpcio ; extra == "grpc"
 Requires-Dist: grpcio-reflection ; extra == "grpc"
 Requires-Dist: grpcio-status ; extra == "grpc"
 Requires-Dist: google-api-python-client ; extra == "grpc"
-Requires-Dist: protobuf>=4,<5 ; extra == "grpc"
+Requires-Dist: protobuf>=5,<6 ; extra == "grpc"
 Requires-Dist: proto-plus ; extra == "grpc"
+Requires-Dist: paho-mqtt>=1.3.1,<=1.6.1 ; extra == "mqtt"
 Project-URL: Documentation, https://tavern.readthedocs.io/en/latest/
 Project-URL: Home, https://taverntesting.github.io/
 Project-URL: Source, https://github.com/taverntesting/tavern
-Provides-Extra: dev
+Provides-Extra: graphql
 Provides-Extra: grpc
+Provides-Extra: mqtt
 
 [![pypi](https://img.shields.io/pypi/v/tavern.svg)](https://pypi.org/project/tavern/)
 [![docs](https://readthedocs.org/projects/pip/badge/?version=latest&style=flat)](https://tavern.readthedocs.io/en/latest/)
 ![workflow](https://github.com/taverntesting/tavern/actions/workflows/main.yml/badge.svg?branch=master)
 
+## 3.0 Breaking changes
+
+- Python 3.11 is now the minimum required version - upgrade your Python installation accordingly
+- If using gRPC support, Tavern now requires v5 of the protobuf library.
+- Tavern now requires pytest 8
+- MQTT support is now an optional extra and requires installation like `pip install tavern[mqtt]`
+- If you rely on earlier behaviour of `recurse_access_key` it might have changed
+
 # Easier API testing
 
-Tavern is a pytest plugin, command-line tool and Python library for
-automated testing of APIs, with a simple, concise and flexible
+Tavern is a pytest plugin, command-line tool, and Python library for
+automated testing of APIs, with a simple, concise, and flexible
 YAML-based syntax. It's very simple to get started, and highly
-customisable for complex tests. Tavern supports testing RESTful APIs as
-well as MQTT based APIs.
+customisable for complex tests. Tavern supports testing RESTful APIs,
+MQTT based APIs, and gRPC services.
 
 The best way to use Tavern is with
 [pytest](https://docs.pytest.org/en/latest/). Tavern comes with a
@@ -183,7 +162,7 @@ Postman. However, specifically with regards to automated testing, Tavern
 has several advantages over Postman:
 
 - A full-featured Python environment for writing easily reusable custom validation functions
-- Testing of MQTT based systems in tandem with RESTful APIS.
+- Testing of MQTT based systems and gRPC services in tandem with RESTful APIs.
 - Seamless integration with pytest to keep all your tests in one place
 - A simpler, less verbose and clearer testing language
 
@@ -217,7 +196,7 @@ to run the integration tests, make sure you have
 It's that simple!
 
 If you want to develop things in tavern, enter your virtualenv and run
-`pip install -r requirements.txt` to install the library, any requirements,
+`uv sync --all-extras --all-packages` to install the library, any requirements,
 and other useful development options.
 
 Tavern uses [ruff](https://pypi.org/project/ruff/) to keep all of the code
@@ -244,12 +223,16 @@ See [CONTRIBUTING.md](/CONTRIBUTING.md) for more details.
 
 ## Acknowledgements
 
+Tavern supports testing of different API types:
+
+- **RESTful APIs**: Using the [requests](http://docs.python-requests.org/en/master/) library
+- **MQTT services**: Using the [paho-mqtt](https://github.com/eclipse/paho.mqtt.python) library  
+- **gRPC services**: Using native gRPC protocol support with protobuf definitions
+
 Tavern makes use of several excellent open-source projects:
 
 - [pytest](https://docs.pytest.org/en/latest/), the testing
   framework Tavern intergrates with
-- [requests](http://docs.python-requests.org/en/master/), for HTTP
-  requests
 - [YAML](http://yaml.org/) and
   [pyyaml](https://github.com/yaml/pyyaml), for the test syntax
 - [pykwalify](https://github.com/Grokzen/pykwalify), for YAML schema
@@ -258,8 +241,6 @@ Tavern makes use of several excellent open-source projects:
   Tokens
 - [colorlog](https://github.com/borntyping/python-colorlog), for
   formatting terminal outputs
-- [paho-mqtt](https://github.com/eclipse/paho.mqtt.python), for
-  sending MQTT messages
 
 ## Maintenance
 

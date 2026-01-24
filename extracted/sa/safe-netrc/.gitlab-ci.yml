@@ -1,0 +1,65 @@
+include:
+  - project: computing/gitlab-ci-templates
+    file: python.yml
+  - project: computing/gitlab-ci-templates
+    file: workflow/sccb.yml
+
+stages:
+  - dist
+  - test
+  - deploy
+
+# Build source and binary distributions
+build:
+  extends:
+    - .python:build
+
+# Lint code
+lint:
+  extends:
+    - .python:flake8
+  stage: test
+  dependencies: []
+
+test-3.7:
+  extends:
+    - .python:pytest
+  image: python:3.7
+
+test-3.8:
+  extends:
+    - .python:pytest
+  image: python:3.8
+
+test-3.9:
+  extends:
+    - .python:pytest
+  image: python:3.9
+
+test-3.10:
+  extends:
+    - .python:pytest
+  image: python:3.10
+
+test-3.11:
+  extends:
+    - .python:pytest
+  image: python:3.11
+
+# SCCB request
+sccb:
+  stage: deploy
+
+# Upload package to PyPI.
+# Place your PyPI API token in the repository's GitLab CI secrets.
+pypi:
+  stage: deploy
+  image: python:slim
+  extends:
+    - .python:twine
+  variables:
+    TWINE_PASSWORD: $PYPI_API_TOKEN
+  dependencies:
+    - build
+  only:
+    - tags@computing/safe-netrc

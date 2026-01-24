@@ -70,9 +70,10 @@ class CustomTargetingKeyServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -146,6 +147,36 @@ class CustomTargetingKeyServiceTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
+            self.create_custom_targeting_key: gapic_v1.method.wrap_method(
+                self.create_custom_targeting_key,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_create_custom_targeting_keys: gapic_v1.method.wrap_method(
+                self.batch_create_custom_targeting_keys,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_custom_targeting_key: gapic_v1.method.wrap_method(
+                self.update_custom_targeting_key,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_update_custom_targeting_keys: gapic_v1.method.wrap_method(
+                self.batch_update_custom_targeting_keys,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_activate_custom_targeting_keys: gapic_v1.method.wrap_method(
+                self.batch_activate_custom_targeting_keys,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.batch_deactivate_custom_targeting_keys: gapic_v1.method.wrap_method(
+                self.batch_deactivate_custom_targeting_keys,
+                default_timeout=None,
+                client_info=client_info,
+            ),
             self.get_operation: gapic_v1.method.wrap_method(
                 self.get_operation,
                 default_timeout=None,
@@ -182,6 +213,86 @@ class CustomTargetingKeyServiceTransport(abc.ABC):
         Union[
             custom_targeting_key_service.ListCustomTargetingKeysResponse,
             Awaitable[custom_targeting_key_service.ListCustomTargetingKeysResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_custom_targeting_key(
+        self,
+    ) -> Callable[
+        [custom_targeting_key_service.CreateCustomTargetingKeyRequest],
+        Union[
+            custom_targeting_key_messages.CustomTargetingKey,
+            Awaitable[custom_targeting_key_messages.CustomTargetingKey],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_create_custom_targeting_keys(
+        self,
+    ) -> Callable[
+        [custom_targeting_key_service.BatchCreateCustomTargetingKeysRequest],
+        Union[
+            custom_targeting_key_service.BatchCreateCustomTargetingKeysResponse,
+            Awaitable[
+                custom_targeting_key_service.BatchCreateCustomTargetingKeysResponse
+            ],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_custom_targeting_key(
+        self,
+    ) -> Callable[
+        [custom_targeting_key_service.UpdateCustomTargetingKeyRequest],
+        Union[
+            custom_targeting_key_messages.CustomTargetingKey,
+            Awaitable[custom_targeting_key_messages.CustomTargetingKey],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_update_custom_targeting_keys(
+        self,
+    ) -> Callable[
+        [custom_targeting_key_service.BatchUpdateCustomTargetingKeysRequest],
+        Union[
+            custom_targeting_key_service.BatchUpdateCustomTargetingKeysResponse,
+            Awaitable[
+                custom_targeting_key_service.BatchUpdateCustomTargetingKeysResponse
+            ],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_activate_custom_targeting_keys(
+        self,
+    ) -> Callable[
+        [custom_targeting_key_service.BatchActivateCustomTargetingKeysRequest],
+        Union[
+            custom_targeting_key_service.BatchActivateCustomTargetingKeysResponse,
+            Awaitable[
+                custom_targeting_key_service.BatchActivateCustomTargetingKeysResponse
+            ],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def batch_deactivate_custom_targeting_keys(
+        self,
+    ) -> Callable[
+        [custom_targeting_key_service.BatchDeactivateCustomTargetingKeysRequest],
+        Union[
+            custom_targeting_key_service.BatchDeactivateCustomTargetingKeysResponse,
+            Awaitable[
+                custom_targeting_key_service.BatchDeactivateCustomTargetingKeysResponse
+            ],
         ],
     ]:
         raise NotImplementedError()

@@ -17,7 +17,11 @@ from vellum.workflows.nodes.displayable.code_execution_node.node import CodeExec
 from vellum.workflows.nodes.displayable.inline_prompt_node.node import InlinePromptNode
 from vellum.workflows.nodes.displayable.tool_calling_node.node import ToolCallingNode
 from vellum.workflows.nodes.displayable.tool_calling_node.state import ToolCallingState
-from vellum.workflows.nodes.displayable.tool_calling_node.utils import create_router_node, create_tool_prompt_node
+from vellum.workflows.nodes.displayable.tool_calling_node.utils import (
+    create_function_node,
+    create_router_node,
+    create_tool_prompt_node,
+)
 from vellum.workflows.outputs.base import BaseOutputs
 from vellum.workflows.state.base import BaseState
 from vellum.workflows.types.definition import (
@@ -53,7 +57,7 @@ def test_serialize_node__prompt_inputs__constant_value():
     )
 
     assert prompt_inputs_attribute == {
-        "id": "3d9a4d2e-c9bd-4417-8a0c-52f15efdbe30",
+        "id": "fb85d86d-f291-4a0d-b867-f7545df7af59",
         "name": "prompt_inputs",
         "value": {"type": "CONSTANT_VALUE", "value": {"type": "JSON", "value": {"foo": "bar"}}},
     }
@@ -86,13 +90,13 @@ def test_serialize_node__prompt_inputs__input_reference():
     )
 
     assert prompt_inputs_attribute == {
-        "id": "6cde4776-7f4a-411c-95a8-69c8b3a64b42",
+        "id": "80ed13f9-64d2-47ee-bb91-3378de7ad2c0",
         "name": "prompt_inputs",
         "value": {
             "type": "DICTIONARY_REFERENCE",
             "entries": [
                 {
-                    "id": "845009c8-03f8-4de4-b956-841309457d37",
+                    "id": "981b8cdf-c08d-42a1-a226-76de8acf192f",
                     "key": "foo",
                     "value": {"type": "WORKFLOW_INPUT", "input_variable_id": "e3657390-fd3c-4fea-8cdd-fc5ea79f3278"},
                 }
@@ -128,18 +132,18 @@ def test_serialize_node__prompt_inputs__mixed_values():
     )
 
     assert prompt_inputs_attribute == {
-        "id": "c4ca6e3d-0f71-4802-a618-1e87880cb7cf",
+        "id": "7352d310-204c-4291-8757-a84a6e68591a",
         "name": "prompt_inputs",
         "value": {
             "type": "DICTIONARY_REFERENCE",
             "entries": [
                 {
-                    "id": "a4016385-3cab-4c01-b9d2-7865cd54bdb0",
+                    "id": "05c092c7-4031-43b7-8c3d-b1a317ca271d",
                     "key": "foo",
                     "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "bar"}},
                 },
                 {
-                    "id": "828928b1-24e3-4457-9d6f-4f0692dfa355",
+                    "id": "b0de6603-fcdd-44a3-b33a-56f05bd03bb4",
                     "key": "baz",
                     "value": {"type": "WORKFLOW_INPUT", "input_variable_id": "8d57cf1d-147c-427b-9a5e-e5f6ab76e2eb"},
                 },
@@ -149,7 +153,9 @@ def test_serialize_node__prompt_inputs__mixed_values():
 
 
 def test_serialize_node__tool_calling_node__mcp_server_api_key():
-    # GIVEN a tool calling node with an mcp server
+    """Tests that MCPServer with EnvironmentVariableReference serializes as ARRAY_REFERENCE."""
+
+    # GIVEN a tool calling node with an mcp server using an environment variable for the API key
     class MyToolCallingNode(ToolCallingNode):
         functions = [
             MCPServer(
@@ -180,26 +186,70 @@ def test_serialize_node__tool_calling_node__mcp_server_api_key():
         attribute for attribute in my_tool_calling_node["attributes"] if attribute["name"] == "functions"
     )
 
+    # AND the functions attribute should be an ARRAY_REFERENCE with a DICTIONARY_REFERENCE
+    # containing the MCP server fields, with api_key_header_value as ENVIRONMENT_VARIABLE
     assert functions_attribute == {
-        "id": "6c0f7d4f-3c8a-4201-b588-8398d3c97480",
+        "id": "ff00c2d6-f99c-458b-9bcd-181f8e43b2d1",
         "name": "functions",
         "value": {
-            "type": "CONSTANT_VALUE",
-            "value": {
-                "type": "JSON",
-                "value": [
-                    {
-                        "type": "MCP_SERVER",
-                        "name": "my-mcp-server",
-                        "description": "",
-                        "url": "https://my-mcp-server.com",
-                        "authorization_type": "API_KEY",
-                        "bearer_token_value": None,
-                        "api_key_header_key": "my-api-key-header-key",
-                        "api_key_header_value": "my-api-key-header-value",
-                    }
-                ],
-            },
+            "type": "ARRAY_REFERENCE",
+            "items": [
+                {
+                    "type": "DICTIONARY_REFERENCE",
+                    "entries": [
+                        {
+                            "id": "8cff4f0a-86d9-43fd-8d0b-542c845db53e",
+                            "key": "type",
+                            "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "MCP_SERVER"}},
+                        },
+                        {
+                            "id": "29203be4-407c-4056-aaa3-6e6d1249113e",
+                            "key": "name",
+                            "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "my-mcp-server"}},
+                        },
+                        {
+                            "id": "69813bb2-12c1-432b-9ef3-a0071bd29149",
+                            "key": "description",
+                            "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": ""}},
+                        },
+                        {
+                            "id": "83cd2f84-bf35-4996-9840-3754a79e1091",
+                            "key": "url",
+                            "value": {
+                                "type": "CONSTANT_VALUE",
+                                "value": {"type": "STRING", "value": "https://my-mcp-server.com"},
+                            },
+                        },
+                        {
+                            "id": "5ad23cee-497e-4ca3-ba51-d13f56985c75",
+                            "key": "authorization_type",
+                            "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "API_KEY"}},
+                        },
+                        {
+                            "id": "45964d28-1a9b-40a1-b544-62da92d2f62a",
+                            "key": "bearer_token_value",
+                            "value": {"type": "CONSTANT_VALUE", "value": {"type": "JSON", "value": None}},
+                        },
+                        {
+                            "id": "c4952fa6-1ffb-4e88-863f-3d0867b19b7a",
+                            "key": "api_key_header_key",
+                            "value": {
+                                "type": "CONSTANT_VALUE",
+                                "value": {"type": "STRING", "value": "my-api-key-header-key"},
+                            },
+                        },
+                        {
+                            "id": "7dc9cdb0-d139-4a1d-8c6f-9941c6b82b62",
+                            "key": "api_key_header_value",
+                            "value": {
+                                "type": "ENVIRONMENT_VARIABLE",
+                                "environment_variable": "my-api-key-header-value",
+                            },
+                        },
+                    ],
+                    "definition": {"name": "MCPServer", "module": ["vellum", "workflows", "types", "definition"]},
+                }
+            ],
         },
     }
 
@@ -234,7 +284,7 @@ def test_serialize_node__tool_calling_node__mcp_server_no_authorization():
     )
 
     assert functions_attribute == {
-        "id": "c8957551-cb3d-49af-8053-acd256c1d852",
+        "id": "a8a0133f-7913-451a-89da-f8dea5f352a2",
         "name": "functions",
         "value": {
             "type": "CONSTANT_VALUE",
@@ -297,11 +347,11 @@ def test_serialize_tool_router_node():
         "adornments": None,
         "attributes": [
             {
-                "id": "cd208919-c66b-451b-a739-bcf7d3451dea",
+                "id": "ea36d8ff-3f6e-41eb-8a7b-ba3ca8e05f49",
                 "name": "prompt_outputs",
                 "value": {
-                    "node_id": "19e664fc-3b57-48d2-b47a-b143b475406a",
-                    "node_output_id": "c2a5a7f7-a234-45dc-adee-bc6fc0bd28dd",
+                    "node_id": "c75146e1-ea10-4f58-90fd-887322725496",
+                    "node_output_id": "baef5c93-612a-453d-b739-223041ef0429",
                     "type": "NODE_OUTPUT",
                 },
             }
@@ -315,7 +365,7 @@ def test_serialize_tool_router_node():
             "name": "RouterNode",
         },
         "display_data": {"position": {"x": 0.0, "y": 0.0}},
-        "id": "690c66e1-1e18-4984-b695-84beb0157541",
+        "id": "d2884fa0-2d3d-4220-a335-bdcef56a00d5",
         "label": "Router Node",
         "outputs": [],
         "ports": [
@@ -324,14 +374,14 @@ def test_serialize_tool_router_node():
                     "lhs": {
                         "lhs": {
                             "lhs": {
-                                "state_variable_id": "0dd7f5a1-1d73-4153-9191-ca828ace4920",
+                                "state_variable_id": "30a4672a-96dc-471a-878c-90e0f1f7f043",
                                 "type": "WORKFLOW_STATE",
                             },
                             "operator": "<",
                             "rhs": {
                                 "lhs": {
-                                    "node_id": "19e664fc-3b57-48d2-b47a-b143b475406a",
-                                    "node_output_id": "c2a5a7f7-a234-45dc-adee-bc6fc0bd28dd",
+                                    "node_id": "c75146e1-ea10-4f58-90fd-887322725496",
+                                    "node_output_id": "baef5c93-612a-453d-b739-223041ef0429",
                                     "type": "NODE_OUTPUT",
                                 },
                                 "operator": "length",
@@ -344,13 +394,13 @@ def test_serialize_tool_router_node():
                             "lhs": {
                                 "lhs": {
                                     "lhs": {
-                                        "node_id": "19e664fc-3b57-48d2-b47a-b143b475406a",
-                                        "node_output_id": "c2a5a7f7-a234-45dc-adee-bc6fc0bd28dd",
+                                        "node_id": "c75146e1-ea10-4f58-90fd-887322725496",
+                                        "node_output_id": "baef5c93-612a-453d-b739-223041ef0429",
                                         "type": "NODE_OUTPUT",
                                     },
                                     "operator": "accessField",
                                     "rhs": {
-                                        "state_variable_id": "0dd7f5a1-1d73-4153-9191-ca828ace4920",
+                                        "state_variable_id": "30a4672a-96dc-471a-878c-90e0f1f7f043",
                                         "type": "WORKFLOW_STATE",
                                     },
                                     "type": "BINARY_EXPRESSION",
@@ -371,13 +421,13 @@ def test_serialize_tool_router_node():
                             "lhs": {
                                 "lhs": {
                                     "lhs": {
-                                        "node_id": "19e664fc-3b57-48d2-b47a-b143b475406a",
-                                        "node_output_id": "c2a5a7f7-a234-45dc-adee-bc6fc0bd28dd",
+                                        "node_id": "c75146e1-ea10-4f58-90fd-887322725496",
+                                        "node_output_id": "baef5c93-612a-453d-b739-223041ef0429",
                                         "type": "NODE_OUTPUT",
                                     },
                                     "operator": "accessField",
                                     "rhs": {
-                                        "state_variable_id": "0dd7f5a1-1d73-4153-9191-ca828ace4920",
+                                        "state_variable_id": "30a4672a-96dc-471a-878c-90e0f1f7f043",
                                         "type": "WORKFLOW_STATE",
                                     },
                                     "type": "BINARY_EXPRESSION",
@@ -396,15 +446,134 @@ def test_serialize_tool_router_node():
                     },
                     "type": "BINARY_EXPRESSION",
                 },
-                "id": "afb4b09d-659b-459e-9a28-cf73ba6e0574",
+                "id": "81d85d92-7f51-4f41-84be-8e2b0eeb4f59",
                 "name": "my_function",
                 "type": "IF",
             },
-            {"expression": None, "id": "4ecd916e-b5d0-407e-aab4-35551c76d02c", "name": "default", "type": "ELSE"},
+            {"expression": None, "id": "a433bba4-a0d6-44f3-b53b-0d5231e442cf", "name": "default", "type": "ELSE"},
         ],
-        "trigger": {"id": "73a96f44-c2dd-40cc-96f6-49b9f914b166", "merge_behavior": "AWAIT_ATTRIBUTES"},
+        "trigger": {"id": "9055a5d0-68a1-40cf-bc05-a8c65bd19abe", "merge_behavior": "AWAIT_ATTRIBUTES"},
         "type": "GENERIC",
     }
+
+
+def test_serialize_function_node():
+    """
+    Test that the function node created by create_function_node serializes with icon and color.
+    """
+
+    # GIVEN a simple function for tool calling
+    def my_function(arg1: str) -> str:
+        return f"Result: {arg1}"
+
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="gpt-4o-mini",
+        blocks=[],
+        functions=[my_function],
+        prompt_inputs=None,
+        parameters=PromptParameters(),
+    )
+
+    # WHEN we create a function node using create_function_node
+    function_node = create_function_node(
+        function=my_function,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    function_node_display_class = get_node_display_class(function_node)
+    function_node_display = function_node_display_class()
+
+    class Workflow(BaseWorkflow[BaseInputs, ToolCallingState]):
+        graph = tool_prompt_node >> function_node
+
+    workflow_display = get_workflow_display(workflow_class=Workflow)
+    display_context = workflow_display.display_context
+
+    # WHEN we serialize the function node
+    serialized_function_node = function_node_display.serialize(display_context)
+
+    # THEN the function node should include icon and color in display_data
+    display_data = serialized_function_node["display_data"]
+    assert isinstance(display_data, dict)
+    assert display_data["icon"] == "vellum:icon:rectangle-code"
+    assert display_data["color"] == "purple"
+
+
+def test_serialize_inline_prompt_node__mcp_server_not_serialized():
+    """
+    Test that MCP servers in inline prompt node functions are not serialized as function blocks.
+    MCP servers should be skipped during serialization (they return None from _generate_function_tools).
+    """
+
+    # GIVEN an MCP server
+    mcp_server = MCPServer(
+        name="my-mcp-server",
+        url="https://my-mcp-server.com",
+        authorization_type=AuthorizationType.API_KEY,
+        api_key_header_key="my-api-key-header-key",
+        api_key_header_value=EnvironmentVariableReference(name="my-api-key-header-value"),
+    )
+
+    # AND a regular function
+    def my_function(arg1: str) -> str:
+        return f"Result: {arg1}"
+
+    # AND an inline prompt node with both MCP server and regular function
+    class MyInlinePromptNode(InlinePromptNode):
+        ml_model = "gpt-4o-mini"
+        blocks = []
+        functions = [mcp_server, my_function]
+        prompt_inputs = None
+        parameters = PromptParameters()
+
+    # WHEN we serialize the inline prompt node
+    inline_prompt_node_display_class = get_node_display_class(MyInlinePromptNode)
+    inline_prompt_node_display = inline_prompt_node_display_class()
+
+    class Workflow(BaseWorkflow[BaseInputs, BaseState]):
+        graph = MyInlinePromptNode
+
+    workflow_display = get_workflow_display(workflow_class=Workflow)
+    display_context = workflow_display.display_context
+
+    serialized_node = inline_prompt_node_display.serialize(display_context)
+
+    # THEN the serialized node should have exec_config with prompt_template_block_data
+    assert isinstance(serialized_node, dict)
+    assert serialized_node["type"] == "PROMPT"
+    assert isinstance(serialized_node["data"], dict)
+    assert "exec_config" in serialized_node["data"]
+    exec_config = serialized_node["data"]["exec_config"]
+    assert isinstance(exec_config, dict)
+    assert "prompt_template_block_data" in exec_config
+    prompt_template_block_data = exec_config["prompt_template_block_data"]
+    assert isinstance(prompt_template_block_data, dict)
+    blocks = prompt_template_block_data["blocks"]
+    assert isinstance(blocks, list)
+
+    # AND there should be only one FUNCTION_DEFINITION block (from the regular function)
+    # MCP server should not be serialized
+    function_blocks = [
+        block for block in blocks if isinstance(block, dict) and block.get("block_type") == "FUNCTION_DEFINITION"
+    ]
+    assert len(function_blocks) == 1
+    assert function_blocks == [
+        {
+            "id": "b6b7b0c2-78b6-498f-8f97-fdaa81e082ec",
+            "block_type": "FUNCTION_DEFINITION",
+            "properties": {
+                "function_name": "my_function",
+                "function_description": None,
+                "function_parameters": {
+                    "type": "object",
+                    "properties": {"arg1": {"type": "string"}},
+                    "required": ["arg1"],
+                },
+                "function_forced": None,
+                "function_strict": None,
+            },
+        }
+    ]
 
 
 def test_serialize_node__tool_calling_node__subworkflow_with_parent_input_reference():
@@ -469,7 +638,7 @@ def test_serialize_node__tool_calling_node__subworkflow_with_parent_input_refere
     assert code_exec_node is not None
     text_input = next((input for input in code_exec_node["inputs"] if input["key"] == "text"), None)
     assert text_input == {
-        "id": "da92a1c4-d37c-4008-a1ab-c0bcc0cd20d0",
+        "id": "9f3a85b5-a0c7-4b72-beef-d68b4eb2a428",
         "key": "text",
         "value": {
             "rules": [
@@ -534,13 +703,13 @@ def test_serialize_tool_prompt_node_with_inline_workflow():
         (attr for attr in attributes if isinstance(attr, dict) and attr["name"] == "prompt_inputs"), None
     )
     assert prompt_inputs_attr == {
-        "id": "bc1320a2-23e4-4238-8b00-efbf88e91856",
+        "id": "d218d7c7-41f4-46d4-a9ed-89640cba1b9b",
         "name": "prompt_inputs",
         "value": {
             "type": "DICTIONARY_REFERENCE",
             "entries": [
                 {
-                    "id": "b1dfaf2b-b9fb-4fea-ad04-a988e5223d06",
+                    "id": "c181c554-a97f-4254-9bc8-1c30a8f3fb5f",
                     "key": "chat_history",
                     "value": {
                         "type": "BINARY_EXPRESSION",
@@ -548,7 +717,7 @@ def test_serialize_tool_prompt_node_with_inline_workflow():
                         "operator": "concat",
                         "rhs": {
                             "type": "WORKFLOW_STATE",
-                            "state_variable_id": "7a1caaf5-99df-487a-8b2d-6512df2d871a",
+                            "state_variable_id": "c1d692a7-3d87-4283-8d9c-daee82c61854",
                         },
                     },
                 }
@@ -575,7 +744,7 @@ def test_serialize_tool_prompt_node_with_workflow_deployment(vellum_client):
             input_variables=[],
             output_variables=[],
         ),
-        deployment=WorkflowDeploymentReleaseWorkflowDeployment(name="test-name"),
+        deployment=WorkflowDeploymentReleaseWorkflowDeployment(id="test-deployment-id", name="test-name"),
         description="test-description",
         release_tags=[
             ReleaseReleaseTag(
@@ -628,7 +797,7 @@ def test_serialize_tool_prompt_node_with_workflow_deployment(vellum_client):
     assert isinstance(attributes, list)
     functions_attr = next((attr for attr in attributes if isinstance(attr, dict) and attr["name"] == "functions"), None)
     assert functions_attr == {
-        "id": "6326ccc4-7cf6-4235-ba3c-a6e860b0c48b",
+        "id": "f482dc81-e320-402d-83df-f60d278797d8",
         "name": "functions",
         "value": {
             "type": "CONSTANT_VALUE",

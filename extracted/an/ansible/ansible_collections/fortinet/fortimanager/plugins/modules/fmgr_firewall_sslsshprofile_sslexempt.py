@@ -16,7 +16,6 @@ short_description: Servers to exempt from SSL inspection.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -126,6 +128,20 @@ options:
                 aliases: ['wildcard-fqdn']
                 type: str
                 description: Exempt servers by wildcard FQDN.
+            finger_print_category:
+                aliases: ['finger-print-category']
+                type: str
+                description: Finger print platform.
+                choices:
+                    - 'unknown'
+                    - 'firefox'
+                    - 'chrome'
+                    - 'safari'
+                    - 'edge'
+                    - 'ie'
+                    - 'android'
+                    - 'ios'
+                    - 'windows'
 '''
 
 EXAMPLES = '''
@@ -142,7 +158,7 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_firewall_sslsshprofile_sslexempt:
         bypass_validation: false
         adom: ansible
-        ssl-ssh-profile: "ansible-test" # name
+        ssl_ssh_profile: "ansible-test" # name
         state: present
         firewall_sslsshprofile_sslexempt:
           id: 1
@@ -163,8 +179,8 @@ EXAMPLES = '''
           selector: "firewall_sslsshprofile_sslexempt"
           params:
             adom: "ansible"
-            ssl-ssh-profile: "ansible-test" # name
-            ssl-exempt: "your_value"
+            ssl_ssh_profile: "ansible-test" # name
+            ssl_exempt: "your_value"
 '''
 
 RETURN = '''
@@ -223,6 +239,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'ssl-ssh-profile': {'type': 'str', 'api_name': 'ssl_ssh_profile'},
         'ssl_ssh_profile': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_sslsshprofile_sslexempt': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -233,7 +250,12 @@ def main():
                 'id': {'required': True, 'type': 'int'},
                 'regex': {'type': 'str'},
                 'type': {'choices': ['fortiguard-category', 'address', 'address6', 'wildcard-fqdn', 'regex', 'finger-print'], 'type': 'str'},
-                'wildcard-fqdn': {'type': 'str'}
+                'wildcard-fqdn': {'type': 'str'},
+                'finger-print-category': {
+                    'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']],
+                    'choices': ['unknown', 'firefox', 'chrome', 'safari', 'edge', 'ie', 'android', 'ios', 'windows'],
+                    'type': 'str'
+                }
             }
         }
     }

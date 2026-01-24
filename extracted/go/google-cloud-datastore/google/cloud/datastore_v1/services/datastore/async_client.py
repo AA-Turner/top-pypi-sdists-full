@@ -37,6 +37,7 @@ from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
+import google.protobuf
 
 
 try:
@@ -805,10 +806,10 @@ class DatastoreAsyncClient:
                 sequences of mutations affecting a single entity are not
                 permitted in a single ``Commit`` request:
 
-                -  ``insert`` followed by ``insert``
-                -  ``update`` followed by ``insert``
-                -  ``upsert`` followed by ``insert``
-                -  ``delete`` followed by ``update``
+                - ``insert`` followed by ``insert``
+                - ``update`` followed by ``insert``
+                - ``upsert`` followed by ``insert``
+                - ``delete`` followed by ``update``
 
                 When mode is ``NON_TRANSACTIONAL``, no two mutations may
                 affect a single entity.
@@ -1511,6 +1512,9 @@ class DatastoreAsyncClient:
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
 )
+
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 
 __all__ = ("DatastoreAsyncClient",)

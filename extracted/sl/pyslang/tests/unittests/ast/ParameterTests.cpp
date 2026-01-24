@@ -112,7 +112,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::WarningTask);
 }
@@ -133,6 +133,10 @@ endmodule
 
 TEST_CASE("Type parameters 2") {
     auto tree = SyntaxTree::fromText(R"(
+package p;
+parameter type x_t = logic[3:0];
+parameter type y_t = logic[3:0];
+endpackage
 module m #(parameter type foo_t, foo_t foo = 1) ();
     if (foo) begin
         parameter type asdf = shortint, basdf = logic;
@@ -154,6 +158,16 @@ endmodule
     CHECK(typeAlias.targetType.getTypeSyntax() == nullptr);
     CHECK(typeAlias.targetType.getInitializerSyntax() == nullptr);
     CHECK(typeAlias.getFirstForwardDecl() == nullptr);
+
+    sym = compilation.getRoot().lookupName("p::x_t");
+    REQUIRE(sym);
+    CHECK(sym->kind == SymbolKind::TypeAlias);
+    CHECK(sym->getSyntax());
+
+    sym = compilation.getRoot().lookupName("p::y_t");
+    REQUIRE(sym);
+    CHECK(sym->kind == SymbolKind::TypeAlias);
+    CHECK(sym->getSyntax());
 
     REQUIRE(typeAlias.getSyntax() != nullptr);
     CHECK(typeAlias.getSyntax()->kind == SyntaxKind::TypeAssignment);
@@ -201,7 +215,7 @@ endmodule
 TEST_CASE("Type parameters -- bad replacement") {
     auto tree = SyntaxTree::fromText(R"(
 module m #(parameter type foo_t, foo_t foo = 1) ();
-    if (foo) begin
+    if (foo) begin : blk
         parameter type asdf = shortint, basdf = logic;
     end
 endmodule
@@ -241,7 +255,7 @@ endmodule
 TEST_CASE("Type parameters unset -- bad") {
     auto tree = SyntaxTree::fromText(R"(
 module m #(parameter type foo_t, foo_t foo = 1) ();
-    if (foo) begin
+    if (foo) begin : blk
         parameter type asdf = shortint, basdf = logic;
     end
 endmodule
@@ -957,7 +971,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::DefparamBadHierarchy);
 }
@@ -1158,7 +1172,7 @@ TEST_CASE("Param overrides within generates, arrays") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
     parameter int foo = 0;
-    if (foo == 12) begin
+    if (foo == 12) begin : blk
         $info("Hello");
     end
 endmodule
@@ -1326,7 +1340,7 @@ endmodule
 
 module o;
     parameter int p = 1;
-    if (p == 2) begin
+    if (p == 2) begin : blk
         $info("Hello");
     end
 endmodule
@@ -1361,7 +1375,7 @@ module m;
 endmodule
 
 module n(I i);
-    if (i.j.p == 2) begin
+    if (i.j.p == 2) begin : blk
         $info("Hello");
     end
 endmodule
@@ -1376,4 +1390,126 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::InfoTask);
+}
+
+TEST_CASE("Multiple type parameters in declaration list regress") {
+    auto tree = SyntaxTree::fromText(R"(
+bit failed = 1'b0;
+
+`define check(expr, val) \
+  if (expr != val) begin \
+    failed = 1'b1; \
+  end
+
+module M1 #(
+  parameter type T1
+);
+  T1 x;
+
+  initial begin
+    `check($bits(x), $bits(integer))
+    `check($bits(T1), $bits(integer))
+  end
+
+endmodule
+
+module M2 #(
+  type T1
+);
+  T1 x;
+
+  initial begin
+    `check($bits(x), $bits(integer))
+    `check($bits(T1), $bits(integer))
+  end
+
+endmodule
+
+module M3 #(
+  parameter type T1, T2
+);
+  T1 x;
+  T2 y = 1.23;
+
+  initial begin
+    `check($bits(x), $bits(integer))
+    `check($bits(T1), $bits(integer))
+    `check(y, 1.23)
+  end
+
+endmodule
+
+module M4 #(
+  type T1, T2
+);
+  T1 x;
+  T2 y = 1.23;
+
+  initial begin
+    `check($bits(x), $bits(integer))
+    `check($bits(T1), $bits(integer))
+    `check(y, 1.23)
+  end
+
+endmodule
+
+module test;
+
+  M1 #(
+    .T1 (integer)
+  ) i_m1 ();
+
+  M2 #(
+    .T1 (integer)
+  ) i_m2 ();
+
+  M3 #(
+    .T1 (integer),
+    .T2 (real)
+  ) i_m3();
+
+  M4 #(
+    .T1 (integer),
+    .T2 (real)
+  ) i_m4 ();
+
+  initial begin
+    #1
+    if (!failed) begin
+      $display("PASSED");
+    end
+  end
+
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Declared initializer eval regress -- GH #1472") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function automatic int f6;
+        int i6 = &f6();
+    endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("defparam OOM regress") {
+    auto tree = SyntaxTree::fromText(R"(
+defparam;I d
+interface I
+I I I d(
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    compilation.getAllDiagnostics();
 }

@@ -5,7 +5,9 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .turn_mode import TurnMode
+from .soft_timeout_config_workflow_override import SoftTimeoutConfigWorkflowOverride
+from .spelling_patience import SpellingPatience
+from .turn_eagerness import TurnEagerness
 
 
 class TurnConfigWorkflowOverride(UncheckedBaseModel):
@@ -14,14 +16,29 @@ class TurnConfigWorkflowOverride(UncheckedBaseModel):
     Maximum wait time for the user's reply before re-engaging the user
     """
 
+    initial_wait_time: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    How long the agent will wait for the user to start the conversation if the first message is empty. If not set, uses the regular turn_timeout.
+    """
+
     silence_end_call_timeout: typing.Optional[float] = pydantic.Field(default=None)
     """
     Maximum wait time since the user last spoke before terminating the call
     """
 
-    mode: typing.Optional[TurnMode] = pydantic.Field(default=None)
+    soft_timeout_config: typing.Optional[SoftTimeoutConfigWorkflowOverride] = pydantic.Field(default=None)
     """
-    The mode of turn detection
+    Configuration for soft timeout functionality. Provides immediate feedback during longer LLM responses.
+    """
+
+    turn_eagerness: typing.Optional[TurnEagerness] = pydantic.Field(default=None)
+    """
+    Controls how eager the agent is to respond. Low = less eager (waits longer), Standard = default eagerness, High = more eager (responds sooner)
+    """
+
+    spelling_patience: typing.Optional[SpellingPatience] = pydantic.Field(default=None)
+    """
+    Controls if the agent should be more patient when user is spelling numbers and named entities. Auto = model based, Off = never wait extra
     """
 
     if IS_PYDANTIC_V2:

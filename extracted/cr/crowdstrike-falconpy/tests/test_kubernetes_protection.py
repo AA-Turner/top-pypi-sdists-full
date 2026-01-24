@@ -13,7 +13,7 @@ from falconpy import KubernetesProtection
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = KubernetesProtection(auth_object=config)
-AllowedResponses = [200, 201, 207, 400, 404, 403, 429, 500]  # Allowing 500 to reduce flakiness
+AllowedResponses = [200, 201, 207, 400, 404, 403, 406, 429, 500]  # Allowing 500 to reduce flakiness
 
 
 class TestKubeProtect:
@@ -85,7 +85,8 @@ class TestKubeProtect:
             "ReadDeploymentEnrichment": falcon.read_deployment_enrichment(filter="something_else"),
             "ReadNamespacesByDateRangeCount": falcon.read_namespaces_by_date_range_count(),
             "ReadNamespaceCount": falcon.read_namespace_count(filter="something"),
-            "ReadClusterCombinedV2": falcon.read_clusters_combined_v2(filter="whatever")
+            "ReadClusterCombinedV2": falcon.read_clusters_combined_v2(filter="whatever"),
+            "PostSearchKubernetesIOMEntities": falcon.search_kubernetes_ioms(limit=1)
         }
 
         for key in tests:

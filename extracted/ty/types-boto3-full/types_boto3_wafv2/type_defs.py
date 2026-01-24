@@ -3,7 +3,7 @@ Type annotations for wafv2 service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -57,12 +58,6 @@ from .literals import (
     UsageOfActionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -420,7 +415,7 @@ __all__ = (
 
 
 class APIKeySummaryTypeDef(TypedDict):
-    TokenDomains: NotRequired[List[str]]
+    TokenDomains: NotRequired[list[str]]
     APIKey: NotRequired[str]
     CreationTimestamp: NotRequired[datetime]
     Version: NotRequired[int]
@@ -440,7 +435,7 @@ class AddressFieldTypeDef(TypedDict):
 
 
 class AndStatementOutputTypeDef(TypedDict):
-    Statements: List[Dict[str, Any]]
+    Statements: list[dict[str, Any]]
 
 
 class AndStatementTypeDef(TypedDict):
@@ -449,7 +444,7 @@ class AndStatementTypeDef(TypedDict):
 
 class ApplicationAttributeOutputTypeDef(TypedDict):
     Name: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class ApplicationAttributeTypeDef(TypedDict):
@@ -506,7 +501,7 @@ class ChallengeResponseTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -520,9 +515,9 @@ class LabelNameConditionTypeDef(TypedDict):
 
 
 class CookieMatchPatternOutputTypeDef(TypedDict):
-    All: NotRequired[Dict[str, Any]]
-    IncludedCookies: NotRequired[List[str]]
-    ExcludedCookies: NotRequired[List[str]]
+    All: NotRequired[dict[str, Any]]
+    IncludedCookies: NotRequired[list[str]]
+    ExcludedCookies: NotRequired[list[str]]
 
 
 class CookieMatchPatternTypeDef(TypedDict):
@@ -595,7 +590,7 @@ class CustomHTTPHeaderTypeDef(TypedDict):
 
 class FieldToProtectOutputTypeDef(TypedDict):
     FieldType: FieldToProtectTypeType
-    FieldKeys: NotRequired[List[str]]
+    FieldKeys: NotRequired[list[str]]
 
 
 class FieldToProtectTypeDef(TypedDict):
@@ -740,7 +735,7 @@ class IPSetTypeDef(TypedDict):
     Id: str
     ARN: str
     IPAddressVersion: IPAddressVersionType
-    Addresses: List[str]
+    Addresses: list[str]
     Description: NotRequired[str]
 
 
@@ -775,7 +770,7 @@ class GetRateBasedStatementManagedKeysRequestTypeDef(TypedDict):
 
 class RateBasedStatementManagedKeysIPSetTypeDef(TypedDict):
     IPAddressVersion: NotRequired[IPAddressVersionType]
-    Addresses: NotRequired[List[str]]
+    Addresses: NotRequired[list[str]]
 
 
 class GetRegexPatternSetRequestTypeDef(TypedDict):
@@ -813,9 +808,9 @@ class HTTPHeaderTypeDef(TypedDict):
 
 
 class HeaderMatchPatternOutputTypeDef(TypedDict):
-    All: NotRequired[Dict[str, Any]]
-    IncludedHeaders: NotRequired[List[str]]
-    ExcludedHeaders: NotRequired[List[str]]
+    All: NotRequired[dict[str, Any]]
+    IncludedHeaders: NotRequired[list[str]]
+    ExcludedHeaders: NotRequired[list[str]]
 
 
 class HeaderMatchPatternTypeDef(TypedDict):
@@ -831,8 +826,8 @@ class IPSetForwardedIPConfigTypeDef(TypedDict):
 
 
 class JsonMatchPatternOutputTypeDef(TypedDict):
-    All: NotRequired[Dict[str, Any]]
-    IncludedPaths: NotRequired[List[str]]
+    All: NotRequired[dict[str, Any]]
+    IncludedPaths: NotRequired[list[str]]
 
 
 class JsonMatchPatternTypeDef(TypedDict):
@@ -967,7 +962,7 @@ class ManagedRuleSetVersionTypeDef(TypedDict):
 
 
 class NotStatementOutputTypeDef(TypedDict):
-    Statement: Dict[str, Any]
+    Statement: dict[str, Any]
 
 
 class NotStatementTypeDef(TypedDict):
@@ -975,7 +970,7 @@ class NotStatementTypeDef(TypedDict):
 
 
 class OrStatementOutputTypeDef(TypedDict):
-    Statements: List[Dict[str, Any]]
+    Statements: list[dict[str, Any]]
 
 
 class OrStatementTypeDef(TypedDict):
@@ -1009,8 +1004,8 @@ class RateLimitLabelNamespaceTypeDef(TypedDict):
 
 
 class ResponseInspectionBodyContainsOutputTypeDef(TypedDict):
-    SuccessStrings: List[str]
-    FailureStrings: List[str]
+    SuccessStrings: list[str]
+    FailureStrings: list[str]
 
 
 class ResponseInspectionBodyContainsTypeDef(TypedDict):
@@ -1020,8 +1015,8 @@ class ResponseInspectionBodyContainsTypeDef(TypedDict):
 
 class ResponseInspectionHeaderOutputTypeDef(TypedDict):
     Name: str
-    SuccessValues: List[str]
-    FailureValues: List[str]
+    SuccessValues: list[str]
+    FailureValues: list[str]
 
 
 class ResponseInspectionHeaderTypeDef(TypedDict):
@@ -1032,8 +1027,8 @@ class ResponseInspectionHeaderTypeDef(TypedDict):
 
 class ResponseInspectionJsonOutputTypeDef(TypedDict):
     Identifier: str
-    SuccessValues: List[str]
-    FailureValues: List[str]
+    SuccessValues: list[str]
+    FailureValues: list[str]
 
 
 class ResponseInspectionJsonTypeDef(TypedDict):
@@ -1043,8 +1038,8 @@ class ResponseInspectionJsonTypeDef(TypedDict):
 
 
 class ResponseInspectionStatusCodeOutputTypeDef(TypedDict):
-    SuccessCodes: List[int]
-    FailureCodes: List[int]
+    SuccessCodes: list[int]
+    FailureCodes: list[int]
 
 
 class ResponseInspectionStatusCodeTypeDef(TypedDict):
@@ -1073,7 +1068,7 @@ AndStatementUnionTypeDef = Union[AndStatementTypeDef, AndStatementOutputTypeDef]
 
 
 class ApplicationConfigOutputTypeDef(TypedDict):
-    Attributes: NotRequired[List[ApplicationAttributeOutputTypeDef]]
+    Attributes: NotRequired[list[ApplicationAttributeOutputTypeDef]]
 
 
 class ApplicationConfigTypeDef(TypedDict):
@@ -1081,7 +1076,7 @@ class ApplicationConfigTypeDef(TypedDict):
 
 
 class AsnMatchStatementOutputTypeDef(TypedDict):
-    AsnList: List[int]
+    AsnList: list[int]
     ForwardedIPConfig: NotRequired[ForwardedIPConfigTypeDef]
 
 
@@ -1091,7 +1086,7 @@ class AsnMatchStatementTypeDef(TypedDict):
 
 
 class GeoMatchStatementOutputTypeDef(TypedDict):
-    CountryCodes: NotRequired[List[CountryCodeType]]
+    CountryCodes: NotRequired[list[CountryCodeType]]
     ForwardedIPConfig: NotRequired[ForwardedIPConfigTypeDef]
 
 
@@ -1102,7 +1097,7 @@ class GeoMatchStatementTypeDef(TypedDict):
 
 class AssociationConfigOutputTypeDef(TypedDict):
     RequestBody: NotRequired[
-        Dict[AssociatedResourceTypeType, RequestBodyAssociatedResourceTypeConfigTypeDef]
+        dict[AssociatedResourceTypeType, RequestBodyAssociatedResourceTypeConfigTypeDef]
     ]
 
 
@@ -1114,7 +1109,7 @@ class AssociationConfigTypeDef(TypedDict):
 
 class RateLimitCookieOutputTypeDef(TypedDict):
     Name: str
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class RateLimitCookieTypeDef(TypedDict):
@@ -1124,7 +1119,7 @@ class RateLimitCookieTypeDef(TypedDict):
 
 class RateLimitHeaderOutputTypeDef(TypedDict):
     Name: str
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class RateLimitHeaderTypeDef(TypedDict):
@@ -1134,7 +1129,7 @@ class RateLimitHeaderTypeDef(TypedDict):
 
 class RateLimitQueryArgumentOutputTypeDef(TypedDict):
     Name: str
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class RateLimitQueryArgumentTypeDef(TypedDict):
@@ -1143,7 +1138,7 @@ class RateLimitQueryArgumentTypeDef(TypedDict):
 
 
 class RateLimitQueryStringOutputTypeDef(TypedDict):
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class RateLimitQueryStringTypeDef(TypedDict):
@@ -1151,7 +1146,7 @@ class RateLimitQueryStringTypeDef(TypedDict):
 
 
 class RateLimitUriPathOutputTypeDef(TypedDict):
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class RateLimitUriPathTypeDef(TypedDict):
@@ -1187,7 +1182,7 @@ class GenerateMobileSdkReleaseUrlResponseTypeDef(TypedDict):
 
 
 class GetDecryptedAPIKeyResponseTypeDef(TypedDict):
-    TokenDomains: List[str]
+    TokenDomains: list[str]
     CreationTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1199,13 +1194,13 @@ class GetPermissionPolicyResponseTypeDef(TypedDict):
 
 class ListAPIKeysResponseTypeDef(TypedDict):
     NextMarker: str
-    APIKeySummaries: List[APIKeySummaryTypeDef]
+    APIKeySummaries: list[APIKeySummaryTypeDef]
     ApplicationIntegrationURL: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListResourcesForWebACLResponseTypeDef(TypedDict):
-    ResourceArns: List[str]
+    ResourceArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1244,7 +1239,7 @@ class UpdateWebACLResponseTypeDef(TypedDict):
 class ClientSideActionOutputTypeDef(TypedDict):
     UsageOfAction: UsageOfActionType
     Sensitivity: NotRequired[SensitivityToActType]
-    ExemptUriRegularExpressions: NotRequired[List[RegexTypeDef]]
+    ExemptUriRegularExpressions: NotRequired[list[RegexTypeDef]]
 
 
 class ClientSideActionTypeDef(TypedDict):
@@ -1258,7 +1253,7 @@ class RegexPatternSetTypeDef(TypedDict):
     Id: NotRequired[str]
     ARN: NotRequired[str]
     Description: NotRequired[str]
-    RegularExpressionList: NotRequired[List[RegexTypeDef]]
+    RegularExpressionList: NotRequired[list[RegexTypeDef]]
 
 
 class UpdateRegexPatternSetRequestTypeDef(TypedDict):
@@ -1305,12 +1300,12 @@ class MobileSdkReleaseTypeDef(TypedDict):
     ReleaseVersion: NotRequired[str]
     Timestamp: NotRequired[datetime]
     ReleaseNotes: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class TagInfoForResourceTypeDef(TypedDict):
     ResourceARN: NotRequired[str]
-    TagList: NotRequired[List[TagTypeDef]]
+    TagList: NotRequired[list[TagTypeDef]]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1325,7 +1320,7 @@ class CreateIPSetResponseTypeDef(TypedDict):
 
 class ListIPSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    IPSets: List[IPSetSummaryTypeDef]
+    IPSets: list[IPSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1336,7 +1331,7 @@ class CreateRegexPatternSetResponseTypeDef(TypedDict):
 
 class ListRegexPatternSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    RegexPatternSets: List[RegexPatternSetSummaryTypeDef]
+    RegexPatternSets: list[RegexPatternSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1347,7 +1342,7 @@ class CreateRuleGroupResponseTypeDef(TypedDict):
 
 class ListRuleGroupsResponseTypeDef(TypedDict):
     NextMarker: str
-    RuleGroups: List[RuleGroupSummaryTypeDef]
+    RuleGroups: list[RuleGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1358,12 +1353,12 @@ class CreateWebACLResponseTypeDef(TypedDict):
 
 class ListWebACLsResponseTypeDef(TypedDict):
     NextMarker: str
-    WebACLs: List[WebACLSummaryTypeDef]
+    WebACLs: list[WebACLSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CustomRequestHandlingOutputTypeDef(TypedDict):
-    InsertHeaders: List[CustomHTTPHeaderTypeDef]
+    InsertHeaders: list[CustomHTTPHeaderTypeDef]
 
 
 class CustomRequestHandlingTypeDef(TypedDict):
@@ -1373,7 +1368,7 @@ class CustomRequestHandlingTypeDef(TypedDict):
 class CustomResponseOutputTypeDef(TypedDict):
     ResponseCode: int
     CustomResponseBodyKey: NotRequired[str]
-    ResponseHeaders: NotRequired[List[CustomHTTPHeaderTypeDef]]
+    ResponseHeaders: NotRequired[list[CustomHTTPHeaderTypeDef]]
 
 
 class CustomResponseTypeDef(TypedDict):
@@ -1397,12 +1392,12 @@ class DataProtectionTypeDef(TypedDict):
 
 
 class DescribeAllManagedProductsResponseTypeDef(TypedDict):
-    ManagedProducts: List[ManagedProductDescriptorTypeDef]
+    ManagedProducts: list[ManagedProductDescriptorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeManagedProductsByVendorResponseTypeDef(TypedDict):
-    ManagedProducts: List[ManagedProductDescriptorTypeDef]
+    ManagedProducts: list[ManagedProductDescriptorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1424,7 +1419,7 @@ class HTTPRequestTypeDef(TypedDict):
     URI: NotRequired[str]
     Method: NotRequired[str]
     HTTPVersion: NotRequired[str]
-    Headers: NotRequired[List[HTTPHeaderTypeDef]]
+    Headers: NotRequired[list[HTTPHeaderTypeDef]]
 
 
 class HeadersOutputTypeDef(TypedDict):
@@ -1453,25 +1448,25 @@ JsonMatchPatternUnionTypeDef = Union[JsonMatchPatternTypeDef, JsonMatchPatternOu
 
 class ListAvailableManagedRuleGroupVersionsResponseTypeDef(TypedDict):
     NextMarker: str
-    Versions: List[ManagedRuleGroupVersionTypeDef]
+    Versions: list[ManagedRuleGroupVersionTypeDef]
     CurrentDefaultVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAvailableManagedRuleGroupsResponseTypeDef(TypedDict):
     NextMarker: str
-    ManagedRuleGroups: List[ManagedRuleGroupSummaryTypeDef]
+    ManagedRuleGroups: list[ManagedRuleGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListManagedRuleSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    ManagedRuleSets: List[ManagedRuleSetSummaryTypeDef]
+    ManagedRuleSets: list[ManagedRuleSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListMobileSdkReleasesResponseTypeDef(TypedDict):
-    ReleaseSummaries: List[ReleaseSummaryTypeDef]
+    ReleaseSummaries: list[ReleaseSummaryTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1487,7 +1482,7 @@ class ManagedRuleSetTypeDef(TypedDict):
     Id: str
     ARN: str
     Description: NotRequired[str]
-    PublishedVersions: NotRequired[Dict[str, ManagedRuleSetVersionTypeDef]]
+    PublishedVersions: NotRequired[dict[str, ManagedRuleSetVersionTypeDef]]
     RecommendedVersion: NotRequired[str]
     LabelNamespace: NotRequired[str]
 
@@ -1501,8 +1496,8 @@ class RequestInspectionACFPOutputTypeDef(TypedDict):
     UsernameField: NotRequired[UsernameFieldTypeDef]
     PasswordField: NotRequired[PasswordFieldTypeDef]
     EmailField: NotRequired[EmailFieldTypeDef]
-    PhoneNumberFields: NotRequired[List[PhoneNumberFieldTypeDef]]
-    AddressFields: NotRequired[List[AddressFieldTypeDef]]
+    PhoneNumberFields: NotRequired[list[PhoneNumberFieldTypeDef]]
+    AddressFields: NotRequired[list[AddressFieldTypeDef]]
 
 
 class RequestInspectionACFPTypeDef(TypedDict):
@@ -1579,14 +1574,14 @@ class RateBasedStatementCustomKeyOutputTypeDef(TypedDict):
     Cookie: NotRequired[RateLimitCookieOutputTypeDef]
     QueryArgument: NotRequired[RateLimitQueryArgumentOutputTypeDef]
     QueryString: NotRequired[RateLimitQueryStringOutputTypeDef]
-    HTTPMethod: NotRequired[Dict[str, Any]]
-    ForwardedIP: NotRequired[Dict[str, Any]]
-    IP: NotRequired[Dict[str, Any]]
+    HTTPMethod: NotRequired[dict[str, Any]]
+    ForwardedIP: NotRequired[dict[str, Any]]
+    IP: NotRequired[dict[str, Any]]
     LabelNamespace: NotRequired[RateLimitLabelNamespaceTypeDef]
     UriPath: NotRequired[RateLimitUriPathOutputTypeDef]
     JA3Fingerprint: NotRequired[RateLimitJA3FingerprintTypeDef]
     JA4Fingerprint: NotRequired[RateLimitJA4FingerprintTypeDef]
-    ASN: NotRequired[Dict[str, Any]]
+    ASN: NotRequired[dict[str, Any]]
 
 
 RateLimitUriPathUnionTypeDef = Union[RateLimitUriPathTypeDef, RateLimitUriPathOutputTypeDef]
@@ -1608,7 +1603,7 @@ class GetRegexPatternSetResponseTypeDef(TypedDict):
 class FilterOutputTypeDef(TypedDict):
     Behavior: FilterBehaviorType
     Requirement: FilterRequirementType
-    Conditions: List[ConditionTypeDef]
+    Conditions: list[ConditionTypeDef]
 
 
 class FilterTypeDef(TypedDict):
@@ -1663,7 +1658,7 @@ CustomResponseUnionTypeDef = Union[CustomResponseTypeDef, CustomResponseOutputTy
 
 
 class DataProtectionConfigOutputTypeDef(TypedDict):
-    DataProtections: List[DataProtectionOutputTypeDef]
+    DataProtections: list[DataProtectionOutputTypeDef]
 
 
 class DataProtectionConfigTypeDef(TypedDict):
@@ -1676,9 +1671,9 @@ class SampledHTTPRequestTypeDef(TypedDict):
     Timestamp: NotRequired[datetime]
     Action: NotRequired[str]
     RuleNameWithinRuleGroup: NotRequired[str]
-    RequestHeadersInserted: NotRequired[List[HTTPHeaderTypeDef]]
+    RequestHeadersInserted: NotRequired[list[HTTPHeaderTypeDef]]
     ResponseCodeSent: NotRequired[int]
-    Labels: NotRequired[List[LabelTypeDef]]
+    Labels: NotRequired[list[LabelTypeDef]]
     CaptchaResponse: NotRequired[CaptchaResponseTypeDef]
     ChallengeResponse: NotRequired[ChallengeResponseTypeDef]
     OverriddenAction: NotRequired[str]
@@ -1693,11 +1688,11 @@ class HeadersTypeDef(TypedDict):
 class FieldToMatchOutputTypeDef(TypedDict):
     SingleHeader: NotRequired[SingleHeaderTypeDef]
     SingleQueryArgument: NotRequired[SingleQueryArgumentTypeDef]
-    AllQueryArguments: NotRequired[Dict[str, Any]]
-    UriPath: NotRequired[Dict[str, Any]]
-    QueryString: NotRequired[Dict[str, Any]]
+    AllQueryArguments: NotRequired[dict[str, Any]]
+    UriPath: NotRequired[dict[str, Any]]
+    QueryString: NotRequired[dict[str, Any]]
     Body: NotRequired[BodyTypeDef]
-    Method: NotRequired[Dict[str, Any]]
+    Method: NotRequired[dict[str, Any]]
     JsonBody: NotRequired[JsonBodyOutputTypeDef]
     Headers: NotRequired[HeadersOutputTypeDef]
     Cookies: NotRequired[CookiesOutputTypeDef]
@@ -1754,9 +1749,9 @@ class RateBasedStatementOutputTypeDef(TypedDict):
     Limit: int
     AggregateKeyType: RateBasedStatementAggregateKeyTypeType
     EvaluationWindowSec: NotRequired[int]
-    ScopeDownStatement: NotRequired[Dict[str, Any]]
+    ScopeDownStatement: NotRequired[dict[str, Any]]
     ForwardedIPConfig: NotRequired[ForwardedIPConfigTypeDef]
-    CustomKeys: NotRequired[List[RateBasedStatementCustomKeyOutputTypeDef]]
+    CustomKeys: NotRequired[list[RateBasedStatementCustomKeyOutputTypeDef]]
 
 
 class RateBasedStatementCustomKeyTypeDef(TypedDict):
@@ -1784,7 +1779,7 @@ class ClientSideActionConfigTypeDef(TypedDict):
 
 
 class LoggingFilterOutputTypeDef(TypedDict):
-    Filters: List[FilterOutputTypeDef]
+    Filters: list[FilterOutputTypeDef]
     DefaultBehavior: FilterBehaviorType
 
 
@@ -1798,7 +1793,7 @@ OverrideActionOutputTypeDef = TypedDict(
     "OverrideActionOutputTypeDef",
     {
         "Count": NotRequired[CountActionOutputTypeDef],
-        "None": NotRequired[Dict[str, Any]],
+        "None": NotRequired[dict[str, Any]],
     },
 )
 
@@ -1842,7 +1837,7 @@ DataProtectionConfigUnionTypeDef = Union[
 
 
 class GetSampledRequestsResponseTypeDef(TypedDict):
-    SampledRequests: List[SampledHTTPRequestTypeDef]
+    SampledRequests: list[SampledHTTPRequestTypeDef]
     PopulationSize: int
     TimeWindow: TimeWindowOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1854,38 +1849,38 @@ HeadersUnionTypeDef = Union[HeadersTypeDef, HeadersOutputTypeDef]
 class ByteMatchStatementOutputTypeDef(TypedDict):
     SearchString: bytes
     FieldToMatch: FieldToMatchOutputTypeDef
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
     PositionalConstraint: PositionalConstraintType
 
 
 class RegexMatchStatementOutputTypeDef(TypedDict):
     RegexString: str
     FieldToMatch: FieldToMatchOutputTypeDef
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class RegexPatternSetReferenceStatementOutputTypeDef(TypedDict):
     ARN: str
     FieldToMatch: FieldToMatchOutputTypeDef
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class SizeConstraintStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
     ComparisonOperator: ComparisonOperatorType
     Size: int
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 class SqliMatchStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
     SensitivityLevel: NotRequired[SensitivityLevelType]
 
 
 class XssMatchStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
-    TextTransformations: List[TextTransformationTypeDef]
+    TextTransformations: list[TextTransformationTypeDef]
 
 
 JsonBodyUnionTypeDef = Union[JsonBodyTypeDef, JsonBodyOutputTypeDef]
@@ -1923,8 +1918,8 @@ ClientSideActionConfigUnionTypeDef = Union[
 
 class LoggingConfigurationOutputTypeDef(TypedDict):
     ResourceArn: str
-    LogDestinationConfigs: List[str]
-    RedactedFields: NotRequired[List[FieldToMatchOutputTypeDef]]
+    LogDestinationConfigs: list[str]
+    RedactedFields: NotRequired[list[FieldToMatchOutputTypeDef]]
     ManagedByFirewallManager: NotRequired[bool]
     LoggingFilter: NotRequired[LoggingFilterOutputTypeDef]
     LogType: NotRequired[Literal["WAF_LOGS"]]
@@ -2007,7 +2002,7 @@ class GetLoggingConfigurationResponseTypeDef(TypedDict):
 
 
 class ListLoggingConfigurationsResponseTypeDef(TypedDict):
-    LoggingConfigurations: List[LoggingConfigurationOutputTypeDef]
+    LoggingConfigurations: list[LoggingConfigurationOutputTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2030,26 +2025,26 @@ class ManagedRuleGroupStatementOutputTypeDef(TypedDict):
     VendorName: str
     Name: str
     Version: NotRequired[str]
-    ExcludedRules: NotRequired[List[ExcludedRuleTypeDef]]
-    ScopeDownStatement: NotRequired[Dict[str, Any]]
-    ManagedRuleGroupConfigs: NotRequired[List[ManagedRuleGroupConfigOutputTypeDef]]
-    RuleActionOverrides: NotRequired[List[RuleActionOverrideOutputTypeDef]]
+    ExcludedRules: NotRequired[list[ExcludedRuleTypeDef]]
+    ScopeDownStatement: NotRequired[dict[str, Any]]
+    ManagedRuleGroupConfigs: NotRequired[list[ManagedRuleGroupConfigOutputTypeDef]]
+    RuleActionOverrides: NotRequired[list[RuleActionOverrideOutputTypeDef]]
 
 
 class RuleGroupReferenceStatementOutputTypeDef(TypedDict):
     ARN: str
-    ExcludedRules: NotRequired[List[ExcludedRuleTypeDef]]
-    RuleActionOverrides: NotRequired[List[RuleActionOverrideOutputTypeDef]]
+    ExcludedRules: NotRequired[list[ExcludedRuleTypeDef]]
+    RuleActionOverrides: NotRequired[list[RuleActionOverrideOutputTypeDef]]
 
 
 class DescribeManagedRuleGroupResponseTypeDef(TypedDict):
     VersionName: str
     SnsTopicArn: str
     Capacity: int
-    Rules: List[RuleSummaryTypeDef]
+    Rules: list[RuleSummaryTypeDef]
     LabelNamespace: str
-    AvailableLabels: List[LabelSummaryTypeDef]
-    ConsumedLabels: List[LabelSummaryTypeDef]
+    AvailableLabels: list[LabelSummaryTypeDef]
+    ConsumedLabels: list[LabelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2183,7 +2178,7 @@ class RuleOutputTypeDef(TypedDict):
     VisibilityConfig: VisibilityConfigTypeDef
     Action: NotRequired[RuleActionOutputTypeDef]
     OverrideAction: NotRequired[OverrideActionOutputTypeDef]
-    RuleLabels: NotRequired[List[LabelTypeDef]]
+    RuleLabels: NotRequired[list[LabelTypeDef]]
     CaptchaConfig: NotRequired[CaptchaConfigTypeDef]
     ChallengeConfig: NotRequired[ChallengeConfigTypeDef]
 
@@ -2223,11 +2218,11 @@ class RuleGroupTypeDef(TypedDict):
     ARN: str
     VisibilityConfig: VisibilityConfigTypeDef
     Description: NotRequired[str]
-    Rules: NotRequired[List[RuleOutputTypeDef]]
+    Rules: NotRequired[list[RuleOutputTypeDef]]
     LabelNamespace: NotRequired[str]
-    CustomResponseBodies: NotRequired[Dict[str, CustomResponseBodyTypeDef]]
-    AvailableLabels: NotRequired[List[LabelSummaryTypeDef]]
-    ConsumedLabels: NotRequired[List[LabelSummaryTypeDef]]
+    CustomResponseBodies: NotRequired[dict[str, CustomResponseBodyTypeDef]]
+    AvailableLabels: NotRequired[list[LabelSummaryTypeDef]]
+    ConsumedLabels: NotRequired[list[LabelSummaryTypeDef]]
 
 
 class WebACLTypeDef(TypedDict):
@@ -2237,17 +2232,17 @@ class WebACLTypeDef(TypedDict):
     DefaultAction: DefaultActionOutputTypeDef
     VisibilityConfig: VisibilityConfigTypeDef
     Description: NotRequired[str]
-    Rules: NotRequired[List[RuleOutputTypeDef]]
+    Rules: NotRequired[list[RuleOutputTypeDef]]
     DataProtectionConfig: NotRequired[DataProtectionConfigOutputTypeDef]
     Capacity: NotRequired[int]
-    PreProcessFirewallManagerRuleGroups: NotRequired[List[FirewallManagerRuleGroupTypeDef]]
-    PostProcessFirewallManagerRuleGroups: NotRequired[List[FirewallManagerRuleGroupTypeDef]]
+    PreProcessFirewallManagerRuleGroups: NotRequired[list[FirewallManagerRuleGroupTypeDef]]
+    PostProcessFirewallManagerRuleGroups: NotRequired[list[FirewallManagerRuleGroupTypeDef]]
     ManagedByFirewallManager: NotRequired[bool]
     LabelNamespace: NotRequired[str]
-    CustomResponseBodies: NotRequired[Dict[str, CustomResponseBodyTypeDef]]
+    CustomResponseBodies: NotRequired[dict[str, CustomResponseBodyTypeDef]]
     CaptchaConfig: NotRequired[CaptchaConfigTypeDef]
     ChallengeConfig: NotRequired[ChallengeConfigTypeDef]
-    TokenDomains: NotRequired[List[str]]
+    TokenDomains: NotRequired[list[str]]
     AssociationConfig: NotRequired[AssociationConfigOutputTypeDef]
     RetrofittedByFirewallManager: NotRequired[bool]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]

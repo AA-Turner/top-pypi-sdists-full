@@ -1,3 +1,4 @@
+import asyncio
 import threading
 import time
 import uuid
@@ -7,9 +8,7 @@ from typing import Any
 import pytest
 
 # Public API
-from dbos import DBOS, Queue, SetWorkflowID, WorkflowStatusString, _workflow_commands
-from dbos._app_db import ApplicationDatabase
-from dbos._sys_db import SystemDatabase
+from dbos import DBOS, Queue, SetWorkflowID, WorkflowStatusString
 from dbos._utils import GlobalParams
 
 
@@ -39,7 +38,7 @@ def test_list_workflow(dbos: DBOS) -> None:
     assert output.updated_at is not None and output.updated_at > 0
     assert output.queue_name == None
     assert output.executor_id == GlobalParams.executor_id
-    assert output.app_version == GlobalParams.app_version
+    assert output.app_version == DBOS.application_version
     assert output.app_id == ""
     assert output.recovery_attempts == 1
     assert output.workflow_timeout_ms is None
@@ -77,7 +76,13 @@ def test_list_workflow(dbos: DBOS) -> None:
     # Test searching by application version
     outputs = DBOS.list_workflows(app_version="no")
     assert len(outputs) == 0
-    outputs = DBOS.list_workflows(app_version=GlobalParams.app_version)
+    outputs = DBOS.list_workflows(app_version=DBOS.application_version)
+    assert len(outputs) == 1
+
+    # Test searching by executor ID
+    outputs = DBOS.list_workflows(executor_id="nonexistent_executor")
+    assert len(outputs) == 0
+    outputs = DBOS.list_workflows(executor_id=GlobalParams.executor_id)
     assert len(outputs) == 1
 
 
@@ -109,7 +114,7 @@ def test_list_workflow_error(dbos: DBOS) -> None:
     assert output.updated_at is not None and output.updated_at > 0
     assert output.queue_name == None
     assert output.executor_id == GlobalParams.executor_id
-    assert output.app_version == GlobalParams.app_version
+    assert output.app_version == DBOS.application_version
     assert output.app_id == ""
     assert output.recovery_attempts == 1
     assert output.workflow_timeout_ms is None
@@ -200,6 +205,27 @@ def test_list_workflow_start_end_times(dbos: DBOS) -> None:
     assert len(output) == 0, f"Expected list length to be 0, but got {len(output)}"
 
 
+def test_list_workflow_prefix(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    def simple_workflow() -> None:
+        print("Executed Simple workflow")
+        return
+
+    with SetWorkflowID("test1"):
+        simple_workflow()
+    with SetWorkflowID("test_"):
+        simple_workflow()
+
+    output = DBOS.list_workflows(workflow_id_prefix="invalid")
+    assert len(output) == 0
+    output = DBOS.list_workflows(workflow_id_prefix="test")
+    assert len(output) == 2
+    output = DBOS.list_workflows(workflow_id_prefix="test_")
+    assert len(output) == 1
+    output = DBOS.list_workflows(workflow_id_prefix="test1")
+    assert len(output) == 1
+
+
 def test_list_workflow_end_times_positive(
     dbos: DBOS, skip_with_sqlite_imprecise_time: None
 ) -> None:
@@ -244,7 +270,7 @@ def test_get_workflow(dbos: DBOS) -> None:
 
     wfUuid = output[0].workflow_id
 
-    info = _workflow_commands.get_workflow(dbos._sys_db, wfUuid)
+    info = DBOS.get_workflow_status(wfUuid)
     assert info is not None, "Expected output to be not None"
 
     if info is not None:
@@ -289,7 +315,7 @@ def test_queued_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> 
         assert workflow.error is None
         assert "blocking_step" in workflow.name
         assert workflow.executor_id == GlobalParams.executor_id
-        assert workflow.app_version == GlobalParams.app_version
+        assert workflow.app_version == DBOS.application_version
         assert workflow.created_at is not None and workflow.created_at > 0
         assert workflow.updated_at is not None and workflow.updated_at > 0
         assert workflow.recovery_attempts == 1
@@ -323,7 +349,7 @@ def test_queued_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> 
         assert workflow.error is None
         assert "blocking_step" in workflow.name
         assert workflow.executor_id == GlobalParams.executor_id
-        assert workflow.app_version == GlobalParams.app_version
+        assert workflow.app_version == DBOS.application_version
         assert workflow.created_at is not None and workflow.created_at > 0
         assert workflow.updated_at is not None and workflow.updated_at > 0
         assert workflow.recovery_attempts == 1
@@ -334,6 +360,8 @@ def test_queued_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> 
     workflows = DBOS.list_queued_workflows(status=WorkflowStatusString.ENQUEUED.value)
     assert len(workflows) == 0
     workflows = DBOS.list_queued_workflows(status=["ENQUEUED", "PENDING"])
+    assert len(workflows) == queued_steps
+    workflows = DBOS.list_workflows(queue_name=queue.name)
     assert len(workflows) == queued_steps
     workflows = DBOS.list_queued_workflows(queue_name=queue.name)
     assert len(workflows) == queued_steps
@@ -358,12 +386,18 @@ def test_queued_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> 
     assert len(workflows) == 2
     workflows = DBOS.list_queued_workflows(offset=queued_steps - 1)
     assert len(workflows) == 1
+    workflows = DBOS.list_queued_workflows(executor_id="nonexistent_executor")
+    assert len(workflows) == 0
+    workflows = DBOS.list_queued_workflows(executor_id=GlobalParams.executor_id)
+    assert len(workflows) == queued_steps
 
     # Confirm the workflow finishes and nothing is enqueued afterwards
     event.set()
     assert handle.get_result() == [0, 1, 2, 3, 4]
     workflows = DBOS.list_queued_workflows()
     assert len(workflows) == 0
+    workflows = DBOS.list_queued_workflows(status="SUCCESS")
+    assert len(workflows) == queued_steps
 
     # Test the steps are listed properly
     steps = DBOS.list_workflow_steps(handle.workflow_id)
@@ -1087,3 +1121,60 @@ def test_call_as_step_within_step(dbos: DBOS) -> None:
     assert "Invalid call to `DBOS.getStatus` inside a transaction" in str(
         exc_info.value
     )
+
+
+def test_step_timing(dbos: DBOS) -> None:
+    num_steps = 5
+    start_time = int(time.time() * 1000)
+
+    @DBOS.step()
+    def step() -> None:
+        time.sleep(0.1)
+
+    @DBOS.workflow()
+    def workflow() -> None:
+        for _ in range(num_steps):
+            step()
+        DBOS.set_event("key", "value")
+        DBOS.list_workflows()
+        DBOS.recv(timeout_seconds=0)
+
+    handle = DBOS.start_workflow(workflow)
+    handle.get_result()
+
+    steps = DBOS.list_workflow_steps(handle.workflow_id)
+    for s in steps:
+        assert s["started_at_epoch_ms"] and s["completed_at_epoch_ms"]
+        assert s["started_at_epoch_ms"] >= start_time
+        assert s["completed_at_epoch_ms"] >= s["started_at_epoch_ms"]
+        if s["function_id"] < num_steps:
+            assert s["completed_at_epoch_ms"] - s["started_at_epoch_ms"] >= 100
+
+
+@pytest.mark.asyncio
+async def test_async_step_timing(dbos: DBOS) -> None:
+    num_steps = 5
+    start_time = int(time.time() * 1000)
+
+    @DBOS.step()
+    async def step() -> None:
+        await asyncio.sleep(0.1)
+
+    @DBOS.workflow()
+    async def workflow() -> None:
+        for _ in range(num_steps):
+            await step()
+        await DBOS.set_event_async("key", "value")
+        await DBOS.list_workflows_async()
+        await DBOS.recv_async(timeout_seconds=0)
+
+    handle = await DBOS.start_workflow_async(workflow)
+    await handle.get_result()
+
+    steps = await DBOS.list_workflow_steps_async(handle.workflow_id)
+    for s in steps:
+        assert s["started_at_epoch_ms"] and s["completed_at_epoch_ms"]
+        assert s["started_at_epoch_ms"] >= start_time
+        assert s["completed_at_epoch_ms"] >= s["started_at_epoch_ms"]
+        if s["function_id"] < num_steps:
+            assert s["completed_at_epoch_ms"] - s["started_at_epoch_ms"] >= 100

@@ -9,8 +9,7 @@
 """Extractors for https://www.tumblr.com/"""
 
 from .common import Extractor, Message
-from .. import text, util, oauth, exception
-from datetime import datetime, date, timedelta
+from .. import text, util, dt, oauth, exception
 
 
 BASE_PATTERN = (
@@ -33,7 +32,7 @@ class TumblrExtractor(Extractor):
 
     def _init(self):
         if name := self.groups[1]:
-            self.blog = f"{name}.tumblr.com"
+            self.blog = name + ".tumblr.com"
         else:
             self.blog = self.groups[0] or self.groups[2]
 
@@ -61,16 +60,16 @@ class TumblrExtractor(Extractor):
         blog = None
 
         # pre-compile regular expressions
-        self._sub_video = util.re(
+        self._sub_video = text.re(
             r"https?://((?:vt|vtt|ve)(?:\.media)?\.tumblr\.com"
             r"/tumblr_[^_]+)_\d+\.([0-9a-z]+)").sub
         if self.inline:
-            self._sub_image = util.re(
+            self._sub_image = text.re(
                 r"https?://(\d+\.media\.tumblr\.com(?:/[0-9a-f]+)?"
                 r"/tumblr(?:_inline)?_[^_]+)_\d+\.([0-9a-z]+)").sub
-            self._subn_orig_image = util.re(r"/s\d+x\d+/").subn
-            _findall_image = util.re('<img src="([^"]+)"').findall
-            _findall_video = util.re('<source src="([^"]+)"').findall
+            self._subn_orig_image = text.re(r"/s\d+x\d+/").subn
+            _findall_image = text.re('<img src="([^"]+)"').findall
+            _findall_video = text.re('<source src="([^"]+)"').findall
 
         for post in self.posts():
             if self.date_min > post["timestamp"]:
@@ -88,7 +87,7 @@ class TumblrExtractor(Extractor):
 
                     if self.avatar:
                         url = self.api.avatar(self.blog)
-                        yield Message.Directory, {"blog": blog}
+                        yield Message.Directory, "", {"blog": blog}
                         yield self._prepare_avatar(url, post.copy(), blog)
 
                 post["blog"] = blog
@@ -100,7 +99,7 @@ class TumblrExtractor(Extractor):
 
             if "trail" in post:
                 del post["trail"]
-            post["date"] = text.parse_timestamp(post["timestamp"])
+            post["date"] = self.parse_timestamp(post["timestamp"])
             posts = []
 
             if "photos" in post:  # type "photo" or "link"
@@ -161,7 +160,7 @@ class TumblrExtractor(Extractor):
                     del post["extension"]
 
             post["count"] = len(posts)
-            yield Message.Directory, post
+            yield Message.Directory, "", post
 
             for num, (msg, url, post) in enumerate(posts, 1):
                 post["num"] = num
@@ -313,7 +312,7 @@ class TumblrDayExtractor(TumblrExtractor):
 
     def posts(self):
         year, month, day = self.groups[3].split("/")
-        ordinal = date(int(year), int(month), int(day)).toordinal()
+        ordinal = dt.date(int(year), int(month), int(day)).toordinal()
 
         # 719163 == date(1970, 1, 1).toordinal()
         self.date_min = (ordinal - 719163) * 86400
@@ -514,7 +513,7 @@ class TumblrAPI(oauth.OAuth1API):
                         self.extractor.wait(seconds=reset)
                         continue
 
-                    t = (datetime.now() + timedelta(0, float(reset))).time()
+                    t = (dt.now() + dt.timedelta(0, float(reset))).time()
                     raise exception.AbortExtraction(
                         f"Aborting - Rate limit will reset at "
                         f"{t.hour:02}:{t.minute:02}:{t.second:02}")
@@ -532,12 +531,16 @@ class TumblrAPI(oauth.OAuth1API):
         if self.api_key:
             params["api_key"] = self.api_key
 
-        strategy = self.extractor.config("pagination")
-        if not strategy:
-            if params.get("before"):
-                strategy = "before"
-            elif "offset" not in params:
+        if strategy := self.extractor.config("pagination"):
+            if strategy not in {"api", "before"} and "offset" not in params:
+                self.log.warning('Unable to use "pagination": "%s". '
+                                 'Falling back to "api".', strategy)
                 strategy = "api"
+        elif params.get("before"):
+            strategy = "before"
+        elif "offset" not in params:
+            strategy = "api"
+        self.log.debug("Pagination strategy '%s'", strategy or "offset")
 
         while True:
             data = self._call(endpoint, params)

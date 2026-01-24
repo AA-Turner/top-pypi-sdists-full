@@ -144,8 +144,8 @@ b +     # line3
       if issubclass(ast.Slice, ast.expr):
         exp_index += 1
     else:
-      # Astroid v3 has some changes from v2
-      if self.astroid_version == 3:
+      # Astroid v3 and v4 have some changes from v2
+      if self.astroid_version in (3, 4):
         exp_index += 1
     exp_tested_nodes = self.expect_tested_nodes[path][exp_index]
     self.assertEqual(tested_nodes, exp_tested_nodes)
@@ -691,6 +691,9 @@ j  # not a complex number, just a name
         if time() - start > 13 * 60:
           break
 
+        if 'annotationlib' == module.__name__:
+            break
+
         try:
           filename = inspect.getsourcefile(module)
         except Exception:  # some modules raise weird errors
@@ -918,3 +921,14 @@ if 0:
         t2 = re.sub(r'^ +$', '', t2, flags=re.MULTILINE)
 
       self.assertEqual(t1, t2)
+
+  def test_list_comprehension(self):
+    source = '[x for x in range(2)]'
+    m = self.create_mark_checker(source)
+
+  def test_dict_comprehension(self):
+    source = '{x: 2 * x for x in range(2)}'
+    m = self.create_mark_checker(source)
+    assert 'DictComp'  in str(m.view_nodes_at(0, 0))
+
+    

@@ -61,8 +61,8 @@ class ReductionBasedReferenceDirectionFactory(ReferenceDirectionFactory):
 
         self.n_points = n_points
 
-    def _do(self):
-        rnd = sample_on_unit_simplex(self.n_sample_points, self.n_dim, seed=self.seed, unit_simplex_mapping=self.sampling)
+    def _do(self, random_state=None):
+        rnd = sample_on_unit_simplex(self.n_sample_points, self.n_dim, random_state=random_state, unit_simplex_mapping=self.sampling)
 
         def h(n):
             return get_partition_closest_to_points(n, self.n_dim)
@@ -73,7 +73,7 @@ class ReductionBasedReferenceDirectionFactory(ReferenceDirectionFactory):
         E = E[np.any(E == 0, axis=1)]
 
         # add the edge coordinates
-        X = np.row_stack([E, rnd])
+        X = np.vstack([E, rnd])
 
         I = select_points_with_maximum_distance(X, self.n_points, selected=list(range((len(E)))))
         centroids = X[I].copy()

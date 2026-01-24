@@ -55,10 +55,19 @@ doctest_global_setup = """
 
 import dwave.optimization
 
+# print numpy numeric scalars without their type information,
+# e.g. as 3.0 rather than np.float64(3.0).
+import numpy
+numpy.set_printoptions(legacy='1.25')
 """
 
 autodoc_type_aliases = {
+    'ArrayLike': 'numpy.typing.ArrayLike',
+    'np.typing.ArrayLike': 'numpy.typing.ArrayLike',
     'numpy.typing.ArrayLike': 'numpy.typing.ArrayLike',
+
+    'ArraySymbolLike': 'ArraySymbol | numpy.typing.ArrayLike',
+    'dwave.optimization.typing.ArraySymbolLike': 'ArraySymbol | numpy.typing.ArrayLike',
 }
 
 # -- Breathe --------------------------------------------------------------
@@ -81,11 +90,13 @@ html_theme_options = {
 }
 html_sidebars = {"**": ["search-field", "sidebar-nav-bs"]}  # remove ads
 
-intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'numpy': ('https://numpy.org/doc/stable/', None),
-                       'networkx': ('https://networkx.org/documentation/stable/', None),
-                       'dwave': ('https://docs.dwavequantum.com/en/latest/', None),
-                       }
+intersphinx_mapping = {
+    'dwave': ('https://docs.dwavequantum.com/en/latest/', None),
+    'networkx': ('https://networkx.org/documentation/stable/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'python': ('https://docs.python.org/3', None),
+    'sklearn': ('https://scikit-learn.org/stable/', None),
+}
 
 rst_epilog = """
 .. |array-like| replace:: array-like

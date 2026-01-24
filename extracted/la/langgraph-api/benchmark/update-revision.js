@@ -4,9 +4,11 @@
  */
 
 // LangSmith API endpoints and credentials
-const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID || 'a23f03ff-6d4d-4efd-8149-bb5a7f3b95cf'; // jdr-benchmark deployment id
+// Prod jdr-benchmark: a23f03ff-6d4d-4efd-8149-bb5a7f3b95cf
+// Staging jdr-benchmark: 8ced7b1a-275f-48f3-88bf-ae08fdc4b414
+const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID || '8ced7b1a-275f-48f3-88bf-ae08fdc4b414'; // jdr-benchmark deployment id
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
-const API_BASE = 'https://api.host.langchain.com/v1';
+const API_BASE = 'https://beta.api.host.langchain.com/v1';
 
 // Deployment configuration
 const REVISION_CONFIG = {
@@ -15,6 +17,11 @@ const REVISION_CONFIG = {
         {
             name: "N_JOBS_PER_WORKER",
             value: "100",
+            type: "secret"
+        },
+        {
+            name: "FF_LOG_DROPPED_EVENTS",
+            value: "true",
             type: "secret"
         }
     ],
@@ -43,7 +50,7 @@ async function updateRevision() {
 
     try {
         console.log('Triggering new revision deployment...');
-        
+
         // Step 1: Create new revision
         const createResponse = await fetch(createUrl, {
             method: 'POST',
@@ -88,7 +95,7 @@ async function updateRevision() {
 
             // Parse response and handle deployment logic (these errors should still be thrown)
             const revisions = await pollResponse.json();
-            
+
             if (!revisions || revisions.length === 0) {
                 throw new Error('No revisions found');
             }
@@ -100,11 +107,11 @@ async function updateRevision() {
             if (currentStatus !== lastStatus) {
                 const timestamp = new Date().toISOString();
                 console.log(`[${timestamp}] Status: ${currentStatus}`);
-                
+
                 if (latestRevision.status_message) {
                     console.log(`  Message: ${latestRevision.status_message}`);
                 }
-                
+
                 lastStatus = currentStatus;
             }
 

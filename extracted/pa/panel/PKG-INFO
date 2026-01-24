@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panel
-Version: 1.8.1
+Version: 1.8.5
 Summary: The powerful data exploration & web app framework for Python.
 Project-URL: Homepage, https://panel.holoviz.org
 Project-URL: Source, https://github.com/holoviz/panel
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business
 Classifier: Topic :: Office/Business :: Financial
 Classifier: Topic :: Scientific/Engineering
@@ -38,6 +39,7 @@ Requires-Dist: linkify-it-py
 Requires-Dist: markdown
 Requires-Dist: markdown-it-py
 Requires-Dist: mdit-py-plugins
+Requires-Dist: narwhals>=2
 Requires-Dist: packaging
 Requires-Dist: pandas>=1.2
 Requires-Dist: param<3.0,>=2.1.0
@@ -48,7 +50,7 @@ Requires-Dist: typing-extensions
 Provides-Extra: dev
 Requires-Dist: watchfiles; extra == 'dev'
 Provides-Extra: fastapi
-Requires-Dist: bokeh-fastapi<0.2.0,>=0.1.2; extra == 'fastapi'
+Requires-Dist: bokeh-fastapi<0.2.0,>=0.1.5; extra == 'fastapi'
 Requires-Dist: fastapi[standard]; extra == 'fastapi'
 Provides-Extra: mypy
 Requires-Dist: mypy; extra == 'mypy'

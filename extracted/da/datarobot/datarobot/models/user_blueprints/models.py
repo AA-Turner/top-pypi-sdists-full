@@ -186,9 +186,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         self.vertex_context = _init_list_of_class_or_dict(vertex_context, VertexContextItem)
 
     @classmethod
-    def list(
-        cls, limit: int = 100, offset: int = 0, project_id: Optional[str] = None
-    ) -> List[UserBlueprint]:
+    def list(cls, limit: int = 100, offset: int = 0, project_id: Optional[str] = None) -> List[UserBlueprint]:
         """
         Fetch a list of the user blueprints the current user created
 
@@ -516,9 +514,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         -------
         :class:`requests.models.Response`
         """
-        return cast(
-            Response, cls._client.delete(cls._path.format(userBlueprintId=user_blueprint_id))
-        )
+        return cast(Response, cls._client.delete(cls._path.format(userBlueprintId=user_blueprint_id)))
 
     @classmethod
     def get_input_types(cls) -> UserBlueprintAvailableInput:
@@ -567,9 +563,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         UserBlueprintAddToProjectMenu
         """
         user_blueprint_ids = (
-            [str(u) for u in user_blueprint_ids]
-            if isinstance(user_blueprint_ids, list)
-            else [str(user_blueprint_ids)]
+            [str(u) for u in user_blueprint_ids] if isinstance(user_blueprint_ids, list) else [str(user_blueprint_ids)]
         )
         return UserBlueprintAddToProjectMenu.add_to_project(
             project_id=str(project_id), user_blueprint_ids=user_blueprint_ids
@@ -697,9 +691,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         )
 
     @classmethod
-    def validate_blueprint(
-        cls, blueprint, project_id: Optional[str] = None
-    ) -> List[VertexContextItem]:
+    def validate_blueprint(cls, blueprint, project_id: Optional[str] = None) -> List[VertexContextItem]:
         """Validate a user blueprint and return information about the inputs expected and outputs
         provided by each task.
 
@@ -728,9 +720,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     def update_shared_roles(
         cls,
         user_blueprint_id: str,
-        roles: List[
-            Union[GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator]
-        ],
+        roles: List[Union[GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator]],
     ) -> Response:
         """
         Share a user blueprint with a user, group, or organization
@@ -985,18 +975,12 @@ class UserBlueprintAddToProjectMenu(APIObject, HumanReadable, CompareWithJSON):
         message: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
-        self.added_to_menu = _init_list_of_class_or_dict(
-            added_to_menu, UserBlueprintAddedToMenuItem
-        )
-        self.not_added_to_menu = _init_list_of_class_or_dict(
-            not_added_to_menu, UserBlueprintNotAddedToMenuItem
-        )
+        self.added_to_menu = _init_list_of_class_or_dict(added_to_menu, UserBlueprintAddedToMenuItem)
+        self.not_added_to_menu = _init_list_of_class_or_dict(not_added_to_menu, UserBlueprintNotAddedToMenuItem)
         self.message = message
 
     @classmethod
-    def add_to_project(
-        cls, project_id: str, user_blueprint_ids: List[str]
-    ) -> UserBlueprintAddToProjectMenu:
+    def add_to_project(cls, project_id: str, user_blueprint_ids: List[str]) -> UserBlueprintAddToProjectMenu:
         """
         Add a list of user blueprints, by id, to a specified (by id) project's repository.
 
@@ -1021,9 +1005,7 @@ class UserBlueprintAddToProjectMenu(APIObject, HumanReadable, CompareWithJSON):
         """
         response = cls._client.post(
             cls._path,
-            data=dict(
-                project_id=str(project_id), user_blueprint_ids=[str(u) for u in user_blueprint_ids]
-            ),
+            data=dict(project_id=str(project_id), user_blueprint_ids=[str(u) for u in user_blueprint_ids]),
         )
         return cls.from_server_data(response.json())
 
@@ -1083,9 +1065,7 @@ class UserBlueprintValidateTaskParameters(APIObject, HumanReadable, CompareWithJ
             data=dict(
                 task_code=task_code,
                 output_method=output_method,
-                task_parameters=[
-                    t.as_json() if not isinstance(t, dict) else t for t in task_parameters
-                ],
+                task_parameters=[t.as_json() if not isinstance(t, dict) else t for t in task_parameters],
                 project_id=project_id,
             ),
         )
@@ -1341,18 +1321,14 @@ class UserBlueprintSharingListController(APIObject, HumanReadable, CompareWithJS
         return cls.from_server_data(dict(data=data)).data
 
 
-class UserBlueprintSharingUpdateController(
-    APIObject, HumanReadable, CompareWithJSON
-):  # pylint: disable=missing-class-docstring
+class UserBlueprintSharingUpdateController(APIObject, HumanReadable, CompareWithJSON):  # pylint: disable=missing-class-docstring
     _path = "userBlueprints/{userBlueprintId}/sharedRoles/"
 
     @classmethod
     def update_shared_roles(
         cls,
         user_blueprint_id: str,
-        roles: List[
-            Union[GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator]
-        ],
+        roles: List[Union[GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator]],
     ) -> Response:
         """
         Share a user blueprint with a user, group, or organization
@@ -1483,9 +1459,7 @@ class UserBlueprintHexColumnNameLookupEntry(HumanReadable, CompareWithJSON):
         The id of the project from which the column name originates.
     """
 
-    def __init__(
-        self, colname: str, hex: str, project_id: Optional[str] = None, **kwargs: Any
-    ) -> None:
+    def __init__(self, colname: str, hex: str, project_id: Optional[str] = None, **kwargs: Any) -> None:
         self.colname = colname
         self.hex = hex
         self.project_id = project_id
@@ -1543,9 +1517,7 @@ class UserBlueprintTaskData(HumanReadable, CompareWithJSON):
     ) -> None:
         self.inputs = inputs
         self.output_method = output_method
-        self.output_method_parameters = _init_list_of_class_or_dict(
-            output_method_parameters, ParamValuePair
-        )
+        self.output_method_parameters = _init_list_of_class_or_dict(output_method_parameters, ParamValuePair)
         self.task_code = task_code
         self.task_parameters = _init_list_of_class_or_dict(task_parameters, ParamValuePair)
         self.x_transformations = _init_list_of_class_or_dict(x_transformations, ParamValuePair)
@@ -1635,9 +1607,7 @@ class ParamValuePair(CompareWithJSON):
         Any value.
     """
 
-    def __init__(
-        self, param: str, value: Optional[Union[Any, List[Any]]] = None, **kwargs: Any
-    ) -> None:
+    def __init__(self, param: str, value: Optional[Union[Any, List[Any]]] = None, **kwargs: Any) -> None:
         self.param = param
         self.value = value
 
@@ -1760,9 +1730,7 @@ class UserBlueprintTaskLookupEntry(HumanReadable, CompareWithJSON):
         A definition of a task in terms of label, arguments, description, and other metadata.
     """
 
-    def __init__(
-        self, task_code: str, task_definition: UserBlueprintTaskDefinition, **kwargs: Any
-    ) -> None:
+    def __init__(self, task_code: str, task_definition: UserBlueprintTaskDefinition, **kwargs: Any) -> None:
         self.task_code = task_code
         self.task_definition = _init_class_or_dict(task_definition, UserBlueprintTaskDefinition)
 
@@ -1860,9 +1828,7 @@ class UserBlueprintTaskCustomTaskMetadata(HumanReadable, CompareWithJSON):
         The name of the custom task version.
     """
 
-    def __init__(
-        self, id: str, label: str, version_major: int, version_minor: int, **kwargs: Any
-    ) -> None:
+    def __init__(self, id: str, label: str, version_major: int, version_minor: int, **kwargs: Any) -> None:
         self.id = id
         self.version_major = version_major
         self.version_minor = version_minor
@@ -1918,9 +1884,7 @@ class UserBlueprintTaskArgument(HumanReadable, CompareWithJSON):
         The definition of a task argument, used to specify a certain aspect of the task.
     """
 
-    def __init__(
-        self, argument: UserBlueprintTaskArgumentDefinition, key: str, **kwargs: Any
-    ) -> None:
+    def __init__(self, argument: UserBlueprintTaskArgumentDefinition, key: str, **kwargs: Any) -> None:
         self.key = key
         self.argument = _init_class_or_dict(argument, UserBlueprintTaskArgumentDefinition)
 
@@ -1987,9 +1951,7 @@ class UserBlueprintTaskCategoryItem(HumanReadable, CompareWithJSON):
     ) -> None:
         self.name = name
         self.task_codes = task_codes
-        self.subcategories = _init_list_of_class_or_dict(
-            subcategories, UserBlueprintTaskCategoryItem
-        )
+        self.subcategories = _init_list_of_class_or_dict(subcategories, UserBlueprintTaskCategoryItem)
 
 
 def _init_class_or_dict(item, class_):

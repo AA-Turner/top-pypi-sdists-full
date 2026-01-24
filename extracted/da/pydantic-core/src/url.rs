@@ -1,52 +1,112 @@
+use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
-use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{self, Display};
+use std::fmt::{Formatter, Write};
 use std::hash::{Hash, Hasher};
+use std::sync::OnceLock;
 
 use idna::punycode::decode_to_string;
+use jiter::{PartialMode, StringCacheMode};
+use percent_encoding::{percent_encode, AsciiSet, CONTROLS};
 use pyo3::exceptions::PyValueError;
 use pyo3::pyclass::CompareOp;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::OnceLockExt;
 use pyo3::types::{PyDict, PyType};
 use pyo3::{intern, prelude::*, IntoPyObjectExt};
 use url::Url;
 
+use crate::input::InputType;
+use crate::recursion_guard::RecursionState;
 use crate::tools::SchemaDict;
-use crate::SchemaValidator;
-
-static SCHEMA_DEFINITION_URL: GILOnceCell<SchemaValidator> = GILOnceCell::new();
+use crate::validators::url::{MultiHostUrlValidator, UrlValidator};
+use crate::validators::{Extra, ValidationState, Validator};
+use crate::ValidationError;
 
 #[pyclass(name = "Url", module = "pydantic_core._pydantic_core", subclass, frozen)]
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct PyUrl {
     lib_url: Url,
+    /// Override to treat the path as empty when it is `/`. The `url` crate always normalizes an empty path to `/`,
+    /// but users may want to preserve the empty path when round-tripping.
+    path_is_empty: bool,
+    /// Cache for the serialized representation where this diverges from `lib_url.as_str()`
+    /// (i.e. when trailing slash was added to the empty path, but user didn't want that)
+    serialized: OnceLock<String>,
+}
+
+impl Hash for PyUrl {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.lib_url.hash(state);
+        self.path_is_empty.hash(state);
+        // no need to hash `serialized` as it's derived from the other two fields
+    }
 }
 
 impl PyUrl {
-    pub fn new(lib_url: Url) -> Self {
-        Self { lib_url }
+    pub fn new(lib_url: Url, path_is_empty: bool) -> Self {
+        Self {
+            lib_url,
+            path_is_empty,
+            serialized: OnceLock::new(),
+        }
     }
 
     pub fn url(&self) -> &Url {
         &self.lib_url
     }
-}
 
-fn build_schema_validator(py: Python, schema_type: &str) -> SchemaValidator {
-    let schema = PyDict::new(py);
-    schema.set_item("type", schema_type).unwrap();
-    SchemaValidator::py_new(py, &schema, None).unwrap()
+    pub fn url_mut(&mut self) -> &mut Url {
+        &mut self.lib_url
+    }
+
+    fn serialized(&self, py: Python<'_>) -> &str {
+        if self.path_is_empty {
+            self.serialized
+                .get_or_init_py_attached(py, || serialize_url_without_path_slash(&self.lib_url))
+        } else {
+            self.lib_url.as_str()
+        }
+    }
 }
 
 #[pymethods]
 impl PyUrl {
     #[new]
-    pub fn py_new(py: Python, url: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let schema_obj = SCHEMA_DEFINITION_URL
-            .get_or_init(py, || build_schema_validator(py, "url"))
-            .validate_python(py, url, None, None, None, None, false.into(), None, None)?;
-        schema_obj.extract(py)
+    #[pyo3(signature = (url, *, preserve_empty_path=false))]
+    pub fn py_new(py: Python, url: &Bound<'_, PyAny>, preserve_empty_path: bool) -> PyResult<Self> {
+        let validator = UrlValidator::get_simple(false, preserve_empty_path);
+        let url_obj = validator
+            .validate(
+                py,
+                url,
+                &mut ValidationState::new(
+                    Extra::new(
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        InputType::Python,
+                        StringCacheMode::None,
+                        None,
+                        None,
+                    ),
+                    &mut RecursionState::default(),
+                    PartialMode::Off,
+                ),
+            )
+            .map_err(|e| {
+                let name = match validator.get_name().into_py_any(py) {
+                    Ok(name) => name,
+                    Err(e) => return e,
+                };
+                ValidationError::from_val_error(py, name, InputType::Python, e, None, false, false)
+            })?
+            .downcast_bound::<Self>(py)?
+            .get()
+            .clone(); // FIXME: avoid the clone, would need to make `validate` be aware of what URL subclass to create
+        Ok(url_obj)
     }
 
     #[getter]
@@ -89,6 +149,7 @@ impl PyUrl {
     pub fn path(&self) -> Option<&str> {
         match self.lib_url.path() {
             "" => None,
+            "/" if self.path_is_empty => None,
             path => Some(path),
         }
     }
@@ -113,16 +174,16 @@ impl PyUrl {
     }
 
     // string representation of the URL, with punycode decoded when appropriate
-    pub fn unicode_string(&self) -> String {
-        unicode_url(&self.lib_url)
+    pub fn unicode_string(&self, py: Python<'_>) -> Cow<'_, str> {
+        unicode_url(self.serialized(py), &self.lib_url)
     }
 
-    pub fn __str__(&self) -> &str {
-        self.lib_url.as_str()
+    pub fn __str__(&self, py: Python<'_>) -> &str {
+        self.serialized(py)
     }
 
-    pub fn __repr__(&self) -> String {
-        format!("Url('{}')", self.lib_url)
+    pub fn __repr__(&self, py: Python<'_>) -> String {
+        format!("Url('{}')", self.serialized(py))
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -151,8 +212,8 @@ impl PyUrl {
         self.clone().into_py_any(py)
     }
 
-    fn __getnewargs__(&self) -> (&str,) {
-        (self.__str__(),)
+    fn __getnewargs__(&self, py: Python<'_>) -> (&str,) {
+        (self.__str__(py),)
     }
 
     #[classmethod]
@@ -168,6 +229,27 @@ impl PyUrl {
         path: Option<&str>,
         query: Option<&str>,
         fragment: Option<&str>,
+        // encode_credentials: bool, // TODO: re-enable this
+    ) -> PyResult<Bound<'py, PyAny>> {
+        Self::build_inner(
+            cls, scheme, host, username, password, port, path, query, fragment, false,
+        )
+    }
+}
+
+impl PyUrl {
+    #[allow(clippy::too_many_arguments)]
+    fn build_inner<'py>(
+        cls: &Bound<'py, PyType>,
+        scheme: &str,
+        host: &str,
+        username: Option<&str>,
+        password: Option<&str>,
+        port: Option<u16>,
+        path: Option<&str>,
+        query: Option<&str>,
+        fragment: Option<&str>,
+        encode_credentials: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
         let url_host = UrlHostParts {
             username: username.map(Into::into),
@@ -175,7 +257,10 @@ impl PyUrl {
             host: Some(host.into()),
             port,
         };
-        let mut url = format!("{scheme}://{url_host}");
+        let mut url = format!("{scheme}://");
+        url_host
+            .to_writer(&mut url, encode_credentials)
+            .expect("writing to string should not fail");
         if let Some(path) = path {
             url.push('/');
             url.push_str(path);
@@ -201,11 +286,8 @@ pub struct PyMultiHostUrl {
 }
 
 impl PyMultiHostUrl {
-    pub fn new(ref_url: Url, extra_urls: Option<Vec<Url>>) -> Self {
-        Self {
-            ref_url: PyUrl::new(ref_url),
-            extra_urls,
-        }
+    pub fn new(ref_url: PyUrl, extra_urls: Option<Vec<Url>>) -> Self {
+        Self { ref_url, extra_urls }
     }
 
     pub fn lib_url(&self) -> &Url {
@@ -217,16 +299,43 @@ impl PyMultiHostUrl {
     }
 }
 
-static SCHEMA_DEFINITION_MULTI_HOST_URL: GILOnceCell<SchemaValidator> = GILOnceCell::new();
-
 #[pymethods]
 impl PyMultiHostUrl {
     #[new]
-    pub fn py_new(py: Python, url: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let schema_obj = SCHEMA_DEFINITION_MULTI_HOST_URL
-            .get_or_init(py, || build_schema_validator(py, "multi-host-url"))
-            .validate_python(py, url, None, None, None, None, false.into(), None, None)?;
-        schema_obj.extract(py)
+    #[pyo3(signature = (url, *, preserve_empty_path=false))]
+    pub fn py_new(py: Python, url: &Bound<'_, PyAny>, preserve_empty_path: bool) -> PyResult<Self> {
+        let validator = MultiHostUrlValidator::get_simple(false, preserve_empty_path);
+        let url_obj = validator
+            .validate(
+                py,
+                url,
+                &mut ValidationState::new(
+                    Extra::new(
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        InputType::Python,
+                        StringCacheMode::None,
+                        None,
+                        None,
+                    ),
+                    &mut RecursionState::default(),
+                    PartialMode::Off,
+                ),
+            )
+            .map_err(|e| {
+                let name = match validator.get_name().into_py_any(py) {
+                    Ok(name) => name,
+                    Err(e) => return e,
+                };
+                ValidationError::from_val_error(py, name, InputType::Python, e, None, false, false)
+            })?
+            .downcast_bound::<Self>(py)?
+            .get()
+            .clone(); // FIXME: avoid the clone, would need to make `validate` be aware of what URL subclass to create
+        Ok(url_obj)
     }
 
     #[getter]
@@ -269,74 +378,70 @@ impl PyMultiHostUrl {
     }
 
     // string representation of the URL, with punycode decoded when appropriate
-    pub fn unicode_string(&self) -> String {
+    pub fn unicode_string(&self, py: Python<'_>) -> Cow<'_, str> {
         if let Some(extra_urls) = &self.extra_urls {
-            let schema = self.ref_url.lib_url.scheme();
-            let host_offset = schema.len() + 3;
+            let scheme = self.ref_url.lib_url.scheme();
+            let host_offset = scheme.len() + 3;
 
-            let mut full_url = self.ref_url.unicode_string();
-            full_url.insert(host_offset, ',');
+            let mut full_url = self.ref_url.unicode_string(py).into_owned();
+            let mut extra_hosts = String::new();
 
             // special urls will have had a trailing slash added, non-special urls will not
-            // hence we need to remove the last char if the schema is special
+            // hence we need to remove the last char if the scheme is special
             #[allow(clippy::bool_to_int_with_if)]
-            let sub = if schema_is_special(schema) { 1 } else { 0 };
+            let sub = if scheme_is_special(scheme) { 1 } else { 0 };
 
-            let hosts = extra_urls
-                .iter()
-                .map(|url| {
-                    let str = unicode_url(url);
-                    str[host_offset..str.len() - sub].to_string()
-                })
-                .collect::<Vec<String>>()
-                .join(",");
-            full_url.insert_str(host_offset, &hosts);
-            full_url
+            for url in extra_urls {
+                let str = unicode_url(url.as_str(), url);
+                extra_hosts.push_str(&str[host_offset..str.len() - sub]);
+                extra_hosts.push(',');
+            }
+
+            full_url.insert_str(host_offset, &extra_hosts);
+            Cow::Owned(full_url)
         } else {
-            self.ref_url.unicode_string()
+            self.ref_url.unicode_string(py)
         }
     }
 
-    pub fn __str__(&self) -> String {
+    pub fn __str__(&self, py: Python<'_>) -> Cow<'_, str> {
         if let Some(extra_urls) = &self.extra_urls {
-            let schema = self.ref_url.lib_url.scheme();
-            let host_offset = schema.len() + 3;
+            let scheme = self.ref_url.lib_url.scheme();
+            let host_offset = scheme.len() + 3;
 
-            let mut full_url = self.ref_url.lib_url.to_string();
-            full_url.insert(host_offset, ',');
+            let mut full_url = self.ref_url.serialized(py).to_string();
+            let mut extra_hosts = String::new();
 
             // special urls will have had a trailing slash added, non-special urls will not
-            // hence we need to remove the last char if the schema is special
+            // hence we need to remove the last char if the scheme is special
             #[allow(clippy::bool_to_int_with_if)]
-            let sub = if schema_is_special(schema) { 1 } else { 0 };
+            let sub = if scheme_is_special(scheme) { 1 } else { 0 };
 
-            let hosts = extra_urls
-                .iter()
-                .map(|url| {
-                    let str = url.as_str();
-                    &str[host_offset..str.len() - sub]
-                })
-                .collect::<Vec<&str>>()
-                .join(",");
-            full_url.insert_str(host_offset, &hosts);
-            full_url
+            for url in extra_urls {
+                let str = url.as_str();
+                extra_hosts.push_str(&str[host_offset..str.len() - sub]);
+                extra_hosts.push(',');
+            }
+
+            full_url.insert_str(host_offset, &extra_hosts);
+            Cow::Owned(full_url)
         } else {
-            self.ref_url.__str__().to_string()
+            Cow::Borrowed(self.ref_url.__str__(py))
         }
     }
 
-    pub fn __repr__(&self) -> String {
-        format!("MultiHostUrl('{}')", self.__str__())
+    pub fn __repr__(&self, py: Python<'_>) -> String {
+        format!("MultiHostUrl('{}')", self.__str__(py))
     }
 
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<bool> {
         match op {
-            CompareOp::Lt => Ok(self.unicode_string() < other.unicode_string()),
-            CompareOp::Le => Ok(self.unicode_string() <= other.unicode_string()),
-            CompareOp::Eq => Ok(self.unicode_string() == other.unicode_string()),
-            CompareOp::Ne => Ok(self.unicode_string() != other.unicode_string()),
-            CompareOp::Gt => Ok(self.unicode_string() > other.unicode_string()),
-            CompareOp::Ge => Ok(self.unicode_string() >= other.unicode_string()),
+            CompareOp::Lt => Ok(self.unicode_string(py) < other.unicode_string(py)),
+            CompareOp::Le => Ok(self.unicode_string(py) <= other.unicode_string(py)),
+            CompareOp::Eq => Ok(self.unicode_string(py) == other.unicode_string(py)),
+            CompareOp::Ne => Ok(self.unicode_string(py) != other.unicode_string(py)),
+            CompareOp::Gt => Ok(self.unicode_string(py) > other.unicode_string(py)),
+            CompareOp::Ge => Ok(self.unicode_string(py) >= other.unicode_string(py)),
         }
     }
 
@@ -354,14 +459,14 @@ impl PyMultiHostUrl {
         self.clone().into_py_any(py)
     }
 
-    fn __getnewargs__(&self) -> (String,) {
-        (self.__str__(),)
+    fn __getnewargs__(&self, py: Python<'_>) -> (Cow<'_, str>,) {
+        (self.__str__(py),)
     }
 
     #[classmethod]
     #[pyo3(signature=(*, scheme, hosts=None, path=None, query=None, fragment=None, host=None, username=None, password=None, port=None))]
     #[allow(clippy::too_many_arguments)]
-    pub fn build<'py>(
+    fn build<'py>(
         cls: &Bound<'py, PyType>,
         scheme: &str,
         hosts: Option<Vec<UrlHostParts>>,
@@ -373,39 +478,67 @@ impl PyMultiHostUrl {
         username: Option<&str>,
         password: Option<&str>,
         port: Option<u16>,
+        // encode_credentials: bool, // TODO: re-enable this
     ) -> PyResult<Bound<'py, PyAny>> {
-        let mut url =
-            if hosts.is_some() && (host.is_some() || username.is_some() || password.is_some() || port.is_some()) {
-                return Err(PyValueError::new_err(
-                    "expected one of `hosts` or singular values to be set.",
-                ));
-            } else if let Some(hosts) = hosts {
-                // check all of host / user / password / port empty
-                // build multi-host url
-                let mut multi_url = format!("{scheme}://");
-                for (index, single_host) in hosts.iter().enumerate() {
-                    if single_host.is_empty() {
-                        return Err(PyValueError::new_err(
-                            "expected one of 'host', 'username', 'password' or 'port' to be set",
-                        ));
-                    }
-                    multi_url.push_str(&single_host.to_string());
-                    if index != hosts.len() - 1 {
-                        multi_url.push(',');
-                    }
+        Self::build_inner(
+            cls, scheme, hosts, path, query, fragment, host, username, password, port,
+            false, // TODO: re-enable this
+        )
+    }
+}
+
+impl PyMultiHostUrl {
+    #[allow(clippy::too_many_arguments)]
+    fn build_inner<'py>(
+        cls: &Bound<'py, PyType>,
+        scheme: &str,
+        hosts: Option<Vec<UrlHostParts>>,
+        path: Option<&str>,
+        query: Option<&str>,
+        fragment: Option<&str>,
+        // convenience parameters to build with a single host
+        host: Option<&str>,
+        username: Option<&str>,
+        password: Option<&str>,
+        port: Option<u16>,
+        encode_credentials: bool,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let mut url = format!("{scheme}://");
+
+        if hosts.is_some() && (host.is_some() || username.is_some() || password.is_some() || port.is_some()) {
+            return Err(PyValueError::new_err(
+                "expected one of `hosts` or singular values to be set.",
+            ));
+        } else if let Some(hosts) = hosts {
+            // check all of host / user / password / port empty
+            // build multi-host url
+            let len = hosts.len();
+            for (index, single_host) in hosts.into_iter().enumerate() {
+                if single_host.is_empty() {
+                    return Err(PyValueError::new_err(
+                        "expected one of 'host', 'username', 'password' or 'port' to be set",
+                    ));
                 }
-                multi_url
-            } else if host.is_some() {
-                let url_host = UrlHostParts {
-                    username: username.map(Into::into),
-                    password: password.map(Into::into),
-                    host: host.map(Into::into),
-                    port,
-                };
-                format!("{scheme}://{url_host}")
-            } else {
-                return Err(PyValueError::new_err("expected either `host` or `hosts` to be set"));
+                single_host
+                    .to_writer(&mut url, encode_credentials)
+                    .expect("writing to string should not fail");
+                if index != len - 1 {
+                    url.push(',');
+                }
+            }
+        } else if host.is_some() {
+            let url_host = UrlHostParts {
+                username: username.map(Into::into),
+                password: password.map(Into::into),
+                host: host.map(Into::into),
+                port,
             };
+            url_host
+                .to_writer(&mut url, encode_credentials)
+                .expect("writing to string should not fail");
+        } else {
+            return Err(PyValueError::new_err("expected either `host` or `hosts` to be set"));
+        }
 
         if let Some(path) = path {
             url.push('/');
@@ -423,16 +556,49 @@ impl PyMultiHostUrl {
     }
 }
 
-pub struct UrlHostParts {
+struct UrlHostParts {
     username: Option<String>,
     password: Option<String>,
     host: Option<String>,
     port: Option<u16>,
 }
 
+struct MaybeEncoded<'a>(&'a str, bool);
+
+impl fmt::Display for MaybeEncoded<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.1 {
+            write!(f, "{}", encode_userinfo_component(self.0))
+        } else {
+            write!(f, "{}", self.0)
+        }
+    }
+}
+
 impl UrlHostParts {
     fn is_empty(&self) -> bool {
         self.host.is_none() && self.password.is_none() && self.host.is_none() && self.port.is_none()
+    }
+
+    fn to_writer(&self, mut w: impl Write, encode_credentials: bool) -> fmt::Result {
+        match (&self.username, &self.password) {
+            (Some(username), None) => write!(w, "{}@", MaybeEncoded(username, encode_credentials))?,
+            (None, Some(password)) => write!(w, ":{}@", MaybeEncoded(password, encode_credentials))?,
+            (Some(username), Some(password)) => write!(
+                w,
+                "{}:{}@",
+                MaybeEncoded(username, encode_credentials),
+                MaybeEncoded(password, encode_credentials)
+            )?,
+            (None, None) => {}
+        }
+        if let Some(host) = &self.host {
+            write!(w, "{host}")?;
+        }
+        if let Some(port) = self.port {
+            write!(w, ":{port}")?;
+        }
+        Ok(())
     }
 }
 
@@ -449,24 +615,6 @@ impl FromPyObject<'_> for UrlHostParts {
     }
 }
 
-impl fmt::Display for UrlHostParts {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match (&self.username, &self.password) {
-            (Some(username), None) => write!(f, "{username}@")?,
-            (None, Some(password)) => write!(f, ":{password}@")?,
-            (Some(username), Some(password)) => write!(f, "{username}:{password}@")?,
-            (None, None) => {}
-        }
-        if let Some(host) = &self.host {
-            write!(f, "{host}")?;
-        }
-        if let Some(port) = self.port {
-            write!(f, ":{port}")?;
-        }
-        Ok(())
-    }
-}
-
 fn host_to_dict<'a>(py: Python<'a>, lib_url: &Url) -> PyResult<Bound<'a, PyDict>> {
     let dict = PyDict::new(py);
     dict.set_item("username", Some(lib_url.username()).filter(|s| !s.is_empty()))?;
@@ -477,19 +625,18 @@ fn host_to_dict<'a>(py: Python<'a>, lib_url: &Url) -> PyResult<Bound<'a, PyDict>
     Ok(dict)
 }
 
-fn unicode_url(lib_url: &Url) -> String {
-    let mut s = lib_url.to_string();
-
+fn unicode_url<'s>(serialized: &'s str, lib_url: &Url) -> Cow<'s, str> {
     match lib_url.host() {
         Some(url::Host::Domain(domain)) if is_punnycode_domain(lib_url, domain) => {
+            let mut s = serialized.to_string();
             if let Some(decoded) = decode_punycode(domain) {
                 // replace the range containing the punycode domain with the decoded domain
                 let start = lib_url.scheme().len() + 3;
                 s.replace_range(start..start + domain.len(), &decoded);
             }
-            s
+            Cow::Owned(s)
         }
-        _ => s,
+        _ => Cow::Borrowed(serialized),
     }
 }
 
@@ -510,10 +657,66 @@ fn decode_punycode(domain: &str) -> Option<String> {
 static PUNYCODE_PREFIX: &str = "xn--";
 
 fn is_punnycode_domain(lib_url: &Url, domain: &str) -> bool {
-    schema_is_special(lib_url.scheme()) && domain.split('.').any(|part| part.starts_with(PUNYCODE_PREFIX))
+    scheme_is_special(lib_url.scheme()) && domain.split('.').any(|part| part.starts_with(PUNYCODE_PREFIX))
+}
+
+/// See <https://url.spec.whatwg.org/#userinfo-percent-encode-set>
+const USERINFO_ENCODE_SET: &AsciiSet = &CONTROLS
+    // query percent-encodes is controls plus the below
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'<')
+    .add(b'>')
+    // path percent-encodes is query percent-encodes plus the below
+    .add(b'?')
+    .add(b'^')
+    .add(b'`')
+    .add(b'{')
+    .add(b'}')
+    // userinfo percent-encodes is path percent-encodes plus the below
+    .add(b'/')
+    .add(b':')
+    .add(b';')
+    .add(b'=')
+    .add(b'@')
+    .add(b'[')
+    .add(b'\\')
+    .add(b']')
+    .add(b'|')
+    // https://datatracker.ietf.org/doc/html/rfc3986.html#section-2.4
+    // we must also percent-encode '%'
+    .add(b'%');
+
+fn encode_userinfo_component(value: &str) -> impl Display + '_ {
+    percent_encode(value.as_bytes(), USERINFO_ENCODE_SET)
 }
 
 // based on https://github.com/servo/rust-url/blob/1c1e406874b3d2aa6f36c5d2f3a5c2ea74af9efb/url/src/parser.rs#L161-L167
-pub fn schema_is_special(schema: &str) -> bool {
-    matches!(schema, "http" | "https" | "ws" | "wss" | "ftp" | "file")
+pub fn scheme_is_special(scheme: &str) -> bool {
+    matches!(scheme, "http" | "https" | "ws" | "wss" | "ftp" | "file")
+}
+
+fn serialize_url_without_path_slash(url: &Url) -> String {
+    // use pointer arithmetic to find the pieces we need to build the string
+    let s = url.as_str();
+    let path = url.path();
+    assert_eq!(path, "/", "`path_is_empty` expected to be set only when path is '/'");
+
+    assert!(
+        // Safety for the below: `s` and `path` should be from the same text slice, so
+        // we can pull out the slices of `s` that don't include `path`.
+        s.as_ptr() <= path.as_ptr() && unsafe { s.as_ptr().add(s.len()) } >= unsafe { path.as_ptr().add(path.len()) }
+    );
+
+    let prefix_len = path.as_ptr() as usize - s.as_ptr() as usize;
+    let suffix_len = s.len() - (prefix_len + path.len());
+
+    // Safety: prefix is the slice of `s` leading to `path`, protected by the assert above.
+    let prefix = unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(s.as_ptr(), prefix_len)) };
+    // Safety: suffix is the slice of `s` after `path`, protected by the assert above.
+    let suffix =
+        unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(path.as_ptr().add(path.len()), suffix_len)) };
+
+    format!("{prefix}{suffix}")
 }

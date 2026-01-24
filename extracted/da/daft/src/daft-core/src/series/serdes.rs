@@ -1,6 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
-use arrow2::{offset::OffsetsBuffer, types::months_days_ns};
+use daft_arrow::{offset::OffsetsBuffer, types::months_days_ns};
 use serde::{Deserializer, de::Visitor};
 
 use crate::{
@@ -152,9 +152,9 @@ impl<'d> serde::Deserialize<'d> for Series {
                     .into_series()),
                     DataType::Extension(..) => {
                         let physical = map.next_value::<Series>()?;
-                        let physical = physical.to_arrow();
+                        let physical = physical.to_arrow2();
                         let ext_array =
-                            physical.convert_logical_type(field.dtype.to_arrow().unwrap());
+                            physical.convert_logical_type(field.dtype.to_arrow2().unwrap());
                         Ok(ExtensionArray::new(Arc::new(field), ext_array)
                             .unwrap()
                             .into_series())
@@ -169,7 +169,7 @@ impl<'d> serde::Deserialize<'d> for Series {
                     }
                     DataType::Struct(..) => {
                         let mut all_series = map.next_value::<Vec<Option<Series>>>()?;
-                        let validity = all_series
+                        let nulls = all_series
                             .pop()
                             .ok_or_else(|| serde::de::Error::missing_field("validity"))?;
                         let children = all_series
@@ -177,33 +177,33 @@ impl<'d> serde::Deserialize<'d> for Series {
                             .map(|s| s.unwrap())
                             .collect::<Vec<_>>();
 
-                        let validity = validity.map(|v| v.bool().unwrap().as_bitmap().clone());
-                        Ok(StructArray::new(Arc::new(field), children, validity).into_series())
+                        let nulls = nulls.map(|v| v.bool().unwrap().as_bitmap().clone().into());
+                        Ok(StructArray::new(Arc::new(field), children, nulls).into_series())
                     }
                     DataType::List(..) => {
                         let mut all_series = map.next_value::<Vec<Option<Series>>>()?;
-                        let validity = all_series
+                        let nulls = all_series
                             .pop()
                             .ok_or_else(|| serde::de::Error::missing_field("validity"))?;
-                        let validity = validity.map(|v| v.bool().unwrap().as_bitmap().clone());
+                        let nulls = nulls.map(|v| v.bool().unwrap().as_bitmap().clone().into());
                         let offsets_series = all_series
                             .pop()
                             .ok_or_else(|| serde::de::Error::missing_field("offsets"))?
                             .unwrap();
                         let offsets_array = offsets_series.i64().unwrap();
                         let offsets = OffsetsBuffer::<i64>::try_from(
-                            offsets_array.as_arrow().values().clone(),
+                            offsets_array.as_arrow2().values().clone(),
                         )
                         .unwrap();
                         let flat_child = all_series
                             .pop()
                             .ok_or_else(|| serde::de::Error::missing_field("flat_child"))?
                             .unwrap();
-                        Ok(ListArray::new(field, flat_child, offsets, validity).into_series())
+                        Ok(ListArray::new(field, flat_child, offsets, nulls).into_series())
                     }
                     DataType::FixedSizeList(..) => {
                         let mut all_series = map.next_value::<Vec<Option<Series>>>()?;
-                        let validity = all_series
+                        let nulls = all_series
                             .pop()
                             .ok_or_else(|| serde::de::Error::missing_field("validity"))?;
                         let flat_child = all_series
@@ -211,8 +211,8 @@ impl<'d> serde::Deserialize<'d> for Series {
                             .ok_or_else(|| serde::de::Error::missing_field("flat_child"))?
                             .unwrap();
 
-                        let validity = validity.map(|v| v.bool().unwrap().as_bitmap().clone());
-                        Ok(FixedSizeListArray::new(field, flat_child, validity).into_series())
+                        let nulls = nulls.map(|v| v.bool().unwrap().as_bitmap().clone().into());
+                        Ok(FixedSizeListArray::new(field, flat_child, nulls).into_series())
                     }
                     DataType::Decimal128(..) => Ok(Decimal128Array::from_iter(
                         Arc::new(field.clone()),
@@ -325,12 +325,17 @@ impl<'d> serde::Deserialize<'d> for Series {
                     }
                     #[cfg(feature = "python")]
                     DataType::Python => {
-                        panic!("python deserialization not implemented for rust Serde");
+                        use crate::prelude::PythonArray;
+
+                        let pickled = map.next_value::<Vec<Option<Cow<[u8]>>>>()?.into_iter();
+                        Ok(PythonArray::from_iter_pickled(&field.name, pickled)
+                            .unwrap()
+                            .into_series())
                     }
                     DataType::Unknown => {
                         panic!("Unable to deserialize Unknown DataType");
                     }
-                    DataType::File => {
+                    DataType::File(_) => {
                         panic!("Unable to deserialize File DataType");
                     }
                 }

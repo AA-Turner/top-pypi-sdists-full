@@ -429,7 +429,6 @@ class CreateAsyncRecognitionTaskRequest(AbstractModel):
         :param _EngineType: 引擎模型类型。
 • 16k_zh：中文普通话通用；
 • 16k_en：英语；
-• 16k_yue：粤语；
 • 16k_id：印度尼西亚语；
 • 16k_fil：菲律宾语；
 • 16k_th：泰语；
@@ -479,7 +478,6 @@ class CreateAsyncRecognitionTaskRequest(AbstractModel):
         r"""引擎模型类型。
 • 16k_zh：中文普通话通用；
 • 16k_en：英语；
-• 16k_yue：粤语；
 • 16k_id：印度尼西亚语；
 • 16k_fil：菲律宾语；
 • 16k_th：泰语；
@@ -818,13 +816,13 @@ class CreateRecTaskRequest(AbstractModel):
 **注意：电话通讯场景，请务必使用以下8k引擎**
 • 8k_zh：中文电话通讯；
 • 8k_en：英文电话通讯；
-• 8k_zh_large：中文电话场景专用大模型引擎【大模型版】。通过显著提升模型参数规模与语言建模能力，实现对电话音频中复杂场景（如口音干扰、背景噪声）的高精度识别，识别准确率较常规版本大幅提升。[点击这里](https://console.cloud.tencent.com/asr/demonstrate) 对比常规版本与普方大模型效果；
+• 8k_zh_large：中文电话场景专用大模型引擎【大模型版】。当前模型同时支持中文、上海话、四川话、武汉话、贵阳话、昆明话、西安话、郑州话、太原话、兰州话、银川话、西宁话、南京话、合肥话、南昌话、长沙话、苏州话、杭州话、济南话、天津话、石家庄话、黑龙江话、吉林话、辽宁话、闽南语、客家话、粤语、南宁话方言识别，通过显著提升模型参数规模与语言建模能力，实现对电话音频中复杂场景（如口音干扰、背景噪声）的高精度识别，识别准确率较常规版本大幅提升。[点击这里](https://console.cloud.tencent.com/asr/demonstrate) 对比常规版本与普方大模型效果；
 
 注意：如您有电话通讯场景识别需求，但发现需求语种仅支持16k，可将8k音频传入下方16k引擎，亦能获取识别结果。但**16k引擎并非基于电话通讯数据训练，无法承诺此种调用方式的识别效果，需由您自行验证识别结果是否可用**
 
 通用场景引擎：
 **注意：除电话通讯场景以外的其它识别场景，请务必使用以下16k引擎**
-• **16k_zh_en**：中英粤+7种方言大模型引擎【大模型版】。当前模型同时支持中文、英语、粤语、四川、陕西、河南、上海、湖南、湖北和安徽方言识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升;
+• **16k_zh_en**：中英粤+9种方言大模型引擎【大模型版】。当前模型同时支持中文、英语、粤语、四川、陕西、河南、上海、湖南、湖北、安徽、闽南和潮汕方言识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升;
 • **16k_zh_large：**普方英大模型引擎【大模型版】。当前模型同时支持中文、英文、[多种中文方言](https://cloud.tencent.com/document/product/1093/35682)等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升，[点击这里](https://console.cloud.tencent.com/asr/demonstrate) 对比中文普通话常规版本与普方英大模型版本的识别效果；
 • **16k_multi_lang：**多语种大模型引擎【大模型版】。当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别)；
 • **16k_zh：**中文普通话通用引擎，支持中文普通话和少量英语，使用丰富的中文普通话语料训练，覆盖场景广泛，适用于除电话通讯外的所有中文普通话识别场景；
@@ -865,6 +863,7 @@ class CreateRecTaskRequest(AbstractModel):
 5：**【增值付费功能】**基础识别结果之上，增加词粒度的[详细识别结果](https://cloud.tencent.com/document/api/1093/37824#SentenceDetail)（包含词级别时间戳、语速值和标点），并输出口语转书面语转写结果，该结果去除语气词、重复词、精简冗余表达，并修正发言人口误，实现口语转书面语的效果，**适用于线上、线下会议直接总结为书面会议纪要的场景**，仅支持8k_zh/16k_zh引擎
 
 注意：
+以下引擎仅支持参数值设置为0：16k_multi_lang、16k_ja、16k_ko、16k_vi、16k_ms、16k_id、16k_fil、16k_th、16k_pt、16k_tr、16k_ar、16k_es、16k_hi、16k_fr、16k_zh_medical、16k_de
 如果传入参数值4，需确保账号已购买[语义分段资源包](https://cloud.tencent.com/document/product/1093/35686#97ae4aa0-29a0-4066-9f07-ccaf8856a16b)，或账号开启后付费；**若当前账号已开启后付费功能，并传入参数值4，将[自动计费](https://cloud.tencent.com/document/product/1093/35686#d912167d-ffd5-41a9-8b1c-2e89845a6852)**
 如果传入参数值5，需确保账号已购买[口语转书面语资源包](https://cloud.tencent.com/document/product/1093/35686#97ae4aa0-29a0-4066-9f07-ccaf8856a16b)，或账号开启后付费；**若当前账号已开启后付费功能，并传入参数值5，将自动计费[自动计费](https://cloud.tencent.com/document/product/1093/35686#d912167d-ffd5-41a9-8b1c-2e89845a6852)**
         :type ResTextFormat: int
@@ -897,7 +896,8 @@ class CreateRecTaskRequest(AbstractModel):
         :type CallbackUrl: str
         :param _SpeakerDiarization: 是否开启说话人分离
 0：不开启；
-1：开启（仅支持以下引擎：8k_zh/16k_zh/16k_ms/16k_en/16k_id/16k_zh_large/16k_zh_dialect，且ChannelNum=1时可用）；
+1：开启（仅支持以下引擎：8k_zh/8k_zh_large/16k_zh/16k_ms/16k_en/16k_id/16k_zh_large/16k_zh_dialect/16k_zh_en，且ChannelNum=1时可用）；
+3: 开启角色分离，需配合SpeakerRoles参数使用（增值服务，仅支持16k_zh_en引擎，可支持传入声纹对录音文件内的说话人进行角色认证）
 默认值为 0
 
 注意：
@@ -1004,6 +1004,14 @@ class CreateRecTaskRequest(AbstractModel):
 1. 本功能配置完成后，预计在10分钟后生效
 
         :type ReplaceTextId: str
+        :param _SpeakerRoles: 开启角色分离能力
+配合SpeakerDiarization: 3 使用，ASR增值服务，可传入一组声纹信息进行角色认证，仅支持16k_zh_en引擎。
+需传入SpeakerRoleInfo数据组，确定说话人的角色信息，涉及RoleAudioUrl和RoleName两个参数。 
+RoleAudioUrl：需要认证角色的声纹音频地址，建议30s内的纯净人声，最长不能超过45s。 
+RoleName：需要认证角色的名称，若匹配成功，会替换话者分离中的SpeakerID。 
+示例： 
+"{\"EngineModelType\":\"16k_zh_en\",\"ChannelNum\":1,\"ResTextFormat\":1,\"SourceType\":0,\"Url\":\"需要进行ASR识别的音频链接\",\"SpeakerDiarization\":3,\"SpeakerRoles\":[{\"RoleAudioUrl\":\"需要认证角色的声纹音频地址\",\"RoleName\":\"需要认证角色的名称\"}]}"
+        :type SpeakerRoles: list of SpeakerRoleInfo
         """
         self._EngineModelType = None
         self._ChannelNum = None
@@ -1029,6 +1037,7 @@ class CreateRecTaskRequest(AbstractModel):
         self._HotwordList = None
         self._KeyWordLibIdList = None
         self._ReplaceTextId = None
+        self._SpeakerRoles = None
 
     @property
     def EngineModelType(self):
@@ -1039,13 +1048,13 @@ class CreateRecTaskRequest(AbstractModel):
 **注意：电话通讯场景，请务必使用以下8k引擎**
 • 8k_zh：中文电话通讯；
 • 8k_en：英文电话通讯；
-• 8k_zh_large：中文电话场景专用大模型引擎【大模型版】。通过显著提升模型参数规模与语言建模能力，实现对电话音频中复杂场景（如口音干扰、背景噪声）的高精度识别，识别准确率较常规版本大幅提升。[点击这里](https://console.cloud.tencent.com/asr/demonstrate) 对比常规版本与普方大模型效果；
+• 8k_zh_large：中文电话场景专用大模型引擎【大模型版】。当前模型同时支持中文、上海话、四川话、武汉话、贵阳话、昆明话、西安话、郑州话、太原话、兰州话、银川话、西宁话、南京话、合肥话、南昌话、长沙话、苏州话、杭州话、济南话、天津话、石家庄话、黑龙江话、吉林话、辽宁话、闽南语、客家话、粤语、南宁话方言识别，通过显著提升模型参数规模与语言建模能力，实现对电话音频中复杂场景（如口音干扰、背景噪声）的高精度识别，识别准确率较常规版本大幅提升。[点击这里](https://console.cloud.tencent.com/asr/demonstrate) 对比常规版本与普方大模型效果；
 
 注意：如您有电话通讯场景识别需求，但发现需求语种仅支持16k，可将8k音频传入下方16k引擎，亦能获取识别结果。但**16k引擎并非基于电话通讯数据训练，无法承诺此种调用方式的识别效果，需由您自行验证识别结果是否可用**
 
 通用场景引擎：
 **注意：除电话通讯场景以外的其它识别场景，请务必使用以下16k引擎**
-• **16k_zh_en**：中英粤+7种方言大模型引擎【大模型版】。当前模型同时支持中文、英语、粤语、四川、陕西、河南、上海、湖南、湖北和安徽方言识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升;
+• **16k_zh_en**：中英粤+9种方言大模型引擎【大模型版】。当前模型同时支持中文、英语、粤语、四川、陕西、河南、上海、湖南、湖北、安徽、闽南和潮汕方言识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升;
 • **16k_zh_large：**普方英大模型引擎【大模型版】。当前模型同时支持中文、英文、[多种中文方言](https://cloud.tencent.com/document/product/1093/35682)等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升，[点击这里](https://console.cloud.tencent.com/asr/demonstrate) 对比中文普通话常规版本与普方英大模型版本的识别效果；
 • **16k_multi_lang：**多语种大模型引擎【大模型版】。当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别)；
 • **16k_zh：**中文普通话通用引擎，支持中文普通话和少量英语，使用丰富的中文普通话语料训练，覆盖场景广泛，适用于除电话通讯外的所有中文普通话识别场景；
@@ -1104,6 +1113,7 @@ class CreateRecTaskRequest(AbstractModel):
 5：**【增值付费功能】**基础识别结果之上，增加词粒度的[详细识别结果](https://cloud.tencent.com/document/api/1093/37824#SentenceDetail)（包含词级别时间戳、语速值和标点），并输出口语转书面语转写结果，该结果去除语气词、重复词、精简冗余表达，并修正发言人口误，实现口语转书面语的效果，**适用于线上、线下会议直接总结为书面会议纪要的场景**，仅支持8k_zh/16k_zh引擎
 
 注意：
+以下引擎仅支持参数值设置为0：16k_multi_lang、16k_ja、16k_ko、16k_vi、16k_ms、16k_id、16k_fil、16k_th、16k_pt、16k_tr、16k_ar、16k_es、16k_hi、16k_fr、16k_zh_medical、16k_de
 如果传入参数值4，需确保账号已购买[语义分段资源包](https://cloud.tencent.com/document/product/1093/35686#97ae4aa0-29a0-4066-9f07-ccaf8856a16b)，或账号开启后付费；**若当前账号已开启后付费功能，并传入参数值4，将[自动计费](https://cloud.tencent.com/document/product/1093/35686#d912167d-ffd5-41a9-8b1c-2e89845a6852)**
 如果传入参数值5，需确保账号已购买[口语转书面语资源包](https://cloud.tencent.com/document/product/1093/35686#97ae4aa0-29a0-4066-9f07-ccaf8856a16b)，或账号开启后付费；**若当前账号已开启后付费功能，并传入参数值5，将自动计费[自动计费](https://cloud.tencent.com/document/product/1093/35686#d912167d-ffd5-41a9-8b1c-2e89845a6852)**
         :rtype: int
@@ -1190,7 +1200,8 @@ class CreateRecTaskRequest(AbstractModel):
     def SpeakerDiarization(self):
         r"""是否开启说话人分离
 0：不开启；
-1：开启（仅支持以下引擎：8k_zh/16k_zh/16k_ms/16k_en/16k_id/16k_zh_large/16k_zh_dialect，且ChannelNum=1时可用）；
+1：开启（仅支持以下引擎：8k_zh/8k_zh_large/16k_zh/16k_ms/16k_en/16k_id/16k_zh_large/16k_zh_dialect/16k_zh_en，且ChannelNum=1时可用）；
+3: 开启角色分离，需配合SpeakerRoles参数使用（增值服务，仅支持16k_zh_en引擎，可支持传入声纹对录音文件内的说话人进行角色认证）
 默认值为 0
 
 注意：
@@ -1443,6 +1454,23 @@ class CreateRecTaskRequest(AbstractModel):
     def ReplaceTextId(self, ReplaceTextId):
         self._ReplaceTextId = ReplaceTextId
 
+    @property
+    def SpeakerRoles(self):
+        r"""开启角色分离能力
+配合SpeakerDiarization: 3 使用，ASR增值服务，可传入一组声纹信息进行角色认证，仅支持16k_zh_en引擎。
+需传入SpeakerRoleInfo数据组，确定说话人的角色信息，涉及RoleAudioUrl和RoleName两个参数。 
+RoleAudioUrl：需要认证角色的声纹音频地址，建议30s内的纯净人声，最长不能超过45s。 
+RoleName：需要认证角色的名称，若匹配成功，会替换话者分离中的SpeakerID。 
+示例： 
+"{\"EngineModelType\":\"16k_zh_en\",\"ChannelNum\":1,\"ResTextFormat\":1,\"SourceType\":0,\"Url\":\"需要进行ASR识别的音频链接\",\"SpeakerDiarization\":3,\"SpeakerRoles\":[{\"RoleAudioUrl\":\"需要认证角色的声纹音频地址\",\"RoleName\":\"需要认证角色的名称\"}]}"
+        :rtype: list of SpeakerRoleInfo
+        """
+        return self._SpeakerRoles
+
+    @SpeakerRoles.setter
+    def SpeakerRoles(self, SpeakerRoles):
+        self._SpeakerRoles = SpeakerRoles
+
 
     def _deserialize(self, params):
         self._EngineModelType = params.get("EngineModelType")
@@ -1469,6 +1497,12 @@ class CreateRecTaskRequest(AbstractModel):
         self._HotwordList = params.get("HotwordList")
         self._KeyWordLibIdList = params.get("KeyWordLibIdList")
         self._ReplaceTextId = params.get("ReplaceTextId")
+        if params.get("SpeakerRoles") is not None:
+            self._SpeakerRoles = []
+            for item in params.get("SpeakerRoles"):
+                obj = SpeakerRoleInfo()
+                obj._deserialize(item)
+                self._SpeakerRoles.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3831,6 +3865,8 @@ hotword_list：临时热词表。每次请求时直接传入临时热词表来�
         :type HotwordList: str
         :param _InputSampleRate: 支持pcm格式的8k音频在与引擎采样率不匹配的情况下升采样到16k后识别，能有效提升识别准确率。仅支持：8000。如：传入 8000 ，则pcm音频采样率为8k，当引擎选用16k_zh， 那么该8k采样率的pcm音频可以在16k_zh引擎下正常识别。 注：此参数仅适用于pcm格式音频，不传入值将维持默认状态，即默认调用的引擎采样率等于pcm音频采样率。
         :type InputSampleRate: int
+        :param _ReplaceTextId: 替换词id。用于调用对应的替换词表。
+        :type ReplaceTextId: str
         """
         self._EngSerViceType = None
         self._SourceType = None
@@ -3851,6 +3887,7 @@ hotword_list：临时热词表。每次请求时直接传入临时热词表来�
         self._ReinforceHotword = None
         self._HotwordList = None
         self._InputSampleRate = None
+        self._ReplaceTextId = None
 
     @property
     def EngSerViceType(self):
@@ -4113,6 +4150,17 @@ hotword_list：临时热词表。每次请求时直接传入临时热词表来�
     def InputSampleRate(self, InputSampleRate):
         self._InputSampleRate = InputSampleRate
 
+    @property
+    def ReplaceTextId(self):
+        r"""替换词id。用于调用对应的替换词表。
+        :rtype: str
+        """
+        return self._ReplaceTextId
+
+    @ReplaceTextId.setter
+    def ReplaceTextId(self, ReplaceTextId):
+        self._ReplaceTextId = ReplaceTextId
+
 
     def _deserialize(self, params):
         self._EngSerViceType = params.get("EngSerViceType")
@@ -4134,6 +4182,7 @@ hotword_list：临时热词表。每次请求时直接传入临时热词表来�
         self._ReinforceHotword = params.get("ReinforceHotword")
         self._HotwordList = params.get("HotwordList")
         self._InputSampleRate = params.get("InputSampleRate")
+        self._ReplaceTextId = params.get("ReplaceTextId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4471,6 +4520,57 @@ class SetVocabStateResponse(AbstractModel):
     def _deserialize(self, params):
         self._VocabId = params.get("VocabId")
         self._RequestId = params.get("RequestId")
+
+
+class SpeakerRoleInfo(AbstractModel):
+    r"""说话人注册角色声纹信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoleAudioUrl: 音频url地址，建议不超过30秒，最大45秒
+        :type RoleAudioUrl: str
+        :param _RoleName: 不超过30字节
+        :type RoleName: str
+        """
+        self._RoleAudioUrl = None
+        self._RoleName = None
+
+    @property
+    def RoleAudioUrl(self):
+        r"""音频url地址，建议不超过30秒，最大45秒
+        :rtype: str
+        """
+        return self._RoleAudioUrl
+
+    @RoleAudioUrl.setter
+    def RoleAudioUrl(self, RoleAudioUrl):
+        self._RoleAudioUrl = RoleAudioUrl
+
+    @property
+    def RoleName(self):
+        r"""不超过30字节
+        :rtype: str
+        """
+        return self._RoleName
+
+    @RoleName.setter
+    def RoleName(self, RoleName):
+        self._RoleName = RoleName
+
+
+    def _deserialize(self, params):
+        self._RoleAudioUrl = params.get("RoleAudioUrl")
+        self._RoleName = params.get("RoleName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class Task(AbstractModel):

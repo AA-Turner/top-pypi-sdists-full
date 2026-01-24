@@ -3,7 +3,7 @@ Type annotations for gameliftstreams service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gameliftstreams/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -66,18 +66,45 @@ ProtocolType = Literal["WebRTC"]
 ReplicationStatusTypeType = Literal["COMPLETED", "REPLICATING"]
 RuntimeEnvironmentTypeType = Literal["PROTON", "UBUNTU", "WINDOWS"]
 StreamClassType = Literal[
-    "gen4n_high", "gen4n_ultra", "gen4n_win2022", "gen5n_high", "gen5n_ultra", "gen5n_win2022"
+    "gen4n_high",
+    "gen4n_ultra",
+    "gen4n_win2022",
+    "gen5n_high",
+    "gen5n_ultra",
+    "gen5n_win2022",
+    "gen6n_high",
+    "gen6n_medium",
+    "gen6n_pro",
+    "gen6n_pro_win2022",
+    "gen6n_small",
+    "gen6n_ultra",
+    "gen6n_ultra_win2022",
 ]
 StreamGroupActiveWaiterName = Literal["stream_group_active"]
 StreamGroupDeletedWaiterName = Literal["stream_group_deleted"]
 StreamGroupLocationStatusType = Literal["ACTIVATING", "ACTIVE", "ERROR", "REMOVING"]
 StreamGroupStatusReasonType = Literal["internalError", "noAvailableInstances"]
 StreamGroupStatusType = Literal[
-    "ACTIVATING", "ACTIVE", "ACTIVE_WITH_ERRORS", "DELETING", "ERROR", "UPDATING_LOCATIONS"
+    "ACTIVATING",
+    "ACTIVE",
+    "ACTIVE_WITH_ERRORS",
+    "DELETING",
+    "ERROR",
+    "EXPIRED",
+    "UPDATING_LOCATIONS",
 ]
 StreamSessionActiveWaiterName = Literal["stream_session_active"]
 StreamSessionStatusReasonType = Literal[
-    "applicationLogS3DestinationError", "internalError", "invalidSignalRequest", "placementTimeout"
+    "apiTerminated",
+    "applicationExit",
+    "applicationLogS3DestinationError",
+    "connectionTimeout",
+    "idleTimeout",
+    "internalError",
+    "invalidSignalRequest",
+    "maxSessionLengthTimeout",
+    "placementTimeout",
+    "reconnectionTimeout",
 ]
 StreamSessionStatusType = Literal[
     "ACTIVATING",
@@ -116,7 +143,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -186,6 +212,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -231,7 +258,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -284,7 +310,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -323,8 +348,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -359,6 +382,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -368,6 +392,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -378,6 +403,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -399,8 +427,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -415,15 +441,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -454,6 +481,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -494,6 +522,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

@@ -13,11 +13,12 @@
 
 from __future__ import absolute_import
 
-__version__ = "3.7.0"
+__version__ = "3.15.1"
 
 # import apis into sdk package
 from phrase_api.api.accounts_api import AccountsApi
 from phrase_api.api.authorizations_api import AuthorizationsApi
+from phrase_api.api.automations_api import AutomationsApi
 from phrase_api.api.blacklisted_keys_api import BlacklistedKeysApi
 from phrase_api.api.branches_api import BranchesApi
 from phrase_api.api.comment_reactions_api import CommentReactionsApi
@@ -90,13 +91,18 @@ from phrase_api.models.authorization import Authorization
 from phrase_api.models.authorization_create_parameters import AuthorizationCreateParameters
 from phrase_api.models.authorization_update_parameters import AuthorizationUpdateParameters
 from phrase_api.models.authorization_with_token import AuthorizationWithToken
+from phrase_api.models.automation import Automation
+from phrase_api.models.automations_create_parameters import AutomationsCreateParameters
+from phrase_api.models.automations_create_parameters1 import AutomationsCreateParameters1
 from phrase_api.models.blacklisted_key import BlacklistedKey
 from phrase_api.models.blacklisted_key_create_parameters import BlacklistedKeyCreateParameters
 from phrase_api.models.blacklisted_key_update_parameters import BlacklistedKeyUpdateParameters
 from phrase_api.models.branch import Branch
+from phrase_api.models.branch_create_comparison_parameters import BranchCreateComparisonParameters
 from phrase_api.models.branch_create_parameters import BranchCreateParameters
 from phrase_api.models.branch_merge_parameters import BranchMergeParameters
 from phrase_api.models.branch_name import BranchName
+from phrase_api.models.branch_sync_parameters import BranchSyncParameters
 from phrase_api.models.branch_update_parameters import BranchUpdateParameters
 from phrase_api.models.comment import Comment
 from phrase_api.models.comment_create_parameters import CommentCreateParameters

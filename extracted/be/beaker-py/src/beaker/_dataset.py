@@ -95,6 +95,7 @@ class DatasetClient(ServiceClient):
         target: PathOrStr | None = None,
         workspace: pb2.Workspace | None = None,
         description: str | None = None,
+        budget: str | None = None,
         force: bool = False,
         max_workers: int | None = None,
         commit: bool = True,
@@ -109,6 +110,7 @@ class DatasetClient(ServiceClient):
             a directory of this name.
         :param workspace: The workspace to upload the dataset to. If not specified your default workspace is used.
         :param description: Text description for the dataset.
+        :param budget: Budget to associate with the dataset. If not specified, uses workspace default if available.
         :param force: If ``True`` and a dataset by the given name already exists, it will be overwritten.
         :param max_workers: The maximum number of thread pool workers to use to upload files concurrently.
         :param commit: Whether to commit the dataset after successfully uploading source files.
@@ -134,7 +136,11 @@ class DatasetClient(ServiceClient):
                 "datasets",
                 method="POST",
                 query={"name": name},
-                data=dict(workspace=workspace_id, description=description),
+                data=dict(
+                    workspace=workspace_id,
+                    description=description,
+                    budget=self.resolve_budget_id(budget) if budget is not None else None,
+                ),
                 exceptions_for_status={409: BeakerDatasetConflict(name)},
             ).json()
             return self.get(dataset_info["id"]), _DatasetStorage(**dataset_info["storage"])

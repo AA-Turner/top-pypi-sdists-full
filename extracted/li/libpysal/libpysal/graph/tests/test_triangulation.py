@@ -257,28 +257,29 @@ def test_ids(ids, stores_unique):
 
 def test_kernel():
     _, _, weight = _delaunay(cau_coords, kernel="gaussian")
+
     expected = np.array(
         [
-            0.1305618,
-            0.17359059,
-            0.22312817,
-            0.1305618,
-            0.1339654,
-            0.03259559,
-            0.17359059,
-            0.1339654,
-            0.06948067,
-            0.180294,
-            0.03259559,
-            0.06948067,
-            0.02004257,
-            0.22312817,
-            0.180294,
-            0.02004257,
+            0.134237,
+            0.237297,
+            0.392056,
+            0.134237,
+            0.141327,
+            0.008367,
+            0.237297,
+            0.141327,
+            0.038016,
+            0.255978,
+            0.008367,
+            0.038016,
+            0.003163,
+            0.392056,
+            0.255978,
+            0.003163,
         ]
     )
 
-    np.testing.assert_array_almost_equal(expected, weight)
+    np.testing.assert_array_almost_equal(weight, expected)
 
 
 @pytest.mark.network

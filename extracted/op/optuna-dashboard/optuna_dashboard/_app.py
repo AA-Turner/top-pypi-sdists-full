@@ -50,6 +50,7 @@ from ._storage_url import get_storage
 from .artifact._backend import delete_all_artifacts
 from .artifact._backend import register_artifact_route
 from .artifact._backend_to_store import to_artifact_store
+from .llm._api_views import register_llm_route
 from .preferential._study import _SYSTEM_ATTR_PREFERENTIAL_STUDY
 from .preferential._study import get_best_trials as get_best_preferential_trials
 from .preferential._system_attrs import get_skipped_trial_ids
@@ -59,12 +60,11 @@ from .preferential._system_attrs import report_skip
 if typing.TYPE_CHECKING:
     from typing import Any
     from typing import Literal
-    from typing import Optional
-    from typing import Union
 
     from _typeshed.wsgi import WSGIApplication
     from optuna.artifacts._protocol import ArtifactStore
     from optuna_dashboard.artifact.protocol import ArtifactBackend
+    from optuna_dashboard.llm.provider import LLMProvider
 
 
 logger = logging.getLogger(__name__)
@@ -83,9 +83,11 @@ class JupyterLabExtensionContext:
 
 def create_app(
     storage: BaseStorage,
-    artifact_store: Optional[ArtifactStore] = None,
+    artifact_store: ArtifactStore | None = None,
+    llm_provider: LLMProvider | None = None,
     debug: bool = False,
     jupyterlab_extension_context: JupyterLabExtensionContext | None = None,
+    allow_unsafe: bool = False,
 ) -> Bottle:
     app = Bottle()
     app._inmemory_cache = InMemoryCache()
@@ -101,14 +103,39 @@ def create_app(
     # Accept any following paths for client-side routing
     @app.get("/dashboard<:re:(/.*)?>")
     def dashboard() -> BottleViewReturn:
-        return static_file("index.html", BASE_DIR, mimetype="text/html")
+        if allow_unsafe:
+            headers = {}
+        else:
+            # CSP header
+            if llm_provider is not None:
+                script_src_str = "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+            else:
+                # Parallel coordinate, which uses WebGL, requires unsafe-eval.
+                script_src_str = "script-src 'self' 'unsafe-eval'"
+
+            csp_string = ";".join(
+                [
+                    "default-src 'self'",
+                    "img-src 'self' data: blob:",
+                    "frame-src 'self'",
+                    "object-src 'none'",
+                    "connect-src 'self'",
+                    "style-src 'self' data: 'unsafe-inline'",
+                    script_src_str,
+                ]
+            )
+            headers = {"Content-Security-Policy": csp_string}
+
+        return static_file("index.html", BASE_DIR, mimetype="text/html", headers=headers)
 
     @app.get("/api/meta")
     @json_api_view
     def api_meta() -> dict[str, Any]:
         meta: dict[str, Any] = {
             "artifact_is_available": artifact_store is not None,
+            "llm_is_available": llm_provider is not None,
             "plotlypy_is_available": importlib.util.find_spec("plotly") is not None,
+            "allow_unsafe": allow_unsafe,
         }
         if jupyterlab_extension_context is not None:
             meta["jupyterlab_extension_context"] = {
@@ -276,20 +303,6 @@ def create_app(
             return {"reason": f"study_id={study_id} is not found"}
 
         trials = get_trials(app._inmemory_cache, storage, study_id)
-
-        evaluator = request.query.get("evaluator", "ped_anova")  # Default evaluator is "ped_anova"
-        if (
-            evaluator != "fanova"
-            and evaluator != "ped_anova"
-            and evaluator != "mean_decrease_impurity"
-        ):
-            response.status = 400
-            return {
-                "reason": (
-                    "evaluator must be either 'fanova', 'ped_anova' or 'mean_decrease_impurity'."
-                )
-            }
-
         try:
             importances = [
                 get_param_importance_from_trials_cache(
@@ -297,7 +310,6 @@ def create_app(
                     storage,
                     study_id,
                     objective_id,
-                    evaluator,
                     trials,
                 )
                 for objective_id in range(n_directions)
@@ -548,7 +560,7 @@ def create_app(
     @app.get("/csv/<study_id:int>")
     def download_csv(study_id: int) -> BottleViewReturn:
         trial_ids_str = request.query.get("trial_ids", "")
-        trial_ids: Optional[list[int]] = None
+        trial_ids: list[int] | None = None
         if trial_ids_str:
             try:
                 trial_ids = [int(tid.strip()) for tid in trial_ids_str.split(",")]
@@ -627,22 +639,31 @@ def create_app(
 
     register_rdb_migration_route(app, storage)
     register_artifact_route(app, storage, artifact_store)
+    register_llm_route(app, llm_provider)
     return app
 
 
 def run_server(
-    storage: Union[str, BaseStorage],
+    storage: str | BaseStorage,
     host: str = "localhost",
     port: int = 8080,
-    artifact_store: Optional[ArtifactStore | ArtifactBackend] = None,
+    artifact_store: ArtifactStore | ArtifactBackend | None = None,
     *,
-    artifact_backend: Optional[ArtifactBackend] = None,
+    artifact_backend: ArtifactBackend | None = None,
+    llm_provider: LLMProvider | None = None,
 ) -> None:
     """Start running optuna-dashboard and blocks until the server terminates.
 
     This function uses wsgiref module which is not intended for the production
     use. If you want to run optuna-dashboard more secure and/or more fast,
     please use WSGI server like Gunicorn or uWSGI via :func:`wsgi` function.
+
+    Args:
+        storage: Optuna storage.
+        port: The port number to listen on.
+        host: The hostname or IP address to bind to.
+        artifact_store: Optuna's Artifact store (optional).
+        llm_provider: LLM providers defined under the ``optuna_dashboard.llm`` package (optional).
     """
     # TODO(c-bata): Remove artifact_backend keyword argument in the future release.
     store: ArtifactStore | None = None
@@ -655,19 +676,32 @@ def run_server(
         )
         store = to_artifact_store(artifact_backend)
 
-    app = create_app(get_storage(storage), artifact_store=store)
+    app = create_app(
+        get_storage(storage),
+        artifact_store=store,
+        llm_provider=llm_provider,
+    )
     run(app, host=host, port=port)
 
 
 def wsgi(
-    storage: Union[str, BaseStorage],
-    artifact_store: Optional[ArtifactBackend | ArtifactStore] = None,
+    storage: str | BaseStorage,
+    artifact_store: ArtifactBackend | ArtifactStore | None = None,
     *,
-    artifact_backend: Optional[ArtifactBackend] = None,
+    artifact_backend: ArtifactBackend | None = None,
+    llm_provider: LLMProvider | None = None,
     jupyterlab_extension_context: JupyterLabExtensionContext | None = None,
 ) -> WSGIApplication:
     """This function exposes WSGI interface for people who want to run on the
     production-class WSGI servers like Gunicorn or uWSGI.
+
+    Args:
+        storage: Optuna storage.
+        artifact_store: Optuna's Artifact store (optional).
+        llm_provider: LLM providers defined under the ``optuna_dashboard.llm`` package (optional).
+
+    Returns:
+        WSGI application object.
     """
     # TODO(c-bata): Remove artifact_backend keyword argument in the future release.
     store: ArtifactStore | None = None
@@ -683,5 +717,6 @@ def wsgi(
     return create_app(
         get_storage(storage),
         artifact_store=store,
+        llm_provider=llm_provider,
         jupyterlab_extension_context=jupyterlab_extension_context,
     )

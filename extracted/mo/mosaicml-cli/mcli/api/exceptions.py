@@ -10,7 +10,7 @@ from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
 import requests
-from websockets.exceptions import ConnectionClosedError, InvalidStatusCode
+from websockets.exceptions import ConnectionClosedError, InvalidStatus
 
 from mcli.utils.utils_logging import FAIL
 
@@ -351,9 +351,9 @@ def handle_mint_errors(func):
             if "Errno 61" in str(e):  # https://bugs.python.org/issue29980
                 e = MintConnectionException('Could not reach MosaicML platform')
             raise e
-        except InvalidStatusCode as e:
+        except InvalidStatus as e:
             # This is _probably_ auth related
-            raise MintException(f'Connection to run failed with code: {e.status_code}') from e
+            raise MintException(f'Connection to run failed with code: {e.response.status_code}') from e
 
     return decorated
 
@@ -368,17 +368,22 @@ def mint_handle_connection_closed(e: ConnectionClosedError):
         MintRequestException: Raised when the user submitted a bad request
         MintServerException: Raised when the server encountered an error
     """
-    if e.code == MintError.OK:
+    # Use the new websockets 15.0+ API - e.rcvd contains the Close frame
+    # Fallback to deprecated attributes for compatibility during transition
+    close_code = e.rcvd.code if hasattr(e, 'rcvd') and e.rcvd else getattr(e, 'code', None)
+    close_reason = e.rcvd.reason if hasattr(e, 'rcvd') and e.rcvd else getattr(e, 'reason', 'Unknown error')
+
+    if close_code == MintError.OK:
         # 1000: ConnectionClosedOK
         # Connection closed normally
         pass
-    elif e.code == MintError.COMPLETED:
-        # 1000: Going away
+    elif close_code == MintError.COMPLETED:
+        # 1001: Going away
         # Connection closed gracefully
-        logger.info(f'Connection to run closed: {e.reason}')
-    elif e.code == MintError.BAD_REQUEST:
+        logger.info(f'Connection to run closed: {close_reason}')
+    elif close_code == MintError.BAD_REQUEST:
         # 1002: Protocol error
-        raise MintRequestException(f'Unable to connect to run. {e.reason}') from e
+        raise MintRequestException(f'Unable to connect to run. {close_reason}') from e
     else:
-        raise MintServerException(f'Unexpected error connecting to run. {e.reason}\n'
+        raise MintServerException(f'Unexpected error connecting to run. {close_reason}\n'
                                   'Please try again later.') from e

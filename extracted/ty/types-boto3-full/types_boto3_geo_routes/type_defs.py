@@ -3,7 +3,7 @@ Type annotations for geo-routes service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_geo_routes/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import Union
 
 from .literals import (
@@ -85,12 +86,6 @@ from .literals import (
     WaypointOptimizationTruckTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -319,7 +314,7 @@ class IsolineTrafficOptionsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -364,7 +359,7 @@ class RouteResponseNoticeTypeDef(TypedDict):
 
 
 class CircleOutputTypeDef(TypedDict):
-    Center: List[float]
+    Center: list[float]
     Radius: float
 
 
@@ -392,7 +387,7 @@ class IsolineVehicleLicensePlateTypeDef(TypedDict):
 
 
 class IsolineConnectionGeometryTypeDef(TypedDict):
-    LineString: NotRequired[List[List[float]]]
+    LineString: NotRequired[list[list[float]]]
     Polyline: NotRequired[str]
 
 
@@ -409,8 +404,8 @@ class IsolineSideOfStreetOptionsTypeDef(TypedDict):
 
 
 class IsolineShapeGeometryTypeDef(TypedDict):
-    Polygon: NotRequired[List[List[List[float]]]]
-    PolylinePolygon: NotRequired[List[str]]
+    Polygon: NotRequired[list[list[list[float]]]]
+    PolylinePolygon: NotRequired[list[str]]
 
 
 class IsolineTrailerOptionsTypeDef(TypedDict):
@@ -455,7 +450,7 @@ class WaypointOptimizationConnectionTypeDef(TypedDict):
 class WaypointOptimizationOptimizedWaypointTypeDef(TypedDict):
     DepartureTime: str
     Id: str
-    Position: List[float]
+    Position: list[float]
     ArrivalTime: NotRequired[str]
     ClusterIndex: NotRequired[int]
 
@@ -470,18 +465,18 @@ class WaypointOptimizationTimeBreakdownTypeDef(TypedDict):
 class RoadSnapNoticeTypeDef(TypedDict):
     Code: RoadSnapNoticeCodeType
     Title: str
-    TracePointIndexes: List[int]
+    TracePointIndexes: list[int]
 
 
 class RoadSnapSnappedGeometryTypeDef(TypedDict):
-    LineString: NotRequired[List[List[float]]]
+    LineString: NotRequired[list[list[float]]]
     Polyline: NotRequired[str]
 
 
 class RoadSnapSnappedTracePointTypeDef(TypedDict):
     Confidence: float
-    OriginalPosition: List[float]
-    SnappedPosition: List[float]
+    OriginalPosition: list[float]
+    SnappedPosition: list[float]
 
 
 class RoadSnapTracePointTypeDef(TypedDict):
@@ -538,9 +533,9 @@ RouteFerryAfterTravelStepTypeDef = TypedDict(
 
 
 class RouteFerryPlaceTypeDef(TypedDict):
-    Position: List[float]
+    Position: list[float]
     Name: NotRequired[str]
-    OriginalPosition: NotRequired[List[float]]
+    OriginalPosition: NotRequired[list[float]]
     WaypointIndex: NotRequired[int]
 
 
@@ -581,7 +576,7 @@ class RouteFerryTravelOnlySummaryTypeDef(TypedDict):
 
 
 class RouteLegGeometryTypeDef(TypedDict):
-    LineString: NotRequired[List[List[float]]]
+    LineString: NotRequired[list[list[float]]]
     Polyline: NotRequired[str]
 
 
@@ -632,15 +627,15 @@ class RouteNoticeDetailRangeTypeDef(TypedDict):
 
 
 class RoutePassThroughPlaceTypeDef(TypedDict):
-    Position: List[float]
-    OriginalPosition: NotRequired[List[float]]
+    Position: list[float]
+    OriginalPosition: NotRequired[list[float]]
     WaypointIndex: NotRequired[int]
 
 
 class RoutePedestrianPlaceTypeDef(TypedDict):
-    Position: List[float]
+    Position: list[float]
     Name: NotRequired[str]
-    OriginalPosition: NotRequired[List[float]]
+    OriginalPosition: NotRequired[list[float]]
     SideOfStreet: NotRequired[RouteSideOfStreetType]
     WaypointIndex: NotRequired[int]
 
@@ -680,7 +675,7 @@ class RouteTollPassValidityPeriodTypeDef(TypedDict):
 
 
 class RouteTollPaymentSiteTypeDef(TypedDict):
-    Position: List[float]
+    Position: list[float]
     Name: NotRequired[str]
 
 
@@ -703,9 +698,9 @@ class RouteTrailerOptionsTypeDef(TypedDict):
 
 
 class RouteVehiclePlaceTypeDef(TypedDict):
-    Position: List[float]
+    Position: list[float]
     Name: NotRequired[str]
-    OriginalPosition: NotRequired[List[float]]
+    OriginalPosition: NotRequired[list[float]]
     SideOfStreet: NotRequired[RouteSideOfStreetType]
     WaypointIndex: NotRequired[int]
 
@@ -862,25 +857,25 @@ class IsolineTruckOptionsTypeDef(TypedDict):
 
 
 class RouteContinueHighwayStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteContinueStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
 
 
 class RouteEnterHighwayStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteExitStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     RelativeExit: NotRequired[int]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
@@ -892,65 +887,65 @@ class RouteFerrySpanTypeDef(TypedDict):
     Distance: NotRequired[int]
     Duration: NotRequired[int]
     GeometryOffset: NotRequired[int]
-    Names: NotRequired[List[LocalizedStringTypeDef]]
+    Names: NotRequired[list[LocalizedStringTypeDef]]
     Region: NotRequired[str]
 
 
 class RouteKeepStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteRampStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteRoundaboutEnterStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteRoundaboutExitStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     RelativeExit: NotRequired[int]
     RoundaboutAngle: NotRequired[float]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
 
 
 class RouteRoundaboutPassStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteTurnStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class RouteUTurnStepDetailsTypeDef(TypedDict):
-    Intersection: List[LocalizedStringTypeDef]
+    Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
     TurnAngle: NotRequired[float]
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
 class SnapToRoadsResponseTypeDef(TypedDict):
-    Notices: List[RoadSnapNoticeTypeDef]
+    Notices: list[RoadSnapNoticeTypeDef]
     PricingBucket: str
     SnappedGeometry: RoadSnapSnappedGeometryTypeDef
     SnappedGeometryFormat: GeometryFormatType
-    SnappedTracePoints: List[RoadSnapSnappedTracePointTypeDef]
+    SnappedTracePoints: list[RoadSnapSnappedTracePointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1041,9 +1036,9 @@ class RouteMajorRoadLabelTypeDef(TypedDict):
 RouteRoadTypeDef = TypedDict(
     "RouteRoadTypeDef",
     {
-        "RoadName": List[LocalizedStringTypeDef],
-        "RouteNumber": List[RouteNumberTypeDef],
-        "Towards": List[LocalizedStringTypeDef],
+        "RoadName": list[LocalizedStringTypeDef],
+        "RouteNumber": list[RouteNumberTypeDef],
+        "Towards": list[LocalizedStringTypeDef],
         "Type": NotRequired[RouteRoadTypeType],
     },
 )
@@ -1059,8 +1054,8 @@ RouteSignpostLabelTypeDef = TypedDict(
 class RouteMatrixBoundaryGeometryOutputTypeDef(TypedDict):
     AutoCircle: NotRequired[RouteMatrixAutoCircleTypeDef]
     Circle: NotRequired[CircleOutputTypeDef]
-    BoundingBox: NotRequired[List[float]]
-    Polygon: NotRequired[List[List[List[float]]]]
+    BoundingBox: NotRequired[list[float]]
+    Polygon: NotRequired[list[list[list[float]]]]
 
 
 class RouteMatrixBoundaryGeometryTypeDef(TypedDict):
@@ -1142,19 +1137,19 @@ class RoutePedestrianSpanTypeDef(TypedDict):
     DynamicSpeed: NotRequired[RouteSpanDynamicSpeedDetailsTypeDef]
     FunctionalClassification: NotRequired[int]
     GeometryOffset: NotRequired[int]
-    Incidents: NotRequired[List[int]]
-    Names: NotRequired[List[LocalizedStringTypeDef]]
-    PedestrianAccess: NotRequired[List[RouteSpanPedestrianAccessAttributeType]]
+    Incidents: NotRequired[list[int]]
+    Names: NotRequired[list[LocalizedStringTypeDef]]
+    PedestrianAccess: NotRequired[list[RouteSpanPedestrianAccessAttributeType]]
     Region: NotRequired[str]
-    RoadAttributes: NotRequired[List[RouteSpanRoadAttributeType]]
-    RouteNumbers: NotRequired[List[RouteNumberTypeDef]]
+    RoadAttributes: NotRequired[list[RouteSpanRoadAttributeType]]
+    RouteNumbers: NotRequired[list[RouteNumberTypeDef]]
     SpeedLimit: NotRequired[RouteSpanSpeedLimitDetailsTypeDef]
     TypicalDuration: NotRequired[int]
 
 
 class RouteVehicleSpanTypeDef(TypedDict):
     BestCaseDuration: NotRequired[int]
-    CarAccess: NotRequired[List[RouteSpanCarAccessAttributeType]]
+    CarAccess: NotRequired[list[RouteSpanCarAccessAttributeType]]
     Country: NotRequired[str]
     Distance: NotRequired[int]
     Duration: NotRequired[int]
@@ -1162,20 +1157,20 @@ class RouteVehicleSpanTypeDef(TypedDict):
     FunctionalClassification: NotRequired[int]
     Gate: NotRequired[RouteSpanGateAttributeType]
     GeometryOffset: NotRequired[int]
-    Incidents: NotRequired[List[int]]
-    Names: NotRequired[List[LocalizedStringTypeDef]]
-    Notices: NotRequired[List[int]]
+    Incidents: NotRequired[list[int]]
+    Names: NotRequired[list[LocalizedStringTypeDef]]
+    Notices: NotRequired[list[int]]
     RailwayCrossing: NotRequired[RouteSpanRailwayCrossingAttributeType]
     Region: NotRequired[str]
-    RoadAttributes: NotRequired[List[RouteSpanRoadAttributeType]]
-    RouteNumbers: NotRequired[List[RouteNumberTypeDef]]
-    ScooterAccess: NotRequired[List[RouteSpanScooterAccessAttributeType]]
+    RoadAttributes: NotRequired[list[RouteSpanRoadAttributeType]]
+    RouteNumbers: NotRequired[list[RouteNumberTypeDef]]
+    ScooterAccess: NotRequired[list[RouteSpanScooterAccessAttributeType]]
     SpeedLimit: NotRequired[RouteSpanSpeedLimitDetailsTypeDef]
-    TollSystems: NotRequired[List[int]]
-    TruckAccess: NotRequired[List[RouteSpanTruckAccessAttributeType]]
-    TruckRoadTypes: NotRequired[List[int]]
+    TollSystems: NotRequired[list[int]]
+    TruckAccess: NotRequired[list[RouteSpanTruckAccessAttributeType]]
+    TruckRoadTypes: NotRequired[list[int]]
     TypicalDuration: NotRequired[int]
-    Zones: NotRequired[List[int]]
+    Zones: NotRequired[list[int]]
 
 
 class RoutePedestrianSummaryTypeDef(TypedDict):
@@ -1246,7 +1241,7 @@ class RouteVehicleSummaryTypeDef(TypedDict):
 
 
 class RouteViolatedConstraintsTypeDef(TypedDict):
-    HazardousCargos: List[RouteHazardousCargoTypeType]
+    HazardousCargos: list[RouteHazardousCargoTypeType]
     AllHazardsRestricted: NotRequired[bool]
     AxleCount: NotRequired[RouteNoticeDetailRangeTypeDef]
     MaxHeight: NotRequired[int]
@@ -1282,9 +1277,9 @@ class WaypointOptimizationClusteringOptionsTypeDef(TypedDict):
 
 
 class WaypointOptimizationImpedingWaypointTypeDef(TypedDict):
-    FailedConstraints: List[WaypointOptimizationFailedConstraintTypeDef]
+    FailedConstraints: list[WaypointOptimizationFailedConstraintTypeDef]
     Id: str
-    Position: List[float]
+    Position: list[float]
 
 
 class WaypointOptimizationRestCyclesTypeDef(TypedDict):
@@ -1315,8 +1310,8 @@ class RouteAvoidanceAreaTypeDef(TypedDict):
 
 
 class IsolineTypeDef(TypedDict):
-    Connections: List[IsolineConnectionTypeDef]
-    Geometries: List[IsolineShapeGeometryTypeDef]
+    Connections: list[IsolineConnectionTypeDef]
+    Geometries: list[IsolineShapeGeometryTypeDef]
     DistanceThreshold: NotRequired[int]
     TimeThreshold: NotRequired[int]
 
@@ -1332,7 +1327,7 @@ class RoadSnapTravelModeOptionsTypeDef(TypedDict):
 
 
 class RouteSignpostTypeDef(TypedDict):
-    Labels: List[RouteSignpostLabelTypeDef]
+    Labels: list[RouteSignpostLabelTypeDef]
 
 
 class RouteMatrixBoundaryOutputTypeDef(TypedDict):
@@ -1376,14 +1371,14 @@ class RouteMatrixTravelModeOptionsTypeDef(TypedDict):
 
 
 class RouteFerryLegDetailsTypeDef(TypedDict):
-    AfterTravelSteps: List[RouteFerryAfterTravelStepTypeDef]
+    AfterTravelSteps: list[RouteFerryAfterTravelStepTypeDef]
     Arrival: RouteFerryArrivalTypeDef
-    BeforeTravelSteps: List[RouteFerryBeforeTravelStepTypeDef]
+    BeforeTravelSteps: list[RouteFerryBeforeTravelStepTypeDef]
     Departure: RouteFerryDepartureTypeDef
-    Notices: List[RouteFerryNoticeTypeDef]
-    PassThroughWaypoints: List[RoutePassThroughWaypointTypeDef]
-    Spans: List[RouteFerrySpanTypeDef]
-    TravelSteps: List[RouteFerryTravelStepTypeDef]
+    Notices: list[RouteFerryNoticeTypeDef]
+    PassThroughWaypoints: list[RoutePassThroughWaypointTypeDef]
+    Spans: list[RouteFerrySpanTypeDef]
+    TravelSteps: list[RouteFerryTravelStepTypeDef]
     RouteName: NotRequired[str]
     Summary: NotRequired[RouteFerrySummaryTypeDef]
 
@@ -1396,8 +1391,8 @@ class RouteTollRateTypeDef(TypedDict):
     Id: str
     LocalPrice: RouteTollPriceTypeDef
     Name: str
-    PaymentMethods: List[RouteTollPaymentMethodType]
-    Transponders: List[RouteTransponderTypeDef]
+    PaymentMethods: list[RouteTollPaymentMethodType]
+    Transponders: list[RouteTransponderTypeDef]
     ApplicableTimes: NotRequired[str]
     ConvertedPrice: NotRequired[RouteTollPriceTypeDef]
     Pass: NotRequired[RouteTollPassTypeDef]
@@ -1447,11 +1442,11 @@ class WaypointOptimizationAvoidanceOptionsTypeDef(TypedDict):
 
 
 class OptimizeWaypointsResponseTypeDef(TypedDict):
-    Connections: List[WaypointOptimizationConnectionTypeDef]
+    Connections: list[WaypointOptimizationConnectionTypeDef]
     Distance: int
     Duration: int
-    ImpedingWaypoints: List[WaypointOptimizationImpedingWaypointTypeDef]
-    OptimizedWaypoints: List[WaypointOptimizationOptimizedWaypointTypeDef]
+    ImpedingWaypoints: list[WaypointOptimizationImpedingWaypointTypeDef]
+    OptimizedWaypoints: list[WaypointOptimizationOptimizedWaypointTypeDef]
     PricingBucket: str
     TimeBreakdown: WaypointOptimizationTimeBreakdownTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1502,10 +1497,10 @@ class CalculateIsolinesResponseTypeDef(TypedDict):
     ArrivalTime: str
     DepartureTime: str
     IsolineGeometryFormat: GeometryFormatType
-    Isolines: List[IsolineTypeDef]
+    Isolines: list[IsolineTypeDef]
     PricingBucket: str
-    SnappedDestination: List[float]
-    SnappedOrigin: List[float]
+    SnappedDestination: list[float]
+    SnappedOrigin: list[float]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1526,7 +1521,7 @@ RoutePedestrianTravelStepTypeDef = TypedDict(
         "ContinueStepDetails": NotRequired[RouteContinueStepDetailsTypeDef],
         "CurrentRoad": NotRequired[RouteRoadTypeDef],
         "Distance": NotRequired[int],
-        "ExitNumber": NotRequired[List[LocalizedStringTypeDef]],
+        "ExitNumber": NotRequired[list[LocalizedStringTypeDef]],
         "GeometryOffset": NotRequired[int],
         "Instruction": NotRequired[str],
         "KeepStepDetails": NotRequired[RouteKeepStepDetailsTypeDef],
@@ -1548,7 +1543,7 @@ RouteVehicleTravelStepTypeDef = TypedDict(
         "CurrentRoad": NotRequired[RouteRoadTypeDef],
         "Distance": NotRequired[int],
         "EnterHighwayStepDetails": NotRequired[RouteEnterHighwayStepDetailsTypeDef],
-        "ExitNumber": NotRequired[List[LocalizedStringTypeDef]],
+        "ExitNumber": NotRequired[list[LocalizedStringTypeDef]],
         "ExitStepDetails": NotRequired[RouteExitStepDetailsTypeDef],
         "GeometryOffset": NotRequired[int],
         "Instruction": NotRequired[str],
@@ -1568,7 +1563,7 @@ RouteVehicleTravelStepTypeDef = TypedDict(
 class CalculateRouteMatrixResponseTypeDef(TypedDict):
     ErrorCount: int
     PricingBucket: str
-    RouteMatrix: List[List[RouteMatrixEntryTypeDef]]
+    RouteMatrix: list[list[RouteMatrixEntryTypeDef]]
     RoutingBoundary: RouteMatrixBoundaryOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1585,15 +1580,15 @@ class RouteSummaryTypeDef(TypedDict):
 
 
 class RouteTollTypeDef(TypedDict):
-    PaymentSites: List[RouteTollPaymentSiteTypeDef]
-    Rates: List[RouteTollRateTypeDef]
-    Systems: List[int]
+    PaymentSites: list[RouteTollPaymentSiteTypeDef]
+    Rates: list[RouteTollRateTypeDef]
+    Systems: list[int]
     Country: NotRequired[str]
 
 
 class RouteVehicleNoticeTypeDef(TypedDict):
     Code: RouteVehicleNoticeCodeType
-    Details: List[RouteVehicleNoticeDetailTypeDef]
+    Details: list[RouteVehicleNoticeDetailTypeDef]
     Impact: NotRequired[RouteNoticeImpactType]
 
 
@@ -1667,10 +1662,10 @@ class CalculateRoutesRequestTypeDef(TypedDict):
 class RoutePedestrianLegDetailsTypeDef(TypedDict):
     Arrival: RoutePedestrianArrivalTypeDef
     Departure: RoutePedestrianDepartureTypeDef
-    Notices: List[RoutePedestrianNoticeTypeDef]
-    PassThroughWaypoints: List[RoutePassThroughWaypointTypeDef]
-    Spans: List[RoutePedestrianSpanTypeDef]
-    TravelSteps: List[RoutePedestrianTravelStepTypeDef]
+    Notices: list[RoutePedestrianNoticeTypeDef]
+    PassThroughWaypoints: list[RoutePassThroughWaypointTypeDef]
+    Spans: list[RoutePedestrianSpanTypeDef]
+    TravelSteps: list[RoutePedestrianTravelStepTypeDef]
     Summary: NotRequired[RoutePedestrianSummaryTypeDef]
 
 
@@ -1693,15 +1688,15 @@ class CalculateRouteMatrixRequestTypeDef(TypedDict):
 class RouteVehicleLegDetailsTypeDef(TypedDict):
     Arrival: RouteVehicleArrivalTypeDef
     Departure: RouteVehicleDepartureTypeDef
-    Incidents: List[RouteVehicleIncidentTypeDef]
-    Notices: List[RouteVehicleNoticeTypeDef]
-    PassThroughWaypoints: List[RoutePassThroughWaypointTypeDef]
-    Spans: List[RouteVehicleSpanTypeDef]
-    Tolls: List[RouteTollTypeDef]
-    TollSystems: List[RouteTollSystemTypeDef]
-    TravelSteps: List[RouteVehicleTravelStepTypeDef]
-    TruckRoadTypes: List[str]
-    Zones: List[RouteZoneTypeDef]
+    Incidents: list[RouteVehicleIncidentTypeDef]
+    Notices: list[RouteVehicleNoticeTypeDef]
+    PassThroughWaypoints: list[RoutePassThroughWaypointTypeDef]
+    Spans: list[RouteVehicleSpanTypeDef]
+    Tolls: list[RouteTollTypeDef]
+    TollSystems: list[RouteTollSystemTypeDef]
+    TravelSteps: list[RouteVehicleTravelStepTypeDef]
+    TruckRoadTypes: list[str]
+    Zones: list[RouteZoneTypeDef]
     Summary: NotRequired[RouteVehicleSummaryTypeDef]
 
 
@@ -1720,14 +1715,14 @@ RouteLegTypeDef = TypedDict(
 
 
 class RouteTypeDef(TypedDict):
-    Legs: List[RouteLegTypeDef]
-    MajorRoadLabels: List[RouteMajorRoadLabelTypeDef]
+    Legs: list[RouteLegTypeDef]
+    MajorRoadLabels: list[RouteMajorRoadLabelTypeDef]
     Summary: NotRequired[RouteSummaryTypeDef]
 
 
 class CalculateRoutesResponseTypeDef(TypedDict):
     LegGeometryFormat: GeometryFormatType
-    Notices: List[RouteResponseNoticeTypeDef]
+    Notices: list[RouteResponseNoticeTypeDef]
     PricingBucket: str
-    Routes: List[RouteTypeDef]
+    Routes: list[RouteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

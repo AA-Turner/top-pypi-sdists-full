@@ -1,7 +1,10 @@
 Metadata-Version: 2.3
 Name: commitizen
-Version: 4.9.1
+Version: 4.12.1
 Summary: Python commitizen client tool
+Keywords: commitizen,conventional,commits,git
+Author: Santiago Fraire
+Author-email: Santiago Fraire <santiwilly@gmail.com>
 License: MIT License
          
          Copyright (c) 2017 Santiago
@@ -23,12 +26,6 @@ License: MIT License
          LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
          OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
          SOFTWARE.
-Keywords: commitizen,conventional,commits,git
-Author: Santiago Fraire
-Author-email: santiwilly@gmail.com
-Maintainer: Wei Lee
-Maintainer-email: weilee.rx@gmail.com
-Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -36,35 +33,39 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: License :: OSI Approved :: MIT License
-Requires-Dist: argcomplete (>=1.12.1,<3.7)
-Requires-Dist: charset-normalizer (>=2.1.0,<4)
-Requires-Dist: colorama (>=0.4.1,<1.0)
-Requires-Dist: decli (>=0.6.0,<1.0)
-Requires-Dist: deprecated (>=1.2.13,<2)
-Requires-Dist: importlib-metadata (>=8.0.0,<8.7.0) ; python_version < "3.10"
-Requires-Dist: jinja2 (>=2.10.3)
-Requires-Dist: packaging (>=19)
-Requires-Dist: prompt_toolkit (!=3.0.52)
-Requires-Dist: pyyaml (>=3.08)
-Requires-Dist: questionary (>=2.0,<3.0)
-Requires-Dist: termcolor (>=1.1.0,<4.0.0)
-Requires-Dist: tomlkit (>=0.5.3,<1.0.0)
-Requires-Dist: typing-extensions (>=4.0.1,<5.0.0) ; python_version < "3.11"
-Project-URL: Changelog, https://github.com/commitizen-tools/commitizen/blob/master/CHANGELOG.md
-Project-URL: Documentation, https://commitizen-tools.github.io/commitizen/
+Requires-Dist: questionary>=2.0,<3.0
+Requires-Dist: prompt-toolkit!=3.0.52
+Requires-Dist: decli>=0.6.0,<1.0
+Requires-Dist: colorama>=0.4.1,<1.0
+Requires-Dist: termcolor>=1.1.0,<4.0.0
+Requires-Dist: packaging>=19
+Requires-Dist: tomlkit>=0.8.0,<1.0.0
+Requires-Dist: jinja2>=2.10.3
+Requires-Dist: pyyaml>=3.8
+Requires-Dist: argcomplete>=1.12.1,<3.7
+Requires-Dist: typing-extensions>=4.0.1,<5.0.0 ; python_full_version < '3.11'
+Requires-Dist: charset-normalizer>=2.1.0,<4
+Requires-Dist: deprecated>=1.2.13,<2
+Requires-Dist: importlib-metadata>=8.0.0,<8.7.0 ; python_full_version < '3.10'
+Maintainer: Wei Lee, Axel H., Tim Hsiung
+Maintainer-email: Wei Lee <weilee.rx@gmail.com>, Axel H. <noirbizarre@gmail.com>, Tim Hsiung <bear890707@gmail.com>
+Requires-Python: >=3.10, <4.0
 Project-URL: Homepage, https://github.com/commitizen-tools/commitizen
-Project-URL: Issues, https://github.com/commitizen-tools/commitizen/issues
+Project-URL: Documentation, https://commitizen-tools.github.io/commitizen/
 Project-URL: Repository, https://github.com/commitizen-tools/commitizen
+Project-URL: Issues, https://github.com/commitizen-tools/commitizen/issues
+Project-URL: Changelog, https://github.com/commitizen-tools/commitizen/blob/master/CHANGELOG.md
 Description-Content-Type: text/markdown
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/commitizen-tools/commitizen/pythonpackage.yml?label=python%20package&logo=github&logoColor=white&style=flat-square)](https://github.com/commitizen-tools/commitizen/actions)
+[![Check Links](https://github.com/commitizen-tools/commitizen/actions/workflows/links.yml/badge.svg)](https://github.com/commitizen-tools/commitizen/actions/workflows/links.yml)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg?style=flat-square)](https://conventionalcommits.org)
 [![PyPI Package latest release](https://img.shields.io/pypi/v/commitizen.svg?style=flat-square)](https://pypi.org/project/commitizen/)
 [![PyPI Package download count (per month)](https://img.shields.io/pypi/dm/commitizen?style=flat-square)](https://pypi.org/project/commitizen/)
@@ -72,7 +73,7 @@ Description-Content-Type: text/markdown
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/commitizen?style=flat-square)](https://anaconda.org/conda-forge/commitizen)
 [![homebrew](https://img.shields.io/homebrew/v/commitizen?color=teal&style=flat-square)](https://formulae.brew.sh/formula/commitizen)
 [![Codecov](https://img.shields.io/codecov/c/github/commitizen-tools/commitizen.svg?style=flat-square)](https://codecov.io/gh/commitizen-tools/commitizen)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=flat-square&logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json&style=flat-square&color=brightgreen)](https://github.com/j178/prek)
 
 ![Using Commitizen cli](images/demo.gif)
 
@@ -111,7 +112,7 @@ This standardization makes your commit history more readable and meaningful, whi
 - Intelligent [version bumping](https://commitizen-tools.github.io/commitizen/commands/bump/) using [Semantic Versioning][semver]
 - Automatic [keep a changelog][keepchangelog] generation
 - Built-in commit validation with pre-commit hooks
-- [Customizable](https://commitizen-tools.github.io/commitizen/customization/) commit rules and templates
+- [Customizable](https://commitizen-tools.github.io/commitizen/customization/config_file/) commit rules and templates
 - Multi-format version file support
 - Custom rules and plugins via pip
 
@@ -121,7 +122,7 @@ This standardization makes your commit history more readable and meaningful, whi
 
 Before installing Commitizen, ensure you have:
 
-- [Python](https://www.python.org/downloads/) `3.9+`
+- [Python](https://www.python.org/downloads/) `3.10+`
 - [Git][gitscm] `1.8.5.2+`
 
 ### Installation
@@ -190,19 +191,7 @@ pdm add -d commitizen
 
 #### Initialize Commitizen
 
-To get started, you'll need to set up your configuration. You have two options:
-
-1. Use the interactive setup:
-```sh
-cz init
-```
-
-2. Manually create a configuration file (`.cz.toml` or `cz.toml`):
-```toml
-[tool.commitizen]
-version = "0.1.0"
-update_changelog_on_bump = true
-```
+To get started, run the `cz init` command. This will guide you through the process of creating a configuration file with your preferred settings.
 
 #### Create Commits
 
@@ -240,7 +229,7 @@ You can customize:
 
 - [Version files](https://commitizen-tools.github.io/commitizen/commands/bump/#version_files)
 - [Version scheme](https://commitizen-tools.github.io/commitizen/commands/bump/#version_scheme)
-- [Version provider](https://commitizen-tools.github.io/commitizen/config/#version-providers)
+- [Version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/)
 
 For all available options, see the [bump command documentation](https://commitizen-tools.github.io/commitizen/commands/bump/).
 
@@ -259,7 +248,7 @@ This command is particularly useful for automation scripts and CI/CD pipelines.
 
 For example, you can use the output of the command `cz changelog --dry-run "$(cz version -p)"` to notify your team about a new release in Slack.
 
-#### Pre-commit Integration
+#### Prek and Pre-commit Integration
 
 Commitizen can automatically validate your commit messages using pre-commit hooks.
 
@@ -277,7 +266,7 @@ repos:
 
 2. Install the hooks:
 ```sh
-pre-commit install --hook-type commit-msg --hook-type pre-push
+prek install --hook-type commit-msg --hook-type pre-push
 ```
 
 | Hook              | Recommended Stage |
@@ -287,7 +276,7 @@ pre-commit install --hook-type commit-msg --hook-type pre-push
 
 > **Note**: Replace `master` with the [latest tag](https://github.com/commitizen-tools/commitizen/tags) to avoid warnings. You can automatically update this with:
 > ```sh
-> pre-commit autoupdate
+> prek autoupdate
 > ```
 
 For more details about commit validation, see the [check command documentation](https://commitizen-tools.github.io/commitizen/commands/check/).
@@ -315,7 +304,7 @@ Commitizen provides a comprehensive CLI with various commands. Here's the comple
 
 - [Conventional Commits Specification][conventional_commits]
 - [Exit Codes Reference](https://commitizen-tools.github.io/commitizen/exit_codes/)
-- [Configuration Guide](https://commitizen-tools.github.io/commitizen/config/)
+- [Configuration Guide](https://commitizen-tools.github.io/commitizen/config/configuration_file/)
 - [Command Documentation](https://commitizen-tools.github.io/commitizen/commands/init/)
 
 ### Getting Help
@@ -390,4 +379,3 @@ These are our cool sponsors!
 [semver]: https://semver.org/
 [keepchangelog]: https://keepachangelog.com/
 [gitscm]: https://git-scm.com/downloads
-

@@ -5,10 +5,10 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.engine import base_tuner
-from keras_tuner.engine import hypermodel
-from keras_tuner.engine import hyperparameters
-from keras_tuner.engine import metrics_tracking
-from keras_tuner.engine import oracle
-from keras_tuner.engine import trial
-from keras_tuner.engine import tuner
+from keras_tuner.engine import base_tuner as base_tuner
+from keras_tuner.engine import hypermodel as hypermodel
+from keras_tuner.engine import hyperparameters as hyperparameters
+from keras_tuner.engine import metrics_tracking as metrics_tracking
+from keras_tuner.engine import oracle as oracle
+from keras_tuner.engine import trial as trial
+from keras_tuner.engine import tuner as tuner

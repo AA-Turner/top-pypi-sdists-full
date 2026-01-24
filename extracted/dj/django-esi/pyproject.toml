@@ -1,44 +1,47 @@
 [build-system]
 build-backend = "flit_core.buildapi"
-
 requires = [ "flit-core>=3.2,<4" ]
 
 [project]
 name = "django-esi"
 readme = "README.md"
+keywords = [
+    "eveonline",
+]
 license = { file = "LICENSE" }
 authors = [ { name = "Alliance Auth", email = "adarnof@gmail.com" } ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dynamic = [ "description", "version" ]
 dependencies = [
+    "aiopenapi3",
     "bravado>=10.6,<12",
-    "brotli",
     "celery>=4.0.2",
     "django>=4.2,<6",
+    "django-redis>=5.2",
+    "httpx[brotli,http2,zstd]",
     "jsonschema<4",
     "python-jose>=3.3",
     "requests>=2.26",
     "requests-oauthlib>=0.8",
+    "tenacity",
     "tqdm>=4.62.3",
 ]
 

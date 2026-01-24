@@ -4,6 +4,10 @@ from .query_cloud_resource_inventory_response import QueryCloudResourceInventory
 from .query_cloud_resource_inventory_response_generic import (
     QueryCloudResourceInventoryResponseGeneric,
 )
+from .query_cloud_security_threats_response import QueryCloudSecurityThreatsResponse
+from .query_cloud_security_threats_response_generic import (
+    QueryCloudSecurityThreatsResponseGeneric,
+)
 from .query_compliance_findings_response import QueryComplianceFindingsResponse
 from .query_compliance_findings_response_generic import (
     QueryComplianceFindingsResponseGeneric,
@@ -16,6 +20,8 @@ from .query_ioms_response_generic import QueryIomsResponseGeneric
 __all__ = [
     "QueryCloudResourceInventoryResponse",
     "QueryCloudResourceInventoryResponseGeneric",
+    "QueryCloudSecurityThreatsResponse",
+    "QueryCloudSecurityThreatsResponseGeneric",
     "QueryComplianceFindingsResponse",
     "QueryComplianceFindingsResponseGeneric",
     "QueryEventsResponse",

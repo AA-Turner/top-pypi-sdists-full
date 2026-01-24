@@ -36,14 +36,15 @@ class OperatorsApi(object):
     def v2_get_bundle(self, id, **kwargs):  # noqa: E501
         """Get operator properties for a bundle  # noqa: E501
 
-        Retrieves an array of operator properties for the specified bundle.  # noqa: E501
+        Retrieves an array of operator properties for the specified bundle when some features are activated.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.v2_get_bundle(id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
-        :param str id: Identifier of the bundle, for example, `virtualization` or `openshift-ai-nvidia`. (required)
+        :param str id: Identifier of the bundle, for example, `virtualization` or `openshift-ai`. (required)
+        :param list[str] feature_ids: Array of feature IDs that affect bundle composition (e.g., [\"SNO\"] for Single Node OpenShift).
         :return: Bundle
                  If the method is called asynchronously,
                  returns the request thread.
@@ -58,20 +59,21 @@ class OperatorsApi(object):
     def v2_get_bundle_with_http_info(self, id, **kwargs):  # noqa: E501
         """Get operator properties for a bundle  # noqa: E501
 
-        Retrieves an array of operator properties for the specified bundle.  # noqa: E501
+        Retrieves an array of operator properties for the specified bundle when some features are activated.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.v2_get_bundle_with_http_info(id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
-        :param str id: Identifier of the bundle, for example, `virtualization` or `openshift-ai-nvidia`. (required)
+        :param str id: Identifier of the bundle, for example, `virtualization` or `openshift-ai`. (required)
+        :param list[str] feature_ids: Array of feature IDs that affect bundle composition (e.g., [\"SNO\"] for Single Node OpenShift).
         :return: Bundle
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['id']  # noqa: E501
+        all_params = ['id', 'feature_ids']  # noqa: E501
         all_params.append('async_req')
         all_params.append('_return_http_data_only')
         all_params.append('_preload_content')
@@ -98,6 +100,9 @@ class OperatorsApi(object):
             path_params['id'] = params['id']  # noqa: E501
 
         query_params = []
+        if 'feature_ids' in params:
+            query_params.append(('feature_ids', params['feature_ids']))  # noqa: E501
+            collection_formats['feature_ids'] = 'multi'  # noqa: E501
 
         header_params = {}
 
@@ -133,15 +138,20 @@ class OperatorsApi(object):
             collection_formats=collection_formats)
 
     def v2_list_bundles(self, **kwargs):  # noqa: E501
-        """Get list of avaliable bundles  # noqa: E501
+        """Get list of available bundles  # noqa: E501
 
-        Retrieves a list of avaliable bundles.  # noqa: E501
+        Retrieves a list of available bundles filtered by support level.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.v2_list_bundles(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
+        :param str openshift_version: Version of the OpenShift cluster. If the parameter is not specified, no filtering is applied.
+        :param str cpu_architecture: The CPU architecture of the image (x86_64/arm64/etc). openshift_version must be set.
+        :param str platform_type: The provider platform type. openshift_version must be set.
+        :param str external_platform_name: External platform name when platform type is set to external. The value of this parameter will be ignored if platform_type is not external or if openshift_version is not set.
+        :param list[str] feature_ids: Array of feature IDs that affect bundle composition (e.g., [\"SNO\"] for Single Node OpenShift).
         :return: list[Bundle]
                  If the method is called asynchronously,
                  returns the request thread.
@@ -154,21 +164,26 @@ class OperatorsApi(object):
             return data
 
     def v2_list_bundles_with_http_info(self, **kwargs):  # noqa: E501
-        """Get list of avaliable bundles  # noqa: E501
+        """Get list of available bundles  # noqa: E501
 
-        Retrieves a list of avaliable bundles.  # noqa: E501
+        Retrieves a list of available bundles filtered by support level.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.v2_list_bundles_with_http_info(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
+        :param str openshift_version: Version of the OpenShift cluster. If the parameter is not specified, no filtering is applied.
+        :param str cpu_architecture: The CPU architecture of the image (x86_64/arm64/etc). openshift_version must be set.
+        :param str platform_type: The provider platform type. openshift_version must be set.
+        :param str external_platform_name: External platform name when platform type is set to external. The value of this parameter will be ignored if platform_type is not external or if openshift_version is not set.
+        :param list[str] feature_ids: Array of feature IDs that affect bundle composition (e.g., [\"SNO\"] for Single Node OpenShift).
         :return: list[Bundle]
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = []  # noqa: E501
+        all_params = ['openshift_version', 'cpu_architecture', 'platform_type', 'external_platform_name', 'feature_ids']  # noqa: E501
         all_params.append('async_req')
         all_params.append('_return_http_data_only')
         all_params.append('_preload_content')
@@ -189,6 +204,17 @@ class OperatorsApi(object):
         path_params = {}
 
         query_params = []
+        if 'openshift_version' in params:
+            query_params.append(('openshift_version', params['openshift_version']))  # noqa: E501
+        if 'cpu_architecture' in params:
+            query_params.append(('cpu_architecture', params['cpu_architecture']))  # noqa: E501
+        if 'platform_type' in params:
+            query_params.append(('platform_type', params['platform_type']))  # noqa: E501
+        if 'external_platform_name' in params:
+            query_params.append(('external_platform_name', params['external_platform_name']))  # noqa: E501
+        if 'feature_ids' in params:
+            query_params.append(('feature_ids', params['feature_ids']))  # noqa: E501
+            collection_formats['feature_ids'] = 'multi'  # noqa: E501
 
         header_params = {}
 

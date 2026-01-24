@@ -467,7 +467,7 @@ class StageApi:
         # process the body parameter
         _body_params = None
 
-        if _params["stage"]:
+        if _params["stage"] is not None:
             _body_params = _params["stage"]
 
         # set the HTTP header `Accept`
@@ -1040,7 +1040,7 @@ class StageApi:
         # process the body parameter
         _body_params = None
 
-        if _params["presigned_url_request"]:
+        if _params["presigned_url_request"] is not None:
             _body_params = _params["presigned_url_request"]
 
         # set the HTTP header `Accept`

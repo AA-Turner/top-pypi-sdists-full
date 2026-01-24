@@ -16,6 +16,9 @@ class AutomationOutputProcessorCreate:
     _automation_file_config_name: str
     _file_id: str
     _complete_with_errors: Union[Unset, bool] = UNSET
+    _folder_id: Union[Unset, str] = UNSET
+    _locaton_id: Union[Unset, str] = UNSET
+    _timezone: Union[Unset, str] = UNSET
 
     def __repr__(self):
         fields = []
@@ -23,6 +26,9 @@ class AutomationOutputProcessorCreate:
         fields.append("automation_file_config_name={}".format(repr(self._automation_file_config_name)))
         fields.append("file_id={}".format(repr(self._file_id)))
         fields.append("complete_with_errors={}".format(repr(self._complete_with_errors)))
+        fields.append("folder_id={}".format(repr(self._folder_id)))
+        fields.append("locaton_id={}".format(repr(self._locaton_id)))
+        fields.append("timezone={}".format(repr(self._timezone)))
         return "AutomationOutputProcessorCreate({})".format(", ".join(fields))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -30,6 +36,9 @@ class AutomationOutputProcessorCreate:
         automation_file_config_name = self._automation_file_config_name
         file_id = self._file_id
         complete_with_errors = self._complete_with_errors
+        folder_id = self._folder_id
+        locaton_id = self._locaton_id
+        timezone = self._timezone
 
         field_dict: Dict[str, Any] = {}
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
@@ -41,6 +50,12 @@ class AutomationOutputProcessorCreate:
             field_dict["fileId"] = file_id
         if complete_with_errors is not UNSET:
             field_dict["completeWithErrors"] = complete_with_errors
+        if folder_id is not UNSET:
+            field_dict["folderId"] = folder_id
+        if locaton_id is not UNSET:
+            field_dict["locatonId"] = locaton_id
+        if timezone is not UNSET:
+            field_dict["timezone"] = timezone
 
         return field_dict
 
@@ -92,11 +107,47 @@ class AutomationOutputProcessorCreate:
                 raise
             complete_with_errors = cast(Union[Unset, bool], UNSET)
 
+        def get_folder_id() -> Union[Unset, str]:
+            folder_id = d.pop("folderId")
+            return folder_id
+
+        try:
+            folder_id = get_folder_id()
+        except KeyError:
+            if strict:
+                raise
+            folder_id = cast(Union[Unset, str], UNSET)
+
+        def get_locaton_id() -> Union[Unset, str]:
+            locaton_id = d.pop("locatonId")
+            return locaton_id
+
+        try:
+            locaton_id = get_locaton_id()
+        except KeyError:
+            if strict:
+                raise
+            locaton_id = cast(Union[Unset, str], UNSET)
+
+        def get_timezone() -> Union[Unset, str]:
+            timezone = d.pop("timezone")
+            return timezone
+
+        try:
+            timezone = get_timezone()
+        except KeyError:
+            if strict:
+                raise
+            timezone = cast(Union[Unset, str], UNSET)
+
         automation_output_processor_create = cls(
             assay_run_id=assay_run_id,
             automation_file_config_name=automation_file_config_name,
             file_id=file_id,
             complete_with_errors=complete_with_errors,
+            folder_id=folder_id,
+            locaton_id=locaton_id,
+            timezone=timezone,
         )
 
         return automation_output_processor_create
@@ -146,3 +197,48 @@ class AutomationOutputProcessorCreate:
     @complete_with_errors.deleter
     def complete_with_errors(self) -> None:
         self._complete_with_errors = UNSET
+
+    @property
+    def folder_id(self) -> str:
+        """ The API ID of the folder to set for the automation output file. Folder items created by the correpsonding output processor will be created in this folder. """
+        if isinstance(self._folder_id, Unset):
+            raise NotPresentError(self, "folder_id")
+        return self._folder_id
+
+    @folder_id.setter
+    def folder_id(self, value: str) -> None:
+        self._folder_id = value
+
+    @folder_id.deleter
+    def folder_id(self) -> None:
+        self._folder_id = UNSET
+
+    @property
+    def locaton_id(self) -> str:
+        """ The API ID of the location to set for the automation output file. Storable items created by the correpsonding output processor will be created at this location. """
+        if isinstance(self._locaton_id, Unset):
+            raise NotPresentError(self, "locaton_id")
+        return self._locaton_id
+
+    @locaton_id.setter
+    def locaton_id(self, value: str) -> None:
+        self._locaton_id = value
+
+    @locaton_id.deleter
+    def locaton_id(self) -> None:
+        self._locaton_id = UNSET
+
+    @property
+    def timezone(self) -> str:
+        """ The timezone to set for the automation output file. Used as the timezone for the timestamp fields if not set in the timestamp. """
+        if isinstance(self._timezone, Unset):
+            raise NotPresentError(self, "timezone")
+        return self._timezone
+
+    @timezone.setter
+    def timezone(self, value: str) -> None:
+        self._timezone = value
+
+    @timezone.deleter
+    def timezone(self) -> None:
+        self._timezone = UNSET

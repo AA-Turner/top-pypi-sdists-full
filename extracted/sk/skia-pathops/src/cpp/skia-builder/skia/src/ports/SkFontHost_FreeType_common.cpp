@@ -6,23 +6,28 @@
  * found in the LICENSE file.
  */
 
+#include "src/ports/SkFontHost_FreeType_common.h"
+
 #include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
 #include "include/core/SkDrawable.h"
 #include "include/core/SkGraphics.h"
+#include "include/core/SkImage.h"
 #include "include/core/SkOpenTypeSVGDecoder.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/effects/SkGradientShader.h"
-#include "include/pathops/SkPathOps.h"
-#include "include/private/SkColorData.h"
 #include "include/private/base/SkTo.h"
+#include "src/core/SkColorData.h"
 #include "src/core/SkFDot6.h"
 #include "src/core/SkSwizzlePriv.h"
-#include "src/ports/SkFontHost_FreeType_common.h"
+#include "src/core/SkTHash.h"
 
 #include <algorithm>
+#include <optional>
 #include <utility>
+#include <vector>
 
 #include <ft2build.h>
 #include <freetype/freetype.h>
@@ -35,6 +40,8 @@
 #include <freetype/ftsizes.h>
 // In the past, FT_GlyphSlot_Own_Bitmap was defined in this header file.
 #include <freetype/ftsynth.h>
+
+using namespace skia_private;
 
 namespace {
 [[maybe_unused]] static inline const constexpr bool kSkShowTextBlitCoverage = false;
@@ -148,23 +155,23 @@ int bittst(const uint8_t data[], int bitOffset) {
  *  FT_PIXEL_MODE_LCD_V
  */
 template<bool APPLY_PREBLEND>
-void copyFT2LCD16(const FT_Bitmap& bitmap, const SkMask& mask, int lcdIsBGR,
+void copyFT2LCD16(const FT_Bitmap& bitmap, SkMaskBuilder* dstMask, int lcdIsBGR,
                   const uint8_t* tableR, const uint8_t* tableG, const uint8_t* tableB)
 {
-    SkASSERT(SkMask::kLCD16_Format == mask.fFormat);
+    SkASSERT(SkMask::kLCD16_Format == dstMask->fFormat);
     if (FT_PIXEL_MODE_LCD != bitmap.pixel_mode) {
-        SkASSERT(mask.fBounds.width() == static_cast<int>(bitmap.width));
+        SkASSERT(dstMask->fBounds.width() == static_cast<int>(bitmap.width));
     }
     if (FT_PIXEL_MODE_LCD_V != bitmap.pixel_mode) {
-        SkASSERT(mask.fBounds.height() == static_cast<int>(bitmap.rows));
+        SkASSERT(dstMask->fBounds.height() == static_cast<int>(bitmap.rows));
     }
 
     const uint8_t* src = bitmap.buffer;
-    uint16_t* dst = reinterpret_cast<uint16_t*>(mask.fImage);
-    const size_t dstRB = mask.fRowBytes;
+    uint16_t* dst = reinterpret_cast<uint16_t*>(dstMask->image());
+    const size_t dstRB = dstMask->fRowBytes;
 
-    const int width = mask.fBounds.width();
-    const int height = mask.fBounds.height();
+    const int width = dstMask->fBounds.width();
+    const int height = dstMask->fBounds.height();
 
     switch (bitmap.pixel_mode) {
         case FT_PIXEL_MODE_MONO:
@@ -186,7 +193,7 @@ void copyFT2LCD16(const FT_Bitmap& bitmap, const SkMask& mask, int lcdIsBGR,
             }
             break;
         case FT_PIXEL_MODE_LCD:
-            SkASSERT(3 * mask.fBounds.width() == static_cast<int>(bitmap.width));
+            SkASSERT(3 * dstMask->fBounds.width() == static_cast<int>(bitmap.width));
             for (int y = height; y --> 0;) {
                 const uint8_t* triple = src;
                 if (lcdIsBGR) {
@@ -209,7 +216,7 @@ void copyFT2LCD16(const FT_Bitmap& bitmap, const SkMask& mask, int lcdIsBGR,
             }
             break;
         case FT_PIXEL_MODE_LCD_V:
-            SkASSERT(3 * mask.fBounds.height() == static_cast<int>(bitmap.rows));
+            SkASSERT(3 * dstMask->fBounds.height() == static_cast<int>(bitmap.rows));
             for (int y = height; y --> 0;) {
                 const uint8_t* srcR = src;
                 const uint8_t* srcG = srcR + bitmap.pitch;
@@ -250,17 +257,17 @@ void copyFT2LCD16(const FT_Bitmap& bitmap, const SkMask& mask, int lcdIsBGR,
  *
  *  TODO: All of these N need to be Y or otherwise ruled out.
  */
-void copyFTBitmap(const FT_Bitmap& srcFTBitmap, SkMask& dstMask) {
-    SkASSERTF(dstMask.fBounds.width() == static_cast<int>(srcFTBitmap.width),
+void copyFTBitmap(const FT_Bitmap& srcFTBitmap, SkMaskBuilder* dstMask) {
+    SkASSERTF(dstMask->fBounds.width() == static_cast<int>(srcFTBitmap.width),
               "dstMask.fBounds.width() = %d\n"
               "static_cast<int>(srcFTBitmap.width) = %d",
-              dstMask.fBounds.width(),
+              dstMask->fBounds.width(),
               static_cast<int>(srcFTBitmap.width)
     );
-    SkASSERTF(dstMask.fBounds.height() == static_cast<int>(srcFTBitmap.rows),
+    SkASSERTF(dstMask->fBounds.height() == static_cast<int>(srcFTBitmap.rows),
               "dstMask.fBounds.height() = %d\n"
               "static_cast<int>(srcFTBitmap.rows) = %d",
-              dstMask.fBounds.height(),
+              dstMask->fBounds.height(),
               static_cast<int>(srcFTBitmap.rows)
     );
 
@@ -270,9 +277,9 @@ void copyFTBitmap(const FT_Bitmap& srcFTBitmap, SkMask& dstMask) {
     const int srcPitch = srcFTBitmap.pitch;
     const size_t srcRowBytes = SkTAbs(srcPitch);
 
-    uint8_t* dst = dstMask.fImage;
-    const SkMask::Format dstFormat = static_cast<SkMask::Format>(dstMask.fFormat);
-    const size_t dstRowBytes = dstMask.fRowBytes;
+    uint8_t* dst = dstMask->image();
+    const SkMask::Format dstFormat = dstMask->fFormat;
+    const size_t dstRowBytes = dstMask->fRowBytes;
 
     const size_t width = srcFTBitmap.width;
     const size_t height = srcFTBitmap.rows;
@@ -348,14 +355,14 @@ uint8_t pack_8_to_1(const uint8_t alpha[8]) {
     return SkToU8(bits);
 }
 
-void packA8ToA1(const SkMask& mask, const uint8_t* src, size_t srcRB) {
-    const int height = mask.fBounds.height();
-    const int width = mask.fBounds.width();
+void packA8ToA1(SkMaskBuilder* dstMask, const uint8_t* src, size_t srcRB) {
+    const int height = dstMask->fBounds.height();
+    const int width = dstMask->fBounds.width();
     const int octs = width >> 3;
     const int leftOverBits = width & 7;
 
-    uint8_t* dst = mask.fImage;
-    const int dstPad = mask.fRowBytes - SkAlign8(width)/8;
+    uint8_t* dst = dstMask->image();
+    const int dstPad = dstMask->fRowBytes - SkAlign8(width)/8;
     SkASSERT(dstPad >= 0);
 
     const int srcPad = srcRB - width;
@@ -430,7 +437,7 @@ const uint16_t kForegroundColorPaletteIndex = 0xFFFF;
 // truncating and drawing color lines. When drawing into N32 surfaces, this is expected to be true.
 // If that changes, or if we support other color spaces in CPAL tables at some point, this needs to
 // be looked at.
-SkColor lerpSkColor(SkColor c0, SkColor c1, float t) {
+SkColor4f lerpSkColor(SkColor4f c0, SkColor4f c1, float t) {
     // Due to the floating point calculation in the caller, when interpolating between very narrow
     // stops, we may get values outside the interpolation range, guard against these.
     if (t < 0) {
@@ -439,10 +446,14 @@ SkColor lerpSkColor(SkColor c0, SkColor c1, float t) {
     if (t > 1) {
         return c1;
     }
-    const auto c0_4f = Sk4f_fromL32(c0), c1_4f = Sk4f_fromL32(c1),
-               c_4f = c0_4f + (c1_4f - c0_4f) * t;
 
-    return Sk4f_toL32(c_4f);
+    const auto c0_4f = skvx::float4::Load(c0.vec());
+    const auto c1_4f = skvx::float4::Load(c1.vec());
+    const auto c_4f = c0_4f + (c1_4f - c0_4f) * t;
+
+    SkColor4f l;
+    c_4f.store(l.vec());
+    return l;
 }
 
 enum TruncateStops {
@@ -453,7 +464,7 @@ enum TruncateStops {
 // Truncate a vector of color stops at a previously computed stop position and insert at that
 // position the color interpolated between the surrounding stops.
 void truncateToStopInterpolating(SkScalar zeroRadiusStop,
-                                 std::vector<SkColor>& colors,
+                                 std::vector<SkColor4f>& colors,
                                  std::vector<SkScalar>& stops,
                                  TruncateStops truncateStops) {
     if (stops.size() <= 1u ||
@@ -468,7 +479,7 @@ void truncateToStopInterpolating(SkScalar zeroRadiusStop,
 
     const float t = (zeroRadiusStop - stops[afterIndex - 1]) /
                     (stops[afterIndex] - stops[afterIndex - 1]);
-    SkColor lerpColor = lerpSkColor(colors[afterIndex - 1], colors[afterIndex], t);
+    SkColor4f lerpColor = lerpSkColor(colors[afterIndex - 1], colors[afterIndex], t);
 
     if (truncateStops == TruncateStart) {
         stops.erase(stops.begin(), stops.begin() + afterIndex);
@@ -490,9 +501,10 @@ struct OpaquePaintHasher {
   }
 };
 
-using VisitedSet = SkTHashSet<FT_OpaquePaint, OpaquePaintHasher>;
+using VisitedSet = THashSet<FT_OpaquePaint, OpaquePaintHasher>;
 
-bool generateFacePathCOLRv1(FT_Face face, SkGlyphID glyphID, SkPath* path);
+std::optional<SkPath> generateFacePathCOLRv1(FT_Face face, SkGlyphID glyphID,
+                                             const SkMatrix* = nullptr);
 
 inline float SkColrV1AlphaToFloat(uint16_t alpha) { return (alpha / float(1 << 14)); }
 
@@ -598,7 +610,7 @@ bool colrv1_configure_skpaint(FT_Face face,
     auto fetchColorStops = [&face, &palette, &foregroundColor](
                                                const FT_ColorStopIterator& colorStopIterator,
                                                std::vector<SkScalar>& stops,
-                                               std::vector<SkColor>& colors) -> bool {
+                                               std::vector<SkColor4f>& colors) -> bool {
         const FT_UInt colorStopCount = colorStopIterator.num_color_stops;
         if (colorStopCount == 0) {
             return false;
@@ -608,28 +620,26 @@ bool colrv1_configure_skpaint(FT_Face face,
         // "Applications shall apply the colorStops in increasing stopOffset order."
         struct ColorStop {
             SkScalar pos;
-            SkColor color;
+            SkColor4f color;
         };
         std::vector<ColorStop> colorStopsSorted;
         colorStopsSorted.resize(colorStopCount);
 
-        FT_ColorStop color_stop;
+        FT_ColorStop ftStop;
         FT_ColorStopIterator mutable_color_stop_iterator = colorStopIterator;
-        while (FT_Get_Colorline_Stops(face, &color_stop, &mutable_color_stop_iterator)) {
+        while (FT_Get_Colorline_Stops(face, &ftStop, &mutable_color_stop_iterator)) {
             FT_UInt index = mutable_color_stop_iterator.current_color_stop - 1;
-            colorStopsSorted[index].pos = color_stop.stop_offset / kColorStopShift;
-            FT_UInt16& palette_index = color_stop.color.palette_index;
+            ColorStop& skStop = colorStopsSorted[index];
+            skStop.pos = ftStop.stop_offset / kColorStopShift;
+            FT_UInt16& palette_index = ftStop.color.palette_index;
             if (palette_index == kForegroundColorPaletteIndex) {
-                U8CPU newAlpha = SkColorGetA(foregroundColor) *
-                                 SkColrV1AlphaToFloat(color_stop.color.alpha);
-                colorStopsSorted[index].color = SkColorSetA(foregroundColor, newAlpha);
+                skStop.color = SkColor4f::FromColor(foregroundColor);
             } else if (palette_index >= palette.size()) {
                 return false;
             } else {
-                U8CPU newAlpha = SkColorGetA(palette[palette_index]) *
-                                 SkColrV1AlphaToFloat(color_stop.color.alpha);
-                colorStopsSorted[index].color = SkColorSetA(palette[palette_index], newAlpha);
+                skStop.color = SkColor4f::FromColor(palette[palette_index]);
             }
+            skStop.color.fA *= SkColrV1AlphaToFloat(ftStop.color.alpha);
         }
 
         std::stable_sort(colorStopsSorted.begin(), colorStopsSorted.end(),
@@ -649,18 +659,15 @@ bool colrv1_configure_skpaint(FT_Face face,
             FT_PaintSolid solid = colrPaint.u.solid;
 
             // Dont' draw anything with this color if the palette index is out of bounds.
-            SkColor color = SK_ColorTRANSPARENT;
+            SkColor4f color = SkColors::kTransparent;
             if (solid.color.palette_index == kForegroundColorPaletteIndex) {
-                U8CPU newAlpha = SkColorGetA(foregroundColor) *
-                                 SkColrV1AlphaToFloat(solid.color.alpha);
-                color = SkColorSetA(foregroundColor, newAlpha);
+                color = SkColor4f::FromColor(foregroundColor);
             } else if (solid.color.palette_index >= palette.size()) {
                 return false;
             } else {
-                U8CPU newAlpha = SkColorGetA(palette[solid.color.palette_index]) *
-                                 SkColrV1AlphaToFloat(solid.color.alpha);
-                color = SkColorSetA(palette[solid.color.palette_index], newAlpha);
+                color = SkColor4f::FromColor(palette[solid.color.palette_index]);
             }
+            color.fA *= SkColrV1AlphaToFloat(solid.color.alpha);
             paint->setShader(nullptr);
             paint->setColor(color);
             return true;
@@ -668,7 +675,7 @@ bool colrv1_configure_skpaint(FT_Face face,
         case FT_COLR_PAINTFORMAT_LINEAR_GRADIENT: {
             const FT_PaintLinearGradient& linearGradient = colrPaint.u.linear_gradient;
             std::vector<SkScalar> stops;
-            std::vector<SkColor> colors;
+            std::vector<SkColor4f> colors;
 
             if (!fetchColorStops(linearGradient.colorline.color_stop_iterator, stops, colors)) {
                 return false;
@@ -758,9 +765,16 @@ bool colrv1_configure_skpaint(FT_Face face,
             }
 
             sk_sp<SkShader> shader(SkGradientShader::MakeLinear(
-                                   linePositions,
-                                   colors.data(), stops.data(), stops.size(),
-                                   tileMode));
+                linePositions,
+                colors.data(), SkColorSpace::MakeSRGB(), stops.data(), stops.size(),
+                tileMode,
+                SkGradientShader::Interpolation{
+                    SkGradientShader::Interpolation::InPremul::kNo,
+                    SkGradientShader::Interpolation::ColorSpace::kSRGB,
+                    SkGradientShader::Interpolation::HueMethod::kShorter
+                },
+                nullptr));
+
             SkASSERT(shader);
             // An opaque color is needed to ensure the gradient is not modulated by alpha.
             paint->setColor(SK_ColorBLACK);
@@ -778,7 +792,7 @@ bool colrv1_configure_skpaint(FT_Face face,
 
 
             std::vector<SkScalar> stops;
-            std::vector<SkColor> colors;
+            std::vector<SkColor4f> colors;
             if (!fetchColorStops(radialGradient.colorline.color_stop_iterator, stops, colors)) {
                 return false;
             }
@@ -935,8 +949,16 @@ bool colrv1_configure_skpaint(FT_Face face,
             paint->setColor(SK_ColorBLACK);
 
             paint->setShader(SkGradientShader::MakeTwoPointConical(
-                    start, startRadius, end, endRadius, colors.data(), stops.data(), stops.size(),
-                    tileMode));
+                start, startRadius, end, endRadius,
+                colors.data(), SkColorSpace::MakeSRGB(), stops.data(), stops.size(),
+                tileMode,
+                SkGradientShader::Interpolation{
+                    SkGradientShader::Interpolation::InPremul::kNo,
+                    SkGradientShader::Interpolation::ColorSpace::kSRGB,
+                    SkGradientShader::Interpolation::HueMethod::kShorter
+                },
+                nullptr));
+
             return true;
         }
         case FT_COLR_PAINTFORMAT_SWEEP_GRADIENT: {
@@ -953,7 +975,7 @@ bool colrv1_configure_skpaint(FT_Face face,
             endAngle += 180.0f;
 
             std::vector<SkScalar> stops;
-            std::vector<SkColor> colors;
+            std::vector<SkColor4f> colors;
             if (!fetchColorStops(sweepGradient.colorline.color_stop_iterator, stops, colors)) {
                 return false;
             }
@@ -991,7 +1013,6 @@ bool colrv1_configure_skpaint(FT_Face face,
             // 2) Scale stops accordingly to 0 to 1 range.
 
             float colorStopRange = stops.back() - stops.front();
-            bool colorStopInserted = false;
             if (colorStopRange == 0.f) {
               if (tileMode != SkTileMode::kClamp) {
                 paint->setColor(SK_ColorTRANSPARENT);
@@ -1007,7 +1028,6 @@ bool colrv1_configure_skpaint(FT_Face face,
                 stops.push_back(stops.back() + 1.0f);
                 colors.push_back(colors.back());
                 colorStopRange = 1.0f;
-                colorStopInserted = true;
               }
             }
 
@@ -1028,8 +1048,7 @@ bool colrv1_configure_skpaint(FT_Face face,
              * start angle being larger than end angle. */
             startAngleScaled = 360.f - startAngleScaled;
             endAngleScaled = 360.f - endAngleScaled;
-            if (startAngleScaled > endAngleScaled ||
-                (startAngleScaled == endAngleScaled && !colorStopInserted)) {
+            if (startAngleScaled >= endAngleScaled) {
                 std::swap(startAngleScaled, endAngleScaled);
                 std::reverse(stops.begin(), stops.end());
                 std::reverse(colors.begin(), colors.end());
@@ -1038,13 +1057,18 @@ bool colrv1_configure_skpaint(FT_Face face,
                 }
             }
 
-            paint->setShader(SkGradientShader::MakeSweep(center.x(), center.y(),
-                                                         colors.data(),
-                                                         stops.data(), stops.size(),
-                                                         tileMode,
-                                                         startAngleScaled,
-                                                         endAngleScaled,
-                                                         0, nullptr));
+            paint->setShader(SkGradientShader::MakeSweep(
+                center.x(), center.y(),
+                colors.data(), SkColorSpace::MakeSRGB(), stops.data(), stops.size(),
+                tileMode,
+                startAngleScaled, endAngleScaled,
+                SkGradientShader::Interpolation{
+                    SkGradientShader::Interpolation::InPremul::kNo,
+                    SkGradientShader::Interpolation::ColorSpace::kSRGB,
+                    SkGradientShader::Interpolation::HueMethod::kShorter
+                },
+                nullptr));
+
             return true;
         }
         default: {
@@ -1062,21 +1086,16 @@ bool colrv1_draw_paint(SkCanvas* canvas,
                        const FT_COLR_Paint& colrPaint) {
     switch (colrPaint.format) {
         case FT_COLR_PAINTFORMAT_GLYPH: {
-            FT_UInt glyphID = colrPaint.u.glyph.glyphID;
-            SkPath path;
-            /* TODO: Currently this call retrieves the path at units_per_em size. If we want to get
-             * correct hinting for the scaled size under the transforms at this point in the color
-             * glyph graph, we need to extract at least the requested glyph width and height and
-             * pass that to the path generation. */
-            if (!generateFacePathCOLRv1(face, glyphID, &path)) {
+            auto path = generateFacePathCOLRv1(face, colrPaint.u.glyph.glyphID);
+            if (!path) {
                 return false;
             }
             if constexpr (kSkShowTextBlitCoverage) {
                 SkPaint highlight_paint;
                 highlight_paint.setColor(0x33FF0000);
-                canvas->drawRect(path.getBounds(), highlight_paint);
+                canvas->drawRect(path->getBounds(), highlight_paint);
             }
-            canvas->clipPath(path, true /* doAntiAlias */);
+            canvas->clipPath(*path, true /* doAntiAlias */);
             return true;
         }
         case FT_COLR_PAINTFORMAT_SOLID:
@@ -1119,21 +1138,16 @@ bool colrv1_draw_glyph_with_path(SkCanvas* canvas,
         return false;
     }
 
-    FT_UInt glyphID = glyphPaint.u.glyph.glyphID;
-    SkPath path;
-    /* TODO: Currently this call retrieves the path at units_per_em size. If we want to get
-     * correct hinting for the scaled size under the transforms at this point in the color
-     * glyph graph, we need to extract at least the requested glyph width and height and
-     * pass that to the path generation. */
-    if (!generateFacePathCOLRv1(face, glyphID, &path)) {
+    auto path = generateFacePathCOLRv1(face, glyphPaint.u.glyph.glyphID);
+    if (!path) {
         return false;
     }
     if constexpr (kSkShowTextBlitCoverage) {
         SkPaint highlightPaint;
         highlightPaint.setColor(0x33FF0000);
-        canvas->drawRect(path.getBounds(), highlightPaint);
+        canvas->drawRect(path->getBounds(), highlightPaint);
     }
-    canvas->drawPath(path, skiaFillPaint);
+    canvas->drawPath(*path, skiaFillPaint);
     return true;
 }
 
@@ -1210,9 +1224,9 @@ void colrv1_transform(FT_Face face,
 
 bool colrv1_start_glyph(SkCanvas* canvas,
                         const SkSpan<SkColor>& palette,
-                        const SkColor foregroundColor,
+                        SkColor foregroundColor,
                         FT_Face face,
-                        uint16_t glyphId,
+                        SkGlyphID glyphId,
                         FT_Color_Root_Transform rootTransform,
                         VisitedSet* activePaints);
 
@@ -1224,7 +1238,7 @@ bool colrv1_traverse_paint(SkCanvas* canvas,
                            VisitedSet* activePaints) {
     // Cycle detection, see section "5.7.11.1.9 Color glyphs as a directed acyclic graph".
     if (activePaints->contains(opaquePaint)) {
-        return false;
+        return true;
     }
 
     activePaints->add(opaquePaint);
@@ -1321,7 +1335,7 @@ bool colrv1_traverse_paint(SkCanvas* canvas,
     SkUNREACHABLE;
 }
 
-SkPath GetClipBoxPath(FT_Face face, uint16_t glyphId, bool untransformed) {
+SkPath GetClipBoxPath(FT_Face face, SkGlyphID glyphId, bool untransformed) {
     SkPath resultPath;
     SkUniqueFTSize unscaledFtSize = nullptr;
     FT_Size oldSize = face->size;
@@ -1386,7 +1400,7 @@ SkPath GetClipBoxPath(FT_Face face, uint16_t glyphId, bool untransformed) {
 
 bool colrv1_start_glyph(SkCanvas* canvas,
                         const SkSpan<SkColor>& palette,
-                        const SkColor foregroundColor,
+                        SkColor foregroundColor,
                         FT_Face face,
                         uint16_t glyphId,
                         FT_Color_Root_Transform rootTransform,
@@ -1413,7 +1427,7 @@ bool colrv1_start_glyph(SkCanvas* canvas,
 bool colrv1_start_glyph_bounds(SkMatrix *ctm,
                                SkRect* bounds,
                                FT_Face face,
-                               uint16_t glyphId,
+                               SkGlyphID glyphId,
                                FT_Color_Root_Transform rootTransform,
                                VisitedSet* activePaints);
 
@@ -1450,13 +1464,11 @@ bool colrv1_traverse_paint_bounds(SkMatrix* ctm,
             return true;
         }
         case FT_COLR_PAINTFORMAT_GLYPH: {
-            FT_UInt glyphID = paint.u.glyph.glyphID;
-            SkPath path;
-            if (!generateFacePathCOLRv1(face, glyphID, &path)) {
+            auto path = generateFacePathCOLRv1(face, paint.u.glyph.glyphID, ctm);
+            if (!path) {
                 return false;
             }
-            path.transform(*ctm);
-            bounds->join(path.getBounds());
+            bounds->join(path->getBounds());
             return true;
         }
         case FT_COLR_PAINTFORMAT_COLR_GLYPH: {
@@ -1533,35 +1545,31 @@ bool colrv1_start_glyph_bounds(SkMatrix *ctm,
 
 }  // namespace
 
+////////////////
+
+void SkScalerContextFTUtils::init(SkColor fgColor, SkScalerContext::Flags flags) {
+    fForegroundColor = fgColor;
+    fFlags = flags;
+}
 
 #ifdef TT_SUPPORT_COLRV1
-bool SkScalerContext_FreeType_Base::drawCOLRv1Glyph(FT_Face face,
-                                                    const SkGlyph& glyph,
-                                                    uint32_t loadGlyphFlags,
-                                                    SkSpan<SkColor> palette,
-                                                    SkCanvas* canvas) {
+bool SkScalerContextFTUtils::drawCOLRv1Glyph(FT_Face face, const SkGlyph& glyph, uint32_t loadGlyphFlags,
+                                             SkSpan<SkColor> palette, SkCanvas* canvas) const {
     if (this->isSubpixel()) {
         canvas->translate(SkFixedToScalar(glyph.getSubXFixed()),
                           SkFixedToScalar(glyph.getSubYFixed()));
     }
 
     VisitedSet activePaints;
-    bool haveLayers =  colrv1_start_glyph(canvas, palette,
-                                          fRec.fForegroundColor,
-                                          face, glyph.getGlyphID(),
-                                          FT_COLOR_INCLUDE_ROOT_TRANSFORM,
-                                          &activePaints);
-    SkASSERTF(haveLayers, "Could not get COLRv1 layers from '%s'.", face->family_name);
-    return haveLayers;
+    return colrv1_start_glyph(canvas, palette, fForegroundColor,
+                              face, glyph.getGlyphID(),
+                              FT_COLOR_INCLUDE_ROOT_TRANSFORM, &activePaints);
 }
 #endif  // TT_SUPPORT_COLRV1
 
 #ifdef FT_COLOR_H
-bool SkScalerContext_FreeType_Base::drawCOLRv0Glyph(FT_Face face,
-                                                    const SkGlyph& glyph,
-                                                    uint32_t loadGlyphFlags,
-                                                    SkSpan<SkColor> palette,
-                                                    SkCanvas* canvas) {
+bool SkScalerContextFTUtils::drawCOLRv0Glyph(FT_Face face, const SkGlyph& glyph, LoadGlyphFlags flags,
+                                             SkSpan<SkColor> palette, SkCanvas* canvas) const {
     if (this->isSubpixel()) {
         canvas->translate(SkFixedToScalar(glyph.getSubXFixed()),
                           SkFixedToScalar(glyph.getSubYFixed()));
@@ -1573,18 +1581,18 @@ bool SkScalerContext_FreeType_Base::drawCOLRv0Glyph(FT_Face face,
     FT_UInt layerGlyphIndex = 0;
     FT_UInt layerColorIndex = 0;
     SkPaint paint;
-    paint.setAntiAlias(!(loadGlyphFlags & FT_LOAD_TARGET_MONO));
+    paint.setAntiAlias(!(flags & FT_LOAD_TARGET_MONO));
     while (FT_Get_Color_Glyph_Layer(face, glyph.getGlyphID(), &layerGlyphIndex,
                                     &layerColorIndex, &layerIterator)) {
         haveLayers = true;
         if (layerColorIndex == 0xFFFF) {
-            paint.setColor(fRec.fForegroundColor);
+            paint.setColor(fForegroundColor);
         } else {
             paint.setColor(palette[layerColorIndex]);
         }
-        SkPath path;
-        if (this->generateFacePath(face, layerGlyphIndex, loadGlyphFlags, &path)) {
-            canvas->drawPath(path, paint);
+        SkPathBuilder builder;
+        if (this->generateFacePath(face, layerGlyphIndex, flags, &builder)) {
+            canvas->drawPath(builder.detach(), paint);
         }
     }
     SkASSERTF(haveLayers, "Could not get COLRv0 layers from '%s'.", face->family_name);
@@ -1593,11 +1601,8 @@ bool SkScalerContext_FreeType_Base::drawCOLRv0Glyph(FT_Face face,
 #endif  // FT_COLOR_H
 
 #if defined(FT_CONFIG_OPTION_SVG)
-bool SkScalerContext_FreeType_Base::drawSVGGlyph(FT_Face face,
-                                                 const SkGlyph& glyph,
-                                                 uint32_t loadGlyphFlags,
-                                                 SkSpan<SkColor> palette,
-                                                 SkCanvas* canvas) {
+bool SkScalerContextFTUtils::drawSVGGlyph(FT_Face face, const SkGlyph& glyph, LoadGlyphFlags flags,
+                                          SkSpan<SkColor> palette, SkCanvas* canvas) const {
     SkASSERT(face->glyph->format == FT_GLYPH_FORMAT_SVG);
 
     FT_SVG_Document ftSvg = (FT_SVG_Document)face->glyph->other;
@@ -1625,14 +1630,13 @@ bool SkScalerContext_FreeType_Base::drawSVGGlyph(FT_Face face,
         return false;
     }
     return svgDecoder->render(*canvas, ftSvg->units_per_EM, glyph.getGlyphID(),
-                              fRec.fForegroundColor, palette);
+                              fForegroundColor, palette);
 }
 #endif  // FT_CONFIG_OPTION_SVG
 
-void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
-                                                       const SkGlyph& glyph,
-                                                       const SkMatrix& bitmapTransform)
-{
+void SkScalerContextFTUtils::generateGlyphImage(FT_Face face, const SkGlyph& glyph, void* imageBuffer,
+                                                const SkMatrix& bitmapTransform,
+                                                const SkMaskGamma::PreBlend& preBlend) const {
     switch ( face->glyph->format ) {
         case FT_GLYPH_FORMAT_OUTLINE: {
             FT_Outline* outline = &face->glyph->outline;
@@ -1645,11 +1649,11 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
                 dy = -dy;
             }
 
-            memset(glyph.fImage, 0, glyph.rowBytes() * glyph.fHeight);
+            memset(imageBuffer, 0, glyph.rowBytes() * glyph.height());
 
-            if (SkMask::kLCD16_Format == glyph.fMaskFormat) {
-                const bool doBGR = SkToBool(fRec.fFlags & SkScalerContext::kLCD_BGROrder_Flag);
-                const bool doVert = SkToBool(fRec.fFlags & SkScalerContext::kLCD_Vertical_Flag);
+            if (SkMask::kLCD16_Format == glyph.maskFormat()) {
+                const bool doBGR = SkToBool(fFlags & SkScalerContext::kLCD_BGROrder_Flag);
+                const bool doVert = SkToBool(fFlags & SkScalerContext::kLCD_Vertical_Flag);
 
                 FT_Outline_Translate(outline, dx, dy);
                 FT_Error err = FT_Render_Glyph(face->glyph, doVert ? FT_RENDER_MODE_LCD_V :
@@ -1659,9 +1663,11 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
                     return;
                 }
 
-                SkMask mask = glyph.mask();
+                SkMaskBuilder mask(static_cast<uint8_t*>(imageBuffer),
+                                   glyph.iRect(), glyph.rowBytes(), glyph.maskFormat());
+
                 if constexpr (kSkShowTextBlitCoverage) {
-                    memset(mask.fImage, 0x80, mask.fBounds.height() * mask.fRowBytes);
+                    memset(mask.image(), 0x80, mask.fBounds.height() * mask.fRowBytes);
                 }
                 FT_GlyphSlotRec& ftGlyph = *face->glyph;
 
@@ -1691,12 +1697,12 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
                     ftGlyph.bitmap_left = mask.fBounds.fLeft;
                 }
                 if (mask.fBounds.fTop < -ftGlyph.bitmap_top) {
-                    mask.fImage += mask.fRowBytes * (-ftGlyph.bitmap_top - mask.fBounds.fTop);
-                    mask.fBounds.fTop = -ftGlyph.bitmap_top;
+                    mask.image() += mask.fRowBytes * (-ftGlyph.bitmap_top - mask.fBounds.fTop);
+                    mask.bounds().fTop = -ftGlyph.bitmap_top;
                 }
                 if (mask.fBounds.fLeft < ftGlyph.bitmap_left) {
-                    mask.fImage += sizeof(uint16_t) * (ftGlyph.bitmap_left - mask.fBounds.fLeft);
-                    mask.fBounds.fLeft = ftGlyph.bitmap_left;
+                    mask.image() += sizeof(uint16_t) * (ftGlyph.bitmap_left - mask.fBounds.fLeft);
+                    mask.bounds().fLeft = ftGlyph.bitmap_left;
                 }
                 // Origins aligned, clean up the width and height.
                 int ftVertScale = (doVert ? 3 : 1);
@@ -1708,17 +1714,17 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
                     ftGlyph.bitmap.width = mask.fBounds.width() * ftHoriScale;
                 }
                 if (SkToInt(ftGlyph.bitmap.rows) < mask.fBounds.height() * ftVertScale) {
-                    mask.fBounds.fBottom = mask.fBounds.fTop + ftGlyph.bitmap.rows / ftVertScale;
+                    mask.bounds().fBottom = mask.fBounds.fTop + ftGlyph.bitmap.rows / ftVertScale;
                 }
                 if (SkToInt(ftGlyph.bitmap.width) < mask.fBounds.width() * ftHoriScale) {
-                    mask.fBounds.fRight = mask.fBounds.fLeft + ftGlyph.bitmap.width / ftHoriScale;
+                    mask.bounds().fRight = mask.fBounds.fLeft + ftGlyph.bitmap.width / ftHoriScale;
                 }
-                if (fPreBlend.isApplicable()) {
-                    copyFT2LCD16<true>(ftGlyph.bitmap, mask, doBGR,
-                                       fPreBlend.fR, fPreBlend.fG, fPreBlend.fB);
+                if (preBlend.isApplicable()) {
+                    copyFT2LCD16<true>(ftGlyph.bitmap, &mask, doBGR,
+                                       preBlend.fR, preBlend.fG, preBlend.fB);
                 } else {
-                    copyFT2LCD16<false>(ftGlyph.bitmap, mask, doBGR,
-                                        fPreBlend.fR, fPreBlend.fG, fPreBlend.fB);
+                    copyFT2LCD16<false>(ftGlyph.bitmap, &mask, doBGR,
+                                        preBlend.fR, preBlend.fG, preBlend.fB);
                 }
                 // Restore the buffer pointer so FreeType can properly free it.
                 ftGlyph.bitmap.buffer = origBuffer;
@@ -1737,16 +1743,16 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
                 FT_Outline_Translate(outline, dx - ((bbox.xMin + dx) & ~63),
                                               dy - ((bbox.yMin + dy) & ~63));
 
-                target.width = glyph.fWidth;
-                target.rows = glyph.fHeight;
+                target.width = glyph.width();
+                target.rows = glyph.height();
                 target.pitch = glyph.rowBytes();
-                target.buffer = reinterpret_cast<uint8_t*>(glyph.fImage);
-                target.pixel_mode = compute_pixel_mode(glyph.fMaskFormat);
+                target.buffer = static_cast<uint8_t*>(imageBuffer);
+                target.pixel_mode = compute_pixel_mode(glyph.maskFormat());
                 target.num_grays = 256;
 
                 FT_Outline_Get_Bitmap(face->glyph->library, outline, &target);
                 if constexpr (kSkShowTextBlitCoverage) {
-                    if (glyph.fMaskFormat == SkMask::kBW_Format) {
+                    if (glyph.maskFormat() == SkMask::kBW_Format) {
                         for (unsigned y = 0; y < target.rows; y += 2) {
                             for (unsigned x = (y & 0x2); x < target.width; x+=4) {
                                 uint8_t& b = target.buffer[(target.pitch * y) + (x >> 3)];
@@ -1767,7 +1773,7 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
 
         case FT_GLYPH_FORMAT_BITMAP: {
             FT_Pixel_Mode pixel_mode = static_cast<FT_Pixel_Mode>(face->glyph->bitmap.pixel_mode);
-            SkMask::Format maskFormat = static_cast<SkMask::Format>(glyph.fMaskFormat);
+            SkMask::Format maskFormat = glyph.maskFormat();
 
             // Assume that the other formats do not exist.
             SkASSERT(FT_PIXEL_MODE_MONO == pixel_mode ||
@@ -1782,8 +1788,10 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
 
             // If no scaling needed, directly copy glyph bitmap.
             if (bitmapTransform.isIdentity()) {
-                SkMask dstMask = glyph.mask();
-                copyFTBitmap(face->glyph->bitmap, dstMask);
+                SkMaskBuilder dstMask = SkMaskBuilder(static_cast<uint8_t*>(imageBuffer),
+                                                      glyph.iRect(), glyph.rowBytes(),
+                                                      glyph.maskFormat());
+                copyFTBitmap(face->glyph->bitmap, &dstMask);
                 break;
             }
 
@@ -1797,17 +1805,17 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
                                                      SkColorType_for_FTPixelMode(pixel_mode),
                                                      kPremul_SkAlphaType));
             if (!unscaledBitmap.tryAllocPixels()) {
-                // TODO: set the fImage to indicate "missing"
-                memset(glyph.fImage, 0, glyph.rowBytes() * glyph.fHeight);
+                // TODO: set the imageBuffer to indicate "missing"
+                memset(imageBuffer, 0, glyph.rowBytes() * glyph.height());
                 return;
             }
 
-            SkMask unscaledBitmapAlias;
-            unscaledBitmapAlias.fImage = reinterpret_cast<uint8_t*>(unscaledBitmap.getPixels());
-            unscaledBitmapAlias.fBounds.setWH(unscaledBitmap.width(), unscaledBitmap.height());
-            unscaledBitmapAlias.fRowBytes = unscaledBitmap.rowBytes();
-            unscaledBitmapAlias.fFormat = SkMaskFormat_for_SkColorType(unscaledBitmap.colorType());
-            copyFTBitmap(face->glyph->bitmap, unscaledBitmapAlias);
+            SkMaskBuilder unscaledBitmapAlias(
+                reinterpret_cast<uint8_t*>(unscaledBitmap.getPixels()),
+                SkIRect::MakeWH(unscaledBitmap.width(), unscaledBitmap.height()),
+                unscaledBitmap.rowBytes(),
+                SkMaskFormat_for_SkColorType(unscaledBitmap.colorType()));
+            copyFTBitmap(face->glyph->bitmap, &unscaledBitmapAlias);
 
             // Wrap the glyph's mask in a bitmap, unless the glyph's mask is BW or LCD.
             // BW requires an A8 target for resizing, which can then be down sampled.
@@ -1819,18 +1827,18 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
             }
             SkBitmap dstBitmap;
             // TODO: mark this as sRGB when the blits will be sRGB.
-            dstBitmap.setInfo(SkImageInfo::Make(glyph.fWidth, glyph.fHeight,
+            dstBitmap.setInfo(SkImageInfo::Make(glyph.width(), glyph.height(),
                                                 SkColorType_for_SkMaskFormat(maskFormat),
                                                 kPremul_SkAlphaType),
                               bitmapRowBytes);
             if (SkMask::kBW_Format == maskFormat || SkMask::kLCD16_Format == maskFormat) {
                 if (!dstBitmap.tryAllocPixels()) {
                     // TODO: set the fImage to indicate "missing"
-                    memset(glyph.fImage, 0, glyph.rowBytes() * glyph.fHeight);
+                    memset(imageBuffer, 0, glyph.rowBytes() * glyph.height());
                     return;
                 }
             } else {
-                dstBitmap.setPixels(glyph.fImage);
+                dstBitmap.setPixels(imageBuffer);
             }
 
             // Scale unscaledBitmap into dstBitmap.
@@ -1840,7 +1848,7 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
             } else {
                 canvas.clear(SK_ColorTRANSPARENT);
             }
-            canvas.translate(-glyph.fLeft, -glyph.fTop);
+            canvas.translate(-glyph.left(), -glyph.top());
             canvas.concat(bitmapTransform);
             canvas.translate(face->glyph->bitmap_left, -face->glyph->bitmap_top);
 
@@ -1849,13 +1857,14 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
 
             // If the destination is BW or LCD, convert from A8.
             if (SkMask::kBW_Format == maskFormat) {
-                // Copy the A8 dstBitmap into the A1 glyph.fImage.
-                SkMask dstMask = glyph.mask();
-                packA8ToA1(dstMask, dstBitmap.getAddr8(0, 0), dstBitmap.rowBytes());
+                // Copy the A8 dstBitmap into the A1 imageBuffer.
+                SkMaskBuilder dstMask(static_cast<uint8_t*>(imageBuffer),
+                                      glyph.iRect(), glyph.rowBytes(), glyph.maskFormat());
+                packA8ToA1(&dstMask, dstBitmap.getAddr8(0, 0), dstBitmap.rowBytes());
             } else if (SkMask::kLCD16_Format == maskFormat) {
-                // Copy the A8 dstBitmap into the LCD16 glyph.fImage.
+                // Copy the A8 dstBitmap into the LCD16 imageBuffer.
                 uint8_t* src = dstBitmap.getAddr8(0, 0);
-                uint16_t* dst = reinterpret_cast<uint16_t*>(glyph.fImage);
+                uint16_t* dst = reinterpret_cast<uint16_t*>(imageBuffer);
                 for (int y = dstBitmap.height(); y --> 0;) {
                     for (int x = 0; x < dstBitmap.width(); ++x) {
                         dst[x] = grayToRGB16(src[x]);
@@ -1868,20 +1877,20 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
 
         default:
             SkDEBUGFAIL("unknown glyph format");
-            memset(glyph.fImage, 0, glyph.rowBytes() * glyph.fHeight);
+            memset(imageBuffer, 0, glyph.rowBytes() * glyph.height());
             return;
     }
 
 // We used to always do this pre-USE_COLOR_LUMINANCE, but with colorlum,
 // it is optional
 #if defined(SK_GAMMA_APPLY_TO_A8)
-    if (SkMask::kA8_Format == glyph.fMaskFormat && fPreBlend.isApplicable()) {
-        uint8_t* SK_RESTRICT dst = (uint8_t*)glyph.fImage;
+    if (SkMask::kA8_Format == glyph.maskFormat() && preBlend.isApplicable()) {
+        uint8_t* SK_RESTRICT dst = (uint8_t*)imageBuffer;
         unsigned rowBytes = glyph.rowBytes();
 
-        for (int y = glyph.fHeight - 1; y >= 0; --y) {
-            for (int x = glyph.fWidth - 1; x >= 0; --x) {
-                dst[x] = fPreBlend.fG[dst[x]];
+        for (int y = glyph.height() - 1; y >= 0; --y) {
+            for (int x = glyph.width() - 1; x >= 0; --x) {
+                dst[x] = preBlend.fG[dst[x]];
             }
             dst += rowBytes;
         }
@@ -1894,14 +1903,14 @@ void SkScalerContext_FreeType_Base::generateGlyphImage(FT_Face face,
 namespace {
 
 class SkFTGeometrySink {
-    SkPath* fPath;
+    SkPathBuilder* fBuilder;
     bool fStarted;
     FT_Vector fCurrent;
 
     void goingTo(const FT_Vector* pt) {
         if (!fStarted) {
             fStarted = true;
-            fPath->moveTo(SkFDot6ToScalar(fCurrent.x), -SkFDot6ToScalar(fCurrent.y));
+            fBuilder->moveTo(SkFDot6ToScalar(fCurrent.x), -SkFDot6ToScalar(fCurrent.y));
         }
         fCurrent = *pt;
     }
@@ -1913,7 +1922,7 @@ class SkFTGeometrySink {
     static int Move(const FT_Vector* pt, void* ctx) {
         SkFTGeometrySink& self = *(SkFTGeometrySink*)ctx;
         if (self.fStarted) {
-            self.fPath->close();
+            self.fBuilder->close();
             self.fStarted = false;
         }
         self.fCurrent = *pt;
@@ -1924,7 +1933,7 @@ class SkFTGeometrySink {
         SkFTGeometrySink& self = *(SkFTGeometrySink*)ctx;
         if (self.currentIsNot(pt)) {
             self.goingTo(pt);
-            self.fPath->lineTo(SkFDot6ToScalar(pt->x), -SkFDot6ToScalar(pt->y));
+            self.fBuilder->lineTo(SkFDot6ToScalar(pt->x), -SkFDot6ToScalar(pt->y));
         }
         return 0;
     }
@@ -1933,8 +1942,8 @@ class SkFTGeometrySink {
         SkFTGeometrySink& self = *(SkFTGeometrySink*)ctx;
         if (self.currentIsNot(pt0) || self.currentIsNot(pt1)) {
             self.goingTo(pt1);
-            self.fPath->quadTo(SkFDot6ToScalar(pt0->x), -SkFDot6ToScalar(pt0->y),
-                               SkFDot6ToScalar(pt1->x), -SkFDot6ToScalar(pt1->y));
+            self.fBuilder->quadTo(SkFDot6ToScalar(pt0->x), -SkFDot6ToScalar(pt0->y),
+                                  SkFDot6ToScalar(pt1->x), -SkFDot6ToScalar(pt1->y));
         }
         return 0;
     }
@@ -1943,15 +1952,15 @@ class SkFTGeometrySink {
         SkFTGeometrySink& self = *(SkFTGeometrySink*)ctx;
         if (self.currentIsNot(pt0) || self.currentIsNot(pt1) || self.currentIsNot(pt2)) {
             self.goingTo(pt2);
-            self.fPath->cubicTo(SkFDot6ToScalar(pt0->x), -SkFDot6ToScalar(pt0->y),
-                                SkFDot6ToScalar(pt1->x), -SkFDot6ToScalar(pt1->y),
-                                SkFDot6ToScalar(pt2->x), -SkFDot6ToScalar(pt2->y));
+            self.fBuilder->cubicTo(SkFDot6ToScalar(pt0->x), -SkFDot6ToScalar(pt0->y),
+                                   SkFDot6ToScalar(pt1->x), -SkFDot6ToScalar(pt1->y),
+                                   SkFDot6ToScalar(pt2->x), -SkFDot6ToScalar(pt2->y));
         }
         return 0;
     }
 
 public:
-    SkFTGeometrySink(SkPath* path) : fPath{path}, fStarted{false}, fCurrent{0,0} {}
+    SkFTGeometrySink(SkPathBuilder* builder) : fBuilder{builder}, fStarted{false}, fCurrent{0,0} {}
 
     inline static constexpr const FT_Outline_Funcs Funcs{
         /*move_to =*/ SkFTGeometrySink::Move,
@@ -1963,32 +1972,35 @@ public:
     };
 };
 
-bool generateGlyphPathStatic(FT_Face face, SkPath* path) {
-    SkFTGeometrySink sink{path};
+bool generateGlyphPathStatic(FT_Face face, SkPathBuilder* builder) {
+    SkFTGeometrySink sink{builder};
     if (face->glyph->format != FT_GLYPH_FORMAT_OUTLINE ||
         FT_Outline_Decompose(&face->glyph->outline, &SkFTGeometrySink::Funcs, &sink))
     {
-        path->reset();
         return false;
     }
-    path->close();
+    builder->close();
     return true;
 }
 
-bool generateFacePathStatic(FT_Face face, SkGlyphID glyphID, uint32_t loadGlyphFlags, SkPath* path){
-    loadGlyphFlags |= FT_LOAD_BITMAP_METRICS_ONLY;  // Don't decode any bitmaps.
-    loadGlyphFlags |= FT_LOAD_NO_BITMAP; // Ignore embedded bitmaps.
-    loadGlyphFlags &= ~FT_LOAD_RENDER;  // Don't scan convert.
-    loadGlyphFlags &= ~FT_LOAD_COLOR;  // Ignore SVG.
-    if (FT_Load_Glyph(face, glyphID, loadGlyphFlags)) {
-        path->reset();
+bool generateFacePathStatic(FT_Face face, SkGlyphID glyphID,
+                            SkScalerContextFTUtils::LoadGlyphFlags flags, SkPathBuilder* builder) {
+    flags |= FT_LOAD_BITMAP_METRICS_ONLY;  // Don't decode any bitmaps.
+    flags |= FT_LOAD_NO_BITMAP; // Ignore embedded bitmaps.
+    flags &= ~FT_LOAD_RENDER;  // Don't scan convert.
+    flags &= ~FT_LOAD_COLOR;  // Ignore SVG.
+    if (FT_Load_Glyph(face, glyphID, flags)) {
         return false;
     }
-    return generateGlyphPathStatic(face, path);
+    return generateGlyphPathStatic(face, builder);
 }
 
 #ifdef TT_SUPPORT_COLRV1
-bool generateFacePathCOLRv1(FT_Face face, SkGlyphID glyphID, SkPath* path) {
+/* TODO: Currently this call retrieves the path at units_per_em size. If we want to get
+ * correct hinting for the scaled size under the transforms at this point in the color
+ * glyph graph, we need to extract at least the requested glyph width and height and
+ * pass that to the path generation. */
+std::optional<SkPath> generateFacePathCOLRv1(FT_Face face, SkGlyphID glyphID, const SkMatrix* mx) {
     uint32_t flags = 0;
     flags |= FT_LOAD_BITMAP_METRICS_ONLY;  // Don't decode any bitmaps.
     flags |= FT_LOAD_NO_BITMAP; // Ignore embedded bitmaps.
@@ -2010,74 +2022,67 @@ bool generateFacePathCOLRv1(FT_Face face, SkGlyphID glyphID, SkPath* path) {
     }());
 
     if (!unscaledFtSize) {
-      return false;
+        return {};
     }
 
     FT_Size oldSize = face->size;
+    SkPathBuilder builder;
 
-    auto tryGeneratePath = [face, &unscaledFtSize, glyphID, flags, path]() {
+    auto tryGeneratePath = [face, &unscaledFtSize, glyphID, flags, &builder]() {
         FT_Error err = 0;
 
         err = FT_Activate_Size(unscaledFtSize.get());
         if (err != 0) {
-          return false;
+            return false;
         }
 
         err = FT_Set_Char_Size(face, SkIntToFDot6(face->units_per_EM),
-                                     SkIntToFDot6(face->units_per_EM), 72, 72);
+                               SkIntToFDot6(face->units_per_EM), 72, 72);
         if (err != 0) {
             return false;
         }
 
         err = FT_Load_Glyph(face, glyphID, flags);
         if (err != 0) {
-            path->reset();
             return false;
         }
 
-        if (!generateGlyphPathStatic(face, path)) {
-            path->reset();
-            return false;
-        }
-
-        return true;
+        return generateGlyphPathStatic(face, &builder);
     };
 
     bool pathGenerationResult = tryGeneratePath();
 
     FT_Activate_Size(oldSize);
 
-    return pathGenerationResult;
+    if (pathGenerationResult) {
+        if (mx) {
+            builder.transform(*mx);
+        }
+        return builder.detach();
+    } else {
+        return {};
+    }
 }
 #endif
 
 }  // namespace
 
-bool SkScalerContext_FreeType_Base::generateGlyphPath(FT_Face face, SkPath* path) {
-    if (!generateGlyphPathStatic(face, path)) {
-        return false;
-    }
-    if (face->glyph->outline.flags & FT_OUTLINE_OVERLAP) {
-        Simplify(*path, path);
-        // Simplify will return an even-odd path.
-        // A stroke+fill (for fake bold) may be incorrect for even-odd.
-        // https://github.com/flutter/flutter/issues/112546
-        AsWinding(*path, path);
-    }
-    return true;
+bool SkScalerContextFTUtils::generateGlyphPath(FT_Face face, SkPathBuilder* builder) const {
+    // We used to try simplifying overlapping contours (flags & FT_OUTLINE_OVERLAP)
+    // at this stage, but that was not 100% reliable, and other font backends
+    // (e.g. CoreText) do not attempt this, so we removed it.
+
+    return generateGlyphPathStatic(face, builder);
 }
 
-bool SkScalerContext_FreeType_Base::generateFacePath(FT_Face face,
-                                                     SkGlyphID glyphID,
-                                                     uint32_t loadGlyphFlags,
-                                                     SkPath* path) {
-    return generateFacePathStatic(face, glyphID, loadGlyphFlags, path);
+bool SkScalerContextFTUtils::generateFacePath(FT_Face face, SkGlyphID glyphID, LoadGlyphFlags flags,
+                                              SkPathBuilder* builder) const {
+    return generateFacePathStatic(face, glyphID, flags, builder);
 }
 
 #ifdef TT_SUPPORT_COLRV1
-bool SkScalerContext_FreeType_Base::computeColrV1GlyphBoundingBox(FT_Face face,
-                                                                  SkGlyphID glyphID,
-                                                                  SkRect* bounds) {
+bool SkScalerContextFTUtils::computeColrV1GlyphBoundingBox(FT_Face face, SkGlyphID glyphID,
+                                                           SkRect* bounds) {
     SkMatrix ctm;
     *bounds = SkRect::MakeEmpty();
     VisitedSet activePaints;

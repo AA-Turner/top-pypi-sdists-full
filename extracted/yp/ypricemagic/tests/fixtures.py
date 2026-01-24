@@ -1,4 +1,4 @@
-from typing import Iterable, List, Tuple
+from collections.abc import Iterable
 
 import numpy as np
 import pytest
@@ -6,13 +6,13 @@ from brownie import Contract as BrownieContract
 from brownie import chain
 from brownie.convert.datatypes import EthAddress
 from eth_utils.toolz import concat
+
 from y import convert
 from y.classes.common import ERC20
 from y.contracts import Contract, contract_creation_block
 from y.datatypes import Address, Block
-from y.prices.dex.uniswap.v1 import UniswapV1
-
 from y.networks import Network
+from y.prices.dex.uniswap.v1 import UniswapV1
 
 mainnet_only = pytest.mark.skipif(
     chain.id != Network.Mainnet, reason="This test is only applicable on mainnet"
@@ -34,7 +34,7 @@ A pytest marker for concurrent asynchronous tests using asyncio_cooperative.
 """
 
 
-def blocks_for_contract(address: Address, count: int = 5) -> List[Block]:
+def blocks_for_contract(address: Address, count: int = 5) -> list[Block]:
     """
     Generate a list of block numbers for testing a contract.
 
@@ -71,7 +71,7 @@ def blocks_for_contract(address: Address, count: int = 5) -> List[Block]:
     ]
 
 
-def mutate_address(address: Address) -> Tuple[str, str, str, EthAddress]:
+def mutate_address(address: Address) -> tuple[str, str, str, EthAddress]:
     """
     Returns the same address in various forms for testing.
 
@@ -126,7 +126,7 @@ def mutate_addresses(addresses: Iterable[Address]):
 
 def mutate_contract(
     contract_address: Address,
-) -> Tuple[str, str, str, EthAddress, BrownieContract]:
+) -> tuple[str, str, str, EthAddress, BrownieContract]:
     """
     Returns the same contract address in various forms for testing.
 
@@ -180,7 +180,7 @@ def mutate_contracts(addresses: Iterable[Address]):
 
 def mutate_token(
     token: Address,
-) -> Tuple[str, str, str, EthAddress, BrownieContract, ERC20, int]:
+) -> tuple[str, str, str, EthAddress, BrownieContract, ERC20, int]:
     """
     Returns the same token address in various forms for testing.
 

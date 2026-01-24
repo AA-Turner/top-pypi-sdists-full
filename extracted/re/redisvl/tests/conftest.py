@@ -6,9 +6,8 @@ from datetime import datetime, timezone
 import pytest
 from testcontainers.compose import DockerCompose
 
-from redisvl.exceptions import RedisModuleVersionError
 from redisvl.index.index import AsyncSearchIndex, SearchIndex
-from redisvl.redis.connection import RedisConnectionFactory, compare_versions
+from redisvl.redis.connection import RedisConnectionFactory, is_version_gte
 from redisvl.redis.utils import array_to_buffer
 from redisvl.utils.vectorize import HFTextVectorizer
 
@@ -309,6 +308,96 @@ def sample_data(sample_datetimes):
     ]
 
 
+@pytest.fixture
+def multi_vector_data(sample_datetimes):
+    return [
+        {
+            "user": "john",
+            "age": 18,
+            "job": "engineer",
+            "description": "engineers conduct trains that ride on train tracks",
+            "last_updated": sample_datetimes["low"].timestamp(),
+            "credit_score": "high",
+            "location": "-122.4194,37.7749",
+            "user_embedding": [0.1, 0.1, 0.5],
+            "image_embedding": [0.1, 0.1, 0.1, 0.1, 0.1],
+            "audio_embedding": [34, 18.5, -6.0, -12, 115, 96.5],
+        },
+        {
+            "user": "mary",
+            "age": 14,
+            "job": "doctor",
+            "description": "a medical professional who treats diseases and helps people stay healthy",
+            "last_updated": sample_datetimes["low"].timestamp(),
+            "credit_score": "low",
+            "location": "-122.4194,37.7749",
+            "user_embedding": [0.1, 0.1, 0.5],
+            "image_embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
+            "audio_embedding": [0.0, -1.06, 4.55, -1.93, 0.0, 1.53],
+        },
+        {
+            "user": "nancy",
+            "age": 94,
+            "job": "doctor",
+            "description": "a research scientist specializing in cancers and diseases of the lungs",
+            "last_updated": sample_datetimes["mid"].timestamp(),
+            "credit_score": "high",
+            "location": "-122.4194,37.7749",
+            "user_embedding": [0.7, 0.1, 0.5],
+            "image_embedding": [0.1, 0.1, 0.3, 0.3, 0.5],
+            "audio_embedding": [2.75, -0.33, -3.01, -0.52, 5.59, -2.30],
+        },
+        {
+            "user": "tyler",
+            "age": 100,
+            "job": "engineer",
+            "description": "a software developer with expertise in mathematics and computer science",
+            "last_updated": sample_datetimes["mid"].timestamp(),
+            "credit_score": "high",
+            "location": "-110.0839,37.3861",
+            "user_embedding": [0.1, 0.4, 0.5],
+            "image_embedding": [-0.1, -0.2, -0.3, -0.4, -0.5],
+            "audio_embedding": [1.11, -6.73, 5.41, 1.04, 3.92, 0.73],
+        },
+        {
+            "user": "tim",
+            "age": 12,
+            "job": "dermatologist",
+            "description": "a medical professional specializing in diseases of the skin",
+            "last_updated": sample_datetimes["mid"].timestamp(),
+            "credit_score": "high",
+            "location": "-110.0839,37.3861",
+            "user_embedding": [0.4, 0.4, 0.5],
+            "image_embedding": [-0.1, 0.0, 0.6, 0.0, -0.9],
+            "audio_embedding": [0.03, -2.67, -2.08, 4.57, -2.33, 0.0],
+        },
+        {
+            "user": "taimur",
+            "age": 15,
+            "job": "CEO",
+            "description": "high stress, but financially rewarding position at the head of a company",
+            "last_updated": sample_datetimes["high"].timestamp(),
+            "credit_score": "low",
+            "location": "-110.0839,37.3861",
+            "user_embedding": [0.6, 0.1, 0.5],
+            "image_embedding": [1.1, 1.2, -0.3, -4.1, 5.0],
+            "audio_embedding": [0.68, 0.26, 2.08, 2.96, 0.01, 5.13],
+        },
+        {
+            "user": "joe",
+            "age": 35,
+            "job": "dentist",
+            "description": "like the tooth fairy because they'll take your teeth, but you have to pay them!",
+            "last_updated": sample_datetimes["high"].timestamp(),
+            "credit_score": "medium",
+            "location": "-110.0839,37.3861",
+            "user_embedding": [-0.1, -0.1, -0.5],
+            "image_embedding": [-0.8, 2.0, 3.1, 1.5, -1.6],
+            "audio_embedding": [0.91, 7.10, -2.14, -0.52, -6.08, -5.53],
+        },
+    ]
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--run-api-tests",
@@ -580,6 +669,26 @@ async def get_redis_version_async(client):
     return info["redis_version"]
 
 
+def has_redisearch_module(client):
+    """Check if RediSearch module is available."""
+    try:
+        # Try to list indices - this is a RediSearch command
+        client.execute_command("FT._LIST")
+        return True
+    except Exception:
+        return False
+
+
+async def has_redisearch_module_async(client):
+    """Check if RediSearch module is available (async)."""
+    try:
+        # Try to list indices - this is a RediSearch command
+        await client.execute_command("FT._LIST")
+        return True
+    except Exception:
+        return False
+
+
 def skip_if_redis_version_below(client, min_version: str, message: str = None):
     """
     Skip test if Redis version is below minimum required.
@@ -590,7 +699,7 @@ def skip_if_redis_version_below(client, min_version: str, message: str = None):
         message: Custom skip message
     """
     redis_version = get_redis_version(client)
-    if not compare_versions(redis_version, min_version):
+    if not is_version_gte(redis_version, min_version):
         skip_msg = message or f"Redis version {redis_version} < {min_version} required"
         pytest.skip(skip_msg)
 
@@ -607,36 +716,32 @@ async def skip_if_redis_version_below_async(
         message: Custom skip message
     """
     redis_version = await get_redis_version_async(client)
-    if not compare_versions(redis_version, min_version):
+    if not is_version_gte(redis_version, min_version):
         skip_msg = message or f"Redis version {redis_version} < {min_version} required"
         pytest.skip(skip_msg)
 
 
-def skip_if_module_version_error(func, *args, **kwargs):
+def skip_if_no_redisearch(client, message: str = None):
     """
-    Execute function and skip test if RedisModuleVersionError is raised.
+    Skip test if RediSearch module is not available.
 
     Args:
-        func: Function to execute
-        *args: Arguments for the function
-        **kwargs: Keyword arguments for the function
+        client: Redis client instance
+        message: Custom skip message
     """
-    try:
-        return func(*args, **kwargs)
-    except RedisModuleVersionError:
-        pytest.skip("Required Redis modules not available or version too low")
+    if not has_redisearch_module(client):
+        skip_msg = message or "RediSearch module not available"
+        pytest.skip(skip_msg)
 
 
-async def skip_if_module_version_error_async(func, *args, **kwargs):
+async def skip_if_no_redisearch_async(client, message: str = None):
     """
-    Execute async function and skip test if RedisModuleVersionError is raised.
+    Skip test if RediSearch module is not available (async version).
 
     Args:
-        func: Async function to execute
-        *args: Arguments for the function
-        **kwargs: Keyword arguments for the function
+        client: Async Redis client instance
+        message: Custom skip message
     """
-    try:
-        return await func(*args, **kwargs)
-    except RedisModuleVersionError:
-        pytest.skip("Required Redis modules not available or version too low")
+    if not await has_redisearch_module_async(client):
+        skip_msg = message or "RediSearch module not available"
+        pytest.skip(skip_msg)

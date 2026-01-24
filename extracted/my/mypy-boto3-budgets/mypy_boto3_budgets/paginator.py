@@ -3,7 +3,7 @@ Type annotations for budgets service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_budgets/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -53,7 +53,7 @@ from .type_defs import (
     DescribeBudgetNotificationsForAccountRequestPaginateTypeDef,
     DescribeBudgetNotificationsForAccountResponseTypeDef,
     DescribeBudgetPerformanceHistoryRequestPaginateTypeDef,
-    DescribeBudgetPerformanceHistoryResponseTypeDef,
+    DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef,
     DescribeBudgetsRequestPaginateTypeDef,
     DescribeBudgetsResponsePaginatorTypeDef,
     DescribeNotificationsForBudgetRequestPaginateTypeDef,
@@ -176,7 +176,7 @@ class DescribeBudgetNotificationsForAccountPaginator(
 
 if TYPE_CHECKING:
     _DescribeBudgetPerformanceHistoryPaginatorBase = Paginator[
-        DescribeBudgetPerformanceHistoryResponseTypeDef
+        DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef
     ]
 else:
     _DescribeBudgetPerformanceHistoryPaginatorBase = Paginator  # type: ignore[assignment]
@@ -190,7 +190,7 @@ class DescribeBudgetPerformanceHistoryPaginator(_DescribeBudgetPerformanceHistor
 
     def paginate(  # type: ignore[override]
         self, **kwargs: Unpack[DescribeBudgetPerformanceHistoryRequestPaginateTypeDef]
-    ) -> PageIterator[DescribeBudgetPerformanceHistoryResponseTypeDef]:
+    ) -> PageIterator[DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef]:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/budgets/paginator/DescribeBudgetPerformanceHistory.html#Budgets.Paginator.DescribeBudgetPerformanceHistory.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_budgets/paginators/#describebudgetperformancehistorypaginator)

@@ -5,12 +5,11 @@ import logging
 import os
 import queue
 import re
+import sys
 import threading
 import time
 from dataclasses import dataclass
 from typing import overload
-
-import pexpect.spawnbase
 
 import esptest.common.compat_typing as t
 
@@ -19,6 +18,18 @@ from ...common.decorators import deprecated
 from ...interface.port import PortInterface
 from ...logger import get_logger
 
+if sys.platform == 'win32':
+    import pexpect
+    from pexpect.exceptions import ExceptionPexpect
+    from pexpect.spawnbase import SpawnBase
+    # from wexpect import SpawnPipe as SpawnBase
+    # from wexpect import ExceptionPexpect
+else:
+    import pexpect
+    from pexpect.exceptions import ExceptionPexpect
+    from pexpect.spawnbase import SpawnBase
+
+
 logger = get_logger('port')
 NEVER_MATCHED_MAGIC_STRING = 'o6K,Q.(w+~yr~N9R'
 
@@ -26,14 +37,24 @@ NEVER_MATCHED_MAGIC_STRING = 'o6K,Q.(w+~yr~N9R'
 class ExpectTimeout(TimeoutError):
     """raise same ExpectTimeout rather than different Exception from different framework"""
 
+    def __init__(self, message: str, data_in_buffer: t.Union[str, bytes] = b'') -> None:
+        super().__init__(message)
+        self.data_in_buffer: t.Union[str, bytes] = data_in_buffer
+
+    def __str__(self) -> str:
+        return f'{super().__str__()}\n data_in_buffer={repr(self.data_in_buffer)}'
+
 
 class RawPort(metaclass=abc.ABCMeta):
     """Define a minimum Dut class, the dut objects should at least support these methods
 
     the dut should at least support these attributes:
-    - attribute name with type str
     - method: write_bytes() with parameters: data[bytes]
     - method: read_bytes() with parameters: timeout[float]
+
+    optional attribute & method:
+    - attribute: name with type str
+    - attribute: read_timeout with type float
     """
 
     @classmethod
@@ -71,7 +92,7 @@ class SpawnConfig:
     # TODO: monitors
 
 
-class PortSpawn(pexpect.spawnbase.SpawnBase, t.Generic[T]):
+class PortSpawn(SpawnBase, t.Generic[T]):
     """Create a new class for pexpect with port read()/write() method.
 
     There's some reason that we can not use pyserial with pexpect.fdpexpect directly:
@@ -243,7 +264,11 @@ class PortSpawn(pexpect.spawnbase.SpawnBase, t.Generic[T]):
         self._log(ret_data, 'read')  # type: ignore
         return ret_data
 
+    @deprecated('Should use close() for Spawn')
     def stop(self) -> None:
+        self.close()
+
+    def close(self) -> None:
         """Stop and clean up"""
         self.logger.debug(f'Stopping SerialSpawn {self.name}')
         self._read_thread_stop_event.set()
@@ -252,6 +277,27 @@ class PortSpawn(pexpect.spawnbase.SpawnBase, t.Generic[T]):
         self.receive_callback = None
         self._data_cache = b''
         self._line_cache = b''
+
+
+def handle_expect_timeout(func: t.Callable) -> t.Callable:
+    """Raise same type exception ExpectTimeout for ports from different frameworks"""
+
+    @functools.wraps(func)
+    def wrap(obj: 'BasePort', *args, **kwargs):  # type: ignore
+        try:
+            result = func(obj, *args, **kwargs)
+        except obj.expect_timeout_exceptions as e:
+            data_in_buffer = ''
+            try:
+                if obj._pexpect_spawn:  # pylint: disable=protected-access
+                    data_in_buffer = obj._pexpect_spawn.before  # pylint: disable=protected-access
+            except AttributeError:
+                pass  # ignore
+            obj.logger.debug(f'ExpectTimeout: {str(e)}, data_in_buffer={repr(data_in_buffer)}')
+            raise ExpectTimeout(str(e), data_in_buffer=data_in_buffer) from e
+        return result
+
+    return wrap
 
 
 class BasePort(PortInterface, t.Generic[T]):
@@ -264,7 +310,7 @@ class BasePort(PortInterface, t.Generic[T]):
 
     EXPECT_TIMEOUT_EXCEPTIONS: t.Tuple[t.Type[Exception], ...] = (
         TimeoutError,
-        pexpect.exceptions.ExceptionPexpect,
+        ExceptionPexpect,
     )
     INIT_START_REDIRECT_THREAD: bool = True
     PEXPECT_DEFAULT_TIMEOUT: float = 30
@@ -359,7 +405,7 @@ class BasePort(PortInterface, t.Generic[T]):
         if new_log_file == self._log_file:
             return
         if self._pexpect_spawn:
-            self._pexpect_spawn.serial_log_file = new_log_file
+            self._pexpect_spawn.log_file = new_log_file
         self._log_file = new_log_file
 
     @property
@@ -381,7 +427,7 @@ class BasePort(PortInterface, t.Generic[T]):
         if not self._pexpect_spawn:
             return False
         self._init_log_file()
-        self._pexpect_spawn.stop()
+        self._pexpect_spawn.close()
         self._pexpect_spawn = None
         return True
 
@@ -391,20 +437,6 @@ class BasePort(PortInterface, t.Generic[T]):
         yield
         if stopped:
             self.start_redirect_thread()
-
-    @staticmethod
-    def handle_expect_timeout(func: t.Callable) -> t.Callable:
-        """Raise same type exception ExpectTimeout for ports from different frameworks"""
-
-        @functools.wraps(func)
-        def wrap(self, *args, **kwargs):  # type: ignore
-            try:
-                result = func(self, *args, **kwargs)
-            except self.expect_timeout_exceptions as e:
-                raise ExpectTimeout(str(e)) from e
-            return result
-
-        return wrap
 
     def write(self, data: t.AnyStr) -> None:
         if self._pexpect_spawn:
@@ -427,9 +459,9 @@ class BasePort(PortInterface, t.Generic[T]):
     @overload
     def expect(self, pattern: bytes, timeout: float = 30) -> None: ...
     @overload
-    def expect(self, pattern: re.Pattern[str], timeout: float = 30) -> re.Match[str]: ...
+    def expect(self, pattern: 're.Pattern[str]', timeout: float = 30) -> 're.Match[str]': ...
     @overload
-    def expect(self, pattern: re.Pattern[bytes], timeout: float = 30) -> re.Match[bytes]: ...
+    def expect(self, pattern: 're.Pattern[bytes]', timeout: float = 30) -> 're.Match[bytes]': ...
 
     @handle_expect_timeout
     def expect(self, pattern, timeout=PEXPECT_DEFAULT_TIMEOUT):  # type: ignore
@@ -486,9 +518,13 @@ class BasePort(PortInterface, t.Generic[T]):
         """
         buffer = b''
         if flush:
-            match = self.expect(re.compile(b'.*', re.DOTALL), timeout=0)
-            assert match
-            buffer = match.group(0)
+            # pexpect may return empty bytes if b'(.*)' is used
+            try:
+                match = self.expect(re.compile(b'(.+)', re.DOTALL), timeout=0)
+                assert match
+                buffer = match.group(0)
+            except TimeoutError:
+                pass
         else:
             # flush spawn buffer
             assert self._pexpect_spawn
@@ -499,7 +535,11 @@ class BasePort(PortInterface, t.Generic[T]):
 
     def close(self) -> None:
         if self._close_redirect_thread_when_exit and self._pexpect_spawn:
-            self._pexpect_spawn.stop()
+            self._pexpect_spawn.close()
+        if self.raw_port:
+            if hasattr(self.raw_port, 'close'):
+                assert callable(self.raw_port.close)  # type: ignore
+                self.raw_port.close()  # type: ignore
 
     def __enter__(self) -> 't.Self':
         return self

@@ -1,8 +1,8 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_colorGreen : packoffset(c0);
-    float4 _10_colorRed : packoffset(c1);
-    float _10_testArray[5] : packoffset(c2);
+    float4 _11_colorGreen : packoffset(c0);
+    float4 _11_colorRed : packoffset(c1);
+    float _11_testArray[5] : packoffset(c2);
 };
 
 
@@ -15,30 +15,30 @@ struct SPIRV_Cross_Output
 
 float4 main(float2 _27)
 {
-    float one = _10_testArray[0];
-    float two = _10_testArray[1];
-    float three = _10_testArray[2];
-    float four = _10_testArray[3];
-    float five = _10_testArray[4];
-    bool _66 = false;
-    if (mad(_10_testArray[0], _10_testArray[1], _10_testArray[2]) == 5.0f)
+    float one = _11_testArray[0];
+    float two = _11_testArray[1];
+    float three = _11_testArray[2];
+    float four = _11_testArray[3];
+    float five = _11_testArray[4];
+    bool _67 = false;
+    if (mad(_11_testArray[0], _11_testArray[1], _11_testArray[2]) == 5.0f)
     {
-        _66 = mad(_10_testArray[2], _10_testArray[3], _10_testArray[4]) == 17.0f;
+        _67 = mad(_11_testArray[2], _11_testArray[3], _11_testArray[4]) == 17.0f;
     }
     else
     {
-        _66 = false;
+        _67 = false;
     }
-    float4 _67 = 0.0f.xxxx;
-    if (_66)
+    float4 _68 = 0.0f.xxxx;
+    if (_67)
     {
-        _67 = _10_colorGreen;
+        _68 = _11_colorGreen;
     }
     else
     {
-        _67 = _10_colorRed;
+        _68 = _11_colorRed;
     }
-    return _67;
+    return _68;
 }
 
 void frag_main()

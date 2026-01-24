@@ -220,6 +220,79 @@ class TestBuffer:
         buf.reset()
         assert buf.flags == hb.BufferFlags.DEFAULT
 
+    @pytest.mark.parametrize(
+        "glyphs,format,flags,expected",
+        [
+            (
+                False,
+                hb.BufferSerializeFormat.TEXT,
+                hb.BufferSerializeFlags.DEFAULT,
+                "<U+0061=0|U+0062=1|U+0063=2|U+0064=3|U+0065=4>",
+            ),
+            (
+                False,
+                hb.BufferSerializeFormat.TEXT,
+                hb.BufferSerializeFlags.NO_CLUSTERS,
+                "<U+0061|U+0062|U+0063|U+0064|U+0065>",
+            ),
+            (
+                True,
+                hb.BufferSerializeFormat.TEXT,
+                hb.BufferSerializeFlags.DEFAULT,
+                "[a=0+0|b=1+0|c=2+0|d=3+0|e=4+0]",
+            ),
+            (
+                True,
+                hb.BufferSerializeFormat.TEXT,
+                hb.BufferSerializeFlags.DEFAULT
+                | hb.BufferSerializeFlags.NO_CLUSTERS
+                | hb.BufferSerializeFlags.NO_POSITIONS,
+                "[a|b|c|d|e]",
+            ),
+            (
+                False,
+                hb.BufferSerializeFormat.JSON,
+                hb.BufferSerializeFlags.DEFAULT,
+                '[{"u":97,"cl":0},{"u":98,"cl":1},{"u":99,"cl":2},'
+                '{"u":100,"cl":3},{"u":101,"cl":4}]',
+            ),
+            (
+                False,
+                hb.BufferSerializeFormat.JSON,
+                hb.BufferSerializeFlags.NO_CLUSTERS,
+                '[{"u":97},{"u":98},{"u":99},{"u":100},{"u":101}]',
+            ),
+            (
+                True,
+                hb.BufferSerializeFormat.JSON,
+                hb.BufferSerializeFlags.DEFAULT,
+                '[{"g":"a","cl":0,"dx":0,"dy":0,"ax":0,"ay":0},'
+                '{"g":"b","cl":1,"dx":0,"dy":0,"ax":0,"ay":0},'
+                '{"g":"c","cl":2,"dx":0,"dy":0,"ax":0,"ay":0},'
+                '{"g":"d","cl":3,"dx":0,"dy":0,"ax":0,"ay":0},'
+                '{"g":"e","cl":4,"dx":0,"dy":0,"ax":0,"ay":0}]',
+            ),
+            (
+                True,
+                hb.BufferSerializeFormat.JSON,
+                hb.BufferSerializeFlags.DEFAULT
+                | hb.BufferSerializeFlags.NO_CLUSTERS
+                | hb.BufferSerializeFlags.NO_POSITIONS,
+                '[{"g":"a"},{"g":"b"},{"g":"c"},{"g":"d"},{"g":"e"}]',
+            ),
+        ],
+    )
+    def test_serialize(self, glyphs, format, flags, expected):
+        font = hb.Font(hb.Face(ADOBE_BLANK_TTF_PATH.read_bytes()))
+
+        buf = hb.Buffer()
+        buf.add_str("abcde")
+        buf.guess_segment_properties()
+        if glyphs:
+            hb.shape(font, buf)
+
+        assert buf.serialize(font, format=format, flags=flags) == expected
+
 
 class TestBlob:
     def test_from_file_path_fail(self):
@@ -1086,7 +1159,7 @@ class TestCallbacks:
         assert infos == expected
 
     def test_variation_glyph_func(self, blankfont):
-        string = "a\uFE00"
+        string = "a\ufe00"
         expected = [ord("a") + 0xFE00]
         buf = hb.Buffer()
         buf.add_str(string)
@@ -1187,17 +1260,10 @@ class TestCallbacks:
         expected_messages = [
             "start table GSUB script tag 'DFLT'",
             "start lookup 0 feature 'calt'",
-            "recursing to lookup 1 at 2",
-            "replacing glyph at 2 (single substitution)",
-            "replaced glyph at 2 (single substitution)",
-            "recursed to lookup 1",
             "end lookup 0 feature 'calt'",
             "end table GSUB script tag 'DFLT'",
             "start table GPOS script tag 'DFLT'",
             "start lookup 0 feature 'kern'",
-            "try kerning glyphs at 3,4",
-            "kerned glyphs at 3,4",
-            "tried kerning glyphs at 3,4",
             "end lookup 0 feature 'kern'",
             "end table GPOS script tag 'DFLT'",
         ]
@@ -1206,13 +1272,6 @@ class TestCallbacks:
         assert gids_trace == [
             [5, 4, 3, 2, 1],
             [5, 4, 3, 2, 1],
-            [5, 4, 3, 2, 1],
-            [5, 4, 3, 2, 1],
-            [5, 4, 1, 2, 1],
-            [5, 4, 1, 2, 1],
-            [5, 4, 1, 2, 1],
-            [5, 4, 1, 2, 1],
-            [5, 4, 1, 2, 1],
             [5, 4, 1, 2, 1],
             [5, 4, 1, 2, 1],
             [5, 4, 1, 2, 1],
@@ -1224,9 +1283,6 @@ class TestCallbacks:
         assert advances_trace == [
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 100, 0],
-            [0, 0, 0, 100, 0],
             [0, 0, 0, 100, 0],
             [0, 0, 0, 100, 0],
         ]
@@ -1595,6 +1651,161 @@ class TestOTColor:
             assert hb.ot_color_palette_get_name_id(blankfont.face, 0) is None
 
 
+class TestSubsetInput:
+
+    @pytest.mark.parametrize(
+        "use_subset_plan",
+        [False, True],
+    )
+    def test_subset(self, blankfont, use_subset_plan):
+        assert blankfont.get_nominal_glyph(ord("a")) == 1
+        assert blankfont.get_nominal_glyph(ord("b")) == 2
+        assert blankfont.get_nominal_glyph(ord("c")) == 3
+        assert blankfont.get_nominal_glyph(ord("d")) == 4
+        assert blankfont.get_nominal_glyph(ord("e")) == 5
+
+        inp = hb.SubsetInput()
+        inp.sets(hb.SubsetInputSets.UNICODE).set({ord("b")})
+        s = inp.sets(hb.SubsetInputSets.LAYOUT_FEATURE_TAG)
+        s.clear()
+        s.invert()
+        inp.layout_script_tag_set.invert()
+        inp.unicode_set.update(ord(c) for c in "cd")
+        inp.unicode_set.add(ord("e"))
+
+        if not use_subset_plan:
+            face = hb.subset(blankfont.face, inp)
+        else:
+            plan = hb.SubsetPlan(blankfont.face, inp)
+            face = plan.execute()
+
+        assert face is not None
+        font = hb.Font(face)
+
+        assert font.get_nominal_glyph(ord("a")) is None
+        assert font.get_nominal_glyph(ord("b")) == 1
+        assert font.get_nominal_glyph(ord("c")) == 2
+        assert font.get_nominal_glyph(ord("d")) == 3
+        assert font.get_nominal_glyph(ord("e")) == 4
+
+        blob = face.blob
+        assert blob
+        assert len(blob) > 100
+        face = hb.Face(blob)
+        font = hb.Font(face)
+
+        assert font.get_nominal_glyph(ord("a")) is None
+        assert font.get_nominal_glyph(ord("b")) == 1
+        assert font.get_nominal_glyph(ord("c")) == 2
+        assert font.get_nominal_glyph(ord("d")) == 3
+        assert font.get_nominal_glyph(ord("e")) == 4
+
+        if use_subset_plan:
+            mapping = plan.old_to_new_glyph_mapping
+            reverse = plan.new_to_old_glyph_mapping
+            assert 1 not in mapping
+            assert mapping[2] == 1
+            assert mapping[3] == 2
+            assert reverse[mapping[2]] == 2
+            assert reverse[mapping[3]] == 3
+            assert len(reverse) == 5
+            cmap = plan.unicode_to_old_glyph_mapping
+            assert cmap[ord("b")] == 2
+
+    @pytest.mark.parametrize(
+        "axes",
+        [
+            ["wght"],
+            ["wdth"],
+            ["wght", "wdth"],
+        ],
+    )
+    def test_pin_axis_to_default(self, mutatorsans, axes):
+        inp = hb.SubsetInput()
+        inp.keep_everything()
+
+        for axis in axes:
+            inp.pin_axis_to_default(mutatorsans.face, axis)
+
+        face = hb.subset(mutatorsans.face, inp)
+        assert face is not None
+
+        tags = {a.tag for a in face.axis_infos}
+        assert tags.isdisjoint(set(axes))
+
+    @pytest.mark.parametrize(
+        "axis,value",
+        [
+            ["wght", 100],
+            ["wdth", 1000],
+        ],
+    )
+    def test_pin_axis_location(self, mutatorsans, axis, value):
+        inp = hb.SubsetInput()
+        inp.keep_everything()
+
+        inp.pin_axis_location(mutatorsans.face, axis, value)
+
+        face = hb.subset(mutatorsans.face, inp)
+        assert face is not None
+
+        tags = [a.tag for a in face.axis_infos]
+        assert axis not in tags
+
+    def test_pin_all_axes_to_default(self, mutatorsans):
+        inp = hb.SubsetInput()
+        inp.keep_everything()
+        inp.pin_all_axes_to_default(mutatorsans.face)
+
+        face = hb.subset(mutatorsans.face, inp)
+
+        assert face is not None
+        assert not face.axis_infos
+
+    @pytest.mark.parametrize(
+        "axis,min_value,max_value,def_value",
+        [
+            ["wght", None, None, None],
+            ["wght", 100.0, 400.0, 200.0],
+            ["wght", None, 300.0, 100],
+            ["wght", None, None, 300],
+            ["wght", 10.0, None, 50.0],
+            ["wght", None, None, 50.0],
+            ["wght", 10.0, None, None],
+            ["wght", 50.0, 500.0, None],
+            ["wght", None, 600.0, None],
+        ],
+    )
+    def test_set_axis_range(self, mutatorsans, axis, min_value, max_value, def_value):
+        inp = hb.SubsetInput()
+        inp.keep_everything()
+
+        if any([min_value, max_value, def_value]):
+            inp.set_axis_range(mutatorsans.face, axis, min_value, max_value, def_value)
+        else:
+            inp.set_axis_range(mutatorsans.face, axis)
+
+        face = hb.subset(mutatorsans.face, inp)
+        assert face is not None
+        assert face.axis_infos
+
+        axis_infos = [a for a in mutatorsans.face.axis_infos if a.tag == axis]
+        assert len(axis_infos) == 1
+        info = axis_infos[0]
+
+        expected_min = info.min_value if min_value is None else min_value
+        expected_max = info.max_value if max_value is None else max_value
+
+        new_axis_infos = [a for a in face.axis_infos if a.tag == axis]
+        assert len(new_axis_infos) == 1
+        new_info = new_axis_infos[0]
+        assert new_info.min_value == expected_min
+        assert new_info.max_value == expected_max
+        if def_value is not None:
+            assert new_info.default_value == def_value
+            assert (expected_min, expected_max, def_value) == inp.get_axis_range(axis)
+
+
 def test_harfbuzz_version():
     v = hb.version_string()
     assert isinstance(v, str)
@@ -1753,63 +1964,6 @@ def test_map():
     assert repr(m5) == "Map({1: 2, 3: 4, 10: 11})"
 
     iter(iter(hb.Map({})))
-
-
-def test_subset(blankfont):
-    for planned in (False, True):
-        assert blankfont.get_nominal_glyph(ord("a")) == 1
-        assert blankfont.get_nominal_glyph(ord("b")) == 2
-        assert blankfont.get_nominal_glyph(ord("c")) == 3
-        assert blankfont.get_nominal_glyph(ord("d")) == 4
-        assert blankfont.get_nominal_glyph(ord("e")) == 5
-
-        inp = hb.SubsetInput()
-        inp.sets(hb.SubsetInputSets.UNICODE).set({ord("b")})
-        s = inp.sets(hb.SubsetInputSets.LAYOUT_FEATURE_TAG)
-        s.clear()
-        s.invert()
-        inp.layout_script_tag_set.invert()
-        inp.unicode_set.update(ord(c) for c in "cd")
-        inp.unicode_set.add(ord("e"))
-
-        if not planned:
-            face = hb.subset(blankfont.face, inp)
-        else:
-            plan = hb.SubsetPlan(blankfont.face, inp)
-            face = plan.execute()
-
-        assert face is not None
-        font = hb.Font(face)
-
-        assert font.get_nominal_glyph(ord("a")) is None
-        assert font.get_nominal_glyph(ord("b")) == 1
-        assert font.get_nominal_glyph(ord("c")) == 2
-        assert font.get_nominal_glyph(ord("d")) == 3
-        assert font.get_nominal_glyph(ord("e")) == 4
-
-        blob = face.blob
-        assert blob
-        assert len(blob) > 100
-        face = hb.Face(blob)
-        font = hb.Font(face)
-
-        assert font.get_nominal_glyph(ord("a")) is None
-        assert font.get_nominal_glyph(ord("b")) == 1
-        assert font.get_nominal_glyph(ord("c")) == 2
-        assert font.get_nominal_glyph(ord("d")) == 3
-        assert font.get_nominal_glyph(ord("e")) == 4
-
-        if planned:
-            mapping = plan.old_to_new_glyph_mapping
-            reverse = plan.new_to_old_glyph_mapping
-            assert 1 not in mapping
-            assert mapping[2] == 1
-            assert mapping[3] == 2
-            assert reverse[mapping[2]] == 2
-            assert reverse[mapping[3]] == 3
-            assert len(reverse) == 5
-            cmap = plan.unicode_to_old_glyph_mapping
-            assert cmap[ord("b")] == 2
 
 
 def test_deprecated():

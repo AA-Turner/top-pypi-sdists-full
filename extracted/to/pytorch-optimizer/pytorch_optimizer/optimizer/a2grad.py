@@ -5,26 +5,27 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 
 VARIANTS = Literal['uni', 'inc', 'exp']
 
 
 class A2Grad(BaseOptimizer):
-    r"""Optimal Adaptive and Accelerated Stochastic Gradient Descent.
+    """Optimal Adaptive and Accelerated Stochastic Gradient Descent.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: Optional[float]. learning rate. no needed.
-    :param beta: float. beta.
-    :param lips: float. Lipschitz constant.
-    :param rho: float. represents the degree of weighting decrease, a constant smoothing factor between 0 and 1.
-    :param variant: str. variant of A2Grad optimizer. 'uni', 'inc', 'exp'.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (Optional[float]): Learning rate. No needed.
+        beta (float): Beta.
+        lips (float): Lipschitz constant.
+        rho (float): Represents the degree of weighting decrease, a constant smoothing factor between 0 and 1.
+        variant (str): Variant of A2Grad optimizer. One of 'uni', 'inc', or 'exp'.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: Optional[float] = None,
         beta: float = 10.0,
         lips: float = 10.0,
@@ -41,7 +42,7 @@ class A2Grad(BaseOptimizer):
         self.variant = variant
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'beta': beta, 'lips': lips}
+        defaults: Defaults = {'beta': beta, 'lips': lips}
         if variant == 'exp':
             defaults.update({'rho': rho})
 
@@ -50,7 +51,10 @@ class A2Grad(BaseOptimizer):
     def __str__(self) -> str:
         return 'A2Grad'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -73,18 +77,15 @@ class A2Grad(BaseOptimizer):
                     state['v_kk'] = torch.zeros((1,), dtype=grad.dtype, device=grad.device)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             gamma_k: float = 2.0 * group['lips'] / (group['step'] + 1)
             alpha_k_1: float = 2.0 / (group['step'] + 3)

@@ -180,6 +180,7 @@ def test_error_route(client: Client, exporter: TestExporter):
                     'http.route': 'django_test_app/bad/',
                     'http.status_code': 400,
                     'http.response.status_code': 400,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.target': '/django_test_app/bad/',
                     'logfire.level_num': 17,
                 },
@@ -231,6 +232,7 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                     'http.status_code': 404,
                     'http.response.status_code': 404,
                     'http.target': '/django_test_app/nowhere/',
+                    'logfire.level_num': 13,
                 },
             }
         ]

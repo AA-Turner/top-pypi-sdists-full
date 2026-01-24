@@ -432,7 +432,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     task.configEntrada["filialEmpresaOrigem"] + ALMOXARIFADO_DEFAULT
                 )
                 pyautogui.hotkey("tab")
-                await worker_sleep(2)
+                await worker_sleep(10)
                 console.print(
                     f"\nDigitou almoxarifado {task.configEntrada["filialEmpresaOrigem"] + ALMOXARIFADO_DEFAULT}",
                     style="bold green",
@@ -462,7 +462,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             pyautogui.hotkey("del")
             pyautogui.write(item["codigoProduto"])
             pyautogui.hotkey("tab")
-            await worker_sleep(2)
+            await worker_sleep(10)
             console.print(f"\nDigitou item {item['codigoProduto']}", style="bold green")
 
             # Checa tela de pesquisa de item
@@ -523,7 +523,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
             screenshot_path = take_screenshot()
 
-            await worker_sleep(2)
+            await worker_sleep(5)
 
             # Seleciona o Saldo Disponivel e verifica se ah possibilidade do descarte
             console.print(
@@ -536,7 +536,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     class_name="TDBIEditNumber", found_index=9
                 ).window_text()
             except Exception as error:
-                console.print(f"Erro ao selecionar o Saldo Disponivel: {error}")
+                console.print(f"Erro ao selecionar o Saldo Disponivel: {str(error)}")
                 await send_to_webhook(
                     task.configEntrada["urlRetorno"],
                     "ERRO",
@@ -572,7 +572,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     f"Saldo Disponivel: '{amount_avaliable}'", style="bold green"
                 )
             except Exception as error:
-                console.print(f"Erro ao converter o Saldo Disponível: {error}")
+                console.print(f"Erro ao converter o Saldo Disponível: {str(error)}")
                 await send_to_webhook(
                     task.configEntrada["urlRetorno"],
                     "ERRO",
@@ -772,7 +772,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     )
                 except Exception as e:
                     console.print(
-                        f"Falha ao clicar no botão OK de pré-venda incluída: {e}",
+                        f"Falha ao clicar no botão OK de pré-venda incluída: {str(e)}",
                         style="red",
                     )
                     return RpaRetornoProcessoDTO(
@@ -794,7 +794,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         except Exception as e:
             console.print(
-                f"O Botão OK de pré-venda incluída não foi encontrado: {e}", style="red"
+                f"O Botão OK de pré-venda incluída não foi encontrado: {str(e)}", style="red"
             )
             return RpaRetornoProcessoDTO(
                 sucesso=False,
@@ -1041,7 +1041,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             )
 
     except Exception as ex:
-        log_msg = f"Erro Processo Descartes: {ex} | Número da nota: {nota_fiscal} | Valor: {valor_nota}"
+        log_msg = f"Erro Processo Descartes: {str(ex)} | Número da nota: {nota_fiscal} | Valor: {valor_nota}"
         logger.error(log_msg)
         console.print(log_msg, style="bold red")
         await send_to_webhook(

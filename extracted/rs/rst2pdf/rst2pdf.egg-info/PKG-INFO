@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rst2pdf
-Version: 0.103.1
+Version: 0.104
 Summary: Convert reStructured Text to PDF via ReportLab.
 Author-email: rst2pdf maintainers <maintainers@rstpdf.org>
 License: Copyright (c) 2007-2020 Roberto Alsina and the contributors to the rst2pdf project
@@ -34,25 +34,23 @@ Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: docutils~=0.21.2
-Requires-Dist: importlib-metadata~=8.0
+Requires-Dist: docutils>=0.21.2
 Requires-Dist: jinja2~=3.0
-Requires-Dist: packaging~=24.0
+Requires-Dist: packaging~=25.0
 Requires-Dist: pygments~=2.0
-Requires-Dist: pyyaml~=6.0
+Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: reportlab~=4.0
-Requires-Dist: smartypants~=2.0
 Provides-Extra: aafiguresupport
 Requires-Dist: aafigure; extra == "aafiguresupport"
 Provides-Extra: mathsupport
@@ -62,7 +60,8 @@ Requires-Dist: plantuml; extra == "plantumlsupport"
 Provides-Extra: rawhtmlsupport
 Requires-Dist: xhtml2pdf; extra == "rawhtmlsupport"
 Provides-Extra: sphinx
-Requires-Dist: sphinx>7.3; extra == "sphinx"
+Requires-Dist: sphinx>7.3; python_version == "3.10" and extra == "sphinx"
+Requires-Dist: sphinx>=8.2; python_version >= "3.11" and extra == "sphinx"
 Provides-Extra: svgsupport
 Requires-Dist: svglib; extra == "svgsupport"
 
@@ -112,13 +111,13 @@ Features
 
 * `Sphinx <https://www.sphinx-doc.org>`_ integration
 
-* `Full user's manual <https://rst2pdf.org/static/manual.pdf>`_
+* `Full user's manual <https://rst2pdf.org/manual.html>`_
 
 Installation
 ------------
 
-*rst2pdf* supports Python 3.9 or greater. Version 0.102 was the last version to support Python 3.8. Version 0.99 was
-the last version to support Python 3.6 & 3.7, with 0.97 the last version to support Python 2.7.
+*rst2pdf* supports Python 3.10 or greater. Version 0.103 was the last version
+to support Python 3.9 Version 0.102 was the last version to support Python 3.8.
 
 Install from PyPI (pipx)
 ~~~~~~~~~~~~~~~~~~~~~~~~

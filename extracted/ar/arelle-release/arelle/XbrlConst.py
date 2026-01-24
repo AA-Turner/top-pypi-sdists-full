@@ -27,6 +27,8 @@ qnXsdImport = qname("{http://www.w3.org/2001/XMLSchema}xsd:import")
 qnXsdSchema = qname("{http://www.w3.org/2001/XMLSchema}xsd:schema")
 qnXsdAppinfo = qname("{http://www.w3.org/2001/XMLSchema}xsd:appinfo")
 qnXsdDefaultType = qname("{http://www.w3.org/2001/XMLSchema}xsd:anyType")
+qnXsdElement = qname("{http://www.w3.org/2001/XMLSchema}xsd:element")
+qnXsdAttribute = qname("{http://www.w3.org/2001/XMLSchema}xsd:attribute")
 xsi = "http://www.w3.org/2001/XMLSchema-instance"
 qnXsiNil = qname(xsi, "xsi:nil")  # need default prefix in qname
 qnXsiType = qname(xsi, "xsi:type")
@@ -128,6 +130,7 @@ qnXlinkArcRole = qname("{http://www.w3.org/1999/xlink}xlink:arcrole")
 qnXlinkFrom = qname("{http://www.w3.org/1999/xlink}xlink:from")
 qnXlinkHref = qname("{http://www.w3.org/1999/xlink}xlink:href")
 qnXlinkLabel = qname("{http://www.w3.org/1999/xlink}xlink:label")
+qnXlinkRole = qname("{http://www.w3.org/1999/xlink}xlink:role")
 qnXlinkTo = qname("{http://www.w3.org/1999/xlink}xlink:to")
 qnXlinkType = qname("{http://www.w3.org/1999/xlink}xlink:type")
 xl = "http://www.xbrl.org/2003/XLink"
@@ -140,6 +143,8 @@ qnXlResourceType = qname("{http://www.xbrl.org/2003/XLink}xl:resourceType")
 qnXlArcType = qname("{http://www.xbrl.org/2003/XLink}xl:arcType")
 xhtml = "http://www.w3.org/1999/xhtml"
 qnXhtmlMeta = qname("{http://www.w3.org/1999/xhtml}meta")
+qnXhtmlImg = qname("{http://www.w3.org/1999/xhtml}img")
+qnXhtmlDel = qname("{http://www.w3.org/1999/xhtml}del")
 ixbrl = "http://www.xbrl.org/2008/inlineXBRL"
 ixbrl11 = "http://www.xbrl.org/2013/inlineXBRL"
 ixbrlAll = {ixbrl, ixbrl11}
@@ -180,6 +185,21 @@ ixAttributes = set(
         "tupleID",
     )
 )
+ixbrlTargetElements = frozenset({
+    qnIXbrlFraction,
+    qnIXbrlNonFraction,
+    qnIXbrlNonNumeric,
+    qnIXbrlResources,
+    qnIXbrlTuple,
+})
+ixbrl11TargetElements = frozenset({
+    qnIXbrl11Fraction,
+    qnIXbrl11NonFraction,
+    qnIXbrl11NonNumeric,
+    qnIXbrl11Resources,
+    qnIXbrl11Tuple,
+})
+ixbrlAllTargetElements = ixbrlTargetElements | ixbrl11TargetElements
 conceptLabel = "http://www.xbrl.org/2003/arcrole/concept-label"
 conceptReference = "http://www.xbrl.org/2003/arcrole/concept-reference"
 footnote = "http://www.xbrl.org/2003/role/footnote"

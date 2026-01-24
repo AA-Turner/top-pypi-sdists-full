@@ -16,11 +16,13 @@ T = TypeVar("T", bound="NewNatsTriggerRetry")
 
 @_attrs_define
 class NewNatsTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, NewNatsTriggerRetryConstant]):
-        exponential (Union[Unset, NewNatsTriggerRetryExponential]):
-        retry_if (Union[Unset, NewNatsTriggerRetryRetryIf]):
+        constant (Union[Unset, NewNatsTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, NewNatsTriggerRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, NewNatsTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "NewNatsTriggerRetryConstant"] = UNSET

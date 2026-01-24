@@ -16,7 +16,6 @@ short_description: Securityconsole install objects v2
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.3.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -105,8 +104,8 @@ EXAMPLES = '''
     - name: Securityconsole install objects v2
       fortinet.fortimanager.fmgr_securityconsole_install_objects_v2:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         securityconsole_install_objects_v2:

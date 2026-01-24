@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import warnings
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from dateutil.parser import isoparse
 
-from ..actions import ActionsPageResult, BoundAction, ResourceActionsClient
+from ..actions import (
+    ActionSort,
+    ActionsPageResult,
+    ActionStatus,
+    BoundAction,
+    ResourceActionsClient,
+)
+from ..actions.client import ResourceClientBaseActionsMixin
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from ..datacenters import BoundDatacenter
 from ..firewalls import BoundFirewall
 from ..floating_ips import BoundFloatingIP
 from ..images import BoundImage, CreateImageResponse
 from ..isos import BoundIso
+from ..locations import BoundLocation, Location
 from ..metrics import Metrics
 from ..placement_groups import BoundPlacementGroup
 from ..primary_ips import BoundPrimaryIP
@@ -39,7 +48,6 @@ if TYPE_CHECKING:
     from ..firewalls import Firewall
     from ..images import Image
     from ..isos import Iso
-    from ..locations import BoundLocation, Location
     from ..networks import BoundNetwork, Network
     from ..placement_groups import PlacementGroup
     from ..server_types import ServerType
@@ -48,16 +56,32 @@ if TYPE_CHECKING:
     from .domain import ServerCreatePublicNetwork
 
 
-class BoundServer(BoundModelBase, Server):
+__all__ = [
+    "BoundServer",
+    "ServersPageResult",
+    "ServersClient",
+]
+
+
+class BoundServer(BoundModelBase[Server], Server):
     _client: ServersClient
 
     model = Server
 
     # pylint: disable=too-many-locals
-    def __init__(self, client: ServersClient, data: dict, complete: bool = True):
-        datacenter = data.get("datacenter")
-        if datacenter is not None:
-            data["datacenter"] = BoundDatacenter(client._parent.datacenters, datacenter)
+    def __init__(
+        self,
+        client: ServersClient,
+        data: dict[str, Any],
+        complete: bool = True,
+    ):
+        raw = data.get("datacenter")
+        if raw:
+            data["datacenter"] = BoundDatacenter(client._parent.datacenters, raw)
+
+        raw = data.get("location")
+        if raw:
+            data["location"] = BoundLocation(client._parent.locations, raw)
 
         volumes = data.get("volumes", [])
         if volumes:
@@ -166,39 +190,39 @@ class BoundServer(BoundModelBase, Server):
 
     def get_actions_list(
         self,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
         page: int | None = None,
         per_page: int | None = None,
     ) -> ActionsPageResult:
-        """Returns all action objects for a server.
-
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :param page: int (optional)
-               Specifies the page to fetch
-        :param per_page: int (optional)
-               Specifies how many results are returned by page
-        :return: (List[:class:`BoundAction <hcloud.actions.client.BoundAction>`], :class:`Meta <hcloud.core.domain.Meta>`)
         """
-        return self._client.get_actions_list(self, status, sort, page, per_page)
+        Returns a paginated list of Actions for a Server.
+
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        :param page: Page number to get.
+        :param per_page: Maximum number of Actions returned per page.
+        """
+        return self._client.get_actions_list(
+            self,
+            status=status,
+            sort=sort,
+            page=page,
+            per_page=per_page,
+        )
 
     def get_actions(
         self,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
     ) -> list[BoundAction]:
-        """Returns all action objects for a server.
-
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :return: List[:class:`BoundAction <hcloud.actions.client.BoundAction>`]
         """
-        return self._client.get_actions(self, status, sort)
+        Returns all Actions for a Server.
+
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        """
+        return self._client.get_actions(self, status=status, sort=sort)
 
     def update(
         self,
@@ -213,7 +237,7 @@ class BoundServer(BoundModelBase, Server):
                User-defined labels (key-value pairs)
         :return: :class:`BoundServer <hcloud.servers.client.BoundServer>`
         """
-        return self._client.update(self, name, labels)
+        return self._client.update(self, name=name, labels=labels)
 
     def get_metrics(
         self,
@@ -327,19 +351,23 @@ class BoundServer(BoundModelBase, Server):
                User-defined labels (key-value pairs)
         :return:  :class:`CreateImageResponse <hcloud.images.domain.CreateImageResponse>`
         """
-        return self._client.create_image(self, description, type, labels)
+        return self._client.create_image(
+            self, description=description, type=type, labels=labels
+        )
 
     def rebuild(
         self,
         image: Image | BoundImage,
+        user_data: str | None = None,
         # pylint: disable=unused-argument
         **kwargs: Any,
     ) -> RebuildResponse:
         """Rebuilds a server overwriting its disk with the content of an image, thereby destroying all data on the target server.
 
         :param image: Image to use for the rebuilt server
+        :param user_data: Cloud-Init user data to use during Server rebuild (optional)
         """
-        return self._client.rebuild(self, image)
+        return self._client.rebuild(self, image=image, user_data=user_data)
 
     def change_type(
         self,
@@ -354,7 +382,9 @@ class BoundServer(BoundModelBase, Server):
                If false, do not upgrade the disk. This allows downgrading the server type later.
         :return:  :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_type(self, server_type, upgrade_disk)
+        return self._client.change_type(
+            self, server_type=server_type, upgrade_disk=upgrade_disk
+        )
 
     def enable_backup(self) -> BoundAction:
         """Enables and configures the automatic daily backup option for the server. Enabling automatic backups will increase the price of the server by 20%.
@@ -376,7 +406,7 @@ class BoundServer(BoundModelBase, Server):
         :param iso: :class:`BoundIso <hcloud.isos.client.BoundIso>` or :class:`Server <hcloud.isos.domain.Iso>`
         :return:  :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.attach_iso(self, iso)
+        return self._client.attach_iso(self, iso=iso)
 
     def detach_iso(self) -> BoundAction:
         """Detaches an ISO from a server.
@@ -394,7 +424,7 @@ class BoundServer(BoundModelBase, Server):
                   Hostname to set as a reverse DNS PTR entry, will reset to original default value if `None`
         :return:  :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_dns_ptr(self, ip, dns_ptr)
+        return self._client.change_dns_ptr(self, ip=ip, dns_ptr=dns_ptr)
 
     def change_protection(
         self,
@@ -410,7 +440,7 @@ class BoundServer(BoundModelBase, Server):
                      If true, prevents the server from being rebuilt (currently delete and rebuild attribute needs to have the same value)
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_protection(self, delete, rebuild)
+        return self._client.change_protection(self, delete=delete, rebuild=rebuild)
 
     def request_console(self) -> RequestConsoleResponse:
         """Requests credentials for remote access via vnc over websocket to keyboard, monitor, and mouse for a server.
@@ -424,6 +454,7 @@ class BoundServer(BoundModelBase, Server):
         network: Network | BoundNetwork,
         ip: str | None = None,
         alias_ips: list[str] | None = None,
+        ip_range: str | None = None,
     ) -> BoundAction:
         """Attaches a server to a network
 
@@ -432,9 +463,17 @@ class BoundServer(BoundModelBase, Server):
                 IP to request to be assigned to this server
         :param alias_ips: List[str]
                 New alias IPs to set for this server.
+        :param ip_range: str
+                IP range in CIDR block notation of the subnet to attach to.
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.attach_to_network(self, network, ip, alias_ips)
+        return self._client.attach_to_network(
+            self,
+            network=network,
+            ip=ip,
+            alias_ips=alias_ips,
+            ip_range=ip_range,
+        )
 
     def detach_from_network(self, network: Network | BoundNetwork) -> BoundAction:
         """Detaches a server from a network.
@@ -442,7 +481,7 @@ class BoundServer(BoundModelBase, Server):
         :param network: :class:`BoundNetwork <hcloud.networks.client.BoundNetwork>` or :class:`Network <hcloud.networks.domain.Network>`
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.detach_from_network(self, network)
+        return self._client.detach_from_network(self, network=network)
 
     def change_alias_ips(
         self,
@@ -456,7 +495,7 @@ class BoundServer(BoundModelBase, Server):
                 New alias IPs to set for this server.
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_alias_ips(self, network, alias_ips)
+        return self._client.change_alias_ips(self, network=network, alias_ips=alias_ips)
 
     def add_to_placement_group(
         self,
@@ -467,7 +506,9 @@ class BoundServer(BoundModelBase, Server):
         :param placement_group: :class:`BoundPlacementGroup <hcloud.placement_groups.client.BoundPlacementGroup>` or :class:`Network <hcloud.placement_groups.domain.PlacementGroup>`
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.add_to_placement_group(self, placement_group)
+        return self._client.add_to_placement_group(
+            self, placement_group=placement_group
+        )
 
     def remove_from_placement_group(self) -> BoundAction:
         """Removes a server from a placement group.
@@ -482,7 +523,10 @@ class ServersPageResult(NamedTuple):
     meta: Meta
 
 
-class ServersClient(ResourceClientBase):
+class ServersClient(
+    ResourceClientBaseActionsMixin,
+    ResourceClientBase,
+):
     _base_url = "/servers"
 
     actions: ResourceActionsClient
@@ -575,7 +619,7 @@ class ServersClient(ResourceClientBase):
                Used to get server by name.
         :return: :class:`BoundServer <hcloud.servers.client.BoundServer>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)
 
     # pylint: disable=too-many-branches,too-many-locals
     def create(
@@ -636,6 +680,13 @@ class ServersClient(ResourceClientBase):
         if location is not None:
             data["location"] = location.id_or_name
         if datacenter is not None:
+            warnings.warn(
+                "The 'datacenter' argument is deprecated and will be removed after 1 July 2026. "
+                "Please use the 'location' argument instead. "
+                "See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             data["datacenter"] = datacenter.id_or_name
         if ssh_keys is not None:
             data["ssh_keys"] = [ssh_key.id_or_name for ssh_key in ssh_keys]
@@ -681,59 +732,40 @@ class ServersClient(ResourceClientBase):
     def get_actions_list(
         self,
         server: Server | BoundServer,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
         page: int | None = None,
         per_page: int | None = None,
     ) -> ActionsPageResult:
-        """Returns all action objects for a server.
-
-        :param server: :class:`BoundServer <hcloud.servers.client.BoundServer>` or :class:`Server <hcloud.servers.domain.Server>`
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :param page: int (optional)
-               Specifies the page to fetch
-        :param per_page: int (optional)
-               Specifies how many results are returned by page
-        :return: (List[:class:`BoundAction <hcloud.actions.client.BoundAction>`], :class:`Meta <hcloud.core.domain.Meta>`)
         """
-        params: dict[str, Any] = {}
-        if status is not None:
-            params["status"] = status
-        if sort is not None:
-            params["sort"] = sort
-        if page is not None:
-            params["page"] = page
-        if per_page is not None:
-            params["per_page"] = per_page
+        Returns a paginated list of Actions for a Server.
 
-        response = self._client.request(
-            url=f"{self._base_url}/{server.id}/actions",
-            method="GET",
-            params=params,
+        :param server: Server to get the Actions for.
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        :param page: Page number to get.
+        :param per_page: Maximum number of Actions returned per page.
+        """
+        return self._get_actions_list(
+            f"{self._base_url}/{server.id}",
+            status=status,
+            sort=sort,
+            page=page,
+            per_page=per_page,
         )
-        actions = [
-            BoundAction(self._parent.actions, action_data)
-            for action_data in response["actions"]
-        ]
-        return ActionsPageResult(actions, Meta.parse_meta(response))
 
     def get_actions(
         self,
         server: Server | BoundServer,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
     ) -> list[BoundAction]:
-        """Returns all action objects for a server.
+        """
+        Returns all Actions for a Server.
 
-        :param server: :class:`BoundServer <hcloud.servers.client.BoundServer>` or :class:`Server <hcloud.servers.domain.Server>`
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :return: List[:class:`BoundAction <hcloud.actions.client.BoundAction>`]
+        :param server: Server to get the Actions for.
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
         """
         return self._iter_pages(
             self.get_actions_list,
@@ -1006,6 +1038,7 @@ class ServersClient(ResourceClientBase):
         self,
         server: Server | BoundServer,
         image: Image | BoundImage,
+        user_data: str | None = None,
         # pylint: disable=unused-argument
         **kwargs: Any,
     ) -> RebuildResponse:
@@ -1013,8 +1046,12 @@ class ServersClient(ResourceClientBase):
 
         :param server: Server to rebuild
         :param image: Image to use for the rebuilt server
+        :param user_data: Cloud-Init user data to use during Server rebuild (optional)
         """
         data: dict[str, Any] = {"image": image.id_or_name}
+        if user_data is not None:
+            data["user_data"] = user_data
+
         response = self._client.request(
             url=f"{self._base_url}/{server.id}/actions/rebuild",
             method="POST",
@@ -1154,6 +1191,7 @@ class ServersClient(ResourceClientBase):
         network: Network | BoundNetwork,
         ip: str | None = None,
         alias_ips: list[str] | None = None,
+        ip_range: str | None = None,
     ) -> BoundAction:
         """Attaches a server to a network
 
@@ -1163,6 +1201,8 @@ class ServersClient(ResourceClientBase):
                 IP to request to be assigned to this server
         :param alias_ips: List[str]
                 New alias IPs to set for this server.
+        :param ip_range: str
+                IP range in CIDR block notation of the subnet to attach to.
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
         data: dict[str, Any] = {"network": network.id}
@@ -1170,6 +1210,9 @@ class ServersClient(ResourceClientBase):
             data.update({"ip": ip})
         if alias_ips is not None:
             data.update({"alias_ips": alias_ips})
+        if ip_range is not None:
+            data.update({"ip_range": ip_range})
+
         response = self._client.request(
             url=f"{self._base_url}/{server.id}/actions/attach_to_network",
             method="POST",

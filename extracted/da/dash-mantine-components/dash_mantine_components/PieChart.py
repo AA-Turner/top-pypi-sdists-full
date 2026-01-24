@@ -323,7 +323,7 @@ Keyword arguments:
 - withTooltip (boolean; optional):
     Determines whether the tooltip should be displayed when one of the
     section is hovered, `True` by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'PieChart'

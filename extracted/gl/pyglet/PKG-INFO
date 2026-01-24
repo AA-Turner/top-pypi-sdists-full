@@ -1,10 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyglet
-Version: 2.1.9
+Version: 2.1.12
 Summary: pyglet is a cross-platform games and multimedia package.
 Author-email: Alex Holkner & contributors <Alex.Holkner@gmail.com>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Project-URL: Home, https://pyglet.org
 
 [![pypi](https://badge.fury.io/py/pyglet.svg)](https://pypi.python.org/pypi/pyglet) [![rtd](https://readthedocs.org/projects/pyglet/badge/?version=latest)](https://pyglet.readthedocs.io) [![PyTest](https://github.com/pyglet/pyglet/actions/workflows/unittests.yml/badge.svg)](https://github.com/pyglet/pyglet/actions/workflows/unittests.yml)

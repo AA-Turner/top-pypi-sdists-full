@@ -1,14 +1,17 @@
 # This file is part of Cantera. See License.txt in the top-level directory or
 # at https://cantera.org/license.txt for license and copyright information.
 
-from math import erf
-from pathlib import Path
+from math import erf as _erf
+from pathlib import Path as _Path
 import warnings
 import numpy as np
 
-from ._cantera import *
+from ._onedim import (
+    AxisymmetricFlow, FreeFlow, Inlet1D, Outlet1D, ReactingSurface1D, Sim1D,
+    Surface1D, SymmetryPlane1D, UnstrainedFlow,
+)
+from ._utils import CanteraError, __git_commit__, __version__, hdf_support
 from .composite import Solution, SolutionArray
-from . import __version__, __git_commit__, hdf_support
 
 
 class FlameBase(Sim1D):
@@ -95,7 +98,7 @@ class FlameBase(Sim1D):
             # already a solution array
             arr = data
 
-        elif isinstance(data, (str, Path)):
+        elif isinstance(data, (str, _Path)):
             data = str(data)
             arr = SolutionArray(self.gas)
             if any(data.endswith(suffix) for suffix in [".hdf5", ".h5", ".hdf"]):
@@ -166,6 +169,10 @@ class FlameBase(Sim1D):
             sequence of values at the relative positions specified in ``positions``
 
         >>> f.set_profile('T', [0.0, 0.2, 1.0], [400.0, 800.0, 1500.0])
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by Domain1D.set_profile.
         """
         super().set_profile(self.flame, component, positions, values)
 
@@ -268,14 +275,14 @@ class FlameBase(Sim1D):
     @property
     def T(self):
         """ Array containing the temperature [K] at each grid point. """
-        return self.profile(self.flame, 'T')
+        return self.flame.values("T")
 
     @property
     def velocity(self):
         """
         Array containing the velocity [m/s] normal to the flame at each point.
         """
-        return self.profile(self.flame, 'velocity')
+        return self.flame.values("velocity")
 
     @property
     def spread_rate(self):
@@ -283,33 +290,34 @@ class FlameBase(Sim1D):
         Array containing the tangential velocity gradient [1/s] (that is, radial
         velocity divided by radius) at each point.
         """
-        return self.profile(self.flame, 'spread_rate')
+        return self.flame.values("spreadRate")
 
     @property
     def L(self):
         """
-        Array containing the radial pressure gradient (1/r)(dP/dr) [N/m^4] at
-        each point. Note: This value is named 'lambda' in the C++ code.
+        Array containing the radial pressure gradient (1/r)(dP/dr) [N/m⁴] at
+        each point. Note: This value is named ``Lambda`` in the C++ code.
         """
-        return self.profile(self.flame, 'lambda')
+        return self.flame.values("Lambda")
 
     @property
     def E(self):
         """
         Array containing the electric field strength at each point.
+        Note: This value is named ``eField`` in the C++ code and is only defined if
+        the transport model is ``ionized-gas``.
         """
-        if self.flame.transport_model != "ionized-gas":
-            raise AttributeError(
-                "Electric field is only defined for transport model 'ionized_gas'.")
-        return self.profile(self.flame, 'eField')
+        return self.flame.values("eField")
 
     @property
     def Uo(self):
         """
         Array containing the oxidizer velocity (right boundary velocity) [m/s] at
-        each point. Note: This value is only defined when using two-point control.
+        each point.
+        Note: This value is named ``Uo`` in the C++ code and is only defined when using
+        two-point control.
         """
-        return self.profile(self.flame, 'Uo')
+        return self.flame.values("Uo")
 
     @property
     def left_control_point_temperature(self):
@@ -359,7 +367,7 @@ class FlameBase(Sim1D):
         """
         vals = np.empty(self.flame.n_points)
         for i in range(self.flame.n_points):
-            self.set_gas_state(i)
+            self.flame.update_state(i)
             vals[i] = self.gas.elemental_mass_fraction(m)
         return vals
 
@@ -382,21 +390,22 @@ class FlameBase(Sim1D):
         """
         vals = np.empty(self.flame.n_points)
         for i in range(self.flame.n_points):
-            self.set_gas_state(i)
+            self.flame.update_state(i)
             vals[i] = self.gas.elemental_mole_fraction(m)
         return vals
 
     def set_gas_state(self, point):
         """
-        Set the state of the the `Solution` object used for calculations
-        to the temperature and composition at the point with index
-        ``point``.
+        Set the state of the `Solution` object used for calculations to the temperature
+        and composition at the point with index ``point``.
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable with `Domain1D.updateState`.
         """
-        k0 = self.flame.component_index(self.gas.species_name(0))
-        Y = [self.value(self.flame, k, point)
-             for k in range(k0, k0 + self.gas.n_species)]
-        self.gas.set_unnormalized_mass_fractions(Y)
-        self.gas.TP = self.value(self.flame, 'T', point), self.P
+        warnings.warn("To be removed after Cantera 3.2. Replaceable with "
+                      "'Domain1D.updateState'.", DeprecationWarning)
+        self.flame.update_state(point)
 
     def to_array(self, domain=None, normalize=False):
         """
@@ -455,7 +464,13 @@ class FlameBase(Sim1D):
 
     @property
     def electric_field_enabled(self):
-        """ Get/Set whether or not to solve the Poisson's equation."""
+        """
+        Get/Set whether or not to solve the Poisson's equation.
+
+        Used in conjunction with the ``ion-transport`` transport model to model
+        diffusion of ionized species. See classes :ct:`IonFlow` and
+        :ct:`IonGasTransport`.
+        """
         return self.flame.electric_field_enabled
 
     @electric_field_enabled.setter
@@ -510,7 +525,7 @@ def _array_property(attr, size=None):
             vals = np.empty((getattr(self.gas, size), self.flame.n_points))
 
         for i in range(self.flame.n_points):
-            self.set_gas_state(i)
+            self.flame.update_state(i)
             vals[...,i] = getattr(self.gas, attr)
 
         return vals
@@ -558,7 +573,7 @@ for _attr in ['X', 'Y', 'concentrations', 'partial_molar_enthalpies',
 # Remove misleading examples and references to setters that don't exist
 FlameBase.X.__doc__ = "Array of mole fractions of size `n_species` x `n_points`"
 FlameBase.Y.__doc__ = "Array of mass fractions of size `n_species` x `n_points`"
-FlameBase.concentrations.__doc__ = ("Array of species concentrations [kmol/m^3]"
+FlameBase.concentrations.__doc__ = ("Array of species concentrations [kmol/m³]"
                                     " of size `n_species` x `n_points`")
 
 # Add properties with values for each reaction
@@ -656,8 +671,8 @@ class FreeFlame(FlameBase):
         Yeq = self.gas.Y
         u1 = self.inlet.mdot / self.gas.density
 
-        self.set_profile('velocity', locs, [u0, u0, u1, u1])
-        self.set_profile('T', locs, [T0, T0, Teq, Teq])
+        self.flame.set_profile('velocity', locs, [u0, u0, u1, u1])
+        self.flame.set_profile('T', locs, [T0, T0, Teq, Teq])
 
         # Pick the location of the fixed temperature point, using an existing
         # point if a reasonable choice exists
@@ -672,10 +687,10 @@ class FreeFlame(FlameBase):
             self.fixed_temperature = Tmid
 
         for n in range(self.gas.n_species):
-            self.set_profile(self.gas.species_name(n),
+            self.flame.set_profile(self.gas.species_name(n),
                              locs, [Y0[n], Y0[n], Yeq[n], Yeq[n]])
 
-    def solve(self, loglevel=1, refine_grid=True, auto=False, stage=1):
+    def solve(self, loglevel=1, refine_grid=True, auto=False, stage=None):
         """
         Solve the problem.
 
@@ -693,9 +708,18 @@ class FreeFlame(FlameBase):
             transport is enabled, an additional solution using these options
             will be calculated.
         :param stage: solution stage; only used when transport model is ``ionized-gas``.
+
+        .. deprecated:: 3.2
+
+            The ``stage`` argument will be removed after Cantera 3.2. Replaced by
+            setting the `electric_field_enabled` property.
         """
-        if self.flame.transport_model == 'ionized-gas':
-            self.flame.solving_stage = stage
+        if stage is not None:
+            warnings.warn("The `stage` argument will be removed after Cantera 3.2. "
+                          "Replaced by setting the `electric_field_enabled` property.",
+                          DeprecationWarning)
+            if self.flame.transport_model == 'ionized-gas':
+                self.flame.electric_field_enabled = (stage == 2)
 
         if not auto:
             return super().solve(loglevel, refine_grid, auto)
@@ -842,13 +866,13 @@ class BurnerFlame(FlameBase):
         u1 = self.burner.mdot / self.gas.density
 
         locs = [0.0, 0.2, 1.0]
-        self.set_profile('velocity', locs, [u0, u1, u1])
-        self.set_profile('T', locs, [T0, Teq, Teq])
+        self.flame.set_profile('velocity', locs, [u0, u1, u1])
+        self.flame.set_profile('T', locs, [T0, Teq, Teq])
         for n in range(self.gas.n_species):
-            self.set_profile(self.gas.species_name(n),
+            self.flame.set_profile(self.gas.species_name(n),
                              locs, [Y0[n], Yeq[n], Yeq[n]])
 
-    def solve(self, loglevel=1, refine_grid=True, auto=False, stage=1):
+    def solve(self, loglevel=1, refine_grid=True, auto=False, stage=None):
         """
         Solve the problem.
 
@@ -866,9 +890,18 @@ class BurnerFlame(FlameBase):
             transport is enabled, an additional solution using these options
             will be calculated.
         :param stage: solution stage; only used when transport model is ``ionized-gas``.
+
+        .. deprecated:: 3.2
+
+            The ``stage`` argument will be removed after Cantera 3.2. Replaced by
+            setting the `electric_field_enabled` property.
         """
-        if self.flame.transport_model == 'ionized-gas':
-            self.flame.solving_stage = stage
+        if stage is not None:
+            warnings.warn("The `stage` argument will be removed after Cantera 3.2. "
+                          "Replaced by setting the `electric_field_enabled` property.",
+                          DeprecationWarning)
+            if self.flame.transport_model == 'ionized-gas':
+                self.flame.electric_field_enabled = (stage == 2)
 
         # Use a callback function to check that the flame has not been blown off
         # the burner surface. If the user provided a callback, store this so it
@@ -898,9 +931,9 @@ class BurnerFlame(FlameBase):
         except FlameBlowoff:
             # The eventual solution for a blown off flame is the non-reacting
             # solution, so just set the state to this now
-            self.set_flat_profile(self.flame, 'T', self.T[0])
+            self.flame.set_flat_profile("T", self.T[0])
             for k,spec in enumerate(self.gas.species_names):
-                self.set_flat_profile(self.flame, spec, self.burner.Y[k])
+                self.flame.set_flat_profile(spec, self.burner.Y[k])
 
             self.set_steady_callback(original_callback)
             super().solve(loglevel, False, False)
@@ -1007,7 +1040,7 @@ class CounterflowDiffusionFlame(FlameBase):
         for j in range(nz):
             x = zz[j] - zz[0]
             zeta = f * (x - x0)
-            zmix = 0.5 * (1.0 - erf(zeta))
+            zmix = 0.5 * (1.0 - _erf(zeta))
             if zmix > zst:
                 Y[j] = Yeq + (Yin_f - Yeq) * (zmix - zst) / (1.0 - zst)
                 T[j] = Teq + (T0f - Teq) * (zmix - zst) / (1.0 - zst)
@@ -1019,17 +1052,17 @@ class CounterflowDiffusionFlame(FlameBase):
         T[-1] = T0o
         zrel = (zz - zz[0])/dz
 
-        self.set_profile('velocity', [0.0, 1.0], [u0f, -u0o])
-        self.set_profile('spread_rate', [0.0, x0/dz, 1.0], [0.0, a, 0.0])
-        self.set_profile("lambda", [0.0, 1.0], [L, L])
-        self.set_profile('T', zrel, T)
+        self.flame.set_profile('velocity', [0.0, 1.0], [u0f, -u0o])
+        self.flame.set_profile('spreadRate', [0.0, x0/dz, 1.0], [0.0, a, 0.0])
+        self.flame.set_profile("Lambda", [0.0, 1.0], [L, L])
+        self.flame.set_profile('T', zrel, T)
         for k,spec in enumerate(self.gas.species_names):
-            self.set_profile(spec, zrel, Y[:,k])
+            self.flame.set_profile(spec, zrel, Y[:,k])
 
     def extinct(self):
         return max(self.T) - max(self.fuel_inlet.T, self.oxidizer_inlet.T) < 10
 
-    def solve(self, loglevel=1, refine_grid=True, auto=False, stage=1):
+    def solve(self, loglevel=1, refine_grid=True, auto=False, stage=None):
         """
         Solve the problem.
 
@@ -1047,12 +1080,21 @@ class CounterflowDiffusionFlame(FlameBase):
             transport is enabled, an additional solution using these options
             will be calculated.
         :param stage: solution stage; only used when transport model is ``ionized-gas``.
+
+        .. deprecated:: 3.2
+
+            The ``stage`` argument will be removed after Cantera 3.2. Replaced by
+            setting the `electric_field_enabled` property.
         """
         if self.flame.transport_model == 'ionized-gas':
             warnings.warn(
                 "The 'ionized-gas' transport model is untested for "
                 "'CounterflowDiffusionFlame' objects.", UserWarning)
-            self.flame.solving_stage = stage
+            if stage is not None:
+                warnings.warn("The `stage` argument will be removed after Cantera 3.2. "
+                            "Replaced by setting the `electric_field_enabled` property.",
+                            DeprecationWarning)
+                self.flame.electric_field_enabled = (stage == 2)
 
         super().solve(loglevel, refine_grid, auto)
         # Do some checks if loglevel is set
@@ -1164,10 +1206,10 @@ class CounterflowDiffusionFlame(FlameBase):
             return np.abs(np.interp(z_stoich, self.grid, d_u_d_z))
 
         elif definition == 'potential_flow_fuel':
-            return np.sqrt(- self.L[0] / self.density[0])
+            return np.sqrt(- self.flame.radial_pressure_gradient[0] / self.density[0])
 
         elif definition == 'potential_flow_oxidizer':
-            return np.sqrt(- self.L[0] / self.density[-1])
+            return np.sqrt(- self.flame.radial_pressure_gradient[0] / self.density[-1])
 
         else:
             raise ValueError('Definition "' + definition + '" is not available')
@@ -1206,25 +1248,27 @@ class CounterflowDiffusionFlame(FlameBase):
         >>> f.mixture_fraction('Bilger')
         """
 
-        Yf = [self.value(self.flame, k, 0) for k in self.gas.species_names]
-        Yo = [self.value(self.flame, k, self.flame.n_points - 1)
-              for k in self.gas.species_names]
+        self.flame.update_state(0)
+        Yf = self.gas.Y
+        self.flame.update_state(self.flame.n_points - 1)
+        Yo = self.gas.Y
 
         vals = np.empty(self.flame.n_points)
         for i in range(self.flame.n_points):
-            self.set_gas_state(i)
+            self.flame.update_state(i)
             vals[i] = self.gas.mixture_fraction(Yf, Yo, 'mass', m)
         return vals
 
     @property
     def equivalence_ratio(self):
-        Yf = [self.value(self.flame, k, 0) for k in self.gas.species_names]
-        Yo = [self.value(self.flame, k, self.flame.n_points - 1)
-              for k in self.gas.species_names]
+        self.flame.update_state(0)
+        Yf = self.gas.Y
+        self.flame.update_state(self.flame.n_points - 1)
+        Yo = self.gas.Y
 
         vals = np.empty(self.flame.n_points)
         for i in range(self.flame.n_points):
-            self.set_gas_state(i)
+            self.flame.update_state(i)
             vals[i] = self.gas.equivalence_ratio(Yf, Yo, "mass")
         return vals
 
@@ -1303,20 +1347,19 @@ class ImpingingJet(FlameBase):
             Teq = self.gas.T
             Yeq = self.gas.Y
             locs = np.array([0.0, 0.3, 0.7, 1.0])
-            self.set_profile('T', locs, [T0, Teq, Teq, self.surface.T])
+            self.flame.set_profile('T', locs, [T0, Teq, Teq, self.surface.T])
             for k in range(self.gas.n_species):
-                self.set_profile(self.gas.species_name(k), locs,
-                                 [Y0[k], Yeq[k], Yeq[k], Yeq[k]])
+                self.flame.set_profile(self.gas.species_name(k), locs,
+                                       [Y0[k], Yeq[k], Yeq[k], Yeq[k]])
         else:
             locs = np.array([0.0, 1.0])
-            self.set_profile('T', locs, [T0, self.surface.T])
+            self.flame.set_profile('T', locs, [T0, self.surface.T])
             for k in range(self.gas.n_species):
-                self.set_profile(self.gas.species_name(k), locs,
-                                 [Y0[k], Y0[k]])
+                self.flame.set_profile(self.gas.species_name(k), locs, [Y0[k], Y0[k]])
 
         locs = np.array([0.0, 1.0])
-        self.set_profile('velocity', locs, [u0, 0.0])
-        self.set_profile('spread_rate', locs, [0.0, 0.0])
+        self.flame.set_profile("velocity", locs, [u0, 0.0])
+        self.flame.set_profile("spreadRate", locs, [0.0, 0.0])
 
 
 class CounterflowPremixedFlame(FlameBase):
@@ -1404,10 +1447,10 @@ class CounterflowPremixedFlame(FlameBase):
                                "must be positive")
 
         locs = np.array([0.0, 0.4, 0.6, 1.0])
-        self.set_profile('T', locs, [Tu, Tu, Teq, Tb])
+        self.flame.set_profile('T', locs, [Tu, Tu, Teq, Tb])
         for k in range(self.gas.n_species):
-            self.set_profile(self.gas.species_name(k), locs,
-                             [Yu[k], Yu[k], Yeq[k], Yb[k]])
+            self.flame.set_profile(self.gas.species_name(k), locs,
+                                   [Yu[k], Yu[k], Yeq[k], Yb[k]])
 
         # estimate strain rate
         self.gas.TPY = Teq, self.flame.P, Yeq
@@ -1418,9 +1461,9 @@ class CounterflowPremixedFlame(FlameBase):
         # estimate stagnation point
         x0 = rhou*uu * dz / (rhou*uu + rhob*ub)
 
-        self.set_profile('velocity', [0.0, 1.0], [uu, -ub])
-        self.set_profile('spread_rate', [0.0, x0/dz, 1.0], [0.0, a, 0.0])
-        self.set_profile("lambda", [0.0, 1.0], [L, L])
+        self.flame.set_profile("velocity", [0.0, 1.0], [uu, -ub])
+        self.flame.set_profile("spreadRate", [0.0, x0/dz, 1.0], [0.0, a, 0.0])
+        self.flame.set_profile("Lambda", [0.0, 1.0], [L, L])
 
 
 class CounterflowTwinPremixedFlame(FlameBase):
@@ -1491,10 +1534,10 @@ class CounterflowTwinPremixedFlame(FlameBase):
         Yb = self.gas.Y
 
         locs = np.array([0.0, 0.4, 0.6, 1.0])
-        self.set_profile('T', locs, [Tu, Tu, Tb, Tb])
+        self.flame.set_profile('T', locs, [Tu, Tu, Tb, Tb])
         for k in range(self.gas.n_species):
-            self.set_profile(self.gas.species_name(k), locs,
-                             [Yu[k], Yu[k], Yb[k], Yb[k]])
+            self.flame.set_profile(self.gas.species_name(k), locs,
+                                   [Yu[k], Yu[k], Yb[k], Yb[k]])
 
         # estimate strain rate
         zz = self.flame.grid
@@ -1502,6 +1545,6 @@ class CounterflowTwinPremixedFlame(FlameBase):
         a = 2 * uu / dz
         L = - rhou * a**2
 
-        self.set_profile('velocity', [0.0, 1.0], [uu, 0])
-        self.set_profile('spread_rate', [0.0, 1.0], [0.0, a])
-        self.set_profile("lambda", [0.0, 1.0], [L, L])
+        self.flame.set_profile("velocity", [0.0, 1.0], [uu, 0])
+        self.flame.set_profile("spreadRate", [0.0, 1.0], [0.0, a])
+        self.flame.set_profile("Lambda", [0.0, 1.0], [L, L])

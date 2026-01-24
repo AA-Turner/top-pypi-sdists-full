@@ -3,7 +3,7 @@ Type annotations for quicksight service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,6 +14,7 @@ Usage::
     from types_boto3_quicksight.paginator import (
         DescribeFolderPermissionsPaginator,
         DescribeFolderResolvedPermissionsPaginator,
+        ListActionConnectorsPaginator,
         ListAnalysesPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
@@ -23,6 +24,7 @@ Usage::
         ListDashboardsPaginator,
         ListDataSetsPaginator,
         ListDataSourcesPaginator,
+        ListFlowsPaginator,
         ListFolderMembersPaginator,
         ListFoldersForResourcePaginator,
         ListFoldersPaginator,
@@ -40,10 +42,12 @@ Usage::
         ListThemesPaginator,
         ListUserGroupsPaginator,
         ListUsersPaginator,
+        SearchActionConnectorsPaginator,
         SearchAnalysesPaginator,
         SearchDashboardsPaginator,
         SearchDataSetsPaginator,
         SearchDataSourcesPaginator,
+        SearchFlowsPaginator,
         SearchFoldersPaginator,
         SearchGroupsPaginator,
         SearchTopicsPaginator,
@@ -54,6 +58,7 @@ Usage::
 
     describe_folder_permissions_paginator: DescribeFolderPermissionsPaginator = client.get_paginator("describe_folder_permissions")
     describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
+    list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
     list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
     list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
@@ -63,6 +68,7 @@ Usage::
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
     list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
     list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+    list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
     list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator("list_folder_members")
     list_folders_for_resource_paginator: ListFoldersForResourcePaginator = client.get_paginator("list_folders_for_resource")
     list_folders_paginator: ListFoldersPaginator = client.get_paginator("list_folders")
@@ -80,10 +86,12 @@ Usage::
     list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
     list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
+    search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
     search_analyses_paginator: SearchAnalysesPaginator = client.get_paginator("search_analyses")
     search_dashboards_paginator: SearchDashboardsPaginator = client.get_paginator("search_dashboards")
     search_data_sets_paginator: SearchDataSetsPaginator = client.get_paginator("search_data_sets")
     search_data_sources_paginator: SearchDataSourcesPaginator = client.get_paginator("search_data_sources")
+    search_flows_paginator: SearchFlowsPaginator = client.get_paginator("search_flows")
     search_folders_paginator: SearchFoldersPaginator = client.get_paginator("search_folders")
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
@@ -102,6 +110,8 @@ from .type_defs import (
     DescribeFolderPermissionsResponseTypeDef,
     DescribeFolderResolvedPermissionsRequestPaginateTypeDef,
     DescribeFolderResolvedPermissionsResponseTypeDef,
+    ListActionConnectorsRequestPaginateTypeDef,
+    ListActionConnectorsResponseTypeDef,
     ListAnalysesRequestPaginateTypeDef,
     ListAnalysesResponseTypeDef,
     ListAssetBundleExportJobsRequestPaginateTypeDef,
@@ -120,6 +130,8 @@ from .type_defs import (
     ListDataSetsResponseTypeDef,
     ListDataSourcesRequestPaginateTypeDef,
     ListDataSourcesResponseTypeDef,
+    ListFlowsInputPaginateTypeDef,
+    ListFlowsOutputTypeDef,
     ListFolderMembersRequestPaginateTypeDef,
     ListFolderMembersResponseTypeDef,
     ListFoldersForResourceRequestPaginateTypeDef,
@@ -154,6 +166,8 @@ from .type_defs import (
     ListUserGroupsResponseTypeDef,
     ListUsersRequestPaginateTypeDef,
     ListUsersResponseTypeDef,
+    SearchActionConnectorsRequestPaginateTypeDef,
+    SearchActionConnectorsResponseTypeDef,
     SearchAnalysesRequestPaginateTypeDef,
     SearchAnalysesResponseTypeDef,
     SearchDashboardsRequestPaginateTypeDef,
@@ -162,6 +176,8 @@ from .type_defs import (
     SearchDataSetsResponseTypeDef,
     SearchDataSourcesRequestPaginateTypeDef,
     SearchDataSourcesResponseTypeDef,
+    SearchFlowsInputPaginateTypeDef,
+    SearchFlowsOutputTypeDef,
     SearchFoldersRequestPaginateTypeDef,
     SearchFoldersResponseTypeDef,
     SearchGroupsRequestPaginateTypeDef,
@@ -178,6 +194,7 @@ else:
 __all__ = (
     "DescribeFolderPermissionsPaginator",
     "DescribeFolderResolvedPermissionsPaginator",
+    "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
@@ -187,6 +204,7 @@ __all__ = (
     "ListDashboardsPaginator",
     "ListDataSetsPaginator",
     "ListDataSourcesPaginator",
+    "ListFlowsPaginator",
     "ListFolderMembersPaginator",
     "ListFoldersForResourcePaginator",
     "ListFoldersPaginator",
@@ -204,10 +222,12 @@ __all__ = (
     "ListThemesPaginator",
     "ListUserGroupsPaginator",
     "ListUsersPaginator",
+    "SearchActionConnectorsPaginator",
     "SearchAnalysesPaginator",
     "SearchDashboardsPaginator",
     "SearchDataSetsPaginator",
     "SearchDataSourcesPaginator",
+    "SearchFlowsPaginator",
     "SearchFoldersPaginator",
     "SearchGroupsPaginator",
     "SearchTopicsPaginator",
@@ -249,6 +269,24 @@ class DescribeFolderResolvedPermissionsPaginator(_DescribeFolderResolvedPermissi
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/DescribeFolderResolvedPermissions.html#QuickSight.Paginator.DescribeFolderResolvedPermissions.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#describefolderresolvedpermissionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListActionConnectorsPaginatorBase = Paginator[ListActionConnectorsResponseTypeDef]
+else:
+    _ListActionConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListActionConnectorsPaginator(_ListActionConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListActionConnectors.html#QuickSight.Paginator.ListActionConnectors)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listactionconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListActionConnectorsRequestPaginateTypeDef]
+    ) -> PageIterator[ListActionConnectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListActionConnectors.html#QuickSight.Paginator.ListActionConnectors.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listactionconnectorspaginator)
         """
 
 if TYPE_CHECKING:
@@ -411,6 +449,24 @@ class ListDataSourcesPaginator(_ListDataSourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDataSources.html#QuickSight.Paginator.ListDataSources.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listdatasourcespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListFlowsPaginatorBase = Paginator[ListFlowsOutputTypeDef]
+else:
+    _ListFlowsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListFlowsPaginator(_ListFlowsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListFlows.html#QuickSight.Paginator.ListFlows)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listflowspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFlowsInputPaginateTypeDef]
+    ) -> PageIterator[ListFlowsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListFlows.html#QuickSight.Paginator.ListFlows.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listflowspaginator)
         """
 
 if TYPE_CHECKING:
@@ -722,6 +778,24 @@ class ListUsersPaginator(_ListUsersPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _SearchActionConnectorsPaginatorBase = Paginator[SearchActionConnectorsResponseTypeDef]
+else:
+    _SearchActionConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchActionConnectorsPaginator(_SearchActionConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchActionConnectors.html#QuickSight.Paginator.SearchActionConnectors)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#searchactionconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchActionConnectorsRequestPaginateTypeDef]
+    ) -> PageIterator[SearchActionConnectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchActionConnectors.html#QuickSight.Paginator.SearchActionConnectors.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#searchactionconnectorspaginator)
+        """
+
+if TYPE_CHECKING:
     _SearchAnalysesPaginatorBase = Paginator[SearchAnalysesResponseTypeDef]
 else:
     _SearchAnalysesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -791,6 +865,24 @@ class SearchDataSourcesPaginator(_SearchDataSourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchDataSources.html#QuickSight.Paginator.SearchDataSources.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#searchdatasourcespaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchFlowsPaginatorBase = Paginator[SearchFlowsOutputTypeDef]
+else:
+    _SearchFlowsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchFlowsPaginator(_SearchFlowsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchFlows.html#QuickSight.Paginator.SearchFlows)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#searchflowspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchFlowsInputPaginateTypeDef]
+    ) -> PageIterator[SearchFlowsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchFlows.html#QuickSight.Paginator.SearchFlows.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#searchflowspaginator)
         """
 
 if TYPE_CHECKING:

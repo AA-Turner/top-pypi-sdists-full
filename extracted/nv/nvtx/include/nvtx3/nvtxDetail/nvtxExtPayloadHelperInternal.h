@@ -64,7 +64,8 @@
         /*.flags = */schema_flags, \
         /*.entries = */struct_id##Schema, /*.numEntries = */num_entries, \
         /*.payloadStaticSize = */sizeof(struct_id), \
-        /*.packAlign = */0, /*.schemaId = */schema_id};
+        /*.packAlign = */0, /*.schemaId = */schema_id, \
+        /*.extension = */NVTX_NULLPTR};
 
 
 /*****************************************************************/
@@ -81,9 +82,23 @@
     0, NVTX_PAYLOAD_ENTRY_##etype, name, desc, arraylen,
 #define _NVTX_PAYLOAD_SCHEMA_EF6(member, etype, name, desc, arraylen, flags) \
     NVTX_PAYLOAD_ENTRY_FLAG_##flags, NVTX_PAYLOAD_ENTRY_##etype, name, desc, arraylen,
+#define _NVTX_PAYLOAD_SCHEMA_EF7(member, etype, name, desc, arraylen, flags, semantics) \
+  NVTX_PAYLOAD_ENTRY_FLAG_##flags, NVTX_PAYLOAD_ENTRY_##etype, name, desc, arraylen,
 
 #define _NVTX_PAYLOAD_SCHEMA_ENTRY_FRONT(...) \
     NVTX_EXT_CONCAT(_NVTX_PAYLOAD_SCHEMA_EF, NVTX_EXT_NUM_ARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define _NVTX_PAYLOAD_SCHEMA_EB2(member, etype)                       NVTX_NULLPTR, NVTX_NULLPTR
+#define _NVTX_PAYLOAD_SCHEMA_EB3(member, etype, name)                 NVTX_NULLPTR, NVTX_NULLPTR
+#define _NVTX_PAYLOAD_SCHEMA_EB4(member, etype, name, desc)           NVTX_NULLPTR, NVTX_NULLPTR
+#define _NVTX_PAYLOAD_SCHEMA_EB5(member, etype, name, desc, arraylen) NVTX_NULLPTR, NVTX_NULLPTR
+#define _NVTX_PAYLOAD_SCHEMA_EB6(member, etype, name, desc, arraylen, flags) \
+  NVTX_NULLPTR, NVTX_NULLPTR
+#define _NVTX_PAYLOAD_SCHEMA_EB7(member, etype, name, desc, arraylen, flags, semantics) \
+  semantics, NVTX_NULLPTR
+
+#define _NVTX_PAYLOAD_SCHEMA_ENTRY_BACK(...) \
+  NVTX_EXT_CONCAT(_NVTX_PAYLOAD_SCHEMA_EB, NVTX_EXT_NUM_ARGS(__VA_ARGS__))(__VA_ARGS__)
 
 /* Second part of schema entry (append struct member).
    (At least two arguments are passed (`member` and `etype`). */
@@ -92,10 +107,11 @@
 /* Resolve to schema entry. `entry` is `(ctype, name, ...)`. */
 #define _NVTX_PAYLOAD_SCHEMA_ENTRY(struct_id, entry) \
     {_NVTX_PAYLOAD_SCHEMA_ENTRY_FRONT entry \
-    offsetof(struct_id, _NVTX_PAYLOAD_SCHEMA_ENTRY_END entry)},
+    offsetof(struct_id, _NVTX_PAYLOAD_SCHEMA_ENTRY_END entry), \
+    _NVTX_PAYLOAD_SCHEMA_ENTRY_BACK entry},
 
 /* Handle up to 16 schema entries. */
-#define _NVTX_PAYLOAD_SME1(s,e1,...)  _NVTX_PAYLOAD_SCHEMA_ENTRY(s,e1)
+#define _NVTX_PAYLOAD_SME1(s,e1)      _NVTX_PAYLOAD_SCHEMA_ENTRY(s,e1)
 #define _NVTX_PAYLOAD_SME2(s,e1,...)  _NVTX_PAYLOAD_SCHEMA_ENTRY(s,e1) _NVTX_PAYLOAD_SME1(s,__VA_ARGS__)
 #define _NVTX_PAYLOAD_SME3(s,e1,...)  _NVTX_PAYLOAD_SCHEMA_ENTRY(s,e1) _NVTX_PAYLOAD_SME2(s,__VA_ARGS__)
 #define _NVTX_PAYLOAD_SME4(s,e1,...)  _NVTX_PAYLOAD_SCHEMA_ENTRY(s,e1) _NVTX_PAYLOAD_SME3(s,__VA_ARGS__)
@@ -115,7 +131,7 @@
 #define _NVTX_PAYLOAD_SCHEMA_ENTRIES(struct_id, ...) \
   nvtxPayloadSchemaEntry_t struct_id##Schema[] = { \
     NVTX_EXT_CONCAT(_NVTX_PAYLOAD_SME, NVTX_EXT_NUM_ARGS(__VA_ARGS__))(struct_id, __VA_ARGS__) \
-    {0, 0} \
+    {0, 0, NVTX_NULLPTR, NVTX_NULLPTR, 0, 0, NVTX_NULLPTR, NVTX_NULLPTR} \
   };
 
 /*
@@ -173,7 +189,7 @@
 
 /* Handle up to 16 struct members. */
 #define _NVTX_PAYLOAD_STRUCT_ENTRY(entry) _NVTX_PAYLOAD_STRUCT_ENTRY_ entry
-#define _NVTX_PAYLOAD_STRUCT1(e1, ...)  _NVTX_PAYLOAD_STRUCT_ENTRY(e1)
+#define _NVTX_PAYLOAD_STRUCT1(e1)       _NVTX_PAYLOAD_STRUCT_ENTRY(e1)
 #define _NVTX_PAYLOAD_STRUCT2(e1, ...)  _NVTX_PAYLOAD_STRUCT_ENTRY(e1) _NVTX_PAYLOAD_STRUCT1(__VA_ARGS__)
 #define _NVTX_PAYLOAD_STRUCT3(e1, ...)  _NVTX_PAYLOAD_STRUCT_ENTRY(e1) _NVTX_PAYLOAD_STRUCT2(__VA_ARGS__)
 #define _NVTX_PAYLOAD_STRUCT4(e1, ...)  _NVTX_PAYLOAD_STRUCT_ENTRY(e1) _NVTX_PAYLOAD_STRUCT3(__VA_ARGS__)
@@ -232,7 +248,7 @@
     offsetof(struct_id, _NVTX_PAYLOAD_SCHEMA_INIT_ENTRY_END entry)},
 
 /* Handle up to 16 schema entries. */
-#define _NVTX_PAYLOAD_INIT_SME1(s, e1, ...)  _NVTX_PAYLOAD_SCHEMA_INIT_ENTRY(s, e1)
+#define _NVTX_PAYLOAD_INIT_SME1(s, e1)       _NVTX_PAYLOAD_SCHEMA_INIT_ENTRY(s, e1)
 #define _NVTX_PAYLOAD_INIT_SME2(s, e1, ...)  _NVTX_PAYLOAD_SCHEMA_INIT_ENTRY(s, e1) _NVTX_PAYLOAD_INIT_SME1(s, __VA_ARGS__)
 #define _NVTX_PAYLOAD_INIT_SME3(s, e1, ...)  _NVTX_PAYLOAD_SCHEMA_INIT_ENTRY(s, e1) _NVTX_PAYLOAD_INIT_SME2(s, __VA_ARGS__)
 #define _NVTX_PAYLOAD_INIT_SME4(s, e1, ...)  _NVTX_PAYLOAD_SCHEMA_INIT_ENTRY(s, e1) _NVTX_PAYLOAD_INIT_SME3(s, __VA_ARGS__)
@@ -252,7 +268,7 @@
 #define _NVTX_PAYLOAD_SCHEMA_INIT_ENTRIES(struct_id, ...) \
   nvtxPayloadSchemaEntry_t struct_id##Schema[] = { \
     NVTX_EXT_CONCAT(_NVTX_PAYLOAD_INIT_SME, NVTX_EXT_NUM_ARGS(__VA_ARGS__))(struct_id, __VA_ARGS__) \
-    {0, 0} \
+    {0, 0, NVTX_NULLPTR, NVTX_NULLPTR, 0, 0, NVTX_NULLPTR, NVTX_NULLPTR} \
   };
 
 /*

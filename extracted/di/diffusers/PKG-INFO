@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: diffusers
-Version: 0.35.1
+Version: 0.36.0
 Summary: State-of-the-art diffusion in PyTorch and JAX.
 Home-page: https://github.com/huggingface/diffusers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/diffusers/graphs/contributors)
@@ -23,7 +23,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: importlib_metadata
 Requires-Dist: filelock
-Requires-Dist: huggingface-hub>=0.34.0
+Requires-Dist: httpx<1.0.0
+Requires-Dist: huggingface-hub<2.0,>=0.34.0
 Requires-Dist: numpy
 Requires-Dist: regex!=2019.12.17
 Requires-Dist: requests
@@ -43,6 +44,7 @@ Requires-Dist: protobuf<4,>=3.20.3; extra == "training"
 Requires-Dist: tensorboard; extra == "training"
 Requires-Dist: Jinja2; extra == "training"
 Requires-Dist: peft>=0.17.0; extra == "training"
+Requires-Dist: timm; extra == "training"
 Provides-Extra: test
 Requires-Dist: compel==0.1.8; extra == "test"
 Requires-Dist: GitPython<3.1.19; extra == "test"
@@ -78,6 +80,8 @@ Requires-Dist: accelerate>=0.31.0; extra == "optimum-quanto"
 Provides-Extra: torchao
 Requires-Dist: torchao>=0.7.0; extra == "torchao"
 Requires-Dist: accelerate>=0.31.0; extra == "torchao"
+Provides-Extra: nvidia-modelopt
+Requires-Dist: nvidia_modelopt[hf]>=0.33.1; extra == "nvidia-modelopt"
 Provides-Extra: flax
 Requires-Dist: jax>=0.4.1; extra == "flax"
 Requires-Dist: jaxlib>=0.4.1; extra == "flax"
@@ -112,6 +116,7 @@ Requires-Dist: protobuf<4,>=3.20.3; extra == "dev"
 Requires-Dist: tensorboard; extra == "dev"
 Requires-Dist: Jinja2; extra == "dev"
 Requires-Dist: peft>=0.17.0; extra == "dev"
+Requires-Dist: timm; extra == "dev"
 Requires-Dist: hf-doc-builder>=0.3.0; extra == "dev"
 Requires-Dist: torch>=1.4; extra == "dev"
 Requires-Dist: accelerate>=0.31.0; extra == "dev"
@@ -170,7 +175,7 @@ limitations under the License.
 
 ## Installation
 
-We recommend installing 🤗 Diffusers in a virtual environment from PyPI or Conda. For more details about installing [PyTorch](https://pytorch.org/get-started/locally/) and [Flax](https://flax.readthedocs.io/en/latest/#installation), please refer to their official documentation.
+We recommend installing 🤗 Diffusers in a virtual environment from PyPI or Conda. For more details about installing [PyTorch](https://pytorch.org/get-started/locally/), please refer to their official documentation.
 
 ### PyTorch
 
@@ -184,14 +189,6 @@ With `conda` (maintained by the community):
 
 ```sh
 conda install -c conda-forge diffusers
-```
-
-### Flax
-
-With `pip` (official package):
-
-```bash
-pip install --upgrade diffusers[flax]
 ```
 
 ### Apple Silicon (M1/M2) support
@@ -312,7 +309,7 @@ Also, say 👋 in our public Discord channel <a href="https://discord.gg/G7tWnz9
   <tr style="border-top: 2px solid black">
     <td>Text-guided Image Inpainting</td>
     <td><a href="https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/inpaint">Stable Diffusion Inpainting</a></td>
-      <td><a href="https://huggingface.co/runwayml/stable-diffusion-inpainting"> runwayml/stable-diffusion-inpainting </a></td>
+      <td><a href="https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-inpainting"> stable-diffusion-v1-5/stable-diffusion-inpainting </a></td>
   </tr>
   <tr style="border-top: 2px solid black">
     <td>Image Variation</td>

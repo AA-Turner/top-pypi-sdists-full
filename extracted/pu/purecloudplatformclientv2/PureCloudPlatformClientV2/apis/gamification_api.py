@@ -1131,12 +1131,13 @@ class GamificationApi(object):
         :param str sort_metric_id: Sort Metric Id
         :param str sort_order: Sort order
         :param str user_ids: A list of up to 100 comma-separated user Ids
+        :param str reports_to: The reportsTo used by ABAC policies.
         :return: InsightsSummary
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['filter_type', 'filter_id', 'granularity', 'comparative_period_start_workday', 'primary_period_start_workday', 'page_size', 'page_number', 'sort_key', 'sort_metric_id', 'sort_order', 'user_ids']
+        all_params = ['filter_type', 'filter_id', 'granularity', 'comparative_period_start_workday', 'primary_period_start_workday', 'page_size', 'page_number', 'sort_key', 'sort_metric_id', 'sort_order', 'user_ids', 'reports_to']
         all_params.append('callback')
 
         params = locals()
@@ -1192,6 +1193,8 @@ class GamificationApi(object):
             query_params['sortOrder'] = params['sort_order']
         if 'user_ids' in params:
             query_params['userIds'] = params['user_ids']
+        if 'reports_to' in params:
+            query_params['reportsTo'] = params['reports_to']
 
         header_params = {}
 
@@ -1555,6 +1558,108 @@ class GamificationApi(object):
                                             callback=params.get('callback'))
         return response
 
+    def get_gamification_insights_managers(self, filter_type: str, filter_id: str, granularity: str, start_workday: date, **kwargs) -> 'InsightsAgents':
+        """
+        Query managers in a profile during a period of time
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.get_gamification_insights_managers(filter_type, filter_id, granularity, start_workday, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str filter_type: Filter type for the query request. (required)
+        :param str filter_id: ID for the filter type. (required)
+        :param str granularity: Granularity (required)
+        :param date start_workday: The start work day. Dates are represented as an ISO-8601 string. For example: yyyy-MM-dd (required)
+        :param int page_size: Page size
+        :param int page_number: Page number
+        :return: InsightsAgents
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['filter_type', 'filter_id', 'granularity', 'start_workday', 'page_size', 'page_number']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_gamification_insights_managers" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'filter_type' is set
+        if ('filter_type' not in params) or (params['filter_type'] is None):
+            raise ValueError("Missing the required parameter `filter_type` when calling `get_gamification_insights_managers`")
+        # verify the required parameter 'filter_id' is set
+        if ('filter_id' not in params) or (params['filter_id'] is None):
+            raise ValueError("Missing the required parameter `filter_id` when calling `get_gamification_insights_managers`")
+        # verify the required parameter 'granularity' is set
+        if ('granularity' not in params) or (params['granularity'] is None):
+            raise ValueError("Missing the required parameter `granularity` when calling `get_gamification_insights_managers`")
+        # verify the required parameter 'start_workday' is set
+        if ('start_workday' not in params) or (params['start_workday'] is None):
+            raise ValueError("Missing the required parameter `start_workday` when calling `get_gamification_insights_managers`")
+
+
+        resource_path = '/api/v2/gamification/insights/managers'.replace('{format}', 'json')
+        path_params = {}
+
+        query_params = {}
+        if 'filter_type' in params:
+            query_params['filterType'] = params['filter_type']
+        if 'filter_id' in params:
+            query_params['filterId'] = params['filter_id']
+        if 'granularity' in params:
+            query_params['granularity'] = params['granularity']
+        if 'start_workday' in params:
+            query_params['startWorkday'] = params['start_workday']
+        if 'page_size' in params:
+            query_params['pageSize'] = params['page_size']
+        if 'page_number' in params:
+            query_params['pageNumber'] = params['page_number']
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'GET',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='InsightsAgents',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
     def get_gamification_insights_members(self, filter_type: str, filter_id: str, granularity: str, start_workday: date, **kwargs) -> 'InsightsAgents':
         """
         Query users in a profile during a period of time
@@ -1574,12 +1679,13 @@ class GamificationApi(object):
         :param str filter_id: ID for the filter type. (required)
         :param str granularity: Granularity (required)
         :param date start_workday: The start work day. Dates are represented as an ISO-8601 string. For example: yyyy-MM-dd (required)
+        :param str reports_to: The reportsTo used by ABAC policies.
         :return: InsightsAgents
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['filter_type', 'filter_id', 'granularity', 'start_workday']
+        all_params = ['filter_type', 'filter_id', 'granularity', 'start_workday', 'reports_to']
         all_params.append('callback')
 
         params = locals()
@@ -1618,6 +1724,8 @@ class GamificationApi(object):
             query_params['granularity'] = params['granularity']
         if 'start_workday' in params:
             query_params['startWorkday'] = params['start_workday']
+        if 'reports_to' in params:
+            query_params['reportsTo'] = params['reports_to']
 
         header_params = {}
 
@@ -1675,12 +1783,13 @@ class GamificationApi(object):
         :param str sort_metric_id: Sort Metric Id
         :param int section_size: The number of top and bottom users to return before ties
         :param str user_ids: A list of up to 100 comma-separated user Ids
+        :param str reports_to: The reportsTo used by ABAC policies.
         :return: InsightsRankings
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['filter_type', 'filter_id', 'granularity', 'comparative_period_start_workday', 'primary_period_start_workday', 'sort_key', 'sort_metric_id', 'section_size', 'user_ids']
+        all_params = ['filter_type', 'filter_id', 'granularity', 'comparative_period_start_workday', 'primary_period_start_workday', 'sort_key', 'sort_metric_id', 'section_size', 'user_ids', 'reports_to']
         all_params.append('callback')
 
         params = locals()
@@ -1735,6 +1844,8 @@ class GamificationApi(object):
             query_params['sectionSize'] = params['section_size']
         if 'user_ids' in params:
             query_params['userIds'] = params['user_ids']
+        if 'reports_to' in params:
+            query_params['reportsTo'] = params['reports_to']
 
         header_params = {}
 

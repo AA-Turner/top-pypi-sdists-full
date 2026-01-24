@@ -4,10 +4,10 @@ flask_security.mail_util
 
 Utility class providing methods for validating, normalizing and sending emails.
 
-:copyright: (c) 2020-2024 by J. Christopher Wagner (jwag).
+:copyright: (c) 2020-2025 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
-While this default implementation uses Flask-Mailman - we want to make sure that
+While this default implementation uses Flask-Mail - we want to make sure that
 Flask-Mailman isn't REQUIRED (if this implementation isn't used).
 """
 
@@ -31,6 +31,7 @@ class EmailValidateException(ValueError):
     """
 
     def __init__(self, message: str) -> None:
+        super().__init__(message)
         self.msg = message
 
 
@@ -79,7 +80,7 @@ class MailUtil:
         so we cast to str() here to force localization.
         """
 
-        if current_app.extensions.get("mailman", None):
+        if current_app.extensions.get("mailman", None):  # pragma: no cover
             from flask_mailman import EmailMultiAlternatives, Mail
 
             # Flask-Mailman doesn't appear to take a tuple - a bug has been filed
@@ -104,7 +105,7 @@ class MailUtil:
                     msg.attach_alternative(html, "text/html")
                 msg.send()
 
-        elif current_app.extensions.get("mail", None):  # pragma: no cover
+        elif current_app.extensions.get("mail", None):
             from flask_mail import Message
 
             # In Flask-Mail, sender can be a two element tuple -- (name, address)

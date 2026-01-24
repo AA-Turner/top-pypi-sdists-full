@@ -31,7 +31,16 @@ general_requirements = [
     "StrEnum >=0.4.8, <0.5.0",  # 3.11.x backport
     "dpath >=2.2.0, <3.0",
     "numexpr >=2.10.1, <3.0",
-    "numpy >=1.24.2, <2.0",
+    # NumPy 1.24.2 supports Python 3.8 to 3.11
+    # Numpy 2.0.2 supports Python 3.9 to 3.12
+    # Numpy 2.1.2 supports Python 3.10 to 3.12
+    "numpy >=1.24.2, <2.0; python_version < '3.11'",
+    # NumPy 1.26.0 supports Python 3.9 to 3.12
+    "numpy >=1.26.0, <=3; python_version <= '3.12'",
+    # NumPy 2.1.0 supports Python 3.10 to 3.13
+    "numpy >=2.1.0, <=3; python_version >= '3.13'",
+    # NumPy 2.3.2 supports Python 3.11 to 3.14
+    # "numpy >=2.3.2, <3; python_version >= '3.14'",
     "pendulum >=3.0.0, <4.0.0",
     "psutil >=5.9.4, <6.0",
     "pytest >=8.3.3, <9.0",
@@ -40,10 +49,14 @@ general_requirements = [
 ]
 
 api_requirements = [
-    "Flask >=2.2.3, <3.0",
+    "Flask >=2.2.3, <4.0",
     "Flask-Cors >=3.0.10, <4.0",
     "gunicorn >=21.0, <22.0",
-    "Werkzeug >=2.2.3, <3.0",
+    "Werkzeug >=2.2.3, <4.0",
+]
+
+excel_requirements = [
+    "openpyxl >=3.1.2, <4.0",
 ]
 
 dev_requirements = [
@@ -66,27 +79,27 @@ dev_requirements = [
     "ruff >=0.6.9, <1.0",
     "ruff-lsp >=0.0.57, <1.0",
     *api_requirements,
+    *excel_requirements,
 ]
 
 setup(
     name="OpenFisca-Core",
-    version="43.3.11",
+    version="44.2.1",
     author="OpenFisca Team",
     author_email="contact@openfisca.org",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
-        "License :: OSI Approved :: GNU Affero General Public License v3",
         "Operating System :: POSIX",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Information Analysis",
     ],
     description="A versatile microsimulation free software",
     keywords="benefit microsimulation social tax",
-    license="https://www.fsf.org/licensing/licenses/agpl-3.0.html",
+    license="License-Expression :: AGPL-3.0-or-later",
     license_files=("LICENSE",),
     url="https://github.com/openfisca/openfisca-core",
     long_description=long_description,
@@ -112,6 +125,7 @@ setup(
             "wheel >=0.40.0, <0.41.0",
         ],
         "tracker": ["OpenFisca-Tracker >=0.4.0, <0.5.0"],
+        "excel": excel_requirements,
     },
     include_package_data=True,  # Will read MANIFEST.in
     install_requires=general_requirements,

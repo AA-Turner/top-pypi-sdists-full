@@ -117,7 +117,7 @@ class StaticStructureFactorTest:
         L = 10
         N = 1000
         sf = self.build_structure_factor_object(*large_k_params)
-        box, points = freud.data.make_random_system(L, N)
+        box, points = freud.data.make_random_system(L, N, seed=1)
         system = freud.AABBQuery.from_system((box, points))
         A_points = system.points[: N // 3]
         B_points = system.points[N // 3 :]
@@ -129,7 +129,7 @@ class StaticStructureFactorTest:
         L = 10
         N = 1000
         sf = self.build_structure_factor_object(*large_k_params)
-        box, points = freud.data.make_random_system(L, N)
+        box, points = freud.data.make_random_system(L, N, seed=1)
         system = freud.AABBQuery.from_system((box, points))
         N_A = N // 3
         A_points = system.points[:N_A]
@@ -141,14 +141,14 @@ class StaticStructureFactorTest:
         L = 10
         N = 1000
         sf = self.build_structure_factor_object(*large_k_params)
-        box, points = freud.data.make_random_system(L, N)
+        box, points = freud.data.make_random_system(L, N, seed=1)
         system = freud.AABBQuery.from_system((box, points))
         sf.compute(system)
         npt.assert_allclose(np.mean(sf.S_k), 1, rtol=1e-5, atol=2e-2)
 
     def test_attribute_access(self, sf_params):
         """Ensure parameters are initialized properly."""
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        _bins, k_max, k_min, _num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
 
         # only test common attribute in the super implementation
@@ -186,7 +186,7 @@ class StaticStructureFactorTest:
 
     def test_attribute_shapes(self, sf_params):
         """Ensure attributes have the right shape."""
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        bins, k_max, k_min, _num_sampled_k_points = sf_params
 
         sf = self.build_structure_factor_object(*sf_params)
 
@@ -206,7 +206,7 @@ class StaticStructureFactorTest:
         L = 10
         N = 1000
         sf = self.build_structure_factor_object(*sf_params_kmin_zero)
-        box, points = freud.data.make_random_system(L, N)
+        box, points = freud.data.make_random_system(L, N, seed=1)
         system = freud.AABBQuery.from_system((box, points))
         sf.compute(system)
         assert np.isclose(sf.S_k[0], N)
@@ -219,10 +219,10 @@ class StaticStructureFactorTest:
         # points. We test N points, N*2 points, and N*3 points. On average, the
         # number of points is N * 2.
         for i in range(1, 4):
-            box, points = freud.data.make_random_system(L, N * i)
+            box, points = freud.data.make_random_system(L, N * i, seed=1)
             sf.compute((box, points), reset=False)
         assert np.isclose(sf.S_k[0], N * 2)
-        box, points = freud.data.make_random_system(L, N * 2)
+        box, points = freud.data.make_random_system(L, N * 2, seed=1)
         sf.compute((box, points), reset=True)
         assert np.isclose(sf.S_k[0], N * 2)
 
@@ -249,7 +249,7 @@ class TestStaticStructureFactorDebye(StaticStructureFactorTest):
 
         sf1 = self.build_structure_factor_object(bins, k_max)
         sf2 = self.build_structure_factor_object(upper_bins, k_max, k_min=k_min)
-        box, points = freud.data.make_random_system(L, N)
+        box, points = freud.data.make_random_system(L, N, seed=1)
         system = freud.AABBQuery.from_system((box, points))
         sf1.compute(system)
         sf2.compute(system)
@@ -262,13 +262,13 @@ class TestStaticStructureFactorDebye(StaticStructureFactorTest):
         """Ensure parameters are initialized properly."""
         super().test_attribute_access(sf_params)
 
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        bins, _k_max, _k_min, _num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
         assert sf.num_k_values == bins
 
     def test_bin_precision(self, sf_params):
         """Ensure bin edges and bounds are precise."""
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        bins, k_max, k_min, _num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
         expected_k_values = np.linspace(k_min, k_max, bins)
         npt.assert_allclose(sf.k_values, expected_k_values, rtol=1e-5, atol=1e-5)
@@ -283,7 +283,7 @@ class TestStaticStructureFactorDebye(StaticStructureFactorTest):
         """Ensure attributes have the right shape."""
         super().test_attribute_shapes(sf_params)
 
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        bins, _k_max, _k_min, _num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
 
         assert sf.k_values.shape == (bins,)
@@ -379,7 +379,7 @@ class TestStaticStructureFactorDebye(StaticStructureFactorTest):
         L = 10
         N = 100
         sf = freud.diffraction.StaticStructureFactorDebye(num_k_values=100, k_max=10)
-        box, points = freud.data.make_random_system(L, N, is2D=True)
+        box, points = freud.data.make_random_system(L, N, is2D=True, seed=1)
         sf.compute((box, points))
 
         # compute structure factor using python implementation
@@ -405,7 +405,7 @@ class TestStaticStructureFactorDirect(StaticStructureFactorTest):
 
         sf1 = self.build_structure_factor_object(bins, k_max)
         sf2 = self.build_structure_factor_object(upper_bins, k_max, k_min=k_min)
-        box, points = freud.data.make_random_system(L, N)
+        box, points = freud.data.make_random_system(L, N, seed=1)
         system = freud.AABBQuery.from_system((box, points))
         sf1.compute(system)
         sf2.compute(system)
@@ -421,7 +421,7 @@ class TestStaticStructureFactorDirect(StaticStructureFactorTest):
         """Ensure parameters are initialized properly."""
         super().test_attribute_access(sf_params)
 
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        _bins, _k_max, _k_min, num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
         assert sf.num_sampled_k_points == num_sampled_k_points
         with pytest.raises(AttributeError):
@@ -432,7 +432,7 @@ class TestStaticStructureFactorDirect(StaticStructureFactorTest):
     )
     def test_bin_precision(self, sf_params):
         """Ensure bin edges and bounds are precise."""
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        bins, k_max, k_min, _num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
         expected_bin_edges = np.histogram_bin_edges(
             np.array([0], dtype=np.float32), bins=bins, range=[k_min, k_max]
@@ -451,7 +451,7 @@ class TestStaticStructureFactorDirect(StaticStructureFactorTest):
         """Ensure attributes have the right shape."""
         super().test_attribute_shapes(sf_params)
 
-        bins, k_max, k_min, num_sampled_k_points = sf_params
+        bins, _k_max, _k_min, _num_sampled_k_points = sf_params
         sf = self.build_structure_factor_object(*sf_params)
 
         assert sf.bin_centers.shape == (bins,)
@@ -470,7 +470,7 @@ class TestStaticStructureFactorDirect(StaticStructureFactorTest):
         dsf_reciprocal = pytest.importorskip("dsf.reciprocal")
         binned_statistic = pytest.importorskip("scipy.stats").binned_statistic
 
-        bins, k_max, k_min, num_sampled_k_points = sf_params_kmin_zero
+        bins, k_max, _k_min, num_sampled_k_points = sf_params_kmin_zero
 
         # Compute structure factor from freud
         sf_direct = freud.diffraction.StaticStructureFactorDirect(

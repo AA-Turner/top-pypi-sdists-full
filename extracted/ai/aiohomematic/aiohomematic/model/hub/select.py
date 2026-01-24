@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """Module for hub data points implemented using the select category."""
 
 from __future__ import annotations
@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from typing import Final
 
+from aiohomematic import i18n
 from aiohomematic.const import DataPointCategory
 from aiohomematic.decorators import inspector
 from aiohomematic.model.hub.data_point import GenericSysvarDataPoint
@@ -32,18 +33,20 @@ class SysvarDpSelect(GenericSysvarDataPoint):
         return None
 
     @inspector
-    async def send_variable(self, value: int | str) -> None:
+    async def send_variable(self, *, value: int | str) -> None:
         """Set the value of the data_point."""
         # We allow setting the value via index as well, just in case.
         if isinstance(value, int) and self._values:
             if 0 <= value < len(self._values):
-                await super().send_variable(value)
+                await super().send_variable(value=value)
         elif self._values:
             if value in self._values:
-                await super().send_variable(self._values.index(value))
+                await super().send_variable(value=self._values.index(value))
         else:
-            _LOGGER.warning(
-                "Value not in value_list for %s/%s",
-                self.name,
-                self.unique_id,
+            _LOGGER.error(
+                i18n.tr(
+                    key="exception.model.select.value_not_in_value_list",
+                    name=self.name,
+                    unique_id=self.unique_id,
+                )
             )

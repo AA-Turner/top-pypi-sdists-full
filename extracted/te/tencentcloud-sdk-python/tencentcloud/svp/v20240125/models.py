@@ -1603,6 +1603,8 @@ class SavingPlanOverviewDetail(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _SpId: 节省计划资源id
+        :type SpId: str
         :param _SpType: 节省计划类型
         :type SpType: str
         :param _PayAmount: 支付金额（单位：元）
@@ -1611,17 +1613,21 @@ class SavingPlanOverviewDetail(AbstractModel):
         :type StartTime: str
         :param _EndTime: 结束时间 yyyy-mm-dd HH:mm:ss格式
         :type EndTime: str
-        :param _Status: 状态
+        :param _Status: 1 生效 2 失效 3 作废
         :type Status: int
         :param _SavingAmount: 累计节省金额（单位：元）
         :type SavingAmount: str
         :param _Region: 地域
         :type Region: list of str
-        :param _PayType: 支付类型
+        :param _PayType: 1 全预付 2 部分预付 3 全不预付
         :type PayType: int
         :param _BuyTime: 购买时间 yyyy-mm-dd HH:mm:ss格式
         :type BuyTime: str
+        :param _PromiseAmount: 承诺金额
+注意：此字段可能返回 null，表示取不到有效值。
+        :type PromiseAmount: str
         """
+        self._SpId = None
         self._SpType = None
         self._PayAmount = None
         self._StartTime = None
@@ -1631,6 +1637,18 @@ class SavingPlanOverviewDetail(AbstractModel):
         self._Region = None
         self._PayType = None
         self._BuyTime = None
+        self._PromiseAmount = None
+
+    @property
+    def SpId(self):
+        r"""节省计划资源id
+        :rtype: str
+        """
+        return self._SpId
+
+    @SpId.setter
+    def SpId(self, SpId):
+        self._SpId = SpId
 
     @property
     def SpType(self):
@@ -1678,7 +1696,7 @@ class SavingPlanOverviewDetail(AbstractModel):
 
     @property
     def Status(self):
-        r"""状态
+        r"""1 生效 2 失效 3 作废
         :rtype: int
         """
         return self._Status
@@ -1711,7 +1729,7 @@ class SavingPlanOverviewDetail(AbstractModel):
 
     @property
     def PayType(self):
-        r"""支付类型
+        r"""1 全预付 2 部分预付 3 全不预付
         :rtype: int
         """
         return self._PayType
@@ -1731,8 +1749,21 @@ class SavingPlanOverviewDetail(AbstractModel):
     def BuyTime(self, BuyTime):
         self._BuyTime = BuyTime
 
+    @property
+    def PromiseAmount(self):
+        r"""承诺金额
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._PromiseAmount
+
+    @PromiseAmount.setter
+    def PromiseAmount(self, PromiseAmount):
+        self._PromiseAmount = PromiseAmount
+
 
     def _deserialize(self, params):
+        self._SpId = params.get("SpId")
         self._SpType = params.get("SpType")
         self._PayAmount = params.get("PayAmount")
         self._StartTime = params.get("StartTime")
@@ -1742,6 +1773,7 @@ class SavingPlanOverviewDetail(AbstractModel):
         self._Region = params.get("Region")
         self._PayType = params.get("PayType")
         self._BuyTime = params.get("BuyTime")
+        self._PromiseAmount = params.get("PromiseAmount")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1759,27 +1791,30 @@ class SavingPlanUsageDetail(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SpType: 节省计划类型
+        :param _SpId: <p>节省计划资源id</p>
+        :type SpId: str
+        :param _SpType: <p>节省计划类型</p>
         :type SpType: str
-        :param _Status: 节省计划状态
+        :param _Status: <p>节省计划状态</p>枚举值：<ul><li> 1：  生效</li><li> 2： 失效 </li><li> 3： 作废</li></ul>
         :type Status: int
-        :param _DeductAmount: 累计抵扣的金额（单位：元）
+        :param _DeductAmount: <p>累计抵扣的金额（单位：元）</p>
         :type DeductAmount: str
-        :param _PromiseAmount: 累计承诺消费金额（单位：元）
+        :param _PromiseAmount: <p>累计承诺消费金额（单位：元）</p>
         :type PromiseAmount: str
-        :param _NetSavings: 累计净节省金额（单位：元）
+        :param _NetSavings: <p>累计净节省金额（单位：元）</p>
         :type NetSavings: str
-        :param _UtilizationRate: 使用率
+        :param _UtilizationRate: <p>使用率</p>
         :type UtilizationRate: float
-        :param _LossAmount: 累计流失金额（单位：元）
+        :param _LossAmount: <p>累计流失金额（单位：元）</p>
         :type LossAmount: str
-        :param _DosageAmount: 累计按量计费预期金额（单位：元）
+        :param _DosageAmount: <p>累计按量计费预期金额（单位：元）</p>
         :type DosageAmount: str
-        :param _CostAmount: 累计成本金额（单位：元）
+        :param _CostAmount: <p>累计成本金额（单位：元）</p>
         :type CostAmount: str
-        :param _Region: 地域
+        :param _Region: <p>地域</p>
         :type Region: list of str
         """
+        self._SpId = None
         self._SpType = None
         self._Status = None
         self._DeductAmount = None
@@ -1792,8 +1827,19 @@ class SavingPlanUsageDetail(AbstractModel):
         self._Region = None
 
     @property
+    def SpId(self):
+        r"""<p>节省计划资源id</p>
+        :rtype: str
+        """
+        return self._SpId
+
+    @SpId.setter
+    def SpId(self, SpId):
+        self._SpId = SpId
+
+    @property
     def SpType(self):
-        r"""节省计划类型
+        r"""<p>节省计划类型</p>
         :rtype: str
         """
         return self._SpType
@@ -1804,7 +1850,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def Status(self):
-        r"""节省计划状态
+        r"""<p>节省计划状态</p>枚举值：<ul><li> 1：  生效</li><li> 2： 失效 </li><li> 3： 作废</li></ul>
         :rtype: int
         """
         return self._Status
@@ -1815,7 +1861,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def DeductAmount(self):
-        r"""累计抵扣的金额（单位：元）
+        r"""<p>累计抵扣的金额（单位：元）</p>
         :rtype: str
         """
         return self._DeductAmount
@@ -1826,7 +1872,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def PromiseAmount(self):
-        r"""累计承诺消费金额（单位：元）
+        r"""<p>累计承诺消费金额（单位：元）</p>
         :rtype: str
         """
         return self._PromiseAmount
@@ -1837,7 +1883,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def NetSavings(self):
-        r"""累计净节省金额（单位：元）
+        r"""<p>累计净节省金额（单位：元）</p>
         :rtype: str
         """
         return self._NetSavings
@@ -1848,7 +1894,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def UtilizationRate(self):
-        r"""使用率
+        r"""<p>使用率</p>
         :rtype: float
         """
         return self._UtilizationRate
@@ -1859,7 +1905,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def LossAmount(self):
-        r"""累计流失金额（单位：元）
+        r"""<p>累计流失金额（单位：元）</p>
         :rtype: str
         """
         return self._LossAmount
@@ -1870,7 +1916,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def DosageAmount(self):
-        r"""累计按量计费预期金额（单位：元）
+        r"""<p>累计按量计费预期金额（单位：元）</p>
         :rtype: str
         """
         return self._DosageAmount
@@ -1881,7 +1927,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def CostAmount(self):
-        r"""累计成本金额（单位：元）
+        r"""<p>累计成本金额（单位：元）</p>
         :rtype: str
         """
         return self._CostAmount
@@ -1892,7 +1938,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
     @property
     def Region(self):
-        r"""地域
+        r"""<p>地域</p>
         :rtype: list of str
         """
         return self._Region
@@ -1903,6 +1949,7 @@ class SavingPlanUsageDetail(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._SpId = params.get("SpId")
         self._SpType = params.get("SpType")
         self._Status = params.get("Status")
         self._DeductAmount = params.get("DeductAmount")

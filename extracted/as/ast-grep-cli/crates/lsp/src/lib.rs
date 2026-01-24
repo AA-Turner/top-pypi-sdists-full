@@ -4,9 +4,8 @@ use ast_grep_core::NodeMatch;
 use dashmap::DashMap;
 use serde_json::Value;
 use tower_lsp_server::jsonrpc::Result;
-use tower_lsp_server::lsp_types::notification::{DidChangeWatchedFiles, Notification};
-use tower_lsp_server::lsp_types::*;
-use tower_lsp_server::UriExt;
+use tower_lsp_server::ls_types::notification::{DidChangeWatchedFiles, Notification};
+use tower_lsp_server::ls_types::*;
 use tower_lsp_server::{Client, LanguageServer};
 
 use ast_grep_config::{CombinedScan, RuleCollection, Severity};
@@ -474,13 +473,18 @@ impl<L: LSPLang> Backend<L> {
       line: 0,
       character: 0,
     };
+    // TODO: the vec may not correct since sorting is based on diagnostic range
+    // instead of fix range, which can be different in the case of expanded_start/end
     let edits: Vec<TextEdit> = entries
       .into_iter()
       .filter_map(|((range, _id), rewrite_data)| {
         if range.start < last {
           return None;
         }
-        let fixed = rewrite_data.fixers.first()?.fixed.to_string();
+        let first_fix = rewrite_data.fixers.first()?;
+        let fixed = first_fix.fixed.to_string();
+        // compute the expanded fix range
+        let range = first_fix.range.as_ref().unwrap_or(range);
         let edit = TextEdit::new(*range, fixed);
         last = range.end;
         Some(edit)

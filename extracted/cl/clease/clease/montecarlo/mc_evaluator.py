@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from ase import Atoms
 
@@ -28,7 +27,7 @@ class MCEvaluator:
     def atoms(self):
         return self._atoms
 
-    def get_energy(self, applied_changes: Optional[SystemChanges] = None) -> float:
+    def get_energy(self, applied_changes: SystemChanges | None = None) -> float:
         """Evaluate the energy of a system.
         If a change is sufficiently local/small, it there, in some situations,
         may be other ways of evaluating the energy than a full calculation.
@@ -77,7 +76,7 @@ class MCEvaluator:
         for change in system_changes:
             change.undo_change(self.atoms)
 
-    def keep_system_changes(self, system_changes: Optional[SystemChanges] = None) -> None:
+    def keep_system_changes(self, system_changes: SystemChanges | None = None) -> None:
         """A set of system changes are to be kept. Perform necessary actions to prepare
         for a new evaluation."""
 
@@ -119,7 +118,7 @@ class CEMCEvaluator(MCEvaluator):
         """Get the related settings object"""
         return self.calc.settings
 
-    def get_energy(self, applied_changes: Optional[SystemChanges] = None) -> float:
+    def get_energy(self, applied_changes: SystemChanges | None = None) -> float:
         return self.calc.get_energy()
 
     def reset(self) -> None:
@@ -150,7 +149,7 @@ class CEMCEvaluator(MCEvaluator):
         """
         self.calc.undo_system_changes()
 
-    def keep_system_changes(self, system_changes: Optional[SystemChanges] = None) -> None:
+    def keep_system_changes(self, system_changes: SystemChanges | None = None) -> None:
         """A set of system changes are to be kept. Perform necessary actions to prepare
         for a new evaluation."""
         self.calc.keep_system_changes()
@@ -190,12 +189,12 @@ def _make_mc_evaluator_from_atoms(atoms: Atoms) -> MCEvaluator:
     return MCEvaluator(atoms)
 
 
-def construct_evaluator(system: Union[Atoms, MCEvaluator]) -> MCEvaluator:
+def construct_evaluator(system: Atoms | MCEvaluator) -> MCEvaluator:
     """Helper function for constructing a new evaluator object, either by passing
     in an ASE atoms object or an explicit evaluator object.
 
     Args:
-        system (Union[Atoms, MCEvaluator]): If the system is an Atoms object,
+        system (Atoms | MCEvaluator): If the system is an Atoms object,
             then a new :class:`~clease.montecarlo.mc_evaluator.MCEvaluator`
             object is created on the basis of the attached calculator.
             Otherwise, if the system is already an Evaluator object,

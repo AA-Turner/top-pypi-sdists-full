@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-api
-Version: 1.9.1
+Version: 1.10.0
 Summary: API to interact with the python pyproject.toml based projects
 Project-URL: Changelog, https://github.com/tox-dev/pyproject-api/releases
 Project-URL: Homepage, https://pyproject-api.readthedocs.io
@@ -19,26 +19,26 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: packaging>=25
-Requires-Dist: tomli>=2.2.1; python_version < '3.11'
+Requires-Dist: tomli>=2.3; python_version < '3.11'
 Provides-Extra: docs
-Requires-Dist: furo>=2024.8.6; extra == 'docs'
-Requires-Dist: sphinx-autodoc-typehints>=3.2; extra == 'docs'
+Requires-Dist: furo>=2025.9.25; extra == 'docs'
+Requires-Dist: sphinx-autodoc-typehints>=3.5.1; extra == 'docs'
 Provides-Extra: testing
 Requires-Dist: covdefaults>=2.3; extra == 'testing'
-Requires-Dist: pytest-cov>=6.1.1; extra == 'testing'
-Requires-Dist: pytest-mock>=3.14; extra == 'testing'
-Requires-Dist: pytest>=8.3.5; extra == 'testing'
-Requires-Dist: setuptools>=80.3.1; extra == 'testing'
+Requires-Dist: pytest-cov>=7; extra == 'testing'
+Requires-Dist: pytest-mock>=3.15.1; extra == 'testing'
+Requires-Dist: pytest>=8.4.2; extra == 'testing'
+Requires-Dist: setuptools>=80.9; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # [`pyproject-api`](https://pyproject-api.readthedocs.io/en/latest/)

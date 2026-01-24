@@ -1,0 +1,7 @@
+repos:
+- repo: local
+  hooks:
+    - id: check
+      name: check
+      language: system
+      entry: make format-fix

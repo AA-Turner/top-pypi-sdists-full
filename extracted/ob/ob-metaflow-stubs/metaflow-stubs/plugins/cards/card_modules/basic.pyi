@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.707597                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.873752                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ from .card import MetaflowCard as MetaflowCard
 from .card import MetaflowCardComponent as MetaflowCardComponent
 from .card import with_default_component_id as with_default_component_id
 from .convert_to_native_type import TaskToDict as TaskToDict
+
+MAX_ARTIFACT_SIZE: int
 
 ABS_DIR_PATH: str
 
@@ -161,7 +163,7 @@ class TaskInfoComponent(metaflow.plugins.cards.card_modules.card.MetaflowCardCom
         page_content : a list of MetaflowCardComponents going as task info
         final_component: the dictionary returned by the `render` function of this class.
     """
-    def __init__(self, task, page_title = 'Task Info', only_repr = True, graph = None, components = [], runtime = False, flow = None):
+    def __init__(self, task, page_title = 'Task Info', only_repr = True, graph = None, components = [], runtime = False, flow = None, max_artifact_size = None):
         ...
     def render(self):
         """

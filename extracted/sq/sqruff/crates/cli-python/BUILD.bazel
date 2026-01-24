@@ -1,0 +1,34 @@
+exports_files([
+    "Cargo.toml",
+    "pyproject.toml",
+])
+
+# Python source files for linting
+filegroup(
+    name = "python_srcs",
+    srcs = glob(["python/**/*.py"]),
+    visibility = ["//visibility:public"],
+)
+
+# Test fixtures for Python tests
+filegroup(
+    name = "test_fixtures",
+    srcs = glob(
+        ["tests/**/*"],
+        exclude = ["tests/**/*.rs"],
+    ),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "machete_srcs",
+    srcs = glob(
+        [
+            "src/**/*.rs",
+            "tests/**/*.rs",
+            "benches/**/*.rs",
+        ],
+        allow_empty = True,
+    ) + ["Cargo.toml"],
+    visibility = ["//visibility:public"],
+)

@@ -1,4 +1,5 @@
-from typing import IO, Iterable, Iterator, Optional, TypedDict, Union
+from collections.abc import Iterable, Iterator
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -59,9 +60,9 @@ class ModelError(ServiceException):
     code: str = "ModelError"
     sender_fault: bool = False
     status_code: int = 424
-    OriginalStatusCode: Optional[StatusCode]
-    OriginalMessage: Optional[Message]
-    LogStreamArn: Optional[LogStreamArn]
+    OriginalStatusCode: StatusCode | None
+    OriginalMessage: Message | None
+    LogStreamArn: LogStreamArn | None
 
 
 class ModelNotReadyException(ServiceException):
@@ -91,7 +92,7 @@ class ModelStreamError(ServiceException):
     code: str = "ModelStreamError"
     sender_fault: bool = False
     status_code: int = 400
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class ServiceUnavailable(ServiceException):
@@ -115,56 +116,56 @@ BodyBlob = bytes
 
 class InvokeEndpointAsyncInput(ServiceRequest):
     EndpointName: EndpointName
-    ContentType: Optional[Header]
-    Accept: Optional[Header]
-    CustomAttributes: Optional[CustomAttributesHeader]
-    InferenceId: Optional[InferenceId]
+    ContentType: Header | None
+    Accept: Header | None
+    CustomAttributes: CustomAttributesHeader | None
+    InferenceId: InferenceId | None
     InputLocation: InputLocationHeader
-    RequestTTLSeconds: Optional[RequestTTLSecondsHeader]
-    InvocationTimeoutSeconds: Optional[InvocationTimeoutSecondsHeader]
+    RequestTTLSeconds: RequestTTLSecondsHeader | None
+    InvocationTimeoutSeconds: InvocationTimeoutSecondsHeader | None
 
 
 class InvokeEndpointAsyncOutput(TypedDict, total=False):
-    InferenceId: Optional[Header]
-    OutputLocation: Optional[Header]
-    FailureLocation: Optional[Header]
+    InferenceId: Header | None
+    OutputLocation: Header | None
+    FailureLocation: Header | None
 
 
 class InvokeEndpointInput(ServiceRequest):
     Body: IO[BodyBlob]
     EndpointName: EndpointName
-    ContentType: Optional[Header]
-    Accept: Optional[Header]
-    CustomAttributes: Optional[CustomAttributesHeader]
-    TargetModel: Optional[TargetModelHeader]
-    TargetVariant: Optional[TargetVariantHeader]
-    TargetContainerHostname: Optional[TargetContainerHostnameHeader]
-    InferenceId: Optional[InferenceId]
-    EnableExplanations: Optional[EnableExplanationsHeader]
-    InferenceComponentName: Optional[InferenceComponentHeader]
-    SessionId: Optional[SessionIdOrNewSessionConstantHeader]
+    ContentType: Header | None
+    Accept: Header | None
+    CustomAttributes: CustomAttributesHeader | None
+    TargetModel: TargetModelHeader | None
+    TargetVariant: TargetVariantHeader | None
+    TargetContainerHostname: TargetContainerHostnameHeader | None
+    InferenceId: InferenceId | None
+    EnableExplanations: EnableExplanationsHeader | None
+    InferenceComponentName: InferenceComponentHeader | None
+    SessionId: SessionIdOrNewSessionConstantHeader | None
 
 
 class InvokeEndpointOutput(TypedDict, total=False):
-    Body: Union[BodyBlob, IO[BodyBlob], Iterable[BodyBlob]]
-    ContentType: Optional[Header]
-    InvokedProductionVariant: Optional[Header]
-    CustomAttributes: Optional[CustomAttributesHeader]
-    NewSessionId: Optional[NewSessionResponseHeader]
-    ClosedSessionId: Optional[SessionIdHeader]
+    Body: BodyBlob | IO[BodyBlob] | Iterable[BodyBlob]
+    ContentType: Header | None
+    InvokedProductionVariant: Header | None
+    CustomAttributes: CustomAttributesHeader | None
+    NewSessionId: NewSessionResponseHeader | None
+    ClosedSessionId: SessionIdHeader | None
 
 
 class InvokeEndpointWithResponseStreamInput(ServiceRequest):
     Body: IO[BodyBlob]
     EndpointName: EndpointName
-    ContentType: Optional[Header]
-    Accept: Optional[Header]
-    CustomAttributes: Optional[CustomAttributesHeader]
-    TargetVariant: Optional[TargetVariantHeader]
-    TargetContainerHostname: Optional[TargetContainerHostnameHeader]
-    InferenceId: Optional[InferenceId]
-    InferenceComponentName: Optional[InferenceComponentHeader]
-    SessionId: Optional[SessionIdHeader]
+    ContentType: Header | None
+    Accept: Header | None
+    CustomAttributes: CustomAttributesHeader | None
+    TargetVariant: TargetVariantHeader | None
+    TargetContainerHostname: TargetContainerHostnameHeader | None
+    InferenceId: InferenceId | None
+    InferenceComponentName: InferenceComponentHeader | None
+    SessionId: SessionIdHeader | None
 
 
 PartBlob = bytes
@@ -176,7 +177,7 @@ class PayloadPart(TypedDict, total=False):
     one or more payload parts.
     """
 
-    Bytes: Optional[PartBlob]
+    Bytes: PartBlob | None
 
 
 class ResponseStream(TypedDict, total=False):
@@ -184,21 +185,21 @@ class ResponseStream(TypedDict, total=False):
     for a streaming inference request.
     """
 
-    PayloadPart: Optional[PayloadPart]
-    ModelStreamError: Optional[ModelStreamError]
-    InternalStreamFailure: Optional[InternalStreamFailure]
+    PayloadPart: PayloadPart | None
+    ModelStreamError: ModelStreamError | None
+    InternalStreamFailure: InternalStreamFailure | None
 
 
 class InvokeEndpointWithResponseStreamOutput(TypedDict, total=False):
     Body: Iterator[ResponseStream]
-    ContentType: Optional[Header]
-    InvokedProductionVariant: Optional[Header]
-    CustomAttributes: Optional[CustomAttributesHeader]
+    ContentType: Header | None
+    InvokedProductionVariant: Header | None
+    CustomAttributes: CustomAttributesHeader | None
 
 
 class SagemakerRuntimeApi:
-    service = "sagemaker-runtime"
-    version = "2017-05-13"
+    service: str = "sagemaker-runtime"
+    version: str = "2017-05-13"
 
     @handler("InvokeEndpoint")
     def invoke_endpoint(

@@ -3,7 +3,7 @@ Type annotations for opensearchserverless service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -29,6 +30,8 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .type_defs import (
+    BatchGetCollectionGroupRequestTypeDef,
+    BatchGetCollectionGroupResponseTypeDef,
     BatchGetCollectionRequestTypeDef,
     BatchGetCollectionResponseTypeDef,
     BatchGetEffectiveLifecyclePolicyRequestTypeDef,
@@ -39,6 +42,8 @@ from .type_defs import (
     BatchGetVpcEndpointResponseTypeDef,
     CreateAccessPolicyRequestTypeDef,
     CreateAccessPolicyResponseTypeDef,
+    CreateCollectionGroupRequestTypeDef,
+    CreateCollectionGroupResponseTypeDef,
     CreateCollectionRequestTypeDef,
     CreateCollectionResponseTypeDef,
     CreateIndexRequestTypeDef,
@@ -51,6 +56,7 @@ from .type_defs import (
     CreateVpcEndpointRequestTypeDef,
     CreateVpcEndpointResponseTypeDef,
     DeleteAccessPolicyRequestTypeDef,
+    DeleteCollectionGroupRequestTypeDef,
     DeleteCollectionRequestTypeDef,
     DeleteCollectionResponseTypeDef,
     DeleteIndexRequestTypeDef,
@@ -71,6 +77,8 @@ from .type_defs import (
     GetSecurityPolicyResponseTypeDef,
     ListAccessPoliciesRequestTypeDef,
     ListAccessPoliciesResponseTypeDef,
+    ListCollectionGroupsRequestTypeDef,
+    ListCollectionGroupsResponseTypeDef,
     ListCollectionsRequestTypeDef,
     ListCollectionsResponseTypeDef,
     ListLifecyclePoliciesRequestTypeDef,
@@ -89,6 +97,8 @@ from .type_defs import (
     UpdateAccessPolicyResponseTypeDef,
     UpdateAccountSettingsRequestTypeDef,
     UpdateAccountSettingsResponseTypeDef,
+    UpdateCollectionGroupRequestTypeDef,
+    UpdateCollectionGroupResponseTypeDef,
     UpdateCollectionRequestTypeDef,
     UpdateCollectionResponseTypeDef,
     UpdateIndexRequestTypeDef,
@@ -102,12 +112,6 @@ from .type_defs import (
     UpdateVpcEndpointResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -118,13 +122,13 @@ __all__ = ("OpenSearchServiceServerlessClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    OcuLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    OcuLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OpenSearchServiceServerlessClient(AioBaseClient):
@@ -167,10 +171,21 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
     ) -> BatchGetCollectionResponseTypeDef:
         """
         Returns attributes for one or more collections, including the collection
-        endpoint and the OpenSearch Dashboards endpoint.
+        endpoint, the OpenSearch Dashboards endpoint, and FIPS-compliant endpoints.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/batch_get_collection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#batch_get_collection)
+        """
+
+    async def batch_get_collection_group(
+        self, **kwargs: Unpack[BatchGetCollectionGroupRequestTypeDef]
+    ) -> BatchGetCollectionGroupResponseTypeDef:
+        """
+        Returns attributes for one or more collection groups, including capacity limits
+        and the number of collections in each group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/batch_get_collection_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#batch_get_collection_group)
         """
 
     async def batch_get_effective_lifecycle_policy(
@@ -225,7 +240,17 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#create_collection)
         """
 
-    async def create_index(self, **kwargs: Unpack[CreateIndexRequestTypeDef]) -> Dict[str, Any]:
+    async def create_collection_group(
+        self, **kwargs: Unpack[CreateCollectionGroupRequestTypeDef]
+    ) -> CreateCollectionGroupResponseTypeDef:
+        """
+        Creates a collection group within OpenSearch Serverless.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/create_collection_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#create_collection_group)
+        """
+
+    async def create_index(self, **kwargs: Unpack[CreateIndexRequestTypeDef]) -> dict[str, Any]:
         """
         Creates an index within an OpenSearch Serverless collection.
 
@@ -276,7 +301,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
     async def delete_access_policy(
         self, **kwargs: Unpack[DeleteAccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an OpenSearch Serverless access policy.
 
@@ -294,7 +319,17 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#delete_collection)
         """
 
-    async def delete_index(self, **kwargs: Unpack[DeleteIndexRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_collection_group(
+        self, **kwargs: Unpack[DeleteCollectionGroupRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a collection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/delete_collection_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#delete_collection_group)
+        """
+
+    async def delete_index(self, **kwargs: Unpack[DeleteIndexRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an index from an OpenSearch Serverless collection.
 
@@ -304,7 +339,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
     async def delete_lifecycle_policy(
         self, **kwargs: Unpack[DeleteLifecyclePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an OpenSearch Serverless lifecycle policy.
 
@@ -314,7 +349,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
     async def delete_security_config(
         self, **kwargs: Unpack[DeleteSecurityConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a security configuration for OpenSearch Serverless.
 
@@ -324,7 +359,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
     async def delete_security_policy(
         self, **kwargs: Unpack[DeleteSecurityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an OpenSearch Serverless security policy.
 
@@ -408,6 +443,16 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#list_access_policies)
         """
 
+    async def list_collection_groups(
+        self, **kwargs: Unpack[ListCollectionGroupsRequestTypeDef]
+    ) -> ListCollectionGroupsResponseTypeDef:
+        """
+        Returns a list of collection groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/list_collection_groups.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#list_collection_groups)
+        """
+
     async def list_collections(
         self, **kwargs: Unpack[ListCollectionsRequestTypeDef]
     ) -> ListCollectionsResponseTypeDef:
@@ -470,7 +515,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#list_vpc_endpoints)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates tags with an OpenSearch Serverless resource.
 
@@ -478,7 +523,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or set of tags from an OpenSearch Serverless resource.
 
@@ -517,7 +562,17 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#update_collection)
         """
 
-    async def update_index(self, **kwargs: Unpack[UpdateIndexRequestTypeDef]) -> Dict[str, Any]:
+    async def update_collection_group(
+        self, **kwargs: Unpack[UpdateCollectionGroupRequestTypeDef]
+    ) -> UpdateCollectionGroupResponseTypeDef:
+        """
+        Updates the description and capacity limits of a collection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/update_collection_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#update_collection_group)
+        """
+
+    async def update_index(self, **kwargs: Unpack[UpdateIndexRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an existing index in an OpenSearch Serverless collection.
 
@@ -573,7 +628,7 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

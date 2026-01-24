@@ -11,7 +11,7 @@ from reflex.components.core.breakpoints import Breakpoints
 from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
-LUCIDE_LIBRARY = "lucide-react@0.544.0"
+LUCIDE_LIBRARY = "lucide-react@0.562.0"
 
 class LucideIconComponent(Component):
     @classmethod
@@ -67,7 +67,6 @@ class Icon(LucideIconComponent):
     def create(
         cls,
         *children,
-        size: Var[int] | int | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -102,7 +101,6 @@ class Icon(LucideIconComponent):
 
         Args:
             *children: The positional arguments
-            size: The size of the icon in pixels.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -124,8 +122,6 @@ class DynamicIcon(LucideIconComponent):
     def create(
         cls,
         *children,
-        name: Var[str] | str | None = None,
-        size: Var[int] | int | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -301,6 +297,7 @@ LUCIDE_ICON_LIST = [
     "badge_x",
     "badge",
     "baggage_claim",
+    "balloon",
     "ban",
     "banana",
     "bandage",
@@ -351,6 +348,7 @@ LUCIDE_ICON_LIST = [
     "binoculars",
     "biohazard",
     "bird",
+    "birdhouse",
     "bitcoin",
     "blend",
     "blinds",
@@ -381,6 +379,7 @@ LUCIDE_ICON_LIST = [
     "book_open_text",
     "book_open",
     "book_plus",
+    "book_search",
     "book_text",
     "book_type",
     "book_up_2",
@@ -451,12 +450,14 @@ LUCIDE_ICON_LIST = [
     "calendar_x_2",
     "calendar_x",
     "calendar",
+    "calendars",
     "camera_off",
     "camera",
     "candlestick_chart",
     "candy_cane",
     "candy_off",
     "candy",
+    "cannabis_off",
     "cannabis",
     "captions_off",
     "captions",
@@ -502,6 +503,12 @@ LUCIDE_ICON_LIST = [
     "check",
     "chef_hat",
     "cherry",
+    "chess_bishop",
+    "chess_king",
+    "chess_knight",
+    "chess_pawn",
+    "chess_queen",
+    "chess_rook",
     "chevron_down",
     "chevron_first",
     "chevron_last",
@@ -554,6 +561,7 @@ LUCIDE_ICON_LIST = [
     "circle_parking",
     "circle_pause",
     "circle_percent",
+    "circle_pile",
     "circle_play",
     "circle_plus",
     "circle_pound_sterling",
@@ -597,11 +605,13 @@ LUCIDE_ICON_LIST = [
     "clock_alert",
     "clock_arrow_down",
     "clock_arrow_up",
+    "clock_check",
     "clock_fading",
     "clock_plus",
     "clock",
     "closed_caption",
     "cloud_alert",
+    "cloud_backup",
     "cloud_check",
     "cloud_cog",
     "cloud_download",
@@ -617,6 +627,7 @@ LUCIDE_ICON_LIST = [
     "cloud_snow",
     "cloud_sun_rain",
     "cloud_sun",
+    "cloud_sync",
     "cloud_upload",
     "cloud",
     "cloudy",
@@ -820,11 +831,13 @@ LUCIDE_ICON_LIST = [
     "film",
     "filter_x",
     "filter",
+    "fingerprint_pattern",
     "fingerprint",
     "fire_extinguisher",
     "fish_off",
     "fish_symbol",
     "fish",
+    "fishing_hook",
     "flag_off",
     "flag_triangle_left",
     "flag_triangle_right",
@@ -878,6 +891,7 @@ LUCIDE_ICON_LIST = [
     "folders",
     "footprints",
     "forklift",
+    "form",
     "forward",
     "frame",
     "framer",
@@ -893,6 +907,7 @@ LUCIDE_ICON_LIST = [
     "gallery_vertical_end",
     "gallery_vertical",
     "gamepad_2",
+    "gamepad_directional",
     "gamepad",
     "gantt_chart",
     "gauge",
@@ -901,6 +916,7 @@ LUCIDE_ICON_LIST = [
     "georgian_lari",
     "ghost",
     "gift",
+    "git_branch_minus",
     "git_branch_plus",
     "git_branch",
     "git_commit_horizontal",
@@ -959,6 +975,7 @@ LUCIDE_ICON_LIST = [
     "hash",
     "hat_glasses",
     "haze",
+    "hd",
     "hdmi_port",
     "heading_1",
     "heading_2",
@@ -978,6 +995,7 @@ LUCIDE_ICON_LIST = [
     "heart_pulse",
     "heart",
     "heater",
+    "helicopter",
     "hexagon",
     "highlighter",
     "history",
@@ -1044,6 +1062,7 @@ LUCIDE_ICON_LIST = [
     "laugh",
     "layers_2",
     "layers_3",
+    "layers_plus",
     "layers",
     "layout_dashboard",
     "layout_grid",
@@ -1180,6 +1199,7 @@ LUCIDE_ICON_LIST = [
     "minimize",
     "minus",
     "monitor_check",
+    "monitor_cloud",
     "monitor_cog",
     "monitor_dot",
     "monitor_down",
@@ -1194,9 +1214,11 @@ LUCIDE_ICON_LIST = [
     "monitor",
     "moon_star",
     "moon",
+    "motorbike",
     "mountain_snow",
     "mountain",
     "mouse_off",
+    "mouse_pointer_2_off",
     "mouse_pointer_2",
     "mouse_pointer_ban",
     "mouse_pointer_click",
@@ -1443,10 +1465,12 @@ LUCIDE_ICON_LIST = [
     "school",
     "scissors_line_dashed",
     "scissors",
+    "scooter",
     "screen_share_off",
     "screen_share",
     "scroll_text",
     "scroll",
+    "search_alert",
     "search_check",
     "search_code",
     "search_slash",
@@ -1521,6 +1545,7 @@ LUCIDE_ICON_LIST = [
     "snowflake",
     "soap_dispenser_droplet",
     "sofa",
+    "solar_panel",
     "soup",
     "space",
     "spade",
@@ -1616,6 +1641,7 @@ LUCIDE_ICON_LIST = [
     "stethoscope",
     "sticker",
     "sticky_note",
+    "stone",
     "store",
     "stretch_horizontal",
     "stretch_vertical",
@@ -1690,6 +1716,7 @@ LUCIDE_ICON_LIST = [
     "toggle_right",
     "toilet",
     "tool_case",
+    "toolbox",
     "tornado",
     "torus",
     "touchpad_off",
@@ -1769,6 +1796,7 @@ LUCIDE_ICON_LIST = [
     "utensils_crossed",
     "utensils",
     "utility_pole",
+    "van",
     "variable",
     "vault",
     "vector_square",
@@ -1799,12 +1827,15 @@ LUCIDE_ICON_LIST = [
     "warehouse",
     "washing_machine",
     "watch",
+    "waves_arrow_down",
+    "waves_arrow_up",
     "waves_ladder",
     "waves",
     "waypoints",
     "webcam",
     "webhook_off",
     "webhook",
+    "weight_tilde",
     "weight",
     "wheat_off",
     "wheat",
@@ -1832,4 +1863,7 @@ LUCIDE_ICON_LIST = [
     "zoom_in",
     "zoom_out",
 ]
-LUCIDE_ICON_MAPPING_OVERRIDE = {"grid_3x2": "Grid3x2Icon"}
+LUCIDE_ICON_MAPPING_OVERRIDE = {
+    "grid_3x2": "Grid3x2Icon",
+    "fingerprint": "FingerprintPattern",
+}

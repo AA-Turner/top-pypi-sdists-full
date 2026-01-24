@@ -14,8 +14,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import dataclasses
 import re
-import unittest
 from copy import deepcopy
 
 import pytest
@@ -58,8 +58,7 @@ from peft.tuners.tuners_utils import (
 from peft.utils import INCLUDE_LINEAR_LAYERS_SHORTHAND, ModulesToSaveWrapper, infer_device
 from peft.utils.constants import DUMMY_MODEL_CONFIG, MIN_TARGET_MODULES_FOR_OPTIMIZATION
 
-from .testing_common import hub_online_once
-from .testing_utils import require_bitsandbytes, require_non_cpu
+from .testing_utils import hub_online_once, require_bitsandbytes, require_non_cpu
 
 
 # Implements tests for regex matching logic common for all BaseTuner subclasses, and
@@ -179,7 +178,7 @@ BNB_QUANTIZATIONS = [("4bit",), ("8bit",)]
 BNB_TEST_CASES = [(x + y) for x in MAYBE_INCLUDE_ALL_LINEAR_LAYERS_TEST_CASES for y in BNB_QUANTIZATIONS]
 
 
-class PeftCustomKwargsTester(unittest.TestCase):
+class PeftCustomKwargsTester:
     r"""
     Test if the PeftModel is instantiated with correct behaviour for custom kwargs. This includes:
     - test if regex matching works correctly
@@ -444,7 +443,7 @@ class MLP(nn.Module):
         self.sm = nn.LogSoftmax(dim=-1)
 
 
-class TestTargetedModuleNames(unittest.TestCase):
+class TestTargetedModuleNames:
     """Check that the attribute targeted_module_names is correctly set.
 
     This checks LoRA and IA³, but this should be sufficient, testing all other tuners is not necessary.
@@ -492,7 +491,7 @@ class TestTargetedModuleNames(unittest.TestCase):
         assert model.targeted_module_names == expected
 
 
-class TestTargetedParameterNames(unittest.TestCase):
+class TestTargetedParameterNames:
     """Check that the attribute targeted_parameter_names (via target_parameters) is correctly set.
 
     This is only implemented for LoRA. Regex matching is currently not implemented.
@@ -520,7 +519,7 @@ class TestTargetedParameterNames(unittest.TestCase):
         assert model.targeted_parameter_names == expected
 
 
-class TestExcludedModuleNames(unittest.TestCase):
+class TestExcludedModuleNames:
     """Check that the attribute exclude_module is correctly set.
 
     This checks LoRA and IA³, but this should be sufficient, testing all other tuners is not necessary.
@@ -606,15 +605,29 @@ class TestModelAndLayerStatus:
     torch_device = infer_device()
 
     @pytest.fixture
-    def small_model(self):
+    def small_base_model_cls(self):
         class SmallModel(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.lin0 = nn.Linear(10, 10)
                 self.lin1 = nn.Linear(10, 10)
 
+        return SmallModel
+
+    @pytest.fixture
+    def small_base_emb_model_cls(self):
+        class SmallEmbModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.lin0 = nn.Linear(10, 10)
+                self.emb = nn.Embedding(10, 10)
+
+        return SmallEmbModel
+
+    @pytest.fixture
+    def small_model(self, small_base_model_cls):
         config = LoraConfig(target_modules="lin0")
-        return get_peft_model(SmallModel(), config)
+        return get_peft_model(small_base_model_cls(), config)
 
     @pytest.fixture
     def large_model(self):
@@ -757,6 +770,14 @@ class TestModelAndLayerStatus:
         expected = [{"default": False, "other": True}, {"default": False}, {"other": True}, {"default": False}]
         assert result == expected
 
+        # change requires grad, is now inconsistent with active/inactive adapter
+        large_model.set_requires_grad("default", requires_grad=True)
+        large_model.set_requires_grad("other", requires_grad=False)
+        layer_status = large_model.get_layer_status()
+        result = [status.requires_grad for status in layer_status]
+        expected = [{"default": True, "other": False}, {"default": True}, {"other": False}, {"default": True}]
+        assert result == expected
+
     def test_requires_grad_irregular(self, large_model):
         # inject an embedding layer with requires_grad=False
         # this is an invalid state, but we should still test it
@@ -800,6 +821,44 @@ class TestModelAndLayerStatus:
             {"default": ["cpu"]},
         ]
         assert result == expected
+
+    def test_with_modules_to_save(self, small_base_model_cls):
+        # check that modules_to_save are correctly reported in layer status
+        model = small_base_model_cls()
+        config = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        model = get_peft_model(model, config)
+        layer_status = model.get_layer_status()
+
+        assert len(layer_status) == 2
+        status = layer_status[1]  # for modules_to_save
+
+        assert status.name == "model.lin1"
+        assert status.module_type == "ModulesToSaveWrapper"
+        assert status.enabled is True
+        assert status.active_adapters == ["default"]
+        assert status.merged_adapters == []
+        assert status.available_adapters == ["default"]
+        assert status.requires_grad == {"default": True}
+        assert status.devices == {"default": ["cpu"]}
+
+    def test_with_trainable_tokens(self, small_base_emb_model_cls):
+        # check that trainable_token_indices are correctly reported in layer status
+        model = small_base_emb_model_cls()
+        config = LoraConfig(target_modules=["lin0"], trainable_token_indices={"emb": [0, 1, 2]})
+        model = get_peft_model(model, config)
+        layer_status = model.get_layer_status()
+
+        assert len(layer_status) == 2
+        status = layer_status[1]  # for trainable tokens
+
+        assert status.name == "model.emb.token_adapter"
+        assert status.module_type == "TrainableTokensLayer"
+        assert status.enabled is True
+        assert status.active_adapters == ["default"]
+        assert status.merged_adapters == []
+        assert status.available_adapters == ["default"]
+        assert status.requires_grad == {"default": True}
+        assert status.devices == {"default": ["cpu"]}
 
     @require_non_cpu
     def test_devices_all_gpu_large(self, large_model):
@@ -932,6 +991,32 @@ class TestModelAndLayerStatus:
         model_status = large_model.get_model_status()
         assert model_status.enabled == "irregular"
 
+    def test_model_enabled_irregular_with_modules_to_save(self, small_base_model_cls):
+        # check that modules_to_save are correctly reported in layer status
+        model = small_base_model_cls()
+        config = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        model = get_peft_model(model, config)
+
+        # disable only lin0
+        model.lin0.enable_adapters(False)
+
+        model_status = model.get_model_status()
+        # since lin1 is still enabled, the overall model status is "irregular"
+        assert model_status.enabled == "irregular"
+
+    def test_model_enabled_irregular_with_trainable_tokens(self, small_base_emb_model_cls):
+        # check that trainable_token_indices are correctly reported in layer status
+        model = small_base_emb_model_cls()
+        config = LoraConfig(target_modules=["lin0"], trainable_token_indices={"emb": [0, 1, 2]})
+        model = get_peft_model(model, config)
+
+        # disable only lin0
+        model.lin0.enable_adapters(False)
+
+        model_status = model.get_model_status()
+        # since emb is still enabled, the overall model status is "irregular"
+        assert model_status.enabled == "irregular"
+
     def test_model_active_adapters_small(self, small_model):
         model_status = small_model.get_model_status()
         assert model_status.active_adapters == ["default"]
@@ -956,6 +1041,34 @@ class TestModelAndLayerStatus:
                     break
 
         model_status = large_model.get_model_status()
+        assert model_status.active_adapters == "irregular"
+
+    def test_model_active_adapters_with_modules_to_save_irregular(self, small_base_model_cls):
+        # check that modules_to_save are correctly reported in layer status
+        model = small_base_model_cls()
+        config = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        model = get_peft_model(model, config)
+        model.add_adapter("other", config)
+
+        # switch modules_to_save to "other"
+        model.lin1.set_adapter("other")
+
+        model_status = model.get_model_status()
+        # since lin0 is still on "default", the overall model status is "irregular"
+        assert model_status.active_adapters == "irregular"
+
+    def test_model_active_adapters_with_trainable_tokens_irregular(self, small_base_emb_model_cls):
+        # check that trainable_token_indices are correctly reported in layer status
+        model = small_base_emb_model_cls()
+        config = LoraConfig(target_modules=["lin0"], trainable_token_indices={"emb": [0, 1, 2]})
+        model = get_peft_model(model, config)
+        model.add_adapter("other", config)
+
+        # switch trainable tokens to "other"
+        model.emb.set_adapter("other")
+
+        model_status = model.get_model_status()
+        # since lin0 is still on "default", the overall model status is "irregular"
         assert model_status.active_adapters == "irregular"
 
     def test_model_merged_adapters_small(self, small_model):
@@ -1008,6 +1121,12 @@ class TestModelAndLayerStatus:
         model_status = large_model.get_model_status()
         assert model_status.requires_grad == {"default": False, "other": True}
 
+        # change requires grad, is now inconsistent with active/inactive adapter
+        large_model.set_requires_grad("default", requires_grad=True)
+        large_model.set_requires_grad("other", requires_grad=False)
+        model_status = large_model.get_model_status()
+        assert model_status.requires_grad == {"default": True, "other": False}
+
     def test_model_requires_grad_model_irregular(self, large_model):
         # inject an embedding layer with requires_grad=False
         # this is an invalid state, but we should still test it
@@ -1020,6 +1139,32 @@ class TestModelAndLayerStatus:
 
         model_status = large_model.get_model_status()
         assert model_status.requires_grad == {"default": "irregular", "other": False}
+
+    def test_model_requires_irregular_with_modules_to_save(self, small_base_model_cls):
+        # check that modules_to_save are correctly reported in layer status
+        model = small_base_model_cls()
+        config = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        model = get_peft_model(model, config)
+
+        # set modules_to_save to requires_grad=False
+        model.lin1.modules_to_save.default.weight.requires_grad = False
+
+        model_status = model.get_model_status()
+        # since lin1 is still requires_grad=True, the overall model status is "irregular"
+        assert model_status.requires_grad == {"default": "irregular"}
+
+    def test_model_requires_irregular_with_trainable_tokens(self, small_base_emb_model_cls):
+        # check that trainable_token_indices are correctly reported in layer status
+        model = small_base_emb_model_cls()
+        config = LoraConfig(target_modules=["lin0"], trainable_token_indices={"emb": [0, 1, 2]})
+        model = get_peft_model(model, config)
+
+        # set trainable tokens to requires_grad=False
+        model.emb.token_adapter.trainable_tokens_delta.default.requires_grad = False
+
+        model_status = model.get_model_status()
+        # since emb is still requires_grad=True, the overall model status is "irregular"
+        assert model_status.requires_grad == {"default": "irregular"}
 
     def test_model_available_adapters_small(self, small_model):
         model_status = small_model.get_model_status()
@@ -1074,6 +1219,50 @@ class TestModelAndLayerStatus:
         assert model_status.peft_types == {"default": "LORA", "other": "LORA"}
         assert model_status.num_adapter_layers == 2
         assert model_status.trainable_params == 2 * (8 * 10 + 10 * 8)
+
+    def test_model_status_with_modules_to_save(self, small_base_model_cls):
+        # check that modules_to_save are correctly reported in layer status
+        model = small_base_model_cls()
+        num_base_params = sum(p.numel() for p in small_base_model_cls().parameters())
+        config = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        model = get_peft_model(model, config)
+        model_status = model.get_model_status()
+
+        assert model_status.base_model_type == "SmallModel"
+        assert model_status.adapter_model_type == "LoraModel"
+        assert model_status.peft_types == {"default": "LORA"}
+        # 2 x 80 for LoRA, 100 for modules_to_save.weight, 10 for modules_to_save.bias
+        assert model_status.trainable_params == 2 * 80 + 100 + 10
+        assert model_status.total_params == 2 * 80 + 100 + 10 + num_base_params
+        assert model_status.num_adapter_layers == 2  # lin0 + lin1
+        assert model_status.enabled is True
+        assert model_status.active_adapters == ["default"]
+        assert model_status.merged_adapters == []
+        assert model_status.requires_grad == {"default": True}
+        assert model_status.available_adapters == ["default"]
+        assert model_status.devices == {"default": ["cpu"]}  # all on CPU
+
+    def test_model_status_with_trainable_tokens(self, small_base_emb_model_cls):
+        # check that trainable_token_indices are correctly reported in layer status
+        model = small_base_emb_model_cls()
+        num_base_params = sum(p.numel() for p in small_base_emb_model_cls().parameters())
+        config = LoraConfig(target_modules=["lin0"], trainable_token_indices={"emb": [0, 1, 2]})
+        model = get_peft_model(model, config)
+        model_status = model.get_model_status()
+
+        assert model_status.base_model_type == "SmallEmbModel"
+        assert model_status.adapter_model_type == "LoraModel"
+        assert model_status.peft_types == {"default": "LORA"}
+        # 2 x 80 for LoRA, 3 x 10 for trainable tokens
+        assert model_status.trainable_params == 2 * 80 + 3 * 10
+        assert model_status.total_params == 2 * 80 + 3 * 10 + num_base_params
+        assert model_status.num_adapter_layers == 2
+        assert model_status.enabled is True
+        assert model_status.active_adapters == ["default"]
+        assert model_status.merged_adapters == []
+        assert model_status.requires_grad == {"default": True}
+        assert model_status.available_adapters == ["default"]
+        assert model_status.devices == {"default": ["cpu"]}  # all on CPU
 
     def test_loha_model(self):
         # ensure that this also works with non-LoRA, it's not necessary to test all tuners
@@ -1313,6 +1502,11 @@ class MockModelConfig:
         return self.config
 
 
+@dataclasses.dataclass
+class MockModelDataclassConfig:
+    mock_key: str
+
+
 class ModelWithConfig(nn.Module):
     def __init__(self):
         self.config = MockModelConfig()
@@ -1323,11 +1517,16 @@ class ModelWithDictConfig(nn.Module):
         self.config = MockModelConfig.config
 
 
+class ModelWithDataclassConfig(nn.Module):
+    def __init__(self):
+        self.config = MockModelDataclassConfig(**MockModelConfig().to_dict())
+
+
 class ModelWithNoConfig(nn.Module):
     pass
 
 
-class TestBaseTunerGetModelConfig(unittest.TestCase):
+class TestBaseTunerGetModelConfig:
     def test_get_model_config_use_to_dict(self):
         config = BaseTuner.get_model_config(ModelWithConfig())
         assert config == MockModelConfig.config
@@ -1339,6 +1538,10 @@ class TestBaseTunerGetModelConfig(unittest.TestCase):
     def test_get_model_config_with_no_config(self):
         config = BaseTuner.get_model_config(ModelWithNoConfig())
         assert config == DUMMY_MODEL_CONFIG
+
+    def test_get_model_config_with_dataclass(self):
+        config = BaseTuner.get_model_config(ModelWithDataclassConfig())
+        assert config == MockModelConfig.config
 
 
 class TestBaseTunerWarnForTiedEmbeddings:

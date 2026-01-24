@@ -956,6 +956,27 @@ class RandomParamsLinearModelAlgInterface(RandomParamsAlgInterface):
                 'C': np.exp(rng.uniform(np.log(1e-1), np.log(1e3))),
                 'tfms': ['mean_center', 'l2_normalize', 'one_hot'],
             }
+        elif hpo_space_name == 'tabrepo1-rssc3':
+            space = {
+                'penalty': rng.choice(['l1', 'l2']),
+                'C': np.exp(rng.uniform(np.log(1e-1), np.log(1e3))),
+                'tfms': ['median_center', 'robust_scale', 'smooth_clip', 'one_hot'],
+                'smooth_clip_max_abs_value': 3,
+            }
+        elif hpo_space_name == 'tabrepo1-rssc5':
+            space = {
+                'penalty': rng.choice(['l1', 'l2']),
+                'C': np.exp(rng.uniform(np.log(1e-1), np.log(1e3))),
+                'tfms': ['median_center', 'robust_scale', 'smooth_clip', 'one_hot'],
+                'smooth_clip_max_abs_value': 5,
+            }
+        elif hpo_space_name == 'tabrepo1-rssc10':
+            space = {
+                'penalty': rng.choice(['l1', 'l2']),
+                'C': np.exp(rng.uniform(np.log(1e-1), np.log(1e3))),
+                'tfms': ['median_center', 'robust_scale', 'smooth_clip', 'one_hot'],
+                'smooth_clip_max_abs_value': 10,
+            }
         else:
             raise ValueError()
         return space
@@ -1164,12 +1185,13 @@ class TabPFN2SubSplitInterface(SklearnSubSplitInterface):
             ('average_before_softmax', None),
             ('inference_precision', None),
             ('fit_mode', None),
+            ('model_path', None),
         ]
 
         params = utils.extract_params(self.config, params_config)
         if self.config.get('use_float32', False):
             params['inference_precision'] = torch.float32
-        print(f'{gpu_devices=}')
+        # print(f'{gpu_devices=}')
         if self.n_classes > 0:
             from tabpfn import TabPFNClassifier
             return TabPFNClassifier(random_state=seed,
@@ -1225,9 +1247,12 @@ class TabICLSubSplitInterface(SklearnSubSplitInterface):
         params = utils.extract_params(self.config, params_config)
         if self.config.get('use_float32', False):
             params['inference_precision'] = torch.float32
-        print(f'{gpu_devices=}')
+        # print(f'{gpu_devices=}')
         if self.n_classes > 0:
-            from tabicl.classifier import TabICLClassifier
+            if self.config.get('use_tabiclex', False):
+                from tabiclv2 import TabICLClassifier
+            else:
+                from tabicl import TabICLClassifier
             return TabICLClassifier(random_state=seed,
                                     device=gpu_devices[0] if len(gpu_devices) > 0 else 'cpu',
                                     **params)
@@ -1243,8 +1268,34 @@ class TabICLSubSplitInterface(SklearnSubSplitInterface):
             train_mask[val_idxs] = False
             x_df = x_df.iloc[train_mask, :]
             y = y[train_mask]
+        x_df = x_df.copy()
+        if self.config.get('add_fingerprint_feature', False):
+            x_df['__fingerprint_feature'] = np.random.randn(len(x_df))
+        if self.config.get('mirror_numerical_features', False):
+            self.float_cols_ = x_df.select_dtypes(include=['float']).columns
+            print(f'{len(self.float_cols_)=}')
+            # Generate random signs (+1 or -1) for each column
+            self.signs_ = np.random.choice([-1, 1], size=len(self.float_cols_))
+            # Multiply each float column by its random sign
+            x_df.loc[:, self.float_cols_] = x_df.loc[:, self.float_cols_] * self.signs_
         # don't provide a categorical indicator, it should work like this as well
         self.model.fit(x_df, y)
+
+    def _predict_sklearn(self, x_df: pd.DataFrame) -> np.ndarray:
+        x_df = x_df.copy()
+        if self.config.get('add_fingerprint_feature', False):
+            x_df['__fingerprint_feature'] = np.random.randn(len(x_df))
+        if self.config.get('mirror_numerical_features', False):
+            x_df.loc[:, self.float_cols_] = x_df.loc[:, self.float_cols_] * self.signs_
+        return super()._predict_sklearn(x_df)
+
+    def _predict_proba_sklearn(self, x_df: pd.DataFrame) -> np.ndarray:
+        x_df = x_df.copy()
+        if self.config.get('add_fingerprint_feature', False):
+            x_df['__fingerprint_feature'] = np.random.randn(len(x_df))
+        if self.config.get('mirror_numerical_features', False):
+            x_df.loc[:, self.float_cols_] = x_df.loc[:, self.float_cols_] * self.signs_
+        return super()._predict_proba_sklearn(x_df)
 
     def get_required_resources(self, ds: DictDataset, n_cv: int, n_refit: int, n_splits: int,
                                split_seeds: List[int], n_train: int) -> RequiredResources:
@@ -1253,7 +1304,9 @@ class TabICLSubSplitInterface(SklearnSubSplitInterface):
         assert n_splits == 1
         updated_config = utils.join_dicts(dict(n_estimators=100), self.config)
         time_params = {'': 0.5, 'ds_size_gb': 10.0, '1/n_threads*n_samples*n_estimators*n_tree_repeats': 4e-8}
-        ram_params = {'': 0.5, 'ds_size_gb': 3.0, 'n_samples*n_estimators*n_tree_repeats': 3e-9}
+        ram_params = {'': 0.5}
         rc = ResourcePredictor(config=updated_config, time_params=time_params,
-                               cpu_ram_params=ram_params, n_gpus=1, gpu_usage=1.0, gpu_ram_params={'': 10.0})
+                               cpu_ram_params=ram_params, n_gpus=1, gpu_usage=0.999, gpu_ram_params={'': 10.0})
         return rc.get_required_resources(ds)
+
+

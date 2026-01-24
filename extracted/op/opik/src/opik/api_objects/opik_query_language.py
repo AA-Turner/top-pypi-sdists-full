@@ -29,6 +29,7 @@ COLUMNS = {
     "type": "string",
     "model": "string",
     "provider": "string",
+    "template_structure": "string",
 }
 
 SUPPORTED_OPERATORS = {
@@ -53,7 +54,7 @@ SUPPORTED_OPERATORS = {
     ],
     "output": ["=", "contains", "not_contains"],
     "metadata": ["=", "contains", ">", "<"],
-    "feedback_scores": ["=", ">", "<", ">=", "<="],
+    "feedback_scores": ["=", ">", "<", ">=", "<=", "is_empty", "is_not_empty"],
     "tags": ["contains"],
     "usage.total_tokens": ["=", "!=", ">", "<", ">=", "<="],
     "usage.prompt_tokens": ["=", "!=", ">", "<", ">=", "<="],
@@ -111,7 +112,27 @@ SUPPORTED_OPERATORS = {
         ">",
         "<",
     ],
+    "default": [
+        "=",
+        "contains",
+        "not_contains",
+        "starts_with",
+        "ends_with",
+        "!=",
+        ">",
+        "<",
+    ],
+    "template_structure": [
+        "=",
+        "contains",
+        "not_contains",
+        "starts_with",
+        "ends_with",
+        "!=",
+    ],
 }
+
+OPERATORS_WITHOUT_VALUES = {"is_empty", "is_not_empty"}
 
 
 class OpikQueryLanguage:
@@ -252,15 +273,24 @@ class OpikQueryLanguage:
                         "key": "",
                         "type": COLUMNS[f"usage.{key}"],
                     }
-            else:
+            elif field in COLUMNS:
                 return {"field": field, "key": key, "type": COLUMNS[field]}
+            else:
+                # defaults to string
+                return {"field": field, "key": key, "type": "string"}
 
-        else:
+        elif field in COLUMNS:
             return {"field": field, "key": "", "type": COLUMNS[field]}
+        else:
+            # defaults to string
+            return {"field": field, "key": "", "type": "string"}
 
     def _parse_operator(self, parsed_field: str) -> Dict[str, Any]:
         # Skip whitespace
         self._skip_whitespace()
+
+        if parsed_field not in SUPPORTED_OPERATORS:
+            parsed_field = "default"
 
         # Parse the operator
         if self.query_string[self._cursor] == "=":
@@ -356,8 +386,12 @@ class OpikQueryLanguage:
             # Parse operators
             parsed_operator = self._parse_operator(parsed_field["field"])
 
-            # Parse values
-            parsed_value = self._parse_value()
+            operator_name = parsed_operator.get("operator", "")
+            if operator_name in OPERATORS_WITHOUT_VALUES:
+                # For operators without values, use empty string as value
+                parsed_value = {"value": ""}
+            else:
+                parsed_value = self._parse_value()
 
             expressions.append({**parsed_field, **parsed_operator, **parsed_value})
 

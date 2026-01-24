@@ -43,8 +43,8 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     "sqlalchemy-stubs>=0.4",
     # Actual dependencies.
-    "pydantic>=1.10.0,<3.0",
-    "acryl-datahub[datahub-rest]>=1.0.0",
+    "pydantic>=2.4.0,<3.0",
+    "acryl-datahub[datahub-rest]>=1.3.1.2",
     "loguru>=0.5.0",
     "anyio>=3.0.0",
     *aws_common,
@@ -122,8 +122,10 @@ setuptools.setup(
     ],
     # Package info.
     scripts=[
-        "scripts/run_ingest.sh",
-        "scripts/run_test_connection.sh",
+        "scripts/run_ingest_with_masking.py",
+        "scripts/run_test_connection_with_masking.py",
+        "scripts/run_ingest.sh",  # DEPRECATED - kept for backward compatibility
+        "scripts/run_test_connection.sh",  # DEPRECATED - kept for backward compatibility
         "scripts/install_acryl_datahub.sh",
     ],
     zip_safe=False,

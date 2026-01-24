@@ -21,14 +21,17 @@ __all__ = [
 
 
 class ThresholdTotalAmountConfigConsumptionTable(BaseModel):
+    """Configuration for a single threshold"""
+
     threshold: str
-    """Quantity threshold"""
 
     total_amount: str
     """Total amount for this threshold"""
 
 
 class ThresholdTotalAmountConfig(BaseModel):
+    """Configuration for threshold_total_amount pricing"""
+
     consumption_table: List[ThresholdTotalAmountConfigConsumptionTable]
     """
     When the quantity consumed passes a provided threshold, the configured total

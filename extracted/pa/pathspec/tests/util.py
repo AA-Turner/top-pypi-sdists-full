@@ -1,25 +1,66 @@
 """
 This module provides utility functions shared by tests.
 """
+from __future__ import annotations
 
 import itertools
 import os
 import os.path
 import pathlib
-
+from collections.abc import (
+	Iterable)
+from random import (
+	Random)
 from typing import (
-	Iterable,  # Replaced by `collections.abc.Iterable` in 3.9.
-	List,  # Replaced by `set` in 3.9.
-	Set,  # Replaced by `set` in 3.9.
-	Tuple,  # Replaced by `tuple` in 3.9.
+	Any,
+	Optional,  # Replaced by `X | None` in 3.10.
 	cast)
+from unittest import (
+	SkipTest)
 
 from pathspec import (
 	PathSpec,
 	RegexPattern)
+from pathspec.backend import (
+	BackendNamesHint)
+from pathspec._backends.hyperscan.base import (
+	hyperscan_error)
+from pathspec._backends.hyperscan._base import (
+	HyperscanExprDebug)
+from pathspec._backends.hyperscan.pathspec import (
+	HyperscanPsBackend)
+from pathspec._backends.re2.base import (
+	re2_error)
+from pathspec._backends.re2._base import (
+	Re2RegexDebug)
+from pathspec._backends.re2.pathspec import (
+	Re2PsBackend)
 from pathspec.util import (
 	CheckResult,
-	TStrPath)
+	TStrPath,
+	TreeEntry)
+
+
+def debug_includes(spec: PathSpec, files: set[str], includes: set[str]) -> str:
+	"""
+	Format the match files message.
+
+	*spec* (:class:`~pathspec.PathSpec`) is the path-spec.
+
+	*files* (:class:`set` of :class:`str`) contains the source files.
+
+	*includes* (:class:`set` of :class:`str`) contains the matched files.
+
+	Returns the message (:class:`str`).
+	"""
+	results = []
+	for result in spec.check_files(files):
+		assert (result.file in includes) == bool(result.include), {
+			'result': result, 'includes': includes,
+		}
+		results.append(result)
+
+	return debug_results(spec, results)
 
 
 def debug_results(spec: PathSpec, results: Iterable[CheckResult[str]]) -> str:
@@ -33,11 +74,34 @@ def debug_results(spec: PathSpec, results: Iterable[CheckResult[str]]) -> str:
 
 	Returns the message (:class:`str`).
 	"""
-	patterns = cast(List[RegexPattern], spec.patterns)
+	patterns = cast(list[RegexPattern], spec.patterns)
 
 	pattern_table = []
-	for index, pattern in enumerate(patterns, 1):
-		pattern_table.append((f"{index}:{pattern.pattern}", repr(pattern.regex.pattern)))
+	if isinstance(spec._backend, HyperscanPsBackend) and spec._backend._debug_exprs:
+		for expr_id, expr_dat in enumerate(spec._backend._expr_data, 1):
+			assert isinstance(expr_dat, HyperscanExprDebug), expr_dat
+			pattern = patterns[expr_dat.index]
+			dir_col = 'd' if expr_dat.is_dir_pattern else '.'
+			pattern_table.append((
+				f"{expr_dat.index+1}({expr_id}):{pattern.pattern}",
+				f"{dir_col} {expr_dat.regex!r}",
+			))
+
+	elif isinstance(spec._backend, Re2PsBackend) and spec._backend._debug_regex:
+		for regex_id, regex_dat in enumerate(spec._backend._regex_data, 1):
+			assert isinstance(regex_dat, Re2RegexDebug), regex_dat
+			pattern = patterns[regex_dat.index]
+			dir_col = 'd' if regex_dat.is_dir_pattern else '.'
+			pattern_table.append((
+				f"{regex_dat.index+1}({regex_id}):{pattern.pattern}",
+				f"{dir_col} {regex_dat.regex!r}",
+			))
+
+	else:
+		for index, pattern in enumerate(patterns, 1):
+			pattern_table.append((
+				f"{index}:{pattern.pattern}", repr(pattern.regex.pattern),
+			))
 
 	result_table = []
 	for result in results:
@@ -72,7 +136,7 @@ def debug_results(spec: PathSpec, results: Iterable[CheckResult[str]]) -> str:
 	])
 
 
-def get_includes(results: Iterable[CheckResult[TStrPath]]) -> Set[TStrPath]:
+def get_includes(results: Iterable[CheckResult[TStrPath]]) -> set[TStrPath]:
 	"""
 	Get the included files from the check results.
 
@@ -82,6 +146,17 @@ def get_includes(results: Iterable[CheckResult[TStrPath]]) -> Set[TStrPath]:
 	Returns the included files (:class:`set` of :class:`str`).
 	"""
 	return {__res.file for __res in results if __res.include}
+
+
+def get_paths_from_entries(entries: Iterable[TreeEntry]) -> set[str]:
+	"""
+	Get the entry paths.
+
+	*entries* (:class:`Iterable` of :class:`TreeEntry`) yields the entries.
+
+	Returns the paths (:class:`set` of :class:`str`).
+	"""
+	return {__ent.path for __ent in entries}
 
 
 def make_dirs(temp_dir: pathlib.Path, dirs: Iterable[str]) -> None:
@@ -110,7 +185,7 @@ def make_files(temp_dir: pathlib.Path, files: Iterable[str]) -> None:
 		mkfile(temp_dir / ospath(file))
 
 
-def make_links(temp_dir: pathlib.Path, links: Iterable[Tuple[str, str]]) -> None:
+def make_links(temp_dir: pathlib.Path, links: Iterable[tuple[str, str]]) -> None:
 	"""
 	Create the specified links.
 
@@ -146,3 +221,36 @@ def ospath(path: str) -> str:
 	Returns the native path (:class:`str`).
 	"""
 	return os.path.join(*path.split('/'))
+
+
+def require_backend(name: Optional[BackendNamesHint]) -> None:
+	"""
+	Skip the test if the backend library is not installed.
+
+	*name* (:class:`str` or :data:`None`) is the backend name.
+
+	Raises :class:`SkipTest` if the backend library is not installed.
+	"""
+	if name == 'hyperscan' and hyperscan_error is not None:
+		raise SkipTest(str(hyperscan_error))
+	elif name == 're2' and re2_error is not None:
+		raise SkipTest(str(re2_error))
+
+
+def reverse_inplace(val: list[Any]) -> None:
+	"""
+	Reverse the list inplace.
+
+	*val* (:class:`list`) is the list to sort.
+	"""
+	val.reverse()
+
+
+def shuffle_inplace(val: list[Any]) -> None:
+	"""
+	Shuffle the list inplace. The order will consistently be in the same random
+	order between test runs.
+
+	*val* (:class:`list`) is the list to sort.
+	"""
+	Random(0).shuffle(val)

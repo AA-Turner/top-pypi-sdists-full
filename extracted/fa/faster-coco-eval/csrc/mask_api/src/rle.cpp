@@ -23,7 +23,7 @@ void prinf_vector(const std::vector<T> vec, const std::string s) {
         std::cout << "name: " << s << std::endl;
         std::cout << "size: " << vec.size() << std::endl;
 
-        for (const auto &v : vec) std::cout << "\t" << v << std::endl;
+        for (const auto& v : vec) std::cout << "\t" << v << std::endl;
 
         std::cout << std::endl;
 }
@@ -34,6 +34,8 @@ namespace Mask {
 // Each count is delta-encoded and variable-length encoded as a string.
 std::string RLE::toString() const {
         std::string result;
+        result.reserve(m *
+                       2);  // SAFE OPTIMIZATION: Conservative pre-allocation
 
         for (std::size_t i = 0; i < m; ++i) {
                 int64_t x = static_cast<int64_t>(cnts[i]);
@@ -65,7 +67,7 @@ std::string RLE::toString() const {
 //   - w: mask width
 // Returns:
 //   - RLE object representing the mask
-RLE RLE::frString(const std::string &s, uint64_t h, uint64_t w) {
+RLE RLE::frString(const std::string& s, uint64_t h, uint64_t w) {
         std::vector<uint64_t> cnts;
         const std::size_t m = s.size();
         std::size_t i = 0;
@@ -165,7 +167,7 @@ std::vector<double> RLE::toBbox() const {
 //   - w: mask width
 // Returns:
 //   - RLE object representing the binary mask of the polygon
-RLE RLE::frPoly(const std::vector<double> &xy, uint64_t h, uint64_t w) {
+RLE RLE::frPoly(const std::vector<double>& xy, uint64_t h, uint64_t w) {
         uint64_t j = 0;
         std::size_t k = xy.size() / 2;
         double scale = 5.0;
@@ -181,8 +183,17 @@ RLE RLE::frPoly(const std::vector<double> &xy, uint64_t h, uint64_t w) {
         x[k] = x[0];
         y[k] = y[0];
 
-        std::vector<int> u;
-        std::vector<int> v;
+        // Estimate memory requirements to reduce reallocations (OPTIMIZATION)
+        std::size_t estimated_points = 0;
+        for (j = 0; j < k; ++j) {
+                estimated_points +=
+                    std::abs(x[j + 1] - x[j]) + std::abs(y[j + 1] - y[j]);
+        }
+        estimated_points += k;  // Safety margin
+
+        std::vector<int> u, v;
+        u.reserve(estimated_points);  // OPTIMIZATION: Pre-allocate memory
+        v.reserve(estimated_points);  // OPTIMIZATION: Pre-allocate memory
 
         // Draw lines between consecutive points, using Bresenham-like approach
         for (j = 0; j < k; ++j) {
@@ -219,6 +230,9 @@ RLE RLE::frPoly(const std::vector<double> &xy, uint64_t h, uint64_t w) {
         // Get points along y-boundary and downsample
         x.clear();
         y.clear();
+        x.reserve(u.size() / 2);  // OPTIMIZATION: Reserve estimated space
+        y.reserve(u.size() / 2);  // OPTIMIZATION: Reserve estimated space
+
         double xd, yd;
         for (std::size_t j = 1; j < u.size(); ++j) {
                 if (u[j] != u[j - 1]) {
@@ -245,6 +259,8 @@ RLE RLE::frPoly(const std::vector<double> &xy, uint64_t h, uint64_t w) {
 
         // Compute RLE encoding given y-boundary points
         std::vector<uint32_t> a;
+        a.reserve(x.size() + 1);  // OPTIMIZATION: Pre-allocate memory
+
         for (std::size_t j = 0; j < x.size(); ++j)
                 a.emplace_back(
                     static_cast<uint32_t>(x[j] * static_cast<int>(h) + y[j]));
@@ -260,6 +276,8 @@ RLE RLE::frPoly(const std::vector<double> &xy, uint64_t h, uint64_t w) {
         }
 
         std::vector<uint64_t> b;
+        b.reserve(a.size());  // OPTIMIZATION: Pre-allocate memory
+
         std::size_t j2 = 1;
         b.emplace_back(a[0]);
         while (j2 < a.size()) {
@@ -282,7 +300,7 @@ RLE RLE::frPoly(const std::vector<double> &xy, uint64_t h, uint64_t w) {
 //   - w: mask width
 // Returns:
 //   - RLE object representing the binary mask of the bounding box
-RLE RLE::frBbox(const std::vector<double> &bb, uint64_t h, uint64_t w) {
+RLE RLE::frBbox(const std::vector<double>& bb, uint64_t h, uint64_t w) {
         // Calculate the four corners of the rectangle
         double xs = bb[0], xe = bb[0] + bb[2];
         double ys = bb[1], ye = bb[1] + bb[3];
@@ -297,24 +315,36 @@ RLE RLE::frBbox(const std::vector<double> &bb, uint64_t h, uint64_t w) {
 // Returns:
 //   - Eroded RLE mask
 RLE RLE::erode_3x3(int dilation) const {
-        // Flatten RLE into a dense boolean mask
-        long max_len = static_cast<long>(this->w * this->h);
-        std::vector<bool> mask(max_len, false);
+        // Early exit for empty RLE
+        if (this->m == 0 || this->w == 0 || this->h == 0) {
+                return RLE(this->h, this->w, 0, {});
+        }
 
+        // Flatten RLE into a dense mask - use uint8_t instead of vector<bool>
+        // for better performance
+        const size_t max_len = this->w * this->h;
+        std::vector<uint8_t> mask(max_len,
+                                  0);  // uint8_t is faster than vector<bool>
+
+        // Optimized RLE decompression
         bool v = false;
-        uint64_t idx = 0;
+        size_t idx = 0;
         for (uint64_t cnt : this->cnts) {
-                if (v) {
-                        std::fill_n(mask.begin() + idx, cnt, true);
+                if (v && cnt > 0) {
+                        std::fill_n(mask.begin() + idx, cnt, 1);
                 }
                 idx += cnt;
                 v = !v;
         }
 
-        // Prepare offsets for the structuring element (above and on the current
-        // pixel)
+        // Pre-calculate and reserve memory for offset vectors
+        const size_t kernel_size = (2 * dilation + 1);
+        const size_t estimated_offsets = kernel_size * kernel_size;
+
         std::vector<int> ofsvec;
         std::vector<int> ofsvec_bottom;
+        ofsvec.reserve(estimated_offsets);
+        ofsvec_bottom.reserve(kernel_size);
 
         for (int i = dilation; i >= 0; i--) {
                 for (int j = dilation; j >= -dilation; j--) {
@@ -331,11 +361,14 @@ RLE RLE::erode_3x3(int dilation) const {
                                         dilation);
         }
 
-        // Erosion logic
+        // Erosion logic with pre-allocated result vector
         std::vector<uint64_t> cnts;
+        cnts.reserve(this->cnts.size() * 2);  // Conservative estimate
+
         long c = 0;
         size_t ic = 0;
-        long rle_h = static_cast<long>(this->h);
+        const long rle_h = static_cast<long>(this->h);
+        const long max_len_long = static_cast<long>(max_len);
         v = true;  // background is always first in RLE
         bool _min = false, _prev_min = false;
 
@@ -350,12 +383,12 @@ RLE RLE::erode_3x3(int dilation) const {
                                         _min = std::all_of(
                                             ofsvec_bottom.begin(),
                                             ofsvec_bottom.end(),
-                                            [c, max_len, rle_h, &mask, y,
-                                             dilation](int o) {
-                                                    long test_ptr = c + o;
+                                            [c, max_len_long, rle_h, &mask, y,
+                                             dilation](int o) -> bool {
+                                                    const long test_ptr = c + o;
                                                     return (test_ptr >= 0) &&
                                                            (test_ptr <
-                                                            max_len) &&
+                                                            max_len_long) &&
                                                            mask[test_ptr] &&
                                                            (std::abs((test_ptr %
                                                                       rle_h) -
@@ -365,16 +398,16 @@ RLE RLE::erode_3x3(int dilation) const {
                                 } else {
                                         _min = std::all_of(
                                             ofsvec.begin(), ofsvec.end(),
-                                            [c, max_len, rle_h, &mask, y,
-                                             dilation](int o) {
-                                                    long test_ptr = c + o;
-                                                    long test_ptr_mirror =
+                                            [c, max_len_long, rle_h, &mask, y,
+                                             dilation](int o) -> bool {
+                                                    const long test_ptr = c + o;
+                                                    const long test_ptr_mirror =
                                                         c - o;
                                                     return (test_ptr_mirror >=
                                                             0) &&
                                                            mask[test_ptr_mirror] &&
                                                            (test_ptr <
-                                                            max_len) &&
+                                                            max_len_long) &&
                                                            mask[test_ptr] &&
                                                            (std::abs((test_ptr %
                                                                       rle_h) -
@@ -438,7 +471,7 @@ RLE RLE::clear_duplicates() const {
 //   - intersect: 0 (union), 1 (intersection), 2 (xor)
 // Returns:
 //   - merged RLE mask, or empty RLE if incompatible input
-RLE RLE::merge(const std::vector<RLE> &R, int intersect) {
+RLE RLE::merge(const std::vector<RLE>& R, int intersect) {
         size_t n = R.size();
 
         if (n == 0) {
@@ -451,19 +484,25 @@ RLE RLE::merge(const std::vector<RLE> &R, int intersect) {
         // All masks must have the same shape
         uint64_t h = R[0].h, w = R[0].w;
         size_t max_len = w * h;
+
+        // Early exit for empty dimensions
+        if (h == 0 || w == 0 || max_len == 0) {
+                return RLE(0, 0, 0, {});
+        }
+
         for (size_t i = 1; i < n; ++i) {
                 if (R[i].h != h || R[i].w != w) {
                         return RLE(0, 0, 0, {});
                 }
         }
 
-        // Decode the first mask into a dense boolean vector
-        std::vector<bool> mask(max_len, false);
+        // Use uint8_t instead of bool for better performance
+        std::vector<uint8_t> mask(max_len, 0);
         bool v = false;
         size_t idx = 0;
         for (uint64_t cnt : R[0].cnts) {
                 if (v) {
-                        std::fill_n(mask.begin() + idx, cnt, true);
+                        std::fill_n(mask.begin() + idx, cnt, 1);
                 }
                 idx += cnt;
                 v = !v;
@@ -488,8 +527,9 @@ RLE RLE::merge(const std::vector<RLE> &R, int intersect) {
                 }
         }
 
-        // Re-encode to RLE
+        // Re-encode to RLE with pre-allocation
         std::vector<uint64_t> out_cnts;
+        out_cnts.reserve(R[0].cnts.size() * 2);  // Conservative estimate
         v = false;
         uint64_t run_len = 0;
         for (size_t i = 0; i < max_len; ++i) {
@@ -548,7 +588,7 @@ std::tuple<uint64_t, uint64_t, std::string> RLE::toTuple() const {
 
 // Constructs an RLE object from a tuple (height, width, rle_string)
 RLE RLE::frTuple(
-    const std::tuple<uint64_t, uint64_t, std::string> &w_h_rlestring) {
+    const std::tuple<uint64_t, uint64_t, std::string>& w_h_rlestring) {
         return RLE::frString(std::get<2>(w_h_rlestring),  // rle_string
                              std::get<0>(w_h_rlestring),  // height
                              std::get<1>(w_h_rlestring)   // width
@@ -556,7 +596,7 @@ RLE RLE::frTuple(
 }
 
 // Constructs an RLE object from an uncompressed RLE Python dictionary
-RLE RLE::frUncompressedRLE(const pybind11::dict &ucRle) {
+RLE RLE::frUncompressedRLE(const pybind11::dict& ucRle) {
         // Extract size as a pair (height, width)
         std::pair<uint64_t, uint64_t> size =
             ucRle["size"].cast<std::pair<uint64_t, uint64_t>>();
@@ -568,7 +608,7 @@ RLE RLE::frUncompressedRLE(const pybind11::dict &ucRle) {
 }
 
 // Constructs an RLE object from a segmentation input (polygon or RLE dict).
-RLE RLE::frSegm(const pybind11::object &pyobj, uint64_t w, uint64_t h) {
+RLE RLE::frSegm(const pybind11::object& pyobj, uint64_t w, uint64_t h) {
         namespace py = pybind11;
         std::string type = py::str(py::type::of(pyobj));
 
@@ -577,8 +617,11 @@ RLE RLE::frSegm(const pybind11::object &pyobj, uint64_t w, uint64_t h) {
                 std::vector<std::vector<double>> poly =
                     pyobj.cast<std::vector<std::vector<double>>>();
                 std::vector<RLE> rles;
-                for (const auto &p : poly) {
-                        rles.push_back(RLE::frPoly(p, h, w));
+                rles.reserve(poly.size());  // OPTIMIZATION: Pre-allocate memory
+                for (const auto& p : poly) {
+                        rles.emplace_back(RLE::frPoly(
+                            p, h, w));  // OPTIMIZATION: emplace_back instead of
+                                        // push_back
                 }
                 return RLE::merge(rles, 0);  // union of polygons
         } else if (type == "<class 'dict'>") {

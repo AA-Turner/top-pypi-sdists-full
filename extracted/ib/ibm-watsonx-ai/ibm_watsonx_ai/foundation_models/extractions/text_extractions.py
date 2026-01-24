@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -8,11 +8,10 @@ from typing import TYPE_CHECKING, Literal
 from warnings import warn
 
 from ibm_watsonx_ai.helpers import DataConnection
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
     InvalidValue,
-    UnexpectedType,
-    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -83,9 +82,7 @@ class TextExtractions(WMLResource):
                 reason="None of the arguments were provided.",
             )
 
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 5.0:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
-        elif self._client.CPD_version >= 5.2:
+        if self._client.CPD_version >= 5.2:
             text_extractions_deprecation_warning = (
                 "`TextExtractions` class is deprecated. Instead, please use "
                 "`ibm_watsonx_ai.foundation_models.extractions.TextExtractionsV2`."
@@ -128,12 +125,12 @@ class TextExtractions(WMLResource):
             document_reference = DataConnection(
                 connection_asset_id="<connection_id>",
                 location=S3Location(bucket="<bucket_name>", path="path/to/file"),
-                )
+            )
 
             results_reference = DataConnection(
                 connection_asset_id="<connection_id>",
                 location=S3Location(bucket="<bucket_name>", path="path/to/file"),
-                )
+            )
 
             response = extraction.run_job(
                 document_reference=document_reference,
@@ -141,23 +138,17 @@ class TextExtractions(WMLResource):
                 steps={
                     TextExtractionsMetaNames.OCR: {"languages_list": ["en", "fr"]},
                     TextExtractionsMetaNames.TABLE_PROCESSING: {"enabled": True},
-                    },
-                results_format="markdown"
+                },
+                results_format="markdown",
             )
 
         """
-        if not isinstance(document_reference, DataConnection):
-            raise UnexpectedType(
-                el_name="document_reference",
-                expected_type=DataConnection,
-                actual_type=type(document_reference),
-            )
-        elif not isinstance(results_reference, DataConnection):
-            raise UnexpectedType(
-                el_name="results_reference",
-                expected_type=DataConnection,
-                actual_type=type(results_reference),
-            )
+        TextExtractions._validate_type(
+            document_reference, "document_reference", DataConnection, mandatory=True
+        )
+        TextExtractions._validate_type(
+            results_reference, "results_reference", DataConnection, mandatory=True
+        )
 
         TextExtractions._validate_type(steps, "steps", dict, False)
         payload: dict = {}
@@ -281,6 +272,7 @@ class TextExtractions(WMLResource):
 
         :return: return "SUCCESS" if the deletion succeeds
         :rtype: str
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -306,6 +298,7 @@ class TextExtractions(WMLResource):
 
         :return: return "SUCCESS" if the cancellation succeeds
         :rtype: str
+        :raises WMLClientError: if cancellation failed
 
         **Example:**
 
@@ -336,14 +329,16 @@ class TextExtractions(WMLResource):
 
         .. code-block:: python
 
-            results_reference = extraction.get_results_reference(extraction_id="<extraction_id>")
+            results_reference = extraction.get_results_reference(
+                extraction_id="<extraction_id>"
+            )
 
         """
         TextExtractions._validate_type(extraction_id, "extraction_id", str, True)
 
         job_details = self.get_job_details(extraction_id=extraction_id)
 
-        results_reference = job_details.get("entity", {}).get("results_reference")
+        results_reference = get_from_json(job_details, ["entity", "results_reference"])
         data_conn = DataConnection._from_dict(results_reference)
         data_conn.set_client(self._client)
         return data_conn
@@ -371,5 +366,5 @@ class TextExtractions(WMLResource):
         )
 
         return WMLResource._get_required_element_from_dict(
-            extraction_details, "extraction_details", ["metadata", "id"]
+            extraction_details, "extraction_details", ["metadata", "id"], str
         )

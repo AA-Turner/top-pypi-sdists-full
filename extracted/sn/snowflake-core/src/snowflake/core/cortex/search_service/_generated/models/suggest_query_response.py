@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.cortex.search_service._generated.models.suggest_result import SuggestResult, SuggestResultModel
 
@@ -42,9 +42,10 @@ class SuggestQueryResponse(BaseModel):
 
     __properties = ["results", "request_id"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -69,7 +70,7 @@ class SuggestQueryResponse(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in results (list)
         _items = []
@@ -92,9 +93,9 @@ class SuggestQueryResponse(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return SuggestQueryResponse.parse_obj(obj)
+            return SuggestQueryResponse.model_validate(obj)
 
-        _obj = SuggestQueryResponse.parse_obj(
+        _obj = SuggestQueryResponse.model_validate(
             {
                 "results": [SuggestResult.from_dict(_item) for _item in obj.get("results")]
                 if obj.get("results") is not None

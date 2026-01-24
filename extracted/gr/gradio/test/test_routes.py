@@ -20,7 +20,6 @@ import requests
 import starlette.routing
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from gradio_client import media_data
 
 import gradio as gr
 from gradio import (
@@ -46,7 +45,7 @@ from gradio.route_utils import (
 
 @pytest.fixture()
 def test_client():
-    io = Interface(lambda x: x + x, "text", "text")
+    io = Interface(lambda x: x + x, "text", "text", api_name="predict")
     app, _, _ = io.launch(prevent_thread_lock=True)
     test_client = TestClient(app)
     yield test_client
@@ -226,7 +225,9 @@ class TestRoutes:
             history += input
             return history, history
 
-        io = Interface(predict, ["textbox", "state"], ["textbox", "state"])
+        io = Interface(
+            predict, ["textbox", "state"], ["textbox", "state"], api_name="predict"
+        )
         app, _, _ = io.launch(prevent_thread_lock=True)
         client = TestClient(app)
         response = client.post(
@@ -242,7 +243,7 @@ class TestRoutes:
         output = dict(response.json())
         assert output["data"] == ["testtest", None]
 
-    def test_get_allowed_paths(self):
+    def test_get_allowed_paths(self, media_data):
         allowed_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
         allowed_file.write(media_data.BASE64_IMAGE)
         allowed_file.flush()
@@ -276,7 +277,7 @@ class TestRoutes:
         assert len(file_response.text) == len(media_data.BASE64_IMAGE)
         io.close()
 
-    def test_response_attachment_format(self):
+    def test_response_attachment_format(self, media_data):
         image_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".png")
         image_file.write(media_data.BASE64_IMAGE)
         image_file.flush()
@@ -360,9 +361,9 @@ class TestRoutes:
             io.close()
 
     def test_get_file_created_by_app(self, test_client):
-        app, _, _ = gr.Interface(lambda s: s.name, gr.File(), gr.File()).launch(
-            prevent_thread_lock=True
-        )
+        app, _, _ = gr.Interface(
+            lambda s: s.name, gr.File(), gr.File(), api_name="predict"
+        ).launch(prevent_thread_lock=True)
         client = TestClient(app)
         with open("test/test_files/alphabet.txt", "rb") as f:
             file_response = test_client.post(f"{API_PREFIX}/upload", files={"files": f})
@@ -566,7 +567,7 @@ class TestRoutes:
         def predict(request: gr.Request):
             return request.state.hello
 
-        demo = gr.Interface(predict, None, "textbox")
+        demo = gr.Interface(predict, None, "textbox", api_name="predict")
         with connect(demo, app_kwargs={"lifespan": lifespan}) as client:
             result = client.predict(None, api_name="/predict")
             assert result == "world"
@@ -620,7 +621,7 @@ class TestRoutes:
         )
 
     def test_proxy_does_not_leak_hf_token_externally(self):
-        gr.context.Context.hf_token = "abcdef"  # type: ignore
+        gr.context.Context.token = "abcdef"  # type: ignore
         app = routes.App()
         interface = gr.Interface(lambda x: x, "text", "text")
         interface.proxy_urls = {
@@ -810,7 +811,7 @@ class TestAuthenticatedRoutes:
         assert response.status_code == 200
 
     def test_logout(self):
-        io = Interface(lambda x: x, "text", "text")
+        io = Interface(lambda x: x, "text", "text", api_name="predict")
         app, _, _ = io.launch(
             auth=("test", "correct_password"),
             prevent_thread_lock=True,
@@ -897,7 +898,9 @@ class TestPassingRequest:
             assert isinstance(request.client.host, str)
             return name
 
-        app, _, _ = gr.Interface(identity, "textbox", "textbox").launch(
+        app, _, _ = gr.Interface(
+            identity, "textbox", "textbox", api_name="predict"
+        ).launch(
             prevent_thread_lock=True,
         )
         client = TestClient(app)
@@ -912,7 +915,7 @@ class TestPassingRequest:
             assert isinstance(request.client.host, str)
             return x
 
-        app, _, _ = gr.ChatInterface(identity).launch(
+        app, _, _ = gr.ChatInterface(identity, api_name="chat").launch(
             prevent_thread_lock=True,
         )
         client = TestClient(app)
@@ -929,7 +932,7 @@ class TestPassingRequest:
                 yield x[: i + 1]
 
         app, _, _ = (
-            gr.ChatInterface(identity)
+            gr.ChatInterface(identity, api_name="chat")
             .queue(api_open=True)
             .launch(
                 prevent_thread_lock=True,
@@ -953,7 +956,9 @@ class TestPassingRequest:
             assert "testclient" in user_agent
             return name
 
-        app, _, _ = gr.Interface(identity, "textbox", "textbox").launch(
+        app, _, _ = gr.Interface(
+            identity, "textbox", "textbox", api_name="predict"
+        ).launch(
             prevent_thread_lock=True,
         )
         client = TestClient(app)
@@ -968,7 +973,9 @@ class TestPassingRequest:
             assert request.username is None
             return name
 
-        app, _, _ = gr.Interface(identity, "textbox", "textbox").launch(
+        app, _, _ = gr.Interface(
+            identity, "textbox", "textbox", api_name="predict"
+        ).launch(
             prevent_thread_lock=True,
         )
         client = TestClient(app)
@@ -983,9 +990,9 @@ class TestPassingRequest:
             assert request.username == "admin"
             return name
 
-        app, _, _ = gr.Interface(identity, "textbox", "textbox").launch(
-            prevent_thread_lock=True, auth=("admin", "password")
-        )
+        app, _, _ = gr.Interface(
+            identity, "textbox", "textbox", api_name="predict"
+        ).launch(prevent_thread_lock=True, auth=("admin", "password"))
         client = TestClient(app)
 
         client.post(
@@ -1013,7 +1020,9 @@ class TestPassingRequest:
             assert request.username == unpickled.username
             return name
 
-        app, _, _ = gr.Interface(identity, "textbox", "textbox").launch(
+        app, _, _ = gr.Interface(
+            identity, "textbox", "textbox", api_name="predict"
+        ).launch(
             prevent_thread_lock=True,
         )
         client = TestClient(app)
@@ -1025,11 +1034,12 @@ class TestPassingRequest:
 
 
 def test_predict_route_is_blocked_if_api_open_false():
-    io = Interface(lambda x: x, "text", "text", examples=[["freddy"]]).queue(
-        api_open=False
-    )
+    io = Interface(
+        lambda x: x, "text", "text", examples=[["freddy"]], api_name="predict"
+    ).queue(api_open=False)
     app, _, _ = io.launch(prevent_thread_lock=True)
-    assert io.show_api
+    assert "api" in (io.footer_links or [])
+    assert io.api_visibility == "public"
     client = TestClient(app)
     result = client.post(
         f"{API_PREFIX}/api/predict",
@@ -1048,10 +1058,8 @@ def test_predict_route_not_blocked_if_queue_disabled():
             lambda x: f"Hello, {x}!", input, output, queue=False, api_name="not_blocked"
         )
         button.click(lambda: 42, None, number, queue=True, api_name="blocked")
-    app, _, _ = demo.queue(api_open=False).launch(
-        prevent_thread_lock=True, show_api=True
-    )
-    assert demo.show_api
+    app, _, _ = demo.queue(api_open=False).launch(prevent_thread_lock=True)
+    assert "api" in (demo.footer_links or [])
     client = TestClient(app)
 
     result = client.post(
@@ -1075,9 +1083,9 @@ def test_predict_route_not_blocked_if_routes_open():
             lambda x: f"Hello, {x}!", input, output, queue=True, api_name="not_blocked"
         )
     app, _, _ = demo.queue(api_open=True).launch(
-        prevent_thread_lock=True, show_api=False
+        prevent_thread_lock=True, footer_links=["gradio", "settings"]
     )
-    assert not demo.show_api
+    assert "api" not in (demo.footer_links or [])
     client = TestClient(app)
 
     result = client.post(
@@ -1088,33 +1096,40 @@ def test_predict_route_not_blocked_if_routes_open():
     assert result.json()["data"] == ["Hello, freddy!"]
 
     demo.close()
-    demo.queue(api_open=False).launch(prevent_thread_lock=True, show_api=False)
-    assert not demo.show_api
+    demo.queue(api_open=False).launch(
+        prevent_thread_lock=True, footer_links=["gradio", "settings"]
+    )
+    assert "api" not in (demo.footer_links or [])
 
 
 def test_show_api_queue_not_enabled():
     io = Interface(lambda x: x, "text", "text", examples=[["freddy"]])
     app, _, _ = io.launch(prevent_thread_lock=True)
-    assert io.show_api
+    assert io.api_visibility == "public"
+    assert "api" in (io.footer_links or [])
     io.close()
-    io.launch(prevent_thread_lock=True, show_api=False)
-    assert not io.show_api
+    io.launch(prevent_thread_lock=True, footer_links=["gradio", "settings"])
+    assert "api" not in (io.footer_links or [])
 
 
 def test_config_show_api_reflects_launch_flag():
     with gr.Blocks() as demo:
         gr.Markdown("Hello")
 
-    app, _, _ = demo.launch(prevent_thread_lock=True, show_api=False)
+    app, _, _ = demo.launch(
+        prevent_thread_lock=True, footer_links=["gradio", "settings"]
+    )
     client = TestClient(app)
     config = client.get("/config").json()
-    assert config["show_api"] is False
+    assert config["footer_links"] == ["gradio", "settings"]
     demo.close()
 
-    app, _, _ = demo.launch(prevent_thread_lock=True, show_api=True)
+    app, _, _ = demo.launch(
+        prevent_thread_lock=True, footer_links=["gradio", "settings"]
+    )
     client = TestClient(app)
     config = client.get("/config").json()
-    assert config["show_api"] is True
+    assert config["footer_links"] == ["gradio", "settings"]
     demo.close()
 
 
@@ -1123,10 +1138,30 @@ def test_config_show_api_reflects_mount_flag():
     with gr.Blocks() as demo:
         gr.Markdown("Hello")
 
-    gr.mount_gradio_app(app, demo, path="/gr", show_api=False)
+    gr.mount_gradio_app(app, demo, path="/gr", footer_links=["gradio", "settings"])
     client = TestClient(app)
     config = client.get("/gr/config").json()
-    assert config["show_api"] is False
+    assert config["footer_links"] == ["gradio", "settings"]
+
+
+def test_empty_footer_links():
+    with gr.Blocks() as demo:
+        gr.Markdown("Hello")
+    try:
+        app, _, _ = demo.launch(prevent_thread_lock=True, footer_links=[])
+        client = TestClient(app)
+        config = client.get("/config").json()
+        assert config["footer_links"] == []
+    finally:
+        demo.close()
+    with gr.Blocks() as demo:
+        gr.Markdown("Hello")
+
+    app, _, _ = demo.launch(prevent_thread_lock=True, footer_links=[])
+    client = TestClient(app)
+    config = client.get("/config").json()
+    assert config["footer_links"] == []
+    demo.close()
 
 
 def test_orjson_serialization():
@@ -1634,7 +1669,7 @@ def test_file_access():
 
 
 def test_bash_api_serialization():
-    demo = gr.Interface(lambda x: x, "json", "json")
+    demo = gr.Interface(lambda x: x, "json", "json", api_name="predict")
 
     app, _, _ = demo.launch(prevent_thread_lock=True)
     test_client = TestClient(app)
@@ -1652,7 +1687,10 @@ def test_bash_api_serialization():
 
 def test_bash_api_multiple_inputs_outputs():
     demo = gr.Interface(
-        lambda x, y: (y, x), ["textbox", "number"], ["number", "textbox"]
+        lambda x, y: (y, x),
+        ["textbox", "number"],
+        ["number", "textbox"],
+        api_name="predict",
     )
 
     app, _, _ = demo.launch(prevent_thread_lock=True)
@@ -1726,7 +1764,10 @@ def test_attacker_cannot_change_root_in_config(
 
 def test_file_without_meta_key_not_moved():
     demo = gr.Interface(
-        fn=lambda s: str(s), inputs=gr.File(type="binary"), outputs="textbox"
+        fn=lambda s: str(s),
+        inputs=gr.File(type="binary"),
+        outputs="textbox",
+        api_name="predict",
     )
 
     app, _, _ = demo.launch(prevent_thread_lock=True)
@@ -1995,3 +2036,20 @@ def test_slugify():
     )
     for value, expected_output in items:
         assert slugify(value) == expected_output
+
+
+def test_json_postprocessing_with_queue_false(connect):
+    with gr.Blocks() as demo:
+        d = gr.Button()
+        j = gr.JSON()
+
+        d.click(
+            lambda: {"epochs": 20, "learning_rate": 0.001, "batch_size": 32},
+            None,
+            j,
+            queue=False,
+        )
+
+    with connect(demo) as client:
+        output = client.predict(api_name="/lambda")
+        assert output == {"epochs": 20, "learning_rate": 0.001, "batch_size": 32}

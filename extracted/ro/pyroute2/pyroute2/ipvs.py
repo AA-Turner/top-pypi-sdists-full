@@ -118,6 +118,33 @@ class NLAFilter(RequestProcessor):
             obj[key] = value
         obj.pop("stats", None)
         obj.pop("stats64", None)
+
+        # Determine the prefix based on the _nla_prefix attribute of the class
+        prefix = (
+            getattr(cls.field_filters[0], "_nla_prefix", "")
+            if cls.field_filters
+            else ""
+        )
+
+        # af / addr_family
+        if "af" not in obj and f"{prefix}AF" in obj:
+            obj["af"] = obj[f"{prefix}AF"]
+        if "addr_family" not in obj and f"{prefix}ADDR_FAMILY" in obj:
+            obj["addr_family"] = obj[f"{prefix}ADDR_FAMILY"]
+
+        # protocol
+        if "protocol" not in obj and f"{prefix}PROTOCOL" in obj:
+            obj["protocol"] = obj[f"{prefix}PROTOCOL"]
+        # port
+        if "port" not in obj and f"{prefix}PORT" in obj:
+            obj["port"] = obj[f"{prefix}PORT"]
+        # addr
+        if "addr" not in obj and f"{prefix}ADDR" in obj:
+            obj["addr"] = obj[f"{prefix}ADDR"]
+        # sched_name
+        if "sched_name" in obj:
+            obj["sched_name"] = obj[f"{prefix}SCHED_NAME"]
+
         return obj
 
     def dump_nla(self, items=None):
@@ -164,9 +191,9 @@ class IPVSDest(NLAFilter):
     }
 
 
-class IPVS(ipvs.IPVSSocket):
+class AsyncIPVS(ipvs.AsyncIPVSSocket):
 
-    def service(self, command, service=None):
+    async def service(self, command, service=None):
         command_map = {
             "add": (ipvs.IPVS_CMD_NEW_SERVICE, "create"),
             "set": (ipvs.IPVS_CMD_SET_SERVICE, "change"),
@@ -183,9 +210,9 @@ class IPVS(ipvs.IPVSSocket):
         msg["version"] = ipvs.GENL_VERSION
         if service is not None:
             msg["attrs"] = [("IPVS_CMD_ATTR_SERVICE", service.dump_nla())]
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self._do_request(msg, msg_flags=flags)
 
-    def dest(self, command, service, dest=None):
+    async def dest(self, command, service, dest=None):
         command_map = {
             "add": (ipvs.IPVS_CMD_NEW_DEST, "create"),
             "set": (ipvs.IPVS_CMD_SET_DEST, "change"),
@@ -194,11 +221,25 @@ class IPVS(ipvs.IPVSSocket):
             "get": (ipvs.IPVS_CMD_GET_DEST, "get"),
             "dump": (ipvs.IPVS_CMD_GET_DEST, "dump"),
         }
-        cmd, flags = self.make_request_type(command, command_map)
+        cmd, flags = NetlinkRequest.calculate_request_type(
+            command, command_map
+        )
         msg = ipvs.ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = 0x1
         msg["attrs"] = [("IPVS_CMD_ATTR_SERVICE", service.dump_key())]
         if dest is not None:
             msg["attrs"].append(("IPVS_CMD_ATTR_DEST", dest.dump_nla()))
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self._do_request(msg, msg_flags=flags)
+
+
+class IPVS(ipvs.IPVSSocket):
+    async_class = AsyncIPVS
+
+    def service(self, command, service=None):
+        return self._run_with_cleanup(self.asyncore.service, command, service)
+
+    def dest(self, command, service, dest=None):
+        return self._run_with_cleanup(
+            self.asyncore.dest, command, service, dest
+        )

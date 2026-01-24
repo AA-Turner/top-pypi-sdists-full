@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Coroutine
 import contextlib
 from dataclasses import dataclass
@@ -19,6 +18,9 @@ from aiohttp import (
     ContentTypeError,
     hdrs,
 )
+from aiohttp.typedefs import Query
+import voluptuous as vol
+from voluptuous.humanize import humanize_error
 from yarl import URL
 
 from .auth import Unauthenticated, UnknownError
@@ -26,6 +28,7 @@ from .exceptions import CloudError
 
 if TYPE_CHECKING:
     from . import Cloud, _ClientT
+    from .service_discovery import ServiceDiscoveryAction
 
     P = ParamSpec("P")
     T = TypeVar("T")
@@ -39,6 +42,8 @@ ALLOW_EMPTY_RESPONSE = frozenset(
         "HEAD",
     }
 )
+
+DEFAULT_API_TIMEOUT = ClientTimeout(total=60)
 
 
 def api_exception_handler(
@@ -121,6 +126,10 @@ class CloudApiNonRetryableError(CloudApiCodedError):
     """Exception raised when handling cloud API non-retryable error."""
 
 
+class CloudApiInvalidResponseError(CloudApiError):
+    """Exception raised when API response fails schema validation."""
+
+
 @dataclass
 class CloudApiRawResponse:
     """A raw response from the cloud API."""
@@ -129,7 +138,7 @@ class CloudApiRawResponse:
     data: Any = None
 
 
-class ApiBase(ABC):
+class ApiBase:
     """Class to help communicate with the cloud API."""
 
     def __init__(self, cloud: Cloud[_ClientT]) -> None:
@@ -137,9 +146,9 @@ class ApiBase(ABC):
         self._cloud = cloud
 
     @property
-    @abstractmethod
-    def hostname(self) -> str:
-        """Get the hostname."""
+    def hostname(self) -> str | None:
+        """Get the hostname for path-based API calls."""
+        return None
 
     @property
     def non_retryable_error_codes(self) -> set[str]:
@@ -156,24 +165,35 @@ class ApiBase(ABC):
         self,
         method: str,
         url: str | URL,
+        include_path_in_log: bool = True,
     ) -> None:
         """Log the response."""
         if not _LOGGER.isEnabledFor(logging.DEBUG):
             return
         url = url if isinstance(url, URL) else URL(url)
-        target = url.path if url.host == self.hostname else ""
+        target = url.path if include_path_in_log else ""
         _LOGGER.debug("Sending %s request to %s%s", method, url.host, target)
 
     def _do_log_response(
         self,
         resp: ClientResponse,
         data: list[Any] | dict[Any, Any] | str | None = None,
+        include_path_in_log: bool = True,
     ) -> None:
         """Log the response."""
         if not _LOGGER.isEnabledFor(logging.DEBUG):
             return
         isok = resp.status < 400
-        target = resp.url.path if resp.url.host == self.hostname else ""
+        target = resp.url.path if include_path_in_log else ""
+        if len(resp.url.query) > 0:
+            allowed_values = {"true", "false"}
+            query_params = [
+                f"{key}=***"
+                if value.lower() not in allowed_values
+                else f"{key}={value}"
+                for key, value in resp.url.query.items()
+            ]
+            target += f"?{'&'.join(query_params)}"
         _LOGGER.debug(
             "Response for %s from %s%s (%s) %s",
             resp.method,
@@ -196,9 +216,11 @@ class ApiBase(ABC):
         headers: dict[str, Any],
         jsondata: dict[str, Any] | None = None,
         data: Any | None = None,
+        params: Query | None = None,
+        include_path_in_log: bool = True,
     ) -> ClientResponse:
         """Call raw API."""
-        self._do_log_request(method, url)
+        self._do_log_request(method, url, include_path_in_log)
         try:
             resp = await self._cloud.websession.request(
                 method=method,
@@ -207,10 +229,12 @@ class ApiBase(ABC):
                 headers=headers,
                 json=jsondata,
                 data=data,
+                params=params,
             )
         except TimeoutError as err:
             raise CloudApiTimeoutError(
-                "Timeout reached while calling API",
+                f"Timeout reached while calling API: total allowed time is "
+                f"{client_timeout.total} seconds",
                 orig_exc=err,
             ) from err
         except ClientResponseError as err:
@@ -232,28 +256,41 @@ class ApiBase(ABC):
     async def _call_cloud_api(
         self,
         *,
-        path: str,
+        action: ServiceDiscoveryAction | None = None,
+        action_values: dict[str, Any] | None = None,
+        path: str | None = None,
         method: str = "GET",
-        api_version: int | None = None,
         client_timeout: ClientTimeout | None = None,
         jsondata: dict[str, Any] | None = None,
         headers: dict[str, Any] | None = None,
         skip_token_check: bool = False,
         raw_response: bool = False,
+        params: Query | None = None,
+        include_path_in_log: bool = True,
+        schema: vol.Schema | None = None,
     ) -> Any:
         """Call cloud API."""
+        if action is None and path is None:
+            raise CloudApiError("Either 'action' or 'path' parameter must be provided")
+
         data: dict[str, Any] | list[Any] | str | None = None
         if not skip_token_check:
             await self._cloud.auth.async_check_token()
         if TYPE_CHECKING:
             assert self._cloud.id_token is not None
 
-        url_path = f"{f'/v{api_version}' if api_version else ''}{path}"
+        if action is not None:
+            final_url = self._cloud.service_discovery.action_url(
+                action=action,
+                **(action_values or {}),
+            )
+        else:
+            final_url = f"https://{self.hostname}{path}"
 
         resp = await self._call_raw_api(
             method=method,
-            url=f"https://{self.hostname}{url_path}",
-            client_timeout=client_timeout or ClientTimeout(total=10),
+            url=final_url,
+            client_timeout=client_timeout or DEFAULT_API_TIMEOUT,
             headers={
                 hdrs.ACCEPT: "application/json",
                 hdrs.AUTHORIZATION: f"Bearer {self._cloud.id_token}",
@@ -262,13 +299,15 @@ class ApiBase(ABC):
                 **(headers or {}),
             },
             jsondata=jsondata,
+            params=params,
+            include_path_in_log=include_path_in_log,
         )
 
         if resp.status < 500:
             with contextlib.suppress(ContentTypeError, JSONDecodeError):
                 data = await resp.json()
 
-        self._do_log_response(resp, data)
+        self._do_log_response(resp, data, include_path_in_log)
 
         if data is None and resp.method.upper() not in ALLOW_EMPTY_RESPONSE:
             raise CloudApiError("Failed to parse API response") from None
@@ -305,4 +344,14 @@ class ApiBase(ABC):
                 reason=reason,
                 status=resp.status,
             ) from err
+
+        if schema is not None and data is not None:
+            try:
+                data = schema(data)
+            except vol.Invalid as err:
+                raise CloudApiInvalidResponseError(
+                    f"Invalid response: {humanize_error(data, err)}",
+                    orig_exc=err,
+                ) from err
+
         return data

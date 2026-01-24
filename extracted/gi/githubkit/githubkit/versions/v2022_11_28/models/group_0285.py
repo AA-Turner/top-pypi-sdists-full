@@ -9,6 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Union
 
 from pydantic import Field
@@ -17,65 +18,40 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0010 import Integration
 
-class RepositoryCollaboratorPermission(GitHubModel):
-    """Repository Collaborator Permission
 
-    Repository Collaborator Permission
+class DeploymentSimple(GitHubModel):
+    """Deployment
+
+    A deployment created as the result of an Actions check run from a workflow that
+    references an environment
     """
 
-    permission: str = Field()
-    role_name: str = Field()
-    user: Union[None, Collaborator] = Field()
-
-
-class Collaborator(GitHubModel):
-    """Collaborator
-
-    Collaborator
-    """
-
-    login: str = Field()
-    id: int = Field()
-    email: Missing[Union[str, None]] = Field(default=UNSET)
-    name: Missing[Union[str, None]] = Field(default=UNSET)
-    node_id: str = Field()
-    avatar_url: str = Field()
-    gravatar_id: Union[str, None] = Field()
     url: str = Field()
-    html_url: str = Field()
-    followers_url: str = Field()
-    following_url: str = Field()
-    gists_url: str = Field()
-    starred_url: str = Field()
-    subscriptions_url: str = Field()
-    organizations_url: str = Field()
-    repos_url: str = Field()
-    events_url: str = Field()
-    received_events_url: str = Field()
-    type: str = Field()
-    site_admin: bool = Field()
-    permissions: Missing[CollaboratorPropPermissions] = Field(default=UNSET)
-    role_name: str = Field()
-    user_view_type: Missing[str] = Field(default=UNSET)
+    id: int = Field(description="Unique identifier of the deployment")
+    node_id: str = Field()
+    task: str = Field(description="Parameter to specify a task to execute")
+    original_environment: Missing[str] = Field(default=UNSET)
+    environment: str = Field(description="Name for the target deployment environment.")
+    description: Union[str, None] = Field()
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
+    statuses_url: str = Field()
+    repository_url: str = Field()
+    transient_environment: Missing[bool] = Field(
+        default=UNSET,
+        description="Specifies if the given environment is will no longer exist at some point in the future. Default: false.",
+    )
+    production_environment: Missing[bool] = Field(
+        default=UNSET,
+        description="Specifies if the given environment is one that end-users directly interact with. Default: false.",
+    )
+    performed_via_github_app: Missing[Union[None, Integration, None]] = Field(
+        default=UNSET
+    )
 
 
-class CollaboratorPropPermissions(GitHubModel):
-    """CollaboratorPropPermissions"""
+model_rebuild(DeploymentSimple)
 
-    pull: bool = Field()
-    triage: Missing[bool] = Field(default=UNSET)
-    push: bool = Field()
-    maintain: Missing[bool] = Field(default=UNSET)
-    admin: bool = Field()
-
-
-model_rebuild(RepositoryCollaboratorPermission)
-model_rebuild(Collaborator)
-model_rebuild(CollaboratorPropPermissions)
-
-__all__ = (
-    "Collaborator",
-    "CollaboratorPropPermissions",
-    "RepositoryCollaboratorPermission",
-)
+__all__ = ("DeploymentSimple",)

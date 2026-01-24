@@ -42,13 +42,15 @@ class Organization(object):
         'sso_mode': 'SSOMode',
         'is_general_platform_enabled': 'bool',
         'is_private_endpoints_enabled': 'bool',
+        'is_deactivated': 'bool',
         'is_usage_blocked': 'bool',
         'endpoints_user_id': 'str',
         'endpoints_stripe_customer_id': 'str',
         'endpoints_metronome_customer_id': 'str',
         'endpoints_is_free_credit_used_up': 'bool',
         'metronome_customer_id': 'str',
-        'invite_code': 'str'
+        'invite_code': 'str',
+        'workos_directory_id': 'str'
     }
 
     attribute_map = {
@@ -61,16 +63,18 @@ class Organization(object):
         'sso_mode': 'sso_mode',
         'is_general_platform_enabled': 'is_general_platform_enabled',
         'is_private_endpoints_enabled': 'is_private_endpoints_enabled',
+        'is_deactivated': 'is_deactivated',
         'is_usage_blocked': 'is_usage_blocked',
         'endpoints_user_id': 'endpoints_user_id',
         'endpoints_stripe_customer_id': 'endpoints_stripe_customer_id',
         'endpoints_metronome_customer_id': 'endpoints_metronome_customer_id',
         'endpoints_is_free_credit_used_up': 'endpoints_is_free_credit_used_up',
         'metronome_customer_id': 'metronome_customer_id',
-        'invite_code': 'invite_code'
+        'invite_code': 'invite_code',
+        'workos_directory_id': 'workos_directory_id'
     }
 
-    def __init__(self, id=None, name=None, public_identifier=None, default_cloud_id=None, sso_config_id=None, sso_required=False, sso_mode=None, is_general_platform_enabled=None, is_private_endpoints_enabled=None, is_usage_blocked=None, endpoints_user_id=None, endpoints_stripe_customer_id=None, endpoints_metronome_customer_id=None, endpoints_is_free_credit_used_up=None, metronome_customer_id=None, invite_code=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, public_identifier=None, default_cloud_id=None, sso_config_id=None, sso_required=False, sso_mode=None, is_general_platform_enabled=None, is_private_endpoints_enabled=None, is_deactivated=False, is_usage_blocked=None, endpoints_user_id=None, endpoints_stripe_customer_id=None, endpoints_metronome_customer_id=None, endpoints_is_free_credit_used_up=None, metronome_customer_id=None, invite_code=None, workos_directory_id=None, local_vars_configuration=None):  # noqa: E501
         """Organization - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -85,6 +89,7 @@ class Organization(object):
         self._sso_mode = None
         self._is_general_platform_enabled = None
         self._is_private_endpoints_enabled = None
+        self._is_deactivated = None
         self._is_usage_blocked = None
         self._endpoints_user_id = None
         self._endpoints_stripe_customer_id = None
@@ -92,6 +97,7 @@ class Organization(object):
         self._endpoints_is_free_credit_used_up = None
         self._metronome_customer_id = None
         self._invite_code = None
+        self._workos_directory_id = None
         self.discriminator = None
 
         self.id = id
@@ -107,6 +113,8 @@ class Organization(object):
             self.sso_mode = sso_mode
         self.is_general_platform_enabled = is_general_platform_enabled
         self.is_private_endpoints_enabled = is_private_endpoints_enabled
+        if is_deactivated is not None:
+            self.is_deactivated = is_deactivated
         self.is_usage_blocked = is_usage_blocked
         if endpoints_user_id is not None:
             self.endpoints_user_id = endpoints_user_id
@@ -120,6 +128,8 @@ class Organization(object):
             self.metronome_customer_id = metronome_customer_id
         if invite_code is not None:
             self.invite_code = invite_code
+        if workos_directory_id is not None:
+            self.workos_directory_id = workos_directory_id
 
     @property
     def id(self):
@@ -321,6 +331,27 @@ class Organization(object):
         self._is_private_endpoints_enabled = is_private_endpoints_enabled
 
     @property
+    def is_deactivated(self):
+        """Gets the is_deactivated of this Organization.  # noqa: E501
+
+
+        :return: The is_deactivated of this Organization.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_deactivated
+
+    @is_deactivated.setter
+    def is_deactivated(self, is_deactivated):
+        """Sets the is_deactivated of this Organization.
+
+
+        :param is_deactivated: The is_deactivated of this Organization.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_deactivated = is_deactivated
+
+    @property
     def is_usage_blocked(self):
         """Gets the is_usage_blocked of this Organization.  # noqa: E501
 
@@ -468,6 +499,27 @@ class Organization(object):
         """
 
         self._invite_code = invite_code
+
+    @property
+    def workos_directory_id(self):
+        """Gets the workos_directory_id of this Organization.  # noqa: E501
+
+
+        :return: The workos_directory_id of this Organization.  # noqa: E501
+        :rtype: str
+        """
+        return self._workos_directory_id
+
+    @workos_directory_id.setter
+    def workos_directory_id(self, workos_directory_id):
+        """Sets the workos_directory_id of this Organization.
+
+
+        :param workos_directory_id: The workos_directory_id of this Organization.  # noqa: E501
+        :type: str
+        """
+
+        self._workos_directory_id = workos_directory_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

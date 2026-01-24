@@ -26,7 +26,7 @@ reportUnusedImport = "error"
 reportMissingModuleSource = "none"
 reportPrivateImportUsage = "warning"
 
-pythonVersion = "3.7"
+pythonVersion = "3.11"
 pythonPlatform = "Linux"
 
 # Pytest - register custom markers
@@ -492,7 +492,7 @@ limit-inference-results=100
 
 # Minimum Python version to use for version dependent checks. Will default to
 # the version used to run pylint.
-py-version=3.8
+py-version=3.11
 
 # When enabled, pylint would attempt to guess common misconfiguration and emit
 # user-friendly hints instead of false-positive error messages.
@@ -601,6 +601,7 @@ disable="""abstract-method,
         too-many-instance-attributes,
         too-many-locals,
         too-many-nested-blocks,
+        too-many-positional-arguments,
         too-many-public-methods,
         too-many-return-statements,
         trailing-newlines,

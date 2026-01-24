@@ -3,7 +3,7 @@ Type annotations for sqs service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sqs/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,6 +25,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from typing import NoReturn
 
 from aioboto3.resources.base import AIOBoto3ServiceResource
@@ -55,12 +56,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -118,7 +113,7 @@ class ServiceResourceQueuesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Queue]]:
+    ) -> AsyncIterator[list[Queue]]:
         """
         A generator which yields pages of Queues.
 
@@ -186,7 +181,7 @@ class QueueDeadLetterSourceQueuesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Queue]]:
+    ) -> AsyncIterator[list[Queue]]:
         """
         A generator which yields pages of Queues.
 
@@ -221,9 +216,9 @@ class Message(AIOBoto3ServiceResource):
     message_id: Awaitable[str]
     md5_of_body: Awaitable[str]
     body: Awaitable[str]
-    attributes: Awaitable[Dict[MessageSystemAttributeNameType, str]]
+    attributes: Awaitable[dict[MessageSystemAttributeNameType, str]]
     md5_of_message_attributes: Awaitable[str]
-    message_attributes: Awaitable[Dict[str, MessageAttributeValueOutputTypeDef]]
+    message_attributes: Awaitable[dict[str, MessageAttributeValueOutputTypeDef]]
     meta: SQSResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -270,7 +265,7 @@ class Queue(AIOBoto3ServiceResource):
 
     url: str
     dead_letter_source_queues: QueueDeadLetterSourceQueuesCollection
-    attributes: Awaitable[Dict[QueueAttributeNameType, str]]
+    attributes: Awaitable[dict[QueueAttributeNameType, str]]
     meta: SQSResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -335,7 +330,7 @@ class Queue(AIOBoto3ServiceResource):
 
     async def receive_messages(
         self, **kwargs: Unpack[ReceiveMessageRequestQueueReceiveMessagesTypeDef]
-    ) -> List[_Message]:
+    ) -> list[_Message]:
         """
         Retrieves one or more messages (up to 10), from the specified queue.
 

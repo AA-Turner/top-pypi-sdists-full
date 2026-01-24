@@ -34,3 +34,23 @@ def test_get_lang_cfg_error(lang: str, key: str, error: bool) -> None:
             utils.get_lang_cfg(lang, key)
     else:
         utils.get_lang_cfg(lang, key)
+
+
+def test_get_lang_cfg_default_fallback_bug():
+    # 1. If there's a config value of that key, return that
+    assert (
+        utils.get_lang_cfg("en", "syllable_threshold")
+        == utils.constants.LANG_CONFIGS["en"]["syllable_threshold"]
+    )
+
+    # 2. If there's no config value for Spanish but a default value for that
+    # key, return the default (Assume 'syllable_threshold' does not exist in
+    # Spanish config)
+    assert (
+        utils.get_lang_cfg("es", "syllable_threshold")
+        == utils.constants.LANG_CONFIGS["en"]["syllable_threshold"]
+    )
+
+    # 3. If there's neither value, throw!
+    with pytest.raises(ValueError):
+        utils.get_lang_cfg("es", "not_a_real_key")

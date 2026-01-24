@@ -54,6 +54,10 @@ class CLIGenerator:
         def _options_from_cfg_cls(_config_class):
             options = []
             for field_name, field_info in _config_class._fields.items():
+                # Skip fields not available in CLI context
+                if not field_info.is_available_in_cli():
+                    continue
+
                 if ConfigMeta.is_instance(field_info.field_type):
                     _subfield_options = _options_from_cfg_cls(field_info.field_type)
                     options.extend(_subfield_options)

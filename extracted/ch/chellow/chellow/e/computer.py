@@ -57,7 +57,6 @@ from chellow.utils import (
     utc_datetime_now,
 )
 
-
 cons_types = ["construction", "commissioning", "operation"]
 lec_cats = list(
     (f"{v}-kwh", f"hist-{v}-kwh")
@@ -587,10 +586,8 @@ class DataSource:
             self.sess, self.caches, contract_name_or_id, date, exact=exact
         )
 
-    def _add_problem(self, problem):
+    def _add_supplier_problem(self, problem):
         self.supplier_bill["problem"] += problem
-        self.mop_bill["problem"] += problem
-        self.dc_bill["problem"] += problem
 
 
 class SiteSource(DataSource):
@@ -967,7 +964,7 @@ class SupplySource(DataSource):
 
         self.is_displaced = False
         self.bill = bill
-        if self.bill is not None:
+        if self.bill is not None and hasattr(self.bill, "start_date"):
             self.bill_start = bill.start_date
             self.bill_finish = bill.finish_date
             self.is_last_bill_gen = (
@@ -1337,20 +1334,16 @@ class SupplySource(DataSource):
                             .order_by(RegisterRead.present_date)
                         ):
                             if tpr_code not in tpr_codes:
-                                self._add_problem(
+                                self._add_supplier_problem(
                                     f"The TPR {tpr_code} from the register read does "
                                     f"not match any of the TPRs "
                                     f"({', '.join(tpr_codes)}) associated with the "
                                     f"MPAN."
                                 )
 
-                            if present_date > bill.finish_date:
-                                self._add_problem(
-                                    "There's a read after the end of the bill!"
-                                )
                             advance = present_value - previous_value
                             if advance < 0:
-                                self._add_problem("Clocked?")
+                                self._add_supplier_problem("Clocked?")
                                 digits = int(log10(previous_value)) + 1
                                 advance = 10**digits - previous_value + present_value
 
@@ -1392,7 +1385,7 @@ class SupplySource(DataSource):
                                         if hhd_datum["status"] in ("X", "A"):
                                             hhd_datum["status"] = h["status"]
                             elif kwh > 0:
-                                self._add_problem(
+                                self._add_supplier_problem(
                                     f"For the TPR code {tpr_code} the bill says "
                                     f"that there are {kwh} kWh, but the time of "
                                     f"the TPR doesn't cover the time between the "
@@ -1556,10 +1549,7 @@ def _find_pair(sess, caches, is_forwards, read_list):
                 digits = int(log10(initial_val)) + 1
                 end_val += 10**digits
 
-            kwh = (
-                end_val * front["coefficients"][tpr_code]
-                - initial_val * back["coefficients"][tpr_code]
-            )
+            kwh = end_val - initial_val
 
             tprs[tpr_code] = kwh / num_hh if num_hh > 0 else 0
 
@@ -1696,7 +1686,6 @@ def _read_generator(sess, supply, start, is_forwards, is_prev):
             continue
 
         reads = {}
-        coeffs = {}
         for coeff, value, tpr_code in sess.query(
             cast(RegisterRead.coefficient, Float), cast(r_vl, Float), Tpr.code
         ).filter(
@@ -1706,13 +1695,11 @@ def _read_generator(sess, supply, start, is_forwards, is_prev):
             RegisterRead.tpr_id == Tpr.id,
             r_dt == dt,
         ):
-            reads[tpr_code] = value
-            coeffs[tpr_code] = coeff
+            reads[tpr_code] = coeff * value
 
         yield {
             "date": dt,
             "reads": reads,
-            "coefficients": coeffs,
             "msn": r.msn,
             "read_type": read_type.code,
         }
@@ -1799,8 +1786,7 @@ def _init_hh_data(sess, caches, hist_era, chunk_start, chunk_finish, is_import):
         full_channels = False
         data = iter(
             sess.execute(
-                text(
-                    """
+                text("""
 select sum(cast(coalesce(kwh.value, 0) as double precision)),
 sum(cast(coalesce(anti_kwh.value, 0) as double precision)),
 max(kwh.status),
@@ -1827,8 +1813,7 @@ where channel.era_id = :era_id and hh_datum.start_date >= :start_date
 and hh_datum.start_date <= :finish_date
 group by hh_datum.start_date
 order by hh_datum.start_date
-"""
-                ),
+"""),
                 params={
                     "era_id": hist_era.id,
                     "start_date": chunk_start,
@@ -1837,7 +1822,7 @@ order by hh_datum.start_date
                 },
             )
         )
-        (msp_kwh, anti_msp_kwh, status, imp_kvarh, exp_kvarh, hist_start) = next(
+        msp_kwh, anti_msp_kwh, status, imp_kvarh, exp_kvarh, hist_start = next(
             data, (None, None, None, None, None, None)
         )
 
@@ -1866,8 +1851,7 @@ order by hh_datum.start_date
         # new style
         data = iter(
             sess.execute(
-                text(
-                    """
+                text("""
 select hh_datum.start_date,
 max(kwh.status),
 sum(cast(coalesce(kwh.value, 0) as double precision)),
@@ -1890,8 +1874,7 @@ where channel.era_id = :era_id and hh_datum.start_date >= :start_date
 and hh_datum.start_date <= :finish_date
 group by hh_datum.start_date
 order by hh_datum.start_date
-"""
-                ),
+"""),
                 params={
                     "era_id": hist_era.id,
                     "start_date": chunk_start,

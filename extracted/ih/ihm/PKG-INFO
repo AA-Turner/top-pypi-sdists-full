@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: ihm
-Version: 2.7
+Version: 2.9
 Summary: Package for handling IHM mmCIF and BinaryCIF files
 Home-page: https://github.com/ihmwg/python-ihm
 Author: Ben Webb
-Author-email: ben@salilab.org
+Author-email: benmwebb@gmail.com
 License: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent

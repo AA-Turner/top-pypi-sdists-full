@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: ansible-dev-environment
-Version: 25.8.0
+Version: 26.1.1
 Summary: A pip-like ansible collection installer.
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
-License: GPL-3.0-only
+License-Expression: GPL-3.0-only
 Project-URL: changelog, https://github.com/ansible/ansible-dev-environment/releases
 Project-URL: documentation, https://ansible.readthedocs.io/projects/dev-environment/
 Project-URL: homepage, https://github.com/ansible/ansible-dev-environment
@@ -12,7 +12,6 @@ Project-URL: repository, https://github.com/ansible/ansible-dev-environment
 Keywords: ansible
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
@@ -27,28 +26,10 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ansible-builder
-Requires-Dist: bindep
-Requires-Dist: pyyaml
-Requires-Dist: subprocess-tee
-Provides-Extra: docs
-Requires-Dist: mkdocs-ansible>=24.3.0; extra == "docs"
-Provides-Extra: test
-Requires-Dist: argcomplete; extra == "test"
-Requires-Dist: coverage[toml]; extra == "test"
-Requires-Dist: mypy; extra == "test"
-Requires-Dist: pip-tools; extra == "test"
-Requires-Dist: pre-commit; extra == "test"
-Requires-Dist: pydoclint; extra == "test"
-Requires-Dist: pylint; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-instafail; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: ruff; extra == "test"
-Requires-Dist: toml-sort; extra == "test"
-Requires-Dist: tox; extra == "test"
-Requires-Dist: types-PyYAML; extra == "test"
-Requires-Dist: uv; extra == "test"
+Requires-Dist: ansible-builder>=3.1.0
+Requires-Dist: bindep>=2.13.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: subprocess-tee>=0.4.2
 Dynamic: license-file
 
 # ansible-dev-environment

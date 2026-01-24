@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import List, Optional
 from typing_extensions import Literal, Required, TypedDict
 
-from .shared_params.child_legal_entity_create import ChildLegalEntityCreate
-
 __all__ = ["LegalEntityAssociationCreateParams"]
 
 
@@ -19,7 +17,7 @@ class LegalEntityAssociationCreateParams(TypedDict, total=False):
 
     relationship_types: Required[List[Literal["authorized_signer", "beneficial_owner", "control_person"]]]
 
-    child_legal_entity: ChildLegalEntityCreate
+    child_legal_entity: "ChildLegalEntityCreate"
     """The child legal entity."""
 
     child_legal_entity_id: str
@@ -30,3 +28,6 @@ class LegalEntityAssociationCreateParams(TypedDict, total=False):
 
     title: Optional[str]
     """The job title of the child entity at the parent entity."""
+
+
+from .shared_params.child_legal_entity_create import ChildLegalEntityCreate

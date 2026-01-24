@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_1 import (
         ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1,
     )
+    from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_2 import (
+        ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2,
+    )
+    from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_3 import (
+        ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType3,
+    )
     from ..models.list_queue_response_200_item_flow_status_failure_module_approvers_item import (
         ListQueueResponse200ItemFlowStatusFailureModuleApproversItem,
     )
@@ -54,7 +60,9 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType0',
-            'ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1']]]):
+            'ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1',
+            'ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2',
+            'ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
         parent_module (Union[Unset, str]):
     """
@@ -79,6 +87,8 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
             Union[
                 "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType0",
                 "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1",
+                "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2",
+                "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -89,6 +99,12 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_0 import (
             ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType0,
+        )
+        from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_1 import (
+            ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_2 import (
+            ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -142,6 +158,16 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
 
                 if isinstance(
                     agent_actions_item_data, ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType0
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data, ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data, ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2
                 ):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
@@ -205,6 +231,12 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
         )
         from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_1 import (
             ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_2 import (
+            ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2,
+        )
+        from ..models.list_queue_response_200_item_flow_status_failure_module_agent_actions_item_type_3 import (
+            ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType3,
         )
         from ..models.list_queue_response_200_item_flow_status_failure_module_approvers_item import (
             ListQueueResponse200ItemFlowStatusFailureModuleApproversItem,
@@ -287,6 +319,8 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
             ) -> Union[
                 "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType0",
                 "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1",
+                "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2",
+                "ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -298,13 +332,33 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = (
+                        ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = (
+                        ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType2.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = (
-                    ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = (
+                    ListQueueResponse200ItemFlowStatusFailureModuleAgentActionsItemType3.from_dict(data)
                 )
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

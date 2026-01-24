@@ -9,22 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
 from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
 
+class DependabotPublicKeyType(TypedDict):
+    """DependabotPublicKey
 
-class AutoMergeType(TypedDict):
-    """Auto merge
-
-    The status of auto merging a pull request.
+    The public key used for setting Dependabot Secrets.
     """
 
-    enabled_by: SimpleUserType
-    merge_method: Literal["merge", "squash", "rebase"]
-    commit_title: Union[str, None]
-    commit_message: Union[str, None]
+    key_id: str
+    key: str
 
 
-__all__ = ("AutoMergeType",)
+class DependabotPublicKeyTypeForResponse(TypedDict):
+    """DependabotPublicKey
+
+    The public key used for setting Dependabot Secrets.
+    """
+
+    key_id: str
+    key: str
+
+
+__all__ = (
+    "DependabotPublicKeyType",
+    "DependabotPublicKeyTypeForResponse",
+)

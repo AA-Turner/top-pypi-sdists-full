@@ -22,7 +22,7 @@ from __future__ import annotations
 import functools
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Protocol, TypeGuard, TypeVar, cast, overload
 
 import pyarrow as pa
 
@@ -30,7 +30,10 @@ import datafusion._internal as df_internal
 from datafusion.expr import Expr
 
 if TYPE_CHECKING:
+    from _typeshed import CapsuleType as _PyCapsule
+
     _R = TypeVar("_R", bound=pa.DataType)
+    from collections.abc import Callable
 
 
 class Volatility(Enum):
@@ -83,6 +86,11 @@ class ScalarUDFExportable(Protocol):
     def __datafusion_scalar_udf__(self) -> object: ...  # noqa: D105
 
 
+def _is_pycapsule(value: object) -> TypeGuard[_PyCapsule]:
+    """Return ``True`` when ``value`` is a CPython ``PyCapsule``."""
+    return value.__class__.__name__ == "PyCapsule"
+
+
 class ScalarUDF:
     """Class for performing scalar user-defined functions (UDF).
 
@@ -130,7 +138,7 @@ class ScalarUDF:
         input_types: list[pa.DataType],
         return_type: _R,
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Callable[..., ScalarUDF]: ...
 
     @overload
@@ -140,7 +148,7 @@ class ScalarUDF:
         input_types: list[pa.DataType],
         return_type: _R,
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> ScalarUDF: ...
 
     @overload
@@ -194,7 +202,7 @@ class ScalarUDF:
             input_types: list[pa.DataType],
             return_type: _R,
             volatility: Volatility | str,
-            name: Optional[str] = None,
+            name: str | None = None,
         ) -> ScalarUDF:
             if not callable(func):
                 msg = "`func` argument must be callable"
@@ -216,15 +224,15 @@ class ScalarUDF:
             input_types: list[pa.DataType],
             return_type: _R,
             volatility: Volatility | str,
-            name: Optional[str] = None,
+            name: str | None = None,
         ) -> Callable:
-            def decorator(func: Callable):
+            def decorator(func: Callable) -> Callable:
                 udf_caller = ScalarUDF.udf(
                     func, input_types, return_type, volatility, name
                 )
 
                 @functools.wraps(func)
-                def wrapper(*args: Any, **kwargs: Any):
+                def wrapper(*args: Any, **kwargs: Any) -> Callable:
                     return udf_caller(*args, **kwargs)
 
                 return wrapper
@@ -290,6 +298,7 @@ class AggregateUDF:
     also :py:class:`ScalarUDF` for operating on a row by row basis.
     """
 
+    @overload
     def __init__(
         self,
         name: str,
@@ -298,6 +307,27 @@ class AggregateUDF:
         return_type: pa.DataType,
         state_type: list[pa.DataType],
         volatility: Volatility | str,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        accumulator: AggregateUDFExportable,
+        input_types: None = ...,
+        return_type: None = ...,
+        state_type: None = ...,
+        volatility: None = ...,
+    ) -> None: ...
+
+    def __init__(
+        self,
+        name: str,
+        accumulator: Callable[[], Accumulator] | AggregateUDFExportable,
+        input_types: list[pa.DataType] | None,
+        return_type: pa.DataType | None,
+        state_type: list[pa.DataType] | None,
+        volatility: Volatility | str | None,
     ) -> None:
         """Instantiate a user-defined aggregate function (UDAF).
 
@@ -307,6 +337,18 @@ class AggregateUDF:
         if hasattr(accumulator, "__datafusion_aggregate_udf__"):
             self._udaf = df_internal.AggregateUDF.from_pycapsule(accumulator)
             return
+        if (
+            input_types is None
+            or return_type is None
+            or state_type is None
+            or volatility is None
+        ):
+            msg = (
+                "`input_types`, `return_type`, `state_type`, and `volatility` "
+                "must be provided when `accumulator` is callable."
+            )
+            raise TypeError(msg)
+
         self._udaf = df_internal.AggregateUDF(
             name,
             accumulator,
@@ -336,7 +378,7 @@ class AggregateUDF:
         return_type: pa.DataType,
         state_type: list[pa.DataType],
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Callable[..., AggregateUDF]: ...
 
     @overload
@@ -347,8 +389,16 @@ class AggregateUDF:
         return_type: pa.DataType,
         state_type: list[pa.DataType],
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> AggregateUDF: ...
+
+    @overload
+    @staticmethod
+    def udaf(accum: AggregateUDFExportable) -> AggregateUDF: ...
+
+    @overload
+    @staticmethod
+    def udaf(accum: _PyCapsule) -> AggregateUDF: ...
 
     @staticmethod
     def udaf(*args: Any, **kwargs: Any):  # noqa: D417, C901
@@ -429,7 +479,7 @@ class AggregateUDF:
             return_type: pa.DataType,
             state_type: list[pa.DataType],
             volatility: Volatility | str,
-            name: Optional[str] = None,
+            name: str | None = None,
         ) -> AggregateUDF:
             if not callable(accum):
                 msg = "`func` must be callable."
@@ -455,7 +505,7 @@ class AggregateUDF:
             return_type: pa.DataType,
             state_type: list[pa.DataType],
             volatility: Volatility | str,
-            name: Optional[str] = None,
+            name: str | None = None,
         ) -> Callable[..., Callable[..., Expr]]:
             def decorator(accum: Callable[[], Accumulator]) -> Callable[..., Expr]:
                 udaf_caller = AggregateUDF.udaf(
@@ -470,7 +520,7 @@ class AggregateUDF:
 
             return decorator
 
-        if hasattr(args[0], "__datafusion_aggregate_udf__"):
+        if hasattr(args[0], "__datafusion_aggregate_udf__") or _is_pycapsule(args[0]):
             return AggregateUDF.from_pycapsule(args[0])
 
         if args and callable(args[0]):
@@ -480,16 +530,22 @@ class AggregateUDF:
         return _decorator(*args, **kwargs)
 
     @staticmethod
-    def from_pycapsule(func: AggregateUDFExportable) -> AggregateUDF:
+    def from_pycapsule(func: AggregateUDFExportable | _PyCapsule) -> AggregateUDF:
         """Create an Aggregate UDF from AggregateUDF PyCapsule object.
 
         This function will instantiate a Aggregate UDF that uses a DataFusion
         AggregateUDF that is exported via the FFI bindings.
         """
-        name = str(func.__class__)
+        if _is_pycapsule(func):
+            aggregate = cast(AggregateUDF, object.__new__(AggregateUDF))
+            aggregate._udaf = df_internal.AggregateUDF.from_pycapsule(func)
+            return aggregate
+
+        capsule = cast(AggregateUDFExportable, func)
+        name = str(capsule.__class__)
         return AggregateUDF(
             name=name,
-            accumulator=func,
+            accumulator=capsule,
             input_types=None,
             return_type=None,
             state_type=None,
@@ -708,7 +764,7 @@ class WindowUDF:
         input_types: pa.DataType | list[pa.DataType],
         return_type: pa.DataType,
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Callable[..., WindowUDF]: ...
 
     @overload
@@ -718,7 +774,7 @@ class WindowUDF:
         input_types: pa.DataType | list[pa.DataType],
         return_type: pa.DataType,
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> WindowUDF: ...
 
     @staticmethod
@@ -787,7 +843,7 @@ class WindowUDF:
         input_types: pa.DataType | list[pa.DataType],
         return_type: pa.DataType,
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> WindowUDF:
         """Create a WindowUDF instance from function arguments."""
         if not callable(func):
@@ -825,7 +881,7 @@ class WindowUDF:
         input_types: pa.DataType | list[pa.DataType],
         return_type: pa.DataType,
         volatility: Volatility | str,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Callable[[Callable[[], WindowEvaluator]], Callable[..., Expr]]:
         """Create a decorator for a WindowUDF."""
 
@@ -922,7 +978,7 @@ class TableFunction:
 
     @staticmethod
     def _create_table_udf_decorator(
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Callable[[Callable[[], WindowEvaluator]], Callable[..., Expr]]:
         """Create a decorator for a WindowUDF."""
 

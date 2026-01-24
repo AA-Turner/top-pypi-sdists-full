@@ -43,6 +43,7 @@ class LinearModel(AbstractModel):
     ag_key = "LR"
     ag_name = "LinearModel"
     ag_priority = 30
+    seed_name = "random_state"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -155,7 +156,7 @@ class LinearModel(AbstractModel):
         return self._pipeline.fit_transform(X)
 
     def _set_default_params(self):
-        default_params = {"random_state": 0, "fit_intercept": True}
+        default_params = {"fit_intercept": True}
         if self.problem_type != REGRESSION:
             default_params.update({"solver": _get_solver(self.problem_type)})
         default_params.update(get_param_baseline())
@@ -318,6 +319,10 @@ class LinearModel(AbstractModel):
         **kwargs,
     ) -> int:
         return 4 * get_approximate_df_mem_usage(X).sum()
+
+    def _get_maximum_resources(self) -> dict[str, int | float]:
+        # no GPU support
+        return {"num_gpus": 0}
 
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:

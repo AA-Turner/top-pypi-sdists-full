@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from .dependency_graph import DependencyGraphClient
     from .emojis import EmojisClient
     from .enterprise_team_memberships import EnterpriseTeamMembershipsClient
+    from .enterprise_team_organizations import EnterpriseTeamOrganizationsClient
     from .enterprise_teams import EnterpriseTeamsClient
     from .gists import GistsClient
     from .git import GitClient
@@ -47,7 +48,6 @@ if TYPE_CHECKING:
     from .packages import PackagesClient
     from .private_registries import PrivateRegistriesClient
     from .projects import ProjectsClient
-    from .projects_classic import ProjectsClassicClient
     from .pulls import PullsClient
     from .rate_limit import RateLimitClient
     from .reactions import ReactionsClient
@@ -115,6 +115,12 @@ class RestNamespace:
         return EmojisClient(self._github)
 
     @cached_property
+    def actions(self) -> "ActionsClient":
+        from .actions import ActionsClient
+
+        return ActionsClient(self._github)
+
+    @cached_property
     def code_security(self) -> "CodeSecurityClient":
         from .code_security import CodeSecurityClient
 
@@ -127,12 +133,6 @@ class RestNamespace:
         return DependabotClient(self._github)
 
     @cached_property
-    def secret_scanning(self) -> "SecretScanningClient":
-        from .secret_scanning import SecretScanningClient
-
-        return SecretScanningClient(self._github)
-
-    @cached_property
     def enterprise_teams(self) -> "EnterpriseTeamsClient":
         from .enterprise_teams import EnterpriseTeamsClient
 
@@ -143,6 +143,12 @@ class RestNamespace:
         from .enterprise_team_memberships import EnterpriseTeamMembershipsClient
 
         return EnterpriseTeamMembershipsClient(self._github)
+
+    @cached_property
+    def enterprise_team_organizations(self) -> "EnterpriseTeamOrganizationsClient":
+        from .enterprise_team_organizations import EnterpriseTeamOrganizationsClient
+
+        return EnterpriseTeamOrganizationsClient(self._github)
 
     @cached_property
     def activity(self) -> "ActivityClient":
@@ -191,12 +197,6 @@ class RestNamespace:
         from .billing import BillingClient
 
         return BillingClient(self._github)
-
-    @cached_property
-    def actions(self) -> "ActionsClient":
-        from .actions import ActionsClient
-
-        return ActionsClient(self._github)
 
     @cached_property
     def oidc(self) -> "OidcClient":
@@ -253,12 +253,6 @@ class RestNamespace:
         return PrivateRegistriesClient(self._github)
 
     @cached_property
-    def projects_classic(self) -> "ProjectsClassicClient":
-        from .projects_classic import ProjectsClassicClient
-
-        return ProjectsClassicClient(self._github)
-
-    @cached_property
     def projects(self) -> "ProjectsClient":
         from .projects import ProjectsClient
 
@@ -269,6 +263,12 @@ class RestNamespace:
         from .repos import ReposClient
 
         return ReposClient(self._github)
+
+    @cached_property
+    def secret_scanning(self) -> "SecretScanningClient":
+        from .secret_scanning import SecretScanningClient
+
+        return SecretScanningClient(self._github)
 
     @cached_property
     def hosted_compute(self) -> "HostedComputeClient":
@@ -283,12 +283,6 @@ class RestNamespace:
         return TeamsClient(self._github)
 
     @cached_property
-    def reactions(self) -> "ReactionsClient":
-        from .reactions import ReactionsClient
-
-        return ReactionsClient(self._github)
-
-    @cached_property
     def rate_limit(self) -> "RateLimitClient":
         from .rate_limit import RateLimitClient
 
@@ -299,6 +293,12 @@ class RestNamespace:
         from .checks import ChecksClient
 
         return ChecksClient(self._github)
+
+    @cached_property
+    def reactions(self) -> "ReactionsClient":
+        from .reactions import ReactionsClient
+
+        return ReactionsClient(self._github)
 
     @cached_property
     def dependency_graph(self) -> "DependencyGraphClient":

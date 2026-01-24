@@ -3,7 +3,7 @@ Main interface for comprehend service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_comprehend/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

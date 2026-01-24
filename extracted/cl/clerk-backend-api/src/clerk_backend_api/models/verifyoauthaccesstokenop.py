@@ -8,8 +8,8 @@ from enum import Enum
 import httpx
 import pydantic
 from pydantic import model_serializer
-from typing import List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing import List, Optional, Union
+from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
 
 class VerifyOAuthAccessTokenRequestBodyTypedDict(TypedDict):
@@ -50,7 +50,7 @@ class VerifyOAuthAccessTokenOauthAccessTokensResponseResponseBodyData(BaseModel)
     errors: List[VerifyOAuthAccessTokenOauthAccessTokensErrors]
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class VerifyOAuthAccessTokenOauthAccessTokensResponseResponseBody(ClerkBaseError):
     r"""404 Not Found"""
 
@@ -87,7 +87,7 @@ class VerifyOAuthAccessTokenOauthAccessTokensResponseBodyData(BaseModel):
     errors: List[VerifyOAuthAccessTokenErrors]
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class VerifyOAuthAccessTokenOauthAccessTokensResponseBody(ClerkBaseError):
     r"""400 Bad Request"""
 
@@ -104,14 +104,22 @@ class VerifyOAuthAccessTokenOauthAccessTokensResponseBody(ClerkBaseError):
         object.__setattr__(self, "data", data)
 
 
-class VerifyOAuthAccessTokenObject(str, Enum):
+class ResponseBody2TypedDict(TypedDict):
+    active: bool
+    r"""Indicates that a JWT access token is not active (expired)"""
+
+
+class ResponseBody2(BaseModel):
+    active: bool
+    r"""Indicates that a JWT access token is not active (expired)"""
+
+
+class ResponseBodyObject(str, Enum):
     CLERK_IDP_OAUTH_ACCESS_TOKEN = "clerk_idp_oauth_access_token"
 
 
-class VerifyOAuthAccessTokenResponseBodyTypedDict(TypedDict):
-    r"""200 OK"""
-
-    object: VerifyOAuthAccessTokenObject
+class ResponseBody1TypedDict(TypedDict):
+    object: ResponseBodyObject
     id: str
     client_id: str
     subject: str
@@ -124,10 +132,8 @@ class VerifyOAuthAccessTokenResponseBodyTypedDict(TypedDict):
     updated_at: float
 
 
-class VerifyOAuthAccessTokenResponseBody(BaseModel):
-    r"""200 OK"""
-
-    object: VerifyOAuthAccessTokenObject
+class ResponseBody1(BaseModel):
+    object: ResponseBodyObject
 
     id: str
 
@@ -178,3 +184,16 @@ class VerifyOAuthAccessTokenResponseBody(BaseModel):
                 m[k] = val
 
         return m
+
+
+VerifyOAuthAccessTokenResponseBodyTypedDict = TypeAliasType(
+    "VerifyOAuthAccessTokenResponseBodyTypedDict",
+    Union[ResponseBody2TypedDict, ResponseBody1TypedDict],
+)
+r"""200 OK"""
+
+
+VerifyOAuthAccessTokenResponseBody = TypeAliasType(
+    "VerifyOAuthAccessTokenResponseBody", Union[ResponseBody2, ResponseBody1]
+)
+r"""200 OK"""

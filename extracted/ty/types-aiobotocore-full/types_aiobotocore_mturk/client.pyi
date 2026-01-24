@@ -3,7 +3,7 @@ Type annotations for mturk service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mturk/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -102,12 +103,6 @@ from .type_defs import (
     UpdateQualificationTypeResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -116,9 +111,9 @@ else:
 __all__ = ("MTurkClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    RequestError: Type[BotocoreClientError]
-    ServiceFault: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    RequestError: type[BotocoreClientError]
+    ServiceFault: type[BotocoreClientError]
 
 class MTurkClient(AioBaseClient):
     """
@@ -157,7 +152,7 @@ class MTurkClient(AioBaseClient):
 
     async def accept_qualification_request(
         self, **kwargs: Unpack[AcceptQualificationRequestRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>AcceptQualificationRequest</code> operation approves a Worker's
         request for a Qualification.
@@ -168,7 +163,7 @@ class MTurkClient(AioBaseClient):
 
     async def approve_assignment(
         self, **kwargs: Unpack[ApproveAssignmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>ApproveAssignment</code> operation approves the results of a
         completed assignment.
@@ -179,7 +174,7 @@ class MTurkClient(AioBaseClient):
 
     async def associate_qualification_with_worker(
         self, **kwargs: Unpack[AssociateQualificationWithWorkerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>AssociateQualificationWithWorker</code> operation gives a Worker a
         Qualification.
@@ -190,7 +185,7 @@ class MTurkClient(AioBaseClient):
 
     async def create_additional_assignments_for_hit(
         self, **kwargs: Unpack[CreateAdditionalAssignmentsForHITRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>CreateAdditionalAssignmentsForHIT</code> operation increases the
         maximum number of assignments of an existing HIT.
@@ -245,7 +240,7 @@ class MTurkClient(AioBaseClient):
 
     async def create_worker_block(
         self, **kwargs: Unpack[CreateWorkerBlockRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>CreateWorkerBlock</code> operation allows you to prevent a Worker
         from working on your HITs.
@@ -254,7 +249,7 @@ class MTurkClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mturk/client/#create_worker_block)
         """
 
-    async def delete_hit(self, **kwargs: Unpack[DeleteHITRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_hit(self, **kwargs: Unpack[DeleteHITRequestTypeDef]) -> dict[str, Any]:
         """
         The <code>DeleteHIT</code> operation is used to delete HIT that is no longer
         needed.
@@ -265,7 +260,7 @@ class MTurkClient(AioBaseClient):
 
     async def delete_qualification_type(
         self, **kwargs: Unpack[DeleteQualificationTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>DeleteQualificationType</code> deletes a Qualification type and
         deletes any HIT types that are associated with the Qualification type.
@@ -276,7 +271,7 @@ class MTurkClient(AioBaseClient):
 
     async def delete_worker_block(
         self, **kwargs: Unpack[DeleteWorkerBlockRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>DeleteWorkerBlock</code> operation allows you to reinstate a blocked
         Worker to work on your HITs.
@@ -287,7 +282,7 @@ class MTurkClient(AioBaseClient):
 
     async def disassociate_qualification_from_worker(
         self, **kwargs: Unpack[DisassociateQualificationFromWorkerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>DisassociateQualificationFromWorker</code> revokes a previously
         granted Qualification from a user.
@@ -479,7 +474,7 @@ class MTurkClient(AioBaseClient):
 
     async def reject_assignment(
         self, **kwargs: Unpack[RejectAssignmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>RejectAssignment</code> operation rejects the results of a completed
         assignment.
@@ -490,7 +485,7 @@ class MTurkClient(AioBaseClient):
 
     async def reject_qualification_request(
         self, **kwargs: Unpack[RejectQualificationRequestRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>RejectQualificationRequest</code> operation rejects a user's request
         for a Qualification.
@@ -499,7 +494,7 @@ class MTurkClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mturk/client/#reject_qualification_request)
         """
 
-    async def send_bonus(self, **kwargs: Unpack[SendBonusRequestTypeDef]) -> Dict[str, Any]:
+    async def send_bonus(self, **kwargs: Unpack[SendBonusRequestTypeDef]) -> dict[str, Any]:
         """
         The <code>SendBonus</code> operation issues a payment of money from your
         account to a Worker.
@@ -510,7 +505,7 @@ class MTurkClient(AioBaseClient):
 
     async def send_test_event_notification(
         self, **kwargs: Unpack[SendTestEventNotificationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>SendTestEventNotification</code> operation causes Amazon Mechanical
         Turk to send a notification message as if a HIT event occurred, according to
@@ -522,7 +517,7 @@ class MTurkClient(AioBaseClient):
 
     async def update_expiration_for_hit(
         self, **kwargs: Unpack[UpdateExpirationForHITRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>UpdateExpirationForHIT</code> operation allows you update the
         expiration time of a HIT.
@@ -533,7 +528,7 @@ class MTurkClient(AioBaseClient):
 
     async def update_hit_review_status(
         self, **kwargs: Unpack[UpdateHITReviewStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>UpdateHITReviewStatus</code> operation updates the status of a HIT.
 
@@ -543,7 +538,7 @@ class MTurkClient(AioBaseClient):
 
     async def update_hit_type_of_hit(
         self, **kwargs: Unpack[UpdateHITTypeOfHITRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>UpdateHITTypeOfHIT</code> operation allows you to change the HITType
         properties of a HIT.
@@ -554,7 +549,7 @@ class MTurkClient(AioBaseClient):
 
     async def update_notification_settings(
         self, **kwargs: Unpack[UpdateNotificationSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The <code>UpdateNotificationSettings</code> operation creates, updates,
         disables or re-enables notifications for a HIT type.
@@ -682,7 +677,7 @@ class MTurkClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-treenode
-Version: 0.23.2
+Version: 0.23.3
 Summary: probably the best abstract model/admin for your tree based stuff.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>

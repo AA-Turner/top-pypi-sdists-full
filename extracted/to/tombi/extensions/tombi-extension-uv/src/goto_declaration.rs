@@ -2,12 +2,15 @@ use std::str::FromStr;
 
 use pep508_rs::{Requirement, VerbatimUrl};
 use tombi_config::TomlVersion;
-use tombi_document_tree::{dig_accessors, dig_keys, Value};
+use tombi_document_tree::{Value, dig_accessors, dig_keys};
 use tombi_schema_store::matches_accessors;
 
 use crate::{
     find_member_project_toml, find_workspace_pyproject_toml,
-    goto_definition::get_path_dependency_definition, goto_definition_for_member_pyproject_toml,
+    goto_definition::{
+        collect_workspace_project_dependency_definitions, get_path_dependency_definition,
+    },
+    goto_definition_for_member_pyproject_toml, goto_definition_for_workspace_pyproject_toml,
 };
 
 pub async fn goto_declaration(
@@ -28,26 +31,37 @@ pub async fn goto_declaration(
         accessors[..accessors.len().min(3)],
         ["tool", "uv", "sources"]
     ) {
-        goto_definition_for_member_pyproject_toml(
+        if matches_accessors!(accessors, ["tool", "uv", "sources", _, "path"]) {
+            goto_declaration_for_sources_path(document_tree, accessors, &pyproject_toml_path)?
+        } else {
+            goto_definition_for_member_pyproject_toml(
+                document_tree,
+                accessors,
+                &pyproject_toml_path,
+                toml_version,
+                false,
+            )?
+        }
+    } else if matches_accessors!(
+        accessors[..accessors.len().min(3)],
+        ["tool", "uv", "workspace"]
+    ) {
+        goto_definition_for_workspace_pyproject_toml(
             document_tree,
             accessors,
             &pyproject_toml_path,
             toml_version,
-            false,
         )?
     } else if matches_accessors!(accessors, ["project", "dependencies", _])
         || matches_accessors!(accessors, ["project", "optional-dependencies", _, _])
         || matches_accessors!(accessors, ["dependency-groups", _, _])
     {
-        match goto_declaration_for_dependency_package(
+        goto_declaration_for_dependency_package(
             document_tree,
             accessors,
             &pyproject_toml_path,
             toml_version,
-        )? {
-            Some(location) => vec![location],
-            None => Vec::with_capacity(0),
-        }
+        )?
     } else {
         Vec::with_capacity(0)
     };
@@ -64,41 +78,57 @@ fn goto_declaration_for_dependency_package(
     accessors: &[tombi_schema_store::Accessor],
     pyproject_toml_path: &std::path::Path,
     toml_version: TomlVersion,
-) -> Result<Option<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
+) -> Result<Vec<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
+    if dig_keys(document_tree, &["tool", "uv", "workspace"]).is_some() {
+        return Ok(Vec::with_capacity(0));
+    }
+
     // Get the dependency string from the current position
     let Some((_, Value::String(dependency))) = dig_accessors(document_tree, accessors) else {
-        return Ok(None);
+        return Ok(Vec::with_capacity(0));
     };
 
     // Parse the PEP 508 requirement to extract package name
-    let package_name = match Requirement::<VerbatimUrl>::from_str(dependency.value()) {
-        Ok(requirement) => requirement.name,
-        Err(_) => return Ok(None),
+    let requirement = match Requirement::<VerbatimUrl>::from_str(dependency.value()) {
+        Ok(requirement) => requirement,
+        Err(_) => return Ok(Vec::with_capacity(0)),
     };
+    let package_name = requirement.name.as_ref();
 
-    // Check if this package is in tool.uv.sources
-    let Some((_, Value::Table(sources))) = dig_keys(document_tree, &["tool", "uv", "sources"])
-    else {
-        return Ok(None);
-    };
-    let Some((_, Value::Table(source_table))) = sources.get_key_value(package_name.as_ref()) else {
-        return Ok(None);
-    };
-    if let Some((_, Value::Boolean(is_workspace))) = source_table.get_key_value("workspace") {
-        if !is_workspace.value() {
-            return Ok(None);
+    let mut locations = Vec::new();
+
+    if let Some((_, Value::Table(sources))) = dig_keys(document_tree, &["tool", "uv", "sources"])
+        && let Some((_, Value::Table(source_table))) = sources.get_key_value(package_name)
+    {
+        if let Some((_, Value::Boolean(is_workspace))) = source_table.get_key_value("workspace")
+            && is_workspace.value()
+            && let Some(location) = get_workspace_dependency_declaration(
+                package_name,
+                pyproject_toml_path,
+                toml_version,
+            )
+        {
+            locations.push(location);
         }
-        return Ok(get_workspace_dependency_declaration(
-            package_name.as_ref(),
-            pyproject_toml_path,
-            toml_version,
-        ));
-    }
-    if let Some((_, Value::String(path))) = source_table.get_key_value("path") {
-        return Ok(get_path_dependency_definition(path.value(), toml_version));
+
+        if let Some((_, Value::String(path))) = source_table.get_key_value("path") {
+            if let Some(location) = get_path_dependency_declaration(pyproject_toml_path, path) {
+                locations.push(location);
+            } else if let Some(location) =
+                get_path_dependency_definition(path.value(), toml_version)
+            {
+                locations.push(location);
+            }
+        }
     }
 
-    Ok(None)
+    locations.extend(collect_workspace_project_dependency_definitions(
+        package_name,
+        pyproject_toml_path,
+        toml_version,
+    ));
+
+    Ok(locations)
 }
 
 fn get_workspace_dependency_declaration(
@@ -107,7 +137,7 @@ fn get_workspace_dependency_declaration(
     toml_version: TomlVersion,
 ) -> Option<tombi_extension::DefinitionLocation> {
     // Find the workspace pyproject.toml
-    let (workspace_pyproject_toml_path, workspace_document_tree) =
+    let (workspace_pyproject_toml_path, _, workspace_document_tree) =
         find_workspace_pyproject_toml(pyproject_toml_path, toml_version)?;
 
     // Find the member project
@@ -127,5 +157,32 @@ fn get_workspace_dependency_declaration(
     Some(tombi_extension::DefinitionLocation {
         uri: workspace_pyproject_toml_uri,
         range: member_range,
+    })
+}
+
+fn goto_declaration_for_sources_path(
+    document_tree: &tombi_document_tree::DocumentTree,
+    accessors: &[tombi_schema_store::Accessor],
+    pyproject_toml_path: &std::path::Path,
+) -> Result<Vec<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
+    let Some((_, Value::String(path_value))) = dig_accessors(document_tree, accessors) else {
+        return Ok(Vec::with_capacity(0));
+    };
+
+    if let Some(location) = get_path_dependency_declaration(pyproject_toml_path, path_value) {
+        return Ok(vec![location]);
+    }
+
+    Ok(Vec::with_capacity(0))
+}
+
+fn get_path_dependency_declaration(
+    pyproject_toml_path: &std::path::Path,
+    path_value: &tombi_document_tree::String,
+) -> Option<tombi_extension::DefinitionLocation> {
+    let uri = tombi_uri::Uri::from_file_path(pyproject_toml_path).ok()?;
+    Some(tombi_extension::DefinitionLocation {
+        uri,
+        range: path_value.unquoted_range(),
     })
 }

@@ -67,6 +67,9 @@ class RecognizeResult:
     captures_list: List[MatchCapture] = field(default_factory=list)
     """Captures for response as a list (duplicates allowed)."""
 
+    original_text: str = ""
+    """Original text from match."""
+
 
 def recognize(
     text: str,
@@ -154,9 +157,6 @@ def recognize_all(
     else:
         # Combine with intents
         slot_lists = {**intents.slot_lists, **slot_lists}
-
-    if slot_lists is None:
-        slot_lists = {}
 
     if expansion_rules is None:
         expansion_rules = intents.expansion_rules
@@ -268,6 +268,7 @@ def recognize_all(
                 intent_context=intent_context,
                 intent_sentence=intent_sentence,
                 intent_data=intent_data,
+                original_text=text,
             )
             maybe_match_contexts = match_expression(
                 match_settings, match_context, intent_sentence.expression
@@ -279,20 +280,6 @@ def recognize_all(
                 default_response=default_response,
                 allow_unmatched_entities=allow_unmatched_entities,
             )
-
-
-def _merge_match_contexts(
-    match_contexts: Iterable[MatchContext], merged_context: MatchContext
-) -> MatchContext:
-    for match_context in match_contexts:
-        if match_context.text:
-            # Needed for open wildcards
-            merged_context.text = match_context.text
-
-        merged_context.entities.extend(match_context.entities)
-        merged_context.intent_context.update(match_context.intent_context)
-
-    return merged_context
 
 
 def _process_match_contexts(
@@ -316,6 +303,11 @@ def _process_match_contexts(
                 wildcard.text += final_text
                 wildcard.value = wildcard.text
                 wildcard.is_wildcard_open = False
+                if wildcard.text_span is not None:
+                    wildcard.text_span = (
+                        wildcard.text_span[0],
+                        wildcard.text_span[0] + len(wildcard.text),
+                    )
                 maybe_match_context.text = ""
 
         if not maybe_match_context.is_match:
@@ -392,6 +384,7 @@ def _process_match_contexts(
                 capture.name: capture for capture in maybe_match_context.captures
             },
             captures_list=maybe_match_context.captures,
+            original_text=maybe_match_context.original_text,
         )
 
 
@@ -497,7 +490,7 @@ def _copy_and_check_required_context(
                     actual_value = unmatched_context_entity.text
                     break
 
-        if actual_value == context_value and context_value is not None:
+        if (actual_value == context_value) and (context_value is not None):
             # Exact match to context value, except when context value is required and not provided
             if copy_to_slot:
                 slots_from_context.append(

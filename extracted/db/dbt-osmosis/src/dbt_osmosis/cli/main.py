@@ -1,15 +1,15 @@
-# pyright: reportUnreachable=false, reportAny=false
+# pyright: reportUnreachable=false
 
 from __future__ import annotations
 
 import functools
-import io
 import subprocess
 import sys
 import typing as t
 from pathlib import Path
 
 import click
+import yaml as yaml_handler
 
 import dbt_osmosis.core.logger as logger
 from dbt_osmosis.core.osmosis import (
@@ -24,6 +24,8 @@ from dbt_osmosis.core.osmosis import (
     discover_project_dir,
     draft_restructure_delta_plan,
     execute_sql_code,
+    generate_dbt_model_from_nl,
+    generate_sql_from_nl,
     inherit_upstream_column_knowledge,
     inject_missing_columns,
     remove_columns_not_in_database,
@@ -47,12 +49,68 @@ _CONTEXT = {"max_content_width": 800}
 @click.version_option()
 def cli() -> None:
     """dbt-osmosis is a CLI tool for dbt that helps you manage, document, and organize your dbt yaml files"""
+
     pass
+
+
+def test_llm_connection(llm_client=None) -> None:
+    """Test the connection to the LLM client."""
+    import os
+
+    from dbt_osmosis.core.llm import get_llm_client
+
+    llm_client = os.getenv("LLM_PROVIDER")
+    if not llm_client:
+        click.echo(
+            "ERROR: LLM_PROVIDER environment variable is not set. Please set it to one of the available providers."
+        )
+        return
+
+    client, model_engine = get_llm_client()
+    if not client or not model_engine:
+        click.echo(
+            f"Connection ERROR: The environment variables for LLM provider {llm_client} are not set correctly."
+        )
+        return
+
+    click.echo(
+        f"LLM client connection successful. Provider: {llm_client}, Model Engine: {model_engine}"
+    )
+
+
+@cli.command()
+def test_llm() -> None:
+    """Test the connection to the LLM client"""
+    logger.info("INFO: Invoking test_llm_connection...")
+    from dbt_osmosis.core.llm import get_llm_client
+
+    llm_client = get_llm_client()
+    test_llm_connection(llm_client)
+    click.echo("LLM client connection test completed.")
 
 
 @cli.group()
 def yaml():
     """Manage, document, and organize dbt YAML files"""
+
+
+def logging_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
+    """Options common across subcommands"""
+
+    @click.option(
+        "--log-level",
+        type=click.STRING,
+        default="INFO",
+        help="The log level to use. Default is INFO.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        # NOTE: Remove log_level from kwargs so it's not passed to the function.
+        log_level = kwargs.pop("log_level")
+        logger.set_log_level(str(log_level).upper())
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 @cli.group()
@@ -135,7 +193,12 @@ def yaml_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
     @click.option(
         "--disable-introspection",
         is_flag=True,
-        help="Allows running the program without a database connection, it is recommended to use the --catalog-path option if using this.",
+        help="Allows running of program without a database connection, it is recommended to use the --catalog-path option if using this.",
+    )
+    @click.option(
+        "--scaffold-empty-configs/--no-scaffold-empty-configs",
+        default=False,
+        help="When disabled, avoid writing empty/placeholder fields (e.g., empty descriptions) to YAML.",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -151,6 +214,7 @@ def yaml_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
 @yaml.command(context_settings=_CONTEXT)
 @dbt_opts
 @yaml_opts
+@logging_opts
 @click.option(
     "-F",
     "--force-inherit-descriptions",
@@ -161,6 +225,11 @@ def yaml_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
     "--use-unrendered-descriptions",
     is_flag=True,
     help="Use unrendered column descriptions in the documentation. This is the only way to propogate docs blocks",
+)
+@click.option(
+    "--prefer-yaml-values",
+    is_flag=True,
+    help="Prefer YAML values as-is for ALL fields, preserving unrendered jinja templates like {{ var(...) }}, {{ env_var(...) }}, etc. Takes precedence over use-unrendered-descriptions.",
 )
 @click.option(
     "--skip-add-columns",
@@ -214,6 +283,11 @@ def yaml_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
     help="Output yaml file columns and data types in lowercase if possible.",
 )
 @click.option(
+    "--output-to-upper",
+    is_flag=True,
+    help="Output yaml file columns and data types in uppercase if possible.",
+)
+@click.option(
     "--auto-apply",
     is_flag=True,
     help="Automatically apply the restructure plan without confirmation.",
@@ -222,6 +296,11 @@ def yaml_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
     "--synthesize",
     is_flag=True,
     help="Automatically synthesize missing documentation with OpenAI.",
+)
+@click.option(
+    "--include-external",
+    is_flag=True,
+    help="Include models and sources from external dbt packages in the processing.",
 )
 def refactor(
     target: str | None = None,
@@ -250,41 +329,41 @@ def refactor(
         target=target,
         profile=profile,
         threads=threads,
+        vars=yaml_handler.safe_load(vars) if vars else {},
         disable_introspection=disable_introspection,
     )
-    context = YamlRefactorContext(
+
+    with YamlRefactorContext(
         project=create_dbt_project_context(settings),
         settings=YamlRefactorSettings(
             **{k: v for k, v in kwargs.items() if v is not None}, create_catalog_if_not_exists=False
         ),
-    )
-    if vars:
-        settings.vars = context.yaml_handler.load(io.StringIO(vars))  # pyright: ignore[reportUnknownMemberType]
+    ) as context:
+        create_missing_source_yamls(context=context)
+        apply_restructure_plan(
+            context=context, plan=draft_restructure_delta_plan(context), confirm=not auto_apply
+        )
 
-    create_missing_source_yamls(context=context)
-    apply_restructure_plan(
-        context=context, plan=draft_restructure_delta_plan(context), confirm=not auto_apply
-    )
+        transform = (
+            inject_missing_columns
+            >> remove_columns_not_in_database
+            >> inherit_upstream_column_knowledge
+            >> sort_columns_as_configured
+            >> synchronize_data_types
+        )
+        if synthesize:
+            transform >>= synthesize_missing_documentation_with_openai
 
-    transform = (
-        inject_missing_columns
-        >> remove_columns_not_in_database
-        >> inherit_upstream_column_knowledge
-        >> sort_columns_as_configured
-        >> synchronize_data_types
-    )
-    if synthesize:
-        transform >>= synthesize_missing_documentation_with_openai
+        _ = transform(context=context)
 
-    _ = transform(context=context)
-
-    if check and context.mutated:
-        exit(1)
+        if check and context.mutated:
+            exit(1)
 
 
 @yaml.command(context_settings=_CONTEXT)
 @dbt_opts
 @yaml_opts
+@logging_opts
 @click.option(
     "--auto-apply",
     is_flag=True,
@@ -315,29 +394,29 @@ def organize(
         target=target,
         profile=profile,
         threads=threads,
+        vars=yaml_handler.safe_load(vars) if vars else {},
         disable_introspection=disable_introspection,
     )
-    context = YamlRefactorContext(
+
+    with YamlRefactorContext(
         project=create_dbt_project_context(settings),
         settings=YamlRefactorSettings(
             **{k: v for k, v in kwargs.items() if v is not None}, create_catalog_if_not_exists=False
         ),
-    )
-    if vars:
-        settings.vars = context.yaml_handler.load(io.StringIO(vars))  # pyright: ignore[reportUnknownMemberType]
+    ) as context:
+        create_missing_source_yamls(context=context)
+        apply_restructure_plan(
+            context=context, plan=draft_restructure_delta_plan(context), confirm=not auto_apply
+        )
 
-    create_missing_source_yamls(context=context)
-    apply_restructure_plan(
-        context=context, plan=draft_restructure_delta_plan(context), confirm=not auto_apply
-    )
-
-    if check and context.mutated:
-        exit(1)
+        if check and context.mutated:
+            exit(1)
 
 
 @yaml.command(context_settings=_CONTEXT)
 @dbt_opts
 @yaml_opts
+@logging_opts
 @click.option(
     "-F",
     "--force-inherit-descriptions",
@@ -348,6 +427,11 @@ def organize(
     "--use-unrendered-descriptions",
     is_flag=True,
     help="Use unrendered column descriptions in the documentation. This is the only way to propogate docs blocks",
+)
+@click.option(
+    "--prefer-yaml-values",
+    is_flag=True,
+    help="Prefer YAML values as-is for ALL fields, preserving unrendered jinja templates like {{ var(...) }}, {{ env_var(...) }}, etc. Takes precedence over use-unrendered-descriptions.",
 )
 @click.option(
     "--skip-add-columns",
@@ -401,9 +485,19 @@ def organize(
     help="Output yaml file columns and data types in lowercase if possible.",
 )
 @click.option(
+    "--output-to-upper",
+    is_flag=True,
+    help="Output yaml file columns and data types in uppercase if possible.",
+)
+@click.option(
     "--synthesize",
     is_flag=True,
     help="Automatically synthesize missing documentation with OpenAI.",
+)
+@click.option(
+    "--include-external",
+    is_flag=True,
+    help="Include models and sources from external dbt packages in the processing.",
 )
 def document(
     target: str | None = None,
@@ -430,27 +524,269 @@ def document(
         target=target,
         profile=profile,
         threads=threads,
+        vars=yaml_handler.safe_load(vars) if vars else {},
         disable_introspection=disable_introspection,
     )
-    context = YamlRefactorContext(
+
+    with YamlRefactorContext(
         project=create_dbt_project_context(settings),
         settings=YamlRefactorSettings(
             **{k: v for k, v in kwargs.items() if v is not None}, create_catalog_if_not_exists=False
         ),
+    ) as context:
+        transform = (
+            inject_missing_columns
+            >> inherit_upstream_column_knowledge
+            >> sort_columns_as_configured
+        )
+        if synthesize:
+            transform >>= synthesize_missing_documentation_with_openai
+
+        _ = transform(context=context)
+
+        if check and context.mutated:
+            exit(1)
+
+
+@cli.group()
+def nl():
+    """Natural language interface for dbt model generation and SQL queries"""
+
+
+@nl.command(context_settings=_CONTEXT)
+@dbt_opts
+@logging_opts
+@click.argument("query")
+@click.option(
+    "--model-name",
+    type=click.STRING,
+    help="Optional name for the generated model (auto-generated if not provided)",
+)
+@click.option(
+    "--output-path",
+    type=click.Path(),
+    help="Path to save the generated model SQL file",
+)
+@click.option(
+    "--schema-yml",
+    type=click.Path(),
+    help="Path to save the generated schema.yml file",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Print the generated model without writing to disk",
+)
+def generate(
+    query: str = "",
+    model_name: str | None = None,
+    output_path: str | None = None,
+    schema_yml: str | None = None,
+    dry_run: bool = False,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    target: str | None = None,
+    **kwargs: t.Any,
+) -> None:
+    """Generate a dbt model from a natural language description.
+
+    \f
+    Example:
+        dbt-osmosis nl generate "Show me customers who churned in the last 30 days"
+
+    The AI will analyze your query, understand your available models and sources,
+    and generate a complete dbt model with SQL and documentation.
+    """
+    logger.info(":water_wave: Executing dbt-osmosis natural language generation\n")
+    settings = DbtConfiguration(
+        project_dir=t.cast(str, project_dir),
+        profiles_dir=t.cast(str, profiles_dir),
+        target=target,
+        **kwargs,
     )
-    if vars:
-        settings.vars = context.yaml_handler.load(io.StringIO(vars))  # pyright: ignore[reportUnknownMemberType]
+    project = create_dbt_project_context(settings)
 
-    transform = (
-        inject_missing_columns >> inherit_upstream_column_knowledge >> sort_columns_as_configured
+    # Gather available sources and models from the manifest
+    available_sources: list[dict[str, t.Any]] = []
+
+    # Add models from manifest
+    for node_id, node in project.manifest.nodes.items():
+        if hasattr(node, "resource_type") and node.resource_type == "model":
+            columns = list(node.columns.keys()) if hasattr(node, "columns") else []
+            available_sources.append({
+                "name": node.name,
+                "type": "model",
+                "description": getattr(node, "description", ""),
+                "columns": columns,
+            })
+
+    # Add sources from manifest
+    for source_id, source in project.manifest.sources.items():
+        if hasattr(source, "resource_type") and source.resource_type == "source":
+            columns = list(source.columns.keys()) if hasattr(source, "columns") else []
+            available_sources.append({
+                "name": f"{source.source_name}.{source.name}",
+                "type": "source",
+                "description": getattr(source, "description", ""),
+                "columns": columns,
+            })
+
+    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
+
+    # Generate the model specification
+    try:
+        model_spec = generate_dbt_model_from_nl(query, available_sources)
+    except Exception as e:
+        logger.error(f":x: Failed to generate model: {e}")
+        raise
+
+    # Override model name if provided
+    if model_name:
+        model_spec["model_name"] = model_name
+
+    click.echo(f"\n:sparkles: Generated model: {model_spec['model_name']}")
+    click.echo(f"Description: {model_spec['description']}")
+    click.echo(f"Materialized: {model_spec['materialized']}")
+
+    # Generate SQL content
+    sql_content = f"-- {model_spec['description']}\n"
+    sql_content += f"-- Materialized: {model_spec['materialized']}\n\n"
+    sql_content += model_spec["sql"]
+
+    if dry_run:
+        click.echo("\n" + "=" * 80)
+        click.echo("SQL:")
+        click.echo("=" * 80)
+        click.echo(sql_content)
+        click.echo("\n" + "=" * 80)
+        click.echo("Columns:")
+        click.echo("=" * 80)
+        for col in model_spec["columns"]:
+            click.echo(f"  - {col['name']}: {col['description']}")
+        return
+
+    # Write SQL file
+    if output_path is None:
+        models_dir = Path(project_dir or ".") / "models"
+        output_path = str(models_dir / f"{model_spec['model_name']}.sql")
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).write_text(sql_content)
+    click.echo(f"\n:white_check_mark: Wrote SQL to: {output_path}")
+
+    # Write schema.yml if requested
+    if schema_yml or output_path:
+        schema_path = schema_yml or str(
+            Path(output_path).parent / f"{model_spec['model_name']}.yml"
+        )
+
+        import yaml
+
+        schema_content = {
+            "version": 2,
+            "models": [
+                {
+                    "name": model_spec["model_name"],
+                    "description": model_spec["description"],
+                    "columns": [
+                        {"name": col["name"], "description": col["description"]}
+                        for col in model_spec["columns"]
+                    ],
+                }
+            ],
+        }
+
+        Path(schema_path).write_text(
+            yaml.dump(schema_content, default_flow_style=False, sort_keys=False)
+        )
+        click.echo(f":white_check_mark: Wrote schema.yml to: {schema_path}")
+
+
+@nl.command(context_settings=_CONTEXT)
+@dbt_opts
+@logging_opts
+@click.argument("query")
+@click.option(
+    "--execute",
+    is_flag=True,
+    help="Execute the generated SQL and display results",
+)
+def query(
+    query: str = "",
+    execute: bool = False,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    target: str | None = None,
+    **kwargs: t.Any,
+) -> None:
+    """Generate SQL from a natural language query.
+
+    \f
+    Example:
+        dbt-osmosis nl query "Show me the top 10 customers by lifetime value"
+
+    The AI will translate your natural language query into SQL using dbt's ref() syntax.
+    """
+    logger.info(":water_wave: Executing dbt-osmosis natural language SQL generation\n")
+    settings = DbtConfiguration(
+        project_dir=t.cast(str, project_dir),
+        profiles_dir=t.cast(str, profiles_dir),
+        target=target,
+        **kwargs,
     )
-    if synthesize:
-        transform >>= synthesize_missing_documentation_with_openai
+    project = create_dbt_project_context(settings)
 
-    _ = transform(context=context)
+    # Gather available sources and models from the manifest
+    available_sources: list[dict[str, t.Any]] = []
 
-    if check and context.mutated:
-        exit(1)
+    for node_id, node in project.manifest.nodes.items():
+        if hasattr(node, "resource_type") and node.resource_type == "model":
+            columns = list(node.columns.keys()) if hasattr(node, "columns") else []
+            available_sources.append({
+                "name": node.name,
+                "type": "model",
+                "description": getattr(node, "description", ""),
+                "columns": columns,
+            })
+
+    for source_id, source in project.manifest.sources.items():
+        if hasattr(source, "resource_type") and source.resource_type == "source":
+            columns = list(source.columns.keys()) if hasattr(source, "columns") else []
+            available_sources.append({
+                "name": f"{source.source_name}.{source.name}",
+                "type": "source",
+                "description": getattr(source, "description", ""),
+                "columns": columns,
+            })
+
+    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
+
+    # Generate SQL
+    try:
+        sql = generate_sql_from_nl(query, available_sources)
+    except Exception as e:
+        logger.error(f":x: Failed to generate SQL: {e}")
+        raise
+
+    click.echo("\n" + "=" * 80)
+    click.echo("Generated SQL:")
+    click.echo("=" * 80)
+    click.echo(sql)
+
+    if execute:
+        click.echo("\n" + "=" * 80)
+        click.echo("Executing SQL...")
+        click.echo("=" * 80)
+        _, table = execute_sql_code(project, sql)
+
+        getattr(table, "print_table")(
+            max_rows=50,
+            max_columns=6,
+            output=sys.stdout,
+            max_column_width=20,
+            locale=None,
+            max_precision=3,
+        )
 
 
 @cli.command(
@@ -459,6 +795,7 @@ def document(
         allow_extra_args=True,
     )
 )
+@logging_opts
 @click.option(
     "--project-dir",
     default=discover_project_dir,
@@ -541,6 +878,7 @@ def workbench(
 
 @sql.command(context_settings=_CONTEXT)
 @dbt_opts
+@logging_opts
 @click.argument("sql")
 def run(
     sql: str = "",
@@ -571,6 +909,7 @@ def run(
 
 @sql.command(context_settings=_CONTEXT)
 @dbt_opts
+@logging_opts
 @click.argument("sql")
 def compile(
     sql: str = "",

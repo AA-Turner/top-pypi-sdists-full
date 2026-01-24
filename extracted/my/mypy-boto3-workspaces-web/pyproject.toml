@@ -1,0 +1,61 @@
+# Setup script for mypy-boto3-workspaces-web.
+
+# Copyright 2025 Vlad Emelianov
+
+[project]
+name = "mypy-boto3-workspaces-web"
+version = "1.42.14"
+license = "MIT"
+authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
+description = "Type annotations for boto3 WorkSpacesWeb 1.42.14 service generated with mypy-boto3-builder 8.12.0"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Stubs Only",
+]
+keywords = [
+    "boto3",
+    "workspaces-web",
+    "boto3-stubs",
+    "type-annotations",
+    "mypy",
+    "typeshed",
+    "autocomplete",
+]
+requires-python = ">=3.9"
+
+dependencies = [
+    "typing-extensions; python_version<'3.12'",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/youtype/mypy_boto3_builder"
+Documentation = "https://youtype.github.io/boto3_stubs_docs/mypy_boto3_workspaces_web/"
+Source = "https://github.com/youtype/mypy_boto3_builder"
+Tracker = "https://github.com/youtype/mypy_boto3_builder/issues"
+
+[build-system]
+requires = ["setuptools>=60"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+platforms = ["any"]
+include-package-data = true
+packages = ["mypy_boto3_workspaces_web"]
+
+[tool.setuptools.package-data]
+"*" = ["*.pyi", "py.typed"]

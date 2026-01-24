@@ -44,6 +44,14 @@ class CharField(_BaseField):
 
 
 @dataclass
+class DateTimeField(_BaseField):
+    type: str = "datetime"
+
+    def to_representation(self, value: pd.Series) -> pd.Series:
+        return pd.to_datetime(super().to_representation(value)).dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+@dataclass
 class DateField(_BaseField):
     type: str = "date"
 

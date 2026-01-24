@@ -1,4 +1,5 @@
 import logging
+from contextlib import suppress
 
 from django.conf import settings
 from django.contrib.auth.models import Group, Permission
@@ -66,11 +67,12 @@ logger = logging.getLogger()
 @permission_classes([AllowAny])
 @authentication_classes([])
 def reset_password_email(request):
-    try:
+    with suppress(User.DoesNotExist):
         user = User.objects.get(email=request.data["email"])
-        user.reset_password(request)
-    except Exception:
-        pass
+        try:
+            user.reset_password(request)
+        except Exception as e:
+            logger.error("While user try to reset password, we encounter the error", extra={"user": user, "detail": e})
     return Response(
         {
             "status": "ok",
@@ -120,7 +122,7 @@ def register_user(request):
                 query_params["error_redirect_url"] = error_redirect_url
 
             token = user.generate_temporary_token()
-            url = f'{reverse("wbcore:authentication:activate", args=[user.uuid, token], request=request)}?{urlencode(query_params)}'
+            url = f"{reverse('wbcore:authentication:activate', args=[user.uuid, token], request=request)}?{urlencode(query_params)}"
 
             # Construct registration mail and send
             rendered_message = render_to_string("user_registration_email.html", {"user": user, "url": url})

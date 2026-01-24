@@ -135,7 +135,7 @@ class Kconfig(Kbaseconfig):
                 except Exception as e:
                     exception = e if debug else None
                     dependency_error('hcloud', exception)
-                k = Khcloud(api_key=apikey, location=location)
+                k = Khcloud(api_key=apikey, location=location, debug=debug)
             elif self.type == 'azure':
                 try:
                     from kvirt.providers.azure import Kazure
@@ -320,7 +320,6 @@ class Kconfig(Kbaseconfig):
                         isofolder = isofolder[1:]
                     isofolder = f'[{isopool}]/{isofolder}'
                 filtervms = options.get('filtervms', VSPHERE['filtervms'])
-                filtervms = options.get('filteruser', VSPHERE['filteruser'])
                 filteruser = options.get('filteruser', VSPHERE['filteruser'])
                 filtertag = options.get('filtertag')
                 category = options.get('category', VSPHERE['category'])
@@ -1067,8 +1066,11 @@ class Kconfig(Kbaseconfig):
                 if index < len(disks):
                     disk = disks[index]
                     currentdisksize = currentdisk['size']
-                    disksize = disk.get('size', 10) if isinstance(disk, dict) else int(disk)
-                    if disksize > currentdisksize:
+                    disksize = disk.get('size', 10) if isinstance(disk, dict) else int(disk) if disk.isdigit() else None
+                    if disksize is None:
+                        warning(f"Invalid Disk {index} value {disk} in {name}")
+                        break
+                    elif disksize > currentdisksize:
                         if currentvm.get('status') != 'down':
                             warning(f"Cant resize Disk {index} in {name} while VM is up")
                             break
@@ -1550,7 +1552,7 @@ class Kconfig(Kbaseconfig):
         if url is not None:
             if url.startswith('/'):
                 url = f"file://{url}"
-            if not url.endswith('.yml'):
+            if not url.endswith('.yml') and not url.endswith('.yaml'):
                 url = f"{url}/kcli_plan.yml"
                 pprint(f"Trying to retrieve {url}")
             inputfile = os.path.basename(url)
@@ -1800,7 +1802,7 @@ class Kconfig(Kbaseconfig):
                     continue
                 elif planurl is not None:
                     path = planentry
-                    if not planurl.endswith('yml'):
+                    if not planurl.endswith('yml') and not planurl.endswith('yaml'):
                         planurl = f"{planurl}/kcli_plan.yml"
                 else:
                     path = os.path.dirname(planfile) or '.'
@@ -2553,6 +2555,8 @@ class Kconfig(Kbaseconfig):
     def create_kube(self, cluster, kubetype, overrides={}):
         cwd = os.getcwd()
         cluster = overrides.get('cluster') or cluster or f"my{kubetype}"
+        if 'domain' in overrides and overrides['domain'] == 'local':
+            return {'result': 'failure', 'reason': 'Invalid domain .local'}
         if self.type == 'web' and self.k.localkube:
             return self.k.create_kube(cluster, kubetype, overrides)
         ippool = overrides.get('ippool') or overrides.get('confpool')
@@ -3254,6 +3258,7 @@ class Kconfig(Kbaseconfig):
             elif isinstance(fil, dict):
                 origin = fil.get('origin')
                 content = fil.get('content')
+                target = fil.get('target')
                 path = fil.get('path')
                 if path is None:
                     if origin is not None:
@@ -3283,7 +3288,7 @@ class Kconfig(Kbaseconfig):
                         files[index]['origin'] = origin
                 if not os.path.exists(origin):
                     return {'result': 'failure', 'reason': f"Origin file {origin} not found for {name}"}
-            elif content is None:
+            elif target is None and content is None:
                 return {'result': 'failure', 'reason': f"Content of file {path} not found for {name}"}
 
     def prepend_input_dir(self, newfiles, inputdir):

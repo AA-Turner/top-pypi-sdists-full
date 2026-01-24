@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-psutil"
-version = "7.0.0.20250822"
+version = "7.2.1.20260116"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for psutil"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`psutil`](https://github.com/giampaolo/psutil) package. It can be used by type checkers
 to check code that uses `psutil`. This version of
 `types-psutil` aims to provide accurate annotations for
-`psutil==7.0.*`.
+`psutil==7.2.1`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.404
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`ca44e4c45dc40fb47602dc79a3145ba61879add8`](https://github.com/python/typeshed/commit/ca44e4c45dc40fb47602dc79a3145ba61879add8).
+[`ee1e94d4309f30e9a6e169da4e4db72aa6a98cc0`](https://github.com/python/typeshed/commit/ee1e94d4309f30e9a6e169da4e4db72aa6a98cc0).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

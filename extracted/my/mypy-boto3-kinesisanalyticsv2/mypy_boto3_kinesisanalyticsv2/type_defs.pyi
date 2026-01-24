@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -40,12 +41,6 @@ from .literals import (
     UrlTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -268,7 +263,7 @@ class CloudWatchLoggingOptionDescriptionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -279,8 +274,8 @@ class VpcConfigurationTypeDef(TypedDict):
 class VpcConfigurationDescriptionTypeDef(TypedDict):
     VpcConfigurationId: str
     VpcId: str
-    SubnetIds: List[str]
-    SecurityGroupIds: List[str]
+    SubnetIds: list[str]
+    SecurityGroupIds: list[str]
 
 class ApplicationEncryptionConfigurationDescriptionTypeDef(TypedDict):
     KeyType: KeyTypeType
@@ -490,7 +485,7 @@ class S3ConfigurationTypeDef(TypedDict):
 
 class PropertyGroupOutputTypeDef(TypedDict):
     PropertyGroupId: str
-    PropertyMap: Dict[str, str]
+    PropertyMap: dict[str, str]
 
 class ErrorInfoTypeDef(TypedDict):
     ErrorString: NotRequired[str]
@@ -686,7 +681,7 @@ class AddApplicationCloudWatchLoggingOptionRequestTypeDef(TypedDict):
 class AddApplicationCloudWatchLoggingOptionResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
-    CloudWatchLoggingOptionDescriptions: List[CloudWatchLoggingOptionDescriptionTypeDef]
+    CloudWatchLoggingOptionDescriptions: list[CloudWatchLoggingOptionDescriptionTypeDef]
     OperationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -697,7 +692,7 @@ class CreateApplicationPresignedUrlResponseTypeDef(TypedDict):
 class DeleteApplicationCloudWatchLoggingOptionResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
-    CloudWatchLoggingOptionDescriptions: List[CloudWatchLoggingOptionDescriptionTypeDef]
+    CloudWatchLoggingOptionDescriptions: list[CloudWatchLoggingOptionDescriptionTypeDef]
     OperationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -765,17 +760,17 @@ class UpdateApplicationMaintenanceConfigurationRequestTypeDef(TypedDict):
     ApplicationMaintenanceConfigurationUpdate: ApplicationMaintenanceConfigurationUpdateTypeDef
 
 class ListApplicationOperationsResponseTypeDef(TypedDict):
-    ApplicationOperationInfoList: List[ApplicationOperationInfoTypeDef]
+    ApplicationOperationInfoList: list[ApplicationOperationInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    ApplicationSummaries: List[ApplicationSummaryTypeDef]
+    ApplicationSummaries: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListApplicationVersionsResponseTypeDef(TypedDict):
-    ApplicationVersionSummaries: List[ApplicationVersionSummaryTypeDef]
+    ApplicationVersionSummaries: list[ApplicationVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -805,7 +800,7 @@ class CodeContentUpdateTypeDef(TypedDict):
     S3ContentLocationUpdate: NotRequired[S3ContentLocationUpdateTypeDef]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -845,7 +840,7 @@ class SqlRunConfigurationTypeDef(TypedDict):
     InputStartingPositionConfiguration: InputStartingPositionConfigurationTypeDef
 
 class EnvironmentPropertyDescriptionsTypeDef(TypedDict):
-    PropertyGroupDescriptions: NotRequired[List[PropertyGroupOutputTypeDef]]
+    PropertyGroupDescriptions: NotRequired[list[PropertyGroupOutputTypeDef]]
 
 class OperationFailureDetailsTypeDef(TypedDict):
     RollbackOperationId: NotRequired[str]
@@ -935,7 +930,7 @@ class DescribeApplicationSnapshotResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationSnapshotsResponseTypeDef(TypedDict):
-    SnapshotSummaries: List[SnapshotDetailsTypeDef]
+    SnapshotSummaries: list[SnapshotDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -958,7 +953,7 @@ class ZeppelinApplicationConfigurationDescriptionTypeDef(TypedDict):
         DeployAsApplicationConfigurationDescriptionTypeDef
     ]
     CustomArtifactsConfigurationDescription: NotRequired[
-        List[CustomArtifactConfigurationDescriptionTypeDef]
+        list[CustomArtifactConfigurationDescriptionTypeDef]
     ]
 
 class ZeppelinApplicationConfigurationTypeDef(TypedDict):
@@ -1015,7 +1010,7 @@ class RecordFormatTypeDef(TypedDict):
 class AddApplicationOutputResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
-    OutputDescriptions: List[OutputDescriptionTypeDef]
+    OutputDescriptions: list[OutputDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AddApplicationOutputRequestTypeDef(TypedDict):
@@ -1044,7 +1039,7 @@ class InputSchemaUpdateTypeDef(TypedDict):
 
 class SourceSchemaOutputTypeDef(TypedDict):
     RecordFormat: RecordFormatTypeDef
-    RecordColumns: List[RecordColumnTypeDef]
+    RecordColumns: list[RecordColumnTypeDef]
     RecordEncoding: NotRequired[str]
 
 class SourceSchemaTypeDef(TypedDict):
@@ -1063,15 +1058,15 @@ class InputUpdateTypeDef(TypedDict):
 
 class DiscoverInputSchemaResponseTypeDef(TypedDict):
     InputSchema: SourceSchemaOutputTypeDef
-    ParsedInputRecords: List[List[str]]
-    ProcessedInputRecords: List[str]
-    RawInputRecords: List[str]
+    ParsedInputRecords: list[list[str]]
+    ProcessedInputRecords: list[str]
+    RawInputRecords: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InputDescriptionTypeDef(TypedDict):
     InputId: NotRequired[str]
     NamePrefix: NotRequired[str]
-    InAppStreamNames: NotRequired[List[str]]
+    InAppStreamNames: NotRequired[list[str]]
     InputProcessingConfigurationDescription: NotRequired[
         InputProcessingConfigurationDescriptionTypeDef
     ]
@@ -1092,19 +1087,19 @@ SourceSchemaUnionTypeDef = Union[SourceSchemaTypeDef, SourceSchemaOutputTypeDef]
 class AddApplicationInputResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
-    InputDescriptions: List[InputDescriptionTypeDef]
+    InputDescriptions: list[InputDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AddApplicationReferenceDataSourceResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
-    ReferenceDataSourceDescriptions: List[ReferenceDataSourceDescriptionTypeDef]
+    ReferenceDataSourceDescriptions: list[ReferenceDataSourceDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SqlApplicationConfigurationDescriptionTypeDef(TypedDict):
-    InputDescriptions: NotRequired[List[InputDescriptionTypeDef]]
-    OutputDescriptions: NotRequired[List[OutputDescriptionTypeDef]]
-    ReferenceDataSourceDescriptions: NotRequired[List[ReferenceDataSourceDescriptionTypeDef]]
+    InputDescriptions: NotRequired[list[InputDescriptionTypeDef]]
+    OutputDescriptions: NotRequired[list[OutputDescriptionTypeDef]]
+    ReferenceDataSourceDescriptions: NotRequired[list[ReferenceDataSourceDescriptionTypeDef]]
 
 class InputTypeDef(TypedDict):
     NamePrefix: str
@@ -1143,7 +1138,7 @@ class ApplicationConfigurationDescriptionTypeDef(TypedDict):
     ApplicationSystemRollbackConfigurationDescription: NotRequired[
         ApplicationSystemRollbackConfigurationDescriptionTypeDef
     ]
-    VpcConfigurationDescriptions: NotRequired[List[VpcConfigurationDescriptionTypeDef]]
+    VpcConfigurationDescriptions: NotRequired[list[VpcConfigurationDescriptionTypeDef]]
     ZeppelinApplicationConfigurationDescription: NotRequired[
         ZeppelinApplicationConfigurationDescriptionTypeDef
     ]
@@ -1183,7 +1178,7 @@ class ApplicationDetailTypeDef(TypedDict):
     LastUpdateTimestamp: NotRequired[datetime]
     ApplicationConfigurationDescription: NotRequired[ApplicationConfigurationDescriptionTypeDef]
     CloudWatchLoggingOptionDescriptions: NotRequired[
-        List[CloudWatchLoggingOptionDescriptionTypeDef]
+        list[CloudWatchLoggingOptionDescriptionTypeDef]
     ]
     ApplicationMaintenanceConfigurationDescription: NotRequired[
         ApplicationMaintenanceConfigurationDescriptionTypeDef

@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: python-amazon-sp-api
-Version: 1.9.48
+Version: 2.0.7
 Summary: Python wrapper for the Amazon Selling-Partner API
 Home-page: https://github.com/saleweaver/python-amazon-sp-api
-Author: Michael
+Author: Michael Primke
 Author-email: primke.michael@gmail.com
 License: MIT
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.1
+Requires-Dist: httpx>=0.27.0
 Requires-Dist: cachetools>=4.2
 Requires-Dist: confuse>=1.4
 Provides-Extra: aws-caching
@@ -25,6 +25,7 @@ Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 
+[![CodeFactor](https://www.codefactor.io/repository/github/saleweaver/python-amazon-sp-api/badge)](https://www.codefactor.io/repository/github/saleweaver/python-amazon-sp-api)
 [![Downloads](https://static.pepy.tech/badge/python-amazon-sp-api)](https://pepy.tech/project/python-amazon-sp-api)
 [![Downloads](https://static.pepy.tech/badge/python-amazon-sp-api/month)](https://pepy.tech/project/python-amazon-sp-api)
 [![Downloads](https://static.pepy.tech/badge/python-amazon-sp-api/week)](https://pepy.tech/project/python-amazon-sp-api)
@@ -37,12 +38,13 @@ A wrapper to access **Amazon's Selling Partner API** with an easy-to-use interfa
 
 ---
 
-### 🚀 Version 2 🚀
+### New Features
 
-Version 2 is currently being built - featuring pydantic, async support and better versioning. 
-Check out v2-alpha here: [v2-alpha](https://github.com/saleweaver/python-amazon-sp-api/tree/v2-01)  
+#### Async support!
 
----
+- httpx-based transport for sync clients, enabling connection pooling and consistent streaming behavior.
+- Async client package under `sp_api.asyncio` for non-blocking calls across services.
+
 
 # 🌟 Thank you for using python-amazon-sp-api! 🌟
 
@@ -131,6 +133,41 @@ orders = Orders().get_orders(
 
 ---
 
+### Async Usage
+
+```python
+import asyncio
+from datetime import datetime, timedelta
+
+from sp_api.asyncio.api import Orders, Reports
+from sp_api.base.reportTypes import ReportType
+
+
+async def main():
+    async with Orders() as orders_client:
+        res = await orders_client.get_orders(
+            LastUpdatedAfter=(datetime.utcnow() - timedelta(days=1)).isoformat()
+        )
+        print(res.payload)
+
+    async with Reports() as reports_client:
+        report = await reports_client.create_report(
+            reportType=ReportType.GET_MERCHANT_LISTINGS_ALL_DATA
+        )
+        print(report.payload)
+    
+    # OR 
+    await Reports().create_report(
+        reportType=ReportType.GET_MERCHANT_LISTINGS_ALL_DATA
+    )
+
+    
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
 
 ### New endpoints
 
@@ -167,4 +204,3 @@ The client is pretty extensible and can be used for any other API. Check it out 
 
 
 ![Alt](https://repobeats.axiom.co/api/embed/25e8a3fe715fe68f2996ab99fe2e6188cd96a459.svg "Repobeats analytics image")
-

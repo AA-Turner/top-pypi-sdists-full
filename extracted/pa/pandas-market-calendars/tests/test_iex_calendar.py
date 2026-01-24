@@ -1,8 +1,8 @@
 from datetime import time
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-from zoneinfo import ZoneInfo
 
 from pandas_market_calendars.calendars.iex import IEXExchangeCalendar
 from pandas_market_calendars.class_registry import ProtectedDict
@@ -28,9 +28,7 @@ def test_calendar_utility():
     assert isinstance(valid_days, pd.DatetimeIndex)
     assert not valid_days.empty
 
-    schedule = iex.schedule(
-        start_date="2015-07-01", end_date="2017-07-10", start="pre", end="post"
-    )
+    schedule = iex.schedule(start_date="2015-07-01", end_date="2017-07-10", start="pre", end="post")
     assert isinstance(schedule, pd.DataFrame)
     assert not schedule.empty
 

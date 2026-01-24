@@ -3,7 +3,7 @@ Type annotations for s3vectors service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
 from .literals import DistanceMetricType, SseTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -36,7 +31,9 @@ else:
 
 __all__ = (
     "CreateIndexInputTypeDef",
+    "CreateIndexOutputTypeDef",
     "CreateVectorBucketInputTypeDef",
+    "CreateVectorBucketOutputTypeDef",
     "DeleteIndexInputTypeDef",
     "DeleteVectorBucketInputTypeDef",
     "DeleteVectorBucketPolicyInputTypeDef",
@@ -57,6 +54,8 @@ __all__ = (
     "ListIndexesInputTypeDef",
     "ListIndexesOutputTypeDef",
     "ListOutputVectorTypeDef",
+    "ListTagsForResourceInputTypeDef",
+    "ListTagsForResourceOutputTypeDef",
     "ListVectorBucketsInputPaginateTypeDef",
     "ListVectorBucketsInputTypeDef",
     "ListVectorBucketsOutputTypeDef",
@@ -74,6 +73,8 @@ __all__ = (
     "QueryVectorsInputTypeDef",
     "QueryVectorsOutputTypeDef",
     "ResponseMetadataTypeDef",
+    "TagResourceInputTypeDef",
+    "UntagResourceInputTypeDef",
     "VectorBucketSummaryTypeDef",
     "VectorBucketTypeDef",
     "VectorDataOutputTypeDef",
@@ -85,6 +86,14 @@ __all__ = (
 class EncryptionConfigurationTypeDef(TypedDict):
     sseType: NotRequired[SseTypeType]
     kmsKeyArn: NotRequired[str]
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 
 class DeleteIndexInputTypeDef(TypedDict):
@@ -116,16 +125,8 @@ class GetIndexInputTypeDef(TypedDict):
     indexArn: NotRequired[str]
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 class VectorDataOutputTypeDef(TypedDict):
-    float32: NotRequired[List[float]]
+    float32: NotRequired[list[float]]
 
 
 class GetVectorBucketInputTypeDef(TypedDict):
@@ -155,7 +156,7 @@ class IndexSummaryTypeDef(TypedDict):
 
 
 class MetadataConfigurationOutputTypeDef(TypedDict):
-    nonFilterableMetadataKeys: List[str]
+    nonFilterableMetadataKeys: list[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -170,6 +171,10 @@ class ListIndexesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     prefix: NotRequired[str]
+
+
+class ListTagsForResourceInputTypeDef(TypedDict):
+    resourceArn: str
 
 
 class ListVectorBucketsInputTypeDef(TypedDict):
@@ -206,6 +211,22 @@ class PutVectorBucketPolicyInputTypeDef(TypedDict):
     vectorBucketArn: NotRequired[str]
 
 
+class QueryOutputVectorTypeDef(TypedDict):
+    key: str
+    distance: NotRequired[float]
+    metadata: NotRequired[dict[str, Any]]
+
+
+class TagResourceInputTypeDef(TypedDict):
+    resourceArn: str
+    tags: Mapping[str, str]
+
+
+class UntagResourceInputTypeDef(TypedDict):
+    resourceArn: str
+    tagKeys: Sequence[str]
+
+
 class VectorDataTypeDef(TypedDict):
     float32: NotRequired[Sequence[float]]
 
@@ -213,6 +234,7 @@ class VectorDataTypeDef(TypedDict):
 class CreateVectorBucketInputTypeDef(TypedDict):
     vectorBucketName: str
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class VectorBucketTypeDef(TypedDict):
@@ -222,32 +244,40 @@ class VectorBucketTypeDef(TypedDict):
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
 
+class CreateIndexOutputTypeDef(TypedDict):
+    indexArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateVectorBucketOutputTypeDef(TypedDict):
+    vectorBucketArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetVectorBucketPolicyOutputTypeDef(TypedDict):
     policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListTagsForResourceOutputTypeDef(TypedDict):
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetOutputVectorTypeDef(TypedDict):
     key: str
     data: NotRequired[VectorDataOutputTypeDef]
-    metadata: NotRequired[Dict[str, Any]]
+    metadata: NotRequired[dict[str, Any]]
 
 
 class ListOutputVectorTypeDef(TypedDict):
     key: str
     data: NotRequired[VectorDataOutputTypeDef]
-    metadata: NotRequired[Dict[str, Any]]
-
-
-class QueryOutputVectorTypeDef(TypedDict):
-    key: str
-    data: NotRequired[VectorDataOutputTypeDef]
-    metadata: NotRequired[Dict[str, Any]]
-    distance: NotRequired[float]
+    metadata: NotRequired[dict[str, Any]]
 
 
 class ListIndexesOutputTypeDef(TypedDict):
-    indexes: List[IndexSummaryTypeDef]
+    indexes: list[IndexSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -261,6 +291,7 @@ class IndexTypeDef(TypedDict):
     dimension: int
     distanceMetric: DistanceMetricType
     metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
 
 class ListIndexesInputPaginateTypeDef(TypedDict):
@@ -287,7 +318,7 @@ class ListVectorsInputPaginateTypeDef(TypedDict):
 
 
 class ListVectorBucketsOutputTypeDef(TypedDict):
-    vectorBuckets: List[VectorBucketSummaryTypeDef]
+    vectorBuckets: list[VectorBucketSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -295,6 +326,14 @@ class ListVectorBucketsOutputTypeDef(TypedDict):
 MetadataConfigurationUnionTypeDef = Union[
     MetadataConfigurationTypeDef, MetadataConfigurationOutputTypeDef
 ]
+
+
+class QueryVectorsOutputTypeDef(TypedDict):
+    vectors: list[QueryOutputVectorTypeDef]
+    distanceMetric: DistanceMetricType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 VectorDataUnionTypeDef = Union[VectorDataTypeDef, VectorDataOutputTypeDef]
 
 
@@ -304,19 +343,14 @@ class GetVectorBucketOutputTypeDef(TypedDict):
 
 
 class GetVectorsOutputTypeDef(TypedDict):
-    vectors: List[GetOutputVectorTypeDef]
+    vectors: list[GetOutputVectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVectorsOutputTypeDef(TypedDict):
-    vectors: List[ListOutputVectorTypeDef]
+    vectors: list[ListOutputVectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-
-class QueryVectorsOutputTypeDef(TypedDict):
-    vectors: List[QueryOutputVectorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetIndexOutputTypeDef(TypedDict):
@@ -332,6 +366,8 @@ class CreateIndexInputTypeDef(TypedDict):
     vectorBucketName: NotRequired[str]
     vectorBucketArn: NotRequired[str]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class PutInputVectorTypeDef(TypedDict):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 from typing_extensions import Literal, Required, TypedDict
 
 from ..._types import SequenceNotStr
@@ -21,6 +21,8 @@ class BetaWebFetchTool20250910Param(TypedDict, total=False):
 
     type: Required[Literal["web_fetch_20250910"]]
 
+    allowed_callers: List[Literal["direct", "code_execution_20250825"]]
+
     allowed_domains: Optional[SequenceNotStr[str]]
     """List of domains to allow fetching from"""
 
@@ -36,6 +38,12 @@ class BetaWebFetchTool20250910Param(TypedDict, total=False):
     Citations are disabled by default.
     """
 
+    defer_loading: bool
+    """If true, tool will not be included in initial system prompt.
+
+    Only loaded when returned via tool_reference from tool search.
+    """
+
     max_content_tokens: Optional[int]
     """Maximum number of tokens used by including web page text content in the context.
 
@@ -44,3 +52,5 @@ class BetaWebFetchTool20250910Param(TypedDict, total=False):
 
     max_uses: Optional[int]
     """Maximum number of times the tool can be used in the API request."""
+
+    strict: bool

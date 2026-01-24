@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypcode
-Version: 3.3.1
+Version: 3.3.3
 Summary: Machine code disassembly and IR translation library
 License: pypcode is a library built around the SLEIGH library.
         
@@ -42,11 +42,17 @@ Requires-Dist: ipython; extra == "docs"
 Requires-Dist: myst-parser; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: coverage; extra == "testing"
+Requires-Dist: gcovr; extra == "testing"
 Dynamic: license-file
 
 pypcode
 =======
 [![pypi](https://img.shields.io/pypi/v/pypcode)](https://pypi.org/project/pypcode/)
+[![codecov](https://codecov.io/gh/angr/pypcode/graph/badge.svg?token=JCV27I1SPZ)](https://codecov.io/gh/angr/pypcode)
 
 Machine code disassembly and IR translation library for Python using the
 excellent SLEIGH library from the [Ghidra](https://ghidra-sre.org/) framework.

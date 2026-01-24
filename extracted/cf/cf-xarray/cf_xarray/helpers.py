@@ -34,7 +34,7 @@ def _guess_bounds_1d(da, dim):
     result = xr.concat([first, bounds], dim=dim).transpose(..., "bounds")
     if ADDED_INDEX:
         result = result.drop_vars(dim)
-    return result
+    return result.drop_attrs(deep=False)
 
 
 def _guess_bounds_2d(da, dims):
@@ -338,6 +338,12 @@ def _get_ordered_vertices(
         elif order == "descending":
             endpoints = np.maximum(bounds[..., :, 0], bounds[..., :, 1])
             last_endpoint = np.minimum(bounds[..., -1, 0], bounds[..., -1, 1])
+        else:
+            raise NotImplementedError(
+                f"Cannot determine vertices for non-monotonic bounds with {order} core "
+                "dimension orders. Try normalizing the coordinates to a monotonic "
+                "convention and try again."
+            )
 
         vertices = np.concatenate(
             [endpoints, np.expand_dims(last_endpoint, axis=-1)], axis=-1

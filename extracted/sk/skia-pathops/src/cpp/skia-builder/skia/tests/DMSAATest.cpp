@@ -27,20 +27,23 @@
 #include "include/core/SkTypes.h"
 #include "include/core/SkVertices.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkBlendModePriv.h"
-#include "src/core/SkMatrixProvider.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/ganesh/GrPaint.h"
 #include "src/gpu/ganesh/GrPixmap.h"
+#include "src/gpu/ganesh/GrXferProcessor.h"
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
+#include "tools/gpu/ContextType.h"
 
 #include <cstdint>
 #include <cstring>
@@ -62,7 +65,7 @@ static void draw_paint_with_aa(skgpu::ganesh::SurfaceDrawContext* sdc,
                                SkBlendMode blendMode) {
     GrPaint paint;
     paint.setColor4f(color);
-    paint.setXPFactory(SkBlendMode_AsXPFactory(blendMode));
+    paint.setXPFactory(GrXPFactory::FromBlendMode(blendMode));
     sdc->drawRect(nullptr, std::move(paint), GrAA::kYes, SkMatrix::I(),
                   SkRect::MakeIWH(kWidth, kHeight), nullptr);
 }
@@ -79,8 +82,8 @@ static void draw_paint_with_dmsaa(skgpu::ganesh::SurfaceDrawContext* sdc,
 
     GrPaint paint;
     paint.setColor4f(color);
-    paint.setXPFactory(SkBlendMode_AsXPFactory(blendMode));
-    sdc->drawVertices(nullptr, std::move(paint), SkMatrixProvider(SkMatrix::I()), vertices);
+    paint.setXPFactory(GrXPFactory::FromBlendMode(blendMode));
+    sdc->drawVertices(nullptr, std::move(paint), SkMatrix::I(), vertices);
 }
 
 static bool fuzzy_equals(const float a[4], const SkPMColor4f& b) {
@@ -116,7 +119,7 @@ static void check_sdc_color(skiatest::Reporter* reporter,
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(DMSAA_preserve_contents,
-                             &sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             &skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              nullptr,
@@ -155,7 +158,7 @@ static void require_dst_reads(GrContextOptions* options) {
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(DMSAA_dst_read,
-                             &sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             &skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              require_dst_reads,
@@ -186,7 +189,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(DMSAA_dst_read,
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(DMSAA_aa_dst_read_after_dmsaa,
-                             &sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             &skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              require_dst_reads,
@@ -218,7 +221,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(DMSAA_aa_dst_read_after_dmsaa,
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(DMSAA_dst_read_with_existing_barrier,
-                             &sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             &skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              require_dst_reads,
@@ -267,22 +270,22 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DMSAA_dual_source_blend_disable,
                                                        texDims.height(),
                                                        kRGBA_8888_SkColorType,
                                                        SkColors::kBlue,
-                                                       GrMipmapped::kNo,
+                                                       skgpu::Mipmapped::kNo,
                                                        GrRenderable::kYes,
                                                        GrProtected::kNo);
 
-    auto sourceImage = SkImage::MakeFromTexture(context,
-                                                sourceTexture,
-                                                kTopLeft_GrSurfaceOrigin,
-                                                kRGBA_8888_SkColorType,
-                                                kPremul_SkAlphaType,
-                                                nullptr);
+    auto sourceImage = SkImages::BorrowTextureFrom(context,
+                                                   sourceTexture,
+                                                   kTopLeft_GrSurfaceOrigin,
+                                                   kRGBA_8888_SkColorType,
+                                                   kPremul_SkAlphaType,
+                                                   nullptr);
 
     auto texture1 = context->createBackendTexture(surfaceDims.width(),
                                                   surfaceDims.height(),
                                                   kRGBA_8888_SkColorType,
                                                   SkColors::kRed,
-                                                  GrMipmapped::kNo,
+                                                  skgpu::Mipmapped::kNo,
                                                   GrRenderable::kYes,
                                                   GrProtected::kNo);
 
@@ -290,7 +293,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DMSAA_dual_source_blend_disable,
                                                   surfaceDims.height(),
                                                   kRGBA_8888_SkColorType,
                                                   SkColors::kYellow,
-                                                  GrMipmapped::kNo,
+                                                  skgpu::Mipmapped::kNo,
                                                   GrRenderable::kYes,
                                                   GrProtected::kNo);
 
@@ -307,13 +310,13 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DMSAA_dual_source_blend_disable,
     // a dmsaa surface it forces us to use the FillRRectOp instead of the normal FillQuad path. It
     // is unclear why, but using the FillRRectOp is required to repro the bug.
     {
-        auto surface = SkSurface::MakeFromBackendTexture(context,
-                                                         texture1,
-                                                         kTopLeft_GrSurfaceOrigin,
-                                                         1,
-                                                         kRGBA_8888_SkColorType,
-                                                         nullptr,
-                                                         &kDMSAAProps);
+        auto surface = SkSurfaces::WrapBackendTexture(context,
+                                                      texture1,
+                                                      kTopLeft_GrSurfaceOrigin,
+                                                      1,
+                                                      kRGBA_8888_SkColorType,
+                                                      nullptr,
+                                                      &kDMSAAProps);
 
         surface->getCanvas()->drawImageRect(sourceImage,
                                             srcRect,
@@ -322,20 +325,20 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DMSAA_dual_source_blend_disable,
                                             &paint,
                                             SkCanvas::kStrict_SrcRectConstraint);
         // Make sure there isn't any batching
-        surface->flushAndSubmit();
+        context->flushAndSubmit(surface.get(), GrSyncCpu::kNo);
     }
 
     // Next we do an image draw to a different surface that doesn't have the dmsaa flag. This will
     // trigger use to disable blending. However, when the bug is present the driver still seems to
     // try and use a "src2" blend value and ends up just writing the original dst color of yellow.
     {
-        auto surface = SkSurface::MakeFromBackendTexture(context,
-                                                         texture2,
-                                                         kTopLeft_GrSurfaceOrigin,
-                                                         1,
-                                                         kRGBA_8888_SkColorType,
-                                                         nullptr,
-                                                         &kBasicProps);
+        auto surface = SkSurfaces::WrapBackendTexture(context,
+                                                      texture2,
+                                                      kTopLeft_GrSurfaceOrigin,
+                                                      1,
+                                                      kRGBA_8888_SkColorType,
+                                                      nullptr,
+                                                      &kBasicProps);
 
         surface->getCanvas()->drawImageRect(sourceImage,
                                             srcRect,
@@ -343,16 +346,16 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DMSAA_dual_source_blend_disable,
                                             SkSamplingOptions(),
                                             &paint,
                                             SkCanvas::kStrict_SrcRectConstraint);
-        surface->flushAndSubmit();
+        context->flushAndSubmit(surface.get(), GrSyncCpu::kNo);
     }
 
     {
-        auto readImage = SkImage::MakeFromTexture(context,
-                                                  texture2,
-                                                  kTopLeft_GrSurfaceOrigin,
-                                                  kRGBA_8888_SkColorType,
-                                                  kPremul_SkAlphaType,
-                                                  nullptr);
+        auto readImage = SkImages::BorrowTextureFrom(context,
+                                                     texture2,
+                                                     kTopLeft_GrSurfaceOrigin,
+                                                     kRGBA_8888_SkColorType,
+                                                     kPremul_SkAlphaType,
+                                                     nullptr);
         SkImageInfo dstIInfo = SkImageInfo::Make(texDims.width(),
                                                  texDims.height(),
                                                  kRGBA_8888_SkColorType,
@@ -381,7 +384,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DMSAA_dual_source_blend_disable,
     }
     sourceImage.reset();
     // Need to make sure the gpu is fully finished before deleting the textures
-    context->flushAndSubmit(true);
+    context->flushAndSubmit(GrSyncCpu::kYes);
     context->deleteBackendTexture(sourceTexture);
     context->deleteBackendTexture(texture1);
     context->deleteBackendTexture(texture2);

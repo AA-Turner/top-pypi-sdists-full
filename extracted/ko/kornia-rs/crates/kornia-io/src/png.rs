@@ -1,11 +1,13 @@
-use std::{fs, fs::File, path::Path};
-
-use kornia_image::{Image, ImageSize};
-use png::{BitDepth, ColorType, Decoder, Encoder};
-
 use crate::{
-    convert_buf_u16_u8, convert_buf_u8_u16, convert_buf_u8_u16_into_slice, error::IoError,
+    conv_utils::{convert_buf_u16_u8, convert_buf_u8_u16, convert_buf_u8_u16_into_slice},
+    error::IoError,
 };
+use kornia_image::{
+    allocator::{CpuAllocator, ImageAllocator},
+    Image, ImageSize,
+};
+use png::{BitDepth, ColorType, Decoder, Encoder};
+use std::{fs, fs::File, path::Path};
 
 /// Read a PNG image with a single channel (mono8).
 ///
@@ -16,9 +18,11 @@ use crate::{
 /// # Returns
 ///
 /// A grayscale image with a single channel (mono8).
-pub fn read_image_png_mono8(file_path: impl AsRef<Path>) -> Result<Image<u8, 1>, IoError> {
+pub fn read_image_png_mono8(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u8, 1, CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
-    Ok(Image::new(size.into(), buf)?)
+    Ok(Image::new(size.into(), buf, CpuAllocator)?)
 }
 
 /// Read a PNG image with a three channels (rgb8).
@@ -30,9 +34,11 @@ pub fn read_image_png_mono8(file_path: impl AsRef<Path>) -> Result<Image<u8, 1>,
 /// # Returns
 ///
 /// A RGB image with three channels (rgb8).
-pub fn read_image_png_rgb8(file_path: impl AsRef<Path>) -> Result<Image<u8, 3>, IoError> {
+pub fn read_image_png_rgb8(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u8, 3, CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
-    Ok(Image::new(size.into(), buf)?)
+    Ok(Image::new(size.into(), buf, CpuAllocator)?)
 }
 
 /// Read a PNG image with a four channels (rgba8).
@@ -44,9 +50,11 @@ pub fn read_image_png_rgb8(file_path: impl AsRef<Path>) -> Result<Image<u8, 3>, 
 /// # Returns
 ///
 /// A RGBA image with four channels (rgba8).
-pub fn read_image_png_rgba8(file_path: impl AsRef<Path>) -> Result<Image<u8, 4>, IoError> {
+pub fn read_image_png_rgba8(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u8, 4, CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
-    Ok(Image::new(size.into(), buf)?)
+    Ok(Image::new(size.into(), buf, CpuAllocator)?)
 }
 
 /// Read a PNG image with a three channels (rgb16).
@@ -58,11 +66,13 @@ pub fn read_image_png_rgba8(file_path: impl AsRef<Path>) -> Result<Image<u8, 4>,
 /// # Returns
 ///
 /// A RGB image with three channels (rgb16).
-pub fn read_image_png_rgb16(file_path: impl AsRef<Path>) -> Result<Image<u16, 3>, IoError> {
+pub fn read_image_png_rgb16(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u16, 3, CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
     let buf_u16 = convert_buf_u8_u16(buf);
 
-    Ok(Image::new(size.into(), buf_u16)?)
+    Ok(Image::new(size.into(), buf_u16, CpuAllocator)?)
 }
 
 /// Read a PNG image with a four channels (rgba16).
@@ -74,11 +84,13 @@ pub fn read_image_png_rgb16(file_path: impl AsRef<Path>) -> Result<Image<u16, 3>
 /// # Returns
 ///
 /// A RGB image with four channels (rgb16).
-pub fn read_image_png_rgba16(file_path: impl AsRef<Path>) -> Result<Image<u16, 4>, IoError> {
+pub fn read_image_png_rgba16(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u16, 4, CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
     let buf_u16 = convert_buf_u8_u16(buf);
 
-    Ok(Image::new(size.into(), buf_u16)?)
+    Ok(Image::new(size.into(), buf_u16, CpuAllocator)?)
 }
 
 /// Read a PNG image with a single channel (mono16).
@@ -90,11 +102,13 @@ pub fn read_image_png_rgba16(file_path: impl AsRef<Path>) -> Result<Image<u16, 4
 /// # Returns
 ///
 /// A grayscale image with a single channel (mono16).
-pub fn read_image_png_mono16(file_path: impl AsRef<Path>) -> Result<Image<u16, 1>, IoError> {
+pub fn read_image_png_mono16(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u16, 1, CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
     let buf_u16 = convert_buf_u8_u16(buf);
 
-    Ok(Image::new(size.into(), buf_u16)?)
+    Ok(Image::new(size.into(), buf_u16, CpuAllocator)?)
 }
 
 /// Decodes a PNG image with a single channel (mono8) from Raw Bytes.
@@ -103,7 +117,10 @@ pub fn read_image_png_mono16(file_path: impl AsRef<Path>) -> Result<Image<u16, 1
 ///
 /// - `image` - A mutable reference to your `Image`
 /// - `bytes` - Raw bytes of the png file
-pub fn decode_image_png_mono8(src: &[u8], dst: &mut Image<u8, 1>) -> Result<(), IoError> {
+pub fn decode_image_png_mono8<A: ImageAllocator>(
+    src: &[u8],
+    dst: &mut Image<u8, 1, A>,
+) -> Result<(), IoError> {
     let size = dst.size();
     decode_png_impl::<1>(src, dst.as_slice_mut(), size)
 }
@@ -114,7 +131,10 @@ pub fn decode_image_png_mono8(src: &[u8], dst: &mut Image<u8, 1>) -> Result<(), 
 ///
 /// - `image` - A mutable reference to your `Image`
 /// - `bytes` - Raw bytes of the png file
-pub fn decode_image_png_rgb8(src: &[u8], dst: &mut Image<u8, 3>) -> Result<(), IoError> {
+pub fn decode_image_png_rgb8<A: ImageAllocator>(
+    src: &[u8],
+    dst: &mut Image<u8, 3, A>,
+) -> Result<(), IoError> {
     let size = dst.size();
     decode_png_impl::<3>(src, dst.as_slice_mut(), size)
 }
@@ -125,7 +145,10 @@ pub fn decode_image_png_rgb8(src: &[u8], dst: &mut Image<u8, 3>) -> Result<(), I
 ///
 /// - `image` - A mutable reference to your `Image`
 /// - `bytes` - Raw bytes of the png file
-pub fn decode_image_png_rgba8(src: &[u8], dst: &mut Image<u8, 4>) -> Result<(), IoError> {
+pub fn decode_image_png_rgba8<A: ImageAllocator>(
+    src: &[u8],
+    dst: &mut Image<u8, 4, A>,
+) -> Result<(), IoError> {
     let size = dst.size();
     decode_png_impl::<4>(src, dst.as_slice_mut(), size)
 }
@@ -136,7 +159,10 @@ pub fn decode_image_png_rgba8(src: &[u8], dst: &mut Image<u8, 4>) -> Result<(), 
 ///
 /// - `image` - A mutable reference to your `Image`
 /// - `bytes` - Raw bytes of the png file
-pub fn decode_image_png_mono16(src: &[u8], dst: &mut Image<u16, 1>) -> Result<(), IoError> {
+pub fn decode_image_png_mono16<A: ImageAllocator>(
+    src: &[u8],
+    dst: &mut Image<u16, 1, A>,
+) -> Result<(), IoError> {
     let mut image_u8 = convert_buf_u16_u8(dst.as_slice());
     decode_png_impl::<1>(src, image_u8.as_mut_slice(), dst.size())?;
     convert_buf_u8_u16_into_slice(image_u8.as_slice(), dst.as_slice_mut());
@@ -149,7 +175,10 @@ pub fn decode_image_png_mono16(src: &[u8], dst: &mut Image<u16, 1>) -> Result<()
 ///
 /// - `image` - A mutable reference to your `Image`
 /// - `bytes` - Raw bytes of the png file
-pub fn decode_image_png_rgb16(src: &[u8], dst: &mut Image<u16, 3>) -> Result<(), IoError> {
+pub fn decode_image_png_rgb16<A: ImageAllocator>(
+    src: &[u8],
+    dst: &mut Image<u16, 3, A>,
+) -> Result<(), IoError> {
     let mut image_u8 = convert_buf_u16_u8(dst.as_slice());
     decode_png_impl::<3>(src, image_u8.as_mut_slice(), dst.size())?;
     convert_buf_u8_u16_into_slice(image_u8.as_slice(), dst.as_slice_mut());
@@ -162,7 +191,10 @@ pub fn decode_image_png_rgb16(src: &[u8], dst: &mut Image<u16, 3>) -> Result<(),
 ///
 /// - `image` - A mutable reference to your `Image`
 /// - `bytes` - Raw bytes of the png file
-pub fn decode_image_png_rgba16(src: &[u8], dst: &mut Image<u16, 4>) -> Result<(), IoError> {
+pub fn decode_image_png_rgba16<A: ImageAllocator>(
+    src: &[u8],
+    dst: &mut Image<u16, 4, A>,
+) -> Result<(), IoError> {
     let mut image_u8 = convert_buf_u16_u8(dst.as_slice());
     decode_png_impl::<4>(src, image_u8.as_mut_slice(), dst.size())?;
     convert_buf_u8_u16_into_slice(image_u8.as_slice(), dst.as_slice_mut());
@@ -239,9 +271,9 @@ fn decode_png_impl<const C: usize>(
 ///
 /// - `file_path` - The path to the PNG image.
 /// - `image` - The tensor containing the PNG image data.
-pub fn write_image_png_rgb8(
+pub fn write_image_png_rgb8<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
-    image: &Image<u8, 3>,
+    image: &Image<u8, 3, A>,
 ) -> Result<(), IoError> {
     write_png_impl(
         file_path,
@@ -258,9 +290,9 @@ pub fn write_image_png_rgb8(
 ///
 /// - `file_path` - The path to the PNG image.
 /// - `image` - The tensor containing the PNG image data.
-pub fn write_image_png_rgba8(
+pub fn write_image_png_rgba8<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
-    image: &Image<u8, 4>,
+    image: &Image<u8, 4, A>,
 ) -> Result<(), IoError> {
     write_png_impl(
         file_path,
@@ -277,9 +309,9 @@ pub fn write_image_png_rgba8(
 ///
 /// - `file_path` - The path to the PNG image.
 /// - `image` - The tensor containing the PNG image data.
-pub fn write_image_png_gray8(
+pub fn write_image_png_gray8<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
-    image: &Image<u8, 1>,
+    image: &Image<u8, 1, A>,
 ) -> Result<(), IoError> {
     write_png_impl(
         file_path,
@@ -296,9 +328,9 @@ pub fn write_image_png_gray8(
 ///
 /// - `file_path` - The path to the PNG image.
 /// - `image` - The tensor containing the PNG image data.
-pub fn write_image_png_rgb16(
+pub fn write_image_png_rgb16<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
-    image: &Image<u16, 3>,
+    image: &Image<u16, 3, A>,
 ) -> Result<(), IoError> {
     let image_size = image.size();
     let image_buf = convert_buf_u16_u8(image.as_slice());
@@ -318,9 +350,9 @@ pub fn write_image_png_rgb16(
 ///
 /// - `file_path` - The path to the PNG image.
 /// - `image` - The tensor containing the PNG image data.
-pub fn write_image_png_rgba16(
+pub fn write_image_png_rgba16<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
-    image: &Image<u16, 4>,
+    image: &Image<u16, 4, A>,
 ) -> Result<(), IoError> {
     let image_size = image.size();
     let image_buf = convert_buf_u16_u8(image.as_slice());
@@ -340,9 +372,9 @@ pub fn write_image_png_rgba16(
 ///
 /// - `file_path` - The path to the PNG image.
 /// - `image` - The tensor containing the PNG image data.
-pub fn write_image_png_gray16(
+pub fn write_image_png_gray16<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
-    image: &Image<u16, 1>,
+    image: &Image<u16, 1, A>,
 ) -> Result<(), IoError> {
     let image_size = image.size();
     let image_buf = convert_buf_u16_u8(image.as_slice());
@@ -403,7 +435,7 @@ mod tests {
         write_image_png_rgb8(&file_path, &image_data)?;
 
         let image_data_back = read_image_png_rgb8(&file_path)?;
-        assert!(file_path.exists(), "File does not exist: {:?}", file_path);
+        assert!(file_path.exists(), "File does not exist: {file_path:?}");
 
         assert_eq!(image_data_back.cols(), 258);
         assert_eq!(image_data_back.rows(), 195);
@@ -422,7 +454,7 @@ mod tests {
         write_image_png_rgb16(&file_path, &image_data)?;
 
         let image_data_back = read_image_png_rgb16(&file_path)?;
-        assert!(file_path.exists(), "File does not exist: {:?}", file_path);
+        assert!(file_path.exists(), "File does not exist: {file_path:?}");
 
         assert_eq!(image_data_back.cols(), 32);
         assert_eq!(image_data_back.rows(), 32);
@@ -434,7 +466,7 @@ mod tests {
     #[test]
     fn decode_png() -> Result<(), IoError> {
         let bytes = read("../../tests/data/dog-rgb8.png")?;
-        let mut image: Image<u8, 3> = Image::from_size_val([258, 195].into(), 0)?;
+        let mut image: Image<u8, 3, _> = Image::from_size_val([258, 195].into(), 0, CpuAllocator)?;
         decode_image_png_rgb8(&bytes, &mut image)?;
 
         assert_eq!(image.cols(), 258);

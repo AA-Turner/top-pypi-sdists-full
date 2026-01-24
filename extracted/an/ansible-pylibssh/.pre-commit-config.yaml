@@ -5,12 +5,12 @@ ci:
 
 repos:
 - repo: https://github.com/asottile/add-trailing-comma.git
-  rev: v3.1.0
+  rev: v3.2.0
   hooks:
   - id: add-trailing-comma
 
 - repo: https://github.com/PyCQA/isort.git
-  rev: 5.13.2
+  rev: 6.0.1
   hooks:
   - id: isort
     args:
@@ -24,6 +24,23 @@ repos:
   hooks:
   - id: remove-tabs
 
+- repo: https://github.com/python-jsonschema/check-jsonschema.git
+  rev: 0.33.2
+  hooks:
+  - id: check-github-workflows
+    files: ^\.github/workflows/[^/]+$
+    types:
+    - yaml
+  - id: check-jsonschema
+    name: Check GitHub Workflows set timeout-minutes
+    args:
+    - --builtin-schema
+    - github-workflows-require-timeout
+    files: ^\.github/workflows/[^/]+$
+    types:
+    - yaml
+  - id: check-readthedocs
+
 - repo: https://github.com/pre-commit/pygrep-hooks.git
   rev: v1.10.0
   hooks:
@@ -34,7 +51,7 @@ repos:
   - id: rst-backticks
 
 - repo: https://github.com/pre-commit/pre-commit-hooks.git
-  rev: v4.5.0
+  rev: v5.0.0
   hooks:
   # Side-effects:
   - id: trailing-whitespace
@@ -75,7 +92,7 @@ repos:
       ^docs/_samples/.*\.py$
 
 - repo: https://github.com/adrienverge/yamllint.git
-  rev: v1.35.1
+  rev: v1.37.1
   hooks:
   - id: yamllint
     files: \.(yaml|yml)$
@@ -84,7 +101,7 @@ repos:
     - --strict
 
 - repo: https://github.com/PyCQA/flake8.git
-  rev: 7.0.0
+  rev: 7.3.0
   hooks:
   - id: flake8
     alias: flake8-no-wps
@@ -103,7 +120,7 @@ repos:
     - file
 
 - repo: https://github.com/PyCQA/flake8.git
-  rev: 7.0.0
+  rev: 7.3.0
   hooks:
   - id: flake8
     alias: flake8-only-wps
@@ -125,7 +142,7 @@ repos:
     - file
 
 - repo: https://github.com/MarcoGorelli/cython-lint.git
-  rev: v0.16.0
+  rev: v0.16.7
   hooks:
   - id: cython-lint
     # NOTE: This linter does not have a config file so it's set up below.

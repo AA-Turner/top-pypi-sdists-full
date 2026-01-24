@@ -62,12 +62,16 @@ cdef extern from "nanoarrow.h":
     cpdef enum ArrowType:
         NANOARROW_TYPE_BOOL
         NANOARROW_TYPE_BINARY
+        NANOARROW_TYPE_DATE32
+        NANOARROW_TYPE_DATE64
         NANOARROW_TYPE_DECIMAL128
         NANOARROW_TYPE_DOUBLE
         NANOARROW_TYPE_FIXED_SIZE_BINARY
         NANOARROW_TYPE_FIXED_SIZE_LIST
         NANOARROW_TYPE_FLOAT
         NANOARROW_TYPE_INT8
+        NANOARROW_TYPE_INT16
+        NANOARROW_TYPE_INT32
         NANOARROW_TYPE_INT64
         NANOARROW_TYPE_LARGE_BINARY
         NANOARROW_TYPE_LARGE_STRING
@@ -77,7 +81,9 @@ cdef extern from "nanoarrow.h":
         NANOARROW_TYPE_STRUCT
         NANOARROW_TYPE_TIMESTAMP
         NANOARROW_TYPE_UINT8
+        NANOARROW_TYPE_UINT16
         NANOARROW_TYPE_UINT32
+        NANOARROW_TYPE_UINT64
         NANOARROW_TYPE_UNINITIALIZED
 
     cpdef enum ArrowTimeUnit:
@@ -86,8 +92,8 @@ cdef extern from "nanoarrow.h":
         NANOARROW_TIME_UNIT_MICRO
         NANOARROW_TIME_UNIT_NANO
 
+cdef class ArrowSchemaImpl:
 
-cdef class ArrowArrayImpl:
     cdef:
         int32_t precision
         int32_t scale
@@ -96,27 +102,45 @@ cdef class ArrowArrayImpl:
         ArrowType arrow_type
         ArrowTimeUnit time_unit
         int time_factor
-        ArrowArray *arrow_array
         ArrowSchema *arrow_schema
         ArrowType child_arrow_type
         int child_element_size
+        list child_schemas
 
+    cdef bint _is_sparse_vector(self) except*
+    cdef int _set_child_arrow_type(self, ArrowType child_arrow_type) except -1
+    cdef int _set_time_unit(self, ArrowTimeUnit time_unit) except -1
+    cdef str get_type_name(self)
+    cdef int populate_from_schema(self, ArrowSchema* schema) except -1
+    cdef int populate_from_metadata(self, ArrowType arrow_type, str name,
+                                    int8_t precision, int8_t scale,
+                                    ArrowTimeUnit time_unit,
+                                    ArrowType child_arrow_type) except -1
+
+
+cdef class ArrowArrayImpl:
+    cdef:
+        ArrowArray *arrow_array
+        ArrowSchemaImpl schema_impl
+
+    cdef int _extract_int(self, const void* ptr, ArrowType arrow_type,
+                          int64_t index, int64_t* value) except -1
+    cdef int _extract_uint(self, const void* ptr, ArrowType arrow_type,
+                           int64_t index, uint64_t* value) except -1
     cdef int _get_is_null(self, int64_t index, bint* is_null) except -1
     cdef int _get_list_info(self, int64_t index, ArrowArray* arrow_array,
                             int64_t* offset, int64_t* num_elements) except -1
-    cdef bint _is_sparse_vector(self) except *
-    cdef int _set_child_arrow_type(self, ArrowType child_arrow_type) except -1
-    cdef int _set_time_unit(self, ArrowTimeUnit time_unit) except -1
     cdef int append_bytes(self, void* ptr, int64_t num_bytes) except -1
     cdef int append_decimal(self, void* ptr, int64_t num_bytes) except -1
     cdef int append_double(self, double value) except -1
     cdef int append_float(self, float value) except -1
-    cdef int append_int64(self, int64_t value) except -1
+    cdef int append_int(self, int64_t value) except -1
     cdef int append_last_value(self, ArrowArrayImpl array) except -1
     cdef int append_null(self) except -1
     cdef int append_sparse_vector(self, int64_t num_dimensions,
                                   array.array indices,
                                   array.array values) except -1
+    cdef int append_uint(self, uint64_t value) except -1
     cdef int append_vector(self, array.array value) except -1
     cdef int finish_building(self) except -1
     cdef int get_bool(self, int64_t index, bint* is_null,
@@ -128,19 +152,19 @@ cdef class ArrowArrayImpl:
                         double* value) except -1
     cdef int get_float(self, int64_t index, bint* is_null,
                        float* value) except -1
-    cdef int get_int64(self, int64_t index, bint* is_null,
-                       int64_t* value) except -1
+    cdef int get_int(self, ArrowType arrow_type, int64_t index, bint* is_null,
+                     int64_t* value) except -1
     cdef int get_length(self, int64_t* length) except -1
     cdef object get_sparse_vector(self, int64_t index, bint* is_null)
+    cdef int get_uint(self, ArrowType arrow_type, int64_t index, bint* is_null,
+                      uint64_t* value) except -1
     cdef object get_vector(self, int64_t index, bint* is_null)
-    cdef int populate_from_array(self, ArrowSchema* schema,
+    cdef int populate_from_array(self, ArrowSchemaImpl schema_impl,
                                  ArrowArray* array) except -1
-    cdef int populate_from_metadata(self, ArrowType arrow_type, str name,
-                                    int8_t precision, int8_t scale,
-                                    ArrowTimeUnit time_unit,
-                                    ArrowType child_arrow_type) except -1
+    cdef int populate_from_schema(self, ArrowSchemaImpl schema_impl) except -1
 
 
 cdef class DataFrameImpl:
     cdef:
+        list schema_impls
         list arrays

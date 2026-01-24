@@ -16,14 +16,15 @@
 
 import functools
 import logging
+import typing as ty
 
 from cliff import columns as cliff_columns
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 
@@ -31,7 +32,7 @@ from openstackclient.identity import common as identity_common
 LOG = logging.getLogger(__name__)
 
 
-class EncryptionInfoColumn(cliff_columns.FormattableColumn):
+class EncryptionInfoColumn(cliff_columns.FormattableColumn[ty.Any]):
     """Formattable column for encryption info column.
 
     Unlike the parent FormattableColumn class, the initializer of the
@@ -171,7 +172,8 @@ class CreateVolumeType(command.ShowOne):
             default=False,
             help=_(
                 "Enabled replication for this volume type "
-                "(this is an alias for '--property replication_enabled=<is> True') "
+                "(this is an alias for "
+                "'--property replication_enabled=<is> True') "
                 "(requires driver support)"
             ),
         )
@@ -181,7 +183,8 @@ class CreateVolumeType(command.ShowOne):
             dest='availability_zones',
             help=_(
                 "Set an availability zone for this volume type "
-                "(this is an alias for '--property RESKEY:availability_zones:<az>') "
+                "(this is an alias for "
+                "'--property RESKEY:availability_zones:<az>') "
                 "(repeat option to set multiple availability zones)"
             ),
         )
@@ -534,7 +537,8 @@ class SetVolumeType(command.Command):
             default=False,
             help=_(
                 "Enabled replication for this volume type "
-                "(this is an alias for '--property replication_enabled=<is> True') "
+                "(this is an alias for "
+                "'--property replication_enabled=<is> True') "
                 "(requires driver support)"
             ),
         )
@@ -544,7 +548,8 @@ class SetVolumeType(command.Command):
             dest='availability_zones',
             help=_(
                 "Set an availability zone for this volume type "
-                "(this is an alias for '--property RESKEY:availability_zones:<az>') "
+                "(this is an alias for "
+                "'--property RESKEY:availability_zones:<az>') "
                 "(repeat option to set multiple availability zones)"
             ),
         )

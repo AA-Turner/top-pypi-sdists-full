@@ -3,7 +3,7 @@ Main interface for braket service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_braket/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -15,6 +15,7 @@ Usage::
         SearchDevicesPaginator,
         SearchJobsPaginator,
         SearchQuantumTasksPaginator,
+        SearchSpendingLimitsPaginator,
     )
 
     session = Session()
@@ -23,11 +24,17 @@ Usage::
     search_devices_paginator: SearchDevicesPaginator = client.get_paginator("search_devices")
     search_jobs_paginator: SearchJobsPaginator = client.get_paginator("search_jobs")
     search_quantum_tasks_paginator: SearchQuantumTasksPaginator = client.get_paginator("search_quantum_tasks")
+    search_spending_limits_paginator: SearchSpendingLimitsPaginator = client.get_paginator("search_spending_limits")
     ```
 """
 
 from .client import BraketClient
-from .paginator import SearchDevicesPaginator, SearchJobsPaginator, SearchQuantumTasksPaginator
+from .paginator import (
+    SearchDevicesPaginator,
+    SearchJobsPaginator,
+    SearchQuantumTasksPaginator,
+    SearchSpendingLimitsPaginator,
+)
 
 Client = BraketClient
 
@@ -37,4 +44,5 @@ __all__ = (
     "SearchDevicesPaginator",
     "SearchJobsPaginator",
     "SearchQuantumTasksPaginator",
+    "SearchSpendingLimitsPaginator",
 )

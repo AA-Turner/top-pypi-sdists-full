@@ -32,7 +32,7 @@ from neutron.tests import base
 class MetadataPathAgentExtensionTestCase(base.BaseTestCase):
 
     def setUp(self):
-        super(MetadataPathAgentExtensionTestCase, self).setUp()
+        super().setUp()
         ovs_conf.register_ovs_agent_opts(cfg=cfg.CONF)
         cfg.CONF.set_override('provider_cidr', '240.0.0.0/31', 'METADATA')
         self.context = context.get_admin_context()
@@ -148,7 +148,7 @@ class MetadataPathAgentExtensionTestCase(base.BaseTestCase):
         port_device_owner = "compute:test"
         port_ip = "1.1.1.1"
         with mock.patch.object(self.meta_ext.meta_daemon,
-                 "config") as h_config, mock.patch.object(
+                               "config") as h_config, mock.patch.object(
                      self.meta_ext.ext_api,
                      "get_provider_ip_info") as get_p_info:
             get_p_info.return_value = {
@@ -220,13 +220,13 @@ class MetadataPathAgentExtensionTestCase(base.BaseTestCase):
 
         port_device_owner = "compute:test"
 
-        class Port(object):
+        class Port:
             def __init__(self):
                 self.device_id = "d1"
                 self.project_id = "p1"
 
         with mock.patch.object(self.meta_ext.meta_daemon,
-                 "config"), mock.patch.object(
+                               "config"), mock.patch.object(
                      self.meta_ext.ext_api.cache_api,
                      "get_resource_by_id",
                      return_value=Port()) as get_res:
@@ -263,7 +263,7 @@ class MetadataPathAgentExtensionTestCase(base.BaseTestCase):
         port_device_owner = "compute:test"
         port_ip = "1.1.1.1"
         with mock.patch.object(self.meta_ext.meta_daemon,
-                 "config") as h_config:
+                               "config") as h_config:
             port = {"port_id": port_id,
                     "fixed_ips": [{"ip_address": port_ip,
                                    "subnet_id": "1"}],

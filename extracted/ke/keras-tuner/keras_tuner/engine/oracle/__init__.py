@@ -5,5 +5,5 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.objective import Objective
-from keras_tuner.src.engine.oracle import Oracle
+from keras_tuner.src.engine.objective import Objective as Objective
+from keras_tuner.src.engine.oracle import Oracle as Oracle

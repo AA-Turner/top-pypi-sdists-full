@@ -1,0 +1,48 @@
+Metadata-Version: 1.1
+Name: risksutils
+Version: 0.1.16
+Summary: Scripts for credit scoring analysis
+Home-page: https://github.com/dshulchevskii/risksutils
+Author: Dmitry Shulchevskii
+Author-email: dshulchevskii@gmail.com
+License: MIT
+Description: Скрипты для аналитики скоринга
+        ==============================
+        
+        |GitHub|_
+        |ReadTheDocs|_
+        |TravisImage|_
+        |Coverage|_
+        |Pypi|_
+        |Binder|_
+        
+        В данном проекте содержится набор скриптов полезных в скоринге.
+        
+        Установка
+        ---------
+        
+        Для установки воспользуйтесь pip::
+        
+            pip install risksutils
+        
+        
+        .. |TravisImage| image:: https://travis-ci.org/dshulchevskii/risksutils.svg?branch=master
+        .. _TravisImage: https://travis-ci.org/dshulchevskii/risksutils
+        .. |Coverage| image:: https://codecov.io/gh/dshulchevskii/risksutils/branch/master/graph/badge.svg
+        .. _Coverage: https://codecov.io/gh/dshulchevskii/risksutils
+        .. _ReadTheDocs: http://risksutils.readthedocs.io/ru/latest/?badge=latest
+        .. |ReadTheDocs| image:: https://readthedocs.org/projects/risksutils/badge/?version=latest
+        .. |GitHub| image:: https://img.shields.io/badge/github--green.svg
+        .. _GitHub: https://github.com/dshulchevskii/risksutils
+        .. |Pypi| image:: https://badge.fury.io/py/risksutils.svg
+        .. _Pypi: https://badge.fury.io/py/risksutils
+        
+        .. |Binder| image:: https://mybinder.org/badge.svg 
+        .. _Binder: https://mybinder.org/v2/gh/dshulchevskii/risksutils/master?filepath=docs
+        
+Keywords: woe credit scoring information-value visualization
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6

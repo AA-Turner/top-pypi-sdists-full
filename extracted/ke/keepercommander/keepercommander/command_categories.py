@@ -18,7 +18,7 @@ COMMAND_CATEGORIES = {
     # Sharing Commands
     'Sharing Commands': {
         'share-record', 'share-folder', 'record-permissions', 'record-permission', 'one-time-share',
-        'external-shares-report', 'share'
+        'ext-shares-report'
     },
     
     # Record Type Commands
@@ -36,7 +36,7 @@ COMMAND_CATEGORIES = {
     'Reporting Commands': {
         'audit-log', 'audit-report', 'audit-alert', 'user-report', 'security-audit-report',
         'share-report', 'shared-records-report', 'aging-report', 'action-report',
-        'compliance-report', 'compliance', 'external-shares-report', 'risk-management',
+        'compliance-report', 'compliance', 'ext-shares-report', 'risk-management',
         'security-audit'
     },
     
@@ -54,7 +54,12 @@ COMMAND_CATEGORIES = {
         'create-user', 'transfer-user', 'automator', 'scim', 'enterprise-down',
         'public-api-key'
     },
-    
+
+    # Automation Commands
+    'Automation Commands': {
+        'credential-provision'
+    },
+
     # Secrets Manager Commands
     'Secrets Manager Commands': {
         'secrets-manager'
@@ -69,29 +74,45 @@ COMMAND_CATEGORIES = {
     'Device Management Commands': {
         'device-list', 'device-action', 'device-rename', 'device-admin-list', 'device-admin-action'
     },
+
+    # Domain Management Commands
+    'Domain Management Commands': {
+        'domain'
+    },
     
     # Service Mode REST API
     'Service Mode REST API': {
         'service-create', 'service-add-config', 'service-start', 'service-stop', 'service-status',
-        'service-config-add'
+        'service-config-add', 'service-docker-setup', 'slack-app-setup'
     },
-    
+
+    # Email Configuration Commands
+    'Email Configuration Commands': {
+        'email-config'
+    },
+
     # Miscellaneous Commands
     'Miscellaneous Commands': {
         'this-device', 'login', 'login-status', 'biometric', 'whoami', 'logout',
-        'help', 'sync-down', 'version', 'clear', 'run-batch', 'generate',
+        'help', 'sync-down', 'version', 'clear', 'history', 'quit', 'run-batch', 'generate',
         'reset-password', 'sync-security-data', 'keeper-fill', '2fa', 'create-account',
-        'run-as', 'sleep', 'server', 'proxy', 'keep-alive'
+        'run-as', 'sleep', 'server', 'proxy', 'keep-alive', 'supershell'
     },
-    
+
     # KeeperPAM Commands
     'KeeperPAM Commands': {
         'pam'
     },
     
+    # EPM Commands
+    'EPM Commands': {
+        'epm'
+    },
+
     # Legacy Commands
     'Legacy Commands': {
-        'rotate', 'connect', 'ssh', 'ssh-agent', 'rdp', 'rsync', 'set', 'echo'
+        'rotate', 'connect', 'ssh', 'ssh-agent', 'rdp', 'rsync', 'set', 'echo',
+        'mysql', 'postgresql'
     }
 }
 
@@ -100,9 +121,9 @@ def get_command_category(command):
     for category, commands in COMMAND_CATEGORIES.items():
         if command in commands:
             return category
-    
+
     # Default category for uncategorized commands
-    return 'Other'
+    return 'Miscellaneous Commands'
 
 def get_category_order():
     """Return the preferred order for displaying categories"""
@@ -114,12 +135,15 @@ def get_category_order():
         'Reporting Commands',
         'MSP Management Commands',
         'Enterprise Management Commands',
+        'Automation Commands',
         'Secrets Manager Commands',
         'BreachWatch Commands',
         'Device Management Commands',
+        'Domain Management Commands',
+        'Email Configuration Commands',
         'Service Mode REST API',
         'Miscellaneous Commands',
         'KeeperPAM Commands',
-        'Legacy Commands',
-        'Other'
+        'EPM Commands',
+        'Legacy Commands'
     ]

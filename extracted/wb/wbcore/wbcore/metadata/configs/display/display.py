@@ -41,8 +41,8 @@ class Operator(Enum):
         operator_dict = {o.value: o for o in cls}
         try:
             return operator_dict[op]
-        except KeyError:
-            raise InvalidOperatorError(f"`{op}` is not a valid operator")
+        except KeyError as e:
+            raise InvalidOperatorError(f"`{op}` is not a valid operator") from e
 
 
 def fr(fractions: int) -> str:

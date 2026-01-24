@@ -16,8 +16,8 @@ from typing import Any, Optional, Union
 import torch
 from typing_extensions import override
 
-from lightning_fabric.accelerators import _AcceleratorRegistry
 from lightning_fabric.accelerators.mps import MPSAccelerator as _MPSAccelerator
+from lightning_fabric.accelerators.registry import _AcceleratorRegistry
 from lightning_fabric.utilities.device_parser import _parse_gpu_ids
 from lightning_fabric.utilities.types import _DEVICE
 from pytorch_lightning.accelerators.accelerator import Accelerator
@@ -78,11 +78,16 @@ class MPSAccelerator(Accelerator):
         """MPS is only available on a machine with the ARM-based Apple Silicon processors."""
         return _MPSAccelerator.is_available()
 
+    @staticmethod
+    @override
+    def name() -> str:
+        return "mps"
+
     @classmethod
     @override
     def register_accelerators(cls, accelerator_registry: _AcceleratorRegistry) -> None:
         accelerator_registry.register(
-            "mps",
+            cls.name(),
             cls,
             description=cls.__name__,
         )

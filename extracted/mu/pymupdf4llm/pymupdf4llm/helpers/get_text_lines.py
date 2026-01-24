@@ -12,24 +12,25 @@ Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
 
-import string
 import sys
 
 import pymupdf
-
-WHITE = set(string.whitespace)
-TYPE3_FONT_NAME = "Unnamed-T3"
-
-
-def is_white(text):
-    return WHITE.issuperset(text)
+from pymupdf4llm.helpers.utils import (
+    is_white,
+    almost_in_bbox,
+    outside_bbox,
+    bbox_is_empty,
+    TYPE3_FONT_NAME,
+)
 
 
 def get_raw_lines(
-    textpage,
+    textpage=None,
+    blocks=None,
     clip=None,
     tolerance=3,
     ignore_invisible=True,
+    only_horizontal=True,
 ):
     """Extract the text spans from a TextPage in natural reading sequence.
 
@@ -44,7 +45,10 @@ def get_raw_lines(
     formats like Markdown or JSON.
 
     Args:
-        textpage: (mandatory) TextPage object
+        textpage: TextPage object. Can be None if blocks are given.
+        blocks: (list) if given, use these blocks instead of extracting them
+              from the TextPage. This allows to re-use blocks extracted
+              by the caller.
         clip: (Rect) specifies a sub-rectangle of the textpage rect (which in
               turn may be based on a sub-rectangle of the full page).
         tolerance: (float) put spans on the same line if their top or bottom
@@ -71,7 +75,7 @@ def get_raw_lines(
         left to right.
 
         Arg:
-            A list of spans - as drived from TextPage.extractDICT()
+            A list of spans - as derived from TextPage.extractDICT()
         Returns:
             A list of sorted, and potentially cleaned-up spans
         """
@@ -89,11 +93,15 @@ def get_raw_lines(
             if s0["bbox"].x1 + delta < s1["bbox"].x0 or (
                 s0["flags"],
                 s0["char_flags"] & ~2,
-                s0["size"],
-            ) != (s1["flags"], s1["char_flags"] & ~2, s1["size"]):
+                # s0["size"],
+            ) != (
+                s1["flags"],
+                s1["char_flags"] & ~2,
+                # s1["size"],
+            ):
                 continue  # no joining
             # We need to join bbox and text of two consecutive spans
-            # On occasion, spans may also be duplicated.
+            # Sometimes, spans may also be duplicated.
             if s0["text"] != s1["text"] or s0["bbox"] != s1["bbox"]:
                 s0["text"] += s1["text"]
             s0["bbox"] |= s1["bbox"]  # join boundary boxes
@@ -101,22 +109,33 @@ def get_raw_lines(
             line[i - 1] = s0  # update the span
         return line
 
+    if not isinstance(textpage, pymupdf.TextPage) and blocks is None:
+        raise ValueError("Either textpage or blocks must be provided.")
+
     if clip is None:  # use TextPage rect if not provided
         clip = textpage.rect
     # extract text blocks - if bbox is not empty
-    blocks = [
-        b
-        for b in textpage.extractDICT()["blocks"]
-        if b["type"] == 0 and not pymupdf.Rect(b["bbox"]).is_empty
-    ]
+    if blocks is None:
+        blocks = [
+            b
+            for b in textpage.extractDICT()["blocks"]
+            if b["type"] == 0 and not bbox_is_empty(b["bbox"])
+        ]
     spans = []  # all spans in TextPage here
     for bno, b in enumerate(blocks):  # the numbered blocks
+        if outside_bbox(b["bbox"], clip):
+            continue
         for lno, line in enumerate(b["lines"]):  # the numbered lines
-            if abs(1 - line["dir"][0]) > 1e-3:  # only accept horizontal text
+            if outside_bbox(line["bbox"], clip):
+                continue
+            line_dir = line["dir"]
+            if (
+                only_horizontal and abs(1 - line_dir[0]) > 1e-3
+            ):  # only accept horizontal text
                 continue
             for sno, s in enumerate(line["spans"]):  # the numered spans
-                sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
-                if is_white(s["text"]):  # ignore white text
+                if is_white(s["text"]):
+                    # ignore white text if not a Type3 font
                     continue
                 # Ignore invisible text. Type 3 font text is never invisible.
                 if (
@@ -125,9 +144,10 @@ def get_raw_lines(
                     and ignore_invisible
                 ):
                     continue
-                if abs(sbbox & clip) < abs(sbbox) * 0.8:  # if not in clip
+                if not almost_in_bbox(s["bbox"], clip):  # if not in clip
                     continue
-                if s["flags"] & 1 == 1:  # if a superscript, modify bbox
+                sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
+                if s["flags"] & 1:  # if a superscript, modify bbox
                     # with that of the preceding or following span
                     i = 1 if sno == 0 else sno - 1
                     if len(line["spans"]) > i:
@@ -138,12 +158,13 @@ def get_raw_lines(
                 # include line/block numbers to facilitate separator insertion
                 s["line"] = lno
                 s["block"] = bno
+                s["dir"] = line_dir
                 spans.append(s)
 
     if not spans:  # no text at all
         return []
 
-    spans.sort(key=lambda s: s["bbox"].y1)  # sort spans by bottom coord
+    spans.sort(key=lambda s: (-s["dir"][0], s["bbox"].y1))  # sort spans by bottom coord
     nlines = []  # final result
     line = [spans[0]]  # collects spans with fitting vertical coordinates
     lrect = spans[0]["bbox"]  # rectangle joined from span rectangles

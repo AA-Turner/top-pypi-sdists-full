@@ -20,6 +20,13 @@ class OperationId(str, enum.Enum):
     CLOUDSECURITY_QUERY_COMPLIANCE_FINDINGS = "cloudsecurity_query_compliance_findings"
     CLOUDSECURITY_QUERY_EVENTS = "cloudsecurity_query_events"
     CLOUDSECURITY_QUERY_IOMS = "cloudsecurity_query_ioms"
+    CLOUDSECURITY_QUERY_THREATS = "cloudsecurity_query_threats"
+    CUSTOM_DELETE = "custom_delete"
+    CUSTOM_GET = "custom_get"
+    CUSTOM_PATCH = "custom_patch"
+    CUSTOM_POST = "custom_post"
+    CUSTOM_POST_BATCH = "custom_post_batch"
+    CUSTOM_QUERY = "custom_query"
     EDR_CREATE_IOCS = "edr_create_iocs"
     EDR_DELETE_IOCS = "edr_delete_iocs"
     EDR_GET_ENDPOINT = "edr_get_endpoint"
@@ -38,9 +45,16 @@ class OperationId(str, enum.Enum):
     IDENTITY_GET_GROUP = "identity_get_group"
     IDENTITY_GET_GROUP_MEMBERS = "identity_get_group_members"
     IDENTITY_GET_USER = "identity_get_user"
+    IDENTITY_GET_USER_PICTURE = "identity_get_user_picture"
     IDENTITY_QUERY_AUDIT_LOG = "identity_query_audit_log"
     IDENTITY_QUERY_GROUPS = "identity_query_groups"
     IDENTITY_QUERY_USERS = "identity_query_users"
+    INCIDENTRESPONSE_QUERY_ESCALATION_POLICIES = (
+        "incidentresponse_query_escalation_policies"
+    )
+    INCIDENTRESPONSE_QUERY_ESCALATION_POLICY_USERS_ON_CALL = (
+        "incidentresponse_query_escalation_policy_users_on_call"
+    )
     NOTIFICATIONS_CLEAR_MESSAGE = "notifications_clear_message"
     NOTIFICATIONS_CREATE_MESSAGE = "notifications_create_message"
     NOTIFICATIONS_GET_MESSAGE = "notifications_get_message"
@@ -78,7 +92,9 @@ class OperationId(str, enum.Enum):
     TICKETING_QUERY_TICKETS = "ticketing_query_tickets"
     VULNERABILITIES_CREATE_ASSET = "vulnerabilities_create_asset"
     VULNERABILITIES_CREATE_FINDINGS = "vulnerabilities_create_findings"
+    VULNERABILITIES_GET_LABELS = "vulnerabilities_get_labels"
     VULNERABILITIES_GET_SCAN_ACTIVITY = "vulnerabilities_get_scan_activity"
+    VULNERABILITIES_GET_SCAN_STATUS = "vulnerabilities_get_scan_status"
     VULNERABILITIES_QUERY_ASSETS = "vulnerabilities_query_assets"
     VULNERABILITIES_QUERY_FINDINGS = "vulnerabilities_query_findings"
     VULNERABILITIES_QUERY_SCANS = "vulnerabilities_query_scans"
@@ -109,6 +125,13 @@ class OperationId(str, enum.Enum):
         cloudsecurity_query_compliance_findings: typing.Callable[[], T_Result],
         cloudsecurity_query_events: typing.Callable[[], T_Result],
         cloudsecurity_query_ioms: typing.Callable[[], T_Result],
+        cloudsecurity_query_threats: typing.Callable[[], T_Result],
+        custom_delete: typing.Callable[[], T_Result],
+        custom_get: typing.Callable[[], T_Result],
+        custom_patch: typing.Callable[[], T_Result],
+        custom_post: typing.Callable[[], T_Result],
+        custom_post_batch: typing.Callable[[], T_Result],
+        custom_query: typing.Callable[[], T_Result],
         edr_create_iocs: typing.Callable[[], T_Result],
         edr_delete_iocs: typing.Callable[[], T_Result],
         edr_get_endpoint: typing.Callable[[], T_Result],
@@ -127,9 +150,14 @@ class OperationId(str, enum.Enum):
         identity_get_group: typing.Callable[[], T_Result],
         identity_get_group_members: typing.Callable[[], T_Result],
         identity_get_user: typing.Callable[[], T_Result],
+        identity_get_user_picture: typing.Callable[[], T_Result],
         identity_query_audit_log: typing.Callable[[], T_Result],
         identity_query_groups: typing.Callable[[], T_Result],
         identity_query_users: typing.Callable[[], T_Result],
+        incidentresponse_query_escalation_policies: typing.Callable[[], T_Result],
+        incidentresponse_query_escalation_policy_users_on_call: typing.Callable[
+            [], T_Result
+        ],
         notifications_clear_message: typing.Callable[[], T_Result],
         notifications_create_message: typing.Callable[[], T_Result],
         notifications_get_message: typing.Callable[[], T_Result],
@@ -167,7 +195,9 @@ class OperationId(str, enum.Enum):
         ticketing_query_tickets: typing.Callable[[], T_Result],
         vulnerabilities_create_asset: typing.Callable[[], T_Result],
         vulnerabilities_create_findings: typing.Callable[[], T_Result],
+        vulnerabilities_get_labels: typing.Callable[[], T_Result],
         vulnerabilities_get_scan_activity: typing.Callable[[], T_Result],
+        vulnerabilities_get_scan_status: typing.Callable[[], T_Result],
         vulnerabilities_query_assets: typing.Callable[[], T_Result],
         vulnerabilities_query_findings: typing.Callable[[], T_Result],
         vulnerabilities_query_scans: typing.Callable[[], T_Result],
@@ -198,6 +228,20 @@ class OperationId(str, enum.Enum):
             return cloudsecurity_query_events()
         if self is OperationId.CLOUDSECURITY_QUERY_IOMS:
             return cloudsecurity_query_ioms()
+        if self is OperationId.CLOUDSECURITY_QUERY_THREATS:
+            return cloudsecurity_query_threats()
+        if self is OperationId.CUSTOM_DELETE:
+            return custom_delete()
+        if self is OperationId.CUSTOM_GET:
+            return custom_get()
+        if self is OperationId.CUSTOM_PATCH:
+            return custom_patch()
+        if self is OperationId.CUSTOM_POST:
+            return custom_post()
+        if self is OperationId.CUSTOM_POST_BATCH:
+            return custom_post_batch()
+        if self is OperationId.CUSTOM_QUERY:
+            return custom_query()
         if self is OperationId.EDR_CREATE_IOCS:
             return edr_create_iocs()
         if self is OperationId.EDR_DELETE_IOCS:
@@ -234,12 +278,18 @@ class OperationId(str, enum.Enum):
             return identity_get_group_members()
         if self is OperationId.IDENTITY_GET_USER:
             return identity_get_user()
+        if self is OperationId.IDENTITY_GET_USER_PICTURE:
+            return identity_get_user_picture()
         if self is OperationId.IDENTITY_QUERY_AUDIT_LOG:
             return identity_query_audit_log()
         if self is OperationId.IDENTITY_QUERY_GROUPS:
             return identity_query_groups()
         if self is OperationId.IDENTITY_QUERY_USERS:
             return identity_query_users()
+        if self is OperationId.INCIDENTRESPONSE_QUERY_ESCALATION_POLICIES:
+            return incidentresponse_query_escalation_policies()
+        if self is OperationId.INCIDENTRESPONSE_QUERY_ESCALATION_POLICY_USERS_ON_CALL:
+            return incidentresponse_query_escalation_policy_users_on_call()
         if self is OperationId.NOTIFICATIONS_CLEAR_MESSAGE:
             return notifications_clear_message()
         if self is OperationId.NOTIFICATIONS_CREATE_MESSAGE:
@@ -314,8 +364,12 @@ class OperationId(str, enum.Enum):
             return vulnerabilities_create_asset()
         if self is OperationId.VULNERABILITIES_CREATE_FINDINGS:
             return vulnerabilities_create_findings()
+        if self is OperationId.VULNERABILITIES_GET_LABELS:
+            return vulnerabilities_get_labels()
         if self is OperationId.VULNERABILITIES_GET_SCAN_ACTIVITY:
             return vulnerabilities_get_scan_activity()
+        if self is OperationId.VULNERABILITIES_GET_SCAN_STATUS:
+            return vulnerabilities_get_scan_status()
         if self is OperationId.VULNERABILITIES_QUERY_ASSETS:
             return vulnerabilities_query_assets()
         if self is OperationId.VULNERABILITIES_QUERY_FINDINGS:

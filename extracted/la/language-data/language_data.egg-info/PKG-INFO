@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: language_data
-Version: 1.3.0
+Version: 1.4.0
 Summary: Supplementary data about languages used by the langcodes module
 Author-email: Elia Robyn Speer <rspeer@arborelia.net>
 Maintainer-email: Georg Krause <mail@georg-krause.net>
@@ -10,11 +10,11 @@ Project-URL: Issues, https://github.com/georgkrause/language_data/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: marisa-trie>=1.1.0
@@ -24,6 +24,7 @@ Requires-Dist: pytest-cov; extra == "test"
 Provides-Extra: build
 Requires-Dist: build; extra == "build"
 Requires-Dist: twine; extra == "build"
+Dynamic: license-file
 
 # language_data: a supplement to [langcodes][]
 

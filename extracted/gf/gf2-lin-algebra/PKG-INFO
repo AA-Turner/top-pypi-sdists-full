@@ -1,0 +1,118 @@
+Metadata-Version: 2.4
+Name: gf2_lin_algebra
+Version: 1.0.1
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE.md
+Summary: A linear algebra package to compute operations in GF(2).
+Home-Page: https://github.com/LucaBonamino/gf2_lin_algebra
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Project-URL: Documentation, https://lucabonamino.github.io/gf2_lin_algebra/
+Project-URL: Issues, https://github.com/LucaBonamino/gf2_lin_algebra/issues
+Project-URL: Source, https://github.com/LucaBonamino/gf2_lin_algebra
+
+# gf2_lin_algebra
+
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://LucaBonamino.github.io/gf2_lin_algebra/)
+
+
+**Python package for linear algebra operations in GF(2)**
+
+`gf2_lin_algebra` is a high-performance Python library for doing linear algebra over the **finite field GF(2)** (binary matrices and vectors).  
+The implementation is written in Rust for speed and safety, and exposed to Python using PyO3.
+
+This package is useful for:
+
+- cryptography research  
+- boolean matrix algebra  
+- solving linear system of equations over over GF(2)  
+- teaching and exploration of finite fields  
+
+---
+
+## Features
+
+- Native Rust backend (fast, safe, no dependencies)
+- Matrix and vector representation over GF(2)
+- Rank, image, kernel, row-reduction, solving linear system of equations
+- Pythonic API (`GF2Matrix`)
+- Designed to be simple and educational
+- Actively developed and open source
+
+---
+
+## Installation
+
+```bash
+pip install gf2-lin-algebra
+```
+
+or clone the repo and install locally:
+
+```bash
+git clone https://github.com/LucaBonamino/gf2_lin_algebra.git
+cd lin_algebra_py
+pip install .
+```
+
+## Quick Example
+
+```python
+from gf2_lin_algebra import GF2Matrix
+
+# Create matrix
+mat = GF2Matrixx([
+    [1,0,1],
+    [0,1,1],
+    [1,1,0]
+    ])
+
+# Check shape
+print(mat.shape())     # -> (3, 3)
+
+# Compute rank
+print(mat.rank())      # -> 3
+
+# Compute kernel
+print(mat.kernel())
+
+# Compute image
+print(mat.image())
+
+# Solve system of equations
+print(mat.solve([1,1,0]))
+
+# Solve matrix sytem of equation
+mat_y = GF2Matrixx([
+    [0,1,1],
+    [1,1,0],
+    [0,0,1]
+    ])
+print(mat.solve_matrix_system(mat_y))
+
+```
+
+## Roadmap
+
+This package focuses on providing a **clean, user-friendly Python API** for linear algebra over GF(2).
+
+While performance is important, `gf2_lin_algebra` intentionally keeps a clear and debuggable implementation, suitable for learning, research, and experimentation.
+
+Planned directions include:
+- improving performance while preserving a readable, educational code path
+- exposing optimized operations implemented in the Rust crate
+  [`lin_algebra`](https://github.com/LucaBonamino/lin_algebra)
+- refining the Python API for clarity and consistency
+- adding examples, documentation, and tests
+
+Most low-level optimizations and algorithmic improvements are developed in the Rust backend. This package focuses primarily on usability and ergonomics for Python users.
+
+For a more detailed list of ideas and areas where help is welcome, see [ROADMAP.md](ROADMAP.md).
+
+
+## Contributing
+
+Contributions are welcome!
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

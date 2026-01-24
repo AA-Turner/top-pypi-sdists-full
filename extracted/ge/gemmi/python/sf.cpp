@@ -68,6 +68,7 @@ void add_dencalc(nb::module_& m, const char* name) {
 
 void add_sf(nb::module_& m) {
   nb::class_<gemmi::Addends>(m, "Addends")
+    .def(nb::init<>())
     .def("set", &gemmi::Addends::set)
     .def("get", &gemmi::Addends::get)
     .def("clear", &gemmi::Addends::clear)
@@ -92,5 +93,6 @@ void add_sf(nb::module_& m) {
   add_dencalc<C4322>(m, "DensityCalculatorE");
   add_dencalc<Neutron92>(m, "DensityCalculatorN");
   add_dencalc<CustomCoef>(m, "DensityCalculatorC");
+  add_dencalc<gemmi::ZeroCoef<float>>(m, "DensityCalculatorZ");
   m.def("mott_bethe_const", &gemmi::mott_bethe_const);
 }

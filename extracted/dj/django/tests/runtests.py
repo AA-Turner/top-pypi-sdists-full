@@ -29,12 +29,12 @@ else:
     from django.test.selenium import SeleniumTestCase, SeleniumTestCaseBase
     from django.test.utils import NullTimeKeeper, TimeKeeper, get_runner
     from django.utils.deprecation import (
-        RemovedInDjango60Warning,
         RemovedInDjango61Warning,
+        RemovedInDjango70Warning,
     )
     from django.utils.functional import classproperty
     from django.utils.log import DEFAULT_LOGGING
-    from django.utils.version import PY312, PYPY
+    from django.utils.version import PYPY
 
 
 try:
@@ -46,7 +46,7 @@ else:
     warnings.filterwarnings("ignore", r"\(1003, *", category=MySQLdb.Warning)
 
 # Make deprecation warnings errors to ensure no usage of deprecated features.
-warnings.simplefilter("error", RemovedInDjango60Warning)
+warnings.simplefilter("error", RemovedInDjango70Warning)
 warnings.simplefilter("error", RemovedInDjango61Warning)
 # Make resource and runtime warning errors to ensure no usage of error prone
 # patterns.
@@ -64,15 +64,6 @@ if not PYPY:
 RUNTESTS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 TEMPLATE_DIR = os.path.join(RUNTESTS_DIR, "templates")
-
-# Create a specific subdirectory for the duration of the test suite.
-TMPDIR = tempfile.mkdtemp(prefix="django_")
-# Set the TMPDIR environment variable in addition to tempfile.tempdir
-# so that children processes inherit it.
-tempfile.tempdir = os.environ["TMPDIR"] = TMPDIR
-
-# Removing the temporary TMPDIR.
-atexit.register(shutil.rmtree, TMPDIR)
 
 # Add variables enabling coverage to trace code in subprocesses.
 os.environ["RUNTESTS_DIR"] = RUNTESTS_DIR
@@ -201,6 +192,7 @@ def get_filtered_test_modules(start_at, start_after, gis_enabled, test_labels=No
 
 
 def setup_collect_tests(start_at, start_after, test_labels=None):
+    TMPDIR = os.environ["TMPDIR"]
     state = {
         "INSTALLED_APPS": settings.INSTALLED_APPS,
         "ROOT_URLCONF": getattr(settings, "ROOT_URLCONF", ""),
@@ -247,6 +239,7 @@ def setup_collect_tests(start_at, start_after, test_labels=None):
     settings.LOGGING = log_config
     settings.SILENCED_SYSTEM_CHECKS = [
         "fields.W342",  # ForeignKey(unique=True) -> OneToOneField
+        "postgres.E005",  # django.contrib.postgres must be installed to use feature.
     ]
 
     # Load all the ALWAYS_INSTALLED_APPS.
@@ -327,13 +320,6 @@ def setup_run_tests(verbosity, start_at, start_after, test_labels=None):
 
 def teardown_run_tests(state):
     teardown_collect_tests(state)
-    # Discard the multiprocessing.util finalizer that tries to remove a
-    # temporary directory that's already removed by this script's
-    # atexit.register(shutil.rmtree, TMPDIR) handler. Prevents
-    # FileNotFoundError at the end of a test run (#27890).
-    from multiprocessing.util import _finalizer_registry
-
-    _finalizer_registry.pop((-100, 0), None)
     del os.environ["RUNNING_DJANGOS_TEST_SUITE"]
 
 
@@ -534,6 +520,14 @@ def paired_tests(paired_test, options, test_labels, start_at, start_after):
 
 
 if __name__ == "__main__":
+    # Create a specific subdirectory for the duration of the test suite.
+    TMPDIR = tempfile.mkdtemp(prefix="django_")
+    # Set the TMPDIR environment variable in addition to tempfile.tempdir
+    # so that children processes inherit it.
+    tempfile.tempdir = os.environ["TMPDIR"] = TMPDIR
+    # Remove the temporary TMPDIR.
+    atexit.register(shutil.rmtree, TMPDIR)
+
     parser = argparse.ArgumentParser(description="Run the Django test suite.")
     parser.add_argument(
         "modules",
@@ -691,15 +685,14 @@ if __name__ == "__main__":
             "Same as unittest -k option. Can be used multiple times."
         ),
     )
-    if PY312:
-        parser.add_argument(
-            "--durations",
-            dest="durations",
-            type=int,
-            default=None,
-            metavar="N",
-            help="Show the N slowest test cases (N=0 for all).",
-        )
+    parser.add_argument(
+        "--durations",
+        dest="durations",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Show the N slowest test cases (N=0 for all).",
+    )
 
     options = parser.parse_args()
 
@@ -715,7 +708,8 @@ if __name__ == "__main__":
     if options.screenshots and options.tags:
         parser.error("--screenshots and --tag are mutually exclusive.")
 
-    # Allow including a trailing slash on app_labels for tab completion convenience
+    # Allow including a trailing slash on app_labels for tab completion
+    # convenience
     options.modules = [os.path.normpath(labels) for labels in options.modules]
 
     mutually_exclusive_options = [

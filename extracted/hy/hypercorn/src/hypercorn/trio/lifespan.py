@@ -22,14 +22,14 @@ class Lifespan:
         self.config = config
         self.startup = trio.Event()
         self.shutdown = trio.Event()
-        self.app_send_channel, self.app_receive_channel = trio.open_memory_channel(
-            config.max_app_queue_size
-        )
+        self.app_send_channel, self.app_receive_channel = trio.open_memory_channel[
+            ASGIReceiveEvent
+        ](config.max_app_queue_size)
         self.state = state
         self.supported = True
 
     async def handle_lifespan(
-        self, *, task_status: trio._core._run._TaskStatus = trio.TASK_STATUS_IGNORED
+        self, *, task_status: trio.TaskStatus = trio.TASK_STATUS_IGNORED
     ) -> None:
         task_status.started()
         scope: LifespanScope = {
@@ -45,15 +45,13 @@ class Lifespan:
                 trio.to_thread.run_sync,
                 trio.from_thread.run,
             )
-        except LifespanFailureError:
-            # Lifespan failures should crash the server
+        except (LifespanFailureError, trio.Cancelled):
             raise
         except (BaseExceptionGroup, Exception) as error:
             if isinstance(error, BaseExceptionGroup):
-                failure_error = error.subgroup(LifespanFailureError)
-                if failure_error is not None:
-                    # Lifespan failures should crash the server
-                    raise failure_error
+                reraise_error = error.subgroup((LifespanFailureError, trio.Cancelled))
+                if reraise_error is not None:
+                    raise reraise_error
 
             self.supported = False
             if not self.startup.is_set():

@@ -23,6 +23,8 @@ class ContentBlockType(str, Enum):
     text = "text"
     image_url = "image_url"
     audio = "audio"
+    video = "video"
+    document = "document"
 
 
 class CacheControl(BaseModel):
@@ -43,6 +45,8 @@ class ImageUrl(BaseModel):
 
 
 AudioFormat = Literal["mp3", "wav", "m4a", "webm", "ogg", "flac"]
+VideoFormat = Literal["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"]
+DocumentFormat = Literal["pdf", "html", "css", "plain", "xml", "csv", "rtf", "javascript", "json"]
 
 
 class InputAudio(BaseModel):
@@ -56,6 +60,69 @@ class InputAudio(BaseModel):
             file_format = cast(AudioFormat, file_path.suffix[1:])
             return cls(data=encoded_str, format=file_format)
 
+    @classmethod
+    def from_url(cls, url: str, audio_format: AudioFormat) -> Self:
+        """Create InputAudio from a URL.
+
+        Args:
+            url: The URL to the audio file
+            audio_format: The audio format
+
+        Returns:
+            InputAudio instance with the URL as data
+        """
+        return cls(data=url, format=audio_format)
+
+
+class InputVideo(BaseModel):
+    data: str
+    format: VideoFormat
+
+    @classmethod
+    def from_path(cls, file_path: Path) -> Self:
+        with open(file_path, "rb") as video_file:
+            encoded_str = base64.b64encode(video_file.read()).decode("utf-8")
+            file_format = cast(VideoFormat, file_path.suffix[1:])
+            return cls(data=encoded_str, format=file_format)
+
+    @classmethod
+    def from_url(cls, url: str, video_format: VideoFormat) -> Self:
+        """Create InputVideo from a URL.
+
+        Args:
+            url: The URL to the audio file
+            video_format: The audio format
+
+        Returns:
+            InputVideo instance with the URL as data
+        """
+        return cls(data=url, format=video_format)
+
+
+class InputDocument(BaseModel):
+    data: str
+    format: DocumentFormat
+
+    @classmethod
+    def from_path(cls, file_path: Path) -> Self:
+        with open(file_path, "rb") as document_file:
+            encoded_str = base64.b64encode(document_file.read()).decode("utf-8")
+            file_format = cast(DocumentFormat, file_path.suffix[1:])
+            return cls(data=encoded_str, format=file_format)
+
+    @classmethod
+    def from_url(cls, url: str, document_format: DocumentFormat) -> Self:
+        """Create InputDocument from a URL.
+
+        Args:
+            url: The URL to the document file
+            document_format: The document format
+
+        Returns:
+            InputDocument instance with the URL as data
+        """
+        return cls(data=url, format=document_format)
+
 
 class ContentBlock(BaseModel):
     type: ContentBlockType
@@ -63,6 +130,8 @@ class ContentBlock(BaseModel):
     text: str | None = None
     image_url: ImageUrl | None = None
     input_audio: InputAudio | None = None
+    input_video: InputVideo | None = None
+    input_document: InputDocument | None = None
 
 
 ChatMessageContent = Union[list[ContentBlock], str]

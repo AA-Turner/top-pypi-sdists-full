@@ -36,6 +36,7 @@ Decorators with specific functionality:
 * :class:`py_trees.decorators.Condition`
 * :class:`py_trees.decorators.Count`
 * :class:`py_trees.decorators.EternalGuard`
+* :class:`py_trees.decorators.ForEach`
 * :class:`py_trees.decorators.Inverter`
 * :class:`py_trees.decorators.OneShot`
 * :class:`py_trees.decorators.Repeat`
@@ -61,7 +62,7 @@ or  :data:`~py_trees.common.Status.FAILURE`.
 
 A decorator, such as :func:`py_trees.decorators.RunningIsSuccess` on
 a blocking behaviour will immediately terminate the underlying child and
-re-intialise on it's next tick. This is often surprising (to the user) but
+re-intialise on its next tick. This is often surprising (to the user) but
 is necessary to ensure the underlying child isn't left in a dangling state (i.e.
 :data:`~py_trees.common.Status.RUNNING`) as subsequent ticks move on to other
 parts of the tree.
@@ -80,6 +81,7 @@ import functools
 import inspect
 import time
 import typing
+from collections.abc import Iterable
 
 from . import behaviour, blackboard, common
 
@@ -473,7 +475,7 @@ class Timeout(Decorator):
     :meth:`~py_trees.behaviour.Behaviour.stop` method is called with
     status :data:`~py_trees.common.Status.FAILURE` otherwise it will
     simply directly tick and return with the same status
-    as that of it's encapsulated behaviour.
+    as that of its encapsulated behaviour.
     """
 
     def __init__(self, name: str, child: behaviour.Behaviour, duration: float = 5.0):
@@ -528,10 +530,10 @@ class Timeout(Decorator):
 
 class Count(Decorator):
     """
-    Count the number of times it's child has been ticked.
+    Count the number of times its child has been ticked.
 
     This increments counters tracking the total number of times
-    it's child has been ticked as well as the number of times it
+    its child has been ticked as well as the number of times it
     has landed in each respective state.
 
     It will always re-zero counters on
@@ -560,7 +562,7 @@ class Count(Decorator):
         self.running_count = 0
         self.interrupt_count = 0
 
-    def setup(self, **kwargs: int) -> None:
+    def setup(self, **kwargs: typing.Any) -> None:
         """Reset the counters."""
         self.total_tick_count = 0
         self.failure_count = 0
@@ -619,7 +621,7 @@ class OneShot(Decorator):
 
     This decorator ensures that the underlying child is ticked through
     to completion just once and while doing so, will return
-    with the same status as it's child. Thereafter it will return
+    with the same status as its child. Thereafter it will return
     with the final status of the underlying child.
 
     Completion status is determined by the policy given on construction.
@@ -664,7 +666,7 @@ class OneShot(Decorator):
         Tick the child or bounce back with the original status if already completed.
 
         Yields:
-            a reference to itself or a behaviour in it's child subtree
+            a reference to itself or a behaviour in its child subtree
         """
         if self.final_status:
             # ignore the child
@@ -856,7 +858,7 @@ class Condition(Decorator):
     """
     A blocking conditional decorator.
 
-    Encapsulates a behaviour and wait for it's status to flip to the
+    Encapsulates a behaviour and wait for its status to flip to the
     desired state. This behaviour will tick with
     :data:`~py_trees.common.Status.RUNNING` while waiting and
     :data:`~py_trees.common.Status.SUCCESS` when the flip occurs.
@@ -920,3 +922,74 @@ class PassThrough(Decorator):
             the behaviour's new status :class:`~py_trees.common.Status`
         """
         return self.decorated.status
+
+
+class ForEach(Decorator):
+    """
+    Run the child behavior for each item in an iterable.
+
+    On initialization, the iterable is loaded from the blackboard and an
+    iterator is created. Every time the child succeeds, we advance to
+    the next item. We keep running until the iterable is exhausted.
+    """
+
+    def __init__(
+        self, name: str, child: behaviour.Behaviour, source_key: str, target_key: str
+    ):
+        """
+        Initialise the ForEach decorator.
+
+        Args:
+            name (:obj:`str`): name of the behaviour
+            child (:obj:`Behaviour`): the child behaviour to decorate
+            source_key (:obj:`str`): blackboard key to read the input iterable
+            target_key (:obj:`str`): blackboard key to set for each iteration
+        """
+        super().__init__(name=name, child=child)
+        self.source_key = source_key
+        self.target_key = target_key
+        self.blackboard = blackboard.Client(name=name)
+        self.blackboard.register_key(key=self.source_key, access=common.Access.READ)
+        self.blackboard.register_key(key=self.target_key, access=common.Access.WRITE)
+        self._iterator: typing.Iterator | None = None
+        self._current_item: typing.Any | None = None
+
+    def initialise(self) -> None:
+        """Reset iteration on first tick."""
+        iterable = self.blackboard.get(self.source_key) or []
+        if not isinstance(iterable, Iterable):
+            raise TypeError(
+                f"[{self.name}] source_key '{self.source_key}' is not an iterable"
+            )
+        self._iterator = iter(iterable)
+        self._advance()
+
+    def _advance(self) -> None:
+        """Advance to the next item in the iterator, or mark as finished."""
+        try:
+            if self._iterator is not None:
+                self._current_item = next(self._iterator)
+                self.blackboard.set(self.target_key, self._current_item)
+        except StopIteration:
+            self._current_item = None
+
+    def update(self) -> common.Status:
+        """Execute the child for the current item and manage iteration state."""
+        if self._current_item is None:
+            # no more items left
+            return common.Status.SUCCESS
+
+        child_status = self.decorated.status
+
+        if child_status == common.Status.SUCCESS:
+            # move to next item
+            self._advance()
+            if self._current_item is not None:
+                return common.Status.RUNNING
+
+        return child_status
+
+    def terminate(self, new_status: common.Status) -> None:
+        """Reset on termination."""
+        self._iterator = None
+        self._current_item = None

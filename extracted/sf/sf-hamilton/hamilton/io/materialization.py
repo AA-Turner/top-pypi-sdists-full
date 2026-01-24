@@ -1,3 +1,20 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 import dataclasses
 import functools
 import inspect
@@ -413,7 +430,7 @@ def _set_materializer_attrs():
         wrapper.__signature__ = new_signature
         wrapper.__doc__ = f"""
         Materializes data to {key} format. Note that the parameters are a superset of possible parameters -- this might depend on
-        the actual type of the data passed in. For more information, see: https://hamilton.dagworks.io/en/latest/reference/io/available-data-adapters/#data-loaders.
+        the actual type of the data passed in. For more information, see: https://hamilton.apache.org/reference/io/available-data-adapters/#data-loaders.
         You can also pass `source` and `value` in as kwargs.
         """
         return wrapper

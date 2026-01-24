@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atomate2
-Version: 0.0.21
+Version: 0.0.23
 Summary: atomate2 is a library of materials science workflows
 Author-email: Alex Ganose <alexganose@gmail.com>
 License: modified BSD
@@ -26,7 +26,7 @@ License-File: LICENSE
 Requires-Dist: PyYAML
 Requires-Dist: click
 Requires-Dist: custodian>=2024.4.18
-Requires-Dist: emmet-core>=0.84.3rc3
+Requires-Dist: emmet-core>=0.86.1
 Requires-Dist: jobflow>=0.1.11
 Requires-Dist: monty>=2024.12.10
 Requires-Dist: numpy
@@ -36,15 +36,18 @@ Requires-Dist: pymatgen>=2024.11.13
 Requires-Dist: pymongo<=4.10.1
 Provides-Extra: abinit
 Requires-Dist: abipy>=0.9.3; extra == "abinit"
+Provides-Extra: aims
+Requires-Dist: pymatgen-io-aims>=0.0.5; extra == "aims"
+Requires-Dist: pymatgen>=2025.10.7; extra == "aims"
 Provides-Extra: amset
 Requires-Dist: amset>=0.4.15; extra == "amset"
 Requires-Dist: pydash; extra == "amset"
 Provides-Extra: cclib
-Requires-Dist: cclib; extra == "cclib"
+Requires-Dist: cclib>=1.8.1; extra == "cclib"
 Provides-Extra: mp
 Requires-Dist: mp-api>=0.37.5; extra == "mp"
 Provides-Extra: phonons
-Requires-Dist: phonopy>=1.10.8; extra == "phonons"
+Requires-Dist: phonopy>=2.43.6; extra == "phonons"
 Requires-Dist: seekpath>=2.0.0; extra == "phonons"
 Provides-Extra: lobster
 Requires-Dist: ijson>=3.2.2; extra == "lobster"
@@ -54,7 +57,7 @@ Requires-Dist: dscribe>=1.2.0; extra == "defects"
 Requires-Dist: pymatgen-analysis-defects>=2024.5.11; extra == "defects"
 Requires-Dist: python-ulid>=2.7; extra == "defects"
 Provides-Extra: forcefields
-Requires-Dist: ase>=3.23.0; extra == "forcefields"
+Requires-Dist: ase>=3.26.0; extra == "forcefields"
 Requires-Dist: calorine>=3.0; extra == "forcefields"
 Requires-Dist: chgnet>=0.2.2; extra == "forcefields"
 Requires-Dist: mace-torch>=0.3.3; extra == "forcefields"
@@ -62,9 +65,11 @@ Requires-Dist: matgl>=1.2.1; extra == "forcefields"
 Requires-Dist: torchdata<=0.7.1; extra == "forcefields"
 Requires-Dist: quippy-ase>=0.9.14; python_version < "3.12" and extra == "forcefields"
 Requires-Dist: sevenn>=0.9.3; extra == "forcefields"
-Requires-Dist: torchdata<=0.7.1; extra == "forcefields"
+Requires-Dist: deepmd-kit>=2.1.4; extra == "forcefields"
+Provides-Extra: approxneb
+Requires-Dist: pymatgen-analysis-diffusion>=2024.7.15; extra == "approxneb"
 Provides-Extra: ase
-Requires-Dist: ase>=3.23.0; extra == "ase"
+Requires-Dist: ase>=3.26.0; extra == "ase"
 Provides-Extra: ase-ext
 Requires-Dist: tblite>=0.3.0; platform_system == "Linux" and extra == "ase-ext"
 Provides-Extra: openmm
@@ -72,66 +77,50 @@ Requires-Dist: mdanalysis>=2.8.0; extra == "openmm"
 Requires-Dist: openmm-mdanalysis-reporter>=0.1.0; extra == "openmm"
 Requires-Dist: openmm>=8.1.0; extra == "openmm"
 Provides-Extra: fireworks
-Requires-Dist: FireWorks==2.0.4; extra == "fireworks"
+Requires-Dist: fireworks==2.0.6; extra == "fireworks"
 Provides-Extra: docs
-Requires-Dist: FireWorks==2.0.4; extra == "docs"
+Requires-Dist: fireworks==2.0.6; extra == "docs"
 Requires-Dist: autodoc_pydantic==2.2.0; extra == "docs"
-Requires-Dist: furo==2024.8.6; extra == "docs"
-Requires-Dist: ipython==8.34.0; extra == "docs"
+Requires-Dist: furo==2025.9.25; extra == "docs"
+Requires-Dist: ipython==8.37.0; extra == "docs"
 Requires-Dist: jsonschema[format]; extra == "docs"
 Requires-Dist: myst_parser==4.0.1; extra == "docs"
-Requires-Dist: numpydoc==1.8.0; extra == "docs"
+Requires-Dist: numpydoc==1.9.0; extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
 Requires-Dist: sphinx==8.1.3; extra == "docs"
 Requires-Dist: sphinx_design==0.6.1; extra == "docs"
-Requires-Dist: jupyterlab==4.4.2; extra == "docs"
+Requires-Dist: jupyterlab==4.5.0; extra == "docs"
 Provides-Extra: dev
 Requires-Dist: pre-commit>=2.12.1; extra == "dev"
 Provides-Extra: tests
-Requires-Dist: FireWorks==2.0.4; extra == "tests"
+Requires-Dist: fireworks==2.0.6; extra == "tests"
 Requires-Dist: nbmake==1.5.5; extra == "tests"
-Requires-Dist: pytest-cov==6.1.1; extra == "tests"
-Requires-Dist: pytest-mock==3.14.0; extra == "tests"
+Requires-Dist: pytest-cov==7.0.0; extra == "tests"
+Requires-Dist: pytest-mock==3.15.1; extra == "tests"
 Requires-Dist: pytest-split==0.10.0; extra == "tests"
-Requires-Dist: pytest==8.3.5; extra == "tests"
-Provides-Extra: strict
-Requires-Dist: PyYAML==6.0.2; extra == "strict"
-Requires-Dist: ase==3.24.0; extra == "strict"
-Requires-Dist: cclib==1.8.1; extra == "strict"
-Requires-Dist: click==8.2.0; extra == "strict"
-Requires-Dist: custodian==2025.4.14; extra == "strict"
-Requires-Dist: dscribe==2.1.1; extra == "strict"
-Requires-Dist: emmet-core==0.84.5; extra == "strict"
-Requires-Dist: ijson==3.3.0; extra == "strict"
-Requires-Dist: jobflow==0.1.19; extra == "strict"
-Requires-Dist: lobsterpy==0.4.9; extra == "strict"
-Requires-Dist: monty==2025.3.3; extra == "strict"
-Requires-Dist: mp-api==0.45.4; extra == "strict"
-Requires-Dist: numpy; extra == "strict"
-Requires-Dist: phonopy==2.30.1; extra == "strict"
-Requires-Dist: pydantic-settings==2.9.1; extra == "strict"
-Requires-Dist: pydantic==2.11.3; extra == "strict"
-Requires-Dist: pymatgen-analysis-defects==2025.1.18; extra == "strict"
-Requires-Dist: pymatgen==2025.2.18; extra == "strict"
-Requires-Dist: pymongo==4.10.1; extra == "strict"
-Requires-Dist: python-ulid==3.0.0; extra == "strict"
-Requires-Dist: seekpath==2.1.0; extra == "strict"
-Requires-Dist: typing-extensions==4.13.2; extra == "strict"
+Requires-Dist: pytest-xdist==3.8.0; extra == "tests"
+Requires-Dist: pytest==8.4.2; extra == "tests"
 Provides-Extra: strict-openff
 Requires-Dist: mdanalysis==2.9.0; extra == "strict-openff"
 Requires-Dist: monty==2025.3.3; extra == "strict-openff"
 Requires-Dist: openmm-mdanalysis-reporter==0.1.0; extra == "strict-openff"
-Requires-Dist: openmm==8.1.1; extra == "strict-openff"
-Requires-Dist: pymatgen==2024.11.13; extra == "strict-openff"
+Requires-Dist: openmm==8.4.0.post2; extra == "strict-openff"
+Requires-Dist: pymatgen==2025.10.7; extra == "strict-openff"
 Provides-Extra: strict-forcefields
-Requires-Dist: calorine==3.0; extra == "strict-forcefields"
+Requires-Dist: calorine==3.2; python_version >= "3.12" and extra == "strict-forcefields"
+Requires-Dist: calorine==3.1; python_version < "3.12" and extra == "strict-forcefields"
 Requires-Dist: chgnet==0.3.8; extra == "strict-forcefields"
-Requires-Dist: mace-torch==0.3.12; extra == "strict-forcefields"
-Requires-Dist: matgl==1.2.6; extra == "strict-forcefields"
+Requires-Dist: mace-torch==0.3.14; extra == "strict-forcefields"
+Requires-Dist: matgl==2.0.4; extra == "strict-forcefields"
 Requires-Dist: quippy-ase==0.9.14; python_version < "3.12" and extra == "strict-forcefields"
-Requires-Dist: sevenn==0.10.3; extra == "strict-forcefields"
+Requires-Dist: sevenn==0.10.4; extra == "strict-forcefields"
 Requires-Dist: torch==2.2.0; extra == "strict-forcefields"
 Requires-Dist: torchdata==0.7.1; extra == "strict-forcefields"
+Requires-Dist: deepmd-kit==2.2.11; extra == "strict-forcefields"
+Requires-Dist: tensorflow-cpu==2.16.2; extra == "strict-forcefields"
+Provides-Extra: strict
+Requires-Dist: atomate2[ase,ase-ext,cclib,defects,docs,lobster,mp,openmm,phonons,strict-forcefields]; extra == "strict"
+Requires-Dist: numpy<2.0; extra == "strict"
 Dynamic: license-file
 
 # atomate2
@@ -140,7 +129,7 @@ Dynamic: license-file
 [![code coverage](https://img.shields.io/codecov/c/gh/materialsproject/atomate2)](https://codecov.io/gh/materialsproject/atomate2)
 [![pypi version](https://img.shields.io/pypi/v/atomate2?color=blue)](https://pypi.org/project/atomate2)
 ![supported python versions](https://img.shields.io/pypi/pyversions/atomate2)
-[![Zenodo](https://img.shields.io/badge/DOI-10.5281/zenodo.10677081-blue?logo=Zenodo&logoColor=white)](https://zenodo.org/records/10677081)
+[![Zenodo](https://img.shields.io/badge/DOI-10.5281/zenodo.10677080-blue?logo=Zenodo&logoColor=white)](https://doi.org/10.5281/zenodo.15603088)
 [![This project supports Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
 [![PyPI](https://img.shields.io/pypi/dm/atomate2.svg?maxAge=2592000)](https://pypi.python.org/pypi/atomate2)
 
@@ -270,16 +259,17 @@ A full list of contributors can be found [here][contributors].
 
 ## Citing atomate2
 
-A journal submission of `atomate2` is undergoing peer review. In the meantime, please cite the [ChemRxiv preprint](https://chemrxiv.org/engage/chemrxiv/article-details/678e76a16dde43c9085c75e9):
+If you use atomate2, please cite the [following article](https://doi.org/10.1039/D5DD00019J):
 
 ```bib
 @article{ganose2025_atomate2,
-    title        = {Atomate2: Modular Workflows for Materials Science},
-    author       = {Ganose, Alex M. and Sahasrabuddhe, Hrushikesh and Asta, Mark and Beck, Kevin and Biswas, Tathagata and Bonkowski, Alexander and Bustamante, Joana and Chen, Xin and Chiang, Yuan and Chrzan, Daryl and Clary, Jacob and Cohen, Orion and Ertural, Christina and Gallant, Max and George, Janine and Gerits, Sophie and Goodall, Rhys and Guha, Rishabh and Hautier, Geoffroy and Horton, Matthew and Kaplan, Aaron and Kingsbury, Ryan and Kuner, Matthew and Li, Bryant and Linn, Xavier and McDermott, Matthew and Mohanakrishnan, Rohith Srinivaas and Naik, Aakash and Neaton, Jeffrey and Persson, Kristin and Petretto, Guido and Purcell, Thomas and Ricci, Francesco and Rich, Benjamin and Riebesell, Janosh and Rignanese, Gian-Marco and Rosen, Andrew and Scheffler, Matthias and Schmidt, Jonathan and Shen, Jimmy-Xuan and Sobolev, Andrei and Sundararaman, Ravishankar and Tezak, Cooper and Trinquet, Victor and Varley, Joel and Vigil-Fowler, Derek and Wang, Duo and Waroquiers, David and Wen, Mingjian and Yang, Han and Zheng, Hui and Zheng, Jiongzhi and Zhu, Zhuoying and Jain, Anubhav},
-    year         = 2025,
-    journal      = {ChemRxiv},
-    url          = {https://chemrxiv.org/engage/chemrxiv/article-details/678e76a16dde43c9085c75e9},
-    urldate      = {2025-01-22},
+	title = {Atomate2: modular workflows for materials science},
+	author = {Ganose, Alex M. and Sahasrabuddhe, Hrushikesh and Asta, Mark and Beck, Kevin and Biswas, Tathagata and Bonkowski, Alexander and Bustamante, Joana and Chen, Xin and Chiang, Yuan and Chrzan, Daryl C. and Clary, Jacob and Cohen, Orion A. and Ertural, Christina and Gallant, Max C. and George, Janine and Gerits, Sophie and Goodall, Rhys E. A. and Guha, Rishabh D. and Hautier, Geoffroy and Horton, Matthew and Inizan, T. J. and Kaplan, Aaron D. and Kingsbury, Ryan S. and Kuner, Matthew C. and Li, Bryant and Linn, Xavier and McDermott, Matthew J. and Mohanakrishnan, Rohith Srinivaas and Naik, Aakash A. and Neaton, Jeffrey B. and Parmar, Shehan M. and Persson, Kristin A. and Petretto, Guido and Purcell, Thomas A. R. and Ricci, Francesco and Rich, Benjamin and Riebesell, Janosh and Rignanese, Gian-Marco and Rosen, Andrew S. and Scheffler, Matthias and Schmidt, Jonathan and Shen, Jimmy-Xuan and Sobolev, Andrei and Sundararaman, Ravishankar and Tezak, Cooper and Trinquet, Victor and Varley, Joel B. and Vigil-Fowler, Derek and Wang, Duo and Waroquiers, David and Wen, Mingjian and Yang, Han and Zheng, Hui and Zheng, Jiongzhi and Zhu, Zhuoying and Jain, Anubhav},
+	year = {2025},
+	journal = {Digital Discovery},
+	doi = {10.1039/D5DD00019J},
+	url = {https://doi.org/10.1039/D5DD00019J},
+	urldate = {2025-07-01},
 }
 ```
 

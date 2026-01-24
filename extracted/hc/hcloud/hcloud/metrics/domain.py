@@ -3,9 +3,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from dateutil.parser import isoparse
-
 from ..core import BaseDomain
+
+__all__ = [
+    "TimeSeries",
+    "Metrics",
+]
+
 
 TimeSeries = dict[str, dict[Literal["values"], list[tuple[float, str]]]]
 
@@ -41,7 +45,7 @@ class Metrics(BaseDomain):
         step: float,
         time_series: TimeSeries,
     ):
-        self.start = isoparse(start)
-        self.end = isoparse(end)
+        self.start = self._parse_datetime(start)
+        self.end = self._parse_datetime(end)
         self.step = step
         self.time_series = time_series

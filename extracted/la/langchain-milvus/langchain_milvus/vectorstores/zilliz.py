@@ -21,22 +21,12 @@ class Zilliz(Milvus):
     IF USING L2/IP metric IT IS HIGHLY SUGGESTED TO NORMALIZE YOUR DATA.
 
     Args:
-        embedding_function (Embeddings): Function used to embed the text.
-        collection_name (str): Which Zilliz collection to use. Defaults to
-            "LangChainCollection".
-        connection_args (Optional[dict[str, any]]): The connection args used for
-            this class comes in the form of a dict.
-        consistency_level (str): The consistency level to use for a collection.
-            Defaults to "Session".
-        index_params (Optional[dict]): Which index params to use. Defaults to
-            HNSW/AUTOINDEX depending on service.
-        search_params (Optional[dict]): Which search params to use. Defaults to
-            default of index.
-        drop_old (Optional[bool]): Whether to drop the current collection. Defaults
-            to False.
-        auto_id (bool): Whether to enable auto id for primary key. Defaults to False.
-            If False, you need to provide text ids (string less than 65535 bytes).
-            If True, Milvus will generate unique integers as primary keys.
+        *args: Variable length argument list passed to the parent Milvus class.
+        **kwargs: Arbitrary keyword arguments passed to the parent Milvus class.
+            See Milvus class documentation for supported parameters including:
+            `embedding_function`, `collection_name`, `connection_args`,
+            `consistency_level`, `index_params`, `search_params`, `drop_old`, `auto_id`,
+            and others.
 
     The connection args used for this class comes in the form of a dict,
     the two major arguments are:
@@ -50,8 +40,7 @@ class Zilliz(Milvus):
     https://docs.zilliz.com/reference/python/python/Connections-connect
 
     Example:
-        .. code-block:: python
-
+        ```python
         from langchain_milvus import Zilliz
         from langchain_openai import OpenAIEmbeddings
 
@@ -66,6 +55,7 @@ class Zilliz(Milvus):
             }
             drop_old: True,
         )
+        ```
 
     Raises:
         ValueError: If the pymilvus python package is not installed.

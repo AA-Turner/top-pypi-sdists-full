@@ -40,23 +40,17 @@ class ChainPredicateIterator:
         predicate, a starting ViewEdge and its orientation or using the copy constructor.
 
                 :param upred: The unary predicate that the next ViewEdge must satisfy.
-                :type upred: freestyle.types.UnaryPredicate1D
                 :param bpred: The binary predicate that the next ViewEdge must
         satisfy together with the actual pointed ViewEdge.
-                :type bpred: freestyle.types.BinaryPredicate1D
                 :param restrict_to_selection: Indicates whether to force the chaining
         to stay within the set of selected ViewEdges or not.
-                :type restrict_to_selection: bool
                 :param restrict_to_unvisited: Indicates whether a ViewEdge that has
         already been chained must be ignored ot not.
-                :type restrict_to_unvisited: bool
                 :param begin: The ViewEdge from where to start the iteration.
-                :type begin: None | freestyle.types.ViewEdge | None
                 :param orientation: If true, well look for the next ViewEdge among
         the ViewEdges that surround the ending ViewVertex of begin. If
         false, well search over the ViewEdges surrounding the ending
         ViewVertex of begin.
-                :type orientation: bool
         """
 
     def __init__(self, brother: typing_extensions.Self) -> None:
@@ -64,7 +58,6 @@ class ChainPredicateIterator:
         predicate, a starting ViewEdge and its orientation or using the copy constructor.
 
                 :param brother: A ChainPredicateIterator object.
-                :type brother: typing_extensions.Self
         """
 
 class ChainSilhouetteIterator:
@@ -90,14 +83,11 @@ class ChainSilhouetteIterator:
 
                 :param restrict_to_selection: Indicates whether to force the chaining
         to stay within the set of selected ViewEdges or not.
-                :type restrict_to_selection: bool
                 :param begin: The ViewEdge from where to start the iteration.
-                :type begin: None | freestyle.types.ViewEdge | None
                 :param orientation: If true, well look for the next ViewEdge among
         the ViewEdges that surround the ending ViewVertex of begin. If
         false, well search over the ViewEdges surrounding the ending
         ViewVertex of begin.
-                :type orientation: bool
         """
 
     def __init__(self, brother: typing_extensions.Self) -> None:
@@ -105,7 +95,6 @@ class ChainSilhouetteIterator:
         iteration and its orientation or the copy constructor.
 
                 :param brother: A ChainSilhouetteIterator object.
-                :type brother: typing_extensions.Self
         """
 
 class pyChainSilhouetteGenericIterator:
@@ -121,9 +110,7 @@ class pyChainSilhouetteGenericIterator:
         """Builds a pyChainSilhouetteGenericIterator object.
 
         :param stayInSelection: True if it is allowed to go out of the selection
-        :type stayInSelection: bool
         :param stayInUnvisited: May the same ViewEdge be chained twice
-        :type stayInUnvisited: bool
         """
 
     def init(self) -> None: ...
@@ -174,9 +161,7 @@ class pyFillOcclusionsAbsoluteAndRelativeChainingIterator:
 
                 :param percent: The maximal length of the occluded part as a
         percentage of the total chain length.
-                :type percent: float
                 :param l: Absolute length.
-                :type l: float
         """
 
     def init(self) -> None: ...
@@ -193,7 +178,6 @@ class pyFillOcclusionsAbsoluteChainingIterator:
         """Builds a pyFillOcclusionsAbsoluteChainingIterator object.
 
         :param length: The maximum length of the occluded part in pixels.
-        :type length: int
         """
 
     def init(self) -> None: ...
@@ -211,7 +195,6 @@ class pyFillOcclusionsRelativeChainingIterator:
 
                 :param percent: The maximal length of the occluded part, expressed
         in a percentage of the total chain length.
-                :type percent: float
         """
 
     def init(self) -> None: ...
@@ -231,9 +214,7 @@ class pyFillQi0AbsoluteAndRelativeChainingIterator:
 
                 :param percent: The maximal length of the occluded part as a
         percentage of the total chain length.
-                :type percent: float
                 :param l: Absolute length.
-                :type l: float
         """
 
     def init(self) -> None: ...
@@ -254,7 +235,6 @@ class pyNoIdChainSilhouetteIterator:
         """Builds a pyNoIdChainSilhouetteIterator object.
 
         :param stayInSelection: True if it is allowed to go out of the selection
-        :type stayInSelection: bool
         """
 
     def init(self) -> None: ...
@@ -273,9 +253,7 @@ class pySketchyChainSilhouetteIterator:
         """Builds a pySketchyChainSilhouetteIterator object.
 
         :param nRounds: Number of times every Viewedge is chained.
-        :type nRounds: int
         :param stayInSelection: if False, edges outside of the selection can be chained.
-        :type stayInSelection: bool
         """
 
     def init(self) -> None: ...

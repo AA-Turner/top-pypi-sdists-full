@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-samplers
-Version: 1.6.0
+Version: 1.7.0
 Summary: Ocean-compatible collection of solvers/samplers
 Home-page: https://github.com/dwavesystems/dwave-samplers
 Author: D-Wave Systems Inc.
@@ -17,17 +17,17 @@ Classifier: Operating System :: MacOS
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy<3.0.0,>=1.19.0
-Requires-Dist: dimod<0.13.0,>=0.12.13
+Requires-Dist: numpy<3.0.0,>=1.21.6
+Requires-Dist: dimod<0.13.0,>=0.12.21
 Requires-Dist: networkx>=3.0
 Dynamic: license-file
 

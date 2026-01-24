@@ -43,7 +43,22 @@ namespace dwave::optimization {
 
 class Array;
 
-// Information about where a dynamic array gets its size.
+/// Information about where a dynamic array gets its size.
+///
+/// SizeInfo allows arrays to specify their own size as a (bounded) linear function of another
+/// dynamic array's size. This allows subsequent nodes in the graph to make guarantees about their
+/// predecessors' sizes, so that they can make guarantees about correctness at runtime. Since almost
+/// all array nodes have a size that is a simple linear transformation of their predecessors' size
+/// (which itself may be linear function of previous nodes' sizes), SizeInfo is able to capture most
+/// of their behavior.
+///
+/// SizeInfo has five members: a pointer to an Array, a multiplier, an offset, a minimum, and a
+/// maximum. It represents the following linear expression:
+///
+///     clamp(ceil(multiplier * array_ptr->size() + offset), min, max)
+///
+/// Note that multiplier and offset are represented as fractions (see
+/// `dwave::optimization::fraction`).
 struct SizeInfo {
     SizeInfo() : SizeInfo(0) {}
     explicit SizeInfo(const std::integral auto size)
@@ -56,7 +71,43 @@ struct SizeInfo {
     friend bool operator==(const SizeInfo& lhs, const std::integral auto rhs) {
         return lhs.multiplier == 0 && lhs.offset == rhs;
     }
+    friend bool operator==(const SizeInfo& lhs, const fraction rhs) {
+        return lhs.multiplier == 0 && lhs.offset == rhs;
+    }
     bool operator==(const SizeInfo& other) const;
+
+    constexpr SizeInfo& operator*=(const std::integral auto n) {
+        multiplier *= n;
+        offset *= n;
+        if (min.has_value()) min.value() *= n;
+        if (max.has_value()) max.value() *= n;
+        return *this;
+    }
+    friend SizeInfo operator*(SizeInfo lhs, const std::integral auto rhs) {
+        lhs *= rhs;
+        return lhs;
+    }
+
+    constexpr SizeInfo& operator/=(const std::integral auto n) {
+        if (!n) throw std::invalid_argument("cannot divide by 0");
+        multiplier /= n;
+        offset /= n;
+        if (min.has_value()) {
+            assert(min.value() % n == 0 and
+                   "dividing SizeInfo with a divisor that does not evenly divide the minimum");
+            min.value() /= n;
+        }
+        if (max.has_value()) {
+            assert(max.value() % n == 0 and
+                   "dividing SizeInfo with a divisor that does not evenly divide the maximum");
+            max.value() /= n;
+        }
+        return *this;
+    }
+    friend SizeInfo operator/(SizeInfo lhs, const std::integral auto rhs) {
+        lhs /= rhs;
+        return lhs;
+    }
 
     // SizeInfos are printable
     friend std::ostream& operator<<(std::ostream& os, const SizeInfo& sizeinfo);
@@ -66,7 +117,7 @@ struct SizeInfo {
     const Array* array_ptr;
 
     fraction multiplier;
-    ssize_t offset;
+    fraction offset;
 
     std::optional<ssize_t> min;
     std::optional<ssize_t> max;
@@ -74,26 +125,61 @@ struct SizeInfo {
 
 /// Struct for the common use case of saving statistics about an ArrayNode's output values
 struct ValuesInfo {
-    ValuesInfo() = delete;
+    /// Factory constructor for a ValuesInfo representing a logical (boolean) output.
+    static ValuesInfo logical_output() { return {false, true, true}; };
+
+    /// Construct a maximally general `ValuesInfo`. We do not allow `inf`.
+    ValuesInfo() = default;
+
+    /// Construct a ValuesInfo from a fixed `min`/`max`/`integral`.
     ValuesInfo(double min, double max, bool integral) : min(min), max(max), integral(integral) {}
+    ValuesInfo(std::pair<double, double> minmax, bool integral)
+            : ValuesInfo(minmax.first, minmax.second, integral) {}
+
     /// Copy the min/max/integral from the array
     ValuesInfo(const Array* array_ptr);
 
     /// These constructors take the min of the mins, etc for all the arrays
     ValuesInfo(std::initializer_list<const Array*> array_ptrs);
-
     // Unfortunately it seems we still need this span constructor for GCC11 which doesn't
     // like a vector being passed to the viewable_range constructor
     ValuesInfo(std::span<const Array* const> array_ptrs);
-
     template <std::ranges::viewable_range R>
     ValuesInfo(R&& array_ptrs);
 
-    static ValuesInfo logical_output() { return {false, true, true}; };
+    /// Return `true` if equal to `rhs`.
+    bool operator==(const ValuesInfo& rhs) const {
+        return this->min == rhs.min && this->max == rhs.max && this->integral == rhs.integral;
+    }
 
-    double min;
-    double max;
-    bool integral;
+    // Dev note: We follow Python's set union API and overload operator|.
+    // It would be easy to add the intersection operator& as well if needed.
+
+    // Add the domain of rhs to the ValuesInfo
+    ValuesInfo& operator|=(const ValuesInfo& rhs) {
+        this->min = std::min<double>(this->min, rhs.min);
+        this->max = std::max<double>(this->max, rhs.max);
+
+        // the result set only contains integers if they both did
+        this->integral = this->integral && rhs.integral;
+
+        return *this;
+    }
+
+    /// The union of the domains of `lhs` and `rhs`
+    friend ValuesInfo operator|(ValuesInfo lhs, const ValuesInfo& rhs) {
+        lhs |= rhs;
+        return lhs;
+    }
+
+    /// The minimum value that might be outputted by any one index of an Array
+    double min = std::numeric_limits<double>::lowest();
+
+    /// The maximum value that might be outputted by any one index of an Array
+    double max = std::numeric_limits<double>::max();
+
+    /// Whether all values in the Array will be integral or not
+    bool integral = false;
 };
 
 // A slice represents a set of indices specified by range(start, stop, step).
@@ -306,7 +392,9 @@ class Array {
     /// For contiguous arrays, this is the length of the underlying memory block.
     /// For non-contiguous arrays, it is the length that the logical structure
     /// would have if it were copied to a contiguous representation.
-    /// If the array is dynamic, returns Array::DYNAMIC_SIZE.
+    /// If the size of the array is state-dependent, returns Array::DYNAMIC_SIZE.
+    /// Note that it's possible for the array to have a state-dependent shape
+    /// but a fixed size e.g., ``(-1, 0, 2)``.
     ssize_t len() const { return (size() >= 0) ? size() * itemsize() : DYNAMIC_SIZE; }
 
     /// For contiguous arrays, this is the length of the underlying memory block.
@@ -337,6 +425,8 @@ class Array {
     /// number of bytes.
     /// If the shape is state-dependent, the first value in shape is
     /// Array::DYNAMIC_SIZE.
+    /// Note that it's possible for the array to have a state-dependent shape
+    /// but a fixed size e.g., ``(-1, 0, 2)``.
     virtual std::span<const ssize_t> shape() const = 0;
 
     /// A span of length Array::ndim() giving the number of bytes to step to get to a
@@ -358,10 +448,12 @@ class Array {
     const View view(const State& state) const { return View(begin(state), end(state)); }
 
     /// The number of doubles in the flattened array.
+    /// If the size is dependent on the state, returns Array::DYNAMIC_SIZE.
+    /// Note that it's possible for the array to have a state-dependent shape
+    /// but a fixed size e.g., ``(-1, 0, 2)``.
     virtual ssize_t size() const = 0;
 
     /// The number of doubles in the flattened array.
-    /// If the size is dependent on the state, returns Array::DYNAMIC_SIZE.
     virtual ssize_t size(const State& state) const = 0;
 
     /// Information about how the size of a node is calculated. See SizeInfo.
@@ -382,8 +474,13 @@ class Array {
     /// Whether the data is stored contiguously.
     virtual bool contiguous() const = 0;
 
-    /// Whether the size of the array is state-dependent or not.
-    bool dynamic() const { return size() < 0; }
+    /// Whether the shape of the array is state-dependent or not.
+    /// Note that it's possible for the array to have a state-dependent shape
+    /// but a fixed size e.g., ``(-1, 0, 2)``.
+    bool dynamic() const { 
+        const auto shape = this->shape();
+        return shape.size() && shape[0] < 0;
+    }
 
     // Update signaling *******************************************************
 
@@ -397,44 +494,20 @@ class Array {
         return 0;
     }
 
- protected:
-    // Some utility methods that might be useful to subclasses
-
-    // Determine whether a given shape/strides define a contiguous array or not.
-    static bool is_contiguous(const ssize_t ndim, const ssize_t* shape, const ssize_t* strides) {
-        assert(ndim >= 0);
-        if (!ndim) return true;  // scalars are contiguous
-
-        ssize_t sd = sizeof(double);
-        for (ssize_t i = ndim - 1; i >= 0; --i) {
-            const ssize_t dim = shape[i];
-
-            // This method is fine with state-dependent shape/size under the
-            // assumption that we only ever allow it on the 0-axis.
-            assert(dim >= 0 || i == 0);
-
-            // If dim == 0 then we're contiguous because we're empty
-            if (!dim) return true;
-
-            if (dim != 1 && strides[i] != sd) return false;
-            sd *= dim;
-        }
-
-        return true;
-    }
-
     // Determine the size by the shape. For a node with a fixed size, it is simply
     // the product of the shape.
     // Expects the shape to be stored in a C-style array of length ndim.
-    static ssize_t shape_to_size(const ssize_t ndim, const ssize_t* shape) noexcept {
-        if (ndim <= 0) return 1;
-        if (shape[0] < 0) return DYNAMIC_SIZE;
-        return std::reduce(shape, shape + ndim, 1, std::multiplies<ssize_t>());
+    static ssize_t shape_to_size(const ssize_t ndim, const ssize_t* const shape) noexcept {
+        const ssize_t size = std::reduce(shape, shape + ndim, 1, std::multiplies<ssize_t>());
+        if (size < 0) return Array::DYNAMIC_SIZE;
+        return size;
     }
 
     static ssize_t shape_to_size(const std::span<const ssize_t> shape) noexcept {
         return shape_to_size(shape.size(), shape.data());
     }
+ protected:
+    // Some utility methods that might be useful to subclasses
 
     // Determine the strides from the shape.
     // Assumes itemsize = sizeof(double).
@@ -596,21 +669,17 @@ bool array_shape_equal(const std::span<const Array* const> array_ptrs);
 /// Get the shape induced by broadcasting two arrays together.
 /// See https://numpy.org/doc/stable/user/basics.broadcasting.html.
 /// Raises an exception if the two arrays cannot be broadcast together
-std::vector<ssize_t> broadcast_shape(const std::span<const ssize_t> lhs,
-                                     const std::span<const ssize_t> rhs);
-std::vector<ssize_t> broadcast_shape(std::initializer_list<ssize_t> lhs,
-                                     std::initializer_list<ssize_t> rhs);
+std::vector<ssize_t> broadcast_shapes(const std::span<const ssize_t> lhs,
+                                      const std::span<const ssize_t> rhs);
+std::vector<ssize_t> broadcast_shapes(std::initializer_list<ssize_t> lhs,
+                                      std::initializer_list<ssize_t> rhs);
 
 void deduplicate_diff(std::vector<Update>& diff);
 
-template <std::ranges::range V>
-requires(std::same_as<std::ranges::range_value_t<V>, Update>) class deduplicate_diff_view
-        : public std::ranges::view_interface<deduplicate_diff_view<V>> {
+class deduplicate_diff_view {
  public:
-    explicit deduplicate_diff_view(const V& diff) : diff_(diff.begin(), diff.end()) {
-        deduplicate_diff(diff_);
-    }
-    explicit deduplicate_diff_view(const V&& diff) : diff_(diff.begin(), diff.end()) {
+    template <std::ranges::range R>
+    deduplicate_diff_view(R&& diff) : diff_(std::ranges::begin(diff), std::ranges::end(diff)) {
         deduplicate_diff(diff_);
     }
 
@@ -622,6 +691,10 @@ requires(std::same_as<std::ranges::range_value_t<V>, Update>) class deduplicate_
 };
 // todo: In C++23 once we have std::ranges::range_adaptor_closure, we should
 // make this work with a range adaptor.
+
+// Determine whether a given shape/strides define a contiguous array or not.
+bool is_contiguous(const ssize_t ndim, const ssize_t* shape, const ssize_t* strides);
+bool is_contiguous(std::span<const ssize_t> shape, std::span<const ssize_t> strides);
 
 // Return whether the given double encodes an integer.
 bool is_integer(const double& value);

@@ -4,17 +4,23 @@ from monty.serialization import loadfn
 from pymatgen.analysis.elasticity import Deformation, Strain, Stress
 from pymatgen.core.tensors import Tensor, TensorMapping
 
+from emmet.core import ARROW_COMPATIBLE
 from emmet.core.elasticity import (
     ElasticityDoc,
     generate_derived_fitting_data,
     generate_primary_fitting_data,
 )
 
+if ARROW_COMPATIBLE:
+    import pyarrow as pa
+
+    from emmet.core.arrow import arrowize
+
 
 @pytest.fixture(scope="session")
 def fitting_data(test_dir):
     """Primary fitting data"""
-    data = loadfn(test_dir / "elasticity/SiC_fitting_data.json")
+    data = loadfn(test_dir / "elasticity/SiC_fitting_data.json.gz")
     structure = data["structure"]
     deformations = [Deformation(x) for x in data["deformations"]]
     stresses = [Stress(x) for x in data["stresses"]]
@@ -26,7 +32,7 @@ def fitting_data(test_dir):
 @pytest.fixture(scope="session")
 def reference_data(test_dir):
     """Reference data"""
-    data = loadfn(test_dir / "elasticity/SiC_reference_data.json")
+    data = loadfn(test_dir / "elasticity/SiC_reference_data.json.gz")
     derived_strains = [Strain(x) for x in data["derived_strains"]]
     derived_stresses = [Stress(x) for x in data["derived_stresses"]]
     elastic_tensor_raw = data["elastic_tensor_raw"]
@@ -71,3 +77,25 @@ def test_from_deformations_and_stresses(fitting_data, reference_data):
     )
 
     assert np.allclose(doc.elastic_tensor.raw, ref_elastic_tensor, atol=1e-6)
+
+
+@pytest.mark.skipif(
+    not ARROW_COMPATIBLE, reason="pyarrow must be installed to run this test."
+)
+def test_arrow(fitting_data):
+    structure, deformations, stresses, equilibrium_stress = fitting_data
+
+    doc = ElasticityDoc.from_deformations_and_stresses(
+        structure=structure,
+        deformations=deformations,
+        stresses=stresses,
+        equilibrium_stress=equilibrium_stress,
+        material_id=1,
+    )
+
+    arrow_struct = pa.scalar(
+        doc.model_dump(context={"format": "arrow"}), type=arrowize(ElasticityDoc)
+    )
+    test_arrow_doc = ElasticityDoc(**arrow_struct.as_py(maps_as_pydicts="strict"))
+
+    assert doc == test_arrow_doc

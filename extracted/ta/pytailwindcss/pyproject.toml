@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "pytailwindcss"
+version = "0.3.0"
+description = "Standalone Tailwind CSS CLI, installable via pip. Use Tailwind CSS without Node.js."
+authors = ["Tim Kamanin <tim@timonweb.com>"]
+homepage = "https://github.com/timonweb/pytailwindcss"
+readme = "README.md"
+license = "MIT"
+keywords = ["cli", "tailwind", "css"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+    "Environment :: Web Environment"
+]
+
+packages = [
+    { include = "pytailwindcss", from = "src" }
+]
+
+[tool.poetry.scripts]
+tailwindcss = "pytailwindcss.__main__:main"
+tailwindcss_install = "pytailwindcss.__main__:install"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.4.2"
+pre-commit = "^4.3.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

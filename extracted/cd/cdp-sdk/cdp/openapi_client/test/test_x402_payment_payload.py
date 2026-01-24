@@ -39,14 +39,35 @@ class TestX402PaymentPayload(unittest.TestCase):
                 x402_version = 1,
                 scheme = 'exact',
                 network = 'base',
-                payload = {"signature":"0xf3746613c2d920b5fdabc0856f2aeb2d4f88ee6037b8cc5d04a71a4462f13480","authorization":{"from":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","to":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","value":"1000000000000000000","validAfter":"1716150000","validBefore":"1716150000","nonce":"0x1234567890abcdef1234567890abcdef12345678"}}
+                payload = {signature=0xf3746613c2d920b5fdabc0856f2aeb2d4f88ee6037b8cc5d04a71a4462f13480, authorization={from=0x742d35Cc6634C0532925a3b844Bc454e4438f44e, to=0x742d35Cc6634C0532925a3b844Bc454e4438f44e, value=1000000000000000000, validAfter=1716150000, validBefore=1716150000, nonce=0x1234567890abcdef1234567890abcdef12345678}},
+                accepted = cdp.openapi_client.models.x402_v2_payment_requirements.x402V2PaymentRequirements(
+                    scheme = 'exact', 
+                    network = 'eip155:1', 
+                    asset = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', 
+                    amount = '1000000', 
+                    pay_to = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', 
+                    max_timeout_seconds = 10, 
+                    extra = {name=USDC, version=2}, ),
+                resource = cdp.openapi_client.models.x402_resource_info.x402ResourceInfo(
+                    url = 'https://api.example.com/premium/resource/123', 
+                    description = 'Premium API access for data analysis', 
+                    mime_type = 'application/json', ),
+                extensions = {bazaar={discoveryEnabled=true}}
             )
         else:
             return X402PaymentPayload(
                 x402_version = 1,
                 scheme = 'exact',
                 network = 'base',
-                payload = {"signature":"0xf3746613c2d920b5fdabc0856f2aeb2d4f88ee6037b8cc5d04a71a4462f13480","authorization":{"from":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","to":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","value":"1000000000000000000","validAfter":"1716150000","validBefore":"1716150000","nonce":"0x1234567890abcdef1234567890abcdef12345678"}},
+                payload = {signature=0xf3746613c2d920b5fdabc0856f2aeb2d4f88ee6037b8cc5d04a71a4462f13480, authorization={from=0x742d35Cc6634C0532925a3b844Bc454e4438f44e, to=0x742d35Cc6634C0532925a3b844Bc454e4438f44e, value=1000000000000000000, validAfter=1716150000, validBefore=1716150000, nonce=0x1234567890abcdef1234567890abcdef12345678}},
+                accepted = cdp.openapi_client.models.x402_v2_payment_requirements.x402V2PaymentRequirements(
+                    scheme = 'exact', 
+                    network = 'eip155:1', 
+                    asset = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', 
+                    amount = '1000000', 
+                    pay_to = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', 
+                    max_timeout_seconds = 10, 
+                    extra = {name=USDC, version=2}, ),
         )
         """
 

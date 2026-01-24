@@ -1,0 +1,60 @@
+target-version = "py310"
+
+line-length = 90
+
+include = [
+    "python/**.py",
+    "python/**.pyi",
+    "tests/**.py",
+    "examples/**.py",
+    "benchmark/**.py",
+]
+
+[lint.isort]
+force-wrap-aliases = true
+combine-as-imports = true
+no-lines-before = ["local-folder"]
+
+[lint]
+preview = true
+
+allowed-confusables = [
+    "’",
+    "ס",
+    "Α",
+    "К",
+]
+select = ["ALL"]
+ignore = [
+    "D",
+    "TD",
+    "FIX",
+    "DOC",
+    "ANN",
+    "CPY001",
+    "S101",
+    "ARG001",
+    "PLR2004",
+    "PLR6201",
+    "ISC004",
+]
+
+[lint.extend-per-file-ignores]
+"examples/**.py" = [
+    "INP001",
+    "T201",
+    "T203",
+    "PLC3002",
+]
+"tests/test_loads.py" = [
+    "E501",
+]
+"tests/test_dumps.py" = [
+    "E501",
+    "DTZ001",
+    "DTZ01"
+]
+"benchmark/run.py" = [
+    "INP001",
+    "PLC3002",
+]

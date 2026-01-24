@@ -2,8 +2,7 @@
 
 import os
 import pathlib
-from copy import copy
-from typing import Dict, List, Union
+from copy import copy, deepcopy
 
 import attr
 
@@ -17,7 +16,7 @@ user_tms_dir = os.environ.get("TILEMATRIXSET_DIRECTORY", None)
 if user_tms_dir:
     tms_paths.extend(list(pathlib.Path(user_tms_dir).glob("*.json")))
 
-default_tms: Dict[str, Union[TileMatrixSet, pathlib.Path]] = {
+default_tms: dict[str, TileMatrixSet | pathlib.Path] = {
     tms.stem: tms for tms in sorted(tms_paths)
 }
 
@@ -26,38 +25,38 @@ default_tms: Dict[str, Union[TileMatrixSet, pathlib.Path]] = {
 class TileMatrixSets:
     """Default TileMatrixSets holder."""
 
-    tms: Dict = attr.ib()
+    tilematrixsets: dict = attr.ib()
 
     def get(self, identifier: str) -> TileMatrixSet:
         """Fetch a TMS."""
-        if identifier not in self.tms:
+        if identifier not in self.tilematrixsets:
             raise InvalidIdentifier(f"Invalid identifier: {identifier}")
 
-        tms = self.tms[identifier]
+        tilematrix = self.tilematrixsets[identifier]
 
         # We lazyload the TMS document only when called
-        if isinstance(tms, pathlib.Path):
-            with tms.open() as f:
-                tms = TileMatrixSet.model_validate_json(f.read())
-                self.tms[identifier] = tms
+        if isinstance(tilematrix, pathlib.Path):
+            with tilematrix.open() as f:
+                tilematrix = TileMatrixSet.model_validate_json(f.read())
+                self.tilematrixsets[identifier] = tilematrix
 
-        return tms
+        return deepcopy(tilematrix)
 
-    def list(self) -> List[str]:
+    def list(self) -> list[str]:
         """List registered TMS."""
-        return list(self.tms.keys())
+        return list(self.tilematrixsets.keys())
 
     def register(
         self,
-        custom_tms: Dict[str, TileMatrixSet],
+        custom_tms: dict[str, TileMatrixSet],
         overwrite: bool = False,
     ) -> "TileMatrixSets":
         """Register TileMatrixSet(s)."""
         for identifier in custom_tms.keys():
-            if identifier in self.tms and not overwrite:
+            if identifier in self.tilematrixsets and not overwrite:
                 raise InvalidIdentifier(f"{identifier} is already a registered TMS.")
 
-        return TileMatrixSets({**self.tms, **custom_tms})
+        return TileMatrixSets({**self.tilematrixsets, **custom_tms})
 
 
 tms = TileMatrixSets(copy(default_tms))  # noqa

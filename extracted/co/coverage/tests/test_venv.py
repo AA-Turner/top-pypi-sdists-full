@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests about understanding how third-party code is installed."""
 
@@ -11,7 +11,7 @@ import shutil
 
 from pathlib import Path
 from typing import cast
-from collections.abc import Iterator
+from collections.abc import Iterable
 
 import pytest
 
@@ -140,10 +140,7 @@ def venv_world_fixture(tmp_path_factory: pytest.TempPathFactory) -> Path:
             __path__ = __import__('pkgutil').extend_path(__path__, __name__)
             """,
         )
-        if env.PYVERSION < (3, 10):
-            get_plugins = "entry_points['plugins']"
-        else:
-            get_plugins = "entry_points.select(group='plugins')"
+        get_plugins = "entry_points.select(group='plugins')"
         make_file(
             "bug888/app/testcov/main.py",
             f"""\
@@ -211,7 +208,7 @@ class VirtualenvTest(CoverageTest):
     expected_stdout = "33\n110\n198\n1.5\n"
 
     @pytest.fixture(autouse=True)
-    def in_venv_world_fixture(self, venv_world: Path) -> Iterator[None]:
+    def in_venv_world_fixture(self, venv_world: Path) -> Iterable[None]:
         """For running tests inside venv_world, and cleaning up made files."""
         with change_dir(venv_world):
             self.make_file(
@@ -337,7 +334,7 @@ class VirtualenvTest(CoverageTest):
 
     @pytest.mark.skipif(not testenv.C_TRACER, reason="No plugins with this core.")
     def test_venv_with_dynamic_plugin(self, coverage_command: str) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1150
+        # https://github.com/coveragepy/coveragepy/issues/1150
         # Django coverage plugin was incorrectly getting warnings:
         # "Already imported: ... django/template/blah.py"
         # It happened because coverage imported the plugin, which imported
@@ -356,7 +353,7 @@ class VirtualenvTest(CoverageTest):
         assert out == "HTML: hello.html@1723\n"
 
     def test_installed_namespace_packages(self, coverage_command: str) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1231
+        # https://github.com/coveragepy/coveragepy/issues/1231
         # When namespace packages were installed, they were considered
         # third-party packages.  Test that isn't still happening.
         out = run_in_venv(coverage_command + " run --source=nspkg myproduct.py")

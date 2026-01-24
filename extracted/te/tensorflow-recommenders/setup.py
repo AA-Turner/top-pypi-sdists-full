@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorFlow Recommenders Authors.
+# Copyright 2025 The TensorFlow Recommenders Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,18 @@
 import pathlib
 import setuptools
 
-VERSION = "0.7.3"
+VERSION = "0.7.7"
 
-long_description = (pathlib.Path(__file__).parent
-                    .joinpath("README.md")
-                    .read_text())
+long_description = (
+    pathlib.Path(__file__).parent.joinpath("README.md").read_text()
+)
 
 setuptools.setup(
-    name="tensorflow-recommenders",
+    name="tensorflow_recommenders",
     version=VERSION,
-    description="Tensorflow Recommenders, a TensorFlow library for recommender systems.",
+    description=(
+        "Tensorflow Recommenders, a TensorFlow library for recommender systems."
+    ),
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/tensorflow/recommenders",

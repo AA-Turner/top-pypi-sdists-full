@@ -57,10 +57,15 @@ jobs:
       - lint
       - test
     runs-on: ubuntu-latest
-    # This is required to create a release using Github integration token
-    # https://github.com/softprops/action-gh-release?tab=readme-ov-file#permissions
+    environment:
+      name: publish-to-pypi
+      url: https://pypi.org/p/glyphsLib
     permissions:
+      # This is required to create a release using Github integration token
+      # https://github.com/softprops/action-gh-release?tab=readme-ov-file#permissions
       contents: write
+      # IMPORTANT: mandatory for trusted publishing:
+      id-token: write
     steps:
     - uses: actions/checkout@v3
       with:
@@ -104,10 +109,7 @@ jobs:
         body_path: "${{ runner.temp }}/release_notes.md"
         draft: false
         prerelease: ${{ env.IS_PRERELEASE }}
-    - name: Build and publish
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+    - name: Build wheel and sdist packages
       run: |
         if [ "$IS_PRERELEASE" == true ]; then
           echo "DEBUG: This is a pre-release"
@@ -116,4 +118,5 @@ jobs:
         fi
         # use https://github.com/pypa/build for our setup.py-less setup
         pipx run build
-        pipx run twine upload dist/*
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

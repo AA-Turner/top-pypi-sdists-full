@@ -37,10 +37,10 @@ class BaseStreamer(threading.Thread, ABC):
         closed: A flag to indicate if the streamer has been closed, stopping further operations.
     """
 
-    def __init__(self, initial_offset: int, queue_timeout: float) -> None:
+    def __init__(self, queue_timeout: float) -> None:
         threading.Thread.__init__(self)
 
-        self._counter = initial_offset
+        self._counter = 0
         self.messages = Queue()
         self.queue_timeout = queue_timeout
         self.closed = False

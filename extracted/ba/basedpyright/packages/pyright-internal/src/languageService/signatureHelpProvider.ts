@@ -198,7 +198,7 @@ export class SignatureHelpProvider {
             }
         }
 
-        if (this._hasActiveParameterCapability || activeSignature === undefined) {
+        if (this._hasActiveParameterCapability && activeSignature === undefined) {
             // If there is no active parameter, then we want the client to not highlight anything.
             // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
             // treated as 0, which is the first parameter. That's not what we want, but thankfully
@@ -215,11 +215,13 @@ export class SignatureHelpProvider {
             // We could apply this hack to each individual signature such that they all specify
             // activeParameter, but that would make it more difficult to determine which actually
             // are active when comparing, and we already have to set this for clients which don't
-            // support per-signature activeParameter.
+            // support per-signature activeParameter (although the top-level activeParameter is
+            // deprecated as of LSP version 3.16 so we will eventually need to do that anyway).
             //
             // See:
             //   - https://github.com/microsoft/language-server-protocol/issues/1271
             //   - https://github.com/microsoft/pyright/pull/1783
+            //   - https://github.com/microsoft/language-server-protocol/issues/2080
             activeParameter = Math.max(...signatures.map((s) => s.parameters?.length ?? 0));
         }
 

@@ -1,0 +1,186 @@
+Metadata-Version: 2.2
+Name: tinybird
+Version: 3.0.0
+Summary: Tinybird Command Line Tool
+Home-page: https://www.tinybird.co/docs/forward/commands
+Author: Tinybird
+Author-email: support@tinybird.co
+Requires-Python: >=3.10, <3.14
+Description-Content-Type: text/x-rst
+Requires-Dist: aiofiles==24.1.0
+Requires-Dist: anthropic==0.55.0
+Requires-Dist: boto3
+Requires-Dist: click<8.2,>=8.1.6
+Requires-Dist: clickhouse-toolset==0.34.dev0
+Requires-Dist: colorama==0.4.6
+Requires-Dist: confluent-kafka==2.8.2
+Requires-Dist: cryptography~=41.0.0
+Requires-Dist: croniter==1.3.15
+Requires-Dist: docker==7.1.0
+Requires-Dist: GitPython~=3.1.32
+Requires-Dist: humanfriendly~=8.2
+Requires-Dist: plotext==5.3.2
+Requires-Dist: prompt_toolkit==3.0.48
+Requires-Dist: logfire-api==4.2.0
+Requires-Dist: pydantic~=2.11.7
+Requires-Dist: pydantic-ai-slim[anthropic]~=0.5.0
+Requires-Dist: pydantic-ai-slim[retries]~=0.5.0
+Requires-Dist: pyperclip==1.9.0
+Requires-Dist: pyyaml<6.1,>=6.0
+Requires-Dist: requests<3,>=2.28.1
+Requires-Dist: shandy-sqlfmt==0.11.1
+Requires-Dist: shandy-sqlfmt[jinjafmt]==0.11.1
+Requires-Dist: toposort==1.10
+Requires-Dist: tornado~=6.0.0
+Requires-Dist: urllib3<2,>=1.26.14
+Requires-Dist: watchdog==6.0.0
+Requires-Dist: wheel
+Requires-Dist: packaging<24,>=23.1
+Requires-Dist: llm>=0.19
+Requires-Dist: thefuzz==0.22.1
+Requires-Dist: python-dotenv==1.1.0
+Requires-Dist: pyjwt[crypto]==2.9.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Tinybird CLI
+=============
+
+The Tinybird command-line tool allows you to use all the Tinybird functionality directly from the command line. Additionally, it includes several functions to create and manage data projects easily.
+
+Changelog
+----------
+
+3.0.0
+*******
+
+- `Removed` Python 3.9 support. The minimum supported Python version is now 3.10.
+
+2.0.0
+*******
+
+- `Removed` BigQuery and Snowflake connector support from Forward CLI build and deployment commands
+
+1.1.14
+*******
+
+- `Changed` `tb deploy` First deployment will not show feedback related to deleting the previous deployment, as it does not exist yet.
+
+1.1.13
+*******
+
+- `Changed` `tb workspace members` subcommands now use the token from context instead of asking for a user token.
+- `Removed` Guest role option from `tb workspace members`, only Viewer role remains.
+
+1.1.12
+*******
+
+- `Added` support for formatting connection files with `tb fmt` command.
+
+1.1.11
+***********
+
+- `Changed` Improve first deployment feedback message.
+- `Changed` do not show `tb materialization populate` command as it is not supported.
+
+1.1.10
+*******
+
+- `Changed` Tinybird Code now will not load all the resources content at start and instead will load them on demand using its own tools: `read_datafile` and `search_datafiles`.
+
+1.1.9
+*******
+
+- `Fixed` `tb dev` won't show a multiple environment flags error when a command is passed with an environment flag.
+
+1.1.8
+*******
+
+- `Fixed` `tb deploy` will return a meaningful error in case of invalid cloud provider credentials instead of returning Internal Server Error.
+
+1.1.7
+*******
+
+- `Fixed` `tb connection create s3` now will show a warning if the AWS credentials are not available and will continue without Tinybird Local.
+
+1.1.6
+*******
+
+- `Changed` Using more than one environment flag (`--cloud`, `--local`, `--branch`) at the same time will raise an error.
+
+1.1.5
+*******
+
+- `Changed` Changed the output of `tb deploy` to show real deployment order of events.
+- `Changed` First deployment no longer shows the hint to ingest data if it detects data already planned to be ingested.
+
+1.1.4
+*******
+
+- `Changed` `tb connection create s3` now will ask for the environments to create the secret in (Local and Cloud) and will use the corresponging AWS account IDs in the generated trust policy.
+
+1.1.3
+*******
+
+- `Changed` `tb datasource create --s3` now will generate the exact schema from the bucket preview instead of a generic `data` column.
+
+1.1.2
+*******
+
+- `Changed` `tb datasource create` wording.
+
+1.1.1
+*******
+
+- `Added` Support for previewing S3 connections data in `tb connection data` command.
+
+1.1.0
+*******
+
+- `Added` `tb fmt` command to format .datasource and .pipe files. Not supported yet for .connection files.
+
+1.0.7
+*******
+
+- `Changed` `tb datasource create --kafka` now includes the Kafka meta columns explicitly in the generated file.
+
+1.0.6
+*******
+
+- `Changed` `tb deploy` will raise a warning when using engine parameters that are not useful for the picked engine.
+
+1.0.5
+*******
+
+- `Added` Internal changes
+
+1.0.4
+*******
+
+- `Changed` `tb login` help text has been updated to provide more clarity on the available options.
+
+1.0.3
+*******
+
+- `Changed` `tb login` now will warn the user if they are trying to login from a different folder than the last one and will ask for confirmation to continue.
+
+1.0.2
+*******
+
+- `Changed` If connection name is not provided in `tb connection data`, it will prompt the user to select a connection from the list of available connections.
+
+1.0.1
+*******
+
+- `Added` Support for `schema_registry_url` and `auto_offset_reset` when creating a Kafka connection.
+
+1.0.0
+*******
+
+- `Released` Version 1.0.0, from now on the tinybird-cli package uses the standard semver convention for stable versions. Development versions will be tagged as with the `.devX` suffix where `X` is an integer number.

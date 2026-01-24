@@ -46,3 +46,4 @@ class CalendarItemFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = CalendarItem
         django_get_or_create = ("title",)
+        skip_postgeneration_save = True

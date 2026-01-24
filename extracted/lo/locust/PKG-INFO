@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust
-Version: 2.40.5
+Version: 2.43.1
 Summary: Developer-friendly load testing framework
 Project-URL: homepage, https://locust.io/
 Project-URL: repository, https://github.com/locustio/locust
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Testing :: Traffic Generation
 Classifier: Topic :: System :: Distributed Computing
@@ -28,29 +29,38 @@ Requires-Dist: configargparse>=1.7.1
 Requires-Dist: flask-cors>=3.0.10
 Requires-Dist: flask-login>=0.6.3
 Requires-Dist: flask>=2.0.0
-Requires-Dist: gevent<25.8.1,>=24.10.1
+Requires-Dist: gevent!=25.8.1,<26.0.0,>=24.10.1
 Requires-Dist: geventhttpclient>=2.3.1
-Requires-Dist: locust-cloud>=1.27.0
 Requires-Dist: msgpack>=1.0.0
 Requires-Dist: psutil>=5.9.1
-Requires-Dist: pytest<9.0.0,>=8.3.3
+Requires-Dist: pytest<10,>=8.3.3
 Requires-Dist: python-engineio>=4.12.2
 Requires-Dist: python-socketio[client]>=5.13.0
 Requires-Dist: pywin32; sys_platform == 'win32'
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: requests>=2.32.2
-Requires-Dist: setuptools>=70.0.0
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
 Requires-Dist: werkzeug>=2.0.0
+Provides-Extra: dns
+Requires-Dist: dnspython>=2.8.0; extra == 'dns'
 Provides-Extra: milvus
 Requires-Dist: pymilvus>=2.5.0; extra == 'milvus'
+Provides-Extra: mqtt
+Requires-Dist: paho-mqtt>=2.1.0; extra == 'mqtt'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.38.0; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.38.0; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-requests>=0.59b0; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-urllib3>=0.59b0; extra == 'otel'
+Requires-Dist: opentelemetry-sdk>=1.38.0; extra == 'otel'
 Description-Content-Type: text/markdown
 
 # Locust
 
-[![PyPI](https://img.shields.io/pypi/v/locust.svg)](https://pypi.org/project/locust/)<!--![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Flocustio%2Flocust%2Fmaster%2Fpyproject.toml)-->
-[![Downloads](https://pepy.tech/badge/locust/week)](https://pepy.tech/project/locust)
+[![PyPI](https://img.shields.io/pypi/v/locust.svg)](https://pypi.org/project/locust/)
+[![Supported Python Versions](https://img.shields.io/pypi/pyversions/locust?color=brightgreen)](https://pypi.org/project/locust/)
+[![Downloads](https://static.pepy.tech/personalized-badge/locust?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/locust)
 [![GitHub contributors](https://img.shields.io/github/contributors/locustio/locust.svg)](https://github.com/locustio/locust/graphs/contributors)
 [![Support Ukraine Badge](https://bit.ly/support-ukraine-now)](https://github.com/support-ukraine/support-ukraine)
 

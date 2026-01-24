@@ -3,7 +3,7 @@ Type annotations for apigatewayv2 service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -22,6 +22,10 @@ Usage::
         GetRouteResponsesPaginator,
         GetRoutesPaginator,
         GetStagesPaginator,
+        ListPortalProductsPaginator,
+        ListPortalsPaginator,
+        ListProductPagesPaginator,
+        ListProductRestEndpointPagesPaginator,
         ListRoutingRulesPaginator,
     )
 
@@ -38,6 +42,10 @@ Usage::
     get_route_responses_paginator: GetRouteResponsesPaginator = client.get_paginator("get_route_responses")
     get_routes_paginator: GetRoutesPaginator = client.get_paginator("get_routes")
     get_stages_paginator: GetStagesPaginator = client.get_paginator("get_stages")
+    list_portal_products_paginator: ListPortalProductsPaginator = client.get_paginator("list_portal_products")
+    list_portals_paginator: ListPortalsPaginator = client.get_paginator("list_portals")
+    list_product_pages_paginator: ListProductPagesPaginator = client.get_paginator("list_product_pages")
+    list_product_rest_endpoint_pages_paginator: ListProductRestEndpointPagesPaginator = client.get_paginator("list_product_rest_endpoint_pages")
     list_routing_rules_paginator: ListRoutingRulesPaginator = client.get_paginator("list_routing_rules")
     ```
 """
@@ -70,6 +78,14 @@ from .type_defs import (
     GetRoutesResponseTypeDef,
     GetStagesRequestPaginateTypeDef,
     GetStagesResponseTypeDef,
+    ListPortalProductsRequestPaginateTypeDef,
+    ListPortalProductsResponseTypeDef,
+    ListPortalsRequestPaginateTypeDef,
+    ListPortalsResponseTypeDef,
+    ListProductPagesRequestPaginateTypeDef,
+    ListProductPagesResponseTypeDef,
+    ListProductRestEndpointPagesRequestPaginateTypeDef,
+    ListProductRestEndpointPagesResponseTypeDef,
     ListRoutingRulesRequestPaginateTypeDef,
     ListRoutingRulesResponseTypeDef,
 )
@@ -90,6 +106,10 @@ __all__ = (
     "GetRouteResponsesPaginator",
     "GetRoutesPaginator",
     "GetStagesPaginator",
+    "ListPortalProductsPaginator",
+    "ListPortalsPaginator",
+    "ListProductPagesPaginator",
+    "ListProductRestEndpointPagesPaginator",
     "ListRoutingRulesPaginator",
 )
 
@@ -271,6 +291,80 @@ class GetStagesPaginator(_GetStagesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/GetStages.html#ApiGatewayV2.Paginator.GetStages.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#getstagespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPortalProductsPaginatorBase = Paginator[ListPortalProductsResponseTypeDef]
+else:
+    _ListPortalProductsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPortalProductsPaginator(_ListPortalProductsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListPortalProducts.html#ApiGatewayV2.Paginator.ListPortalProducts)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listportalproductspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPortalProductsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPortalProductsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListPortalProducts.html#ApiGatewayV2.Paginator.ListPortalProducts.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listportalproductspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPortalsPaginatorBase = Paginator[ListPortalsResponseTypeDef]
+else:
+    _ListPortalsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPortalsPaginator(_ListPortalsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListPortals.html#ApiGatewayV2.Paginator.ListPortals)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listportalspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPortalsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPortalsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListPortals.html#ApiGatewayV2.Paginator.ListPortals.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listportalspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListProductPagesPaginatorBase = Paginator[ListProductPagesResponseTypeDef]
+else:
+    _ListProductPagesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListProductPagesPaginator(_ListProductPagesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListProductPages.html#ApiGatewayV2.Paginator.ListProductPages)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listproductpagespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProductPagesRequestPaginateTypeDef]
+    ) -> PageIterator[ListProductPagesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListProductPages.html#ApiGatewayV2.Paginator.ListProductPages.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listproductpagespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListProductRestEndpointPagesPaginatorBase = Paginator[
+        ListProductRestEndpointPagesResponseTypeDef
+    ]
+else:
+    _ListProductRestEndpointPagesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListProductRestEndpointPagesPaginator(_ListProductRestEndpointPagesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListProductRestEndpointPages.html#ApiGatewayV2.Paginator.ListProductRestEndpointPages)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listproductrestendpointpagespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProductRestEndpointPagesRequestPaginateTypeDef]
+    ) -> PageIterator[ListProductRestEndpointPagesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/paginator/ListProductRestEndpointPages.html#ApiGatewayV2.Paginator.ListProductRestEndpointPages.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/paginators/#listproductrestendpointpagespaginator)
         """
 
 if TYPE_CHECKING:

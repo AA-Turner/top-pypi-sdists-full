@@ -10,6 +10,7 @@ from inspect_ai._util.config import resolve_args
 from inspect_ai._util.constants import (
     ALL_LOG_LEVELS,
     DEFAULT_BATCH_SIZE,
+    DEFAULT_CACHE_DAYS,
     DEFAULT_EPOCHS,
     DEFAULT_LOG_LEVEL_TRANSCRIPT,
     DEFAULT_LOG_SHARED,
@@ -20,6 +21,7 @@ from inspect_ai._util.file import filesystem
 from inspect_ai._util.samples import parse_sample_id, parse_samples_limit
 from inspect_ai.log._file import log_file_info
 from inspect_ai.model import GenerateConfigArgs
+from inspect_ai.model._cache import CachePolicy
 from inspect_ai.model._generate_config import BatchConfig, ResponseSchema
 from inspect_ai.scorer._reducer import create_reducers
 from inspect_ai.solver._solver import SolverSpec
@@ -67,6 +69,8 @@ MAX_RETRIES_HELP = (
     "Maximum number of times to retry model API requests (defaults to unlimited)"
 )
 TIMEOUT_HELP = "Model API request timeout in seconds (defaults to no timeout)"
+ATTEMPT_TIMEOUT_HELP = "Timeout (in seconds) for any given attempt (if exceeded, will abandon attempt and retry according to max_retries)."
+CACHE_HELP = "Policy for caching of model generations. Specify --cache to cache with 7 day expiration (7D). Specify an explicit duration (e.g. (e.g. 1h, 3d, 6M) to set the expiration explicitly (durations can be expressed as s, m, h, D, W, M, or Y). Alternatively, pass the file path to a YAML or JSON config file with a full `CachePolicy` configuration."
 BATCH_HELP = "Batch requests together to reduce API calls when using a model that supports batching (by default, no batching). Specify --batch to batch with default configuration,  specify a batch size e.g. `--batch=1000` to configure batches of 1000 requests, or pass the file path to a YAML or JSON config file with batch configuration."
 
 
@@ -230,6 +234,12 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
     )
     @click.option(
         "--timeout", type=int, help=TIMEOUT_HELP, envvar="INSPECT_EVAL_TIMEOUT"
+    )
+    @click.option(
+        "--attempt-timeout",
+        type=int,
+        help=ATTEMPT_TIMEOUT_HELP,
+        envvar="INSPECT_EVAL_ATTEMPT_TIMEOUT",
     )
     @click.option(
         "--max-samples",
@@ -432,13 +442,13 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         "--logprobs",
         type=bool,
         is_flag=True,
-        help="Return log probabilities of the output tokens. OpenAI, Grok, TogetherAI, Huggingface, llama-cpp-python, and vLLM only.",
+        help="Return log probabilities of the output tokens. OpenAI, Google, TogetherAI, Huggingface, llama-cpp-python, and vLLM only.",
         envvar="INSPECT_EVAL_LOGPROBS",
     )
     @click.option(
         "--top-logprobs",
         type=int,
-        help="Number of most likely tokens (0-20) to return at each token position, each with an associated log probability. OpenAI, Grok, TogetherAI, Huggingface, and vLLM only.",
+        help="Number of most likely tokens (0-20) to return at each token position, each with an associated log probability. OpenAI, Google, TogetherAI, Huggingface, and vLLM only.",
         envvar="INSPECT_EVAL_TOP_LOGPROBS",
     )
     @click.option(
@@ -470,9 +480,21 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         envvar="INSPECT_EVAL_CACHE_PROMPT",
     )
     @click.option(
+        "--verbosity",
+        type=click.Choice(["low", "medium", "high"]),
+        help='Constrains the verbosity of the model\'s response. Lower values will result in more concise responses, while higher values will result in more verbose responses. GPT 5.x models only (defaults to "medium" for OpenAI models)',
+        envvar="INSPECT_EVAL_EFFORT",
+    )
+    @click.option(
+        "--effort",
+        type=click.Choice(["low", "medium", "high"]),
+        help="Control how many tokens are used for a response, trading off between response thoroughness and token efficiency. Anthropic Claude 4.5 Opus only.",
+        envvar="INSPECT_EVAL_EFFORT",
+    )
+    @click.option(
         "--reasoning-effort",
-        type=click.Choice(["minimal", "low", "medium", "high"]),
-        help="Constrains effort on reasoning for reasoning models (defaults to `medium`). Open AI o-series and gpt-5 models only.",
+        type=click.Choice(["none", "minimal", "low", "medium", "high", "xhigh"]),
+        help="Constrains effort on reasoning. Defaults vary by provider and model and not all models support all values (please consult provider documentation for details).",
         envvar="INSPECT_EVAL_REASONING_EFFORT",
     )
     @click.option(
@@ -483,8 +505,8 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
     )
     @click.option(
         "--reasoning-summary",
-        type=click.Choice(["concise", "detailed", "auto"]),
-        help="Provide summary of reasoning steps (defaults to no summary). Use 'auto' to access the most detailed summarizer available for the current model. OpenAI reasoning models only.",
+        type=click.Choice(["none", "concise", "detailed", "auto"]),
+        help="Provide summary of reasoning steps (OpenAI reasoning models only). Use 'auto' to access the most detailed summarizer available for the current model (defaults to 'auto' if your organization is verified by OpenAI).",
         envvar="INSPECT_EVAL_REASONING_SUMMARY",
     )
     @click.option(
@@ -498,6 +520,15 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         type=str,
         help="JSON schema for desired response format (output should still be validated). OpenAI, Google, and Mistral only.",
         envvar="INSPECT_EVAL_RESPONSE_SCHEMA",
+    )
+    @click.option(
+        "--cache",
+        is_flag=False,
+        flag_value="true",
+        default=None,
+        callback=int_bool_or_str_flag_callback(DEFAULT_CACHE_DAYS, None),
+        help=CACHE_HELP,
+        envvar="INSPECT_EVAL_CACHE",
     )
     @click.option(
         "--batch",
@@ -561,6 +592,7 @@ def eval_command(
     sample_shuffle: int | None,
     max_retries: int | None,
     timeout: int | None,
+    attempt_timeout: int | None,
     max_connections: int | None,
     max_tokens: int | None,
     system_message: str | None,
@@ -580,11 +612,14 @@ def eval_command(
     internal_tools: bool | None,
     max_tool_output: int | None,
     cache_prompt: str | None,
+    verbosity: Literal["low", "medium", "high"] | None,
+    effort: Literal["low", "medium", "high"] | None,
     reasoning_effort: str | None,
     reasoning_tokens: int | None,
-    reasoning_summary: Literal["concise", "detailed", "auto"] | None,
+    reasoning_summary: Literal["none", "concise", "detailed", "auto"] | None,
     reasoning_history: Literal["none", "all", "last", "auto"] | None,
     response_schema: ResponseSchema | None,
+    cache: int | str | None,
     batch: int | str | None,
     message_limit: int | None,
     token_limit: int | None,
@@ -717,6 +752,12 @@ def eval_command(
     is_flag=True,
     help="Do not fail if the log-dir contains files that are not part of the eval set.",
 )
+@click.option(
+    "--id",
+    "eval_set_id",
+    type=str,
+    help="ID for the eval set. If not specified, a unique ID will be generated.",
+)
 @eval_options
 @click.pass_context
 def eval_set_command(
@@ -750,6 +791,7 @@ def eval_set_command(
     sample_shuffle: int | None,
     max_retries: int | None,
     timeout: int | None,
+    attempt_timeout: int | None,
     max_connections: int | None,
     max_tokens: int | None,
     system_message: str | None,
@@ -769,11 +811,14 @@ def eval_set_command(
     internal_tools: bool | None,
     max_tool_output: int | None,
     cache_prompt: str | None,
+    verbosity: Literal["low", "medium", "high"] | None,
+    effort: Literal["low", "medium", "high"] | None,
     reasoning_effort: str | None,
     reasoning_tokens: int | None,
-    reasoning_summary: Literal["concise", "detailed", "auto"] | None,
+    reasoning_summary: Literal["none", "concise", "detailed", "auto"] | None,
     reasoning_history: Literal["none", "all", "last", "auto"] | None,
     response_schema: ResponseSchema | None,
+    cache: int | str | None,
     batch: int | str | None,
     message_limit: int | None,
     token_limit: int | None,
@@ -799,6 +844,7 @@ def eval_set_command(
     log_dir_allow_dirty: bool | None,
     log_format: Literal["eval", "json"] | None,
     log_level_transcript: str,
+    eval_set_id: str | None,
     **common: Unpack[CommonOptions],
 ) -> int:
     """Evaluate a set of tasks with retries.
@@ -868,6 +914,7 @@ def eval_set_command(
         bundle_dir=bundle_dir,
         bundle_overwrite=True if bundle_overwrite else False,
         log_dir_allow_dirty=log_dir_allow_dirty,
+        eval_set_id=eval_set_id,
         **config,
     )
 
@@ -931,6 +978,7 @@ def eval_exec(
     bundle_dir: str | None = None,
     bundle_overwrite: bool = False,
     log_dir_allow_dirty: bool | None = None,
+    eval_set_id: str | None = None,
     **kwargs: Unpack[GenerateConfigArgs],
 ) -> bool:
     # parse task, solver, and model args
@@ -999,7 +1047,7 @@ def eval_exec(
             model_args=model_args,
             model_roles=eval_model_roles,
             task_args=task_args,
-            solver=SolverSpec(solver, solver_args) if solver else None,
+            solver=SolverSpec(solver, solver_args, solver_args) if solver else None,
             tags=eval_tags,
             metadata=eval_metadata,
             trace=trace,
@@ -1046,6 +1094,7 @@ def eval_exec(
         params["bundle_dir"] = bundle_dir
         params["bundle_overwrite"] = bundle_overwrite
         params["log_dir_allow_dirty"] = log_dir_allow_dirty
+        params["eval_set_id"] = eval_set_id
         success, _ = eval_set(**params)
         return success
     else:
@@ -1083,6 +1132,17 @@ def config_from_locals(locals: dict[str, Any]) -> GenerateConfigArgs:
             if key == "response_schema":
                 if value is not None:
                     value = ResponseSchema.model_validate_json(value)
+            if key == "cache":
+                match value:
+                    case str():
+                        policy = CachePolicy.from_string(value)
+                        if policy is not None:
+                            value = policy
+                        else:
+                            value = CachePolicy.model_validate(resolve_args(value))
+                    case int():
+                        value = CachePolicy(expiry=f"{value}D")
+
             if key == "batch":
                 match value:
                     case str():
@@ -1235,6 +1295,12 @@ def parse_comma_separated(value: str | None) -> list[str] | None:
 )
 @click.option("--timeout", type=int, help=TIMEOUT_HELP, envvar="INSPECT_EVAL_TIMEOUT")
 @click.option(
+    "--attempt-timeout",
+    type=int,
+    help=ATTEMPT_TIMEOUT_HELP,
+    envvar="INSPECT_EVAL_ATTEMPT_TIMEOUT",
+)
+@click.option(
     "--log-level-transcript",
     type=click.Choice(
         [level.lower() for level in ALL_LOG_LEVELS],
@@ -1267,6 +1333,7 @@ def eval_retry_command(
     max_connections: int | None,
     max_retries: int | None,
     timeout: int | None,
+    attempt_timeout: int | None,
     log_level_transcript: str,
     **common: Unpack[CommonOptions],
 ) -> None:
@@ -1322,5 +1389,6 @@ def eval_retry_command(
         score_display=score_display,
         max_retries=max_retries,
         timeout=timeout,
+        attempt_timeout=attempt_timeout,
         max_connections=max_connections,
     )

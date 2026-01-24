@@ -165,7 +165,8 @@ async def merge_async_generators(
 
     """
     if limit < 1:
-        raise ValueError("limit must be at least 1")
+        msg = "limit must be at least 1"
+        raise ValueError(msg)
 
     queue: asyncio.Queue[T | object] = asyncio.Queue()
     active_generators = [0]  # Use list to allow modification in nested function

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: flow.record
-Version: 3.20
+Version: 3.21
 Summary: A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record
 Author-email: Dissect Team <dissect@fox-it.com>
-License: Affero General Public License v3
+License-Expression: AGPL-3.0-or-later
 Project-URL: homepage, https://dissect.tools
 Project-URL: documentation, https://docs.dissect.tools/en/latest/projects/flow.record
 Project-URL: repository, https://github.com/fox-it/flow.record
@@ -11,12 +11,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYRIGHT
@@ -24,29 +23,24 @@ Requires-Dist: msgpack>=0.5.2
 Requires-Dist: tzdata; platform_system == "Windows"
 Provides-Extra: compression
 Requires-Dist: lz4; extra == "compression"
-Requires-Dist: zstandard; extra == "compression"
+Requires-Dist: zstandard; platform_python_implementation != "PyPy" and extra == "compression"
 Provides-Extra: elastic
 Requires-Dist: elasticsearch; extra == "elastic"
 Provides-Extra: geoip
 Requires-Dist: maxminddb; extra == "geoip"
 Provides-Extra: avro
-Requires-Dist: cramjam<2.8.4; (platform_python_implementation == "PyPy" and python_version == "3.9") and extra == "avro"
 Requires-Dist: fastavro[snappy]; extra == "avro"
 Provides-Extra: duckdb
-Requires-Dist: duckdb; extra == "duckdb"
-Requires-Dist: pytz; extra == "duckdb"
+Requires-Dist: duckdb; platform_python_implementation != "PyPy" and extra == "duckdb"
+Requires-Dist: pytz; platform_python_implementation != "PyPy" and extra == "duckdb"
 Provides-Extra: splunk
 Requires-Dist: httpx; extra == "splunk"
-Provides-Extra: test
-Requires-Dist: flow.record[compression]; extra == "test"
-Requires-Dist: flow.record[avro]; extra == "test"
-Requires-Dist: flow.record[elastic]; extra == "test"
-Requires-Dist: duckdb; (platform_python_implementation != "PyPy" and python_version < "3.12") and extra == "test"
-Requires-Dist: pytz; (platform_python_implementation != "PyPy" and python_version < "3.12") and extra == "test"
-Requires-Dist: tqdm; extra == "test"
+Provides-Extra: xlsx
+Requires-Dist: openpyxl; extra == "xlsx"
 Provides-Extra: full
 Requires-Dist: flow.record[compression]; extra == "full"
 Requires-Dist: tqdm; extra == "full"
+Requires-Dist: structlog; extra == "full"
 Dynamic: license-file
 
 # flow.record

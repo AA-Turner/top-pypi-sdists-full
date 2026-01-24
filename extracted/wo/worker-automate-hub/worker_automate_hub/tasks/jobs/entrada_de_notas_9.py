@@ -617,6 +617,8 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                         item_executado = seq_item
                     else:
                         while seq_item == item_executado:
+                            console.print(f"===Item Executado: {item_executado}... \n")
+                            console.print(f"===Linha copiada item: {seq_item}... \n")
                             send_keys("{DOWN}", pause=0.5)
                             index_tanque += 1
                             send_keys("^c")

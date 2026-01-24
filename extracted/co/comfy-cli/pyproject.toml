@@ -5,7 +5,7 @@ requires = [ "setuptools>=61" ]
 
 [project]
 name = "comfy-cli"
-version = "v1.5.1"                                            # Will be filled in by the CI/CD pipeline. Check publish_package.py.
+version = "v1.5.4"                                            # Will be filled in by the CI/CD pipeline. Check publish_package.py.
 description = "A CLI tool for installing and using ComfyUI."
 readme = "README.md"
 keywords = [ "comfyui", "stable diffusion" ]
@@ -18,13 +18,12 @@ maintainers = [
   { name = "Dr.Lt.Data", email = "dr.lt.data@gmail.com" },
 ]
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -55,7 +54,7 @@ dependencies = [
 ]
 
 optional-dependencies.dev = [ "pre-commit", "pytest", "pytest-cov", "ruff" ]
-urls.Repository = "https://github.com/drip-art/comfy-cli.git"
+urls.Repository = "https://github.com/Comfy-Org/comfy-cli.git"
 scripts.comfy = "comfy_cli.__main__:main"
 scripts.comfy-cli = "comfy_cli.__main__:main"
 scripts.comfycli = "comfy_cli.__main__:main"
@@ -65,7 +64,7 @@ where = [ "." ]
 include = [ "comfy_cli*" ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 
 line-length = 120
 lint.select = [

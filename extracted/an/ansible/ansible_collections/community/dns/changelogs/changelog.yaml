@@ -625,13 +625,13 @@ releases:
         - Ansible markup will show up in raw form on ansible-doc text output for ansible-core
           before 2.15. If you have trouble deciphering the documentation markup, please
           upgrade to ansible-core 2.15 (or newer), or read the HTML documentation
-          on https://docs.ansible.com/ansible/devel/collections/community/dns/.
+          on https://docs.ansible.com/projects/ansible/devel/collections/community/dns/.
       release_summary: 'Maintenance release.
 
 
         From this version on, community.dns is using the new `Ansible semantic markup
 
-        <https://docs.ansible.com/ansible/devel/dev_guide/developing_modules_documenting.html#semantic-markup-within-module-documentation>`__
+        <https://docs.ansible.com/projects/ansible/devel/dev_guide/developing_modules_documenting.html#semantic-markup-within-module-documentation>`__
 
         in its documentation. If you look at documentation with the ansible-doc CLI
         tool
@@ -643,7 +643,7 @@ releases:
         ansible-core 2.15 or later to see it as it is intended. Alternatively you
         can
 
-        look at `the devel docsite <https://docs.ansible.com/ansible/devel/collections/community/dns/>`__
+        look at `the devel docsite <https://docs.ansible.com/projects/ansible/devel/collections/community/dns/>`__
 
         for the rendered HTML version of the documentation of the latest release.
 
@@ -1116,3 +1116,78 @@ releases:
       - 3.3.2.yml
       - update-psl.yml
     release_date: '2025-08-31'
+  3.3.3:
+    changes:
+      bugfixes:
+        - Update Public Suffix List.
+      release_summary: Regular maintenance release with updated PSL.
+    fragments:
+      - 3.3.3.yml
+      - update-psl.yml
+    release_date: '2025-09-08'
+  3.3.4:
+    changes:
+      bugfixes:
+        - Avoid using ``ansible.module_utils.six`` to avoid deprecation warnings with
+          ansible-core 2.20 (https://github.com/ansible-collections/community.dns/pull/287).
+        - Update Public Suffix List.
+      minor_changes:
+        - Note that some new code in ``plugins/module_utils/_six.py`` is MIT licensed
+          (https://github.com/ansible-collections/community.dns/pull/287).
+      release_summary: Maintenance release with updated PSL.
+    fragments:
+      - 287-six.yml
+      - 3.3.4.yml
+      - update-psl.yml
+    release_date: '2025-10-06'
+  3.4.0:
+    changes:
+      bugfixes:
+        - Avoid using ``ansible.module_utils.six`` in more places to avoid deprecation
+          warnings with ansible-core 2.20 (https://github.com/ansible-collections/community.dns/pull/291).
+        - Update Public Suffix List.
+      minor_changes:
+        - lookup_* plugins - support ``type=HTTPS`` and ``type=SVCB`` (https://github.com/ansible-collections/community.dns/issues/299,
+          https://github.com/ansible-collections/community.dns/pull/300).
+        - nameserver_record_info - support ``type=HTTPS`` and ``type=SVCB`` (https://github.com/ansible-collections/community.dns/issues/299,
+          https://github.com/ansible-collections/community.dns/pull/300).
+        - nameserver_record_info - the return value ``results[].result[].values``
+          has been renamed to ``results[].result[].entries``. The old name will still
+          be available for a longer time (https://github.com/ansible-collections/community.dns/issues/289,
+          https://github.com/ansible-collections/community.dns/pull/298).
+        - wait_for_txt - the option ``records[].values`` now has an alias ``records[].entries``
+          (https://github.com/ansible-collections/community.dns/pull/298).
+        - wait_for_txt - the return value ``records[].values`` has been renamed to
+          ``records[].entries``. The old name will still be available for a longer
+          time (https://github.com/ansible-collections/community.dns/issues/289, https://github.com/ansible-collections/community.dns/pull/298).
+      release_summary: Feature and maintenance release.
+    fragments:
+      - 291-six.yml
+      - 298-rename.yml
+      - 3.4.0.yml
+      - 300-https-svcb.yml
+      - update-psl.yml
+    plugins:
+      lookup:
+        - description: Look up DNS records and return RFC 8427 JSON format.
+          name: lookup_rfc8427
+          namespace: null
+    release_date: '2025-11-02'
+  3.4.1:
+    changes:
+      bugfixes:
+        - Update Public Suffix List.
+      release_summary: Maintenance release.
+    fragments:
+      - 3.4.1.yml
+      - update-psl.yml
+    release_date: '2025-11-30'
+  3.4.2:
+    changes:
+      bugfixes:
+        - Update Public Suffix List.
+      release_summary: Maintenance release with updated PSL.
+    fragments:
+      - 3.4.2.yml
+      - update-psl.yml
+    release_date: '2025-12-29'

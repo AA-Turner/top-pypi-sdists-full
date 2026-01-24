@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.675571                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.837010                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -14,12 +14,13 @@ if typing.TYPE_CHECKING:
     import typing
 
 from ._vendor import click as click
+from ._vendor import yaml as yaml
 from .exception import MetaflowException as MetaflowException
 from .parameters import DelayedEvaluationParameter as DelayedEvaluationParameter
 from .parameters import DeployTimeField as DeployTimeField
 from .parameters import Parameter as Parameter
 from .parameters import ParameterContext as ParameterContext
-from .user_configs.config_parameters import ConfigValue as ConfigValue
+from .user_configs.config_options import ConfigInput as ConfigInput
 
 DATACLIENTS: list
 
@@ -78,8 +79,14 @@ class IncludeFile(metaflow.parameters.Parameter, metaclass=type):
     show_default : bool, default True
         If True, show the default value in the help text. A value of None is equivalent
         to True.
+    parser : Union[str, Callable[[str], Any]], optional, default None
+        If a callable, it is a function that can parse the file contents
+        into any desired format. If a string, the string should refer to
+        a function (like "my_parser_package.my_parser.my_parser_function") which should
+        be able to parse the file contents. If the name starts with a ".", it is assumed
+        to be relative to "metaflow".
     """
-    def __init__(self, name: str, required: typing.Optional[bool] = None, is_text: typing.Optional[bool] = None, encoding: typing.Optional[str] = None, help: typing.Optional[str] = None, **kwargs: typing.Dict[str, str]):
+    def __init__(self, name: str, required: typing.Optional[bool] = None, is_text: typing.Optional[bool] = None, encoding: typing.Optional[str] = None, help: typing.Optional[str] = None, parser: typing.Union[str, typing.Callable[[str], typing.Any], None] = None, **kwargs: typing.Dict[str, str]):
         ...
     def init(self, ignore_errors = False):
         ...

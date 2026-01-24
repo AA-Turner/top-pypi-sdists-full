@@ -299,6 +299,10 @@ class AggrSoftDeviceRow(AbstractModel):
         :type UpgradeSoftId: int
         :param _RemarkName: 终端备注名
         :type RemarkName: str
+        :param _SoftwareId: 软件id
+        :type SoftwareId: int
+        :param _OsType: 0:win 2:mac
+        :type OsType: int
         """
         self._DeviceName = None
         self._LastLoginAccount = None
@@ -318,6 +322,8 @@ class AggrSoftDeviceRow(AbstractModel):
         self._NewVersion = None
         self._UpgradeSoftId = None
         self._RemarkName = None
+        self._SoftwareId = None
+        self._OsType = None
 
     @property
     def DeviceName(self):
@@ -532,6 +538,28 @@ class AggrSoftDeviceRow(AbstractModel):
     def RemarkName(self, RemarkName):
         self._RemarkName = RemarkName
 
+    @property
+    def SoftwareId(self):
+        r"""软件id
+        :rtype: int
+        """
+        return self._SoftwareId
+
+    @SoftwareId.setter
+    def SoftwareId(self, SoftwareId):
+        self._SoftwareId = SoftwareId
+
+    @property
+    def OsType(self):
+        r"""0:win 2:mac
+        :rtype: int
+        """
+        return self._OsType
+
+    @OsType.setter
+    def OsType(self, OsType):
+        self._OsType = OsType
+
 
     def _deserialize(self, params):
         self._DeviceName = params.get("DeviceName")
@@ -552,6 +580,8 @@ class AggrSoftDeviceRow(AbstractModel):
         self._NewVersion = params.get("NewVersion")
         self._UpgradeSoftId = params.get("UpgradeSoftId")
         self._RemarkName = params.get("RemarkName")
+        self._SoftwareId = params.get("SoftwareId")
+        self._OsType = params.get("OsType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -724,6 +754,213 @@ class Condition(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class CreateDLPFileDetectTaskData(AbstractModel):
+    r"""文件鉴定任务分页数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskRequestId: 任务请求唯一Id
+        :type TaskRequestId: list of str
+        """
+        self._TaskRequestId = None
+
+    @property
+    def TaskRequestId(self):
+        r"""任务请求唯一Id
+        :rtype: list of str
+        """
+        return self._TaskRequestId
+
+    @TaskRequestId.setter
+    def TaskRequestId(self, TaskRequestId):
+        self._TaskRequestId = TaskRequestId
+
+
+    def _deserialize(self, params):
+        self._TaskRequestId = params.get("TaskRequestId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateDLPFileDetectTaskRequest(AbstractModel):
+    r"""CreateDLPFileDetectTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DownloadUrl: 文件下载Url
+        :type DownloadUrl: str
+        :param _FileName: 文件名
+        :type FileName: str
+        :param _FileMd5: 文件Md5
+        :type FileMd5: str
+        :param _BalanceType: 负载类型  1 从GroupId中选一节点 鉴定  2使用所有SelectNodeIds节点鉴定
+        :type BalanceType: int
+        :param _DomainInstanceId: 管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :type DomainInstanceId: str
+        :param _SelectNodeIds: 选中节点唯一Id列表,BalanceType=2时必填
+        :type SelectNodeIds: list of str
+        :param _GroupId: 节点组唯一Id,BalanceType=1时必填
+        :type GroupId: str
+        """
+        self._DownloadUrl = None
+        self._FileName = None
+        self._FileMd5 = None
+        self._BalanceType = None
+        self._DomainInstanceId = None
+        self._SelectNodeIds = None
+        self._GroupId = None
+
+    @property
+    def DownloadUrl(self):
+        r"""文件下载Url
+        :rtype: str
+        """
+        return self._DownloadUrl
+
+    @DownloadUrl.setter
+    def DownloadUrl(self, DownloadUrl):
+        self._DownloadUrl = DownloadUrl
+
+    @property
+    def FileName(self):
+        r"""文件名
+        :rtype: str
+        """
+        return self._FileName
+
+    @FileName.setter
+    def FileName(self, FileName):
+        self._FileName = FileName
+
+    @property
+    def FileMd5(self):
+        r"""文件Md5
+        :rtype: str
+        """
+        return self._FileMd5
+
+    @FileMd5.setter
+    def FileMd5(self, FileMd5):
+        self._FileMd5 = FileMd5
+
+    @property
+    def BalanceType(self):
+        r"""负载类型  1 从GroupId中选一节点 鉴定  2使用所有SelectNodeIds节点鉴定
+        :rtype: int
+        """
+        return self._BalanceType
+
+    @BalanceType.setter
+    def BalanceType(self, BalanceType):
+        self._BalanceType = BalanceType
+
+    @property
+    def DomainInstanceId(self):
+        r"""管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :rtype: str
+        """
+        return self._DomainInstanceId
+
+    @DomainInstanceId.setter
+    def DomainInstanceId(self, DomainInstanceId):
+        self._DomainInstanceId = DomainInstanceId
+
+    @property
+    def SelectNodeIds(self):
+        r"""选中节点唯一Id列表,BalanceType=2时必填
+        :rtype: list of str
+        """
+        return self._SelectNodeIds
+
+    @SelectNodeIds.setter
+    def SelectNodeIds(self, SelectNodeIds):
+        self._SelectNodeIds = SelectNodeIds
+
+    @property
+    def GroupId(self):
+        r"""节点组唯一Id,BalanceType=1时必填
+        :rtype: str
+        """
+        return self._GroupId
+
+    @GroupId.setter
+    def GroupId(self, GroupId):
+        self._GroupId = GroupId
+
+
+    def _deserialize(self, params):
+        self._DownloadUrl = params.get("DownloadUrl")
+        self._FileName = params.get("FileName")
+        self._FileMd5 = params.get("FileMd5")
+        self._BalanceType = params.get("BalanceType")
+        self._DomainInstanceId = params.get("DomainInstanceId")
+        self._SelectNodeIds = params.get("SelectNodeIds")
+        self._GroupId = params.get("GroupId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateDLPFileDetectTaskResponse(AbstractModel):
+    r"""CreateDLPFileDetectTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 创建文件鉴定任务数据
+        :type Data: :class:`tencentcloud.ioa.v20220601.models.CreateDLPFileDetectTaskData`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""创建文件鉴定任务数据
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.CreateDLPFileDetectTaskData`
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = CreateDLPFileDetectTaskData()
+            self._Data._deserialize(params.get("Data"))
+        self._RequestId = params.get("RequestId")
 
 
 class CreateDLPFileDetectionTaskData(AbstractModel):
@@ -1391,6 +1628,8 @@ class DescribeAccountGroupsData(AbstractModel):
         :type LatestSyncResult: str
         :param _LatestSyncTime: 最新一次同步任务的结束时间
         :type LatestSyncTime: str
+        :param _NamePathArr: 分组名称数组
+        :type NamePathArr: list of str
         """
         self._NamePath = None
         self._IdPathArr = None
@@ -1412,6 +1651,7 @@ class DescribeAccountGroupsData(AbstractModel):
         self._ReadOnly = None
         self._LatestSyncResult = None
         self._LatestSyncTime = None
+        self._NamePathArr = None
 
     @property
     def NamePath(self):
@@ -1633,6 +1873,17 @@ class DescribeAccountGroupsData(AbstractModel):
     def LatestSyncTime(self, LatestSyncTime):
         self._LatestSyncTime = LatestSyncTime
 
+    @property
+    def NamePathArr(self):
+        r"""分组名称数组
+        :rtype: list of str
+        """
+        return self._NamePathArr
+
+    @NamePathArr.setter
+    def NamePathArr(self, NamePathArr):
+        self._NamePathArr = NamePathArr
+
 
     def _deserialize(self, params):
         self._NamePath = params.get("NamePath")
@@ -1655,6 +1906,7 @@ class DescribeAccountGroupsData(AbstractModel):
         self._ReadOnly = params.get("ReadOnly")
         self._LatestSyncResult = params.get("LatestSyncResult")
         self._LatestSyncTime = params.get("LatestSyncTime")
+        self._NamePathArr = params.get("NamePathArr")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2588,6 +2840,600 @@ class DescribeAggrSoftDeviceListResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeDLPEdgeNodeGroupsRequest(AbstractModel):
+    r"""DescribeDLPEdgeNodeGroups请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DomainInstanceId: 管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :type DomainInstanceId: str
+        :param _Condition: 过滤条件
+        :type Condition: :class:`tencentcloud.ioa.v20220601.models.Condition`
+        """
+        self._DomainInstanceId = None
+        self._Condition = None
+
+    @property
+    def DomainInstanceId(self):
+        r"""管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :rtype: str
+        """
+        return self._DomainInstanceId
+
+    @DomainInstanceId.setter
+    def DomainInstanceId(self, DomainInstanceId):
+        self._DomainInstanceId = DomainInstanceId
+
+    @property
+    def Condition(self):
+        r"""过滤条件
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.Condition`
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+
+    def _deserialize(self, params):
+        self._DomainInstanceId = params.get("DomainInstanceId")
+        if params.get("Condition") is not None:
+            self._Condition = Condition()
+            self._Condition._deserialize(params.get("Condition"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPEdgeNodeGroupsResponse(AbstractModel):
+    r"""DescribeDLPEdgeNodeGroups返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 业务响应数据
+        :type Data: :class:`tencentcloud.ioa.v20220601.models.DescribeDLPEdgeNodeGroupsRspData`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""业务响应数据
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.DescribeDLPEdgeNodeGroupsRspData`
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = DescribeDLPEdgeNodeGroupsRspData()
+            self._Data._deserialize(params.get("Data"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeDLPEdgeNodeGroupsRspData(AbstractModel):
+    r"""业务响应数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Items: 分组信息
+        :type Items: list of DescribeDLPEdgeNodeGroupsRspItem
+        :param _Page: 分页信息
+        :type Page: :class:`tencentcloud.ioa.v20220601.models.Paging`
+        """
+        self._Items = None
+        self._Page = None
+
+    @property
+    def Items(self):
+        r"""分组信息
+        :rtype: list of DescribeDLPEdgeNodeGroupsRspItem
+        """
+        return self._Items
+
+    @Items.setter
+    def Items(self, Items):
+        self._Items = Items
+
+    @property
+    def Page(self):
+        r"""分页信息
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.Paging`
+        """
+        return self._Page
+
+    @Page.setter
+    def Page(self, Page):
+        self._Page = Page
+
+
+    def _deserialize(self, params):
+        if params.get("Items") is not None:
+            self._Items = []
+            for item in params.get("Items"):
+                obj = DescribeDLPEdgeNodeGroupsRspItem()
+                obj._deserialize(item)
+                self._Items.append(obj)
+        if params.get("Page") is not None:
+            self._Page = Paging()
+            self._Page._deserialize(params.get("Page"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPEdgeNodeGroupsRspItem(AbstractModel):
+    r"""节点分组信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 自增id，数据库中唯一
+        :type Id: int
+        :param _GroupName: 节点分组名称
+        :type GroupName: str
+        :param _GroupId: 节点分组id
+        :type GroupId: str
+        :param _EdgeCount: 包含边缘节点数量
+        :type EdgeCount: int
+        """
+        self._Id = None
+        self._GroupName = None
+        self._GroupId = None
+        self._EdgeCount = None
+
+    @property
+    def Id(self):
+        r"""自增id，数据库中唯一
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def GroupName(self):
+        r"""节点分组名称
+        :rtype: str
+        """
+        return self._GroupName
+
+    @GroupName.setter
+    def GroupName(self, GroupName):
+        self._GroupName = GroupName
+
+    @property
+    def GroupId(self):
+        r"""节点分组id
+        :rtype: str
+        """
+        return self._GroupId
+
+    @GroupId.setter
+    def GroupId(self, GroupId):
+        self._GroupId = GroupId
+
+    @property
+    def EdgeCount(self):
+        r"""包含边缘节点数量
+        :rtype: int
+        """
+        return self._EdgeCount
+
+    @EdgeCount.setter
+    def EdgeCount(self, EdgeCount):
+        self._EdgeCount = EdgeCount
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._GroupName = params.get("GroupName")
+        self._GroupId = params.get("GroupId")
+        self._EdgeCount = params.get("EdgeCount")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPEdgeNodesPageData(AbstractModel):
+    r"""业务响应数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Page: 分页信息
+        :type Page: :class:`tencentcloud.ioa.v20220601.models.Paging`
+        :param _Items: 节点列表
+        :type Items: list of DescribeDLPEdgeNodesRspItem
+        """
+        self._Page = None
+        self._Items = None
+
+    @property
+    def Page(self):
+        r"""分页信息
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.Paging`
+        """
+        return self._Page
+
+    @Page.setter
+    def Page(self, Page):
+        self._Page = Page
+
+    @property
+    def Items(self):
+        r"""节点列表
+        :rtype: list of DescribeDLPEdgeNodesRspItem
+        """
+        return self._Items
+
+    @Items.setter
+    def Items(self, Items):
+        self._Items = Items
+
+
+    def _deserialize(self, params):
+        if params.get("Page") is not None:
+            self._Page = Paging()
+            self._Page._deserialize(params.get("Page"))
+        if params.get("Items") is not None:
+            self._Items = []
+            for item in params.get("Items"):
+                obj = DescribeDLPEdgeNodesRspItem()
+                obj._deserialize(item)
+                self._Items.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPEdgeNodesRequest(AbstractModel):
+    r"""DescribeDLPEdgeNodes请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DomainInstanceId: 管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :type DomainInstanceId: str
+        :param _Condition: 过滤条件、分页参数<li>EdgeNodeName - string - 是否必填：否 - 操作符: ilike  - 排序支持：否- 按节点名称过滤。</li>
+        :type Condition: :class:`tencentcloud.ioa.v20220601.models.Condition`
+        """
+        self._DomainInstanceId = None
+        self._Condition = None
+
+    @property
+    def DomainInstanceId(self):
+        r"""管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :rtype: str
+        """
+        return self._DomainInstanceId
+
+    @DomainInstanceId.setter
+    def DomainInstanceId(self, DomainInstanceId):
+        self._DomainInstanceId = DomainInstanceId
+
+    @property
+    def Condition(self):
+        r"""过滤条件、分页参数<li>EdgeNodeName - string - 是否必填：否 - 操作符: ilike  - 排序支持：否- 按节点名称过滤。</li>
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.Condition`
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+
+    def _deserialize(self, params):
+        self._DomainInstanceId = params.get("DomainInstanceId")
+        if params.get("Condition") is not None:
+            self._Condition = Condition()
+            self._Condition._deserialize(params.get("Condition"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPEdgeNodesResponse(AbstractModel):
+    r"""DescribeDLPEdgeNodes返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 业务响应数据
+        :type Data: :class:`tencentcloud.ioa.v20220601.models.DescribeDLPEdgeNodesPageData`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""业务响应数据
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.DescribeDLPEdgeNodesPageData`
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = DescribeDLPEdgeNodesPageData()
+            self._Data._deserialize(params.get("Data"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeDLPEdgeNodesRspItem(AbstractModel):
+    r"""边缘节点信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 自增id，数据库中唯一
+        :type Id: int
+        :param _GroupId: 节点分组唯一id
+        :type GroupId: str
+        :param _EdgeNodeId: 节点id
+        :type EdgeNodeId: str
+        :param _EdgeNodeName: 节点名称
+        :type EdgeNodeName: str
+        :param _IsActive: 是否活跃/连通
+        :type IsActive: bool
+        :param _GroupName: 节点分组名称
+        :type GroupName: str
+        :param _Ip: 节点IP
+        :type Ip: str
+        :param _Version: 节点版本
+        :type Version: str
+        :param _IsUpgradeEnable: 是否支持升级连接器
+        :type IsUpgradeEnable: bool
+        :param _UpgradeStatus: 升级状态: 0(升级中) , 1(升级失败) 或 2(升级成功)
+        :type UpgradeStatus: int
+        :param _UpgradeDescription: 升级状态描述
+        :type UpgradeDescription: str
+        :param _RuleVersion: 规则版本
+        :type RuleVersion: str
+        """
+        self._Id = None
+        self._GroupId = None
+        self._EdgeNodeId = None
+        self._EdgeNodeName = None
+        self._IsActive = None
+        self._GroupName = None
+        self._Ip = None
+        self._Version = None
+        self._IsUpgradeEnable = None
+        self._UpgradeStatus = None
+        self._UpgradeDescription = None
+        self._RuleVersion = None
+
+    @property
+    def Id(self):
+        r"""自增id，数据库中唯一
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def GroupId(self):
+        r"""节点分组唯一id
+        :rtype: str
+        """
+        return self._GroupId
+
+    @GroupId.setter
+    def GroupId(self, GroupId):
+        self._GroupId = GroupId
+
+    @property
+    def EdgeNodeId(self):
+        r"""节点id
+        :rtype: str
+        """
+        return self._EdgeNodeId
+
+    @EdgeNodeId.setter
+    def EdgeNodeId(self, EdgeNodeId):
+        self._EdgeNodeId = EdgeNodeId
+
+    @property
+    def EdgeNodeName(self):
+        r"""节点名称
+        :rtype: str
+        """
+        return self._EdgeNodeName
+
+    @EdgeNodeName.setter
+    def EdgeNodeName(self, EdgeNodeName):
+        self._EdgeNodeName = EdgeNodeName
+
+    @property
+    def IsActive(self):
+        r"""是否活跃/连通
+        :rtype: bool
+        """
+        return self._IsActive
+
+    @IsActive.setter
+    def IsActive(self, IsActive):
+        self._IsActive = IsActive
+
+    @property
+    def GroupName(self):
+        r"""节点分组名称
+        :rtype: str
+        """
+        return self._GroupName
+
+    @GroupName.setter
+    def GroupName(self, GroupName):
+        self._GroupName = GroupName
+
+    @property
+    def Ip(self):
+        r"""节点IP
+        :rtype: str
+        """
+        return self._Ip
+
+    @Ip.setter
+    def Ip(self, Ip):
+        self._Ip = Ip
+
+    @property
+    def Version(self):
+        r"""节点版本
+        :rtype: str
+        """
+        return self._Version
+
+    @Version.setter
+    def Version(self, Version):
+        self._Version = Version
+
+    @property
+    def IsUpgradeEnable(self):
+        r"""是否支持升级连接器
+        :rtype: bool
+        """
+        return self._IsUpgradeEnable
+
+    @IsUpgradeEnable.setter
+    def IsUpgradeEnable(self, IsUpgradeEnable):
+        self._IsUpgradeEnable = IsUpgradeEnable
+
+    @property
+    def UpgradeStatus(self):
+        r"""升级状态: 0(升级中) , 1(升级失败) 或 2(升级成功)
+        :rtype: int
+        """
+        return self._UpgradeStatus
+
+    @UpgradeStatus.setter
+    def UpgradeStatus(self, UpgradeStatus):
+        self._UpgradeStatus = UpgradeStatus
+
+    @property
+    def UpgradeDescription(self):
+        r"""升级状态描述
+        :rtype: str
+        """
+        return self._UpgradeDescription
+
+    @UpgradeDescription.setter
+    def UpgradeDescription(self, UpgradeDescription):
+        self._UpgradeDescription = UpgradeDescription
+
+    @property
+    def RuleVersion(self):
+        r"""规则版本
+        :rtype: str
+        """
+        return self._RuleVersion
+
+    @RuleVersion.setter
+    def RuleVersion(self, RuleVersion):
+        self._RuleVersion = RuleVersion
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._GroupId = params.get("GroupId")
+        self._EdgeNodeId = params.get("EdgeNodeId")
+        self._EdgeNodeName = params.get("EdgeNodeName")
+        self._IsActive = params.get("IsActive")
+        self._GroupName = params.get("GroupName")
+        self._Ip = params.get("Ip")
+        self._Version = params.get("Version")
+        self._IsUpgradeEnable = params.get("IsUpgradeEnable")
+        self._UpgradeStatus = params.get("UpgradeStatus")
+        self._UpgradeDescription = params.get("UpgradeDescription")
+        self._RuleVersion = params.get("RuleVersion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class DescribeDLPFileDetectResultData(AbstractModel):
     r"""查询文件检测结果响应数据
 
@@ -2761,6 +3607,248 @@ class DescribeDLPFileDetectResultResponse(AbstractModel):
     def _deserialize(self, params):
         if params.get("Data") is not None:
             self._Data = DescribeDLPFileDetectResultData()
+            self._Data._deserialize(params.get("Data"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeDLPFileDetectTaskResult(AbstractModel):
+    r"""查询文件检测结果响应数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FileMd5: 提交任务时的文件md5
+        :type FileMd5: str
+        :param _FileName: 提交任务时的文件名
+        :type FileName: str
+        :param _Status: 检测执行状态：0未执行 1等待执行 2执行中 3执行失败 4执行完成 
+        :type Status: int
+        :param _DetectResult:     FileAbstract:文件摘要
+    FileAttr:文件属性
+    FileCategory:命中分级分类 array
+    FileContent:命中信息json(array)
+	            RuleId:规则Id
+				RuleName:规则名称
+				RuleLevel:规则等级
+				Hits：命中词库内容
+				    LibraryId：词库Id
+					LibraryType:词库类型
+					LibraryName:词库名称
+					Attribute: 命中属性 doc.Content文件内容|doc.FileSize文件大小|doc.Name文件名|doc.Type文件类型
+					String  待匹配内容
+					Content 命中内容
+                HitsTotal 规则命中次数
+    FileMd5 文件ND5
+    FileName 文件名
+    FileSize 文件大小
+    FileType 文件后缀
+    FileTypeName 文件类型名称
+    FinalDataLevel 命中最高等级
+    NodeId 节点唯一Id
+    NodeIp 节点IP
+    NodeName 节点名称
+    OperateTime 文件操作时间
+    Url 文件下载Url
+        :type DetectResult: str
+        :param _Message: 检测执行状态描述
+        :type Message: str
+        """
+        self._FileMd5 = None
+        self._FileName = None
+        self._Status = None
+        self._DetectResult = None
+        self._Message = None
+
+    @property
+    def FileMd5(self):
+        r"""提交任务时的文件md5
+        :rtype: str
+        """
+        return self._FileMd5
+
+    @FileMd5.setter
+    def FileMd5(self, FileMd5):
+        self._FileMd5 = FileMd5
+
+    @property
+    def FileName(self):
+        r"""提交任务时的文件名
+        :rtype: str
+        """
+        return self._FileName
+
+    @FileName.setter
+    def FileName(self, FileName):
+        self._FileName = FileName
+
+    @property
+    def Status(self):
+        r"""检测执行状态：0未执行 1等待执行 2执行中 3执行失败 4执行完成 
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def DetectResult(self):
+        r"""    FileAbstract:文件摘要
+    FileAttr:文件属性
+    FileCategory:命中分级分类 array
+    FileContent:命中信息json(array)
+	            RuleId:规则Id
+				RuleName:规则名称
+				RuleLevel:规则等级
+				Hits：命中词库内容
+				    LibraryId：词库Id
+					LibraryType:词库类型
+					LibraryName:词库名称
+					Attribute: 命中属性 doc.Content文件内容|doc.FileSize文件大小|doc.Name文件名|doc.Type文件类型
+					String  待匹配内容
+					Content 命中内容
+                HitsTotal 规则命中次数
+    FileMd5 文件ND5
+    FileName 文件名
+    FileSize 文件大小
+    FileType 文件后缀
+    FileTypeName 文件类型名称
+    FinalDataLevel 命中最高等级
+    NodeId 节点唯一Id
+    NodeIp 节点IP
+    NodeName 节点名称
+    OperateTime 文件操作时间
+    Url 文件下载Url
+        :rtype: str
+        """
+        return self._DetectResult
+
+    @DetectResult.setter
+    def DetectResult(self, DetectResult):
+        self._DetectResult = DetectResult
+
+    @property
+    def Message(self):
+        r"""检测执行状态描述
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+
+    def _deserialize(self, params):
+        self._FileMd5 = params.get("FileMd5")
+        self._FileName = params.get("FileName")
+        self._Status = params.get("Status")
+        self._DetectResult = params.get("DetectResult")
+        self._Message = params.get("Message")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPFileDetectTaskResultRequest(AbstractModel):
+    r"""DescribeDLPFileDetectTaskResult请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DomainInstanceId: 管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :type DomainInstanceId: str
+        :param _TaskRequestId: 任务请求Id
+        :type TaskRequestId: str
+        """
+        self._DomainInstanceId = None
+        self._TaskRequestId = None
+
+    @property
+    def DomainInstanceId(self):
+        r"""管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :rtype: str
+        """
+        return self._DomainInstanceId
+
+    @DomainInstanceId.setter
+    def DomainInstanceId(self, DomainInstanceId):
+        self._DomainInstanceId = DomainInstanceId
+
+    @property
+    def TaskRequestId(self):
+        r"""任务请求Id
+        :rtype: str
+        """
+        return self._TaskRequestId
+
+    @TaskRequestId.setter
+    def TaskRequestId(self, TaskRequestId):
+        self._TaskRequestId = TaskRequestId
+
+
+    def _deserialize(self, params):
+        self._DomainInstanceId = params.get("DomainInstanceId")
+        self._TaskRequestId = params.get("TaskRequestId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeDLPFileDetectTaskResultResponse(AbstractModel):
+    r"""DescribeDLPFileDetectTaskResult返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 文件鉴定任务结果数据。详情查看具体数据结构
+        :type Data: :class:`tencentcloud.ioa.v20220601.models.DescribeDLPFileDetectTaskResult`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""文件鉴定任务结果数据。详情查看具体数据结构
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.DescribeDLPFileDetectTaskResult`
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = DescribeDLPFileDetectTaskResult()
             self._Data._deserialize(params.get("Data"))
         self._RequestId = params.get("RequestId")
 
@@ -6228,6 +7316,10 @@ class DeviceDetail(AbstractModel):
         :type AccountName: str
         :param _AccountGroupId: 账号组id
         :type AccountGroupId: int
+        :param _ScreenRecordingPermission: 是否开启录屏权限，仅macOS， 0： 未开启 、1： 开启
+        :type ScreenRecordingPermission: int
+        :param _DiskAccessPermission: 是否开启磁盘访问权限，仅macOS， 0： 未开启、 1： 开启
+        :type DiskAccessPermission: int
         :param _RemarkName: 终端备注名
         :type RemarkName: str
         """
@@ -6279,6 +7371,8 @@ class DeviceDetail(AbstractModel):
         self._AccountGroupName = None
         self._AccountName = None
         self._AccountGroupId = None
+        self._ScreenRecordingPermission = None
+        self._DiskAccessPermission = None
         self._RemarkName = None
 
     @property
@@ -6810,6 +7904,28 @@ class DeviceDetail(AbstractModel):
         self._AccountGroupId = AccountGroupId
 
     @property
+    def ScreenRecordingPermission(self):
+        r"""是否开启录屏权限，仅macOS， 0： 未开启 、1： 开启
+        :rtype: int
+        """
+        return self._ScreenRecordingPermission
+
+    @ScreenRecordingPermission.setter
+    def ScreenRecordingPermission(self, ScreenRecordingPermission):
+        self._ScreenRecordingPermission = ScreenRecordingPermission
+
+    @property
+    def DiskAccessPermission(self):
+        r"""是否开启磁盘访问权限，仅macOS， 0： 未开启、 1： 开启
+        :rtype: int
+        """
+        return self._DiskAccessPermission
+
+    @DiskAccessPermission.setter
+    def DiskAccessPermission(self, DiskAccessPermission):
+        self._DiskAccessPermission = DiskAccessPermission
+
+    @property
     def RemarkName(self):
         r"""终端备注名
         :rtype: str
@@ -6870,7 +7986,60 @@ class DeviceDetail(AbstractModel):
         self._AccountGroupName = params.get("AccountGroupName")
         self._AccountName = params.get("AccountName")
         self._AccountGroupId = params.get("AccountGroupId")
+        self._ScreenRecordingPermission = params.get("ScreenRecordingPermission")
+        self._DiskAccessPermission = params.get("DiskAccessPermission")
         self._RemarkName = params.get("RemarkName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeviceDownloadTask(AbstractModel):
+    r"""业务响应数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DownloadURL: 同步数据下载的url
+        :type DownloadURL: str
+        :param _TaskId: 异步任务id，需要根据id去任务中心下载
+        :type TaskId: int
+        """
+        self._DownloadURL = None
+        self._TaskId = None
+
+    @property
+    def DownloadURL(self):
+        r"""同步数据下载的url
+        :rtype: str
+        """
+        return self._DownloadURL
+
+    @DownloadURL.setter
+    def DownloadURL(self, DownloadURL):
+        self._DownloadURL = DownloadURL
+
+    @property
+    def TaskId(self):
+        r"""异步任务id，需要根据id去任务中心下载
+        :rtype: int
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+
+    def _deserialize(self, params):
+        self._DownloadURL = params.get("DownloadURL")
+        self._TaskId = params.get("TaskId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7701,6 +8870,179 @@ class DeviceVirtualDeviceGroupsDetail(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class ExportDeviceDownloadTaskRequest(AbstractModel):
+    r"""ExportDeviceDownloadTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _OsType: 系统类型（0: win，1：linux，2: mac，4：android，5：ios；默认值0）
+        :type OsType: int
+        :param _DomainInstanceId: 管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :type DomainInstanceId: str
+        :param _GroupId: 分组id
+        :type GroupId: int
+        :param _OnlineStatus:  在线状态 2 在线 0，1 离线
+        :type OnlineStatus: int
+        :param _ExportOrder: 导出顺序，接口返回的数据字段
+        :type ExportOrder: str
+        :param _ExportType:  导出类型， 0：终端树；7:硬件信息列表导出；
+        :type ExportType: int
+        :param _Condition: 过滤条件。同DescribeDevices接口
+        :type Condition: :class:`tencentcloud.ioa.v20220601.models.Condition`
+        """
+        self._OsType = None
+        self._DomainInstanceId = None
+        self._GroupId = None
+        self._OnlineStatus = None
+        self._ExportOrder = None
+        self._ExportType = None
+        self._Condition = None
+
+    @property
+    def OsType(self):
+        r"""系统类型（0: win，1：linux，2: mac，4：android，5：ios；默认值0）
+        :rtype: int
+        """
+        return self._OsType
+
+    @OsType.setter
+    def OsType(self, OsType):
+        self._OsType = OsType
+
+    @property
+    def DomainInstanceId(self):
+        r"""管理域实例ID，用于CAM管理域权限分配。若企业未进行管理域的划分，可直接传入根域"1"，此时表示针对当前企业的全部设备和账号进行接口CRUD，具体CRUD的影响范围限制于相应接口的入参。
+        :rtype: str
+        """
+        return self._DomainInstanceId
+
+    @DomainInstanceId.setter
+    def DomainInstanceId(self, DomainInstanceId):
+        self._DomainInstanceId = DomainInstanceId
+
+    @property
+    def GroupId(self):
+        r"""分组id
+        :rtype: int
+        """
+        return self._GroupId
+
+    @GroupId.setter
+    def GroupId(self, GroupId):
+        self._GroupId = GroupId
+
+    @property
+    def OnlineStatus(self):
+        r""" 在线状态 2 在线 0，1 离线
+        :rtype: int
+        """
+        return self._OnlineStatus
+
+    @OnlineStatus.setter
+    def OnlineStatus(self, OnlineStatus):
+        self._OnlineStatus = OnlineStatus
+
+    @property
+    def ExportOrder(self):
+        r"""导出顺序，接口返回的数据字段
+        :rtype: str
+        """
+        return self._ExportOrder
+
+    @ExportOrder.setter
+    def ExportOrder(self, ExportOrder):
+        self._ExportOrder = ExportOrder
+
+    @property
+    def ExportType(self):
+        r""" 导出类型， 0：终端树；7:硬件信息列表导出；
+        :rtype: int
+        """
+        return self._ExportType
+
+    @ExportType.setter
+    def ExportType(self, ExportType):
+        self._ExportType = ExportType
+
+    @property
+    def Condition(self):
+        r"""过滤条件。同DescribeDevices接口
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.Condition`
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+
+    def _deserialize(self, params):
+        self._OsType = params.get("OsType")
+        self._DomainInstanceId = params.get("DomainInstanceId")
+        self._GroupId = params.get("GroupId")
+        self._OnlineStatus = params.get("OnlineStatus")
+        self._ExportOrder = params.get("ExportOrder")
+        self._ExportType = params.get("ExportType")
+        if params.get("Condition") is not None:
+            self._Condition = Condition()
+            self._Condition._deserialize(params.get("Condition"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ExportDeviceDownloadTaskResponse(AbstractModel):
+    r"""ExportDeviceDownloadTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 业务响应数据
+        :type Data: :class:`tencentcloud.ioa.v20220601.models.DeviceDownloadTask`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""业务响应数据
+        :rtype: :class:`tencentcloud.ioa.v20220601.models.DeviceDownloadTask`
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = DeviceDownloadTask()
+            self._Data._deserialize(params.get("Data"))
+        self._RequestId = params.get("RequestId")
 
 
 class ExportSoftwareDownloadUrlRspData(AbstractModel):
@@ -8786,6 +10128,10 @@ class SoftwareInformationData(AbstractModel):
         :type Id: int
         :param _PiracyRisk: 盗版风险（0:未支持，1:风险，2:未发现，3:未开启）
         :type PiracyRisk: int
+        :param _DeviceId: 设备id
+        :type DeviceId: int
+        :param _OsType: 平台类型
+        :type OsType: int
         """
         self._Name = None
         self._InstallDate = None
@@ -8795,6 +10141,8 @@ class SoftwareInformationData(AbstractModel):
         self._CorpName = None
         self._Id = None
         self._PiracyRisk = None
+        self._DeviceId = None
+        self._OsType = None
 
     @property
     def Name(self):
@@ -8884,6 +10232,28 @@ class SoftwareInformationData(AbstractModel):
     def PiracyRisk(self, PiracyRisk):
         self._PiracyRisk = PiracyRisk
 
+    @property
+    def DeviceId(self):
+        r"""设备id
+        :rtype: int
+        """
+        return self._DeviceId
+
+    @DeviceId.setter
+    def DeviceId(self, DeviceId):
+        self._DeviceId = DeviceId
+
+    @property
+    def OsType(self):
+        r"""平台类型
+        :rtype: int
+        """
+        return self._OsType
+
+    @OsType.setter
+    def OsType(self, OsType):
+        self._OsType = OsType
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -8894,6 +10264,8 @@ class SoftwareInformationData(AbstractModel):
         self._CorpName = params.get("CorpName")
         self._Id = params.get("Id")
         self._PiracyRisk = params.get("PiracyRisk")
+        self._DeviceId = params.get("DeviceId")
+        self._OsType = params.get("OsType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

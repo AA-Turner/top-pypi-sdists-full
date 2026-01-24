@@ -6,28 +6,40 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .types import (
+        KnowledgeBaseGetOrCreateRagIndexesResponseValue,
+        KnowledgeBaseGetOrCreateRagIndexesResponseValue_Failure,
+        KnowledgeBaseGetOrCreateRagIndexesResponseValue_Success,
+    )
     from . import document, documents
     from .documents import (
         DocumentsGetResponse,
         DocumentsGetResponse_File,
+        DocumentsGetResponse_Folder,
         DocumentsGetResponse_Text,
         DocumentsGetResponse_Url,
         DocumentsUpdateResponse,
         DocumentsUpdateResponse_File,
+        DocumentsUpdateResponse_Folder,
         DocumentsUpdateResponse_Text,
         DocumentsUpdateResponse_Url,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "DocumentsGetResponse": ".documents",
     "DocumentsGetResponse_File": ".documents",
+    "DocumentsGetResponse_Folder": ".documents",
     "DocumentsGetResponse_Text": ".documents",
     "DocumentsGetResponse_Url": ".documents",
     "DocumentsUpdateResponse": ".documents",
     "DocumentsUpdateResponse_File": ".documents",
+    "DocumentsUpdateResponse_Folder": ".documents",
     "DocumentsUpdateResponse_Text": ".documents",
     "DocumentsUpdateResponse_Url": ".documents",
-    "document": ".",
-    "documents": ".",
+    "KnowledgeBaseGetOrCreateRagIndexesResponseValue": ".types",
+    "KnowledgeBaseGetOrCreateRagIndexesResponseValue_Failure": ".types",
+    "KnowledgeBaseGetOrCreateRagIndexesResponseValue_Success": ".types",
+    "document": ".document",
+    "documents": ".documents",
 }
 
 
@@ -37,8 +49,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -53,12 +67,17 @@ def __dir__():
 __all__ = [
     "DocumentsGetResponse",
     "DocumentsGetResponse_File",
+    "DocumentsGetResponse_Folder",
     "DocumentsGetResponse_Text",
     "DocumentsGetResponse_Url",
     "DocumentsUpdateResponse",
     "DocumentsUpdateResponse_File",
+    "DocumentsUpdateResponse_Folder",
     "DocumentsUpdateResponse_Text",
     "DocumentsUpdateResponse_Url",
+    "KnowledgeBaseGetOrCreateRagIndexesResponseValue",
+    "KnowledgeBaseGetOrCreateRagIndexesResponseValue_Failure",
+    "KnowledgeBaseGetOrCreateRagIndexesResponseValue_Success",
     "document",
     "documents",
 ]

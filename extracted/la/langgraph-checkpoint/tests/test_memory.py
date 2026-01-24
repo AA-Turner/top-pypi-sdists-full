@@ -22,8 +22,7 @@ class TestMemorySaver:
             "configurable": {
                 "thread_id": "thread-1",
                 "checkpoint_ns": "",
-                # for backwards compatibility testing
-                "thread_ts": "1",
+                "checkpoint_id": "1",
             }
         }
         self.config_2: RunnableConfig = {
@@ -189,7 +188,14 @@ class TestMemorySaver:
         assert len(search_results_4) == 0
 
 
-def test_memory_saver() -> None:
-    from langgraph.checkpoint.memory import MemorySaver
+async def test_memory_saver() -> None:
+    from langgraph.checkpoint.memory import InMemorySaver
 
-    assert isinstance(MemorySaver(), InMemorySaver)
+    memory_saver = InMemorySaver()
+    assert isinstance(memory_saver, InMemorySaver)
+
+    async with memory_saver as async_memory_saver:
+        assert async_memory_saver is memory_saver
+
+    with memory_saver as sync_memory_saver:
+        assert sync_memory_saver is memory_saver

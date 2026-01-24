@@ -1,6 +1,6 @@
-import json
 from enum import Enum
 from functools import wraps
+from types import SimpleNamespace
 from typing import (
     Any,
     Callable,
@@ -24,14 +24,28 @@ from opentelemetry.util.types import AttributeValue
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+from litellm.responses.streaming_iterator import (
+    ResponsesAPIStreamingIterator,
+    SyncResponsesAPIStreamingIterator,
+)
+from litellm.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStreamEvents
 from litellm.types.utils import Choices, EmbeddingResponse, ImageResponse, ModelResponse
 from litellm.types.utils import Message as LitellmMessage
 from openinference.instrumentation import (
     OITracer,
+    Tool,
     TraceConfig,
     get_attributes_from_context,
+    get_input_attributes,
+    get_llm_attributes,
+    get_llm_invocation_parameter_attributes,
     get_llm_provider_attributes,
+    get_llm_tool_attributes,
     safe_json_dumps,
+)
+from openinference.instrumentation.litellm._responses_attributes import (
+    _get_attributes_from_response_input,
+    _get_attributes_from_response_output,
 )
 from openinference.instrumentation.litellm.package import _instruments
 from openinference.instrumentation.litellm.version import __version__
@@ -50,6 +64,8 @@ from openinference.semconv.trace import (
 
 # Skip capture
 KEYS_TO_REDACT = ["api_key", "messages"]
+
+RESPONSES_KEYS_TO_REDACT = KEYS_TO_REDACT + ["input", "tools", "model"]
 
 
 # Helper functions to set span attributes
@@ -76,7 +92,7 @@ def _get_oi_provider_from_litellm_model_name(
     model_name: str,
 ) -> Optional[OpenInferenceLLMProviderValues]:
     try:
-        _, litellm_provider, _, _ = litellm.get_llm_provider(model=model_name)  # type: ignore[attr-defined]
+        _, litellm_provider, _, _ = litellm.get_llm_provider(model=model_name)
     except Exception:
         return None
     return _LITELLM_TO_OPENINFERENCE_PROVIDERS.get(litellm_provider)
@@ -162,6 +178,30 @@ def _get_attributes_from_image(
         yield f"{ImageAttributes.IMAGE_URL}", url
 
 
+def _instrument_func_type_responses(span: trace_api.Span, kwargs: Dict[str, Any]) -> None:
+    """
+    Currently instruments the functions:
+        litellm.responses()
+        litellm.aresponses() (async version of responses)
+    """
+    _set_span_attribute(
+        span, SpanAttributes.OPENINFERENCE_SPAN_KIND, OpenInferenceSpanKindValues.LLM.value
+    )
+    model = kwargs.get("model")
+    if model:
+        span.set_attribute(SpanAttributes.LLM_MODEL_NAME, model)
+        provider = _get_oi_provider_from_litellm_model_name(model)
+        span.set_attributes(get_llm_provider_attributes(provider))
+    if message_objs := _get_attributes_from_response_input(kwargs):
+        span.set_attributes(get_llm_attributes(input_messages=message_objs))
+        span.set_attributes(get_input_attributes(kwargs.get("input")))
+    invocation_params = {k: v for k, v in kwargs.items() if k not in RESPONSES_KEYS_TO_REDACT}
+    span.set_attributes(get_llm_invocation_parameter_attributes(invocation_params))
+    span.set_attributes(
+        get_llm_tool_attributes([Tool(json_schema=tool) for tool in kwargs.get("tools", [])])
+    )
+
+
 def _instrument_func_type_completion(span: trace_api.Span, kwargs: Dict[str, Any]) -> None:
     """
     Currently instruments the functions:
@@ -229,7 +269,37 @@ def _instrument_func_type_embedding(span: trace_api.Span, kwargs: Dict[str, Any]
     _set_span_attribute(
         span, SpanAttributes.EMBEDDING_MODEL_NAME, kwargs.get("model", "unknown_model")
     )
-    _set_span_attribute(span, EmbeddingAttributes.EMBEDDING_TEXT, str(kwargs.get("input")))
+
+    # Extract invocation parameters (exclude sensitive keys and input)
+    invocation_params = {
+        k: v for k, v in kwargs.items() if k not in KEYS_TO_REDACT and k != "input"
+    }
+    if invocation_params:
+        _set_span_attribute(
+            span, SpanAttributes.EMBEDDING_INVOCATION_PARAMETERS, safe_json_dumps(invocation_params)
+        )
+
+    # Extract text from embedding input - only records text, not token IDs
+    embedding_input = kwargs.get("input")
+    if embedding_input is not None:
+        if isinstance(embedding_input, str):
+            # Single string input
+            _set_span_attribute(
+                span,
+                f"{SpanAttributes.EMBEDDING_EMBEDDINGS}.0.{EmbeddingAttributes.EMBEDDING_TEXT}",
+                embedding_input,
+            )
+        elif isinstance(embedding_input, list) and embedding_input:
+            # Check if it's a list of strings (not tokens)
+            if all(isinstance(item, str) for item in embedding_input):
+                # List of strings
+                for index, text in enumerate(embedding_input):
+                    _set_span_attribute(
+                        span,
+                        f"{SpanAttributes.EMBEDDING_EMBEDDINGS}.{index}.{EmbeddingAttributes.EMBEDDING_TEXT}",
+                        text,
+                    )
+
     _set_span_attribute(span, SpanAttributes.INPUT_VALUE, str(kwargs.get("input")))
 
 
@@ -261,13 +331,46 @@ def _finalize_span(span: trace_api.Span, result: Any) -> None:
                 )
 
     elif isinstance(result, EmbeddingResponse):
-        if result_data := result.data:
-            first_embedding = result_data[0]
-            _set_span_attribute(
-                span,
-                EmbeddingAttributes.EMBEDDING_VECTOR,
-                json.dumps(first_embedding.get("embedding", [])),
-            )
+        # Extract model name from response (may differ from request model name)
+        if model_name := getattr(result, "model", None):
+            _set_span_attribute(span, SpanAttributes.EMBEDDING_MODEL_NAME, model_name)
+
+        if result_data := getattr(result, "data", None):
+            # Extract embedding vectors directly
+            for embedding_item in result_data:
+                # LiteLLM may return embedding items as dicts or OpenAIObject instances
+                if isinstance(embedding_item, dict):
+                    raw_vector = embedding_item.get("embedding")
+                    index = embedding_item.get("index")
+                else:
+                    raw_vector = getattr(embedding_item, "embedding", None)
+                    index = getattr(embedding_item, "index", None)
+
+                # Skip entries without a usable vector or explicit index
+                if raw_vector is None or index is None:
+                    continue
+
+                # Skip empty embeddings to avoid recording invalid vectors
+                if raw_vector == [] or raw_vector == "":
+                    continue
+
+                vector: Union[Tuple[Any, ...], str, None] = None
+                # Record numeric vectors as tuples
+                if isinstance(raw_vector, (list, tuple)):
+                    if all(isinstance(x, (int, float)) for x in raw_vector):
+                        vector = tuple(raw_vector)
+                # Record base64-encoded vectors directly
+                elif isinstance(raw_vector, str):
+                    vector = raw_vector
+                else:
+                    continue
+
+                if vector is not None:
+                    _set_span_attribute(
+                        span,
+                        f"{SpanAttributes.EMBEDDING_EMBEDDINGS}.{index}.{EmbeddingAttributes.EMBEDDING_VECTOR}",
+                        vector,
+                    )
     elif isinstance(result, ImageResponse):
         if result.data and len(result.data) > 0:
             if img_data := result.data[0]:
@@ -279,6 +382,8 @@ def _finalize_span(span: trace_api.Span, result: Any) -> None:
                 ):
                     _set_span_attribute(span, ImageAttributes.IMAGE_URL, url)
                     _set_span_attribute(span, SpanAttributes.OUTPUT_VALUE, url)
+    elif isinstance(result, ResponsesAPIResponse):
+        span.set_attributes(_get_attributes_from_response_output(result))
 
     _set_token_counts_from_usage(span, result)
     _set_span_status(span, result)
@@ -303,11 +408,13 @@ def _set_token_counts_from_usage(span: trace_api.Span, result: Any) -> None:
     if not usage:
         return
 
-    prompt_tokens = _get_value(usage, "prompt_tokens")
+    prompt_tokens = _get_value(usage, "prompt_tokens") or _get_value(usage, "input_tokens")
     if prompt_tokens is not None:
         _set_span_attribute(span, SpanAttributes.LLM_TOKEN_COUNT_PROMPT, prompt_tokens)
 
-    prompt_token_details = _get_value(usage, "prompt_tokens_details")
+    prompt_token_details = _get_value(usage, "prompt_tokens_details") or _get_value(
+        usage, "input_tokens_details"
+    )
     if prompt_token_details is not None:
         cached_tokens = _get_value(prompt_token_details, "cached_tokens")
         if cached_tokens is not None:
@@ -320,17 +427,30 @@ def _set_token_counts_from_usage(span: trace_api.Span, result: Any) -> None:
             _set_span_attribute(
                 span, SpanAttributes.LLM_TOKEN_COUNT_PROMPT_DETAILS_AUDIO, audio_tokens
             )
+        text_tokens = _get_value(prompt_token_details, "text_tokens")
+        if text_tokens is not None:
+            _set_span_attribute(
+                span, SpanAttributes.LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_INPUT, text_tokens
+            )
 
-    completion_tokens = _get_value(usage, "completion_tokens")
+    completion_tokens = _get_value(usage, "completion_tokens") or _get_value(usage, "output_tokens")
     if completion_tokens is not None:
         _set_span_attribute(span, SpanAttributes.LLM_TOKEN_COUNT_COMPLETION, completion_tokens)
 
-    completion_tokens_details = _get_value(usage, "completion_tokens_details")
+    completion_tokens_details = _get_value(usage, "completion_tokens_details") or _get_value(
+        usage, "output_tokens_details"
+    )
     if completion_tokens_details is not None:
         reasoning_tokens = _get_value(completion_tokens_details, "reasoning_tokens")
         if reasoning_tokens is not None:
             _set_span_attribute(
                 span, SpanAttributes.LLM_TOKEN_COUNT_COMPLETION_DETAILS_REASONING, reasoning_tokens
+            )
+
+        text_tokens = _get_value(completion_tokens_details, "text_tokens")
+        if text_tokens is not None:
+            _set_span_attribute(
+                span, SpanAttributes.LLM_COST_COMPLETION_DETAILS_OUTPUT, text_tokens
             )
 
         completion_audio_tokens = _get_value(completion_tokens_details, "audio_tokens")
@@ -407,7 +527,7 @@ def _finalize_sync_streaming_span(span: trace_api.Span, stream: CustomStreamWrap
                 )
 
         if usage_stats:
-            _set_token_counts_from_usage(span, usage_stats)
+            _set_token_counts_from_usage(span, SimpleNamespace(usage=usage_stats))
     except Exception as e:
         span.record_exception(e)
         raise
@@ -448,12 +568,36 @@ async def _finalize_streaming_span(span: trace_api.Span, stream: CustomStreamWra
                     span, f"{SpanAttributes.LLM_OUTPUT_MESSAGES}.{idx}.{key}", value
                 )
         if usage_stats:
-            _set_token_counts_from_usage(span, usage_stats)
+            _set_token_counts_from_usage(span, SimpleNamespace(usage=usage_stats))
     except Exception as e:
         span.record_exception(e)
         raise
+    else:
+        _set_span_status(span, aggregated_output)
     finally:
         span.end()
+
+
+async def _finalize_aresponses_streaming_span(
+    span: trace_api.Span, stream: ResponsesAPIStreamingIterator
+) -> Any:
+    if isinstance(stream, ResponsesAPIStreamingIterator):
+        async for token in stream:
+            if token.type == ResponsesAPIStreamEvents.RESPONSE_COMPLETED:
+                _finalize_span(span, token.response)
+                span.end()
+            yield token
+
+
+def _finalize_responses_streaming_span(
+    span: trace_api.Span, stream: SyncResponsesAPIStreamingIterator
+) -> Any:
+    if isinstance(stream, SyncResponsesAPIStreamingIterator):
+        for token in stream:
+            if token.type == ResponsesAPIStreamEvents.RESPONSE_COMPLETED:
+                _finalize_span(span, token.response)
+                span.end()
+            yield token
 
 
 class LiteLLMInstrumentor(BaseInstrumentor):  # type: ignore
@@ -479,6 +623,8 @@ class LiteLLMInstrumentor(BaseInstrumentor):  # type: ignore
         functions_to_instrument = {
             "completion": self._completion_wrapper,
             "acompletion": self._acompletion_wrapper,
+            "responses": self._responses_wrapper,
+            "aresponses": self._aresponses_wrapper,
             "completion_with_retries": self._completion_with_retries_wrapper,
             # Bug report filed on GitHub for acompletion_with_retries: https://github.com/BerriAI/litellm/issues/4908
             # "acompletion_with_retries": self._acompletion_with_retries_wrapper,
@@ -503,6 +649,53 @@ class LiteLLMInstrumentor(BaseInstrumentor):  # type: ignore
         for func_name, original_func in LiteLLMInstrumentor.original_litellm_funcs.items():
             setattr(litellm, func_name, original_func)
         self.original_litellm_funcs.clear()
+
+    @wraps(litellm.responses)
+    def _responses_wrapper(self, *args: Any, **kwargs: Any) -> Any:
+        if context_api.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
+            return self.original_litellm_funcs["responses"](*args, **kwargs)
+
+        if kwargs.get("stream", False):
+            span = self._tracer.start_span(
+                name="responses", attributes=dict(get_attributes_from_context())
+            )
+            _instrument_func_type_responses(span, kwargs)
+
+            result = self.original_litellm_funcs["responses"](*args, **kwargs)
+            if isinstance(result, SyncResponsesAPIStreamingIterator):
+                return _finalize_responses_streaming_span(span, result)
+            return result
+        else:
+            with self._tracer.start_as_current_span(
+                name="responses", attributes=dict(get_attributes_from_context())
+            ) as span:
+                _instrument_func_type_responses(span, kwargs)
+                result = self.original_litellm_funcs["responses"](*args, **kwargs)
+                _finalize_span(span, result)
+                return result
+
+    @wraps(litellm.aresponses)
+    async def _aresponses_wrapper(self, *args: Any, **kwargs: Any) -> Any:
+        if context_api.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
+            return await self.original_litellm_funcs["aresponses"](*args, **kwargs)
+
+        if kwargs.get("stream", False):
+            span = self._tracer.start_span(
+                name="aresponses", attributes=dict(get_attributes_from_context())
+            )
+            _instrument_func_type_responses(span, kwargs)
+            result = await self.original_litellm_funcs["aresponses"](*args, **kwargs)
+            if hasattr(result, "__aiter__"):
+                return _finalize_aresponses_streaming_span(span, result)
+            return result
+        else:
+            with self._tracer.start_as_current_span(
+                name="aresponses", attributes=dict(get_attributes_from_context())
+            ) as span:
+                _instrument_func_type_responses(span, kwargs)
+                result = await self.original_litellm_funcs["aresponses"](*args, **kwargs)
+                _finalize_span(span, result)
+                return result
 
     @wraps(litellm.completion)
     def _completion_wrapper(self, *args: Any, **kwargs: Any) -> ModelResponse:
@@ -591,7 +784,7 @@ class LiteLLMInstrumentor(BaseInstrumentor):  # type: ignore
         if context_api.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
             return self.original_litellm_funcs["embedding"](*args, **kwargs)  # type:ignore
         with self._tracer.start_as_current_span(
-            name="embedding", attributes=dict(get_attributes_from_context())
+            name="CreateEmbeddings", attributes=dict(get_attributes_from_context())
         ) as span:
             _instrument_func_type_embedding(span, kwargs)
             result = self.original_litellm_funcs["embedding"](*args, **kwargs)
@@ -603,7 +796,7 @@ class LiteLLMInstrumentor(BaseInstrumentor):  # type: ignore
         if context_api.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
             return self.original_litellm_funcs["aembedding"](*args, **kwargs)  # type:ignore
         with self._tracer.start_as_current_span(
-            name="aembedding", attributes=dict(get_attributes_from_context())
+            name="CreateEmbeddings", attributes=dict(get_attributes_from_context())
         ) as span:
             _instrument_func_type_embedding(span, kwargs)
             result = await self.original_litellm_funcs["aembedding"](*args, **kwargs)

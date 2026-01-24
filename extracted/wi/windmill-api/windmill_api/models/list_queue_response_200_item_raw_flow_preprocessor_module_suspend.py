@@ -22,17 +22,21 @@ T = TypeVar("T", bound="ListQueueResponse200ItemRawFlowPreprocessorModuleSuspend
 
 @_attrs_define
 class ListQueueResponse200ItemRawFlowPreprocessorModuleSuspend:
-    """
+    """Configuration for approval/resume steps that wait for user input
+
     Attributes:
-        required_events (Union[Unset, int]):
-        timeout (Union[Unset, int]):
-        resume_form (Union[Unset, ListQueueResponse200ItemRawFlowPreprocessorModuleSuspendResumeForm]):
-        user_auth_required (Union[Unset, bool]):
+        required_events (Union[Unset, int]): Number of approvals required before continuing
+        timeout (Union[Unset, int]): Timeout in seconds before auto-continuing or canceling
+        resume_form (Union[Unset, ListQueueResponse200ItemRawFlowPreprocessorModuleSuspendResumeForm]): Form schema for
+            collecting input when resuming
+        user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['ListQueueResponse200ItemRawFlowPreprocessorModuleSuspendUserGroupsRequiredType0',
-            'ListQueueResponse200ItemRawFlowPreprocessorModuleSuspendUserGroupsRequiredType1', Unset]):
-        self_approval_disabled (Union[Unset, bool]):
-        hide_cancel (Union[Unset, bool]):
-        continue_on_disapprove_timeout (Union[Unset, bool]):
+            'ListQueueResponse200ItemRawFlowPreprocessorModuleSuspendUserGroupsRequiredType1', Unset]): Maps input
+            parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
+            inputs
+        self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
+        hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
+        continue_on_disapprove_timeout (Union[Unset, bool]): If true, continue flow on timeout instead of canceling
     """
 
     required_events: Union[Unset, int] = UNSET

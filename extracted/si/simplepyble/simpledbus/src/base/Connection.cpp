@@ -49,8 +49,7 @@ void Connection::uninit() {
     SimpleDBus::Message message;
     do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        read_write();
-        message = pop_message();
+        read_write_dispatch();
     } while (message.is_valid());
 
     dbus_connection_unref(_conn);
@@ -100,7 +99,6 @@ void Connection::remove_match(std::string rule) {
 }
 
 void Connection::read_write() {
-    // TODO: DEPRECATE
     if (!_initialized) {
         throw Exception::NotInitialized();
     }
@@ -126,7 +124,6 @@ void Connection::read_write_dispatch() {
 }
 
 Message Connection::pop_message() {
-    // TODO: DEPRECATE
     if (!_initialized) {
         throw Exception::NotInitialized();
     }

@@ -3,16 +3,9 @@
 from typing import List, Optional
 
 from ..._models import BaseModel
+from .extract_usage import ExtractUsage
 
-__all__ = ["ExtractResponse", "Usage"]
-
-
-class Usage(BaseModel):
-    num_fields: int
-
-    num_pages: int
-
-    credits: Optional[float] = None
+__all__ = ["ExtractResponse"]
 
 
 class ExtractResponse(BaseModel):
@@ -26,7 +19,7 @@ class ExtractResponse(BaseModel):
     will be a list of length one.
     """
 
-    usage: Usage
+    usage: ExtractUsage
 
     job_id: Optional[str] = None
 

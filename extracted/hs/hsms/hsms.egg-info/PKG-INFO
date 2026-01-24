@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hsms
-Version: 0.3.1
+Version: 0.3.2
 Summary: Hardware security module simulator for chia bls12_381 signatures
 Author-email: Richard Kiss <him@richardkiss.com>
 License:                                  Apache License
@@ -191,7 +191,7 @@ License:                                  Apache License
               same "printed page" as the copyright notice for easier
               identification within third-party archives.
         
-           Copyright 2023 Chia Network Inc
+           Copyright 2025 Chia Network Inc.
         
            Licensed under the Apache License, Version 2.0 (the "License");
            you may not use this file except in compliance with the License.
@@ -214,6 +214,7 @@ Provides-Extra: dev
 Requires-Dist: flake8>=4.0.1; extra == "dev"
 Requires-Dist: black>=22.6; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Dynamic: license-file
 
 HSMS: hardware security module software/simulator
 

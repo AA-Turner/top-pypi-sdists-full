@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.notification_integration._generated.models.notification_hook import (
     NotificationHook,
@@ -37,9 +37,9 @@ class NotificationQueueAwsSnsOutbound(NotificationHook):
     aws_sns_role_arn : str, optional
         ARN of the IAM role that has permissions to publish messages to the SNS topic.
     sf_aws_iam_user_arn : str, optional
-        ARN for the Snowflake IAM user created for your account.
+        ARN for the Snowflake IAM user created for your account — **Read-only:** *any user-provided value will be ignored.*
     sf_aws_external_id : str, optional
-        External ID for the Snowflake IAM user created for your account.
+        External ID for the Snowflake IAM user created for your account — **Read-only:** *any user-provided value will be ignored.*
     """
 
     aws_sns_topic_arn: Optional[StrictStr] = None
@@ -52,9 +52,10 @@ class NotificationQueueAwsSnsOutbound(NotificationHook):
 
     __properties = ["type"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -84,7 +85,7 @@ class NotificationQueueAwsSnsOutbound(NotificationHook):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["type"] = NotificationHook.get_child_model_discriminator_value("NotificationQueueAwsSnsOutbound")
 
@@ -101,9 +102,9 @@ class NotificationQueueAwsSnsOutbound(NotificationHook):
             return None
 
         if type(obj) is not dict:
-            return NotificationQueueAwsSnsOutbound.parse_obj(obj)
+            return NotificationQueueAwsSnsOutbound.model_validate(obj)
 
-        _obj = NotificationQueueAwsSnsOutbound.parse_obj(
+        _obj = NotificationQueueAwsSnsOutbound.model_validate(
             {
                 "aws_sns_topic_arn": obj.get("aws_sns_topic_arn"),
                 "aws_sns_role_arn": obj.get("aws_sns_role_arn"),

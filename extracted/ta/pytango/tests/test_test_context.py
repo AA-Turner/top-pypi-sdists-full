@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import os
+import time
 import warnings
 
 import numpy as np
@@ -173,7 +174,7 @@ def test_nested_single_device_in_different_processes_failure_with_short_names():
     with DeviceTestContext(Device1, device_name="test/nodb/1", process=True):
         with DeviceTestContext(Device2, process=True):
             with pytest.raises(DevFailed):
-                tango.DeviceProxy("test/nodb/1")
+                DeviceProxy("test/nodb/1")
 
 
 @pytest.mark.parametrize(
@@ -316,6 +317,13 @@ def test_multi_with_mixed_device_green_modes(first_type, second_type, exception_
                 pass
 
 
+def stringify_green_mode(value):
+    if isinstance(value, GreenMode):
+        return str(value)
+    else:
+        return None
+
+
 @pytest.mark.parametrize(
     "device_type, green_mode, global_mode, exception_type, executor_type",
     [
@@ -426,6 +434,7 @@ def test_multi_with_mixed_device_green_modes(first_type, second_type, exception_
         (Device1Asyncio, None, GreenMode.Asyncio, RuntimeError, AsyncioExecutor),
         (Device1Gevent, None, GreenMode.Gevent, RuntimeError, GeventExecutor),
     ],
+    ids=stringify_green_mode,
 )
 def test_green_modes_in_device_kwarg_and_global(
     device_type, green_mode, global_mode, exception_type, executor_type
@@ -895,7 +904,9 @@ class FutureAndGeventDevice(Device):
         return self._value
 
 
-@pytest.mark.parametrize("test_green_mode", [GreenMode.Futures, GreenMode.Gevent])
+@pytest.mark.parametrize(
+    "test_green_mode", [GreenMode.Futures, GreenMode.Gevent], ids=str
+)
 @pytest.mark.parametrize("process", [True, False])
 def test_test_context_future_and_gevent_device_proxy(test_green_mode, process):
     FutureAndGeventDevice.green_mode = test_green_mode
@@ -964,3 +975,42 @@ def test_forwarded_attributes(process):
         assert proxy_root.attr1 == 200
         proxy_root.attr1 = 300
         assert proxy_fwd.fwd_attr == 300
+
+
+class DeviceStuckOnExit(Device):
+
+    def delete_device(self):
+        while True:
+            time.sleep(1)
+
+
+def test_device_context_thread_raises_if_device_server_stuck():
+    context = DeviceTestContext(DeviceStuckOnExit)
+    context.start()
+    assert context.thread.daemon
+    assert context.thread.is_alive()
+    context.timeout = 0.2
+    with pytest.raises(RuntimeError, match="failed to exit cleanly"):
+        context.stop()
+    # (thread can't be killed, so still alive here - it is a daemon so cleaned up
+    # when test framework exits)
+
+
+def test_device_context_process_raises_and_exits_if_device_server_stuck():
+    context = DeviceTestContext(DeviceStuckOnExit, process=True)
+    context.start()
+    assert not context.thread.daemon  # don't want daemon for subprocess - kill instead
+    assert context.thread.is_alive()
+    context.timeout = 0.2
+    with pytest.raises(RuntimeError, match=r"failed to exit cleanly.*kill subprocess"):
+        context.stop()
+    assert not context.thread.is_alive()
+
+
+@pytest.mark.parametrize("process", [False, True])
+def test_device_context_completes_if_device_server_not_stuck(process):
+    context = DeviceTestContext(Device, process=process)
+    context.start()
+    assert context.thread.is_alive()
+    context.stop()
+    assert not context.thread.is_alive()

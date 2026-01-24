@@ -18,6 +18,8 @@ macro(add_h2_decoder_test_set NAME)
     add_test_case("${NAME}_one_byte_at_a_time")
 endmacro()
 
+add_test_case(test_http_error_code_is_retryable)
+
 add_test_case(headers_add)
 add_test_case(headers_add_array)
 add_test_case(headers_set)
@@ -636,6 +638,8 @@ add_test_case(http_proxy_adaptive_ntlm_success)
 add_test_case(http_proxy_adaptive_failure)
 add_test_case(http_forwarding_proxy_uri_rewrite)
 add_test_case(http_forwarding_proxy_uri_rewrite_options_star)
+add_test_case(http_proxy_no_proxy_hosts_match)
+add_test_case(http_proxy_no_proxy_hosts_no_match)
 
 # NO_PROXY tests
 add_test_case(test_no_proxy_subdomain_matching)
@@ -693,11 +697,11 @@ add_net_test_case(h2_sm_connection_ping)
 add_net_test_case(h2_sm_acquire_stream)
 add_net_test_case(h2_sm_acquire_stream_multiple_connections)
 add_net_test_case(h2_sm_closing_before_connection_acquired)
-add_net_test_case(h2_sm_close_connection_on_server_error)
 
 # Tests against local server
 if(ENABLE_LOCALHOST_INTEGRATION_TESTS)
     # Tests should be named with localhost_integ_*
+    add_net_test_case(localhost_integ_h2_sm_close_connection_on_server_error)
     add_net_test_case(localhost_integ_h2_sm_prior_knowledge)
     add_net_test_case(localhost_integ_h2_sm_acquire_stream_stress)
     add_net_test_case(localhost_integ_h2_sm_acquire_stream_stress_with_body)

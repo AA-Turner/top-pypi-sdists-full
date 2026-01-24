@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: liblinear-multicore
-Version: 2.49.0
+Version: 2.50.0
 Summary: Python binding of multi-core LIBLINEAR
 Home-page: https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/multicore-liblinear
 Author: ML group @ National Taiwan University
@@ -8,6 +8,14 @@ Author-email: cjlin@csie.ntu.edu.tw
 Description-Content-Type: text/plain
 License-File: LICENSE
 Requires-Dist: scipy
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 ------------------------------------------------
 --- Multi-core Python Interface of LIBLINEAR ---
@@ -100,7 +108,7 @@ Specify the option '-m nr_thread' to use nr_thread threads for parallelizing sol
 # Read data in LIBSVM format
 >>> y, x = svm_read_problem('../heart_scale')
 >>> m = train(y[:200], x[:200], '-c 4 -m 8')
->>> p_label, p_acc, p_val = predict(y[200:], x[200:], m)
+>>> pred_labels, pred_metrics, pred_values = predict(y[200:], x[200:], m)
 
 # Construct problem in python format
 # Dense data
@@ -114,8 +122,8 @@ Specify the option '-m nr_thread' to use nr_thread threads for parallelizing sol
 # Other utility functions
 >>> save_model('heart_scale.model', m)
 >>> m = load_model('heart_scale.model')
->>> p_label, p_acc, p_val = predict(y, x, m, '-b 1')
->>> ACC, MSE, SCC = evaluations(y, p_label)
+>>> pred_labels, pred_metrics, pred_values = predict(y, x, m, '-b 1')
+>>> ACC, MSE, SCC = evaluations(y, pred_labels)
 
 # Getting online help
 >>> help(train)
@@ -147,7 +155,7 @@ in liblinearutil.py and the usage is the same as the LIBLINEAR MATLAB interface.
 # Read data in LIBSVM format
 >>> y, x = svm_read_problem('../heart_scale', return_scipy = True) # y: ndarray, x: csr_matrix
 >>> m = train(y[:200], x[:200, :], '-c 4')
->>> p_label, p_acc, p_val = predict(y[200:], x[200:, :], m)
+>>> pred_labels, pred_metrics, pred_values = predict(y[200:], x[200:, :], m)
 
 # Construct problem in Scipy format
 # Dense data: numpy ndarray
@@ -166,8 +174,8 @@ in liblinearutil.py and the usage is the same as the LIBLINEAR MATLAB interface.
 # Other utility functions
 >>> save_model('heart_scale.model', m)
 >>> m = load_model('heart_scale.model')
->>> p_label, p_acc, p_val = predict(y, x, m, '-b 1')
->>> ACC, MSE, SCC = evaluations(y, p_label)
+>>> pred_labels, pred_metrics, pred_values = predict(y, x, m, '-b 1')
+>>> ACC, MSE, SCC = evaluations(y, pred_labels)
 
 # Getting online help
 >>> help(train)
@@ -451,7 +459,7 @@ The above command loads
 
     To predict testing data with a model, use
 
-    >>> p_labs, p_acc, p_vals = predict(y, x, model [,'predicting_options'])
+    >>> pred_labels, pred_metrics, pred_values = predict(y, x, model [,'predicting_options'])
 
     y: a list/tuple/ndarray of l true labels (type must be int/double).
        It is used for calculating the accuracy. Use [] if true labels are
@@ -467,13 +475,13 @@ The above command loads
 
     model: a model instance.
 
-    p_labels: a list of predicted labels
+    pred_labels: a list of predicted labels
 
-    p_acc: a tuple including accuracy (for classification), mean
+    pred_metrics: a tuple of metrics including accuracy (for classification), mean
            squared error, and squared correlation coefficient (for
            regression).
 
-    p_vals: a list of decision values or probability estimates (if '-b 1'
+    pred_values: a list of decision values or probability estimates (if '-b 1'
             is specified). If k is the number of classes, for decision values,
             each element includes results of predicting k binary-class
             SVMs. If k = 2 and solver is not MCSVM_CS, only one decision value
@@ -485,15 +493,31 @@ The above command loads
     Example:
 
     >>> m = train(y, x, '-c 5')
-    >>> p_labels, p_acc, p_vals = predict(y, x, m)
+    >>> pred_labels, pred_metrics, pred_values = predict(y, x, m)
 
-- Functions: svm_read_problem/load_model/save_model
+- Function: svm_read_problem
+
+    Read the data from a LIBSVM-format file or object.
+
+    # Read the data from a file path
+    >>> y, x = svm_read_problem('data.txt')
+
+    # Read the data from an object created from an url
+    >>> import urllib.request
+    >>> import bz2
+    >>> url = 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/leu.bz2'
+    >>> with urllib.request.urlopen(url) as r:
+    >>>     with bz2.open(r, 'rt') as f:
+    >>>         y, x = svm_read_problem(f)
+
+    Note that we must convert the file object to text mode before
+    passing it to svm_read_problem() as we do not support binary
+    mode.
+
+- Functions: load_model/save_model
 
     See the usage by examples:
 
-    >>> y, x = svm_read_problem('data.txt')
-    >>> with open('data.txt') as f:
-    >>>     y, x = svm_read_problem(f)
     >>> m = load_model('model_file')
     >>> save_model('model_file', m)
 

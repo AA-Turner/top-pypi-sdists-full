@@ -12,6 +12,22 @@
 #include "slang/diagnostics/StatementsDiags.h"
 #include "slang/syntax/AllSyntax.h"
 
+namespace {
+
+using namespace slang::ast;
+
+struct EquivalentToVisitor {
+    template<typename T>
+    bool visit(const T& lhs, const Constraint& rhs) {
+        if (lhs.kind != rhs.kind)
+            return false;
+
+        return lhs.isEquivalentImpl(rhs.as<T>());
+    }
+};
+
+} // namespace
+
 namespace slang::ast {
 
 using namespace parsing;
@@ -60,6 +76,11 @@ const Constraint& Constraint::bind(const ConstraintItemSyntax& syntax, const AST
     return *result;
 }
 
+bool Constraint::isEquivalentTo(const Constraint& other) const {
+    EquivalentToVisitor visitor;
+    return visit(visitor, other);
+}
+
 Constraint& Constraint::badConstraint(Compilation& compilation, const Constraint* ctrl) {
     return *compilation.emplace<InvalidConstraint>(ctrl);
 }
@@ -87,6 +108,12 @@ Constraint& ConstraintList::fromSyntax(const ConstraintBlockSyntax& syntax,
     return *list;
 }
 
+bool ConstraintList::isEquivalentImpl(const ConstraintList& rhs) const {
+    return std::ranges::equal(list, rhs.list, [](const Constraint* a, const Constraint* b) {
+        return a->isEquivalentTo(*b);
+    });
+}
+
 void ConstraintList::serializeTo(ASTSerializer& serializer) const {
     serializer.startArray("list");
     for (auto constraint : list) {
@@ -94,39 +121,6 @@ void ConstraintList::serializeTo(ASTSerializer& serializer) const {
     }
     serializer.endArray();
 }
-
-struct DistVarVisitor {
-    const ASTContext& context;
-    bool anyRandVars = false;
-
-    DistVarVisitor(const ASTContext& context) : context(context) {}
-
-    template<typename T>
-    void visit(const T& expr) {
-        if constexpr (std::is_base_of_v<Expression, T>) {
-            switch (expr.kind) {
-                case ExpressionKind::NamedValue:
-                case ExpressionKind::HierarchicalValue:
-                case ExpressionKind::MemberAccess:
-                case ExpressionKind::ElementSelect:
-                case ExpressionKind::RangeSelect: {
-                    if (auto sym = expr.getSymbolReference()) {
-                        RandMode mode = context.getRandMode(*sym);
-                        if (mode == RandMode::Rand)
-                            anyRandVars = true;
-                        else if (mode == RandMode::RandC)
-                            context.addDiag(diag::RandCInDist, expr.sourceRange);
-                    }
-                    break;
-                }
-                default:
-                    if constexpr (HasVisitExprs<T, DistVarVisitor>)
-                        expr.visitExprs(*this);
-                    break;
-            }
-        }
-    }
-};
 
 struct ConstraintExprVisitor {
     const ASTContext& context;
@@ -250,10 +244,17 @@ struct ConstraintExprVisitor {
                     // Additional restrictions on dist expressions:
                     // - must contain at least one 'rand' var
                     // - cannot contain any 'randc' vars
-                    DistVarVisitor distVisitor(context);
+                    bool anyRandVars = false;
                     auto& left = expr.template as<DistExpression>().left();
-                    left.visit(distVisitor);
-                    if (!distVisitor.anyRandVars)
+                    left.visitSymbolReferences([&](const Expression& subExpr, const Symbol& sym) {
+                        RandMode mode = context.getRandMode(sym);
+                        if (mode == RandMode::Rand)
+                            anyRandVars = true;
+                        else if (mode == RandMode::RandC)
+                            context.addDiag(diag::RandCInDist, subExpr.sourceRange);
+                    });
+
+                    if (!anyRandVars)
                         context.addDiag(diag::RandNeededInDist, left.sourceRange);
                     return true;
                 }
@@ -297,7 +298,8 @@ private:
 
     bool checkType(const Expression& expr) {
         if (!expr.type->isValidForRand(RandMode::Rand,
-                                       context.getCompilation().languageVersion())) {
+                                       context.getCompilation().languageVersion()) &&
+            !expr.type->isUnbounded()) {
             context.addDiag(diag::InvalidConstraintExpr, expr.sourceRange) << *expr.type;
             return false;
         }
@@ -321,6 +323,10 @@ Constraint& ExpressionConstraint::fromSyntax(const ExpressionConstraintSyntax& s
     return *result;
 }
 
+bool ExpressionConstraint::isEquivalentImpl(const ExpressionConstraint& rhs) const {
+    return expr.isEquivalentTo(rhs.expr) && isSoft == rhs.isSoft;
+}
+
 void ExpressionConstraint::serializeTo(ASTSerializer& serializer) const {
     serializer.write("expr", expr);
     serializer.write("isSoft", isSoft);
@@ -340,6 +346,10 @@ Constraint& ImplicationConstraint::fromSyntax(const ImplicationConstraintSyntax&
         return badConstraint(comp, result);
 
     return *result;
+}
+
+bool ImplicationConstraint::isEquivalentImpl(const ImplicationConstraint& rhs) const {
+    return predicate.isEquivalentTo(rhs.predicate) && body.isEquivalentTo(rhs.body);
 }
 
 void ImplicationConstraint::serializeTo(ASTSerializer& serializer) const {
@@ -366,6 +376,12 @@ Constraint& ConditionalConstraint::fromSyntax(const ConditionalConstraintSyntax&
         return badConstraint(comp, result);
 
     return *result;
+}
+
+bool ConditionalConstraint::isEquivalentImpl(const ConditionalConstraint& rhs) const {
+    return predicate.isEquivalentTo(rhs.predicate) && ifBody.isEquivalentTo(rhs.ifBody) &&
+           bool(elseBody) == bool(rhs.elseBody) &&
+           (!elseBody || elseBody->isEquivalentTo(*rhs.elseBody));
 }
 
 void ConditionalConstraint::serializeTo(ASTSerializer& serializer) const {
@@ -447,6 +463,12 @@ Constraint& UniquenessConstraint::fromSyntax(const UniquenessConstraintSyntax& s
     return *result;
 }
 
+bool UniquenessConstraint::isEquivalentImpl(const UniquenessConstraint& rhs) const {
+    return std::ranges::equal(items, rhs.items, [](const Expression* a, const Expression* b) {
+        return a->isEquivalentTo(*b);
+    });
+}
+
 void UniquenessConstraint::serializeTo(ASTSerializer& serializer) const {
     serializer.startArray("items");
     for (auto item : items)
@@ -482,6 +504,10 @@ Constraint& DisableSoftConstraint::fromSyntax(const DisableConstraintSyntax& syn
     }
 
     return *result;
+}
+
+bool DisableSoftConstraint::isEquivalentImpl(const DisableSoftConstraint& rhs) const {
+    return target.isEquivalentTo(rhs.target);
 }
 
 void DisableSoftConstraint::serializeTo(ASTSerializer& serializer) const {
@@ -522,6 +548,16 @@ Constraint& SolveBeforeConstraint::fromSyntax(const SolveBeforeConstraintSyntax&
     return *result;
 }
 
+bool SolveBeforeConstraint::isEquivalentImpl(const SolveBeforeConstraint& rhs) const {
+    return std::ranges::equal(solve, rhs.solve,
+                              [](const Expression* a, const Expression* b) {
+                                  return a->isEquivalentTo(*b);
+                              }) &&
+           std::ranges::equal(after, rhs.after, [](const Expression* a, const Expression* b) {
+               return a->isEquivalentTo(*b);
+           });
+}
+
 void SolveBeforeConstraint::serializeTo(ASTSerializer& serializer) const {
     serializer.startArray("solve");
     for (auto item : solve)
@@ -558,6 +594,12 @@ Constraint& ForeachConstraint::fromSyntax(const LoopConstraintSyntax& syntax,
         return badConstraint(comp, result);
 
     return *result;
+}
+
+bool ForeachConstraint::isEquivalentImpl(const ForeachConstraint& rhs) const {
+    return arrayRef.isEquivalentTo(rhs.arrayRef) && body.isEquivalentTo(rhs.body) &&
+           std::ranges::equal(loopDims, rhs.loopDims,
+                              [](auto& a, auto& b) { return a.isEquivalentTo(b); });
 }
 
 void ForeachConstraint::serializeTo(ASTSerializer& serializer) const {

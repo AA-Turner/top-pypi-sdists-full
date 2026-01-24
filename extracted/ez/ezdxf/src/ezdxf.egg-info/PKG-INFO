@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ezdxf
-Version: 1.4.2
+Version: 1.4.3
 Summary: A Python package to create/manipulate DXF drawings.
 Author-email: Manfred Moitzi <me@mozman.at>
 Project-URL: Repository, https://github.com/mozman/ezdxf
@@ -15,17 +15,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides: ezdxf
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyparsing>=2.0.1
@@ -81,7 +82,7 @@ containing data from third-party applications without any loss of valuable infor
   existing DXF documents
 - MIT-License
 - the intended audience are programmers
-- requires at least Python 3.9
+- requires at least Python 3.10
 - OS independent
 - tested with CPython and pypy3
 - has type annotations and passes `mypy --ignore-missing-imports -p ezdxf` successful

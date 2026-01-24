@@ -9,11 +9,7 @@ def bake_animation(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update the audio animation cache
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update the audio animation cache"""
 
 def mixdown(
     execution_context: int | str | None = None,
@@ -70,48 +66,26 @@ def mixdown(
 ) -> None:
     """Mix the scenes audio to a sound file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -125,11 +99,8 @@ def mixdown(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param accuracy: Accuracy, Sample accuracy, important for animation data (the lower the value, the more accurate)
-        :type accuracy: int | None
         :param container: Container, File format
 
     AAC
@@ -155,7 +126,6 @@ def mixdown(
 
     WAV
     WAV -- Waveform Audio File Format.
-        :type container: typing.Literal['AAC','AC3','FLAC','MATROSKA','MP2','MP3','OGG','WAV'] | None
         :param codec: Codec, Audio Codec
 
     AAC
@@ -178,7 +148,6 @@ def mixdown(
 
     VORBIS
     Vorbis -- Xiph.Org Vorbis Codec.
-        :type codec: typing.Literal['AAC','AC3','FLAC','MP2','MP3','PCM','VORBIS'] | None
         :param channels: Channels, Audio channel count
 
     MONO
@@ -204,7 +173,6 @@ def mixdown(
 
     SURROUND71
     7.1 Surround -- 7.1 surround sound.
-        :type channels: typing.Literal['MONO','STEREO','STEREO_LFE','SURROUND4','SURROUND5','SURROUND51','SURROUND61','SURROUND71'] | None
         :param format: Format, Sample format
 
     U8
@@ -224,13 +192,9 @@ def mixdown(
 
     F64
     F64 -- 64-bit floating-point.
-        :type format: typing.Literal['U8','S16','S24','S32','F32','F64'] | None
         :param mixrate: Sample Rate, Sample rate in samples/s
-        :type mixrate: int | None
         :param bitrate: Bitrate, Bitrate in kbit/s
-        :type bitrate: int | None
         :param split_channels: Split channels, Each channel will be rendered into a mono file
-        :type split_channels: bool | None
     """
 
 def open(
@@ -271,54 +235,29 @@ def open(
 ) -> None:
     """Load a sound file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -332,13 +271,9 @@ def open(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param cache: Cache, Cache the sound in memory
-        :type cache: bool | None
         :param mono: Mono, Merge all the sounds channels into one
-        :type mono: bool | None
     """
 
 def open_mono(
@@ -379,54 +314,29 @@ def open_mono(
 ) -> None:
     """Load a sound file as mono
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -440,13 +350,9 @@ def open_mono(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param cache: Cache, Cache the sound in memory
-        :type cache: bool | None
         :param mono: Mono, Mixdown the sound to mono
-        :type mono: bool | None
     """
 
 def pack(
@@ -454,11 +360,7 @@ def pack(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Pack the sound into the current blend file
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Pack the sound into the current blend file"""
 
 def unpack(
     execution_context: int | str | None = None,
@@ -470,12 +372,8 @@ def unpack(
 ) -> None:
     """Unpack the sound to the samples filename
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param method: Method, How to unpack
-    :type method: bpy.stub_internal.rna_enums.UnpackMethodItems | None
     :param id: Sound Name, Sound data-block name to unpack
-    :type id: str
     """
 
 def update_animation_flags(
@@ -483,8 +381,4 @@ def update_animation_flags(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update animation flags
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update animation flags"""

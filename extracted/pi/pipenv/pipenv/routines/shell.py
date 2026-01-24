@@ -27,6 +27,9 @@ def do_shell(
     from pipenv.shells import choose_shell
 
     shell = choose_shell(project)
+    # Respect both --quiet flag and PIPENV_QUIET environment variable
+    # See: https://github.com/pypa/pipenv/issues/5954
+    quiet = quiet or project.s.is_quiet()
     if not quiet:
         err.print("Launching subshell in virtual environment...")
 
@@ -41,12 +44,17 @@ def do_shell(
     # otherwise its value will be changed
     os.environ["PIPENV_ACTIVE"] = "1"
 
+    # Set PIPENV_PROJECT_DIR to the project root directory.
+    # This allows scripts to reference project-relative paths regardless of
+    # the current working directory. See: https://github.com/pypa/pipenv/issues/2241
+    os.environ["PIPENV_PROJECT_DIR"] = str(project.project_directory)
+
     if fancy:
         shell.fork(*fork_args)
         return
 
     try:
-        shell.fork_compat(*fork_args)
+        shell.fork_compat(*fork_args, quiet=quiet)
     except (AttributeError, ImportError):
         err.print(
             "Compatibility mode not supported. "
@@ -55,26 +63,37 @@ def do_shell(
         shell.fork(*fork_args)
 
 
-def do_run(project, command, args, python=False, pypi_mirror=None):
+def do_run(project, command, args, python=False, pypi_mirror=None, system=False):
     """Attempt to run command either pulling from project or interpreting as executable.
 
     Args are appended to the command in [scripts] section of project if found.
+
+    When system=True, skip virtualenv creation and use system Python directly.
+    This is useful in Docker environments where packages are installed with
+    `pipenv install --system` and users want to run scripts from [scripts] section.
     """
 
     from pipenv.cmdparse import ScriptEmptyError
 
     env = os.environ.copy()
 
-    # Ensure that virtualenv is available.
+    # Handle --system flag
+    if system:
+        project.s.PIPENV_USE_SYSTEM = True
+        os.environ["PIPENV_USE_SYSTEM"] = "1"
+
+    # Ensure that virtualenv is available (unless --system is used).
     ensure_project(
         project,
         python=python,
         validate=False,
         pypi_mirror=pypi_mirror,
+        system=system,
     )
 
     path = env.get("PATH", "")
-    if project.virtualenv_location:
+    # Only modify PATH for virtualenv if not using --system
+    if not system and project.virtualenv_location:
         # Get the exact string representation of virtualenv_location
         virtualenv_location = str(project.virtualenv_location)
 
@@ -94,6 +113,11 @@ def do_run(project, command, args, python=False, pypi_mirror=None):
     # such as in inline_activate_virtual_environment
     # otherwise its value will be changed
     env["PIPENV_ACTIVE"] = "1"
+
+    # Set PIPENV_PROJECT_DIR to the project root directory.
+    # This allows scripts to reference project-relative paths regardless of
+    # the current working directory. See: https://github.com/pypa/pipenv/issues/2241
+    env["PIPENV_PROJECT_DIR"] = str(project.project_directory)
 
     try:
         script = project.build_script(command, args)
@@ -115,27 +139,25 @@ def do_run(project, command, args, python=False, pypi_mirror=None):
 def do_run_posix(project, script, command, env):
     path = env.get("PATH")
     command_path = system_which(script.command, path=path)
-    if not command_path:
-        if project.has_script(command):
-            err.print(
-                f"[bold red]Error[/bold red]: the command [yellow]{script.command}[/yellow] "
-                f"(from [bold]{command}[/bold]) could not be found within [bold]PATH[/bold]."
-            )
-        else:
-            err.print(
-                f"[bold red]Error[/bold red]: the command [yellow]{command}[/yellow] "
-                f"could not be found within [bold]PATH[/bold] or Pipfile's [bold][scripts][/bold]."
-            )
-        sys.exit(1)
 
     # Ensure all environment variables are strings
     string_env = {k: str(v) for k, v in env.items() if v is not None}
 
-    os.execve(
-        command_path,
-        [command_path, *(expandvars(arg) for arg in script.args)],
-        string_env,
-    )
+    if command_path:
+        # Command found in PATH, use os.execve for direct execution
+        os.execve(
+            command_path,
+            [command_path, *(expandvars(arg) for arg in script.args)],
+            string_env,
+        )
+    else:
+        # Command not found in PATH, maybe it's a shell builtin (cd, echo, export, etc.)
+        # Fall back to running through the shell, similar to Windows behavior.
+        # See: https://github.com/pypa/pipenv/issues/6186
+        cmd_args = [script.command] + [expandvars(arg) for arg in script.args]
+        cmd_string = cmd_list_to_shell(cmd_args)
+        result = subprocess.run(cmd_string, shell=True, env=string_env, check=False)
+        sys.exit(result.returncode)
 
 
 def do_run_nt(project, script, env):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsii
-Version: 1.114.1
+Version: 1.125.0
 Summary: Python client for jsii runtime
 Home-page: https://github.com/aws/jsii
 Author: Amazon Web Services
@@ -23,10 +23,10 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: attrs<26.0,>=21.2
-Requires-Dist: cattrs<25.3,>=1.8
+Requires-Dist: cattrs<25.4,>=1.8
 Requires-Dist: importlib_resources>=5.2.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.5.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 Requires-Dist: python-dateutil
 Requires-Dist: typing_extensions<5.0,>=3.8
 Dynamic: author

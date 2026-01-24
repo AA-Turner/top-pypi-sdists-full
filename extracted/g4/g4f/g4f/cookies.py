@@ -50,7 +50,12 @@ class CookiesConfig:
 class BrowserConfig:
     port: int = None
     host: str = "127.0.0.1"
-    stop_browser = lambda: None
+    impersonate: str = "chrome"
+    
+    @staticmethod
+    def stop_browser():
+        return None
+    
     browser_executable_path: str = None
 
 DOMAINS = (
@@ -64,9 +69,10 @@ DOMAINS = (
     "chatgpt.com",
     ".cerebras.ai",
     "github.com",
+    "yupp.ai",
 )
 
-if has_browser_cookie3 and os.environ.get("DBUS_SESSION_BUS_ADDRESS") == "/dev/null":
+if has_browser_cookie3 and os.environ.get("DBUS_SESSION_BUS_ADDRESS", "/dev/null") == "/dev/null":
     _LinuxPasswordManager.get_password = lambda a, b: b"secret"
 
 
@@ -194,6 +200,7 @@ def read_cookie_files(dir_path: Optional[str] = None, domains_filter: Optional[L
     if BrowserConfig.port:
         BrowserConfig.port = int(BrowserConfig.port)
         debug.log(f"Using browser: {BrowserConfig.host}:{BrowserConfig.port}")
+    BrowserConfig.impersonate = os.environ.get("G4F_BROWSER_IMPERSONATE", BrowserConfig.impersonate)
 
     har_files, json_files = [], []
     for root, _, files in os.walk(dir_path):

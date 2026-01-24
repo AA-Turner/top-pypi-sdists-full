@@ -18,15 +18,17 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.external_log_record import ExternalLogRecord
 
 class ExternalLogInsertionRequest(BaseModel):
     """
     ExternalLogInsertionRequest
     """
-    logs: conlist(ExternalLogRecord) = Field(...)
+    logs: List[ExternalLogRecord]
     __properties = ["logs"]
 
     class Config:
@@ -83,3 +85,5 @@ class ExternalLogInsertionRequest(BaseModel):
             "logs": [ExternalLogRecord.from_dict(_item) for _item in obj.get("logs")] if obj.get("logs") is not None else None
         })
         return _obj
+
+ExternalLogInsertionRequest.update_forward_refs()

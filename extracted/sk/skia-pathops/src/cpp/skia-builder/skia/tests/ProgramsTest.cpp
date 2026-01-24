@@ -15,11 +15,11 @@
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/gpu/gl/GrGLTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/gl/GrGLTypes.h"
 #include "include/private/base/SkDebug.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/base/SkRandom.h"
@@ -102,7 +102,7 @@ private:
 
 GR_DEFINE_FRAGMENT_PROCESSOR_TEST(BigKeyProcessor)
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 std::unique_ptr<GrFragmentProcessor> BigKeyProcessor::TestCreate(GrProcessorTestData*) {
     return BigKeyProcessor::Make();
 }
@@ -178,12 +178,12 @@ static std::unique_ptr<skgpu::ganesh::SurfaceDrawContext> random_surface_draw_co
                                                    SkSurfaceProps(),
                                                    /*label=*/{},
                                                    sampleCnt,
-                                                   GrMipmapped::kNo,
+                                                   skgpu::Mipmapped::kNo,
                                                    GrProtected::kNo,
                                                    origin);
 }
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 static void set_random_xpf(GrPaint* paint, GrProcessorTestData* d) {
     paint->setXPFactory(GrXPFactoryTestFactory::Get(d));
 }
@@ -264,7 +264,7 @@ static void set_random_color_coverage_stages(GrPaint* paint,
 
 #endif
 
-#if !GR_TEST_UTILS
+#if !defined(GPU_TEST_UTILS)
 bool GrDrawingManager::ProgramUnitTest(GrDirectContext*, int) { return true; }
 #else
 bool GrDrawingManager::ProgramUnitTest(GrDirectContext* direct, int maxStages, int maxLevels) {
@@ -274,7 +274,7 @@ bool GrDrawingManager::ProgramUnitTest(GrDirectContext* direct, int maxStages, i
     GrProcessorTestData::ViewInfo views[2];
 
     // setup arbitrary textures
-    GrMipmapped mipmapped = GrMipmapped(caps->mipmapSupport());
+    skgpu::Mipmapped mipmapped = skgpu::Mipmapped(caps->mipmapSupport());
     {
         static constexpr SkISize kDims = {34, 18};
         const GrBackendFormat format = caps->getDefaultBackendFormat(GrColorType::kRGBA_8888,
@@ -328,14 +328,14 @@ bool GrDrawingManager::ProgramUnitTest(GrDirectContext* direct, int maxStages, i
         }
 
         GrPaint paint;
-        GrProcessorTestData ptd(&random, direct, /*maxTreeDepth=*/1, std::size(views), views);
+        GrProcessorTestData ptd(&random, surfaceDrawContext.get(), /*maxTreeDepth=*/1, views);
         set_random_color_coverage_stages(&paint, &ptd, maxStages, maxLevels);
         set_random_xpf(&paint, &ptd);
         GrDrawRandomOp(&random, surfaceDrawContext.get(), std::move(paint));
     }
     // Flush everything, test passes if flush is successful(ie, no asserts are hit, no crashes)
     direct->flush(GrFlushInfo());
-    direct->submit(false);
+    direct->submit(GrSyncCpu::kNo);
 
     // Validate that GrFPs work correctly without an input.
     auto sdc = skgpu::ganesh::SurfaceDrawContext::Make(direct,
@@ -354,8 +354,7 @@ bool GrDrawingManager::ProgramUnitTest(GrDirectContext* direct, int maxStages, i
     for (int i = 0; i < fpFactoryCnt; ++i) {
         // Since FP factories internally randomize, call each 10 times.
         for (int j = 0; j < 10; ++j) {
-            GrProcessorTestData ptd(&random, direct, /*maxTreeDepth=*/1, std::size(views),
-                                    views);
+            GrProcessorTestData ptd(&random, sdc.get(), /*maxTreeDepth=*/1, views);
 
             GrPaint paint;
             paint.setXPFactory(GrPorterDuffXPFactory::Get(SkBlendMode::kSrc));
@@ -365,7 +364,7 @@ bool GrDrawingManager::ProgramUnitTest(GrDirectContext* direct, int maxStages, i
             GrDrawRandomOp(&random, sdc.get(), std::move(paint));
 
             direct->flush(GrFlushInfo());
-            direct->submit(false);
+            direct->submit(GrSyncCpu::kNo);
         }
     }
 
@@ -388,7 +387,7 @@ static int get_programs_max_stages(const sk_gpu_test::ContextInfo& ctxInfo) {
             maxStages = 1;
         }
 #endif
-        // On iOS we can exceed the maximum number of varyings. http://skbug.com/6627.
+        // On iOS we can exceed the maximum number of varyings. skbug.com/40037842.
 #ifdef SK_BUILD_FOR_IOS
             maxStages = 3;
 #endif
@@ -396,9 +395,9 @@ static int get_programs_max_stages(const sk_gpu_test::ContextInfo& ctxInfo) {
         // On Angle D3D we will hit a limit of out variables if we use too many stages. This is
         // particularly true on D3D9 with a low limit on varyings and the fact that every varying is
         // packed as though it has 4 components.
-        if (ctxInfo.type() == sk_gpu_test::GrContextFactory::kANGLE_D3D9_ES2_ContextType) {
+        if (ctxInfo.type() == skgpu::ContextType::kANGLE_D3D9_ES2) {
             maxStages = 2;
-        } else if (ctxInfo.type() == sk_gpu_test::GrContextFactory::kANGLE_D3D11_ES2_ContextType) {
+        } else if (ctxInfo.type() == skgpu::ContextType::kANGLE_D3D11_ES2) {
             maxStages = 3;
         }
     }
@@ -411,7 +410,7 @@ static int get_programs_max_levels(const sk_gpu_test::ContextInfo& ctxInfo) {
     // (e.g. uniform or varying limits); maxTreeLevels should be a number from 1 to 4 inclusive.
     int maxTreeLevels = 4;
     if (skiatest::IsGLContextType(ctxInfo.type())) {
-        // On iOS we can exceed the maximum number of varyings. http://skbug.com/6627.
+        // On iOS we can exceed the maximum number of varyings. skbug.com/40037842.
 #ifdef SK_BUILD_FOR_IOS
         maxTreeLevels = 2;
 #endif
@@ -423,8 +422,8 @@ static int get_programs_max_levels(const sk_gpu_test::ContextInfo& ctxInfo) {
             maxTreeLevels = 3;
         }
 #endif
-        if (ctxInfo.type() == sk_gpu_test::GrContextFactory::kANGLE_D3D9_ES2_ContextType ||
-            ctxInfo.type() == sk_gpu_test::GrContextFactory::kANGLE_D3D11_ES2_ContextType) {
+        if (ctxInfo.type() == skgpu::ContextType::kANGLE_D3D9_ES2 ||
+            ctxInfo.type() == skgpu::ContextType::kANGLE_D3D11_ES2) {
             // On Angle D3D we will hit a limit of out variables if we use too many stages.
             maxTreeLevels = 2;
         }
@@ -448,7 +447,7 @@ static void test_programs(skiatest::Reporter* reporter, const sk_gpu_test::Conte
 
 DEF_GANESH_TEST(Programs, reporter, options, CtsEnforcement::kNever) {
     // Set a locale that would cause shader compilation to fail because of , as decimal separator.
-    // skbug 3330
+    // skbug.com/40034453
 #ifdef SK_BUILD_FOR_WIN
     GrAutoLocaleSetter als("sv-SE");
 #else
@@ -459,6 +458,5 @@ DEF_GANESH_TEST(Programs, reporter, options, CtsEnforcement::kNever) {
     GrContextOptions opts = options;
     opts.fSuppressPrints = true;
     sk_gpu_test::GrContextFactory debugFactory(opts);
-    skiatest::RunWithGaneshTestContexts(
-            test_programs, &sk_gpu_test::GrContextFactory::IsRenderingContext, reporter, opts);
+    skiatest::RunWithGaneshTestContexts(test_programs, &skgpu::IsRenderingContext, reporter, opts);
 }

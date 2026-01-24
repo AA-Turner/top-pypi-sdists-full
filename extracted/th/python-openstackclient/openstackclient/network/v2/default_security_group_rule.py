@@ -16,10 +16,10 @@
 import logging
 
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.network import common
 from openstackclient.network import utils as network_utils
@@ -150,7 +150,7 @@ class CreateDefaultSecurityGroupRule(
         return parser
 
     def take_action(self, parsed_args):
-        client = self.app.client_manager.sdk_connection.network
+        client = self.app.client_manager.network
         # Build the create attributes.
         attrs = {}
         attrs['protocol'] = network_utils.get_protocol(parsed_args)
@@ -248,7 +248,7 @@ class DeleteDefaultSecurityGroupRule(command.Command):
 
     def take_action(self, parsed_args):
         result = 0
-        client = self.app.client_manager.sdk_connection.network
+        client = self.app.client_manager.network
         for r in parsed_args.rule:
             try:
                 obj = client.find_default_security_group_rule(
@@ -300,7 +300,8 @@ class ListDefaultSecurityGroupRule(command.Lister):
             metavar='<protocol>',
             type=network_utils.convert_to_lowercase,
             help=_(
-                "List rules by the IP protocol (ah, dhcp, egp, esp, gre, "
+                "List only default rules with the specified IP protocol "
+                "(ah, dhcp, egp, esp, gre, "
                 "icmp, igmp, ipv6-encap, ipv6-frag, ipv6-icmp, "
                 "ipv6-nonxt, ipv6-opts, ipv6-route, ospf, pgm, rsvp, "
                 "sctp, tcp, udp, udplite, vrrp and integer "
@@ -319,7 +320,7 @@ class ListDefaultSecurityGroupRule(command.Lister):
             '--ingress',
             action='store_true',
             help=_(
-                "List default rules which will be applied to incoming "
+                "List only default rules which will be applied to incoming "
                 "network traffic"
             ),
         )
@@ -327,14 +328,14 @@ class ListDefaultSecurityGroupRule(command.Lister):
             '--egress',
             action='store_true',
             help=_(
-                "List default rules which will be applied to outgoing "
+                "List only default rules which will be applied to outgoing "
                 "network traffic"
             ),
         )
         return parser
 
     def take_action(self, parsed_args):
-        client = self.app.client_manager.sdk_connection.network
+        client = self.app.client_manager.network
         column_headers = (
             'ID',
             'IP Protocol',
@@ -403,7 +404,7 @@ class ShowDefaultSecurityGroupRule(command.ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        client = self.app.client_manager.sdk_connection.network
+        client = self.app.client_manager.network
         obj = client.find_default_security_group_rule(
             parsed_args.rule, ignore_missing=False
         )

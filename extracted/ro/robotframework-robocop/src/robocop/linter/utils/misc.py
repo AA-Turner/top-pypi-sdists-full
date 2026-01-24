@@ -23,7 +23,6 @@ except ImportError:
 from robot.variables.search import search_variable
 from robot.version import VERSION as RF_VERSION
 
-from robocop import __version__
 from robocop.linter.utils.variable_matcher import VariableMatches
 from robocop.linter.utils.version_matching import Version
 
@@ -38,7 +37,7 @@ if TYPE_CHECKING:
 ROBOT_VERSION = Version(RF_VERSION)
 ROBOT_WITH_LANG = Version("6.0")
 ROBOT_WITH_TYPE = Version("7.3")
-ROBOCOP_RULES_URL = "https://robocop.readthedocs.io/en/{version}/rules_list.html"
+ROBOCOP_RULES_URL = "https://robocop.dev/{version}/rules_list/"
 
 
 ReturnClasses = namedtuple("ReturnClasses", ["return_class", "return_setting_class"])  # noqa: PYI024
@@ -51,18 +50,18 @@ def get_return_classes() -> ReturnClasses:
     Robot Framework change model names for [Return] and RETURN depending on the RF version. To achieve backward
     compatibility we need to define mapping.
     """
-    from robot.parsing.model.statements import Return
+    from robot.parsing.model.statements import Return  # noqa: PLC0415
 
     if ROBOT_VERSION.major < 5:
         return_class = Return  # it does not exist, but we define it for backward compatibility
         return_setting_class = Return
     elif ROBOT_VERSION.major < 7:
-        from robot.api.parsing import ReturnStatement
+        from robot.api.parsing import ReturnStatement  # noqa: PLC0415
 
         return_class = ReturnStatement
         return_setting_class = Return
     else:
-        from robot.api.parsing import ReturnSetting
+        from robot.api.parsing import ReturnSetting  # noqa: PLC0415
 
         return_class = Return
         return_setting_class = ReturnSetting
@@ -156,7 +155,7 @@ def issues_to_lsp_diagnostic(issues: list[Diagnostic]) -> list[dict]:
             "code": issue.rule.rule_id,
             "source": "robocop",
             "message": issue.rule.message,
-            "codeDescription": {"href": f"{ROBOCOP_RULES_URL.format(version=__version__)}#{issue.rule.name}"},
+            "codeDescription": {"href": f"{issue.rule.docs_url}"},
         }
         for issue in issues
     ]
@@ -177,19 +176,19 @@ class AssignmentTypeDetector(ast.NodeVisitor):
         self.variables_sign_counter = Counter()
         self.variables_most_common = None
 
-    def visit_File(self, node: File) -> None:  # noqa: N802
+    def visit_File(self, node: File) -> None:
         self.generic_visit(node)
         if len(self.keyword_sign_counter) >= 2:
             self.keyword_most_common = self.keyword_sign_counter.most_common(1)[0][0]
         if len(self.variables_sign_counter) >= 2:
             self.variables_most_common = self.variables_sign_counter.most_common(1)[0][0]
 
-    def visit_KeywordCall(self, node: KeywordCall) -> None:  # noqa: N802
+    def visit_KeywordCall(self, node: KeywordCall) -> None:
         if node.assign:  # if keyword returns any value
             sign = self.get_assignment_sign(node.assign[-1])
             self.keyword_sign_counter[sign] += 1
 
-    def visit_VariableSection(self, node: VariableSection) -> VariableSection:  # noqa: N802
+    def visit_VariableSection(self, node: VariableSection) -> VariableSection:
         for child in node.body:
             if not isinstance(child, Variable):
                 continue
@@ -286,7 +285,7 @@ class TestTemplateFinder(ast.NodeVisitor):
     def __init__(self):
         self.templated = False
 
-    def visit_TestTemplate(self, node: TestTemplate) -> None:  # noqa: N802
+    def visit_TestTemplate(self, node: TestTemplate) -> None:
         self.templated = bool(node.value)
 
 
@@ -355,7 +354,9 @@ def find_robot_vars(name: str) -> list[tuple[int, int]]:
     return variables
 
 
-def pattern_type(value: str) -> re.Pattern:
+def pattern_type(value: str | None) -> re.Pattern | None:
+    if value is None:
+        return None
     try:
         pattern = re.compile(value)
     except re.error as err:

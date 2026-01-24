@@ -1,7 +1,7 @@
 r'''
 # `github_actions_environment_variable`
 
-Refer to the Terraform Registry for docs: [`github_actions_environment_variable`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable).
+Refer to the Terraform Registry for docs: [`github_actions_environment_variable`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionsEnvironmentVariable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.actionsEnvironmentVariable.ActionsEnvironmentVariable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable github_actions_environment_variable}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable github_actions_environment_variable}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ActionsEnvironmentVariable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable github_actions_environment_variable} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable github_actions_environment_variable} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#environment ActionsEnvironmentVariable#environment}
-        :param repository: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#repository ActionsEnvironmentVariable#repository}
-        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#value ActionsEnvironmentVariable#value}
-        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#variable_name ActionsEnvironmentVariable#variable_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#id ActionsEnvironmentVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#environment ActionsEnvironmentVariable#environment}
+        :param repository: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#repository ActionsEnvironmentVariable#repository}
+        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#value ActionsEnvironmentVariable#value}
+        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#variable_name ActionsEnvironmentVariable#variable_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#id ActionsEnvironmentVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ActionsEnvironmentVariable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionsEnvironmentVariable to import.
-        :param import_from_id: The id of the existing ActionsEnvironmentVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionsEnvironmentVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionsEnvironmentVariable to import is found.
         '''
         if __debug__:
@@ -282,11 +282,11 @@ class ActionsEnvironmentVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#environment ActionsEnvironmentVariable#environment}
-        :param repository: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#repository ActionsEnvironmentVariable#repository}
-        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#value ActionsEnvironmentVariable#value}
-        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#variable_name ActionsEnvironmentVariable#variable_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#id ActionsEnvironmentVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#environment ActionsEnvironmentVariable#environment}
+        :param repository: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#repository ActionsEnvironmentVariable#repository}
+        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#value ActionsEnvironmentVariable#value}
+        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#variable_name ActionsEnvironmentVariable#variable_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#id ActionsEnvironmentVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -395,7 +395,7 @@ class ActionsEnvironmentVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment(self) -> builtins.str:
         '''Name of the environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#environment ActionsEnvironmentVariable#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#environment ActionsEnvironmentVariable#environment}
         '''
         result = self._values.get("environment")
         assert result is not None, "Required property 'environment' is missing"
@@ -405,7 +405,7 @@ class ActionsEnvironmentVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''Name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#repository ActionsEnvironmentVariable#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#repository ActionsEnvironmentVariable#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -415,7 +415,7 @@ class ActionsEnvironmentVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''Value of the variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#value ActionsEnvironmentVariable#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#value ActionsEnvironmentVariable#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -425,7 +425,7 @@ class ActionsEnvironmentVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def variable_name(self) -> builtins.str:
         '''Name of the variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#variable_name ActionsEnvironmentVariable#variable_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#variable_name ActionsEnvironmentVariable#variable_name}
         '''
         result = self._values.get("variable_name")
         assert result is not None, "Required property 'variable_name' is missing"
@@ -433,7 +433,7 @@ class ActionsEnvironmentVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_environment_variable#id ActionsEnvironmentVariable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_environment_variable#id ActionsEnvironmentVariable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

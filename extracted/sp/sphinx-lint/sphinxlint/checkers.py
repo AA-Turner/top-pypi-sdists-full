@@ -55,9 +55,8 @@ def check_missing_backtick_after_role(file, lines, options=None):
     """
     for paragraph_lno, paragraph in paragraphs(lines):
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
-        error = rst.ROLE_MISSING_CLOSING_BACKTICK_RE.search(paragraph)
-        if error:
+            continue  # we don't handle tables yet.
+        for error in rst.ROLE_MISSING_CLOSING_BACKTICK_RE.finditer(paragraph):
             error_offset = paragraph[: error.start()].count("\n")
             yield (
                 paragraph_lno + error_offset,
@@ -78,7 +77,7 @@ def check_missing_space_after_literal(file, lines, options=None):
     """
     for paragraph_lno, paragraph in paragraphs(lines):
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
+            continue  # we don't handle tables yet.
         paragraph = clean_paragraph(paragraph)
         for role in _RST_ROLE_RE.finditer(paragraph):
             if not _END_STRING_SUFFIX_RE.match(role[0][-1]):
@@ -102,7 +101,7 @@ def check_unbalanced_inline_literals_delimiters(file, lines, options=None):
     """
     for paragraph_lno, paragraph in paragraphs(lines):
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
+            continue  # we don't handle tables yet.
         paragraph = clean_paragraph(paragraph)
         for lone_double_backtick in _LONE_DOUBLE_BACKTICK_RE.finditer(paragraph):
             error_offset = paragraph[: lone_double_backtick.start()].count("\n")
@@ -126,8 +125,7 @@ def check_default_role(file, lines, options=None):
     for lno, line in enumerate(lines, start=1):
         line = clean_paragraph(line)
         line = escape2null(line)
-        match = rst.INTERPRETED_TEXT_RE.search(line)
-        if match:
+        for match in rst.INTERPRETED_TEXT_RE.finditer(line):
             before_match = line[: match.start()]
             after_match = line[match.end() :]
             stripped_line = line.strip()
@@ -137,7 +135,7 @@ def check_default_role(file, lines, options=None):
                 and stripped_line.count("|") >= 4
                 and "|" in match.group(0)
             ):
-                return  # we don't handle tables yet.
+                continue  # we don't handle tables yet.
             if _ends_with_role_tag(before_match):
                 # It's not a default role: it ends with a tag.
                 continue
@@ -199,11 +197,16 @@ def check_missing_space_after_role(file, lines, options=None):
     Bad:  :exc:`Exception`s.
     Good: :exc:`Exceptions`\ s
     """
-    for lno, line in enumerate(lines, start=1):
-        line = clean_paragraph(line)
-        role = _SUSPICIOUS_ROLE.search(line)
-        if role:
-            yield lno, f"role missing (escaped) space after role: {role.group(0)!r}"
+    for paragraph_lno, paragraph in paragraphs(lines):
+        if paragraph.count("|") > 4:
+            continue  # we don't handle tables yet.
+        paragraph = clean_paragraph(paragraph)
+        for role in _SUSPICIOUS_ROLE.finditer(paragraph):
+            error_offset = paragraph[: role.start()].count("\n")
+            yield (
+                paragraph_lno + error_offset,
+                f"role missing (escaped) space after role: {role.group(0)!r}",
+            )
 
 
 @checker(".rst", ".po")
@@ -214,8 +217,7 @@ def check_role_without_backticks(file, lines, options=None):
     Good: :func:`pdb.main`
     """
     for lno, line in enumerate(lines, start=1):
-        no_backticks = rst.ROLE_WITH_NO_BACKTICKS_RE.search(line)
-        if no_backticks:
+        for no_backticks in rst.ROLE_WITH_NO_BACKTICKS_RE.finditer(line):
             yield lno, f"role with no backticks: {no_backticks.group(0)!r}"
 
 
@@ -244,23 +246,39 @@ def check_missing_space_in_hyperlink(file, lines, options=None):
         if "`" not in line:
             continue
         for match in rst.SEEMS_HYPERLINK_RE.finditer(line):
-            if not match.group(1):
+            if not match.group(2):
                 yield lno, "missing space before < in hyperlink"
 
 
 @checker(".rst", ".po")
 def check_missing_underscore_after_hyperlink(file, lines, options=None):
-    """Search for hyperlinks missing underscore after their closing backtick.
+    """Search for hyperlinks with incorrect underscore usage after closing backtick.
 
+    For regular hyperlinks:
     Bad:  `Link text <https://example.com>`
     Good: `Link text <https://example.com>`_
+
+    For hyperlinks within download directives:
+    Bad:  :download:`file <https://example.com>`_
+    Good: :download:`file <https://example.com>`
+
+    Note:
+    URLs within download directives don't need trailing underscores.
+    https://www.sphinx-doc.org/en/master/usage/referencing.html#role-download
     """
     for lno, line in enumerate(lines, start=1):
         if "`" not in line:
             continue
         for match in rst.SEEMS_HYPERLINK_RE.finditer(line):
-            if not match.group(2):
+            is_in_download = bool(match.group(1))
+            has_underscore = bool(match.group(3))
+
+            if is_in_download and has_underscore:
+                yield lno, "unnecessary underscore after closing backtick in hyperlink"
+            elif not is_in_download and not has_underscore:
                 yield lno, "missing underscore after closing backtick in hyperlink"
+            else:
+                continue
 
 
 @checker(".rst", ".po")
@@ -283,7 +301,7 @@ def check_role_with_double_backticks(file, lines, options=None):
         if "`" not in paragraph:
             continue
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
+            continue  # we don't handle tables yet.
         paragraph = escape2null(paragraph)
         while True:
             inline_literal = min(
@@ -306,6 +324,19 @@ def check_role_with_double_backticks(file, lines, options=None):
 
 
 @checker(".rst", ".po")
+def check_role_with_extra_backtick(filename, lines, options):
+    """Check for extra backtick in roles.
+
+    Bad:  :func:`foo``
+    Bad:  :func:``foo`
+    Good: :func:`foo`
+    """
+    for lno, line in enumerate(lines, start=1):
+        for match in rst.ROLE_WITH_EXTRA_BACKTICK_RE.finditer(line):
+            yield lno, f"Extra backtick in role: {match.group(0).strip()!r}"
+
+
+@checker(".rst", ".po")
 def check_missing_space_before_role(file, lines, options=None):
     """Search for missing spaces before roles.
 
@@ -314,10 +345,9 @@ def check_missing_space_before_role(file, lines, options=None):
     """
     for paragraph_lno, paragraph in paragraphs(lines):
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
+            continue  # we don't handle tables yet.
         paragraph = clean_paragraph(paragraph)
-        match = rst.ROLE_GLUED_WITH_WORD_RE.search(paragraph)
-        if match:
+        for match in rst.ROLE_GLUED_WITH_WORD_RE.finditer(paragraph):
             error_offset = paragraph[: match.start()].count("\n")
             if looks_like_glued(match):
                 yield (
@@ -340,7 +370,7 @@ def check_missing_space_before_default_role(file, lines, options=None):
     """
     for paragraph_lno, paragraph in paragraphs(lines):
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
+            continue  # we don't handle tables yet.
         paragraph = clean_paragraph(paragraph)
         paragraph = rst.INTERPRETED_TEXT_RE.sub("", paragraph)
         for role in rst.inline_markup_gen(
@@ -366,7 +396,7 @@ def check_hyperlink_reference_missing_backtick(file, lines, options=None):
     """
     for paragraph_lno, paragraph in paragraphs(lines):
         if paragraph.count("|") > 4:
-            return  # we don't handle tables yet.
+            continue  # we don't handle tables yet.
         paragraph = clean_paragraph(paragraph)
         paragraph = rst.INTERPRETED_TEXT_RE.sub("", paragraph)
         for hyperlink_reference in _HYPERLINK_REFERENCE_RE.finditer(paragraph):
@@ -386,8 +416,7 @@ def check_missing_colon_in_role(file, lines, options=None):
     Good: :issue:`123`
     """
     for lno, line in enumerate(lines, start=1):
-        match = rst.ROLE_MISSING_RIGHT_COLON_RE.search(line)
-        if match:
+        for match in rst.ROLE_MISSING_RIGHT_COLON_RE.finditer(line):
             yield lno, f"role missing colon before first backtick ({match.group(0)})."
 
 
@@ -427,6 +456,7 @@ _is_long_interpreted_text = re.compile(r"^\s*\W*(:(\w+:)+)?`.*`\W*$").match
 _starts_with_directive_or_hyperlink = re.compile(r"^\s*\.\. ").match
 _starts_with_anonymous_hyperlink = re.compile(r"^\s*__ ").match
 _is_very_long_string_literal = re.compile(r"^\s*``[^`]+``$").match
+_is_very_long_inline_link = re.compile(r"^\s*<.*(>`_).?$").match
 
 
 @checker(".rst", ".po", enabled=False, rst_only=True)
@@ -445,6 +475,8 @@ def check_line_too_long(file, lines, options=None):
                 continue  # ignore anonymous hyperlink targets
             if _is_very_long_string_literal(line):
                 continue  # ignore a very long literal string
+            if _is_very_long_inline_link(line):
+                continue  # ignore a very long URL on its own line
             yield lno + 1, f"Line too long ({len(line) - 1}/{options.max_line_length})"
 
 
@@ -471,8 +503,7 @@ def check_triple_backticks(file, lines, options=None):
     syntax, but it's really uncommon.
     """
     for lno, line in enumerate(lines):
-        match = rst.TRIPLE_BACKTICKS_RE.search(line)
-        if match:
+        for match in rst.TRIPLE_BACKTICKS_RE.finditer(line):
             yield lno + 1, "There's no rst syntax using triple backticks"
 
 
@@ -523,5 +554,22 @@ def check_unnecessary_parentheses(filename, lines, options):
     Good: :func:`test`
     """
     for lno, line in enumerate(lines, start=1):
-        if match := rst.ROLE_WITH_UNNECESSARY_PARENTHESES_RE.search(line):
+        for match in rst.ROLE_WITH_UNNECESSARY_PARENTHESES_RE.finditer(line):
             yield lno, f"Unnecessary parentheses in {match.group(0).strip()!r}"
+
+
+@checker(".rst", ".po")
+def check_exclamation_and_tilde(file, lines, options):
+    """Check for roles that start with an exclamation mark and tilde (`!~`).
+
+    Bad:  :meth:`!~list.pop`
+    Good: :meth:`!pop`
+    """
+    for lno, line in enumerate(lines, start=1):
+        if not ("~" in line and "!" in line and "`" in line):
+            continue
+        for match in rst.ROLE_WITH_EXCLAMATION_AND_TILDE_RE.finditer(line):
+            yield (
+                lno,
+                f"Found a role with both `!` and `~` in {match.group(0).strip()!r}.",
+            )

@@ -41,13 +41,13 @@ class LifespanMixin(AppMixin):
                         signature = inspect.signature(task)
                         if "app" in signature.parameters:
                             task = functools.partial(task, app=app)
-                        _t = task()
-                        if isinstance(_t, contextlib._AsyncGeneratorContextManager):
-                            await stack.enter_async_context(_t)
+                        t_ = task()
+                        if isinstance(t_, contextlib._AsyncGeneratorContextManager):
+                            await stack.enter_async_context(t_)
                             console.debug(run_msg.format(type="asynccontextmanager"))
-                        elif isinstance(_t, Coroutine):
+                        elif isinstance(t_, Coroutine):
                             task_ = asyncio.create_task(
-                                _t,
+                                t_,
                                 name=f"reflex_lifespan_task|{task_name}|{time.time()}",
                             )
                             task_.add_done_callback(lambda t: t.result())
@@ -71,6 +71,13 @@ class LifespanMixin(AppMixin):
                     await event_namespace._token_manager.disconnect_all()
             except Exception as e:
                 console.error(f"Error during lifespan cleanup: {e}")
+        # Flush any pending writes from the state manager.
+        try:
+            state_manager = self.state_manager  # pyright: ignore[reportAttributeAccessIssue]
+        except AttributeError:
+            pass
+        else:
+            await state_manager.close()
 
     def register_lifespan_task(self, task: Callable | asyncio.Task, **task_kwargs):
         """Register a task to run during the lifespan of the app.

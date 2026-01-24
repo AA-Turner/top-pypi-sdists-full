@@ -5,7 +5,7 @@ import sys
 from _typeshed import SupportsWrite
 from collections.abc import Iterable
 from typing import Any, Final, Literal, type_check_only
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self, TypeAlias, disjoint_base
 
 __version__: Final[str]
 
@@ -26,6 +26,7 @@ class Error(Exception): ...
 
 _DialectLike: TypeAlias = str | Dialect | csv.Dialect | type[Dialect | csv.Dialect]
 
+@disjoint_base
 class Dialect:
     """
     CSV dialect
@@ -42,7 +43,7 @@ class Dialect:
     strict: bool
     def __new__(
         cls,
-        dialect: _DialectLike | None = ...,
+        dialect: _DialectLike | None = None,
         delimiter: str = ",",
         doublequote: bool = True,
         escapechar: str | None = None,
@@ -55,6 +56,7 @@ class Dialect:
 
 if sys.version_info >= (3, 10):
     # This class calls itself _csv.reader.
+    @disjoint_base
     class Reader:
         """
         CSV reader
@@ -73,6 +75,7 @@ if sys.version_info >= (3, 10):
             ...
 
     # This class calls itself _csv.writer.
+    @disjoint_base
     class Writer:
         """
         CSV writer
@@ -126,7 +129,7 @@ else:
         def writerows(self, rows: Iterable[Iterable[Any]]) -> None: ...
 
 def writer(
-    csvfile: SupportsWrite[str],
+    fileobj: SupportsWrite[str],
     /,
     dialect: _DialectLike = "excel",
     *,
@@ -155,7 +158,7 @@ def writer(
     """
     ...
 def reader(
-    csvfile: Iterable[str],
+    iterable: Iterable[str],
     /,
     dialect: _DialectLike = "excel",
     *,
@@ -186,7 +189,8 @@ def reader(
     ...
 def register_dialect(
     name: str,
-    dialect: type[Dialect | csv.Dialect] = ...,
+    /,
+    dialect: type[Dialect | csv.Dialect] | str = "excel",
     *,
     delimiter: str = ",",
     quotechar: str | None = '"',

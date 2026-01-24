@@ -1,30 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-easy-audit
-Version: 1.3.7
+Version: 1.3.8
 Summary: Yet another Django audit log app, hopefully the simplest one.
-Home-page: https://github.com/soynatan/django-easy-audit
 License: GPL3
+License-File: LICENSE
 Author: Natán Calzolari
 Author-email: natancalzolari@gmail.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Environment :: Plugins
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: License :: Other/Proprietary License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: django (>=4.2,<6.0)
 Project-URL: Documentation, https://github.com/soynatan/django-easy-audit/wiki
+Project-URL: Homepage, https://github.com/soynatan/django-easy-audit
 Project-URL: Repository, https://github.com/soynatan/django-easy-audit
 Description-Content-Type: text/markdown
 

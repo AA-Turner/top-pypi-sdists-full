@@ -20,13 +20,13 @@ import threading
 import time as datetime
 import warnings
 from os import getenv
-from typing import Any, Coroutine, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Coroutine, Optional, TypeVar, Union
 
 import aiohttp
 import certifi
 
 # noinspection PyProtectedMember
-from reportportal_client._internal.aio.http import RetryingClientSession
+from reportportal_client._internal.aio.http import ClientSession, RetryingClientSession
 
 # noinspection PyProtectedMember
 from reportportal_client._internal.aio.tasks import (
@@ -43,6 +43,9 @@ from reportportal_client._internal.local import set_current
 
 # noinspection PyProtectedMember
 from reportportal_client._internal.logs.batcher import LogBatcher
+
+# noinspection PyProtectedMember
+from reportportal_client._internal.services.auth import ApiKeyAuthAsync, AuthAsync, OAuthPasswordGrantAsync
 
 # noinspection PyProtectedMember
 from reportportal_client._internal.services.statistics import async_send_event
@@ -101,18 +104,25 @@ class Client:
     endpoint: str
     is_skipped_an_issue: bool
     project: str
-    api_key: str
+    api_key: Optional[str]
+    oauth_uri: Optional[str]
+    oauth_username: Optional[str]
+    oauth_password: Optional[str]
+    oauth_client_id: Optional[str]
+    oauth_client_secret: Optional[str]
+    oauth_scope: Optional[str]
+    auth: AuthAsync
     verify_ssl: Union[bool, str]
     retries: Optional[int]
     max_pool_size: int
-    http_timeout: Optional[Union[float, Tuple[float, float]]]
+    http_timeout: Optional[Union[float, tuple[float, float]]]
     keepalive_timeout: Optional[float]
     mode: str
     launch_uuid_print: bool
     print_output: OutputType
     truncate_attributes: bool
     _skip_analytics: str
-    _session: Optional[RetryingClientSession]
+    _session: Optional[ClientSession]
     __stat_task: Optional[asyncio.Task]
 
     def __init__(
@@ -120,24 +130,37 @@ class Client:
         endpoint: str,
         project: str,
         *,
-        api_key: str = None,
+        api_key: Optional[str] = None,
         is_skipped_an_issue: bool = True,
         verify_ssl: Union[bool, str] = True,
         retries: int = NOT_SET,
         max_pool_size: int = 50,
-        http_timeout: Optional[Union[float, Tuple[float, float]]] = (10, 10),
+        http_timeout: Optional[Union[float, tuple[float, float]]] = (10, 10),
         keepalive_timeout: Optional[float] = None,
         mode: str = "DEFAULT",
         launch_uuid_print: bool = False,
         print_output: OutputType = OutputType.STDOUT,
         truncate_attributes: bool = True,
-        **_: Any,
+        # OAuth 2.0 Password Grant parameters
+        oauth_uri: Optional[str] = None,
+        oauth_username: Optional[str] = None,
+        oauth_password: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        oauth_client_secret: Optional[str] = None,
+        oauth_scope: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize the class instance with arguments.
 
         :param endpoint:               Endpoint of the ReportPortal service.
         :param project:                Project name to report to.
         :param api_key:                Authorization API key.
+        :param oauth_uri:              OAuth 2.0 token endpoint URI (for OAuth authentication).
+        :param oauth_username:         Username for OAuth 2.0 authentication.
+        :param oauth_password:         Password for OAuth 2.0 authentication.
+        :param oauth_client_id:        OAuth 2.0 client ID.
+        :param oauth_client_secret:    OAuth 2.0 client secret (optional).
+        :param oauth_scope:            OAuth 2.0 scope (optional).
         :param is_skipped_an_issue:    Option to mark skipped tests as not 'To Investigate' items on the
                                        server side.
         :param verify_ssl:             Option to skip ssl verification.
@@ -168,13 +191,62 @@ class Client:
         self.print_output = print_output
         self._session = None
         self.__stat_task = None
-        self.api_key = api_key
         self.truncate_attributes = truncate_attributes
 
-    async def session(self) -> RetryingClientSession:
-        """Return aiohttp.ClientSession class instance, initialize it if necessary.
+        self.api_key = api_key
+        # Handle deprecated token argument
+        if not self.api_key and "token" in kwargs:
+            warnings.warn(
+                message="Argument `token` is deprecated since 5.3.5 and will be subject for removing in "
+                "the next major version. Use `api_key` argument instead.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            self.api_key = kwargs["token"]
 
-        :return: aiohttp.ClientSession instance.
+        self.oauth_uri = oauth_uri
+        self.oauth_username = oauth_username
+        self.oauth_password = oauth_password
+        self.oauth_client_id = oauth_client_id
+        self.oauth_client_secret = oauth_client_secret
+        self.oauth_scope = oauth_scope
+
+        # Initialize authentication
+        oauth_params = [oauth_uri, oauth_username, oauth_password, oauth_client_id]
+        oauth_provided = all(oauth_params)
+
+        if oauth_provided:
+            # Use OAuth 2.0 Password Grant authentication
+            self.auth = OAuthPasswordGrantAsync(
+                oauth_uri=oauth_uri,
+                username=oauth_username,
+                password=oauth_password,
+                client_id=oauth_client_id,
+                client_secret=oauth_client_secret,
+                scope=oauth_scope,
+            )
+        elif self.api_key:
+            self.auth = ApiKeyAuthAsync(api_key)
+        else:
+            # Neither OAuth nor API key provided
+            raise ValueError(
+                "Authentication credentials are required. Please provide either:\n"
+                "1. OAuth 2.0 parameters: oauth_uri, username, password, and client_id\n"
+                "   (with optional client_secret and scope), or\n"
+                "2. api_key parameter for API key authentication.\n"
+                "\n"
+                "Example for OAuth:\n"
+                "  Client(endpoint='...', project='...', oauth_oauth_uri='https://example.com/oauth/token',\n"
+                "         oauth_username='user', oauth_password='pass', oauth_client_id='client_id')\n"
+                "\n"
+                "Example for API key:\n"
+                "  Client(endpoint='...', project='...', api_key='your_api_key')"
+            )
+
+    async def session(self) -> ClientSession:
+        """Return ClientSession class instance, initialize it if necessary.
+
+        :return: ClientSession instance.
         """
         if self._session:
             return self._session
@@ -187,16 +259,12 @@ class Client:
             else:
                 ssl_config = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=certifi.where())
 
-        connection_params = {"ssl": ssl_config, "limit": self.max_pool_size}
+        connection_params: dict[str, Any] = {"ssl": ssl_config, "limit": self.max_pool_size}
         if self.keepalive_timeout:
             connection_params["keepalive_timeout"] = self.keepalive_timeout
         connector = aiohttp.TCPConnector(**connection_params)
 
-        headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-
-        session_params = {"headers": headers, "connector": connector}
+        session_params: dict[str, Any] = {"connector": connector}
 
         if self.http_timeout:
             if type(self.http_timeout) is tuple:
@@ -212,10 +280,12 @@ class Client:
             session_params["max_retry_number"] = self.retries
 
         if use_retries:
-            self._session = RetryingClientSession(self.endpoint, **session_params)
+            wrapped_session = RetryingClientSession(self.endpoint, **session_params)
         else:
             # noinspection PyTypeChecker
-            self._session = aiohttp.ClientSession(self.endpoint, **session_params)
+            wrapped_session = aiohttp.ClientSession(self.endpoint, **session_params)
+
+        self._session = ClientSession(wrapped=wrapped_session, auth=self.auth)
         return self._session
 
     async def close(self) -> None:
@@ -296,7 +366,7 @@ class Client:
         *,
         parent_item_id: Optional[Union[str, Task[str]]] = None,
         description: Optional[str] = None,
-        attributes: Optional[Union[List[dict], dict]] = None,
+        attributes: Optional[Union[list[dict], dict]] = None,
         parameters: Optional[dict] = None,
         code_ref: Optional[str] = None,
         test_case_id: Optional[str] = None,
@@ -559,20 +629,20 @@ class Client:
         response = await AsyncHttpRequest((await self.session()).get, url=url, name="get_project_settings").make()
         return await response.json if response else None
 
-    async def log_batch(self, log_batch: Optional[List[AsyncRPRequestLog]]) -> Optional[Tuple[str, ...]]:
+    async def log_batch(self, log_batch: Optional[list[AsyncRPRequestLog]]) -> Optional[tuple[str, ...]]:
         """Send batch logging message to the ReportPortal.
 
         :param log_batch: A list of log message objects.
         :return:          Completion message tuple of variable size (depending on request size).
         """
+        if not log_batch:
+            return None
+
         url = root_uri_join(self.base_url_v2, "log")
-        if log_batch:
-            response = await ErrorPrintingAsyncHttpRequest(
-                (await self.session()).post, url=url, data=AsyncRPLogBatch(log_batch).payload, name="log"
-            ).make()
-            if not response:
-                return None
-            return await response.messages
+        response = await ErrorPrintingAsyncHttpRequest(
+            (await self.session()).post, url=url, data=AsyncRPLogBatch(log_batch).payload, name="log"
+        ).make()
+        return await response.messages if response else None
 
     def clone(self) -> "Client":
         """Clone the client object, set current Item ID as cloned item ID.
@@ -593,10 +663,16 @@ class Client:
             mode=self.mode,
             launch_uuid_print=self.launch_uuid_print,
             print_output=self.print_output,
+            oauth_uri=self.oauth_uri,
+            oauth_username=self.oauth_username,
+            oauth_password=self.oauth_password,
+            oauth_client_id=self.oauth_client_id,
+            oauth_client_secret=self.oauth_client_secret,
+            oauth_scope=self.oauth_scope,
         )
         return cloned
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Control object pickling and return object fields as Dictionary.
 
         :return: object state dictionary
@@ -607,7 +683,7 @@ class Client:
         del state["_session"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Control object pickling, receives object state as Dictionary.
 
         :param dict state: object state dictionary
@@ -689,6 +765,12 @@ class AsyncRPClient(RP):
         :param endpoint:                Endpoint of the ReportPortal service.
         :param project:                 Project name to report to.
         :param api_key:                 Authorization API key.
+        :param oauth_uri:              OAuth 2.0 token endpoint URI (for OAuth authentication).
+        :param oauth_username:         Username for OAuth 2.0 authentication.
+        :param oauth_password:         Password for OAuth 2.0 authentication.
+        :param oauth_client_id:        OAuth 2.0 client ID.
+        :param oauth_client_secret:    OAuth 2.0 client secret (optional).
+        :param oauth_scope:            OAuth 2.0 scope (optional).
         :param is_skipped_an_issue:     Option to mark skipped tests as not 'To Investigate' items on the
                                         server side.
         :param verify_ssl:              Option to skip ssl verification.
@@ -765,7 +847,7 @@ class AsyncRPClient(RP):
         start_time: str,
         item_type: str,
         description: Optional[str] = None,
-        attributes: Optional[List[dict]] = None,
+        attributes: Optional[list[dict]] = None,
         parameters: Optional[dict] = None,
         parent_item_id: Optional[str] = None,
         has_stats: bool = True,
@@ -965,7 +1047,7 @@ class AsyncRPClient(RP):
         level: Optional[Union[int, str]] = None,
         attachment: Optional[dict] = None,
         item_id: Optional[str] = None,
-    ) -> Optional[Tuple[str, ...]]:
+    ) -> Optional[tuple[str, ...]]:
         """Send Log message to the ReportPortal and attach it to a Test Item or Launch.
 
         This method stores Log messages in internal batch and sent it when batch is full, so not every method
@@ -1010,6 +1092,7 @@ class AsyncRPClient(RP):
         await self.__client.close()
 
 
+# noinspection PyAbstractClass
 class _RPClient(RP, metaclass=AbstractBaseClass):
     """Base class for different synchronous to asynchronous client implementations."""
 
@@ -1210,7 +1293,7 @@ class _RPClient(RP, metaclass=AbstractBaseClass):
         start_time: str,
         item_type: str,
         description: Optional[str] = None,
-        attributes: Optional[List[dict]] = None,
+        attributes: Optional[list[dict]] = None,
         parameters: Optional[dict] = None,
         parent_item_id: Optional[Task[str]] = None,
         has_stats: bool = True,
@@ -1402,10 +1485,10 @@ class _RPClient(RP, metaclass=AbstractBaseClass):
         result_task = self.create_task(result_coro)
         return result_task
 
-    async def _log_batch(self, log_rq: Optional[List[AsyncRPRequestLog]]) -> Optional[Tuple[str, ...]]:
+    async def _log_batch(self, log_rq: Optional[list[AsyncRPRequestLog]]) -> Optional[tuple[str, ...]]:
         return await self.__client.log_batch(log_rq)
 
-    async def _log(self, log_rq: AsyncRPRequestLog) -> Optional[Tuple[str, ...]]:
+    async def _log(self, log_rq: AsyncRPRequestLog) -> Optional[tuple[str, ...]]:
         return await self._log_batch(await self._log_batcher.append_async(log_rq))
 
     def log(
@@ -1415,7 +1498,7 @@ class _RPClient(RP, metaclass=AbstractBaseClass):
         level: Optional[Union[int, str]] = None,
         attachment: Optional[dict] = None,
         item_id: Optional[Task[str]] = None,
-    ) -> Task[Optional[Tuple[str, ...]]]:
+    ) -> Task[Optional[tuple[str, ...]]]:
         """Send Log message to the ReportPortal and attach it to a Test Item or Launch.
 
         This method stores Log messages in internal batch and sent it when batch is full, so not every method
@@ -1454,7 +1537,7 @@ class ThreadedRPClient(_RPClient):
 
     task_timeout: float
     shutdown_timeout: float
-    _task_list: BackgroundTaskList[Task[_T]]
+    _task_list: BackgroundTaskList[Task[Any]]
     _task_mutex: threading.RLock
     _loop: Optional[asyncio.AbstractEventLoop]
     _thread: Optional[threading.Thread]
@@ -1510,6 +1593,12 @@ class ThreadedRPClient(_RPClient):
         :param endpoint:                Endpoint of the ReportPortal service.
         :param project:                 Project name to report to.
         :param api_key:                 Authorization API key.
+        :param oauth_uri:              OAuth 2.0 token endpoint URI (for OAuth authentication).
+        :param oauth_username:         Username for OAuth 2.0 authentication.
+        :param oauth_password:         Password for OAuth 2.0 authentication.
+        :param oauth_client_id:        OAuth 2.0 client ID.
+        :param oauth_client_secret:    OAuth 2.0 client secret (optional).
+        :param oauth_scope:            OAuth 2.0 scope (optional).
         :param is_skipped_an_issue:     Option to mark skipped tests as not 'To Investigate' items on the
                                         server side.
         :param verify_ssl:              Option to skip ssl verification.
@@ -1608,7 +1697,7 @@ class ThreadedRPClient(_RPClient):
             cloned._add_current_item(current_item)
         return cloned
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Control object pickling and return object fields as Dictionary.
 
         :return: object state dictionary
@@ -1621,7 +1710,7 @@ class ThreadedRPClient(_RPClient):
         del state["_thread"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Control object pickling, receives object state as Dictionary.
 
         :param dict state: object state dictionary
@@ -1645,7 +1734,7 @@ class BatchedRPClient(_RPClient):
     trigger_interval: float
     _loop: asyncio.AbstractEventLoop
     _task_mutex: threading.RLock
-    _task_list: TriggerTaskBatcher[Task[_T]]
+    _task_list: TriggerTaskBatcher[Task[Any]]
     __last_run_time: float
 
     def __init_task_list(
@@ -1692,6 +1781,12 @@ class BatchedRPClient(_RPClient):
         :param endpoint:                Endpoint of the ReportPortal service.
         :param project:                 Project name to report to.
         :param api_key:                 Authorization API key.
+        :param oauth_uri:              OAuth 2.0 token endpoint URI (for OAuth authentication).
+        :param oauth_username:         Username for OAuth 2.0 authentication.
+        :param oauth_password:         Password for OAuth 2.0 authentication.
+        :param oauth_client_id:        OAuth 2.0 client ID.
+        :param oauth_client_secret:    OAuth 2.0 client secret (optional).
+        :param oauth_scope:            OAuth 2.0 scope (optional).
         :param is_skipped_an_issue:     Option to mark skipped tests as not 'To Investigate' items on the
                                         server side.
         :param verify_ssl:              Option to skip ssl verification.
@@ -1794,7 +1889,7 @@ class BatchedRPClient(_RPClient):
             cloned._add_current_item(current_item)
         return cloned
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Control object pickling and return object fields as Dictionary.
 
         :return: object state dictionary
@@ -1806,7 +1901,7 @@ class BatchedRPClient(_RPClient):
         del state["_loop"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Control object pickling, receives object state as Dictionary.
 
         :param dict state: object state dictionary

@@ -970,7 +970,7 @@ cdef class sStatespace(object):
             # (p-m) log( 2*pi) + log( |H_t| )
             self.collapse_loglikelihood = (
                 self.collapse_loglikelihood +
-                (self._k_endog - k_states)*dlog(2*NPY_PI) + 
+                (self._k_endog - k_states)*dlog(2*M_PI) +
                 self.transform_determinant
             )
 
@@ -1967,7 +1967,7 @@ cdef class dStatespace(object):
             # (p-m) log( 2*pi) + log( |H_t| )
             self.collapse_loglikelihood = (
                 self.collapse_loglikelihood +
-                (self._k_endog - k_states)*dlog(2*NPY_PI) + 
+                (self._k_endog - k_states)*dlog(2*M_PI) +
                 self.transform_determinant
             )
 
@@ -2964,7 +2964,7 @@ cdef class cStatespace(object):
             # (p-m) log( 2*pi) + log( |H_t| )
             self.collapse_loglikelihood = (
                 self.collapse_loglikelihood +
-                (self._k_endog - k_states)*zlog(2*NPY_PI) + 
+                (self._k_endog - k_states)*zlog(2*M_PI) +
                 self.transform_determinant
             )
 
@@ -3961,7 +3961,7 @@ cdef class zStatespace(object):
             # (p-m) log( 2*pi) + log( |H_t| )
             self.collapse_loglikelihood = (
                 self.collapse_loglikelihood +
-                (self._k_endog - k_states)*zlog(2*NPY_PI) + 
+                (self._k_endog - k_states)*zlog(2*M_PI) +
                 self.transform_determinant
             )
 

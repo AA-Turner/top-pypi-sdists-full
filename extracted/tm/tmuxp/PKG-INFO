@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tmuxp
-Version: 1.55.0
+Version: 1.63.1
 Summary: Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files.
 Project-URL: Bug Tracker, https://github.com/tmux-python/tmuxp/issues
 Project-URL: Documentation, https://tmuxp.git-pull.com
@@ -17,17 +17,17 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Utilities
-Requires-Python: <4.0,>=3.9
+Requires-Python: <4.0,>=3.10
 Requires-Dist: colorama>=0.3.9
-Requires-Dist: libtmux~=0.46.0
+Requires-Dist: libtmux~=0.53.0
 Requires-Dist: pyyaml>=6.0
 Description-Content-Type: text/markdown
 
@@ -57,6 +57,19 @@ pip:
 $ pip install --user tmuxp
 ```
 
+If you're managing the project with [uv](https://docs.astral.sh/uv/), add tmuxp as a dependency instead:
+
+```console
+$ uv add tmuxp
+```
+
+To run tmuxp without installing it globally, similar to `pipx`, invoke it with
+[uvx](https://docs.astral.sh/uv/guides/tools/):
+
+```console
+$ uvx tmuxp
+```
+
 Homebrew:
 
 ```console
@@ -82,13 +95,26 @@ Developmental releases:
 - [pip](https://pip.pypa.io/en/stable/):
 
   ```console
-  $ pip install --user --upgrade --pre tmuxp
+  pip install --user --upgrade --pre tmuxp
+  ```
+
+  Or request the pre-release from a uv project environment:
+
+  ```console
+  uv add 'tmuxp>=1.10.0b1'
+  ```
+
+
+- [uvx](https://docs.astral.sh/uv/guides/tools/):
+
+  ```console
+  uvx tmuxp
   ```
 
 - [pipx](https://pypa.github.io/pipx/docs/):
 
   ```console
-  $ pipx install --suffix=@next 'tmuxp' --pip-args '\--pre' --force
+  pipx install --suffix=@next 'tmuxp' --pip-args '\--pre' --force
   ```
 
   Then use `tmuxp@next load [session]`.
@@ -118,25 +144,25 @@ windows:
 Save as _mysession.yaml_, and load:
 
 ```console
-$ tmuxp load ./mysession.yaml
+tmuxp load ./mysession.yaml
 ```
 
 Projects with _.tmuxp.yaml_ or _.tmuxp.json_ load via directory:
 
 ```console
-$ tmuxp load path/to/my/project/
+tmuxp load path/to/my/project/
 ```
 
 Load multiple at once (in bg, offer to attach last):
 
 ```console
-$ tmuxp load mysession ./another/project/
+tmuxp load mysession ./another/project/
 ```
 
 Name a session:
 
 ```console
-$ tmuxp load -s session_name ./mysession.yaml
+tmuxp load -s session_name ./mysession.yaml
 ```
 
 [simple](http://tmuxp.git-pull.com/examples.html#short-hand-inline) and
@@ -296,12 +322,12 @@ Your money will go directly to maintenance and development of the
 project. If you are an individual, feel free to give whatever feels
 right for the value you get out of the project.
 
-See donation options at <https://git-pull.com/support.html>.
+See donation options at <https://tony.sh/support.html>.
 
 # Project details
 
-- tmux support: 1.8+
-- python support: >= 3.9, pypy, pypy3
+- tmux support: 3.2+
+- python support: >= 3.10, pypy, pypy3
 - Source: <https://github.com/tmux-python/tmuxp>
 - Docs: <https://tmuxp.git-pull.com>
 - API: <https://tmuxp.git-pull.com/api.html>

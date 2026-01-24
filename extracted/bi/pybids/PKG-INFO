@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pybids
-Version: 0.19.0
+Version: 0.21.0
 Summary: bids: interface with datasets conforming to BIDS
 Author-email: PyBIDS Developers <bids-discussion@googlegroups.com>
 License: The MIT License (MIT)
@@ -36,13 +36,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.23
-Requires-Dist: scipy>=1.9
-Requires-Dist: nibabel>=4.0
-Requires-Dist: pandas>=1.5
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: nibabel>=5.0
+Requires-Dist: pandas>=2.0
 Requires-Dist: formulaic>=0.3
 Requires-Dist: sqlalchemy>=1.4.31
 Requires-Dist: bids-validator>=1.14.7
@@ -59,13 +59,13 @@ Requires-Dist: jupytext; extra == "doc"
 Provides-Extra: plotting
 Requires-Dist: graphviz; extra == "plotting"
 Provides-Extra: test
-Requires-Dist: pytest>=6; extra == "test"
-Requires-Dist: pytest-cov>=2.11; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pytest-cov>=7; extra == "test"
 Requires-Dist: bsmschema>=0.1; extra == "test"
-Requires-Dist: coverage[toml]>=5.2.1; extra == "test"
+Requires-Dist: coverage[toml]>=7; extra == "test"
 Requires-Dist: altair>=5; extra == "test"
-Requires-Dist: pytest-xdist>=2.5; extra == "test"
-Requires-Dist: s3fs>=2024; extra == "test"
+Requires-Dist: pytest-xdist>=3.8; extra == "test"
+Requires-Dist: s3fs>=2025; extra == "test"
 Provides-Extra: model-reports
 Requires-Dist: jinja2; extra == "model-reports"
 Requires-Dist: altair; extra == "model-reports"
@@ -83,6 +83,7 @@ Provides-Extra: ci-tests
 Requires-Dist: pybids[test]; extra == "ci-tests"
 Provides-Extra: dev
 Requires-Dist: pybids[doc,plotting,test]; extra == "dev"
+Dynamic: license-file
 
 # PyBIDS
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.01294/status.svg)](https://doi.org/10.21105/joss.01294)

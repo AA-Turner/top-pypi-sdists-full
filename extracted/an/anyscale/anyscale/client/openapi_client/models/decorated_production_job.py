@@ -45,6 +45,7 @@ class DecoratedProductionJob(object):
         'last_job_run_id': 'str',
         'schedule_id': 'str',
         'job_queue_id': 'str',
+        'overview_url': 'str',
         'is_service': 'bool',
         'url': 'str',
         'token': 'str',
@@ -72,6 +73,7 @@ class DecoratedProductionJob(object):
         'last_job_run_id': 'last_job_run_id',
         'schedule_id': 'schedule_id',
         'job_queue_id': 'job_queue_id',
+        'overview_url': 'overview_url',
         'is_service': 'is_service',
         'url': 'url',
         'token': 'token',
@@ -86,7 +88,7 @@ class DecoratedProductionJob(object):
         'integration_details': 'integration_details'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -104,6 +106,7 @@ class DecoratedProductionJob(object):
         self._last_job_run_id = None
         self._schedule_id = None
         self._job_queue_id = None
+        self._overview_url = None
         self._is_service = None
         self._url = None
         self._token = None
@@ -135,6 +138,7 @@ class DecoratedProductionJob(object):
             self.schedule_id = schedule_id
         if job_queue_id is not None:
             self.job_queue_id = job_queue_id
+        self.overview_url = overview_url
         self.is_service = is_service
         if url is not None:
             self.url = url
@@ -445,6 +449,31 @@ class DecoratedProductionJob(object):
         """
 
         self._job_queue_id = job_queue_id
+
+    @property
+    def overview_url(self):
+        """Gets the overview_url of this DecoratedProductionJob.  # noqa: E501
+
+        URL to the job overview page in the Anyscale console  # noqa: E501
+
+        :return: The overview_url of this DecoratedProductionJob.  # noqa: E501
+        :rtype: str
+        """
+        return self._overview_url
+
+    @overview_url.setter
+    def overview_url(self, overview_url):
+        """Sets the overview_url of this DecoratedProductionJob.
+
+        URL to the job overview page in the Anyscale console  # noqa: E501
+
+        :param overview_url: The overview_url of this DecoratedProductionJob.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and overview_url is None:  # noqa: E501
+            raise ValueError("Invalid value for `overview_url`, must not be `None`")  # noqa: E501
+
+        self._overview_url = overview_url
 
     @property
     def is_service(self):

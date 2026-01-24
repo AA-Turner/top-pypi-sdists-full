@@ -8,15 +8,26 @@
 #ifndef SkCoreBlitters_DEFINED
 #define SkCoreBlitters_DEFINED
 
+#include "include/core/SkColor.h"
 #include "include/core/SkPaint.h"
+#include "include/core/SkPixmap.h"
+#include "include/core/SkRefCnt.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkCPUTypes.h"
 #include "src/core/SkBlitRow.h"
 #include "src/core/SkBlitter.h"
-#include "src/core/SkBlitter_A8.h"
-#include "src/core/SkXfermodePriv.h"
-#include "src/shaders/SkBitmapProcShader.h"
 #include "src/shaders/SkShaderBase.h"
 
+#include <cstdint>
+#include <optional>
+
+class SkArenaAlloc;
+class SkMatrix;
+class SkRasterPipeline;
+class SkShader;
 class SkSurfaceProps;
+struct SkIRect;
+struct SkMask;
 
 class SkRasterBlitter : public SkBlitter {
 public:
@@ -24,9 +35,6 @@ public:
 
 protected:
     const SkPixmap fDevice;
-
-private:
-    using INHERITED = SkBlitter;
 };
 
 class SkShaderBlitter : public SkRasterBlitter {
@@ -41,16 +49,8 @@ public:
     ~SkShaderBlitter() override;
 
 protected:
-    uint32_t                fShaderFlags;
-    const SkShader*         fShader;
-    SkShaderBase::Context*  fShaderContext;
-    bool                    fConstInY;
-
-private:
-    // illegal
-    SkShaderBlitter& operator=(const SkShaderBlitter&);
-
-    using INHERITED = SkRasterBlitter;
+    sk_sp<SkShader>         fShader;
+    SkShaderBase::Context* fShaderContext;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,45 +63,37 @@ public:
     void blitV(int x, int y, int height, SkAlpha alpha) override;
     void blitRect(int x, int y, int width, int height) override;
     void blitMask(const SkMask&, const SkIRect&) override;
-    const SkPixmap* justAnOpaqueColor(uint32_t*) override;
     void blitAntiH2(int x, int y, U8CPU a0, U8CPU a1) override;
     void blitAntiV2(int x, int y, U8CPU a0, U8CPU a1) override;
 
 protected:
-    SkColor                fColor;
-    SkPMColor              fPMColor;
-
-private:
-    unsigned fSrcA, fSrcR, fSrcG, fSrcB;
-
-    // illegal
-    SkARGB32_Blitter& operator=(const SkARGB32_Blitter&);
-
-    using INHERITED = SkRasterBlitter;
+    SkColor   fColor;
+    SkPMColor fPMColor;
+    SkAlpha   fSrcA;
 };
 
 class SkARGB32_Opaque_Blitter : public SkARGB32_Blitter {
 public:
     SkARGB32_Opaque_Blitter(const SkPixmap& device, const SkPaint& paint)
-        : INHERITED(device, paint) { SkASSERT(paint.getAlpha() == 0xFF); }
+            : SkARGB32_Blitter(device, paint) {
+        SkASSERT(paint.getAlpha() == 0xFF);
+    }
     void blitMask(const SkMask&, const SkIRect&) override;
+    void blitAntiH(int x, int y, const SkAlpha antialias[], const int16_t runs[]) override;
     void blitAntiH2(int x, int y, U8CPU a0, U8CPU a1) override;
     void blitAntiV2(int x, int y, U8CPU a0, U8CPU a1) override;
-
-private:
-    using INHERITED = SkARGB32_Blitter;
+    std::optional<DirectBlit> canDirectBlit() override;
 };
 
 class SkARGB32_Black_Blitter : public SkARGB32_Opaque_Blitter {
 public:
     SkARGB32_Black_Blitter(const SkPixmap& device, const SkPaint& paint)
-        : INHERITED(device, paint) {}
+            : SkARGB32_Opaque_Blitter(device, paint) {
+        SkASSERT(paint.getColor() == SK_ColorBLACK);
+    }
     void blitAntiH(int x, int y, const SkAlpha antialias[], const int16_t runs[]) override;
     void blitAntiH2(int x, int y, U8CPU a0, U8CPU a1) override;
     void blitAntiV2(int x, int y, U8CPU a0, U8CPU a1) override;
-
-private:
-    using INHERITED = SkARGB32_Opaque_Blitter;
 };
 
 class SkARGB32_Shader_Blitter : public SkShaderBlitter {
@@ -116,16 +108,10 @@ public:
     void blitMask(const SkMask&, const SkIRect&) override;
 
 private:
-    SkXfermode*         fXfermode;
     SkPMColor*          fBuffer;
     SkBlitRow::Proc32   fProc32;
     SkBlitRow::Proc32   fProc32Blend;
-    bool                fShadeDirectlyIntoDevice;
-
-    // illegal
-    SkARGB32_Shader_Blitter& operator=(const SkARGB32_Shader_Blitter&);
-
-    using INHERITED = SkShaderBlitter;
+    bool fShadeDirectlyIntoDevice;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +121,8 @@ SkBlitter* SkCreateRasterPipelineBlitter(const SkPixmap&,
                                          const SkMatrix& ctm,
                                          SkArenaAlloc*,
                                          sk_sp<SkShader> clipShader,
-                                         const SkSurfaceProps& props);
+                                         const SkSurfaceProps& props,
+                                         const SkRect& devBounds);
 // Use this if you've pre-baked a shader pipeline, including modulating with paint alpha.
 SkBlitter* SkCreateRasterPipelineBlitter(const SkPixmap&, const SkPaint&,
                                          const SkRasterPipeline& shaderPipeline,

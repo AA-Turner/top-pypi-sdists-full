@@ -1,5 +1,9 @@
 """
 Migration and compatibility layer for transitioning from old parser to new.
+
+NOTE: This compatibility layer is documented for user migration from v1.x → v2.0
+It is intentionally not used internally but kept for user convenience.
+Do not remove without versioning consideration.
 """
 
 import warnings
@@ -12,7 +16,7 @@ from edgar.documents.search import DocumentSearch
 class LegacyHTMLDocument:
     """
     Compatibility wrapper that mimics the old Document API.
-
+    
     This allows existing code to work with the new parser
     while providing deprecation warnings.
     """
@@ -22,7 +26,7 @@ class LegacyHTMLDocument:
         self._doc = new_document
         self._warn_on_use = True
 
-    def _deprecation_warning(self, old_method: str, new_method: str = None):
+    def _deprecation_warning(self, old_method: str, new_method: Optional[str] = None):
         """Issue deprecation warning."""
         if self._warn_on_use:
             msg = f"Document.{old_method} is deprecated."
@@ -36,10 +40,10 @@ class LegacyHTMLDocument:
         self._deprecation_warning("text", "Document.text()")
         return self._doc.text()
 
-    def get_text(self, clean: bool = True) -> str:
+    def get_text(self, clean: bool = True, table_max_col_width: Optional[int] = None) -> str:
         """Get text with options (old API)."""
         self._deprecation_warning("get_text()", "Document.text()")
-        return self._doc.text()
+        return self._doc.text(clean=clean, table_max_col_width=table_max_col_width)
 
     @property
     def tables(self) -> List[Any]:
@@ -105,7 +109,7 @@ class LegacyHTMLDocument:
 class LegacySECHTMLParser:
     """
     Compatibility wrapper for old SECHTMLParser.
-
+    
     Maps old parser methods to new parser.
     """
 
@@ -163,10 +167,10 @@ class LegacySECHTMLParser:
 def migrate_parser_usage(code: str) -> str:
     """
     Helper to migrate code from old parser to new.
-
+    
     Args:
         code: Python code using old parser
-
+        
     Returns:
         Updated code using new parser
     """
@@ -208,7 +212,7 @@ class MigrationGuide:
     def check_compatibility(old_parser_instance) -> Dict[str, Any]:
         """
         Check if old parser instance can be migrated.
-
+        
         Returns:
             Dict with compatibility info
         """
@@ -226,7 +230,73 @@ class MigrationGuide:
     @staticmethod
     def print_migration_guide():
         """Print migration guide."""
+        guide = """
+        HTML Parser Migration Guide
+        ==========================
+        
+        The new HTML parser provides significant improvements:
+        - 10x performance improvement
+        - Better table parsing
+        - Reliable section detection
+        - Advanced search capabilities
+        
+        Key Changes:
+        -----------
+        
+        1. Imports:
+           OLD: from edgar.files.html import SECHTMLParser, Document
+           NEW: from edgar.documents import HTMLParser, Document
+        
+        2. Parser Creation:
+           OLD: parser = SECHTMLParser()
+           NEW: parser = HTMLParser()
+        
+        3. Document Text:
+           OLD: document.text or document.get_text()
+           NEW: document.text()
+        
+        4. Search:
+           OLD: document.search(pattern)
+           NEW: search = DocumentSearch(document)
+                results = search.search(pattern)
+        
+        5. Tables:
+           OLD: document.tables
+           NEW: document.tables (same, but returns richer TableNode objects)
+        
+        6. Sections:
+           OLD: document.sections
+           NEW: document.sections (returns Section objects with more features)
+        
+        7. Markdown:
+           OLD: document.to_markdown()
+           NEW: renderer = MarkdownRenderer()
+                markdown = renderer.render(document)
+        
+        Compatibility:
+        -------------
+        
+        For gradual migration, use the compatibility layer:
+        
+        from edgar.documents.migration import LegacySECHTMLParser
+        parser = LegacySECHTMLParser()  # Works like old parser
+        
+        This will issue deprecation warnings to help you migrate.
+        
+        Performance Config:
+        ------------------
+        
+        For best performance:
+        parser = HTMLParser.create_for_performance()
+        
+        For best accuracy:
+        parser = HTMLParser.create_for_accuracy()
+        
+        For AI/LLM processing:
+        parser = HTMLParser.create_for_ai()
+        """
 
+        print(guide)
 
 
 # Compatibility aliases

@@ -1,4 +1,4 @@
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CatalogUri(crate::Uri);
 
 impl CatalogUri {
@@ -47,7 +47,7 @@ impl From<url::Url> for CatalogUri {
 
 impl From<CatalogUri> for url::Url {
     fn from(uri: CatalogUri) -> Self {
-        uri.0 .0
+        uri.0.0
     }
 }
 

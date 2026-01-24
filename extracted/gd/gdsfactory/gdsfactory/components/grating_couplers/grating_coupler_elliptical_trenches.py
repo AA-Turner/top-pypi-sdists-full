@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+__all__ = [
+    "grating_coupler_elliptical_trenches",
+    "grating_coupler_te",
+    "grating_coupler_tm",
+]
+
 from functools import partial
 
 import numpy as np
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.grating_couplers.functions import grating_tooth_points
 from gdsfactory.functions import DEG2RAD
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec, LayerSpec
+
+from ..grating_couplers.functions import grating_tooth_points
 
 
 @gf.cell_with_module_name
@@ -145,3 +152,9 @@ grating_coupler_tm = partial(
     neff=1.8,
     grating_line_width=0.6,
 )
+
+
+if __name__ == "__main__":
+    c = grating_coupler_elliptical_trenches()
+    s = c.to_3d()
+    s.show()

@@ -54,7 +54,7 @@ Makes minor adjustments to the LaTeX layout.
 
 -----
 
-"""
+"""  # noqa: RST299
 #
 #  Copyright © 2021 Dominic Davis-Foster <dominic@davis-foster.co.uk>
 #
@@ -159,7 +159,7 @@ def configure(app: Sphinx, config: Config) -> None:
 			r"\let\oldthepage\thepage",
 			r"\renewcommand{\thepage}{T\oldthepage}",
 			config.latex_elements.get("maketitle", r"\sphinxmaketitle"),
-			r"\endgroup"
+			r"\endgroup",
 			])
 
 	needspace_amount = getattr(config, "needspace_amount")

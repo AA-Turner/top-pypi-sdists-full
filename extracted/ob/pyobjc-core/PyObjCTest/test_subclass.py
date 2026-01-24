@@ -10,10 +10,12 @@ from PyObjCTest.testbndl import PyObjC_TestClass3
 from PyObjCTools.TestSupport import TestCase, pyobjc_options
 from .objectint import OC_ObjectInt
 from objc import super  # noqa: A004
+from .copying import OC_CopyBase
 
 # Most useful systems will at least have 'NSObject'.
 NSObject = objc.lookUpClass("NSObject")
 NSArray = objc.lookUpClass("NSArray")
+NSMutableArray = objc.lookUpClass("NSMutableArray")
 NSData = objc.lookUpClass("NSData")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
 
@@ -157,7 +159,7 @@ class TestSubclassing(TestCase):
 
         with self.assertRaisesRegex(
             objc.BadPrototypeError,
-            "signature that is not compatible with super-class: @@: != d@:",
+            "signature that is not compatible with ObjC runtime: @@: != d@:",
         ):
 
             class OC_SubClassingMethodSignatureChild(OC_SubClassingMethodSignatureBase):
@@ -167,7 +169,7 @@ class TestSubclassing(TestCase):
 
         with self.assertRaisesRegex(
             objc.BadPrototypeError,
-            "signature that is not compatible with super-class",
+            "signature that is not compatible with ObjC runtime",
         ):
 
             class OC_SubClassingMethodSignatureChild2(
@@ -186,6 +188,13 @@ class TestSubclassing(TestCase):
         self.assertNotIn("a", OC_SubClassingWithDunderDict.__dict__)
         o = OC_SubClassingWithDunderDict()
         self.assertNotIn("a", o.__dict__)
+
+    def test_deleting_attributes(self):
+        with self.assertRaisesRegex(AttributeError, "nosuchmethod"):
+            del NSObject.nosuchmethod
+
+        with self.assertRaisesRegex(AttributeError, "Cannot remove selector"):
+            del NSObject.description
 
 
 class TestSelectors(TestCase):
@@ -207,6 +216,23 @@ class TestSelectors(TestCase):
             pass
 
         self.assertStartswith(repr(someSel_arg_), "<unbound selector someSel:arg: at")
+
+    def test_native_selector_edge_cases(self):
+        o = NSArray.alloc().init()
+        self.assertEqual(o.count(), 0)
+        m = o.count.definingClass.__dict__["count"]
+
+        self.assertEqual(m(o), 0)
+
+        with self.assertRaisesRegex(TypeError, "Missing argument: self"):
+            m()
+
+        o = NSData.alloc().init()
+
+        with self.assertRaisesRegex(
+            TypeError, "Expecting instance of .* as self, got one of .*"
+        ):
+            m(o)
 
 
 class TestCopying(TestCase):
@@ -246,6 +272,20 @@ class TestCopying(TestCase):
 
         self.assertIsInstance(c, MyCopyClass)
         self.assertEqual(c.foobar, 2)
+
+    def test_copy_with_slots(self):
+        class OC_CopyWithSlots(OC_CopyBase):
+            __slots__ = ("a", "b")
+
+            def copyWithZone_(self, z):
+                return super().copyWithZone_(z)
+
+        value = OC_CopyWithSlots.alloc().init()
+        value.a = [1, 2]
+
+        copied = PyObjC_TestClass3.copyValue_(value)
+        self.assertIsInstance(copied, OC_CopyWithSlots)
+        self.assertIs(copied.a, value.a)
 
     def testMultipleInheritance1(self):
         # New-style class mixin
@@ -733,16 +773,6 @@ class TestOverridingSpecials(TestCase):
             ClassWithCopiedSelector.mySelector.__objclass__, ClassWithCopiedSelector
         )
 
-    def test_method_with_nonascii_name(self):
-        with self.assertRaisesRegex(
-            UnicodeEncodeError,
-            r"'ascii' codec can't encode character '\\xf6' in position 6: ordinal not in range\(128\)",
-        ):
-
-            class ClassWithNonASCIIMethod(NSObject):
-                def myMethöd(self):
-                    pass
-
     def test_method_with_integer_name(self):
         def myMethod(self):
             return "gone"
@@ -959,9 +989,12 @@ class TestSelectorAttributes(TestCase):
         self.assertFalse(meth1 == meth3)
 
         self.assertTrue(meth1 != dir)
+        self.assertTrue(dir != meth1)
 
         self.assertTrue(meth1 != dir)
         self.assertFalse(meth1 == dir)
+        self.assertTrue(dir != meth1)
+        self.assertFalse(dir == meth1)
 
         # XXX: Ordering between selector instances
         #      is not very usefull, but the code
@@ -971,9 +1004,12 @@ class TestSelectorAttributes(TestCase):
         self.assertFalse(meth1 < meth1)
         self.assertTrue(meth1 < meth2)
         self.assertTrue(meth1 <= meth1)
+        self.assertFalse(meth2 <= meth1)
         self.assertFalse(meth1 > meth1)
         self.assertTrue(meth2 > meth1)
         self.assertTrue(meth1 >= meth1)
+        self.assertFalse(meth1 > meth2)
+        self.assertFalse(meth1 >= meth2)
 
         with self.assertRaisesRegex(
             TypeError,
@@ -1023,6 +1059,14 @@ class TestSelectorAttributes(TestCase):
         ):
             42 >= meth1  # noqa: B015
 
+    def test_selector_call_without_self(self):
+        @objc.selector
+        def method(self):
+            return 42
+
+        with self.assertRaisesRegex(TypeError, "need self argument"):
+            method()
+
     def test_native_compare(self):
         # XXX: Same tests but with python selectors
         # XXX: Also comparision between native and python selector
@@ -1054,9 +1098,11 @@ class TestSelectorAttributes(TestCase):
         #      Consider deprecating
         self.assertFalse(meth1 < meth1)
         self.assertTrue(meth1 < meth2)
+        self.assertFalse(meth2 <= meth1)
         self.assertTrue(meth1 <= meth1)
         self.assertFalse(meth1 > meth1)
         self.assertTrue(meth2 > meth1)
+        self.assertFalse(meth1 >= meth2)
         self.assertTrue(meth1 >= meth1)
 
         with self.assertRaisesRegex(
@@ -1113,6 +1159,31 @@ class TestSelectorEdgeCases(TestCase):
     #
     # Note: all these tests have two variant: one for the "simple" caller
     #       and one for the regular caller.
+
+    def test_kwonly(self):
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has 1 keyword-only arguments without a default"
+        ):
+
+            class OC_KwOnlyClass1(NSObject):
+                def method(self, *, kwonly):
+                    pass
+
+        class OC_KwOnlyClass2(NSObject):
+            def method(self, *, kwonly=4):
+                return kwonly
+
+        o = OC_KwOnlyClass2.alloc().init()
+        self.assertEqual(o.method(), 4)
+
+    def test_mismatch_with_defaults(self):
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has between 1 and 2 positional arguments"
+        ):
+
+            class OC_MismatchWithDefaults(NSObject):
+                def method_x_y_z_(self, a, b=3):
+                    pass
 
     def test_no_keywords(self):
         with self.assertRaisesRegex(
@@ -1171,7 +1242,7 @@ class TestSelectorEdgeCases(TestCase):
             pass
 
         value = objc.selector(someSelector)
-        self.assertIs(value.callable, someSelector.callable)
+        self.assertIs(value.callable, someSelector)
 
     def test_void_selector_returns_value(self):
         class OC_TestVoidSelectorReturnsValue(NSObject):
@@ -1230,6 +1301,73 @@ class TestSelectorEdgeCases(TestCase):
 
         obj = ClassWithDirAsSelector.alloc().init()
         self.assertEqual(obj.method(), dir(obj))
+
+    def test_selector_implementation_is_bound_selector(self):
+        collected = []
+
+        class OC_PythonSelectorImp1(NSObject):
+            def initWithValue_(self, value):
+                self = super().init()
+                self._value = value
+                return self
+
+            def collect_(self, *a):
+                self._value.append(a)
+
+        value = OC_PythonSelectorImp1.alloc().initWithValue_(collected)
+        self.assertIs(value._value, collected)
+
+        class OC_PythonSelectorImp2(NSObject):
+            method_ = objc.selector(value.collect_, selector=b"method:")
+
+        obj = OC_PythonSelectorImp2.alloc().init()
+
+        OC_ObjectInt.invokeSelector_of_withArg_(b"collect:", value, 1)
+        self.assertEqual(collected, [(1,)])
+
+        OC_ObjectInt.invokeSelector_of_withArg_(b"method:", obj, 2)
+        self.assertEqual(collected, [(1,), (obj, 2)])
+
+        obj.method_(4)
+        self.assertEqual(collected, [(1,), (obj, 2), (obj, 4)])
+
+    def test_nonascii_selectors(self):
+        class NonAscii(NSObject):
+            def zurück(self):
+                return "back"
+
+            @classmethod
+            def brücke(self):
+                return "bridge"
+
+        obj = NonAscii.alloc().init()
+        self.assertIsInstance(obj.zurück, objc.python_selector)
+        self.assertIsInstance(obj.pyobjc_instanceMethods.zurück, objc.python_selector)
+        self.assertIsInstance(
+            NonAscii.pyobjc_instanceMethods.zurück, objc.python_selector
+        )
+        self.assertEqual(obj.zurück(), "back")
+        self.assertEqual(
+            OC_ObjectInt.invokeSelector_of_("zurück".encode(), obj), "back"
+        )
+
+        self.assertIsInstance(NonAscii.pyobjc_classMethods.brücke, objc.python_selector)
+        self.assertEqual(NonAscii.brücke(), "bridge")
+        self.assertEqual(
+            OC_ObjectInt.invokeSelector_of_("brücke".encode(), NonAscii), "bridge"
+        )
+
+        with self.assertRaises(UnicodeEncodeError):
+            getattr(NonAscii, "\udfff")
+
+        with self.assertRaises(UnicodeEncodeError):
+            getattr(obj, "\udfff")
+
+        with self.assertRaisesRegex(AttributeError, "bäcker"):
+            NonAscii.bäcker()
+
+        with self.assertRaisesRegex(AttributeError, "bäcker"):
+            obj.bäcker()
 
 
 class TestMixin(TestCase):
@@ -1430,14 +1568,53 @@ class TestSubclassOptions(TestCase):
                 pass
 
     def test_class_extender_fails(self):
-        def extender(*args, **kwds):
-            raise RuntimeError("don't extend me")
+        with self.subTest("extender fails during class creation"):
 
-        with pyobjc_options(_class_extender=extender):
-            with self.assertRaisesRegex(RuntimeError, "don't extend me"):
+            def extender(*args, **kwds):
+                raise RuntimeError("don't extend me")
 
-                class OC_SubClassingFails1(NSObject):
-                    pass
+            with pyobjc_options(_class_extender=extender):
+                with self.assertRaisesRegex(RuntimeError, "don't extend me"):
+
+                    class OC_SubClassingFails1(NSObject):
+                        pass
+
+        with self.subTest("extender fails for superclass"):
+            cur_extender = objc.options._class_extender
+
+            def extender(cls, dct):
+                if cls.__name__ == "NSObject":
+                    raise RuntimeError("don't extend me")
+                cur_extender(cls, dct)
+
+            with pyobjc_options(_class_extender=extender):
+                objc._updatingMetadata(True)
+                objc._updatingMetadata(False)
+                with self.assertRaisesRegex(RuntimeError, "don't extend me"):
+
+                    class OC_SubClassingFails2(NSObject):
+                        pass
+
+        with self.subTest("during method lookup"):
+            cur_extender = objc.options._class_extender
+            cnt = 0
+
+            def extender(cls, dct):
+                nonlocal cnt
+                if cls.__name__ == "NSObject":
+                    if cnt == 0:
+                        raise RuntimeError("don't extend me")
+                    cnt += 1
+                    objc._updatingMetadata(True)
+                    objc._updatingMetadata(False)
+                cur_extender(cls, dct)
+
+            with pyobjc_options(_class_extender=extender):
+                objc._updatingMetadata(True)
+                objc._updatingMetadata(False)
+                with self.assertRaisesRegex(RuntimeError, "don't extend me"):
+
+                    NSObject.instanceMethodForSelector_(b"init")
 
     def test_invalid_protocols(self):
         try:
@@ -1467,6 +1644,10 @@ class TestSubclassOptions(TestCase):
         self.assertEqual(OC_SubClassWithProtocols.__pyobjc_protocols__, (proto,))
 
     def test_class_version(self):
+        self.assertIs(objc.objc_object.__version__, None)
+        with self.assertRaisesRegex(TypeError, "immutable"):
+            objc.objc_object.__version__ = 42
+
         class OC_VersionedClass(NSObject):
             pass
 

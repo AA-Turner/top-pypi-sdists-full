@@ -38,6 +38,22 @@ from .validators.ec2 import (
 )
 
 
+class CapacityManagerDataExport(AWSObject):
+    """
+    `CapacityManagerDataExport <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-capacitymanagerdataexport.html>`__
+    """
+
+    resource_type = "AWS::EC2::CapacityManagerDataExport"
+
+    props: PropsDictType = {
+        "OutputFormat": (str, True),
+        "S3BucketName": (str, True),
+        "S3BucketPrefix": (str, False),
+        "Schedule": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class TagSpecifications(AWSProperty):
     """
     `TagSpecifications <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-capacityreservation-tagspecification.html>`__
@@ -964,6 +980,17 @@ class IPAMResourceDiscoveryAssociation(AWSObject):
     }
 
 
+class IpamScopeExternalAuthorityConfiguration(AWSProperty):
+    """
+    `IpamScopeExternalAuthorityConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ipamscope-ipamscopeexternalauthorityconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ExternalResourceIdentifier": (str, True),
+        "IpamScopeExternalAuthorityType": (str, True),
+    }
+
+
 class IPAMScope(AWSObject):
     """
     `IPAMScope <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-ipamscope.html>`__
@@ -973,6 +1000,10 @@ class IPAMScope(AWSObject):
 
     props: PropsDictType = {
         "Description": (str, False),
+        "ExternalAuthorityConfiguration": (
+            IpamScopeExternalAuthorityConfiguration,
+            False,
+        ),
         "IpamId": (str, True),
         "Tags": (Tags, False),
     }
@@ -1744,6 +1775,52 @@ class LocalGatewayRouteTableVirtualInterfaceGroupAssociation(AWSObject):
     }
 
 
+class LocalGatewayVirtualInterface(AWSObject):
+    """
+    `LocalGatewayVirtualInterface <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-localgatewayvirtualinterface.html>`__
+    """
+
+    resource_type = "AWS::EC2::LocalGatewayVirtualInterface"
+
+    props: PropsDictType = {
+        "LocalAddress": (str, True),
+        "LocalGatewayVirtualInterfaceGroupId": (str, True),
+        "OutpostLagId": (str, True),
+        "PeerAddress": (str, True),
+        "PeerBgpAsn": (integer, False),
+        "PeerBgpAsnExtended": (integer, False),
+        "Tags": (Tags, False),
+        "Vlan": (integer, True),
+    }
+
+
+class LocalGatewayVirtualInterfaceGroup(AWSObject):
+    """
+    `LocalGatewayVirtualInterfaceGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-localgatewayvirtualinterfacegroup.html>`__
+    """
+
+    resource_type = "AWS::EC2::LocalGatewayVirtualInterfaceGroup"
+
+    props: PropsDictType = {
+        "LocalBgpAsn": (integer, False),
+        "LocalBgpAsnExtended": (integer, False),
+        "LocalGatewayId": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class AvailabilityZoneAddress(AWSProperty):
+    """
+    `AvailabilityZoneAddress <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-natgateway-availabilityzoneaddress.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllocationIds": ([str], True),
+        "AvailabilityZone": (str, False),
+        "AvailabilityZoneId": (str, False),
+    }
+
+
 class NatGateway(AWSObject):
     """
     `NatGateway <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html>`__
@@ -1753,6 +1830,8 @@ class NatGateway(AWSObject):
 
     props: PropsDictType = {
         "AllocationId": (str, False),
+        "AvailabilityMode": (str, False),
+        "AvailabilityZoneAddresses": ([AvailabilityZoneAddress], False),
         "ConnectivityType": (str, False),
         "MaxDrainDurationSeconds": (integer, False),
         "PrivateIpAddress": (str, False),
@@ -1761,6 +1840,7 @@ class NatGateway(AWSObject):
         "SecondaryPrivateIpAddresses": ([str], False),
         "SubnetId": (str, False),
         "Tags": (validate_tags_or_list, False),
+        "VpcId": (str, False),
     }
 
 
@@ -2006,6 +2086,7 @@ class NetworkInterfaceAttachment(AWSObject):
     props: PropsDictType = {
         "DeleteOnTermination": (boolean, False),
         "DeviceIndex": (validate_int_to_str, True),
+        "EnaQueueCount": (integer, False),
         "EnaSrdSpecification": (EnaSrdSpecification, False),
         "InstanceId": (str, True),
         "NetworkInterfaceId": (str, True),
@@ -2728,6 +2809,7 @@ class TransitGateway(AWSObject):
         "DefaultRouteTablePropagation": (str, False),
         "Description": (str, False),
         "DnsSupport": (str, False),
+        "EncryptionSupport": (str, False),
         "MulticastSupport": (str, False),
         "PropagationDefaultRouteTableId": (str, False),
         "SecurityGroupReferencingSupport": (str, False),
@@ -3075,6 +3157,8 @@ class DnsOptionsSpecification(AWSProperty):
     props: PropsDictType = {
         "DnsRecordIpType": (str, False),
         "PrivateDnsOnlyForInboundResolverEndpoint": (str, False),
+        "PrivateDnsPreference": (str, False),
+        "PrivateDnsSpecifiedDomains": ([str], False),
     }
 
 
@@ -3181,6 +3265,20 @@ class VPCPeeringConnection(AWSObject):
     }
 
 
+class VPNConcentrator(AWSObject):
+    """
+    `VPNConcentrator <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpnconcentrator.html>`__
+    """
+
+    resource_type = "AWS::EC2::VPNConcentrator"
+
+    props: PropsDictType = {
+        "Tags": (Tags, False),
+        "TransitGatewayId": (str, True),
+        "Type": (str, True),
+    }
+
+
 class IKEVersionsRequestListValue(AWSProperty):
     """
     `IKEVersionsRequestListValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpnconnection-ikeversionsrequestlistvalue.html>`__
@@ -3257,6 +3355,9 @@ class CloudwatchLogOptionsSpecification(AWSProperty):
     """
 
     props: PropsDictType = {
+        "BgpLogEnabled": (boolean, False),
+        "BgpLogGroupArn": (str, False),
+        "BgpLogOutputFormat": (str, False),
         "LogEnabled": (boolean, False),
         "LogGroupArn": (str, False),
         "LogOutputFormat": (str, False),
@@ -3334,8 +3435,10 @@ class VPNConnection(AWSObject):
         "Tags": (validate_tags_or_list, False),
         "TransitGatewayId": (str, False),
         "TransportTransitGatewayAttachmentId": (str, False),
+        "TunnelBandwidth": (str, False),
         "TunnelInsideIpVersion": (str, False),
         "Type": (str, True),
+        "VpnConcentratorId": (str, False),
         "VpnGatewayId": (str, False),
         "VpnTunnelOptionsSpecifications": ([VpnTunnelOptionsSpecification], False),
     }
@@ -3661,7 +3764,8 @@ class Volume(AWSObject):
 
     props: PropsDictType = {
         "AutoEnableIO": (boolean, False),
-        "AvailabilityZone": (str, True),
+        "AvailabilityZone": (str, False),
+        "AvailabilityZoneId": (str, False),
         "Encrypted": (boolean, False),
         "Iops": (integer, False),
         "KmsKeyId": (str, False),
@@ -3669,6 +3773,7 @@ class Volume(AWSObject):
         "OutpostArn": (str, False),
         "Size": (integer, False),
         "SnapshotId": (str, False),
+        "SourceVolumeId": (str, False),
         "Tags": (validate_tags_or_list, False),
         "Throughput": (integer, False),
         "VolumeInitializationRate": (integer, False),

@@ -1,0 +1,46 @@
+---
+
+name: CI tasks for old versions
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+
+      - name: Install venv
+        run: ./tools/uv sync --locked
+
+      - name: Run tests without cache
+        shell: bash
+        run: ./tools/ci tests --old -v --typing-strategy MYPY_NO_INCREMENTAL
+
+      - name: Run tests incremental
+        shell: bash
+        run: ./tools/ci tests --old -v --typing-strategy MYPY_INCREMENTAL
+
+      - name: Run tests daemon
+        shell: bash
+        run: ./tools/ci tests --old -v --typing-strategy MYPY_DAEMON

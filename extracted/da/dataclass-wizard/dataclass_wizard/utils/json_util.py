@@ -18,7 +18,7 @@ from json import dumps, JSONEncoder
 from typing import Any
 from uuid import UUID
 
-from ..dumpers import asdict
+from ..loader_selection import asdict
 
 
 class SafeEncoder(JSONEncoder):
@@ -51,4 +51,7 @@ class SafeEncoder(JSONEncoder):
 
 
 def safe_dumps(o, cls=SafeEncoder, **kwargs):
-    return dumps(o, cls=cls, **kwargs)
+    try:
+        return dumps(o, cls=cls, **kwargs)
+    except TypeError:
+        return o

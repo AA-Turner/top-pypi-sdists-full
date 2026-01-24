@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorFlow Recommenders Authors.
+# Copyright 2025 The TensorFlow Recommenders Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,16 +47,23 @@ def test_cases(
     indices_dtype: The type of indices.
     use_exclusions: Whether to test exclusions.
 
-  Yields:
+  Returns:
     Keyword argument dicts.
   """
 
   keys = ("k", "batch_size", "num_queries", "num_candidates", "indices_dtype",
           "use_exclusions")
-
-  for values in itertools.product(k, batch_size, num_queries, num_candidates,
-                                  indices_dtype, use_exclusions):
-    yield dict(zip(keys, values))
+  return (
+      dict(zip(keys, values))
+      for values in itertools.product(
+          k,
+          batch_size,
+          num_queries,
+          num_candidates,
+          indices_dtype,
+          use_exclusions,
+      )
+  )
 
 
 class FactorizedTopKTestBase(tf.test.TestCase, parameterized.TestCase):

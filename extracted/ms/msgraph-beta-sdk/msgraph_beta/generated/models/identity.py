@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .communications_phone_identity import CommunicationsPhoneIdentity
     from .communications_user_identity import CommunicationsUserIdentity
     from .email_identity import EmailIdentity
+    from .group_identity import GroupIdentity
     from .initiator import Initiator
     from .program_resource import ProgramResource
     from .provisioned_identity import ProvisionedIdentity
@@ -39,9 +40,9 @@ class Identity(AdditionalDataHolder, BackedModel, Parsable):
 
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
-    # The display name of the identity. This property is read-only.
+    # The display name of the identity. For drive items, the display name might not always be available or up to date. For example, if a user changes their display name the API might show the new value in a future response, but the items associated with the user don't show up as changed when using delta.
     display_name: Optional[str] = None
-    # The identifier of the identity. This property is read-only.
+    # Unique identifier for the identity or actor. For example, in the access reviews decisions API, this property might record the id of the principal, that is, the group, user, or application that's subject to review.
     id: Optional[str] = None
     # The OdataType property
     odata_type: Optional[str] = None
@@ -101,6 +102,10 @@ class Identity(AdditionalDataHolder, BackedModel, Parsable):
             from .email_identity import EmailIdentity
 
             return EmailIdentity()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.groupIdentity".casefold():
+            from .group_identity import GroupIdentity
+
+            return GroupIdentity()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.initiator".casefold():
             from .initiator import Initiator
 
@@ -179,6 +184,7 @@ class Identity(AdditionalDataHolder, BackedModel, Parsable):
         from .communications_phone_identity import CommunicationsPhoneIdentity
         from .communications_user_identity import CommunicationsUserIdentity
         from .email_identity import EmailIdentity
+        from .group_identity import GroupIdentity
         from .initiator import Initiator
         from .program_resource import ProgramResource
         from .provisioned_identity import ProvisionedIdentity
@@ -205,6 +211,7 @@ class Identity(AdditionalDataHolder, BackedModel, Parsable):
         from .communications_phone_identity import CommunicationsPhoneIdentity
         from .communications_user_identity import CommunicationsUserIdentity
         from .email_identity import EmailIdentity
+        from .group_identity import GroupIdentity
         from .initiator import Initiator
         from .program_resource import ProgramResource
         from .provisioned_identity import ProvisionedIdentity
